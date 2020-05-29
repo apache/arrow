@@ -133,7 +133,7 @@ public abstract class AllocationManager {
    * calling ReferenceManager drops to 0.
    */
   void release(final BufferLedger ledger) {
-    final BaseAllocator allocator = (BaseAllocator)ledger.getAllocator();
+    final BaseAllocator allocator = (BaseAllocator) ledger.getAllocator();
     allocator.assertOpen();
 
     // remove the <BaseAllocator, BufferLedger> mapping for the allocator
@@ -144,7 +144,7 @@ public abstract class AllocationManager {
 
     // needed for debug only: tell the allocator that AllocationManager is removing a
     // reference manager associated with this particular allocator
-    ((BaseAllocator)oldLedger.getAllocator()).dissociateLedger(oldLedger);
+    ((BaseAllocator) oldLedger.getAllocator()).dissociateLedger(oldLedger);
 
     if (oldLedger == owningLedger) {
       // the release call was made by the owning reference manager
@@ -152,10 +152,10 @@ public abstract class AllocationManager {
         // the only <allocator, reference manager> mapping was for the owner
         // which now has been removed, it implies we can safely destroy the
         // underlying memory chunk as it is no longer being referenced
-        ((BaseAllocator)oldLedger.getAllocator()).releaseBytes(getSize());
+        ((BaseAllocator) oldLedger.getAllocator()).releaseBytes(getSize());
         // free the memory chunk associated with the allocation manager
         release0();
-        ((BaseAllocator)oldLedger.getAllocator()).getListener().onRelease(getSize());
+        ((BaseAllocator) oldLedger.getAllocator()).getListener().onRelease(getSize());
         amDestructionTime = System.nanoTime();
         owningLedger = null;
       } else {

@@ -55,7 +55,7 @@ prettytable-rs = "0.8.0"
 [features]
 simd = ["packed_simd"]
 flight = ["arrow-flight"]
-default = ["simd", "flight"]
+default = ["flight"]
 
 [dev-dependencies]
 criterion = "0.3"

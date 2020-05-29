@@ -113,18 +113,20 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
 
   protected void reallocOffsetBuffer() {
     final long currentBufferCapacity = offsetBuffer.capacity();
-    long baseSize = offsetAllocationSizeInBytes;
-
-    if (baseSize < currentBufferCapacity) {
-      baseSize = currentBufferCapacity;
+    long newAllocationSize = currentBufferCapacity * 2;
+    if (newAllocationSize == 0) {
+      if (offsetAllocationSizeInBytes > 0) {
+        newAllocationSize = offsetAllocationSizeInBytes;
+      } else {
+        newAllocationSize = INITIAL_VALUE_ALLOCATION * OFFSET_WIDTH * 2;
+      }
     }
 
-    long newAllocationSize = baseSize * 2L;
     newAllocationSize = BaseAllocator.nextPowerOfTwo(newAllocationSize);
-    newAllocationSize = Math.min(newAllocationSize, (long)(OFFSET_WIDTH) * Integer.MAX_VALUE);
+    newAllocationSize = Math.min(newAllocationSize, (long) (OFFSET_WIDTH) * Integer.MAX_VALUE);
     assert newAllocationSize >= 1;
 
-    if (newAllocationSize > MAX_ALLOCATION_SIZE || newAllocationSize <= baseSize) {
+    if (newAllocationSize > MAX_ALLOCATION_SIZE || newAllocationSize <= offsetBuffer.capacity()) {
       throw new OversizedAllocationException("Unable to expand the buffer");
     }
 
@@ -188,10 +190,10 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
 
     offsetAllocationSizeInBytes = (numRecords + 1) * OFFSET_WIDTH;
 
-    int innerValueCapacity = Math.max((int)(numRecords * density), 1);
+    int innerValueCapacity = Math.max((int) (numRecords * density), 1);
 
     if (vector instanceof DensityAwareVector) {
-      ((DensityAwareVector)vector).setInitialCapacity(innerValueCapacity, density);
+      ((DensityAwareVector) vector).setInitialCapacity(innerValueCapacity, density);
     } else {
       vector.setInitialCapacity(innerValueCapacity);
     }

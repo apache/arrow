@@ -49,7 +49,7 @@ fn main() -> Result<()> {
     let mut ctx = ExecutionContext::new();
 
     // declare a table in memory. In spark API, this corresponds to createDataFrame(...).
-    let provider = MemTable::new(schema, vec![batch])?;
+    let provider = MemTable::new(schema, vec![vec![batch]])?;
     ctx.register_table("t", Box::new(provider));
     let t = ctx.table("t")?;
 

@@ -322,6 +322,16 @@ static void VisitBitsUnrolled(benchmark::State& state) {
   BenchmarkVisitBits<VisitBitsUnrolledFunctor>(state, state.range(0));
 }
 
+static void SetBitsTo(benchmark::State& state) {
+  int64_t nbytes = state.range(0);
+  std::shared_ptr<Buffer> buffer = CreateRandomBuffer(nbytes);
+
+  for (auto _ : state) {
+    BitUtil::SetBitsTo(buffer->mutable_data(), /*offset=*/0, nbytes * 8, true);
+  }
+  state.SetBytesProcessed(state.iterations() * nbytes);
+}
+
 constexpr int64_t kBufferSize = 1024 * 8;
 
 template <int64_t Offset = 0>
@@ -364,6 +374,7 @@ BENCHMARK(ReferenceNaiveBitmapReader)->Arg(kBufferSize);
 BENCHMARK(BitmapReader)->Arg(kBufferSize);
 BENCHMARK(VisitBits)->Arg(kBufferSize);
 BENCHMARK(VisitBitsUnrolled)->Arg(kBufferSize);
+BENCHMARK(SetBitsTo)->Arg(2)->Arg(1 << 4)->Arg(1 << 10)->Arg(1 << 17);
 
 #ifdef ARROW_WITH_BENCHMARKS_REFERENCE
 static void ReferenceNaiveBitmapWriter(benchmark::State& state) {

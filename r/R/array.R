@@ -128,17 +128,19 @@ Array <- R6Class("Array",
         i <- Array$create(i)
       }
       if (inherits(i, "ChunkedArray")) {
+        # Invalid: Kernel does not support chunked array arguments
+        # so use the old method
         return(shared_ptr(ChunkedArray, Array__TakeChunked(self, i)))
       }
       assert_is(i, "Array")
-      Array$create(Array__Take(self, i))
+      Array$create(call_function("take", self, i))
     },
     Filter = function(i, keep_na = TRUE) {
       if (is.logical(i)) {
         i <- Array$create(i)
       }
       assert_is(i, "Array")
-      Array$create(Array__Filter(self, i, keep_na))
+      Array$create(call_function("filter", self, i, options = list(keep_na = keep_na)))
     },
     RangeEquals = function(other, start_idx, end_idx, other_start_idx = 0L) {
       assert_is(other, "Array")

@@ -35,6 +35,7 @@
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/hash_util.h"
 #include "arrow/util/hashing.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
@@ -86,7 +87,102 @@ constexpr Type::type DurationType::type_id;
 
 constexpr Type::type DictionaryType::type_id;
 
+namespace internal {
+
+std::string ToString(Type::type id) {
+  switch (id) {
+    case Type::NA:
+      return "NA";
+    case Type::BOOL:
+      return "BOOL";
+    case Type::UINT8:
+      return "UINT8";
+    case Type::INT8:
+      return "INT8";
+    case Type::UINT16:
+      return "UINT16";
+    case Type::INT16:
+      return "INT16";
+    case Type::UINT32:
+      return "UINT32";
+    case Type::INT32:
+      return "INT32";
+    case Type::UINT64:
+      return "UINT64";
+    case Type::INT64:
+      return "INT64";
+    case Type::HALF_FLOAT:
+      return "HALF_FLOAT";
+    case Type::FLOAT:
+      return "FLOAT";
+    case Type::DOUBLE:
+      return "DOUBLE";
+    case Type::STRING:
+      return "UTF8";
+    case Type::BINARY:
+      return "BINARY";
+    case Type::FIXED_SIZE_BINARY:
+      return "FIXED_SIZE_BINARY";
+    case Type::DATE64:
+      return "DATE64";
+    case Type::TIMESTAMP:
+      return "TIMESTAMP";
+    case Type::TIME32:
+      return "TIME32";
+    case Type::TIME64:
+      return "TIME64";
+    case Type::INTERVAL_MONTHS:
+      return "INTERVAL_MONTHS";
+    case Type::INTERVAL_DAY_TIME:
+      return "INTERVAL_DAY_TIME";
+    case Type::DECIMAL:
+      return "DECIMAL";
+    case Type::LIST:
+      return "LIST";
+    case Type::STRUCT:
+      return "STRUCT";
+    case Type::UNION:
+      return "UNION";
+    case Type::DICTIONARY:
+      return "DICTIONARY";
+    case Type::MAP:
+      return "MAP";
+    case Type::EXTENSION:
+      return "EXTENSION";
+    case Type::FIXED_SIZE_LIST:
+      return "FIXED_SIZE_LIST";
+    case Type::DURATION:
+      return "DURATION";
+    case Type::LARGE_BINARY:
+      return "LARGE_BINARY";
+    case Type::LARGE_LIST:
+      return "LARGE_LIST";
+    default:
+      DCHECK(false) << "Should not be able to reach here";
+      return "unknown";
+  }
+}
+
+std::string ToString(TimeUnit::type unit) {
+  switch (unit) {
+    case TimeUnit::SECOND:
+      return "s";
+    case TimeUnit::MILLI:
+      return "ms";
+    case TimeUnit::MICRO:
+      return "us";
+    case TimeUnit::NANO:
+      return "ns";
+    default:
+      DCHECK(false);
+      return "";
+  }
+}
+
+}  // namespace internal
+
 namespace {
+
 using internal::checked_cast;
 
 // Merges `existing` and `other` if one of them is of NullType, otherwise
@@ -177,7 +273,7 @@ Result<std::shared_ptr<Field>> Field::MergeWith(const std::shared_ptr<Field>& ot
 std::vector<std::shared_ptr<Field>> Field::Flatten() const {
   std::vector<std::shared_ptr<Field>> flattened;
   if (type_->id() == Type::STRUCT) {
-    for (const auto& child : type_->children()) {
+    for (const auto& child : type_->fields()) {
       auto flattened_child = child->Copy();
       flattened.push_back(flattened_child);
       flattened_child->name_.insert(0, name() + ".");
@@ -248,6 +344,13 @@ bool DataType::Equals(const std::shared_ptr<DataType>& other) const {
   return Equals(*other.get());
 }
 
+size_t DataType::Hash() const {
+  static constexpr size_t kHashSeed = 0;
+  size_t result = kHashSeed;
+  internal::hash_combine(result, this->ComputeFingerprint());
+  return result;
+}
+
 std::ostream& operator<<(std::ostream& os, const DataType& type) {
   os << type.ToString();
   return os;
@@ -279,11 +382,11 @@ std::string LargeListType::ToString() const {
 
 MapType::MapType(const std::shared_ptr<DataType>& key_type,
                  const std::shared_ptr<DataType>& item_type, bool keys_sorted)
-    : MapType(key_type, field("value", item_type), keys_sorted) {}
+    : MapType(key_type, ::arrow::field("value", item_type), keys_sorted) {}
 
 MapType::MapType(const std::shared_ptr<DataType>& key_type,
                  const std::shared_ptr<Field>& item_field, bool keys_sorted)
-    : ListType(field(
+    : ListType(::arrow::field(
           "entries",
           struct_({std::make_shared<Field>("key", key_type, false), item_field}), false)),
       keys_sorted_(keys_sorted) {
@@ -530,11 +633,11 @@ StructType::~StructType() {}
 std::string StructType::ToString() const {
   std::stringstream s;
   s << "struct<";
-  for (int i = 0; i < this->num_children(); ++i) {
+  for (int i = 0; i < this->num_fields(); ++i) {
     if (i > 0) {
       s << ", ";
     }
-    std::shared_ptr<Field> field = this->child(i);
+    std::shared_ptr<Field> field = this->field(i);
     s << field->ToString();
   }
   s << ">";
@@ -751,7 +854,7 @@ struct FieldPathGetImpl {
   static Result<std::shared_ptr<Field>> Get(const FieldPath* path,
                                             const FieldVector& fields) {
     return FieldPathGetImpl::Get(path, &fields, [](const std::shared_ptr<Field>& field) {
-      return &field->type()->children();
+      return &field->type()->fields();
     });
   }
 
@@ -770,7 +873,7 @@ struct FieldPathGetImpl {
         path, &columns, [&](const std::shared_ptr<ChunkedArray>& a) {
           columns.clear();
 
-          for (int i = 0; i < a->type()->num_children(); ++i) {
+          for (int i = 0; i < a->type()->num_fields(); ++i) {
             ArrayVector child_chunks;
 
             for (const auto& chunk : a->chunks()) {
@@ -779,7 +882,7 @@ struct FieldPathGetImpl {
             }
 
             auto child_column = std::make_shared<ChunkedArray>(
-                std::move(child_chunks), a->type()->child(i)->type());
+                std::move(child_chunks), a->type()->field(i)->type());
 
             columns.emplace_back(std::move(child_column));
           }
@@ -794,11 +897,11 @@ Result<std::shared_ptr<Field>> FieldPath::Get(const Schema& schema) const {
 }
 
 Result<std::shared_ptr<Field>> FieldPath::Get(const Field& field) const {
-  return FieldPathGetImpl::Get(this, field.type()->children());
+  return FieldPathGetImpl::Get(this, field.type()->fields());
 }
 
 Result<std::shared_ptr<Field>> FieldPath::Get(const DataType& type) const {
-  return FieldPathGetImpl::Get(this, type.children());
+  return FieldPathGetImpl::Get(this, type.fields());
 }
 
 Result<std::shared_ptr<Field>> FieldPath::Get(const FieldVector& fields) const {
@@ -966,11 +1069,11 @@ std::vector<FieldPath> FieldRef::FindAll(const Schema& schema) const {
 }
 
 std::vector<FieldPath> FieldRef::FindAll(const Field& field) const {
-  return FindAll(field.type()->children());
+  return FindAll(field.type()->fields());
 }
 
 std::vector<FieldPath> FieldRef::FindAll(const DataType& type) const {
-  return FindAll(type.children());
+  return FindAll(type.fields());
 }
 
 std::vector<FieldPath> FieldRef::FindAll(const FieldVector& fields) const {
@@ -980,7 +1083,7 @@ std::vector<FieldPath> FieldRef::FindAll(const FieldVector& fields) const {
       int out_of_range_depth;
       auto maybe_field = FieldPathGetImpl::Get(
           &path, &fields_,
-          [](const std::shared_ptr<Field>& field) { return &field->type()->children(); },
+          [](const std::shared_ptr<Field>& field) { return &field->type()->fields(); },
           &out_of_range_depth);
 
       DCHECK_OK(maybe_field.status());
@@ -1040,7 +1143,7 @@ std::vector<FieldPath> FieldRef::FindAll(const FieldVector& fields) const {
           const auto& referent = *matches.referents[i];
 
           for (const FieldPath& match : ref_it->FindAll(referent)) {
-            next_matches.Add(matches.prefixes[i], match, referent.type()->children());
+            next_matches.Add(matches.prefixes[i], match, referent.type()->fields());
           }
         }
         matches = std::move(next_matches);

@@ -67,7 +67,7 @@ class JsonWriter::JsonWriterImpl {
     if (dictionary_memo_.num_dictionaries() > 0) {
       writer_->Key("dictionaries");
       writer_->StartArray();
-      for (const auto& entry : dictionary_memo_.id_to_dictionary()) {
+      for (const auto& entry : dictionary_memo_.dictionaries()) {
         RETURN_NOT_OK(WriteDictionary(entry.first, entry.second, writer_.get()));
       }
       writer_->EndArray();

@@ -96,6 +96,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
     cdef cppclass CScanOptions "arrow::dataset::ScanOptions":
         CRecordBatchProjector projector
+
         @staticmethod
         shared_ptr[CScanOptions] Make(shared_ptr[CSchema] schema)
 
@@ -208,9 +209,20 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         const CFileSource& source() const
         const shared_ptr[CFileFormat]& format() const
 
+    cdef cppclass CRowGroupInfo "arrow::dataset::RowGroupInfo":
+        CRowGroupInfo()
+        CRowGroupInfo(int id)
+        CRowGroupInfo(
+            int id, int64_t n_rows, shared_ptr[CExpression] statistics)
+        int id() const
+        int64_t num_rows() const
+        bint Equals(const CRowGroupInfo& other)
+
     cdef cppclass CParquetFileFragment "arrow::dataset::ParquetFileFragment"(
             CFileFragment):
-        const vector[int]& row_groups() const
+        const vector[CRowGroupInfo]& row_groups() const
+        CResult[vector[shared_ptr[CFragment]]] SplitByRowGroup(
+            shared_ptr[CExpression] predicate)
 
     cdef cppclass CFileSystemDataset \
             "arrow::dataset::FileSystemDataset"(CDataset):
@@ -233,9 +245,6 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
     cdef cppclass CParquetFileFormat "arrow::dataset::ParquetFileFormat"(
             CFileFormat):
         CParquetFileFormatReaderOptions reader_options
-        CResult[CFragmentIterator] GetRowGroupFragments(
-            const CParquetFileFragment&,
-            shared_ptr[CExpression] extra_filter)
         CResult[shared_ptr[CFileFragment]] MakeFragment(
             CFileSource source,
             shared_ptr[CExpression] partition_expression,
@@ -260,6 +269,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
     cdef cppclass CDirectoryPartitioning \
             "arrow::dataset::DirectoryPartitioning"(CPartitioning):
         CDirectoryPartitioning(shared_ptr[CSchema] schema)
+
         @staticmethod
         shared_ptr[CPartitioningFactory] MakeFactory(
             vector[c_string] field_names)
@@ -267,6 +277,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
     cdef cppclass CHivePartitioning \
             "arrow::dataset::HivePartitioning"(CPartitioning):
         CHivePartitioning(shared_ptr[CSchema] schema)
+
         @staticmethod
         shared_ptr[CPartitioningFactory] MakeFactory()
 
@@ -302,10 +313,28 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             shared_ptr[CFileFormat] format,
             CFileSystemFactoryOptions options
         )
+
         @staticmethod
         CResult[shared_ptr[CDatasetFactory]] MakeFromSelector "Make"(
             shared_ptr[CFileSystem] filesystem,
             CFileSelector,
             shared_ptr[CFileFormat] format,
             CFileSystemFactoryOptions options
+        )
+
+    cdef cppclass CParquetDatasetFactory \
+            "arrow::dataset::ParquetDatasetFactory"(CDatasetFactory):
+        @staticmethod
+        CResult[shared_ptr[CDatasetFactory]] MakeFromMetaDataPath "Make"(
+            const c_string& metadata_path,
+            shared_ptr[CFileSystem] filesystem,
+            shared_ptr[CParquetFileFormat] format
+        )
+
+        @staticmethod
+        CResult[shared_ptr[CDatasetFactory]] MakeFromMetaDataSource "Make"(
+            const CFileSource& metadata_path,
+            const c_string& base_path,
+            shared_ptr[CFileSystem] filesystem,
+            shared_ptr[CParquetFileFormat] format
         )

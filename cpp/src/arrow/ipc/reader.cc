@@ -17,6 +17,7 @@
 
 #include "arrow/ipc/reader.h"
 
+#include <algorithm>
 #include <climits>
 #include <cstdint>
 #include <cstring>
@@ -223,12 +224,12 @@ class ArrayLoader {
     RETURN_NOT_OK(LoadCommon());
     RETURN_NOT_OK(GetBuffer(buffer_index_++, &out_->buffers[1]));
 
-    const int num_children = type.num_children();
+    const int num_children = type.num_fields();
     if (num_children != 1) {
       return Status::Invalid("Wrong number of children: ", num_children);
     }
 
-    return LoadChildren(type.children());
+    return LoadChildren(type.fields());
   }
 
   Status LoadChildren(std::vector<std::shared_ptr<Field>> child_fields) {
@@ -287,18 +288,18 @@ class ArrayLoader {
 
     RETURN_NOT_OK(LoadCommon());
 
-    const int num_children = type.num_children();
+    const int num_children = type.num_fields();
     if (num_children != 1) {
       return Status::Invalid("Wrong number of children: ", num_children);
     }
 
-    return LoadChildren(type.children());
+    return LoadChildren(type.fields());
   }
 
   Status Visit(const StructType& type) {
     out_->buffers.resize(1);
     RETURN_NOT_OK(LoadCommon());
-    return LoadChildren(type.children());
+    return LoadChildren(type.fields());
   }
 
   Status Visit(const UnionType& type) {
@@ -312,7 +313,7 @@ class ArrayLoader {
       }
     }
     buffer_index_ += type.mode() == UnionMode::DENSE ? 2 : 1;
-    return LoadChildren(type.children());
+    return LoadChildren(type.fields());
   }
 
   Status Visit(const DictionaryType& type) {
@@ -528,8 +529,11 @@ Status GetInclusionMaskAndOutSchema(const std::shared_ptr<Schema>& full_schema,
 
   inclusion_mask->resize(full_schema->num_fields(), false);
 
+  auto included_indices_sorted = included_indices;
+  std::sort(included_indices_sorted.begin(), included_indices_sorted.end());
+
   FieldVector included_fields;
-  for (int i : included_indices) {
+  for (int i : included_indices_sorted) {
     // Ignore out of bounds indices
     if (i < 0 || i >= full_schema->num_fields()) {
       return Status::Invalid("Out of bounds field index: ", i);

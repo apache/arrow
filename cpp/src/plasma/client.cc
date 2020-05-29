@@ -313,6 +313,10 @@ class PlasmaClient::Impl : public std::enable_shared_from_this<PlasmaClient::Imp
   uint64_t ComputeObjectHashCPU(const uint8_t* data, int64_t data_size,
                                 const uint8_t* metadata, int64_t metadata_size);
 
+#ifdef PLASMA_CUDA
+  arrow::Result<std::shared_ptr<CudaContext>> GetCudaContext(int device_number);
+#endif
+
   /// File descriptor of the Unix domain socket that connects to the store.
   int store_conn_;
   /// Table of dlmalloc buffer files that have been memory mapped so far. This
@@ -332,22 +336,11 @@ class PlasmaClient::Impl : public std::enable_shared_from_this<PlasmaClient::Imp
   std::deque<std::tuple<ObjectID, int64_t, int64_t>> pending_notification_;
   /// A mutex which protects this class.
   std::recursive_mutex client_mutex_;
-
-#ifdef PLASMA_CUDA
-  /// Cuda Device Manager.
-  arrow::cuda::CudaDeviceManager* manager_;
-#endif
 };
 
 PlasmaBuffer::~PlasmaBuffer() { ARROW_UNUSED(client_->Release(object_id_)); }
 
-PlasmaClient::Impl::Impl() : store_conn_(0), store_capacity_(0) {
-#ifdef PLASMA_CUDA
-  auto maybe_manager = CudaDeviceManager::Instance();
-  DCHECK_OK(maybe_manager.status());
-  manager_ = *maybe_manager;
-#endif
-}
+PlasmaClient::Impl::Impl() : store_conn_(0), store_capacity_(0) {}
 
 PlasmaClient::Impl::~Impl() {}
 
@@ -416,6 +409,14 @@ void PlasmaClient::Impl::IncrementObjectCount(const ObjectID& object_id,
   object_entry->count += 1;
 }
 
+#ifdef PLASMA_CUDA
+arrow::Result<std::shared_ptr<CudaContext>> PlasmaClient::Impl::GetCudaContext(
+    int device_number) {
+  ARROW_ASSIGN_OR_RAISE(auto manager, CudaDeviceManager::Instance());
+  return manager->GetContext(device_number - 1);
+}
+#endif
+
 Status PlasmaClient::Impl::Create(const ObjectID& object_id, int64_t data_size,
                                   const uint8_t* metadata, int64_t metadata_size,
                                   std::shared_ptr<Buffer>* data, int device_num,
@@ -454,8 +455,7 @@ Status PlasmaClient::Impl::Create(const ObjectID& object_id, int64_t data_size,
     }
   } else {
 #ifdef PLASMA_CUDA
-    std::shared_ptr<CudaContext> context;
-    ARROW_ASSIGN_OR_RAISE(context, manager_->GetContext(device_num - 1));
+    ARROW_ASSIGN_OR_RAISE(auto context, GetCudaContext(device_num));
     GpuProcessHandle* handle = new GpuProcessHandle();
     handle->client_count = 2;
     ARROW_ASSIGN_OR_RAISE(handle->ptr, context->OpenIpcBuffer(*object.ipc_handle));
@@ -639,8 +639,7 @@ Status PlasmaClient::Impl::GetBuffers(
         std::lock_guard<std::mutex> lock(gpu_mutex);
         auto iter = gpu_object_map.find(object_ids[i]);
         if (iter == gpu_object_map.end()) {
-          std::shared_ptr<CudaContext> context;
-          ARROW_ASSIGN_OR_RAISE(context, manager_->GetContext(object->device_num - 1));
+          ARROW_ASSIGN_OR_RAISE(auto context, GetCudaContext(object->device_num));
           GpuProcessHandle* obj_handle = new GpuProcessHandle();
           obj_handle->client_count = 1;
           ARROW_ASSIGN_OR_RAISE(obj_handle->ptr,

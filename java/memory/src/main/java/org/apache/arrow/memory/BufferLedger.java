@@ -232,8 +232,8 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
             this,
             null,
             length, // length (in bytes) in the underlying memory chunk for this new ArrowBuf
-            derivedBufferAddress, // starting byte address in the underlying memory for this new ArrowBuf,
-            false);
+            derivedBufferAddress // starting byte address in the underlying memory for this new ArrowBuf
+            );
 
     // logging
     if (BaseAllocator.DEBUG) {
@@ -271,7 +271,7 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
     final long startAddress = allocationManager.memoryAddress();
 
     // create ArrowBuf
-    final ArrowBuf buf = new ArrowBuf(this, manager, length, startAddress, false);
+    final ArrowBuf buf = new ArrowBuf(this, manager, length, startAddress);
 
     // logging
     if (BaseAllocator.DEBUG) {
@@ -308,9 +308,6 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
    */
   @Override
   public ArrowBuf retain(final ArrowBuf srcBuffer, BufferAllocator target) {
-    if (srcBuffer.isEmpty()) {
-      return srcBuffer;
-    }
 
     if (BaseAllocator.DEBUG) {
       historicalLog.recordEvent("retain(%s)", target.getName());
@@ -323,7 +320,7 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
     // alternatively, if there was already a mapping for <buffer allocator, ref manager> in
     // allocation manager, the ref count of the new buffer will be targetrefmanager.refcount() + 1
     // and this will be true for all the existing buffers currently managed by targetrefmanager
-    final BufferLedger targetRefManager = allocationManager.associate((BaseAllocator)target);
+    final BufferLedger targetRefManager = allocationManager.associate((BaseAllocator) target);
     // create a new ArrowBuf to associate with new allocator and target ref manager
     final long targetBufLength = srcBuffer.capacity();
     ArrowBuf targetArrowBuf = targetRefManager.deriveBuffer(srcBuffer, 0, targetBufLength);
@@ -342,7 +339,7 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
   boolean transferBalance(final ReferenceManager targetReferenceManager) {
     Preconditions.checkArgument(targetReferenceManager != null,
         "Expecting valid target reference manager");
-    final BaseAllocator targetAllocator = (BaseAllocator)targetReferenceManager.getAllocator();
+    final BaseAllocator targetAllocator = (BaseAllocator) targetReferenceManager.getAllocator();
     Preconditions.checkArgument(allocator.root == targetAllocator.root,
         "You can only transfer between two allocators that share the same root.");
 
@@ -375,7 +372,7 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
       // since the transfer can only happen from the owning reference manager,
       // we need to set the target ref manager as the new owning ref manager
       // for the chunk of memory in allocation manager
-      allocationManager.setOwningLedger((BufferLedger)targetReferenceManager);
+      allocationManager.setOwningLedger((BufferLedger) targetReferenceManager);
       return overlimit;
     }
   }
@@ -410,9 +407,6 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
    */
   @Override
   public TransferResult transferOwnership(final ArrowBuf srcBuffer, final BufferAllocator target) {
-    if (srcBuffer.isEmpty()) {
-      return new TransferResult(true, srcBuffer);
-    }
     // the call to associate will return the corresponding reference manager (buffer ledger) for
     // the target allocator. if the allocation manager didn't already have a mapping
     // for the target allocator, it will create one and return the new reference manager with a
@@ -420,7 +414,7 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
     // alternatively, if there was already a mapping for <buffer allocator, ref manager> in
     // allocation manager, the ref count of the new buffer will be targetrefmanager.refcount() + 1
     // and this will be true for all the existing buffers currently managed by targetrefmanager
-    final BufferLedger targetRefManager = allocationManager.associate((BaseAllocator)target);
+    final BufferLedger targetRefManager = allocationManager.associate((BaseAllocator) target);
     // create a new ArrowBuf to associate with new allocator and target ref manager
     final long targetBufLength = srcBuffer.capacity();
     final ArrowBuf targetArrowBuf = targetRefManager.deriveBuffer(srcBuffer, 0, targetBufLength);

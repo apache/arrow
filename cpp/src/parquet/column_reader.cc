@@ -1178,36 +1178,52 @@ class TypedRecordReader : public ColumnReaderImplBase<DType>,
     ReserveValues(capacity);
   }
 
-  void ReserveLevels(int64_t capacity) {
-    if (this->max_def_level_ > 0 && (levels_written_ + capacity > levels_capacity_)) {
-      int64_t new_levels_capacity = BitUtil::NextPower2(levels_capacity_ + 1);
-      while (levels_written_ + capacity > new_levels_capacity) {
-        new_levels_capacity = BitUtil::NextPower2(new_levels_capacity + 1);
+  int64_t UpdateCapacity(int64_t capacity, int64_t size, int64_t extra_size) {
+    if (extra_size < 0) {
+      throw ParquetException("Negative size (corrupt file?)");
+    }
+    if (::arrow::internal::HasAdditionOverflow(size, extra_size)) {
+      throw ParquetException("Allocation size too large (corrupt file?)");
+    }
+    const int64_t target_size = size + extra_size;
+    if (target_size >= (1LL << 62)) {
+      throw ParquetException("Allocation size too large (corrupt file?)");
+    }
+    if (capacity >= target_size) {
+      return capacity;
+    }
+    return BitUtil::NextPower2(target_size);
+  }
+
+  void ReserveLevels(int64_t extra_levels) {
+    if (this->max_def_level_ > 0) {
+      const int64_t new_levels_capacity =
+          UpdateCapacity(levels_capacity_, levels_written_, extra_levels);
+      if (new_levels_capacity > levels_capacity_) {
+        constexpr auto kItemSize = static_cast<int64_t>(sizeof(int16_t));
+        if (::arrow::internal::HasMultiplyOverflow(new_levels_capacity, kItemSize)) {
+          throw ParquetException("Allocation size too large (corrupt file?)");
+        }
+        PARQUET_THROW_NOT_OK(def_levels_->Resize(new_levels_capacity * kItemSize, false));
+        if (this->max_rep_level_ > 0) {
+          PARQUET_THROW_NOT_OK(
+              rep_levels_->Resize(new_levels_capacity * kItemSize, false));
+        }
+        levels_capacity_ = new_levels_capacity;
       }
-      PARQUET_THROW_NOT_OK(
-          def_levels_->Resize(new_levels_capacity * sizeof(int16_t), false));
-      if (this->max_rep_level_ > 0) {
-        PARQUET_THROW_NOT_OK(
-            rep_levels_->Resize(new_levels_capacity * sizeof(int16_t), false));
-      }
-      levels_capacity_ = new_levels_capacity;
     }
   }
 
-  void ReserveValues(int64_t capacity) {
-    if (values_written_ + capacity > values_capacity_) {
-      int64_t new_values_capacity = BitUtil::NextPower2(values_capacity_ + 1);
-      while (values_written_ + capacity > new_values_capacity) {
-        new_values_capacity = BitUtil::NextPower2(new_values_capacity + 1);
-      }
-
+  void ReserveValues(int64_t extra_values) {
+    const int64_t new_values_capacity =
+        UpdateCapacity(values_capacity_, values_written_, extra_values);
+    if (new_values_capacity > values_capacity_) {
       // XXX(wesm): A hack to avoid memory allocation when reading directly
       // into builder classes
       if (uses_values_) {
         PARQUET_THROW_NOT_OK(
             values_->Resize(bytes_for_values(new_values_capacity), false));
       }
-
       values_capacity_ = new_values_capacity;
     }
     if (nullable_values_) {

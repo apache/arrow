@@ -48,6 +48,7 @@ public class BufferLayout {
 
   private static final BufferLayout VALIDITY_BUFFER = new BufferLayout(BufferType.VALIDITY, 1);
   private static final BufferLayout OFFSET_BUFFER = new BufferLayout(BufferType.OFFSET, 32);
+  private static final BufferLayout LARGE_OFFSET_BUFFER = new BufferLayout(BufferType.OFFSET, 64);
   private static final BufferLayout TYPE_BUFFER = new BufferLayout(BufferType.TYPE, 32);
   private static final BufferLayout BIT_BUFFER = new BufferLayout(BufferType.DATA, 1);
   private static final BufferLayout VALUES_128 = new BufferLayout(BufferType.DATA, 128);
@@ -62,6 +63,10 @@ public class BufferLayout {
 
   public static BufferLayout offsetBuffer() {
     return OFFSET_BUFFER;
+  }
+
+  public static BufferLayout largeOffsetBuffer() {
+    return LARGE_OFFSET_BUFFER;
   }
 
   /**

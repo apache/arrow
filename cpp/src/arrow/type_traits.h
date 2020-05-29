@@ -617,11 +617,11 @@ template <typename T, typename R = void>
 using enable_if_8bit_int = enable_if_t<is_8bit_int<T>::value, R>;
 
 template <typename T>
-using is_paramater_free_type =
+using is_parameter_free_type =
     std::integral_constant<bool, TypeTraits<T>::is_parameter_free>;
 
 template <typename T, typename R = void>
-using enable_if_parameter_free = enable_if_t<is_paramater_free_type<T>::value, R>;
+using enable_if_parameter_free = enable_if_t<is_parameter_free_type<T>::value, R>;
 
 // Physical representation quirks
 
@@ -766,6 +766,21 @@ static inline bool is_fixed_size_binary(Type::type type_id) {
 
 static inline bool is_fixed_width(Type::type type_id) {
   return is_primitive(type_id) || is_dictionary(type_id) || is_fixed_size_binary(type_id);
+}
+
+static inline bool is_nested(Type::type type_id) {
+  switch (type_id) {
+    case Type::LIST:
+    case Type::LARGE_LIST:
+    case Type::FIXED_SIZE_LIST:
+    case Type::MAP:
+    case Type::STRUCT:
+    case Type::UNION:
+      return true;
+    default:
+      break;
+  }
+  return false;
 }
 
 }  // namespace arrow

@@ -112,6 +112,19 @@ mvn -Dlogback.configurationFile=file:<path-of-logback-file>
 
 See [Logback Configuration][1] for more details.
 
+## Integration Tests
+
+Integration tests which require more time or more memory can be run by activating 
+the `integration-tests` profile. This activates the [maven failsafe][4] plugin
+and any class prefixed with `IT` will be run during the testing phase. The integration
+tests currently require a larger amount of memory (>4GB) and time to complete. To activate 
+the profile:
+
+```bash
+mvn -Pintegration-tests <rest of mvn arguments>
+```
+
 [1]: https://logback.qos.ch/manual/configuration.html
 [2]: https://github.com/apache/arrow/blob/master/cpp/README.md
 [3]: http://google.github.io/styleguide/javaguide.html
+[4]: https://maven.apache.org/surefire/maven-failsafe-plugin/

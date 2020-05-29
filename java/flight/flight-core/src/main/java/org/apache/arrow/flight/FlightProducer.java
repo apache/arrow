@@ -19,10 +19,6 @@ package org.apache.arrow.flight;
 
 import java.util.Map;
 
-import org.apache.arrow.memory.ArrowBuf;
-import org.apache.arrow.vector.VectorSchemaRoot;
-import org.apache.arrow.vector.dictionary.DictionaryProvider;
-
 /**
  * API to Implement an Arrow Flight producer.
  */
@@ -78,6 +74,10 @@ public interface FlightProducer {
   Runnable acceptPut(CallContext context,
       FlightStream flightStream, StreamListener<PutResult> ackStream);
 
+  default void doExchange(CallContext context, FlightStream reader, ServerStreamListener writer) {
+    throw CallStatus.UNIMPLEMENTED.withDescription("DoExchange is unimplemented").toRuntimeException();
+  }
+
   /**
    * Generic handler for application-defined RPCs.
    *
@@ -98,52 +98,12 @@ public interface FlightProducer {
   /**
    * An interface for sending Arrow data back to a client.
    */
-  interface ServerStreamListener {
+  interface ServerStreamListener extends OutboundStreamListener {
 
     /**
      * Check whether the call has been cancelled. If so, stop sending data.
      */
     boolean isCancelled();
-
-    /**
-     * A hint indicating whether the client is ready to receive data without excessive buffering.
-     */
-    boolean isReady();
-
-    /**
-     * Start sending data, using the schema of the given {@link VectorSchemaRoot}.
-     *
-     * <p>This method must be called before all others.
-     */
-    void start(VectorSchemaRoot root);
-
-    /**
-     * Start sending data, using the schema of the given {@link VectorSchemaRoot}.
-     *
-     * <p>This method must be called before all others.
-     */
-    void start(VectorSchemaRoot root, DictionaryProvider dictionaries);
-
-    /**
-     * Send the current contents of the associated {@link VectorSchemaRoot}.
-     */
-    void putNext();
-
-    /**
-     * Send the current contents of the associated {@link VectorSchemaRoot} alongside application-defined metadata.
-     * @param metadata The metadata to send. Ownership of the buffer is transferred to the Flight implementation.
-     */
-    void putNext(ArrowBuf metadata);
-
-    /**
-     * Indicate an error to the client. Terminates the stream; do not call {@link #completed()} afterwards.
-     */
-    void error(Throwable ex);
-
-    /**
-     * Indicate that transmission is finished.
-     */
-    void completed();
 
     /**
      * Set a callback for when the client cancels a call, i.e. {@link #isCancelled()} has become true.

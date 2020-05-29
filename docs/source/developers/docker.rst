@@ -15,37 +15,21 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
+.. _docker-builds:
+
 Running Docker Builds
 =====================
 
-Most of our Linux based continuous integration tasks are decoupled from public
-CI services using docker and docker-compose. Keeping the CI configuration
+Most of our Linux based Continuous Integration tasks are decoupled from public
+CI services using `Docker <https://docs.docker.com/>`_ and
+`docker-compose <https://docs.docker.com/compose/>`_.  Keeping the CI configuration
 minimal makes local reproducibility possible.
 
 Usage
 -----
 
-There are multiple ways to execute the docker based builds. The recommended is
-to use the archery tool:
-
-Installation
-~~~~~~~~~~~~
-
-``archery`` requires ``python>=3.5``. It is recommended to install archery in
-``editable`` mode with the ``-e`` flag to automatically update the intallation
-by pulling the arrow repository.
-
-.. code:: bash
-
-    pip install -e dev/archery[docker]
-
-For the available commands and options invoke the installed archery commands
-with the ``--help`` flag:
-
-.. code:: bash
-
-    archery docker --help
-    archery docker run --help
+There are multiple ways to execute the docker based builds.
+The recommended way is to use the :ref:`Archery <archery>` tool:
 
 Examples
 ~~~~~~~~

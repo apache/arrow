@@ -28,7 +28,6 @@ cdef extern from "Python.h":
     int PySlice_Check(object)
 
 
-cdef CFunctionContext* _context() nogil
 cdef int check_status(const CStatus& status) nogil except -1
 
 cdef class Message:
@@ -154,6 +153,7 @@ cdef class KeyValueMetadata(_Metadata):
         const CKeyValueMetadata* metadata
 
     cdef void init(self, const shared_ptr[const CKeyValueMetadata]& wrapped)
+
     @staticmethod
     cdef wrap(const shared_ptr[const CKeyValueMetadata]& sp)
     cdef inline shared_ptr[const CKeyValueMetadata] unwrap(self) nogil
@@ -575,16 +575,6 @@ cdef class Codec:
     cdef inline CCodec* unwrap(self) nogil
 
 
-cdef class CastOptions:
-    cdef:
-        CCastOptions options
-
-    @staticmethod
-    cdef wrap(CCastOptions options)
-
-    cdef inline CCastOptions unwrap(self) nogil
-
-
 cdef get_input_stream(object source, c_bool use_memory_map,
                       shared_ptr[CInputStream]* reader)
 cdef get_reader(object source, c_bool use_memory_map,
@@ -592,7 +582,7 @@ cdef get_reader(object source, c_bool use_memory_map,
 cdef get_writer(object source, shared_ptr[COutputStream]* writer)
 
 # Default is allow_none=False
-cdef DataType ensure_type(object type, c_bool allow_none=*)
+cpdef DataType ensure_type(object type, bint allow_none=*)
 
 # Exceptions may be raised when converting dict values, so need to
 # check exception state on return

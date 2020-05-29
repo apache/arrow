@@ -22,18 +22,18 @@ on:
     paths:
       - '.github/workflows/cpp.yml'
       - 'ci/docker/**'
-      - 'ci/scripts/util_*'
-      - 'ci/scripts/msys_*'
       - 'ci/scripts/cpp_*'
+      - 'ci/scripts/msys2_*'
+      - 'ci/scripts/util_*'
       - 'cpp/**'
       - 'format/Flight.proto'
   pull_request:
     paths:
       - '.github/workflows/cpp.yml'
       - 'ci/docker/**'
-      - 'ci/scripts/util_*'
-      - 'ci/scripts/msys_*'
       - 'ci/scripts/cpp_*'
+      - 'ci/scripts/msys2_*'
+      - 'ci/scripts/util_*'
       - 'cpp/**'
       - 'format/Flight.proto'
 

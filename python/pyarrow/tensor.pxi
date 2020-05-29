@@ -605,8 +605,9 @@ shape: {0.shape}""".format(self)
         indices = np.require(obj.indices, dtype='i8')
 
         check_status(NdarraysToSparseCSCMatrix(c_default_memory_pool(),
-                     obj.data, indptr, indices, c_shape,
-                     c_dim_names, &csparse_tensor))
+                                               obj.data, indptr, indices,
+                                               c_shape, c_dim_names,
+                                               &csparse_tensor))
         return pyarrow_wrap_sparse_csc_matrix(csparse_tensor)
 
     @staticmethod
@@ -646,7 +647,8 @@ shape: {0.shape}""".format(self)
         cdef PyObject* out_indices
 
         check_status(SparseCSCMatrixToNdarray(self.sp_sparse_tensor, self,
-                     &out_data, &out_indptr, &out_indices))
+                                              &out_data, &out_indptr,
+                                              &out_indices))
 
         data = PyObject_to_object(out_data)
         indptr = PyObject_to_object(out_indptr)

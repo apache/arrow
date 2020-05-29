@@ -279,7 +279,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
   }
 
   private ArrowBuf createEmpty() {
-    return new ArrowBuf(ReferenceManager.NO_OP, null, 0, NettyAllocationManager.EMPTY.memoryAddress(), true);
+    return new ArrowBuf(ReferenceManager.NO_OP, null, 0, NettyAllocationManager.EMPTY.memoryAddress());
   }
 
   @Override
@@ -763,7 +763,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
      */
     @Value.Default
     AllocationManager.Factory getAllocationManagerFactory() {
-      return NettyAllocationManager.FACTORY;
+      return DefaultAllocationManagerOption.DEFAULT_ALLOCATION_MANAGER_FACTORY;
     }
 
     /**

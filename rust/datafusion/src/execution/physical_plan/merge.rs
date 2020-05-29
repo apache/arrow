@@ -100,7 +100,7 @@ mod tests {
 
     use super::*;
     use crate::execution::physical_plan::common;
-    use crate::execution::physical_plan::csv::CsvExec;
+    use crate::execution::physical_plan::csv::{CsvExec, CsvReadOptions};
     use crate::test;
 
     #[test]
@@ -111,7 +111,8 @@ mod tests {
         let path =
             test::create_partitioned_csv("aggregate_test_100.csv", num_partitions)?;
 
-        let csv = CsvExec::try_new(&path, schema.clone(), true, None, 1024)?;
+        let csv =
+            CsvExec::try_new(&path, CsvReadOptions::new().schema(&schema), None, 1024)?;
 
         // input should have 4 partitions
         let input = csv.partitions()?;

@@ -324,8 +324,8 @@ TEST_F(TestSchemaExport, Struct) {
              {ARROW_FLAG_NULLABLE, 0, ARROW_FLAG_NULLABLE});
 
   // With metadata
-  auto f0 = type->child(0);
-  auto f1 = type->child(1)->WithMetadata(
+  auto f0 = type->field(0);
+  auto f1 = type->field(1)->WithMetadata(
       key_value_metadata(kMetadataKeys1, kMetadataValues1));
   type = struct_({f0, f1});
   TestNested(type, {"+s", "c", "u"}, {"", "a", "b"},
@@ -1501,7 +1501,7 @@ static const uint8_t data_buffer2[] = "abcdefghijklmnopqrstuvwxyz";
 #if ARROW_LITTLE_ENDIAN
 static const uint64_t data_buffer3[] = {123456789, 0, 987654321, 0};
 #else
-static const uint64_t data_buffer3[] = {0x15cd5b0700000000, 0, 0xb168de3a00000000, 0};
+static const uint64_t data_buffer3[] = {0, 123456789, 0, 987654321};
 #endif
 static const uint8_t data_buffer4[] = {1, 2, 0, 1, 3, 0};
 static const float data_buffer5[] = {0.0f, 1.5f, -2.0f, 3.0f, 4.0f, 5.0f};

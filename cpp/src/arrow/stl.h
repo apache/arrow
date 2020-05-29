@@ -339,16 +339,15 @@ struct RowIterator<Tuple, 0> {
 template <typename Tuple, std::size_t N = std::tuple_size<Tuple>::value>
 struct EnsureColumnTypes {
   static Status Cast(const Table& table, std::shared_ptr<Table>* table_owner,
-                     const compute::CastOptions& cast_options,
-                     compute::FunctionContext* ctx,
+                     const compute::CastOptions& cast_options, compute::ExecContext* ctx,
                      std::reference_wrapper<const ::arrow::Table>* result) {
     using Element = BareTupleElement<N - 1, Tuple>;
     std::shared_ptr<DataType> expected_type = ConversionTraits<Element>::type_singleton();
 
     if (!table.schema()->field(N - 1)->type()->Equals(*expected_type)) {
-      compute::Datum casted;
-      ARROW_RETURN_NOT_OK(compute::Cast(ctx, compute::Datum(table.column(N - 1)),
-                                        expected_type, cast_options, &casted));
+      ARROW_ASSIGN_OR_RAISE(
+          Datum casted,
+          compute::Cast(table.column(N - 1), expected_type, cast_options, ctx));
       auto new_field = table.schema()->field(N - 1)->WithType(expected_type);
       ARROW_ASSIGN_OR_RAISE(*table_owner,
                             table.SetColumn(N - 1, new_field, casted.chunked_array()));
@@ -363,8 +362,7 @@ struct EnsureColumnTypes {
 template <typename Tuple>
 struct EnsureColumnTypes<Tuple, 0> {
   static Status Cast(const Table& table, std::shared_ptr<Table>* table_owner,
-                     const compute::CastOptions& cast_options,
-                     compute::FunctionContext* ctx,
+                     const compute::CastOptions& cast_options, compute::ExecContext* ctx,
                      std::reference_wrapper<const ::arrow::Table>* result) {
     return Status::OK();
   }
@@ -429,7 +427,7 @@ Status TableFromTupleRange(MemoryPool* pool, Range&& rows,
 
 template <typename Range>
 Status TupleRangeFromTable(const Table& table, const compute::CastOptions& cast_options,
-                           compute::FunctionContext* ctx, Range* rows) {
+                           compute::ExecContext* ctx, Range* rows) {
   using row_type = typename std::decay<decltype(*std::begin(*rows))>::type;
   constexpr std::size_t n_columns = std::tuple_size<row_type>::value;
 

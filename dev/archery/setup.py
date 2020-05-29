@@ -44,7 +44,7 @@ setup(
         'archery.lang',
         'archery.utils'
     ],
-    install_requires=['click'],
+    install_requires=['click>=7'],
     tests_require=['pytest', 'responses'],
     extras_require=extras,
     entry_points='''

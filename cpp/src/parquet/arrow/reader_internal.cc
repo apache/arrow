@@ -29,7 +29,7 @@
 
 #include "arrow/array.h"
 #include "arrow/builder.h"
-#include "arrow/compute/kernel.h"
+#include "arrow/datum.h"
 #include "arrow/extension_type.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/reader.h"
@@ -57,6 +57,7 @@ using arrow::Array;
 using arrow::BooleanArray;
 using arrow::ChunkedArray;
 using arrow::DataType;
+using arrow::Datum;
 using arrow::Field;
 using arrow::Int32Array;
 using arrow::ListArray;
@@ -66,7 +67,6 @@ using arrow::Status;
 using arrow::StructArray;
 using arrow::Table;
 using arrow::TimestampArray;
-using arrow::compute::Datum;
 
 using ::arrow::BitUtil::FromBigEndian;
 using ::arrow::internal::checked_cast;
@@ -747,8 +747,7 @@ Status TypedIntegralStatisticsAsScalars(const Statistics& statistics,
       using CType = typename StatisticsType::T;
       return MakeMinMaxScalar<CType, StatisticsType>(statistics, min, max);
     default:
-      return Status::NotImplemented("Cannot extract statistics for type ",
-                                    logical_type->ToString());
+      return Status::NotImplemented("Cannot extract statistics for type ");
   }
 
   return Status::OK();
@@ -1357,14 +1356,14 @@ Status ReconstructNestedList(const std::shared_ptr<Array>& arr,
   std::vector<std::shared_ptr<::arrow::Int32Builder>> offset_builders;
   std::vector<std::shared_ptr<::arrow::BooleanBuilder>> valid_bits_builders;
   nullable.push_back(field->nullable());
-  while (field->type()->num_children() > 0) {
-    if (field->type()->num_children() > 1) {
+  while (field->type()->num_fields() > 0) {
+    if (field->type()->num_fields() > 1) {
       return Status::NotImplemented("Fields with more than one child are not supported.");
     } else {
       if (field->type()->id() != ::arrow::Type::LIST) {
         return Status::NotImplemented("Currently only nesting with Lists is supported.");
       }
-      field = field->type()->child(0);
+      field = field->type()->field(0);
     }
     item_names.push_back(field->name());
     offset_builders.emplace_back(

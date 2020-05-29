@@ -61,7 +61,17 @@
       complex: false
     },
     {
+      name: "LargeUtf8",
+      fields: [],
+      complex: false
+    },
+    {
       name: "Binary",
+      fields: [],
+      complex: false
+    },
+    {
+      name: "LargeBinary",
       fields: [],
       complex: false
     },

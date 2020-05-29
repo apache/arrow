@@ -183,7 +183,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    */
   @Override
   public void setInitialCapacity(int valueCount, double density) {
-    long size = Math.max((long)(valueCount * density), 1L);
+    long size = Math.max((long) (valueCount * density), 1L);
     checkDataBufferSize(size);
     computeAndCheckOffsetsBufferSize(valueCount);
     lastValueAllocationSizeInBytes = (int) size;

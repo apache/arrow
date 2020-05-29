@@ -48,7 +48,7 @@ public class TestNettyArrowBuf {
          ArrowBuf buf = allocator.buffer(20);
     ) {
       NettyArrowBuf nettyBuf = buf.asNettyBuffer();
-      ByteBuffer byteBuffer = nettyBuf.nioBuffer(4 ,6);
+      ByteBuffer byteBuffer = nettyBuf.nioBuffer(4, 6);
       // Nio Buffers should always be 0 indexed
       Assert.assertEquals(0, byteBuffer.position());
       Assert.assertEquals(6, byteBuffer.limit());

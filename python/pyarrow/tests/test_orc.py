@@ -148,18 +148,18 @@ def test_orcfile_empty(datadir):
             ('list', pa.list_(pa.struct([
                 ('int1', pa.int32()),
                 ('string1', pa.string()),
-                ]))),
-            ])),
+            ]))),
+        ])),
         ('list', pa.list_(pa.struct([
             ('int1', pa.int32()),
             ('string1', pa.string()),
-            ]))),
+        ]))),
         ('map', pa.list_(pa.struct([
             ('key', pa.string()),
             ('value', pa.struct([
                 ('int1', pa.int32()),
                 ('string1', pa.string()),
-                ])),
-            ]))),
-        ])
+            ])),
+        ]))),
+    ])
     assert table.schema == expected_schema

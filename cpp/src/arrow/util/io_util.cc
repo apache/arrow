@@ -979,6 +979,32 @@ static Status StatusFromMmapErrno(const char* prefix) {
   return IOErrorFromErrno(errno, prefix);
 }
 
+namespace {
+
+int64_t GetPageSizeInternal() {
+#if defined(__APPLE__)
+  return getpagesize();
+#elif defined(_WIN32)
+  SYSTEM_INFO si;
+  GetSystemInfo(&si);
+  return si.dwPageSize;
+#else
+  errno = 0;
+  const auto ret = sysconf(_SC_PAGESIZE);
+  if (ret == -1) {
+    ARROW_LOG(FATAL) << "sysconf(_SC_PAGESIZE) failed: " << ErrnoMessage(errno);
+  }
+  return static_cast<int64_t>(ret);
+#endif
+}
+
+}  // namespace
+
+int64_t GetPageSize() {
+  static const int64_t kPageSize = GetPageSizeInternal();  // cache it
+  return kPageSize;
+}
+
 //
 // Compatible way to remap a memory map
 //
@@ -1043,6 +1069,61 @@ Status MemoryMapRemap(void* addr, size_t old_size, size_t new_size, int fildes,
   }
   return Status::OK();
 #endif
+#endif
+}
+
+Status MemoryAdviseWillNeed(const std::vector<MemoryRegion>& regions) {
+  const auto page_size = static_cast<size_t>(GetPageSize());
+  DCHECK_GT(page_size, 0);
+  const size_t page_mask = ~(page_size - 1);
+  DCHECK_EQ(page_mask & page_size, page_size);
+
+  auto align_region = [=](const MemoryRegion& region) -> MemoryRegion {
+    const auto addr = reinterpret_cast<uintptr_t>(region.addr);
+    const auto aligned_addr = addr & page_mask;
+    DCHECK_LT(addr - aligned_addr, page_size);
+    return {reinterpret_cast<void*>(aligned_addr),
+            region.size + static_cast<size_t>(addr - aligned_addr)};
+  };
+
+#ifdef _WIN32
+  // PrefetchVirtualMemory() is available on Windows 8 or later
+  struct PrefetchEntry {  // Like WIN32_MEMORY_RANGE_ENTRY
+    void* VirtualAddress;
+    size_t NumberOfBytes;
+
+    PrefetchEntry(const MemoryRegion& region)  // NOLINT runtime/explicit
+        : VirtualAddress(region.addr), NumberOfBytes(region.size) {}
+  };
+  using PrefetchVirtualMemoryFunc = BOOL (*)(HANDLE, ULONG_PTR, PrefetchEntry*, ULONG);
+  static const auto prefetch_virtual_memory = reinterpret_cast<PrefetchVirtualMemoryFunc>(
+      GetProcAddress(GetModuleHandleW(L"kernel32.dll"), "PrefetchVirtualMemory"));
+  if (prefetch_virtual_memory != nullptr) {
+    std::vector<PrefetchEntry> entries;
+    entries.reserve(regions.size());
+    for (const auto& region : regions) {
+      if (region.size != 0) {
+        entries.emplace_back(align_region(region));
+      }
+    }
+    if (!entries.empty() &&
+        !prefetch_virtual_memory(GetCurrentProcess(),
+                                 static_cast<ULONG_PTR>(entries.size()), entries.data(),
+                                 0)) {
+      return IOErrorFromWinError(GetLastError(), "PrefetchVirtualMemory failed");
+    }
+  }
+  return Status::OK();
+#else
+  for (const auto& region : regions) {
+    if (region.size != 0) {
+      const auto aligned = align_region(region);
+      if (posix_madvise(aligned.addr, aligned.size, POSIX_MADV_WILLNEED)) {
+        return IOErrorFromErrno(errno, "posix_madvise failed");
+      }
+    }
+  }
+  return Status::OK();
 #endif
 }
 

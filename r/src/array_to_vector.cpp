@@ -18,6 +18,8 @@
 #include "./arrow_types.h"
 #if defined(ARROW_R_WITH_ARROW)
 
+#include <arrow/array.h>
+#include <arrow/table.h>
 #include <arrow/util/parallel.h>
 #include <arrow/util/task_group.h>
 
@@ -372,7 +374,7 @@ class Converter_Struct : public Converter {
     Rcpp::CharacterVector colnames(nf);
     for (int i = 0; i < nf; i++) {
       out[i] = converters[i]->Allocate(n);
-      colnames[i] = type->child(i)->name();
+      colnames[i] = type->field(i)->name();
     }
     IntegerVector rn(2);
     rn[0] = NA_INTEGER;

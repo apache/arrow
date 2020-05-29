@@ -19,7 +19,8 @@ use crate::arrow::record_reader::RecordReader;
 use crate::data_type::{ByteArray, DataType, Int96};
 use arrow::array::{
     Array, ArrayRef, BinaryBuilder, BooleanArray, BooleanBufferBuilder,
-    BufferBuilderTrait, StringBuilder, TimestampNanosecondBuilder,
+    BufferBuilderTrait, FixedSizeBinaryBuilder, StringBuilder,
+    TimestampNanosecondBuilder,
 };
 use arrow::compute::cast;
 use std::convert::From;
@@ -29,7 +30,10 @@ use crate::errors::Result;
 use arrow::datatypes::{ArrowPrimitiveType, DataType as ArrowDataType};
 
 use arrow::array::ArrayDataBuilder;
-use arrow::array::{BinaryArray, PrimitiveArray, StringArray, TimestampNanosecondArray};
+use arrow::array::{
+    BinaryArray, FixedSizeBinaryArray, PrimitiveArray, StringArray,
+    TimestampNanosecondArray,
+};
 use std::marker::PhantomData;
 
 use crate::data_type::{
@@ -37,8 +41,9 @@ use crate::data_type::{
     Int32Type as ParquetInt32Type, Int64Type as ParquetInt64Type,
 };
 use arrow::datatypes::{
-    Float32Type, Float64Type, Int16Type, Int32Type, Int64Type, Int8Type, UInt16Type,
-    UInt32Type, UInt64Type, UInt8Type,
+    Float32Type, Float64Type, Int16Type, Int32Type, Int64Type, Int8Type,
+    TimestampMicrosecondType, TimestampMillisecondType, UInt16Type, UInt32Type,
+    UInt64Type, UInt8Type,
 };
 
 /// A converter is used to consume record reader's content and convert it to arrow
@@ -47,7 +52,7 @@ pub trait Converter<S, T> {
     /// This method converts record reader's buffered content into arrow array.
     /// It will consume record reader's data, but will not reset record reader's
     /// state.
-    fn convert(source: S) -> Result<T>;
+    fn convert(&self, source: S) -> Result<T>;
 }
 
 /// Cast converter first converts record reader's buffer to arrow's
@@ -59,6 +64,22 @@ pub struct CastConverter<ParquetType, ArrowSourceType, ArrowTargetType> {
 }
 
 impl<ParquetType, ArrowSourceType, ArrowTargetType>
+    CastConverter<ParquetType, ArrowSourceType, ArrowTargetType>
+where
+    ParquetType: DataType,
+    ArrowSourceType: ArrowPrimitiveType,
+    ArrowTargetType: ArrowPrimitiveType,
+{
+    pub fn new() -> Self {
+        Self {
+            _parquet_marker: PhantomData,
+            _arrow_source_marker: PhantomData,
+            _arrow_target_marker: PhantomData,
+        }
+    }
+}
+
+impl<ParquetType, ArrowSourceType, ArrowTargetType>
     Converter<&mut RecordReader<ParquetType>, ArrayRef>
     for CastConverter<ParquetType, ArrowSourceType, ArrowTargetType>
 where
@@ -66,7 +87,7 @@ where
     ArrowSourceType: ArrowPrimitiveType,
     ArrowTargetType: ArrowPrimitiveType,
 {
-    fn convert(record_reader: &mut RecordReader<ParquetType>) -> Result<ArrayRef> {
+    fn convert(&self, record_reader: &mut RecordReader<ParquetType>) -> Result<ArrayRef> {
         let record_data = record_reader.consume_record_data();
 
         let mut array_data = ArrayDataBuilder::new(ArrowSourceType::get_data_type())
@@ -87,7 +108,10 @@ where
 pub struct BooleanArrayConverter {}
 
 impl Converter<&mut RecordReader<BoolType>, BooleanArray> for BooleanArrayConverter {
-    fn convert(record_reader: &mut RecordReader<BoolType>) -> Result<BooleanArray> {
+    fn convert(
+        &self,
+        record_reader: &mut RecordReader<BoolType>,
+    ) -> Result<BooleanArray> {
         let record_data = record_reader.consume_record_data()?;
 
         let mut boolean_buffer = BooleanBufferBuilder::new(record_data.len());
@@ -108,10 +132,34 @@ impl Converter<&mut RecordReader<BoolType>, BooleanArray> for BooleanArrayConver
     }
 }
 
+pub struct FixedSizeArrayConverter {
+    byte_width: i32,
+}
+
+impl FixedSizeArrayConverter {
+    pub fn new(byte_width: i32) -> Self {
+        Self { byte_width }
+    }
+}
+
+impl Converter<Vec<Option<ByteArray>>, FixedSizeBinaryArray> for FixedSizeArrayConverter {
+    fn convert(&self, source: Vec<Option<ByteArray>>) -> Result<FixedSizeBinaryArray> {
+        let mut builder = FixedSizeBinaryBuilder::new(source.len(), self.byte_width);
+        for v in source {
+            match v {
+                Some(array) => builder.append_value(array.data()),
+                None => builder.append_null(),
+            }?
+        }
+
+        Ok(builder.finish())
+    }
+}
+
 pub struct Int96ArrayConverter {}
 
 impl Converter<Vec<Option<Int96>>, TimestampNanosecondArray> for Int96ArrayConverter {
-    fn convert(source: Vec<Option<Int96>>) -> Result<TimestampNanosecondArray> {
+    fn convert(&self, source: Vec<Option<Int96>>) -> Result<TimestampNanosecondArray> {
         let mut builder = TimestampNanosecondBuilder::new(source.len());
         for v in source {
             match v {
@@ -127,7 +175,7 @@ impl Converter<Vec<Option<Int96>>, TimestampNanosecondArray> for Int96ArrayConve
 pub struct Utf8ArrayConverter {}
 
 impl Converter<Vec<Option<ByteArray>>, StringArray> for Utf8ArrayConverter {
-    fn convert(source: Vec<Option<ByteArray>>) -> Result<StringArray> {
+    fn convert(&self, source: Vec<Option<ByteArray>>) -> Result<StringArray> {
         let data_size = source
             .iter()
             .map(|x| x.as_ref().map(|b| b.len()).unwrap_or(0))
@@ -148,7 +196,7 @@ impl Converter<Vec<Option<ByteArray>>, StringArray> for Utf8ArrayConverter {
 pub struct BinaryArrayConverter {}
 
 impl Converter<Vec<Option<ByteArray>>, BinaryArray> for BinaryArrayConverter {
-    fn convert(source: Vec<Option<ByteArray>>) -> Result<BinaryArray> {
+    fn convert(&self, source: Vec<Option<ByteArray>>) -> Result<BinaryArray> {
         let mut builder = BinaryBuilder::new(source.len());
         for v in source {
             match v {
@@ -173,6 +221,10 @@ pub type UInt16Converter = CastConverter<ParquetInt32Type, Int32Type, UInt16Type
 pub type Int32Converter = CastConverter<ParquetInt32Type, Int32Type, Int32Type>;
 pub type UInt32Converter = CastConverter<ParquetInt32Type, UInt32Type, UInt32Type>;
 pub type Int64Converter = CastConverter<ParquetInt64Type, Int64Type, Int64Type>;
+pub type TimestampMillisecondConverter =
+    CastConverter<ParquetInt64Type, TimestampMillisecondType, TimestampMillisecondType>;
+pub type TimestampMicrosecondConverter =
+    CastConverter<ParquetInt64Type, TimestampMicrosecondType, TimestampMicrosecondType>;
 pub type UInt64Converter = CastConverter<ParquetInt64Type, UInt64Type, UInt64Type>;
 pub type Float32Converter = CastConverter<ParquetFloatType, Float32Type, Float32Type>;
 pub type Float64Converter = CastConverter<ParquetDoubleType, Float64Type, Float64Type>;
@@ -182,17 +234,34 @@ pub type BinaryConverter =
     ArrayRefConverter<Vec<Option<ByteArray>>, BinaryArray, BinaryArrayConverter>;
 pub type Int96Converter =
     ArrayRefConverter<Vec<Option<Int96>>, TimestampNanosecondArray, Int96ArrayConverter>;
+pub type FixedLenBinaryConverter = ArrayRefConverter<
+    Vec<Option<ByteArray>>,
+    FixedSizeBinaryArray,
+    FixedSizeArrayConverter,
+>;
 
 pub struct FromConverter<S, T> {
     _source: PhantomData<S>,
     _dest: PhantomData<T>,
 }
 
+impl<S, T> FromConverter<S, T>
+where
+    T: From<S>,
+{
+    pub fn new() -> Self {
+        Self {
+            _source: PhantomData,
+            _dest: PhantomData,
+        }
+    }
+}
+
 impl<S, T> Converter<S, T> for FromConverter<S, T>
 where
     T: From<S>,
 {
-    fn convert(source: S) -> Result<T> {
+    fn convert(&self, source: S) -> Result<T> {
         Ok(T::from(source))
     }
 }
@@ -200,7 +269,21 @@ where
 pub struct ArrayRefConverter<S, A, C> {
     _source: PhantomData<S>,
     _array: PhantomData<A>,
-    _converter: PhantomData<C>,
+    converter: C,
+}
+
+impl<S, A, C> ArrayRefConverter<S, A, C>
+where
+    A: Array + 'static,
+    C: Converter<S, A> + 'static,
+{
+    pub fn new(converter: C) -> Self {
+        Self {
+            _source: PhantomData,
+            _array: PhantomData,
+            converter,
+        }
+    }
 }
 
 impl<S, A, C> Converter<S, ArrayRef> for ArrayRefConverter<S, A, C>
@@ -208,8 +291,10 @@ where
     A: Array + 'static,
     C: Converter<S, A> + 'static,
 {
-    fn convert(source: S) -> Result<ArrayRef> {
-        C::convert(source).map(|array| Arc::new(array) as ArrayRef)
+    fn convert(&self, source: S) -> Result<ArrayRef> {
+        self.converter
+            .convert(source)
+            .map(|array| Arc::new(array) as ArrayRef)
     }
 }
 
@@ -253,7 +338,7 @@ mod tests {
             )
         };
 
-        let array = Int16Converter::convert(&mut record_reader).unwrap();
+        let array = Int16Converter::new().convert(&mut record_reader).unwrap();
         let array = array
             .as_any()
             .downcast_ref::<PrimitiveArray<Int16Type>>()
@@ -287,7 +372,7 @@ mod tests {
             )
         };
 
-        let array = Int32Converter::convert(&mut record_reader).unwrap();
+        let array = Int32Converter::new().convert(&mut record_reader).unwrap();
         let array = array
             .as_any()
             .downcast_ref::<PrimitiveArray<Int32Type>>()

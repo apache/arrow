@@ -26,12 +26,21 @@ except ImportError:
 else:
     have_numpydoc = True
 
-from ..utils.command import Command, default_bin
+from ..utils.command import Command, capture_stdout, default_bin
 
 
 class Flake8(Command):
     def __init__(self, flake8_bin=None):
         self.bin = default_bin(flake8_bin, "flake8")
+
+
+class Autopep8(Command):
+    def __init__(self, autopep8_bin=None):
+        self.bin = default_bin(autopep8_bin, "autopep8")
+
+    @capture_stdout()
+    def run_captured(self, *args, **kwargs):
+        return self.run(*args, **kwargs)
 
 
 def _tokenize_signature(s):

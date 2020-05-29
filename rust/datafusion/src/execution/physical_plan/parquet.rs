@@ -29,7 +29,7 @@ use arrow::datatypes::Schema;
 use arrow::record_batch::{RecordBatch, RecordBatchReader};
 use parquet::file::reader::SerializedFileReader;
 
-use crossbeam::channel::{unbounded, Receiver, Sender};
+use crossbeam::channel::{unbounded, Receiver, RecvError, SendError, Sender};
 use parquet::arrow::{ArrowReader, ParquetFileArrowReader};
 
 /// Execution plan for scanning a Parquet file
@@ -211,14 +211,11 @@ impl BatchIterator for ParquetIterator {
         match self.request_tx.send(()) {
             Ok(_) => match self.response_rx.recv() {
                 Ok(batch) => batch,
-                Err(e) => Err(ExecutionError::General(format!(
-                    "Error receiving batch: {:?}",
-                    e
-                ))),
+                // RecvError means receiver has exited and closed the channel
+                Err(RecvError) => Ok(None),
             },
-            _ => Err(ExecutionError::General(
-                "Error sending request for next batch".to_string(),
-            )),
+            // SendError means receiver has exited and closed the channel
+            Err(SendError(())) => Ok(None),
         }
     }
 }
@@ -251,6 +248,12 @@ mod tests {
             .map(|f| f.name().as_str())
             .collect();
         assert_eq!(vec!["id", "bool_col", "tinyint_col"], field_names);
+
+        let batch = results.next()?;
+        assert!(batch.is_none());
+
+        let batch = results.next()?;
+        assert!(batch.is_none());
 
         let batch = results.next()?;
         assert!(batch.is_none());

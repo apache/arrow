@@ -327,9 +327,13 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
 
         // temporal casts
         (Int32, Date32(_)) => cast_array_data::<Date32Type>(array, to_type.clone()),
+        (Int32, Time32(_)) => cast_array_data::<Date32Type>(array, to_type.clone()),
         (Date32(_), Int32) => cast_array_data::<Int32Type>(array, to_type.clone()),
+        (Time32(_), Int32) => cast_array_data::<Int32Type>(array, to_type.clone()),
         (Int64, Date64(_)) => cast_array_data::<Date64Type>(array, to_type.clone()),
+        (Int64, Time64(_)) => cast_array_data::<Date64Type>(array, to_type.clone()),
         (Date64(_), Int64) => cast_array_data::<Int64Type>(array, to_type.clone()),
+        (Time64(_), Int64) => cast_array_data::<Int64Type>(array, to_type.clone()),
         (Date32(DateUnit::Day), Date64(DateUnit::Millisecond)) => {
             let date_array = array.as_any().downcast_ref::<Date32Array>().unwrap();
             let mut b = Date64Builder::new(array.len());

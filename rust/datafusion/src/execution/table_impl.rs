@@ -159,13 +159,14 @@ impl TableImpl {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::datasource::csv::CsvReadOptions;
     use crate::execution::context::ExecutionContext;
     use crate::test;
 
     #[test]
     fn select_columns() -> Result<()> {
         // build plan using Table API
-        let t = test_table();
+        let t = test_table()?;
         let t2 = t.select_columns(vec!["c1", "c2", "c11"])?;
         let plan = t2.to_logical_plan();
 
@@ -181,7 +182,7 @@ mod tests {
     #[test]
     fn select_expr() -> Result<()> {
         // build plan using Table API
-        let t = test_table();
+        let t = test_table()?;
         let t2 = t.select(vec![t.col("c1")?, t.col("c2")?, t.col("c11")?])?;
         let plan = t2.to_logical_plan();
 
@@ -197,7 +198,7 @@ mod tests {
     #[test]
     fn aggregate() -> Result<()> {
         // build plan using Table API
-        let t = test_table();
+        let t = test_table()?;
         let group_expr = vec![t.col("c1")?];
         let c12 = t.col("c12")?;
         let aggr_expr = vec![
@@ -227,7 +228,7 @@ mod tests {
     #[test]
     fn limit() -> Result<()> {
         // build query using Table API
-        let t = test_table();
+        let t = test_table()?;
         let t2 = t.select_columns(vec!["c1", "c2", "c11"])?.limit(10)?;
         let plan = t2.to_logical_plan();
 
@@ -249,24 +250,24 @@ mod tests {
     /// Create a logical plan from a SQL query
     fn create_plan(sql: &str) -> Result<LogicalPlan> {
         let mut ctx = ExecutionContext::new();
-        register_aggregate_csv(&mut ctx);
+        register_aggregate_csv(&mut ctx)?;
         ctx.create_logical_plan(sql)
     }
 
-    fn test_table() -> Arc<dyn Table + 'static> {
+    fn test_table() -> Result<Arc<dyn Table + 'static>> {
         let mut ctx = ExecutionContext::new();
-        register_aggregate_csv(&mut ctx);
-        ctx.table("aggregate_test_100").unwrap()
+        register_aggregate_csv(&mut ctx)?;
+        ctx.table("aggregate_test_100")
     }
 
-    fn register_aggregate_csv(ctx: &mut ExecutionContext) {
+    fn register_aggregate_csv(ctx: &mut ExecutionContext) -> Result<()> {
         let schema = test::aggr_test_schema();
         let testdata = test::arrow_testdata_path();
         ctx.register_csv(
             "aggregate_test_100",
             &format!("{}/csv/aggregate_test_100.csv", testdata),
-            &schema,
-            true,
-        );
+            CsvReadOptions::new().schema(&schema),
+        )?;
+        Ok(())
     }
 }

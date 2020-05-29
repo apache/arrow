@@ -23,7 +23,7 @@
 
 #include <memory>
 
-#include "arrow/compute/kernels/cast.h"
+#include "arrow/compute/api.h"
 #include "arrow/python/visibility.h"
 
 namespace arrow {

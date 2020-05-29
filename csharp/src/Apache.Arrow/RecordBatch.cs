@@ -38,7 +38,7 @@ namespace Apache.Arrow
 
         public IArrowArray Column(string columnName)
         {
-            var fieldIndex = Schema.GetFieldIndex(columnName);
+            int fieldIndex = Schema.GetFieldIndex(columnName);
             return _arrays[fieldIndex];
         }
 

@@ -55,7 +55,9 @@ public class FloatConsumer {
     public void consume(ResultSet resultSet) throws SQLException {
       float value = resultSet.getFloat(columnIndexInResultSet);
       if (!resultSet.wasNull()) {
-        vector.setSafe(currentIndex, value);
+        // for fixed width vectors, we have allocated enough memory proactively,
+        // so there is no need to call the setSafe method here.
+        vector.set(currentIndex, value);
       }
       currentIndex++;
     }
@@ -76,7 +78,9 @@ public class FloatConsumer {
     @Override
     public void consume(ResultSet resultSet) throws SQLException {
       float value = resultSet.getFloat(columnIndexInResultSet);
-      vector.setSafe(currentIndex, value);
+      // for fixed width vectors, we have allocated enough memory proactively,
+      // so there is no need to call the setSafe method here.
+      vector.set(currentIndex, value);
       currentIndex++;
     }
   }

@@ -33,6 +33,29 @@ use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
 use crate::util::bit_util;
 
+///  Converts a `MutableBuffer` to a `BufferBuilder<T>`.
+///
+/// `slots` is the number of array slots currently represented in the `MutableBuffer`.
+pub(crate) fn mutable_buffer_to_builder<T: ArrowPrimitiveType>(
+    mutable_buffer: MutableBuffer,
+    slots: usize,
+) -> BufferBuilder<T> {
+    BufferBuilder::<T> {
+        buffer: mutable_buffer,
+        len: slots,
+        _marker: PhantomData,
+    }
+}
+
+///  Converts a `BufferBuilder<T>` into it's underlying `MutableBuffer`.
+///
+/// `From` is not implemented because associated type bounds are unstable.
+pub(crate) fn builder_to_mutable_buffer<T: ArrowPrimitiveType>(
+    builder: BufferBuilder<T>,
+) -> MutableBuffer {
+    builder.buffer
+}
+
 /// Builder for creating a [`Buffer`](crate::buffer::Buffer) object.
 ///
 /// This builder is implemented for primitive types and creates a
@@ -73,7 +96,7 @@ pub struct BufferBuilder<T: ArrowPrimitiveType> {
 /// This trait is used mainly to offer separate implementations for
 /// numeric types and boolean types, while still be able to call methods on buffer builder
 /// with generic primitive type.
-/// Seperate implementations of this trait allow to add implementation-details,
+/// Separate implementations of this trait allow to add implementation-details,
 /// e.g. the implementation for boolean types uses bit-packing.
 pub trait BufferBuilderTrait<T: ArrowPrimitiveType> {
     /// Creates a new builder with initial capacity for _at least_ `capacity`
@@ -720,13 +743,15 @@ where
             .finish();
         let values_data = values_arr.data();
 
-        // check that values_data length is multiple of len
-        assert!(
-            values_data.len() / len == self.list_len as usize,
-            "Values of FixedSizeList must have equal lengths, values have length {} and list has {}",
-            values_data.len(),
-            len
-        );
+        // check that values_data length is multiple of len if we have data
+        if len != 0 {
+            assert!(
+                values_data.len() / len == self.list_len as usize,
+                "Values of FixedSizeList must have equal lengths, values have length {} and list has {}",
+                values_data.len(),
+                len
+            );
+        }
 
         let null_bit_buffer = self.bitmap_builder.finish();
         let data = ArrayData::builder(DataType::FixedSizeList(
@@ -1059,6 +1084,7 @@ impl StructBuilder {
 
     fn from_field(f: Field, capacity: usize) -> Box<ArrayBuilder> {
         match f.data_type() {
+            DataType::Null => unimplemented!(),
             DataType::Boolean => Box::new(BooleanBuilder::new(capacity)),
             DataType::Int8 => Box::new(Int8Builder::new(capacity)),
             DataType::Int16 => Box::new(Int16Builder::new(capacity)),
@@ -1309,6 +1335,58 @@ where
             map: HashMap::new(),
         }
     }
+
+    /// Creates a new `StringDictionaryBuilder` from a keys builder and a dictionary
+    /// which is initialized with the given values.
+    /// The indices of those dictionary values are used as keys.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use arrow::datatypes::Int16Type;
+    /// use arrow::array::{StringArray, StringDictionaryBuilder, PrimitiveBuilder};
+    /// use std::convert::TryFrom;
+    ///
+    /// let dictionary_values = StringArray::try_from(vec![None, Some("abc"), Some("def")]).unwrap();
+    ///
+    /// let mut builder = StringDictionaryBuilder::new_with_dictionary(PrimitiveBuilder::<Int16Type>::new(3), &dictionary_values).unwrap();
+    /// builder.append("def").unwrap();
+    /// builder.append_null().unwrap();
+    /// builder.append("abc").unwrap();
+    ///
+    /// let dictionary_array = builder.finish();
+    ///
+    /// let keys: Vec<Option<i16>> = dictionary_array.keys().collect();
+    ///
+    /// assert_eq!(keys, vec![Some(2), None, Some(1)]);
+    /// ```
+    pub fn new_with_dictionary(
+        keys_builder: PrimitiveBuilder<K>,
+        dictionary_values: &StringArray,
+    ) -> Result<Self> {
+        let dict_len = dictionary_values.len();
+        let mut values_builder =
+            StringBuilder::with_capacity(dict_len, dictionary_values.value_data().len());
+        let mut map: HashMap<Box<[u8]>, K::Native> = HashMap::with_capacity(dict_len);
+        for i in 0..dict_len {
+            if dictionary_values.is_valid(i) {
+                let value = dictionary_values.value(i);
+                map.insert(
+                    value.as_bytes().into(),
+                    K::Native::from_usize(i)
+                        .ok_or(ArrowError::DictionaryKeyOverflowError)?,
+                );
+                values_builder.append_value(value)?;
+            } else {
+                values_builder.append_null()?;
+            }
+        }
+        Ok(Self {
+            keys_builder,
+            values_builder,
+            map,
+        })
+    }
 }
 
 impl<K> ArrayBuilder for StringDictionaryBuilder<K>
@@ -1382,6 +1460,7 @@ mod tests {
 
     use crate::array::Array;
     use crate::bitmap::Bitmap;
+    use std::convert::TryFrom;
 
     #[test]
     fn test_builder_i32_empty() {
@@ -1837,6 +1916,16 @@ mod tests {
     }
 
     #[test]
+    fn test_fixed_size_list_array_builder_empty() {
+        let values_builder = Int32Array::builder(5);
+        let mut builder = FixedSizeListBuilder::new(values_builder, 3);
+
+        let arr = builder.finish();
+        assert_eq!(0, arr.len());
+        assert_eq!(0, builder.len());
+    }
+
+    #[test]
     fn test_fixed_size_list_array_builder_finish() {
         let values_builder = Int32Array::builder(5);
         let mut builder = FixedSizeListBuilder::new(values_builder, 3);
@@ -2260,6 +2349,64 @@ mod tests {
         assert_eq!(aks, vec![Some(0), None, Some(1), Some(1), Some(0)]);
         assert_eq!(ava.value(0), "abc");
         assert_eq!(ava.value(1), "def");
+    }
+
+    #[test]
+    fn test_string_dictionary_builder_with_existing_dictionary() {
+        let dictionary =
+            StringArray::try_from(vec![None, Some("def"), Some("abc")]).unwrap();
+
+        let key_builder = PrimitiveBuilder::<Int8Type>::new(6);
+        let mut builder =
+            StringDictionaryBuilder::new_with_dictionary(key_builder, &dictionary)
+                .unwrap();
+        builder.append("abc").unwrap();
+        builder.append_null().unwrap();
+        builder.append("def").unwrap();
+        builder.append("def").unwrap();
+        builder.append("abc").unwrap();
+        builder.append("ghi").unwrap();
+        let array = builder.finish();
+
+        // Keys are strongly typed.
+        let aks: Vec<_> = array.keys().collect();
+
+        // Values are polymorphic and so require a downcast.
+        let av = array.values();
+        let ava: &StringArray = av.as_any().downcast_ref::<StringArray>().unwrap();
+
+        assert_eq!(aks, vec![Some(2), None, Some(1), Some(1), Some(2), Some(3)]);
+        assert_eq!(ava.is_valid(0), false);
+        assert_eq!(ava.value(1), "def");
+        assert_eq!(ava.value(2), "abc");
+        assert_eq!(ava.value(3), "ghi");
+    }
+
+    #[test]
+    fn test_string_dictionary_builder_with_reserved_null_value() {
+        let dictionary = StringArray::try_from(vec![None]).unwrap();
+
+        let key_builder = PrimitiveBuilder::<Int16Type>::new(4);
+        let mut builder =
+            StringDictionaryBuilder::new_with_dictionary(key_builder, &dictionary)
+                .unwrap();
+        builder.append("abc").unwrap();
+        builder.append_null().unwrap();
+        builder.append("def").unwrap();
+        builder.append("abc").unwrap();
+        let array = builder.finish();
+
+        assert_eq!(array.is_null(1), true);
+        assert_eq!(array.is_valid(1), false);
+
+        let keys: Int16Array = array.data().into();
+
+        assert_eq!(keys.value(0), 1);
+        assert_eq!(keys.is_null(1), true);
+        // zero initialization is currently guaranteed by Buffer allocation and resizing
+        assert_eq!(keys.value(1), 0);
+        assert_eq!(keys.value(2), 2);
+        assert_eq!(keys.value(3), 1);
     }
 
     #[test]

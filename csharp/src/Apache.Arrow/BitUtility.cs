@@ -22,7 +22,7 @@ namespace Apache.Arrow
 {
     public static class BitUtility
     {
-        private static readonly byte[] PopcountTable = {
+        private static ReadOnlySpan<byte> PopcountTable => new byte[] {
             0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4, 1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5,
             1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5, 2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6,
             1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5, 2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6,
@@ -33,7 +33,7 @@ namespace Apache.Arrow
             3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7, 4, 5, 5, 6, 5, 6, 6, 7, 5, 6, 6, 7, 6, 7, 7, 8,
         };
 
-        private static readonly byte[] BitMask = {
+        private static ReadOnlySpan<byte> BitMask => new byte[] {
             1, 2, 4, 8, 16, 32, 64, 128
         };
 
@@ -55,8 +55,8 @@ namespace Apache.Arrow
 
         public static void SetBit(Span<byte> data, int index, bool value)
         {
-            var idx = index / 8;
-            var mod = index % 8;
+            int idx = index / 8;
+            int mod = index % 8;
             data[idx] = value
                 ? (byte)(data[idx] | BitMask[mod])
                 : (byte)(data[idx] & ~BitMask[mod]);
@@ -88,14 +88,14 @@ namespace Apache.Arrow
         /// <returns>Count of set (one) bits</returns>
         public static int CountBits(ReadOnlySpan<byte> data, int offset, int length)
         {
-            var startByteIndex = offset / 8;
-            var startBitOffset = offset % 8;
-            var endByteIndex = (offset + length - 1) / 8;
-            var endBitOffset = (offset + length - 1) % 8;
+            int startByteIndex = offset / 8;
+            int startBitOffset = offset % 8;
+            int endByteIndex = (offset + length - 1) / 8;
+            int endBitOffset = (offset + length - 1) % 8;
             if (startBitOffset < 0)
                 return 0;
 
-            var count = 0;
+            int count = 0;
             if (startByteIndex == endByteIndex)
             {
                 // Range starts and ends within the same byte.
@@ -110,8 +110,8 @@ namespace Apache.Arrow
             // we'll need to count bits the slow way.  If they are
             // byte-aligned, and for all other bytes in the 'middle', we
             // can use a faster byte-aligned count.
-            var fullByteStartIndex = startBitOffset == 0 ? startByteIndex : startByteIndex + 1;
-            var fullByteEndIndex = endBitOffset == 7 ? endByteIndex : endByteIndex - 1;
+            int fullByteStartIndex = startBitOffset == 0 ? startByteIndex : startByteIndex + 1;
+            int fullByteEndIndex = endBitOffset == 7 ? endByteIndex : endByteIndex - 1;
 
             if (startBitOffset != 0)
             {
@@ -143,8 +143,8 @@ namespace Apache.Arrow
         /// <returns>Count of set (one) bits.</returns>
         public static int CountBits(ReadOnlySpan<byte> data)
         {
-            var count = 0;
-            foreach (var t in data)
+            int count = 0;
+            foreach (byte t in data)
                 count += PopcountTable[t];
             return count;
         }

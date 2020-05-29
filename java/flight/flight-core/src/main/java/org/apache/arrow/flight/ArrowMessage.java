@@ -154,6 +154,24 @@ class ArrowMessage implements AutoCloseable {
     this.appMetadata = null;
   }
 
+  /**
+   * Create an ArrowMessage containing only application metadata.
+   * @param appMetadata The application-provided metadata buffer.
+   */
+  public ArrowMessage(ArrowBuf appMetadata) {
+    this.message = null;
+    this.bufs = ImmutableList.of();
+    this.descriptor = null;
+    this.appMetadata = appMetadata;
+  }
+
+  public ArrowMessage(FlightDescriptor descriptor) {
+    this.message = null;
+    this.bufs = ImmutableList.of();
+    this.descriptor = descriptor;
+    this.appMetadata = null;
+  }
+
   private ArrowMessage(FlightDescriptor descriptor, MessageMetadataResult message, ArrowBuf appMetadata,
                        ArrowBuf buf) {
     this.message = message;
@@ -171,6 +189,10 @@ class ArrowMessage implements AutoCloseable {
   }
 
   public HeaderType getMessageType() {
+    if (message == null) {
+      // Null message occurs for metadata-only messages (in DoExchange)
+      return HeaderType.NONE;
+    }
     return HeaderType.getHeader(message.headerType());
   }
 
@@ -271,8 +293,19 @@ class ArrowMessage implements AutoCloseable {
    * @return InputStream
    */
   private InputStream asInputStream(BufferAllocator allocator) {
-    try {
+    if (message == null) {
+      // If we have no IPC message, it's a pure-metadata message
+      final FlightData.Builder builder = FlightData.newBuilder();
+      if (descriptor != null) {
+        builder.setFlightDescriptor(descriptor);
+      }
+      if (appMetadata != null) {
+        builder.setAppMetadata(ByteString.copyFrom(appMetadata.nioBuffer()));
+      }
+      return NO_BODY_MARSHALLER.stream(builder.build());
+    }
 
+    try {
       final ByteString bytes = ByteString.copyFrom(message.getMessageBuffer(),
           message.bytesAfterMessage());
 
@@ -311,7 +344,7 @@ class ArrowMessage implements AutoCloseable {
         size += b.readableBytes();
         // [ARROW-4213] These buffers must be aligned to an 8-byte boundary in order to be readable from C++.
         if (b.readableBytes() % 8 != 0) {
-          int paddingBytes = (int)(8 - (b.readableBytes() % 8));
+          int paddingBytes = (int) (8 - (b.readableBytes() % 8));
           assert paddingBytes > 0 && paddingBytes < 8;
           size += paddingBytes;
           allBufs.add(PADDING_BUFFERS.get(paddingBytes).retain());

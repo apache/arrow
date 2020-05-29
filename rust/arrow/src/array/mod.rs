@@ -85,6 +85,8 @@ mod array;
 mod builder;
 mod data;
 mod equal;
+mod null;
+mod union;
 
 use crate::datatypes::*;
 
@@ -104,6 +106,8 @@ pub use self::array::ListArray;
 pub use self::array::PrimitiveArray;
 pub use self::array::StringArray;
 pub use self::array::StructArray;
+pub use self::null::NullArray;
+pub use self::union::UnionArray;
 
 pub(crate) use self::array::make_array;
 
@@ -192,6 +196,7 @@ pub use self::builder::PrimitiveDictionaryBuilder;
 pub use self::builder::StringBuilder;
 pub use self::builder::StringDictionaryBuilder;
 pub use self::builder::StructBuilder;
+pub use self::union::UnionBuilder;
 
 pub type BooleanBuilder = PrimitiveBuilder<BooleanType>;
 pub type Int8Builder = PrimitiveBuilder<Int8Type>;

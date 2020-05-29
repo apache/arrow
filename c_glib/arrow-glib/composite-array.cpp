@@ -498,7 +498,7 @@ garrow_union_array_get_field(GArrowUnionArray *array,
   if (i >= n_fields) {
     return NULL;
   }
-  auto arrow_field_array = arrow_union_array->child(i);
+  auto arrow_field_array = arrow_union_array->field(i);
   return garrow_array_new_raw(&arrow_field_array);
 }
 
@@ -572,7 +572,7 @@ garrow_sparse_union_array_new_data_type(GArrowSparseUnionDataType *data_type,
   auto arrow_union_data_type =
     std::static_pointer_cast<arrow::UnionType>(arrow_data_type);
   std::vector<std::string> arrow_field_names;
-  for (const auto &arrow_field : arrow_union_data_type->children()) {
+  for (const auto &arrow_field : arrow_union_data_type->fields()) {
     arrow_field_names.push_back(arrow_field->name());
   }
   auto arrow_type_ids = garrow_array_get_raw(GARROW_ARRAY(type_ids));
@@ -669,7 +669,7 @@ garrow_dense_union_array_new_data_type(GArrowDenseUnionDataType *data_type,
   auto arrow_union_data_type =
     std::static_pointer_cast<arrow::UnionType>(arrow_data_type);
   std::vector<std::string> arrow_field_names;
-  for (const auto &arrow_field : arrow_union_data_type->children()) {
+  for (const auto &arrow_field : arrow_union_data_type->fields()) {
     arrow_field_names.push_back(arrow_field->name());
   }
   auto arrow_type_ids = garrow_array_get_raw(GARROW_ARRAY(type_ids));

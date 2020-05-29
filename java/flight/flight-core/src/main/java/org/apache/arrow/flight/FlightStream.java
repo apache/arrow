@@ -22,6 +22,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingQueue;
 
@@ -60,16 +61,16 @@ public class FlightStream implements AutoCloseable {
   private final Cancellable cancellable;
   private final LinkedBlockingQueue<AutoCloseable> queue = new LinkedBlockingQueue<>();
   private final SettableFuture<VectorSchemaRoot> root = SettableFuture.create();
+  private final SettableFuture<FlightDescriptor> descriptor = SettableFuture.create();
   private final int pendingTarget;
   private final Requestor requestor;
+  final CompletableFuture<Void> completed;
 
   private volatile int pending = 1;
-  private boolean completed = false;
   private volatile VectorSchemaRoot fulfilledRoot;
   private DictionaryProvider.MapDictionaryProvider dictionaries;
   private volatile VectorLoader loader;
   private volatile Throwable ex;
-  private volatile FlightDescriptor descriptor;
   private volatile ArrowBuf applicationMetadata = null;
 
   /**
@@ -86,6 +87,7 @@ public class FlightStream implements AutoCloseable {
     this.cancellable = cancellable;
     this.requestor = requestor;
     this.dictionaries = new DictionaryProvider.MapDictionaryProvider();
+    this.completed = new CompletableFuture<>();
   }
 
   /**
@@ -136,9 +138,15 @@ public class FlightStream implements AutoCloseable {
    * client sends the descriptor.
    */
   public FlightDescriptor getDescriptor() {
-    // This blocks until the schema message (with the descriptor) is sent.
-    getRoot();
-    return descriptor;
+    // This blocks until the first message from the client is received.
+    try {
+      return descriptor.get();
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw CallStatus.INTERNAL.withCause(e).withDescription("Interrupted").toRuntimeException();
+    } catch (ExecutionException e) {
+      throw CallStatus.INTERNAL.withCause(e).withDescription("Error getting descriptor").toRuntimeException();
+    }
   }
 
   /**
@@ -150,11 +158,13 @@ public class FlightStream implements AutoCloseable {
     final List<AutoCloseable> closeables = new ArrayList<>();
     // cancellation can throw, but we still want to clean up resources, so make it an AutoCloseable too
     closeables.add(() -> {
-      if (!completed && cancellable != null) {
+      if (!completed.isDone() && cancellable != null) {
         cancel("Stream closed before end.", /* no exception to report */ null);
       }
     });
-    closeables.add(root.get());
+    if (fulfilledRoot != null) {
+      closeables.add(fulfilledRoot);
+    }
     closeables.add(applicationMetadata);
     closeables.addAll(queue);
     if (dictionaries != null) {
@@ -162,6 +172,9 @@ public class FlightStream implements AutoCloseable {
     }
 
     AutoCloseables.close(closeables);
+    // Other code ignores the value of this CompletableFuture, only whether it's completed (or has an exception)
+    // No-op if already complete; do this after the check in the AutoCloseable lambda above
+    completed.complete(null);
   }
 
   /**
@@ -170,13 +183,9 @@ public class FlightStream implements AutoCloseable {
    */
   public boolean next() {
     try {
-      // make sure we have the root
-      root.get().clear();
-
-      if (completed && queue.isEmpty()) {
+      if (completed.isDone() && queue.isEmpty()) {
         return false;
       }
-
 
       pending--;
       requestOutstanding();
@@ -184,7 +193,8 @@ public class FlightStream implements AutoCloseable {
       Object data = queue.take();
       if (DONE == data) {
         queue.put(DONE);
-        completed = true;
+        // Other code ignores the value of this CompletableFuture, only whether it's completed (or has an exception)
+        completed.complete(null);
         return false;
       } else if (DONE_EX == data) {
         queue.put(DONE_EX);
@@ -195,18 +205,22 @@ public class FlightStream implements AutoCloseable {
         }
       } else {
         try (ArrowMessage msg = ((ArrowMessage) data)) {
-          if (msg.getMessageType() == HeaderType.RECORD_BATCH) {
+          if (msg.getMessageType() == HeaderType.NONE) {
+            updateMetadata(msg);
+            // We received a message without data, so erase any leftover data
+            if (fulfilledRoot != null) {
+              fulfilledRoot.clear();
+            }
+          } else if (msg.getMessageType() == HeaderType.RECORD_BATCH) {
+            // Ensure we have the root
+            root.get().clear();
             try (ArrowRecordBatch arb = msg.asRecordBatch()) {
               loader.load(arb);
             }
-            if (this.applicationMetadata != null) {
-              this.applicationMetadata.close();
-            }
-            this.applicationMetadata = msg.getApplicationMetadata();
-            if (this.applicationMetadata != null) {
-              this.applicationMetadata.getReferenceManager().retain();
-            }
+            updateMetadata(msg);
           } else if (msg.getMessageType() == HeaderType.DICTIONARY_BATCH) {
+            // Ensure we have the root
+            root.get().clear();
             try (ArrowDictionaryBatch arb = msg.asDictionaryBatch()) {
               final long id = arb.getDictionaryId();
               if (dictionaries == null) {
@@ -239,6 +253,17 @@ public class FlightStream implements AutoCloseable {
     }
   }
 
+  /** Update our metdata reference with a new one from this message. */
+  private void updateMetadata(ArrowMessage msg) {
+    if (this.applicationMetadata != null) {
+      this.applicationMetadata.close();
+    }
+    this.applicationMetadata = msg.getApplicationMetadata();
+    if (this.applicationMetadata != null) {
+      this.applicationMetadata.getReferenceManager().retain();
+    }
+  }
+
   /**
    * Get the current vector data from the stream.
    *
@@ -255,6 +280,17 @@ public class FlightStream implements AutoCloseable {
     } catch (ExecutionException e) {
       throw StatusUtils.fromThrowable(e.getCause());
     }
+  }
+
+  /**
+   * Check if there is a root (i.e. whether the other end has started sending data).
+   *
+   * Updated by calls to {@link #next()}.
+   *
+   * @return true if and only if the other end has started sending data.
+   */
+  public boolean hasRoot() {
+    return root.isDone();
   }
 
   /**
@@ -285,6 +321,16 @@ public class FlightStream implements AutoCloseable {
     public void onNext(ArrowMessage msg) {
       requestOutstanding();
       switch (msg.getMessageType()) {
+        case NONE: {
+          // No IPC message - pure metadata or descriptor
+          if (msg.getDescriptor() != null) {
+            descriptor.set(new FlightDescriptor(msg.getDescriptor()));
+          }
+          if (msg.getApplicationMetadata() != null) {
+            queue.add(msg);
+          }
+          break;
+        }
         case SCHEMA: {
           Schema schema = msg.asSchema();
           final List<Field> fields = new ArrayList<>();
@@ -299,7 +345,9 @@ public class FlightStream implements AutoCloseable {
           schema = new Schema(fields, schema.getCustomMetadata());
           fulfilledRoot = VectorSchemaRoot.create(schema, allocator);
           loader = new VectorLoader(fulfilledRoot);
-          descriptor = msg.getDescriptor() != null ? new FlightDescriptor(msg.getDescriptor()) : null;
+          if (msg.getDescriptor() != null) {
+            descriptor.set(new FlightDescriptor(msg.getDescriptor()));
+          }
           root.set(fulfilledRoot);
 
           break;
@@ -310,7 +358,6 @@ public class FlightStream implements AutoCloseable {
         case DICTIONARY_BATCH:
           queue.add(msg);
           break;
-        case NONE:
         case TENSOR:
         default:
           queue.add(DONE_EX);
@@ -320,18 +367,14 @@ public class FlightStream implements AutoCloseable {
 
     @Override
     public void onError(Throwable t) {
-      ex = t;
+      ex = StatusUtils.fromThrowable(t);
       queue.add(DONE_EX);
-      root.setException(t);
+      root.setException(ex);
     }
 
     @Override
     public void onCompleted() {
       // Depends on gRPC calling onNext and onCompleted non-concurrently
-      if (!root.isDone()) {
-        root.setException(
-            CallStatus.INTERNAL.withDescription("Stream completed without receiving schema.").toRuntimeException());
-      }
       queue.add(DONE);
     }
   }
@@ -342,6 +385,8 @@ public class FlightStream implements AutoCloseable {
    * @throws UnsupportedOperationException on a stream being uploaded from the client.
    */
   public void cancel(String message, Throwable exception) {
+    completed.completeExceptionally(
+        CallStatus.CANCELLED.withDescription(message).withCause(exception).toRuntimeException());
     if (cancellable != null) {
       cancellable.cancel(message, exception);
     } else {
@@ -357,6 +402,7 @@ public class FlightStream implements AutoCloseable {
   /**
    * Provides a callback to cancel a process that is in progress.
    */
+  @FunctionalInterface
   public interface Cancellable {
     void cancel(String message, Throwable exception);
   }
@@ -364,6 +410,7 @@ public class FlightStream implements AutoCloseable {
   /**
    * Provides a interface to request more items from a stream producer.
    */
+  @FunctionalInterface
   public interface Requestor {
     /**
      * Requests <code>count</code> more messages from the instance of this object.

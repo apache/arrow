@@ -785,7 +785,7 @@ TEST_F(TestMapArray, ValueBuilder) {
   ASSERT_OK(BuildListOfStructPairs(list_builder, &actual_list));
 
   MapArray* map_ptr = internal::checked_cast<MapArray*>(actual_map.get());
-  auto list_type = std::make_shared<ListType>(map_type->child(0));
+  auto list_type = std::make_shared<ListType>(map_type->field(0));
   ListArray map_as_list(list_type, map_ptr->length(), map_ptr->data()->buffers[1],
                         map_ptr->values(), actual_map->data()->buffers[0],
                         map_ptr->null_count());

@@ -37,6 +37,6 @@ public class AvroFloatConsumer extends BaseAvroConsumer<Float4Vector> {
 
   @Override
   public void consume(Decoder decoder) throws IOException {
-    vector.setSafe(currentIndex++, decoder.readFloat());
+    vector.set(currentIndex++, decoder.readFloat());
   }
 }

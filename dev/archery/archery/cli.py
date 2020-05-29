@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -259,7 +258,8 @@ lint_checks = [
     LintCheck('clang-tidy', "Lint C++ files with clang-tidy."),
     LintCheck('cpplint', "Lint C++ files with cpplint."),
     LintCheck('iwyu', "Lint changed C++ files with Include-What-You-Use."),
-    LintCheck('flake8', "Lint Python files with flake8."),
+    LintCheck('python',
+              "Format and lint Python files with autopep8 and flake8."),
     LintCheck('numpydoc', "Lint Python files with numpydoc."),
     LintCheck('cmake-format', "Format CMake files with cmake-format.py."),
     LintCheck('rat',
@@ -462,7 +462,7 @@ def benchmark_run(ctx, rev_or_path, src, preserve, output, cmake_extras,
               help="Regression failure threshold in percentage.")
 @click.argument("contender", metavar="[<contender>",
                 default=ArrowSources.WORKSPACE, required=False)
-@click.argument("baseline", metavar="[<baseline>]]", default="master",
+@click.argument("baseline", metavar="[<baseline>]]", default="origin/master",
                 required=False)
 @click.pass_context
 def benchmark_diff(ctx, src, preserve, output, cmake_extras,
@@ -583,6 +583,8 @@ def _set_default(opt, default):
               help='Include JavaScript in integration tests')
 @click.option('--with-go', type=bool, default=False,
               help='Include Go in integration tests')
+@click.option('--with-rust', type=bool, default=False,
+              help='Include Rust in integration tests')
 @click.option('--write_generated_json', default=False,
               help='Generate test JSON to indicated path')
 @click.option('--run-flight', is_flag=True, default=False,
@@ -696,9 +698,11 @@ def docker_compose(obj, src):
 @click.option('--dry-run/--execute', default=False,
               help="Display the docker-compose commands instead of executing "
                    "them.")
+@click.option('--volume', '-v', multiple=True,
+              help="Set volume within the container")
 @click.pass_obj
 def docker_compose_run(obj, image, command, env, force_pull, force_build,
-                       use_cache, use_leaf_cache, dry_run):
+                       use_cache, use_leaf_cache, dry_run, volume):
     """Execute docker-compose builds.
 
     To see the available builds run `archery docker list`.
@@ -723,6 +727,9 @@ def docker_compose_run(obj, image, command, env, force_pull, force_build,
     # pass runtime parameters via docker environment variables
     archery docker run -e CMAKE_BUILD_TYPE=release ubuntu-cpp
 
+    # set a volume
+    archery docker run -v $PWD/build:/build ubuntu-cpp
+
     # starting an interactive bash session for debugging
     archery docker run ubuntu-cpp bash
     """
@@ -740,14 +747,17 @@ def docker_compose_run(obj, image, command, env, force_pull, force_build,
 
         compose._execute = MethodType(_print_command, compose)
 
+    env = dict(kv.split('=') for kv in env)
     try:
         compose.run(
             image,
             command=command,
+            env=env,
             force_pull=force_pull,
             force_build=force_build,
             use_cache=use_cache,
-            use_leaf_cache=use_leaf_cache
+            use_leaf_cache=use_leaf_cache,
+            volumes=volume
         )
     except UndefinedImage as e:
         raise click.ClickException(

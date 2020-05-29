@@ -17,6 +17,7 @@
 
 #include "arrow/ipc/dictionary.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <memory>
 #include <utility>
@@ -141,6 +142,25 @@ Status DictionaryMemo::AddDictionary(int64_t id,
   return Status::OK();
 }
 
+DictionaryMemo::DictionaryVector DictionaryMemo::dictionaries() const {
+  // Sort dictionaries by ascending id.   This ensures that, in the case
+  // of nested dictionaries, inner dictionaries are emitted before outer
+  // dictionaries.
+  // XXX This shouldn't be required.  On the IPC write path, the
+  // DictionaryMemo only needs to store a vector of dictionaries
+  // (by-id lookups are only needed on the IPC read path).
+  using DictEntry = typename DictionaryVector::value_type;
+
+  std::vector<DictEntry> dict_entries(id_to_dictionary_.size());
+  std::copy(id_to_dictionary_.begin(), id_to_dictionary_.end(), dict_entries.begin());
+
+  const auto compare_entries = [](const DictEntry& l, const DictEntry& r) {
+    return l.first < r.first;
+  };
+  std::sort(dict_entries.begin(), dict_entries.end(), compare_entries);
+  return dict_entries;
+}
+
 // ----------------------------------------------------------------------
 // CollectDictionaries implementation
 
@@ -148,9 +168,9 @@ struct DictionaryCollector {
   DictionaryMemo* dictionary_memo_;
 
   Status WalkChildren(const DataType& type, const Array& array) {
-    for (int i = 0; i < type.num_children(); ++i) {
+    for (int i = 0; i < type.num_fields(); ++i) {
       auto boxed_child = MakeArray(array.data()->child_data[i]);
-      RETURN_NOT_OK(Visit(type.child(i), boxed_child.get()));
+      RETURN_NOT_OK(Visit(type.field(i), boxed_child.get()));
     }
     return Status::OK();
   }

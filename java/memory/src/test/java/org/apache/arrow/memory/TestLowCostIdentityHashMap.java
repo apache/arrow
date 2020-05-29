@@ -47,11 +47,11 @@ public class TestLowCostIdentityHashMap {
 
     assertEquals(4, hashMap.size());
 
-    assertEquals(obj4,hashMap.get("s1key"));
+    assertEquals(obj4, hashMap.get("s1key"));
 
     assertNull(hashMap.remove("abc"));
 
-    assertEquals(obj3,hashMap.remove("s3key"));
+    assertEquals(obj3, hashMap.remove("s3key"));
 
     assertEquals(3, hashMap.size());
 
@@ -68,7 +68,7 @@ public class TestLowCostIdentityHashMap {
     assertTrue(hashMap.containsValue(obj2));
     assertTrue(hashMap.containsValue(obj5));
 
-    assertEquals(obj4,hashMap.remove("s1key"));
+    assertEquals(obj4, hashMap.remove("s1key"));
 
     nextValue = hashMap.getNextValue();
 
@@ -78,8 +78,8 @@ public class TestLowCostIdentityHashMap {
 
     assertEquals(2, hashMap.size());
 
-    assertEquals(obj2,hashMap.remove("s2key"));
-    assertEquals(obj5,hashMap.remove("s5key"));
+    assertEquals(obj2, hashMap.remove("s2key"));
+    assertEquals(obj5, hashMap.remove("s5key"));
 
     assertEquals(0, hashMap.size());
 

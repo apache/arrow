@@ -18,6 +18,8 @@
 #include "./arrow_types.h"
 
 #if defined(ARROW_R_WITH_ARROW)
+#include <arrow/ipc/feather.h>
+#include <arrow/type.h>
 
 // ---------- WriteFeather
 

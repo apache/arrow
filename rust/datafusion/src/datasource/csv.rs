@@ -15,7 +15,23 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! CSV Data source
+//! CSV data source
+//!
+//! This CSV data source allows CSV files to be used as input for queries.
+//!
+//! Example:
+//!
+//! ```
+//! use datafusion::datasource::TableProvider;
+//! use datafusion::datasource::csv::{CsvFile, CsvReadOptions};
+//!
+//! let testdata = std::env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+//! let csvdata = CsvFile::try_new(
+//!     &format!("{}/csv/aggregate_test_100.csv", testdata),
+//!     CsvReadOptions::new().delimiter(b'|'),
+//! ).unwrap();
+//! let schema = csvdata.schema();
+//! ```
 
 use std::fs::File;
 
@@ -28,24 +44,31 @@ use std::sync::Arc;
 use crate::datasource::{ScanResult, TableProvider};
 use crate::error::Result;
 use crate::execution::physical_plan::csv::CsvExec;
+pub use crate::execution::physical_plan::csv::CsvReadOptions;
 use crate::execution::physical_plan::{BatchIterator, ExecutionPlan};
 
 /// Represents a CSV file with a provided schema
-// TODO: usage example (rather than documenting `new()`)
 pub struct CsvFile {
     filename: String,
     schema: Arc<Schema>,
     has_header: bool,
+    delimiter: u8,
 }
 
 impl CsvFile {
-    #[allow(missing_docs)]
-    pub fn new(filename: &str, schema: &Schema, has_header: bool) -> Self {
-        Self {
+    /// Attempt to initialize a new `CsvFile` from a file path
+    pub fn try_new(filename: &str, options: CsvReadOptions) -> Result<Self> {
+        let schema = Arc::new(match options.schema {
+            Some(s) => s.clone(),
+            None => CsvExec::try_infer_schema(filename, &options)?,
+        });
+
+        Ok(Self {
             filename: String::from(filename),
-            schema: Arc::new(schema.clone()),
-            has_header,
-        }
+            schema,
+            has_header: options.has_header,
+            delimiter: options.delimiter,
+        })
     }
 }
 
@@ -61,8 +84,10 @@ impl TableProvider for CsvFile {
     ) -> Result<Vec<ScanResult>> {
         let exec = CsvExec::try_new(
             &self.filename,
-            self.schema.clone(),
-            self.has_header,
+            CsvReadOptions::new()
+                .schema(&self.schema)
+                .has_header(self.has_header)
+                .delimiter(self.delimiter),
             projection.clone(),
             batch_size,
         )?;
@@ -88,6 +113,7 @@ impl CsvBatchIterator {
         filename: &str,
         schema: Arc<Schema>,
         has_header: bool,
+        delimiter: Option<u8>,
         projection: &Option<Vec<usize>>,
         batch_size: usize,
     ) -> Result<Self> {
@@ -96,6 +122,7 @@ impl CsvBatchIterator {
             file,
             schema.clone(),
             has_header,
+            delimiter,
             batch_size,
             projection.clone(),
         );

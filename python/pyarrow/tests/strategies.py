@@ -110,7 +110,7 @@ def list_types(item_strategy=primitive_types):
     return (
         st.builds(pa.list_, item_strategy) |
         st.builds(pa.large_list, item_strategy)
-        )
+    )
 
 
 def struct_types(item_strategy=primitive_types):

@@ -330,7 +330,7 @@ public class TestDecimalVector {
             new ArrowType.Decimal(5, 2), allocator);
          ArrowBuf buf = allocator.buffer(9);) {
       BigDecimal [] expectedValues = new BigDecimal[] {BigDecimal.valueOf(705.32), BigDecimal
-              .valueOf(-705.32),BigDecimal.valueOf(705.32)};
+              .valueOf(-705.32), BigDecimal.valueOf(705.32)};
       verifyWritingArrowBufWithBigEndianBytes(decimalVector, buf, expectedValues, 3);
     }
 

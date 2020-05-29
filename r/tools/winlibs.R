@@ -39,9 +39,7 @@ if(!file.exists(sprintf("windows/arrow-%s/include/arrow/api.h", VERSION))){
       )
     }
     # URL templates
-    # TODO: don't hard-code RTools 3.5? Can we detect which toolchain we have?
-    # ifelse(nzchar(Sys.getenv("RTOOLS40_HOME")), "40", "35")
-    nightly <- "https://dl.bintray.com/ursalabs/arrow-r/libarrow/bin/windows-35/arrow-%s.zip"
+    nightly <- "https://dl.bintray.com/ursalabs/arrow-r/libarrow/bin/windows/arrow-%s.zip"
     rwinlib <- "https://github.com/rwinlib/arrow/archive/v%s.zip"
     # First look for a nightly
     get_file(nightly, VERSION)

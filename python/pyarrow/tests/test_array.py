@@ -950,19 +950,31 @@ def test_cast_none():
     # ARROW-3735: Ensure that calling cast(None) doesn't segfault.
     arr = pa.array([1, 2, 3])
 
-    with pytest.raises(TypeError):
+    with pytest.raises(ValueError):
         arr.cast(None)
 
 
 def test_cast_list_to_primitive():
     # ARROW-8070: cast segfaults on unsupported cast from list<binary> to utf8
     arr = pa.array([[1, 2], [3, 4]])
-    with pytest.raises(pa.ArrowInvalid):
+    with pytest.raises(NotImplementedError):
         arr.cast(pa.int8())
 
     arr = pa.array([[b"a", b"b"], [b"c"]], pa.list_(pa.binary()))
-    with pytest.raises(pa.ArrowInvalid):
+    with pytest.raises(NotImplementedError):
         arr.cast(pa.binary())
+
+
+def test_slice_chunked_array_zero_chunks():
+    # ARROW-8911
+    arr = pa.chunked_array([], type='int8')
+    assert arr.num_chunks == 0
+
+    result = arr[:]
+    assert result.equals(arr)
+
+    # Do not crash
+    arr[:5]
 
 
 def test_cast_chunked_array():
@@ -1208,7 +1220,7 @@ def test_cast_from_null():
         pa.struct([pa.field('a', pa.int32()),
                    pa.field('b', pa.list_(pa.int8())),
                    pa.field('c', pa.string())]),
-        ]
+    ]
     for out_type in out_types:
         _check_cast_case((in_data, in_type, in_data, out_type))
 
@@ -1218,7 +1230,7 @@ def test_cast_from_null():
                   pa.field('b', pa.string())], mode=pa.lib.UnionMode_DENSE),
         pa.union([pa.field('a', pa.binary(10)),
                   pa.field('b', pa.string())], mode=pa.lib.UnionMode_SPARSE),
-        ]
+    ]
     in_arr = pa.array(in_data, type=pa.null())
     for out_type in out_types:
         with pytest.raises(NotImplementedError):
@@ -1246,7 +1258,7 @@ def test_cast_dictionary():
         pa.array([0, 1, None], type=pa.int32()),
         pa.array(["foo", "bar"]))
     assert arr.cast(pa.string()).equals(pa.array(["foo", "bar", None]))
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(pa.ArrowInvalid):
         # Shouldn't crash (ARROW-7077)
         arr.cast(pa.int32())
 
@@ -2225,7 +2237,7 @@ def test_empty_cast():
             # ARROW-4766: Ensure that supported types conversion don't segfault
             # on empty arrays of common types
             pa.array([], type=t1).cast(t2)
-        except pa.lib.ArrowNotImplementedError:
+        except (pa.lib.ArrowNotImplementedError, pa.ArrowInvalid):
             continue
 
 

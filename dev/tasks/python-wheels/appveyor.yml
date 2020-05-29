@@ -21,9 +21,9 @@ environment:
   ARCH: "64"
   GENERATOR: Visual Studio 14 2015 Win64
   PYTHON_VERSION: "{{ python_version }}"
+  PYTHON_INTERPRETER: {{ python_interpreter }}
   ARROW_SRC: C:\apache-arrow
   PYARROW_VERSION: {{ arrow.no_rc_version }}
-  PYARROW_REF: {{ arrow.head }}
 
 init:
   - set MINICONDA=C:\Miniconda3-x64
@@ -46,6 +46,9 @@ build_script:
   - rd /s /q C:\OpenSSL-v11-Win64
   - rd /s /q C:\OpenSSL-v111-Win32
   - rd /s /q C:\OpenSSL-v111-Win64
+
+  # Disable vcpkg to prevent unrelated noisy link warnings
+  - vcpkg integrate remove
 
   - call %ARROW_SRC%\dev\tasks\python-wheels\{{ script }}
 

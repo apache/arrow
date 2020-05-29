@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -162,7 +161,8 @@ class DockerCompose(Command):
             self._execute('build', '--no-cache', image)
 
     def run(self, image, command=None, env=None, force_pull=False,
-            force_build=False, use_cache=True, use_leaf_cache=True):
+            force_build=False, use_cache=True, use_leaf_cache=True,
+            volumes=None):
         self._validate_image(image)
 
         if force_pull:
@@ -175,6 +175,9 @@ class DockerCompose(Command):
         if env is not None:
             for k, v in env.items():
                 args.extend(['-e', '{}={}'.format(k, v)])
+        if volumes is not None:
+            for volume in volumes:
+                args.extend(['--volume', volume])
 
         args.append(image)
         if command is not None:

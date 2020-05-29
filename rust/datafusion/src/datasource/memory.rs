@@ -19,29 +19,34 @@
 //! queried by DataFusion. This allows data to be pre-loaded into memory and then
 //! repeatedly queried without incurring additional file I/O overhead.
 
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use arrow::datatypes::{Field, Schema};
 use arrow::record_batch::RecordBatch;
 
 use crate::datasource::{ScanResult, TableProvider};
 use crate::error::{ExecutionError, Result};
-use crate::execution::physical_plan::BatchIterator;
+use crate::execution::physical_plan::memory::MemoryExec;
+use crate::execution::physical_plan::ExecutionPlan;
 
 /// In-memory table
 pub struct MemTable {
     schema: Arc<Schema>,
-    batches: Vec<RecordBatch>,
+    batches: Vec<Vec<RecordBatch>>,
 }
 
 impl MemTable {
     /// Create a new in-memory table from the provided schema and record batches
-    pub fn new(schema: Arc<Schema>, batches: Vec<RecordBatch>) -> Result<Self> {
-        if batches
-            .iter()
-            .all(|batch| batch.schema().as_ref() == schema.as_ref())
-        {
-            Ok(Self { schema, batches })
+    pub fn new(schema: Arc<Schema>, partitions: Vec<Vec<RecordBatch>>) -> Result<Self> {
+        if partitions.iter().all(|partition| {
+            partition
+                .iter()
+                .all(|batches| batches.schema().as_ref() == schema.as_ref())
+        }) {
+            Ok(Self {
+                schema,
+                batches: partitions,
+            })
         } else {
             Err(ExecutionError::General(
                 "Mismatch between schema and batches".to_string(),
@@ -54,11 +59,13 @@ impl MemTable {
         let schema = t.schema();
         let partitions = t.scan(&None, 1024 * 1024)?;
 
-        let mut data: Vec<RecordBatch> = vec![];
+        let mut data: Vec<Vec<RecordBatch>> = Vec::with_capacity(partitions.len());
         for it in &partitions {
+            let mut partition = vec![];
             while let Ok(Some(batch)) = it.lock().unwrap().next() {
-                data.push(batch);
+                partition.push(batch);
             }
+            data.push(partition);
         }
 
         MemTable::new(schema.clone(), data)
@@ -102,47 +109,17 @@ impl TableProvider for MemTable {
 
         let projected_schema = Arc::new(Schema::new(projected_columns?));
 
-        let batches = self
-            .batches
+        let exec = MemoryExec::try_new(
+            &self.batches.clone(),
+            projected_schema,
+            projection.clone(),
+        )?;
+        let partitions = exec.partitions()?;
+        let iterators = partitions
             .iter()
-            .map(|batch| {
-                RecordBatch::try_new(
-                    projected_schema.clone(),
-                    columns.iter().map(|i| batch.column(*i).clone()).collect(),
-                )
-            })
-            .collect();
-
-        match batches {
-            Ok(batches) => Ok(vec![Arc::new(Mutex::new(MemBatchIterator {
-                schema: projected_schema.clone(),
-                index: 0,
-                batches,
-            }))]),
-            Err(e) => Err(ExecutionError::ArrowError(e)),
-        }
-    }
-}
-
-/// Iterator over an in-memory table
-pub struct MemBatchIterator {
-    schema: Arc<Schema>,
-    index: usize,
-    batches: Vec<RecordBatch>,
-}
-
-impl BatchIterator for MemBatchIterator {
-    fn schema(&self) -> Arc<Schema> {
-        self.schema.clone()
-    }
-
-    fn next(&mut self) -> Result<Option<RecordBatch>> {
-        if self.index < self.batches.len() {
-            self.index += 1;
-            Ok(Some(self.batches[self.index - 1].clone()))
-        } else {
-            Ok(None)
-        }
+            .map(|p| p.execute())
+            .collect::<Result<Vec<_>>>()?;
+        Ok(iterators)
     }
 }
 
@@ -170,7 +147,7 @@ mod tests {
         )
         .unwrap();
 
-        let provider = MemTable::new(schema, vec![batch]).unwrap();
+        let provider = MemTable::new(schema, vec![vec![batch]]).unwrap();
 
         // scan with projection
         let partitions = provider.scan(&Some(vec![2, 1]), 1024).unwrap();
@@ -199,7 +176,7 @@ mod tests {
         )
         .unwrap();
 
-        let provider = MemTable::new(schema, vec![batch]).unwrap();
+        let provider = MemTable::new(schema, vec![vec![batch]]).unwrap();
 
         let partitions = provider.scan(&None, 1024).unwrap();
         let batch1 = partitions[0].lock().unwrap().next().unwrap().unwrap();
@@ -225,7 +202,7 @@ mod tests {
         )
         .unwrap();
 
-        let provider = MemTable::new(schema, vec![batch]).unwrap();
+        let provider = MemTable::new(schema, vec![vec![batch]]).unwrap();
 
         let projection: Vec<usize> = vec![0, 4];
 
@@ -261,7 +238,7 @@ mod tests {
         )
         .unwrap();
 
-        match MemTable::new(schema2, vec![batch]) {
+        match MemTable::new(schema2, vec![vec![batch]]) {
             Err(ExecutionError::General(e)) => assert_eq!(
                 "\"Mismatch between schema and batches\"",
                 format!("{:?}", e)

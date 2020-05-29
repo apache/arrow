@@ -67,7 +67,7 @@ such topics as:
    developers/contributing
    developers/cpp/index
    developers/python
-   developers/integration
+   developers/archery
    developers/crossbow
    developers/docker
    developers/benchmarks

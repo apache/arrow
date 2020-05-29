@@ -33,13 +33,8 @@ import org.apache.arrow.flight.grpc.ServerInterceptorAdapter;
 import org.apache.arrow.flight.grpc.StatusUtils;
 import org.apache.arrow.flight.impl.Flight;
 import org.apache.arrow.flight.impl.FlightServiceGrpc.FlightServiceImplBase;
-import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.util.Preconditions;
-import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.VectorUnloader;
-import org.apache.arrow.vector.dictionary.DictionaryProvider;
-import org.apache.arrow.vector.dictionary.DictionaryProvider.MapDictionaryProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -90,10 +85,12 @@ class FlightService extends FlightServiceImplBase {
     // Do NOT call StreamPipe#onCompleted, as the FlightProducer implementation may be asynchronous
   }
 
-  public void doGetCustom(Flight.Ticket ticket, StreamObserver<ArrowMessage> responseObserver) {
+  public void doGetCustom(Flight.Ticket ticket, StreamObserver<ArrowMessage> responseObserverSimple) {
+    final ServerCallStreamObserver<ArrowMessage> responseObserver =
+        (ServerCallStreamObserver<ArrowMessage>) responseObserverSimple;
     final GetListener listener = new GetListener(responseObserver, this::handleExceptionWithMiddleware);
     try {
-      producer.getStream(makeContext((ServerCallStreamObserver<?>) responseObserver), new Ticket(ticket), listener);
+      producer.getStream(makeContext(responseObserver), new Ticket(ticket), listener);
     } catch (Exception ex) {
       listener.error(ex);
     }
@@ -126,7 +123,7 @@ class FlightService extends FlightServiceImplBase {
     // Do NOT call StreamPipe#onCompleted, as the FlightProducer implementation may be asynchronous
   }
 
-  private static class GetListener implements ServerStreamListener {
+  private static class GetListener extends OutboundStreamListenerImpl implements ServerStreamListener {
     private ServerCallStreamObserver<ArrowMessage> responseObserver;
     private final Consumer<Throwable> errorHandler;
     private Runnable onCancelHandler = null;
@@ -134,11 +131,11 @@ class FlightService extends FlightServiceImplBase {
     private volatile VectorUnloader unloader;
     private boolean completed;
 
-    public GetListener(StreamObserver<ArrowMessage> responseObserver, Consumer<Throwable> errorHandler) {
-      super();
+    public GetListener(ServerCallStreamObserver<ArrowMessage> responseObserver, Consumer<Throwable> errorHandler) {
+      super(null, responseObserver);
       this.errorHandler = errorHandler;
       this.completed = false;
-      this.responseObserver = (ServerCallStreamObserver<ArrowMessage>) responseObserver;
+      this.responseObserver = responseObserver;
       this.responseObserver.setOnCancelHandler(this::onCancel);
       this.responseObserver.disableAutoInboundFlowControl();
     }
@@ -156,60 +153,20 @@ class FlightService extends FlightServiceImplBase {
     }
 
     @Override
-    public boolean isReady() {
-      return responseObserver.isReady();
-    }
-
-    @Override
     public boolean isCancelled() {
       return responseObserver.isCancelled();
     }
 
     @Override
-    public void start(VectorSchemaRoot root) {
-      start(root, new MapDictionaryProvider());
-    }
-
-    @Override
-    public void start(VectorSchemaRoot root, DictionaryProvider provider) {
-      unloader = new VectorUnloader(root, true, true);
-
-      try {
-        DictionaryUtils.generateSchemaMessages(root.getSchema(), null, provider, responseObserver::onNext);
-      } catch (Exception e) {
-        // Only happens if closing buffers somehow fails - indicates application is an unknown state so propagate
-        // the exception
-        throw new RuntimeException("Could not generate and send all schema messages", e);
-      }
-    }
-
-    @Override
-    public void putNext() {
-      putNext(null);
-    }
-
-    @Override
-    public void putNext(ArrowBuf metadata) {
-      Preconditions.checkNotNull(unloader);
-      // close is a no-op if the message has been written to gRPC, otherwise frees the associated buffers
-      // in some code paths (e.g. if the call is cancelled), gRPC does not write the message, so we need to clean up
-      // ourselves. Normally, writing the ArrowMessage will transfer ownership of the data to gRPC/Netty.
-      try (final ArrowMessage message = new ArrowMessage(unloader.getRecordBatch(), metadata)) {
-        responseObserver.onNext(message);
-      } catch (Exception e) {
-        // This exception comes from ArrowMessage#close, not responseObserver#onNext.
-        // Generally this should not happen - ArrowMessage's implementation only closes non-throwing things.
-        // The user can't reasonably do anything about this, but if something does throw, we shouldn't let
-        // execution continue since other state (e.g. allocators) may be in an odd state.
-        throw new RuntimeException("Could not free ArrowMessage", e);
-      }
+    protected void waitUntilStreamReady() {
+      // Don't do anything - service implementations are expected to manage backpressure themselves
     }
 
     @Override
     public void error(Throwable ex) {
       if (!completed) {
         completed = true;
-        responseObserver.onError(StatusUtils.toGrpcException(ex));
+        super.error(ex);
       } else {
         errorHandler.accept(ex);
       }
@@ -217,17 +174,13 @@ class FlightService extends FlightServiceImplBase {
 
     @Override
     public void completed() {
-      if (unloader == null) {
-        throw new IllegalStateException("Can't complete stream before starting it");
-      }
       if (!completed) {
         completed = true;
-        responseObserver.onCompleted();
+        super.completed();
       } else {
         errorHandler.accept(new IllegalStateException("Tried to complete already-completed call"));
       }
     }
-
   }
 
   public StreamObserver<ArrowMessage> doPutCustom(final StreamObserver<Flight.PutResult> responseObserverSimple) {
@@ -248,14 +201,15 @@ class FlightService extends FlightServiceImplBase {
       } catch (Exception ex) {
         ackStream.onError(ex);
       } finally {
-        // ARROW-6136: Close the stream if and only if acceptPut hasn't closed it itself
-        // We don't do this for other streams since the implementation may be asynchronous
-        ackStream.ensureCompleted();
+        // Close this stream before telling gRPC that the call is complete. That way we don't race with server shutdown.
         try {
           fs.close();
         } catch (Exception e) {
           handleExceptionWithMiddleware(e);
         }
+        // ARROW-6136: Close the stream if and only if acceptPut hasn't closed it itself
+        // We don't do this for other streams since the implementation may be asynchronous
+        ackStream.ensureCompleted();
       }
     });
 
@@ -300,6 +254,103 @@ class FlightService extends FlightServiceImplBase {
     } catch (Exception ex) {
       responseObserver.onError(StatusUtils.toGrpcException(ex));
     }
+  }
+
+  /** Ensures that other resources are cleaned up when the service finishes its call.  */
+  private static class ExchangeListener extends GetListener {
+    private final AutoCloseable resource;
+    private boolean closed = false;
+    private Runnable onCancelHandler = null;
+
+    public ExchangeListener(ServerCallStreamObserver<ArrowMessage> responseObserver, Consumer<Throwable> errorHandler,
+                            AutoCloseable resource) {
+      super(responseObserver, errorHandler);
+      this.resource = resource;
+      super.setOnCancelHandler(() -> {
+        try {
+          if (onCancelHandler != null) {
+            onCancelHandler.run();
+          }
+        } finally {
+          cleanup();
+        }
+      });
+    }
+
+    private void cleanup() {
+      if (closed) {
+        // Prevent double-free. gRPC will call the OnCancelHandler even on a normal call end, which means that
+        // we'll double-free without this guard.
+        return;
+      }
+      closed = true;
+      try {
+        this.resource.close();
+      } catch (Exception e) {
+        throw CallStatus.INTERNAL
+            .withCause(e)
+            .withDescription("Server internal error cleaning up resources")
+            .toRuntimeException();
+      }
+    }
+
+    @Override
+    public void error(Throwable ex) {
+      try {
+        this.cleanup();
+      } finally {
+        super.error(ex);
+      }
+    }
+
+    @Override
+    public void completed() {
+      try {
+        this.cleanup();
+      } finally {
+        super.completed();
+      }
+    }
+
+    @Override
+    public void setOnCancelHandler(Runnable handler) {
+      onCancelHandler = handler;
+    }
+  }
+
+  public StreamObserver<ArrowMessage> doExchangeCustom(StreamObserver<ArrowMessage> responseObserverSimple) {
+    final ServerCallStreamObserver<ArrowMessage> responseObserver =
+        (ServerCallStreamObserver<ArrowMessage>) responseObserverSimple;
+    final FlightStream fs = new FlightStream(allocator, PENDING_REQUESTS, (String message, Throwable cause) -> {
+      responseObserver.onError(Status.CANCELLED.withCause(cause).withDescription(message).asException());
+    }, responseObserver::request);
+    // When service completes the call, this cleans up the FlightStream
+    final ExchangeListener listener = new ExchangeListener(
+        responseObserver,
+        this::handleExceptionWithMiddleware,
+        () -> {
+          // Force the stream to "complete" so it will close without incident. At this point, we don't care since
+          // we are about to end the call. (Normally it will raise an error.)
+          fs.completed.complete(null);
+          fs.close();
+        });
+    responseObserver.disableAutoInboundFlowControl();
+    responseObserver.request(1);
+    final StreamObserver<ArrowMessage> observer = fs.asObserver();
+    try {
+      executors.submit(() -> {
+        try {
+          producer.doExchange(makeContext(responseObserver), fs, listener);
+        } catch (Exception ex) {
+          listener.error(ex);
+        }
+        // We do not clean up or close anything here, to allow long-running asynchronous implementations.
+        // It is the service's responsibility to call completed() or error(), which will then clean up the FlightStream.
+      });
+    } catch (Exception ex) {
+      listener.error(ex);
+    }
+    return observer;
   }
 
   /**

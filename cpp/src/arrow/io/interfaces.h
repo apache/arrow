@@ -26,13 +26,10 @@
 #include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/string_view.h"
+#include "arrow/util/type_fwd.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
-
-template <typename T>
-class Future;
-
 namespace io {
 
 struct ReadRange {
@@ -49,6 +46,17 @@ struct ReadRange {
   bool Contains(const ReadRange& other) const {
     return (offset <= other.offset && offset + length >= other.offset + other.length);
   }
+};
+
+// EXPERIMENTAL
+struct ARROW_EXPORT AsyncContext {
+  ::arrow::internal::Executor* executor;
+  // An application-specific ID, forwarded to executor task submissions
+  int64_t external_id = -1;
+
+  // Set `executor` to a global IO-specific thread pool.
+  AsyncContext();
+  explicit AsyncContext(::arrow::internal::Executor* executor);
 };
 
 class ARROW_EXPORT FileInterface {
@@ -225,8 +233,16 @@ class ARROW_EXPORT RandomAccessFile
   /// \return A buffer containing the bytes read, or an error
   virtual Result<std::shared_ptr<Buffer>> ReadAt(int64_t position, int64_t nbytes);
 
-  // EXPERIMENTAL
-  virtual Future<std::shared_ptr<Buffer>> ReadAsync(int64_t position, int64_t nbytes);
+  /// EXPERIMENTAL: Read data asynchronously.
+  virtual Future<std::shared_ptr<Buffer>> ReadAsync(const AsyncContext&, int64_t position,
+                                                    int64_t nbytes);
+
+  /// EXPERIMENTAL: Inform that the given ranges may be read soon.
+  ///
+  /// Some implementations might arrange to prefetch some of the data.
+  /// However, no guarantee is made and the default implementation does nothing.
+  /// For robust prefetching, use ReadAt() or ReadAsync().
+  virtual Status WillNeed(const std::vector<ReadRange>& ranges);
 
  protected:
   RandomAccessFile();

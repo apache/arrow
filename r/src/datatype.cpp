@@ -23,6 +23,11 @@ using Rcpp::stop;
 using Rcpp::wrap;
 
 #if defined(ARROW_R_WITH_ARROW)
+#include <arrow/type.h>
+
+RCPP_EXPOSED_ENUM_NODECL(arrow::Type::type)
+RCPP_EXPOSED_ENUM_NODECL(arrow::DateUnit)
+RCPP_EXPOSED_ENUM_NODECL(arrow::TimeUnit::type)
 
 // [[arrow::export]]
 bool shared_ptr_is_null(SEXP xp) {
@@ -158,12 +163,12 @@ bool DataType__Equals(const std::shared_ptr<arrow::DataType>& lhs,
 
 // [[arrow::export]]
 int DataType__num_children(const std::shared_ptr<arrow::DataType>& type) {
-  return type->num_children();
+  return type->num_fields();
 }
 
 // [[arrow::export]]
 List DataType__children_pointer(const std::shared_ptr<arrow::DataType>& type) {
-  return List(type->children().begin(), type->children().end());
+  return List(type->fields().begin(), type->fields().end());
 }
 
 // [[arrow::export]]

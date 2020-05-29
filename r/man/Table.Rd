@@ -73,7 +73,9 @@ There are also some active bindings:
 \item \verb{$num_columns}
 \item \verb{$num_rows}
 \item \verb{$schema}
-\item \verb{$metadata}: Returns the key-value metadata of the \code{Schema}
+\item \verb{$metadata}: Returns the key-value metadata of the \code{Schema} as a named list.
+Modify or replace by assigning in (\code{tab$metadata <- new_metadata}).
+All list elements are coerced to string.
 \item \verb{$columns}: Returns a list of \code{ChunkedArray}s
 }
 }

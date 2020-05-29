@@ -73,8 +73,8 @@ public class ProjectorDecimalTest extends org.apache.arrow.gandiva.evaluator.Bas
 
     int numRows = 4;
     byte[] validity = new byte[]{(byte) 255};
-    String[] aValues = new String[]{"1.12345678","2.12345678","3.12345678","4.12345678"};
-    String[] bValues = new String[]{"2.12345678","3.12345678","4.12345678","5.12345678"};
+    String[] aValues = new String[]{"1.12345678", "2.12345678", "3.12345678", "4.12345678"};
+    String[] bValues = new String[]{"2.12345678", "3.12345678", "4.12345678", "5.12345678"};
 
     DecimalVector valuesa = decimalVector(aValues, precision, scale);
     DecimalVector valuesb = decimalVector(bValues, precision, scale);
@@ -186,8 +186,8 @@ public class ProjectorDecimalTest extends org.apache.arrow.gandiva.evaluator.Bas
 
     int numRows = 4;
     byte[] validity = new byte[]{(byte) 255};
-    String[] aValues = new String[]{"1.12345678","2.12345678","3.12345678", "999999999999.99999999"};
-    String[] bValues = new String[]{"2.12345678","3.12345678","4.12345678", "999999999999.99999999"};
+    String[] aValues = new String[]{"1.12345678", "2.12345678", "3.12345678", "999999999999.99999999"};
+    String[] bValues = new String[]{"2.12345678", "3.12345678", "4.12345678", "999999999999.99999999"};
 
     DecimalVector valuesa = decimalVector(aValues, precision, scale);
     DecimalVector valuesb = decimalVector(bValues, precision, scale);
@@ -742,7 +742,7 @@ public class ProjectorDecimalTest extends org.apache.arrow.gandiva.evaluator.Bas
             "field " + resultVector.getField().getName() +
             " for row " + i +
             " expected " + expected[i] +
-            ", got " + resultVector.getObject(i),expected[i].compareTo(resultVector.getObject(i)) == 0);
+            ", got " + resultVector.getObject(i), expected[i].compareTo(resultVector.getObject(i)) == 0);
       }
     } finally {
       // free buffers

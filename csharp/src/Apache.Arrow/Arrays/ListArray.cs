@@ -79,7 +79,9 @@ namespace Apache.Arrow
             {
                 Append();
 
-                var validityBuffer = NullCount > 0 ? ValidityBufferBuilder.Build(allocator) : ArrowBuffer.Empty;
+                ArrowBuffer validityBuffer = NullCount > 0
+                                        ? ValidityBufferBuilder.Build(allocator)
+                                        : ArrowBuffer.Empty;
 
                 return new ListArray(DataType, Length - 1,
                     ValueOffsetsBufferBuilder.Build(allocator), ValueBuilder.Build(allocator),
@@ -162,7 +164,7 @@ namespace Apache.Arrow
                 return 0;
             }
 
-            var offsets = ValueOffsets;
+            ReadOnlySpan<int> offsets = ValueOffsets;
             return offsets[index + 1] - offsets[index];
         }
 

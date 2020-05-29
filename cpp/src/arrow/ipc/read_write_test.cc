@@ -259,6 +259,29 @@ TEST_F(TestSchemaMetadata, DictionaryFields) {
   }
 }
 
+TEST_F(TestSchemaMetadata, NestedDictionaryFields) {
+  {
+    auto inner_dict_type = dictionary(int8(), int32(), /*ordered=*/true);
+    auto dict_type = dictionary(int16(), list(inner_dict_type));
+
+    Schema schema({field("f0", dict_type)});
+    CheckRoundtrip(schema);
+  }
+  {
+    auto dict_type1 = dictionary(int8(), utf8(), /*ordered=*/true);
+    auto dict_type2 = dictionary(int32(), fixed_size_binary(24));
+    auto dict_type3 = dictionary(int32(), binary());
+    auto dict_type4 = dictionary(int8(), decimal(19, 7));
+
+    auto struct_type1 = struct_({field("s1", dict_type1), field("s2", dict_type2)});
+    auto struct_type2 = struct_({field("s3", dict_type3), field("s4", dict_type4)});
+
+    Schema schema({field("f1", dictionary(int32(), struct_type1)),
+                   field("f2", dictionary(int32(), struct_type2))});
+    CheckRoundtrip(schema);
+  }
+}
+
 TEST_F(TestSchemaMetadata, KeyValueMetadata) {
   auto field_metadata = key_value_metadata({{"key", "value"}});
   auto schema_metadata = key_value_metadata({{"foo", "bar"}, {"bizz", "buzz"}});
@@ -270,13 +293,13 @@ TEST_F(TestSchemaMetadata, KeyValueMetadata) {
   CheckRoundtrip(schema);
 }
 
-#define BATCH_CASES()                                                                   \
-  ::testing::Values(&MakeIntRecordBatch, &MakeListRecordBatch, &MakeNonNullRecordBatch, \
-                    &MakeZeroLengthRecordBatch, &MakeDeeplyNestedList,                  \
-                    &MakeStringTypesRecordBatchWithNulls, &MakeStruct, &MakeUnion,      \
-                    &MakeDictionary, &MakeDates, &MakeTimestamps, &MakeTimes,           \
-                    &MakeFWBinary, &MakeNull, &MakeDecimal, &MakeBooleanBatch,          \
-                    &MakeIntervals, &MakeUuid, &MakeDictExtension)
+#define BATCH_CASES()                                                                    \
+  ::testing::Values(&MakeIntRecordBatch, &MakeListRecordBatch, &MakeNonNullRecordBatch,  \
+                    &MakeZeroLengthRecordBatch, &MakeDeeplyNestedList,                   \
+                    &MakeStringTypesRecordBatchWithNulls, &MakeStruct, &MakeUnion,       \
+                    &MakeDictionary, &MakeNestedDictionary, &MakeDates, &MakeTimestamps, \
+                    &MakeTimes, &MakeFWBinary, &MakeNull, &MakeDecimal,                  \
+                    &MakeBooleanBatch, &MakeIntervals, &MakeUuid, &MakeDictExtension)
 
 static int g_file_number = 0;
 
@@ -1040,6 +1063,24 @@ class ReaderWriterMixin : public ExtensionTypesMixin {
     IpcReadOptions options = IpcReadOptions::Defaults();
 
     options.included_fields = {1, 3};
+
+    {
+      WriterHelper writer_helper;
+      BatchVector out_batches;
+      std::shared_ptr<Schema> out_schema;
+      ASSERT_OK(RoundTripHelper(writer_helper, {batch}, IpcWriteOptions::Defaults(),
+                                options, &out_batches, &out_schema));
+
+      auto ex_schema = schema({field("a1", utf8()), field("a3", utf8())},
+                              key_value_metadata({"key1"}, {"value1"}));
+      AssertSchemaEqual(*ex_schema, *out_schema);
+
+      auto ex_batch = RecordBatch::Make(ex_schema, a0->length(), {a1, a3});
+      AssertBatchesEqual(*ex_batch, *out_batches[0], /*check_metadata=*/true);
+    }
+
+    // Duplicated or unordered indices are normalized when reading
+    options.included_fields = {3, 1, 1};
 
     {
       WriterHelper writer_helper;

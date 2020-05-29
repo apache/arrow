@@ -27,7 +27,7 @@ use arrow::record_batch::RecordBatch;
 use std::sync::Arc;
 
 /// Scalar UDF
-pub type ScalarUdf = fn(input: &Vec<ArrayRef>) -> Result<ArrayRef>;
+pub type ScalarUdf = fn(input: &[ArrayRef]) -> Result<ArrayRef>;
 
 /// Scalar UDF Expression
 #[derive(Clone)]

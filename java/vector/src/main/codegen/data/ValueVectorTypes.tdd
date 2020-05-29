@@ -156,6 +156,17 @@
       ]
     },
     {
+      major: "VarLen",
+      width: 8,
+      javaType: "long",
+      boxedType: "ArrowBuf",
+      fields: [{name: "start", type: "long"}, {name: "end", type: "long"}, {name: "buffer", type: "ArrowBuf"}],
+      minor: [
+        { class: "LargeVarChar" , friendlyType: "Text" }
+        { class: "LargeVarBinary" , friendlyType: "byte[]" }
+      ]
+    },
+    {
       major: "Bit",
       width: 1,
       javaType: "int",

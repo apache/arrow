@@ -139,7 +139,7 @@ impl BatchIterator for ProjectionIterator {
 mod tests {
 
     use super::*;
-    use crate::execution::physical_plan::csv::CsvExec;
+    use crate::execution::physical_plan::csv::{CsvExec, CsvReadOptions};
     use crate::execution::physical_plan::expressions::Column;
     use crate::test;
 
@@ -150,7 +150,8 @@ mod tests {
         let partitions = 4;
         let path = test::create_partitioned_csv("aggregate_test_100.csv", partitions)?;
 
-        let csv = CsvExec::try_new(&path, schema.clone(), true, None, 1024)?;
+        let csv =
+            CsvExec::try_new(&path, CsvReadOptions::new().schema(&schema), None, 1024)?;
 
         let projection = ProjectionExec::try_new(
             vec![Arc::new(Column::new(0, &schema.as_ref().field(0).name()))],

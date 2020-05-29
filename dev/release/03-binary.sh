@@ -79,6 +79,7 @@ fi
 : ${UPLOAD_CENTOS_YUM:=${UPLOAD_DEFAULT}}
 : ${UPLOAD_DEBIAN_APT:=${UPLOAD_DEFAULT}}
 : ${UPLOAD_DEBIAN_DEB:=${UPLOAD_DEFAULT}}
+: ${UPLOAD_NUGET:=${UPLOAD_DEFAULT}}
 : ${UPLOAD_PYTHON:=${UPLOAD_DEFAULT}}
 : ${UPLOAD_UBUNTU_APT:=${UPLOAD_DEFAULT}}
 : ${UPLOAD_UBUNTU_DEB:=${UPLOAD_DEFAULT}}
@@ -109,6 +110,9 @@ fi
 if [ ${UPLOAD_CENTOS_YUM} -gt 0 ]; then
   rake_tasks+=(yum:rc)
   yum_targets+=(centos)
+fi
+if [ ${UPLOAD_NUGET} -gt 0 ]; then
+  rake_tasks+=(nuget:rc)
 fi
 if [ ${UPLOAD_PYTHON} -gt 0 ]; then
   rake_tasks+=(python:rc)

@@ -15,9 +15,8 @@
 # limitations under the License.
 
 os: osx
-# CRAN builds on macOS 10.11, so make sure that's what we're testing
-# See https://issues.apache.org/jira/browse/ARROW-7923; this is currently disabled
-# osx_image: xcode8
+# CRAN builds on macOS 10.13, so make sure that's what we're testing
+osx_image: xcode9.4
 language: r
 cache: packages
 r: {{ r_version }}
@@ -31,7 +30,6 @@ if: tag IS blank
 env:
   global:
     - TRAVIS_TAG={{ task.tag }}
-    - LOCAL_AUTOBREW="TRUE"
     - TEST_R_WITH_ARROW="TRUE"
     - _R_CHECK_TESTS_NLINES_=0
     - _R_CHECK_CRAN_INCOMING_REMOTE_="FALSE"
@@ -43,9 +41,9 @@ before_install:
 - cd arrow/r
 # Put the formula inside r/ so that it's included in the package build
 - cp ../dev/tasks/homebrew-formulae/autobrew/apache-arrow.rb tools/apache-arrow.rb
-# Hack for old macOS (10.11)
-# See https://travis-ci.community/t/library-developer-commandlinetools-sdks-macosx-sdk-missing-on-el-capitain/3213/3
-- sed -i.bak 's/-isysroot /-I/g' $(R RHOME)/etc/Makeconf
+# Pin the current commit in the formula to test so that we're not always pulling from master
+- sed -i.bak -E -e 's@https://github.com/apache/arrow.git"$@{{ arrow.remote }}", :revision => "{{ arrow.head }}"@' tools/apache-arrow.rb
+- rm -f tools/apache-arrow.rb.bak
 script:
 - Rscript -e 'install.packages("rcmdcheck")'
 # Note that this is not --as-cran. CRAN doesn't do macOS checks --as-cran

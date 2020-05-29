@@ -52,7 +52,7 @@ namespace Apache.Arrow
 
             public Builder Append(ReadOnlySpan<bool> span)
             {
-                foreach (var value in span)
+                foreach (bool value in span)
                 {
                     Append(value);
                 }
@@ -61,7 +61,7 @@ namespace Apache.Arrow
 
             public Builder AppendRange(IEnumerable<bool> values)
             {
-                foreach (var value in values)
+                foreach (bool value in values)
                 {
                     Append(value);
                 }
@@ -75,7 +75,7 @@ namespace Apache.Arrow
 
             public BooleanArray Build(MemoryAllocator allocator = default)
             {
-                var validityBuffer = NullCount > 0
+                ArrowBuffer validityBuffer = NullCount > 0
                                         ? ValidityBuffer.Build(allocator)
                                         : ArrowBuffer.Empty;
 

@@ -19,9 +19,12 @@
 
 #if defined(ARROW_R_WITH_ARROW)
 
+#include <arrow/table.h>
 #include <parquet/arrow/reader.h>
 #include <parquet/arrow/writer.h>
 #include <parquet/exception.h>
+
+RCPP_EXPOSED_ENUM_NODECL(parquet::ParquetVersion::type)
 
 // [[arrow::export]]
 std::shared_ptr<parquet::ArrowReaderProperties>

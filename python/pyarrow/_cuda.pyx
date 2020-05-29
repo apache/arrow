@@ -726,6 +726,7 @@ cdef class BufferReader(NativeFile):
     may expect to be able to do anything other than pointer arithmetic
     on the returned buffers.
     """
+
     def __cinit__(self, CudaBuffer obj):
         self.buffer = obj
         self.reader = new CCudaBufferReader(self.buffer.buffer)
@@ -774,6 +775,7 @@ cdef class BufferWriter(NativeFile):
     By default writes are unbuffered. Use set_buffer_size to enable
     buffering.
     """
+
     def __cinit__(self, CudaBuffer buffer):
         self.buffer = buffer
         self.writer = new CCudaBufferWriter(self.buffer.cuda_buffer)
