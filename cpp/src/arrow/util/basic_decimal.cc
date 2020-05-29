@@ -126,10 +126,15 @@ static constexpr auto kCarryBit = static_cast<uint64_t>(1) << static_cast<uint64
 static constexpr BasicDecimal128 kMaxValue =
     BasicDecimal128(5421010862427522170LL, 687399551400673280ULL - 1);
 
+#if ARROW_LITTLE_ENDIAN
 BasicDecimal128::BasicDecimal128(const uint8_t* bytes)
-    : BasicDecimal128(
-          BitUtil::FromLittleEndian(reinterpret_cast<const int64_t*>(bytes)[1]),
-          BitUtil::FromLittleEndian(reinterpret_cast<const uint64_t*>(bytes)[0])) {}
+    : BasicDecimal128(reinterpret_cast<const int64_t*>(bytes)[1],
+                      reinterpret_cast<const uint64_t*>(bytes)[0]) {}
+#else
+BasicDecimal128::BasicDecimal128(const uint8_t* bytes)
+    : BasicDecimal128(reinterpret_cast<const int64_t*>(bytes)[0],
+                      reinterpret_cast<const uint64_t*>(bytes)[1]) {}
+#endif
 
 std::array<uint8_t, 16> BasicDecimal128::ToBytes() const {
   std::array<uint8_t, 16> out{{0}};
@@ -139,8 +144,13 @@ std::array<uint8_t, 16> BasicDecimal128::ToBytes() const {
 
 void BasicDecimal128::ToBytes(uint8_t* out) const {
   DCHECK_NE(out, nullptr);
-  reinterpret_cast<uint64_t*>(out)[0] = BitUtil::ToLittleEndian(low_bits_);
-  reinterpret_cast<int64_t*>(out)[1] = BitUtil::ToLittleEndian(high_bits_);
+#if ARROW_LITTLE_ENDIAN
+  reinterpret_cast<uint64_t*>(out)[0] = low_bits_;
+  reinterpret_cast<int64_t*>(out)[1] = high_bits_;
+#else
+  reinterpret_cast<int64_t*>(out)[0] = high_bits_;
+  reinterpret_cast<uint64_t*>(out)[1] = low_bits_;
+#endif
 }
 
 BasicDecimal128& BasicDecimal128::Negate() {

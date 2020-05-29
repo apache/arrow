@@ -57,7 +57,7 @@ class ARROW_EXPORT BasicDecimal128 {
                         static_cast<uint64_t>(value)) {}
 
   /// \brief Create a BasicDecimal128 from an array of bytes. Bytes are assumed to be in
-  /// little-endian byte order.
+  /// native-endian byte order.
   explicit BasicDecimal128(const uint8_t* bytes);
 
   /// \brief Negate the current value (in-place)
@@ -113,7 +113,7 @@ class ARROW_EXPORT BasicDecimal128 {
   /// \brief Get the low bits of the two's complement representation of the number.
   inline uint64_t low_bits() const { return low_bits_; }
 
-  /// \brief Return the raw bytes of the value in little-endian byte order.
+  /// \brief Return the raw bytes of the value in native-endian byte order.
   std::array<uint8_t, 16> ToBytes() const;
   void ToBytes(uint8_t* out) const;
 
