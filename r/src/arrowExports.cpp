@@ -1071,22 +1071,6 @@ RcppExport SEXP _arrow_Table__cast(SEXP table_sexp, SEXP schema_sexp, SEXP optio
 
 // compute.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::Array> Array__Take(const std::shared_ptr<arrow::Array>& values, const std::shared_ptr<arrow::Array>& indices);
-RcppExport SEXP _arrow_Array__Take(SEXP values_sexp, SEXP indices_sexp){
-BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type values(values_sexp);
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type indices(indices_sexp);
-	return Rcpp::wrap(Array__Take(values, indices));
-END_RCPP
-}
-#else
-RcppExport SEXP _arrow_Array__Take(SEXP values_sexp, SEXP indices_sexp){
-	Rf_error("Cannot call Array__Take(). Please use arrow::install_arrow() to install required runtime libraries. ");
-}
-#endif
-
-// compute.cpp
-#if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::ChunkedArray> Array__TakeChunked(const std::shared_ptr<arrow::Array>& values, const std::shared_ptr<arrow::ChunkedArray>& indices);
 RcppExport SEXP _arrow_Array__TakeChunked(SEXP values_sexp, SEXP indices_sexp){
 BEGIN_RCPP
@@ -1183,23 +1167,6 @@ RcppExport SEXP _arrow_Table__TakeChunked(SEXP table_sexp, SEXP indices_sexp){
 
 // compute.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::Array> Array__Filter(const std::shared_ptr<arrow::Array>& values, const std::shared_ptr<arrow::Array>& filter, bool keep_na);
-RcppExport SEXP _arrow_Array__Filter(SEXP values_sexp, SEXP filter_sexp, SEXP keep_na_sexp){
-BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type values(values_sexp);
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type filter(filter_sexp);
-	Rcpp::traits::input_parameter<bool>::type keep_na(keep_na_sexp);
-	return Rcpp::wrap(Array__Filter(values, filter, keep_na));
-END_RCPP
-}
-#else
-RcppExport SEXP _arrow_Array__Filter(SEXP values_sexp, SEXP filter_sexp, SEXP keep_na_sexp){
-	Rf_error("Cannot call Array__Filter(). Please use arrow::install_arrow() to install required runtime libraries. ");
-}
-#endif
-
-// compute.cpp
-#if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::RecordBatch> RecordBatch__Filter(const std::shared_ptr<arrow::RecordBatch>& batch, const std::shared_ptr<arrow::Array>& filter, bool keep_na);
 RcppExport SEXP _arrow_RecordBatch__Filter(SEXP batch_sexp, SEXP filter_sexp, SEXP keep_na_sexp){
 BEGIN_RCPP
@@ -1280,6 +1247,23 @@ END_RCPP
 #else
 RcppExport SEXP _arrow_Table__FilterChunked(SEXP table_sexp, SEXP filter_sexp, SEXP keep_na_sexp){
 	Rf_error("Cannot call Table__FilterChunked(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// compute.cpp
+#if defined(ARROW_R_WITH_ARROW)
+SEXP compute__CallFunction(std::string func_name, List_ args, List_ options);
+RcppExport SEXP _arrow_compute__CallFunction(SEXP func_name_sexp, SEXP args_sexp, SEXP options_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<std::string>::type func_name(func_name_sexp);
+	Rcpp::traits::input_parameter<List_>::type args(args_sexp);
+	Rcpp::traits::input_parameter<List_>::type options(options_sexp);
+	return Rcpp::wrap(compute__CallFunction(func_name, args, options));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_compute__CallFunction(SEXP func_name_sexp, SEXP args_sexp, SEXP options_sexp){
+	Rf_error("Cannot call compute__CallFunction(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2778,10 +2762,10 @@ RcppExport SEXP _arrow_dataset___expr__is_valid(SEXP lhs_sexp){
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::Expression> dataset___expr__scalar(SEXP x);
+std::shared_ptr<ds::Expression> dataset___expr__scalar(const std::shared_ptr<arrow::Scalar>& x);
 RcppExport SEXP _arrow_dataset___expr__scalar(SEXP x_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<SEXP>::type x(x_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Scalar>&>::type x(x_sexp);
 	return Rcpp::wrap(dataset___expr__scalar(x));
 END_RCPP
 }
@@ -5409,6 +5393,98 @@ RcppExport SEXP _arrow_ipc___RecordBatchStreamWriter__Open(SEXP stream_sexp, SEX
 }
 #endif
 
+// scalar.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Scalar> Array__GetScalar(const std::shared_ptr<arrow::Array>& x, int64_t i);
+RcppExport SEXP _arrow_Array__GetScalar(SEXP x_sexp, SEXP i_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type x(x_sexp);
+	Rcpp::traits::input_parameter<int64_t>::type i(i_sexp);
+	return Rcpp::wrap(Array__GetScalar(x, i));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_Array__GetScalar(SEXP x_sexp, SEXP i_sexp){
+	Rf_error("Cannot call Array__GetScalar(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// scalar.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::string Scalar__ToString(const std::shared_ptr<arrow::Scalar>& s);
+RcppExport SEXP _arrow_Scalar__ToString(SEXP s_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Scalar>&>::type s(s_sexp);
+	return Rcpp::wrap(Scalar__ToString(s));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_Scalar__ToString(SEXP s_sexp){
+	Rf_error("Cannot call Scalar__ToString(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// scalar.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Scalar> Scalar__CastTo(const std::shared_ptr<arrow::Scalar>& s, const std::shared_ptr<arrow::DataType>& t);
+RcppExport SEXP _arrow_Scalar__CastTo(SEXP s_sexp, SEXP t_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Scalar>&>::type s(s_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::DataType>&>::type t(t_sexp);
+	return Rcpp::wrap(Scalar__CastTo(s, t));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_Scalar__CastTo(SEXP s_sexp, SEXP t_sexp){
+	Rf_error("Cannot call Scalar__CastTo(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// scalar.cpp
+#if defined(ARROW_R_WITH_ARROW)
+SEXP Scalar__as_vector(const std::shared_ptr<arrow::Scalar>& scalar);
+RcppExport SEXP _arrow_Scalar__as_vector(SEXP scalar_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Scalar>&>::type scalar(scalar_sexp);
+	return Rcpp::wrap(Scalar__as_vector(scalar));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_Scalar__as_vector(SEXP scalar_sexp){
+	Rf_error("Cannot call Scalar__as_vector(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// scalar.cpp
+#if defined(ARROW_R_WITH_ARROW)
+bool Scalar__is_valid(const std::shared_ptr<arrow::Scalar>& s);
+RcppExport SEXP _arrow_Scalar__is_valid(SEXP s_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Scalar>&>::type s(s_sexp);
+	return Rcpp::wrap(Scalar__is_valid(s));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_Scalar__is_valid(SEXP s_sexp){
+	Rf_error("Cannot call Scalar__is_valid(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// scalar.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::DataType> Scalar__type(const std::shared_ptr<arrow::Scalar>& s);
+RcppExport SEXP _arrow_Scalar__type(SEXP s_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Scalar>&>::type s(s_sexp);
+	return Rcpp::wrap(Scalar__type(s));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_Scalar__type(SEXP s_sexp){
+	Rf_error("Cannot call Scalar__type(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
 // schema.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Schema> schema_(Rcpp::List fields);
@@ -5997,19 +6073,18 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ChunkedArray__cast", (DL_FUNC) &_arrow_ChunkedArray__cast, 3}, 
 		{ "_arrow_RecordBatch__cast", (DL_FUNC) &_arrow_RecordBatch__cast, 3}, 
 		{ "_arrow_Table__cast", (DL_FUNC) &_arrow_Table__cast, 3}, 
-		{ "_arrow_Array__Take", (DL_FUNC) &_arrow_Array__Take, 2}, 
 		{ "_arrow_Array__TakeChunked", (DL_FUNC) &_arrow_Array__TakeChunked, 2}, 
 		{ "_arrow_RecordBatch__Take", (DL_FUNC) &_arrow_RecordBatch__Take, 2}, 
 		{ "_arrow_ChunkedArray__Take", (DL_FUNC) &_arrow_ChunkedArray__Take, 2}, 
 		{ "_arrow_ChunkedArray__TakeChunked", (DL_FUNC) &_arrow_ChunkedArray__TakeChunked, 2}, 
 		{ "_arrow_Table__Take", (DL_FUNC) &_arrow_Table__Take, 2}, 
 		{ "_arrow_Table__TakeChunked", (DL_FUNC) &_arrow_Table__TakeChunked, 2}, 
-		{ "_arrow_Array__Filter", (DL_FUNC) &_arrow_Array__Filter, 3}, 
 		{ "_arrow_RecordBatch__Filter", (DL_FUNC) &_arrow_RecordBatch__Filter, 3}, 
 		{ "_arrow_ChunkedArray__Filter", (DL_FUNC) &_arrow_ChunkedArray__Filter, 3}, 
 		{ "_arrow_ChunkedArray__FilterChunked", (DL_FUNC) &_arrow_ChunkedArray__FilterChunked, 3}, 
 		{ "_arrow_Table__Filter", (DL_FUNC) &_arrow_Table__Filter, 3}, 
 		{ "_arrow_Table__FilterChunked", (DL_FUNC) &_arrow_Table__FilterChunked, 3}, 
+		{ "_arrow_compute__CallFunction", (DL_FUNC) &_arrow_compute__CallFunction, 3}, 
 		{ "_arrow_csv___ReadOptions__initialize", (DL_FUNC) &_arrow_csv___ReadOptions__initialize, 1}, 
 		{ "_arrow_csv___ParseOptions__initialize", (DL_FUNC) &_arrow_csv___ParseOptions__initialize, 1}, 
 		{ "_arrow_csv___ConvertOptions__initialize", (DL_FUNC) &_arrow_csv___ConvertOptions__initialize, 1}, 
@@ -6274,6 +6349,12 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ipc___RecordBatchWriter__Close", (DL_FUNC) &_arrow_ipc___RecordBatchWriter__Close, 1}, 
 		{ "_arrow_ipc___RecordBatchFileWriter__Open", (DL_FUNC) &_arrow_ipc___RecordBatchFileWriter__Open, 3}, 
 		{ "_arrow_ipc___RecordBatchStreamWriter__Open", (DL_FUNC) &_arrow_ipc___RecordBatchStreamWriter__Open, 3}, 
+		{ "_arrow_Array__GetScalar", (DL_FUNC) &_arrow_Array__GetScalar, 2}, 
+		{ "_arrow_Scalar__ToString", (DL_FUNC) &_arrow_Scalar__ToString, 1}, 
+		{ "_arrow_Scalar__CastTo", (DL_FUNC) &_arrow_Scalar__CastTo, 2}, 
+		{ "_arrow_Scalar__as_vector", (DL_FUNC) &_arrow_Scalar__as_vector, 1}, 
+		{ "_arrow_Scalar__is_valid", (DL_FUNC) &_arrow_Scalar__is_valid, 1}, 
+		{ "_arrow_Scalar__type", (DL_FUNC) &_arrow_Scalar__type, 1}, 
 		{ "_arrow_schema_", (DL_FUNC) &_arrow_schema_, 1}, 
 		{ "_arrow_Schema__ToString", (DL_FUNC) &_arrow_Schema__ToString, 1}, 
 		{ "_arrow_Schema__num_fields", (DL_FUNC) &_arrow_Schema__num_fields, 1}, 

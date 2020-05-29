@@ -75,6 +75,8 @@ ChunkedArray <- R6Class("ChunkedArray", inherit = ArrowObject,
       if (is.integer(i)) {
         i <- Array$create(i)
       }
+      # Invalid: Kernel does not support chunked array arguments
+      # so use the old method for both cases
       if (inherits(i, "ChunkedArray")) {
         return(shared_ptr(ChunkedArray, ChunkedArray__TakeChunked(self, i)))
       }
