@@ -157,8 +157,8 @@ namespace Apache.Arrow
             {
                 CheckIndex(i);
                 CheckIndex(j);
-                var bi = BitUtility.GetBit(Span, i);
-                var bj = BitUtility.GetBit(Span, j);
+                bool bi = BitUtility.GetBit(Span, i);
+                bool bj = BitUtility.GetBit(Span, j);
                 BitUtility.SetBit(Span, i, bj);
                 BitUtility.SetBit(Span, j, bi);
                 return this;
@@ -226,7 +226,7 @@ namespace Apache.Arrow
             /// <returns>Returns an <see cref="ArrowBuffer"/> object.</returns>
             public ArrowBuffer Build(MemoryAllocator allocator = default)
             {
-                var bufferLength = checked((int)BitUtility.RoundUpToMultipleOf64(Memory.Length));
+                int bufferLength = checked((int)BitUtility.RoundUpToMultipleOf64(Memory.Length));
                 var memoryAllocator = allocator ?? MemoryAllocator.Default.Value;
                 var memoryOwner = memoryAllocator.Allocate(bufferLength);
                 Memory.Slice(0, Memory.Length).CopyTo(memoryOwner.Memory);
@@ -253,7 +253,7 @@ namespace Apache.Arrow
                     // TODO: specifiable growth strategy
                     // Double the length of the in-memory array, or use the byte count of the capacity, whichever is
                     // greater.
-                    var byteCount = Math.Max(BitUtility.ByteCount(requiredCapacity), Memory.Length * 2);
+                    int byteCount = Math.Max(BitUtility.ByteCount(requiredCapacity), Memory.Length * 2);
                     Reallocate(byteCount);
                     Capacity = byteCount * 8;
                 }

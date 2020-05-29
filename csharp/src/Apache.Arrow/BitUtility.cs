@@ -100,7 +100,7 @@ namespace Apache.Arrow
             {
                 // Range starts and ends within the same byte.
                 var slice = data.Slice(startByteIndex, 1);
-                for (var i = startBitOffset; i <= endBitOffset; i++)
+                for (int i = startBitOffset; i <= endBitOffset; i++)
                     count += GetBit(slice, i) ? 1 : 0;
 
                 return count;
@@ -116,7 +116,7 @@ namespace Apache.Arrow
             if (startBitOffset != 0)
             {
                 var slice = data.Slice(startByteIndex, 1);
-                for (var i = startBitOffset; i <= 7; i++)
+                for (int i = startBitOffset; i <= 7; i++)
                     count += GetBit(slice, i) ? 1 : 0;
             }
 
@@ -129,7 +129,7 @@ namespace Apache.Arrow
             if (endBitOffset != 7)
             {
                 var slice = data.Slice(endByteIndex, 1);
-                for (var i = 0; i <= endBitOffset; i++)
+                for (int i = 0; i <= endBitOffset; i++)
                     count += GetBit(slice, i) ? 1 : 0;
             }
 
@@ -168,7 +168,7 @@ namespace Apache.Arrow
         /// <summary>
         /// Rounds an integer up to the nearest multiple of factor, where
         /// factor must be a power of two.
-        /// 
+        ///
         /// This function does not throw when the factor is not a power of two.
         /// </summary>
         /// <param name="n">Integer to round up.</param>
@@ -193,7 +193,7 @@ namespace Apache.Arrow
             Debug.Assert(n >= 0);
             return n / 8 + (n % 8 != 0 ? 1 : 0); // ceil(n / 8)
         }
-            
+
         internal static int ReadInt32(ReadOnlyMemory<byte> value)
         {
             Debug.Assert(value.Length >= sizeof(int));

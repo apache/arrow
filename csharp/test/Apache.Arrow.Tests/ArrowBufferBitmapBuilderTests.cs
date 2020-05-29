@@ -82,7 +82,7 @@ namespace Apache.Arrow.Tests
             {
                 // Arrange
                 var builder = new ArrowBuffer.BitmapBuilder();
-                var initialCapacity = builder.Capacity;
+                int initialCapacity = builder.Capacity;
                 builder.AppendRange(Enumerable.Repeat(true, initialCapacity)); // Fill to capacity.
 
                 // Act
