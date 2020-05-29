@@ -559,6 +559,7 @@ void ExecComputedBitmap(KernelContext* ctx, const ExecBatch& batch, Datum* out) 
                                    out_arr->buffers[0]->data(), out_arr->offset,
                                    batch.length));
   }
+
   internal::CopyBitmap(arg0.buffers[0]->data(), arg0.offset, batch.length,
                        out_arr->buffers[0]->mutable_data(), out_arr->offset);
   ExecCopy(ctx, batch, out);
@@ -750,10 +751,8 @@ TEST_F(TestCallScalarFunction, PreallocationCases) {
       AssertArraysEqual(*arr, *result.make_array());
     }
 
-    exec_ctx_->set_exec_chunksize(12);
-
-    // Chunksize not multiple of 8
     {
+      // Chunksize not multiple of 8
       std::vector<Datum> args = {Datum(arr)};
       exec_ctx_->set_exec_chunksize(111);
       ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(func_name, args, exec_ctx_.get()));
