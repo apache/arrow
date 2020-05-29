@@ -22,19 +22,50 @@
 #include "./arrow_rcpp.h"
 
 #if defined(ARROW_R_WITH_ARROW)
-#include <arrow/compute/cast.h>
-#include <arrow/csv/reader.h>
 #include <arrow/dataset/type_fwd.h>
 #include <arrow/filesystem/filesystem.h>
-#include <arrow/filesystem/localfs.h>
 #include <arrow/io/type_fwd.h>
-#include <arrow/ipc/feather.h>
-#include <arrow/ipc/reader.h>
-#include <arrow/ipc/writer.h>
-#include <arrow/json/reader.h>
+#include <arrow/ipc/message.h>
+#include <arrow/ipc/type_fwd.h>
 #include <arrow/type_fwd.h>
 #include <parquet/arrow/reader.h>
 #include <parquet/arrow/writer.h>
+
+namespace arrow {
+namespace compute {
+
+class CastOptions;
+
+}  // namespace compute
+
+namespace csv {
+
+class TableReader;
+class ConvertOptions;
+class ReadOptions;
+class ParseOptions;
+
+}  // namespace csv
+
+namespace fs {
+
+class LocalFileSystem;
+
+}  // namespace fs
+
+namespace json {
+
+class TableReader;
+class ReadOptions;
+class ParseOptions;
+
+}  // namespace json
+
+}  // namespace arrow
+
+namespace parquet {
+namespace arrow {}
+}  // namespace parquet
 
 RCPP_EXPOSED_ENUM_NODECL(arrow::Type::type)
 RCPP_EXPOSED_ENUM_NODECL(arrow::DateUnit)
@@ -52,5 +83,9 @@ namespace fs = ::arrow::fs;
 #endif
 
 #if defined(ARROW_R_WITH_S3)
-#include <arrow/filesystem/s3fs.h>
+namespace arrow {
+namespace fs {
+class S3FileSystem;
+}  // namespace fs
+}  // namespace arrow
 #endif
