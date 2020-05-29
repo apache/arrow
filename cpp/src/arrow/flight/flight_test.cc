@@ -559,6 +559,14 @@ class TestDoPut : public ::testing::Test {
 class TestTls : public ::testing::Test {
  public:
   void SetUp() {
+    // Manually initialize gRPC to try to ensure some thread-locals
+    // get initialized.
+    // https://github.com/grpc/grpc/issues/13856
+    // https://github.com/grpc/grpc/issues/20311
+    // In general, gRPC on MacOS struggles with TLS (both in the sense
+    // of thread-locals and encryption)
+    grpc_init();
+
     server_.reset(new TlsTestServer);
 
     Location location;
@@ -572,7 +580,10 @@ class TestTls : public ::testing::Test {
     ASSERT_OK(ConnectClient());
   }
 
-  void TearDown() { ASSERT_OK(server_->Shutdown()); }
+  void TearDown() {
+    ASSERT_OK(server_->Shutdown());
+    grpc_shutdown();
+  }
 
   Status ConnectClient() {
     auto options = FlightClientOptions();
@@ -1556,13 +1567,7 @@ TEST_F(TestBasicAuthHandler, CheckPeerIdentity) {
   ASSERT_EQ(result->body->ToString(), "user");
 }
 
-#ifdef __APPLE__
-// ARROW-7701: this test is flaky on MacOS and segfaults (due to gRPC
-// bug?)
-TEST_F(TestTls, DISABLED_DoAction) {
-#else
 TEST_F(TestTls, DoAction) {
-#endif
   FlightCallOptions options;
   options.timeout = TimeoutDuration{5.0};
   Action action;
