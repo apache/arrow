@@ -119,7 +119,7 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
                 "Build Arrow libraries with install_name set to @rpath" ON)
 
   define_option(ARROW_GGDB_DEBUG "Pass -ggdb flag to debug builds" ON)
-    
+
   #----------------------------------------------------------------------
   set_option_category("Test and benchmark")
 
