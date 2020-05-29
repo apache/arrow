@@ -23,7 +23,8 @@
 #include <arrow/scalar.h>
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Scalar> Array__GetScalar(const std::shared_ptr<arrow::Array>& x, int64_t i) {
+std::shared_ptr<arrow::Scalar> Array__GetScalar(const std::shared_ptr<arrow::Array>& x,
+                                                int64_t i) {
   return ValueOrStop(x->GetScalar(i));
 }
 
