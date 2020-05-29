@@ -37,13 +37,14 @@ binary_ok <- !identical(tolower(Sys.getenv("LIBARROW_BINARY", "false")), "false"
 quietly <- !env_is("ARROW_R_DEV", "true")
 
 try_download <- function(from_url, to_file) {
-  try(
+  status <- try(
     suppressWarnings(
       download.file(from_url, to_file, quiet = quietly)
     ),
     silent = quietly
   )
-  file.exists(to_file)
+  # Return whether the download was successful
+  !inherits(status, "try-error") && status == 0
 }
 
 download_binary <- function(os = identify_os()) {
