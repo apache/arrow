@@ -1222,33 +1222,16 @@ impl Field {
         format!("{}: {:?}", self.name, self.data_type)
     }
 
-    /// Merge field into self if it is compatible. Struct fields will be merged recursively.
+    /// Merge field into self if it is compatible. Struct will be merged recursively.
     ///
     /// Example:
     ///
     /// ```
     /// use arrow::datatypes::*;
     ///
-    /// let merged = Schema::try_merge(&vec![
-    ///     Schema::new(vec![
-    ///         Field::new("c1", DataType::Int64, false),
-    ///         Field::new("c2", DataType::Utf8, false),
-    ///     ]),
-    ///     Schema::new(vec![
-    ///         Field::new("c1", DataType::Int64, true),
-    ///         Field::new("c2", DataType::Utf8, false),
-    ///         Field::new("c3", DataType::Utf8, false),
-    ///     ]),
-    /// ]).unwrap();
-    ///
-    /// assert_eq!(
-    ///     merged,
-    ///     Schema::new(vec![
-    ///         Field::new("c1", DataType::Int64, true),
-    ///         Field::new("c2", DataType::Utf8, false),
-    ///         Field::new("c3", DataType::Utf8, false),
-    ///     ]),
-    /// );
+    /// let mut field = Field::new("c1", DataType::Int64, false);
+    /// assert!(field.try_merge(&Field::new("c1", DataType::Int64, true)).is_ok());
+    /// assert!(field.is_nullable());
     /// ```
     pub fn try_merge(&mut self, from: &Field) -> Result<()> {
         if from.dict_id != self.dict_id {
@@ -1417,6 +1400,34 @@ impl Schema {
         Self { fields, metadata }
     }
 
+    /// Merge schema into self if it is compatible. Struct fields will be merged recursively.
+    ///
+    /// Example:
+    ///
+    /// ```
+    /// use arrow::datatypes::*;
+    ///
+    /// let merged = Schema::try_merge(&vec![
+    ///     Schema::new(vec![
+    ///         Field::new("c1", DataType::Int64, false),
+    ///         Field::new("c2", DataType::Utf8, false),
+    ///     ]),
+    ///     Schema::new(vec![
+    ///         Field::new("c1", DataType::Int64, true),
+    ///         Field::new("c2", DataType::Utf8, false),
+    ///         Field::new("c3", DataType::Utf8, false),
+    ///     ]),
+    /// ]).unwrap();
+    ///
+    /// assert_eq!(
+    ///     merged,
+    ///     Schema::new(vec![
+    ///         Field::new("c1", DataType::Int64, true),
+    ///         Field::new("c2", DataType::Utf8, false),
+    ///         Field::new("c3", DataType::Utf8, false),
+    ///     ]),
+    /// );
+    /// ```
     pub fn try_merge(schemas: &Vec<Self>) -> Result<Self> {
         let mut merged = Self::empty();
 
