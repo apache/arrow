@@ -40,9 +40,15 @@
 
 namespace arrow {
 
+using internal::Executor;
+using internal::TaskHints;
 using internal::ThreadPool;
 
 namespace io {
+
+AsyncContext::AsyncContext() : AsyncContext(internal::GetIOThreadPool()) {}
+
+AsyncContext::AsyncContext(Executor* executor) : executor(executor) {}
 
 FileInterface::~FileInterface() = default;
 
@@ -114,17 +120,26 @@ Result<std::shared_ptr<Buffer>> RandomAccessFile::ReadAt(int64_t position,
   return Read(nbytes);
 }
 
-// Default ReadAsync() implementation: simply issue the read on one of the IO threads
-Future<std::shared_ptr<Buffer>> RandomAccessFile::ReadAsync(int64_t position,
+// Default ReadAsync() implementation: simply issue the read on the context's executor
+Future<std::shared_ptr<Buffer>> RandomAccessFile::ReadAsync(const AsyncContext& ctx,
+                                                            int64_t position,
                                                             int64_t nbytes) {
-  auto pool = internal::GetIOThreadPool();
   auto self = shared_from_this();
-  auto maybe_fut =
-      pool->Submit([self, position, nbytes] { return self->ReadAt(position, nbytes); });
+  TaskHints hints;
+  hints.io_size = nbytes;
+  hints.external_id = ctx.external_id;
+  auto maybe_fut = ctx.executor->Submit(std::move(hints), [self, position, nbytes] {
+    return self->ReadAt(position, nbytes);
+  });
   if (!maybe_fut.ok()) {
     return Future<std::shared_ptr<Buffer>>::MakeFinished(maybe_fut.status());
   }
   return *std::move(maybe_fut);
+}
+
+// Default WillNeed() implementation: no-op
+Status RandomAccessFile::WillNeed(const std::vector<ReadRange>& ranges) {
+  return Status::OK();
 }
 
 Status Writable::Write(const std::string& data) {
@@ -245,7 +260,7 @@ Status ValidateWriteRange(int64_t offset, int64_t size, int64_t file_size) {
 
 Status ValidateRange(int64_t offset, int64_t size) {
   if (offset < 0 || size < 0) {
-    return Status::Invalid("Invalid IO (offset = ", offset, ", size = ", size, ")");
+    return Status::Invalid("Invalid IO range (offset = ", offset, ", size = ", size, ")");
   }
   return Status::OK();
 }

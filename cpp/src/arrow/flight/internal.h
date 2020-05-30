@@ -121,6 +121,8 @@ Status ToProto(const SchemaResult& result, pb::SchemaResult* pb_result);
 void ToProto(const Ticket& ticket, pb::Ticket* pb_ticket);
 Status ToProto(const BasicAuth& basic_auth, pb::BasicAuth* pb_basic_auth);
 
+Status ToPayload(const FlightDescriptor& descr, std::shared_ptr<Buffer>* out);
+
 }  // namespace internal
 }  // namespace flight
 }  // namespace arrow

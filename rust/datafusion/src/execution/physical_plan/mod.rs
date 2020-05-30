@@ -92,6 +92,7 @@ pub mod expressions;
 pub mod hash_aggregate;
 pub mod limit;
 pub mod math_expressions;
+pub mod memory;
 pub mod merge;
 pub mod parquet;
 pub mod projection;

@@ -50,7 +50,7 @@ public class AllocationOutcomeDetails {
   public BufferAllocator getFailedAllocator() {
     Entry top = allocEntries.peekLast();
     if (top != null && top.allocationFailed && (top.accountant instanceof BufferAllocator)) {
-      return (BufferAllocator)top.accountant;
+      return (BufferAllocator) top.accountant;
     } else {
       return null;
     }

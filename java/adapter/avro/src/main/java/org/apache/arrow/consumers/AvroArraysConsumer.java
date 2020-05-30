@@ -45,6 +45,7 @@ public class AvroArraysConsumer extends BaseAvroConsumer<ListVector> {
     long totalCount = 0;
     for (long count = decoder.readArrayStart(); count != 0; count = decoder.arrayNext()) {
       totalCount += count;
+      ensureInnerVectorCapacity(totalCount);
       for (int element = 0; element < count; element++) {
         delegate.consume(decoder);
       }
@@ -63,5 +64,11 @@ public class AvroArraysConsumer extends BaseAvroConsumer<ListVector> {
   public boolean resetValueVector(ListVector vector) {
     this.delegate.resetValueVector(vector.getDataVector());
     return super.resetValueVector(vector);
+  }
+
+  void ensureInnerVectorCapacity(long targetCapacity) {
+    while (vector.getDataVector().getValueCapacity() < targetCapacity) {
+      vector.getDataVector().reAlloc();
+    }
   }
 }

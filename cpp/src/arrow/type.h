@@ -248,16 +248,31 @@ class ARROW_EXPORT DataType : public detail::Fingerprintable {
   /// \brief Return whether the types are equal
   bool Equals(const std::shared_ptr<DataType>& other) const;
 
-  const std::shared_ptr<Field>& child(int i) const { return children_[i]; }
+  ARROW_DEPRECATED("Use field(i)")
+  const std::shared_ptr<Field>& child(int i) const { return field(i); }
 
-  const std::vector<std::shared_ptr<Field>>& children() const { return children_; }
+  /// Returns the the child-field at index i.
+  const std::shared_ptr<Field>& field(int i) const { return children_[i]; }
 
-  int num_children() const { return static_cast<int>(children_.size()); }
+  ARROW_DEPRECATED("Use fields()")
+  const std::vector<std::shared_ptr<Field>>& children() const { return fields(); }
+
+  /// \brief Returns the children fields associated with this type.
+  const std::vector<std::shared_ptr<Field>>& fields() const { return children_; }
+
+  ARROW_DEPRECATED("Use num_fields()")
+  int num_children() const { return num_fields(); }
+
+  /// \brief Returns the number of children fields associated with this type.
+  int num_fields() const { return static_cast<int>(children_.size()); }
 
   Status Accept(TypeVisitor* visitor) const;
 
   /// \brief A string representation of the type, including any children
   virtual std::string ToString() const = 0;
+
+  /// \brief Return hash value (excluding metadata in child fields)
+  size_t Hash() const;
 
   /// \brief A string name of the type, omitting any child fields
   ///
@@ -736,10 +751,10 @@ class ARROW_EXPORT MapType : public ListType {
   MapType(const std::shared_ptr<DataType>& key_type,
           const std::shared_ptr<Field>& item_field, bool keys_sorted = false);
 
-  std::shared_ptr<Field> key_field() const { return value_type()->child(0); }
+  std::shared_ptr<Field> key_field() const { return value_type()->field(0); }
   std::shared_ptr<DataType> key_type() const { return key_field()->type(); }
 
-  std::shared_ptr<Field> item_field() const { return value_type()->child(1); }
+  std::shared_ptr<Field> item_field() const { return value_type()->field(1); }
   std::shared_ptr<DataType> item_type() const { return item_field()->type(); }
 
   std::string ToString() const override;
@@ -1400,7 +1415,7 @@ class ARROW_EXPORT DictionaryUnifier {
 ///
 /// Represents a path to a nested field using indices of child fields.
 /// For example, given indices {5, 9, 3} the field would be retrieved with
-/// schema->field(5)->type()->child(9)->type()->child(3)
+/// schema->field(5)->type()->field(9)->type()->field(3)
 ///
 /// Attempting to retrieve a child field using a FieldPath which is not valid for
 /// a given schema will raise an error. Invalid FieldPaths include:
@@ -1857,5 +1872,15 @@ ARROW_EXPORT
 Result<std::shared_ptr<Schema>> UnifySchemas(
     const std::vector<std::shared_ptr<Schema>>& schemas,
     Field::MergeOptions field_merge_options = Field::MergeOptions::Defaults());
+
+namespace internal {
+
+ARROW_EXPORT
+std::string ToString(Type::type id);
+
+ARROW_EXPORT
+std::string ToString(TimeUnit::type unit);
+
+}  // namespace internal
 
 }  // namespace arrow

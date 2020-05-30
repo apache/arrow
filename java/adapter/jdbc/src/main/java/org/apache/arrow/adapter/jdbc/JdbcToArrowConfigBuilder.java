@@ -17,6 +17,8 @@
 
 package org.apache.arrow.adapter.jdbc;
 
+import static org.apache.arrow.adapter.jdbc.JdbcToArrowConfig.DEFAULT_TARGET_BATCH_SIZE;
+
 import java.util.Calendar;
 import java.util.Map;
 
@@ -71,6 +73,7 @@ public class JdbcToArrowConfigBuilder {
     this.allocator = allocator;
     this.calendar = calendar;
     this.includeMetadata = false;
+    this.targetBatchSize = DEFAULT_TARGET_BATCH_SIZE;
   }
 
   /**

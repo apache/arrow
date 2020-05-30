@@ -77,7 +77,8 @@ foreach(SRC_FILE ${PRECOMPILED_SRCS})
            ${BC_FILE}
            ${ARROW_GANDIVA_PC_CXX_FLAGS}
            -I${CMAKE_SOURCE_DIR}/src
-           -I${RE2_INCLUDE_DIR})
+           -I${RE2_INCLUDE_DIR}
+           -I${ARROW_BINARY_DIR}/src)
   add_custom_command(OUTPUT ${BC_FILE} COMMAND ${PRECOMPILE_COMMAND} DEPENDS ${SRC_FILE})
   list(APPEND BC_FILES ${BC_FILE})
 endforeach()

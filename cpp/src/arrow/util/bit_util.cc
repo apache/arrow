@@ -39,6 +39,7 @@
 #include "arrow/util/align_util.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/ubsan.h"
 
 namespace arrow {
 
@@ -56,6 +57,50 @@ void FillBitsFromBytes(const std::vector<uint8_t>& bytes, uint8_t* bits) {
 }
 
 }  // namespace
+
+void SetBitsTo(uint8_t* bits, int64_t start_offset, int64_t length, bool bits_are_set) {
+  if (length == 0) {
+    return;
+  }
+
+  const int64_t i_begin = start_offset;
+  const int64_t i_end = start_offset + length;
+  const uint8_t fill_byte = static_cast<uint8_t>(-static_cast<uint8_t>(bits_are_set));
+
+  const int64_t bytes_begin = i_begin / 8;
+  const int64_t bytes_end = i_end / 8 + 1;
+
+  const uint8_t first_byte_mask = kPrecedingBitmask[i_begin % 8];
+  const uint8_t last_byte_mask = kTrailingBitmask[i_end % 8];
+
+  if (bytes_end == bytes_begin + 1) {
+    // set bits within a single byte
+    const uint8_t only_byte_mask =
+        i_end % 8 == 0 ? first_byte_mask
+                       : static_cast<uint8_t>(first_byte_mask | last_byte_mask);
+    bits[bytes_begin] &= only_byte_mask;
+    bits[bytes_begin] |= static_cast<uint8_t>(fill_byte & ~only_byte_mask);
+    return;
+  }
+
+  // set/clear trailing bits of first byte
+  bits[bytes_begin] &= first_byte_mask;
+  bits[bytes_begin] |= static_cast<uint8_t>(fill_byte & ~first_byte_mask);
+
+  if (bytes_end - bytes_begin > 2) {
+    // set/clear whole bytes
+    std::memset(bits + bytes_begin + 1, fill_byte,
+                static_cast<size_t>(bytes_end - bytes_begin - 2));
+  }
+
+  if (i_end % 8 == 0) {
+    return;
+  }
+
+  // set/clear leading bits of last byte
+  bits[bytes_end - 1] &= last_byte_mask;
+  bits[bytes_end - 1] |= static_cast<uint8_t>(fill_byte & ~last_byte_mask);
+}
 
 Result<std::shared_ptr<Buffer>> BytesToBits(const std::vector<uint8_t>& bytes,
                                             MemoryPool* pool) {
@@ -256,11 +301,11 @@ bool BitmapEquals(const uint8_t* left, int64_t left_offset, const uint8_t* right
 
 namespace {
 
-template <typename Op>
+template <template <typename> class BitOp>
 void AlignedBitmapOp(const uint8_t* left, int64_t left_offset, const uint8_t* right,
                      int64_t right_offset, uint8_t* out, int64_t out_offset,
                      int64_t length) {
-  Op op;
+  BitOp<uint8_t> op;
   DCHECK_EQ(left_offset % 8, right_offset % 8);
   DCHECK_EQ(left_offset % 8, out_offset % 8);
 
@@ -273,28 +318,116 @@ void AlignedBitmapOp(const uint8_t* left, int64_t left_offset, const uint8_t* ri
   }
 }
 
-template <typename Op>
+template <template <typename> class BitOp, typename LogicalOp>
 void UnalignedBitmapOp(const uint8_t* left, int64_t left_offset, const uint8_t* right,
                        int64_t right_offset, uint8_t* out, int64_t out_offset,
                        int64_t length) {
-  Op op;
-  auto left_reader = internal::BitmapReader(left, left_offset, length);
-  auto right_reader = internal::BitmapReader(right, right_offset, length);
-  auto writer = internal::BitmapWriter(out, out_offset, length);
-  for (int64_t i = 0; i < length; ++i) {
-    if (op(left_reader.IsSet(), right_reader.IsSet())) {
-      writer.Set();
-    } else {
-      writer.Clear();
-    }
-    left_reader.Next();
-    right_reader.Next();
-    writer.Next();
+  using Word = uint64_t;
+
+  left += left_offset / 8;
+  right += right_offset / 8;
+  out += out_offset / 8;
+
+  left_offset %= 8;
+  right_offset %= 8;
+  out_offset %= 8;
+
+  const int64_t min_offset = std::min({left_offset, right_offset, out_offset});
+  const int64_t min_nbytes = BitUtil::BytesForBits(length + min_offset);
+  int64_t nwords = min_nbytes / sizeof(Word);
+
+  // process in words, we may touch two words in each iteration
+  if (nwords > 1) {
+    BitOp<Word> op;
+    constexpr int64_t bits_per_word = sizeof(Word) * 8;
+    const Word out_mask = (1U << out_offset) - 1;
+
+    length -= (nwords - 1) * bits_per_word;
+    Word left_word0 = BitUtil::ToLittleEndian(util::SafeLoadAs<Word>(left));
+    Word right_word0 = BitUtil::ToLittleEndian(util::SafeLoadAs<Word>(right));
+    Word out_word0 = BitUtil::ToLittleEndian(util::SafeLoadAs<Word>(out));
+
+    do {
+      left += sizeof(Word);
+      const Word left_word1 = BitUtil::ToLittleEndian(util::SafeLoadAs<Word>(left));
+      Word left_word = left_word0;
+      if (left_offset) {
+        // combine two adjacent words into one word
+        // |<-- left_word1 --->|<-- left_word0 --->|
+        // +-------------+-----+-------------+-----+
+        // |     ---     |  A  |      B      | --- |
+        // +-------------+-----+-------------+-----+
+        //                  |         |       offset
+        //                  v         v
+        //               +-----+-------------+
+        //               |  A  |      B      |
+        //               +-----+-------------+
+        //               |<--- left_word --->|
+        left_word >>= left_offset;
+        left_word |= left_word1 << (bits_per_word - left_offset);
+      }
+      left_word0 = left_word1;
+
+      right += sizeof(Word);
+      const Word right_word1 = BitUtil::ToLittleEndian(util::SafeLoadAs<Word>(right));
+      Word right_word = right_word0;
+      if (right_offset) {
+        right_word >>= right_offset;
+        right_word |= right_word1 << (bits_per_word - right_offset);
+      }
+      right_word0 = right_word1;
+
+      Word out_word = op(left_word, right_word);
+      if (out_offset) {
+        // break one word into two adjacent words, don't touch unused bits
+        //               |<---- out_word --->|
+        //               +-----+-------------+
+        //               |  A  |      B      |
+        //               +-----+-------------+
+        //                  |         |
+        //                  v         v       offset
+        // +-------------+-----+-------------+-----+
+        // |     ---     |  A  |      B      | --- |
+        // +-------------+-----+-------------+-----+
+        // |<--- out_word1 --->|<--- out_word0 --->|
+        out_word = (out_word << out_offset) | (out_word >> (bits_per_word - out_offset));
+        Word out_word1 = util::SafeLoadAs<Word>(out + sizeof(Word));
+        out_word1 = BitUtil::ToLittleEndian(out_word1);
+        out_word0 = (out_word0 & out_mask) | (out_word & ~out_mask);
+        out_word1 = (out_word1 & ~out_mask) | (out_word & out_mask);
+        util::SafeStore(out, BitUtil::FromLittleEndian(out_word0));
+        util::SafeStore(out + sizeof(Word), BitUtil::FromLittleEndian(out_word1));
+        out_word0 = out_word1;
+      } else {
+        util::SafeStore(out, BitUtil::FromLittleEndian(out_word));
+      }
+      out += sizeof(Word);
+
+      --nwords;
+    } while (nwords > 1);
   }
-  writer.Finish();
+
+  // process in bits
+  if (length) {
+    auto left_reader = internal::BitmapReader(left, left_offset, length);
+    auto right_reader = internal::BitmapReader(right, right_offset, length);
+    auto writer = internal::BitmapWriter(out, out_offset, length);
+    LogicalOp op;
+    while (length--) {
+      if (op(left_reader.IsSet(), right_reader.IsSet())) {
+        writer.Set();
+      } else {
+        writer.Clear();
+      }
+      left_reader.Next();
+      right_reader.Next();
+      writer.Next();
+    }
+    writer.Finish();
+  }
 }
 
-template <typename BitOp, typename LogicalOp>
+template <template <typename> class BitOp, typename LogicalOp>
 void BitmapOp(const uint8_t* left, int64_t left_offset, const uint8_t* right,
               int64_t right_offset, int64_t length, int64_t out_offset, uint8_t* dest) {
   if ((out_offset % 8 == left_offset % 8) && (out_offset % 8 == right_offset % 8)) {
@@ -303,12 +436,12 @@ void BitmapOp(const uint8_t* left, int64_t left_offset, const uint8_t* right,
                            length);
   } else {
     // Unaligned
-    UnalignedBitmapOp<LogicalOp>(left, left_offset, right, right_offset, dest, out_offset,
-                                 length);
+    UnalignedBitmapOp<BitOp, LogicalOp>(left, left_offset, right, right_offset, dest,
+                                        out_offset, length);
   }
 }
 
-template <typename BitOp, typename LogicalOp>
+template <template <typename> class BitOp, typename LogicalOp>
 Result<std::shared_ptr<Buffer>> BitmapOp(MemoryPool* pool, const uint8_t* left,
                                          int64_t left_offset, const uint8_t* right,
                                          int64_t right_offset, int64_t length,
@@ -357,42 +490,42 @@ Result<std::shared_ptr<Buffer>> BitmapAnd(MemoryPool* pool, const uint8_t* left,
                                           int64_t left_offset, const uint8_t* right,
                                           int64_t right_offset, int64_t length,
                                           int64_t out_offset) {
-  return BitmapOp<std::bit_and<uint8_t>, std::logical_and<bool>>(
-      pool, left, left_offset, right, right_offset, length, out_offset);
+  return BitmapOp<std::bit_and, std::logical_and<bool>>(pool, left, left_offset, right,
+                                                        right_offset, length, out_offset);
 }
 
 void BitmapAnd(const uint8_t* left, int64_t left_offset, const uint8_t* right,
                int64_t right_offset, int64_t length, int64_t out_offset, uint8_t* out) {
-  BitmapOp<std::bit_and<uint8_t>, std::logical_and<bool>>(
-      left, left_offset, right, right_offset, length, out_offset, out);
+  BitmapOp<std::bit_and, std::logical_and<bool>>(left, left_offset, right, right_offset,
+                                                 length, out_offset, out);
 }
 
 Result<std::shared_ptr<Buffer>> BitmapOr(MemoryPool* pool, const uint8_t* left,
                                          int64_t left_offset, const uint8_t* right,
                                          int64_t right_offset, int64_t length,
                                          int64_t out_offset) {
-  return BitmapOp<std::bit_or<uint8_t>, std::logical_or<bool>>(
-      pool, left, left_offset, right, right_offset, length, out_offset);
+  return BitmapOp<std::bit_or, std::logical_or<bool>>(pool, left, left_offset, right,
+                                                      right_offset, length, out_offset);
 }
 
 void BitmapOr(const uint8_t* left, int64_t left_offset, const uint8_t* right,
               int64_t right_offset, int64_t length, int64_t out_offset, uint8_t* out) {
-  BitmapOp<std::bit_or<uint8_t>, std::logical_or<bool>>(
-      left, left_offset, right, right_offset, length, out_offset, out);
+  BitmapOp<std::bit_or, std::logical_or<bool>>(left, left_offset, right, right_offset,
+                                               length, out_offset, out);
 }
 
 Result<std::shared_ptr<Buffer>> BitmapXor(MemoryPool* pool, const uint8_t* left,
                                           int64_t left_offset, const uint8_t* right,
                                           int64_t right_offset, int64_t length,
                                           int64_t out_offset) {
-  return BitmapOp<std::bit_xor<uint8_t>, std::bit_xor<bool>>(
-      pool, left, left_offset, right, right_offset, length, out_offset);
+  return BitmapOp<std::bit_xor, std::bit_xor<bool>>(pool, left, left_offset, right,
+                                                    right_offset, length, out_offset);
 }
 
 void BitmapXor(const uint8_t* left, int64_t left_offset, const uint8_t* right,
                int64_t right_offset, int64_t length, int64_t out_offset, uint8_t* out) {
-  BitmapOp<std::bit_xor<uint8_t>, std::bit_xor<bool>>(
-      left, left_offset, right, right_offset, length, out_offset, out);
+  BitmapOp<std::bit_xor, std::bit_xor<bool>>(left, left_offset, right, right_offset,
+                                             length, out_offset, out);
 }
 
 Result<std::shared_ptr<Buffer>> BitmapAllButOne(MemoryPool* pool, int64_t length,

@@ -724,7 +724,7 @@ fn create_key(
 mod tests {
 
     use super::*;
-    use crate::execution::physical_plan::csv::CsvExec;
+    use crate::execution::physical_plan::csv::{CsvExec, CsvReadOptions};
     use crate::execution::physical_plan::expressions::{col, sum};
     use crate::execution::physical_plan::merge::MergeExec;
     use crate::test;
@@ -736,7 +736,8 @@ mod tests {
         let partitions = 4;
         let path = test::create_partitioned_csv("aggregate_test_100.csv", partitions)?;
 
-        let csv = CsvExec::try_new(&path, schema.clone(), true, None, 1024)?;
+        let csv =
+            CsvExec::try_new(&path, CsvReadOptions::new().schema(&schema), None, 1024)?;
 
         let group_expr: Vec<Arc<dyn PhysicalExpr>> = vec![col(1, schema.as_ref())];
 

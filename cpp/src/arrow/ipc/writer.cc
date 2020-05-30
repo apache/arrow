@@ -468,8 +468,8 @@ class RecordBatchSerializer {
       out_->body_buffers.emplace_back(value_offsets);
 
       // Visit children and slice accordingly
-      for (int i = 0; i < type.num_children(); ++i) {
-        std::shared_ptr<Array> child = array.child(i);
+      for (int i = 0; i < type.num_fields(); ++i) {
+        std::shared_ptr<Array> child = array.field(i);
 
         // TODO: ARROW-809, for sliced unions, tricky to know how much to
         // truncate the children. For now, we are truncating the children to be
@@ -490,8 +490,8 @@ class RecordBatchSerializer {
       }
     } else {
       for (int i = 0; i < array.num_fields(); ++i) {
-        // Sparse union, slicing is done for us by child()
-        RETURN_NOT_OK(VisitArray(*array.child(i)));
+        // Sparse union, slicing is done for us by field()
+        RETURN_NOT_OK(VisitArray(*array.field(i)));
       }
     }
     ++max_recursion_depth_;
@@ -995,7 +995,7 @@ class ARROW_EXPORT IpcFormatWriter : public RecordBatchWriter {
   Status WriteDictionaries(const RecordBatch& batch) {
     RETURN_NOT_OK(CollectDictionaries(batch, dictionary_memo_));
 
-    for (auto& pair : dictionary_memo_->id_to_dictionary()) {
+    for (const auto& pair : dictionary_memo_->dictionaries()) {
       internal::IpcPayload payload;
       int64_t dictionary_id = pair.first;
       const auto& dictionary = pair.second;

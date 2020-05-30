@@ -272,6 +272,7 @@ pub fn make_array(data: ArrayDataRef) -> ArrayRef {
         DataType::Utf8 => Arc::new(StringArray::from(data)) as ArrayRef,
         DataType::List(_) => Arc::new(ListArray::from(data)) as ArrayRef,
         DataType::Struct(_) => Arc::new(StructArray::from(data)) as ArrayRef,
+        DataType::Union(_) => Arc::new(UnionArray::from(data)) as ArrayRef,
         DataType::FixedSizeList(_, _) => {
             Arc::new(FixedSizeListArray::from(data)) as ArrayRef
         }
@@ -302,6 +303,7 @@ pub fn make_array(data: ArrayDataRef) -> ArrayRef {
             }
             dt => panic!("Unexpected dictionary key type {:?}", dt),
         },
+        DataType::Null => Arc::new(NullArray::from(data)) as ArrayRef,
         dt => panic!("Unexpected data type {:?}", dt),
     }
 }
@@ -784,6 +786,16 @@ def_numeric_from_vec!(
     DurationNanosecondType,
     i64,
     DataType::Duration(TimeUnit::Nanosecond)
+);
+def_numeric_from_vec!(
+    TimestampMillisecondType,
+    i64,
+    DataType::Timestamp(TimeUnit::Millisecond, None)
+);
+def_numeric_from_vec!(
+    TimestampMicrosecondType,
+    i64,
+    DataType::Timestamp(TimeUnit::Microsecond, None)
 );
 
 impl<T: ArrowTimestampType> PrimitiveArray<T> {

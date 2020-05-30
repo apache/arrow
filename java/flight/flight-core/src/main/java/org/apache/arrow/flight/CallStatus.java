@@ -137,7 +137,7 @@ public class CallStatus {
         "code=" + code +
         ", cause=" + cause +
         ", description='" + description +
-        ", metadata='" + metadata + '\'' +
+        "', metadata='" + metadata + '\'' +
         '}';
   }
 }

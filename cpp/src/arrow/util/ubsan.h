@@ -78,5 +78,11 @@ SafeCopy(T value) {
   return ret;
 }
 
+template <typename T>
+inline typename std::enable_if<std::is_trivial<T>::value, void>::type SafeStore(
+    void* unaligned, T value) {
+  std::memcpy(unaligned, &value, sizeof(T));
+}
+
 }  // namespace util
 }  // namespace arrow

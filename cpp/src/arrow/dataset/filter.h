@@ -25,12 +25,11 @@
 #include <utility>
 #include <vector>
 
-#include "arrow/compute/context.h"
-#include "arrow/compute/kernel.h"
-#include "arrow/compute/kernels/cast.h"
-#include "arrow/compute/kernels/compare.h"
+#include "arrow/compute/api_scalar.h"
+#include "arrow/compute/cast.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
+#include "arrow/datum.h"
 #include "arrow/result.h"
 #include "arrow/scalar.h"
 #include "arrow/type_fwd.h"
@@ -39,6 +38,9 @@
 
 namespace arrow {
 namespace dataset {
+
+using compute::CastOptions;
+using compute::CompareOperator;
 
 struct ExpressionType {
   enum type {
@@ -198,6 +200,10 @@ class ARROW_DS_EXPORT Expression {
   ///
   /// This behaves like IsSatisfiable, but it simplifies the current expression
   /// with the given `other` information.
+  bool IsSatisfiableWith(const Expression& other) const {
+    return Assume(other)->IsSatisfiable();
+  }
+
   bool IsSatisfiableWith(const std::shared_ptr<Expression>& other) const {
     return Assume(other)->IsSatisfiable();
   }
@@ -220,13 +226,13 @@ class ARROW_DS_EXPORT Expression {
   IsValidExpression IsValid() const;
 
   CastExpression CastTo(std::shared_ptr<DataType> type,
-                        compute::CastOptions options = compute::CastOptions()) const;
+                        CastOptions options = CastOptions()) const;
 
   CastExpression CastLike(const Expression& expr,
-                          compute::CastOptions options = compute::CastOptions()) const;
+                          CastOptions options = CastOptions()) const;
 
   CastExpression CastLike(std::shared_ptr<Expression> expr,
-                          compute::CastOptions options = compute::CastOptions()) const;
+                          CastOptions options = CastOptions()) const;
 
  protected:
   ExpressionType::type type_;
@@ -284,8 +290,7 @@ class ARROW_DS_EXPORT ComparisonExpression final
     : public ExpressionImpl<BinaryExpression, ComparisonExpression,
                             ExpressionType::COMPARISON> {
  public:
-  ComparisonExpression(compute::CompareOperator op,
-                       std::shared_ptr<Expression> left_operand,
+  ComparisonExpression(CompareOperator op, std::shared_ptr<Expression> left_operand,
                        std::shared_ptr<Expression> right_operand)
       : ExpressionImpl(std::move(left_operand), std::move(right_operand)), op_(op) {}
 
@@ -295,7 +300,7 @@ class ARROW_DS_EXPORT ComparisonExpression final
 
   std::shared_ptr<Expression> Assume(const Expression& given) const override;
 
-  compute::CompareOperator op() const { return op_; }
+  CompareOperator op() const { return op_; }
 
   Result<std::shared_ptr<DataType>> Validate(const Schema& schema) const override;
 
@@ -303,7 +308,7 @@ class ARROW_DS_EXPORT ComparisonExpression final
   std::shared_ptr<Expression> AssumeGivenComparison(
       const ComparisonExpression& given) const;
 
-  compute::CompareOperator op_;
+  CompareOperator op_;
 };
 
 class ARROW_DS_EXPORT AndExpression final
@@ -379,7 +384,7 @@ class ARROW_DS_EXPORT CastExpression final
     : public ExpressionImpl<UnaryExpression, CastExpression, ExpressionType::CAST> {
  public:
   CastExpression(std::shared_ptr<Expression> operand, std::shared_ptr<DataType> to,
-                 compute::CastOptions options)
+                 CastOptions options)
       : ExpressionImpl(std::move(operand)),
         to_(std::move(to)),
         options_(std::move(options)) {}
@@ -387,7 +392,7 @@ class ARROW_DS_EXPORT CastExpression final
   /// The operand will be cast to whatever type `like` would evaluate to, given the same
   /// schema.
   CastExpression(std::shared_ptr<Expression> operand, std::shared_ptr<Expression> like,
-                 compute::CastOptions options)
+                 CastOptions options)
       : ExpressionImpl(std::move(operand)),
         to_(std::move(like)),
         options_(std::move(options)) {}
@@ -398,7 +403,7 @@ class ARROW_DS_EXPORT CastExpression final
 
   Result<std::shared_ptr<DataType>> Validate(const Schema& schema) const override;
 
-  const compute::CastOptions& options() const { return options_; }
+  const CastOptions& options() const { return options_; }
 
   /// Return the target type of this CastTo expression, or nullptr if this is a
   /// CastLike expression.
@@ -410,7 +415,7 @@ class ARROW_DS_EXPORT CastExpression final
 
  private:
   util::variant<std::shared_ptr<DataType>, std::shared_ptr<Expression>> to_;
-  compute::CastOptions options_;
+  CastOptions options_;
 };
 
 /// Represents a scalar value; thin wrapper around arrow::Scalar
@@ -486,23 +491,22 @@ auto scalar(T&& value) -> decltype(scalar(MakeScalar(std::forward<T>(value)))) {
   return scalar(MakeScalar(std::forward<T>(value)));
 }
 
-#define COMPARISON_FACTORY(NAME, FACTORY_NAME, OP)                                       \
-  inline std::shared_ptr<ComparisonExpression> FACTORY_NAME(                             \
-      const std::shared_ptr<Expression>& lhs, const std::shared_ptr<Expression>& rhs) {  \
-    return std::make_shared<ComparisonExpression>(compute::CompareOperator::NAME, lhs,   \
-                                                  rhs);                                  \
-  }                                                                                      \
-                                                                                         \
-  template <typename T, typename Enable = typename std::enable_if<!std::is_base_of<      \
-                            Expression, typename std::decay<T>::type>::value>::type>     \
-  ComparisonExpression operator OP(const Expression& lhs, T&& rhs) {                     \
-    return ComparisonExpression(compute::CompareOperator::NAME, lhs.Copy(),              \
-                                scalar(std::forward<T>(rhs)));                           \
-  }                                                                                      \
-                                                                                         \
-  inline ComparisonExpression operator OP(const Expression& lhs,                         \
-                                          const Expression& rhs) {                       \
-    return ComparisonExpression(compute::CompareOperator::NAME, lhs.Copy(), rhs.Copy()); \
+#define COMPARISON_FACTORY(NAME, FACTORY_NAME, OP)                                      \
+  inline std::shared_ptr<ComparisonExpression> FACTORY_NAME(                            \
+      const std::shared_ptr<Expression>& lhs, const std::shared_ptr<Expression>& rhs) { \
+    return std::make_shared<ComparisonExpression>(CompareOperator::NAME, lhs, rhs);     \
+  }                                                                                     \
+                                                                                        \
+  template <typename T, typename Enable = typename std::enable_if<!std::is_base_of<     \
+                            Expression, typename std::decay<T>::type>::value>::type>    \
+  ComparisonExpression operator OP(const Expression& lhs, T&& rhs) {                    \
+    return ComparisonExpression(CompareOperator::NAME, lhs.Copy(),                      \
+                                scalar(std::forward<T>(rhs)));                          \
+  }                                                                                     \
+                                                                                        \
+  inline ComparisonExpression operator OP(const Expression& lhs,                        \
+                                          const Expression& rhs) {                      \
+    return ComparisonExpression(CompareOperator::NAME, lhs.Copy(), rhs.Copy());         \
   }
 COMPARISON_FACTORY(EQUAL, equal, ==)
 COMPARISON_FACTORY(NOT_EQUAL, not_equal, !=)
@@ -593,21 +597,19 @@ class ARROW_DS_EXPORT ExpressionEvaluator {
   /// slots contain a single repeated value.
   ///
   /// expr must be validated against the schema of batch before calling this method.
-  virtual Result<compute::Datum> Evaluate(const Expression& expr,
-                                          const RecordBatch& batch,
-                                          MemoryPool* pool) const = 0;
+  virtual Result<Datum> Evaluate(const Expression& expr, const RecordBatch& batch,
+                                 MemoryPool* pool) const = 0;
 
-  Result<compute::Datum> Evaluate(const Expression& expr,
-                                  const RecordBatch& batch) const {
+  Result<Datum> Evaluate(const Expression& expr, const RecordBatch& batch) const {
     return Evaluate(expr, batch, default_memory_pool());
   }
 
   virtual Result<std::shared_ptr<RecordBatch>> Filter(
-      const compute::Datum& selection, const std::shared_ptr<RecordBatch>& batch,
+      const Datum& selection, const std::shared_ptr<RecordBatch>& batch,
       MemoryPool* pool) const = 0;
 
   Result<std::shared_ptr<RecordBatch>> Filter(
-      const compute::Datum& selection, const std::shared_ptr<RecordBatch>& batch) const {
+      const Datum& selection, const std::shared_ptr<RecordBatch>& batch) const {
     return Filter(selection, batch, default_memory_pool());
   }
 
@@ -628,10 +630,10 @@ class ARROW_DS_EXPORT ExpressionEvaluator {
 /// filter record batches in depth first order
 class ARROW_DS_EXPORT TreeEvaluator : public ExpressionEvaluator {
  public:
-  Result<compute::Datum> Evaluate(const Expression& expr, const RecordBatch& batch,
-                                  MemoryPool* pool) const override;
+  Result<Datum> Evaluate(const Expression& expr, const RecordBatch& batch,
+                         MemoryPool* pool) const override;
 
-  Result<std::shared_ptr<RecordBatch>> Filter(const compute::Datum& selection,
+  Result<std::shared_ptr<RecordBatch>> Filter(const Datum& selection,
                                               const std::shared_ptr<RecordBatch>& batch,
                                               MemoryPool* pool) const override;
 

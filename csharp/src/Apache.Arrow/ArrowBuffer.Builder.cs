@@ -15,6 +15,7 @@
 
 using Apache.Arrow.Memory;
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 
@@ -71,7 +72,7 @@ namespace Apache.Arrow
             {
                 if (values != null)
                 {
-                    foreach (var v in values)
+                    foreach (T v in values)
                     {
                         Append(v);
                     }
@@ -106,8 +107,8 @@ namespace Apache.Arrow
                 int currentBytesLength = Length * _size;
                 int bufferLength = checked((int)BitUtility.RoundUpToMultipleOf64(currentBytesLength));
 
-                var memoryAllocator = allocator ?? MemoryAllocator.Default.Value;
-                var memoryOwner = memoryAllocator.Allocate(bufferLength);
+                MemoryAllocator memoryAllocator = allocator ?? MemoryAllocator.Default.Value;
+                IMemoryOwner<byte> memoryOwner = memoryAllocator.Allocate(bufferLength);
                 Memory.Slice(0, currentBytesLength).CopyTo(memoryOwner.Memory);
 
                 return new ArrowBuffer(memoryOwner);
@@ -115,13 +116,13 @@ namespace Apache.Arrow
 
             private void EnsureCapacity(int n)
             {
-                var length = checked(Length + n);
+                int length = checked(Length + n);
 
                 if (length > Capacity)
                 {
                     // TODO: specifiable growth strategy
 
-                    var capacity = Math.Max(length * _size, Memory.Length * 2);
+                    int capacity = Math.Max(length * _size, Memory.Length * 2);
                     Reallocate(capacity);
                 }
             }

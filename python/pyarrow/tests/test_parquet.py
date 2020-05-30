@@ -341,8 +341,8 @@ def test_nested_list_nonnullable_roundtrip_bug(use_legacy_dataset):
     typ = pa.list_(pa.field("item", pa.float32(), False))
     num_rows = 10000
     t = pa.table([
-        pa.array(([[0] * ((i + 5) % 10) for i in range(0, 10)]
-                  * (num_rows // 10)), type=typ)
+        pa.array(([[0] * ((i + 5) % 10) for i in range(0, 10)] *
+                  (num_rows // 10)), type=typ)
     ], ['a'])
     _check_roundtrip(
         t, data_page_size=4096, use_legacy_dataset=use_legacy_dataset)
@@ -652,7 +652,7 @@ def test_pandas_can_write_nested_data(tempdir):
         "agg_col": [
             {"page_type": 1},
             {"record_type": 1},
-            {"non_consectutive_home": 0},
+            {"non_consecutive_home": 0},
         ],
         "uid_first": "1001"
     }

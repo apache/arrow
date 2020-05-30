@@ -183,18 +183,16 @@ class TestParquetFileFormat : public ArrowParquetWriterMixin {
                                 std::vector<int> expected_row_groups,
                                 const Expression& filter) {
     auto parquet_fragment = checked_pointer_cast<ParquetFileFragment>(fragment);
-    ASSERT_OK_AND_ASSIGN(auto row_group_fragments,
-                         format_->GetRowGroupFragments(*parquet_fragment, filter.Copy()));
+    ASSERT_OK_AND_ASSIGN(auto fragments, parquet_fragment->SplitByRowGroup(filter.Copy()))
 
-    auto expected_row_group = expected_row_groups.begin();
-    for (auto maybe_fragment : row_group_fragments) {
-      ASSERT_OK_AND_ASSIGN(auto fragment, std::move(maybe_fragment));
-      auto parquet_fragment = checked_pointer_cast<ParquetFileFragment>(fragment);
+    EXPECT_EQ(fragments.size(), expected_row_groups.size());
+    for (size_t i = 0; i < fragments.size(); i++) {
+      auto expected = expected_row_groups[i];
+      auto parquet_fragment = checked_pointer_cast<ParquetFileFragment>(fragments[i]);
 
-      auto i = *expected_row_group++;
-      EXPECT_EQ(parquet_fragment->row_groups(), std::vector<int>{i});
-
-      EXPECT_EQ(SingleBatch(parquet_fragment.get())->num_rows(), i + 1);
+      EXPECT_EQ(parquet_fragment->row_groups(),
+                RowGroupInfo::FromIdentifiers({expected}));
+      EXPECT_EQ(SingleBatch(parquet_fragment.get())->num_rows(), expected + 1);
     }
   }
 
@@ -434,7 +432,6 @@ TEST_F(TestParquetFileFormat, PredicatePushdown) {
 
 TEST_F(TestParquetFileFormat, PredicatePushdownRowGroupFragments) {
   constexpr int64_t kNumRowGroups = 16;
-  constexpr int64_t kTotalNumRows = kNumRowGroups * (kNumRowGroups + 1) / 2;
 
   auto reader = ArithmeticDatasetFixture::GetRecordBatchReader(kNumRowGroups);
   auto source = GetFileSource(reader.get());
@@ -442,7 +439,7 @@ TEST_F(TestParquetFileFormat, PredicatePushdownRowGroupFragments) {
   opts_ = ScanOptions::Make(reader->schema());
   ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
 
-  CountRowGroupsInFragment(fragment, internal::Iota(static_cast<int>(kTotalNumRows)),
+  CountRowGroupsInFragment(fragment, internal::Iota(static_cast<int>(kNumRowGroups)),
                            *scalar(true));
 
   for (int i = 0; i < kNumRowGroups; ++i) {
@@ -466,7 +463,7 @@ TEST_F(TestParquetFileFormat, PredicatePushdownRowGroupFragments) {
   CountRowGroupsInFragment(fragment, internal::Iota(5, static_cast<int>(kNumRowGroups)),
                            "i64"_ >= int64_t(6));
 
-  CountRowGroupsInFragment(fragment, {5, 6, 7},
+  CountRowGroupsInFragment(fragment, {5, 6},
                            "i64"_ >= int64_t(6) and "i64"_ < int64_t(8));
 }
 
@@ -492,7 +489,7 @@ TEST_F(TestParquetFileFormat, ExplicitRowGroupSelection) {
   // individual selection selects a single row group
   for (int i = 0; i < kNumRowGroups; ++i) {
     CountRowsAndBatchesInScan(row_groups_fragment({i}), i + 1, 1);
-    EXPECT_EQ(row_groups_fragment({i})->row_groups(), std::vector<int>{i});
+    EXPECT_EQ(row_groups_fragment({i})->row_groups(), RowGroupInfo::FromIdentifiers({i}));
   }
 
   for (int i = 0; i < kNumRowGroups; ++i) {

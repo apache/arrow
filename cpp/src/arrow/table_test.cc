@@ -152,6 +152,17 @@ TEST_F(TestChunkedArray, SliceEquals) {
   ASSERT_TRUE(slice5->type()->Equals(one_->type()));
 }
 
+TEST_F(TestChunkedArray, ZeroChunksIssues) {
+  ArrayVector empty = {};
+  auto no_chunks = std::make_shared<ChunkedArray>(empty, int8());
+
+  // ARROW-8911, assert that slicing is a no-op when there are zero-chunks
+  auto sliced = no_chunks->Slice(0, 0);
+  auto sliced2 = no_chunks->Slice(0, 5);
+  AssertChunkedEqual(*no_chunks, *sliced);
+  AssertChunkedEqual(*no_chunks, *sliced2);
+}
+
 TEST_F(TestChunkedArray, Validate) {
   // Valid if empty
   ArrayVector empty = {};

@@ -27,6 +27,7 @@ import org.apache.arrow.adapter.jdbc.consumer.JdbcConsumer;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.types.pojo.Schema;
+import org.apache.arrow.vector.util.ValueVectorUtility;
 
 /**
  * VectorSchemaRoot iterator for partially converting JDBC data.
@@ -92,11 +93,19 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
     // consume data
     try {
       int readRowCount = 0;
-      while ((targetBatchSize == JdbcToArrowConfig.NO_LIMIT_BATCH_SIZE || readRowCount < targetBatchSize) &&
-          resultSet.next()) {
-        compositeConsumer.consume(resultSet);
-        readRowCount++;
+      if (targetBatchSize == JdbcToArrowConfig.NO_LIMIT_BATCH_SIZE) {
+        while (resultSet.next()) {
+          ValueVectorUtility.ensureCapacity(root, readRowCount + 1);
+          compositeConsumer.consume(resultSet);
+          readRowCount++;
+        }
+      } else {
+        while (readRowCount < targetBatchSize && resultSet.next()) {
+          compositeConsumer.consume(resultSet);
+          readRowCount++;
+        }
       }
+
 
       root.setRowCount(readRowCount);
     } catch (Exception e) {
@@ -109,6 +118,9 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
     VectorSchemaRoot root = null;
     try {
       root = VectorSchemaRoot.create(schema, config.getAllocator());
+      if (config.getTargetBatchSize() != JdbcToArrowConfig.NO_LIMIT_BATCH_SIZE) {
+        ValueVectorUtility.preAllocate(root, config.getTargetBatchSize());
+      }
     } catch (Exception e) {
       if (root != null) {
         root.close();

@@ -18,6 +18,10 @@
 #include "./arrow_types.h"
 
 #if defined(ARROW_R_WITH_ARROW)
+#include <arrow/ipc/reader.h>
+#include <arrow/ipc/writer.h>
+
+RCPP_EXPOSED_ENUM_NODECL(arrow::ipc::Message::Type)
 
 // [[arrow::export]]
 int64_t ipc___Message__body_length(const std::unique_ptr<arrow::ipc::Message>& message) {

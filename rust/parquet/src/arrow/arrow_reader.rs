@@ -204,9 +204,13 @@ impl ParquetRecordBatchReader {
 #[cfg(test)]
 mod tests {
     use crate::arrow::arrow_reader::{ArrowReader, ParquetFileArrowReader};
-    use crate::arrow::converter::{Converter, FromConverter, Utf8ArrayConverter};
+    use crate::arrow::converter::{
+        Converter, FixedSizeArrayConverter, FromConverter, Utf8ArrayConverter,
+    };
     use crate::column::writer::get_typed_column_writer_mut;
-    use crate::data_type::{BoolType, ByteArray, ByteArrayType, DataType, Int32Type};
+    use crate::data_type::{
+        BoolType, ByteArray, ByteArrayType, DataType, FixedLenByteArrayType, Int32Type,
+    };
     use crate::errors::Result;
     use crate::file::properties::WriterProperties;
     use crate::file::reader::{FileReader, SerializedFileReader};
@@ -214,9 +218,13 @@ mod tests {
     use crate::schema::parser::parse_message_type;
     use crate::schema::types::TypePtr;
     use crate::util::test_common::{get_temp_filename, RandGen};
-    use arrow::array::{Array, BooleanArray, StringArray, StructArray};
+    use arrow::array::{
+        Array, BooleanArray, FixedSizeBinaryArray, StringArray, StructArray,
+    };
     use arrow::record_batch::RecordBatchReader;
-    use serde_json::Value::Array as JArray;
+    use rand::RngCore;
+    use serde_json::json;
+    use serde_json::Value::{Array as JArray, Null as JNull, Object as JObject};
     use std::cmp::min;
     use std::convert::TryFrom;
     use std::env;
@@ -225,15 +233,8 @@ mod tests {
     use std::rc::Rc;
 
     #[test]
-    fn test_arrow_reader() {
-        let json_values = match serde_json::from_reader(get_test_file(
-            "parquet/generated_simple_numerics/blogs.json",
-        ))
-        .expect("Failed to read json value from file!")
-        {
-            JArray(values) => values,
-            _ => panic!("Input should be json array!"),
-        };
+    fn test_arrow_reader_all_columns() {
+        let json_values = get_json_array("parquet/generated_simple_numerics/blogs.json");
 
         let parquet_file_reader =
             get_test_reader("parquet/generated_simple_numerics/blogs.parquet");
@@ -246,24 +247,44 @@ mod tests {
             .get_record_reader(60)
             .expect("Failed to read into array!");
 
-        for i in 0..20 {
-            let array: Option<StructArray> = record_batch_reader
-                .next_batch()
-                .expect("Failed to read record batch!")
-                .map(|r| r.into());
+        // Verify that the schema was correctly parsed
+        let original_schema = arrow_reader.get_schema().unwrap().fields().clone();
+        assert_eq!(original_schema, *record_batch_reader.schema().fields());
 
-            let (start, end) = (i * 60 as usize, (i + 1) * 60 as usize);
+        compare_batch_json(&mut record_batch_reader, json_values, max_len);
+    }
 
-            if start < max_len {
-                assert!(array.is_some());
-                assert_ne!(0, array.as_ref().unwrap().len());
-                let end = min(end, max_len);
-                let json = JArray(Vec::from(&json_values[start..end]));
-                assert_eq!(array.unwrap(), json)
-            } else {
-                assert!(array.is_none());
-            }
-        }
+    #[test]
+    fn test_arrow_reader_single_column() {
+        let json_values = get_json_array("parquet/generated_simple_numerics/blogs.json");
+
+        let projected_json_values = json_values
+            .into_iter()
+            .map(|value| match value {
+                JObject(fields) => {
+                    json!({ "blog_id": fields.get("blog_id").unwrap_or(&JNull).clone()})
+                }
+                _ => panic!("Input should be json object array!"),
+            })
+            .collect::<Vec<_>>();
+
+        let parquet_file_reader =
+            get_test_reader("parquet/generated_simple_numerics/blogs.parquet");
+
+        let max_len = parquet_file_reader.metadata().file_metadata().num_rows() as usize;
+
+        let mut arrow_reader = ParquetFileArrowReader::new(parquet_file_reader);
+
+        let mut record_batch_reader = arrow_reader
+            .get_record_reader_by_columns(vec![2], 60)
+            .expect("Failed to read into array!");
+
+        // Verify that the schema was correctly parsed
+        let original_schema = arrow_reader.get_schema().unwrap().fields().clone();
+        assert_eq!(1, record_batch_reader.schema().fields().len());
+        assert_eq!(original_schema[1], record_batch_reader.schema().fields()[0]);
+
+        compare_batch_json(&mut record_batch_reader, projected_json_values, max_len);
     }
 
     #[test]
@@ -274,12 +295,40 @@ mod tests {
         }
         ";
 
+        let converter = FromConverter::new();
         single_column_reader_test::<
             BoolType,
             BooleanArray,
             FromConverter<Vec<Option<bool>>, BooleanArray>,
             BoolType,
-        >(2, 100, 2, message_type, 15, 50);
+        >(2, 100, 2, message_type, 15, 50, converter);
+    }
+
+    struct RandFixedLenGen {}
+
+    impl RandGen<FixedLenByteArrayType> for RandFixedLenGen {
+        fn gen(len: i32) -> ByteArray {
+            let mut v = vec![0u8; len as usize];
+            rand::thread_rng().fill_bytes(&mut v);
+            v.into()
+        }
+    }
+
+    #[test]
+    fn test_fixed_length_binary_column_reader() {
+        let message_type = "
+        message test_schema {
+          REQUIRED FIXED_LEN_BYTE_ARRAY (20) leaf;
+        }
+        ";
+
+        let converter = FixedSizeArrayConverter::new(20);
+        single_column_reader_test::<
+            FixedLenByteArrayType,
+            FixedSizeBinaryArray,
+            FixedSizeArrayConverter,
+            RandFixedLenGen,
+        >(2, 100, 20, message_type, 15, 50, converter);
     }
 
     struct RandUtf8Gen {}
@@ -298,12 +347,13 @@ mod tests {
         }
         ";
 
+        let converter = Utf8ArrayConverter {};
         single_column_reader_test::<
             ByteArrayType,
             StringArray,
             Utf8ArrayConverter,
             RandUtf8Gen,
-        >(2, 100, 2, message_type, 15, 50);
+        >(2, 100, 2, message_type, 15, 50, converter);
     }
 
     fn single_column_reader_test<T, A, C, G>(
@@ -313,6 +363,7 @@ mod tests {
         message_type: &str,
         record_batch_size: usize,
         num_iterations: usize,
+        converter: C,
     ) where
         T: DataType,
         G: RandGen<T>,
@@ -357,7 +408,7 @@ mod tests {
                 data.extend_from_slice(&expected_data[start..end]);
 
                 assert_eq!(
-                    &C::convert(data).unwrap(),
+                    &converter.convert(data).unwrap(),
                     batch
                         .unwrap()
                         .column(0)
@@ -412,5 +463,39 @@ mod tests {
         path.push(file_name);
 
         File::open(path.as_path()).expect("File not found!")
+    }
+
+    fn get_json_array(filename: &str) -> Vec<serde_json::Value> {
+        match serde_json::from_reader(get_test_file(filename))
+            .expect("Failed to read json value from file!")
+        {
+            JArray(values) => values,
+            _ => panic!("Input should be json array!"),
+        }
+    }
+
+    fn compare_batch_json(
+        record_batch_reader: &mut RecordBatchReader,
+        json_values: Vec<serde_json::Value>,
+        max_len: usize,
+    ) {
+        for i in 0..20 {
+            let array: Option<StructArray> = record_batch_reader
+                .next_batch()
+                .expect("Failed to read record batch!")
+                .map(|r| r.into());
+
+            let (start, end) = (i * 60 as usize, (i + 1) * 60 as usize);
+
+            if start < max_len {
+                assert!(array.is_some());
+                assert_ne!(0, array.as_ref().unwrap().len());
+                let end = min(end, max_len);
+                let json = JArray(Vec::from(&json_values[start..end]));
+                assert_eq!(array.unwrap(), json)
+            } else {
+                assert!(array.is_none());
+            }
+        }
     }
 }

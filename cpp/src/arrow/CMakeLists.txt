@@ -121,7 +121,6 @@ endfunction()
 
 set(ARROW_SRCS
     array.cc
-    builder.cc
     array/builder_adaptive.cc
     array/builder_base.cc
     array/builder_binary.cc
@@ -134,8 +133,10 @@ set(ARROW_SRCS
     array/dict_internal.cc
     array/diff.cc
     array/validate.cc
+    builder.cc
     buffer.cc
     compare.cc
+    datum.cc
     device.cc
     extension_type.cc
     memory_pool.cc
@@ -319,24 +320,30 @@ endif()
 
 if(ARROW_COMPUTE)
   list(APPEND ARROW_SRCS
-              compute/context.cc
-              compute/kernels/aggregate.cc
-              compute/kernels/boolean.cc
-              compute/kernels/cast.cc
-              compute/kernels/compare.cc
-              compute/kernels/count.cc
-              compute/kernels/hash.cc
-              compute/kernels/filter.cc
-              compute/kernels/mean.cc
-              compute/kernels/minmax.cc
-              compute/kernels/sort_to_indices.cc
-              compute/kernels/nth_to_indices.cc
-              compute/kernels/sum.cc
-              compute/kernels/add.cc
-              compute/kernels/take.cc
-              compute/kernels/isin.cc
-              compute/kernels/match.cc
-              compute/kernels/util_internal.cc)
+              compute/api_aggregate.cc
+              compute/api_scalar.cc
+              compute/api_vector.cc
+              compute/cast.cc
+              compute/exec.cc
+              compute/function.cc
+              compute/kernel.cc
+              compute/registry.cc
+              compute/kernels/aggregate_basic.cc
+              compute/kernels/codegen_internal.cc
+              compute/kernels/scalar_arithmetic.cc
+              compute/kernels/scalar_boolean.cc
+              compute/kernels/scalar_cast_boolean.cc
+              compute/kernels/scalar_cast_internal.cc
+              compute/kernels/scalar_cast_nested.cc
+              compute/kernels/scalar_cast_numeric.cc
+              compute/kernels/scalar_cast_string.cc
+              compute/kernels/scalar_cast_temporal.cc
+              compute/kernels/scalar_compare.cc
+              compute/kernels/scalar_set_lookup.cc
+              compute/kernels/vector_filter.cc
+              compute/kernels/vector_hash.cc
+              compute/kernels/vector_sort.cc
+              compute/kernels/vector_take.cc)
 endif()
 
 if(ARROW_FILESYSTEM)
@@ -524,6 +531,7 @@ endif()
 
 add_arrow_test(misc_test
                SOURCES
+               datum_test.cc
                memory_pool_test.cc
                result_test.cc
                pretty_print_test.cc

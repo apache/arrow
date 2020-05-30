@@ -192,12 +192,14 @@ class SchemaWriter {
 
     if (type->id() == Type::DICTIONARY) {
       const auto& dict_type = checked_cast<const DictionaryType&>(*type);
+      // Ensure we visit child fields first so that, in the case of nested
+      // dictionaries, inner dictionaries get a smaller id than outer dictionaries.
+      RETURN_NOT_OK(WriteChildren(dict_type.value_type()->fields()));
       int64_t dictionary_id = -1;
       RETURN_NOT_OK(dictionary_memo_->GetOrAssignId(field, &dictionary_id));
       RETURN_NOT_OK(WriteDictionaryMetadata(dictionary_id, dict_type));
-      RETURN_NOT_OK(WriteChildren(dict_type.value_type()->children()));
     } else {
-      RETURN_NOT_OK(WriteChildren(type->children()));
+      RETURN_NOT_OK(WriteChildren(type->fields()));
     }
 
     WriteKeyValueMetadata(field->metadata(), additional_metadata);
@@ -628,13 +630,13 @@ class ArrayWriter {
       const ArrayType& array) {
     WriteValidityField(array);
     WriteIntegerField("OFFSET", array.raw_value_offsets(), array.length() + 1);
-    return WriteChildren(array.type()->children(), {array.values()});
+    return WriteChildren(array.type()->fields(), {array.values()});
   }
 
   Status Visit(const FixedSizeListArray& array) {
     WriteValidityField(array);
     const auto& type = checked_cast<const FixedSizeListType&>(*array.type());
-    return WriteChildren(type.children(), {array.values()});
+    return WriteChildren(type.fields(), {array.values()});
   }
 
   Status Visit(const StructArray& array) {
@@ -645,7 +647,7 @@ class ArrayWriter {
     for (int i = 0; i < array.num_fields(); ++i) {
       children.emplace_back(array.field(i));
     }
-    return WriteChildren(type.children(), children);
+    return WriteChildren(type.fields(), children);
   }
 
   Status Visit(const UnionArray& array) {
@@ -659,9 +661,9 @@ class ArrayWriter {
     std::vector<std::shared_ptr<Array>> children;
     children.reserve(array.num_fields());
     for (int i = 0; i < array.num_fields(); ++i) {
-      children.emplace_back(array.child(i));
+      children.emplace_back(array.field(i));
     }
-    return WriteChildren(type.children(), children);
+    return WriteChildren(type.fields(), children);
   }
 
   Status Visit(const ExtensionArray& array) { return VisitArrayValues(*array.storage()); }
@@ -751,14 +753,14 @@ static Status GetMap(const RjObject& json_type,
   }
 
   if (children[0]->type()->id() != Type::STRUCT ||
-      children[0]->type()->num_children() != 2) {
+      children[0]->type()->num_fields() != 2) {
     return Status::Invalid("Map's key-item pairs must be structs");
   }
 
   const auto& it_keys_sorted = json_type.FindMember("keysSorted");
   RETURN_NOT_BOOL("keysSorted", it_keys_sorted, json_type);
 
-  auto pair_children = children[0]->type()->children();
+  auto pair_children = children[0]->type()->fields();
 
   bool keys_sorted = it_keys_sorted->value.GetBool();
   *type = map(pair_children[0]->type(), pair_children[1]->type(), keys_sorted);
@@ -1550,8 +1552,8 @@ class ArrayReader {
     RETURN_NOT_ARRAY("children", json_children, obj);
     const auto& json_children_arr = json_children->value.GetArray();
 
-    if (type.num_children() != static_cast<int>(json_children_arr.Size())) {
-      return Status::Invalid("Expected ", type.num_children(), " children, but got ",
+    if (type.num_fields() != static_cast<int>(json_children_arr.Size())) {
+      return Status::Invalid("Expected ", type.num_fields(), " children, but got ",
                              json_children_arr.Size());
     }
 
@@ -1559,7 +1561,7 @@ class ArrayReader {
       const rj::Value& json_child = json_children_arr[i];
       DCHECK(json_child.IsObject());
 
-      std::shared_ptr<Field> child_field = type.child(i);
+      std::shared_ptr<Field> child_field = type.field(i);
 
       auto it = json_child.FindMember("name");
       RETURN_NOT_STRING("name", it, json_child);
@@ -1639,13 +1641,11 @@ static Status ReadDictionary(const RjObject& obj, MemoryPool* pool,
   RETURN_NOT_OK(dictionary_memo->GetDictionaryType(id, &value_type));
   auto value_field = ::arrow::field("dummy", value_type);
 
-  // We need placeholder schema and dictionary memo to read the record
-  // batch, because the dictionary is embedded in a record batch with
-  // a single column
+  // We need a placeholder schema to read the record, because the dictionary
+  // is embedded in a record batch with a single column.
   std::shared_ptr<RecordBatch> batch;
-  DictionaryMemo dummy_memo;
   RETURN_NOT_OK(ReadRecordBatch(it_data->value, ::arrow::schema({value_field}),
-                                &dummy_memo, pool, &batch));
+                                dictionary_memo, pool, &batch));
 
   if (batch->num_columns() != 1) {
     return Status::Invalid("Dictionary record batch must only contain one field");

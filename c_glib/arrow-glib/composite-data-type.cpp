@@ -229,7 +229,7 @@ gint
 garrow_struct_data_type_get_n_fields(GArrowStructDataType *struct_data_type)
 {
   auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(struct_data_type));
-  return arrow_data_type->num_children();
+  return arrow_data_type->num_fields();
 }
 
 /**
@@ -246,7 +246,7 @@ garrow_struct_data_type_get_fields(GArrowStructDataType *struct_data_type)
 {
   auto data_type = GARROW_DATA_TYPE(struct_data_type);
   auto arrow_data_type = garrow_data_type_get_raw(data_type);
-  auto arrow_fields = arrow_data_type->children();
+  auto arrow_fields = arrow_data_type->fields();
 
   GList *fields = NULL;
   for (auto arrow_field : arrow_fields) {
@@ -273,16 +273,16 @@ garrow_struct_data_type_get_field(GArrowStructDataType *struct_data_type,
   auto arrow_data_type = garrow_data_type_get_raw(data_type);
 
   if (i < 0) {
-    i += arrow_data_type->num_children();
+    i += arrow_data_type->num_fields();
   }
   if (i < 0) {
     return NULL;
   }
-  if (i >= arrow_data_type->num_children()) {
+  if (i >= arrow_data_type->num_fields()) {
     return NULL;
   }
 
-  auto arrow_field = arrow_data_type->child(i);
+  auto arrow_field = arrow_data_type->field(i);
   if (arrow_field) {
     return garrow_field_new_raw(&arrow_field, nullptr);
   } else {
@@ -441,7 +441,7 @@ gint
 garrow_union_data_type_get_n_fields(GArrowUnionDataType *union_data_type)
 {
   auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(union_data_type));
-  return arrow_data_type->num_children();
+  return arrow_data_type->num_fields();
 }
 
 /**
@@ -458,7 +458,7 @@ garrow_union_data_type_get_fields(GArrowUnionDataType *union_data_type)
 {
   auto data_type = GARROW_DATA_TYPE(union_data_type);
   auto arrow_data_type = garrow_data_type_get_raw(data_type);
-  auto arrow_fields = arrow_data_type->children();
+  auto arrow_fields = arrow_data_type->fields();
 
   GList *fields = NULL;
   for (auto arrow_field : arrow_fields) {
@@ -485,16 +485,16 @@ garrow_union_data_type_get_field(GArrowUnionDataType *union_data_type,
   auto arrow_data_type = garrow_data_type_get_raw(data_type);
 
   if (i < 0) {
-    i += arrow_data_type->num_children();
+    i += arrow_data_type->num_fields();
   }
   if (i < 0) {
     return NULL;
   }
-  if (i >= arrow_data_type->num_children()) {
+  if (i >= arrow_data_type->num_fields()) {
     return NULL;
   }
 
-  auto arrow_field = arrow_data_type->child(i);
+  auto arrow_field = arrow_data_type->field(i);
   if (arrow_field) {
     return garrow_field_new_raw(&arrow_field, nullptr);
   } else {

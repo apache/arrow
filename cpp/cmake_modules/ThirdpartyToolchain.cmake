@@ -198,6 +198,8 @@ endif()
 
 if(ARROW_FLIGHT)
   set(ARROW_WITH_GRPC ON)
+  # gRPC requires zlib
+  set(ARROW_WITH_ZLIB ON)
 endif()
 
 if(ARROW_JSON)
@@ -2045,7 +2047,8 @@ macro(build_grpc)
     add_dependencies(grpc_dependencies gflags_ep)
   endif()
 
-  add_dependencies(grpc_dependencies ${ARROW_PROTOBUF_LIBPROTOBUF} c-ares::cares)
+  add_dependencies(grpc_dependencies ${ARROW_PROTOBUF_LIBPROTOBUF} c-ares::cares
+                   ZLIB::ZLIB)
 
   get_target_property(GRPC_PROTOBUF_INCLUDE_DIR ${ARROW_PROTOBUF_LIBPROTOBUF}
                       INTERFACE_INCLUDE_DIRECTORIES)

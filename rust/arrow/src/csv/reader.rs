@@ -36,7 +36,7 @@
 //!
 //! let file = File::open("test/data/uk_cities.csv").unwrap();
 //!
-//! let mut csv = csv::Reader::new(file, Arc::new(schema), false, 1024, None);
+//! let mut csv = csv::Reader::new(file, Arc::new(schema), false, None, 1024, None);
 //! let batch = csv.next().unwrap().unwrap();
 //! ```
 
@@ -57,7 +57,7 @@ use self::csv_crate::{StringRecord, StringRecordsIntoIter};
 
 lazy_static! {
     static ref DECIMAL_RE: Regex = Regex::new(r"^-?(\d+\.\d+)$").unwrap();
-    static ref INTEGER_RE: Regex = Regex::new(r"^-?(\d*.)$").unwrap();
+    static ref INTEGER_RE: Regex = Regex::new(r"^-?(\d+)$").unwrap();
     static ref BOOLEAN_RE: Regex = RegexBuilder::new(r"^(true)$|^(false)$")
         .case_insensitive(true)
         .build()
@@ -87,19 +87,19 @@ fn infer_field_schema(string: &str) -> DataType {
 /// with `max_read_records` controlling the maximum number of records to read.
 ///
 /// If `max_read_records` is not set, the whole file is read to infer its schema.
-fn infer_file_schema<R: Read + Seek>(
+pub fn infer_file_schema<R: Read + Seek>(
     reader: &mut BufReader<R>,
     delimiter: u8,
     max_read_records: Option<usize>,
-    has_headers: bool,
+    has_header: bool,
 ) -> Result<Schema> {
     let mut csv_reader = csv::ReaderBuilder::new()
         .delimiter(delimiter)
         .from_reader(reader);
 
     // get or create header names
-    // when has_headers is false, creates default column names with column_ prefix
-    let headers: Vec<String> = if has_headers {
+    // when has_header is false, creates default column names with column_ prefix
+    let headers: Vec<String> = if has_header {
         let headers = &csv_reader.headers()?.clone();
         headers.iter().map(|s| s.to_string()).collect()
     } else {
@@ -198,14 +198,16 @@ impl<R: Read> Reader<R> {
     pub fn new(
         reader: R,
         schema: Arc<Schema>,
-        has_headers: bool,
+        has_header: bool,
+        delimiter: Option<u8>,
         batch_size: usize,
         projection: Option<Vec<usize>>,
     ) -> Self {
         Self::from_buf_reader(
             BufReader::new(reader),
             schema,
-            has_headers,
+            has_header,
+            delimiter,
             batch_size,
             projection,
         )
@@ -233,20 +235,29 @@ impl<R: Read> Reader<R> {
     pub fn from_buf_reader(
         buf_reader: BufReader<R>,
         schema: Arc<Schema>,
-        has_headers: bool,
+        has_header: bool,
+        delimiter: Option<u8>,
         batch_size: usize,
         projection: Option<Vec<usize>>,
     ) -> Self {
-        let csv_reader = csv::ReaderBuilder::new()
-            .has_headers(has_headers)
-            .from_reader(buf_reader);
+        let mut reader_builder = csv_crate::ReaderBuilder::new();
+        reader_builder.has_headers(has_header);
+
+        match delimiter {
+            Some(c) => {
+                reader_builder.delimiter(c);
+            }
+            _ => (),
+        }
+
+        let csv_reader = reader_builder.from_reader(buf_reader);
         let record_iter = csv_reader.into_records();
         Self {
             schema,
             projection,
             record_iter,
             batch_size,
-            line_number: if has_headers { 1 } else { 0 },
+            line_number: if has_header { 1 } else { 0 },
         }
     }
 
@@ -369,8 +380,9 @@ impl<R: Read> Reader<R> {
                         Err(_) => {
                             // TODO: we should surface the underlying error here.
                             return Err(ArrowError::ParseError(format!(
-                                "Error while parsing value {} at line {}",
+                                "Error while parsing value {} for column {} at line {}",
                                 s,
+                                col_idx,
                                 self.line_number + row_index
                             )));
                         }
@@ -394,7 +406,7 @@ pub struct ReaderBuilder {
     ///
     /// If schema inference is run on a file with no headers, default column names
     /// are created.
-    has_headers: bool,
+    has_header: bool,
     /// An optional column delimiter. Defaults to `b','`
     delimiter: Option<u8>,
     /// Optional maximum number of records to read during schema inference
@@ -410,10 +422,10 @@ pub struct ReaderBuilder {
 }
 
 impl Default for ReaderBuilder {
-    fn default() -> ReaderBuilder {
-        ReaderBuilder {
+    fn default() -> Self {
+        Self {
             schema: None,
-            has_headers: false,
+            has_header: false,
             delimiter: None,
             max_records: None,
             batch_size: 1024,
@@ -457,8 +469,8 @@ impl ReaderBuilder {
     }
 
     /// Set whether the CSV file has headers
-    pub fn has_headers(mut self, has_headers: bool) -> Self {
-        self.has_headers = has_headers;
+    pub fn has_header(mut self, has_header: bool) -> Self {
+        self.has_header = has_header;
         self
     }
 
@@ -492,22 +504,23 @@ impl ReaderBuilder {
     pub fn build<R: Read + Seek>(self, reader: R) -> Result<Reader<R>> {
         // check if schema should be inferred
         let mut buf_reader = BufReader::new(reader);
+        let delimiter = self.delimiter.unwrap_or(b',');
         let schema = match self.schema {
             Some(schema) => schema,
             None => {
                 let inferred_schema = infer_file_schema(
                     &mut buf_reader,
-                    self.delimiter.unwrap_or(b','),
+                    delimiter,
                     self.max_records,
-                    self.has_headers,
+                    self.has_header,
                 )?;
 
                 Arc::new(inferred_schema)
             }
         };
-        let csv_reader = csv::ReaderBuilder::new()
-            .delimiter(self.delimiter.unwrap_or(b','))
-            .has_headers(self.has_headers)
+        let csv_reader = csv_crate::ReaderBuilder::new()
+            .delimiter(delimiter)
+            .has_headers(self.has_header)
             .from_reader(buf_reader);
         let record_iter = csv_reader.into_records();
         Ok(Reader {
@@ -515,7 +528,7 @@ impl ReaderBuilder {
             projection: self.projection.clone(),
             record_iter,
             batch_size: self.batch_size,
-            line_number: if self.has_headers { 1 } else { 0 },
+            line_number: if self.has_header { 1 } else { 0 },
         })
     }
 }
@@ -540,7 +553,8 @@ mod tests {
 
         let file = File::open("test/data/uk_cities.csv").unwrap();
 
-        let mut csv = Reader::new(file, Arc::new(schema.clone()), false, 1024, None);
+        let mut csv =
+            Reader::new(file, Arc::new(schema.clone()), false, None, 1024, None);
         assert_eq!(Arc::new(schema), csv.schema());
         let batch = csv.next().unwrap().unwrap();
         assert_eq!(37, batch.num_rows());
@@ -582,6 +596,7 @@ mod tests {
             BufReader::new(both_files),
             Arc::new(schema),
             true,
+            None,
             1024,
             None,
         );
@@ -594,7 +609,7 @@ mod tests {
     fn test_csv_with_schema_inference() {
         let file = File::open("test/data/uk_cities_with_headers.csv").unwrap();
 
-        let builder = ReaderBuilder::new().has_headers(true).infer_schema(None);
+        let builder = ReaderBuilder::new().has_header(true).infer_schema(None);
 
         let mut csv = builder.build(file).unwrap();
         let expected_schema = Schema::new(vec![
@@ -673,7 +688,8 @@ mod tests {
 
         let file = File::open("test/data/uk_cities.csv").unwrap();
 
-        let mut csv = Reader::new(file, Arc::new(schema), false, 1024, Some(vec![0, 1]));
+        let mut csv =
+            Reader::new(file, Arc::new(schema), false, None, 1024, Some(vec![0, 1]));
         let projected_schema = Arc::new(Schema::new(vec![
             Field::new("city", DataType::Utf8, false),
             Field::new("lat", DataType::Float64, false),
@@ -695,7 +711,7 @@ mod tests {
 
         let file = File::open("test/data/null_test.csv").unwrap();
 
-        let mut csv = Reader::new(file, Arc::new(schema), true, 1024, None);
+        let mut csv = Reader::new(file, Arc::new(schema), true, None, 1024, None);
         let batch = csv.next().unwrap().unwrap();
 
         assert_eq!(false, batch.column(1).is_null(0));
@@ -711,7 +727,7 @@ mod tests {
 
         let builder = ReaderBuilder::new()
             .infer_schema(None)
-            .has_headers(true)
+            .has_header(true)
             .with_delimiter(b'|')
             .with_batch_size(512)
             .with_projection(vec![0, 1, 2, 3]);
@@ -754,7 +770,7 @@ mod tests {
 
         let builder = ReaderBuilder::new()
             .with_schema(Arc::new(schema))
-            .has_headers(true)
+            .has_header(true)
             .with_delimiter(b'|')
             .with_batch_size(512)
             .with_projection(vec![0, 1, 2, 3]);
@@ -762,10 +778,20 @@ mod tests {
         let mut csv = builder.build(file).unwrap();
         match csv.next() {
             Err(e) => assert_eq!(
-                "ParseError(\"Error while parsing value 4.x4 at line 4\")",
+                "ParseError(\"Error while parsing value 4.x4 for column 1 at line 4\")",
                 format!("{:?}", e)
             ),
             Ok(_) => panic!("should have failed"),
         }
+    }
+
+    #[test]
+    fn test_infer_field_schema() {
+        assert_eq!(infer_field_schema("A"), DataType::Utf8);
+        assert_eq!(infer_field_schema("\"123\""), DataType::Utf8);
+        assert_eq!(infer_field_schema("10"), DataType::Int64);
+        assert_eq!(infer_field_schema("10.2"), DataType::Float64);
+        assert_eq!(infer_field_schema("true"), DataType::Boolean);
+        assert_eq!(infer_field_schema("false"), DataType::Boolean);
     }
 }

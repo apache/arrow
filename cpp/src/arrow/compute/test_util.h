@@ -23,37 +23,18 @@
 #include <gmock/gmock.h>
 
 #include "arrow/array.h"
+#include "arrow/datum.h"
 #include "arrow/memory_pool.h"
+#include "arrow/pretty_print.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
 
-#include "arrow/compute/context.h"
 #include "arrow/compute/kernel.h"
 
 namespace arrow {
 namespace compute {
-
-class ComputeFixture {
- public:
-  ComputeFixture() : ctx_(default_memory_pool()) {}
-
- protected:
-  FunctionContext ctx_;
-};
-
-class MockUnaryKernel : public UnaryKernel {
- public:
-  MOCK_METHOD3(Call, Status(FunctionContext* ctx, const Datum& input, Datum* out));
-  MOCK_CONST_METHOD0(out_type, std::shared_ptr<DataType>());
-};
-
-class MockBinaryKernel : public BinaryKernel {
- public:
-  MOCK_METHOD4(Call, Status(FunctionContext* ctx, const Datum& left, const Datum& right,
-                            Datum* out));
-  MOCK_CONST_METHOD0(out_type, std::shared_ptr<DataType>());
-};
 
 template <typename Type, typename T>
 std::shared_ptr<Array> _MakeArray(const std::shared_ptr<DataType>& type,
@@ -100,6 +81,11 @@ struct DatumEqual<Type, enable_if_integer<Type>> {
     }
   }
 };
+
+using TestingStringTypes =
+    ::testing::Types<StringType, LargeStringType, BinaryType, LargeBinaryType>;
+
+static constexpr random::SeedType kRandomSeed = 0x0ff1ce;
 
 }  // namespace compute
 }  // namespace arrow

@@ -148,7 +148,7 @@ public class TestVectorSchemaRootAppender {
       ValueVectorDataPopulator.setVector(deltaChild1, 5, 6, 7);
       ValueVectorDataPopulator.setVector(deltaChild2, "five", "six", "seven");
 
-      // note taht the child vectors are in reverse order
+      // note that the child vectors are in reverse order
       VectorSchemaRoot root2 = VectorSchemaRoot.of(deltaChild2, deltaChild1);
       root2.setRowCount(3);
 

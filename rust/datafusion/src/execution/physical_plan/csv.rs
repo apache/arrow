@@ -18,33 +18,150 @@
 //! Execution plan for reading CSV files
 
 use std::fs::File;
+use std::io::BufReader;
 use std::sync::{Arc, Mutex};
 
-use crate::error::Result;
+use crate::error::{ExecutionError, Result};
 use crate::execution::physical_plan::common;
 use crate::execution::physical_plan::{BatchIterator, ExecutionPlan, Partition};
 use arrow::csv;
 use arrow::datatypes::Schema;
 use arrow::record_batch::RecordBatch;
 
+/// CSV file read option
+#[derive(Copy, Clone)]
+pub struct CsvReadOptions<'a> {
+    /// Does the CSV file have a header?
+    ///
+    /// If schema inference is run on a file with no headers, default column names
+    /// are created.
+    pub has_header: bool,
+    /// An optional column delimiter. Defaults to `b','`.
+    pub delimiter: u8,
+    /// An optional schema representing the CSV files. If None, CSV reader will try to infer it
+    /// based on data in file.
+    pub schema: Option<&'a Schema>,
+    /// Max number of rows to read from CSV files for schema inference if needed. Defaults to 1000.
+    pub schema_infer_max_records: usize,
+}
+
+impl<'a> CsvReadOptions<'a> {
+    /// Create a CSV read option with default presets
+    pub fn new() -> Self {
+        Self {
+            has_header: true,
+            schema: None,
+            schema_infer_max_records: 1000,
+            delimiter: b',',
+        }
+    }
+
+    /// Configure has_header setting
+    pub fn has_header(mut self, has_header: bool) -> Self {
+        self.has_header = has_header;
+        self
+    }
+
+    /// Specify delimiter to use for CSV read
+    pub fn delimiter(mut self, delimiter: u8) -> Self {
+        self.delimiter = delimiter;
+        self
+    }
+
+    /// Configure delimiter setting with Option, None value will be ignored
+    pub fn delimiter_option(mut self, delimiter: Option<u8>) -> Self {
+        match delimiter {
+            Some(d) => {
+                self.delimiter = d;
+            }
+            _ => (),
+        }
+        self
+    }
+
+    /// Specify schema to use for CSV read
+    pub fn schema(mut self, schema: &'a Schema) -> Self {
+        self.schema = Some(schema);
+        self
+    }
+
+    /// Configure number of max records to read for schema inference
+    pub fn schema_infer_max_records(mut self, max_records: usize) -> Self {
+        self.schema_infer_max_records = max_records;
+        self
+    }
+}
+
 /// Execution plan for scanning a CSV file
 pub struct CsvExec {
     /// Path to directory containing partitioned CSV files with the same schema
     path: String,
-    /// Schema representing the CSV files after the optional projection is applied
+    /// Schema representing the CSV file
     schema: Arc<Schema>,
     /// Does the CSV file have a header?
     has_header: bool,
+    /// An optional column delimiter. Defaults to `b','`
+    delimiter: Option<u8>,
     /// Optional projection for which columns to load
     projection: Option<Vec<usize>>,
+    /// Schema after the projection has been applied
+    projected_schema: Arc<Schema>,
     /// Batch size
     batch_size: usize,
+}
+
+impl CsvExec {
+    /// Create a new execution plan for reading a set of CSV files
+    pub fn try_new(
+        path: &str,
+        options: CsvReadOptions,
+        projection: Option<Vec<usize>>,
+        batch_size: usize,
+    ) -> Result<Self> {
+        let schema = match options.schema {
+            Some(s) => s.clone(),
+            None => CsvExec::try_infer_schema(path, &options)?,
+        };
+
+        let projected_schema = match &projection {
+            None => schema.clone(),
+            Some(p) => Schema::new(p.iter().map(|i| schema.field(*i).clone()).collect()),
+        };
+
+        Ok(Self {
+            path: path.to_string(),
+            schema: Arc::new(schema),
+            has_header: options.has_header,
+            delimiter: Some(options.delimiter),
+            projection,
+            projected_schema: Arc::new(projected_schema),
+            batch_size,
+        })
+    }
+
+    /// Infer schema for given CSV dataset
+    pub fn try_infer_schema(path: &str, options: &CsvReadOptions) -> Result<Schema> {
+        let mut filenames: Vec<String> = vec![];
+        common::build_file_list(path, &mut filenames, ".csv")?;
+        if filenames.is_empty() {
+            return Err(ExecutionError::General("No files found".to_string()));
+        }
+
+        let f = File::open(&filenames[0])?;
+
+        Ok(csv::infer_file_schema(
+            &mut BufReader::new(f),
+            options.delimiter,
+            Some(options.schema_infer_max_records),
+            options.has_header,
+        )?)
+    }
 }
 
 impl ExecutionPlan for CsvExec {
     /// Get the schema for this execution plan
     fn schema(&self) -> Arc<Schema> {
-        self.schema.clone()
+        self.projected_schema.clone()
     }
 
     /// Get the partitions for this execution plan. Each partition can be executed in parallel.
@@ -58,31 +175,13 @@ impl ExecutionPlan for CsvExec {
                     &filename,
                     self.schema.clone(),
                     self.has_header,
+                    self.delimiter,
                     self.projection.clone(),
                     self.batch_size,
                 )) as Arc<dyn Partition>
             })
             .collect();
         Ok(partitions)
-    }
-}
-
-impl CsvExec {
-    /// Create a new execution plan for reading a set of CSV files
-    pub fn try_new(
-        path: &str,
-        schema: Arc<Schema>,
-        has_header: bool,
-        projection: Option<Vec<usize>>,
-        batch_size: usize,
-    ) -> Result<Self> {
-        Ok(Self {
-            path: path.to_string(),
-            schema,
-            has_header,
-            projection,
-            batch_size,
-        })
     }
 }
 
@@ -94,6 +193,8 @@ struct CsvPartition {
     schema: Arc<Schema>,
     /// Does the CSV file have a header?
     has_header: bool,
+    /// An optional column delimiter. Defaults to `b','`
+    delimiter: Option<u8>,
     /// Optional projection for which columns to load
     projection: Option<Vec<usize>>,
     /// Batch size
@@ -105,6 +206,7 @@ impl CsvPartition {
         path: &str,
         schema: Arc<Schema>,
         has_header: bool,
+        delimiter: Option<u8>,
         projection: Option<Vec<usize>>,
         batch_size: usize,
     ) -> Self {
@@ -112,6 +214,7 @@ impl CsvPartition {
             path: path.to_string(),
             schema,
             has_header,
+            delimiter,
             projection,
             batch_size,
         }
@@ -125,6 +228,7 @@ impl Partition for CsvPartition {
             &self.path,
             self.schema.clone(),
             self.has_header,
+            self.delimiter,
             &self.projection,
             self.batch_size,
         )?)))
@@ -143,6 +247,7 @@ impl CsvIterator {
         filename: &str,
         schema: Arc<Schema>,
         has_header: bool,
+        delimiter: Option<u8>,
         projection: &Option<Vec<usize>>,
         batch_size: usize,
     ) -> Result<Self> {
@@ -151,6 +256,7 @@ impl CsvIterator {
             file,
             schema.clone(),
             has_header,
+            delimiter,
             batch_size,
             projection.clone(),
         );
@@ -168,5 +274,63 @@ impl BatchIterator for CsvIterator {
     /// Get the next RecordBatch
     fn next(&mut self) -> Result<Option<RecordBatch>> {
         Ok(self.reader.next()?)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test::{aggr_test_schema, arrow_testdata_path};
+
+    #[test]
+    fn csv_exec_with_projection() -> Result<()> {
+        let schema = aggr_test_schema();
+        let testdata = arrow_testdata_path();
+        let filename = "aggregate_test_100.csv";
+        let path = format!("{}/csv/{}", testdata, filename);
+        let csv = CsvExec::try_new(
+            &path,
+            CsvReadOptions::new().schema(&schema),
+            Some(vec![0, 2, 4]),
+            1024,
+        )?;
+        assert_eq!(13, csv.schema.fields().len());
+        assert_eq!(3, csv.projected_schema.fields().len());
+        assert_eq!(3, csv.schema().fields().len());
+        let partitions = csv.partitions()?;
+        let results = partitions[0].execute()?;
+        let mut it = results.lock().unwrap();
+        let batch = it.next()?.unwrap();
+        assert_eq!(3, batch.num_columns());
+        let batch_schema = batch.schema();
+        assert_eq!(3, batch_schema.fields().len());
+        assert_eq!("c1", batch_schema.field(0).name());
+        assert_eq!("c3", batch_schema.field(1).name());
+        assert_eq!("c5", batch_schema.field(2).name());
+        Ok(())
+    }
+
+    #[test]
+    fn csv_exec_without_projection() -> Result<()> {
+        let schema = aggr_test_schema();
+        let testdata = arrow_testdata_path();
+        let filename = "aggregate_test_100.csv";
+        let path = format!("{}/csv/{}", testdata, filename);
+        let csv =
+            CsvExec::try_new(&path, CsvReadOptions::new().schema(&schema), None, 1024)?;
+        assert_eq!(13, csv.schema.fields().len());
+        assert_eq!(13, csv.projected_schema.fields().len());
+        assert_eq!(13, csv.schema().fields().len());
+        let partitions = csv.partitions()?;
+        let results = partitions[0].execute()?;
+        let mut it = results.lock().unwrap();
+        let batch = it.next()?.unwrap();
+        assert_eq!(13, batch.num_columns());
+        let batch_schema = batch.schema();
+        assert_eq!(13, batch_schema.fields().len());
+        assert_eq!("c1", batch_schema.field(0).name());
+        assert_eq!("c2", batch_schema.field(1).name());
+        assert_eq!("c3", batch_schema.field(2).name());
+        Ok(())
     }
 }

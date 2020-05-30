@@ -25,7 +25,6 @@ use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::utils;
 use arrow::datatypes::{Field, Schema};
 use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
 
 /// Projection Push Down optimizer rule ensures that only referenced columns are
 /// loaded into memory
@@ -103,59 +102,68 @@ impl ProjectionPushDown {
                 projection,
                 ..
             } => {
-                if projection.is_some() {
-                    return Err(ExecutionError::General(
-                        "Cannot run projection push-down rule more than once".to_string(),
-                    ));
-                }
-
-                // once we reach the table scan, we can use the accumulated set of column
-                // indexes as the projection in the table scan
-                let mut projection: Vec<usize> = Vec::with_capacity(accum.len());
-                accum.iter().for_each(|i| projection.push(*i));
-
-                // Ensure that we are reading at least one column from the table in case the query
-                // does not reference any columns directly such as "SELECT COUNT(1) FROM table"
-                if projection.is_empty() {
-                    projection.push(0);
-                }
-
-                // sort the projection otherwise we get non-deterministic behavior
-                projection.sort();
-
-                // create the projected schema
-                let mut projected_fields: Vec<Field> =
-                    Vec::with_capacity(projection.len());
-                for i in &projection {
-                    projected_fields.push(table_schema.fields()[*i].clone());
-                }
-
-                let projected_schema = Schema::new(projected_fields);
-
-                // now that the table scan is returning a different schema we need to
-                // create a mapping from the original column index to the
-                // new column index so that we can rewrite expressions as
-                // we walk back up the tree
-
-                if mapping.len() != 0 {
-                    return Err(ExecutionError::InternalError(
-                        "illegal state".to_string(),
-                    ));
-                }
-
-                for i in 0..table_schema.fields().len() {
-                    if let Some(n) = projection.iter().position(|v| *v == i) {
-                        mapping.insert(i, n);
-                    }
-                }
+                let (projection, projected_schema) =
+                    get_projected_schema(&table_schema, projection, accum, mapping)?;
 
                 // return the table scan with projection
                 Ok(LogicalPlan::TableScan {
                     schema_name: schema_name.to_string(),
                     table_name: table_name.to_string(),
                     table_schema: table_schema.clone(),
-                    projected_schema: Arc::new(projected_schema),
+                    projected_schema: Box::new(projected_schema),
                     projection: Some(projection),
+                })
+            }
+            LogicalPlan::InMemoryScan {
+                data,
+                schema,
+                projection,
+                ..
+            } => {
+                let (projection, projected_schema) =
+                    get_projected_schema(&schema, projection, accum, mapping)?;
+
+                Ok(LogicalPlan::InMemoryScan {
+                    data: data.clone(),
+                    schema: schema.clone(),
+                    projection: Some(projection),
+                    projected_schema: Box::new(projected_schema),
+                })
+            }
+            LogicalPlan::CsvScan {
+                path,
+                has_header,
+                delimiter,
+                schema,
+                projection,
+                ..
+            } => {
+                let (projection, projected_schema) =
+                    get_projected_schema(&schema, projection, accum, mapping)?;
+
+                Ok(LogicalPlan::CsvScan {
+                    path: path.to_owned(),
+                    has_header: *has_header,
+                    schema: schema.clone(),
+                    delimiter: *delimiter,
+                    projection: Some(projection),
+                    projected_schema: Box::new(projected_schema),
+                })
+            }
+            LogicalPlan::ParquetScan {
+                path,
+                schema,
+                projection,
+                ..
+            } => {
+                let (projection, projected_schema) =
+                    get_projected_schema(&schema, projection, accum, mapping)?;
+
+                Ok(LogicalPlan::ParquetScan {
+                    path: path.to_owned(),
+                    schema: schema.clone(),
+                    projection: Some(projection),
+                    projected_schema: Box::new(projected_schema),
                 })
             }
             LogicalPlan::Limit { expr, input, .. } => {
@@ -170,13 +178,13 @@ impl ProjectionPushDown {
                 name,
                 location,
                 file_type,
-                header_row,
+                has_header,
             } => Ok(LogicalPlan::CreateExternalTable {
                 schema: schema.clone(),
                 name: name.to_string(),
                 location: location.to_string(),
                 file_type: file_type.clone(),
-                header_row: *header_row,
+                has_header: *has_header,
             }),
         }
     }
@@ -195,7 +203,7 @@ impl ProjectionPushDown {
     fn rewrite_expr(&self, expr: &Expr, mapping: &HashMap<usize, usize>) -> Result<Expr> {
         match expr {
             Expr::Alias(expr, name) => Ok(Expr::Alias(
-                Arc::new(self.rewrite_expr(expr, mapping)?),
+                Box::new(self.rewrite_expr(expr, mapping)?),
                 name.clone(),
             )),
             Expr::Column(i) => Ok(Expr::Column(self.new_index(mapping, i)?)),
@@ -203,22 +211,22 @@ impl ProjectionPushDown {
                 "Columns need to be resolved before this rule can run".to_owned(),
             )),
             Expr::Literal(_) => Ok(expr.clone()),
-            Expr::Not(e) => Ok(Expr::Not(Arc::new(self.rewrite_expr(e, mapping)?))),
-            Expr::IsNull(e) => Ok(Expr::IsNull(Arc::new(self.rewrite_expr(e, mapping)?))),
+            Expr::Not(e) => Ok(Expr::Not(Box::new(self.rewrite_expr(e, mapping)?))),
+            Expr::IsNull(e) => Ok(Expr::IsNull(Box::new(self.rewrite_expr(e, mapping)?))),
             Expr::IsNotNull(e) => {
-                Ok(Expr::IsNotNull(Arc::new(self.rewrite_expr(e, mapping)?)))
+                Ok(Expr::IsNotNull(Box::new(self.rewrite_expr(e, mapping)?)))
             }
             Expr::BinaryExpr { left, op, right } => Ok(Expr::BinaryExpr {
-                left: Arc::new(self.rewrite_expr(left, mapping)?),
+                left: Box::new(self.rewrite_expr(left, mapping)?),
                 op: op.clone(),
-                right: Arc::new(self.rewrite_expr(right, mapping)?),
+                right: Box::new(self.rewrite_expr(right, mapping)?),
             }),
             Expr::Cast { expr, data_type } => Ok(Expr::Cast {
-                expr: Arc::new(self.rewrite_expr(expr, mapping)?),
+                expr: Box::new(self.rewrite_expr(expr, mapping)?),
                 data_type: data_type.clone(),
             }),
             Expr::Sort { expr, asc } => Ok(Expr::Sort {
-                expr: Arc::new(self.rewrite_expr(expr, mapping)?),
+                expr: Box::new(self.rewrite_expr(expr, mapping)?),
                 asc: *asc,
             }),
             Expr::AggregateFunction {
@@ -255,6 +263,56 @@ impl ProjectionPushDown {
     }
 }
 
+fn get_projected_schema(
+    table_schema: &Schema,
+    projection: &Option<Vec<usize>>,
+    accum: &HashSet<usize>,
+    mapping: &mut HashMap<usize, usize>,
+) -> Result<(Vec<usize>, Schema)> {
+    if projection.is_some() {
+        return Err(ExecutionError::General(
+            "Cannot run projection push-down rule more than once".to_string(),
+        ));
+    }
+
+    // once we reach the table scan, we can use the accumulated set of column
+    // indexes as the projection in the table scan
+    let mut projection: Vec<usize> = Vec::with_capacity(accum.len());
+    accum.iter().for_each(|i| projection.push(*i));
+
+    // Ensure that we are reading at least one column from the table in case the query
+    // does not reference any columns directly such as "SELECT COUNT(1) FROM table"
+    if projection.is_empty() {
+        projection.push(0);
+    }
+
+    // sort the projection otherwise we get non-deterministic behavior
+    projection.sort();
+
+    // create the projected schema
+    let mut projected_fields: Vec<Field> = Vec::with_capacity(projection.len());
+    for i in &projection {
+        projected_fields.push(table_schema.fields()[*i].clone());
+    }
+
+    // now that the table scan is returning a different schema we need to
+    // create a mapping from the original column index to the
+    // new column index so that we can rewrite expressions as
+    // we walk back up the tree
+
+    if mapping.len() != 0 {
+        return Err(ExecutionError::InternalError("illegal state".to_string()));
+    }
+
+    for i in 0..table_schema.fields().len() {
+        if let Some(n) = projection.iter().position(|v| *v == i) {
+            mapping.insert(i, n);
+        }
+    }
+
+    Ok((projection, Schema::new(projected_fields)))
+}
+
 #[cfg(test)]
 mod tests {
 
@@ -263,7 +321,6 @@ mod tests {
     use crate::logicalplan::ScalarValue;
     use crate::test::*;
     use arrow::datatypes::DataType;
-    use std::sync::Arc;
 
     #[test]
     fn aggregate_no_group_by() -> Result<()> {
@@ -321,7 +378,7 @@ mod tests {
 
         let projection = LogicalPlanBuilder::from(&table_scan)
             .project(vec![Cast {
-                expr: Arc::new(Column(2)),
+                expr: Box::new(Column(2)),
                 data_type: DataType::Float64,
             }])?
             .build()?;

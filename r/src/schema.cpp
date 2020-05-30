@@ -18,6 +18,10 @@
 #include "./arrow_types.h"
 
 #if defined(ARROW_R_WITH_ARROW)
+#include <arrow/ipc/reader.h>
+#include <arrow/ipc/writer.h>
+#include <arrow/type.h>
+#include <arrow/util/key_value_metadata.h>
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Schema> schema_(Rcpp::List fields) {
@@ -68,9 +72,22 @@ bool Schema__HasMetadata(const std::shared_ptr<arrow::Schema>& schema) {
 }
 
 // [[arrow::export]]
-std::string Schema__metadata(const std::shared_ptr<arrow::Schema>& schema) {
-  // TODO: return a useful object, not just ToString?
-  return schema->metadata()->ToString();
+Rcpp::List Schema__metadata(const std::shared_ptr<arrow::Schema>& schema) {
+  auto meta = schema->metadata();
+  int64_t n = 0;
+  if (schema->HasMetadata()) {
+    n = meta->size();
+  }
+
+  Rcpp::List out(n);
+  std::vector<std::string> names_out(n);
+
+  for (int i = 0; i < n; i++) {
+    out[i] = meta->value(i);
+    names_out[i] = meta->key(i);
+  }
+  out.attr("names") = names_out;
+  return out;
 }
 
 // [[arrow::export]]

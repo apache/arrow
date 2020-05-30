@@ -505,7 +505,7 @@ test_that("Dataset and query print methods", {
     ),
     fixed = TRUE
   )
-  expect_is(ds$metadata, "character")
+  expect_is(ds$metadata, "list")
   q <- select(ds, string = chr, lgl, integer = int)
   expect_output(
     print(q),

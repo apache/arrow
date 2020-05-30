@@ -362,9 +362,9 @@ public class AvroSkipFieldTest extends AvroTestBase {
       GenericRecord record = new GenericData.Record(schema);
       record.put(0, i % 2 == 0);
       record.put(1, i);
-      record.put(2, (long)i);
-      record.put(3, (float)i);
-      record.put(4, (double)i);
+      record.put(2, (long) i);
+      record.put(3, (float) i);
+      record.put(4, (double) i);
       data.add(record);
 
       GenericRecord expectedRecord = new GenericData.Record(expectedSchema);
@@ -395,9 +395,9 @@ public class AvroSkipFieldTest extends AvroTestBase {
       GenericRecord record = new GenericData.Record(schema);
       record.put(0, i % 2 == 0);
       record.put(1, i);
-      record.put(2, (long)i);
-      record.put(3, (float)i);
-      record.put(4, (double)i);
+      record.put(2, (long) i);
+      record.put(3, (float) i);
+      record.put(4, (double) i);
       data.add(record);
 
       GenericRecord expectedRecord = new GenericData.Record(expectedSchema);
@@ -428,9 +428,9 @@ public class AvroSkipFieldTest extends AvroTestBase {
       GenericRecord record = new GenericData.Record(schema);
       record.put(0, i % 2 == 0);
       record.put(1, i);
-      record.put(2, (long)i);
-      record.put(3, (float)i);
-      record.put(4, (double)i);
+      record.put(2, (long) i);
+      record.put(3, (float) i);
+      record.put(4, (double) i);
       data.add(record);
 
       GenericRecord expectedRecord = new GenericData.Record(expectedSchema);
@@ -461,9 +461,9 @@ public class AvroSkipFieldTest extends AvroTestBase {
       GenericRecord record = new GenericData.Record(schema);
       record.put(0, i % 2 == 0);
       record.put(1, i);
-      record.put(2, (long)i);
-      record.put(3, (float)i);
-      record.put(4, (double)i);
+      record.put(2, (long) i);
+      record.put(3, (float) i);
+      record.put(4, (double) i);
       data.add(record);
 
       GenericRecord expectedRecord = new GenericData.Record(expectedSchema);
@@ -494,9 +494,9 @@ public class AvroSkipFieldTest extends AvroTestBase {
       GenericRecord record = new GenericData.Record(schema);
       record.put(0, i % 2 == 0);
       record.put(1, i);
-      record.put(2, (long)i);
-      record.put(3, (float)i);
-      record.put(4, (double)i);
+      record.put(2, (long) i);
+      record.put(3, (float) i);
+      record.put(4, (double) i);
       data.add(record);
 
       GenericRecord expectedRecord = new GenericData.Record(expectedSchema);

@@ -23,7 +23,6 @@
 
 #include "gtest/gtest.h"
 
-#include <arrow/compute/api.h>
 #include <cstdint>
 #include <functional>
 #include <iostream>
@@ -31,7 +30,7 @@
 #include <vector>
 
 #include "arrow/api.h"
-#include "arrow/compute/kernels/cast.h"
+#include "arrow/compute/api.h"
 #include "arrow/pretty_print.h"
 #include "arrow/record_batch.h"
 #include "arrow/testing/gtest_util.h"
@@ -59,6 +58,7 @@ using arrow::ArrayVisitor;
 using arrow::Buffer;
 using arrow::ChunkedArray;
 using arrow::DataType;
+using arrow::Datum;
 using arrow::default_memory_pool;
 using arrow::ListArray;
 using arrow::PrimitiveArray;
@@ -66,9 +66,7 @@ using arrow::ResizableBuffer;
 using arrow::Status;
 using arrow::Table;
 using arrow::TimeUnit;
-using arrow::compute::Datum;
 using arrow::compute::DictionaryEncode;
-using arrow::compute::FunctionContext;
 using arrow::io::BufferReader;
 
 using arrow::randint;
@@ -701,9 +699,7 @@ TYPED_TEST(TestParquetIO, SingleColumnOptionalDictionaryWrite) {
 
   ASSERT_OK(NullableArray<TypeParam>(SMALL_SIZE, 10, kDefaultSeed, &values));
 
-  Datum out;
-  FunctionContext ctx(default_memory_pool());
-  ASSERT_OK(DictionaryEncode(&ctx, Datum(values), &out));
+  ASSERT_OK_AND_ASSIGN(Datum out, DictionaryEncode(values));
   std::shared_ptr<Array> dict_values = MakeArray(out.array());
   std::shared_ptr<GroupNode> schema =
       MakeSimpleSchema(*dict_values->type(), Repetition::OPTIONAL);
@@ -2657,7 +2653,7 @@ TEST_F(TestNestedSchemaRead, ReadIntoTableFull) {
   ASSERT_OK_NO_THROW(reader_->ReadTable(&table));
   ASSERT_EQ(table->num_rows(), NUM_SIMPLE_TEST_ROWS);
   ASSERT_EQ(table->num_columns(), 2);
-  ASSERT_EQ(table->schema()->field(0)->type()->num_children(), 2);
+  ASSERT_EQ(table->schema()->field(0)->type()->num_fields(), 2);
   ASSERT_NO_FATAL_FAILURE(ValidateTableArrayTypes(*table));
 
   auto struct_field_array =
@@ -2692,7 +2688,7 @@ TEST_F(TestNestedSchemaRead, ReadTablePartial) {
   ASSERT_EQ(table->num_columns(), 2);
   ASSERT_EQ(table->schema()->field(0)->name(), "group1");
   ASSERT_EQ(table->schema()->field(1)->name(), "leaf3");
-  ASSERT_EQ(table->schema()->field(0)->type()->num_children(), 1);
+  ASSERT_EQ(table->schema()->field(0)->type()->num_fields(), 1);
   ASSERT_NO_FATAL_FAILURE(ValidateTableArrayTypes(*table));
 
   // columns: {group1.leaf1, leaf3}
@@ -2701,7 +2697,7 @@ TEST_F(TestNestedSchemaRead, ReadTablePartial) {
   ASSERT_EQ(table->num_columns(), 2);
   ASSERT_EQ(table->schema()->field(0)->name(), "group1");
   ASSERT_EQ(table->schema()->field(1)->name(), "leaf3");
-  ASSERT_EQ(table->schema()->field(0)->type()->num_children(), 1);
+  ASSERT_EQ(table->schema()->field(0)->type()->num_fields(), 1);
   ASSERT_NO_FATAL_FAILURE(ValidateTableArrayTypes(*table));
 
   // columns: {group1.leaf1, group1.leaf2}
@@ -2709,7 +2705,7 @@ TEST_F(TestNestedSchemaRead, ReadTablePartial) {
   ASSERT_EQ(table->num_rows(), NUM_SIMPLE_TEST_ROWS);
   ASSERT_EQ(table->num_columns(), 1);
   ASSERT_EQ(table->schema()->field(0)->name(), "group1");
-  ASSERT_EQ(table->schema()->field(0)->type()->num_children(), 2);
+  ASSERT_EQ(table->schema()->field(0)->type()->num_fields(), 2);
   ASSERT_NO_FATAL_FAILURE(ValidateTableArrayTypes(*table));
 
   // columns: {leaf3}
@@ -2717,7 +2713,7 @@ TEST_F(TestNestedSchemaRead, ReadTablePartial) {
   ASSERT_EQ(table->num_rows(), NUM_SIMPLE_TEST_ROWS);
   ASSERT_EQ(table->num_columns(), 1);
   ASSERT_EQ(table->schema()->field(0)->name(), "leaf3");
-  ASSERT_EQ(table->schema()->field(0)->type()->num_children(), 0);
+  ASSERT_EQ(table->schema()->field(0)->type()->num_fields(), 0);
   ASSERT_NO_FATAL_FAILURE(ValidateTableArrayTypes(*table));
 
   // Test with different ordering
@@ -2726,7 +2722,7 @@ TEST_F(TestNestedSchemaRead, ReadTablePartial) {
   ASSERT_EQ(table->num_columns(), 2);
   ASSERT_EQ(table->schema()->field(0)->name(), "leaf3");
   ASSERT_EQ(table->schema()->field(1)->name(), "group1");
-  ASSERT_EQ(table->schema()->field(1)->type()->num_children(), 1);
+  ASSERT_EQ(table->schema()->field(1)->type()->num_fields(), 1);
   ASSERT_NO_FATAL_FAILURE(ValidateTableArrayTypes(*table));
 }
 
@@ -3059,15 +3055,12 @@ TEST_P(TestArrowReadDictionary, IncrementalReads) {
   int num_reads = 4;
   int batch_size = options.num_rows / num_reads;
 
-  ::arrow::compute::FunctionContext fc;
   for (int i = 0; i < num_reads; ++i) {
     std::shared_ptr<ChunkedArray> chunk;
     ASSERT_OK(col->NextBatch(batch_size, &chunk));
 
-    std::shared_ptr<Array> result_dense;
-    ASSERT_OK(::arrow::compute::Cast(&fc, *chunk->chunk(0), ::arrow::utf8(),
-                                     ::arrow::compute::CastOptions::Safe(),
-                                     &result_dense));
+    ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> result_dense,
+                         ::arrow::compute::Cast(*chunk->chunk(0), ::arrow::utf8()));
     AssertArraysEqual(*dense_values_->Slice(i * batch_size, batch_size), *result_dense);
   }
 }

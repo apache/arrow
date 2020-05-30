@@ -1068,8 +1068,9 @@ support library is itself covered by the above license.
 
 --------------------------------------------------------------------------------
 
-3rdparty dependency LLVM is statically linked in certain binary
-distributions. LLVM has the following license:
+3rdparty dependency LLVM is statically linked in certain binary distributions.
+Additionally some sections of source code have been derived from sources in LLVM
+and have been clearly labeled as such. LLVM has the following license:
 
 ==============================================================================
 LLVM Release License

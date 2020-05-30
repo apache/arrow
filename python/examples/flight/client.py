@@ -106,6 +106,9 @@ def _add_common_arguments(parser):
                         help='Enable transport-level security')
     parser.add_argument('--tls-roots', default=None,
                         help='Path to trusted TLS certificate(s)')
+    parser.add_argument("--mtls", nargs=2, default=None,
+                        metavar=('CERTFILE', 'KEYFILE'),
+                        help="Enable transport-level security")
     parser.add_argument('host', type=str,
                         help="Address or hostname to connect to")
 
@@ -161,6 +164,13 @@ def main():
         if args.tls_roots:
             with open(args.tls_roots, "rb") as root_certs:
                 connection_args["tls_root_certs"] = root_certs.read()
+    if args.mtls:
+        with open(args.mtls[0], "rb") as cert_file:
+            tls_cert_chain = cert_file.read()
+        with open(args.mtls[1], "rb") as key_file:
+            tls_private_key = key_file.read()
+        connection_args["cert_chain"] = tls_cert_chain
+        connection_args["private_key"] = tls_private_key
     client = pyarrow.flight.FlightClient(f"{scheme}://{host}:{port}",
                                          **connection_args)
     while True:

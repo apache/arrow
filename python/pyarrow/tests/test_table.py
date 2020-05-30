@@ -362,6 +362,10 @@ def test_recordbatch_equals():
     assert batch_meta.equals(batch)
     assert not batch_meta.equals(batch, check_metadata=True)
 
+    # ARROW-8889
+    assert not batch.equals(None)
+    assert batch != "foo"
+
 
 def test_recordbatch_take():
     batch = pa.record_batch(

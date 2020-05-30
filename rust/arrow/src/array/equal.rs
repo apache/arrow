@@ -143,6 +143,18 @@ impl PartialEq for StringArray {
     }
 }
 
+impl PartialEq for FixedSizeBinaryArray {
+    fn eq(&self, other: &Self) -> bool {
+        self.equals(other)
+    }
+}
+
+impl PartialEq for BinaryArray {
+    fn eq(&self, other: &Self) -> bool {
+        self.equals(other)
+    }
+}
+
 impl ArrayEqual for ListArray {
     fn equals(&self, other: &dyn Array) -> bool {
         if !base_equal(&self.data(), &other.data()) {
@@ -691,6 +703,53 @@ impl ArrayEqual for StructArray {
     }
 }
 
+impl ArrayEqual for UnionArray {
+    fn equals(&self, _other: &dyn Array) -> bool {
+        unimplemented!(
+            "Added to allow UnionArray to implement the Array trait: see ARROW-8576"
+        )
+    }
+
+    fn range_equals(
+        &self,
+        _other: &dyn Array,
+        _start_idx: usize,
+        _end_idx: usize,
+        _other_start_idx: usize,
+    ) -> bool {
+        unimplemented!(
+            "Added to allow UnionArray to implement the Array trait: see ARROW-8576"
+        )
+    }
+}
+
+impl ArrayEqual for NullArray {
+    fn equals(&self, other: &dyn Array) -> bool {
+        if other.data_type() != &DataType::Null {
+            return false;
+        }
+
+        if self.len() != other.len() {
+            return false;
+        }
+        if self.null_count() != other.null_count() {
+            return false;
+        }
+
+        true
+    }
+
+    fn range_equals(
+        &self,
+        _other: &dyn Array,
+        _start_idx: usize,
+        _end_idx: usize,
+        _other_start_idx: usize,
+    ) -> bool {
+        unimplemented!("Range comparison for null array not yet supported")
+    }
+}
+
 // Compare if the common basic fields between the two arrays are equal
 fn base_equal(this: &ArrayDataRef, other: &ArrayDataRef) -> bool {
     if this.data_type() != other.data_type() {
@@ -1034,6 +1093,43 @@ impl PartialEq<FixedSizeBinaryArray> for Value {
     fn eq(&self, arrow: &FixedSizeBinaryArray) -> bool {
         match self {
             Value::Array(json_array) => arrow.equals_json_values(&json_array),
+            _ => false,
+        }
+    }
+}
+
+impl JsonEqual for UnionArray {
+    fn equals_json(&self, _json: &[&Value]) -> bool {
+        unimplemented!(
+            "Added to allow UnionArray to implement the Array trait: see ARROW-8547"
+        )
+    }
+}
+
+impl JsonEqual for NullArray {
+    fn equals_json(&self, json: &[&Value]) -> bool {
+        if self.len() != json.len() {
+            return false;
+        }
+
+        // all JSON values must be nulls
+        json.iter().all(|&v| v == &JNull)
+    }
+}
+
+impl PartialEq<NullArray> for Value {
+    fn eq(&self, arrow: &NullArray) -> bool {
+        match self {
+            Value::Array(json_array) => arrow.equals_json_values(&json_array),
+            _ => false,
+        }
+    }
+}
+
+impl PartialEq<Value> for NullArray {
+    fn eq(&self, json: &Value) -> bool {
+        match json {
+            Value::Array(json_array) => self.equals_json_values(&json_array),
             _ => false,
         }
     }
@@ -1390,6 +1486,30 @@ mod tests {
 
         assert!(a.equals(&b));
         assert!(b.equals(&a));
+    }
+
+    #[test]
+    fn test_null_equal() {
+        let a = NullArray::new(12);
+        let b = NullArray::new(12);
+        assert!(a.equals(&b));
+        assert!(b.equals(&a));
+
+        let b = NullArray::new(10);
+        assert!(!a.equals(&b));
+        assert!(!b.equals(&a));
+
+        // Test the case where offset != 0
+
+        let a_slice = a.slice(2, 3);
+        let b_slice = b.slice(1, 3);
+        assert!(a_slice.equals(&*b_slice));
+        assert!(b_slice.equals(&*a_slice));
+
+        let a_slice = a.slice(5, 4);
+        let b_slice = b.slice(3, 3);
+        assert!(!a_slice.equals(&*b_slice));
+        assert!(!b_slice.equals(&*a_slice));
     }
 
     fn create_list_array<'a, U: AsRef<[i32]>, T: AsRef<[Option<U>]>>(
@@ -2040,5 +2160,34 @@ mod tests {
         }
 
         Ok(builder.finish())
+    }
+
+    #[test]
+    fn test_null_json_equal() {
+        // Test equaled array
+        let arrow_array = NullArray::new(4);
+        let json_array: Value = serde_json::from_str(
+            r#"
+            [
+                null, null, null, null
+            ]
+        "#,
+        )
+        .unwrap();
+        assert!(arrow_array.eq(&json_array));
+        assert!(json_array.eq(&arrow_array));
+
+        // Test unequaled array
+        let arrow_array = NullArray::new(2);
+        let json_array: Value = serde_json::from_str(
+            r#"
+            [
+                null, null, null
+            ]
+        "#,
+        )
+        .unwrap();
+        assert!(arrow_array.ne(&json_array));
+        assert!(json_array.ne(&arrow_array));
     }
 }

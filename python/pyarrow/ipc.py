@@ -96,6 +96,7 @@ class RecordBatchFileReader(lib._RecordBatchFileReader, _ReadPandasOption):
         If the file is embedded in some larger file, this is the byte offset to
         the very end of the file data
     """
+
     def __init__(self, source, footer_offset=None):
         self._open(source, footer_offset=footer_offset)
 

@@ -17,9 +17,24 @@
   under the License.
 -->
 
-# arrow 0.17.0.9000
+# arrow 0.17.1.9000
+
+## Datasets
+
+* Read datasets directly on S3 by passing a URL like `ds <- open_dataset("s3://...")`. Currently requires a special C++ library build with additional dependencies; that is, this is not available in CRAN releases or in nightly packages.
+* CSV and other text-delimited datasets are now supported
+
+## Other
+
+* Schema metadata is now exposed as a named list, and it can be modified by assignment like `batch$metadata$new_key <- "new value"`
+* Tables and RecordBatches have additional data.frame-like methods, including `dimnames()` and `as.list()`
+* Linux installation: some tweaks to OS detection for binaries, some updates to known installation issues in the vignette.
+
+# arrow 0.17.1
 
 * Updates for compatibility with `dplyr` 1.0
+* `reticulate::r_to_py()` conversion now correctly works automatically, without having to call the method yourself
+* Assorted bug fixes in the C++ library around Parquet reading
 
 # arrow 0.17.0
 

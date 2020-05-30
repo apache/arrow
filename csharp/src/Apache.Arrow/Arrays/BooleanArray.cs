@@ -62,7 +62,7 @@ namespace Apache.Arrow
 
             public Builder Append(ReadOnlySpan<bool> span)
             {
-                foreach (var value in span)
+                foreach (bool value in span)
                 {
                     Append(value);
                 }
@@ -71,7 +71,7 @@ namespace Apache.Arrow
 
             public Builder AppendRange(IEnumerable<bool> values)
             {
-                foreach (var value in values)
+                foreach (bool value in values)
                 {
                     Append(value);
                 }
@@ -85,7 +85,7 @@ namespace Apache.Arrow
 
             public BooleanArray Build(MemoryAllocator allocator = default)
             {
-                var validityBuffer = NullCount > 0
+                ArrowBuffer validityBuffer = NullCount > 0
                                         ? ValidityBuffer.Build(allocator)
                                         : ArrowBuffer.Empty;
 
@@ -154,10 +154,10 @@ namespace Apache.Arrow
             {
                 CheckIndex(i);
                 CheckIndex(j);
-                var bi = BitUtility.GetBit(ValueBuffer.Span, i);
-                var biValid = BitUtility.GetBit(ValidityBuffer.Span, i);
-                var bj = BitUtility.GetBit(ValueBuffer.Span, j);
-                var bjValid = BitUtility.GetBit(ValidityBuffer.Span, j);
+                bool bi = BitUtility.GetBit(ValueBuffer.Span, i);
+                bool biValid = BitUtility.GetBit(ValidityBuffer.Span, i);
+                bool bj = BitUtility.GetBit(ValueBuffer.Span, j);
+                bool bjValid = BitUtility.GetBit(ValidityBuffer.Span, j);
                 BitUtility.SetBit(ValueBuffer.Span, i, bj);
                 BitUtility.SetBit(ValidityBuffer.Span, i, bjValid);
                 BitUtility.SetBit(ValueBuffer.Span, j, bi);

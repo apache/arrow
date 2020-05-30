@@ -1391,9 +1391,9 @@ TEST(TestStructType, Basics) {
 
   StructType struct_type(fields);
 
-  ASSERT_TRUE(struct_type.child(0)->Equals(f0));
-  ASSERT_TRUE(struct_type.child(1)->Equals(f1));
-  ASSERT_TRUE(struct_type.child(2)->Equals(f2));
+  ASSERT_TRUE(struct_type.field(0)->Equals(f0));
+  ASSERT_TRUE(struct_type.field(1)->Equals(f1));
+  ASSERT_TRUE(struct_type.field(2)->Equals(f2));
 
   ASSERT_EQ(struct_type.ToString(), "struct<f0: int32, f1: string, f2: uint8>");
 

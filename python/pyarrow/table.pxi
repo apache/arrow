@@ -238,32 +238,13 @@ cdef class ChunkedArray(_PandasConvertible):
             return values
         return values.astype(dtype)
 
-    def cast(self, object target_type, bint safe=True):
+    def cast(self, object target_type, safe=True):
         """
-        Cast values to another data type
+        Cast array values to another data type
 
-        Parameters
-        ----------
-        target_type : DataType
-            Type to cast to
-        safe : bool, default True
-            Check for overflows or other unsafe conversions
-
-        Returns
-        -------
-        casted : ChunkedArray
+        See pyarrow.compute.cast for usage
         """
-        cdef:
-            CCastOptions options = CCastOptions(safe)
-            DataType type = ensure_type(target_type)
-            shared_ptr[CArray] result
-            CDatum out
-
-        with nogil:
-            check_status(Cast(_context(), CDatum(self.sp_chunked_array),
-                              type.sp_type, options, &out))
-
-        return pyarrow_wrap_chunked_array(out.chunked_array())
+        return _pc().cast(self, target_type, safe=safe)
 
     def dictionary_encode(self):
         """
@@ -274,14 +255,7 @@ cdef class ChunkedArray(_PandasConvertible):
         pyarrow.ChunkedArray
             Same chunking as the input, all chunks share a common dictionary.
         """
-        cdef CDatum out
-
-        with nogil:
-            check_status(
-                DictionaryEncode(_context(), CDatum(self.sp_chunked_array),
-                                 &out))
-
-        return wrap_datum(out)
+        return _pc().call_function('dictionary_encode', [self])
 
     def flatten(self, MemoryPool memory_pool=None):
         """
@@ -314,13 +288,7 @@ cdef class ChunkedArray(_PandasConvertible):
         -------
         pyarrow.Array
         """
-        cdef shared_ptr[CArray] result
-
-        with nogil:
-            check_status(
-                Unique(_context(), CDatum(self.sp_chunked_array), &result))
-
-        return pyarrow_wrap_array(result)
+        return _pc().call_function('unique', [self])
 
     def value_counts(self):
         """
@@ -330,12 +298,7 @@ cdef class ChunkedArray(_PandasConvertible):
         -------
         An array of  <input type "Values", int64_t "Counts"> structs
         """
-        cdef shared_ptr[CArray] result
-
-        with nogil:
-            check_status(ValueCounts(_context(), CDatum(self.sp_chunked_array),
-                                     &result))
-        return pyarrow_wrap_array(result)
+        return _pc().call_function('value_counts', [self])
 
     def slice(self, offset=0, length=None):
         """
@@ -415,9 +378,9 @@ cdef class ChunkedArray(_PandasConvertible):
             filter = CDatum((<ChunkedArray> mask).sp_chunked_array)
 
         with nogil:
-            check_status(
-                FilterKernel(_context(), CDatum(self.sp_chunked_array),
-                             filter, options, &out))
+            out = GetResultValue(
+                FilterKernel(CDatum(self.sp_chunked_array),
+                             filter, options))
 
         return wrap_datum(out)
 
@@ -447,8 +410,8 @@ cdef class ChunkedArray(_PandasConvertible):
         c_indices = asarray(indices)
 
         with nogil:
-            check_status(Take(_context(), deref(self.sp_chunked_array),
-                              deref(c_indices.sp_array), options, &out))
+            out = GetResultValue(Take(deref(self.sp_chunked_array),
+                                      deref(c_indices.sp_array), options))
 
         return pyarrow_wrap_chunked_array(out)
 
@@ -496,6 +459,25 @@ cdef class ChunkedArray(_PandasConvertible):
         for i in range(self.num_chunks):
             result += self.chunk(i).to_pylist()
         return result
+
+
+# TODO: ARROW-8916, delete this once there is a Function registered for
+# filtering types other than Array, ChunkedArray
+cdef CFilterOptions _convert_filter_option(object null_selection_behavior):
+    cdef CFilterOptions options
+
+    if null_selection_behavior == 'drop':
+        options.null_selection_behavior = \
+            CFilterNullSelectionBehavior_DROP
+    elif null_selection_behavior == 'emit_null':
+        options.null_selection_behavior = \
+            CFilterNullSelectionBehavior_EMIT_NULL
+    else:
+        raise ValueError(
+            '"{}" is not a valid null_selection_behavior'.format(
+                null_selection_behavior)
+        )
+    return options
 
 
 def chunked_array(arrays, type=None):
@@ -880,14 +862,14 @@ cdef class RecordBatch(_PandasConvertible):
         options = _convert_filter_option(null_selection_behavior)
 
         with nogil:
-            check_status(
-                FilterKernel(_context(), CDatum(self.sp_batch),
-                             CDatum(mask.sp_array), options, &out)
+            out = GetResultValue(
+                FilterKernel(CDatum(self.sp_batch),
+                             CDatum(mask.sp_array), options)
             )
 
         return wrap_datum(out)
 
-    def equals(self, RecordBatch other, bint check_metadata=False):
+    def equals(self, object other, bint check_metadata=False):
         """
         Check if contents of two record batches are equal.
 
@@ -904,8 +886,11 @@ cdef class RecordBatch(_PandasConvertible):
         """
         cdef:
             CRecordBatch* this_batch = self.batch
-            CRecordBatch* other_batch = other.batch
+            shared_ptr[CRecordBatch] other_batch = pyarrow_unwrap_batch(other)
             c_bool result
+
+        if not other_batch:
+            return False
 
         with nogil:
             result = this_batch.Equals(deref(other_batch), check_metadata)
@@ -938,8 +923,8 @@ cdef class RecordBatch(_PandasConvertible):
         c_indices = asarray(indices)
 
         with nogil:
-            check_status(Take(_context(), deref(this_batch),
-                              deref(c_indices.sp_array), options, &out))
+            out = GetResultValue(Take(deref(this_batch),
+                                      deref(c_indices.sp_array), options))
 
         return pyarrow_wrap_batch(out)
 
@@ -1303,9 +1288,9 @@ cdef class Table(_PandasConvertible):
             filter = CDatum((<ChunkedArray> mask).sp_chunked_array)
 
         with nogil:
-            check_status(
-                FilterKernel(_context(), CDatum(self.sp_table),
-                             filter, options, &out)
+            out = GetResultValue(
+                FilterKernel(CDatum(self.sp_table),
+                             filter, options)
             )
 
         return wrap_datum(out)
@@ -1336,8 +1321,8 @@ cdef class Table(_PandasConvertible):
         c_indices = asarray(indices)
 
         with nogil:
-            check_status(Take(_context(), deref(self.table),
-                              deref(c_indices.sp_array), options, &out))
+            out = GetResultValue(Take(deref(self.table),
+                                      deref(c_indices.sp_array), options))
 
         return pyarrow_wrap_table(out)
 

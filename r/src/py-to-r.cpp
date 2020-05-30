@@ -18,6 +18,7 @@
 #include "./arrow_types.h"
 
 #if defined(ARROW_R_WITH_ARROW)
+#include <arrow/c/bridge.h>
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Array> ImportArray(uintptr_t array, uintptr_t schema) {

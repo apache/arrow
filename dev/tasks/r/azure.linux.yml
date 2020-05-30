@@ -33,9 +33,9 @@ jobs:
         docker -v
         docker-compose -v
         cd arrow
-        R_ORG={{ r_org }}
-        R_IMAGE={{ r_image }}
-        R_TAG={{ r_tag }}
+        export R_ORG={{ r_org }}
+        export R_IMAGE={{ r_image }}
+        export R_TAG={{ r_tag }}
         docker-compose pull --ignore-pull-failures r
         docker-compose build r
       displayName: Docker build
@@ -43,9 +43,9 @@ jobs:
     - script: |
         set -ex
         cd arrow
-        R_ORG={{ r_org }}
-        R_IMAGE={{ r_image }}
-        R_TAG={{ r_tag }}
+        export R_ORG={{ r_org }}
+        export R_IMAGE={{ r_image }}
+        export R_TAG={{ r_tag }}
         # we have to export this (right?) because we need it in the build env
         export ARROW_R_DEV={{ not_cran }}
         # Note that ci/scripts/r_test.sh sets NOT_CRAN=true if ARROW_R_DEV=TRUE

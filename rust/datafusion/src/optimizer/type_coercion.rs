@@ -21,7 +21,6 @@
 //! float)`. This keeps the runtime query execution code much simpler.
 
 use std::collections::HashMap;
-use std::sync::Arc;
 
 use arrow::datatypes::Schema;
 
@@ -62,22 +61,22 @@ impl<'a> TypeCoercionRule<'a> {
                 let right_type = right.get_type(schema)?;
                 if left_type == right_type {
                     Ok(Expr::BinaryExpr {
-                        left: Arc::new(left),
+                        left: Box::new(left),
                         op: op.clone(),
-                        right: Arc::new(right),
+                        right: Box::new(right),
                     })
                 } else {
                     let super_type = utils::get_supertype(&left_type, &right_type)?;
                     Ok(Expr::BinaryExpr {
-                        left: Arc::new(left.cast_to(&super_type, schema)?),
+                        left: Box::new(left.cast_to(&super_type, schema)?),
                         op: op.clone(),
-                        right: Arc::new(right.cast_to(&super_type, schema)?),
+                        right: Box::new(right.cast_to(&super_type, schema)?),
                     })
                 }
             }
-            Expr::IsNull(e) => Ok(Expr::IsNull(Arc::new(self.rewrite_expr(e, schema)?))),
+            Expr::IsNull(e) => Ok(Expr::IsNull(Box::new(self.rewrite_expr(e, schema)?))),
             Expr::IsNotNull(e) => {
-                Ok(Expr::IsNotNull(Arc::new(self.rewrite_expr(e, schema)?)))
+                Ok(Expr::IsNotNull(Box::new(self.rewrite_expr(e, schema)?)))
             }
             Expr::ScalarFunction {
                 name,
@@ -129,7 +128,7 @@ impl<'a> TypeCoercionRule<'a> {
             Expr::Cast { .. } => Ok(expr.clone()),
             Expr::Column(_) => Ok(expr.clone()),
             Expr::Alias(expr, alias) => Ok(Expr::Alias(
-                Arc::new(self.rewrite_expr(expr, schema)?),
+                Box::new(self.rewrite_expr(expr, schema)?),
                 alias.to_owned(),
             )),
             Expr::Literal(_) => Ok(expr.clone()),
@@ -168,6 +167,9 @@ impl<'a> OptimizerRule for TypeCoercionRule<'a> {
                 )?
                 .build(),
             LogicalPlan::TableScan { .. } => Ok(plan.clone()),
+            LogicalPlan::InMemoryScan { .. } => Ok(plan.clone()),
+            LogicalPlan::ParquetScan { .. } => Ok(plan.clone()),
+            LogicalPlan::CsvScan { .. } => Ok(plan.clone()),
             LogicalPlan::EmptyRelation { .. } => Ok(plan.clone()),
             LogicalPlan::Limit { .. } => Ok(plan.clone()),
             LogicalPlan::CreateExternalTable { .. } => Ok(plan.clone()),
@@ -183,9 +185,32 @@ impl<'a> OptimizerRule for TypeCoercionRule<'a> {
 mod tests {
     use super::*;
     use crate::execution::context::ExecutionContext;
+    use crate::execution::physical_plan::csv::CsvReadOptions;
     use crate::logicalplan::Expr::*;
-    use crate::logicalplan::Operator;
+    use crate::logicalplan::{col, Operator};
+    use crate::test::arrow_testdata_path;
     use arrow::datatypes::{DataType, Field, Schema};
+
+    #[test]
+    fn test_with_csv_plan() -> Result<()> {
+        let testdata = arrow_testdata_path();
+        let path = format!("{}/csv/aggregate_test_100.csv", testdata);
+
+        let options = CsvReadOptions::new().schema_infer_max_records(100);
+        let plan = LogicalPlanBuilder::scan_csv(&path, options, None)?
+            .filter(col("c7").lt(&col("c12")))?
+            .build()?;
+
+        let scalar_functions = HashMap::new();
+        let mut rule = TypeCoercionRule::new(&scalar_functions);
+        let plan = rule.optimize(&plan)?;
+
+        assert!(
+            format!("{:?}", plan).starts_with("Selection: CAST(#c7 AS Float64) Lt #c12")
+        );
+
+        Ok(())
+    }
 
     #[test]
     fn test_add_i32_i64() {
@@ -250,9 +275,9 @@ mod tests {
         ]);
 
         let expr = Expr::BinaryExpr {
-            left: Arc::new(Column(0)),
+            left: Box::new(Column(0)),
             op: Operator::Plus,
-            right: Arc::new(Column(1)),
+            right: Box::new(Column(1)),
         };
 
         let ctx = ExecutionContext::new();

@@ -31,11 +31,13 @@ import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.DenseUnionVector;
 import org.apache.arrow.vector.complex.StructVector;
+import org.apache.arrow.vector.holders.NullableBigIntHolder;
 import org.apache.arrow.vector.holders.NullableBitHolder;
 import org.apache.arrow.vector.holders.NullableFloat4Holder;
 import org.apache.arrow.vector.holders.NullableIntHolder;
 import org.apache.arrow.vector.holders.NullableUInt4Holder;
 import org.apache.arrow.vector.testing.ValueVectorDataPopulator;
+import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.UnionMode;
 import org.apache.arrow.vector.types.pojo.ArrowType;
@@ -201,6 +203,7 @@ public class TestDenseUnionVector {
       assertEquals(50, sourceVector.getObject(9));
 
       try (DenseUnionVector toVector = new DenseUnionVector(EMPTY_SCHEMA_PATH, allocator, null, null)) {
+        toVector.registerNewTypeId(Field.nullable("", MinorType.INT.getType()));
 
         final TransferPair transferPair = sourceVector.makeTransferPair(toVector);
 
@@ -294,6 +297,8 @@ public class TestDenseUnionVector {
       assertEquals(30.5f, sourceVector.getObject(9));
 
       try (DenseUnionVector toVector = new DenseUnionVector(EMPTY_SCHEMA_PATH, allocator, null, null)) {
+        toVector.registerNewTypeId(Field.nullable("", MinorType.INT.getType()));
+        toVector.registerNewTypeId(Field.nullable("", MinorType.FLOAT4.getType()));
 
         final TransferPair transferPair = sourceVector.makeTransferPair(toVector);
 
@@ -336,7 +341,7 @@ public class TestDenseUnionVector {
             /*dictionary=*/null, metadata);
     final Field field = new Field("union", fieldType, children);
 
-    MinorType minorType = MinorType.UNION;
+    MinorType minorType = MinorType.DENSEUNION;
     DenseUnionVector vector = (DenseUnionVector) minorType.getNewVector(field, allocator, null);
     vector.initializeChildrenFromFields(children);
 
@@ -447,7 +452,10 @@ public class TestDenseUnionVector {
       // add two struct vectors to union vector
       unionVector.addVector(typeId1, structVector1);
       unionVector.addVector(typeId2, structVector2);
-      unionVector.setValueCount(3);
+
+      while (unionVector.getValueCapacity() < 3) {
+        unionVector.reAlloc();
+      }
 
       ArrowBuf offsetBuf = unionVector.getOffsetBuffer();
 
@@ -462,6 +470,8 @@ public class TestDenseUnionVector {
       unionVector.setTypeId(2, typeId1);
       offsetBuf.setInt(DenseUnionVector.OFFSET_WIDTH * 2, 1);
       BitVectorHelper.setBit(unionVector.getValidityBuffer(), 2);
+
+      unionVector.setValueCount(3);
 
       Map<String, Integer> value0 = new JsonStringHashMap<>();
       value0.put("sub11", 0);
@@ -488,7 +498,6 @@ public class TestDenseUnionVector {
    */
   @Test
   public void testMultipleVarChars() {
-    FieldType type = new FieldType(true, ArrowType.Struct.INSTANCE, null, null);
     try (VarCharVector childVector1 = new VarCharVector("child1", allocator);
          VarCharVector childVector2 = new VarCharVector("child2", allocator);
          DenseUnionVector unionVector = DenseUnionVector.empty("union", allocator)) {
@@ -504,7 +513,9 @@ public class TestDenseUnionVector {
       assertEquals(typeId1, 0);
       assertEquals(typeId2, 1);
 
-      unionVector.setValueCount(5);
+      while (unionVector.getValueCapacity() < 5) {
+        unionVector.reAlloc();
+      }
 
       // add two struct vectors to union vector
       unionVector.addVector(typeId1, childVector1);
@@ -535,11 +546,70 @@ public class TestDenseUnionVector {
       offsetBuf.setInt(DenseUnionVector.OFFSET_WIDTH * 4, 1);
       BitVectorHelper.setBit(unionVector.getValidityBuffer(), 4);
 
+      unionVector.setValueCount(5);
+
       assertEquals(new Text("a0"), unionVector.getObject(0));
       assertEquals(new Text("b1"), unionVector.getObject(1));
       assertEquals(new Text("b2"), unionVector.getObject(2));
       assertNull(unionVector.getObject(3));
       assertEquals(new Text("a4"), unionVector.getObject(4));
+    }
+  }
+
+  @Test
+  public void testChildVectorValueCounts() {
+    final NullableIntHolder intHolder = new NullableIntHolder();
+    intHolder.isSet = 1;
+
+    final NullableBigIntHolder longHolder = new NullableBigIntHolder();
+    longHolder.isSet = 1;
+
+    final NullableFloat4Holder floatHolder = new NullableFloat4Holder();
+    floatHolder.isSet = 1;
+
+    try (DenseUnionVector vector = new DenseUnionVector("vector", allocator, null, null)) {
+      vector.allocateNew();
+
+      // populate the delta vector with values {7, null, 8L, 9.0f, 10, 12L}
+      while (vector.getValueCapacity() < 6) {
+        vector.reAlloc();
+      }
+      byte intTypeId = vector.registerNewTypeId(Field.nullable("", Types.MinorType.INT.getType()));
+      vector.setTypeId(0, intTypeId);
+      intHolder.value = 7;
+      vector.setSafe(0, intHolder);
+      byte longTypeId = vector.registerNewTypeId(Field.nullable("", Types.MinorType.BIGINT.getType()));
+      vector.setTypeId(2, longTypeId);
+      longHolder.value = 8L;
+      vector.setSafe(2, longHolder);
+      byte floatTypeId = vector.registerNewTypeId(Field.nullable("", Types.MinorType.FLOAT4.getType()));
+      vector.setTypeId(3, floatTypeId);
+      floatHolder.value = 9.0f;
+      vector.setSafe(3, floatHolder);
+
+      vector.setTypeId(4, intTypeId);
+      intHolder.value = 10;
+      vector.setSafe(4, intHolder);
+      vector.setTypeId(5, longTypeId);
+      longHolder.value = 12L;
+      vector.setSafe(5, longHolder);
+
+      vector.setValueCount(6);
+
+      // verify results
+      IntVector intVector = (IntVector) vector.getVectorByType(intTypeId);
+      assertEquals(2, intVector.getValueCount());
+      assertEquals(7, intVector.get(0));
+      assertEquals(10, intVector.get(1));
+
+      BigIntVector longVector = (BigIntVector) vector.getVectorByType(longTypeId);
+      assertEquals(2, longVector.getValueCount());
+      assertEquals(8L, longVector.get(0));
+      assertEquals(12L, longVector.get(1));
+
+      Float4Vector floagVector = (Float4Vector) vector.getVectorByType(floatTypeId);
+      assertEquals(1, floagVector.getValueCount());
+      assertEquals(9.0f, floagVector.get(0), 0);
     }
   }
 

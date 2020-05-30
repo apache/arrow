@@ -93,7 +93,7 @@ def test_sum_chunked_array(arrow_type):
 @pytest.mark.parametrize(('ty', 'values'), all_array_types)
 def test_take(ty, values):
     arr = pa.array(values, type=ty)
-    for indices_type in [pa.uint8(), pa.int64()]:
+    for indices_type in [pa.int8(), pa.int64()]:
         indices = pa.array([0, 4, 2, None], type=indices_type)
         result = arr.take(indices)
         result.validate()
@@ -129,7 +129,7 @@ def test_take_indices_types():
 
     for indices_type in [pa.float32(), pa.float64()]:
         indices = pa.array([0, 4, 2], type=indices_type)
-        with pytest.raises(TypeError):
+        with pytest.raises(NotImplementedError):
             arr.take(indices)
 
 
@@ -158,12 +158,12 @@ def test_filter(ty, values):
 
     # non-boolean dtype
     mask = pa.array([0, 1, 0, 1, 0])
-    with pytest.raises(TypeError, match="got int64"):
+    with pytest.raises(NotImplementedError, match="no kernel matching"):
         arr.filter(mask)
 
     # wrong length
     mask = pa.array([True, False, True])
-    with pytest.raises(ValueError, match="must have identical lengths"):
+    with pytest.raises(ValueError, match="must all be the same length"):
         arr.filter(mask)
 
 
@@ -229,10 +229,12 @@ def test_filter_errors():
     for obj in [arr, batch, table]:
         # non-boolean dtype
         mask = pa.array([0, 1, 0, 1, 0])
-        with pytest.raises(TypeError, match="must be of boolean type"):
+        with pytest.raises(NotImplementedError,
+                           match="no kernel matching input types"):
             obj.filter(mask)
 
         # wrong length
         mask = pa.array([True, False, True])
-        with pytest.raises(ValueError, match="must have identical lengths"):
+        with pytest.raises(pa.ArrowInvalid,
+                           match="must all be the same length"):
             obj.filter(mask)

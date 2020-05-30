@@ -46,14 +46,18 @@ env:
   ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
 
 jobs:
-
   ubuntu:
-    name: AMD64 Ubuntu 18.04 R 3.6
+    name: AMD64 Ubuntu ${{ matrix.ubuntu }} R ${{ matrix.r }}
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    strategy:
+      fail-fast: false
+      matrix:
+        r: ["3.6", "4.0"]
+        ubuntu: [18.04]
     env:
-      R: '3.6'
-      UBUNTU: '18.04'
+      R: ${{ matrix.r }}
+      UBUNTU: ${{ matrix.ubuntu }}
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v2
@@ -67,8 +71,8 @@ jobs:
         uses: actions/cache@v1
         with:
           path: .docker
-          key: ubuntu-18.04-r-3.6-${{ hashFiles('cpp/**') }}
-          restore-keys: ubuntu-18.04-r-3.6-
+          key: ubuntu-${{ matrix.ubuntu }}-r-${{ matrix.r }}-${{ hashFiles('cpp/**') }}
+          restore-keys: ubuntu-${{ matrix.ubuntu }}-r-${{ matrix.r }}-
       - name: Setup Python
         uses: actions/setup-python@v1
         with:
@@ -89,13 +93,20 @@ jobs:
         run: archery docker push ubuntu-r
 
   rstudio:
-    name: AMD64 CentOS 7 RStudio R 3.6
+    name: "rstudio/r-base:${{ matrix.r_version }}-${{ matrix.r_image }}"
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # See https://hub.docker.com/r/rstudio/r-base
+        r_version: ["3.6", "4.0"]
+        r_image:
+          - centos7
     env:
       R_ORG: rstudio
       R_IMAGE: r-base
-      R_TAG: 3.6-centos7
+      R_TAG: ${{ matrix.r_version }}-${{ matrix.r_image }}
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v2
@@ -109,8 +120,8 @@ jobs:
         uses: actions/cache@v1
         with:
           path: .docker
-          key: centos-7-r-${{ hashFiles('cpp/**') }}
-          restore-keys: centos-7-r-
+          key: ${{ matrix.r_image }}-r-${{ hashFiles('cpp/**') }}
+          restore-keys: ${{ matrix.r_image }}-r-
       - name: Setup Python
         uses: actions/setup-python@v1
         with:
@@ -137,17 +148,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # TODO: test on rtools40
-        rtools: [35]
+        rtools: [35, 40]
     env:
       TEST_R_WITH_ARROW: "TRUE"
       ARROW_R_CXXFLAGS: '-Werror'
       _R_CHECK_TESTS_NLINES_: 0
     steps:
       - run: git config --global core.autocrlf false
-      - uses: numworks/setup-msys2@v1
-        with:
-          update: true
       - name: Checkout Arrow
         uses: actions/checkout@v2
         with:
@@ -161,18 +168,27 @@ jobs:
           cd r/tests
           sed -i.bak -E -e 's/"arrow"/"arrow", reporter = "location"/' testthat.R
           rm -f testthat.R.bak
-      - name: Fetch Submodules and Tags
-        shell: bash
-        run: ci/scripts/util_checkout.sh
+      # We use the makepkg-mingw setup that is included in rtools40 even when
+      # we use the rtools35 compilers, so we always install R 4.0/Rtools40
       - uses: r-lib/actions/setup-r@master
         with:
-          rtools-version: ${{ matrix.rtools }}
+          rtools-version: 40
+          r-version: '4.0'
+          Ncpus: 2
+      - uses: r-lib/actions/setup-r@master
+        if: ${{ matrix.rtools == 35 }}
+        with:
+          rtools-version: 35
           r-version: '3.6'
+          Ncpus: 2
       - name: Build Arrow C++
-        run: msys2do ci/scripts/r_windows_build.sh
+        shell: bash
+        env:
+          RTOOLS_VERSION: ${{ matrix.rtools }}
+        run: ci/scripts/r_windows_build.sh
       - uses: actions/upload-artifact@v1
         with:
-          name: Rtools Arrow C++
+          name: Rtools ${{ matrix.rtools }} Arrow C++
           path: libarrow.zip
       - name: Install R package dependencies
         shell: Rscript {0}
@@ -193,3 +209,6 @@ jobs:
             error_on = 'warning',
             check_dir = 'check'
           )
+      - name: Dump install logs
+        shell: cmd
+        run: cat check/arrow.Rcheck/00install.out

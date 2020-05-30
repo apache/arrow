@@ -20,6 +20,11 @@
 #include "./arrow_types.h"
 
 #if defined(ARROW_R_WITH_ARROW)
+#include <arrow/array.h>
+#include <arrow/builder.h>
+#include <arrow/table.h>
+// This says "Private header, not to be exported"
+#include <arrow/visitor_inline.h>
 
 using arrow::internal::checked_cast;
 
@@ -290,10 +295,10 @@ std::shared_ptr<Array> MakeFactorArray(Rcpp::IntegerVector_ factor,
 }
 
 std::shared_ptr<Array> MakeStructArray(SEXP df, const std::shared_ptr<DataType>& type) {
-  int n = type->num_children();
+  int n = type->num_fields();
   std::vector<std::shared_ptr<Array>> children(n);
   for (int i = 0; i < n; i++) {
-    children[i] = Array__from_vector(VECTOR_ELT(df, i), type->child(i)->type(), true);
+    children[i] = Array__from_vector(VECTOR_ELT(df, i), type->field(i)->type(), true);
   }
 
   int64_t rows = n ? children[0]->length() : 0;
@@ -1134,7 +1139,7 @@ arrow::Status CheckCompatibleStruct(SEXP obj,
   }
 
   // check the number of columns
-  int num_fields = type->num_children();
+  int num_fields = type->num_fields();
   if (XLENGTH(obj) != num_fields) {
     return Status::RError("Number of fields in struct (", num_fields,
                           ") incompatible with number of columns in the data frame (",
@@ -1148,8 +1153,8 @@ arrow::Status CheckCompatibleStruct(SEXP obj,
   // when not compatible.
   SEXP names = Rf_getAttrib(obj, R_NamesSymbol);
   for (int i = 0; i < num_fields; i++) {
-    if (type->child(i)->name() != CHAR(STRING_ELT(names, i))) {
-      return Status::RError("Field name in position ", i, " (", type->child(i)->name(),
+    if (type->field(i)->name() != CHAR(STRING_ELT(names, i))) {
+      return Status::RError("Field name in position ", i, " (", type->field(i)->name(),
                             ") does not match the name of the column of the data frame (",
                             CHAR(STRING_ELT(names, i)), ")");
     }

@@ -33,9 +33,9 @@ namespace Apache.Arrow.Memory
 
             // TODO: Should the allocation be moved to NativeMemory?
 
-            var size = length + Alignment;
-            var ptr =  Marshal.AllocHGlobal(size);
-            var offset = (int)(Alignment - (ptr.ToInt64() & (Alignment - 1)));
+            int size = length + Alignment;
+            IntPtr ptr =  Marshal.AllocHGlobal(size);
+            int offset = (int)(Alignment - (ptr.ToInt64() & (Alignment - 1)));
             var manager = new NativeMemoryManager(ptr, offset, length);
 
             bytesAllocated = (length + Alignment);

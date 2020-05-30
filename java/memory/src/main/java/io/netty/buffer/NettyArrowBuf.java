@@ -58,7 +58,7 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable {
       final int length) {
     super(length);
     this.arrowBuf = arrowBuf;
-    this.arrowByteBufAllocator = (ArrowByteBufAllocator)arrowByteBufAllocator;
+    this.arrowByteBufAllocator = (ArrowByteBufAllocator) arrowByteBufAllocator;
     this.length = length;
     this.address = arrowBuf.memoryAddress();
   }
@@ -208,7 +208,7 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable {
   public ByteBuffer internalNioBuffer(int index, int length) {
     ByteBuffer nioBuf = getDirectBuffer(index);
     // Follows convention from other ByteBuf implementations.
-    return (ByteBuffer)nioBuf.clear().limit(length);
+    return (ByteBuffer) nioBuf.clear().limit(length);
   }
 
   @Override
@@ -303,11 +303,11 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable {
     } else {
       final long srcAddress = addr(index);
       if (dst.hasMemoryAddress()) {
-        final long dstAddress = dst.memoryAddress() + (long)dstIndex;
-        PlatformDependent.copyMemory(srcAddress, dstAddress, (long)length);
+        final long dstAddress = dst.memoryAddress() + (long) dstIndex;
+        PlatformDependent.copyMemory(srcAddress, dstAddress, (long) length);
       } else if (dst.hasArray()) {
         dstIndex += dst.arrayOffset();
-        PlatformDependent.copyMemory(srcAddress, dst.array(), dstIndex, (long)length);
+        PlatformDependent.copyMemory(srcAddress, dst.array(), dstIndex, (long) length);
       } else {
         dst.setBytes(dstIndex, this, index, length);
       }
@@ -325,11 +325,11 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable {
       if (length != 0) {
         final long dstAddress = addr(index);
         if (src.hasMemoryAddress()) {
-          final long srcAddress = src.memoryAddress() + (long)srcIndex;
-          PlatformDependent.copyMemory(srcAddress, dstAddress, (long)length);
+          final long srcAddress = src.memoryAddress() + (long) srcIndex;
+          PlatformDependent.copyMemory(srcAddress, dstAddress, (long) length);
         } else if (src.hasArray()) {
           srcIndex += src.arrayOffset();
-          PlatformDependent.copyMemory(src.array(), srcIndex, dstAddress, (long)length);
+          PlatformDependent.copyMemory(src.array(), srcIndex, dstAddress, (long) length);
         } else {
           src.getBytes(srcIndex, this, index, length);
         }
@@ -495,7 +495,7 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable {
   @Override
   protected void _setShortLE(int index, int value) {
     this.chk(index, 2);
-    PlatformDependent.putShort(this.addr(index), Short.reverseBytes((short)value));
+    PlatformDependent.putShort(this.addr(index), Short.reverseBytes((short) value));
   }
 
   @Override
@@ -543,8 +543,8 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable {
   protected void _setMediumLE(int index, int value) {
     this.chk(index, 3);
     long addr = this.addr(index);
-    PlatformDependent.putByte(addr, (byte)value);
-    PlatformDependent.putShort(addr + 1L, Short.reverseBytes((short)(value >>> 8)));
+    PlatformDependent.putByte(addr, (byte) value);
+    PlatformDependent.putShort(addr + 1L, Short.reverseBytes((short) (value >>> 8)));
   }
 
   @Override

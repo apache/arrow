@@ -652,6 +652,10 @@ class FileMetaData::FileMetaDataImpl {
   }
 
   void AppendRowGroups(const std::unique_ptr<FileMetaDataImpl>& other) {
+    if (!schema()->Equals(*other->schema())) {
+      throw ParquetException("AppendRowGroups requires equal schemas.");
+    }
+
     format::RowGroup other_rg;
     for (int i = 0; i < other->num_row_groups(); i++) {
       other_rg = other->row_group(i);

@@ -222,4 +222,25 @@ const char* capture_utf8_utf8(gdv_int64 context, const char* source_string,
                               gdv_int32 source_len, bool source_validity,
                               const char* pattern_string, gdv_int32 pattern_len,
                               bool pattern_validity, gdv_int32* out_len);
+
+const char* castVARCHAR_int32_int64(int64_t context, int32_t value, int64_t len,
+                                    int32_t* out_len);
+
+const char* castVARCHAR_int64_int64(int64_t context, int64_t value, int64_t len,
+                                    int32_t* out_len);
+
+const char* castVARCHAR_float32_int64(int64_t context, float value, int64_t len,
+                                      int32_t* out_len);
+
+const char* castVARCHAR_float64_int64(int64_t context, double value, int64_t len,
+                                      int32_t* out_len);
+
+int32_t castINT_utf8(int64_t context, const char* data, int32_t len);
+
+int64_t castBIGINT_utf8(int64_t context, const char* data, int32_t len);
+
+float castFLOAT4_utf8(int64_t context, const char* data, int32_t len);
+
+double castFLOAT8_utf8(int64_t context, const char* data, int32_t len);
+
 }  // extern "C"

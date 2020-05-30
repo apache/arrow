@@ -25,6 +25,7 @@
 
 #include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/simd.h"
 #include "arrow/util/string_view.h"
 #include "arrow/util/visibility.h"
 
@@ -169,6 +170,106 @@ inline bool ValidateUTF8(const util::string_view& str) {
   const size_t length = str.size();
 
   return ValidateUTF8(data, length);
+}
+
+inline bool ValidateAsciiSw(const uint8_t* data, int64_t len) {
+  uint8_t orall = 0;
+
+  if (len >= 16) {
+    uint64_t or1 = 0, or2 = 0;
+    const uint8_t* data2 = data + 8;
+
+    do {
+      or1 |= *(const uint64_t*)data;
+      or2 |= *(const uint64_t*)data2;
+      data += 16;
+      data2 += 16;
+      len -= 16;
+    } while (len >= 16);
+
+    orall = !((or1 | or2) & 0x8080808080808080ULL) - 1;
+  }
+
+  while (len--) {
+    orall |= *data++;
+  }
+
+  if (orall < 0x80) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
+#ifdef ARROW_HAVE_NEON
+inline bool ValidateAsciiSimd(const uint8_t* data, int64_t len) {
+  if (len >= 32) {
+    const uint8_t* data2 = data + 16;
+    uint8x16_t or1 = vdupq_n_u8(0), or2 = or1;
+
+    while (len >= 32) {
+      const uint8x16_t input1 = vld1q_u8(data);
+      const uint8x16_t input2 = vld1q_u8(data2);
+
+      or1 = vorrq_u8(or1, input1);
+      or2 = vorrq_u8(or2, input2);
+
+      data += 32;
+      data2 += 32;
+      len -= 32;
+    }
+
+    or1 = vorrq_u8(or1, or2);
+    if (vmaxvq_u8(or1) >= 0x80) {
+      return false;
+    }
+  }
+
+  return ValidateAsciiSw(data, len);
+}
+#endif  // ARROW_HAVE_NEON
+
+#if defined(ARROW_HAVE_SSE4_2)
+inline bool ValidateAsciiSimd(const uint8_t* data, int64_t len) {
+  if (len >= 32) {
+    const uint8_t* data2 = data + 16;
+    __m128i or1 = _mm_set1_epi8(0), or2 = or1;
+
+    while (len >= 32) {
+      __m128i input1 = _mm_lddqu_si128((const __m128i*)data);
+      __m128i input2 = _mm_lddqu_si128((const __m128i*)data2);
+
+      or1 = _mm_or_si128(or1, input1);
+      or2 = _mm_or_si128(or2, input2);
+
+      data += 32;
+      data2 += 32;
+      len -= 32;
+    }
+
+    or1 = _mm_or_si128(or1, or2);
+    if (_mm_movemask_epi8(_mm_cmplt_epi8(or1, _mm_set1_epi8(0)))) {
+      return false;
+    }
+  }
+
+  return ValidateAsciiSw(data, len);
+}
+#endif  // ARROW_HAVE_SSE4_2
+
+inline bool ValidateAscii(const uint8_t* data, int64_t len) {
+#if defined(ARROW_HAVE_NEON) || defined(ARROW_HAVE_SSE4_2)
+  return ValidateAsciiSimd(data, len);
+#else
+  return ValidateAsciiSw(data, len);
+#endif
+}
+
+inline bool ValidateAscii(const util::string_view& str) {
+  const uint8_t* data = reinterpret_cast<const uint8_t*>(str.data());
+  const size_t length = str.size();
+
+  return ValidateAscii(data, length);
 }
 
 // Skip UTF8 byte order mark, if any.

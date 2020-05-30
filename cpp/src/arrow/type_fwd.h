@@ -49,6 +49,7 @@ class FieldRef;
 class KeyValueMetadata;
 class Schema;
 
+using DataTypeVector = std::vector<std::shared_ptr<DataType>>;
 using FieldVector = std::vector<std::shared_ptr<Field>>;
 
 class Array;

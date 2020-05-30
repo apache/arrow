@@ -23,6 +23,7 @@ import java.util.function.BiFunction;
 import org.apache.arrow.memory.util.ByteFunctionHelpers;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BaseFixedWidthVector;
+import org.apache.arrow.vector.BaseLargeVariableWidthVector;
 import org.apache.arrow.vector.BaseVariableWidthVector;
 import org.apache.arrow.vector.NullVector;
 import org.apache.arrow.vector.ValueVector;
@@ -144,6 +145,12 @@ public class RangeEqualsVisitor implements VectorVisitor<Boolean, Range> {
       return false;
     }
     return compareBaseVariableWidthVectors(range);
+  }
+
+  @Override
+  public Boolean visit(BaseLargeVariableWidthVector left, Range value) {
+    // TODO: support range comparison for BaseLargeVariableWidthVector.
+    throw new UnsupportedOperationException();
   }
 
   @Override

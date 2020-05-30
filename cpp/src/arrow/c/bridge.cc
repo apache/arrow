@@ -171,7 +171,7 @@ struct SchemaExporter {
 
     const DataType& type = *field.type();
     RETURN_NOT_OK(ExportFormat(type));
-    RETURN_NOT_OK(ExportChildren(type.children()));
+    RETURN_NOT_OK(ExportChildren(type.fields()));
     RETURN_NOT_OK(ExportMetadata(field.metadata().get()));
     return Status::OK();
   }
@@ -180,7 +180,7 @@ struct SchemaExporter {
     flags_ = ARROW_FLAG_NULLABLE;
 
     RETURN_NOT_OK(ExportFormat(type));
-    RETURN_NOT_OK(ExportChildren(type.children()));
+    RETURN_NOT_OK(ExportChildren(type.fields()));
     return Status::OK();
   }
 
@@ -775,7 +775,7 @@ struct SchemaImporter {
           type_->ToString());
     }
     ARROW_ASSIGN_OR_RAISE(auto metadata, DecodeMetadata(c_struct_->metadata));
-    return schema(type_->children(), std::move(metadata));
+    return schema(type_->fields(), std::move(metadata));
   }
 
   Result<std::shared_ptr<DataType>> MakeType() const { return type_; }
@@ -1006,13 +1006,13 @@ struct SchemaImporter {
       return Status::Invalid("Imported map array has unexpected child field type: ",
                              field->ToString());
     }
-    if (value_type->num_children() != 2) {
+    if (value_type->num_fields() != 2) {
       return Status::Invalid("Imported map array has unexpected child field type: ",
                              field->ToString());
     }
 
     bool keys_sorted = (c_struct_->flags & ARROW_FLAG_MAP_KEYS_SORTED);
-    type_ = map(value_type->child(0)->type(), value_type->child(1)->type(), keys_sorted);
+    type_ = map(value_type->field(0)->type(), value_type->field(1)->type(), keys_sorted);
     return Status::OK();
   }
 
@@ -1231,7 +1231,7 @@ struct ArrayImporter {
 
   Status DoImport() {
     // First import children (required for reconstituting parent array data)
-    const auto& fields = type_->children();
+    const auto& fields = type_->fields();
     if (c_struct_->n_children != static_cast<int64_t>(fields.size())) {
       return Status::Invalid("ArrowArray struct has ", c_struct_->n_children,
                              " children, expected ", fields.size(), " for type ",

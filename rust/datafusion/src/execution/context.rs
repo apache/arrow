@@ -33,6 +33,7 @@ use crate::datasource::parquet::ParquetTable;
 use crate::datasource::TableProvider;
 use crate::error::{ExecutionError, Result};
 use crate::execution::physical_plan::common;
+use crate::execution::physical_plan::csv::{CsvExec, CsvReadOptions};
 use crate::execution::physical_plan::datasource::DatasourceExec;
 use crate::execution::physical_plan::expressions::{
     Alias, Avg, BinaryExpr, CastExpr, Column, Count, Literal, Max, Min, Sum,
@@ -40,7 +41,9 @@ use crate::execution::physical_plan::expressions::{
 use crate::execution::physical_plan::hash_aggregate::HashAggregateExec;
 use crate::execution::physical_plan::limit::LimitExec;
 use crate::execution::physical_plan::math_expressions::register_math_functions;
+use crate::execution::physical_plan::memory::MemoryExec;
 use crate::execution::physical_plan::merge::MergeExec;
+use crate::execution::physical_plan::parquet::ParquetExec;
 use crate::execution::physical_plan::projection::ProjectionExec;
 use crate::execution::physical_plan::selection::SelectionExec;
 use crate::execution::physical_plan::udf::{ScalarFunction, ScalarFunctionExpr};
@@ -94,10 +97,16 @@ impl ExecutionContext {
                 ref name,
                 ref location,
                 ref file_type,
-                ref header_row,
+                ref has_header,
             } => match file_type {
                 FileType::CSV => {
-                    self.register_csv(name, location, schema, *header_row);
+                    self.register_csv(
+                        name,
+                        location,
+                        CsvReadOptions::new()
+                            .schema(&schema)
+                            .has_header(*has_header),
+                    )?;
                     Ok(vec![])
                 }
                 FileType::Parquet => {
@@ -141,17 +150,17 @@ impl ExecutionContext {
                 name,
                 columns,
                 file_type,
-                header_row,
+                has_header,
                 location,
             } => {
-                let schema = Arc::new(self.build_schema(columns)?);
+                let schema = Box::new(self.build_schema(columns)?);
 
                 Ok(LogicalPlan::CreateExternalTable {
                     schema,
                     name,
                     location,
                     file_type,
-                    header_row,
+                    has_header,
                 })
             }
         }
@@ -211,10 +220,10 @@ impl ExecutionContext {
         &mut self,
         name: &str,
         filename: &str,
-        schema: &Schema,
-        has_header: bool,
-    ) {
-        self.register_table(name, Box::new(CsvFile::new(filename, schema, has_header)));
+        options: CsvReadOptions,
+    ) -> Result<()> {
+        self.register_table(name, Box::new(CsvFile::try_new(filename, options)?));
+        Ok(())
     }
 
     /// Register a Parquet file as a table so that it can be queried from SQL
@@ -233,11 +242,12 @@ impl ExecutionContext {
     pub fn table(&mut self, table_name: &str) -> Result<Arc<dyn Table>> {
         match self.datasources.get(table_name) {
             Some(provider) => {
+                let schema = provider.schema().as_ref().clone();
                 let table_scan = LogicalPlan::TableScan {
                     schema_name: "".to_string(),
                     table_name: table_name.to_string(),
-                    table_schema: provider.schema().clone(),
-                    projected_schema: provider.schema().clone(),
+                    table_schema: Box::new(schema.to_owned()),
+                    projected_schema: Box::new(schema),
                     projection: None,
                 };
                 Ok(Arc::new(TableImpl::new(
@@ -296,6 +306,39 @@ impl ExecutionContext {
                     table_name
                 ))),
             },
+            LogicalPlan::InMemoryScan {
+                data,
+                schema,
+                projection,
+                ..
+            } => Ok(Arc::new(MemoryExec::try_new(
+                data,
+                Arc::new(schema.as_ref().to_owned()),
+                projection.to_owned(),
+            )?)),
+            LogicalPlan::CsvScan {
+                path,
+                schema,
+                has_header,
+                delimiter,
+                projection,
+                ..
+            } => Ok(Arc::new(CsvExec::try_new(
+                path,
+                CsvReadOptions::new()
+                    .schema(schema.as_ref())
+                    .delimiter_option(*delimiter)
+                    .has_header(*has_header),
+                projection.to_owned(),
+                batch_size,
+            )?)),
+            LogicalPlan::ParquetScan {
+                path, projection, ..
+            } => Ok(Arc::new(ParquetExec::try_new(
+                path,
+                projection.to_owned(),
+                batch_size,
+            )?)),
             LogicalPlan::Projection { input, expr, .. } => {
                 let input = self.create_physical_plan(input, batch_size)?;
                 let input_schema = input.as_ref().schema().clone();
@@ -830,11 +873,12 @@ mod tests {
         ]));
 
         // register each partition as well as the top level dir
-        ctx.register_csv("part0", &format!("{}/part-0.csv", out_dir), &schema, true);
-        ctx.register_csv("part1", &format!("{}/part-1.csv", out_dir), &schema, true);
-        ctx.register_csv("part2", &format!("{}/part-2.csv", out_dir), &schema, true);
-        ctx.register_csv("part3", &format!("{}/part-3.csv", out_dir), &schema, true);
-        ctx.register_csv("allparts", &out_dir, &schema, true);
+        let csv_read_option = CsvReadOptions::new().schema(&schema);
+        ctx.register_csv("part0", &format!("{}/part-0.csv", out_dir), csv_read_option)?;
+        ctx.register_csv("part1", &format!("{}/part-1.csv", out_dir), csv_read_option)?;
+        ctx.register_csv("part2", &format!("{}/part-2.csv", out_dir), csv_read_option)?;
+        ctx.register_csv("part3", &format!("{}/part-3.csv", out_dir), csv_read_option)?;
+        ctx.register_csv("allparts", &out_dir, csv_read_option)?;
 
         let part0 = collect(&mut ctx, "SELECT c1, c2 FROM part0")?;
         let part1 = collect(&mut ctx, "SELECT c1, c2 FROM part1")?;
@@ -859,13 +903,13 @@ mod tests {
 
     #[test]
     fn scalar_udf() -> Result<()> {
-        let schema = Arc::new(Schema::new(vec![
+        let schema = Schema::new(vec![
             Field::new("a", DataType::Int32, false),
             Field::new("b", DataType::Int32, false),
-        ]));
+        ]);
 
         let batch = RecordBatch::try_new(
-            schema.clone(),
+            Arc::new(schema.clone()),
             vec![
                 Arc::new(Int32Array::from(vec![1, 10, 10, 100])),
                 Arc::new(Int32Array::from(vec![2, 12, 12, 120])),
@@ -874,7 +918,7 @@ mod tests {
 
         let mut ctx = ExecutionContext::new();
 
-        let provider = MemTable::new(schema, vec![batch])?;
+        let provider = MemTable::new(Arc::new(schema), vec![vec![batch]])?;
         ctx.register_table("t", Box::new(provider));
 
         let myfunc: ScalarUdf = |args: &[ArrayRef]| {
@@ -997,7 +1041,11 @@ mod tests {
         }
 
         // register csv file with the execution context
-        ctx.register_csv("test", tmp_dir.path().to_str().unwrap(), &schema, true);
+        ctx.register_csv(
+            "test",
+            tmp_dir.path().to_str().unwrap(),
+            CsvReadOptions::new().schema(&schema),
+        )?;
 
         Ok(ctx)
     }

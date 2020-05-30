@@ -111,9 +111,9 @@ std::shared_ptr<ChunkedArray> ChunkedArray::Slice(int64_t offset, int64_t length
   }
 
   ArrayVector new_chunks;
-  if (offset_equals_length || (length == 0 && num_chunks() > 0)) {
+  if (num_chunks() > 0 && (offset_equals_length || length == 0)) {
     // Special case the zero-length slice to make sure there is at least 1 Array
-    // in the result
+    // in the result. When there are zero chunks we return zero chunks
     new_chunks.push_back(chunk(std::min(curr_chunk, num_chunks() - 1))->Slice(0, 0));
   } else {
     while (curr_chunk < num_chunks() && length > 0) {
@@ -144,7 +144,7 @@ Result<std::vector<std::shared_ptr<ChunkedArray>>> ChunkedArray::Flatten(
         std::make_shared<ChunkedArray>(chunks_, type_)};
   }
 
-  std::vector<ArrayVector> flattened_chunks(type()->num_children());
+  std::vector<ArrayVector> flattened_chunks(type()->num_fields());
   for (const auto& chunk : chunks_) {
     ARROW_ASSIGN_OR_RAISE(auto arrays,
                           checked_cast<const StructArray&>(*chunk).Flatten(pool));
@@ -154,9 +154,9 @@ Result<std::vector<std::shared_ptr<ChunkedArray>>> ChunkedArray::Flatten(
     }
   }
 
-  std::vector<std::shared_ptr<ChunkedArray>> flattened(type()->num_children());
+  std::vector<std::shared_ptr<ChunkedArray>> flattened(type()->num_fields());
   for (size_t i = 0; i < flattened.size(); ++i) {
-    auto child_type = type()->child(static_cast<int>(i))->type();
+    auto child_type = type()->field(static_cast<int>(i))->type();
     flattened[i] =
         std::make_shared<ChunkedArray>(std::move(flattened_chunks[i]), child_type);
   }
@@ -541,7 +541,7 @@ Result<std::shared_ptr<Table>> Table::FromChunkedStructArray(
   if (type->id() != Type::STRUCT) {
     return Status::Invalid("Expected a chunked struct array, got ", *type);
   }
-  int num_columns = type->num_children();
+  int num_columns = type->num_fields();
   int num_chunks = array->num_chunks();
 
   const auto& struct_chunks = array->chunks();
@@ -555,7 +555,7 @@ Result<std::shared_ptr<Table>> Table::FromChunkedStructArray(
     columns[i] = std::make_shared<ChunkedArray>(std::move(chunks));
   }
 
-  return Table::Make(::arrow::schema(type->children()), std::move(columns),
+  return Table::Make(::arrow::schema(type->fields()), std::move(columns),
                      array->length());
 }
 

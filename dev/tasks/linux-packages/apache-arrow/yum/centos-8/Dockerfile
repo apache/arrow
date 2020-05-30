@@ -39,7 +39,7 @@ RUN \
     glog-devel \
     gobject-introspection-devel \
     gtk-doc \
-    libzstd-devel \
+    # libzstd-devel \
     llvm-devel \
     llvm-static \
     lz4-devel \

@@ -18,6 +18,7 @@
 package org.apache.arrow.vector;
 
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
+import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
 import java.time.Duration;
 
@@ -67,7 +68,7 @@ public final class DurationVector extends BaseFixedWidthVector {
   public DurationVector(Field field, BufferAllocator allocator) {
     super(field, allocator, TYPE_WIDTH);
     reader = new DurationReaderImpl(DurationVector.this);
-    this.unit = ((ArrowType.Duration)field.getFieldType().getType()).getUnit();
+    this.unit = ((ArrowType.Duration) field.getFieldType().getType()).getUnit();
   }
 
   /**
@@ -119,7 +120,7 @@ public final class DurationVector extends BaseFixedWidthVector {
    * @return element at given index
    */
   public ArrowBuf get(int index) throws IllegalStateException {
-    if (isSet(index) == 0) {
+    if (NULL_CHECKING_ENABLED && isSet(index) == 0) {
       return null;
     }
     return valueBuffer.slice((long) index * TYPE_WIDTH, TYPE_WIDTH);

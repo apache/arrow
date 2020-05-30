@@ -258,7 +258,8 @@ lint_checks = [
     LintCheck('clang-tidy', "Lint C++ files with clang-tidy."),
     LintCheck('cpplint', "Lint C++ files with cpplint."),
     LintCheck('iwyu', "Lint changed C++ files with Include-What-You-Use."),
-    LintCheck('flake8', "Lint Python files with flake8."),
+    LintCheck('python',
+              "Format and lint Python files with autopep8 and flake8."),
     LintCheck('numpydoc', "Lint Python files with numpydoc."),
     LintCheck('cmake-format', "Format CMake files with cmake-format.py."),
     LintCheck('rat',
@@ -461,7 +462,7 @@ def benchmark_run(ctx, rev_or_path, src, preserve, output, cmake_extras,
               help="Regression failure threshold in percentage.")
 @click.argument("contender", metavar="[<contender>",
                 default=ArrowSources.WORKSPACE, required=False)
-@click.argument("baseline", metavar="[<baseline>]]", default="master",
+@click.argument("baseline", metavar="[<baseline>]]", default="origin/master",
                 required=False)
 @click.pass_context
 def benchmark_diff(ctx, src, preserve, output, cmake_extras,
@@ -582,6 +583,8 @@ def _set_default(opt, default):
               help='Include JavaScript in integration tests')
 @click.option('--with-go', type=bool, default=False,
               help='Include Go in integration tests')
+@click.option('--with-rust', type=bool, default=False,
+              help='Include Rust in integration tests')
 @click.option('--write_generated_json', default=False,
               help='Generate test JSON to indicated path')
 @click.option('--run-flight', is_flag=True, default=False,

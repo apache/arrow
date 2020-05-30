@@ -137,7 +137,7 @@ FixedSizeBinaryScalar::FixedSizeBinaryScalar(std::shared_ptr<Buffer> value,
 BaseListScalar::BaseListScalar(std::shared_ptr<Array> value,
                                std::shared_ptr<DataType> type)
     : Scalar{std::move(type), true}, value(std::move(value)) {
-  ARROW_CHECK(this->type->child(0)->type()->Equals(this->value->type()));
+  ARROW_CHECK(this->type->field(0)->type()->Equals(this->value->type()));
 }
 
 ListScalar::ListScalar(std::shared_ptr<Array> value)
@@ -148,8 +148,8 @@ LargeListScalar::LargeListScalar(std::shared_ptr<Array> value)
 
 inline std::shared_ptr<DataType> MakeMapType(const std::shared_ptr<DataType>& pair_type) {
   ARROW_CHECK_EQ(pair_type->id(), Type::STRUCT);
-  ARROW_CHECK_EQ(pair_type->num_children(), 2);
-  return map(pair_type->child(0)->type(), pair_type->child(1));
+  ARROW_CHECK_EQ(pair_type->num_fields(), 2);
+  return map(pair_type->field(0)->type(), pair_type->field(1));
 }
 
 MapScalar::MapScalar(std::shared_ptr<Array> value)
@@ -220,9 +220,8 @@ std::string Scalar::ToString() const {
 }
 
 struct ScalarParseImpl {
-  // XXX Use of detail here not ideal
   template <typename T,
-            typename Value = typename internal::detail::StringConverter<T>::value_type>
+            typename Value = typename internal::StringConverter<T>::value_type>
   Status Visit(const T& t) {
     Value value;
     if (!internal::ParseValue<T>(s_.data(), s_.size(), &value)) {

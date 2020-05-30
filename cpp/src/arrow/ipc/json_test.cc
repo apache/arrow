@@ -586,7 +586,7 @@ TEST(TestJsonFileReadWrite, JsonExample3) {
       &MakeNonNullRecordBatch, &MakeZeroLengthRecordBatch, &MakeDeeplyNestedList, \
       &MakeStringTypesRecordBatchWithNulls, &MakeStruct, &MakeUnion, &MakeDates,  \
       &MakeTimestamps, &MakeTimes, &MakeFWBinary, &MakeDecimal, &MakeDictionary,  \
-      &MakeIntervals, &MakeUuid, &MakeDictExtension)
+      &MakeNestedDictionary, &MakeIntervals, &MakeUuid, &MakeDictExtension)
 
 class TestJsonRoundTrip : public ::testing::TestWithParam<MakeRecordBatch*> {
  public:

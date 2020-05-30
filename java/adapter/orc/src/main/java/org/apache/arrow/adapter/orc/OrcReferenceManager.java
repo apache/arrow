@@ -93,8 +93,8 @@ public class OrcReferenceManager implements ReferenceManager {
             this,
             null,
             length, // length (in bytes) in the underlying memory chunk for this new ArrowBuf
-            derivedBufferAddress, // starting byte address in the underlying memory for this new ArrowBuf,
-            false);
+            derivedBufferAddress // starting byte address in the underlying memory for this new ArrowBuf,
+            );
 
     return derivedBuf;
   }

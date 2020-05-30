@@ -517,6 +517,7 @@ test_that("[ method on Array", {
   expect_vector(a[5:9], vec[5:9])
   expect_vector(a[c(9, 3, 5)], vec[c(9, 3, 5)])
   expect_vector(a[rep(c(TRUE, FALSE), 5)], vec[c(1, 3, 5, 7, 9)])
+  expect_vector(a[rep(c(TRUE, FALSE, NA, FALSE, TRUE), 2)], c(11, NA, 15, 16, NA, 20))
   expect_vector(a[-4], vec[-4])
   expect_vector(a[-1], vec[-1])
 })

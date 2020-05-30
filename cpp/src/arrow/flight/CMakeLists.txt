@@ -24,7 +24,8 @@ set(ARROW_FLIGHT_STATIC_LINK_LIBS
     gRPC::grpc++
     gRPC::grpc
     gRPC::gpr
-    c-ares::cares)
+    c-ares::cares
+    ZLIB::ZLIB)
 
 if(WIN32)
   list(APPEND ARROW_FLIGHT_STATIC_LINK_LIBS ws2_32.lib)

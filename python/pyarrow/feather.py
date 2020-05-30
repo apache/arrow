@@ -40,6 +40,7 @@ class FeatherDataset:
     validate_schema : bool, default True
         Check that individual file schemas are all the same / compatible
     """
+
     def __init__(self, path_or_paths, validate_schema=True):
         _check_pandas_version()
         self.paths = path_or_paths
@@ -142,8 +143,8 @@ def write_feather(df, dest, compression=None, compression_level=None,
     """
     if _pandas_api.have_pandas:
         _check_pandas_version()
-        if (_pandas_api.has_sparse
-                and isinstance(df, _pandas_api.pd.SparseDataFrame)):
+        if (_pandas_api.has_sparse and
+                isinstance(df, _pandas_api.pd.SparseDataFrame)):
             df = df.to_dense()
 
     if _pandas_api.is_data_frame(df):

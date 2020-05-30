@@ -251,9 +251,10 @@ class SerializedFile : public ParquetFileReader::Contents {
 
   void PreBuffer(const std::vector<int>& row_groups,
                  const std::vector<int>& column_indices,
+                 const ::arrow::io::AsyncContext& ctx,
                  const ::arrow::io::CacheOptions& options) {
     cached_source_ =
-        std::make_shared<arrow::io::internal::ReadRangeCache>(source_, options);
+        std::make_shared<arrow::io::internal::ReadRangeCache>(source_, ctx, options);
     std::vector<arrow::io::ReadRange> ranges;
     for (int row : row_groups) {
       for (int col : column_indices) {
@@ -593,11 +594,12 @@ std::shared_ptr<RowGroupReader> ParquetFileReader::RowGroup(int i) {
 
 void ParquetFileReader::PreBuffer(const std::vector<int>& row_groups,
                                   const std::vector<int>& column_indices,
+                                  const ::arrow::io::AsyncContext& ctx,
                                   const ::arrow::io::CacheOptions& options) {
   // Access private methods here
   SerializedFile* file =
       ::arrow::internal::checked_cast<SerializedFile*>(contents_.get());
-  file->PreBuffer(row_groups, column_indices, options);
+  file->PreBuffer(row_groups, column_indices, ctx, options);
 }
 
 // ----------------------------------------------------------------------

@@ -280,6 +280,10 @@ class FileReaderImpl : public FileReader {
     reader_properties_.set_use_threads(use_threads);
   }
 
+  const ArrowReaderProperties& properties() const override { return reader_properties_; }
+
+  const SchemaManifest& manifest() const override { return manifest_; }
+
   Status ScanContents(std::vector<int> columns, const int32_t column_batch_size,
                       int64_t* num_rows) override {
     BEGIN_PARQUET_CATCH_EXCEPTIONS
@@ -779,6 +783,7 @@ Status FileReaderImpl::GetRecordBatchReader(const std::vector<int>& row_group_in
     // PARQUET-1698/PARQUET-1820: pre-buffer row groups/column chunks if enabled
     BEGIN_PARQUET_CATCH_EXCEPTIONS
     reader_->PreBuffer(row_group_indices, column_indices,
+                       reader_properties_.async_context(),
                        reader_properties_.cache_options());
     END_PARQUET_CATCH_EXCEPTIONS
   }
@@ -815,7 +820,8 @@ Status FileReaderImpl::ReadRowGroups(const std::vector<int>& row_groups,
 
   // PARQUET-1698/PARQUET-1820: pre-buffer row groups/column chunks if enabled
   if (reader_properties_.pre_buffer()) {
-    parquet_reader()->PreBuffer(row_groups, indices, reader_properties_.cache_options());
+    parquet_reader()->PreBuffer(row_groups, indices, reader_properties_.async_context(),
+                                reader_properties_.cache_options());
   }
 
   int num_fields = static_cast<int>(field_indices.size());
