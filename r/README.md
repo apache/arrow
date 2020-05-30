@@ -27,7 +27,7 @@ Install the latest release of `arrow` from CRAN with
 install.packages("arrow")
 ```
 
-Conda users on Linux and macOS can install `arrow` from conda-forge with
+Conda users can install `arrow` from conda-forge with
 
 ```
 conda install -c conda-forge --strict-channel-priority r-arrow
