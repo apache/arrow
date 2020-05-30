@@ -24,6 +24,7 @@
 
 #include "arrow/buffer.h"
 #include "arrow/compute/exec.h"
+#include "arrow/compute/util_internal.h"
 #include "arrow/result.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
@@ -43,10 +44,6 @@ namespace compute {
 // ----------------------------------------------------------------------
 // KernelContext
 
-inline void ZeroLastByte(Buffer* buffer) {
-  *(buffer->mutable_data() + (buffer->size() - 1)) = 0;
-}
-
 Result<std::shared_ptr<Buffer>> KernelContext::Allocate(int64_t nbytes) {
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> result,
                         AllocateBuffer(nbytes, exec_ctx_->memory_pool()));
@@ -62,7 +59,7 @@ Result<std::shared_ptr<Buffer>> KernelContext::AllocateBitmap(int64_t num_bits) 
   // initialized this makes valgrind/asan unhappy, so we proactively
   // zero it.
   if (nbytes > 0) {
-    ZeroLastByte(result.get());
+    internal::ZeroByte(result.get(), result->size() - 1);
     result->ZeroPadding();
   }
   return result;
