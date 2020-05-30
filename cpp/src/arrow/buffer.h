@@ -21,12 +21,10 @@
 #include <cstring>
 #include <memory>
 #include <string>
-#include <type_traits>
 #include <utility>
 #include <vector>
 
 #include "arrow/device.h"
-#include "arrow/io/type_fwd.h"
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"

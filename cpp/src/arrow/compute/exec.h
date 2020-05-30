@@ -36,6 +36,7 @@
 namespace arrow {
 
 class Array;
+class BooleanArray;
 struct ArrayData;
 class MemoryPool;
 

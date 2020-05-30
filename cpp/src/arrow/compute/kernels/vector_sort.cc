@@ -18,11 +18,10 @@
 #include <algorithm>
 #include <limits>
 #include <numeric>
-#include <utility>
-#include <vector>
 
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/kernels/common.h"
+#include "arrow/util/optional.h"
 
 namespace arrow {
 namespace compute {

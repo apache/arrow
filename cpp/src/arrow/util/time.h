@@ -21,9 +21,11 @@
 #include <utility>
 
 #include "arrow/result.h"
-#include "arrow/type.h"
 
 namespace arrow {
+
+class DataType;
+
 namespace util {
 
 enum DivideOrMultiply {

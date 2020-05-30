@@ -17,16 +17,21 @@
 
 #pragma once
 
+#include <cstdint>
 #include <functional>
 #include <iosfwd>
 #include <memory>
 
-#include "arrow/type_fwd.h"
+#include "arrow/result.h"
+#include "arrow/status.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
 
+class Array;
+class DataType;
 class MemoryPool;
+class StructArray;
 
 /// \brief Compare two arrays, returning an edit script which expresses the difference
 /// between them

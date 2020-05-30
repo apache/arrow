@@ -422,7 +422,7 @@ struct ArrayExportChecker {
     if (expected_data.dictionary != nullptr) {
       // Recurse into dictionary
       ASSERT_NE(c_export->dictionary, nullptr);
-      operator()(c_export->dictionary, *expected_data.dictionary->data());
+      operator()(c_export->dictionary, *expected_data.dictionary);
     } else {
       ASSERT_EQ(c_export->dictionary, nullptr);
     }

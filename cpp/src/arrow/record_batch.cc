@@ -18,7 +18,6 @@
 #include "arrow/record_batch.h"
 
 #include <algorithm>
-#include <atomic>
 #include <cstdlib>
 #include <memory>
 #include <sstream>

@@ -16,32 +16,25 @@
 // under the License.
 
 #include <algorithm>
-#include <array>
 #include <cstdint>
 #include <cstring>
-#include <iterator>
-#include <limits>
 #include <memory>
-#include <numeric>
 #include <sstream>
 #include <string>
-#include <type_traits>
-#include <vector>
 
 #include <gtest/gtest.h>
 
-#include "arrow/array.h"
-#include "arrow/buffer.h"
-#include "arrow/buffer_builder.h"
+#include "arrow/array/array_nested.h"
+#include "arrow/array/util.h"
 #include "arrow/extension_type.h"
 #include "arrow/io/memory.h"
+#include "arrow/ipc/options.h"
 #include "arrow/ipc/reader.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/testing/extension_type.h"
-#include "arrow/testing/gtest_common.h"
-#include "arrow/testing/util.h"
+#include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"

@@ -24,11 +24,10 @@
 #include <utility>
 #include <vector>
 
-#include "arrow/array.h"         // IWYU pragma: keep
-#include "arrow/record_batch.h"  // IWYU pragma: keep
-#include "arrow/scalar.h"        // IWYU pragma: keep
-#include "arrow/table.h"         // IWYU pragma: keep
-#include "arrow/type.h"          // IWYU pragma: keep
+#include "arrow/array/data.h"
+#include "arrow/scalar.h"
+#include "arrow/type.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/variant.h"  // IWYU pragma: export
@@ -36,9 +35,9 @@
 
 namespace arrow {
 
+class Array;
 class ChunkedArray;
 class RecordBatch;
-struct Scalar;
 class Table;
 
 /// \brief A descriptor type that gives the shape (array or scalar) and
@@ -122,20 +121,12 @@ struct ARROW_EXPORT Datum {
   Datum(ArrayData arg)  // NOLINT implicit conversion
       : value(std::make_shared<ArrayData>(std::move(arg))) {}
 
-  Datum(const Array& value)  // NOLINT implicit conversion
-      : Datum(value.data()) {}
-
-  Datum(const std::shared_ptr<Array>& value)  // NOLINT implicit conversion
-      : Datum(value ? value->data() : NULLPTR) {}
-
-  Datum(std::shared_ptr<ChunkedArray> value)  // NOLINT implicit conversion
-      : value(std::move(value)) {}
-  Datum(std::shared_ptr<RecordBatch> value)  // NOLINT implicit conversion
-      : value(std::move(value)) {}
-  Datum(std::shared_ptr<Table> value)  // NOLINT implicit conversion
-      : value(std::move(value)) {}
-  Datum(std::vector<Datum> value)  // NOLINT implicit conversion
-      : value(std::move(value)) {}
+  Datum(const Array& value);                   // NOLINT implicit conversion
+  Datum(const std::shared_ptr<Array>& value);  // NOLINT implicit conversion
+  Datum(std::shared_ptr<ChunkedArray> value);  // NOLINT implicit conversion
+  Datum(std::shared_ptr<RecordBatch> value);   // NOLINT implicit conversion
+  Datum(std::shared_ptr<Table> value);         // NOLINT implicit conversion
+  Datum(std::vector<Datum> value);             // NOLINT implicit conversion
 
   // Cast from subtypes of Array to Datum
   template <typename T, typename = enable_if_t<std::is_base_of<Array, T>::value>>

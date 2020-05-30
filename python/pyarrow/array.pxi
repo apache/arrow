@@ -448,7 +448,7 @@ cdef _reduce_array_data(const CArrayData* ad):
         children.append(_reduce_array_data(ad.child_data[i].get()))
 
     if ad.dictionary.get() != NULL:
-        dictionary = _reduce_array_data(ad.dictionary.get().data().get())
+        dictionary = _reduce_array_data(ad.dictionary.get())
     else:
         dictionary = None
 
@@ -467,7 +467,7 @@ cdef shared_ptr[CArrayData] _reconstruct_array_data(data):
         Buffer buf
         vector[shared_ptr[CBuffer]] c_buffers
         vector[shared_ptr[CArrayData]] c_children
-        shared_ptr[CArray] c_dictionary
+        shared_ptr[CArrayData] c_dictionary
 
     dtype, length, null_count, offset, buffers, children, dictionary = data
 
@@ -482,7 +482,7 @@ cdef shared_ptr[CArrayData] _reconstruct_array_data(data):
         c_children.push_back(_reconstruct_array_data(children[i]))
 
     if dictionary is not None:
-        c_dictionary = MakeArray(_reconstruct_array_data(dictionary))
+        c_dictionary = _reconstruct_array_data(dictionary)
 
     return CArrayData.MakeWithChildrenAndDictionary(
         dtype.sp_type,

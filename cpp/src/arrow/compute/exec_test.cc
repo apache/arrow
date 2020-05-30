@@ -24,7 +24,8 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 
-#include "arrow/array.h"
+#include "arrow/array/array_base.h"
+#include "arrow/array/data.h"
 #include "arrow/buffer.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/exec_internal.h"

@@ -20,7 +20,6 @@
 
 #pragma once
 
-#include <memory>
 #include <utility>
 
 #include "arrow/compute/exec.h"  // IWYU pragma: keep
@@ -31,9 +30,6 @@
 #include "arrow/util/visibility.h"
 
 namespace arrow {
-
-class Array;
-
 namespace compute {
 
 // ----------------------------------------------------------------------

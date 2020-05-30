@@ -21,9 +21,9 @@
 #define ARROW_LITTLE_ENDIAN 1
 #else
 #if defined(__APPLE__) || defined(__FreeBSD__)
-#include <machine/endian.h>
+#include <machine/endian.h>  // IWYU pragma: keep
 #else
-#include <endian.h>
+#include <endian.h>  // IWYU pragma: keep
 #endif
 #
 #ifndef __BYTE_ORDER__
@@ -42,7 +42,7 @@
 #endif
 
 #if defined(_MSC_VER)
-#include <intrin.h>
+#include <intrin.h>  // IWYU pragma: keep
 #pragma intrinsic(_BitScanReverse)
 #pragma intrinsic(_BitScanForward)
 #define ARROW_BYTE_SWAP64 _byteswap_uint64

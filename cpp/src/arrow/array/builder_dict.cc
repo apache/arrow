@@ -18,23 +18,20 @@
 #include "arrow/array/builder_dict.h"
 
 #include <cstdint>
-#include <limits>
-#include <type_traits>
-#include <utility>
-#include <vector>
 
-#include "arrow/array.h"
 #include "arrow/array/dict_internal.h"
-#include "arrow/buffer.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/hashing.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/string_view.h"
 #include "arrow/visitor_inline.h"
 
 namespace arrow {
+
+class MemoryPool;
 
 // ----------------------------------------------------------------------
 // DictionaryBuilder

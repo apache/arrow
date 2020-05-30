@@ -18,19 +18,29 @@
 #include "arrow/array/concatenate.h"
 
 #include <algorithm>
+#include <cstddef>
+#include <cstdint>
 #include <limits>
 #include <memory>
 #include <utility>
 #include <vector>
 
-#include "arrow/array.h"
-#include "arrow/memory_pool.h"
+#include "arrow/array/array_base.h"
+#include "arrow/array/data.h"
+#include "arrow/array/util.h"
+#include "arrow/buffer.h"
+#include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/type.h"
+#include "arrow/util/bit_util.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/visibility.h"
 #include "arrow/visitor_inline.h"
 
 namespace arrow {
+
+class ExtensionType;
+class MemoryPool;
 
 /// offset, length pair for representing a Range of a buffer or array
 struct Range {
@@ -230,9 +240,9 @@ class ConcatenateImpl {
     // Two cases: all the dictionaries are the same, or unification is
     // required
     bool dictionaries_same = true;
-    const Array& dictionary0 = *in_[0].dictionary;
+    std::shared_ptr<Array> dictionary0 = MakeArray(in_[0].dictionary);
     for (size_t i = 1; i < in_.size(); ++i) {
-      if (!in_[i].dictionary->Equals(dictionary0)) {
+      if (!MakeArray(in_[i].dictionary)->Equals(dictionary0)) {
         dictionaries_same = false;
         break;
       }

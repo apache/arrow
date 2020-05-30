@@ -24,12 +24,17 @@
 #include <vector>
 
 #include "arrow/record_batch.h"
+#include "arrow/result.h"
+#include "arrow/status.h"
 #include "arrow/type.h"
-#include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
+
+class Array;
+class KeyValueMetadata;
+class MemoryPool;
 
 /// \class ChunkedArray
 /// \brief A data structure managing a list of primitive Arrow arrays logically

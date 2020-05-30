@@ -18,7 +18,10 @@
 #include "./arrow_types.h"
 
 #if defined(ARROW_R_WITH_ARROW)
+
 #include <arrow/compute/api.h>
+#include <arrow/record_batch.h>
+#include <arrow/table.h>
 
 using Rcpp::List_;
 

@@ -120,7 +120,12 @@ function(ADD_ARROW_BENCHMARK REL_TEST_NAME)
 endfunction()
 
 set(ARROW_SRCS
-    array.cc
+    array/array_base.cc
+    array/array_binary.cc
+    array/array_decimal.cc
+    array/array_dict.cc
+    array/array_nested.cc
+    array/array_primitive.cc
     array/builder_adaptive.cc
     array/builder_base.cc
     array/builder_binary.cc
@@ -130,8 +135,9 @@ set(ARROW_SRCS
     array/builder_primitive.cc
     array/builder_union.cc
     array/concatenate.cc
-    array/dict_internal.cc
+    array/data.cc
     array/diff.cc
+    array/util.cc
     array/validate.cc
     builder.cc
     buffer.cc
@@ -511,18 +517,18 @@ install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/arrow-config.cmake
 #
 # Unit tests
 #
-
 add_arrow_test(array_test
                SOURCES
-               array_test.cc
-               array_binary_test.cc
-               array_dict_test.cc
-               array_list_test.cc
-               array_struct_test.cc
-               array_union_test.cc
-               array_view_test.cc
+               array/array_test.cc
+               array/array_binary_test.cc
+               array/array_dict_test.cc
+               array/array_list_test.cc
+               array/array_struct_test.cc
+               array/array_union_test.cc
+               array/array_view_test.cc
                PRECOMPILED_HEADERS
                "$<$<COMPILE_LANGUAGE:CXX>:arrow/testing/pch.h>")
+
 add_arrow_test(buffer_test)
 
 if(ARROW_IPC)

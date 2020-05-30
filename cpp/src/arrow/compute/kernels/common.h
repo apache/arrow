@@ -17,30 +17,36 @@
 
 #pragma once
 
-#include <cstdint>      // IWYU pragma: export
-#include <memory>       // IWYU pragma: export
-#include <type_traits>  // IWYU pragma: export
-#include <utility>      // IWYU pragma: export
-#include <vector>       // IWYU pragma: export
+// IWYU pragma: begin_exports
 
-#include "arrow/array.h"                             // IWYU pragma: export
-#include "arrow/buffer.h"                            // IWYU pragma: export
-#include "arrow/compute/exec.h"                      // IWYU pragma: export
-#include "arrow/compute/function.h"                  // IWYU pragma: export
-#include "arrow/compute/kernel.h"                    // IWYU pragma: export
-#include "arrow/compute/kernels/codegen_internal.h"  // IWYU pragma: export
-#include "arrow/compute/registry.h"                  // IWYU pragma: export
-#include "arrow/datum.h"                             // IWYU pragma: export
-#include "arrow/memory_pool.h"                       // IWYU pragma: export
-#include "arrow/status.h"                            // IWYU pragma: export
-#include "arrow/type.h"                              // IWYU pragma: export
-#include "arrow/type_traits.h"                       // IWYU pragma: export
-#include "arrow/util/bit_util.h"                     // IWYU pragma: export
-#include "arrow/util/checked_cast.h"                 // IWYU pragma: export
-#include "arrow/util/logging.h"                      // IWYU pragma: export
-#include "arrow/util/macros.h"                       // IWYU pragma: export
-#include "arrow/util/string_view.h"                  // IWYU pragma: export
-#include "arrow/visitor_inline.h"                    // IWYU pragma: export
+#include <cstdint>
+#include <memory>
+#include <string>
+#include <type_traits>
+#include <utility>
+#include <vector>
+
+#include "arrow/array/data.h"
+#include "arrow/buffer.h"
+#include "arrow/compute/exec.h"
+#include "arrow/compute/function.h"
+#include "arrow/compute/kernel.h"
+#include "arrow/compute/kernels/codegen_internal.h"
+#include "arrow/compute/registry.h"
+#include "arrow/datum.h"
+#include "arrow/memory_pool.h"
+#include "arrow/status.h"
+#include "arrow/table.h"
+#include "arrow/type.h"
+#include "arrow/type_traits.h"
+#include "arrow/util/bit_util.h"
+#include "arrow/util/checked_cast.h"
+#include "arrow/util/logging.h"
+#include "arrow/util/macros.h"
+#include "arrow/util/string_view.h"
+#include "arrow/visitor_inline.h"
+
+// IWYU pragma: end_exports
 
 namespace arrow {
 

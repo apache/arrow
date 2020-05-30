@@ -24,8 +24,10 @@
 #include <sstream>
 #include <utility>
 
-#include "arrow/array.h"
+#include "arrow/array/array_base.h"
+#include "arrow/array/array_nested.h"
 #include "arrow/array/concatenate.h"
+#include "arrow/array/util.h"
 #include "arrow/array/validate.h"
 #include "arrow/pretty_print.h"
 #include "arrow/record_batch.h"
@@ -36,6 +38,10 @@
 #include "arrow/util/vector.h"
 
 namespace arrow {
+
+class KeyValueMetadata;
+class MemoryPool;
+struct ArrayData;
 
 using internal::checked_cast;
 

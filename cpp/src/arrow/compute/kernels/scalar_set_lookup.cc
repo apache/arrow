@@ -15,9 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <algorithm>
-
-#include "arrow/builder.h"
+#include "arrow/array/array_base.h"
+#include "arrow/array/builder_primitive.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernels/common.h"
 #include "arrow/util/hashing.h"

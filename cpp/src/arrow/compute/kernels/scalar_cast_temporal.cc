@@ -17,6 +17,7 @@
 
 // Implementation of casting to (or between) temporal types
 
+#include <limits>
 #include <utility>
 #include <vector>
 
