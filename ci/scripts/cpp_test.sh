@@ -46,7 +46,14 @@ esac
 
 pushd ${build_dir}
 
-ctest -L unittest --output-on-failure -j${n_jobs}
+if ! which python > /dev/null 2>&1; then
+  export PYTHON=python3
+fi
+ctest \
+    --label-regex unittest \
+    --output-on-failure \
+    --parallel ${n_jobs} \
+    --timeout 300
 
 if [ "${ARROW_FUZZING}" == "ON" ]; then
     # Fuzzing regression tests

@@ -89,7 +89,10 @@ ENV GLOG_HOME /usr
 WORKDIR /
 RUN git clone https://github.com/matthew-brett/multibuild.git && cd multibuild && git checkout 68a4af043e2adb0d9353d4a0e1f3d871203237aa
 
-ARG llvm
+# We can't use LLVM 9 or later for manylinux1 because g++ 4.8.2 is old
+# to build LLVM 9 or later.
+# ARG llvm
+ENV llvm=8
 ADD scripts/build_llvm.sh /
 RUN /build_llvm.sh ${llvm}
 
