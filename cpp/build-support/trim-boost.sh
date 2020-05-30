@@ -32,17 +32,15 @@ set -eu
 : ${BOOST_URL:=https://dl.bintray.com/boostorg/release/${BOOST_VERSION}/source/${BOOST_FILE}.tar.gz}
 
 # Arrow tests require these
-BOOST_LIBS="system.hpp filesystem.hpp"
+BOOST_LIBS="process.hpp filesystem.hpp"
 # Add these to be able to build those
 BOOST_LIBS="$BOOST_LIBS config build boost_install headers log predef"
 # Parquet needs this (if using gcc < 4.9)
 BOOST_LIBS="$BOOST_LIBS regex.hpp"
-# Gandiva needs these
+# Gandiva needs this, and so does an arrow test
 BOOST_LIBS="$BOOST_LIBS multiprecision/cpp_int.hpp"
 # These are for Thrift when Thrift_SOURCE=BUNDLED
 BOOST_LIBS="$BOOST_LIBS algorithm/string.hpp locale.hpp noncopyable.hpp numeric/conversion/cast.hpp scope_exit.hpp scoped_array.hpp shared_array.hpp tokenizer.hpp version.hpp"
-#These are for flight
-BOOST_LIBS="$BOOST_LIBS process.hpp process asio fusion"
 
 if [ ! -d ${BOOST_FILE} ]; then
   curl -L "${BOOST_URL}" > ${BOOST_FILE}.tar.gz
