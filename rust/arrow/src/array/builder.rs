@@ -500,6 +500,26 @@ impl<T: ArrowPrimitiveType> PrimitiveBuilder<T> {
         Ok(())
     }
 
+    /// Appends values from a slice of type `T` and a validity byte slice
+    pub fn append_values(&mut self, values: &[T::Native], is_valid: &[u8]) -> Result<()> {
+        let ceil = bit_util::round_upto_power_of_2(values.len(), 8);
+        assert_eq!(
+            ceil / 8,
+            is_valid.len(),
+            "value slice not aligned with validity slice"
+        );
+        let mut bools = Vec::with_capacity(values.len() / 8 + 1);
+        is_valid.iter().for_each(|v| {
+            let bin = format!("{:b}", v);
+            // TODO: reversing to correct the endianness, find a better solution
+            bin.as_str().chars().rev().for_each(|c| {
+                bools.push(c == '1');
+            });
+        });
+        self.bitmap_builder.append_slice(&bools[0..values.len()])?;
+        self.values_builder.append_slice(values)
+    }
+
     /// Builds the `PrimitiveArray` and reset this builder.
     pub fn finish(&mut self) -> PrimitiveArray<T> {
         let len = self.len();
@@ -1552,6 +1572,36 @@ mod tests {
         b.append_slice(&[32, 54]).unwrap();
         let buffer = b.finish();
         assert_eq!(8, buffer.len());
+    }
+
+    #[test]
+    fn test_append_values() -> Result<()> {
+        let mut a = Int8Builder::new(0);
+        a.append_value(1)?;
+        a.append_null()?;
+        a.append_value(-2)?;
+        assert_eq!(a.len(), 3);
+
+        // create another array
+        let mut b = Int8Builder::new(8);
+        b.append_slice(&[1, 2])?;
+        b.append_null()?;
+        b.append_value(4)?;
+        let b = b.finish();
+
+        // append b to a
+        a.append_values(b.value_slice(0, 4), b.data().null_buffer().unwrap().data())?;
+
+        assert_eq!(a.len(), 7);
+        let array = a.finish();
+        assert_eq!(array.value(0), 1);
+        assert_eq!(array.is_null(1), true);
+        assert_eq!(array.value(2), -2);
+        assert_eq!(array.value(3), 1);
+        assert_eq!(array.value(4), 2);
+        assert_eq!(array.is_null(5), true);
+        assert_eq!(array.value(6), 4);
+        Ok(())
     }
 
     #[test]
