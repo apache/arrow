@@ -553,12 +553,14 @@ if("${MAKE}" STREQUAL "")
   endif()
 endif()
 
-# Using make -j in sub-make is fragile
-# see discussion https://github.com/apache/arrow/pull/2779
 if(${CMAKE_GENERATOR} MATCHES "Makefiles")
+  # In a Makefile we can use "$(MAKE)" to pass additional context to the
+  # subprocess so it can use the jobserver from the parent
+  set(SUBMAKE "$(MAKE)")
   set(MAKE_BUILD_ARGS "")
 else()
-  # limit the maximum number of jobs for ninja
+  set(SUBMAKE "${MAKE}")
+  # Limit the maximum number of jobs for ninja
   set(MAKE_BUILD_ARGS "-j${NPROC}")
 endif()
 
@@ -1314,54 +1316,79 @@ if(ARROW_JEMALLOC)
   # installations.
   # find_package(jemalloc)
 
+  # The prefix "je_arrow_" must be kept in sync with the value in memory_pool.cc
   set(ARROW_JEMALLOC_USE_SHARED OFF)
-  set(JEMALLOC_PREFIX
-      "${CMAKE_CURRENT_BINARY_DIR}/jemalloc_ep-prefix/src/jemalloc_ep/dist/")
-  set(JEMALLOC_STATIC_LIB
-      "${JEMALLOC_PREFIX}/lib/libjemalloc_pic${CMAKE_STATIC_LIBRARY_SUFFIX}")
+  set(JEMALLOC_ROOT
+      "${CMAKE_CURRENT_BINARY_DIR}/jemalloc_ep")
+  set(JEMALLOC_BINARY_DIR
+      "${JEMALLOC_ROOT}/build")
+  set(JEMALLOC_SOURCE_DIR
+      "${JEMALLOC_BINARY_DIR}/jemalloc_ep-prefix/src/jemalloc_ep")
+  set(JEMALLOC_LIBRARY
+      "lib/libjemalloc_pic${CMAKE_STATIC_LIBRARY_SUFFIX}")
   set(JEMALLOC_CONFIGURE_COMMAND ./configure "AR=${CMAKE_AR}" "CC=${CMAKE_C_COMPILER}")
   if(CMAKE_OSX_SYSROOT)
     list(APPEND JEMALLOC_CONFIGURE_COMMAND "SDKROOT=${CMAKE_OSX_SYSROOT}")
   endif()
   list(APPEND JEMALLOC_CONFIGURE_COMMAND
-              "--prefix=${JEMALLOC_PREFIX}"
               "--with-jemalloc-prefix=je_arrow_"
               "--with-private-namespace=je_arrow_private_"
               "--without-export"
+              "--disable-shared"
               # Don't override operator new()
               "--disable-cxx" "--disable-libdl"
               # See https://github.com/jemalloc/jemalloc/issues/1237
               "--disable-initial-exec-tls" ${EP_LOG_OPTIONS})
-  set(JEMALLOC_BUILD_COMMAND ${MAKE} ${MAKE_BUILD_ARGS})
+  # ExternalProject executes its commands during build time, but we need to run
+  # everything up to `./configure` during generation time so we can extract the
+  # objects to inject them into the jemalloc::jemalloc target.
+  # TODO: Replace with FetchContent when the required cmake version reaches 3.11.
+  file(WRITE "${JEMALLOC_ROOT}/CMakeLists.txt"
+  "include(ExternalProject)\n"
+  "externalProject_add(jemalloc_ep\n"
+  "  URL ${JEMALLOC_SOURCE_URL}\n"
+  "  PATCH_COMMAND touch doc/jemalloc.3 doc/jemalloc.html\n"
+  "  CONFIGURE_COMMAND ${JEMALLOC_CONFIGURE_COMMAND}\n"
+  "  BUILD_IN_SOURCE 1\n"
+  "  BUILD_COMMAND \"\"\n"
+  "  INSTALL_COMMAND \"\")\n")
+  file(MAKE_DIRECTORY "${JEMALLOC_BINARY_DIR}")
+  execute_process(
+    COMMAND ${CMAKE_COMMAND} -Wno-dev -G "${CMAKE_GENERATOR}" "${JEMALLOC_ROOT}"
+    WORKING_DIRECTORY "${JEMALLOC_BINARY_DIR}")
+  execute_process(
+    COMMAND ${CMAKE_COMMAND} --build .
+    WORKING_DIRECTORY "${JEMALLOC_BINARY_DIR}")
+  execute_process(
+    COMMAND ${MAKE} -B --dry-run "${JEMALLOC_LIBRARY}"
+    WORKING_DIRECTORY "${JEMALLOC_SOURCE_DIR}"
+    OUTPUT_VARIABLE _jemalloc_build_dry_run)
+  # CMake regexes treat '^' and '$' as beginning- and end-of-input, they don't
+  # match on lines in between.
+  string(REGEX MATCH "[\n^]${CMAKE_AR}.*[\n$]" _jemalloc_ar_call "${_jemalloc_build_dry_run}")
+  string(REGEX MATCHALL "[^ \t]*\\.o" JEMALLOC_OBJECTS "${_jemalloc_ar_call}")
+  #list(TRANSFORM JEMALLOC_OBJECTS PREPEND "${JEMALLOC_SOURCE_DIR}/")
+  string(REGEX REPLACE "([^;]+)" "${JEMALLOC_SOURCE_DIR}/\\1" JEMALLOC_OBJECTS "${JEMALLOC_OBJECTS}")
+  unset(_jemalloc_build_dry_run)
+  unset(_jemalloc_ar_call)
+
+  set(JEMALLOC_BUILD_COMMAND ${SUBMAKE} ${JEMALLOC_LIBRARY} ${MAKE_BUILD_ARGS})
   if(CMAKE_OSX_SYSROOT)
     list(APPEND JEMALLOC_BUILD_COMMAND "SDKROOT=${CMAKE_OSX_SYSROOT}")
   endif()
-  externalproject_add(
-    jemalloc_ep
-    URL ${JEMALLOC_SOURCE_URL}
-    PATCH_COMMAND
-      touch doc/jemalloc.3 doc/jemalloc.html
-      # The prefix "je_arrow_" must be kept in sync with the value in memory_pool.cc
-    CONFIGURE_COMMAND ${JEMALLOC_CONFIGURE_COMMAND}
-    BUILD_IN_SOURCE 1
-    BUILD_COMMAND ${JEMALLOC_BUILD_COMMAND}
-    BUILD_BYPRODUCTS "${JEMALLOC_STATIC_LIB}"
-    INSTALL_COMMAND ${MAKE} install)
+  add_custom_target(jemalloc_ep
+    BYPRODUCTS ${JEMALLOC_OBJECTS}
+    COMMAND ${JEMALLOC_BUILD_COMMAND} VERBATIM
+    WORKING_DIRECTORY "${JEMALLOC_SOURCE_DIR}")
 
-  # Don't use the include directory directly so that we can point to a path
-  # that is unique to our codebase.
-  include_directories(SYSTEM "${CMAKE_CURRENT_BINARY_DIR}/jemalloc_ep-prefix/src/")
-  # The include directory must exist before it is referenced by a target.
-  file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/jemalloc_ep-prefix/src/")
-  add_library(jemalloc::jemalloc STATIC IMPORTED)
+  add_library(jemalloc::jemalloc OBJECT IMPORTED)
   set_target_properties(jemalloc::jemalloc
                         PROPERTIES INTERFACE_LINK_LIBRARIES
                                    Threads::Threads
-                                   IMPORTED_LOCATION
-                                   "${JEMALLOC_STATIC_LIB}"
+                                   IMPORTED_OBJECTS
+                                   "${JEMALLOC_OBJECTS}"
                                    INTERFACE_INCLUDE_DIRECTORIES
-                                   "${CMAKE_CURRENT_BINARY_DIR}/jemalloc_ep-prefix/src")
-  add_dependencies(jemalloc::jemalloc jemalloc_ep)
+                                   "${JEMALLOC_SOURCE_DIR}")
 endif()
 
 # ----------------------------------------------------------------------

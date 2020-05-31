@@ -448,6 +448,17 @@ add_arrow_lib(arrow
 
 add_dependencies(arrow ${ARROW_LIBRARIES})
 
+if(ARROW_JEMALLOC)
+  if(ARROW_BUILD_SHARED)
+    target_sources(arrow_shared PRIVATE
+        $<TARGET_OBJECTS:jemalloc::jemalloc>)
+  endif()
+  if(ARROW_BUILD_STATIC)
+    target_sources(arrow_static PRIVATE
+        $<TARGET_OBJECTS:jemalloc::jemalloc>)
+  endif()
+endif()
+
 if(ARROW_BUILD_STATIC AND WIN32)
   target_compile_definitions(arrow_static PUBLIC ARROW_STATIC)
 endif()

@@ -781,12 +781,6 @@ endif()
 
 set(ARROW_SYSTEM_LINK_LIBS)
 
-if(ARROW_JEMALLOC)
-  add_definitions(-DARROW_JEMALLOC)
-  add_definitions(-DARROW_JEMALLOC_INCLUDE_DIR=${JEMALLOC_INCLUDE_DIR})
-  list(APPEND ARROW_SYSTEM_LINK_LIBS jemalloc::jemalloc)
-endif()
-
 if(ARROW_MIMALLOC)
   add_definitions(-DARROW_MIMALLOC)
   list(APPEND ARROW_SYSTEM_LINK_LIBS mimalloc::mimalloc)
