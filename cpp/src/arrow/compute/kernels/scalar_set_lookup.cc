@@ -42,7 +42,7 @@ struct SetLookupState : public KernelState {
       : lookup_table(pool, 0), lookup_null_count(0) {}
 
   Status Init(const SetLookupOptions& options) {
-    using T = typename GetValueType<Type>::T;
+    using T = typename GetViewType<Type>::T;
     auto insert_value = [&](util::optional<T> v) {
       if (v.has_value()) {
         int32_t unused_memo_index;
@@ -147,7 +147,7 @@ struct MatchVisitor {
 
   template <typename Type>
   enable_if_supports_set_lookup<Type, Status> Visit(const Type&) {
-    using T = typename GetValueType<Type>::T;
+    using T = typename GetViewType<Type>::T;
 
     const auto& state = checked_cast<const SetLookupState<Type>&>(*ctx->state());
 
@@ -222,7 +222,7 @@ struct IsInVisitor {
 
   template <typename Type>
   enable_if_supports_set_lookup<Type, Status> Visit(const Type&) {
-    using T = typename GetValueType<Type>::T;
+    using T = typename GetViewType<Type>::T;
     const auto& state = checked_cast<const SetLookupState<Type>&>(*ctx->state());
     ArrayData* output = out->mutable_array();
 

@@ -84,6 +84,16 @@ def cast(arr, target_type, safe=True):
     return call_function("cast", [arr], options)
 
 
+def _simple_unary_function(name):
+    def func(arg):
+        return call_function(name, [arg])
+    return func
+
+
+ascii_length = _simple_unary_function('ascii_length')
+ascii_upper = _simple_unary_function('ascii_upper')
+
+
 def sum(array):
     """
     Sum the values in a numerical (chunked) array.

@@ -122,18 +122,53 @@ struct UnboxScalar<Type, enable_if_base_binary<Type>> {
 };
 
 template <typename Type, typename Enable = void>
-struct GetValueType;
+struct GetViewType;
 
 template <typename Type>
-struct GetValueType<Type, enable_if_has_c_type<Type>> {
+struct GetViewType<Type, enable_if_has_c_type<Type>> {
   using T = typename Type::c_type;
 };
 
 template <typename Type>
-struct GetValueType<
+struct GetViewType<
     Type, enable_if_t<is_base_binary_type<Type>::value || is_decimal_type<Type>::value ||
                       is_fixed_size_binary_type<Type>::value>> {
   using T = util::string_view;
+};
+
+template <typename Type, typename Enable = void>
+struct GetOutputType;
+
+template <typename Type>
+struct GetOutputType<Type, enable_if_has_c_type<Type>> {
+  using T = typename Type::c_type;
+};
+
+template <typename Type>
+struct GetOutputType<
+    Type, enable_if_t<is_string_like_type<Type>::value>> {
+  using T = std::string;
+};
+
+template <typename Type, typename Enable = void>
+struct BoxScalar;
+
+template <typename Type>
+struct BoxScalar<Type, enable_if_has_c_type<Type>> {
+  using T = typename GetOutputType<Type>::T;
+  using ScalarType = typename TypeTraits<Type>::ScalarType;
+  static std::shared_ptr<Scalar> Box(T val, const std::shared_ptr<DataType>& type) {
+    return std::make_shared<ScalarType>(val, type);
+  }
+};
+
+template <typename Type>
+struct BoxScalar<Type, enable_if_base_binary<Type>> {
+  using T = typename GetOutputType<Type>::T;
+  using ScalarType = typename TypeTraits<Type>::ScalarType;
+  static std::shared_ptr<Scalar> Box(T val, const std::shared_ptr<DataType>&) {
+    return std::make_shared<ScalarType>(val);
+  }
 };
 
 // ----------------------------------------------------------------------
@@ -154,6 +189,7 @@ void BinaryExecFlipped(KernelContext* ctx, ArrayKernelExec exec,
 // functions
 
 const std::vector<std::shared_ptr<DataType>>& BaseBinaryTypes();
+const std::vector<std::shared_ptr<DataType>>& StringTypes();
 const std::vector<std::shared_ptr<DataType>>& SignedIntTypes();
 const std::vector<std::shared_ptr<DataType>>& UnsignedIntTypes();
 const std::vector<std::shared_ptr<DataType>>& IntTypes();
@@ -327,10 +363,8 @@ struct OutputAdapter<Type, enable_if_base_binary<Type>> {
 // };
 template <typename OutType, typename Arg0Type, typename Op>
 struct ScalarUnary {
-  using OutScalar = typename TypeTraits<OutType>::ScalarType;
-
-  using OUT = typename GetValueType<OutType>::T;
-  using ARG0 = typename GetValueType<Arg0Type>::T;
+  using OUT = typename GetOutputType<OutType>::T;
+  using ARG0 = typename GetViewType<Arg0Type>::T;
 
   static void Array(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     ArrayIterator<Arg0Type> arg0(*batch[0].array());
@@ -342,8 +376,9 @@ struct ScalarUnary {
   static void Scalar(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     if (batch[0].scalar()->is_valid) {
       ARG0 arg0 = UnboxScalar<Arg0Type>::Unbox(batch[0]);
-      out->value = std::make_shared<OutScalar>(Op::template Call<OUT, ARG0>(ctx, arg0),
-                                               out->type());
+      out->value = BoxScalar<OutType>::Box(
+          Op::template Call<OUT, ARG0>(ctx, arg0),
+          out->type());
     } else {
       out->value = MakeNullScalar(batch[0].type());
     }
@@ -363,9 +398,8 @@ struct ScalarUnary {
 template <typename OutType, typename Arg0Type, typename Op>
 struct ScalarUnaryNotNullStateful {
   using ThisType = ScalarUnaryNotNullStateful<OutType, Arg0Type, Op>;
-  using OutScalar = typename TypeTraits<OutType>::ScalarType;
-  using OUT = typename GetValueType<OutType>::T;
-  using ARG0 = typename GetValueType<Arg0Type>::T;
+  using OUT = typename GetOutputType<OutType>::T;
+  using ARG0 = typename GetViewType<Arg0Type>::T;
 
   Op op;
   ScalarUnaryNotNullStateful(Op op) : op(std::move(op)) {}
@@ -395,6 +429,30 @@ struct ScalarUnaryNotNullStateful {
   };
 
   template <typename Type>
+  struct ArrayExec<Type, enable_if_string_like<Type>> {
+    static void Exec(const ThisType& functor, KernelContext* ctx, const ExecBatch& batch,
+                     Datum* out) {
+      typename TypeTraits<Type>::BuilderType builder;
+      Status s = VisitArrayDataInline<Arg0Type>(
+          *batch[0].array(), [&](util::optional<ARG0> v) -> Status {
+          if (v.has_value()) {
+            return builder.Append(functor.op.Call(ctx, *v));
+          } else {
+            return builder.AppendNull();
+          }
+        });
+      if (!s.ok()) {
+        ctx->SetStatus(s);
+        return;
+      } else {
+        std::shared_ptr<ArrayData> result;
+        ctx->SetStatus(builder.FinishInternal(&result));
+        out->value = std::move(result);
+      }
+    }
+  };
+
+  template <typename Type>
   struct ArrayExec<Type, enable_if_t<is_boolean_type<Type>::value>> {
     static void Exec(const ThisType& functor, KernelContext* ctx, const ExecBatch& batch,
                      Datum* out) {
@@ -416,7 +474,7 @@ struct ScalarUnaryNotNullStateful {
   void Scalar(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     if (batch[0].scalar()->is_valid) {
       ARG0 arg0 = UnboxScalar<Arg0Type>::Unbox(batch[0]);
-      out->value = std::make_shared<OutScalar>(
+      out->value = BoxScalar<OutType>::Box(
           this->op.template Call<OUT, ARG0>(ctx, arg0),
           out->type());
     } else {
@@ -438,6 +496,9 @@ struct ScalarUnaryNotNullStateful {
 // operator requires some initialization use ScalarUnaryNotNullStateful
 template <typename OutType, typename Arg0Type, typename Op>
 struct ScalarUnaryNotNull {
+  using OUT = typename GetOutputType<OutType>::T;
+  using ARG0 = typename GetViewType<Arg0Type>::T;
+
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     // Seed kernel with dummy state
     ScalarUnaryNotNullStateful<OutType, Arg0Type, Op> kernel({});
@@ -464,11 +525,9 @@ struct ScalarUnaryNotNull {
 template <typename OutType, typename Arg0Type, typename Arg1Type, typename Op,
           typename FlippedOp = Op>
 struct ScalarBinary {
-  using OutScalarType = typename TypeTraits<OutType>::ScalarType;
-
-  using OUT = typename GetValueType<OutType>::T;
-  using ARG0 = typename GetValueType<Arg0Type>::T;
-  using ARG1 = typename GetValueType<Arg1Type>::T;
+  using OUT = typename GetOutputType<OutType>::T;
+  using ARG0 = typename GetViewType<Arg0Type>::T;
+  using ARG1 = typename GetViewType<Arg1Type>::T;
 
   template <typename ChosenOp>
   static void ArrayArray(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
@@ -492,7 +551,8 @@ struct ScalarBinary {
   static void ScalarScalar(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     auto arg0 = UnboxScalar<Arg0Type>::Unbox(batch[0]);
     auto arg1 = UnboxScalar<Arg1Type>::Unbox(batch[1]);
-    out->value = std::make_shared<OutScalarType>(ChosenOp::template Call(ctx, arg0, arg1));
+    out->value = BoxScalar<OutType>::Box(ChosenOp::template Call(ctx, arg0, arg1),
+                                         out->type());
   }
 
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {

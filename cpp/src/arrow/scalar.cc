@@ -127,6 +127,9 @@ size_t Scalar::Hash::hash(const Scalar& scalar) { return ScalarHashImpl(scalar).
 StringScalar::StringScalar(std::string s)
     : StringScalar(Buffer::FromString(std::move(s))) {}
 
+LargeStringScalar::LargeStringScalar(std::string s)
+    : LargeStringScalar(Buffer::FromString(std::move(s))) {}
+
 FixedSizeBinaryScalar::FixedSizeBinaryScalar(std::shared_ptr<Buffer> value,
                                              std::shared_ptr<DataType> type)
     : BinaryScalar(std::move(value), std::move(type)) {
@@ -212,6 +215,9 @@ std::shared_ptr<Scalar> MakeNullScalar(std::shared_ptr<DataType> type) {
 }
 
 std::string Scalar::ToString() const {
+  if (!this->is_valid) {
+    return "null";
+  }
   auto maybe_repr = CastTo(utf8());
   if (maybe_repr.ok()) {
     return checked_cast<const StringScalar&>(*maybe_repr.ValueOrDie()).value->ToString();

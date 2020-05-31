@@ -15,31 +15,29 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#pragma once
+#include <memory>
+#include <string>
+#include <utility>
+
+#include "arrow/array/builder_binary.h"
+#include "arrow/compute/kernels/common.h"
 
 namespace arrow {
 namespace compute {
-
-class FunctionRegistry;
-
 namespace internal {
 
-// Built-in scalar / elementwise functions
-void RegisterScalarArithmetic(FunctionRegistry* registry);
-void RegisterScalarBoolean(FunctionRegistry* registry);
-void RegisterScalarCast(FunctionRegistry* registry);
-void RegisterScalarComparison(FunctionRegistry* registry);
-void RegisterScalarSetLookup(FunctionRegistry* registry);
-void RegisterScalarStringAscii(FunctionRegistry* registry);
-
-// Vector functions
-void RegisterVectorFilter(FunctionRegistry* registry);
-void RegisterVectorHash(FunctionRegistry* registry);
-void RegisterVectorSort(FunctionRegistry* registry);
-void RegisterVectorTake(FunctionRegistry* registry);
-
-// Aggregate functions
-void RegisterScalarAggregateBasic(FunctionRegistry* registry);
+// Apply a scalar function to each string and yield same output type
+template <typename Op>
+void MakeUnaryStringToString(std::string name, FunctionRegistry* registry) {
+  auto func = std::make_shared<ScalarFunction>(name, Arity::Unary());
+  ArrayKernelExec exec_offset_32 =
+      codegen::ScalarUnaryNotNull<StringType, StringType, Op>::Exec;
+  ArrayKernelExec exec_offset_64 =
+      codegen::ScalarUnaryNotNull<LargeStringType, LargeStringType, Op>::Exec;
+  DCHECK_OK(func->AddKernel({utf8()}, utf8(), exec_offset_32));
+  DCHECK_OK(func->AddKernel({large_utf8()}, large_utf8(), exec_offset_64));
+  DCHECK_OK(registry->AddFunction(std::move(func)));
+}
 
 }  // namespace internal
 }  // namespace compute
