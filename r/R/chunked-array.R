@@ -151,3 +151,15 @@ head.ChunkedArray <- head.Array
 
 #' @export
 tail.ChunkedArray <- tail.Array
+
+#' @export
+as.double.ChunkedArray <- as.double.Array
+
+#' @export
+as.integer.ChunkedArray <- as.integer.Array
+
+#' @export
+as.character.ChunkedArray <- as.character.Array
+
+#' @export
+sum.ChunkedArray <- sum.Array

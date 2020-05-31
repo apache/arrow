@@ -48,3 +48,9 @@ test_that("Creating Scalars of a different type and casting them", {
   expect_type_equal(Scalar$create(4L, int8())$type, int8())
   expect_type_equal(Scalar$create(4L)$cast(float32())$type, float32())
 })
+
+test_that("sum", {
+  skip("No sum method in arrow for Scalar")
+  s <- Scalar$create(4)
+  expect_identical(as.numeric(s), as.numeric(sum(s)))
+})
