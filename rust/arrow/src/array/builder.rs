@@ -500,46 +500,18 @@ impl<T: ArrowPrimitiveType> PrimitiveBuilder<T> {
         Ok(())
     }
 
-    /// Appends values from a slice of type `T` and a validity byte slice
+    /// Appends values from a slice of type `T` and a validity boolean slice
     pub fn append_values(
         &mut self,
         values: &[T::Native],
-        is_valid: &[u8],
-        offset: usize,
+        is_valid: &[bool],
     ) -> Result<()> {
-        let ceil = bit_util::round_upto_power_of_2(values.len(), 8);
-        if offset == 0 {
-            // if there is no offset, the value slice should align with validity
-            assert_eq!(
-                ceil / 8,
-                is_valid.len(),
-                "value slice not aligned with validity slice"
-            );
-        } else {
-            // when there is an offset, the validity slots should be > values
-            assert!(
-                ceil / 8 <= is_valid.len(),
-                "value slots greater than validity slots"
-            );
+        if values.len() != is_valid.len() {
+            return Err(ArrowError::InvalidArgumentError(
+                "Value and validity lengths must be equal".to_string(),
+            ));
         }
-        let mut offset = offset;
-        let mut bools = Vec::with_capacity(values.len() / 8 + 1);
-        is_valid.iter().for_each(|v| {
-            if offset >= 8 {
-                offset -= 8;
-                return;
-            }
-            let bin = format!("{:b}", v);
-            // TODO: reversing to correct the endianness, find a better solution
-            // if we have `11001010` it means first value is null, and 8th value is valid
-            // however if the offset = 3, we should have `11001`, so we skip offset
-            bin.as_str().chars().rev().skip(offset).for_each(|c| {
-                bools.push(c == '1');
-            });
-            // offset should be covered by available bytes
-            offset = 0;
-        });
-        self.bitmap_builder.append_slice(&bools[0..values.len()])?;
+        self.bitmap_builder.append_slice(is_valid)?;
         self.values_builder.append_slice(values)
     }
 
@@ -1605,19 +1577,10 @@ mod tests {
         a.append_value(-2)?;
         assert_eq!(a.len(), 3);
 
-        // create another array
-        let mut b = Int8Builder::new(8);
-        b.append_slice(&[1, 2])?;
-        b.append_null()?;
-        b.append_value(4)?;
-        let b = b.finish();
-
-        // append b to a
-        a.append_values(
-            b.value_slice(0, 4),
-            b.data().null_buffer().unwrap().data(),
-            b.offset(),
-        )?;
+        // append values
+        let values = &[1, 2, 3, 4];
+        let is_valid = &[true, true, false, true];
+        a.append_values(values, is_valid)?;
 
         assert_eq!(a.len(), 7);
         let array = a.finish();
@@ -1628,62 +1591,6 @@ mod tests {
         assert_eq!(array.value(4), 2);
         assert_eq!(array.is_null(5), true);
         assert_eq!(array.value(6), 4);
-
-        // test appending a longer array that has > 1 validity byte
-        let mut c = Int32Builder::new(8);
-        c.append_value(1)?;
-        c.append_null()?;
-        c.append_null()?;
-        c.append_value(-1)?;
-        c.append_null()?;
-        c.append_value(-2)?;
-        c.append_null()?;
-        assert_eq!(c.len(), 7);
-
-        let mut d = Int32Builder::new(16);
-        d.append_null()?;
-        d.append_slice(&[10, 12, -14])?;
-        d.append_null()?;
-        d.append_null()?;
-        d.append_null()?;
-        d.append_slice(&[16, 18, -20, 24, 26, -28])?;
-        d.append_null()?;
-        d.append_null()?;
-        d.append_slice(&[-30, 32, -34, 36])?;
-        let d = d.finish();
-        let d = d.slice(2, d.len() - 3);
-        let d = d.as_any().downcast_ref::<Int32Array>().unwrap();
-
-        // append d to c
-        c.append_values(
-            d.value_slice(0, d.len()),
-            d.data().null_buffer().unwrap().data(),
-            d.offset(),
-        )?;
-        // append an extra null to test if the 36's bit wasn't set
-        c.append_null()?;
-        let array = c.finish();
-        assert_eq!(array.len(), 24); // 7 + 16 + 1
-        assert_eq!(array.null_count(), 10); // only 1 null was sliced out from d
-
-        // check that nulls are in correct slots
-        assert!(array.is_null(1));
-        assert!(array.is_null(2));
-        assert!(array.is_null(4));
-        assert!(array.is_null(6));
-        assert!(array.is_null(9));
-        assert!(array.is_null(10));
-        assert!(array.is_null(11));
-        assert_eq!(array.value(12), 16);
-        assert_eq!(array.value(15), 24);
-        assert_eq!(array.value(16), 26);
-        assert_eq!(array.value(17), -28);
-        assert!(array.is_null(18));
-        assert!(array.is_null(19));
-        assert_eq!(array.value(20), -30);
-        assert_eq!(array.value(21), 32);
-        assert_eq!(array.value(22), -34);
-        assert!(array.is_null(23));
 
         Ok(())
     }
