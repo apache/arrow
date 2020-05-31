@@ -397,6 +397,6 @@ test_that("ChunkedArray$Equals", {
 test_that("sum", {
   a <- ChunkedArray$create(1:4, c(1:4, NA), 1:5)
   expect_is(sum(a), "Scalar")
-  expect_identical(as.vector(sum(a)), NA)
+  expect_true(is.na(as.vector(sum(a))))
   expect_identical(as.numeric(sum(a, na.rm = TRUE)), 35)
 })
