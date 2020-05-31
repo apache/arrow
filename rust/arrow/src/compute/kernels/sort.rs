@@ -46,8 +46,22 @@ pub fn sort_to_indices(
 ) -> Result<UInt32Array> {
     let options = options.unwrap_or_default();
     let range = values.offset()..values.len();
-    let (v, n): (Vec<usize>, Vec<usize>) =
-        range.partition(|index| values.is_valid(*index));
+    // perform a custom range partition for floats, to account for NaN
+    let (v, n): (Vec<usize>, Vec<usize>) = if values.data_type() == &DataType::Float32 {
+        let array = values
+            .as_any()
+            .downcast_ref::<Float32Array>()
+            .expect("Unable to downcast array");
+        range.partition(|index| array.is_valid(*index) && array.value(*index) != f32::NAN)
+    } else if values.data_type() == &DataType::Float64 {
+        let array = values
+            .as_any()
+            .downcast_ref::<Float64Array>()
+            .expect("Unable to downcast array");
+        range.partition(|index| array.is_valid(*index) && array.value(*index) != f64::NAN)
+    } else {
+        range.partition(|index| values.is_valid(*index))
+    };
     let n = n.into_iter().map(|i| i as u32).collect();
     match values.data_type() {
         DataType::Boolean => sort_primitive::<BooleanType>(values, v, n, &options),
@@ -132,7 +146,7 @@ impl Default for SortOptions {
     }
 }
 
-/// Sort primitive values
+/// Sort primitive values, excluding floats
 fn sort_primitive<T>(
     values: &ArrayRef,
     value_indices: Vec<usize>,
