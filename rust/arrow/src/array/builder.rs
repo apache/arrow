@@ -824,6 +824,115 @@ where
 }
 
 ///  Array builder for `ListArray`
+pub struct LargeListBuilder<T: ArrayBuilder> {
+    offsets_builder: Int64BufferBuilder,
+    bitmap_builder: BooleanBufferBuilder,
+    values_builder: T,
+    len: usize,
+}
+
+impl<T: ArrayBuilder> LargeListBuilder<T> {
+    /// Creates a new `LargeListArrayBuilder` from a given values array builder
+    pub fn new(values_builder: T) -> Self {
+        let capacity = values_builder.len();
+        Self::with_capacity(values_builder, capacity)
+    }
+
+    /// Creates a new `LargeListArrayBuilder` from a given values array builder
+    /// `capacity` is the number of items to pre-allocate space for in this builder
+    pub fn with_capacity(values_builder: T, capacity: usize) -> Self {
+        let mut offsets_builder = Int64BufferBuilder::new(capacity + 1);
+        offsets_builder.append(0).unwrap();
+        Self {
+            offsets_builder,
+            bitmap_builder: BooleanBufferBuilder::new(capacity),
+            values_builder,
+            len: 0,
+        }
+    }
+}
+
+impl<T: ArrayBuilder> ArrayBuilder for LargeListBuilder<T>
+where
+    T: 'static,
+{
+    /// Returns the builder as a non-mutable `Any` reference.
+    fn as_any(&self) -> &Any {
+        self
+    }
+
+    /// Returns the builder as a mutable `Any` reference.
+    fn as_any_mut(&mut self) -> &mut Any {
+        self
+    }
+
+    /// Returns the boxed builder as a box of `Any`.
+    fn into_box_any(self: Box<Self>) -> Box<Any> {
+        self
+    }
+
+    /// Returns the number of array slots in the builder
+    fn len(&self) -> usize {
+        self.len
+    }
+
+    /// Builds the array and reset this builder.
+    fn finish(&mut self) -> ArrayRef {
+        Arc::new(self.finish())
+    }
+}
+
+impl<T: ArrayBuilder> LargeListBuilder<T>
+where
+    T: 'static,
+{
+    /// Returns the child array builder as a mutable reference.
+    ///
+    /// This mutable reference can be used to append values into the child array builder,
+    /// but you must call `append` to delimit each distinct list value.
+    pub fn values(&mut self) -> &mut T {
+        &mut self.values_builder
+    }
+
+    /// Finish the current variable-length list array slot
+    pub fn append(&mut self, is_valid: bool) -> Result<()> {
+        self.offsets_builder
+            .append(self.values_builder.len() as i64)?;
+        self.bitmap_builder.append(is_valid)?;
+        self.len += 1;
+        Ok(())
+    }
+
+    /// Builds the `LargeListArray` and reset this builder.
+    pub fn finish(&mut self) -> LargeListArray {
+        let len = self.len();
+        self.len = 0;
+        let values_arr = self
+            .values_builder
+            .as_any_mut()
+            .downcast_mut::<T>()
+            .unwrap()
+            .finish();
+        let values_data = values_arr.data();
+
+        let offset_buffer = self.offsets_builder.finish();
+        let null_bit_buffer = self.bitmap_builder.finish();
+        self.offsets_builder.append(0).unwrap();
+        let data = ArrayData::builder(DataType::LargeList(Box::new(
+            values_data.data_type().clone(),
+        )))
+        .len(len)
+        .null_count(len - bit_util::count_set_bits(null_bit_buffer.data()))
+        .add_buffer(offset_buffer)
+        .add_child_data(values_data)
+        .null_bit_buffer(null_bit_buffer)
+        .build();
+
+        LargeListArray::from(data)
+    }
+}
+
+///  Array builder for `ListArray`
 pub struct FixedSizeListBuilder<T: ArrayBuilder> {
     bitmap_builder: BooleanBufferBuilder,
     values_builder: T,
@@ -1007,8 +1116,16 @@ pub struct BinaryBuilder {
     builder: ListBuilder<UInt8Builder>,
 }
 
+pub struct LargeBinaryBuilder {
+    builder: LargeListBuilder<UInt8Builder>,
+}
+
 pub struct StringBuilder {
     builder: ListBuilder<UInt8Builder>,
+}
+
+pub struct LargeStringBuilder {
+    builder: LargeListBuilder<UInt8Builder>,
 }
 
 pub struct FixedSizeBinaryBuilder {
@@ -1019,6 +1136,8 @@ pub trait BinaryArrayBuilder: ArrayBuilder {}
 
 impl BinaryArrayBuilder for BinaryBuilder {}
 impl BinaryArrayBuilder for StringBuilder {}
+impl BinaryArrayBuilder for LargeStringBuilder {}
+impl BinaryArrayBuilder for LargeBinaryBuilder {}
 impl BinaryArrayBuilder for FixedSizeBinaryBuilder {}
 
 impl ArrayBuilder for BinaryBuilder {
@@ -1039,6 +1158,33 @@ impl ArrayBuilder for BinaryBuilder {
     /// This is used for validating array data types in `append_data`
     fn data_type(&self) -> DataType {
         DataType::Binary
+    }
+
+    /// Returns the builder as a mutable `Any` reference.
+    fn as_any_mut(&mut self) -> &mut Any {
+        self
+    }
+
+    /// Returns the boxed builder as a box of `Any`.
+    fn into_box_any(self: Box<Self>) -> Box<Any> {
+        self
+    }
+
+    /// Returns the number of array slots in the builder
+    fn len(&self) -> usize {
+        self.builder.len()
+    }
+
+    /// Builds the array and reset this builder.
+    fn finish(&mut self) -> ArrayRef {
+        Arc::new(self.finish())
+    }
+}
+
+impl ArrayBuilder for LargeBinaryBuilder {
+    /// Returns the builder as a non-mutable `Any` reference.
+    fn as_any(&self) -> &Any {
+        self
     }
 
     /// Returns the builder as a mutable `Any` reference.
@@ -1153,6 +1299,33 @@ fn append_binary_data(
     )?;
 
     Ok(())
+}
+
+impl ArrayBuilder for LargeStringBuilder {
+    /// Returns the builder as a non-mutable `Any` reference.
+    fn as_any(&self) -> &Any {
+        self
+    }
+
+    /// Returns the builder as a mutable `Any` reference.
+    fn as_any_mut(&mut self) -> &mut Any {
+        self
+    }
+
+    /// Returns the boxed builder as a box of `Any`.
+    fn into_box_any(self: Box<Self>) -> Box<Any> {
+        self
+    }
+
+    /// Returns the number of array slots in the builder
+    fn len(&self) -> usize {
+        self.builder.len()
+    }
+
+    /// Builds the array and reset this builder.
+    fn finish(&mut self) -> ArrayRef {
+        Arc::new(self.finish())
+    }
 }
 
 impl ArrayBuilder for FixedSizeBinaryBuilder {
@@ -1278,6 +1451,51 @@ impl BinaryBuilder {
     }
 }
 
+impl LargeBinaryBuilder {
+    /// Creates a new `LargeBinaryBuilder`, `capacity` is the number of bytes in the values
+    /// array
+    pub fn new(capacity: usize) -> Self {
+        let values_builder = UInt8Builder::new(capacity);
+        Self {
+            builder: LargeListBuilder::new(values_builder),
+        }
+    }
+
+    /// Appends a single byte value into the builder's values array.
+    ///
+    /// Note, when appending individual byte values you must call `append` to delimit each
+    /// distinct list value.
+    pub fn append_byte(&mut self, value: u8) -> Result<()> {
+        self.builder.values().append_value(value)?;
+        Ok(())
+    }
+
+    /// Appends a byte slice into the builder.
+    ///
+    /// Automatically calls the `append` method to delimit the slice appended in as a
+    /// distinct array element.
+    pub fn append_value(&mut self, value: &[u8]) -> Result<()> {
+        self.builder.values().append_slice(value)?;
+        self.builder.append(true)?;
+        Ok(())
+    }
+
+    /// Finish the current variable-length list array slot.
+    pub fn append(&mut self, is_valid: bool) -> Result<()> {
+        self.builder.append(is_valid)
+    }
+
+    /// Append a null value to the array.
+    pub fn append_null(&mut self) -> Result<()> {
+        self.append(false)
+    }
+
+    /// Builds the `LargeBinaryArray` and reset this builder.
+    pub fn finish(&mut self) -> LargeBinaryArray {
+        LargeBinaryArray::from(self.builder.finish())
+    }
+}
+
 impl StringBuilder {
     /// Creates a new `StringBuilder`,
     /// `capacity` is the number of bytes of string data to pre-allocate space for in this builder
@@ -1321,6 +1539,52 @@ impl StringBuilder {
     /// Builds the `StringArray` and reset this builder.
     pub fn finish(&mut self) -> StringArray {
         StringArray::from(self.builder.finish())
+    }
+}
+
+impl LargeStringBuilder {
+    /// Creates a new `StringBuilder`,
+    /// `capacity` is the number of bytes of string data to pre-allocate space for in this builder
+    pub fn new(capacity: usize) -> Self {
+        let values_builder = UInt8Builder::new(capacity);
+        Self {
+            builder: LargeListBuilder::new(values_builder),
+        }
+    }
+
+    /// Creates a new `StringBuilder`,
+    /// `data_capacity` is the number of bytes of string data to pre-allocate space for in this builder
+    /// `item_capacity` is the number of items to pre-allocate space for in this builder
+    pub fn with_capacity(item_capacity: usize, data_capacity: usize) -> Self {
+        let values_builder = UInt8Builder::new(data_capacity);
+        Self {
+            builder: LargeListBuilder::with_capacity(values_builder, item_capacity),
+        }
+    }
+
+    /// Appends a string into the builder.
+    ///
+    /// Automatically calls the `append` method to delimit the string appended in as a
+    /// distinct array element.
+    pub fn append_value(&mut self, value: &str) -> Result<()> {
+        self.builder.values().append_slice(value.as_bytes())?;
+        self.builder.append(true)?;
+        Ok(())
+    }
+
+    /// Finish the current variable-length list array slot.
+    pub fn append(&mut self, is_valid: bool) -> Result<()> {
+        self.builder.append(is_valid)
+    }
+
+    /// Append a null value to the array.
+    pub fn append_null(&mut self) -> Result<()> {
+        self.append(false)
+    }
+
+    /// Builds the `LargeStringArray` and reset this builder.
+    pub fn finish(&mut self) -> LargeStringArray {
+        LargeStringArray::from(self.builder.finish())
     }
 }
 

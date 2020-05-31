@@ -63,7 +63,7 @@ fn create_array(
 ) -> (ArrayRef, usize, usize) {
     use DataType::*;
     let array = match data_type {
-        Utf8 | Binary => {
+        Utf8 | Binary | LargeBinary | LargeUtf8 => {
             let array = create_primitive_array(
                 &nodes[node_index],
                 data_type,
@@ -89,7 +89,7 @@ fn create_array(
             buffer_index += 2;
             array
         }
-        List(ref list_data_type) => {
+        List(ref list_data_type) | LargeList(ref list_data_type) => {
             let list_node = &nodes[node_index];
             let list_buffers: Vec<Buffer> = buffers[buffer_index..buffer_index + 2]
                 .iter()
@@ -225,7 +225,7 @@ fn create_primitive_array(
     let length = field_node.length() as usize;
     let null_count = field_node.null_count() as usize;
     let array_data = match data_type {
-        Utf8 | Binary => {
+        Utf8 | Binary | LargeBinary | LargeUtf8 => {
             // read 3 buffers
             let mut builder = ArrayData::builder(data_type.clone())
                 .len(length)
