@@ -24,6 +24,23 @@ namespace arrow {
 namespace compute {
 namespace internal {
 
+void UnpackDictionary(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  DictionaryArray dict_arr(batch[0].array());
+  Result<Datum> result = Take(Datum(dict_arr.dictionary()), Datum(dict_arr.indices()),
+                              /*options=*/TakeOptions::Defaults(), ctx->exec_context());
+  if (!result.ok()) {
+    ctx->SetStatus(result.status());
+    return;
+  }
+  *out = *result;
+}
+
+void OutputAllNull(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  ArrayData* output = out->mutable_array();
+  output->buffers = {nullptr};
+  output->null_count = batch.length;
+}
+
 void CastFromExtension(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   const CastOptions& options = checked_cast<const CastState*>(ctx->state())->options;
 

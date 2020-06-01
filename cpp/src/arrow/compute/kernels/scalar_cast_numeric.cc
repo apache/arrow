@@ -521,7 +521,7 @@ std::vector<std::shared_ptr<CastFunction>> GetNumericCasts() {
   // to cast from dict<null> -> null but there are unit tests for it
   auto cast_null = std::make_shared<CastFunction>("cast_null", Type::NA);
   DCHECK_OK(cast_null->AddKernel(Type::DICTIONARY, {InputType::Array(Type::DICTIONARY)},
-                                 null(), FromDictionaryCast<NullType>::Exec));
+                                 null(), OutputAllNull));
   functions.push_back(cast_null);
 
   functions.push_back(GetCastToInteger<Int8Type>("cast_int8"));
