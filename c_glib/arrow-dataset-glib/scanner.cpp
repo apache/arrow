@@ -24,6 +24,7 @@
 #include <arrow/util/iterator.h>
 
 #include <arrow-glib/error.hpp>
+#include <arrow-glib/record-batch.hpp>
 #include <arrow-glib/schema.hpp>
 
 #include <arrow-dataset-glib/scanner.hpp>
@@ -449,9 +450,9 @@ gad_scan_task_get_context(GADScanTask *scan_task)
 /**
  * gad_scan_task_execute:
  * @scan_task: A #GADScanTask.
- * @error: (nullable): REturn location for a #GError or %NULL.
+ * @error: (nullable): Return location for a #GError or %NULL.
  *
- * Returns: (nullable): (transfer full): A newly created #GArrowRecordBatchIterator,
+ * Returns: (nullable) (transfer full): A newly created #GArrowRecordBatchIterator,
  *   or %NULL on error.
  *
  * Since: 1.0.0
@@ -469,6 +470,54 @@ GArrowRecordBatchIterator *gad_scan_task_execute(GADScanTask *scan_task,
   }
 }
 
+/* arrow::dataset::InMemoryScanTask */
+
+G_DEFINE_TYPE(GADInMemoryScanTask,
+              gad_in_memory_scan_task,
+              GAD_TYPE_SCAN_TASK)
+
+static void
+gad_in_memory_scan_task_init(GADInMemoryScanTask *object)
+{
+}
+
+static void
+gad_in_memory_scan_task_class_init(GADInMemoryScanTaskClass *klass)
+{
+}
+
+/**
+ * gad_in_memory_scan_task_new:
+ * @record_batches: (array length=n_record_batches):
+ *   (element-type GArrowRecordBatch): The record batches of the table.
+ * @n_record_batches: The number of record batches.
+ * @scan_options: A #GADScanOptions.
+ * @scan_context: A #GADScanContext.
+ *
+ * Returns: A newly created #GADInMemoryScanTask.
+ *
+ * Since: 1.0.0
+ */
+GADInMemoryScanTask *gad_in_memory_scan_task_new(GArrowRecordBatch **record_batches,
+                                                 gsize n_record_batches,
+                                                 GADScanOptions *scan_options,
+                                                 GADScanContext *scan_context)
+{
+  std::vector<std::shared_ptr<arrow::RecordBatch>> arrow_record_batches;
+  arrow_record_batches.reserve(n_record_batches);
+  for (gsize i = 0; i < n_record_batches; ++i) {
+    auto arrow_record_batch = garrow_record_batch_get_raw(record_batches[i]);
+    arrow_record_batches.push_back(arrow_record_batch);
+  }
+  auto arrow_scan_options = gad_scan_options_get_raw(scan_options);
+  auto arrow_scan_context = gad_scan_context_get_raw(scan_context);
+  auto arrow_in_memory_scan_task =
+    std::make_shared<arrow::dataset::InMemoryScanTask>(arrow_record_batches,
+                                                       arrow_scan_options,
+                                                       arrow_scan_context);
+  return gad_in_memory_scan_task_new_raw(&arrow_in_memory_scan_task);
+}
+
 G_END_DECLS
 
 GADScanContext *
@@ -481,6 +530,13 @@ gad_scan_context_new_raw(std::shared_ptr<arrow::dataset::ScanContext> *arrow_sca
   return scan_context;
 }
 
+std::shared_ptr<arrow::dataset::ScanContext>
+gad_scan_context_get_raw(GADScanContext *scan_context)
+{
+  auto priv = GAD_SCAN_CONTEXT_GET_PRIVATE(scan_context);
+  return priv->scan_context;
+}
+
 GADScanOptions *
 gad_scan_options_new_raw(std::shared_ptr<arrow::dataset::ScanOptions> *arrow_scan_options)
 {
@@ -489,4 +545,21 @@ gad_scan_options_new_raw(std::shared_ptr<arrow::dataset::ScanOptions> *arrow_sca
                                   "scan-options", arrow_scan_options,
                                   NULL));
   return scan_options;
+}
+
+std::shared_ptr<arrow::dataset::ScanOptions>
+gad_scan_options_get_raw(GADScanOptions *scan_options)
+{
+  auto priv = GAD_SCAN_OPTIONS_GET_PRIVATE(scan_options);
+  return priv->scan_options;
+}
+
+GADInMemoryScanTask *
+gad_in_memory_scan_task_new_raw(std::shared_ptr<arrow::dataset::InMemoryScanTask> *arrow_in_memory_scan_task)
+{
+  auto in_memory_scan_task =
+    GAD_IN_MEMORY_SCAN_TASK(g_object_new(GAD_TYPE_IN_MEMORY_SCAN_TASK,
+                                         "scan-task", arrow_in_memory_scan_task,
+                                         NULL));
+  return in_memory_scan_task;
 }

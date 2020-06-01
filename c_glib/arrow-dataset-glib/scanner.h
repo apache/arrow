@@ -88,7 +88,7 @@ struct _GADInMemoryScanTaskClass
 
 GADInMemoryScanTask *gad_in_memory_scan_task_new(GArrowRecordBatch **record_batches,
                                                  gsize n_record_batches,
-                                                 GADScanOptions *options,
-                                                 GADScanContext *context);
+                                                 GADScanOptions *scan_options,
+                                                 GADScanContext *scan_context);
 
 G_END_DECLS
