@@ -41,7 +41,7 @@
 #include "arrow/util/decimal.h"
 
 #include "arrow/compute/api.h"
-#include "arrow/compute/test_util.h"
+#include "arrow/compute/kernels/test_util.h"
 
 #include "arrow/ipc/json_simple.h"
 
