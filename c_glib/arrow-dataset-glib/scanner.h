@@ -23,5 +23,67 @@
 
 G_BEGIN_DECLS
 
+/* arrow::dataset::ScanContext */
+
+#define GAD_TYPE_SCAN_CONTEXT (gad_scan_context_get_type())
+G_DECLARE_DERIVABLE_TYPE(GADScanContext,
+                         gad_scan_context,
+                         GAD,
+                         SCAN_CONTEXT,
+                         GObject)
+struct _GADScanContextClass
+{
+  GObjectClass parent_class;
+};
+
+GADScanContext *gad_scan_context_new(void);
+
+/* arrow::dataset::ScanOptions */
+
+#define GAD_TYPE_SCAN_OPTIONS (gad_scan_options_get_type())
+G_DECLARE_DERIVABLE_TYPE(GADScanOptions,
+                         gad_scan_options,
+                         GAD,
+                         SCAN_OPTIONS,
+                         GObject)
+struct _GADScanOptionsClass
+{
+  GObjectClass parent_class;
+};
+
+GADScanOptions *gad_scan_options_new(GArrowSchema *schema);
+
+/* arrow::dataset::ScanTask */
+
+#define GAD_TYPE_SCAN_TASK (gad_scan_task_get_type())
+G_DECLARE_DERIVABLE_TYPE(GADScanTask,
+                         gad_scan_task,
+                         GAD,
+                         SCAN_TASK,
+                         GObject)
+struct _GADScanTaskClass
+{
+  GObjectClass parent_class;
+};
+
+GArrowRecordBatchIterator *gad_scan_task_execute(void);
+
+/* arrow::dataset::InMemoryScanTask */
+
+#define GAD_TYPE_IN_MEMORY_SCAN_TASK (gad_in_memory_scan_task_get_type())
+G_DECLARE_DERIVABLE_TYPE(GADInMemoryScanTask,
+                         gad_in_memory_scan_task,
+                         GAD,
+                         IN_MEMORY_SCAN_TASK,
+                         GADScanTask)
+struct _GADInMemoryScanTaskClass
+{
+  GADScanTaskClass parent_class;
+};
+
+GADInMemoryScanTask *gad_in_memory_scan_task_new(GArrowRecordBatch **record_batches,
+                                                 gsize n_record_batches,
+                                                 GADScanOptions *options,
+                                                 GADScanContext *context);
 
 G_END_DECLS
