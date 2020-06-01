@@ -104,6 +104,8 @@ ascii_lower = _simple_unary_function('ascii_lower')
 is_valid = _simple_unary_function('is_valid')
 is_null = _simple_unary_function('is_null')
 
+list_flatten = _simple_unary_function('list_flatten')
+
 add = _simple_binary_function('add')
 subtract = _simple_binary_function('subtract')
 multiply = _simple_binary_function('multiply')

@@ -428,11 +428,15 @@ cdef class StructArray(Array):
     pass
 
 
-cdef class ListArray(Array):
+cdef class BaseListArray(Array):
     pass
 
 
-cdef class LargeListArray(Array):
+cdef class ListArray(BaseListArray):
+    pass
+
+
+cdef class LargeListArray(BaseListArray):
     pass
 
 

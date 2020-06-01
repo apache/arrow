@@ -1342,8 +1342,27 @@ cdef class Decimal128Array(FixedSizeBinaryArray):
     Concrete class for Arrow arrays of decimal128 data type.
     """
 
+cdef class BaseListArray(Array):
 
-cdef class ListArray(Array):
+    def flatten(self):
+        """
+        Unnest this ListArray/LargeListArray by one level.
+
+        The returned Array is logically a concatenation of all the sub-lists
+        in this Array.
+
+        Note that this method is different from ``self.values()`` in that
+        it takes care of the slicing offset as well as null elements backed
+        by non-empty sub-lists.
+
+        Returns
+        -------
+        result : Array
+        """
+        return _pc().list_flatten(self)
+
+
+cdef class ListArray(BaseListArray):
     """
     Concrete class for Arrow arrays of a list data type.
     """
@@ -1389,39 +1408,8 @@ cdef class ListArray(Array):
         """
         return pyarrow_wrap_array((<CListArray*> self.ap).offsets())
 
-    def flatten(self, MemoryPool memory_pool=None):
-        """
-        Unnest this ListArray by one level.
 
-        The returned Array is logically a concatenation of all the sub-lists
-        in this Array.
-
-        Note that this method is different from ``self.values()`` in that
-        it takes care of the slicing offset as well as null elements backed
-        by non-empty sub-lists.
-
-        Parameters
-        ----------
-        memory_pool : pyarrow.MemoryPool, optional
-            If not passed, will allocate memory from the currently-set default
-            memory pool
-
-        Returns
-        -------
-        result : Array
-        """
-        cdef:
-            shared_ptr[CArray] c_result_array
-            CMemoryPool* cpool = maybe_unbox_memory_pool(memory_pool)
-            CListArray* arr = <CListArray*> self.ap
-
-        with nogil:
-            c_result_array = GetResultValue(arr.Flatten(cpool))
-
-        return pyarrow_wrap_array(c_result_array)
-
-
-cdef class LargeListArray(Array):
+cdef class LargeListArray(BaseListArray):
     """
     Concrete class for Arrow arrays of a large list data type.
 
@@ -1469,37 +1457,6 @@ cdef class LargeListArray(Array):
         Return the offsets as an int64 array.
         """
         return pyarrow_wrap_array((<CLargeListArray*> self.ap).offsets())
-
-    def flatten(self, MemoryPool memory_pool=None):
-        """
-        Unnest this LargeListArray by one level.
-
-        The returned Array is logically a concatenation of all the sub-lists
-        in this Array.
-
-        Note that this method is different from ``self.values()`` in that
-        it takes care of the slicing offset as well as null elements backed
-        by non-empty sub-lists.
-
-        Parameters
-        ----------
-        memory_pool : pyarrow.MemoryPool, optional
-            If not passed, will allocate memory from the currently-set default
-            memory pool.
-
-        Returns
-        -------
-        result : Array
-        """
-        cdef:
-            shared_ptr[CArray] c_result_array
-            CMemoryPool* cpool = maybe_unbox_memory_pool(memory_pool)
-            CLargeListArray* arr = <CLargeListArray*> self.ap
-
-        with nogil:
-            c_result_array = GetResultValue(arr.Flatten(cpool))
-
-        return pyarrow_wrap_array(c_result_array)
 
 
 cdef class MapArray(Array):
