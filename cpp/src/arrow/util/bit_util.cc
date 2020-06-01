@@ -165,44 +165,47 @@ void TransferBitmap(const uint8_t* data, int64_t offset, int64_t length,
   if (bit_offset || dest_bit_offset) {
     data += byte_offset;
 
-    int64_t nwords = length / 64;
-    if (nwords > 1) {
-      length -= (nwords - 1) * 64;
+    const int64_t n_words = length / 64;
+    if (n_words > 1) {
+      auto load_word = [](const uint8_t* bytes) -> uint64_t {
+        return BitUtil::ToLittleEndian(util::SafeLoadAs<uint64_t>(bytes));
+      };
+      auto shift_word = [](uint64_t current, uint64_t next, int64_t shift) -> uint64_t {
+        if (shift == 0) return current;
+        return (current >> shift) | (next << (64 - shift));
+      };
+      auto write_word = [](uint8_t* bytes, uint64_t word) {
+        util::SafeStore(bytes, BitUtil::FromLittleEndian(word));
+      };
 
       const uint64_t dest_mask = (1U << dest_bit_offset) - 1;
-      uint64_t data_word0 = BitUtil::ToLittleEndian(util::SafeLoadAs<uint64_t>(data));
-      uint64_t dest_word0 = BitUtil::ToLittleEndian(util::SafeLoadAs<uint64_t>(dest));
+      auto data_current = load_word(data);
+      auto dest_current = load_word(dest);
 
-      do {
+      for (int64_t i = 0; i < n_words - 1; ++i) {
         data += 8;
-        const uint64_t data_word1 =
-            BitUtil::ToLittleEndian(util::SafeLoadAs<uint64_t>(data));
-        uint64_t word = data_word0;
-        if (bit_offset) {
-          word >>= bit_offset;
-          word |= data_word1 << (64 - bit_offset);
-        }
-        data_word0 = data_word1;
+        const auto data_next = load_word(data);
+        auto word = shift_word(data_current, data_next, bit_offset);
+        data_current = data_next;
         if (invert_bits) {
           word = ~word;
         }
 
         if (dest_bit_offset) {
           word = (word << dest_bit_offset) | (word >> (64 - dest_bit_offset));
-          uint64_t dest_word1 =
-              BitUtil::ToLittleEndian(util::SafeLoadAs<uint64_t>(dest + 8));
-          dest_word0 = (dest_word0 & dest_mask) | (word & ~dest_mask);
-          dest_word1 = (dest_word1 & ~dest_mask) | (word & dest_mask);
-          util::SafeStore(dest, BitUtil::FromLittleEndian(dest_word0));
-          util::SafeStore(dest + 8, BitUtil::FromLittleEndian(dest_word1));
-          dest_word0 = dest_word1;
+          auto dest_next = load_word(dest + 8);
+          dest_current = (dest_current & dest_mask) | (word & ~dest_mask);
+          dest_next = (dest_next & ~dest_mask) | (word & dest_mask);
+          write_word(dest, dest_current);
+          write_word(dest + 8, dest_next);
+          dest_current = dest_next;
         } else {
-          util::SafeStore(dest, BitUtil::FromLittleEndian(word));
+          write_word(dest, word);
         }
         dest += 8;
+      }
 
-        --nwords;
-      } while (nwords > 1);
+      length -= (n_words - 1) * 64;
     }
 
     internal::BitmapReader valid_reader(data, bit_offset, length);
