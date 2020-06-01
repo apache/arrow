@@ -54,7 +54,7 @@ class MemoryPool;
 /// \return an edit script array which can be applied to base to produce target
 ARROW_EXPORT
 Result<std::shared_ptr<StructArray>> Diff(const Array& base, const Array& target,
-                                          MemoryPool* pool);
+                                          MemoryPool* pool = default_memory_pool());
 
 /// \brief visitor interface for easy traversal of an edit script
 ///
