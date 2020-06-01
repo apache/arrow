@@ -198,7 +198,14 @@ class QuadraticSpaceMyersDiff {
 
   // increment the position within base and target (the elements skipped in this way were
   // present in both sequences)
-  EditPoint ExtendFrom(EditPoint p) const;
+  EditPoint ExtendFrom(EditPoint p) const {
+    for (; p.base != base_end_ && p.target != target_end_; ++p.base, ++p.target) {
+      if (!ValuesEqual(p.base, p.target)) {
+        break;
+      }
+    }
+    return p;
+  }
 
   // beginning of a range for storing per-edit state in endpoint_base_ and insert_
   int64_t StorageOffset(int64_t edit_count) const {
@@ -207,7 +214,17 @@ class QuadraticSpaceMyersDiff {
 
   // given edit_count and index, augment endpoint_base_[index] with the corresponding
   // position in target (which is only implicitly represented in edit_count, index)
-  EditPoint GetEditPoint(int64_t edit_count, int64_t index) const;
+  EditPoint GetEditPoint(int64_t edit_count, int64_t index) const {
+    DCHECK_GE(index, StorageOffset(edit_count));
+    DCHECK_LT(index, StorageOffset(edit_count + 1));
+    auto insertions_minus_deletions =
+        2 * (index - StorageOffset(edit_count)) - edit_count;
+    auto maximal_base = endpoint_base_[index];
+    auto maximal_target = std::min(
+        target_begin_ + ((maximal_base - base_begin_) + insertions_minus_deletions),
+        target_end_);
+    return {maximal_base, maximal_target};
+  }
 
   void Next() {
     ++edit_count_;
@@ -295,11 +312,10 @@ class QuadraticSpaceMyersDiff {
   }
 
   Result<std::shared_ptr<StructArray>> Diff() {
-    QuadraticSpaceMyersDiff impl(base_, target_, pool_);
-    while (!impl.Done()) {
-      impl.Next();
+    while (!Done()) {
+      Next();
     }
-    return impl.GetEdits(pool_);
+    return GetEdits(pool_);
   }
 
  private:
@@ -319,26 +335,6 @@ class QuadraticSpaceMyersDiff {
   std::vector<int64_t> endpoint_base_;
   std::vector<bool> insert_;
 };
-
-EditPoint QuadraticSpaceMyersDiff::ExtendFrom(EditPoint p) const {
-  for (; p.base != base_end_ && p.target != target_end_; ++p.base, ++p.target) {
-    if (!ValuesEqual(p.base, p.target)) {
-      break;
-    }
-  }
-  return p;
-}
-
-EditPoint QuadraticSpaceMyersDiff::GetEditPoint(int64_t edit_count, int64_t index) const {
-  DCHECK_GE(index, StorageOffset(edit_count));
-  DCHECK_LT(index, StorageOffset(edit_count + 1));
-  auto insertions_minus_deletions = 2 * (index - StorageOffset(edit_count)) - edit_count;
-  auto maximal_base = endpoint_base_[index];
-  auto maximal_target = std::min(
-      target_begin_ + ((maximal_base - base_begin_) + insertions_minus_deletions),
-      target_end_);
-  return {maximal_base, maximal_target};
-}
 
 Result<std::shared_ptr<StructArray>> NullDiff(const Array& base, const Array& target,
                                               MemoryPool* pool) {
@@ -377,7 +373,7 @@ Result<std::shared_ptr<StructArray>> Diff(const Array& base, const Array& target
   } else if (base.type()->id() == Type::EXTENSION) {
     auto base_storage = checked_cast<const ExtensionArray&>(base).storage();
     auto target_storage = checked_cast<const ExtensionArray&>(target).storage();
-    return QuadraticSpaceMyersDiff(*base_storage, *target_storage, pool).Diff();
+    return Diff(*base_storage, *target_storage, pool);
   } else if (base.type()->id() == Type::EXTENSION) {
     return Status::NotImplemented("diffing arrays of type ", *base.type());
   } else {
