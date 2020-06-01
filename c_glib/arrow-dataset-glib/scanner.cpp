@@ -21,6 +21,8 @@
 #  include <config.h>
 #endif
 
+#include <arrow/util/iterator.h>
+
 #include <arrow-glib/error.hpp>
 #include <arrow-glib/schema.hpp>
 
@@ -322,6 +324,117 @@ GADScanOptions *gad_scan_options_replace_schema(GADScanOptions *scan_options,
   auto arrow_schema = garrow_schema_get_raw(schema);
   auto arrow_scan_options_copy = priv->scan_options->ReplaceSchema(arrow_schema);
   return gad_scan_options_new_raw(&arrow_scan_options_copy);
+}
+
+/* arrow::dataset::ScanTask */
+
+typedef struct GADScanTaskPrivate_ {
+  std::shared_ptr<arrow::dataset::ScanTask> scan_task;
+} GADScanTaskPrivate;
+
+enum {
+  PROP_SCAN_TASK = 1,
+};
+
+G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE(GADScanTask,
+                                    gad_scan_task,
+                                    G_TYPE_OBJECT)
+
+#define GAD_SCAN_TASK_GET_PRIVATE(obj)         \
+  static_cast<GADScanTaskPrivate *>(           \
+     gad_scan_task_get_instance_private(       \
+       GAD_SCAN_TASK(obj)))
+
+static void
+gad_scan_task_finalize(GObject *object)
+{
+  auto priv = GAD_SCAN_TASK_GET_PRIVATE(object);
+
+  priv->scan_task.~shared_ptr();
+
+  G_OBJECT_CLASS(gad_scan_task_parent_class)->finalize(object);
+}
+
+static void
+gad_scan_task_set_property(GObject *object,
+                           guint prop_id,
+                           const GValue *value,
+                           GParamSpec *pspec)
+{
+  auto priv = GAD_SCAN_TASK_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_SCAN_TASK:
+    priv->scan_task =
+      *static_cast<std::shared_ptr<arrow::dataset::ScanTask> *>(g_value_get_pointer(value));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+gad_scan_task_get_property(GObject *object,
+                           guint prop_id,
+                           GValue *value,
+                           GParamSpec *pspec)
+{
+  switch (prop_id) {
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+gad_scan_task_init(GADScanTask *object)
+{
+  auto priv = GAD_SCAN_TASK_GET_PRIVATE(object);
+  new(&priv->scan_task) std::shared_ptr<arrow::dataset::ScanTask>;
+}
+
+static void
+gad_scan_task_class_init(GADScanTaskClass *klass)
+{
+  GObjectClass *gobject_class;
+  GParamSpec *spec;
+
+  gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->finalize     = gad_scan_task_finalize;
+  gobject_class->set_property = gad_scan_task_set_property;
+  gobject_class->get_property = gad_scan_task_get_property;
+
+  spec = g_param_spec_pointer("scan-task",
+                              "ScanTask",
+                              "The raw std::shared<arrow::dataset::ScanTask> *",
+                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
+                                                       G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class, PROP_SCAN_TASK, spec);
+}
+
+/**
+ * gad_scan_task_execute:
+ * @scan_task: A #GADScanTask.
+ * @error: (nullable): REturn location for a #GError or %NULL.
+ *
+ * Returns: (nullable): (transfer full): A newly created #GArrowRecordBatchIterator,
+ *   or %NULL on error.
+ *
+ * Since: 1.0.0
+ */
+GArrowRecordBatchIterator *gad_scan_task_execute(GADScanTask *scan_task,
+                                                 GError **error)
+{
+  auto priv = GAD_SCAN_TASK_GET_PRIVATE(scan_task);
+  auto arrow_result = priv->scan_task->Execute();
+  if (garrow::check(error, arrow_result, "[datasets][scan-task][execute]")) {
+    auto arrow_record_batch_iteraor = std::move(*arrow_result);
+    return garrow_record_batch_iterator_new_raw(&arrow_record_batch_iteraor);
+  } else {
+    return NULL;
+  }
 }
 
 G_END_DECLS

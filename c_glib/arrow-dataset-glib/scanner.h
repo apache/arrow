@@ -68,7 +68,8 @@ struct _GADScanTaskClass
   GObjectClass parent_class;
 };
 
-GArrowRecordBatchIterator *gad_scan_task_execute(void);
+GArrowRecordBatchIterator *gad_scan_task_execute(GADScanTask *scan_task,
+                                                 GError **error);
 
 /* arrow::dataset::InMemoryScanTask */
 
