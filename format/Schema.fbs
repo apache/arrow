@@ -139,6 +139,8 @@ table Decimal {
   precision: int;
   /// Number of digits after the decimal point "."
   scale: int;
+  /// Number of bytes per value
+  byteWidth: int = 16;
 }
 
 enum DateUnit: short {
