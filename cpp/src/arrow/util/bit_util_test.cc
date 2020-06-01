@@ -864,6 +864,49 @@ TEST(BitUtilTests, TestCopyAndInvertBitmapPreAllocated) {
   }
 }
 
+TEST(BitUtilTests, TestBitmapEquals) {
+  const int srcBufferSize = 1000;
+
+  ASSERT_OK_AND_ASSIGN(auto src_buffer, AllocateBuffer(srcBufferSize));
+  memset(src_buffer->mutable_data(), 0, srcBufferSize);
+  random_bytes(srcBufferSize, 0, src_buffer->mutable_data());
+  const uint8_t* src = src_buffer->data();
+
+  std::vector<int64_t> lengths = {srcBufferSize * 8 - 4, srcBufferSize * 8};
+  std::vector<int64_t> offsets = {0, 12, 16, 32, 37, 63, 64, 128};
+
+  const auto dstBufferSize = srcBufferSize + BitUtil::BytesForBits(*std::max_element(
+                                                 offsets.cbegin(), offsets.cend()));
+  ASSERT_OK_AND_ASSIGN(auto dst_buffer, AllocateBuffer(dstBufferSize))
+  uint8_t* dst = dst_buffer->mutable_data();
+
+  for (int64_t num_bits : lengths) {
+    for (int64_t offset_src : offsets) {
+      for (int64_t offset_dst : offsets) {
+        const auto bit_length = num_bits - offset_src;
+
+        internal::CopyBitmap(src, offset_src, bit_length, dst, offset_dst, false);
+        ASSERT_TRUE(internal::BitmapEquals(src, offset_src, dst, offset_dst, bit_length));
+
+        // test negative cases by flip some bit at head and tail
+        for (int64_t offset_flip : offsets) {
+          const auto offset_flip_head = offset_dst + offset_flip;
+          dst[offset_flip_head / 8] ^= 1 << (offset_flip_head % 8);
+          ASSERT_FALSE(
+              internal::BitmapEquals(src, offset_src, dst, offset_dst, bit_length));
+          dst[offset_flip_head / 8] ^= 1 << (offset_flip_head % 8);
+
+          const auto offset_flip_tail = offset_dst + bit_length - offset_flip - 1;
+          dst[offset_flip_tail / 8] ^= 1 << (offset_flip_tail % 8);
+          ASSERT_FALSE(
+              internal::BitmapEquals(src, offset_src, dst, offset_dst, bit_length));
+          dst[offset_flip_tail / 8] ^= 1 << (offset_flip_tail % 8);
+        }
+      }
+    }
+  }
+}
+
 TEST(BitUtil, CeilDiv) {
   EXPECT_EQ(BitUtil::CeilDiv(0, 1), 0);
   EXPECT_EQ(BitUtil::CeilDiv(1, 1), 1);

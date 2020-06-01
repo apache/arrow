@@ -363,6 +363,32 @@ static void CopyBitmapWithOffset(benchmark::State& state) {  // NOLINT non-const
   CopyBitmap<4>(state);
 }
 
+// Benchmark the worst case of comparing two identical bitmap
+template <int64_t Offset = 0>
+static void BitmapEquals(benchmark::State& state) {
+  const int64_t buffer_size = state.range(0);
+  const int64_t bits_size = buffer_size * 8;
+  std::shared_ptr<Buffer> buffer = CreateRandomBuffer(buffer_size);
+
+  const uint8_t* src = buffer->data();
+  const int64_t offset = Offset;
+  const int64_t length = bits_size - offset;
+
+  auto copy = *AllocateEmptyBitmap(length + offset);
+  internal::CopyBitmap(src, 0, length, copy->mutable_data(), offset, false);
+
+  for (auto _ : state) {
+    auto is_same = internal::BitmapEquals(src, 0, copy->data(), offset, length);
+    benchmark::DoNotOptimize(is_same);
+  }
+
+  state.SetBytesProcessed(state.iterations() * buffer_size);
+}
+
+static void BitmapEqualsWithoutOffset(benchmark::State& state) { BitmapEquals<0>(state); }
+
+static void BitmapEqualsWithOffset(benchmark::State& state) { BitmapEquals<4>(state); }
+
 #ifdef ARROW_WITH_BENCHMARKS_REFERENCE
 static void ReferenceNaiveBitmapReader(benchmark::State& state) {
   BenchmarkBitmapReader<NaiveBitmapReader>(state, state.range(0));
@@ -391,6 +417,9 @@ BENCHMARK(GenerateBitsUnrolled)->Arg(kBufferSize);
 
 BENCHMARK(CopyBitmapWithoutOffset)->Arg(kBufferSize);
 BENCHMARK(CopyBitmapWithOffset)->Arg(kBufferSize);
+
+BENCHMARK(BitmapEqualsWithoutOffset)->Arg(kBufferSize);
+BENCHMARK(BitmapEqualsWithOffset)->Arg(kBufferSize);
 
 #define AND_BENCHMARK_RANGES                      \
   {                                               \
