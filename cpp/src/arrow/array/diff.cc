@@ -88,41 +88,17 @@ static UnitSlice GetView(const UnionArray& array, int64_t index) {
   return UnitSlice{&array, index};
 }
 
-struct ValueComparator {
-  virtual ~ValueComparator() = default;
-  virtual bool operator()(int64_t base_index, int64_t target_index) = 0;
-};
-
-template <typename Type>
-struct ValueComparatorImpl : public ValueComparator {
-  using ArrayType = typename TypeTraits<Type>::ArrayType;
-
-  ValueComparatorImpl(const Array& base, const Array& target)
-      : base(MakeArray(base.data())), target(MakeArray(target.data())) {}
-
-  bool operator()(int64_t base_index, int64_t target_index) override {
-    bool base_null = base->IsNull(base_index);
-    bool target_null = target->IsNull(target_index);
-    if (base_null && target_null) {
-      return true;
-    } else if (base_null || target_null) {
-      return false;
-    }
-    return (GetView(checked_cast<const ArrayType&>(*base), base_index) ==
-            GetView(checked_cast<const ArrayType&>(*target), target_index));
-  }
-
-  std::shared_ptr<Array> base;
-  std::shared_ptr<Array> target;
-};
+using ValueComparator = std::function<bool(const Array&, int64_t, const Array&, int64_t)>;
 
 struct ValueComparatorVisitor {
-  ValueComparatorVisitor(const Array& base, const Array& target)
-      : base(base), target(target) {}
-
   template <typename T>
   Status Visit(const T&) {
-    out.reset(new ValueComparatorImpl<T>(base, target));
+    using ArrayType = typename TypeTraits<T>::ArrayType;
+    out = [](const Array& base, int64_t base_index, const Array& target,
+             int64_t target_index) {
+      return (GetView(checked_cast<const ArrayType&>(base), base_index) ==
+              GetView(checked_cast<const ArrayType&>(target), target_index));
+    };
     return Status::OK();
   }
 
@@ -134,20 +110,26 @@ struct ValueComparatorVisitor {
     return Status::NotImplemented("dictionary type");
   }
 
-  std::unique_ptr<ValueComparator> Create() {
-    DCHECK_OK(VisitTypeInline(*base.type(), this));
-    return std::move(out);
+  ValueComparator Create(const DataType& type) {
+    DCHECK_OK(VisitTypeInline(type, this));
+    return out;
   }
 
-  const Array& base;
-  const Array& target;
-  std::unique_ptr<ValueComparator> out;
+  ValueComparator out;
 };
 
-std::unique_ptr<ValueComparator> GetValueComparator(const Array& base,
-                                                    const Array& target) {
-  return ValueComparatorVisitor(base, target).Create();
+ValueComparator GetValueComparator(const DataType& type) {
+  ValueComparatorVisitor type_visitor;
+  return type_visitor.Create(type);
 }
+
+// represents an intermediate state in the comparison of two arrays
+struct EditPoint {
+  int64_t base, target;
+  bool operator==(EditPoint other) const {
+    return base == other.base && target == other.target;
+  }
+};
 
 /// A generic sequence difference algorithm, based on
 ///
@@ -166,19 +148,11 @@ std::unique_ptr<ValueComparator> GetValueComparator(const Array& base,
 /// implicitly.
 class QuadraticSpaceMyersDiff {
  public:
-  // represents an intermediate state in the comparison of two arrays
-  struct EditPoint {
-    int64_t base, target;
-    bool operator==(EditPoint other) const {
-      return base == other.base && target == other.target;
-    }
-  };
-
   QuadraticSpaceMyersDiff(const Array& base, const Array& target, MemoryPool* pool)
       : base_(base),
         target_(target),
         pool_(pool),
-        value_comparator_(GetValueComparator(base, target)),
+        value_comparator_(GetValueComparator(*base.type())),
         base_begin_(0),
         base_end_(base.length()),
         target_begin_(0),
@@ -192,8 +166,16 @@ class QuadraticSpaceMyersDiff {
     }
   }
 
-  bool ValuesEqual(int64_t left, int64_t right) const {
-    return (*value_comparator_)(left, right);
+  bool ValuesEqual(int64_t base_index, int64_t target_index) const {
+    bool base_null = base_.IsNull(base_index);
+    bool target_null = target_.IsNull(target_index);
+    if (base_null && target_null) {
+      return true;
+    } else if (base_null || target_null) {
+      return false;
+    } else {
+      return value_comparator_(base_, base_index, target_, target_index);
+    }
   }
 
   // increment the position within base (the element pointed to was deleted)
@@ -216,14 +198,7 @@ class QuadraticSpaceMyersDiff {
 
   // increment the position within base and target (the elements skipped in this way were
   // present in both sequences)
-  EditPoint ExtendFrom(EditPoint p) const {
-    for (; p.base != base_end_ && p.target != target_end_; ++p.base, ++p.target) {
-      if (!ValuesEqual(p.base, p.target)) {
-        break;
-      }
-    }
-    return p;
-  }
+  EditPoint ExtendFrom(EditPoint p) const;
 
   // beginning of a range for storing per-edit state in endpoint_base_ and insert_
   int64_t StorageOffset(int64_t edit_count) const {
@@ -232,17 +207,7 @@ class QuadraticSpaceMyersDiff {
 
   // given edit_count and index, augment endpoint_base_[index] with the corresponding
   // position in target (which is only implicitly represented in edit_count, index)
-  EditPoint GetEditPoint(int64_t edit_count, int64_t index) const {
-    DCHECK_GE(index, StorageOffset(edit_count));
-    DCHECK_LT(index, StorageOffset(edit_count + 1));
-    auto insertions_minus_deletions =
-        2 * (index - StorageOffset(edit_count)) - edit_count;
-    auto maximal_base = endpoint_base_[index];
-    auto maximal_target = std::min(
-        target_begin_ + ((maximal_base - base_begin_) + insertions_minus_deletions),
-        target_end_);
-    return {maximal_base, maximal_target};
-  }
+  EditPoint GetEditPoint(int64_t edit_count, int64_t index) const;
 
   void Next() {
     ++edit_count_;
@@ -341,7 +306,7 @@ class QuadraticSpaceMyersDiff {
   const Array& base_;
   const Array& target_;
   MemoryPool* pool_;
-  std::unique_ptr<ValueComparator> value_comparator_;
+  ValueComparator value_comparator_;
   int64_t finish_index_ = -1;
   int64_t edit_count_ = 0;
   int64_t base_begin_, base_end_;
@@ -354,6 +319,26 @@ class QuadraticSpaceMyersDiff {
   std::vector<int64_t> endpoint_base_;
   std::vector<bool> insert_;
 };
+
+EditPoint QuadraticSpaceMyersDiff::ExtendFrom(EditPoint p) const {
+  for (; p.base != base_end_ && p.target != target_end_; ++p.base, ++p.target) {
+    if (!ValuesEqual(p.base, p.target)) {
+      break;
+    }
+  }
+  return p;
+}
+
+EditPoint QuadraticSpaceMyersDiff::GetEditPoint(int64_t edit_count, int64_t index) const {
+  DCHECK_GE(index, StorageOffset(edit_count));
+  DCHECK_LT(index, StorageOffset(edit_count + 1));
+  auto insertions_minus_deletions = 2 * (index - StorageOffset(edit_count)) - edit_count;
+  auto maximal_base = endpoint_base_[index];
+  auto maximal_target = std::min(
+      target_begin_ + ((maximal_base - base_begin_) + insertions_minus_deletions),
+      target_end_);
+  return {maximal_base, maximal_target};
+}
 
 Result<std::shared_ptr<StructArray>> NullDiff(const Array& base, const Array& target,
                                               MemoryPool* pool) {
