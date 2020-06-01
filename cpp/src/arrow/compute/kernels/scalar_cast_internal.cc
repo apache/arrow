@@ -26,6 +26,16 @@ namespace internal {
 
 void UnpackDictionary(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   DictionaryArray dict_arr(batch[0].array());
+  const CastOptions& options = checked_cast<const CastState&>(*ctx->state()).options;
+
+  const auto& dict_type = *dict_arr.dictionary()->type();
+  if (!dict_type.Equals(options.to_type)) {
+    ctx->SetStatus(Status::Invalid("Cast type ", options.to_type->ToString(),
+                                   " incompatible with dictionary type ",
+                                   dict_type.ToString()));
+    return;
+  }
+
   Result<Datum> result = Take(Datum(dict_arr.dictionary()), Datum(dict_arr.indices()),
                               /*options=*/TakeOptions::Defaults(), ctx->exec_context());
   if (!result.ok()) {

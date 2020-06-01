@@ -93,9 +93,13 @@ struct MaybeAddFromDictionary<
     T, enable_if_t<!is_boolean_type<T>::value && !is_nested_type<T>::value &&
                    !is_null_type<T>::value && !std::is_same<DictionaryType, T>::value>> {
   static void Add(const OutputType& out_ty, CastFunction* func) {
-    // Dictionary unpacking not implemented for boolean or nested types
-    DCHECK_OK(func->AddKernel(Type::DICTIONARY, {InputType::Array(Type::DICTIONARY)},
-                              out_ty, UnpackDictionary));
+    // Dictionary unpacking not implemented for boolean or nested types.
+    //
+    // XXX: Uses Take and does its own memory allocation for the moment. We can
+    // fix this later.
+    DCHECK_OK(func->AddKernel(
+        Type::DICTIONARY, {InputType::Array(Type::DICTIONARY)}, out_ty, UnpackDictionary,
+        NullHandling::COMPUTED_NO_PREALLOCATE, MemAllocation::NO_PREALLOCATE));
   }
 };
 
