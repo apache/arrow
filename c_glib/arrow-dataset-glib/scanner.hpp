@@ -22,3 +22,6 @@
 #include <arrow/dataset/api.h>
 
 #include <arrow-dataset-glib/scanner.h>
+
+GADScanContext *
+gad_scan_context_new_raw(std::shared_ptr<arrow::dataset::ScanContext> *arrow_scan_context);
