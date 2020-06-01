@@ -586,6 +586,9 @@ TEST_F(DiffTest, DictionaryDiffFormatter) {
 )";
   ASSERT_EQ(formatted.str(), formatted_expected_indices);
 
+  // Note: Diff doesn't work at the moment with dictionary arrays
+  ASSERT_RAISES(NotImplemented, Diff(*base_, *target_));
+
   // differing dictionaries
   target_dict = ArrayFromJSON(utf8(), R"(["b", "c", "a"])");
   target_indices = base_indices;

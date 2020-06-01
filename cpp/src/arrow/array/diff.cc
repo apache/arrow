@@ -169,13 +169,11 @@ class QuadraticSpaceMyersDiff {
   bool ValuesEqual(int64_t base_index, int64_t target_index) const {
     bool base_null = base_.IsNull(base_index);
     bool target_null = target_.IsNull(target_index);
-    if (base_null && target_null) {
-      return true;
-    } else if (base_null || target_null) {
-      return false;
-    } else {
-      return value_comparator_(base_, base_index, target_, target_index);
+    if (base_null || target_null) {
+      // If only one is null, then this is false, otherwise true
+      return base_null && target_null;
     }
+    return value_comparator_(base_, base_index, target_, target_index);
   }
 
   // increment the position within base (the element pointed to was deleted)
@@ -374,7 +372,7 @@ Result<std::shared_ptr<StructArray>> Diff(const Array& base, const Array& target
     auto base_storage = checked_cast<const ExtensionArray&>(base).storage();
     auto target_storage = checked_cast<const ExtensionArray&>(target).storage();
     return Diff(*base_storage, *target_storage, pool);
-  } else if (base.type()->id() == Type::EXTENSION) {
+  } else if (base.type()->id() == Type::DICTIONARY) {
     return Status::NotImplemented("diffing arrays of type ", *base.type());
   } else {
     return QuadraticSpaceMyersDiff(base, target, pool).Diff();
