@@ -251,41 +251,37 @@ bool BitmapEquals(const uint8_t* left, int64_t left_offset, const uint8_t* right
   left_offset %= 8;
   right_offset %= 8;
 
-  // process in 64 bits
-  int64_t nwords = bit_length / 64;
-  if (nwords > 1) {
-    bit_length -= (nwords - 1) * 64;
+  // process in 64 bits, may touch two adjacent words in one iteration
+  const int64_t n_words = bit_length / 64;
+  if (n_words > 1) {
+    auto load_word = [](const uint8_t* bytes) -> uint64_t {
+      return BitUtil::ToLittleEndian(util::SafeLoadAs<uint64_t>(bytes));
+    };
+    auto shift_word = [](uint64_t current, uint64_t next, int64_t shift) -> uint64_t {
+      if (shift == 0) return current;
+      return (current >> shift) | (next << (64 - shift));
+    };
 
-    uint64_t left_word0 = BitUtil::ToLittleEndian(util::SafeLoadAs<uint64_t>(left));
-    uint64_t right_word0 = BitUtil::ToLittleEndian(util::SafeLoadAs<uint64_t>(right));
+    auto left_current = load_word(left);
+    auto right_current = load_word(right);
 
-    do {
+    for (int64_t i = 0; i < n_words - 1; ++i) {
       left += 8;
-      const uint64_t left_word1 =
-          BitUtil::ToLittleEndian(util::SafeLoadAs<uint64_t>(left));
-      uint64_t left_word = left_word0;
-      if (left_offset) {
-        left_word >>= left_offset;
-        left_word |= left_word1 << (64 - left_offset);
-      }
-      left_word0 = left_word1;
+      auto left_next = load_word(left);
+      auto left_word = shift_word(left_current, left_next, left_offset);
+      left_current = left_next;
 
       right += 8;
-      const uint64_t right_word1 =
-          BitUtil::ToLittleEndian(util::SafeLoadAs<uint64_t>(right));
-      uint64_t right_word = right_word0;
-      if (right_offset) {
-        right_word >>= right_offset;
-        right_word |= right_word1 << (64 - right_offset);
-      }
-      right_word0 = right_word1;
+      auto right_next = load_word(right);
+      auto right_word = shift_word(right_current, right_next, right_offset);
+      right_current = right_next;
 
       if (left_word != right_word) {
         return false;
       }
+    }
 
-      --nwords;
-    } while (nwords > 1);
+    bit_length -= (n_words - 1) * 64;
   }
 
   // process in bit
