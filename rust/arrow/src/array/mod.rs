@@ -83,9 +83,11 @@
 
 mod array;
 mod builder;
+mod cast;
 mod data;
 mod equal;
 mod null;
+mod ord;
 mod union;
 
 use crate::datatypes::*;
@@ -231,3 +233,13 @@ pub type DurationNanosecondBuilder = PrimitiveBuilder<DurationNanosecondType>;
 
 pub use self::equal::ArrayEqual;
 pub use self::equal::JsonEqual;
+
+// --------------------- Sortable Array ---------------------
+
+pub use self::ord::{as_ordarray, OrdArray};
+
+// --------------------- Array downcast helper functions ---------------------
+
+pub use self::cast::{
+    as_boolean_array, as_null_array, as_primitive_array, as_string_array,
+};
