@@ -238,3 +238,78 @@ def test_filter_errors():
         with pytest.raises(pa.ArrowInvalid,
                            match="must all be the same length"):
             obj.filter(mask)
+
+
+@pytest.mark.parametrize("typ", ["array", "chunked_array"])
+def test_compare_array(typ):
+    if typ == "array":
+        def con(values): return pa.array(values)
+    else:
+        def con(values): return pa.chunked_array([values])
+
+    arr1 = con([1, 2, 3, 4, None])
+    arr2 = con([1, 1, 4, None, 4])
+
+    result = arr1 == arr2
+    assert result.equals(con([True, False, False, None, None]))
+
+    result = arr1 != arr2
+    assert result.equals(con([False, True, True, None, None]))
+
+    result = arr1 < arr2
+    assert result.equals(con([False, False, True, None, None]))
+
+    result = arr1 <= arr2
+    assert result.equals(con([True, False, True, None, None]))
+
+    result = arr1 > arr2
+    assert result.equals(con([False, True, False, None, None]))
+
+    result = arr1 >= arr2
+    assert result.equals(con([True, True, False, None, None]))
+
+
+@pytest.mark.parametrize("typ", ["array", "chunked_array"])
+def test_compare_scalar(typ):
+    if typ == "array":
+        def con(values): return pa.array(values)
+    else:
+        def con(values): return pa.chunked_array([values])
+
+    arr = con([1, 2, 3, None])
+    # TODO this is a hacky way to construct a scalar ..
+    scalar = pa.array([2]).sum()
+
+    result = arr == scalar
+    assert result.equals(con([False, True, False, None]))
+
+    result = arr != scalar
+    assert result.equals(con([True, False, True, None]))
+
+    result = arr < scalar
+    assert result.equals(con([True, False, False, None]))
+
+    result = arr <= scalar
+    assert result.equals(con([True, True, False, None]))
+
+    result = arr > scalar
+    assert result.equals(con([False, False, True, None]))
+
+    result = arr >= scalar
+    assert result.equals(con([False, True, True, None]))
+
+
+def test_compare_chunked_array_mixed():
+
+    arr = pa.array([1, 2, 3, 4, None])
+    arr_chunked = pa.chunked_array([[1, 2, 3], [4, None]])
+    arr_chunked2 = pa.chunked_array([[1, 2], [3, 4, None]])
+
+    expected = pa.chunked_array([[True, True, True, True, None]])
+
+    for result in [
+        arr == arr_chunked,
+        arr_chunked == arr,
+        arr_chunked == arr_chunked2,
+    ]:
+        assert result.equals(expected)

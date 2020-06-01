@@ -41,6 +41,10 @@ cdef class ChunkedArray(_PandasConvertible):
     def __reduce__(self):
         return chunked_array, (self.chunks, self.type)
 
+    def __richcmp__(self, other, int op):
+        function_name = _op_to_function_name(op)
+        return _pc().call_function(function_name, [self, other])
+
     @property
     def data(self):
         import warnings
@@ -172,12 +176,6 @@ cdef class ChunkedArray(_PandasConvertible):
                 return self.chunk(j)[index]
             else:
                 index -= self.chunked_array.chunk(j).get().length()
-
-    def __eq__(self, other):
-        try:
-            return self.equals(other)
-        except TypeError:
-            return NotImplemented
 
     def equals(self, ChunkedArray other):
         """
