@@ -126,11 +126,13 @@ struct ValueComparatorVisitor {
     return Status::OK();
   }
 
-  Status Visit(const NullType&) { return Status::NotImplemented("extension type"); }
+  Status Visit(const NullType&) { return Status::NotImplemented("null type"); }
 
   Status Visit(const ExtensionType&) { return Status::NotImplemented("extension type"); }
 
-  Status Visit(const DictionaryType&) { return Status::NotImplemented("extension type"); }
+  Status Visit(const DictionaryType&) {
+    return Status::NotImplemented("dictionary type");
+  }
 
   std::unique_ptr<ValueComparator> Create() {
     DCHECK_OK(VisitTypeInline(*base.type(), this));
