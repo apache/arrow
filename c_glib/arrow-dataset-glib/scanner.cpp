@@ -305,6 +305,25 @@ GADScanOptions *gad_scan_options_new(GArrowSchema *schema)
   return gad_scan_options_new_raw(&arrow_scan_options);
 }
 
+/**
+ * gad_scan_options_replace_schema:
+ * @scan_options: A #GADScanOptions.
+ * @schema: A #GArrowSchema.
+ *
+ * Returns: (transfer full):
+ *   A copy of the #GADScanOptions with the given #GArrowSchema.
+ *
+ * Since: 1.0.0
+ */
+GADScanOptions *gad_scan_options_replace_schema(GADScanOptions *scan_options,
+                                                GArrowSchema *schema)
+{
+  auto priv = GAD_SCAN_OPTIONS_GET_PRIVATE(scan_options);
+  auto arrow_schema = garrow_schema_get_raw(schema);
+  auto arrow_scan_options_copy = priv->scan_options->ReplaceSchema(arrow_schema);
+  return gad_scan_options_new_raw(&arrow_scan_options_copy);
+}
+
 G_END_DECLS
 
 GADScanContext *

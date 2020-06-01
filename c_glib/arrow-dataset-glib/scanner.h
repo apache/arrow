@@ -52,6 +52,8 @@ struct _GADScanOptionsClass
 };
 
 GADScanOptions *gad_scan_options_new(GArrowSchema *schema);
+GADScanOptions *gad_scan_options_replace_schema(GADScanOptions *scan_options,
+                                                GArrowSchema *schema);
 
 /* arrow::dataset::ScanTask */
 
