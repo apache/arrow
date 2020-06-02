@@ -17,7 +17,6 @@
 
 package org.apache.arrow.memory;
 
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
@@ -28,6 +27,7 @@ import java.util.Set;
 import org.apache.arrow.memory.rounding.DefaultRoundingPolicy;
 import org.apache.arrow.memory.rounding.RoundingPolicy;
 import org.apache.arrow.memory.util.AssertionUtil;
+import org.apache.arrow.memory.util.CommonUtil;
 import org.apache.arrow.memory.util.HistoricalLog;
 import org.apache.arrow.util.Preconditions;
 import org.immutables.value.Value;
@@ -38,7 +38,7 @@ import org.immutables.value.Value;
  * <p>The class is abstract to enforce usage of {@linkplain RootAllocator}/{@linkplain ChildAllocator}
  * facades.
  */
-public abstract class BaseAllocator extends Accountant implements BufferAllocator {
+abstract class BaseAllocator extends Accountant implements BufferAllocator {
 
   public static final String DEBUG_ALLOCATOR = "arrow.memory.debug.allocator";
   public static final int DEBUG_LOG_LENGTH = 6;
@@ -139,56 +139,6 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
         "Unable to allocate buffer of size %d due to memory limit. Current " +
           "allocation: %d", rounded, allocator.getAllocatedMemory());
     }
-  }
-
-  /**
-   * Rounds up the provided value to the nearest power of two.
-   *
-   * @param val An integer value.
-   * @return The closest power of two of that value.
-   */
-  public static int nextPowerOfTwo(int val) {
-    if (val == 0 || val == 1) {
-      return val + 1;
-    }
-    int highestBit = Integer.highestOneBit(val);
-    if (highestBit == val) {
-      return val;
-    } else {
-      return highestBit << 1;
-    }
-  }
-
-  /**
-   * Rounds up the provided value to the nearest power of two.
-   *
-   * @param val A long value.
-   * @return The closest power of two of that value.
-   */
-  public static long nextPowerOfTwo(long val) {
-    if (val == 0 || val == 1) {
-      return val + 1;
-    }
-    long highestBit = Long.highestOneBit(val);
-    if (highestBit == val) {
-      return val;
-    } else {
-      return highestBit << 1;
-    }
-  }
-
-  /**
-   * Specify an indentation amount when using a StringBuilder.
-   *
-   * @param sb StringBuilder to use
-   * @param indent Indentation amount
-   * @return the StringBuilder object with indentation applied
-   */
-  public static StringBuilder indent(StringBuilder sb, int indent) {
-    final char[] indentation = new char[indent * 2];
-    Arrays.fill(indentation, ' ');
-    sb.append(indentation);
-    return sb;
   }
 
   public static boolean isDebug() {
@@ -667,7 +617,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
 
   void print(StringBuilder sb, int level, Verbosity verbosity) {
 
-    indent(sb, level)
+    CommonUtil.indent(sb, level)
       .append("Allocator(")
       .append(name)
       .append(") ")
@@ -682,18 +632,18 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
       .append('\n');
 
     if (DEBUG) {
-      indent(sb, level + 1).append(String.format("child allocators: %d\n", childAllocators.size()));
+      CommonUtil.indent(sb, level + 1).append(String.format("child allocators: %d\n", childAllocators.size()));
       for (BaseAllocator child : childAllocators.keySet()) {
         child.print(sb, level + 2, verbosity);
       }
 
-      indent(sb, level + 1).append(String.format("ledgers: %d\n", childLedgers.size()));
+      CommonUtil.indent(sb, level + 1).append(String.format("ledgers: %d\n", childLedgers.size()));
       for (BufferLedger ledger : childLedgers.keySet()) {
         ledger.print(sb, level + 2, verbosity);
       }
 
       final Set<Reservation> reservations = this.reservations.keySet();
-      indent(sb, level + 1).append(String.format("reservations: %d\n", reservations.size()));
+      CommonUtil.indent(sb, level + 1).append(String.format("reservations: %d\n", reservations.size()));
       for (final Reservation reservation : reservations) {
         if (verbosity.includeHistoricalLog) {
           reservation.historicalLog.buildHistory(sb, level + 3, true);
@@ -846,7 +796,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
       // modifying this behavior so that we maintain what we reserve and what the user asked for
       // and make sure to only
       // round to power of two as necessary.
-      final int nBytesTwo = BaseAllocator.nextPowerOfTwo(nBytes);
+      final int nBytesTwo = CommonUtil.nextPowerOfTwo(nBytes);
       if (!reserve(nBytesTwo)) {
         return false;
       }
