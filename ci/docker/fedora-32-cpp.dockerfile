@@ -38,8 +38,7 @@ RUN dnf update -y && \
         gflags-devel \
         gmock-devel \
         google-benchmark-devel \
-        grpc-devel \
-        grpc-plugins \
+        protobuf-devel \
         gtest-devel \
         git \
         libzstd-devel \
@@ -57,6 +56,7 @@ RUN dnf update -y && \
         which \
         zlib-devel
 
+# * gRPC 1.26 in Fedora 32 may have a problem. arrow-flight-test is stuck.
 ENV ARROW_BUILD_TESTS=ON \
     ARROW_DEPENDENCY_SOURCE=SYSTEM \
     ARROW_DATASET=ON \
@@ -75,6 +75,7 @@ ENV ARROW_BUILD_TESTS=ON \
     ARROW_WITH_ZSTD=ON \
     CC=gcc \
     CXX=g++ \
+    gRPC_SOURCE=BUNDLED \
     ORC_SOURCE=BUNDLED \
     PARQUET_BUILD_EXECUTABLES=ON \
     PARQUET_BUILD_EXAMPLES=ON \
