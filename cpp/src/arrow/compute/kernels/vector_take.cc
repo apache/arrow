@@ -191,8 +191,9 @@ class TakeMetaFunction : public MetaFunction {
  public:
   TakeMetaFunction() : MetaFunction("take", Arity::Binary()) {}
 
-  Result<Datum> Execute(const std::vector<Datum>& args, const FunctionOptions* options,
-                        ExecContext* ctx) const override {
+  Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
+                            const FunctionOptions* options,
+                            ExecContext* ctx) const override {
     Datum::Kind index_kind = args[1].kind();
     const TakeOptions& take_opts = static_cast<const TakeOptions&>(*options);
     switch (args[0].kind()) {

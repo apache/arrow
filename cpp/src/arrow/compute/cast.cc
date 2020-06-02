@@ -60,8 +60,9 @@ class CastMetaFunction : public MetaFunction {
  public:
   CastMetaFunction() : MetaFunction("cast", Arity::Unary()) {}
 
-  Result<Datum> Execute(const std::vector<Datum>& args, const FunctionOptions* options,
-                        ExecContext* ctx) const override {
+  Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
+                            const FunctionOptions* options,
+                            ExecContext* ctx) const override {
     auto cast_options = static_cast<const CastOptions*>(options);
     if (cast_options == nullptr || cast_options->to_type == nullptr) {
       return Status::Invalid(

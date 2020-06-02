@@ -196,8 +196,9 @@ class FilterMetaFunction : public MetaFunction {
  public:
   FilterMetaFunction() : MetaFunction("filter", Arity::Binary()) {}
 
-  Result<Datum> Execute(const std::vector<Datum>& args, const FunctionOptions* options,
-                        ExecContext* ctx) const override {
+  Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
+                            const FunctionOptions* options,
+                            ExecContext* ctx) const override {
     if (args[0].kind() == Datum::RECORD_BATCH) {
       auto values_batch = args[0].record_batch();
       ARROW_ASSIGN_OR_RAISE(
