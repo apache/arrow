@@ -66,7 +66,7 @@ BENCHMARK(BM_DefinitionLevelsToBitmapRepeatedAllPresent);
 
 void BM_DefinitionLevelsToBitmapRepeatedMostPresent(::benchmark::State& state) {
   std::vector<int16_t> def_levels(/*count=*/kLevelCount, kPresentDefLevel);
-  for (int x = 0; x < def_levels.size(); x++) {
+  for (size_t x = 0; x < def_levels.size(); x++) {
     if (x % 10 == 0) {
       def_levels[x] = kMissingDefLevel;
     }
