@@ -68,49 +68,45 @@ struct LessEqual {
   }
 };
 
-template <typename InType, typename Op, typename FlippedOp>
+template <typename InType, typename Op>
 void AddCompare(const std::shared_ptr<DataType>& ty, ScalarFunction* func) {
-  ArrayKernelExec exec =
-      codegen::ScalarBinaryEqualTypes<BooleanType, InType, Op, FlippedOp>::Exec;
+  ArrayKernelExec exec = codegen::ScalarBinaryEqualTypes<BooleanType, InType, Op>::Exec;
   DCHECK_OK(func->AddKernel({ty, ty}, boolean(), exec));
 }
 
-template <typename Op, typename FlippedOp>
+template <typename Op>
 void AddTimestampComparisons(ScalarFunction* func) {
   ArrayKernelExec exec =
-      codegen::ScalarBinaryEqualTypes<BooleanType, TimestampType, Op, FlippedOp>::Exec;
+      codegen::ScalarBinaryEqualTypes<BooleanType, TimestampType, Op>::Exec;
   for (auto unit : {TimeUnit::SECOND, TimeUnit::MILLI, TimeUnit::MICRO, TimeUnit::NANO}) {
     InputType in_type(match::TimestampUnit(unit));
     DCHECK_OK(func->AddKernel({in_type, in_type}, boolean(), exec));
   }
 }
 
-template <typename Op, typename FlippedOp = Op>
+template <typename Op>
 void MakeCompareFunction(std::string name, FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>(name, Arity::Binary());
 
   DCHECK_OK(func->AddKernel(
       {boolean(), boolean()}, boolean(),
-      codegen::ScalarBinary<BooleanType, BooleanType, BooleanType, Op, FlippedOp>::Exec));
+      codegen::ScalarBinary<BooleanType, BooleanType, BooleanType, Op>::Exec));
 
   for (const std::shared_ptr<DataType>& ty : NumericTypes()) {
-    auto exec =
-        codegen::Numeric<codegen::ScalarBinaryEqualTypes, BooleanType, Op, FlippedOp>(
-            *ty);
+    auto exec = codegen::Numeric<codegen::ScalarBinaryEqualTypes, BooleanType, Op>(*ty);
     DCHECK_OK(func->AddKernel({ty, ty}, boolean(), exec));
   }
   for (const std::shared_ptr<DataType>& ty : BaseBinaryTypes()) {
     auto exec =
-        codegen::BaseBinary<codegen::ScalarBinaryEqualTypes, BooleanType, Op, FlippedOp>(
-            *ty);
+        codegen::BaseBinary<codegen::ScalarBinaryEqualTypes, BooleanType, Op>(*ty);
     DCHECK_OK(func->AddKernel({ty, ty}, boolean(), exec));
   }
 
   // Temporal types requires some care because cross-unit comparisons with
   // everything but DATE32 and DATE64 are not implemented yet
-  AddCompare<Date32Type, Op, FlippedOp>(date32(), func.get());
-  AddCompare<Date64Type, Op, FlippedOp>(date64(), func.get());
-  AddTimestampComparisons<Op, FlippedOp>(func.get());
+  AddCompare<Date32Type, Op>(date32(), func.get());
+  AddCompare<Date64Type, Op>(date64(), func.get());
+  AddTimestampComparisons<Op>(func.get());
 
   // TODO: Leave time32, time64, and duration for follow up work
 
@@ -120,10 +116,10 @@ void MakeCompareFunction(std::string name, FunctionRegistry* registry) {
 void RegisterScalarComparison(FunctionRegistry* registry) {
   MakeCompareFunction<Equal>("equal", registry);
   MakeCompareFunction<NotEqual>("not_equal", registry);
-  MakeCompareFunction<Less, Greater>("less", registry);
-  MakeCompareFunction<LessEqual, GreaterEqual>("less_equal", registry);
-  MakeCompareFunction<Greater, Less>("greater", registry);
-  MakeCompareFunction<GreaterEqual, LessEqual>("greater_equal", registry);
+  MakeCompareFunction<Less>("less", registry);
+  MakeCompareFunction<LessEqual>("less_equal", registry);
+  MakeCompareFunction<Greater>("greater", registry);
+  MakeCompareFunction<GreaterEqual>("greater_equal", registry);
 }
 
 }  // namespace internal

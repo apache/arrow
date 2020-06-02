@@ -610,52 +610,56 @@ struct ScalarUnaryNotNull {
 //     // implementation
 //   }
 // };
-template <typename OutType, typename Arg0Type, typename Arg1Type, typename Op,
-          typename FlippedOp = Op>
+template <typename OutType, typename Arg0Type, typename Arg1Type, typename Op>
 struct ScalarBinary {
   using OUT = typename GetOutputType<OutType>::T;
   using ARG0 = typename GetViewType<Arg0Type>::T;
   using ARG1 = typename GetViewType<Arg1Type>::T;
 
-  template <typename ChosenOp>
   static void ArrayArray(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     ArrayIterator<Arg0Type> arg0(*batch[0].array());
     ArrayIterator<Arg1Type> arg1(*batch[1].array());
     OutputAdapter<OutType>::Write(ctx, out, [&]() -> OUT {
-        return ChosenOp::template Call(ctx, arg0(), arg1());
+        return Op::template Call(ctx, arg0(), arg1());
     });
   }
 
-  template <typename ChosenOp>
   static void ArrayScalar(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     ArrayIterator<Arg0Type> arg0(*batch[0].array());
     auto arg1 = UnboxScalar<Arg1Type>::Unbox(batch[1]);
     OutputAdapter<OutType>::Write(ctx, out, [&]() -> OUT {
-        return ChosenOp::template Call(ctx, arg0(), arg1);
+        return Op::template Call(ctx, arg0(), arg1);
     });
   }
 
-  template <typename ChosenOp>
+  static void ScalarArray(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    auto arg0 = UnboxScalar<Arg0Type>::Unbox(batch[0]);
+    ArrayIterator<Arg1Type> arg1(*batch[1].array());
+    OutputAdapter<OutType>::Write(ctx, out, [&]() -> OUT {
+        return Op::template Call(ctx, arg0, arg1());
+    });
+  }
+
   static void ScalarScalar(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     auto arg0 = UnboxScalar<Arg0Type>::Unbox(batch[0]);
     auto arg1 = UnboxScalar<Arg1Type>::Unbox(batch[1]);
-    out->value = BoxScalar<OutType>::Box(ChosenOp::template Call(ctx, arg0, arg1),
+    out->value = BoxScalar<OutType>::Box(Op::template Call(ctx, arg0, arg1),
                                          out->type());
   }
 
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     if (batch[0].kind() == Datum::ARRAY) {
       if (batch[1].kind() == Datum::ARRAY) {
-        return ArrayArray<Op>(ctx, batch, out);
+        return ArrayArray(ctx, batch, out);
       } else {
-        return ArrayScalar<Op>(ctx, batch, out);
+        return ArrayScalar(ctx, batch, out);
       }
     } else {
       if (batch[1].kind() == Datum::ARRAY) {
         // e.g. if we were doing scalar < array, we flip and do array >= scalar
-        return BinaryExecFlipped(ctx, ArrayScalar<FlippedOp>, batch, out);
+        return ScalarArray(ctx, batch, out);
       } else {
-        return ScalarScalar<Op>(ctx, batch, out);
+        return ScalarScalar(ctx, batch, out);
       }
     }
   }
@@ -665,7 +669,7 @@ struct ScalarBinary {
 // same
 template <typename OutType, typename ArgType, typename Op,
           typename FlippedOp = Op>
-using ScalarBinaryEqualTypes = ScalarBinary<OutType, ArgType, ArgType, Op, FlippedOp>;
+using ScalarBinaryEqualTypes = ScalarBinary<OutType, ArgType, ArgType, Op>;
 
 // ----------------------------------------------------------------------
 // Dynamic kernel selectors. These functors allow a kernel implementation to be
