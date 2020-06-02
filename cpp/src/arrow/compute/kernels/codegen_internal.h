@@ -519,8 +519,8 @@ struct ScalarUnaryNotNullStateful {
     }
   };
 
-  template <>
-  struct ArrayExec<Decimal128Type> {
+  template <typename Type>
+  struct ArrayExec<Type, enable_if_t<std::is_same<Type, Decimal128Type>::value>> {
     static void Exec(const ThisType& functor, KernelContext* ctx, const ExecBatch& batch,
                      Datum* out) {
       ArrayData* out_arr = out->mutable_array();
