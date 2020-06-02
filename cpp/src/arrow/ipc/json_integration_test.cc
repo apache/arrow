@@ -289,7 +289,7 @@ static const char* JSON_EXAMPLE = R"example(
         {
           "name": "foo",
           "count": 4,
-          "DATA": ["1", "2", "3", "4"],
+          "DATA": ["-1", "0", "9223372036854775807", "-9223372036854775808"],
           "VALIDITY": [1, 0, 1, 1]
         },
         {
