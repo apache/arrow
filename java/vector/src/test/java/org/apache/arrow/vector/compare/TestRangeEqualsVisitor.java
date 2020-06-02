@@ -30,6 +30,7 @@ import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.LargeVarCharVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.ZeroVector;
 import org.apache.arrow.vector.compare.util.ValueEpsilonEqualizers;
@@ -210,6 +211,26 @@ public class TestRangeEqualsVisitor {
       RangeEqualsVisitor visitor = new RangeEqualsVisitor(vector1, vector2);
       assertTrue(visitor.rangeEquals(new Range(1, 1, 3)));
       assertFalse(visitor.rangeEquals(new Range(0, 0, 5)));
+    }
+  }
+
+  @Test
+  public void testLargeVariableWidthVectorRangeEquals() {
+    try (final LargeVarCharVector vector1 = new LargeVarCharVector("vector1", allocator);
+         final LargeVarCharVector vector2 = new LargeVarCharVector("vector2", allocator)) {
+      setVector(vector1, "aaa", "bbb", "ccc", null, "ddd");
+      setVector(vector2, "ccc", "aaa", "bbb", null, "ddd");
+
+      RangeEqualsVisitor visitor = new RangeEqualsVisitor(vector1, vector2,
+          (v1, v2) -> new TypeEqualsVisitor(v2, /*check name*/ false, /*check metadata*/ false).equals(v1));
+
+      assertFalse(visitor.rangeEquals(new Range(/*left start*/ 0, /*right start*/ 0, /*length*/ 1)));
+      assertTrue(visitor.rangeEquals(new Range(/*left start*/ 0, /*right start*/ 1, /*length*/ 1)));
+      assertFalse(visitor.rangeEquals(new Range(/*left start*/ 0, /*right start*/ 0, /*length*/ 3)));
+      assertTrue(visitor.rangeEquals(new Range(/*left start*/ 0, /*right start*/ 1, /*length*/ 2)));
+      assertTrue(visitor.rangeEquals(new Range(/*left start*/ 3, /*right start*/ 3, /*length*/ 1)));
+      assertTrue(visitor.rangeEquals(new Range(/*left start*/ 3, /*right start*/ 3, /*length*/ 2)));
+      assertFalse(visitor.rangeEquals(new Range(/*left start*/ 2, /*right start*/ 2, /*length*/ 2)));
     }
   }
 
