@@ -780,9 +780,13 @@ cdef class FileFragment(Fragment):
         it views a file. If instead it views a buffer, this will be None.
         """
         cdef:
-            shared_ptr[CFileSystem] fs
-        fs = self.file_fragment.source().filesystem()
-        return FileSystem.wrap(fs)
+            shared_ptr[CFileSystem] c_fs
+        c_fs = self.file_fragment.source().filesystem()
+
+        if c_fs.get() == nullptr:
+            return None
+
+        return FileSystem.wrap(c_fs)
 
     @property
     def buffer(self):
