@@ -89,12 +89,8 @@ void MakeBinaryFunction(std::string name, FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>(name, Arity::Binary());
   for (const std::shared_ptr<DataType>& input_type : NumericTypes()) {
     DCHECK_OK(
-      func->AddKernel(
-        {InputType::Array(input_type), InputType::Array(input_type)},
-        GetOutputType(input_type),
-        GetBinaryExec<Op>(*input_type)
-      )
-    );
+        func->AddKernel({InputType::Array(input_type), InputType::Array(input_type)},
+                        GetOutputType(input_type), GetBinaryExec<Op>(*input_type)));
   }
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
