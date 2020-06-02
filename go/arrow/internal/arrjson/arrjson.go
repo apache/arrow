@@ -975,11 +975,11 @@ func i64FromJSON(vs []interface{}) []int64 {
 func i64ToJSON(arr *array.Int64) []interface{} {
 	o := make([]interface{}, arr.Len())
 	for i := range o {
-    if arr.IsValid(i) {
-      o[i] = strconv.FormatInt(arr.Value(i), 10)
-    } else {
-      o[i] = "0"
-    }
+		if arr.IsValid(i) {
+			o[i] = strconv.FormatInt(arr.Value(i), 10)
+		} else {
+			o[i] = "0"
+		}
 	}
 	return o
 }
@@ -1059,11 +1059,11 @@ func u64FromJSON(vs []interface{}) []uint64 {
 func u64ToJSON(arr *array.Uint64) []interface{} {
 	o := make([]interface{}, arr.Len())
 	for i := range o {
-    if arr.IsValid(i) {
-      o[i] = strconv.FormatUint(arr.Value(i), 10)
-    } else {
-      o[i] = "0"
-    }
+		if arr.IsValid(i) {
+			o[i] = strconv.FormatUint(arr.Value(i), 10)
+		} else {
+			o[i] = "0"
+		}
 	}
 	return o
 }
@@ -1213,11 +1213,11 @@ func date64FromJSON(vs []interface{}) []arrow.Date64 {
 func date64ToJSON(arr *array.Date64) []interface{} {
 	o := make([]interface{}, arr.Len())
 	for i := range o {
-    if arr.IsValid(i) {
-      o[i] = strconv.FormatInt(int64(arr.Value(i)), 10)
-    } else {
-      o[i] = "0"
-    }
+		if arr.IsValid(i) {
+			o[i] = strconv.FormatInt(int64(arr.Value(i)), 10)
+		} else {
+			o[i] = "0"
+		}
 	}
 	return o
 }
@@ -1257,11 +1257,11 @@ func time64FromJSON(vs []interface{}) []arrow.Time64 {
 func time64ToJSON(arr *array.Time64) []interface{} {
 	o := make([]interface{}, arr.Len())
 	for i := range o {
-    if arr.IsValid(i) {
-      o[i] = strconv.FormatInt(int64(arr.Value(i)), 10)
-    } else {
-      o[i] = "0"
-    }
+		if arr.IsValid(i) {
+			o[i] = strconv.FormatInt(int64(arr.Value(i)), 10)
+		} else {
+			o[i] = "0"
+		}
 	}
 	return o
 }
@@ -1281,11 +1281,11 @@ func timestampFromJSON(vs []interface{}) []arrow.Timestamp {
 func timestampToJSON(arr *array.Timestamp) []interface{} {
 	o := make([]interface{}, arr.Len())
 	for i := range o {
-    if arr.IsValid(i) {
-      o[i] = strconv.FormatInt(int64(arr.Value(i)), 10)
-    } else {
-      o[i] = "0"
-    }
+		if arr.IsValid(i) {
+			o[i] = strconv.FormatInt(int64(arr.Value(i)), 10)
+		} else {
+			o[i] = "0"
+		}
 	}
 	return o
 }
@@ -1350,11 +1350,11 @@ func durationFromJSON(vs []interface{}) []arrow.Duration {
 func durationToJSON(arr *array.Duration) []interface{} {
 	o := make([]interface{}, arr.Len())
 	for i := range o {
-    if arr.IsValid(i) {
-      o[i] = strconv.FormatInt(int64(arr.Value(i)), 10)
-    } else {
-      o[i] = "0"
-    }
+		if arr.IsValid(i) {
+			o[i] = strconv.FormatInt(int64(arr.Value(i)), 10)
+		} else {
+			o[i] = "0"
+		}
 	}
 	return o
 }
