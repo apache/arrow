@@ -316,7 +316,12 @@ def _setup_bundled_symlinks():
         symlink_path = get_symlink_path(lib_hard_path)
         if _os.path.exists(symlink_path):
             continue
-        _os.symlink(lib_hard_path, symlink_path)
+        try:
+            _os.symlink(lib_hard_path, symlink_path)
+        except PermissionError:
+            print("Tried creating symlink {}. If you need to link to "
+                  "bundled shared libraries, run "
+                  "pyarrow._setup_bundled_symlinks() as root")
 
 
 def get_library_dirs():
