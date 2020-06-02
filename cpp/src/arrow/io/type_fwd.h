@@ -39,8 +39,14 @@ class ReadWriteFileInterface;
 
 class LatencyGenerator;
 
+class BufferReader;
+
+class BufferInputStream;
+class BufferOutputStream;
 class CompressedInputStream;
 class CompressedOutputStream;
+class BufferedInputStream;
+class BufferedOutputStream;
 
 }  // namespace io
 }  // namespace arrow

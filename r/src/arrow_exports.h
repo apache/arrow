@@ -27,13 +27,20 @@
 #include <arrow/io/type_fwd.h>
 #include <arrow/ipc/type_fwd.h>
 #include <arrow/type_fwd.h>
-#include <parquet/arrow/reader.h>
-#include <parquet/arrow/writer.h>
 
 namespace arrow {
 
-namespace compute {
+struct Type {
+  enum type {
+    // forward declaration
+  };
+};
 
+enum class StatusCode : char {
+  // forward declaration
+};
+
+namespace compute {
 class CastOptions;
 
 }  // namespace compute
@@ -57,6 +64,33 @@ class ParseOptions;
 
 }  // namespace arrow
 
+namespace ds = ::arrow::dataset;
+namespace fs = ::arrow::fs;
+
+namespace parquet {
+
+struct ParquetVersion {
+  enum type {
+    // forward declaration
+  };
+};
+
+class ReaderProperties;
+class ArrowReaderProperties;
+
+class WriterProperties;
+class WriterPropertiesBuilder;
+class ArrowWriterProperties;
+class ArrowWriterPropertiesBuilder;
+
+namespace arrow {
+
+class FileReader;
+class FileWriter;
+
+}  // namespace arrow
+}  // namespace parquet
+
 RCPP_EXPOSED_ENUM_NODECL(arrow::Type::type)
 RCPP_EXPOSED_ENUM_NODECL(arrow::DateUnit)
 RCPP_EXPOSED_ENUM_NODECL(arrow::TimeUnit::type)
@@ -66,8 +100,5 @@ RCPP_EXPOSED_ENUM_NODECL(arrow::ipc::MessageType)
 RCPP_EXPOSED_ENUM_NODECL(arrow::Compression::type)
 RCPP_EXPOSED_ENUM_NODECL(arrow::fs::FileType)
 RCPP_EXPOSED_ENUM_NODECL(parquet::ParquetVersion::type)
-
-namespace ds = ::arrow::dataset;
-namespace fs = ::arrow::fs;
 
 #endif

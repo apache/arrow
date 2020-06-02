@@ -34,6 +34,17 @@ class Result;
 
 class Status;
 
+struct Compression {
+  /// \brief Compression algorithm
+  enum type { UNCOMPRESSED, SNAPPY, GZIP, BROTLI, ZSTD, LZ4, LZ4_FRAME, LZO, BZ2 };
+
+  static const int kUseDefaultCompressionLevel;
+};
+
+namespace util {
+class Codec;
+}  // namespace util
+
 class Buffer;
 class Device;
 class MemoryManager;
@@ -79,6 +90,8 @@ class NullType;
 class NullArray;
 class NullBuilder;
 struct NullScalar;
+
+struct FixedWidthType;
 
 class BooleanType;
 class BooleanArray;
@@ -136,6 +149,7 @@ class StructBuilder;
 struct StructScalar;
 
 class Decimal128;
+class DecimalType;
 class Decimal128Type;
 class Decimal128Array;
 class Decimal128Builder;
@@ -178,6 +192,9 @@ _NUMERIC_TYPE_DECL(Double)
 
 #undef _NUMERIC_TYPE_DECL
 
+enum class DateUnit : char { DAY = 0, MILLI = 1 };
+
+class DateType;
 class Date32Type;
 using Date32Array = NumericArray<Date32Type>;
 using Date32Builder = NumericBuilder<Date32Type>;
@@ -193,6 +210,7 @@ struct TimeUnit {
   enum type { SECOND = 0, MILLI = 1, MICRO = 2, NANO = 3 };
 };
 
+class TimeType;
 class Time32Type;
 using Time32Array = NumericArray<Time32Type>;
 using Time32Builder = NumericBuilder<Time32Type>;
