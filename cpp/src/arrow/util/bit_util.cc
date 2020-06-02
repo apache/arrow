@@ -162,8 +162,53 @@ void TransferBitmap(const uint8_t* data, int64_t offset, int64_t length,
   // Shift dest by its byte offset
   dest += dest_byte_offset;
 
-  if (dest_bit_offset > 0) {
-    internal::BitmapReader valid_reader(data, offset, length);
+  if (bit_offset || dest_bit_offset) {
+    data += byte_offset;
+
+    const int64_t n_words = length / 64;
+    if (n_words > 1) {
+      auto load_word = [](const uint8_t* bytes) -> uint64_t {
+        return BitUtil::ToLittleEndian(util::SafeLoadAs<uint64_t>(bytes));
+      };
+      auto shift_word = [](uint64_t current, uint64_t next, int64_t shift) -> uint64_t {
+        if (shift == 0) return current;
+        return (current >> shift) | (next << (64 - shift));
+      };
+      auto write_word = [](uint8_t* bytes, uint64_t word) {
+        util::SafeStore(bytes, BitUtil::FromLittleEndian(word));
+      };
+
+      const uint64_t dest_mask = (1U << dest_bit_offset) - 1;
+      auto data_current = load_word(data);
+      auto dest_current = load_word(dest);
+
+      for (int64_t i = 0; i < n_words - 1; ++i) {
+        data += 8;
+        const auto data_next = load_word(data);
+        auto word = shift_word(data_current, data_next, bit_offset);
+        data_current = data_next;
+        if (invert_bits) {
+          word = ~word;
+        }
+
+        if (dest_bit_offset) {
+          word = (word << dest_bit_offset) | (word >> (64 - dest_bit_offset));
+          auto dest_next = load_word(dest + 8);
+          dest_current = (dest_current & dest_mask) | (word & ~dest_mask);
+          dest_next = (dest_next & ~dest_mask) | (word & dest_mask);
+          write_word(dest, dest_current);
+          write_word(dest + 8, dest_next);
+          dest_current = dest_next;
+        } else {
+          write_word(dest, word);
+        }
+        dest += 8;
+      }
+
+      length -= (n_words - 1) * 64;
+    }
+
+    internal::BitmapReader valid_reader(data, bit_offset, length);
     internal::BitmapWriter valid_writer(dest, dest_bit_offset, length);
 
     for (int64_t i = 0; i < length; i++) {
@@ -184,35 +229,12 @@ void TransferBitmap(const uint8_t* data, int64_t offset, int64_t length,
       trail = dest[num_bytes - 1];
     }
 
-    if (bit_offset > 0) {
-      uint8_t carry_mask = BitUtil::kPrecedingBitmask[bit_offset];
-      uint8_t carry_shift = static_cast<uint8_t>(8U - static_cast<uint8_t>(bit_offset));
-
-      uint8_t carry = 0U;
-      if (BitUtil::BytesForBits(length + bit_offset) > num_bytes) {
-        carry = static_cast<uint8_t>((data[byte_offset + num_bytes] & carry_mask)
-                                     << carry_shift);
-      }
-
-      int64_t i = num_bytes - 1;
-      while (i + 1 > 0) {
-        uint8_t cur_byte = data[byte_offset + i];
-        if (invert_bits) {
-          dest[i] = static_cast<uint8_t>(~((cur_byte >> bit_offset) | carry));
-        } else {
-          dest[i] = static_cast<uint8_t>((cur_byte >> bit_offset) | carry);
-        }
-        carry = static_cast<uint8_t>((cur_byte & carry_mask) << carry_shift);
-        --i;
+    if (invert_bits) {
+      for (int64_t i = 0; i < num_bytes; i++) {
+        dest[i] = static_cast<uint8_t>(~(data[byte_offset + i]));
       }
     } else {
-      if (invert_bits) {
-        for (int64_t i = 0; i < num_bytes; i++) {
-          dest[i] = static_cast<uint8_t>(~(data[byte_offset + i]));
-        }
-      } else {
-        std::memcpy(dest, data + byte_offset, static_cast<size_t>(num_bytes));
-      }
+      std::memcpy(dest, data + byte_offset, static_cast<size_t>(num_bytes));
     }
 
     if (restore_trailing_bits) {

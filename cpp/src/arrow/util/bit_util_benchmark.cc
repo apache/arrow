@@ -334,20 +334,19 @@ static void SetBitsTo(benchmark::State& state) {
 
 constexpr int64_t kBufferSize = 1024 * 8;
 
-template <int64_t Offset = 0>
+template <int64_t OffsetSrc, int64_t OffsetDest = 0>
 static void CopyBitmap(benchmark::State& state) {  // NOLINT non-const reference
   const int64_t buffer_size = state.range(0);
   const int64_t bits_size = buffer_size * 8;
   std::shared_ptr<Buffer> buffer = CreateRandomBuffer(buffer_size);
 
   const uint8_t* src = buffer->data();
-  const int64_t offset = Offset;
-  const int64_t length = bits_size - offset;
+  const int64_t length = bits_size - OffsetSrc;
 
   auto copy = *AllocateEmptyBitmap(length);
 
   for (auto _ : state) {
-    internal::CopyBitmap(src, offset, length, copy->mutable_data(), 0, false);
+    internal::CopyBitmap(src, OffsetSrc, length, copy->mutable_data(), OffsetDest, false);
   }
 
   state.SetBytesProcessed(state.iterations() * buffer_size);
@@ -358,10 +357,13 @@ static void CopyBitmapWithoutOffset(
   CopyBitmap<0>(state);
 }
 
-// Trigger the slow path where the buffer is not byte aligned.
+// Trigger the slow path where the source buffer is not byte aligned.
 static void CopyBitmapWithOffset(benchmark::State& state) {  // NOLINT non-const reference
   CopyBitmap<4>(state);
 }
+
+// Trigger the slow path where both source and dest buffer are not byte aligend.
+static void CopyBitmapWithOffsetBoth(benchmark::State& state) { CopyBitmap<3, 7>(state); }
 
 // Benchmark the worst case of comparing two identical bitmap
 template <int64_t Offset = 0>
@@ -417,6 +419,7 @@ BENCHMARK(GenerateBitsUnrolled)->Arg(kBufferSize);
 
 BENCHMARK(CopyBitmapWithoutOffset)->Arg(kBufferSize);
 BENCHMARK(CopyBitmapWithOffset)->Arg(kBufferSize);
+BENCHMARK(CopyBitmapWithOffsetBoth)->Arg(kBufferSize);
 
 BENCHMARK(BitmapEqualsWithoutOffset)->Arg(kBufferSize);
 BENCHMARK(BitmapEqualsWithOffset)->Arg(kBufferSize);
