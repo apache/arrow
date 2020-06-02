@@ -309,6 +309,7 @@ def _setup_bundled_symlinks():
             return hard_path.rsplit('.', 1)[0]
     else:
         bundled_libs = glob.glob(_os.path.join(package_cwd, '*.*.dylib'))
+
         def get_symlink_path(hard_path):
             return '.'.join((hard_path.split('.')[0], 'dylib'))
 
