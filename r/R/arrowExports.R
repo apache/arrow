@@ -272,50 +272,6 @@ Table__cast <- function(table, schema, options){
     .Call(`_arrow_Table__cast` , table, schema, options)
 }
 
-Array__TakeChunked <- function(values, indices){
-    .Call(`_arrow_Array__TakeChunked` , values, indices)
-}
-
-RecordBatch__Take <- function(batch, indices){
-    .Call(`_arrow_RecordBatch__Take` , batch, indices)
-}
-
-ChunkedArray__Take <- function(values, indices){
-    .Call(`_arrow_ChunkedArray__Take` , values, indices)
-}
-
-ChunkedArray__TakeChunked <- function(values, indices){
-    .Call(`_arrow_ChunkedArray__TakeChunked` , values, indices)
-}
-
-Table__Take <- function(table, indices){
-    .Call(`_arrow_Table__Take` , table, indices)
-}
-
-Table__TakeChunked <- function(table, indices){
-    .Call(`_arrow_Table__TakeChunked` , table, indices)
-}
-
-RecordBatch__Filter <- function(batch, filter, keep_na){
-    .Call(`_arrow_RecordBatch__Filter` , batch, filter, keep_na)
-}
-
-ChunkedArray__Filter <- function(values, filter, keep_na){
-    .Call(`_arrow_ChunkedArray__Filter` , values, filter, keep_na)
-}
-
-ChunkedArray__FilterChunked <- function(values, filter, keep_na){
-    .Call(`_arrow_ChunkedArray__FilterChunked` , values, filter, keep_na)
-}
-
-Table__Filter <- function(table, filter, keep_na){
-    .Call(`_arrow_Table__Filter` , table, filter, keep_na)
-}
-
-Table__FilterChunked <- function(table, filter, keep_na){
-    .Call(`_arrow_Table__FilterChunked` , table, filter, keep_na)
-}
-
 compute__CallFunction <- function(func_name, args, options){
     .Call(`_arrow_compute__CallFunction` , func_name, args, options)
 }

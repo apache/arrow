@@ -328,90 +328,17 @@ cdef class ChunkedArray(_PandasConvertible):
 
     def filter(self, mask, object null_selection_behavior="drop"):
         """
-        Filter the chunked array with a boolean mask.
-
-        Parameters
-        ----------
-        mask : Array or ChunkedArray
-            The boolean mask indicating which values to extract.
-        null_selection_behavior : str, default 'drop'
-            Configure the behavior on encountering a null slot in the mask.
-            Allowed values are 'drop' and 'emit_null'.
-
-            - 'drop': nulls will be treated as equivalent to False.
-            - 'emit_null': nulls will result in a null in the output.
-
-        Returns
-        -------
-        ChunkedArray
-
-        Examples
-        --------
-        >>> import pyarrow as pa
-        >>> arr = pa.chunked_array([["a", "b"], ["c", None, "e"]])
-        >>> mask = pa.chunked_array([[True, False], [None, False, True]])
-
-        >>> arr.filter(mask)
-        <pyarrow.lib.ChunkedArray object at 0x7f8070081ea8>
-        [
-          [
-            "a"
-          ],
-          [
-            "e"
-          ]
-        ]
+        Select values from a chunked array. See pyarrow.compute.filter for full
+        usage.
         """
-        cdef:
-            CDatum filter
-            CDatum out
-            CFilterOptions options
-
-        options = _convert_filter_option(null_selection_behavior)
-
-        mask = asarray(mask)
-        if isinstance(mask, Array):
-            filter = CDatum((<Array> mask).sp_array)
-        else:
-            filter = CDatum((<ChunkedArray> mask).sp_chunked_array)
-
-        with nogil:
-            out = GetResultValue(
-                FilterKernel(CDatum(self.sp_chunked_array),
-                             filter, options))
-
-        return wrap_datum(out)
+        return _pc().filter(self, mask, null_selection_behavior)
 
     def take(self, object indices):
         """
-        Take elements from a chunked array.
-
-        The resulting array will be of the same type as the input array, with
-        elements taken from the input array at the given indices. If an index
-        is null then the taken element will be null.
-
-        Parameters
-        ----------
-        indices : Array
-            The indices of the values to extract. Array needs to be of
-            integer type.
-
-        Returns
-        -------
-        ChunkedArray
+        Select values from a chunked array. See pyarrow.compute.take for full
+        usage.
         """
-        cdef:
-            cdef CTakeOptions options
-            cdef shared_ptr[CChunkedArray] out
-            cdef Array c_indices
-
-        c_indices = asarray(indices)
-
-        with nogil:
-            out = GetResultValue(Take(deref(self.sp_chunked_array),
-                                      deref(c_indices.sp_array), options))
-
-        return pyarrow_wrap_chunked_array(out)
+        return _pc().take(self, indices)
 
     @property
     def num_chunks(self):
@@ -457,25 +384,6 @@ cdef class ChunkedArray(_PandasConvertible):
         for i in range(self.num_chunks):
             result += self.chunk(i).to_pylist()
         return result
-
-
-# TODO: ARROW-8916, delete this once there is a Function registered for
-# filtering types other than Array, ChunkedArray
-cdef CFilterOptions _convert_filter_option(object null_selection_behavior):
-    cdef CFilterOptions options
-
-    if null_selection_behavior == 'drop':
-        options.null_selection_behavior = \
-            CFilterNullSelectionBehavior_DROP
-    elif null_selection_behavior == 'emit_null':
-        options.null_selection_behavior = \
-            CFilterNullSelectionBehavior_EMIT_NULL
-    else:
-        raise ValueError(
-            '"{}" is not a valid null_selection_behavior'.format(
-                null_selection_behavior)
-        )
-    return options
 
 
 def chunked_array(arrays, type=None):
@@ -836,36 +744,10 @@ cdef class RecordBatch(_PandasConvertible):
 
     def filter(self, Array mask, object null_selection_behavior="drop"):
         """
-        Filter the record batch with a boolean mask.
-
-        Parameters
-        ----------
-        mask : Array
-            The boolean mask indicating which rows to extract.
-        null_selection_behavior : str, default 'drop'
-            Configure the behavior on encountering a null slot in the mask.
-            Allowed values are 'drop' and 'emit_null'.
-
-            - 'drop': nulls will be treated as equivalent to False.
-            - 'emit_null': nulls will result in a null in the output.
-
-        Returns
-        -------
-        RecordBatch
+        Select record from a record batch. See pyarrow.compute.filter for full
+        usage.
         """
-        cdef:
-            CDatum out
-            CFilterOptions options
-
-        options = _convert_filter_option(null_selection_behavior)
-
-        with nogil:
-            out = GetResultValue(
-                FilterKernel(CDatum(self.sp_batch),
-                             CDatum(mask.sp_array), options)
-            )
-
-        return wrap_datum(out)
+        return _pc().filter(self, mask, null_selection_behavior)
 
     def equals(self, object other, bint check_metadata=False):
         """
@@ -897,34 +779,10 @@ cdef class RecordBatch(_PandasConvertible):
 
     def take(self, object indices):
         """
-        Take rows from a RecordBatch.
-
-        The resulting batch contains rows taken from the input batch at the
-        given indices. If an index is null then all the cells in that row
-        will be null.
-
-        Parameters
-        ----------
-        indices : Array
-            The indices of the values to extract. Array needs to be of
-            integer type.
-        Returns
-        -------
-        RecordBatch
+        Select records from an RecordBatch. See pyarrow.compute.take for full
+        usage.
         """
-        cdef:
-            CTakeOptions options
-            shared_ptr[CRecordBatch] out
-            CRecordBatch* this_batch = self.batch
-            Array c_indices
-
-        c_indices = asarray(indices)
-
-        with nogil:
-            out = GetResultValue(Take(deref(this_batch),
-                                      deref(c_indices.sp_array), options))
-
-        return pyarrow_wrap_batch(out)
+        return _pc().take(self, indices)
 
     def to_pydict(self):
         """
@@ -1255,74 +1113,16 @@ cdef class Table(_PandasConvertible):
 
     def filter(self, mask, object null_selection_behavior="drop"):
         """
-        Filter the rows of the table with a boolean mask.
-
-        Parameters
-        ----------
-        mask : Array or ChunkedArray
-            The boolean mask indicating which rows to extract.
-        null_selection_behavior : str, default 'drop'
-            Configure the behavior on encountering a null slot in the mask.
-            Allowed values are 'drop' and 'emit_null'.
-
-            - 'drop': nulls will be treated as equivalent to False.
-            - 'emit_null': nulls will result in a null in the output.
-
-        Returns
-        -------
-        Table
+        Select records from a Table. See pyarrow.compute.filter for full usage.
         """
-        cdef:
-            CDatum filter
-            CDatum out
-            CFilterOptions options
-
-        options = _convert_filter_option(null_selection_behavior)
-
-        mask = asarray(mask)
-        if isinstance(mask, Array):
-            filter = CDatum((<Array> mask).sp_array)
-        else:
-            filter = CDatum((<ChunkedArray> mask).sp_chunked_array)
-
-        with nogil:
-            out = GetResultValue(
-                FilterKernel(CDatum(self.sp_table),
-                             filter, options)
-            )
-
-        return wrap_datum(out)
+        return _pc().filter(self, mask, null_selection_behavior)
 
     def take(self, object indices):
         """
-        Take rows from a Table.
-
-        The resulting table contains rows taken from the input table at the
-        given indices. If an index is null then all the cells in that row
-        will be null.
-
-        Parameters
-        ----------
-        indices : Array
-            The indices of the values to extract. Array needs to be of
-            integer type.
-
-        Returns
-        -------
-        Table
+        Select records from an Table. See pyarrow.compute.take for full
+        usage.
         """
-        cdef:
-            CTakeOptions options
-            shared_ptr[CTable] out
-            Array c_indices
-
-        c_indices = asarray(indices)
-
-        with nogil:
-            out = GetResultValue(Take(deref(self.table),
-                                      deref(c_indices.sp_array), options))
-
-        return pyarrow_wrap_table(out)
+        return _pc().take(self, indices)
 
     def replace_schema_metadata(self, metadata=None):
         """

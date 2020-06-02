@@ -118,7 +118,8 @@ class TestTakeKernelWithNumeric : public TestTakeKernel<ArrowType> {
 
   void ValidateTake(const std::shared_ptr<Array>& values,
                     const std::shared_ptr<Array>& indices_boxed) {
-    ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> taken, Take(*values, *indices_boxed));
+    ASSERT_OK_AND_ASSIGN(Datum out, Take(values, indices_boxed));
+    auto taken = out.make_array();
     ASSERT_OK(taken->ValidateFull());
     ASSERT_EQ(indices_boxed->length(), taken->length());
 
@@ -523,7 +524,10 @@ class TestTakeKernelWithRecordBatch : public TestTakeKernel<RecordBatch> {
                   const std::shared_ptr<DataType>& index_type, const std::string& indices,
                   std::shared_ptr<RecordBatch>* out) {
     auto batch = RecordBatchFromJSON(schm, batch_json);
-    return Take(*batch, *ArrayFromJSON(index_type, indices)).Value(out);
+    ARROW_ASSIGN_OR_RAISE(Datum result,
+                          Take(Datum(batch), Datum(ArrayFromJSON(index_type, indices))));
+    *out = result.record_batch();
+    return Status::OK();
   }
 };
 
@@ -586,17 +590,20 @@ class TestTakeKernelWithChunkedArray : public TestTakeKernel<ChunkedArray> {
   Status TakeWithArray(const std::shared_ptr<DataType>& type,
                        const std::vector<std::string>& values, const std::string& indices,
                        std::shared_ptr<ChunkedArray>* out) {
-    return Take(*ChunkedArrayFromJSON(type, values), *ArrayFromJSON(int8(), indices))
-        .Value(out);
+    ARROW_ASSIGN_OR_RAISE(Datum result, Take(ChunkedArrayFromJSON(type, values),
+                                             ArrayFromJSON(int8(), indices)));
+    *out = result.chunked_array();
+    return Status::OK();
   }
 
   Status TakeWithChunkedArray(const std::shared_ptr<DataType>& type,
                               const std::vector<std::string>& values,
                               const std::vector<std::string>& indices,
                               std::shared_ptr<ChunkedArray>* out) {
-    return Take(*ChunkedArrayFromJSON(type, values),
-                *ChunkedArrayFromJSON(int8(), indices))
-        .Value(out);
+    ARROW_ASSIGN_OR_RAISE(Datum result, Take(ChunkedArrayFromJSON(type, values),
+                                             ChunkedArrayFromJSON(int8(), indices)));
+    *out = result.chunked_array();
+    return Status::OK();
   }
 };
 
@@ -642,15 +649,21 @@ class TestTakeKernelWithTable : public TestTakeKernel<Table> {
   Status TakeWithArray(const std::shared_ptr<Schema>& schm,
                        const std::vector<std::string>& values, const std::string& indices,
                        std::shared_ptr<Table>* out) {
-    return Take(*TableFromJSON(schm, values), *ArrayFromJSON(int8(), indices)).Value(out);
+    ARROW_ASSIGN_OR_RAISE(Datum result, Take(Datum(TableFromJSON(schm, values)),
+                                             Datum(ArrayFromJSON(int8(), indices))));
+    *out = result.table();
+    return Status::OK();
   }
 
   Status TakeWithChunkedArray(const std::shared_ptr<Schema>& schm,
                               const std::vector<std::string>& values,
                               const std::vector<std::string>& indices,
                               std::shared_ptr<Table>* out) {
-    return Take(*TableFromJSON(schm, values), *ChunkedArrayFromJSON(int8(), indices))
-        .Value(out);
+    ARROW_ASSIGN_OR_RAISE(Datum result,
+                          Take(Datum(TableFromJSON(schm, values)),
+                               Datum(ChunkedArrayFromJSON(int8(), indices))));
+    *out = result.table();
+    return Status::OK();
   }
 };
 

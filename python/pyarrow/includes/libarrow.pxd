@@ -1485,6 +1485,8 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         FunctionKind_VECTOR" arrow::compute::Function::VECTOR"
         FunctionKind_SCALAR_AGGREGATE \
             " arrow::compute::Function::SCALAR_AGGREGATE"
+        FunctionKind_META \
+            " arrow::compute::Function::META"
 
     cdef cppclass CFunctionOptions" arrow::compute::FunctionOptions":
         pass
@@ -1507,6 +1509,9 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
             " arrow::compute::ScalarAggregateFunction"\
             (CFunction):
         vector[const CScalarAggregateKernel*] kernels() const
+
+    cdef cppclass CMetaFunction" arrow::compute::MetaFunction"(CFunction):
+        pass
 
     cdef cppclass CFunctionRegistry" arrow::compute::FunctionRegistry":
         CResult[shared_ptr[CFunction]] GetFunction(
@@ -1570,23 +1575,6 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         shared_ptr[CRecordBatch] record_batch()
         shared_ptr[CTable] table()
         shared_ptr[CScalar] scalar()
-
-    CResult[CDatum] Take(const CDatum& values, const CDatum& indices,
-                         const CTakeOptions& options)
-
-    CResult[shared_ptr[CChunkedArray]] Take(const CChunkedArray& values,
-                                            const CArray& indices,
-                                            const CTakeOptions& options)
-    CResult[shared_ptr[CRecordBatch]] Take(const CRecordBatch& batch,
-                                           const CArray& indices,
-                                           const CTakeOptions& options)
-    CResult[shared_ptr[CTable]] Take(const CTable& table,
-                                     const CArray& indices,
-                                     const CTakeOptions& options)
-
-    # Filter clashes with gandiva.pyx::Filter
-    CResult[CDatum] FilterKernel" arrow::compute::Filter"(
-        const CDatum& values, const CDatum& filter, CFilterOptions options)
 
 
 cdef extern from "arrow/python/api.h" namespace "arrow::py":

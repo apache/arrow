@@ -128,6 +128,12 @@ struct ARROW_EXPORT Datum {
   Datum(std::shared_ptr<Table> value);         // NOLINT implicit conversion
   Datum(std::vector<Datum> value);             // NOLINT implicit conversion
 
+  // Explicit constructors from const-refs. Can be expensive, prefer the
+  // shared_ptr constructors
+  explicit Datum(const ChunkedArray& value);
+  explicit Datum(const RecordBatch& value);
+  explicit Datum(const Table& value);
+
   // Cast from subtypes of Array to Datum
   template <typename T, typename = enable_if_t<std::is_base_of<Array, T>::value>>
   Datum(const std::shared_ptr<T>& value)  // NOLINT implicit conversion

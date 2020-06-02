@@ -163,5 +163,11 @@ Result<const ScalarAggregateKernel*> ScalarAggregateFunction::DispatchExact(
   return DispatchExactImpl(*this, kernels_, values);
 }
 
+Result<Datum> MetaFunction::Execute(const std::vector<Datum>& args,
+                                    const FunctionOptions* options,
+                                    ExecContext* ctx) const {
+  return Status::NotImplemented("Metafunctions must provide their own Execute method");
+}
+
 }  // namespace compute
 }  // namespace arrow
