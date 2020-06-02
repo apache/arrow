@@ -765,7 +765,7 @@ cdef class Array(_PandasConvertible):
             The array's logical offset (in values, not in bytes) from the
             start of each buffer.
         children : List[Array], default None
-            Nested type children with length matching type.num_children.
+            Nested type children with length matching type.num_fields.
 
         Returns
         -------
@@ -780,10 +780,10 @@ cdef class Array(_PandasConvertible):
 
         children = children or []
 
-        if type.num_children != len(children):
+        if type.num_fields != len(children):
             raise ValueError("Type's expected number of children "
                              "({0}) did not match the passed number "
-                             "({1}).".format(type.num_children, len(children)))
+                             "({1}).".format(type.num_fields, len(children)))
 
         if type.num_buffers != len(buffers):
             raise ValueError("Type's expected number of buffers "
@@ -1556,8 +1556,13 @@ cdef class UnionArray(Array):
     """
 
     def child(self, int pos):
+        import warnings
+        warnings.warn("child is deprecated, use field", FutureWarning)
+        return self.field(pos)
+
+    def field(self, int pos):
         """
-        Return the given child array as an individual array.
+        Return the given child field as an individual array.
 
         For sparse unions, the returned array has its offset, length,
         and null count adjusted.

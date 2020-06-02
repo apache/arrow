@@ -112,13 +112,9 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         c_bool Equals(const CDataType& other)
 
         shared_ptr[CField] field(int i)
-
         const vector[shared_ptr[CField]] fields()
-
         int num_fields()
-
         CDataTypeLayout layout()
-
         c_string ToString()
 
     c_bool is_primitive(Type type)
@@ -573,7 +569,6 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CBuffer] value_offsets()
         int child_id(int64_t index)
         shared_ptr[CArray] field(int pos)
-        const CArray* UnsafeChild(int pos)
         UnionMode mode()
 
     cdef cppclass CBinaryArray" arrow::BinaryArray"(CArray):

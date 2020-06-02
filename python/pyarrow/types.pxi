@@ -115,7 +115,7 @@ cdef class DataType:
         self.type = type.get()
         self.pep3118_format = _datatype_to_pep3118(self.type)
 
-    cdef Field child(self, int i):
+    cdef Field field(self, int i):
         cdef int index = <int> _normalize_index(i, self.type.num_fields())
         return pyarrow_wrap_field(self.type.field(index))
 
@@ -133,6 +133,16 @@ cdef class DataType:
 
     @property
     def num_children(self):
+        """
+        The number of child fields.
+        """
+        import warnings
+        warnings.warn("num_children is deprecated, use num_fields",
+                      FutureWarning)
+        return self.num_fields
+
+    @property
+    def num_fields(self):
         """
         The number of child fields.
         """
@@ -367,12 +377,6 @@ cdef class StructType(DataType):
         DataType.init(self, type)
         self.struct_type = <const CStructType*> type.get()
 
-    cdef Field field(self, int i):
-        """
-        Return a child field by its index.
-        """
-        return self.child(i)
-
     cdef Field field_by_name(self, name):
         """
         Return a child field by its name rather than its index.
@@ -404,7 +408,7 @@ cdef class StructType(DataType):
 
     def __len__(self):
         """
-        Like num_children().
+        Like num_fields().
         """
         return self.type.num_fields()
 
@@ -461,7 +465,7 @@ cdef class UnionType(DataType):
 
     def __len__(self):
         """
-        Like num_children().
+        Like num_fields().
         """
         return self.type.num_fields()
 
@@ -474,9 +478,9 @@ cdef class UnionType(DataType):
 
     def __getitem__(self, i):
         """
-        Return a child member by its index.
+        Return a child field by its index.
         """
-        return self.child(i)
+        return self.field(i)
 
     def __reduce__(self):
         return union, (list(self), self.mode, self.type_codes)

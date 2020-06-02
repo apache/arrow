@@ -53,7 +53,7 @@ cdef class DataType:
         object __weakref__
 
     cdef void init(self, const shared_ptr[CDataType]& type) except *
-    cdef Field child(self, int i)
+    cdef Field field(self, int i)
 
 
 cdef class ListType(DataType):
@@ -80,7 +80,6 @@ cdef class StructType(DataType):
     cdef:
         const CStructType* struct_type
 
-    cdef Field field(self, int i)
     cdef Field field_by_name(self, name)
 
 
