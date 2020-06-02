@@ -122,6 +122,10 @@ tasks:
 
   ############################## Conda Linux ##################################
 
+  conda-clean:
+    ci: azure
+    template: conda-recipes/azure.clean.yml
+
   conda-linux-gcc-py36:
     ci: azure
     template: conda-recipes/azure.linux.yml
