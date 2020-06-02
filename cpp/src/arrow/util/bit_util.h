@@ -56,10 +56,10 @@
 #include <array>
 #include <bitset>
 #include <cassert>
-#include <cmath>
+#include <cmath>  // IWYU pragma: keep
 #include <cstdint>
 #include <cstring>
-#include <limits>
+#include <limits>  // IWYU pragma: keep
 #include <memory>
 #include <string>
 #include <type_traits>
@@ -67,7 +67,9 @@
 #include <vector>
 
 #include "arrow/buffer.h"
+#include "arrow/memory_pool.h"
 #include "arrow/result.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/compare.h"
 #include "arrow/util/functional.h"
 #include "arrow/util/macros.h"
@@ -77,11 +79,6 @@
 #include "arrow/util/visibility.h"
 
 namespace arrow {
-
-class MemoryPool;
-class Status;
-class BooleanArray;
-
 namespace detail {
 
 template <typename Integer>

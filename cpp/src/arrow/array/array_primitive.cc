@@ -26,8 +26,6 @@
 
 namespace arrow {
 
-class Buffer;
-
 // ----------------------------------------------------------------------
 // Primitive array base
 

@@ -29,6 +29,7 @@
 #include "arrow/array/data.h"
 #include "arrow/array/util.h"
 #include "arrow/buffer.h"
+#include "arrow/extension_type.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
@@ -38,9 +39,6 @@
 #include "arrow/visitor_inline.h"
 
 namespace arrow {
-
-class ExtensionType;
-class MemoryPool;
 
 /// offset, length pair for representing a Range of a buffer or array
 struct Range {

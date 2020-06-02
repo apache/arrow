@@ -25,19 +25,15 @@
 #include <vector>
 
 #include "arrow/compute/kernel.h"
+#include "arrow/compute/type_fwd.h"
+#include "arrow/datum.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
-
-struct Datum;
-struct ValueDescr;
-
 namespace compute {
-
-class ExecContext;
 
 /// \brief Base class for specifying options configuring a function's behavior,
 /// such as error handling.

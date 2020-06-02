@@ -37,9 +37,6 @@
 
 namespace arrow {
 
-class DictionaryArray;
-class MemoryPool;
-
 // ----------------------------------------------------------------------
 // Dictionary builder
 

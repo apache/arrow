@@ -17,22 +17,19 @@
 
 #pragma once
 
-#include <memory>
-
-#include "arrow/status.h"
-#include "arrow/type_fwd.h"
-#include "arrow/util/visibility.h"
-
 namespace arrow {
 
-/// \brief Concatenate arrays
-///
-/// \param[in] arrays a vector of arrays to be concatenated
-/// \param[in] pool memory to store the result will be allocated from this memory pool
-/// \param[out] out the resulting concatenated array
-/// \return Status
-ARROW_EXPORT
-Status Concatenate(const ArrayVector& arrays, MemoryPool* pool,
-                   std::shared_ptr<Array>* out);
+struct Datum;
 
+namespace compute {
+
+class ExecContext;
+class KernelContext;
+
+struct Kernel;
+struct ScalarKernel;
+struct ScalarAggregateKernel;
+struct VectorKernel;
+
+}  // namespace compute
 }  // namespace arrow

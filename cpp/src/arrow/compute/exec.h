@@ -27,19 +27,15 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/array/data.h"
 #include "arrow/datum.h"
+#include "arrow/memory_pool.h"
 #include "arrow/result.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
-
-class Array;
-class BooleanArray;
-struct ArrayData;
-class MemoryPool;
-
 namespace internal {
 
 class CpuInfo;

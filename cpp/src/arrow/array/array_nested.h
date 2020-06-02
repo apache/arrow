@@ -27,6 +27,7 @@
 
 #include "arrow/array/array_base.h"
 #include "arrow/array/data.h"
+#include "arrow/buffer.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
@@ -34,9 +35,6 @@
 #include "arrow/util/visibility.h"
 
 namespace arrow {
-
-class Buffer;
-class MemoryPool;
 
 // ----------------------------------------------------------------------
 // ListArray

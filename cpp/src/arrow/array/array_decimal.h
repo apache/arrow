@@ -22,12 +22,11 @@
 #include <string>
 
 #include "arrow/array/array_binary.h"
+#include "arrow/array/data.h"
 #include "arrow/type.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
-
-struct ArrayData;
 
 // ----------------------------------------------------------------------
 // Decimal128Array

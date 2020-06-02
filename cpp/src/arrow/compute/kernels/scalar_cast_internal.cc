@@ -15,13 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <memory>
-#include <utility>
-#include <vector>
-
+#include "arrow/compute/kernels/scalar_cast_internal.h"
 #include "arrow/compute/cast_internal.h"
 #include "arrow/compute/kernels/common.h"
-#include "arrow/compute/kernels/scalar_cast_internal.h"
 #include "arrow/extension_type.h"
 
 namespace arrow {

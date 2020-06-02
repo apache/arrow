@@ -35,6 +35,7 @@
 #include "arrow/buffer_builder.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/logging.h"
@@ -48,12 +49,6 @@
 #include "arrow/vendored/xxhash.h"  // IWYU pragma: keep
 
 namespace arrow {
-
-class BooleanType;
-class Buffer;
-class LargeBinaryType;
-class MemoryPool;
-
 namespace internal {
 
 // XXX would it help to have a 32-bit hash value on large datasets?

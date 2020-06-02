@@ -18,41 +18,34 @@
 #include "arrow/array/util.h"
 
 #include <algorithm>
-#include <cstddef>
+#include <array>
 #include <cstdint>
+#include <cstring>
 #include <limits>
 #include <memory>
-#include <sstream>
-#include <string>
 #include <type_traits>
 #include <utility>
 #include <vector>
 
-#include "arrow/array/concatenate.h"
-#include "arrow/array/validate.h"
+#include "arrow/array/array_base.h"
+#include "arrow/array/array_dict.h"
+#include "arrow/array/array_primitive.h"
 #include "arrow/buffer.h"
 #include "arrow/buffer_builder.h"
-#include "arrow/compare.h"
 #include "arrow/extension_type.h"
-#include "arrow/pretty_print.h"
+#include "arrow/scalar.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
-#include "arrow/util/atomic_shared_ptr.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/macros.h"
-#include "arrow/visitor.h"
 #include "arrow/visitor_inline.h"
 
 namespace arrow {
 
-using internal::BitmapAnd;
 using internal::checked_cast;
-using internal::checked_pointer_cast;
-using internal::CopyBitmap;
 
 // ----------------------------------------------------------------------
 // Loading from ArrayData

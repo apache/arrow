@@ -18,26 +18,18 @@
 #pragma once
 
 #include <cstdint>
-#include <iosfwd>
 #include <memory>
-#include <string>
-#include <type_traits>
-#include <utility>
 #include <vector>
 
 #include "arrow/array/data.h"
 #include "arrow/compare.h"
+#include "arrow/result.h"
+#include "arrow/status.h"
 #include "arrow/type.h"
-#include "arrow/type_fwd.h"
-#include "arrow/type_traits.h"
-#include "arrow/util/bit_util.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
-
-class MemoryPool;
-class Status;
 
 /// \brief Create a strongly-typed Array instance from generic ArrayData
 /// \param[in] data the array contents

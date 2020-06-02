@@ -27,18 +27,14 @@
 #include "arrow/buffer.h"
 #include "arrow/compare.h"
 #include "arrow/result.h"
+#include "arrow/status.h"
 #include "arrow/type.h"
-#include "arrow/type_fwd.h"
-#include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
+#include "arrow/visitor.h"
 
 namespace arrow {
-
-class ArrayVisitor;
-class Status;
-struct Scalar;
 
 // ----------------------------------------------------------------------
 // User array accessor types

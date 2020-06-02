@@ -21,6 +21,7 @@
 #include <memory>
 
 #include "arrow/array/data.h"
+#include "arrow/buffer.h"
 #include "arrow/buffer_builder.h"
 #include "arrow/status.h"
 #include "arrow/util/checked_cast.h"

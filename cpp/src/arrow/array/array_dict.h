@@ -21,17 +21,14 @@
 #include <memory>
 
 #include "arrow/array/array_base.h"
+#include "arrow/array/data.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/string_view.h"  // IWYU pragma: export
 #include "arrow/util/visibility.h"
 
 namespace arrow {
-
-struct ArrayData;
-class MemoryPool;
 
 // ----------------------------------------------------------------------
 // DictionaryArray

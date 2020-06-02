@@ -26,12 +26,9 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/hashing.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/string_view.h"
 #include "arrow/visitor_inline.h"
 
 namespace arrow {
-
-class MemoryPool;
 
 // ----------------------------------------------------------------------
 // DictionaryBuilder

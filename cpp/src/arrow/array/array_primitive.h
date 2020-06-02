@@ -33,8 +33,6 @@
 
 namespace arrow {
 
-class Buffer;
-
 /// Concrete Array class for numeric data.
 template <typename TYPE>
 class NumericArray : public PrimitiveArray {

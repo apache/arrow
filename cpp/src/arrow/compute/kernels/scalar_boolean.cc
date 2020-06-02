@@ -16,7 +16,6 @@
 // under the License.
 
 #include <array>
-#include <string>
 
 #include "arrow/compute/kernels/common.h"
 

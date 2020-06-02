@@ -15,15 +15,21 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <memory>
 #include <string>
 
 #include <gtest/gtest.h>
 
-#include "arrow/array.h"
+#include "arrow/array/array_base.h"
+#include "arrow/array/array_dict.h"
+#include "arrow/array/array_nested.h"
+#include "arrow/array/data.h"
 #include "arrow/extension_type.h"
+#include "arrow/result.h"
+#include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
-#include "arrow/testing/util.h"
 #include "arrow/type.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {

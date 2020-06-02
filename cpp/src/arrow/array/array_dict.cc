@@ -40,8 +40,6 @@
 
 namespace arrow {
 
-class MemoryPool;
-
 using internal::checked_cast;
 using internal::CopyBitmap;
 

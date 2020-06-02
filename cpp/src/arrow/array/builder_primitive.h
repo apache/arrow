@@ -21,9 +21,10 @@
 #include <memory>
 #include <vector>
 
-#include "arrow/array.h"
 #include "arrow/array/builder_base.h"
+#include "arrow/array/data.h"
 #include "arrow/type.h"
+#include "arrow/type_traits.h"
 
 namespace arrow {
 

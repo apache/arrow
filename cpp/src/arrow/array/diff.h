@@ -22,16 +22,15 @@
 #include <iosfwd>
 #include <memory>
 
+#include "arrow/array/array_base.h"
+#include "arrow/array/array_nested.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/type.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
-
-class Array;
-class DataType;
-class MemoryPool;
-class StructArray;
 
 /// \brief Compare two arrays, returning an edit script which expresses the difference
 /// between them
