@@ -619,6 +619,8 @@ struct ScalarBinary {
   static void ArrayArray(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     ArrayIterator<Arg0Type> arg0(*batch[0].array());
     ArrayIterator<Arg1Type> arg1(*batch[1].array());
+    // I don't get it why it is unable to deduce the OUT type of Call since it is
+    // explicitly defined as the return type of the lambda.
     OutputAdapter<OutType>::Write(ctx, out, [&]() -> OUT {
         return Op::template Call(ctx, arg0(), arg1());
     });

@@ -31,6 +31,15 @@ namespace codegen {
 
 template <typename Op>
 ArrayKernelExec GetBinaryExec(detail::GetTypeId get_id) {
+  // These execution functions doesn't support operations between multiple shapes,
+  // only op(array like, array like) is supported.
+  // Note that we don't have plans to add binary kernels with differntly types
+  // lhs and rhs arguments, that will be handled with implicit casts during the
+  // kernel dispatch procedure.
+  //
+  // There is a ScalarBinary facility in the codegen_internals.h which already
+  // handles those cases. I illustrate my plan MakeBinaryFunction2 by trying to
+  // add a single kernel to the function.
   switch (get_id.id) {
     case Type::INT8:
       return ScalarPrimitiveExecBinary<Op, Int16Type, Int8Type, Int8Type>;
@@ -95,12 +104,29 @@ void MakeBinaryFunction(std::string name, FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
+// Here is the function which doesn't compile because of type deduction error
+template <typename Op>
+void MakeBinaryFunction2(std::string name, FunctionRegistry* registry) {
+  auto func = std::make_shared<ScalarFunction>(name, Arity::Binary());
+
+  // create an exec function with signature (int8, int8) -> int16
+  ArrayKernelExec exec = codegen::ScalarBinaryEqualTypes<Int16Type, Int8Type, Op>::Exec;
+
+  // add this exec function as a kernel with the appropiate signature
+  DCHECK_OK(func->AddKernel({int8(), int8()}, int16(), exec));
+
+  // finally register the function, but the
+  DCHECK_OK(registry->AddFunction(std::move(func)));
+}
+
 }  // namespace codegen
 
 namespace internal {
 
 void RegisterScalarArithmetic(FunctionRegistry* registry) {
   codegen::MakeBinaryFunction<Add>("add", registry);
+  // Comment me out to raise my second problem
+  // codegen::MakeBinaryFunction2<Add>("add", registry);
 }
 
 }  // namespace internal
