@@ -39,6 +39,7 @@ RUN dnf update -y && \
         gmock-devel \
         google-benchmark-devel \
         grpc-devel \
+        grpc-plugins \
         gtest-devel \
         git \
         libzstd-devel \
