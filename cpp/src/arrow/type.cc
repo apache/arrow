@@ -393,7 +393,8 @@ MapType::MapType(std::shared_ptr<DataType> key_type, std::shared_ptr<Field> item
 MapType::MapType(std::shared_ptr<Field> key_field, std::shared_ptr<Field> item_field,
                  bool keys_sorted)
     : MapType(
-          ::arrow::field("entries", struct_({std::move(key_field), std::move(item_field)}), false),
+          ::arrow::field("entries",
+                         struct_({std::move(key_field), std::move(item_field)}), false),
           keys_sorted) {}
 
 MapType::MapType(std::shared_ptr<Field> value_field, bool keys_sorted)
@@ -408,11 +409,11 @@ Result<std::shared_ptr<DataType>> MapType::Make(std::shared_ptr<Field> value_fie
     return Status::TypeError("Map entry field should be non-nullable struct");
   }
   const auto& struct_type = checked_cast<const StructType&>(value_type);
-  if (struct_type.num_children() != 2) {
+  if (struct_type.num_fields() != 2) {
     return Status::TypeError("Map entry field should have two children (got ",
-                             struct_type.num_children(), ")");
+                             struct_type.num_fields(), ")");
   }
-  if (struct_type.child(0)->nullable()) {
+  if (struct_type.field(0)->nullable()) {
     return Status::TypeError("Map key field should be non-nullable");
   }
   return std::make_shared<MapType>(std::move(value_field), keys_sorted);
