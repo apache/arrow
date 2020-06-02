@@ -210,5 +210,7 @@ public abstract class AllocationManager {
      * @return The created AllocationManager used by this allocator
      */
     AllocationManager create(BaseAllocator accountingAllocator, long size);
+
+    ArrowBuf empty();
   }
 }

@@ -33,10 +33,6 @@ import org.apache.arrow.memory.util.HistoricalLog;
 import org.apache.arrow.memory.util.MemoryUtil;
 import org.apache.arrow.util.Preconditions;
 
-import io.netty.buffer.NettyArrowBuf;
-import io.netty.buffer.PooledByteBufAllocatorL;
-import io.netty.util.internal.PlatformDependent;
-
 /**
  * ArrowBuf serves as a facade over underlying memory by providing
  * several access APIs to read/write data into a chunk of direct
@@ -131,22 +127,6 @@ public final class ArrowBuf implements AutoCloseable {
   }
 
   /**
-   * Get a wrapper buffer to comply with Netty interfaces and
-   * can be used in RPC/RPC allocator code.
-   * @return netty compliant {@link NettyArrowBuf}
-   */
-  public NettyArrowBuf asNettyBuffer() {
-
-    final NettyArrowBuf nettyArrowBuf = new NettyArrowBuf(
-            this,
-            referenceManager.getAllocator().getAsByteBufAllocator(),
-            checkedCastToInt(length));
-    nettyArrowBuf.readerIndex(checkedCastToInt(readerIndex));
-    nettyArrowBuf.writerIndex(checkedCastToInt(writerIndex));
-    return nettyArrowBuf;
-  }
-
-  /**
    * Get reference manager for this ArrowBuf.
    * @return user provided implementation of {@link ReferenceManager}
    */
@@ -227,13 +207,25 @@ public final class ArrowBuf implements AutoCloseable {
     return newBuf;
   }
 
+  /**
+   * Make a nio byte buffer from this arrowbuf.
+   */
   public ByteBuffer nioBuffer() {
-    return asNettyBuffer().nioBuffer();
+    return nioBuffer(readerIndex, checkedCastToInt(readableBytes()));
   }
 
+
+  /**
+   *  Make a nio byte buffer from this ArrowBuf.
+   */
   public ByteBuffer nioBuffer(long index, int length) {
-    return length == 0 ? ByteBuffer.allocateDirect(0) :
-        PlatformDependent.directBuffer(memoryAddress() + index, length);
+    chk(index, length);
+    return getDirectBuffer(index, length);
+  }
+
+  private ByteBuffer getDirectBuffer(long index, int length) {
+    long address = addr(index);
+    return MemoryUtil.directBuffer(address, length);
   }
 
   public long memoryAddress() {
@@ -1244,10 +1236,4 @@ public final class ArrowBuf implements AutoCloseable {
     }
   }
 
-  /**
-   * Create an empty ArrowBuf with length.
-   */
-  public static ArrowBuf empty(long length) {
-    return new ArrowBuf(ReferenceManager.NO_OP, null, length, new PooledByteBufAllocatorL().empty.memoryAddress());
-  }
 }

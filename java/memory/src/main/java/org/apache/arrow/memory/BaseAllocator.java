@@ -63,7 +63,6 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
   private final Object DEBUG_LOCK = DEBUG ? new Object() : null;
   final AllocationListener listener;
   private final BaseAllocator parentAllocator;
-  private final ArrowByteBufAllocator thisAsByteBufAllocator;
   private final Map<BaseAllocator, Object> childAllocators;
   private final ArrowBuf empty;
   // members used purely for debugging
@@ -107,7 +106,6 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
     this.parentAllocator = parentAllocator;
     this.name = name;
 
-    this.thisAsByteBufAllocator = new ArrowByteBufAllocator(this);
     this.childAllocators = Collections.synchronizedMap(new IdentityHashMap<>());
 
     if (DEBUG) {
@@ -239,7 +237,7 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
   }
 
   private ArrowBuf createEmpty() {
-    return new ArrowBuf(ReferenceManager.NO_OP, null, 0, NettyAllocationManager.EMPTY.memoryAddress());
+    return allocationManagerFactory.empty();
   }
 
   @Override
@@ -249,7 +247,7 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
     Preconditions.checkArgument(initialRequestSize >= 0, "the requested size must be non-negative");
 
     if (initialRequestSize == 0) {
-      return empty;
+      return getEmpty();
     }
 
     // round the request size according to the rounding policy
@@ -311,11 +309,6 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
 
   private AllocationManager newAllocationManager(BaseAllocator accountingAllocator, long size) {
     return allocationManagerFactory.create(accountingAllocator, size);
-  }
-
-  @Override
-  public ArrowByteBufAllocator getAsByteBufAllocator() {
-    return thisAsByteBufAllocator;
   }
 
   @Override
@@ -756,7 +749,7 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
      */
     @Value.Default
     RoundingPolicy getRoundingPolicy() {
-      return DefaultRoundingPolicy.INSTANCE;
+      return DefaultRoundingPolicy.DEFAULT_ROUNDING_POLICY;
     }
   }
 

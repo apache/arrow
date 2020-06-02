@@ -17,20 +17,22 @@
 
 package org.apache.arrow.memory.util;
 
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
 import java.nio.ByteBuffer;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 
-import io.netty.buffer.ByteBuf;
-import io.netty.util.internal.ReflectionUtil;
 import sun.misc.Unsafe;
 
 /**
  * Utilities for memory related operations.
  */
 public class MemoryUtil {
+  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(MemoryUtil.class);
 
+  private static final Constructor<?> DIRECT_BUFFER_CONSTRUCTOR;
   /**
    * The unsafe object from which to access the off-heap memory.
    */
@@ -54,10 +56,7 @@ public class MemoryUtil {
         public Object run() {
           try {
             final Field unsafeField = Unsafe.class.getDeclaredField("theUnsafe");
-            Throwable cause = ReflectionUtil.trySetAccessible(unsafeField, false);
-            if (cause != null) {
-              return cause;
-            }
+            unsafeField.setAccessible(true);
             return unsafeField.get(null);
           } catch (Throwable e) {
             return e;
@@ -78,6 +77,55 @@ public class MemoryUtil {
       Field addressField = java.nio.Buffer.class.getDeclaredField("address");
       addressField.setAccessible(true);
       BYTE_BUFFER_ADDRESS_OFFSET = UNSAFE.objectFieldOffset(addressField);
+
+      Constructor<?> directBufferConstructor;
+      long address = -1;
+      final ByteBuffer direct = ByteBuffer.allocateDirect(1);
+      try {
+
+        final Object maybeDirectBufferConstructor =
+            AccessController.doPrivileged(new PrivilegedAction<Object>() {
+              @Override
+              public Object run() {
+                try {
+                  final Constructor<?> constructor =
+                      direct.getClass().getDeclaredConstructor(long.class, int.class);
+                  constructor.setAccessible(true);
+                  logger.debug("Constructor for direct buffer found and made accessible");
+                  return constructor;
+                } catch (NoSuchMethodException e) {
+                  logger.debug("Cannot get constructor for direct buffer allocation", e);
+                  return e;
+                } catch (SecurityException e) {
+                  logger.debug("Cannot get constructor for direct buffer allocation", e);
+                  return e;
+                }
+              }
+            });
+
+        if (maybeDirectBufferConstructor instanceof Constructor<?>) {
+          address = UNSAFE.allocateMemory(1);
+          // try to use the constructor now
+          try {
+            ((Constructor<?>) maybeDirectBufferConstructor).newInstance(address, 1);
+            directBufferConstructor = (Constructor<?>) maybeDirectBufferConstructor;
+            logger.debug("direct buffer constructor: available");
+          } catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
+            logger.warn("unable to instantiate a direct buffer via constructor", e);
+            directBufferConstructor = null;
+          }
+        } else {
+          logger.debug(
+              "direct buffer constructor: unavailable",
+              (Throwable) maybeDirectBufferConstructor);
+          directBufferConstructor = null;
+        }
+      } finally {
+        if (address != -1) {
+          UNSAFE.freeMemory(address);
+        }
+      }
+      DIRECT_BUFFER_CONSTRUCTOR = directBufferConstructor;
     } catch (Throwable e) {
       throw new RuntimeException("Failed to initialize MemoryUtil.", e);
     }
@@ -94,5 +142,23 @@ public class MemoryUtil {
   }
 
   private MemoryUtil() {
+  }
+
+  /**
+   * Create nio byte buffer.
+   */
+  public static ByteBuffer directBuffer(long address, int capacity) {
+    if (DIRECT_BUFFER_CONSTRUCTOR != null) {
+      if (capacity < 0) {
+        throw new IllegalArgumentException("Capacity is negative, has to be positive or 0");
+      }
+      try {
+        return (ByteBuffer) DIRECT_BUFFER_CONSTRUCTOR.newInstance(address, capacity);
+      } catch (Throwable cause) {
+        throw new Error(cause);
+      }
+    }
+    throw new UnsupportedOperationException(
+        "sun.misc.Unsafe or java.nio.DirectByteBuffer.<init>(long, int) not available");
   }
 }
