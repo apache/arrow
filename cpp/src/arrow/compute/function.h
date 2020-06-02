@@ -60,7 +60,10 @@ struct ARROW_EXPORT Arity {
   static Arity Ternary() { return Arity(3, false); }
 
   /// \brief A function taking a variable number of arguments
-  static Arity VarArgs(int min_args = 1) { return Arity(min_args, true); }
+  ///
+  /// \param[in] min_args the minimum number of arguments required when
+  /// invoking the function
+  static Arity VarArgs(int min_args = 0) { return Arity(min_args, true); }
 
   explicit Arity(int num_args, bool is_varargs = false)
       : num_args(num_args), is_varargs(is_varargs) {}

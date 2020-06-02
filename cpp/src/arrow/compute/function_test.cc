@@ -48,7 +48,7 @@ TEST(Arity, Basics) {
   ASSERT_EQ(3, ternary.num_args);
 
   auto varargs = Arity::VarArgs();
-  ASSERT_EQ(1, varargs.num_args);
+  ASSERT_EQ(0, varargs.num_args);
   ASSERT_TRUE(varargs.is_varargs);
 
   auto varargs2 = Arity::VarArgs(2);
