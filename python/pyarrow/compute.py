@@ -158,6 +158,11 @@ def take(data, indices):
     Select values (or records) from array- or table-like data given integer
     selection indices.
 
+    The result will be of the same type(s) as the input, with elements taken
+    from the input array (or record batch / table fields) at the given
+    indices. If an index is null then the corresponding value in the output
+    will be null.
+
     Parameters
     ----------
     data : Array, ChunkedArray, RecordBatch, or Table
@@ -167,5 +172,19 @@ def take(data, indices):
     Returns
     -------
     result : depends on inputs
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> arr = pa.array(["a", "b", "c", None, "e", "f"])
+    >>> indices = pa.array([0, None, 4, 3])
+    >>> arr.take(indices)
+    <pyarrow.lib.StringArray object at 0x7ffa4fc7d368>
+    [
+      "a",
+      null,
+      "e",
+      null
+    ]
     """
     return call_function('take', [data, indices])

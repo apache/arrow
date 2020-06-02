@@ -235,6 +235,9 @@ class ARROW_EXPORT ScalarAggregateFunction
 
 /// \brief A function that dispatches to other functions. Must override
 /// Function::Execute.
+///
+/// For Array, ChunkedArray, and Scalar Datum kinds, may rely on the execution
+/// of concrete Function types, but must handle other Datum kinds on its own.
 class ARROW_EXPORT MetaFunction : public Function {
  public:
   int num_kernels() const override { return 0; }

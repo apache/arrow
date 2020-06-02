@@ -20,6 +20,7 @@
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/kernels/common.h"
 #include "arrow/compute/kernels/vector_selection_internal.h"
+#include "arrow/record_batch.h"
 #include "arrow/result.h"
 
 namespace arrow {
@@ -236,7 +237,7 @@ void RegisterVectorFilter(FunctionRegistry* registry) {
   }
   DCHECK_OK(registry->AddFunction(std::move(filter)));
 
-  // Add take metafunction
+  // Add filter metafunction
   DCHECK_OK(registry->AddFunction(std::make_shared<FilterMetaFunction>()));
 }
 

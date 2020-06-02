@@ -70,6 +70,15 @@ struct ARROW_EXPORT TakeOptions : public FunctionOptions {
 
 /// \brief Take from an array of values at indices in another array
 ///
+/// The output array will be of the same type as the input values
+/// array, with elements taken from the values array at the given
+/// indices. If an index is null then the taken element will be null.
+///
+/// For example given values = ["a", "b", "c", null, "e", "f"] and
+/// indices = [2, 1, null, 3], the output will be
+/// = [values[2], values[1], null, values[3]]
+/// = ["c", "b", null, null]
+///
 /// \param[in] values datum from which to take
 /// \param[in] indices which values to take
 /// \param[in] options options
