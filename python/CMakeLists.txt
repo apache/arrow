@@ -231,7 +231,8 @@ function(bundle_arrow_lib library_path)
   if(MSVC)
     configure_file(
       ${${library_path}}
-      ${BUILD_OUTPUT_ROOT_DIRECTORY}/${LIBRARY_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX} COPYONLY)
+      ${BUILD_OUTPUT_ROOT_DIRECTORY}/${LIBRARY_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}
+      COPYONLY)
   elseif(APPLE)
     configure_file(
       ${LIBRARY_DIR}/${LIBRARY_NAME}.${ARG_SO_VERSION}${CMAKE_SHARED_LIBRARY_SUFFIX}
