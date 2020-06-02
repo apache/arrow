@@ -644,7 +644,6 @@ struct ScalarBinary {
   }
 
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-
     if (batch[0].kind() == Datum::ARRAY) {
       if (batch[1].kind() == Datum::ARRAY) {
         return ArrayArray<Op>(ctx, batch, out);
@@ -720,43 +719,6 @@ ArrayKernelExec NumericEqualTypesUnary(detail::GetTypeId get_id) {
       return ScalarPrimitiveExecUnary<Op, FloatType, FloatType>;
     case Type::DOUBLE:
       return ScalarPrimitiveExecUnary<Op, DoubleType, DoubleType>;
-    default:
-      DCHECK(false);
-      return ExecFail;
-  }
-}
-
-// Generate a kernel given a functor of type
-//
-// struct OPERATOR_NAME {
-//   template <typename OUT, typename ARG0, typename ARG1>
-//   static OUT Call(KernelContext*, ARG0 left, ARG1 right) {
-//     // IMPLEMENTATION
-//   }
-// };
-template <typename Op>
-ArrayKernelExec NumericEqualTypesBinary(detail::GetTypeId get_id) {
-  switch (get_id.id) {
-    case Type::INT8:
-      return ScalarPrimitiveExecBinary<Op, Int8Type, Int8Type, Int8Type>;
-    case Type::UINT8:
-      return ScalarPrimitiveExecBinary<Op, UInt8Type, UInt8Type, UInt8Type>;
-    case Type::INT16:
-      return ScalarPrimitiveExecBinary<Op, Int16Type, Int16Type, Int16Type>;
-    case Type::UINT16:
-      return ScalarPrimitiveExecBinary<Op, UInt16Type, UInt16Type, UInt16Type>;
-    case Type::INT32:
-      return ScalarPrimitiveExecBinary<Op, Int32Type, Int32Type, Int32Type>;
-    case Type::UINT32:
-      return ScalarPrimitiveExecBinary<Op, UInt32Type, UInt32Type, UInt32Type>;
-    case Type::INT64:
-      return ScalarPrimitiveExecBinary<Op, Int64Type, Int64Type, Int64Type>;
-    case Type::UINT64:
-      return ScalarPrimitiveExecBinary<Op, UInt64Type, UInt64Type, UInt64Type>;
-    case Type::FLOAT:
-      return ScalarPrimitiveExecBinary<Op, FloatType, FloatType, FloatType>;
-    case Type::DOUBLE:
-      return ScalarPrimitiveExecBinary<Op, DoubleType, DoubleType, DoubleType>;
     default:
       DCHECK(false);
       return ExecFail;
