@@ -1491,6 +1491,9 @@ use_threads : bool, default True
 metadata : FileMetaData
     If separately computed
 {1}
+filesystem : FileSystem, default None
+    If nothing passed, paths assumed to be found in the local on-disk
+    filesystem.
 filters : List[Tuple] or List[List[Tuple]] or None (default)
     Rows which do not match the filter predicate will be removed from scanned
     data. Partition keys embedded in a nested directory structure will be
