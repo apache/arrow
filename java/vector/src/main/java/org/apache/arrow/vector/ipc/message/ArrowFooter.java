@@ -18,10 +18,10 @@
 package org.apache.arrow.vector.ipc.message;
 
 import static org.apache.arrow.vector.ipc.message.FBSerializables.writeAllStructsToVector;
+import static org.apache.arrow.vector.ipc.message.FBSerializables.writeKeyValues;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -140,20 +140,8 @@ public class ArrowFooter implements FBSerializable {
 
     int metaDataOffset = 0;
     if (metaData != null) {
-      int[] metadataOffsets = new int[metaData.size()];
-      Iterator<Map.Entry<String, String>> metadataIterator = metaData.entrySet().iterator();
-      for (int i = 0; i < metadataOffsets.length; i++) {
-        Map.Entry<String, String> kv = metadataIterator.next();
-        int keyOffset = builder.createString(kv.getKey());
-        int valueOffset = builder.createString(kv.getValue());
-        KeyValue.startKeyValue(builder);
-        KeyValue.addKey(builder, keyOffset);
-        KeyValue.addValue(builder, valueOffset);
-        metadataOffsets[i] = KeyValue.endKeyValue(builder);
-      }
-      metaDataOffset = org.apache.arrow.flatbuf.Field.createCustomMetadataVector(builder, metadataOffsets);
+      metaDataOffset = writeKeyValues(builder, metaData);
     }
-
 
     Footer.startFooter(builder);
     Footer.addSchema(builder, schemaIndex);

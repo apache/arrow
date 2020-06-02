@@ -69,7 +69,6 @@ import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.ipc.message.IpcOption;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
-import org.apache.arrow.vector.testing.ValueVectorDataPopulator;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -759,8 +758,6 @@ public class TestArrowReaderWriter {
   public void testCustomMetaData() throws IOException {
 
     VarCharVector vector = newVarCharVector("varchar1", allocator);
-    vector.allocateNewSafe();
-    ValueVectorDataPopulator.setVector(vector, "foo", "bar", "baz");
 
     List<Field> fields = Arrays.asList(vector.getField());
     List<FieldVector> vectors = Collections2.asImmutableList(vector);
@@ -772,19 +769,12 @@ public class TestArrowReaderWriter {
         ArrowFileWriter writer = new ArrowFileWriter(root, null, newChannel(out), metadata);) {
 
       writer.start();
-      writer.writeBatch();
       writer.end();
 
       try (SeekableReadChannel channel = new SeekableReadChannel(
           new ByteArrayReadableSeekableByteChannel(out.toByteArray()));
           ArrowFileReader reader = new ArrowFileReader(channel, allocator)) {
-        Schema readSchema = reader.getVectorSchemaRoot().getSchema();
-        assertEquals(root.getSchema(), readSchema);
-        assertEquals(0, reader.getDictionaryBlocks().size());
-        assertEquals(1, reader.getRecordBlocks().size());
-
-        reader.loadNextBatch();
-        assertEquals(1, reader.getVectorSchemaRoot().getFieldVectors().size());
+        reader.getVectorSchemaRoot();
 
         Map<String, String> readMeta = reader.getMetaData();
         assertEquals(2, readMeta.size());

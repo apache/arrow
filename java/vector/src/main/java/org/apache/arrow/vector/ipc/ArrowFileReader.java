@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SeekableByteChannel;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -120,7 +121,7 @@ public class ArrowFileReader extends ArrowReader {
     if (footer != null) {
       return footer.getMetaData();
     }
-    return null;
+    return new HashMap<>();
   }
 
   /**
