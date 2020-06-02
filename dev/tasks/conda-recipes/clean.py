@@ -18,27 +18,23 @@ def packages_to_delete(package_name: str, platform: str) -> List[str]:
     env["CONDA_SUBDIR"] = platform
     pkgs_json = check_output(
         [
-            "mamba",
-            "repoquery",
+            "conda",
+            "search",
             "--json",
             "-c",
             "arrow-nightlies",
             "--override-channels",
-            "search",
             package_name,
         ],
         env=env,
     )
-    pkgs = pd.DataFrame(json.loads(pkgs_json)["result"]["pkgs"])
+    pkgs = pd.DataFrame(json.loads(pkgs_json)[package_name])
     pkgs["version"] = pkgs["version"].map(LooseVersion)
-    pkgs["py_version"] = pkgs["build_string"].str.slice(0, 4)
+    pkgs["py_version"] = pkgs["build"].str.slice(0, 4)
 
     to_delete = []
 
     for (subdir, python), group in pkgs.groupby(["subdir", "py_version"]):
-        # https://github.com/QuantStack/mamba/issues/304
-        if not subdir:
-            continue
         group = group.sort_values(by="version", ascending=False)
 
         if len(group) > VERSIONS_TO_KEEP:
