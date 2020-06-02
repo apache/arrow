@@ -52,8 +52,9 @@ function build_wheel {
 
     pip install $(pip_opts) -r python/requirements-wheel-build.txt
 
-    export PYARROW_WITH_GANDIVA=1
-    export BUILD_ARROW_GANDIVA=ON
+    export PYARROW_INSTALL_TESTS=OFF
+    export PYARROW_WITH_GANDIVA=0
+    export BUILD_ARROW_GANDIVA=OFF
 
     git submodule update --init
     export ARROW_TEST_DATA=`pwd`/testing/data
@@ -156,6 +157,5 @@ import pyarrow.fs
 import pyarrow._hdfs
 import pyarrow.dataset
 import pyarrow.flight
-import pyarrow.gandiva
 "
 }

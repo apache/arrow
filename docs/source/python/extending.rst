@@ -401,3 +401,6 @@ Compile the extension:
 .. code-block:: bash
 
     python setup.py build_ext --inplace
+
+Building Extensions against PyPI Wheels
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
