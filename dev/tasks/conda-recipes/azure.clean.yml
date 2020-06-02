@@ -13,7 +13,7 @@ jobs:
     displayName: Clone arrow
 
   - script: |
-      conda install -y -c conda-forge mamba pandas
+      conda install -y -c conda-forge pandas
     displayName: Install requirements
 
   - script: |
