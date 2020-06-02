@@ -711,7 +711,7 @@ def get_version(root, **kwargs):
     # from maintenance branches where the tags are uncreachbe from the master's
     # HEAD, so the git command above generates 0.17.0.dev300 even if arrow has
     # a never 0.17.1 patch release
-    pattern = "^(\d+)\.(\d+)\.(\d+)$"
+    pattern = r"^(\d+)\.(\d+)\.(\d+)$"
     match = re.match(pattern, str(version.tag))
     major, minor, patch = map(int, match.groups())
 
