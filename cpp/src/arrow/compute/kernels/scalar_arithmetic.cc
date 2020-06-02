@@ -125,7 +125,27 @@ namespace internal {
 
 void RegisterScalarArithmetic(FunctionRegistry* registry) {
   codegen::MakeBinaryFunction<Add>("add", registry);
-  // Comment me out to raise my second problem
+
+  // Uncommenting the line below raises the following compiler error:
+  //
+  // In file included from ../src/arrow/compute/kernels/scalar_arithmetic.cc:18:
+  // In file included from ../src/arrow/compute/kernels/common.h:31:
+  // ../src/arrow/compute/kernels/codegen_internal.h:537:16: error: no matching function for call to 'Call'
+  //         return Op::template Call(ctx, arg0(), arg1());
+  //                ^~~~~~~~~~~~~~~~~
+  // ../src/arrow/compute/kernels/codegen_internal.h:567:16: note: in instantiation of member function 'arrow::compute::codegen::ScalarBinary<arrow::Int16Type, arrow::Int8Type, arrow::Int8Type, arrow::compute::Add>::ArrayArray' requested here
+  //         return ArrayArray(ctx, batch, out);
+  //                ^
+  // ../src/arrow/compute/kernels/scalar_arithmetic.cc:113:84: note: in instantiation of member function 'arrow::compute::codegen::ScalarBinary<arrow::Int16Type, arrow::Int8Type, arrow::Int8Type, arrow::compute::Add>::Exec' requested here
+  //   ArrayKernelExec exec = codegen::ScalarBinaryEqualTypes<Int16Type, Int8Type, Op>::Exec;
+  //                                                                                    ^
+  // ../src/arrow/compute/kernels/scalar_arithmetic.cc:129:12: note: in instantiation of function template specialization 'arrow::compute::codegen::MakeBinaryFunction2<arrow::compute::Add>' requested here
+  //   codegen::MakeBinaryFunction2<Add>("add", registry);
+  //            ^
+  // ../src/arrow/compute/kernels/scalar_arithmetic.cc:25:24: note: candidate template ignored: couldn't infer template argument 'OUT'
+  //   static constexpr OUT Call(KernelContext*, ARG0 left, ARG1 right) {
+  //
+                         ^
   // codegen::MakeBinaryFunction2<Add>("add", registry);
 }
 
