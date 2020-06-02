@@ -51,12 +51,21 @@ public class ArrowRecordBatch implements ArrowMessage {
 
   private final List<ArrowBuf> buffers;
 
+  private final ArrowBodyCompression bodyCompression;
+
   private final List<ArrowBuffer> buffersLayout;
 
   private boolean closed = false;
 
-  public ArrowRecordBatch(int length, List<ArrowFieldNode> nodes, List<ArrowBuf> buffers) {
-    this(length, nodes, buffers, true);
+  public ArrowRecordBatch(
+      int length, List<ArrowFieldNode> nodes, List<ArrowBuf> buffers) {
+    this(length, nodes, buffers, ArrowBodyCompression.NO_BODY_COMPRESSION, true);
+  }
+
+  public ArrowRecordBatch(
+      int length, List<ArrowFieldNode> nodes, List<ArrowBuf> buffers,
+      ArrowBodyCompression bodyCompression) {
+    this(length, nodes, buffers, bodyCompression, true);
   }
 
   /**
@@ -65,12 +74,16 @@ public class ArrowRecordBatch implements ArrowMessage {
    * @param length  how many rows in this batch
    * @param nodes   field level info
    * @param buffers will be retained until this recordBatch is closed
+   * @param bodyCompression compression info.
    */
-  public ArrowRecordBatch(int length, List<ArrowFieldNode> nodes, List<ArrowBuf> buffers, boolean alignBuffers) {
+  public ArrowRecordBatch(
+      int length, List<ArrowFieldNode> nodes, List<ArrowBuf> buffers,
+      ArrowBodyCompression bodyCompression, boolean alignBuffers) {
     super();
     this.length = length;
     this.nodes = nodes;
     this.buffers = buffers;
+    this.bodyCompression = bodyCompression;
     List<ArrowBuffer> arrowBuffers = new ArrayList<>(buffers.size());
     long offset = 0;
     for (ArrowBuf arrowBuf : buffers) {
@@ -92,10 +105,13 @@ public class ArrowRecordBatch implements ArrowMessage {
   // this constructor is different from the public ones in that the reference manager's
   // <code>retain</code> method is not called, so the first <code>dummy</code> parameter is used
   // to distinguish this from the public constructor.
-  private ArrowRecordBatch(boolean dummy, int length, List<ArrowFieldNode> nodes, List<ArrowBuf> buffers) {
+  private ArrowRecordBatch(
+      boolean dummy, int length, List<ArrowFieldNode> nodes,
+      List<ArrowBuf> buffers, ArrowBodyCompression bodyCompression) {
     this.length = length;
     this.nodes = nodes;
     this.buffers = buffers;
+    this.bodyCompression = bodyCompression;
     this.closed = false;
     List<ArrowBuffer> arrowBuffers = new ArrayList<>();
     long offset = 0;
@@ -113,6 +129,10 @@ public class ArrowRecordBatch implements ArrowMessage {
 
   public int getLength() {
     return length;
+  }
+
+  public ArrowBodyCompression getBodyCompression() {
+    return bodyCompression;
   }
 
   /**
@@ -152,7 +172,7 @@ public class ArrowRecordBatch implements ArrowMessage {
             .writerIndex(buf.writerIndex()))
         .collect(Collectors.toList());
     close();
-    return new ArrowRecordBatch(false, length, nodes, newBufs);
+    return new ArrowRecordBatch(false, length, nodes, newBufs, bodyCompression);
   }
 
   /**

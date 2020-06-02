@@ -25,6 +25,8 @@ import java.util.List;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.util.Collections2;
+import org.apache.arrow.vector.compression.CompressionCodec;
+import org.apache.arrow.vector.compression.CompressionUtility;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -54,8 +56,10 @@ public class VectorLoader {
   public void load(ArrowRecordBatch recordBatch) {
     Iterator<ArrowBuf> buffers = recordBatch.getBuffers().iterator();
     Iterator<ArrowFieldNode> nodes = recordBatch.getNodes().iterator();
+    CompressionCodec codec =
+        CompressionUtility.createCodec(recordBatch.getBodyCompression().getCodec());
     for (FieldVector fieldVector : root.getFieldVectors()) {
-      loadBuffers(fieldVector, fieldVector.getField(), buffers, nodes);
+      loadBuffers(fieldVector, fieldVector.getField(), buffers, nodes, codec);
     }
     root.setRowCount(recordBatch.getLength());
     if (nodes.hasNext() || buffers.hasNext()) {
@@ -68,13 +72,19 @@ public class VectorLoader {
       FieldVector vector,
       Field field,
       Iterator<ArrowBuf> buffers,
-      Iterator<ArrowFieldNode> nodes) {
+      Iterator<ArrowFieldNode> nodes,
+      CompressionCodec codec) {
     checkArgument(nodes.hasNext(), "no more field nodes for for field %s and vector %s", field, vector);
     ArrowFieldNode fieldNode = nodes.next();
     int bufferLayoutCount = TypeLayout.getTypeBufferCount(field.getType());
     List<ArrowBuf> ownBuffers = new ArrayList<>(bufferLayoutCount);
     for (int j = 0; j < bufferLayoutCount; j++) {
-      ownBuffers.add(buffers.next());
+      ArrowBuf nextBuf = buffers.next();
+      if (codec != null) {
+        long estimatedBufSize = codec.estimateDecompressedSize(nextBuf);
+        nextBuf = codec.decompress(nextBuf, estimatedBufSize);
+      }
+      ownBuffers.add(nextBuf);
     }
     try {
       vector.loadFieldBuffers(fieldNode, ownBuffers);
@@ -91,7 +101,7 @@ public class VectorLoader {
       for (int i = 0; i < childrenFromFields.size(); i++) {
         Field child = children.get(i);
         FieldVector fieldVector = childrenFromFields.get(i);
-        loadBuffers(fieldVector, child, buffers, nodes);
+        loadBuffers(fieldVector, child, buffers, nodes, codec);
       }
     }
   }

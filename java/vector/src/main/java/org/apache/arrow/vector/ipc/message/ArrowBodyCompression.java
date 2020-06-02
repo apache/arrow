@@ -1,0 +1,71 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.arrow.vector.ipc.message;
+
+import org.apache.arrow.flatbuf.BodyCompression;
+import org.apache.arrow.flatbuf.BodyCompressionMethod;
+
+import com.google.flatbuffers.FlatBufferBuilder;
+
+/**
+ * Compression information about data written to a channel.
+ */
+public class ArrowBodyCompression implements FBSerializable {
+
+  /**
+   * The codec type when there is no compression.
+   */
+  public static final byte NO_COMPRESSION_TYPE = -1;
+
+  /**
+   * The {@link ArrowBodyCompression} object for cases when there is no compression.
+   */
+  public static final ArrowBodyCompression NO_BODY_COMPRESSION =
+      new ArrowBodyCompression(NO_COMPRESSION_TYPE, BodyCompressionMethod.BUFFER);
+
+  /**
+   * Length of the serialized object.
+   */
+  public static final long BODY_COMPRESSION_LENGTH = 8L;
+
+  private final byte codec;
+  private final byte method;
+
+  public ArrowBodyCompression(byte codec, byte method) {
+    this.codec = codec;
+    this.method = method;
+  }
+
+  @Override
+  public int writeTo(FlatBufferBuilder builder) {
+    return BodyCompression.createBodyCompression(builder, codec, method);
+  }
+
+  public byte getCodec() {
+    return codec;
+  }
+
+  public byte getMethod() {
+    return method;
+  }
+
+  @Override
+  public String toString() {
+    return "ArrowBodyCompression [codec=" + codec + ", method=" + method + "]";
+  }
+}

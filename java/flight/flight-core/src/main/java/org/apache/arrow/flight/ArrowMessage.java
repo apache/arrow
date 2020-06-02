@@ -35,6 +35,7 @@ import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.util.Preconditions;
+import org.apache.arrow.vector.ipc.message.ArrowBodyCompression;
 import org.apache.arrow.vector.ipc.message.ArrowDictionaryBatch;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.ipc.message.MessageMetadataResult;
@@ -120,6 +121,7 @@ class ArrowMessage implements AutoCloseable {
   private final MessageMetadataResult message;
   private final ArrowBuf appMetadata;
   private final List<ArrowBuf> bufs;
+  private final ArrowBodyCompression bodyCompression;
 
   public ArrowMessage(FlightDescriptor descriptor, Schema schema) {
     ByteBuffer serializedMessage = MessageSerializer.serializeMetadata(schema);
@@ -128,6 +130,7 @@ class ArrowMessage implements AutoCloseable {
     bufs = ImmutableList.of();
     this.descriptor = descriptor;
     this.appMetadata = null;
+    this.bodyCompression = null;
   }
 
   /**
@@ -141,6 +144,7 @@ class ArrowMessage implements AutoCloseable {
     this.bufs = ImmutableList.copyOf(batch.getBuffers());
     this.descriptor = null;
     this.appMetadata = appMetadata;
+    this.bodyCompression = batch.getBodyCompression();
   }
 
   public ArrowMessage(ArrowDictionaryBatch batch) {
@@ -152,6 +156,7 @@ class ArrowMessage implements AutoCloseable {
     this.bufs = ImmutableList.copyOf(batch.getDictionary().getBuffers());
     this.descriptor = null;
     this.appMetadata = null;
+    this.bodyCompression = batch.getDictionary().getBodyCompression();
   }
 
   /**
@@ -163,6 +168,7 @@ class ArrowMessage implements AutoCloseable {
     this.bufs = ImmutableList.of();
     this.descriptor = null;
     this.appMetadata = appMetadata;
+    this.bodyCompression = null;
   }
 
   public ArrowMessage(FlightDescriptor descriptor) {
@@ -170,6 +176,7 @@ class ArrowMessage implements AutoCloseable {
     this.bufs = ImmutableList.of();
     this.descriptor = descriptor;
     this.appMetadata = null;
+    this.bodyCompression = null;
   }
 
   private ArrowMessage(FlightDescriptor descriptor, MessageMetadataResult message, ArrowBuf appMetadata,
@@ -178,6 +185,7 @@ class ArrowMessage implements AutoCloseable {
     this.descriptor = descriptor;
     this.appMetadata = appMetadata;
     this.bufs = buf == null ? ImmutableList.of() : ImmutableList.of(buf);
+    this.bodyCompression = null;
   }
 
   public MessageMetadataResult asSchemaMessage() {
@@ -353,6 +361,14 @@ class ArrowMessage implements AutoCloseable {
         // the reference count
         b.getReferenceManager().retain();
       }
+      // add compression info
+      ArrowBuf compBuf = allocator.buffer(ArrowBodyCompression.BODY_COMPRESSION_LENGTH);
+      compBuf.setInt(0, bodyCompression.getCodec());
+      compBuf.setInt(4, bodyCompression.getMethod());
+      compBuf.writerIndex(ArrowBodyCompression.BODY_COMPRESSION_LENGTH);
+      size += ArrowBodyCompression.BODY_COMPRESSION_LENGTH;
+      allBufs.add(compBuf.asNettyBuffer());
+
       // rawvarint is used for length definition.
       cos.writeUInt32NoTag(size);
       cos.flush();
