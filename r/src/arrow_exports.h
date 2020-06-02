@@ -23,15 +23,15 @@
 
 #if defined(ARROW_R_WITH_ARROW)
 #include <arrow/dataset/type_fwd.h>
-#include <arrow/filesystem/filesystem.h>
+#include <arrow/filesystem/type_fwd.h>
 #include <arrow/io/type_fwd.h>
-#include <arrow/ipc/message.h>
 #include <arrow/ipc/type_fwd.h>
 #include <arrow/type_fwd.h>
 #include <parquet/arrow/reader.h>
 #include <parquet/arrow/writer.h>
 
 namespace arrow {
+
 namespace compute {
 
 class CastOptions;
@@ -47,12 +47,6 @@ class ParseOptions;
 
 }  // namespace csv
 
-namespace fs {
-
-class LocalFileSystem;
-
-}  // namespace fs
-
 namespace json {
 
 class TableReader;
@@ -63,16 +57,12 @@ class ParseOptions;
 
 }  // namespace arrow
 
-namespace parquet {
-namespace arrow {}
-}  // namespace parquet
-
 RCPP_EXPOSED_ENUM_NODECL(arrow::Type::type)
 RCPP_EXPOSED_ENUM_NODECL(arrow::DateUnit)
 RCPP_EXPOSED_ENUM_NODECL(arrow::TimeUnit::type)
 RCPP_EXPOSED_ENUM_NODECL(arrow::StatusCode)
 RCPP_EXPOSED_ENUM_NODECL(arrow::io::FileMode::type)
-RCPP_EXPOSED_ENUM_NODECL(arrow::ipc::Message::Type)
+RCPP_EXPOSED_ENUM_NODECL(arrow::ipc::MessageType)
 RCPP_EXPOSED_ENUM_NODECL(arrow::Compression::type)
 RCPP_EXPOSED_ENUM_NODECL(arrow::fs::FileType)
 RCPP_EXPOSED_ENUM_NODECL(parquet::ParquetVersion::type)
@@ -80,12 +70,4 @@ RCPP_EXPOSED_ENUM_NODECL(parquet::ParquetVersion::type)
 namespace ds = ::arrow::dataset;
 namespace fs = ::arrow::fs;
 
-#endif
-
-#if defined(ARROW_R_WITH_S3)
-namespace arrow {
-namespace fs {
-class S3FileSystem;
-}  // namespace fs
-}  // namespace arrow
 #endif

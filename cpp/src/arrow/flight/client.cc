@@ -673,13 +673,13 @@ class DoPutPayloadWriter : public ipc::internal::IpcPayloadWriter {
 
     if (first_payload_) {
       // First Flight message needs to encore the Flight descriptor
-      if (ipc_payload.type != ipc::Message::SCHEMA) {
+      if (ipc_payload.type != ipc::MessageType::SCHEMA) {
         return Status::Invalid("First IPC message should be schema");
       }
       // Write the descriptor to begin with
       RETURN_NOT_OK(internal::ToPayload(descriptor_, &payload.descriptor));
       first_payload_ = false;
-    } else if (ipc_payload.type == ipc::Message::RECORD_BATCH &&
+    } else if (ipc_payload.type == ipc::MessageType::RECORD_BATCH &&
                stream_writer_->app_metadata_) {
       payload.app_metadata = std::move(stream_writer_->app_metadata_);
     }

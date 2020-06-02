@@ -21,7 +21,31 @@ namespace arrow {
 
 namespace ipc {
 
-// TODO: add Message et al.
+enum class MetadataVersion : char {
+  /// 0.1.0
+  V1,
+
+  /// 0.2.0
+  V2,
+
+  /// 0.3.0 to 0.7.1
+  V3,
+
+  /// >= 0.8.0
+  V4
+};
+
+class Message;
+enum class MessageType {
+  NONE,
+  SCHEMA,
+  DICTIONARY_BATCH,
+  RECORD_BATCH,
+  TENSOR,
+  SPARSE_TENSOR
+};
+
+class MessageReader;
 
 class RecordBatchStreamReader;
 class RecordBatchStreamWriter;
@@ -29,6 +53,7 @@ class RecordBatchFileReader;
 class RecordBatchWriter;
 
 namespace feather {
+
 class Reader;
 
 }  // namespace feather

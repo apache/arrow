@@ -265,7 +265,7 @@ namespace internal {
 // Intermediate data structure with metadata header, and zero or more buffers
 // for the message body.
 struct IpcPayload {
-  Message::Type type = Message::NONE;
+  MessageType type = MessageType::NONE;
   std::shared_ptr<Buffer> metadata;
   std::vector<std::shared_ptr<Buffer>> body_buffers;
   int64_t body_length = 0;

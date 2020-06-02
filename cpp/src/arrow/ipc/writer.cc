@@ -584,13 +584,13 @@ Status WriteIpcPayload(const IpcPayload& payload, const IpcWriteOptions& options
 
 Status GetSchemaPayload(const Schema& schema, const IpcWriteOptions& options,
                         DictionaryMemo* dictionary_memo, IpcPayload* out) {
-  out->type = Message::SCHEMA;
+  out->type = MessageType::SCHEMA;
   return WriteSchemaMessage(schema, dictionary_memo, &out->metadata);
 }
 
 Status GetDictionaryPayload(int64_t id, const std::shared_ptr<Array>& dictionary,
                             const IpcWriteOptions& options, IpcPayload* out) {
-  out->type = Message::DICTIONARY_BATCH;
+  out->type = MessageType::DICTIONARY_BATCH;
   // Frame of reference is 0, see ARROW-384
   DictionarySerializer assembler(id, /*buffer_start_offset=*/0, options, out);
   return assembler.Assemble(dictionary);
@@ -598,7 +598,7 @@ Status GetDictionaryPayload(int64_t id, const std::shared_ptr<Array>& dictionary
 
 Status GetRecordBatchPayload(const RecordBatch& batch, const IpcWriteOptions& options,
                              IpcPayload* out) {
-  out->type = Message::RECORD_BATCH;
+  out->type = MessageType::RECORD_BATCH;
   RecordBatchSerializer assembler(/*buffer_start_offset=*/0, options, out);
   return assembler.Assemble(batch);
 }
@@ -1111,10 +1111,10 @@ class PayloadFileWriter : public internal::IpcPayloadWriter, protected StreamBoo
 
     // Record position and size of some message types, to list them in the footer
     switch (payload.type) {
-      case Message::DICTIONARY_BATCH:
+      case MessageType::DICTIONARY_BATCH:
         dictionaries_.push_back(block);
         break;
-      case Message::RECORD_BATCH:
+      case MessageType::RECORD_BATCH:
         record_batches_.push_back(block);
         break;
       default:

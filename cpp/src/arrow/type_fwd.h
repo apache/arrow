@@ -64,6 +64,7 @@ using ScalarVector = std::vector<std::shared_ptr<Scalar>>;
 
 class ChunkedArray;
 class RecordBatch;
+class RecordBatchReader;
 class Table;
 
 using ChunkedArrayVector = std::vector<std::shared_ptr<ChunkedArray>>;

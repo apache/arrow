@@ -3824,7 +3824,7 @@ RcppExport SEXP _arrow_ipc___Message__Verify(SEXP message_sexp){
 
 // message.cpp
 #if defined(ARROW_R_WITH_ARROW)
-arrow::ipc::Message::Type ipc___Message__type(const std::unique_ptr<arrow::ipc::Message>& message);
+arrow::ipc::MessageType ipc___Message__type(const std::unique_ptr<arrow::ipc::Message>& message);
 RcppExport SEXP _arrow_ipc___Message__type(SEXP message_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const std::unique_ptr<arrow::ipc::Message>&>::type message(message_sexp);
@@ -3901,7 +3901,7 @@ RcppExport SEXP _arrow_ipc___ReadSchema_Message(SEXP message_sexp){
 
 // message.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::unique_ptr<arrow::ipc::MessageReader> ipc___MessageReader__Open(const std::shared_ptr<arrow::io::InputStream>& stream);
+std::shared_ptr<arrow::ipc::MessageReader> ipc___MessageReader__Open(const std::shared_ptr<arrow::io::InputStream>& stream);
 RcppExport SEXP _arrow_ipc___MessageReader__Open(SEXP stream_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::InputStream>&>::type stream(stream_sexp);
@@ -3916,7 +3916,7 @@ RcppExport SEXP _arrow_ipc___MessageReader__Open(SEXP stream_sexp){
 
 // message.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::unique_ptr<arrow::ipc::Message> ipc___MessageReader__ReadNextMessage(const std::unique_ptr<arrow::ipc::MessageReader>& reader);
+std::shared_ptr<arrow::ipc::Message> ipc___MessageReader__ReadNextMessage(const std::unique_ptr<arrow::ipc::MessageReader>& reader);
 RcppExport SEXP _arrow_ipc___MessageReader__ReadNextMessage(SEXP reader_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const std::unique_ptr<arrow::ipc::MessageReader>&>::type reader(reader_sexp);
@@ -3931,7 +3931,7 @@ RcppExport SEXP _arrow_ipc___MessageReader__ReadNextMessage(SEXP reader_sexp){
 
 // message.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::unique_ptr<arrow::ipc::Message> ipc___ReadMessage(const std::shared_ptr<arrow::io::InputStream>& stream);
+std::shared_ptr<arrow::ipc::Message> ipc___ReadMessage(const std::shared_ptr<arrow::io::InputStream>& stream);
 RcppExport SEXP _arrow_ipc___ReadMessage(SEXP stream_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::InputStream>&>::type stream(stream_sexp);

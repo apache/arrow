@@ -69,7 +69,7 @@ using internal::kArrowMagicBytes;
 
 namespace {
 
-Status InvalidMessageType(Message::Type expected, Message::Type actual) {
+Status InvalidMessageType(MessageType expected, MessageType actual) {
   return Status::IOError("Expected IPC message of type ", FormatMessageType(expected),
                          " but got ", FormatMessageType(actual));
 }
@@ -493,7 +493,7 @@ Result<std::shared_ptr<RecordBatch>> ReadRecordBatch(
 Result<std::shared_ptr<RecordBatch>> ReadRecordBatch(
     const Message& message, const std::shared_ptr<Schema>& schema,
     const DictionaryMemo* dictionary_memo, const IpcReadOptions& options) {
-  CHECK_MESSAGE_TYPE(Message::RECORD_BATCH, message.type());
+  CHECK_MESSAGE_TYPE(MessageType::RECORD_BATCH, message.type());
   CHECK_HAS_BODY(message);
   ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message.body()));
   return ReadRecordBatch(*message.metadata(), schema, dictionary_memo, options,
@@ -569,7 +569,7 @@ Status UnpackSchemaMessage(const Message& message, const IpcReadOptions& options
                            std::shared_ptr<Schema>* schema,
                            std::shared_ptr<Schema>* out_schema,
                            std::vector<bool>* field_inclusion_mask) {
-  CHECK_MESSAGE_TYPE(Message::SCHEMA, message.type());
+  CHECK_MESSAGE_TYPE(MessageType::SCHEMA, message.type());
   CHECK_HAS_NO_BODY(message);
 
   return UnpackSchemaMessage(message.header(), options, dictionary_memo, schema,
@@ -630,7 +630,7 @@ Status ReadDictionary(const Buffer& metadata, DictionaryMemo* dictionary_memo,
 Status ParseDictionary(const Message& message, DictionaryMemo* dictionary_memo,
                        const IpcReadOptions& options) {
   // Only invoke this method if we already know we have a dictionary message
-  DCHECK_EQ(message.type(), Message::DICTIONARY_BATCH);
+  DCHECK_EQ(message.type(), MessageType::DICTIONARY_BATCH);
   CHECK_HAS_BODY(message);
   ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message.body()));
   return ReadDictionary(*message.metadata(), dictionary_memo, options, reader.get());
@@ -683,7 +683,7 @@ class RecordBatchStreamReaderImpl : public RecordBatchStreamReader {
       return Status::OK();
     }
 
-    if (message->type() == Message::DICTIONARY_BATCH) {
+    if (message->type() == MessageType::DICTIONARY_BATCH) {
       return UpdateDictionaries(*message, &dictionary_memo_, options_);
     } else {
       CHECK_HAS_BODY(*message);
@@ -723,7 +723,7 @@ class RecordBatchStreamReaderImpl : public RecordBatchStreamReader {
         }
       }
 
-      if (message->type() != Message::DICTIONARY_BATCH) {
+      if (message->type() != MessageType::DICTIONARY_BATCH) {
         return Status::Invalid("IPC stream did not have the expected number (",
                                dictionary_memo_.num_fields(),
                                ") of dictionaries at the start of the stream");
@@ -1049,7 +1049,7 @@ class StreamDecoder::StreamDecoderImpl : public MessageDecoderListener {
   }
 
   Status OnInitialDictionaryMessageDecoded(std::unique_ptr<Message> message) {
-    if (message->type() != Message::DICTIONARY_BATCH) {
+    if (message->type() != MessageType::DICTIONARY_BATCH) {
       return Status::Invalid("IPC stream did not have the expected number (",
                              dictionary_memo_.num_fields(),
                              ") of dictionaries at the start of the stream");
@@ -1064,7 +1064,7 @@ class StreamDecoder::StreamDecoderImpl : public MessageDecoderListener {
   }
 
   Status OnRecordBatchMessageDecoded(std::unique_ptr<Message> message) {
-    if (message->type() == Message::DICTIONARY_BATCH) {
+    if (message->type() == MessageType::DICTIONARY_BATCH) {
       return UpdateDictionaries(*message, &dictionary_memo_, options_);
     } else {
       CHECK_HAS_BODY(*message);
@@ -1112,7 +1112,7 @@ Result<std::shared_ptr<Schema>> ReadSchema(io::InputStream* stream,
   if (!message) {
     return Status::Invalid("Tried reading schema message, was null or length 0");
   }
-  CHECK_MESSAGE_TYPE(Message::SCHEMA, message->type());
+  CHECK_MESSAGE_TYPE(MessageType::SCHEMA, message->type());
   return ReadSchema(*message, dictionary_memo);
 }
 
@@ -1528,7 +1528,7 @@ Result<std::shared_ptr<SparseTensor>> ReadSparseTensor(const Message& message) {
 Result<std::shared_ptr<SparseTensor>> ReadSparseTensor(io::InputStream* file) {
   std::unique_ptr<Message> message;
   RETURN_NOT_OK(ReadContiguousPayload(file, &message));
-  CHECK_MESSAGE_TYPE(Message::SPARSE_TENSOR, message->type());
+  CHECK_MESSAGE_TYPE(MessageType::SPARSE_TENSOR, message->type());
   CHECK_HAS_BODY(*message);
   ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message->body()));
   return ReadSparseTensor(*message->metadata(), reader.get());

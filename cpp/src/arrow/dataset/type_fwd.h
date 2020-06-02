@@ -23,23 +23,15 @@
 #include <vector>
 
 #include "arrow/dataset/visibility.h"
-#include "arrow/type_fwd.h"  // IWYU pragma: export
+#include "arrow/filesystem/type_fwd.h"  // IWYU pragma: export
+#include "arrow/type_fwd.h"             // IWYU pragma: export
 
 namespace arrow {
-
 namespace compute {
 
 class ExecContext;
 
 }  // namespace compute
-
-namespace fs {
-
-class FileSystem;
-
-struct FileInfo;
-
-}  // namespace fs
 
 namespace dataset {
 

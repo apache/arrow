@@ -24,7 +24,7 @@ An object of class \code{StatusCode} (inherits from \code{arrow-enum}) of length
 
 An object of class \code{FileMode} (inherits from \code{arrow-enum}) of length 3.
 
-An object of class \code{Message::Type} (inherits from \code{arrow-enum}) of length 5.
+An object of class \code{MessageType} (inherits from \code{arrow-enum}) of length 5.
 
 An object of class \code{Compression::type} (inherits from \code{arrow-enum}) of length 9.
 
