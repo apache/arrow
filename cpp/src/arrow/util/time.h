@@ -34,7 +34,7 @@ enum DivideOrMultiply {
 };
 
 // TimestampType -> TimestampType
-static std::pair<DivideOrMultiply, int64_t> kTimestampConversionTable[4][4] = {
+static constexpr std::pair<DivideOrMultiply, int64_t> kTimestampConversionTable[4][4] = {
     // TimestampType::SECOND
     {{MULTIPLY, 1}, {MULTIPLY, 1000}, {MULTIPLY, 1000000}, {MULTIPLY, 1000000000}},
     // TimestampType::MILLI
