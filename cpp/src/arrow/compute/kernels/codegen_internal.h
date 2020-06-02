@@ -26,6 +26,7 @@
 #include "arrow/scalar.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/optional.h"
 #include "arrow/util/string_view.h"
@@ -121,6 +122,13 @@ struct UnboxScalar<Type, enable_if_base_binary<Type>> {
   }
 };
 
+template <>
+struct UnboxScalar<Decimal128Type> {
+  static Decimal128 Unbox(const Datum& datum) {
+    return datum.scalar_as<Decimal128Scalar>().value;
+  }
+};
+
 template <typename Type, typename Enable = void>
 struct GetViewType;
 
@@ -131,9 +139,13 @@ struct GetViewType<Type, enable_if_has_c_type<Type>> {
 
 template <typename Type>
 struct GetViewType<
-    Type, enable_if_t<is_base_binary_type<Type>::value || is_decimal_type<Type>::value ||
-                      is_fixed_size_binary_type<Type>::value>> {
+    Type, enable_if_t<is_base_binary_type<Type>::value || is_fixed_size_binary_type<Type>::value>> {
   using T = util::string_view;
+};
+
+template <>
+struct GetViewType<Decimal128Type> {
+  using T = Decimal128;
 };
 
 template <typename Type, typename Enable = void>
@@ -148,6 +160,11 @@ template <typename Type>
 struct GetOutputType<
     Type, enable_if_t<is_string_like_type<Type>::value>> {
   using T = std::string;
+};
+
+template <>
+struct GetOutputType<Decimal128Type> {
+  using T = Decimal128;
 };
 
 template <typename Type, typename Enable = void>
@@ -168,6 +185,15 @@ struct BoxScalar<Type, enable_if_base_binary<Type>> {
   using ScalarType = typename TypeTraits<Type>::ScalarType;
   static std::shared_ptr<Scalar> Box(T val, const std::shared_ptr<DataType>&) {
     return std::make_shared<ScalarType>(val);
+  }
+};
+
+template <>
+struct BoxScalar<Decimal128Type> {
+  using T = Decimal128;
+  using ScalarType = Decimal128Scalar;
+  static std::shared_ptr<Scalar> Box(T val, const std::shared_ptr<DataType>& type) {
+    return std::make_shared<ScalarType>(val, type);
   }
 };
 
@@ -393,6 +419,28 @@ struct ScalarUnary {
   }
 };
 
+// A VisitArrayDataInline variant that passes a Decimal128 value,
+// not util::string_view, for decimal128 arrays,
+
+template <typename T, typename VisitFunc>
+static typename std::enable_if<!std::is_same<T, Decimal128Type>::value, void>::type
+VisitArrayValuesInline(const ArrayData& arr, VisitFunc&& func) {
+  VisitArrayDataInline<T>(arr, std::forward<VisitFunc>(func));
+}
+
+template <typename T, typename VisitFunc>
+static typename std::enable_if<std::is_same<T, Decimal128Type>::value, void>::type
+VisitArrayValuesInline(const ArrayData& arr, VisitFunc&& func) {
+  VisitArrayDataInline<T>(arr, [&](util::optional<util::string_view> v) {
+    if (v.has_value()) {
+      const auto dec_value = Decimal128(reinterpret_cast<const uint8_t*>(v->data()));
+      func(dec_value);
+    } else {
+      func(util::optional<Decimal128>{});
+    }
+  });
+}
+
 // An alternative to ScalarUnary that Applies a scalar operation with state on
 // only the not-null values of a single array
 template <typename OutType, typename Arg0Type, typename Op>
@@ -404,11 +452,13 @@ struct ScalarUnaryNotNullStateful {
   Op op;
   ScalarUnaryNotNullStateful(Op op) : op(std::move(op)) {}
 
+  // NOTE: In ArrayExec<Type>, Type is really OutputType
+
   template <typename Type, typename Enable = void>
   struct ArrayExec {
     static void Exec(const ThisType& functor, KernelContext* ctx, const ExecBatch& batch,
                      Datum* out) {
-      DCHECK(false);
+      ARROW_LOG(FATAL) << "Missing ArrayExec specialization for output type " << out->type();
     }
   };
 
@@ -419,7 +469,7 @@ struct ScalarUnaryNotNullStateful {
                      Datum* out) {
       ArrayData* out_arr = out->mutable_array();
       auto out_data = out_arr->GetMutableValues<OUT>(1);
-      VisitArrayDataInline<Arg0Type>(*batch[0].array(), [&](util::optional<ARG0> v) {
+      VisitArrayValuesInline<Arg0Type>(*batch[0].array(), [&](util::optional<ARG0> v) {
           if (v.has_value()) {
             *out_data = functor.op.template Call<OUT, ARG0>(ctx, *v);
           }
@@ -429,22 +479,20 @@ struct ScalarUnaryNotNullStateful {
   };
 
   template <typename Type>
-  struct ArrayExec<Type, enable_if_string_like<Type>> {
+  struct ArrayExec<Type, enable_if_base_binary<Type>> {
     static void Exec(const ThisType& functor, KernelContext* ctx, const ExecBatch& batch,
                      Datum* out) {
       typename TypeTraits<Type>::BuilderType builder;
-      Status s = VisitArrayDataInline<Arg0Type>(
-          *batch[0].array(), [&](util::optional<ARG0> v) -> Status {
+      VisitArrayValuesInline<Arg0Type>(
+          *batch[0].array(), [&](util::optional<ARG0> v) {
           if (v.has_value()) {
-            return builder.Append(functor.op.Call(ctx, *v));
+            KERNEL_RETURN_IF_ERROR(ctx,
+                                   builder.Append(functor.op.Call(ctx, *v)));
           } else {
-            return builder.AppendNull();
+            KERNEL_RETURN_IF_ERROR(ctx, builder.AppendNull());
           }
-        });
-      if (!s.ok()) {
-        ctx->SetStatus(s);
-        return;
-      } else {
+      });
+      if (!ctx->HasError()) {
         std::shared_ptr<ArrayData> result;
         ctx->SetStatus(builder.FinishInternal(&result));
         out->value = std::move(result);
@@ -459,7 +507,7 @@ struct ScalarUnaryNotNullStateful {
       ArrayData* out_arr = out->mutable_array();
       FirstTimeBitmapWriter out_writer(out_arr->buffers[1]->mutable_data(),
                                        out_arr->offset, out_arr->length);
-      VisitArrayDataInline<Arg0Type>(*batch[0].array(), [&](util::optional<ARG0> v) {
+      VisitArrayValuesInline<Arg0Type>(*batch[0].array(), [&](util::optional<ARG0> v) {
           if (v.has_value()) {
             if (functor.op.template Call<OUT, ARG0>(ctx, *v)) {
               out_writer.Set();
@@ -468,6 +516,22 @@ struct ScalarUnaryNotNullStateful {
           out_writer.Next();
         });
       out_writer.Finish();
+    }
+  };
+
+  template <>
+  struct ArrayExec<Decimal128Type> {
+    static void Exec(const ThisType& functor, KernelContext* ctx, const ExecBatch& batch,
+                     Datum* out) {
+      ArrayData* out_arr = out->mutable_array();
+      auto out_data = out_arr->GetMutableValues<uint8_t>(1);
+      VisitArrayValuesInline<Arg0Type>(*batch[0].array(),
+                                       [&](util::optional<ARG0> v) {
+          if (v.has_value()) {
+            functor.op.template Call<OUT, ARG0>(ctx, *v).ToBytes(out_data);
+          }
+          out_data += 16;
+        });
     }
   };
 

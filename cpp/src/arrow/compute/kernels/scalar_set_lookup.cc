@@ -29,6 +29,7 @@ using internal::checked_cast;
 using internal::HashTraits;
 
 namespace compute {
+namespace {
 
 template <typename T, typename R = void>
 using enable_if_supports_set_lookup =
@@ -106,6 +107,12 @@ struct InitStateVisitor {
   enable_if_supports_set_lookup<Type, Status> Visit(const Type&) {
     return Init<Type>();
   }
+
+  // Handle Decimal128 as a physical string, not a number
+  Status Visit(const Decimal128Type& type) {
+    return Visit(checked_cast<const FixedSizeBinaryType&>(type));
+  }
+
   Status GetResult(std::unique_ptr<KernelState>* out) {
     RETURN_NOT_OK(VisitTypeInline(*options->value_set.type(), this));
     *out = std::move(result);
@@ -175,6 +182,11 @@ struct MatchVisitor {
     };
     VisitArrayDataInline<Type>(data, lookup_value);
     return Status::OK();
+  }
+
+  // Handle Decimal128 as a physical string, not a number
+  Status Visit(const Decimal128Type& type) {
+    return Visit(checked_cast<const FixedSizeBinaryType&>(type));
   }
 
   Status Execute() {
@@ -248,6 +260,11 @@ struct IsInVisitor {
     return Status::OK();
   }
 
+  // Handle Decimal128 as a physical string, not a number
+  Status Visit(const Decimal128Type& type) {
+    return Visit(checked_cast<const FixedSizeBinaryType&>(type));
+  }
+
   Status Execute() { return VisitTypeInline(*data.type, this); }
 };
 
@@ -255,8 +272,6 @@ void ExecIsIn(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   IsInVisitor dispatch(ctx, *batch[0].array(), out);
   ctx->SetStatus(dispatch.Execute());
 }
-
-namespace codegen {
 
 // Unary set lookup kernels available for the following input types
 //
@@ -289,7 +304,7 @@ void AddBasicSetLookupKernels(ScalarKernel kernel,
   }
 }
 
-}  // namespace codegen
+}  // namespace
 
 namespace internal {
 
@@ -301,7 +316,7 @@ void RegisterScalarSetLookup(FunctionRegistry* registry) {
     isin_base.exec = ExecIsIn;
     auto isin = std::make_shared<ScalarFunction>("isin", Arity::Unary());
 
-    codegen::AddBasicSetLookupKernels(isin_base, /*output_type=*/boolean(), isin.get());
+    AddBasicSetLookupKernels(isin_base, /*output_type=*/boolean(), isin.get());
 
     isin_base.signature = KernelSignature::Make({InputType::Array(null())}, boolean());
     isin_base.null_handling = NullHandling::COMPUTED_PREALLOCATE;
@@ -317,7 +332,7 @@ void RegisterScalarSetLookup(FunctionRegistry* registry) {
     match_base.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
     match_base.mem_allocation = MemAllocation::NO_PREALLOCATE;
     auto match = std::make_shared<ScalarFunction>("match", Arity::Unary());
-    codegen::AddBasicSetLookupKernels(match_base, /*output_type=*/int32(), match.get());
+    AddBasicSetLookupKernels(match_base, /*output_type=*/int32(), match.get());
 
     match_base.signature = KernelSignature::Make({InputType::Array(null())}, int32());
     DCHECK_OK(match->AddKernel(match_base));
