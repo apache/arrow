@@ -17,6 +17,8 @@
 
 package org.apache.arrow.memory;
 
+import java.lang.reflect.Field;
+
 /**
  * A class for choosing the default allocation manager.
  */
@@ -85,14 +87,32 @@ public class DefaultAllocationManagerOption {
 
     switch (type) {
       case Netty:
-        return NettyAllocationManager.FACTORY;
+        return getNettyFactory();
       case Unsafe:
-        return UnsafeAllocationManager.FACTORY;
+        return getUnsafeFactory();
       case Unknown:
         LOGGER.info("allocation manager type not specified, using netty as the default type");
-        return NettyAllocationManager.FACTORY;
+        return getFactory(CheckAllocator.check());
       default:
         throw new IllegalStateException("Unknown allocation manager type: " + type);
     }
+  }
+
+  private static AllocationManager.Factory getFactory(String clazzName) {
+    try {
+      Field field = Class.forName(clazzName).getDeclaredField("FACTORY");
+      field.setAccessible(true);
+      return (AllocationManager.Factory) field.get(null);
+    } catch (Exception e) {
+      throw new RuntimeException("Unable to instantiate Allocation Manager for " + clazzName, e);
+    }
+  }
+
+  private static AllocationManager.Factory getUnsafeFactory() {
+    return getFactory("org.apache.arrow.memory.UnsafeAllocationManager");
+  }
+
+  private static AllocationManager.Factory getNettyFactory() {
+    return getFactory("org.apache.arrow.memory.NettyAllocationManager");
   }
 }

@@ -17,38 +17,19 @@
 
 package org.apache.arrow.memory;
 
-import org.apache.arrow.memory.util.MemoryUtil;
-
 /**
- * Allocation manager based on unsafe API.
+ * The default Allocation Manager Factory for a module.
+ *
+ * This will be split out to the arrow-memory-netty/arrow-memory-unsafe modules
+ * as part of ARROW-8230. This is currently a placeholder which defaults to Netty.
+ *
  */
-public final class UnsafeAllocationManager extends AllocationManager {
+public class DefaultAllocationManagerFactory implements AllocationManager.Factory {
 
-  public static final AllocationManager.Factory FACTORY = UnsafeAllocationManager::new;
-
-  private final long allocatedSize;
-
-  private final long allocatedAddress;
-
-  UnsafeAllocationManager(BaseAllocator accountingAllocator, long requestedSize) {
-    super(accountingAllocator);
-    allocatedAddress = MemoryUtil.UNSAFE.allocateMemory(requestedSize);
-    allocatedSize = requestedSize;
-  }
+  public static final AllocationManager.Factory FACTORY = new DefaultAllocationManagerFactory();
 
   @Override
-  public long getSize() {
-    return allocatedSize;
+  public AllocationManager create(BaseAllocator accountingAllocator, long size) {
+    return new NettyAllocationManager(accountingAllocator, size);
   }
-
-  @Override
-  protected long memoryAddress() {
-    return allocatedAddress;
-  }
-
-  @Override
-  protected void release0() {
-    MemoryUtil.UNSAFE.freeMemory(allocatedAddress);
-  }
-
 }
