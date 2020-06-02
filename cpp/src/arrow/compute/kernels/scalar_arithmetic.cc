@@ -145,7 +145,7 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   // ../src/arrow/compute/kernels/scalar_arithmetic.cc:25:24: note: candidate template ignored: couldn't infer template argument 'OUT'
   //   static constexpr OUT Call(KernelContext*, ARG0 left, ARG1 right) {
   //
-                         ^
+
   // codegen::MakeBinaryFunction2<Add>("add", registry);
 }
 
