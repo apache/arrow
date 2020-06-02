@@ -24,13 +24,15 @@
 #include <utility>
 #include <vector>
 
-#include "arrow/array.h"
+#include "arrow/array/array_base.h"
+#include "arrow/array/array_primitive.h"
+#include "arrow/array/data.h"
+#include "arrow/array/util.h"
 #include "arrow/buffer.h"
 #include "arrow/compute/exec_internal.h"
 #include "arrow/compute/function.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/compute/registry.h"
-#include "arrow/compute/util_internal.h"
 #include "arrow/datum.h"
 #include "arrow/scalar.h"
 #include "arrow/status.h"
@@ -48,8 +50,6 @@ using internal::BitmapAnd;
 using internal::checked_cast;
 using internal::CopyBitmap;
 using internal::CpuInfo;
-
-class MemoryPool;
 
 namespace compute {
 

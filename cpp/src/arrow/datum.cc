@@ -17,10 +17,17 @@
 
 #include "arrow/datum.h"
 
+#include <cstddef>
 #include <memory>
 #include <sstream>
 #include <vector>
 
+#include "arrow/array/array_base.h"
+#include "arrow/array/util.h"
+#include "arrow/record_batch.h"
+#include "arrow/scalar.h"
+#include "arrow/table.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/memory.h"
 
 namespace arrow {
@@ -38,6 +45,16 @@ static bool CollectionEquals(const std::vector<Datum>& left,
   }
   return true;
 }
+
+Datum::Datum(const Array& value) : Datum(value.data()) {}
+
+Datum::Datum(const std::shared_ptr<Array>& value)
+    : Datum(value ? value->data() : NULLPTR) {}
+
+Datum::Datum(std::shared_ptr<ChunkedArray> value) : value(std::move(value)) {}
+Datum::Datum(std::shared_ptr<RecordBatch> value) : value(std::move(value)) {}
+Datum::Datum(std::shared_ptr<Table> value) : value(std::move(value)) {}
+Datum::Datum(std::vector<Datum> value) : value(std::move(value)) {}
 
 Datum::Datum(bool value) : value(std::make_shared<BooleanScalar>(value)) {}
 Datum::Datum(int8_t value) : value(std::make_shared<Int8Scalar>(value)) {}

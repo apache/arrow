@@ -322,8 +322,10 @@ class ArrayLoader {
     // Look up dictionary
     int64_t id = -1;
     RETURN_NOT_OK(dictionary_memo_->GetId(field_, &id));
-    RETURN_NOT_OK(dictionary_memo_->GetDictionary(id, &out_->dictionary));
 
+    std::shared_ptr<Array> boxed_dict;
+    RETURN_NOT_OK(dictionary_memo_->GetDictionary(id, &boxed_dict));
+    out_->dictionary = boxed_dict->data();
     return Status::OK();
   }
 

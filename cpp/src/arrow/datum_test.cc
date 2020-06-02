@@ -20,8 +20,10 @@
 
 #include <gtest/gtest.h>
 
+#include "arrow/array/array_base.h"
 #include "arrow/datum.h"
 #include "arrow/scalar.h"
+#include "arrow/table.h"
 #include "arrow/testing/gtest_common.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type_fwd.h"
@@ -29,9 +31,8 @@
 
 namespace arrow {
 
-class ChunkedArray;
+class BinaryArray;
 class RecordBatch;
-class Table;
 
 using internal::checked_cast;
 

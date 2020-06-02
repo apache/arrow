@@ -26,6 +26,7 @@
 #include <vector>
 
 #include "arrow/array.h"
+#include "arrow/array/builder_dict.h"
 #include "arrow/stl_allocator.h"
 #include "arrow/util/bit_stream_utils.h"
 #include "arrow/util/byte_stream_split.h"

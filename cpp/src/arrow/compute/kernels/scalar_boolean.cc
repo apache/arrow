@@ -15,8 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <array>
+
 #include "arrow/compute/kernels/common.h"
-#include "arrow/util/bit_util.h"
 
 namespace arrow {
 namespace compute {

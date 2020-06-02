@@ -18,13 +18,22 @@
 #pragma once
 
 #include <algorithm>
+#include <cstdint>
 #include <memory>
+#include <type_traits>
 
+#include "arrow/array/array_base.h"
+#include "arrow/array/array_binary.h"
 #include "arrow/array/builder_adaptive.h"   // IWYU pragma: export
 #include "arrow/array/builder_base.h"       // IWYU pragma: export
 #include "arrow/array/builder_primitive.h"  // IWYU pragma: export
-
-#include "arrow/array.h"
+#include "arrow/array/data.h"
+#include "arrow/array/util.h"
+#include "arrow/status.h"
+#include "arrow/type.h"
+#include "arrow/type_traits.h"
+#include "arrow/util/macros.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow {
 
@@ -267,8 +276,10 @@ class DictionaryBuilderBase : public ArrayBuilder {
   Status FinishDelta(std::shared_ptr<Array>* out_indices,
                      std::shared_ptr<Array>* out_delta) {
     std::shared_ptr<ArrayData> indices_data;
-    ARROW_RETURN_NOT_OK(FinishWithDictOffset(delta_offset_, &indices_data, out_delta));
+    std::shared_ptr<ArrayData> delta_data;
+    ARROW_RETURN_NOT_OK(FinishWithDictOffset(delta_offset_, &indices_data, &delta_data));
     *out_indices = MakeArray(indices_data);
+    *out_delta = MakeArray(delta_data);
     return Status::OK();
   }
 
@@ -284,7 +295,7 @@ class DictionaryBuilderBase : public ArrayBuilder {
 
  protected:
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override {
-    std::shared_ptr<Array> dictionary;
+    std::shared_ptr<ArrayData> dictionary;
     ARROW_RETURN_NOT_OK(FinishWithDictOffset(/*offset=*/0, out, &dictionary));
 
     // Set type of array data to the right dictionary type
@@ -295,15 +306,12 @@ class DictionaryBuilderBase : public ArrayBuilder {
 
   Status FinishWithDictOffset(int64_t dict_offset,
                               std::shared_ptr<ArrayData>* out_indices,
-                              std::shared_ptr<Array>* out_dictionary) {
+                              std::shared_ptr<ArrayData>* out_dictionary) {
     // Finalize indices array
     ARROW_RETURN_NOT_OK(indices_builder_.FinishInternal(out_indices));
 
     // Generate dictionary array from hash table contents
-    std::shared_ptr<ArrayData> dictionary_data;
-    ARROW_RETURN_NOT_OK(memo_table_->GetArrayData(dict_offset, &dictionary_data));
-
-    *out_dictionary = MakeArray(dictionary_data);
+    ARROW_RETURN_NOT_OK(memo_table_->GetArrayData(dict_offset, out_dictionary));
     delta_offset_ = memo_table_->size();
 
     // Update internals for further uses of this DictionaryBuilder
@@ -373,8 +381,7 @@ class DictionaryBuilderBase<BuilderType, NullType> : public ArrayBuilder {
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override {
     ARROW_RETURN_NOT_OK(indices_builder_.FinishInternal(out));
     (*out)->type = dictionary((*out)->type, null());
-    (*out)->dictionary.reset(new NullArray(0));
-
+    (*out)->dictionary = NullArray(0).data();
     return Status::OK();
   }
 

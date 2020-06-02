@@ -15,8 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/util/time.h"
+#include <memory>
+
+#include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/time.h"
 
 namespace arrow {
 

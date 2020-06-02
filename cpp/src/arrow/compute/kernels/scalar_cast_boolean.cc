@@ -17,7 +17,6 @@
 
 // Cast types to boolean
 
-#include "arrow/compute/cast_internal.h"
 #include "arrow/compute/kernels/common.h"
 #include "arrow/compute/kernels/scalar_cast_internal.h"
 #include "arrow/util/value_parsing.h"

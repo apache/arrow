@@ -17,6 +17,8 @@
 
 #pragma once
 
+// IWYU pragma: begin_exports
+
 #include <memory>
 #include <vector>
 
@@ -32,6 +34,8 @@
 #include "arrow/type.h"
 
 #include "arrow/compute/kernel.h"
+
+// IWYU pragma: end_exports
 
 namespace arrow {
 namespace compute {

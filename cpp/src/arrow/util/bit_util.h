@@ -21,9 +21,9 @@
 #define ARROW_LITTLE_ENDIAN 1
 #else
 #if defined(__APPLE__) || defined(__FreeBSD__)
-#include <machine/endian.h>
+#include <machine/endian.h>  // IWYU pragma: keep
 #else
-#include <endian.h>
+#include <endian.h>  // IWYU pragma: keep
 #endif
 #
 #ifndef __BYTE_ORDER__
@@ -42,7 +42,7 @@
 #endif
 
 #if defined(_MSC_VER)
-#include <intrin.h>
+#include <intrin.h>  // IWYU pragma: keep
 #pragma intrinsic(_BitScanReverse)
 #pragma intrinsic(_BitScanForward)
 #define ARROW_BYTE_SWAP64 _byteswap_uint64
@@ -56,10 +56,10 @@
 #include <array>
 #include <bitset>
 #include <cassert>
-#include <cmath>
+#include <cmath>  // IWYU pragma: keep
 #include <cstdint>
 #include <cstring>
-#include <limits>
+#include <limits>  // IWYU pragma: keep
 #include <memory>
 #include <string>
 #include <type_traits>
@@ -67,7 +67,9 @@
 #include <vector>
 
 #include "arrow/buffer.h"
+#include "arrow/memory_pool.h"
 #include "arrow/result.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/compare.h"
 #include "arrow/util/functional.h"
 #include "arrow/util/macros.h"
@@ -77,11 +79,6 @@
 #include "arrow/util/visibility.h"
 
 namespace arrow {
-
-class MemoryPool;
-class Status;
-class BooleanArray;
-
 namespace detail {
 
 template <typename Integer>

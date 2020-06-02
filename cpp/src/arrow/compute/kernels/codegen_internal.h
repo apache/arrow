@@ -19,15 +19,24 @@
 
 #include <cstdint>
 #include <memory>
+#include <string>
+#include <utility>
 #include <vector>
 
-#include "arrow/array.h"
+#include "arrow/array/data.h"
+#include "arrow/buffer.h"
+#include "arrow/compute/exec.h"
 #include "arrow/compute/kernel.h"
+#include "arrow/datum.h"
+#include "arrow/result.h"
 #include "arrow/scalar.h"
+#include "arrow/status.h"
+#include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/optional.h"
+#include "arrow/util/macros.h"
 #include "arrow/util/string_view.h"
 #include "arrow/visitor_inline.h"
 

@@ -15,15 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <algorithm>
-#include <limits>
-
-#include "arrow/array/concatenate.h"
-#include "arrow/builder.h"
+#include "arrow/array/array_base.h"
+#include "arrow/array/array_primitive.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/kernels/common.h"
 #include "arrow/compute/kernels/vector_selection_internal.h"
-#include "arrow/record_batch.h"
 #include "arrow/result.h"
 
 namespace arrow {

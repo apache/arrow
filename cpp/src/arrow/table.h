@@ -23,9 +23,12 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/array/array_base.h"
+#include "arrow/memory_pool.h"
 #include "arrow/record_batch.h"
+#include "arrow/result.h"
+#include "arrow/status.h"
 #include "arrow/type.h"
-#include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 

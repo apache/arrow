@@ -20,6 +20,7 @@
 
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -27,8 +28,10 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/buffer.h"
 #include "arrow/compute/exec.h"
 #include "arrow/datum.h"
+#include "arrow/memory_pool.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
@@ -36,10 +39,6 @@
 #include "arrow/util/visibility.h"
 
 namespace arrow {
-
-class Buffer;
-class MemoryPool;
-
 namespace compute {
 
 struct FunctionOptions;

@@ -17,14 +17,12 @@
 
 #include "arrow/compute/kernels/codegen_internal.h"
 
-#include <algorithm>
-#include <cstdint>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <vector>
 
 #include "arrow/type_fwd.h"
-#include "arrow/util/logging.h"
 
 namespace arrow {
 namespace compute {

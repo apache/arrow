@@ -17,9 +17,6 @@
 
 // Implementation of casting to integer or floating point types
 
-#include <utility>
-#include <vector>
-
 #include "arrow/compute/kernels/common.h"
 #include "arrow/compute/kernels/scalar_cast_internal.h"
 #include "arrow/util/formatting.h"

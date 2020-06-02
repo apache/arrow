@@ -25,8 +25,10 @@
 #include <vector>
 
 #include "arrow/compute/cast_internal.h"
+#include "arrow/compute/exec.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/compute/registry.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 namespace compute {

@@ -22,6 +22,7 @@
 #include "arrow/compute/function.h"
 #include "arrow/datum.h"
 #include "arrow/result.h"
+#include "arrow/type_fwd.h"
 
 namespace arrow {
 namespace compute {

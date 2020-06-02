@@ -26,19 +26,32 @@
 #include <numeric>
 #include <string>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 #include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
-#include "arrow/array.h"
+#include "arrow/array/array_base.h"
+#include "arrow/array/array_binary.h"
+#include "arrow/array/array_decimal.h"
+#include "arrow/array/array_primitive.h"
+#include "arrow/array/builder_binary.h"
+#include "arrow/array/builder_decimal.h"
+#include "arrow/array/builder_dict.h"
+#include "arrow/array/data.h"
+#include "arrow/array/util.h"
 #include "arrow/buffer.h"
 #include "arrow/buffer_builder.h"
 #include "arrow/builder.h"
+#include "arrow/compare.h"
 #include "arrow/memory_pool.h"
-#include "arrow/record_batch.h"
+#include "arrow/result.h"
+#include "arrow/scalar.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_common.h"
+#include "arrow/testing/gtest_compat.h"
+#include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
@@ -46,7 +59,9 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/macros.h"
 #include "arrow/util/range.h"
+#include "arrow/visitor_inline.h"
 
 // This file is compiled together with array-*-test.cc into a single
 // executable array-test.

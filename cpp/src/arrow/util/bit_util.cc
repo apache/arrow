@@ -24,16 +24,14 @@
 #endif
 
 #include <algorithm>
-#include <bitset>
 #include <cstdint>
 #include <cstring>
 #include <functional>
 #include <memory>
-#include <numeric>
 #include <string>
 #include <vector>
 
-#include "arrow/array.h"
+#include "arrow/array/array_primitive.h"
 #include "arrow/buffer.h"
 #include "arrow/status.h"
 #include "arrow/util/align_util.h"
@@ -42,9 +40,6 @@
 #include "arrow/util/ubsan.h"
 
 namespace arrow {
-
-class MemoryPool;
-
 namespace BitUtil {
 namespace {
 
