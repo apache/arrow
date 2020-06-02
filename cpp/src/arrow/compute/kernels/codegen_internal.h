@@ -73,6 +73,18 @@ namespace compute {
 
 #endif  // ARROW_EXTRA_ERROR_CONTEXT
 
+template <typename OptionsType>
+struct OptionsWrapper : public KernelState {
+  OptionsWrapper(const OptionsType& options) : options(options) {}
+  OptionsType options;
+};
+
+template <typename OptionsType>
+std::unique_ptr<KernelState> InitWrapOptions(KernelContext*, const KernelInitArgs& args) {
+  return std::unique_ptr<KernelState>(
+      new OptionsWrapper<OptionsType>(*static_cast<const OptionsType*>(args.options)));
+}
+
 // ----------------------------------------------------------------------
 // Iteration / value access utilities
 

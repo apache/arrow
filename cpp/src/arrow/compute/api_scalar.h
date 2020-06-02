@@ -20,6 +20,8 @@
 
 #pragma once
 
+#include <memory>
+#include <string>
 #include <utility>
 
 #include "arrow/compute/exec.h"  // IWYU pragma: keep
@@ -199,6 +201,17 @@ Result<Datum> IsIn(const Datum& values, const Datum& value_set,
 ARROW_EXPORT
 Result<Datum> Match(const Datum& values, const Datum& value_set,
                     ExecContext* ctx = NULLPTR);
+
+// ----------------------------------------------------------------------
+// Temporal functions
+
+struct ARROW_EXPORT StrptimeOptions : public FunctionOptions {
+  explicit StrptimeOptions(std::string format, TimeUnit::type unit)
+      : format(format), unit(unit) {}
+
+  std::string format;
+  TimeUnit::type unit;
+};
 
 }  // namespace compute
 }  // namespace arrow

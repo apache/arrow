@@ -20,6 +20,7 @@
 #include <gtest/gtest.h>
 
 #include "arrow/compute/api_scalar.h"
+#include "arrow/compute/kernels/test_util.h"
 #include "arrow/testing/gtest_util.h"
 
 namespace arrow {
@@ -33,19 +34,10 @@ class TestStringKernels : public ::testing::Test {
   using OffsetType = typename TypeTraits<TestType>::OffsetType;
 
   void CheckUnary(std::string func_name, std::string json_input,
-                  std::shared_ptr<DataType> out_ty, std::string json_expected) {
-    auto input = ArrayFromJSON(string_type(), json_input);
-    auto expected = ArrayFromJSON(out_ty, json_expected);
-    ASSERT_OK_AND_ASSIGN(Datum out, CallFunction(func_name, {input}));
-    AssertArraysEqual(*expected, *out.make_array(), /*verbose=*/true);
-
-    // Check all the scalars
-    for (int64_t i = 0; i < input->length(); ++i) {
-      ASSERT_OK_AND_ASSIGN(auto val, input->GetScalar(i));
-      ASSERT_OK_AND_ASSIGN(auto ex_val, expected->GetScalar(i));
-      ASSERT_OK_AND_ASSIGN(Datum out, CallFunction(func_name, {val}));
-      AssertScalarsEqual(*ex_val, *out.scalar(), /*verbose=*/true);
-    }
+                  std::shared_ptr<DataType> out_ty, std::string json_expected,
+                  const FunctionOptions* options = nullptr) {
+    CheckScalarUnary(func_name, string_type(), json_input, out_ty, json_expected,
+                     options);
   }
 
   std::shared_ptr<DataType> string_type() {
@@ -67,6 +59,13 @@ TYPED_TEST(TestStringKernels, AsciiLength) {
 TYPED_TEST(TestStringKernels, AsciiUpper) {
   this->CheckUnary("ascii_upper", "[\"aAa&\", null, \"\", \"b\"]", this->string_type(),
                    "[\"AAA&\", null, \"\", \"B\"]");
+}
+
+TYPED_TEST(TestStringKernels, Strptime) {
+  std::string input1 = R"(["5/1/2020", null, "12/11/1900"])";
+  std::string output1 = R"(["2020-05-01", null, "1900-12-11"])";
+  StrptimeOptions options("%m/%d/%Y", TimeUnit::MICRO);
+  this->CheckUnary("strptime", input1, timestamp(TimeUnit::MICRO), output1, &options);
 }
 
 }  // namespace compute

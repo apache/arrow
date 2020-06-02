@@ -20,6 +20,7 @@
 // IWYU pragma: begin_exports
 
 #include <memory>
+#include <string>
 #include <vector>
 
 #include <gmock/gmock.h>
@@ -85,6 +86,11 @@ struct DatumEqual<Type, enable_if_integer<Type>> {
     }
   }
 };
+
+void CheckScalarUnary(std::string func_name, std::shared_ptr<DataType> in_ty,
+                      std::string json_input, std::shared_ptr<DataType> out_ty,
+                      std::string json_expected,
+                      const FunctionOptions* options = nullptr);
 
 using TestingStringTypes =
     ::testing::Types<StringType, LargeStringType, BinaryType, LargeBinaryType>;

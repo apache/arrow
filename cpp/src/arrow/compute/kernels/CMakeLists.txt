@@ -25,7 +25,8 @@ add_arrow_compute_test(scalar_test
                        scalar_cast_test.cc
                        scalar_compare_test.cc
                        scalar_set_lookup_test.cc
-                       scalar_string_test.cc)
+                       scalar_string_test.cc
+                       test_util.cc)
 
 add_arrow_benchmark(scalar_compare_benchmark PREFIX "arrow-compute")
 
@@ -37,7 +38,8 @@ add_arrow_compute_test(vector_test
                        vector_filter_test.cc
                        vector_hash_test.cc
                        vector_take_test.cc
-                       vector_sort_test.cc)
+                       vector_sort_test.cc
+                       test_util.cc)
 
 add_arrow_benchmark(vector_hash_benchmark PREFIX "arrow-compute")
 add_arrow_benchmark(vector_sort_benchmark PREFIX "arrow-compute")
@@ -50,5 +52,5 @@ add_arrow_benchmark(vector_take_benchmark PREFIX "arrow-compute")
 
 # Aggregates
 
-add_arrow_compute_test(aggregate_test)
+add_arrow_compute_test(aggregate_test SOURCES aggregate_test.cc test_util.cc)
 add_arrow_benchmark(aggregate_benchmark PREFIX "arrow-compute")

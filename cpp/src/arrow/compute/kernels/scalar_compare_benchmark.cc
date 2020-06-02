@@ -21,7 +21,7 @@
 
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/benchmark_util.h"
-#include "arrow/compute/test_util.h"
+#include "arrow/compute/kernels/test_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 

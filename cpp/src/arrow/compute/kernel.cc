@@ -254,14 +254,15 @@ OutputType::OutputType(ValueDescr descr) : OutputType(descr.type) {
 
 Result<ValueDescr> OutputType::Resolve(KernelContext* ctx,
                                        const std::vector<ValueDescr>& args) const {
+  ValueDescr::Shape broadcasted_shape = GetBroadcastShape(args);
   if (kind_ == OutputType::FIXED) {
-    ValueDescr::Shape out_shape = shape_;
-    if (out_shape == ValueDescr::ANY) {
-      out_shape = GetBroadcastShape(args);
-    }
-    return ValueDescr(type_, out_shape);
+    return ValueDescr(type_, shape_ == ValueDescr::ANY ? broadcasted_shape : shape_);
   } else {
-    return resolver_(ctx, args);
+    ARROW_ASSIGN_OR_RAISE(ValueDescr resolved_descr, resolver_(ctx, args));
+    if (resolved_descr.shape == ValueDescr::ANY) {
+      resolved_descr.shape = broadcasted_shape;
+    }
+    return resolved_descr;
   }
 }
 

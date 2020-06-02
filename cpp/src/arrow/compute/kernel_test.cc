@@ -316,6 +316,17 @@ TEST(OutputType, Resolve) {
         return ValueDescr(args[0]);
       });
   ASSERT_RAISES(Invalid, ty3.Resolve(nullptr, {}));
+
+  // Type resolver that returns ValueDescr::ANY and needs type promotion
+  OutputType ty4(
+      [](KernelContext* ctx, const std::vector<ValueDescr>& args) -> Result<ValueDescr> {
+        return int32();
+      });
+
+  ASSERT_OK_AND_ASSIGN(descr, ty4.Resolve(nullptr, {ValueDescr::Array(int8())}));
+  ASSERT_EQ(ValueDescr::Array(int32()), descr);
+  ASSERT_OK_AND_ASSIGN(descr, ty4.Resolve(nullptr, {ValueDescr::Scalar(int8())}));
+  ASSERT_EQ(ValueDescr::Scalar(int32()), descr);
 }
 
 TEST(OutputType, ResolveDescr) {
