@@ -598,5 +598,49 @@ Result<std::shared_ptr<Buffer>> BitmapAllButOne(MemoryPool* pool, int64_t length
   return std::move(buffer);
 }
 
+std::pair<int64_t, int64_t> BitmapScanner::NextRun() {
+  auto load_word = [](const uint8_t* bytes) -> uint64_t {
+    return BitUtil::ToLittleEndian(util::SafeLoadAs<uint64_t>(bytes));
+  };
+  auto shift_word = [](uint64_t current, uint64_t next, int64_t shift) -> uint64_t {
+    return (current >> shift) | (next << (64 - shift));
+  };
+
+  // When the offset is > 0, we need there to be a word beyond the last aligned
+  // word in the bitmap for the bit shifting logic.
+  const int64_t bits_required_to_scan_words = offset_ == 0 ? 256 : 256 + (64 - offset_);
+  if (bits_remaining_ < bits_required_to_scan_words) {
+    // End of the bitmap, leave it to the caller to decide how to best check
+    // these bits, no need to do redundant computation here.
+    const int64_t run_length = bits_remaining_;
+    bits_remaining_ -= run_length;
+    return {run_length, CountSetBits(bitmap_, offset_, run_length)};
+  }
+
+  int64_t total_popcount = 0;
+  if (offset_ == 0) {
+    total_popcount += __builtin_popcountll(load_word(bitmap_));
+    total_popcount += __builtin_popcountll(load_word(bitmap_ + 8));
+    total_popcount += __builtin_popcountll(load_word(bitmap_ + 16));
+    total_popcount += __builtin_popcountll(load_word(bitmap_ + 24));
+  } else {
+    auto current = load_word(bitmap_);
+    auto next = load_word(bitmap_ + 8);
+    total_popcount += __builtin_popcountll(shift_word(current, next, offset_));
+    current = next;
+    next = load_word(bitmap_ + 16);
+    total_popcount += __builtin_popcountll(shift_word(current, next, offset_));
+    current = next;
+    next = load_word(bitmap_ + 24);
+    total_popcount += __builtin_popcountll(shift_word(current, next, offset_));
+    current = next;
+    next = load_word(bitmap_ + 32);
+    total_popcount += __builtin_popcountll(shift_word(current, next, offset_));
+  }
+  bitmap_ += 32;
+  bits_remaining_ -= 256;
+  return {256, total_popcount};
+}
+
 }  // namespace internal
 }  // namespace arrow

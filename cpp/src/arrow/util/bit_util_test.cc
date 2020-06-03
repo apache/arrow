@@ -1367,5 +1367,85 @@ TEST(Bitmap, VisitWordsAnd) {
     }
   }
 }
+
+class TestBitmapScanner : public ::testing::Test {
+ public:
+  void Create(int64_t nbytes, int64_t offset, int64_t length) {
+    ASSERT_OK_AND_ASSIGN(buf_, AllocateBuffer(nbytes));
+    // Start with data zeroed out
+    std::memset(buf_->mutable_data(), 0, nbytes);
+    scanner_.reset(new BitmapScanner(buf_->data(), offset, length));
+  }
+
+ protected:
+  std::shared_ptr<Buffer> buf_;
+  std::unique_ptr<BitmapScanner> scanner_;
+};
+
+static constexpr int64_t kWordSize = 64;
+
+TEST_F(TestBitmapScanner, Basics) {
+  const int64_t nbytes = 1024;
+
+  Create(nbytes, 0, nbytes * 8);
+
+  int64_t bits_scanned = 0;
+  while (true) {
+    auto run = scanner_->NextRun();
+    if (run.first == 0) {
+      break;
+    }
+    ASSERT_EQ(4 * kWordSize, run.first);
+    ASSERT_EQ(0, run.second);
+    bits_scanned += run.first;
+  }
+  ASSERT_EQ(1024 * 8, bits_scanned);
+
+  auto CheckWithOffset = [&](int64_t offset) {
+    const int64_t nwords = 15;
+
+    // Trim a bit from the end of the bitmap so we can check the remainder bits
+    // behavior
+    Create(nwords * 8 + 1, offset, nwords * kWordSize - offset - 1);
+
+    // Start with data all set
+    std::memset(buf_->mutable_data(), 0xFF, nbytes);
+
+    auto run = scanner_->NextRun();
+    ASSERT_EQ(4 * kWordSize, run.first);
+    ASSERT_EQ(256, run.second);
+
+    // Add some false values to the next 3 shifted words
+    BitUtil::SetBitTo(buf_->mutable_data(), 4 * kWordSize + offset, false);
+    BitUtil::SetBitTo(buf_->mutable_data(), 5 * kWordSize + offset, false);
+    BitUtil::SetBitTo(buf_->mutable_data(), 6 * kWordSize + offset, false);
+    run = scanner_->NextRun();
+
+    ASSERT_EQ(256, run.first);
+    ASSERT_EQ(253, run.second);
+
+    BitUtil::SetBitsTo(buf_->mutable_data(), 8 * kWordSize + offset, 2 * kWordSize,
+                       false);
+
+    run = scanner_->NextRun();
+    ASSERT_EQ(256, run.first);
+    ASSERT_EQ(128, run.second);
+
+    // Last run
+    run = scanner_->NextRun();
+    ASSERT_EQ(3 * kWordSize - offset - 1, run.first);
+    ASSERT_EQ(run.first, run.second);
+
+    // We can keep calling NextRun safely
+    run = scanner_->NextRun();
+    ASSERT_EQ(0, run.first);
+    ASSERT_EQ(0, run.second);
+  };
+
+  for (int64_t offset_i = 0; offset_i < 7; ++offset_i) {
+    CheckWithOffset(offset_i);
+  }
+}
+
 }  // namespace internal
 }  // namespace arrow
