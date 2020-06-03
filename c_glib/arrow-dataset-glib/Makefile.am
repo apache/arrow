@@ -34,7 +34,7 @@ libarrow_dataset_glib_la_CXXFLAGS =		\
 	$(ARROW_DATASET_CFLAGS)			\
 	$(GARROW_CXXFLAGS)
 
-libarrow_dataset_glib_la_LDFLAGS =			\
+libarrow_dataset_glib_la_LDFLAGS =		\
 	-version-info $(LT_VERSION_INFO)	\
 	-no-undefined
 
