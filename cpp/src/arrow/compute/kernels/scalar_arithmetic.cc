@@ -21,10 +21,39 @@ namespace arrow {
 namespace compute {
 
 struct Add {
-  template <typename ARG0, typename ARG1>
-  static constexpr auto Call(KernelContext*, ARG0 left, ARG1 right)
-      -> decltype(left + right) {
-    return left + right;
+  template <typename OUT = int16_t>
+  static constexpr OUT Call(KernelContext*, int8_t l, int8_t r) {
+    return static_cast<OUT>(l) + static_cast<OUT>(r);
+  }
+
+  template <typename OUT = int32_t>
+  static constexpr OUT Call(KernelContext*, int16_t l, int16_t r) {
+    return static_cast<OUT>(l) + static_cast<OUT>(r);
+  }
+
+  template <typename OUT = int64_t>
+  static constexpr OUT Call(KernelContext*, int32_t l, int32_t r) {
+    return static_cast<OUT>(l) + static_cast<OUT>(r);
+  }
+
+  template <typename OUT = uint16_t>
+  static constexpr OUT Call(KernelContext*, uint8_t l, uint8_t r) {
+    return static_cast<OUT>(l) + static_cast<OUT>(r);
+  }
+
+  template <typename OUT = uint32_t>
+  static constexpr OUT Call(KernelContext*, uint16_t l, uint16_t r) {
+    return static_cast<OUT>(l) + static_cast<OUT>(r);
+  }
+
+  template <typename OUT = uint64_t>
+  static constexpr OUT Call(KernelContext*, uint32_t l, uint32_t r) {
+    return static_cast<OUT>(l) + static_cast<OUT>(r);
+  }
+
+  template <typename OUT>
+  static constexpr OUT Call(KernelContext*, OUT l, OUT r) {
+    return l + r;
   }
 };
 
