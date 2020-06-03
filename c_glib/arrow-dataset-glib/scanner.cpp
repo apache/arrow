@@ -415,6 +415,38 @@ gad_scan_task_class_init(GADScanTaskClass *klass)
 }
 
 /**
+ * gad_scan_task_get_options:
+ * @scan_task: A #GADScanTask.
+ *
+ * Returns: (transfer full): A #GADScanOptions.
+ *
+ * Since: 1.0.0
+ */
+GADScanOptions *
+gad_scan_task_get_options(GADScanTask *scan_task)
+{
+  auto priv = GAD_SCAN_TASK_GET_PRIVATE(scan_task);
+  auto arrow_scan_options = priv->scan_task->options();
+  return gad_scan_options_new_raw(&arrow_scan_options);
+}
+
+/**
+ * gad_scan_task_get_context:
+ * @scan_task: A #GADScanTask.
+ *
+ * Returns: (transfer full): A #GADScanContext.
+ *
+ * Since: 1.0.0
+ */
+GADScanContext *
+gad_scan_task_get_context(GADScanTask *scan_task)
+{
+  auto priv = GAD_SCAN_TASK_GET_PRIVATE(scan_task);
+  auto arrow_scan_context = priv->scan_task->context();
+  return gad_scan_context_new_raw(&arrow_scan_context);
+}
+
+/**
  * gad_scan_task_execute:
  * @scan_task: A #GADScanTask.
  * @error: (nullable): REturn location for a #GError or %NULL.

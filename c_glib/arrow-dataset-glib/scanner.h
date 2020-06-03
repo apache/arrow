@@ -68,6 +68,8 @@ struct _GADScanTaskClass
   GObjectClass parent_class;
 };
 
+GADScanOptions *gad_scan_task_get_options(GADScanTask *scan_task);
+GADScanContext *gad_scan_task_get_context(GADScanTask *scan_task);
 GArrowRecordBatchIterator *gad_scan_task_execute(GADScanTask *scan_task,
                                                  GError **error);
 
