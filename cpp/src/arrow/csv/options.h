@@ -105,7 +105,7 @@ struct ARROW_EXPORT ConvertOptions {
   /// arrow/util/value_parsing.h. More than one parser can be specified, and
   /// the CSV conversion logic will try parsing values starting from the
   /// beginning of this vector. If no parsers are specified, we use the default
-  /// built-in ISO-8601 parser
+  /// built-in ISO-8601 parser.
   std::vector<std::shared_ptr<TimestampParser>> timestamp_parsers;
 
   /// Create conversion options with default values, including conventional

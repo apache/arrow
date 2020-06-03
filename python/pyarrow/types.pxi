@@ -116,8 +116,8 @@ cdef class DataType:
         self.pep3118_format = _datatype_to_pep3118(self.type)
 
     cdef Field child(self, int i):
-        cdef int index = <int> _normalize_index(i, self.type.num_children())
-        return pyarrow_wrap_field(self.type.child(index))
+        cdef int index = <int> _normalize_index(i, self.type.num_fields())
+        return pyarrow_wrap_field(self.type.field(index))
 
     @property
     def id(self):
@@ -136,7 +136,7 @@ cdef class DataType:
         """
         The number of child fields.
         """
-        return self.type.num_children()
+        return self.type.num_fields()
 
     @property
     def num_buffers(self):
@@ -406,7 +406,7 @@ cdef class StructType(DataType):
         """
         Like num_children().
         """
-        return self.type.num_children()
+        return self.type.num_fields()
 
     def __iter__(self):
         """
@@ -422,7 +422,7 @@ cdef class StructType(DataType):
         if isinstance(i, (bytes, str)):
             return self.field_by_name(i)
         elif isinstance(i, int):
-            return self.child(i)
+            return self.field(i)
         else:
             raise TypeError('Expected integer or string index')
 
@@ -463,7 +463,7 @@ cdef class UnionType(DataType):
         """
         Like num_children().
         """
-        return self.type.num_children()
+        return self.type.num_fields()
 
     def __iter__(self):
         """

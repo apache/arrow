@@ -111,11 +111,11 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         c_bool Equals(const CDataType& other)
 
-        shared_ptr[CField] child(int i)
+        shared_ptr[CField] field(int i)
 
-        const vector[shared_ptr[CField]] children()
+        const vector[shared_ptr[CField]] fields()
 
-        int num_children()
+        int num_fields()
 
         CDataTypeLayout layout()
 
@@ -572,7 +572,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         int32_t value_offset(int i)
         shared_ptr[CBuffer] value_offsets()
         int child_id(int64_t index)
-        shared_ptr[CArray] child(int pos)
+        shared_ptr[CArray] field(int pos)
         const CArray* UnsafeChild(int pos)
         UnionMode mode()
 
@@ -1362,6 +1362,18 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         CStatus Read(const vector[c_string] names, shared_ptr[CTable]* out)
 
 
+cdef extern from 'arrow/util/value_parsing.h' namespace 'arrow' nogil:
+    cdef cppclass CTimestampParser" arrow::TimestampParser":
+        const char* kind() const
+        const char* format() const
+
+        @staticmethod
+        shared_ptr[CTimestampParser] MakeStrptime(c_string format)
+
+        @staticmethod
+        shared_ptr[CTimestampParser] MakeISO8601()
+
+
 cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
 
     cdef cppclass CCSVParseOptions" arrow::csv::ParseOptions":
@@ -1384,6 +1396,7 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
         vector[c_string] true_values
         vector[c_string] false_values
         c_bool strings_can_be_null
+        vector[shared_ptr[CTimestampParser]] timestamp_parsers
 
         c_bool auto_dict_encode
         int32_t auto_dict_max_cardinality

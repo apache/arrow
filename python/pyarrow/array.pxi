@@ -1565,7 +1565,7 @@ cdef class UnionArray(Array):
         For dense unions, the returned array is unchanged.
         """
         cdef shared_ptr[CArray] result
-        result = (<CUnionArray*> self.ap).child(pos)
+        result = (<CUnionArray*> self.ap).field(pos)
         if result != NULL:
             return pyarrow_wrap_array(result)
         raise KeyError("UnionArray does not have child {}".format(pos))
