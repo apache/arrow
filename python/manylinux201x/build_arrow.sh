@@ -74,7 +74,7 @@ touch ${CPYTHON_PATH}/lib/${py_libname}
 echo "=== (${PYTHON_VERSION}) Install the wheel build dependencies ==="
 $PIP install -r requirements-wheel-build.txt
 
-export PYARROW_INSTALL_TESTS=0
+export PYARROW_INSTALL_TESTS=1
 export PYARROW_WITH_DATASET=1
 export PYARROW_WITH_FLIGHT=1
 export PYARROW_WITH_GANDIVA=0

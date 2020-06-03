@@ -287,15 +287,20 @@ def get_libraries():
     return ['arrow', 'arrow_python']
 
 
-def _setup_bundled_symlinks():
+def create_library_symlinks():
     """
     With Linux and macOS wheels, the bundled shared libraries have an embedded
-    ABI version like libarrow.so.18 and so linking to them with -larrow won't
-    work unless we create symlinks at locations like
+    ABI version like libarrow.so.17 or libarrow.17.dylib and so linking to them
+    with -larrow won't work unless we create symlinks at locations like
     site-packages/pyarrow/libarrow.so. This unfortunate workaround addresses
     prior problems we had with shipping two copies of the shared libraries to
     permit third party projects like turbodbc to build their C++ extensions
     against the pyarrow wheels.
+
+    This function must only be invoked once and only when the shared libraries
+    are bundled with the Python package, which should only apply to wheel-based
+    installs. It requires write access to the site-packages/pyarrow directory
+    and so depending on your system may need to be run with root.
     """
     import glob
     if _sys.platform == 'win32':
@@ -332,8 +337,6 @@ def get_library_dirs():
     """
     package_cwd = _os.path.dirname(__file__)
     library_dirs = [package_cwd]
-
-    _setup_bundled_symlinks()
 
     def append_library_dir(library_dir):
         if library_dir not in library_dirs:

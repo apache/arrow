@@ -567,7 +567,7 @@ else:
     setup_requires = []
 
 
-if strtobool(os.environ.get('PYARROW_INSTALL_TESTS', '0')):
+if strtobool(os.environ.get('PYARROW_INSTALL_TESTS', '1')):
     packages = ['pyarrow', 'pyarrow.tests']
 else:
     packages = ['pyarrow']

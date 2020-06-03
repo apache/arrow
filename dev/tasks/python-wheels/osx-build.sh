@@ -52,7 +52,7 @@ function build_wheel {
 
     pip install $(pip_opts) -r python/requirements-wheel-build.txt
 
-    export PYARROW_INSTALL_TESTS=OFF
+    export PYARROW_INSTALL_TESTS=1
     export PYARROW_WITH_GANDIVA=0
     export BUILD_ARROW_GANDIVA=OFF
 
