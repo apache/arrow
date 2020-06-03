@@ -274,7 +274,7 @@ set(_allocator_dependencies "") # Empty list
 if(ARROW_JEMALLOC)
   list(APPEND _allocator_dependencies jemalloc_ep)
 endif()
-if(ARROW_MIMALLOC)
+if(TARGET mimalloc_ep)
   list(APPEND _allocator_dependencies mimalloc_ep)
 endif()
 

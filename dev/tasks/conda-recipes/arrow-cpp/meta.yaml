@@ -32,6 +32,7 @@ requirements:
     - clangdev 8.*
     - llvmdev 8.*
     - lz4-c
+    - mimalloc
     - numpy 1.16.*
     - orc  # [unix]
     - python
@@ -52,6 +53,7 @@ requirements:
     - glog
     - grpc-cpp
     - lz4-c
+    - mimalloc
     - python
     - re2
     - snappy

@@ -30,6 +30,7 @@ gtest=1.8.1
 libprotobuf
 lz4-c
 make
+mimalloc
 ninja
 pkg-config
 python

@@ -50,6 +50,7 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     GLOG
     gRPC
     GTest
+    mimalloc
     LLVM
     Lz4
     ORC
@@ -127,6 +128,8 @@ macro(build_dependency DEPENDENCY_NAME)
     build_gtest()
   elseif("${DEPENDENCY_NAME}" STREQUAL "Lz4")
     build_lz4()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "mimalloc")
+    build_mimalloc()
   elseif("${DEPENDENCY_NAME}" STREQUAL "ORC")
     build_orc()
   elseif("${DEPENDENCY_NAME}" STREQUAL "Protobuf")
@@ -1367,7 +1370,7 @@ endif()
 # ----------------------------------------------------------------------
 # mimalloc - Cross-platform high-performance allocator, from Microsoft
 
-if(ARROW_MIMALLOC)
+macro(build_mimalloc)
   message(STATUS "Building (vendored) mimalloc from source")
   # We only use a vendored mimalloc as we want to control its build options.
 
@@ -1411,6 +1414,10 @@ if(ARROW_MIMALLOC)
                                    "${MIMALLOC_INCLUDE_DIR}")
   add_dependencies(mimalloc::mimalloc mimalloc_ep)
   add_dependencies(toolchain mimalloc_ep)
+endmacro()
+
+if(ARROW_MIMALLOC)
+  resolve_dependency(mimalloc)
 endif()
 
 # ----------------------------------------------------------------------
