@@ -13,7 +13,7 @@ jobs:
     displayName: Clone arrow
 
   - script: |
-      conda install -y -c conda-forge pandas
+      conda install -y -c conda-forge pandas anaconda-client
     displayName: Install requirements
 
   - script: |
