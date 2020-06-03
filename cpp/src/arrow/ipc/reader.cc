@@ -349,55 +349,62 @@ Status DecompressBuffers(Compression::type compression, const IpcReadOptions& op
   std::unique_ptr<util::Codec> codec;
   ARROW_ASSIGN_OR_RAISE(codec, util::Codec::Create(compression));
 
-  auto DecompressOneBuffer = [&](std::shared_ptr<Buffer>* buf) {
-    if ((*buf) == nullptr) {
-      return Status::OK();
-    }
-    if ((*buf)->size() == 0) {
-      return Status::OK();
-    }
-    if ((*buf)->size() < 8) {
-      return Status::Invalid(
-          "Likely corrupted message, compressed buffers "
-          "are larger than 8 bytes by construction");
-    }
-    const uint8_t* data = (*buf)->data();
-    int64_t compressed_size = (*buf)->size() - sizeof(int64_t);
-    int64_t uncompressed_size =
-        BitUtil::FromLittleEndian(util::SafeLoadAs<int64_t>(data));
+  struct {
+    std::vector<std::shared_ptr<ArrayData>>* fields;
+    MemoryPool* memory_pool;
+    std::shared_ptr<util::Codec> codec;
 
-    ARROW_ASSIGN_OR_RAISE(auto uncompressed,
-                          AllocateBuffer(uncompressed_size, options.memory_pool));
-
-    int64_t actual_decompressed;
-    ARROW_ASSIGN_OR_RAISE(
-        actual_decompressed,
-        codec->Decompress(compressed_size, data + sizeof(int64_t), uncompressed_size,
-                          uncompressed->mutable_data()));
-    if (actual_decompressed != uncompressed_size) {
-      return Status::Invalid("Failed to fully decompress buffer, expected ",
-                             uncompressed_size, " bytes but decompressed ",
-                             actual_decompressed);
-    }
-    *buf = std::move(uncompressed);
-    return Status::OK();
-  };
-
-  auto DecompressOneField = [&](int i) {
-    ArrayData* arr = (*fields)[i].get();
-    for (size_t i = 0; i < arr->buffers.size(); ++i) {
-      ARROW_RETURN_NOT_OK(DecompressOneBuffer(&arr->buffers[i]));
-    }
-    for (size_t i = 0; i < arr->child_data.size(); ++i) {
-      for (size_t j = 0; j < arr->child_data[i]->buffers.size(); ++j) {
-        ARROW_RETURN_NOT_OK(DecompressOneBuffer(&arr->child_data[i]->buffers[j]));
+    Status DecompressBuffer(std::shared_ptr<Buffer>* buf) {
+      if ((*buf) == nullptr || (*buf)->size() == 0) {
+        return Status::OK();
       }
+
+      if ((*buf)->size() < 8) {
+        return Status::Invalid(
+            "Likely corrupted message, compressed buffers "
+            "are larger than 8 bytes by construction");
+      }
+
+      const uint8_t* data = (*buf)->data();
+      int64_t compressed_size = (*buf)->size() - sizeof(int64_t);
+      int64_t uncompressed_size =
+          BitUtil::FromLittleEndian(util::SafeLoadAs<int64_t>(data));
+
+      ARROW_ASSIGN_OR_RAISE(auto uncompressed,
+                            AllocateBuffer(uncompressed_size, memory_pool));
+
+      ARROW_ASSIGN_OR_RAISE(
+          int64_t actual_decompressed,
+          codec->Decompress(compressed_size, data + sizeof(int64_t), uncompressed_size,
+                            uncompressed->mutable_data()));
+      if (actual_decompressed != uncompressed_size) {
+        return Status::Invalid("Failed to fully decompress buffer, expected ",
+                               uncompressed_size, " bytes but decompressed ",
+                               actual_decompressed);
+      }
+
+      *buf = std::move(uncompressed);
+      return Status::OK();
     }
-    return Status::OK();
-  };
+
+    Status DecompressField(ArrayData* arr) {
+      for (std::shared_ptr<Buffer>& buffer : arr->buffers) {
+        ARROW_RETURN_NOT_OK(DecompressBuffer(&buffer));
+      }
+
+      for (const std::shared_ptr<ArrayData>& child : arr->child_data) {
+        ARROW_RETURN_NOT_OK(DecompressField(child.get()));
+      }
+
+      return Status::OK();
+    }
+
+    Status operator()(int i) { return DecompressField(fields->at(i).get()); }
+
+  } decompress_field = {fields, options.memory_pool, std::move(codec)};
 
   return ::arrow::internal::OptionalParallelFor(
-      options.use_threads, static_cast<int>(fields->size()), DecompressOneField);
+      options.use_threads, static_cast<int>(fields->size()), std::move(decompress_field));
 }
 
 Result<std::shared_ptr<RecordBatch>> LoadRecordBatchSubset(
