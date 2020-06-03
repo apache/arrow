@@ -426,11 +426,9 @@ class LeafReader : public ColumnReaderImpl {
 
   Status NextBatch(int64_t records_to_read, std::shared_ptr<ChunkedArray>* out) override {
     BEGIN_PARQUET_CATCH_EXCEPTIONS
-
+    record_reader_->Reset();
     // Pre-allocation gives much better performance for flat columns
     record_reader_->Reserve(records_to_read);
-
-    record_reader_->Reset();
     while (records_to_read > 0) {
       if (!record_reader_->HasMoreData()) {
         break;
