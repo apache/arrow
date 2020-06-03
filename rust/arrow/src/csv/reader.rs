@@ -43,6 +43,7 @@
 use lazy_static::lazy_static;
 use regex::{Regex, RegexBuilder};
 use std::collections::HashSet;
+use std::fs::File;
 use std::io::{BufReader, Read, Seek, SeekFrom};
 use std::sync::Arc;
 
@@ -87,13 +88,15 @@ fn infer_field_schema(string: &str) -> DataType {
 /// with `max_read_records` controlling the maximum number of records to read.
 ///
 /// If `max_read_records` is not set, the whole file is read to infer its schema.
-pub fn infer_file_schema<R: Read + Seek>(
+///
+/// Return infered schema and number of records used for inference.
+fn infer_file_schema<R: Read + Seek>(
     reader: &mut BufReader<R>,
     delimiter: u8,
     max_read_records: Option<usize>,
     has_header: bool,
-) -> Result<Schema> {
-    let mut csv_reader = csv::ReaderBuilder::new()
+) -> Result<(Schema, usize)> {
+    let mut csv_reader = csv_crate::ReaderBuilder::new()
         .delimiter(delimiter)
         .from_reader(reader);
 
@@ -121,6 +124,7 @@ pub fn infer_file_schema<R: Read + Seek>(
     // return csv reader position to after headers
     csv_reader.seek(position)?;
 
+    let mut records_count = 0;
     let mut fields = vec![];
 
     for result in csv_reader
@@ -128,6 +132,7 @@ pub fn infer_file_schema<R: Read + Seek>(
         .take(max_read_records.unwrap_or(std::usize::MAX))
     {
         let record = result?;
+        records_count += 1;
 
         for i in 0..header_length {
             if let Some(string) = record.get(i) {
@@ -172,7 +177,42 @@ pub fn infer_file_schema<R: Read + Seek>(
     // return the reader seek back to the start
     csv_reader.into_inner().seek(SeekFrom::Start(0))?;
 
-    Ok(Schema::new(fields))
+    Ok((Schema::new(fields), records_count))
+}
+
+/// Infer schema from a list of CSV files by reading through first n records
+/// with `max_read_records` controlling the maximum number of records to read.
+///
+/// Files will be read in the given order untill n records have been reached.
+///
+/// If `max_read_records` is not set, all files will be read fully to infer the schema.
+pub fn infer_schema_from_files(
+    files: &Vec<String>,
+    delimiter: u8,
+    max_read_records: Option<usize>,
+    has_header: bool,
+) -> Result<Schema> {
+    let mut schemas = vec![];
+    let mut records_to_read = max_read_records.unwrap_or(std::usize::MAX);
+
+    for fname in files.iter() {
+        let (schema, records_read) = infer_file_schema(
+            &mut BufReader::new(File::open(fname)?),
+            delimiter,
+            Some(records_to_read),
+            has_header,
+        )?;
+        if records_read == 0 {
+            continue;
+        }
+        schemas.push(schema.clone());
+        records_to_read -= records_read;
+        if records_to_read <= 0 {
+            break;
+        }
+    }
+
+    Schema::try_merge(&schemas)
 }
 
 /// CSV file reader
@@ -508,7 +548,7 @@ impl ReaderBuilder {
         let schema = match self.schema {
             Some(schema) => schema,
             None => {
-                let inferred_schema = infer_file_schema(
+                let (inferred_schema, _) = infer_file_schema(
                     &mut buf_reader,
                     delimiter,
                     self.max_records,
@@ -538,7 +578,8 @@ mod tests {
     use super::*;
 
     use std::fs::File;
-    use std::io::Cursor;
+    use std::io::{Cursor, Write};
+    use tempfile::NamedTempFile;
 
     use crate::array::*;
     use crate::datatypes::Field;
@@ -793,5 +834,47 @@ mod tests {
         assert_eq!(infer_field_schema("10.2"), DataType::Float64);
         assert_eq!(infer_field_schema("true"), DataType::Boolean);
         assert_eq!(infer_field_schema("false"), DataType::Boolean);
+    }
+
+    #[test]
+    fn test_infer_schema_from_multiple_files() -> Result<()> {
+        let mut csv1 = NamedTempFile::new()?;
+        let mut csv2 = NamedTempFile::new()?;
+        let csv3 = NamedTempFile::new()?; // empty csv file should be skipped
+        let mut csv4 = NamedTempFile::new()?;
+        writeln!(csv1, "c1,c2,c3")?;
+        writeln!(csv1, "1,\"foo\",0.5")?;
+        writeln!(csv1, "3,\"bar\",1")?;
+        // reading csv2 will set c2 to optional
+        writeln!(csv2, "c1,c2,c3,c4")?;
+        writeln!(csv2, "10,,3.14,true")?;
+        // reading csv4 will set c3 to optional
+        writeln!(csv4, "c1,c2,c3")?;
+        writeln!(csv4, "10,\"foo\",")?;
+
+        let schema = infer_schema_from_files(
+            &vec![
+                csv3.path().to_str().unwrap().to_string(),
+                csv1.path().to_str().unwrap().to_string(),
+                csv2.path().to_str().unwrap().to_string(),
+                csv4.path().to_str().unwrap().to_string(),
+            ],
+            b',',
+            Some(3), // only csv1 and csv2 should be read
+            true,
+        )?;
+
+        assert_eq!(schema.fields().len(), 4);
+        assert_eq!(false, schema.field(0).is_nullable());
+        assert_eq!(true, schema.field(1).is_nullable());
+        assert_eq!(false, schema.field(2).is_nullable());
+        assert_eq!(false, schema.field(3).is_nullable());
+
+        assert_eq!(&DataType::Int64, schema.field(0).data_type());
+        assert_eq!(&DataType::Utf8, schema.field(1).data_type());
+        assert_eq!(&DataType::Float64, schema.field(2).data_type());
+        assert_eq!(&DataType::Boolean, schema.field(3).data_type());
+
+        Ok(())
     }
 }
