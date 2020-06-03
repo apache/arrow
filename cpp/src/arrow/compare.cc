@@ -781,7 +781,9 @@ class TypeEqualsVisitor {
       result_ = false;
       return Status::OK();
     }
-    return VisitChildren(left);
+    result_ = left.key_type()->Equals(*right.key_type(), check_metadata_) &&
+              left.item_type()->Equals(*right.item_type(), check_metadata_);
+    return Status::OK();
   }
 
   Status Visit(const UnionType& left) {

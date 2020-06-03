@@ -752,19 +752,11 @@ static Status GetMap(const RjObject& json_type,
     return Status::Invalid("Map must have exactly one child");
   }
 
-  if (children[0]->type()->id() != Type::STRUCT ||
-      children[0]->type()->num_fields() != 2) {
-    return Status::Invalid("Map's key-item pairs must be structs");
-  }
-
   const auto& it_keys_sorted = json_type.FindMember("keysSorted");
   RETURN_NOT_BOOL("keysSorted", it_keys_sorted, json_type);
-
-  auto pair_children = children[0]->type()->fields();
-
   bool keys_sorted = it_keys_sorted->value.GetBool();
-  *type = map(pair_children[0]->type(), pair_children[1]->type(), keys_sorted);
-  return Status::OK();
+
+  return MapType::Make(children[0], keys_sorted).Value(type);
 }
 
 static Status GetFixedSizeBinary(const RjObject& json_type,
@@ -1417,10 +1409,7 @@ class ArrayReader {
   }
 
   Status Visit(const MapType& type) {
-    auto list_type = std::make_shared<ListType>(field(
-        "entries",
-        struct_({field("key", type.key_type(), false), field("value", type.item_type())}),
-        false));
+    auto list_type = std::make_shared<ListType>(type.value_field());
     std::shared_ptr<Array> list_array;
     RETURN_NOT_OK(CreateList<ListType>(list_type, &list_array));
     auto map_data = list_array->data();

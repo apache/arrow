@@ -380,25 +380,68 @@ std::string LargeListType::ToString() const {
   return s.str();
 }
 
-MapType::MapType(const std::shared_ptr<DataType>& key_type,
-                 const std::shared_ptr<DataType>& item_type, bool keys_sorted)
-    : MapType(key_type, ::arrow::field("value", item_type), keys_sorted) {}
+MapType::MapType(std::shared_ptr<DataType> key_type, std::shared_ptr<DataType> item_type,
+                 bool keys_sorted)
+    : MapType(::arrow::field("key", std::move(key_type), false),
+              ::arrow::field("value", std::move(item_type)), keys_sorted) {}
 
-MapType::MapType(const std::shared_ptr<DataType>& key_type,
-                 const std::shared_ptr<Field>& item_field, bool keys_sorted)
-    : ListType(::arrow::field(
-          "entries",
-          struct_({std::make_shared<Field>("key", key_type, false), item_field}), false)),
-      keys_sorted_(keys_sorted) {
+MapType::MapType(std::shared_ptr<DataType> key_type, std::shared_ptr<Field> item_field,
+                 bool keys_sorted)
+    : MapType(::arrow::field("key", std::move(key_type), false), std::move(item_field),
+              keys_sorted) {}
+
+MapType::MapType(std::shared_ptr<Field> key_field, std::shared_ptr<Field> item_field,
+                 bool keys_sorted)
+    : MapType(
+          ::arrow::field("entries",
+                         struct_({std::move(key_field), std::move(item_field)}), false),
+          keys_sorted) {}
+
+MapType::MapType(std::shared_ptr<Field> value_field, bool keys_sorted)
+    : ListType(std::move(value_field)), keys_sorted_(keys_sorted) {
   id_ = type_id;
+}
+
+Result<std::shared_ptr<DataType>> MapType::Make(std::shared_ptr<Field> value_field,
+                                                bool keys_sorted) {
+  const auto& value_type = *value_field->type();
+  if (value_field->nullable() || value_type.id() != Type::STRUCT) {
+    return Status::TypeError("Map entry field should be non-nullable struct");
+  }
+  const auto& struct_type = checked_cast<const StructType&>(value_type);
+  if (struct_type.num_fields() != 2) {
+    return Status::TypeError("Map entry field should have two children (got ",
+                             struct_type.num_fields(), ")");
+  }
+  if (struct_type.field(0)->nullable()) {
+    return Status::TypeError("Map key field should be non-nullable");
+  }
+  return std::make_shared<MapType>(std::move(value_field), keys_sorted);
 }
 
 std::string MapType::ToString() const {
   std::stringstream s;
-  s << "map<" << key_type()->ToString() << ", " << item_type()->ToString();
+
+  const auto print_field_name = [](std::ostream& os, const Field& field,
+                                   const char* std_name) {
+    if (field.name() != std_name) {
+      os << " ('" << field.name() << "')";
+    }
+  };
+  const auto print_field = [&](std::ostream& os, const Field& field,
+                               const char* std_name) {
+    os << field.type()->ToString();
+    print_field_name(os, field, std_name);
+  };
+
+  s << "map<";
+  print_field(s, *key_field(), "key");
+  s << ", ";
+  print_field(s, *item_field(), "value");
   if (keys_sorted_) {
     s << ", keys_sorted";
   }
+  print_field_name(s, *value_field(), "entries");
   s << ">";
   return s.str();
 }
@@ -1771,12 +1814,13 @@ std::string LargeListType::ComputeFingerprint() const {
 }
 
 std::string MapType::ComputeFingerprint() const {
-  const auto& child_fingerprint = children_[0]->fingerprint();
-  if (!child_fingerprint.empty()) {
+  const auto& key_fingerprint = key_type()->fingerprint();
+  const auto& item_fingerprint = item_type()->fingerprint();
+  if (!key_fingerprint.empty() && !item_fingerprint.empty()) {
     if (keys_sorted_) {
-      return TypeIdFingerprint(*this) + "s{" + child_fingerprint + "}";
+      return TypeIdFingerprint(*this) + "s{" + key_fingerprint + item_fingerprint + "}";
     } else {
-      return TypeIdFingerprint(*this) + "{" + child_fingerprint + "}";
+      return TypeIdFingerprint(*this) + "{" + key_fingerprint + item_fingerprint + "}";
     }
   }
   return "";
@@ -1955,16 +1999,16 @@ std::shared_ptr<DataType> large_list(const std::shared_ptr<Field>& value_field) 
   return std::make_shared<LargeListType>(value_field);
 }
 
-std::shared_ptr<DataType> map(const std::shared_ptr<DataType>& key_type,
-                              const std::shared_ptr<DataType>& item_type,
-                              bool keys_sorted) {
-  return std::make_shared<MapType>(key_type, item_type, keys_sorted);
+std::shared_ptr<DataType> map(std::shared_ptr<DataType> key_type,
+                              std::shared_ptr<DataType> item_type, bool keys_sorted) {
+  return std::make_shared<MapType>(std::move(key_type), std::move(item_type),
+                                   keys_sorted);
 }
 
-std::shared_ptr<DataType> map(const std::shared_ptr<DataType>& key_type,
-                              const std::shared_ptr<Field>& item_field,
-                              bool keys_sorted) {
-  return std::make_shared<MapType>(key_type, item_field, keys_sorted);
+std::shared_ptr<DataType> map(std::shared_ptr<DataType> key_type,
+                              std::shared_ptr<Field> item_field, bool keys_sorted) {
+  return std::make_shared<MapType>(std::move(key_type), std::move(item_field),
+                                   keys_sorted);
 }
 
 std::shared_ptr<DataType> fixed_size_list(const std::shared_ptr<DataType>& value_type,
