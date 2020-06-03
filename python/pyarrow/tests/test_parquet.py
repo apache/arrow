@@ -3916,6 +3916,39 @@ def test_multi_dataset_metadata(tempdir):
     assert md['serialized_size'] > 0
 
 
+def test_write_metadata(tempdir):
+    path = str(tempdir / "metadata")
+    schema = pa.schema([("a", "int64"), ("b", "float64")])
+
+    # write a pyarrow schema
+    pq.write_metadata(schema, path)
+    parquet_meta = pq.read_metadata(path)
+    assert parquet_meta.schema.to_arrow_schema().equals(schema)
+
+    # pass through writer keyword arguments
+    for version in ["1.0", "2.0"]:
+        pq.write_metadata(schema, path, version=version)
+        parquet_meta = pq.read_metadata(path)
+        assert parquet_meta.format_version == version
+
+    # metadata_collector: list of FileMetaData objects
+    table = pa.table({'a': [1, 2], 'b': [.1, .2]}, schema=schema)
+    pq.write_table(table, tempdir / "data.parquet")
+    parquet_meta = pq.read_metadata(str(tempdir / "data.parquet"))
+    pq.write_metadata(
+        schema, path, metadata_collector=[parquet_meta, parquet_meta]
+    )
+    parquet_meta_mult = pq.read_metadata(path)
+    assert parquet_meta_mult.num_row_groups == 2
+
+    # append metadata with different schema raises an error
+    with pytest.raises(RuntimeError, match="requires equal schemas"):
+        pq.write_metadata(
+            pa.schema([("a", "int32"), ("b", "null")]),
+            path, metadata_collector=[parquet_meta, parquet_meta]
+        )
+
+
 @parametrize_legacy_dataset
 @pytest.mark.pandas
 def test_filter_before_validate_schema(tempdir, use_legacy_dataset):
