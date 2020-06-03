@@ -996,9 +996,6 @@ class ARROW_EXPORT Decimal128Type : public DecimalType {
   /// Decimal128Type constructor that returns an error on invalid input.
   static Result<std::shared_ptr<DataType>> Make(int32_t precision, int32_t scale);
 
-  ARROW_DEPRECATED("Use Result-returning version")
-  static Status Make(int32_t precision, int32_t scale, std::shared_ptr<DataType>* out);
-
   std::string ToString() const override;
   std::string name() const override { return "decimal"; }
 
@@ -1384,10 +1381,6 @@ class ARROW_EXPORT DictionaryUnifier {
   static Result<std::unique_ptr<DictionaryUnifier>> Make(
       std::shared_ptr<DataType> value_type, MemoryPool* pool = default_memory_pool());
 
-  ARROW_DEPRECATED("Use Result-returning version")
-  static Status Make(MemoryPool* pool, std::shared_ptr<DataType> value_type,
-                     std::unique_ptr<DictionaryUnifier>* out);
-
   /// \brief Append dictionary to the internal memo
   virtual Status Unify(const Array& dictionary) = 0;
 
@@ -1709,15 +1702,6 @@ class ARROW_EXPORT Schema : public detail::Fingerprintable,
   Result<std::shared_ptr<Schema>> RemoveField(int i) const;
   Result<std::shared_ptr<Schema>> SetField(int i,
                                            const std::shared_ptr<Field>& field) const;
-
-  ARROW_DEPRECATED("Use Result-returning version")
-  Status AddField(int i, const std::shared_ptr<Field>& field,
-                  std::shared_ptr<Schema>* out) const;
-  ARROW_DEPRECATED("Use Result-returning version")
-  Status RemoveField(int i, std::shared_ptr<Schema>* out) const;
-  ARROW_DEPRECATED("Use Result-returning version")
-  Status SetField(int i, const std::shared_ptr<Field>& field,
-                  std::shared_ptr<Schema>* out) const;
 
   /// \brief Replace key-value metadata with new metadata
   ///

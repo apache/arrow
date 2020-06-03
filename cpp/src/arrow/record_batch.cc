@@ -43,22 +43,6 @@ Result<std::shared_ptr<RecordBatch>> RecordBatch::AddColumn(
   return AddColumn(i, field, column);
 }
 
-Status RecordBatch::AddColumn(int i, std::string field_name,
-                              const std::shared_ptr<Array>& column,
-                              std::shared_ptr<RecordBatch>* out) const {
-  return AddColumn(i, std::move(field_name), column).Value(out);
-}
-
-Status RecordBatch::AddColumn(int i, const std::shared_ptr<Field>& field,
-                              const std::shared_ptr<Array>& column,
-                              std::shared_ptr<RecordBatch>* out) const {
-  return AddColumn(i, field, column).Value(out);
-}
-
-Status RecordBatch::RemoveColumn(int i, std::shared_ptr<RecordBatch>* out) const {
-  return RemoveColumn(i).Value(out);
-}
-
 std::shared_ptr<Array> RecordBatch::GetColumnByName(const std::string& name) const {
   auto i = schema_->GetFieldIndex(name);
   return i == -1 ? NULLPTR : column(i);
@@ -333,17 +317,6 @@ Result<std::shared_ptr<RecordBatchReader>> RecordBatchReader::Make(
   }
 
   return std::make_shared<SimpleRecordBatchReader>(std::move(batches), schema);
-}
-
-Result<std::shared_ptr<RecordBatchReader>> MakeRecordBatchReader(
-    std::vector<std::shared_ptr<RecordBatch>> batches, std::shared_ptr<Schema> schema) {
-  return RecordBatchReader::Make(std::move(batches), std::move(schema));
-}
-
-Status MakeRecordBatchReader(std::vector<std::shared_ptr<RecordBatch>> batches,
-                             std::shared_ptr<Schema> schema,
-                             std::shared_ptr<RecordBatchReader>* out) {
-  return RecordBatchReader::Make(std::move(batches), std::move(schema)).Value(out);
 }
 
 }  // namespace arrow

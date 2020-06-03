@@ -860,17 +860,5 @@ std::unique_ptr<MessageReader> MessageReader::Open(
   return std::unique_ptr<MessageReader>(new InputStreamMessageReader(owned_stream));
 }
 
-// ----------------------------------------------------------------------
-// Deprecated functions
-
-Status ReadMessage(int64_t offset, int32_t metadata_length, io::RandomAccessFile* file,
-                   std::unique_ptr<Message>* message) {
-  return ReadMessage(offset, metadata_length, file).Value(message);
-}
-
-Status ReadMessage(io::InputStream* file, std::unique_ptr<Message>* out) {
-  return ReadMessage(file, default_memory_pool()).Value(out);
-}
-
 }  // namespace ipc
 }  // namespace arrow

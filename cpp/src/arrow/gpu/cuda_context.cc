@@ -495,10 +495,6 @@ Result<CudaDeviceManager*> CudaDeviceManager::Instance() {
   return instance_.get();
 }
 
-Status CudaDeviceManager::GetInstance(CudaDeviceManager** manager) {
-  return Instance().Value(manager);
-}
-
 Result<std::shared_ptr<CudaDevice>> CudaDeviceManager::GetDevice(int device_number) {
   return impl_->GetDevice(device_number);
 }
@@ -507,19 +503,9 @@ Result<std::shared_ptr<CudaContext>> CudaDeviceManager::GetContext(int device_nu
   return impl_->GetContext(device_number);
 }
 
-Status CudaDeviceManager::GetContext(int device_number,
-                                     std::shared_ptr<CudaContext>* out) {
-  return impl_->GetContext(device_number).Value(out);
-}
-
 Result<std::shared_ptr<CudaContext>> CudaDeviceManager::GetSharedContext(
     int device_number, void* ctx) {
   return impl_->GetSharedContext(device_number, ctx);
-}
-
-Status CudaDeviceManager::GetSharedContext(int device_number, void* ctx,
-                                           std::shared_ptr<CudaContext>* out) {
-  return impl_->GetSharedContext(device_number, ctx).Value(out);
 }
 
 Result<std::shared_ptr<CudaHostBuffer>> CudaDeviceManager::AllocateHost(int device_number,
@@ -527,11 +513,6 @@ Result<std::shared_ptr<CudaHostBuffer>> CudaDeviceManager::AllocateHost(int devi
   uint8_t* data = nullptr;
   RETURN_NOT_OK(impl_->AllocateHost(device_number, nbytes, &data));
   return std::make_shared<CudaHostBuffer>(data, nbytes);
-}
-
-Status CudaDeviceManager::AllocateHost(int device_number, int64_t nbytes,
-                                       std::shared_ptr<CudaHostBuffer>* out) {
-  return AllocateHost(device_number, nbytes).Value(out);
 }
 
 Status CudaDeviceManager::FreeHost(void* data, int64_t nbytes) {
@@ -553,17 +534,8 @@ Result<std::shared_ptr<CudaBuffer>> CudaContext::Allocate(int64_t nbytes) {
   return std::make_shared<CudaBuffer>(data, nbytes, this->shared_from_this(), true);
 }
 
-Status CudaContext::Allocate(int64_t nbytes, std::shared_ptr<CudaBuffer>* out) {
-  return Allocate(nbytes).Value(out);
-}
-
 Result<std::shared_ptr<CudaBuffer>> CudaContext::View(uint8_t* data, int64_t nbytes) {
   return std::make_shared<CudaBuffer>(data, nbytes, this->shared_from_this(), false);
-}
-
-Status CudaContext::View(uint8_t* data, int64_t nbytes,
-                         std::shared_ptr<CudaBuffer>* out) {
-  return View(data, nbytes).Value(out);
 }
 
 Result<std::shared_ptr<CudaIpcMemHandle>> CudaContext::ExportIpcBuffer(void* data,

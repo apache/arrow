@@ -167,13 +167,6 @@ Result<std::shared_ptr<Array>> DictionaryArray::FromArrays(
   return std::make_shared<DictionaryArray>(type, indices, dictionary);
 }
 
-Status DictionaryArray::FromArrays(const std::shared_ptr<DataType>& type,
-                                   const std::shared_ptr<Array>& indices,
-                                   const std::shared_ptr<Array>& dictionary,
-                                   std::shared_ptr<Array>* out) {
-  return FromArrays(type, indices, dictionary).Value(out);
-}
-
 bool DictionaryArray::CanCompareIndices(const DictionaryArray& other) const {
   DCHECK(dictionary()->type()->Equals(other.dictionary()->type()))
       << "dictionaries have differing type " << *dictionary()->type() << " vs "
@@ -287,11 +280,6 @@ Result<std::unique_ptr<DictionaryUnifier>> DictionaryUnifier::Make(
   return std::move(maker.result);
 }
 
-Status DictionaryUnifier::Make(MemoryPool* pool, std::shared_ptr<DataType> value_type,
-                               std::unique_ptr<DictionaryUnifier>* out) {
-  return Make(value_type, pool).Value(out);
-}
-
 // ----------------------------------------------------------------------
 // DictionaryArray transposition
 
@@ -390,13 +378,6 @@ Result<std::shared_ptr<Array>> DictionaryArray::Transpose(
   }
 #undef TRANSPOSE_IN_CASE
 #undef TRANSPOSE_IN_OUT_CASE
-}
-
-Status DictionaryArray::Transpose(MemoryPool* pool, const std::shared_ptr<DataType>& type,
-                                  const std::shared_ptr<Array>& dictionary,
-                                  const int32_t* transpose_map,
-                                  std::shared_ptr<Array>* out) const {
-  return Transpose(type, dictionary, transpose_map, pool).Value(out);
 }
 
 }  // namespace arrow
