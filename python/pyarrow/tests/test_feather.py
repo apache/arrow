@@ -21,6 +21,7 @@ import sys
 import tempfile
 import pytest
 import hypothesis as h
+import hypothesis.strategies as st
 
 import numpy as np
 
@@ -771,7 +772,10 @@ def test_nested_types(compression):
     table = pa.table({'col': pa.array([[1, 2], [3, 4]])})
     _check_arrow_roundtrip(table, compression=compression)
 
+    table = pa.table({'col': pa.array([[[1, 2], [3, 4]], [[5, 6], None]])})
+    _check_arrow_roundtrip(table, compression=compression)
 
-@h.given(past.all_tables)
-def test_roundtrip(table):
-    _check_arrow_roundtrip(table)
+
+@h.given(past.all_tables, st.sampled_from(["uncompressed", "lz4", "zstd"]))
+def test_roundtrip(table, compression):
+    _check_arrow_roundtrip(table, compression=compression)
