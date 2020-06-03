@@ -344,11 +344,11 @@ class ArrayLoader {
   ArrayData* out_;
 };
 
-Result<std::unique_ptr<Buffer>> DecompressBuffer(const std::shared_ptr<Buffer>& buf,
+Result<std::shared_ptr<Buffer>> DecompressBuffer(const std::shared_ptr<Buffer>& buf,
                                                  const IpcReadOptions& options,
                                                  util::Codec* codec) {
   if (buf == nullptr || buf->size() == 0) {
-    return Status::OK();
+    return buf;
   }
 
   if (buf->size() < 8) {
