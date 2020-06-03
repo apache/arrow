@@ -76,12 +76,6 @@ class ARROW_EXPORT DictionaryArray : public Array {
       const std::shared_ptr<DataType>& type, const std::shared_ptr<Array>& indices,
       const std::shared_ptr<Array>& dictionary);
 
-  ARROW_DEPRECATED("Use Result-returning version")
-  static Status FromArrays(const std::shared_ptr<DataType>& type,
-                           const std::shared_ptr<Array>& indices,
-                           const std::shared_ptr<Array>& dictionary,
-                           std::shared_ptr<Array>* out);
-
   /// \brief Transpose this DictionaryArray
   ///
   /// This method constructs a new dictionary array with the given dictionary type,
@@ -97,11 +91,6 @@ class ARROW_EXPORT DictionaryArray : public Array {
   Result<std::shared_ptr<Array>> Transpose(
       const std::shared_ptr<DataType>& type, const std::shared_ptr<Array>& dictionary,
       const int32_t* transpose_map, MemoryPool* pool = default_memory_pool()) const;
-
-  ARROW_DEPRECATED("Use Result-returning version")
-  Status Transpose(MemoryPool* pool, const std::shared_ptr<DataType>& type,
-                   const std::shared_ptr<Array>& dictionary, const int32_t* transpose_map,
-                   std::shared_ptr<Array>* out) const;
 
   /// \brief Determine whether dictionary arrays may be compared without unification
   bool CanCompareIndices(const DictionaryArray& other) const;

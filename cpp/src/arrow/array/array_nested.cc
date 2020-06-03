@@ -250,16 +250,6 @@ Result<std::shared_ptr<Array>> LargeListArray::FromArrays(const Array& offsets,
   return ListArrayFromArrays<LargeListType>(offsets, values, pool);
 }
 
-Status ListArray::FromArrays(const Array& offsets, const Array& values, MemoryPool* pool,
-                             std::shared_ptr<Array>* out) {
-  return FromArrays(offsets, values, pool).Value(out);
-}
-
-Status LargeListArray::FromArrays(const Array& offsets, const Array& values,
-                                  MemoryPool* pool, std::shared_ptr<Array>* out) {
-  return FromArrays(offsets, values, pool).Value(out);
-}
-
 Result<std::shared_ptr<Array>> ListArray::Flatten(MemoryPool* memory_pool) const {
   return FlattenListArray(*this, memory_pool);
 }
@@ -324,13 +314,6 @@ Result<std::shared_ptr<Array>> MapArray::FromArrays(const std::shared_ptr<Array>
   return std::make_shared<MapArray>(map_type, offsets->length() - 1, offset_buf, keys,
                                     items, validity_buf, offsets->null_count(),
                                     offsets->offset());
-}
-
-Status MapArray::FromArrays(const std::shared_ptr<Array>& offsets,
-                            const std::shared_ptr<Array>& keys,
-                            const std::shared_ptr<Array>& items, MemoryPool* pool,
-                            std::shared_ptr<Array>* out) {
-  return FromArrays(offsets, keys, items, pool).Value(out);
 }
 
 Status MapArray::ValidateChildData(
@@ -567,10 +550,6 @@ Result<ArrayVector> StructArray::Flatten(MemoryPool* pool) const {
   }
 
   return flattened;
-}
-
-Status StructArray::Flatten(MemoryPool* pool, ArrayVector* out) const {
-  return Flatten(pool).Value(out);
 }
 
 // ----------------------------------------------------------------------

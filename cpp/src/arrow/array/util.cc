@@ -387,26 +387,6 @@ Result<std::shared_ptr<Array>> MakeArrayFromScalar(const Scalar& scalar, int64_t
   return internal::RepeatedArrayFactory(pool, scalar, length).Create();
 }
 
-Status MakeArrayOfNull(MemoryPool* pool, const std::shared_ptr<DataType>& type,
-                       int64_t length, std::shared_ptr<Array>* out) {
-  return MakeArrayOfNull(type, length, pool).Value(out);
-}
-
-Status MakeArrayOfNull(const std::shared_ptr<DataType>& type, int64_t length,
-                       std::shared_ptr<Array>* out) {
-  return MakeArrayOfNull(type, length).Value(out);
-}
-
-Status MakeArrayFromScalar(MemoryPool* pool, const Scalar& scalar, int64_t length,
-                           std::shared_ptr<Array>* out) {
-  return MakeArrayFromScalar(scalar, length, pool).Value(out);
-}
-
-Status MakeArrayFromScalar(const Scalar& scalar, int64_t length,
-                           std::shared_ptr<Array>* out) {
-  return MakeArrayFromScalar(scalar, length).Value(out);
-}
-
 namespace internal {
 
 std::vector<ArrayVector> RechunkArraysConsistently(

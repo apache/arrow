@@ -691,11 +691,6 @@ Result<std::shared_ptr<DataType>> Decimal128Type::Make(int32_t precision, int32_
   return std::make_shared<Decimal128Type>(precision, scale);
 }
 
-Status Decimal128Type::Make(int32_t precision, int32_t scale,
-                            std::shared_ptr<DataType>* out) {
-  return Make(precision, scale).Value(out);
-}
-
 // ----------------------------------------------------------------------
 // Dictionary-encoded type
 
@@ -1310,20 +1305,6 @@ Result<std::shared_ptr<Schema>> Schema::RemoveField(int i) const {
 
   return std::make_shared<Schema>(internal::DeleteVectorElement(impl_->fields_, i),
                                   impl_->metadata_);
-}
-
-Status Schema::AddField(int i, const std::shared_ptr<Field>& field,
-                        std::shared_ptr<Schema>* out) const {
-  return AddField(i, field).Value(out);
-}
-
-Status Schema::SetField(int i, const std::shared_ptr<Field>& field,
-                        std::shared_ptr<Schema>* out) const {
-  return SetField(i, field).Value(out);
-}
-
-Status Schema::RemoveField(int i, std::shared_ptr<Schema>* out) const {
-  return RemoveField(i).Value(out);
 }
 
 bool Schema::HasMetadata() const {

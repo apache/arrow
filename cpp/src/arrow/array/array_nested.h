@@ -105,10 +105,6 @@ class ARROW_EXPORT ListArray : public BaseListArray<ListType> {
       const Array& offsets, const Array& values,
       MemoryPool* pool = default_memory_pool());
 
-  ARROW_DEPRECATED("Use Result-returning version")
-  static Status FromArrays(const Array& offsets, const Array& values, MemoryPool* pool,
-                           std::shared_ptr<Array>* out);
-
   /// \brief Return an Array that is a concatenation of the lists in this array.
   ///
   /// Note that it's different from `values()` in that it takes into
@@ -150,10 +146,6 @@ class ARROW_EXPORT LargeListArray : public BaseListArray<LargeListType> {
   static Result<std::shared_ptr<Array>> FromArrays(
       const Array& offsets, const Array& values,
       MemoryPool* pool = default_memory_pool());
-
-  ARROW_DEPRECATED("Use Result-returning version")
-  static Status FromArrays(const Array& offsets, const Array& values, MemoryPool* pool,
-                           std::shared_ptr<Array>* out);
 
   /// \brief Return an Array that is a concatenation of the lists in this array.
   ///
@@ -207,12 +199,6 @@ class ARROW_EXPORT MapArray : public ListArray {
   static Result<std::shared_ptr<Array>> FromArrays(
       const std::shared_ptr<Array>& offsets, const std::shared_ptr<Array>& keys,
       const std::shared_ptr<Array>& items, MemoryPool* pool = default_memory_pool());
-
-  ARROW_DEPRECATED("Use Result-returning version")
-  static Status FromArrays(const std::shared_ptr<Array>& offsets,
-                           const std::shared_ptr<Array>& keys,
-                           const std::shared_ptr<Array>& items, MemoryPool* pool,
-                           std::shared_ptr<Array>* out);
 
   const MapType* map_type() const { return map_type_; }
 
@@ -336,9 +322,6 @@ class ARROW_EXPORT StructArray : public Array {
   /// \param[in] pool The pool to allocate null bitmaps from, if necessary
   Result<ArrayVector> Flatten(MemoryPool* pool = default_memory_pool()) const;
 
-  ARROW_DEPRECATED("Use Result-returning version")
-  Status Flatten(MemoryPool* pool, ArrayVector* out) const;
-
  private:
   // For caching boxed child data
   // XXX This is not handled in a thread-safe manner.
@@ -401,39 +384,6 @@ class ARROW_EXPORT UnionArray : public Array {
                      type_codes);
   }
 
-  ARROW_DEPRECATED("Use Result-returning version")
-  static Status MakeDense(const Array& type_ids, const Array& value_offsets,
-                          const std::vector<std::shared_ptr<Array>>& children,
-                          const std::vector<std::string>& field_names,
-                          const std::vector<type_code_t>& type_codes,
-                          std::shared_ptr<Array>* out) {
-    return MakeDense(type_ids, value_offsets, children, field_names, type_codes)
-        .Value(out);
-  }
-
-  ARROW_DEPRECATED("Use Result-returning version")
-  static Status MakeDense(const Array& type_ids, const Array& value_offsets,
-                          const std::vector<std::shared_ptr<Array>>& children,
-                          const std::vector<std::string>& field_names,
-                          std::shared_ptr<Array>* out) {
-    return MakeDense(type_ids, value_offsets, children, field_names).Value(out);
-  }
-
-  ARROW_DEPRECATED("Use Result-returning version")
-  static Status MakeDense(const Array& type_ids, const Array& value_offsets,
-                          const std::vector<std::shared_ptr<Array>>& children,
-                          const std::vector<type_code_t>& type_codes,
-                          std::shared_ptr<Array>* out) {
-    return MakeDense(type_ids, value_offsets, children, type_codes).Value(out);
-  }
-
-  ARROW_DEPRECATED("Use Result-returning version")
-  static Status MakeDense(const Array& type_ids, const Array& value_offsets,
-                          const std::vector<std::shared_ptr<Array>>& children,
-                          std::shared_ptr<Array>* out) {
-    return MakeDense(type_ids, value_offsets, children).Value(out);
-  }
-
   /// \brief Construct Sparse UnionArray from type_ids and children
   ///
   /// This function does the bare minimum of validation of the offsets and
@@ -460,38 +410,6 @@ class ARROW_EXPORT UnionArray : public Array {
       const Array& type_ids, const std::vector<std::shared_ptr<Array>>& children,
       const std::vector<type_code_t>& type_codes) {
     return MakeSparse(type_ids, children, std::vector<std::string>{}, type_codes);
-  }
-
-  ARROW_DEPRECATED("Use Result-returning version")
-  static Status MakeSparse(const Array& type_ids,
-                           const std::vector<std::shared_ptr<Array>>& children,
-                           const std::vector<std::string>& field_names,
-                           const std::vector<type_code_t>& type_codes,
-                           std::shared_ptr<Array>* out) {
-    return MakeSparse(type_ids, children, field_names, type_codes).Value(out);
-  }
-
-  ARROW_DEPRECATED("Use Result-returning version")
-  static Status MakeSparse(const Array& type_ids,
-                           const std::vector<std::shared_ptr<Array>>& children,
-                           const std::vector<std::string>& field_names,
-                           std::shared_ptr<Array>* out) {
-    return MakeSparse(type_ids, children, field_names).Value(out);
-  }
-
-  ARROW_DEPRECATED("Use Result-returning version")
-  static Status MakeSparse(const Array& type_ids,
-                           const std::vector<std::shared_ptr<Array>>& children,
-                           const std::vector<type_code_t>& type_codes,
-                           std::shared_ptr<Array>* out) {
-    return MakeSparse(type_ids, children, type_codes).Value(out);
-  }
-
-  ARROW_DEPRECATED("Use Result-returning version")
-  static Status MakeSparse(const Array& type_ids,
-                           const std::vector<std::shared_ptr<Array>>& children,
-                           std::shared_ptr<Array>* out) {
-    return MakeSparse(type_ids, children).Value(out);
   }
 
   /// Note that this buffer does not account for any slice offset
@@ -521,7 +439,7 @@ class ARROW_EXPORT UnionArray : public Array {
   // Return the given field as an individual array.
   // For sparse unions, the returned array has its offset, length and null
   // count adjusted.
-  ARROW_DEPRECATED("Use field(pos)")
+  ARROW_DEPRECATED("Deprecated in 1.0.0. Use field(pos)")
   std::shared_ptr<Array> child(int pos) const;
 
   /// \brief Return the given field as an individual array.
