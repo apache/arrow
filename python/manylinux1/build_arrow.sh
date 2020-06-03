@@ -121,7 +121,6 @@ cmake \
     -DCMAKE_INSTALL_PREFIX=/arrow-dist \
     -DOPENSSL_USE_STATIC_LIBS=ON \
     -DORC_SOURCE=BUNDLED \
-    -DPythonInterp_FIND_VERSION=${PYTHON_VERSION} \
     -GNinja /arrow/cpp
 ninja
 ninja install

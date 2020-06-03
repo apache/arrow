@@ -121,7 +121,6 @@ PATH="${CPYTHON_PATH}/bin:${PATH}" cmake \
     -DCMAKE_INSTALL_PREFIX=/arrow-dist \
     -DOPENSSL_USE_STATIC_LIBS=ON \
     -DORC_SOURCE=BUNDLED \
-    -DPythonInterp_FIND_VERSION=${PYTHON_VERSION} \
     -DZLIB_ROOT=/usr/local \
     -GNinja /arrow/cpp
 ninja install

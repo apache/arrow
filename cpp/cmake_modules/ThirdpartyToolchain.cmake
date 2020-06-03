@@ -707,15 +707,14 @@ endif()
 # - Gandiva has a compile-time (header-only) dependency on Boost, not runtime.
 # - Tests need Boost at runtime.
 # - S3FS and Flight benchmarks need Boost at runtime.
+
 if(ARROW_BUILD_INTEGRATION
    OR ARROW_BUILD_TESTS
    OR (ARROW_FLIGHT AND ARROW_BUILD_BENCHMARKS)
    OR (ARROW_S3 AND ARROW_BUILD_BENCHMARKS)
    OR ARROW_GANDIVA
    OR (ARROW_WITH_THRIFT AND Thrift_SOURCE STREQUAL "BUNDLED")
-   OR (ARROW_PARQUET
-       AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU"
-       AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "4.9"))
+   OR ARROW_PARQUET)
   set(ARROW_BOOST_REQUIRED TRUE)
 else()
   set(ARROW_BOOST_REQUIRED FALSE)
