@@ -44,5 +44,4 @@ import pyarrow.fs
 import pyarrow._hdfs
 import pyarrow.dataset
 import pyarrow.flight
-import pyarrow.gandiva
 "
