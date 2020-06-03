@@ -27,6 +27,23 @@ using internal::checked_pointer_cast;
 
 namespace util {
 
+// TimestampType -> TimestampType
+static const std::pair<DivideOrMultiply, int64_t> kTimestampConversionTable[4][4] = {
+    // TimestampType::SECOND
+    {{MULTIPLY, 1}, {MULTIPLY, 1000}, {MULTIPLY, 1000000}, {MULTIPLY, 1000000000}},
+    // TimestampType::MILLI
+    {{DIVIDE, 1000}, {MULTIPLY, 1}, {MULTIPLY, 1000}, {MULTIPLY, 1000000}},
+    // TimestampType::MICRO
+    {{DIVIDE, 1000000}, {DIVIDE, 1000}, {MULTIPLY, 1}, {MULTIPLY, 1000}},
+    // TimestampType::NANO
+    {{DIVIDE, 1000000000}, {DIVIDE, 1000000}, {DIVIDE, 1000}, {MULTIPLY, 1}},
+};
+
+std::pair<DivideOrMultiply, int64_t> GetTimestampConversion(TimeUnit::type in_unit,
+                                                            TimeUnit::type out_unit) {
+  return kTimestampConversionTable[static_cast<int>(in_unit)][static_cast<int>(out_unit)];
+}
+
 Result<int64_t> ConvertTimestampValue(const std::shared_ptr<DataType>& in,
                                       const std::shared_ptr<DataType>& out,
                                       int64_t value) {
@@ -34,7 +51,7 @@ Result<int64_t> ConvertTimestampValue(const std::shared_ptr<DataType>& in,
   auto to = checked_pointer_cast<TimestampType>(out)->unit();
 
   auto op_factor =
-      util::kTimestampConversionTable[static_cast<int>(from)][static_cast<int>(to)];
+      kTimestampConversionTable[static_cast<int>(from)][static_cast<int>(to)];
 
   auto op = op_factor.first;
   auto factor = op_factor.second;
