@@ -382,14 +382,17 @@ Status DecompressBuffers(Compression::type compression, const IpcReadOptions& op
   struct BufferAccumulator {
     using BufferPtrVector = std::vector<std::shared_ptr<Buffer>*>;
 
-    BufferPtrVector Get(const std::vector<std::shared_ptr<ArrayData>>& fields) {
+    void AppendFrom(const std::vector<std::shared_ptr<ArrayData>>& fields) {
       for (const auto& field : fields) {
         for (auto& buffer : field->buffers) {
           buffers_.push_back(&buffer);
         }
-        Get(field->child_data);
+        AppendFrom(field->child_data);
       }
+    }
 
+    BufferPtrVector Get(const std::vector<std::shared_ptr<ArrayData>>& fields) && {
+      AppendFrom(fields);
       return std::move(buffers_);
     }
 
