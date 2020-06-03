@@ -592,7 +592,7 @@ class FirstTimeBitmapWriter {
   ///            to be unset (i.e. 0).
   /// \param[in] number_of_bits The number of bits to append from word.
   void AppendWord(uint64_t word, int64_t number_of_bits) {
-#if defined(ARROW_LITTLE_ENDIAN)
+#if ARROW_LITTLE_ENDIAN
     if (ARROW_PREDICT_FALSE(number_of_bits == 0)) {
       return;
     }
