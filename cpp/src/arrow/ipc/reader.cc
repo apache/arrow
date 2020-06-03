@@ -400,7 +400,6 @@ Status DecompressBuffers(Compression::type compression, const IpcReadOptions& op
     }
 
     Status operator()(int i) { return DecompressField(fields->at(i).get()); }
-
   } decompress_field = {fields, options.memory_pool, std::move(codec)};
 
   return ::arrow::internal::OptionalParallelFor(
