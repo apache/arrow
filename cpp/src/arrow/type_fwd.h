@@ -91,7 +91,7 @@ class NullArray;
 class NullBuilder;
 struct NullScalar;
 
-struct FixedWidthType;
+class FixedWidthType;
 
 class BooleanType;
 class BooleanArray;
