@@ -610,28 +610,6 @@ Result<std::shared_ptr<CudaBuffer>> CudaContext::OpenIpcBuffer(
   }
 }
 
-Status CudaContext::OpenIpcBuffer(const CudaIpcMemHandle& ipc_handle,
-                                  std::shared_ptr<CudaBuffer>* out) {
-  if (ipc_handle.memory_size() > 0) {
-    ContextSaver set_temporary(*this);
-    uint8_t* data = nullptr;
-    RETURN_NOT_OK(impl_->OpenIpcBuffer(ipc_handle, &data));
-    // Need to ask the device how big the buffer is
-    size_t allocation_size = 0;
-    CU_RETURN_NOT_OK("cuMemGetAddressRange",
-                     cuMemGetAddressRange(nullptr, &allocation_size,
-                                          reinterpret_cast<CUdeviceptr>(data)));
-    *out = std::make_shared<CudaBuffer>(data, allocation_size, this->shared_from_this(),
-                                        true, true);
-  } else {
-    // zero-sized buffer does not own data (which is nullptr), hence
-    // CloseIpcBuffer will not be called (see CudaBuffer::Close).
-    *out =
-        std::make_shared<CudaBuffer>(nullptr, 0, this->shared_from_this(), false, true);
-  }
-  return Status::OK();
-}
-
 Status CudaContext::CloseIpcBuffer(CudaBuffer* buf) {
   ContextSaver set_temporary(*this);
   CU_RETURN_NOT_OK("cuIpcCloseMemHandle", cuIpcCloseMemHandle(buf->address()));
@@ -661,12 +639,6 @@ Result<uintptr_t> CudaContext::GetDeviceAddress(uintptr_t addr) {
 
 Result<uintptr_t> CudaContext::GetDeviceAddress(uint8_t* addr) {
   return GetDeviceAddress(reinterpret_cast<uintptr_t>(addr));
-}
-
-Status CudaContext::GetDeviceAddress(uint8_t* addr, uint8_t** devaddr) {
-  ARROW_ASSIGN_OR_RAISE(auto ptr, GetDeviceAddress(addr));
-  *devaddr = reinterpret_cast<uint8_t*>(ptr);
-  return Status::OK();
 }
 
 }  // namespace cuda
