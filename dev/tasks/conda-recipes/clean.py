@@ -59,4 +59,4 @@ if __name__ == "__main__":
     for name in to_delete:
         print(f"Deleting {name} …")
         if "FORCE" in sys.argv:
-            check_call(["anaconda", "remove", name])
+            check_call(["anaconda", "remove", "-f", name])
