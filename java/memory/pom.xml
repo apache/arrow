@@ -18,65 +18,12 @@
   </parent>
   <artifactId>arrow-memory</artifactId>
   <name>Arrow Memory</name>
-  <description>Core off-heap memory management libraries for Arrow ValueVectors.</description>
+  <packaging>pom</packaging>
 
-  <dependencies>
-    <dependency>
-      <groupId>com.google.code.findbugs</groupId>
-      <artifactId>jsr305</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>io.netty</groupId>
-      <artifactId>netty-buffer</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>io.netty</groupId>
-      <artifactId>netty-common</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-api</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.immutables</groupId>
-      <artifactId>value</artifactId>
-    </dependency>
-  </dependencies>
+  <modules>
+    <module>memory-core</module>
+    <module>memory-unsafe</module>
+    <module>memory-netty</module>
+  </modules>
 
-  <build>
-  </build>
-
-  <profiles>
-    <profile>
-      <!-- This profile turns on integration testing. It activates the failsafe plugin and will run any tests
-      with the 'IT' prefix. This should be run in a separate CI build or on developers machines as it potentially
-      uses quite a bit of memory. Activate the tests by adding -Pintegration-tests to your maven command line -->
-      <id>integration-tests</id>
-      <build>
-        <plugins>
-          <plugin>
-            <groupId>org.apache.maven.plugins</groupId>
-            <artifactId>maven-failsafe-plugin</artifactId>
-            <configuration>
-              <systemPropertyVariables>
-                <java.io.tmpdir>${project.build.directory}</java.io.tmpdir>
-                <io.netty.tryReflectionSetAccessible>true</io.netty.tryReflectionSetAccessible>
-                <arrow.memory.debug.allocator>false</arrow.memory.debug.allocator>
-                <user.timezone>UTC</user.timezone>
-              </systemPropertyVariables>
-              <argLine></argLine>
-            </configuration>
-            <executions>
-              <execution>
-                <goals>
-                  <goal>integration-test</goal>
-                  <goal>verify</goal>
-                </goals>
-              </execution>
-            </executions>
-          </plugin>
-        </plugins>
-      </build>
-    </profile>
-  </profiles>
 </project>
