@@ -55,9 +55,6 @@ except ImportError:
     except ImportError:
         __version__ = None
 
-
-import pyarrow.compat as compat
-
 # ARROW-8684: Disable GC while initializing Cython extension module,
 # to workaround Cython bug in https://github.com/cython/cython/issues/3603
 _gc_enabled = _gc.isenabled()

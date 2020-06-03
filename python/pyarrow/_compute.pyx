@@ -17,7 +17,7 @@
 
 # cython: language_level = 3
 
-from pyarrow.compat import frombytes, tobytes, ordered_dict
+from pyarrow.lib import frombytes, tobytes, ordered_dict
 from pyarrow.lib cimport *
 from pyarrow.includes.libarrow cimport *
 import pyarrow.lib as lib

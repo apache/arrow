@@ -22,6 +22,7 @@
 
 from cython.operator cimport dereference as deref
 
+from collections.abc import Mapping
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.lib cimport (check_status, Field, MemoryPool, Schema,
@@ -29,8 +30,7 @@ from pyarrow.lib cimport (check_status, Field, MemoryPool, Schema,
                           maybe_unbox_memory_pool, get_input_stream,
                           pyarrow_wrap_schema, pyarrow_wrap_table,
                           pyarrow_wrap_data_type, pyarrow_unwrap_data_type)
-
-from pyarrow.compat import frombytes, tobytes, Mapping
+from pyarrow.lib import frombytes, tobytes
 
 
 cdef unsigned char _single_char(s) except 0:
