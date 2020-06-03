@@ -337,25 +337,6 @@ void ScalarPrimitiveExecUnary(KernelContext* ctx, const ExecBatch& batch, Datum*
   }
 }
 
-template <typename Op, typename OutType, typename Arg0Type, typename Arg1Type>
-void ScalarPrimitiveExecBinary(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  using OUT = typename OutType::c_type;
-  using ARG0 = typename Arg0Type::c_type;
-  using ARG1 = typename Arg1Type::c_type;
-
-  if (batch[0].kind() == Datum::SCALAR || batch[1].kind() == Datum::SCALAR) {
-    ctx->SetStatus(Status::NotImplemented("NYI"));
-  } else {
-    ArrayData* out_arr = out->mutable_array();
-    auto out_data = out_arr->GetMutableValues<OUT>(1);
-    auto arg0_data = batch[0].array()->GetValues<ARG0>(1);
-    auto arg1_data = batch[1].array()->GetValues<ARG1>(1);
-    for (int64_t i = 0; i < batch.length; ++i) {
-      *out_data++ = Op::template Call<OUT, ARG0, ARG1>(ctx, *arg0_data++, *arg1_data++);
-    }
-  }
-}
-
 // OutputAdapter allows passing an inlineable lambda that provides a sequence
 // of output values to write into output memory. Boolean and primitive outputs
 // are currently implemented, and the validity bitmap is presumed to be handled
@@ -619,8 +600,6 @@ struct ScalarBinary {
   static void ArrayArray(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     ArrayIterator<Arg0Type> arg0(*batch[0].array());
     ArrayIterator<Arg1Type> arg1(*batch[1].array());
-    // I don't get it why it is unable to deduce the OUT type of Call since it is
-    // explicitly defined as the return type of the lambda.
     OutputAdapter<OutType>::Write(ctx, out, [&]() -> OUT {
         return Op::template Call(ctx, arg0(), arg1());
     });

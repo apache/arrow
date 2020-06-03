@@ -51,10 +51,6 @@ class TestBinaryArithmetics<std::pair<I, O>> : public TestBase {
   using BinaryFunction =
       std::function<Result<Datum>(const Datum&, const Datum&, ExecContext*)>;
 
-  static InputCType GetMin() { return std::numeric_limits<InputCType>::min(); }
-
-  static InputCType GetMax() { return std::numeric_limits<InputCType>::max(); }
-
   std::shared_ptr<Array> MakeInputArray(const std::vector<InputCType>& values) {
     std::shared_ptr<Array> out;
     ArrayFromVector<InputType>(values, &out);
@@ -92,18 +88,15 @@ template <typename TypePair>
 class TestBinaryArithmeticsFloating : public TestBinaryArithmetics<TypePair> {};
 
 // InputType - OutputType pairs
-using IntegralPairs = testing::Types<
-    // std::pair<Int8Type, Int16Type>,
-    std::pair<Int16Type, Int32Type>, std::pair<Int32Type, Int64Type>,
-    std::pair<Int64Type, Int64Type>,
-    // std::pair<UInt8Type, UInt16Type>,
-    // std::pair<UInt16Type, UInt32Type>,
-    std::pair<UInt32Type, UInt64Type>, std::pair<UInt64Type, UInt64Type>>;
+using IntegralPairs =
+    testing::Types<std::pair<Int8Type, Int16Type>, std::pair<Int16Type, Int32Type>,
+                   std::pair<Int32Type, Int64Type>, std::pair<Int64Type, Int64Type>,
+                   std::pair<UInt8Type, UInt16Type>, std::pair<UInt16Type, UInt32Type>,
+                   std::pair<UInt32Type, UInt64Type>, std::pair<UInt64Type, UInt64Type>>;
 
-// InputType - OutputType pairs
-using FloatingPairs = testing::Types<
-    // std::pair<HalfFloatType, HalfFloatType>,
-    std::pair<FloatType, FloatType>, std::pair<DoubleType, DoubleType>>;
+// InputType - OutputType pairs, TODO(kszucs): add half-float
+using FloatingPairs =
+    testing::Types<std::pair<FloatType, FloatType>, std::pair<DoubleType, DoubleType>>;
 
 TYPED_TEST_SUITE(TestBinaryArithmeticsIntegral, IntegralPairs);
 TYPED_TEST_SUITE(TestBinaryArithmeticsFloating, FloatingPairs);
@@ -126,25 +119,17 @@ TYPED_TEST(TestBinaryArithmeticsIntegral, Add) {
                     "[null, 5, 5, null, 2, 8]");
 }
 
-// If I uncomment the commented out signed integer pairs above then clang gives me the
-// following warning:
-//
-// ../src/arrow/compute/kernels/scalar_arithmetic_test.cc:150:64: note: insert an explicit
-// cast to silence this issue
-//   auto expected = this->MakeOutputArray({1, 12, 14, min + min, max + max});
-//                                                                ^~~~~~~~~
-//                                                                static_cast<unsigned
-//                                                                short>( )
-//
-// Since I don't really access the types within this typed test, I assume I need a
-// different approach?
 TYPED_TEST(TestBinaryArithmeticsIntegral, AddCheckExtremes) {
-  auto min = this->GetMin();
-  auto max = this->GetMax();
+  using InputCType = typename TestFixture::InputCType;
+  using OutputCType = typename TestFixture::OutputCType;
+
+  auto min = std::numeric_limits<InputCType>::min();
+  auto max = std::numeric_limits<InputCType>::max();
 
   auto left = this->MakeInputArray({1, 2, 3, min, max});
   auto right = this->MakeInputArray({0, 10, 11, min, max});
-  auto expected = this->MakeOutputArray({1, 12, 14, min + min, max + max});
+  auto expected = this->MakeOutputArray({1, 12, 14, static_cast<OutputCType>(min + min),
+                                         static_cast<OutputCType>(max + max)});
 
   this->AssertBinop(arrow::compute::Add, left, right, expected);
 }
