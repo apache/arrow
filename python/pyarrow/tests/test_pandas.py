@@ -2219,7 +2219,7 @@ class TestConvertStructTypes:
                        ('z', np.bool_)])
 
         data = np.array([], dtype=dt)
-        with pytest.raises(TypeError,
+        with pytest.raises(ValueError,
                            match="Missing field 'y'"):
             pa.array(data, type=ty)
         data = np.int32([])
