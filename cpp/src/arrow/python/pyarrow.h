@@ -64,6 +64,7 @@ DECLARE_WRAP_FUNCTIONS(array, Array)
 DECLARE_WRAP_FUNCTIONS(chunked_array, ChunkedArray)
 
 DECLARE_WRAP_FUNCTIONS(sparse_coo_tensor, SparseCOOTensor)
+DECLARE_WRAP_FUNCTIONS(sparse_split_coo_tensor, SparseSplitCOOTensor)
 DECLARE_WRAP_FUNCTIONS(sparse_csc_matrix, SparseCSCMatrix)
 DECLARE_WRAP_FUNCTIONS(sparse_csf_tensor, SparseCSFTensor)
 DECLARE_WRAP_FUNCTIONS(sparse_csr_matrix, SparseCSRMatrix)

@@ -72,6 +72,7 @@ DEFINE_WRAP_FUNCTIONS(array, Array)
 DEFINE_WRAP_FUNCTIONS(chunked_array, ChunkedArray)
 
 DEFINE_WRAP_FUNCTIONS(sparse_coo_tensor, SparseCOOTensor)
+DEFINE_WRAP_FUNCTIONS(sparse_split_coo_tensor, SparseSplitCOOTensor)
 DEFINE_WRAP_FUNCTIONS(sparse_csc_matrix, SparseCSCMatrix)
 DEFINE_WRAP_FUNCTIONS(sparse_csf_tensor, SparseCSFTensor)
 DEFINE_WRAP_FUNCTIONS(sparse_csr_matrix, SparseCSRMatrix)

@@ -300,19 +300,21 @@ cdef class SerializedPyObject(_Weakrefable):
             int num_ndarrays = components['num_ndarrays']
             int num_buffers = components['num_buffers']
             list buffers = components['data']
-            SparseTensorCounts num_sparse_tensors = SparseTensorCounts()
+            SparseTensorCounts sparse_counts = SparseTensorCounts()
             SerializedPyObject result = SerializedPyObject()
 
-        num_sparse_tensors.coo = components['num_sparse_tensors']['coo']
-        num_sparse_tensors.csr = components['num_sparse_tensors']['csr']
-        num_sparse_tensors.csc = components['num_sparse_tensors']['csc']
-        num_sparse_tensors.csf = components['num_sparse_tensors']['csf']
-        num_sparse_tensors.ndim_csf = \
-            components['num_sparse_tensors']['ndim_csf']
+        num_sparse_tensors = components['num_sparse_tensors']
+        sparse_counts.coo = num_sparse_tensors['coo']
+        sparse_counts.split_coo = num_sparse_tensors['split_coo']
+        sparse_counts.ndim_split_coo = num_sparse_tensors['ndim_split_coo']
+        sparse_counts.csr = num_sparse_tensors['csr']
+        sparse_counts.csc = num_sparse_tensors['csc']
+        sparse_counts.csf = num_sparse_tensors['csf']
+        sparse_counts.ndim_csf = num_sparse_tensors['ndim_csf']
 
         with nogil:
             check_status(GetSerializedFromComponents(num_tensors,
-                                                     num_sparse_tensors,
+                                                     sparse_counts,
                                                      num_ndarrays,
                                                      num_buffers,
                                                      buffers, &result.data))

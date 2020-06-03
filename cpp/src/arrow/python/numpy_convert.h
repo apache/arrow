@@ -64,6 +64,10 @@ ARROW_PYTHON_EXPORT Status
 SparseCOOTensorToNdarray(const std::shared_ptr<SparseCOOTensor>& sparse_tensor,
                          PyObject* base, PyObject** out_data, PyObject** out_coords);
 
+ARROW_PYTHON_EXPORT Status
+SparseSplitCOOTensorToNdarray(const std::shared_ptr<SparseSplitCOOTensor>& sparse_tensor,
+                              PyObject* base, PyObject** out_data, PyObject** out_coords);
+
 Status SparseCSXMatrixToNdarray(const std::shared_ptr<SparseTensor>& sparse_tensor,
                                 PyObject* base, PyObject** out_data,
                                 PyObject** out_indptr, PyObject** out_indices);
@@ -85,6 +89,11 @@ ARROW_PYTHON_EXPORT Status NdarraysToSparseCOOTensor(
     const std::vector<int64_t>& shape, const std::vector<std::string>& dim_names,
     std::shared_ptr<SparseCOOTensor>* out);
 
+ARROW_PYTHON_EXPORT Status NdarraysToSparseSplitCOOTensor(
+    MemoryPool* pool, PyObject* data_ao, PyObject* indices_ao,
+    const std::vector<int64_t>& shape, const std::vector<std::string>& dim_names,
+    std::shared_ptr<SparseSplitCOOTensor>* out);
+
 ARROW_PYTHON_EXPORT Status NdarraysToSparseCSRMatrix(
     MemoryPool* pool, PyObject* data_ao, PyObject* indptr_ao, PyObject* indices_ao,
     const std::vector<int64_t>& shape, const std::vector<std::string>& dim_names,
@@ -103,6 +112,10 @@ ARROW_PYTHON_EXPORT Status NdarraysToSparseCSFTensor(
 ARROW_PYTHON_EXPORT Status
 TensorToSparseCOOTensor(const std::shared_ptr<Tensor>& tensor,
                         std::shared_ptr<SparseCOOTensor>* csparse_tensor);
+
+ARROW_PYTHON_EXPORT Status
+TensorToSparseSplitCOOTensor(const std::shared_ptr<Tensor>& tensor,
+                             std::shared_ptr<SparseSplitCOOTensor>* csparse_tensor);
 
 ARROW_PYTHON_EXPORT Status
 TensorToSparseCSRMatrix(const std::shared_ptr<Tensor>& tensor,

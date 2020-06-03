@@ -832,6 +832,23 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         Type type_id()
         c_bool Equals(const CSparseCOOTensor& other)
 
+    cdef cppclass CSparseSplitCOOTensor" arrow::SparseSplitCOOTensor":
+        shared_ptr[CDataType] type()
+        shared_ptr[CBuffer] data()
+        CResult[shared_ptr[CTensor]] ToTensor()
+
+        const vector[int64_t]& shape()
+        int64_t size()
+        int64_t non_zero_length()
+
+        int ndim()
+        const vector[c_string]& dim_names()
+        const c_string& dim_name(int i)
+
+        c_bool is_mutable()
+        Type type_id()
+        c_bool Equals(const CSparseSplitCOOTensor& other)
+
     cdef cppclass CSparseCSRMatrix" arrow::SparseCSRMatrix":
         shared_ptr[CDataType] type()
         shared_ptr[CBuffer] data()
@@ -1798,6 +1815,10 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
         const shared_ptr[CSparseCOOTensor]& sparse_tensor, object base,
         PyObject** out_data, PyObject** out_coords)
 
+    CStatus SparseSplitCOOTensorToNdarray(
+        const shared_ptr[CSparseSplitCOOTensor]& sparse_tensor, object base,
+        PyObject** out_data, PyObject** out_indices)
+
     CStatus SparseCSRMatrixToNdarray(
         const shared_ptr[CSparseCSRMatrix]& sparse_tensor, object base,
         PyObject** out_data, PyObject** out_indptr, PyObject** out_indices)
@@ -1815,6 +1836,11 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
                                       const vector[int64_t]& shape,
                                       const vector[c_string]& dim_names,
                                       shared_ptr[CSparseCOOTensor]* out)
+
+    CStatus NdarraysToSparseSplitCOOTensor(
+        CMemoryPool* pool, object data_ao, object coords_ao,
+        const vector[int64_t]& shape, const vector[c_string]& dim_names,
+        shared_ptr[CSparseSplitCOOTensor]* out)
 
     CStatus NdarraysToSparseCSRMatrix(CMemoryPool* pool, object data_ao,
                                       object indptr_ao, object indices_ao,
@@ -1837,6 +1863,9 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
 
     CStatus TensorToSparseCOOTensor(shared_ptr[CTensor],
                                     shared_ptr[CSparseCOOTensor]* out)
+
+    CStatus TensorToSparseSplitCOOTensor(
+        shared_ptr[CTensor], shared_ptr[CSparseSplitCOOTensor]* out)
 
     CStatus TensorToSparseCSRMatrix(shared_ptr[CTensor],
                                     shared_ptr[CSparseCSRMatrix]* out)
@@ -1921,6 +1950,8 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
         int csc
         int csf
         int ndim_csf
+        int split_coo
+        int ndim_split_coo
         int num_total_tensors() const
         int num_total_buffers() const
 

@@ -262,6 +262,17 @@ cdef class SparseCOOTensor(_Weakrefable):
     cdef void init(self, const shared_ptr[CSparseCOOTensor]& sp_sparse_tensor)
 
 
+cdef class SparseSplitCOOTensor(_Weakrefable):
+    cdef:
+        shared_ptr[CSparseSplitCOOTensor] sp_sparse_tensor
+        CSparseSplitCOOTensor *stp
+
+    cdef readonly:
+        DataType type
+
+    cdef void init(self, const shared_ptr[CSparseSplitCOOTensor]& sp_sparse_tensor)  # noqa: E501
+
+
 cdef class SparseCSFTensor(_Weakrefable):
     cdef:
         shared_ptr[CSparseCSFTensor] sp_sparse_tensor
@@ -535,6 +546,8 @@ cdef public object pyarrow_wrap_table(const shared_ptr[CTable]& ctable)
 cdef public object pyarrow_wrap_tensor(const shared_ptr[CTensor]& sp_tensor)
 cdef public object pyarrow_wrap_sparse_coo_tensor(
     const shared_ptr[CSparseCOOTensor]& sp_sparse_tensor)
+cdef public object pyarrow_wrap_sparse_split_coo_tensor(
+    const shared_ptr[CSparseSplitCOOTensor]& sp_sparse_tensor)
 cdef public object pyarrow_wrap_sparse_csr_matrix(
     const shared_ptr[CSparseCSRMatrix]& sp_sparse_tensor)
 cdef public object pyarrow_wrap_sparse_csc_matrix(
@@ -554,6 +567,8 @@ cdef public shared_ptr[CSchema] pyarrow_unwrap_schema(object schema)
 cdef public shared_ptr[CTable] pyarrow_unwrap_table(object table)
 cdef public shared_ptr[CTensor] pyarrow_unwrap_tensor(object tensor)
 cdef public shared_ptr[CSparseCOOTensor] pyarrow_unwrap_sparse_coo_tensor(
+    object sparse_tensor)
+cdef public shared_ptr[CSparseSplitCOOTensor] pyarrow_unwrap_sparse_split_coo_tensor(  # noqa: E501
     object sparse_tensor)
 cdef public shared_ptr[CSparseCSRMatrix] pyarrow_unwrap_sparse_csr_matrix(
     object sparse_tensor)

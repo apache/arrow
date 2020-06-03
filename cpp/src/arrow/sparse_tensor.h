@@ -214,7 +214,11 @@ class ARROW_EXPORT SparseSplitCOOIndex
       int64_t non_zero_length,
       const std::vector<std::shared_ptr<Buffer>>& indices_data_buffers);
 
-  /// \brief Construct SparseCSXIndex from two index vectors
+  /// \brief Make SparseSplitCOOIndex from indices
+  static Result<std::shared_ptr<SparseSplitCOOIndex>> Make(
+      const std::vector<std::shared_ptr<Tensor>>& indices);
+
+  /// \brief Construct SparseSplitCOOIndex from two index vectors
   explicit SparseSplitCOOIndex(const std::vector<std::shared_ptr<Tensor>>& indices);
 
   /// \brief Check the validity of the instance

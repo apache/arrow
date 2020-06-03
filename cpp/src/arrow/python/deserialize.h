@@ -44,11 +44,21 @@ struct ARROW_PYTHON_EXPORT SparseTensorCounts {
   int csc;
   int csf;
   int ndim_csf;
+  int split_coo;
+  int ndim_split_coo;
 
-  int num_total_tensors() const { return coo + csr + csc + csf; }
+  int num_total_tensors() const { return coo + csr + csc + csf + split_coo; }
   int num_total_buffers() const {
-    return coo * 3 + csr * 4 + csc * 4 + 2 * ndim_csf + csf;
+    return (num_coo_buffers() + num_csr_buffers() + num_csc_buffers() +
+            num_csf_buffers() + num_split_coo_buffers());
   }
+
+ private:
+  int num_coo_buffers() const { return 3 * coo; }
+  int num_split_coo_buffers() const { return ndim_split_coo + 2 * split_coo; }
+  int num_csr_buffers() const { return 4 * csr; }
+  int num_csc_buffers() const { return 4 * csc; }
+  int num_csf_buffers() const { return 2 * ndim_csf + csf; }
 };
 
 /// \brief Read serialized Python sequence from file interface using Arrow IPC

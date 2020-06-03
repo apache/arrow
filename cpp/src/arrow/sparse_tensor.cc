@@ -319,16 +319,26 @@ std::string SparseCOOIndex::ToString() const { return std::string("SparseCOOInde
 
 namespace {
 
-inline Status CheckSparseSplitCOOIndexValidity(
-    const std::vector<std::shared_ptr<DataType>>& types) {
+inline Type::type GetTypeId(const std::shared_ptr<DataType>& type) { return type->id(); }
+
+inline Type::type GetTypeId(const std::shared_ptr<Tensor>& tensor) {
+  return tensor->type_id();
+}
+
+template <typename DataTypeOrTensor>
+inline enable_if_t<std::is_same<DataTypeOrTensor, DataType>::value ||
+                       std::is_same<DataTypeOrTensor, Tensor>::value,
+                   Status>
+CheckSparseSplitCOOIndexTypesValidity(
+    const std::vector<std::shared_ptr<DataTypeOrTensor>>& objects) {
   const auto ndim_max = static_cast<size_t>(std::numeric_limits<int>::max());
-  if (ndim_max < types.size()) {
+  if (ndim_max < objects.size()) {
     return Status::Invalid("too many dimensions are given");
   }
 
-  const auto ndim = types.size();
+  const auto ndim = objects.size();
   for (size_t i = 0; i < ndim; ++i) {
-    if (!is_integer(types[i]->id())) {
+    if (!is_integer(GetTypeId(objects[i]))) {
       return Status::TypeError("Type of SparseSplitCOOIndex indices must be integer");
     }
   }
@@ -339,7 +349,7 @@ inline Status CheckSparseSplitCOOIndexValidity(
 inline Status CheckSparseSplitCOOIndexValidity(
     const std::vector<std::shared_ptr<DataType>>& types, int64_t non_zero_length,
     const std::vector<std::shared_ptr<Buffer>>& buffers) {
-  RETURN_NOT_OK(CheckSparseSplitCOOIndexValidity(types));
+  RETURN_NOT_OK(CheckSparseSplitCOOIndexTypesValidity(types));
 
   const auto ndim = types.size();
   if (buffers.size() != ndim) {
@@ -377,6 +387,12 @@ Result<std::shared_ptr<SparseSplitCOOIndex>> SparseSplitCOOIndex::Make(
     tensors.push_back(tensor);
   }
   return std::make_shared<SparseSplitCOOIndex>(tensors);
+}
+
+Result<std::shared_ptr<SparseSplitCOOIndex>> SparseSplitCOOIndex::Make(
+    const std::vector<std::shared_ptr<Tensor>>& indices) {
+  RETURN_NOT_OK(CheckSparseSplitCOOIndexTypesValidity(indices));
+  return std::make_shared<SparseSplitCOOIndex>(indices);
 }
 
 SparseSplitCOOIndex::SparseSplitCOOIndex(

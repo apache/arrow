@@ -218,12 +218,23 @@ TEST(TestSparseSplitCOOIndex, Make) {
   const auto non_zero_length = static_cast<int64_t>(indices0_values.size());
 
   // OK
-  std::shared_ptr<SparseSplitCOOIndex> si;
-  ASSERT_OK_AND_ASSIGN(si, SparseSplitCOOIndex::Make(types, non_zero_length, buffers));
+  std::shared_ptr<SparseSplitCOOIndex> si1;
+  ASSERT_OK_AND_ASSIGN(si1, SparseSplitCOOIndex::Make(types, non_zero_length, buffers));
   for (int i = 0; i < 3; ++i) {
-    ASSERT_EQ(non_zero_length, si->indices()[i]->size());
-    ASSERT_EQ(buffers[i]->data(), si->indices()[i]->raw_data());
+    ASSERT_EQ(non_zero_length, si1->indices()[i]->size());
+    ASSERT_EQ(buffers[i]->data(), si1->indices()[i]->raw_data());
   }
+
+  // OK with tensors
+  std::vector<std::shared_ptr<Tensor>> tensors;
+  for (int i = 0; i < 3; ++i) {
+    std::shared_ptr<Tensor> tensor;
+    ASSERT_OK_AND_ASSIGN(tensor, Tensor::Make(types[i], buffers[i], {non_zero_length}));
+    tensors.push_back(tensor);
+  }
+  std::shared_ptr<SparseSplitCOOIndex> si2;
+  ASSERT_OK_AND_ASSIGN(si2, SparseSplitCOOIndex::Make(types, non_zero_length, buffers));
+  ASSERT_TRUE(si2->Equals(*si1));
 
   // Non-integer type
   auto res =

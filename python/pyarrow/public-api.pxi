@@ -305,6 +305,29 @@ cdef api object pyarrow_wrap_sparse_coo_tensor(
     return sparse_tensor
 
 
+cdef api bint pyarrow_is_sparse_split_coo_tensor(object sparse_tensor):
+    return isinstance(sparse_tensor, SparseSplitCOOTensor)
+
+cdef api shared_ptr[CSparseSplitCOOTensor] pyarrow_unwrap_sparse_split_coo_tensor(  # noqa: E501
+        object sparse_tensor):
+    cdef SparseSplitCOOTensor sten
+    if pyarrow_is_sparse_split_coo_tensor(sparse_tensor):
+        sten = <SparseSplitCOOTensor>(sparse_tensor)
+        return sten.sp_sparse_tensor
+
+    return shared_ptr[CSparseSplitCOOTensor]()
+
+cdef api object pyarrow_wrap_sparse_split_coo_tensor(
+        const shared_ptr[CSparseSplitCOOTensor]& sp_sparse_tensor):
+    if sp_sparse_tensor.get() == NULL:
+        raise ValueError('SparseSplitCOOTensor was NULL')
+
+    cdef SparseSplitCOOTensor sparse_tensor = SparseSplitCOOTensor.__new__(
+        SparseSplitCOOTensor)
+    sparse_tensor.init(sp_sparse_tensor)
+    return sparse_tensor
+
+
 cdef api bint pyarrow_is_sparse_csr_matrix(object sparse_tensor):
     return isinstance(sparse_tensor, SparseCSRMatrix)
 

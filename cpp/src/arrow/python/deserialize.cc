@@ -192,6 +192,14 @@ Status GetValue(PyObject* context, const Array& arr, int64_t index, int8_t type,
       *result = wrap_sparse_coo_tensor(sparse_coo_tensor);
       return Status::OK();
     }
+    case PythonType::SPARSESPLITCOOTENSOR: {
+      int32_t ref = checked_cast<const Int32Array&>(arr).Value(index);
+      const std::shared_ptr<SparseSplitCOOTensor>& sparse_split_coo_tensor =
+          arrow::internal::checked_pointer_cast<SparseSplitCOOTensor>(
+              blobs.sparse_tensors[ref]);
+      *result = wrap_sparse_split_coo_tensor(sparse_split_coo_tensor);
+      return Status::OK();
+    }
     case PythonType::SPARSECSRMATRIX: {
       int32_t ref = checked_cast<const Int32Array&>(arr).Value(index);
       const std::shared_ptr<SparseCSRMatrix>& sparse_csr_matrix =
