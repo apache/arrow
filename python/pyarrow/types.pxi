@@ -21,9 +21,6 @@ import re
 import sys
 import warnings
 
-from pyarrow import compat
-from pyarrow.compat import builtin_pickle
-
 
 # These are imprecise because the type (in pandas 0.x) depends on the presence
 # of nulls
@@ -2360,7 +2357,7 @@ def struct(fields):
         vector[shared_ptr[CField]] c_fields
         cdef shared_ptr[CDataType] struct_type
 
-    if isinstance(fields, compat.Mapping):
+    if isinstance(fields, Mapping):
         fields = fields.items()
 
     for item in fields:
@@ -2557,7 +2554,7 @@ def schema(fields, metadata=None):
         Field py_field
         vector[shared_ptr[CField]] c_fields
 
-    if isinstance(fields, compat.Mapping):
+    if isinstance(fields, Mapping):
         fields = fields.items()
 
     for item in fields:

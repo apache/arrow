@@ -17,6 +17,7 @@
 
 
 import ast
+from collections.abc import Sequence
 from copy import deepcopy
 from itertools import zip_longest
 import json
@@ -27,9 +28,7 @@ import warnings
 import numpy as np
 
 import pyarrow as pa
-from pyarrow.lib import _pandas_api
-from pyarrow.compat import (builtin_pickle,  # noqa
-                            frombytes, Sequence)
+from pyarrow.lib import _pandas_api, builtin_pickle, frombytes  # noqa
 
 
 _logical_type_map = {}

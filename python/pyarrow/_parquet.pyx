@@ -38,12 +38,12 @@ from pyarrow.lib cimport (Buffer, Array, Schema,
                           pyarrow_wrap_buffer,
                           NativeFile, get_reader, get_writer)
 
-from pyarrow.compat import tobytes, frombytes
 from pyarrow.lib import (ArrowException, NativeFile, _stringify_path,
                          BufferOutputStream,
                          _datetime_conversion_functions,
                          _box_time_milli,
-                         _box_time_micro)
+                         _box_time_micro,
+                         tobytes, frombytes)
 
 cimport cpython as cp
 

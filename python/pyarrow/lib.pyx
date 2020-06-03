@@ -24,8 +24,7 @@ import decimal as _pydecimal
 import json
 import numpy as np
 import os
-
-from pyarrow.compat import frombytes, tobytes, ordered_dict
+import sys
 
 from cython.operator cimport dereference as deref
 from pyarrow.includes.libarrow cimport *
@@ -40,6 +39,8 @@ arrow_init_numpy()
 import_pyarrow()
 set_numpy_nan(np.nan)
 
+# pandas API shim
+include "compat.pxi"
 
 def cpu_count():
     """

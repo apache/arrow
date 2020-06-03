@@ -23,7 +23,7 @@ from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_fs cimport *
 from pyarrow._fs cimport FileSystem
 
-from pyarrow.compat import frombytes, tobytes
+from pyarrow.lib import frombytes, tobytes
 from pyarrow.util import _stringify_path
 
 

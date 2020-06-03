@@ -23,58 +23,12 @@ import unittest
 
 import numpy as np
 
-try:
-    import pickle5 as builtin_pickle
-except ImportError:
-    import pickle as builtin_pickle
-
 from collections.abc import Iterable, Mapping, Sequence
-
+from pyarrow.lib import frombytes, tobytes
 
 def guid():
     from uuid import uuid4
     return uuid4().hex
-
-
-def tobytes(o):
-    if isinstance(o, str):
-        return o.encode('utf8')
-    else:
-        return o
-
-
-def frombytes(o, *, safe=False):
-    if safe:
-        return o.decode('utf8', errors='replace')
-    else:
-        return o.decode('utf8')
-
-
-if sys.version_info >= (3, 7):
-    # Starting with Python 3.7, dicts are guaranteed to be insertion-ordered.
-    ordered_dict = dict
-else:
-    import collections
-    ordered_dict = collections.OrderedDict
-
-
-try:
-    import cloudpickle as pickle
-except ImportError:
-    pickle = builtin_pickle
-
-
-def encode_file_path(path):
-    if isinstance(path, str):
-        # POSIX systems can handle utf-8. UTF8 is converted to utf16-le in
-        # libarrow
-        encoded_path = path.encode('utf-8')
-    else:
-        encoded_path = path
-
-    # Windows file system requires utf-16le for file names; Arrow C++ libraries
-    # will convert utf8 to utf16
-    return encoded_path
 
 
 integer_types = (int, np.integer,)

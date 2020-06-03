@@ -20,8 +20,8 @@ import collections
 import numpy as np
 
 import pyarrow as pa
-from pyarrow.compat import builtin_pickle, descr_to_dtype
-from pyarrow.lib import SerializationContext, py_buffer
+from pyarrow.compat import descr_to_dtype
+from pyarrow.lib import SerializationContext, py_buffer, builtin_pickle
 
 try:
     import cloudpickle
