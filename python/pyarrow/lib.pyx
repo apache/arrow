@@ -21,7 +21,6 @@
 
 import datetime
 import decimal as _pydecimal
-import json
 import numpy as np
 import os
 import sys

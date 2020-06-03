@@ -1088,8 +1088,7 @@ cdef class ParquetReader:
             vector[int] c_row_groups
             vector[int] c_column_indices
 
-        if use_threads:
-            self.set_use_threads(use_threads)
+        self.set_use_threads(use_threads)
 
         for row_group in row_groups:
             c_row_groups.push_back(row_group)
@@ -1114,8 +1113,7 @@ cdef class ParquetReader:
             shared_ptr[CTable] ctable
             vector[int] c_column_indices
 
-        if use_threads:
-            self.set_use_threads(use_threads)
+        self.set_use_threads(use_threads)
 
         if column_indices is not None:
             for index in column_indices:
