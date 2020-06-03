@@ -708,9 +708,9 @@ def get_version(root, **kwargs):
     version = parse_git_version(root, **kwargs)
 
     # increment the minor version, because there can be patch releases created
-    # from maintenance branches where the tags are uncreachbe from the master's
-    # HEAD, so the git command above generates 0.17.0.dev300 even if arrow has
-    # a never 0.17.1 patch release
+    # from maintenance branches where the tags are unreachable from the
+    # master's HEAD, so the git command above generates 0.17.0.dev300 even if
+    # arrow has a never 0.17.1 patch release
     pattern = r"^(\d+)\.(\d+)\.(\d+)$"
     match = re.match(pattern, str(version.tag))
     major, minor, patch = map(int, match.groups())
