@@ -340,7 +340,7 @@ if(ARROW_ORC)
   set(ARROW_WITH_ZSTD ON)
 endif()
 
-# datetime code used by iOS requries zlib support
+# datetime code used by iOS requires zlib support
 if(IOS)
   set(ARROW_WITH_ZLIB ON)
 endif()

@@ -196,7 +196,6 @@ set(ARROW_SRCS
     util/utf8.cc
     util/value_parsing.cc
     vendored/base64.cpp
-    vendored/datetime/ios.mm
     vendored/datetime/tz.cpp
     vendored/double-conversion/bignum.cc
     vendored/double-conversion/double-conversion.cc
@@ -206,6 +205,10 @@ set(ARROW_SRCS
     vendored/double-conversion/fixed-dtoa.cc
     vendored/double-conversion/diy-fp.cc
     vendored/double-conversion/strtod.cc)
+
+if (APPLE)
+  list(APPEND ARROW_SRCS vendored/datetime/ios.mm)
+endif()
 
 set(ARROW_C_SRCS
     vendored/musl/strptime.c
