@@ -137,8 +137,7 @@ struct CastFunctor<
     // The units may be equal if the time zones are different. We might go to
     // lengths to make this zero copy in the future but we leave it for now
 
-    auto conversion = util::kTimestampConversionTable[static_cast<int>(in_type.unit())]
-                                                     [static_cast<int>(out_type.unit())];
+    auto conversion = util::GetTimestampConversion(in_type.unit(), out_type.unit());
     ShiftTime<int64_t, int64_t>(ctx, conversion.first, conversion.second, input, output);
   }
 };
@@ -171,8 +170,7 @@ struct CastFunctor<Date64Type, TimestampType> {
     ArrayData* output = out->mutable_array();
     const auto& in_type = checked_cast<const TimestampType&>(*input.type);
 
-    auto conversion = util::kTimestampConversionTable[static_cast<int>(in_type.unit())]
-                                                     [static_cast<int>(TimeUnit::MILLI)];
+    auto conversion = util::GetTimestampConversion(in_type.unit(), TimeUnit::MILLI);
     ShiftTime<int64_t, int64_t>(ctx, conversion.first, conversion.second, input, output);
     if (!ctx->status().ok()) {
       return;
@@ -225,9 +223,7 @@ struct CastFunctor<O, I, enable_if_t<is_time_type<I>::value && is_time_type<O>::
     const auto& in_type = checked_cast<const I&>(*input.type);
     const auto& out_type = checked_cast<const O&>(*output->type);
     DCHECK_NE(in_type.unit(), out_type.unit()) << "Do not cast equal types";
-    auto conversion = util::kTimestampConversionTable[static_cast<int>(in_type.unit())]
-                                                     [static_cast<int>(out_type.unit())];
-
+    auto conversion = util::GetTimestampConversion(in_type.unit(), out_type.unit());
     ShiftTime<in_t, out_t>(ctx, conversion.first, conversion.second, input, output);
   }
 };
@@ -260,7 +256,7 @@ struct ParseTimestamp {
   template <typename OUT, typename ARG0>
   OUT Call(KernelContext* ctx, ARG0 val) const {
     ParseTimestampContext parse_ctx{this->unit};
-    OUT result;
+    OUT result = 0;
     if (ARROW_PREDICT_FALSE(
             !ParseValue<TimestampType>(val.data(), val.size(), &result, &parse_ctx))) {
       ctx->SetStatus(Status::Invalid("Failed to parse string: ", val));
