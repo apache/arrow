@@ -571,7 +571,7 @@ cdef class ConvertOptions:
         for c_parser in self.options.timestamp_parsers:
             kind = deref(c_parser).kind()
             if kind == b'strptime':
-                parsers.append(frombytes(deref(c_parser).detail()))
+                parsers.append(frombytes(deref(c_parser).format()))
             else:
                 assert kind == b'iso8601'
                 parsers.append(ISO8601)

@@ -1365,7 +1365,7 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
 cdef extern from 'arrow/util/value_parsing.h' namespace 'arrow' nogil:
     cdef cppclass CTimestampParser" arrow::TimestampParser":
         const char* kind() const
-        const char* detail() const
+        const char* format() const
 
         @staticmethod
         shared_ptr[CTimestampParser] MakeStrptime(c_string format)

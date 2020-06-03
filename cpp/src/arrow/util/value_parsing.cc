@@ -89,6 +89,8 @@ bool StringToFloat(const char* s, size_t length, double* out) {
 // ----------------------------------------------------------------------
 // strptime-like parsing
 
+namespace {
+
 class StrptimeTimestampParser : public TimestampParser {
  public:
   explicit StrptimeTimestampParser(std::string format) : format_(std::move(format)) {}
@@ -102,7 +104,7 @@ class StrptimeTimestampParser : public TimestampParser {
 
   const char* kind() const override { return "strptime"; }
 
-  const char* detail() const override { return format_.c_str(); }
+  const char* format() const override { return format_.c_str(); }
 
  private:
   std::string format_;
@@ -120,9 +122,10 @@ class ISO8601Parser : public TimestampParser {
   const char* kind() const override { return "iso8601"; }
 };
 
+}  // namespace
 }  // namespace internal
 
-const char* TimestampParser::detail() const { return ""; }
+const char* TimestampParser::format() const { return ""; }
 
 std::shared_ptr<TimestampParser> TimestampParser::MakeStrptime(std::string format) {
   return std::make_shared<internal::StrptimeTimestampParser>(std::move(format));
