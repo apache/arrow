@@ -166,7 +166,7 @@ cdef class NativeFile:
         self._assert_open()
         if not self.is_readable:
             # XXX UnsupportedOperation
-            raise IOError("only valid on readonly files")
+            raise IOError("only valid on readable files")
 
     def _assert_writable(self):
         self._assert_open()
