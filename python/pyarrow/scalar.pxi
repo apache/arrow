@@ -850,11 +850,13 @@ cdef class UnionValue(ArrayValue):
     cdef getitem(self, int64_t i):
         cdef int child_id = self.ap.child_id(i)
         cdef shared_ptr[CArray] child = self.ap.field(child_id)
+        cdef CDenseUnionArray* dense
         if self.ap.mode() == _UnionMode_SPARSE:
             return box_scalar(self.type[child_id].type, child, i)
         else:
+            dense = <CDenseUnionArray*> self.ap
             return box_scalar(self.type[child_id].type, child,
-                              self.ap.value_offset(i))
+                              dense.value_offset(i))
 
     def as_py(self):
         """
@@ -984,7 +986,8 @@ cdef dict _array_value_classes = {
     _Type_LARGE_LIST: LargeListValue,
     _Type_MAP: MapValue,
     _Type_FIXED_SIZE_LIST: FixedSizeListValue,
-    _Type_UNION: UnionValue,
+    _Type_SPARSE_UNION: UnionValue,
+    _Type_DENSE_UNION: UnionValue,
     _Type_BINARY: BinaryValue,
     _Type_STRING: StringValue,
     _Type_LARGE_BINARY: LargeBinaryValue,

@@ -74,7 +74,8 @@ namespace arrow {
   ACTION(Map);                                  \
   ACTION(FixedSizeList);                        \
   ACTION(Struct);                               \
-  ACTION(Union);                                \
+  ACTION(SparseUnion);                          \
+  ACTION(DenseUnion);                           \
   ACTION(Dictionary);                           \
   ACTION(Extension)
 

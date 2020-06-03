@@ -2429,11 +2429,9 @@ def union(children_fields, mode, type_codes=None):
         c_type_codes = range(c_fields.size())
 
     if mode == UnionMode_SPARSE:
-        union_type.reset(new CUnionType(c_fields, c_type_codes,
-                                        _UnionMode_SPARSE))
+        union_type = CMakeSparseUnionType(c_fields, c_type_codes)
     else:
-        union_type.reset(new CUnionType(c_fields, c_type_codes,
-                                        _UnionMode_DENSE))
+        union_type = CMakeDenseUnionType(c_fields, c_type_codes)
 
     return pyarrow_wrap_data_type(union_type)
 

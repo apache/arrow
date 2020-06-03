@@ -148,12 +148,19 @@ class Decimal128Array;
 class Decimal128Builder;
 struct Decimal128Scalar;
 
-class UnionType;
-class UnionArray;
-struct UnionScalar;
 struct UnionMode {
   enum type { SPARSE, DENSE };
 };
+
+class SparseUnionType;
+class SparseUnionArray;
+class SparseUnionBuilder;
+struct SparseUnionScalar;
+
+class DenseUnionType;
+class DenseUnionArray;
+class DenseUnionBuilder;
+struct DenseUnionScalar;
 
 template <typename TypeClass>
 class NumericArray;
@@ -363,39 +370,21 @@ std::shared_ptr<DataType> ARROW_EXPORT time64(TimeUnit::type unit);
 std::shared_ptr<DataType> ARROW_EXPORT
 struct_(const std::vector<std::shared_ptr<Field>>& fields);
 
-/// \brief Create a UnionType instance
+/// \brief Create a SparseUnionType instance
+std::shared_ptr<DataType> ARROW_EXPORT sparse_union(FieldVector child_fields,
+                                                    std::vector<int8_t> type_codes = {});
+/// \brief Create a DenseUnionType instance
+std::shared_ptr<DataType> ARROW_EXPORT dense_union(FieldVector child_fields,
+                                                   std::vector<int8_t> type_codes = {});
+
+/// \brief Create a SparseUnionType instance
 std::shared_ptr<DataType> ARROW_EXPORT
-union_(const std::vector<std::shared_ptr<Field>>& child_fields,
-       const std::vector<int8_t>& type_codes, UnionMode::type mode = UnionMode::SPARSE);
-
-/// \brief Create a UnionType instance
+sparse_union(const ArrayVector& children, std::vector<std::string> field_names = {},
+             std::vector<int8_t> type_codes = {});
+/// \brief Create a DenseUnionType instance
 std::shared_ptr<DataType> ARROW_EXPORT
-union_(const std::vector<std::shared_ptr<Field>>& child_fields,
-       UnionMode::type mode = UnionMode::SPARSE);
-
-/// \brief Create a UnionType instance
-std::shared_ptr<DataType> ARROW_EXPORT union_(UnionMode::type mode = UnionMode::SPARSE);
-
-/// \brief Create a UnionType instance
-std::shared_ptr<DataType> ARROW_EXPORT
-union_(const std::vector<std::shared_ptr<Array>>& children,
-       const std::vector<std::string>& field_names, const std::vector<int8_t>& type_codes,
-       UnionMode::type mode = UnionMode::SPARSE);
-
-/// \brief Create a UnionType instance
-inline std::shared_ptr<DataType> ARROW_EXPORT
-union_(const std::vector<std::shared_ptr<Array>>& children,
-       const std::vector<std::string>& field_names,
-       UnionMode::type mode = UnionMode::SPARSE) {
-  return union_(children, field_names, {}, mode);
-}
-
-/// \brief Create a UnionType instance
-inline std::shared_ptr<DataType> ARROW_EXPORT
-union_(const std::vector<std::shared_ptr<Array>>& children,
-       UnionMode::type mode = UnionMode::SPARSE) {
-  return union_(children, {}, {}, mode);
-}
+dense_union(const ArrayVector& children, std::vector<std::string> field_names = {},
+            std::vector<int8_t> type_codes = {});
 
 /// \brief Create a DictionaryType instance
 /// \param[in] index_type the type of the dictionary indices (must be

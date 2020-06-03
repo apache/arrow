@@ -262,8 +262,10 @@ class RangeEqualsVisitor {
           return false;
         }
       } else {
-        const int32_t offset = left.raw_value_offsets()[i];
-        const int32_t o_offset = right.raw_value_offsets()[o_i];
+        const int32_t offset =
+            checked_cast<const DenseUnionArray&>(left).raw_value_offsets()[i];
+        const int32_t o_offset =
+            checked_cast<const DenseUnionArray&>(right).raw_value_offsets()[o_i];
         if (!left.field(child_num)->RangeEquals(offset, offset + 1, o_offset,
                                                 right.field(child_num))) {
           return false;

@@ -438,7 +438,8 @@ struct ValidateArrayDataVisitor {
       }
 
       // Check offsets
-      const int32_t* offsets = array.raw_value_offsets();
+      const int32_t* offsets =
+          checked_cast<const DenseUnionArray&>(array).raw_value_offsets();
       for (int64_t i = 0; i < array.length(); ++i) {
         if (array.IsNull(i)) {
           continue;

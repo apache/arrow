@@ -108,11 +108,11 @@ class ARROW_EXPORT DayTimeIntervalArray : public PrimitiveArray {
   // For compatibility with Take kernel.
   TypeClass::DayMilliseconds GetView(int64_t i) const { return GetValue(i); }
 
-  int32_t byte_width() const { return sizeof(TypeClass::DayMilliseconds); }
-
   const uint8_t* raw_values() const { return raw_values_ + data_->offset * byte_width(); }
 
  protected:
+  static constexpr int32_t byte_width() { return sizeof(TypeClass::DayMilliseconds); }
+
   inline void SetData(const std::shared_ptr<ArrayData>& data) {
     this->PrimitiveArray::SetData(data);
   }

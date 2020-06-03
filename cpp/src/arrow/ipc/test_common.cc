@@ -435,15 +435,12 @@ Status MakeStruct(std::shared_ptr<RecordBatch>* out) {
 
 Status MakeUnion(std::shared_ptr<RecordBatch>* out) {
   // Define schema
-  std::vector<std::shared_ptr<Field>> union_types(
+  std::vector<std::shared_ptr<Field>> union_fields(
       {field("u0", int32()), field("u1", uint8())});
 
   std::vector<int8_t> type_codes = {5, 10};
-  auto sparse_type =
-      std::make_shared<UnionType>(union_types, type_codes, UnionMode::SPARSE);
-
-  auto dense_type =
-      std::make_shared<UnionType>(union_types, type_codes, UnionMode::DENSE);
+  auto sparse_type = sparse_union(union_fields, type_codes);
+  auto dense_type = dense_union(union_fields, type_codes);
 
   auto f0 = field("sparse_nonnull", sparse_type, false);
   auto f1 = field("sparse", sparse_type);
@@ -483,14 +480,14 @@ Status MakeUnion(std::shared_ptr<RecordBatch>* out) {
   ARROW_ASSIGN_OR_RAISE(auto null_bitmap, internal::BytesToBits(null_bytes));
 
   // construct individual nullable/non-nullable struct arrays
-  auto sparse_no_nulls =
-      std::make_shared<UnionArray>(sparse_type, length, sparse_children, type_ids_buffer);
-  auto sparse = std::make_shared<UnionArray>(sparse_type, length, sparse_children,
-                                             type_ids_buffer, NULLPTR, null_bitmap, 1);
+  auto sparse_no_nulls = std::make_shared<SparseUnionArray>(
+      sparse_type, length, sparse_children, type_ids_buffer);
+  auto sparse = std::make_shared<SparseUnionArray>(sparse_type, length, sparse_children,
+                                                   type_ids_buffer, null_bitmap, 1);
 
   auto dense =
-      std::make_shared<UnionArray>(dense_type, length, dense_children, type_ids_buffer,
-                                   offsets_buffer, null_bitmap, 1);
+      std::make_shared<DenseUnionArray>(dense_type, length, dense_children,
+                                        type_ids_buffer, offsets_buffer, null_bitmap, 1);
 
   // construct batch
   std::vector<std::shared_ptr<Array>> arrays = {sparse_no_nulls, sparse, dense};

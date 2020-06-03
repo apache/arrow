@@ -1019,13 +1019,13 @@ garrow_sparse_union_array_new_internal(GArrowSparseUnionDataType *data_type,
       arrow_field_names.push_back(arrow_field->name());
     }
     arrow_sparse_union_array_result =
-      arrow::UnionArray::MakeSparse(*arrow_type_ids,
+      arrow::SparseUnionArray::Make(*arrow_type_ids,
                                     arrow_fields,
                                     arrow_field_names,
                                     arrow_union_data_type->type_codes());
   } else {
     arrow_sparse_union_array_result =
-      arrow::UnionArray::MakeSparse(*arrow_type_ids, arrow_fields);
+      arrow::SparseUnionArray::Make(*arrow_type_ids, arrow_fields);
   }
   if (garrow::check(error,
                     arrow_sparse_union_array_result,
@@ -1217,14 +1217,14 @@ garrow_dense_union_array_new_internal(GArrowDenseUnionDataType *data_type,
       arrow_field_names.push_back(arrow_field->name());
     }
     arrow_dense_union_array_result =
-      arrow::UnionArray::MakeDense(*arrow_type_ids,
+      arrow::DenseUnionArray::Make(*arrow_type_ids,
                                    *arrow_value_offsets,
                                    arrow_fields,
                                    arrow_field_names,
                                    arrow_union_data_type->type_codes());
   } else {
     arrow_dense_union_array_result =
-      arrow::UnionArray::MakeDense(*arrow_type_ids,
+      arrow::DenseUnionArray::Make(*arrow_type_ids,
                                    *arrow_value_offsets,
                                    arrow_fields);
   }
@@ -1345,6 +1345,7 @@ garrow_dictionary_array_dispose(GObject *object)
     g_object_unref(priv->dictionary);
     priv->dictionary = NULL;
   }
+<<<<<<< HEAD
 
   G_OBJECT_CLASS(garrow_dictionary_array_parent_class)->dispose(object);
 }
@@ -1367,6 +1368,15 @@ garrow_dictionary_array_set_property(GObject *object,
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
     break;
+=======
+  auto arrow_union_array = arrow::DenseUnionArray::Make(
+    *arrow_type_ids, *arrow_value_offsets, arrow_fields, arrow_field_names,
+    arrow_union_data_type->type_codes());
+  if (garrow::check(error, arrow_union_array, "[dense-union-array][new][data-type]")) {
+    return GARROW_DENSE_UNION_ARRAY(garrow_array_new_raw(&(*arrow_union_array)));
+  } else {
+    return NULL;
+>>>>>>> ARROW-8866: [C++] Split UNION into SPARSE_UNION and DENSE_UNION
   }
 }
 

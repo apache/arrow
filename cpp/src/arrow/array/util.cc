@@ -233,12 +233,8 @@ class NullArrayFactory {
   }
 
   Status Visit(const UnionType& type) {
-    if (type.mode() == UnionMode::DENSE) {
-      out_->buffers.resize(3, buffer_);
-    } else {
-      out_->buffers = {buffer_, buffer_, nullptr};
-    }
-
+    auto n_buffers = type.mode() == UnionMode::SPARSE ? 2 : 3;
+    out_->buffers.resize(n_buffers, buffer_);
     for (int i = 0; i < type_->num_fields(); ++i) {
       ARROW_ASSIGN_OR_RAISE(out_->child_data[i], CreateChild(i, length_));
     }

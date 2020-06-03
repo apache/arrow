@@ -303,7 +303,8 @@ class ArrayLoader {
   }
 
   Status Visit(const UnionType& type) {
-    out_->buffers.resize(3);
+    int n_buffers = type.mode() == UnionMode::SPARSE ? 2 : 3;
+    out_->buffers.resize(n_buffers);
 
     RETURN_NOT_OK(LoadCommon());
     if (out_->length > 0) {
@@ -312,7 +313,7 @@ class ArrayLoader {
         RETURN_NOT_OK(GetBuffer(buffer_index_ + 1, &out_->buffers[2]));
       }
     }
-    buffer_index_ += type.mode() == UnionMode::DENSE ? 2 : 1;
+    buffer_index_ += n_buffers - 1;
     return LoadChildren(type.fields());
   }
 

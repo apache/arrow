@@ -347,13 +347,13 @@ TEST_F(TestSchemaExport, Union) {
   // Dense
   auto field_a = field("a", int8());
   auto field_b = field("b", boolean(), /*nullable=*/false);
-  auto type = union_({field_a, field_b}, {42, 43}, UnionMode::DENSE);
+  auto type = dense_union({field_a, field_b}, {42, 43});
   TestNested(type, {"+ud:42,43", "c", "b"}, {"", "a", "b"},
              {ARROW_FLAG_NULLABLE, ARROW_FLAG_NULLABLE, 0});
   // Sparse
   field_a = field("a", int8(), /*nullable=*/false);
   field_b = field("b", boolean());
-  type = union_({field_a, field_b}, {42, 43}, UnionMode::SPARSE);
+  type = sparse_union({field_a, field_b}, {42, 43});
   TestNested(type, {"+us:42,43", "c", "b"}, {"", "a", "b"},
              {ARROW_FLAG_NULLABLE, 0, ARROW_FLAG_NULLABLE});
 }
@@ -800,12 +800,12 @@ TEST_F(TestArrayExport, Union) {
   // Dense
   auto field_a = field("a", int8());
   auto field_b = field("b", boolean(), /*nullable=*/false);
-  auto type = union_({field_a, field_b}, {42, 43}, UnionMode::DENSE);
+  auto type = dense_union({field_a, field_b}, {42, 43});
   TestNested(type, data);
   // Sparse
   field_a = field("a", int8(), /*nullable=*/false);
   field_b = field("b", boolean());
-  type = union_({field_a, field_b}, {42, 43}, UnionMode::SPARSE);
+  type = sparse_union({field_a, field_b}, {42, 43});
   TestNested(type, data);
 }
 
@@ -1297,7 +1297,7 @@ TEST_F(TestSchemaImport, Union) {
   FillPrimitive(AddChild(), "c", "ints");
   FillStructLike("+us:43,42", 2);
   auto expected =
-      union_({field("strs", utf8()), field("ints", int8())}, {43, 42}, UnionMode::SPARSE);
+      sparse_union({field("strs", utf8()), field("ints", int8())}, {43, 42});
   CheckImport(expected);
 
   // Dense
@@ -1305,7 +1305,7 @@ TEST_F(TestSchemaImport, Union) {
   FillPrimitive(AddChild(), "c", "ints");
   FillStructLike("+ud:43,42", 2);
   expected =
-      union_({field("strs", utf8()), field("ints", int8())}, {43, 42}, UnionMode::DENSE);
+      dense_union({field("strs", utf8()), field("ints", int8())}, {43, 42});
   CheckImport(expected);
 }
 
@@ -1677,13 +1677,13 @@ class TestArrayImport : public ::testing::Test {
     c->children = NLastChildren(c->n_children, c);
   }
 
-  void FillUnionLike(struct ArrowArray* c, int64_t length,
+  void FillUnionLike(struct ArrowArray* c, UnionMode::type mode, int64_t length,
                      int64_t null_count, int64_t offset,
                      int64_t n_children, const void** buffers) {
     c->length = length;
     c->null_count = null_count;
     c->offset = offset;
-    c->n_buffers = 3;
+    c->n_buffers = mode == UnionMode::SPARSE ? 2 : 3;
     c->buffers = buffers;
     c->n_children = n_children;
     c->children = NLastChildren(c->n_children, c);
@@ -1717,10 +1717,10 @@ class TestArrayImport : public ::testing::Test {
     FillStructLike(&c_struct_, length, null_count, offset, n_children, buffers);
   }
 
-  void FillUnionLike(int64_t length, int64_t null_count,
+  void FillUnionLike(UnionMode::type mode, int64_t length, int64_t null_count,
                      int64_t offset, int64_t n_children,
                      const void** buffers) {
-    FillUnionLike(&c_struct_, length, null_count, offset, n_children, buffers);
+    FillUnionLike(&c_struct_, mode, length, null_count, offset, n_children, buffers);
   }
 
   void CheckImport(const std::shared_ptr<Array>& expected) {
@@ -2021,9 +2021,9 @@ TEST_F(TestArrayImport, Union) {
   // Sparse
   FillStringLike(AddChild(), 4, 0, 0, string_buffers_no_nulls1);
   FillPrimitive(AddChild(), 4, -1, 0, primitive_buffers_nulls1_8);
-  FillUnionLike(4, 0, 0, 2, sparse_union_buffers_no_nulls1);
+  FillUnionLike(UnionMode::SPARSE, 4, 0, 0, 2, sparse_union_buffers_no_nulls1);
   auto type =
-      union_({field("strs", utf8()), field("ints", int8())}, {43, 42}, UnionMode::SPARSE);
+      sparse_union({field("strs", utf8()), field("ints", int8())}, {43, 42});
   auto expected =
       ArrayFromJSON(type, R"([[42, 1], [42, null], [43, "bar"], [43, "quux"]])");
   CheckImport(expected);
@@ -2031,9 +2031,9 @@ TEST_F(TestArrayImport, Union) {
   // Dense
   FillStringLike(AddChild(), 2, 0, 0, string_buffers_no_nulls1);
   FillPrimitive(AddChild(), 3, -1, 0, primitive_buffers_nulls1_8);
-  FillUnionLike(5, 0, 0, 2, dense_union_buffers_no_nulls1);
+  FillUnionLike(UnionMode::DENSE, 5, 0, 0, 2, dense_union_buffers_no_nulls1);
   type =
-      union_({field("strs", utf8()), field("ints", int8())}, {43, 42}, UnionMode::DENSE);
+      dense_union({field("strs", utf8()), field("ints", int8())}, {43, 42});
   expected =
       ArrayFromJSON(type, R"([[42, 1], [42, null], [43, "foo"], [43, ""], [42, 3]])");
   CheckImport(expected);
@@ -2405,9 +2405,9 @@ TEST_F(TestSchemaRoundtrip, Union) {
   auto f2 = field("f2", list(decimal(19, 4)));
   auto type_codes = std::vector<int8_t>{42, 43};
 
-  TestWithTypeFactory([&]() { return union_({f1, f2}, type_codes, UnionMode::SPARSE); });
+  TestWithTypeFactory([&]() { return sparse_union({f1, f2}, type_codes); });
   f2 = f2->WithMetadata(key_value_metadata(kMetadataKeys2, kMetadataValues2));
-  TestWithTypeFactory([&]() { return union_({f1, f2}, type_codes, UnionMode::DENSE); });
+  TestWithTypeFactory([&]() { return dense_union({f1, f2}, type_codes); });
 }
 
 TEST_F(TestSchemaRoundtrip, Dictionary) {

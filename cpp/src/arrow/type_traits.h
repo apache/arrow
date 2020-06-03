@@ -358,9 +358,18 @@ struct TypeTraits<StructType> {
 };
 
 template <>
-struct TypeTraits<UnionType> {
-  using ArrayType = UnionArray;
-  using ScalarType = UnionScalar;
+struct TypeTraits<SparseUnionType> {
+  using ArrayType = SparseUnionArray;
+  using BuilderType = SparseUnionBuilder;
+  using ScalarType = SparseUnionScalar;
+  constexpr static bool is_parameter_free = false;
+};
+
+template <>
+struct TypeTraits<DenseUnionType> {
+  using ArrayType = DenseUnionArray;
+  using BuilderType = DenseUnionBuilder;
+  using ScalarType = DenseUnionScalar;
   constexpr static bool is_parameter_free = false;
 };
 
@@ -784,7 +793,8 @@ static inline bool is_nested(Type::type type_id) {
     case Type::FIXED_SIZE_LIST:
     case Type::MAP:
     case Type::STRUCT:
-    case Type::UNION:
+    case Type::SPARSE_UNION:
+    case Type::DENSE_UNION:
       return true;
     default:
       break;

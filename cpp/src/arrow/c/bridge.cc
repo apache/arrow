@@ -1067,7 +1067,11 @@ struct SchemaImporter {
                                c_struct_->format, "'");
       }
     }
-    type_ = union_(std::move(fields), std::move(type_codes), mode);
+    if (mode == UnionMode::SPARSE) {
+      type_ = sparse_union(std::move(fields), std::move(type_codes));
+    } else {
+      type_ = dense_union(std::move(fields), std::move(type_codes));
+    }
     return Status::OK();
   }
 
@@ -1322,14 +1326,16 @@ struct ArrayImporter {
 
   Status Visit(const UnionType& type) {
     auto mode = type.mode();
-    RETURN_NOT_OK(CheckNumBuffers(3));
+    if (mode == UnionMode::SPARSE) {
+      RETURN_NOT_OK(CheckNumBuffers(2));
+    } else {
+      RETURN_NOT_OK(CheckNumBuffers(3));
+    }
     RETURN_NOT_OK(AllocateArrayData());
     RETURN_NOT_OK(ImportNullBitmap());
     RETURN_NOT_OK(ImportFixedSizeBuffer(1, sizeof(int8_t)));
     if (mode == UnionMode::DENSE) {
       RETURN_NOT_OK(ImportFixedSizeBuffer(2, sizeof(int32_t)));
-    } else {
-      RETURN_NOT_OK(ImportUnusedBuffer(2));
     }
     return Status::OK();
   }
@@ -1418,8 +1424,6 @@ struct ArrayImporter {
     int64_t buffer_size = BitUtil::BytesForBits(c_struct_->length + c_struct_->offset);
     return ImportBuffer(buffer_id, buffer_size);
   }
-
-  Status ImportUnusedBuffer(int32_t buffer_id) { return ImportBuffer(buffer_id, 0); }
 
   Status ImportFixedSizeBuffer(int32_t buffer_id, int64_t byte_width) {
     // Compute visible size of buffer

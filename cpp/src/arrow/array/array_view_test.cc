@@ -333,7 +333,7 @@ TEST(TestArrayView, SparseUnionAsStruct) {
   auto child1 = ArrayFromJSON(int16(), "[0, -1, 42]");
   auto child2 = ArrayFromJSON(int32(), "[0, 1069547520, -1071644672]");
   auto indices = ArrayFromJSON(int8(), "[0, 0, 1]");
-  ASSERT_OK_AND_ASSIGN(auto arr, UnionArray::MakeSparse(*indices, {child1, child2}));
+  ASSERT_OK_AND_ASSIGN(auto arr, SparseUnionArray::Make(*indices, {child1, child2}));
   ASSERT_OK(arr->ValidateFull());
 
   auto ty1 = struct_({field("a", int8()), field("b", uint16()), field("c", float32())});
@@ -343,7 +343,7 @@ TEST(TestArrayView, SparseUnionAsStruct) {
 
   // With nulls
   indices = ArrayFromJSON(int8(), "[null, 0, 1]");
-  ASSERT_OK_AND_ASSIGN(arr, UnionArray::MakeSparse(*indices, {child1, child2}));
+  ASSERT_OK_AND_ASSIGN(arr, SparseUnionArray::Make(*indices, {child1, child2}));
   ASSERT_OK(arr->ValidateFull());
   expected = ArrayFromJSON(ty1, "[null, [0, 65535, 1.5], [1, 42, -2.5]]");
   CheckView(arr, expected);
@@ -352,7 +352,7 @@ TEST(TestArrayView, SparseUnionAsStruct) {
   // With nested nulls
   child1 = ArrayFromJSON(int16(), "[0, -1, null]");
   child2 = ArrayFromJSON(int32(), "[0, null, -1071644672]");
-  ASSERT_OK_AND_ASSIGN(arr, UnionArray::MakeSparse(*indices, {child1, child2}));
+  ASSERT_OK_AND_ASSIGN(arr, SparseUnionArray::Make(*indices, {child1, child2}));
   ASSERT_OK(arr->ValidateFull());
   expected = ArrayFromJSON(ty1, "[null, [0, 65535, null], [1, null, -2.5]]");
   CheckView(arr, expected);
