@@ -57,28 +57,16 @@ struct FilterOptions : public FunctionOptions {
 /// \param[in] values array to filter
 /// \param[in] filter indicates which values should be filtered out
 /// \param[in] options configures null_selection_behavior
-/// \param[in] context the function execution context, optional
+/// \param[in] ctx the function execution context, optional
 /// \return the resulting datum
 ARROW_EXPORT
 Result<Datum> Filter(const Datum& values, const Datum& filter,
-                     FilterOptions options = FilterOptions::Defaults(),
-                     ExecContext* context = NULLPTR);
+                     const FilterOptions& options = FilterOptions::Defaults(),
+                     ExecContext* ctx = NULLPTR);
 
 struct ARROW_EXPORT TakeOptions : public FunctionOptions {
   static TakeOptions Defaults() { return TakeOptions{}; }
 };
-
-/// \brief Take from an array of values at indices in another array
-///
-/// \param[in] values datum from which to take
-/// \param[in] indices which values to take
-/// \param[in] options options
-/// \param[in] context the function execution context, optional
-/// \return the resulting datum
-ARROW_EXPORT
-Result<Datum> Take(const Datum& values, const Datum& indices,
-                   const TakeOptions& options = TakeOptions::Defaults(),
-                   ExecContext* context = NULLPTR);
 
 /// \brief Take from an array of values at indices in another array
 ///
@@ -91,134 +79,21 @@ Result<Datum> Take(const Datum& values, const Datum& indices,
 /// = [values[2], values[1], null, values[3]]
 /// = ["c", "b", null, null]
 ///
-/// \param[in] values array from which to take
+/// \param[in] values datum from which to take
 /// \param[in] indices which values to take
 /// \param[in] options options
-/// \param[in] context the function execution context, optional
-/// \return the resulting array
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+ARROW_EXPORT
+Result<Datum> Take(const Datum& values, const Datum& indices,
+                   const TakeOptions& options = TakeOptions::Defaults(),
+                   ExecContext* ctx = NULLPTR);
+
+/// \brief Take with Array inputs and output
 ARROW_EXPORT
 Result<std::shared_ptr<Array>> Take(const Array& values, const Array& indices,
                                     const TakeOptions& options = TakeOptions::Defaults(),
-                                    ExecContext* context = NULLPTR);
-
-/// \brief Take from a chunked array of values at indices in another array
-///
-/// The output chunked array will be of the same type as the input values
-/// array, with elements taken from the values array at the given
-/// indices. If an index is null then the taken element will be null.
-///
-/// For example given values = ["a", "b", "c", null, "e", "f"] and
-/// indices = [2, 1, null, 3], the output will be
-/// = [values[2], values[1], null, values[3]]
-/// = ["c", "b", null, null]
-///
-/// \param[in] values chunked array from which to take
-/// \param[in] indices which values to take
-/// \param[in] options options
-/// \param[in] context the function execution context, optional
-/// \return the resulting chunked array
-/// NOTE: Experimental API
-ARROW_EXPORT
-Result<std::shared_ptr<ChunkedArray>> Take(
-    const ChunkedArray& values, const Array& indices,
-    const TakeOptions& options = TakeOptions::Defaults(), ExecContext* context = NULLPTR);
-
-/// \brief Take from a chunked array of values at indices in a chunked array
-///
-/// The output chunked array will be of the same type as the input values
-/// array, with elements taken from the values array at the given
-/// indices. If an index is null then the taken element will be null.
-/// The chunks in the output array will align with the chunks in the indices.
-///
-/// For example given values = ["a", "b", "c", null, "e", "f"] and
-/// indices = [2, 1, null, 3], the output will be
-/// = [values[2], values[1], null, values[3]]
-/// = ["c", "b", null, null]
-///
-/// \param[in] values chunked array from which to take
-/// \param[in] indices which values to take
-/// \param[in] options options
-/// \param[in] context the function execution context, optional
-/// \return the resulting chunked array
-/// NOTE: Experimental API
-ARROW_EXPORT
-Result<std::shared_ptr<ChunkedArray>> Take(
-    const ChunkedArray& values, const ChunkedArray& indices,
-    const TakeOptions& options = TakeOptions::Defaults(), ExecContext* context = NULLPTR);
-
-/// \brief Take from an array of values at indices in a chunked array
-///
-/// The output chunked array will be of the same type as the input values
-/// array, with elements taken from the values array at the given
-/// indices. If an index is null then the taken element will be null.
-/// The chunks in the output array will align with the chunks in the indices.
-///
-/// For example given values = ["a", "b", "c", null, "e", "f"] and
-/// indices = [2, 1, null, 3], the output will be
-/// = [values[2], values[1], null, values[3]]
-/// = ["c", "b", null, null]
-///
-/// \param[in] values array from which to take
-/// \param[in] indices which values to take
-/// \param[in] options options
-/// \param[in] context the function execution context, optional
-/// \return the resulting chunked array
-/// NOTE: Experimental API
-ARROW_EXPORT
-Result<std::shared_ptr<ChunkedArray>> Take(
-    const Array& values, const ChunkedArray& indices,
-    const TakeOptions& options = TakeOptions::Defaults(), ExecContext* context = NULLPTR);
-
-/// \brief Take from a record batch at indices in another array
-///
-/// The output batch will have the same schema as the input batch,
-/// with rows taken from the columns in the batch at the given
-/// indices. If an index is null then the taken element will be null.
-///
-/// \param[in] batch record batch from which to take
-/// \param[in] indices which values to take
-/// \param[in] options options
-/// \param[in] context the function execution context, optional
-/// \return the resulting record batch
-/// NOTE: Experimental API
-ARROW_EXPORT
-Result<std::shared_ptr<RecordBatch>> Take(
-    const RecordBatch& batch, const Array& indices,
-    const TakeOptions& options = TakeOptions::Defaults(), ExecContext* context = NULLPTR);
-
-/// \brief Take from a table at indices in an array
-///
-/// The output table will have the same schema as the input table,
-/// with rows taken from the columns in the table at the given
-/// indices. If an index is null then the taken element will be null.
-///
-/// \param[in] table table from which to take
-/// \param[in] indices which values to take
-/// \param[in] options options
-/// \param[in] context the function execution context, optional
-/// \return the resulting table
-/// NOTE: Experimental API
-ARROW_EXPORT
-Result<std::shared_ptr<Table>> Take(const Table& table, const Array& indices,
-                                    const TakeOptions& options = TakeOptions::Defaults(),
-                                    ExecContext* context = NULLPTR);
-
-/// \brief Take from a table at indices in a chunked array
-///
-/// The output table will have the same schema as the input table,
-/// with rows taken from the values array at the given
-/// indices. If an index is null then the taken element will be null.
-///
-/// \param[in] table table from which to take
-/// \param[in] indices which values to take
-/// \param[in] options options
-/// \param[in] context the function execution context, optional
-/// \return the resulting table
-/// NOTE: Experimental API
-ARROW_EXPORT
-Result<std::shared_ptr<Table>> Take(const Table& table, const ChunkedArray& indices,
-                                    const TakeOptions& options = TakeOptions::Defaults(),
-                                    ExecContext* context = NULLPTR);
+                                    ExecContext* ctx = NULLPTR);
 
 struct PartitionOptions : public FunctionOptions {
   explicit PartitionOptions(int64_t pivot) : pivot(pivot) {}
@@ -304,6 +179,42 @@ Result<std::shared_ptr<Array>> ValueCounts(const Datum& value,
 /// \note API not yet finalized
 ARROW_EXPORT
 Result<Datum> DictionaryEncode(const Datum& data, ExecContext* ctx = NULLPTR);
+
+// ----------------------------------------------------------------------
+// Deprecated functions
+
+// TODO: Add deprecation warnings to these functions
+// ARROW_DEPRECATED("Deprecated in 1.0.0. Use Datum-based version")
+
+ARROW_EXPORT
+Result<std::shared_ptr<ChunkedArray>> Take(
+    const ChunkedArray& values, const Array& indices,
+    const TakeOptions& options = TakeOptions::Defaults(), ExecContext* context = NULLPTR);
+
+ARROW_EXPORT
+Result<std::shared_ptr<ChunkedArray>> Take(
+    const ChunkedArray& values, const ChunkedArray& indices,
+    const TakeOptions& options = TakeOptions::Defaults(), ExecContext* context = NULLPTR);
+
+ARROW_EXPORT
+Result<std::shared_ptr<ChunkedArray>> Take(
+    const Array& values, const ChunkedArray& indices,
+    const TakeOptions& options = TakeOptions::Defaults(), ExecContext* context = NULLPTR);
+
+ARROW_EXPORT
+Result<std::shared_ptr<RecordBatch>> Take(
+    const RecordBatch& batch, const Array& indices,
+    const TakeOptions& options = TakeOptions::Defaults(), ExecContext* context = NULLPTR);
+
+ARROW_EXPORT
+Result<std::shared_ptr<Table>> Take(const Table& table, const Array& indices,
+                                    const TakeOptions& options = TakeOptions::Defaults(),
+                                    ExecContext* context = NULLPTR);
+
+ARROW_EXPORT
+Result<std::shared_ptr<Table>> Take(const Table& table, const ChunkedArray& indices,
+                                    const TakeOptions& options = TakeOptions::Defaults(),
+                                    ExecContext* context = NULLPTR);
 
 }  // namespace compute
 }  // namespace arrow

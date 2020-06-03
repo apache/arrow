@@ -121,14 +121,13 @@ RecordBatch <- R6Class("RecordBatch", inherit = ArrowObject,
       assert_is(i, "Array")
       # Invalid: Tried executing function with non-value type: RecordBatch
       # so use old methods
-      shared_ptr(RecordBatch, RecordBatch__Take(self, i))
+      shared_ptr(RecordBatch, call_function("take", self, i))
     },
     Filter = function(i, keep_na = TRUE) {
       if (is.logical(i)) {
         i <- Array$create(i)
       }
-      assert_is(i, "Array")
-      shared_ptr(RecordBatch, RecordBatch__Filter(self, i, keep_na))
+      shared_ptr(RecordBatch, call_function("filter", self, i, options = list(keep_na = keep_na)))
     },
     serialize = function() ipc___SerializeRecordBatch__Raw(self),
     ToString = function() ToString_tabular(self),

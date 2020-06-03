@@ -107,3 +107,84 @@ def sum(array):
     sum : pyarrow.Scalar
     """
     return call_function('sum', [array])
+
+
+def filter(data, mask, null_selection_behavior='drop'):
+    """
+    Select values (or records) from array- or table-like data given boolean
+    filter, where true values are selected.
+
+    Parameters
+    ----------
+    data : Array, ChunkedArray, RecordBatch, or Table
+    mask : Array, ChunkedArray
+        Must be of boolean type
+    null_selection_behavior : str, default 'drop'
+        Configure the behavior on encountering a null slot in the mask.
+        Allowed values are 'drop' and 'emit_null'.
+
+        - 'drop': nulls will be treated as equivalent to False.
+        - 'emit_null': nulls will result in a null in the output.
+
+    Returns
+    -------
+    result : depends on inputs
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> arr = pa.array(["a", "b", "c", None, "e"])
+    >>> mask = pa.array([True, False, None, False, True])
+    >>> arr.filter(mask)
+    <pyarrow.lib.StringArray object at 0x7fa826df9200>
+    [
+      "a",
+      "e"
+    ]
+    >>> arr.filter(mask, null_selection_behavior='emit_null')
+    <pyarrow.lib.StringArray object at 0x7fa826df9200>
+    [
+      "a",
+      null,
+      "e"
+    ]
+    """
+    options = FilterOptions(null_selection_behavior)
+    return call_function('filter', [data, mask], options)
+
+
+def take(data, indices):
+    """
+    Select values (or records) from array- or table-like data given integer
+    selection indices.
+
+    The result will be of the same type(s) as the input, with elements taken
+    from the input array (or record batch / table fields) at the given
+    indices. If an index is null then the corresponding value in the output
+    will be null.
+
+    Parameters
+    ----------
+    data : Array, ChunkedArray, RecordBatch, or Table
+    indices : Array, ChunkedArray
+        Must be of integer type
+
+    Returns
+    -------
+    result : depends on inputs
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> arr = pa.array(["a", "b", "c", None, "e", "f"])
+    >>> indices = pa.array([0, None, 4, 3])
+    >>> arr.take(indices)
+    <pyarrow.lib.StringArray object at 0x7ffa4fc7d368>
+    [
+      "a",
+      null,
+      "e",
+      null
+    ]
+    """
+    return call_function('take', [data, indices])

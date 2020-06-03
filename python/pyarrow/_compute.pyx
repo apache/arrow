@@ -20,6 +20,9 @@
 from pyarrow.compat import frombytes, tobytes, ordered_dict
 from pyarrow.lib cimport *
 from pyarrow.includes.libarrow cimport *
+import pyarrow.lib as lib
+
+import numpy as np
 
 cdef wrap_scalar_function(const shared_ptr[CFunction]& sp_func):
     cdef ScalarFunction func = ScalarFunction.__new__(ScalarFunction)
@@ -41,6 +44,14 @@ cdef wrap_scalar_aggregate_function(const shared_ptr[CFunction]& sp_func):
     return func
 
 
+cdef wrap_meta_function(const shared_ptr[CFunction]& sp_func):
+    cdef MetaFunction func = (
+        MetaFunction.__new__(MetaFunction)
+    )
+    func.init(sp_func)
+    return func
+
+
 cdef wrap_function(const shared_ptr[CFunction]& sp_func):
     if sp_func.get() == NULL:
         raise ValueError('Function was NULL')
@@ -52,6 +63,8 @@ cdef wrap_function(const shared_ptr[CFunction]& sp_func):
         return wrap_vector_function(sp_func)
     elif c_kind == FunctionKind_SCALAR_AGGREGATE:
         return wrap_scalar_aggregate_function(sp_func)
+    elif c_kind == FunctionKind_META:
+        return wrap_meta_function(sp_func)
     else:
         raise NotImplementedError("Unknown Function::Kind")
 
@@ -218,14 +231,30 @@ cdef class ScalarAggregateFunction(Function):
         return [wrap_scalar_aggregate_kernel(k) for k in kernels]
 
 
+cdef class MetaFunction(Function):
+    cdef:
+        const CMetaFunction* func
+
+    cdef void init(self, const shared_ptr[CFunction]& sp_func) except *:
+        Function.init(self, sp_func)
+        self.func = <const CMetaFunction*> sp_func.get()
+
+
 cdef _pack_compute_args(object values, vector[CDatum]* out):
     for val in values:
+        if isinstance(val, (list, np.ndarray)):
+            val = lib.asarray(val)
+
         if isinstance(val, Array):
             out.push_back(CDatum((<Array> val).sp_array))
         elif isinstance(val, ChunkedArray):
             out.push_back(CDatum((<ChunkedArray> val).sp_chunked_array))
         elif isinstance(val, ScalarValue):
             out.push_back(CDatum((<ScalarValue> val).sp_scalar))
+        elif isinstance(val, RecordBatch):
+            out.push_back(CDatum((<RecordBatch> val).sp_batch))
+        elif isinstance(val, Table):
+            out.push_back(CDatum((<Table> val).sp_table))
         else:
             raise TypeError(type(val))
 

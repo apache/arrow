@@ -68,6 +68,15 @@ Datum::Datum(uint64_t value) : value(std::make_shared<UInt64Scalar>(value)) {}
 Datum::Datum(float value) : value(std::make_shared<FloatScalar>(value)) {}
 Datum::Datum(double value) : value(std::make_shared<DoubleScalar>(value)) {}
 
+Datum::Datum(const ChunkedArray& value)
+    : value(std::make_shared<ChunkedArray>(value.chunks(), value.type())) {}
+
+Datum::Datum(const Table& value)
+    : value(Table::Make(value.schema(), value.columns(), value.num_rows())) {}
+
+Datum::Datum(const RecordBatch& value)
+    : value(RecordBatch::Make(value.schema(), value.num_rows(), value.columns())) {}
+
 std::shared_ptr<Array> Datum::make_array() const {
   DCHECK_EQ(Datum::ARRAY, this->kind());
   return MakeArray(util::get<std::shared_ptr<ArrayData>>(this->value));

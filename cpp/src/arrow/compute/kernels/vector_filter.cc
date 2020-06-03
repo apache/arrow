@@ -20,6 +20,7 @@
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/kernels/common.h"
 #include "arrow/compute/kernels/vector_selection_internal.h"
+#include "arrow/record_batch.h"
 #include "arrow/result.h"
 
 namespace arrow {
@@ -150,11 +151,75 @@ Status GetFilterKernel(const DataType& type, ArrayKernelExec* exec) {
   return Status::OK();
 }
 
+Result<std::shared_ptr<RecordBatch>> FilterRecordBatch(const RecordBatch& batch,
+                                                       const Datum& filter,
+                                                       const FunctionOptions* options,
+                                                       ExecContext* ctx) {
+  if (!filter.is_array()) {
+    return Status::Invalid("Cannot filter a RecordBatch with a filter of kind ",
+                           filter.kind());
+  }
+
+  const auto& filter_opts = *static_cast<const FilterOptions*>(options);
+  // TODO: Rewrite this to convert to selection vector and use Take
+  std::vector<std::shared_ptr<Array>> columns(batch.num_columns());
+  for (int i = 0; i < batch.num_columns(); ++i) {
+    ARROW_ASSIGN_OR_RAISE(Datum out,
+                          Filter(batch.column(i)->data(), filter, filter_opts, ctx));
+    columns[i] = out.make_array();
+  }
+
+  int64_t out_length;
+  if (columns.size() == 0) {
+    out_length =
+        FilterOutputSize(filter_opts.null_selection_behavior, *filter.make_array());
+  } else {
+    out_length = columns[0]->length();
+  }
+  return RecordBatch::Make(batch.schema(), out_length, columns);
+}
+
+Result<std::shared_ptr<Table>> FilterTable(const Table& table, const Datum& filter,
+                                           const FunctionOptions* options,
+                                           ExecContext* ctx) {
+  auto new_columns = table.columns();
+  for (auto& column : new_columns) {
+    ARROW_ASSIGN_OR_RAISE(
+        Datum out_column,
+        Filter(column, filter, *static_cast<const FilterOptions*>(options), ctx));
+    column = out_column.chunked_array();
+  }
+  return Table::Make(table.schema(), std::move(new_columns));
+}
+
+class FilterMetaFunction : public MetaFunction {
+ public:
+  FilterMetaFunction() : MetaFunction("filter", Arity::Binary()) {}
+
+  Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
+                            const FunctionOptions* options,
+                            ExecContext* ctx) const override {
+    if (args[0].kind() == Datum::RECORD_BATCH) {
+      auto values_batch = args[0].record_batch();
+      ARROW_ASSIGN_OR_RAISE(
+          std::shared_ptr<RecordBatch> out_batch,
+          FilterRecordBatch(*args[0].record_batch(), args[1], options, ctx));
+      return Datum(out_batch);
+    } else if (args[0].kind() == Datum::TABLE) {
+      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Table> out_table,
+                            FilterTable(*args[0].table(), args[1], options, ctx));
+      return Datum(out_table);
+    } else {
+      return CallFunction("array_filter", args, options, ctx);
+    }
+  }
+};
+
 void RegisterVectorFilter(FunctionRegistry* registry) {
   VectorKernel base;
   base.init = InitFilter;
 
-  auto filter = std::make_shared<VectorFunction>("filter", Arity::Binary());
+  auto filter = std::make_shared<VectorFunction>("array_filter", Arity::Binary());
   InputType filter_ty = InputType::Array(boolean());
   OutputType out_ty(FirstType);
 
@@ -172,6 +237,9 @@ void RegisterVectorFilter(FunctionRegistry* registry) {
     AddKernel(InputType::Array(value_ty->id()), *value_ty);
   }
   DCHECK_OK(registry->AddFunction(std::move(filter)));
+
+  // Add filter metafunction
+  DCHECK_OK(registry->AddFunction(std::make_shared<FilterMetaFunction>()));
 }
 
 }  // namespace internal

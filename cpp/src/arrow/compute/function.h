@@ -93,7 +93,11 @@ class ARROW_EXPORT Function {
     VECTOR,
 
     /// A function that computes scalar summary statistics from array input.
-    SCALAR_AGGREGATE
+    SCALAR_AGGREGATE,
+
+    /// A function that dispatches to other functions and does not contain its
+    /// own kernels.
+    META
   };
 
   virtual ~Function() = default;
@@ -227,6 +231,27 @@ class ARROW_EXPORT ScalarAggregateFunction
   /// argument types (without implicit type casts or scalar->array promotions)
   Result<const ScalarAggregateKernel*> DispatchExact(
       const std::vector<ValueDescr>& values) const;
+};
+
+/// \brief A function that dispatches to other functions. Must implement
+/// MetaFunction::ExecuteImpl.
+///
+/// For Array, ChunkedArray, and Scalar Datum kinds, may rely on the execution
+/// of concrete Function types, but must handle other Datum kinds on its own.
+class ARROW_EXPORT MetaFunction : public Function {
+ public:
+  int num_kernels() const override { return 0; }
+
+  Result<Datum> Execute(const std::vector<Datum>& args, const FunctionOptions* options,
+                        ExecContext* ctx) const override;
+
+ protected:
+  virtual Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
+                                    const FunctionOptions* options,
+                                    ExecContext* ctx) const = 0;
+
+  MetaFunction(std::string name, const Arity& arity)
+      : Function(std::move(name), Function::META, arity) {}
 };
 
 }  // namespace compute

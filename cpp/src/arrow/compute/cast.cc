@@ -54,19 +54,15 @@ void InitCastTable() {
 
 void EnsureInitCastTable() { std::call_once(cast_table_initialized, InitCastTable); }
 
-// A function that overrides Function::Execute to dispatch to the appropriate
-// target-type-specific CastFunction
-//
-// This corresponds to the standard SQL CAST(expr AS target_type)
-//
-// As a "metafunction" this function has no kernels and is intended to be used
-// through its Execute function
-class CastMetaFunction : public ScalarFunction {
+// Metafunction for dispatching to appropraite CastFunction. This corresponds
+// to the standard SQL CAST(expr AS target_type)
+class CastMetaFunction : public MetaFunction {
  public:
-  CastMetaFunction() : ScalarFunction("cast", Arity::Unary()) {}
+  CastMetaFunction() : MetaFunction("cast", Arity::Unary()) {}
 
-  Result<Datum> Execute(const std::vector<Datum>& args, const FunctionOptions* options,
-                        ExecContext* ctx) const override {
+  Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
+                            const FunctionOptions* options,
+                            ExecContext* ctx) const override {
     auto cast_options = static_cast<const CastOptions*>(options);
     if (cast_options == nullptr || cast_options->to_type == nullptr) {
       return Status::Invalid(

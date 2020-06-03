@@ -921,81 +921,15 @@ cdef class Array(_PandasConvertible):
 
     def take(self, object indices):
         """
-        Take elements from an array.
-
-        The resulting array will be of the same type as the input array, with
-        elements taken from the input array at the given indices. If an index
-        is null then the taken element will be null.
-
-        Parameters
-        ----------
-        indices : Array
-            The indices of the values to extract. Array needs to be of
-            integer type.
-
-        Returns
-        -------
-        Array
-
-        Examples
-        --------
-
-        >>> import pyarrow as pa
-        >>> arr = pa.array(["a", "b", "c", None, "e", "f"])
-        >>> indices = pa.array([0, None, 4, 3])
-        >>> arr.take(indices)
-        <pyarrow.lib.StringArray object at 0x7ffa4fc7d368>
-        [
-          "a",
-          null,
-          "e",
-          null
-        ]
+        Select values from an array. See pyarrow.compute.take for full usage.
         """
-        return _pc().call_function('take', [self, asarray(indices)])
+        return _pc().take(self, indices)
 
     def filter(self, Array mask, null_selection_behavior='drop'):
         """
-        Filter the array with a boolean mask.
-
-        Parameters
-        ----------
-        mask : Array
-            The boolean mask indicating which values to extract.
-        null_selection_behavior : str, default 'drop'
-            Configure the behavior on encountering a null slot in the mask.
-            Allowed values are 'drop' and 'emit_null'.
-
-            - 'drop': nulls will be treated as equivalent to False.
-            - 'emit_null': nulls will result in a null in the output.
-
-        Returns
-        -------
-        Array
-
-        Examples
-        --------
-
-        >>> import pyarrow as pa
-        >>> arr = pa.array(["a", "b", "c", None, "e"])
-        >>> mask = pa.array([True, False, None, False, True])
-        >>> arr.filter(mask)
-        <pyarrow.lib.StringArray object at 0x7fa826df9200>
-        [
-          "a",
-          "e"
-        ]
-        >>> arr.filter(mask, null_selection_behavior='emit_null')
-        <pyarrow.lib.StringArray object at 0x7fa826df9200>
-        [
-          "a",
-          null,
-          "e"
-        ]
+        Select values from an array. See pyarrow.compute.filter for full usage.
         """
-        pc = _pc()
-        options = pc.FilterOptions(null_selection_behavior)
-        return pc.call_function('filter', [self, mask], options)
+        return _pc().filter(self, mask, null_selection_behavior)
 
     def _to_pandas(self, options, **kwargs):
         return _array_like_to_pandas(self, options)
