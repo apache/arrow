@@ -733,19 +733,19 @@ def test_union_from_dense():
                      expected_type_code_values):
         result.validate(full=True)
         actual_field_names = [result.type[i].name
-                              for i in range(result.type.num_children)]
+                              for i in range(result.type.num_fields)]
         assert actual_field_names == expected_field_names
         assert result.type.mode == "dense"
         assert result.type.type_codes == expected_type_codes
         assert result.to_pylist() == py_value
         assert expected_type_code_values.equals(result.type_codes)
         assert value_offsets.equals(result.offsets)
-        assert result.child(0).equals(binary)
-        assert result.child(1).equals(int64)
+        assert result.field(0).equals(binary)
+        assert result.field(1).equals(int64)
         with pytest.raises(KeyError):
-            result.child(-1)
+            result.field(-1)
         with pytest.raises(KeyError):
-            result.child(2)
+            result.field(2)
 
     # without field names and type codes
     check_result(pa.UnionArray.from_dense(types, value_offsets,
@@ -808,19 +808,19 @@ def test_union_from_sparse():
         result.validate(full=True)
         assert result.to_pylist() == py_value
         actual_field_names = [result.type[i].name
-                              for i in range(result.type.num_children)]
+                              for i in range(result.type.num_fields)]
         assert actual_field_names == expected_field_names
         assert result.type.mode == "sparse"
         assert result.type.type_codes == expected_type_codes
         assert expected_type_code_values.equals(result.type_codes)
-        assert result.child(0).equals(binary)
-        assert result.child(1).equals(int64)
+        assert result.field(0).equals(binary)
+        assert result.field(1).equals(int64)
         with pytest.raises(pa.ArrowTypeError):
             result.offsets
         with pytest.raises(KeyError):
-            result.child(-1)
+            result.field(-1)
         with pytest.raises(KeyError):
-            result.child(2)
+            result.field(2)
 
     # without field names and type codes
     check_result(pa.UnionArray.from_sparse(types, [binary, int64]),
