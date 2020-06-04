@@ -592,7 +592,6 @@ class FirstTimeBitmapWriter {
   ///            to be unset (i.e. 0).
   /// \param[in] number_of_bits The number of bits to append from word.
   void AppendWord(uint64_t word, int64_t number_of_bits) {
-#if ARROW_LITTLE_ENDIAN
     if (ARROW_PREDICT_FALSE(number_of_bits == 0)) {
       return;
     }
@@ -624,7 +623,7 @@ class FirstTimeBitmapWriter {
       word = word >> bits_to_carry;
       number_of_bits -= bits_to_carry;
     }
-
+    word = BitUtil::ToLittleEndian(word);
     int64_t bytes_for_word = ::arrow::BitUtil::BytesForBits(number_of_bits);
     std::memcpy(append_position, &word, bytes_for_word);
     // At this point, the previous current_byte_ has been written to bitmap_.
@@ -635,10 +634,6 @@ class FirstTimeBitmapWriter {
     } else {
       current_byte_ = *(append_position + bytes_for_word - 1);
     }
-
-#else  // big-endian
-    static_assert(false, "AppendWord not implement on Big Endian");
-#endif
   }
 
   void Set() { current_byte_ |= bit_mask_; }
