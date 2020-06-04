@@ -45,23 +45,23 @@ namespace compute {
 ARROW_EXPORT
 Result<Datum> Add(const Datum& left, const Datum& right, ExecContext* ctx = NULLPTR);
 
-/// \brief Subtract two values. Array values must be the same length. If a
-/// value is null in either addend, the result is null
+/// \brief Subtract two values. Array values must be the same length. If the
+/// minuend or minuend is null the result will be null.
 ///
-/// \param[in] left the first value
-/// \param[in] right the second value
+/// \param[in] minuend the value subtracted from
+/// \param[in] subtrahend the value by which the minuend is reduced
 /// \param[in] ctx the function execution context, optional
-/// \return the elementwise addition of the values
+/// \return the elementwise difference of the values
 ARROW_EXPORT
 Result<Datum> Sub(const Datum& left, const Datum& right, ExecContext* ctx = NULLPTR);
 
-/// \brief Multiply two values. Array values must be the same length. If a
-/// value is null in either addend, the result is null
+/// \brief Multiply two values. Array values must be the same length. If either
+/// factor is null, the result is null
 ///
-/// \param[in] left the first value
-/// \param[in] right the second value
+/// \param[in] left the first factor
+/// \param[in] right the second factor
 /// \param[in] ctx the function execution context, optional
-/// \return the elementwise addition of the values
+/// \return the elementwise product of the factors
 ARROW_EXPORT
 Result<Datum> Mul(const Datum& left, const Datum& right, ExecContext* ctx = NULLPTR);
 

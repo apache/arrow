@@ -17,7 +17,6 @@
 
 #include "arrow/compute/kernels/common.h"
 #include "arrow/util/int_util.h"
-#include "iostream"
 
 namespace arrow {
 namespace compute {
