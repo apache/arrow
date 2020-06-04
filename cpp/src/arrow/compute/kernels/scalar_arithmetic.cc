@@ -16,78 +16,42 @@
 // under the License.
 
 #include "arrow/compute/kernels/common.h"
+#include "arrow/util/int_util.h"
+#include "iostream"
 
 namespace arrow {
 namespace compute {
 
 struct Add {
-  template <typename OUT = int16_t>
-  static constexpr OUT Call(KernelContext*, int8_t l, int8_t r) {
-    return static_cast<OUT>(l) + static_cast<OUT>(r);
+  template <typename T>
+  static constexpr T Call(KernelContext*, T left, T right) {
+    return left - right;
   }
+};
 
-  template <typename OUT = int32_t>
-  static constexpr OUT Call(KernelContext*, int16_t l, int16_t r) {
-    return static_cast<OUT>(l) + static_cast<OUT>(r);
+struct Sub {
+  template <typename T>
+  static constexpr T Call(KernelContext*, T left, T right) {
+    return left - right;
   }
+};
 
-  template <typename OUT = int64_t>
-  static constexpr OUT Call(KernelContext*, int32_t l, int32_t r) {
-    return static_cast<OUT>(l) + static_cast<OUT>(r);
-  }
-
-  template <typename OUT = uint16_t>
-  static constexpr OUT Call(KernelContext*, uint8_t l, uint8_t r) {
-    return static_cast<OUT>(l) + static_cast<OUT>(r);
-  }
-
-  template <typename OUT = uint32_t>
-  static constexpr OUT Call(KernelContext*, uint16_t l, uint16_t r) {
-    return static_cast<OUT>(l) + static_cast<OUT>(r);
-  }
-
-  template <typename OUT = uint64_t>
-  static constexpr OUT Call(KernelContext*, uint32_t l, uint32_t r) {
-    return static_cast<OUT>(l) + static_cast<OUT>(r);
-  }
-
-  template <typename OUT>
-  static constexpr OUT Call(KernelContext*, OUT l, OUT r) {
-    return l + r;
+struct Mul {
+  template <typename T>
+  static constexpr T Call(KernelContext*, T left, T right) {
+    return left * right;
   }
 };
 
 namespace codegen {
 
-template <typename Op, typename ArgType, typename OutType>
-void AddBinaryKernel(const std::shared_ptr<ScalarFunction>& func) {
-  // create an exec function with the requested signature
-  ArrayKernelExec exec = ScalarBinaryEqualTypes<OutType, ArgType, Op>::Exec;
-  // create type objects based on the template arguments
-  auto arg = TypeTraits<ArgType>::type_singleton();
-  auto out = TypeTraits<OutType>::type_singleton();
-  // add the exec function as a kernel with the appropiate signature
-  DCHECK_OK(func->AddKernel({arg, arg}, out, exec));
-}
-
 template <typename Op>
 void AddBinaryFunction(std::string name, FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>(name, Arity::Binary());
-
-  // signed integers
-  AddBinaryKernel<Op, Int8Type, Int16Type>(func);
-  AddBinaryKernel<Op, Int16Type, Int32Type>(func);
-  AddBinaryKernel<Op, Int32Type, Int64Type>(func);
-  AddBinaryKernel<Op, Int64Type, Int64Type>(func);
-  // unsigned integers
-  AddBinaryKernel<Op, UInt8Type, UInt16Type>(func);
-  AddBinaryKernel<Op, UInt16Type, UInt32Type>(func);
-  AddBinaryKernel<Op, UInt32Type, UInt64Type>(func);
-  AddBinaryKernel<Op, UInt64Type, UInt64Type>(func);
-  // floating-point types, TODO(kszucs): add half-float
-  AddBinaryKernel<Op, FloatType, FloatType>(func);
-  AddBinaryKernel<Op, DoubleType, DoubleType>(func);
-
+  for (const auto& ty : NumericTypes()) {
+    auto exec = codegen::NumericEqualTypesBinary<Op>(ty);
+    DCHECK_OK(func->AddKernel({ty, ty}, ty, exec));
+  }
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
@@ -97,8 +61,16 @@ namespace internal {
 
 void RegisterScalarArithmetic(FunctionRegistry* registry) {
   codegen::AddBinaryFunction<Add>("add", registry);
+  codegen::AddBinaryFunction<Sub>("sub", registry);
+  codegen::AddBinaryFunction<Mul>("mul", registry);
 }
 
 }  // namespace internal
 }  // namespace compute
 }  // namespace arrow
+
+
+// add, checked_add, safe_add
+// ne legyen ertelmeze sub unsigned tipusokon
+// unsigned arithmetikat hasznalni signed muveletekhez hogy az undefined behaviourt elkeruljuk
+//

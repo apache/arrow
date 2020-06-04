@@ -42,6 +42,8 @@ namespace compute {
 // Arithmetic
 
 SCALAR_EAGER_BINARY(Add, "add")
+SCALAR_EAGER_BINARY(Sub, "sub")
+SCALAR_EAGER_BINARY(Mul, "mul")
 
 // ----------------------------------------------------------------------
 // Set-related operations

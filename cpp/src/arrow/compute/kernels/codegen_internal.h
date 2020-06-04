@@ -648,8 +648,7 @@ struct ScalarBinary {
 
 // A kernel exec generator for binary kernels where both input types are the
 // same
-template <typename OutType, typename ArgType, typename Op,
-          typename FlippedOp = Op>
+template <typename OutType, typename ArgType, typename Op>
 using ScalarBinaryEqualTypes = ScalarBinary<OutType, ArgType, ArgType, Op>;
 
 // ----------------------------------------------------------------------
@@ -704,6 +703,43 @@ ArrayKernelExec NumericEqualTypesUnary(detail::GetTypeId get_id) {
       return ScalarPrimitiveExecUnary<Op, FloatType, FloatType>;
     case Type::DOUBLE:
       return ScalarPrimitiveExecUnary<Op, DoubleType, DoubleType>;
+    default:
+      DCHECK(false);
+      return ExecFail;
+  }
+}
+
+// Generate a kernel given a functor of type
+//
+// struct OPERATOR_NAME {
+//   template <typename OUT, typename ARG0, typename ARG1>
+//   static OUT Call(KernelContext*, ARG0 left, ARG1 right) {
+//     // IMPLEMENTATION
+//   }
+// };
+template <typename Op>
+ArrayKernelExec NumericEqualTypesBinary(detail::GetTypeId get_id) {
+  switch (get_id.id) {
+    case Type::INT8:
+      return ScalarBinaryEqualTypes<Int8Type, Int8Type, Op>::Exec;
+    case Type::UINT8:
+      return ScalarBinaryEqualTypes<UInt8Type, UInt8Type, Op>::Exec;
+    case Type::INT16:
+      return ScalarBinaryEqualTypes<Int16Type, Int16Type, Op>::Exec;
+    case Type::UINT16:
+      return ScalarBinaryEqualTypes<UInt16Type, UInt16Type, Op>::Exec;
+    case Type::INT32:
+      return ScalarBinaryEqualTypes<Int32Type, Int32Type, Op>::Exec;
+    case Type::UINT32:
+      return ScalarBinaryEqualTypes<UInt32Type, UInt32Type, Op>::Exec;
+    case Type::INT64:
+      return ScalarBinaryEqualTypes<Int64Type, Int64Type, Op>::Exec;
+    case Type::UINT64:
+      return ScalarBinaryEqualTypes<UInt64Type, UInt64Type, Op>::Exec;
+    case Type::FLOAT:
+      return ScalarBinaryEqualTypes<FloatType, FloatType, Op>::Exec;
+    case Type::DOUBLE:
+      return ScalarBinaryEqualTypes<DoubleType, DoubleType, Op>::Exec;
     default:
       DCHECK(false);
       return ExecFail;

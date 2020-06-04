@@ -85,32 +85,45 @@ template <typename TypePair>
 class TestBinaryArithmeticsIntegral : public TestBinaryArithmetics<TypePair> {};
 
 template <typename TypePair>
+class TestBinaryArithmeticsSigned : public TestBinaryArithmeticsIntegral<TypePair> {};
+
+// template <typename TypePair>
+// class TestBinaryArithmeticsUnsigned : public TestBinaryArithmeticsIntegral<TypePair> {};
+
+template <typename TypePair>
 class TestBinaryArithmeticsFloating : public TestBinaryArithmetics<TypePair> {};
 
 // InputType - OutputType pairs
 using IntegralPairs =
-    testing::Types<std::pair<Int8Type, Int16Type>, std::pair<Int16Type, Int32Type>,
-                   std::pair<Int32Type, Int64Type>, std::pair<Int64Type, Int64Type>,
-                   std::pair<UInt8Type, UInt16Type>, std::pair<UInt16Type, UInt32Type>,
-                   std::pair<UInt32Type, UInt64Type>, std::pair<UInt64Type, UInt64Type>>;
+    testing::Types<std::pair<Int8Type, Int8Type>, std::pair<Int16Type, Int16Type>,
+                   std::pair<Int32Type, Int32Type>, std::pair<Int64Type, Int64Type>,
+                   std::pair<UInt8Type, UInt8Type>, std::pair<UInt16Type, UInt16Type>,
+                   std::pair<UInt32Type, UInt32Type>, std::pair<UInt64Type, UInt64Type>>;
 
-// InputType - OutputType pairs, TODO(kszucs): add half-float
+using SignedIntegerPairs =
+    testing::Types<std::pair<Int8Type, Int8Type>, std::pair<Int16Type, Int16Type>,
+                   std::pair<Int32Type, Int32Type>, std::pair<Int64Type, Int64Type>>;
+
+// using UnsignedIntegerPairs =
+//     testing::Types<std::pair<UInt8Type, UInt8Type>, std::pair<UInt16Type, UInt16Type>,
+//                    std::pair<UInt32Type, UInt32Type>, std::pair<UInt64Type, UInt64Type>>;
+
+// TODO(kszucs): add half-float
 using FloatingPairs =
     testing::Types<std::pair<FloatType, FloatType>, std::pair<DoubleType, DoubleType>>;
 
 TYPED_TEST_SUITE(TestBinaryArithmeticsIntegral, IntegralPairs);
+TYPED_TEST_SUITE(TestBinaryArithmeticsSigned, SignedIntegerPairs);
+// TYPED_TEST_SUITE(TestBinaryArithmeticsSigned, UnsignedIntegerPairs);
 TYPED_TEST_SUITE(TestBinaryArithmeticsFloating, FloatingPairs);
 
 TYPED_TEST(TestBinaryArithmeticsIntegral, Add) {
   this->AssertBinop(arrow::compute::Add, "[]", "[]", "[]");
-  this->AssertBinop(arrow::compute::Add, "[]", "[]", "[]");
+  this->AssertBinop(arrow::compute::Add, "[null]", "[null]", "[null]");
   this->AssertBinop(arrow::compute::Add, "[3, 2, 6]", "[1, 0, 2]", "[4, 2, 8]");
 
   this->AssertBinop(arrow::compute::Add, "[1, 2, 3, 4, 5, 6, 7]", "[0, 1, 2, 3, 4, 5, 6]",
                     "[1, 3, 5, 7, 9, 11, 13]");
-
-  this->AssertBinop(arrow::compute::Add, "[7, 6, 5, 4, 3, 2, 1]", "[6, 5, 4, 3, 2, 1, 0]",
-                    "[13, 11, 9, 7, 5, 3, 1]");
 
   this->AssertBinop(arrow::compute::Add, "[10, 12, 4, 50, 50, 32, 11]",
                     "[2, 0, 6, 1, 5, 3, 4]", "[12, 12, 10, 51, 55, 35, 15]");
@@ -119,29 +132,77 @@ TYPED_TEST(TestBinaryArithmeticsIntegral, Add) {
                     "[null, 5, 5, null, 2, 8]");
 }
 
-TYPED_TEST(TestBinaryArithmeticsIntegral, AddCheckExtremes) {
-  using InputCType = typename TestFixture::InputCType;
-  using OutputCType = typename TestFixture::OutputCType;
+TYPED_TEST(TestBinaryArithmeticsIntegral, Sub) {
+  this->AssertBinop(arrow::compute::Sub, "[]", "[]", "[]");
+  this->AssertBinop(arrow::compute::Sub, "[null]", "[null]", "[null]");
+  this->AssertBinop(arrow::compute::Sub, "[3, 2, 6]", "[1, 0, 2]", "[2, 2, 4]");
 
-  if (std::is_same<InputCType, OutputCType>::value) {
-    // this test case is incompatible with Int64 and UInt64 types because there
-    // are no wider integer types to overflow to
-    return;
-  }
-
-  auto min = std::numeric_limits<InputCType>::min();
-  auto max = std::numeric_limits<InputCType>::max();
-
-  auto left = this->MakeInputArray({1, 2, 3, min, max});
-  auto right = this->MakeInputArray({0, 10, 11, min, max});
-
-  OutputCType expected_min = 2 * static_cast<OutputCType>(min);
-  OutputCType expected_max = 2 * static_cast<OutputCType>(max);
-
-  auto expected = this->MakeOutputArray({1, 12, 14, expected_min, expected_max});
-
-  this->AssertBinop(arrow::compute::Add, left, right, expected);
+  this->AssertBinop(arrow::compute::Sub, "[1, 2, 3, 4, 5, 6, 7]", "[0, 1, 2, 3, 4, 5, 6]",
+                    "[1, 1, 1, 1, 1, 1, 1]");
 }
+
+TYPED_TEST(TestBinaryArithmeticsIntegral, Mul) {
+  this->AssertBinop(arrow::compute::Mul, "[]", "[]", "[]");
+  this->AssertBinop(arrow::compute::Mul, "[null]", "[null]", "[null]");
+  this->AssertBinop(arrow::compute::Mul, "[3, 2, 6]", "[1, 0, 2]", "[3, 0, 12]");
+
+  this->AssertBinop(arrow::compute::Mul, "[1, 2, 3, 4, 5, 6, 7]", "[0, 1, 2, 3, 4, 5, 6]",
+                    "[0, 2, 6, 12, 20, 30, 42]");
+
+  this->AssertBinop(arrow::compute::Mul, "[7, 6, 5, 4, 3, 2, 1]", "[6, 5, 4, 3, 2, 1, 0]",
+                    "[42, 30, 20, 12, 6, 2, 0]");
+
+  this->AssertBinop(arrow::compute::Mul, "[null, 1, 3, null, 2, 5]", "[1, 4, 2, 5, 0, 3]",
+                    "[null, 4, 6, null, 0, 15]");
+}
+
+TYPED_TEST(TestBinaryArithmeticsSigned, Add) {
+  this->AssertBinop(arrow::compute::Add, "[-7, 6, 5, 4, 3, 2, 1]", "[-6, 5, -4, 3, -2, 1, 0]",
+                    "[-13, 11, 1, 7, 1, 3, 1]");
+}
+
+TYPED_TEST(TestBinaryArithmeticsSigned, Sub) {
+  this->AssertBinop(arrow::compute::Sub, "[0, 1, 2, 3, 4, 5, 6]", "[1, 2, 3, 4, 5, 6, 7]",
+                    "[-1, -1, -1, -1, -1, -1, -1]");
+
+  this->AssertBinop(arrow::compute::Sub, "[0, 0, 0, 0, 0, 0, 0]", "[6, 5, 4, 3, 2, 1, 0]",
+                    "[-6, -5, -4, -3, -2, -1, 0]");
+
+  this->AssertBinop(arrow::compute::Sub, "[10, 12, 4, 50, 50, 32, 11]",
+                    "[2, 0, 6, 1, 5, 3, 4]", "[8, 12, -2, 49, 45, 29, 7]");
+
+  this->AssertBinop(arrow::compute::Sub, "[null, 1, 3, null, 2, 5]", "[1, 4, 2, 5, 0, 3]",
+                    "[null, -3, 1, null, 2, 2]");
+}
+
+TYPED_TEST(TestBinaryArithmeticsSigned, Mul) {
+  this->AssertBinop(arrow::compute::Mul, "[-10, 12, 4, 50, -5, 32, 11]",
+                    "[-2, 0, -6, 1, 5, 3, 4]", "[20, 0, -24, 50, -25, 96, 44]");
+}
+
+// TYPED_TEST(TestBinaryArithmeticsIntegral, AddCheckExtremes) {
+//   using InputCType = typename TestFixture::InputCType;
+//   using OutputCType = typename TestFixture::OutputCType;
+
+//   if (std::is_same<InputCType, OutputCType>::value) {
+//     // this test case is incompatible with Int64 and UInt64 types because there
+//     // are no wider integer types to overflow to
+//     return;
+//   }
+
+//   auto min = std::numeric_limits<InputCType>::min();
+//   auto max = std::numeric_limits<InputCType>::max();
+
+//   auto left = this->MakeInputArray({1, 2, 3, min, max});
+//   auto right = this->MakeInputArray({0, 10, 11, min, max});
+
+//   OutputCType expected_min = 2 * static_cast<OutputCType>(min);
+//   OutputCType expected_max = 2 * static_cast<OutputCType>(max);
+
+//   auto expected = this->MakeOutputArray({1, 12, 14, expected_min, expected_max});
+
+//   this->AssertBinop(arrow::compute::Add, left, right, expected);
+// }
 
 TYPED_TEST(TestBinaryArithmeticsFloating, Add) {
   this->AssertBinop(arrow::compute::Add, "[]", "[]", "[]");

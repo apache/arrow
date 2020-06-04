@@ -45,6 +45,26 @@ namespace compute {
 ARROW_EXPORT
 Result<Datum> Add(const Datum& left, const Datum& right, ExecContext* ctx = NULLPTR);
 
+/// \brief Subtract two values. Array values must be the same length. If a
+/// value is null in either addend, the result is null
+///
+/// \param[in] left the first value
+/// \param[in] right the second value
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise addition of the values
+ARROW_EXPORT
+Result<Datum> Sub(const Datum& left, const Datum& right, ExecContext* ctx = NULLPTR);
+
+/// \brief Multiply two values. Array values must be the same length. If a
+/// value is null in either addend, the result is null
+///
+/// \param[in] left the first value
+/// \param[in] right the second value
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise addition of the values
+ARROW_EXPORT
+Result<Datum> Mul(const Datum& left, const Datum& right, ExecContext* ctx = NULLPTR);
+
 enum CompareOperator {
   EQUAL,
   NOT_EQUAL,
