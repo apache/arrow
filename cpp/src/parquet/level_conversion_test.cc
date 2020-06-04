@@ -14,6 +14,7 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
+
 #include "parquet/level_conversion.h"
 
 #include <gmock/gmock.h>
@@ -23,6 +24,7 @@
 #include <vector>
 
 #include "arrow/util/bit_util.h"
+#include "arrow/util/bitmap.h"
 
 namespace parquet {
 namespace internal {

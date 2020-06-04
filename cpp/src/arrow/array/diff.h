@@ -27,7 +27,6 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
-#include "arrow/util/bit_util.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {

@@ -19,6 +19,8 @@
 
 #include <vector>
 
+#include "arrow/util/bitmap_ops.h"
+
 namespace gandiva {
 
 void BitMapAccumulator::ComputeResult(uint8_t* dst_bitmap) {

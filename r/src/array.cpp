@@ -23,6 +23,7 @@ using Rcpp::no_init;
 #if defined(ARROW_R_WITH_ARROW)
 
 #include <arrow/array.h>
+#include <arrow/util/bitmap_reader.h>
 
 void arrow::r::validate_slice_offset(int offset, int len) {
   if (offset == NA_INTEGER) {

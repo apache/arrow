@@ -22,6 +22,7 @@
 #include "arrow/compute/kernels/vector_selection_internal.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
+#include "arrow/visitor_inline.h"
 
 namespace arrow {
 namespace compute {

@@ -39,21 +39,16 @@
 #include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
-#include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/string_view.h"
-#include "arrow/visitor_inline.h"
 
 // IWYU pragma: end_exports
 
 namespace arrow {
 
-using internal::Bitmap;
-using internal::BitmapReader;
 using internal::checked_cast;
 using internal::checked_pointer_cast;
-using internal::FirstTimeBitmapWriter;
 
 }  // namespace arrow

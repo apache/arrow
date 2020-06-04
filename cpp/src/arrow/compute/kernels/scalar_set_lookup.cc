@@ -19,8 +19,11 @@
 #include "arrow/array/builder_primitive.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernels/common.h"
+#include "arrow/util/bit_util.h"
+#include "arrow/util/bitmap_writer.h"
 #include "arrow/util/hashing.h"
 #include "arrow/util/optional.h"
+#include "arrow/visitor_inline.h"
 
 namespace arrow {
 
