@@ -1173,7 +1173,7 @@ class BitsetStack {
 /// \brief A class that scans through a true/false bitmap to yield blocks of up
 /// to 256 bits at a time along with their popcount. This is used to accelerate
 /// processing of mostly-not-null array data.
-class ARROW_EXPORT BitmapScanner {
+class ARROW_EXPORT BitBlockCounter {
  public:
   struct Block {
     int16_t length;
@@ -1182,7 +1182,7 @@ class ARROW_EXPORT BitmapScanner {
 
   static constexpr int16_t kTargetBlockLength = 256;
 
-  BitmapScanner(const uint8_t* bitmap, int64_t start_offset, int64_t length)
+  BitBlockCounter(const uint8_t* bitmap, int64_t start_offset, int64_t length)
       : bitmap_(bitmap + start_offset / 8),
         bits_remaining_(length),
         offset_(start_offset % 8) {}

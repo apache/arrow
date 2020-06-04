@@ -598,7 +598,7 @@ Result<std::shared_ptr<Buffer>> BitmapAllButOne(MemoryPool* pool, int64_t length
   return std::move(buffer);
 }
 
-BitmapScanner::Block BitmapScanner::NextBlock() {
+BitBlockCounter::Block BitBlockCounter::NextBlock() {
   auto load_word = [](const uint8_t* bytes) -> uint64_t {
     return BitUtil::ToLittleEndian(util::SafeLoadAs<uint64_t>(bytes));
   };

@@ -390,8 +390,8 @@ static void BitmapEquals(benchmark::State& state) {
 }
 
 template <int64_t Offset = 0>
-static void BitmapScannerSumNotNull(benchmark::State& state) {
-  using internal::BitmapScanner;
+static void BitBlockCounterSumNotNull(benchmark::State& state) {
+  using internal::BitBlockCounter;
 
   random::RandomArrayGenerator rng(/*seed=*/0);
 
@@ -413,11 +413,11 @@ static void BitmapScannerSumNotNull(benchmark::State& state) {
     }
   }
   for (auto _ : state) {
-    BitmapScanner scanner(bitmap, Offset, bitmap_length - Offset);
+    BitBlockCounter scanner(bitmap, Offset, bitmap_length - Offset);
     int64_t result = 0;
     int64_t position = Offset;
     while (true) {
-      BitmapScanner::Block block = scanner.NextBlock();
+      BitBlockCounter::Block block = scanner.NextBlock();
       if (block.length == 0) {
         break;
       }
@@ -481,12 +481,12 @@ static void BitmapReaderSumNotNull(benchmark::State& state) {
   state.SetItemsProcessed(state.iterations() * bitmap_length);
 }
 
-static void BitmapScannerSumNotNull(benchmark::State& state) {
-  BitmapScannerSumNotNull<0>(state);
+static void BitBlockCounterSumNotNull(benchmark::State& state) {
+  BitBlockCounterSumNotNull<0>(state);
 }
 
-static void BitmapScannerSumNotNullWithOffset(benchmark::State& state) {
-  BitmapScannerSumNotNull<4>(state);
+static void BitBlockCounterSumNotNullWithOffset(benchmark::State& state) {
+  BitBlockCounterSumNotNull<4>(state);
 }
 
 static void BitmapReaderSumNotNull(benchmark::State& state) {
@@ -535,8 +535,8 @@ BENCHMARK(BitmapEqualsWithoutOffset)->Arg(kBufferSize);
 BENCHMARK(BitmapEqualsWithOffset)->Arg(kBufferSize);
 
 // Range value: average number of total values per null
-BENCHMARK(BitmapScannerSumNotNull)->Range(8, 1 << 16);
-BENCHMARK(BitmapScannerSumNotNullWithOffset)->Range(8, 1 << 16);
+BENCHMARK(BitBlockCounterSumNotNull)->Range(8, 1 << 16);
+BENCHMARK(BitBlockCounterSumNotNullWithOffset)->Range(8, 1 << 16);
 BENCHMARK(BitmapReaderSumNotNull)->Range(8, 1 << 16);
 BENCHMARK(BitmapReaderSumNotNullWithOffset)->Range(8, 1 << 16);
 

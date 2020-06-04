@@ -1368,30 +1368,30 @@ TEST(Bitmap, VisitWordsAnd) {
   }
 }
 
-class TestBitmapScanner : public ::testing::Test {
+class TestBitBlockCounter : public ::testing::Test {
  public:
   void Create(int64_t nbytes, int64_t offset, int64_t length) {
     ASSERT_OK_AND_ASSIGN(buf_, AllocateBuffer(nbytes));
     // Start with data zeroed out
     std::memset(buf_->mutable_data(), 0, nbytes);
-    scanner_.reset(new BitmapScanner(buf_->data(), offset, length));
+    scanner_.reset(new BitBlockCounter(buf_->data(), offset, length));
   }
 
  protected:
   std::shared_ptr<Buffer> buf_;
-  std::unique_ptr<BitmapScanner> scanner_;
+  std::unique_ptr<BitBlockCounter> scanner_;
 };
 
 static constexpr int64_t kWordSize = 64;
 
-TEST_F(TestBitmapScanner, Basics) {
+TEST_F(TestBitBlockCounter, Basics) {
   const int64_t nbytes = 1024;
 
   Create(nbytes, 0, nbytes * 8);
 
   int64_t bits_scanned = 0;
   for (int64_t i = 0; i < nbytes / 32; ++i) {
-    BitmapScanner::Block block = scanner_->NextBlock();
+    BitBlockCounter::Block block = scanner_->NextBlock();
     ASSERT_EQ(block.length, 4 * kWordSize);
     ASSERT_EQ(block.popcount, 0);
     bits_scanned += block.length;
@@ -1403,7 +1403,7 @@ TEST_F(TestBitmapScanner, Basics) {
   ASSERT_EQ(block.popcount, 0);
 }
 
-TEST_F(TestBitmapScanner, Offsets) {
+TEST_F(TestBitBlockCounter, Offsets) {
   auto CheckWithOffset = [&](int64_t offset) {
     const int64_t nwords = 15;
 
@@ -1415,7 +1415,7 @@ TEST_F(TestBitmapScanner, Offsets) {
     // Start with data all set
     std::memset(buf_->mutable_data(), 0xFF, total_bytes);
 
-    BitmapScanner::Block block = scanner_->NextBlock();
+    BitBlockCounter::Block block = scanner_->NextBlock();
     ASSERT_EQ(4 * kWordSize, block.length);
     ASSERT_EQ(block.popcount, 256);
 
@@ -1451,15 +1451,15 @@ TEST_F(TestBitmapScanner, Offsets) {
   }
 }
 
-TEST_F(TestBitmapScanner, RandomData) {
+TEST_F(TestBitBlockCounter, RandomData) {
   const int64_t nbytes = 1024;
   auto buffer = *AllocateBuffer(nbytes);
   random_bytes(nbytes, 0, buffer->mutable_data());
 
   auto CheckWithOffset = [&](int64_t offset) {
-    BitmapScanner scanner(buffer->data(), offset, nbytes * 8);
+    BitBlockCounter scanner(buffer->data(), offset, nbytes * 8);
     for (int64_t i = 0; i < nbytes / 32; ++i) {
-      BitmapScanner::Block block = scanner.NextBlock();
+      BitBlockCounter::Block block = scanner.NextBlock();
       ASSERT_EQ(block.popcount,
                 CountSetBits(buffer->data(), i * 256 + offset, block.length));
     }
