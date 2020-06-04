@@ -23,8 +23,12 @@ namespace compute {
 
 // explicitly disallow signed integers as input arguments
 template <typename T>
-using enable_if_unsigned_or_floating =
-    enable_if_t<std::is_unsigned<T>::value || std::is_floating_point<T>::value>;
+using is_unsigned_or_floating =
+    std::integral_constant<bool, std::is_unsigned<T>::value ||
+                                     std::is_floating_point<T>::value>;
+
+template <typename T>
+using enable_if_unsigned_or_floating = enable_if_t<is_unsigned_or_floating<T>::value>;
 
 struct Add {
   template <typename T, typename = enable_if_unsigned_or_floating<T>>
@@ -41,9 +45,17 @@ struct Subtract {
 };
 
 struct Multiply {
-  template <typename T, typename = enable_if_unsigned_or_floating<T>>
+  template <typename T, typename = enable_if_t<!std::is_same<T, uint16_t>::value &&
+                                               is_unsigned_or_floating<T>::value>>
   static constexpr T Call(KernelContext*, T left, T right) {
     return left * right;
+  }
+
+  template <typename T, typename = enable_if_t<std::is_same<T, uint16_t>::value>>
+  static constexpr uint16_t Call(KernelContext*, T left, T right) {
+    // exception because multiplying to uint16 values involves implicit promotion
+    // to signed int32 type which can trigger undefined behaviour by signed overflow
+    return static_cast<uint32_t>(left) * static_cast<uint32_t>(right);
   }
 };
 

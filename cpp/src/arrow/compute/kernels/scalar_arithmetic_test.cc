@@ -16,7 +16,6 @@
 // under the License.
 
 #include <algorithm>
-#include <iostream>
 #include <memory>
 #include <string>
 #include <type_traits>
@@ -63,6 +62,23 @@ class TestBinaryArithmetics<std::pair<I, O>> : public TestBase {
     ArrayFromVector<OutputType>(values, &out);
     return out;
   }
+
+  // (Scalar, Array)
+  // virtual void AssertBinop(BinaryFunction func, InputCType lhs,
+  //                          const std::string& rhs,
+  //                          const std::string& expected) {
+  //   auto input_type = TypeTraits<InputType>::type_singleton();
+  //   auto output_type = TypeTraits<OutputType>::type_singleton();
+
+  //   auto left = Datum(MakeScalar(input_type, lhs).ValueOrDie());
+  //   auto right = Datum(ArrayFromJSON(input_type, rhs));
+  //   auto exp = ArrayFromJSON(output_type, expected);
+
+  //   ASSERT_OK_AND_ASSIGN(Datum result, func(left, right, nullptr));
+  //   std::shared_ptr<Array> out = result.make_array();
+  //   ASSERT_OK(out->ValidateFull());
+  //   AssertArraysEqual(*exp, *out);
+  // }
 
   // (Array, Array)
   virtual void AssertBinop(BinaryFunction func, const std::shared_ptr<Array>& lhs,
@@ -132,6 +148,9 @@ TYPED_TEST(TestBinaryArithmeticsIntegral, Add) {
 
   this->AssertBinop(arrow::compute::Add, "[null, 1, 3, null, 2, 5]", "[1, 4, 2, 5, 0, 3]",
                     "[null, 5, 5, null, 2, 8]");
+
+  // this->AssertBinop(arrow::compute::Add, 10, "[null, 1, 3, null, 2, 5]",
+  //                   "[null, 11, 13, null, 12, 15]");
 }
 
 TYPED_TEST(TestBinaryArithmeticsIntegral, Sub) {
