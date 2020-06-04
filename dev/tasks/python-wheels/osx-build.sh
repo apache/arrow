@@ -138,6 +138,8 @@ function install_wheel {
 function run_unit_tests {
     pushd $1
 
+    export PYARROW_TEST_CYTHON=OFF
+
     # Install test dependencies
     pip install $(pip_opts) -r python/requirements-wheel-test.txt
 
