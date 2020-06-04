@@ -25,7 +25,7 @@ namespace compute {
 struct Add {
   template <typename T>
   static constexpr T Call(KernelContext*, T left, T right) {
-    return left - right;
+    return left + right;
   }
 };
 
