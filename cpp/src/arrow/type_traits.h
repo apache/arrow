@@ -646,6 +646,14 @@ template <typename T, typename R = void>
 using enable_if_physical_unsigned_integer =
     enable_if_t<is_physical_unsigned_integer_type<T>::value, R>;
 
+template <typename T>
+using is_physical_integer_type =
+    std::integral_constant<bool, is_physical_unsigned_integer_type<T>::value ||
+                                     is_physical_signed_integer_type<T>::value>;
+
+template <typename T, typename R = void>
+using enable_if_physical_integer = enable_if_t<is_physical_integer_type<T>::value, R>;
+
 // Like is_floating_type but excluding half-floats which don't have a
 // float-like c type.
 template <typename T>

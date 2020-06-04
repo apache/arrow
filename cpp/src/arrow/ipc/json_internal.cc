@@ -19,6 +19,7 @@
 
 #include <cstdint>
 #include <cstdlib>
+#include <iostream>
 #include <memory>
 #include <string>
 #include <type_traits>
@@ -440,29 +441,37 @@ class ArrayWriter {
     return Status::OK();
   }
 
-  template <typename T, bool IsSigned = std::is_signed<typename T::value_type>::value>
-  void WriteIntegerDataValues(const T& arr) {
-    static const char null_string[] = "0";
-    const auto data = arr.raw_values();
+  template <typename ArrayType, typename TypeClass = typename ArrayType::TypeClass,
+            typename CType = typename TypeClass::c_type>
+  enable_if_t<is_physical_integer_type<TypeClass>::value &&
+              sizeof(CType) != sizeof(int64_t)>
+  WriteDataValues(const ArrayType& arr) {
+    static const std::string null_string = "0";
     for (int64_t i = 0; i < arr.length(); ++i) {
       if (arr.IsValid(i)) {
-        IsSigned ? writer_->Int64(data[i]) : writer_->Uint64(data[i]);
+        writer_->Int64(arr.Value(i));
       } else {
-        writer_->RawNumber(null_string, sizeof(null_string));
+        writer_->RawNumber(null_string.data(), null_string.size());
       }
     }
   }
 
-  template <typename ArrayType>
-  enable_if_physical_signed_integer<typename ArrayType::TypeClass> WriteDataValues(
-      const ArrayType& arr) {
-    WriteIntegerDataValues<ArrayType>(arr);
-  }
+  template <typename ArrayType, typename TypeClass = typename ArrayType::TypeClass,
+            typename CType = typename TypeClass::c_type>
+  enable_if_t<is_physical_integer_type<TypeClass>::value &&
+              sizeof(CType) == sizeof(int64_t)>
+  WriteDataValues(const ArrayType& arr) {
+    ::arrow::internal::StringFormatter<typename CTypeTraits<CType>::ArrowType> fmt;
 
-  template <typename ArrayType>
-  enable_if_physical_unsigned_integer<typename ArrayType::TypeClass> WriteDataValues(
-      const ArrayType& arr) {
-    WriteIntegerDataValues<ArrayType>(arr);
+    static const std::string null_string = "0";
+    for (int64_t i = 0; i < arr.length(); ++i) {
+      if (arr.IsValid(i)) {
+        fmt(arr.Value(i),
+            [&](util::string_view repr) { writer_->String(repr.data(), repr.size()); });
+      } else {
+        writer_->String(null_string.data(), null_string.size());
+      }
+    }
   }
 
   template <typename ArrayType>
@@ -1146,18 +1155,24 @@ enable_if_boolean<T, bool> UnboxValue(const rj::Value& val) {
   return val.GetBool();
 }
 
-template <typename T>
-enable_if_physical_signed_integer<T, typename T::c_type> UnboxValue(
-    const rj::Value& val) {
+template <typename T, typename CType = typename T::c_type>
+enable_if_t<is_physical_integer_type<T>::value && sizeof(CType) != sizeof(int64_t), CType>
+UnboxValue(const rj::Value& val) {
   DCHECK(val.IsInt64());
-  return static_cast<typename T::c_type>(val.GetInt64());
+  return static_cast<CType>(val.GetInt64());
 }
 
-template <typename T>
-enable_if_physical_unsigned_integer<T, typename T::c_type> UnboxValue(
-    const rj::Value& val) {
-  DCHECK(val.IsUint());
-  return static_cast<typename T::c_type>(val.GetUint64());
+template <typename T, typename CType = typename T::c_type>
+enable_if_t<is_physical_integer_type<T>::value && sizeof(CType) == sizeof(int64_t), CType>
+UnboxValue(const rj::Value& val) {
+  DCHECK(val.IsString());
+
+  CType out;
+  bool success = ::arrow::internal::ParseValue<typename CTypeTraits<CType>::ArrowType>(
+      val.GetString(), val.GetStringLength(), &out);
+
+  DCHECK(success);
+  return out;
 }
 
 template <typename T>

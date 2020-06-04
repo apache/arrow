@@ -176,11 +176,15 @@ class IntegerField(PrimitiveField):
 
     def generate_column(self, size, name=None):
         lower_bound, upper_bound = self._get_generated_data_bounds()
-        return self.generate_range(size, lower_bound, upper_bound, name=name)
+        return self.generate_range(size, lower_bound, upper_bound,
+                                   name=name, include_extremes=True)
 
-    def generate_range(self, size, lower, upper, name=None):
-        values = [int(x) for x in
-                  np.random.randint(lower, upper, size=size)]
+    def generate_range(self, size, lower, upper, name=None,
+                       include_extremes=False):
+        values = np.random.randint(lower, upper, size=size)
+        if include_extremes and size >= 2:
+            values[:2] = [lower, upper]
+        values = list(map(int if self.bit_width < 64 else str, values))
 
         is_valid = self._make_is_valid(size)
 
@@ -1558,9 +1562,10 @@ def get_generated_json_files(tempdir=None, flight=False):
         .skip_category('Java')  # TODO(ARROW-7779)
         .skip_category('JS'),
 
-        generate_extension_case().skip_category('Go')
-                                 .skip_category('JS')
-                                 .skip_category('Rust'),
+        generate_extension_case()
+        .skip_category('Go')
+        .skip_category('JS')
+        .skip_category('Rust'),
     ]
 
     if flight:
