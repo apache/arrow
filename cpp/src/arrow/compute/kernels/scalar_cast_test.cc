@@ -714,10 +714,11 @@ TEST_F(TestCast, DecimalToInt) {
 TEST_F(TestCast, DecimalToDecimal) {
   CastOptions options;
 
+  std::vector<bool> is_valid1 = {true};
   std::vector<bool> is_valid2 = {true, true};
   std::vector<bool> is_valid3 = {true, true, false};
 
-  // simple cases decimal
+  // Non-truncating
 
   std::vector<Decimal128> v12 = {Decimal128("02.0000000000"),
                                  Decimal128("30.0000000000")};
@@ -739,6 +740,57 @@ TEST_F(TestCast, DecimalToDecimal) {
         decimal(28, 0), e13, is_valid3, decimal(38, 10), v13, options);
   }
 
+  // Same scale, different precision
+  std::vector<Decimal128> v14 = {Decimal128("12.34"), Decimal128("0.56")};
+  for (bool allow_decimal_truncate : {false, true}) {
+    options.allow_decimal_truncate = allow_decimal_truncate;
+    CheckCase<Decimal128Type, Decimal128, Decimal128Type, Decimal128>(
+        decimal(5, 2), v14, is_valid2, decimal(4, 2), v14, options);
+    // and back
+    CheckCase<Decimal128Type, Decimal128, Decimal128Type, Decimal128>(
+        decimal(4, 2), v14, is_valid2, decimal(5, 2), v14, options);
+  }
+
+  auto check_truncate = [this](const std::shared_ptr<DataType>& input_type,
+                               const std::vector<Decimal128>& input,
+                               const std::vector<bool>& is_valid,
+                               const std::shared_ptr<DataType>& output_type,
+                               const std::vector<Decimal128>& expected_output) {
+    CastOptions options;
+
+    options.allow_decimal_truncate = true;
+    CheckCase<Decimal128Type, Decimal128, Decimal128Type, Decimal128>(
+        input_type, input, is_valid, output_type, expected_output, options);
+    options.allow_decimal_truncate = false;
+    CheckFails<Decimal128Type>(input_type, input, is_valid, output_type, options);
+  };
+
+  auto check_truncate_and_back =
+      [this](const std::shared_ptr<DataType>& input_type,
+             const std::vector<Decimal128>& input, const std::vector<bool>& is_valid,
+             const std::shared_ptr<DataType>& output_type,
+             const std::vector<Decimal128>& expected_output,
+             const std::vector<Decimal128>& expected_back_convert) {
+        CastOptions options;
+
+        options.allow_decimal_truncate = true;
+        CheckCase<Decimal128Type, Decimal128, Decimal128Type, Decimal128>(
+            input_type, input, is_valid, output_type, expected_output, options);
+        // and back
+        CheckCase<Decimal128Type, Decimal128, Decimal128Type, Decimal128>(
+            output_type, expected_output, is_valid, input_type, expected_back_convert,
+            options);
+
+        options.allow_decimal_truncate = false;
+        CheckFails<Decimal128Type>(input_type, input, is_valid, output_type, options);
+        // back case is valid
+        CheckCase<Decimal128Type, Decimal128, Decimal128Type, Decimal128>(
+            output_type, expected_output, is_valid, input_type, expected_back_convert,
+            options);
+      };
+
+  // Rescale leads to truncation
+
   std::vector<Decimal128> v22 = {Decimal128("-02.1234567890"),
                                  Decimal128("30.1234567890")};
   std::vector<Decimal128> e22 = {Decimal128("-02."), Decimal128("30.")};
@@ -753,25 +805,25 @@ TEST_F(TestCast, DecimalToDecimal) {
                                  Decimal128("30.0000000000"),
                                  Decimal128("80.0000000000")};
 
-  options.allow_decimal_truncate = true;
-  CheckCase<Decimal128Type, Decimal128, Decimal128Type, Decimal128>(
-      decimal(38, 10), v22, is_valid2, decimal(28, 0), e22, options);
-  CheckCase<Decimal128Type, Decimal128, Decimal128Type, Decimal128>(
-      decimal(38, 10), v23, is_valid3, decimal(28, 0), e23, options);
-  // and back
-  CheckCase<Decimal128Type, Decimal128, Decimal128Type, Decimal128>(
-      decimal(28, 0), e22, is_valid2, decimal(38, 10), f22, options);
-  CheckCase<Decimal128Type, Decimal128, Decimal128Type, Decimal128>(
-      decimal(28, 0), e23, is_valid3, decimal(38, 10), f23, options);
+  check_truncate_and_back(decimal(38, 10), v22, is_valid2, decimal(28, 0), e22, f22);
+  check_truncate_and_back(decimal(38, 10), v23, is_valid3, decimal(28, 0), e23, f23);
 
-  options.allow_decimal_truncate = false;
-  CheckFails<Decimal128Type>(decimal(38, 10), v22, is_valid2, decimal(28, 0), options);
-  CheckFails<Decimal128Type>(decimal(38, 10), v23, is_valid3, decimal(28, 0), options);
-  // back case is ok
-  CheckCase<Decimal128Type, Decimal128, Decimal128Type, Decimal128>(
-      decimal(28, 0), e22, is_valid2, decimal(38, 10), f22, options);
-  CheckCase<Decimal128Type, Decimal128, Decimal128Type, Decimal128>(
-      decimal(28, 0), e23, is_valid3, decimal(38, 10), f23, options);
+  // Precision loss without rescale leads to truncation
+
+  std::vector<Decimal128> v3 = {Decimal128("12.34")};
+  std::vector<Decimal128> e3 = {Decimal128("12.34")};
+
+  check_truncate(decimal(4, 2), v3, is_valid1, decimal(3, 2), e3);
+
+  // Precision loss with rescale leads to truncation
+
+  std::vector<Decimal128> v4 = {Decimal128("12.34")};
+  std::vector<Decimal128> e4 = {Decimal128("12.340")};
+  std::vector<Decimal128> v5 = {Decimal128("12.34")};
+  std::vector<Decimal128> e5 = {Decimal128("12.3")};
+
+  check_truncate(decimal(4, 2), v4, is_valid1, decimal(4, 3), e4);
+  check_truncate(decimal(4, 2), v5, is_valid1, decimal(2, 1), e5);
 }
 
 TEST_F(TestCast, TimestampToTimestamp) {
