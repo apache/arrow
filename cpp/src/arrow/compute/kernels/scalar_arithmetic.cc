@@ -68,9 +68,3 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
 }  // namespace internal
 }  // namespace compute
 }  // namespace arrow
-
-
-// add, checked_add, safe_add
-// ne legyen ertelmeze sub unsigned tipusokon
-// unsigned arithmetikat hasznalni signed muveletekhez hogy az undefined behaviourt elkeruljuk
-//

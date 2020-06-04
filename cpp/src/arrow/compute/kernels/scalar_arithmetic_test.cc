@@ -88,7 +88,8 @@ template <typename TypePair>
 class TestBinaryArithmeticsSigned : public TestBinaryArithmeticsIntegral<TypePair> {};
 
 // template <typename TypePair>
-// class TestBinaryArithmeticsUnsigned : public TestBinaryArithmeticsIntegral<TypePair> {};
+// class TestBinaryArithmeticsUnsigned : public TestBinaryArithmeticsIntegral<TypePair>
+// {};
 
 template <typename TypePair>
 class TestBinaryArithmeticsFloating : public TestBinaryArithmetics<TypePair> {};
@@ -106,7 +107,8 @@ using SignedIntegerPairs =
 
 // using UnsignedIntegerPairs =
 //     testing::Types<std::pair<UInt8Type, UInt8Type>, std::pair<UInt16Type, UInt16Type>,
-//                    std::pair<UInt32Type, UInt32Type>, std::pair<UInt64Type, UInt64Type>>;
+//                    std::pair<UInt32Type, UInt32Type>, std::pair<UInt64Type,
+//                    UInt64Type>>;
 
 // TODO(kszucs): add half-float
 using FloatingPairs =
@@ -157,8 +159,8 @@ TYPED_TEST(TestBinaryArithmeticsIntegral, Mul) {
 }
 
 TYPED_TEST(TestBinaryArithmeticsSigned, Add) {
-  this->AssertBinop(arrow::compute::Add, "[-7, 6, 5, 4, 3, 2, 1]", "[-6, 5, -4, 3, -2, 1, 0]",
-                    "[-13, 11, 1, 7, 1, 3, 1]");
+  this->AssertBinop(arrow::compute::Add, "[-7, 6, 5, 4, 3, 2, 1]",
+                    "[-6, 5, -4, 3, -2, 1, 0]", "[-13, 11, 1, 7, 1, 3, 1]");
 }
 
 TYPED_TEST(TestBinaryArithmeticsSigned, Sub) {
