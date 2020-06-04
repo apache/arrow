@@ -33,14 +33,14 @@ struct Add {
   }
 };
 
-struct Sub {
+struct Subtract {
   template <typename T, typename = enable_if_unsigned_or_floating<T>>
   static constexpr T Call(KernelContext*, T left, T right) {
     return left - right;
   }
 };
 
-struct Mul {
+struct Multiply {
   template <typename T, typename = enable_if_unsigned_or_floating<T>>
   static constexpr T Call(KernelContext*, T left, T right) {
     return left * right;
@@ -99,8 +99,8 @@ namespace internal {
 
 void RegisterScalarArithmetic(FunctionRegistry* registry) {
   codegen::AddBinaryFunction<Add>("add", registry);
-  codegen::AddBinaryFunction<Sub>("sub", registry);
-  codegen::AddBinaryFunction<Mul>("mul", registry);
+  codegen::AddBinaryFunction<Subtract>("subtract", registry);
+  codegen::AddBinaryFunction<Multiply>("multiply", registry);
 }
 
 }  // namespace internal

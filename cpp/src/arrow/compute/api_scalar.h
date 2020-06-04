@@ -48,12 +48,12 @@ Result<Datum> Add(const Datum& left, const Datum& right, ExecContext* ctx = NULL
 /// \brief Subtract two values. Array values must be the same length. If the
 /// minuend or minuend is null the result will be null.
 ///
-/// \param[in] minuend the value subtracted from
-/// \param[in] subtrahend the value by which the minuend is reduced
+/// \param[in] left minuend, the value subtracted from
+/// \param[in] right subtrahend, the value by which the minuend is reduced
 /// \param[in] ctx the function execution context, optional
 /// \return the elementwise difference of the values
 ARROW_EXPORT
-Result<Datum> Sub(const Datum& left, const Datum& right, ExecContext* ctx = NULLPTR);
+Result<Datum> Subtract(const Datum& left, const Datum& right, ExecContext* ctx = NULLPTR);
 
 /// \brief Multiply two values. Array values must be the same length. If either
 /// factor is null, the result is null
@@ -63,7 +63,7 @@ Result<Datum> Sub(const Datum& left, const Datum& right, ExecContext* ctx = NULL
 /// \param[in] ctx the function execution context, optional
 /// \return the elementwise product of the factors
 ARROW_EXPORT
-Result<Datum> Mul(const Datum& left, const Datum& right, ExecContext* ctx = NULLPTR);
+Result<Datum> Multiply(const Datum& left, const Datum& right, ExecContext* ctx = NULLPTR);
 
 enum CompareOperator {
   EQUAL,
