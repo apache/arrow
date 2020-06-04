@@ -1457,7 +1457,7 @@ TEST_F(TestBitBlockCounter, RandomData) {
   random_bytes(nbytes, 0, buffer->mutable_data());
 
   auto CheckWithOffset = [&](int64_t offset) {
-    BitBlockCounter scanner(buffer->data(), offset, nbytes * 8);
+    BitBlockCounter scanner(buffer->data(), offset, nbytes * 8 - offset);
     for (int64_t i = 0; i < nbytes / 32; ++i) {
       BitBlockCounter::Block block = scanner.NextBlock();
       ASSERT_EQ(block.popcount,
