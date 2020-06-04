@@ -20,6 +20,7 @@
 set -e
 
 export ARROW_TEST_DATA=/arrow/testing/data
+export PYARROW_TEST_CYTHON=OFF
 
 python --version
 # Install built wheel
