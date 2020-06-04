@@ -1170,5 +1170,32 @@ class BitsetStack {
   std::vector<int> offsets_;
 };
 
+/// \brief A class that scans through a true/false bitmap to yield blocks of up
+/// to 256 bits at a time along with their popcount. This is used to accelerate
+/// processing of mostly-not-null array data.
+class ARROW_EXPORT BitBlockCounter {
+ public:
+  struct Block {
+    int16_t length;
+    int16_t popcount;
+  };
+
+  static constexpr int16_t kTargetBlockLength = 256;
+
+  BitBlockCounter(const uint8_t* bitmap, int64_t start_offset, int64_t length)
+      : bitmap_(bitmap + start_offset / 8),
+        bits_remaining_(length),
+        offset_(start_offset % 8) {}
+
+  /// \brief Return the next run of available bits, up to 256. The returned
+  /// pair contains the size of run and the number of true values
+  Block NextBlock();
+
+ private:
+  const uint8_t* bitmap_;
+  int64_t bits_remaining_;
+  int64_t offset_;
+};
+
 }  // namespace internal
 }  // namespace arrow
