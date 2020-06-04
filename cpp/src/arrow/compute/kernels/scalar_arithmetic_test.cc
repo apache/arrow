@@ -16,6 +16,7 @@
 // under the License.
 
 #include <algorithm>
+#include <iostream>
 #include <memory>
 #include <string>
 #include <type_traits>
@@ -169,9 +170,9 @@ TYPED_TEST(TestBinaryArithmeticsSigned, AddOverflow) {
   auto min = std::numeric_limits<InputCType>::min();
   auto max = std::numeric_limits<InputCType>::max();
 
-  auto left = this->MakeInputArray({max});
-  auto right = this->MakeInputArray({1});
-  auto expected = this->MakeOutputArray({min});
+  auto left = this->MakeInputArray({max, min});
+  auto right = this->MakeInputArray({1, -1});
+  auto expected = this->MakeOutputArray({min, max});
 
   this->AssertBinop(arrow::compute::Add, left, right, expected);
 }
@@ -194,30 +195,6 @@ TYPED_TEST(TestBinaryArithmeticsSigned, Mul) {
   this->AssertBinop(arrow::compute::Mul, "[-10, 12, 4, 50, -5, 32, 11]",
                     "[-2, 0, -6, 1, 5, 3, 4]", "[20, 0, -24, 50, -25, 96, 44]");
 }
-
-// TYPED_TEST(TestBinaryArithmeticsIntegral, AddCheckExtremes) {
-//   using InputCType = typename TestFixture::InputCType;
-//   using OutputCType = typename TestFixture::OutputCType;
-
-//   if (std::is_same<InputCType, OutputCType>::value) {
-//     // this test case is incompatible with Int64 and UInt64 types because there
-//     // are no wider integer types to overflow to
-//     return;
-//   }
-
-//   auto min = std::numeric_limits<InputCType>::min();
-//   auto max = std::numeric_limits<InputCType>::max();
-
-//   auto left = this->MakeInputArray({1, 2, 3, min, max});
-//   auto right = this->MakeInputArray({0, 10, 11, min, max});
-
-//   OutputCType expected_min = 2 * static_cast<OutputCType>(min);
-//   OutputCType expected_max = 2 * static_cast<OutputCType>(max);
-
-//   auto expected = this->MakeOutputArray({1, 12, 14, expected_min, expected_max});
-
-//   this->AssertBinop(arrow::compute::Add, left, right, expected);
-// }
 
 TYPED_TEST(TestBinaryArithmeticsFloating, Add) {
   this->AssertBinop(arrow::compute::Add, "[]", "[]", "[]");

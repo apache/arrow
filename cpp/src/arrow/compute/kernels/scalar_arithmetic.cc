@@ -45,6 +45,40 @@ struct Mul {
 
 namespace codegen {
 
+// Generate a kernel given an arithmetic functor
+//
+// To avoid undefined behaviour of signed integer overflow treat the signed
+// input argument values as unsigned then cast them to signed making them wrap
+// around.
+template <typename Op>
+ArrayKernelExec NumericEqualTypesBinary(detail::GetTypeId get_id) {
+  switch (get_id.id) {
+    case Type::INT8:
+      return ScalarBinaryEqualTypes<Int8Type, UInt8Type, Op>::Exec;
+    case Type::UINT8:
+      return ScalarBinaryEqualTypes<UInt8Type, UInt8Type, Op>::Exec;
+    case Type::INT16:
+      return ScalarBinaryEqualTypes<Int16Type, UInt16Type, Op>::Exec;
+    case Type::UINT16:
+      return ScalarBinaryEqualTypes<UInt16Type, UInt16Type, Op>::Exec;
+    case Type::INT32:
+      return ScalarBinaryEqualTypes<Int32Type, UInt32Type, Op>::Exec;
+    case Type::UINT32:
+      return ScalarBinaryEqualTypes<UInt32Type, UInt32Type, Op>::Exec;
+    case Type::INT64:
+      return ScalarBinaryEqualTypes<Int64Type, UInt64Type, Op>::Exec;
+    case Type::UINT64:
+      return ScalarBinaryEqualTypes<UInt64Type, UInt64Type, Op>::Exec;
+    case Type::FLOAT:
+      return ScalarBinaryEqualTypes<FloatType, FloatType, Op>::Exec;
+    case Type::DOUBLE:
+      return ScalarBinaryEqualTypes<DoubleType, DoubleType, Op>::Exec;
+    default:
+      DCHECK(false);
+      return ExecFail;
+  }
+}
+
 template <typename Op>
 void AddBinaryFunction(std::string name, FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>(name, Arity::Binary());
