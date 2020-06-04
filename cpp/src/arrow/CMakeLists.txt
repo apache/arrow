@@ -206,7 +206,7 @@ set(ARROW_SRCS
     vendored/double-conversion/diy-fp.cc
     vendored/double-conversion/strtod.cc)
 
-if (APPLE)
+if(APPLE)
   list(APPEND ARROW_SRCS vendored/datetime/ios.mm)
 endif()
 
