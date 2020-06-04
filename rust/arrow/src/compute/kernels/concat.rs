@@ -53,7 +53,7 @@ pub fn concat(array_list: &Vec<ArrayRef>) -> Result<ArrayRef> {
                 Some(t) => {
                     if t != &curr_data_type {
                         return Err(ArrowError::ComputeError(
-                            "Cannot concat arrays with data type".to_string(),
+                            "Cannot concat arrays with different data types".to_string(),
                         ));
                     }
                 }
@@ -134,7 +134,7 @@ pub fn concat(array_list: &Vec<ArrayRef>) -> Result<ArrayRef> {
     }
 }
 
-fn concat_primitive<T>(array_data_list: &Vec<ArrayDataRef>) -> Result<ArrayRef>
+fn concat_primitive<T>(array_data_list: &[ArrayDataRef]) -> Result<ArrayRef>
 where
     T: ArrowPrimitiveType,
 {
@@ -157,7 +157,7 @@ where
 
 // for better performance, we manually concat primitive value buffers instead of using
 // PrimitiveBuilder
-fn concat_raw_primitive<T>(array_data_list: &Vec<ArrayDataRef>) -> Result<ArrayRef>
+fn concat_raw_primitive<T>(array_data_list: &[ArrayDataRef]) -> Result<ArrayRef>
 where
     T: ArrowPrimitiveType,
 {
@@ -186,7 +186,7 @@ where
 }
 
 // for better performance, we manually concat string value buffers instead of using StringBuilder
-fn concat_raw_string(array_data_list: &Vec<ArrayDataRef>) -> Result<ArrayRef> {
+fn concat_raw_string(array_data_list: &[ArrayDataRef]) -> Result<ArrayRef> {
     let (str_count, str_size) = array_data_list
         .iter()
         .map(|d| (d.len(), d.buffers()[1].len()))

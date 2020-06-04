@@ -122,6 +122,7 @@ impl Default for SortOptions {
     fn default() -> Self {
         Self {
             descending: false,
+            // default to nulls first to match spark's behavior
             nulls_first: true,
         }
     }
