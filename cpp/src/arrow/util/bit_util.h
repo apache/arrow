@@ -43,13 +43,18 @@
 
 #if defined(_MSC_VER)
 #include <intrin.h>  // IWYU pragma: keep
+#include <nmmintrin.h>
 #pragma intrinsic(_BitScanReverse)
 #pragma intrinsic(_BitScanForward)
 #define ARROW_BYTE_SWAP64 _byteswap_uint64
 #define ARROW_BYTE_SWAP32 _byteswap_ulong
+#define ARROW_POPCOUNT64 __popcnt64
+#define ARROW_POPCOUNT32 __popcnt
 #else
 #define ARROW_BYTE_SWAP64 __builtin_bswap64
 #define ARROW_BYTE_SWAP32 __builtin_bswap32
+#define ARROW_POPCOUNT64 __builtin_popcountll
+#define ARROW_POPCOUNT32 __builtin_popcount
 #endif
 
 #include <algorithm>
@@ -106,6 +111,9 @@ static constexpr uint8_t kBytePopcount[] = {
     5, 6, 3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7, 2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4,
     5, 4, 5, 5, 6, 3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7, 3, 4, 4, 5, 4, 5, 5, 6,
     4, 5, 5, 6, 5, 6, 6, 7, 4, 5, 5, 6, 5, 6, 6, 7, 5, 6, 6, 7, 6, 7, 7, 8};
+
+static inline uint64_t PopCount(uint64_t bitmap) { return ARROW_POPCOUNT64(bitmap); }
+static inline uint32_t PopCount(uint32_t bitmap) { return ARROW_POPCOUNT32(bitmap); }
 
 //
 // Bit-related computations on integer values
@@ -578,6 +586,56 @@ class FirstTimeBitmapWriter {
     }
   }
 
+  /// Appends number_of_bits from word to valid_bits and valid_bits_offset.
+  ///
+  /// \param[in] word The LSB bitmap to append. Any bits past number_of_bits are assumed
+  ///            to be unset (i.e. 0).
+  /// \param[in] number_of_bits The number of bits to append from word.
+  void AppendWord(uint64_t word, int64_t number_of_bits) {
+    if (ARROW_PREDICT_FALSE(number_of_bits == 0)) {
+      return;
+    }
+
+    // Location that the first byte needs to be written to.
+    uint8_t* append_position = bitmap_ + byte_offset_;
+
+    // Update state variables except for current_byte_ here.
+    position_ += number_of_bits;
+    int64_t bit_offset = BitUtil::CountTrailingZeros(static_cast<uint32_t>(bit_mask_));
+    bit_mask_ = BitUtil::kBitmask[(bit_offset + number_of_bits) % 8];
+    byte_offset_ += (bit_offset + number_of_bits) / 8;
+
+    if (bit_offset != 0) {
+      // We are in the middle of the byte. This code updates the byte and shifts
+      // bits appropriately within word so it can be memcpy'd below.
+      int64_t bits_to_carry = 8 - bit_offset;
+      // Carry over bits from word to current_byte_. We assume any extra bits in word
+      // unset so no additional accounting is needed for when number_of_bits <
+      // bits_to_carry.
+      current_byte_ |= (word & BitUtil::kPrecedingBitmask[bits_to_carry]) << bit_offset;
+      // Check if everything is transfered into current_byte_.
+      if (ARROW_PREDICT_FALSE(number_of_bits < bits_to_carry)) {
+        return;
+      }
+      *append_position = current_byte_;
+      append_position++;
+      // Move the carry bits off of word.
+      word = word >> bits_to_carry;
+      number_of_bits -= bits_to_carry;
+    }
+    word = BitUtil::ToLittleEndian(word);
+    int64_t bytes_for_word = ::arrow::BitUtil::BytesForBits(number_of_bits);
+    std::memcpy(append_position, &word, bytes_for_word);
+    // At this point, the previous current_byte_ has been written to bitmap_.
+    // The new current_byte_ is either the last relevant byte in 'word'
+    // or cleared if the new position is byte aligned (i.e. a fresh byte).
+    if (bit_mask_ == 0x1) {
+      current_byte_ = 0;
+    } else {
+      current_byte_ = *(append_position + bytes_for_word - 1);
+    }
+  }
+
   void Set() { current_byte_ |= bit_mask_; }
 
   void Clear() {}
@@ -594,7 +652,7 @@ class FirstTimeBitmapWriter {
   }
 
   void Finish() {
-    // Store current byte if we didn't went past bitmap storage
+    // Store current byte if we didn't go past bitmap storage
     if (length_ > 0 && (bit_mask_ != 0x01 || position_ < length_)) {
       bitmap_[byte_offset_] = current_byte_;
     }

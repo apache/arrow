@@ -15,14 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Alias MSVC popcount to GCC name
-#ifdef _MSC_VER
-#include <intrin.h>
-#define __builtin_popcount __popcnt
-#include <nmmintrin.h>
-#define __builtin_popcountll _mm_popcnt_u64
-#endif
-
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
@@ -131,7 +123,7 @@ int64_t CountSetBits(const uint8_t* data, int64_t bit_offset, int64_t length) {
     const uint64_t* end = u64_data + p.aligned_words;
 
     for (auto iter = u64_data; iter < end; ++iter) {
-      count += __builtin_popcountll(*iter);
+      count += BitUtil::PopCount(*iter);
     }
   }
 
