@@ -163,6 +163,19 @@ TYPED_TEST(TestBinaryArithmeticsSigned, Add) {
                     "[-6, 5, -4, 3, -2, 1, 0]", "[-13, 11, 1, 7, 1, 3, 1]");
 }
 
+TYPED_TEST(TestBinaryArithmeticsSigned, AddOverflow) {
+  using InputCType = typename TestFixture::InputCType;
+
+  auto min = std::numeric_limits<InputCType>::min();
+  auto max = std::numeric_limits<InputCType>::max();
+
+  auto left = this->MakeInputArray({max});
+  auto right = this->MakeInputArray({1});
+  auto expected = this->MakeOutputArray({min});
+
+  this->AssertBinop(arrow::compute::Add, left, right, expected);
+}
+
 TYPED_TEST(TestBinaryArithmeticsSigned, Sub) {
   this->AssertBinop(arrow::compute::Sub, "[0, 1, 2, 3, 4, 5, 6]", "[1, 2, 3, 4, 5, 6, 7]",
                     "[-1, -1, -1, -1, -1, -1, -1]");
