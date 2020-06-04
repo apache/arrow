@@ -340,6 +340,11 @@ if(ARROW_ORC)
   set(ARROW_WITH_ZSTD ON)
 endif()
 
+# datetime code used by iOS requires zlib support
+if(IOS)
+  set(ARROW_WITH_ZLIB ON)
+endif()
+
 if(NOT ARROW_BUILD_TESTS)
   set(NO_TESTS 1)
 else()
