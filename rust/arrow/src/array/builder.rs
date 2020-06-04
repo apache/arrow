@@ -25,7 +25,7 @@ use std::collections::HashMap;
 use std::io::Write;
 use std::marker::PhantomData;
 use std::mem;
-use std::sync::Arc;
+use std::{convert::TryInto, sync::Arc};
 
 use crate::array::*;
 use crate::buffer::{Buffer, MutableBuffer};
@@ -402,6 +402,9 @@ pub trait ArrayBuilder: Any {
     /// Returns the number of array slots in the builder
     fn len(&self) -> usize;
 
+    /// Appends data from other arrays into the builder
+    fn append_data(&mut self, data: &[ArrayDataRef]) -> Result<()>;
+
     /// Builds the array
     fn finish(&mut self) -> ArrayRef;
 
@@ -448,6 +451,40 @@ impl<T: ArrowPrimitiveType> ArrayBuilder for PrimitiveBuilder<T> {
     /// Returns the number of array slots in the builder
     fn len(&self) -> usize {
         self.values_builder.len
+    }
+
+    fn append_data(&mut self, data: &[ArrayDataRef]) -> Result<()> {
+        let mul = T::get_bit_width() / 8;
+        for array in data {
+            if array.data_type() != &T::get_data_type() {
+                return Err(ArrowError::InvalidArgumentError(format!(
+                    "Appending data requires the same data types"
+                )));
+            }
+            let len = array.len();
+            if len == 0 {
+                continue;
+            }
+            if array.data_type() == &DataType::Boolean {
+                // booleans are bit-packed, thus we iterate through the array
+                let array = PrimitiveArray::<T>::from(array.clone());
+                self.values_builder.reserve(len)?;
+                for i in 0..len {
+                    self.values_builder.append(array.value(i))?;
+                }
+            } else {
+                let offset = array.offset();
+                let sliced = array.buffers()[0].data();
+                self.values_builder
+                    .write_bytes(&sliced[(offset * mul)..((len + offset) * mul)], len)?;
+            }
+
+            self.bitmap_builder.reserve(len)?;
+            for i in 0..len {
+                self.bitmap_builder.append(array.is_valid(i))?;
+            }
+        }
+        Ok(())
     }
 
     /// Builds the array and reset this builder.
@@ -577,6 +614,55 @@ where
         self
     }
 
+    fn append_data(&mut self, data: &[ArrayDataRef]) -> Result<()> {
+        // determine the latest offset on the builder
+        let mut cum_offset = if self.offsets_builder.len() == 0 {
+            0
+        } else {
+            // freeze a copy of the buffer, and get the latest offset?
+            let buffer = self.offsets_builder.buffer.data();
+            let len = self.offsets_builder.len();
+            let (start, end) = ((len - 1) * 4, len * 4);
+            let slice = &buffer[start..end];
+            i32::from_le_bytes(slice.try_into().unwrap())
+        };
+        for array in data {
+            if let DataType::List(_) = array.data_type() {
+                if array.child_data().len() != 1 {
+                    return Err(ArrowError::InvalidArgumentError(
+                        "When appending list arrays, data must contain child_data"
+                            .to_string(),
+                    ));
+                }
+                let len = array.len();
+                self.values_builder.append_data(&array.child_data()[0..0])?;
+                unsafe {
+                    let offsets: &[i32] =
+                        &array.buffers()[0].typed_data::<i32>()[array.offset()..len];
+                    // get the last offset, to be used to increment cumulative offests
+                    let last_offset = offsets.last().expect("Array out of bounds access");
+                    let adjusted_offsets: Vec<i32> = offsets
+                        .windows(2)
+                        .into_iter()
+                        .map(|w| w[1] - w[0] + cum_offset)
+                        .collect();
+                    self.offsets_builder
+                        .append_slice(adjusted_offsets.as_slice())?;
+                    cum_offset += last_offset;
+                }
+                for i in 0..len {
+                    self.bitmap_builder.append(array.is_valid(i))?;
+                }
+            } else {
+                return Err(ArrowError::InvalidArgumentError(format!(
+                    "Expected a list array, but got {:?} while appending data",
+                    array.data_type()
+                )));
+            }
+        }
+        Ok(())
+    }
+
     /// Returns the builder as a mutable `Any` reference.
     fn as_any_mut(&mut self) -> &mut Any {
         self
@@ -687,6 +773,30 @@ where
         self
     }
 
+    fn append_data(&mut self, data: &[ArrayDataRef]) -> Result<()> {
+        for array in data {
+            if let DataType::FixedSizeList(_, list_len) = array.data_type() {
+                if self.list_len != *list_len {
+                    return Err(ArrowError::InvalidArgumentError("Cannot append fixed size list arrays of different element lengths".to_string()));
+                }
+                if array.child_data().len() != 1 {
+                    return Err(ArrowError::InvalidArgumentError("When appending fixed size list arrays, data must contain child_data".to_string()));
+                }
+                let len = array.len();
+                self.values_builder.append_data(&array.child_data()[0..0])?;
+                for i in 0..len {
+                    self.bitmap_builder.append(array.is_valid(i))?;
+                }
+            } else {
+                return Err(ArrowError::InvalidArgumentError(format!(
+                    "Expected a list array, but got {:?} while appending data",
+                    array.data_type()
+                )));
+            }
+        }
+        Ok(())
+    }
+
     /// Returns the builder as a mutable `Any` reference.
     fn as_any_mut(&mut self) -> &mut Any {
         self
@@ -793,6 +903,23 @@ impl ArrayBuilder for BinaryBuilder {
         self
     }
 
+    fn append_data(&mut self, data: &[ArrayDataRef]) -> Result<()> {
+        for array in data {
+            if let DataType::Binary = array.data_type() {
+                self.builder
+                    .values()
+                    .append_data(&array.child_data()[0..0])?;
+            // TODO: is this all that's needed here?
+            } else {
+                return Err(ArrowError::InvalidArgumentError(format!(
+                    "Expected a list array, but got {:?} while appending data",
+                    array.data_type()
+                )));
+            }
+        }
+        Ok(())
+    }
+
     /// Returns the builder as a mutable `Any` reference.
     fn as_any_mut(&mut self) -> &mut Any {
         self
@@ -820,6 +947,23 @@ impl ArrayBuilder for StringBuilder {
         self
     }
 
+    fn append_data(&mut self, data: &[ArrayDataRef]) -> Result<()> {
+        for array in data {
+            if let DataType::Utf8 = array.data_type() {
+                self.builder
+                    .values()
+                    .append_data(&array.child_data()[0..0])?;
+            // TODO: is this all that's needed here?
+            } else {
+                return Err(ArrowError::InvalidArgumentError(format!(
+                    "Expected a list array, but got {:?} while appending data",
+                    array.data_type()
+                )));
+            }
+        }
+        Ok(())
+    }
+
     /// Returns the builder as a mutable `Any` reference.
     fn as_any_mut(&mut self) -> &mut Any {
         self
@@ -845,6 +989,23 @@ impl ArrayBuilder for FixedSizeBinaryBuilder {
     /// Returns the builder as a non-mutable `Any` reference.
     fn as_any(&self) -> &Any {
         self
+    }
+
+    fn append_data(&mut self, data: &[ArrayDataRef]) -> Result<()> {
+        for array in data {
+            if let DataType::FixedSizeBinary(_) = array.data_type() {
+                self.builder
+                    .values()
+                    .append_data(&array.child_data()[0..0])?;
+            // TODO: is this all that's needed here?
+            } else {
+                return Err(ArrowError::InvalidArgumentError(format!(
+                    "Expected a FixedSizeBinaryArray, but got {:?} while appending data",
+                    array.data_type()
+                )));
+            }
+        }
+        Ok(())
     }
 
     /// Returns the builder as a mutable `Any` reference.
@@ -1016,6 +1177,33 @@ impl ArrayBuilder for StructBuilder {
     /// builder should have the equal number of elements.
     fn len(&self) -> usize {
         self.len
+    }
+
+    fn append_data(&mut self, data: &[ArrayDataRef]) -> Result<()> {
+        for array in data {
+            if let DataType::Struct(fields) = array.data_type() {
+                if &self.fields != fields {
+                    return Err(ArrowError::InvalidArgumentError(
+                        "Struct arrays are not the same".to_string(),
+                    ));
+                }
+                let results: Result<Vec<()>> = self
+                    .field_builders
+                    .iter_mut()
+                    .zip(array.child_data())
+                    .map(|(builder, child_data)| {
+                        builder.append_data(&[child_data.clone()])
+                    })
+                    .collect();
+                results?;
+            } else {
+                return Err(ArrowError::InvalidArgumentError(format!(
+                    "Expected a StructArray, but got {:?} while appending data",
+                    array.data_type()
+                )));
+            }
+        }
+        Ok(())
     }
 
     /// Builds the array.
@@ -1269,6 +1457,11 @@ where
         self.keys_builder.len()
     }
 
+    fn append_data(&mut self, _data: &[ArrayDataRef]) -> Result<()> {
+        // TODO: This will require an implementation that doesn't just append keys
+        unimplemented!("Appending data for dictionary arrays not yet implemented")
+    }
+
     /// Builds the array and reset this builder.
     fn finish(&mut self) -> ArrayRef {
         Arc::new(self.finish())
@@ -1411,6 +1604,11 @@ where
     /// Returns the number of array slots in the builder
     fn len(&self) -> usize {
         self.keys_builder.len()
+    }
+
+    fn append_data(&mut self, _data: &[ArrayDataRef]) -> Result<()> {
+        // TODO: This will require an implementation that doesn't just append keys
+        unimplemented!("Appending data for dictionary arrays not yet implemented")
     }
 
     /// Builds the array and reset this builder.
@@ -2424,4 +2622,171 @@ mod tests {
             Err(ArrowError::DictionaryKeyOverflowError)
         );
     }
+
+    #[test]
+    fn test_primitive_append() -> Result<()> {
+        let mut builder = Int32Builder::new(2);
+        builder.append_null()?;
+        builder.append_value(1)?;
+        // create an array to append
+        let array = Int32Array::from(vec![None, Some(3), None, None, Some(6), Some(7)]);
+        builder.append_data(&[
+            array.data(),
+            array.slice(1, 4).data(),
+            array.slice(2, 0).data(),
+        ])?;
+        let finished = builder.finish();
+        let expected = Arc::new(Int32Array::from(vec![
+            None,
+            Some(1),
+            None,
+            Some(3),
+            None,
+            None,
+            Some(6),
+            Some(7),
+            Some(3),
+            None,
+            None,
+            Some(6),
+        ])) as ArrayRef;
+        assert_eq!(finished.len(), expected.len());
+        assert_eq!(finished.null_count(), expected.null_count());
+        assert!(finished.equals(&(*expected)));
+
+        let mut builder = Float64Builder::new(64);
+        builder.append_null()?;
+        builder.append_value(1.0)?;
+        // create an array to append
+        let array =
+            Float64Array::from(vec![None, Some(3.0), None, None, Some(6.0), Some(7.0)]);
+        builder.append_data(&[
+            array.data(),
+            array.slice(1, 5).data(),
+            array.slice(2, 1).data(),
+        ])?;
+        let finished = builder.finish();
+        let expected = Arc::new(Float64Array::from(vec![
+            None,
+            Some(1.0),
+            None,
+            Some(3.0),
+            None,
+            None,
+            Some(6.0),
+            Some(7.0),
+            Some(3.0),
+            None,
+            None,
+            Some(6.0),
+            Some(7.0),
+            None,
+        ])) as ArrayRef;
+        assert_eq!(finished.len(), expected.len());
+        assert_eq!(finished.null_count(), expected.null_count());
+        assert!(finished.equals(&(*expected)));
+        Ok(())
+    }
+
+    #[test]
+    fn test_boolean_append() -> Result<()> {
+        let mut builder = BooleanBuilder::new(2);
+        builder.append_null()?;
+        builder.append_value(true)?;
+        // create an array to append
+        let array = BooleanArray::from(vec![
+            None,
+            Some(true),
+            None,
+            None,
+            Some(false),
+            Some(true),
+        ]);
+        builder.append_data(&[
+            array.data(),
+            array.slice(1, 4).data(),
+            array.slice(2, 0).data(),
+        ])?;
+        let finished = builder.finish();
+        let expected = Arc::new(BooleanArray::from(vec![
+            None,
+            Some(true),
+            None,
+            Some(true),
+            None,
+            None,
+            Some(false),
+            Some(true),
+            Some(true),
+            None,
+            None,
+            Some(false),
+        ])) as ArrayRef;
+        assert_eq!(finished.len(), expected.len());
+        assert_eq!(finished.null_count(), expected.null_count());
+        assert!(finished.equals(&(*expected)));
+        Ok(())
+    }
+
+    // #[test]
+    // fn test_list_append() -> Result<()> {
+    //     let string_builder = StringBuilder::new(32);
+    //     let mut builder = ListBuilder::<StringBuilder>::new(string_builder);
+    //     builder.values().append_value("Hello")?;
+    //     builder.values().append_value("Arrow")?;
+    //     builder.append(false)?;
+
+    //     let string_array = StringArray::try_from(vec![
+    //         Some("alpha"),
+    //         Some("beta"),
+    //         None,
+    //         Some("gamma"),
+    //         Some("delta"),
+    //         None,
+    //     ])?;
+    //     let list_value_offsets = Buffer::from(&[0, 2, 3, 5].to_byte_slice());
+    //     let list_data = ArrayData::new(
+    //         DataType::List(Box::new(DataType::Utf8)),
+    //         3,
+    //         None,
+    //         None,
+    //         0,
+    //         vec![list_value_offsets],
+    //         vec![string_array.data()],
+    //     );
+    //     let list_array = ListArray::from(Arc::new(list_data) as ArrayDataRef);
+    //     builder.append_data(&[
+    //         list_array.data(),
+    //         list_array.slice(1, 3).data(),
+    //         list_array.slice(0, 0).data(),
+    //     ])?;
+    //     let finished = builder.finish();
+
+    //     let expected_string_array = StringArray::try_from(vec![
+    //         Some("Hello"), 
+    //         Some("Arrow"),
+    //         None, 
+    //         Some("alpha"),
+    //         Some("beta"),
+    //         None,
+    //         Some("gamma"),
+    //         Some("delta"),
+    //         None,
+    //         Some("beta"),
+    //         None,
+    //         Some("gamma"),
+    //     ])?;
+    //     let list_value_offsets = Buffer::from(&[0, 2, 2, 4, 4, 6, 7, 7, 8].to_byte_slice());
+    //     let expected_list_data = ArrayData::new(
+    //         DataType::List(Box::new(DataType::Utf8)),
+    //         8,
+    //         None,
+    //         None,
+    //         0,
+    //         vec![list_value_offsets],
+    //         vec![expected_string_array.data()],
+    //     );
+
+    //     Ok(())
+    // }
 }
