@@ -29,7 +29,7 @@ import org.apache.arrow.adapter.jdbc.consumer.BitConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.IntConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.JdbcConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.VarCharConsumer;
-import org.apache.arrow.memory.BaseAllocator;
+import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
@@ -77,7 +77,7 @@ public class JdbcAdapterBenchmarks {
 
     private ResultSet resultSet = null;
 
-    private BaseAllocator allocator;
+    private BufferAllocator allocator;
 
     private Statement statement;
 
@@ -140,7 +140,7 @@ public class JdbcAdapterBenchmarks {
 
     private ResultSet resultSet = null;
 
-    private BaseAllocator allocator;
+    private BufferAllocator allocator;
 
     private Statement statement;
 
@@ -242,7 +242,7 @@ public class JdbcAdapterBenchmarks {
 
     private ResultSet resultSet = null;
 
-    private BaseAllocator allocator;
+    private BufferAllocator allocator;
 
     private Statement statement;
 

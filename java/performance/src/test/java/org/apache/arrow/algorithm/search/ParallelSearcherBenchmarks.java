@@ -21,7 +21,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-import org.apache.arrow.memory.BaseAllocator;
+import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.IntVector;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -55,7 +55,7 @@ public class ParallelSearcherBenchmarks {
     @Param({"1", "2", "5", "10", "20", "50", "100"})
     int numThreads;
 
-    BaseAllocator allocator;
+    BufferAllocator allocator;
 
     ExecutorService threadPool;
 

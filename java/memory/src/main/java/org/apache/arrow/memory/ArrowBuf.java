@@ -28,6 +28,7 @@ import java.nio.ReadOnlyBufferException;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.arrow.memory.BaseAllocator.Verbosity;
+import org.apache.arrow.memory.util.CommonUtil;
 import org.apache.arrow.memory.util.HistoricalLog;
 import org.apache.arrow.memory.util.MemoryUtil;
 import org.apache.arrow.util.Preconditions;
@@ -1102,7 +1103,7 @@ public final class ArrowBuf implements AutoCloseable {
    *
    */
   public void print(StringBuilder sb, int indent, Verbosity verbosity) {
-    BaseAllocator.indent(sb, indent).append(toString());
+    CommonUtil.indent(sb, indent).append(toString());
 
     if (BaseAllocator.DEBUG && verbosity.includeHistoricalLog) {
       sb.append("\n");
