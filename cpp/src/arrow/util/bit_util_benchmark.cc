@@ -417,24 +417,24 @@ static void BitmapScannerSumNotNull(benchmark::State& state) {
     int64_t result = 0;
     int64_t position = Offset;
     while (true) {
-      auto bit_run = scanner.NextRun();
-      if (bit_run.first == 0) {
+      BitmapScanner::Block block = scanner.NextBlock();
+      if (block.length == 0) {
         break;
       }
-      if (bit_run.first == bit_run.second) {
+      if (block.length == block.popcount) {
         // All not-null
-        for (int64_t i = 0; i < bit_run.first; ++i) {
+        for (int64_t i = 0; i < block.length; ++i) {
           result += int8_arr.Value(position + i);
         }
-      } else if (bit_run.second > 0) {
+      } else if (block.popcount > 0) {
         // Some but not all not-null
-        for (int64_t i = 0; i < bit_run.first; ++i) {
+        for (int64_t i = 0; i < block.length; ++i) {
           if (BitUtil::GetBit(bitmap, position + i)) {
             result += int8_arr.Value(position + i);
           }
         }
       }
-      position += bit_run.first;
+      position += block.length;
     }
     // Sanity check
     if (result != expected) {

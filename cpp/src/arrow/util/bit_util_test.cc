@@ -1390,17 +1390,20 @@ TEST_F(TestBitmapScanner, Basics) {
   Create(nbytes, 0, nbytes * 8);
 
   int64_t bits_scanned = 0;
-  while (true) {
-    auto run = scanner_->NextRun();
-    if (run.first == 0) {
-      break;
-    }
-    ASSERT_EQ(4 * kWordSize, run.first);
-    ASSERT_EQ(0, run.second);
-    bits_scanned += run.first;
+  for (int64_t i = 0; i < nbytes / 32; ++i) {
+    BitmapScanner::Block block = scanner_->NextBlock();
+    ASSERT_EQ(block.length, 4 * kWordSize);
+    ASSERT_EQ(block.popcount, 0);
+    bits_scanned += block.length;
   }
-  ASSERT_EQ(1024 * 8, bits_scanned);
+  ASSERT_EQ(bits_scanned, 1024 * 8);
 
+  auto block = scanner_->NextBlock();
+  ASSERT_EQ(block.length, 0);
+  ASSERT_EQ(block.popcount, 0);
+}
+
+TEST_F(TestBitmapScanner, Offsets) {
   auto CheckWithOffset = [&](int64_t offset) {
     const int64_t nwords = 15;
 
@@ -1412,37 +1415,55 @@ TEST_F(TestBitmapScanner, Basics) {
     // Start with data all set
     std::memset(buf_->mutable_data(), 0xFF, total_bytes);
 
-    auto run = scanner_->NextRun();
-    ASSERT_EQ(4 * kWordSize, run.first);
-    ASSERT_EQ(256, run.second);
+    BitmapScanner::Block block = scanner_->NextBlock();
+    ASSERT_EQ(4 * kWordSize, block.length);
+    ASSERT_EQ(block.popcount, 256);
 
     // Add some false values to the next 3 shifted words
     BitUtil::SetBitTo(buf_->mutable_data(), 4 * kWordSize + offset, false);
     BitUtil::SetBitTo(buf_->mutable_data(), 5 * kWordSize + offset, false);
     BitUtil::SetBitTo(buf_->mutable_data(), 6 * kWordSize + offset, false);
-    run = scanner_->NextRun();
+    block = scanner_->NextBlock();
 
-    ASSERT_EQ(256, run.first);
-    ASSERT_EQ(253, run.second);
+    ASSERT_EQ(block.length, 256);
+    ASSERT_EQ(block.popcount, 253);
 
     BitUtil::SetBitsTo(buf_->mutable_data(), 8 * kWordSize + offset, 2 * kWordSize,
                        false);
 
-    run = scanner_->NextRun();
-    ASSERT_EQ(256, run.first);
-    ASSERT_EQ(128, run.second);
+    block = scanner_->NextBlock();
+    ASSERT_EQ(block.length, 256);
+    ASSERT_EQ(block.popcount, 128);
 
-    // Last run
-    run = scanner_->NextRun();
-    ASSERT_EQ(3 * kWordSize - offset - 1, run.first);
-    ASSERT_EQ(run.first, run.second);
+    // Last block
+    block = scanner_->NextBlock();
+    ASSERT_EQ(block.length, 3 * kWordSize - offset - 1);
+    ASSERT_EQ(block.length, block.popcount);
 
-    // We can keep calling NextRun safely
-    run = scanner_->NextRun();
-    ASSERT_EQ(0, run.first);
-    ASSERT_EQ(0, run.second);
+    // We can keep calling NextBlock safely
+    block = scanner_->NextBlock();
+    ASSERT_EQ(block.length, 0);
+    ASSERT_EQ(block.popcount, 0);
   };
 
+  for (int64_t offset_i = 0; offset_i < 7; ++offset_i) {
+    CheckWithOffset(offset_i);
+  }
+}
+
+TEST_F(TestBitmapScanner, RandomData) {
+  const int64_t nbytes = 1024;
+  auto buffer = *AllocateBuffer(nbytes);
+  random_bytes(nbytes, 0, buffer->mutable_data());
+
+  auto CheckWithOffset = [&](int64_t offset) {
+    BitmapScanner scanner(buffer->data(), offset, nbytes * 8);
+    for (int64_t i = 0; i < nbytes / 32; ++i) {
+      BitmapScanner::Block block = scanner.NextBlock();
+      ASSERT_EQ(block.popcount,
+                CountSetBits(buffer->data(), i * 256 + offset, block.length));
+    }
+  };
   for (int64_t offset_i = 0; offset_i < 7; ++offset_i) {
     CheckWithOffset(offset_i);
   }

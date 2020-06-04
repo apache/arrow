@@ -598,7 +598,7 @@ Result<std::shared_ptr<Buffer>> BitmapAllButOne(MemoryPool* pool, int64_t length
   return std::move(buffer);
 }
 
-std::pair<int64_t, int64_t> BitmapScanner::NextRun() {
+BitmapScanner::Block BitmapScanner::NextBlock() {
   auto load_word = [](const uint8_t* bytes) -> uint64_t {
     return BitUtil::ToLittleEndian(util::SafeLoadAs<uint64_t>(bytes));
   };
@@ -612,9 +612,9 @@ std::pair<int64_t, int64_t> BitmapScanner::NextRun() {
   if (bits_remaining_ < bits_required_to_scan_words) {
     // End of the bitmap, leave it to the caller to decide how to best check
     // these bits, no need to do redundant computation here.
-    const int64_t run_length = bits_remaining_;
+    const int16_t run_length = static_cast<int16_t>(bits_remaining_);
     bits_remaining_ -= run_length;
-    return {run_length, CountSetBits(bitmap_, offset_, run_length)};
+    return {run_length, static_cast<int16_t>(CountSetBits(bitmap_, offset_, run_length))};
   }
 
   int64_t total_popcount = 0;
@@ -637,9 +637,9 @@ std::pair<int64_t, int64_t> BitmapScanner::NextRun() {
     next = load_word(bitmap_ + 32);
     total_popcount += __builtin_popcountll(shift_word(current, next, offset_));
   }
-  bitmap_ += 32;
+  bitmap_ += BitUtil::BytesForBits(kTargetBlockLength);
   bits_remaining_ -= 256;
-  return {256, total_popcount};
+  return {256, static_cast<int16_t>(total_popcount)};
 }
 
 }  // namespace internal
