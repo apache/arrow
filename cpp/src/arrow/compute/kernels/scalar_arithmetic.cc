@@ -22,22 +22,27 @@
 namespace arrow {
 namespace compute {
 
+// explicitly disallow signed integers as input arguments
+template <typename T>
+using enable_if_unsigned_or_floating =
+    enable_if_t<std::is_unsigned<T>::value || std::is_floating_point<T>::value>;
+
 struct Add {
-  template <typename T>
+  template <typename T, typename = enable_if_unsigned_or_floating<T>>
   static constexpr T Call(KernelContext*, T left, T right) {
     return left + right;
   }
 };
 
 struct Sub {
-  template <typename T>
+  template <typename T, typename = enable_if_unsigned_or_floating<T>>
   static constexpr T Call(KernelContext*, T left, T right) {
     return left - right;
   }
 };
 
 struct Mul {
-  template <typename T>
+  template <typename T, typename = enable_if_unsigned_or_floating<T>>
   static constexpr T Call(KernelContext*, T left, T right) {
     return left * right;
   }

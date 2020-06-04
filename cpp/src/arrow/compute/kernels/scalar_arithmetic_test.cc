@@ -88,9 +88,8 @@ class TestBinaryArithmeticsIntegral : public TestBinaryArithmetics<TypePair> {};
 template <typename TypePair>
 class TestBinaryArithmeticsSigned : public TestBinaryArithmeticsIntegral<TypePair> {};
 
-// template <typename TypePair>
-// class TestBinaryArithmeticsUnsigned : public TestBinaryArithmeticsIntegral<TypePair>
-// {};
+template <typename TypePair>
+class TestBinaryArithmeticsUnsigned : public TestBinaryArithmeticsIntegral<TypePair> {};
 
 template <typename TypePair>
 class TestBinaryArithmeticsFloating : public TestBinaryArithmetics<TypePair> {};
@@ -106,10 +105,9 @@ using SignedIntegerPairs =
     testing::Types<std::pair<Int8Type, Int8Type>, std::pair<Int16Type, Int16Type>,
                    std::pair<Int32Type, Int32Type>, std::pair<Int64Type, Int64Type>>;
 
-// using UnsignedIntegerPairs =
-//     testing::Types<std::pair<UInt8Type, UInt8Type>, std::pair<UInt16Type, UInt16Type>,
-//                    std::pair<UInt32Type, UInt32Type>, std::pair<UInt64Type,
-//                    UInt64Type>>;
+using UnsignedIntegerPairs =
+    testing::Types<std::pair<UInt8Type, UInt8Type>, std::pair<UInt16Type, UInt16Type>,
+                   std::pair<UInt32Type, UInt32Type>, std::pair<UInt64Type, UInt64Type>>;
 
 // TODO(kszucs): add half-float
 using FloatingPairs =
@@ -117,7 +115,7 @@ using FloatingPairs =
 
 TYPED_TEST_SUITE(TestBinaryArithmeticsIntegral, IntegralPairs);
 TYPED_TEST_SUITE(TestBinaryArithmeticsSigned, SignedIntegerPairs);
-// TYPED_TEST_SUITE(TestBinaryArithmeticsSigned, UnsignedIntegerPairs);
+TYPED_TEST_SUITE(TestBinaryArithmeticsUnsigned, UnsignedIntegerPairs);
 TYPED_TEST_SUITE(TestBinaryArithmeticsFloating, FloatingPairs);
 
 TYPED_TEST(TestBinaryArithmeticsIntegral, Add) {
@@ -164,17 +162,60 @@ TYPED_TEST(TestBinaryArithmeticsSigned, Add) {
                     "[-6, 5, -4, 3, -2, 1, 0]", "[-13, 11, 1, 7, 1, 3, 1]");
 }
 
-TYPED_TEST(TestBinaryArithmeticsSigned, AddOverflow) {
+TYPED_TEST(TestBinaryArithmeticsUnsigned, OverflowWraps) {
   using InputCType = typename TestFixture::InputCType;
 
   auto min = std::numeric_limits<InputCType>::min();
   auto max = std::numeric_limits<InputCType>::max();
+  {
+    // Addition
+    auto left = this->MakeInputArray({max, min, max});
+    auto right = this->MakeInputArray({1, 1, max});
+    auto expected = this->MakeOutputArray({0, 1, static_cast<InputCType>(max - 1)});
+    this->AssertBinop(arrow::compute::Add, left, right, expected);
+  }
+  {
+    // Subtraction
+    auto left = this->MakeInputArray({min, max});
+    auto right = this->MakeInputArray({1, max});
+    auto expected = this->MakeOutputArray({max, min});
+    this->AssertBinop(arrow::compute::Sub, left, right, expected);
+  }
+  {
+    // Multiplication
+    auto left = this->MakeInputArray({min, max, max});
+    auto right = this->MakeInputArray({max, 2, max});
+    auto expected = this->MakeOutputArray({min, static_cast<InputCType>(max - 1), 1});
+    this->AssertBinop(arrow::compute::Mul, left, right, expected);
+  }
+}
 
-  auto left = this->MakeInputArray({max, min});
-  auto right = this->MakeInputArray({1, -1});
-  auto expected = this->MakeOutputArray({min, max});
+TYPED_TEST(TestBinaryArithmeticsSigned, OverflowWraps) {
+  using InputCType = typename TestFixture::InputCType;
 
-  this->AssertBinop(arrow::compute::Add, left, right, expected);
+  auto min = std::numeric_limits<InputCType>::min();
+  auto max = std::numeric_limits<InputCType>::max();
+  {
+    // Addition
+    auto left = this->MakeInputArray({max, min});
+    auto right = this->MakeInputArray({1, -1});
+    auto expected = this->MakeOutputArray({min, max});
+    this->AssertBinop(arrow::compute::Add, left, right, expected);
+  }
+  {
+    // Subtraction
+    auto left = this->MakeInputArray({min, max});
+    auto right = this->MakeInputArray({1, -1});
+    auto expected = this->MakeOutputArray({max, min});
+    this->AssertBinop(arrow::compute::Sub, left, right, expected);
+  }
+  {
+    // Multiplication
+    auto left = this->MakeInputArray({min, max});
+    auto right = this->MakeInputArray({-1, 2});
+    auto expected = this->MakeOutputArray({min, -2});
+    this->AssertBinop(arrow::compute::Mul, left, right, expected);
+  }
 }
 
 TYPED_TEST(TestBinaryArithmeticsSigned, Sub) {
