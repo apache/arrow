@@ -1404,12 +1404,13 @@ TEST_F(TestBitmapScanner, Basics) {
   auto CheckWithOffset = [&](int64_t offset) {
     const int64_t nwords = 15;
 
+    const int64_t total_bytes = nwords * 8 + 1;
     // Trim a bit from the end of the bitmap so we can check the remainder bits
     // behavior
-    Create(nwords * 8 + 1, offset, nwords * kWordSize - offset - 1);
+    Create(total_bytes, offset, nwords * kWordSize - offset - 1);
 
     // Start with data all set
-    std::memset(buf_->mutable_data(), 0xFF, nbytes);
+    std::memset(buf_->mutable_data(), 0xFF, total_bytes);
 
     auto run = scanner_->NextRun();
     ASSERT_EQ(4 * kWordSize, run.first);
