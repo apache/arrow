@@ -349,7 +349,7 @@ impl BufferBuilderTrait<BooleanType> for BufferBuilder<BooleanType> {
 
     fn append_n(&mut self, n: usize, v: bool) -> Result<()> {
         self.reserve(n)?;
-        if v {
+        if n != 0 && v {
             unsafe {
                 bit_util::set_bits_raw(self.buffer.raw_data_mut(), self.len, self.len + n)
             }
