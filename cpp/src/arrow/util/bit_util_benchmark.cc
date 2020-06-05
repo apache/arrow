@@ -31,7 +31,6 @@
 #include "arrow/result.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
-#include "arrow/util/bit_block_counter.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap.h"
 #include "arrow/util/bitmap_generate.h"
@@ -41,11 +40,6 @@
 #include "arrow/util/bitmap_writer.h"
 
 namespace arrow {
-
-using internal::BinaryBitBlockCounter;
-using internal::BitBlockCount;
-using internal::BitBlockCounter;
-
 namespace BitUtil {
 
 #ifdef ARROW_WITH_BENCHMARKS_REFERENCE
@@ -402,198 +396,6 @@ static void BitmapEquals(benchmark::State& state) {
   state.SetBytesProcessed(state.iterations() * buffer_size);
 }
 
-template <int64_t Offset = 0, typename NextBlockFunc>
-static void BitBlockCounterSum(benchmark::State& state, NextBlockFunc&& next_block) {
-  random::RandomArrayGenerator rng(/*seed=*/0);
-
-  const int64_t bitmap_length = 1 << 20;
-
-  // State parameter is the average number of total values for each null
-  // value. So 100 means that 1 out of 100 on average are null.
-  double null_probability = 1. / static_cast<double>(state.range(0));
-  auto arr = rng.Int8(bitmap_length, 0, 100, null_probability);
-
-  const uint8_t* bitmap = arr->null_bitmap_data();
-
-  // Compute the expected result
-  int64_t expected = 0;
-  const auto& int8_arr = static_cast<const Int8Array&>(*arr);
-  for (int64_t i = Offset; i < bitmap_length; ++i) {
-    if (int8_arr.IsValid(i)) {
-      expected += int8_arr.Value(i);
-    }
-  }
-  for (auto _ : state) {
-    BitBlockCounter scanner(bitmap, Offset, bitmap_length - Offset);
-    int64_t result = 0;
-    int64_t position = Offset;
-    while (true) {
-      BitBlockCount block = next_block(&scanner);
-      if (block.length == 0) {
-        break;
-      }
-      if (block.length == block.popcount) {
-        // All not-null
-        for (int64_t i = 0; i < block.length; ++i) {
-          result += int8_arr.Value(position + i);
-        }
-      } else if (block.popcount > 0) {
-        // Some but not all not-null
-        for (int64_t i = 0; i < block.length; ++i) {
-          if (BitUtil::GetBit(bitmap, position + i)) {
-            result += int8_arr.Value(position + i);
-          }
-        }
-      }
-      position += block.length;
-    }
-    // Sanity check
-    if (result != expected) {
-      std::abort();
-    }
-  }
-  state.SetItemsProcessed(state.iterations() * bitmap_length);
-}
-
-template <int64_t Offset = 0>
-static void BinaryBitBlockCounterSum(benchmark::State& state) {
-  random::RandomArrayGenerator rng(/*seed=*/0);
-
-  const int64_t bitmap_length = (1 << 20) - 1;
-
-  // State parameter is the average number of total values for each null
-  // value. So 100 means that 1 out of 100 on average are null.
-  double null_probability = 1. / static_cast<double>(state.range(0));
-  auto left = rng.Int8(bitmap_length, 0, 100, null_probability);
-  auto right = rng.Int8(bitmap_length, 0, 50, null_probability);
-
-  const uint8_t* left_bitmap = left->null_bitmap_data();
-  const uint8_t* right_bitmap = right->null_bitmap_data();
-
-  // Compute the expected result
-  int64_t expected = 0;
-  const auto& left_int8 = static_cast<const Int8Array&>(*left);
-  const auto& right_int8 = static_cast<const Int8Array&>(*right);
-  for (int64_t i = Offset; i < bitmap_length; ++i) {
-    if (left_int8.IsValid(i) && right_int8.IsValid(i)) {
-      expected += left_int8.Value(i) + right_int8.Value(i);
-    }
-  }
-  for (auto _ : state) {
-    BinaryBitBlockCounter scanner(left_bitmap, Offset, right_bitmap, Offset,
-                                  bitmap_length - Offset);
-    int64_t result = 0;
-    int64_t position = Offset;
-    while (true) {
-      BitBlockCount block = scanner.NextAndWord();
-      if (block.length == 0) {
-        break;
-      }
-      if (block.length == block.popcount) {
-        // All not-null
-        for (int64_t i = 0; i < block.length; ++i) {
-          result += left_int8.Value(position + i) + right_int8.Value(position + i);
-        }
-      } else if (block.popcount > 0) {
-        // Some but not all not-null
-        for (int64_t i = 0; i < block.length; ++i) {
-          if (BitUtil::GetBit(left_bitmap, position + i) &&
-              BitUtil::GetBit(right_bitmap, position + i)) {
-            result += left_int8.Value(position + i) + right_int8.Value(position + i);
-          }
-        }
-      }
-      position += block.length;
-    }
-    // Sanity check
-    if (result != expected) {
-      std::abort();
-    }
-  }
-  state.SetItemsProcessed(state.iterations() * bitmap_length);
-}
-
-template <int64_t Offset = 0>
-static void BitmapReaderSum(benchmark::State& state) {
-  random::RandomArrayGenerator rng(/*seed=*/0);
-
-  const int64_t bitmap_length = 1 << 20;
-
-  // State parameter is the average number of total values for each null
-  // value. So 100 means that 1 out of 100 on average are null.
-  double null_probability = 1. / static_cast<double>(state.range(0));
-  auto arr = rng.Int8(bitmap_length, 0, 100, null_probability);
-
-  const uint8_t* bitmap = arr->null_bitmap_data();
-  // Compute the expected result
-  int64_t expected = 0;
-  const auto& int8_arr = static_cast<const Int8Array&>(*arr);
-  for (int64_t i = Offset; i < bitmap_length; ++i) {
-    if (int8_arr.IsValid(i)) {
-      expected += int8_arr.Value(i);
-    }
-  }
-  for (auto _ : state) {
-    internal::BitmapReader bit_reader(bitmap, Offset, bitmap_length - Offset);
-    int64_t result = 0;
-    for (int64_t i = Offset; i < bitmap_length; ++i) {
-      if (bit_reader.IsSet()) {
-        result += int8_arr.Value(i);
-      }
-      bit_reader.Next();
-    }
-    // Sanity check
-    if (result != expected) {
-      std::abort();
-    }
-  }
-  state.SetItemsProcessed(state.iterations() * bitmap_length);
-}
-
-static void BitBlockCounterInlineSum(benchmark::State& state) {
-  BitBlockCounterSum<0>(
-      state, [](BitBlockCounter* counter) { return counter->NextWordInline(); });
-}
-
-static void BitBlockCounterInlineSumWithOffset(benchmark::State& state) {
-  BitBlockCounterSum<4>(
-      state, [](BitBlockCounter* counter) { return counter->NextWordInline(); });
-}
-
-static void BitBlockCounterSum(benchmark::State& state) {
-  BitBlockCounterSum<0>(state,
-                        [](BitBlockCounter* counter) { return counter->NextWord(); });
-}
-
-static void BitBlockCounterSumWithOffset(benchmark::State& state) {
-  BitBlockCounterSum<4>(state,
-                        [](BitBlockCounter* counter) { return counter->NextWord(); });
-}
-
-static void BinaryBitBlockCounterSum(benchmark::State& state) {
-  BinaryBitBlockCounterSum<0>(state);
-}
-
-static void BinaryBitBlockCounterSumWithOffset(benchmark::State& state) {
-  BinaryBitBlockCounterSum<4>(state);
-}
-
-static void BitBlockCounterFourWordsSum(benchmark::State& state) {
-  BitBlockCounterSum<0>(
-      state, [](BitBlockCounter* counter) { return counter->NextFourWords(); });
-}
-
-static void BitBlockCounterFourWordsSumWithOffset(benchmark::State& state) {
-  BitBlockCounterSum<4>(
-      state, [](BitBlockCounter* counter) { return counter->NextFourWords(); });
-}
-
-static void BitmapReaderSum(benchmark::State& state) { BitmapReaderSum<0>(state); }
-
-static void BitmapReaderSumWithOffset(benchmark::State& state) {
-  BitmapReaderSum<4>(state);
-}
-
 static void BitmapEqualsWithoutOffset(benchmark::State& state) { BitmapEquals<0>(state); }
 
 static void BitmapEqualsWithOffset(benchmark::State& state) { BitmapEquals<4>(state); }
@@ -630,18 +432,6 @@ BENCHMARK(CopyBitmapWithOffsetBoth)->Arg(kBufferSize);
 
 BENCHMARK(BitmapEqualsWithoutOffset)->Arg(kBufferSize);
 BENCHMARK(BitmapEqualsWithOffset)->Arg(kBufferSize);
-
-// Range value: average number of total values per null
-BENCHMARK(BitBlockCounterSum)->Range(8, 1 << 16);
-BENCHMARK(BitBlockCounterSumWithOffset)->Range(8, 1 << 16);
-BENCHMARK(BitBlockCounterInlineSum)->Range(8, 1 << 16);
-BENCHMARK(BitBlockCounterInlineSumWithOffset)->Range(8, 1 << 16);
-BENCHMARK(BitBlockCounterFourWordsSum)->Range(8, 1 << 16);
-BENCHMARK(BitBlockCounterFourWordsSumWithOffset)->Range(8, 1 << 16);
-BENCHMARK(BitmapReaderSum)->Range(8, 1 << 16);
-BENCHMARK(BitmapReaderSumWithOffset)->Range(8, 1 << 16);
-BENCHMARK(BinaryBitBlockCounterSum)->Range(8, 1 << 16);
-BENCHMARK(BinaryBitBlockCounterSumWithOffset)->Range(8, 1 << 16);
 
 #define AND_BENCHMARK_RANGES                      \
   {                                               \
