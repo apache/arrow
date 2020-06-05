@@ -16,23 +16,18 @@
 // under the License.
 
 #include <algorithm>
-#include <array>
-#include <climits>
 #include <cstdint>
 #include <cstring>
-#include <functional>
-#include <limits>
 #include <memory>
-#include <string>
-#include <vector>
 
-#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "arrow/buffer.h"
 #include "arrow/memory_pool.h"
+#include "arrow/result.h"
 #include "arrow/testing/gtest_common.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/util.h"
 #include "arrow/util/bit_block_counter.h"
 #include "arrow/util/bit_util.h"
 

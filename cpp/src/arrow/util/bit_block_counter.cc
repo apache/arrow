@@ -17,11 +17,11 @@
 
 #include "arrow/util/bit_block_counter.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <type_traits>
 
 #include "arrow/util/bit_util.h"
-#include "arrow/util/bitmap_ops.h"
 #include "arrow/util/ubsan.h"
 
 namespace arrow {

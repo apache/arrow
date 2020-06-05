@@ -17,16 +17,18 @@
 
 #include "benchmark/benchmark.h"
 
-#include <algorithm>
 #include <array>
 #include <bitset>
-#include <vector>
+#include <cstdint>
+#include <cstdlib>
+#include <cstring>
+#include <memory>
+#include <utility>
 
 #include "arrow/array/array_base.h"
+#include "arrow/array/array_primitive.h"
 #include "arrow/buffer.h"
-#include "arrow/builder.h"
-#include "arrow/memory_pool.h"
-#include "arrow/testing/gtest_util.h"
+#include "arrow/result.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/util/bit_block_counter.h"
