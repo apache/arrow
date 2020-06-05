@@ -34,9 +34,8 @@ public class CompressionUtility {
    */
   public static ArrowBodyCompression createBodyCompression(CompressionCodec codec) {
     if (codec == null) {
-      return ArrowBodyCompression.NO_BODY_COMPRESSION;
+      return null;
     }
-
     for (int i = 0; i < CompressionType.names.length; i++) {
       if (CompressionType.names[i].equals(codec.getCodecName())) {
         return new ArrowBodyCompression((byte) i, BodyCompressionMethod.BUFFER);
@@ -50,8 +49,6 @@ public class CompressionUtility {
    */
   public static CompressionCodec createCodec(byte compressionType) {
     switch (compressionType) {
-      case ArrowBodyCompression.NO_COMPRESSION_TYPE:
-        return null;
       default:
         throw new IllegalArgumentException("Compression type not supported: " + compressionType);
     }

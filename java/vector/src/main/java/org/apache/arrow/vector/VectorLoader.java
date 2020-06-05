@@ -56,7 +56,7 @@ public class VectorLoader {
   public void load(ArrowRecordBatch recordBatch) {
     Iterator<ArrowBuf> buffers = recordBatch.getBuffers().iterator();
     Iterator<ArrowFieldNode> nodes = recordBatch.getNodes().iterator();
-    CompressionCodec codec =
+    CompressionCodec codec = recordBatch.getBodyCompression() == null ? null :
         CompressionUtility.createCodec(recordBatch.getBodyCompression().getCodec());
     for (FieldVector fieldVector : root.getFieldVectors()) {
       loadBuffers(fieldVector, fieldVector.getField(), buffers, nodes, codec);

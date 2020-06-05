@@ -18,7 +18,6 @@
 package org.apache.arrow.vector.ipc.message;
 
 import org.apache.arrow.flatbuf.BodyCompression;
-import org.apache.arrow.flatbuf.BodyCompressionMethod;
 
 import com.google.flatbuffers.FlatBufferBuilder;
 
@@ -28,20 +27,9 @@ import com.google.flatbuffers.FlatBufferBuilder;
 public class ArrowBodyCompression implements FBSerializable {
 
   /**
-   * The codec type when there is no compression.
-   */
-  public static final byte NO_COMPRESSION_TYPE = -1;
-
-  /**
-   * The {@link ArrowBodyCompression} object for cases when there is no compression.
-   */
-  public static final ArrowBodyCompression NO_BODY_COMPRESSION =
-      new ArrowBodyCompression(NO_COMPRESSION_TYPE, BodyCompressionMethod.BUFFER);
-
-  /**
    * Length of the serialized object.
    */
-  public static final long BODY_COMPRESSION_LENGTH = 8L;
+  public static final long BODY_COMPRESSION_LENGTH = 2L;
 
   private final byte codec;
   private final byte method;

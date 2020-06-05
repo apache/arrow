@@ -361,13 +361,22 @@ class ArrowMessage implements AutoCloseable {
         // the reference count
         b.getReferenceManager().retain();
       }
-      // add compression info
-      ArrowBuf compBuf = allocator.buffer(ArrowBodyCompression.BODY_COMPRESSION_LENGTH);
-      compBuf.setInt(0, bodyCompression.getCodec());
-      compBuf.setInt(4, bodyCompression.getMethod());
-      compBuf.writerIndex(ArrowBodyCompression.BODY_COMPRESSION_LENGTH);
-      size += ArrowBodyCompression.BODY_COMPRESSION_LENGTH;
-      allBufs.add(compBuf.asNettyBuffer());
+
+      // add compression info, if any
+      if (bodyCompression != null) {
+        ArrowBuf compBuf = allocator.buffer(ArrowBodyCompression.BODY_COMPRESSION_LENGTH);
+        compBuf.setByte(0, bodyCompression.getCodec());
+        compBuf.setByte(1, bodyCompression.getMethod());
+        compBuf.writerIndex(ArrowBodyCompression.BODY_COMPRESSION_LENGTH);
+        size += ArrowBodyCompression.BODY_COMPRESSION_LENGTH;
+        allBufs.add(compBuf.asNettyBuffer());
+
+        // align
+        int paddingBytes = (int) (8 - ArrowBodyCompression.BODY_COMPRESSION_LENGTH);
+        assert paddingBytes > 0 && paddingBytes < 8;
+        size += paddingBytes;
+        allBufs.add(PADDING_BUFFERS.get(paddingBytes).retain());
+      }
 
       // rawvarint is used for length definition.
       cos.writeUInt32NoTag(size);

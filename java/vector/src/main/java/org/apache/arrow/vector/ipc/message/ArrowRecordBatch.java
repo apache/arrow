@@ -59,7 +59,7 @@ public class ArrowRecordBatch implements ArrowMessage {
 
   public ArrowRecordBatch(
       int length, List<ArrowFieldNode> nodes, List<ArrowBuf> buffers) {
-    this(length, nodes, buffers, ArrowBodyCompression.NO_BODY_COMPRESSION, true);
+    this(length, nodes, buffers, null, true);
   }
 
   public ArrowRecordBatch(
@@ -252,6 +252,12 @@ public class ArrowRecordBatch implements ArrowMessage {
       // round up size to the next multiple of 8
       size = DataSizeRoundingUtil.roundUpTo8Multiple(size);
     }
+
+    if (bodyCompression != null) {
+      size += ArrowBodyCompression.BODY_COMPRESSION_LENGTH;
+      size = DataSizeRoundingUtil.roundUpTo8Multiple(size);
+    }
+
     return size;
   }
 
