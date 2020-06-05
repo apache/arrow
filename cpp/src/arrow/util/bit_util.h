@@ -57,17 +57,11 @@
 #define ARROW_POPCOUNT32 __builtin_popcount
 #endif
 
-#include <cmath>
 #include <cstdint>
-#include <limits>
 #include <memory>
 #include <type_traits>
 #include <vector>
 
-#include "arrow/buffer.h"
-#include "arrow/memory_pool.h"
-#include "arrow/result.h"
-#include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/type_traits.h"
 #include "arrow/util/visibility.h"
@@ -456,11 +450,6 @@ static inline void SetBitTo(uint8_t* bits, int64_t i, bool bit_is_set) {
 /// \brief set or clear a range of bits quickly
 ARROW_EXPORT
 void SetBitsTo(uint8_t* bits, int64_t start_offset, int64_t length, bool bits_are_set);
-
-/// \brief Convert vector of bytes to bitmap buffer
-ARROW_EXPORT
-Result<std::shared_ptr<Buffer>> BytesToBits(const std::vector<uint8_t>&,
-                                            MemoryPool* pool = default_memory_pool());
 
 }  // namespace BitUtil
 }  // namespace arrow

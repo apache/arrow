@@ -219,5 +219,10 @@ ARROW_EXPORT
 Result<std::shared_ptr<Buffer>> BitmapAllButOne(MemoryPool* pool, int64_t length,
                                                 int64_t straggler_pos, bool value = true);
 
+/// \brief Convert vector of bytes to bitmap buffer
+ARROW_EXPORT
+Result<std::shared_ptr<Buffer>> BytesToBits(const std::vector<uint8_t>&,
+                                            MemoryPool* pool = default_memory_pool());
+
 }  // namespace internal
 }  // namespace arrow

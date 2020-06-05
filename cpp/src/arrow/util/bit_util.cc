@@ -33,17 +33,6 @@
 
 namespace arrow {
 namespace BitUtil {
-namespace {
-
-void FillBitsFromBytes(const std::vector<uint8_t>& bytes, uint8_t* bits) {
-  for (size_t i = 0; i < bytes.size(); ++i) {
-    if (bytes[i] > 0) {
-      SetBit(bits, i);
-    }
-  }
-}
-
-}  // namespace
 
 void SetBitsTo(uint8_t* bits, int64_t start_offset, int64_t length, bool bits_are_set) {
   if (length == 0) {
@@ -87,17 +76,6 @@ void SetBitsTo(uint8_t* bits, int64_t start_offset, int64_t length, bool bits_ar
   // set/clear leading bits of last byte
   bits[bytes_end - 1] &= last_byte_mask;
   bits[bytes_end - 1] |= static_cast<uint8_t>(fill_byte & ~last_byte_mask);
-}
-
-Result<std::shared_ptr<Buffer>> BytesToBits(const std::vector<uint8_t>& bytes,
-                                            MemoryPool* pool) {
-  int64_t bit_length = BytesForBits(bytes.size());
-
-  ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateBuffer(bit_length, pool));
-  uint8_t* out_buf = buffer->mutable_data();
-  memset(out_buf, 0, static_cast<size_t>(buffer->capacity()));
-  FillBitsFromBytes(bytes, out_buf);
-  return std::move(buffer);
 }
 
 }  // namespace BitUtil

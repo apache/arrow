@@ -26,6 +26,7 @@
 #include <utility>
 
 #include "arrow/buffer.h"
+#include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/align_util.h"
 #include "arrow/util/bit_util.h"
@@ -35,6 +36,29 @@
 
 namespace arrow {
 namespace internal {
+
+namespace {
+
+void FillBitsFromBytes(const std::vector<uint8_t>& bytes, uint8_t* bits) {
+  for (size_t i = 0; i < bytes.size(); ++i) {
+    if (bytes[i] > 0) {
+      BitUtil::SetBit(bits, i);
+    }
+  }
+}
+
+}  // namespace
+
+Result<std::shared_ptr<Buffer>> BytesToBits(const std::vector<uint8_t>& bytes,
+                                            MemoryPool* pool) {
+  int64_t bit_length = BitUtil::BytesForBits(bytes.size());
+
+  ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateBuffer(bit_length, pool));
+  uint8_t* out_buf = buffer->mutable_data();
+  memset(out_buf, 0, static_cast<size_t>(buffer->capacity()));
+  FillBitsFromBytes(bytes, out_buf);
+  return std::move(buffer);
+}
 
 int64_t CountSetBits(const uint8_t* data, int64_t bit_offset, int64_t length) {
   constexpr int64_t pop_len = sizeof(uint64_t) * 8;

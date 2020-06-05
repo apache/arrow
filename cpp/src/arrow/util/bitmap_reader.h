@@ -17,30 +17,11 @@
 
 #pragma once
 
-#include <algorithm>
-#include <array>
-#include <bitset>
-#include <cassert>
 #include <cstdint>
 #include <cstring>
-#include <memory>
-#include <string>
-#include <type_traits>
-#include <utility>
-#include <vector>
 
-#include "arrow/buffer.h"
-#include "arrow/memory_pool.h"
-#include "arrow/result.h"
-#include "arrow/type_fwd.h"
 #include "arrow/util/bit_util.h"
-#include "arrow/util/compare.h"
-#include "arrow/util/functional.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/string_builder.h"
-#include "arrow/util/string_view.h"
-#include "arrow/util/type_traits.h"
-#include "arrow/util/visibility.h"
 
 namespace arrow {
 namespace internal {
