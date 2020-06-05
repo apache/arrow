@@ -191,10 +191,12 @@ Result<std::shared_ptr<Schema>> FileSystemDatasetFactory::PartitionSchema() {
     return partitioning->schema();
   }
 
-  std::vector<util::string_view> relative_paths;
+  std::vector<std::string> relative_paths;
   for (const auto& path : paths_) {
     if (auto relative = RemovePartitionBaseDir(path)) {
-      relative_paths.push_back(*relative);
+      auto relative_str = relative->to_string();
+      auto basename_filename = fs::internal::GetAbstractPathParent(relative_str);
+      relative_paths.push_back(basename_filename.first);
     }
   }
 
@@ -245,7 +247,9 @@ Result<std::shared_ptr<Dataset>> FileSystemDatasetFactory::Finish(FinishOptions 
   for (const auto& path : paths_) {
     std::shared_ptr<Expression> partition = scalar(true);
     if (auto relative = RemovePartitionBaseDir(path)) {
-      partition = partitioning->Parse(relative->to_string()).ValueOr(scalar(true));
+      auto relative_str = relative->to_string();
+      auto basename_filename = fs::internal::GetAbstractPathParent(relative_str);
+      partition = partitioning->Parse(basename_filename.first).ValueOr(scalar(true));
     }
 
     ARROW_ASSIGN_OR_RAISE(auto fragment, format_->MakeFragment({path, fs_}, partition));

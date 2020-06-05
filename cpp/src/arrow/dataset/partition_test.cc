@@ -54,14 +54,14 @@ class TestPartitioning : public ::testing::Test {
     AssertParse(path, expected.Copy());
   }
 
-  void AssertInspect(const std::vector<util::string_view>& paths,
+  void AssertInspect(const std::vector<std::string>& paths,
                      const std::vector<std::shared_ptr<Field>>& expected) {
     ASSERT_OK_AND_ASSIGN(auto actual, factory_->Inspect(paths));
     ASSERT_EQ(*actual, Schema(expected));
     ASSERT_OK(factory_->Finish(actual).status());
   }
 
-  void AssertInspectError(const std::vector<util::string_view>& paths) {
+  void AssertInspectError(const std::vector<std::string>& paths) {
     ASSERT_RAISES(Invalid, factory_->Inspect(paths));
   }
 

@@ -17,17 +17,19 @@
 
 #include "arrow/dataset/discovery.h"
 
-#include <memory>
-#include <utility>
-
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <memory>
+#include <utility>
+
+#include "arrow/dataset/filter.h"
 #include "arrow/dataset/partition.h"
 #include "arrow/dataset/test_util.h"
 #include "arrow/filesystem/test_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type_fwd.h"
+#include "arrow/util/checked_cast.h"
 
 using testing::SizeIs;
 
@@ -198,9 +200,10 @@ TEST_F(FileSystemDatasetFactoryTest, ExplicitPartition) {
 
 TEST_F(FileSystemDatasetFactoryTest, DiscoveredPartition) {
   selector_.base_dir = "a=ignored/base";
+  selector_.recursive = true;
   factory_options_.partitioning = HivePartitioning::MakeFactory();
 
-  auto a_1 = "a=ignored/base/a=1";
+  auto a_1 = "a=ignored/base/a=1/file.data";
   MakeFactory({fs::File(a_1)});
 
   InspectOptions options;
@@ -337,6 +340,27 @@ TEST_F(FileSystemDatasetFactoryTest, InspectFragmentsLimit) {
     options.fragments = fragments;
     ASSERT_OK_AND_ASSIGN(auto schemas, factory_->InspectSchemas(options));
     EXPECT_THAT(schemas, SizeIs(fragments + 1));
+  }
+}
+
+TEST_F(FileSystemDatasetFactoryTest, FilenameNotPartOfPartitions) {
+  // ARROW-8726: Ensure filename is not a partition.
+
+  // Creates a partition with 2 explicit fields. The type `int32` is
+  // specifically chosen such that parsing would fail given a non-integer
+  // string.
+  auto s = schema({field("first", utf8()), field("second", int32())});
+  factory_options_.partitioning = std::make_shared<DirectoryPartitioning>(s);
+
+  selector_.recursive = true;
+  // The file doesn't have a directory component for the second partition
+  // column. In such case, the filename should not be used.
+  MakeFactory({fs::File("one/file.parquet")});
+
+  ASSERT_OK_AND_ASSIGN(auto dataset, factory_->Finish());
+  for (const auto& maybe_fragment : dataset->GetFragments()) {
+    ASSERT_OK_AND_ASSIGN(auto fragment, maybe_fragment);
+    ASSERT_TRUE(fragment->partition_expression()->Equals(("first"_ == "one")));
   }
 }
 

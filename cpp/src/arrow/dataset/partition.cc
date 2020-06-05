@@ -265,7 +265,7 @@ class DirectoryPartitioningFactory : public PartitioningFactory {
   std::string type_name() const override { return "schema"; }
 
   Result<std::shared_ptr<Schema>> Inspect(
-      const std::vector<string_view>& paths) const override {
+      const std::vector<std::string>& paths) const override {
     KeyValuePartitioningInspectImpl impl;
 
     for (const auto& name : field_names_) {
@@ -274,7 +274,7 @@ class DirectoryPartitioningFactory : public PartitioningFactory {
 
     for (auto path : paths) {
       size_t field_index = 0;
-      for (auto&& segment : fs::internal::SplitAbstractPath(path.to_string())) {
+      for (auto&& segment : fs::internal::SplitAbstractPath(path)) {
         if (field_index == field_names_.size()) break;
 
         impl.InsertRepr(static_cast<int>(field_index++), std::move(segment));
@@ -574,11 +574,11 @@ class HivePartitioningFactory : public PartitioningFactory {
   std::string type_name() const override { return "hive"; }
 
   Result<std::shared_ptr<Schema>> Inspect(
-      const std::vector<string_view>& paths) const override {
+      const std::vector<std::string>& paths) const override {
     KeyValuePartitioningInspectImpl impl;
 
     for (auto path : paths) {
-      for (auto&& segment : fs::internal::SplitAbstractPath(path.to_string())) {
+      for (auto&& segment : fs::internal::SplitAbstractPath(path)) {
         if (auto key = HivePartitioning::ParseKey(segment)) {
           impl.InsertRepr(key->name, key->value);
         }
