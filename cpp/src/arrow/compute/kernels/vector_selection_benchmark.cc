@@ -28,11 +28,7 @@ namespace compute {
 
 constexpr auto kSeed = 0x0ff1ce;
 
-// RAII struct to handle some of the boilerplate in filter
-struct FilterArgs {
-  // size of memory tested (per iteration) in bytes
-  const int64_t size;
-
+struct FilterParams {
   // proportion of nulls in the values array
   const double values_null_proportion;
 
@@ -41,18 +37,39 @@ struct FilterArgs {
 
   // proportion of nulls in the filter
   const double filter_null_proportion;
+};
 
-  explicit FilterArgs(benchmark::State& state, bool filter_has_nulls)
-      : size(state.range(0)),
-        values_null_proportion(1. / static_cast<double>(state.range(1))),
-        selected_proportion(1 - 1. / static_cast<double>(state.range(1))),
-        filter_null_proportion(filter_has_nulls ? 1. / static_cast<double>(state.range(1))
-                                                : 0),
-        state_(state) {}
+std::vector<int64_t> g_data_sizes = {kL1Size, 1 << 20};
+
+// The benchmark state parameter references this vector of cases. Test high and
+// low selectivity filters.
+std::vector<FilterParams> g_filter_params = {
+    {0., 0.95, 0.05},   {0., 0.10, 0.05},   {0.001, 0.95, 0.05}, {0.001, 0.10, 0.05},
+    {0.01, 0.95, 0.05}, {0.01, 0.10, 0.05}, {0.1, 0.95, 0.05},   {0.1, 0.10, 0.05},
+    {0.9, 0.95, 0.05},  {0.9, 0.10, 0.05}};
+
+// RAII struct to handle some of the boilerplate in filter
+struct FilterArgs {
+  // size of memory tested (per iteration) in bytes
+  const int64_t size;
+
+  double values_null_proportion = 0.;
+  double selected_proportion = 0.;
+  double filter_null_proportion = 0.;
+
+  FilterArgs(benchmark::State& state, bool filter_has_nulls)
+      : size(state.range(0)), state_(state) {
+    auto params = g_filter_params[state.range(1)];
+    values_null_proportion = params.values_null_proportion;
+    selected_proportion = params.selected_proportion;
+    filter_null_proportion = filter_has_nulls ? params.filter_null_proportion : 0;
+  }
 
   ~FilterArgs() {
     state_.counters["size"] = static_cast<double>(size);
-    state_.counters["selected_pct"] = selected_proportion * 100;
+    state_.counters["select%"] = selected_proportion * 100;
+    state_.counters["data null%"] = values_null_proportion * 100;
+    state_.counters["mask null%"] = filter_null_proportion * 100;
     state_.SetBytesProcessed(state_.iterations() * size);
   }
 
@@ -91,7 +108,7 @@ struct TakeBenchmark {
   }
 
   void String() {
-    int32_t string_min_length = 0, string_max_length = 128;
+    int32_t string_min_length = 0, string_max_length = 16;
     int32_t string_mean_length = (string_max_length + string_min_length) / 2;
     // for an array of 50% null strings, we need to generate twice as many strings
     // to ensure that they have an average of args.size total characters
@@ -152,7 +169,7 @@ struct FilterBenchmark {
   }
 
   void String() {
-    int32_t string_min_length = 0, string_max_length = 128;
+    int32_t string_min_length = 0, string_max_length = 16;
     int32_t string_mean_length = (string_max_length + string_min_length) / 2;
     // for an array of 50% null strings, we need to generate twice as many strings
     // to ensure that they have an average of args.size total characters
@@ -237,34 +254,38 @@ static void TakeStringMonotonicIndices(benchmark::State& state) {
       .FSLInt64();
 }
 
-void SelectionSetArgs(benchmark::internal::Benchmark* bench) {
-  std::vector<int64_t> sizes = {kL1Size, 1 << 20};
-  for (int64_t size : sizes) {
-    for (auto nulls : std::vector<ArgsType>({1000, 100, 50, 10, 1})) {
+void FilterSetArgs(benchmark::internal::Benchmark* bench) {
+  for (int64_t size : g_data_sizes) {
+    for (int i = 0; i < static_cast<int>(g_filter_params.size()); ++i) {
+      bench->Args({static_cast<ArgsType>(size), i});
+    }
+  }
+}
+
+BENCHMARK(FilterInt64FilterNoNulls)->Apply(FilterSetArgs);
+BENCHMARK(FilterInt64FilterWithNulls)->Apply(FilterSetArgs);
+BENCHMARK(FilterFSLInt64FilterNoNulls)->Apply(FilterSetArgs);
+BENCHMARK(FilterFSLInt64FilterWithNulls)->Apply(FilterSetArgs);
+BENCHMARK(FilterStringFilterNoNulls)->Apply(FilterSetArgs);
+BENCHMARK(FilterStringFilterWithNulls)->Apply(FilterSetArgs);
+
+void TakeSetArgs(benchmark::internal::Benchmark* bench) {
+  for (int64_t size : g_data_sizes) {
+    for (auto nulls : std::vector<ArgsType>({1000, 100, 50, 10, 1, 0})) {
       bench->Args({static_cast<ArgsType>(size), nulls});
     }
   }
 }
 
-#define SELECTION_BENCHMARK_ARGS(WHAT) WHAT->Apply(SelectionSetArgs)
-
-SELECTION_BENCHMARK_ARGS(BENCHMARK(FilterInt64FilterNoNulls));
-SELECTION_BENCHMARK_ARGS(BENCHMARK(FilterInt64FilterWithNulls));
-SELECTION_BENCHMARK_ARGS(BENCHMARK(FilterFSLInt64FilterNoNulls));
-SELECTION_BENCHMARK_ARGS(BENCHMARK(FilterFSLInt64FilterWithNulls));
-SELECTION_BENCHMARK_ARGS(BENCHMARK(FilterStringFilterNoNulls));
-SELECTION_BENCHMARK_ARGS(BENCHMARK(FilterStringFilterWithNulls));
-
-SELECTION_BENCHMARK_ARGS(BENCHMARK(TakeInt64RandomIndicesNoNulls));
-SELECTION_BENCHMARK_ARGS(BENCHMARK(TakeInt64RandomIndicesWithNulls));
-SELECTION_BENCHMARK_ARGS(BENCHMARK(TakeFSLInt64RandomIndicesNoNulls));
-SELECTION_BENCHMARK_ARGS(BENCHMARK(TakeFSLInt64RandomIndicesWithNulls));
-SELECTION_BENCHMARK_ARGS(BENCHMARK(TakeStringRandomIndicesNoNulls));
-SELECTION_BENCHMARK_ARGS(BENCHMARK(TakeStringRandomIndicesWithNulls));
-
-SELECTION_BENCHMARK_ARGS(BENCHMARK(TakeInt64MonotonicIndices));
-SELECTION_BENCHMARK_ARGS(BENCHMARK(TakeFSLInt64MonotonicIndices));
-SELECTION_BENCHMARK_ARGS(BENCHMARK(TakeStringMonotonicIndices));
+BENCHMARK(TakeInt64RandomIndicesNoNulls)->Apply(TakeSetArgs);
+BENCHMARK(TakeInt64RandomIndicesWithNulls)->Apply(TakeSetArgs);
+BENCHMARK(TakeFSLInt64RandomIndicesNoNulls)->Apply(TakeSetArgs);
+BENCHMARK(TakeFSLInt64RandomIndicesWithNulls)->Apply(TakeSetArgs);
+BENCHMARK(TakeStringRandomIndicesNoNulls)->Apply(TakeSetArgs);
+BENCHMARK(TakeStringRandomIndicesWithNulls)->Apply(TakeSetArgs);
+BENCHMARK(TakeInt64MonotonicIndices)->Apply(TakeSetArgs);
+BENCHMARK(TakeFSLInt64MonotonicIndices)->Apply(TakeSetArgs);
+BENCHMARK(TakeStringMonotonicIndices)->Apply(TakeSetArgs);
 
 }  // namespace compute
 }  // namespace arrow

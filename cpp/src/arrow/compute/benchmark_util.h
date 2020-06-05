@@ -81,7 +81,7 @@ struct RegressionArgs {
 
   explicit RegressionArgs(benchmark::State& state)
       : size(state.range(0)),
-        null_proportion(1. / static_cast<double>(state.range(1))),
+        null_proportion(std::min(1., 1. / static_cast<double>(state.range(1)))),
         state_(state) {}
 
   ~RegressionArgs() {
