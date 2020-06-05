@@ -27,7 +27,7 @@
 namespace arrow {
 namespace internal {
 
-BitBlockCounter::Block BitBlockCounter::NextBlock() {
+BitBlockCount BitBlockCounter::NextBlock() {
   auto load_word = [](const uint8_t* bytes) -> uint64_t {
     return BitUtil::ToLittleEndian(util::SafeLoadAs<uint64_t>(bytes));
   };
@@ -37,8 +37,8 @@ BitBlockCounter::Block BitBlockCounter::NextBlock() {
 
   // When the offset is > 0, we need there to be a word beyond the last aligned
   // word in the bitmap for the bit shifting logic.
-  const int64_t bits_required_to_scan_words = offset_ == 0 ? 256 : 256 + (64 - offset_);
-  if (bits_remaining_ < bits_required_to_scan_words) {
+  const int64_t bits_required_to_use_words = offset_ == 0 ? 256 : 256 + (64 - offset_);
+  if (bits_remaining_ < bits_required_to_use_words) {
     // End of the bitmap, leave it to the caller to decide how to best check
     // these bits, no need to do redundant computation here.
     const int16_t run_length = static_cast<int16_t>(bits_remaining_);
@@ -69,6 +69,50 @@ BitBlockCounter::Block BitBlockCounter::NextBlock() {
   bitmap_ += BitUtil::BytesForBits(kTargetBlockLength);
   bits_remaining_ -= 256;
   return {256, static_cast<int16_t>(total_popcount)};
+}
+
+BitBlockCount BinaryBitBlockCounter::NextBlock() {
+  auto load_word = [](const uint8_t* bytes) -> uint64_t {
+    return BitUtil::ToLittleEndian(util::SafeLoadAs<uint64_t>(bytes));
+  };
+  auto shift_word = [](uint64_t current, uint64_t next, int64_t shift) -> uint64_t {
+    if (shift == 0) return current;
+    return (current >> shift) | (next << (64 - shift));
+  };
+
+  // When the offset is > 0, we need there to be a word beyond the last aligned
+  // word in the bitmap for the bit shifting logic.
+  const int64_t bits_required_to_use_words = std::max(
+      left_offset_ == 0 ? 64 : 64 + (64 - left_offset_),
+      right_offset_ == 0 ? 64 : 64 + (64 - right_offset_));
+  if (bits_remaining_ < bits_required_to_use_words) {
+    const int16_t run_length = static_cast<int16_t>(bits_remaining_);
+    bits_remaining_ -= run_length;
+    int16_t popcount = 0;
+    for (int64_t i = 0; i < run_length; ++i) {
+      if (BitUtil::GetBit(left_bitmap_, left_offset_ + i) &&
+          BitUtil::GetBit(right_bitmap_, right_offset_ + i)) {
+        ++popcount;
+      }
+    }
+    return {run_length, popcount};
+  }
+
+  int64_t popcount = 0;
+  if (left_offset_ == 0 && right_offset_ == 0) {
+    popcount = __builtin_popcountll(load_word(left_bitmap_) & load_word(right_bitmap_));
+  } else {
+    auto left_current = load_word(left_bitmap_);
+    auto left_next = load_word(left_bitmap_ + 8);
+    auto right_current = load_word(left_bitmap_);
+    auto right_next = load_word(right_bitmap_ + 8);
+    popcount = __builtin_popcountll(shift_word(left_current, left_next, left_offset_) &
+                                    shift_word(right_current, right_next, right_offset_));
+  }
+  left_bitmap_ += 8;
+  right_bitmap_ += 8;
+  bits_remaining_ -= 64;
+  return {64, static_cast<int16_t>(popcount)};
 }
 
 }  // namespace internal

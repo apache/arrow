@@ -1580,7 +1580,7 @@ TEST_F(TestBitBlockCounter, Basics) {
 
   int64_t bits_scanned = 0;
   for (int64_t i = 0; i < nbytes / 32; ++i) {
-    BitBlockCounter::Block block = scanner_->NextBlock();
+    BitBlockCount block = scanner_->NextBlock();
     ASSERT_EQ(block.length, 4 * kWordSize);
     ASSERT_EQ(block.popcount, 0);
     bits_scanned += block.length;
@@ -1604,7 +1604,7 @@ TEST_F(TestBitBlockCounter, Offsets) {
     // Start with data all set
     std::memset(buf_->mutable_data(), 0xFF, total_bytes);
 
-    BitBlockCounter::Block block = scanner_->NextBlock();
+    BitBlockCount block = scanner_->NextBlock();
     ASSERT_EQ(4 * kWordSize, block.length);
     ASSERT_EQ(block.popcount, 256);
 
@@ -1648,7 +1648,7 @@ TEST_F(TestBitBlockCounter, RandomData) {
   auto CheckWithOffset = [&](int64_t offset) {
     BitBlockCounter scanner(buffer->data(), offset, nbytes * 8 - offset);
     for (int64_t i = 0; i < nbytes / 32; ++i) {
-      BitBlockCounter::Block block = scanner.NextBlock();
+      BitBlockCount block = scanner.NextBlock();
       ASSERT_EQ(block.popcount,
                 CountSetBits(buffer->data(), i * 256 + offset, block.length));
     }

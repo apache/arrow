@@ -424,7 +424,7 @@ static void BitBlockCounterSumNotNull(benchmark::State& state) {
     int64_t result = 0;
     int64_t position = Offset;
     while (true) {
-      BitBlockCounter::Block block = scanner.NextBlock();
+      BitBlockCount block = scanner.NextBlock();
       if (block.length == 0) {
         break;
       }
