@@ -35,6 +35,7 @@
 #include "arrow/util/bitmap_generate.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/bitmap_reader.h"
+#include "arrow/util/bitmap_visit.h"
 #include "arrow/util/bitmap_writer.h"
 
 namespace arrow {

@@ -176,6 +176,7 @@ set(ARROW_SRCS
     util/bit_block_counter.cc
     util/bit_util.cc
     util/bitmap.cc
+    util/bitmap_builders.cc
     util/bitmap_ops.cc
     util/compression.cc
     util/cpu_info.cc

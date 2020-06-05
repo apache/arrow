@@ -22,7 +22,7 @@
 
 #include "arrow/io/buffered.h"
 #include "arrow/testing/gtest_util.h"
-#include "arrow/util/bitmap_ops.h"
+#include "arrow/util/bitmap_builders.h"
 
 #include "parquet/column_reader.h"
 #include "parquet/column_writer.h"

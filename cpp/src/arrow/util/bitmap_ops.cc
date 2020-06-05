@@ -30,35 +30,13 @@
 #include "arrow/status.h"
 #include "arrow/util/align_util.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/bitmap_reader.h"
 #include "arrow/util/bitmap_writer.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/ubsan.h"
 
 namespace arrow {
 namespace internal {
-
-namespace {
-
-void FillBitsFromBytes(const std::vector<uint8_t>& bytes, uint8_t* bits) {
-  for (size_t i = 0; i < bytes.size(); ++i) {
-    if (bytes[i] > 0) {
-      BitUtil::SetBit(bits, i);
-    }
-  }
-}
-
-}  // namespace
-
-Result<std::shared_ptr<Buffer>> BytesToBits(const std::vector<uint8_t>& bytes,
-                                            MemoryPool* pool) {
-  int64_t bit_length = BitUtil::BytesForBits(bytes.size());
-
-  ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateBuffer(bit_length, pool));
-  uint8_t* out_buf = buffer->mutable_data();
-  memset(out_buf, 0, static_cast<size_t>(buffer->capacity()));
-  FillBitsFromBytes(bytes, out_buf);
-  return std::move(buffer);
-}
 
 int64_t CountSetBits(const uint8_t* data, int64_t bit_offset, int64_t length) {
   constexpr int64_t pop_len = sizeof(uint64_t) * 8;
@@ -499,20 +477,6 @@ void BitmapXor(const uint8_t* left, int64_t left_offset, const uint8_t* right,
                int64_t right_offset, int64_t length, int64_t out_offset, uint8_t* out) {
   BitmapOp<std::bit_xor, std::bit_xor<bool>>(left, left_offset, right, right_offset,
                                              length, out_offset, out);
-}
-
-Result<std::shared_ptr<Buffer>> BitmapAllButOne(MemoryPool* pool, int64_t length,
-                                                int64_t straggler_pos, bool value) {
-  if (straggler_pos < 0 || straggler_pos >= length) {
-    return Status::Invalid("invalid straggler_pos ", straggler_pos);
-  }
-
-  ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateBuffer(BitUtil::BytesForBits(length), pool));
-
-  auto bitmap_data = buffer->mutable_data();
-  BitUtil::SetBitsTo(bitmap_data, 0, length, value);
-  BitUtil::SetBitTo(bitmap_data, straggler_pos, !value);
-  return std::move(buffer);
 }
 
 }  // namespace internal

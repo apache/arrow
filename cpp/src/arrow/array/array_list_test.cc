@@ -30,7 +30,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
 #include "arrow/util/bit_util.h"
-#include "arrow/util/bitmap_ops.h"
+#include "arrow/util/bitmap_builders.h"
 #include "arrow/util/checked_cast.h"
 
 namespace arrow {
