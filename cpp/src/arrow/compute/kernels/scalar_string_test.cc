@@ -61,6 +61,11 @@ TYPED_TEST(TestStringKernels, AsciiUpper) {
                    "[\"AAA&\", null, \"\", \"B\"]");
 }
 
+TYPED_TEST(TestStringKernels, AsciiLower) {
+  this->CheckUnary("ascii_lower", "[\"aAa&\", null, \"\", \"b\"]", this->string_type(),
+                   "[\"aaa&\", null, \"\", \"b\"]");
+}
+
 TYPED_TEST(TestStringKernels, Strptime) {
   std::string input1 = R"(["5/1/2020", null, "12/11/1900"])";
   std::string output1 = R"(["2020-05-01", null, "1900-12-11"])";
