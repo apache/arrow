@@ -103,8 +103,6 @@ set ARROW_TEST_DATA=%ARROW_SRC%\testing\data
 %PYTHON_INTERPRETER% -c "import pyarrow.flight" || exit /B
 %PYTHON_INTERPRETER% -c "import pyarrow.dataset" || exit /B
 
-@rem %PYTHON_INTERPRETER% -c "import pyarrow.gandiva" || exit /B
-
 @rem run the python tests, but disable the cython because there is a linking
 @rem issue on python 3.8
 set PYARROW_TEST_CYTHON=OFF
