@@ -694,7 +694,7 @@ set(Boost_ADDITIONAL_VERSIONS
     "1.60.0"
     "1.60")
 
-# Thrift needs Boost if we're building the bundled version,
+# Thrift needs Boost if we're building the bundled version with version < 0.13,
 # so we first need to determine whether we're building it
 if(ARROW_WITH_THRIFT AND Thrift_SOURCE STREQUAL "AUTO")
   find_package(Thrift 0.11.0 MODULE COMPONENTS ${ARROW_THRIFT_REQUIRED_COMPONENTS})
@@ -703,19 +703,32 @@ if(ARROW_WITH_THRIFT AND Thrift_SOURCE STREQUAL "AUTO")
   endif()
 endif()
 
-# - Parquet requires boost only with gcc 4.8 (because of missing std::regex).
+# Thrift < 0.13 has a compile-time header dependency on boost
+if(Thrift_SOURCE STREQUAL "BUNDLED" AND ARROW_THRIFT_BUILD_VERSION VERSION_LESS "0.13")
+  set(THRIFT_REQUIRES_BOOST TRUE)
+elseif(THRIFT_VERSION VERSION_LESS "0.13")
+  set(THRIFT_REQUIRES_BOOST TRUE)
+else()
+  set(THRIFT_REQUIRES_BOOST FALSE)
+endif()
+
+# Parquet requires boost only with gcc 4.8 (because of missing std::regex).
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "4.9")
+  set(PARQUET_REQUIRES_BOOST TRUE)
+else()
+  set(PARQUET_REQUIRES_BOOST FALSE)
+endif()
+
 # - Gandiva has a compile-time (header-only) dependency on Boost, not runtime.
 # - Tests need Boost at runtime.
 # - S3FS and Flight benchmarks need Boost at runtime.
 if(ARROW_BUILD_INTEGRATION
    OR ARROW_BUILD_TESTS
+   OR ARROW_GANDIVA
    OR (ARROW_FLIGHT AND ARROW_BUILD_BENCHMARKS)
    OR (ARROW_S3 AND ARROW_BUILD_BENCHMARKS)
-   OR ARROW_GANDIVA
-   OR (ARROW_WITH_THRIFT AND Thrift_SOURCE STREQUAL "BUNDLED")
-   OR (ARROW_PARQUET
-       AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU"
-       AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "4.9"))
+   OR (ARROW_WITH_THRIFT AND THRIFT_REQUIRES_BOOST)
+   OR (ARROW_PARQUET AND PARQUET_REQUIRES_BOOST))
   set(ARROW_BOOST_REQUIRED TRUE)
 else()
   set(ARROW_BOOST_REQUIRED FALSE)
