@@ -63,6 +63,22 @@ class TestBinaryArithmetics<std::pair<I, O>> : public TestBase {
     return out;
   }
 
+  // (Scalar, Scalar)
+  void AssertBinop(BinaryFunction func, InputCType lhs, InputCType rhs,
+                   OutputCType expected) {
+    auto input_type = TypeTraits<InputType>::type_singleton();
+    auto output_type = TypeTraits<OutputType>::type_singleton();
+
+    ASSERT_OK_AND_ASSIGN(auto left, MakeScalar(input_type, lhs));
+    ASSERT_OK_AND_ASSIGN(auto right, MakeScalar(input_type, rhs));
+    ASSERT_OK_AND_ASSIGN(auto exp, MakeScalar(output_type, expected));
+
+    ASSERT_OK_AND_ASSIGN(auto result, func(left, right, nullptr));
+    std::shared_ptr<Scalar> out = result.scalar();
+
+    AssertScalarsEqual(*exp, *out, true);
+  }
+
   // (Scalar, Array)
   void AssertBinop(BinaryFunction func, InputCType lhs, const std::string& rhs,
                    const std::string& expected, bool compare_as_string = false) {
@@ -159,6 +175,8 @@ TYPED_TEST(TestBinaryArithmeticsIntegral, Add) {
 
   this->AssertBinop(arrow::compute::Add, 10, "[null, 1, 3, null, 2, 5]",
                     "[null, 11, 13, null, 12, 15]");
+
+  this->AssertBinop(arrow::compute::Add, 17, 42, 59);
 }
 
 TYPED_TEST(TestBinaryArithmeticsIntegral, Sub) {
@@ -171,6 +189,8 @@ TYPED_TEST(TestBinaryArithmeticsIntegral, Sub) {
 
   this->AssertBinop(arrow::compute::Subtract, 10, "[null, 1, 3, null, 2, 5]",
                     "[null, 9, 7, null, 8, 5]");
+
+  this->AssertBinop(arrow::compute::Subtract, 20, 9, 11);
 }
 
 TYPED_TEST(TestBinaryArithmeticsIntegral, Mul) {
@@ -189,11 +209,16 @@ TYPED_TEST(TestBinaryArithmeticsIntegral, Mul) {
 
   this->AssertBinop(arrow::compute::Multiply, 3, "[null, 1, 3, null, 2, 5]",
                     "[null, 3, 9, null, 6, 15]");
+
+  this->AssertBinop(arrow::compute::Multiply, 6, 7, 42);
 }
 
 TYPED_TEST(TestBinaryArithmeticsSigned, Add) {
   this->AssertBinop(arrow::compute::Add, "[-7, 6, 5, 4, 3, 2, 1]",
                     "[-6, 5, -4, 3, -2, 1, 0]", "[-13, 11, 1, 7, 1, 3, 1]");
+  this->AssertBinop(arrow::compute::Add, -1, "[-6, 5, -4, 3, -2, 1, 0]",
+                    "[-7, 4, -5, 2, -3, 0, -1]");
+  this->AssertBinop(arrow::compute::Add, -10, 5, -5);
 }
 
 TYPED_TEST(TestBinaryArithmeticsUnsigned, OverflowWraps) {
@@ -269,6 +294,9 @@ TYPED_TEST(TestBinaryArithmeticsSigned, Sub) {
 TYPED_TEST(TestBinaryArithmeticsSigned, Mul) {
   this->AssertBinop(arrow::compute::Multiply, "[-10, 12, 4, 50, -5, 32, 11]",
                     "[-2, 0, -6, 1, 5, 3, 4]", "[20, 0, -24, 50, -25, 96, 44]");
+  this->AssertBinop(arrow::compute::Multiply, -2, "[-10, 12, 4, 50, -5, 32, 11]",
+                    "[20, -24, -8, -100, 10, -64, -22]");
+  this->AssertBinop(arrow::compute::Multiply, -5, -5, 25);
 }
 
 TYPED_TEST(TestBinaryArithmeticsFloating, Add) {
