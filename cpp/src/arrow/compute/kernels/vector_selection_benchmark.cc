@@ -193,65 +193,63 @@ struct FilterBenchmark {
 };
 
 static void FilterInt64FilterNoNulls(benchmark::State& state) {
-  return FilterBenchmark(state, false).Int64();
+  FilterBenchmark(state, false).Int64();
 }
 
 static void FilterInt64FilterWithNulls(benchmark::State& state) {
-  return FilterBenchmark(state, true).Int64();
+  FilterBenchmark(state, true).Int64();
 }
 
 static void FilterFSLInt64FilterNoNulls(benchmark::State& state) {
-  return FilterBenchmark(state, false).FSLInt64();
+  FilterBenchmark(state, false).FSLInt64();
 }
 
 static void FilterFSLInt64FilterWithNulls(benchmark::State& state) {
-  return FilterBenchmark(state, true).FSLInt64();
+  FilterBenchmark(state, true).FSLInt64();
 }
 
 static void FilterStringFilterNoNulls(benchmark::State& state) {
-  return FilterBenchmark(state, false).String();
+  FilterBenchmark(state, false).String();
 }
 
 static void FilterStringFilterWithNulls(benchmark::State& state) {
-  return FilterBenchmark(state, true).String();
+  FilterBenchmark(state, true).String();
 }
 
 static void TakeInt64RandomIndicesNoNulls(benchmark::State& state) {
-  return TakeBenchmark(state, false).Int64();
+  TakeBenchmark(state, false).Int64();
 }
 
 static void TakeInt64RandomIndicesWithNulls(benchmark::State& state) {
-  return TakeBenchmark(state, true).Int64();
+  TakeBenchmark(state, true).Int64();
 }
 
 static void TakeInt64MonotonicIndices(benchmark::State& state) {
-  return TakeBenchmark(state, /*indices_with_nulls=*/false, /*monotonic=*/true).Int64();
+  TakeBenchmark(state, /*indices_with_nulls=*/false, /*monotonic=*/true).Int64();
 }
 
 static void TakeFSLInt64RandomIndicesNoNulls(benchmark::State& state) {
-  return TakeBenchmark(state, false).FSLInt64();
+  TakeBenchmark(state, false).FSLInt64();
 }
 
 static void TakeFSLInt64RandomIndicesWithNulls(benchmark::State& state) {
-  return TakeBenchmark(state, true).FSLInt64();
+  TakeBenchmark(state, true).FSLInt64();
 }
 
 static void TakeFSLInt64MonotonicIndices(benchmark::State& state) {
-  return TakeBenchmark(state, /*indices_with_nulls=*/false, /*monotonic=*/true)
-      .FSLInt64();
+  TakeBenchmark(state, /*indices_with_nulls=*/false, /*monotonic=*/true).FSLInt64();
 }
 
 static void TakeStringRandomIndicesNoNulls(benchmark::State& state) {
-  return TakeBenchmark(state, false).String();
+  TakeBenchmark(state, false).String();
 }
 
 static void TakeStringRandomIndicesWithNulls(benchmark::State& state) {
-  return TakeBenchmark(state, true).String();
+  TakeBenchmark(state, true).String();
 }
 
 static void TakeStringMonotonicIndices(benchmark::State& state) {
-  return TakeBenchmark(state, /*indices_with_nulls=*/false, /*monotonic=*/true)
-      .FSLInt64();
+  TakeBenchmark(state, /*indices_with_nulls=*/false, /*monotonic=*/true).FSLInt64();
 }
 
 void FilterSetArgs(benchmark::internal::Benchmark* bench) {
