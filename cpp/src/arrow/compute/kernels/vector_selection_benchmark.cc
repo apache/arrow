@@ -108,7 +108,7 @@ struct TakeBenchmark {
   }
 
   void String() {
-    int32_t string_min_length = 0, string_max_length = 16;
+    int32_t string_min_length = 0, string_max_length = 32;
     int32_t string_mean_length = (string_max_length + string_min_length) / 2;
     // for an array of 50% null strings, we need to generate twice as many strings
     // to ensure that they have an average of args.size total characters
@@ -169,7 +169,7 @@ struct FilterBenchmark {
   }
 
   void String() {
-    int32_t string_min_length = 0, string_max_length = 16;
+    int32_t string_min_length = 0, string_max_length = 32;
     int32_t string_mean_length = (string_max_length + string_min_length) / 2;
     // for an array of 50% null strings, we need to generate twice as many strings
     // to ensure that they have an average of args.size total characters
