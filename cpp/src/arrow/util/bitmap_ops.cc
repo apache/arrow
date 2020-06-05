@@ -23,11 +23,9 @@
 #include <functional>
 #include <memory>
 #include <type_traits>
-#include <utility>
 
 #include "arrow/buffer.h"
 #include "arrow/result.h"
-#include "arrow/status.h"
 #include "arrow/util/align_util.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_reader.h"

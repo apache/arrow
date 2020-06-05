@@ -27,7 +27,6 @@
 #include <string>
 #include <utility>
 
-#include "arrow/array/array_primitive.h"
 #include "arrow/buffer.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/compare.h"
@@ -37,6 +36,9 @@
 #include "arrow/util/visibility.h"
 
 namespace arrow {
+
+class BooleanArray;
+
 namespace internal {
 
 class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,

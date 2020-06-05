@@ -15,21 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <algorithm>
+#include "arrow/util/bit_util.h"
+
 #include <cstdint>
 #include <cstring>
-#include <functional>
-#include <memory>
-#include <string>
-#include <vector>
-
-#include "arrow/array/array_primitive.h"
-#include "arrow/buffer.h"
-#include "arrow/status.h"
-#include "arrow/util/align_util.h"
-#include "arrow/util/bit_util.h"
-#include "arrow/util/logging.h"
-#include "arrow/util/ubsan.h"
 
 namespace arrow {
 namespace BitUtil {
