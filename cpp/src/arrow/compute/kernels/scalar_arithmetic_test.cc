@@ -64,34 +64,33 @@ class TestBinaryArithmetics<std::pair<I, O>> : public TestBase {
   }
 
   // (Scalar, Array)
-  // virtual void AssertBinop(BinaryFunction func, InputCType lhs,
-  //                          const std::string& rhs,
-  //                          const std::string& expected) {
-  //   auto input_type = TypeTraits<InputType>::type_singleton();
-  //   auto output_type = TypeTraits<OutputType>::type_singleton();
+  void AssertBinop(BinaryFunction func, InputCType lhs, const std::string& rhs,
+                   const std::string& expected) {
+    auto input_type = TypeTraits<InputType>::type_singleton();
+    auto output_type = TypeTraits<OutputType>::type_singleton();
 
-  //   auto left = Datum(MakeScalar(input_type, lhs).ValueOrDie());
-  //   auto right = Datum(ArrayFromJSON(input_type, rhs));
-  //   auto exp = ArrayFromJSON(output_type, expected);
+    ASSERT_OK_AND_ASSIGN(auto left, MakeScalar(input_type, lhs));
+    auto right = ArrayFromJSON(input_type, rhs);
+    auto exp = ArrayFromJSON(output_type, expected);
 
-  //   ASSERT_OK_AND_ASSIGN(Datum result, func(left, right, nullptr));
-  //   std::shared_ptr<Array> out = result.make_array();
-  //   ASSERT_OK(out->ValidateFull());
-  //   AssertArraysEqual(*exp, *out);
-  // }
+    ASSERT_OK_AND_ASSIGN(auto result, func(left, right, nullptr));
+    std::shared_ptr<Array> out = result.make_array();
+    ASSERT_OK(out->ValidateFull());
+    AssertArraysEqual(*exp, *out);
+  }
 
   // (Array, Array)
-  virtual void AssertBinop(BinaryFunction func, const std::shared_ptr<Array>& lhs,
-                           const std::shared_ptr<Array>& rhs,
-                           const std::shared_ptr<Array>& expected) {
+  void AssertBinop(BinaryFunction func, const std::shared_ptr<Array>& lhs,
+                   const std::shared_ptr<Array>& rhs,
+                   const std::shared_ptr<Array>& expected) {
     ASSERT_OK_AND_ASSIGN(Datum result, func(lhs, rhs, nullptr));
     std::shared_ptr<Array> out = result.make_array();
     ASSERT_OK(out->ValidateFull());
     AssertArraysEqual(*expected, *out);
   }
 
-  virtual void AssertBinop(BinaryFunction func, const std::string& lhs,
-                           const std::string& rhs, const std::string& expected) {
+  void AssertBinop(BinaryFunction func, const std::string& lhs, const std::string& rhs,
+                   const std::string& expected) {
     auto input_type = TypeTraits<InputType>::type_singleton();
     auto output_type = TypeTraits<OutputType>::type_singleton();
     AssertBinop(func, ArrayFromJSON(input_type, lhs), ArrayFromJSON(input_type, rhs),
@@ -149,8 +148,8 @@ TYPED_TEST(TestBinaryArithmeticsIntegral, Add) {
   this->AssertBinop(arrow::compute::Add, "[null, 1, 3, null, 2, 5]", "[1, 4, 2, 5, 0, 3]",
                     "[null, 5, 5, null, 2, 8]");
 
-  // this->AssertBinop(arrow::compute::Add, 10, "[null, 1, 3, null, 2, 5]",
-  //                   "[null, 11, 13, null, 12, 15]");
+  this->AssertBinop(arrow::compute::Add, 10, "[null, 1, 3, null, 2, 5]",
+                    "[null, 11, 13, null, 12, 15]");
 }
 
 TYPED_TEST(TestBinaryArithmeticsIntegral, Sub) {
@@ -160,6 +159,9 @@ TYPED_TEST(TestBinaryArithmeticsIntegral, Sub) {
 
   this->AssertBinop(arrow::compute::Subtract, "[1, 2, 3, 4, 5, 6, 7]",
                     "[0, 1, 2, 3, 4, 5, 6]", "[1, 1, 1, 1, 1, 1, 1]");
+
+  this->AssertBinop(arrow::compute::Subtract, 10, "[null, 1, 3, null, 2, 5]",
+                    "[null, 9, 7, null, 8, 5]");
 }
 
 TYPED_TEST(TestBinaryArithmeticsIntegral, Mul) {
@@ -175,6 +177,9 @@ TYPED_TEST(TestBinaryArithmeticsIntegral, Mul) {
 
   this->AssertBinop(arrow::compute::Multiply, "[null, 1, 3, null, 2, 5]",
                     "[1, 4, 2, 5, 0, 3]", "[null, 4, 6, null, 0, 15]");
+
+  this->AssertBinop(arrow::compute::Multiply, 3, "[null, 1, 3, null, 2, 5]",
+                    "[null, 3, 9, null, 6, 15]");
 }
 
 TYPED_TEST(TestBinaryArithmeticsSigned, Add) {
@@ -274,6 +279,33 @@ TYPED_TEST(TestBinaryArithmeticsFloating, Add) {
 
   this->AssertBinop(arrow::compute::Add, "[null, 1, 3.3, null, 2, 5.3]",
                     "[1, 4, 2, 5, 0, 3]", "[null, 5, 5.3, null, 2, 8.3]");
+
+  this->AssertBinop(arrow::compute::Add, 1.1, "[null, 1, 3.3, null, 2, 5.3]",
+                    "[null, 2.1, 4.4, null, 3.1, 6.4]");
+}
+
+TYPED_TEST(TestBinaryArithmeticsFloating, Sub) {
+  this->AssertBinop(arrow::compute::Subtract, "[]", "[]", "[]");
+
+  this->AssertBinop(arrow::compute::Subtract, "[3.4, 2.6, 6.3]", "[1, 0, 2]",
+                    "[2.4, 2.6, 4.3]");
+
+  // this->AssertBinop(arrow::compute::Subtract,
+  //   "[1.1, 2.4, 3.5, 4.3, 5.1, 6.8, 7.3]",
+  //   "[0.1, 1.2, 2.3, 3.4, 4.5, 5.6, 6.7]",
+  //   "[1.0, 1.2, 1.2, 0.9, 0.6, 1.2, 0.6]");
+
+  this->AssertBinop(arrow::compute::Subtract, "[7, 6, 5, 4, 3, 2, 1]",
+                    "[6, 5, 4, 3, 2, 1, 0]", "[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]");
+
+  // this->AssertBinop(arrow::compute::Subtract, "[10.4, 12, 4.2, 50, 50.3, 32, 11]",
+  //                   "[2, 0, 6, 1, 5, 3, 4]", "[8.4, 12, -1.8, 49, 45.3, 29, 7]");
+
+  // this->AssertBinop(arrow::compute::Subtract, "[null, 1, 3.3, null, 2, 5.3]",
+  //                   "[1, 4, 2, 5, 0, 3]", "[null, -3, 1.3, null, 2, 2.3]");
+
+  // this->AssertBinop(arrow::compute::Subtract, 0.1, "[null, 1, 3.3, null, 2, 5.3]",
+  //                 "[null, -0.9, -3.2, null, -1.9, -5.2]");
 }
 
 }  // namespace compute

@@ -21,41 +21,85 @@
 namespace arrow {
 namespace compute {
 
-// explicitly disallow signed integers as input arguments
 template <typename T>
-using is_unsigned_or_floating =
-    std::integral_constant<bool, std::is_unsigned<T>::value ||
-                                     std::is_floating_point<T>::value>;
+using is_unsigned_integer = std::integral_constant<bool, std::is_integral<T>::value &&
+                                                             std::is_unsigned<T>::value>;
 
 template <typename T>
-using enable_if_unsigned_or_floating = enable_if_t<is_unsigned_or_floating<T>::value>;
+using is_signed_integer =
+    std::integral_constant<bool, std::is_integral<T>::value && std::is_signed<T>::value>;
+
+template <typename T>
+using enable_if_signed_integer = enable_if_t<is_signed_integer<T>::value, T>;
+
+template <typename T>
+using enable_if_unsigned_integer = enable_if_t<is_unsigned_integer<T>::value, T>;
+
+template <typename T>
+using enable_if_floating_point = enable_if_t<std::is_floating_point<T>::value, T>;
 
 struct Add {
-  template <typename T, typename = enable_if_unsigned_or_floating<T>>
-  static constexpr T Call(KernelContext*, T left, T right) {
+  template <typename T>
+  static constexpr enable_if_floating_point<T> Call(KernelContext*, T left, T right) {
     return left + right;
+  }
+
+  template <typename T>
+  static constexpr enable_if_unsigned_integer<T> Call(KernelContext*, T left, T right) {
+    return left + right;
+  }
+
+  template <typename T>
+  static constexpr enable_if_signed_integer<T> Call(KernelContext*, T left, T right) {
+    using Unsigned = typename std::make_unsigned<T>::type;
+    return static_cast<Unsigned>(left) + static_cast<Unsigned>(right);
   }
 };
 
 struct Subtract {
-  template <typename T, typename = enable_if_unsigned_or_floating<T>>
-  static constexpr T Call(KernelContext*, T left, T right) {
+  template <typename T>
+  static constexpr enable_if_floating_point<T> Call(KernelContext*, T left, T right) {
     return left - right;
+  }
+
+  template <typename T>
+  static constexpr enable_if_unsigned_integer<T> Call(KernelContext*, T left, T right) {
+    return left - right;
+  }
+
+  template <typename T>
+  static constexpr enable_if_signed_integer<T> Call(KernelContext*, T left, T right) {
+    using Unsigned = typename std::make_unsigned<T>::type;
+    return static_cast<Unsigned>(left) - static_cast<Unsigned>(right);
   }
 };
 
 struct Multiply {
-  template <typename T, typename = enable_if_t<!std::is_same<T, uint16_t>::value &&
-                                               is_unsigned_or_floating<T>::value>>
-  static constexpr T Call(KernelContext*, T left, T right) {
+  template <typename T>
+  static constexpr enable_if_floating_point<T> Call(KernelContext*, T left, T right) {
     return left * right;
   }
 
-  template <typename T, typename = enable_if_t<std::is_same<T, uint16_t>::value>>
-  static constexpr uint16_t Call(KernelContext*, T left, T right) {
+  template <typename T>
+  static constexpr enable_if_t<
+      is_unsigned_integer<T>::value && !std::is_same<T, uint16_t>::value, T>
+  Call(KernelContext*, T left, T right) {
+    return left * right;
+  }
+
+  template <typename T>
+  static constexpr enable_if_t<std::is_same<T, uint16_t>::value, T> Call(KernelContext*,
+                                                                         T left,
+                                                                         T right) {
     // exception because multiplying to uint16 values involves implicit promotion
     // to signed int32 type which can trigger undefined behaviour by signed overflow
     return static_cast<uint32_t>(left) * static_cast<uint32_t>(right);
+  }
+
+  template <typename T>
+  static constexpr enable_if_signed_integer<T> Call(KernelContext*, T left, T right) {
+    using Unsigned = typename std::make_unsigned<T>::type;
+    return static_cast<Unsigned>(left) * static_cast<Unsigned>(right);
   }
 };
 
@@ -70,19 +114,19 @@ template <typename Op>
 ArrayKernelExec NumericEqualTypesBinary(detail::GetTypeId get_id) {
   switch (get_id.id) {
     case Type::INT8:
-      return ScalarBinaryEqualTypes<Int8Type, UInt8Type, Op>::Exec;
+      return ScalarBinaryEqualTypes<Int8Type, Int8Type, Op>::Exec;
     case Type::UINT8:
       return ScalarBinaryEqualTypes<UInt8Type, UInt8Type, Op>::Exec;
     case Type::INT16:
-      return ScalarBinaryEqualTypes<Int16Type, UInt16Type, Op>::Exec;
+      return ScalarBinaryEqualTypes<Int16Type, Int16Type, Op>::Exec;
     case Type::UINT16:
       return ScalarBinaryEqualTypes<UInt16Type, UInt16Type, Op>::Exec;
     case Type::INT32:
-      return ScalarBinaryEqualTypes<Int32Type, UInt32Type, Op>::Exec;
+      return ScalarBinaryEqualTypes<Int32Type, Int32Type, Op>::Exec;
     case Type::UINT32:
       return ScalarBinaryEqualTypes<UInt32Type, UInt32Type, Op>::Exec;
     case Type::INT64:
-      return ScalarBinaryEqualTypes<Int64Type, UInt64Type, Op>::Exec;
+      return ScalarBinaryEqualTypes<Int64Type, Int64Type, Op>::Exec;
     case Type::UINT64:
       return ScalarBinaryEqualTypes<UInt64Type, UInt64Type, Op>::Exec;
     case Type::FLOAT:
