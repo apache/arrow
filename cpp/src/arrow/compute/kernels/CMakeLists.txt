@@ -44,8 +44,7 @@ add_arrow_compute_test(vector_test
 add_arrow_benchmark(vector_hash_benchmark PREFIX "arrow-compute")
 add_arrow_benchmark(vector_sort_benchmark PREFIX "arrow-compute")
 add_arrow_benchmark(vector_partition_benchmark PREFIX "arrow-compute")
-add_arrow_benchmark(vector_filter_benchmark PREFIX "arrow-compute")
-add_arrow_benchmark(vector_take_benchmark PREFIX "arrow-compute")
+add_arrow_benchmark(vector_selection_benchmark PREFIX "arrow-compute")
 
 # ----------------------------------------------------------------------
 # Aggregate kernels
