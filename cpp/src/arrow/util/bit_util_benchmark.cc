@@ -406,10 +406,10 @@ static void BitBlockCounterSum(benchmark::State& state, NextBlockFunc&& next_blo
 
   const int64_t bitmap_length = 1 << 20;
 
-  // State parameter is the average number of total values for each false
-  // value. So 100 means that 1 out of 100 on average are false.
-  double true_probability = 1. - 1. / state.range(0);
-  auto arr = rng.Int8(bitmap_length, 0, 100, true_probability);
+  // State parameter is the average number of total values for each null
+  // value. So 100 means that 1 out of 100 on average are null.
+  double null_probability = 1. / static_cast<double>(state.range(0));
+  auto arr = rng.Int8(bitmap_length, 0, 100, null_probability);
 
   const uint8_t* bitmap = arr->null_bitmap_data();
 
@@ -459,11 +459,11 @@ static void BinaryBitBlockCounterSum(benchmark::State& state) {
 
   const int64_t bitmap_length = (1 << 20) - 1;
 
-  // State parameter is the average number of total values for each false
-  // value. So 100 means that 1 out of 100 on average are false.
-  double true_probability = 1. - 1. / state.range(0);
-  auto left = rng.Int8(bitmap_length, 0, 100, true_probability);
-  auto right = rng.Int8(bitmap_length, 0, 50, true_probability);
+  // State parameter is the average number of total values for each null
+  // value. So 100 means that 1 out of 100 on average are null.
+  double null_probability = 1. / static_cast<double>(state.range(0));
+  auto left = rng.Int8(bitmap_length, 0, 100, null_probability);
+  auto right = rng.Int8(bitmap_length, 0, 50, null_probability);
 
   const uint8_t* left_bitmap = left->null_bitmap_data();
   const uint8_t* right_bitmap = right->null_bitmap_data();
@@ -517,10 +517,10 @@ static void BitmapReaderSum(benchmark::State& state) {
 
   const int64_t bitmap_length = 1 << 20;
 
-  // State parameter is the average number of total values for each false
-  // value. So 100 means that 1 out of 100 on average are false.
-  double true_probability = 1. - 1. / state.range(0);
-  auto arr = rng.Int8(bitmap_length, 0, 100, true_probability);
+  // State parameter is the average number of total values for each null
+  // value. So 100 means that 1 out of 100 on average are null.
+  double null_probability = 1. / static_cast<double>(state.range(0));
+  auto arr = rng.Int8(bitmap_length, 0, 100, null_probability);
 
   const uint8_t* bitmap = arr->null_bitmap_data();
   // Compute the expected result
