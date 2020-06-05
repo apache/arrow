@@ -20,13 +20,13 @@
 #include <cstdint>
 #include <memory>
 #include <string>
-#include <utility>
 #include <vector>
 
 #include "arrow/array/array_nested.h"
 #include "arrow/array/builder_base.h"
 #include "arrow/array/data.h"
 #include "arrow/buffer_builder.h"
+#include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/visibility.h"

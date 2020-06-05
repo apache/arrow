@@ -451,7 +451,8 @@ class ArrayWriter {
       if (arr.IsValid(i)) {
         writer_->Int64(arr.Value(i));
       } else {
-        writer_->RawNumber(null_string.data(), null_string.size());
+        writer_->RawNumber(null_string.data(),
+                           static_cast<rj::SizeType>(null_string.size()));
       }
     }
   }
@@ -466,10 +467,12 @@ class ArrayWriter {
     static const std::string null_string = "0";
     for (int64_t i = 0; i < arr.length(); ++i) {
       if (arr.IsValid(i)) {
-        fmt(arr.Value(i),
-            [&](util::string_view repr) { writer_->String(repr.data(), repr.size()); });
+        fmt(arr.Value(i), [&](util::string_view repr) {
+          writer_->String(repr.data(), static_cast<rj::SizeType>(repr.size()));
+        });
       } else {
-        writer_->String(null_string.data(), null_string.size());
+        writer_->String(null_string.data(),
+                        static_cast<rj::SizeType>(null_string.size()));
       }
     }
   }

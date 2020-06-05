@@ -57,6 +57,7 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/bitmap_builders.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/macros.h"
@@ -116,7 +117,7 @@ Status MakeArrayFromValidBytes(const std::vector<uint8_t>& v, MemoryPool* pool,
                                std::shared_ptr<Array>* out) {
   int64_t null_count = v.size() - std::accumulate(v.begin(), v.end(), 0);
 
-  ARROW_ASSIGN_OR_RAISE(auto null_buf, BitUtil::BytesToBits(v));
+  ARROW_ASSIGN_OR_RAISE(auto null_buf, internal::BytesToBits(v));
 
   TypedBufferBuilder<int32_t> value_builder(pool);
   for (size_t i = 0; i < v.size(); ++i) {
@@ -219,7 +220,7 @@ TEST_F(TestArray, TestIsNullIsValid) {
     }
   }
 
-  ASSERT_OK_AND_ASSIGN(auto null_buf, BitUtil::BytesToBits(null_bitmap));
+  ASSERT_OK_AND_ASSIGN(auto null_buf, internal::BytesToBits(null_bitmap));
 
   std::unique_ptr<Array> arr;
   arr.reset(new Int32Array(null_bitmap.size(), nullptr, null_buf, null_count));
@@ -468,7 +469,7 @@ class TestPrimitiveBuilder : public TestBuilder {
     int64_t ex_null_count = 0;
 
     if (nullable) {
-      ASSERT_OK_AND_ASSIGN(ex_null_bitmap, BitUtil::BytesToBits(valid_bytes_));
+      ASSERT_OK_AND_ASSIGN(ex_null_bitmap, internal::BytesToBits(valid_bytes_));
       ex_null_count = CountNulls(valid_bytes_);
     } else {
       ex_null_bitmap = nullptr;
@@ -590,9 +591,9 @@ void TestPrimitiveBuilder<PBoolean>::Check(const std::unique_ptr<BooleanBuilder>
   std::shared_ptr<Buffer> ex_null_bitmap;
   int64_t ex_null_count = 0;
 
-  ASSERT_OK_AND_ASSIGN(ex_data, BitUtil::BytesToBits(draws_));
+  ASSERT_OK_AND_ASSIGN(ex_data, internal::BytesToBits(draws_));
   if (nullable) {
-    ASSERT_OK_AND_ASSIGN(ex_null_bitmap, BitUtil::BytesToBits(valid_bytes_));
+    ASSERT_OK_AND_ASSIGN(ex_null_bitmap, internal::BytesToBits(valid_bytes_));
     ex_null_count = CountNulls(valid_bytes_);
   } else {
     ex_null_bitmap = nullptr;
@@ -2089,7 +2090,7 @@ class DecimalTest : public ::testing::TestWithParam<int> {
 
     auto expected_data = std::make_shared<Buffer>(raw_bytes.data(), BYTE_WIDTH);
     std::shared_ptr<Buffer> expected_null_bitmap;
-    ASSERT_OK_AND_ASSIGN(expected_null_bitmap, BitUtil::BytesToBits(valid_bytes));
+    ASSERT_OK_AND_ASSIGN(expected_null_bitmap, internal::BytesToBits(valid_bytes));
 
     int64_t expected_null_count = CountNulls(valid_bytes);
     auto expected = std::make_shared<Decimal128Array>(

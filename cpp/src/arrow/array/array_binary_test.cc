@@ -34,6 +34,7 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/bitmap_builders.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/string_view.h"
 #include "arrow/visitor_inline.h"
@@ -93,7 +94,7 @@ class TestStringArray : public ::testing::Test {
     length_ = static_cast<int64_t>(offsets_.size()) - 1;
     value_buf_ = Buffer::Wrap(chars_);
     offsets_buf_ = Buffer::Wrap(offsets_);
-    ASSERT_OK_AND_ASSIGN(null_bitmap_, BitUtil::BytesToBits(valid_bytes_));
+    ASSERT_OK_AND_ASSIGN(null_bitmap_, internal::BytesToBits(valid_bytes_));
     null_count_ = CountNulls(valid_bytes_);
 
     strings_ = std::make_shared<ArrayType>(length_, offsets_buf_, value_buf_,

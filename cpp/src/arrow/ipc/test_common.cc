@@ -37,6 +37,7 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/bitmap_builders.h"
 #include "arrow/util/checked_cast.h"
 
 namespace arrow {
@@ -160,11 +161,11 @@ Status MakeRandomBooleanArray(const int length, bool include_nulls,
                               std::shared_ptr<Array>* out) {
   std::vector<uint8_t> values(length);
   random_null_bytes(length, 0.5, values.data());
-  ARROW_ASSIGN_OR_RAISE(auto data, BitUtil::BytesToBits(values));
+  ARROW_ASSIGN_OR_RAISE(auto data, internal::BytesToBits(values));
 
   if (include_nulls) {
     std::vector<uint8_t> valid_bytes(length);
-    ARROW_ASSIGN_OR_RAISE(auto null_bitmap, BitUtil::BytesToBits(valid_bytes));
+    ARROW_ASSIGN_OR_RAISE(auto null_bitmap, internal::BytesToBits(valid_bytes));
     random_null_bytes(length, 0.1, valid_bytes.data());
     *out = std::make_shared<BooleanArray>(length, data, null_bitmap, -1);
   } else {
@@ -422,7 +423,7 @@ Status MakeStruct(std::shared_ptr<RecordBatch>* out) {
   std::shared_ptr<Array> no_nulls(new StructArray(type, list_batch->num_rows(), columns));
   std::vector<uint8_t> null_bytes(list_batch->num_rows(), 1);
   null_bytes[0] = 0;
-  ARROW_ASSIGN_OR_RAISE(auto null_bitmap, BitUtil::BytesToBits(null_bytes));
+  ARROW_ASSIGN_OR_RAISE(auto null_bitmap, internal::BytesToBits(null_bytes));
   std::shared_ptr<Array> with_nulls(
       new StructArray(type, list_batch->num_rows(), columns, null_bitmap, 1));
 
@@ -479,7 +480,7 @@ Status MakeUnion(std::shared_ptr<RecordBatch>* out) {
 
   std::vector<uint8_t> null_bytes(length, 1);
   null_bytes[2] = 0;
-  ARROW_ASSIGN_OR_RAISE(auto null_bitmap, BitUtil::BytesToBits(null_bytes));
+  ARROW_ASSIGN_OR_RAISE(auto null_bitmap, internal::BytesToBits(null_bytes));
 
   // construct individual nullable/non-nullable struct arrays
   auto sparse_no_nulls =
@@ -757,7 +758,7 @@ Status MakeDecimal(std::shared_ptr<RecordBatch>* out) {
   random_null_bytes(length, 0.1, is_valid_bytes.data());
 
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> is_valid,
-                        BitUtil::BytesToBits(is_valid_bytes));
+                        internal::BytesToBits(is_valid_bytes));
 
   auto a1 = std::make_shared<Decimal128Array>(f0->type(), length, data, is_valid,
                                               kUnknownNullCount);

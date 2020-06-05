@@ -27,6 +27,7 @@
 #include "arrow/buffer.h"
 #include "arrow/status.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/bitmap_generate.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/ubsan.h"
 #include "arrow/util/visibility.h"

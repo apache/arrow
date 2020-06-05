@@ -38,6 +38,7 @@
 #include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/cpu_info.h"
 #include "arrow/util/logging.h"

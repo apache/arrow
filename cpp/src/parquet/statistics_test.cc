@@ -27,6 +27,7 @@
 #include <vector>
 
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/bitmap_ops.h"
 
 #include "parquet/column_reader.h"
 #include "parquet/column_writer.h"

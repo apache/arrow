@@ -33,8 +33,16 @@
 #include "arrow/memory_pool.h"
 #include "arrow/testing/gtest_common.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/bit_block_counter.h"
 #include "arrow/util/bit_stream_utils.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/bitmap.h"
+#include "arrow/util/bitmap_builders.h"
+#include "arrow/util/bitmap_ops.h"
+#include "arrow/util/bitmap_reader.h"
+#include "arrow/util/bitmap_visit.h"
+#include "arrow/util/bitmap_writer.h"
+#include "arrow/util/bitset_stack.h"
 #include "arrow/util/cpu_info.h"
 
 namespace arrow {

@@ -17,10 +17,14 @@
 
 // Implementation of casting to integer or floating point types
 
+#include "arrow/array/array_base.h"
 #include "arrow/compute/kernels/common.h"
 #include "arrow/compute/kernels/scalar_cast_internal.h"
+#include "arrow/result.h"
 #include "arrow/util/formatting.h"
+#include "arrow/util/optional.h"
 #include "arrow/util/utf8.h"
+#include "arrow/visitor_inline.h"
 
 namespace arrow {
 

@@ -17,38 +17,26 @@
 
 #pragma once
 
-// IWYU pragma: begin_exports
-
 #include <cstdint>
 #include <memory>
-#include <string>
-#include <type_traits>
-#include <utility>
-#include <vector>
 
-#include "arrow/array/data.h"
-#include "arrow/buffer.h"
-#include "arrow/compute/exec.h"
-#include "arrow/compute/function.h"
-#include "arrow/compute/kernel.h"
-#include "arrow/compute/kernels/codegen_internal.h"
-#include "arrow/compute/registry.h"
-#include "arrow/datum.h"
-#include "arrow/memory_pool.h"
-#include "arrow/status.h"
-#include "arrow/table.h"
-#include "arrow/type.h"
-#include "arrow/type_traits.h"
-#include "arrow/util/checked_cast.h"
-#include "arrow/util/logging.h"
-#include "arrow/util/macros.h"
-#include "arrow/util/string_view.h"
-
-// IWYU pragma: end_exports
+#include "arrow/result.h"
+#include "arrow/type_fwd.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow {
+namespace internal {
 
-using internal::checked_cast;
-using internal::checked_pointer_cast;
+/// \brief Generate Bitmap with all position to `value` except for one found
+/// at `straggler_pos`.
+ARROW_EXPORT
+Result<std::shared_ptr<Buffer>> BitmapAllButOne(MemoryPool* pool, int64_t length,
+                                                int64_t straggler_pos, bool value = true);
 
+/// \brief Convert vector of bytes to bitmap buffer
+ARROW_EXPORT
+Result<std::shared_ptr<Buffer>> BytesToBits(const std::vector<uint8_t>&,
+                                            MemoryPool* pool = default_memory_pool());
+
+}  // namespace internal
 }  // namespace arrow

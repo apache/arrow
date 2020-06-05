@@ -29,7 +29,14 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
+#include "arrow/util/bit_block_counter.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/bitmap.h"
+#include "arrow/util/bitmap_generate.h"
+#include "arrow/util/bitmap_ops.h"
+#include "arrow/util/bitmap_reader.h"
+#include "arrow/util/bitmap_visit.h"
+#include "arrow/util/bitmap_writer.h"
 
 namespace arrow {
 
