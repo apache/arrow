@@ -15,34 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# All of the following environment variables are required to set default values
-# for the parameters in docker-compose.yml.
-
-ULIMIT_CORE=-1
-REPO=apache/arrow-dev
-ARCH=amd64
-CUDA=9.1
-DEBIAN=10
-UBUNTU=18.04
-FEDORA=32
-PYTHON=3.6
-LLVM=10
-CLANG_TOOLS=8
-RUST=nightly-2020-04-22
-GO=1.12
-NODE=11
-MAVEN=3.5.4
-JDK=8
-PANDAS=latest
-DASK=latest
-TURBODBC=latest
-KARTOTHEK=latest
-HDFS=2.9.2
-SPARK=master
-DOTNET=2.1
-R=4.0
-ARROW_R_DEV=TRUE
-# These correspond to images on Docker Hub that contain R, e.g. rhub/ubuntu-gcc-release:latest
-R_ORG=rhub
-R_IMAGE=ubuntu-gcc-release
-R_TAG=latest
+# llvmdev=9 or later require Visual Studio 2017
+clangdev=8
+llvmdev=8
+re2

@@ -16,7 +16,7 @@
 # under the License.
 
 ARG arch
-FROM ${arch}/fedora:30
+FROM ${arch}/fedora:32
 
 # install dependencies
 RUN dnf update -y && \
@@ -25,19 +25,21 @@ RUN dnf update -y && \
         boost-devel \
         brotli-devel \
         bzip2-devel \
+        c-ares-devel \
         ccache \
         clang-devel \
         cmake \
         flatbuffers-devel \
-        java-openjdk-devel \
-        java-openjdk-headless \
+        java-1.8.0-openjdk-devel \
+        java-1.8.0-openjdk-headless \
         gcc \
         gcc-c++ \
         glog-devel \
         gflags-devel \
-        gtest-devel \
         gmock-devel \
         google-benchmark-devel \
+        protobuf-devel \
+        gtest-devel \
         git \
         libzstd-devel \
         llvm-devel \
@@ -50,17 +52,17 @@ RUN dnf update -y && \
         rapidjson-devel \
         re2-devel \
         snappy-devel \
+        thrift-devel \
+        which \
         zlib-devel
 
-# * c-ares cmake config is not installed on Fedora but gRPC needs it
-#   when built via ExternalProject: https://bugzilla.redhat.com/show_bug.cgi?id=1687844
-# * protobuf libraries in Fedora 30 are too old for gRPC
+# * gRPC 1.26 in Fedora 32 may have a problem. arrow-flight-test is stuck.
 ENV ARROW_BUILD_TESTS=ON \
     ARROW_DEPENDENCY_SOURCE=SYSTEM \
     ARROW_DATASET=ON \
     ARROW_FLIGHT=ON \
     ARROW_GANDIVA_JAVA=ON \
-    ARROW_GANDIVA=OFF \
+    ARROW_GANDIVA=ON \
     ARROW_HOME=/usr/local \
     ARROW_ORC=ON \
     ARROW_PARQUET=ON \
@@ -71,13 +73,10 @@ ENV ARROW_BUILD_TESTS=ON \
     ARROW_WITH_SNAPPY=ON \
     ARROW_WITH_ZLIB=ON \
     ARROW_WITH_ZSTD=ON \
-    cares_SOURCE=BUNDLED \
     CC=gcc \
     CXX=g++ \
     gRPC_SOURCE=BUNDLED \
     ORC_SOURCE=BUNDLED \
     PARQUET_BUILD_EXECUTABLES=ON \
     PARQUET_BUILD_EXAMPLES=ON \
-    PATH=/usr/lib/ccache/:$PATH \
-    Protobuf_SOURCE=BUNDLED \
-    Thrift_SOURCE=BUNDLED
+    PATH=/usr/lib/ccache/:$PATH

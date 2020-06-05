@@ -45,7 +45,7 @@ jobs:
       matrix:
         name:
           - debian-10-python-3
-          - fedora-30-python-3
+          - fedora-32-python-3
           - ubuntu-18.04-python-3
           - conda-python-3.7-dask-latest
           - conda-python-3.7-turbodbc-latest
@@ -59,11 +59,11 @@ jobs:
             image: debian-python
             title: AMD64 Debian 10 Python 3
             debian: 10
-          - name: fedora-30-python-3
-            cache: fedora-30-python-3
+          - name: fedora-32-python-3
+            cache: fedora-32-python-3
             image: fedora-python
-            title: AMD64 Fedora 30 Python 3
-            fedora: 30
+            title: AMD64 Fedora 32 Python 3
+            fedora: 32
           - name: ubuntu-18.04-python-3
             cache: ubuntu-18.04-python-3
             image: ubuntu-python
@@ -102,7 +102,7 @@ jobs:
     env:
       # the defaults here should correspond to the values in .env
       DEBIAN: ${{ matrix.debian || 10 }}
-      FEDORA: ${{ matrix.fedora || 30 }}
+      FEDORA: ${{ matrix.fedora || 32 }}
       UBUNTU: ${{ matrix.ubuntu || 18.04 }}
       PYTHON: ${{ matrix.python || 3.7 }}
       HDFS: ${{ matrix.hdfs || '2.9.2' }}

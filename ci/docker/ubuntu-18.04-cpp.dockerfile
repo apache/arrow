@@ -32,6 +32,19 @@ ARG clang_tools
 ARG llvm
 RUN apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
+       apt-transport-https \
+       ca-certificates \
+       gnupg \
+       wget && \
+    wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
+    echo "deb https://apt.llvm.org/bionic/ llvm-toolchain-bionic-${llvm} main" > \
+       /etc/apt/sources.list.d/llvm.list && \
+    if [ "${clang_tools}" != "${llvm}" -a "${clang_tools}" -ge 10 ]; then \
+      echo "deb https://apt.llvm.org/bionic/ llvm-toolchain-bionic-${clang_tools} main" > \
+         /etc/apt/sources.list.d/clang-tools.list; \
+    fi && \
+    apt-get update -y -q && \
+    apt-get install -y -q --no-install-recommends \
         clang-${clang_tools} \
         clang-${llvm} \
         clang-format-${clang_tools} \
