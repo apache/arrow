@@ -88,16 +88,18 @@ struct Multiply {
   }
 
   template <typename T>
-  static constexpr enable_if_t<std::is_same<T, uint16_t>::value, T> Call(KernelContext*,
-                                                                         T left,
-                                                                         T right) {
+  static constexpr enable_if_t<
+      std::is_same<T, uint16_t>::value || std::is_same<T, int16_t>::value, T>
+  Call(KernelContext*, T left, T right) {
     // exception because multiplying to uint16 values involves implicit promotion
     // to signed int32 type which can trigger undefined behaviour by signed overflow
     return static_cast<uint32_t>(left) * static_cast<uint32_t>(right);
   }
 
   template <typename T>
-  static constexpr enable_if_signed_integer<T> Call(KernelContext*, T left, T right) {
+  static constexpr enable_if_t<
+      is_signed_integer<T>::value && !std::is_same<T, int16_t>::value, T>
+  Call(KernelContext*, T left, T right) {
     using Unsigned = typename std::make_unsigned<T>::type;
     return static_cast<Unsigned>(left) * static_cast<Unsigned>(right);
   }
