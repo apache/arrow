@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class TestInMemoryScanTask < Test::Unit::TestCase
+class TestDatasetInMemoryScanTask < Test::Unit::TestCase
   include Helper::Buildable
 
   def setup
@@ -48,15 +48,15 @@ class TestInMemoryScanTask < Test::Unit::TestCase
   end
 
   def test_scan_options
-    assert_kind_of(ArrowDataset::ScanOptions, @scan_task.options)
+    assert_equal(@scan_options, @scan_task.options)
   end
 
   def test_scan_context
-    assert_kind_of(ArrowDataset::ScanContext, @scan_task.context)
+    assert_equal(@scan_context, @scan_task.context)
   end
 
   def test_execute
-    assert_equal(@record_batches.map(&:to_s),
-                 @scan_task.execute.to_list.map(&:to_s))
+    assert_equal(@record_batches,
+                 @scan_task.execute.to_list)
   end
 end

@@ -15,30 +15,19 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class TestScanOptions < Test::Unit::TestCase
+class TestDatasetScanContext < Test::Unit::TestCase
   def setup
     omit("Arrow Dataset is required") unless defined?(ArrowDataset)
-    @schema = Arrow::Schema.new([])
-    @scan_options = ArrowDataset::ScanOptions.new(@schema)
+    @scan_context = ArrowDataset::ScanContext.new
   end
 
-  def test_schema
-    assert_equal(@schema,
-                 @scan_options.schema)
-  end
-
-  def test_batch_size
-    assert_equal(1<<15,
-                 @scan_options.batch_size)
-    @scan_options.batch_size = 42
-    assert_equal(42,
-                 @scan_options.batch_size)
-  end
-
-  def test_replace_schema
-    other_schema = Arrow::Schema.new([Arrow::Field.new("visible", Arrow::BooleanDataType.new)])
-    other_scan_options = @scan_options.replace_schema(other_schema)
-    assert_not_equal(@schema, other_scan_options.schema)
-    assert_equal(other_schema, other_scan_options.schema)
+  def test_use_threads
+    assert do
+      not @scan_context.use_threads?
+    end
+    @scan_context.use_threads = true
+    assert do
+      @scan_context.use_threads?
+    end
   end
 end
