@@ -223,7 +223,7 @@ jobs:
       ARROW_DATASET: ON
       ARROW_FLIGHT: ON
       ARROW_HDFS: OFF
-      ARROW_HOME: /mingw{{ matrix.mingw-n-bits }}
+      ARROW_HOME: /mingw${{ matrix.mingw-n-bits }}
       ARROW_JEMALLOC: OFF
       ARROW_PARQUET: ON
       ARROW_PYTHON: ON
@@ -268,6 +268,12 @@ jobs:
           . ..\env.ps1
           bash ci\scripts\msys2_system_upgrade.sh
           bash ci\scripts\msys2_setup.sh cpp
+      - name: Cache ccache
+        uses: actions/cache@v1
+        with:
+          path: ccache
+          key: cpp-ccache-mingw${{ matrix.mingw-n-bits }}-${{ hashFiles('cpp/**') }}
+          restore-keys: cpp-ccache-mingw${{ matrix.mingw-n-bits }}-
       - name: Build
         run: |
           . ..\env.ps1
