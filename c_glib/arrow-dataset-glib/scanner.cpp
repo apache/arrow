@@ -63,10 +63,10 @@ G_DEFINE_TYPE_WITH_PRIVATE(GADScanContext,
                            gad_scan_context,
                            G_TYPE_OBJECT)
 
-#define GAD_SCAN_CONTEXT_GET_PRIVATE(obj)         \
-  static_cast<GADScanContextPrivate *>(           \
-     gad_scan_context_get_instance_private(       \
-       GAD_SCAN_CONTEXT(obj)))
+#define GAD_SCAN_CONTEXT_GET_PRIVATE(obj)       \
+  static_cast<GADScanContextPrivate *>(         \
+    gad_scan_context_get_instance_private(      \
+      GAD_SCAN_CONTEXT(obj)))
 
 static void
 gad_scan_context_finalize(GObject *object)
@@ -192,10 +192,10 @@ G_DEFINE_TYPE_WITH_PRIVATE(GADScanOptions,
                            gad_scan_options,
                            G_TYPE_OBJECT)
 
-#define GAD_SCAN_OPTIONS_GET_PRIVATE(obj)         \
-  static_cast<GADScanOptionsPrivate *>(           \
-     gad_scan_options_get_instance_private(       \
-       GAD_SCAN_OPTIONS(obj)))
+#define GAD_SCAN_OPTIONS_GET_PRIVATE(obj)       \
+  static_cast<GADScanOptionsPrivate *>(         \
+    gad_scan_options_get_instance_private(      \
+      GAD_SCAN_OPTIONS(obj)))
 
 static void
 gad_scan_options_finalize(GObject *object)
@@ -360,10 +360,10 @@ G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE(GADScanTask,
                                     gad_scan_task,
                                     G_TYPE_OBJECT)
 
-#define GAD_SCAN_TASK_GET_PRIVATE(obj)         \
-  static_cast<GADScanTaskPrivate *>(           \
-     gad_scan_task_get_instance_private(       \
-       GAD_SCAN_TASK(obj)))
+#define GAD_SCAN_TASK_GET_PRIVATE(obj)          \
+  static_cast<GADScanTaskPrivate *>(            \
+    gad_scan_task_get_instance_private(         \
+      GAD_SCAN_TASK(obj)))
 
 static void
 gad_scan_task_finalize(GObject *object)
