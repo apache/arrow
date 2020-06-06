@@ -36,6 +36,7 @@ struct _GADScanContextClass
   GObjectClass parent_class;
 };
 
+GARROW_AVAILABLE_IN_1_0
 GADScanContext *gad_scan_context_new(void);
 
 /* arrow::dataset::ScanOptions */
@@ -51,8 +52,12 @@ struct _GADScanOptionsClass
   GObjectClass parent_class;
 };
 
+
+GARROW_AVAILABLE_IN_1_0
 GADScanOptions *gad_scan_options_new(GArrowSchema *schema);
+GARROW_AVAILABLE_IN_1_0
 GArrowSchema *gad_scan_options_get_schema(GADScanOptions *scan_options);
+GARROW_AVAILABLE_IN_1_0
 GADScanOptions *gad_scan_options_replace_schema(GADScanOptions *scan_options,
                                                 GArrowSchema *schema);
 
@@ -69,8 +74,11 @@ struct _GADScanTaskClass
   GObjectClass parent_class;
 };
 
+GARROW_AVAILABLE_IN_1_0
 GADScanOptions *gad_scan_task_get_options(GADScanTask *scan_task);
+GARROW_AVAILABLE_IN_1_0
 GADScanContext *gad_scan_task_get_context(GADScanTask *scan_task);
+GARROW_AVAILABLE_IN_1_0
 GArrowRecordBatchIterator *gad_scan_task_execute(GADScanTask *scan_task,
                                                  GError **error);
 
@@ -87,6 +95,7 @@ struct _GADInMemoryScanTaskClass
   GADScanTaskClass parent_class;
 };
 
+GARROW_AVAILABLE_IN_1_0
 GADInMemoryScanTask *gad_in_memory_scan_task_new(GArrowRecordBatch **record_batches,
                                                  gsize n_record_batches,
                                                  GADScanOptions *scan_options,

@@ -44,6 +44,8 @@ G_BEGIN_DECLS
  * #GADScanTask is an abstract class for a scan task.
  *
  * #GADInMemoryScanTask is a class for a scan task of record batches.
+ *
+ * Since: 1.0.0
  */
 
 /* arrow::dataset::ScanContext */
@@ -164,6 +166,8 @@ gad_scan_context_class_init(GADScanContextClass *klass)
  * gad_scan_context_new:
  *
  * Returns: A newly created #GADScanContext.
+ *
+ * Since: 1.0.0
  */
 GADScanContext *gad_scan_context_new(void)
 {
