@@ -23,6 +23,7 @@
 
 #include <arrow/type.h>
 #include "gandiva/decimal_scalar.h"
+#include "gandiva/visibility.h"
 
 namespace gandiva {
 
