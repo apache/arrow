@@ -146,8 +146,6 @@ Table <- R6Class("Table", inherit = ArrowObject,
       if (is.integer(i)) {
         i <- Array$create(i)
       }
-      # Invalid: Tried executing function with non-value type: Table
-      # so use old methods
       shared_ptr(Table, call_function("take", self, i))
     },
     Filter = function(i, keep_na = TRUE) {

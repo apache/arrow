@@ -75,8 +75,6 @@ ChunkedArray <- R6Class("ChunkedArray", inherit = ArrowObject,
       if (is.integer(i)) {
         i <- Array$create(i)
       }
-      # Invalid: Tried executing function with non-value type: ChunkedArray
-      # so use old methods
       shared_ptr(ChunkedArray, call_function("take", self, i))
     },
     Filter = function(i, keep_na = TRUE) {
