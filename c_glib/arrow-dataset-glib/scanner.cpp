@@ -128,10 +128,7 @@ gad_scan_context_init(GADScanContext *object)
 static void
 gad_scan_context_class_init(GADScanContextClass *klass)
 {
-  GObjectClass *gobject_class;
-  GParamSpec *spec;
-
-  gobject_class = G_OBJECT_CLASS(klass);
+  auto gobject_class = G_OBJECT_CLASS(klass);
 
   gobject_class->finalize     = gad_scan_context_finalize;
   gobject_class->set_property = gad_scan_context_set_property;
@@ -139,6 +136,7 @@ gad_scan_context_class_init(GADScanContextClass *klass)
 
   auto scan_context = arrow::dataset::ScanContext();
 
+  GParamSpec *spec;
   spec = g_param_spec_pointer("scan-context",
                               "ScanContext",
                               "The raw std::shared<arrow::dataset::ScanContext> *",
@@ -417,15 +415,13 @@ gad_scan_task_init(GADScanTask *object)
 static void
 gad_scan_task_class_init(GADScanTaskClass *klass)
 {
-  GObjectClass *gobject_class;
-  GParamSpec *spec;
-
-  gobject_class = G_OBJECT_CLASS(klass);
+  auto gobject_class = G_OBJECT_CLASS(klass);
 
   gobject_class->finalize     = gad_scan_task_finalize;
   gobject_class->set_property = gad_scan_task_set_property;
   gobject_class->get_property = gad_scan_task_get_property;
 
+  GParamSpec *spec;
   spec = g_param_spec_pointer("scan-task",
                               "ScanTask",
                               "The raw std::shared<arrow::dataset::ScanTask> *",
