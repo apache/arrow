@@ -79,7 +79,7 @@ static Status ConcatenateBitmaps(const std::vector<Bitmap>& bitmaps, MemoryPool*
       BitUtil::SetBitsTo(dst, bitmap_offset, bitmap.range.length, true);
     } else {
       internal::CopyBitmap(bitmap.data, bitmap.range.offset, bitmap.range.length, dst,
-                           bitmap_offset, false);
+                           bitmap_offset);
     }
     bitmap_offset += bitmap.range.length;
   }

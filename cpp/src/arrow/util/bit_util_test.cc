@@ -1073,7 +1073,7 @@ TEST(BitUtilTests, TestBitmapEquals) {
       for (int64_t offset_dst : offsets) {
         const auto bit_length = num_bits - offset_src;
 
-        internal::CopyBitmap(src, offset_src, bit_length, dst, offset_dst, false);
+        internal::CopyBitmap(src, offset_src, bit_length, dst, offset_dst);
         ASSERT_TRUE(internal::BitmapEquals(src, offset_src, dst, offset_dst, bit_length));
 
         // test negative cases by flip some bit at head and tail
