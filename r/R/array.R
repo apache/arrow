@@ -343,23 +343,6 @@ is.Array <- function(x, type = NULL) {
 }
 
 #' @export
-sum.Array <- function(..., na.rm = FALSE) {
-  args <- list(...)
-  assert_that(length(args) == 1) # TODO: make chunked array if there are multiple arrays
-  a <- ..1
-  if (!na.rm && a$null_count > 0) {
-    # Arrow sum function always drops NAs so handle that here
-    Scalar$create(NA_integer_, type = a$type)
-  } else {
-    if (inherits(a$type, "Boolean")) {
-      # Bool sum not implemented so cast to int
-      a <- a$cast(int8())
-    }
-    shared_ptr(Scalar, call_function("sum", a))
-  }
-}
-
-#' @export
 as.double.Array <- function(x, ...) as.double(as.vector(x), ...)
 
 #' @export

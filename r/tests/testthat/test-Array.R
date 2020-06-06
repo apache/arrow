@@ -599,24 +599,3 @@ test_that("Array$ApproxEquals", {
   expect_true(a$ApproxEquals(b))
   expect_false(a$ApproxEquals(vec))
 })
-
-test_that("sum.Array", {
-  ints <- 1:5
-  a <- Array$create(ints)
-  expect_is(sum(a), "Scalar")
-  expect_identical(as.integer(sum(a)), sum(ints))
-
-  floats <- c(1.3, 2.4, 3)
-  f <- Array$create(floats)
-  expect_identical(as.numeric(sum(f)), sum(floats))
-
-  floats <- c(floats, NA)
-  na <- Array$create(floats)
-  expect_identical(as.numeric(sum(na)), sum(floats))
-  expect_is(sum(na, na.rm = TRUE), "Scalar")
-  expect_identical(as.numeric(sum(na, na.rm = TRUE)), sum(floats, na.rm = TRUE))
-
-  bools <- c(TRUE, TRUE, FALSE)
-  b <- Array$create(bools)
-  expect_identical(as.integer(sum(b)), sum(bools))
-})

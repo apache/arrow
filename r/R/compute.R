@@ -16,6 +16,8 @@
 # under the License.
 
 #' @include array.R
+#' @include chunked-array.R
+#' @include scalar.R
 
 call_function <- function(function_name, ..., options = list()) {
   assert_that(is.string(function_name))
@@ -32,13 +34,34 @@ CastOptions <- R6Class("CastOptions", inherit = ArrowObject)
 #' @param allow_float_truncate allow float truncate, `!safe` by default
 #'
 #' @export
-cast_options <- function(
-  safe = TRUE,
-  allow_int_overflow = !safe,
-  allow_time_truncate = !safe,
-  allow_float_truncate = !safe
-){
+cast_options <- function(safe = TRUE,
+                         allow_int_overflow = !safe,
+                         allow_time_truncate = !safe,
+                         allow_float_truncate = !safe) {
   shared_ptr(CastOptions,
     compute___CastOptions__initialize(allow_int_overflow, allow_time_truncate, allow_float_truncate)
   )
 }
+
+#' @export
+sum.Array <- function(..., na.rm = FALSE) {
+  args <- list(...)
+  assert_that(length(args) == 1) # TODO: make chunked array if there are multiple arrays
+  a <- ..1
+  if (!na.rm && a$null_count > 0) {
+    # Arrow sum function always drops NAs so handle that here
+    Scalar$create(NA_integer_, type = a$type)
+  } else {
+    if (inherits(a$type, "Boolean")) {
+      # Bool sum not implemented so cast to int
+      a <- a$cast(int8())
+    }
+    shared_ptr(Scalar, call_function("sum", a))
+  }
+}
+
+#' @export
+sum.ChunkedArray <- sum.Array
+
+#' @export
+sum.Scalar <- sum.Array

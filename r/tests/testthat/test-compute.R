@@ -17,6 +17,40 @@
 
 context("compute")
 
+test_that("sum.Array", {
+  ints <- 1:5
+  a <- Array$create(ints)
+  expect_is(sum(a), "Scalar")
+  expect_identical(as.integer(sum(a)), sum(ints))
+
+  floats <- c(1.3, 2.4, 3)
+  f <- Array$create(floats)
+  expect_identical(as.numeric(sum(f)), sum(floats))
+
+  floats <- c(floats, NA)
+  na <- Array$create(floats)
+  expect_identical(as.numeric(sum(na)), sum(floats))
+  expect_is(sum(na, na.rm = TRUE), "Scalar")
+  expect_identical(as.numeric(sum(na, na.rm = TRUE)), sum(floats, na.rm = TRUE))
+
+  bools <- c(TRUE, TRUE, FALSE)
+  b <- Array$create(bools)
+  expect_identical(as.integer(sum(b)), sum(bools))
+})
+
+test_that("sum.ChunkedArray", {
+  a <- ChunkedArray$create(1:4, c(1:4, NA), 1:5)
+  expect_is(sum(a), "Scalar")
+  expect_true(is.na(as.vector(sum(a))))
+  expect_identical(as.numeric(sum(a, na.rm = TRUE)), 35)
+})
+
+test_that("sum.Scalar", {
+  skip("No sum method in arrow for Scalar")
+  s <- Scalar$create(4)
+  expect_identical(as.numeric(s), as.numeric(sum(s)))
+})
+
 test_that("Bad input handling of call_function", {
   expect_error(call_function("sum", 2, 3), "to_datum: Not implemented for type double")
 })

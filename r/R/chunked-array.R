@@ -160,6 +160,3 @@ as.integer.ChunkedArray <- as.integer.Array
 
 #' @export
 as.character.ChunkedArray <- as.character.Array
-
-#' @export
-sum.ChunkedArray <- sum.Array

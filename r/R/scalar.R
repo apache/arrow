@@ -72,6 +72,3 @@ as.integer.Scalar <- as.integer.Array
 
 #' @export
 as.character.Scalar <- as.character.Array
-
-#' @export
-sum.Scalar <- sum.Array
