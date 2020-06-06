@@ -46,7 +46,7 @@ test_that("sum.ChunkedArray", {
 })
 
 test_that("sum.Scalar", {
-  skip("No sum method in arrow for Scalar")
+  skip("No sum method in arrow for Scalar: ARROW-9056")
   s <- Scalar$create(4)
   expect_identical(as.numeric(s), as.numeric(sum(s)))
 })
@@ -80,7 +80,7 @@ test_that("mean.ChunkedArray", {
 })
 
 test_that("mean.Scalar", {
-  skip("No mean method in arrow for Scalar")
+  skip("No mean method in arrow for Scalar: ARROW-9056")
   s <- Scalar$create(4)
   expect_identical(as.vector(s), mean(s))
 })
