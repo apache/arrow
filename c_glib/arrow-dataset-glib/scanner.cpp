@@ -351,10 +351,14 @@ gad_scan_options_replace_schema(GADScanOptions *scan_options,
 
 typedef struct GADScanTaskPrivate_ {
   std::shared_ptr<arrow::dataset::ScanTask> scan_task;
+  GADScanOptions *options;
+  GADScanContext *context;
 } GADScanTaskPrivate;
 
 enum {
   PROP_SCAN_TASK = 1,
+  PROP_OPTIONS,
+  PROP_CONTEXT,
 };
 
 G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE(GADScanTask,
@@ -365,6 +369,24 @@ G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE(GADScanTask,
   static_cast<GADScanTaskPrivate *>(            \
     gad_scan_task_get_instance_private(         \
       GAD_SCAN_TASK(obj)))
+
+static void
+gad_scan_task_dispose(GObject *object)
+{
+  auto priv = GAD_SCAN_TASK_GET_PRIVATE(object);
+
+  if (priv->options) {
+    g_object_unref(priv->options);
+    priv->options = NULL;
+  }
+
+  if (priv->context) {
+    g_object_unref(priv->context);
+    priv->context = NULL;
+  }
+
+  G_OBJECT_CLASS(gad_scan_task_parent_class)->dispose(object);
+}
 
 static void
 gad_scan_task_finalize(GObject *object)
@@ -389,6 +411,12 @@ gad_scan_task_set_property(GObject *object,
     priv->scan_task =
       *static_cast<std::shared_ptr<arrow::dataset::ScanTask> *>(g_value_get_pointer(value));
     break;
+  case PROP_OPTIONS:
+    priv->options = GAD_SCAN_OPTIONS(g_value_dup_object(value));
+    break;
+  case PROP_CONTEXT:
+    priv->context = GAD_SCAN_CONTEXT(g_value_dup_object(value));
+    break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
     break;
@@ -401,7 +429,15 @@ gad_scan_task_get_property(GObject *object,
                            GValue *value,
                            GParamSpec *pspec)
 {
+  auto priv = GAD_SCAN_TASK_GET_PRIVATE(object);
+
   switch (prop_id) {
+  case PROP_OPTIONS:
+    g_value_set_object(value, priv->options);
+    break;
+  case PROP_CONTEXT:
+    g_value_set_object(value, priv->context);
+    break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
     break;
@@ -420,6 +456,7 @@ gad_scan_task_class_init(GADScanTaskClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
 
+  gobject_class->dispose      = gad_scan_task_dispose;
   gobject_class->finalize     = gad_scan_task_finalize;
   gobject_class->set_property = gad_scan_task_set_property;
   gobject_class->get_property = gad_scan_task_get_property;
@@ -431,6 +468,36 @@ gad_scan_task_class_init(GADScanTaskClass *klass)
                               static_cast<GParamFlags>(G_PARAM_WRITABLE |
                                                        G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_SCAN_TASK, spec);
+
+  /**
+   * GADScanTask:options:
+   *
+   * The options of the scan task.
+   *
+   * Since: 1.0.0
+   */
+  spec = g_param_spec_object("options",
+                             "Options",
+                             "The options of the scan task",
+                             GAD_TYPE_SCAN_OPTIONS,
+                             static_cast<GParamFlags>(G_PARAM_READWRITE |
+                                                      G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class, PROP_OPTIONS, spec);
+
+  /**
+   * GADScanTask:context:
+   *
+   * The context of the scan task.
+   *
+   * Since: 1.0.0
+   */
+  spec = g_param_spec_object("context",
+                             "Context",
+                             "The context of the scan task",
+                             GAD_TYPE_SCAN_CONTEXT,
+                             static_cast<GParamFlags>(G_PARAM_READWRITE |
+                                                      G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class, PROP_CONTEXT, spec);
 }
 
 /**
@@ -445,8 +512,13 @@ GADScanOptions *
 gad_scan_task_get_options(GADScanTask *scan_task)
 {
   auto priv = GAD_SCAN_TASK_GET_PRIVATE(scan_task);
-  auto arrow_scan_options = priv->scan_task->options();
-  return gad_scan_options_new_raw(&arrow_scan_options);
+  if (priv->options) {
+    g_object_ref(priv->options);
+    return priv->options;
+  }
+
+  auto arrow_options = priv->scan_task->options();
+  return gad_scan_options_new_raw(&arrow_options);
 }
 
 /**
@@ -461,8 +533,13 @@ GADScanContext *
 gad_scan_task_get_context(GADScanTask *scan_task)
 {
   auto priv = GAD_SCAN_TASK_GET_PRIVATE(scan_task);
-  auto arrow_scan_context = priv->scan_task->context();
-  return gad_scan_context_new_raw(&arrow_scan_context);
+  if (priv->context) {
+    g_object_ref(priv->context);
+    return priv->context;
+  }
+
+  auto arrow_context = priv->scan_task->context();
+  return gad_scan_context_new_raw(&arrow_context);
 }
 
 /**
@@ -509,17 +586,18 @@ gad_in_memory_scan_task_class_init(GADInMemoryScanTaskClass *klass)
  * @record_batches: (array length=n_record_batches):
  *   (element-type GArrowRecordBatch): The record batches of the table.
  * @n_record_batches: The number of record batches.
- * @scan_options: A #GADScanOptions.
- * @scan_context: A #GADScanContext.
+ * @options: A #GADScanOptions.
+ * @context: A #GADScanContext.
  *
  * Returns: A newly created #GADInMemoryScanTask.
  *
  * Since: 1.0.0
  */
-GADInMemoryScanTask *gad_in_memory_scan_task_new(GArrowRecordBatch **record_batches,
-                                                 gsize n_record_batches,
-                                                 GADScanOptions *scan_options,
-                                                 GADScanContext *scan_context)
+GADInMemoryScanTask *
+gad_in_memory_scan_task_new(GArrowRecordBatch **record_batches,
+                            gsize n_record_batches,
+                            GADScanOptions *options,
+                            GADScanContext *context)
 {
   std::vector<std::shared_ptr<arrow::RecordBatch>> arrow_record_batches;
   arrow_record_batches.reserve(n_record_batches);
@@ -527,13 +605,15 @@ GADInMemoryScanTask *gad_in_memory_scan_task_new(GArrowRecordBatch **record_batc
     auto arrow_record_batch = garrow_record_batch_get_raw(record_batches[i]);
     arrow_record_batches.push_back(arrow_record_batch);
   }
-  auto arrow_scan_options = gad_scan_options_get_raw(scan_options);
-  auto arrow_scan_context = gad_scan_context_get_raw(scan_context);
+  auto arrow_options = gad_scan_options_get_raw(options);
+  auto arrow_context = gad_scan_context_get_raw(context);
   auto arrow_in_memory_scan_task =
     std::make_shared<arrow::dataset::InMemoryScanTask>(arrow_record_batches,
-                                                       arrow_scan_options,
-                                                       arrow_scan_context);
-  return gad_in_memory_scan_task_new_raw(&arrow_in_memory_scan_task);
+                                                       arrow_options,
+                                                       arrow_context);
+  return gad_in_memory_scan_task_new_raw(&arrow_in_memory_scan_task,
+                                         options,
+                                         context);
 }
 
 G_END_DECLS
@@ -573,11 +653,15 @@ gad_scan_options_get_raw(GADScanOptions *scan_options)
 }
 
 GADInMemoryScanTask *
-gad_in_memory_scan_task_new_raw(std::shared_ptr<arrow::dataset::InMemoryScanTask> *arrow_in_memory_scan_task)
+gad_in_memory_scan_task_new_raw(std::shared_ptr<arrow::dataset::InMemoryScanTask> *arrow_in_memory_scan_task,
+                                GADScanOptions *options,
+                                GADScanContext *context)
 {
   auto in_memory_scan_task =
     GAD_IN_MEMORY_SCAN_TASK(g_object_new(GAD_TYPE_IN_MEMORY_SCAN_TASK,
                                          "scan-task", arrow_in_memory_scan_task,
+                                         "options", options,
+                                         "context", context,
                                          NULL));
   return in_memory_scan_task;
 }

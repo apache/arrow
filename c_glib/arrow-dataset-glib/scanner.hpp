@@ -34,4 +34,6 @@ std::shared_ptr<arrow::dataset::ScanOptions>
 gad_scan_options_get_raw(GADScanOptions *scan_options);
 
 GADInMemoryScanTask *
-gad_in_memory_scan_task_new_raw(std::shared_ptr<arrow::dataset::InMemoryScanTask> *arrow_in_memory_scan_task);
+gad_in_memory_scan_task_new_raw(std::shared_ptr<arrow::dataset::InMemoryScanTask> *arrow_in_memory_scan_task,
+                                GADScanOptions *scan_options,
+                                GADScanContext *scan_context);
