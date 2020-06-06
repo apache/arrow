@@ -118,7 +118,7 @@ impl ArrayData {
     /// Returns whether the element at index `i` is null
     pub fn is_null(&self, i: usize) -> bool {
         if let Some(ref b) = self.null_bitmap {
-            return !b.is_set(self.offset() + i);
+            return !b.is_set(i);
         }
         false
     }
@@ -136,7 +136,7 @@ impl ArrayData {
     /// Returns whether the element at index `i` is not null
     pub fn is_valid(&self, i: usize) -> bool {
         if let Some(ref b) = self.null_bitmap {
-            return b.is_set(self.offset() + i);
+            return b.is_set(i);
         }
         true
     }
