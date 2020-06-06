@@ -56,7 +56,6 @@ typedef struct GADScanContextPrivate_ {
 
 enum {
   PROP_SCAN_CONTEXT = 1,
-  PROP_MEMORY_POOL,
   PROP_USE_THREADS,
 };
 
