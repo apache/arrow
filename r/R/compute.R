@@ -65,3 +65,26 @@ sum.ChunkedArray <- sum.Array
 
 #' @export
 sum.Scalar <- sum.Array
+
+#' @export
+mean.Array <- function(..., na.rm = FALSE) {
+  args <- list(...)
+  assert_that(length(args) == 1) # TODO: make chunked array if there are multiple arrays
+  a <- ..1
+  if (!na.rm && a$null_count > 0) {
+    # Arrow sum/mean function always drops NAs so handle that here
+    Scalar$create(NA_integer_, type = a$type)
+  } else {
+    if (inherits(a$type, "Boolean")) {
+      # Bool sum/mean not implemented so cast to int
+      a <- a$cast(int8())
+    }
+    shared_ptr(Scalar, call_function("mean", a))
+  }
+}
+
+#' @export
+mean.ChunkedArray <- mean.Array
+
+#' @export
+mean.Scalar <- mean.Array

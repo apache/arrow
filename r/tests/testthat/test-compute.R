@@ -51,6 +51,40 @@ test_that("sum.Scalar", {
   expect_identical(as.numeric(s), as.numeric(sum(s)))
 })
 
+test_that("mean.Array", {
+  ints <- 1:4
+  a <- Array$create(ints)
+  expect_is(mean(a), "Scalar")
+  expect_identical(as.vector(mean(a)), mean(ints))
+
+  floats <- c(1.3, 2.4, 3)
+  f <- Array$create(floats)
+  expect_identical(as.vector(mean(f)), mean(floats))
+
+  floats <- c(floats, NA)
+  na <- Array$create(floats)
+  expect_identical(as.vector(mean(na)), mean(floats))
+  expect_is(mean(na, na.rm = TRUE), "Scalar")
+  expect_identical(as.vector(mean(na, na.rm = TRUE)), mean(floats, na.rm = TRUE))
+
+  bools <- c(TRUE, TRUE, FALSE)
+  b <- Array$create(bools)
+  expect_identical(as.vector(mean(b)), mean(bools))
+})
+
+test_that("mean.ChunkedArray", {
+  a <- ChunkedArray$create(1:4, c(1:4, NA), 1:5)
+  expect_is(mean(a), "Scalar")
+  expect_true(is.na(as.vector(mean(a))))
+  expect_identical(as.vector(mean(a, na.rm = TRUE)), 35/13)
+})
+
+test_that("mean.Scalar", {
+  skip("No mean method in arrow for Scalar")
+  s <- Scalar$create(4)
+  expect_identical(as.vector(s), mean(s))
+})
+
 test_that("Bad input handling of call_function", {
   expect_error(call_function("sum", 2, 3), "to_datum: Not implemented for type double")
 })
