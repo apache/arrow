@@ -146,6 +146,9 @@ subdir('example')
 
 if get_option('gtk_doc')
   subdir('doc/arrow-glib')
+  if arrow_dataset.found()
+    subdir('doc/arrow-dataset-glib')
+  endif
   if gandiva.found()
     subdir('doc/gandiva-glib')
   endif

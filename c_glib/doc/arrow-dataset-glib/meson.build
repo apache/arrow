@@ -17,15 +17,15 @@
 # specific language governing permissions and limitations
 # under the License.
 
-package_id = 'parquet-glib'
-package_name = 'Apache Parquet GLib'
+package_id = 'arrow-dataset-glib'
+package_name = 'Apache Arrow Datasets GLib'
 entities_conf = configuration_data()
 entities_conf.set('PACKAGE', package_id)
 entities_conf.set('PACKAGE_BUGREPORT',
-                  'https://issues.apache.org/jira/browse/PARQUET')
+                  'https://issues.apache.org/jira/browse/ARROW')
 entities_conf.set('PACKAGE_NAME', package_name)
 entities_conf.set('PACKAGE_STRING',
-                  ' '.join([package_name, version]))
+                  ' '.join([package_id, version]))
 entities_conf.set('PACKAGE_URL', 'https://arrow.apache.org/')
 entities_conf.set('PACKAGE_VERSION', version)
 configure_file(input: 'entities.xml.in',
@@ -54,8 +54,8 @@ source_directories = [
   join_paths(meson.build_root(), package_id),
 ]
 dependencies = [
-  parquet_glib,
   arrow_glib,
+  arrow_dataset_glib,
 ]
 ignore_headers = []
 gnome.gtkdoc(package_id,
@@ -66,11 +66,11 @@ gnome.gtkdoc(package_id,
              gobject_typesfile: package_id + '.types',
              scan_args: [
                '--rebuild-types',
-               '--deprecated-guards=GPARQUET_DISABLE_DEPRECATED',
+               '--deprecated-guards=GARROW_DISABLE_DEPRECATED',
              ],
              mkdb_args: [
                '--output-format=xml',
-               '--name-space=gparquet',
+               '--name-space=gad',
                '--source-suffixes=c,cpp,h',
              ],
              fixxref_args: [
