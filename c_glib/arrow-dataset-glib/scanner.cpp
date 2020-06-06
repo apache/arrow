@@ -166,7 +166,8 @@ gad_scan_context_class_init(GADScanContextClass *klass)
  *
  * Since: 1.0.0
  */
-GADScanContext *gad_scan_context_new(void)
+GADScanContext *
+gad_scan_context_new(void)
 {
   auto arrow_scan_context = std::make_shared<arrow::dataset::ScanContext>();
   return gad_scan_context_new_raw(&arrow_scan_context);
@@ -302,7 +303,8 @@ gad_scan_options_class_init(GADScanOptionsClass *klass)
  *
  * Since: 1.0.0
  */
-GADScanOptions *gad_scan_options_new(GArrowSchema *schema)
+GADScanOptions *
+gad_scan_options_new(GArrowSchema *schema)
 {
   auto arrow_schema = garrow_schema_get_raw(schema);
   auto arrow_scan_options = arrow::dataset::ScanOptions::Make(arrow_schema);
@@ -335,8 +337,9 @@ gad_scan_options_get_schema(GADScanOptions *scan_options)
  *
  * Since: 1.0.0
  */
-GADScanOptions *gad_scan_options_replace_schema(GADScanOptions *scan_options,
-                                                GArrowSchema *schema)
+GADScanOptions *
+gad_scan_options_replace_schema(GADScanOptions *scan_options,
+                                GArrowSchema *schema)
 {
   auto priv = GAD_SCAN_OPTIONS_GET_PRIVATE(scan_options);
   auto arrow_schema = garrow_schema_get_raw(schema);
