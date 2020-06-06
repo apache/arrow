@@ -32,12 +32,33 @@ export LD_LIBRARY_PATH=${ARROW_HOME}/${CMAKE_INSTALL_LIBDIR:-lib}:${LD_LIBRARY_P
 # to retrieve metadata. Disable this so that S3FileSystem tests run faster.
 export AWS_EC2_METADATA_DISABLED=TRUE
 
+ctest_options=()
 case "$(uname)" in
   Linux)
     n_jobs=$(nproc)
     ;;
   Darwin)
     n_jobs=$(sysctl -n hw.ncpu)
+    ;;
+  MINGW*)
+    n_jobs=${NUMBER_OF_PROCESSORS:-1}
+    ctest_options+=(--exclude-regex gandiva-internals-test)
+    ctest_options+=(--exclude-regex gandiva-projector-test)
+    ctest_options+=(--exclude-regex gandiva-utf8-test)
+    if [ "${MSYSTEM}" = "MINGW32" ]; then
+      ctest_options+=(--exclude-regex gandiva-binary-test)
+      ctest_options+=(--exclude-regex gandiva-boolean-expr-test)
+      ctest_options+=(--exclude-regex gandiva-date-time-test)
+      ctest_options+=(--exclude-regex gandiva-decimal-single-test)
+      ctest_options+=(--exclude-regex gandiva-decimal-test)
+      ctest_options+=(--exclude-regex gandiva-filter-project-test)
+      ctest_options+=(--exclude-regex gandiva-filter-test)
+      ctest_options+=(--exclude-regex gandiva-hash-test)
+      ctest_options+=(--exclude-regex gandiva-if-expr-test)
+      ctest_options+=(--exclude-regex gandiva-in-expr-test)
+      ctest_options+=(--exclude-regex gandiva-literal-test)
+      ctest_options+=(--exclude-regex gandiva-null-validity-test)
+    fi
     ;;
   *)
     n_jobs=${NPROC:-1}
@@ -53,7 +74,8 @@ ctest \
     --label-regex unittest \
     --output-on-failure \
     --parallel ${n_jobs} \
-    --timeout 300
+    --timeout 300 \
+    "${ctest_options[@]}"
 
 if [ "${ARROW_FUZZING}" == "ON" ]; then
     # Fuzzing regression tests

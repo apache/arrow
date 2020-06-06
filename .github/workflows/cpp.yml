@@ -244,7 +244,6 @@ jobs:
         -DBoost_NO_BOOST_CMAKE=ON
       CMAKE_GENERATOR: MSYS Makefiles
       CMAKE_UNITY_BUILD: ON
-      NPROC: 2
     steps:
       - name: Disable Crash Dialogs
         run: |
