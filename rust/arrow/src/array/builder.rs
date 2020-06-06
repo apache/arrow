@@ -407,6 +407,11 @@ pub trait ArrayBuilder: Any {
     /// This is most useful when concatenating arrays of the same type into a builder.
     fn append_data(&mut self, data: &[ArrayDataRef]) -> Result<()>;
 
+    /// Returns the data type of the builder
+    ///
+    /// This is used for validating array data types in `append_data`
+    fn data_type(&self) -> DataType;
+
     /// Builds the array
     fn finish(&mut self) -> ArrayRef;
 
@@ -459,13 +464,13 @@ impl<T: ArrowPrimitiveType> ArrayBuilder for PrimitiveBuilder<T> {
     ///
     /// This is most useful when concatenating arrays of the same type into a builder.
     fn append_data(&mut self, data: &[ArrayDataRef]) -> Result<()> {
+        if !check_array_data_type(&T::get_data_type(), data) {
+            return Err(ArrowError::InvalidArgumentError(
+                "Cannot append data to builder if data types are different".to_string(),
+            ));
+        }
         let mul = T::get_bit_width() / 8;
         for array in data {
-            if array.data_type() != &T::get_data_type() {
-                return Err(ArrowError::InvalidArgumentError(format!(
-                    "Appending data requires the same data types"
-                )));
-            }
             let len = array.len();
             if len == 0 {
                 continue;
@@ -491,6 +496,13 @@ impl<T: ArrowPrimitiveType> ArrayBuilder for PrimitiveBuilder<T> {
             }
         }
         Ok(())
+    }
+
+    /// Returns the data type of the builder
+    ///
+    /// This is used for validating array data types in `append_data`
+    fn data_type(&self) -> DataType {
+        T::get_data_type()
     }
 
     /// Builds the array and reset this builder.
@@ -624,6 +636,11 @@ where
     ///
     /// This is most useful when concatenating arrays of the same type into a builder.
     fn append_data(&mut self, data: &[ArrayDataRef]) -> Result<()> {
+        if !check_array_data_type(&self.data_type(), data) {
+            return Err(ArrowError::InvalidArgumentError(
+                "Cannot append data to builder if data types are different".to_string(),
+            ));
+        }
         // determine the latest offset on the builder
         let mut cum_offset = if self.offsets_builder.len() == 0 {
             0
@@ -636,60 +653,58 @@ where
             i32::from_le_bytes(slice.try_into().unwrap())
         };
         for array in data {
-            if let DataType::List(_) = array.data_type() {
-                if array.child_data().len() != 1 {
-                    return Err(ArrowError::InvalidArgumentError(
-                        "When appending list arrays, data must contain 1 child_data element"
-                            .to_string(),
-                    ));
-                }
-                let len = array.len();
-                if len == 0 {
-                    continue;
-                }
-                let offset = array.offset();
+            if array.child_data().len() != 1 {
+                return Err(ArrowError::InvalidArgumentError(
+                    "When appending list arrays, data must contain 1 child_data element"
+                        .to_string(),
+                ));
+            }
+            let len = array.len();
+            if len == 0 {
+                continue;
+            }
+            let offset = array.offset();
 
-                // `typed_data` is unsafe, however this call is safe as `ListArray` has i32 offsets
-                unsafe {
-                    let offsets: &[i32] = &array.buffers()[0].typed_data::<i32>()
-                        [offset..(len + offset) + 1];
-                    // the offsets of the child array determine its length
-                    // this could be obtained by getting the concrete ListArray and getting value_offsets
-                    let offset_at_len = offsets[offsets.len() - 1] as usize;
-                    let first_offset = offsets[0] as usize;
-                    // create the child array and offset it
-                    let child_data = &array.child_data()[0];
-                    let child_array = make_array(child_data.clone());
-                    // slice the child array to account for offsets
-                    let sliced =
-                        child_array.slice(first_offset, offset_at_len - first_offset);
-                    self.values().append_data(&[sliced.data()])?;
-                    let adjusted_offsets: Vec<i32> = offsets
-                        .windows(2)
-                        .into_iter()
-                        .map(|w| {
-                            let curr_offset = w[1] - w[0] + cum_offset;
-                            cum_offset = curr_offset;
-                            curr_offset
-                        })
-                        .collect();
-                    self.offsets_builder
-                        .append_slice(adjusted_offsets.as_slice())?;
-                }
-                // append array length
-                self.len += len;
-                for i in 0..len {
-                    // account for offset as `ArrayData` does not
-                    self.bitmap_builder.append(array.is_valid(offset + i))?;
-                }
-            } else {
-                return Err(ArrowError::InvalidArgumentError(format!(
-                    "Expected a list array, but got {:?} while appending data",
-                    array.data_type()
-                )));
+            // `typed_data` is unsafe, however this call is safe as `ListArray` has i32 offsets
+            let offsets = unsafe {
+                &array.buffers()[0].typed_data::<i32>()[offset..(len + offset) + 1]
+            };
+            // the offsets of the child array determine its length
+            // this could be obtained by getting the concrete ListArray and getting value_offsets
+            let offset_at_len = offsets[offsets.len() - 1] as usize;
+            let first_offset = offsets[0] as usize;
+            // create the child array and offset it
+            let child_data = &array.child_data()[0];
+            let child_array = make_array(child_data.clone());
+            // slice the child array to account for offsets
+            let sliced = child_array.slice(first_offset, offset_at_len - first_offset);
+            self.values().append_data(&[sliced.data()])?;
+            let adjusted_offsets: Vec<i32> = offsets
+                .windows(2)
+                .into_iter()
+                .map(|w| {
+                    let curr_offset = w[1] - w[0] + cum_offset;
+                    cum_offset = curr_offset;
+                    curr_offset
+                })
+                .collect();
+            self.offsets_builder
+                .append_slice(adjusted_offsets.as_slice())?;
+            // append array length
+            self.len += len;
+            for i in 0..len {
+                // account for offset as `ArrayData` does not
+                self.bitmap_builder.append(array.is_valid(offset + i))?;
             }
         }
         Ok(())
+    }
+
+    /// Returns the data type of the builder
+    ///
+    /// This is used for validating array data types in `append_data`
+    fn data_type(&self) -> DataType {
+        DataType::List(Box::new(self.values_builder.data_type()))
     }
 
     /// Returns the builder as a mutable `Any` reference.
@@ -806,48 +821,49 @@ where
     ///
     /// This is most useful when concatenating arrays of the same type into a builder.
     fn append_data(&mut self, data: &[ArrayDataRef]) -> Result<()> {
+        if !check_array_data_type(&self.data_type(), data) {
+            return Err(ArrowError::InvalidArgumentError(
+                "Cannot append data to builder if data types are different".to_string(),
+            ));
+        }
         // determine the latest offset on the builder
         for array in data {
-            if let DataType::FixedSizeList(_, list_len) = array.data_type() {
-                if self.list_len != *list_len {
-                    return Err(ArrowError::InvalidArgumentError("Cannot append fixed size list arrays of different element lengths".to_string()));
-                }
-                if array.child_data().len() != 1 {
-                    return Err(ArrowError::InvalidArgumentError(
-                        "When appending FixedSizedList arrays, data must contain 1 child_data element"
-                            .to_string(),
-                    ));
-                }
-                let len = array.len();
-                if len == 0 {
-                    continue;
-                }
-                let offset = array.offset();
+            if array.child_data().len() != 1 {
+                return Err(ArrowError::InvalidArgumentError(
+                    "When appending FixedSizedList arrays, data must contain 1 child_data element"
+                        .to_string(),
+                ));
+            }
+            let len = array.len();
+            if len == 0 {
+                continue;
+            }
+            let offset = array.offset();
 
-                // the offsets of the child array determine its length
-                let first_offset = *list_len as usize * offset;
-                let offset_at_len = first_offset + len * *list_len as usize;
-                // create the child array and offset it
-                let child_data = &array.child_data()[0];
-                let child_array = make_array(child_data.clone());
-                // slice the child array to account for offsets
-                let sliced =
-                    child_array.slice(first_offset, offset_at_len - first_offset);
-                self.values().append_data(&[sliced.data()])?;
-                // append array length
-                self.len += len;
-                for i in 0..len {
-                    // account for offset as `ArrayData` does not
-                    self.bitmap_builder.append(array.is_valid(offset + i))?;
-                }
-            } else {
-                return Err(ArrowError::InvalidArgumentError(format!(
-                    "Expected a list array, but got {:?} while appending data",
-                    array.data_type()
-                )));
+            // the offsets of the child array determine its length
+            let first_offset = self.list_len as usize * offset;
+            let offset_at_len = first_offset + len * self.list_len as usize;
+            // create the child array and offset it
+            let child_data = &array.child_data()[0];
+            let child_array = make_array(child_data.clone());
+            // slice the child array to account for offsets
+            let sliced = child_array.slice(first_offset, offset_at_len - first_offset);
+            self.values().append_data(&[sliced.data()])?;
+            // append array length
+            self.len += len;
+            for i in 0..len {
+                // account for offset as `ArrayData` does not
+                self.bitmap_builder.append(array.is_valid(offset + i))?;
             }
         }
         Ok(())
+    }
+
+    /// Returns the data type of the builder
+    ///
+    /// This is used for validating array data types in `append_data`
+    fn data_type(&self) -> DataType {
+        DataType::FixedSizeList(Box::new(self.values_builder.data_type()), self.list_len)
     }
 
     /// Returns the builder as a mutable `Any` reference.
@@ -963,6 +979,13 @@ impl ArrayBuilder for BinaryBuilder {
         append_binary_data(&mut self.builder, &DataType::Binary, data)
     }
 
+    /// Returns the data type of the builder
+    ///
+    /// This is used for validating array data types in `append_data`
+    fn data_type(&self) -> DataType {
+        DataType::Binary
+    }
+
     /// Returns the builder as a mutable `Any` reference.
     fn as_any_mut(&mut self) -> &mut Any {
         self
@@ -997,6 +1020,13 @@ impl ArrayBuilder for StringBuilder {
         append_binary_data(&mut self.builder, &DataType::Utf8, data)
     }
 
+    /// Returns the data type of the builder
+    ///
+    /// This is used for validating array data types in `append_data`
+    fn data_type(&self) -> DataType {
+        DataType::Utf8
+    }
+
     /// Returns the builder as a mutable `Any` reference.
     fn as_any_mut(&mut self) -> &mut Any {
         self
@@ -1024,35 +1054,33 @@ fn append_binary_data(
     data_type: &DataType,
     data: &[ArrayDataRef],
 ) -> Result<()> {
+    if !check_array_data_type(data_type, data) {
+        return Err(ArrowError::InvalidArgumentError(
+            "Cannot append data to builder if data types are different".to_string(),
+        ));
+    }
     for array in data {
-        if data_type == array.data_type() {
-            // convert string to List<u8> to reuse list's cast
-            let int_data = &array.buffers()[1];
-            let int_data = Arc::new(ArrayData::new(
-                DataType::UInt8,
-                int_data.len(),
-                None,
-                None,
-                0,
-                vec![int_data.clone()],
-                vec![],
-            )) as ArrayDataRef;
-            let list_data = Arc::new(ArrayData::new(
-                DataType::List(Box::new(DataType::UInt8)),
-                array.len(),
-                None,
-                array.null_buffer().map(|buf| buf.clone()),
-                array.offset(),
-                vec![(&array.buffers()[0]).clone()],
-                vec![int_data],
-            ));
-            builder.append_data(&[list_data])?;
-        } else {
-            return Err(ArrowError::InvalidArgumentError(format!(
-                "Expected a list array, but got {:?} while appending data",
-                array.data_type()
-            )));
-        }
+        // convert string to List<u8> to reuse list's cast
+        let int_data = &array.buffers()[1];
+        let int_data = Arc::new(ArrayData::new(
+            DataType::UInt8,
+            int_data.len(),
+            None,
+            None,
+            0,
+            vec![int_data.clone()],
+            vec![],
+        )) as ArrayDataRef;
+        let list_data = Arc::new(ArrayData::new(
+            DataType::List(Box::new(DataType::UInt8)),
+            array.len(),
+            None,
+            array.null_buffer().map(|buf| buf.clone()),
+            array.offset(),
+            vec![(&array.buffers()[0]).clone()],
+            vec![int_data],
+        ));
+        builder.append_data(&[list_data])?;
     }
     Ok(())
 }
@@ -1067,37 +1095,42 @@ impl ArrayBuilder for FixedSizeBinaryBuilder {
     ///
     /// This is most useful when concatenating arrays of the same type into a builder.
     fn append_data(&mut self, data: &[ArrayDataRef]) -> Result<()> {
+        if !check_array_data_type(&self.data_type(), data) {
+            return Err(ArrowError::InvalidArgumentError(
+                "Cannot append data to builder if data types are different".to_string(),
+            ));
+        }
         for array in data {
-            if let DataType::FixedSizeBinary(list_len) = array.data_type() {
-                // convert string to FixedSizeList<u8> to reuse list's append
-                let int_data = &array.buffers()[0];
-                let int_data = Arc::new(ArrayData::new(
-                    DataType::UInt8,
-                    int_data.len(),
-                    None,
-                    None,
-                    0,
-                    vec![int_data.clone()],
-                    vec![],
-                )) as ArrayDataRef;
-                let list_data = Arc::new(ArrayData::new(
-                    DataType::FixedSizeList(Box::new(DataType::UInt8), *list_len),
-                    array.len(),
-                    None,
-                    array.null_buffer().map(|buf| buf.clone()),
-                    array.offset(),
-                    vec![],
-                    vec![int_data],
-                ));
-                self.builder.append_data(&[list_data])?;
-            } else {
-                return Err(ArrowError::InvalidArgumentError(format!(
-                    "Expected a FixedSizeBinary array, but got {:?} while appending data",
-                    array.data_type()
-                )));
-            }
+            // convert string to FixedSizeList<u8> to reuse list's append
+            let int_data = &array.buffers()[0];
+            let int_data = Arc::new(ArrayData::new(
+                DataType::UInt8,
+                int_data.len(),
+                None,
+                None,
+                0,
+                vec![int_data.clone()],
+                vec![],
+            )) as ArrayDataRef;
+            let list_data = Arc::new(ArrayData::new(
+                DataType::FixedSizeList(Box::new(DataType::UInt8), self.builder.list_len),
+                array.len(),
+                None,
+                array.null_buffer().map(|buf| buf.clone()),
+                array.offset(),
+                vec![],
+                vec![int_data],
+            ));
+            self.builder.append_data(&[list_data])?;
         }
         Ok(())
+    }
+
+    /// Returns the data type of the builder
+    ///
+    /// This is used for validating array data types in `append_data`
+    fn data_type(&self) -> DataType {
+        DataType::FixedSizeBinary(self.builder.list_len)
     }
 
     /// Returns the builder as a mutable `Any` reference.
@@ -1275,44 +1308,42 @@ impl ArrayBuilder for StructBuilder {
     ///
     /// This is most useful when concatenating arrays of the same type into a builder.
     fn append_data(&mut self, data: &[ArrayDataRef]) -> Result<()> {
+        if !check_array_data_type(&self.data_type(), data) {
+            return Err(ArrowError::InvalidArgumentError(
+                "Cannot append data to builder if data types are different".to_string(),
+            ));
+        }
         for array in data {
-            if let DataType::Struct(fields) = array.data_type() {
-                if &self.fields != fields {
-                    return Err(ArrowError::InvalidArgumentError(
-                        "Struct arrays are not the same".to_string(),
-                    ));
-                }
-                let len = array.len();
-                if len == 0 {
-                    continue;
-                }
-                let offset = array.offset();
-                let results: Result<Vec<()>> = self
-                    .field_builders
-                    .iter_mut()
-                    .zip(array.child_data())
-                    .map(|(builder, child_data)| {
-                        // slice child_data to account for offsets
-                        let child_array = make_array(child_data.clone());
-                        let sliced = child_array.slice(offset, len);
-                        builder.append_data(&[sliced.data()])
-                    })
-                    .collect();
-                results?;
-                // append array length
-                self.len += len;
-                for i in 0..len {
-                    // account for offset as `ArrayData` does not
-                    self.bitmap_builder.append(array.is_valid(offset + i))?;
-                }
-            } else {
-                return Err(ArrowError::InvalidArgumentError(format!(
-                    "Expected a StructArray, but got {:?} while appending data",
-                    array.data_type()
-                )));
+            let len = array.len();
+            if len == 0 {
+                continue;
+            }
+            let offset = array.offset();
+            for (builder, child_data) in self
+                .field_builders
+                .iter_mut()
+                .zip(array.child_data().iter())
+            {
+                // slice child_data to account for offsets
+                let child_array = make_array(child_data.clone());
+                let sliced = child_array.slice(offset, len);
+                builder.append_data(&[sliced.data()])?;
+            }
+            // append array length
+            self.len += len;
+            for i in 0..len {
+                // account for offset as `ArrayData` does not
+                self.bitmap_builder.append(array.is_valid(offset + i))?;
             }
         }
         Ok(())
+    }
+
+    /// Returns the data type of the builder
+    ///
+    /// This is used for validating array data types in `append_data`
+    fn data_type(&self) -> DataType {
+        DataType::Struct(self.fields.clone())
     }
 
     /// Builds the array.
@@ -1574,6 +1605,13 @@ where
         unimplemented!("Appending data for dictionary arrays not yet implemented")
     }
 
+    /// Returns the data type of the builder
+    ///
+    /// This is used for validating array data types in `append_data`
+    fn data_type(&self) -> DataType {
+        DataType::Dictionary(Box::new(K::get_data_type()), Box::new(V::get_data_type()))
+    }
+
     /// Builds the array and reset this builder.
     fn finish(&mut self) -> ArrayRef {
         Arc::new(self.finish())
@@ -1726,6 +1764,13 @@ where
         unimplemented!("Appending data for dictionary arrays not yet implemented")
     }
 
+    /// Returns the data type of the builder
+    ///
+    /// This is used for validating array data types in `append_data`
+    fn data_type(&self) -> DataType {
+        DataType::Dictionary(Box::new(K::get_data_type()), Box::new(DataType::Utf8))
+    }
+
     /// Builds the array and reset this builder.
     fn finish(&mut self) -> ArrayRef {
         Arc::new(self.finish())
@@ -1765,6 +1810,11 @@ where
         let value_ref: ArrayRef = Arc::new(self.values_builder.finish());
         self.keys_builder.finish_dict(value_ref)
     }
+}
+
+/// Checks that array data matches desired data type
+fn check_array_data_type(data_type: &DataType, data: &[ArrayDataRef]) -> bool {
+    data.iter().all(|data| data.data_type() == data_type)
 }
 
 #[cfg(test)]
