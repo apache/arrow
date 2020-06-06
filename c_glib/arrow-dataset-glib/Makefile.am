@@ -30,7 +30,6 @@ lib_LTLIBRARIES =				\
 
 libarrow_dataset_glib_la_CXXFLAGS =		\
 	$(GLIB_CFLAGS)				\
-	$(ARROW_CFLAGS)				\
 	$(ARROW_DATASET_CFLAGS)			\
 	$(GARROW_CXXFLAGS)
 
@@ -40,7 +39,6 @@ libarrow_dataset_glib_la_LDFLAGS =		\
 
 libarrow_dataset_glib_la_LIBADD =		\
 	$(GLIB_LIBS)				\
-	$(ARROW_LIBS)				\
 	$(ARROW_DATASET_LIBS)			\
 	../arrow-glib/libarrow-glib.la
 
@@ -98,11 +96,11 @@ ArrowDataset_1_0_gir_LIBS =
 ArrowDataset_1_0_gir_FILES =			\
 	$(libarrow_dataset_glib_la_sources)
 ArrowDataset_1_0_gir_SCANNERFLAGS =				\
-	--library-path=$(ARROW_LIB_DIR)				\
-	--warn-all						\
 	--add-include-path=$(abs_builddir)/../arrow-glib	\
-	--identifier-prefix=GArrowDataset			\
-	--symbol-prefix=garrow_dataset
+	--identifier-prefix=GAD					\
+	--library-path=$(ARROW_LIB_DIR)				\
+	--symbol-prefix=gad					\
+	--warn-all
 if OS_MACOS
 ArrowDataset_1_0_gir_LIBS +=			\
 	 arrow-glib				\

@@ -56,23 +56,21 @@ pkgconfig.generate(libarrow_dataset_glib,
                    version: version,
                    requires: ['arrow-glib', 'arrow-dataset'])
 
-gir_dependencies = [
-  declare_dependency(sources: arrow_glib_gir),
-]
-gir_extra_args = [
-  '--warn-all',
-  '--include-uninstalled=./arrow-glib/Arrow-1.0.gir',
-]
-arrow_dataset_glib_gir = gnome.generate_gir(libarrow_dataset_glib,
-                                            dependencies: gir_dependencies,
-                                            sources: sources + c_headers,
-                                            namespace: 'ArrowDataset',
-                                            nsversion: api_version,
-                                            identifier_prefix: 'GAD',
-                                            symbol_prefix: 'gad',
-                                            export_packages: 'arrow-dataset-glib',
-                                            includes: [
-                                              'Arrow-1.0',
-                                            ],
-                                            install: true,
-                                            extra_args: gir_extra_args)
+if have_gi
+  gnome.generate_gir(libarrow_dataset_glib,
+                     dependencies: declare_dependency(sources: arrow_glib_gir),
+                     sources: sources + c_headers,
+                     namespace: 'ArrowDataset',
+                     nsversion: api_version,
+                     identifier_prefix: 'GAD',
+                     symbol_prefix: 'gad',
+                     export_packages: 'arrow-dataset-glib',
+                     includes: [
+                       'Arrow-1.0',
+                     ],
+                     install: true,
+                     extra_args: [
+                       '--warn-all',
+                       '--include-uninstalled=./arrow-glib/Arrow-1.0.gir',
+                     ])
+endif
