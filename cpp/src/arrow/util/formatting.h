@@ -41,6 +41,9 @@ namespace internal {
 template <typename ARROW_TYPE, typename Enable = void>
 class StringFormatter;
 
+template <typename Appender>
+using Return = decltype(std::declval<Appender>()(util::string_view{}));
+
 template <>
 class StringFormatter<BooleanType> {
  public:
@@ -49,7 +52,7 @@ class StringFormatter<BooleanType> {
   using value_type = bool;
 
   template <typename Appender>
-  Status operator()(bool value, Appender&& append) {
+  Return<Appender> operator()(bool value, Appender&& append) {
     if (value) {
       const char string[] = "true";
       return append(util::string_view(string));
@@ -95,7 +98,7 @@ class IntToStringFormatterMixin {
       (is_signed ? 2 : 1) + std::numeric_limits<value_type>::digits10;
 
   template <typename Appender>
-  Status operator()(value_type value, Appender&& append) {
+  Return<Appender> operator()(value_type value, Appender&& append) {
     char buffer[buffer_size];
     char* ptr = buffer + buffer_size;
     int32_t size = 0;
@@ -206,7 +209,7 @@ class FloatToStringFormatterMixin : public FloatToStringFormatter {
   explicit FloatToStringFormatterMixin(const std::shared_ptr<DataType>& = NULLPTR) {}
 
   template <typename Appender>
-  Status operator()(value_type value, Appender&& append) {
+  Return<Appender> operator()(value_type value, Appender&& append) {
     char buffer[buffer_size];
     int size = FormatFloat(value, buffer, buffer_size);
     return append(util::string_view(buffer, size));

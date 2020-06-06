@@ -17,6 +17,7 @@
 
 #include "arrow/ipc/dictionary.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <memory>
 #include <utility>
@@ -139,6 +140,25 @@ Status DictionaryMemo::AddDictionary(int64_t id,
   }
   id_to_dictionary_[id] = dictionary;
   return Status::OK();
+}
+
+DictionaryMemo::DictionaryVector DictionaryMemo::dictionaries() const {
+  // Sort dictionaries by ascending id.   This ensures that, in the case
+  // of nested dictionaries, inner dictionaries are emitted before outer
+  // dictionaries.
+  // XXX This shouldn't be required.  On the IPC write path, the
+  // DictionaryMemo only needs to store a vector of dictionaries
+  // (by-id lookups are only needed on the IPC read path).
+  using DictEntry = typename DictionaryVector::value_type;
+
+  std::vector<DictEntry> dict_entries(id_to_dictionary_.size());
+  std::copy(id_to_dictionary_.begin(), id_to_dictionary_.end(), dict_entries.begin());
+
+  const auto compare_entries = [](const DictEntry& l, const DictEntry& r) {
+    return l.first < r.first;
+  };
+  std::sort(dict_entries.begin(), dict_entries.end(), compare_entries);
+  return dict_entries;
 }
 
 // ----------------------------------------------------------------------

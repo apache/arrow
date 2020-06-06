@@ -33,6 +33,7 @@
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
+#include "arrow/datum.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
@@ -688,13 +689,11 @@ inline Status ConvertStruct(const PandasOptions& options, const ChunkedArray& da
 
 Status DecodeDictionaries(MemoryPool* pool, const std::shared_ptr<DataType>& dense_type,
                           std::vector<std::shared_ptr<Array>>* arrays) {
-  compute::FunctionContext ctx(pool);
+  compute::ExecContext ctx(pool);
   compute::CastOptions options;
-
   for (size_t i = 0; i < arrays->size(); ++i) {
-    std::shared_ptr<Array> out;
-    RETURN_NOT_OK(compute::Cast(&ctx, *(*arrays)[i], dense_type, options, &out));
-    (*arrays)[i] = out;
+    ARROW_ASSIGN_OR_RAISE((*arrays)[i],
+                          compute::Cast(*(*arrays)[i], dense_type, options, &ctx));
   }
   return Status::OK();
 }
@@ -1212,14 +1211,14 @@ class DatetimeNanoWriter : public DatetimeWriter<TimeUnit::NANO> {
   Status CopyInto(std::shared_ptr<ChunkedArray> data, int64_t rel_placement) override {
     Type::type type = data->type()->id();
     int64_t* out_values = this->GetBlockColumnStart(rel_placement);
-    compute::FunctionContext ctx(options_.pool);
+    compute::ExecContext ctx(options_.pool);
     compute::CastOptions options;
     if (options_.safe_cast) {
       options = compute::CastOptions::Safe();
     } else {
       options = compute::CastOptions::Unsafe();
     }
-    compute::Datum out;
+    Datum out;
     auto target_type = timestamp(TimeUnit::NANO);
 
     if (type == Type::DATE32) {
@@ -1236,8 +1235,7 @@ class DatetimeNanoWriter : public DatetimeWriter<TimeUnit::NANO> {
         ConvertNumericNullable<int64_t>(*data, kPandasTimestampNull, out_values);
       } else if (ts_type.unit() == TimeUnit::MICRO || ts_type.unit() == TimeUnit::MILLI ||
                  ts_type.unit() == TimeUnit::SECOND) {
-        RETURN_NOT_OK(
-            arrow::compute::Cast(&ctx, compute::Datum(data), target_type, options, &out));
+        ARROW_ASSIGN_OR_RAISE(out, compute::Cast(data, target_type, options, &ctx));
         ConvertNumericNullable<int64_t>(*out.chunked_array(), kPandasTimestampNull,
                                         out_values);
       } else {
@@ -1998,13 +1996,12 @@ Status ConvertCategoricals(const PandasOptions& options,
   // For Categorical conversions
   auto EncodeColumn = [&](int j) {
     int i = columns_to_encode[j];
-    compute::FunctionContext ctx(options.pool);
-    compute::Datum out;
     if (options.zero_copy_only) {
       return Status::Invalid("Need to dictionary encode a column, but ",
                              "only zero-copy conversions allowed");
     }
-    RETURN_NOT_OK(DictionaryEncode(&ctx, (*arrays)[i], &out));
+    compute::ExecContext ctx(options.pool);
+    ARROW_ASSIGN_OR_RAISE(Datum out, DictionaryEncode((*arrays)[i], &ctx));
     (*arrays)[i] = out.chunked_array();
     (*fields)[i] = (*fields)[i]->WithType((*arrays)[i]->type());
     return Status::OK();
@@ -2039,13 +2036,12 @@ Status ConvertChunkedArrayToPandas(const PandasOptions& options,
                                    std::shared_ptr<ChunkedArray> arr, PyObject* py_ref,
                                    PyObject** out) {
   if (options.strings_to_categorical && is_base_binary_like(arr->type()->id())) {
-    compute::FunctionContext ctx(options.pool);
-    compute::Datum out;
     if (options.zero_copy_only) {
       return Status::Invalid("Need to dictionary encode a column, but ",
                              "only zero-copy conversions allowed");
     }
-    RETURN_NOT_OK(DictionaryEncode(&ctx, arr, &out));
+    compute::ExecContext ctx(options.pool);
+    ARROW_ASSIGN_OR_RAISE(Datum out, DictionaryEncode(arr, &ctx));
     arr = out.chunked_array();
   }
 

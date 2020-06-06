@@ -96,6 +96,17 @@ class ARROW_FLIGHT_EXPORT FlightMetadataWriter {
   virtual Status WriteMetadata(const Buffer& app_metadata) = 0;
 };
 
+/// \brief A writer for IPC payloads to a client. Also allows sending
+/// application-defined metadata via the Flight protocol.
+///
+/// This class offers more control compared to FlightDataStream,
+/// including the option to write metadata without data and the
+/// ability to interleave reading and writing.
+class ARROW_FLIGHT_EXPORT FlightMessageWriter : public MetadataRecordBatchWriter {
+ public:
+  virtual ~FlightMessageWriter() = default;
+};
+
 /// \brief Call state/contextual data.
 class ARROW_FLIGHT_EXPORT ServerCallContext {
  public:
@@ -235,6 +246,15 @@ class ARROW_FLIGHT_EXPORT FlightServerBase {
   virtual Status DoPut(const ServerCallContext& context,
                        std::unique_ptr<FlightMessageReader> reader,
                        std::unique_ptr<FlightMetadataWriter> writer);
+
+  /// \brief Process a bidirectional stream of IPC payloads
+  /// \param[in] context The call context.
+  /// \param[in] reader a sequence of uploaded record batches
+  /// \param[in] writer send data back to the client
+  /// \return Status
+  virtual Status DoExchange(const ServerCallContext& context,
+                            std::unique_ptr<FlightMessageReader> reader,
+                            std::unique_ptr<FlightMessageWriter> writer);
 
   /// \brief Execute an action, return stream of zero or more results
   /// \param[in] context The call context.

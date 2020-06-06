@@ -21,6 +21,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/array/array_dict.h"
 #include "arrow/builder.h"
 #include "arrow/ipc/json_simple.h"
 #include "arrow/type_traits.h"

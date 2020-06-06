@@ -167,6 +167,9 @@ impl<'a> OptimizerRule for TypeCoercionRule<'a> {
                 )?
                 .build(),
             LogicalPlan::TableScan { .. } => Ok(plan.clone()),
+            LogicalPlan::InMemoryScan { .. } => Ok(plan.clone()),
+            LogicalPlan::ParquetScan { .. } => Ok(plan.clone()),
+            LogicalPlan::CsvScan { .. } => Ok(plan.clone()),
             LogicalPlan::EmptyRelation { .. } => Ok(plan.clone()),
             LogicalPlan::Limit { .. } => Ok(plan.clone()),
             LogicalPlan::CreateExternalTable { .. } => Ok(plan.clone()),
@@ -182,9 +185,32 @@ impl<'a> OptimizerRule for TypeCoercionRule<'a> {
 mod tests {
     use super::*;
     use crate::execution::context::ExecutionContext;
+    use crate::execution::physical_plan::csv::CsvReadOptions;
     use crate::logicalplan::Expr::*;
-    use crate::logicalplan::Operator;
+    use crate::logicalplan::{col, Operator};
+    use crate::test::arrow_testdata_path;
     use arrow::datatypes::{DataType, Field, Schema};
+
+    #[test]
+    fn test_with_csv_plan() -> Result<()> {
+        let testdata = arrow_testdata_path();
+        let path = format!("{}/csv/aggregate_test_100.csv", testdata);
+
+        let options = CsvReadOptions::new().schema_infer_max_records(100);
+        let plan = LogicalPlanBuilder::scan_csv(&path, options, None)?
+            .filter(col("c7").lt(&col("c12")))?
+            .build()?;
+
+        let scalar_functions = HashMap::new();
+        let mut rule = TypeCoercionRule::new(&scalar_functions);
+        let plan = rule.optimize(&plan)?;
+
+        assert!(
+            format!("{:?}", plan).starts_with("Selection: CAST(#c7 AS Float64) Lt #c12")
+        );
+
+        Ok(())
+    }
 
     #[test]
     fn test_add_i32_i64() {

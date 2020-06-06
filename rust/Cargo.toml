@@ -22,4 +22,5 @@ members = [
         "datafusion",
         "arrow-flight",
         "integration-testing",
+	"benchmarks",
 ]

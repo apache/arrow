@@ -319,7 +319,7 @@ services:
     #   docker-compose run --rm fedora-cpp
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   FEDORA: 30
+    #   FEDORA: 32
     image: ${REPO}:${ARCH}-fedora-${FEDORA}-cpp
     build:
       context: .
@@ -558,7 +558,7 @@ services:
     #   docker-compose run --rm fedora-python
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   FEDORA: 30
+    #   FEDORA: 32
     image: ${REPO}:${ARCH}-fedora-${FEDORA}-python-3
     build:
       context: .

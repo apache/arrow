@@ -21,9 +21,11 @@
 #include <utility>
 
 #include "arrow/result.h"
-#include "arrow/type.h"
 
 namespace arrow {
+
+class DataType;
+
 namespace util {
 
 enum DivideOrMultiply {
@@ -31,17 +33,9 @@ enum DivideOrMultiply {
   DIVIDE,
 };
 
-// TimestampType -> TimestampType
-static std::pair<DivideOrMultiply, int64_t> kTimestampConversionTable[4][4] = {
-    // TimestampType::SECOND
-    {{MULTIPLY, 1}, {MULTIPLY, 1000}, {MULTIPLY, 1000000}, {MULTIPLY, 1000000000}},
-    // TimestampType::MILLI
-    {{DIVIDE, 1000}, {MULTIPLY, 1}, {MULTIPLY, 1000}, {MULTIPLY, 1000000}},
-    // TimestampType::MICRO
-    {{DIVIDE, 1000000}, {DIVIDE, 1000}, {MULTIPLY, 1}, {MULTIPLY, 1000}},
-    // TimestampType::NANO
-    {{DIVIDE, 1000000000}, {DIVIDE, 1000000}, {DIVIDE, 1000}, {MULTIPLY, 1}},
-};
+ARROW_EXPORT
+std::pair<DivideOrMultiply, int64_t> GetTimestampConversion(TimeUnit::type in_unit,
+                                                            TimeUnit::type out_unit);
 
 // Converts a Timestamp value into another Timestamp value.
 //

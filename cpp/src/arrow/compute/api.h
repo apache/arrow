@@ -15,20 +15,17 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// NOTE: API is EXPERIMENTAL and will change without going through a
+// deprecation cycle
+
 #pragma once
 
-#include "arrow/compute/context.h"  // IWYU pragma: export
-#include "arrow/compute/kernel.h"   // IWYU pragma: export
-
-#include "arrow/compute/kernels/boolean.h"          // IWYU pragma: export
-#include "arrow/compute/kernels/cast.h"             // IWYU pragma: export
-#include "arrow/compute/kernels/compare.h"          // IWYU pragma: export
-#include "arrow/compute/kernels/count.h"            // IWYU pragma: export
-#include "arrow/compute/kernels/filter.h"           // IWYU pragma: export
-#include "arrow/compute/kernels/hash.h"             // IWYU pragma: export
-#include "arrow/compute/kernels/isin.h"             // IWYU pragma: export
-#include "arrow/compute/kernels/mean.h"             // IWYU pragma: export
-#include "arrow/compute/kernels/nth_to_indices.h"   // IWYU pragma: export
-#include "arrow/compute/kernels/sort_to_indices.h"  // IWYU pragma: export
-#include "arrow/compute/kernels/sum.h"              // IWYU pragma: export
-#include "arrow/compute/kernels/take.h"             // IWYU pragma: export
+#include "arrow/compute/api_aggregate.h"  // IWYU pragma: export
+#include "arrow/compute/api_scalar.h"     // IWYU pragma: export
+#include "arrow/compute/api_vector.h"     // IWYU pragma: export
+#include "arrow/compute/cast.h"           // IWYU pragma: export
+#include "arrow/compute/exec.h"           // IWYU pragma: export
+#include "arrow/compute/function.h"       // IWYU pragma: export
+#include "arrow/compute/kernel.h"         // IWYU pragma: export
+#include "arrow/compute/registry.h"       // IWYU pragma: export
+#include "arrow/datum.h"                  // IWYU pragma: export

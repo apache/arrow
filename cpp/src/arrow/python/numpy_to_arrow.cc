@@ -36,6 +36,8 @@
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/bitmap_generate.h"
+#include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
@@ -43,8 +45,7 @@
 #include "arrow/util/utf8.h"
 #include "arrow/visitor_inline.h"
 
-#include "arrow/compute/context.h"
-#include "arrow/compute/kernels/cast.h"
+#include "arrow/compute/api_scalar.h"
 
 #include "arrow/python/common.h"
 #include "arrow/python/config.h"
@@ -340,14 +341,10 @@ Status CastBuffer(const std::shared_ptr<DataType>& in_type,
                   std::shared_ptr<Buffer>* out) {
   // Must cast
   auto tmp_data = ArrayData::Make(in_type, length, {valid_bitmap, input}, null_count);
-
-  std::shared_ptr<Array> tmp_array = MakeArray(tmp_data);
-  std::shared_ptr<Array> casted_array;
-
-  compute::FunctionContext context(pool);
-
-  RETURN_NOT_OK(
-      compute::Cast(&context, *tmp_array, out_type, cast_options, &casted_array));
+  compute::ExecContext context(pool);
+  ARROW_ASSIGN_OR_RAISE(
+      std::shared_ptr<Array> casted_array,
+      compute::Cast(*MakeArray(tmp_data), out_type, cast_options, &context));
   *out = casted_array->data()->buffers[1];
   return Status::OK();
 }
@@ -666,9 +663,10 @@ Status NumPyConverter::Visit(const StringType& type) {
                                                  &null_count_));
       if (null_count_ == length_) {
         auto arr = std::make_shared<NullArray>(length_);
-        std::shared_ptr<Array> out;
-        compute::FunctionContext context(pool_);
-        RETURN_NOT_OK(compute::Cast(&context, *arr, arrow::utf8(), cast_options_, &out));
+        compute::ExecContext context(pool_);
+        ARROW_ASSIGN_OR_RAISE(
+            std::shared_ptr<Array> out,
+            compute::Cast(*arr, arrow::utf8(), cast_options_, &context));
         out_arrays_.emplace_back(out);
         return Status::OK();
       }
@@ -734,7 +732,7 @@ Status NumPyConverter::Visit(const StructType& type) {
     for (auto field : type.fields()) {
       PyObject* tup = PyDict_GetItemString(dtype_->fields, field->name().c_str());
       if (tup == NULL) {
-        return Status::TypeError("Missing field '", field->name(), "' in struct array");
+        return Status::Invalid("Missing field '", field->name(), "' in struct array");
       }
       PyArray_Descr* sub_dtype =
           reinterpret_cast<PyArray_Descr*>(PyTuple_GET_ITEM(tup, 0));
@@ -830,7 +828,9 @@ Status NdarrayToArrow(MemoryPool* pool, PyObject* ao, PyObject* mo, bool from_pa
                       const compute::CastOptions& cast_options,
                       std::shared_ptr<ChunkedArray>* out) {
   if (!PyArray_Check(ao)) {
-    return Status::Invalid("Input object was not a NumPy array");
+    // This code path cannot be reached by Python unit tests currently so this
+    // is only a sanity check.
+    return Status::TypeError("Input object was not a NumPy array");
   }
   if (PyArray_NDIM(reinterpret_cast<PyArrayObject*>(ao)) != 1) {
     return Status::Invalid("only handle 1-dimensional arrays");

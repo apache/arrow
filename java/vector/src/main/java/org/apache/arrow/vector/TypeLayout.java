@@ -37,6 +37,8 @@ import org.apache.arrow.vector.types.pojo.ArrowType.FixedSizeList;
 import org.apache.arrow.vector.types.pojo.ArrowType.FloatingPoint;
 import org.apache.arrow.vector.types.pojo.ArrowType.Int;
 import org.apache.arrow.vector.types.pojo.ArrowType.Interval;
+import org.apache.arrow.vector.types.pojo.ArrowType.LargeBinary;
+import org.apache.arrow.vector.types.pojo.ArrowType.LargeUtf8;
 import org.apache.arrow.vector.types.pojo.ArrowType.Map;
 import org.apache.arrow.vector.types.pojo.ArrowType.Null;
 import org.apache.arrow.vector.types.pojo.ArrowType.Struct;
@@ -169,9 +171,24 @@ public class TypeLayout {
         return newVariableWidthTypeLayout();
       }
 
+      @Override
+      public TypeLayout visit(LargeUtf8 type) {
+        return newLargeVariableWidthTypeLayout();
+      }
+
+      @Override
+      public TypeLayout visit(LargeBinary type) {
+        return newLargeVariableWidthTypeLayout();
+      }
+
       private TypeLayout newVariableWidthTypeLayout() {
         return newPrimitiveTypeLayout(BufferLayout.validityVector(), BufferLayout.offsetBuffer(),
           BufferLayout.byteVector());
+      }
+
+      private TypeLayout newLargeVariableWidthTypeLayout() {
+        return newPrimitiveTypeLayout(BufferLayout.validityVector(), BufferLayout.largeOffsetBuffer(),
+            BufferLayout.byteVector());
       }
 
       private TypeLayout newPrimitiveTypeLayout(BufferLayout... vectors) {
@@ -317,6 +334,16 @@ public class TypeLayout {
 
       @Override
       public Integer visit(Utf8 type) {
+        return VARIABLE_WIDTH_BUFFER_COUNT;
+      }
+
+      @Override
+      public Integer visit(LargeUtf8 type) {
+        return VARIABLE_WIDTH_BUFFER_COUNT;
+      }
+
+      @Override
+      public Integer visit(LargeBinary type) {
         return VARIABLE_WIDTH_BUFFER_COUNT;
       }
 

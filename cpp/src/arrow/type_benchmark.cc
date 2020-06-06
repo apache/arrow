@@ -319,7 +319,7 @@ static void ErrorSchemeStatus(benchmark::State& state) {  // NOLINT non-const re
   for (auto _ : state) {
     int64_t total = 0;
     for (const auto v : integers) {
-      int32_t value;
+      int32_t value = 0;
       if (ARROW_PREDICT_TRUE(ErrorAsStatus(v, &value).ok())) {
         total = Accumulate(total, value);
       }

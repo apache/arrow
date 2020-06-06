@@ -22,7 +22,10 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 ENV DEBIAN_FRONTEND noninteractive
 
-ARG llvm
+# LLVM 10 or later requires C++ 14 but g++-5's C++ 14 support is limited.
+# cpp/src/arrow/vendored/datetime/date.h doesn't work.
+# ARG llvm
+ENV llvm=8
 RUN apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
         apt-transport-https \

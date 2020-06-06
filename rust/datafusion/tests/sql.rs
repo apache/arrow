@@ -25,6 +25,7 @@ use arrow::array::*;
 use arrow::datatypes::{DataType, Field, Schema};
 use arrow::record_batch::RecordBatch;
 
+use datafusion::datasource::csv::CsvReadOptions;
 use datafusion::error::Result;
 use datafusion::execution::context::ExecutionContext;
 use datafusion::execution::physical_plan::udf::ScalarFunction;
@@ -56,7 +57,11 @@ fn nyc() -> Result<()> {
     ]);
 
     let mut ctx = ExecutionContext::new();
-    ctx.register_csv("tripdata", "file.csv", &schema, true, None);
+    ctx.register_csv(
+        "tripdata",
+        "file.csv",
+        CsvReadOptions::new().schema(&schema),
+    )?;
 
     let logical_plan = ctx.create_logical_plan(
         "SELECT passenger_count, MIN(fare_amount), MAX(fare_amount) \
@@ -115,40 +120,43 @@ fn parquet_single_nan_schema() {
 }
 
 #[test]
-fn csv_count_star() {
+fn csv_count_star() -> Result<()> {
     let mut ctx = ExecutionContext::new();
-    register_aggregate_csv(&mut ctx);
+    register_aggregate_csv(&mut ctx)?;
     let sql = "SELECT COUNT(*), COUNT(1), COUNT(c1) FROM aggregate_test_100";
     let actual = execute(&mut ctx, sql).join("\n");
     let expected = "100\t100\t100".to_string();
     assert_eq!(expected, actual);
+    Ok(())
 }
 
 #[test]
-fn csv_query_with_predicate() {
+fn csv_query_with_predicate() -> Result<()> {
     let mut ctx = ExecutionContext::new();
-    register_aggregate_csv(&mut ctx);
+    register_aggregate_csv(&mut ctx)?;
     let sql = "SELECT c1, c12 FROM aggregate_test_100 WHERE c12 > 0.376 AND c12 < 0.4";
     let actual = execute(&mut ctx, sql).join("\n");
     let expected = "\"e\"\t0.39144436569161134\n\"d\"\t0.38870280983958583".to_string();
     assert_eq!(expected, actual);
+    Ok(())
 }
 
 #[test]
-fn csv_query_group_by_int_min_max() {
+fn csv_query_group_by_int_min_max() -> Result<()> {
     let mut ctx = ExecutionContext::new();
-    register_aggregate_csv(&mut ctx);
+    register_aggregate_csv(&mut ctx)?;
     let sql = "SELECT c2, MIN(c12), MAX(c12) FROM aggregate_test_100 GROUP BY c2";
     let mut actual = execute(&mut ctx, sql);
     actual.sort();
     let expected = "1\t0.05636955101974106\t0.9965400387585364\n2\t0.16301110515739792\t0.991517828651004\n3\t0.047343434291126085\t0.9293883502480845\n4\t0.02182578039211991\t0.9237877978193884\n5\t0.01479305307777301\t0.9723580396501548".to_string();
     assert_eq!(expected, actual.join("\n"));
+    Ok(())
 }
 
 #[test]
 fn csv_query_avg_sqrt() -> Result<()> {
     let mut ctx = create_ctx()?;
-    register_aggregate_csv(&mut ctx);
+    register_aggregate_csv(&mut ctx)?;
     let sql = "SELECT avg(custom_sqrt(c12)) FROM aggregate_test_100";
     let mut actual = execute(&mut ctx, sql);
     actual.sort();
@@ -189,42 +197,45 @@ fn custom_sqrt(args: &[ArrayRef]) -> Result<ArrayRef> {
 }
 
 #[test]
-fn csv_query_avg() {
+fn csv_query_avg() -> Result<()> {
     let mut ctx = ExecutionContext::new();
-    register_aggregate_csv(&mut ctx);
+    register_aggregate_csv(&mut ctx)?;
     let sql = "SELECT avg(c12) FROM aggregate_test_100";
     let mut actual = execute(&mut ctx, sql);
     actual.sort();
     let expected = "0.5089725099127211".to_string();
     assert_eq!(expected, actual.join("\n"));
+    Ok(())
 }
 
 #[test]
-fn csv_query_group_by_avg() {
+fn csv_query_group_by_avg() -> Result<()> {
     let mut ctx = ExecutionContext::new();
-    register_aggregate_csv(&mut ctx);
+    register_aggregate_csv(&mut ctx)?;
     let sql = "SELECT c1, avg(c12) FROM aggregate_test_100 GROUP BY c1";
     let mut actual = execute(&mut ctx, sql);
     actual.sort();
     let expected = "\"a\"\t0.48754517466109415\n\"b\"\t0.41040709263815384\n\"c\"\t0.6600456536439784\n\"d\"\t0.48855379387549824\n\"e\"\t0.48600669271341534".to_string();
     assert_eq!(expected, actual.join("\n"));
+    Ok(())
 }
 
 #[test]
-fn csv_query_group_by_avg_with_projection() {
+fn csv_query_group_by_avg_with_projection() -> Result<()> {
     let mut ctx = ExecutionContext::new();
-    register_aggregate_csv(&mut ctx);
+    register_aggregate_csv(&mut ctx)?;
     let sql = "SELECT avg(c12), c1 FROM aggregate_test_100 GROUP BY c1";
     let mut actual = execute(&mut ctx, sql);
     actual.sort();
     let expected = "0.41040709263815384\t\"b\"\n0.48600669271341534\t\"e\"\n0.48754517466109415\t\"a\"\n0.48855379387549824\t\"d\"\n0.6600456536439784\t\"c\"".to_string();
     assert_eq!(expected, actual.join("\n"));
+    Ok(())
 }
 
 #[test]
-fn csv_query_avg_multi_batch() {
+fn csv_query_avg_multi_batch() -> Result<()> {
     let mut ctx = ExecutionContext::new();
-    register_aggregate_csv(&mut ctx);
+    register_aggregate_csv(&mut ctx)?;
     let sql = "SELECT avg(c12) FROM aggregate_test_100";
     let plan = ctx.create_logical_plan(&sql).unwrap();
     let plan = ctx.optimize(&plan).unwrap();
@@ -238,99 +249,109 @@ fn csv_query_avg_multi_batch() {
     // Due to float number's accuracy, different batch size will lead to different
     // answers.
     assert!((expected - actual).abs() < 0.01);
+    Ok(())
 }
 
 #[test]
-fn csv_query_count() {
+fn csv_query_count() -> Result<()> {
     let mut ctx = ExecutionContext::new();
-    register_aggregate_csv(&mut ctx);
+    register_aggregate_csv(&mut ctx)?;
     let sql = "SELECT count(c12) FROM aggregate_test_100";
     let actual = execute(&mut ctx, sql).join("\n");
     let expected = "100".to_string();
     assert_eq!(expected, actual);
+    Ok(())
 }
 
 #[test]
-fn csv_query_group_by_int_count() {
+fn csv_query_group_by_int_count() -> Result<()> {
     let mut ctx = ExecutionContext::new();
-    register_aggregate_csv(&mut ctx);
+    register_aggregate_csv(&mut ctx)?;
     let sql = "SELECT c1, count(c12) FROM aggregate_test_100 GROUP BY c1";
     let mut actual = execute(&mut ctx, sql);
     actual.sort();
     let expected = "\"a\"\t21\n\"b\"\t19\n\"c\"\t21\n\"d\"\t18\n\"e\"\t21".to_string();
     assert_eq!(expected, actual.join("\n"));
+    Ok(())
 }
 
 #[test]
-fn csv_query_group_by_string_min_max() {
+fn csv_query_group_by_string_min_max() -> Result<()> {
     let mut ctx = ExecutionContext::new();
-    register_aggregate_csv(&mut ctx);
+    register_aggregate_csv(&mut ctx)?;
     let sql = "SELECT c2, MIN(c12), MAX(c12) FROM aggregate_test_100 GROUP BY c1";
     let mut actual = execute(&mut ctx, sql);
     actual.sort();
     let expected =
         "\"a\"\t0.02182578039211991\t0.9800193410444061\n\"b\"\t0.04893135681998029\t0.9185813970744787\n\"c\"\t0.0494924465469434\t0.991517828651004\n\"d\"\t0.061029375346466685\t0.9748360509016578\n\"e\"\t0.01479305307777301\t0.9965400387585364".to_string();
     assert_eq!(expected, actual.join("\n"));
+    Ok(())
 }
 
 #[test]
-fn csv_query_cast() {
+fn csv_query_cast() -> Result<()> {
     let mut ctx = ExecutionContext::new();
-    register_aggregate_csv(&mut ctx);
+    register_aggregate_csv(&mut ctx)?;
     let sql = "SELECT CAST(c12 AS float) FROM aggregate_test_100 WHERE c12 > 0.376 AND c12 < 0.4";
     let actual = execute(&mut ctx, sql).join("\n");
     let expected = "0.39144436569161134\n0.38870280983958583".to_string();
     assert_eq!(expected, actual);
+    Ok(())
 }
 
 #[test]
-fn csv_query_cast_literal() {
+fn csv_query_cast_literal() -> Result<()> {
     let mut ctx = ExecutionContext::new();
-    register_aggregate_csv(&mut ctx);
+    register_aggregate_csv(&mut ctx)?;
     let sql = "SELECT c12, CAST(1 AS float) FROM aggregate_test_100 WHERE c12 > CAST(0 AS float) LIMIT 2";
     let actual = execute(&mut ctx, sql).join("\n");
     let expected = "0.9294097332465232\t1.0\n0.3114712539863804\t1.0".to_string();
     assert_eq!(expected, actual);
+    Ok(())
 }
 
 #[test]
-fn csv_query_limit() {
+fn csv_query_limit() -> Result<()> {
     let mut ctx = ExecutionContext::new();
-    register_aggregate_csv(&mut ctx);
+    register_aggregate_csv(&mut ctx)?;
     let sql = "SELECT c1 FROM aggregate_test_100 LIMIT 2";
     let actual = execute(&mut ctx, sql).join("\n");
     let expected = "\"c\"\n\"d\"".to_string();
     assert_eq!(expected, actual);
+    Ok(())
 }
 
 #[test]
-fn csv_query_limit_bigger_than_nbr_of_rows() {
+fn csv_query_limit_bigger_than_nbr_of_rows() -> Result<()> {
     let mut ctx = ExecutionContext::new();
-    register_aggregate_csv(&mut ctx);
+    register_aggregate_csv(&mut ctx)?;
     let sql = "SELECT c2 FROM aggregate_test_100 LIMIT 200";
     let actual = execute(&mut ctx, sql).join("\n");
     let expected = "2\n5\n1\n1\n5\n4\n3\n3\n1\n4\n1\n4\n3\n2\n1\n1\n2\n1\n3\n2\n4\n1\n5\n4\n2\n1\n4\n5\n2\n3\n4\n2\n1\n5\n3\n1\n2\n3\n3\n3\n2\n4\n1\n3\n2\n5\n2\n1\n4\n1\n4\n2\n5\n4\n2\n3\n4\n4\n4\n5\n4\n2\n1\n2\n4\n2\n3\n5\n1\n1\n4\n2\n1\n2\n1\n1\n5\n4\n5\n2\n3\n2\n4\n1\n3\n4\n3\n2\n5\n3\n3\n2\n5\n5\n4\n1\n3\n3\n4\n4".to_string();
     assert_eq!(expected, actual);
+    Ok(())
 }
 
 #[test]
-fn csv_query_limit_with_same_nbr_of_rows() {
+fn csv_query_limit_with_same_nbr_of_rows() -> Result<()> {
     let mut ctx = ExecutionContext::new();
-    register_aggregate_csv(&mut ctx);
+    register_aggregate_csv(&mut ctx)?;
     let sql = "SELECT c2 FROM aggregate_test_100 LIMIT 100";
     let actual = execute(&mut ctx, sql).join("\n");
     let expected = "2\n5\n1\n1\n5\n4\n3\n3\n1\n4\n1\n4\n3\n2\n1\n1\n2\n1\n3\n2\n4\n1\n5\n4\n2\n1\n4\n5\n2\n3\n4\n2\n1\n5\n3\n1\n2\n3\n3\n3\n2\n4\n1\n3\n2\n5\n2\n1\n4\n1\n4\n2\n5\n4\n2\n3\n4\n4\n4\n5\n4\n2\n1\n2\n4\n2\n3\n5\n1\n1\n4\n2\n1\n2\n1\n1\n5\n4\n5\n2\n3\n2\n4\n1\n3\n4\n3\n2\n5\n3\n3\n2\n5\n5\n4\n1\n3\n3\n4\n4".to_string();
     assert_eq!(expected, actual);
+    Ok(())
 }
 
 #[test]
-fn csv_query_limit_zero() {
+fn csv_query_limit_zero() -> Result<()> {
     let mut ctx = ExecutionContext::new();
-    register_aggregate_csv(&mut ctx);
+    register_aggregate_csv(&mut ctx)?;
     let sql = "SELECT c1 FROM aggregate_test_100 LIMIT 0";
     let actual = execute(&mut ctx, sql).join("\n");
     let expected = "".to_string();
     assert_eq!(expected, actual);
+    Ok(())
 }
 
 #[test]
@@ -425,24 +446,15 @@ fn register_aggregate_csv_by_sql(ctx: &mut ExecutionContext) {
     .unwrap();
 }
 
-fn register_aggregate_csv(ctx: &mut ExecutionContext) {
+fn register_aggregate_csv(ctx: &mut ExecutionContext) -> Result<()> {
     let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
     let schema = aggr_test_schema();
-    register_csv(
-        ctx,
+    ctx.register_csv(
         "aggregate_test_100",
         &format!("{}/csv/aggregate_test_100.csv", testdata),
-        &schema,
-    );
-}
-
-fn register_csv(
-    ctx: &mut ExecutionContext,
-    name: &str,
-    filename: &str,
-    schema: &Arc<Schema>,
-) {
-    ctx.register_csv(name, filename, &schema, true, None);
+        CsvReadOptions::new().schema(&schema),
+    )?;
+    Ok(())
 }
 
 fn register_alltypes_parquet(ctx: &mut ExecutionContext) {

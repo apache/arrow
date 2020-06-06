@@ -17,9 +17,10 @@
 
 #include "arrow/array/builder_union.h"
 
-#include <limits>
+#include <cstddef>
 #include <utility>
 
+#include "arrow/buffer.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 

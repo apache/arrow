@@ -18,6 +18,7 @@
 #include "./arrow_types.h"
 
 #if defined(ARROW_R_WITH_ARROW)
+#include <arrow/ipc/writer.h>
 
 // [[arrow::export]]
 void ipc___RecordBatchWriter__WriteRecordBatch(

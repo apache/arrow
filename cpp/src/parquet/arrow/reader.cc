@@ -280,6 +280,10 @@ class FileReaderImpl : public FileReader {
     reader_properties_.set_use_threads(use_threads);
   }
 
+  const ArrowReaderProperties& properties() const override { return reader_properties_; }
+
+  const SchemaManifest& manifest() const override { return manifest_; }
+
   Status ScanContents(std::vector<int> columns, const int32_t column_batch_size,
                       int64_t* num_rows) override {
     BEGIN_PARQUET_CATCH_EXCEPTIONS
@@ -422,11 +426,9 @@ class LeafReader : public ColumnReaderImpl {
 
   Status NextBatch(int64_t records_to_read, std::shared_ptr<ChunkedArray>* out) override {
     BEGIN_PARQUET_CATCH_EXCEPTIONS
-
+    record_reader_->Reset();
     // Pre-allocation gives much better performance for flat columns
     record_reader_->Reserve(records_to_read);
-
-    record_reader_->Reset();
     while (records_to_read > 0) {
       if (!record_reader_->HasMoreData()) {
         break;

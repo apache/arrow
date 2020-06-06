@@ -45,6 +45,7 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/compression.h"
 #include "arrow/util/key_value_metadata.h"
@@ -995,7 +996,7 @@ class ARROW_EXPORT IpcFormatWriter : public RecordBatchWriter {
   Status WriteDictionaries(const RecordBatch& batch) {
     RETURN_NOT_OK(CollectDictionaries(batch, dictionary_memo_));
 
-    for (auto& pair : dictionary_memo_->id_to_dictionary()) {
+    for (const auto& pair : dictionary_memo_->dictionaries()) {
       internal::IpcPayload payload;
       int64_t dictionary_id = pair.first;
       const auto& dictionary = pair.second;
@@ -1251,114 +1252,6 @@ Result<std::shared_ptr<Buffer>> SerializeSchema(const Schema& schema,
   RETURN_NOT_OK(writer.Start());
   return stream->Finish();
 }
-
-// ----------------------------------------------------------------------
-// Deprecated functions
-
-Status RecordBatchStreamWriter::Open(io::OutputStream* sink,
-                                     const std::shared_ptr<Schema>& schema,
-                                     std::shared_ptr<RecordBatchWriter>* out) {
-  ASSIGN_OR_RAISE(*out, NewStreamWriter(sink, schema));
-  return Status::OK();
-}
-
-Result<std::shared_ptr<RecordBatchWriter>> RecordBatchStreamWriter::Open(
-    io::OutputStream* sink, const std::shared_ptr<Schema>& schema) {
-  return NewStreamWriter(sink, schema);
-}
-
-Result<std::shared_ptr<RecordBatchWriter>> RecordBatchStreamWriter::Open(
-    io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
-    const IpcWriteOptions& options) {
-  return NewStreamWriter(sink, schema, options);
-}
-
-Status RecordBatchFileWriter::Open(io::OutputStream* sink,
-                                   const std::shared_ptr<Schema>& schema,
-                                   std::shared_ptr<RecordBatchWriter>* out) {
-  ASSIGN_OR_RAISE(*out, NewFileWriter(sink, schema));
-  return Status::OK();
-}
-
-Result<std::shared_ptr<RecordBatchWriter>> RecordBatchFileWriter::Open(
-    io::OutputStream* sink, const std::shared_ptr<Schema>& schema) {
-  return NewFileWriter(sink, schema);
-}
-
-Result<std::shared_ptr<RecordBatchWriter>> RecordBatchFileWriter::Open(
-    io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
-    const IpcWriteOptions& options) {
-  return NewFileWriter(sink, schema, options);
-}
-
-Status SerializeRecordBatch(const RecordBatch& batch, const IpcWriteOptions& options,
-                            std::shared_ptr<Buffer>* out) {
-  return SerializeRecordBatch(batch, options).Value(out);
-}
-
-Status SerializeRecordBatch(const RecordBatch& batch, MemoryPool* pool,
-                            std::shared_ptr<Buffer>* out) {
-  IpcWriteOptions options;
-  options.memory_pool = pool;
-  return SerializeRecordBatch(batch, options).Value(out);
-}
-
-Status SerializeRecordBatch(const RecordBatch& batch, MemoryPool* pool,
-                            io::OutputStream* out) {
-  IpcWriteOptions options;
-  options.memory_pool = pool;
-  return SerializeRecordBatch(batch, options, out);
-}
-
-Status SerializeSchema(const Schema& schema, DictionaryMemo* dictionary_memo,
-                       MemoryPool* pool, std::shared_ptr<Buffer>* out) {
-  return SerializeSchema(schema, dictionary_memo, pool).Value(out);
-}
-
-Status WriteRecordBatch(const RecordBatch& batch, int64_t buffer_start_offset,
-                        io::OutputStream* dst, int32_t* metadata_length,
-                        int64_t* body_length, const IpcWriteOptions& options,
-                        MemoryPool* pool) {
-  IpcWriteOptions modified_options = options;
-  modified_options.memory_pool = pool;
-  return WriteRecordBatch(batch, buffer_start_offset, dst, metadata_length, body_length,
-                          modified_options);
-}
-
-Status GetTensorMessage(const Tensor& tensor, MemoryPool* pool,
-                        std::unique_ptr<Message>* out) {
-  return GetTensorMessage(tensor, pool).Value(out);
-}
-
-Status GetSparseTensorMessage(const SparseTensor& sparse_tensor, MemoryPool* pool,
-                              std::unique_ptr<Message>* out) {
-  return GetSparseTensorMessage(sparse_tensor, pool).Value(out);
-}
-
-namespace internal {
-
-Status OpenRecordBatchWriter(std::unique_ptr<IpcPayloadWriter> sink,
-                             const std::shared_ptr<Schema>& schema,
-                             std::unique_ptr<RecordBatchWriter>* out) {
-  return OpenRecordBatchWriter(std::move(sink), schema).Value(out);
-}
-
-Status GetRecordBatchPayload(const RecordBatch& batch, const IpcWriteOptions& options,
-                             MemoryPool* pool, IpcPayload* out) {
-  IpcWriteOptions modified_options = options;
-  modified_options.memory_pool = pool;
-  return GetRecordBatchPayload(batch, modified_options, out);
-}
-
-Status GetDictionaryPayload(int64_t id, const std::shared_ptr<Array>& dictionary,
-                            const IpcWriteOptions& options, MemoryPool* pool,
-                            IpcPayload* payload) {
-  IpcWriteOptions modified_options = options;
-  modified_options.memory_pool = pool;
-  return GetDictionaryPayload(id, dictionary, modified_options, payload);
-}
-
-}  // namespace internal
 
 }  // namespace ipc
 }  // namespace arrow

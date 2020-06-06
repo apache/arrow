@@ -513,7 +513,7 @@ struct ArrayExporter {
     // Export dictionary
     if (data->dictionary != nullptr) {
       dict_exporter_.reset(new ArrayExporter());
-      RETURN_NOT_OK(dict_exporter_->Export(data->dictionary->data()));
+      RETURN_NOT_OK(dict_exporter_->Export(data->dictionary));
     }
 
     // Export children
@@ -1191,6 +1191,11 @@ struct ArrayImporter {
     return ::arrow::MakeArray(data_);
   }
 
+  std::shared_ptr<ArrayData> GetArrayData() {
+    DCHECK_NE(data_, nullptr);
+    return data_;
+  }
+
   Result<std::shared_ptr<RecordBatch>> MakeRecordBatch(std::shared_ptr<Schema> schema) {
     DCHECK_NE(data_, nullptr);
     if (data_->null_count != 0) {
@@ -1257,7 +1262,7 @@ struct ArrayImporter {
       // Import dictionary values
       ArrayImporter dict_importer(dict_type.value_type());
       RETURN_NOT_OK(dict_importer.ImportDict(this, c_struct_->dictionary));
-      ARROW_ASSIGN_OR_RAISE(data_->dictionary, dict_importer.MakeArray());
+      data_->dictionary = dict_importer.GetArrayData();
     } else {
       if (is_dict_type) {
         return Status::Invalid("Import type is ", type_->ToString(),

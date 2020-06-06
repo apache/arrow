@@ -74,12 +74,6 @@ struct ClientRpc {
     }
   }
 
-  Status IOError(const std::string& error_message) {
-    std::stringstream ss;
-    ss << error_message << context.debug_error_string();
-    return Status::IOError(ss.str());
-  }
-
   /// \brief Add an auth token via an auth handler
   Status SetToken(ClientAuthHandler* auth_handler) {
     if (auth_handler) {
@@ -89,6 +83,137 @@ struct ClientRpc {
     }
     return Status::OK();
   }
+};
+
+/// Helper that manages Finish() of a gRPC stream.
+///
+/// When we encounter an error (e.g. could not decode an IPC message),
+/// we want to provide both the client-side error context and any
+/// available server-side context. This helper helps wrap up that
+/// logic.
+///
+/// This class protects the stream with a flag (so that Finish is
+/// idempotent), and drains the read side (so that Finish won't hang).
+///
+/// The template lets us abstract between DoGet/DoExchange and DoPut,
+/// which respectively read internal::FlightData and pb::PutResult.
+template <typename Stream, typename ReadT>
+class FinishableStream {
+ public:
+  FinishableStream(std::shared_ptr<ClientRpc> rpc, std::shared_ptr<Stream> stream)
+      : rpc_(rpc), stream_(stream), finished_(false), server_status_() {}
+  virtual ~FinishableStream() = default;
+
+  /// \brief Get the underlying stream.
+  std::shared_ptr<Stream> stream() const { return stream_; }
+
+  /// \brief Finish the call, adding server context to the given status.
+  virtual Status Finish(Status&& st) {
+    if (finished_) {
+      return MergeStatus(std::move(st));
+    }
+
+    // Drain the read side, as otherwise gRPC Finish() will hang. We
+    // only call Finish() when the client closes the writer or the
+    // reader finishes, so it's OK to assume the client no longer
+    // wants to read and drain the read side. (If the client wants to
+    // indicate that it is done writing, but not done reading, it
+    // should use DoneWriting.
+    ReadT message;
+    while (internal::ReadPayload(stream_.get(), &message)) {
+      // Drain the read side to avoid gRPC hanging in Finish()
+    }
+
+    server_status_ = internal::FromGrpcStatus(stream_->Finish(), &rpc_->context);
+    finished_ = true;
+
+    return MergeStatus(std::move(st));
+  }
+
+ private:
+  Status MergeStatus(Status&& st) {
+    if (server_status_.ok()) {
+      return std::move(st);
+    }
+    return Status::FromDetailAndArgs(
+        server_status_.code(), server_status_.detail(), server_status_.message(),
+        ". Client context: ", st.ToString(),
+        ". gRPC client debug context: ", rpc_->context.debug_error_string());
+  }
+
+  std::shared_ptr<ClientRpc> rpc_;
+  std::shared_ptr<Stream> stream_;
+  bool finished_;
+  Status server_status_;
+};
+
+/// Helper that manages \a Finish() of a read-write gRPC stream.
+///
+/// This also calls \a WritesDone() and protects itself with a mutex
+/// to enable sharing between the reader and writer.
+template <typename Stream, typename ReadT>
+class FinishableWritableStream : public FinishableStream<Stream, ReadT> {
+ public:
+  FinishableWritableStream(std::shared_ptr<ClientRpc> rpc,
+                           std::shared_ptr<std::mutex> read_mutex,
+                           std::shared_ptr<Stream> stream)
+      : FinishableStream<Stream, ReadT>(rpc, stream),
+        finish_mutex_(),
+        read_mutex_(read_mutex),
+        done_writing_(false) {}
+  virtual ~FinishableWritableStream() = default;
+
+  /// \brief Indicate to gRPC that the write half of the stream is done.
+  Status DoneWriting() {
+    // This is only used by the writer side of a stream, so it need
+    // not be protected with a lock.
+    if (done_writing_) {
+      return Status::OK();
+    }
+    done_writing_ = true;
+    if (!this->stream()->WritesDone()) {
+      // Error happened, try to close the stream to get more detailed info
+      return Finish(MakeFlightError(FlightStatusCode::Internal,
+                                    "Could not flush pending record batches"));
+    }
+    return Status::OK();
+  }
+
+  Status Finish(Status&& st) override {
+    // This may be used concurrently by reader/writer side of a
+    // stream, so it needs to be protected.
+    std::lock_guard<std::mutex> guard(finish_mutex_);
+
+    // Now that we're shared between a reader and writer, we need to
+    // protect ourselves from being called while there's an
+    // outstanding read.
+    std::unique_lock<std::mutex> read_guard(*read_mutex_, std::try_to_lock);
+    if (!read_guard.owns_lock()) {
+      return Finish(MakeFlightError(
+          FlightStatusCode::Internal,
+          "Cannot close stream with pending read operation. Client context: " +
+              st.ToString()));
+    }
+
+    // Try to flush pending writes. Don't use our WritesDone() to
+    // avoid recursion.
+    bool finished_writes = done_writing_ || this->stream()->WritesDone();
+    done_writing_ = true;
+
+    Status result = FinishableStream<Stream, ReadT>::Finish(std::move(st));
+
+    if (!finished_writes) {
+      return Status::FromDetailAndArgs(
+          result.code(), result.detail(), result.message(),
+          ". Additionally, could not finish writing record batches before closing");
+    }
+    return result;
+  }
+
+ private:
+  std::mutex finish_mutex_;
+  std::shared_ptr<std::mutex> read_mutex_;
+  bool done_writing_;
 };
 
 class GrpcAddCallHeaders : public AddCallHeaders {
@@ -176,6 +301,8 @@ class GrpcClientInterceptorAdapterFactory
       flight_method = FlightMethod::DoGet;
     } else if (method.ends_with("/DoPut")) {
       flight_method = FlightMethod::DoPut;
+    } else if (method.ends_with("/DoExchange")) {
+      flight_method = FlightMethod::DoExchange;
     } else if (method.ends_with("/DoAction")) {
       flight_method = FlightMethod::DoAction;
     } else if (method.ends_with("/ListActions")) {
@@ -243,179 +370,295 @@ class GrpcClientAuthReader : public ClientAuthReader {
       stream_;
 };
 
-// The next two classes are intertwined. To get the application
-// metadata while avoiding reimplementing RecordBatchStreamReader, we
-// create an ipc::MessageReader that is tied to the
-// MetadataRecordBatchReader. Every time an IPC message is read, it updates
-// the application metadata field of the MetadataRecordBatchReader. The
-// MetadataRecordBatchReader wraps RecordBatchStreamReader, offering an
-// additional method to get both the record batch and application
-// metadata.
-
-class GrpcIpcMessageReader;
-class GrpcStreamReader : public FlightStreamReader {
- public:
-  GrpcStreamReader();
-
-  static Status Open(std::unique_ptr<ClientRpc> rpc,
-                     std::unique_ptr<grpc::ClientReader<pb::FlightData>> stream,
-                     std::unique_ptr<GrpcStreamReader>* out);
-  std::shared_ptr<Schema> schema() const override;
-  Status Next(FlightStreamChunk* out) override;
-  void Cancel() override;
-
- private:
-  friend class GrpcIpcMessageReader;
-  std::shared_ptr<ipc::RecordBatchReader> batch_reader_;
-  std::shared_ptr<Buffer> last_app_metadata_;
-  std::shared_ptr<ClientRpc> rpc_;
-};
-
+// An ipc::MessageReader that adapts any readable gRPC stream
+// returning FlightData.
+template <typename Reader>
 class GrpcIpcMessageReader : public ipc::MessageReader {
  public:
-  GrpcIpcMessageReader(GrpcStreamReader* reader, std::shared_ptr<ClientRpc> rpc,
-                       std::unique_ptr<grpc::ClientReader<pb::FlightData>> stream)
-      : flight_reader_(reader),
-        rpc_(rpc),
+  GrpcIpcMessageReader(
+      std::shared_ptr<ClientRpc> rpc, std::shared_ptr<std::mutex> read_mutex,
+      std::shared_ptr<FinishableStream<Reader, internal::FlightData>> stream,
+      std::shared_ptr<internal::PeekableFlightDataReader<std::shared_ptr<Reader>>>
+          peekable_reader,
+      std::shared_ptr<Buffer>* app_metadata)
+      : rpc_(rpc),
+        read_mutex_(read_mutex),
         stream_(std::move(stream)),
+        peekable_reader_(peekable_reader),
+        app_metadata_(app_metadata),
         stream_finished_(false) {}
 
   ::arrow::Result<std::unique_ptr<ipc::Message>> ReadNextMessage() override {
-    std::unique_ptr<ipc::Message> out;
-    RETURN_NOT_OK(GetNextMessage(&out));
-    return std::move(out);
-  }
-
- protected:
-  Status GetNextMessage(std::unique_ptr<ipc::Message>* out) {
-    // TODO: Use Result APIs
     if (stream_finished_) {
-      *out = nullptr;
-      flight_reader_->last_app_metadata_ = nullptr;
-      return Status::OK();
+      return nullptr;
     }
-    internal::FlightData data;
-    if (!internal::ReadPayload(stream_.get(), &data)) {
-      // Stream is completed
+    internal::FlightData* data;
+    {
+      auto guard = read_mutex_ ? std::unique_lock<std::mutex>(*read_mutex_)
+                               : std::unique_lock<std::mutex>();
+      peekable_reader_->Next(&data);
+    }
+    if (!data) {
       stream_finished_ = true;
-      *out = nullptr;
-      flight_reader_->last_app_metadata_ = nullptr;
-      return OverrideWithServerError(Status::OK());
+      return stream_->Finish(Status::OK());
     }
     // Validate IPC message
-    auto st = data.OpenMessage(out);
-    if (!st.ok()) {
-      flight_reader_->last_app_metadata_ = nullptr;
-      return OverrideWithServerError(std::move(st));
+    auto result = data->OpenMessage();
+    if (!result.ok()) {
+      return stream_->Finish(result.status());
     }
-    flight_reader_->last_app_metadata_ = data.app_metadata;
-    return Status::OK();
-  }
-
-  Status OverrideWithServerError(Status&& st) {
-    // Get the gRPC status if not OK, to propagate any server error message
-    RETURN_NOT_OK(internal::FromGrpcStatus(stream_->Finish(), &rpc_->context));
-    return std::move(st);
+    *app_metadata_ = std::move(data->app_metadata);
+    return result;
   }
 
  private:
-  GrpcStreamReader* flight_reader_;
   // The RPC context lifetime must be coupled to the ClientReader
   std::shared_ptr<ClientRpc> rpc_;
-  std::unique_ptr<grpc::ClientReader<pb::FlightData>> stream_;
+  // Guard reads with a mutex to prevent concurrent reads if the write
+  // side calls Finish(). Nullable as DoGet doesn't need this.
+  std::shared_ptr<std::mutex> read_mutex_;
+  std::shared_ptr<FinishableStream<Reader, internal::FlightData>> stream_;
+  std::shared_ptr<internal::PeekableFlightDataReader<std::shared_ptr<Reader>>>
+      peekable_reader_;
+  // A reference to GrpcStreamReader.app_metadata_. That class
+  // can't access the app metadata because when it Peek()s the stream,
+  // it may be looking at a dictionary batch, not the record
+  // batch. Updating it here ensures the reader is always updated with
+  // the last metadata message read.
+  std::shared_ptr<Buffer>* app_metadata_;
   bool stream_finished_;
 };
 
-GrpcStreamReader::GrpcStreamReader() {}
+/// The implementation of the public-facing API for reading from a
+/// FlightData stream
+template <typename Reader>
+class GrpcStreamReader : public FlightStreamReader {
+ public:
+  GrpcStreamReader(std::shared_ptr<ClientRpc> rpc, std::shared_ptr<std::mutex> read_mutex,
+                   std::shared_ptr<FinishableStream<Reader, internal::FlightData>> stream)
+      : rpc_(rpc),
+        read_mutex_(read_mutex),
+        stream_(stream),
+        peekable_reader_(new internal::PeekableFlightDataReader<std::shared_ptr<Reader>>(
+            stream->stream())),
+        app_metadata_(nullptr) {}
 
-Status GrpcStreamReader::Open(std::unique_ptr<ClientRpc> rpc,
-                              std::unique_ptr<grpc::ClientReader<pb::FlightData>> stream,
-                              std::unique_ptr<GrpcStreamReader>* out) {
-  *out = std::unique_ptr<GrpcStreamReader>(new GrpcStreamReader);
-  out->get()->rpc_ = std::move(rpc);
-  auto reader = std::unique_ptr<ipc::MessageReader>(
-      new GrpcIpcMessageReader(out->get(), out->get()->rpc_, std::move(stream)));
-  ARROW_ASSIGN_OR_RAISE((*out)->batch_reader_,
-                        ipc::RecordBatchStreamReader::Open(std::move(reader)));
-  return Status::OK();
-}
+  Status EnsureDataStarted() {
+    if (!batch_reader_) {
+      bool skipped_to_data = false;
+      {
+        auto guard = TakeGuard();
+        skipped_to_data = peekable_reader_->SkipToData();
+      }
+      // peek() until we find the first data message; discard metadata
+      if (!skipped_to_data) {
+        return OverrideWithServerError(MakeFlightError(
+            FlightStatusCode::Internal, "Server never sent a data message"));
+      }
 
-std::shared_ptr<Schema> GrpcStreamReader::schema() const {
-  return batch_reader_->schema();
-}
+      auto message_reader =
+          std::unique_ptr<ipc::MessageReader>(new GrpcIpcMessageReader<Reader>(
+              rpc_, read_mutex_, stream_, peekable_reader_, &app_metadata_));
+      auto result = ipc::RecordBatchStreamReader::Open(std::move(message_reader));
+      RETURN_NOT_OK(OverrideWithServerError(std::move(result).Value(&batch_reader_)));
+    }
+    return Status::OK();
+  }
+  arrow::Result<std::shared_ptr<Schema>> GetSchema() override {
+    RETURN_NOT_OK(EnsureDataStarted());
+    return batch_reader_->schema();
+  }
+  Status Next(FlightStreamChunk* out) override {
+    internal::FlightData* data;
+    {
+      auto guard = TakeGuard();
+      peekable_reader_->Peek(&data);
+    }
+    if (!data) {
+      out->app_metadata = nullptr;
+      out->data = nullptr;
+      return stream_->Finish(Status::OK());
+    }
 
-Status GrpcStreamReader::Next(FlightStreamChunk* out) {
-  out->app_metadata = nullptr;
-  RETURN_NOT_OK(batch_reader_->ReadNext(&out->data));
-  out->app_metadata = std::move(last_app_metadata_);
-  return Status::OK();
-}
+    if (!data->metadata) {
+      // Metadata-only (data->metadata is the IPC header)
+      out->app_metadata = data->app_metadata;
+      out->data = nullptr;
+      {
+        auto guard = TakeGuard();
+        peekable_reader_->Next(&data);
+      }
+      return Status::OK();
+    }
 
-void GrpcStreamReader::Cancel() { rpc_->context.TryCancel(); }
+    if (!batch_reader_) {
+      RETURN_NOT_OK(EnsureDataStarted());
+      // Re-peek here since EnsureDataStarted() advances the stream
+      return Next(out);
+    }
+    RETURN_NOT_OK(batch_reader_->ReadNext(&out->data));
+    out->app_metadata = std::move(app_metadata_);
+    return Status::OK();
+  }
+  void Cancel() override { rpc_->context.TryCancel(); }
 
-// Similarly, the next two classes are intertwined. In order to get
-// application-specific metadata to the IpcPayloadWriter,
-// DoPutPayloadWriter takes a pointer to
+ private:
+  std::unique_lock<std::mutex> TakeGuard() {
+    return read_mutex_ ? std::unique_lock<std::mutex>(*read_mutex_)
+                       : std::unique_lock<std::mutex>();
+  }
+
+  Status OverrideWithServerError(Status&& st) {
+    if (st.ok()) {
+      return std::move(st);
+    }
+    return stream_->Finish(std::move(st));
+  }
+
+  friend class GrpcIpcMessageReader<Reader>;
+  std::shared_ptr<ClientRpc> rpc_;
+  // Guard reads with a lock to prevent Finish()/Close() from being
+  // called on the writer while the reader has a pending
+  // read. Nullable, as DoGet() doesn't need this.
+  std::shared_ptr<std::mutex> read_mutex_;
+  std::shared_ptr<FinishableStream<Reader, internal::FlightData>> stream_;
+  std::shared_ptr<internal::PeekableFlightDataReader<std::shared_ptr<Reader>>>
+      peekable_reader_;
+  std::shared_ptr<ipc::RecordBatchReader> batch_reader_;
+  std::shared_ptr<Buffer> app_metadata_;
+};
+
+// The next two classes implement writing to a FlightData stream.
+// Similarly to the read side, we want to reuse the implementation of
+// RecordBatchWriter. As a result, these two classes are intertwined
+// in order to pass application metadata "through" RecordBatchWriter.
+// In order to get application-specific metadata to the
+// IpcPayloadWriter, DoPutPayloadWriter takes a pointer to
 // GrpcStreamWriter. GrpcStreamWriter updates a metadata field on
 // write; DoPutPayloadWriter reads that metadata field to determine
 // what to write.
 
+template <typename ProtoReadT, typename FlightReadT>
 class DoPutPayloadWriter;
+
+template <typename ProtoReadT, typename FlightReadT>
 class GrpcStreamWriter : public FlightStreamWriter {
  public:
   ~GrpcStreamWriter() override = default;
 
+  using GrpcStream = grpc::ClientReaderWriter<pb::FlightData, ProtoReadT>;
+
   explicit GrpcStreamWriter(
-      std::shared_ptr<grpc::ClientReaderWriter<pb::FlightData, pb::PutResult>> writer)
-      : app_metadata_(nullptr), batch_writer_(nullptr), writer_(writer) {}
+      const FlightDescriptor& descriptor, std::shared_ptr<ClientRpc> rpc,
+      std::shared_ptr<FinishableWritableStream<GrpcStream, FlightReadT>> writer)
+      : app_metadata_(nullptr),
+        batch_writer_(nullptr),
+        writer_(std::move(writer)),
+        rpc_(std::move(rpc)),
+        descriptor_(descriptor),
+        writer_closed_(false) {}
 
   static Status Open(
-      const FlightDescriptor& descriptor, const std::shared_ptr<Schema>& schema,
-      std::unique_ptr<ClientRpc> rpc, std::unique_ptr<pb::PutResult> response,
-      std::shared_ptr<std::mutex> read_mutex,
-      std::shared_ptr<grpc::ClientReaderWriter<pb::FlightData, pb::PutResult>> writer,
+      const FlightDescriptor& descriptor, std::shared_ptr<Schema> schema,
+      std::shared_ptr<ClientRpc> rpc,
+      std::shared_ptr<FinishableWritableStream<GrpcStream, FlightReadT>> writer,
       std::unique_ptr<FlightStreamWriter>* out);
 
+  Status CheckStarted() {
+    if (!batch_writer_) {
+      return Status::Invalid("Writer not initialized. Call Begin() with a schema.");
+    }
+    return Status::OK();
+  }
+
+  Status Begin(const std::shared_ptr<Schema>& schema) override {
+    if (batch_writer_) {
+      return Status::Invalid("This writer has already been started.");
+    }
+    std::unique_ptr<ipc::internal::IpcPayloadWriter> payload_writer(
+        new DoPutPayloadWriter<ProtoReadT, FlightReadT>(descriptor_, std::move(rpc_),
+                                                        writer_, this));
+    // XXX: this does not actually write the message to the stream.
+    // See Close().
+    ARROW_ASSIGN_OR_RAISE(batch_writer_, ipc::internal::OpenRecordBatchWriter(
+                                             std::move(payload_writer), schema));
+    return Status::OK();
+  }
+
   Status WriteRecordBatch(const RecordBatch& batch) override {
+    RETURN_NOT_OK(CheckStarted());
     return WriteWithMetadata(batch, nullptr);
+  }
+
+  Status WriteMetadata(std::shared_ptr<Buffer> app_metadata) override {
+    FlightPayload payload{};
+    payload.app_metadata = app_metadata;
+    if (!internal::WritePayload(payload, writer_->stream().get())) {
+      return writer_->Finish(MakeFlightError(FlightStatusCode::Internal,
+                                             "Could not write metadata to stream"));
+    }
+    return Status::OK();
   }
   Status WriteWithMetadata(const RecordBatch& batch,
                            std::shared_ptr<Buffer> app_metadata) override {
+    RETURN_NOT_OK(CheckStarted());
     app_metadata_ = app_metadata;
     return batch_writer_->WriteRecordBatch(batch);
   }
   Status DoneWriting() override {
-    if (done_writing_) {
-      return Status::OK();
+    // Do not CheckStarted - DoneWriting applies to data and metadata
+    if (batch_writer_) {
+      // Close the writer if we have one; this will force it to flush any
+      // remaining data, before we close the write side of the stream.
+      writer_closed_ = true;
+      Status st = batch_writer_->Close();
+      if (!st.ok()) {
+        return writer_->Finish(std::move(st));
+      }
     }
-    done_writing_ = true;
-    if (!writer_->WritesDone()) {
-      return Status::IOError("Could not flush pending record batches.");
-    }
-    return Status::OK();
+    return writer_->DoneWriting();
   }
-  Status Close() override { return batch_writer_->Close(); }
+  Status Close() override {
+    // Do not CheckStarted - Close applies to data and metadata
+    if (batch_writer_ && !writer_closed_) {
+      // This is important! Close() calls
+      // IpcPayloadWriter::CheckStarted() which will force the initial
+      // schema message to be written to the stream. This is required
+      // to unstick the server, else the client and the server end up
+      // waiting for each other. This happens if the client never
+      // wrote anything before calling Close().
+      writer_closed_ = true;
+      return writer_->Finish(batch_writer_->Close());
+    }
+    return writer_->Finish(Status::OK());
+  }
 
  private:
-  friend class DoPutPayloadWriter;
+  friend class DoPutPayloadWriter<ProtoReadT, FlightReadT>;
   std::shared_ptr<Buffer> app_metadata_;
   std::unique_ptr<ipc::RecordBatchWriter> batch_writer_;
-  std::shared_ptr<grpc::ClientReaderWriter<pb::FlightData, pb::PutResult>> writer_;
-  bool done_writing_ = false;
+  std::shared_ptr<FinishableWritableStream<GrpcStream, FlightReadT>> writer_;
+
+  // Fields used to lazy-initialize the IpcPayloadWriter. They're
+  // invalid once Begin() is called.
+  std::shared_ptr<ClientRpc> rpc_;
+  FlightDescriptor descriptor_;
+  bool writer_closed_;
 };
 
-/// A IpcPayloadWriter implementation that writes to a DoPut stream
+/// A IpcPayloadWriter implementation that writes to a gRPC stream of
+/// FlightData messages.
+template <typename ProtoReadT, typename FlightReadT>
 class DoPutPayloadWriter : public ipc::internal::IpcPayloadWriter {
  public:
+  using GrpcStream = grpc::ClientReaderWriter<pb::FlightData, ProtoReadT>;
+
   DoPutPayloadWriter(
-      const FlightDescriptor& descriptor, std::unique_ptr<ClientRpc> rpc,
-      std::unique_ptr<pb::PutResult> response, std::shared_ptr<std::mutex> read_mutex,
-      std::shared_ptr<grpc::ClientReaderWriter<pb::FlightData, pb::PutResult>> writer,
-      GrpcStreamWriter* stream_writer)
+      const FlightDescriptor& descriptor, std::shared_ptr<ClientRpc> rpc,
+      std::shared_ptr<FinishableWritableStream<GrpcStream, FlightReadT>> writer,
+      GrpcStreamWriter<ProtoReadT, FlightReadT>* stream_writer)
       : descriptor_(descriptor),
-        rpc_(std::move(rpc)),
-        response_(std::move(response)),
-        read_mutex_(read_mutex),
+        rpc_(rpc),
         writer_(std::move(writer)),
         first_payload_(true),
         stream_writer_(stream_writer) {}
@@ -433,68 +676,59 @@ class DoPutPayloadWriter : public ipc::internal::IpcPayloadWriter {
       if (ipc_payload.type != ipc::Message::SCHEMA) {
         return Status::Invalid("First IPC message should be schema");
       }
-      std::string str_descr;
-      {
-        pb::FlightDescriptor pb_descr;
-        RETURN_NOT_OK(internal::ToProto(descriptor_, &pb_descr));
-        if (!pb_descr.SerializeToString(&str_descr)) {
-          return Status::UnknownError("Failed to serialized Flight descriptor");
-        }
-      }
-      payload.descriptor = Buffer::FromString(std::move(str_descr));
+      // Write the descriptor to begin with
+      RETURN_NOT_OK(internal::ToPayload(descriptor_, &payload.descriptor));
       first_payload_ = false;
     } else if (ipc_payload.type == ipc::Message::RECORD_BATCH &&
                stream_writer_->app_metadata_) {
       payload.app_metadata = std::move(stream_writer_->app_metadata_);
     }
 
-    if (!internal::WritePayload(payload, writer_.get())) {
-      return rpc_->IOError("Could not write record batch to stream: ");
+    if (!internal::WritePayload(payload, writer_->stream().get())) {
+      return writer_->Finish(MakeFlightError(FlightStatusCode::Internal,
+                                             "Could not write record batch to stream"));
     }
     return Status::OK();
   }
 
   Status Close() override {
-    bool finished_writes = stream_writer_->done_writing_ ? true : writer_->WritesDone();
-    // Drain the read side to avoid hanging
-    std::unique_lock<std::mutex> guard(*read_mutex_, std::try_to_lock);
-    if (!guard.owns_lock()) {
-      return Status::IOError("Cannot close stream with pending read operation.");
-    }
-    pb::PutResult message;
-    while (writer_->Read(&message)) {
-    }
-    RETURN_NOT_OK(internal::FromGrpcStatus(writer_->Finish(), &rpc_->context));
-    if (!finished_writes) {
-      return Status::UnknownError(
-          "Could not finish writing record batches before closing");
-    }
+    // Closing is handled one layer up in GrpcStreamWriter::Close
     return Status::OK();
   }
 
  protected:
-  // TODO: there isn't a way to access this as a user.
   const FlightDescriptor descriptor_;
-  std::unique_ptr<ClientRpc> rpc_;
-  std::unique_ptr<pb::PutResult> response_;
-  std::shared_ptr<std::mutex> read_mutex_;
-  std::shared_ptr<grpc::ClientReaderWriter<pb::FlightData, pb::PutResult>> writer_;
+  std::shared_ptr<ClientRpc> rpc_;
+  std::shared_ptr<FinishableWritableStream<GrpcStream, FlightReadT>> writer_;
   bool first_payload_;
-  GrpcStreamWriter* stream_writer_;
+  GrpcStreamWriter<ProtoReadT, FlightReadT>* stream_writer_;
 };
 
-Status GrpcStreamWriter::Open(
-    const FlightDescriptor& descriptor, const std::shared_ptr<Schema>& schema,
-    std::unique_ptr<ClientRpc> rpc, std::unique_ptr<pb::PutResult> response,
-    std::shared_ptr<std::mutex> read_mutex,
-    std::shared_ptr<grpc::ClientReaderWriter<pb::FlightData, pb::PutResult>> writer,
+template <typename ProtoReadT, typename FlightReadT>
+Status GrpcStreamWriter<ProtoReadT, FlightReadT>::Open(
+    const FlightDescriptor& descriptor,
+    std::shared_ptr<Schema> schema,  // this schema is nullable
+    std::shared_ptr<ClientRpc> rpc,
+    std::shared_ptr<FinishableWritableStream<GrpcStream, FlightReadT>> writer,
     std::unique_ptr<FlightStreamWriter>* out) {
-  std::unique_ptr<GrpcStreamWriter> result(new GrpcStreamWriter(writer));
-  std::unique_ptr<ipc::internal::IpcPayloadWriter> payload_writer(new DoPutPayloadWriter(
-      descriptor, std::move(rpc), std::move(response), read_mutex, writer, result.get()));
-  ARROW_ASSIGN_OR_RAISE(result->batch_writer_, ipc::internal::OpenRecordBatchWriter(
-                                                   std::move(payload_writer), schema));
-  *out = std::move(result);
+  std::unique_ptr<GrpcStreamWriter<ProtoReadT, FlightReadT>> instance(
+      new GrpcStreamWriter<ProtoReadT, FlightReadT>(descriptor, std::move(rpc), writer));
+  if (schema) {
+    // The schema was provided (DoPut). Eagerly write the schema and
+    // descriptor together as the first message.
+    RETURN_NOT_OK(instance->Begin(schema));
+  } else {
+    // The schema was not provided (DoExchange). Eagerly write just
+    // the descriptor as the first message. Note that if the client
+    // calls Begin() to send data, we'll send a redundant descriptor.
+    FlightPayload payload{};
+    RETURN_NOT_OK(internal::ToPayload(descriptor, &payload.descriptor));
+    if (!internal::WritePayload(payload, instance->writer_->stream().get())) {
+      return writer->Finish(MakeFlightError(FlightStatusCode::Internal,
+                                            "Could not write descriptor to stream"));
+    }
+  }
+  *out = std::move(instance);
   return Status::OK();
 }
 
@@ -591,7 +825,8 @@ class FlightClient::FlightClientImpl {
     bool finished_writes = stream->WritesDone();
     RETURN_NOT_OK(internal::FromGrpcStatus(stream->Finish(), &rpc.context));
     if (!finished_writes) {
-      return Status::UnknownError("Could not finish writing before closing");
+      return MakeFlightError(FlightStatusCode::Internal,
+                             "Could not finish writing before closing");
     }
     return Status::OK();
   }
@@ -701,35 +936,66 @@ class FlightClient::FlightClientImpl {
 
   Status DoGet(const FlightCallOptions& options, const Ticket& ticket,
                std::unique_ptr<FlightStreamReader>* out) {
+    using StreamReader = GrpcStreamReader<grpc::ClientReader<pb::FlightData>>;
     pb::Ticket pb_ticket;
     internal::ToProto(ticket, &pb_ticket);
 
-    std::unique_ptr<ClientRpc> rpc(new ClientRpc(options));
+    auto rpc = std::make_shared<ClientRpc>(options);
     RETURN_NOT_OK(rpc->SetToken(auth_handler_.get()));
-    std::unique_ptr<grpc::ClientReader<pb::FlightData>> stream(
-        stub_->DoGet(&rpc->context, pb_ticket));
-
-    std::unique_ptr<GrpcStreamReader> reader;
-    RETURN_NOT_OK(GrpcStreamReader::Open(std::move(rpc), std::move(stream), &reader));
-    *out = std::move(reader);
-    return Status::OK();
+    std::shared_ptr<grpc::ClientReader<pb::FlightData>> stream =
+        stub_->DoGet(&rpc->context, pb_ticket);
+    auto finishable_stream = std::make_shared<
+        FinishableStream<grpc::ClientReader<pb::FlightData>, internal::FlightData>>(
+        rpc, stream);
+    *out =
+        std::unique_ptr<StreamReader>(new StreamReader(rpc, nullptr, finishable_stream));
+    // Eagerly read the schema
+    return static_cast<StreamReader*>(out->get())->EnsureDataStarted();
   }
 
   Status DoPut(const FlightCallOptions& options, const FlightDescriptor& descriptor,
                const std::shared_ptr<Schema>& schema,
                std::unique_ptr<FlightStreamWriter>* out,
                std::unique_ptr<FlightMetadataReader>* reader) {
-    std::unique_ptr<ClientRpc> rpc(new ClientRpc(options));
-    RETURN_NOT_OK(rpc->SetToken(auth_handler_.get()));
-    std::unique_ptr<pb::PutResult> response(new pb::PutResult);
-    std::shared_ptr<grpc::ClientReaderWriter<pb::FlightData, pb::PutResult>> writer(
-        stub_->DoPut(&rpc->context));
+    using GrpcStream = grpc::ClientReaderWriter<pb::FlightData, pb::PutResult>;
+    using StreamWriter = GrpcStreamWriter<pb::PutResult, pb::PutResult>;
 
+    auto rpc = std::make_shared<ClientRpc>(options);
+    RETURN_NOT_OK(rpc->SetToken(auth_handler_.get()));
+    std::shared_ptr<GrpcStream> stream = stub_->DoPut(&rpc->context);
+    // The writer drains the reader on close to avoid hanging inside
+    // gRPC. Concurrent reads are unsafe, so a mutex protects this operation.
     std::shared_ptr<std::mutex> read_mutex = std::make_shared<std::mutex>();
+    auto finishable_stream =
+        std::make_shared<FinishableWritableStream<GrpcStream, pb::PutResult>>(
+            rpc, read_mutex, stream);
     *reader =
-        std::unique_ptr<FlightMetadataReader>(new GrpcMetadataReader(writer, read_mutex));
-    return GrpcStreamWriter::Open(descriptor, schema, std::move(rpc), std::move(response),
-                                  read_mutex, writer, out);
+        std::unique_ptr<FlightMetadataReader>(new GrpcMetadataReader(stream, read_mutex));
+    return StreamWriter::Open(descriptor, schema, rpc, finishable_stream, out);
+  }
+
+  Status DoExchange(const FlightCallOptions& options, const FlightDescriptor& descriptor,
+                    std::unique_ptr<FlightStreamWriter>* writer,
+                    std::unique_ptr<FlightStreamReader>* reader) {
+    using GrpcStream = grpc::ClientReaderWriter<pb::FlightData, pb::FlightData>;
+    using StreamReader = GrpcStreamReader<GrpcStream>;
+    using StreamWriter = GrpcStreamWriter<pb::FlightData, internal::FlightData>;
+
+    auto rpc = std::make_shared<ClientRpc>(options);
+    RETURN_NOT_OK(rpc->SetToken(auth_handler_.get()));
+    std::shared_ptr<grpc::ClientReaderWriter<pb::FlightData, pb::FlightData>> stream =
+        stub_->DoExchange(&rpc->context);
+    // The writer drains the reader on close to avoid hanging inside
+    // gRPC. Concurrent reads are unsafe, so a mutex protects this operation.
+    std::shared_ptr<std::mutex> read_mutex = std::make_shared<std::mutex>();
+    auto finishable_stream =
+        std::make_shared<FinishableWritableStream<GrpcStream, internal::FlightData>>(
+            rpc, read_mutex, stream);
+    *reader = std::unique_ptr<StreamReader>(
+        new StreamReader(rpc, read_mutex, finishable_stream));
+    // Do not eagerly read the schema. There may be metadata messages
+    // before any data is sent, or data may not be sent at all.
+    return StreamWriter::Open(descriptor, nullptr, rpc, finishable_stream, writer);
   }
 
  private:
@@ -800,6 +1066,13 @@ Status FlightClient::DoPut(const FlightCallOptions& options,
                            std::unique_ptr<FlightStreamWriter>* stream,
                            std::unique_ptr<FlightMetadataReader>* reader) {
   return impl_->DoPut(options, descriptor, schema, stream, reader);
+}
+
+Status FlightClient::DoExchange(const FlightCallOptions& options,
+                                const FlightDescriptor& descriptor,
+                                std::unique_ptr<FlightStreamWriter>* writer,
+                                std::unique_ptr<FlightStreamReader>* reader) {
+  return impl_->DoExchange(options, descriptor, writer, reader);
 }
 
 }  // namespace flight

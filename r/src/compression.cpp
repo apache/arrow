@@ -18,6 +18,10 @@
 #include "./arrow_types.h"
 
 #if defined(ARROW_R_WITH_ARROW)
+#include <arrow/io/compressed.h>
+#include <arrow/util/compression.h>
+
+RCPP_EXPOSED_ENUM_NODECL(arrow::Compression::type)
 
 // [[arrow::export]]
 std::unique_ptr<arrow::util::Codec> util___Codec__Create(arrow::Compression::type codec,

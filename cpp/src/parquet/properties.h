@@ -59,31 +59,32 @@ struct ParquetVersion {
 /// DataPageV2 at all.
 enum class ParquetDataPageVersion { V1, V2 };
 
-static int64_t DEFAULT_BUFFER_SIZE = 1024;
-static bool DEFAULT_USE_BUFFERED_STREAM = false;
+/// Align the default buffer size to a small multiple of a page size.
+constexpr int64_t kDefaultBufferSize = 4096 * 4;
 
 class PARQUET_EXPORT ReaderProperties {
  public:
   explicit ReaderProperties(MemoryPool* pool = ::arrow::default_memory_pool())
-      : pool_(pool) {
-    buffered_stream_enabled_ = DEFAULT_USE_BUFFERED_STREAM;
-    buffer_size_ = DEFAULT_BUFFER_SIZE;
-  }
+      : pool_(pool) {}
 
   MemoryPool* memory_pool() const { return pool_; }
 
   std::shared_ptr<ArrowInputStream> GetStream(std::shared_ptr<ArrowInputFile> source,
                                               int64_t start, int64_t num_bytes);
 
+  /// Buffered stream reading allows the user to control the memory usage of
+  /// parquet readers. This ensure that all `RandomAccessFile::ReadAt` calls are
+  /// wrapped in a buffered reader that uses a fix sized buffer (of size
+  /// `buffer_size()`) instead of the full size of the ReadAt.
+  ///
+  /// The primary reason for this control knobs is for resource control and not
+  /// performance.
   bool is_buffered_stream_enabled() const { return buffered_stream_enabled_; }
-
   void enable_buffered_stream() { buffered_stream_enabled_ = true; }
-
   void disable_buffered_stream() { buffered_stream_enabled_ = false; }
 
-  void set_buffer_size(int64_t buf_size) { buffer_size_ = buf_size; }
-
   int64_t buffer_size() const { return buffer_size_; }
+  void set_buffer_size(int64_t size) { buffer_size_ = size; }
 
   void file_decryption_properties(std::shared_ptr<FileDecryptionProperties> decryption) {
     file_decryption_properties_ = std::move(decryption);
@@ -95,8 +96,8 @@ class PARQUET_EXPORT ReaderProperties {
 
  private:
   MemoryPool* pool_;
-  int64_t buffer_size_;
-  bool buffered_stream_enabled_;
+  int64_t buffer_size_ = kDefaultBufferSize;
+  bool buffered_stream_enabled_ = false;
   std::shared_ptr<FileDecryptionProperties> file_decryption_properties_;
 };
 

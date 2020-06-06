@@ -18,6 +18,10 @@
 #include "./arrow_types.h"
 
 #if defined(ARROW_R_WITH_ARROW)
+#include <arrow/ipc/reader.h>
+#include <arrow/ipc/writer.h>
+#include <arrow/type.h>
+#include <arrow/util/key_value_metadata.h>
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Schema> schema_(Rcpp::List fields) {

@@ -20,6 +20,7 @@ package org.apache.arrow.vector.types.pojo;
 import static org.apache.arrow.util.Preconditions.checkNotNull;
 import static org.apache.arrow.vector.complex.BaseRepeatedValueVector.DATA_VECTOR_NAME;
 import static org.apache.arrow.vector.types.pojo.ArrowType.getTypeForField;
+import static org.apache.arrow.vector.types.pojo.Schema.convertMetadata;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -66,6 +67,16 @@ public class Field {
   private final FieldType fieldType;
   private final List<Field> children;
 
+  private Field(
+      String name,
+      boolean nullable,
+      ArrowType type,
+      DictionaryEncoding dictionary,
+      List<Field> children,
+      Map<String, String> metadata) {
+    this(name, new FieldType(nullable, type, dictionary, metadata), children);
+  }
+
   @JsonCreator
   private Field(
       @JsonProperty("name") String name,
@@ -73,8 +84,8 @@ public class Field {
       @JsonProperty("type") ArrowType type,
       @JsonProperty("dictionary") DictionaryEncoding dictionary,
       @JsonProperty("children") List<Field> children,
-      @JsonProperty("metadata") Map<String, String> metadata) {
-    this(name, new FieldType(nullable, type, dictionary, metadata), children);
+      @JsonProperty("metadata") List<Map<String, String>> metadata) {
+    this(name, new FieldType(nullable, type, dictionary, convertMetadata(metadata)), children);
   }
 
   private Field(String name, FieldType fieldType, List<Field> children, TypeLayout typeLayout) {

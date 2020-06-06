@@ -18,6 +18,13 @@
 #include "./arrow_types.h"
 #if defined(ARROW_R_WITH_ARROW)
 
+#include <arrow/filesystem/filesystem.h>
+#include <arrow/filesystem/localfs.h>
+
+namespace fs = ::arrow::fs;
+
+RCPP_EXPOSED_ENUM_NODECL(arrow::fs::FileType)
+
 // FileInfo
 
 // [[arrow::export]]
@@ -226,6 +233,8 @@ Rcpp::List fs___FileSystemFromUri(const std::string& path) {
 #endif
 
 #if defined(ARROW_R_WITH_S3)
+
+#include <arrow/filesystem/s3fs.h>
 
 // [[s3::export]]
 void fs___EnsureS3Initialized() { StopIfNotOk(fs::EnsureS3Initialized()); }

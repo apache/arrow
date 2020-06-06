@@ -33,6 +33,7 @@
 #include "arrow/builder.h"
 #include "arrow/memory_pool.h"
 #include "arrow/type.h"
+#include "arrow/util/bitset_stack.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/make_unique.h"
 #include "arrow/util/string_view.h"

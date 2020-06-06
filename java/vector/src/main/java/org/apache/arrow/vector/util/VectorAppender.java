@@ -21,6 +21,7 @@ import java.util.HashSet;
 
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BaseFixedWidthVector;
+import org.apache.arrow.vector.BaseLargeVariableWidthVector;
 import org.apache.arrow.vector.BaseVariableWidthVector;
 import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.NullVector;
@@ -129,6 +130,12 @@ class VectorAppender implements VectorVisitor<ValueVector, Void> {
     ((BaseVariableWidthVector) targetVector).setLastSet(newValueCount - 1);
     targetVector.setValueCount(newValueCount);
     return targetVector;
+  }
+
+  @Override
+  public ValueVector visit(BaseLargeVariableWidthVector left, Void value) {
+    // TODO: support vector appending for BaseLargeVariableWidthVector
+    throw new UnsupportedOperationException();
   }
 
   @Override

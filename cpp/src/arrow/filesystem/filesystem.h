@@ -135,7 +135,6 @@ struct ARROW_EXPORT FileInfo : public util::EqualityComparable<FileInfo> {
   int64_t size_ = kNoSize;
   TimePoint mtime_ = kNoTime;
 };
-using FileStats ARROW_DEPRECATED_USING("Use FileInfo") = struct FileInfo;
 
 ARROW_EXPORT std::ostream& operator<<(std::ostream& os, const FileInfo&);
 
@@ -379,18 +378,6 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUriOrPath(
     const std::string& uri, std::string* out_path = NULLPTR);
 
 /// @}
-
-/// \brief Create a new FileSystem by URI
-///
-/// Recognized schemes are "file", "mock", "hdfs" and "s3fs".
-///
-/// \param[in] uri a URI-based path, ex: file:///some/local/path
-/// \param[out] out_fs FileSystem instance.
-/// \param[out] out_path (optional) Path inside the filesystem.
-/// \return Status
-ARROW_DEPRECATED("Use Result-returning version")
-Status FileSystemFromUri(const std::string& uri, std::shared_ptr<FileSystem>* out_fs,
-                         std::string* out_path = NULLPTR);
 
 }  // namespace fs
 }  // namespace arrow

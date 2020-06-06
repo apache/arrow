@@ -17,6 +17,11 @@
 
 #' @include array.R
 
+call_function <- function(function_name, ..., options = list()) {
+  assert_that(is.string(function_name))
+  compute__CallFunction(function_name, list(...), options)
+}
+
 CastOptions <- R6Class("CastOptions", inherit = ArrowObject)
 
 #' Cast options

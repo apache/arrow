@@ -24,8 +24,7 @@ import tempfile
 
 import numpy as np
 
-from .util import (frombytes, tobytes, random_bytes, random_utf8,
-                   SKIP_ARROW, SKIP_FLIGHT)
+from .util import frombytes, tobytes, random_bytes, random_utf8
 
 
 def metadata_key_values(pairs):
@@ -177,11 +176,15 @@ class IntegerField(PrimitiveField):
 
     def generate_column(self, size, name=None):
         lower_bound, upper_bound = self._get_generated_data_bounds()
-        return self.generate_range(size, lower_bound, upper_bound, name=name)
+        return self.generate_range(size, lower_bound, upper_bound,
+                                   name=name, include_extremes=True)
 
-    def generate_range(self, size, lower, upper, name=None):
-        values = [int(x) for x in
-                  np.random.randint(lower, upper, size=size)]
+    def generate_range(self, size, lower, upper, name=None,
+                       include_extremes=False):
+        values = np.random.randint(lower, upper, size=size)
+        if include_extremes and size >= 2:
+            values[:2] = [lower, upper]
+        values = list(map(int if self.bit_width < 64 else str, values))
 
         is_valid = self._make_is_valid(size)
 
@@ -758,14 +761,14 @@ class LargeListColumn(_BaseListColumn, _LargeOffsetsMixin):
 class MapField(Field):
 
     def __init__(self, name, key_field, item_field, *, nullable=True,
-                 metadata=None, keys_sorted=False):
+                 metadata=None, keys_sorted=False, entries_name='entries'):
         super().__init__(name, nullable=nullable,
                          metadata=metadata)
 
         assert not key_field.nullable
         self.key_field = key_field
         self.item_field = item_field
-        self.pair_field = StructField('entries', [key_field, item_field],
+        self.pair_field = StructField(entries_name, [key_field, item_field],
                                       nullable=False)
         self.keys_sorted = keys_sorted
 
@@ -1341,6 +1344,18 @@ def generate_map_case():
     return _generate_file("map", fields, batch_sizes)
 
 
+def generate_non_canonical_map_case():
+    fields = [
+        MapField('map_other_names',
+                 get_field('some_key', 'utf8', nullable=False),
+                 get_field('some_value', 'int32'),
+                 entries_name='some_entries'),
+    ]
+
+    batch_sizes = [7]
+    return _generate_file("map_non_canonical", fields, batch_sizes)
+
+
 def generate_nested_case():
     fields = [
         ListField('list_nullable', get_field('item', 'int32')),
@@ -1477,7 +1492,6 @@ def get_generated_json_files(tempdir=None, flight=False):
 
         generate_primitive_large_offsets_case([17, 20])
         .skip_category('Go')
-        .skip_category('Java')  # TODO(ARROW-6110)
         .skip_category('JS'),
 
         generate_null_case([10, 0])
@@ -1502,6 +1516,12 @@ def get_generated_json_files(tempdir=None, flight=False):
         .skip_category('Go')  # TODO(ARROW-5620): Map + Go
         .skip_category('Rust'),
 
+        generate_non_canonical_map_case()
+        .skip_category('Go')     # TODO(ARROW-5620)
+        .skip_category('Java')   # TODO(ARROW-8715)
+        .skip_category('JS')     # TODO(ARROW-8716)
+        .skip_category('Rust'),
+
         generate_nested_case()
         .skip_category('Rust'),
 
@@ -1523,7 +1543,6 @@ def get_generated_json_files(tempdir=None, flight=False):
 
         generate_custom_metadata_case()
         .skip_category('Go')
-        .skip_category('Java')
         .skip_category('JS')
         .skip_category('Rust'),
 
@@ -1538,14 +1557,15 @@ def get_generated_json_files(tempdir=None, flight=False):
         .skip_category('Go')
         .skip_category('Rust'),
 
-        # TODO(ARROW-7902)
-        generate_nested_dictionary_case().skip_category(SKIP_ARROW)
-                                         .skip_category(SKIP_FLIGHT),
+        generate_nested_dictionary_case()
+        .skip_category('Go')
+        .skip_category('Java')  # TODO(ARROW-7779)
+        .skip_category('JS'),
 
-        generate_extension_case().skip_category('Go')
-                                 .skip_category('Java')  # TODO(ARROW-8485)
-                                 .skip_category('JS')
-                                 .skip_category('Rust'),
+        generate_extension_case()
+        .skip_category('Go')
+        .skip_category('JS')
+        .skip_category('Rust'),
     ]
 
     if flight:

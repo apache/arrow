@@ -40,7 +40,7 @@
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
-#include "arrow/compute/kernel.h"
+#include "arrow/datum.h"
 #include "arrow/ipc/json_simple.h"
 #include "arrow/pretty_print.h"
 #include "arrow/status.h"
@@ -82,6 +82,22 @@ void AssertArraysEqual(const Array& expected, const Array& actual, bool verbose)
   }
 }
 
+void AssertScalarsEqual(const Scalar& expected, const Scalar& actual, bool verbose) {
+  std::stringstream diff;
+  // ARROW-8956, ScalarEquals returns false when both are null
+  if (!expected.is_valid && !actual.is_valid) {
+    // We consider both being null to be equal in this function
+    return;
+  }
+  if (!expected.Equals(actual)) {
+    if (verbose) {
+      diff << "Expected:\n" << expected.ToString();
+      diff << "\nActual:\n" << actual.ToString();
+    }
+    FAIL() << diff.str();
+  }
+}
+
 void AssertBatchesEqual(const RecordBatch& expected, const RecordBatch& actual,
                         bool check_metadata) {
   AssertTsEqual(expected, actual, check_metadata);
@@ -103,6 +119,20 @@ void AssertChunkedEqual(const ChunkedArray& expected, const ChunkedArray& actual
 
 void AssertChunkedEqual(const ChunkedArray& actual, const ArrayVector& expected) {
   AssertChunkedEqual(ChunkedArray(expected, actual.type()), actual);
+}
+
+void AssertChunkedEquivalent(const ChunkedArray& expected, const ChunkedArray& actual) {
+  // XXX: AssertChunkedEqual in gtest_util.h does not permit the chunk layouts
+  // to be different
+  if (!actual.Equals(expected)) {
+    std::stringstream pp_expected;
+    std::stringstream pp_actual;
+    ::arrow::PrettyPrintOptions options(/*indent=*/2);
+    options.window = 50;
+    ARROW_EXPECT_OK(PrettyPrint(expected, options, &pp_expected));
+    ARROW_EXPECT_OK(PrettyPrint(actual, options, &pp_actual));
+    FAIL() << "Got: \n" << pp_actual.str() << "\nExpected: \n" << pp_expected.str();
+  }
 }
 
 void AssertBufferEqual(const Buffer& buffer, const std::vector<uint8_t>& expected) {

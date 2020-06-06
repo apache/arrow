@@ -62,7 +62,7 @@ public class TestArrowStream extends BaseFileTest {
     ByteArrayOutputStream os = new ByteArrayOutputStream();
 
     try (IntVector vector = new IntVector("foo", allocator);) {
-      Schema schema = new Schema(Collections.singletonList(vector.getField()), null);
+      Schema schema = new Schema(Collections.singletonList(vector.getField()));
       try (VectorSchemaRoot root =
              new VectorSchemaRoot(schema, Collections.singletonList(vector), vector.getValueCount());
            ArrowStreamWriter writer = new ArrowStreamWriter(root, null, Channels.newChannel(os));) {
@@ -129,7 +129,7 @@ public class TestArrowStream extends BaseFileTest {
     ByteArrayOutputStream os = new ByteArrayOutputStream();
 
     try (IntVector vector = new IntVector("foo", allocator);) {
-      Schema schema = new Schema(Collections.singletonList(vector.getField()), null);
+      Schema schema = new Schema(Collections.singletonList(vector.getField()));
       try (VectorSchemaRoot root =
              new VectorSchemaRoot(schema, Collections.singletonList(vector), vector.getValueCount());
            ArrowStreamWriter writer = new ArrowStreamWriter(root, null, Channels.newChannel(os));) {

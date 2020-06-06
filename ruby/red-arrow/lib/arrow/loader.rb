@@ -41,6 +41,7 @@ module Arrow
       require "arrow/array"
       require "arrow/array-builder"
       require "arrow/bigdecimal-extension"
+      require "arrow/buffer"
       require "arrow/chunked-array"
       require "arrow/column"
       require "arrow/compression-type"

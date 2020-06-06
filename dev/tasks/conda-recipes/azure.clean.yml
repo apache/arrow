@@ -1,0 +1,28 @@
+jobs:
+- job: linux
+  pool:
+    vmImage: ubuntu-18.04
+  timeoutInMinutes: 360
+
+  steps:
+  - script: |
+      git clone --no-checkout {{ arrow.remote }} arrow
+      git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
+      git -C arrow checkout FETCH_HEAD
+      git -C arrow submodule update --init --recursive
+    displayName: Clone arrow
+
+  - script: |
+      conda install -y -c conda-forge pandas anaconda-client
+    displayName: Install requirements
+
+  - script: |
+      {% if arrow.branch == 'master' %}
+      mkdir -p $HOME/.continuum/anaconda-client/tokens/
+      echo $(CROSSBOW_ANACONDA_TOKEN) > $HOME/.continuum/anaconda-client/tokens/https%3A%2F%2Fapi.anaconda.org.token
+      {% endif %}
+      eval "$(conda shell.bash hook)"
+      conda activate base
+      python3 arrow/dev/tasks/conda-recipes/clean.py {% if arrow.branch == 'master' %}FORCE{% endif %}
+    displayName: Delete outdated packages
+

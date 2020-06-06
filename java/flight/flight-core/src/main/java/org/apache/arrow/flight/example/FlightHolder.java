@@ -32,6 +32,7 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
+import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.DictionaryUtility;
 
@@ -104,7 +105,16 @@ public class FlightHolder implements AutoCloseable {
                 l));
       i++;
     }
-    return new FlightInfo(schema, descriptor, endpoints, bytes, records);
+    return new FlightInfo(messageFormatSchema(), descriptor, endpoints, bytes, records);
+  }
+
+  private Schema messageFormatSchema() {
+    Set<Long> dictionaryIdsUsed = new HashSet<>();
+    List<Field> messageFormatFields = schema.getFields()
+        .stream()
+        .map(f -> DictionaryUtility.toMessageFormat(f, dictionaryProvider, dictionaryIdsUsed))
+        .collect(Collectors.toList());
+    return new Schema(messageFormatFields, schema.getCustomMetadata());
   }
 
   @Override

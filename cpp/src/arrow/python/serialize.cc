@@ -713,7 +713,7 @@ Status SerializedPyObject::GetComponents(MemoryPool* memory_pool, PyObject** out
 
   OwnedRef result(PyDict_New());
   PyObject* buffers = PyList_New(0);
-  PyObject* num_sparse_tensors;
+  PyObject* num_sparse_tensors = nullptr;
 
   // TODO(wesm): Not sure how pedantic we need to be about checking the return
   // values of these functions. There are other places where we do not check

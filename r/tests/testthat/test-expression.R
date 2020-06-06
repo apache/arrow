@@ -58,7 +58,7 @@ test_that("C++ expressions", {
   expect_is(f == i64, "Expression")
   expect_is(f == time, "Expression")
   expect_is(f == dict, "Expression")
-  # can't seem to make this work right now
+  # can't seem to make this work right now because of R Ops.method dispatch
   # expect_is(f == as.Date("2020-01-15"), "Expression")
   expect_is(f == ts, "Expression")
   expect_is(f <= 2L, "Expression")
@@ -72,6 +72,6 @@ test_that("C++ expressions", {
     'Expression\n(f > 4:double)',
     fixed = TRUE
   )
-
-  expect_error(f == c(1L, 2L))
+  # Interprets that as a list type
+  expect_is(f == c(1L, 2L), "Expression")
 })

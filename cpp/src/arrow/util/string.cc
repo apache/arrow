@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <memory>
 
 #include "arrow/status.h"
 

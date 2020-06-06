@@ -16,7 +16,7 @@
 // under the License.
 
 use std::cmp::{max, min};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::marker::PhantomData;
 use std::mem::size_of;
 use std::rc::Rc;
@@ -609,21 +609,38 @@ where
 {
     let mut leaves = HashMap::<*const Type, usize>::new();
 
+    let mut filtered_root_names = HashSet::<String>::new();
+
     for c in column_indices {
         let column = parquet_schema.column(c).self_type() as *const Type;
         leaves.insert(column, c);
+
+        let root = parquet_schema.get_column_root_ptr(c);
+        filtered_root_names.insert(root.name().to_string());
     }
 
     if leaves.is_empty() {
         return Err(general_err!("Can't build array reader without columns!"));
     }
 
-    ArrayReaderBuilder::new(
-        Rc::new(parquet_schema.root_schema().clone()),
-        Rc::new(leaves),
-        file_reader,
-    )
-    .build_array_reader()
+    // Only pass root fields that take part in the projection
+    // to avoid traversal of columns that are not read.
+    // TODO: also prune unread parts of the tree in child structures
+    let filtered_root_fields = parquet_schema
+        .root_schema()
+        .get_fields()
+        .into_iter()
+        .filter(|field| filtered_root_names.contains(field.name()))
+        .map(|field| field.clone())
+        .collect::<Vec<_>>();
+
+    let proj = Type::GroupType {
+        basic_info: parquet_schema.root_schema().get_basic_info().clone(),
+        fields: filtered_root_fields,
+    };
+
+    ArrayReaderBuilder::new(Rc::new(proj), Rc::new(leaves), file_reader)
+        .build_array_reader()
 }
 
 /// Used to build array reader.

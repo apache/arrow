@@ -2219,7 +2219,7 @@ class TestConvertStructTypes:
                        ('z', np.bool_)])
 
         data = np.array([], dtype=dt)
-        with pytest.raises(TypeError,
+        with pytest.raises(ValueError,
                            match="Missing field 'y'"):
             pa.array(data, type=ty)
         data = np.int32([])
@@ -3278,6 +3278,9 @@ def test_cast_timestamp_unit():
     # Disallow truncation
     arr = pa.array([123123], type='int64').cast(pa.timestamp('ms'))
     expected = pa.array([123], type='int64').cast(pa.timestamp('s'))
+
+    # sanity check that the cast worked right
+    assert arr.type == pa.timestamp('ms')
 
     target = pa.timestamp('s')
     with pytest.raises(ValueError):

@@ -29,7 +29,7 @@ namespace arrow {
 
 namespace compute {
 
-class FunctionContext;
+class ExecContext;
 
 }  // namespace compute
 

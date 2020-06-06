@@ -18,6 +18,8 @@
 #include "./arrow_types.h"
 
 #if defined(ARROW_R_WITH_ARROW)
+#include <arrow/ipc/reader.h>
+#include <arrow/table.h>
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Schema> RecordBatchReader__schema(

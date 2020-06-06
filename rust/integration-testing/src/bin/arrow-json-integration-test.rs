@@ -25,7 +25,7 @@ use arrow::array::{
     Float64Builder, Int16Builder, Int32Builder, Int64Builder, Int8Builder, NullArray,
     StringBuilder, UInt16Builder, UInt32Builder, UInt64Builder, UInt8Builder,
 };
-use arrow::datatypes::{DataType, Schema};
+use arrow::datatypes::{DataType, DateUnit, IntervalUnit, Schema};
 use arrow::error::{ArrowError, Result};
 use arrow::ipc::reader::FileReader;
 use arrow::ipc::writer::FileWriter;
@@ -156,7 +156,10 @@ fn record_batch_from_json(
                 }
                 Arc::new(b.finish())
             }
-            DataType::Int32 => {
+            DataType::Int32
+            | DataType::Date32(DateUnit::Day)
+            | DataType::Time32(_)
+            | DataType::Interval(IntervalUnit::YearMonth) => {
                 let mut b = Int32Builder::new(json_col.count);
                 for (is_valid, value) in json_col
                     .validity
@@ -171,9 +174,15 @@ fn record_batch_from_json(
                     }
                     .unwrap();
                 }
-                Arc::new(b.finish())
+                let array = Arc::new(b.finish()) as ArrayRef;
+                arrow::compute::cast(&array, field.data_type()).unwrap()
             }
-            DataType::Int64 => {
+            DataType::Int64
+            | DataType::Date64(DateUnit::Millisecond)
+            | DataType::Time64(_)
+            | DataType::Timestamp(_, _)
+            | DataType::Duration(_)
+            | DataType::Interval(IntervalUnit::DayTime) => {
                 let mut b = Int64Builder::new(json_col.count);
                 for (is_valid, value) in json_col
                     .validity
@@ -188,7 +197,8 @@ fn record_batch_from_json(
                     }
                     .unwrap();
                 }
-                Arc::new(b.finish())
+                let array = Arc::new(b.finish()) as ArrayRef;
+                arrow::compute::cast(&array, field.data_type()).unwrap()
             }
             DataType::UInt8 => {
                 let mut b = UInt8Builder::new(json_col.count);

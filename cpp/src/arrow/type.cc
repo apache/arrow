@@ -35,6 +35,7 @@
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/hash_util.h"
 #include "arrow/util/hashing.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
@@ -86,7 +87,102 @@ constexpr Type::type DurationType::type_id;
 
 constexpr Type::type DictionaryType::type_id;
 
+namespace internal {
+
+std::string ToString(Type::type id) {
+  switch (id) {
+    case Type::NA:
+      return "NA";
+    case Type::BOOL:
+      return "BOOL";
+    case Type::UINT8:
+      return "UINT8";
+    case Type::INT8:
+      return "INT8";
+    case Type::UINT16:
+      return "UINT16";
+    case Type::INT16:
+      return "INT16";
+    case Type::UINT32:
+      return "UINT32";
+    case Type::INT32:
+      return "INT32";
+    case Type::UINT64:
+      return "UINT64";
+    case Type::INT64:
+      return "INT64";
+    case Type::HALF_FLOAT:
+      return "HALF_FLOAT";
+    case Type::FLOAT:
+      return "FLOAT";
+    case Type::DOUBLE:
+      return "DOUBLE";
+    case Type::STRING:
+      return "UTF8";
+    case Type::BINARY:
+      return "BINARY";
+    case Type::FIXED_SIZE_BINARY:
+      return "FIXED_SIZE_BINARY";
+    case Type::DATE64:
+      return "DATE64";
+    case Type::TIMESTAMP:
+      return "TIMESTAMP";
+    case Type::TIME32:
+      return "TIME32";
+    case Type::TIME64:
+      return "TIME64";
+    case Type::INTERVAL_MONTHS:
+      return "INTERVAL_MONTHS";
+    case Type::INTERVAL_DAY_TIME:
+      return "INTERVAL_DAY_TIME";
+    case Type::DECIMAL:
+      return "DECIMAL";
+    case Type::LIST:
+      return "LIST";
+    case Type::STRUCT:
+      return "STRUCT";
+    case Type::UNION:
+      return "UNION";
+    case Type::DICTIONARY:
+      return "DICTIONARY";
+    case Type::MAP:
+      return "MAP";
+    case Type::EXTENSION:
+      return "EXTENSION";
+    case Type::FIXED_SIZE_LIST:
+      return "FIXED_SIZE_LIST";
+    case Type::DURATION:
+      return "DURATION";
+    case Type::LARGE_BINARY:
+      return "LARGE_BINARY";
+    case Type::LARGE_LIST:
+      return "LARGE_LIST";
+    default:
+      DCHECK(false) << "Should not be able to reach here";
+      return "unknown";
+  }
+}
+
+std::string ToString(TimeUnit::type unit) {
+  switch (unit) {
+    case TimeUnit::SECOND:
+      return "s";
+    case TimeUnit::MILLI:
+      return "ms";
+    case TimeUnit::MICRO:
+      return "us";
+    case TimeUnit::NANO:
+      return "ns";
+    default:
+      DCHECK(false);
+      return "";
+  }
+}
+
+}  // namespace internal
+
 namespace {
+
 using internal::checked_cast;
 
 // Merges `existing` and `other` if one of them is of NullType, otherwise
@@ -248,6 +344,13 @@ bool DataType::Equals(const std::shared_ptr<DataType>& other) const {
   return Equals(*other.get());
 }
 
+size_t DataType::Hash() const {
+  static constexpr size_t kHashSeed = 0;
+  size_t result = kHashSeed;
+  internal::hash_combine(result, this->ComputeFingerprint());
+  return result;
+}
+
 std::ostream& operator<<(std::ostream& os, const DataType& type) {
   os << type.ToString();
   return os;
@@ -277,25 +380,68 @@ std::string LargeListType::ToString() const {
   return s.str();
 }
 
-MapType::MapType(const std::shared_ptr<DataType>& key_type,
-                 const std::shared_ptr<DataType>& item_type, bool keys_sorted)
-    : MapType(key_type, ::arrow::field("value", item_type), keys_sorted) {}
+MapType::MapType(std::shared_ptr<DataType> key_type, std::shared_ptr<DataType> item_type,
+                 bool keys_sorted)
+    : MapType(::arrow::field("key", std::move(key_type), false),
+              ::arrow::field("value", std::move(item_type)), keys_sorted) {}
 
-MapType::MapType(const std::shared_ptr<DataType>& key_type,
-                 const std::shared_ptr<Field>& item_field, bool keys_sorted)
-    : ListType(::arrow::field(
-          "entries",
-          struct_({std::make_shared<Field>("key", key_type, false), item_field}), false)),
-      keys_sorted_(keys_sorted) {
+MapType::MapType(std::shared_ptr<DataType> key_type, std::shared_ptr<Field> item_field,
+                 bool keys_sorted)
+    : MapType(::arrow::field("key", std::move(key_type), false), std::move(item_field),
+              keys_sorted) {}
+
+MapType::MapType(std::shared_ptr<Field> key_field, std::shared_ptr<Field> item_field,
+                 bool keys_sorted)
+    : MapType(
+          ::arrow::field("entries",
+                         struct_({std::move(key_field), std::move(item_field)}), false),
+          keys_sorted) {}
+
+MapType::MapType(std::shared_ptr<Field> value_field, bool keys_sorted)
+    : ListType(std::move(value_field)), keys_sorted_(keys_sorted) {
   id_ = type_id;
+}
+
+Result<std::shared_ptr<DataType>> MapType::Make(std::shared_ptr<Field> value_field,
+                                                bool keys_sorted) {
+  const auto& value_type = *value_field->type();
+  if (value_field->nullable() || value_type.id() != Type::STRUCT) {
+    return Status::TypeError("Map entry field should be non-nullable struct");
+  }
+  const auto& struct_type = checked_cast<const StructType&>(value_type);
+  if (struct_type.num_fields() != 2) {
+    return Status::TypeError("Map entry field should have two children (got ",
+                             struct_type.num_fields(), ")");
+  }
+  if (struct_type.field(0)->nullable()) {
+    return Status::TypeError("Map key field should be non-nullable");
+  }
+  return std::make_shared<MapType>(std::move(value_field), keys_sorted);
 }
 
 std::string MapType::ToString() const {
   std::stringstream s;
-  s << "map<" << key_type()->ToString() << ", " << item_type()->ToString();
+
+  const auto print_field_name = [](std::ostream& os, const Field& field,
+                                   const char* std_name) {
+    if (field.name() != std_name) {
+      os << " ('" << field.name() << "')";
+    }
+  };
+  const auto print_field = [&](std::ostream& os, const Field& field,
+                               const char* std_name) {
+    os << field.type()->ToString();
+    print_field_name(os, field, std_name);
+  };
+
+  s << "map<";
+  print_field(s, *key_field(), "key");
+  s << ", ";
+  print_field(s, *item_field(), "value");
   if (keys_sorted_) {
     s << ", keys_sorted";
   }
+  print_field_name(s, *value_field(), "entries");
   s << ">";
   return s.str();
 }
@@ -586,11 +732,6 @@ Result<std::shared_ptr<DataType>> Decimal128Type::Make(int32_t precision, int32_
     return Status::Invalid("Decimal precision out of range: ", precision);
   }
   return std::make_shared<Decimal128Type>(precision, scale);
-}
-
-Status Decimal128Type::Make(int32_t precision, int32_t scale,
-                            std::shared_ptr<DataType>* out) {
-  return Make(precision, scale).Value(out);
 }
 
 // ----------------------------------------------------------------------
@@ -1209,20 +1350,6 @@ Result<std::shared_ptr<Schema>> Schema::RemoveField(int i) const {
                                   impl_->metadata_);
 }
 
-Status Schema::AddField(int i, const std::shared_ptr<Field>& field,
-                        std::shared_ptr<Schema>* out) const {
-  return AddField(i, field).Value(out);
-}
-
-Status Schema::SetField(int i, const std::shared_ptr<Field>& field,
-                        std::shared_ptr<Schema>* out) const {
-  return SetField(i, field).Value(out);
-}
-
-Status Schema::RemoveField(int i, std::shared_ptr<Schema>* out) const {
-  return RemoveField(i).Value(out);
-}
-
 bool Schema::HasMetadata() const {
   return (impl_->metadata_ != nullptr) && (impl_->metadata_->size() > 0);
 }
@@ -1687,12 +1814,13 @@ std::string LargeListType::ComputeFingerprint() const {
 }
 
 std::string MapType::ComputeFingerprint() const {
-  const auto& child_fingerprint = children_[0]->fingerprint();
-  if (!child_fingerprint.empty()) {
+  const auto& key_fingerprint = key_type()->fingerprint();
+  const auto& item_fingerprint = item_type()->fingerprint();
+  if (!key_fingerprint.empty() && !item_fingerprint.empty()) {
     if (keys_sorted_) {
-      return TypeIdFingerprint(*this) + "s{" + child_fingerprint + "}";
+      return TypeIdFingerprint(*this) + "s{" + key_fingerprint + item_fingerprint + "}";
     } else {
-      return TypeIdFingerprint(*this) + "{" + child_fingerprint + "}";
+      return TypeIdFingerprint(*this) + "{" + key_fingerprint + item_fingerprint + "}";
     }
   }
   return "";
@@ -1871,16 +1999,16 @@ std::shared_ptr<DataType> large_list(const std::shared_ptr<Field>& value_field) 
   return std::make_shared<LargeListType>(value_field);
 }
 
-std::shared_ptr<DataType> map(const std::shared_ptr<DataType>& key_type,
-                              const std::shared_ptr<DataType>& item_type,
-                              bool keys_sorted) {
-  return std::make_shared<MapType>(key_type, item_type, keys_sorted);
+std::shared_ptr<DataType> map(std::shared_ptr<DataType> key_type,
+                              std::shared_ptr<DataType> item_type, bool keys_sorted) {
+  return std::make_shared<MapType>(std::move(key_type), std::move(item_type),
+                                   keys_sorted);
 }
 
-std::shared_ptr<DataType> map(const std::shared_ptr<DataType>& key_type,
-                              const std::shared_ptr<Field>& item_field,
-                              bool keys_sorted) {
-  return std::make_shared<MapType>(key_type, item_field, keys_sorted);
+std::shared_ptr<DataType> map(std::shared_ptr<DataType> key_type,
+                              std::shared_ptr<Field> item_field, bool keys_sorted) {
+  return std::make_shared<MapType>(std::move(key_type), std::move(item_field),
+                                   keys_sorted);
 }
 
 std::shared_ptr<DataType> fixed_size_list(const std::shared_ptr<DataType>& value_type,

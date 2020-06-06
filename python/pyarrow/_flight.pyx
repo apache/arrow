@@ -1167,7 +1167,8 @@ cdef class FlightClient:
                     deref(c_options), ticket.ticket, &reader))
         result = FlightStreamReader()
         result.reader.reset(reader.release())
-        result.schema = pyarrow_wrap_schema(result.reader.get().schema())
+        schema = GetResultValue(result.reader.get().GetSchema())
+        result.schema = pyarrow_wrap_schema(schema)
         return result
 
     def do_put(self, descriptor: FlightDescriptor, schema: Schema,
@@ -1584,8 +1585,8 @@ cdef CStatus _do_put(void* self, const CServerCallContext& context,
 
     descriptor.descriptor = reader.get().descriptor()
     py_reader.reader.reset(reader.release())
-    py_reader.schema = pyarrow_wrap_schema(
-        py_reader.reader.get().schema())
+    schema = GetResultValue(py_reader.reader.get().GetSchema())
+    py_reader.schema = pyarrow_wrap_schema(schema)
     py_writer.writer.reset(writer.release())
     try:
         (<object> self).do_put(ServerCallContext.wrap(context), descriptor,

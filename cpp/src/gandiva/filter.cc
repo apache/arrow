@@ -22,7 +22,7 @@
 #include <utility>
 #include <vector>
 
-#include "arrow/util/hashing.h"
+#include "arrow/util/hash_util.h"
 
 #include "gandiva/bitmap_accumulator.h"
 #include "gandiva/cache.h"

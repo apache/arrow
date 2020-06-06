@@ -680,10 +680,12 @@ impl<R: Read + Seek> FileReader<R> {
                         &self.dictionaries_by_field,
                     )
                 }
-                _ => Err(ArrowError::IoError(
-                    "Reading types other than record batches not yet supported"
-                        .to_string(),
-                )),
+                ipc::MessageHeader::NONE => {
+                    Ok(None)
+                }
+                t => Err(ArrowError::IoError(format!(
+                    "Reading types other than record batches not yet supported, unable to read {:?}", t
+                ))),
             }
         } else {
             Ok(None)
@@ -833,8 +835,11 @@ impl<R: Read> StreamReader<R> {
 
                 read_record_batch(&buf, batch, self.schema(), &self.dictionaries_by_field)
             }
-            _ => Err(ArrowError::IoError(
-                "Reading types other than record batches not yet supported".to_string(),
+            ipc::MessageHeader::NONE => {
+                Ok(None)
+            }
+            t => Err(ArrowError::IoError(
+                format!("Reading types other than record batches not yet supported, unable to read {:?} ", t)
             )),
         }
     }

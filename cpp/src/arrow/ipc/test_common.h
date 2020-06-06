@@ -116,6 +116,9 @@ ARROW_EXPORT
 Status MakeDictionaryFlat(std::shared_ptr<RecordBatch>* out);
 
 ARROW_EXPORT
+Status MakeNestedDictionary(std::shared_ptr<RecordBatch>* out);
+
+ARROW_EXPORT
 Status MakeDates(std::shared_ptr<RecordBatch>* out);
 
 ARROW_EXPORT

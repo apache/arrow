@@ -18,16 +18,14 @@
 #include "arrow/array/builder_adaptive.h"
 
 #include <algorithm>
-#include <cstddef>
 #include <cstdint>
-#include <utility>
 
-#include "arrow/array.h"
+#include "arrow/array/data.h"
 #include "arrow/buffer.h"
+#include "arrow/buffer_builder.h"
+#include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
-#include "arrow/type_traits.h"
-#include "arrow/util/bit_util.h"
 #include "arrow/util/int_util.h"
 #include "arrow/util/logging.h"
 

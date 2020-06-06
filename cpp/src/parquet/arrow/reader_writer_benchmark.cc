@@ -164,7 +164,7 @@ std::shared_ptr<::arrow::Table> TableFromVector<BooleanType>(const std::vector<b
 template <bool nullable, typename ParquetType>
 static void BM_WriteColumn(::benchmark::State& state) {
   using T = typename ParquetType::c_type;
-  std::vector<T> values(BENCHMARK_SIZE, 128);
+  std::vector<T> values(BENCHMARK_SIZE, static_cast<T>(128));
   std::shared_ptr<::arrow::Table> table = TableFromVector<ParquetType>(values, nullable);
 
   while (state.KeepRunning()) {

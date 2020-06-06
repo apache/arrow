@@ -99,6 +99,12 @@ Type_DICTIONARY = _Type_DICTIONARY
 UnionMode_SPARSE = _UnionMode_SPARSE
 UnionMode_DENSE = _UnionMode_DENSE
 
+
+def _pc():
+    import pyarrow.compute as pc
+    return pc
+
+
 # pandas API shim
 include "pandas-shim.pxi"
 
@@ -125,9 +131,6 @@ include "table.pxi"
 
 # Tensors
 include "tensor.pxi"
-
-# Compute
-include "compute.pxi"
 
 # File IO
 include "io.pxi"

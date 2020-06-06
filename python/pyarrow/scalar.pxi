@@ -849,7 +849,7 @@ cdef class UnionValue(ArrayValue):
 
     cdef getitem(self, int64_t i):
         cdef int child_id = self.ap.child_id(i)
-        cdef shared_ptr[CArray] child = self.ap.child(child_id)
+        cdef shared_ptr[CArray] child = self.ap.field(child_id)
         if self.ap.mode() == _UnionMode_SPARSE:
             return box_scalar(self.type[child_id].type, child, i)
         else:
@@ -916,7 +916,7 @@ cdef class StructValue(ArrayValue):
         Return this value as a Python dict.
         """
         cdef:
-            vector[shared_ptr[CField]] child_fields = self.type.type.children()
+            vector[shared_ptr[CField]] child_fields = self.type.type.fields()
 
         wrapped_arrays = [pyarrow_wrap_array(self.ap.field(i))
                           for i in range(self.ap.num_fields())]
@@ -924,8 +924,7 @@ cdef class StructValue(ArrayValue):
         # Return the struct as a dict
         return {
             frombytes(name): child_array[self.index].as_py()
-            for name, child_array in
-            zip(child_names, wrapped_arrays)
+            for name, child_array in zip(child_names, wrapped_arrays)
         }
 
 

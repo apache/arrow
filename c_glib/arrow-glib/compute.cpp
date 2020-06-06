@@ -40,16 +40,11 @@ garrow_numeric_array_sum(GArrowArrayType array,
                          typename ArrowType::c_type default_value)
 {
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
-  auto memory_pool = arrow::default_memory_pool();
-  arrow::compute::FunctionContext context(memory_pool);
-  arrow::compute::Datum sum_datum;
-  auto status = arrow::compute::Sum(&context,
-                                    arrow_array,
-                                    &sum_datum);
-  if (garrow_error_check(error, status, tag)) {
+  auto arrow_sum_datum = arrow::compute::Sum(arrow_array);
+  if (garrow::check(error, arrow_sum_datum, tag)) {
     using ScalarType = typename arrow::TypeTraits<ArrowType>::ScalarType;
     auto arrow_numeric_scalar =
-      std::dynamic_pointer_cast<ScalarType>(sum_datum.scalar());
+      std::dynamic_pointer_cast<ScalarType>((*arrow_sum_datum).scalar());
     if (arrow_numeric_scalar->is_valid) {
       return arrow_numeric_scalar->value;
     } else {
@@ -69,17 +64,12 @@ garrow_numeric_array_compare(GArrowArrayType array,
                              const gchar *tag)
 {
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
-  auto memory_pool = arrow::default_memory_pool();
-  arrow::compute::FunctionContext context(memory_pool);
-  arrow::compute::Datum compared_datum;
   auto arrow_options = garrow_compare_options_get_raw(options);
-  auto status = arrow::compute::Compare(&context,
-                                        arrow_array,
-                                        arrow::compute::Datum(value),
-                                        *arrow_options,
-                                        &compared_datum);
-  if (garrow_error_check(error, status, tag)) {
-    auto arrow_compared_array = compared_datum.make_array();
+  auto arrow_compared_datum = arrow::compute::Compare(arrow_array,
+                                                      arrow::Datum(value),
+                                                      *arrow_options);
+  if (garrow::check(error, arrow_compared_datum, tag)) {
+    auto arrow_compared_array = (*arrow_compared_datum).make_array();
     return GARROW_BOOLEAN_ARRAY(garrow_array_new_raw(&arrow_compared_array));
   } else {
     return NULL;
@@ -676,39 +666,32 @@ garrow_array_cast(GArrowArray *array,
 {
   auto arrow_array = garrow_array_get_raw(array);
   auto arrow_array_raw = arrow_array.get();
-  auto memory_pool = arrow::default_memory_pool();
-  arrow::compute::FunctionContext context(memory_pool);
   auto arrow_target_data_type = garrow_data_type_get_raw(target_data_type);
-  std::shared_ptr<arrow::Array> arrow_casted_array;
-  arrow::Status status;
+  arrow::Result<std::shared_ptr<arrow::Array>> arrow_casted_array;
   if (options) {
     auto arrow_options = garrow_cast_options_get_raw(options);
-    status = arrow::compute::Cast(&context,
-                                  *arrow_array_raw,
-                                  arrow_target_data_type,
-                                  *arrow_options,
-                                  &arrow_casted_array);
+    arrow_casted_array = arrow::compute::Cast(*arrow_array_raw,
+                                              arrow_target_data_type,
+                                              *arrow_options);
   } else {
-    arrow::compute::CastOptions arrow_options;
-    status = arrow::compute::Cast(&context,
-                                  *arrow_array_raw,
-                                  arrow_target_data_type,
-                                  arrow_options,
-                                  &arrow_casted_array);
+    arrow_casted_array = arrow::compute::Cast(*arrow_array_raw,
+                                              arrow_target_data_type);
   }
-
-  if (!status.ok()) {
-    std::stringstream message;
-    message << "[array][cast] <";
-    message << arrow_array->type()->ToString();
-    message << "> -> <";
-    message << arrow_target_data_type->ToString();
-    message << ">";
-    garrow_error_check(error, status, message.str().c_str());
+  if (garrow::check(error,
+                    arrow_casted_array,
+                    [&]() {
+                      std::stringstream message;
+                      message << "[array][cast] <";
+                      message << arrow_array->type()->ToString();
+                      message << "> -> <";
+                      message << arrow_target_data_type->ToString();
+                      message << ">";
+                      return message.str();
+                    })) {
+    return garrow_array_new_raw(&(*arrow_casted_array));
+  } else {
     return NULL;
   }
-
-  return garrow_array_new_raw(&arrow_casted_array);
 }
 
 /**
@@ -726,22 +709,20 @@ garrow_array_unique(GArrowArray *array,
                     GError **error)
 {
   auto arrow_array = garrow_array_get_raw(array);
-  auto memory_pool = arrow::default_memory_pool();
-  arrow::compute::FunctionContext context(memory_pool);
-  std::shared_ptr<arrow::Array> arrow_unique_array;
-  auto status = arrow::compute::Unique(&context,
-                                       arrow::compute::Datum(arrow_array),
-                                       &arrow_unique_array);
-  if (!status.ok()) {
-    std::stringstream message;
-    message << "[array][unique] <";
-    message << arrow_array->type()->ToString();
-    message << ">";
-    garrow_error_check(error, status, message.str().c_str());
+  auto arrow_unique_array = arrow::compute::Unique(arrow_array);
+  if (garrow::check(error,
+                    arrow_unique_array,
+                    [&]() {
+                      std::stringstream message;
+                      message << "[array][unique] <";
+                      message << arrow_array->type()->ToString();
+                      message << ">";
+                      return message.str();
+                    })) {
+    return garrow_array_new_raw(&(*arrow_unique_array));
+  } else {
     return NULL;
   }
-
-  return garrow_array_new_raw(&arrow_unique_array);
 }
 
 /**
@@ -760,27 +741,25 @@ garrow_array_dictionary_encode(GArrowArray *array,
                                GError **error)
 {
   auto arrow_array = garrow_array_get_raw(array);
-  auto memory_pool = arrow::default_memory_pool();
-  arrow::compute::FunctionContext context(memory_pool);
-  arrow::compute::Datum dictionary_encoded_datum;
-  auto status =
-    arrow::compute::DictionaryEncode(&context,
-                                     arrow::compute::Datum(arrow_array),
-                                     &dictionary_encoded_datum);
-  if (!status.ok()) {
-    std::stringstream message;
-    message << "[array][dictionary-encode] <";
-    message << arrow_array->type()->ToString();
-    message << ">";
-    garrow_error_check(error, status, message.str().c_str());
+  auto arrow_dictionary_encoded_datum =
+    arrow::compute::DictionaryEncode(arrow_array);
+  if (garrow::check(error,
+                    arrow_dictionary_encoded_datum,
+                    [&]() {
+                      std::stringstream message;
+                      message << "[array][dictionary-encode] <";
+                      message << arrow_array->type()->ToString();
+                      message << ">";
+                      return message.str();
+                    })) {
+    auto arrow_dictionary_encoded_array =
+      (*arrow_dictionary_encoded_datum).make_array();
+    auto dictionary_encoded_array =
+      garrow_array_new_raw(&arrow_dictionary_encoded_array);
+    return GARROW_DICTIONARY_ARRAY(dictionary_encoded_array);
+  } else {
     return NULL;
   }
-
-  auto arrow_dictionary_encoded_array =
-    arrow::MakeArray(dictionary_encoded_datum.array());
-  auto dictionary_encoded_array =
-    garrow_array_new_raw(&arrow_dictionary_encoded_array);
-  return GARROW_DICTIONARY_ARRAY(dictionary_encoded_array);
 }
 
 /**
@@ -801,28 +780,19 @@ garrow_array_count(GArrowArray *array,
 {
   auto arrow_array = garrow_array_get_raw(array);
   auto arrow_array_raw = arrow_array.get();
-  auto memory_pool = arrow::default_memory_pool();
-  arrow::compute::FunctionContext context(memory_pool);
-  arrow::compute::Datum counted_datum;
-  arrow::Status status;
+  arrow::Result<arrow::Datum> arrow_counted_datum;
   if (options) {
     auto arrow_options = garrow_count_options_get_raw(options);
-    status = arrow::compute::Count(&context,
-                                   *arrow_options,
-                                   *arrow_array_raw,
-                                   &counted_datum);
+    arrow_counted_datum =
+      arrow::compute::Count(*arrow_array_raw, *arrow_options);
   } else {
-    arrow::compute::CountOptions arrow_options(arrow::compute::CountOptions::COUNT_ALL);
-    status = arrow::compute::Count(&context,
-                                   arrow_options,
-                                   *arrow_array_raw,
-                                   &counted_datum);
+    arrow_counted_datum = arrow::compute::Count(*arrow_array_raw);
   }
-
-  if (garrow_error_check(error, status, "[array][count]")) {
+  if (garrow::check(error, arrow_counted_datum, "[array][count]")) {
     using ScalarType = typename arrow::TypeTraits<arrow::Int64Type>::ScalarType;
-    auto counted_scalar = std::dynamic_pointer_cast<ScalarType>(counted_datum.scalar());
-    return counted_scalar->value;
+    auto arrow_counted_scalar =
+      std::dynamic_pointer_cast<ScalarType>((*arrow_counted_datum).scalar());
+    return arrow_counted_scalar->value;
   } else {
     return 0;
   }
@@ -844,14 +814,9 @@ garrow_array_count_values(GArrowArray *array,
                           GError **error)
 {
   auto arrow_array = garrow_array_get_raw(array);
-  auto memory_pool = arrow::default_memory_pool();
-  arrow::compute::FunctionContext context(memory_pool);
-  std::shared_ptr<arrow::Array> arrow_counted_values;
-  auto status = arrow::compute::ValueCounts(&context,
-                                            arrow::compute::Datum(arrow_array),
-                                            &arrow_counted_values);
-  if (garrow_error_check(error, status, "[array][count-values]")) {
-    return GARROW_STRUCT_ARRAY(garrow_array_new_raw(&arrow_counted_values));
+  auto arrow_counted_values = arrow::compute::ValueCounts(arrow_array);
+  if (garrow::check(error, arrow_counted_values, "[array][count-values]")) {
+    return GARROW_STRUCT_ARRAY(garrow_array_new_raw(&(*arrow_counted_values)));
   } else {
     return NULL;
   }
@@ -874,13 +839,9 @@ garrow_boolean_array_invert(GArrowBooleanArray *array,
                             GError **error)
 {
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
-  auto datum = arrow::compute::Datum(arrow_array);
-  auto memory_pool = arrow::default_memory_pool();
-  arrow::compute::FunctionContext context(memory_pool);
-  arrow::compute::Datum inverted_datum;
-  auto status = arrow::compute::Invert(&context, datum, &inverted_datum);
-  if (garrow_error_check(error, status, "[boolean-array][invert]")) {
-    auto arrow_inverted_array = inverted_datum.make_array();
+  auto arrow_inverted_datum = arrow::compute::Invert(arrow_array);
+  if (garrow::check(error, arrow_inverted_datum, "[boolean-array][invert]")) {
+    auto arrow_inverted_array = (*arrow_inverted_datum).make_array();
     return GARROW_BOOLEAN_ARRAY(garrow_array_new_raw(&arrow_inverted_array));
   } else {
     return NULL;
@@ -905,18 +866,10 @@ garrow_boolean_array_and(GArrowBooleanArray *left,
                          GError **error)
 {
   auto arrow_left = garrow_array_get_raw(GARROW_ARRAY(left));
-  auto left_datum = arrow::compute::Datum(arrow_left);
   auto arrow_right = garrow_array_get_raw(GARROW_ARRAY(right));
-  auto right_datum = arrow::compute::Datum(arrow_right);
-  auto memory_pool = arrow::default_memory_pool();
-  arrow::compute::FunctionContext context(memory_pool);
-  arrow::compute::Datum operated_datum;
-  auto status = arrow::compute::And(&context,
-                                    left_datum,
-                                    right_datum,
-                                    &operated_datum);
-  if (garrow_error_check(error, status, "[boolean-array][and]")) {
-    auto arrow_operated_array = operated_datum.make_array();
+  auto arrow_operated_datum = arrow::compute::And(arrow_left, arrow_right);
+  if (garrow::check(error, arrow_operated_datum, "[boolean-array][and]")) {
+    auto arrow_operated_array = (*arrow_operated_datum).make_array();
     return GARROW_BOOLEAN_ARRAY(garrow_array_new_raw(&arrow_operated_array));
   } else {
     return NULL;
@@ -941,18 +894,10 @@ garrow_boolean_array_or(GArrowBooleanArray *left,
                         GError **error)
 {
   auto arrow_left = garrow_array_get_raw(GARROW_ARRAY(left));
-  auto left_datum = arrow::compute::Datum(arrow_left);
   auto arrow_right = garrow_array_get_raw(GARROW_ARRAY(right));
-  auto right_datum = arrow::compute::Datum(arrow_right);
-  auto memory_pool = arrow::default_memory_pool();
-  arrow::compute::FunctionContext context(memory_pool);
-  arrow::compute::Datum operated_datum;
-  auto status = arrow::compute::Or(&context,
-                                   left_datum,
-                                   right_datum,
-                                   &operated_datum);
-  if (garrow_error_check(error, status, "[boolean-array][or]")) {
-    auto arrow_operated_array = operated_datum.make_array();
+  auto arrow_operated_datum = arrow::compute::Or(arrow_left, arrow_right);
+  if (garrow::check(error, arrow_operated_datum, "[boolean-array][or]")) {
+    auto arrow_operated_array = (*arrow_operated_datum).make_array();
     return GARROW_BOOLEAN_ARRAY(garrow_array_new_raw(&arrow_operated_array));
   } else {
     return NULL;
@@ -977,18 +922,10 @@ garrow_boolean_array_xor(GArrowBooleanArray *left,
                          GError **error)
 {
   auto arrow_left = garrow_array_get_raw(GARROW_ARRAY(left));
-  auto left_datum = arrow::compute::Datum(arrow_left);
   auto arrow_right = garrow_array_get_raw(GARROW_ARRAY(right));
-  auto right_datum = arrow::compute::Datum(arrow_right);
-  auto memory_pool = arrow::default_memory_pool();
-  arrow::compute::FunctionContext context(memory_pool);
-  arrow::compute::Datum operated_datum;
-  auto status = arrow::compute::Xor(&context,
-                                    left_datum,
-                                    right_datum,
-                                    &operated_datum);
-  if (garrow_error_check(error, status, "[boolean-array][xor]")) {
-    auto arrow_operated_array = operated_datum.make_array();
+  auto arrow_operated_datum = arrow::compute::Xor(arrow_left, arrow_right);
+  if (garrow::check(error, arrow_operated_datum, "[boolean-array][xor]")) {
+    auto arrow_operated_array = (*arrow_operated_datum).make_array();
     return GARROW_BOOLEAN_ARRAY(garrow_array_new_raw(&arrow_operated_array));
   } else {
     return NULL;
@@ -1010,14 +947,11 @@ garrow_numeric_array_mean(GArrowNumericArray *array,
                           GError **error)
 {
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
-  auto memory_pool = arrow::default_memory_pool();
-  arrow::compute::FunctionContext context(memory_pool);
-  arrow::compute::Datum mean_datum;
-  auto status = arrow::compute::Mean(&context, arrow_array, &mean_datum);
-  if (garrow_error_check(error, status, "[numeric-array][mean]")) {
+  auto arrow_mean_datum = arrow::compute::Mean(arrow_array);
+  if (garrow::check(error, arrow_mean_datum, "[numeric-array][mean]")) {
     using ScalarType = typename arrow::TypeTraits<arrow::DoubleType>::ScalarType;
     auto arrow_numeric_scalar =
-      std::dynamic_pointer_cast<ScalarType>(mean_datum.scalar());
+      std::dynamic_pointer_cast<ScalarType>((*arrow_mean_datum).scalar());
     if (arrow_numeric_scalar->is_valid) {
       return arrow_numeric_scalar->value;
     } else {
@@ -1251,28 +1185,18 @@ garrow_array_take(GArrowArray *array,
   auto arrow_array_raw = arrow_array.get();
   auto arrow_indices = garrow_array_get_raw(indices);
   auto arrow_indices_raw = arrow_indices.get();
-  auto memory_pool = arrow::default_memory_pool();
-  arrow::compute::FunctionContext context(memory_pool);
-  std::shared_ptr<arrow::Array> taken_array;
-  arrow::Status status;
+  arrow::Result<std::shared_ptr<arrow::Array>> arrow_taken_array;
   if (options) {
     auto arrow_options = garrow_take_options_get_raw(options);
-    status = arrow::compute::Take(&context,
-                                  *arrow_array_raw,
-                                  *arrow_indices_raw,
-                                  *arrow_options,
-                                  &taken_array);
+    arrow_taken_array = arrow::compute::Take(*arrow_array_raw,
+                                             *arrow_indices_raw,
+                                             *arrow_options);
   } else {
-    arrow::compute::TakeOptions arrow_options;
-    status = arrow::compute::Take(&context,
-                                  *arrow_array_raw,
-                                  *arrow_indices_raw,
-                                  arrow_options,
-                                  &taken_array);
+    arrow_taken_array = arrow::compute::Take(*arrow_array_raw,
+                                             *arrow_indices_raw);
   }
-
-  if (garrow_error_check(error, status, "[array][take]")) {
-    return garrow_array_new_raw(&taken_array);
+  if (garrow::check(error, arrow_taken_array, "[array][take]")) {
+    return garrow_array_new_raw(&(*arrow_taken_array));
   } else {
     return NULL;
   }
@@ -1300,28 +1224,20 @@ garrow_array_take_chunked_array(GArrowArray *array,
   auto arrow_array_raw = arrow_array.get();
   auto arrow_indices = garrow_chunked_array_get_raw(indices);
   auto arrow_indices_raw = arrow_indices.get();
-  auto memory_pool = arrow::default_memory_pool();
-  arrow::compute::FunctionContext context(memory_pool);
-  std::shared_ptr<arrow::ChunkedArray> taken_chunked_array;
-  arrow::Status status;
+  arrow::Result<std::shared_ptr<arrow::ChunkedArray>> arrow_taken_chunked_array;
   if (options) {
     auto arrow_options = garrow_take_options_get_raw(options);
-    status = arrow::compute::Take(&context,
-                                  *arrow_array_raw,
-                                  *arrow_indices_raw,
-                                  *arrow_options,
-                                  &taken_chunked_array);
+    arrow_taken_chunked_array = arrow::compute::Take(*arrow_array_raw,
+                                                     *arrow_indices_raw,
+                                                     *arrow_options);
   } else {
-    arrow::compute::TakeOptions arrow_options;
-    status = arrow::compute::Take(&context,
-                                  *arrow_array_raw,
-                                  *arrow_indices_raw,
-                                  arrow_options,
-                                  &taken_chunked_array);
+    arrow_taken_chunked_array = arrow::compute::Take(*arrow_array_raw,
+                                                     *arrow_indices_raw);
   }
-
-  if (garrow_error_check(error, status, "[array][take][chunked-array]")) {
-    return garrow_chunked_array_new_raw(&taken_chunked_array);
+  if (garrow::check(error,
+                    arrow_taken_chunked_array,
+                    "[array][take][chunked-array]")) {
+    return garrow_chunked_array_new_raw(&(*arrow_taken_chunked_array));
   } else {
     return NULL;
   }
@@ -1349,28 +1265,18 @@ garrow_table_take(GArrowTable *table,
   auto arrow_table_raw = arrow_table.get();
   auto arrow_indices = garrow_array_get_raw(indices);
   auto arrow_indices_raw = arrow_indices.get();
-  auto memory_pool = arrow::default_memory_pool();
-  arrow::compute::FunctionContext context(memory_pool);
-  std::shared_ptr<arrow::Table> taken_table;
-  arrow::Status status;
+  arrow::Result<std::shared_ptr<arrow::Table>> arrow_taken_table;
   if (options) {
     auto arrow_options = garrow_take_options_get_raw(options);
-    status = arrow::compute::Take(&context,
-                                  *arrow_table_raw,
-                                  *arrow_indices_raw,
-                                  *arrow_options,
-                                  &taken_table);
+    arrow_taken_table = arrow::compute::Take(*arrow_table_raw,
+                                             *arrow_indices_raw,
+                                             *arrow_options);
   } else {
-    arrow::compute::TakeOptions arrow_options;
-    status = arrow::compute::Take(&context,
-                                  *arrow_table_raw,
-                                  *arrow_indices_raw,
-                                  arrow_options,
-                                  &taken_table);
+    arrow_taken_table = arrow::compute::Take(*arrow_table_raw,
+                                             *arrow_indices_raw);
   }
-
-  if (garrow_error_check(error, status, "[table][take]")) {
-    return garrow_table_new_raw(&taken_table);
+  if (garrow::check(error, arrow_taken_table, "[table][take]")) {
+    return garrow_table_new_raw(&(*arrow_taken_table));
   } else {
     return NULL;
   }
@@ -1398,28 +1304,18 @@ garrow_table_take_chunked_array(GArrowTable *table,
   auto arrow_table_raw = arrow_table.get();
   auto arrow_indices = garrow_chunked_array_get_raw(indices);
   auto arrow_indices_raw = arrow_indices.get();
-  auto memory_pool = arrow::default_memory_pool();
-  arrow::compute::FunctionContext context(memory_pool);
-  std::shared_ptr<arrow::Table> taken_table;
-  arrow::Status status;
+  arrow::Result<std::shared_ptr<arrow::Table>> arrow_taken_table;
   if (options) {
     auto arrow_options = garrow_take_options_get_raw(options);
-    status = arrow::compute::Take(&context,
-                                  *arrow_table_raw,
-                                  *arrow_indices_raw,
-                                  *arrow_options,
-                                  &taken_table);
+    arrow_taken_table = arrow::compute::Take(*arrow_table_raw,
+                                             *arrow_indices_raw,
+                                             *arrow_options);
   } else {
-    arrow::compute::TakeOptions arrow_options;
-    status = arrow::compute::Take(&context,
-                                  *arrow_table_raw,
-                                  *arrow_indices_raw,
-                                  arrow_options,
-                                  &taken_table);
+    arrow_taken_table = arrow::compute::Take(*arrow_table_raw,
+                                             *arrow_indices_raw);
   }
-
-  if (garrow_error_check(error, status, "[table][take][chunked-array]")) {
-    return garrow_table_new_raw(&taken_table);
+  if (garrow::check(error, arrow_taken_table, "[table][take][chunked-array]")) {
+    return garrow_table_new_raw(&(*arrow_taken_table));
   } else {
     return NULL;
   }
@@ -1447,28 +1343,18 @@ garrow_chunked_array_take(GArrowChunkedArray *chunked_array,
   auto arrow_chunked_array_raw = arrow_chunked_array.get();
   auto arrow_indices = garrow_array_get_raw(indices);
   auto arrow_indices_raw = arrow_indices.get();
-  auto memory_pool = arrow::default_memory_pool();
-  arrow::compute::FunctionContext context(memory_pool);
-  std::shared_ptr<arrow::ChunkedArray> taken_chunked_array;
-  arrow::Status status;
+  arrow::Result<std::shared_ptr<arrow::ChunkedArray>> arrow_taken_chunked_array;
   if (options) {
     auto arrow_options = garrow_take_options_get_raw(options);
-    status = arrow::compute::Take(&context,
-                                  *arrow_chunked_array_raw,
-                                  *arrow_indices_raw,
-                                  *arrow_options,
-                                  &taken_chunked_array);
+    arrow_taken_chunked_array = arrow::compute::Take(*arrow_chunked_array_raw,
+                                                     *arrow_indices_raw,
+                                                     *arrow_options);
   } else {
-    arrow::compute::TakeOptions arrow_options;
-    status = arrow::compute::Take(&context,
-                                  *arrow_chunked_array_raw,
-                                  *arrow_indices_raw,
-                                  arrow_options,
-                                  &taken_chunked_array);
+    arrow_taken_chunked_array = arrow::compute::Take(*arrow_chunked_array_raw,
+                                                     *arrow_indices_raw);
   }
-
-  if (garrow_error_check(error, status, "[chunked-array][take]")) {
-    return garrow_chunked_array_new_raw(&taken_chunked_array);
+  if (garrow::check(error, arrow_taken_chunked_array, "[chunked-array][take]")) {
+    return garrow_chunked_array_new_raw(&(*arrow_taken_chunked_array));
   } else {
     return NULL;
   }
@@ -1496,28 +1382,20 @@ garrow_chunked_array_take_chunked_array(GArrowChunkedArray *chunked_array,
   auto arrow_chunked_array_raw = arrow_chunked_array.get();
   auto arrow_indices = garrow_chunked_array_get_raw(indices);
   auto arrow_indices_raw = arrow_indices.get();
-  auto memory_pool = arrow::default_memory_pool();
-  arrow::compute::FunctionContext context(memory_pool);
-  std::shared_ptr<arrow::ChunkedArray> taken_chunked_array;
-  arrow::Status status;
+  arrow::Result<std::shared_ptr<arrow::ChunkedArray>> arrow_taken_chunked_array;
   if (options) {
     auto arrow_options = garrow_take_options_get_raw(options);
-    status = arrow::compute::Take(&context,
-                                  *arrow_chunked_array_raw,
-                                  *arrow_indices_raw,
-                                  *arrow_options,
-                                  &taken_chunked_array);
+    arrow_taken_chunked_array = arrow::compute::Take(*arrow_chunked_array_raw,
+                                                     *arrow_indices_raw,
+                                                     *arrow_options);
   } else {
-    arrow::compute::TakeOptions arrow_options;
-    status = arrow::compute::Take(&context,
-                                  *arrow_chunked_array_raw,
-                                  *arrow_indices_raw,
-                                  arrow_options,
-                                  &taken_chunked_array);
+    arrow_taken_chunked_array = arrow::compute::Take(*arrow_chunked_array_raw,
+                                                     *arrow_indices_raw);
   }
-
-  if (garrow_error_check(error, status, "[chunked-array][take][chunked-array]")) {
-    return garrow_chunked_array_new_raw(&taken_chunked_array);
+  if (garrow::check(error,
+                    arrow_taken_chunked_array,
+                    "[chunked-array][take][chunked-array]")) {
+    return garrow_chunked_array_new_raw(&(*arrow_taken_chunked_array));
   } else {
     return NULL;
   }
@@ -1541,33 +1419,23 @@ garrow_record_batch_take(GArrowRecordBatch *record_batch,
                          GArrowTakeOptions *options,
                          GError **error)
 {
-  auto arrow_record_batch =
-    garrow_record_batch_get_raw(record_batch);
+  auto arrow_record_batch = garrow_record_batch_get_raw(record_batch);
   auto arrow_record_batch_raw = arrow_record_batch.get();
   auto arrow_indices = garrow_array_get_raw(indices);
   auto arrow_indices_raw = arrow_indices.get();
-  auto memory_pool = arrow::default_memory_pool();
-  arrow::compute::FunctionContext context(memory_pool);
-  std::shared_ptr<arrow::RecordBatch> taken_record_batch;
-  arrow::Status status;
+  arrow::Result<std::shared_ptr<arrow::RecordBatch>> arrow_taken_record_batch;
   if (options) {
     auto arrow_options = garrow_take_options_get_raw(options);
-    status = arrow::compute::Take(&context,
-                                  *arrow_record_batch_raw,
-                                  *arrow_indices_raw,
-                                  *arrow_options,
-                                  &taken_record_batch);
+    arrow_taken_record_batch = arrow::compute::Take(*arrow_record_batch_raw,
+                                                    *arrow_indices_raw,
+                                                    *arrow_options);
   } else {
-    arrow::compute::TakeOptions arrow_options;
-    status = arrow::compute::Take(&context,
-                                  *arrow_record_batch_raw,
-                                  *arrow_indices_raw,
-                                  arrow_options,
-                                  &taken_record_batch);
+    arrow_taken_record_batch = arrow::compute::Take(*arrow_record_batch_raw,
+                                                    *arrow_indices_raw);
   }
 
-  if (garrow_error_check(error, status, "[record-batch][take]")) {
-    return garrow_record_batch_new_raw(&taken_record_batch);
+  if (garrow::check(error, arrow_taken_record_batch, "[record-batch][take]")) {
+    return garrow_record_batch_new_raw(&(*arrow_taken_record_batch));
   } else {
     return NULL;
   }
@@ -1855,27 +1723,18 @@ garrow_array_filter(GArrowArray *array,
 {
   auto arrow_array = garrow_array_get_raw(array);
   auto arrow_filter = garrow_array_get_raw(GARROW_ARRAY(filter));
-  auto memory_pool = arrow::default_memory_pool();
-  arrow::compute::FunctionContext context(memory_pool);
-  arrow::compute::Datum arrow_filtered;
-  arrow::Status status;
+  arrow::Result<arrow::Datum> arrow_filtered_datum;
   if (options) {
     auto arrow_options = garrow_filter_options_get_raw(options);
-    status = arrow::compute::Filter(&context,
-                                    arrow_array,
-                                    arrow_filter,
-                                    *arrow_options,
-                                    &arrow_filtered);
+    arrow_filtered_datum = arrow::compute::Filter(arrow_array,
+                                                  arrow_filter,
+                                                  *arrow_options);
   } else {
-    arrow::compute::FilterOptions arrow_options;
-    status = arrow::compute::Filter(&context,
-                                    arrow_array,
-                                    arrow_filter,
-                                    arrow_options,
-                                    &arrow_filtered);
+    arrow_filtered_datum = arrow::compute::Filter(arrow_array,
+                                                  arrow_filter);
   }
-  if (garrow_error_check(error, status, "[array][filter]")) {
-    auto arrow_filtered_array = arrow_filtered.make_array();
+  if (garrow::check(error, arrow_filtered_datum, "[array][filter]")) {
+    auto arrow_filtered_array = (*arrow_filtered_datum).make_array();
     return garrow_array_new_raw(&arrow_filtered_array);
   } else {
     return NULL;
@@ -1900,19 +1759,11 @@ garrow_array_is_in(GArrowArray *left,
                    GError **error)
 {
   auto arrow_left = garrow_array_get_raw(left);
-  auto arrow_left_datum = arrow::compute::Datum(arrow_left);
   auto arrow_right = garrow_array_get_raw(right);
-  auto arrow_right_datum = arrow::compute::Datum(arrow_right);
-  auto memory_pool = arrow::default_memory_pool();
-  arrow::compute::FunctionContext context(memory_pool);
-  arrow::compute::Datum arrow_datum;
-  auto status = arrow::compute::IsIn(&context,
-                                     arrow_left_datum,
-                                     arrow_right_datum,
-                                     &arrow_datum);
-  if (garrow_error_check(error, status, "[array][is-in]")) {
-    auto arrow_array = arrow_datum.make_array();
-    return GARROW_BOOLEAN_ARRAY(garrow_array_new_raw(&arrow_array));
+  auto arrow_is_in_datum = arrow::compute::IsIn(arrow_left, arrow_right);
+  if (garrow::check(error, arrow_is_in_datum, "[array][is-in]")) {
+    auto arrow_is_in_array = (*arrow_is_in_datum).make_array();
+    return GARROW_BOOLEAN_ARRAY(garrow_array_new_raw(&arrow_is_in_array));
   } else {
     return NULL;
   }
@@ -1936,19 +1787,13 @@ garrow_array_is_in_chunked_array(GArrowArray *left,
                                  GError **error)
 {
   auto arrow_left = garrow_array_get_raw(left);
-  auto arrow_left_datum = arrow::compute::Datum(arrow_left);
   auto arrow_right = garrow_chunked_array_get_raw(right);
-  auto arrow_right_datum = arrow::compute::Datum(arrow_right);
-  auto memory_pool = arrow::default_memory_pool();
-  arrow::compute::FunctionContext context(memory_pool);
-  arrow::compute::Datum arrow_datum;
-  auto status = arrow::compute::IsIn(&context,
-                                     arrow_left_datum,
-                                     arrow_right_datum,
-                                     &arrow_datum);
-  if (garrow_error_check(error, status, "[array][is-in][chunked-array]")) {
-    auto arrow_array = arrow_datum.make_array();
-    return GARROW_BOOLEAN_ARRAY(garrow_array_new_raw(&arrow_array));
+  auto arrow_is_in_datum = arrow::compute::IsIn(arrow_left, arrow_right);
+  if (garrow::check(error,
+                    arrow_is_in_datum,
+                    "[array][is-in][chunked-array]")) {
+    auto arrow_is_in_array = (*arrow_is_in_datum).make_array();
+    return GARROW_BOOLEAN_ARRAY(garrow_array_new_raw(&arrow_is_in_array));
   } else {
     return NULL;
   }
@@ -1970,14 +1815,9 @@ garrow_array_sort_to_indices(GArrowArray *array,
 {
   auto arrow_array = garrow_array_get_raw(array);
   auto arrow_array_raw = arrow_array.get();
-  auto memory_pool = arrow::default_memory_pool();
-  arrow::compute::FunctionContext context(memory_pool);
-  std::shared_ptr<arrow::Array> arrow_indices;
-  auto status = arrow::compute::SortToIndices(&context,
-                                              *arrow_array_raw,
-                                              &arrow_indices);
-  if (garrow_error_check(error, status, "[array][sort-to-indices]")) {
-    return GARROW_UINT64_ARRAY(garrow_array_new_raw(&arrow_indices));
+  auto arrow_indices_array = arrow::compute::SortToIndices(*arrow_array_raw);
+  if (garrow::check(error, arrow_indices_array, "[array][sort-to-indices]")) {
+    return GARROW_UINT64_ARRAY(garrow_array_new_raw(&(*arrow_indices_array)));
   } else {
     return NULL;
   }
@@ -2004,27 +1844,18 @@ garrow_table_filter(GArrowTable *table,
 {
   auto arrow_table = garrow_table_get_raw(table);
   auto arrow_filter = garrow_array_get_raw(GARROW_ARRAY(filter));
-  auto memory_pool = arrow::default_memory_pool();
-  arrow::compute::FunctionContext context(memory_pool);
-  arrow::compute::Datum arrow_filtered;
-  arrow::Status status;
+  arrow::Result<arrow::Datum> arrow_filtered_datum;
   if (options) {
     auto arrow_options = garrow_filter_options_get_raw(options);
-    status = arrow::compute::Filter(&context,
-                                    arrow_table,
-                                    arrow_filter,
-                                    *arrow_options,
-                                    &arrow_filtered);
+    arrow_filtered_datum = arrow::compute::Filter(arrow_table,
+                                                  arrow_filter,
+                                                  *arrow_options);
   } else {
-    arrow::compute::FilterOptions arrow_options;
-    status = arrow::compute::Filter(&context,
-                                    arrow_table,
-                                    arrow_filter,
-                                    arrow_options,
-                                    &arrow_filtered);
+    arrow_filtered_datum = arrow::compute::Filter(arrow_table,
+                                                  arrow_filter);
   }
-  if (garrow_error_check(error, status, "[table][filter]")) {
-    auto arrow_filtered_table = arrow_filtered.table();
+  if (garrow::check(error, arrow_filtered_datum, "[table][filter]")) {
+    auto arrow_filtered_table = (*arrow_filtered_datum).table();
     return garrow_table_new_raw(&arrow_filtered_table);
   } else {
     return NULL;
@@ -2052,27 +1883,20 @@ garrow_table_filter_chunked_array(GArrowTable *table,
 {
   auto arrow_table = garrow_table_get_raw(table);
   auto arrow_filter = garrow_chunked_array_get_raw(filter);
-  auto memory_pool = arrow::default_memory_pool();
-  arrow::compute::FunctionContext context(memory_pool);
-  arrow::compute::Datum arrow_filtered;
-  arrow::Status status;
+  arrow::Result<arrow::Datum> arrow_filtered_datum;
   if (options) {
     auto arrow_options = garrow_filter_options_get_raw(options);
-    status = arrow::compute::Filter(&context,
-                                    arrow_table,
-                                    arrow_filter,
-                                    *arrow_options,
-                                    &arrow_filtered);
+    arrow_filtered_datum = arrow::compute::Filter(arrow_table,
+                                                  arrow_filter,
+                                                  *arrow_options);
   } else {
-    arrow::compute::FilterOptions arrow_options;
-    status = arrow::compute::Filter(&context,
-                                    arrow_table,
-                                    arrow_filter,
-                                    arrow_options,
-                                    &arrow_filtered);
+    arrow_filtered_datum = arrow::compute::Filter(arrow_table,
+                                                  arrow_filter);
   }
-  if (garrow_error_check(error, status, "[table][filter][chunked-array]")) {
-    auto arrow_filtered_table = arrow_filtered.table();
+  if (garrow::check(error,
+                    arrow_filtered_datum,
+                    "[table][filter][chunked-array]")) {
+    auto arrow_filtered_table = (*arrow_filtered_datum).table();
     return garrow_table_new_raw(&arrow_filtered_table);
   } else {
     return NULL;
@@ -2098,30 +1922,20 @@ garrow_chunked_array_filter(GArrowChunkedArray *chunked_array,
                             GArrowFilterOptions *options,
                             GError **error)
 {
-  auto arrow_chunked_array =
-    garrow_chunked_array_get_raw(chunked_array);
+  auto arrow_chunked_array = garrow_chunked_array_get_raw(chunked_array);
   auto arrow_filter = garrow_array_get_raw(GARROW_ARRAY(filter));
-  auto memory_pool = arrow::default_memory_pool();
-  arrow::compute::FunctionContext context(memory_pool);
-  arrow::compute::Datum arrow_filtered;
-  arrow::Status status;
+  arrow::Result<arrow::Datum> arrow_filtered_datum;
   if (options) {
     auto arrow_options = garrow_filter_options_get_raw(options);
-    status = arrow::compute::Filter(&context,
-                                    arrow_chunked_array,
-                                    arrow_filter,
-                                    *arrow_options,
-                                    &arrow_filtered);
+    arrow_filtered_datum = arrow::compute::Filter(arrow_chunked_array,
+                                                  arrow_filter,
+                                                  *arrow_options);
   } else {
-    arrow::compute::FilterOptions arrow_options;
-    status = arrow::compute::Filter(&context,
-                                    arrow_chunked_array,
-                                    arrow_filter,
-                                    arrow_options,
-                                    &arrow_filtered);
+    arrow_filtered_datum = arrow::compute::Filter(arrow_chunked_array,
+                                                  arrow_filter);
   }
-  if (garrow_error_check(error, status, "[chunked-array][filter]")) {
-    auto arrow_filtered_chunked_array = arrow_filtered.chunked_array();
+  if (garrow::check(error, arrow_filtered_datum, "[chunked-array][filter]")) {
+    auto arrow_filtered_chunked_array = (*arrow_filtered_datum).chunked_array();
     return garrow_chunked_array_new_raw(&arrow_filtered_chunked_array);
   } else {
     return NULL;
@@ -2147,30 +1961,22 @@ garrow_chunked_array_filter_chunked_array(GArrowChunkedArray *chunked_array,
                                           GArrowFilterOptions *options,
                                           GError **error)
 {
-  auto arrow_chunked_array =
-    garrow_chunked_array_get_raw(chunked_array);
+  auto arrow_chunked_array = garrow_chunked_array_get_raw(chunked_array);
   auto arrow_filter = garrow_chunked_array_get_raw(filter);
-  auto memory_pool = arrow::default_memory_pool();
-  arrow::compute::FunctionContext context(memory_pool);
-  arrow::compute::Datum arrow_filtered;
-  arrow::Status status;
+  arrow::Result<arrow::Datum> arrow_filtered_datum;
   if (options) {
     auto arrow_options = garrow_filter_options_get_raw(options);
-    status = arrow::compute::Filter(&context,
-                                    arrow_chunked_array,
-                                    arrow_filter,
-                                    *arrow_options,
-                                    &arrow_filtered);
+    arrow_filtered_datum = arrow::compute::Filter(arrow_chunked_array,
+                                                  arrow_filter,
+                                                  *arrow_options);
   } else {
-    arrow::compute::FilterOptions arrow_options;
-    status = arrow::compute::Filter(&context,
-                                    arrow_chunked_array,
-                                    arrow_filter,
-                                    arrow_options,
-                                    &arrow_filtered);
+    arrow_filtered_datum = arrow::compute::Filter(arrow_chunked_array,
+                                                  arrow_filter);
   }
-  if (garrow_error_check(error, status, "[chunked-array][filter][chunked-array]")) {
-    auto arrow_filtered_chunked_array = arrow_filtered.chunked_array();
+  if (garrow::check(error,
+                    arrow_filtered_datum,
+                    "[chunked-array][filter][chunked-array]")) {
+    auto arrow_filtered_chunked_array = (*arrow_filtered_datum).chunked_array();
     return garrow_chunked_array_new_raw(&arrow_filtered_chunked_array);
   } else {
     return NULL;
@@ -2196,30 +2002,20 @@ garrow_record_batch_filter(GArrowRecordBatch *record_batch,
                            GArrowFilterOptions *options,
                            GError **error)
 {
-  auto arrow_record_batch =
-    garrow_record_batch_get_raw(record_batch);
+  auto arrow_record_batch = garrow_record_batch_get_raw(record_batch);
   auto arrow_filter = garrow_array_get_raw(GARROW_ARRAY(filter));
-  auto memory_pool = arrow::default_memory_pool();
-  arrow::compute::FunctionContext context(memory_pool);
-  arrow::compute::Datum arrow_filtered;
-  arrow::Status status;
+  arrow::Result<arrow::Datum> arrow_filtered_datum;
   if (options) {
     auto arrow_options = garrow_filter_options_get_raw(options);
-    status = arrow::compute::Filter(&context,
-                                    arrow_record_batch,
-                                    arrow_filter,
-                                    *arrow_options,
-                                    &arrow_filtered);
+    arrow_filtered_datum = arrow::compute::Filter(arrow_record_batch,
+                                                  arrow_filter,
+                                                  *arrow_options);
   } else {
-    arrow::compute::FilterOptions arrow_options;
-    status = arrow::compute::Filter(&context,
-                                    arrow_record_batch,
-                                    arrow_filter,
-                                    arrow_options,
-                                    &arrow_filtered);
+    arrow_filtered_datum = arrow::compute::Filter(arrow_record_batch,
+                                                  arrow_filter);
   }
-  if (garrow_error_check(error, status, "[record-batch][filter]")) {
-    auto arrow_filtered_record_batch = arrow_filtered.record_batch();
+  if (garrow::check(error, arrow_filtered_datum, "[record-batch][filter]")) {
+    auto arrow_filtered_record_batch = (*arrow_filtered_datum).record_batch();
     return garrow_record_batch_new_raw(&arrow_filtered_record_batch);
   } else {
     return NULL;

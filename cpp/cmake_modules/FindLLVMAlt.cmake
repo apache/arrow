@@ -68,9 +68,11 @@ endif()
 
 mark_as_advanced(CLANG_EXECUTABLE LLVM_LINK_EXECUTABLE)
 
-find_package_handle_standard_args(LLVMAlt REQUIRED_VARS
-                                  # The first variable is used for display.
-                                  LLVM_PACKAGE_VERSION CLANG_EXECUTABLE LLVM_FOUND
+find_package_handle_standard_args(LLVMAlt
+                                  REQUIRED_VARS # The first variable is used for display.
+                                  LLVM_PACKAGE_VERSION
+                                  CLANG_EXECUTABLE
+                                  LLVM_FOUND
                                   LLVM_LINK_EXECUTABLE)
 if(LLVMAlt_FOUND)
   message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")

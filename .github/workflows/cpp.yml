@@ -116,10 +116,6 @@ jobs:
       ARROW_WITH_SNAPPY: ON
       ARROW_WITH_BROTLI: ON
       ARROW_BUILD_TESTS: ON
-      # ARROW-7551: for now, build without Homebrew gRPC, as gRPC
-      # 1.26.0 is broken. https://github.com/grpc/grpc/pull/21662
-      gRPC_SOURCE: BUNDLED
-      Protobuf_SOURCE: BUNDLED
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v2
@@ -131,11 +127,6 @@ jobs:
       - name: Install Dependencies
         shell: bash
         run: brew bundle --file=cpp/Brewfile
-        # ARROW-7551: for now, build without Homebrew gRPC, as gRPC
-        # 1.26.0 is broken. https://github.com/grpc/grpc/pull/21662
-      - name: Uninstall Problematic Homebrew Dependencies
-        shell: bash
-        run: brew uninstall grpc protobuf
       - name: Build
         shell: bash
         run: ci/scripts/cpp_build.sh $(pwd) $(pwd)/build

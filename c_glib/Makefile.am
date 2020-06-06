@@ -20,6 +20,7 @@ ACLOCAL_AMFLAGS = -I m4 ${ACLOCAL_FLAGS}
 SUBDIRS =					\
 	arrow-glib				\
 	arrow-cuda-glib				\
+	arrow-dataset-glib			\
 	gandiva-glib				\
 	parquet-glib				\
 	plasma-glib				\

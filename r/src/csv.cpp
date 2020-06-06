@@ -22,6 +22,8 @@ using Rcpp::List_;
 
 #if defined(ARROW_R_WITH_ARROW)
 
+#include <arrow/csv/reader.h>
+
 // [[arrow::export]]
 std::shared_ptr<arrow::csv::ReadOptions> csv___ReadOptions__initialize(List_ options) {
   auto res =

@@ -308,17 +308,14 @@ class ReaderV1 : public Reader {
 
   std::shared_ptr<Schema> schema() const override { return schema_; }
 
-  Status GetDictionary(int field_index, std::shared_ptr<Array>* out) {
+  Status GetDictionary(int field_index, std::shared_ptr<ArrayData>* out) {
     const fbs::Column* col_meta = metadata_->columns()->Get(field_index);
     auto dict_meta = col_meta->metadata_as<fbs::CategoryMetadata>();
     const auto& dict_type =
         checked_cast<const DictionaryType&>(*schema_->field(field_index)->type());
 
-    std::shared_ptr<ArrayData> out_data;
-    RETURN_NOT_OK(LoadValues(dict_type.value_type(), dict_meta->levels(),
-                             fbs::TypeMetadata::NONE, nullptr, &out_data));
-    *out = MakeArray(out_data);
-    return Status::OK();
+    return LoadValues(dict_type.value_type(), dict_meta->levels(),
+                      fbs::TypeMetadata::NONE, nullptr, out);
   }
 
   Status GetColumn(int field_index, std::shared_ptr<ChunkedArray>* out) {

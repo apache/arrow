@@ -18,10 +18,9 @@
 #pragma once
 
 #include <memory>
-#include <vector>
 
-#include "arrow/array.h"
-#include "arrow/memory_pool.h"
+#include "arrow/status.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {

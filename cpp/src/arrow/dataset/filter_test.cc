@@ -26,8 +26,6 @@
 #include <gtest/gtest.h>
 
 #include "arrow/compute/api.h"
-#include "arrow/compute/context.h"
-#include "arrow/compute/kernels/take.h"
 #include "arrow/dataset/test_util.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
@@ -178,15 +176,13 @@ class FilterTest : public ::testing::Test {
   void AssertFilter(const Expression& expr, std::vector<std::shared_ptr<Field>> fields,
                     const std::string& batch_json) {
     std::shared_ptr<BooleanArray> expected_mask;
-    auto mask_res =
-        DoFilter(expr, std::move(fields), std::move(batch_json), &expected_mask);
-    ASSERT_OK(mask_res.status());
 
-    auto mask = std::move(mask_res).ValueOrDie();
+    ASSERT_OK_AND_ASSIGN(Datum mask, DoFilter(expr, std::move(fields),
+                                              std::move(batch_json), &expected_mask));
     ASSERT_TRUE(mask.type()->Equals(null()) || mask.type()->Equals(boolean()));
 
     if (mask.is_array()) {
-      ASSERT_ARRAYS_EQUAL(*expected_mask, *mask.make_array());
+      AssertArraysEqual(*expected_mask, *mask.make_array(), /*verbose=*/true);
       return;
     }
 
@@ -443,8 +439,8 @@ class TakeExpression : public CustomExpression {
 
     using TreeEvaluator::Evaluate;
 
-    Result<compute::Datum> Evaluate(const Expression& expr, const RecordBatch& batch,
-                                    MemoryPool* pool) const override {
+    Result<Datum> Evaluate(const Expression& expr, const RecordBatch& batch,
+                           MemoryPool* pool) const override {
       if (expr.type() == ExpressionType::CUSTOM) {
         const auto& take_expr = checked_cast<const TakeExpression&>(expr);
         return EvaluateTake(take_expr, batch, pool);
@@ -452,23 +448,22 @@ class TakeExpression : public CustomExpression {
       return TreeEvaluator::Evaluate(expr, batch, pool);
     }
 
-    Result<compute::Datum> EvaluateTake(const TakeExpression& take_expr,
-                                        const RecordBatch& batch,
-                                        MemoryPool* pool) const {
+    Result<Datum> EvaluateTake(const TakeExpression& take_expr, const RecordBatch& batch,
+                               MemoryPool* pool) const {
       ARROW_ASSIGN_OR_RAISE(auto indices, Evaluate(*take_expr.operand_, batch, pool));
 
       if (indices.kind() == Datum::SCALAR) {
         ARROW_ASSIGN_OR_RAISE(auto indices_array,
                               MakeArrayFromScalar(*indices.scalar(), batch.num_rows(),
                                                   default_memory_pool()));
-        indices = compute::Datum(indices_array->data());
+        indices = Datum(indices_array->data());
       }
 
       DCHECK_EQ(indices.kind(), Datum::ARRAY);
-      compute::Datum out;
-      compute::FunctionContext ctx{pool};
-      RETURN_NOT_OK(compute::Take(&ctx, compute::Datum(take_expr.dictionary_->data()),
-                                  indices, compute::TakeOptions(), &out));
+      compute::ExecContext ctx(pool);
+      ARROW_ASSIGN_OR_RAISE(Datum out,
+                            compute::Take(take_expr.dictionary_->data(), indices,
+                                          compute::TakeOptions(), &ctx));
       return std::move(out);
     }
   };

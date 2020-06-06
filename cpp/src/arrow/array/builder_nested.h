@@ -17,14 +17,21 @@
 
 #pragma once
 
+#include <cstdint>
 #include <limits>
 #include <memory>
 #include <utility>
 #include <vector>
 
-#include "arrow/array.h"
+#include "arrow/array/array_nested.h"
 #include "arrow/array/builder_base.h"
+#include "arrow/array/data.h"
+#include "arrow/buffer.h"
 #include "arrow/buffer_builder.h"
+#include "arrow/status.h"
+#include "arrow/type.h"
+#include "arrow/util/macros.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow {
 

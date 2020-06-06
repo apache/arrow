@@ -34,8 +34,8 @@ namespace test {
 TEST(TestReaderProperties, Basics) {
   ReaderProperties props;
 
-  ASSERT_EQ(DEFAULT_BUFFER_SIZE, props.buffer_size());
-  ASSERT_EQ(DEFAULT_USE_BUFFERED_STREAM, props.is_buffered_stream_enabled());
+  ASSERT_EQ(props.buffer_size(), kDefaultBufferSize);
+  ASSERT_FALSE(props.is_buffered_stream_enabled());
 }
 
 TEST(TestWriterProperties, Basics) {

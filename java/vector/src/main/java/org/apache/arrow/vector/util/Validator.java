@@ -148,7 +148,8 @@ public class Validator {
         default:
           throw new UnsupportedOperationException("unsupported precision: " + fpType);
       }
-    } else if (type instanceof ArrowType.Binary || type instanceof ArrowType.FixedSizeBinary) {
+    } else if (type instanceof ArrowType.Binary || type instanceof ArrowType.LargeBinary ||
+        type instanceof ArrowType.FixedSizeBinary) {
       return Arrays.equals((byte[]) o1, (byte[]) o2);
     }
 
