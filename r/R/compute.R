@@ -50,10 +50,12 @@ sum.Array <- function(..., na.rm = FALSE) {
   a <- ..1
   if (!na.rm && a$null_count > 0) {
     # Arrow sum function always drops NAs so handle that here
+    # https://issues.apache.org/jira/browse/ARROW-9054
     Scalar$create(NA_integer_, type = a$type)
   } else {
     if (inherits(a$type, "Boolean")) {
       # Bool sum not implemented so cast to int
+      # https://issues.apache.org/jira/browse/ARROW-9055
       a <- a$cast(int8())
     }
     shared_ptr(Scalar, call_function("sum", a))
@@ -73,10 +75,12 @@ mean.Array <- function(..., na.rm = FALSE) {
   a <- ..1
   if (!na.rm && a$null_count > 0) {
     # Arrow sum/mean function always drops NAs so handle that here
+    # https://issues.apache.org/jira/browse/ARROW-9054
     Scalar$create(NA_integer_, type = a$type)
   } else {
     if (inherits(a$type, "Boolean")) {
       # Bool sum/mean not implemented so cast to int
+      # https://issues.apache.org/jira/browse/ARROW-9055
       a <- a$cast(int8())
     }
     shared_ptr(Scalar, call_function("mean", a))
