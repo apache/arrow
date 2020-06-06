@@ -15,27 +15,19 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ACLOCAL_AMFLAGS = -I m4 ${ACLOCAL_FLAGS}
+class TestDatasetScanContext < Test::Unit::TestCase
+  def setup
+    omit("Arrow Dataset is required") unless defined?(ArrowDataset)
+    @scan_context = ArrowDataset::ScanContext.new
+  end
 
-SUBDIRS =					\
-	arrow-glib				\
-	arrow-cuda-glib				\
-	arrow-dataset-glib			\
-	gandiva-glib				\
-	parquet-glib				\
-	plasma-glib				\
-	doc					\
-	example
-
-EXTRA_DIST =					\
-	Gemfile					\
-	README.md				\
-	autogen.sh				\
-	meson.build				\
-	meson_options.txt			\
-	test
-
-arrow_glib_docdir = ${datarootdir}/doc/arrow-glib
-arrow_glib_doc_DATA =				\
-	../LICENSE.txt				\
-	README.md
+  def test_use_threads
+    assert do
+      not @scan_context.use_threads?
+    end
+    @scan_context.use_threads = true
+    assert do
+      @scan_context.use_threads?
+    end
+  end
+end

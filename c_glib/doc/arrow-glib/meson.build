@@ -17,13 +17,15 @@
 # specific language governing permissions and limitations
 # under the License.
 
+package_id = meson.project_name()
+package_name = 'Apache Arrow GLib'
 entities_conf = configuration_data()
-entities_conf.set('PACKAGE', meson.project_name())
+entities_conf.set('PACKAGE', package_id)
 entities_conf.set('PACKAGE_BUGREPORT',
                   'https://issues.apache.org/jira/browse/ARROW')
-entities_conf.set('PACKAGE_NAME', meson.project_name())
+entities_conf.set('PACKAGE_NAME', package_name)
 entities_conf.set('PACKAGE_STRING',
-                  ' '.join([meson.project_name(), version]))
+                  ' '.join([package_name, version]))
 entities_conf.set('PACKAGE_URL', 'https://arrow.apache.org/')
 entities_conf.set('PACKAGE_VERSION', version)
 configure_file(input: 'entities.xml.in',
@@ -41,11 +43,11 @@ html_images = [
 
 glib_prefix = dependency('glib-2.0').get_pkgconfig_variable('prefix')
 glib_doc_path = join_paths(glib_prefix, 'share', 'gtk-doc', 'html')
-doc_path = join_paths(data_dir, meson.project_name(), 'gtk-doc', 'html')
+doc_path = join_paths(data_dir, 'gtk-doc', 'html', package_id)
 
 source_directories = [
-  join_paths(meson.source_root(), 'arrow-glib'),
-  join_paths(meson.build_root(), 'arrow-glib'),
+  join_paths(meson.source_root(), package_id),
+  join_paths(meson.build_root(), package_id),
 ]
 dependencies = [
   arrow_glib,
@@ -67,12 +69,12 @@ if not have_arrow_orc
     join_paths(meson.source_root(), 'arrow-glib', 'orc-file-reader.h'),
   ]
 endif
-gnome.gtkdoc(meson.project_name(),
-             main_xml: meson.project_name() + '-docs.xml',
+gnome.gtkdoc(package_id,
+             main_xml: package_id + '-docs.xml',
              src_dir: source_directories,
              dependencies: dependencies,
              ignore_headers: ignore_headers,
-             gobject_typesfile: meson.project_name() + '.types',
+             gobject_typesfile: package_id + '.types',
              scan_args: [
                '--rebuild-types',
                '--deprecated-guards=GARROW_DISABLE_DEPRECATED',

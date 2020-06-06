@@ -47,6 +47,11 @@ rescue GObjectIntrospection::RepositoryError::TypelibNotFound
 end
 
 begin
+  ArrowDataset = GI.load("ArrowDataset")
+rescue GObjectIntrospection::RepositoryError::TypelibNotFound
+end
+
+begin
   Gandiva = GI.load("Gandiva")
 rescue GObjectIntrospection::RepositoryError::TypelibNotFound
 end
