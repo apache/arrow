@@ -42,23 +42,25 @@ case "$(uname)" in
     ;;
   MINGW*)
     n_jobs=${NUMBER_OF_PROCESSORS:-1}
-    ctest_options+=(--exclude-regex gandiva-internals-test)
-    ctest_options+=(--exclude-regex gandiva-projector-test)
-    ctest_options+=(--exclude-regex gandiva-utf8-test)
+    exclude_tests="gandiva-internals-test"
+    exclude_tests="${exclude_tests}|gandiva-projector-test"
+    exclude_tests="${exclude_tests}|gandiva-utf8-test"
     if [ "${MSYSTEM}" = "MINGW32" ]; then
-      ctest_options+=(--exclude-regex gandiva-binary-test)
-      ctest_options+=(--exclude-regex gandiva-boolean-expr-test)
-      ctest_options+=(--exclude-regex gandiva-date-time-test)
-      ctest_options+=(--exclude-regex gandiva-decimal-single-test)
-      ctest_options+=(--exclude-regex gandiva-decimal-test)
-      ctest_options+=(--exclude-regex gandiva-filter-project-test)
-      ctest_options+=(--exclude-regex gandiva-filter-test)
-      ctest_options+=(--exclude-regex gandiva-hash-test)
-      ctest_options+=(--exclude-regex gandiva-if-expr-test)
-      ctest_options+=(--exclude-regex gandiva-in-expr-test)
-      ctest_options+=(--exclude-regex gandiva-literal-test)
-      ctest_options+=(--exclude-regex gandiva-null-validity-test)
+      exclude_tests="${exclude_tests}|gandiva-projector-test"
+      exclude_tests="${exclude_tests}|gandiva-binary-test"
+      exclude_tests="${exclude_tests}|gandiva-boolean-expr-test"
+      exclude_tests="${exclude_tests}|gandiva-date-time-test"
+      exclude_tests="${exclude_tests}|gandiva-decimal-single-test"
+      exclude_tests="${exclude_tests}|gandiva-decimal-test"
+      exclude_tests="${exclude_tests}|gandiva-filter-project-test"
+      exclude_tests="${exclude_tests}|gandiva-filter-test"
+      exclude_tests="${exclude_tests}|gandiva-hash-test"
+      exclude_tests="${exclude_tests}|gandiva-if-expr-test"
+      exclude_tests="${exclude_tests}|gandiva-in-expr-test"
+      exclude_tests="${exclude_tests}|gandiva-literal-test"
+      exclude_tests="${exclude_tests}|gandiva-null-validity-test"
     fi
+    ctest_options+=(--exclude-regex "${exclude_tests}")
     ;;
   *)
     n_jobs=${NPROC:-1}
