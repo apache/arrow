@@ -27,7 +27,7 @@ DataFusion can be used as a library by adding the following to your `Cargo.toml`
 
 ```toml
 [dependencies]
-datafusion = "0.18.0-SNAPSHOT"
+datafusion = "1.0.0-SNAPSHOT"
 ```
 
 ## Using DataFusion as a binary
