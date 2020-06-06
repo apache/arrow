@@ -212,6 +212,12 @@ jobs:
         run: |
           ridk exec bash ci\scripts\msys2_system_upgrade.sh
           ridk exec bash ci\scripts\msys2_setup.sh ruby
+      - name: Cache ccache
+        uses: actions/cache@v1
+        with:
+          path: ccache
+          key: ruby-ccache-mingw${{ matrix.mingw-n-bits }}-${{ hashFiles('cpp/**') }}
+          restore-keys: ruby-ccache-mingw${{ matrix.mingw-n-bits }}-
       - name: Build C++
         run: |
           $Env:CMAKE_BUILD_PARALLEL_LEVEL = $Env:NUMBER_OF_PROCESSORS
