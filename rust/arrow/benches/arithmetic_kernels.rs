@@ -17,9 +17,7 @@
 
 #[macro_use]
 extern crate criterion;
-use arrow::error::ArrowError;
 use criterion::Criterion;
-use num::Zero;
 
 use std::sync::Arc;
 
@@ -29,7 +27,6 @@ use arrow::array::*;
 use arrow::compute::kernels::aggregate::*;
 use arrow::compute::kernels::arithmetic::*;
 use arrow::compute::kernels::limit::*;
-use arrow::error::Result;
 
 fn create_array(size: usize) -> Float32Array {
     let mut builder = Float32Builder::new(size);
@@ -39,81 +36,47 @@ fn create_array(size: usize) -> Float32Array {
     builder.finish()
 }
 
-fn bin_op_no_simd<F>(size: usize, op: F)
-where
-    F: Fn(f32, f32) -> Result<f32>,
-{
-    let arr_a = create_array(size);
-    let arr_b = create_array(size);
-    criterion::black_box(math_op(&arr_a, &arr_b, op).unwrap());
-}
-
-fn add_simd(size: usize) {
+fn bench_add(size: usize) {
     let arr_a = create_array(size);
     let arr_b = create_array(size);
     criterion::black_box(add(&arr_a, &arr_b).unwrap());
 }
 
-fn subtract_simd(size: usize) {
+fn bench_subtract(size: usize) {
     let arr_a = create_array(size);
     let arr_b = create_array(size);
     criterion::black_box(subtract(&arr_a, &arr_b).unwrap());
 }
 
-fn multiply_simd(size: usize) {
+fn bench_multiply(size: usize) {
     let arr_a = create_array(size);
     let arr_b = create_array(size);
     criterion::black_box(multiply(&arr_a, &arr_b).unwrap());
 }
 
-fn divide_simd(size: usize) {
+fn bench_divide(size: usize) {
     let arr_a = create_array(size);
     let arr_b = create_array(size);
     criterion::black_box(divide(&arr_a, &arr_b).unwrap());
 }
 
-fn sum_no_simd(size: usize) {
+fn bench_sum(size: usize) {
     let arr_a = create_array(size);
     criterion::black_box(sum(&arr_a).unwrap());
 }
 
-fn limit_no_simd(size: usize, max: usize) {
+fn bench_limit(size: usize, max: usize) {
     let arr_a: ArrayRef = Arc::new(create_array(size));
     criterion::black_box(limit(&arr_a, max).unwrap());
 }
 
 fn add_benchmark(c: &mut Criterion) {
-    c.bench_function("add 512", |b| {
-        b.iter(|| bin_op_no_simd(512, |a, b| Ok(a + b)))
-    });
-    c.bench_function("add 512 simd", |b| b.iter(|| add_simd(512)));
-    c.bench_function("subtract 512", |b| {
-        b.iter(|| bin_op_no_simd(512, |a, b| Ok(a - b)))
-    });
-    c.bench_function("subtract 512 simd", |b| b.iter(|| subtract_simd(512)));
-    c.bench_function("multiply 512", |b| {
-        b.iter(|| bin_op_no_simd(512, |a, b| Ok(a * b)))
-    });
-    c.bench_function("multiply 512 simd", |b| b.iter(|| multiply_simd(512)));
-    c.bench_function("divide 512", |b| {
-        b.iter(|| {
-            bin_op_no_simd(512, |a, b| {
-                if b.is_zero() {
-                    Err(ArrowError::DivideByZero)
-                } else {
-                    Ok(a / b)
-                }
-            })
-        })
-    });
-    c.bench_function("divide 512 simd", |b| b.iter(|| divide_simd(512)));
-    c.bench_function("sum 512 no simd", |b| b.iter(|| sum_no_simd(512)));
-    c.bench_function("limit 512, 256 no simd", |b| {
-        b.iter(|| limit_no_simd(512, 256))
-    });
-    c.bench_function("limit 512, 512 no simd", |b| {
-        b.iter(|| limit_no_simd(512, 512))
-    });
+    c.bench_function("add 512", |b| b.iter(|| bench_add(512)));
+    c.bench_function("subtract 512", |b| b.iter(|| bench_subtract(512)));
+    c.bench_function("multiply 512", |b| b.iter(|| bench_multiply(512)));
+    c.bench_function("divide 512", |b| b.iter(|| bench_divide(512)));
+    c.bench_function("sum 512", |b| b.iter(|| bench_sum(512)));
+    c.bench_function("limit 512, 512", |b| b.iter(|| bench_limit(512, 512)));
 }
 
 criterion_group!(benches, add_benchmark);
