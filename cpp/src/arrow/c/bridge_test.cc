@@ -2574,6 +2574,18 @@ TEST_F(TestArrayRoundtrip, Primitive) {
   TestWithJSONSliced(int32(), "[4, 5, 6, null]");
 }
 
+TEST_F(TestArrayRoundtrip, UnknownNullCount) {
+    TestWithArrayFactory([](std::shared_ptr<Array>* arr) -> Status {
+    *arr = ArrayFromJSON(int32(), "[0, 1, 2]");
+    if ((*arr)->null_bitmap()) {
+      return Status::Invalid("Failed precondition: "
+                             "the array shouldn't have a null bitmap.");
+    }
+    (*arr)->data()->SetNullCount(kUnknownNullCount);
+    return Status::OK();
+    });
+}
+
 TEST_F(TestArrayRoundtrip, Nested) {
   TestWithJSON(list(int32()), "[]");
   TestWithJSON(list(int32()), "[[4, 5], [6, null], null]");

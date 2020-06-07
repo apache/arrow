@@ -503,6 +503,8 @@ void ReleaseExportedArray(struct ArrowArray* array) {
 
 struct ArrayExporter {
   Status Export(const std::shared_ptr<ArrayData>& data) {
+    // Force computing null count.
+    data->GetNullCount();
     // Store buffer pointers
     export_.buffers_.resize(data->buffers.size());
     std::transform(data->buffers.begin(), data->buffers.end(), export_.buffers_.begin(),
@@ -1401,7 +1403,7 @@ struct ArrayImporter {
 
   Status ImportNullBitmap(int32_t buffer_id = 0) {
     RETURN_NOT_OK(ImportBitsBuffer(buffer_id));
-    if (data_->null_count != 0 && data_->buffers[buffer_id] == nullptr) {
+    if (data_->null_count > 0 && data_->buffers[buffer_id] == nullptr) {
       return Status::Invalid(
           "ArrowArray struct has null bitmap buffer but non-zero null_count ",
           data_->null_count);
