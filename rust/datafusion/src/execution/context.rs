@@ -269,6 +269,7 @@ impl ExecutionContext {
             Box::new(TypeCoercionRule::new(&self.scalar_functions)),
         ];
         let mut plan = plan.clone();
+
         for mut rule in rules {
             plan = rule.optimize(&plan)?;
         }
@@ -308,12 +309,12 @@ impl ExecutionContext {
             },
             LogicalPlan::InMemoryScan {
                 data,
-                schema,
                 projection,
+                projected_schema,
                 ..
             } => Ok(Arc::new(MemoryExec::try_new(
                 data,
-                Arc::new(schema.as_ref().to_owned()),
+                Arc::new(projected_schema.as_ref().to_owned()),
                 projection.to_owned(),
             )?)),
             LogicalPlan::CsvScan {
@@ -633,6 +634,7 @@ mod tests {
     use std::fs::File;
     use std::io::prelude::*;
     use tempdir::TempDir;
+    use test::*;
 
     #[test]
     fn parallel_projection() -> Result<()> {
@@ -670,6 +672,108 @@ mod tests {
 
         let row_count: usize = results.iter().map(|batch| batch.num_rows()).sum();
         assert_eq!(row_count, 20);
+
+        Ok(())
+    }
+
+    #[test]
+    fn projection_on_table_scan() -> Result<()> {
+        let tmp_dir = TempDir::new("projection_on_table_scan")?;
+        let partition_count = 4;
+        let mut ctx = create_ctx(&tmp_dir, partition_count)?;
+
+        let table = ctx.table("test")?;
+        let logical_plan = LogicalPlanBuilder::from(&table.to_logical_plan())
+            .project(vec![Expr::UnresolvedColumn("c2".to_string())])?
+            .build()?;
+
+        let optimized_plan = ctx.optimize(&logical_plan)?;
+        match &optimized_plan {
+            LogicalPlan::Projection { input, .. } => match &**input {
+                LogicalPlan::TableScan {
+                    table_schema,
+                    projected_schema,
+                    ..
+                } => {
+                    assert_eq!(table_schema.fields().len(), 2);
+                    assert_eq!(projected_schema.fields().len(), 1);
+                }
+                _ => assert!(false, "input to projection should be TableScan"),
+            },
+            _ => assert!(false, "expect optimized_plan to be projection"),
+        }
+
+        let expected = "Projection: #0\
+        \n  TableScan: test projection=Some([1])";
+        assert_eq!(format!("{:?}", optimized_plan), expected);
+
+        let physical_plan = ctx.create_physical_plan(&optimized_plan, 1024)?;
+
+        assert_eq!(1, physical_plan.schema().fields().len());
+        assert_eq!("c2", physical_plan.schema().field(0).name().as_str());
+
+        let batches = ctx.collect(physical_plan.as_ref())?;
+        assert_eq!(4, batches.len());
+        assert_eq!(1, batches[0].num_columns());
+        assert_eq!(10, batches[0].num_rows());
+
+        Ok(())
+    }
+
+    #[test]
+    fn projection_on_memory_scan() -> Result<()> {
+        let schema = Schema::new(vec![
+            Field::new("a", DataType::Int32, false),
+            Field::new("b", DataType::Int32, false),
+            Field::new("c", DataType::Int32, false),
+        ]);
+        let plan = LogicalPlanBuilder::from(&LogicalPlan::InMemoryScan {
+            data: vec![vec![RecordBatch::try_new(
+                Arc::new(schema.clone()),
+                vec![
+                    Arc::new(Int32Array::from(vec![1, 10, 10, 100])),
+                    Arc::new(Int32Array::from(vec![2, 12, 12, 120])),
+                    Arc::new(Int32Array::from(vec![3, 12, 12, 120])),
+                ],
+            )?]],
+            schema: Box::new(schema.clone()),
+            projection: None,
+            projected_schema: Box::new(schema.clone()),
+        })
+        .project(vec![Expr::UnresolvedColumn("b".to_string())])?
+        .build()?;
+        assert_fields_eq(&plan, vec!["b"]);
+
+        let mut ctx = ExecutionContext::new();
+        let optimized_plan = ctx.optimize(&plan)?;
+        match &optimized_plan {
+            LogicalPlan::Projection { input, .. } => match &**input {
+                LogicalPlan::InMemoryScan {
+                    schema,
+                    projected_schema,
+                    ..
+                } => {
+                    assert_eq!(schema.fields().len(), 3);
+                    assert_eq!(projected_schema.fields().len(), 1);
+                }
+                _ => assert!(false, "input to projection should be InMemoryScan"),
+            },
+            _ => assert!(false, "expect optimized_plan to be projection"),
+        }
+
+        let expected = "Projection: #0\
+        \n  InMemoryScan: projection=Some([1])";
+        assert_eq!(format!("{:?}", optimized_plan), expected);
+
+        let physical_plan = ctx.create_physical_plan(&optimized_plan, 1024)?;
+
+        assert_eq!(1, physical_plan.schema().fields().len());
+        assert_eq!("b", physical_plan.schema().field(0).name().as_str());
+
+        let batches = ctx.collect(physical_plan.as_ref())?;
+        assert_eq!(1, batches.len());
+        assert_eq!(1, batches[0].num_columns());
+        assert_eq!(4, batches[0].num_rows());
 
         Ok(())
     }
