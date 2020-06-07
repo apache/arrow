@@ -194,7 +194,7 @@ else
   AC_SUBST(ARROW_LIB_DIR)
 
   ARROW_CFLAGS="-I${ARROW_BUILD_INCLUDE_DIR} -I${ARROW_SOURCE_INCLUDE_DIR}"
-  ARROW_LIBS="-L${ARROW_LIB_DIR} -larrow"
+  ARROW_LIBS="-L\$(ARROW_LIB_DIR) -larrow"
   AC_SUBST(ARROW_CFLAGS)
   AC_SUBST(ARROW_LIBS)
 
@@ -204,10 +204,10 @@ else
     HAVE_ARROW_ORC=no
   fi
 
-  ARROW_CUDA_CFLAGS=""
+  ARROW_CUDA_CFLAGS="\$(ARROW_CFLAGS)"
   if test -f "${GARROW_ARROW_CPP_BUILD_DIR}/src/arrow/gpu/arrow-cuda.pc"; then
     HAVE_ARROW_CUDA=yes
-    ARROW_CUDA_LIBS="-larrow_cuda"
+    ARROW_CUDA_LIBS="-L\$(ARROW_LIB_DIR) -larrow_cuda -larrow"
     ARROW_CUDA_PKG_CONFIG_PATH="\$(ARROW_BUILD_DIR)/src/arrow/gpu"
   else
     HAVE_ARROW_CUDA=no
@@ -218,10 +218,10 @@ else
   AC_SUBST(ARROW_CUDA_LIBS)
   AC_SUBST(ARROW_CUDA_PKG_CONFIG_PATH)
 
-  ARROW_DATASET_CFLAGS=""
+  ARROW_DATASET_CFLAGS="\$(ARROW_CFLAGS)"
   if test -f "${GARROW_ARROW_CPP_BUILD_DIR}/src/arrow/dataset/arrow-dataset.pc"; then
     HAVE_ARROW_DATASET=yes
-    ARROW_DATASET_LIBS="-larrow-dataset -lparquet -larrow"
+    ARROW_DATASET_LIBS="-L\$(ARROW_LIB_DIR) -larrow_dataset -lparquet -larrow"
   else
     HAVE_ARROW_DATASET=no
     ARROW_DATASET_LIBS=""
@@ -229,10 +229,10 @@ else
   AC_SUBST(ARROW_DATASET_CFLAGS)
   AC_SUBST(ARROW_DATASET_LIBS)
 
-  GANDIVA_CFLAGS=""
+  GANDIVA_CFLAGS="\$(ARROW_CFLAGS)"
   if test -f "${GARROW_ARROW_CPP_BUILD_DIR}/src/gandiva/gandiva.pc"; then
     HAVE_GANDIVA=yes
-    GANDIVA_LIBS="-lgandiva"
+    GANDIVA_LIBS="-L\$(ARROW_LIB_DIR) -lgandiva -larrow"
   else
     HAVE_GANDIVA=no
     GANDIVA_LIBS=""
@@ -240,10 +240,10 @@ else
   AC_SUBST(GANDIVA_CFLAGS)
   AC_SUBST(GANDIVA_LIBS)
 
-  PARQUET_CFLAGS=""
+  PARQUET_CFLAGS="\$(ARROW_CFLAGS)"
   if test -f "${GARROW_ARROW_CPP_BUILD_DIR}/src/parquet/parquet.pc"; then
     HAVE_PARQUET=yes
-    PARQUET_LIBS="-lparquet"
+    PARQUET_LIBS="-L\$(ARROW_LIB_DIR) -lparquet -larrow"
   else
     HAVE_PARQUET=no
     PARQUET_LIBS=""
@@ -251,10 +251,10 @@ else
   AC_SUBST(PARQUET_CFLAGS)
   AC_SUBST(PARQUET_LIBS)
 
-  PLASMA_CFLAGS=""
+  PLASMA_CFLAGS="\$(ARROW_CFLAGS)"
   if test -f "${GARROW_ARROW_CPP_BUILD_DIR}/src/plasma/plasma.pc"; then
     HAVE_PLASMA=yes
-    PLASMA_LIBS="-lplasma"
+    PLASMA_LIBS="-L\$(ARROW_LIB_DIR) -lplasma -larrow"
   else
     HAVE_PLASMA=no
     PLASMA_LIBS=""
