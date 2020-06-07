@@ -46,7 +46,9 @@ jobs:
           -e PYTHON_VERSION="{{ python_version }}" \
           -e UNICODE_WIDTH="{{ unicode_width }}" \
           ${BUILD_IMAGE}
+        {% if arrow.branch == 'master' %}
         archery docker push ${BUILD_IMAGE} || :
+        {% endif %}
       env:
         DOCKER_BUILDKIT: 0
         COMPOSE_DOCKER_CLI_BUILD: 1
