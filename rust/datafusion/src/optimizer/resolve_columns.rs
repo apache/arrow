@@ -55,13 +55,16 @@ impl OptimizerRule for ResolveColumnsRule {
                     rewrite_expr_list(aggr_expr, &input.schema())?,
                 )?
                 .build()?),
-            LogicalPlan::Sort { input, expr, .. } => Ok(LogicalPlanBuilder::from(input)
-                .sort(rewrite_expr_list(expr, &input.schema())?)?
-                .build()?),
+            LogicalPlan::Sort { input, expr, .. } => {
+                Ok(LogicalPlanBuilder::from(&self.optimize(input)?)
+                    .sort(rewrite_expr_list(expr, &input.schema())?)?
+                    .build()?)
+            }
             _ => Ok(plan.clone()),
         }
     }
 }
+
 fn rewrite_expr_list(expr: &[Expr], schema: &Schema) -> Result<Vec<Expr>> {
     Ok(expr
         .iter()
