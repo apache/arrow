@@ -221,7 +221,7 @@ else
   ARROW_DATASET_CFLAGS="\$(ARROW_CFLAGS)"
   if test -f "${GARROW_ARROW_CPP_BUILD_DIR}/src/arrow/dataset/arrow-dataset.pc"; then
     HAVE_ARROW_DATASET=yes
-    ARROW_DATASET_LIBS="-L\$(ARROW_LIB_DIR) -larrow-dataset -lparquet -larrow"
+    ARROW_DATASET_LIBS="-L\$(ARROW_LIB_DIR) -larrow_dataset -lparquet -larrow"
   else
     HAVE_ARROW_DATASET=no
     ARROW_DATASET_LIBS=""
