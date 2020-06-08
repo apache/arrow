@@ -24,6 +24,42 @@ call_function <- function(function_name, ..., options = list()) {
   compute__CallFunction(function_name, list(...), options)
 }
 
+#' @export
+sum.Array <- function(..., na.rm = FALSE) scalar_aggregate("sum", ..., na.rm = na.rm)
+
+#' @export
+sum.ChunkedArray <- sum.Array
+
+#' @export
+sum.Scalar <- sum.Array
+
+#' @export
+mean.Array <- function(..., na.rm = FALSE) scalar_aggregate("mean", ..., na.rm = na.rm)
+
+#' @export
+mean.ChunkedArray <- mean.Array
+
+#' @export
+mean.Scalar <- mean.Array
+
+scalar_aggregate <- function(FUN, ..., na.rm = FALSE) {
+  args <- list(...)
+  assert_that(length(args) == 1) # TODO: make chunked array if there are multiple arrays
+  a <- ..1
+  if (!na.rm && a$null_count > 0) {
+    # Arrow sum/mean function always drops NAs so handle that here
+    # https://issues.apache.org/jira/browse/ARROW-9054
+    Scalar$create(NA_integer_, type = a$type)
+  } else {
+    if (inherits(a$type, "Boolean")) {
+      # Bool sum/mean not implemented so cast to int
+      # https://issues.apache.org/jira/browse/ARROW-9055
+      a <- a$cast(int8())
+    }
+    shared_ptr(Scalar, call_function(FUN, a))
+  }
+}
+
 CastOptions <- R6Class("CastOptions", inherit = ArrowObject)
 
 #' Cast options
@@ -42,53 +78,3 @@ cast_options <- function(safe = TRUE,
     compute___CastOptions__initialize(allow_int_overflow, allow_time_truncate, allow_float_truncate)
   )
 }
-
-#' @export
-sum.Array <- function(..., na.rm = FALSE) {
-  args <- list(...)
-  assert_that(length(args) == 1) # TODO: make chunked array if there are multiple arrays
-  a <- ..1
-  if (!na.rm && a$null_count > 0) {
-    # Arrow sum function always drops NAs so handle that here
-    # https://issues.apache.org/jira/browse/ARROW-9054
-    Scalar$create(NA_integer_, type = a$type)
-  } else {
-    if (inherits(a$type, "Boolean")) {
-      # Bool sum not implemented so cast to int
-      # https://issues.apache.org/jira/browse/ARROW-9055
-      a <- a$cast(int8())
-    }
-    shared_ptr(Scalar, call_function("sum", a))
-  }
-}
-
-#' @export
-sum.ChunkedArray <- sum.Array
-
-#' @export
-sum.Scalar <- sum.Array
-
-#' @export
-mean.Array <- function(..., na.rm = FALSE) {
-  args <- list(...)
-  assert_that(length(args) == 1) # TODO: make chunked array if there are multiple arrays
-  a <- ..1
-  if (!na.rm && a$null_count > 0) {
-    # Arrow sum/mean function always drops NAs so handle that here
-    # https://issues.apache.org/jira/browse/ARROW-9054
-    Scalar$create(NA_integer_, type = a$type)
-  } else {
-    if (inherits(a$type, "Boolean")) {
-      # Bool sum/mean not implemented so cast to int
-      # https://issues.apache.org/jira/browse/ARROW-9055
-      a <- a$cast(int8())
-    }
-    shared_ptr(Scalar, call_function("mean", a))
-  }
-}
-
-#' @export
-mean.ChunkedArray <- mean.Array
-
-#' @export
-mean.Scalar <- mean.Array
