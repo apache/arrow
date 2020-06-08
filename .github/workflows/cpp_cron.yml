@@ -118,6 +118,7 @@ jobs:
           restore-keys: ${{ matrix.name }}-
       - name: Setup Python
         uses: actions/setup-python@v1
+        continue-on-error: true
         with:
           python-version: 3.6
       - name: Setup Archery
