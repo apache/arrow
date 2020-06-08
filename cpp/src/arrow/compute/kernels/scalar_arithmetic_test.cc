@@ -263,7 +263,7 @@ TYPED_TEST(TestBinaryArithmeticsFloating, Add) {
   this->AssertBinop(arrow::compute::Add, "[null, 1, 3.3, null, 2, 5.3]",
                     "[1, 4, 2, 5, 0, 3]", "[null, 5, 5.3, null, 2, 8.3]");
 
-  this->AssertBinop(arrow::compute::Add, 1.1, "[null, 1, 3.3, null, 2, 5.3]",
+  this->AssertBinop(arrow::compute::Add, 1.1F, "[null, 1, 3.3, null, 2, 5.3]",
                     "[null, 2.1, 4.4, null, 3.1, 6.4]");
 }
 
@@ -286,7 +286,7 @@ TYPED_TEST(TestBinaryArithmeticsFloating, Sub) {
   this->AssertBinop(arrow::compute::Subtract, "[null, 1, 3.3, null, 2, 5.3]",
                     "[1, 4, 2, 5, 0, 3]", "[null, -3, 1.3, null, 2, 2.3]");
 
-  this->AssertBinop(arrow::compute::Subtract, 0.1, "[null, 1, 3.3, null, 2, 5.3]",
+  this->AssertBinop(arrow::compute::Subtract, 0.1F, "[null, 1, 3.3, null, 2, 5.3]",
                     "[null, -0.9, -3.2, null, -1.9, -5.2]");
 }
 
