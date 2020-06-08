@@ -17,6 +17,7 @@
 
 import os
 import subprocess
+from io import StringIO
 
 from dotenv import dotenv_values
 from ruamel.yaml import YAML
@@ -52,41 +53,29 @@ class Docker(Command):
 
 class DockerCompose(Command):
 
-    def __init__(self, config_path, dotenv_path=None, volume_path=None,
-                 compose_bin=None, params=None):
-        self.config_path = _ensure_path(config_path)
+    def __init__(self, config_path, dotenv_path=None, compose_bin=None,
+                 params=None):
+        self.bin = default_bin(compose_bin, 'docker-compose')
 
+        self.config_path = _ensure_path(config_path)
         if dotenv_path:
             self.dotenv_path = _ensure_path(dotenv_path)
         else:
             self.dotenv_path = self.config_path.parent / '.env'
 
-        if volume_path:
-            self.volume_path = _ensure_path(volume_path)
-        else:
-            self.volume_path = self.config_path.parent / '.docker'
+        self._read_env(params)
+        self._read_config()
 
+    def _read_config(self):
+        """
+        Validate and read the docker-compose.yml
+        """
         yaml = YAML()
         with self.config_path.open() as fp:
-            self.config = yaml.load(fp)
+            config = yaml.load(fp)
 
-        self.bin = default_bin(compose_bin, 'docker-compose')
-        self.nodes = dict(flatten(self.config['x-hierarchy']))
-        self.dotenv = dotenv_values(str(self.dotenv_path))
-        if params is None:
-            self.params = {}
-        else:
-            self.params = {k: v for k, v in params.items() if k in self.dotenv}
-
-        # forward the process' environment variables
-        self._compose_env = os.environ.copy()
-        # set the defaults from the dotenv files
-        self._compose_env.update(self.dotenv)
-        # override the defaults passed as parameters
-        self._compose_env.update(self.params)
-
-    def validate(self):
-        services = self.config['services'].keys()
+        services = config['services'].keys()
+        self.nodes = dict(flatten(config['x-hierarchy']))
         nodes = self.nodes.keys()
         errors = []
 
@@ -115,23 +104,48 @@ class DockerCompose(Command):
                 'Found errors with docker-compose:\n{}'.format(msg)
             )
 
-    def ensure_volume_permissions(self):
+        rendered_config = StringIO(result.stdout.decode())
+        self.config = yaml.load(rendered_config)
+
+    def _read_env(self, params):
+        """
+        Read .env and merge it with explicitly passed parameters.
+        """
+        self.dotenv = dotenv_values(str(self.dotenv_path))
+        if params is None:
+            self.params = {}
+        else:
+            self.params = {k: v for k, v in params.items() if k in self.dotenv}
+
+        # forward the process' environment variables
+        self._compose_env = os.environ.copy()
+        # set the defaults from the dotenv files
+        self._compose_env.update(self.dotenv)
+        # override the defaults passed as parameters
+        self._compose_env.update(self.params)
+
+    def _ensure_volumes(self, image):
+        def _check_permissions(path):
+            # check that the directory is owned by the current user
+            stat = path.stat()
+            uid, gid = os.getuid(), os.getgid()
+            if stat.st_uid != uid or stat.st_gid != gid:
+                raise RuntimeError(
+                    "{} is not owned by the current user, execute "
+                    "`chown -R {}:{} {}` to fix the directory's permissions"
+                    .format(self.volume_path, uid, gid, self.volume_path)
+                )
+
         # create the directory with right permissions before docker does
-        self.volume_path.mkdir(parents=True, exist_ok=True)
+        volumes_root = self.config_path.parent / '.docker'
 
-        if os.name != 'posix':
-            # hopefully it won't be an issue on windows
-            return
-
-        # check that the directory is owned by the current user
-        stat = self.volume_path.stat()
-        uid, gid = os.getuid(), os.getgid()
-        if stat.st_uid != uid or stat.st_gid != gid:
-            raise RuntimeError(
-                "{} is not owned by the current user, execute "
-                "`chown -R {}:{} {}` to fix the directory's permissions"
-                .format(self.volume_path, uid, gid, self.volume_path)
-            )
+        for volume in self.config['services'][image].get('volumes', []):
+            host_directory, _ = volume.split(':', 1)
+            host_directory = _ensure_path(host_directory)
+            if volumes_root in host_directory.parents:
+                host_directory.mkdir(parents=True, exist_ok=True)
+                if os.name == 'posix':
+                    _check_permissions(host_directory)
 
     def _validate_image(self, name):
         if name not in self.nodes:
@@ -188,6 +202,7 @@ class DockerCompose(Command):
             force_build=False, use_cache=True, use_leaf_cache=True,
             volumes=None, build_only=False):
         self._validate_image(image)
+        self._ensure_volumes(image)
 
         if force_pull:
             self.pull(image, pull_leaf=use_leaf_cache)

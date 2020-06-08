@@ -681,7 +681,6 @@ def docker_compose(obj, src):
     # take the docker-compose parameters like PYTHON, PANDAS, UBUNTU from the
     # environment variables to keep the usage similar to docker-compose
     obj['compose'] = DockerCompose(config_path, params=os.environ)
-    obj['compose'].validate()
 
 
 @docker_compose.command('run')
@@ -756,7 +755,6 @@ def docker_compose_run(obj, image, command, *, env, force_pull, force_build,
 
     env = dict(kv.split('=') for kv in env)
     try:
-        compose.ensure_volume_permissions()
         compose.run(
             image,
             command=command,

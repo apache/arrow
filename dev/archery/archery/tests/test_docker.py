@@ -188,20 +188,17 @@ def arrow_compose_path(tmpdir):
 
 def test_config_validation(tmpdir):
     config_path = create_config(tmpdir, missing_service_compose_yml)
-    compose = DockerCompose(config_path)
     msg = "`sub-foo` is defined in `x-hierarchy` bot not in `services`"
     with pytest.raises(ValueError, match=msg):
-        compose.validate()
+        DockerCompose(config_path)
 
     config_path = create_config(tmpdir, missing_node_compose_yml)
-    compose = DockerCompose(config_path)
     msg = "`sub-bar` is defined in `services` but not in `x-hierarchy`"
     with pytest.raises(ValueError, match=msg):
-        compose.validate()
+        DockerCompose(config_path)
 
     config_path = create_config(tmpdir, ok_compose_yml)
-    compose = DockerCompose(config_path)
-    compose.validate()
+    DockerCompose(config_path)  # no issue
 
 
 def assert_compose_calls(compose, expected_args, env=mock.ANY):
@@ -215,8 +212,7 @@ def assert_compose_calls(compose, expected_args, env=mock.ANY):
 
 
 def test_arrow_example_validation_passes(arrow_compose_path):
-    compose = DockerCompose(arrow_compose_path)
-    compose.validate()
+    DockerCompose(arrow_compose_path)
 
 
 def test_compose_default_params_and_env(arrow_compose_path):
@@ -476,7 +472,6 @@ def test_compose_error(arrow_compose_path):
         PYTHON='3.8',
         PANDAS='master'
     ))
-    compose.validate()
 
     error = subprocess.CalledProcessError(99, [])
     with mock.patch('subprocess.run', side_effect=error):

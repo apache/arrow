@@ -26,7 +26,7 @@ if sys.version_info < (3, 5):
 
 extras = {
     'bot': ['ruamel.yaml', 'pygithub'],
-    'docker': ['ruamel.yaml', 'python-dotenv']
+    'docker': ['ruamel.yaml', 'python-dotenv', 'expandvars']
 }
 extras['all'] = list(set(functools.reduce(operator.add, extras.values())))
 
