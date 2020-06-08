@@ -29,6 +29,7 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/string.h"
 
 #include "arrow/testing/gtest_common.h"
 #include "arrow/testing/gtest_util.h"
@@ -37,127 +38,96 @@
 namespace arrow {
 namespace compute {
 
-template <typename TypePair>
-class TestBinaryArithmetics;
-
-template <typename I, typename O>
-class TestBinaryArithmetics<std::pair<I, O>> : public TestBase {
+template <typename ArrowType>
+class TestBinaryArithmetics : public TestBase {
  protected:
-  using InputType = I;
-  using OutputType = O;
-  using InputCType = typename I::c_type;
-  using OutputCType = typename O::c_type;
+  using CType = typename ArrowType::c_type;
+
+  static std::shared_ptr<DataType> type_singleton() {
+    return TypeTraits<ArrowType>::type_singleton();
+  }
 
   using BinaryFunction =
       std::function<Result<Datum>(const Datum&, const Datum&, ExecContext*)>;
 
-  std::shared_ptr<Array> MakeInputArray(const std::vector<InputCType>& values) {
-    std::shared_ptr<Array> out;
-    ArrayFromVector<InputType>(values, &out);
-    return out;
-  }
-
-  std::shared_ptr<Array> MakeOutputArray(const std::vector<OutputCType>& values) {
-    std::shared_ptr<Array> out;
-    ArrayFromVector<OutputType>(values, &out);
-    return out;
-  }
-
   // (Scalar, Scalar)
-  void AssertBinop(BinaryFunction func, InputCType lhs, InputCType rhs,
-                   OutputCType expected) {
-    auto input_type = TypeTraits<InputType>::type_singleton();
-    auto output_type = TypeTraits<OutputType>::type_singleton();
+  void AssertBinop(BinaryFunction func, CType lhs, CType rhs, CType expected) {
+    ASSERT_OK_AND_ASSIGN(auto left, MakeScalar(type_singleton(), lhs));
+    ASSERT_OK_AND_ASSIGN(auto right, MakeScalar(type_singleton(), rhs));
+    ASSERT_OK_AND_ASSIGN(auto exp, MakeScalar(type_singleton(), expected));
 
-    ASSERT_OK_AND_ASSIGN(auto left, MakeScalar(input_type, lhs));
-    ASSERT_OK_AND_ASSIGN(auto right, MakeScalar(input_type, rhs));
-    ASSERT_OK_AND_ASSIGN(auto exp, MakeScalar(output_type, expected));
-
-    ASSERT_OK_AND_ASSIGN(auto result, func(left, right, nullptr));
-    std::shared_ptr<Scalar> out = result.scalar();
-
-    AssertScalarsEqual(*exp, *out, true);
+    ASSERT_OK_AND_ASSIGN(auto actual, func(left, right, nullptr));
+    AssertScalarsEqual(*exp, *actual.scalar(), true);
   }
 
   // (Scalar, Array)
-  void AssertBinop(BinaryFunction func, InputCType lhs, const std::string& rhs,
-                   const std::string& expected, bool compare_as_string = false) {
-    auto input_type = TypeTraits<InputType>::type_singleton();
-    auto output_type = TypeTraits<OutputType>::type_singleton();
+  void AssertBinop(BinaryFunction func, CType lhs, const std::string& rhs,
+                   const std::string& expected) {
+    ASSERT_OK_AND_ASSIGN(auto left, MakeScalar(type_singleton(), lhs));
+    auto right = ArrayFromJSON(type_singleton(), rhs);
+    auto exp = ArrayFromJSON(type_singleton(), expected);
 
-    ASSERT_OK_AND_ASSIGN(auto left, MakeScalar(input_type, lhs));
-    auto right = ArrayFromJSON(input_type, rhs);
-    auto exp = ArrayFromJSON(output_type, expected);
-
-    ASSERT_OK_AND_ASSIGN(auto result, func(left, right, nullptr));
-    std::shared_ptr<Array> out = result.make_array();
-    ASSERT_OK(out->ValidateFull());
-    if (compare_as_string) {
-      ASSERT_EQ(exp->ToString(), out->ToString());
-    } else {
-      AssertArraysEqual(*exp, *out);
-    }
+    ASSERT_OK_AND_ASSIGN(auto actual, func(left, right, nullptr));
+    ValidateAndAssertApproxEqual(actual.make_array(), expected);
   }
 
   // (Array, Array)
-  void AssertBinop(BinaryFunction func, const std::shared_ptr<Array>& lhs,
-                   const std::shared_ptr<Array>& rhs,
-                   const std::shared_ptr<Array>& expected,
-                   bool compare_as_string = false) {
-    ASSERT_OK_AND_ASSIGN(Datum result, func(lhs, rhs, nullptr));
-    std::shared_ptr<Array> out = result.make_array();
-    ASSERT_OK(out->ValidateFull());
-    if (compare_as_string) {
-      ASSERT_EQ(expected->ToString(), out->ToString());
-    } else {
-      AssertArraysEqual(*expected, *out);
-    }
+  void AssertBinop(BinaryFunction func, const std::string& lhs, const std::string& rhs,
+                   const std::string& expected) {
+    auto left = ArrayFromJSON(type_singleton(), lhs);
+    auto right = ArrayFromJSON(type_singleton(), rhs);
+
+    ASSERT_OK_AND_ASSIGN(Datum actual, func(left, right, nullptr));
+    ValidateAndAssertApproxEqual(actual.make_array(), expected);
   }
 
-  void AssertBinop(BinaryFunction func, const std::string& lhs, const std::string& rhs,
-                   const std::string& expected, bool compare_as_string = false) {
-    auto input_type = TypeTraits<InputType>::type_singleton();
-    auto output_type = TypeTraits<OutputType>::type_singleton();
-    AssertBinop(func, ArrayFromJSON(input_type, lhs), ArrayFromJSON(input_type, rhs),
-                ArrayFromJSON(output_type, expected), compare_as_string);
+  void ValidateAndAssertApproxEqual(std::shared_ptr<Array> actual,
+                                    const std::string& expected) {
+    auto exp = ArrayFromJSON(type_singleton(), expected);
+    ASSERT_OK(actual->ValidateFull());
+    AssertArraysApproxEqual(*exp, *actual);
   }
 };
 
-template <typename TypePair>
-class TestBinaryArithmeticsIntegral : public TestBinaryArithmetics<TypePair> {};
+template <typename... Elements>
+std::string MakeArray(Elements... elements) {
+  std::vector<std::string> elements_as_strings = {std::to_string(elements)...};
 
-template <typename TypePair>
-class TestBinaryArithmeticsSigned : public TestBinaryArithmeticsIntegral<TypePair> {};
+  std::vector<util::string_view> elements_as_views(sizeof...(Elements));
+  std::copy(elements_as_strings.begin(), elements_as_strings.end(),
+            elements_as_views.begin());
 
-template <typename TypePair>
-class TestBinaryArithmeticsUnsigned : public TestBinaryArithmeticsIntegral<TypePair> {};
+  return "[" + internal::JoinStrings(elements_as_views, ",") + "]";
+}
 
-template <typename TypePair>
-class TestBinaryArithmeticsFloating : public TestBinaryArithmetics<TypePair> {};
+template <typename T>
+class TestBinaryArithmeticsIntegral : public TestBinaryArithmetics<T> {};
+
+template <typename T>
+class TestBinaryArithmeticsSigned : public TestBinaryArithmeticsIntegral<T> {};
+
+template <typename T>
+class TestBinaryArithmeticsUnsigned : public TestBinaryArithmeticsIntegral<T> {};
+
+template <typename T>
+class TestBinaryArithmeticsFloating : public TestBinaryArithmetics<T> {};
 
 // InputType - OutputType pairs
-using IntegralPairs =
-    testing::Types<std::pair<Int8Type, Int8Type>, std::pair<Int16Type, Int16Type>,
-                   std::pair<Int32Type, Int32Type>, std::pair<Int64Type, Int64Type>,
-                   std::pair<UInt8Type, UInt8Type>, std::pair<UInt16Type, UInt16Type>,
-                   std::pair<UInt32Type, UInt32Type>, std::pair<UInt64Type, UInt64Type>>;
+using IntegralTypes = testing::Types<Int8Type, Int16Type, Int32Type, Int64Type, UInt8Type,
+                                     UInt16Type, UInt32Type, UInt64Type>;
 
-using SignedIntegerPairs =
-    testing::Types<std::pair<Int8Type, Int8Type>, std::pair<Int16Type, Int16Type>,
-                   std::pair<Int32Type, Int32Type>, std::pair<Int64Type, Int64Type>>;
+using SignedIntegerTypes = testing::Types<Int8Type, Int16Type, Int32Type, Int64Type>;
 
-using UnsignedIntegerPairs =
-    testing::Types<std::pair<UInt8Type, UInt8Type>, std::pair<UInt16Type, UInt16Type>,
-                   std::pair<UInt32Type, UInt32Type>, std::pair<UInt64Type, UInt64Type>>;
+using UnsignedIntegerTypes =
+    testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type>;
 
 // TODO(kszucs): add half-float
-using FloatingPairs =
-    testing::Types<std::pair<FloatType, FloatType>, std::pair<DoubleType, DoubleType>>;
+using FloatingTypes = testing::Types<FloatType, DoubleType>;
 
-TYPED_TEST_SUITE(TestBinaryArithmeticsIntegral, IntegralPairs);
-TYPED_TEST_SUITE(TestBinaryArithmeticsSigned, SignedIntegerPairs);
-TYPED_TEST_SUITE(TestBinaryArithmeticsUnsigned, UnsignedIntegerPairs);
-TYPED_TEST_SUITE(TestBinaryArithmeticsFloating, FloatingPairs);
+TYPED_TEST_SUITE(TestBinaryArithmeticsIntegral, IntegralTypes);
+TYPED_TEST_SUITE(TestBinaryArithmeticsSigned, SignedIntegerTypes);
+TYPED_TEST_SUITE(TestBinaryArithmeticsUnsigned, UnsignedIntegerTypes);
+TYPED_TEST_SUITE(TestBinaryArithmeticsFloating, FloatingTypes);
 
 TYPED_TEST(TestBinaryArithmeticsIntegral, Add) {
   this->AssertBinop(arrow::compute::Add, "[]", "[]", "[]");
@@ -221,60 +191,36 @@ TYPED_TEST(TestBinaryArithmeticsSigned, Add) {
   this->AssertBinop(arrow::compute::Add, -10, 5, -5);
 }
 
-TYPED_TEST(TestBinaryArithmeticsUnsigned, OverflowWraps) {
-  using InputCType = typename TestFixture::InputCType;
+TYPED_TEST(TestBinaryArithmeticsSigned, OverflowWraps) {
+  using CType = typename TestFixture::CType;
 
-  auto min = std::numeric_limits<InputCType>::min();
-  auto max = std::numeric_limits<InputCType>::max();
-  {
-    // Addition
-    auto left = this->MakeInputArray({max, min, max});
-    auto right = this->MakeInputArray({1, 1, max});
-    auto expected = this->MakeOutputArray({0, 1, static_cast<InputCType>(max - 1)});
-    this->AssertBinop(arrow::compute::Add, left, right, expected);
-  }
-  {
-    // Subtraction
-    auto left = this->MakeInputArray({min, max});
-    auto right = this->MakeInputArray({1, max});
-    auto expected = this->MakeOutputArray({max, min});
-    this->AssertBinop(arrow::compute::Subtract, left, right, expected);
-  }
-  {
-    // Multiplication
-    auto left = this->MakeInputArray({min, max, max});
-    auto right = this->MakeInputArray({max, 2, max});
-    auto expected = this->MakeOutputArray({min, static_cast<InputCType>(max - 1), 1});
-    this->AssertBinop(arrow::compute::Multiply, left, right, expected);
-  }
+  auto min = std::numeric_limits<CType>::lowest();
+  auto max = std::numeric_limits<CType>::max();
+
+  this->AssertBinop(arrow::compute::Add, MakeArray(min, max, max),
+                    MakeArray(CType(-1), 1, max), MakeArray(max, min, CType(-2)));
+
+  this->AssertBinop(arrow::compute::Subtract, MakeArray(min, max, min),
+                    MakeArray(1, max, max), MakeArray(max, 0, 1));
+
+  this->AssertBinop(arrow::compute::Multiply, MakeArray(min, max, max),
+                    MakeArray(max, 2, max), MakeArray(min, CType(-2), 1));
 }
 
-TYPED_TEST(TestBinaryArithmeticsSigned, OverflowWraps) {
-  using InputCType = typename TestFixture::InputCType;
+TYPED_TEST(TestBinaryArithmeticsUnsigned, OverflowWraps) {
+  using CType = typename TestFixture::CType;
 
-  auto min = std::numeric_limits<InputCType>::min();
-  auto max = std::numeric_limits<InputCType>::max();
-  {
-    // Addition
-    auto left = this->MakeInputArray({max, min});
-    auto right = this->MakeInputArray({1, -1});
-    auto expected = this->MakeOutputArray({min, max});
-    this->AssertBinop(arrow::compute::Add, left, right, expected);
-  }
-  {
-    // Subtraction
-    auto left = this->MakeInputArray({min, max});
-    auto right = this->MakeInputArray({1, -1});
-    auto expected = this->MakeOutputArray({max, min});
-    this->AssertBinop(arrow::compute::Subtract, left, right, expected);
-  }
-  {
-    // Multiplication
-    auto left = this->MakeInputArray({min, max});
-    auto right = this->MakeInputArray({-1, 2});
-    auto expected = this->MakeOutputArray({min, -2});
-    this->AssertBinop(arrow::compute::Multiply, left, right, expected);
-  }
+  auto min = std::numeric_limits<CType>::lowest();
+  auto max = std::numeric_limits<CType>::max();
+
+  this->AssertBinop(arrow::compute::Add, MakeArray(min, max, max),
+                    MakeArray(CType(-1), 1, max), MakeArray(max, min, CType(-2)));
+
+  this->AssertBinop(arrow::compute::Subtract, MakeArray(min, max, min),
+                    MakeArray(1, max, max), MakeArray(max, 0, 1));
+
+  this->AssertBinop(arrow::compute::Multiply, MakeArray(min, max, max),
+                    MakeArray(max, 2, max), MakeArray(min, CType(-2), 1));
 }
 
 TYPED_TEST(TestBinaryArithmeticsSigned, Sub) {
@@ -329,21 +275,19 @@ TYPED_TEST(TestBinaryArithmeticsFloating, Sub) {
 
   this->AssertBinop(arrow::compute::Subtract, "[1.1, 2.4, 3.5, 4.3, 5.1, 6.8, 7.3]",
                     "[0.1, 1.2, 2.3, 3.4, 4.5, 5.6, 6.7]",
-                    "[1.0, 1.2, 1.2, 0.9, 0.6, 1.2, 0.6]", /*compare_as_string=*/true);
+                    "[1.0, 1.2, 1.2, 0.9, 0.6, 1.2, 0.6]");
 
   this->AssertBinop(arrow::compute::Subtract, "[7, 6, 5, 4, 3, 2, 1]",
                     "[6, 5, 4, 3, 2, 1, 0]", "[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]");
 
   this->AssertBinop(arrow::compute::Subtract, "[10.4, 12, 4.2, 50, 50.3, 32, 11]",
-                    "[2, 0, 6, 1, 5, 3, 4]", "[8.4, 12, -1.8, 49, 45.3, 29, 7]",
-                    /*compare_as_string=*/true);
+                    "[2, 0, 6, 1, 5, 3, 4]", "[8.4, 12, -1.8, 49, 45.3, 29, 7]");
 
   this->AssertBinop(arrow::compute::Subtract, "[null, 1, 3.3, null, 2, 5.3]",
-                    "[1, 4, 2, 5, 0, 3]", "[null, -3, 1.3, null, 2, 2.3]",
-                    /*compare_as_string=*/true);
+                    "[1, 4, 2, 5, 0, 3]", "[null, -3, 1.3, null, 2, 2.3]");
 
   this->AssertBinop(arrow::compute::Subtract, 0.1, "[null, 1, 3.3, null, 2, 5.3]",
-                    "[null, -0.9, -3.2, null, -1.9, -5.2]", /*compare_as_string=*/true);
+                    "[null, -0.9, -3.2, null, -1.9, -5.2]");
 }
 
 }  // namespace compute

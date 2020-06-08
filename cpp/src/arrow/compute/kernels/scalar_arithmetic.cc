@@ -38,6 +38,11 @@ using enable_if_unsigned_integer = enable_if_t<is_unsigned_integer<T>::value, T>
 template <typename T>
 using enable_if_floating_point = enable_if_t<std::is_floating_point<T>::value, T>;
 
+template <typename T, typename Unsigned = typename std::make_unsigned<T>::type>
+constexpr Unsigned to_unsigned(T signed_) {
+  return static_cast<Unsigned>(signed_);
+}
+
 struct Add {
   template <typename T>
   static constexpr enable_if_floating_point<T> Call(KernelContext*, T left, T right) {
@@ -51,8 +56,7 @@ struct Add {
 
   template <typename T>
   static constexpr enable_if_signed_integer<T> Call(KernelContext*, T left, T right) {
-    using Unsigned = typename std::make_unsigned<T>::type;
-    return static_cast<Unsigned>(left) + static_cast<Unsigned>(right);
+    return to_unsigned(left) + to_unsigned(right);
   }
 };
 
@@ -69,39 +73,48 @@ struct Subtract {
 
   template <typename T>
   static constexpr enable_if_signed_integer<T> Call(KernelContext*, T left, T right) {
-    using Unsigned = typename std::make_unsigned<T>::type;
-    return static_cast<Unsigned>(left) - static_cast<Unsigned>(right);
+    return to_unsigned(left) - to_unsigned(right);
   }
 };
 
 struct Multiply {
+  static_assert(std::is_same<decltype(int8_t() * int8_t()), int32_t>::value, "");
+  static_assert(std::is_same<decltype(uint8_t() * uint8_t()), int32_t>::value, "");
+  static_assert(std::is_same<decltype(int16_t() * int16_t()), int32_t>::value, "");
+  static_assert(std::is_same<decltype(uint16_t() * uint16_t()), int32_t>::value, "");
+  static_assert(std::is_same<decltype(int32_t() * int32_t()), int32_t>::value, "");
+
+  static_assert(std::is_same<decltype(uint32_t() * uint32_t()), uint32_t>::value, "");
+
+  static_assert(std::is_same<decltype(int64_t() * int64_t()), int64_t>::value, "");
+  static_assert(std::is_same<decltype(uint64_t() * uint64_t()), uint64_t>::value, "");
+
   template <typename T>
   static constexpr enable_if_floating_point<T> Call(KernelContext*, T left, T right) {
     return left * right;
   }
 
   template <typename T>
-  static constexpr enable_if_t<
-      is_unsigned_integer<T>::value && !std::is_same<T, uint16_t>::value, T>
-  Call(KernelContext*, T left, T right) {
+  static constexpr enable_if_unsigned_integer<T> Call(KernelContext*, T left, T right) {
     return left * right;
   }
 
   template <typename T>
-  static constexpr enable_if_t<
-      std::is_same<T, uint16_t>::value || std::is_same<T, int16_t>::value, T>
-  Call(KernelContext*, T left, T right) {
-    // exception because multiplying to uint16 values involves implicit promotion
-    // to signed int32 type which can trigger undefined behaviour by signed overflow
-    return static_cast<uint32_t>(left) * static_cast<uint32_t>(right);
+  static constexpr enable_if_signed_integer<T> Call(KernelContext*, T left, T right) {
+    return to_unsigned(left) * to_unsigned(right);
   }
 
-  template <typename T>
-  static constexpr enable_if_t<
-      is_signed_integer<T>::value && !std::is_same<T, int16_t>::value, T>
-  Call(KernelContext*, T left, T right) {
-    using Unsigned = typename std::make_unsigned<T>::type;
-    return static_cast<Unsigned>(left) * static_cast<Unsigned>(right);
+  // Multiplication of 16 bit integer types implicitly promotes to signed 32 bit
+  // integer. However, some inputs may nevertheless overflow (which triggers undefined
+  // behaviour). Therefore we first cast to 32 bit unsigned integers where overflow is
+  // well defined.
+  template <typename T = void>
+  static constexpr int16_t Call(KernelContext*, int16_t left, int16_t right) {
+    return static_cast<uint32_t>(left) * static_cast<uint32_t>(right);
+  }
+  template <typename T = void>
+  static constexpr uint16_t Call(KernelContext*, uint16_t left, uint16_t right) {
+    return static_cast<uint32_t>(left) * static_cast<uint32_t>(right);
   }
 };
 

@@ -35,33 +35,33 @@ namespace compute {
 
 // ----------------------------------------------------------------------
 
-/// \brief Add two values together. Array values must be the same length. If a
-/// value is null in either addend, the result is null
+/// \brief Add two values together. Array values must be the same length. If
+/// either addend is null the result will be null.
 ///
-/// \param[in] left the first value
-/// \param[in] right the second value
+/// \param[in] left the first addend
+/// \param[in] right the second addend
 /// \param[in] ctx the function execution context, optional
-/// \return the elementwise addition of the values
+/// \return the elementwise sum
 ARROW_EXPORT
 Result<Datum> Add(const Datum& left, const Datum& right, ExecContext* ctx = NULLPTR);
 
 /// \brief Subtract two values. Array values must be the same length. If the
-/// minuend or minuend is null the result will be null.
+/// minuend or subtrahend is null the result will be null.
 ///
-/// \param[in] left minuend, the value subtracted from
-/// \param[in] right subtrahend, the value by which the minuend is reduced
+/// \param[in] left the value subtracted from (minuend)
+/// \param[in] right the value by which the minuend is reduced (subtrahend)
 /// \param[in] ctx the function execution context, optional
-/// \return the elementwise difference of the values
+/// \return the elementwise difference
 ARROW_EXPORT
 Result<Datum> Subtract(const Datum& left, const Datum& right, ExecContext* ctx = NULLPTR);
 
 /// \brief Multiply two values. Array values must be the same length. If either
-/// factor is null, the result is null
+/// factor is null the result will be null.
 ///
 /// \param[in] left the first factor
 /// \param[in] right the second factor
 /// \param[in] ctx the function execution context, optional
-/// \return the elementwise product of the factors
+/// \return the elementwise product
 ARROW_EXPORT
 Result<Datum> Multiply(const Datum& left, const Datum& right, ExecContext* ctx = NULLPTR);
 

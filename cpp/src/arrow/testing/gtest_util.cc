@@ -82,6 +82,21 @@ void AssertArraysEqual(const Array& expected, const Array& actual, bool verbose)
   }
 }
 
+void AssertArraysApproxEqual(const Array& expected, const Array& actual, bool verbose) {
+  std::stringstream diff;
+  if (!expected.ApproxEquals(actual, EqualOptions().diff_sink(&diff))) {
+    if (verbose) {
+      ::arrow::PrettyPrintOptions options(/*indent=*/2);
+      options.window = 50;
+      diff << "Expected:\n";
+      ARROW_EXPECT_OK(PrettyPrint(expected, options, &diff));
+      diff << "\nActual:\n";
+      ARROW_EXPECT_OK(PrettyPrint(actual, options, &diff));
+    }
+    FAIL() << diff.str();
+  }
+}
+
 void AssertScalarsEqual(const Scalar& expected, const Scalar& actual, bool verbose) {
   std::stringstream diff;
   // ARROW-8956, ScalarEquals returns false when both are null

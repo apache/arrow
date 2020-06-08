@@ -41,13 +41,6 @@
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
-namespace arrow {
-
-template <typename T>
-class Result;
-
-}  // namespace arrow
-
 // NOTE: failing must be inline in the macros below, to get correct file / line number
 // reporting on test failures.
 
@@ -167,6 +160,8 @@ struct Datum;
 // If verbose is true, then the arrays will be pretty printed
 ARROW_EXPORT void AssertArraysEqual(const Array& expected, const Array& actual,
                                     bool verbose = false);
+ARROW_EXPORT void AssertArraysApproxEqual(const Array& expected, const Array& actual,
+                                          bool verbose = false);
 // Returns true when values are both null
 ARROW_EXPORT void AssertScalarsEqual(const Scalar& expected, const Scalar& actual,
                                      bool verbose = false);
