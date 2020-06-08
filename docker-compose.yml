@@ -41,7 +41,7 @@
 #   $ sudo sysctl -w kernel.core_pattern=core.%e.%p
 #
 # macOS host running Docker for Mac (won't persist between restarts):
-#   $ screen ~/Library/Containers/com.docker.docker/Data/vms/0/tty
+#   $ screen ~/Library/Containers/com.docker${DOCKER_VOLUME_DIR}/Data/vms/0/tty
 #   # echo "core.%e.%p" > /proc/sys/kernel/core_pattern
 #
 # The setup attempts to generate coredumps by default, but the correct paths
@@ -163,7 +163,7 @@ services:
       ARROW_BUILD_BENCHMARKS: "ON"
     volumes: &conda-volumes
       - .:/arrow:delegated
-      - .docker/${ARCH}-conda-ccache:/tmp/ccache:delegated
+      - ${DOCKER_VOLUME_DIR}/${ARCH}-conda-ccache:/tmp/ccache:delegated
     command: &cpp-conda-command
       ["/arrow/ci/scripts/cpp_build.sh /arrow /tmp &&
         /arrow/ci/scripts/cpp_test.sh /arrow /tmp"]
@@ -220,7 +220,7 @@ services:
       ARROW_ENABLE_TIMING_TESTS:  # inherit
     volumes: &cuda-volumes
       - .:/arrow:delegated
-      - .docker/${ARCH}-cuda-${CUDA}-ccache:/tmp/ccache:delegated
+      - ${DOCKER_VOLUME_DIR}/${ARCH}-cuda-${CUDA}-ccache:/tmp/ccache:delegated
     command: &cpp-command >
       /bin/bash -c "
         /arrow/ci/scripts/cpp_build.sh /arrow /tmp &&
@@ -249,7 +249,7 @@ services:
       ARROW_ENABLE_TIMING_TESTS:  # inherit
     volumes: &debian-volumes
       - .:/arrow:delegated
-      - .docker/${ARCH}-debian-${DEBIAN}-ccache:/tmp/ccache:delegated
+      - ${DOCKER_VOLUME_DIR}/${ARCH}-debian-${DEBIAN}-ccache:/tmp/ccache:delegated
     command: *cpp-command
 
   ubuntu-cpp:
@@ -276,7 +276,7 @@ services:
       ARROW_ENABLE_TIMING_TESTS:  # inherit
     volumes: &ubuntu-volumes
       - .:/arrow:delegated
-      - .docker/${ARCH}-ubuntu-${UBUNTU}-ccache:/tmp/ccache:delegated
+      - ${DOCKER_VOLUME_DIR}/${ARCH}-ubuntu-${UBUNTU}-ccache:/tmp/ccache:delegated
     command: *cpp-command
 
   ubuntu-cpp-sanitizer:
@@ -336,7 +336,7 @@ services:
       ARROW_ENABLE_TIMING_TESTS:  # inherit
     volumes: &fedora-volumes
       - .:/arrow:delegated
-      - .docker/${ARCH}-fedora-${FEDORA}-ccache:/tmp/ccache:delegated
+      - ${DOCKER_VOLUME_DIR}/${ARCH}-fedora-${FEDORA}-ccache:/tmp/ccache:delegated
     command: *cpp-command
 
   ############################### C GLib ######################################
@@ -766,7 +766,7 @@ services:
     volumes:
       - .:/arrow:delegated
       - ./python/manylinux1:/io:delegated
-      - .docker/centos-python-manylinux1-ccache:/tmp/ccache:delegated
+      - ${DOCKER_VOLUME_DIR}/centos-python-manylinux1-ccache:/tmp/ccache:delegated
     command: &manylinux-command /io/build_arrow.sh
 
   centos-python-manylinux2010:
@@ -787,7 +787,7 @@ services:
     volumes:
       - .:/arrow:delegated
       - ./python/manylinux201x:/io:delegated
-      - .docker/centos-python-manylinux2010-ccache:/tmp/ccache:delegated
+      - ${DOCKER_VOLUME_DIR}/centos-python-manylinux2010-ccache:/tmp/ccache:delegated
     command: *manylinux-command
 
   centos-python-manylinux2014:
@@ -808,7 +808,7 @@ services:
     volumes:
       - .:/arrow:delegated
       - ./python/manylinux201x:/io:delegated
-      - .docker/centos-python-manylinux2014-ccache:/tmp/ccache:delegated
+      - ${DOCKER_VOLUME_DIR}/centos-python-manylinux2014-ccache:/tmp/ccache:delegated
     command: *manylinux-command
 
   ################################## R ########################################
@@ -1026,7 +1026,7 @@ services:
     shm_size: *shm-size
     volumes: &java-volumes
       - .:/arrow:delegated
-      - .docker/maven-cache:/root/.m2:delegated
+      - ${DOCKER_VOLUME_DIR}/maven-cache:/root/.m2:delegated  # TODO(kszucs): the set user won't have access to write it
     command: &java-command >
       /bin/bash -c "
         /arrow/ci/scripts/java_build.sh /arrow /tmp &&
@@ -1052,8 +1052,8 @@ services:
       <<: *ccache
     volumes:
       - .:/arrow:delegated
-      - .docker/maven-cache:/root/.m2:delegated
-      - .docker/${ARCH}-debian-9-ccache:/tmp/ccache:delegated
+      - ${DOCKER_VOLUME_DIR}/maven-cache:/root/.m2:delegated
+      - ${DOCKER_VOLUME_DIR}/${ARCH}-debian-9-ccache:/tmp/ccache:delegated
     command:
       /bin/bash -c "
         /arrow/ci/scripts/cpp_build.sh /arrow /tmp &&
@@ -1240,8 +1240,8 @@ services:
     shm_size: *shm-size
     volumes: &conda-maven-volumes
       - .:/arrow:delegated
-      - .docker/maven-cache:/root/.m2:delegated
-      - .docker/${ARCH}-conda-ccache:/tmp/ccache:delegated
+      - ${DOCKER_VOLUME_DIR}/maven-cache:/root/.m2:delegated
+      - ${DOCKER_VOLUME_DIR}/${ARCH}-conda-ccache:/tmp/ccache:delegated
     command:
       ["/arrow/ci/scripts/cpp_build.sh /arrow /tmp &&
         /arrow/ci/scripts/python_build.sh /arrow /tmp &&

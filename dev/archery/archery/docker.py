@@ -52,13 +52,19 @@ class Docker(Command):
 
 class DockerCompose(Command):
 
-    def __init__(self, config_path, dotenv_path=None, compose_bin=None,
-                 params=None):
+    def __init__(self, config_path, dotenv_path=None, volume_path=None,
+                 compose_bin=None, params=None):
         self.config_path = _ensure_path(config_path)
+
         if dotenv_path:
             self.dotenv_path = _ensure_path(dotenv_path)
         else:
             self.dotenv_path = self.config_path.parent / '.env'
+
+        if volume_path:
+            self.volume_path = _ensure_path(volume_path)
+        else:
+            self.volume_path = self.config_path.parent / '.docker'
 
         yaml = YAML()
         with self.config_path.open() as fp:
@@ -107,6 +113,24 @@ class DockerCompose(Command):
             msg = '\n'.join([' - {}'.format(msg) for msg in errors])
             raise ValueError(
                 'Found errors with docker-compose:\n{}'.format(msg)
+            )
+
+    def ensure_volume_permissions(self):
+        # create the directory with right permissions before docker does
+        self.volume_path.mkdir(parents=True, exist_ok=True)
+
+        if os.name != 'posix':
+            # hopefully it won't be an issue on windows
+            return
+
+        # check that the directory is owned by the current user
+        stat = self.volume_path.stat()
+        uid, gid = os.getuid(), os.getgid()
+        if stat.st_uid != uid or stat.st_gid != gid:
+            raise RuntimeError(
+                "{} is not owned by the current user, execute "
+                "`chown -R {}:{} {}` to fix the directory's permissions"
+                .format(self.volume_path, uid, gid, self.volume_path)
             )
 
     def _validate_image(self, name):
