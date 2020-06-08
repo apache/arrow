@@ -250,6 +250,7 @@ services:
     volumes: &debian-volumes
       - .:/arrow:delegated
       - .docker/${ARCH}-debian-${DEBIAN}-ccache:/ccache:delegated
+      - .docker/${ARCH}-debian-${DEBIAN}-build:/build:delegated
     command: *cpp-command
 
   ubuntu-cpp:

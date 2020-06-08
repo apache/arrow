@@ -174,6 +174,10 @@ class DockerCompose(Command):
             return
 
         args = []
+        if os.name == 'posix':
+            # run the docker process with the host's user to prevent writing
+            # docker volumes with root user
+            args.extend(['-u', '{}:{}'.format(os.getuid(), os.getgid())])
         if env is not None:
             for k, v in env.items():
                 args.extend(['-e', '{}={}'.format(k, v)])
