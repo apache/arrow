@@ -496,6 +496,10 @@ tasks:
       - libarrow-cuda100-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow-cuda100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset-glib100-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-dataset-glib100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset100-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow-dataset100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-dev_{no_rc_version}-1_[a-z0-9]+.deb
@@ -550,6 +554,10 @@ tasks:
       - gir1.2-parquet-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset-glib100-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-dataset-glib100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset100-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow-dataset100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-dev_{no_rc_version}-1_[a-z0-9]+.deb
@@ -609,6 +617,10 @@ tasks:
       - libarrow-cuda100-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow-cuda100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset-glib100-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-dataset-glib100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset100-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow-dataset100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-dev_{no_rc_version}-1_[a-z0-9]+.deb
@@ -663,6 +675,10 @@ tasks:
       - gir1.2-parquet-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset-glib100-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-dataset-glib100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset100-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow-dataset100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-dev_{no_rc_version}-1_[a-z0-9]+.deb
@@ -719,6 +735,9 @@ tasks:
       - libarrow-cuda-glib100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-cuda100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset-glib100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-python-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-python100_{no_rc_version}-1_[a-z0-9]+.deb
@@ -763,6 +782,9 @@ tasks:
       - libarrow-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset-glib100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-python-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-python100_{no_rc_version}-1_[a-z0-9]+.deb
@@ -807,10 +829,11 @@ tasks:
       - libarrow-cuda-glib100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-cuda100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-dataset100-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-dataset-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset-glib100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight100-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow-flight100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-python-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-python100_{no_rc_version}-1_[a-z0-9]+.deb
@@ -856,10 +879,11 @@ tasks:
       - libarrow-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-dataset100-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-dataset-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset-glib100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight100-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow-flight100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-python-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-python100_{no_rc_version}-1_[a-z0-9]+.deb
@@ -904,10 +928,11 @@ tasks:
       - libarrow-cuda-glib100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-cuda100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-dataset100-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-dataset-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset-glib100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight100-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow-flight100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-python-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-python100_{no_rc_version}-1_[a-z0-9]+.deb
@@ -953,10 +978,11 @@ tasks:
       - libarrow-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-dataset100-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-dataset-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset-glib100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight100-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow-flight100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-python-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-python100_{no_rc_version}-1_[a-z0-9]+.deb
@@ -1001,10 +1027,11 @@ tasks:
       - libarrow-cuda-glib100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-cuda100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-dataset100-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-dataset-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset-glib100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight100-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow-flight100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-python-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-python100_{no_rc_version}-1_[a-z0-9]+.deb
@@ -1050,10 +1077,11 @@ tasks:
       - libarrow-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-dataset100-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-dataset-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset-glib100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight100-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow-flight100_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-python-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-python100_{no_rc_version}-1_[a-z0-9]+.deb
@@ -1105,6 +1133,9 @@ tasks:
       - arrow-glib-libs-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
       - arrow-libs-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
       - arrow-dataset-devel-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
+      - arrow-dataset-glib-devel-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
+      - arrow-dataset-glib-doc-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
+      - arrow-dataset-glib-libs-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
       - arrow-dataset-libs-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
       - arrow-python-devel-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
       - arrow-python-libs-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
@@ -1130,14 +1161,17 @@ tasks:
         - .rpm
     artifacts:
       - arrow-{no_rc_version}-1.el7.src.rpm
+      - arrow-dataset-devel-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
+      - arrow-dataset-glib-devel-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
+      - arrow-dataset-glib-doc-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
+      - arrow-dataset-glib-libs-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
+      - arrow-dataset-libs-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
       - arrow-debuginfo-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
       - arrow-devel-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
       - arrow-glib-devel-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
       - arrow-glib-doc-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
       - arrow-glib-libs-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
       - arrow-libs-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
-      - arrow-dataset-devel-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
-      - arrow-dataset-libs-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
       - arrow-python-devel-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
       - arrow-python-libs-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
       - parquet-devel-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
@@ -1165,9 +1199,11 @@ tasks:
       - apache-arrow-release-{no_rc_version}-1.el8.src.rpm
       - arrow-{no_rc_version}-1.el8.src.rpm
       - arrow-dataset-devel-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - arrow-dataset-glib-doc-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - arrow-dataset-glib-libs-debuginfo-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - arrow-dataset-glib-libs-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
       - arrow-dataset-libs-debuginfo-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
       - arrow-dataset-libs-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
-      - arrow-debuginfo-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
       - arrow-debuginfo-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
       - arrow-devel-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
       - arrow-flight-devel-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
@@ -1220,9 +1256,12 @@ tasks:
     artifacts:
       - arrow-{no_rc_version}-1.el8.src.rpm
       - arrow-dataset-devel-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - arrow-dataset-glib-devel-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - arrow-dataset-glib-doc-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - arrow-dataset-glib-libs-debuginfo-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - arrow-dataset-glib-libs-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
       - arrow-dataset-libs-debuginfo-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
       - arrow-dataset-libs-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
-      - arrow-debuginfo-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
       - arrow-debuginfo-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
       - arrow-devel-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
       - arrow-flight-devel-{no_rc_version}-1.el8.[a-z0-9_]+.rpm

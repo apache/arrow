@@ -175,8 +175,9 @@ LD_LIBRARY_PATH=$PWD/../cpp/build/$cpp_build_type ninja -C build
 sed -i 's|^hardcode_libdir_flag_spec=.*|hardcode_libdir_flag_spec=""|g' libtool
 sed -i 's|^runpath_var=LD_RUN_PATH|runpath_var=DIE_RPATH_DIE|g' libtool
 ld_library_path=$PWD/arrow-glib/.libs/
-ld_library_path=$ld_library_path:$PWD/plasma-glib/.libs/
+ld_library_path=$ld_library_path:$PWD/arrow-dataset-glib/.libs/
 ld_library_path=$ld_library_path:$PWD/parquet-glib/.libs/
+ld_library_path=$ld_library_path:$PWD/plasma-glib/.libs/
 ld_library_path=$ld_library_path:$PWD/../cpp/build/$cpp_build_type
 LD_LIBRARY_PATH=$ld_library_path make %{?_smp_mflags}
   %endif
@@ -581,7 +582,52 @@ Documentation for Apache Arrow GLib.
 %{_docdir}/arrow-glib/
 %{_datadir}/gtk-doc/html/arrow-glib/
 
-%if %{use_gandiva} && %{use_glib}
+%package dataset-glib-libs
+Summary:	Runtime libraries for Apache Arrow Datasets GLib
+License:	Apache-2.0
+Requires:	%{name}-dataset-libs = %{version}-%{release}
+Requires:	%{name}-glib-libs = %{version}-%{release}
+
+%description dataset-glib-libs
+This package contains the libraries for Apache Arrow Datasets GLib.
+
+%files dataset-glib-libs
+%defattr(-,root,root,-)
+%doc README.md LICENSE.txt NOTICE.txt
+%{_libdir}/libarrow-dataset-glib.so.*
+%{_datadir}/gir-1.0/ArrowDataset-1.0.gir
+
+%package dataset-glib-devel
+Summary:	Libraries and header files for Apache Arrow Datasets GLib
+License:	Apache-2.0
+Requires:	%{name}-dataset-devel = %{version}-%{release}
+Requires:	%{name}-glib-devel = %{version}-%{release}
+
+%description dataset-glib-devel
+Libraries and header files for Apache Arrow Datasets GLib.
+
+%files dataset-glib-devel
+%defattr(-,root,root,-)
+%doc README.md LICENSE.txt NOTICE.txt
+%{_includedir}/arrow-dataset-glib/
+%{_libdir}/libarrow-dataset-glib.a
+%{_libdir}/libarrow-dataset-glib.so
+%{_libdir}/pkgconfig/arrow-dataset-glib.pc
+%{_libdir}/girepository-1.0/ArrowDataset-1.0.typelib
+
+%package dataset-glib-doc
+Summary:	Documentation for Apache Arrow Datasets GLib
+License:	Apache-2.0
+
+%description dataset-glib-doc
+Documentation for Apache Arrow Datasets GLib.
+
+%files dataset-glib-doc
+%defattr(-,root,root,-)
+%doc README.md LICENSE.txt NOTICE.txt
+%{_datadir}/gtk-doc/html/arrow-dataset-glib/
+
+  %if %{use_gandiva}
 %package -n gandiva-glib-libs
 Summary:	Runtime libraries for Gandiva GLib
 License:	Apache-2.0
@@ -626,7 +672,7 @@ Documentation for Gandiva GLib.
 %defattr(-,root,root,-)
 %doc README.md LICENSE.txt NOTICE.txt
 %{_datadir}/gtk-doc/html/gandiva-glib/
-%endif
+  %endif
 
 %package -n plasma-glib-libs
 Summary:	Runtime libraries for Plasma GLib
@@ -672,9 +718,8 @@ Documentation for Plasma GLib.
 %defattr(-,root,root,-)
 %doc README.md LICENSE.txt NOTICE.txt
 %{_datadir}/gtk-doc/html/plasma-glib/
-%endif
 
-%if %{use_parquet} && %{use_glib}
+  %if %{use_parquet}
 %package -n parquet-glib-libs
 Summary:	Runtime libraries for Apache Parquet GLib
 License:	Apache-2.0
@@ -719,6 +764,7 @@ Documentation for Apache Parquet GLib.
 %defattr(-,root,root,-)
 %doc README.md LICENSE.txt NOTICE.txt
 %{_datadir}/gtk-doc/html/parquet-glib/
+  %endif
 %endif
 
 %changelog
