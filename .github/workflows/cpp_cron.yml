@@ -113,12 +113,12 @@ jobs:
       - name: Free Up Disk Space
         shell: bash
         run: ci/scripts/util_cleanup.sh
-      - name: Cache Docker Volumes
-        uses: actions/cache@v1
-        with:
-          path: .docker
-          key: ${{ matrix.name }}-${{ hashFiles('cpp/**') }}
-          restore-keys: ${{ matrix.name }}-
+      # - name: Cache Docker Volumes
+      #   uses: actions/cache@v1
+      #   with:
+      #     path: .docker
+      #     key: ${{ matrix.name }}-${{ hashFiles('cpp/**') }}
+      #     restore-keys: ${{ matrix.name }}-
       - name: Setup Python
         uses: actions/setup-python@v1
         # no distrubutions are build for arm machines by the github actions team
