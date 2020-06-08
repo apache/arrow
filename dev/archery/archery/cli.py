@@ -743,7 +743,6 @@ def docker_compose_run(obj, image, command, *, env, force_pull, force_build,
     from .docker import UndefinedImage
 
     compose = obj['compose']
-    compose.ensure_volume_permissions()
 
     if dry_run:
         from types import MethodType
@@ -757,6 +756,7 @@ def docker_compose_run(obj, image, command, *, env, force_pull, force_build,
 
     env = dict(kv.split('=') for kv in env)
     try:
+        compose.ensure_volume_permissions()
         compose.run(
             image,
             command=command,
