@@ -38,7 +38,7 @@ env:
 
 defaults:
   run:
-    shell: bash -l {0}
+    shell: bash -i {0}
 
 jobs:
 
