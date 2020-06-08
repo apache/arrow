@@ -250,7 +250,6 @@ services:
     volumes: &debian-volumes
       - .:/arrow:delegated
       - .docker/${ARCH}-debian-${DEBIAN}-ccache:/ccache:delegated
-      - .docker/${ARCH}-debian-${DEBIAN}-build:/tmp:delegated
     command: *cpp-command
 
   ubuntu-cpp:
@@ -278,7 +277,6 @@ services:
     volumes: &ubuntu-volumes
       - .:/arrow:delegated
       - .docker/${ARCH}-ubuntu-${UBUNTU}-ccache:/ccache:delegated
-      - .docker/${ARCH}-ubuntu-${UBUNTU}-build:/tmp:delegated
     command: *cpp-command
 
   ubuntu-cpp-sanitizer:
@@ -339,7 +337,6 @@ services:
     volumes: &fedora-volumes
       - .:/arrow:delegated
       - .docker/${ARCH}-fedora-${FEDORA}-ccache:/ccache:delegated
-      - .docker/${ARCH}-fedora-${FEDORA}-build:/tmp:delegated
     command: *cpp-command
 
   ############################### C GLib ######################################
@@ -1057,7 +1054,6 @@ services:
       - .:/arrow:delegated
       - .docker/maven-cache:/root/.m2:delegated
       - .docker/${ARCH}-debian-9-ccache:/ccache:delegated
-      - .docker/${ARCH}-debian-9-build:/tmp:delegated
     command:
       /bin/bash -c "
         /arrow/ci/scripts/cpp_build.sh /arrow /tmp &&
@@ -1246,7 +1242,6 @@ services:
       - .:/arrow:delegated
       - .docker/maven-cache:/root/.m2:delegated
       - .docker/${ARCH}-conda-ccache:/ccache:delegated
-      - .docker/${ARCH}-conda-build:/tmp:delegated
     command:
       ["/arrow/ci/scripts/cpp_build.sh /arrow /tmp &&
         /arrow/ci/scripts/python_build.sh /arrow /tmp &&
