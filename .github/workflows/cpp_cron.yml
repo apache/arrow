@@ -41,7 +41,7 @@ jobs:
   docker:
     name: ${{ matrix.title }}
     runs-on: ${{ matrix.runner }}
-    if: ${{ !contains(github.event.pull_request.title, 'WIP') && github.repository == 'apache/arrow' }}
+    # if: ${{ !contains(github.event.pull_request.title, 'WIP') && github.repository == 'apache/arrow' }}
     strategy:
       fail-fast: false
       matrix:
@@ -52,6 +52,7 @@ jobs:
           - amd64-ubuntu-18.04-cpp
           - amd64-ubuntu-18.04-cpp-cmake32
           - arm64v8-ubuntu-16.04-cpp
+          - arm64v8-ubuntu-18.04-cpp
         include:
           - name: amd64-debian-10-cpp
             arch: amd64
