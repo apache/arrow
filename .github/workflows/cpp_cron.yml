@@ -118,14 +118,18 @@ jobs:
           restore-keys: ${{ matrix.name }}-
       - name: Setup Python
         uses: actions/setup-python@v1
+        # no distrubutions are build for arm machines by the github actions team
         continue-on-error: true
         with:
           python-version: 3.6
+      - name: Setup Core Pattern
+        # no sudo is available on sel-hosted machines
+        continue-on-error: true
+        run: sudo sysctl -w kernel.core_pattern="core.%e.%p"
       - name: Setup Archery
         run: pip install -e dev/archery[docker]
       - name: Execute Docker Build
         run: |
-          sudo sysctl -w kernel.core_pattern="core.%e.%p"
           ulimit -c unlimited
           archery docker run ${{ matrix.image }}
       - name: Docker Push
