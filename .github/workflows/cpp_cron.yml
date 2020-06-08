@@ -40,40 +40,63 @@ jobs:
 
   docker:
     name: ${{ matrix.title }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
     if: ${{ !contains(github.event.pull_request.title, 'WIP') && github.repository == 'apache/arrow' }}
     strategy:
       fail-fast: false
       matrix:
         name:
-          - debian-10-cpp
-          - fedora-32-cpp
-          - ubuntu-16.04-cpp
-          - ubuntu-18.04-cpp
-          - ubuntu-18.04-cpp-cmake32
+          - amd64-debian-10-cpp
+          - amd64-fedora-32-cpp
+          - amd64-ubuntu-16.04-cpp
+          - amd64-ubuntu-18.04-cpp
+          - amd64-ubuntu-18.04-cpp-cmake32
+          - arm64v8-ubuntu-16.04-cpp
         include:
-          - name: debian-10-cpp
+          - name: amd64-debian-10-cpp
+            arch: amd64
             image: debian-cpp
             title: AMD64 Debian 10 C++
             debian: 10
-          - name: fedora-32-cpp
+            runner: ubuntu-latest
+          - name: amd64-fedora-32-cpp
+            arch: amd64
             image: fedora-cpp
             title: AMD64 Fedora 32 C++
             fedora: 32
-          - name: ubuntu-16.04-cpp
+            runner: ubuntu-latest
+          - name: amd64-ubuntu-16.04-cpp
+            arch: amd64
             image: ubuntu-cpp
             title: AMD64 Ubuntu 16.04 C++
             ubuntu: 16.04
-          - name: ubuntu-18.04-cpp
+            runner: ubuntu-latest
+          - name: amd64-ubuntu-18.04-cpp
+            arch: amd64
             image: ubuntu-cpp
             title: AMD64 Ubuntu 18.04 C++
             ubuntu: 18.04
-          - name: ubuntu-18.04-cpp-cmake32
+            runner: ubuntu-latest
+          - name: amd64-ubuntu-18.04-cpp-cmake32
+            arch: amd64
             image: ubuntu-cpp-cmake32
             title: AMD64 Ubuntu 18.04 C++ CMake 3.2
             ubuntu: 18.04
+            runner: ubuntu-latest
+          # parallelism is reduced because the ARM builders are low on memory
+          - name: arm64v8-ubuntu-16.04-cpp
+            ubuntu: 16.04
+            arch: arm64v8
+            runner: [self-hosted, linux, ARM64]
+            run_args: -e CPP_MAKE_PARALLELISM=2
+          - name: arm64v8-ubuntu-18.04-cpp
+            ubuntu: 18.04
+            arch: arm64v8
+            runner: [self-hosted, linux, ARM64]
+            run_args: -e CPP_MAKE_PARALLELISM=2
     env:
       # the defaults here should correspond to the values in .env
+      ARCH: ${{ matrix.arch || amd64 }}
       DEBIAN: ${{ matrix.debian || 10 }}
       FEDORA: ${{ matrix.fedora || 32 }}
       UBUNTU: ${{ matrix.ubuntu || 18.04 }}
