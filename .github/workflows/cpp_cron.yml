@@ -97,7 +97,7 @@ jobs:
             run_args: -e CPP_MAKE_PARALLELISM=2
     env:
       # the defaults here should correspond to the values in .env
-      ARCH: ${{ matrix.arch || amd64 }}
+      ARCH: ${{ matrix.arch || 'amd64' }}
       DEBIAN: ${{ matrix.debian || 10 }}
       FEDORA: ${{ matrix.fedora || 32 }}
       UBUNTU: ${{ matrix.ubuntu || 18.04 }}
