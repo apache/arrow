@@ -108,8 +108,8 @@ jobs:
           fetch-depth: 0
       - name: Fetch Submodules and Tags
         run: ci/scripts/util_checkout.sh
-      - name: Free Up Disk Space
-        run: ci/scripts/util_cleanup.sh
+      # - name: Free Up Disk Space
+      #   run: ci/scripts/util_cleanup.sh
       - name: Cache Docker Volumes
         uses: actions/cache@v1
         with:
@@ -119,7 +119,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v1
         with:
-          python-version: 3.8
+          python-version: 3.6
       - name: Setup Archery
         run: pip install -e dev/archery[docker]
       - name: Execute Docker Build

@@ -18,8 +18,6 @@
 # under the License.
 
 # this script is github actions specific to check out the submodules and tags
-pwd
-git config --list
 
 # TODO(kszucs): remove it once the "submodules: recursive" feature is released
 auth_header="$(git config --local --get http.https://github.com/.extraheader)"
