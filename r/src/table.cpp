@@ -18,10 +18,6 @@
 #include "./arrow_types.h"
 #if defined(ARROW_R_WITH_ARROW)
 
-#include <arrow/array.h>
-#include <arrow/io/file.h>
-#include <arrow/ipc/reader.h>
-#include <arrow/ipc/writer.h>
 #include <arrow/table.h>
 #include <arrow/util/key_value_metadata.h>
 

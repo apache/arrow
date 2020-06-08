@@ -22,7 +22,6 @@ using Rcpp::wrap;
 
 #if defined(ARROW_R_WITH_ARROW)
 
-#include <arrow/array.h>
 #include <arrow/table.h>
 
 // [[arrow::export]]
