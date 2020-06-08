@@ -36,6 +36,10 @@ env:
   ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
   ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
 
+defaults:
+  run:
+    shell: bash -l {0}
+
 jobs:
 
   docker:
@@ -111,7 +115,6 @@ jobs:
       - name: Fetch Submodules and Tags
         run: ci/scripts/util_checkout.sh
       - name: Free Up Disk Space
-        shell: bash
         run: ci/scripts/util_cleanup.sh
       # - name: Cache Docker Volumes
       #   uses: actions/cache@v1
@@ -130,15 +133,12 @@ jobs:
         continue-on-error: true
         run: sudo sysctl -w kernel.core_pattern="core.%e.%p"
       - name: Setup Archery
-        shell: bash
         run: pip install -U -e dev/archery[docker]
       - name: Execute Docker Build
-        shell: bash
         run: |
           ulimit -c unlimited
           archery docker run ${{ matrix.image }}
       - name: Docker Push
-        shell: bash
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         continue-on-error: true
         run: archery docker push ${{ matrix.image }}
@@ -157,10 +157,8 @@ jobs:
         with:
           fetch-depth: 0
       - name: Fetch Submodules and Tags
-        shell: bash
         run: ci/scripts/util_checkout.sh
       - name: Free Up Disk Space
-        shell: bash
         run: ci/scripts/util_cleanup.sh
       - name: Checkout OSS-Fuzz
         uses: actions/checkout@v1
@@ -169,23 +167,19 @@ jobs:
           repository: google/oss-fuzz
           ref: master
       - name: Install dependencies
-        shell: bash
         working-directory: ../oss-fuzz
         run: |
           python3 -m pip install setuptools
           python3 -m pip install -r infra/ci/requirements.txt
       - name: Build image
-        shell: bash
         working-directory: ../oss-fuzz
         run: |
           python3 infra/helper.py build_image --pull arrow
       - name: Build fuzzers
-        shell: bash
         working-directory: ../oss-fuzz
         run: |
           python3 infra/helper.py build_fuzzers arrow `pwd`/../arrow
       - name: Check build
-        shell: bash
         working-directory: ../oss-fuzz
         run: |
           python3 infra/helper.py check_build arrow
