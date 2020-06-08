@@ -58,7 +58,7 @@ jobs:
           else
             # TODO: don't require removing newer llvms
             sudo apt-get --purge remove -y llvm-9 clang-9
-            sudo apt-get install -y \
+            sudo apt-get install -y -q --no-install-recommends \
               wget curl libboost-all-dev jq \
               autoconf-archive gtk-doc-tools libgirepository1.0-dev flex bison
             if [ "$TEST_JAVA" = "1" ]; then

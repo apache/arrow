@@ -39,7 +39,7 @@ ARG LLVM
 RUN \
   quiet=$([ "${DEBUG}" = "yes" ] || echo "-qq") && \
   apt update ${quiet} && \
-  apt install -y -V ${quiet} \
+  apt-get install -y -q --no-install-recommends ${quiet} \
     apt-transport-https \
     ca-certificates \
     gnupg \
@@ -48,7 +48,7 @@ RUN \
   echo "deb https://apt.llvm.org/buster/ llvm-toolchain-buster-${LLVM} main" > \
     /etc/apt/sources.list.d/llvm.list && \
   apt update ${quiet} && \
-  apt install -y -V ${quiet} \
+  apt-get install -y -q --no-install-recommends ${quiet} \
     build-essential \
     cmake \
     debhelper \
@@ -82,12 +82,12 @@ RUN \
     tzdata \
     zlib1g-dev && \
   if [ "$(dpkg --print-architecture)" != "arm64" ]; then \
-    apt install -y -V ${quiet} \
+    apt-get install -y -q --no-install-recommends ${quiet} \
       clang-${LLVM} \
       llvm-${LLVM}-dev; \
   fi && \
   if apt list | grep '^nvidia-cuda-toolkit/'; then \
-    apt install -y -V ${quiet} nvidia-cuda-toolkit; \
+    apt-get install -y -q --no-install-recommends ${quiet} nvidia-cuda-toolkit; \
   fi && \
   pip3 install --upgrade meson && \
   ln -s /usr/local/bin/meson /usr/bin/ && \

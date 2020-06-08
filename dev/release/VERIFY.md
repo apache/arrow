@@ -43,7 +43,7 @@ You need the followings to verify C GLib build:
 You can install them by the followings on Debian GNU/Linux and Ubuntu:
 
 ```console
-% sudo apt install -y -V libgirepository1.0-dev ruby-dev
+% sudo apt-get install -y -q --no-install-recommends libgirepository1.0-dev ruby-dev
 % sudo gem install gobject-introspection test-unit
 ```
 

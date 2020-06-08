@@ -21,7 +21,7 @@ FROM ${repo}:${arch}-conda-cpp
 
 # Need locales so we can set UTF-8
 RUN apt-get update -y && \
-    apt-get install -y locales && \
+    apt-get install -y -q --no-install-recommends locales && \
     locale-gen en_US.UTF-8 && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*

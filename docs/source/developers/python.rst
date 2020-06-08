@@ -222,7 +222,7 @@ dependencies will be automatically built by Arrow's third-party toolchain.
 
 .. code-block:: shell
 
-   $ sudo apt-get install libjemalloc-dev libboost-dev \
+   $ sudo apt-get install -y -q --no-install-recommends libjemalloc-dev libboost-dev \
                           libboost-filesystem-dev \
                           libboost-system-dev \
                           libboost-regex-dev \

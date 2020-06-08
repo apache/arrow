@@ -19,7 +19,7 @@ ARG base
 FROM ${base}
 
 RUN apt-get update && \
-    apt-get install -y -q \
+    apt-get install -y -q --no-install-recommends \
         libidn11 \
         wget && \
     apt-get clean && \

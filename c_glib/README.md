@@ -129,7 +129,7 @@ to build Arrow GLib. You can install them by the followings:
 On Debian GNU/Linux or Ubuntu:
 
 ```console
-% sudo apt install -y -V gtk-doc-tools autoconf-archive libgirepository1.0-dev meson ninja-build
+% sudo apt-get install -y -q --no-install-recommends gtk-doc-tools autoconf-archive libgirepository1.0-dev meson ninja-build
 ```
 
 On CentOS 7 or later:
@@ -225,7 +225,7 @@ You can install them by the followings:
 On Debian GNU/Linux or Ubuntu:
 
 ```console
-% sudo apt install -y -V ruby-dev
+% sudo apt-get install -y -q --no-install-recommends ruby-dev
 % sudo gem install bundler
 % (cd c_glib && bundle install)
 ```

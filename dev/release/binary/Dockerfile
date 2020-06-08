@@ -24,7 +24,7 @@ ARG DEBUG
 RUN \
   quiet=$([ "${DEBUG}" = "yes" ] || echo "-qq") && \
   apt update ${quiet} && \
-  apt install -y -V ${quiet} \
+  apt-get install -y -q --no-install-recommends ${quiet} \
     apt-utils \
     createrepo \
     devscripts \

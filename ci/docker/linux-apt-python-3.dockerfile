@@ -19,7 +19,7 @@ ARG base
 FROM ${base}
 
 RUN apt-get update -y -q && \
-    apt-get install -y -q \
+    apt-get install -y -q --no-install-recommends \
         python3 \
         python3-pip \
         python3-dev && \

@@ -18,7 +18,7 @@ FROM ubuntu:14.04
 
 # Install dependencies
 RUN apt update
-RUN apt install -y ccache flex wget curl build-essential git libffi-dev autoconf pkg-config
+RUN apt-get install -y -q --no-install-recommends ccache flex wget curl build-essential git libffi-dev autoconf pkg-config
 
 ADD scripts/build_zlib.sh /
 RUN /build_zlib.sh

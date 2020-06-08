@@ -41,7 +41,7 @@ ARG LLVM
 RUN \
   quiet=$([ "${DEBUG}" = "yes" ] || echo "-qq") && \
   apt update ${quiet} && \
-  apt install -y -V ${quiet} \
+  apt-get install -y -q --no-install-recommends ${quiet} \
     apt-transport-https \
     ca-certificates \
     gnupg \
@@ -50,7 +50,7 @@ RUN \
   echo "deb https://apt.llvm.org/stretch/ llvm-toolchain-stretch-${LLVM} main" > \
     /etc/apt/sources.list.d/llvm.list && \
   apt update ${quiet} && \
-  apt install -y -V ${quiet} \
+  apt-get install -y -q --no-install-recommends ${quiet} \
     build-essential \
     cmake \
     devscripts \
@@ -81,20 +81,20 @@ RUN \
     python3-wheel \
     tzdata \
     zlib1g-dev && \
-  apt install -y -V -t stretch-backports-sloppy ${quiet} \
+  apt-get install -y -q --no-install-recommends -t stretch-backports-sloppy ${quiet} \
     libarchive13 && \
-  apt install -y -V -t stretch-backports ${quiet} \
+  apt-get install -y -q --no-install-recommends -t stretch-backports ${quiet} \
     debhelper \
     libgmock-dev \
     libgtest-dev \
     rapidjson-dev && \
   if [ "$(dpkg --print-architecture)" != "arm64" ]; then \
-    apt install -y -V ${quiet} \
+    apt-get install -y -q --no-install-recommends ${quiet} \
       clang-${LLVM} \
       llvm-${LLVM}-dev; \
   fi && \
   if apt list | grep '^nvidia-cuda-toolkit/'; then \
-    apt install -y -V -t stretch-backports ${quiet} nvidia-cuda-toolkit; \
+    apt-get install -y -q --no-install-recommends -t stretch-backports ${quiet} nvidia-cuda-toolkit; \
   fi && \
   pip3 install --upgrade meson && \
   ln -s /usr/local/bin/meson /usr/bin/ && \

@@ -32,7 +32,7 @@ env:
     - ARROW_TRAVIS_USE_TOOLCHAIN=1
 
 before_install:
-  - sudo apt-get install -y libgit2-dev
+  - sudo apt-get install -y -q --no-install-recommends libgit2-dev
   - python3 -VV
   - echo "Setting python version 3.6.7 in pyenv"
   - pyenv shell 3.6.7

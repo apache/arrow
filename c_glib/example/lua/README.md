@@ -29,7 +29,7 @@ Arrow GLib based bindings.
 Here are command lines to install LGI on Debian GNU/Linux and Ubuntu:
 
 ```text
-% sudo apt install -y luarocks
+% sudo apt-get install -y -q --no-install-recommends luarocks
 % sudo luarocks install lgi
 ```
 

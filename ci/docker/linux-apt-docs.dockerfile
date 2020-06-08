@@ -22,7 +22,7 @@ ARG r=3.6
 ARG jdk=8
 
 RUN apt-get update -y && \
-    apt-get install -y \
+    apt-get install -y -q --no-install-recommends \
         dirmngr \
         apt-transport-https \
         software-properties-common && \
@@ -30,7 +30,7 @@ RUN apt-get update -y && \
         --keyserver keyserver.ubuntu.com \
         --recv-keys E298A3A825C0D65DFD57CBB651716619E084DAB9 && \
     add-apt-repository 'deb https://cloud.r-project.org/bin/linux/ubuntu '$(lsb_release -cs)'-cran35/' && \
-    apt-get install -y \
+    apt-get install -y -q --no-install-recommends \
         autoconf-archive \
         automake \
         curl \
@@ -63,7 +63,7 @@ RUN mvn -version
 
 ARG node=11
 RUN wget -q -O - https://deb.nodesource.com/setup_${node}.x | bash - && \
-    apt-get install -y nodejs && \
+    apt-get install -y -q --no-install-recommends nodejs && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 

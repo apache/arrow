@@ -20,7 +20,7 @@ FROM ${arch}/rust
 
 # install pre-requisites for building flatbuffers
 RUN apt-get update -y && \
-    apt-get install -y build-essential cmake && \
+    apt-get install -y -q --no-install-recommends build-essential cmake && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 

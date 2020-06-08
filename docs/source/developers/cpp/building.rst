@@ -44,7 +44,7 @@ On Ubuntu/Debian you can install the requirements with:
 
 .. code-block:: shell
 
-   sudo apt-get install \
+   sudo apt-get install -y -q --no-install-recommends \
         build-essential \
         cmake
 

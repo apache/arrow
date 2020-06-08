@@ -36,7 +36,7 @@ ENV LLVM=8
 RUN \
   quiet=$([ "${DEBUG}" = "yes" ] || echo "-qq") && \
   apt update ${quiet} && \
-  apt install -y -V ${quiet} \
+  apt-get install -y -q --no-install-recommends ${quiet} \
     apt-transport-https \
     ca-certificates \
     gnupg \
@@ -45,7 +45,7 @@ RUN \
   echo "deb https://apt.llvm.org/xenial/ llvm-toolchain-xenial-${LLVM} main" > \
     /etc/apt/sources.list.d/llvm.list && \
   apt update ${quiet} && \
-  apt install -y -V ${quiet} \
+  apt-get install -y -q --no-install-recommends ${quiet} \
     autoconf-archive \
     build-essential \
     cmake \
@@ -76,14 +76,14 @@ RUN \
     python3-numpy \
     zlib1g-dev && \
   if [ "$(dpkg --print-architecture)" != "arm64" ]; then \
-    apt install -y -V ${quiet} \
+    apt-get install -y -q --no-install-recommends ${quiet} \
       clang-${LLVM} \
       llvm-${LLVM}-dev; \
   fi && \
   if apt list | grep '^nvidia-cuda-toolkit/'; then \
-    apt install -y -V ${quiet} nvidia-cuda-toolkit; \
+    apt-get install -y -q --no-install-recommends ${quiet} nvidia-cuda-toolkit; \
   fi && \
-  apt install -y -V -t xenial-backports ${quiet} \
+  apt-get install -y -q --no-install-recommends -t xenial-backports ${quiet} \
     debhelper && \
   apt clean && \
   rm -rf /var/lib/apt/lists/*

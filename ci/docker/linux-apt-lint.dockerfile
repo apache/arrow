@@ -21,7 +21,7 @@ FROM ${base}
 
 ARG clang_tools
 RUN apt-get update && \
-    apt-get install -y -q \
+    apt-get install -y -q --no-install-recommends \
         clang-${clang_tools} \
         clang-format-${clang_tools} \
         clang-tidy-${clang_tools} \

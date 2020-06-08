@@ -20,7 +20,7 @@ FROM debian:buster
 ENV DEBIAN_FRONTEND noninteractive
 
 RUN apt update && \
-  apt install -y -V \
+  apt-get install -y -q --no-install-recommends \
     autoconf-archive \
     gtk-doc-tools \
     libgirepository1.0-dev \

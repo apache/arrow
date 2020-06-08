@@ -23,7 +23,7 @@ FROM ${base}
 # [2] https://linuxize.com/post/how-to-install-r-on-ubuntu-18-04/#installing-r-packages-from-cran
 ARG r=3.6
 RUN apt-get update -y && \
-    apt-get install -y \
+    apt-get install -y -q --no-install-recommends \
         dirmngr \
         apt-transport-https \
         software-properties-common && \
@@ -37,7 +37,7 @@ RUN apt-get update -y && \
     # TODO: make sure OS version and R version are valid together and conditionally set repo suffix
     # This is a hack to turn 3.6 into 35 and 4.0 into 40:
     add-apt-repository 'deb https://cloud.r-project.org/bin/linux/ubuntu '$(lsb_release -cs)'-cran'$(echo "${r}" | tr -d . | tr 6 5)'/' && \
-    apt-get install -y \
+    apt-get install -y -q --no-install-recommends \
         r-base=${r}* \
         # system libs needed by core R packages
         libxml2-dev \
