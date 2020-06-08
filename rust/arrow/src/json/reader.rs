@@ -42,12 +42,12 @@
 //! let batch = json.next().unwrap().unwrap();
 //! ```
 
-use indexmap::map::IndexMap as HashMap;
-use indexmap::set::IndexSet as HashSet;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read, Seek, SeekFrom};
 use std::sync::Arc;
 
+use indexmap::map::IndexMap as HashMap;
+use indexmap::set::IndexSet as HashSet;
 use serde_json::Value;
 
 use crate::array::*;
@@ -448,35 +448,35 @@ impl<R: Read> Reader<R> {
                             let mut builder = ListBuilder::new(values_builder);
                             for row in rows {
                                 if let Some(value) = row.get(field.name()) {
-                                        // value can be an array or a scalar
-                                        let vals: Vec<Option<String>> = if let Value::String(v) = value {
-                                            vec![Some(v.to_string())]
-                                        } else if let Value::Array(n) = value {
-                                            n.iter().map(|v: &Value| {
-                                                if v.is_string() {
-                                                    Some(v.as_str().unwrap().to_string())
-                                                } else if v.is_array() || v.is_object() {
-                                                    // implicitly drop nested values
-                                                    // TODO support deep-nesting
-                                                    None
-                                                } else {
-                                                    Some(v.to_string())
-                                                }
-                                            }).collect()
-                                        } else if let Value::Null = value {
-                                            vec![None]
-                                        } else if !value.is_object() {
-                                            vec![Some(value.to_string())]
-                                        } else {
-                                            return Err(ArrowError::JsonError("Only scalars are currently supported in JSON arrays".to_string()))
-                                        };
-                                        for val in vals {
-                                           if let Some(v) = val {
-                                                builder.values().append_value(&v)?
+                                    // value can be an array or a scalar
+                                    let vals: Vec<Option<String>> = if let Value::String(v) = value {
+                                        vec![Some(v.to_string())]
+                                    } else if let Value::Array(n) = value {
+                                        n.iter().map(|v: &Value| {
+                                            if v.is_string() {
+                                                Some(v.as_str().unwrap().to_string())
+                                            } else if v.is_array() || v.is_object() {
+                                                // implicitly drop nested values
+                                                // TODO support deep-nesting
+                                                None
                                             } else {
-                                                builder.values().append_null()?
-                                            };
-                                        }
+                                                Some(v.to_string())
+                                            }
+                                        }).collect()
+                                    } else if let Value::Null = value {
+                                        vec![None]
+                                    } else if !value.is_object() {
+                                        vec![Some(value.to_string())]
+                                    } else {
+                                        return Err(ArrowError::JsonError("Only scalars are currently supported in JSON arrays".to_string()));
+                                    };
+                                    for val in vals {
+                                        if let Some(v) = val {
+                                            builder.values().append_value(&v)?
+                                        } else {
+                                            builder.values().append_null()?
+                                        };
+                                    }
                                 }
                                 builder.append(true)?
                             }
@@ -484,6 +484,32 @@ impl<R: Read> Reader<R> {
                         }
                         _ => Err(ArrowError::JsonError("Data type is currently not supported in a list".to_string())),
                     },
+                    DataType::Dictionary(ref key_typ, ref value_type) => {
+                        if let DataType::Utf8 = **value_type {
+                            match **key_typ {
+                                DataType::Int16 => {
+                                    let key_builder = PrimitiveBuilder::<Int16Type>::new(rows.len());
+                                    let value_builder = StringBuilder::new(100);
+                                    let mut builder = StringDictionaryBuilder::new(key_builder, value_builder);
+                                    for row in rows {
+                                        if let Some(value) = row.get(field.name()) {
+                                            if let Some(str_v) = value.as_str() {
+                                                builder.append(str_v).map(|_| ())?
+                                            } else {
+                                                builder.append_null()?
+                                            }
+                                        } else {
+                                            builder.append_null()?
+                                        }
+                                    }
+                                    Ok(Arc::new(builder.finish()) as ArrayRef)
+                                }
+                                _ => Err(ArrowError::JsonError("dictionary types are not yet supported".to_string()))
+                            }
+                        } else {
+                            Err(ArrowError::JsonError("dictionary types other than UTF-8 not yet supported".to_string()))
+                        }
+                    }
                     _ => Err(ArrowError::JsonError("struct types are not yet supported".to_string())),
                 }
             })
@@ -726,6 +752,8 @@ impl ReaderBuilder {
 
 #[cfg(test)]
 mod tests {
+    use crate::datatypes::DataType::Dictionary;
+
     use super::*;
 
     #[test]
@@ -1094,5 +1122,63 @@ mod tests {
         assert_eq!("false", dd.value(4));
         assert_eq!("array", dd.value(5));
         assert_eq!("2.4", dd.value(6));
+    }
+
+    #[test]
+    fn test_dictionary_from_json_basic_with_nulls() {
+        let schema = Schema::new(vec![Field::new(
+            "d",
+            Dictionary(Box::new(DataType::Int16), Box::new(DataType::Utf8)),
+            true,
+        )]);
+        let builder = ReaderBuilder::new()
+            .with_schema(Arc::new(schema))
+            .with_batch_size(64);
+        let mut reader: Reader<File> = builder
+            .build::<File>(File::open("test/data/basic_nulls.json").unwrap())
+            .unwrap();
+        let batch = reader.next().unwrap().unwrap();
+
+        assert_eq!(1, batch.num_columns());
+        assert_eq!(12, batch.num_rows());
+
+        let schema = reader.schema();
+        let batch_schema = batch.schema();
+        assert_eq!(&schema, batch_schema);
+
+        let d = schema.column_with_name("d").unwrap();
+        assert_eq!(
+            &Dictionary(Box::new(DataType::Int16), Box::new(DataType::Utf8)),
+            d.1.data_type()
+        );
+
+        let dd = batch
+            .column(d.0)
+            .as_any()
+            .downcast_ref::<DictionaryArray<Int16Type>>()
+            .unwrap();
+        assert_eq!(false, dd.is_valid(0));
+        assert_eq!(true, dd.is_valid(1));
+        assert_eq!(true, dd.is_valid(2));
+        assert_eq!(false, dd.is_valid(11));
+
+        let keys: Vec<_> = dd.keys().collect();
+        assert_eq!(
+            keys,
+            vec![
+                None,
+                Some(0),
+                Some(1),
+                Some(0),
+                None,
+                None,
+                Some(0),
+                None,
+                Some(1),
+                Some(0),
+                Some(0),
+                None
+            ]
+        );
     }
 }
