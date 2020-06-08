@@ -110,8 +110,9 @@ jobs:
           fetch-depth: 0
       - name: Fetch Submodules and Tags
         run: ci/scripts/util_checkout.sh
-      # - name: Free Up Disk Space
-      #   run: ci/scripts/util_cleanup.sh
+      - name: Free Up Disk Space
+        shell: bash
+        run: ci/scripts/util_cleanup.sh
       - name: Cache Docker Volumes
         uses: actions/cache@v1
         with:
@@ -130,16 +131,11 @@ jobs:
         run: sudo sysctl -w kernel.core_pattern="core.%e.%p"
       - name: Setup Archery
         shell: bash
-        run: |
-          pip install -U -e dev/archery[docker]
-          echo $PATH
-          ls /home/actions/.local/bin
+        run: pip install -U -e dev/archery[docker]
       - name: Execute Docker Build
-        shell: bash -l {0}
+        shell: bash
         run: |
           ulimit -c unlimited
-          echo $PATH
-          ls /home/actions/.local/bin
           archery docker run ${{ matrix.image }}
       - name: Docker Push
         shell: bash

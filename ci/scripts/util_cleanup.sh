@@ -19,6 +19,13 @@
 
 # this script is github actions specific to free up disk space
 
+if [ $GITHUB_SELF_HOSTED = 1 ]; then
+    # github actions doesn't provide any proper way to identify that we're
+    # running in a self hosted runner, so this environment variable must be
+    # set up manually on the machine
+    exit 0
+fi
+
 if [ $RUNNER_OS = "Linux" ]; then
     # remove swap
     sudo swapoff -a
