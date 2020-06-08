@@ -135,7 +135,7 @@ jobs:
           echo $PATH
           ls /home/actions/.local/bin
       - name: Execute Docker Build
-        shell: bash
+        shell: bash -l {0}
         run: |
           ulimit -c unlimited
           echo $PATH
