@@ -714,7 +714,7 @@ services:
     command:
       ["/arrow/ci/scripts/cpp_build.sh /arrow /tmp &&
         /arrow/ci/scripts/python_build.sh /arrow /tmp &&
-        /arrow/ci/scripts/integration_turbodbc.sh /turbodbc /build"]
+        /arrow/ci/scripts/integration_turbodbc.sh /turbodbc /tmp"]
 
   conda-python-kartothek:
     # Possible $KARTOTHEK parameters:
@@ -744,7 +744,7 @@ services:
     command:
       ["/arrow/ci/scripts/cpp_build.sh /arrow /tmp &&
         /arrow/ci/scripts/python_build.sh /arrow /tmp &&
-        /arrow/ci/scripts/integration_kartothek.sh /kartothek /build"]
+        /arrow/ci/scripts/integration_kartothek.sh /kartothek /tmp"]
 
   ########################## Python Wheels ####################################
 
@@ -932,7 +932,7 @@ services:
         rust: ${RUST}
     shm_size: *shm-size
     environment:
-      CARGO_HOME: /build/cargo
+      CARGO_HOME: /tmp/cargo
     volumes: *debian-volumes
     command: &rust-command >
       /bin/bash -c "
@@ -1086,7 +1086,7 @@ services:
     environment:
       <<: *ccache
       # tell archery where the arrow binaries are located
-      ARROW_CPP_EXE_PATH: /build/cpp/debug
+      ARROW_CPP_EXE_PATH: /tmp/cpp/debug
     # Running integration tests serially until ARROW-8176 resolved
     command:
       ["/arrow/ci/scripts/cpp_build.sh /arrow /tmp &&
