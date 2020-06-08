@@ -165,8 +165,8 @@ services:
       - .:/arrow:delegated
       - .docker/${ARCH}-conda-ccache:/ccache:delegated
     command: &cpp-conda-command
-      ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
-        /arrow/ci/scripts/cpp_test.sh /arrow /build"]
+      ["/arrow/ci/scripts/cpp_build.sh /arrow /tmp &&
+        /arrow/ci/scripts/cpp_test.sh /arrow /tmp"]
 
   conda-cpp-valgrind:
     # Usage:
@@ -223,8 +223,8 @@ services:
       - .docker/${ARCH}-cuda-${CUDA}-ccache:/ccache:delegated
     command: &cpp-command >
       /bin/bash -c "
-        /arrow/ci/scripts/cpp_build.sh /arrow /build &&
-        /arrow/ci/scripts/cpp_test.sh /arrow /build"
+        /arrow/ci/scripts/cpp_build.sh /arrow /tmp &&
+        /arrow/ci/scripts/cpp_test.sh /arrow /tmp"
 
   debian-cpp:
     # Usage:
@@ -250,7 +250,7 @@ services:
     volumes: &debian-volumes
       - .:/arrow:delegated
       - .docker/${ARCH}-debian-${DEBIAN}-ccache:/ccache:delegated
-      - .docker/${ARCH}-debian-${DEBIAN}-build:/build:delegated
+      - .docker/${ARCH}-debian-${DEBIAN}-build:/tmp:delegated
     command: *cpp-command
 
   ubuntu-cpp:
@@ -278,6 +278,7 @@ services:
     volumes: &ubuntu-volumes
       - .:/arrow:delegated
       - .docker/${ARCH}-ubuntu-${UBUNTU}-ccache:/ccache:delegated
+      - .docker/${ARCH}-ubuntu-${UBUNTU}-build:/tmp:delegated
     command: *cpp-command
 
   ubuntu-cpp-sanitizer:
@@ -338,6 +339,7 @@ services:
     volumes: &fedora-volumes
       - .:/arrow:delegated
       - .docker/${ARCH}-fedora-${FEDORA}-ccache:/ccache:delegated
+      - .docker/${ARCH}-fedora-${FEDORA}-build:/tmp:delegated
     command: *cpp-command
 
   ############################### C GLib ######################################
@@ -366,9 +368,9 @@ services:
     volumes: *debian-volumes
     command: &c-glib-command >
       /bin/bash -c "
-        /arrow/ci/scripts/cpp_build.sh /arrow /build &&
-        /arrow/ci/scripts/c_glib_build.sh /arrow /build &&
-        /arrow/ci/scripts/c_glib_test.sh /arrow /build"
+        /arrow/ci/scripts/cpp_build.sh /arrow /tmp &&
+        /arrow/ci/scripts/c_glib_build.sh /arrow /tmp &&
+        /arrow/ci/scripts/c_glib_test.sh /arrow /tmp"
 
   ubuntu-c-glib:
     # Usage:
@@ -424,10 +426,10 @@ services:
     volumes: *debian-volumes
     command: &ruby-command >
       /bin/bash -c "
-        /arrow/ci/scripts/cpp_build.sh /arrow /build &&
-        /arrow/ci/scripts/c_glib_build.sh /arrow /build &&
-        /arrow/ci/scripts/c_glib_test.sh /arrow /build &&
-        /arrow/ci/scripts/ruby_test.sh /arrow /build"
+        /arrow/ci/scripts/cpp_build.sh /arrow /tmp &&
+        /arrow/ci/scripts/c_glib_build.sh /arrow /tmp &&
+        /arrow/ci/scripts/c_glib_test.sh /arrow /tmp &&
+        /arrow/ci/scripts/ruby_test.sh /arrow /tmp"
 
   ubuntu-ruby:
     # Usage:
@@ -478,8 +480,8 @@ services:
       <<: *ccache
     volumes: *conda-volumes
     command: &python-conda-command
-      ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
-        /arrow/ci/scripts/python_build.sh /arrow /build &&
+      ["/arrow/ci/scripts/cpp_build.sh /arrow /tmp &&
+        /arrow/ci/scripts/python_build.sh /arrow /tmp &&
         /arrow/ci/scripts/python_test.sh /arrow"]
 
   cuda-python:
@@ -504,8 +506,8 @@ services:
     volumes: *cuda-volumes
     command: &python-command >
       /bin/bash -c "
-        /arrow/ci/scripts/cpp_build.sh /arrow /build &&
-        /arrow/ci/scripts/python_build.sh /arrow /build &&
+        /arrow/ci/scripts/cpp_build.sh /arrow /tmp &&
+        /arrow/ci/scripts/python_build.sh /arrow /tmp &&
         /arrow/ci/scripts/python_test.sh /arrow"
 
   debian-python:
@@ -655,8 +657,8 @@ services:
       <<: *ccache
     volumes: *conda-volumes
     command:
-      ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
-        /arrow/ci/scripts/python_build.sh /arrow /build &&
+      ["/arrow/ci/scripts/cpp_build.sh /arrow /tmp &&
+        /arrow/ci/scripts/python_build.sh /arrow /tmp &&
         /arrow/ci/scripts/integration_dask.sh"]
 
   conda-python-jpype:
@@ -682,9 +684,9 @@ services:
       ARROW_GANDIVA: "OFF"
     volumes: *conda-volumes
     command:
-      ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
-        /arrow/ci/scripts/python_build.sh /arrow /build &&
-        /arrow/ci/scripts/java_build.sh /arrow /build &&
+      ["/arrow/ci/scripts/cpp_build.sh /arrow /tmp &&
+        /arrow/ci/scripts/python_build.sh /arrow /tmp &&
+        /arrow/ci/scripts/java_build.sh /arrow /tmp &&
         /arrow/ci/scripts/python_test.sh /arrow"]
 
   conda-python-turbodbc:
@@ -713,8 +715,8 @@ services:
       <<: *ccache
     volumes: *conda-volumes
     command:
-      ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
-        /arrow/ci/scripts/python_build.sh /arrow /build &&
+      ["/arrow/ci/scripts/cpp_build.sh /arrow /tmp &&
+        /arrow/ci/scripts/python_build.sh /arrow /tmp &&
         /arrow/ci/scripts/integration_turbodbc.sh /turbodbc /build"]
 
   conda-python-kartothek:
@@ -743,8 +745,8 @@ services:
       <<: *ccache
     volumes: *conda-volumes
     command:
-      ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
-        /arrow/ci/scripts/python_build.sh /arrow /build &&
+      ["/arrow/ci/scripts/cpp_build.sh /arrow /tmp &&
+        /arrow/ci/scripts/python_build.sh /arrow /tmp &&
         /arrow/ci/scripts/integration_kartothek.sh /kartothek /build"]
 
   ########################## Python Wheels ####################################
@@ -835,7 +837,7 @@ services:
       NOT_CRAN: 'true'
     volumes: *conda-volumes
     command:
-      ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
+      ["/arrow/ci/scripts/cpp_build.sh /arrow /tmp &&
         /arrow/ci/scripts/r_test.sh /arrow"]
 
   ubuntu-r:
@@ -861,8 +863,8 @@ services:
     volumes: *ubuntu-volumes
     command: >
       /bin/bash -c "
-        /arrow/ci/scripts/cpp_build.sh /arrow /build &&
-        /arrow/ci/scripts/python_build.sh /arrow /build &&
+        /arrow/ci/scripts/cpp_build.sh /arrow /tmp &&
+        /arrow/ci/scripts/python_build.sh /arrow /tmp &&
         /arrow/ci/scripts/r_test.sh /arrow"
 
   r:
@@ -913,7 +915,7 @@ services:
     volumes: *ubuntu-volumes
     command: >
       /bin/bash -c "
-        /arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        /arrow/ci/scripts/cpp_build.sh /arrow /tmp &&
         /arrow/ci/scripts/r_sanitize.sh /arrow"
 
   ################################ Rust #######################################
@@ -938,8 +940,8 @@ services:
     command: &rust-command >
       /bin/bash -c "
         echo ${RUST} > /arrow/rust/rust-toolchain &&
-        /arrow/ci/scripts/rust_build.sh /arrow /build &&
-        /arrow/ci/scripts/rust_test.sh /arrow /build"
+        /arrow/ci/scripts/rust_build.sh /arrow /tmp &&
+        /arrow/ci/scripts/rust_test.sh /arrow /tmp"
 
   ################################# Go ########################################
 
@@ -1030,8 +1032,8 @@ services:
       - .docker/maven-cache:/root/.m2:delegated
     command: &java-command >
       /bin/bash -c "
-        /arrow/ci/scripts/java_build.sh /arrow /build &&
-        /arrow/ci/scripts/java_test.sh /arrow /build"
+        /arrow/ci/scripts/java_build.sh /arrow /tmp &&
+        /arrow/ci/scripts/java_test.sh /arrow /tmp"
 
   debian-java-jni:
     # Includes plasma test and jni for gandiva and orc.
@@ -1055,11 +1057,12 @@ services:
       - .:/arrow:delegated
       - .docker/maven-cache:/root/.m2:delegated
       - .docker/${ARCH}-debian-9-ccache:/ccache:delegated
+      - .docker/${ARCH}-debian-9-build:/tmp:delegated
     command:
       /bin/bash -c "
-        /arrow/ci/scripts/cpp_build.sh /arrow /build &&
-        /arrow/ci/scripts/java_build.sh /arrow /build &&
-        /arrow/ci/scripts/java_test.sh /arrow /build"
+        /arrow/ci/scripts/cpp_build.sh /arrow /tmp &&
+        /arrow/ci/scripts/java_build.sh /arrow /tmp &&
+        /arrow/ci/scripts/java_test.sh /arrow /tmp"
 
   ############################## Integration ##################################
 
@@ -1090,10 +1093,10 @@ services:
       ARROW_CPP_EXE_PATH: /build/cpp/debug
     # Running integration tests serially until ARROW-8176 resolved
     command:
-      ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
+      ["/arrow/ci/scripts/cpp_build.sh /arrow /tmp &&
         /arrow/ci/scripts/go_build.sh /arrow &&
-        /arrow/ci/scripts/java_build.sh /arrow /build &&
-        /arrow/ci/scripts/js_build.sh /arrow /build &&
+        /arrow/ci/scripts/java_build.sh /arrow /tmp &&
+        /arrow/ci/scripts/js_build.sh /arrow /tmp &&
         pip install -e /arrow/dev/archery &&
         archery integration --with-all --run-flight"]
 
@@ -1121,13 +1124,13 @@ services:
     volumes: *ubuntu-volumes
     command:
       /bin/bash -c "
-        /arrow/ci/scripts/cpp_build.sh /arrow /build true &&
-        /arrow/ci/scripts/c_glib_build.sh /arrow /build &&
-        /arrow/ci/scripts/python_build.sh /arrow /build &&
-        /arrow/ci/scripts/java_build.sh /arrow /build true &&
+        /arrow/ci/scripts/cpp_build.sh /arrow /tmp true &&
+        /arrow/ci/scripts/c_glib_build.sh /arrow /tmp &&
+        /arrow/ci/scripts/python_build.sh /arrow /tmp &&
+        /arrow/ci/scripts/java_build.sh /arrow /tmp true &&
         /arrow/ci/scripts/js_build.sh /arrow true &&
         /arrow/ci/scripts/r_build.sh /arrow true &&
-        /arrow/ci/scripts/docs_build.sh /arrow /build"
+        /arrow/ci/scripts/docs_build.sh /arrow /tmp"
 
   ################################# Tools #####################################
 
@@ -1206,8 +1209,8 @@ services:
     shm_size: *shm-size
     volumes: *conda-volumes
     command:
-      ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
-        /arrow/ci/scripts/integration_hiveserver2.sh /arrow /build"]
+      ["/arrow/ci/scripts/cpp_build.sh /arrow /tmp &&
+        /arrow/ci/scripts/integration_hiveserver2.sh /arrow /tmp"]
 
   conda-python-hdfs:
     # Usage:
@@ -1243,10 +1246,11 @@ services:
       - .:/arrow:delegated
       - .docker/maven-cache:/root/.m2:delegated
       - .docker/${ARCH}-conda-ccache:/ccache:delegated
+      - .docker/${ARCH}-conda-build:/tmp:delegated
     command:
-      ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
-        /arrow/ci/scripts/python_build.sh /arrow /build &&
-        /arrow/ci/scripts/integration_hdfs.sh /arrow /build"]
+      ["/arrow/ci/scripts/cpp_build.sh /arrow /tmp &&
+        /arrow/ci/scripts/python_build.sh /arrow /tmp &&
+        /arrow/ci/scripts/integration_hdfs.sh /arrow /tmp"]
 
   conda-python-spark:
     # Usage:
@@ -1274,7 +1278,7 @@ services:
       <<: *ccache
     volumes: *conda-maven-volumes
     command:
-      ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
-        /arrow/ci/scripts/python_build.sh /arrow /build &&
-        /arrow/ci/scripts/java_build.sh /arrow /build &&
+      ["/arrow/ci/scripts/cpp_build.sh /arrow /tmp &&
+        /arrow/ci/scripts/python_build.sh /arrow /tmp &&
+        /arrow/ci/scripts/java_build.sh /arrow /tmp &&
         /arrow/ci/scripts/integration_spark.sh /arrow /spark"]
