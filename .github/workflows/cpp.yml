@@ -218,10 +218,11 @@ jobs:
     env:
       ARROW_BUILD_SHARED: ON
       ARROW_BUILD_STATIC: OFF
-      ARROW_BUILD_TYPE: release
       ARROW_BUILD_TESTS: ON
+      ARROW_BUILD_TYPE: release
       ARROW_DATASET: ON
       ARROW_FLIGHT: ON
+      ARROW_GANDIVA: ON
       ARROW_HDFS: OFF
       ARROW_HOME: /mingw${{ matrix.mingw-n-bits }}
       ARROW_JEMALLOC: OFF
@@ -243,7 +244,6 @@ jobs:
         -DBoost_NO_BOOST_CMAKE=ON
       CMAKE_GENERATOR: MSYS Makefiles
       CMAKE_UNITY_BUILD: ON
-      NPROC: 2
     steps:
       - name: Disable Crash Dialogs
         run: |
