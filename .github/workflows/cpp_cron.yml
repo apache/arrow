@@ -129,17 +129,20 @@ jobs:
         continue-on-error: true
         run: sudo sysctl -w kernel.core_pattern="core.%e.%p"
       - name: Setup Archery
+        shell: bash
         run: |
           pip install -U -e dev/archery[docker]
           echo $PATH
           ls /home/actions/.local/bin
       - name: Execute Docker Build
+        shell: bash
         run: |
           ulimit -c unlimited
           echo $PATH
           ls /home/actions/.local/bin
           archery docker run ${{ matrix.image }}
       - name: Docker Push
+        shell: bash
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         continue-on-error: true
         run: archery docker push ${{ matrix.image }}
