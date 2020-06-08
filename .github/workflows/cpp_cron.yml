@@ -129,9 +129,14 @@ jobs:
         continue-on-error: true
         run: sudo sysctl -w kernel.core_pattern="core.%e.%p"
       - name: Setup Archery
-        run: pip install -e dev/archery[docker]
+        run: |
+          pip install dev/archery[docker]
+          which archery
+          pip freeze
+          python -c "import archery"
       - name: Execute Docker Build
         run: |
+          which archery
           ulimit -c unlimited
           archery docker run ${{ matrix.image }}
       - name: Docker Push
