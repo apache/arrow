@@ -64,6 +64,9 @@ Status MakeSparseCSFTensorFromTensor(const Tensor& tensor,
 Result<std::shared_ptr<Tensor>> MakeTensorFromSparseCOOTensor(
     MemoryPool* pool, const SparseCOOTensor* sparse_tensor);
 
+Result<std::shared_ptr<Tensor>> MakeTensorFromSparseSplitCOOTensor(
+    MemoryPool* pool, const SparseSplitCOOTensor* sparse_tensor);
+
 Result<std::shared_ptr<Tensor>> MakeTensorFromSparseCSRMatrix(
     MemoryPool* pool, const SparseCSRMatrix* sparse_tensor);
 

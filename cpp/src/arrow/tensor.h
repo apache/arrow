@@ -172,13 +172,19 @@ class ARROW_EXPORT Tensor {
     return Tensor::CalculateValueOffset(strides_, index);
   }
 
+  /// Returns the value at the given offset without data-type and bounds checks
+  template <typename ValueType>
+  const typename ValueType::c_type& ValueByOffset(const int64_t offset) const {
+    using c_type = typename ValueType::c_type;
+    const c_type* ptr = reinterpret_cast<const c_type*>(raw_data() + offset);
+    return *ptr;
+  }
+
   /// Returns the value at the given index without data-type and bounds checks
   template <typename ValueType>
   const typename ValueType::c_type& Value(const std::vector<int64_t>& index) const {
-    using c_type = typename ValueType::c_type;
     const int64_t offset = CalculateValueOffset(index);
-    const c_type* ptr = reinterpret_cast<const c_type*>(raw_data() + offset);
-    return *ptr;
+    return ValueByOffset<ValueType>(offset);
   }
 
  protected:

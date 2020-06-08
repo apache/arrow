@@ -368,5 +368,67 @@ Status MakeSparseSplitCOOTensorFromTensor(
                                             out_sparse_index, out_data);
 }
 
+Result<std::shared_ptr<Tensor>> MakeTensorFromSparseSplitCOOTensor(
+    MemoryPool* pool, const SparseSplitCOOTensor* sparse_tensor) {
+  const auto& value_type = checked_cast<const FixedWidthType&>(*sparse_tensor->type());
+  const int value_elsize = GetByteWidth(value_type);
+  ARROW_ASSIGN_OR_RAISE(auto values_buffer,
+                        AllocateBuffer(value_elsize * sparse_tensor->size(), pool));
+  auto values = values_buffer->mutable_data();
+  std::fill_n(values, value_elsize * sparse_tensor->size(), 0);
+
+  // Generate row-major index-strides (not offset-strides)
+  const auto ndim = sparse_tensor->ndim();
+  std::vector<int64_t> strides(ndim, 1);
+  for (auto i = ndim - 1; i > 0; --i) {
+    strides[i - 1] = strides[i] * sparse_tensor->shape()[i];
+  }
+
+  const auto* raw_data = sparse_tensor->raw_data();
+  const auto& sparse_index =
+      internal::checked_cast<const SparseSplitCOOIndex&>(*sparse_tensor->sparse_index());
+
+  const auto& indices = sparse_index.indices();
+
+  std::vector<int64_t> coord;
+  const auto n = sparse_tensor->non_zero_length();
+  for (int64_t i = 0; i < n; ++i) {
+    int64_t offset = 0;
+
+    for (int64_t j = 0; j < ndim; ++j) {
+      const auto& indices_j = indices[j];
+      const auto index_data = indices_j->raw_data();
+      const auto s = strides[j];
+
+      switch (indices_j->type_id()) {
+        case Type::INT8:
+        case Type::UINT8:
+          offset += s * index_data[i];
+          break;
+        case Type::INT16:
+        case Type::UINT16:
+          offset += s * reinterpret_cast<const uint16_t*>(index_data)[i];
+          break;
+        case Type::INT32:
+        case Type::UINT32:
+          offset += s * reinterpret_cast<const uint32_t*>(index_data)[i];
+          break;
+        case Type::INT64:
+          offset += s * reinterpret_cast<const int64_t*>(index_data)[i];
+          break;
+        default:
+          ARROW_CHECK(false) << "unreachable";
+          break;
+      }
+    }
+
+    std::copy_n(raw_data, value_elsize, values + offset);
+    raw_data += value_elsize;
+  }
+
+  return Tensor::Make(sparse_tensor->type(), std::move(values_buffer),
+                      sparse_tensor->shape(), {}, sparse_tensor->dim_names());
+}
+
 }  // namespace internal
 }  // namespace arrow

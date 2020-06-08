@@ -629,7 +629,8 @@ Result<std::shared_ptr<Tensor>> SparseTensor::ToTensor(MemoryPool* pool) const {
       break;
 
     case SparseTensorFormat::SplitCOO:
-      return Status::NotImplemented("TODO: SplitCOO");
+      return MakeTensorFromSparseSplitCOOTensor(
+          pool, internal::checked_cast<const SparseSplitCOOTensor*>(this));
 
     case SparseTensorFormat::CSR:
       return MakeTensorFromSparseCSRMatrix(
