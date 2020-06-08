@@ -378,7 +378,7 @@ impl<R: Read> Reader<R> {
             }
         }
 
-        if rows.is_empty(){
+        if rows.is_empty() {
             // reached end of file
             return Ok(None);
         }
@@ -1189,7 +1189,6 @@ mod tests {
 
     #[test]
     fn test_with_multiple_batches() {
-
         let builder = ReaderBuilder::new()
             .infer_schema(Some(4))
             .with_batch_size(5);
@@ -1202,6 +1201,6 @@ mod tests {
             num_records.push(rb.num_rows());
         }
 
-        assert_eq!(vec![5,5,2], num_records);
+        assert_eq!(vec![5, 5, 2], num_records);
     }
 }
