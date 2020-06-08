@@ -2649,16 +2649,11 @@ garrow_array_new_raw_valist(std::shared_ptr<arrow::Array> *arrow_array,
   case arrow::Type::type::MAP:
     type = GARROW_TYPE_MAP_ARRAY;
     break;
-  case arrow::Type::type::UNION:
-    {
-      auto arrow_union_array =
-        std::static_pointer_cast<arrow::UnionArray>(*arrow_array);
-      if (arrow_union_array->mode() == arrow::UnionMode::SPARSE) {
-        type = GARROW_TYPE_SPARSE_UNION_ARRAY;
-      } else {
-        type = GARROW_TYPE_DENSE_UNION_ARRAY;
-      }
-    }
+  case arrow::Type::type::SPARSE_UNION:
+    type = GARROW_TYPE_SPARSE_UNION_ARRAY;
+    break;
+  case arrow::Type::type::DENSE_UNION:
+    type = GARROW_TYPE_DENSE_UNION_ARRAY;
     break;
   case arrow::Type::type::DICTIONARY:
     type = GARROW_TYPE_DICTIONARY_ARRAY;

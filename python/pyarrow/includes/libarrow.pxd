@@ -374,12 +374,12 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         const vector[int]& child_ids()
 
     cdef shared_ptr[CDataType] CMakeSparseUnionType" arrow::sparse_union"(
-            vector[shared_ptr[CField]] fields,
-            vector[int8_t] type_codes)
+        vector[shared_ptr[CField]] fields,
+        vector[int8_t] type_codes)
 
     cdef shared_ptr[CDataType] CMakeDenseUnionType" arrow::dense_union"(
-            vector[shared_ptr[CField]] fields,
-            vector[int8_t] type_codes)
+        vector[shared_ptr[CField]] fields,
+        vector[int8_t] type_codes)
 
     cdef cppclass CSchema" arrow::Schema":
         CSchema(const vector[shared_ptr[CField]]& fields)

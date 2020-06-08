@@ -1590,7 +1590,8 @@ cdef class UnionArray(Array):
         """
         if self.type.mode != "dense":
             raise ArrowTypeError("Can only get value offsets for dense arrays")
-        buf = pyarrow_wrap_buffer((<CDenseUnionArray*> self.ap).value_offsets())
+        cdef CDenseUnionArray* dense = <CDenseUnionArray*> self.ap
+        buf = pyarrow_wrap_buffer(dense.value_offsets())
         return Array.from_buffers(int32(), len(self), [None, buf])
 
     @staticmethod
