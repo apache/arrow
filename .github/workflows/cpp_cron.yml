@@ -97,12 +97,14 @@ jobs:
           #   image: -e CPP_MAKE_PARALLELISM=2 ubuntu-cpp
           - name: arm64v8-ubuntu-18.04-cpp
             ubuntu: 18.04
+            llvm: 8
             arch: arm64v8
             title: ARM64v8 Ubuntu 18.04 C++
             runner: [self-hosted, linux, ARM64]
             image: -e CPP_MAKE_PARALLELISM=2 ubuntu-cpp
           - name: arm32v7-ubuntu-18.04-cpp
             debian: 10
+            llvm: 8
             arch: arm32v7
             title: ARM32v7 Debian 10 C++
             runner: [self-hosted, linux, ARM]
@@ -113,6 +115,7 @@ jobs:
       DEBIAN: ${{ matrix.debian || 10 }}
       FEDORA: ${{ matrix.fedora || 32 }}
       UBUNTU: ${{ matrix.ubuntu || 18.04 }}
+      LLVM: ${{ matrix.llvm || 10 }}
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v2
