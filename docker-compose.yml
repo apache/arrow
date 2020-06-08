@@ -60,7 +60,7 @@ x-ccache: &ccache
   CCACHE_COMPRESS: 1
   CCACHE_COMPRESSLEVEL: 6
   CCACHE_MAXSIZE: 500M
-  CCACHE_DIR: /tmp/ccache
+  CCACHE_DIR: /ccache
 
 x-hierarchy:
   # This section is used by the archery tool to enable building nested images,
@@ -163,7 +163,7 @@ services:
       ARROW_BUILD_BENCHMARKS: "ON"
     volumes: &conda-volumes
       - .:/arrow:delegated
-      - ${DOCKER_VOLUME_DIR}/${ARCH}-conda-ccache:/tmp/ccache:delegated
+      - ${DOCKER_VOLUME_DIR}/${ARCH}-conda-ccache:/ccache:delegated
     command: &cpp-conda-command
       ["/arrow/ci/scripts/cpp_build.sh /arrow /tmp &&
         /arrow/ci/scripts/cpp_test.sh /arrow /tmp"]
@@ -220,7 +220,7 @@ services:
       ARROW_ENABLE_TIMING_TESTS:  # inherit
     volumes: &cuda-volumes
       - .:/arrow:delegated
-      - ${DOCKER_VOLUME_DIR}/${ARCH}-cuda-${CUDA}-ccache:/tmp/ccache:delegated
+      - ${DOCKER_VOLUME_DIR}/${ARCH}-cuda-${CUDA}-ccache:/ccache:delegated
     command: &cpp-command >
       /bin/bash -c "
         /arrow/ci/scripts/cpp_build.sh /arrow /tmp &&
@@ -249,7 +249,7 @@ services:
       ARROW_ENABLE_TIMING_TESTS:  # inherit
     volumes: &debian-volumes
       - .:/arrow:delegated
-      - ${DOCKER_VOLUME_DIR}/${ARCH}-debian-${DEBIAN}-ccache:/tmp/ccache:delegated
+      - ${DOCKER_VOLUME_DIR}/${ARCH}-debian-${DEBIAN}-ccache:/ccache:delegated
     command: *cpp-command
 
   ubuntu-cpp:
@@ -276,7 +276,7 @@ services:
       ARROW_ENABLE_TIMING_TESTS:  # inherit
     volumes: &ubuntu-volumes
       - .:/arrow:delegated
-      - ${DOCKER_VOLUME_DIR}/${ARCH}-ubuntu-${UBUNTU}-ccache:/tmp/ccache:delegated
+      - ${DOCKER_VOLUME_DIR}/${ARCH}-ubuntu-${UBUNTU}-ccache:/ccache:delegated
     command: *cpp-command
 
   ubuntu-cpp-sanitizer:
@@ -336,7 +336,7 @@ services:
       ARROW_ENABLE_TIMING_TESTS:  # inherit
     volumes: &fedora-volumes
       - .:/arrow:delegated
-      - ${DOCKER_VOLUME_DIR}/${ARCH}-fedora-${FEDORA}-ccache:/tmp/ccache:delegated
+      - ${DOCKER_VOLUME_DIR}/${ARCH}-fedora-${FEDORA}-ccache:/ccache:delegated
     command: *cpp-command
 
   ############################### C GLib ######################################
@@ -766,7 +766,7 @@ services:
     volumes:
       - .:/arrow:delegated
       - ./python/manylinux1:/io:delegated
-      - ${DOCKER_VOLUME_DIR}/centos-python-manylinux1-ccache:/tmp/ccache:delegated
+      - ${DOCKER_VOLUME_DIR}/centos-python-manylinux1-ccache:/ccache:delegated
     command: &manylinux-command /io/build_arrow.sh
 
   centos-python-manylinux2010:
@@ -787,7 +787,7 @@ services:
     volumes:
       - .:/arrow:delegated
       - ./python/manylinux201x:/io:delegated
-      - ${DOCKER_VOLUME_DIR}/centos-python-manylinux2010-ccache:/tmp/ccache:delegated
+      - ${DOCKER_VOLUME_DIR}/centos-python-manylinux2010-ccache:/ccache:delegated
     command: *manylinux-command
 
   centos-python-manylinux2014:
@@ -808,7 +808,7 @@ services:
     volumes:
       - .:/arrow:delegated
       - ./python/manylinux201x:/io:delegated
-      - ${DOCKER_VOLUME_DIR}/centos-python-manylinux2014-ccache:/tmp/ccache:delegated
+      - ${DOCKER_VOLUME_DIR}/centos-python-manylinux2014-ccache:/ccache:delegated
     command: *manylinux-command
 
   ################################## R ########################################
@@ -1053,7 +1053,7 @@ services:
     volumes:
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_DIR}/maven-cache:/root/.m2:delegated
-      - ${DOCKER_VOLUME_DIR}/${ARCH}-debian-9-ccache:/tmp/ccache:delegated
+      - ${DOCKER_VOLUME_DIR}/${ARCH}-debian-9-ccache:/ccache:delegated
     command:
       /bin/bash -c "
         /arrow/ci/scripts/cpp_build.sh /arrow /tmp &&
@@ -1241,7 +1241,7 @@ services:
     volumes: &conda-maven-volumes
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_DIR}/maven-cache:/root/.m2:delegated
-      - ${DOCKER_VOLUME_DIR}/${ARCH}-conda-ccache:/tmp/ccache:delegated
+      - ${DOCKER_VOLUME_DIR}/${ARCH}-conda-ccache:/ccache:delegated
     command:
       ["/arrow/ci/scripts/cpp_build.sh /arrow /tmp &&
         /arrow/ci/scripts/python_build.sh /arrow /tmp &&
