@@ -102,9 +102,9 @@ jobs:
             runner: [self-hosted, linux, ARM64]
             image: -e CPP_MAKE_PARALLELISM=2 ubuntu-cpp
           - name: arm32v7-ubuntu-18.04-cpp
-            ubuntu: 18.04
+            debian: 10
             arch: arm32v7
-            title: ARM32v7 Ubuntu 18.04 C++
+            title: ARM32v7 Debian 10 C++
             runner: [self-hosted, linux, ARM]
             image: -e CPP_MAKE_PARALLELISM=2 ubuntu-cpp
     env:
