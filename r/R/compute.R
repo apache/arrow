@@ -42,6 +42,12 @@ mean.ChunkedArray <- mean.Array
 #' @export
 mean.Scalar <- mean.Array
 
+min.Array <- function(..., na.rm = FALSE) {
+  extrema <- scalar_aggregate("minmax", ..., na.rm = na.rm)
+  # TODO: StructScalar needs field accessor methods in C++: ARROW-9070
+  Scalar$create(as.vector(extrema)$min)
+}
+
 scalar_aggregate <- function(FUN, ..., na.rm = FALSE) {
   args <- list(...)
   assert_that(length(args) == 1) # TODO: make chunked array if there are multiple arrays

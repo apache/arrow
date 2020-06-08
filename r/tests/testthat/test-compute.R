@@ -88,3 +88,24 @@ test_that("mean.Scalar", {
 test_that("Bad input handling of call_function", {
   expect_error(call_function("sum", 2, 3), "to_datum: Not implemented for type double")
 })
+
+test_that("min/max.Array", {
+  ints <- 1:4
+  a <- Array$create(ints)
+  expect_is(min(a), "Scalar")
+  expect_identical(as.vector(min(a)), min(ints))
+
+  floats <- c(1.3, 3, 2.4)
+  f <- Array$create(floats)
+  expect_identical(as.vector(min(f)), min(floats))
+
+  floats <- c(floats, NA)
+  na <- Array$create(floats)
+  expect_identical(as.vector(min(na)), min(floats))
+  expect_is(min(na, na.rm = TRUE), "Scalar")
+  expect_identical(as.vector(min(na, na.rm = TRUE)), min(floats, na.rm = TRUE))
+
+  bools <- c(TRUE, TRUE, FALSE)
+  b <- Array$create(bools)
+  expect_identical(as.vector(min(b)), min(bools))
+})
