@@ -45,6 +45,12 @@ test_that("sum.ChunkedArray", {
   expect_identical(as.numeric(sum(a, na.rm = TRUE)), 35)
 })
 
+test_that("sum dots", {
+  a1 <- Array$create(1:4)
+  a2 <- ChunkedArray$create(1:4, c(1:4, NA), 1:5)
+  expect_identical(as.numeric(sum(a1, a2, na.rm = TRUE)), 45)
+})
+
 test_that("sum.Scalar", {
   skip("No sum method in arrow for Scalar: ARROW-9056")
   s <- Scalar$create(4)

@@ -49,9 +49,7 @@ min.Array <- function(..., na.rm = FALSE) {
 }
 
 scalar_aggregate <- function(FUN, ..., na.rm = FALSE) {
-  args <- list(...)
-  assert_that(length(args) == 1) # TODO: make chunked array if there are multiple arrays
-  a <- ..1
+  a <- collect_arrays_from_dots(list(...))
   if (!na.rm && a$null_count > 0) {
     # Arrow sum/mean function always drops NAs so handle that here
     # https://issues.apache.org/jira/browse/ARROW-9054
@@ -64,6 +62,25 @@ scalar_aggregate <- function(FUN, ..., na.rm = FALSE) {
     }
     shared_ptr(Scalar, call_function(FUN, a))
   }
+}
+
+collect_arrays_from_dots <- function(dots) {
+  # Given a list that may contain both Arrays and ChunkedArrays,
+  # return a single ChunkedArray containing all of those chunks
+  # (may return a regular Array if there is only one element in dots)
+  assert_that(all(map_lgl(dots, is.Array)))
+  if (length(dots) == 1) {
+    return(dots[[1]])
+  }
+
+  arrays <- unlist(lapply(dots, function(x) {
+    if (inherits(x, "ChunkedArray")) {
+      x$chunks
+    } else {
+      x
+    }
+  }))
+  ChunkedArray$create(!!!arrays)
 }
 
 CastOptions <- R6Class("CastOptions", inherit = ArrowObject)
