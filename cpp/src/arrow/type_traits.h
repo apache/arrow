@@ -696,7 +696,6 @@ static inline bool is_floating(Type::type type_id) {
 
 static inline bool is_primitive(Type::type type_id) {
   switch (type_id) {
-    case Type::NA:
     case Type::BOOL:
     case Type::UINT8:
     case Type::INT8:
