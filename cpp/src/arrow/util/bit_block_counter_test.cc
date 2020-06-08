@@ -246,5 +246,28 @@ TEST(TestBinaryBitBlockCounter, NextAndWord) {
   }
 }
 
+TEST(TestOptionalBitBlockCounter, Basics) {
+  const int64_t nbytes = 1024;
+  auto bitmap = *AllocateBitmap(nbytes * 8);
+  random_bytes(nbytes, 0, bitmap->mutable_data());
+
+  OptionalBitBlockCounter optional_counter(bitmap, 0, nbytes * 8);
+  BitBlockCounter bit_counter(bitmap->data(), 0, nbytes * 8);
+
+  while (true) {
+    BitBlockCount block = bit_counter.NextWord();
+    BitBlockCount optional_block = optional_counter.NextBlock();
+    ASSERT_EQ(optional_block.length, block.length);
+    ASSERT_EQ(optional_block.popcount, block.popcount);
+    if (block.length == 0) {
+      break;
+    }
+  }
+
+  BitBlockCount optional_block = optional_counter.NextBlock();
+  ASSERT_EQ(optional_block.length, 0);
+  ASSERT_EQ(optional_block.popcount, 0);
+}
+
 }  // namespace internal
 }  // namespace arrow

@@ -18,11 +18,15 @@
 #include <algorithm>
 #include <cstdint>
 #include <random>
+#include <string>
 #include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>
 
+#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/random.h"
+#include "arrow/type.h"
 #include "arrow/util/int_util.h"
 
 namespace arrow {
@@ -380,6 +384,103 @@ TEST(TransposeInts, Int8ToInt64) {
 
   TransposeInts(src.data(), dest.data(), 6, transpose_map.data());
   ASSERT_EQ(dest, std::vector<int64_t>({2222, 4444, 6666, 1111, 4444, 3333}));
+}
+
+void BoundscheckPasses(const std::shared_ptr<DataType>& type,
+                       const std::string& indices_json, uint64_t upper_limit) {
+  auto indices = ArrayFromJSON(type, indices_json);
+  ASSERT_OK(IndexBoundscheck(*indices->data(), upper_limit));
+}
+
+void BoundscheckFails(const std::shared_ptr<DataType>& type,
+                      const std::string& indices_json, uint64_t upper_limit) {
+  auto indices = ArrayFromJSON(type, indices_json);
+  ASSERT_RAISES(IndexError, IndexBoundscheck(*indices->data(), upper_limit));
+}
+
+TEST(IndexBoundscheck, Batching) {
+  auto rand = random::RandomArrayGenerator(/*seed=*/0);
+
+  const int64_t length = 200;
+
+  auto indices = rand.Int16(length, 0, 0, /*null_probability=*/0);
+  ArrayData* index_data = indices->data().get();
+  index_data->buffers[0] = *AllocateBitmap(length);
+
+  int16_t* values = index_data->GetMutableValues<int16_t>(1);
+  uint8_t* bitmap = index_data->buffers[0]->mutable_data();
+  BitUtil::SetBitsTo(bitmap, 0, length, true);
+
+  ASSERT_OK(IndexBoundscheck(*index_data, 1));
+
+  // We'll place out of bounds indices at various locations
+  values[99] = 1;
+  ASSERT_RAISES(IndexError, IndexBoundscheck(*index_data, 1));
+
+  // Make that value null
+  BitUtil::ClearBit(bitmap, 99);
+  ASSERT_OK(IndexBoundscheck(*index_data, 1));
+
+  values[199] = 1;
+  ASSERT_RAISES(IndexError, IndexBoundscheck(*index_data, 1));
+
+  // Make that value null
+  BitUtil::ClearBit(bitmap, 199);
+  ASSERT_OK(IndexBoundscheck(*index_data, 1));
+}
+
+TEST(IndexBoundscheck, SignedInts) {
+  auto CheckCommon = [&](const std::shared_ptr<DataType>& ty) {
+    BoundscheckPasses(ty, "[0, 0, 0]", 1);
+    BoundscheckFails(ty, "[0, 0, 0]", 0);
+    BoundscheckFails(ty, "[-1]", 1);
+    BoundscheckFails(ty, "[-128]", 1);
+    BoundscheckFails(ty, "[0, 100, 127]", 127);
+    BoundscheckPasses(ty, "[0, 100, 127]", 128);
+  };
+
+  CheckCommon(int8());
+
+  CheckCommon(int16());
+  BoundscheckPasses(int16(), "[0, 999, 999]", 1000);
+  BoundscheckFails(int16(), "[0, 1000, 1000]", 1000);
+  BoundscheckPasses(int16(), "[0, 32767]", 1 << 15);
+
+  CheckCommon(int32());
+  BoundscheckPasses(int32(), "[0, 999999, 999999]", 1000000);
+  BoundscheckFails(int32(), "[0, 1000000, 1000000]", 1000000);
+  BoundscheckPasses(int32(), "[0, 2147483647]", 1LL << 31);
+
+  CheckCommon(int64());
+  BoundscheckPasses(int64(), "[0, 9999999999, 9999999999]", 10000000000LL);
+  BoundscheckFails(int64(), "[0, 10000000000, 10000000000]", 10000000000LL);
+}
+
+TEST(IndexBoundscheck, UnsignedInts) {
+  auto CheckCommon = [&](const std::shared_ptr<DataType>& ty) {
+    BoundscheckPasses(ty, "[0, 0, 0]", 1);
+    BoundscheckFails(ty, "[0, 0, 0]", 0);
+    BoundscheckFails(ty, "[0, 100, 200]", 200);
+    BoundscheckPasses(ty, "[0, 100, 200]", 201);
+  };
+
+  CheckCommon(uint8());
+  BoundscheckPasses(uint8(), "[255, 255, 255]", 1000);
+  BoundscheckFails(uint8(), "[255, 255, 255]", 255);
+
+  CheckCommon(uint16());
+  BoundscheckPasses(uint16(), "[0, 999, 999]", 1000);
+  BoundscheckFails(uint16(), "[0, 1000, 1000]", 1000);
+  BoundscheckPasses(uint16(), "[0, 65535]", 1 << 16);
+
+  CheckCommon(uint32());
+  BoundscheckPasses(uint32(), "[0, 999999, 999999]", 1000000);
+  BoundscheckFails(uint32(), "[0, 1000000, 1000000]", 1000000);
+  BoundscheckPasses(uint32(), "[0, 4294967295]", 1LL << 32);
+
+  CheckCommon(uint64());
+  BoundscheckPasses(uint64(), "[0, 9999999999, 9999999999]", 10000000000LL);
+  BoundscheckFails(uint64(), "[0, 10000000000, 10000000000]", 10000000000LL);
 }
 
 }  // namespace internal

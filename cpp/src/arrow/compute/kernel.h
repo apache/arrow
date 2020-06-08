@@ -150,6 +150,19 @@ ARROW_EXPORT std::shared_ptr<TypeMatcher> SameTypeId(Type::type type_id);
 /// zones can be different.
 ARROW_EXPORT std::shared_ptr<TypeMatcher> TimestampUnit(TimeUnit::type unit);
 
+// \brief Match any integer type
+ARROW_EXPORT std::shared_ptr<TypeMatcher> Integer();
+
+// Match types using 32-bit varbinary representation
+ARROW_EXPORT std::shared_ptr<TypeMatcher> BinaryLike();
+
+// Match types using 64-bit varbinary representation
+ARROW_EXPORT std::shared_ptr<TypeMatcher> LargeBinaryLike();
+
+// \brief Match any primitive type (boolean or any type representable as a C
+// Type)
+ARROW_EXPORT std::shared_ptr<TypeMatcher> Primitive();
+
 }  // namespace match
 
 /// \brief An object used for type- and shape-checking arguments to be passed
