@@ -866,7 +866,7 @@ cdef class Array(_PandasConvertible):
             return 0
 
     def isnull(self):
-        raise NotImplemented
+        raise NotImplementedError()
 
     def __getitem__(self, key):
         """
