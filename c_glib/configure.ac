@@ -155,6 +155,7 @@ if test "x$GARROW_ARROW_CPP_BUILD_DIR" = "x"; then
   arrow_packages="${arrow_packages} arrow-compute"
   arrow_packages="${arrow_packages} arrow-csv"
   arrow_packages="${arrow_packages} arrow-filesystem"
+  arrow_packages="${arrow_packages} arrow-json"
   PKG_CHECK_MODULES([ARROW], [${arrow_packages}])
   _PKG_CONFIG(ARROW_LIB_DIR, [variable=libdir], [arrow])
   ARROW_LIB_DIR="$pkg_cv_ARROW_LIB_DIR"
