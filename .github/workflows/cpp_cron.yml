@@ -55,8 +55,9 @@ jobs:
           # - amd64-ubuntu-16.04-cpp
           # - amd64-ubuntu-18.04-cpp
           # - amd64-ubuntu-18.04-cpp-cmake32
-          - arm64v8-ubuntu-16.04-cpp
+          # - arm64v8-ubuntu-16.04-cpp
           - arm64v8-ubuntu-18.04-cpp
+          - arm32v7-ubuntu-18.04-cpp
         include:
           # - name: amd64-debian-10-cpp
           #   arch: amd64
@@ -89,17 +90,23 @@ jobs:
           #   ubuntu: 18.04
           #   runner: ubuntu-latest
           # parallelism is reduced because the ARM builders are low on memory
-          - name: arm64v8-ubuntu-16.04-cpp
-            ubuntu: 16.04
-            arch: arm64v8
-            title: ARM64v8 Ubuntu 16.04 C++
-            runner: [self-hosted, linux, ARM64]
-            image: -e CPP_MAKE_PARALLELISM=2 ubuntu-cpp
+          # - name: arm64v8-ubuntu-16.04-cpp
+          #   ubuntu: 16.04
+          #   arch: arm64v8
+          #   title: ARM64v8 Ubuntu 16.04 C++
+          #   runner: [self-hosted, linux, ARM64]
+          #   image: -e CPP_MAKE_PARALLELISM=2 ubuntu-cpp
           - name: arm64v8-ubuntu-18.04-cpp
             ubuntu: 18.04
             arch: arm64v8
             title: ARM64v8 Ubuntu 18.04 C++
             runner: [self-hosted, linux, ARM64]
+            image: -e CPP_MAKE_PARALLELISM=2 ubuntu-cpp
+          - name: arm32v7-ubuntu-18.04-cpp
+            ubuntu: 18.04
+            arch: arm32v7
+            title: ARM32v7 Ubuntu 18.04 C++
+            runner: [self-hosted, linux, ARM]
             image: -e CPP_MAKE_PARALLELISM=2 ubuntu-cpp
     env:
       # the defaults here should correspond to the values in .env
