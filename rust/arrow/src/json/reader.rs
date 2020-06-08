@@ -369,13 +369,18 @@ impl<R: Read> Reader<R> {
         let mut rows: Vec<Value> = Vec::with_capacity(self.batch_size);
         let mut line = String::new();
         for _ in 0..self.batch_size {
-            self.reader.read_line(&mut line)?;
-            if !line.is_empty() {
+            let bytes_read = self.reader.read_line(&mut line)?;
+            if bytes_read > 0 {
                 rows.push(serde_json::from_str(&line).expect("Not valid JSON"));
                 line = String::new();
             } else {
                 break;
             }
+        }
+
+        if rows.is_empty(){
+            // reached end of file
+            return Ok(None);
         }
 
         let rows = &rows[..];
@@ -1180,5 +1185,23 @@ mod tests {
                 None
             ]
         );
+    }
+
+    #[test]
+    fn test_with_multiple_batches() {
+
+        let builder = ReaderBuilder::new()
+            .infer_schema(Some(4))
+            .with_batch_size(5);
+        let mut reader: Reader<File> = builder
+            .build::<File>(File::open("test/data/basic_nulls.json").unwrap())
+            .unwrap();
+
+        let mut num_records = Vec::new();
+        while let Some(rb) = reader.next().unwrap() {
+            num_records.push(rb.num_rows());
+        }
+
+        assert_eq!(vec![5,5,2], num_records);
     }
 }
