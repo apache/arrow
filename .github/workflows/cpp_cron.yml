@@ -46,44 +46,44 @@ jobs:
       fail-fast: false
       matrix:
         name:
-          - amd64-debian-10-cpp
-          - amd64-fedora-32-cpp
-          - amd64-ubuntu-16.04-cpp
-          - amd64-ubuntu-18.04-cpp
-          - amd64-ubuntu-18.04-cpp-cmake32
+          # - amd64-debian-10-cpp
+          # - amd64-fedora-32-cpp
+          # - amd64-ubuntu-16.04-cpp
+          # - amd64-ubuntu-18.04-cpp
+          # - amd64-ubuntu-18.04-cpp-cmake32
           - arm64v8-ubuntu-16.04-cpp
           - arm64v8-ubuntu-18.04-cpp
         include:
-          - name: amd64-debian-10-cpp
-            arch: amd64
-            image: debian-cpp
-            title: AMD64 Debian 10 C++
-            debian: 10
-            runner: ubuntu-latest
-          - name: amd64-fedora-32-cpp
-            arch: amd64
-            image: fedora-cpp
-            title: AMD64 Fedora 32 C++
-            fedora: 32
-            runner: ubuntu-latest
-          - name: amd64-ubuntu-16.04-cpp
-            arch: amd64
-            image: ubuntu-cpp
-            title: AMD64 Ubuntu 16.04 C++
-            ubuntu: 16.04
-            runner: ubuntu-latest
-          - name: amd64-ubuntu-18.04-cpp
-            arch: amd64
-            image: ubuntu-cpp
-            title: AMD64 Ubuntu 18.04 C++
-            ubuntu: 18.04
-            runner: ubuntu-latest
-          - name: amd64-ubuntu-18.04-cpp-cmake32
-            arch: amd64
-            image: ubuntu-cpp-cmake32
-            title: AMD64 Ubuntu 18.04 C++ CMake 3.2
-            ubuntu: 18.04
-            runner: ubuntu-latest
+          # - name: amd64-debian-10-cpp
+          #   arch: amd64
+          #   image: debian-cpp
+          #   title: AMD64 Debian 10 C++
+          #   debian: 10
+          #   runner: ubuntu-latest
+          # - name: amd64-fedora-32-cpp
+          #   arch: amd64
+          #   image: fedora-cpp
+          #   title: AMD64 Fedora 32 C++
+          #   fedora: 32
+          #   runner: ubuntu-latest
+          # - name: amd64-ubuntu-16.04-cpp
+          #   arch: amd64
+          #   image: ubuntu-cpp
+          #   title: AMD64 Ubuntu 16.04 C++
+          #   ubuntu: 16.04
+          #   runner: ubuntu-latest
+          # - name: amd64-ubuntu-18.04-cpp
+          #   arch: amd64
+          #   image: ubuntu-cpp
+          #   title: AMD64 Ubuntu 18.04 C++
+          #   ubuntu: 18.04
+          #   runner: ubuntu-latest
+          # - name: amd64-ubuntu-18.04-cpp-cmake32
+          #   arch: amd64
+          #   image: ubuntu-cpp-cmake32
+          #   title: AMD64 Ubuntu 18.04 C++ CMake 3.2
+          #   ubuntu: 18.04
+          #   runner: ubuntu-latest
           # parallelism is reduced because the ARM builders are low on memory
           - name: arm64v8-ubuntu-16.04-cpp
             ubuntu: 16.04
@@ -106,7 +106,6 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
-          submodules: true
       - name: Fetch Submodules and Tags
         run: ci/scripts/util_checkout.sh
       - name: Free Up Disk Space

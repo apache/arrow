@@ -18,11 +18,13 @@
 # under the License.
 
 # this script is github actions specific to check out the submodules and tags
+pwd
+git config --list
 
 # TODO(kszucs): remove it once the "submodules: recursive" feature is released
-# auth_header="$(git config --local --get http.https://github.com/.extraheader)"
-# git submodule sync --recursive
-# git -c "http.extraheader=$auth_header" -c protocol.version=2 submodule update --init --force --recursive --depth=1
+auth_header="$(git config --local --get http.https://github.com/.extraheader)"
+git submodule sync --recursive
+git -c "http.extraheader=$auth_header" -c protocol.version=2 submodule update --init --force --recursive --depth=1
 
 # fetch all the tags
 git fetch --depth=1 origin +refs/tags/*:refs/tags/*
