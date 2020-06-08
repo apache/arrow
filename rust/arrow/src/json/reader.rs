@@ -492,24 +492,11 @@ impl<R: Read> Reader<R> {
                     DataType::Dictionary(ref key_typ, ref value_type) => {
                         if let DataType::Utf8 = **value_type {
                             match **key_typ {
-                                DataType::Int16 => {
-                                    let key_builder = PrimitiveBuilder::<Int16Type>::new(rows.len());
-                                    let value_builder = StringBuilder::new(100);
-                                    let mut builder = StringDictionaryBuilder::new(key_builder, value_builder);
-                                    for row in rows {
-                                        if let Some(value) = row.get(field.name()) {
-                                            if let Some(str_v) = value.as_str() {
-                                                builder.append(str_v).map(|_| ())?
-                                            } else {
-                                                builder.append_null()?
-                                            }
-                                        } else {
-                                            builder.append_null()?
-                                        }
-                                    }
-                                    Ok(Arc::new(builder.finish()) as ArrayRef)
-                                }
-                                _ => Err(ArrowError::JsonError("dictionary types are not yet supported".to_string()))
+                                DataType::Int8 => self.build_dictionary_array::<Int8Type>(rows, field.name()),
+                                DataType::Int16 => self.build_dictionary_array::<Int16Type>(rows, field.name()),
+                                DataType::Int32 => self.build_dictionary_array::<Int32Type>(rows, field.name()),
+                                DataType::Int64 => self.build_dictionary_array::<Int64Type>(rows, field.name()),
+                                _ => Err(ArrowError::JsonError("unsupported dictionary key type".to_string()))
                             }
                         } else {
                             Err(ArrowError::JsonError("dictionary types other than UTF-8 not yet supported".to_string()))
@@ -651,6 +638,32 @@ impl<R: Read> Reader<R> {
             builder.append(true)?
         }
         Ok(Arc::new(builder.finish()))
+    }
+
+    fn build_dictionary_array<T: ArrowPrimitiveType>(
+        &self,
+        rows: &[Value],
+        col_name: &str,
+    ) -> Result<ArrayRef>
+    where
+        T::Native: num::NumCast,
+        T: ArrowDictionaryKeyType,
+    {
+        let key_builder = PrimitiveBuilder::<T>::new(rows.len());
+        let value_builder = StringBuilder::new(100);
+        let mut builder = StringDictionaryBuilder::new(key_builder, value_builder);
+        for row in rows {
+            if let Some(value) = row.get(&col_name) {
+                if let Some(str_v) = value.as_str() {
+                    builder.append(str_v).map(|_| ())?
+                } else {
+                    builder.append_null()?
+                }
+            } else {
+                builder.append_null()?
+            }
+        }
+        Ok(Arc::new(builder.finish()) as ArrayRef)
     }
 }
 
@@ -1184,6 +1197,93 @@ mod tests {
                 Some(0),
                 None
             ]
+        );
+    }
+
+    #[test]
+    fn test_dictionary_from_json_int8() {
+        let schema = Schema::new(vec![Field::new(
+            "d",
+            Dictionary(Box::new(DataType::Int8), Box::new(DataType::Utf8)),
+            true,
+        )]);
+        let builder = ReaderBuilder::new()
+            .with_schema(Arc::new(schema))
+            .with_batch_size(64);
+        let mut reader: Reader<File> = builder
+            .build::<File>(File::open("test/data/basic_nulls.json").unwrap())
+            .unwrap();
+        let batch = reader.next().unwrap().unwrap();
+
+        assert_eq!(1, batch.num_columns());
+        assert_eq!(12, batch.num_rows());
+
+        let schema = reader.schema();
+        let batch_schema = batch.schema();
+        assert_eq!(&schema, batch_schema);
+
+        let d = schema.column_with_name("d").unwrap();
+        assert_eq!(
+            &Dictionary(Box::new(DataType::Int8), Box::new(DataType::Utf8)),
+            d.1.data_type()
+        );
+    }
+
+    #[test]
+    fn test_dictionary_from_json_int32() {
+        let schema = Schema::new(vec![Field::new(
+            "d",
+            Dictionary(Box::new(DataType::Int32), Box::new(DataType::Utf8)),
+            true,
+        )]);
+        let builder = ReaderBuilder::new()
+            .with_schema(Arc::new(schema))
+            .with_batch_size(64);
+        let mut reader: Reader<File> = builder
+            .build::<File>(File::open("test/data/basic_nulls.json").unwrap())
+            .unwrap();
+        let batch = reader.next().unwrap().unwrap();
+
+        assert_eq!(1, batch.num_columns());
+        assert_eq!(12, batch.num_rows());
+
+        let schema = reader.schema();
+        let batch_schema = batch.schema();
+        assert_eq!(&schema, batch_schema);
+
+        let d = schema.column_with_name("d").unwrap();
+        assert_eq!(
+            &Dictionary(Box::new(DataType::Int32), Box::new(DataType::Utf8)),
+            d.1.data_type()
+        );
+    }
+
+    #[test]
+    fn test_dictionary_from_json_int64() {
+        let schema = Schema::new(vec![Field::new(
+            "d",
+            Dictionary(Box::new(DataType::Int64), Box::new(DataType::Utf8)),
+            true,
+        )]);
+        let builder = ReaderBuilder::new()
+            .with_schema(Arc::new(schema))
+            .with_batch_size(64);
+        let mut reader: Reader<File> = builder
+            .build::<File>(File::open("test/data/basic_nulls.json").unwrap())
+            .unwrap();
+        let batch = reader.next().unwrap().unwrap();
+
+        assert_eq!(1, batch.num_columns());
+        assert_eq!(12, batch.num_rows());
+
+        let schema = reader.schema();
+        let batch_schema = batch.schema();
+        assert_eq!(&schema, batch_schema);
+
+        let d = schema.column_with_name("d").unwrap();
+        assert_eq!(
+            &Dictionary(Box::new(DataType::Int64), Box::new(DataType::Utf8)),
+            d.1.data_type()
         );
     }
 
