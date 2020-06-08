@@ -20,7 +20,7 @@ BOOST_VERSION=1.68.0
 BOOST_VERSION_UNDERSCORE=${BOOST_VERSION//\./_}
 NCORES=$(($(grep -c ^processor /proc/cpuinfo) + 1))
 
-curl -sL https://dl.bintray.com/boostorg/release/${BOOST_VERSION}/source/boost_${BOOST_VERSION_UNDERSCORE}.tar.gz -o /boost_${BOOST_VERSION_UNDERSCORE}.tar.gz
+curl -sL https://sourceforge.net/projects/boost/files/boost/${BOOST_VERSION}/boost_${BOOST_VERSION_UNDERSCORE}.tar.gz -o /boost_${BOOST_VERSION_UNDERSCORE}.tar.gz
 tar xf boost_${BOOST_VERSION_UNDERSCORE}.tar.gz
 mkdir /arrow_boost
 pushd /boost_${BOOST_VERSION_UNDERSCORE}
