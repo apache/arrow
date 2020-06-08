@@ -49,7 +49,7 @@ jobs:
       fail-fast: false
       matrix:
         name:
-          # - amd64-debian-10-cpp
+          - amd64-debian-10-cpp
           # - amd64-fedora-32-cpp
           # - amd64-ubuntu-16.04-cpp
           # - amd64-ubuntu-18.04-cpp
@@ -58,12 +58,12 @@ jobs:
           - arm64v8-ubuntu-18.04-cpp
           - arm32v7-ubuntu-18.04-cpp
         include:
-          # - name: amd64-debian-10-cpp
-          #   arch: amd64
-          #   image: debian-cpp
-          #   title: AMD64 Debian 10 C++
-          #   debian: 10
-          #   runner: ubuntu-latest
+          - name: amd64-debian-10-cpp
+            arch: amd64
+            image: debian-cpp
+            title: AMD64 Debian 10 C++
+            debian: 10
+            runner: ubuntu-latest
           # - name: amd64-fedora-32-cpp
           #   arch: amd64
           #   image: fedora-cpp
