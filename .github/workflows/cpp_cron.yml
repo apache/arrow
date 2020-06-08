@@ -88,13 +88,15 @@ jobs:
           - name: arm64v8-ubuntu-16.04-cpp
             ubuntu: 16.04
             arch: arm64v8
+            title: ARM64v8 Ubuntu 16.04 C++
             runner: [self-hosted, linux, ARM64]
-            run_args: -e CPP_MAKE_PARALLELISM=2
+            image: -e CPP_MAKE_PARALLELISM=2 ubuntu-cpp
           - name: arm64v8-ubuntu-18.04-cpp
             ubuntu: 18.04
             arch: arm64v8
+            title: ARM64v8 Ubuntu 18.04 C++
             runner: [self-hosted, linux, ARM64]
-            run_args: -e CPP_MAKE_PARALLELISM=2
+            image: -e CPP_MAKE_PARALLELISM=2 ubuntu-cpp
     env:
       # the defaults here should correspond to the values in .env
       ARCH: ${{ matrix.arch || 'amd64' }}
