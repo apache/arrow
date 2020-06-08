@@ -31,29 +31,28 @@ public class ArrowBodyCompression implements FBSerializable {
    */
   public static final long BODY_COMPRESSION_LENGTH = 2L;
 
-  private final byte codec;
-  private final byte method;
+  final byte[] data = new byte[(int) BODY_COMPRESSION_LENGTH];
 
   public ArrowBodyCompression(byte codec, byte method) {
-    this.codec = codec;
-    this.method = method;
+    this.data[0] = codec;
+    this.data[1] = method;
   }
 
   @Override
   public int writeTo(FlatBufferBuilder builder) {
-    return BodyCompression.createBodyCompression(builder, codec, method);
+    return BodyCompression.createBodyCompression(builder, data[0], data[1]);
   }
 
   public byte getCodec() {
-    return codec;
+    return data[0];
   }
 
   public byte getMethod() {
-    return method;
+    return data[1];
   }
 
   @Override
   public String toString() {
-    return "ArrowBodyCompression [codec=" + codec + ", method=" + method + "]";
+    return "ArrowBodyCompression [codec=" + data[0] + ", method=" + data[1] + "]";
   }
 }

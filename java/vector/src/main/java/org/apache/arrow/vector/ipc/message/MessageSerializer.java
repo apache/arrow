@@ -313,10 +313,7 @@ public class MessageSerializer {
   public static long writeCompressionBody(
       WriteChannel out, ArrowBodyCompression bodyCompression) throws IOException {
     long bufferStart = out.getCurrentPosition();
-    ByteBuffer buf = ByteBuffer.allocate(2);
-    buf.put(bodyCompression.getCodec());
-    buf.put(bodyCompression.getMethod());
-    out.write(buf);
+    out.write(bodyCompression.data);
     out.align();
     return out.getCurrentPosition() - bufferStart;
   }
