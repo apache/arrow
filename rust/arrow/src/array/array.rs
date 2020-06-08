@@ -312,7 +312,7 @@ pub fn make_array(data: ArrayDataRef) -> ArrayRef {
 ///
 /// # Panics
 ///
-/// Panics if `offset + length < data.len()`.
+/// Panics if `offset + length > data.len()`.
 fn slice_data(data: ArrayDataRef, mut offset: usize, length: usize) -> ArrayDataRef {
     assert!((offset + length) <= data.len());
 
