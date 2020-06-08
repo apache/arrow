@@ -75,5 +75,5 @@ pub trait Table {
     ) -> Result<Vec<RecordBatch>>;
 
     /// Returns the schema
-    fn schema(&self) -> &Box<Schema>;
+    fn schema(&self) -> &Schema;
 }

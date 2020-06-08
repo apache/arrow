@@ -134,8 +134,8 @@ impl Table for TableImpl {
     }
 
     /// Returns the schema from the logical plan
-    fn schema(&self) -> &Box<Schema> {
-        self.plan.schema()
+    fn schema(&self) -> &Schema {
+        self.plan.schema().as_ref()
     }
 }
 
