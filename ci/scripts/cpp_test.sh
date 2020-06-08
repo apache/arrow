@@ -42,6 +42,8 @@ case "$(uname)" in
     ;;
   MINGW*)
     n_jobs=${NUMBER_OF_PROCESSORS:-1}
+    # TODO: Enable these crashed tests.
+    # https://issues.apache.org/jira/browse/ARROW-9072
     exclude_tests="gandiva-internals-test"
     exclude_tests="${exclude_tests}|gandiva-projector-test"
     exclude_tests="${exclude_tests}|gandiva-utf8-test"
