@@ -41,7 +41,6 @@ defaults:
     shell: bash -i {0}
 
 jobs:
-
   docker:
     name: ${{ matrix.title }}
     runs-on: ${{ matrix.runner }}
