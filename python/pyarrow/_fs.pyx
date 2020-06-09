@@ -75,18 +75,42 @@ cdef CFileType _unwrap_file_type(FileType ty) except *:
 cdef class FileInfo:
     """
     FileSystem entry info.
+
+    Parameters
+    ----------
+    path : str
+        The full path to the filesystem entry.
+    type : FileType
+        The type of the filesystem entry.
+    mtime : datetime or float, default None
+        If given, the modification time of the filesystem entry.
+        If a float is given, it is the number of seconds since the
+        Unix epoch.
+    mtime_ns : int, default None
+        If given, the modification time of the filesystem entry,
+        in nanoseconds since the Unix epoch.
+        `mtime` and `mtime_ns` are mutually exclusive.
+    size : int, default None
+        If given, the filesystem entry size in bytes.  This should only
+        be given if `type` is `FileType.File`.
+
     """
 
     def __init__(self, path, FileType type=FileType.Unknown, *,
-                 mtime=None, size=None):
+                 mtime=None, mtime_ns=None, size=None):
         self.info.set_path(tobytes(path))
         self.info.set_type(_unwrap_file_type(type))
         if mtime is not None:
+            if mtime_ns is not None:
+                raise TypeError("Only one of mtime and mtime_ns "
+                                "can be given")
             if isinstance(mtime, datetime):
                 self.info.set_mtime(PyDateTime_to_TimePoint(
                     <PyDateTime_DateTime*> mtime))
             else:
-                self.info.set_mtime(TimePoint_from_ns(mtime))
+                self.info.set_mtime(TimePoint_from_s(mtime))
+        elif mtime_ns is not None:
+            self.info.set_mtime(TimePoint_from_ns(mtime_ns))
         if size is not None:
             self.info.set_size(size)
 
@@ -762,7 +786,10 @@ cdef class PyFileSystem(FileSystem):
     """
     A FileSystem with behavior implemented in Python.
 
-    A PyFileSystem is backed by a FileSystemHandler instance.
+    Parameters
+    ----------
+    handler : FileSystemHandler
+        The handler object implementing custom filesystem behavior.
     """
 
     def __init__(self, handler):
