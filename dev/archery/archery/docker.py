@@ -16,7 +16,6 @@
 # under the License.
 
 import os
-import platform
 import subprocess
 from io import StringIO
 
@@ -125,29 +124,6 @@ class DockerCompose(Command):
         # override the defaults passed as parameters
         self._compose_env.update(self.params)
 
-    def _ensure_volumes(self, image):
-        def _check_permissions(path):
-            # check that the directory is owned by the current user
-            stat = path.stat()
-            uid, gid = os.getuid(), os.getgid()
-            if stat.st_uid != uid or stat.st_gid != gid:
-                raise RuntimeError(
-                    "{} is not owned by the current user, execute "
-                    "`chown -R {}:{} {}` to fix the directory's permissions"
-                    .format(self.volume_path, uid, gid, self.volume_path)
-                )
-
-        # create the directory with right permissions before docker does
-        volumes_root = self.config_path.parent / '.docker'
-
-        for volume in self.config['services'][image].get('volumes', []):
-            host_directory, _ = volume.split(':', 1)
-            host_directory = _ensure_path(host_directory)
-            if volumes_root in host_directory.parents:
-                host_directory.mkdir(parents=True, exist_ok=True)
-                if os.name == 'posix':
-                    _check_permissions(host_directory)
-
     def _validate_image(self, name):
         if name not in self.nodes:
             raise UndefinedImage(name)
@@ -203,7 +179,6 @@ class DockerCompose(Command):
             force_build=False, use_cache=True, use_leaf_cache=True,
             volumes=None, build_only=False, user=None):
         self._validate_image(image)
-        self._ensure_volumes(image)
 
         if force_pull:
             self.pull(image, pull_leaf=use_leaf_cache)
@@ -214,12 +189,7 @@ class DockerCompose(Command):
             return
 
         args = []
-        if user is None:
-            if platform.system() == 'Linux':
-                # run the docker process with the host's user by default to
-                # prevent writing docker volumes with root user
-                args.extend(['-u', '{}:{}'.format(os.getuid(), os.getgid())])
-        else:
+        if user is not None:
             args.extend(['-u', user])
 
         if env is not None:
