@@ -732,6 +732,7 @@ fn remove_indices(
     }
 }
 
+/// Implementation of ListArrayReader. Nested lists and lists of structs are not yet supported.
 impl ArrayReader for ListArrayReader {
     fn as_any(&self) -> &dyn Any {
         self
@@ -744,20 +745,26 @@ impl ArrayReader for ListArrayReader {
     }
 
     fn next_batch(&mut self, batch_size: usize) -> Result<ArrayRef> {
-        let next_batch_array = self.item_reader.next_batch(batch_size).unwrap();
+        let next_batch_array = self.item_reader.next_batch(batch_size)?;
         let item_type = self.item_reader.get_data_type().clone();
 
         if next_batch_array.len() == 0 {
             return build_empty_list_array(item_type);
         }
-        let def_levels = self.item_reader.get_def_levels().unwrap();
-        let rep_levels = self.item_reader.get_rep_levels().unwrap();
+        let def_levels = self
+            .item_reader
+            .get_def_levels()
+            .ok_or(ArrowError("item_reader def levels are None.".to_string()))?;
+        let rep_levels = self
+            .item_reader
+            .get_rep_levels()
+            .ok_or(ArrowError("item_reader rep levels are None.".to_string()))?;
 
         if !((def_levels.len() == rep_levels.len())
             && (rep_levels.len() == next_batch_array.len()))
         {
             return Err(ArrowError(
-                "Expected item_reader def_level and rep_level arrays to have the same length as batch array".to_string(),
+                "Expected item_reader def_levels and rep_levels to be same length as batch".to_string(),
             ));
         }
 
@@ -1151,17 +1158,14 @@ impl<'a> TypeVisitor<Option<Box<dyn ArrayReader>>, &'a ArrayReaderBuilderContext
         ))
     }
 
-    /// Build array reader for list type.
+    /// Build array reader for list type. Nested lists and lists of structs are not yet supported.
     fn visit_list_with_item(
         &mut self,
         list_type: Rc<Type>,
-        _item_type: &Type,
+        item_type: &Type,
         context: &'a ArrayReaderBuilderContext,
     ) -> Result<Option<Box<dyn ArrayReader>>> {
         let mut new_context = context.clone();
-
-        let list_child = &list_type.get_fields()[0];
-        let item_child = &list_child.get_fields()[0];
 
         new_context.path.append(vec![list_type.name().to_string()]);
 
@@ -1176,7 +1180,7 @@ impl<'a> TypeVisitor<Option<Box<dyn ArrayReader>>, &'a ArrayReaderBuilderContext
             _ => (),
         }
 
-        match list_child.get_basic_info().repetition() {
+        match item_type.get_basic_info().repetition() {
             Repetition::REPEATED => {
                 new_context.def_level += 1;
                 new_context.rep_level += 1;
@@ -1188,12 +1192,13 @@ impl<'a> TypeVisitor<Option<Box<dyn ArrayReader>>, &'a ArrayReaderBuilderContext
         }
 
         let item_reader = self
-            .dispatch(item_child.clone(), &new_context)
+            .dispatch(Rc::new(item_type.clone()), &new_context)
             .unwrap()
             .unwrap();
-        let item_type = item_reader.get_data_type().clone();
 
-        match item_type {
+        let item_reader_type = item_reader.get_data_type().clone();
+
+        match item_reader_type {
             ArrowType::List(_)
             | ArrowType::FixedSizeList(_, _)
             | ArrowType::Struct(_)
@@ -1202,11 +1207,11 @@ impl<'a> TypeVisitor<Option<Box<dyn ArrayReader>>, &'a ArrayReaderBuilderContext
                 item_type
             ))),
             _ => {
-                let arrow_type = ArrowType::List(Box::new(item_type.clone()));
+                let arrow_type = ArrowType::List(Box::new(item_reader_type.clone()));
                 Ok(Some(Box::new(ListArrayReader::new(
                     item_reader,
                     arrow_type,
-                    item_type,
+                    item_reader_type,
                     new_context.def_level,
                     new_context.rep_level,
                 ))))
