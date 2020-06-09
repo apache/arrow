@@ -218,7 +218,7 @@ grpc::Status FlightDataSerialize(const FlightPayload& msg, ByteBuffer* out,
 
   const arrow::ipc::internal::IpcPayload& ipc_msg = msg.ipc_message;
   // No data in this payload (metadata-only).
-  bool has_ipc = ipc_msg.type != ipc::Message::NONE;
+  bool has_ipc = ipc_msg.type != ipc::MessageType::NONE;
   bool has_body = has_ipc ? ipc::Message::HasBody(ipc_msg.type) : false;
 
   if (has_ipc) {

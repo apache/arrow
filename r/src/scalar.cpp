@@ -19,7 +19,8 @@
 
 #if defined(ARROW_R_WITH_ARROW)
 
-#include <arrow/array.h>
+#include <arrow/array/array_base.h>
+#include <arrow/array/util.h>
 #include <arrow/scalar.h>
 
 // [[arrow::export]]

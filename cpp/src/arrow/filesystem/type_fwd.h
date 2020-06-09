@@ -18,35 +18,35 @@
 #pragma once
 
 namespace arrow {
-namespace io {
+namespace fs {
 
-struct FileMode {
-  enum type { READ, WRITE, READWRITE };
+/// \brief FileSystem entry type
+enum class FileType : int8_t {
+  /// Entry is not found
+  NotFound,
+  /// Entry exists but its type is unknown
+  ///
+  /// This can designate a special file such as a Unix socket or character
+  /// device, or Windows NUL / CON / ...
+  Unknown,
+  /// Entry is a regular file
+  File,
+  /// Entry is a directory
+  Directory
 };
 
-class FileInterface;
-class Seekable;
-class Writable;
-class Readable;
-class OutputStream;
-class FileOutputStream;
-class InputStream;
-class ReadableFile;
-class RandomAccessFile;
-class MemoryMappedFile;
-class WritableFile;
-class ReadWriteFileInterface;
+struct FileInfo;
 
-class LatencyGenerator;
+struct FileSelector;
 
-class BufferReader;
+class FileSystem;
+class SubTreeFileSystem;
+class SlowFileSystem;
+class LocalFileSystem;
 
-class BufferInputStream;
-class BufferOutputStream;
-class CompressedInputStream;
-class CompressedOutputStream;
-class BufferedInputStream;
-class BufferedOutputStream;
+#if defined(ARROW_R_WITH_S3)
+class S3FileSystem;
+#endif
 
-}  // namespace io
+}  // namespace fs
 }  // namespace arrow

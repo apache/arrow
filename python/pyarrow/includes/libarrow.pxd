@@ -1186,10 +1186,11 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
 
 
 cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
-    enum MessageType" arrow::ipc::Message::Type":
-        MessageType_SCHEMA" arrow::ipc::Message::SCHEMA"
-        MessageType_RECORD_BATCH" arrow::ipc::Message::RECORD_BATCH"
-        MessageType_DICTIONARY_BATCH" arrow::ipc::Message::DICTIONARY_BATCH"
+    enum MessageType" arrow::ipc::MessageType":
+        MessageType_SCHEMA" arrow::ipc::MessageType::SCHEMA"
+        MessageType_RECORD_BATCH" arrow::ipc::MessageType::RECORD_BATCH"
+        MessageType_DICTIONARY_BATCH\
+            " arrow::ipc::MessageType::DICTIONARY_BATCH"
 
     enum MetadataVersion" arrow::ipc::MetadataVersion":
         MessageType_V1" arrow::ipc::MetadataVersion::V1"

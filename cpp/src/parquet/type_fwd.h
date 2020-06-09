@@ -17,36 +17,15 @@
 
 #pragma once
 
+namespace parquet {
+
+class FileMetaData;
+class SchemaDescriptor;
+
 namespace arrow {
-namespace io {
 
-struct FileMode {
-  enum type { READ, WRITE, READWRITE };
-};
+class FileWriter;
+class FileReader;
 
-class FileInterface;
-class Seekable;
-class Writable;
-class Readable;
-class OutputStream;
-class FileOutputStream;
-class InputStream;
-class ReadableFile;
-class RandomAccessFile;
-class MemoryMappedFile;
-class WritableFile;
-class ReadWriteFileInterface;
-
-class LatencyGenerator;
-
-class BufferReader;
-
-class BufferInputStream;
-class BufferOutputStream;
-class CompressedInputStream;
-class CompressedOutputStream;
-class BufferedInputStream;
-class BufferedOutputStream;
-
-}  // namespace io
 }  // namespace arrow
+}  // namespace parquet

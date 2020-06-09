@@ -460,7 +460,7 @@ Status NumberingStream::GetSchemaPayload(FlightPayload* payload) {
 
 Status NumberingStream::Next(FlightPayload* payload) {
   RETURN_NOT_OK(stream_->Next(payload));
-  if (payload && payload->ipc_message.type == ipc::Message::RECORD_BATCH) {
+  if (payload && payload->ipc_message.type == ipc::MessageType::RECORD_BATCH) {
     payload->app_metadata = Buffer::FromString(std::to_string(counter_));
     counter_++;
   }

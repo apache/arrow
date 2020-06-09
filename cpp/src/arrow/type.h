@@ -1064,8 +1064,6 @@ class ARROW_EXPORT UnionType : public NestedType {
 // ----------------------------------------------------------------------
 // Date and time types
 
-enum class DateUnit : char { DAY = 0, MILLI = 1 };
-
 /// \brief Base type for all date and time types
 class ARROW_EXPORT TemporalType : public FixedWidthType {
  public:

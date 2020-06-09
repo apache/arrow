@@ -17,6 +17,7 @@
 
 #include "arrow/util/compression.h"
 
+#include <limits>
 #include <memory>
 #include <string>
 #include <utility>
@@ -26,6 +27,9 @@
 #include "arrow/util/compression_internal.h"
 
 namespace arrow {
+
+const int Compression::kUseDefaultCompressionLevel = std::numeric_limits<int>::min();
+
 namespace util {
 
 Compressor::~Compressor() {}
