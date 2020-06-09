@@ -120,6 +120,16 @@ ARROW_PYTHON_EXPORT
 inline int64_t TimePoint_to_ns(TimePoint val) { return val.time_since_epoch().count(); }
 
 ARROW_PYTHON_EXPORT
+inline TimePoint TimePoint_from_s(double val) {
+  return TimePoint(TimePoint::duration(static_cast<int64_t>(1e9 * val)));
+}
+
+ARROW_PYTHON_EXPORT
+inline TimePoint TimePoint_from_ns(int64_t val) {
+  return TimePoint(TimePoint::duration(val));
+}
+
+ARROW_PYTHON_EXPORT
 inline int64_t PyDelta_to_s(PyDateTime_Delta* pytimedelta) {
   int64_t total_seconds = 0;
   total_seconds += PyDateTime_DELTA_GET_SECONDS(pytimedelta);
