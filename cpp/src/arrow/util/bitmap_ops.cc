@@ -317,7 +317,7 @@ void TransferBitmap(const uint8_t* data, int64_t offset, int64_t length,
     // - low  3 bits: new bits from last byte of data buffer
     // - high 5 bits: old bits from last byte of dest buffer
     int64_t trailing_bits = num_bytes * 8 - length;
-    uint8_t trail_mask = (1U << (8 - trailing_bits)) - 1;
+    uint8_t kTrailingBitmask = (1U << (8 - trailing_bits)) - 1;
     uint8_t last_data;
 
     if (mode == TransferMode::Invert) {
@@ -331,8 +331,8 @@ void TransferBitmap(const uint8_t* data, int64_t offset, int64_t length,
     }
 
     // Set last byte
-    dest[num_bytes - 1] &= ~trail_mask;
-    dest[num_bytes - 1] |= last_data & trail_mask;
+    dest[num_bytes - 1] &= ~kTrailingBitmask;
+    dest[num_bytes - 1] |= last_data & kTrailingBitmask;
   }
 }
 
