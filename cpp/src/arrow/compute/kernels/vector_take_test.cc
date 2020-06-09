@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <algorithm>
 #include <limits>
 #include <memory>
 #include <string>
@@ -129,6 +130,60 @@ void ValidateTake(const std::shared_ptr<Array>& values,
   }
 }
 
+template <typename T>
+T GetMaxIndex(int64_t values_length) {
+  int64_t max_index = values_length - 1;
+  if (max_index > static_cast<int64_t>(std::numeric_limits<T>::max())) {
+    max_index = std::numeric_limits<T>::max();
+  }
+  return static_cast<T>(max_index);
+}
+
+template <>
+uint64_t GetMaxIndex(int64_t values_length) {
+  return static_cast<uint64_t>(values_length - 1);
+}
+
+template <typename ValuesType, typename IndexType>
+void CheckTakeRandom(const std::shared_ptr<Array>& values, int64_t indices_length,
+                     double null_probability, random::RandomArrayGenerator* rand) {
+  using IndexCType = typename IndexType::c_type;
+  IndexCType max_index = GetMaxIndex<IndexCType>(values->length());
+  auto indices = rand->Numeric<IndexType>(indices_length, static_cast<IndexCType>(0),
+                                          max_index, null_probability);
+  ValidateTake<ValuesType>(values, indices);
+}
+
+template <typename ValuesType, typename DataGenerator>
+void DoRandomTakeTests(DataGenerator&& generate_values) {
+  auto rand = random::RandomArrayGenerator(kRandomSeed);
+  for (size_t i = 5; i < 10; i++) {
+    const int64_t length = static_cast<int64_t>(1ULL << i);
+    for (size_t j = 4; j < 10; j++) {
+      const int64_t indices_length = static_cast<int64_t>(1ULL << j);
+      for (auto null_probability : {0.0, 0.01, 0.25, 1.0}) {
+        auto values = generate_values(length, null_probability, &rand);
+        CheckTakeRandom<ValuesType, Int8Type>(values, indices_length, null_probability,
+                                              &rand);
+        CheckTakeRandom<ValuesType, Int16Type>(values, indices_length, null_probability,
+                                               &rand);
+        CheckTakeRandom<ValuesType, Int32Type>(values, indices_length, null_probability,
+                                               &rand);
+        CheckTakeRandom<ValuesType, Int64Type>(values, indices_length, null_probability,
+                                               &rand);
+        CheckTakeRandom<ValuesType, UInt8Type>(values, indices_length, null_probability,
+                                               &rand);
+        CheckTakeRandom<ValuesType, UInt16Type>(values, indices_length, null_probability,
+                                                &rand);
+        CheckTakeRandom<ValuesType, UInt32Type>(values, indices_length, null_probability,
+                                                &rand);
+        CheckTakeRandom<ValuesType, UInt64Type>(values, indices_length, null_probability,
+                                                &rand);
+      }
+    }
+  }
+}
+
 template <typename ArrowType>
 class TestTakeKernel : public ::testing::Test {};
 
@@ -161,6 +216,13 @@ TEST(TestTakeKernel, TakeBoolean) {
                 TakeJSON(boolean(), "[true, false, true]", int8(), "[0, -1, 0]", &arr));
 }
 
+TEST(TestTakeKernel, TakeBooleanRandom) {
+  DoRandomTakeTests<BooleanType>(
+      [](int64_t length, double null_probability, random::RandomArrayGenerator* rng) {
+        return rng->Boolean(length, 0.5, null_probability);
+      });
+}
+
 template <typename ArrowType>
 class TestTakeKernelWithNumeric : public TestTakeKernel<ArrowType> {
  protected:
@@ -191,19 +253,10 @@ TYPED_TEST(TestTakeKernelWithNumeric, TakeNumeric) {
 }
 
 TYPED_TEST(TestTakeKernelWithNumeric, TakeRandomNumeric) {
-  auto rand = random::RandomArrayGenerator(kRandomSeed);
-  for (size_t i = 3; i < 8; i++) {
-    const int64_t length = static_cast<int64_t>(1ULL << i);
-    for (size_t j = 0; j < 13; j++) {
-      const int64_t indices_length = static_cast<int64_t>(1ULL << j);
-      for (auto null_probability : {0.0, 0.01, 0.25, 1.0}) {
-        auto values = rand.Numeric<TypeParam>(length, 0, 127, null_probability);
-        auto max_index = static_cast<int32_t>(length - 1);
-        auto indices = rand.Int32(indices_length, 0, max_index, null_probability);
-        ValidateTake<TypeParam>(values, indices);
-      }
-    }
-  }
+  DoRandomTakeTests<TypeParam>(
+      [](int64_t length, double null_probability, random::RandomArrayGenerator* rng) {
+        return rng->Numeric<TypeParam>(length, 0, 127, null_probability);
+      });
 }
 
 template <typename TypeClass>
@@ -251,47 +304,30 @@ TYPED_TEST(TestTakeKernelWithString, TakeString) {
 }
 
 TEST(TestTakeKernelString, Random) {
-  auto rand = random::RandomArrayGenerator(kRandomSeed);
-  for (size_t i = 3; i < 8; i++) {
-    const int64_t length = static_cast<int64_t>(1ULL << i);
-    for (size_t j = 0; j < 13; j++) {
-      const int64_t indices_length = static_cast<int64_t>(1ULL << j);
-      for (auto null_probability : {0.0, 0.01, 0.25, 1.0}) {
-        auto values = rand.String(length, 0, 32, null_probability);
-        auto max_index = static_cast<int32_t>(length - 1);
-        auto indices = rand.Int32(indices_length, 0, max_index, null_probability);
-        ValidateTake<StringType>(values, indices);
-      }
-    }
-  }
+  DoRandomTakeTests<StringType>(
+      [](int64_t length, double null_probability, random::RandomArrayGenerator* rng) {
+        return rng->String(length, 0, 32, null_probability);
+      });
+  DoRandomTakeTests<LargeStringType>(
+      [](int64_t length, double null_probability, random::RandomArrayGenerator* rng) {
+        return rng->LargeString(length, 0, 32, null_probability);
+      });
 }
 
 TEST(TestTakeKernelFixedSizeBinary, Random) {
-  auto rand = random::RandomArrayGenerator(kRandomSeed);
+  DoRandomTakeTests<FixedSizeBinaryType>([](int64_t length, double null_probability,
+                                            random::RandomArrayGenerator* rng) {
+    const int32_t value_size = 16;
+    int64_t data_nbytes = length * value_size;
+    std::shared_ptr<Buffer> data = *AllocateBuffer(data_nbytes);
+    random_bytes(data_nbytes, /*seed=*/0, data->mutable_data());
+    auto validity = rng->Boolean(length, 1 - null_probability);
 
-  const int32_t value_size = 16;
-  for (size_t i = 3; i < 8; i++) {
-    const int64_t length = static_cast<int64_t>(1ULL << i);
-    for (size_t j = 0; j < 13; j++) {
-      const int64_t indices_length = static_cast<int64_t>(1ULL << j);
-      for (auto null_probability : {0.0, 0.01, 0.25, 1.0}) {
-        int64_t data_nbytes = length * value_size;
-        ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> data, AllocateBuffer(data_nbytes));
-        random_bytes(data_nbytes, /*seed=*/0, data->mutable_data());
-        auto validity = rand.Boolean(length, 1 - null_probability);
-
-        auto max_index = static_cast<int32_t>(length - 1);
-        auto indices = rand.Int32(indices_length, 0, max_index, null_probability);
-
-        // Assemble the data for a FixedSizeBinaryArray
-        auto values_data =
-            std::make_shared<ArrayData>(fixed_size_binary(value_size), length);
-        values_data->buffers = {validity->data()->buffers[1], data};
-
-        ValidateTake<FixedSizeBinaryType>(MakeArray(values_data), indices);
-      }
-    }
-  }
+    // Assemble the data for a FixedSizeBinaryArray
+    auto values_data = std::make_shared<ArrayData>(fixed_size_binary(value_size), length);
+    values_data->buffers = {validity->data()->buffers[1], data};
+    return MakeArray(values_data);
+  });
 }
 
 TYPED_TEST(TestTakeKernelWithString, TakeDictionary) {
