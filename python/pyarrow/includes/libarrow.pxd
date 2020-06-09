@@ -1189,7 +1189,8 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
     enum MessageType" arrow::ipc::MessageType":
         MessageType_SCHEMA" arrow::ipc::MessageType::SCHEMA"
         MessageType_RECORD_BATCH" arrow::ipc::MessageType::RECORD_BATCH"
-        MessageType_DICTIONARY_BATCH" arrow::ipc::MessageType::DICTIONARY_BATCH"
+        MessageType_DICTIONARY_BATCH\
+            " arrow::ipc::MessageType::DICTIONARY_BATCH"
 
     enum MetadataVersion" arrow::ipc::MetadataVersion":
         MessageType_V1" arrow::ipc::MetadataVersion::V1"

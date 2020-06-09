@@ -34,7 +34,7 @@ class Result;
 
 class Status;
 
-struct Compression {
+struct ARROW_EXPORT Compression {
   /// \brief Compression algorithm
   enum type { UNCOMPRESSED, SNAPPY, GZIP, BROTLI, ZSTD, LZ4, LZ4_FRAME, LZO, BZ2 };
 
