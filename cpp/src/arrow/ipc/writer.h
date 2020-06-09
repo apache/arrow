@@ -51,6 +51,15 @@ class OutputStream;
 
 namespace ipc {
 
+/// \brief Intermediate data structure with metadata header, and zero
+/// or more buffers for the message body.
+struct IpcPayload {
+  MessageType type = MessageType::NONE;
+  std::shared_ptr<Buffer> metadata;
+  std::vector<std::shared_ptr<Buffer>> body_buffers;
+  int64_t body_length = 0;
+};
+
 /// \class RecordBatchWriter
 /// \brief Abstract interface for writing a stream of record batches
 class ARROW_EXPORT RecordBatchWriter {
@@ -174,6 +183,16 @@ ARROW_EXPORT
 Status WriteRecordBatchStream(const std::vector<std::shared_ptr<RecordBatch>>& batches,
                               const IpcWriteOptions& options, io::OutputStream* dst);
 
+/// \brief Compute the number of bytes needed to write an IPC payload
+///     including metadata
+///
+/// \param[in] payload the IPC payload to write
+/// \param[in] options write options
+/// \return the size of the complete encapsulated message
+ARROW_EXPORT
+int64_t GetPayloadSize(const IpcPayload& payload,
+                       const IpcWriteOptions& options = IpcWriteOptions::Defaults());
+
 /// \brief Compute the number of bytes needed to write a record batch including metadata
 ///
 /// \param[in] batch the record batch to write
@@ -258,49 +277,6 @@ ARROW_EXPORT
 Status WriteSparseTensor(const SparseTensor& sparse_tensor, io::OutputStream* dst,
                          int32_t* metadata_length, int64_t* body_length);
 
-namespace internal {
-
-// These internal APIs may change without warning or deprecation
-
-// Intermediate data structure with metadata header, and zero or more buffers
-// for the message body.
-struct IpcPayload {
-  MessageType type = MessageType::NONE;
-  std::shared_ptr<Buffer> metadata;
-  std::vector<std::shared_ptr<Buffer>> body_buffers;
-  int64_t body_length = 0;
-};
-
-class ARROW_EXPORT IpcPayloadWriter {
- public:
-  virtual ~IpcPayloadWriter();
-
-  // Default implementation is a no-op
-  virtual Status Start();
-
-  virtual Status WritePayload(const IpcPayload& payload) = 0;
-
-  virtual Status Close() = 0;
-};
-
-/// Create a new RecordBatchWriter from IpcPayloadWriter and schema.
-///
-/// \param[in] sink the IpcPayloadWriter to write to
-/// \param[in] schema the schema of the record batches to be written
-/// \param[out] out the created RecordBatchWriter
-/// \return Status
-
-/// Create a new RecordBatchWriter from IpcPayloadWriter and schema.
-///
-/// \param[in] sink the IpcPayloadWriter to write to
-/// \param[in] schema the schema of the record batches to be written
-/// \param[in] options options for serialization
-/// \return Result<std::unique_ptr<RecordBatchWriter>>
-ARROW_EXPORT
-Result<std::unique_ptr<RecordBatchWriter>> OpenRecordBatchWriter(
-    std::unique_ptr<IpcPayloadWriter> sink, const std::shared_ptr<Schema>& schema,
-    const IpcWriteOptions& options = IpcWriteOptions::Defaults());
-
 /// \brief Compute IpcPayload for the given schema
 /// \param[in] schema the Schema that is being serialized
 /// \param[in] options options for serialization
@@ -330,6 +306,12 @@ ARROW_EXPORT
 Status GetRecordBatchPayload(const RecordBatch& batch, const IpcWriteOptions& options,
                              IpcPayload* out);
 
+/// \brief Write an IPC payload to the given stream.
+/// \param[in] payload the payload to write
+/// \param[in] options options for serialization
+/// \param[in] dst The stream to write the payload to.
+/// \param[out] metadata_length the length of the serialized metadata
+/// \return Status
 ARROW_EXPORT
 Status WriteIpcPayload(const IpcPayload& payload, const IpcWriteOptions& options,
                        io::OutputStream* dst, int32_t* metadata_length);
@@ -342,6 +324,33 @@ Status WriteIpcPayload(const IpcPayload& payload, const IpcWriteOptions& options
 ARROW_EXPORT
 Status GetSparseTensorPayload(const SparseTensor& sparse_tensor, MemoryPool* pool,
                               IpcPayload* out);
+
+namespace internal {
+
+// These internal APIs may change without warning or deprecation
+
+class ARROW_EXPORT IpcPayloadWriter {
+ public:
+  virtual ~IpcPayloadWriter();
+
+  // Default implementation is a no-op
+  virtual Status Start();
+
+  virtual Status WritePayload(const IpcPayload& payload) = 0;
+
+  virtual Status Close() = 0;
+};
+
+/// Create a new RecordBatchWriter from IpcPayloadWriter and schema.
+///
+/// \param[in] sink the IpcPayloadWriter to write to
+/// \param[in] schema the schema of the record batches to be written
+/// \param[in] options options for serialization
+/// \return Result<std::unique_ptr<RecordBatchWriter>>
+ARROW_EXPORT
+Result<std::unique_ptr<RecordBatchWriter>> OpenRecordBatchWriter(
+    std::unique_ptr<IpcPayloadWriter> sink, const std::shared_ptr<Schema>& schema,
+    const IpcWriteOptions& options = IpcWriteOptions::Defaults());
 
 }  // namespace internal
 }  // namespace ipc

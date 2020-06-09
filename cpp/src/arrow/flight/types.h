@@ -347,7 +347,7 @@ struct ARROW_FLIGHT_EXPORT FlightEndpoint {
 struct ARROW_FLIGHT_EXPORT FlightPayload {
   std::shared_ptr<Buffer> descriptor;
   std::shared_ptr<Buffer> app_metadata;
-  ipc::internal::IpcPayload ipc_message;
+  ipc::IpcPayload ipc_message;
 };
 
 /// \brief Schema result returned after a schema request RPC

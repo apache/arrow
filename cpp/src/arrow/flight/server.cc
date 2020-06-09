@@ -287,8 +287,8 @@ class DoExchangeMessageWriter : public FlightMessageWriter {
     started_ = true;
 
     FlightPayload schema_payload;
-    RETURN_NOT_OK(ipc::internal::GetSchemaPayload(
-        *schema, ipc_options_, &dictionary_memo_, &schema_payload.ipc_message));
+    RETURN_NOT_OK(ipc::GetSchemaPayload(*schema, ipc_options_, &dictionary_memo_,
+                                        &schema_payload.ipc_message));
     return WritePayload(schema_payload);
   }
 
@@ -310,8 +310,7 @@ class DoExchangeMessageWriter : public FlightMessageWriter {
     if (app_metadata) {
       payload.app_metadata = app_metadata;
     }
-    RETURN_NOT_OK(
-        ipc::internal::GetRecordBatchPayload(batch, ipc_options_, &payload.ipc_message));
+    RETURN_NOT_OK(ipc::GetRecordBatchPayload(batch, ipc_options_, &payload.ipc_message));
     return WritePayload(payload);
   }
 
@@ -344,8 +343,8 @@ class DoExchangeMessageWriter : public FlightMessageWriter {
     RETURN_NOT_OK(ipc::CollectDictionaries(batch, &dictionary_memo_));
     for (auto& pair : dictionary_memo_.dictionaries()) {
       FlightPayload payload{};
-      RETURN_NOT_OK(ipc::internal::GetDictionaryPayload(
-          pair.first, pair.second, ipc_options_, &payload.ipc_message));
+      RETURN_NOT_OK(ipc::GetDictionaryPayload(pair.first, pair.second, ipc_options_,
+                                              &payload.ipc_message));
       RETURN_NOT_OK(WritePayload(payload));
     }
     return Status::OK();
@@ -972,8 +971,8 @@ class RecordBatchStream::RecordBatchStreamImpl {
   std::shared_ptr<Schema> schema() { return reader_->schema(); }
 
   Status GetSchemaPayload(FlightPayload* payload) {
-    return ipc::internal::GetSchemaPayload(*reader_->schema(), ipc_options_,
-                                           &dictionary_memo_, &payload->ipc_message);
+    return ipc::GetSchemaPayload(*reader_->schema(), ipc_options_, &dictionary_memo_,
+                                 &payload->ipc_message);
   }
 
   Status Next(FlightPayload* payload) {
@@ -991,8 +990,8 @@ class RecordBatchStream::RecordBatchStreamImpl {
     if (stage_ == Stage::DICTIONARY) {
       if (dictionary_index_ == static_cast<int>(dictionaries_.size())) {
         stage_ = Stage::RECORD_BATCH;
-        return ipc::internal::GetRecordBatchPayload(*current_batch_, ipc_options_,
-                                                    &payload->ipc_message);
+        return ipc::GetRecordBatchPayload(*current_batch_, ipc_options_,
+                                          &payload->ipc_message);
       } else {
         return GetNextDictionary(payload);
       }
@@ -1006,16 +1005,16 @@ class RecordBatchStream::RecordBatchStreamImpl {
       payload->ipc_message.metadata = nullptr;
       return Status::OK();
     } else {
-      return ipc::internal::GetRecordBatchPayload(*current_batch_, ipc_options_,
-                                                  &payload->ipc_message);
+      return ipc::GetRecordBatchPayload(*current_batch_, ipc_options_,
+                                        &payload->ipc_message);
     }
   }
 
  private:
   Status GetNextDictionary(FlightPayload* payload) {
     const auto& it = dictionaries_[dictionary_index_++];
-    return ipc::internal::GetDictionaryPayload(it.first, it.second, ipc_options_,
-                                               &payload->ipc_message);
+    return ipc::GetDictionaryPayload(it.first, it.second, ipc_options_,
+                                     &payload->ipc_message);
   }
 
   Status CollectDictionaries(const RecordBatch& batch) {

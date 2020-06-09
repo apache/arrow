@@ -767,9 +767,8 @@ Status SerializedPyObject::GetComponents(MemoryPool* memory_pool, PyObject** out
 
   // For each sparse tensor, get a metadata buffer and buffers containing index and data
   for (const auto& sparse_tensor : this->sparse_tensors) {
-    ipc::internal::IpcPayload payload;
-    RETURN_NOT_OK(
-        ipc::internal::GetSparseTensorPayload(*sparse_tensor, memory_pool, &payload));
+    ipc::IpcPayload payload;
+    RETURN_NOT_OK(ipc::GetSparseTensorPayload(*sparse_tensor, memory_pool, &payload));
     RETURN_NOT_OK(PushBuffer(payload.metadata));
     for (const auto& body : payload.body_buffers) {
       RETURN_NOT_OK(PushBuffer(body));

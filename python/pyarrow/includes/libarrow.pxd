@@ -1219,7 +1219,7 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
     cdef cppclass CDictionaryMemo" arrow::ipc::DictionaryMemo":
         pass
 
-    cdef cppclass CIpcPayload" arrow::ipc::internal::IpcPayload":
+    cdef cppclass CIpcPayload" arrow::ipc::IpcPayload":
         MessageType type
         shared_ptr[CBuffer] metadata
         vector[shared_ptr[CBuffer]] body_buffers
@@ -1328,7 +1328,7 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
     CStatus AlignStream(COutputStream* stream, int64_t alignment)
 
     cdef CStatus GetRecordBatchPayload\
-        " arrow::ipc::internal::GetRecordBatchPayload"(
+        " arrow::ipc::GetRecordBatchPayload"(
             const CRecordBatch& batch,
             const CIpcWriteOptions& options,
             CIpcPayload* out)

@@ -50,12 +50,7 @@ class RandomAccessFile;
 namespace ipc {
 
 class DictionaryMemo;
-
-namespace internal {
-
 struct IpcPayload;
-
-}  // namespace internal
 
 using RecordBatchReader = ::arrow::RecordBatchReader;
 
