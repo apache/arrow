@@ -131,7 +131,14 @@ class ARROW_EXPORT BinaryBitBlockCounter {
   /// blocks in subsequent invocations.
   BitBlockCount NextAndWord();
 
+  /// \brief Return the popcount of the bitwise-or of the next run of
+  /// available bits, up to 64.
+  BitBlockCount NextOrWord();
+
  private:
+  template <typename Op>
+  BitBlockCount NextWord();
+
   const uint8_t* left_bitmap_;
   int64_t left_offset_;
   const uint8_t* right_bitmap_;

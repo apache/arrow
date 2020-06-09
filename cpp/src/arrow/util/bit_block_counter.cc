@@ -124,7 +124,8 @@ OptionalBitBlockCounter::OptionalBitBlockCounter(
     : OptionalBitBlockCounter(validity_bitmap ? validity_bitmap->data() : nullptr, offset,
                               length) {}
 
-BitBlockCount BinaryBitBlockCounter::NextAndWord() {
+template <typename Op>
+BitBlockCount BinaryBitBlockCounter::NextWord() {
   if (!bits_remaining_) {
     return {0, 0};
   }
@@ -138,8 +139,8 @@ BitBlockCount BinaryBitBlockCounter::NextAndWord() {
     const int16_t run_length = static_cast<int16_t>(std::min(bits_remaining_, kWordBits));
     int16_t popcount = 0;
     for (int64_t i = 0; i < run_length; ++i) {
-      if (BitUtil::GetBit(left_bitmap_, left_offset_ + i) &&
-          BitUtil::GetBit(right_bitmap_, right_offset_ + i)) {
+      if (Op(BitUtil::GetBit(left_bitmap_, left_offset_ + i),
+             BitUtil::GetBit(right_bitmap_, right_offset_ + i))) {
         ++popcount;
       }
     }
@@ -153,18 +154,26 @@ BitBlockCount BinaryBitBlockCounter::NextAndWord() {
 
   int64_t popcount = 0;
   if (left_offset_ == 0 && right_offset_ == 0) {
-    popcount = BitUtil::PopCount(LoadWord(left_bitmap_) & LoadWord(right_bitmap_));
+    popcount = BitUtil::PopCount(Op(LoadWord(left_bitmap_), LoadWord(right_bitmap_)));
   } else {
     auto left_word =
         ShiftWord(LoadWord(left_bitmap_), LoadWord(left_bitmap_ + 8), left_offset_);
     auto right_word =
         ShiftWord(LoadWord(right_bitmap_), LoadWord(right_bitmap_ + 8), right_offset_);
-    popcount = BitUtil::PopCount(left_word & right_word);
+    popcount = BitUtil::PopCount(Op(left_word, right_word));
   }
   left_bitmap_ += kWordBits / 8;
   right_bitmap_ += kWordBits / 8;
   bits_remaining_ -= kWordBits;
   return {64, static_cast<int16_t>(popcount)};
+}
+
+BitBlockCount BinaryBitBlockCounter::NextAndWord() {
+  return NextWord<std::bit_and>();
+}
+
+BitBlockCount BinaryBitBlockCounter::NextOrWord() {
+  return NextWord<std::bit_and>();
 }
 
 }  // namespace internal
