@@ -33,7 +33,6 @@
 #include "arrow/memory_pool.h"
 #include "arrow/testing/gtest_common.h"
 #include "arrow/testing/gtest_util.h"
-#include "arrow/util/bit_block_counter.h"
 #include "arrow/util/bit_stream_utils.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap.h"
@@ -1554,107 +1553,6 @@ TEST(Bitmap, VisitWordsAnd) {
             << Bitmap(actual_buffer, 0, num_bits).Diff({expected_buffer, 0, num_bits});
       }
     }
-  }
-}
-
-class TestBitBlockCounter : public ::testing::Test {
- public:
-  void Create(int64_t nbytes, int64_t offset, int64_t length) {
-    ASSERT_OK_AND_ASSIGN(buf_, AllocateBuffer(nbytes));
-    // Start with data zeroed out
-    std::memset(buf_->mutable_data(), 0, nbytes);
-    scanner_.reset(new BitBlockCounter(buf_->data(), offset, length));
-  }
-
- protected:
-  std::shared_ptr<Buffer> buf_;
-  std::unique_ptr<BitBlockCounter> scanner_;
-};
-
-static constexpr int64_t kWordSize = 64;
-
-TEST_F(TestBitBlockCounter, Basics) {
-  const int64_t nbytes = 1024;
-
-  Create(nbytes, 0, nbytes * 8);
-
-  int64_t bits_scanned = 0;
-  for (int64_t i = 0; i < nbytes / 32; ++i) {
-    BitBlockCounter::Block block = scanner_->NextBlock();
-    ASSERT_EQ(block.length, 4 * kWordSize);
-    ASSERT_EQ(block.popcount, 0);
-    bits_scanned += block.length;
-  }
-  ASSERT_EQ(bits_scanned, 1024 * 8);
-
-  auto block = scanner_->NextBlock();
-  ASSERT_EQ(block.length, 0);
-  ASSERT_EQ(block.popcount, 0);
-}
-
-TEST_F(TestBitBlockCounter, Offsets) {
-  auto CheckWithOffset = [&](int64_t offset) {
-    const int64_t nwords = 15;
-
-    const int64_t total_bytes = nwords * 8 + 1;
-    // Trim a bit from the end of the bitmap so we can check the remainder bits
-    // behavior
-    Create(total_bytes, offset, nwords * kWordSize - offset - 1);
-
-    // Start with data all set
-    std::memset(buf_->mutable_data(), 0xFF, total_bytes);
-
-    BitBlockCounter::Block block = scanner_->NextBlock();
-    ASSERT_EQ(4 * kWordSize, block.length);
-    ASSERT_EQ(block.popcount, 256);
-
-    // Add some false values to the next 3 shifted words
-    BitUtil::SetBitTo(buf_->mutable_data(), 4 * kWordSize + offset, false);
-    BitUtil::SetBitTo(buf_->mutable_data(), 5 * kWordSize + offset, false);
-    BitUtil::SetBitTo(buf_->mutable_data(), 6 * kWordSize + offset, false);
-    block = scanner_->NextBlock();
-
-    ASSERT_EQ(block.length, 256);
-    ASSERT_EQ(block.popcount, 253);
-
-    BitUtil::SetBitsTo(buf_->mutable_data(), 8 * kWordSize + offset, 2 * kWordSize,
-                       false);
-
-    block = scanner_->NextBlock();
-    ASSERT_EQ(block.length, 256);
-    ASSERT_EQ(block.popcount, 128);
-
-    // Last block
-    block = scanner_->NextBlock();
-    ASSERT_EQ(block.length, 3 * kWordSize - offset - 1);
-    ASSERT_EQ(block.length, block.popcount);
-
-    // We can keep calling NextBlock safely
-    block = scanner_->NextBlock();
-    ASSERT_EQ(block.length, 0);
-    ASSERT_EQ(block.popcount, 0);
-  };
-
-  for (int64_t offset_i = 0; offset_i < 7; ++offset_i) {
-    CheckWithOffset(offset_i);
-  }
-}
-
-TEST_F(TestBitBlockCounter, RandomData) {
-  const int64_t nbytes = 1024;
-  auto buffer = *AllocateBuffer(nbytes);
-  random_bytes(nbytes, 0, buffer->mutable_data());
-
-  auto CheckWithOffset = [&](int64_t offset) {
-    BitBlockCounter scanner(buffer->data(), offset, nbytes * 8 - offset);
-    for (int64_t i = 0; i < nbytes / 32; ++i) {
-      BitBlockCounter::Block block = scanner.NextBlock();
-      ASSERT_EQ(block.popcount,
-                CountSetBits(buffer->data(), i * 256 + offset, block.length));
-    }
-  };
-  for (int64_t offset_i = 0; offset_i < 7; ++offset_i) {
-    CheckWithOffset(offset_i);
   }
 }
 

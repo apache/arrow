@@ -26,6 +26,7 @@
 #include "arrow/array/array_base.h"
 #include "arrow/array/data.h"
 #include "arrow/type.h"
+#include "arrow/type_fwd.h"  // IWYU pragma: export
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/macros.h"
