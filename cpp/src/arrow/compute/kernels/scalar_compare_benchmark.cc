@@ -31,42 +31,32 @@ namespace compute {
 constexpr auto kSeed = 0x94378165;
 
 static void CompareArrayScalarKernel(benchmark::State& state) {
-  const int64_t memory_size = state.range(0);
-  const int64_t array_size = memory_size / sizeof(int64_t);
-  const double null_percent = static_cast<double>(state.range(1)) / 100.0;
+  RegressionArgs args(state);
+  const int64_t array_size = args.size / sizeof(int64_t);
   auto rand = random::RandomArrayGenerator(kSeed);
   auto array = std::static_pointer_cast<NumericArray<Int64Type>>(
-      rand.Int64(array_size, -100, 100, null_percent));
+      rand.Int64(array_size, -100, 100, args.null_proportion));
 
   CompareOptions ge{GREATER_EQUAL};
 
   for (auto _ : state) {
     ABORT_NOT_OK(Compare(array, Datum(int64_t(0)), ge).status());
   }
-
-  state.counters["size"] = static_cast<double>(memory_size);
-  state.counters["null_percent"] = static_cast<double>(state.range(1));
-  state.SetBytesProcessed(state.iterations() * array_size * sizeof(int64_t));
 }
 
 static void CompareArrayArrayKernel(benchmark::State& state) {
-  const int64_t memory_size = state.range(0);
-  const int64_t array_size = memory_size / sizeof(int64_t);
-  const double null_percent = static_cast<double>(state.range(1)) / 100.0;
+  RegressionArgs args(state);
+  const int64_t array_size = args.size / sizeof(int64_t);
   auto rand = random::RandomArrayGenerator(kSeed);
   auto lhs = std::static_pointer_cast<NumericArray<Int64Type>>(
-      rand.Int64(array_size, -100, 100, null_percent));
+      rand.Int64(array_size, -100, 100, args.null_proportion));
   auto rhs = std::static_pointer_cast<NumericArray<Int64Type>>(
-      rand.Int64(array_size, -100, 100, null_percent));
+      rand.Int64(array_size, -100, 100, args.null_proportion));
 
   CompareOptions ge(GREATER_EQUAL);
   for (auto _ : state) {
     ABORT_NOT_OK(Compare(lhs, rhs, ge).status());
   }
-
-  state.counters["size"] = static_cast<double>(memory_size);
-  state.counters["null_percent"] = static_cast<double>(state.range(1));
-  state.SetBytesProcessed(state.iterations() * array_size * sizeof(int64_t) * 2);
 }
 
 BENCHMARK(CompareArrayScalarKernel)->Apply(RegressionSetArgs);
