@@ -1694,7 +1694,9 @@ if(ARROW_WITH_RAPIDJSON)
                  QUIET
                  HINTS
                  "${CMAKE_ROOT}")
-    if(NOT RapidJSON_FOUND)
+    if(RapidJSON_FOUND)
+      set(RAPIDJSON_INCLUDE_DIR ${RAPIDJSON_INCLUDE_DIRS})
+    else()
       # Ubuntu / Debian don't package the CMake config
       find_package(RapidJSONAlt ${ARROW_RAPIDJSON_REQUIRED_VERSION})
     endif()
@@ -1707,7 +1709,9 @@ if(ARROW_WITH_RAPIDJSON)
     # Fedora packages place the package information at the wrong location.
     # https://bugzilla.redhat.com/show_bug.cgi?id=1680400
     find_package(RapidJSON ${ARROW_RAPIDJSON_REQUIRED_VERSION} HINTS "${CMAKE_ROOT}")
-    if(NOT RapidJSON_FOUND)
+    if(RapidJSON_FOUND)
+      set(RAPIDJSON_INCLUDE_DIR ${RAPIDJSON_INCLUDE_DIRS})
+    else()
       # Ubuntu / Debian don't package the CMake config
       find_package(RapidJSONAlt ${ARROW_RAPIDJSON_REQUIRED_VERSION} REQUIRED)
     endif()
