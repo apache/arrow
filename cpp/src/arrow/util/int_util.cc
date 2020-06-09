@@ -460,8 +460,9 @@ Status IndexBoundscheckImpl(const ArrayData& indices, uint64_t upper_limit) {
     bitmap = indices.buffers[0]->data();
   }
   auto IsOutOfBounds = [&](int64_t i) -> bool {
-    return (IsSigned && indices_data[i] < 0) ||
-           static_cast<uint64_t>(indices_data[i]) >= upper_limit;
+    return (
+        (IsSigned && indices_data[i] < 0) ||
+        (indices_data[i] >= 0 && static_cast<uint64_t>(indices_data[i]) >= upper_limit));
   };
   OptionalBitBlockCounter indices_bit_counter(bitmap, indices.offset, indices.length);
   int64_t position = 0;
@@ -486,16 +487,16 @@ Status IndexBoundscheckImpl(const ArrayData& indices, uint64_t upper_limit) {
         for (int64_t i = 0; i < block.length; ++i) {
           if (BitUtil::GetBit(bitmap, indices.offset + position + i)) {
             if (IsOutOfBounds(i)) {
-              return Status::IndexError(
-                  "Take index ", static_cast<int64_t>(indices_data[i]), " out of bounds");
+              return Status::IndexError("Index ", static_cast<int64_t>(indices_data[i]),
+                                        " out of bounds");
             }
           }
         }
       } else {
         for (int64_t i = 0; i < block.length; ++i) {
           if (IsOutOfBounds(i)) {
-            return Status::IndexError(
-                "Take index ", static_cast<int64_t>(indices_data[i]), " out of bounds");
+            return Status::IndexError("Index ", static_cast<int64_t>(indices_data[i]),
+                                      " out of bounds");
           }
         }
       }

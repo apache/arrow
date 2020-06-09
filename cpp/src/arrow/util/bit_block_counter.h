@@ -78,7 +78,7 @@ class ARROW_EXPORT BitBlockCounter {
 /// \brief A tool to iterate through a possibly non-existent validity bitmap,
 /// to allow us to write one code path for both the with-nulls and no-nulls
 /// cases without giving up a lot of performance.
-class OptionalBitBlockCounter {
+class ARROW_EXPORT OptionalBitBlockCounter {
  public:
   OptionalBitBlockCounter(const uint8_t* validity_bitmap, int64_t offset, int64_t length);
 
