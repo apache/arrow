@@ -688,7 +688,7 @@ def docker_compose(obj, src):
 @click.argument('command', required=False, default=None)
 @click.option('--env', '-e', multiple=True,
               help="Set environment variable within the container")
-@click.option('--user', '-u', default=None, envvar='ARCHERY_DOCKER_RUN_USER',
+@click.option('--user', '-u', default=None,
               help="Username or UID to run the container with")
 @click.option('--force-pull/--no-pull', default=True,
               help="Whether to force pull the image and its ancestor images")
