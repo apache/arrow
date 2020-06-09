@@ -288,6 +288,9 @@ TEST_F(TestArray, TestMakeArrayOfNull) {
       utf8(),
       large_utf8(),
       list(utf8()),
+      // ARROW-9071
+      list(int64()),
+
       large_list(large_utf8()),
       fixed_size_list(utf8(), 3),
       dictionary(int32(), utf8()),
