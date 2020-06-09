@@ -27,6 +27,9 @@
 #include <unordered_set>
 #include <vector>
 
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
+
 #include "arrow/testing/gtest_util.h"
 
 namespace arrow {

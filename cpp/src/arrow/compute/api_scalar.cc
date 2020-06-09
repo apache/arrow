@@ -113,5 +113,11 @@ Result<Datum> Compare(const Datum& left, const Datum& right, CompareOptions opti
   return CallFunction(func_name, {left, right}, &options, ctx);
 }
 
+// ----------------------------------------------------------------------
+// Validity functions
+
+SCALAR_EAGER_UNARY(IsValid, "is_valid")
+SCALAR_EAGER_UNARY(IsNull, "is_null")
+
 }  // namespace compute
 }  // namespace arrow

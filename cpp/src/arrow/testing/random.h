@@ -250,6 +250,9 @@ class ARROW_EXPORT RandomArrayGenerator {
                                            int32_t min_length, int32_t max_length,
                                            double null_probability = 0);
 
+  std::shared_ptr<Array> Of(std::shared_ptr<DataType> type, int64_t size,
+                            double null_probability);
+
   SeedType seed() { return seed_distribution_(seed_rng_); }
 
  private:

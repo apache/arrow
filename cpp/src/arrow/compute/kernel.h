@@ -55,7 +55,7 @@ class ARROW_EXPORT KernelContext {
   explicit KernelContext(ExecContext* exec_ctx) : exec_ctx_(exec_ctx) {}
 
   /// \brief Allocate buffer from the context's memory pool. The contents are
-  /// not uninitialized.
+  /// not initialized.
   Result<std::shared_ptr<Buffer>> Allocate(int64_t nbytes);
 
   /// \brief Allocate buffer for bitmap from the context's memory pool. Like

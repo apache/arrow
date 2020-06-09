@@ -290,5 +290,46 @@ TYPED_TEST(TestBinaryArithmeticsFloating, Sub) {
                     "[null, -0.9, -3.2, null, -1.9, -5.2]");
 }
 
+class AddProperty : public ScalarFunctionPropertyMixin {
+ public:
+  std::shared_ptr<ScalarFunction> GetFunction() override {
+    return internal::checked_pointer_cast<ScalarFunction>(
+        *GetFunctionRegistry()->GetFunction("add"));
+  }
+
+  Result<std::shared_ptr<Scalar>> Contract(const ScalarVector& args,
+                                           const FunctionOptions*) override {
+    const auto& out_type = args[0]->type;
+
+    if (!args[0]->is_valid || !args[1]->is_valid) {
+      return MakeNullScalar(out_type);
+    }
+
+    if (is_integer(out_type->id())) {
+      ARROW_ASSIGN_OR_RAISE(auto lhs, Cast<UInt64Scalar>(args[0]));
+      ARROW_ASSIGN_OR_RAISE(auto rhs, Cast<UInt64Scalar>(args[1]));
+      return UInt64Scalar(lhs->value + rhs->value).CastTo(out_type);
+    }
+
+    if (is_floating(out_type->id())) {
+      ARROW_ASSIGN_OR_RAISE(auto lhs, Cast<DoubleScalar>(args[0]));
+      ARROW_ASSIGN_OR_RAISE(auto rhs, Cast<DoubleScalar>(args[1]));
+      return DoubleScalar(lhs->value + rhs->value).CastTo(out_type);
+    }
+
+    return Status::NotImplemented("NYI");
+  }
+};
+
+TEST_P(AddProperty, TestAddProperty) { Validate(); }
+
+INSTANTIATE_TEST_SUITE_P(AddPropertyTest, AddProperty,
+                         ScalarFunctionPropertyTestParam::Values({
+                             {0, 0.0},
+                             {1, 0.0},
+                             {2, 0.0},
+                             {1024, 0.25},
+                         }));
+
 }  // namespace compute
 }  // namespace arrow

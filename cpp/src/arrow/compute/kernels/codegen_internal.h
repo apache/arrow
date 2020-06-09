@@ -282,10 +282,11 @@ namespace codegen {
 // Operator must implement
 //
 // static void Call(KernelContext*, const ArrayData& in, ArrayData* out)
+// static void Call(KernelContext*, const Scalar& in, Scalar* out)
 template <typename Operator>
 void SimpleUnary(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   if (batch[0].kind() == Datum::SCALAR) {
-    ctx->SetStatus(Status::NotImplemented("NYI"));
+    Operator::Call(ctx, *batch[0].scalar(), out->scalar().get());
   } else if (batch.length > 0) {
     Operator::Call(ctx, *batch[0].array(), out->mutable_array());
   }
@@ -612,9 +613,12 @@ struct ScalarBinary {
   }
 
   static void ScalarScalar(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    auto arg0 = UnboxScalar<Arg0Type>::Unbox(batch[0]);
-    auto arg1 = UnboxScalar<Arg1Type>::Unbox(batch[1]);
-    out->value = BoxScalar<OutType>::Box(Op::template Call(ctx, arg0, arg1), out->type());
+    if (out->scalar()->is_valid) {
+      auto arg0 = UnboxScalar<Arg0Type>::Unbox(batch[0]);
+      auto arg1 = UnboxScalar<Arg1Type>::Unbox(batch[1]);
+      out->value =
+          BoxScalar<OutType>::Box(Op::template Call(ctx, arg0, arg1), out->type());
+    }
   }
 
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
