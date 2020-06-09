@@ -18,6 +18,7 @@
 import collections
 import os
 import re
+import platform
 import subprocess
 from unittest import mock
 
@@ -171,7 +172,7 @@ def create_config(directory, yml_content, env_content=None):
 
 def format_run(args):
     cmd = ["run", "--rm"]
-    if os.name == 'posix':
+    if platform.system() == 'Linux':
         user = "{}:{}".format(os.getuid(), os.getgid())
         cmd.extend(["-u", user])
 

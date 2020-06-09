@@ -16,6 +16,7 @@
 # under the License.
 
 import os
+import platform
 import subprocess
 from io import StringIO
 
@@ -200,7 +201,7 @@ class DockerCompose(Command):
 
     def run(self, image, command=None, *, env=None, force_pull=False,
             force_build=False, use_cache=True, use_leaf_cache=True,
-            volumes=None, build_only=False):
+            volumes=None, build_only=False, user=None):
         self._validate_image(image)
         self._ensure_volumes(image)
 
@@ -213,13 +214,18 @@ class DockerCompose(Command):
             return
 
         args = []
-        if os.name == 'posix':
-            # run the docker process with the host's user to prevent writing
-            # docker volumes with root user
-            args.extend(['-u', '{}:{}'.format(os.getuid(), os.getgid())])
+        if user is None:
+            if platform.system() == 'Linux':
+                # run the docker process with the host's user by default to
+                # prevent writing docker volumes with root user
+                args.extend(['-u', '{}:{}'.format(os.getuid(), os.getgid())])
+        else:
+            args.extend(['-u', user])
+
         if env is not None:
             for k, v in env.items():
                 args.extend(['-e', '{}={}'.format(k, v)])
+
         if volumes is not None:
             for volume in volumes:
                 args.extend(['--volume', volume])
