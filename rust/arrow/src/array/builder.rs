@@ -569,6 +569,21 @@ impl<T: ArrowPrimitiveType> PrimitiveBuilder<T> {
         Ok(())
     }
 
+    /// Appends values from a slice of type `T` and a validity boolean slice
+    pub fn append_values(
+        &mut self,
+        values: &[T::Native],
+        is_valid: &[bool],
+    ) -> Result<()> {
+        if values.len() != is_valid.len() {
+            return Err(ArrowError::InvalidArgumentError(
+                "Value and validity lengths must be equal".to_string(),
+            ));
+        }
+        self.bitmap_builder.append_slice(is_valid)?;
+        self.values_builder.append_slice(values)
+    }
+
     /// Builds the `PrimitiveArray` and reset this builder.
     pub fn finish(&mut self) -> PrimitiveArray<T> {
         let len = self.len();
@@ -1981,6 +1996,32 @@ mod tests {
         b.append_slice(&[32, 54]).unwrap();
         let buffer = b.finish();
         assert_eq!(8, buffer.len());
+    }
+
+    #[test]
+    fn test_append_values() -> Result<()> {
+        let mut a = Int8Builder::new(0);
+        a.append_value(1)?;
+        a.append_null()?;
+        a.append_value(-2)?;
+        assert_eq!(a.len(), 3);
+
+        // append values
+        let values = &[1, 2, 3, 4];
+        let is_valid = &[true, true, false, true];
+        a.append_values(values, is_valid)?;
+
+        assert_eq!(a.len(), 7);
+        let array = a.finish();
+        assert_eq!(array.value(0), 1);
+        assert_eq!(array.is_null(1), true);
+        assert_eq!(array.value(2), -2);
+        assert_eq!(array.value(3), 1);
+        assert_eq!(array.value(4), 2);
+        assert_eq!(array.is_null(5), true);
+        assert_eq!(array.value(6), 4);
+
+        Ok(())
     }
 
     #[test]
