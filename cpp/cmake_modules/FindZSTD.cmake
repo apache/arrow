@@ -65,4 +65,5 @@ if(ZSTD_FOUND)
   set_target_properties(ZSTD::zstd
                         PROPERTIES IMPORTED_LOCATION "${ZSTD_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${ZSTD_INCLUDE_DIR}")
+  set(ZSTD_LIBRARIES ZSTD::zstd)
 endif()

@@ -1898,13 +1898,19 @@ macro(build_zstd)
 
   add_dependencies(toolchain zstd_ep)
   add_dependencies(ZSTD::zstd zstd_ep)
+  set(ZSTD_LIBRARIES ZSTD::zstd)
 endmacro()
 
 if(ARROW_WITH_ZSTD)
   resolve_dependency(ZSTD)
 
+  # "SYSTEM" source will prioritize cmake config, which exports
+  # zstd::libzstd_{static,shared}
+  if (TARGET zstd::libzstd_static)
+    set(ZSTD_LIBRARIES zstd::libzstd_static)
+  endif()
   # TODO: Don't use global includes but rather target_include_directories
-  get_target_property(ZSTD_INCLUDE_DIR ZSTD::zstd INTERFACE_INCLUDE_DIRECTORIES)
+  get_target_property(ZSTD_INCLUDE_DIR ${ZSTD_LIBRARIES} INTERFACE_INCLUDE_DIRECTORIES)
   include_directories(SYSTEM ${ZSTD_INCLUDE_DIR})
 endif()
 
