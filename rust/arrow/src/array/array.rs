@@ -338,16 +338,16 @@ fn slice_data(data: ArrayDataRef, mut offset: usize, length: usize) -> ArrayData
 /// ----------------------------------------------------------------------------
 /// Implementations of different array types
 
-pub struct RawPtrBox<T> {
+struct RawPtrBox<T> {
     inner: *const T,
 }
 
 impl<T> RawPtrBox<T> {
-    pub fn new(inner: *const T) -> Self {
+    fn new(inner: *const T) -> Self {
         Self { inner }
     }
 
-    pub fn get(&self) -> *const T {
+    fn get(&self) -> *const T {
         self.inner
     }
 }
@@ -1308,6 +1308,11 @@ impl StringArray {
     #[inline]
     fn value_offset_at(&self, i: usize) -> i32 {
         unsafe { *self.value_offsets.get().add(i) }
+    }
+
+    // Returns a new string array builder
+    pub fn builder(capacity: usize) -> StringBuilder {
+        StringBuilder::new(capacity)
     }
 }
 

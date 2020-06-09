@@ -31,8 +31,6 @@
 //! assert_eq!(arr.len(), 3);
 //! ```
 
-use std::sync::Arc;
-
 use crate::array::*;
 use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
@@ -68,169 +66,87 @@ pub fn concat(array_list: &Vec<ArrayRef>) -> Result<ArrayRef> {
     let data_type = match data_type {
         None => {
             return Err(ArrowError::ComputeError(
-                "Cannot concat 0 array".to_string(),
+                "cocat requires input of at least one array".to_string(),
             ));
         }
         Some(t) => t,
     };
+
     match data_type {
-        DataType::Utf8 => concat_raw_string(array_data_list),
-        DataType::Boolean => concat_primitive::<BooleanType>(array_data_list),
-        DataType::Int8 => concat_raw_primitive::<Int8Type>(array_data_list),
-        DataType::Int16 => concat_raw_primitive::<Int16Type>(array_data_list),
-        DataType::Int32 => concat_raw_primitive::<Int32Type>(array_data_list),
-        DataType::Int64 => concat_raw_primitive::<Int64Type>(array_data_list),
-        DataType::UInt8 => concat_raw_primitive::<UInt8Type>(array_data_list),
-        DataType::UInt16 => concat_raw_primitive::<UInt16Type>(array_data_list),
-        DataType::UInt32 => concat_raw_primitive::<UInt32Type>(array_data_list),
-        DataType::UInt64 => concat_raw_primitive::<UInt64Type>(array_data_list),
-        DataType::Float32 => concat_raw_primitive::<Float32Type>(array_data_list),
-        DataType::Float64 => concat_raw_primitive::<Float64Type>(array_data_list),
-        DataType::Date32(_) => concat_raw_primitive::<Date32Type>(array_data_list),
-        DataType::Date64(_) => concat_raw_primitive::<Date64Type>(array_data_list),
-        DataType::Time32(Second) => {
-            concat_raw_primitive::<Time32SecondType>(array_data_list)
+        DataType::Utf8 => {
+            let mut builder = StringArray::builder(0);
+            builder.append_data(array_data_list)?;
+            Ok(ArrayBuilder::finish(&mut builder))
         }
+        DataType::Boolean => {
+            let mut builder = PrimitiveArray::<BooleanType>::builder(0);
+            builder.append_data(array_data_list)?;
+            Ok(ArrayBuilder::finish(&mut builder))
+        }
+        DataType::Int8 => concat_primitive::<Int8Type>(array_data_list),
+        DataType::Int16 => concat_primitive::<Int16Type>(array_data_list),
+        DataType::Int32 => concat_primitive::<Int32Type>(array_data_list),
+        DataType::Int64 => concat_primitive::<Int64Type>(array_data_list),
+        DataType::UInt8 => concat_primitive::<UInt8Type>(array_data_list),
+        DataType::UInt16 => concat_primitive::<UInt16Type>(array_data_list),
+        DataType::UInt32 => concat_primitive::<UInt32Type>(array_data_list),
+        DataType::UInt64 => concat_primitive::<UInt64Type>(array_data_list),
+        DataType::Float32 => concat_primitive::<Float32Type>(array_data_list),
+        DataType::Float64 => concat_primitive::<Float64Type>(array_data_list),
+        DataType::Date32(_) => concat_primitive::<Date32Type>(array_data_list),
+        DataType::Date64(_) => concat_primitive::<Date64Type>(array_data_list),
+        DataType::Time32(Second) => concat_primitive::<Time32SecondType>(array_data_list),
         DataType::Time32(Millisecond) => {
-            concat_raw_primitive::<Time32MillisecondType>(array_data_list)
+            concat_primitive::<Time32MillisecondType>(array_data_list)
         }
         DataType::Time64(Microsecond) => {
-            concat_raw_primitive::<Time64MicrosecondType>(array_data_list)
+            concat_primitive::<Time64MicrosecondType>(array_data_list)
         }
         DataType::Time64(Nanosecond) => {
-            concat_raw_primitive::<Time64NanosecondType>(array_data_list)
+            concat_primitive::<Time64NanosecondType>(array_data_list)
         }
         DataType::Timestamp(Second, _) => {
-            concat_raw_primitive::<TimestampSecondType>(array_data_list)
+            concat_primitive::<TimestampSecondType>(array_data_list)
         }
         DataType::Timestamp(Millisecond, _) => {
-            concat_raw_primitive::<TimestampMillisecondType>(array_data_list)
+            concat_primitive::<TimestampMillisecondType>(array_data_list)
         }
         DataType::Timestamp(Microsecond, _) => {
-            concat_raw_primitive::<TimestampMicrosecondType>(array_data_list)
+            concat_primitive::<TimestampMicrosecondType>(array_data_list)
         }
         DataType::Timestamp(Nanosecond, _) => {
-            concat_raw_primitive::<TimestampNanosecondType>(array_data_list)
+            concat_primitive::<TimestampNanosecondType>(array_data_list)
         }
         DataType::Interval(IntervalUnit::YearMonth) => {
-            concat_raw_primitive::<IntervalYearMonthType>(array_data_list)
+            concat_primitive::<IntervalYearMonthType>(array_data_list)
         }
         DataType::Interval(IntervalUnit::DayTime) => {
-            concat_raw_primitive::<IntervalDayTimeType>(array_data_list)
+            concat_primitive::<IntervalDayTimeType>(array_data_list)
         }
         DataType::Duration(TimeUnit::Second) => {
-            concat_raw_primitive::<DurationSecondType>(array_data_list)
+            concat_primitive::<DurationSecondType>(array_data_list)
         }
         DataType::Duration(TimeUnit::Millisecond) => {
-            concat_raw_primitive::<DurationMillisecondType>(array_data_list)
+            concat_primitive::<DurationMillisecondType>(array_data_list)
         }
         DataType::Duration(TimeUnit::Microsecond) => {
-            concat_raw_primitive::<DurationMicrosecondType>(array_data_list)
+            concat_primitive::<DurationMicrosecondType>(array_data_list)
         }
         DataType::Duration(TimeUnit::Nanosecond) => {
-            concat_raw_primitive::<DurationNanosecondType>(array_data_list)
+            concat_primitive::<DurationNanosecondType>(array_data_list)
         }
         t => unimplemented!("Concat not supported for data type {:?}", t),
     }
 }
 
+#[inline]
 fn concat_primitive<T>(array_data_list: &[ArrayDataRef]) -> Result<ArrayRef>
 where
-    T: ArrowPrimitiveType,
+    T: ArrowNumericType,
 {
-    let rows_count = array_data_list.iter().map(|a| a.len()).sum::<usize>();
-    let mut builder = PrimitiveBuilder::<T>::new(rows_count);
-
-    for array_data in array_data_list {
-        let a = PrimitiveArray::<T>::from(array_data.clone());
-        for i in 0..a.len() {
-            if a.is_valid(i) {
-                builder.append_value(a.value(i))?;
-            } else {
-                builder.append_null()?;
-            }
-        }
-    }
-
-    Ok(Arc::new(builder.finish()) as ArrayRef)
-}
-
-// for better performance, we manually concat primitive value buffers instead of using
-// PrimitiveBuilder
-fn concat_raw_primitive<T>(array_data_list: &[ArrayDataRef]) -> Result<ArrayRef>
-where
-    T: ArrowPrimitiveType,
-{
-    let value_count = array_data_list.iter().map(|a| a.len()).sum::<usize>();
-    let mut null_count = 0;
-    let mut values_builder = BufferBuilder::<T>::new(value_count);
-    let mut null_bit_builder = BooleanBufferBuilder::new(value_count);
-
-    for array_data in array_data_list {
-        null_count += array_data.null_count();
-        let value_buffer = &array_data.buffers()[0];
-        values_builder.write_bytes(value_buffer.data(), value_buffer.len())?;
-        for i in 0..array_data.len() {
-            null_bit_builder.append(array_data.is_valid(i))?;
-        }
-    }
-
-    Ok(Arc::new(PrimitiveArray::<T>::from(
-        ArrayData::builder(T::get_data_type())
-            .len(value_count)
-            .add_buffer(values_builder.finish())
-            .null_count(null_count)
-            .null_bit_buffer(null_bit_builder.finish())
-            .build(),
-    )))
-}
-
-// for better performance, we manually concat string value buffers instead of using StringBuilder
-fn concat_raw_string(array_data_list: &[ArrayDataRef]) -> Result<ArrayRef> {
-    let (str_count, str_size) = array_data_list
-        .iter()
-        .map(|d| (d.len(), d.buffers()[1].len()))
-        .fold((0, 0), |acc, x| (acc.0 + x.0, acc.1 + x.1));
-    let mut null_count = 0;
-    let mut offsets_builder = Int32BufferBuilder::new(str_count);
-    let mut null_bit_builder = BooleanBufferBuilder::new(str_count);
-    let mut values_builder = UInt8BufferBuilder::new(str_size);
-    let mut base_offset: i32 = 0;
-
-    offsets_builder.append(0)?;
-    for array_data in array_data_list {
-        null_count += array_data.null_count();
-
-        let buffers = array_data.buffers();
-        assert_eq!(
-            buffers.len(),
-            2,
-            "StringArray data should contain 2 buffers only (offsets and values)"
-        );
-
-        let mut last_offset = base_offset;
-        let value_offsets = RawPtrBox::new(buffers[0].raw_data() as *const i32);
-        for i in 0..array_data.len() {
-            unsafe {
-                last_offset = *(value_offsets.get().add(i + 1)) + base_offset;
-            }
-            offsets_builder.append(last_offset)?;
-            null_bit_builder.append(array_data.is_valid(i))?;
-        }
-        base_offset = last_offset;
-
-        values_builder.write_bytes(buffers[1].data(), buffers[1].len())?;
-    }
-
-    Ok(Arc::new(StringArray::from(
-        ArrayData::builder(DataType::Utf8)
-            .len(str_count)
-            .add_buffer(offsets_builder.finish())
-            .add_buffer(values_builder.finish())
-            .null_count(null_count)
-            .null_bit_buffer(null_bit_builder.finish())
-            .build(),
-    )))
+    let mut builder = PrimitiveArray::<T>::builder(0);
+    builder.append_data(array_data_list)?;
+    Ok(ArrayBuilder::finish(&mut builder))
 }
 
 #[cfg(test)]
@@ -269,7 +185,7 @@ mod tests {
                 StringArray::try_from(vec![Some("hello"), Some("world")])
                     .expect("Unable to create string array"),
             ) as ArrayRef,
-            Arc::new(StringArray::from(vec!["1", "2", "3", "4", "6"])) as ArrayRef,
+            Arc::new(StringArray::from(vec!["1", "2", "3", "4", "6"])).slice(1, 3)
             Arc::new(
                 StringArray::try_from(vec![Some("foo"), Some("bar"), None, Some("baz")])
                     .expect("Unable to create string array"),
@@ -280,11 +196,9 @@ mod tests {
             StringArray::try_from(vec![
                 Some("hello"),
                 Some("world"),
-                Some("1"),
                 Some("2"),
                 Some("3"),
                 Some("4"),
-                Some("6"),
                 Some("foo"),
                 Some("bar"),
                 None,
