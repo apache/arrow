@@ -45,50 +45,23 @@ class ARROW_EXPORT BitBlockCounter {
         offset_(start_offset % 8) {}
 
   /// \brief Return the next run of available bits, usually 256. The returned
-  /// pair contains the size of run and the number of true values. When the
-  /// offset is greater than zero, the last block may be longer than 256.
+  /// pair contains the size of run and the number of true values. The last
+  /// block will have a length less than 256 if the bitmap length is not a
+  /// multiple of 256, and will return 0-length blocks in subsequent
+  /// invocations.
   BitBlockCount NextFourWords();
 
   /// \brief Return the next run of available bits, usually 64. The returned
-  /// pair contains the size of run and the number of true values. When the
-  /// offset is greater than zero, the last block may be longer than 64.
+  /// pair contains the size of run and the number of true values. The last
+  /// block will have a length less than 64 if the bitmap length is not a
+  /// multiple of 64, and will return 0-length blocks in subsequent
+  /// invocations.
   BitBlockCount NextWord();
 
-  /// \brief Inlineable implementation of NextWord
-  BitBlockCount NextWordInline() {
-    auto load_word = [](const uint8_t* bytes) -> uint64_t {
-      return BitUtil::ToLittleEndian(util::SafeLoadAs<uint64_t>(bytes));
-    };
-    auto shift_word = [](uint64_t current, uint64_t next, int64_t shift) -> uint64_t {
-      return (current >> shift) | (next << (64 - shift));
-    };
-
-    int64_t popcount = 0;
-    if (offset_ == 0) {
-      if (bits_remaining_ < 64) {
-        return GetLastBlock();
-      }
-      popcount = BitUtil::PopCount(load_word(bitmap_));
-    } else {
-      // When the offset is > 0, we need there to be a word beyond the last
-      // aligned word in the bitmap for the bit shifting logic.
-      if (bits_remaining_ < 128 - offset_) {
-        return GetLastBlock();
-      }
-      popcount = BitUtil::PopCount(
-          shift_word(load_word(bitmap_), load_word(bitmap_ + 8), offset_));
-    }
-    bitmap_ += 8;
-    bits_remaining_ -= 64;
-    return {64, static_cast<int16_t>(popcount)};
-  }
-
  private:
-  BitBlockCount GetLastBlock() {
-    const int16_t run_length = static_cast<int16_t>(bits_remaining_);
-    bits_remaining_ -= run_length;
-    return {run_length, static_cast<int16_t>(CountSetBits(bitmap_, offset_, run_length))};
-  }
+  /// \brief Return block with the requested size when doing word-wise
+  /// computation is not possible due to inadequate bits remaining.
+  BitBlockCount GetBlockSlow(int64_t block_size);
 
   const uint8_t* bitmap_;
   int64_t bits_remaining_;
@@ -111,7 +84,9 @@ class ARROW_EXPORT BinaryBitBlockCounter {
 
   /// \brief Return the popcount of the bitwise-and of the next run of
   /// available bits, up to 64. The returned pair contains the size of run and
-  /// the number of true values
+  /// the number of true values. The last block will have a length less than 64
+  /// if the bitmap length is not a multiple of 64, and will return 0-length
+  /// blocks in subsequent invocations.
   BitBlockCount NextAndWord();
 
  private:

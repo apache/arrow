@@ -113,24 +113,13 @@ TEST_F(TestBitBlockCounter, OneWordWithOffsets) {
     // Set the next word to all false
     BitUtil::SetBitsTo(buf_->mutable_data(), 2 * kWordSize + offset, kWordSize, false);
 
-    if (offset == 0) {
-      block = counter_->NextWord();
-      ASSERT_EQ(block.length, 64);
-      ASSERT_EQ(block.popcount, 0);
+    block = counter_->NextWord();
+    ASSERT_EQ(block.length, 64);
+    ASSERT_EQ(block.popcount, 0);
 
-      // Last block
-      block = counter_->NextWord();
-      ASSERT_EQ(block.length, kWordSize - 1);
-      ASSERT_EQ(block.length, block.popcount);
-    } else {
-      // In the last block, we are unable to do the required bit-shifting so
-      // more than 64 bits are returned.
-      block = counter_->NextWord();
-      ASSERT_EQ(block.length, 2 * kWordSize - offset - 1);
-
-      // The first 64 bits were zeroed
-      ASSERT_EQ(block.popcount, block.length - 64);
-    }
+    block = counter_->NextWord();
+    ASSERT_EQ(block.length, kWordSize - offset - 1);
+    ASSERT_EQ(block.length, block.popcount);
 
     // We can keep calling NextWord safely
     block = counter_->NextWord();
@@ -145,7 +134,7 @@ TEST_F(TestBitBlockCounter, OneWordWithOffsets) {
 
 TEST_F(TestBitBlockCounter, FourWordsWithOffsets) {
   auto CheckWithOffset = [&](int64_t offset) {
-    const int64_t nwords = 15;
+    const int64_t nwords = 17;
 
     const int64_t total_bytes = nwords * 8 + 1;
     // Trim a bit from the end of the bitmap so we can check the remainder bits
@@ -156,8 +145,8 @@ TEST_F(TestBitBlockCounter, FourWordsWithOffsets) {
     std::memset(buf_->mutable_data(), 0xFF, total_bytes);
 
     BitBlockCount block = counter_->NextFourWords();
-    ASSERT_EQ(4 * kWordSize, block.length);
-    ASSERT_EQ(block.popcount, 256);
+    ASSERT_EQ(block.length, 4 * kWordSize);
+    ASSERT_EQ(block.popcount, block.length);
 
     // Add some false values to the next 3 shifted words
     BitUtil::SetBitTo(buf_->mutable_data(), 4 * kWordSize + offset, false);
@@ -165,19 +154,26 @@ TEST_F(TestBitBlockCounter, FourWordsWithOffsets) {
     BitUtil::SetBitTo(buf_->mutable_data(), 6 * kWordSize + offset, false);
     block = counter_->NextFourWords();
 
-    ASSERT_EQ(block.length, 256);
+    ASSERT_EQ(block.length, 4 * kWordSize);
     ASSERT_EQ(block.popcount, 253);
 
+    // Set the next two words to all false
     BitUtil::SetBitsTo(buf_->mutable_data(), 8 * kWordSize + offset, 2 * kWordSize,
                        false);
 
+    // Block is half set
     block = counter_->NextFourWords();
-    ASSERT_EQ(block.length, 256);
+    ASSERT_EQ(block.length, 4 * kWordSize);
     ASSERT_EQ(block.popcount, 128);
 
-    // Last block
+    // Last full block whether offset or no
     block = counter_->NextFourWords();
-    ASSERT_EQ(block.length, 3 * kWordSize - offset - 1);
+    ASSERT_EQ(block.length, 4 * kWordSize);
+    ASSERT_EQ(block.length, block.popcount);
+
+    // Partial block
+    block = counter_->NextFourWords();
+    ASSERT_EQ(block.length, kWordSize - offset - 1);
     ASSERT_EQ(block.length, block.popcount);
 
     // We can keep calling NextFourWords safely
@@ -243,8 +239,8 @@ TEST(TestBinaryBitBlockCounter, NextAndWord) {
     ASSERT_EQ(block.popcount, 0);
   };
 
-  for (int left_i = 0; left_i < 7; ++left_i) {
-    for (int right_i = 0; right_i < 7; ++right_i) {
+  for (int left_i = 0; left_i < 8; ++left_i) {
+    for (int right_i = 0; right_i < 8; ++right_i) {
       CheckWithOffsets(left_i, right_i);
     }
   }

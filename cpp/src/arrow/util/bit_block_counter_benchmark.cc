@@ -204,18 +204,6 @@ struct BinaryBitBlockBenchmark {
   }
 };
 
-static void BitBlockCounterInlineSum(benchmark::State& state) {
-  UnaryBitBlockBenchmark(state, /*offset=*/0)
-      .BenchBitBlockCounter(
-          [](BitBlockCounter* counter) { return counter->NextWordInline(); });
-}
-
-static void BitBlockCounterInlineSumWithOffset(benchmark::State& state) {
-  UnaryBitBlockBenchmark(state, /*offset=*/4)
-      .BenchBitBlockCounter(
-          [](BitBlockCounter* counter) { return counter->NextWordInline(); });
-}
-
 static void BitBlockCounterSum(benchmark::State& state) {
   UnaryBitBlockBenchmark(state, /*offset=*/0)
       .BenchBitBlockCounter([](BitBlockCounter* counter) { return counter->NextWord(); });
@@ -263,18 +251,16 @@ static void BinaryBitmapReaderSumWithOffset(benchmark::State& state) {
 }
 
 // Range value: average number of total values per null
-BENCHMARK(BitBlockCounterSum)->Range(8, 1 << 16);
-BENCHMARK(BitBlockCounterSumWithOffset)->Range(8, 1 << 16);
-BENCHMARK(BitBlockCounterInlineSum)->Range(8, 1 << 16);
-BENCHMARK(BitBlockCounterInlineSumWithOffset)->Range(8, 1 << 16);
-BENCHMARK(BitBlockCounterFourWordsSum)->Range(8, 1 << 16);
-BENCHMARK(BitBlockCounterFourWordsSumWithOffset)->Range(8, 1 << 16);
-BENCHMARK(BitmapReaderSum)->Range(8, 1 << 16);
-BENCHMARK(BitmapReaderSumWithOffset)->Range(8, 1 << 16);
-BENCHMARK(BinaryBitBlockCounterSum)->Range(8, 1 << 16);
-BENCHMARK(BinaryBitBlockCounterSumWithOffset)->Range(8, 1 << 16);
-BENCHMARK(BinaryBitmapReaderSum)->Range(8, 1 << 16);
-BENCHMARK(BinaryBitmapReaderSumWithOffset)->Range(8, 1 << 16);
+BENCHMARK(BitBlockCounterSum)->Range(2, 1 << 16);
+BENCHMARK(BitBlockCounterSumWithOffset)->Range(2, 1 << 16);
+BENCHMARK(BitBlockCounterFourWordsSum)->Range(2, 1 << 16);
+BENCHMARK(BitBlockCounterFourWordsSumWithOffset)->Range(2, 1 << 16);
+BENCHMARK(BitmapReaderSum)->Range(2, 1 << 16);
+BENCHMARK(BitmapReaderSumWithOffset)->Range(2, 1 << 16);
+BENCHMARK(BinaryBitBlockCounterSum)->Range(2, 1 << 16);
+BENCHMARK(BinaryBitBlockCounterSumWithOffset)->Range(2, 1 << 16);
+BENCHMARK(BinaryBitmapReaderSum)->Range(2, 1 << 16);
+BENCHMARK(BinaryBitmapReaderSumWithOffset)->Range(2, 1 << 16);
 
 }  // namespace internal
 }  // namespace arrow
