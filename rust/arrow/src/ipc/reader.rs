@@ -793,7 +793,22 @@ impl<R: Read> StreamReader<R> {
         }
         // determine metadata length
         let mut meta_size: [u8; 4] = [0; 4];
-        self.reader.read_exact(&mut meta_size)?;
+
+        match self.reader.read_exact(&mut meta_size) {
+            Ok(()) => (),
+            Err(e) => {
+                return if e.kind() == std::io::ErrorKind::UnexpectedEof {
+                    // Handle EOF without the "0xFFFFFFFF 0x00000000"
+                    // valid according to:
+                    // https://arrow.apache.org/docs/format/Columnar.html#ipc-streaming-format
+                    self.finished = true;
+                    Ok(None)
+                } else {
+                    Err(ArrowError::from(e))
+                };
+            }
+        }
+
         let meta_len = {
             let meta_len = u32::from_le_bytes(meta_size);
 
