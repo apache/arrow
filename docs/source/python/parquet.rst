@@ -398,7 +398,7 @@ the allowed character set of the HIVE version you are running.
 Writing ``_metadata`` and ``_common_medata`` files
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Some processing frameworks such as Spark or Dask (optionally) use ``metadata``
+Some processing frameworks such as Spark or Dask (optionally) use ``_metadata``
 and ``_common_metadata`` files with partitioned datasets.
 
 Those files include information about the schema of the full dataset (for
@@ -410,7 +410,7 @@ convention set in practice by those frameworks.
 Using those files can give a more efficient creation of a parquet Dataset,
 since it can use the stored schema and and file paths of all row groups,
 instead of inferring the schema and crawling the directories for all Parquet
-files (this is especially the case for filesystems where listing files
+files (this is especially the case for filesystems where accessing files
 is expensive).
 
 The :func:`~pyarrow.parquet.write_to_dataset` function does not automatically
