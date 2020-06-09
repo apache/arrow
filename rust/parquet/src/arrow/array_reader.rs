@@ -1179,9 +1179,13 @@ impl<'a> TypeVisitor<Option<Box<dyn ArrayReader>>, &'a ArrayReaderBuilderContext
     fn visit_list_with_item(
         &mut self,
         list_type: Rc<Type>,
-        item_type: &Type,
+        item_type: Rc<Type>,
         context: &'a ArrayReaderBuilderContext,
     ) -> Result<Option<Box<dyn ArrayReader>>> {
+        let list_child = &list_type
+            .get_fields()
+            .first()
+            .ok_or(ArrowError("List field must have a child.".to_string()))?;
         let mut new_context = context.clone();
 
         new_context.path.append(vec![list_type.name().to_string()]);
@@ -1197,7 +1201,7 @@ impl<'a> TypeVisitor<Option<Box<dyn ArrayReader>>, &'a ArrayReaderBuilderContext
             _ => (),
         }
 
-        match item_type.get_basic_info().repetition() {
+        match list_child.get_basic_info().repetition() {
             Repetition::REPEATED => {
                 new_context.def_level += 1;
                 new_context.rep_level += 1;
@@ -1209,7 +1213,7 @@ impl<'a> TypeVisitor<Option<Box<dyn ArrayReader>>, &'a ArrayReaderBuilderContext
         }
 
         let item_reader = self
-            .dispatch(Rc::new(item_type.clone()), &new_context)
+            .dispatch(item_type.clone(), &new_context)
             .unwrap()
             .unwrap();
 

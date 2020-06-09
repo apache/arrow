@@ -50,7 +50,7 @@ pub trait TypeVisitor<R, C> {
                         {
                             self.visit_list_with_item(
                                 list_type.clone(),
-                                list_item,
+                                list_item.clone(),
                                 context,
                             )
                         } else {
@@ -70,13 +70,13 @@ pub trait TypeVisitor<R, C> {
                         {
                             self.visit_list_with_item(
                                 list_type.clone(),
-                                fields.first().unwrap(),
+                                fields.first().unwrap().clone(),
                                 context,
                             )
                         } else {
                             self.visit_list_with_item(
                                 list_type.clone(),
-                                list_item,
+                                list_item.clone(),
                                 context,
                             )
                         }
@@ -98,6 +98,7 @@ pub trait TypeVisitor<R, C> {
     /// A utility method which detects input type and calls corresponding method.
     fn dispatch(&mut self, cur_type: TypePtr, context: C) -> Result<R> {
         if cur_type.is_primitive() {
+            println!("visiting primitive");
             self.visit_primitive(cur_type, context)
         } else {
             match cur_type.get_basic_info().logical_type() {
@@ -114,7 +115,7 @@ pub trait TypeVisitor<R, C> {
     fn visit_list_with_item(
         &mut self,
         list_type: TypePtr,
-        item_type: &Type,
+        item_type: TypePtr,
         context: C,
     ) -> Result<R>;
 }
@@ -174,7 +175,7 @@ mod tests {
         fn visit_list_with_item(
             &mut self,
             list_type: TypePtr,
-            item_type: &Type,
+            item_type: TypePtr,
             _context: TestVisitorContext,
         ) -> Result<bool> {
             assert_eq!(
