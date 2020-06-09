@@ -149,7 +149,7 @@ void BitPackBuffer(const mxArray* logical_array,
         mxGetClassName(logical_array));
   }
 
-  // Validate that the input arrow::Buffer has sufficent size to store a full bit-packed
+  // Validate that the input arrow::Buffer has sufficient size to store a full bit-packed
   // representation of the input mxLogicalArray
   int64_t unpacked_buffer_length = GetNumberOfElements(logical_array);
   if (BitPackedLength(unpacked_buffer_length) > packed_buffer->capacity()) {

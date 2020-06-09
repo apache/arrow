@@ -401,3 +401,20 @@ Compile the extension:
 .. code-block:: bash
 
     python setup.py build_ext --inplace
+
+Building Extensions against PyPI Wheels
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The Python wheels have the Arrow C++ libraries bundled in the top level
+``pyarrow/`` install directory. On Linux and macOS, these libraries have an ABI
+tag like ``libarrow.so.17`` which means that linking with ``-larrow`` using the
+linker path provided by ``pyarrow.get_library_dirs()`` will not work right out
+of the box. To fix this, you must run ``pyarrow.create_library_symlinks()``
+once as a user with write access to the directory where pyarrow is
+installed. This function will attempt to create symlinks like
+``pyarrow/libarrow.so``. For example:
+
+.. code-block:: bash
+
+   pip install pyarrow
+   python -c "import pyarrow; pyarrow.create_library_symlinks()"

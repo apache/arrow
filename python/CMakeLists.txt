@@ -225,16 +225,20 @@ function(bundle_arrow_lib library_path)
 
   get_filename_component(LIBRARY_DIR ${${library_path}} DIRECTORY)
   get_filename_component(LIBRARY_NAME ${${library_path}} NAME_WE)
-  configure_file(
-    ${${library_path}}
-    ${BUILD_OUTPUT_ROOT_DIRECTORY}/${LIBRARY_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX} COPYONLY)
 
-  if(APPLE)
+  # Only copy the shared library with ABI version on Linux and macOS
+
+  if(MSVC)
+    configure_file(
+      ${${library_path}}
+      ${BUILD_OUTPUT_ROOT_DIRECTORY}/${LIBRARY_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}
+      COPYONLY)
+  elseif(APPLE)
     configure_file(
       ${LIBRARY_DIR}/${LIBRARY_NAME}.${ARG_SO_VERSION}${CMAKE_SHARED_LIBRARY_SUFFIX}
       ${BUILD_OUTPUT_ROOT_DIRECTORY}/${LIBRARY_NAME}.${ARG_SO_VERSION}${CMAKE_SHARED_LIBRARY_SUFFIX}
       COPYONLY)
-  elseif(NOT MSVC)
+  else()
     configure_file(
       ${${library_path}}.${ARG_SO_VERSION}
       ${BUILD_OUTPUT_ROOT_DIRECTORY}/${LIBRARY_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}.${ARG_SO_VERSION}
@@ -377,9 +381,9 @@ endif()
 set(CYTHON_EXTENSIONS
     lib
     _fs
+    _compute
     _csv
-    _json
-    _compute)
+    _json)
 
 set(LINK_LIBS arrow_shared arrow_python_shared)
 

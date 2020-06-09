@@ -20,6 +20,7 @@
 set -e
 
 export ARROW_TEST_DATA=/arrow/testing/data
+export PYARROW_TEST_CYTHON=OFF
 
 python --version
 # Install built wheel
@@ -44,5 +45,4 @@ import pyarrow.fs
 import pyarrow._hdfs
 import pyarrow.dataset
 import pyarrow.flight
-import pyarrow.gandiva
 "

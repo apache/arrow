@@ -53,7 +53,7 @@ namespace Apache.Arrow
 
                 var fieldBuilder = new Field.Builder();
                 fieldBuilderAction(fieldBuilder);
-                var field = fieldBuilder.Build();
+                Field field = fieldBuilder.Build();
 
                 _fields.Add(field);
                 return this;
@@ -78,7 +78,7 @@ namespace Apache.Arrow
                 }
                 foreach (KeyValuePair<string, string> entry in dictionary)
                 {
-                    this.Metadata(entry.Key, entry.Value);
+                    Metadata(entry.Key, entry.Value);
                 }
                 return this;
             }

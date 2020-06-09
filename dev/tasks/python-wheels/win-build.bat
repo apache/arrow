@@ -17,10 +17,14 @@
 
 @echo on
 
+@rem Building Gandiva in the wheels is disabled for now to make the wheels
+@rem smaller.
+
+@rem --file=%ARROW_SRC%\ci\conda_env_gandiva.yml ^
+
 @rem create conda environment for compiling
 call conda create -n wheel-build -q -y -c conda-forge ^
     --file=%ARROW_SRC%\ci\conda_env_cpp.yml ^
-    --file=%ARROW_SRC%\ci\conda_env_gandiva.yml ^
     "vs2015_runtime<14.16" ^
     python=%PYTHON_VERSION% || exit /B
 
@@ -61,7 +65,7 @@ cmake -G "%GENERATOR%" ^
       -DARROW_FLIGHT=ON ^
       -DARROW_PYTHON=ON ^
       -DARROW_PARQUET=ON ^
-      -DARROW_GANDIVA=ON ^
+      -DARROW_GANDIVA=OFF ^
       -DARROW_MIMAllOC=ON ^
       -DZSTD_SOURCE=BUNDLED ^
       .. || exit /B
@@ -70,9 +74,10 @@ popd
 
 set PYARROW_BUILD_TYPE=Release
 set PYARROW_PARALLEL=8
+set PYARROW_INSTALL_TESTS=1
 set PYARROW_WITH_DATASET=1
 set PYARROW_WITH_FLIGHT=1
-set PYARROW_WITH_GANDIVA=1
+set PYARROW_WITH_GANDIVA=0
 set PYARROW_WITH_PARQUET=1
 set PYARROW_WITH_STATIC_BOOST=1
 set PYARROW_BUNDLE_ARROW_CPP=1
@@ -96,7 +101,6 @@ set ARROW_TEST_DATA=%ARROW_SRC%\testing\data
 %PYTHON_INTERPRETER% -c "import pyarrow" || exit /B
 %PYTHON_INTERPRETER% -c "import pyarrow.parquet" || exit /B
 %PYTHON_INTERPRETER% -c "import pyarrow.flight" || exit /B
-%PYTHON_INTERPRETER% -c "import pyarrow.gandiva" || exit /B
 %PYTHON_INTERPRETER% -c "import pyarrow.dataset" || exit /B
 
 @rem run the python tests, but disable the cython because there is a linking

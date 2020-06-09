@@ -238,7 +238,7 @@ DIV_FLOAT(float64)
   FORCE_INLINE                                                                      \
   gdv_##OUT_TYPE cast##TYPE_NAME##_utf8(int64_t context, const char* data,          \
                                         int32_t len) {                              \
-    gdv_##OUT_TYPE val;                                                             \
+    gdv_##OUT_TYPE val = 0;                                                         \
     if (!arrow::internal::StringConverter<ARROW_TYPE>::Convert(data, len, &val)) {  \
       gdv_fn_context_set_error_msg(context,                                         \
                                    "Failed parsing the string to required format"); \
@@ -253,7 +253,7 @@ CAST_INT_FROM_STRING(int64, arrow::Int64Type, BIGINT)
   FORCE_INLINE                                                                      \
   gdv_##OUT_TYPE cast##TYPE_NAME##_utf8(int64_t context, const char* data,          \
                                         int32_t len) {                              \
-    gdv_##OUT_TYPE val;                                                             \
+    gdv_##OUT_TYPE val = 0;                                                         \
     if (!gdv_fn_context_parse_##OUT_TYPE(context, data, len, &val)) {               \
       gdv_fn_context_set_error_msg(context,                                         \
                                    "Failed parsing the string to required format"); \

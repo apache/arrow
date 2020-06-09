@@ -124,7 +124,7 @@ set PYARROW_WITH_FLIGHT=1
 set PYARROW_WITH_PARQUET=1
 set PYARROW_WITH_DATASET=1
 python setup.py build_ext --inplace --bundle-arrow-cpp bdist_wheel  || exit /B 1
-py.test pyarrow -v -s --parquet || exit /B 1
+py.test pyarrow -v -s --enable-parquet || exit /B 1
 
 popd
 

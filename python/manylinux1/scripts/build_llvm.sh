@@ -25,6 +25,7 @@ detect_llvm_version() {
   curl -sL https://api.github.com/repos/llvm/llvm-project/releases | \
     grep tag_name | \
     grep -o "llvmorg-${LLVM_VERSION_MAJOR}[^\"]*" | \
+    grep -v rc | \
     sed -e "s/^llvmorg-//g" | \
     head -n 1
 }
@@ -60,10 +61,15 @@ rm -rf llvm-${LLVM_VERSION}.src.tar.xz llvm-${LLVM_VERSION}.src.tar llvm-${LLVM_
 
 
 # clang is only used to precompile Gandiva bitcode
-curl -sL https://github.com/llvm/llvm-project/releases/download/llvmorg-${LLVM_VERSION}/cfe-${LLVM_VERSION}.src.tar.xz -o cfe-${LLVM_VERSION}.src.tar.xz
-unxz cfe-${LLVM_VERSION}.src.tar.xz
-tar xf cfe-${LLVM_VERSION}.src.tar
-pushd cfe-${LLVM_VERSION}.src
+if [ ${LLVM_VERSION_MAJOR} -lt 9 ]; then
+  clang_package_name=cfe
+else
+  clang_package_name=clang
+fi
+curl -sL https://github.com/llvm/llvm-project/releases/download/llvmorg-${LLVM_VERSION}/${clang_package_name}-${LLVM_VERSION}.src.tar.xz -o ${clang_package_name}-${LLVM_VERSION}.src.tar.xz
+unxz ${clang_package_name}-${LLVM_VERSION}.src.tar.xz
+tar xf ${clang_package_name}-${LLVM_VERSION}.src.tar
+pushd ${clang_package_name}-${LLVM_VERSION}.src
 mkdir build
 pushd build
 cmake \
@@ -79,4 +85,4 @@ cmake \
 ninja -w dupbuild=warn install # both clang and llvm builds generate llvm-config file
 popd
 popd
-rm -rf cfe-${LLVM_VERSION}.src.tar.xz cfe-${LLVM_VERSION}.src.tar cfe-${LLVM_VERSION}.src
+rm -rf ${clang_package_name}-${LLVM_VERSION}.src.tar.xz ${clang_package_name}-${LLVM_VERSION}.src.tar ${clang_package_name}-${LLVM_VERSION}.src

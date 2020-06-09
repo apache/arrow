@@ -27,6 +27,7 @@
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/bitmap_reader.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/functional.h"
 #include "arrow/util/optional.h"

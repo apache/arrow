@@ -25,7 +25,7 @@ use std::fmt;
 
 use arrow::datatypes::{DataType, Field, Schema};
 
-use crate::datasource::csv::CsvFile;
+use crate::datasource::csv::{CsvFile, CsvReadOptions};
 use crate::datasource::parquet::ParquetTable;
 use crate::datasource::TableProvider;
 use crate::error::{ExecutionError, Result};
@@ -593,7 +593,7 @@ pub enum LogicalPlan {
         /// The file type of physical file
         file_type: FileType,
         /// Whether the CSV file contains a header
-        header_row: bool,
+        has_header: bool,
     },
 }
 
@@ -796,32 +796,36 @@ impl LogicalPlanBuilder {
     /// Scan a CSV data source
     pub fn scan_csv(
         path: &str,
-        has_header: bool,
-        schema: Option<&Schema>,
-        delimiter: Option<u8>,
+        options: CsvReadOptions,
         projection: Option<Vec<usize>>,
     ) -> Result<Self> {
-        let schema: Schema = match schema {
+        let has_header = options.has_header;
+        let delimiter = options.delimiter;
+        let schema: Schema = match options.schema {
             Some(s) => s.to_owned(),
-            None => CsvFile::try_new(path, None, has_header, delimiter)?
+            None => CsvFile::try_new(path, options)?
                 .schema()
                 .as_ref()
                 .to_owned(),
         };
 
-        let projected_schema = projection
-            .clone()
-            .map(|p| Schema::new(p.iter().map(|i| schema.field(*i).clone()).collect()));
+        let projected_schema = Box::new(
+            projection
+                .clone()
+                .map(|p| {
+                    Schema::new(p.iter().map(|i| schema.field(*i).clone()).collect())
+                })
+                .or(Some(schema.clone()))
+                .unwrap(),
+        );
 
         Ok(Self::from(&LogicalPlan::CsvScan {
             path: path.to_owned(),
-            schema: Box::new(schema.to_owned()),
-            has_header,
-            delimiter,
+            schema: Box::new(schema),
+            has_header: has_header,
+            delimiter: Some(delimiter),
             projection,
-            projected_schema: Box::new(
-                projected_schema.or(Some(schema.clone())).unwrap(),
-            ),
+            projected_schema,
         }))
     }
 
@@ -969,9 +973,7 @@ mod tests {
     fn plan_builder_csv() -> Result<()> {
         let plan = LogicalPlanBuilder::scan_csv(
             "employee.csv",
-            true,
-            Some(&employee_schema()),
-            None,
+            CsvReadOptions::new().schema(&employee_schema()),
             Some(vec![0, 3]),
         )?
         .filter(col("state").eq(&lit_str("CO")))?

@@ -39,6 +39,7 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
@@ -781,7 +782,9 @@ class TypeEqualsVisitor {
       result_ = false;
       return Status::OK();
     }
-    return VisitChildren(left);
+    result_ = left.key_type()->Equals(*right.key_type(), check_metadata_) &&
+              left.item_type()->Equals(*right.item_type(), check_metadata_);
+    return Status::OK();
   }
 
   Status Visit(const UnionType& left) {
@@ -850,7 +853,7 @@ class ScalarEqualsVisitor {
   template <typename T>
   typename std::enable_if<std::is_base_of<BaseBinaryScalar, T>::value, Status>::type
   Visit(const T& left) {
-    const auto& right = checked_cast<const BinaryScalar&>(right_);
+    const auto& right = checked_cast<const BaseBinaryScalar&>(right_);
     result_ = internal::SharedPtrEquals(left.value, right.value);
     return Status::OK();
   }

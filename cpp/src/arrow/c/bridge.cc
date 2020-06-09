@@ -503,6 +503,8 @@ void ReleaseExportedArray(struct ArrowArray* array) {
 
 struct ArrayExporter {
   Status Export(const std::shared_ptr<ArrayData>& data) {
+    // Force computing null count.
+    data->GetNullCount();
     // Store buffer pointers
     export_.buffers_.resize(data->buffers.size());
     std::transform(data->buffers.begin(), data->buffers.end(), export_.buffers_.begin(),
@@ -513,7 +515,7 @@ struct ArrayExporter {
     // Export dictionary
     if (data->dictionary != nullptr) {
       dict_exporter_.reset(new ArrayExporter());
-      RETURN_NOT_OK(dict_exporter_->Export(data->dictionary->data()));
+      RETURN_NOT_OK(dict_exporter_->Export(data->dictionary));
     }
 
     // Export children
@@ -1191,6 +1193,11 @@ struct ArrayImporter {
     return ::arrow::MakeArray(data_);
   }
 
+  std::shared_ptr<ArrayData> GetArrayData() {
+    DCHECK_NE(data_, nullptr);
+    return data_;
+  }
+
   Result<std::shared_ptr<RecordBatch>> MakeRecordBatch(std::shared_ptr<Schema> schema) {
     DCHECK_NE(data_, nullptr);
     if (data_->null_count != 0) {
@@ -1257,7 +1264,7 @@ struct ArrayImporter {
       // Import dictionary values
       ArrayImporter dict_importer(dict_type.value_type());
       RETURN_NOT_OK(dict_importer.ImportDict(this, c_struct_->dictionary));
-      ARROW_ASSIGN_OR_RAISE(data_->dictionary, dict_importer.MakeArray());
+      data_->dictionary = dict_importer.GetArrayData();
     } else {
       if (is_dict_type) {
         return Status::Invalid("Import type is ", type_->ToString(),
@@ -1396,7 +1403,7 @@ struct ArrayImporter {
 
   Status ImportNullBitmap(int32_t buffer_id = 0) {
     RETURN_NOT_OK(ImportBitsBuffer(buffer_id));
-    if (data_->null_count != 0 && data_->buffers[buffer_id] == nullptr) {
+    if (data_->null_count > 0 && data_->buffers[buffer_id] == nullptr) {
       return Status::Invalid(
           "ArrowArray struct has null bitmap buffer but non-zero null_count ",
           data_->null_count);

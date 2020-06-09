@@ -449,8 +449,8 @@ struct ArithmeticDatasetFixture {
 
     std::stringstream ss;
     ss << "[\n";
-    for (int64_t i = 0; i < n; i++) {
-      if (i != 0) {
+    for (int64_t i = 1; i <= n; i++) {
+      if (i != 1) {
         ss << "\n,";
       }
       ss << record;

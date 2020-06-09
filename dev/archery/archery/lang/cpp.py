@@ -62,6 +62,7 @@ class CppConfiguration:
                  # extras
                  with_lint_only=False,
                  use_gold_linker=True,
+                 simd_level="SSE4_2",
                  cmake_extras=None):
         self._cc = cc
         self._cxx = cxx
@@ -111,6 +112,7 @@ class CppConfiguration:
 
         self.with_lint_only = with_lint_only
         self.use_gold_linker = use_gold_linker
+        self.simd_level = simd_level
 
         self.cmake_extras = cmake_extras
 
@@ -232,6 +234,7 @@ class CppConfiguration:
         broken_with_gold_ld = [self.with_fuzzing, self.with_gandiva]
         if self.use_gold_linker and not any(broken_with_gold_ld):
             yield ("ARROW_USE_LD_GOLD", truthifier(self.use_gold_linker))
+        yield ("ARROW_SIMD_LEVEL", or_else(self.simd_level, "SSE4_2"))
 
         # Detect custom conda toolchain
         if self.use_conda:

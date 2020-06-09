@@ -41,13 +41,13 @@ namespace Apache.Arrow
                     return AppendNull();
                 }
                 encoding = encoding ?? DefaultEncoding;
-                var span = encoding.GetBytes(value);
+                byte[] span = encoding.GetBytes(value);
                 return Append(span.AsSpan());
             }
 
             public Builder AppendRange(IEnumerable<string> values, Encoding encoding = null)
             {
-                foreach (var value in values)
+                foreach (string value in values)
                 {
                     Append(value, encoding);
                 }
@@ -74,7 +74,7 @@ namespace Apache.Arrow
         {
             encoding = encoding ?? DefaultEncoding;
 
-            var bytes = GetBytes(index);
+            ReadOnlySpan<byte> bytes = GetBytes(index);
 
             if (bytes == default)
             {

@@ -499,6 +499,18 @@ Status ToProto(const SchemaResult& result, pb::SchemaResult* pb_result) {
   return Status::OK();
 }
 
+Status ToPayload(const FlightDescriptor& descr, std::shared_ptr<Buffer>* out) {
+  // TODO(lidavidm): make these use Result<T>
+  std::string str_descr;
+  pb::FlightDescriptor pb_descr;
+  RETURN_NOT_OK(ToProto(descr, &pb_descr));
+  if (!pb_descr.SerializeToString(&str_descr)) {
+    return Status::UnknownError("Failed to serialize Flight descriptor");
+  }
+  *out = Buffer::FromString(std::move(str_descr));
+  return Status::OK();
+}
+
 }  // namespace internal
 }  // namespace flight
 }  // namespace arrow

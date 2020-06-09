@@ -28,12 +28,7 @@
 
 #include "arrow/buffer.h"
 #include "arrow/buffer_builder.h"
-#include "arrow/compute/context.h"
-#include "arrow/compute/kernels/boolean.h"
-#include "arrow/compute/kernels/cast.h"
-#include "arrow/compute/kernels/compare.h"
-#include "arrow/compute/kernels/filter.h"
-#include "arrow/compute/kernels/isin.h"
+#include "arrow/compute/api.h"
 #include "arrow/dataset/dataset.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/reader.h"
@@ -49,9 +44,12 @@
 #include "arrow/visitor_inline.h"
 
 namespace arrow {
+
+using compute::CompareOperator;
+using compute::ExecContext;
+
 namespace dataset {
 
-using arrow::compute::Datum;
 using arrow::internal::checked_cast;
 using arrow::internal::checked_pointer_cast;
 
@@ -186,9 +184,7 @@ Result<Comparison::type> Compare(const Scalar& lhs, const Scalar& rhs) {
   return vis.result_;
 }
 
-compute::CompareOperator InvertCompareOperator(compute::CompareOperator op) {
-  using compute::CompareOperator;
-
+CompareOperator InvertCompareOperator(CompareOperator op) {
   switch (op) {
     case CompareOperator::EQUAL:
       return CompareOperator::NOT_EQUAL;
@@ -259,7 +255,7 @@ std::shared_ptr<Expression> Invert(const Expression& expr) {
 std::shared_ptr<Expression> Expression::Assume(const Expression& given) const {
   if (given.type() == ExpressionType::COMPARISON) {
     const auto& given_cmp = checked_cast<const ComparisonExpression&>(given);
-    if (given_cmp.op() == compute::CompareOperator::EQUAL) {
+    if (given_cmp.op() == CompareOperator::EQUAL) {
       if (this->Equals(given_cmp.left_operand()) &&
           given_cmp.right_operand()->type() == ExpressionType::SCALAR) {
         return given_cmp.right_operand();
@@ -352,8 +348,6 @@ std::shared_ptr<Expression> ComparisonExpression::AssumeGivenComparison(
 
   static auto always = scalar(true);
   static auto never = scalar(false);
-
-  using compute::CompareOperator;
 
   if (cmp == Comparison::GREATER) {
     // the rhs of e is greater than that of given
@@ -571,12 +565,13 @@ std::shared_ptr<Expression> InExpression::Assume(const Expression& given) const 
 
   const auto& value = checked_cast<const ScalarExpression&>(*operand).value();
 
-  Datum out;
-  compute::FunctionContext ctx;
-  arrow::compute::CompareOptions eq(compute::CompareOperator::EQUAL);
-  if (!compute::Compare(&ctx, Datum(set_), Datum(value), eq, &out).ok()) {
+  compute::CompareOptions eq(CompareOperator::EQUAL);
+  Result<Datum> out_result = compute::Compare(set_, value, eq);
+  if (!out_result.ok()) {
     return std::make_shared<InExpression>(std::move(operand), set_);
   }
+
+  Datum out = out_result.ValueOrDie();
 
   DCHECK(out.is_array());
   DCHECK_EQ(out.type()->id(), Type::BOOL);
@@ -629,7 +624,6 @@ const std::shared_ptr<Expression>& CastExpression::like_expr() const {
 std::string FieldExpression::ToString() const { return name_; }
 
 std::string OperatorName(compute::CompareOperator op) {
-  using compute::CompareOperator;
   switch (op) {
     case CompareOperator::EQUAL:
       return "==";
@@ -908,8 +902,10 @@ Result<std::shared_ptr<DataType>> CastExpression::Validate(const Schema& schema)
     return to_type;
   }
 
-  std::unique_ptr<compute::UnaryKernel> kernel;
-  RETURN_NOT_OK(GetCastFunction(*operand_type, to_type, options_, &kernel));
+  if (!compute::CanCast(*operand_type, *to_type)) {
+    return Status::Invalid("Cannot cast to ", to_type->ToString());
+  }
+
   return to_type;
 }
 
@@ -956,9 +952,7 @@ struct InsertImplicitCastsImpl {
 
     if (!op.type->Equals(set->type())) {
       // cast the set (which we assume to be small) to match op.type
-      compute::FunctionContext ctx;
-      const auto options = compute::CastOptions::Safe();
-      RETURN_NOT_OK(arrow::compute::Cast(&ctx, *set, op.type, options, &set));
+      ARROW_ASSIGN_OR_RAISE(set, compute::Cast(*set, op.type));
     }
 
     return std::make_shared<InExpression>(std::move(op.expr), std::move(set));
@@ -1118,10 +1112,9 @@ struct TreeEvaluator::Impl {
   }
 
   Result<Datum> EvaluateBoolean(const BinaryExpression& expr,
-                                Status kernel(compute::FunctionContext* context,
-                                              const compute::Datum& left,
-                                              const compute::Datum& right,
-                                              compute::Datum* out)) const {
+                                Result<Datum> kernel(const Datum& left,
+                                                     const Datum& right,
+                                                     ExecContext* ctx)) const {
     ARROW_ASSIGN_OR_RAISE(auto lhs, Evaluate(*expr.left_operand()));
     ARROW_ASSIGN_OR_RAISE(auto rhs, Evaluate(*expr.right_operand()));
 
@@ -1139,9 +1132,7 @@ struct TreeEvaluator::Impl {
       rhs = Datum(std::move(rhs_array));
     }
 
-    Datum out;
-    RETURN_NOT_OK(kernel(&ctx_, lhs, rhs, &out));
-    return std::move(out);
+    return kernel(lhs, rhs, &ctx_);
   }
 
   Result<Datum> operator()(const NotExpression& expr) const {
@@ -1155,11 +1146,7 @@ struct TreeEvaluator::Impl {
           checked_cast<const BooleanScalar&>(*to_invert.scalar()).value;
       return Datum(std::make_shared<BooleanScalar>(!trivial_condition));
     }
-
-    DCHECK(to_invert.is_array());
-    Datum out;
-    RETURN_NOT_OK(arrow::compute::Invert(&ctx_, to_invert, &out));
-    return std::move(out);
+    return compute::Invert(to_invert, &ctx_);
   }
 
   Result<Datum> operator()(const InExpression& expr) const {
@@ -1169,9 +1156,7 @@ struct TreeEvaluator::Impl {
     }
 
     DCHECK(operand_values.is_array());
-    Datum out;
-    RETURN_NOT_OK(arrow::compute::IsIn(&ctx_, operand_values, expr.set(), &out));
-    return std::move(out);
+    return compute::IsIn(operand_values, expr.set(), &ctx_);
   }
 
   Result<Datum> operator()(const IsValidExpression& expr) const {
@@ -1202,9 +1187,7 @@ struct TreeEvaluator::Impl {
     }
 
     DCHECK(to_cast.is_array());
-    Datum out;
-    RETURN_NOT_OK(arrow::compute::Cast(&ctx_, to_cast, to_type, expr.options(), &out));
-    return std::move(out);
+    return compute::Cast(to_cast, to_type, expr.options());
   }
 
   Result<Datum> operator()(const ComparisonExpression& expr) const {
@@ -1217,10 +1200,7 @@ struct TreeEvaluator::Impl {
 
     DCHECK(lhs.is_array());
 
-    Datum out;
-    RETURN_NOT_OK(arrow::compute::Compare(
-        &ctx_, lhs, rhs, arrow::compute::CompareOptions(expr.op()), &out));
-    return std::move(out);
+    return compute::Compare(lhs, rhs, compute::CompareOptions(expr.op()), &ctx_);
   }
 
   Result<Datum> operator()(const Expression& expr) const {
@@ -1233,22 +1213,22 @@ struct TreeEvaluator::Impl {
 
   const TreeEvaluator* this_;
   const RecordBatch& batch_;
-  mutable compute::FunctionContext ctx_;
+  mutable compute::ExecContext ctx_;
 };
 
 Result<Datum> TreeEvaluator::Evaluate(const Expression& expr, const RecordBatch& batch,
                                       MemoryPool* pool) const {
-  return VisitExpression(expr, Impl{this, batch, compute::FunctionContext{pool}});
+  return VisitExpression(expr, Impl{this, batch, compute::ExecContext{pool}});
 }
 
 Result<std::shared_ptr<RecordBatch>> TreeEvaluator::Filter(
-    const compute::Datum& selection, const std::shared_ptr<RecordBatch>& batch,
+    const Datum& selection, const std::shared_ptr<RecordBatch>& batch,
     MemoryPool* pool) const {
   if (selection.is_array()) {
     auto selection_array = selection.make_array();
-    compute::Datum filtered;
-    compute::FunctionContext ctx{pool};
-    RETURN_NOT_OK(compute::Filter(&ctx, batch, selection_array, {}, &filtered));
+    compute::ExecContext ctx(pool);
+    ARROW_ASSIGN_OR_RAISE(Datum filtered,
+                          compute::Filter(batch, selection_array, {}, &ctx));
     return filtered.record_batch();
   }
 
@@ -1425,9 +1405,9 @@ struct DeserializeImpl {
         ARROW_ASSIGN_OR_RAISE(auto left_operand, FromArray(*struct_array.field(0)));
         ARROW_ASSIGN_OR_RAISE(auto right_operand, FromArray(*struct_array.field(1)));
         ARROW_ASSIGN_OR_RAISE(auto op, GetView<Int32Type>(struct_array, 2));
-        return std::make_shared<ComparisonExpression>(
-            static_cast<compute::CompareOperator>(op), std::move(left_operand),
-            std::move(right_operand));
+        return std::make_shared<ComparisonExpression>(static_cast<CompareOperator>(op),
+                                                      std::move(left_operand),
+                                                      std::move(right_operand));
       }
 
       case ExpressionType::IS_VALID: {

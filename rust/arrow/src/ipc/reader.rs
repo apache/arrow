@@ -25,12 +25,13 @@ use std::io::{BufReader, Read, Seek, SeekFrom};
 use std::sync::Arc;
 
 use crate::array::*;
-use crate::buffer::Buffer;
+use crate::buffer::{Buffer, MutableBuffer};
 use crate::compute::cast;
 use crate::datatypes::{DataType, Field, IntervalUnit, Schema, SchemaRef};
 use crate::error::{ArrowError, Result};
 use crate::ipc;
 use crate::record_batch::{RecordBatch, RecordBatchReader};
+use crate::util::bit_util;
 use DataType::*;
 
 const CONTINUATION_MARKER: u32 = 0xffff_ffff;
@@ -187,6 +188,24 @@ fn create_array(
                 &index_buffers[..],
                 value_array,
             )
+        }
+        Null => {
+            let length = nodes[node_index].length() as usize;
+            let data = ArrayData::builder(data_type.clone())
+                .len(length)
+                .null_count(length)
+                .null_bit_buffer({
+                    // create a buffer and fill it with invalid bits
+                    let num_bytes = bit_util::ceil(length, 8);
+                    let buffer = MutableBuffer::new(num_bytes);
+                    let buffer = buffer.with_bitset(num_bytes, false);
+                    buffer.freeze()
+                })
+                .offset(0)
+                .build();
+            node_index += 1;
+            // no buffer increases
+            make_array(data)
         }
         _ => {
             let array = create_primitive_array(
@@ -661,10 +680,12 @@ impl<R: Read + Seek> FileReader<R> {
                         &self.dictionaries_by_field,
                     )
                 }
-                _ => Err(ArrowError::IoError(
-                    "Reading types other than record batches not yet supported"
-                        .to_string(),
-                )),
+                ipc::MessageHeader::NONE => {
+                    Ok(None)
+                }
+                t => Err(ArrowError::IoError(format!(
+                    "Reading types other than record batches not yet supported, unable to read {:?}", t
+                ))),
             }
         } else {
             Ok(None)
@@ -814,8 +835,11 @@ impl<R: Read> StreamReader<R> {
 
                 read_record_batch(&buf, batch, self.schema(), &self.dictionaries_by_field)
             }
-            _ => Err(ArrowError::IoError(
-                "Reading types other than record batches not yet supported".to_string(),
+            ipc::MessageHeader::NONE => {
+                Ok(None)
+            }
+            t => Err(ArrowError::IoError(
+                format!("Reading types other than record batches not yet supported, unable to read {:?} ", t)
             )),
         }
     }

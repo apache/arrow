@@ -25,7 +25,6 @@
 #include <vector>
 
 #include "arrow/array.h"
-#include "arrow/compute/api.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"

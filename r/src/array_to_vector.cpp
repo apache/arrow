@@ -18,10 +18,17 @@
 #include "./arrow_types.h"
 #if defined(ARROW_R_WITH_ARROW)
 
+#include <arrow/array.h>
+#include <arrow/table.h>
+#include <arrow/util/bitmap_reader.h>
+#include <arrow/util/bitmap_writer.h>
 #include <arrow/util/parallel.h>
 #include <arrow/util/task_group.h>
 
 namespace arrow {
+
+using internal::checked_cast;
+
 namespace r {
 
 using Rcpp::default_value;
@@ -33,7 +40,7 @@ using Rcpp::StringVector_;
 
 class Converter {
  public:
-  explicit Converter(const ArrayVector& arrays) : arrays_(arrays) {}
+  explicit Converter(ArrayVector arrays) : arrays_(std::move(arrays)) {}
 
   virtual ~Converter() {}
 
@@ -86,10 +93,11 @@ class Converter {
   }
 
   // Converter factory
-  static std::shared_ptr<Converter> Make(const ArrayVector& arrays);
+  static std::shared_ptr<Converter> Make(const std::shared_ptr<DataType>& type,
+                                         ArrayVector arrays);
 
  protected:
-  const ArrayVector& arrays_;
+  ArrayVector arrays_;
 };
 
 // data[start:(start+n)] = NA
@@ -126,8 +134,9 @@ Status SomeNull_Ingest(SEXP data, R_xlen_t start, R_xlen_t n,
 }
 
 // Allocate + Ingest
-SEXP ArrayVector__as_vector(R_xlen_t n, const ArrayVector& arrays) {
-  auto converter = Converter::Make(arrays);
+SEXP ArrayVector__as_vector(R_xlen_t n, const std::shared_ptr<DataType>& type,
+                            const ArrayVector& arrays) {
+  auto converter = Converter::Make(type, arrays);
   Shield<SEXP> data(converter->Allocate(n));
   StopIfNotOk(converter->IngestSerial(data));
   return data;
@@ -272,7 +281,7 @@ class Converter_Dictionary : public Converter {
 
   SEXP Allocate(R_xlen_t n) const {
     IntegerVector data(no_init(n));
-    auto dict_array = static_cast<DictionaryArray*>(Converter::arrays_[0].get());
+    auto dict_array = static_cast<DictionaryArray*>(this->arrays_[0].get());
     auto dict = dict_array->dictionary();
     auto indices = dict_array->indices();
     switch (indices->type_id()) {
@@ -298,8 +307,8 @@ class Converter_Dictionary : public Converter {
     // TODO (npr): this coercion should be optional, "dictionariesAsFactors" ;)
     // Alternative: preserve the logical type of the dictionary values
     // (e.g. if dict is timestamp, return a POSIXt R vector, not factor)
-    data.attr("levels") =
-        Rf_coerceVector(ArrayVector__as_vector(dict->length(), {dict}), STRSXP);
+    data.attr("levels") = Rf_coerceVector(
+        ArrayVector__as_vector(dict->length(), dict->type(), {dict}), STRSXP);
     if (ordered) {
       data.attr("class") = Rcpp::CharacterVector::create("ordered", "factor");
     } else {
@@ -354,18 +363,17 @@ class Converter_Dictionary : public Converter {
 class Converter_Struct : public Converter {
  public:
   explicit Converter_Struct(const ArrayVector& arrays) : Converter(arrays), converters() {
-    auto first_array =
-        internal::checked_cast<arrow::StructArray*>(Converter::arrays_[0].get());
+    auto first_array = checked_cast<const arrow::StructArray*>(this->arrays_[0].get());
     int nf = first_array->num_fields();
     for (int i = 0; i < nf; i++) {
-      converters.push_back(Converter::Make({first_array->field(i)}));
+      converters.push_back(
+          Converter::Make(first_array->field(i)->type(), {first_array->field(i)}));
     }
   }
 
   SEXP Allocate(R_xlen_t n) const {
     // allocate a data frame column to host each array
-    auto first_array =
-        internal::checked_cast<arrow::StructArray*>(Converter::arrays_[0].get());
+    auto first_array = checked_cast<const arrow::StructArray*>(this->arrays_[0].get());
     auto type = first_array->struct_type();
     int nf = first_array->num_fields();
     Rcpp::List out(nf);
@@ -394,7 +402,7 @@ class Converter_Struct : public Converter {
 
   Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
                            R_xlen_t start, R_xlen_t n) const {
-    auto struct_array = internal::checked_cast<arrow::StructArray*>(array.get());
+    auto struct_array = checked_cast<const arrow::StructArray*>(array.get());
     int nf = converters.size();
     // Flatten() deals with merging of nulls
     auto arrays = ValueOrStop(struct_array->Flatten(default_memory_pool()));
@@ -515,8 +523,8 @@ class Converter_Timestamp : public Converter_Time<value_type, TimestampType> {
   SEXP Allocate(R_xlen_t n) const {
     Rcpp::NumericVector data(no_init(n));
     Rf_classgets(data, arrow::r::data::classes_POSIXct);
-    auto array = internal::checked_cast<TimestampArray*>(Converter::arrays_[0].get());
-    auto array_type = internal::checked_cast<const TimestampType*>(array->type().get());
+    auto array = checked_cast<const TimestampArray*>(this->arrays_[0].get());
+    auto array_type = checked_cast<const TimestampType*>(array->type().get());
     data.attr("tzone") = array_type->timezone();
     return data;
   }
@@ -535,8 +543,7 @@ class Converter_Decimal : public Converter {
   Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
                            R_xlen_t start, R_xlen_t n) const {
     auto p_data = Rcpp::internal::r_vector_start<REALSXP>(data) + start;
-    const auto& decimals_arr =
-        internal::checked_cast<const arrow::Decimal128Array&>(*array);
+    const auto& decimals_arr = checked_cast<const arrow::Decimal128Array&>(*array);
 
     if (array->null_count()) {
       internal::BitmapReader bitmap_reader(array->null_bitmap()->data(), array->offset(),
@@ -569,8 +576,7 @@ class Converter_List : public Converter {
 
   Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
                            R_xlen_t start, R_xlen_t n) const {
-    using internal::checked_cast;
-    auto list_array = checked_cast<arrow::ListArray*>(array.get());
+    auto list_array = checked_cast<const arrow::ListArray*>(array.get());
     auto values_array = list_array->values();
 
     auto ingest_one = [&](R_xlen_t i) {
@@ -657,93 +663,96 @@ class Converter_Null : public Converter {
   }
 };
 
-std::shared_ptr<Converter> Converter::Make(const ArrayVector& arrays) {
+std::shared_ptr<Converter> Converter::Make(const std::shared_ptr<DataType>& type,
+                                           ArrayVector arrays) {
   if (arrays.empty()) {
-    Rcpp::stop(tfm::format("Must have at least one array to create a converter"));
+    // slight hack for the 0-row case since the converters expect at least one
+    // chunk to process.
+    arrays.push_back(ValueOrStop(arrow::MakeArrayOfNull(type, 0)));
   }
-
-  auto type = arrays[0]->type();
 
   switch (type->id()) {
     // direct support
     case Type::INT32:
-      return std::make_shared<arrow::r::Converter_SimpleArray<INTSXP>>(arrays);
+      return std::make_shared<arrow::r::Converter_SimpleArray<INTSXP>>(std::move(arrays));
 
     case Type::DOUBLE:
-      return std::make_shared<arrow::r::Converter_SimpleArray<REALSXP>>(arrays);
+      return std::make_shared<arrow::r::Converter_SimpleArray<REALSXP>>(
+          std::move(arrays));
 
       // need to handle 1-bit case
     case Type::BOOL:
-      return std::make_shared<arrow::r::Converter_Boolean>(arrays);
+      return std::make_shared<arrow::r::Converter_Boolean>(std::move(arrays));
 
       // handle memory dense strings
     case Type::STRING:
-      return std::make_shared<arrow::r::Converter_String>(arrays);
+      return std::make_shared<arrow::r::Converter_String>(std::move(arrays));
 
     case Type::DICTIONARY:
-      return std::make_shared<arrow::r::Converter_Dictionary>(arrays);
+      return std::make_shared<arrow::r::Converter_Dictionary>(std::move(arrays));
 
     case Type::DATE32:
-      return std::make_shared<arrow::r::Converter_Date32>(arrays);
+      return std::make_shared<arrow::r::Converter_Date32>(std::move(arrays));
 
     case Type::DATE64:
-      return std::make_shared<arrow::r::Converter_Date64>(arrays);
+      return std::make_shared<arrow::r::Converter_Date64>(std::move(arrays));
 
       // promotions to integer vector
     case Type::INT8:
       return std::make_shared<arrow::r::Converter_Promotion<INTSXP, arrow::Int8Type>>(
-          arrays);
+          std::move(arrays));
 
     case Type::UINT8:
       return std::make_shared<arrow::r::Converter_Promotion<INTSXP, arrow::UInt8Type>>(
-          arrays);
+          std::move(arrays));
 
     case Type::INT16:
       return std::make_shared<arrow::r::Converter_Promotion<INTSXP, arrow::Int16Type>>(
-          arrays);
+          std::move(arrays));
 
     case Type::UINT16:
       return std::make_shared<arrow::r::Converter_Promotion<INTSXP, arrow::UInt16Type>>(
-          arrays);
+          std::move(arrays));
 
       // promotions to numeric vector
     case Type::UINT32:
       return std::make_shared<arrow::r::Converter_Promotion<REALSXP, arrow::UInt32Type>>(
-          arrays);
+          std::move(arrays));
 
     case Type::HALF_FLOAT:
       return std::make_shared<
-          arrow::r::Converter_Promotion<REALSXP, arrow::HalfFloatType>>(arrays);
+          arrow::r::Converter_Promotion<REALSXP, arrow::HalfFloatType>>(
+          std::move(arrays));
 
     case Type::FLOAT:
       return std::make_shared<arrow::r::Converter_Promotion<REALSXP, arrow::FloatType>>(
-          arrays);
+          std::move(arrays));
 
       // time32 ane time64
     case Type::TIME32:
-      return std::make_shared<arrow::r::Converter_Time<int32_t>>(arrays);
+      return std::make_shared<arrow::r::Converter_Time<int32_t>>(std::move(arrays));
 
     case Type::TIME64:
-      return std::make_shared<arrow::r::Converter_Time<int64_t>>(arrays);
+      return std::make_shared<arrow::r::Converter_Time<int64_t>>(std::move(arrays));
 
     case Type::TIMESTAMP:
-      return std::make_shared<arrow::r::Converter_Timestamp<int64_t>>(arrays);
+      return std::make_shared<arrow::r::Converter_Timestamp<int64_t>>(std::move(arrays));
 
     case Type::INT64:
-      return std::make_shared<arrow::r::Converter_Int64>(arrays);
+      return std::make_shared<arrow::r::Converter_Int64>(std::move(arrays));
 
     case Type::DECIMAL:
-      return std::make_shared<arrow::r::Converter_Decimal>(arrays);
+      return std::make_shared<arrow::r::Converter_Decimal>(std::move(arrays));
 
       // nested
     case Type::STRUCT:
-      return std::make_shared<arrow::r::Converter_Struct>(arrays);
+      return std::make_shared<arrow::r::Converter_Struct>(std::move(arrays));
 
     case Type::LIST:
-      return std::make_shared<arrow::r::Converter_List>(arrays);
+      return std::make_shared<arrow::r::Converter_List>(std::move(arrays));
 
     case Type::NA:
-      return std::make_shared<arrow::r::Converter_Null>(arrays);
+      return std::make_shared<arrow::r::Converter_Null>(std::move(arrays));
 
     default:
       break;
@@ -815,12 +824,12 @@ Rcpp::List to_dataframe_parallel(
 
 // [[arrow::export]]
 SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array) {
-  return arrow::r::ArrayVector__as_vector(array->length(), {array});
+  return arrow::r::ArrayVector__as_vector(array->length(), array->type(), {array});
 }
 
 // [[arrow::export]]
 SEXP ChunkedArray__as_vector(const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {
-  return arrow::r::ArrayVector__as_vector(chunked_array->length(),
+  return arrow::r::ArrayVector__as_vector(chunked_array->length(), chunked_array->type(),
                                           chunked_array->chunks());
 }
 
@@ -836,7 +845,7 @@ Rcpp::List RecordBatch__to_dataframe(const std::shared_ptr<arrow::RecordBatch>& 
   for (int64_t i = 0; i < nc; i++) {
     names[i] = batch->column_name(i);
     arrays[i] = {batch->column(i)};
-    converters[i] = arrow::r::Converter::Make(arrays[i]);
+    converters[i] = arrow::r::Converter::Make(batch->column(i)->type(), arrays[i]);
   }
 
   if (use_threads) {
@@ -855,7 +864,8 @@ Rcpp::List Table__to_dataframe(const std::shared_ptr<arrow::Table>& table,
   std::vector<std::shared_ptr<arrow::r::Converter>> converters(nc);
 
   for (int64_t i = 0; i < nc; i++) {
-    converters[i] = arrow::r::Converter::Make(table->column(i)->chunks());
+    converters[i] =
+        arrow::r::Converter::Make(table->column(i)->type(), table->column(i)->chunks());
     names[i] = table->field(i)->name();
   }
 

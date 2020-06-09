@@ -55,6 +55,7 @@ enum class FlightMethod : char {
   DoPut = 6,
   DoAction = 7,
   ListActions = 8,
+  DoExchange = 9,
 };
 
 /// \brief Information about an instance of a Flight RPC.

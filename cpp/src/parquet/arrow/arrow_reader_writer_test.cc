@@ -23,7 +23,6 @@
 
 #include "gtest/gtest.h"
 
-#include <arrow/compute/api.h>
 #include <cstdint>
 #include <functional>
 #include <iostream>
@@ -31,7 +30,7 @@
 #include <vector>
 
 #include "arrow/api.h"
-#include "arrow/compute/kernels/cast.h"
+#include "arrow/compute/api.h"
 #include "arrow/pretty_print.h"
 #include "arrow/record_batch.h"
 #include "arrow/testing/gtest_util.h"
@@ -59,6 +58,7 @@ using arrow::ArrayVisitor;
 using arrow::Buffer;
 using arrow::ChunkedArray;
 using arrow::DataType;
+using arrow::Datum;
 using arrow::default_memory_pool;
 using arrow::ListArray;
 using arrow::PrimitiveArray;
@@ -66,9 +66,7 @@ using arrow::ResizableBuffer;
 using arrow::Status;
 using arrow::Table;
 using arrow::TimeUnit;
-using arrow::compute::Datum;
 using arrow::compute::DictionaryEncode;
-using arrow::compute::FunctionContext;
 using arrow::io::BufferReader;
 
 using arrow::randint;
@@ -701,9 +699,7 @@ TYPED_TEST(TestParquetIO, SingleColumnOptionalDictionaryWrite) {
 
   ASSERT_OK(NullableArray<TypeParam>(SMALL_SIZE, 10, kDefaultSeed, &values));
 
-  Datum out;
-  FunctionContext ctx(default_memory_pool());
-  ASSERT_OK(DictionaryEncode(&ctx, Datum(values), &out));
+  ASSERT_OK_AND_ASSIGN(Datum out, DictionaryEncode(values));
   std::shared_ptr<Array> dict_values = MakeArray(out.array());
   std::shared_ptr<GroupNode> schema =
       MakeSimpleSchema(*dict_values->type(), Repetition::OPTIONAL);
@@ -3035,6 +3031,30 @@ TEST_P(TestArrowReadDictionary, ReadWholeFileDict) {
   CheckReadWholeFile(*ex_table);
 }
 
+TEST_P(TestArrowReadDictionary, ZeroChunksListOfDictionary) {
+  // ARROW-8799
+  properties_.set_read_dictionary(0, true);
+  dense_values_.reset();
+  auto values = std::make_shared<ChunkedArray>(::arrow::ArrayVector{},
+                                               ::arrow::list(::arrow::utf8()));
+  options.num_rows = 0;
+  options.num_row_groups = 1;
+  expected_dense_ = MakeSimpleTable(values, false);
+
+  WriteSimple();
+
+  ASSERT_OK_AND_ASSIGN(auto reader, GetReader());
+
+  std::unique_ptr<ColumnReader> column_reader;
+  ASSERT_OK_NO_THROW(reader->GetColumn(0, &column_reader));
+
+  std::shared_ptr<ChunkedArray> chunked_out;
+  ASSERT_OK(column_reader->NextBatch(1 << 15, &chunked_out));
+
+  ASSERT_EQ(chunked_out->length(), 0);
+  ASSERT_EQ(chunked_out->num_chunks(), 1);
+}
+
 TEST_P(TestArrowReadDictionary, IncrementalReads) {
   // ARROW-6895
   options.num_rows = 100;
@@ -3059,15 +3079,12 @@ TEST_P(TestArrowReadDictionary, IncrementalReads) {
   int num_reads = 4;
   int batch_size = options.num_rows / num_reads;
 
-  ::arrow::compute::FunctionContext fc;
   for (int i = 0; i < num_reads; ++i) {
     std::shared_ptr<ChunkedArray> chunk;
     ASSERT_OK(col->NextBatch(batch_size, &chunk));
 
-    std::shared_ptr<Array> result_dense;
-    ASSERT_OK(::arrow::compute::Cast(&fc, *chunk->chunk(0), ::arrow::utf8(),
-                                     ::arrow::compute::CastOptions::Safe(),
-                                     &result_dense));
+    ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> result_dense,
+                         ::arrow::compute::Cast(*chunk->chunk(0), ::arrow::utf8()));
     AssertArraysEqual(*dense_values_->Slice(i * batch_size, batch_size), *result_dense);
   }
 }

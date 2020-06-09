@@ -190,15 +190,12 @@ impl<T: DataType> ColumnReaderImpl<T> {
                     (self.num_buffered_values - self.num_decoded_values) as usize,
                 );
 
-                // Adjust batch size by taking into account how much space is left in
-                // values slice or levels slices (if available)
-                adjusted_size = min(adjusted_size, values.len() - values_read);
-                if let Some(ref levels) = def_levels {
-                    adjusted_size = min(adjusted_size, levels.len() - levels_read);
-                }
-                if let Some(ref levels) = rep_levels {
-                    adjusted_size = min(adjusted_size, levels.len() - levels_read);
-                }
+                // Adjust batch size by taking into account how much data there
+                // to read. As batch_size is also smaller than value and level
+                // slices (if available), this ensures that available space is not
+                // exceeded.
+                adjusted_size = min(adjusted_size, batch_size - values_read);
+                adjusted_size = min(adjusted_size, batch_size - levels_read);
 
                 adjusted_size
             };

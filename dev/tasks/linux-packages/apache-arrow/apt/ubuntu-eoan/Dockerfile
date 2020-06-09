@@ -34,6 +34,15 @@ RUN \
   quiet=$([ "${DEBUG}" = "yes" ] || echo "-qq") && \
   apt update ${quiet} && \
   apt install -y -V ${quiet} \
+    apt-transport-https \
+    ca-certificates \
+    gnupg \
+    wget && \
+  wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
+  echo "deb https://apt.llvm.org/eoan/ llvm-toolchain-eoan-${LLVM} main" > \
+    /etc/apt/sources.list.d/llvm.list && \
+  apt update ${quiet} && \
+  apt install -y -V ${quiet} \
     build-essential \
     cmake \
     debhelper \

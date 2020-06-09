@@ -21,12 +21,10 @@
 #include <cstring>
 #include <memory>
 #include <string>
-#include <type_traits>
 #include <utility>
 #include <vector>
 
 #include "arrow/device.h"
-#include "arrow/io/type_fwd.h"
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
@@ -126,14 +124,6 @@ class ARROW_EXPORT Buffer {
       const int64_t start, const int64_t nbytes,
       MemoryPool* pool = default_memory_pool()) const;
 
-  ARROW_DEPRECATED("Use CopySlice")
-  Status Copy(const int64_t start, const int64_t nbytes, MemoryPool* pool,
-              std::shared_ptr<Buffer>* out) const;
-
-  ARROW_DEPRECATED("Use CopySlice")
-  Status Copy(const int64_t start, const int64_t nbytes,
-              std::shared_ptr<Buffer>* out) const;
-
   /// Zero bytes in padding, i.e. bytes between size_ and capacity_.
   void ZeroPadding() {
 #ifndef NDEBUG
@@ -151,13 +141,6 @@ class ARROW_EXPORT Buffer {
   /// \param[in] data a string to own
   /// \return a new Buffer instance
   static std::shared_ptr<Buffer> FromString(std::string data);
-
-  ARROW_DEPRECATED("Use Buffer-returning version")
-  static Status FromString(const std::string& data, MemoryPool* pool,
-                           std::shared_ptr<Buffer>* out);
-
-  ARROW_DEPRECATED("Use Buffer-returning version")
-  static Status FromString(const std::string& data, std::shared_ptr<Buffer>* out);
 
   /// \brief Create buffer referencing typed memory with some length without
   /// copying
@@ -452,22 +435,6 @@ ARROW_EXPORT
 Result<std::unique_ptr<Buffer>> AllocateBuffer(const int64_t size,
                                                MemoryPool* pool = NULLPTR);
 
-ARROW_DEPRECATED("Use Result-returning version")
-ARROW_EXPORT
-Status AllocateBuffer(MemoryPool* pool, const int64_t size, std::shared_ptr<Buffer>* out);
-
-ARROW_DEPRECATED("Use Result-returning version")
-ARROW_EXPORT
-Status AllocateBuffer(const int64_t size, std::shared_ptr<Buffer>* out);
-
-ARROW_DEPRECATED("Use Result-returning version")
-ARROW_EXPORT
-Status AllocateBuffer(MemoryPool* pool, const int64_t size, std::unique_ptr<Buffer>* out);
-
-ARROW_DEPRECATED("Use Result-returning version")
-ARROW_EXPORT
-Status AllocateBuffer(const int64_t size, std::unique_ptr<Buffer>* out);
-
 /// \brief Allocate a resizeable buffer from a memory pool, zero its padding.
 ///
 /// \param[in] size size of buffer to allocate
@@ -475,24 +442,6 @@ Status AllocateBuffer(const int64_t size, std::unique_ptr<Buffer>* out);
 ARROW_EXPORT
 Result<std::unique_ptr<ResizableBuffer>> AllocateResizableBuffer(
     const int64_t size, MemoryPool* pool = NULLPTR);
-
-ARROW_DEPRECATED("Use Result-returning version")
-ARROW_EXPORT
-Status AllocateResizableBuffer(MemoryPool* pool, const int64_t size,
-                               std::shared_ptr<ResizableBuffer>* out);
-
-ARROW_DEPRECATED("Use Result-returning version")
-ARROW_EXPORT
-Status AllocateResizableBuffer(const int64_t size, std::shared_ptr<ResizableBuffer>* out);
-
-ARROW_DEPRECATED("Use Result-returning version")
-ARROW_EXPORT
-Status AllocateResizableBuffer(MemoryPool* pool, const int64_t size,
-                               std::unique_ptr<ResizableBuffer>* out);
-
-ARROW_DEPRECATED("Use Result-returning version")
-ARROW_EXPORT
-Status AllocateResizableBuffer(const int64_t size, std::unique_ptr<ResizableBuffer>* out);
 
 /// \brief Allocate a bitmap buffer from a memory pool
 /// no guarantee on values is provided.
@@ -513,15 +462,6 @@ Status AllocateBitmap(MemoryPool* pool, int64_t length, std::shared_ptr<Buffer>*
 ARROW_EXPORT
 Result<std::shared_ptr<Buffer>> AllocateEmptyBitmap(int64_t length,
                                                     MemoryPool* pool = NULLPTR);
-
-ARROW_DEPRECATED("Use Result-returning version")
-ARROW_EXPORT
-Status AllocateEmptyBitmap(MemoryPool* pool, int64_t length,
-                           std::shared_ptr<Buffer>* out);
-
-ARROW_DEPRECATED("Use Result-returning version")
-ARROW_EXPORT
-Status AllocateEmptyBitmap(int64_t length, std::shared_ptr<Buffer>* out);
 
 /// \brief Concatenate multiple buffers into a single buffer
 ///

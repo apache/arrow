@@ -387,28 +387,36 @@ TEST(Decimal128Test, TestFromBigEndian) {
                         127 /* 01111111 */}) {
     Decimal128 value(start);
     for (int ii = 0; ii < 16; ++ii) {
-      auto little_endian = value.ToBytes();
-      std::reverse(little_endian.begin(), little_endian.end());
+      auto native_endian = value.ToBytes();
+#if ARROW_LITTLE_ENDIAN
+      std::reverse(native_endian.begin(), native_endian.end());
+#endif
       // Limit the number of bytes we are passing to make
       // sure that it works correctly. That's why all of the
       // 'start' values don't have a 1 in the most significant
       // bit place
       ASSERT_OK_AND_EQ(value,
-                       Decimal128::FromBigEndian(little_endian.data() + 15 - ii, ii + 1));
+                       Decimal128::FromBigEndian(native_endian.data() + 15 - ii, ii + 1));
 
-      // Negate it and convert to big endian
+      // Negate it
       auto negated = -value;
-      little_endian = negated.ToBytes();
-      std::reverse(little_endian.begin(), little_endian.end());
+      native_endian = negated.ToBytes();
+#if ARROW_LITTLE_ENDIAN
+      // convert to big endian
+      std::reverse(native_endian.begin(), native_endian.end());
+#endif
       // The sign bit is looked up in the MSB
       ASSERT_OK_AND_EQ(negated,
-                       Decimal128::FromBigEndian(little_endian.data() + 15 - ii, ii + 1));
+                       Decimal128::FromBigEndian(native_endian.data() + 15 - ii, ii + 1));
 
-      // Take the complement and convert to big endian
+      // Take the complement
       auto complement = ~value;
-      little_endian = complement.ToBytes();
-      std::reverse(little_endian.begin(), little_endian.end());
-      ASSERT_OK_AND_EQ(complement, Decimal128::FromBigEndian(little_endian.data(), 16));
+      native_endian = complement.ToBytes();
+#if ARROW_LITTLE_ENDIAN
+      // convert to big endian
+      std::reverse(native_endian.begin(), native_endian.end());
+#endif
+      ASSERT_OK_AND_EQ(complement, Decimal128::FromBigEndian(native_endian.data(), 16));
 
       value <<= 8;
       value += Decimal128(start);
@@ -666,6 +674,28 @@ TEST(Decimal128Test, ReduceScaleAndRound) {
   result = Decimal128("-123750").ReduceScaleBy(2, true);
   ASSERT_OK(result.ToInteger(&out));
   ASSERT_EQ(-1238, out);
+}
+
+TEST(Decimal128Test, FitsInPrecision) {
+  ASSERT_TRUE(Decimal128("0").FitsInPrecision(1));
+  ASSERT_TRUE(Decimal128("9").FitsInPrecision(1));
+  ASSERT_TRUE(Decimal128("-9").FitsInPrecision(1));
+  ASSERT_FALSE(Decimal128("10").FitsInPrecision(1));
+  ASSERT_FALSE(Decimal128("-10").FitsInPrecision(1));
+
+  ASSERT_TRUE(Decimal128("0").FitsInPrecision(2));
+  ASSERT_TRUE(Decimal128("10").FitsInPrecision(2));
+  ASSERT_TRUE(Decimal128("-10").FitsInPrecision(2));
+  ASSERT_TRUE(Decimal128("99").FitsInPrecision(2));
+  ASSERT_TRUE(Decimal128("-99").FitsInPrecision(2));
+  ASSERT_FALSE(Decimal128("100").FitsInPrecision(2));
+  ASSERT_FALSE(Decimal128("-100").FitsInPrecision(2));
+
+  ASSERT_TRUE(Decimal128("99999999999999999999999999999999999999").FitsInPrecision(38));
+  ASSERT_TRUE(Decimal128("-99999999999999999999999999999999999999").FitsInPrecision(38));
+  ASSERT_FALSE(Decimal128("100000000000000000000000000000000000000").FitsInPrecision(38));
+  ASSERT_FALSE(
+      Decimal128("-100000000000000000000000000000000000000").FitsInPrecision(38));
 }
 
 }  // namespace arrow

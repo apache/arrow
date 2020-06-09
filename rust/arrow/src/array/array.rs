@@ -81,7 +81,7 @@ pub trait Array: fmt::Debug + Send + Sync + ArrayEqual + JsonEqual {
     /// Returns a borrowed & reference-counted pointer to the underlying data of this array.
     fn data_ref(&self) -> &ArrayDataRef;
 
-    /// Returns a reference to the [`DataType`](crate::datatype::DataType) of this array.
+    /// Returns a reference to the [`DataType`](crate::datatypes::DataType) of this array.
     ///
     /// # Example:
     ///
@@ -303,6 +303,7 @@ pub fn make_array(data: ArrayDataRef) -> ArrayRef {
             }
             dt => panic!("Unexpected dictionary key type {:?}", dt),
         },
+        DataType::Null => Arc::new(NullArray::from(data)) as ArrayRef,
         dt => panic!("Unexpected data type {:?}", dt),
     }
 }
@@ -311,7 +312,7 @@ pub fn make_array(data: ArrayDataRef) -> ArrayRef {
 ///
 /// # Panics
 ///
-/// Panics if `offset + length < data.len()`.
+/// Panics if `offset + length > data.len()`.
 fn slice_data(data: ArrayDataRef, mut offset: usize, length: usize) -> ArrayDataRef {
     assert!((offset + length) <= data.len());
 

@@ -26,6 +26,7 @@ use csv as csv_crate;
 pub enum ArrowError {
     MemoryError(String),
     ParseError(String),
+    SchemaError(String),
     ComputeError(String),
     DivideByZero,
     CsvError(String),
@@ -73,6 +74,7 @@ impl Display for ArrowError {
         match *self {
             ArrowError::MemoryError(ref desc) => write!(f, "Memory error: {}", desc),
             ArrowError::ParseError(ref desc) => write!(f, "Parser error: {}", desc),
+            ArrowError::SchemaError(ref desc) => write!(f, "Schema error: {}", desc),
             ArrowError::ComputeError(ref desc) => write!(f, "Compute error: {}", desc),
             ArrowError::DivideByZero => write!(f, "Divide by zero error"),
             ArrowError::CsvError(ref desc) => write!(f, "Csv error: {}", desc),

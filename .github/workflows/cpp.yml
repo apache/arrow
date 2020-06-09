@@ -116,10 +116,6 @@ jobs:
       ARROW_WITH_SNAPPY: ON
       ARROW_WITH_BROTLI: ON
       ARROW_BUILD_TESTS: ON
-      # ARROW-7551: for now, build without Homebrew gRPC, as gRPC
-      # 1.26.0 is broken. https://github.com/grpc/grpc/pull/21662
-      gRPC_SOURCE: BUNDLED
-      Protobuf_SOURCE: BUNDLED
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v2
@@ -131,11 +127,6 @@ jobs:
       - name: Install Dependencies
         shell: bash
         run: brew bundle --file=cpp/Brewfile
-        # ARROW-7551: for now, build without Homebrew gRPC, as gRPC
-        # 1.26.0 is broken. https://github.com/grpc/grpc/pull/21662
-      - name: Uninstall Problematic Homebrew Dependencies
-        shell: bash
-        run: brew uninstall grpc protobuf
       - name: Build
         shell: bash
         run: ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
@@ -227,12 +218,13 @@ jobs:
     env:
       ARROW_BUILD_SHARED: ON
       ARROW_BUILD_STATIC: OFF
-      ARROW_BUILD_TYPE: release
       ARROW_BUILD_TESTS: ON
+      ARROW_BUILD_TYPE: release
       ARROW_DATASET: ON
       ARROW_FLIGHT: ON
+      ARROW_GANDIVA: ON
       ARROW_HDFS: OFF
-      ARROW_HOME: /mingw{{ matrix.mingw-n-bits }}
+      ARROW_HOME: /mingw${{ matrix.mingw-n-bits }}
       ARROW_JEMALLOC: OFF
       ARROW_PARQUET: ON
       ARROW_PYTHON: ON
@@ -252,7 +244,6 @@ jobs:
         -DBoost_NO_BOOST_CMAKE=ON
       CMAKE_GENERATOR: MSYS Makefiles
       CMAKE_UNITY_BUILD: ON
-      NPROC: 2
     steps:
       - name: Disable Crash Dialogs
         run: |
@@ -277,6 +268,12 @@ jobs:
           . ..\env.ps1
           bash ci\scripts\msys2_system_upgrade.sh
           bash ci\scripts\msys2_setup.sh cpp
+      - name: Cache ccache
+        uses: actions/cache@v1
+        with:
+          path: ccache
+          key: cpp-ccache-mingw${{ matrix.mingw-n-bits }}-${{ hashFiles('cpp/**') }}
+          restore-keys: cpp-ccache-mingw${{ matrix.mingw-n-bits }}-
       - name: Build
         run: |
           . ..\env.ps1

@@ -281,7 +281,7 @@ mod tests {
         chunk.read_exact(&mut res).unwrap();
         assert_eq!(res, &[1]);
 
-        // the underlying file is seeked to 'e'
+        // the underlying file is sought to 'e'
         file.seek(SeekFrom::Start(4)).unwrap();
 
         // now read large chunk that starts with 'c' (after 'b')

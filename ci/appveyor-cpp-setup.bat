@@ -50,7 +50,7 @@ set CONDA_PACKAGES=
 
 if "%ARROW_BUILD_GANDIVA%" == "ON" (
   @rem Install llvmdev in the toolchain if building gandiva.dll
-  set CONDA_PACKAGES=%CONDA_PACKAGES% --file=ci\conda_env_gandiva.yml
+  set CONDA_PACKAGES=%CONDA_PACKAGES% --file=ci\conda_env_gandiva_win.yml
 )
 if "%JOB%" == "Toolchain" (
   @rem Install pre-built "toolchain" packages for faster builds

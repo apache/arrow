@@ -58,7 +58,7 @@ public abstract class AvroDecimalConsumer extends BaseAvroConsumer<DecimalVector
       byte[] bytes = new byte[cacheBuffer.limit()];
       Preconditions.checkArgument(bytes.length <= 16, "Decimal bytes length should <= 16.");
       cacheBuffer.get(bytes);
-      vector.setBigEndianSafe(currentIndex++, bytes);
+      vector.setBigEndian(currentIndex++, bytes);
     }
 
   }
@@ -82,7 +82,7 @@ public abstract class AvroDecimalConsumer extends BaseAvroConsumer<DecimalVector
     @Override
     public void consume(Decoder decoder) throws IOException {
       decoder.readFixed(reuseBytes);
-      vector.setBigEndianSafe(currentIndex++, reuseBytes);
+      vector.setBigEndian(currentIndex++, reuseBytes);
     }
   }
 }

@@ -177,32 +177,38 @@ static inline RecordBatchVector FlattenRecordBatchVector(
   return flattened;
 }
 
+struct TableAssemblyState {
+  /// Protecting mutating accesses to batches
+  std::mutex mutex{};
+  std::vector<RecordBatchVector> batches{};
+
+  void Emplace(RecordBatchVector b, size_t position) {
+    std::lock_guard<std::mutex> lock(mutex);
+    if (batches.size() <= position) {
+      batches.resize(position + 1);
+    }
+    batches[position] = std::move(b);
+  }
+};
+
 Result<std::shared_ptr<Table>> Scanner::ToTable() {
   ARROW_ASSIGN_OR_RAISE(auto scan_task_it, Scan());
   auto task_group = scan_context_->TaskGroup();
 
-  // Protecting mutating accesses to batches
-  std::mutex mutex;
-  std::vector<RecordBatchVector> batches;
+  /// Wraps the state in a shared_ptr to ensure that failing ScanTasks don't
+  /// invalidate concurrently running tasks when Finish() early returns
+  /// and the mutex/batches fail out of scope.
+  auto state = std::make_shared<TableAssemblyState>();
+
   size_t scan_task_id = 0;
   for (auto maybe_scan_task : scan_task_it) {
     ARROW_ASSIGN_OR_RAISE(auto scan_task, std::move(maybe_scan_task));
 
     auto id = scan_task_id++;
-    task_group->Append([&batches, &mutex, id, scan_task] {
+    task_group->Append([state, id, scan_task] {
       ARROW_ASSIGN_OR_RAISE(auto batch_it, scan_task->Execute());
-
       ARROW_ASSIGN_OR_RAISE(auto local, batch_it.ToVector());
-
-      {
-        // Move into global batches.
-        std::lock_guard<std::mutex> lock(mutex);
-        if (batches.size() <= id) {
-          batches.resize(id + 1);
-        }
-        batches[id] = std::move(local);
-      }
-
+      state->Emplace(std::move(local), id);
       return Status::OK();
     });
   }
@@ -211,7 +217,7 @@ Result<std::shared_ptr<Table>> Scanner::ToTable() {
   RETURN_NOT_OK(task_group->Finish());
 
   return Table::FromRecordBatches(scan_options_->schema(),
-                                  FlattenRecordBatchVector(std::move(batches)));
+                                  FlattenRecordBatchVector(std::move(state->batches)));
 }
 
 }  // namespace dataset

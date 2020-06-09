@@ -76,7 +76,7 @@ void DecimalIR::AddGlobals(Engine* engine) {
   auto globalScaleMultipliers = new llvm::GlobalVariable(
       *engine->module(), array_type, true /*constant*/,
       llvm::GlobalValue::LinkOnceAnyLinkage, initializer, kScaleMultipliersName);
-  globalScaleMultipliers->setAlignment(16);
+  globalScaleMultipliers->setAlignment(LLVM_ALIGN(16));
 }
 
 // Lookup intrinsic functions

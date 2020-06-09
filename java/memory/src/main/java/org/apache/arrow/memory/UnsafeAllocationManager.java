@@ -24,7 +24,7 @@ import org.apache.arrow.memory.util.MemoryUtil;
  */
 public final class UnsafeAllocationManager extends AllocationManager {
 
-  public static final Factory FACTORY = new Factory();
+  public static final AllocationManager.Factory FACTORY = UnsafeAllocationManager::new;
 
   private final long allocatedSize;
 
@@ -51,15 +51,4 @@ public final class UnsafeAllocationManager extends AllocationManager {
     MemoryUtil.UNSAFE.freeMemory(allocatedAddress);
   }
 
-  /**
-   * Factory for creating {@link UnsafeAllocationManager}.
-   */
-  public static class Factory implements AllocationManager.Factory {
-    private Factory() {}
-
-    @Override
-    public AllocationManager create(BaseAllocator accountingAllocator, long size) {
-      return new UnsafeAllocationManager(accountingAllocator, size);
-    }
-  }
 }

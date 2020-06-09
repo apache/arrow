@@ -19,6 +19,7 @@
 
 #include <cstdint>
 #include <cstdlib>
+#include <iostream>
 #include <memory>
 #include <string>
 #include <type_traits>
@@ -192,10 +193,12 @@ class SchemaWriter {
 
     if (type->id() == Type::DICTIONARY) {
       const auto& dict_type = checked_cast<const DictionaryType&>(*type);
+      // Ensure we visit child fields first so that, in the case of nested
+      // dictionaries, inner dictionaries get a smaller id than outer dictionaries.
+      RETURN_NOT_OK(WriteChildren(dict_type.value_type()->fields()));
       int64_t dictionary_id = -1;
       RETURN_NOT_OK(dictionary_memo_->GetOrAssignId(field, &dictionary_id));
       RETURN_NOT_OK(WriteDictionaryMetadata(dictionary_id, dict_type));
-      RETURN_NOT_OK(WriteChildren(dict_type.value_type()->fields()));
     } else {
       RETURN_NOT_OK(WriteChildren(type->fields()));
     }
@@ -438,29 +441,40 @@ class ArrayWriter {
     return Status::OK();
   }
 
-  template <typename T, bool IsSigned = std::is_signed<typename T::value_type>::value>
-  void WriteIntegerDataValues(const T& arr) {
-    static const char null_string[] = "0";
-    const auto data = arr.raw_values();
+  template <typename ArrayType, typename TypeClass = typename ArrayType::TypeClass,
+            typename CType = typename TypeClass::c_type>
+  enable_if_t<is_physical_integer_type<TypeClass>::value &&
+              sizeof(CType) != sizeof(int64_t)>
+  WriteDataValues(const ArrayType& arr) {
+    static const std::string null_string = "0";
     for (int64_t i = 0; i < arr.length(); ++i) {
       if (arr.IsValid(i)) {
-        IsSigned ? writer_->Int64(data[i]) : writer_->Uint64(data[i]);
+        writer_->Int64(arr.Value(i));
       } else {
-        writer_->RawNumber(null_string, sizeof(null_string));
+        writer_->RawNumber(null_string.data(),
+                           static_cast<rj::SizeType>(null_string.size()));
       }
     }
   }
 
-  template <typename ArrayType>
-  enable_if_physical_signed_integer<typename ArrayType::TypeClass> WriteDataValues(
-      const ArrayType& arr) {
-    WriteIntegerDataValues<ArrayType>(arr);
-  }
+  template <typename ArrayType, typename TypeClass = typename ArrayType::TypeClass,
+            typename CType = typename TypeClass::c_type>
+  enable_if_t<is_physical_integer_type<TypeClass>::value &&
+              sizeof(CType) == sizeof(int64_t)>
+  WriteDataValues(const ArrayType& arr) {
+    ::arrow::internal::StringFormatter<typename CTypeTraits<CType>::ArrowType> fmt;
 
-  template <typename ArrayType>
-  enable_if_physical_unsigned_integer<typename ArrayType::TypeClass> WriteDataValues(
-      const ArrayType& arr) {
-    WriteIntegerDataValues<ArrayType>(arr);
+    static const std::string null_string = "0";
+    for (int64_t i = 0; i < arr.length(); ++i) {
+      if (arr.IsValid(i)) {
+        fmt(arr.Value(i), [&](util::string_view repr) {
+          writer_->String(repr.data(), static_cast<rj::SizeType>(repr.size()));
+        });
+      } else {
+        writer_->String(null_string.data(),
+                        static_cast<rj::SizeType>(null_string.size()));
+      }
+    }
   }
 
   template <typename ArrayType>
@@ -750,19 +764,11 @@ static Status GetMap(const RjObject& json_type,
     return Status::Invalid("Map must have exactly one child");
   }
 
-  if (children[0]->type()->id() != Type::STRUCT ||
-      children[0]->type()->num_fields() != 2) {
-    return Status::Invalid("Map's key-item pairs must be structs");
-  }
-
   const auto& it_keys_sorted = json_type.FindMember("keysSorted");
   RETURN_NOT_BOOL("keysSorted", it_keys_sorted, json_type);
-
-  auto pair_children = children[0]->type()->fields();
-
   bool keys_sorted = it_keys_sorted->value.GetBool();
-  *type = map(pair_children[0]->type(), pair_children[1]->type(), keys_sorted);
-  return Status::OK();
+
+  return MapType::Make(children[0], keys_sorted).Value(type);
 }
 
 static Status GetFixedSizeBinary(const RjObject& json_type,
@@ -1152,18 +1158,24 @@ enable_if_boolean<T, bool> UnboxValue(const rj::Value& val) {
   return val.GetBool();
 }
 
-template <typename T>
-enable_if_physical_signed_integer<T, typename T::c_type> UnboxValue(
-    const rj::Value& val) {
+template <typename T, typename CType = typename T::c_type>
+enable_if_t<is_physical_integer_type<T>::value && sizeof(CType) != sizeof(int64_t), CType>
+UnboxValue(const rj::Value& val) {
   DCHECK(val.IsInt64());
-  return static_cast<typename T::c_type>(val.GetInt64());
+  return static_cast<CType>(val.GetInt64());
 }
 
-template <typename T>
-enable_if_physical_unsigned_integer<T, typename T::c_type> UnboxValue(
-    const rj::Value& val) {
-  DCHECK(val.IsUint());
-  return static_cast<typename T::c_type>(val.GetUint64());
+template <typename T, typename CType = typename T::c_type>
+enable_if_t<is_physical_integer_type<T>::value && sizeof(CType) == sizeof(int64_t), CType>
+UnboxValue(const rj::Value& val) {
+  DCHECK(val.IsString());
+
+  CType out;
+  bool success = ::arrow::internal::ParseValue<typename CTypeTraits<CType>::ArrowType>(
+      val.GetString(), val.GetStringLength(), &out);
+
+  DCHECK(success);
+  return out;
 }
 
 template <typename T>
@@ -1415,10 +1427,7 @@ class ArrayReader {
   }
 
   Status Visit(const MapType& type) {
-    auto list_type = std::make_shared<ListType>(field(
-        "entries",
-        struct_({field("key", type.key_type(), false), field("value", type.item_type())}),
-        false));
+    auto list_type = std::make_shared<ListType>(type.value_field());
     std::shared_ptr<Array> list_array;
     RETURN_NOT_OK(CreateList<ListType>(list_type, &list_array));
     auto map_data = list_array->data();
@@ -1639,13 +1648,11 @@ static Status ReadDictionary(const RjObject& obj, MemoryPool* pool,
   RETURN_NOT_OK(dictionary_memo->GetDictionaryType(id, &value_type));
   auto value_field = ::arrow::field("dummy", value_type);
 
-  // We need placeholder schema and dictionary memo to read the record
-  // batch, because the dictionary is embedded in a record batch with
-  // a single column
+  // We need a placeholder schema to read the record, because the dictionary
+  // is embedded in a record batch with a single column.
   std::shared_ptr<RecordBatch> batch;
-  DictionaryMemo dummy_memo;
   RETURN_NOT_OK(ReadRecordBatch(it_data->value, ::arrow::schema({value_field}),
-                                &dummy_memo, pool, &batch));
+                                dictionary_memo, pool, &batch));
 
   if (batch->num_columns() != 1) {
     return Status::Invalid("Dictionary record batch must only contain one field");

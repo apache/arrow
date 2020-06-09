@@ -17,6 +17,7 @@
 
 SUBDIRS =					\
 	arrow-glib				\
+	arrow-dataset-glib			\
 	gandiva-glib				\
 	parquet-glib				\
 	plasma-glib

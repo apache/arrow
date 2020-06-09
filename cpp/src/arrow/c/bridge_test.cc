@@ -422,7 +422,7 @@ struct ArrayExportChecker {
     if (expected_data.dictionary != nullptr) {
       // Recurse into dictionary
       ASSERT_NE(c_export->dictionary, nullptr);
-      operator()(c_export->dictionary, *expected_data.dictionary->data());
+      operator()(c_export->dictionary, *expected_data.dictionary);
     } else {
       ASSERT_EQ(c_export->dictionary, nullptr);
     }
@@ -1501,7 +1501,7 @@ static const uint8_t data_buffer2[] = "abcdefghijklmnopqrstuvwxyz";
 #if ARROW_LITTLE_ENDIAN
 static const uint64_t data_buffer3[] = {123456789, 0, 987654321, 0};
 #else
-static const uint64_t data_buffer3[] = {0x15cd5b0700000000, 0, 0xb168de3a00000000, 0};
+static const uint64_t data_buffer3[] = {0, 123456789, 0, 987654321};
 #endif
 static const uint8_t data_buffer4[] = {1, 2, 0, 1, 3, 0};
 static const float data_buffer5[] = {0.0f, 1.5f, -2.0f, 3.0f, 4.0f, 5.0f};
@@ -2572,6 +2572,18 @@ TEST_F(TestArrayRoundtrip, Primitive) {
 
   TestWithJSONSliced(int32(), "[4, 5]");
   TestWithJSONSliced(int32(), "[4, 5, 6, null]");
+}
+
+TEST_F(TestArrayRoundtrip, UnknownNullCount) {
+    TestWithArrayFactory([](std::shared_ptr<Array>* arr) -> Status {
+    *arr = ArrayFromJSON(int32(), "[0, 1, 2]");
+    if ((*arr)->null_bitmap()) {
+      return Status::Invalid("Failed precondition: "
+                             "the array shouldn't have a null bitmap.");
+    }
+    (*arr)->data()->SetNullCount(kUnknownNullCount);
+    return Status::OK();
+    });
 }
 
 TEST_F(TestArrayRoundtrip, Nested) {

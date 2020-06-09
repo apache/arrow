@@ -100,7 +100,7 @@ def cmake_linter(src, fix=False):
     logger.info("Running cmake-format linters")
 
     if not fix:
-        logger.warn("run-cmake-format modifies files, irregardless of --fix")
+        logger.warn("run-cmake-format modifies files, regardless of --fix")
 
     arrow_cmake_format = os.path.join(src.path, "run-cmake-format.py")
     cmake_format = CMakeFormat(cmake_format_bin=arrow_cmake_format)

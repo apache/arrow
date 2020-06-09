@@ -22,15 +22,15 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "arrow/array.h"
+#include "arrow/array/util.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/testing/gtest_common.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
-#include "arrow/testing/util.h"
 #include "arrow/type.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/key_value_metadata.h"
 
 namespace arrow {
@@ -150,6 +150,17 @@ TEST_F(TestChunkedArray, SliceEquals) {
   ASSERT_EQ(slice5->length(), 0);
   ASSERT_EQ(slice5->num_chunks(), 1);
   ASSERT_TRUE(slice5->type()->Equals(one_->type()));
+}
+
+TEST_F(TestChunkedArray, ZeroChunksIssues) {
+  ArrayVector empty = {};
+  auto no_chunks = std::make_shared<ChunkedArray>(empty, int8());
+
+  // ARROW-8911, assert that slicing is a no-op when there are zero-chunks
+  auto sliced = no_chunks->Slice(0, 0);
+  auto sliced2 = no_chunks->Slice(0, 5);
+  AssertChunkedEqual(*no_chunks, *sliced);
+  AssertChunkedEqual(*no_chunks, *sliced2);
 }
 
 TEST_F(TestChunkedArray, Validate) {

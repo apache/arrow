@@ -42,6 +42,7 @@
 #include "parquet/encoding.h"
 #include "parquet/encryption_internal.h"
 #include "parquet/internal_file_decryptor.h"
+#include "parquet/level_conversion.h"
 #include "parquet/properties.h"
 #include "parquet/statistics.h"
 #include "parquet/thrift_internal.h"  // IWYU pragma: keep
@@ -882,9 +883,9 @@ int64_t TypedColumnReaderImpl<DType>::ReadBatchSpaced(
         }
       }
       total_values = this->ReadValues(values_to_read, values);
-      for (int64_t i = 0; i < total_values; i++) {
-        ::arrow::BitUtil::SetBit(valid_bits, valid_bits_offset + i);
-      }
+      ::arrow::BitUtil::SetBitsTo(valid_bits, valid_bits_offset,
+                                  /*length=*/total_values,
+                                  /*bits_are_set=*/true);
       *values_read = total_values;
     } else {
       internal::DefinitionLevelsToBitmap(def_levels, num_def_levels, this->max_def_level_,
@@ -900,9 +901,9 @@ int64_t TypedColumnReaderImpl<DType>::ReadBatchSpaced(
   } else {
     // Required field, read all values
     total_values = this->ReadValues(batch_size, values);
-    for (int64_t i = 0; i < total_values; i++) {
-      ::arrow::BitUtil::SetBit(valid_bits, valid_bits_offset + i);
-    }
+    ::arrow::BitUtil::SetBitsTo(valid_bits, valid_bits_offset,
+                                /*length=*/total_values,
+                                /*bits_are_set=*/true);
     *null_count_out = 0;
     *levels_read = total_values;
   }
@@ -1323,7 +1324,7 @@ class TypedRecordReader : public ColumnReaderImplBase<DType>,
     int64_t null_count = 0;
     if (nullable_values_) {
       int64_t values_with_nulls = 0;
-      internal::DefinitionLevelsToBitmap(
+      DefinitionLevelsToBitmap(
           def_levels() + start_levels_position, levels_position_ - start_levels_position,
           this->max_def_level_, this->max_rep_level_, &values_with_nulls, &null_count,
           valid_bits_->mutable_data(), values_written_);

@@ -23,6 +23,7 @@ import gzip
 import io
 import itertools
 import os
+import pickle
 import shutil
 import string
 import tempfile
@@ -35,7 +36,7 @@ import numpy as np
 
 import pyarrow as pa
 from pyarrow.csv import (
-    open_csv, read_csv, ReadOptions, ParseOptions, ConvertOptions)
+    open_csv, read_csv, ReadOptions, ParseOptions, ConvertOptions, ISO8601)
 
 
 def generate_col_names():
@@ -92,6 +93,14 @@ def check_options_class(cls, **attr_values):
         assert getattr(opts, name) == value
 
 
+def check_options_class_pickling(cls, **attr_values):
+    opts = cls(**attr_values)
+    new_opts = pickle.loads(pickle.dumps(opts,
+                                         protocol=pickle.HIGHEST_PROTOCOL))
+    for name, value in attr_values.items():
+        assert getattr(new_opts, name) == value
+
+
 def test_read_options():
     cls = ReadOptions
     opts = cls()
@@ -119,16 +128,26 @@ def test_parse_options():
                         newlines_in_values=[False, True],
                         ignore_empty_lines=[True, False])
 
+    # ParseOptions needs to be picklable for dataset
+    check_options_class_pickling(cls, delimiter='x',
+                                 escape_char='y',
+                                 quote_char=False,
+                                 double_quote=False,
+                                 newlines_in_values=True,
+                                 ignore_empty_lines=False)
+
 
 def test_convert_options():
     cls = ConvertOptions
     opts = cls()
 
-    check_options_class(cls, check_utf8=[True, False],
-                        strings_can_be_null=[False, True],
-                        include_columns=[[], ['def', 'abc']],
-                        include_missing_columns=[False, True],
-                        auto_dict_encode=[False, True])
+    check_options_class(
+        cls, check_utf8=[True, False],
+        strings_can_be_null=[False, True],
+        include_columns=[[], ['def', 'abc']],
+        include_missing_columns=[False, True],
+        auto_dict_encode=[False, True],
+        timestamp_parsers=[[], [ISO8601, '%y-%m']])
 
     assert opts.auto_dict_max_cardinality > 0
     opts.auto_dict_max_cardinality = 99999
@@ -167,14 +186,20 @@ def test_convert_options():
     opts.false_values = ['xxx', 'yyy']
     assert opts.false_values == ['xxx', 'yyy']
 
+    assert opts.timestamp_parsers == []
+    opts.timestamp_parsers = [ISO8601]
+    assert opts.timestamp_parsers == [ISO8601]
+
     opts = cls(column_types={'a': pa.null()},
                null_values=['N', 'nn'], true_values=['T', 'tt'],
-               false_values=['F', 'ff'], auto_dict_max_cardinality=999)
+               false_values=['F', 'ff'], auto_dict_max_cardinality=999,
+               timestamp_parsers=[ISO8601, '%Y-%m-%d'])
     assert opts.column_types == {'a': pa.null()}
     assert opts.null_values == ['N', 'nn']
     assert opts.false_values == ['F', 'ff']
     assert opts.true_values == ['T', 'tt']
     assert opts.auto_dict_max_cardinality == 999
+    assert opts.timestamp_parsers == [ISO8601, '%Y-%m-%d']
 
 
 class BaseTestCSVRead:
@@ -472,6 +497,40 @@ class BaseTestCSVRead:
         assert table.to_pydict() == {
             'a': [1970, 1989],
             'b': [datetime(1970, 1, 1), datetime(1989, 7, 14)],
+        }
+
+    def test_timestamp_parsers(self):
+        # Infer timestamps with custom parsers
+        rows = b"a,b\n1970/01/01,1980-01-01\n1970/01/02,1980-01-02\n"
+        opts = ConvertOptions()
+
+        table = self.read_bytes(rows, convert_options=opts)
+        schema = pa.schema([('a', pa.string()),
+                            ('b', pa.timestamp('s'))])
+        assert table.schema == schema
+        assert table.to_pydict() == {
+            'a': ['1970/01/01', '1970/01/02'],
+            'b': [datetime(1980, 1, 1), datetime(1980, 1, 2)],
+        }
+
+        opts.timestamp_parsers = ['%Y/%m/%d']
+        table = self.read_bytes(rows, convert_options=opts)
+        schema = pa.schema([('a', pa.timestamp('s')),
+                            ('b', pa.string())])
+        assert table.schema == schema
+        assert table.to_pydict() == {
+            'a': [datetime(1970, 1, 1), datetime(1970, 1, 2)],
+            'b': ['1980-01-01', '1980-01-02'],
+        }
+
+        opts.timestamp_parsers = ['%Y/%m/%d', ISO8601]
+        table = self.read_bytes(rows, convert_options=opts)
+        schema = pa.schema([('a', pa.timestamp('s')),
+                            ('b', pa.timestamp('s'))])
+        assert table.schema == schema
+        assert table.to_pydict() == {
+            'a': [datetime(1970, 1, 1), datetime(1970, 1, 2)],
+            'b': [datetime(1980, 1, 1), datetime(1980, 1, 2)],
         }
 
     def test_auto_dict_encode(self):

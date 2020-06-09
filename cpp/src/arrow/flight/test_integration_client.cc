@@ -74,9 +74,12 @@ Status UploadBatchesToFlight(const std::vector<std::shared_ptr<RecordBatch>>& ch
     // Wait for the server to ack the result
     std::shared_ptr<Buffer> ack_metadata;
     RETURN_NOT_OK(metadata_reader.ReadMetadata(&ack_metadata));
-    if (!ack_metadata->Equals(*metadata)) {
-      return Status::Invalid("Expected metadata value: " + metadata->ToString() +
-                             " but got: " + ack_metadata->ToString());
+    if (!ack_metadata) {
+      return Status::Invalid("Expected metadata value: ", metadata->ToString(),
+                             " but got nothing.");
+    } else if (!ack_metadata->Equals(*metadata)) {
+      return Status::Invalid("Expected metadata value: ", metadata->ToString(),
+                             " but got: ", ack_metadata->ToString());
     }
     counter++;
   }

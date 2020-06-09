@@ -26,6 +26,7 @@
 
 #include "arrow/util/bit_stream_utils.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/bitmap_reader.h"
 #include "arrow/util/macros.h"
 
 namespace arrow {

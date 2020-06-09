@@ -19,9 +19,9 @@
 
 #include <memory>
 
-#include "arrow/array.h"
+#include "arrow/array.h"  // IWYU pragma: keep
 #include "arrow/extension_type.h"
-#include "arrow/scalar.h"
+#include "arrow/scalar.h"  // IWYU pragma: keep
 #include "arrow/status.h"
 #include "arrow/type.h"
 

@@ -39,8 +39,18 @@ G_BEGIN_DECLS
 
 G_DEFINE_QUARK(garrow-error-quark, garrow_error)
 
-static GArrowError
-garrow_error_code(const arrow::Status &status)
+G_END_DECLS
+
+gboolean
+garrow_error_check(GError **error,
+                   const arrow::Status &status,
+                   const char *context)
+{
+  return garrow::check(error, status, context);
+}
+
+GArrowError
+garrow_error_from_status(const arrow::Status &status)
 {
   switch (status.code()) {
   case arrow::StatusCode::OK:
@@ -73,39 +83,9 @@ garrow_error_code(const arrow::Status &status)
     return GARROW_ERROR_EXECUTION;
   case arrow::StatusCode::AlreadyExists:
     return GARROW_ERROR_ALREADY_EXISTS;
-
   default:
     return GARROW_ERROR_UNKNOWN;
   }
-}
-
-G_END_DECLS
-
-namespace garrow {
-  gboolean
-  check(GError **error,
-        const arrow::Status &status,
-        const char *context) {
-    if (status.ok()) {
-      return TRUE;
-    } else {
-      g_set_error(error,
-                  GARROW_ERROR,
-                  garrow_error_code(status),
-                  "%s: %s",
-                  context,
-                  status.ToString().c_str());
-      return FALSE;
-    }
-  }
-}
-
-gboolean
-garrow_error_check(GError **error,
-                   const arrow::Status &status,
-                   const char *context)
-{
-  return garrow::check(error, status, context);
 }
 
 arrow::Status
@@ -119,4 +99,22 @@ garrow_error_to_status(GError *error,
   message << error->message;
   g_error_free(error);
   return arrow::Status(code, message.str());
+}
+
+namespace garrow {
+  gboolean check(GError **error,
+                 const arrow::Status &status,
+                 const char *context) {
+    if (status.ok()) {
+      return TRUE;
+    } else {
+      g_set_error(error,
+                  GARROW_ERROR,
+                  garrow_error_from_status(status),
+                  "%s: %s",
+                  context,
+                  status.ToString().c_str());
+      return FALSE;
+    }
+  }
 }

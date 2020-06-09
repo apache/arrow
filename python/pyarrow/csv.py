@@ -17,5 +17,5 @@
 
 
 from pyarrow._csv import (  # noqa
-    ReadOptions, ParseOptions, ConvertOptions, open_csv, read_csv,
-    CSVStreamingReader)
+    ReadOptions, ParseOptions, ConvertOptions, ISO8601,
+    open_csv, read_csv, CSVStreamingReader)

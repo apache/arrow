@@ -20,9 +20,14 @@ set -eu
 
 source_dir=${1:-/tmp/iwyu}
 install_prefix=${2:-/usr/local}
-clang_tools_version=${3:-7}
+clang_tools_version=${3:-8}
 
-git clone --single-branch --branch "clang_${clang_tools_version}.0" \
+iwyu_branch_name="clang_${clang_tools_version}"
+if [ ${clang_tools_version} -lt 10 ]; then
+  iwyu_branch_name="${iwyu_branch_name}.0"
+fi
+
+git clone --single-branch --branch ${iwyu_branch_name} \
     https://github.com/include-what-you-use/include-what-you-use.git ${source_dir}
 
 mkdir -p ${source_dir}/build

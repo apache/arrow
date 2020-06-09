@@ -19,14 +19,6 @@
 
 set -eux
 
-# Update pacman manually from old MSYS2.
-# See also: https://github.com/msys2/MSYS2-packages/issues/1960
-pacman --noconfirm --refresh --sync zstd
-wget -q http://repo.msys2.org/msys/x86_64/pacman-5.2.1-7-x86_64.pkg.tar.zst
-zstd -d pacman-5.2.1-7-x86_64.pkg.tar.zst
-gzip pacman-5.2.1-7-x86_64.pkg.tar
-pacman --noconfirm --upgrade ./pacman-5.2.1-7-x86_64.pkg.tar.gz
-
 pacman \
   --noconfirm \
   --sync \

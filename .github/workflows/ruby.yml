@@ -164,10 +164,11 @@ jobs:
     env:
       ARROW_BUILD_SHARED: ON
       ARROW_BUILD_STATIC: OFF
-      ARROW_BUILD_TYPE: release
       ARROW_BUILD_TESTS: OFF
+      ARROW_BUILD_TYPE: release
       ARROW_DATASET: ON
       ARROW_FLIGHT: ON
+      ARROW_GANDIVA: ON
       ARROW_HDFS: OFF
       ARROW_HOME: /mingw${{ matrix.mingw-n-bits }}
       ARROW_JEMALLOC: OFF
@@ -212,6 +213,12 @@ jobs:
         run: |
           ridk exec bash ci\scripts\msys2_system_upgrade.sh
           ridk exec bash ci\scripts\msys2_setup.sh ruby
+      - name: Cache ccache
+        uses: actions/cache@v1
+        with:
+          path: ccache
+          key: ruby-ccache-mingw${{ matrix.mingw-n-bits }}-${{ hashFiles('cpp/**') }}
+          restore-keys: ruby-ccache-mingw${{ matrix.mingw-n-bits }}-
       - name: Build C++
         run: |
           $Env:CMAKE_BUILD_PARALLEL_LEVEL = $Env:NUMBER_OF_PROCESSORS

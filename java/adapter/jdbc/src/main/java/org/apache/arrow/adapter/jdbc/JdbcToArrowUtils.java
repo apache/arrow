@@ -80,6 +80,7 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
+import org.apache.arrow.vector.util.ValueVectorUtility;
 
 /**
  * Class that does most of the work to convert JDBC ResultSet data into Arrow columnar format Vector objects.
@@ -357,7 +358,7 @@ public class JdbcToArrowUtils {
       int readRowCount = 0;
       if (config.getTargetBatchSize() == JdbcToArrowConfig.NO_LIMIT_BATCH_SIZE) {
         while (rs.next()) {
-          ArrowVectorIterator.ensureCapacity(root, readRowCount + 1);
+          ValueVectorUtility.ensureCapacity(root, readRowCount + 1);
           compositeConsumer.consume(rs);
           readRowCount++;
         }

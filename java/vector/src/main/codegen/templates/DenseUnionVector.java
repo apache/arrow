@@ -18,6 +18,7 @@
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.ReferenceManager;
+import org.apache.arrow.memory.util.CommonUtil;
 import org.apache.arrow.util.DataSizeRoundingUtil;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BaseValueVector;
@@ -50,13 +51,13 @@ package org.apache.arrow.vector.complex;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
+import org.apache.arrow.memory.util.CommonUtil;
 import org.apache.arrow.memory.util.hash.ArrowBufHasher;
 import org.apache.arrow.memory.util.hash.SimpleHasher;
 import org.apache.arrow.vector.compare.VectorVisitor;
 import org.apache.arrow.vector.complex.impl.ComplexCopier;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
-import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.vector.BaseValueVector;
 import org.apache.arrow.vector.util.OversizedAllocationException;
 import org.apache.arrow.util.DataSizeRoundingUtil;
@@ -404,14 +405,16 @@ public class DenseUnionVector implements FieldVector {
 
   private void reallocValidityBuffer() {
     final long currentBufferCapacity = validityBuffer.capacity();
-    long baseSize  = validityBufferAllocationSizeInBytes;
-
-    if (baseSize < (long)currentBufferCapacity) {
-      baseSize = (long)currentBufferCapacity;
+    long newAllocationSize = currentBufferCapacity * 2;
+    if (newAllocationSize == 0) {
+      if (validityBufferAllocationSizeInBytes > 0) {
+        newAllocationSize = validityBufferAllocationSizeInBytes;
+      } else {
+        newAllocationSize = DataSizeRoundingUtil.divideBy8Ceil(BaseValueVector.INITIAL_VALUE_ALLOCATION) * 2;
+      }
     }
 
-    long newAllocationSize = baseSize * 2L;
-    newAllocationSize = BaseAllocator.nextPowerOfTwo(newAllocationSize);
+    newAllocationSize = CommonUtil.nextPowerOfTwo(newAllocationSize);
     assert newAllocationSize >= 1;
 
     if (newAllocationSize > BaseValueVector.MAX_ALLOCATION_SIZE) {
@@ -428,14 +431,16 @@ public class DenseUnionVector implements FieldVector {
 
   private void reallocTypeBuffer() {
     final long currentBufferCapacity = typeBuffer.capacity();
-    long baseSize  = typeBufferAllocationSizeInBytes;
-
-    if (baseSize < (long)currentBufferCapacity) {
-      baseSize = (long)currentBufferCapacity;
+    long newAllocationSize = currentBufferCapacity * 2;
+    if (newAllocationSize == 0) {
+      if (typeBufferAllocationSizeInBytes > 0) {
+        newAllocationSize = typeBufferAllocationSizeInBytes;
+      } else {
+        newAllocationSize = BaseValueVector.INITIAL_VALUE_ALLOCATION * TYPE_WIDTH * 2;
+      }
     }
 
-    long newAllocationSize = baseSize * 2L;
-    newAllocationSize = BaseAllocator.nextPowerOfTwo(newAllocationSize);
+    newAllocationSize = CommonUtil.nextPowerOfTwo(newAllocationSize);
     assert newAllocationSize >= 1;
 
     if (newAllocationSize > BaseValueVector.MAX_ALLOCATION_SIZE) {
@@ -452,14 +457,16 @@ public class DenseUnionVector implements FieldVector {
 
   private void reallocOffsetBuffer() {
     final long currentBufferCapacity = offsetBuffer.capacity();
-    long baseSize  = offsetBufferAllocationSizeInBytes;
-
-    if (baseSize < (long) currentBufferCapacity) {
-      baseSize = (long) currentBufferCapacity;
+    long newAllocationSize = currentBufferCapacity * 2;
+    if (newAllocationSize == 0) {
+      if (offsetBufferAllocationSizeInBytes > 0) {
+        newAllocationSize = offsetBufferAllocationSizeInBytes;
+      } else {
+        newAllocationSize = BaseValueVector.INITIAL_VALUE_ALLOCATION * OFFSET_WIDTH * 2;
+      }
     }
 
-    long newAllocationSize = baseSize * 2L;
-    newAllocationSize = BaseAllocator.nextPowerOfTwo(newAllocationSize);
+    newAllocationSize = CommonUtil.nextPowerOfTwo(newAllocationSize);
     assert newAllocationSize >= 1;
 
     if (newAllocationSize > BaseValueVector.MAX_ALLOCATION_SIZE) {

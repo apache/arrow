@@ -314,49 +314,6 @@ class DictionaryRecordReader : virtual public RecordReader {
   virtual std::shared_ptr<::arrow::ChunkedArray> GetResult() = 0;
 };
 
-static inline void DefinitionLevelsToBitmap(
-    const int16_t* def_levels, int64_t num_def_levels, const int16_t max_definition_level,
-    const int16_t max_repetition_level, int64_t* values_read, int64_t* null_count,
-    uint8_t* valid_bits, int64_t valid_bits_offset) {
-  // We assume here that valid_bits is large enough to accommodate the
-  // additional definition levels and the ones that have already been written
-  ::arrow::internal::BitmapWriter valid_bits_writer(valid_bits, valid_bits_offset,
-                                                    num_def_levels);
-
-  // TODO(itaiin): As an interim solution we are splitting the code path here
-  // between repeated+flat column reads, and non-repeated+nested reads.
-  // Those paths need to be merged in the future
-  for (int i = 0; i < num_def_levels; ++i) {
-    if (def_levels[i] == max_definition_level) {
-      valid_bits_writer.Set();
-    } else if (max_repetition_level > 0) {
-      // repetition+flat case
-      if (def_levels[i] == (max_definition_level - 1)) {
-        valid_bits_writer.Clear();
-        *null_count += 1;
-      } else {
-        continue;
-      }
-    } else {
-      // non-repeated+nested case
-      if (def_levels[i] < max_definition_level) {
-        valid_bits_writer.Clear();
-        *null_count += 1;
-      } else {
-        throw ParquetException("definition level exceeds maximum");
-      }
-    }
-
-    valid_bits_writer.Next();
-  }
-  valid_bits_writer.Finish();
-  *values_read = valid_bits_writer.position();
-}
-
-}  // namespace internal
-
-namespace internal {
-
 // TODO(itaiin): another code path split to merge when the general case is done
 static inline bool HasSpacedValues(const ColumnDescriptor* descr) {
   if (descr->max_repetition_level() > 0) {

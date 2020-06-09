@@ -395,16 +395,6 @@ def test_array_ref_to_ndarray_base():
     assert sys.getrefcount(arr) == (refcount + 1)
 
 
-def test_array_eq_raises():
-    # ARROW-2150: we are raising when comparing arrays until we define the
-    # behavior to either be elementwise comparisons or data equality
-    arr1 = pa.array([1, 2, 3], type=pa.int32())
-    arr2 = pa.array([1, 2, 3], type=pa.int32())
-
-    with pytest.raises(NotImplementedError):
-        arr1 == arr2
-
-
 def test_array_from_buffers():
     values_buf = pa.py_buffer(np.int16([4, 5, 6, 7]))
     nulls_buf = pa.py_buffer(np.uint8([0b00001101]))
@@ -743,19 +733,19 @@ def test_union_from_dense():
                      expected_type_code_values):
         result.validate(full=True)
         actual_field_names = [result.type[i].name
-                              for i in range(result.type.num_children)]
+                              for i in range(result.type.num_fields)]
         assert actual_field_names == expected_field_names
         assert result.type.mode == "dense"
         assert result.type.type_codes == expected_type_codes
         assert result.to_pylist() == py_value
         assert expected_type_code_values.equals(result.type_codes)
         assert value_offsets.equals(result.offsets)
-        assert result.child(0).equals(binary)
-        assert result.child(1).equals(int64)
+        assert result.field(0).equals(binary)
+        assert result.field(1).equals(int64)
         with pytest.raises(KeyError):
-            result.child(-1)
+            result.field(-1)
         with pytest.raises(KeyError):
-            result.child(2)
+            result.field(2)
 
     # without field names and type codes
     check_result(pa.UnionArray.from_dense(types, value_offsets,
@@ -818,19 +808,19 @@ def test_union_from_sparse():
         result.validate(full=True)
         assert result.to_pylist() == py_value
         actual_field_names = [result.type[i].name
-                              for i in range(result.type.num_children)]
+                              for i in range(result.type.num_fields)]
         assert actual_field_names == expected_field_names
         assert result.type.mode == "sparse"
         assert result.type.type_codes == expected_type_codes
         assert expected_type_code_values.equals(result.type_codes)
-        assert result.child(0).equals(binary)
-        assert result.child(1).equals(int64)
+        assert result.field(0).equals(binary)
+        assert result.field(1).equals(int64)
         with pytest.raises(pa.ArrowTypeError):
             result.offsets
         with pytest.raises(KeyError):
-            result.child(-1)
+            result.field(-1)
         with pytest.raises(KeyError):
-            result.child(2)
+            result.field(2)
 
     # without field names and type codes
     check_result(pa.UnionArray.from_sparse(types, [binary, int64]),
@@ -950,19 +940,31 @@ def test_cast_none():
     # ARROW-3735: Ensure that calling cast(None) doesn't segfault.
     arr = pa.array([1, 2, 3])
 
-    with pytest.raises(TypeError):
+    with pytest.raises(ValueError):
         arr.cast(None)
 
 
 def test_cast_list_to_primitive():
     # ARROW-8070: cast segfaults on unsupported cast from list<binary> to utf8
     arr = pa.array([[1, 2], [3, 4]])
-    with pytest.raises(pa.ArrowInvalid):
+    with pytest.raises(NotImplementedError):
         arr.cast(pa.int8())
 
     arr = pa.array([[b"a", b"b"], [b"c"]], pa.list_(pa.binary()))
-    with pytest.raises(pa.ArrowInvalid):
+    with pytest.raises(NotImplementedError):
         arr.cast(pa.binary())
+
+
+def test_slice_chunked_array_zero_chunks():
+    # ARROW-8911
+    arr = pa.chunked_array([], type='int8')
+    assert arr.num_chunks == 0
+
+    result = arr[:]
+    assert result.equals(arr)
+
+    # Do not crash
+    arr[:5]
 
 
 def test_cast_chunked_array():
@@ -1162,9 +1164,9 @@ def test_decimal_to_decimal():
     )
     assert result.equals(expected)
 
-    # TODO FIXME
-    # this should fail but decimal overflow is not implemented
-    result = arr.cast(pa.decimal128(1, 2))
+    with pytest.raises(pa.ArrowInvalid,
+                       match='Decimal value does not fit in precision'):
+        result = arr.cast(pa.decimal128(5, 2))
 
 
 def test_safe_cast_nan_to_int_raises():
@@ -1246,7 +1248,7 @@ def test_cast_dictionary():
         pa.array([0, 1, None], type=pa.int32()),
         pa.array(["foo", "bar"]))
     assert arr.cast(pa.string()).equals(pa.array(["foo", "bar", None]))
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(pa.ArrowInvalid):
         # Shouldn't crash (ARROW-7077)
         arr.cast(pa.int32())
 
@@ -2225,7 +2227,7 @@ def test_empty_cast():
             # ARROW-4766: Ensure that supported types conversion don't segfault
             # on empty arrays of common types
             pa.array([], type=t1).cast(t2)
-        except pa.lib.ArrowNotImplementedError:
+        except (pa.lib.ArrowNotImplementedError, pa.ArrowInvalid):
             continue
 
 

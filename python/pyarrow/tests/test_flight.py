@@ -346,6 +346,72 @@ class ErrorFlightServer(FlightServerBase):
         raise flight.FlightInternalError("foo")
 
 
+class ExchangeFlightServer(FlightServerBase):
+    """A server for testing DoExchange."""
+
+    def do_exchange(self, context, descriptor, reader, writer):
+        if descriptor.descriptor_type != flight.DescriptorType.CMD:
+            raise pa.ArrowInvalid("Must provide a command descriptor")
+        elif descriptor.command == b"echo":
+            return self.exchange_echo(context, reader, writer)
+        elif descriptor.command == b"get":
+            return self.exchange_do_get(context, reader, writer)
+        elif descriptor.command == b"put":
+            return self.exchange_do_put(context, reader, writer)
+        elif descriptor.command == b"transform":
+            return self.exchange_transform(context, reader, writer)
+        else:
+            raise pa.ArrowInvalid(
+                "Unknown command: {}".format(descriptor.command))
+
+    def exchange_do_get(self, context, reader, writer):
+        """Emulate DoGet with DoExchange."""
+        data = pa.Table.from_arrays([
+            pa.array(range(0, 10 * 1024))
+        ], names=["a"])
+        writer.begin(data.schema)
+        writer.write_table(data)
+
+    def exchange_do_put(self, context, reader, writer):
+        """Emulate DoPut with DoExchange."""
+        num_batches = 0
+        for chunk in reader:
+            if not chunk.data:
+                raise pa.ArrowInvalid("All chunks must have data.")
+            num_batches += 1
+        writer.write_metadata(str(num_batches).encode("utf-8"))
+
+    def exchange_echo(self, context, reader, writer):
+        """Run a simple echo server."""
+        started = False
+        for chunk in reader:
+            if not started and chunk.data:
+                writer.begin(chunk.data.schema)
+                started = True
+            if chunk.app_metadata and chunk.data:
+                writer.write_with_metadata(chunk.data, chunk.app_metadata)
+            elif chunk.app_metadata:
+                writer.write_metadata(chunk.app_metadata)
+            elif chunk.data:
+                writer.write_batch(chunk.data)
+            else:
+                assert False, "Should not happen"
+
+    def exchange_transform(self, context, reader, writer):
+        """Sum rows in an uploaded table."""
+        for field in reader.schema:
+            if not pa.types.is_integer(field.type):
+                raise pa.ArrowInvalid("Invalid field: " + repr(field))
+        table = reader.read_all()
+        sums = [0] * table.num_rows
+        for column in table:
+            for row, value in enumerate(column):
+                sums[row] += value.as_py()
+        result = pa.Table.from_arrays([pa.array(sums)], names=["sum"])
+        writer.begin(result.schema)
+        writer.write_table(result)
+
+
 class HttpBasicServerAuthHandler(ServerAuthHandler):
     """An example implementation of HTTP basic authentication."""
 
@@ -481,6 +547,30 @@ class SelectiveAuthClientMiddleware(ClientMiddleware):
         return {
             "x-auth-token": "password",
         }
+
+
+class RecordingServerMiddlewareFactory(ServerMiddlewareFactory):
+    """Record what methods were called."""
+
+    def __init__(self):
+        super().__init__()
+        self.methods = []
+
+    def start_call(self, info, headers):
+        self.methods.append(info.method)
+        return None
+
+
+class RecordingClientMiddlewareFactory(ClientMiddlewareFactory):
+    """Record what methods were called."""
+
+    def __init__(self):
+        super().__init__()
+        self.methods = []
+
+    def start_call(self, info):
+        self.methods.append(info.method)
+        return None
 
 
 def test_flight_server_location_argument():
@@ -1091,6 +1181,50 @@ def test_middleware_reject():
         assert b"password" == response.body.to_pybytes()
 
 
+def test_middleware_mapping():
+    """Test that middleware records methods correctly."""
+    server_middleware = RecordingServerMiddlewareFactory()
+    client_middleware = RecordingClientMiddlewareFactory()
+    with FlightServerBase(middleware={"test": server_middleware}) as server:
+        client = FlightClient(
+            ('localhost', server.port),
+            middleware=[client_middleware]
+        )
+
+        descriptor = flight.FlightDescriptor.for_command(b"")
+        with pytest.raises(NotImplementedError):
+            list(client.list_flights())
+        with pytest.raises(NotImplementedError):
+            client.get_flight_info(descriptor)
+        with pytest.raises(NotImplementedError):
+            client.get_schema(descriptor)
+        with pytest.raises(NotImplementedError):
+            client.do_get(flight.Ticket(b""))
+        with pytest.raises(NotImplementedError):
+            writer, _ = client.do_put(descriptor, pa.schema([]))
+            writer.close()
+        with pytest.raises(NotImplementedError):
+            list(client.do_action(flight.Action(b"", b"")))
+        with pytest.raises(NotImplementedError):
+            list(client.list_actions())
+        with pytest.raises(NotImplementedError):
+            writer, _ = client.do_exchange(descriptor)
+            writer.close()
+
+        expected = [
+            flight.FlightMethod.LIST_FLIGHTS,
+            flight.FlightMethod.GET_FLIGHT_INFO,
+            flight.FlightMethod.GET_SCHEMA,
+            flight.FlightMethod.DO_GET,
+            flight.FlightMethod.DO_PUT,
+            flight.FlightMethod.DO_ACTION,
+            flight.FlightMethod.LIST_ACTIONS,
+            flight.FlightMethod.DO_EXCHANGE,
+        ]
+        assert server_middleware.methods == expected
+        assert client_middleware.methods == expected
+
+
 def test_extra_info():
     with ErrorFlightServer() as server:
         client = FlightClient(('localhost', server.port))
@@ -1120,3 +1254,101 @@ def test_mtls():
             private_key=certs["certificates"][0].key)
         data = client.do_get(flight.Ticket(b'ints')).read_all()
         assert data.equals(table)
+
+
+def test_doexchange_get():
+    """Emulate DoGet with DoExchange."""
+    expected = pa.Table.from_arrays([
+        pa.array(range(0, 10 * 1024))
+    ], names=["a"])
+
+    with ExchangeFlightServer() as server:
+        client = FlightClient(("localhost", server.port))
+        descriptor = flight.FlightDescriptor.for_command(b"get")
+        writer, reader = client.do_exchange(descriptor)
+        with writer:
+            table = reader.read_all()
+        assert expected == table
+
+
+def test_doexchange_put():
+    """Emulate DoPut with DoExchange."""
+    data = pa.Table.from_arrays([
+        pa.array(range(0, 10 * 1024))
+    ], names=["a"])
+    batches = data.to_batches(max_chunksize=512)
+
+    with ExchangeFlightServer() as server:
+        client = FlightClient(("localhost", server.port))
+        descriptor = flight.FlightDescriptor.for_command(b"put")
+        writer, reader = client.do_exchange(descriptor)
+        with writer:
+            writer.begin(data.schema)
+            for batch in batches:
+                writer.write_batch(batch)
+            writer.done_writing()
+            chunk = reader.read_chunk()
+            assert chunk.data is None
+            expected_buf = str(len(batches)).encode("utf-8")
+            assert chunk.app_metadata == expected_buf
+
+
+def test_doexchange_echo():
+    """Try a DoExchange echo server."""
+    data = pa.Table.from_arrays([
+        pa.array(range(0, 10 * 1024))
+    ], names=["a"])
+    batches = data.to_batches(max_chunksize=512)
+
+    with ExchangeFlightServer() as server:
+        client = FlightClient(("localhost", server.port))
+        descriptor = flight.FlightDescriptor.for_command(b"echo")
+        writer, reader = client.do_exchange(descriptor)
+        with writer:
+            # Read/write metadata before starting data.
+            for i in range(10):
+                buf = str(i).encode("utf-8")
+                writer.write_metadata(buf)
+                chunk = reader.read_chunk()
+                assert chunk.data is None
+                assert chunk.app_metadata == buf
+
+            # Now write data without metadata.
+            writer.begin(data.schema)
+            for batch in batches:
+                writer.write_batch(batch)
+                assert reader.schema == data.schema
+                chunk = reader.read_chunk()
+                assert chunk.data == batch
+                assert chunk.app_metadata is None
+
+            # And write data with metadata.
+            for i, batch in enumerate(batches):
+                buf = str(i).encode("utf-8")
+                writer.write_with_metadata(batch, buf)
+                chunk = reader.read_chunk()
+                assert chunk.data == batch
+                assert chunk.app_metadata == buf
+
+
+def test_doexchange_transform():
+    """Transform a table with a service."""
+    data = pa.Table.from_arrays([
+        pa.array(range(0, 1024)),
+        pa.array(range(1, 1025)),
+        pa.array(range(2, 1026)),
+    ], names=["a", "b", "c"])
+    expected = pa.Table.from_arrays([
+        pa.array(range(3, 1024 * 3 + 3, 3)),
+    ], names=["sum"])
+
+    with ExchangeFlightServer() as server:
+        client = FlightClient(("localhost", server.port))
+        descriptor = flight.FlightDescriptor.for_command(b"transform")
+        writer, reader = client.do_exchange(descriptor)
+        with writer:
+            writer.begin(data.schema)
+            writer.write_table(data)
+            writer.done_writing()
+            table = reader.read_all()
+        assert expected == table

@@ -33,7 +33,7 @@ use crate::datasource::parquet::ParquetTable;
 use crate::datasource::TableProvider;
 use crate::error::{ExecutionError, Result};
 use crate::execution::physical_plan::common;
-use crate::execution::physical_plan::csv::CsvExec;
+use crate::execution::physical_plan::csv::{CsvExec, CsvReadOptions};
 use crate::execution::physical_plan::datasource::DatasourceExec;
 use crate::execution::physical_plan::expressions::{
     Alias, Avg, BinaryExpr, CastExpr, Column, Count, Literal, Max, Min, Sum,
@@ -97,10 +97,16 @@ impl ExecutionContext {
                 ref name,
                 ref location,
                 ref file_type,
-                ref header_row,
+                ref has_header,
             } => match file_type {
                 FileType::CSV => {
-                    self.register_csv(name, location, schema, *header_row, None);
+                    self.register_csv(
+                        name,
+                        location,
+                        CsvReadOptions::new()
+                            .schema(&schema)
+                            .has_header(*has_header),
+                    )?;
                     Ok(vec![])
                 }
                 FileType::Parquet => {
@@ -144,7 +150,7 @@ impl ExecutionContext {
                 name,
                 columns,
                 file_type,
-                header_row,
+                has_header,
                 location,
             } => {
                 let schema = Box::new(self.build_schema(columns)?);
@@ -154,7 +160,7 @@ impl ExecutionContext {
                     name,
                     location,
                     file_type,
-                    header_row,
+                    has_header,
                 })
             }
         }
@@ -214,14 +220,10 @@ impl ExecutionContext {
         &mut self,
         name: &str,
         filename: &str,
-        schema: &Schema,
-        has_header: bool,
-        delimiter: Option<u8>,
-    ) {
-        self.register_table(
-            name,
-            Box::new(CsvFile::new(filename, schema, has_header, delimiter)),
-        );
+        options: CsvReadOptions,
+    ) -> Result<()> {
+        self.register_table(name, Box::new(CsvFile::try_new(filename, options)?));
+        Ok(())
     }
 
     /// Register a Parquet file as a table so that it can be queried from SQL
@@ -267,6 +269,7 @@ impl ExecutionContext {
             Box::new(TypeCoercionRule::new(&self.scalar_functions)),
         ];
         let mut plan = plan.clone();
+
         for mut rule in rules {
             plan = rule.optimize(&plan)?;
         }
@@ -306,12 +309,12 @@ impl ExecutionContext {
             },
             LogicalPlan::InMemoryScan {
                 data,
-                schema,
                 projection,
+                projected_schema,
                 ..
             } => Ok(Arc::new(MemoryExec::try_new(
                 data,
-                Arc::new(schema.as_ref().to_owned()),
+                Arc::new(projected_schema.as_ref().to_owned()),
                 projection.to_owned(),
             )?)),
             LogicalPlan::CsvScan {
@@ -323,9 +326,10 @@ impl ExecutionContext {
                 ..
             } => Ok(Arc::new(CsvExec::try_new(
                 path,
-                Some(Arc::new(schema.as_ref().to_owned())),
-                *has_header,
-                *delimiter,
+                CsvReadOptions::new()
+                    .schema(schema.as_ref())
+                    .delimiter_option(*delimiter)
+                    .has_header(*has_header),
                 projection.to_owned(),
                 batch_size,
             )?)),
@@ -630,6 +634,7 @@ mod tests {
     use std::fs::File;
     use std::io::prelude::*;
     use tempdir::TempDir;
+    use test::*;
 
     #[test]
     fn parallel_projection() -> Result<()> {
@@ -667,6 +672,108 @@ mod tests {
 
         let row_count: usize = results.iter().map(|batch| batch.num_rows()).sum();
         assert_eq!(row_count, 20);
+
+        Ok(())
+    }
+
+    #[test]
+    fn projection_on_table_scan() -> Result<()> {
+        let tmp_dir = TempDir::new("projection_on_table_scan")?;
+        let partition_count = 4;
+        let mut ctx = create_ctx(&tmp_dir, partition_count)?;
+
+        let table = ctx.table("test")?;
+        let logical_plan = LogicalPlanBuilder::from(&table.to_logical_plan())
+            .project(vec![Expr::UnresolvedColumn("c2".to_string())])?
+            .build()?;
+
+        let optimized_plan = ctx.optimize(&logical_plan)?;
+        match &optimized_plan {
+            LogicalPlan::Projection { input, .. } => match &**input {
+                LogicalPlan::TableScan {
+                    table_schema,
+                    projected_schema,
+                    ..
+                } => {
+                    assert_eq!(table_schema.fields().len(), 2);
+                    assert_eq!(projected_schema.fields().len(), 1);
+                }
+                _ => assert!(false, "input to projection should be TableScan"),
+            },
+            _ => assert!(false, "expect optimized_plan to be projection"),
+        }
+
+        let expected = "Projection: #0\
+        \n  TableScan: test projection=Some([1])";
+        assert_eq!(format!("{:?}", optimized_plan), expected);
+
+        let physical_plan = ctx.create_physical_plan(&optimized_plan, 1024)?;
+
+        assert_eq!(1, physical_plan.schema().fields().len());
+        assert_eq!("c2", physical_plan.schema().field(0).name().as_str());
+
+        let batches = ctx.collect(physical_plan.as_ref())?;
+        assert_eq!(4, batches.len());
+        assert_eq!(1, batches[0].num_columns());
+        assert_eq!(10, batches[0].num_rows());
+
+        Ok(())
+    }
+
+    #[test]
+    fn projection_on_memory_scan() -> Result<()> {
+        let schema = Schema::new(vec![
+            Field::new("a", DataType::Int32, false),
+            Field::new("b", DataType::Int32, false),
+            Field::new("c", DataType::Int32, false),
+        ]);
+        let plan = LogicalPlanBuilder::from(&LogicalPlan::InMemoryScan {
+            data: vec![vec![RecordBatch::try_new(
+                Arc::new(schema.clone()),
+                vec![
+                    Arc::new(Int32Array::from(vec![1, 10, 10, 100])),
+                    Arc::new(Int32Array::from(vec![2, 12, 12, 120])),
+                    Arc::new(Int32Array::from(vec![3, 12, 12, 120])),
+                ],
+            )?]],
+            schema: Box::new(schema.clone()),
+            projection: None,
+            projected_schema: Box::new(schema.clone()),
+        })
+        .project(vec![Expr::UnresolvedColumn("b".to_string())])?
+        .build()?;
+        assert_fields_eq(&plan, vec!["b"]);
+
+        let mut ctx = ExecutionContext::new();
+        let optimized_plan = ctx.optimize(&plan)?;
+        match &optimized_plan {
+            LogicalPlan::Projection { input, .. } => match &**input {
+                LogicalPlan::InMemoryScan {
+                    schema,
+                    projected_schema,
+                    ..
+                } => {
+                    assert_eq!(schema.fields().len(), 3);
+                    assert_eq!(projected_schema.fields().len(), 1);
+                }
+                _ => assert!(false, "input to projection should be InMemoryScan"),
+            },
+            _ => assert!(false, "expect optimized_plan to be projection"),
+        }
+
+        let expected = "Projection: #0\
+        \n  InMemoryScan: projection=Some([1])";
+        assert_eq!(format!("{:?}", optimized_plan), expected);
+
+        let physical_plan = ctx.create_physical_plan(&optimized_plan, 1024)?;
+
+        assert_eq!(1, physical_plan.schema().fields().len());
+        assert_eq!("b", physical_plan.schema().field(0).name().as_str());
+
+        let batches = ctx.collect(physical_plan.as_ref())?;
+        assert_eq!(1, batches.len());
+        assert_eq!(1, batches[0].num_columns());
+        assert_eq!(4, batches[0].num_rows());
 
         Ok(())
     }
@@ -870,35 +977,12 @@ mod tests {
         ]));
 
         // register each partition as well as the top level dir
-        ctx.register_csv(
-            "part0",
-            &format!("{}/part-0.csv", out_dir),
-            &schema,
-            true,
-            None,
-        );
-        ctx.register_csv(
-            "part1",
-            &format!("{}/part-1.csv", out_dir),
-            &schema,
-            true,
-            None,
-        );
-        ctx.register_csv(
-            "part2",
-            &format!("{}/part-2.csv", out_dir),
-            &schema,
-            true,
-            None,
-        );
-        ctx.register_csv(
-            "part3",
-            &format!("{}/part-3.csv", out_dir),
-            &schema,
-            true,
-            None,
-        );
-        ctx.register_csv("allparts", &out_dir, &schema, true, None);
+        let csv_read_option = CsvReadOptions::new().schema(&schema);
+        ctx.register_csv("part0", &format!("{}/part-0.csv", out_dir), csv_read_option)?;
+        ctx.register_csv("part1", &format!("{}/part-1.csv", out_dir), csv_read_option)?;
+        ctx.register_csv("part2", &format!("{}/part-2.csv", out_dir), csv_read_option)?;
+        ctx.register_csv("part3", &format!("{}/part-3.csv", out_dir), csv_read_option)?;
+        ctx.register_csv("allparts", &out_dir, csv_read_option)?;
 
         let part0 = collect(&mut ctx, "SELECT c1, c2 FROM part0")?;
         let part1 = collect(&mut ctx, "SELECT c1, c2 FROM part1")?;
@@ -1064,10 +1148,8 @@ mod tests {
         ctx.register_csv(
             "test",
             tmp_dir.path().to_str().unwrap(),
-            &schema,
-            true,
-            None,
-        );
+            CsvReadOptions::new().schema(&schema),
+        )?;
 
         Ok(ctx)
     }

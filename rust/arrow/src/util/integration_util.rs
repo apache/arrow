@@ -63,7 +63,7 @@ pub struct ArrowJsonColumn {
     name: String,
     pub count: usize,
     #[serde(rename = "VALIDITY")]
-    pub validity: Vec<u8>,
+    pub validity: Option<Vec<u8>>,
     #[serde(rename = "DATA")]
     pub data: Option<Vec<Value>>,
     #[serde(rename = "OFFSET")]
@@ -125,6 +125,10 @@ impl ArrowJsonBatch {
                 }
                 let json_array: Vec<Value> = json_from_col(&col, field.data_type());
                 match field.data_type() {
+                    DataType::Null => {
+                        let arr = arr.as_any().downcast_ref::<NullArray>().unwrap();
+                        arr.equals_json(&json_array.iter().collect::<Vec<&Value>>()[..])
+                    }
                     DataType::Boolean => {
                         let arr = arr.as_any().downcast_ref::<BooleanArray>().unwrap();
                         arr.equals_json(&json_array.iter().collect::<Vec<&Value>>()[..])
@@ -345,7 +349,7 @@ impl ArrowJsonBatch {
                     ArrowJsonColumn {
                         name: field.name().clone(),
                         count: col.len(),
-                        validity,
+                        validity: Some(validity),
                         data: Some(data),
                         offset: None,
                         children: None,
@@ -354,7 +358,7 @@ impl ArrowJsonBatch {
                 _ => ArrowJsonColumn {
                     name: field.name().clone(),
                     count: col.len(),
-                    validity: vec![],
+                    validity: None,
                     data: None,
                     offset: None,
                     children: None,
@@ -376,7 +380,10 @@ fn json_from_col(col: &ArrowJsonColumn, data_type: &DataType) -> Vec<Value> {
             json_from_fixed_size_list_col(col, &**dt, *list_size as usize)
         }
         DataType::Struct(fields) => json_from_struct_col(col, fields),
-        _ => merge_json_array(&col.validity, &col.data.clone().unwrap()),
+        _ => merge_json_array(
+            col.validity.as_ref().unwrap().as_slice(),
+            &col.data.clone().unwrap(),
+        ),
     }
 }
 
@@ -440,14 +447,24 @@ fn json_from_list_col(col: &ArrowJsonColumn, data_type: &DataType) -> Vec<Value>
     let inner = match data_type {
         DataType::List(ref dt) => json_from_col(child, &**dt),
         DataType::Struct(fields) => json_from_struct_col(col, fields),
-        _ => merge_json_array(&child.validity, &child.data.clone().unwrap()),
+        _ => merge_json_array(
+            child.validity.as_ref().unwrap().as_slice(),
+            &child.data.clone().unwrap(),
+        ),
     };
 
     for i in 0..col.count {
-        match col.validity[i] {
-            0 => values.push(Value::Null),
-            1 => values.push(Value::Array(inner[offsets[i]..offsets[i + 1]].to_vec())),
-            _ => panic!("Validity data should be 0 or 1"),
+        match &col.validity {
+            Some(validity) => match &validity[i] {
+                0 => values.push(Value::Null),
+                1 => {
+                    values.push(Value::Array(inner[offsets[i]..offsets[i + 1]].to_vec()))
+                }
+                _ => panic!("Validity data should be 0 or 1"),
+            },
+            None => {
+                // Null type does not have a validity vector
+            }
         }
     }
 
@@ -468,16 +485,22 @@ fn json_from_fixed_size_list_col(
         DataType::List(ref dt) => json_from_col(child, &**dt),
         DataType::FixedSizeList(ref dt, _) => json_from_col(child, &**dt),
         DataType::Struct(fields) => json_from_struct_col(col, fields),
-        _ => merge_json_array(&child.validity, &child.data.clone().unwrap()),
+        _ => merge_json_array(
+            child.validity.as_ref().unwrap().as_slice(),
+            &child.data.clone().unwrap(),
+        ),
     };
 
     for i in 0..col.count {
-        match col.validity[i] {
-            0 => values.push(Value::Null),
-            1 => values.push(Value::Array(
-                inner[(list_size * i)..(list_size * (i + 1))].to_vec(),
-            )),
-            _ => panic!("Validity data should be 0 or 1"),
+        match &col.validity {
+            Some(validity) => match &validity[i] {
+                0 => values.push(Value::Null),
+                1 => values.push(Value::Array(
+                    inner[(list_size * i)..(list_size * (i + 1))].to_vec(),
+                )),
+                _ => panic!("Validity data should be 0 or 1"),
+            },
+            None => {}
         }
     }
 

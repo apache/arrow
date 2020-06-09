@@ -45,6 +45,10 @@ class ARROW_EXPORT TimestampParser {
   virtual bool operator()(const char* s, size_t length, TimeUnit::type out_unit,
                           int64_t* out) const = 0;
 
+  virtual const char* kind() const = 0;
+
+  virtual const char* format() const;
+
   /// \brief Create a TimestampParser that recognizes strptime-like format strings
   static std::shared_ptr<TimestampParser> MakeStrptime(std::string format);
 

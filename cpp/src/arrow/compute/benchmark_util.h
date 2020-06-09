@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <vector>
 
 #include "arrow/testing/gtest_util.h"
@@ -56,7 +57,7 @@ void BenchmarkSetArgsWithSizes(benchmark::internal::Benchmark* bench,
   bench->Unit(benchmark::kMicrosecond);
 
   for (auto size : sizes)
-    for (auto nulls : std::vector<ArgsType>({0, 1, 10, 50}))
+    for (auto nulls : std::vector<ArgsType>({10000, 1000, 100, 50, 10, 1}))
       bench->Args({static_cast<ArgsType>(size), nulls});
 }
 
@@ -80,12 +81,12 @@ struct RegressionArgs {
 
   explicit RegressionArgs(benchmark::State& state)
       : size(state.range(0)),
-        null_proportion(static_cast<double>(state.range(1)) / 100.0),
+        null_proportion(std::min(1., 1. / static_cast<double>(state.range(1)))),
         state_(state) {}
 
   ~RegressionArgs() {
     state_.counters["size"] = static_cast<double>(size);
-    state_.counters["null_percent"] = static_cast<double>(state_.range(1));
+    state_.counters["null_percent"] = null_proportion * 100;
     state_.SetBytesProcessed(state_.iterations() * size);
   }
 

@@ -120,8 +120,12 @@ function(ADD_ARROW_BENCHMARK REL_TEST_NAME)
 endfunction()
 
 set(ARROW_SRCS
-    array.cc
-    builder.cc
+    array/array_base.cc
+    array/array_binary.cc
+    array/array_decimal.cc
+    array/array_dict.cc
+    array/array_nested.cc
+    array/array_primitive.cc
     array/builder_adaptive.cc
     array/builder_base.cc
     array/builder_binary.cc
@@ -131,11 +135,14 @@ set(ARROW_SRCS
     array/builder_primitive.cc
     array/builder_union.cc
     array/concatenate.cc
-    array/dict_internal.cc
+    array/data.cc
     array/diff.cc
+    array/util.cc
     array/validate.cc
+    builder.cc
     buffer.cc
     compare.cc
+    datum.cc
     device.cc
     extension_type.cc
     memory_pool.cc
@@ -166,7 +173,11 @@ set(ARROW_SRCS
     io/slow.cc
     testing/util.cc
     util/basic_decimal.cc
+    util/bit_block_counter.cc
     util/bit_util.cc
+    util/bitmap.cc
+    util/bitmap_builders.cc
+    util/bitmap_ops.cc
     util/compression.cc
     util/cpu_info.cc
     util/decimal.cc
@@ -198,6 +209,10 @@ set(ARROW_SRCS
     vendored/double-conversion/fixed-dtoa.cc
     vendored/double-conversion/diy-fp.cc
     vendored/double-conversion/strtod.cc)
+
+if(APPLE)
+  list(APPEND ARROW_SRCS vendored/datetime/ios.mm)
+endif()
 
 set(ARROW_C_SRCS
     vendored/musl/strptime.c
@@ -319,24 +334,31 @@ endif()
 
 if(ARROW_COMPUTE)
   list(APPEND ARROW_SRCS
-              compute/context.cc
-              compute/kernels/aggregate.cc
-              compute/kernels/boolean.cc
-              compute/kernels/cast.cc
-              compute/kernels/compare.cc
-              compute/kernels/count.cc
-              compute/kernels/hash.cc
-              compute/kernels/filter.cc
-              compute/kernels/mean.cc
-              compute/kernels/minmax.cc
-              compute/kernels/sort_to_indices.cc
-              compute/kernels/nth_to_indices.cc
-              compute/kernels/sum.cc
-              compute/kernels/add.cc
-              compute/kernels/take.cc
-              compute/kernels/isin.cc
-              compute/kernels/match.cc
-              compute/kernels/util_internal.cc)
+              compute/api_aggregate.cc
+              compute/api_scalar.cc
+              compute/api_vector.cc
+              compute/cast.cc
+              compute/exec.cc
+              compute/function.cc
+              compute/kernel.cc
+              compute/registry.cc
+              compute/kernels/aggregate_basic.cc
+              compute/kernels/codegen_internal.cc
+              compute/kernels/scalar_arithmetic.cc
+              compute/kernels/scalar_boolean.cc
+              compute/kernels/scalar_cast_boolean.cc
+              compute/kernels/scalar_cast_internal.cc
+              compute/kernels/scalar_cast_nested.cc
+              compute/kernels/scalar_cast_numeric.cc
+              compute/kernels/scalar_cast_string.cc
+              compute/kernels/scalar_cast_temporal.cc
+              compute/kernels/scalar_compare.cc
+              compute/kernels/scalar_set_lookup.cc
+              compute/kernels/scalar_string.cc
+              compute/kernels/vector_filter.cc
+              compute/kernels/vector_hash.cc
+              compute/kernels/vector_sort.cc
+              compute/kernels/vector_take.cc)
 endif()
 
 if(ARROW_FILESYSTEM)
@@ -503,18 +525,18 @@ install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/arrow-config.cmake
 #
 # Unit tests
 #
-
 add_arrow_test(array_test
                SOURCES
-               array_test.cc
-               array_binary_test.cc
-               array_dict_test.cc
-               array_list_test.cc
-               array_struct_test.cc
-               array_union_test.cc
-               array_view_test.cc
+               array/array_test.cc
+               array/array_binary_test.cc
+               array/array_dict_test.cc
+               array/array_list_test.cc
+               array/array_struct_test.cc
+               array/array_union_test.cc
+               array/array_view_test.cc
                PRECOMPILED_HEADERS
                "$<$<COMPILE_LANGUAGE:CXX>:arrow/testing/pch.h>")
+
 add_arrow_test(buffer_test)
 
 if(ARROW_IPC)
@@ -524,6 +546,7 @@ endif()
 
 add_arrow_test(misc_test
                SOURCES
+               datum_test.cc
                memory_pool_test.cc
                result_test.cc
                pretty_print_test.cc

@@ -267,6 +267,7 @@ struct TypeTraits<StringType> {
   using ArrayType = StringArray;
   using BuilderType = StringBuilder;
   using ScalarType = StringScalar;
+  using OffsetType = Int32Type;
   constexpr static bool is_parameter_free = true;
   static inline std::shared_ptr<DataType> type_singleton() { return utf8(); }
 };
@@ -276,6 +277,7 @@ struct TypeTraits<LargeStringType> {
   using ArrayType = LargeStringArray;
   using BuilderType = LargeStringBuilder;
   using ScalarType = LargeStringScalar;
+  using OffsetType = Int64Type;
   constexpr static bool is_parameter_free = true;
   static inline std::shared_ptr<DataType> type_singleton() { return large_utf8(); }
 };
@@ -617,11 +619,11 @@ template <typename T, typename R = void>
 using enable_if_8bit_int = enable_if_t<is_8bit_int<T>::value, R>;
 
 template <typename T>
-using is_paramater_free_type =
+using is_parameter_free_type =
     std::integral_constant<bool, TypeTraits<T>::is_parameter_free>;
 
 template <typename T, typename R = void>
-using enable_if_parameter_free = enable_if_t<is_paramater_free_type<T>::value, R>;
+using enable_if_parameter_free = enable_if_t<is_parameter_free_type<T>::value, R>;
 
 // Physical representation quirks
 
@@ -643,6 +645,14 @@ using is_physical_unsigned_integer_type =
 template <typename T, typename R = void>
 using enable_if_physical_unsigned_integer =
     enable_if_t<is_physical_unsigned_integer_type<T>::value, R>;
+
+template <typename T>
+using is_physical_integer_type =
+    std::integral_constant<bool, is_physical_unsigned_integer_type<T>::value ||
+                                     is_physical_signed_integer_type<T>::value>;
+
+template <typename T, typename R = void>
+using enable_if_physical_integer = enable_if_t<is_physical_integer_type<T>::value, R>;
 
 // Like is_floating_type but excluding half-floats which don't have a
 // float-like c type.
@@ -766,6 +776,21 @@ static inline bool is_fixed_size_binary(Type::type type_id) {
 
 static inline bool is_fixed_width(Type::type type_id) {
   return is_primitive(type_id) || is_dictionary(type_id) || is_fixed_size_binary(type_id);
+}
+
+static inline bool is_nested(Type::type type_id) {
+  switch (type_id) {
+    case Type::LIST:
+    case Type::LARGE_LIST:
+    case Type::FIXED_SIZE_LIST:
+    case Type::MAP:
+    case Type::STRUCT:
+    case Type::UNION:
+      return true;
+    default:
+      break;
+  }
+  return false;
 }
 
 }  // namespace arrow

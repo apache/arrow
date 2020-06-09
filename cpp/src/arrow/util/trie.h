@@ -20,6 +20,7 @@
 #include <cassert>
 #include <cstdint>
 #include <cstring>
+#include <iosfwd>
 #include <limits>
 #include <string>
 #include <utility>

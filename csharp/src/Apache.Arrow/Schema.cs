@@ -59,7 +59,7 @@ namespace Apache.Arrow
         }
 
         public Field GetFieldByName(string name) =>
-            Fields.TryGetValue(name, out var field) ? field : null;
+            Fields.TryGetValue(name, out Field field) ? field : null;
 
         public int GetFieldIndex(string name, StringComparer comparer = default)
         {

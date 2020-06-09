@@ -58,7 +58,11 @@ function(ADD_ARROW_COMPUTE_TEST REL_TEST_NAME)
                  ${ARG_UNPARSED_ARGUMENTS})
 endfunction()
 
-add_arrow_compute_test(compute_test)
-add_arrow_benchmark(compute_benchmark)
+add_arrow_compute_test(internals_test
+                       SOURCES
+                       function_test.cc
+                       exec_test.cc
+                       kernel_test.cc
+                       registry_test.cc)
 
 add_subdirectory(kernels)

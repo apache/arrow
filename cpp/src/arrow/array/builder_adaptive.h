@@ -17,9 +17,17 @@
 
 #pragma once
 
+#include <cstdint>
+#include <cstring>
 #include <memory>
+#include <type_traits>
 
 #include "arrow/array/builder_base.h"
+#include "arrow/buffer.h"
+#include "arrow/status.h"
+#include "arrow/type.h"
+#include "arrow/util/macros.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow {
 

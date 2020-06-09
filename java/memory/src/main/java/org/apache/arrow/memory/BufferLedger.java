@@ -17,12 +17,11 @@
 
 package org.apache.arrow.memory;
 
-import static org.apache.arrow.memory.BaseAllocator.indent;
-
 import java.util.IdentityHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
+import org.apache.arrow.memory.util.CommonUtil;
 import org.apache.arrow.memory.util.HistoricalLog;
 import org.apache.arrow.util.Preconditions;
 
@@ -232,8 +231,8 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
             this,
             null,
             length, // length (in bytes) in the underlying memory chunk for this new ArrowBuf
-            derivedBufferAddress, // starting byte address in the underlying memory for this new ArrowBuf,
-            false);
+            derivedBufferAddress // starting byte address in the underlying memory for this new ArrowBuf
+            );
 
     // logging
     if (BaseAllocator.DEBUG) {
@@ -271,7 +270,7 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
     final long startAddress = allocationManager.memoryAddress();
 
     // create ArrowBuf
-    final ArrowBuf buf = new ArrowBuf(this, manager, length, startAddress, false);
+    final ArrowBuf buf = new ArrowBuf(this, manager, length, startAddress);
 
     // logging
     if (BaseAllocator.DEBUG) {
@@ -308,9 +307,6 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
    */
   @Override
   public ArrowBuf retain(final ArrowBuf srcBuffer, BufferAllocator target) {
-    if (srcBuffer.isEmpty()) {
-      return srcBuffer;
-    }
 
     if (BaseAllocator.DEBUG) {
       historicalLog.recordEvent("retain(%s)", target.getName());
@@ -410,9 +406,6 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
    */
   @Override
   public TransferResult transferOwnership(final ArrowBuf srcBuffer, final BufferAllocator target) {
-    if (srcBuffer.isEmpty()) {
-      return new TransferResult(true, srcBuffer);
-    }
     // the call to associate will return the corresponding reference manager (buffer ledger) for
     // the target allocator. if the allocation manager didn't already have a mapping
     // for the target allocator, it will create one and return the new reference manager with a
@@ -491,7 +484,7 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
    * @param verbosity The level of verbosity to print.
    */
   void print(StringBuilder sb, int indent, BaseAllocator.Verbosity verbosity) {
-    indent(sb, indent)
+    CommonUtil.indent(sb, indent)
       .append("ledger[")
       .append(ledgerId)
       .append("] allocator: ")

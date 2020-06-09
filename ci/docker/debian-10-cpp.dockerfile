@@ -26,9 +26,17 @@ RUN \
 
 ARG llvm
 RUN apt-get update -y -q && \
+     apt-get install -y -q --no-install-recommends \
+        apt-transport-https \
+        ca-certificates \
+        gnupg \
+        wget && \
+    wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
+    echo "deb https://apt.llvm.org/buster/ llvm-toolchain-buster-${llvm} main" > \
+        /etc/apt/sources.list.d/llvm.list && \
+    apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
         autoconf \
-        ca-certificates \
         ccache \
         clang-${llvm} \
         cmake \
@@ -58,8 +66,7 @@ RUN apt-get update -y -q && \
         protobuf-compiler \
         rapidjson-dev \
         tzdata \
-        zlib1g-dev \
-        wget && \
+        zlib1g-dev && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
