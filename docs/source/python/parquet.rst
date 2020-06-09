@@ -437,7 +437,9 @@ writing the individual files of the partitioned dataset using
 :func:`~pyarrow.parquet.write_table` or :class:`~pyarrow.parquet.ParquetWriter`,
 the ``metadata_collector`` keyword can also be used to collect the FileMetaData
 of the written files. In this case, you need to ensure to set the file path
-contained in the row group metadata yourself before combining the metadata:
+contained in the row group metadata yourself before combining the metadata, and
+the schemas of all different files and collected FileMetaData objects should be
+the same:
 
 .. code-block:: python
 
