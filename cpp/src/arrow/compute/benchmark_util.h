@@ -56,9 +56,12 @@ void BenchmarkSetArgsWithSizes(benchmark::internal::Benchmark* bench,
                                const std::vector<int64_t>& sizes = kMemorySizes) {
   bench->Unit(benchmark::kMicrosecond);
 
-  for (auto size : sizes)
-    for (auto nulls : std::vector<ArgsType>({10000, 1000, 100, 50, 10, 1}))
-      bench->Args({static_cast<ArgsType>(size), nulls});
+  for (const auto size : sizes) {
+    for (const auto inverse_null_proportion :
+         std::vector<ArgsType>({10000, 100, 10, 2, 1})) {
+      bench->Args({static_cast<ArgsType>(size), inverse_null_proportion});
+    }
+  }
 }
 
 void BenchmarkSetArgs(benchmark::internal::Benchmark* bench) {
