@@ -59,7 +59,7 @@ void BenchmarkSetArgsWithSizes(benchmark::internal::Benchmark* bench,
   // 0 is treated as "no nulls"
   for (const auto size : sizes) {
     for (const auto inverse_null_proportion :
-           std::vector<ArgsType>({10000, 100, 50, 10, 2, 1, 0})) {
+         std::vector<ArgsType>({10000, 100, 50, 10, 2, 1, 0})) {
       bench->Args({static_cast<ArgsType>(size), inverse_null_proportion});
     }
   }
