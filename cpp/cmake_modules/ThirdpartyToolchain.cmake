@@ -1906,7 +1906,7 @@ if(ARROW_WITH_ZSTD)
 
   # "SYSTEM" source will prioritize cmake config, which exports
   # zstd::libzstd_{static,shared}
-  if (TARGET zstd::libzstd_static)
+  if(TARGET zstd::libzstd_static)
     set(ZSTD_LIBRARIES zstd::libzstd_static)
   endif()
   # TODO: Don't use global includes but rather target_include_directories
