@@ -337,25 +337,6 @@ void ScalarPrimitiveExecUnary(KernelContext* ctx, const ExecBatch& batch, Datum*
   }
 }
 
-template <typename Op, typename OutType, typename Arg0Type, typename Arg1Type>
-void ScalarPrimitiveExecBinary(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  using OUT = typename OutType::c_type;
-  using ARG0 = typename Arg0Type::c_type;
-  using ARG1 = typename Arg1Type::c_type;
-
-  if (batch[0].kind() == Datum::SCALAR || batch[1].kind() == Datum::SCALAR) {
-    ctx->SetStatus(Status::NotImplemented("NYI"));
-  } else {
-    ArrayData* out_arr = out->mutable_array();
-    auto out_data = out_arr->GetMutableValues<OUT>(1);
-    auto arg0_data = batch[0].array()->GetValues<ARG0>(1);
-    auto arg1_data = batch[1].array()->GetValues<ARG1>(1);
-    for (int64_t i = 0; i < batch.length; ++i) {
-      *out_data++ = Op::template Call<OUT, ARG0, ARG1>(ctx, *arg0_data++, *arg1_data++);
-    }
-  }
-}
-
 // OutputAdapter allows passing an inlineable lambda that provides a sequence
 // of output values to write into output memory. Boolean and primitive outputs
 // are currently implemented, and the validity bitmap is presumed to be handled
@@ -610,53 +591,56 @@ struct ScalarUnaryNotNull {
 //     // implementation
 //   }
 // };
-template <typename OutType, typename Arg0Type, typename Arg1Type, typename Op,
-          typename FlippedOp = Op>
+template <typename OutType, typename Arg0Type, typename Arg1Type, typename Op>
 struct ScalarBinary {
   using OUT = typename GetOutputType<OutType>::T;
   using ARG0 = typename GetViewType<Arg0Type>::T;
   using ARG1 = typename GetViewType<Arg1Type>::T;
 
-  template <typename ChosenOp>
   static void ArrayArray(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     ArrayIterator<Arg0Type> arg0(*batch[0].array());
     ArrayIterator<Arg1Type> arg1(*batch[1].array());
     OutputAdapter<OutType>::Write(ctx, out, [&]() -> OUT {
-        return ChosenOp::template Call(ctx, arg0(), arg1());
+        return Op::template Call(ctx, arg0(), arg1());
     });
   }
 
-  template <typename ChosenOp>
   static void ArrayScalar(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     ArrayIterator<Arg0Type> arg0(*batch[0].array());
     auto arg1 = UnboxScalar<Arg1Type>::Unbox(batch[1]);
     OutputAdapter<OutType>::Write(ctx, out, [&]() -> OUT {
-        return ChosenOp::template Call(ctx, arg0(), arg1);
+        return Op::template Call(ctx, arg0(), arg1);
     });
   }
 
-  template <typename ChosenOp>
+  static void ScalarArray(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    auto arg0 = UnboxScalar<Arg0Type>::Unbox(batch[0]);
+    ArrayIterator<Arg1Type> arg1(*batch[1].array());
+    OutputAdapter<OutType>::Write(ctx, out, [&]() -> OUT {
+        return Op::template Call(ctx, arg0, arg1());
+    });
+  }
+
   static void ScalarScalar(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     auto arg0 = UnboxScalar<Arg0Type>::Unbox(batch[0]);
     auto arg1 = UnboxScalar<Arg1Type>::Unbox(batch[1]);
-    out->value = BoxScalar<OutType>::Box(ChosenOp::template Call(ctx, arg0, arg1),
+    out->value = BoxScalar<OutType>::Box(Op::template Call(ctx, arg0, arg1),
                                          out->type());
   }
 
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-
     if (batch[0].kind() == Datum::ARRAY) {
       if (batch[1].kind() == Datum::ARRAY) {
-        return ArrayArray<Op>(ctx, batch, out);
+        return ArrayArray(ctx, batch, out);
       } else {
-        return ArrayScalar<Op>(ctx, batch, out);
+        return ArrayScalar(ctx, batch, out);
       }
     } else {
       if (batch[1].kind() == Datum::ARRAY) {
         // e.g. if we were doing scalar < array, we flip and do array >= scalar
-        return BinaryExecFlipped(ctx, ArrayScalar<FlippedOp>, batch, out);
+        return ScalarArray(ctx, batch, out);
       } else {
-        return ScalarScalar<Op>(ctx, batch, out);
+        return ScalarScalar(ctx, batch, out);
       }
     }
   }
@@ -664,9 +648,8 @@ struct ScalarBinary {
 
 // A kernel exec generator for binary kernels where both input types are the
 // same
-template <typename OutType, typename ArgType, typename Op,
-          typename FlippedOp = Op>
-using ScalarBinaryEqualTypes = ScalarBinary<OutType, ArgType, ArgType, Op, FlippedOp>;
+template <typename OutType, typename ArgType, typename Op>
+using ScalarBinaryEqualTypes = ScalarBinary<OutType, ArgType, ArgType, Op>;
 
 // ----------------------------------------------------------------------
 // Dynamic kernel selectors. These functors allow a kernel implementation to be
@@ -720,43 +703,6 @@ ArrayKernelExec NumericEqualTypesUnary(detail::GetTypeId get_id) {
       return ScalarPrimitiveExecUnary<Op, FloatType, FloatType>;
     case Type::DOUBLE:
       return ScalarPrimitiveExecUnary<Op, DoubleType, DoubleType>;
-    default:
-      DCHECK(false);
-      return ExecFail;
-  }
-}
-
-// Generate a kernel given a functor of type
-//
-// struct OPERATOR_NAME {
-//   template <typename OUT, typename ARG0, typename ARG1>
-//   static OUT Call(KernelContext*, ARG0 left, ARG1 right) {
-//     // IMPLEMENTATION
-//   }
-// };
-template <typename Op>
-ArrayKernelExec NumericEqualTypesBinary(detail::GetTypeId get_id) {
-  switch (get_id.id) {
-    case Type::INT8:
-      return ScalarPrimitiveExecBinary<Op, Int8Type, Int8Type, Int8Type>;
-    case Type::UINT8:
-      return ScalarPrimitiveExecBinary<Op, UInt8Type, UInt8Type, UInt8Type>;
-    case Type::INT16:
-      return ScalarPrimitiveExecBinary<Op, Int16Type, Int16Type, Int16Type>;
-    case Type::UINT16:
-      return ScalarPrimitiveExecBinary<Op, UInt16Type, UInt16Type, UInt16Type>;
-    case Type::INT32:
-      return ScalarPrimitiveExecBinary<Op, Int32Type, Int32Type, Int32Type>;
-    case Type::UINT32:
-      return ScalarPrimitiveExecBinary<Op, UInt32Type, UInt32Type, UInt32Type>;
-    case Type::INT64:
-      return ScalarPrimitiveExecBinary<Op, Int64Type, Int64Type, Int64Type>;
-    case Type::UINT64:
-      return ScalarPrimitiveExecBinary<Op, UInt64Type, UInt64Type, UInt64Type>;
-    case Type::FLOAT:
-      return ScalarPrimitiveExecBinary<Op, FloatType, FloatType, FloatType>;
-    case Type::DOUBLE:
-      return ScalarPrimitiveExecBinary<Op, DoubleType, DoubleType, DoubleType>;
     default:
       DCHECK(false);
       return ExecFail;
