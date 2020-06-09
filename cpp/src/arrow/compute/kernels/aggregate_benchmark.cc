@@ -276,11 +276,11 @@ template <typename Functor>
 void ReferenceSum(benchmark::State& state) {
   using T = typename Functor::ValueType;
 
-  const int64_t array_size = state.range(0) / sizeof(int64_t);
-  const double null_percent = static_cast<double>(state.range(1)) / 100.0;
+  RegressionArgs args(state);
+  const int64_t array_size = args.size / sizeof(int64_t);
   auto rand = random::RandomArrayGenerator(1923);
   auto array = std::static_pointer_cast<NumericArray<Int64Type>>(
-      rand.Int64(array_size, -100, 100, null_percent));
+      rand.Int64(array_size, -100, 100, args.null_proportion));
 
   Traits<T>::FixSentinel(array);
 
@@ -289,10 +289,6 @@ void ReferenceSum(benchmark::State& state) {
     Functor::Sum(*array, &sum_state);
     benchmark::DoNotOptimize(sum_state);
   }
-
-  state.counters["size"] = static_cast<double>(state.range(0));
-  state.counters["null_percent"] = static_cast<double>(state.range(1));
-  state.SetBytesProcessed(state.iterations() * array_size * sizeof(T));
 }
 
 BENCHMARK_TEMPLATE(ReferenceSum, SumNoNulls<int64_t>)->Apply(BenchmarkSetArgs);
@@ -309,18 +305,14 @@ template <typename ArrowType>
 static void SumKernel(benchmark::State& state) {
   using CType = typename TypeTraits<ArrowType>::CType;
 
-  const int64_t array_size = state.range(0) / sizeof(CType);
-  const double null_percent = static_cast<double>(state.range(1)) / 100.0;
+  RegressionArgs args(state);
+  const int64_t array_size = args.size / sizeof(CType);
   auto rand = random::RandomArrayGenerator(1923);
-  auto array = rand.Numeric<ArrowType>(array_size, -100, 100, null_percent);
+  auto array = rand.Numeric<ArrowType>(array_size, -100, 100, args.null_proportion);
 
   for (auto _ : state) {
     ABORT_NOT_OK(Sum(array).status());
   }
-
-  state.counters["size"] = static_cast<double>(state.range(0));
-  state.counters["null_percent"] = static_cast<double>(state.range(1));
-  state.SetBytesProcessed(state.iterations() * array_size * sizeof(CType));
 }
 
 #define SUM_KERNEL_BENCHMARK(FuncName, Type)                                \
