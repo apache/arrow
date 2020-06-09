@@ -307,7 +307,8 @@ class ARROW_MUST_USE_TYPE ARROW_EXPORT Status : public util::EqualityComparable<
 
   /// \brief Return the status detail attached to this message.
   const std::shared_ptr<StatusDetail>& detail() const {
-    if (state_ == NULLPTR) {
+    static std::shared_ptr<StatusDetail> no_detail = NULLPTR;
+    return state_ ? state_->detail : no_detail;
       static std::shared_ptr<StatusDetail> no_detail = NULLPTR;
       return no_detail;
     }
