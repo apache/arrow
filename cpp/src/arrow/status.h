@@ -309,10 +309,6 @@ class ARROW_MUST_USE_TYPE ARROW_EXPORT Status : public util::EqualityComparable<
   const std::shared_ptr<StatusDetail>& detail() const {
     static std::shared_ptr<StatusDetail> no_detail = NULLPTR;
     return state_ ? state_->detail : no_detail;
-      static std::shared_ptr<StatusDetail> no_detail = NULLPTR;
-      return no_detail;
-    }
-    return state_->detail;
   }
 
   /// \brief Return a new Status copying the existing status, but
