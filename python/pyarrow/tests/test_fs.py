@@ -232,6 +232,34 @@ def py_fsspec_memoryfs(request, tempdir):
 
 
 @pytest.fixture
+def py_fsspec_s3fs(request, s3_connection, s3_server):
+    s3fs = pytest.importorskip("s3fs")
+
+    host, port, access_key, secret_key = s3_connection
+    bucket = 'pyarrow-filesystem/'
+
+    fs = s3fs.S3FileSystem(
+        key=access_key,
+        secret=secret_key,
+        client_kwargs=dict(endpoint_url='http://{}:{}'.format(host, port))
+    )
+    fs = PyFileSystem(FSSpecHandler(fs))
+    try:
+        fs.create_dir(bucket)
+    except Exception:
+        # BucketAlreadyOwnedByYou on second test
+        pass
+
+    return dict(
+        fs=fs,
+        pathfn=bucket.__add__,
+        allow_copy_file=True,
+        allow_move_dir=False,
+        allow_append_to_file=False,
+    )
+
+
+@pytest.fixture
 def mockfs(request):
     return dict(
         fs=_MockFileSystem(),
@@ -357,6 +385,10 @@ def hdfs(request, hdfs_connection):
     # pytest.param(
     #     pytest.lazy_fixture('py_fsspec_memoryfs'),
     #     id='PyFileSystem(FSSpecHandler(fsspec.filesystem("memory")))'
+    # ),
+    # pytest.param(
+    #     pytest.lazy_fixture('py_fsspec_s3fs'),
+    #     id='PyFileSystem(FSSpecHandler(s3fs.S3FileSystem()))'
     # ),
 ])
 def filesystem_config(request):
