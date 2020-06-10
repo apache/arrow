@@ -7,6 +7,7 @@ class ApacheArrow < Formula
 
   depends_on "boost" => :build
   depends_on "cmake" => :build
+  depends_on "llvm" => :build
   depends_on "brotli"
   depends_on "glog"
   depends_on "grpc"
@@ -24,6 +25,7 @@ class ApacheArrow < Formula
     ENV.cxx11
     args = %W[
       -DARROW_FLIGHT=ON
+      -DARROW_GANDIVA=ON
       -DARROW_ORC=ON
       -DARROW_PARQUET=ON
       -DARROW_PLASMA=ON
