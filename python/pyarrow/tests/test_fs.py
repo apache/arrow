@@ -879,6 +879,9 @@ def test_hdfs_options(hdfs_connection):
                              kerb_ticket=pathlib.Path("cache_path"))
     hdfs10 = HadoopFileSystem(host, port, user='localuser',
                               kerb_ticket="cache_path2")
+    hdfs11 = HadoopFileSystem(host, port, user='localuser',
+                              kerb_ticket="cache_path",
+                              extra_conf={'hdfs_token': 'abcd'})
 
     assert hdfs1 == hdfs2
     assert hdfs5 == hdfs6
@@ -891,6 +894,7 @@ def test_hdfs_options(hdfs_connection):
     assert hdfs7 != hdfs8
     assert hdfs8 == hdfs9
     assert hdfs10 != hdfs9
+    assert hdfs11 != hdfs8
 
     with pytest.raises(TypeError):
         HadoopFileSystem()
@@ -898,7 +902,7 @@ def test_hdfs_options(hdfs_connection):
         HadoopFileSystem.from_uri(3)
 
     for fs in [hdfs1, hdfs2, hdfs3, hdfs4, hdfs5, hdfs6, hdfs7, hdfs8,
-               hdfs9, hdfs10]:
+               hdfs9, hdfs10, hdfs11]:
         assert pickle.loads(pickle.dumps(fs)) == fs
 
     host, port, user = hdfs_connection
