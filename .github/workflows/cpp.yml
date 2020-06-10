@@ -49,7 +49,7 @@ jobs:
   docker:
     name: ${{ matrix.title }}
     runs-on: ubuntu-latest
-    # if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     strategy:
       fail-fast: false
       matrix:
@@ -103,11 +103,11 @@ jobs:
     name: ${{ matrix.title }}
     runs-on: ${{ matrix.runner }}
     # if: ${{ !contains(github.event.pull_request.title, 'WIP') && github.repository == 'apache/arrow' }}
-    # defaults:
-    #   # to use certain environment variables are set by .bashrc an interactive
-    #   # bash shell must be used
-    #   run:
-    #     shell: bash -i {0}
+    defaults:
+      # to use certain environment variables are set by .bashrc an interactive
+      # bash shell must be used
+      run:
+        shell: bash -i {0}
     strategy:
       fail-fast: false
       matrix:
