@@ -119,8 +119,6 @@ RecordBatch <- R6Class("RecordBatch", inherit = ArrowObject,
         i <- Array$create(i)
       }
       assert_is(i, "Array")
-      # Invalid: Tried executing function with non-value type: RecordBatch
-      # so use old methods
       shared_ptr(RecordBatch, call_function("take", self, i))
     },
     Filter = function(i, keep_na = TRUE) {

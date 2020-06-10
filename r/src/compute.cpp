@@ -160,6 +160,12 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     return out;
   }
 
+  if (func_name == "minmax") {
+    auto out = std::make_shared<arrow::compute::MinMaxOptions>(
+        arrow::compute::MinMaxOptions::Defaults());
+    return out;
+  }
+
   return nullptr;
 }
 
