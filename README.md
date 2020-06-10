@@ -32,9 +32,9 @@ set of technologies that enable big data systems to process and move data fast.
 
 Major components of the project include:
 
- - [The Arrow Columnar In-Memory Format](https://github.com/apache/arrow/tree/master/format):
+ - [The Arrow Columnar In-Memory Format](https://github.com/apache/arrow/blob/master/docs/source/format/Columnar.rst):
    a standard and efficient in-memory representation of various datatypes, plain or nested
- - [The Arrow IPC Format](https://github.com/apache/arrow/tree/master/format):
+ - [The Arrow IPC Format](https://github.com/apache/arrow/blob/master/docs/source/format/Columnar.rst#serialization-and-interprocess-communication-ipc):
    an efficient serialization of the Arrow format and associated metadata,
    for communication between processes and heterogenous environments
  - [The Arrow Flight RPC protocol](https://github.com/apache/arrow/tree/master/format/Flight.proto):
