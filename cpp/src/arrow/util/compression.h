@@ -22,13 +22,22 @@
 #include <memory>
 #include <string>
 
-#include "arrow/type_fwd.h"
+#include "arrow/result.h"
+#include "arrow/status.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
+
+struct Compression {
+  /// \brief Compression algorithm
+  enum type { UNCOMPRESSED, SNAPPY, GZIP, BROTLI, ZSTD, LZ4, LZ4_FRAME, LZO, BZ2 };
+
+  static constexpr int kUseDefaultCompressionLevel = std::numeric_limits<int>::min();
+};
+
 namespace util {
 
-static const int kUseDefaultCompressionLevel = Compression::kUseDefaultCompressionLevel;
+constexpr int kUseDefaultCompressionLevel = Compression::kUseDefaultCompressionLevel;
 
 /// \brief Streaming compressor interface
 ///
