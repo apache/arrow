@@ -100,9 +100,7 @@ jobs:
     # PYTHON: no distrubutions are build for arm machines by the github
     #         actions team, so python>3.6 must be preinstalled on the self
     #         hosted machines
-    name: Test
-    runs-on: ubuntu-latest
-    # name: ${{ matrix.title }}
+    name: ${{ matrix.title }}
     runs-on: ${{ matrix.runner }}
     # if: ${{ !contains(github.event.pull_request.title, 'WIP') && github.repository == 'apache/arrow' }}
     # defaults:
@@ -133,7 +131,7 @@ jobs:
             ubuntu: 18.04
             title: ARM64v8 Ubuntu 18.04 C++
             image: ubuntu-cpp
-            runner_arch: ARM64
+            runner: ARM64
           - name: arm32v7-ubuntu-18.04-cpp
             debian: 10
             title: ARM32v7 Debian 10 C++
