@@ -113,25 +113,18 @@ jobs:
       matrix:
         name:
           - arm32v7-debian-10-cpp
-          - arm64v8-debian-10-cpp
           - arm64v8-ubuntu-18.04-cpp
         include:
           - name: arm32v7-debian-10-cpp
             debian: 10
             title: ARM32v7 Debian 10 C++
-            image: debian-cpp
+            image: -e CPP_MAKE_PARALLELISM=4 CXXFLAGS=-Wno-psabi debian-cpp
             arch: 'arm32v7'
             runner: [self-hosted, linux, ARM]
-          - name: arm64v8-debian-10-cpp
-            debian: 10
-            title: ARM64v8 Debian 10 C++
-            image: debian-cpp
-            arch: 'arm64v8'
-            runner: [self-hosted, linux, ARM64]
           - name: arm64v8-ubuntu-18.04-cpp
             ubuntu: 18.04
             title: ARM64v8 Ubuntu 18.04 C++
-            image: ubuntu-cpp
+            image: -e CPP_MAKE_PARALLELISM=1 ubuntu-cpp
             arch: 'arm64v8'
             runner: [self-hosted, linux, ARM64]
     env:
@@ -154,7 +147,7 @@ jobs:
         # parallelism is reduced because the ARM builders are low on memory
         run: |
           ulimit -c unlimited
-          archery docker run -e CPP_MAKE_PARALLELISM=1 ${{ matrix.image }}
+          archery docker run ${{ matrix.image }}
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         continue-on-error: true
