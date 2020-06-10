@@ -154,7 +154,7 @@ jobs:
         # parallelism is reduced because the ARM builders are low on memory
         run: |
           ulimit -c unlimited
-          archery docker run -e CPP_MAKE_PARALLELISM=2 ${{ matrix.image }}
+          archery docker run -e CPP_MAKE_PARALLELISM=1 ${{ matrix.image }}
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         continue-on-error: true
