@@ -153,6 +153,7 @@ where
 mod tests {
     use super::*;
     use std::convert::TryFrom;
+    use std::sync::Arc;
 
     #[test]
     fn test_concat_empty_vec() -> Result<()> {
@@ -185,7 +186,7 @@ mod tests {
                 StringArray::try_from(vec![Some("hello"), Some("world")])
                     .expect("Unable to create string array"),
             ) as ArrayRef,
-            Arc::new(StringArray::from(vec!["1", "2", "3", "4", "6"])).slice(1, 3)
+            Arc::new(StringArray::from(vec!["1", "2", "3", "4", "6"])).slice(1, 3),
             Arc::new(
                 StringArray::try_from(vec![Some("foo"), Some("bar"), None, Some("baz")])
                     .expect("Unable to create string array"),
