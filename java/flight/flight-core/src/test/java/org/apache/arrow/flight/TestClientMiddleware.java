@@ -18,8 +18,12 @@
 package org.apache.arrow.flight;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.BiConsumer;
 
 import org.apache.arrow.memory.BufferAllocator;
@@ -64,6 +68,38 @@ public class TestClientMiddleware {
     Assert.assertEquals(context.outgoingSpanId, context.incomingSpanId);
     Assert.assertNotNull(context.finalStatus);
     Assert.assertEquals(FlightStatusCode.UNIMPLEMENTED, context.finalStatus.code());
+  }
+
+  /** Ensure both server and client can send and receive multi-valued headers (both binary and text values). */
+  @Test
+  public void testMultiValuedHeaders() {
+    final MultiHeaderClientMiddlewareFactory clientFactory = new MultiHeaderClientMiddlewareFactory();
+    test(new NoOpFlightProducer(),
+        new TestServerMiddleware.ServerMiddlewarePair<>(
+            FlightServerMiddleware.Key.of("test"), new MultiHeaderServerMiddlewareFactory()),
+        Collections.singletonList(clientFactory),
+        (allocator, client) -> {
+          FlightTestUtil.assertCode(FlightStatusCode.UNIMPLEMENTED, () -> client.listActions().forEach(actionType -> {
+          }));
+        });
+    // The server echoes the headers we send back to us, so ensure all the ones we sent are present with the correct
+    // values in the correct order.
+    for (final Map.Entry<String, List<byte[]>> entry : EXPECTED_BINARY_HEADERS.entrySet()) {
+      // Compare header values entry-by-entry because byte arrays don't compare via equals
+      final List<byte[]> receivedValues = clientFactory.lastBinaryHeaders.get(entry.getKey());
+      Assert.assertNotNull("Missing for header: " + entry.getKey(), receivedValues);
+      Assert.assertEquals(
+          "Missing or wrong value for header: " + entry.getKey(),
+          entry.getValue().size(), receivedValues.size());
+      for (int i = 0; i < entry.getValue().size(); i++) {
+        Assert.assertArrayEquals(entry.getValue().get(i), receivedValues.get(i));
+      }
+    }
+    for (final Map.Entry<String, List<String>> entry : EXPECTED_TEXT_HEADERS.entrySet()) {
+      Assert.assertEquals(
+          "Missing or wrong value for header: " + entry.getKey(),
+          entry.getValue(), clientFactory.lastTextHeaders.get(entry.getKey()));
+    }
   }
 
   private static <T extends FlightServerMiddleware> void test(FlightProducer producer,
@@ -207,5 +243,116 @@ public class TestClientMiddleware {
         throw CallStatus.UNAVAILABLE.withDescription("Rejecting call.").toRuntimeException();
       }
     }
+  }
+
+  // Used to test that middleware can send and receive multi-valued text and binary headers.
+  static final Map<String, List<byte[]>> EXPECTED_BINARY_HEADERS = new HashMap<String, List<byte[]>>() {{
+      put("x-binary-bin", Arrays.asList(new byte[] {0}, new byte[]{1}));
+    }};
+  static final Map<String, List<String>> EXPECTED_TEXT_HEADERS = new HashMap<String, List<String>>() {{
+      put("x-text", Arrays.asList("foo", "bar"));
+    }};
+
+  static class MultiHeaderServerMiddlewareFactory implements
+      FlightServerMiddleware.Factory<MultiHeaderServerMiddleware> {
+    @Override
+    public MultiHeaderServerMiddleware onCallStarted(CallInfo info, CallHeaders incomingHeaders) {
+      // Echo the headers back to the client. Copy values out of CallHeaders since the underlying gRPC metadata
+      // object isn't safe to use after this function returns.
+      Map<String, List<byte[]>> binaryHeaders = new HashMap<>();
+      Map<String, List<String>> textHeaders = new HashMap<>();
+      for (final String key : incomingHeaders.keys()) {
+        if (key.endsWith("-bin")) {
+          binaryHeaders.compute(key, (ignored, values) -> {
+            if (values == null) {
+              values = new ArrayList<>();
+            }
+            incomingHeaders.getAllByte(key).forEach(values::add);
+            return values;
+          });
+        } else {
+          textHeaders.compute(key, (ignored, values) -> {
+            if (values == null) {
+              values = new ArrayList<>();
+            }
+            incomingHeaders.getAll(key).forEach(values::add);
+            return values;
+          });
+        }
+      }
+      return new MultiHeaderServerMiddleware(binaryHeaders, textHeaders);
+    }
+  }
+
+  static class MultiHeaderServerMiddleware implements FlightServerMiddleware {
+    private final Map<String, List<byte[]>> binaryHeaders;
+    private final Map<String, List<String>> textHeaders;
+
+    MultiHeaderServerMiddleware(Map<String, List<byte[]>> binaryHeaders, Map<String, List<String>> textHeaders) {
+      this.binaryHeaders = binaryHeaders;
+      this.textHeaders = textHeaders;
+    }
+
+    @Override
+    public void onBeforeSendingHeaders(CallHeaders outgoingHeaders) {
+      binaryHeaders.forEach((key, values) -> values.forEach(value -> outgoingHeaders.insert(key, value)));
+      textHeaders.forEach((key, values) -> values.forEach(value -> outgoingHeaders.insert(key, value)));
+    }
+
+    @Override
+    public void onCallCompleted(CallStatus status) {}
+
+    @Override
+    public void onCallErrored(Throwable err) {}
+  }
+
+  static class MultiHeaderClientMiddlewareFactory implements FlightClientMiddleware.Factory {
+    Map<String, List<byte[]>> lastBinaryHeaders = null;
+    Map<String, List<String>> lastTextHeaders = null;
+
+    @Override
+    public FlightClientMiddleware onCallStarted(CallInfo info) {
+      return new MultiHeaderClientMiddleware(this);
+    }
+  }
+
+  static class MultiHeaderClientMiddleware implements FlightClientMiddleware {
+    private final MultiHeaderClientMiddlewareFactory factory;
+
+    public MultiHeaderClientMiddleware(MultiHeaderClientMiddlewareFactory factory) {
+      this.factory = factory;
+    }
+
+    @Override
+    public void onBeforeSendingHeaders(CallHeaders outgoingHeaders) {
+      for (final Map.Entry<String, List<byte[]>> entry : EXPECTED_BINARY_HEADERS.entrySet()) {
+        entry.getValue().forEach((value) -> outgoingHeaders.insert(entry.getKey(), value));
+        Assert.assertTrue(outgoingHeaders.containsKey(entry.getKey()));
+      }
+      for (final Map.Entry<String, List<String>> entry : EXPECTED_TEXT_HEADERS.entrySet()) {
+        entry.getValue().forEach((value) -> outgoingHeaders.insert(entry.getKey(), value));
+        Assert.assertTrue(outgoingHeaders.containsKey(entry.getKey()));
+      }
+    }
+
+    @Override
+    public void onHeadersReceived(CallHeaders incomingHeaders) {
+      factory.lastBinaryHeaders = new HashMap<>();
+      factory.lastTextHeaders = new HashMap<>();
+      incomingHeaders.keys().forEach(header -> {
+        if (header.endsWith("-bin")) {
+          final List<byte[]> values = new ArrayList<>();
+          incomingHeaders.getAllByte(header).forEach(values::add);
+          factory.lastBinaryHeaders.put(header, values);
+        } else {
+          final List<String> values = new ArrayList<>();
+          incomingHeaders.getAll(header).forEach(values::add);
+          factory.lastTextHeaders.put(header, values);
+        }
+      });
+    }
+
+    @Override
+    public void onCallCompleted(CallStatus status) {}
   }
 }
