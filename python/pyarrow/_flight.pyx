@@ -1001,13 +1001,17 @@ cdef class FlightClient:
         batch that (when serialized) exceeds this limit will raise an
         exception; the client can retry the write with a smaller
         batch.
+    generic_options : list optional, default None
+        A list of generic (string, int or string) option tuples passed
+        to the underlying transport. Effect is implementation
+        dependent.
     """
     cdef:
         unique_ptr[CFlightClient] client
 
-    def __init__(self, location, tls_root_certs=None, cert_chain=None,
+    def __init__(self, location, *, tls_root_certs=None, cert_chain=None,
                  private_key=None, override_hostname=None, middleware=None,
-                 write_size_limit_bytes=None):
+                 write_size_limit_bytes=None, generic_options=None):
         if isinstance(location, (bytes, str)):
             location = Location(location)
         elif isinstance(location, tuple):
@@ -1020,17 +1024,19 @@ cdef class FlightClient:
             raise TypeError('`location` argument must be a string, tuple or a '
                             'Location instance')
         self.init(location, tls_root_certs, cert_chain, private_key,
-                  override_hostname, middleware, write_size_limit_bytes)
+                  override_hostname, middleware, write_size_limit_bytes,
+                  generic_options)
 
     cdef init(self, Location location, tls_root_certs, cert_chain,
               private_key, override_hostname, middleware,
-              write_size_limit_bytes):
+              write_size_limit_bytes, generic_options):
         cdef:
             int c_port = 0
             CLocation c_location = Location.unwrap(location)
             CFlightClientOptions c_options
             function[cb_client_middleware_start_call] start_call = \
                 &_client_middleware_start_call
+            CIntStringVariant variant
 
         if tls_root_certs:
             c_options.tls_root_certs = tobytes(tls_root_certs)
@@ -1050,6 +1056,14 @@ cdef class FlightClient:
             c_options.write_size_limit_bytes = write_size_limit_bytes
         else:
             c_options.write_size_limit_bytes = 0
+        if generic_options:
+            for key, value in generic_options:
+                if isinstance(value, (str, bytes)):
+                    variant = CIntStringVariant(<c_string> tobytes(value))
+                else:
+                    variant = CIntStringVariant(<int> value)
+                c_options.generic_options.push_back(
+                    pair[c_string, CIntStringVariant](tobytes(key), variant))
 
         with nogil:
             check_flight_status(CFlightClient.Connect(c_location, c_options,
@@ -2457,8 +2471,9 @@ cdef class FlightServerBase:
         self.wait()
 
 
-def connect(location, tls_root_certs=None, cert_chain=None, private_key=None,
-            override_hostname=None, middleware=None):
+def connect(location, *, tls_root_certs=None, cert_chain=None,
+            private_key=None, override_hostname=None, middleware=None,
+            write_size_limit_bytes=None, generic_options=None):
     """
     Connect to the Flight server
     Parameters
@@ -2476,6 +2491,15 @@ def connect(location, tls_root_certs=None, cert_chain=None, private_key=None,
         Override the hostname checked by TLS. Insecure, use with caution.
     middleware : list or None
         A list of ClientMiddlewareFactory instances to apply.
+    write_size_limit_bytes : int or None
+        A soft limit on the size of a data payload sent to the
+        server. Enabled if positive. If enabled, writing a record
+        batch that (when serialized) exceeds this limit will raise an
+        exception; the client can retry the write with a smaller
+        batch.
+    generic_options : list or None
+        A list of generic (string, int or string) options to pass to
+        the underlying transport.
     Returns
     -------
     client : FlightClient
@@ -2483,4 +2507,4 @@ def connect(location, tls_root_certs=None, cert_chain=None, private_key=None,
     return FlightClient(location, tls_root_certs=tls_root_certs,
                         cert_chain=cert_chain, private_key=private_key,
                         override_hostname=override_hostname,
-                        middleware=middleware)
+                        middleware=middleware, generic_options=generic_options)

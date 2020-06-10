@@ -1457,3 +1457,25 @@ def test_middleware_multi_header():
         for header, values in MultiHeaderClientMiddleware.EXPECTED.items():
             assert client_headers.get(header) == values
             assert headers.last_headers.get(header) == values
+
+
+@pytest.mark.requires_testing_data
+def test_generic_options():
+    """Test setting generic client options."""
+    certs = example_tls_certs()
+
+    with ConstantFlightServer(tls_certificates=certs["certificates"]) as s:
+        # Try setting a string argument that will make requests fail
+        options = [("grpc.ssl_target_name_override", "fakehostname")]
+        client = flight.connect(('localhost', s.port),
+                                tls_root_certs=certs["root_cert"],
+                                generic_options=options)
+        with pytest.raises(flight.FlightUnavailableError):
+            client.do_get(flight.Ticket(b'ints'))
+        # Try setting an int argument that will make requests fail
+        options = [("grpc.max_receive_message_length", 32)]
+        client = flight.connect(('localhost', s.port),
+                                tls_root_certs=certs["root_cert"],
+                                generic_options=options)
+        with pytest.raises(pa.ArrowInvalid):
+            client.do_get(flight.Ticket(b'ints'))
