@@ -97,7 +97,7 @@ class ARROW_DS_EXPORT PartitioningFactory {
 
   /// Get the schema for the resulting Partitioning.
   virtual Result<std::shared_ptr<Schema>> Inspect(
-      const std::vector<util::string_view>& paths) const = 0;
+      const std::vector<std::string>& paths) const = 0;
 
   /// Create a partitioning using the provided schema
   /// (fields may be dropped).
