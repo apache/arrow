@@ -19,20 +19,11 @@ add_custom_target(arrow_flight)
 
 arrow_install_all_headers("arrow/flight")
 
-set(ARROW_FLIGHT_STATIC_LINK_LIBS
-    ${ARROW_PROTOBUF_LIBPROTOBUF}
-    gRPC::grpc++
-    gRPC::grpc
-    gRPC::gpr
-    c-ares::cares
-    ZLIB::ZLIB)
+set(ARROW_FLIGHT_STATIC_LINK_LIBS ${ARROW_PROTOBUF_LIBPROTOBUF} gRPC::grpc++ c-ares::cares
+                                  ZLIB::ZLIB)
 
 if(WIN32)
   list(APPEND ARROW_FLIGHT_STATIC_LINK_LIBS ws2_32.lib)
-endif()
-
-if(GRPC_HAS_ADDRESS_SORTING)
-  list(APPEND ARROW_FLIGHT_STATIC_LINK_LIBS gRPC::address_sorting)
 endif()
 
 if(ARROW_TEST_LINKAGE STREQUAL "static")
@@ -55,7 +46,7 @@ set(FLIGHT_GENERATED_PROTO_FILES "${CMAKE_CURRENT_BINARY_DIR}/Flight.pb.cc"
                                  "${CMAKE_CURRENT_BINARY_DIR}/Flight.grpc.pb.cc"
                                  "${CMAKE_CURRENT_BINARY_DIR}/Flight.grpc.pb.h")
 
-set(PROTO_DEPENDS ${FLIGHT_PROTO} ${ARROW_PROTOBUF_LIBPROTOBUF} gRPC::grpc)
+set(PROTO_DEPENDS ${FLIGHT_PROTO} ${ARROW_PROTOBUF_LIBPROTOBUF} gRPC::grpc_cpp_plugin)
 
 add_custom_command(OUTPUT ${FLIGHT_GENERATED_PROTO_FILES}
                    COMMAND ${ARROW_PROTOBUF_PROTOC} "-I${FLIGHT_PROTO_PATH}"
