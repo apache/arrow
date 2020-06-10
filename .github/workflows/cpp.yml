@@ -136,7 +136,7 @@ jobs:
             runner: [self-hosted, linux, ARM64]
     env:
       # the defaults here should correspond to the values in .env
-      ARCH: ${{ matrix.debian || 'arm64v8' }}
+      ARCH: ${{ matrix.arch || 'arm64v8' }}
       DEBIAN: ${{ matrix.debian || 10 }}
       FEDORA: ${{ matrix.fedora || 32 }}
       UBUNTU: ${{ matrix.ubuntu || 18.04 }}
