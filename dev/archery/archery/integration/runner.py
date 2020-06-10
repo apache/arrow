@@ -346,6 +346,9 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
         Scenario(
             "auth:basic_proto",
             description="Authenticate using the BasicAuth protobuf."),
+        Scenario(
+            "middleware",
+            description="Ensure headers are propagated via middleware."),
     ]
 
     runner = IntegrationRunner(json_files, flight_scenarios, testers, **kwargs)
