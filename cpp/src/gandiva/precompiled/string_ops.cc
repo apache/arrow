@@ -284,6 +284,42 @@ const char* reverse_utf8(gdv_int64 context, const char* data, gdv_int32 data_len
   return ret;
 }
 
+// Trim a utf8 sequence
+FORCE_INLINE
+const char* trim_utf8(gdv_int64 context, const char* data, gdv_int32 data_len,
+                      int32_t* out_len) {
+  if (data_len == 0) {
+    *out_len = 0;
+    return "";
+  }
+
+  gdv_int32 start = 0, end = data_len - 1;
+  // start and end denote the first and last positions of non-space characters in string respectively
+  while (start <= end && data[start] == ' ') {
+    ++start;
+  }
+  while (end >= start && data[end] == ' ') {
+    --end;
+  }
+
+  // string with all spaces
+  if (start > end) {
+    *out_len = 0;
+    return "";
+  }
+
+  gdv_int32 length = end - start + 1;
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, length));
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+  memcpy(ret, data + start, length);
+  *out_len = length;
+  return ret;
+}
+
 // Truncates the string to given length
 FORCE_INLINE
 const char* castVARCHAR_utf8_int64(gdv_int64 context, const char* data,
