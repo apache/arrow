@@ -1737,7 +1737,9 @@ cdef CStatus _do_action(void* self, const CServerCallContext& context,
                                               py_action)
     except FlightError as flight_error:
         return (<FlightError> flight_error).to_status()
-    result.reset(new CPyFlightResultStream(responses, ptr))
+    # Let the application return an iterator or anything convertible
+    # into one
+    result.reset(new CPyFlightResultStream(iter(responses), ptr))
     return CStatus_OK()
 
 
@@ -1833,6 +1835,7 @@ cdef CStatus _middleware_sending_headers(
             for value in values:
                 if isinstance(value, str):
                     value = value.encode("ascii")
+                # Allow bytes values to pass through.
                 add_headers.AddHeader(header, value)
 
     return CStatus_OK()
@@ -1871,15 +1874,14 @@ cdef dict convert_headers(const CCallHeaders& c_headers):
         CCallHeaders.const_iterator header_iter = c_headers.cbegin()
     headers = {}
     while header_iter != c_headers.cend():
-        # Headers in gRPC (and HTTP/1, HTTP/2) are required to be
-        # valid ASCII.
         header = c_string(deref(header_iter).first).decode("ascii")
+        value = c_string(deref(header_iter).second)
         if not header.endswith("-bin"):
-            # Ignore -bin (gRPC binary) headers
-            value = c_string(deref(header_iter).second).decode("ascii")
-            if header not in headers:
-                headers[header] = []
-            headers[header].append(value)
+            # Text header values in gRPC (and HTTP/1, HTTP/2) are
+            # required to be valid ASCII. Binary header values are
+            # exposed as bytes.
+            value = value.decode("ascii")
+        headers.setdefault(header, []).append(value)
         postincrement(header_iter)
     return headers
 
@@ -2048,8 +2050,11 @@ cdef class ClientMiddleware:
         headers : dict
             A dictionary of header values to add to the request, or
             None if no headers are to be added. The dictionary should
-            have string keys and string or list-of-string values. All
-            values should be ASCII-encodable.
+            have string keys and string or list-of-string values.
+
+            Bytes values are allowed, but the underlying transport may
+            not support them or may restrict them. For gRPC, binary
+            values are only allowed on headers ending in "-bin".
 
         """
 
@@ -2062,7 +2067,8 @@ cdef class ClientMiddleware:
         ----------
         headers : dict
             A dictionary of headers from the server. Keys are strings
-            and values are lists of strings.
+            and values are lists of strings (for text headers) or
+            bytes (for binary headers).
 
         """
 
@@ -2107,10 +2113,10 @@ cdef class ServerMiddlewareFactory:
         ----------
         info : CallInfo
             Information about the call.
-
         headers : dict
             A dictionary of headers from the client. Keys are strings
-            and values are lists of strings.
+            and values are lists of strings (for text headers) or
+            bytes (for binary headers).
 
         Returns
         -------
@@ -2143,8 +2149,11 @@ cdef class ServerMiddleware:
         headers : dict
             A dictionary of header values to add to the response, or
             None if no headers are to be added. The dictionary should
-            have string keys and string or list-of-string values. All
-            headers should be ASCII-encodable.
+            have string keys and string or list-of-string values.
+
+            Bytes values are allowed, but the underlying transport may
+            not support them or may restrict them. For gRPC, binary
+            values are only allowed on headers ending in "-bin".
 
         """
 
