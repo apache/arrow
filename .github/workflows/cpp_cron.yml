@@ -50,11 +50,11 @@ jobs:
       matrix:
         name:
           - amd64-debian-10-cpp
-          # - amd64-fedora-32-cpp
-          # - amd64-ubuntu-16.04-cpp
-          # - amd64-ubuntu-18.04-cpp
-          # - amd64-ubuntu-18.04-cpp-cmake32
-          # - arm64v8-ubuntu-16.04-cpp
+          - amd64-fedora-32-cpp
+          - amd64-ubuntu-16.04-cpp
+          - amd64-ubuntu-18.04-cpp
+          - amd64-ubuntu-18.04-cpp-cmake32
+          - arm64v8-ubuntu-16.04-cpp
           - arm64v8-ubuntu-18.04-cpp
           - arm32v7-ubuntu-18.04-cpp
         include:
@@ -64,51 +64,58 @@ jobs:
             title: AMD64 Debian 10 C++
             debian: 10
             runner: ubuntu-latest
-          # - name: amd64-fedora-32-cpp
-          #   arch: amd64
-          #   image: fedora-cpp
-          #   title: AMD64 Fedora 32 C++
-          #   fedora: 32
-          #   runner: ubuntu-latest
-          # - name: amd64-ubuntu-16.04-cpp
-          #   arch: amd64
-          #   image: ubuntu-cpp
-          #   title: AMD64 Ubuntu 16.04 C++
-          #   ubuntu: 16.04
-          #   runner: ubuntu-latest
-          # - name: amd64-ubuntu-18.04-cpp
-          #   arch: amd64
-          #   image: ubuntu-cpp
-          #   title: AMD64 Ubuntu 18.04 C++
-          #   ubuntu: 18.04
-          #   runner: ubuntu-latest
-          # - name: amd64-ubuntu-18.04-cpp-cmake32
-          #   arch: amd64
-          #   image: ubuntu-cpp-cmake32
-          #   title: AMD64 Ubuntu 18.04 C++ CMake 3.2
-          #   ubuntu: 18.04
-          #   runner: ubuntu-latest
+          - name: amd64-fedora-32-cpp
+            arch: amd64
+            image: fedora-cpp
+            title: AMD64 Fedora 32 C++
+            fedora: 32
+            runner: ubuntu-latest
+          - name: amd64-ubuntu-16.04-cpp
+            arch: amd64
+            image: ubuntu-cpp
+            title: AMD64 Ubuntu 16.04 C++
+            ubuntu: 16.04
+            runner: ubuntu-latest
+          - name: amd64-ubuntu-18.04-cpp
+            arch: amd64
+            image: ubuntu-cpp
+            title: AMD64 Ubuntu 18.04 C++
+            ubuntu: 18.04
+            runner: ubuntu-latest
+          - name: amd64-ubuntu-18.04-cpp-cmake32
+            arch: amd64
+            image: ubuntu-cpp-cmake32
+            title: AMD64 Ubuntu 18.04 C++ CMake 3.2
+            ubuntu: 18.04
+            runner: ubuntu-latest
           # parallelism is reduced because the ARM builders are low on memory
-          # - name: arm64v8-ubuntu-16.04-cpp
-          #   ubuntu: 16.04
-          #   arch: arm64v8
-          #   title: ARM64v8 Ubuntu 16.04 C++
-          #   runner: [self-hosted, linux, ARM64]
-          #   image: -e CPP_MAKE_PARALLELISM=2 ubuntu-cpp
+          - name: arm64v8-ubuntu-16.04-cpp
+            ubuntu: 16.04
+            arch: arm64v8
+            title: ARM64v8 Ubuntu 16.04 C++
+            runner: [self-hosted, linux, ARM64]
+            image: -e CPP_MAKE_PARALLELISM=2 -e PARQUET_REQUIRE_ENCRYPTION=OFF ubuntu-cpp
           - name: arm64v8-ubuntu-18.04-cpp
             ubuntu: 18.04
             llvm: 8
             arch: arm64v8
             title: ARM64v8 Ubuntu 18.04 C++
             runner: [self-hosted, linux, ARM64]
-            image: -e CPP_MAKE_PARALLELISM=2 ubuntu-cpp
+            image: -e CPP_MAKE_PARALLELISM=2 -e PARQUET_REQUIRE_ENCRYPTION=OFF ubuntu-cpp
+          - name: arm64v8-debian-10-cpp
+            debian: 10
+            llvm: 8
+            arch: arm64v8
+            title: ARM64v8 Debian 10 C++
+            runner: [self-hosted, linux, ARM]
+            image: -e CPP_MAKE_PARALLELISM=2 -e PARQUET_REQUIRE_ENCRYPTION=OFF ubuntu-cpp
           - name: arm32v7-ubuntu-18.04-cpp
             debian: 10
             llvm: 8
             arch: arm32v7
             title: ARM32v7 Debian 10 C++
             runner: [self-hosted, linux, ARM]
-            image: -e CPP_MAKE_PARALLELISM=2 ubuntu-cpp
+            image: -e CPP_MAKE_PARALLELISM=2 -e PARQUET_REQUIRE_ENCRYPTION=OFF ubuntu-cpp
     env:
       # the defaults here should correspond to the values in .env
       ARCH: ${{ matrix.arch || 'amd64' }}
