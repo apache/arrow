@@ -274,6 +274,7 @@ TEST_F(TestArray, TestCopy) {}
 
 TEST_F(TestArray, TestMakeArrayOfNull) {
   std::shared_ptr<DataType> types[] = {
+      // clang-format off
       null(),
       boolean(),
       int8(),
@@ -287,15 +288,20 @@ TEST_F(TestArray, TestMakeArrayOfNull) {
       decimal(16, 4),
       utf8(),
       large_utf8(),
+
       list(utf8()),
+      list(int64()),  // ARROW-9071
       large_list(large_utf8()),
       fixed_size_list(utf8(), 3),
+      fixed_size_list(int64(), 4),
       dictionary(int32(), utf8()),
       struct_({field("a", utf8()), field("b", int32())}),
       union_({field("a", utf8()), field("b", int32())}, {0, 1}, UnionMode::SPARSE),
-      union_({field("a", utf8()), field("b", int32())}, {0, 1}, UnionMode::DENSE)};
+      union_({field("a", utf8()), field("b", int32())}, {0, 1}, UnionMode::DENSE)
+      // clang-format on
+  };
 
-  for (int64_t length : {16}) {
+  for (int64_t length : {0, 1, 16, 133}) {
     for (auto type : types) {
       ASSERT_OK_AND_ASSIGN(auto array, MakeArrayOfNull(type, length));
       ASSERT_OK(array->ValidateFull());
