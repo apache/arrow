@@ -282,14 +282,13 @@ class BitmapWordWriter {
 
 }  // namespace
 
-template <bool invert_bits, bool restore_trailing_bits>
+enum class TransferMode : bool { Copy, Invert };
+
+template <TransferMode mode>
 void TransferBitmap(const uint8_t* data, int64_t offset, int64_t length,
                     int64_t dest_offset, uint8_t* dest) {
-  int64_t byte_offset = offset / 8;
   int64_t bit_offset = offset % 8;
-  int64_t dest_byte_offset = dest_offset / 8;
   int64_t dest_bit_offset = dest_offset % 8;
-  int64_t num_bytes = BitUtil::BytesForBits(length);
 
   if (bit_offset || dest_bit_offset) {
     auto reader = internal::BitmapWordReader<uint64_t>(data, offset, length);
@@ -298,52 +297,52 @@ void TransferBitmap(const uint8_t* data, int64_t offset, int64_t length,
     auto nwords = reader.words();
     while (nwords--) {
       auto word = reader.NextWord();
-      writer.PutNextWord(invert_bits ? ~word : word);
+      writer.PutNextWord(mode == TransferMode::Invert ? ~word : word);
     }
     auto nbytes = reader.trailing_bytes();
     while (nbytes--) {
       int valid_bits;
       auto byte = reader.NextTrailingByte(valid_bits);
-      writer.PutNextTrailingByte(invert_bits ? ~byte : byte, valid_bits);
+      writer.PutNextTrailingByte(mode == TransferMode::Invert ? ~byte : byte, valid_bits);
     }
-  } else {
-    // Shift dest by its byte offset
-    dest += dest_byte_offset;
+  } else if (length) {
+    int64_t num_bytes = BitUtil::BytesForBits(length);
+
+    // Shift by its byte offset
+    data += offset / 8;
+    dest += dest_offset / 8;
 
     // Take care of the trailing bits in the last byte
+    // E.g., if trailing_bits = 5, last byte should be
+    // - low  3 bits: new bits from last byte of data buffer
+    // - high 5 bits: old bits from last byte of dest buffer
     int64_t trailing_bits = num_bytes * 8 - length;
-    uint8_t trail = 0;
-    if (trailing_bits && restore_trailing_bits) {
-      trail = dest[num_bytes - 1];
-    }
+    uint8_t trail_mask = (1U << (8 - trailing_bits)) - 1;
+    uint8_t last_data;
 
-    if (invert_bits) {
-      for (int64_t i = 0; i < num_bytes; i++) {
-        dest[i] = static_cast<uint8_t>(~(data[byte_offset + i]));
+    if (mode == TransferMode::Invert) {
+      for (int64_t i = 0; i < num_bytes - 1; i++) {
+        dest[i] = static_cast<uint8_t>(~(data[i]));
       }
+      last_data = ~data[num_bytes - 1];
     } else {
-      std::memcpy(dest, data + byte_offset, static_cast<size_t>(num_bytes));
+      std::memcpy(dest, data, static_cast<size_t>(num_bytes - 1));
+      last_data = data[num_bytes - 1];
     }
 
-    if (restore_trailing_bits) {
-      for (int i = 0; i < trailing_bits; i++) {
-        if (BitUtil::GetBit(&trail, i + 8 - trailing_bits)) {
-          BitUtil::SetBit(dest, length + i);
-        } else {
-          BitUtil::ClearBit(dest, length + i);
-        }
-      }
-    }
+    // Set last byte
+    dest[num_bytes - 1] &= ~trail_mask;
+    dest[num_bytes - 1] |= last_data & trail_mask;
   }
 }
 
-template <bool invert_bits>
+template <TransferMode mode>
 Result<std::shared_ptr<Buffer>> TransferBitmap(MemoryPool* pool, const uint8_t* data,
                                                int64_t offset, int64_t length) {
   ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateEmptyBitmap(length, pool));
   uint8_t* dest = buffer->mutable_data();
 
-  TransferBitmap<invert_bits, false>(data, offset, length, 0, dest);
+  TransferBitmap<mode>(data, offset, length, 0, dest);
 
   // As we have freshly allocated this bitmap, we should take care of zeroing the
   // remaining bits.
@@ -357,28 +356,24 @@ Result<std::shared_ptr<Buffer>> TransferBitmap(MemoryPool* pool, const uint8_t* 
 }
 
 void CopyBitmap(const uint8_t* data, int64_t offset, int64_t length, uint8_t* dest,
-                int64_t dest_offset, bool restore_trailing_bits) {
-  if (restore_trailing_bits) {
-    TransferBitmap<false, true>(data, offset, length, dest_offset, dest);
-  } else {
-    TransferBitmap<false, false>(data, offset, length, dest_offset, dest);
-  }
+                int64_t dest_offset) {
+  TransferBitmap<TransferMode::Copy>(data, offset, length, dest_offset, dest);
 }
 
 void InvertBitmap(const uint8_t* data, int64_t offset, int64_t length, uint8_t* dest,
                   int64_t dest_offset) {
-  TransferBitmap<true, true>(data, offset, length, dest_offset, dest);
+  TransferBitmap<TransferMode::Invert>(data, offset, length, dest_offset, dest);
 }
 
 Result<std::shared_ptr<Buffer>> CopyBitmap(MemoryPool* pool, const uint8_t* data,
                                            int64_t offset, int64_t length) {
-  return TransferBitmap<false>(pool, data, offset, length);
+  return TransferBitmap<TransferMode::Copy>(pool, data, offset, length);
 }
 
 Result<std::shared_ptr<Buffer>> InvertBitmap(MemoryPool* pool, const uint8_t* data,
                                              int64_t offset, int64_t length,
                                              std::shared_ptr<Buffer>* out) {
-  return TransferBitmap<true>(pool, data, offset, length);
+  return TransferBitmap<TransferMode::Invert>(pool, data, offset, length);
 }
 
 bool BitmapEquals(const uint8_t* left, int64_t left_offset, const uint8_t* right,
