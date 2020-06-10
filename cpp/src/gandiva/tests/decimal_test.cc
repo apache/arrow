@@ -301,6 +301,8 @@ TEST_F(TestDecimal, TestCompare) {
                             outputs[5]);  // greater_than_or_equal_to
 }
 
+// ARROW-9092: This test is conditionally disabled when building with LLVM 9
+// because it hangs.
 #if GANDIVA_LLVM_VERSION != 9
 
 TEST_F(TestDecimal, TestRoundFunctions) {
