@@ -655,7 +655,7 @@ impl<R: Read> Reader<R> {
         for row in rows {
             if let Some(value) = row.get(&col_name) {
                 if let Some(str_v) = value.as_str() {
-                    builder.append(str_v).map(|_| ())?
+                    builder.append(str_v).map(drop)?
                 } else {
                     builder.append_null()?
                 }
