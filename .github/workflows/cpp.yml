@@ -160,6 +160,7 @@ jobs:
       - name: Execute Docker Build
         # parallelism is reduced because the ARM builders are low on memory
         run: |
+          env
           ulimit -c unlimited
           archery docker run -e CPP_MAKE_PARALLELISM=2 ${{ matrix.image }}
       - name: Docker Push
