@@ -215,7 +215,7 @@ class NullArrayFactory {
   template <typename T>
   enable_if_var_size_list<T, Status> Visit(const T& type) {
     out_->buffers.resize(2, buffer_);
-    ARROW_ASSIGN_OR_RAISE(out_->child_data[0], CreateChild(0, length_));
+    ARROW_ASSIGN_OR_RAISE(out_->child_data[0], CreateChild(0, /*length=*/0));
     return Status::OK();
   }
 
