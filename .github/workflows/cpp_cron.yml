@@ -36,94 +36,47 @@ env:
   ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
   ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
 
-defaults:
-  run:
-    shell: bash -i {0}
-
 jobs:
   docker:
     name: ${{ matrix.title }}
-    runs-on: ${{ matrix.runner }}
-    # if: ${{ !contains(github.event.pull_request.title, 'WIP') && github.repository == 'apache/arrow' }}
+    runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') && github.repository == 'apache/arrow' }}
     strategy:
       fail-fast: false
       matrix:
         name:
-          # - amd64-debian-10-cpp
-          # - amd64-fedora-32-cpp
-          # - amd64-ubuntu-16.04-cpp
-          # - amd64-ubuntu-18.04-cpp
-          # - amd64-ubuntu-18.04-cpp-cmake32
-          - arm64v8-debian-10-cpp
-          - arm64v8-ubuntu-16.04-cpp
-          - arm64v8-ubuntu-18.04-cpp
-          - arm32v7-ubuntu-18.04-cpp
+          - amd64-debian-10-cpp
+          - amd64-fedora-32-cpp
+          - amd64-ubuntu-16.04-cpp
+          - amd64-ubuntu-18.04-cpp
+          - amd64-ubuntu-18.04-cpp-cmake32
         include:
-          # - name: amd64-debian-10-cpp
-          #   arch: amd64
-          #   image: debian-cpp
-          #   title: AMD64 Debian 10 C++
-          #   debian: 10
-          #   runner: ubuntu-latest
-          # - name: amd64-fedora-32-cpp
-          #   arch: amd64
-          #   image: fedora-cpp
-          #   title: AMD64 Fedora 32 C++
-          #   fedora: 32
-          #   runner: ubuntu-latest
-          # - name: amd64-ubuntu-16.04-cpp
-          #   arch: amd64
-          #   image: ubuntu-cpp
-          #   title: AMD64 Ubuntu 16.04 C++
-          #   ubuntu: 16.04
-          #   runner: ubuntu-latest
-          # - name: amd64-ubuntu-18.04-cpp
-          #   arch: amd64
-          #   image: ubuntu-cpp
-          #   title: AMD64 Ubuntu 18.04 C++
-          #   ubuntu: 18.04
-          #   runner: ubuntu-latest
-          # - name: amd64-ubuntu-18.04-cpp-cmake32
-          #   arch: amd64
-          #   image: ubuntu-cpp-cmake32
-          #   title: AMD64 Ubuntu 18.04 C++ CMake 3.2
-          #   ubuntu: 18.04
-          #   runner: ubuntu-latest
-          # parallelism is reduced because the ARM builders are low on memory
-          - name: arm64v8-ubuntu-16.04-cpp
+          - name: amd64-debian-10-cpp
+            image: debian-cpp
+            title: AMD64 Debian 10 C++
+            debian: 10
+          - name: amd64-fedora-32-cpp
+            image: fedora-cpp
+            title: AMD64 Fedora 32 C++
+            fedora: 32
+          - name: amd64-ubuntu-16.04-cpp
+            image: ubuntu-cpp
+            title: AMD64 Ubuntu 16.04 C++
             ubuntu: 16.04
-            arch: arm64v8
-            title: ARM64v8 Ubuntu 16.04 C++
-            runner: [self-hosted, linux, ARM64]
-            image: -e CPP_MAKE_PARALLELISM=2 ubuntu-cpp
-          - name: arm64v8-ubuntu-18.04-cpp
+          - name: amd64-ubuntu-18.04-cpp
+            image: ubuntu-cpp
+            title: AMD64 Ubuntu 18.04 C++
             ubuntu: 18.04
-            llvm: 8
-            arch: arm64v8
-            title: ARM64v8 Ubuntu 18.04 C++
-            runner: [self-hosted, linux, ARM64]
-            image: -e CPP_MAKE_PARALLELISM=2 ubuntu-cpp
-          - name: arm64v8-debian-10-cpp
-            debian: 10
-            llvm: 8
-            arch: arm64v8
-            title: ARM64v8 Debian 10 C++
-            runner: [self-hosted, linux, ARM]
-            image: -e CPP_MAKE_PARALLELISM=2 debian-cpp
-          - name: arm32v7-ubuntu-18.04-cpp
-            debian: 10
-            llvm: 8
-            arch: arm32v7
-            title: ARM32v7 Debian 10 C++
-            runner: [self-hosted, linux, ARM]
-            image: -e CPP_MAKE_PARALLELISM=2 ubuntu-cpp
+          - name: amd64-ubuntu-18.04-cpp-cmake32
+            image: ubuntu-cpp-cmake32
+            title: AMD64 Ubuntu 18.04 C++ CMake 3.2
+            ubuntu: 18.04
     env:
       # the defaults here should correspond to the values in .env
-      ARCH: ${{ matrix.arch || 'amd64' }}
+      ARCH: 'amd64'
       DEBIAN: ${{ matrix.debian || 10 }}
       FEDORA: ${{ matrix.fedora || 32 }}
       UBUNTU: ${{ matrix.ubuntu || 18.04 }}
-      LLVM: ${{ matrix.llvm || 10 }}
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v2
@@ -141,13 +94,9 @@ jobs:
           restore-keys: ${{ matrix.name }}-
       - name: Setup Python
         uses: actions/setup-python@v1
-        # no distrubutions are build for arm machines by the github actions team
-        continue-on-error: true
         with:
           python-version: 3.6
       - name: Setup Core Pattern
-        # no sudo is available on sel-hosted machines
-        continue-on-error: true
         run: sudo sysctl -w kernel.core_pattern="core.%e.%p"
       - name: Setup Archery
         run: pip install -U -e dev/archery[docker]
@@ -155,6 +104,82 @@ jobs:
         run: |
           ulimit -c unlimited
           archery docker run ${{ matrix.image }}
+      - name: Docker Push
+        if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
+        continue-on-error: true
+        run: archery docker push ${{ matrix.image }}
+
+  docker-arm:
+    # NOTE: this job is specific for self-hosted runners
+    # CACHING: don't use the cache plugin because of various permission
+    #          issues and keep the cached docker volumes permanently on the
+    #          host
+    # PYTHON: no distrubutions are build for arm machines by the github
+    #         actions team, so python>3.6 must be preinstalled on the self
+    #         hosted machines
+    name: ${{ matrix.title }}
+    runs-on: [self-hosted, linux, ${{ matrix.runner_arch }} ]
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') && github.repository == 'apache/arrow' }}
+    defaults:
+      # to use certain environment variables are set by .bashrc an interactive
+      # bash shell must be used
+      run:
+        shell: bash -i {0}
+    strategy:
+      fail-fast: false
+      matrix:
+        name:
+          - arm64v8-debian-10-cpp
+          - arm64v8-ubuntu-16.04-cpp
+          - arm64v8-ubuntu-18.04-cpp
+          - arm32v7-ubuntu-18.04-cpp
+        include:
+          - name: arm64v8-ubuntu-16.04-cpp
+            ubuntu: 16.04
+            title: ARM64v8 Ubuntu 16.04 C++
+            image:  ubuntu-cpp
+            runner_arch: ARM64
+          - name: arm64v8-ubuntu-18.04-cpp
+            ubuntu: 18.04
+            title: ARM64v8 Ubuntu 18.04 C++
+            runner: [self-hosted, linux, ARM64]
+            image: ubuntu-cpp
+            runner_arch: ARM64
+          - name: arm64v8-debian-10-cpp
+            debian: 10
+            title: ARM64v8 Debian 10 C++
+            runner:
+            image: debian-cpp
+            runner_arch: ARM64
+          - name: arm32v7-ubuntu-18.04-cpp
+            debian: 10
+            title: ARM32v7 Debian 10 C++
+            runner: [self-hosted, linux, ARM]
+            image: ubuntu-cpp
+            runner_arch: ARM
+    env:
+      # the defaults here should correspond to the values in .env
+      ARCH: 'arm64v8'
+      DEBIAN: ${{ matrix.debian || 10 }}
+      FEDORA: ${{ matrix.fedora || 32 }}
+      UBUNTU: ${{ matrix.ubuntu || 18.04 }}
+      LLVM: 8
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        run: ci/scripts/util_checkout.sh
+      - name: Free Up Disk Space
+        run: ci/scripts/util_cleanup.sh
+      - name: Setup Archery
+        run: pip install -U -e dev/archery[docker]
+      - name: Execute Docker Build
+        # parallelism is reduced because the ARM builders are low on memory
+        run: |
+          ulimit -c unlimited
+          archery docker run -e CPP_MAKE_PARALLELISM=2 ${{ matrix.image }}
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         continue-on-error: true
