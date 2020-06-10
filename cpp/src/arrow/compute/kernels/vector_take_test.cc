@@ -151,7 +151,10 @@ void CheckTakeRandom(const std::shared_ptr<Array>& values, int64_t indices_lengt
   IndexCType max_index = GetMaxIndex<IndexCType>(values->length());
   auto indices = rand->Numeric<IndexType>(indices_length, static_cast<IndexCType>(0),
                                           max_index, null_probability);
+  auto indices_no_nulls = rand->Numeric<IndexType>(
+      indices_length, static_cast<IndexCType>(0), max_index, /*null_probability=*/0.0);
   ValidateTake<ValuesType>(values, indices);
+  ValidateTake<ValuesType>(values, indices_no_nulls);
 }
 
 template <typename ValuesType, typename DataGenerator>
@@ -159,8 +162,8 @@ void DoRandomTakeTests(DataGenerator&& generate_values) {
   auto rand = random::RandomArrayGenerator(kRandomSeed);
   for (size_t i = 5; i < 10; i++) {
     const int64_t length = static_cast<int64_t>(1ULL << i);
-    for (size_t j = 4; j < 10; j++) {
-      const int64_t indices_length = static_cast<int64_t>(1ULL << j);
+    for (size_t j = 7; j < 10; j++) {
+      const int64_t indices_length = static_cast<int64_t>(1ULL << j) - 1;
       for (auto null_probability : {0.0, 0.01, 0.25, 0.999, 1.0}) {
         auto values = generate_values(length, null_probability, &rand);
         CheckTakeRandom<ValuesType, Int8Type>(values, indices_length, null_probability,
