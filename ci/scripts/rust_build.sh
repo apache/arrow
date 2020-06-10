@@ -31,7 +31,7 @@ export RUSTFLAGS="-D warnings"
 rustup show
 
 # ensure that the build directory exists
-mkdir -p ${build_dir}
+# mkdir -p ${build_dir}
 
 pushd ${source_dir}
 
