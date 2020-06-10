@@ -42,10 +42,20 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
 
   public static final String DEBUG_ALLOCATOR = "arrow.memory.debug.allocator";
   public static final int DEBUG_LOG_LENGTH = 6;
-  public static final boolean DEBUG = AssertionUtil.isAssertionsEnabled() ||
-      Boolean.parseBoolean(System.getProperty(DEBUG_ALLOCATOR, "false"));
+  public static final boolean DEBUG;
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(BaseAllocator.class);
   public static final Config DEFAULT_CONFIG = ImmutableConfig.builder().build();
+
+  static {
+    // the system property takes precedence.
+    String propValue = System.getProperty(DEBUG_ALLOCATOR);
+    if (propValue != null) {
+      DEBUG = Boolean.parseBoolean(propValue);
+    } else {
+      DEBUG = AssertionUtil.isAssertionsEnabled();
+    }
+    logger.info("Debug mode " + (DEBUG ? "enabled." : "disabled."));
+  }
 
   // Package exposed for sharing between AllocatorManger and BaseAllocator objects
   final String name;
