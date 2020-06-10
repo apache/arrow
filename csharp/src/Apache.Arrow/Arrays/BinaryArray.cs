@@ -56,16 +56,16 @@ namespace Apache.Arrow
             protected TBuilder Instance => this as TBuilder;
             protected ArrowBuffer.Builder<int> ValueOffsets { get; }
             protected ArrowBuffer.Builder<byte> ValueBuffer { get; }
-            protected BooleanArray.Builder ValidityBuffer { get; }
+            protected ArrowBuffer.BitmapBuilder ValidityBuffer { get; }
             protected int Offset { get; set; }
-            protected int NullCount { get; private set; }
+            protected int NullCount => this.ValidityBuffer.UnsetBitCount;
 
             protected BuilderBase(IArrowType dataType)
             {
                 DataType = dataType;
                 ValueOffsets = new ArrowBuffer.Builder<int>();
                 ValueBuffer = new ArrowBuffer.Builder<byte>();
-                ValidityBuffer = new BooleanArray.Builder();
+                ValidityBuffer = new ArrowBuffer.BitmapBuilder();
             }
 
             protected abstract TArray Build(ArrayData data);
@@ -77,7 +77,7 @@ namespace Apache.Arrow
                 ValueOffsets.Append(Offset);
 
                 ArrowBuffer validityBuffer = NullCount > 0
-                                        ? ValidityBuffer.Build(allocator).ValueBuffer
+                                        ? ValidityBuffer.Build(allocator)
                                         : ArrowBuffer.Empty;
 
                 var data = new ArrayData(DataType, ValueOffsets.Length - 1, NullCount, 0,
@@ -90,7 +90,6 @@ namespace Apache.Arrow
             {
                 ValueOffsets.Append(Offset);
                 ValidityBuffer.Append(false);
-                NullCount++;
                 return Instance;
             }
 
