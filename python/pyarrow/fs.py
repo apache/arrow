@@ -70,6 +70,7 @@ class FSSpecHandler(FileSystemHandler):
 
     >>> PyFileSystem(FSSpecHandler(fsspec_fs))
     """
+
     def __init__(self, fs):
         self.fs = fs
 

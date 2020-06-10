@@ -35,4 +35,6 @@ else
   conda install -q pandas=${pandas}
 fi
 
+conda install fsspec
+
 conda clean --all
