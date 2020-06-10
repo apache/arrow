@@ -355,7 +355,7 @@ static void CopyBitmap(benchmark::State& state) {  // NOLINT non-const reference
   auto copy = *AllocateEmptyBitmap(length);
 
   for (auto _ : state) {
-    internal::CopyBitmap(src, OffsetSrc, length, copy->mutable_data(), OffsetDest, false);
+    internal::CopyBitmap(src, OffsetSrc, length, copy->mutable_data(), OffsetDest);
   }
 
   state.SetBytesProcessed(state.iterations() * buffer_size);
@@ -386,7 +386,7 @@ static void BitmapEquals(benchmark::State& state) {
   const int64_t length = bits_size - offset;
 
   auto copy = *AllocateEmptyBitmap(length + offset);
-  internal::CopyBitmap(src, 0, length, copy->mutable_data(), offset, false);
+  internal::CopyBitmap(src, 0, length, copy->mutable_data(), offset);
 
   for (auto _ : state) {
     auto is_same = internal::BitmapEquals(src, 0, copy->data(), offset, length);
