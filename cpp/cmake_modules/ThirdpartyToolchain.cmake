@@ -2057,11 +2057,37 @@ macro(build_grpc)
       -DCMAKE_CXX_STANDARD=11
       "-DCMAKE_CXX_FLAGS=${EP_CXX_FLAGS}"
       "-DCMAKE_INSTALL_PREFIX=${ABSL_PREFIX}")
+  set(ABSL_BUILD_BYPRODUCTS)
+  set(ABSL_LIBRARIES)
+
+  # Abseil libraries gRPC depends on
+  set(_ABSL_LIBS
+      bad_optional_access
+      int128
+      raw_logging_internal
+      str_format_internal
+      strings
+      throw_delegate
+      time
+      time_zone)
+
+  foreach(_ABSL_LIB ${_ABSL_LIBS})
+    set(
+      _ABSL_STATIC_LIBRARY
+      "${ABSL_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}absl_${_ABSL_LIB}${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      )
+    add_library(absl::${_ABSL_LIB} STATIC IMPORTED)
+    set_target_properties(absl::${_ABSL_LIB}
+                          PROPERTIES IMPORTED_LOCATION ${_ABSL_STATIC_LIBRARY})
+    list(APPEND ABSL_BUILD_BYPRODUCTS ${_ABSL_STATIC_LIBRARY})
+    list(APPEND ABSL_LIBRARIES absl::${_ABSL_LIB})
+  endforeach()
 
   externalproject_add(absl_ep
                       ${EP_LOG_OPTIONS}
                       URL ${ABSL_SOURCE_URL}
-                      CMAKE_ARGS ${ABSL_CMAKE_ARGS})
+                      CMAKE_ARGS ${ABSL_CMAKE_ARGS}
+                      BUILD_BYPRODUCTS ${ABSL_BUILD_BYPRODUCTS})
 
   set(GRPC_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}/grpc_ep-prefix/src/grpc_ep-build")
   set(GRPC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/grpc_ep-install")
@@ -2122,6 +2148,7 @@ macro(build_grpc)
 
   # ZLIB is never vendored
   set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${ZLIB_ROOT}")
+  set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${ABSL_PREFIX}")
 
   if(APPLE)
     # gRPC on MacOS will fail to build due to thread local variables.
@@ -2143,6 +2170,7 @@ macro(build_grpc)
       -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
       -DCMAKE_PREFIX_PATH='${GRPC_PREFIX_PATH_ALT_SEP}'
       -DgRPC_BUILD_CSHARP_EXT=OFF
+      -DgRPC_ABSL_PROVIDER=package
       -DgRPC_CARES_PROVIDER=package
       -DgRPC_GFLAGS_PROVIDER=package
       -DgRPC_PROTOBUF_PROVIDER=package
@@ -2152,7 +2180,6 @@ macro(build_grpc)
       -DCMAKE_C_FLAGS=${EP_C_FLAGS}
       -DCMAKE_INSTALL_PREFIX=${GRPC_PREFIX}
       -DCMAKE_INSTALL_LIBDIR=lib
-      "-DProtobuf_PROTOC_LIBRARY=${GRPC_Protobuf_PROTOC_LIBRARY}"
       -DBUILD_SHARED_LIBS=OFF)
   if(OPENSSL_ROOT_DIR)
     list(APPEND GRPC_CMAKE_ARGS -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_DIR})
@@ -2198,13 +2225,14 @@ macro(build_grpc)
                                    INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}")
 
   add_library(gRPC::grpc++ STATIC IMPORTED)
-  set_target_properties(gRPC::grpc++
-                        PROPERTIES IMPORTED_LOCATION
-                                   "${GRPC_STATIC_LIBRARY_GRPCPP}"
-                                   INTERFACE_LINK_LIBRARIES
-                                   "gRPC::grpc;gRPC::gpr;gRPC::upb;gRPC::address_sorting"
-                                   INTERFACE_INCLUDE_DIRECTORIES
-                                   "${GRPC_INCLUDE_DIR}")
+  set_target_properties(
+    gRPC::grpc++
+    PROPERTIES IMPORTED_LOCATION
+               "${GRPC_STATIC_LIBRARY_GRPCPP}"
+               INTERFACE_LINK_LIBRARIES
+               "gRPC::grpc;gRPC::gpr;gRPC::upb;gRPC::address_sorting;${ABSL_LIBRARIES}"
+               INTERFACE_INCLUDE_DIRECTORIES
+               "${GRPC_INCLUDE_DIR}")
 
   add_executable(gRPC::grpc_cpp_plugin IMPORTED)
   set_target_properties(gRPC::grpc_cpp_plugin
