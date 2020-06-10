@@ -439,7 +439,13 @@ use_deprecated_int96_timestamps : bool, default None
     Write timestamps to INT96 Parquet format. Defaults to False unless enabled
     by flavor argument. This take priority over the coerce_timestamps option.
 coerce_timestamps : str, default None
-    Cast timestamps a particular resolution.
+    Cast timestamps a particular resolution. The defaults depends on `version`.
+    For ``version='1.0'`` (the default), nanoseconds will be cast to
+    microseconds ('us'), and seconds to milliseconds ('ms') by default. For
+    ``version='2.0'``, the original resolution is preserved and no casting
+    is done by default. The casting might result in loss of data, in which
+    case ``allow_truncated_timestamps=True`` can be used to suppress the
+    raised exception.
     Valid values: {None, 'ms', 'us'}
 data_page_size : int, default None
     Set a target threshold for the approximate encoded size of data
