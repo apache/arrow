@@ -1123,29 +1123,35 @@ fn append_binary_data(
         }
     }
 
-    for array in data {
-        // convert string to List<u8> to reuse list's cast
-        let int_data = &array.buffers()[1];
-        let int_data = Arc::new(ArrayData::new(
-            DataType::UInt8,
-            int_data.len(),
-            None,
-            None,
-            0,
-            vec![int_data.clone()],
-            vec![],
-        )) as ArrayDataRef;
-        let list_data = Arc::new(ArrayData::new(
-            DataType::List(Box::new(DataType::UInt8)),
-            array.len(),
-            None,
-            array.null_buffer().map(|buf| buf.clone()),
-            array.offset(),
-            vec![(&array.buffers()[0]).clone()],
-            vec![int_data],
-        ));
-        builder.append_data(&[list_data])?;
-    }
+    builder.append_data(
+        &data
+            .iter()
+            .map(|array| {
+                // convert string to List<u8> to reuse list's cast
+                let int_data = &array.buffers()[1];
+                let int_data = Arc::new(ArrayData::new(
+                    DataType::UInt8,
+                    int_data.len(),
+                    None,
+                    None,
+                    0,
+                    vec![int_data.clone()],
+                    vec![],
+                )) as ArrayDataRef;
+
+                Arc::new(ArrayData::new(
+                    DataType::List(Box::new(DataType::UInt8)),
+                    array.len(),
+                    None,
+                    array.null_buffer().map(|buf| buf.clone()),
+                    array.offset(),
+                    vec![(&array.buffers()[0]).clone()],
+                    vec![int_data],
+                ))
+            })
+            .collect::<Vec<ArrayDataRef>>(),
+    )?;
+
     Ok(())
 }
 
