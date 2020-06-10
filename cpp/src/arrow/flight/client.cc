@@ -234,7 +234,7 @@ class GrpcClientInterceptorAdapter : public grpc::experimental::Interceptor {
  public:
   explicit GrpcClientInterceptorAdapter(
       std::vector<std::unique_ptr<ClientMiddleware>> middleware)
-      : middleware_(std::move(middleware)) {}
+      : middleware_(std::move(middleware)), received_headers_(false) {}
 
   void Intercept(grpc::experimental::InterceptorBatchMethods* methods) {
     using InterceptionHookPoints = grpc::experimental::InterceptionHookPoints;
@@ -246,24 +246,18 @@ class GrpcClientInterceptorAdapter : public grpc::experimental::Interceptor {
       }
     }
 
-    // TODO: also check for trailing metadata if call failed?
-    // (grpc-java and grpc-core differ on this point, it seems)
     if (methods->QueryInterceptionHookPoint(
             InterceptionHookPoints::POST_RECV_INITIAL_METADATA)) {
-      CallHeaders headers;
-      for (const auto& entry : *methods->GetRecvInitialMetadata()) {
-        headers.insert({util::string_view(entry.first.data(), entry.first.length()),
-                        util::string_view(entry.second.data(), entry.second.length())});
-      }
-      for (const auto& middleware : middleware_) {
-        middleware->ReceivedHeaders(headers);
+      if (!methods->GetRecvInitialMetadata()->empty()) {
+        ReceivedHeaders(*methods->GetRecvInitialMetadata());
       }
     }
 
     if (methods->QueryInterceptionHookPoint(InterceptionHookPoints::POST_RECV_STATUS)) {
       DCHECK_NE(nullptr, methods->GetRecvStatus());
+      DCHECK_NE(nullptr, methods->GetRecvTrailingMetadata());
+      ReceivedHeaders(*methods->GetRecvTrailingMetadata());
       const Status status = internal::FromGrpcStatus(*methods->GetRecvStatus());
-
       for (const auto& middleware : middleware_) {
         middleware->CallCompleted(status);
       }
@@ -273,7 +267,29 @@ class GrpcClientInterceptorAdapter : public grpc::experimental::Interceptor {
   }
 
  private:
+  void ReceivedHeaders(
+      const std::multimap<grpc::string_ref, grpc::string_ref>& metadata) {
+    if (received_headers_) {
+      return;
+    }
+    received_headers_ = true;
+    CallHeaders headers;
+    for (const auto& entry : metadata) {
+      headers.insert({util::string_view(entry.first.data(), entry.first.length()),
+                      util::string_view(entry.second.data(), entry.second.length())});
+    }
+    for (const auto& middleware : middleware_) {
+      middleware->ReceivedHeaders(headers);
+    }
+  }
+
   std::vector<std::unique_ptr<ClientMiddleware>> middleware_;
+  // When communicating with a gRPC-Java server, the server may not
+  // send back headers if the call fails right away. Instead, the
+  // headers will be consolidated into the trailers. We don't want to
+  // call the client middleware callback twice, so instead track
+  // whether we saw headers - if not, then we need to check trailers.
+  bool received_headers_;
 };
 
 class GrpcClientInterceptorAdapterFactory
