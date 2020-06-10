@@ -346,18 +346,22 @@ fn write_array_data(
 ) -> i64 {
     let mut offset = offset;
     nodes.push(ipc::FieldNode::new(num_rows as i64, null_count as i64));
-    // write null buffer if exists
-    let null_buffer = match array_data.null_buffer() {
-        None => {
-            // create a buffer and fill it with valid bits
-            let num_bytes = bit_util::ceil(num_rows, 8);
-            let buffer = MutableBuffer::new(num_bytes);
-            let buffer = buffer.with_bitset(num_bytes, true);
-            buffer.freeze()
-        }
-        Some(buffer) => buffer.clone(),
-    };
-    offset = write_buffer(&null_buffer, &mut buffers, &mut arrow_data, offset);
+    // NullArray does not have any buffers, thus the null buffer is not generated
+    if array_data.data_type() != &DataType::Null {
+        // write null buffer if exists
+        let null_buffer = match array_data.null_buffer() {
+            None => {
+                // create a buffer and fill it with valid bits
+                let num_bytes = bit_util::ceil(num_rows, 8);
+                let buffer = MutableBuffer::new(num_bytes);
+                let buffer = buffer.with_bitset(num_bytes, true);
+                buffer.freeze()
+            }
+            Some(buffer) => buffer.clone(),
+        };
+
+        offset = write_buffer(&null_buffer, &mut buffers, &mut arrow_data, offset);
+    }
 
     array_data.buffers().iter().for_each(|buffer| {
         offset = write_buffer(buffer, &mut buffers, &mut arrow_data, offset);
@@ -464,16 +468,28 @@ mod tests {
                     });
             }
         }
-        // panic!("intentional failure");
     }
 
     #[test]
     fn test_write_null_file() {
-        let schema = Schema::new(vec![Field::new("nulls", DataType::Null, true)]);
+        let schema = Schema::new(vec![
+            Field::new("nulls", DataType::Null, true),
+            Field::new("int32s", DataType::Int32, false),
+            Field::new("nulls2", DataType::Null, false),
+            Field::new("f64s", DataType::Float64, false),
+        ]);
         let array1 = NullArray::new(32);
+        let array2 = Int32Array::from(vec![1; 32]);
+        let array3 = NullArray::new(32);
+        let array4 = Float64Array::from(vec![std::f64::NAN; 32]);
         let batch = RecordBatch::try_new(
             Arc::new(schema.clone()),
-            vec![Arc::new(array1) as ArrayRef],
+            vec![
+                Arc::new(array1) as ArrayRef,
+                Arc::new(array2) as ArrayRef,
+                Arc::new(array3) as ArrayRef,
+                Arc::new(array4) as ArrayRef,
+            ],
         )
         .unwrap();
         {
