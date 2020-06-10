@@ -103,7 +103,7 @@ jobs:
     name: Test
     runs-on: ubuntu-latest
     # name: ${{ matrix.title }}
-    runs-on: [self-hosted, linux, ${{ matrix.runner_arch }}]
+    runs-on: ${{ matrix.runner }}
     # if: ${{ !contains(github.event.pull_request.title, 'WIP') && github.repository == 'apache/arrow' }}
     # defaults:
     #   # to use certain environment variables are set by .bashrc an interactive
@@ -123,12 +123,12 @@ jobs:
             debian: 10
             title: ARM64v8 Debian 10 C++
             image: debian-cpp
-            runner_arch: ARM64
+            runner: [self-hosted, linux, ARM64]
           - name: arm64v8-ubuntu-16.04-cpp
             ubuntu: 16.04
             title: ARM64v8 Ubuntu 16.04 C++
             image: ubuntu-cpp
-            runner_arch: ARM64
+            runner: [self-hosted, linux, ARM64]
           - name: arm64v8-ubuntu-18.04-cpp
             ubuntu: 18.04
             title: ARM64v8 Ubuntu 18.04 C++
@@ -138,7 +138,7 @@ jobs:
             debian: 10
             title: ARM32v7 Debian 10 C++
             image: ubuntu-cpp
-            runner_arch: ARM
+            runner: [self-hosted, linux, ARM64]
     # env:
     #   # the defaults here should correspond to the values in .env
     #   ARCH: 'arm64v8'
