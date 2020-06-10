@@ -707,7 +707,7 @@ def _reconstruct_block(item, columns=None, extension_columns=None):
         # 1. Non-nanosecond timestamps can express dates outside
         #    the range supported by nanoseconds.
         # 2. If the dtype is datetime64 of any sort, deep inside
-        #    Panda's make_block() code path is will do
+        #    pandas' make_block() code path it will do
         #    ensure_datetime64ns(values), which will blow up for
         #    those out-of-range timestamps.
         # 3. To support non-nanosecond timestamps we therefore need to
