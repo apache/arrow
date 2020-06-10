@@ -26,7 +26,9 @@
 #include <arrow/filesystem/type_fwd.h>
 #include <arrow/io/type_fwd.h>
 #include <arrow/ipc/type_fwd.h>
+#include <arrow/status.h>
 #include <arrow/type_fwd.h>
+#include <arrow/util/compression.h>
 
 namespace arrow {
 
@@ -34,10 +36,6 @@ struct Type {
   enum type {
     // forward declaration
   };
-};
-
-enum class StatusCode : char {
-  // forward declaration
 };
 
 namespace compute {
