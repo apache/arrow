@@ -125,19 +125,16 @@ jobs:
           - name: arm64v8-ubuntu-18.04-cpp
             ubuntu: 18.04
             title: ARM64v8 Ubuntu 18.04 C++
-            runner: [self-hosted, linux, ARM64]
             image: ubuntu-cpp
             runner_arch: ARM64
           - name: arm64v8-debian-10-cpp
             debian: 10
             title: ARM64v8 Debian 10 C++
-            runner:
             image: debian-cpp
             runner_arch: ARM64
           - name: arm32v7-ubuntu-18.04-cpp
             debian: 10
             title: ARM32v7 Debian 10 C++
-            runner: [self-hosted, linux, ARM]
             image: ubuntu-cpp
             runner_arch: ARM
     env:
