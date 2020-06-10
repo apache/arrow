@@ -20,11 +20,11 @@
 set -ex
 
 source_dir=${1}/rust
-build_dir=${2}/rust
+# build_dir=${1}/rust
 
 export ARROW_TEST_DATA=${arrow_dir}/testing/data
 export PARQUET_TEST_DATA=${arrow_dir}/cpp/submodules/parquet-testing/data
-export CARGO_TARGET_DIR=${build_dir}
+# export CARGO_TARGET_DIR=${build_dir}
 export RUSTFLAGS="-D warnings"
 
 # show activated toolchain
