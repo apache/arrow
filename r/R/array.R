@@ -341,3 +341,12 @@ is.Array <- function(x, type = NULL) {
   }
   is_it
 }
+
+#' @export
+as.double.Array <- function(x, ...) as.double(as.vector(x), ...)
+
+#' @export
+as.integer.Array <- function(x, ...) as.integer(as.vector(x), ...)
+
+#' @export
+as.character.Array <- function(x, ...) as.character(as.vector(x), ...)

@@ -16,10 +16,71 @@
 # under the License.
 
 #' @include array.R
+#' @include chunked-array.R
+#' @include scalar.R
 
 call_function <- function(function_name, ..., options = list()) {
   assert_that(is.string(function_name))
   compute__CallFunction(function_name, list(...), options)
+}
+
+#' @export
+sum.Array <- function(..., na.rm = FALSE) scalar_aggregate("sum", ..., na.rm = na.rm)
+
+#' @export
+sum.ChunkedArray <- sum.Array
+
+#' @export
+sum.Scalar <- sum.Array
+
+#' @export
+mean.Array <- function(..., na.rm = FALSE) scalar_aggregate("mean", ..., na.rm = na.rm)
+
+#' @export
+mean.ChunkedArray <- mean.Array
+
+#' @export
+mean.Scalar <- mean.Array
+
+min.Array <- function(..., na.rm = FALSE) {
+  extrema <- scalar_aggregate("minmax", ..., na.rm = na.rm)
+  # TODO: StructScalar needs field accessor methods in C++: ARROW-9070
+  Scalar$create(as.vector(extrema)$min)
+}
+
+scalar_aggregate <- function(FUN, ..., na.rm = FALSE) {
+  a <- collect_arrays_from_dots(list(...))
+  if (!na.rm && a$null_count > 0) {
+    # Arrow sum/mean function always drops NAs so handle that here
+    # https://issues.apache.org/jira/browse/ARROW-9054
+    Scalar$create(NA_integer_, type = a$type)
+  } else {
+    if (inherits(a$type, "Boolean")) {
+      # Bool sum/mean not implemented so cast to int
+      # https://issues.apache.org/jira/browse/ARROW-9055
+      a <- a$cast(int8())
+    }
+    shared_ptr(Scalar, call_function(FUN, a))
+  }
+}
+
+collect_arrays_from_dots <- function(dots) {
+  # Given a list that may contain both Arrays and ChunkedArrays,
+  # return a single ChunkedArray containing all of those chunks
+  # (may return a regular Array if there is only one element in dots)
+  assert_that(all(map_lgl(dots, is.Array)))
+  if (length(dots) == 1) {
+    return(dots[[1]])
+  }
+
+  arrays <- unlist(lapply(dots, function(x) {
+    if (inherits(x, "ChunkedArray")) {
+      x$chunks
+    } else {
+      x
+    }
+  }))
+  ChunkedArray$create(!!!arrays)
 }
 
 CastOptions <- R6Class("CastOptions", inherit = ArrowObject)
@@ -32,12 +93,10 @@ CastOptions <- R6Class("CastOptions", inherit = ArrowObject)
 #' @param allow_float_truncate allow float truncate, `!safe` by default
 #'
 #' @export
-cast_options <- function(
-  safe = TRUE,
-  allow_int_overflow = !safe,
-  allow_time_truncate = !safe,
-  allow_float_truncate = !safe
-){
+cast_options <- function(safe = TRUE,
+                         allow_int_overflow = !safe,
+                         allow_time_truncate = !safe,
+                         allow_float_truncate = !safe) {
   shared_ptr(CastOptions,
     compute___CastOptions__initialize(allow_int_overflow, allow_time_truncate, allow_float_truncate)
   )

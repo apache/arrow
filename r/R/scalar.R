@@ -38,6 +38,7 @@ Scalar <- R6Class("Scalar", inherit = ArrowObject,
   ),
   active = list(
     is_valid = function() Scalar__is_valid(self),
+    null_count = function() sum(!self$is_valid),
     type = function() DataType$create(Scalar__type(self))
   )
 )
@@ -62,3 +63,12 @@ is.na.Scalar <- function(x) !x$is_valid
 
 #' @export
 as.vector.Scalar <- function(x, mode) x$as_vector()
+
+#' @export
+as.double.Scalar <- as.double.Array
+
+#' @export
+as.integer.Scalar <- as.integer.Array
+
+#' @export
+as.character.Scalar <- as.character.Array
