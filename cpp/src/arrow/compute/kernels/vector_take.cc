@@ -37,32 +37,21 @@ namespace arrow {
 using internal::BitBlockCount;
 using internal::BitmapReader;
 using internal::GetArrayView;
-using internal::IndexBoundscheck;
+using internal::IndexBoundsCheck;
 using internal::OptionalBitBlockCounter;
 using internal::OptionalBitIndexer;
 
 namespace compute {
 namespace internal {
 
-struct TakeState : public KernelState {
-  explicit TakeState(const TakeOptions& options) : options(options) {}
-  TakeOptions options;
-};
-
-std::unique_ptr<KernelState> InitTake(KernelContext*, const KernelInitArgs& args) {
-  // NOTE: TakeOptions are currently unused, but we pass it through anyway
-  auto take_options = static_cast<const TakeOptions*>(args.options);
-  return std::unique_ptr<KernelState>(new TakeState{*take_options});
-}
-
-namespace {}  // namespace
+using TakeState = OptionsWrapper<TakeOptions>;
 
 // ----------------------------------------------------------------------
 // Implement optimized take for primitive types from boolean to 1/2/4/8-byte
 // C-type based types. Use common implementation for every byte width and only
 // generate code for unsigned integer indices, since after boundschecking to
-// check for negative numbers the indices we can safely reinterpret_cast signed
-// integers as unsigned.
+// check for negative numbers in the indices we can safely reinterpret_cast
+// signed integers as unsigned.
 
 struct PrimitiveTakeArgs {
   const uint8_t* values;
@@ -88,7 +77,7 @@ PrimitiveTakeArgs GetPrimitiveTakeArgs(const ExecBatch& batch) {
   const ArrayData& arg1 = *batch[1].array();
 
   // Values
-  args.values_bit_width = static_cast<const FixedWidthType&>(*arg0.type).bit_width();
+  args.values_bit_width = checked_cast<const FixedWidthType&>(*arg0.type).bit_width();
   args.values = arg0.buffers[1]->data();
   if (args.values_bit_width > 1) {
     args.values += arg0.offset * args.values_bit_width / 8;
@@ -101,7 +90,7 @@ PrimitiveTakeArgs GetPrimitiveTakeArgs(const ExecBatch& batch) {
   }
 
   // Indices
-  args.indices_bit_width = static_cast<const FixedWidthType&>(*arg1.type).bit_width();
+  args.indices_bit_width = checked_cast<const FixedWidthType&>(*arg1.type).bit_width();
   args.indices = arg1.buffers[1]->data() + arg1.offset * args.indices_bit_width / 8;
   args.indices_length = arg1.length;
   args.indices_offset = arg1.offset;
@@ -145,12 +134,8 @@ struct PrimitiveTakeImpl {
                                                 args.indices_length);
     int64_t position = 0;
     int64_t valid_count = 0;
-    while (true) {
+    while (position < args.indices_length) {
       BitBlockCount block = indices_bit_counter.NextBlock();
-      if (block.length == 0) {
-        // All indices processed.
-        break;
-      }
       if (args.values_null_count == 0) {
         // Values are never null, so things are easier
         valid_count += block.popcount;
@@ -171,6 +156,8 @@ struct PrimitiveTakeImpl {
             }
             ++position;
           }
+        } else {
+          position += block.length;
         }
       } else {
         // Values have nulls, so we must do random access into the values bitmap
@@ -201,6 +188,8 @@ struct PrimitiveTakeImpl {
             }
             ++position;
           }
+        } else {
+          position += block.length;
         }
       }
     }
@@ -240,12 +229,8 @@ struct BooleanTakeImpl {
                                                 args.indices_length);
     int64_t position = 0;
     int64_t valid_count = 0;
-    while (true) {
+    while (position < args.indices_length) {
       BitBlockCount block = indices_bit_counter.NextBlock();
-      if (block.length == 0) {
-        // All indices processed.
-        break;
-      }
       if (args.values_null_count == 0) {
         // Values are never null, so things are easier
         valid_count += block.popcount;
@@ -266,6 +251,8 @@ struct BooleanTakeImpl {
             }
             ++position;
           }
+        } else {
+          position += block.length;
         }
       } else {
         // Values have nulls, so we must do random access into the values bitmap
@@ -296,6 +283,8 @@ struct BooleanTakeImpl {
             }
             ++position;
           }
+        } else {
+          position += block.length;
         }
       }
     }
@@ -325,7 +314,7 @@ void TakeIndexDispatch(const PrimitiveTakeArgs& args, Datum* out) {
   }
 }
 
-Status PreallocateTake(KernelContext* ctx, int64_t length, int bit_width, Datum* out) {
+Status PreallocateData(KernelContext* ctx, int64_t length, int bit_width, Datum* out) {
   // Preallocate memory
   ArrayData* out_arr = out->mutable_array();
   out_arr->length = length;
@@ -343,11 +332,11 @@ Status PreallocateTake(KernelContext* ctx, int64_t length, int bit_width, Datum*
 static void PrimitiveTakeExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   const auto& state = checked_cast<const TakeState&>(*ctx->state());
   if (state.options.boundscheck) {
-    KERNEL_RETURN_IF_ERROR(ctx, IndexBoundscheck(*batch[1].array(), batch[0].length()));
+    KERNEL_RETURN_IF_ERROR(ctx, IndexBoundsCheck(*batch[1].array(), batch[0].length()));
   }
   PrimitiveTakeArgs args = GetPrimitiveTakeArgs(batch);
   KERNEL_RETURN_IF_ERROR(
-      ctx, PreallocateTake(ctx, args.indices_length, args.values_bit_width, out));
+      ctx, PreallocateData(ctx, args.indices_length, args.values_bit_width, out));
   switch (args.values_bit_width) {
     case 1:
       return TakeIndexDispatch<BooleanTakeImpl>(args, out);
@@ -368,7 +357,7 @@ static void PrimitiveTakeExec(KernelContext* ctx, const ExecBatch& batch, Datum*
 static void NullTakeExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   const auto& state = checked_cast<const TakeState&>(*ctx->state());
   if (state.options.boundscheck) {
-    KERNEL_RETURN_IF_ERROR(ctx, IndexBoundscheck(*batch[1].array(), batch[0].length()));
+    KERNEL_RETURN_IF_ERROR(ctx, IndexBoundsCheck(*batch[1].array(), batch[0].length()));
   }
   out->value = std::make_shared<NullArray>(batch.length)->data();
 }
@@ -403,7 +392,8 @@ static void ExtensionTakeExec(KernelContext* ctx, const ExecBatch& batch, Datum*
 
 // ----------------------------------------------------------------------
 
-// Use CRTP here
+// Use CRTP to dispatch to type-specific processing of indices for each
+// unsigned integer type.
 template <typename Impl, typename Type>
 struct GenericTakeImpl {
   using ValuesArrayType = typename TypeTraits<Type>::ArrayType;
@@ -421,6 +411,8 @@ struct GenericTakeImpl {
         out(out->mutable_array()),
         validity_builder(ctx->memory_pool()) {}
 
+  virtual ~GenericTakeImpl() = default;
+
   Status FinishCommon() {
     out->buffers.resize(values->buffers.size());
     out->length = validity_builder.length();
@@ -429,34 +421,33 @@ struct GenericTakeImpl {
   }
 
   template <typename IndexCType, typename ValidVisitor, typename NullVisitor>
-  Status VisitIndices(const ArrayData& indices, ValidVisitor&& visit_valid,
-                      NullVisitor&& visit_null) {
-    const auto indices_values = indices.GetValues<IndexCType>(1);
+  Status VisitIndices(ValidVisitor&& visit_valid, NullVisitor&& visit_null) {
+    const auto indices_values = indices->GetValues<IndexCType>(1);
+    const int64_t indices_offset = indices->offset;
     const uint8_t* bitmap = nullptr;
-    if (indices.buffers[0]) {
-      bitmap = indices.buffers[0]->data();
+    if (indices->buffers[0]) {
+      bitmap = indices->buffers[0]->data();
     }
+    OptionalBitIndexer indices_is_valid(indices->buffers[0], values->offset);
     OptionalBitIndexer values_is_valid(values->buffers[0], values->offset);
 
-    OptionalBitBlockCounter bit_counter(bitmap, indices.offset, indices.length);
+    OptionalBitBlockCounter bit_counter(bitmap, indices_offset, indices->length);
     int64_t position = 0;
-    while (position < indices.length) {
+    while (position < indices->length) {
       BitBlockCount block = bit_counter.NextBlock();
-      if (block.popcount == block.length) {
-        // Fast path, no null indices
+      const bool indices_have_nulls = block.popcount < block.length;
+      if (!indices_have_nulls && values->GetNullCount() == 0) {
+        // Fastest path, neither indices nor values have nulls
+        validity_builder.UnsafeAppend(block.length, true);
         for (int64_t i = 0; i < block.length; ++i) {
-          if (values_is_valid[indices_values[position]]) {
-            validity_builder.UnsafeAppend(true);
-            RETURN_NOT_OK(visit_valid(indices_values[position]));
-          } else {
-            validity_builder.UnsafeAppend(false);
-            RETURN_NOT_OK(visit_null());
-          }
-          ++position;
+          RETURN_NOT_OK(visit_valid(indices_values[position++]));
         }
-      } else {
+      } else if (block.popcount > 0) {
+        // Since we have to branch on whether the indices are null or not, we
+        // combine the "non-null indices block but some values null" and
+        // "some-null indices block but values non-null" into a single loop.
         for (int64_t i = 0; i < block.length; ++i) {
-          if (BitUtil::GetBit(bitmap, indices.offset + position) &&
+          if ((!indices_have_nulls || indices_is_valid[position]) &&
               values_is_valid[indices_values[position]]) {
             validity_builder.UnsafeAppend(true);
             RETURN_NOT_OK(visit_valid(indices_values[position]));
@@ -466,6 +457,13 @@ struct GenericTakeImpl {
           }
           ++position;
         }
+      } else {
+        // The whole block is null
+        validity_builder.UnsafeAppend(block.length, false);
+        for (int64_t i = 0; i < block.length; ++i) {
+          RETURN_NOT_OK(visit_null());
+        }
+        position += block.length;
       }
     }
     return Status::OK();
@@ -476,11 +474,13 @@ struct GenericTakeImpl {
   // Implementation specific finish logic
   virtual Status Finish() = 0;
 
-  virtual Status Exec() {
+  Status Exec() {
     RETURN_NOT_OK(this->validity_builder.Reserve(indices->length));
     RETURN_NOT_OK(Init());
     int index_width =
-        static_cast<const FixedWidthType&>(*this->indices->type).bit_width() / 8;
+        checked_cast<const FixedWidthType&>(*this->indices->type).bit_width() / 8;
+
+    // CTRP dispatch here
     switch (index_width) {
       case 1:
         RETURN_NOT_OK(static_cast<Impl*>(this)->template ProcessIndices<uint8_t>());
@@ -538,15 +538,12 @@ struct VarBinaryTakeImpl : public GenericTakeImpl<VarBinaryTakeImpl<Type>, Type>
   Status ProcessIndices() {
     ValuesArrayType typed_values(this->values_as_binary);
 
-    // Allocate at least 32K at a time to avoid having to call Reserve for
-    // every value for lots of small strings
-    static constexpr int64_t kAllocateChunksize = 1 << 15;
-    RETURN_NOT_OK(data_builder.Reserve(kAllocateChunksize));
+    // Start out with at least 64K allocated
+    RETURN_NOT_OK(data_builder.Reserve(1 << 16));
     int64_t space_available = data_builder.capacity();
 
     offset_type offset = 0;
     RETURN_NOT_OK(this->template VisitIndices<IndexCType>(
-        *indices,
         [&](IndexCType index) {
           offset_builder.UnsafeAppend(offset);
           auto val = typed_values.GetView(index);
@@ -557,7 +554,7 @@ struct VarBinaryTakeImpl : public GenericTakeImpl<VarBinaryTakeImpl<Type>, Type>
           }
           offset += value_size;
           if (ARROW_PREDICT_FALSE(value_size > space_available)) {
-            RETURN_NOT_OK(data_builder.Reserve(value_size + kAllocateChunksize));
+            RETURN_NOT_OK(data_builder.Reserve(value_size));
             space_available = data_builder.capacity() - data_builder.length();
           }
           data_builder.UnsafeAppend(reinterpret_cast<const uint8_t*>(val.data()),
@@ -601,7 +598,6 @@ struct FSBTakeImpl : public GenericTakeImpl<FSBTakeImpl, FixedSizeBinaryType> {
 
     RETURN_NOT_OK(data_builder.Reserve(value_size * indices->length));
     RETURN_NOT_OK(this->template VisitIndices<IndexCType>(
-        *indices,
         [&](IndexCType index) {
           auto val = typed_values.GetView(index);
           data_builder.UnsafeAppend(reinterpret_cast<const uint8_t*>(val.data()),
@@ -655,8 +651,8 @@ struct ListTakeImpl : public GenericTakeImpl<ListTakeImpl<Type>, Type> {
       return Status::OK();
     };
 
-    RETURN_NOT_OK(this->template VisitIndices<IndexCType>(
-        *indices, std::move(PushValidIndex), std::move(PushNullIndex)));
+    RETURN_NOT_OK(this->template VisitIndices<IndexCType>(std::move(PushValidIndex),
+                                                          std::move(PushNullIndex)));
     offset_builder.UnsafeAppend(offset);
     return Status::OK();
   }
@@ -675,7 +671,7 @@ struct ListTakeImpl : public GenericTakeImpl<ListTakeImpl<Type>, Type> {
     // No need to boundscheck the child values indices
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> taken_child,
                           Take(*typed_values.values(), *child_indices,
-                               TakeOptions::NoBoundscheck(), ctx->exec_context()));
+                               TakeOptions::NoBoundsCheck(), ctx->exec_context()));
     RETURN_NOT_OK(offset_builder.Finish(&out->buffers[1]));
     out->child_data = {taken_child->data()};
     return Status::OK();
@@ -700,7 +696,6 @@ struct FSLTakeImpl : public GenericTakeImpl<FSLTakeImpl, FixedSizeListType> {
     /// indices.
     RETURN_NOT_OK(child_index_builder.Reserve(indices->length * list_size));
     return this->template VisitIndices<IndexCType>(
-        *indices,
         [&](IndexCType index) {
           int64_t offset = index * list_size;
           for (int64_t j = offset; j < offset + list_size; ++j) {
@@ -720,7 +715,7 @@ struct FSLTakeImpl : public GenericTakeImpl<FSLTakeImpl, FixedSizeListType> {
     // No need to boundscheck the child values indices
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> taken_child,
                           Take(*typed_values.values(), *child_indices,
-                               TakeOptions::NoBoundscheck(), ctx->exec_context()));
+                               TakeOptions::NoBoundsCheck(), ctx->exec_context()));
     out->child_data = {taken_child->data()};
     return Status::OK();
   }
@@ -730,14 +725,13 @@ struct StructTakeImpl : public GenericTakeImpl<StructTakeImpl, StructType> {
   using Base = GenericTakeImpl<StructTakeImpl, StructType>;
   LIFT_BASE_MEMBERS();
 
-  StructTakeImpl(KernelContext* ctx, const ExecBatch& batch, Datum* out)
-      : Base(ctx, batch, out) {}
+  using Base::Base;
 
   template <typename IndexCType>
   Status ProcessIndices() {
     StructArray typed_values(values);
     return this->template VisitIndices<IndexCType>(
-        *indices, [&](IndexCType index) { return Status::OK(); },
+        [&](IndexCType index) { return Status::OK(); },
         /*visit_null=*/VisitNoop);
   }
 
@@ -749,7 +743,7 @@ struct StructTakeImpl : public GenericTakeImpl<StructTakeImpl, StructType> {
     for (int field_index = 0; field_index < values->type->num_fields(); ++field_index) {
       ARROW_ASSIGN_OR_RAISE(Datum taken_field,
                             Take(Datum(typed_values.field(field_index)), Datum(indices),
-                                 TakeOptions::NoBoundscheck(), ctx->exec_context()));
+                                 TakeOptions::NoBoundsCheck(), ctx->exec_context()));
       out->child_data[field_index] = taken_field.array();
     }
     return Status::OK();
@@ -760,7 +754,7 @@ template <typename Impl>
 static void GenericTakeExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   const auto& state = checked_cast<const TakeState&>(*ctx->state());
   if (state.options.boundscheck) {
-    KERNEL_RETURN_IF_ERROR(ctx, IndexBoundscheck(*batch[1].array(), batch[0].length()));
+    KERNEL_RETURN_IF_ERROR(ctx, IndexBoundsCheck(*batch[1].array(), batch[0].length()));
   }
   Impl kernel(ctx, batch, out);
   KERNEL_RETURN_IF_ERROR(ctx, kernel.Exec());
@@ -926,7 +920,7 @@ static InputType kTakeIndexType(match::Integer(), ValueDescr::ARRAY);
 
 void RegisterVectorTake(FunctionRegistry* registry) {
   VectorKernel base;
-  base.init = InitTake;
+  base.init = InitWrapOptions<TakeOptions>;
   base.can_execute_chunkwise = false;
 
   auto array_take = std::make_shared<VectorFunction>("array_take", Arity::Binary());

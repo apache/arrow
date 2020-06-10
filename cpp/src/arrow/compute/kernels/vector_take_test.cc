@@ -161,7 +161,7 @@ void DoRandomTakeTests(DataGenerator&& generate_values) {
     const int64_t length = static_cast<int64_t>(1ULL << i);
     for (size_t j = 4; j < 10; j++) {
       const int64_t indices_length = static_cast<int64_t>(1ULL << j);
-      for (auto null_probability : {0.0, 0.01, 0.25, 1.0}) {
+      for (auto null_probability : {0.0, 0.01, 0.25, 0.999, 1.0}) {
         auto values = generate_values(length, null_probability, &rand);
         CheckTakeRandom<ValuesType, Int8Type>(values, indices_length, null_probability,
                                               &rand);

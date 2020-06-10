@@ -80,8 +80,10 @@ class ARROW_EXPORT BitBlockCounter {
 /// cases without giving up a lot of performance.
 class ARROW_EXPORT OptionalBitBlockCounter {
  public:
+  // validity_bitmap may be nullptr
   OptionalBitBlockCounter(const uint8_t* validity_bitmap, int64_t offset, int64_t length);
 
+  // validity_bitmap may be null
   OptionalBitBlockCounter(const std::shared_ptr<Buffer>& validity_bitmap, int64_t offset,
                           int64_t length);
 

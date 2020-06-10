@@ -3403,7 +3403,6 @@ def test_variable_dictionary_to_pandas():
     expected_dict = pa.concat_arrays([d1, d2, d3])
 
     a = pa.chunked_array([a1, a2, a3, a4])
-
     a_dense = pa.chunked_array([a1.cast('string'),
                                 a2.cast('string'),
                                 a3.cast('string'),

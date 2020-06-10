@@ -83,8 +83,10 @@ struct RegressionArgs {
   // proportion of nulls in generated arrays
   double null_proportion;
 
-  explicit RegressionArgs(benchmark::State& state)
-      : size(state.range(0)), null_proportion(), state_(state) {
+  // If size_is_bytes is true, then it's a number of bytes, otherwise it's the
+  // number of items processed (for reporting)
+  explicit RegressionArgs(benchmark::State& state, bool size_is_bytes = true)
+      : size(state.range(0)), state_(state), size_is_bytes_(size_is_bytes) {
     if (state.range(1) == 0) {
       this->null_proportion = 0.0;
     } else {
@@ -95,11 +97,16 @@ struct RegressionArgs {
   ~RegressionArgs() {
     state_.counters["size"] = static_cast<double>(size);
     state_.counters["null_percent"] = null_proportion * 100;
-    state_.SetBytesProcessed(state_.iterations() * size);
+    if (size_is_bytes_) {
+      state_.SetBytesProcessed(state_.iterations() * size);
+    } else {
+      state_.SetItemsProcessed(state_.iterations() * size);
+    }
   }
 
  private:
   benchmark::State& state_;
+  bool size_is_bytes_;
 };
 
 }  // namespace compute

@@ -217,11 +217,8 @@ TEST(TestBinaryBitBlockCounter, NextAndWord) {
     BinaryBitBlockCounter counter(left->data(), left_offset, right->data(), right_offset,
                                   overlap_length);
     int64_t position = 0;
-    while (true) {
+    do {
       BitBlockCount block = counter.NextAndWord();
-      if (block.length == 0) {
-        break;
-      }
       int expected_popcount = 0;
       for (int j = 0; j < block.length; ++j) {
         expected_popcount +=
@@ -230,7 +227,7 @@ TEST(TestBinaryBitBlockCounter, NextAndWord) {
       }
       ASSERT_EQ(block.popcount, expected_popcount);
       position += block.length;
-    }
+    } while (position < overlap_length);
     // We made it through all the data
     ASSERT_EQ(position, overlap_length);
 

@@ -87,38 +87,28 @@ struct TakeBenchmark {
   TakeBenchmark(benchmark::State& state, bool indices_have_nulls,
                 bool monotonic_indices = false)
       : state(state),
-        args(state),
+        args(state, /*size_is_bytes=*/false),
         rand(kSeed),
         indices_have_nulls(indices_have_nulls),
         monotonic_indices(monotonic_indices) {}
 
   void Int64() {
-    const int64_t array_size = args.size / sizeof(int64_t);
-    auto values = rand.Int64(array_size, -100, 100, args.null_proportion);
+    auto values = rand.Int64(args.size, -100, 100, args.null_proportion);
     Bench(values);
   }
 
   void FSLInt64() {
-    const int64_t array_size = args.size / sizeof(int64_t);
-    auto int_array = rand.Int64(array_size, -100, 100, args.null_proportion);
+    auto int_array = rand.Int64(args.size, -100, 100, args.null_proportion);
     auto values = std::make_shared<FixedSizeListArray>(
-        fixed_size_list(int64(), 1), array_size, int_array, int_array->null_bitmap(),
+        fixed_size_list(int64(), 1), args.size, int_array, int_array->null_bitmap(),
         int_array->null_count());
     Bench(values);
   }
 
   void String() {
     int32_t string_min_length = 0, string_max_length = 32;
-    int32_t string_mean_length = (string_max_length + string_min_length) / 2;
-    // for an array of 50% null strings, we need to generate twice as many strings
-    // to ensure that they have an average of args.size total characters
-    int64_t array_size = args.size;
-    if (args.null_proportion < 1) {
-      array_size = static_cast<int64_t>(args.size / string_mean_length /
-                                        (1 - args.null_proportion));
-    }
     auto values = std::static_pointer_cast<StringArray>(rand.String(
-        array_size, string_min_length, string_max_length, args.null_proportion));
+        args.size, string_min_length, string_max_length, args.null_proportion));
     Bench(values);
   }
 

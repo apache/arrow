@@ -68,9 +68,9 @@ struct ARROW_EXPORT TakeOptions : public FunctionOptions {
   explicit TakeOptions(bool boundscheck = true) : boundscheck(boundscheck) {}
 
   bool boundscheck = true;
-  static TakeOptions Boundscheck() { return TakeOptions(true); }
-  static TakeOptions NoBoundscheck() { return TakeOptions(false); }
-  static TakeOptions Defaults() { return Boundscheck(); }
+  static TakeOptions BoundsCheck() { return TakeOptions(true); }
+  static TakeOptions NoBoundsCheck() { return TakeOptions(false); }
+  static TakeOptions Defaults() { return BoundsCheck(); }
 };
 
 /// \brief Take from an array of values at indices in another array

@@ -445,7 +445,7 @@ INSTANTIATE_ALL()
 #undef INSTANTIATE_ALL_DEST
 
 template <typename IndexCType, bool IsSigned = std::is_signed<IndexCType>::value>
-Status IndexBoundscheckImpl(const ArrayData& indices, uint64_t upper_limit) {
+Status IndexBoundsCheckImpl(const ArrayData& indices, uint64_t upper_limit) {
   // For unsigned integers, if the values array is larger than the maximum
   // index value (e.g. especially for UINT8 / UINT16), then there is no need to
   // boundscheck.
@@ -510,24 +510,24 @@ Status IndexBoundscheckImpl(const ArrayData& indices, uint64_t upper_limit) {
 /// \brief Branchless boundschecking of the indices. Processes batches of
 /// indices at a time and shortcircuits when encountering an out-of-bounds
 /// index in a batch
-Status IndexBoundscheck(const ArrayData& indices, uint64_t upper_limit) {
+Status IndexBoundsCheck(const ArrayData& indices, uint64_t upper_limit) {
   switch (indices.type->id()) {
     case Type::INT8:
-      return IndexBoundscheckImpl<int8_t>(indices, upper_limit);
+      return IndexBoundsCheckImpl<int8_t>(indices, upper_limit);
     case Type::INT16:
-      return IndexBoundscheckImpl<int16_t>(indices, upper_limit);
+      return IndexBoundsCheckImpl<int16_t>(indices, upper_limit);
     case Type::INT32:
-      return IndexBoundscheckImpl<int32_t>(indices, upper_limit);
+      return IndexBoundsCheckImpl<int32_t>(indices, upper_limit);
     case Type::INT64:
-      return IndexBoundscheckImpl<int64_t>(indices, upper_limit);
+      return IndexBoundsCheckImpl<int64_t>(indices, upper_limit);
     case Type::UINT8:
-      return IndexBoundscheckImpl<uint8_t>(indices, upper_limit);
+      return IndexBoundsCheckImpl<uint8_t>(indices, upper_limit);
     case Type::UINT16:
-      return IndexBoundscheckImpl<uint16_t>(indices, upper_limit);
+      return IndexBoundsCheckImpl<uint16_t>(indices, upper_limit);
     case Type::UINT32:
-      return IndexBoundscheckImpl<uint32_t>(indices, upper_limit);
+      return IndexBoundsCheckImpl<uint32_t>(indices, upper_limit);
     case Type::UINT64:
-      return IndexBoundscheckImpl<uint64_t>(indices, upper_limit);
+      return IndexBoundsCheckImpl<uint64_t>(indices, upper_limit);
     default:
       return Status::Invalid("Invalid index type for boundschecking");
   }

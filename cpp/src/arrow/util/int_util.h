@@ -120,7 +120,7 @@ UpcastInt(Integer v) {
 /// must be non-nonnegative and strictly less than the passed upper limit
 /// (which is usually the length of an array that is being indexed-into).
 ARROW_EXPORT
-Status IndexBoundscheck(const ArrayData& indices, uint64_t upper_limit);
+Status IndexBoundsCheck(const ArrayData& indices, uint64_t upper_limit);
 
 }  // namespace internal
 }  // namespace arrow
