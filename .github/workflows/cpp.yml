@@ -131,19 +131,20 @@ jobs:
             ubuntu: 18.04
             title: ARM64v8 Ubuntu 18.04 C++
             image: ubuntu-cpp
-            runner: ARM64
+            runner: [self-hosted, linux, ARM64]
           - name: arm32v7-ubuntu-18.04-cpp
-            debian: 10
+            ubuntu: 18.04
             title: ARM32v7 Debian 10 C++
             image: ubuntu-cpp
-            runner: [self-hosted, linux, ARM64]
-    # env:
-    #   # the defaults here should correspond to the values in .env
-    #   ARCH: 'arm64v8'
-    #   DEBIAN: ${{ matrix.debian || 10 }}
-    #   FEDORA: ${{ matrix.fedora || 32 }}
-    #   UBUNTU: ${{ matrix.ubuntu || 18.04 }}
-    #   LLVM: 8
+            arch: 'arm32v7'
+            runner: [self-hosted, linux, ARM]
+    env:
+      # the defaults here should correspond to the values in .env
+      ARCH: ${{ matrix.debian || 'arm64v8' }}
+      DEBIAN: ${{ matrix.debian || 10 }}
+      FEDORA: ${{ matrix.fedora || 32 }}
+      UBUNTU: ${{ matrix.ubuntu || 18.04 }}
+      LLVM: 8
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v2
