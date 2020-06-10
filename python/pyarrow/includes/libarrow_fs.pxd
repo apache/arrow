@@ -162,6 +162,7 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         void ConfigureBufferSize(int32_t buffer_size)
         void ConfigureBlockSize(int64_t default_block_size)
         void ConfigureKerberosTicketCachePath(c_string path)
+        void ConfigureExtraConf(c_string key, c_string value)
 
     cdef cppclass CHadoopFileSystem "arrow::fs::HadoopFileSystem"(CFileSystem):
         @staticmethod

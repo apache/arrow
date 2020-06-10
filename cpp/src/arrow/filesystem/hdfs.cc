@@ -366,10 +366,8 @@ Result<HdfsOptions> HdfsOptions::FromUri(const Uri& uri) {
   }
 
   // configure other options
-  for (auto it : options_map) {
-    const auto key = it.first;
-    const auto val = it.second;
-    options.ConfigureExtraConf(key, val);
+  for (const auto& it : options_map) {
+    options.ConfigureExtraConf(it.first, it.second);
   }
 
   return options;
