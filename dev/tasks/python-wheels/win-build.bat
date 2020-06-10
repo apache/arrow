@@ -50,6 +50,7 @@ pushd %ARROW_SRC%\cpp\build
 cmake -G "%GENERATOR%" ^
       -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
       -DARROW_BOOST_USE_SHARED=OFF ^
+      -DARROW_BUILD_STATIC=OFF ^
       -DARROW_BUILD_TESTS=OFF ^
       -DCMAKE_BUILD_TYPE=Release ^
       -DARROW_DEPENDENCY_SOURCE=CONDA ^
@@ -63,10 +64,11 @@ cmake -G "%GENERATOR%" ^
       -DARROW_WITH_BROTLI=ON ^
       -DARROW_DATASET=ON ^
       -DARROW_FLIGHT=ON ^
-      -DARROW_PYTHON=ON ^
-      -DARROW_PARQUET=ON ^
       -DARROW_GANDIVA=OFF ^
-      -DARROW_MIMAllOC=ON ^
+      -DARROW_MIMALLOC=ON ^
+      -DARROW_PARQUET=ON ^
+      -DARROW_PYTHON=ON ^
+      -DARROW_VERBOSE_THIRDPARTY_BUILD=ON ^
       -DZSTD_SOURCE=BUNDLED ^
       .. || exit /B
 cmake --build . --target install --config Release || exit /B
