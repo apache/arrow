@@ -17,25 +17,12 @@
 
 package org.apache.arrow.vector.util;
 
-import java.util.AbstractMap;
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
-
-import org.apache.arrow.util.Preconditions;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import io.netty.util.collection.IntObjectHashMap;
-import io.netty.util.collection.IntObjectMap;
 
 /**
- * An implementation of map that supports constant time look-up by a generic key or an ordinal.
+ * An implementation of a map that supports constant time look-up by a generic key or an ordinal.
  *
  * <p>This class extends the functionality a regular {@link Map} with ordinal lookup support.
  * Upon insertion an unused ordinal is assigned to the inserted (key, value) tuple.
@@ -45,212 +32,36 @@ import io.netty.util.collection.IntObjectMap;
  * <p>For any instance with N items, this implementation guarantees that ordinals are in the range of [0, N). However,
  * the ordinal assignment is dynamic and may change after an insertion or deletion. Consumers of this class are
  * responsible for explicitly checking the ordinal corresponding to a key via
- * {@link org.apache.arrow.vector.util.MapWithOrdinal#getOrdinal(Object)} before attempting to execute a lookup
+ * {@link MultiMapWithOrdinal#getOrdinal(Object)} before attempting to execute a lookup
  * with an ordinal.
  *
  * @param <K> key type
  * @param <V> value type
  */
-public class MapWithOrdinal<K, V> implements Map<K, V> {
-  private static final Logger logger = LoggerFactory.getLogger(MapWithOrdinal.class);
+public interface MapWithOrdinal<K, V> {
+  V getByOrdinal(int id);
 
-  private final Map<K, Entry<Integer, V>> primary = new HashMap<>();
-  private final IntObjectHashMap<V> secondary = new IntObjectHashMap<>();
+  int getOrdinal(K key);
 
-  private final Map<K, V> delegate = new Map<K, V>() {
-    @Override
-    public boolean isEmpty() {
-      return size() == 0;
-    }
+  int size();
 
-    @Override
-    public int size() {
-      return primary.size();
-    }
+  boolean isEmpty();
 
-    @Override
-    public boolean containsKey(Object key) {
-      return primary.containsKey(key);
-    }
+  V get(K key);
 
-    @Override
-    public boolean containsValue(Object value) {
-      return primary.containsValue(value);
-    }
+  Collection<V> getAll(K key);
 
-    @Override
-    public V get(Object key) {
-      Entry<Integer, V> pair = primary.get(key);
-      if (pair != null) {
-        return pair.getValue();
-      }
-      return null;
-    }
+  boolean put(K key, V value, boolean overwrite);
 
-    @Override
-    public V put(K key, V value) {
-      final Entry<Integer, V> oldPair = primary.get(key);
-      // if key exists try replacing otherwise, assign a new ordinal identifier
-      final int ordinal = oldPair == null ? primary.size() : oldPair.getKey();
-      primary.put(key, new AbstractMap.SimpleImmutableEntry<>(ordinal, value));
-      secondary.put(ordinal, value);
-      return oldPair == null ? null : oldPair.getValue();
-    }
+  Collection<V> values();
 
-    @Override
-    public V remove(Object key) {
-      final Entry<Integer, V> oldPair = primary.remove(key);
-      if (oldPair != null) {
-        final int lastOrdinal = secondary.size();
-        final V last = secondary.get(lastOrdinal);
-        // normalize mappings so that all numbers until primary.size() is assigned
-        // swap the last element with the deleted one
-        secondary.put(oldPair.getKey(), last);
-        primary.put((K) key, new AbstractMap.SimpleImmutableEntry<>(oldPair.getKey(), last));
-      }
-      return oldPair == null ? null : oldPair.getValue();
-    }
+  boolean containsKey(K key);
 
-    @Override
-    public void putAll(Map<? extends K, ? extends V> m) {
-      throw new UnsupportedOperationException();
-    }
+  boolean remove(K key, V value);
 
-    @Override
-    public void clear() {
-      primary.clear();
-      secondary.clear();
-    }
+  boolean removeAll(K key);
 
-    @Override
-    public Set<K> keySet() {
-      return primary.keySet();
-    }
+  void clear();
 
-    @Override
-    public Collection<V> values() {
-      return StreamSupport.stream(secondary.entries().spliterator(), false)
-          .map((IntObjectMap.PrimitiveEntry<V> t) -> Preconditions.checkNotNull(t).value())
-          .collect(Collectors.toList());
-    }
-
-    @Override
-    public Set<Entry<K, V>> entrySet() {
-      return primary.entrySet().stream()
-          .map(entry -> new AbstractMap.SimpleImmutableEntry<>(entry.getKey(), entry.getValue().getValue()))
-          .collect(Collectors.toSet());
-    }
-  };
-
-  /**
-   * Returns the value corresponding to the given ordinal.
-   *
-   * @param id ordinal value for lookup
-   * @return an instance of V
-   */
-  public V getByOrdinal(int id) {
-    return secondary.get(id);
-  }
-
-  /**
-   * Returns the ordinal corresponding to the given key.
-   *
-   * @param key key for ordinal lookup
-   * @return ordinal value corresponding to key if it exists or -1
-   */
-  public int getOrdinal(K key) {
-    Entry<Integer, V> pair = primary.get(key);
-    if (pair != null) {
-      return pair.getKey();
-    }
-    return -1;
-  }
-
-  @Override
-  public int size() {
-    return delegate.size();
-  }
-
-  @Override
-  public boolean isEmpty() {
-    return delegate.isEmpty();
-  }
-
-  @Override
-  public V get(Object key) {
-    return delegate.get(key);
-  }
-
-  /**
-   * Inserts the tuple (key, value) into the map extending the semantics of {@link Map#put} with automatic ordinal
-   * assignment. A new ordinal is assigned if key does not exists. Otherwise the same ordinal is re-used but the value
-   * is replaced.
-   *
-   * @see java.util.Map#put
-   */
-  @Override
-  public V put(K key, V value) {
-    return delegate.put(key, value);
-  }
-
-  @Override
-  public Collection<V> values() {
-    return delegate.values();
-  }
-
-  @Override
-  public boolean containsKey(Object key) {
-    return delegate.containsKey(key);
-  }
-
-  @Override
-  public boolean containsValue(Object value) {
-    return delegate.containsValue(value);
-  }
-
-  /**
-   * Removes the element corresponding to the key if exists extending the semantics of {@link java.util.Map#remove}
-   * with ordinal re-cycling. The ordinal corresponding to the given key may be re-assigned to another tuple. It is
-   * important that consumer checks the ordinal value via
-   * {@link org.apache.arrow.vector.util.MapWithOrdinal#getOrdinal(Object)} before attempting to look-up by ordinal.
-   *
-   * @see java.util.Map#remove
-   */
-  @Override
-  public V remove(Object key) {
-    return delegate.remove(key);
-  }
-
-  @Override
-  public void putAll(Map<? extends K, ? extends V> m) {
-    delegate.putAll(m);
-  }
-
-  @Override
-  public void clear() {
-    delegate.clear();
-  }
-
-  @Override
-  public Set<K> keySet() {
-    return delegate.keySet();
-  }
-
-  /**
-   * Returns a list of keys in ordinal order.
-   */
-  public List<K> keyList() {
-    int size = size();
-    Set<K> keys = keySet();
-    List<K> children = new ArrayList<>(size);
-    for (K key : keys) {
-      children.add(getOrdinal(key), key);
-    }
-    return children;
-  }
-
-  @Override
-  public Set<Entry<K, V>> entrySet() {
-    return delegate.entrySet();
-  }
+  Set<K> keys();
 }
