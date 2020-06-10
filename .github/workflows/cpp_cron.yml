@@ -119,7 +119,7 @@ jobs:
     #         hosted machines
     name: ${{ matrix.title }}
     runs-on: [self-hosted, linux, ${{ matrix.runner_arch }} ]
-    if: ${{ !contains(github.event.pull_request.title, 'WIP') && github.repository == 'apache/arrow' }}
+    # if: ${{ !contains(github.event.pull_request.title, 'WIP') && github.repository == 'apache/arrow' }}
     defaults:
       # to use certain environment variables are set by .bashrc an interactive
       # bash shell must be used
