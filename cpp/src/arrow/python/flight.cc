@@ -240,8 +240,8 @@ PyGeneratorFlightDataStream::PyGeneratorFlightDataStream(
 std::shared_ptr<Schema> PyGeneratorFlightDataStream::schema() { return schema_; }
 
 Status PyGeneratorFlightDataStream::GetSchemaPayload(FlightPayload* payload) {
-  return ipc::internal::GetSchemaPayload(*schema_, options_, &dictionary_memo_,
-                                         &payload->ipc_message);
+  return ipc::GetSchemaPayload(*schema_, options_, &dictionary_memo_,
+                               &payload->ipc_message);
 }
 
 Status PyGeneratorFlightDataStream::Next(FlightPayload* payload) {

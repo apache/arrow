@@ -683,7 +683,7 @@ class DoPutPayloadWriter : public ipc::internal::IpcPayloadWriter {
 
   Status Start() override { return Status::OK(); }
 
-  Status WritePayload(const ipc::internal::IpcPayload& ipc_payload) override {
+  Status WritePayload(const ipc::IpcPayload& ipc_payload) override {
     FlightPayload payload;
     payload.ipc_message = ipc_payload;
 

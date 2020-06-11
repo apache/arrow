@@ -546,6 +546,8 @@ class DictionarySerializer : public RecordBatchSerializer {
   int64_t dictionary_id_;
 };
 
+}  // namespace internal
+
 Status WriteIpcPayload(const IpcPayload& payload, const IpcWriteOptions& options,
                        io::OutputStream* dst, int32_t* metadata_length) {
   RETURN_NOT_OK(WriteMessage(*payload.metadata, options, dst, metadata_length));
@@ -585,30 +587,28 @@ Status WriteIpcPayload(const IpcPayload& payload, const IpcWriteOptions& options
 Status GetSchemaPayload(const Schema& schema, const IpcWriteOptions& options,
                         DictionaryMemo* dictionary_memo, IpcPayload* out) {
   out->type = MessageType::SCHEMA;
-  return WriteSchemaMessage(schema, dictionary_memo, &out->metadata);
+  return internal::WriteSchemaMessage(schema, dictionary_memo, &out->metadata);
 }
 
 Status GetDictionaryPayload(int64_t id, const std::shared_ptr<Array>& dictionary,
                             const IpcWriteOptions& options, IpcPayload* out) {
   out->type = MessageType::DICTIONARY_BATCH;
   // Frame of reference is 0, see ARROW-384
-  DictionarySerializer assembler(id, /*buffer_start_offset=*/0, options, out);
+  internal::DictionarySerializer assembler(id, /*buffer_start_offset=*/0, options, out);
   return assembler.Assemble(dictionary);
 }
 
 Status GetRecordBatchPayload(const RecordBatch& batch, const IpcWriteOptions& options,
                              IpcPayload* out) {
   out->type = MessageType::RECORD_BATCH;
-  RecordBatchSerializer assembler(/*buffer_start_offset=*/0, options, out);
+  internal::RecordBatchSerializer assembler(/*buffer_start_offset=*/0, options, out);
   return assembler.Assemble(batch);
 }
-
-}  // namespace internal
 
 Status WriteRecordBatch(const RecordBatch& batch, int64_t buffer_start_offset,
                         io::OutputStream* dst, int32_t* metadata_length,
                         int64_t* body_length, const IpcWriteOptions& options) {
-  internal::IpcPayload payload;
+  IpcPayload payload;
   internal::RecordBatchSerializer assembler(buffer_start_offset, options, &payload);
   RETURN_NOT_OK(assembler.Assemble(batch));
 
@@ -618,7 +618,7 @@ Status WriteRecordBatch(const RecordBatch& batch, int64_t buffer_start_offset,
   // The body size is computed in the payload
   *body_length = payload.body_length;
 
-  return internal::WriteIpcPayload(payload, options, dst, metadata_length);
+  return WriteIpcPayload(payload, options, dst, metadata_length);
 }
 
 Status WriteRecordBatchStream(const std::vector<std::shared_ptr<RecordBatch>>& batches,
@@ -841,31 +841,39 @@ class SparseTensorSerializer {
   int64_t buffer_start_offset_;
 };
 
-Status GetSparseTensorPayload(const SparseTensor& sparse_tensor, MemoryPool* pool,
-                              IpcPayload* out) {
-  SparseTensorSerializer writer(0, out);
-  return writer.Assemble(sparse_tensor);
-}
-
 }  // namespace internal
 
 Status WriteSparseTensor(const SparseTensor& sparse_tensor, io::OutputStream* dst,
                          int32_t* metadata_length, int64_t* body_length) {
-  internal::IpcPayload payload;
+  IpcPayload payload;
   internal::SparseTensorSerializer writer(0, &payload);
   RETURN_NOT_OK(writer.Assemble(sparse_tensor));
 
   *body_length = payload.body_length;
-  return internal::WriteIpcPayload(payload, IpcWriteOptions::Defaults(), dst,
-                                   metadata_length);
+  return WriteIpcPayload(payload, IpcWriteOptions::Defaults(), dst, metadata_length);
+}
+
+Status GetSparseTensorPayload(const SparseTensor& sparse_tensor, MemoryPool* pool,
+                              IpcPayload* out) {
+  internal::SparseTensorSerializer writer(0, out);
+  return writer.Assemble(sparse_tensor);
 }
 
 Result<std::unique_ptr<Message>> GetSparseTensorMessage(const SparseTensor& sparse_tensor,
                                                         MemoryPool* pool) {
-  internal::IpcPayload payload;
-  RETURN_NOT_OK(internal::GetSparseTensorPayload(sparse_tensor, pool, &payload));
+  IpcPayload payload;
+  RETURN_NOT_OK(GetSparseTensorPayload(sparse_tensor, pool, &payload));
   return std::unique_ptr<Message>(
       new Message(std::move(payload.metadata), std::move(payload.body_buffers[0])));
+}
+
+int64_t GetPayloadSize(const IpcPayload& payload, const IpcWriteOptions& options) {
+  const int32_t prefix_size = options.write_legacy_ipc_format ? 4 : 8;
+  const int32_t flatbuffer_size = static_cast<int32_t>(payload.metadata->size());
+  const int32_t padded_message_length = static_cast<int32_t>(
+      PaddedLength(flatbuffer_size + prefix_size, options.alignment));
+  // body_length already accounts for padding
+  return payload.body_length + padded_message_length;
 }
 
 Status GetRecordBatchSize(const RecordBatch& batch, int64_t* size) {
@@ -980,7 +988,7 @@ class ARROW_EXPORT IpcFormatWriter : public RecordBatchWriter {
     started_ = true;
     RETURN_NOT_OK(payload_writer_->Start());
 
-    internal::IpcPayload payload;
+    IpcPayload payload;
     RETURN_NOT_OK(GetSchemaPayload(schema_, options_, dictionary_memo_, &payload));
     return payload_writer_->WritePayload(payload);
   }
@@ -997,7 +1005,7 @@ class ARROW_EXPORT IpcFormatWriter : public RecordBatchWriter {
     RETURN_NOT_OK(CollectDictionaries(batch, dictionary_memo_));
 
     for (const auto& pair : dictionary_memo_->dictionaries()) {
-      internal::IpcPayload payload;
+      IpcPayload payload;
       int64_t dictionary_id = pair.first;
       const auto& dictionary = pair.second;
 
@@ -1098,7 +1106,7 @@ class PayloadFileWriter : public internal::IpcPayloadWriter, protected StreamBoo
 
   ~PayloadFileWriter() override = default;
 
-  Status WritePayload(const internal::IpcPayload& payload) override {
+  Status WritePayload(const IpcPayload& payload) override {
 #ifndef NDEBUG
     // Catch bug fixed in ARROW-3236
     RETURN_NOT_OK(UpdatePositionCheckAligned());

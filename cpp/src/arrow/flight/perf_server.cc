@@ -73,8 +73,8 @@ class PerfDataStream : public FlightDataStream {
   std::shared_ptr<Schema> schema() override { return schema_; }
 
   Status GetSchemaPayload(FlightPayload* payload) override {
-    return ipc::internal::GetSchemaPayload(*schema_, ipc_options_, &dictionary_memo_,
-                                           &payload->ipc_message);
+    return ipc::GetSchemaPayload(*schema_, ipc_options_, &dictionary_memo_,
+                                 &payload->ipc_message);
   }
 
   Status Next(FlightPayload* payload) override {
@@ -102,8 +102,7 @@ class PerfDataStream : public FlightDataStream {
     } else {
       records_sent_ += batch_length_;
     }
-    return ipc::internal::GetRecordBatchPayload(*batch, ipc_options_,
-                                                &payload->ipc_message);
+    return ipc::GetRecordBatchPayload(*batch, ipc_options_, &payload->ipc_message);
   }
 
  private:

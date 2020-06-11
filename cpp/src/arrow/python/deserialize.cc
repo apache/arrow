@@ -433,7 +433,7 @@ Status GetSerializedFromComponents(int num_tensors,
 
   // Zero-copy reconstruct sparse tensors
   for (int i = 0, n = num_sparse_tensors.num_total_tensors(); i < n; ++i) {
-    ipc::internal::IpcPayload payload;
+    ipc::IpcPayload payload;
     RETURN_NOT_OK(GetBuffer(buffer_index++, &payload.metadata));
 
     ARROW_ASSIGN_OR_RAISE(
