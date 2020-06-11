@@ -51,10 +51,11 @@ such topics as:
    :maxdepth: 2
    :caption: Arrow Libraries
 
-   cpp/index
-   python/index
+   status
+   C++ <cpp/index>
+   Python <python/index>
    Java <https://arrow.apache.org/docs/java/>
-   C GLib <https://arrow.apache.org/docs/c_glib/>
+   C/GLib <https://arrow.apache.org/docs/c_glib/>
    JavaScript <https://arrow.apache.org/docs/js/>
    R <https://arrow.apache.org/docs/r/>
 
