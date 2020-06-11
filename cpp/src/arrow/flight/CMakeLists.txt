@@ -19,12 +19,8 @@ add_custom_target(arrow_flight)
 
 arrow_install_all_headers("arrow/flight")
 
-set(ARROW_FLIGHT_STATIC_LINK_LIBS
-    ${ARROW_PROTOBUF_LIBPROTOBUF}
-    gRPC::grpc++
-    c-ares::cares
-    ${ARROW_OPENSSL_LIBS}
-    ZLIB::ZLIB)
+set(ARROW_FLIGHT_STATIC_LINK_LIBS ${ARROW_PROTOBUF_LIBPROTOBUF} gRPC::grpc++ c-ares::cares
+                                  ZLIB::ZLIB)
 
 if(WIN32)
   list(APPEND ARROW_FLIGHT_STATIC_LINK_LIBS ws2_32.lib)
@@ -32,12 +28,12 @@ endif()
 
 if(ARROW_TEST_LINKAGE STREQUAL "static")
   set(ARROW_FLIGHT_TEST_LINK_LIBS arrow_flight_static arrow_flight_testing_static
-                                  ${ARROW_TEST_STATIC_LINK_LIBS}
-                                  ${ARROW_FLIGHT_STATIC_LINK_LIBS})
+                                  ${ARROW_FLIGHT_STATIC_LINK_LIBS}
+                                  ${ARROW_TEST_LINK_LIBS})
 else()
   set(ARROW_FLIGHT_TEST_LINK_LIBS arrow_flight_shared arrow_flight_testing_shared
-                                  ${ARROW_TEST_SHARED_LINK_LIBS}
-                                  ${ARROW_FLIGHT_STATIC_LINK_LIBS})
+                                  ${ARROW_FLIGHT_STATIC_LINK_LIBS}
+                                  ${ARROW_TEST_LINK_LIBS})
 endif()
 
 # TODO(wesm): Protobuf shared vs static linking
@@ -139,7 +135,7 @@ foreach(LIB_TARGET ${ARROW_FLIGHT_TESTING_LIBRARIES})
 endforeach()
 
 add_arrow_test(flight_test
-               EXTRA_LINK_LIBS
+               STATIC_LINK_LIBS
                ${ARROW_FLIGHT_TEST_LINK_LIBS}
                LABELS
                "arrow_flight")
