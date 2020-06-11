@@ -658,6 +658,9 @@ def read_csv(input_file, read_options=None, parse_options=None,
     """
     Read a Table from a stream of CSV data.
 
+    The input CSV data should be encoded in UTF8.  Non-UTF8 data can still
+    be read and converted as Binary columns.
+
     Parameters
     ----------
     input_file: string, path or file-like object
@@ -708,6 +711,9 @@ def open_csv(input_file, read_options=None, parse_options=None,
              convert_options=None, MemoryPool memory_pool=None):
     """
     Open a streaming reader of CSV data.
+
+    The input CSV data should be encoded in UTF8.  Non-UTF8 data can still
+    be read and converted as Binary columns.
 
     Reading using this function is always single-threaded.
 
