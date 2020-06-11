@@ -3987,7 +3987,7 @@ def test_timestamp_as_object_parquet(tempdir):
     pq.write_table(table, filename, version="2.0")
     result = pq.read_table(filename)
     df2 = result.to_pandas(timestamp_as_object=True)
-    tm.assert_frame_equal(df, df2, check_like=True)
+    tm.assert_frame_equal(df, df2)
 
 
 def test_timestamp_as_object_out_of_range():
@@ -3996,7 +3996,7 @@ def test_timestamp_as_object_out_of_range():
     df = make_df_with_timestamps()
     table = pa.Table.from_pandas(df)
     df2 = table.to_pandas(timestamp_as_object=True)
-    tm.assert_frame_equal(df, df2, check_like=True)
+    tm.assert_frame_equal(df, df2)
 
 
 @pytest.mark.parametrize("resolution", ["s", "ms", "us"])
