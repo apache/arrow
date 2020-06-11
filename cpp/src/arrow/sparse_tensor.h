@@ -222,6 +222,8 @@ class ARROW_EXPORT SparseSplitCOOIndex
   explicit SparseSplitCOOIndex(const std::vector<std::shared_ptr<Tensor>>& indices);
 
   /// \brief Check the validity of the instance
+  ///
+  /// You do not use this function if you make an instance by Make function.
   Status CheckValidity() const;
 
   /// \brief Return a vector of 1D tensors of the index vectors

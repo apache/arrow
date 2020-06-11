@@ -431,9 +431,7 @@ Status SparseSplitCOOIndex::CheckValidity() const {
     buffers.emplace_back(tensor->data());
   }
 
-  // TODO: call check function
-
-  return Status::OK();
+  return CheckSparseSplitCOOIndexValidity(types, non_zero_length, buffers);
 }
 
 std::string SparseSplitCOOIndex::ToString() const { return "SparseSplitCOOIndex"; }
