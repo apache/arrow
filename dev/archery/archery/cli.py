@@ -756,7 +756,7 @@ def docker_compose_run(obj, image, command, *, env, user, force_pull,
 
         compose._execute = MethodType(_print_command, compose)
 
-    env = dict(kv.split('=') for kv in env)
+    env = dict(kv.split('=', 1) for kv in env)
     try:
         compose.run(
             image,
