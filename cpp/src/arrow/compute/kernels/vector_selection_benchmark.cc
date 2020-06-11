@@ -39,7 +39,7 @@ struct FilterParams {
   const double filter_null_proportion;
 };
 
-std::vector<int64_t> g_data_sizes = {kL1Size, 1 << 20};
+std::vector<int64_t> g_data_sizes = {kL1Size};
 
 // The benchmark state parameter references this vector of cases. Test high and
 // low selectivity filters.
@@ -259,7 +259,7 @@ BENCHMARK(FilterStringFilterWithNulls)->Apply(FilterSetArgs);
 
 void TakeSetArgs(benchmark::internal::Benchmark* bench) {
   for (int64_t size : g_data_sizes) {
-    for (auto nulls : std::vector<ArgsType>({1000, 100, 50, 10, 1, 0})) {
+    for (auto nulls : std::vector<ArgsType>({1000, 10, 2, 1, 0})) {
       bench->Args({static_cast<ArgsType>(size), nulls});
     }
   }
