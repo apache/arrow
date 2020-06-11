@@ -118,7 +118,7 @@ jobs:
           - name: arm32v7-debian-10-cpp
             debian: 10
             title: ARM32v7 Debian 10 C++
-            image: -e CPP_MAKE_PARALLELISM=4 -e CXXFLAGS=-Wno-psabi -e ARROW_FLIGHT=OFF -e ARROW_GANDIVA=OFF -e ARROW_CPU_FLAG=armv7 debian-cpp
+            image: -e CPP_MAKE_PARALLELISM=4 -e CXXFLAGS=-Wno-psabi -e ARROW_FLIGHT=OFF -e ARROW_GANDIVA=OFF -e CMAKE_ARGS=-DARROW_CPU_FLAG=armv7 debian-cpp
             arch: 'arm32v7'
             runner: [self-hosted, linux, ARM]
           - name: arm64v8-ubuntu-18.04-cpp
