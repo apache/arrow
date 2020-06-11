@@ -20,7 +20,6 @@ import decimal
 import json
 import multiprocessing as mp
 import sys
-from datetime import datetime
 
 from collections import OrderedDict
 from datetime import date, datetime, time, timedelta
