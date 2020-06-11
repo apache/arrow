@@ -95,7 +95,7 @@ For example::
    arrow::Status DoSomething() {
       const int64_t buffer_size = 4096;
       std::shared_ptr<arrow::Buffer> buffer;
-      ARROW_RETURN_NON_OK(arrow::AllocateBuffer(buffer_size, &buffer));
+      ARROW_RETURN_NOT_OK(arrow::AllocateBuffer(buffer_size, &buffer));
       // ... allocation successful, do something with buffer below
 
       // return success at the end
