@@ -344,50 +344,73 @@ class ArrayLoader {
   ArrayData* out_;
 };
 
+Result<std::shared_ptr<Buffer>> DecompressBuffer(const std::shared_ptr<Buffer>& buf,
+                                                 const IpcReadOptions& options,
+                                                 util::Codec* codec) {
+  if (buf == nullptr || buf->size() == 0) {
+    return buf;
+  }
+
+  if (buf->size() < 8) {
+    return Status::Invalid(
+        "Likely corrupted message, compressed buffers "
+        "are larger than 8 bytes by construction");
+  }
+
+  const uint8_t* data = buf->data();
+  int64_t compressed_size = buf->size() - sizeof(int64_t);
+  int64_t uncompressed_size = BitUtil::FromLittleEndian(util::SafeLoadAs<int64_t>(data));
+
+  ARROW_ASSIGN_OR_RAISE(auto uncompressed,
+                        AllocateBuffer(uncompressed_size, options.memory_pool));
+
+  ARROW_ASSIGN_OR_RAISE(
+      int64_t actual_decompressed,
+      codec->Decompress(compressed_size, data + sizeof(int64_t), uncompressed_size,
+                        uncompressed->mutable_data()));
+  if (actual_decompressed != uncompressed_size) {
+    return Status::Invalid("Failed to fully decompress buffer, expected ",
+                           uncompressed_size, " bytes but decompressed ",
+                           actual_decompressed);
+  }
+
+  return std::move(uncompressed);
+}
+
 Status DecompressBuffers(Compression::type compression, const IpcReadOptions& options,
                          std::vector<std::shared_ptr<ArrayData>>* fields) {
+  struct BufferAccumulator {
+    using BufferPtrVector = std::vector<std::shared_ptr<Buffer>*>;
+
+    void AppendFrom(const std::vector<std::shared_ptr<ArrayData>>& fields) {
+      for (const auto& field : fields) {
+        for (auto& buffer : field->buffers) {
+          buffers_.push_back(&buffer);
+        }
+        AppendFrom(field->child_data);
+      }
+    }
+
+    BufferPtrVector Get(const std::vector<std::shared_ptr<ArrayData>>& fields) && {
+      AppendFrom(fields);
+      return std::move(buffers_);
+    }
+
+    BufferPtrVector buffers_;
+  };
+
+  // flatten all buffers
+  auto buffers = BufferAccumulator{}.Get(*fields);
+
   std::unique_ptr<util::Codec> codec;
   ARROW_ASSIGN_OR_RAISE(codec, util::Codec::Create(compression));
 
-  auto DecompressOne = [&](int i) {
-    ArrayData* arr = (*fields)[i].get();
-    for (size_t i = 0; i < arr->buffers.size(); ++i) {
-      if (arr->buffers[i] == nullptr) {
-        continue;
-      }
-      if (arr->buffers[i]->size() == 0) {
-        continue;
-      }
-      if (arr->buffers[i]->size() < 8) {
-        return Status::Invalid(
-            "Likely corrupted message, compressed buffers "
-            "are larger than 8 bytes by construction");
-      }
-      const uint8_t* data = arr->buffers[i]->data();
-      int64_t compressed_size = arr->buffers[i]->size() - sizeof(int64_t);
-      int64_t uncompressed_size =
-          BitUtil::FromLittleEndian(util::SafeLoadAs<int64_t>(data));
-
-      ARROW_ASSIGN_OR_RAISE(auto uncompressed,
-                            AllocateBuffer(uncompressed_size, options.memory_pool));
-
-      int64_t actual_decompressed;
-      ARROW_ASSIGN_OR_RAISE(
-          actual_decompressed,
-          codec->Decompress(compressed_size, data + sizeof(int64_t), uncompressed_size,
-                            uncompressed->mutable_data()));
-      if (actual_decompressed != uncompressed_size) {
-        return Status::Invalid("Failed to fully decompress buffer, expected ",
-                               uncompressed_size, " bytes but decompressed ",
-                               actual_decompressed);
-      }
-      arr->buffers[i] = std::move(uncompressed);
-    }
-    return Status::OK();
-  };
-
   return ::arrow::internal::OptionalParallelFor(
-      options.use_threads, static_cast<int>(fields->size()), DecompressOne);
+      options.use_threads, static_cast<int>(buffers.size()), [&](int i) {
+        ARROW_ASSIGN_OR_RAISE(*buffers[i],
+                              DecompressBuffer(*buffers[i], options, codec.get()));
+        return Status::OK();
+      });
 }
 
 Result<std::shared_ptr<RecordBatch>> LoadRecordBatchSubset(
