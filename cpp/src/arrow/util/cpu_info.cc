@@ -305,8 +305,9 @@ void CpuInfo::Init() {
   sysctlbyname("hw.cachesize", NULL, &len, NULL, 0);
   uint64_t* data = static_cast<uint64_t*>(malloc(len));
   sysctlbyname("hw.cachesize", data, &len, NULL, 0);
-  DCHECK_GE(len / sizeof(uint64_t), 3);
-  for (size_t i = 0; i < 3; ++i) {
+  DCHECK_GE(len / sizeof(uint64_t), 4);
+  // first number is the size of the available ram
+  for (size_t i = 1; i < 4; ++i) {
     cache_sizes_[i] = data[i];
   }
 #elif _WIN32
