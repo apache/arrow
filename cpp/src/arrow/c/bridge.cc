@@ -505,7 +505,7 @@ struct ArrayExporter {
   Status Export(const std::shared_ptr<ArrayData>& data) {
     // Force computing null count.
     // This is because ARROW-9037 is in version 0.17 and 0.17.1, and they are
-    // not able to import arrays without a nullbitmap and null_count == -1.
+    // not able to import arrays without a null bitmap and null_count == -1.
     data->GetNullCount();
     // Store buffer pointers
     export_.buffers_.resize(data->buffers.size());
