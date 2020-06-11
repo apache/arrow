@@ -50,6 +50,8 @@ jobs:
         archery docker push ${BUILD_IMAGE} || :
         {% endif %}
       env:
+        ARCHERY_DOCKER_USER: $(ARCHERY_DOCKER_USER)
+        ARCHERY_DOCKER_PASSWORD: $(ARCHERY_DOCKER_PASSWORD)
         DOCKER_BUILDKIT: 0
         COMPOSE_DOCKER_CLI_BUILD: 1
       displayName: Build wheel
