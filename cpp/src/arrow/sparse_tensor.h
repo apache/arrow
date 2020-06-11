@@ -516,6 +516,9 @@ class ARROW_EXPORT SparseCSFIndex : public internal::SparseIndexBase<SparseCSFIn
 class ARROW_EXPORT SparseTensor {
  public:
   /// \brief Automatic detection of index data types for the given shape
+  ///
+  /// This utility function can be used to detect a data type that is used for making
+  /// scipy-compatible sparse matrices.
   static Result<std::vector<std::shared_ptr<DataType>>> DetectMinimumIndexDataTypes(
       const std::vector<int64_t>& shape);
 
