@@ -565,6 +565,39 @@ static inline bool ParseTimestampStrptime(const char* buf, size_t length,
   return true;
 }
 
+/// \brief Returns time since the UNIX epoch in the requested unit. Takes null terminated
+/// buffer as argument
+static inline bool ParseTimestampStrptimeFromCString(const char* buf, size_t length,
+                                                     const char* format,
+                                                     bool ignore_time_in_day,
+                                                     bool allow_trailing_chars,
+                                                     TimeUnit::type unit, int64_t* out) {
+  // NOTE: strptime() is more than 10x faster than arrow_vendored::date::parse().
+  struct tm result;
+  memset(&result, 0, sizeof(struct tm));
+#ifdef _WIN32
+  char* ret = arrow_strptime(buf, format, &result);
+#else
+  char* ret = strptime(buf, format, &result);
+#endif
+  if (ret == NULLPTR) {
+    return false;
+  }
+  if (!allow_trailing_chars && static_cast<size_t>(ret - buf) != length) {
+    return false;
+  }
+  // ignore the time part
+  arrow_vendored::date::sys_seconds secs =
+      arrow_vendored::date::sys_days(arrow_vendored::date::year(result.tm_year + 1900) /
+                                     (result.tm_mon + 1) / result.tm_mday);
+  if (!ignore_time_in_day) {
+    secs += (std::chrono::hours(result.tm_hour) + std::chrono::minutes(result.tm_min) +
+             std::chrono::seconds(result.tm_sec));
+  }
+  *out = detail::ConvertTimePoint(secs, unit);
+  return true;
+}
+
 /// \brief Parsing options for timestamps
 struct ParseTimestampContext {
   TimeUnit::type unit;
