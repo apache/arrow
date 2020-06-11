@@ -40,39 +40,18 @@ use TimeUnit::*;
 /// Concatenate multiple `ArrayRef` with the same type.
 ///
 /// Returns a new ArrayRef.
-pub fn concat(array_list: &Vec<ArrayRef>) -> Result<ArrayRef> {
-    let mut data_type: Option<DataType> = None;
+pub fn concat(array_list: &[ArrayRef]) -> Result<ArrayRef> {
+    if array_list.is_empty() {
+        return Err(ArrowError::ComputeError(
+            "concat requires input of at least one array".to_string(),
+        ));
+    }
     let array_data_list = &array_list
         .iter()
-        .map(|a| {
-            let array_data = a.data_ref().clone();
-            let curr_data_type = array_data.data_type().clone();
-            match &data_type {
-                Some(t) => {
-                    if t != &curr_data_type {
-                        return Err(ArrowError::ComputeError(
-                            "Cannot concat arrays with different data types".to_string(),
-                        ));
-                    }
-                }
-                None => {
-                    data_type = Some(curr_data_type);
-                }
-            }
-            Ok(array_data)
-        })
-        .collect::<Result<Vec<ArrayDataRef>>>()?;
+        .map(|a| a.data_ref().clone())
+        .collect::<Vec<ArrayDataRef>>();
 
-    let data_type = match data_type {
-        None => {
-            return Err(ArrowError::ComputeError(
-                "cocat requires input of at least one array".to_string(),
-            ));
-        }
-        Some(t) => t,
-    };
-
-    match data_type {
+    match array_data_list[0].data_type() {
         DataType::Utf8 => {
             let mut builder = StringArray::builder(0);
             builder.append_data(array_data_list)?;
@@ -135,7 +114,10 @@ pub fn concat(array_list: &Vec<ArrayRef>) -> Result<ArrayRef> {
         DataType::Duration(TimeUnit::Nanosecond) => {
             concat_primitive::<DurationNanosecondType>(array_data_list)
         }
-        t => unimplemented!("Concat not supported for data type {:?}", t),
+        t => Err(ArrowError::ComputeError(format!(
+            "Concat not supported for data type {:?}",
+            t
+        ))),
     }
 }
 

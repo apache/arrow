@@ -1260,6 +1260,11 @@ impl BinaryArray {
     fn value_offset_at(&self, i: usize) -> i32 {
         unsafe { *self.value_offsets.get().add(i) }
     }
+
+    // Returns a new binary array builder
+    pub fn builder(capacity: usize) -> BinaryBuilder {
+        BinaryBuilder::new(capacity)
+    }
 }
 
 impl StringArray {
