@@ -89,15 +89,16 @@ class FSSpecHandler(FileSystemHandler):
 
     @staticmethod
     def _create_file_info(path, info):
+        size = info["size"]
         if info["type"] == "file":
             ftype = FileType.File
         elif info["type"] == "directory":
             ftype = FileType.Directory
+            # some fsspec filesystems include a file size for directories
+            size = None
         else:
             ftype = FileType.Unknown
-        return FileInfo(
-            path, ftype, size=info["size"], mtime=info.get("mtime", None)
-        )
+        return FileInfo(path, ftype, size=size, mtime=info.get("mtime", None))
 
     def get_file_info(self, paths):
         infos = []
@@ -151,6 +152,8 @@ class FSSpecHandler(FileSystemHandler):
     def delete_file(self, path):
         # fs.rm correctly raises IsADirectoryError when `path` is a directory
         # instead of a file and `recursive` is not set to True
+        if not self.fs.exists(path):
+            raise FileNotFoundError(path)
         self.fs.rm(path)
 
     def move(self, src, dest):

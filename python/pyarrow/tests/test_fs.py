@@ -382,10 +382,10 @@ def hdfs(request, hdfs_connection):
         pytest.lazy_fixture('py_fsspec_localfs'),
         id='PyFileSystem(FSSpecHandler(fsspec.LocalFileSystem()))'
     ),
-    # pytest.param(
-    #     pytest.lazy_fixture('py_fsspec_memoryfs'),
-    #     id='PyFileSystem(FSSpecHandler(fsspec.filesystem("memory")))'
-    # ),
+    pytest.param(
+        pytest.lazy_fixture('py_fsspec_memoryfs'),
+        id='PyFileSystem(FSSpecHandler(fsspec.filesystem("memory")))'
+    ),
     # pytest.param(
     #     pytest.lazy_fixture('py_fsspec_s3fs'),
     #     id='PyFileSystem(FSSpecHandler(s3fs.S3FileSystem()))'
@@ -577,8 +577,7 @@ def test_get_file_info(fs, pathfn):
     assert 'aaa' in repr(aaa_info)
     assert aaa_info.extension == ''
     assert 'FileType.Directory' in repr(aaa_info)
-    # TODO fsspec gives a size for directories
-    # assert aaa_info.size is None
+    assert aaa_info.size is None
     check_mtime_or_absent(aaa_info)
 
     assert bb_info.path == str(bb)
@@ -587,7 +586,8 @@ def test_get_file_info(fs, pathfn):
     assert bb_info.type == FileType.File
     assert 'FileType.File' in repr(bb_info)
     assert bb_info.size == 0
-    check_mtime(bb_info)
+    if fs.type_name != "py::fsspec+memory":
+        check_mtime(bb_info)
 
     assert c_info.path == str(c)
     assert c_info.base_name == 'c.txt'
@@ -595,7 +595,8 @@ def test_get_file_info(fs, pathfn):
     assert c_info.type == FileType.File
     assert 'FileType.File' in repr(c_info)
     assert c_info.size == 4
-    check_mtime(c_info)
+    if fs.type_name != "py::fsspec+memory":
+        check_mtime(c_info)
 
     assert zzz_info.path == str(zzz)
     assert zzz_info.base_name == 'zzz'
@@ -633,7 +634,7 @@ def test_get_file_info_with_selector(fs, pathfn):
                 assert info.type == FileType.File
             elif info.path.endswith(file_b):
                 assert info.type == FileType.File
-            elif info.path.endswith(dir_a):
+            elif info.path.rstrip("/").endswith(dir_a):
                 assert info.type == FileType.Directory
             else:
                 raise ValueError('unexpected path {}'.format(info.path))
