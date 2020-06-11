@@ -298,8 +298,11 @@ inline void TensorCollectNonZeroIndices(const Tensor& tensor,
   constexpr c_type zero = c_type(0);
   std::vector<std::vector<int64_t>> non_zero_indices;
   std::vector<int64_t> index(tensor.ndim(), 0);
+
+  const auto size = tensor.size();
   const auto& shape = tensor.shape();
-  while (index != shape) {
+
+  for (int64_t i = 0; i < size; ++i) {
     if (tensor.Value<TYPE>(index) != zero) {
       non_zero_indices.push_back(index);
     }

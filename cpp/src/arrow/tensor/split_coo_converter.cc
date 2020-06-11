@@ -207,20 +207,11 @@ class SparseSplitCOOTensorConverter {
   Status ConvertND() {
     DCHECK_GE(tensor_.ndim(), 2);
 
-    constexpr c_value_type zero = c_value_type(0);
     const auto ndim = tensor_.ndim();
-    const auto size = tensor_.size();
-    const auto& shape = tensor_.shape();
 
     // Collect non-zero indices
     std::vector<std::vector<int64_t>> non_zero_indices;
-    std::vector<int64_t> index(ndim, 0);
-    for (int64_t i = 0; i < size; ++i) {
-      if (tensor_.Value<ValueType>(index) != zero) {
-        non_zero_indices.push_back(index);
-      }
-      Tensor::IncrementIndex(index, shape);
-    }
+    ARROW_ASSIGN_OR_RAISE(non_zero_indices, tensor_.NonZeroIndices());
 
     const auto non_zero_count = non_zero_indices.size();
 
