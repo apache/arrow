@@ -168,17 +168,27 @@ std::shared_ptr<RecordBatch> RecordBatch::Make(
 
 Result<std::shared_ptr<RecordBatch>> RecordBatch::FromStructArray(
     const std::shared_ptr<Array>& array) {
-  // TODO fail if null_count != 0?
   if (array->type_id() != Type::STRUCT) {
     return Status::Invalid("Cannot construct record batch from array of type ",
                            *array->type());
+  }
+  if (array->null_count() != 0) {
+    return Status::Invalid(
+        "Unable to construct record batch from a StructArray with non-zero nulls.");
   }
   return Make(arrow::schema(array->type()->fields()), array->length(),
               array->data()->child_data);
 }
 
 Result<std::shared_ptr<Array>> RecordBatch::ToStructArray() const {
-  return StructArray::Make(columns(), schema()->fields());
+  if (num_columns() != 0) {
+    return StructArray::Make(columns(), schema()->fields());
+  }
+  return std::make_shared<StructArray>(arrow::struct_({}), num_rows_,
+                                       std::vector<std::shared_ptr<Array>>{},
+                                       /*null_bitmap=*/nullptr,
+                                       /*null_count=*/0,
+                                       /*offset=*/0);
 }
 
 std::vector<std::shared_ptr<Array>> RecordBatch::columns() const {
