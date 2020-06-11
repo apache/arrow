@@ -47,6 +47,7 @@ from pyarrow._flight import (  # noqa:F401
     FlightUnauthenticatedError,
     FlightUnauthorizedError,
     FlightUnavailableError,
+    FlightWriteSizeExceededError,
     GeneratorStream,
     Location,
     MetadataRecordBatchReader,

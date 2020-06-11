@@ -33,6 +33,7 @@
 #include "arrow/flight/api.h"
 #include "arrow/ipc/test_common.h"
 #include "arrow/status.h"
+#include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 #include "arrow/util/make_unique.h"
@@ -323,7 +324,7 @@ Status MakeServer(std::unique_ptr<FlightServerBase>* server,
   RETURN_NOT_OK((*server)->Init(server_options));
   Location real_location;
   RETURN_NOT_OK(Location::ForGrpcTcp("localhost", (*server)->port(), &real_location));
-  FlightClientOptions client_options;
+  FlightClientOptions client_options = FlightClientOptions::Defaults();
   RETURN_NOT_OK(make_client_options(&client_options));
   return FlightClient::Connect(real_location, client_options, client);
 }
@@ -1365,6 +1366,46 @@ TEST_F(TestDoPut, DoPutDicts) {
   }
 
   CheckDoPut(descr, schema, batches);
+}
+
+TEST_F(TestDoPut, DoPutSizeLimit) {
+  const int64_t size_limit = 4096;
+  Location location;
+  ASSERT_OK(Location::ForGrpcTcp("localhost", server_->port(), &location));
+  FlightClientOptions client_options;
+  client_options.write_size_limit_bytes = size_limit;
+  std::unique_ptr<FlightClient> client;
+  ASSERT_OK(FlightClient::Connect(location, client_options, &client));
+
+  auto descr = FlightDescriptor::Path({"ints"});
+  // Batch is too large to fit in one message
+  auto schema = arrow::schema({field("f1", arrow::int64())});
+  auto batch = arrow::ConstantArrayGenerator::Zeroes(768, schema);
+  BatchVector batches;
+  batches.push_back(batch->Slice(0, 384));
+  batches.push_back(batch->Slice(384));
+
+  std::unique_ptr<FlightStreamWriter> stream;
+  std::unique_ptr<FlightMetadataReader> reader;
+  ASSERT_OK(client->DoPut(descr, schema, &stream, &reader));
+
+  // Large batch will exceed the limit
+  const auto status = stream->WriteRecordBatch(*batch);
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("exceeded soft limit"),
+                                  status);
+  auto detail = FlightWriteSizeStatusDetail::UnwrapStatus(status);
+  ASSERT_NE(nullptr, detail);
+  ASSERT_EQ(size_limit, detail->limit());
+  ASSERT_GT(detail->actual(), size_limit);
+
+  // But we can retry with a smaller batch
+  for (const auto& batch : batches) {
+    ASSERT_OK(stream->WriteRecordBatch(*batch));
+  }
+
+  ASSERT_OK(stream->DoneWriting());
+  ASSERT_OK(stream->Close());
+  CheckBatches(descr, batches);
 }
 
 TEST_F(TestAuthHandler, PassAuthenticatedCalls) {

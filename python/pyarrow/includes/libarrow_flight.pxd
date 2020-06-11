@@ -292,6 +292,7 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         c_string private_key
         c_string override_hostname
         vector[shared_ptr[CClientMiddlewareFactory]] middleware
+        int64_t write_size_limit_bytes
 
     cdef cppclass CFlightClient" arrow::flight::FlightClient":
         @staticmethod
@@ -351,6 +352,15 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
 
         @staticmethod
         shared_ptr[FlightStatusDetail] UnwrapStatus(const CStatus& status)
+
+    cdef cppclass FlightWriteSizeStatusDetail\
+            " arrow::flight::FlightWriteSizeStatusDetail":
+        int64_t limit()
+        int64_t actual()
+
+        @staticmethod
+        shared_ptr[FlightWriteSizeStatusDetail] UnwrapStatus(
+            const CStatus& status)
 
     cdef CStatus MakeFlightError" arrow::flight::MakeFlightError" \
         (CFlightStatusCode code, const c_string& message)

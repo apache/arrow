@@ -60,6 +60,27 @@ class ARROW_FLIGHT_EXPORT FlightCallOptions {
   TimeoutDuration timeout;
 };
 
+/// \brief Indicate that the client attempted to write a message
+///     larger than the soft limit set via write_size_limit_bytes.
+class ARROW_FLIGHT_EXPORT FlightWriteSizeStatusDetail : public arrow::StatusDetail {
+ public:
+  explicit FlightWriteSizeStatusDetail(int64_t limit, int64_t actual)
+      : limit_(limit), actual_(actual) {}
+  const char* type_id() const override;
+  std::string ToString() const override;
+  int64_t limit() const { return limit_; }
+  int64_t actual() const { return actual_; }
+
+  /// \brief Extract this status detail from a status, or return
+  ///     nullptr if the status doesn't contain this status detail.
+  static std::shared_ptr<FlightWriteSizeStatusDetail> UnwrapStatus(
+      const arrow::Status& status);
+
+ private:
+  int64_t limit_;
+  int64_t actual_;
+};
+
 class ARROW_FLIGHT_EXPORT FlightClientOptions {
  public:
   /// \brief Root certificates to use for validating server
@@ -73,6 +94,16 @@ class ARROW_FLIGHT_EXPORT FlightClientOptions {
   std::string private_key;
   /// \brief A list of client middleware to apply.
   std::vector<std::shared_ptr<ClientMiddlewareFactory>> middleware;
+  /// \brief A soft limit on the number of bytes to write in a single
+  ///     batch when sending Arrow data to a server.
+  ///
+  /// Used to help limit server memory consumption. Only enabled if
+  /// positive. When enabled, FlightStreamWriter.Write* may yield a
+  /// IOError with error detail FlightWriteSizeStatusDetail.
+  int64_t write_size_limit_bytes;
+
+  /// \brief Get default options.
+  static FlightClientOptions Defaults();
 };
 
 /// \brief A RecordBatchReader exposing Flight metadata and cancel
