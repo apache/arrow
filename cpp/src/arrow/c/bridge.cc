@@ -504,6 +504,8 @@ void ReleaseExportedArray(struct ArrowArray* array) {
 struct ArrayExporter {
   Status Export(const std::shared_ptr<ArrayData>& data) {
     // Force computing null count.
+    // This is because ARROW-9037 is in version 0.17 and 0.17.1, and they are
+    // not able to import arrays without a null bitmap and null_count == -1.
     data->GetNullCount();
     // Store buffer pointers
     export_.buffers_.resize(data->buffers.size());
@@ -1200,7 +1202,7 @@ struct ArrayImporter {
 
   Result<std::shared_ptr<RecordBatch>> MakeRecordBatch(std::shared_ptr<Schema> schema) {
     DCHECK_NE(data_, nullptr);
-    if (data_->null_count != 0) {
+    if (data_->GetNullCount() != 0) {
       return Status::Invalid(
           "ArrowArray struct has non-zero null count, "
           "cannot be imported as RecordBatch");
