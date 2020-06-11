@@ -238,7 +238,6 @@ def test_sparse_coo_tensor_from_dense(dtype_str, arrow_type):
 
     # Test from numpy array
     sparse_tensor = pa.SparseCOOTensor.from_dense_numpy(array)
-    repr(sparse_tensor)
     result_data, result_coords = sparse_tensor.to_numpy()
     assert sparse_tensor.type == arrow_type
     assert np.array_equal(expected_data, result_data)
@@ -246,7 +245,6 @@ def test_sparse_coo_tensor_from_dense(dtype_str, arrow_type):
 
     # Test from Tensor
     sparse_tensor = pa.SparseCOOTensor.from_tensor(tensor)
-    repr(sparse_tensor)
     result_data, result_coords = sparse_tensor.to_numpy()
     assert sparse_tensor.type == arrow_type
     assert np.array_equal(expected_data, result_data)
@@ -271,7 +269,6 @@ def test_sparse_split_coo_tensor_from_dense(dtype_str, arrow_type):
 
     # Test from numpy array
     sparse_tensor = pa.SparseSplitCOOTensor.from_dense_numpy(array)
-    repr(sparse_tensor)
     result_data, result_indices = sparse_tensor.to_numpy()
     assert sparse_tensor.type == arrow_type
     assert np.array_equal(expected_data, result_data)
@@ -279,7 +276,6 @@ def test_sparse_split_coo_tensor_from_dense(dtype_str, arrow_type):
 
     # Test from Tensor
     sparse_tensor = pa.SparseSplitCOOTensor.from_tensor(tensor)
-    repr(sparse_tensor)
     result_data, result_indices = sparse_tensor.to_numpy()
     assert sparse_tensor.type == arrow_type
     assert np.array_equal(expected_data, result_data)
@@ -302,7 +298,6 @@ def test_sparse_csr_matrix_from_dense(dtype_str, arrow_type):
 
     # Test from numpy array
     sparse_tensor = pa.SparseCSRMatrix.from_dense_numpy(array)
-    repr(sparse_tensor)
     result_data, result_indptr, result_indices = sparse_tensor.to_numpy()
     assert sparse_tensor.type == arrow_type
     assert np.array_equal(data, result_data)
@@ -311,7 +306,6 @@ def test_sparse_csr_matrix_from_dense(dtype_str, arrow_type):
 
     # Test from Tensor
     sparse_tensor = pa.SparseCSRMatrix.from_tensor(tensor)
-    repr(sparse_tensor)
     result_data, result_indptr, result_indices = sparse_tensor.to_numpy()
     assert sparse_tensor.type == arrow_type
     assert np.array_equal(data, result_data)
@@ -337,7 +331,6 @@ def test_sparse_csf_tensor_from_dense_numpy(dtype_str, arrow_type):
 
     # Test from numpy array
     sparse_tensor = pa.SparseCSFTensor.from_dense_numpy(array)
-    repr(sparse_tensor)
     result_data, result_indptr, result_indices = sparse_tensor.to_numpy()
     assert sparse_tensor.type == arrow_type
     assert np.array_equal(data, result_data)
@@ -365,7 +358,6 @@ def test_sparse_csf_tensor_from_dense_tensor(dtype_str, arrow_type):
 
     # Test from Tensor
     sparse_tensor = pa.SparseCSFTensor.from_tensor(tensor)
-    repr(sparse_tensor)
     result_data, result_indptr, result_indices = sparse_tensor.to_numpy()
     assert sparse_tensor.type == arrow_type
     assert np.array_equal(data, result_data)
@@ -387,7 +379,6 @@ def test_sparse_coo_tensor_numpy_roundtrip(dtype_str, arrow_type):
 
     sparse_tensor = pa.SparseCOOTensor.from_numpy(data, coords, shape,
                                                   dim_names)
-    repr(sparse_tensor)
     result_data, result_coords = sparse_tensor.to_numpy()
     assert sparse_tensor.type == arrow_type
     assert np.array_equal(data, result_data)
@@ -408,7 +399,6 @@ def test_sparse_split_coo_tensor_numpy_roundtrip(dtype_str, arrow_type):
 
     sparse_tensor = pa.SparseSplitCOOTensor.from_numpy(data, indices, shape,
                                                        dim_names)
-    repr(sparse_tensor)
     result_data, result_indices = sparse_tensor.to_numpy()
     assert sparse_tensor.type == arrow_type
     assert np.array_equal(data, result_data)
@@ -427,7 +417,6 @@ def test_sparse_csr_matrix_numpy_roundtrip(dtype_str, arrow_type):
 
     sparse_tensor = pa.SparseCSRMatrix.from_numpy(data, indptr, indices,
                                                   shape, dim_names)
-    repr(sparse_tensor)
     result_data, result_indptr, result_indices = sparse_tensor.to_numpy()
     assert sparse_tensor.type == arrow_type
     assert np.array_equal(data, result_data)
@@ -452,7 +441,6 @@ def test_sparse_csf_tensor_numpy_roundtrip(dtype_str, arrow_type):
     sparse_tensor = pa.SparseCSFTensor.from_numpy(data, indptr, indices,
                                                   shape, axis_order,
                                                   dim_names)
-    repr(sparse_tensor)
     result_data, result_indptr, result_indices = sparse_tensor.to_numpy()
     assert sparse_tensor.type == arrow_type
     assert np.array_equal(data, result_data)
