@@ -21,7 +21,8 @@ from pyarrow._compute import (  # noqa
     Function,
     FunctionRegistry,
     function_registry,
-    call_function
+    call_function,
+    TakeOptions
 )
 import pyarrow._compute as _pc
 
@@ -153,7 +154,7 @@ def filter(data, mask, null_selection_behavior='drop'):
     return call_function('filter', [data, mask], options)
 
 
-def take(data, indices):
+def take(data, indices, boundscheck=True):
     """
     Select values (or records) from array- or table-like data given integer
     selection indices.
@@ -168,6 +169,9 @@ def take(data, indices):
     data : Array, ChunkedArray, RecordBatch, or Table
     indices : Array, ChunkedArray
         Must be of integer type
+    boundscheck : boolean, default True
+        Whether to boundscheck the indices. If False and there is an out of
+        bounds index, will likely cause the process to crash.
 
     Returns
     -------
@@ -187,4 +191,5 @@ def take(data, indices):
       null
     ]
     """
-    return call_function('take', [data, indices])
+    options = TakeOptions(boundscheck)
+    return call_function('take', [data, indices], options)

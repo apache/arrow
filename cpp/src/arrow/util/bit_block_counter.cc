@@ -21,6 +21,7 @@
 #include <cstdint>
 #include <type_traits>
 
+#include "arrow/buffer.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/ubsan.h"
 
@@ -111,6 +112,18 @@ BitBlockCount BitBlockCounter::NextFourWords() {
   bits_remaining_ -= kFourWordsBits;
   return {256, static_cast<int16_t>(total_popcount)};
 }
+
+OptionalBitBlockCounter::OptionalBitBlockCounter(const uint8_t* validity_bitmap,
+                                                 int64_t offset, int64_t length)
+    : counter_(validity_bitmap, offset, length),
+      position_(0),
+      length_(length),
+      has_bitmap_(validity_bitmap != nullptr) {}
+
+OptionalBitBlockCounter::OptionalBitBlockCounter(
+    const std::shared_ptr<Buffer>& validity_bitmap, int64_t offset, int64_t length)
+    : OptionalBitBlockCounter(validity_bitmap ? validity_bitmap->data() : nullptr, offset,
+                              length) {}
 
 BitBlockCount BinaryBitBlockCounter::NextAndWord() {
   if (!bits_remaining_) {

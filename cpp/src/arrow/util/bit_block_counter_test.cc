@@ -217,11 +217,8 @@ TEST(TestBinaryBitBlockCounter, NextAndWord) {
     BinaryBitBlockCounter counter(left->data(), left_offset, right->data(), right_offset,
                                   overlap_length);
     int64_t position = 0;
-    while (true) {
+    do {
       BitBlockCount block = counter.NextAndWord();
-      if (block.length == 0) {
-        break;
-      }
       int expected_popcount = 0;
       for (int j = 0; j < block.length; ++j) {
         expected_popcount +=
@@ -230,7 +227,7 @@ TEST(TestBinaryBitBlockCounter, NextAndWord) {
       }
       ASSERT_EQ(block.popcount, expected_popcount);
       position += block.length;
-    }
+    } while (position < overlap_length);
     // We made it through all the data
     ASSERT_EQ(position, overlap_length);
 
@@ -244,6 +241,29 @@ TEST(TestBinaryBitBlockCounter, NextAndWord) {
       CheckWithOffsets(left_i, right_i);
     }
   }
+}
+
+TEST(TestOptionalBitBlockCounter, Basics) {
+  const int64_t nbytes = 1024;
+  auto bitmap = *AllocateBitmap(nbytes * 8);
+  random_bytes(nbytes, 0, bitmap->mutable_data());
+
+  OptionalBitBlockCounter optional_counter(bitmap, 0, nbytes * 8);
+  BitBlockCounter bit_counter(bitmap->data(), 0, nbytes * 8);
+
+  while (true) {
+    BitBlockCount block = bit_counter.NextWord();
+    BitBlockCount optional_block = optional_counter.NextBlock();
+    ASSERT_EQ(optional_block.length, block.length);
+    ASSERT_EQ(optional_block.popcount, block.popcount);
+    if (block.length == 0) {
+      break;
+    }
+  }
+
+  BitBlockCount optional_block = optional_counter.NextBlock();
+  ASSERT_EQ(optional_block.length, 0);
+  ASSERT_EQ(optional_block.popcount, 0);
 }
 
 }  // namespace internal

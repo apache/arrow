@@ -39,7 +39,7 @@ struct FilterParams {
   const double filter_null_proportion;
 };
 
-std::vector<int64_t> g_data_sizes = {kL1Size, 1 << 20};
+std::vector<int64_t> g_data_sizes = {kL2Size};
 
 // The benchmark state parameter references this vector of cases. Test high and
 // low selectivity filters.
@@ -87,46 +87,36 @@ struct TakeBenchmark {
   TakeBenchmark(benchmark::State& state, bool indices_have_nulls,
                 bool monotonic_indices = false)
       : state(state),
-        args(state),
+        args(state, /*size_is_bytes=*/false),
         rand(kSeed),
         indices_have_nulls(indices_have_nulls),
-        monotonic_indices(false) {}
+        monotonic_indices(monotonic_indices) {}
 
   void Int64() {
-    const int64_t array_size = args.size / sizeof(int64_t);
-    auto values = rand.Int64(array_size, -100, 100, args.null_proportion);
+    auto values = rand.Int64(args.size, -100, 100, args.null_proportion);
     Bench(values);
   }
 
   void FSLInt64() {
-    const int64_t array_size = args.size / sizeof(int64_t);
-    auto int_array = rand.Int64(array_size, -100, 100, args.null_proportion);
+    auto int_array = rand.Int64(args.size, -100, 100, args.null_proportion);
     auto values = std::make_shared<FixedSizeListArray>(
-        fixed_size_list(int64(), 1), array_size, int_array, int_array->null_bitmap(),
+        fixed_size_list(int64(), 1), args.size, int_array, int_array->null_bitmap(),
         int_array->null_count());
     Bench(values);
   }
 
   void String() {
     int32_t string_min_length = 0, string_max_length = 32;
-    int32_t string_mean_length = (string_max_length + string_min_length) / 2;
-    // for an array of 50% null strings, we need to generate twice as many strings
-    // to ensure that they have an average of args.size total characters
-    int64_t array_size = args.size;
-    if (args.null_proportion < 1) {
-      array_size = static_cast<int64_t>(args.size / string_mean_length /
-                                        (1 - args.null_proportion));
-    }
     auto values = std::static_pointer_cast<StringArray>(rand.String(
-        array_size, string_min_length, string_max_length, args.null_proportion));
+        args.size, string_min_length, string_max_length, args.null_proportion));
     Bench(values);
   }
 
   void Bench(const std::shared_ptr<Array>& values) {
-    bool indices_null_proportion = indices_have_nulls ? args.null_proportion : 0;
+    double indices_null_proportion = indices_have_nulls ? args.null_proportion : 0;
     auto indices =
-        rand.Int32(static_cast<int32_t>(values->length()), 0,
-                   static_cast<int32_t>(values->length() - 1), indices_null_proportion);
+        rand.Int32(values->length(), 0, static_cast<int32_t>(values->length() - 1),
+                   indices_null_proportion);
 
     if (monotonic_indices) {
       auto arg_sorter = *SortToIndices(*indices);
@@ -269,7 +259,7 @@ BENCHMARK(FilterStringFilterWithNulls)->Apply(FilterSetArgs);
 
 void TakeSetArgs(benchmark::internal::Benchmark* bench) {
   for (int64_t size : g_data_sizes) {
-    for (auto nulls : std::vector<ArgsType>({1000, 100, 50, 10, 1, 0})) {
+    for (auto nulls : std::vector<ArgsType>({1000, 10, 2, 1, 0})) {
       bench->Args({static_cast<ArgsType>(size), nulls});
     }
   }
@@ -277,12 +267,12 @@ void TakeSetArgs(benchmark::internal::Benchmark* bench) {
 
 BENCHMARK(TakeInt64RandomIndicesNoNulls)->Apply(TakeSetArgs);
 BENCHMARK(TakeInt64RandomIndicesWithNulls)->Apply(TakeSetArgs);
+BENCHMARK(TakeInt64MonotonicIndices)->Apply(TakeSetArgs);
 BENCHMARK(TakeFSLInt64RandomIndicesNoNulls)->Apply(TakeSetArgs);
 BENCHMARK(TakeFSLInt64RandomIndicesWithNulls)->Apply(TakeSetArgs);
+BENCHMARK(TakeFSLInt64MonotonicIndices)->Apply(TakeSetArgs);
 BENCHMARK(TakeStringRandomIndicesNoNulls)->Apply(TakeSetArgs);
 BENCHMARK(TakeStringRandomIndicesWithNulls)->Apply(TakeSetArgs);
-BENCHMARK(TakeInt64MonotonicIndices)->Apply(TakeSetArgs);
-BENCHMARK(TakeFSLInt64MonotonicIndices)->Apply(TakeSetArgs);
 BENCHMARK(TakeStringMonotonicIndices)->Apply(TakeSetArgs);
 
 }  // namespace compute

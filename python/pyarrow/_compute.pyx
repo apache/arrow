@@ -416,3 +416,14 @@ cdef class FilterOptions(FunctionOptions):
 
     cdef const CFunctionOptions* get_options(self) except NULL:
         return &self.filter_options
+
+
+cdef class TakeOptions(FunctionOptions):
+    cdef:
+        CTakeOptions take_options
+
+    def __init__(self, boundscheck=True):
+        self.take_options.boundscheck = boundscheck
+
+    cdef const CFunctionOptions* get_options(self) except NULL:
+        return &self.take_options

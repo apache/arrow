@@ -65,7 +65,12 @@ Result<Datum> Filter(const Datum& values, const Datum& filter,
                      ExecContext* ctx = NULLPTR);
 
 struct ARROW_EXPORT TakeOptions : public FunctionOptions {
-  static TakeOptions Defaults() { return TakeOptions{}; }
+  explicit TakeOptions(bool boundscheck = true) : boundscheck(boundscheck) {}
+
+  bool boundscheck = true;
+  static TakeOptions BoundsCheck() { return TakeOptions(true); }
+  static TakeOptions NoBoundsCheck() { return TakeOptions(false); }
+  static TakeOptions Defaults() { return BoundsCheck(); }
 };
 
 /// \brief Take from an array of values at indices in another array

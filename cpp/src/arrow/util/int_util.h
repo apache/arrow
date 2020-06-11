@@ -21,9 +21,13 @@
 #include <limits>
 #include <type_traits>
 
+#include "arrow/status.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
+
+struct ArrayData;
+
 namespace internal {
 
 ARROW_EXPORT
@@ -111,6 +115,12 @@ typename std::enable_if<
 UpcastInt(Integer v) {
   return v;
 }
+
+/// \brief Do vectorized boundschecking of integer-type indices. The indices
+/// must be non-nonnegative and strictly less than the passed upper limit
+/// (which is usually the length of an array that is being indexed-into).
+ARROW_EXPORT
+Status IndexBoundsCheck(const ArrayData& indices, uint64_t upper_limit);
 
 }  // namespace internal
 }  // namespace arrow

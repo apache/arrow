@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <algorithm>
 #include <limits>
 #include <memory>
 #include <string>
@@ -41,7 +42,7 @@ void AssertTakeArrays(const std::shared_ptr<Array>& values,
                       const std::shared_ptr<Array>& expected) {
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> actual, Take(*values, *indices));
   ASSERT_OK(actual->ValidateFull());
-  AssertArraysEqual(*expected, *actual);
+  AssertArraysEqual(*expected, *actual, /*verbose=*/true);
 }
 
 Status TakeJSON(const std::shared_ptr<DataType>& type, const std::string& values,
@@ -58,7 +59,7 @@ void CheckTake(const std::shared_ptr<DataType>& type, const std::string& values,
   for (auto index_type : {int8(), uint32()}) {
     ASSERT_OK(TakeJSON(type, values, index_type, indices, &actual));
     ASSERT_OK(actual->ValidateFull());
-    AssertArraysEqual(*ArrayFromJSON(type, expected), *actual);
+    AssertArraysEqual(*ArrayFromJSON(type, expected), *actual, /*verbose=*/true);
   }
 }
 
@@ -70,6 +71,132 @@ void AssertTakeNull(const std::string& values, const std::string& indices,
 void AssertTakeBoolean(const std::string& values, const std::string& indices,
                        const std::string& expected) {
   CheckTake(boolean(), values, indices, expected);
+}
+
+template <typename ValuesType, typename IndexType>
+void ValidateTakeImpl(const std::shared_ptr<Array>& values,
+                      const std::shared_ptr<Array>& indices,
+                      const std::shared_ptr<Array>& result) {
+  using ValuesArrayType = typename TypeTraits<ValuesType>::ArrayType;
+  using IndexArrayType = typename TypeTraits<IndexType>::ArrayType;
+  auto typed_values = checked_pointer_cast<ValuesArrayType>(values);
+  auto typed_result = checked_pointer_cast<ValuesArrayType>(result);
+  auto typed_indices = checked_pointer_cast<IndexArrayType>(indices);
+  for (int64_t i = 0; i < indices->length(); ++i) {
+    if (typed_indices->IsNull(i) || typed_values->IsNull(typed_indices->Value(i))) {
+      ASSERT_TRUE(result->IsNull(i)) << i;
+    } else {
+      ASSERT_FALSE(result->IsNull(i)) << i;
+      ASSERT_EQ(typed_result->GetView(i), typed_values->GetView(typed_indices->Value(i)))
+          << i;
+    }
+  }
+}
+
+template <typename ValuesType>
+void ValidateTake(const std::shared_ptr<Array>& values,
+                  const std::shared_ptr<Array>& indices) {
+  ASSERT_OK_AND_ASSIGN(Datum out, Take(values, indices));
+  auto taken = out.make_array();
+  ASSERT_OK(taken->ValidateFull());
+  ASSERT_EQ(indices->length(), taken->length());
+  switch (indices->type_id()) {
+    case Type::INT8:
+      ValidateTakeImpl<ValuesType, Int8Type>(values, indices, taken);
+      break;
+    case Type::INT16:
+      ValidateTakeImpl<ValuesType, Int16Type>(values, indices, taken);
+      break;
+    case Type::INT32:
+      ValidateTakeImpl<ValuesType, Int32Type>(values, indices, taken);
+      break;
+    case Type::INT64:
+      ValidateTakeImpl<ValuesType, Int64Type>(values, indices, taken);
+      break;
+    case Type::UINT8:
+      ValidateTakeImpl<ValuesType, UInt8Type>(values, indices, taken);
+      break;
+    case Type::UINT16:
+      ValidateTakeImpl<ValuesType, UInt16Type>(values, indices, taken);
+      break;
+    case Type::UINT32:
+      ValidateTakeImpl<ValuesType, UInt32Type>(values, indices, taken);
+      break;
+    case Type::UINT64:
+      ValidateTakeImpl<ValuesType, UInt64Type>(values, indices, taken);
+      break;
+    default:
+      FAIL() << "Invalid index type";
+      break;
+  }
+}
+
+template <typename T>
+T GetMaxIndex(int64_t values_length) {
+  int64_t max_index = values_length - 1;
+  if (max_index > static_cast<int64_t>(std::numeric_limits<T>::max())) {
+    max_index = std::numeric_limits<T>::max();
+  }
+  return static_cast<T>(max_index);
+}
+
+template <>
+uint64_t GetMaxIndex(int64_t values_length) {
+  return static_cast<uint64_t>(values_length - 1);
+}
+
+template <typename ValuesType, typename IndexType>
+void CheckTakeRandom(const std::shared_ptr<Array>& values, int64_t indices_length,
+                     double null_probability, random::RandomArrayGenerator* rand) {
+  using IndexCType = typename IndexType::c_type;
+  IndexCType max_index = GetMaxIndex<IndexCType>(values->length());
+  auto indices = rand->Numeric<IndexType>(indices_length, static_cast<IndexCType>(0),
+                                          max_index, null_probability);
+  auto indices_no_nulls = rand->Numeric<IndexType>(
+      indices_length, static_cast<IndexCType>(0), max_index, /*null_probability=*/0.0);
+  ValidateTake<ValuesType>(values, indices);
+  ValidateTake<ValuesType>(values, indices_no_nulls);
+  // Sliced indices array
+  if (indices_length >= 2) {
+    indices = indices->Slice(1, indices_length - 2);
+    indices_no_nulls = indices_no_nulls->Slice(1, indices_length - 2);
+    ValidateTake<ValuesType>(values, indices);
+    ValidateTake<ValuesType>(values, indices_no_nulls);
+  }
+}
+
+template <typename ValuesType, typename DataGenerator>
+void DoRandomTakeTests(DataGenerator&& generate_values) {
+  auto rand = random::RandomArrayGenerator(kRandomSeed);
+  for (const int64_t length : {1, 16, 59}) {
+    for (const int64_t indices_length : {0, 5, 30}) {
+      for (const auto null_probability : {0.0, 0.05, 0.25, 0.95, 1.0}) {
+        auto values = generate_values(length, null_probability, &rand);
+        CheckTakeRandom<ValuesType, Int8Type>(values, indices_length, null_probability,
+                                              &rand);
+        CheckTakeRandom<ValuesType, Int16Type>(values, indices_length, null_probability,
+                                               &rand);
+        CheckTakeRandom<ValuesType, Int32Type>(values, indices_length, null_probability,
+                                               &rand);
+        CheckTakeRandom<ValuesType, Int64Type>(values, indices_length, null_probability,
+                                               &rand);
+        CheckTakeRandom<ValuesType, UInt8Type>(values, indices_length, null_probability,
+                                               &rand);
+        CheckTakeRandom<ValuesType, UInt16Type>(values, indices_length, null_probability,
+                                                &rand);
+        CheckTakeRandom<ValuesType, UInt32Type>(values, indices_length, null_probability,
+                                                &rand);
+        CheckTakeRandom<ValuesType, UInt64Type>(values, indices_length, null_probability,
+                                                &rand);
+        // Sliced values array
+        if (length > 2) {
+          values = values->Slice(1, length - 2);
+          CheckTakeRandom<ValuesType, UInt64Type>(values, indices_length,
+                                                  null_probability, &rand);
+        }
+      }
+    }
+  }
 }
 
 template <typename ArrowType>
@@ -104,6 +231,13 @@ TEST(TestTakeKernel, TakeBoolean) {
                 TakeJSON(boolean(), "[true, false, true]", int8(), "[0, -1, 0]", &arr));
 }
 
+TEST(TestTakeKernel, TakeBooleanRandom) {
+  DoRandomTakeTests<BooleanType>(
+      [](int64_t length, double null_probability, random::RandomArrayGenerator* rng) {
+        return rng->Boolean(length, 0.5, null_probability);
+      });
+}
+
 template <typename ArrowType>
 class TestTakeKernelWithNumeric : public TestTakeKernel<ArrowType> {
  protected:
@@ -114,25 +248,6 @@ class TestTakeKernelWithNumeric : public TestTakeKernel<ArrowType> {
 
   std::shared_ptr<DataType> type_singleton() {
     return TypeTraits<ArrowType>::type_singleton();
-  }
-
-  void ValidateTake(const std::shared_ptr<Array>& values,
-                    const std::shared_ptr<Array>& indices_boxed) {
-    ASSERT_OK_AND_ASSIGN(Datum out, Take(values, indices_boxed));
-    auto taken = out.make_array();
-    ASSERT_OK(taken->ValidateFull());
-    ASSERT_EQ(indices_boxed->length(), taken->length());
-
-    ASSERT_EQ(indices_boxed->type_id(), Type::INT32);
-    auto indices = checked_pointer_cast<Int32Array>(indices_boxed);
-    for (int64_t i = 0; i < indices->length(); ++i) {
-      if (indices->IsNull(i)) {
-        ASSERT_TRUE(taken->IsNull(i));
-        continue;
-      }
-      int32_t taken_index = indices->Value(i);
-      ASSERT_TRUE(values->RangeEquals(taken_index, taken_index + 1, i, taken));
-    }
   }
 };
 
@@ -153,19 +268,10 @@ TYPED_TEST(TestTakeKernelWithNumeric, TakeNumeric) {
 }
 
 TYPED_TEST(TestTakeKernelWithNumeric, TakeRandomNumeric) {
-  auto rand = random::RandomArrayGenerator(kRandomSeed);
-  for (size_t i = 3; i < 8; i++) {
-    const int64_t length = static_cast<int64_t>(1ULL << i);
-    for (size_t j = 0; j < 13; j++) {
-      const int64_t indices_length = static_cast<int64_t>(1ULL << j);
-      for (auto null_probability : {0.0, 0.01, 0.25, 1.0}) {
-        auto values = rand.Numeric<TypeParam>(length, 0, 127, null_probability);
-        auto max_index = static_cast<int32_t>(length - 1);
-        auto filter = rand.Int32(indices_length, 0, max_index, null_probability);
-        this->ValidateTake(values, filter);
-      }
-    }
-  }
+  DoRandomTakeTests<TypeParam>(
+      [](int64_t length, double null_probability, random::RandomArrayGenerator* rng) {
+        return rng->Numeric<TypeParam>(length, 0, 127, null_probability);
+      });
 }
 
 template <typename TypeClass>
@@ -179,6 +285,7 @@ class TestTakeKernelWithString : public TestTakeKernel<TypeClass> {
                   const std::string& expected) {
     CheckTake(value_type(), values, indices, expected);
   }
+
   void AssertTakeDictionary(const std::string& dictionary_values,
                             const std::string& dictionary_indices,
                             const std::string& indices,
@@ -211,11 +318,61 @@ TYPED_TEST(TestTakeKernelWithString, TakeString) {
                                      "[2, 5]", &arr));
 }
 
+TEST(TestTakeKernelString, Random) {
+  DoRandomTakeTests<StringType>(
+      [](int64_t length, double null_probability, random::RandomArrayGenerator* rng) {
+        return rng->String(length, 0, 32, null_probability);
+      });
+  DoRandomTakeTests<LargeStringType>(
+      [](int64_t length, double null_probability, random::RandomArrayGenerator* rng) {
+        return rng->LargeString(length, 0, 32, null_probability);
+      });
+}
+
+TEST(TestTakeKernelFixedSizeBinary, Random) {
+  DoRandomTakeTests<FixedSizeBinaryType>([](int64_t length, double null_probability,
+                                            random::RandomArrayGenerator* rng) {
+    const int32_t value_size = 16;
+    int64_t data_nbytes = length * value_size;
+    std::shared_ptr<Buffer> data = *AllocateBuffer(data_nbytes);
+    random_bytes(data_nbytes, /*seed=*/0, data->mutable_data());
+    auto validity = rng->Boolean(length, 1 - null_probability);
+
+    // Assemble the data for a FixedSizeBinaryArray
+    auto values_data = std::make_shared<ArrayData>(fixed_size_binary(value_size), length);
+    values_data->buffers = {validity->data()->buffers[1], data};
+    return MakeArray(values_data);
+  });
+}
+
 TYPED_TEST(TestTakeKernelWithString, TakeDictionary) {
   auto dict = R"(["a", "b", "c", "d", "e"])";
   this->AssertTakeDictionary(dict, "[3, 4, 2]", "[0, 1, 0]", "[3, 4, 3]");
   this->AssertTakeDictionary(dict, "[null, 4, 2]", "[0, 1, 0]", "[null, 4, null]");
   this->AssertTakeDictionary(dict, "[3, 4, 2]", "[null, 1, 0]", "[null, 4, 3]");
+}
+
+class TestTakeKernelFSB : public TestTakeKernel<FixedSizeBinaryType> {
+ public:
+  std::shared_ptr<DataType> value_type() { return fixed_size_binary(3); }
+
+  void AssertTake(const std::string& values, const std::string& indices,
+                  const std::string& expected) {
+    CheckTake(value_type(), values, indices, expected);
+  }
+};
+
+TEST_F(TestTakeKernelFSB, TakeFixedSizeBinary) {
+  this->AssertTake(R"(["aaa", "bbb", "ccc"])", "[0, 1, 0]", R"(["aaa", "bbb", "aaa"])");
+  this->AssertTake(R"([null, "bbb", "ccc"])", "[0, 1, 0]", "[null, \"bbb\", null]");
+  this->AssertTake(R"(["aaa", "bbb", "ccc"])", "[null, 1, 0]", R"([null, "bbb", "aaa"])");
+
+  std::shared_ptr<DataType> type = this->value_type();
+  std::shared_ptr<Array> arr;
+  ASSERT_RAISES(IndexError,
+                TakeJSON(type, R"(["aaa", "bbb", "ccc"])", int8(), "[0, 9, 0]", &arr));
+  ASSERT_RAISES(IndexError, TakeJSON(type, R"(["aaa", "bbb", null, "ddd", "eee"])",
+                                     int64(), "[2, 5]", &arr));
 }
 
 class TestTakeKernelWithList : public TestTakeKernel<ListType> {};
@@ -356,7 +513,9 @@ TEST_F(TestTakeKernelWithStruct, TakeStruct) {
 
 class TestTakeKernelWithUnion : public TestTakeKernel<UnionType> {};
 
-TEST_F(TestTakeKernelWithUnion, TakeUnion) {
+// TODO: Restore Union take functionality
+
+TEST_F(TestTakeKernelWithUnion, DISABLED_TakeUnion) {
   for (auto mode : {UnionMode::SPARSE, UnionMode::DENSE}) {
     auto union_type = union_({field("a", int32()), field("b", utf8())}, {2, 5}, mode);
     auto union_json = R"([
