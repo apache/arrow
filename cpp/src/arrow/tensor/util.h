@@ -22,16 +22,26 @@ namespace internal {
 
 template <typename Int>
 inline char const* ordinal_suffix(const Int n) {
-  switch (n % 10) {
-    case 1:
-      return "st";
-    case 2:
-      return "nd";
-    case 3:
-      return "rd";
+  switch (n % 100) {
+    case 11:
+    case 12:
+    case 13:
+      break;
+
     default:
-      return "th";
+      switch (n % 10) {
+        case 1:
+          return "st";
+        case 2:
+          return "nd";
+        case 3:
+          return "rd";
+        default:
+          break;
+      }
   }
+
+  return "th";
 }
 
 }  // namespace internal
