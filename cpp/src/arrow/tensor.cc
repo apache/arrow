@@ -168,8 +168,8 @@ Status ValidateTensorParameters(const std::shared_ptr<DataType>& type,
 
 }  // namespace internal
 
-inline void Tensor::IncrementIndex(std::vector<int64_t>& index,
-                                   const std::vector<int64_t>& shape) {
+void Tensor::IncrementIndex(std::vector<int64_t>& index,
+                            const std::vector<int64_t>& shape) {
   const int64_t ndim = shape.size();
   ++index[ndim - 1];
   if (index[ndim - 1] == shape[ndim - 1]) {
