@@ -124,7 +124,7 @@ if(gRPCAlt_FOUND)
     # upb is used by recent gRPC versions
     add_library(gRPC::upb UNKNOWN IMPORTED)
     set_target_properties(gRPC::upb
-                          PROPERTIES IMPORTED_LOCATION "${GRPC_ADDRESS_SORTING_LIB}"
+                          PROPERTIES IMPORTED_LOCATION "${GRPC_UPB_LIB}"
                                      INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}")
     set(_GRPCPP_LINK_LIBRARIES "${_GRPCPP_LINK_LIBRARIES};gRPC::upb")
   endif()
