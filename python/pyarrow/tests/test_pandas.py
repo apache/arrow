@@ -3999,10 +3999,11 @@ def test_timestamp_as_object_out_of_range():
 
 
 @pytest.mark.parametrize("resolution", ["s", "ms", "us"])
-def test_timestamp_as_object_explicit_type(resolution):
+# One datetime outside nanosecond range, one inside nanosecond range:
+@pytest.mark.parametrize("dt", [datetime(1553, 1, 1), datetime(2020, 1, 1)])
+def test_timestamp_as_object_explicit_type(resolution, dt):
     # Timestamps can be converted Arrow and reloaded into Pandas with no loss
     # of information if the timestamp_as_object option is True.
-    dt = datetime(1553, 1, 1)
     arr = pa.array([dt], type=pa.timestamp(resolution))
     result = arr.to_pandas(timestamp_as_object=True)
     assert result.dtype == object
