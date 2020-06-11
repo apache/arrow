@@ -63,6 +63,7 @@ function build_wheel {
     mkdir build
     pushd build
     cmake -DARROW_BUILD_SHARED=ON \
+          -DARROW_BUILD_STATIC=OFF \
           -DARROW_BUILD_TESTS=OFF \
           -DARROW_DATASET=ON \
           -DARROW_DEPENDENCY_SOURCE=BUNDLED \
