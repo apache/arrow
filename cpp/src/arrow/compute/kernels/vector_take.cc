@@ -103,7 +103,7 @@ PrimitiveTakeArgs GetPrimitiveTakeArgs(const ExecBatch& batch) {
 }
 
 /// \brief The Take implementation for primitive (fixed-width) types does not
-/// use the logical Arrow type but rather then physical C type. This way we
+/// use the logical Arrow type but rather the physical C type. This way we
 /// only generate one take function for each byte width.
 ///
 /// This function assumes that the indices have been boundschecked.
@@ -153,6 +153,8 @@ struct PrimitiveTakeImpl {
               // index is not null
               BitUtil::SetBit(out_bitmap, out_offset + position);
               out[position] = values[indices[position]];
+            } else {
+              out[position] = ValueCType{};
             }
             ++position;
           }
@@ -169,6 +171,8 @@ struct PrimitiveTakeImpl {
               out[position] = values[indices[position]];
               BitUtil::SetBit(out_bitmap, out_offset + position);
               ++valid_count;
+            } else {
+              out[position] = ValueCType{};
             }
             ++position;
           }
@@ -177,18 +181,19 @@ struct PrimitiveTakeImpl {
           // random access in general we have to check the value nullness one by
           // one.
           for (int64_t i = 0; i < block.length; ++i) {
-            if (BitUtil::GetBit(indices_bitmap, indices_offset + position)) {
-              // index is not null
-              if (BitUtil::GetBit(values_bitmap, values_offset + indices[position])) {
-                // value is not null
-                out[position] = values[indices[position]];
-                BitUtil::SetBit(out_bitmap, out_offset + position);
-                ++valid_count;
-              }
+            if (BitUtil::GetBit(indices_bitmap, indices_offset + position) &&
+                BitUtil::GetBit(values_bitmap, values_offset + indices[position])) {
+              // index is not null && value is not null
+              out[position] = values[indices[position]];
+              BitUtil::SetBit(out_bitmap, out_offset + position);
+              ++valid_count;
+            } else {
+              out[position] = ValueCType{};
             }
             ++position;
           }
         } else {
+          memset(out + position, 0, sizeof(ValueCType) * block.length);
           position += block.length;
         }
       }
@@ -219,6 +224,8 @@ struct BooleanTakeImpl {
     if (args.values_null_count > 0 || args.indices_null_count > 0) {
       BitUtil::SetBitsTo(out_bitmap, out_offset, args.indices_length, false);
     }
+    // Avoid uninitialized data in values array
+    BitUtil::SetBitsTo(out, out_offset, args.indices_length, false);
 
     auto PlaceDataBit = [&](int64_t loc, IndexCType index) {
       BitUtil::SetBitTo(out, out_offset + loc,
@@ -423,20 +430,20 @@ struct GenericTakeImpl {
   template <typename IndexCType, typename ValidVisitor, typename NullVisitor>
   Status VisitIndices(ValidVisitor&& visit_valid, NullVisitor&& visit_null) {
     const auto indices_values = indices->GetValues<IndexCType>(1);
-    const int64_t indices_offset = indices->offset;
     const uint8_t* bitmap = nullptr;
     if (indices->buffers[0]) {
       bitmap = indices->buffers[0]->data();
     }
-    OptionalBitIndexer indices_is_valid(indices->buffers[0], values->offset);
+    OptionalBitIndexer indices_is_valid(indices->buffers[0], indices->offset);
     OptionalBitIndexer values_is_valid(values->buffers[0], values->offset);
+    const bool values_have_nulls = (values->GetNullCount() > 0);
 
-    OptionalBitBlockCounter bit_counter(bitmap, indices_offset, indices->length);
+    OptionalBitBlockCounter bit_counter(bitmap, indices->offset, indices->length);
     int64_t position = 0;
     while (position < indices->length) {
       BitBlockCount block = bit_counter.NextBlock();
       const bool indices_have_nulls = block.popcount < block.length;
-      if (!indices_have_nulls && values->GetNullCount() == 0) {
+      if (!indices_have_nulls && !values_have_nulls) {
         // Fastest path, neither indices nor values have nulls
         validity_builder.UnsafeAppend(block.length, true);
         for (int64_t i = 0; i < block.length; ++i) {
@@ -749,6 +756,8 @@ struct StructTakeImpl : public GenericTakeImpl<StructTakeImpl, StructType> {
     return Status::OK();
   }
 };
+
+#undef LIFT_BASE_MEMBERS
 
 template <typename Impl>
 static void GenericTakeExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {

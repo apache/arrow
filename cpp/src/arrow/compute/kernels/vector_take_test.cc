@@ -24,6 +24,7 @@
 
 #include "arrow/compute/api.h"
 #include "arrow/compute/kernels/test_util.h"
+#include "arrow/pretty_print.h"
 #include "arrow/table.h"
 #include "arrow/testing/gtest_common.h"
 #include "arrow/testing/gtest_util.h"
@@ -84,11 +85,12 @@ void ValidateTakeImpl(const std::shared_ptr<Array>& values,
   auto typed_indices = checked_pointer_cast<IndexArrayType>(indices);
   for (int64_t i = 0; i < indices->length(); ++i) {
     if (typed_indices->IsNull(i) || typed_values->IsNull(typed_indices->Value(i))) {
-      ASSERT_TRUE(result->IsNull(i));
-      continue;
+      ASSERT_TRUE(result->IsNull(i)) << i;
+    } else {
+      ASSERT_FALSE(result->IsNull(i)) << i;
+      ASSERT_EQ(typed_result->GetView(i), typed_values->GetView(typed_indices->Value(i)))
+          << i;
     }
-    ASSERT_EQ(typed_result->GetView(i), typed_values->GetView(typed_indices->Value(i)))
-        << i;
   }
 }
 
@@ -155,16 +157,21 @@ void CheckTakeRandom(const std::shared_ptr<Array>& values, int64_t indices_lengt
       indices_length, static_cast<IndexCType>(0), max_index, /*null_probability=*/0.0);
   ValidateTake<ValuesType>(values, indices);
   ValidateTake<ValuesType>(values, indices_no_nulls);
+  // Sliced indices array
+  if (indices_length >= 2) {
+    indices = indices->Slice(1, indices_length - 2);
+    indices_no_nulls = indices_no_nulls->Slice(1, indices_length - 2);
+    ValidateTake<ValuesType>(values, indices);
+    ValidateTake<ValuesType>(values, indices_no_nulls);
+  }
 }
 
 template <typename ValuesType, typename DataGenerator>
 void DoRandomTakeTests(DataGenerator&& generate_values) {
   auto rand = random::RandomArrayGenerator(kRandomSeed);
-  for (size_t i = 5; i < 10; i++) {
-    const int64_t length = static_cast<int64_t>(1ULL << i);
-    for (size_t j = 7; j < 10; j++) {
-      const int64_t indices_length = static_cast<int64_t>(1ULL << j) - 1;
-      for (auto null_probability : {0.0, 0.01, 0.25, 0.999, 1.0}) {
+  for (const int64_t length : {1, 16, 59}) {
+    for (const int64_t indices_length : {0, 5, 30}) {
+      for (const auto null_probability : {0.0, 0.05, 0.25, 0.95, 1.0}) {
         auto values = generate_values(length, null_probability, &rand);
         CheckTakeRandom<ValuesType, Int8Type>(values, indices_length, null_probability,
                                               &rand);
@@ -182,6 +189,12 @@ void DoRandomTakeTests(DataGenerator&& generate_values) {
                                                 &rand);
         CheckTakeRandom<ValuesType, UInt64Type>(values, indices_length, null_probability,
                                                 &rand);
+        // Sliced values array
+        if (length > 2) {
+          values = values->Slice(1, length - 2);
+          CheckTakeRandom<ValuesType, UInt64Type>(values, indices_length,
+                                                  null_probability, &rand);
+        }
       }
     }
   }

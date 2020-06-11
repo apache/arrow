@@ -22,7 +22,6 @@
 #include <limits>
 #include <memory>
 
-#include "arrow/array/array_base.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/ubsan.h"

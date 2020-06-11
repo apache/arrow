@@ -21,6 +21,7 @@
 #include <cstdint>
 #include <type_traits>
 
+#include "arrow/buffer.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/ubsan.h"
 

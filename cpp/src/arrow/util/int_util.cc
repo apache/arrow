@@ -21,6 +21,8 @@
 #include <cstring>
 #include <limits>
 
+#include "arrow/array/data.h"
+#include "arrow/type.h"
 #include "arrow/util/bit_block_counter.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/logging.h"
