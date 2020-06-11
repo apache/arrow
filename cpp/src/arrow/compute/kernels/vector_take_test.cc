@@ -24,7 +24,6 @@
 
 #include "arrow/compute/api.h"
 #include "arrow/compute/kernels/test_util.h"
-#include "arrow/pretty_print.h"
 #include "arrow/table.h"
 #include "arrow/testing/gtest_common.h"
 #include "arrow/testing/gtest_util.h"

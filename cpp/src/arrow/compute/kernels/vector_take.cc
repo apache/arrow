@@ -545,8 +545,16 @@ struct VarBinaryTakeImpl : public GenericTakeImpl<VarBinaryTakeImpl<Type>, Type>
   Status ProcessIndices() {
     ValuesArrayType typed_values(this->values_as_binary);
 
-    // Start out with at least 64K allocated
-    RETURN_NOT_OK(data_builder.Reserve(1 << 16));
+    // Presize the data builder with a rough estimate of the required data size
+    const auto values_length = values->length;
+    const auto mean_value_length =
+        (values_length > 0) ? ((typed_values.raw_value_offsets()[values_length] -
+                                typed_values.raw_value_offsets()[0]) /
+                               static_cast<double>(values_length))
+                            : 0.0;
+    RETURN_NOT_OK(data_builder.Reserve(static_cast<int64_t>(
+        mean_value_length * (indices->length - indices->GetNullCount()))));
+
     int64_t space_available = data_builder.capacity();
 
     offset_type offset = 0;
@@ -639,6 +647,8 @@ struct ListTakeImpl : public GenericTakeImpl<ListTakeImpl<Type>, Type> {
   template <typename IndexCType>
   Status ProcessIndices() {
     ValuesArrayType typed_values(this->values);
+
+    // TODO presize child_index_builder with a similar heuristic as VarBinaryTakeImpl
 
     offset_type offset = 0;
     auto PushValidIndex = [&](IndexCType index) {

@@ -39,7 +39,7 @@ struct FilterParams {
   const double filter_null_proportion;
 };
 
-std::vector<int64_t> g_data_sizes = {kL1Size};
+std::vector<int64_t> g_data_sizes = {kL2Size};
 
 // The benchmark state parameter references this vector of cases. Test high and
 // low selectivity filters.
