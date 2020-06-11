@@ -2005,6 +2005,7 @@ macro(build_cares)
       -DCARES_STATIC=ON
       -DCARES_SHARED=OFF
       "-DCMAKE_C_FLAGS=${EP_C_FLAGS}"
+      -DCMAKE_INSTALL_LIBDIR=lib
       "-DCMAKE_INSTALL_PREFIX=${CARES_PREFIX}")
 
   externalproject_add(cares_ep
@@ -2056,6 +2057,7 @@ macro(build_grpc)
       -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
       -DCMAKE_CXX_STANDARD=11
       "-DCMAKE_CXX_FLAGS=${EP_CXX_FLAGS}"
+      -DCMAKE_INSTALL_LIBDIR=lib
       "-DCMAKE_INSTALL_PREFIX=${ABSL_PREFIX}")
   set(ABSL_BUILD_BYPRODUCTS)
   set(ABSL_LIBRARIES)
