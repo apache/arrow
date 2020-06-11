@@ -42,6 +42,8 @@ class ARROW_EXPORT CpuInfo {
   static constexpr int64_t AVX = (1 << 6);
   static constexpr int64_t AVX2 = (1 << 7);
   static constexpr int64_t AVX512F = (1 << 8);
+  static constexpr int64_t BMI1 = (1 << 9);
+  static constexpr int64_t BMI2 = (1 << 10);
 
   /// Cache enums for L1 (data), L2 and L3
   enum CacheLevel {

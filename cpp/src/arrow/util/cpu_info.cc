@@ -126,7 +126,8 @@ static struct {
     {"ssse3", CpuInfo::SSSE3},     {"sse4_1", CpuInfo::SSE4_1},
     {"sse4_2", CpuInfo::SSE4_2},   {"popcnt", CpuInfo::POPCNT},
     {"avx", CpuInfo::AVX},         {"avx2", CpuInfo::AVX2},
-    {"avx512f", CpuInfo::AVX512F},
+    {"avx512f", CpuInfo::AVX512F}, {"bmi1", CpuInfo::BMI1},
+    {"bmi2", CpuInfo::BMI2},
 #endif
 #if defined(__aarch64__)
     {"asimd", CpuInfo::ASIMD},
@@ -200,6 +201,7 @@ bool RetrieveCacheSize(int64_t* cache_sizes) {
   return true;
 }
 
+// Source: https://en.wikipedia.org/wiki/CPUID
 bool RetrieveCPUInfo(int64_t* hardware_flags, std::string* model_name) {
   if (!hardware_flags || !model_name) {
     return false;
@@ -246,7 +248,9 @@ bool RetrieveCPUInfo(int64_t* hardware_flags, std::string* model_name) {
     __cpuidex(cpu_info.data(), register_EAX_id, 0);
     std::bitset<32> features_EBX = cpu_info[1];
 
+    if (features_EBX[3]) *hardware_flags |= CpuInfo::BMI1;
     if (features_EBX[5]) *hardware_flags |= CpuInfo::AVX2;
+    if (features_EBX[8]) *hardware_flags |= CpuInfo::BMI2;
     if (features_EBX[16]) *hardware_flags |= CpuInfo::AVX512F;
   }
 
