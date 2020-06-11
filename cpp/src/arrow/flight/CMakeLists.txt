@@ -23,7 +23,7 @@ set(ARROW_FLIGHT_STATIC_LINK_LIBS
     ${ARROW_PROTOBUF_LIBPROTOBUF}
     gRPC::grpc++
     c-ares::cares
-    ${ARROW_USE_OPENSSL}
+    ${ARROW_OPENSSL_LIBS}
     ZLIB::ZLIB)
 
 if(WIN32)
