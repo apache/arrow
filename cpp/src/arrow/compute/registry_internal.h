@@ -40,6 +40,8 @@ void RegisterVectorSort(FunctionRegistry* registry);
 
 // Aggregate functions
 void RegisterScalarAggregateBasic(FunctionRegistry* registry);
+void RegisterScalarAggregateBasicAvx2(FunctionRegistry* registry);
+void RegisterScalarAggregateBasicAvx512(FunctionRegistry* registry);
 
 }  // namespace internal
 }  // namespace compute

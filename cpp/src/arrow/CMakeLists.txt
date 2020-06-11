@@ -360,6 +360,13 @@ if(ARROW_COMPUTE)
               compute/kernels/vector_hash.cc
               compute/kernels/vector_selection.cc
               compute/kernels/vector_sort.cc)
+
+  if(CXX_SUPPORTS_AVX2)
+    list(APPEND ARROW_SRCS compute/kernels/aggregate_basic_avx2.cc)
+  endif()
+  if(CXX_SUPPORTS_AVX512)
+    list(APPEND ARROW_SRCS compute/kernels/aggregate_basic_avx512.cc)
+  endif()
 endif()
 
 if(ARROW_FILESYSTEM)

@@ -26,6 +26,7 @@
 #include "arrow/compute/function.h"
 #include "arrow/compute/registry_internal.h"
 #include "arrow/status.h"
+#include "arrow/util/cpu_info.h"
 
 namespace arrow {
 namespace compute {
@@ -113,6 +114,19 @@ static std::unique_ptr<FunctionRegistry> CreateBuiltInRegistry() {
   RegisterVectorHash(registry.get());
   RegisterVectorSelection(registry.get());
   RegisterVectorSort(registry.get());
+
+  // Register the override version according to cpu feature
+  auto cpu_info = arrow::internal::CpuInfo::GetInstance();
+#if defined(ARROW_HAVE_RUNTIME_AVX2)
+  if (cpu_info->IsSupported(arrow::internal::CpuInfo::AVX2)) {
+    RegisterScalarAggregateBasicAvx2(registry.get());
+  }
+#endif
+#if defined(ARROW_HAVE_RUNTIME_AVX512)
+  if (cpu_info->IsSupported(arrow::internal::CpuInfo::AVX512F)) {
+    RegisterScalarAggregateBasicAvx512(registry.get());
+  }
+#endif
 
   return registry;
 }

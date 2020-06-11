@@ -18,19 +18,13 @@
 #include <cmath>
 
 #include "arrow/compute/api_aggregate.h"
+#include "arrow/compute/kernels/aggregate_basic_internal.h"
 #include "arrow/compute/kernels/aggregate_internal.h"
 #include "arrow/compute/kernels/common.h"
 
 namespace arrow {
 namespace compute {
-
-namespace {
-
-struct ScalarAggregator : public KernelState {
-  virtual void Consume(KernelContext* ctx, const ExecBatch& batch) = 0;
-  virtual void MergeFrom(KernelContext* ctx, const KernelState& src) = 0;
-  virtual void Finalize(KernelContext* ctx, Datum* out) = 0;
-};
+namespace aggregate {
 
 void AggregateConsume(KernelContext* ctx, const ExecBatch& batch) {
   checked_cast<ScalarAggregator*>(ctx->state())->Consume(ctx, batch);
@@ -297,32 +291,6 @@ struct MeanImpl : public SumImpl<ArrowType> {
   }
 };
 
-template <template <typename> class KernelClass>
-struct SumLikeInit {
-  std::unique_ptr<KernelState> state;
-  KernelContext* ctx;
-  const DataType& type;
-
-  SumLikeInit(KernelContext* ctx, const DataType& type) : ctx(ctx), type(type) {}
-
-  Status Visit(const DataType&) { return Status::NotImplemented("No sum implemented"); }
-
-  Status Visit(const HalfFloatType&) {
-    return Status::NotImplemented("No sum implemented");
-  }
-
-  template <typename Type>
-  enable_if_number<Type, Status> Visit(const Type&) {
-    state.reset(new KernelClass<Type>());
-    return Status::OK();
-  }
-
-  std::unique_ptr<KernelState> Create() {
-    ctx->SetStatus(VisitTypeInline(type, this));
-    return std::move(state);
-  }
-};
-
 std::unique_ptr<KernelState> SumInit(KernelContext* ctx, const KernelInitArgs& args) {
   SumLikeInit<SumImpl> visitor(ctx, *args.inputs[0].type);
   return visitor.Create();
@@ -482,10 +450,6 @@ std::unique_ptr<KernelState> MinMaxInit(KernelContext* ctx, const KernelInitArgs
   return visitor.Create();
 }
 
-}  // namespace
-
-namespace internal {
-
 void AddAggKernel(std::shared_ptr<KernelSignature> sig, KernelInit init,
                   ScalarAggregateFunction* func) {
   DCHECK_OK(func->AddKernel(ScalarAggregateKernel(std::move(sig), init, AggregateConsume,
@@ -512,6 +476,17 @@ void AddMinMaxKernels(KernelInit init,
     AddAggKernel(std::move(sig), init, func);
   }
 }
+
+}  // namespace aggregate
+
+namespace internal {
+using arrow::compute::aggregate::AddAggKernel;
+using arrow::compute::aggregate::AddBasicAggKernels;
+using arrow::compute::aggregate::AddMinMaxKernels;
+using arrow::compute::aggregate::CountInit;
+using arrow::compute::aggregate::MeanInit;
+using arrow::compute::aggregate::MinMaxInit;
+using arrow::compute::aggregate::SumInit;
 
 void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarAggregateFunction>("count", Arity::Unary());

@@ -123,8 +123,10 @@ static struct {
   int64_t flag;
 } flag_mappings[] = {
 #if (defined(__i386) || defined(_M_IX86) || defined(__x86_64__) || defined(_M_X64))
-    {"ssse3", CpuInfo::SSSE3},   {"sse4_1", CpuInfo::SSE4_1},
-    {"sse4_2", CpuInfo::SSE4_2}, {"popcnt", CpuInfo::POPCNT},
+    {"ssse3", CpuInfo::SSSE3},     {"sse4_1", CpuInfo::SSE4_1},
+    {"sse4_2", CpuInfo::SSE4_2},   {"popcnt", CpuInfo::POPCNT},
+    {"avx", CpuInfo::AVX},         {"avx2", CpuInfo::AVX2},
+    {"avx512f", CpuInfo::AVX512F},
 #endif
 #if defined(__aarch64__)
     {"asimd", CpuInfo::ASIMD},
@@ -202,7 +204,7 @@ bool RetrieveCPUInfo(int64_t* hardware_flags, std::string* model_name) {
   if (!hardware_flags || !model_name) {
     return false;
   }
-  const int register_ECX_id = 1;
+  int register_EAX_id = 1;
   int highest_valid_id = 0;
   int highest_extended_valid_id = 0;
   std::bitset<32> features_ECX;
@@ -212,9 +214,10 @@ bool RetrieveCPUInfo(int64_t* hardware_flags, std::string* model_name) {
   __cpuid(cpu_info.data(), 0);
   highest_valid_id = cpu_info[0];
 
-  if (highest_valid_id <= register_ECX_id) return false;
+  if (highest_valid_id <= register_EAX_id) return false;
 
-  __cpuidex(cpu_info.data(), register_ECX_id, 0);
+  // EAX=1: Processor Info and Feature Bits
+  __cpuidex(cpu_info.data(), register_EAX_id, 0);
   features_ECX = cpu_info[2];
 
   // Get highest extended id
@@ -235,6 +238,18 @@ bool RetrieveCPUInfo(int64_t* hardware_flags, std::string* model_name) {
   if (features_ECX[19]) *hardware_flags |= CpuInfo::SSE4_1;
   if (features_ECX[20]) *hardware_flags |= CpuInfo::SSE4_2;
   if (features_ECX[23]) *hardware_flags |= CpuInfo::POPCNT;
+  if (features_ECX[23]) *hardware_flags |= CpuInfo::AVX;
+
+  // cpuid with EAX=7, ECX=0: Extended Features
+  register_EAX_id = 7;
+  if (highest_valid_id > register_EAX_id) {
+    __cpuidex(cpu_info.data(), register_EAX_id, 0);
+    std::bitset<32> features_EBX = cpu_info[1];
+
+    if (features_EBX[5]) *hardware_flags |= CpuInfo::AVX2;
+    if (features_EBX[16]) *hardware_flags |= CpuInfo::AVX512F;
+  }
+
   return true;
 }
 #endif

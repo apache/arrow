@@ -29,9 +29,10 @@
 #else
 // gcc/clang (possibly others)
 
-#if defined(ARROW_HAVE_AVX2) || defined(ARROW_HAVE_AVX512)
+#if defined(ARROW_HAVE_AVX2) || defined(ARROW_HAVE_AVX512) || \
+    defined(ARROW_HAVE_RUNTIME_AVX2) || defined(ARROW_HAVE_RUNTIME_AVX512)
 #include <immintrin.h>
-#elif defined(ARROW_HAVE_SSE4_2)
+#elif defined(ARROW_HAVE_SSE4_2) || defined(ARROW_HAVE_RUNTIME_SSE4_2)
 #include <nmmintrin.h>
 #endif
 
@@ -44,3 +45,25 @@
 #endif
 
 #endif
+
+#define STRINGIFY(a) #a
+
+// Push the SIMD compiler flag online to build the code path
+#if defined(__clang__)
+#define TARGET_CODE_START(Target) \
+  _Pragma(STRINGIFY(              \
+      clang attribute push(__attribute__((target(Target))), apply_to = function)))
+#define TARGET_CODE_STOP _Pragma("clang attribute pop")
+#elif defined(__GNUC__)
+#define TARGET_CODE_START(Target) \
+  _Pragma("GCC push_options") _Pragma(STRINGIFY(GCC target(Target)))
+#define TARGET_CODE_STOP _Pragma("GCC pop_options")
+#else
+// MSVS can use intrinsic without appending the compiler SIMD flag
+#define TARGET_CODE_START(Target)
+#define TARGET_CODE_STOP
+#endif
+
+#define TARGET_CODE_START_SSE4_2 TARGET_CODE_START("sse4.2")
+#define TARGET_CODE_START_AVX2 TARGET_CODE_START("avx2")
+#define TARGET_CODE_START_AVX512 TARGET_CODE_START("avx512f")
