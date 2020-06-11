@@ -293,6 +293,7 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         c_string override_hostname
         vector[shared_ptr[CClientMiddlewareFactory]] middleware
         int64_t write_size_limit_bytes
+        vector[pair[c_string, CIntStringVariant]] generic_options
 
     cdef cppclass CFlightClient" arrow::flight::FlightClient":
         @staticmethod
@@ -530,3 +531,10 @@ cdef extern from "arrow/python/flight.h" namespace "arrow::py::flight" nogil:
     cdef CStatus SerializeBasicAuth" arrow::py::flight::SerializeBasicAuth"(
         CBasicAuth basic_auth,
         c_string* out)
+
+
+cdef extern from "arrow/util/variant.h" namespace "arrow" nogil:
+    cdef cppclass CIntStringVariant" arrow::util::variant<int, std::string>":
+        CIntStringVariant()
+        CIntStringVariant(int)
+        CIntStringVariant(c_string)

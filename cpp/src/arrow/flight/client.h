@@ -29,6 +29,7 @@
 #include "arrow/ipc/reader.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/status.h"
+#include "arrow/util/variant.h"
 
 #include "arrow/flight/types.h"  // IWYU pragma: keep
 #include "arrow/flight/visibility.h"
@@ -101,6 +102,9 @@ class ARROW_FLIGHT_EXPORT FlightClientOptions {
   /// positive. When enabled, FlightStreamWriter.Write* may yield a
   /// IOError with error detail FlightWriteSizeStatusDetail.
   int64_t write_size_limit_bytes;
+  /// \brief Generic connection options, passed to the underlying
+  ///     transport; interpretation is implementation-dependent.
+  std::vector<std::pair<std::string, util::variant<int, std::string>>> generic_options;
 
   /// \brief Get default options.
   static FlightClientOptions Defaults();

@@ -863,6 +863,16 @@ class FlightClient::FlightClientImpl {
       args.SetSslTargetNameOverride(options.override_hostname);
     }
 
+    // Allow setting generic gRPC options.
+    for (const auto& arg : options.generic_options) {
+      if (util::holds_alternative<int>(arg.second)) {
+        args.SetInt(arg.first, util::get<int>(arg.second));
+      } else if (util::holds_alternative<std::string>(arg.second)) {
+        args.SetString(arg.first, util::get<std::string>(arg.second));
+      }
+      // Otherwise unimplemented
+    }
+
     std::vector<std::unique_ptr<grpc::experimental::ClientInterceptorFactoryInterface>>
         interceptors;
     interceptors.emplace_back(

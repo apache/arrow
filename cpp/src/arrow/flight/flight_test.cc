@@ -1293,6 +1293,25 @@ TEST_F(TestFlightClient, Issue5095) {
   ASSERT_THAT(status.message(), ::testing::HasSubstr("No data"));
 }
 
+// Test setting generic transport options by configuring gRPC to fail
+// all calls.
+TEST_F(TestFlightClient, GenericOptions) {
+  std::unique_ptr<FlightClient> client;
+  auto options = FlightClientOptions::Defaults();
+  // Set a very low limit at the gRPC layer to fail all calls
+  options.generic_options.emplace_back(GRPC_ARG_MAX_RECEIVE_MESSAGE_LENGTH, 32);
+  Location location;
+  ASSERT_OK(Location::ForGrpcTcp("localhost", server_->port(), &location));
+  ASSERT_OK(FlightClient::Connect(location, options, &client));
+  auto descr = FlightDescriptor::Path({"examples", "ints"});
+  std::unique_ptr<SchemaResult> schema_result;
+  std::shared_ptr<Schema> schema;
+  ipc::DictionaryMemo dict_memo;
+  auto status = client->GetSchema(descr, &schema_result);
+  ASSERT_RAISES(Invalid, status);
+  ASSERT_THAT(status.message(), ::testing::HasSubstr("resource exhausted"));
+}
+
 TEST_F(TestFlightClient, TimeoutFires) {
   // Server does not exist on this port, so call should fail
   std::unique_ptr<FlightClient> client;
@@ -1640,6 +1659,28 @@ TEST_F(TestTls, OverrideHostname) {
   action.body = Buffer::FromString("");
   std::unique_ptr<ResultStream> results;
   ASSERT_RAISES(IOError, client->DoAction(options, action, &results));
+}
+
+// Test the facility for setting generic transport options.
+TEST_F(TestTls, OverrideHostnameGeneric) {
+  std::unique_ptr<FlightClient> client;
+  auto client_options = FlightClientOptions();
+  client_options.generic_options.emplace_back(GRPC_SSL_TARGET_NAME_OVERRIDE_ARG,
+                                              "fakehostname");
+  CertKeyPair root_cert;
+  ASSERT_OK(ExampleTlsCertificateRoot(&root_cert));
+  client_options.tls_root_certs = root_cert.pem_cert;
+  ASSERT_OK(FlightClient::Connect(location_, client_options, &client));
+
+  FlightCallOptions options;
+  options.timeout = TimeoutDuration{5.0};
+  Action action;
+  action.type = "test";
+  action.body = Buffer::FromString("");
+  std::unique_ptr<ResultStream> results;
+  ASSERT_RAISES(IOError, client->DoAction(options, action, &results));
+  // Could check error message for the gRPC error message but it isn't
+  // necessarily stable
 }
 
 TEST_F(TestMetadata, DoGet) {
