@@ -93,6 +93,7 @@ def _simple_unary_function(name):
 
 ascii_length = _simple_unary_function('ascii_length')
 ascii_upper = _simple_unary_function('ascii_upper')
+ascii_lower = _simple_unary_function('ascii_lower')
 
 
 def sum(array):

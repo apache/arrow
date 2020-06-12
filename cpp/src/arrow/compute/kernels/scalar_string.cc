@@ -48,6 +48,16 @@ struct AsciiUpper {
   }
 };
 
+struct AsciiLower {
+  template <typename... Ignored>
+  static std::string Call(KernelContext*, const util::string_view& val) {
+    std::string result = val.to_string();
+    std::transform(result.begin(), result.end(), result.begin(),
+                   [](unsigned char c) { return std::tolower(c); });
+    return result;
+  }
+};
+
 void AddAsciiLength(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>("ascii_length", Arity::Unary());
   ArrayKernelExec exec_offset_32 =
@@ -108,6 +118,7 @@ void AddStrptime(FunctionRegistry* registry) {
 
 void RegisterScalarStringAscii(FunctionRegistry* registry) {
   MakeUnaryStringToString<AsciiUpper>("ascii_upper", registry);
+  MakeUnaryStringToString<AsciiLower>("ascii_lower", registry);
   AddAsciiLength(registry);
   AddStrptime(registry);
 }
