@@ -202,6 +202,8 @@ test_that("array supports Date (ARROW-3340)", {
   expect_array_roundtrip(d2, date32())
   # PSA: IngestDoubleRange(Date32Builder) truncates decimals, so this only
   # works where the dates are integer-ish
+
+  expect_equal(typeof(Array$create(d)$as_vector()), "double")
 })
 
 test_that("array supports POSIXct (ARROW-3340)", {
