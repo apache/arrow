@@ -35,6 +35,7 @@ import org.apache.arrow.util.Preconditions;
 
 import io.netty.buffer.NettyArrowBuf;
 import io.netty.buffer.PooledByteBufAllocatorL;
+import io.netty.util.internal.PlatformDependent;
 
 /**
  * ArrowBuf serves as a facade over underlying memory by providing
@@ -231,7 +232,8 @@ public final class ArrowBuf implements AutoCloseable {
   }
 
   public ByteBuffer nioBuffer(long index, int length) {
-    return asNettyBuffer().nioBuffer(index, length);
+    return length == 0 ? ByteBuffer.allocateDirect(0) :
+        PlatformDependent.directBuffer(memoryAddress() + index, length);
   }
 
   public long memoryAddress() {

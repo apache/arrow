@@ -111,7 +111,7 @@ public final class VarCharVector extends BaseVariableWidthVector {
     }
     final int startOffset = getStartOffset(index);
     final int dataLength =
-            offsetBuffer.getInt((index + 1) * OFFSET_WIDTH) - startOffset;
+            offsetBuffer.getInt((long) (index + 1) * OFFSET_WIDTH) - startOffset;
     final byte[] result = new byte[dataLength];
     valueBuffer.getBytes(startOffset, result, 0, dataLength);
     return result;
