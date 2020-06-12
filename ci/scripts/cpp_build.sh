@@ -127,11 +127,7 @@ cmake -G "${CMAKE_GENERATOR:-Ninja}" \
       ${CMAKE_ARGS} \
       ${source_dir}
 
-if [ ! -z "${CPP_MAKE_PARALLELISM}" ]; then
-  time cmake --build . --target install -- -j${CPP_MAKE_PARALLELISM}
-else
-  time cmake --build . --target install
-fi
+time cmake --build . --target install
 
 popd
 

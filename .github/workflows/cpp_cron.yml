@@ -95,13 +95,12 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v1
         with:
-          python-version: 3.6
-      - name: Setup Core Pattern
-        run: sudo sysctl -w kernel.core_pattern="core.%e.%p"
+          python-version: 3.8
       - name: Setup Archery
-        run: pip install -U -e dev/archery[docker]
+        run: pip install -e dev/archery[docker]
       - name: Execute Docker Build
         run: |
+          sudo sysctl -w kernel.core_pattern="core.%e.%p"
           ulimit -c unlimited
           archery docker run ${{ matrix.image }}
       - name: Docker Push
@@ -123,8 +122,10 @@ jobs:
         with:
           fetch-depth: 0
       - name: Fetch Submodules and Tags
+        shell: bash
         run: ci/scripts/util_checkout.sh
       - name: Free Up Disk Space
+        shell: bash
         run: ci/scripts/util_cleanup.sh
       - name: Checkout OSS-Fuzz
         uses: actions/checkout@v1
@@ -138,14 +139,17 @@ jobs:
           python3 -m pip install setuptools
           python3 -m pip install -r infra/ci/requirements.txt
       - name: Build image
+        shell: bash
         working-directory: ../oss-fuzz
         run: |
           python3 infra/helper.py build_image --pull arrow
       - name: Build fuzzers
+        shell: bash
         working-directory: ../oss-fuzz
         run: |
           python3 infra/helper.py build_fuzzers arrow `pwd`/../arrow
       - name: Check build
+        shell: bash
         working-directory: ../oss-fuzz
         run: |
           python3 infra/helper.py check_build arrow
