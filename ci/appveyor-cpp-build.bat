@@ -45,6 +45,7 @@ if "%JOB%" == "Build_Debug" (
         -DARROW_USE_PRECOMPILED_HEADERS=OFF ^
         -DARROW_VERBOSE_THIRDPARTY_BUILD=OFF ^
         -DCMAKE_BUILD_TYPE="Debug" ^
+        -DCMAKE_FIND_DEBUG_MODE=ON ^
         -DCMAKE_UNITY_BUILD=ON ^
         .. || exit /B
 
