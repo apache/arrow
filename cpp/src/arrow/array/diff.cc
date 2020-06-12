@@ -574,7 +574,7 @@ class MakeFormatterImpl {
       using UnionImpl::UnionImpl;
 
       void operator()(const Array& array, int64_t index, std::ostream* os) {
-        const auto& union_array = checked_cast<const UnionArray&>(array);
+        const auto& union_array = checked_cast<const SparseUnionArray&>(array);
         DoFormat(union_array, index, index, os);
       }
     };
@@ -583,7 +583,7 @@ class MakeFormatterImpl {
       using UnionImpl::UnionImpl;
 
       void operator()(const Array& array, int64_t index, std::ostream* os) {
-        const auto& union_array = checked_cast<const UnionArray&>(array);
+        const auto& union_array = checked_cast<const DenseUnionArray&>(array);
         DoFormat(union_array, index, union_array.raw_value_offsets()[index], os);
       }
     };

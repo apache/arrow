@@ -127,8 +127,11 @@ struct Type {
     /// Struct of logical types
     STRUCT,
 
-    /// Unions of logical types
-    UNION,
+    /// Sparse unions of logical types
+    SPARSE_UNION,
+
+    /// Dense unions of logical types
+    DENSE_UNION,
 
     /// Dictionary-encoded type, also called "categorical" or "factor"
     /// in other programming languages. Holds the dictionary value
@@ -1015,25 +1018,22 @@ class ARROW_EXPORT Decimal128Type : public DecimalType {
 /// \brief Concrete type class for union data
 class ARROW_EXPORT UnionType : public NestedType {
  public:
-  static constexpr Type::type type_id = Type::UNION;
   static constexpr int8_t kMaxTypeCode = 127;
   static constexpr int kInvalidChildId = -1;
 
-  static constexpr const char* type_name() { return "union"; }
-
-  UnionType(const std::vector<std::shared_ptr<Field>>& fields,
-            const std::vector<int8_t>& type_codes,
-            UnionMode::type mode = UnionMode::SPARSE);
-
-  // A constructor variant that validates input parameters
   static Result<std::shared_ptr<DataType>> Make(
       const std::vector<std::shared_ptr<Field>>& fields,
-      const std::vector<int8_t>& type_codes, UnionMode::type mode = UnionMode::SPARSE);
+      const std::vector<int8_t>& type_codes, UnionMode::type mode = UnionMode::SPARSE) {
+    if (mode == UnionMode::SPARSE) {
+      return sparse_union(fields, type_codes);
+    } else {
+      return dense_union(fields, type_codes);
+    }
+  }
 
   DataTypeLayout layout() const override;
 
   std::string ToString() const override;
-  std::string name() const override { return "union"; }
 
   /// The array of logical type ids.
   ///
@@ -1046,19 +1046,53 @@ class ARROW_EXPORT UnionType : public NestedType {
 
   uint8_t max_type_code() const;
 
-  UnionMode::type mode() const { return mode_; }
+  UnionMode::type mode() const;
 
- private:
-  std::string ComputeFingerprint() const override;
+ protected:
+  UnionType(std::vector<std::shared_ptr<Field>> fields, std::vector<int8_t> type_codes,
+            Type::type id);
 
   static Status ValidateParameters(const std::vector<std::shared_ptr<Field>>& fields,
                                    const std::vector<int8_t>& type_codes,
                                    UnionMode::type mode);
 
-  UnionMode::type mode_;
+ private:
+  std::string ComputeFingerprint() const override;
 
   std::vector<int8_t> type_codes_;
   std::vector<int> child_ids_;
+};
+
+class ARROW_EXPORT SparseUnionType : public UnionType {
+ public:
+  static constexpr Type::type type_id = Type::SPARSE_UNION;
+
+  static constexpr const char* type_name() { return "sparse_union"; }
+
+  SparseUnionType(std::vector<std::shared_ptr<Field>> fields,
+                  std::vector<int8_t> type_codes);
+
+  // A constructor variant that validates input parameters
+  static Result<std::shared_ptr<DataType>> Make(
+      std::vector<std::shared_ptr<Field>> fields, std::vector<int8_t> type_codes);
+
+  std::string name() const override { return "sparse_union"; }
+};
+
+class ARROW_EXPORT DenseUnionType : public UnionType {
+ public:
+  static constexpr Type::type type_id = Type::DENSE_UNION;
+
+  static constexpr const char* type_name() { return "dense_union"; }
+
+  DenseUnionType(std::vector<std::shared_ptr<Field>> fields,
+                 std::vector<int8_t> type_codes);
+
+  // A constructor variant that validates input parameters
+  static Result<std::shared_ptr<DataType>> Make(
+      std::vector<std::shared_ptr<Field>> fields, std::vector<int8_t> type_codes);
+
+  std::string name() const override { return "dense_union"; }
 };
 
 // ----------------------------------------------------------------------

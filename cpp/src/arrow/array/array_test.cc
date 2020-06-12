@@ -296,8 +296,8 @@ TEST_F(TestArray, TestMakeArrayOfNull) {
       fixed_size_list(int64(), 4),
       dictionary(int32(), utf8()),
       struct_({field("a", utf8()), field("b", int32())}),
-      union_({field("a", utf8()), field("b", int32())}, {0, 1}, UnionMode::SPARSE),
-      union_({field("a", utf8()), field("b", int32())}, {0, 1}, UnionMode::DENSE)
+      sparse_union({field("a", utf8()), field("b", int32())}, {0, 1}),
+      dense_union({field("a", utf8()), field("b", int32())}, {0, 1}),
       // clang-format on
   };
 

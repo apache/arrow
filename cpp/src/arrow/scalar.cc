@@ -470,7 +470,12 @@ struct FromTypeVisitor {
     return Status::Invalid("attempting to cast scalar of type null to ", *to_type_);
   }
 
-  Status Visit(const UnionType&) { return Status::NotImplemented("cast to ", *to_type_); }
+  Status Visit(const SparseUnionType&) {
+    return Status::NotImplemented("cast to ", *to_type_);
+  }
+  Status Visit(const DenseUnionType&) {
+    return Status::NotImplemented("cast to ", *to_type_);
+  }
   Status Visit(const DictionaryType&) {
     return Status::NotImplemented("cast to ", *to_type_);
   }
@@ -499,7 +504,10 @@ struct ToTypeVisitor {
     return Status::OK();
   }
 
-  Status Visit(const UnionType&) {
+  Status Visit(const SparseUnionType&) {
+    return Status::NotImplemented("cast from ", *from_.type);
+  }
+  Status Visit(const DenseUnionType&) {
     return Status::NotImplemented("cast from ", *from_.type);
   }
   Status Visit(const DictionaryType&) {

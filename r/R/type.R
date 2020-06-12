@@ -70,7 +70,8 @@ DataType <- R6Class("DataType",
         DECIMAL = shared_ptr(Decimal128Type, self$pointer()),
         LIST = shared_ptr(ListType, self$pointer()),
         STRUCT = shared_ptr(StructType, self$pointer()),
-        UNION = stop("Type UNION not implemented yet"),
+        SPARSE_UNION = stop("Type SPARSE_UNION not implemented yet"),
+        DENSE_UNION = stop("Type DENSE_UNION not implemented yet"),
         DICTIONARY = shared_ptr(DictionaryType, self$pointer()),
         MAP = stop("Type MAP not implemented yet")
       )

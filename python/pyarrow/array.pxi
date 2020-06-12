@@ -1590,7 +1590,8 @@ cdef class UnionArray(Array):
         """
         if self.type.mode != "dense":
             raise ArrowTypeError("Can only get value offsets for dense arrays")
-        buf = pyarrow_wrap_buffer((<CUnionArray*> self.ap).value_offsets())
+        cdef CDenseUnionArray* dense = <CDenseUnionArray*> self.ap
+        buf = pyarrow_wrap_buffer(dense.value_offsets())
         return Array.from_buffers(int32(), len(self), [None, buf])
 
     @staticmethod
@@ -1626,7 +1627,7 @@ cdef class UnionArray(Array):
             for x in type_codes:
                 c_type_codes.push_back(x)
         with nogil:
-            out = GetResultValue(CUnionArray.MakeDense(
+            out = GetResultValue(CDenseUnionArray.Make(
                 deref(types.ap), deref(value_offsets.ap), c, c_field_names,
                 c_type_codes))
         cdef Array result = pyarrow_wrap_array(out)
@@ -1665,7 +1666,7 @@ cdef class UnionArray(Array):
             for x in type_codes:
                 c_type_codes.push_back(x)
         with nogil:
-            out = GetResultValue(CUnionArray.MakeSparse(
+            out = GetResultValue(CSparseUnionArray.Make(
                 deref(types.ap), c, c_field_names, c_type_codes))
         cdef Array result = pyarrow_wrap_array(out)
         result.validate()
@@ -2055,7 +2056,8 @@ cdef dict _array_classes = {
     _Type_LARGE_LIST: LargeListArray,
     _Type_MAP: MapArray,
     _Type_FIXED_SIZE_LIST: FixedSizeListArray,
-    _Type_UNION: UnionArray,
+    _Type_SPARSE_UNION: UnionArray,
+    _Type_DENSE_UNION: UnionArray,
     _Type_BINARY: BinaryArray,
     _Type_STRING: StringArray,
     _Type_LARGE_BINARY: LargeBinaryArray,

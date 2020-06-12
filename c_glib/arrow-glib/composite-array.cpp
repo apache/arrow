@@ -1019,13 +1019,13 @@ garrow_sparse_union_array_new_internal(GArrowSparseUnionDataType *data_type,
       arrow_field_names.push_back(arrow_field->name());
     }
     arrow_sparse_union_array_result =
-      arrow::UnionArray::MakeSparse(*arrow_type_ids,
+      arrow::SparseUnionArray::Make(*arrow_type_ids,
                                     arrow_fields,
                                     arrow_field_names,
                                     arrow_union_data_type->type_codes());
   } else {
     arrow_sparse_union_array_result =
-      arrow::UnionArray::MakeSparse(*arrow_type_ids, arrow_fields);
+      arrow::SparseUnionArray::Make(*arrow_type_ids, arrow_fields);
   }
   if (garrow::check(error,
                     arrow_sparse_union_array_result,
@@ -1217,14 +1217,14 @@ garrow_dense_union_array_new_internal(GArrowDenseUnionDataType *data_type,
       arrow_field_names.push_back(arrow_field->name());
     }
     arrow_dense_union_array_result =
-      arrow::UnionArray::MakeDense(*arrow_type_ids,
+      arrow::DenseUnionArray::Make(*arrow_type_ids,
                                    *arrow_value_offsets,
                                    arrow_fields,
                                    arrow_field_names,
                                    arrow_union_data_type->type_codes());
   } else {
     arrow_dense_union_array_result =
-      arrow::UnionArray::MakeDense(*arrow_type_ids,
+      arrow::DenseUnionArray::Make(*arrow_type_ids,
                                    *arrow_value_offsets,
                                    arrow_fields);
   }

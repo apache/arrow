@@ -514,10 +514,9 @@ TEST_F(TestTakeKernelWithStruct, TakeStruct) {
 class TestTakeKernelWithUnion : public TestTakeKernel<UnionType> {};
 
 // TODO: Restore Union take functionality
-
 TEST_F(TestTakeKernelWithUnion, DISABLED_TakeUnion) {
-  for (auto mode : {UnionMode::SPARSE, UnionMode::DENSE}) {
-    auto union_type = union_({field("a", int32()), field("b", utf8())}, {2, 5}, mode);
+  for (auto union_ : UnionTypeFactories()) {
+    auto union_type = union_({field("a", int32()), field("b", utf8())}, {2, 5});
     auto union_json = R"([
       null,
       [2, 222],

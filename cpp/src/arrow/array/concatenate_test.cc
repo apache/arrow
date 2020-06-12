@@ -218,7 +218,7 @@ TEST_F(ConcatenateTest, DISABLED_UnionType) {
     auto bar = this->GeneratePrimitive<DoubleType>(size, null_probability);
     auto baz = this->GeneratePrimitive<BooleanType>(size, null_probability);
     auto type_ids = rng_.Numeric<Int8Type>(size, 0, 2, null_probability);
-    ASSERT_OK_AND_ASSIGN(*out, UnionArray::MakeSparse(*type_ids, {foo, bar, baz}));
+    ASSERT_OK_AND_ASSIGN(*out, SparseUnionArray::Make(*type_ids, {foo, bar, baz}));
   });
   // dense mode
   Check([this](int32_t size, double null_probability, std::shared_ptr<Array>* out) {
@@ -228,7 +228,7 @@ TEST_F(ConcatenateTest, DISABLED_UnionType) {
     auto type_ids = rng_.Numeric<Int8Type>(size, 0, 2, null_probability);
     auto value_offsets = rng_.Numeric<Int32Type>(size, 0, size, 0);
     ASSERT_OK_AND_ASSIGN(
-        *out, UnionArray::MakeDense(*type_ids, *value_offsets, {foo, bar, baz}));
+        *out, DenseUnionArray::Make(*type_ids, *value_offsets, {foo, bar, baz}));
   });
 }
 

@@ -81,7 +81,8 @@ namespace red_arrow {
       // VISIT(Interval)
       VISIT(List)
       VISIT(Struct)
-      VISIT(Union)
+      VISIT(SparseUnion)
+      VISIT(DenseUnion)
       VISIT(Dictionary)
       VISIT(Decimal128)
       // TODO

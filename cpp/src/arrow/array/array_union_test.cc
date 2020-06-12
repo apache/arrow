@@ -68,33 +68,33 @@ TEST(TestUnionArray, TestSliceEquals) {
 
 TEST(TestSparseUnionArray, Validate) {
   auto a = ArrayFromJSON(int32(), "[4, 5]");
-  auto type = union_({field("a", int32())}, UnionMode::SPARSE);
+  auto type = sparse_union({field("a", int32())});
   auto children = std::vector<std::shared_ptr<Array>>{a};
   auto type_ids_array = ArrayFromJSON(int8(), "[0, 0, 0]");
   auto type_ids = type_ids_array->data()->buffers[1];
 
-  auto arr = std::make_shared<UnionArray>(type, 2, children, type_ids);
+  auto arr = std::make_shared<SparseUnionArray>(type, 2, children, type_ids);
   ASSERT_OK(arr->ValidateFull());
-  arr = std::make_shared<UnionArray>(type, 1, children, type_ids, nullptr, nullptr, 0,
-                                     /*offset=*/1);
+  arr = std::make_shared<SparseUnionArray>(type, 1, children, type_ids, nullptr, 0,
+                                           /*offset=*/1);
   ASSERT_OK(arr->ValidateFull());
-  arr = std::make_shared<UnionArray>(type, 0, children, type_ids, nullptr, nullptr, 0,
-                                     /*offset=*/2);
+  arr = std::make_shared<SparseUnionArray>(type, 0, children, type_ids, nullptr, 0,
+                                           /*offset=*/2);
   ASSERT_OK(arr->ValidateFull());
 
   // Length + offset < child length, but it's ok
-  arr = std::make_shared<UnionArray>(type, 1, children, type_ids, nullptr, nullptr, 0,
-                                     /*offset=*/0);
+  arr = std::make_shared<SparseUnionArray>(type, 1, children, type_ids, nullptr, 0,
+                                           /*offset=*/0);
   ASSERT_OK(arr->ValidateFull());
 
   // Length + offset > child length
-  arr = std::make_shared<UnionArray>(type, 1, children, type_ids, nullptr, nullptr, 0,
-                                     /*offset=*/2);
+  arr = std::make_shared<SparseUnionArray>(type, 1, children, type_ids, nullptr, 0,
+                                           /*offset=*/2);
   ASSERT_RAISES(Invalid, arr->ValidateFull());
 
   // Offset > child length
-  arr = std::make_shared<UnionArray>(type, 0, children, type_ids, nullptr, nullptr, 0,
-                                     /*offset=*/3);
+  arr = std::make_shared<SparseUnionArray>(type, 0, children, type_ids, nullptr, 0,
+                                           /*offset=*/3);
   ASSERT_RAISES(Invalid, arr->ValidateFull());
 }
 
@@ -165,43 +165,43 @@ TEST_F(TestUnionArrayFactories, TestMakeDense) {
 
   // without field names and type codes
   ASSERT_OK_AND_ASSIGN(result,
-                       UnionArray::MakeDense(*type_ids_, *value_offsets, children));
+                       DenseUnionArray::Make(*type_ids_, *value_offsets, children));
   ASSERT_OK(result->ValidateFull());
   union_array = checked_cast<const UnionArray*>(result.get());
   CheckUnionArray(*union_array, UnionMode::DENSE, {"0", "1", "2", "3"}, {0, 1, 2, 3});
 
   // with field name
   ASSERT_RAISES(Invalid,
-                UnionArray::MakeDense(*type_ids_, *value_offsets, children, {"one"}));
+                DenseUnionArray::Make(*type_ids_, *value_offsets, children, {"one"}));
   ASSERT_OK_AND_ASSIGN(
-      result, UnionArray::MakeDense(*type_ids_, *value_offsets, children, field_names));
+      result, DenseUnionArray::Make(*type_ids_, *value_offsets, children, field_names));
   ASSERT_OK(result->ValidateFull());
   union_array = checked_cast<const UnionArray*>(result.get());
   CheckUnionArray(*union_array, UnionMode::DENSE, field_names, {0, 1, 2, 3});
 
   // with type codes
-  ASSERT_RAISES(Invalid, UnionArray::MakeDense(*logical_type_ids_, *value_offsets,
+  ASSERT_RAISES(Invalid, DenseUnionArray::Make(*logical_type_ids_, *value_offsets,
                                                children, std::vector<int8_t>{0}));
-  ASSERT_OK_AND_ASSIGN(result, UnionArray::MakeDense(*logical_type_ids_, *value_offsets,
+  ASSERT_OK_AND_ASSIGN(result, DenseUnionArray::Make(*logical_type_ids_, *value_offsets,
                                                      children, type_codes_));
   ASSERT_OK(result->ValidateFull());
   union_array = checked_cast<const UnionArray*>(result.get());
   CheckUnionArray(*union_array, UnionMode::DENSE, {"0", "1", "2", "3"}, type_codes_);
 
   // with field names and type codes
-  ASSERT_RAISES(Invalid, UnionArray::MakeDense(*logical_type_ids_, *value_offsets,
+  ASSERT_RAISES(Invalid, DenseUnionArray::Make(*logical_type_ids_, *value_offsets,
                                                children, {"one"}, type_codes_));
-  ASSERT_OK_AND_ASSIGN(result, UnionArray::MakeDense(*logical_type_ids_, *value_offsets,
+  ASSERT_OK_AND_ASSIGN(result, DenseUnionArray::Make(*logical_type_ids_, *value_offsets,
                                                      children, field_names, type_codes_));
   ASSERT_OK(result->ValidateFull());
   union_array = checked_cast<const UnionArray*>(result.get());
   CheckUnionArray(*union_array, UnionMode::DENSE, field_names, type_codes_);
 
   // Invalid type codes
-  ASSERT_OK_AND_ASSIGN(result, UnionArray::MakeDense(*invalid_type_ids1_, *value_offsets,
+  ASSERT_OK_AND_ASSIGN(result, DenseUnionArray::Make(*invalid_type_ids1_, *value_offsets,
                                                      children, type_codes_));
   ASSERT_RAISES(Invalid, result->ValidateFull());
-  ASSERT_OK_AND_ASSIGN(result, UnionArray::MakeDense(*invalid_type_ids2_, *value_offsets,
+  ASSERT_OK_AND_ASSIGN(result, DenseUnionArray::Make(*invalid_type_ids2_, *value_offsets,
                                                      children, type_codes_));
   ASSERT_RAISES(Invalid, result->ValidateFull());
 
@@ -209,11 +209,11 @@ TEST_F(TestUnionArrayFactories, TestMakeDense) {
   std::shared_ptr<Array> invalid_offsets;
   ArrayFromVector<Int32Type, int32_t>({1, 0, 0, 0, 1, 1, 1, 2, 1, 2}, &invalid_offsets);
   ASSERT_OK_AND_ASSIGN(result,
-                       UnionArray::MakeDense(*type_ids_, *invalid_offsets, children));
+                       DenseUnionArray::Make(*type_ids_, *invalid_offsets, children));
   ASSERT_RAISES(Invalid, result->ValidateFull());
   ArrayFromVector<Int32Type, int32_t>({1, 0, 0, 0, 1, -1, 1, 2, 1, 2}, &invalid_offsets);
   ASSERT_OK_AND_ASSIGN(result,
-                       UnionArray::MakeDense(*type_ids_, *invalid_offsets, children));
+                       DenseUnionArray::Make(*type_ids_, *invalid_offsets, children));
   ASSERT_RAISES(Invalid, result->ValidateFull());
 }
 
@@ -231,31 +231,31 @@ TEST_F(TestUnionArrayFactories, TestMakeSparse) {
   std::shared_ptr<Array> result;
 
   // without field names and type codes
-  ASSERT_OK_AND_ASSIGN(result, UnionArray::MakeSparse(*type_ids_, children));
+  ASSERT_OK_AND_ASSIGN(result, SparseUnionArray::Make(*type_ids_, children));
   ASSERT_OK(result->ValidateFull());
   CheckUnionArray(checked_cast<UnionArray&>(*result), UnionMode::SPARSE,
                   {"0", "1", "2", "3"}, {0, 1, 2, 3});
 
   // with field names
-  ASSERT_RAISES(Invalid, UnionArray::MakeSparse(*type_ids_, children, {"one"}));
-  ASSERT_OK_AND_ASSIGN(result, UnionArray::MakeSparse(*type_ids_, children, field_names));
+  ASSERT_RAISES(Invalid, SparseUnionArray::Make(*type_ids_, children, {"one"}));
+  ASSERT_OK_AND_ASSIGN(result, SparseUnionArray::Make(*type_ids_, children, field_names));
   ASSERT_OK(result->ValidateFull());
   CheckUnionArray(checked_cast<UnionArray&>(*result), UnionMode::SPARSE, field_names,
                   {0, 1, 2, 3});
 
   // with type codes
-  ASSERT_RAISES(Invalid, UnionArray::MakeSparse(*logical_type_ids_, children,
+  ASSERT_RAISES(Invalid, SparseUnionArray::Make(*logical_type_ids_, children,
                                                 std::vector<int8_t>{0}));
   ASSERT_OK_AND_ASSIGN(result,
-                       UnionArray::MakeSparse(*logical_type_ids_, children, type_codes_));
+                       SparseUnionArray::Make(*logical_type_ids_, children, type_codes_));
   ASSERT_OK(result->ValidateFull());
   CheckUnionArray(checked_cast<UnionArray&>(*result), UnionMode::SPARSE,
                   {"0", "1", "2", "3"}, type_codes_);
 
   // with field names and type codes
-  ASSERT_RAISES(Invalid, UnionArray::MakeSparse(*logical_type_ids_, children, {"one"},
+  ASSERT_RAISES(Invalid, SparseUnionArray::Make(*logical_type_ids_, children, {"one"},
                                                 type_codes_));
-  ASSERT_OK_AND_ASSIGN(result, UnionArray::MakeSparse(*logical_type_ids_, children,
+  ASSERT_OK_AND_ASSIGN(result, SparseUnionArray::Make(*logical_type_ids_, children,
                                                       field_names, type_codes_));
   ASSERT_OK(result->ValidateFull());
   CheckUnionArray(checked_cast<UnionArray&>(*result), UnionMode::SPARSE, field_names,
@@ -263,15 +263,15 @@ TEST_F(TestUnionArrayFactories, TestMakeSparse) {
 
   // Invalid type codes
   ASSERT_OK_AND_ASSIGN(
-      result, UnionArray::MakeSparse(*invalid_type_ids1_, children, type_codes_));
+      result, SparseUnionArray::Make(*invalid_type_ids1_, children, type_codes_));
   ASSERT_RAISES(Invalid, result->ValidateFull());
   ASSERT_OK_AND_ASSIGN(
-      result, UnionArray::MakeSparse(*invalid_type_ids2_, children, type_codes_));
+      result, SparseUnionArray::Make(*invalid_type_ids2_, children, type_codes_));
   ASSERT_RAISES(Invalid, result->ValidateFull());
 
   // Invalid child length
   ArrayFromVector<Int8Type>({0, 0, 0, 0, 0, -12, 0, 0, 0}, &children[3]);
-  ASSERT_RAISES(Invalid, UnionArray::MakeSparse(*type_ids_, children));
+  ASSERT_RAISES(Invalid, SparseUnionArray::Make(*type_ids_, children));
 }
 
 template <typename B>
@@ -396,8 +396,8 @@ class SparseUnionBuilderTest : public UnionBuilderTest<SparseUnionBuilder> {
 TEST_F(DenseUnionBuilderTest, Basics) {
   union_builder.reset(new DenseUnionBuilder(
       default_memory_pool(), {i8_builder, str_builder, dbl_builder},
-      union_({field("i8", int8()), field("str", utf8()), field("dbl", float64())},
-             {I8, STR, DBL}, UnionMode::DENSE)));
+      dense_union({field("i8", int8()), field("str", utf8()), field("dbl", float64())},
+                  {I8, STR, DBL})));
   AppendBasics();
 
   auto expected_i8 = ArrayFromJSON(int8(), "[33, 10, -10]");
@@ -407,7 +407,7 @@ TEST_F(DenseUnionBuilderTest, Basics) {
   auto expected_offsets = ArrayFromJSON(int32(), "[0, 0, 0, 1, 1, 1, 2, 2, 2]");
 
   ASSERT_OK_AND_ASSIGN(auto expected,
-                       UnionArray::MakeDense(*expected_types, *expected_offsets,
+                       DenseUnionArray::Make(*expected_types, *expected_offsets,
                                              {expected_i8, expected_str, expected_dbl},
                                              {"i8", "str", "dbl"}, {I8, STR, DBL}));
 
@@ -425,7 +425,7 @@ TEST_F(DenseUnionBuilderTest, InferredType) {
   auto expected_offsets = ArrayFromJSON(int32(), "[0, 1, 0, 1, 2, 2, 0, 1, 2]");
 
   ASSERT_OK_AND_ASSIGN(auto expected,
-                       UnionArray::MakeDense(*expected_types, *expected_offsets,
+                       DenseUnionArray::Make(*expected_types, *expected_offsets,
                                              {expected_i8, expected_str, expected_dbl},
                                              {"i8", "str", "dbl"}, {I8, STR, DBL}));
 
@@ -437,17 +437,17 @@ TEST_F(DenseUnionBuilderTest, ListOfInferredType) {
   std::shared_ptr<ListArray> actual;
   AppendListOfInferred(&actual);
 
-  auto expected_type =
-      list(union_({field("i8", int8()), field("str", utf8()), field("dbl", float64())},
-                  {I8, STR, DBL}, UnionMode::DENSE));
+  auto expected_type = list(
+      dense_union({field("i8", int8()), field("str", utf8()), field("dbl", float64())},
+                  {I8, STR, DBL}));
   ASSERT_EQ(expected_type->ToString(), actual->type()->ToString());
 }
 
 TEST_F(SparseUnionBuilderTest, Basics) {
   union_builder.reset(new SparseUnionBuilder(
       default_memory_pool(), {i8_builder, str_builder, dbl_builder},
-      union_({field("i8", int8()), field("str", utf8()), field("dbl", float64())},
-             {I8, STR, DBL}, UnionMode::SPARSE)));
+      sparse_union({field("i8", int8()), field("str", utf8()), field("dbl", float64())},
+                   {I8, STR, DBL})));
 
   AppendBasics();
 
@@ -460,7 +460,7 @@ TEST_F(SparseUnionBuilderTest, Basics) {
 
   ASSERT_OK_AND_ASSIGN(
       auto expected,
-      UnionArray::MakeSparse(*expected_types, {expected_i8, expected_str, expected_dbl},
+      SparseUnionArray::Make(*expected_types, {expected_i8, expected_str, expected_dbl},
                              {"i8", "str", "dbl"}, {I8, STR, DBL}));
 
   ASSERT_EQ(expected->type()->ToString(), actual->type()->ToString());
@@ -479,7 +479,7 @@ TEST_F(SparseUnionBuilderTest, InferredType) {
 
   ASSERT_OK_AND_ASSIGN(
       auto expected,
-      UnionArray::MakeSparse(*expected_types, {expected_i8, expected_str, expected_dbl},
+      SparseUnionArray::Make(*expected_types, {expected_i8, expected_str, expected_dbl},
                              {"i8", "str", "dbl"}, {I8, STR, DBL}));
 
   ASSERT_EQ(expected->type()->ToString(), actual->type()->ToString());
@@ -491,8 +491,8 @@ TEST_F(SparseUnionBuilderTest, StructWithUnion) {
   StructBuilder builder(struct_({field("u", union_builder->type())}),
                         default_memory_pool(), {union_builder});
   ASSERT_EQ(union_builder->AppendChild(std::make_shared<Int32Builder>(), "i"), 0);
-  ASSERT_TRUE(
-      builder.type()->Equals(struct_({field("u", union_({field("i", int32())}, {0}))})));
+  ASSERT_TRUE(builder.type()->Equals(
+      struct_({field("u", sparse_union({field("i", int32())}, {0}))})));
 }
 
 }  // namespace arrow

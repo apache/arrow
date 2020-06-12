@@ -415,7 +415,7 @@ Status GetArrowType(const liborc::Type* type, std::shared_ptr<DataType>* out) {
         fields.push_back(field("_union_" + std::to_string(child), elemtype));
         type_codes.push_back(static_cast<int8_t>(child));
       }
-      *out = union_(fields, type_codes);
+      *out = sparse_union(fields, type_codes);
       break;
     }
     default: {

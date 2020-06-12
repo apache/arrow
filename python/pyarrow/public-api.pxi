@@ -93,7 +93,9 @@ cdef api object pyarrow_wrap_data_type(
         out = FixedSizeListType.__new__(FixedSizeListType)
     elif type.get().id() == _Type_STRUCT:
         out = StructType.__new__(StructType)
-    elif type.get().id() == _Type_UNION:
+    elif type.get().id() == _Type_SPARSE_UNION:
+        out = UnionType.__new__(UnionType)
+    elif type.get().id() == _Type_DENSE_UNION:
         out = UnionType.__new__(UnionType)
     elif type.get().id() == _Type_TIMESTAMP:
         out = TimestampType.__new__(TimestampType)

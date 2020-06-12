@@ -68,9 +68,10 @@ Type <- enum("Type::type",
   DECIMAL = 23L,
   LIST = 24L,
   STRUCT = 25L,
-  UNION = 26L,
-  DICTIONARY = 27L,
-  MAP = 28L
+  SPARSE_UNION = 26L,
+  DENSE_UNION = 27L,
+  DICTIONARY = 28L,
+  MAP = 29L
 )
 
 #' @rdname enums

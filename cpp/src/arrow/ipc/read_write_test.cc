@@ -629,24 +629,24 @@ TEST_F(TestWriteRecordBatch, SliceTruncatesBuffers) {
   CheckArray(a1);
 
   // Sparse Union
-  auto union_type = union_({field("f0", a0->type())}, {0});
+  auto union_type = sparse_union({field("f0", a0->type())}, {0});
   std::vector<int32_t> type_ids(a0->length());
   std::shared_ptr<Buffer> ids_buffer;
   ASSERT_OK(CopyBufferFromVector(type_ids, default_memory_pool(), &ids_buffer));
-  a1 =
-      std::make_shared<UnionArray>(union_type, a0->length(), struct_children, ids_buffer);
+  a1 = std::make_shared<SparseUnionArray>(union_type, a0->length(), struct_children,
+                                          ids_buffer);
   CheckArray(a1);
 
   // Dense union
-  auto dense_union_type = union_({field("f0", a0->type())}, {0}, UnionMode::DENSE);
+  auto dense_union_type = dense_union({field("f0", a0->type())}, {0});
   std::vector<int32_t> type_offsets;
   for (int32_t i = 0; i < a0->length(); ++i) {
     type_offsets.push_back(i);
   }
   std::shared_ptr<Buffer> offsets_buffer;
   ASSERT_OK(CopyBufferFromVector(type_offsets, default_memory_pool(), &offsets_buffer));
-  a1 = std::make_shared<UnionArray>(dense_union_type, a0->length(), struct_children,
-                                    ids_buffer, offsets_buffer);
+  a1 = std::make_shared<DenseUnionArray>(dense_union_type, a0->length(), struct_children,
+                                         ids_buffer, offsets_buffer);
   CheckArray(a1);
 }
 

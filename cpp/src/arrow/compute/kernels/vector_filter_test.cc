@@ -488,8 +488,8 @@ TEST_F(TestFilterKernelWithStruct, FilterStruct) {
 class TestFilterKernelWithUnion : public TestFilterKernel<UnionType> {};
 
 TEST_F(TestFilterKernelWithUnion, FilterUnion) {
-  for (auto mode : {UnionMode::SPARSE, UnionMode::DENSE}) {
-    auto union_type = union_({field("a", int32()), field("b", utf8())}, {2, 5}, mode);
+  for (auto union_ : UnionTypeFactories()) {
+    auto union_type = union_({field("a", int32()), field("b", utf8())}, {2, 5});
     auto union_json = R"([
       null,
       [2, 222],

@@ -83,7 +83,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         _Type_LARGE_LIST" arrow::Type::LARGE_LIST"
         _Type_FIXED_SIZE_LIST" arrow::Type::FIXED_SIZE_LIST"
         _Type_STRUCT" arrow::Type::STRUCT"
-        _Type_UNION" arrow::Type::UNION"
+        _Type_SPARSE_UNION" arrow::Type::SPARSE_UNION"
+        _Type_DENSE_UNION" arrow::Type::DENSE_UNION"
         _Type_DICTIONARY" arrow::Type::DICTIONARY"
         _Type_MAP" arrow::Type::MAP"
 
@@ -368,11 +369,17 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         vector[int] GetAllFieldIndices(const c_string& name)
 
     cdef cppclass CUnionType" arrow::UnionType"(CDataType):
-        CUnionType(const vector[shared_ptr[CField]]& fields,
-                   const vector[int8_t]& type_codes, UnionMode mode)
         UnionMode mode()
         const vector[int8_t]& type_codes()
         const vector[int]& child_ids()
+
+    cdef shared_ptr[CDataType] CMakeSparseUnionType" arrow::sparse_union"(
+        vector[shared_ptr[CField]] fields,
+        vector[int8_t] type_codes)
+
+    cdef shared_ptr[CDataType] CMakeDenseUnionType" arrow::dense_union"(
+        vector[shared_ptr[CField]] fields,
+        vector[int8_t] type_codes)
 
     cdef cppclass CSchema" arrow::Schema":
         CSchema(const vector[shared_ptr[CField]]& fields)
@@ -548,28 +555,32 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CDataType] value_type()
 
     cdef cppclass CUnionArray" arrow::UnionArray"(CArray):
+        shared_ptr[CBuffer] type_codes()
+        int8_t* raw_type_codes()
+        int child_id(int64_t index)
+        shared_ptr[CArray] field(int pos)
+        const CArray* UnsafeField(int pos)
+        UnionMode mode()
+
+    cdef cppclass CSparseUnionArray" arrow::SparseUnionArray"(CUnionArray):
         @staticmethod
-        CResult[shared_ptr[CArray]] MakeSparse(
+        CResult[shared_ptr[CArray]] Make(
             const CArray& type_codes,
             const vector[shared_ptr[CArray]]& children,
             const vector[c_string]& field_names,
             const vector[int8_t]& type_codes)
 
+    cdef cppclass CDenseUnionArray" arrow::DenseUnionArray"(CUnionArray):
         @staticmethod
-        CResult[shared_ptr[CArray]] MakeDense(
+        CResult[shared_ptr[CArray]] Make(
             const CArray& type_codes,
             const CArray& value_offsets,
             const vector[shared_ptr[CArray]]& children,
             const vector[c_string]& field_names,
             const vector[int8_t]& type_codes)
 
-        shared_ptr[CBuffer] type_codes()
-        int8_t* raw_type_codes()
         int32_t value_offset(int i)
         shared_ptr[CBuffer] value_offsets()
-        int child_id(int64_t index)
-        shared_ptr[CArray] field(int pos)
-        UnionMode mode()
 
     cdef cppclass CBinaryArray" arrow::BinaryArray"(CArray):
         const uint8_t* GetValue(int i, int32_t* length)

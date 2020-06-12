@@ -668,7 +668,8 @@ class ArrayWriter {
 
     WriteIntegerField("TYPE_ID", array.raw_type_codes(), array.length());
     if (type.mode() == UnionMode::DENSE) {
-      WriteIntegerField("OFFSET", array.raw_value_offsets(), array.length());
+      auto offsets = checked_cast<const DenseUnionArray&>(array).raw_value_offsets();
+      WriteIntegerField("OFFSET", offsets, array.length());
     }
     std::vector<std::shared_ptr<Array>> children;
     children.reserve(array.num_fields());
@@ -945,7 +946,11 @@ static Status GetUnion(const RjObject& json_type,
     type_codes.push_back(static_cast<int8_t>(val.GetInt()));
   }
 
-  *type = union_(children, type_codes, mode);
+  if (mode == UnionMode::SPARSE) {
+    *type = sparse_union(std::move(children), std::move(type_codes));
+  } else {
+    *type = dense_union(std::move(children), std::move(type_codes));
+  }
 
   return Status::OK();
 }
@@ -1471,7 +1476,6 @@ class ArrayReader {
 
     std::shared_ptr<Buffer> validity_buffer;
     std::shared_ptr<Buffer> type_id_buffer;
-    std::shared_ptr<Buffer> offsets_buffer;
 
     RETURN_NOT_OK(GetValidityBuffer(is_valid_, &null_count, &validity_buffer));
 
@@ -1480,18 +1484,24 @@ class ArrayReader {
     RETURN_NOT_OK(
         GetIntArray<uint8_t>(json_type_ids->value.GetArray(), length_, &type_id_buffer));
 
-    if (type.mode() == UnionMode::DENSE) {
-      const auto& json_offsets = obj_.FindMember("OFFSET");
-      RETURN_NOT_ARRAY("OFFSET", json_offsets, obj_);
-      RETURN_NOT_OK(
-          GetIntArray<int32_t>(json_offsets->value.GetArray(), length_, &offsets_buffer));
-    }
-
     std::vector<std::shared_ptr<Array>> children;
     RETURN_NOT_OK(GetChildren(obj_, type, &children));
 
-    result_ = std::make_shared<UnionArray>(type_, length_, children, type_id_buffer,
-                                           offsets_buffer, validity_buffer, null_count);
+    if (type.mode() == UnionMode::SPARSE) {
+      result_ = std::make_shared<SparseUnionArray>(
+          type_, length_, children, type_id_buffer, validity_buffer, null_count);
+    } else {
+      const auto& json_offsets = obj_.FindMember("OFFSET");
+      RETURN_NOT_ARRAY("OFFSET", json_offsets, obj_);
+
+      std::shared_ptr<Buffer> offsets_buffer;
+      RETURN_NOT_OK(
+          GetIntArray<int32_t>(json_offsets->value.GetArray(), length_, &offsets_buffer));
+
+      result_ =
+          std::make_shared<DenseUnionArray>(type_, length_, children, type_id_buffer,
+                                            offsets_buffer, validity_buffer, null_count);
+    }
 
     return Status::OK();
   }

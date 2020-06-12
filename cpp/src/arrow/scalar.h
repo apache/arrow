@@ -373,7 +373,16 @@ struct ARROW_EXPORT StructScalar : public Scalar {
 
 struct ARROW_EXPORT UnionScalar : public Scalar {
   using Scalar::Scalar;
-  using TypeClass = UnionType;
+};
+
+struct ARROW_EXPORT SparseUnionScalar : public UnionScalar {
+  using UnionScalar::UnionScalar;
+  using TypeClass = SparseUnionType;
+};
+
+struct ARROW_EXPORT DenseUnionScalar : public UnionScalar {
+  using UnionScalar::UnionScalar;
+  using TypeClass = DenseUnionType;
 };
 
 struct ARROW_EXPORT DictionaryScalar : public Scalar {

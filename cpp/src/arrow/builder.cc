@@ -80,6 +80,19 @@ struct DictionaryBuilderCase {
     out->reset(new TYPE_CLASS##Builder(type, pool)); \
     return Status::OK();
 
+Result<std::vector<std::shared_ptr<ArrayBuilder>>> FieldBuilders(const DataType& type,
+                                                                 MemoryPool* pool) {
+  std::vector<std::shared_ptr<ArrayBuilder>> field_builders;
+
+  for (const auto& field : type.fields()) {
+    std::unique_ptr<ArrayBuilder> builder;
+    RETURN_NOT_OK(MakeBuilder(pool, field->type(), &builder));
+    field_builders.emplace_back(std::move(builder));
+  }
+
+  return field_builders;
+}
+
 Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
                    std::unique_ptr<ArrayBuilder>* out) {
   switch (type->id()) {
@@ -158,33 +171,20 @@ Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
     }
 
     case Type::STRUCT: {
-      const std::vector<std::shared_ptr<Field>>& fields = type->fields();
-      std::vector<std::shared_ptr<ArrayBuilder>> field_builders;
-
-      for (const auto& it : fields) {
-        std::unique_ptr<ArrayBuilder> builder;
-        RETURN_NOT_OK(MakeBuilder(pool, it->type(), &builder));
-        field_builders.emplace_back(std::move(builder));
-      }
+      ARROW_ASSIGN_OR_RAISE(auto field_builders, FieldBuilders(*type, pool));
       out->reset(new StructBuilder(type, pool, std::move(field_builders)));
       return Status::OK();
     }
 
-    case Type::UNION: {
-      const auto& union_type = internal::checked_cast<const UnionType&>(*type);
-      const std::vector<std::shared_ptr<Field>>& fields = type->fields();
-      std::vector<std::shared_ptr<ArrayBuilder>> field_builders;
+    case Type::SPARSE_UNION: {
+      ARROW_ASSIGN_OR_RAISE(auto field_builders, FieldBuilders(*type, pool));
+      out->reset(new SparseUnionBuilder(pool, std::move(field_builders), type));
+      return Status::OK();
+    }
 
-      for (const auto& it : fields) {
-        std::unique_ptr<ArrayBuilder> builder;
-        RETURN_NOT_OK(MakeBuilder(pool, it->type(), &builder));
-        field_builders.emplace_back(std::move(builder));
-      }
-      if (union_type.mode() == UnionMode::DENSE) {
-        out->reset(new DenseUnionBuilder(pool, std::move(field_builders), type));
-      } else {
-        out->reset(new SparseUnionBuilder(pool, std::move(field_builders), type));
-      }
+    case Type::DENSE_UNION: {
+      ARROW_ASSIGN_OR_RAISE(auto field_builders, FieldBuilders(*type, pool));
+      out->reset(new DenseUnionBuilder(pool, std::move(field_builders), type));
       return Status::OK();
     }
 

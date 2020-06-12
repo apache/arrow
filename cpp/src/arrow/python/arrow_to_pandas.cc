@@ -983,7 +983,7 @@ struct ObjectWriterVisitor {
                   std::is_same<ExtensionType, Type>::value ||
                   std::is_base_of<IntervalType, Type>::value ||
                   std::is_same<TimestampType, Type>::value ||
-                  std::is_same<UnionType, Type>::value,
+                  std::is_base_of<UnionType, Type>::value,
               Status>
   Visit(const Type& type) {
     return Status::NotImplemented("No implemented conversion to object dtype: ",

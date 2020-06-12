@@ -399,8 +399,9 @@ TEST(TestJsonSchemaWriter, FlatTypes) {
       field("f15", date64()),
       field("f16", timestamp(TimeUnit::NANO)),
       field("f17", time64(TimeUnit::MICRO)),
-      field("f18", union_({field("u1", int8()), field("u2", time32(TimeUnit::MILLI))},
-                          {0, 1}, UnionMode::DENSE)),
+      field("f18",
+            dense_union({field("u1", int8()), field("u2", time32(TimeUnit::MILLI))},
+                        {0, 1})),
       field("f19", large_list(uint8())),
       field("f20", null()),
   };

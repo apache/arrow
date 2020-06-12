@@ -249,7 +249,7 @@ Status DeserializeSequence(PyObject* context, const Array& array, int64_t start_
                            const SerializedPyObject& blobs,
                            CreateSequenceFn&& create_sequence, SetItemFn&& set_item,
                            PyObject** out) {
-  const auto& data = checked_cast<const UnionArray&>(array);
+  const auto& data = checked_cast<const DenseUnionArray&>(array);
   OwnedRef result(create_sequence(stop_idx - start_idx));
   RETURN_IF_PYERROR();
   const int8_t* type_codes = data.raw_type_codes();

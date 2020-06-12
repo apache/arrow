@@ -615,8 +615,10 @@ TEST_F(TestSchema, TestDeeplyNestedMetadataComparison) {
   auto item0 = field("item", int32(), true);
   auto item1 = field("item", int32(), true, key_value_metadata({{"foo", "baz"}}));
 
-  Schema schema0({field("f", list(list(union_({field("struct", struct_({item0}))}))))});
-  Schema schema1({field("f", list(list(union_({field("struct", struct_({item1}))}))))});
+  Schema schema0(
+      {field("f", list(list(sparse_union({field("struct", struct_({item0}))}))))});
+  Schema schema1(
+      {field("f", list(list(sparse_union({field("struct", struct_({item1}))}))))});
 
   ASSERT_EQ(schema0.fingerprint(), schema1.fingerprint());
   ASSERT_NE(schema0.metadata_fingerprint(), schema1.metadata_fingerprint());
@@ -1368,8 +1370,7 @@ TEST(TestNestedType, Equals) {
     auto f_type = field(inner_name, int32());
     std::vector<std::shared_ptr<Field>> fields = {f_type};
     std::vector<int8_t> codes = {42};
-    auto u_type = std::make_shared<UnionType>(fields, codes, UnionMode::SPARSE);
-    return field(union_name, u_type);
+    return field(union_name, sparse_union(fields, codes));
   };
 
   auto s0 = create_struct("f0", "s0");
@@ -1513,16 +1514,12 @@ TEST(TestUnionType, Basics) {
   child_ids2[11] = 1;
   child_ids2[12] = 2;
 
-  auto ty1 = checked_pointer_cast<UnionType>(union_(fields, UnionMode::DENSE));
-  auto ty2 =
-      checked_pointer_cast<UnionType>(union_(fields, type_codes1, UnionMode::DENSE));
-  auto ty3 =
-      checked_pointer_cast<UnionType>(union_(fields, type_codes2, UnionMode::DENSE));
-  auto ty4 = checked_pointer_cast<UnionType>(union_(fields, UnionMode::SPARSE));
-  auto ty5 =
-      checked_pointer_cast<UnionType>(union_(fields, type_codes1, UnionMode::SPARSE));
-  auto ty6 =
-      checked_pointer_cast<UnionType>(union_(fields, type_codes2, UnionMode::SPARSE));
+  auto ty1 = checked_pointer_cast<UnionType>(dense_union(fields));
+  auto ty2 = checked_pointer_cast<UnionType>(dense_union(fields, type_codes1));
+  auto ty3 = checked_pointer_cast<UnionType>(dense_union(fields, type_codes2));
+  auto ty4 = checked_pointer_cast<UnionType>(sparse_union(fields));
+  auto ty5 = checked_pointer_cast<UnionType>(sparse_union(fields, type_codes1));
+  auto ty6 = checked_pointer_cast<UnionType>(sparse_union(fields, type_codes2));
 
   ASSERT_EQ(ty1->type_codes(), type_codes1);
   ASSERT_EQ(ty2->type_codes(), type_codes1);
