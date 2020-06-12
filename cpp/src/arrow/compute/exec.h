@@ -218,7 +218,8 @@ ARROW_EXPORT
 Result<Datum> CallFunction(const std::string& func_name, const std::vector<Datum>& args,
                            const FunctionOptions* options, ExecContext* ctx = NULLPTR);
 
-/// \brief Variant of CallFunction for functions not requiring options.
+/// \brief Variant of CallFunction which uses a function's default options.
+/// NB: Some functions require FunctionOptions be provided.
 ARROW_EXPORT
 Result<Datum> CallFunction(const std::string& func_name, const std::vector<Datum>& args,
                            ExecContext* ctx = NULLPTR);

@@ -387,6 +387,11 @@ TEST_F(TestCast, ZeroChunks) {
   AssertChunkedEqual(*result.chunked_array(), ChunkedArray({}, utf8()));
 }
 
+TEST_F(TestCast, CastDoesNotProvideDefaultOptions) {
+  std::shared_ptr<Array> arr = ArrayFromJSON(int32(), "[0, null, 2, 3, 4]");
+  ASSERT_RAISES(Invalid, CallFunction("cast", {arr}));
+}
+
 TEST_F(TestCast, FromBoolean) {
   CastOptions options;
 

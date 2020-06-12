@@ -27,12 +27,12 @@
 #include "arrow/compute/cast_internal.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/kernel.h"
+#include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/registry.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
 namespace compute {
-
 namespace internal {
 
 std::unordered_map<int, std::shared_ptr<CastFunction>> g_cast_table;
@@ -60,15 +60,22 @@ class CastMetaFunction : public MetaFunction {
  public:
   CastMetaFunction() : MetaFunction("cast", Arity::Unary()) {}
 
-  Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
-                            const FunctionOptions* options,
-                            ExecContext* ctx) const override {
+  Result<const CastOptions*> ValidateOptions(const FunctionOptions* options) const {
     auto cast_options = static_cast<const CastOptions*>(options);
+
     if (cast_options == nullptr || cast_options->to_type == nullptr) {
       return Status::Invalid(
           "Cast requires that options be passed with "
           "the to_type populated");
     }
+
+    return cast_options;
+  }
+
+  Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
+                            const FunctionOptions* options,
+                            ExecContext* ctx) const override {
+    ARROW_ASSIGN_OR_RAISE(auto cast_options, ValidateOptions(options));
     if (args[0].type()->Equals(*cast_options->to_type)) {
       return args[0];
     }
@@ -99,16 +106,9 @@ CastFunction::~CastFunction() {}
 
 Type::type CastFunction::out_type_id() const { return impl_->out_type; }
 
-std::unique_ptr<KernelState> CastInit(KernelContext* ctx, const KernelInitArgs& args) {
-  auto cast_options = static_cast<const CastOptions*>(args.options);
-  // Ensure that the requested type to cast to was attached to the options
-  DCHECK(cast_options->to_type);
-  return std::unique_ptr<KernelState>(new internal::CastState(*cast_options));
-}
-
 Status CastFunction::AddKernel(Type::type in_type_id, ScalarKernel kernel) {
   // We use the same KernelInit for every cast
-  kernel.init = CastInit;
+  kernel.init = internal::CastState::Init;
   RETURN_NOT_OK(ScalarFunction::AddKernel(kernel));
   impl_->in_types.insert(static_cast<int>(in_type_id));
   return Status::OK();

@@ -102,6 +102,10 @@ struct InitStateVisitor {
 
   template <typename Type>
   Status Init() {
+    if (options == nullptr) {
+      return Status::Invalid(
+          "Attempted to call a set lookup function without SetLookupOptions");
+    }
     using StateType = SetLookupState<Type>;
     result.reset(new StateType(ctx->exec_context()->memory_pool()));
     return static_cast<StateType*>(result.get())->Init(*options);
