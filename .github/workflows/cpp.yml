@@ -97,12 +97,13 @@ jobs:
     # CACHING: don't use the cache plugin because of various permission
     #          issues and keep the cached docker volumes permanently on the
     #          host
-    # PYTHON: no distrubutions are build for arm machines by the github
+    # PYTHON: no distributions are built for arm machines by the github
     #         actions team, so python>3.6 must be preinstalled on the self
     #         hosted machines
     name: ${{ matrix.title }}
     runs-on: ${{ matrix.runner }}
-    # if: ${{ !contains(github.event.pull_request.title, 'WIP') && github.repository == 'apache/arrow' }}
+    # TODO(kszucs): enable only on push
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') && github.repository == 'apache/arrow' }}
     defaults:
       # to use certain environment variables are set by .bashrc an interactive
       # bash shell must be used
