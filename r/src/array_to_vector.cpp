@@ -178,8 +178,8 @@ class Converter_Date32 : public Converter_SimpleArray<REALSXP> {
   Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
                            R_xlen_t start, R_xlen_t n) const {
     auto convert = [](int days) { return static_cast<double>(days); };
-    return SomeNull_Ingest<REALSXP, int>(
-        data, start, n, array->data()->GetValues<int>(1), array, convert);
+    return SomeNull_Ingest<REALSXP, int>(data, start, n, array->data()->GetValues<int>(1),
+                                         array, convert);
   }
 };
 
