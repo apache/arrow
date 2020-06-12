@@ -35,24 +35,23 @@ namespace arrow {
 namespace dataset {
 
 Result<std::shared_ptr<arrow::io::RandomAccessFile>> FileSource::Open() const {
-  if (IsPath()) {
-    return filesystem()->OpenInputFile(path());
+  if (filesystem_) {
+    return filesystem_->OpenInputFile(path_);
   }
 
-  if (IsBuffer()) {
-    return std::make_shared<::arrow::io::BufferReader>(buffer());
+  if (buffer_) {
+    return std::make_shared<::arrow::io::BufferReader>(buffer_);
   }
 
-  return util::get<CustomOpen>(impl_)();
+  return custom_open_();
 }
 
 Result<std::shared_ptr<arrow::io::OutputStream>> WritableFileSource::Open() const {
-  if (IsPath()) {
-    return filesystem()->OpenOutputStream(path());
+  if (filesystem_) {
+    return filesystem_->OpenOutputStream(path_);
   }
 
-  auto b = internal::checked_pointer_cast<ResizableBuffer>(buffer());
-  return std::make_shared<::arrow::io::BufferOutputStream>(b);
+  return std::make_shared<::arrow::io::BufferOutputStream>(buffer_);
 }
 
 Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(FileSource source) {

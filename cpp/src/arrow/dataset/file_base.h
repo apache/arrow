@@ -47,28 +47,29 @@ class ARROW_DS_EXPORT FileSource {
  public:
   FileSource(std::string path, std::shared_ptr<fs::FileSystem> filesystem,
              Compression::type compression = Compression::UNCOMPRESSED)
-      : impl_(PathAndFileSystem{std::move(path), std::move(filesystem)}),
+      : path_(std::move(path)),
+        filesystem_(std::move(filesystem)),
         compression_(compression) {}
 
   explicit FileSource(std::shared_ptr<Buffer> buffer,
                       Compression::type compression = Compression::UNCOMPRESSED)
-      : source_kind_(BUFFER), buffer_(std::move(buffer)), compression_(compression) {}
+      : buffer_(std::move(buffer)), compression_(compression) {}
 
   using CustomOpen = std::function<Result<std::shared_ptr<io::RandomAccessFile>>()>;
-  explicit FileSource(CustomOpen open) : impl_(std::move(open)) {}
+  explicit FileSource(CustomOpen open) : custom_open_(std::move(open)) {}
 
   using CustomOpenWithCompression =
       std::function<Result<std::shared_ptr<io::RandomAccessFile>>(Compression::type)>;
   explicit FileSource(CustomOpenWithCompression open_with_compression,
                       Compression::type compression = Compression::UNCOMPRESSED)
-      : impl_(std::bind(std::move(open_with_compression), compression)),
+      : custom_open_(std::bind(std::move(open_with_compression), compression)),
         compression_(compression) {}
 
   explicit FileSource(std::shared_ptr<io::RandomAccessFile> file,
                       Compression::type compression = Compression::UNCOMPRESSED)
-      : impl_([=] { return ToResult(file); }), compression_(compression) {}
+      : custom_open_([=] { return ToResult(file); }), compression_(compression) {}
 
-  FileSource() : impl_(CustomOpen{&InvalidOpen}) {}
+  FileSource() : custom_open_(CustomOpen{&InvalidOpen}) {}
 
   static std::vector<FileSource> FromPaths(const std::shared_ptr<fs::FileSystem>& fs,
                                            std::vector<std::string> paths) {
@@ -79,41 +80,21 @@ class ARROW_DS_EXPORT FileSource {
     return sources;
   }
 
-  /// \brief Return the type of raw compression on the file, if any
+  /// \brief Return the type of raw compression on the file, if any.
   Compression::type compression() const { return compression_; }
 
   /// \brief Return the file path, if any. Only valid when file source wraps a path.
   const std::string& path() const {
-    if (IsPath()) {
-      return util::get<PathAndFileSystem>(impl_).path;
-    }
-    if (IsBuffer()) {
-      static std::string no_path = "<Buffer>";
-      return no_path;
-    } else {
-      static std::string no_path = "<CustomOpen>";
-      return no_path;
-    }
+    static std::string buffer_path = "<Buffer>";
+    static std::string custom_open_path = "<Buffer>";
+    return filesystem_ ? path_ : buffer_ ? buffer_path : custom_open_path;
   }
 
   /// \brief Return the filesystem, if any. Otherwise returns nullptr
-  const std::shared_ptr<fs::FileSystem>& filesystem() const {
-    if (!IsPath()) {
-      static std::shared_ptr<fs::FileSystem> no_fs = NULLPTR;
-      return no_fs;
-    }
-    return util::get<PathAndFileSystem>(impl_).filesystem;
-  }
+  const std::shared_ptr<fs::FileSystem>& filesystem() const { return filesystem_; }
 
-  /// \brief Return the buffer containing the file, if any. Only value
-  /// when file source type is BUFFER
-  const std::shared_ptr<Buffer>& buffer() const {
-    if (!IsBuffer()) {
-      static std::shared_ptr<Buffer> no_buffer = NULLPTR;
-      return no_buffer;
-    }
-    return util::get<std::shared_ptr<Buffer>>(impl_);
-  }
+  /// \brief Return the buffer containing the file, if any. Otherwise returns nullptr
+  const std::shared_ptr<Buffer>& buffer() const { return buffer_; }
 
   /// \brief Get a RandomAccessFile which views this file source
   Result<std::shared_ptr<io::RandomAccessFile>> Open() const;
@@ -123,18 +104,10 @@ class ARROW_DS_EXPORT FileSource {
     return Status::Invalid("Called Open() on an uninitialized FileSource");
   }
 
-  bool IsPath() const { return util::holds_alternative<PathAndFileSystem>(impl_); }
-
-  bool IsBuffer() const {
-    return util::holds_alternative<std::shared_ptr<Buffer>>(impl_);
-  }
-
-  struct PathAndFileSystem {
-    std::string path;
-    std::shared_ptr<fs::FileSystem> filesystem;
-  };
-
-  util::variant<PathAndFileSystem, std::shared_ptr<Buffer>, CustomOpen> impl_;
+  std::string path_;
+  std::shared_ptr<fs::FileSystem> filesystem_;
+  std::shared_ptr<Buffer> buffer_;
+  CustomOpen custom_open_;
   Compression::type compression_ = Compression::UNCOMPRESSED;
 };
 
@@ -144,60 +117,37 @@ class ARROW_DS_EXPORT WritableFileSource {
  public:
   WritableFileSource(std::string path, std::shared_ptr<fs::FileSystem> filesystem,
                      Compression::type compression = Compression::UNCOMPRESSED)
-      : impl_(PathAndFileSystem{std::move(path), std::move(filesystem)}),
+      : path_(std::move(path)),
+        filesystem_(std::move(filesystem)),
         compression_(compression) {}
 
   explicit WritableFileSource(std::shared_ptr<ResizableBuffer> buffer,
                               Compression::type compression = Compression::UNCOMPRESSED)
-      : impl_(std::move(buffer)), compression_(compression) {}
+      : buffer_(std::move(buffer)), compression_(compression) {}
 
   /// \brief Return the type of raw compression on the file, if any
   Compression::type compression() const { return compression_; }
 
   /// \brief Return the file path, if any. Only valid when file source wraps a path.
   const std::string& path() const {
-    if (IsPath()) {
-      return util::get<PathAndFileSystem>(impl_).path;
-    }
-    static std::string no_path = "<Buffer>";
-    return no_path;
+    static std::string buffer_path = "<Buffer>";
+    return filesystem_ ? path_ : buffer_path;
   }
 
   /// \brief Return the filesystem, if any. Otherwise returns nullptr
-  const std::shared_ptr<fs::FileSystem>& filesystem() const {
-    if (!IsPath()) {
-      static std::shared_ptr<fs::FileSystem> no_fs = NULLPTR;
-      return no_fs;
-    }
-    return util::get<PathAndFileSystem>(impl_).filesystem;
-  }
+  const std::shared_ptr<fs::FileSystem>& filesystem() const { return filesystem_; }
 
   /// \brief Return the buffer containing the file, if any. Otherwise returns nullptr
-  const std::shared_ptr<ResizableBuffer>& buffer() const {
-    if (!IsBuffer()) {
-      static std::shared_ptr<ResizableBuffer> no_buffer = NULLPTR;
-      return no_buffer;
-    }
-    return util::get<std::shared_ptr<ResizableBuffer>>(impl_);
-  }
+  const std::shared_ptr<ResizableBuffer>& buffer() const { return buffer_; }
 
   /// \brief Get an OutputStream which wraps this file source
   Result<std::shared_ptr<arrow::io::OutputStream>> Open() const;
 
  private:
-  bool IsPath() const { return util::holds_alternative<PathAndFileSystem>(impl_); }
-
-  bool IsBuffer() const {
-    return util::holds_alternative<std::shared_ptr<ResizableBuffer>>(impl_);
-  }
-
-  struct PathAndFileSystem {
-    std::string path;
-    std::shared_ptr<fs::FileSystem> filesystem;
-  };
-
-  util::variant<PathAndFileSystem, std::shared_ptr<ResizableBuffer>> impl_;
-  Compression::type compression_;
+  std::string path_;
+  std::shared_ptr<fs::FileSystem> filesystem_;
+  std::shared_ptr<ResizableBuffer> buffer_;
+  Compression::type compression_ = Compression::UNCOMPRESSED;
 };
 
 /// \brief Base class for file format implementation
