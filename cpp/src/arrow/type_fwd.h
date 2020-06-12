@@ -386,6 +386,58 @@ std::shared_ptr<DataType> ARROW_EXPORT
 dense_union(const ArrayVector& children, std::vector<std::string> field_names = {},
             std::vector<int8_t> type_codes = {});
 
+/// \brief Create a UnionType instance
+inline std::shared_ptr<DataType> ARROW_EXPORT
+union_(const std::vector<std::shared_ptr<Field>>& child_fields,
+       const std::vector<int8_t>& type_codes, UnionMode::type mode = UnionMode::SPARSE) {
+  if (mode == UnionMode::SPARSE) {
+    return sparse_union(child_fields, type_codes);
+  } else {
+    return dense_union(child_fields, type_codes);
+  }
+}
+
+/// \brief Create a UnionType instance
+ARROW_DEPRECATED("Deprecated in 1.0.0")
+inline std::shared_ptr<DataType> ARROW_EXPORT
+union_(const std::vector<std::shared_ptr<Field>>& child_fields,
+       UnionMode::type mode = UnionMode::SPARSE) {
+  if (mode == UnionMode::SPARSE) {
+    return sparse_union(child_fields);
+  } else {
+    return dense_union(child_fields);
+  }
+}
+
+/// \brief Create a UnionType instance
+ARROW_DEPRECATED("Deprecated in 1.0.0")
+inline std::shared_ptr<DataType> ARROW_EXPORT
+union_(const std::vector<std::shared_ptr<Array>>& children,
+       const std::vector<std::string>& field_names, const std::vector<int8_t>& type_codes,
+       UnionMode::type mode = UnionMode::SPARSE) {
+  if (mode == UnionMode::SPARSE) {
+    return sparse_union(children, field_names, type_codes);
+  } else {
+    return dense_union(children, field_names, type_codes);
+  }
+}
+
+/// \brief Create a UnionType instance
+ARROW_DEPRECATED("Deprecated in 1.0.0")
+inline std::shared_ptr<DataType> ARROW_EXPORT
+union_(const std::vector<std::shared_ptr<Array>>& children,
+       const std::vector<std::string>& field_names,
+       UnionMode::type mode = UnionMode::SPARSE) {
+  return union_(children, field_names, {}, mode);
+}
+
+/// \brief Create a UnionType instance
+ARROW_DEPRECATED("Deprecated in 1.0.0")
+inline std::shared_ptr<DataType> ARROW_EXPORT
+union_(const std::vector<std::shared_ptr<Array>>& children,
+       UnionMode::type mode = UnionMode::SPARSE) {
+  return union_(children, {}, {}, mode);
+}
 /// \brief Create a DictionaryType instance
 /// \param[in] index_type the type of the dictionary indices (must be
 /// a signed integer)

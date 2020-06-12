@@ -1021,6 +1021,16 @@ class ARROW_EXPORT UnionType : public NestedType {
   static constexpr int8_t kMaxTypeCode = 127;
   static constexpr int kInvalidChildId = -1;
 
+  static Result<std::shared_ptr<DataType>> Make(
+      const std::vector<std::shared_ptr<Field>>& fields,
+      const std::vector<int8_t>& type_codes, UnionMode::type mode = UnionMode::SPARSE) {
+    if (mode == UnionMode::SPARSE) {
+      return sparse_union(fields, type_codes);
+    } else {
+      return dense_union(fields, type_codes);
+    }
+  }
+
   DataTypeLayout layout() const override;
 
   std::string ToString() const override;
