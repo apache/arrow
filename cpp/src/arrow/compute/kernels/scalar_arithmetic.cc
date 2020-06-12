@@ -83,9 +83,7 @@ struct Multiply {
   static_assert(std::is_same<decltype(int16_t() * int16_t()), int32_t>::value, "");
   static_assert(std::is_same<decltype(uint16_t() * uint16_t()), int32_t>::value, "");
   static_assert(std::is_same<decltype(int32_t() * int32_t()), int32_t>::value, "");
-
   static_assert(std::is_same<decltype(uint32_t() * uint32_t()), uint32_t>::value, "");
-
   static_assert(std::is_same<decltype(int64_t() * int64_t()), int64_t>::value, "");
   static_assert(std::is_same<decltype(uint64_t() * uint64_t()), uint64_t>::value, "");
 
