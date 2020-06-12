@@ -116,3 +116,8 @@ def find_free_port():
         sock.bind(('', 0))
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         return sock.getsockname()[1]
+
+
+def guid():
+    from uuid import uuid4
+    return uuid4().hex

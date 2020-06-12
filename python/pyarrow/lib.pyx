@@ -41,6 +41,7 @@ set_numpy_nan(np.nan)
 # pandas API shim
 include "compat.pxi"
 
+
 def cpu_count():
     """
     Return the number of threads to use in parallel operations.

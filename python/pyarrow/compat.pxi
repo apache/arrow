@@ -15,6 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import sys
+
+
 def encode_file_path(path):
     if isinstance(path, str):
         # POSIX systems can handle utf-8. UTF8 is converted to utf16-le in
