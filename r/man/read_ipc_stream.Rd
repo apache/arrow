@@ -6,14 +6,17 @@
 \alias{read_arrow}
 \title{Read Arrow IPC stream format}
 \usage{
-read_ipc_stream(x, as_data_frame = TRUE, ...)
+read_ipc_stream(file, as_data_frame = TRUE, ...)
 
-read_table(x, ...)
+read_table(file, ...)
 
-read_arrow(x, ...)
+read_arrow(file, ...)
 }
 \arguments{
-\item{x}{A character file name, \code{raw} vector, or an Arrow input stream}
+\item{file}{A character file name, \code{raw} vector, or an Arrow input stream.
+If a file name, a memory-mapped Arrow \link{InputStream} will be opened and
+closed when finished. If an input stream is provided, it will be left
+open.}
 
 \item{as_data_frame}{Should the function return a \code{data.frame} (default) or
 an Arrow \link{Table}?}
