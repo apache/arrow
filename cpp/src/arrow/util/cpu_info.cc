@@ -301,14 +301,14 @@ void CpuInfo::Init() {
 
 #ifdef __APPLE__
   // On Mac OS X use sysctl() to get the cache sizes
-  size_t len = 0;
-  sysctlbyname("hw.cachesize", NULL, &len, NULL, 0);
-  uint64_t* data = static_cast<uint64_t*>(malloc(len));
-  sysctlbyname("hw.cachesize", data, &len, NULL, 0);
-  DCHECK_GE(len / sizeof(uint64_t), 3);
-  for (size_t i = 0; i < 3; ++i) {
-    cache_sizes_[i] = data[i];
-  }
+  size_t len = sizeof(int64_t);
+  int64_t data[1];
+  sysctlbyname("hw.l1dcachesize", data, &len, NULL, 0);
+  cache_sizes_[0] = data[0];
+  sysctlbyname("hw.l2cachesize", data, &len, NULL, 0);
+  cache_sizes_[1] = data[0];
+  sysctlbyname("hw.l3cachesize", data, &len, NULL, 0);
+  cache_sizes_[2] = data[0];
 #elif _WIN32
   if (!RetrieveCacheSize(cache_sizes_)) {
     SetDefaultCacheSize();
