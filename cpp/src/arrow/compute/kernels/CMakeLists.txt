@@ -29,6 +29,7 @@ add_arrow_compute_test(scalar_test
                        test_util.cc)
 
 add_arrow_benchmark(scalar_compare_benchmark PREFIX "arrow-compute")
+add_arrow_benchmark(scalar_string_benchmark PREFIX "arrow-compute")
 
 # ----------------------------------------------------------------------
 # Vector kernels
