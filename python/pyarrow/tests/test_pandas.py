@@ -384,10 +384,10 @@ class TestConvertMetadata:
             batch = pa.RecordBatch.from_arrays([arr], ['foo'])
             table = pa.Table.from_batches([batch, batch, batch])
 
-            with pytest.raises(pa.ArrowInvalid):
+            with pytest.raises(IndexError):
                 arr.to_pandas()
 
-            with pytest.raises(pa.ArrowInvalid):
+            with pytest.raises(IndexError):
                 table.to_pandas()
 
     def test_unicode_with_unicode_column_and_index(self):
