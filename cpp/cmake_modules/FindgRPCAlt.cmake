@@ -29,6 +29,10 @@ if(gRPC_ROOT)
                PATHS ${gRPC_ROOT}
                PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
                NO_DEFAULT_PATH)
+  find_library(GRPC_UPB_LIB upb
+               PATHS ${gRPC_ROOT}
+               PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
+               NO_DEFAULT_PATH)
   find_program(GRPC_CPP_PLUGIN grpc_cpp_plugin NO_DEFAULT_PATH
                PATHS ${gRPC_ROOT}
                PATH_SUFFIXES "bin")
@@ -61,6 +65,10 @@ else()
                  PATHS ${GRPC_PC_LIBRARY_DIRS}
                  PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
                  NO_DEFAULT_PATH)
+    find_library(GRPC_UPB_LIB upb
+                 PATHS ${GRPC_PC_LIBRARY_DIRS}
+                 PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
+                 NO_DEFAULT_PATH)
     find_program(GRPC_CPP_PLUGIN grpc_cpp_plugin
                  HINTS ${GRPC_PC_PREFIX}
                  NO_DEFAULT_PATH
@@ -71,6 +79,7 @@ else()
     find_library(GRPC_GRPCPP_LIB grpc++ PATH_SUFFIXES ${LIB_PATH_SUFFIXES})
     find_library(GRPC_ADDRESS_SORTING_LIB address_sorting
                  PATH_SUFFIXES ${LIB_PATH_SUFFIXES})
+    find_library(GRPC_UPB_LIB upb PATH_SUFFIXES ${LIB_PATH_SUFFIXES})
     find_program(GRPC_CPP_PLUGIN grpc_cpp_plugin PATH_SUFFIXES "bin")
     find_path(GRPC_INCLUDE_DIR NAMES grpc/grpc.h PATH_SUFFIXES ${INCLUDE_PATH_SUFFIXES})
   endif()
@@ -100,10 +109,7 @@ if(gRPCAlt_FOUND)
                         PROPERTIES IMPORTED_LOCATION "${GRPC_GRPC_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}")
 
-  add_library(gRPC::grpc++ UNKNOWN IMPORTED)
-  set_target_properties(gRPC::grpc++
-                        PROPERTIES IMPORTED_LOCATION "${GRPC_GRPCPP_LIB}"
-                                   INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}")
+  set(_GRPCPP_LINK_LIBRARIES "gRPC::grpc;gRPC::gpr")
 
   if(GRPC_ADDRESS_SORTING_LIB)
     # Address sorting is optional and not always required.
@@ -111,7 +117,26 @@ if(gRPCAlt_FOUND)
     set_target_properties(gRPC::address_sorting
                           PROPERTIES IMPORTED_LOCATION "${GRPC_ADDRESS_SORTING_LIB}"
                                      INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}")
+    set(_GRPCPP_LINK_LIBRARIES "${_GRPCPP_LINK_LIBRARIES};gRPC::address_sorting")
   endif()
+
+  if(GRPC_UPB_LIB)
+    # upb is used by recent gRPC versions
+    add_library(gRPC::upb UNKNOWN IMPORTED)
+    set_target_properties(gRPC::upb
+                          PROPERTIES IMPORTED_LOCATION "${GRPC_UPB_LIB}"
+                                     INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}")
+    set(_GRPCPP_LINK_LIBRARIES "${_GRPCPP_LINK_LIBRARIES};gRPC::upb")
+  endif()
+
+  add_library(gRPC::grpc++ UNKNOWN IMPORTED)
+  set_target_properties(gRPC::grpc++
+                        PROPERTIES IMPORTED_LOCATION
+                                   "${GRPC_GRPCPP_LIB}"
+                                   INTERFACE_LINK_LIBRARIES
+                                   "${_GRPCPP_LINK_LIBRARIES}"
+                                   INTERFACE_INCLUDE_DIRECTORIES
+                                   "${GRPC_INCLUDE_DIR}")
 
   add_executable(gRPC::grpc_cpp_plugin IMPORTED)
   set_target_properties(gRPC::grpc_cpp_plugin

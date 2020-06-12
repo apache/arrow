@@ -248,6 +248,14 @@ foreach(_VERSION_ENTRY ${TOOLCHAIN_VERSIONS_TXT})
   set(${_VARIABLE_NAME} ${_VARIABLE_VALUE})
 endforeach()
 
+if(DEFINED ENV{ARROW_ABSL_URL})
+  set(ABSL_SOURCE_URL "$ENV{ARROW_ABSL_URL}")
+else()
+  set_urls(
+    ABSL_SOURCE_URL
+    "https://github.com/abseil/abseil-cpp/archive/${ARROW_ABSL_BUILD_VERSION}.tar.gz")
+endif()
+
 if(DEFINED ENV{ARROW_AWSSDK_URL})
   set(AWSSDK_SOURCE_URL "$ENV{ARROW_AWSSDK_URL}")
 else()
@@ -959,9 +967,14 @@ macro(build_glog)
   message(STATUS "Building glog from source")
   set(GLOG_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}/glog_ep-prefix/src/glog_ep")
   set(GLOG_INCLUDE_DIR "${GLOG_BUILD_DIR}/include")
+  if(${UPPERCASE_BUILD_TYPE} STREQUAL "DEBUG")
+    set(GLOG_LIB_SUFFIX "d")
+  else()
+    set(GLOG_LIB_SUFFIX "")
+  endif()
   set(
     GLOG_STATIC_LIB
-    "${GLOG_BUILD_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}glog${CMAKE_STATIC_LIBRARY_SUFFIX}"
+    "${GLOG_BUILD_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}glog${GLOG_LIB_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}"
     )
   set(GLOG_CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
   set(GLOG_CMAKE_C_FLAGS "${EP_C_FLAGS} -fPIC")
@@ -1026,10 +1039,15 @@ macro(build_gflags)
 
   set(GFLAGS_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/gflags_ep-prefix/src/gflags_ep")
   set(GFLAGS_INCLUDE_DIR "${GFLAGS_PREFIX}/include")
-  if(MSVC)
-    set(GFLAGS_STATIC_LIB "${GFLAGS_PREFIX}/lib/gflags_static.lib")
+  if(${UPPERCASE_BUILD_TYPE} STREQUAL "DEBUG")
+    set(GFLAGS_LIB_SUFFIX "_debug")
   else()
-    set(GFLAGS_STATIC_LIB "${GFLAGS_PREFIX}/lib/libgflags.a")
+    set(GFLAGS_LIB_SUFFIX "")
+  endif()
+  if(MSVC)
+    set(GFLAGS_STATIC_LIB "${GFLAGS_PREFIX}/lib/gflags_static${GFLAGS_LIB_SUFFIX}.lib")
+  else()
+    set(GFLAGS_STATIC_LIB "${GFLAGS_PREFIX}/lib/libgflags${GFLAGS_LIB_SUFFIX}.a")
   endif()
   set(GFLAGS_CMAKE_ARGS
       ${EP_COMMON_CMAKE_ARGS}
@@ -1987,6 +2005,7 @@ macro(build_cares)
       -DCARES_STATIC=ON
       -DCARES_SHARED=OFF
       "-DCMAKE_C_FLAGS=${EP_C_FLAGS}"
+      -DCMAKE_INSTALL_LIBDIR=lib
       "-DCMAKE_INSTALL_PREFIX=${CARES_PREFIX}")
 
   externalproject_add(cares_ep
@@ -2030,6 +2049,48 @@ endif()
 
 macro(build_grpc)
   message(STATUS "Building gRPC from source")
+
+  # First need to build Abseil
+  set(ABSL_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/absl_ep-install")
+  set(ABSL_CMAKE_ARGS
+      -DABSL_RUN_TESTS=OFF
+      -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+      -DCMAKE_CXX_STANDARD=11
+      "-DCMAKE_CXX_FLAGS=${EP_CXX_FLAGS}"
+      -DCMAKE_INSTALL_LIBDIR=lib
+      "-DCMAKE_INSTALL_PREFIX=${ABSL_PREFIX}")
+  set(ABSL_BUILD_BYPRODUCTS)
+  set(ABSL_LIBRARIES)
+
+  # Abseil libraries gRPC depends on
+  set(_ABSL_LIBS
+      bad_optional_access
+      int128
+      raw_logging_internal
+      str_format_internal
+      strings
+      throw_delegate
+      time
+      time_zone)
+
+  foreach(_ABSL_LIB ${_ABSL_LIBS})
+    set(
+      _ABSL_STATIC_LIBRARY
+      "${ABSL_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}absl_${_ABSL_LIB}${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      )
+    add_library(absl::${_ABSL_LIB} STATIC IMPORTED)
+    set_target_properties(absl::${_ABSL_LIB}
+                          PROPERTIES IMPORTED_LOCATION ${_ABSL_STATIC_LIBRARY})
+    list(APPEND ABSL_BUILD_BYPRODUCTS ${_ABSL_STATIC_LIBRARY})
+    list(APPEND ABSL_LIBRARIES absl::${_ABSL_LIB})
+  endforeach()
+
+  externalproject_add(absl_ep
+                      ${EP_LOG_OPTIONS}
+                      URL ${ABSL_SOURCE_URL}
+                      CMAKE_ARGS ${ABSL_CMAKE_ARGS}
+                      BUILD_BYPRODUCTS ${ABSL_BUILD_BYPRODUCTS})
+
   set(GRPC_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}/grpc_ep-prefix/src/grpc_ep-build")
   set(GRPC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/grpc_ep-install")
   set(GRPC_HOME "${GRPC_PREFIX}")
@@ -2051,12 +2112,16 @@ macro(build_grpc)
     GRPC_STATIC_LIBRARY_ADDRESS_SORTING
     "${GRPC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}address_sorting${CMAKE_STATIC_LIBRARY_SUFFIX}"
     )
+  set(
+    GRPC_STATIC_LIBRARY_UPB
+    "${GRPC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}upb${CMAKE_STATIC_LIBRARY_SUFFIX}")
   set(GRPC_CPP_PLUGIN "${GRPC_PREFIX}/bin/grpc_cpp_plugin")
 
   set(GRPC_CMAKE_PREFIX)
 
   add_custom_target(grpc_dependencies)
 
+  add_dependencies(grpc_dependencies absl_ep)
   if(CARES_VENDORED)
     add_dependencies(grpc_dependencies cares_ep)
   endif()
@@ -2085,6 +2150,7 @@ macro(build_grpc)
 
   # ZLIB is never vendored
   set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${ZLIB_ROOT}")
+  set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${ABSL_PREFIX}")
 
   if(APPLE)
     # gRPC on MacOS will fail to build due to thread local variables.
@@ -2105,6 +2171,8 @@ macro(build_grpc)
   set(GRPC_CMAKE_ARGS
       -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
       -DCMAKE_PREFIX_PATH='${GRPC_PREFIX_PATH_ALT_SEP}'
+      -DgRPC_BUILD_CSHARP_EXT=OFF
+      -DgRPC_ABSL_PROVIDER=package
       -DgRPC_CARES_PROVIDER=package
       -DgRPC_GFLAGS_PROVIDER=package
       -DgRPC_PROTOBUF_PROVIDER=package
@@ -2114,7 +2182,6 @@ macro(build_grpc)
       -DCMAKE_C_FLAGS=${EP_C_FLAGS}
       -DCMAKE_INSTALL_PREFIX=${GRPC_PREFIX}
       -DCMAKE_INSTALL_LIBDIR=lib
-      "-DProtobuf_PROTOC_LIBRARY=${GRPC_Protobuf_PROTOC_LIBRARY}"
       -DBUILD_SHARED_LIBS=OFF)
   if(OPENSSL_ROOT_DIR)
     list(APPEND GRPC_CMAKE_ARGS -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_DIR})
@@ -2130,12 +2197,18 @@ macro(build_grpc)
                                        ${GRPC_STATIC_LIBRARY_GRPC}
                                        ${GRPC_STATIC_LIBRARY_GRPCPP}
                                        ${GRPC_STATIC_LIBRARY_ADDRESS_SORTING}
+                                       ${GRPC_STATIC_LIBRARY_UPB}
                                        ${GRPC_CPP_PLUGIN}
                       CMAKE_ARGS ${GRPC_CMAKE_ARGS} ${EP_LOG_OPTIONS}
                       DEPENDS ${grpc_dependencies})
 
   # Work around https://gitlab.kitware.com/cmake/cmake/issues/15052
   file(MAKE_DIRECTORY ${GRPC_INCLUDE_DIR})
+
+  add_library(gRPC::upb STATIC IMPORTED)
+  set_target_properties(gRPC::upb
+                        PROPERTIES IMPORTED_LOCATION "${GRPC_STATIC_LIBRARY_UPB}"
+                                   INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}")
 
   add_library(gRPC::gpr STATIC IMPORTED)
   set_target_properties(gRPC::gpr
@@ -2147,16 +2220,21 @@ macro(build_grpc)
                         PROPERTIES IMPORTED_LOCATION "${GRPC_STATIC_LIBRARY_GRPC}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}")
 
-  add_library(gRPC::grpc++ STATIC IMPORTED)
-  set_target_properties(gRPC::grpc++
-                        PROPERTIES IMPORTED_LOCATION "${GRPC_STATIC_LIBRARY_GRPCPP}"
-                                   INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}")
-
   add_library(gRPC::address_sorting STATIC IMPORTED)
   set_target_properties(gRPC::address_sorting
                         PROPERTIES IMPORTED_LOCATION
                                    "${GRPC_STATIC_LIBRARY_ADDRESS_SORTING}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}")
+
+  add_library(gRPC::grpc++ STATIC IMPORTED)
+  set_target_properties(
+    gRPC::grpc++
+    PROPERTIES IMPORTED_LOCATION
+               "${GRPC_STATIC_LIBRARY_GRPCPP}"
+               INTERFACE_LINK_LIBRARIES
+               "gRPC::grpc;gRPC::gpr;gRPC::upb;gRPC::address_sorting;${ABSL_LIBRARIES}"
+               INTERFACE_INCLUDE_DIRECTORIES
+               "${GRPC_INCLUDE_DIR}")
 
   add_executable(gRPC::grpc_cpp_plugin IMPORTED)
   set_target_properties(gRPC::grpc_cpp_plugin
@@ -2164,10 +2242,8 @@ macro(build_grpc)
 
   add_dependencies(grpc_ep grpc_dependencies)
   add_dependencies(toolchain grpc_ep)
-  add_dependencies(gRPC::gpr grpc_ep)
-  add_dependencies(gRPC::grpc grpc_ep)
   add_dependencies(gRPC::grpc++ grpc_ep)
-  add_dependencies(gRPC::address_sorting grpc_ep)
+  add_dependencies(gRPC::grpc_cpp_plugin grpc_ep)
   set(GRPC_VENDORED TRUE)
 endmacro()
 
