@@ -91,7 +91,7 @@ def validate_arrow_sources(ctx, param, src):
     try:
         return ArrowSources.find(src)
     except InvalidArrowSource as e:
-        raise click.BadParameter(str(e))
+        raise click.BadParameter(str(e)) from e
 
 
 build_dir_type = click.Path(dir_okay=True, file_okay=False, resolve_path=True)
@@ -768,9 +768,9 @@ def docker_compose_run(obj, image, command, env, force_pull, force_build,
         raise click.ClickException(
             "There is no service/image defined in docker-compose.yml with "
             "name: {}".format(str(e))
-        )
+        ) from e
     except RuntimeError as e:
-        raise click.ClickException(str(e))
+        raise click.ClickException(str(e)) from e
 
 
 @docker_compose.command('push')
