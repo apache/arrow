@@ -28,6 +28,8 @@ namespace arrow {
 namespace compute {
 namespace internal {
 
+namespace {
+
 // TODO: optional ascii validation
 
 struct AsciiLength {
@@ -196,8 +198,6 @@ void AddStrptime(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
-// ----------------------------------------------------------------------
-
 void MakeUnaryStringBatchKernel(std::string name, ArrayKernelExec exec,
                                 FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>(name, Arity::Unary());
@@ -205,6 +205,8 @@ void MakeUnaryStringBatchKernel(std::string name, ArrayKernelExec exec,
   DCHECK_OK(func->AddKernel({large_utf8()}, large_utf8(), exec));
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
+
+}  // namespace
 
 void RegisterScalarStringAscii(FunctionRegistry* registry) {
   MakeUnaryStringBatchKernel("ascii_upper", AsciiUpperExec, registry);

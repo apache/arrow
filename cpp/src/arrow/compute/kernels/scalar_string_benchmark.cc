@@ -41,6 +41,7 @@ static void UnaryStringBenchmark(benchmark::State& state, const std::string& fun
     ABORT_NOT_OK(CallFunction(func_name, {values}));
   }
   state.SetItemsProcessed(state.iterations() * array_length);
+  state.SetBytesProcessed(state.iterations() * values->data()->buffers[2]->size());
 }
 
 static void AsciiLower(benchmark::State& state) {
