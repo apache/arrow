@@ -429,7 +429,11 @@ inline std::shared_ptr<DataType> ARROW_EXPORT
 union_(const std::vector<std::shared_ptr<Array>>& children,
        const std::vector<std::string>& field_names,
        UnionMode::type mode = UnionMode::SPARSE) {
-  return union_(children, field_names, {}, mode);
+  if (mode == UnionMode::SPARSE) {
+    return sparse_union(children, field_names);
+  } else {
+    return dense_union(children, field_names);
+  }
 }
 
 /// \brief Create a UnionType instance
@@ -437,7 +441,11 @@ ARROW_DEPRECATED("Deprecated in 1.0.0")
 inline std::shared_ptr<DataType> ARROW_EXPORT
 union_(const std::vector<std::shared_ptr<Array>>& children,
        UnionMode::type mode = UnionMode::SPARSE) {
-  return union_(children, {}, {}, mode);
+  if (mode == UnionMode::SPARSE) {
+    return sparse_union(children);
+  } else {
+    return dense_union(children);
+  }
 }
 /// \brief Create a DictionaryType instance
 /// \param[in] index_type the type of the dictionary indices (must be
