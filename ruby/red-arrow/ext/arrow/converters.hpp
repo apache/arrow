@@ -519,7 +519,7 @@ namespace red_arrow {
       return 0;
     }
 
-    void convert(const arrow::SparseUnionArray& array) {
+    void convert_sparse(const arrow::SparseUnionArray& array) {
       const auto type =
         std::static_pointer_cast<arrow::UnionType>(array.type()).get();
       const auto tag = "[raw-records][union-sparse-array]";

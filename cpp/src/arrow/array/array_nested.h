@@ -335,7 +335,7 @@ class ARROW_EXPORT StructArray : public Array {
 // ----------------------------------------------------------------------
 // Union
 
-/// Concrete Array class for union data
+/// Base class for SparseUnionArray and DenseUnionArray
 class ARROW_EXPORT UnionArray : public Array {
  public:
   using type_code_t = int8_t;
@@ -376,7 +376,7 @@ class ARROW_EXPORT UnionArray : public Array {
   mutable std::vector<std::shared_ptr<Array>> boxed_fields_;
 };
 
-/// Concrete Array class for union data
+/// Concrete Array class for sparse union data
 class ARROW_EXPORT SparseUnionArray : public UnionArray {
  public:
   using TypeClass = SparseUnionType;
@@ -390,21 +390,7 @@ class ARROW_EXPORT SparseUnionArray : public UnionArray {
 
   /// \brief Construct SparseUnionArray from type_ids and children
   ///
-  /// This function does the bare minimum of validation of the offsets and
-  /// input types.
-  ///
-  /// \param[in] type_ids An array of logical type ids for the union type
-  /// \param[in] children Vector of children Arrays containing the data for each type.
-  /// \param[in] field_names Vector of strings containing the name of each field.
-  /// \param[in] type_codes Vector of type codes.
-  static Result<std::shared_ptr<Array>> Make(const Array& type_ids, ArrayVector children,
-                                             std::vector<std::string> field_names = {},
-                                             std::vector<type_code_t> type_codes = {});
-
-  /// \brief Construct Sparse UnionArray from type_ids and children
-  ///
-  /// This function does the bare minimum of validation of the offsets and
-  /// input types.
+  /// This function does the bare minimum of validation of the input types.
   ///
   /// \param[in] type_ids An array of logical type ids for the union type
   /// \param[in] children Vector of children Arrays containing the data for each type.
@@ -415,6 +401,18 @@ class ARROW_EXPORT SparseUnionArray : public UnionArray {
                 std::move(type_codes));
   }
 
+  /// \brief Construct SparseUnionArray with custom field names from type_ids and children
+  ///
+  /// This function does the bare minimum of validation of the input types.
+  ///
+  /// \param[in] type_ids An array of logical type ids for the union type
+  /// \param[in] children Vector of children Arrays containing the data for each type.
+  /// \param[in] field_names Vector of strings containing the name of each field.
+  /// \param[in] type_codes Vector of type codes.
+  static Result<std::shared_ptr<Array>> Make(const Array& type_ids, ArrayVector children,
+                                             std::vector<std::string> field_names = {},
+                                             std::vector<type_code_t> type_codes = {});
+
   const SparseUnionType* union_type() const {
     return internal::checked_cast<const SparseUnionType*>(union_type_);
   }
@@ -423,7 +421,7 @@ class ARROW_EXPORT SparseUnionArray : public UnionArray {
   void SetData(std::shared_ptr<ArrayData> data);
 };
 
-/// Concrete Array class for union data
+/// Concrete Array class for dense union data
 class ARROW_EXPORT DenseUnionArray : public UnionArray {
  public:
   using TypeClass = DenseUnionType;
@@ -436,27 +434,15 @@ class ARROW_EXPORT DenseUnionArray : public UnionArray {
                   std::shared_ptr<Buffer> null_bitmap = NULLPTR,
                   int64_t null_count = kUnknownNullCount, int64_t offset = 0);
 
-  /// \brief Construct DenseUnionArray from type_ids and children
+  /// \brief Construct DenseUnionArray from type_ids, value_offsets, and children
   ///
   /// This function does the bare minimum of validation of the offsets and
   /// input types.
   ///
   /// \param[in] type_ids An array of logical type ids for the union type
-  /// \param[in] children Vector of children Arrays containing the data for each type.
-  /// \param[in] field_names Vector of strings containing the name of each field.
-  /// \param[in] type_codes Vector of type codes.
-  static Result<std::shared_ptr<Array>> Make(const Array& type_ids,
-                                             const Array& value_offsets,
-                                             ArrayVector children,
-                                             std::vector<std::string> field_names = {},
-                                             std::vector<type_code_t> type_codes = {});
-
-  /// \brief Construct Dense UnionArray from type_ids and children
-  ///
-  /// This function does the bare minimum of validation of the offsets and
-  /// input types.
-  ///
-  /// \param[in] type_ids An array of logical type ids for the union type
+  /// \param[in] value_offsets An array of signed int32 values indicating the
+  /// relative offset into the respective child array for the type in a given slot.
+  /// The respective offsets for each child value array must be in order / increasing.
   /// \param[in] children Vector of children Arrays containing the data for each type.
   /// \param[in] type_codes Vector of type codes.
   static Result<std::shared_ptr<Array>> Make(const Array& type_ids,
@@ -466,6 +452,25 @@ class ARROW_EXPORT DenseUnionArray : public UnionArray {
     return Make(type_ids, value_offsets, std::move(children), std::vector<std::string>{},
                 std::move(type_codes));
   }
+
+  /// \brief Construct DenseUnionArray with custom field names from type_ids,
+  /// value_offsets, and children
+  ///
+  /// This function does the bare minimum of validation of the offsets and
+  /// input types.
+  ///
+  /// \param[in] type_ids An array of logical type ids for the union type
+  /// \param[in] value_offsets An array of signed int32 values indicating the
+  /// relative offset into the respective child array for the type in a given slot.
+  /// The respective offsets for each child value array must be in order / increasing.
+  /// \param[in] children Vector of children Arrays containing the data for each type.
+  /// \param[in] field_names Vector of strings containing the name of each field.
+  /// \param[in] type_codes Vector of type codes.
+  static Result<std::shared_ptr<Array>> Make(const Array& type_ids,
+                                             const Array& value_offsets,
+                                             ArrayVector children,
+                                             std::vector<std::string> field_names = {},
+                                             std::vector<type_code_t> type_codes = {});
 
   const DenseUnionType* union_type() const {
     return internal::checked_cast<const DenseUnionType*>(union_type_);
