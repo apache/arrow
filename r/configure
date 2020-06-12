@@ -103,7 +103,7 @@ else
         if [ -f "autobrew" ]; then
           echo "**** Using local manifest for ${PKG_BREW_NAME}"
         else
-          curl -sfL "https://jeroen.github.io/autobrew/$PKG_BREW_NAME" > autobrew
+          curl -sfL "https://autobrew.github.io/scripts/$PKG_BREW_NAME" > autobrew
           if [ $? -ne 0 ]; then
             echo "Failed to download manifest for ${PKG_BREW_NAME}"
           fi
