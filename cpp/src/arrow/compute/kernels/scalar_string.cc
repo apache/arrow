@@ -39,8 +39,8 @@ struct AsciiLength {
 
 using TransformFunc = std::function<void(const uint8_t*, int64_t, uint8_t*)>;
 
-void StringBatchTransform(KernelContext* ctx, const ExecBatch& batch,
-                          TransformFunc transform, Datum* out) {
+void StringDataTransform(KernelContext* ctx, const ExecBatch& batch,
+                         TransformFunc transform, Datum* out) {
   if (batch[0].kind() == Datum::ARRAY) {
     const ArrayData& input = *batch[0].array();
     ArrayData* out_arr = out->mutable_array();
@@ -98,7 +98,7 @@ void TransformAsciiUpper(const uint8_t* input, int64_t length, uint8_t* output) 
 }
 
 void AsciiUpperExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  StringBatchTransform(ctx, batch, TransformAsciiUpper, out);
+  StringDataTransform(ctx, batch, TransformAsciiUpper, out);
 }
 
 // Generated with
@@ -137,7 +137,7 @@ void TransformAsciiLower(const uint8_t* input, int64_t length, uint8_t* output) 
 }
 
 void AsciiLowerExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  StringBatchTransform(ctx, batch, TransformAsciiLower, out);
+  StringDataTransform(ctx, batch, TransformAsciiLower, out);
 }
 
 void AddAsciiLength(FunctionRegistry* registry) {
