@@ -52,11 +52,11 @@ such topics as:
    :caption: Arrow Libraries
 
    status
-   C++ <cpp/index>
-   Python <python/index>
-   Java <https://arrow.apache.org/docs/java/>
    C/GLib <https://arrow.apache.org/docs/c_glib/>
+   C++ <cpp/index>
+   Java <java/index>
    JavaScript <https://arrow.apache.org/docs/js/>
+   Python <python/index>
    R <https://arrow.apache.org/docs/r/>
 
 .. _toc.development:
