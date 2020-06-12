@@ -35,7 +35,6 @@
 #include "arrow/filesystem/path_forest.h"
 #include "arrow/io/file.h"
 #include "arrow/util/compression.h"
-#include "arrow/util/variant.h"
 
 namespace arrow {
 
@@ -51,17 +50,22 @@ class ARROW_DS_EXPORT FileSource {
   FileSource(std::string path, std::shared_ptr<fs::FileSystem> filesystem,
              Compression::type compression = Compression::UNCOMPRESSED,
              bool writable = true)
-      : impl_(PathAndFileSystem{std::move(path), std::move(filesystem)}),
+      : source_kind_(PATH),
+        path_(std::move(path)),
+        filesystem_(std::move(filesystem)),
         compression_(compression),
         writable_(writable) {}
 
   explicit FileSource(std::shared_ptr<Buffer> buffer,
                       Compression::type compression = Compression::UNCOMPRESSED)
-      : impl_(std::move(buffer)), compression_(compression) {}
+      : source_kind_(BUFFER), buffer_(std::move(buffer)), compression_(compression) {}
 
   explicit FileSource(std::shared_ptr<ResizableBuffer> buffer,
                       Compression::type compression = Compression::UNCOMPRESSED)
-      : impl_(std::move(buffer)), compression_(compression), writable_(true) {}
+      : source_kind_(BUFFER),
+        buffer_(std::move(buffer)),
+        compression_(compression),
+        writable_(true) {}
 
   bool operator==(const FileSource& other) const {
     if (id() != other.id()) {
@@ -77,7 +81,7 @@ class ARROW_DS_EXPORT FileSource {
 
   /// \brief The kind of file, whether stored in a filesystem, memory
   /// resident, or other
-  SourceKind id() const { return static_cast<SourceKind>(impl_.index()); }
+  SourceKind id() const { return source_kind_; }
 
   /// \brief Return the type of raw compression on the file, if any
   Compression::type compression() const { return compression_; }
@@ -89,21 +93,21 @@ class ARROW_DS_EXPORT FileSource {
   /// type is PATH
   const std::string& path() const {
     static std::string buffer_path = "<Buffer>";
-    return id() == PATH ? util::get<PATH>(impl_).path : buffer_path;
+    return id() == PATH ? path_ : buffer_path;
   }
 
   /// \brief Return the filesystem, if any. Only non null when file
   /// source type is PATH
   const std::shared_ptr<fs::FileSystem>& filesystem() const {
     static std::shared_ptr<fs::FileSystem> no_fs = NULLPTR;
-    return id() == PATH ? util::get<PATH>(impl_).filesystem : no_fs;
+    return id() == PATH ? filesystem_ : no_fs;
   }
 
   /// \brief Return the buffer containing the file, if any. Only value
   /// when file source type is BUFFER
   const std::shared_ptr<Buffer>& buffer() const {
     static std::shared_ptr<Buffer> path_buffer = NULLPTR;
-    return id() == BUFFER ? util::get<BUFFER>(impl_) : path_buffer;
+    return id() == BUFFER ? buffer_ : path_buffer;
   }
 
   /// \brief Get a RandomAccessFile which views this file source
@@ -113,12 +117,13 @@ class ARROW_DS_EXPORT FileSource {
   Result<std::shared_ptr<arrow::io::OutputStream>> OpenWritable() const;
 
  private:
-  struct PathAndFileSystem {
-    std::string path;
-    std::shared_ptr<fs::FileSystem> filesystem;
-  };
+  SourceKind source_kind_;
 
-  util::variant<PathAndFileSystem, std::shared_ptr<Buffer>> impl_;
+  std::string path_;
+  std::shared_ptr<fs::FileSystem> filesystem_;
+
+  std::shared_ptr<Buffer> buffer_;
+
   Compression::type compression_;
   bool writable_ = false;
 };
@@ -280,8 +285,26 @@ class ARROW_DS_EXPORT WritePlan {
   std::shared_ptr<fs::FileSystem> filesystem;
   std::string partition_base_dir;
 
-  using FragmentOrPartitionExpression =
-      util::variant<std::shared_ptr<Expression>, std::shared_ptr<Fragment>>;
+  class FragmentOrPartitionExpression {
+   public:
+    enum Kind { EXPRESSION, FRAGMENT };
+
+    explicit FragmentOrPartitionExpression(std::shared_ptr<Expression> partition_expr)
+        : kind_(EXPRESSION), partition_expr_(std::move(partition_expr)) {}
+
+    explicit FragmentOrPartitionExpression(std::shared_ptr<Fragment> fragment)
+        : kind_(FRAGMENT), fragment_(std::move(fragment)) {}
+
+    Kind kind() const { return kind_; }
+
+    const std::shared_ptr<Expression>& partition_expr() const { return partition_expr_; }
+    const std::shared_ptr<Fragment>& fragment() const { return fragment_; }
+
+   private:
+    Kind kind_;
+    std::shared_ptr<Expression> partition_expr_;
+    std::shared_ptr<Fragment> fragment_;
+  };
 
   /// If fragment_or_partition_expressions[i] is a Fragment, that Fragment will be
   /// written to paths[i]. If it is an Expression, a directory representing that partition

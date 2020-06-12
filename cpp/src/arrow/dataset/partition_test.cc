@@ -350,28 +350,20 @@ class TestPartitioningWritePlan : public ::testing::Test {
     ExpectedWritePlan() = default;
 
     ExpectedWritePlan(const WritePlan& actual_plan, const FragmentVector& fragments) {
-      struct {
-        int i;
-        ExpectedWritePlan* this_;
-        const FragmentVector& fragments;
-        const WritePlan& actual_plan;
-
-        void operator()(const std::shared_ptr<Fragment>& fragment) {
+      int i = 0;
+      for (const auto& op : actual_plan.fragment_or_partition_expressions) {
+        if (op.kind() == WritePlan::FragmentOrPartitionExpression::FRAGMENT) {
+          auto fragment = op.fragment();
           auto fragment_index =
               static_cast<int>(std::find(fragments.begin(), fragments.end(), fragment) -
                                fragments.begin());
           auto path = fs::internal::GetAbstractPathParent(actual_plan.paths[i]).first;
-          this_->dirs_[path + "/"].fragments.push_back(fragment_index);
+          dirs_[path + "/"].fragments.push_back(fragment_index);
+        } else {
+          auto partition_expression = op.partition_expr();
+          dirs_[actual_plan.paths[i]].partition_expression = partition_expression;
         }
-
-        void operator()(const std::shared_ptr<Expression>& partition_expression) {
-          this_->dirs_[actual_plan.paths[i]].partition_expression = partition_expression;
-        }
-      } actual = {0, this, fragments, actual_plan};
-
-      for (const auto& op : actual_plan.fragment_or_partition_expressions) {
-        util::visit(actual, op);
-        ++actual.i;
+        ++i;
       }
     }
 
