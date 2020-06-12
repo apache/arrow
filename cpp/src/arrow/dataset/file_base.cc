@@ -162,10 +162,10 @@ Result<std::shared_ptr<FileSystemDataset>> FileSystemDataset::Write(
   std::vector<std::shared_ptr<FileFragment>> fragments;
   for (size_t i = 0; i < plan.paths.size(); ++i) {
     const auto& op = plan.fragment_or_partition_expressions[i];
-    if (util::holds_alternative<std::shared_ptr<Fragment>>(op)) {
+    if (op.kind() == WritePlan::FragmentOrPartitionExpression::FRAGMENT) {
       auto path = partition_base_dir + plan.paths[i] + extension;
 
-      const auto& input_fragment = util::get<std::shared_ptr<Fragment>>(op);
+      const auto& input_fragment = op.fragment();
       FileSource dest(path, filesystem);
 
       ARROW_ASSIGN_OR_RAISE(
