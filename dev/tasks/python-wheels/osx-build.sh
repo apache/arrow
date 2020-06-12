@@ -94,7 +94,7 @@ function build_wheel {
           -DOPENSSL_USE_STATIC_LIBS=ON \
           -DProtobuf_SOURCE=SYSTEM \
           ..
-    make -j$(sysctl -n hw.logicalcpu)
+    make VERBOSE=1 -j$(sysctl -n hw.logicalcpu)
     make install
     popd
     popd
