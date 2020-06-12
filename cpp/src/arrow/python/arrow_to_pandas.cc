@@ -40,6 +40,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/hashing.h"
+#include "arrow/util/int_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/parallel.h"
@@ -64,6 +65,7 @@ namespace arrow {
 class MemoryPool;
 
 using internal::checked_cast;
+using internal::IndexBoundsCheck;
 using internal::OptionalParallelFor;
 
 // ----------------------------------------------------------------------
@@ -1356,20 +1358,6 @@ bool NeedDictionaryUnification(const ChunkedArray& data) {
 }
 
 template <typename IndexType>
-Status CheckDictionaryIndices(const Array& arr, int64_t dict_length) {
-  const auto& typed_arr =
-      checked_cast<const typename TypeTraits<IndexType>::ArrayType&>(arr);
-  const typename IndexType::c_type* values = typed_arr.raw_values();
-  for (int64_t i = 0; i < arr.length(); ++i) {
-    if (arr.IsValid(i) && (values[i] < 0 || values[i] >= dict_length)) {
-      return Status::Invalid("Out of bounds dictionary index: ",
-                             static_cast<int64_t>(values[i]));
-    }
-  }
-  return Status::OK();
-}
-
-template <typename IndexType>
 class CategoricalWriter
     : public TypedPandasWriter<arrow_traits<IndexType::type_id>::npy_type> {
  public:
@@ -1446,14 +1434,10 @@ class CategoricalWriter
       const auto& indices = checked_cast<const ArrayType&>(*arr.indices());
       auto values = reinterpret_cast<const T*>(indices.raw_values());
 
-      int64_t dict_length = arr.dictionary()->length();
+      RETURN_NOT_OK(IndexBoundsCheck(*indices.data(), arr.dictionary()->length()));
       // Null is -1 in CategoricalBlock
       for (int i = 0; i < arr.length(); ++i) {
         if (indices.IsValid(i)) {
-          if (ARROW_PREDICT_FALSE(values[i] < 0 || values[i] >= dict_length)) {
-            return Status::Invalid("Out of bounds dictionary index: ",
-                                   static_cast<int64_t>(values[i]));
-          }
           *out_values++ = values[i];
         } else {
           *out_values++ = -1;
@@ -1484,13 +1468,11 @@ class CategoricalWriter
       auto transpose = reinterpret_cast<const int32_t*>(transpose_buffer->data());
       int64_t dict_length = arr.dictionary()->length();
 
+      RETURN_NOT_OK(IndexBoundsCheck(*indices.data(), dict_length));
+
       // Null is -1 in CategoricalBlock
       for (int i = 0; i < arr.length(); ++i) {
         if (indices.IsValid(i)) {
-          if (ARROW_PREDICT_FALSE(values[i] < 0 || values[i] >= dict_length)) {
-            return Status::Invalid("Out of bounds dictionary index: ",
-                                   static_cast<int64_t>(values[i]));
-          }
           *out_values++ = transpose[values[i]];
         } else {
           *out_values++ = -1;
@@ -1510,8 +1492,8 @@ class CategoricalWriter
     const auto indices_first = std::static_pointer_cast<ArrayType>(arr_first.indices());
 
     if (data.num_chunks() == 1 && indices_first->null_count() == 0) {
-      RETURN_NOT_OK(CheckDictionaryIndices<IndexType>(*indices_first,
-                                                      arr_first.dictionary()->length()));
+      RETURN_NOT_OK(
+          IndexBoundsCheck(*indices_first->data(), arr_first.dictionary()->length()));
 
       PyObject* wrapped;
       npy_intp dims[1] = {static_cast<npy_intp>(this->num_rows_)};
