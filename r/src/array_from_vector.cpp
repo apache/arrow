@@ -201,6 +201,11 @@ struct VectorToArrayConverter {
     return Status::OK();
   }
 
+  template <typename T>
+  arrow::enable_if_t<arrow::is_struct_type<T>::value, Status> Visit(const T& type) {
+    return Status::OK();
+  }
+
   Status Visit(const arrow::DataType& type) {
     return Status::NotImplemented("Converting vector to arrow type ", type.ToString(),
                                   " not implemented");
