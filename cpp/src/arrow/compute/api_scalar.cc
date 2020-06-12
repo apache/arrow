@@ -42,8 +42,11 @@ namespace compute {
 // Arithmetic
 
 SCALAR_EAGER_BINARY(Add, "add")
+SCALAR_EAGER_BINARY(AddChecked, "add_checked")
 SCALAR_EAGER_BINARY(Subtract, "subtract")
+SCALAR_EAGER_BINARY(SubtractChecked, "subtract_checked")
 SCALAR_EAGER_BINARY(Multiply, "multiply")
+SCALAR_EAGER_BINARY(MultiplyChecked, "multiply_checked")
 
 // ----------------------------------------------------------------------
 // Set-related operations

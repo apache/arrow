@@ -45,6 +45,12 @@ namespace compute {
 ARROW_EXPORT
 Result<Datum> Add(const Datum& left, const Datum& right, ExecContext* ctx = NULLPTR);
 
+// TODO(kszucs): create add/arithmetic options to select between the underlying kernels
+// and remove these functions
+ARROW_EXPORT
+Result<Datum> AddChecked(const Datum& left, const Datum& right,
+                         ExecContext* ctx = NULLPTR);
+
 /// \brief Subtract two values. Array values must be the same length. If the
 /// minuend or subtrahend is null the result will be null.
 ///
@@ -55,6 +61,12 @@ Result<Datum> Add(const Datum& left, const Datum& right, ExecContext* ctx = NULL
 ARROW_EXPORT
 Result<Datum> Subtract(const Datum& left, const Datum& right, ExecContext* ctx = NULLPTR);
 
+// TODO(kszucs): create sub/arithmetic options to select between the underlying kernels
+// and remove these functions
+ARROW_EXPORT
+Result<Datum> SubtractChecked(const Datum& left, const Datum& right,
+                              ExecContext* ctx = NULLPTR);
+
 /// \brief Multiply two values. Array values must be the same length. If either
 /// factor is null the result will be null.
 ///
@@ -64,6 +76,12 @@ Result<Datum> Subtract(const Datum& left, const Datum& right, ExecContext* ctx =
 /// \return the elementwise product
 ARROW_EXPORT
 Result<Datum> Multiply(const Datum& left, const Datum& right, ExecContext* ctx = NULLPTR);
+
+// TODO(kszucs): create mul/arithmetic options to select between the underlying kernels
+// and remove these functions
+ARROW_EXPORT
+Result<Datum> MultiplyChecked(const Datum& left, const Datum& right,
+                              ExecContext* ctx = NULLPTR);
 
 enum CompareOperator {
   EQUAL,

@@ -36,6 +36,10 @@ template <typename T>
 using enable_if_unsigned_integer = enable_if_t<is_unsigned_integer<T>::value, T>;
 
 template <typename T>
+using enable_if_integer =
+    enable_if_t<is_signed_integer<T>::value || is_unsigned_integer<T>::value, T>;
+
+template <typename T>
 using enable_if_floating_point = enable_if_t<std::is_floating_point<T>::value, T>;
 
 template <typename T, typename Unsigned = typename std::make_unsigned<T>::type>
@@ -60,6 +64,22 @@ struct Add {
   }
 };
 
+struct AddChecked {
+  template <typename T>
+  static enable_if_integer<T> Call(KernelContext* ctx, T left, T right) {
+    T result;
+    if (__builtin_add_overflow(left, right, &result)) {
+      ctx->SetStatus(Status::Invalid("overflow"));
+    }
+    return result;
+  }
+
+  template <typename T>
+  static constexpr enable_if_floating_point<T> Call(KernelContext*, T left, T right) {
+    return left + right;
+  }
+};
+
 struct Subtract {
   template <typename T>
   static constexpr enable_if_floating_point<T> Call(KernelContext*, T left, T right) {
@@ -74,6 +94,22 @@ struct Subtract {
   template <typename T>
   static constexpr enable_if_signed_integer<T> Call(KernelContext*, T left, T right) {
     return to_unsigned(left) - to_unsigned(right);
+  }
+};
+
+struct SubtractChecked {
+  template <typename T>
+  static enable_if_integer<T> Call(KernelContext* ctx, T left, T right) {
+    T result;
+    if (__builtin_sub_overflow(left, right, &result)) {
+      ctx->SetStatus(Status::Invalid("overflow"));
+    }
+    return result;
+  }
+
+  template <typename T>
+  static constexpr enable_if_floating_point<T> Call(KernelContext*, T left, T right) {
+    return left - right;
   }
 };
 
@@ -113,6 +149,22 @@ struct Multiply {
   template <typename T = void>
   static constexpr uint16_t Call(KernelContext*, uint16_t left, uint16_t right) {
     return static_cast<uint32_t>(left) * static_cast<uint32_t>(right);
+  }
+};
+
+struct MultiplyChecked {
+  template <typename T>
+  static enable_if_integer<T> Call(KernelContext* ctx, T left, T right) {
+    T result;
+    if (__builtin_mul_overflow(left, right, &result)) {
+      ctx->SetStatus(Status::Invalid("overflow"));
+    }
+    return result;
+  }
+
+  template <typename T>
+  static constexpr enable_if_floating_point<T> Call(KernelContext*, T left, T right) {
+    return left * right;
   }
 };
 
@@ -168,8 +220,11 @@ namespace internal {
 
 void RegisterScalarArithmetic(FunctionRegistry* registry) {
   codegen::AddBinaryFunction<Add>("add", registry);
+  codegen::AddBinaryFunction<AddChecked>("add_checked", registry);
   codegen::AddBinaryFunction<Subtract>("subtract", registry);
+  codegen::AddBinaryFunction<SubtractChecked>("subtract_checked", registry);
   codegen::AddBinaryFunction<Multiply>("multiply", registry);
+  codegen::AddBinaryFunction<MultiplyChecked>("multiply_checked", registry);
 }
 
 }  // namespace internal
