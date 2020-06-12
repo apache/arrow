@@ -301,7 +301,7 @@ void CpuInfo::Init() {
 
 #ifdef __APPLE__
   // On Mac OS X use sysctl() to get the cache sizes
-  static size_t len = sizeof(int64_t);
+  size_t len = sizeof(int64_t);
   int64_t data[1];
   sysctlbyname("hw.l1dcachesize", data, &len, NULL, 0);
   cache_sizes_[0] = data[0];
