@@ -30,8 +30,10 @@ namespace compute {
 
 constexpr auto kSeed = 0x94378165;
 
-template <typename ArrowType, typename CType = typename ArrowType::c_type>
-static void AddArrayScalarKernel(benchmark::State& state) {
+using BinaryOp = Result<Datum>(const Datum&, const Datum&, ExecContext*);
+
+template <BinaryOp& Op, typename ArrowType, typename CType = typename ArrowType::c_type>
+static void ArrayScalarKernel(benchmark::State& state) {
   RegressionArgs args(state);
 
   const int64_t array_size = args.size / sizeof(CType);
@@ -42,13 +44,14 @@ static void AddArrayScalarKernel(benchmark::State& state) {
   auto lhs = std::static_pointer_cast<NumericArray<ArrowType>>(
       rand.Numeric<ArrowType>(array_size, min, max, args.null_proportion));
 
+  Datum fifteen(CType(15));
   for (auto _ : state) {
-    ABORT_NOT_OK(Add(lhs, Datum(CType(15))).status());
+    ABORT_NOT_OK(Op(lhs, fifteen, nullptr).status());
   }
 }
 
-template <typename ArrowType, typename CType = typename ArrowType::c_type>
-static void AddArrayArrayKernel(benchmark::State& state) {
+template <BinaryOp& Op, typename ArrowType, typename CType = typename ArrowType::c_type>
+static void ArrayArrayKernel(benchmark::State& state) {
   RegressionArgs args(state);
 
   const int64_t array_size = args.size / sizeof(CType);
@@ -62,31 +65,91 @@ static void AddArrayArrayKernel(benchmark::State& state) {
       rand.Numeric<ArrowType>(array_size, min, max, args.null_proportion));
 
   for (auto _ : state) {
-    ABORT_NOT_OK(Add(lhs, rhs).status());
+    ABORT_NOT_OK(Op(lhs, rhs, nullptr).status());
   }
 }
 
-BENCHMARK_TEMPLATE(AddArrayArrayKernel, Int64Type)->Apply(RegressionSetArgs);
-BENCHMARK_TEMPLATE(AddArrayArrayKernel, Int32Type)->Apply(RegressionSetArgs);
-BENCHMARK_TEMPLATE(AddArrayArrayKernel, Int16Type)->Apply(RegressionSetArgs);
-BENCHMARK_TEMPLATE(AddArrayArrayKernel, Int8Type)->Apply(RegressionSetArgs);
-BENCHMARK_TEMPLATE(AddArrayArrayKernel, UInt64Type)->Apply(RegressionSetArgs);
-BENCHMARK_TEMPLATE(AddArrayArrayKernel, UInt32Type)->Apply(RegressionSetArgs);
-BENCHMARK_TEMPLATE(AddArrayArrayKernel, UInt16Type)->Apply(RegressionSetArgs);
-BENCHMARK_TEMPLATE(AddArrayArrayKernel, UInt8Type)->Apply(RegressionSetArgs);
-BENCHMARK_TEMPLATE(AddArrayArrayKernel, FloatType)->Apply(RegressionSetArgs);
-BENCHMARK_TEMPLATE(AddArrayArrayKernel, DoubleType)->Apply(RegressionSetArgs);
+void SetArgs(benchmark::internal::Benchmark* bench) {
+  bench->Unit(benchmark::kMicrosecond);
 
-BENCHMARK_TEMPLATE(AddArrayScalarKernel, Int64Type)->Apply(RegressionSetArgs);
-BENCHMARK_TEMPLATE(AddArrayScalarKernel, Int32Type)->Apply(RegressionSetArgs);
-BENCHMARK_TEMPLATE(AddArrayScalarKernel, Int16Type)->Apply(RegressionSetArgs);
-BENCHMARK_TEMPLATE(AddArrayScalarKernel, Int8Type)->Apply(RegressionSetArgs);
-BENCHMARK_TEMPLATE(AddArrayScalarKernel, UInt64Type)->Apply(RegressionSetArgs);
-BENCHMARK_TEMPLATE(AddArrayScalarKernel, UInt32Type)->Apply(RegressionSetArgs);
-BENCHMARK_TEMPLATE(AddArrayScalarKernel, UInt16Type)->Apply(RegressionSetArgs);
-BENCHMARK_TEMPLATE(AddArrayScalarKernel, UInt8Type)->Apply(RegressionSetArgs);
-BENCHMARK_TEMPLATE(AddArrayScalarKernel, FloatType)->Apply(RegressionSetArgs);
-BENCHMARK_TEMPLATE(AddArrayScalarKernel, DoubleType)->Apply(RegressionSetArgs);
+  for (const auto size : kMemorySizes) {
+    for (const auto inverse_null_proportion : std::vector<ArgsType>({100, 0})) {
+      bench->Args({static_cast<ArgsType>(size), inverse_null_proportion});
+    }
+  }
+}
+
+// Add (Array, Array)
+BENCHMARK_TEMPLATE(ArrayArrayKernel, Add, Int64Type)->Apply(SetArgs);
+BENCHMARK_TEMPLATE(ArrayArrayKernel, Add, Int32Type)->Apply(SetArgs);
+BENCHMARK_TEMPLATE(ArrayArrayKernel, Add, Int16Type)->Apply(SetArgs);
+BENCHMARK_TEMPLATE(ArrayArrayKernel, Add, Int8Type)->Apply(SetArgs);
+BENCHMARK_TEMPLATE(ArrayArrayKernel, Add, UInt64Type)->Apply(SetArgs);
+BENCHMARK_TEMPLATE(ArrayArrayKernel, Add, UInt32Type)->Apply(SetArgs);
+BENCHMARK_TEMPLATE(ArrayArrayKernel, Add, UInt16Type)->Apply(SetArgs);
+BENCHMARK_TEMPLATE(ArrayArrayKernel, Add, UInt8Type)->Apply(SetArgs);
+BENCHMARK_TEMPLATE(ArrayArrayKernel, Add, FloatType)->Apply(SetArgs);
+BENCHMARK_TEMPLATE(ArrayArrayKernel, Add, DoubleType)->Apply(SetArgs);
+
+// Add (Array, Scalar)
+BENCHMARK_TEMPLATE(ArrayScalarKernel, Add, Int64Type)->Apply(SetArgs);
+BENCHMARK_TEMPLATE(ArrayScalarKernel, Add, Int32Type)->Apply(SetArgs);
+BENCHMARK_TEMPLATE(ArrayScalarKernel, Add, Int16Type)->Apply(SetArgs);
+BENCHMARK_TEMPLATE(ArrayScalarKernel, Add, Int8Type)->Apply(SetArgs);
+BENCHMARK_TEMPLATE(ArrayScalarKernel, Add, UInt64Type)->Apply(SetArgs);
+BENCHMARK_TEMPLATE(ArrayScalarKernel, Add, UInt32Type)->Apply(SetArgs);
+BENCHMARK_TEMPLATE(ArrayScalarKernel, Add, UInt16Type)->Apply(SetArgs);
+BENCHMARK_TEMPLATE(ArrayScalarKernel, Add, UInt8Type)->Apply(SetArgs);
+BENCHMARK_TEMPLATE(ArrayScalarKernel, Add, FloatType)->Apply(SetArgs);
+BENCHMARK_TEMPLATE(ArrayScalarKernel, Add, DoubleType)->Apply(SetArgs);
+
+// Subtract (Array, Array)
+BENCHMARK_TEMPLATE(ArrayArrayKernel, Subtract, Int64Type)->Apply(SetArgs);
+BENCHMARK_TEMPLATE(ArrayArrayKernel, Subtract, Int32Type)->Apply(SetArgs);
+BENCHMARK_TEMPLATE(ArrayArrayKernel, Subtract, Int16Type)->Apply(SetArgs);
+BENCHMARK_TEMPLATE(ArrayArrayKernel, Subtract, Int8Type)->Apply(SetArgs);
+BENCHMARK_TEMPLATE(ArrayArrayKernel, Subtract, UInt64Type)->Apply(SetArgs);
+BENCHMARK_TEMPLATE(ArrayArrayKernel, Subtract, UInt32Type)->Apply(SetArgs);
+BENCHMARK_TEMPLATE(ArrayArrayKernel, Subtract, UInt16Type)->Apply(SetArgs);
+BENCHMARK_TEMPLATE(ArrayArrayKernel, Subtract, UInt8Type)->Apply(SetArgs);
+BENCHMARK_TEMPLATE(ArrayArrayKernel, Subtract, FloatType)->Apply(SetArgs);
+BENCHMARK_TEMPLATE(ArrayArrayKernel, Subtract, DoubleType)->Apply(SetArgs);
+
+// Subtract (Array, Scalar)
+BENCHMARK_TEMPLATE(ArrayScalarKernel, Subtract, Int64Type)->Apply(SetArgs);
+BENCHMARK_TEMPLATE(ArrayScalarKernel, Subtract, Int32Type)->Apply(SetArgs);
+BENCHMARK_TEMPLATE(ArrayScalarKernel, Subtract, Int16Type)->Apply(SetArgs);
+BENCHMARK_TEMPLATE(ArrayScalarKernel, Subtract, Int8Type)->Apply(SetArgs);
+BENCHMARK_TEMPLATE(ArrayScalarKernel, Subtract, UInt64Type)->Apply(SetArgs);
+BENCHMARK_TEMPLATE(ArrayScalarKernel, Subtract, UInt32Type)->Apply(SetArgs);
+BENCHMARK_TEMPLATE(ArrayScalarKernel, Subtract, UInt16Type)->Apply(SetArgs);
+BENCHMARK_TEMPLATE(ArrayScalarKernel, Subtract, UInt8Type)->Apply(SetArgs);
+BENCHMARK_TEMPLATE(ArrayScalarKernel, Subtract, FloatType)->Apply(SetArgs);
+BENCHMARK_TEMPLATE(ArrayScalarKernel, Subtract, DoubleType)->Apply(SetArgs);
+
+// Multiply (Array, Array)
+BENCHMARK_TEMPLATE(ArrayArrayKernel, Multiply, Int64Type)->Apply(SetArgs);
+BENCHMARK_TEMPLATE(ArrayArrayKernel, Multiply, Int32Type)->Apply(SetArgs);
+BENCHMARK_TEMPLATE(ArrayArrayKernel, Multiply, Int16Type)->Apply(SetArgs);
+BENCHMARK_TEMPLATE(ArrayArrayKernel, Multiply, Int8Type)->Apply(SetArgs);
+BENCHMARK_TEMPLATE(ArrayArrayKernel, Multiply, UInt64Type)->Apply(SetArgs);
+BENCHMARK_TEMPLATE(ArrayArrayKernel, Multiply, UInt32Type)->Apply(SetArgs);
+BENCHMARK_TEMPLATE(ArrayArrayKernel, Multiply, UInt16Type)->Apply(SetArgs);
+BENCHMARK_TEMPLATE(ArrayArrayKernel, Multiply, UInt8Type)->Apply(SetArgs);
+BENCHMARK_TEMPLATE(ArrayArrayKernel, Multiply, FloatType)->Apply(SetArgs);
+BENCHMARK_TEMPLATE(ArrayArrayKernel, Multiply, DoubleType)->Apply(SetArgs);
+
+// Multiply (Array, Scalar)
+BENCHMARK_TEMPLATE(ArrayScalarKernel, Multiply, Int64Type)->Apply(SetArgs);
+BENCHMARK_TEMPLATE(ArrayScalarKernel, Multiply, Int32Type)->Apply(SetArgs);
+BENCHMARK_TEMPLATE(ArrayScalarKernel, Multiply, Int16Type)->Apply(SetArgs);
+BENCHMARK_TEMPLATE(ArrayScalarKernel, Multiply, Int8Type)->Apply(SetArgs);
+BENCHMARK_TEMPLATE(ArrayScalarKernel, Multiply, UInt64Type)->Apply(SetArgs);
+BENCHMARK_TEMPLATE(ArrayScalarKernel, Multiply, UInt32Type)->Apply(SetArgs);
+BENCHMARK_TEMPLATE(ArrayScalarKernel, Multiply, UInt16Type)->Apply(SetArgs);
+BENCHMARK_TEMPLATE(ArrayScalarKernel, Multiply, UInt8Type)->Apply(SetArgs);
+BENCHMARK_TEMPLATE(ArrayScalarKernel, Multiply, FloatType)->Apply(SetArgs);
+BENCHMARK_TEMPLATE(ArrayScalarKernel, Multiply, DoubleType)->Apply(SetArgs);
 
 }  // namespace compute
 }  // namespace arrow
