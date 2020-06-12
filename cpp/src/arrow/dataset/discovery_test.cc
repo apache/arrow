@@ -222,10 +222,10 @@ TEST_F(FileSystemDatasetFactoryTest, MissingDirectories) {
   factory_options_.partitioning = std::make_shared<HivePartitioning>(
       schema({field("a", int32()), field("b", int32())}));
 
-  ASSERT_OK_AND_ASSIGN(
-      factory_, FileSystemDatasetFactory::Make(
-                    SourcesFromPaths(fs_, {partition_path, unpartition_path}), format_,
-                    factory_options_));
+  ASSERT_OK_AND_ASSIGN(factory_,
+                       FileSystemDatasetFactory::Make(
+                           FileSource::FromPaths(fs_, {partition_path, unpartition_path}),
+                           format_, factory_options_));
 
   InspectOptions options;
   AssertInspect(schema({field("a", int32()), field("b", int32())}), options);
@@ -258,7 +258,7 @@ TEST_F(FileSystemDatasetFactoryTest, OptionsIgnoredDefaultExplicitFiles) {
   std::vector<std::string> paths;
   for (const auto& info : ignored_by_default) paths.push_back(info.path());
   ASSERT_OK_AND_ASSIGN(
-      factory_, FileSystemDatasetFactory::Make(SourcesFromPaths(fs_, paths), format_,
+      factory_, FileSystemDatasetFactory::Make(FileSource::FromPaths(fs_, paths), format_,
                                                factory_options_));
 
   AssertFinishWithPaths(paths);

@@ -251,15 +251,6 @@ class JSONRecordBatchFileFormat : public FileFormat {
   SchemaResolver resolver_;
 };
 
-inline static std::vector<FileSource> SourcesFromPaths(
-    const std::shared_ptr<fs::FileSystem>& fs, std::vector<std::string> paths) {
-  std::vector<FileSource> sources;
-  for (const auto& path : paths) {
-    sources.emplace_back(path, fs);
-  }
-  return sources;
-}
-
 struct MakeFileSystemDatasetMixin {
   std::vector<fs::FileInfo> ParsePathList(const std::string& pathlist) {
     std::vector<fs::FileInfo> infos;

@@ -590,8 +590,8 @@ class TestSchemaUnification : public TestUnionDataset {
           std::make_shared<HivePartitioning>(SchemaFromNames({"part_ds", "part_df"}));
 
       ARROW_ASSIGN_OR_RAISE(
-          auto factory,
-          FileSystemDatasetFactory::Make(SourcesFromPaths(fs_, paths), format, options));
+          auto factory, FileSystemDatasetFactory::Make(FileSource::FromPaths(fs_, paths),
+                                                       format, options));
 
       ARROW_ASSIGN_OR_RAISE(auto schema, factory->Inspect());
 

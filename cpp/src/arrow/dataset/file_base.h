@@ -70,6 +70,15 @@ class ARROW_DS_EXPORT FileSource {
 
   FileSource() : impl_(CustomOpen{&InvalidOpen}) {}
 
+  static std::vector<FileSource> FromPaths(const std::shared_ptr<fs::FileSystem>& fs,
+                                           std::vector<std::string> paths) {
+    std::vector<FileSource> sources;
+    for (auto&& path : paths) {
+      sources.emplace_back(std::move(path), fs);
+    }
+    return sources;
+  }
+
   /// \brief Return the type of raw compression on the file, if any
   Compression::type compression() const { return compression_; }
 
