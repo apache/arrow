@@ -1891,20 +1891,37 @@ macro(build_zstd)
 
   file(MAKE_DIRECTORY "${ZSTD_PREFIX}/include")
 
-  add_library(ZSTD::zstd STATIC IMPORTED)
-  set_target_properties(ZSTD::zstd
+  add_library(zstd::libzstd STATIC IMPORTED)
+  set_target_properties(zstd::libzstd
                         PROPERTIES IMPORTED_LOCATION "${ZSTD_STATIC_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${ZSTD_PREFIX}/include")
 
   add_dependencies(toolchain zstd_ep)
-  add_dependencies(ZSTD::zstd zstd_ep)
+  add_dependencies(zstd::libzstd zstd_ep)
 endmacro()
 
 if(ARROW_WITH_ZSTD)
   resolve_dependency(ZSTD)
 
+  if(TARGET zstd::libzstd)
+    set(ARROW_ZSTD_LIBZSTD zstd::libzstd)
+  else()
+    # "SYSTEM" source will prioritize cmake config, which exports
+    # zstd::libzstd_{static,shared}
+    if(ARROW_ZSTD_USE_SHARED)
+      if(TARGET zstd::libzstd_shared)
+        set(ARROW_ZSTD_LIBZSTD zstd::libzstd_shared)
+      endif()
+    else()
+      if(TARGET zstd::libzstd_static)
+        set(ARROW_ZSTD_LIBZSTD zstd::libzstd_static)
+      endif()
+    endif()
+  endif()
+
   # TODO: Don't use global includes but rather target_include_directories
-  get_target_property(ZSTD_INCLUDE_DIR ZSTD::zstd INTERFACE_INCLUDE_DIRECTORIES)
+  get_target_property(ZSTD_INCLUDE_DIR ${ARROW_ZSTD_LIBZSTD}
+                      INTERFACE_INCLUDE_DIRECTORIES)
   include_directories(SYSTEM ${ZSTD_INCLUDE_DIR})
 endif()
 
