@@ -114,6 +114,7 @@ PATH="${CPYTHON_PATH}/bin:${PATH}" cmake \
     -DARROW_WITH_SNAPPY=ON \
     -DARROW_WITH_ZLIB=ON \
     -DARROW_WITH_ZSTD=ON \
+    -DARROW_ZSTD_USE_SHARED=OFF \
     -DBoost_NAMESPACE=arrow_boost \
     -DBOOST_ROOT=/arrow_boost_dist \
     -DCMAKE_BUILD_TYPE=Release \
