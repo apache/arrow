@@ -35,7 +35,7 @@ endif()
 
 # First, find via if specified ZTD_ROOT
 if(ZSTD_ROOT)
-  message(STATUS "Using ZSTD_ROOT: ${ZSTD_ROOT}")
+  message(STATUS "Using ZSTD_ROOT: ${ZSTD_ROOT}: ${ZSTD_LIB_NAMES}")
   find_library(ZSTD_LIB
                NAMES ${ZSTD_LIB_NAMES}
                PATHS ${ZSTD_ROOT}
