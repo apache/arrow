@@ -48,6 +48,7 @@ static void ArrayScalarKernel(benchmark::State& state) {
   for (auto _ : state) {
     ABORT_NOT_OK(Op(lhs, fifteen, nullptr).status());
   }
+  state.SetItemsProcessed(state.iterations() * array_size);
 }
 
 template <BinaryOp& Op, typename ArrowType, typename CType = typename ArrowType::c_type>
@@ -67,89 +68,35 @@ static void ArrayArrayKernel(benchmark::State& state) {
   for (auto _ : state) {
     ABORT_NOT_OK(Op(lhs, rhs, nullptr).status());
   }
+  state.SetItemsProcessed(state.iterations() * array_size);
 }
 
 void SetArgs(benchmark::internal::Benchmark* bench) {
-  bench->Unit(benchmark::kMicrosecond);
-
-  for (const auto size : kMemorySizes) {
+  for (const auto size : {kL1Size, kL2Size}) {
     for (const auto inverse_null_proportion : std::vector<ArgsType>({100, 0})) {
       bench->Args({static_cast<ArgsType>(size), inverse_null_proportion});
     }
   }
 }
 
-// Add (Array, Array)
-BENCHMARK_TEMPLATE(ArrayArrayKernel, Add, Int64Type)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(ArrayArrayKernel, Add, Int32Type)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(ArrayArrayKernel, Add, Int16Type)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(ArrayArrayKernel, Add, Int8Type)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(ArrayArrayKernel, Add, UInt64Type)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(ArrayArrayKernel, Add, UInt32Type)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(ArrayArrayKernel, Add, UInt16Type)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(ArrayArrayKernel, Add, UInt8Type)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(ArrayArrayKernel, Add, FloatType)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(ArrayArrayKernel, Add, DoubleType)->Apply(SetArgs);
+#define DECLARE_ARITHMETIC_BENCHMARKS(BENCHMARK, OP)             \
+  BENCHMARK_TEMPLATE(BENCHMARK, OP, Int64Type)->Apply(SetArgs);  \
+  BENCHMARK_TEMPLATE(BENCHMARK, OP, Int32Type)->Apply(SetArgs);  \
+  BENCHMARK_TEMPLATE(BENCHMARK, OP, Int16Type)->Apply(SetArgs);  \
+  BENCHMARK_TEMPLATE(BENCHMARK, OP, Int8Type)->Apply(SetArgs);   \
+  BENCHMARK_TEMPLATE(BENCHMARK, OP, UInt64Type)->Apply(SetArgs); \
+  BENCHMARK_TEMPLATE(BENCHMARK, OP, UInt32Type)->Apply(SetArgs); \
+  BENCHMARK_TEMPLATE(BENCHMARK, OP, UInt16Type)->Apply(SetArgs); \
+  BENCHMARK_TEMPLATE(BENCHMARK, OP, UInt8Type)->Apply(SetArgs);  \
+  BENCHMARK_TEMPLATE(BENCHMARK, OP, FloatType)->Apply(SetArgs);  \
+  BENCHMARK_TEMPLATE(BENCHMARK, OP, DoubleType)->Apply(SetArgs)
 
-// Add (Array, Scalar)
-BENCHMARK_TEMPLATE(ArrayScalarKernel, Add, Int64Type)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(ArrayScalarKernel, Add, Int32Type)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(ArrayScalarKernel, Add, Int16Type)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(ArrayScalarKernel, Add, Int8Type)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(ArrayScalarKernel, Add, UInt64Type)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(ArrayScalarKernel, Add, UInt32Type)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(ArrayScalarKernel, Add, UInt16Type)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(ArrayScalarKernel, Add, UInt8Type)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(ArrayScalarKernel, Add, FloatType)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(ArrayScalarKernel, Add, DoubleType)->Apply(SetArgs);
-
-// Subtract (Array, Array)
-BENCHMARK_TEMPLATE(ArrayArrayKernel, Subtract, Int64Type)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(ArrayArrayKernel, Subtract, Int32Type)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(ArrayArrayKernel, Subtract, Int16Type)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(ArrayArrayKernel, Subtract, Int8Type)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(ArrayArrayKernel, Subtract, UInt64Type)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(ArrayArrayKernel, Subtract, UInt32Type)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(ArrayArrayKernel, Subtract, UInt16Type)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(ArrayArrayKernel, Subtract, UInt8Type)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(ArrayArrayKernel, Subtract, FloatType)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(ArrayArrayKernel, Subtract, DoubleType)->Apply(SetArgs);
-
-// Subtract (Array, Scalar)
-BENCHMARK_TEMPLATE(ArrayScalarKernel, Subtract, Int64Type)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(ArrayScalarKernel, Subtract, Int32Type)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(ArrayScalarKernel, Subtract, Int16Type)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(ArrayScalarKernel, Subtract, Int8Type)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(ArrayScalarKernel, Subtract, UInt64Type)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(ArrayScalarKernel, Subtract, UInt32Type)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(ArrayScalarKernel, Subtract, UInt16Type)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(ArrayScalarKernel, Subtract, UInt8Type)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(ArrayScalarKernel, Subtract, FloatType)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(ArrayScalarKernel, Subtract, DoubleType)->Apply(SetArgs);
-
-// Multiply (Array, Array)
-BENCHMARK_TEMPLATE(ArrayArrayKernel, Multiply, Int64Type)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(ArrayArrayKernel, Multiply, Int32Type)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(ArrayArrayKernel, Multiply, Int16Type)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(ArrayArrayKernel, Multiply, Int8Type)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(ArrayArrayKernel, Multiply, UInt64Type)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(ArrayArrayKernel, Multiply, UInt32Type)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(ArrayArrayKernel, Multiply, UInt16Type)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(ArrayArrayKernel, Multiply, UInt8Type)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(ArrayArrayKernel, Multiply, FloatType)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(ArrayArrayKernel, Multiply, DoubleType)->Apply(SetArgs);
-
-// Multiply (Array, Scalar)
-BENCHMARK_TEMPLATE(ArrayScalarKernel, Multiply, Int64Type)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(ArrayScalarKernel, Multiply, Int32Type)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(ArrayScalarKernel, Multiply, Int16Type)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(ArrayScalarKernel, Multiply, Int8Type)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(ArrayScalarKernel, Multiply, UInt64Type)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(ArrayScalarKernel, Multiply, UInt32Type)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(ArrayScalarKernel, Multiply, UInt16Type)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(ArrayScalarKernel, Multiply, UInt8Type)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(ArrayScalarKernel, Multiply, FloatType)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(ArrayScalarKernel, Multiply, DoubleType)->Apply(SetArgs);
+DECLARE_ARITHMETIC_BENCHMARKS(ArrayArrayKernel, Add);
+DECLARE_ARITHMETIC_BENCHMARKS(ArrayScalarKernel, Add);
+DECLARE_ARITHMETIC_BENCHMARKS(ArrayArrayKernel, Subtract);
+DECLARE_ARITHMETIC_BENCHMARKS(ArrayScalarKernel, Subtract);
+DECLARE_ARITHMETIC_BENCHMARKS(ArrayArrayKernel, Multiply);
+DECLARE_ARITHMETIC_BENCHMARKS(ArrayScalarKernel, Multiply);
 
 }  // namespace compute
 }  // namespace arrow
