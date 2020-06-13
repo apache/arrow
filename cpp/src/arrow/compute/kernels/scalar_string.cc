@@ -178,8 +178,8 @@ struct ParseStrptime {
 template <typename InputType>
 void StrptimeExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   const auto& options = checked_cast<const StrptimeWrapper*>(ctx->state())->options;
-  codegen::ScalarUnaryNotNullStateful<TimestampType, InputType, ParseStrptime> kernel =
-      ParseStrptime(options);
+  codegen::ScalarUnaryNotNullStateful<TimestampType, InputType, ParseStrptime> kernel{
+      ParseStrptime(options)};
   return kernel.Exec(ctx, batch, out);
 }
 
