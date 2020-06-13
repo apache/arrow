@@ -1920,7 +1920,8 @@ if(ARROW_WITH_ZSTD)
   endif()
 
   # TODO: Don't use global includes but rather target_include_directories
-  get_target_property(ZSTD_INCLUDE_DIR ${ZSTD_LIBRARIES} INTERFACE_INCLUDE_DIRECTORIES)
+  get_target_property(ZSTD_INCLUDE_DIR ${ARROW_ZSTD_LIBZSTD}
+                      INTERFACE_INCLUDE_DIRECTORIES)
   include_directories(SYSTEM ${ZSTD_INCLUDE_DIR})
 endif()
 
