@@ -1915,10 +1915,6 @@ if(ARROW_WITH_ZSTD)
       set(ZSTD_LIBRARIES zstd::libzstd_static)
     endif()
   endif()
-
-  # TODO: Don't use global includes but rather target_include_directories
-  get_target_property(ZSTD_INCLUDE_DIR ${ZSTD_LIBRARIES} INTERFACE_INCLUDE_DIRECTORIES)
-  include_directories(SYSTEM ${ZSTD_INCLUDE_DIR})
 endif()
 
 # ----------------------------------------------------------------------
