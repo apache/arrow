@@ -888,62 +888,68 @@ public class TestValueVector {
    *  -- VarBinaryVector
    */
 
+  /**
+   * ARROW-7831: this checks that a slice taken off a buffer is still readable after that buffer's allocator is closed.
+   */
   @Test /* VarCharVector */
   public void testSplitAndTransfer1() {
-    try (final VarCharVector target = newVarCharVector("split-target", allocator)) {
-      try (final VarCharVector vector = newVarCharVector(EMPTY_SCHEMA_PATH, allocator)) {
-        vector.allocateNew(1024 * 10, 1024);
+    try (final VarCharVector targetVector = newVarCharVector("split-target", allocator)) {
+      try (final VarCharVector sourceVector = newVarCharVector(EMPTY_SCHEMA_PATH, allocator)) {
+        sourceVector.allocateNew(1024 * 10, 1024);
 
-        vector.set(0, STR1);
-        vector.set(1, STR2);
-        vector.set(2, STR3);
-        vector.setValueCount(3);
+        sourceVector.set(0, STR1);
+        sourceVector.set(1, STR2);
+        sourceVector.set(2, STR3);
+        sourceVector.setValueCount(3);
 
         final long allocatedMem = allocator.getAllocatedMemory();
-        final int validityRefCnt = vector.getValidityBuffer().refCnt();
-        final int offsetRefCnt = vector.getOffsetBuffer().refCnt();
-        final int dataRefCnt = vector.getDataBuffer().refCnt();
+        final int validityRefCnt = sourceVector.getValidityBuffer().refCnt();
+        final int offsetRefCnt = sourceVector.getOffsetBuffer().refCnt();
+        final int dataRefCnt = sourceVector.getDataBuffer().refCnt();
 
         // split and transfer with slice starting at the beginning: this should not allocate anything new
-        vector.splitAndTransferTo(0, 2, target);
+        sourceVector.splitAndTransferTo(0, 2, targetVector);
         assertEquals(allocator.getAllocatedMemory(), allocatedMem);
         // 2 = validity and offset buffers are stored in the same arrowbuf
-        assertEquals(vector.getValidityBuffer().refCnt(), validityRefCnt + 2);
-        assertEquals(vector.getOffsetBuffer().refCnt(), offsetRefCnt + 2);
-        assertEquals(vector.getDataBuffer().refCnt(), dataRefCnt + 1);
+        assertEquals(sourceVector.getValidityBuffer().refCnt(), validityRefCnt + 2);
+        assertEquals(sourceVector.getOffsetBuffer().refCnt(), offsetRefCnt + 2);
+        assertEquals(sourceVector.getDataBuffer().refCnt(), dataRefCnt + 1);
       }
-      assertArrayEquals(STR1, target.get(0));
-      assertArrayEquals(STR2, target.get(1));
+      assertArrayEquals(STR1, targetVector.get(0));
+      assertArrayEquals(STR2, targetVector.get(1));
     }
   }
 
+  /**
+   * ARROW-7831: this checks that a vector that got sliced is still readable after the slice's allocator got closed.
+   */
   @Test /* VarCharVector */
   public void testSplitAndTransfer2() {
-    try (final VarCharVector vector = newVarCharVector(EMPTY_SCHEMA_PATH, allocator)) {
-      try (final VarCharVector target = newVarCharVector("split-target", allocator)) {
-        vector.allocateNew(1024 * 10, 1024);
+    try (final VarCharVector sourceVector = newVarCharVector(EMPTY_SCHEMA_PATH, allocator)) {
+      try (final VarCharVector targetVector = newVarCharVector("split-target", allocator)) {
+        sourceVector.allocateNew(1024 * 10, 1024);
 
-        vector.set(0, STR1);
-        vector.set(1, STR2);
-        vector.set(2, STR3);
-        vector.setValueCount(3);
+        sourceVector.set(0, STR1);
+        sourceVector.set(1, STR2);
+        sourceVector.set(2, STR3);
+        sourceVector.setValueCount(3);
 
         final long allocatedMem = allocator.getAllocatedMemory();
-        final int validityRefCnt = vector.getValidityBuffer().refCnt();
-        final int offsetRefCnt = vector.getOffsetBuffer().refCnt();
-        final int dataRefCnt = vector.getDataBuffer().refCnt();
+        final int validityRefCnt = sourceVector.getValidityBuffer().refCnt();
+        final int offsetRefCnt = sourceVector.getOffsetBuffer().refCnt();
+        final int dataRefCnt = sourceVector.getDataBuffer().refCnt();
 
         // split and transfer with slice starting at the beginning: this should not allocate anything new
-        vector.splitAndTransferTo(0, 2, target);
+        sourceVector.splitAndTransferTo(0, 2, targetVector);
         assertEquals(allocator.getAllocatedMemory(), allocatedMem);
         // 2 = validity and offset buffers are stored in the same arrowbuf
-        assertEquals(vector.getValidityBuffer().refCnt(), validityRefCnt + 2);
-        assertEquals(vector.getOffsetBuffer().refCnt(), offsetRefCnt + 2);
-        assertEquals(vector.getDataBuffer().refCnt(), dataRefCnt + 1);
+        assertEquals(sourceVector.getValidityBuffer().refCnt(), validityRefCnt + 2);
+        assertEquals(sourceVector.getOffsetBuffer().refCnt(), offsetRefCnt + 2);
+        assertEquals(sourceVector.getDataBuffer().refCnt(), dataRefCnt + 1);
       }
-      assertArrayEquals(STR1, vector.get(0));
-      assertArrayEquals(STR2, vector.get(1));
-      assertArrayEquals(STR3, vector.get(2));
+      assertArrayEquals(STR1, sourceVector.get(0));
+      assertArrayEquals(STR2, sourceVector.get(1));
+      assertArrayEquals(STR3, sourceVector.get(2));
     }
   }
 
