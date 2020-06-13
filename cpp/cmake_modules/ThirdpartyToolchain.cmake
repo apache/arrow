@@ -1891,13 +1891,13 @@ macro(build_zstd)
 
   file(MAKE_DIRECTORY "${ZSTD_PREFIX}/include")
 
-  add_library(ZSTD::zstd STATIC IMPORTED)
-  set_target_properties(ZSTD::zstd
+  add_library(zstd::libzstd STATIC IMPORTED)
+  set_target_properties(zstd::libzstd
                         PROPERTIES IMPORTED_LOCATION "${ZSTD_STATIC_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${ZSTD_PREFIX}/include")
 
   add_dependencies(toolchain zstd_ep)
-  add_dependencies(ZSTD::zstd zstd_ep)
+  add_dependencies(zstd::libzstd zstd_ep)
 endmacro()
 
 if(ARROW_WITH_ZSTD)
