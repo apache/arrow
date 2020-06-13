@@ -1898,21 +1898,24 @@ macro(build_zstd)
 
   add_dependencies(toolchain zstd_ep)
   add_dependencies(ZSTD::zstd zstd_ep)
-  set(ZSTD_LIBRARIES ZSTD::zstd)
 endmacro()
 
 if(ARROW_WITH_ZSTD)
   resolve_dependency(ZSTD)
 
-  # "SYSTEM" source will prioritize cmake config, which exports
-  # zstd::libzstd_{static,shared}
-  if(ARROW_ZSTD_USE_SHARED)
-    if(TARGET zstd::libzstd_shared)
-      set(ZSTD_LIBRARIES zstd::libzstd_shared)
-    endif()
+  if(TARGET zstd::libzstd)
+    set(ARROW_ZSTD_LIBZSTD zstd::libzstd)
   else()
-    if(TARGET zstd::libzstd_static)
-      set(ZSTD_LIBRARIES zstd::libzstd_static)
+    # "SYSTEM" source will prioritize cmake config, which exports
+    # zstd::libzstd_{static,shared}
+    if(ARROW_ZSTD_USE_SHARED)
+      if(TARGET zstd::libzstd_shared)
+        set(ARROW_ZSTD_LIBZSTD zstd::libzstd_shared)
+      endif()
+    else()
+      if(TARGET zstd::libzstd_static)
+        set(ARROW_ZSTD_LIBZSTD zstd::libzstd_static)
+      endif()
     endif()
   endif()
 endif()
