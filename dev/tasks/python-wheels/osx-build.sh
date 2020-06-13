@@ -70,6 +70,7 @@ function build_wheel {
           -DARROW_HDFS=ON \
           -DARROW_FLIGHT=ON \
           -DARROW_GANDIVA=${BUILD_ARROW_GANDIVA} \
+          -DARROW_GRPC_USE_SHARED=OFF \
           -DARROW_JEMALLOC=ON \
           -DARROW_ORC=OFF \
           -DARROW_PARQUET=ON \
