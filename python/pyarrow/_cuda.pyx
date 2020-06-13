@@ -16,7 +16,7 @@
 # under the License.
 
 
-from pyarrow.compat import tobytes
+from pyarrow.lib import tobytes
 from pyarrow.lib cimport *
 from pyarrow.includes.libarrow_cuda cimport *
 from pyarrow.lib import py_buffer, allocate_buffer, as_buffer, ArrowTypeError

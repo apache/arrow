@@ -17,10 +17,10 @@
 
 import datetime
 import pytest
+import unittest
 
 import numpy as np
 
-from pyarrow.compat import unittest
 import pyarrow as pa
 
 

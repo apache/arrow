@@ -15,8 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from pyarrow.compat import tobytes
-
 
 cdef class StringBuilder:
     """

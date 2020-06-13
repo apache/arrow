@@ -27,9 +27,9 @@ import pytest
 import numpy as np
 
 import pyarrow as pa
-from pyarrow.compat import guid
 from pyarrow.pandas_compat import _pandas_api
 from pyarrow.tests import util
+from pyarrow.util import guid
 from pyarrow.filesystem import LocalFileSystem, FileSystem
 
 

@@ -31,10 +31,9 @@ from cython.operator cimport dereference as deref
 from cython.operator cimport postincrement
 from libcpp cimport bool as c_bool
 
-from pyarrow.compat import frombytes, tobytes
 from pyarrow.lib cimport *
 from pyarrow.lib import ArrowException, ArrowInvalid
-from pyarrow.lib import as_buffer
+from pyarrow.lib import as_buffer, frombytes, tobytes
 from pyarrow.includes.libarrow_flight cimport *
 from pyarrow.ipc import _ReadPandasOption
 import pyarrow.lib as lib

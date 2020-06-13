@@ -28,7 +28,7 @@ import numpy as np
 import pytest
 import pyarrow as pa
 
-from pyarrow.compat import tobytes
+from pyarrow.lib import tobytes
 from pyarrow.util import pathlib, find_free_port
 
 try:

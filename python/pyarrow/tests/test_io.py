@@ -30,7 +30,7 @@ import weakref
 
 import numpy as np
 
-from pyarrow.compat import guid
+from pyarrow.util import guid
 from pyarrow import Codec
 import pyarrow as pa
 

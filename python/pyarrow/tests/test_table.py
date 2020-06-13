@@ -16,13 +16,13 @@
 # under the License.
 
 from collections import OrderedDict
+from collections.abc import Iterable
 import pickle
 import sys
 
 import numpy as np
 import pytest
 import pyarrow as pa
-from pyarrow import compat
 
 
 def test_chunked_array_basics():
@@ -113,7 +113,7 @@ def test_chunked_array_iter():
     for i, j in zip(range(10), arr):
         assert i == j
 
-    assert isinstance(arr, compat.Iterable)
+    assert isinstance(arr, Iterable)
 
 
 def test_chunked_array_equals():

@@ -24,8 +24,8 @@ from cython.operator cimport dereference as deref
 
 import pyarrow as pa
 from pyarrow.lib cimport *
+from pyarrow.lib import frombytes, tobytes
 from pyarrow.includes.libarrow_dataset cimport *
-from pyarrow.compat import frombytes, tobytes
 from pyarrow._fs cimport FileSystem, FileInfo, FileSelector
 from pyarrow._csv cimport ParseOptions
 from pyarrow._compute cimport CastOptions

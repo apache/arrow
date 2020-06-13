@@ -17,10 +17,9 @@
 
 # cython: language_level = 3
 
-from pyarrow.compat import frombytes, tobytes
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow_fs cimport *
-from pyarrow.lib import _detect_compression
+from pyarrow.lib import _detect_compression, frombytes, tobytes
 from pyarrow.lib cimport *
 
 
