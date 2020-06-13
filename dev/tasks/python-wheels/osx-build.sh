@@ -70,7 +70,7 @@ function build_wheel {
           -DARROW_HDFS=ON \
           -DARROW_FLIGHT=ON \
           -DARROW_GANDIVA=${BUILD_ARROW_GANDIVA} \
-          -DARROW_GRPA_USE_SHARED=OFF \
+          -DARROW_GRPC_USE_SHARED=OFF \
           -DARROW_JEMALLOC=ON \
           -DARROW_ORC=OFF \
           -DARROW_PARQUET=ON \
@@ -94,7 +94,7 @@ function build_wheel {
           -DOPENSSL_USE_STATIC_LIBS=ON \
           -DProtobuf_SOURCE=SYSTEM \
           ..
-    make VERBOSE=1 -j$(sysctl -n hw.logicalcpu)
+    make -j$(sysctl -n hw.logicalcpu)
     make install
     popd
     popd
