@@ -33,6 +33,7 @@
 #include "arrow/compute/function.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/compute/registry.h"
+#include "arrow/compute/util_internal.h"
 #include "arrow/datum.h"
 #include "arrow/scalar.h"
 #include "arrow/status.h"
