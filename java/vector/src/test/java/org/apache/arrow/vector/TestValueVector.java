@@ -38,6 +38,7 @@ import java.util.List;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.memory.rounding.DefaultRoundingPolicy;
 import org.apache.arrow.memory.util.ArrowBufPointer;
 import org.apache.arrow.memory.util.CommonUtil;
 import org.apache.arrow.vector.compare.Range;
@@ -909,11 +910,13 @@ public class TestValueVector {
 
         // split and transfer with slice starting at the beginning: this should not allocate anything new
         sourceVector.splitAndTransferTo(0, 2, targetVector);
-        assertEquals(allocator.getAllocatedMemory(), allocatedMem);
-        // 2 = validity and offset buffers are stored in the same arrowbuf
-        assertEquals(sourceVector.getValidityBuffer().refCnt(), validityRefCnt + 2);
-        assertEquals(sourceVector.getOffsetBuffer().refCnt(), offsetRefCnt + 2);
-        assertEquals(sourceVector.getDataBuffer().refCnt(), dataRefCnt + 1);
+        assertEquals(allocatedMem, allocator.getAllocatedMemory());
+        // The validity and offset buffers are sliced from a same buffer.See BaseFixedWidthVector#allocateBytes.
+        // Therefore, the refcnt of the validity buffer is increased once since the startIndex is 0. The refcnt of the
+        // offset buffer is increased as well for the same reason. This amounts to a total of 2.
+        assertEquals(validityRefCnt + 2, sourceVector.getValidityBuffer().refCnt());
+        assertEquals(offsetRefCnt + 2, sourceVector.getOffsetBuffer().refCnt());
+        assertEquals(dataRefCnt + 1, sourceVector.getDataBuffer().refCnt());
       }
       assertArrayEquals(STR1, targetVector.get(0));
       assertArrayEquals(STR2, targetVector.get(1));
@@ -941,15 +944,57 @@ public class TestValueVector {
 
         // split and transfer with slice starting at the beginning: this should not allocate anything new
         sourceVector.splitAndTransferTo(0, 2, targetVector);
-        assertEquals(allocator.getAllocatedMemory(), allocatedMem);
-        // 2 = validity and offset buffers are stored in the same arrowbuf
-        assertEquals(sourceVector.getValidityBuffer().refCnt(), validityRefCnt + 2);
-        assertEquals(sourceVector.getOffsetBuffer().refCnt(), offsetRefCnt + 2);
-        assertEquals(sourceVector.getDataBuffer().refCnt(), dataRefCnt + 1);
+        assertEquals(allocatedMem, allocator.getAllocatedMemory());
+        // The validity and offset buffers are sliced from a same buffer.See BaseFixedWidthVector#allocateBytes.
+        // Therefore, the refcnt of the validity buffer is increased once since the startIndex is 0. The refcnt of the
+        // offset buffer is increased as well for the same reason. This amounts to a total of 2.
+        assertEquals(validityRefCnt + 2, sourceVector.getValidityBuffer().refCnt());
+        assertEquals(offsetRefCnt + 2, sourceVector.getOffsetBuffer().refCnt());
+        assertEquals(dataRefCnt + 1, sourceVector.getDataBuffer().refCnt());
       }
       assertArrayEquals(STR1, sourceVector.get(0));
       assertArrayEquals(STR2, sourceVector.get(1));
       assertArrayEquals(STR3, sourceVector.get(2));
+    }
+  }
+
+  /**
+   * ARROW-7831: this checks an offset splitting optimization, in the case where all the values up to the start of the
+   * slice are null/empty, which avoids allocation for the offset buffer.
+   */
+  @Test /* VarCharVector */
+  public void testSplitAndTransfer3() {
+    try (final VarCharVector targetVector = newVarCharVector("split-target", allocator);
+         final VarCharVector sourceVector = newVarCharVector(EMPTY_SCHEMA_PATH, allocator)) {
+      sourceVector.allocateNew(1024 * 10, 1024);
+
+      sourceVector.set(0, new byte[0]);
+      sourceVector.setNull(1);
+      sourceVector.set(2, STR1);
+      sourceVector.set(3, STR2);
+      sourceVector.set(4, STR3);
+      sourceVector.setValueCount(5);
+
+      final long allocatedMem = allocator.getAllocatedMemory();
+      final int validityRefCnt = sourceVector.getValidityBuffer().refCnt();
+      final int offsetRefCnt = sourceVector.getOffsetBuffer().refCnt();
+      final int dataRefCnt = sourceVector.getDataBuffer().refCnt();
+
+      sourceVector.splitAndTransferTo(2, 2, targetVector);
+      // because the offset starts at 0 since the first 2 values are empty/null, the allocation only consists in
+      // the size needed for the validity buffer
+      final long validitySize =
+          DefaultRoundingPolicy.INSTANCE.getRoundedSize(BaseValueVector.getValidityBufferSizeFromCount(2));
+      assertEquals(allocatedMem + validitySize, allocator.getAllocatedMemory());
+      // The validity and offset buffers are sliced from a same buffer.See BaseFixedWidthVector#allocateBytes.
+      // Since values up to the startIndex are empty/null, the offset buffer doesn't need to be reallocated and
+      // therefore its refcnt is increased by 1.
+      assertEquals(validityRefCnt + 1, sourceVector.getValidityBuffer().refCnt());
+      assertEquals(offsetRefCnt + 1, sourceVector.getOffsetBuffer().refCnt());
+      assertEquals(dataRefCnt + 1, sourceVector.getDataBuffer().refCnt());
+
+      assertArrayEquals(STR1, targetVector.get(0));
+      assertArrayEquals(STR2, targetVector.get(1));
     }
   }
 
