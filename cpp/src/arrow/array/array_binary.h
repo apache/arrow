@@ -105,8 +105,12 @@ class BaseBinaryArray : public FlatArray {
   /// referenced by this array. If the array has been sliced then this may be
   /// less than the size of the data buffer (data_->buffers[2]).
   offset_type total_values_length() const {
-    return raw_value_offsets_[data_->length + data_->offset] -
-           raw_value_offsets_[data_->offset];
+    if (data_->length > 0) {
+      return raw_value_offsets_[data_->length + data_->offset] -
+             raw_value_offsets_[data_->offset];
+    } else {
+      return 0;
+    }
   }
 
  protected:
