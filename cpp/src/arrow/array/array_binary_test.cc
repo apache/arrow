@@ -109,6 +109,18 @@ class TestStringArray : public ::testing::Test {
     AssertZeroPadded(*strings_);
   }
 
+  void TestTotalValuesLength() {
+    auto ty = TypeTraits<T>::type_singleton();
+    auto arr = ArrayFromJSON(ty, R"(["a", null, "bbb", "cccc", "ddddd"])");
+
+    offset_type values_length = arr.total_values_length();
+    ASSERT_EQ(values_length, static_cast<offset_type>(13));
+
+    offset_type sliced_values_length =
+        checked_cast<const ArrayType&>(*arr.Slice(3)).total_values_length();
+    ASSERT_EQ(sliced_values_length, static_cast<offset_type>(9));
+  }
+
   void TestType() {
     std::shared_ptr<DataType> type = this->strings_->type();
 
