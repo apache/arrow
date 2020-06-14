@@ -597,14 +597,21 @@ macro(build_boost)
   else()
     set(BOOST_CONFIGURE_COMMAND "./bootstrap.sh")
   endif()
+
+  list(APPEND BOOST_BUILD_WITH_LIBRARIES "filesystem" "regex" "system")
+
+  list(JOIN BOOST_BUILD_WITH_LIBRARIES "," BOOST_CONFIGURE_LIBRARIES)
   list(APPEND BOOST_CONFIGURE_COMMAND "--prefix=${BOOST_PREFIX}"
-              "--with-libraries=filesystem,regex,system")
+              "--with-libraries=${BOOST_CONFIGURE_LIBRARIES}")
   set(BOOST_BUILD_COMMAND "./b2" "-j${NPROC}" "link=${BOOST_BUILD_LINK}"
                           "variant=${BOOST_BUILD_VARIANT}")
   if(MSVC)
     string(REGEX
            REPLACE "([0-9])$" ".\\1" BOOST_TOOLSET_MSVC_VERSION ${MSVC_TOOLSET_VERSION})
     list(APPEND BOOST_BUILD_COMMAND "toolset=msvc-${BOOST_TOOLSET_MSVC_VERSION}")
+    # Create --with-<library> flags
+    list(TRANSFORM BOOST_BUILD_WITH_LIBRARIES PREPEND "--with-")
+    list(APPEND BOOST_BUILD_COMMAND ${BOOST_BUILD_WITH_LIBRARIES})
   else()
     list(APPEND BOOST_BUILD_COMMAND "cxxflags=-fPIC")
   endif()
