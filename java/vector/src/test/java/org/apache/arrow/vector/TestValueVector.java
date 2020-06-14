@@ -998,6 +998,41 @@ public class TestValueVector {
     }
   }
 
+  /**
+   * ARROW-7831: ensures that data is transferred from one allocator to another in case of 0-index start special cases.
+   */
+  @Test /* VarCharVector */
+  public void testSplitAndTransfer4() {
+    try (final BufferAllocator targetAllocator = allocator.newChildAllocator("target-alloc", 256, 256);
+         final VarCharVector targetVector = newVarCharVector("split-target", targetAllocator)) {
+      try (final BufferAllocator sourceAllocator = allocator.newChildAllocator("source-alloc", 256, 256);
+           final VarCharVector sourceVector = newVarCharVector(EMPTY_SCHEMA_PATH, sourceAllocator)) {
+        sourceVector.allocateNew(50, 3);
+
+        sourceVector.set(0, STR1);
+        sourceVector.set(1, STR2);
+        sourceVector.set(2, STR3);
+        sourceVector.setValueCount(3);
+
+        final long allocatedMem = allocator.getAllocatedMemory();
+        final int validityRefCnt = sourceVector.getValidityBuffer().refCnt();
+        final int offsetRefCnt = sourceVector.getOffsetBuffer().refCnt();
+        final int dataRefCnt = sourceVector.getDataBuffer().refCnt();
+
+        // split and transfer with slice starting at the beginning: this should not allocate anything new
+        sourceVector.splitAndTransferTo(0, 2, targetVector);
+        assertEquals(allocatedMem, allocator.getAllocatedMemory());
+        // Unlike testSplitAndTransfer1 where the buffers originated from the same allocator, the refcnts of each
+        // buffers for this test should be the same as what the source allocator ended up with.
+        assertEquals(validityRefCnt, sourceVector.getValidityBuffer().refCnt());
+        assertEquals(offsetRefCnt, sourceVector.getOffsetBuffer().refCnt());
+        assertEquals(dataRefCnt, sourceVector.getDataBuffer().refCnt());
+      }
+      assertArrayEquals(STR1, targetVector.get(0));
+      assertArrayEquals(STR2, targetVector.get(1));
+    }
+  }
+
   @Test /* VarCharVector */
   public void testNullableVarType1() {
 

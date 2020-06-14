@@ -739,8 +739,8 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
     final int dataLength = end - start;
 
     if (start == 0) {
-      target.offsetBuffer = offsetBuffer.slice(startIndex * OFFSET_WIDTH, (1 + length) * OFFSET_WIDTH);
-      target.offsetBuffer.getReferenceManager().retain();
+      final ArrowBuf slicedOffsetBuffer = offsetBuffer.slice(startIndex * OFFSET_WIDTH, (1 + length) * OFFSET_WIDTH);
+      target.offsetBuffer = transferBuffer(slicedOffsetBuffer, target.allocator);
     } else {
       target.allocateOffsetBuffer((long) (length + 1) * OFFSET_WIDTH);
       for (int i = 0; i < length + 1; i++) {
@@ -771,8 +771,8 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
       if (target.validityBuffer != null) {
         target.validityBuffer.getReferenceManager().release();
       }
-      target.validityBuffer = validityBuffer.slice(firstByteSource, byteSizeTarget);
-      target.validityBuffer.getReferenceManager().retain();
+      final ArrowBuf slicedValidityBuffer = validityBuffer.slice(firstByteSource, byteSizeTarget);
+      target.validityBuffer = transferBuffer(slicedValidityBuffer, target.allocator);
     } else {
       /* Copy data
        * When the first bit starts from the middle of a byte (offset != 0),
