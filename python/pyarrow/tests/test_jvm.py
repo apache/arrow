@@ -46,9 +46,8 @@ def root_allocator():
         'arrow-tools-{}-jar-with-dependencies.jar'.format(version))
     jar_path = os.getenv("ARROW_TOOLS_JAR", jar_path)
     kwargs = {}
-    if jpype.__version_info__ >= (0, 7):
-        # This will be the default behaviour in jpype 0.8+
-        kwargs['convertStrings'] = False
+    # This will be the default behaviour in jpype 0.8+
+    kwargs['convertStrings'] = False
     jpype.startJVM(jpype.getDefaultJVMPath(), "-Djava.class.path=" + jar_path,
                    **kwargs)
     return jpype.JPackage("org").apache.arrow.memory.RootAllocator(sys.maxsize)
