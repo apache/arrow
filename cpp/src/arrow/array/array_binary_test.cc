@@ -119,6 +119,11 @@ class TestStringArray : public ::testing::Test {
     offset_type sliced_values_length =
         checked_cast<const ArrayType&>(*arr.Slice(3)).total_values_length();
     ASSERT_EQ(sliced_values_length, static_cast<offset_type>(9));
+
+    // Zero-length array is a special case
+    offset_type zero_size_length =
+        checked_cast<const ArrayType&>(*arr.Slice(0, 0)).total_values_length();
+    ASSERT_EQ(zero_size_length, static_cast<offset_type>(0));
   }
 
   void TestType() {
