@@ -364,6 +364,16 @@ TEST_F(FileSystemDatasetFactoryTest, FilenameNotPartOfPartitions) {
   }
 }
 
+TEST_F(FileSystemDatasetFactoryTest, UnparseablePartitionExpression) {
+  auto s = schema({field("first", int32()), field("second", int32())});
+  factory_options_.partitioning = std::make_shared<HivePartitioning>(s);
+
+  selector_.recursive = true;
+  MakeFactory({fs::File("first=one/file.parquet")});
+
+  ASSERT_RAISES(Invalid, factory_->Finish().status());
+}
+
 std::shared_ptr<DatasetFactory> DatasetFactoryFromSchemas(
     std::vector<std::shared_ptr<Schema>> schemas) {
   return std::make_shared<MockDatasetFactory>(schemas);

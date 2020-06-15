@@ -357,6 +357,10 @@ def test_partitioning():
     )
     assert expr.equals(expected)
 
+    for shouldfail in ['/alpha=one/beta=2', '/alpha=one', '/beta=two']:
+        with pytest.raises(pa.ArrowInvalid):
+            partitioning.parse(shouldfail)
+
 
 def test_expression_serialization():
     a = ds.scalar(1)
