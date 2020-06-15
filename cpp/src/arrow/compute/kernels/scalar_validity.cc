@@ -66,8 +66,12 @@ struct IsNull {
                  out->buffers[1]->mutable_data(), out->offset);
   }
 };
+}  // namespace
 
 namespace codegen {
+namespace {
+
+using arrow::compute::codegen::SimpleUnary;
 
 void MakeFunction(std::string name, std::vector<InputType> in_types, OutputType out_type,
                   ArrayKernelExec exec, FunctionRegistry* registry,
@@ -83,6 +87,7 @@ void MakeFunction(std::string name, std::vector<InputType> in_types, OutputType 
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
+}  // namespace
 }  // namespace codegen
 
 namespace internal {
@@ -98,6 +103,5 @@ void RegisterScalarValidity(FunctionRegistry* registry) {
 }
 
 }  // namespace internal
-}  // namespace
 }  // namespace compute
 }  // namespace arrow
