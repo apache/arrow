@@ -169,7 +169,7 @@ test_that("read_csv_arrow() respects col_select", {
   expect_equal(tib, tibble::tibble(Sepal.Length = iris$Sepal.Length, Sepal.Width = iris$Sepal.Width))
 })
 
-test_that("read_csv_arrow() respects col_select", {
+test_that("read_csv_arrow() can detect compression from file name", {
   tf <- tempfile(fileext = ".csv.gz")
   on.exit(unlink(tf))
 
