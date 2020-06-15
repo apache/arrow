@@ -28,7 +28,7 @@ using internal::InvertBitmap;
 namespace compute {
 namespace {
 
-struct IsValid {
+struct IsValidOperator {
   static void Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
     checked_cast<BooleanScalar*>(out)->value = in.is_valid;
   }
@@ -52,7 +52,7 @@ struct IsValid {
   }
 };
 
-struct IsNull {
+struct IsNullOperator {
   static void Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
     checked_cast<BooleanScalar*>(out)->value = !in.is_valid;
   }
@@ -97,11 +97,11 @@ namespace internal {
 
 void RegisterScalarValidity(FunctionRegistry* registry) {
   codegen::MakeFunction("is_valid", {ValueDescr::ANY}, boolean(),
-                        codegen::SimpleUnary<IsValid>, registry,
+                        codegen::SimpleUnary<IsValidOperator>, registry,
                         NullHandling::OUTPUT_NOT_NULL, MemAllocation::NO_PREALLOCATE);
 
   codegen::MakeFunction("is_null", {ValueDescr::ANY}, boolean(),
-                        codegen::SimpleUnary<IsNull>, registry,
+                        codegen::SimpleUnary<IsNullOperator>, registry,
                         NullHandling::OUTPUT_NOT_NULL, MemAllocation::PREALLOCATE);
 }
 
