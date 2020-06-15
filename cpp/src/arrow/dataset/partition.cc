@@ -598,5 +598,30 @@ std::shared_ptr<PartitioningFactory> HivePartitioning::MakeFactory() {
   return std::shared_ptr<PartitioningFactory>(new HivePartitioningFactory());
 }
 
+std::string StripPrefixAndFilename(const std::string& path, const std::string& prefix) {
+  auto maybe_base_less = fs::internal::RemoveAncestor(prefix, path);
+  auto base_less = maybe_base_less ? maybe_base_less->to_string() : path;
+  auto basename_filename = fs::internal::GetAbstractPathParent(base_less);
+  return basename_filename.first;
+}
+
+std::vector<std::string> StripPrefixAndFilename(const std::vector<std::string>& paths,
+                                                const std::string& prefix) {
+  std::vector<std::string> result;
+  for (const auto& path : paths) {
+    result.emplace_back(StripPrefixAndFilename(path, prefix));
+  }
+  return result;
+}
+
+Result<std::shared_ptr<Schema>> PartitioningOrFactory::GetOrInferSchema(
+    const std::vector<std::string>& paths) {
+  if (auto part = partitioning()) {
+    return part->schema();
+  }
+
+  return factory()->Inspect(paths);
+}
+
 }  // namespace dataset
 }  // namespace arrow
