@@ -67,11 +67,13 @@ void StringDataTransform(KernelContext* ctx, const ExecBatch& batch,
 void TransformAsciiUpper(const uint8_t* input, int64_t length, uint8_t* output) {
   for (int64_t i = 0; i < length; ++i) {
     const uint8_t utf8_code_unit = *input++;
-    // Code units in the range [a-z] can only be an encoding of an ascii character/codepoint,
-    // not the 2nd, 3rd or 4th code unit (byte) of an different codepoint.
-    // This guaranteed by non-overal design of the unicode standard.
-    // (see section 2.5 of Unicode Standard Core Specification v13.0)
-    *output++ = ((utf8_code_unit >= 'a') && (utf8_code_unit <= 'z')) ? (utf8_code_unit - 32) : utf8_code_unit;
+    // Code units in the range [a-z] can only be an encoding of an ascii
+    // character/codepoint, not the 2nd, 3rd or 4th code unit (byte) of an different
+    // codepoint. This guaranteed by non-overal design of the unicode standard. (see
+    // section 2.5 of Unicode Standard Core Specification v13.0)
+    *output++ = ((utf8_code_unit >= 'a') && (utf8_code_unit <= 'z'))
+                    ? (utf8_code_unit - 32)
+                    : utf8_code_unit;
   }
 }
 
@@ -83,7 +85,9 @@ void TransformAsciiLower(const uint8_t* input, int64_t length, uint8_t* output) 
   for (int64_t i = 0; i < length; ++i) {
     // As with TransformAsciiUpper, the same guarantee holds for the range [A-Z]
     const uint8_t utf8_code_unit = *input++;
-    *output++ = ((utf8_code_unit >= 'A') && (utf8_code_unit <= 'Z')) ? (utf8_code_unit + 32) : utf8_code_unit;
+    *output++ = ((utf8_code_unit >= 'A') && (utf8_code_unit <= 'Z'))
+                    ? (utf8_code_unit + 32)
+                    : utf8_code_unit;
   }
 }
 
