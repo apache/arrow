@@ -98,8 +98,6 @@ class ARROW_EXPORT ArrayBuilder {
   virtual Status AppendNull() = 0;
   virtual Status AppendNulls(int64_t length) = 0;
 
-  Status Append(const Scalar& scalar);
-
   /// For cases where raw data was memcpy'd into the internal buffers, allows us
   /// to advance the length of the builder. It is your responsibility to use
   /// this function responsibly.

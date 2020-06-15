@@ -21,15 +21,11 @@
 #include <vector>
 
 #include "arrow/array/array_base.h"
-#include "arrow/array/builder_binary.h"
-#include "arrow/array/builder_primitive.h"
 #include "arrow/array/data.h"
 #include "arrow/array/util.h"
 #include "arrow/buffer.h"
-#include "arrow/scalar.h"
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
-#include "arrow/visitor_inline.h"
 
 namespace arrow {
 
@@ -113,45 +109,6 @@ void ArrayBuilder::UnsafeSetNull(int64_t length) {
   length_ += length;
   null_count_ += length;
   null_bitmap_builder_.UnsafeAppend(length, false);
-}
-
-struct ArrayBuilderAppendScalarImpl {
-  template <typename S,
-            typename B = typename TypeTraits<typename S::TypeClass>::BuilderType>
-  B& builder() {
-    return *internal::checked_cast<B*>(builder_);
-  }
-
-  template <typename S>
-  auto Visit(const S& scalar) -> decltype(builder<S>().Append(scalar.value)) {
-    return builder<S>().Append(scalar.value);
-  }
-
-  template <typename S>
-  enable_if_base_binary<typename S::TypeClass, Status> Visit(const S& scalar) {
-    return builder<S>().Append(scalar.value->data(), scalar.value->size());
-  }
-
-  Status Visit(const Scalar& scalar) {
-    return Status::NotImplemented("Appending scalars to builders of type ", *scalar.type);
-  }
-
-  Status Finish() && { return VisitScalarInline(scalar_, this); }
-  ArrayBuilder* builder_;
-  const Scalar& scalar_;
-};
-
-Status ArrayBuilder::Append(const Scalar& scalar) {
-  auto builder_type = type();
-  if (!scalar.type->Equals(builder_type)) {
-    return Status::TypeError("Cannot append scalars of type ", *scalar.type,
-                             " to a builder of type ", *builder_type);
-  }
-  if (!scalar.is_valid) {
-    return AppendNull();
-  }
-  RETURN_NOT_OK(Reserve(1));
-  return ArrayBuilderAppendScalarImpl{this, scalar}.Finish();
 }
 
 }  // namespace arrow

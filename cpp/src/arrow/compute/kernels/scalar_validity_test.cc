@@ -101,51 +101,5 @@ TEST_F(TestValidityKernels, DISABLED_ScalarIsNull) {
   AssertUnary(MakeNullScalar(float64()), Datum(true));
 }
 
-class IsValidProperty : public ScalarFunctionPropertyMixin {
- public:
-  std::shared_ptr<ScalarFunction> GetFunction() override {
-    return internal::checked_pointer_cast<ScalarFunction>(
-        *GetFunctionRegistry()->GetFunction("is_valid"));
-  }
-
-  Result<std::shared_ptr<Scalar>> Contract(const ScalarVector& args,
-                                           const FunctionOptions*) override {
-    return std::make_shared<BooleanScalar>(args[0]->is_valid);
-  }
-};
-
-TEST_P(IsValidProperty, TestIsValidProperty) { Validate(); }
-
-INSTANTIATE_TEST_SUITE_P(IsValidPropertyTest, IsValidProperty,
-                         ScalarFunctionPropertyTestParam::Values({
-                             {0, 0.0},
-                             {1, 0.0},
-                             {2, 0.0},
-                             {1024, 0.25},
-                         }));
-
-class IsNullProperty : public ScalarFunctionPropertyMixin {
- public:
-  std::shared_ptr<ScalarFunction> GetFunction() override {
-    return internal::checked_pointer_cast<ScalarFunction>(
-        *GetFunctionRegistry()->GetFunction("is_null"));
-  }
-
-  Result<std::shared_ptr<Scalar>> Contract(const ScalarVector& args,
-                                           const FunctionOptions*) override {
-    return std::make_shared<BooleanScalar>(!args[0]->is_valid);
-  }
-};
-
-TEST_P(IsNullProperty, TestIsNullProperty) { Validate(); }
-
-INSTANTIATE_TEST_SUITE_P(IsNullPropertyTest, IsNullProperty,
-                         ScalarFunctionPropertyTestParam::Values({
-                             {0, 0.0},
-                             {1, 0.0},
-                             {2, 0.0},
-                             {1024, 0.25},
-                         }));
-
 }  // namespace compute
 }  // namespace arrow

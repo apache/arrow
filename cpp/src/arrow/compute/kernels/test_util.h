@@ -33,9 +33,7 @@
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
-#include "arrow/util/iterator.h"
 
-#include "arrow/compute/function.h"
 #include "arrow/compute/kernel.h"
 
 // IWYU pragma: end_exports
@@ -98,64 +96,6 @@ using TestingStringTypes =
     ::testing::Types<StringType, LargeStringType, BinaryType, LargeBinaryType>;
 
 static constexpr random::SeedType kRandomSeed = 0x0ff1ce;
-
-struct ScalarFunctionPropertyTestParam {
-  ScalarFunctionPropertyTestParam(int64_t length, double null_probability)
-      : length(length), null_probability(null_probability) {}
-
-  ScalarFunctionPropertyTestParam(int64_t length, double null_probability,
-                                  const FunctionOptions* options)
-      : length(length), null_probability(null_probability), options(options) {}
-
-  static auto Values(std::initializer_list<ScalarFunctionPropertyTestParam> params)
-      -> decltype(testing::ValuesIn(params)) {
-    return testing::ValuesIn(params);
-  }
-
-  int64_t length;
-  double null_probability;
-  const FunctionOptions* options = nullptr;
-};
-
-class ScalarFunctionPropertyMixin
-    : public testing::TestWithParam<ScalarFunctionPropertyTestParam> {
- protected:
-  /// Return an instance of the ScalarFunction which should be tested.
-  virtual std::shared_ptr<ScalarFunction> GetFunction() = 0;
-
-  /// Contract() should contain a minimal implementation of the function's
-  /// intended behavior. For example, a Property expressing a division function
-  /// could unbox the Scalars and perform division on them.
-  ///
-  /// The arguments will be generated based on kernel signatures so validation of anything
-  /// expressible in InputType is unnecessary (for example inputs will always have valid
-  /// arity and type). Other errors should be emitted with the same StatusCode that a
-  /// kernel would raise - in the example case of a division function a divide by zero
-  /// error should be emitted by Contract().
-  virtual Result<std::shared_ptr<Scalar>> Contract(const ScalarVector& args,
-                                                   const FunctionOptions* options) = 0;
-
-  /// Run randomized testing of all kernels in the function.
-  void Validate();
-
-  /// Helper for unboxing scalars efficiently in implementations of Contract()
-  template <typename S>
-  Result<std::shared_ptr<S>> Cast(const std::shared_ptr<Scalar>& scalar) {
-    ARROW_ASSIGN_OR_RAISE(
-        auto out, scalar->CastTo(TypeTraits<typename S::TypeClass>::type_singleton()));
-    return internal::checked_pointer_cast<S>(std::move(out));
-  }
-
-  // apply Contract() to all inputs, building the expected output
-  Result<Datum> ComputeExpected(const std::vector<Datum>& args,
-                                const std::shared_ptr<DataType>& out_type,
-                                const FunctionOptions* options);
-
-  // Randomly generate valid function arguments from a KernelSignature.
-  std::vector<std::vector<Datum>> GenerateInputs(const KernelSignature& signature);
-
-  random::RandomArrayGenerator rag_{kRandomSeed};
-};
 
 }  // namespace compute
 }  // namespace arrow
