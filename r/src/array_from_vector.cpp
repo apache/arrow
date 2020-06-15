@@ -204,7 +204,8 @@ struct VectorToArrayConverter {
   template <typename T>
   arrow::enable_if_t<arrow::is_struct_type<T>::value, Status> Visit(const T& type) {
     using BuilderType = typename TypeTraits<T>::BuilderType;
-    ARROW_RETURN_IF(!Rf_inherits(x, "data.frame"), Status::RError("Expecting a data frame"));
+    ARROW_RETURN_IF(!Rf_inherits(x, "data.frame"),
+                    Status::RError("Expecting a data frame"));
 
     auto* struct_builder = checked_cast<BuilderType*>(builder);
 
