@@ -69,7 +69,7 @@ void TransformAsciiUpper(const uint8_t* input, int64_t length, uint8_t* output) 
     const uint8_t utf8_code_unit = *input++;
     // Code units in the range [a-z] can only be an encoding of an ascii
     // character/codepoint, not the 2nd, 3rd or 4th code unit (byte) of an different
-    // codepoint. This guaranteed by non-overal design of the unicode standard. (see
+    // codepoint. This guaranteed by non-overlap design of the unicode standard. (see
     // section 2.5 of Unicode Standard Core Specification v13.0)
     *output++ = ((utf8_code_unit >= 'a') && (utf8_code_unit <= 'z'))
                     ? (utf8_code_unit - 32)
