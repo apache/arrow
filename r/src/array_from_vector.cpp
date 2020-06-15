@@ -203,6 +203,33 @@ struct VectorToArrayConverter {
 
   template <typename T>
   arrow::enable_if_t<arrow::is_struct_type<T>::value, Status> Visit(const T& type) {
+    using BuilderType = typename TypeTraits<T>::BuilderType;
+    ARROW_RETURN_IF(!Rf_inherits(x, "data.frame"), Status::RError("Expecting a data frame"));
+
+    auto* struct_builder = checked_cast<BuilderType*>(builder);
+
+    int64_t n = 0;
+    if (XLENGTH(x) > 0) {
+      // TODO: need a more generic way to get the vec_size(<data.frame>)
+      //       perhaps using vctrs::::short_vec_size
+      n = XLENGTH(VECTOR_ELT(x, 0));
+    }
+    RETURN_NOT_OK(struct_builder->Reserve(n));
+
+    // TODO: double check but seems fine that no value is NULL
+    //       as R data frame have no concept of a null row
+    RETURN_NOT_OK(struct_builder->AppendValues(n, NULLPTR));
+
+    int num_fields = struct_builder->num_fields();
+
+    // Visit each column of the data frame using the associated
+    // field builder
+    for (R_xlen_t i = 0; i < num_fields; i++) {
+      auto column_builder = struct_builder->field_builder(i);
+      VectorToArrayConverter converter{VECTOR_ELT(x, i), column_builder};
+      RETURN_NOT_OK(arrow::VisitTypeInline(*column_builder->type().get(), &converter));
+    }
+
     return Status::OK();
   }
 
@@ -1204,6 +1231,12 @@ std::shared_ptr<arrow::Array> Array__from_vector(
     if (!type_inferred) {
       StopIfNotOk(arrow::r::CheckCompatibleStruct(x, type));
     }
+    // TODO: when the type has been infered, we could go through
+    //       VectorToArrayConverter:
+    //
+    // else {
+    //   return VectorToArrayConverter::Visit(df, type);
+    // }
 
     return arrow::r::MakeStructArray(x, type);
   }
