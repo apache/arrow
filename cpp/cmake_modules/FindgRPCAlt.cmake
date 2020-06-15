@@ -169,13 +169,14 @@ if(gRPCAlt_FOUND)
                                    INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}")
 
   add_library(gRPC::grpc UNKNOWN IMPORTED)
-  set_target_properties(gRPC::grpc
-                        PROPERTIES IMPORTED_LOCATION
-                                   "${GRPC_GRPC_LIB}"
-                                   INTERFACE_INCLUDE_DIRECTORIES
-                                   "${GRPC_INCLUDE_DIR}"
-                                   INTERFACE_LINK_LIBRARIES
-                                   "OpenSSL::SSL;OpenSSL::Crypto")
+  set_target_properties(
+    gRPC::grpc
+    PROPERTIES IMPORTED_LOCATION
+               "${GRPC_GRPC_LIB}"
+               INTERFACE_INCLUDE_DIRECTORIES
+               "${GRPC_INCLUDE_DIR}"
+               INTERFACE_LINK_LIBRARIES
+               "OpenSSL::SSL;OpenSSL::Crypto;ZLIB::ZLIB;c-ares::cares")
 
   set(_GRPCPP_LINK_LIBRARIES "gRPC::grpc;gRPC::gpr")
 
@@ -195,6 +196,24 @@ if(gRPCAlt_FOUND)
                           PROPERTIES IMPORTED_LOCATION "${GRPC_UPB_LIB}"
                                      INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}")
     set(_GRPCPP_LINK_LIBRARIES "${_GRPCPP_LINK_LIBRARIES};gRPC::upb")
+  endif()
+
+  find_package(absl CONFIG)
+  if(absl_FOUND)
+    # Abseil libraries that recent gRPC versions depend on
+    set(_ABSL_LIBS
+        bad_optional_access
+        int128
+        raw_logging_internal
+        str_format_internal
+        strings
+        throw_delegate
+        time
+        time_zone)
+
+    foreach(_ABSL_LIB ${_ABSL_LIBS})
+      set(_GRPCPP_LINK_LIBRARIES "${_GRPCPP_LINK_LIBRARIES};absl::${_ABSL_LIB}")
+    endforeach()
   endif()
 
   add_library(gRPC::grpc++ UNKNOWN IMPORTED)

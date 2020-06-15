@@ -16,7 +16,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-export ZSTD_VERSION="1.4.0"
+export ZSTD_VERSION="1.4.5"
 
 curl -sL "https://github.com/facebook/zstd/archive/v${ZSTD_VERSION}.tar.gz" -o zstd-${ZSTD_VERSION}.tar.gz
 tar xf zstd-${ZSTD_VERSION}.tar.gz
