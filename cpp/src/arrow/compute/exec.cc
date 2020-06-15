@@ -307,6 +307,7 @@ class NullPropagator {
       // the bitmap is not preallocated, and that precondition is asserted
       // higher in the call stack.
       if (arr.offset == 0) {
+        DCHECK(false);
         output_->buffers[0] = arr_bitmap;
       } else if (arr.offset % 8 == 0) {
         output_->buffers[0] =

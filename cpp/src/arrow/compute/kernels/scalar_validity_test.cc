@@ -37,14 +37,9 @@ class TestValidityKernels : public ::testing::Test {
   // testing multiple types seems redundant.
   using ArrowType = BooleanType;
 
-  using CType = typename ArrowType::c_type;
-
   static std::shared_ptr<DataType> type_singleton() {
     return TypeTraits<ArrowType>::type_singleton();
   }
-
-  using UnaryFunction = std::function<Result<Datum>(const Datum&, ExecContext*)>;
-  UnaryFunction func_;
 };
 
 TEST_F(TestValidityKernels, ArrayIsValid) {
@@ -62,15 +57,11 @@ TEST_F(TestValidityKernels, ArrayIsValidBufferPassthruOptimization) {
 }
 
 TEST_F(TestValidityKernels, ScalarIsValid) {
-  func_ = arrow::compute::IsValid;
-
   CheckScalarUnary("is_valid", MakeScalar(19.7), MakeScalar(true));
   CheckScalarUnary("is_valid", MakeNullScalar(float64()), MakeScalar(false));
 }
 
 TEST_F(TestValidityKernels, ArrayIsNull) {
-  func_ = arrow::compute::IsNull;
-
   CheckScalarUnary("is_null", type_singleton(), "[]", type_singleton(), "[]");
   CheckScalarUnary("is_null", type_singleton(), "[null]", type_singleton(), "[true]");
   CheckScalarUnary("is_null", type_singleton(), "[1]", type_singleton(), "[false]");
@@ -79,8 +70,6 @@ TEST_F(TestValidityKernels, ArrayIsNull) {
 }
 
 TEST_F(TestValidityKernels, ScalarIsNull) {
-  func_ = arrow::compute::IsNull;
-
   CheckScalarUnary("is_null", MakeScalar(19.7), MakeScalar(false));
   CheckScalarUnary("is_null", MakeNullScalar(float64()), MakeScalar(true));
 }

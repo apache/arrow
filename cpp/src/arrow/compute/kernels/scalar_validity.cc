@@ -40,6 +40,8 @@ struct IsValid {
       return;
     }
 
+    KERNEL_RETURN_IF_ERROR(ctx, ctx->AllocateBitmap(out->length).Value(&out->buffers[1]));
+
     if (arr.null_count == 0 || arr.buffers[0] == nullptr) {
       BitUtil::SetBitsTo(out->buffers[1]->mutable_data(), out->offset, out->length, true);
       return;
@@ -75,13 +77,14 @@ using arrow::compute::codegen::SimpleUnary;
 
 void MakeFunction(std::string name, std::vector<InputType> in_types, OutputType out_type,
                   ArrayKernelExec exec, FunctionRegistry* registry,
-                  NullHandling::type null_handling) {
+                  NullHandling::type null_handling, MemAllocation::type mem_allocation) {
   Arity arity{static_cast<int>(in_types.size())};
   auto func = std::make_shared<ScalarFunction>(name, arity);
 
   ScalarKernel kernel(std::move(in_types), out_type, exec);
   kernel.null_handling = null_handling;
   kernel.can_write_into_slices = true;
+  kernel.mem_allocation = mem_allocation;
 
   DCHECK_OK(func->AddKernel(std::move(kernel)));
   DCHECK_OK(registry->AddFunction(std::move(func)));
@@ -95,11 +98,11 @@ namespace internal {
 void RegisterScalarValidity(FunctionRegistry* registry) {
   codegen::MakeFunction("is_valid", {ValueDescr::ANY}, boolean(),
                         codegen::SimpleUnary<IsValid>, registry,
-                        NullHandling::OUTPUT_NOT_NULL);
+                        NullHandling::OUTPUT_NOT_NULL, MemAllocation::NO_PREALLOCATE);
 
   codegen::MakeFunction("is_null", {ValueDescr::ANY}, boolean(),
                         codegen::SimpleUnary<IsNull>, registry,
-                        NullHandling::OUTPUT_NOT_NULL);
+                        NullHandling::OUTPUT_NOT_NULL, MemAllocation::PREALLOCATE);
 }
 
 }  // namespace internal
