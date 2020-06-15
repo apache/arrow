@@ -26,13 +26,14 @@ from archery.docker import DockerCompose
 
 @pytest.mark.parametrize(('command', 'args', 'kwargs'), [
     (
-        ['ubuntu-cpp'],
+        ['ubuntu-cpp', '--build-only'],
         ['ubuntu-cpp'],
         dict(
             command=None,
             env={},
             force_pull=True,
             force_build=True,
+            build_only=True,
             use_cache=True,
             use_leaf_cache=True,
             volumes=()
@@ -46,6 +47,7 @@ from archery.docker import DockerCompose
             env={},
             force_pull=True,
             force_build=True,
+            build_only=False,
             use_cache=True,
             use_leaf_cache=True,
             volumes=()
@@ -59,6 +61,7 @@ from archery.docker import DockerCompose
             env={},
             force_pull=False,
             force_build=False,
+            build_only=False,
             use_cache=True,
             use_leaf_cache=True,
             volumes=()
@@ -75,6 +78,7 @@ from archery.docker import DockerCompose
             env={},
             force_pull=False,
             force_build=True,
+            build_only=False,
             use_cache=False,
             use_leaf_cache=False,
             volumes=()
@@ -91,6 +95,7 @@ from archery.docker import DockerCompose
             },
             force_pull=True,
             force_build=True,
+            build_only=False,
             use_cache=True,
             use_leaf_cache=True,
             volumes=()
@@ -107,6 +112,7 @@ from archery.docker import DockerCompose
             env={},
             force_pull=True,
             force_build=True,
+            build_only=False,
             use_cache=True,
             use_leaf_cache=True,
             volumes=(

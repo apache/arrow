@@ -160,7 +160,7 @@ class DockerCompose(Command):
         else:
             self._execute('build', '--no-cache', image)
 
-    def run(self, image, *, command=None, env=None, force_pull=False,
+    def run(self, image, command=None, *, env=None, force_pull=False,
             force_build=False, use_cache=True, use_leaf_cache=True,
             volumes=None, build_only=False):
         self._validate_image(image)
