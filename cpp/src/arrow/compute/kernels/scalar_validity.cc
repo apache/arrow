@@ -22,6 +22,7 @@
 
 namespace arrow {
 namespace compute {
+namespace {
 
 struct IsValid {
   static void Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
@@ -93,5 +94,6 @@ void RegisterScalarValidity(FunctionRegistry* registry) {
 }
 
 }  // namespace internal
+}  // namespace
 }  // namespace compute
 }  // namespace arrow

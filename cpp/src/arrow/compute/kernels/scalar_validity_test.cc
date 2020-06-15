@@ -43,33 +43,16 @@ class TestValidityKernels : public ::testing::Test {
     return TypeTraits<ArrowType>::type_singleton();
   }
 
-  void AssertUnary(Datum arg, Datum expected) {
-    ASSERT_OK_AND_ASSIGN(auto actual, func_(arg, nullptr));
-    ASSERT_EQ(actual.kind(), expected.kind());
-    if (actual.kind() == Datum::ARRAY) {
-      ASSERT_OK(actual.make_array()->ValidateFull());
-      AssertArraysApproxEqual(*expected.make_array(), *actual.make_array());
-    } else {
-      AssertScalarsEqual(*expected.scalar(), *actual.scalar());
-    }
-  }
-
-  void AssertUnary(const std::string& arg_json, const std::string& expected_json) {
-    AssertUnary(ArrayFromJSON(type_singleton(), arg_json),
-                ArrayFromJSON(type_singleton(), expected_json));
-  }
-
   using UnaryFunction = std::function<Result<Datum>(const Datum&, ExecContext*)>;
   UnaryFunction func_;
 };
 
 TEST_F(TestValidityKernels, ArrayIsValid) {
-  func_ = arrow::compute::IsValid;
-
-  this->AssertUnary("[]", "[]");
-  this->AssertUnary("[null]", "[false]");
-  this->AssertUnary("[1]", "[true]");
-  this->AssertUnary("[null, 1, 0, null]", "[false, true, true, false]");
+  CheckScalarUnary("is_valid", type_singleton(), "[]", type_singleton(), "[]");
+  CheckScalarUnary("is_valid", type_singleton(), "[null]", type_singleton(), "[false]");
+  CheckScalarUnary("is_valid", type_singleton(), "[1]", type_singleton(), "[true]");
+  CheckScalarUnary("is_valid", type_singleton(), "[null, 1, 0, null]", type_singleton(),
+                   "[false, true, true, false]");
 }
 
 TEST_F(TestValidityKernels, ArrayIsValidBufferPassthruOptimization) {
@@ -81,24 +64,25 @@ TEST_F(TestValidityKernels, ArrayIsValidBufferPassthruOptimization) {
 TEST_F(TestValidityKernels, ScalarIsValid) {
   func_ = arrow::compute::IsValid;
 
-  AssertUnary(Datum(19.7), Datum(true));
-  AssertUnary(MakeNullScalar(float64()), Datum(false));
+  CheckScalarUnary("is_valid", MakeScalar(19.7), MakeScalar(true));
+  CheckScalarUnary("is_valid", MakeNullScalar(float64()), MakeScalar(false));
 }
 
 TEST_F(TestValidityKernels, ArrayIsNull) {
   func_ = arrow::compute::IsNull;
 
-  this->AssertUnary("[]", "[]");
-  this->AssertUnary("[null]", "[true]");
-  this->AssertUnary("[1]", "[false]");
-  this->AssertUnary("[null, 1, 0, null]", "[true, false, false, true]");
+  CheckScalarUnary("is_null", type_singleton(), "[]", type_singleton(), "[]");
+  CheckScalarUnary("is_null", type_singleton(), "[null]", type_singleton(), "[true]");
+  CheckScalarUnary("is_null", type_singleton(), "[1]", type_singleton(), "[false]");
+  CheckScalarUnary("is_null", type_singleton(), "[null, 1, 0, null]", type_singleton(),
+                   "[true, false, false, true]");
 }
 
-TEST_F(TestValidityKernels, DISABLED_ScalarIsNull) {
+TEST_F(TestValidityKernels, ScalarIsNull) {
   func_ = arrow::compute::IsNull;
 
-  AssertUnary(Datum(19.7), Datum(false));
-  AssertUnary(MakeNullScalar(float64()), Datum(true));
+  CheckScalarUnary("is_null", MakeScalar(19.7), MakeScalar(false));
+  CheckScalarUnary("is_null", MakeNullScalar(float64()), MakeScalar(true));
 }
 
 }  // namespace compute
