@@ -814,7 +814,8 @@ cdef class ParquetFileFragment(FileFragment):
             return None
         return [RowGroupInfo.wrap(row_group) for row_group in c_row_groups]
 
-    def split_by_row_group(self, Expression predicate=None):
+    def split_by_row_group(self, Expression predicate=None,
+                           Schema schema=None):
         """
         Split the fragment into multiple fragments.
 
@@ -826,6 +827,9 @@ cdef class ParquetFileFragment(FileFragment):
         ----------
         predicate : Expression, default None
             Exclude RowGroups whose statistics contradicts the predicate.
+        schema : Schema, default None
+            Schema to use when filtering row groups. Defaults to the
+            Fragment's phsyical schema
 
         Returns
         -------
@@ -836,7 +840,7 @@ cdef class ParquetFileFragment(FileFragment):
             shared_ptr[CExpression] c_predicate
             shared_ptr[CFragment] c_fragment
 
-        schema = self.physical_schema
+        schema = schema or self.physical_schema
         c_predicate = _insert_implicit_casts(predicate, schema)
         with nogil:
             c_fragments = move(GetResultValue(
@@ -1691,8 +1695,7 @@ cdef class Scanner:
         context = _build_scan_context(use_threads=use_threads,
                                       memory_pool=memory_pool)
 
-        if schema is None:
-            schema = fragment.physical_schema
+        schema = schema or fragment.physical_schema
 
         builder = make_shared[CScannerBuilder](pyarrow_unwrap_schema(schema),
                                                fragment.unwrap(), context)
