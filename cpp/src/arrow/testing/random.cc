@@ -313,8 +313,9 @@ struct RandomArrayGeneratorOfImpl {
   std::shared_ptr<Array> out_;
 };
 
-std::shared_ptr<Array> RandomArrayGenerator::Of(std::shared_ptr<DataType> type,
-                                                int64_t size, double null_probability) {
+std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(std::shared_ptr<DataType> type,
+                                                     int64_t size,
+                                                     double null_probability) {
   return RandomArrayGeneratorOfImpl{this, type, size, null_probability, nullptr}.Finish();
 }
 
