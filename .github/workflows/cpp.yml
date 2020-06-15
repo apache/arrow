@@ -176,6 +176,7 @@ jobs:
       ARROW_BUILD_STATIC: OFF
       ARROW_BOOST_USE_SHARED: OFF
       ARROW_VERBOSE_THIRDPARTY_BUILD: OFF
+      BOOST_SOURCE: BUNDLED
       NPROC: 2
     steps:
       - name: Disable Crash Dialogs
@@ -200,7 +201,6 @@ jobs:
       - name: Build
         shell: bash
         run: |
-          export BOOST_ROOT=$BOOST_ROOT_1_72_0
           ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
       - name: Test
         shell: bash
