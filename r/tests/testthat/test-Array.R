@@ -445,6 +445,9 @@ test_that("Array$create() handles vector -> list arrays (ARROW-7662)", {
   expect_array_roundtrip(list(character(0)), list_of(utf8()))
   expect_array_roundtrip(list("itsy", c("bitsy", "spider"), c("is")), list_of(utf8()))
   expect_array_roundtrip(list("itsy", character(0), c("bitsy", "spider", NA_character_), c("is")), list_of(utf8()))
+
+  # struct
+  expect_array_roundtrip(list(tibble::tibble(a = integer(0))), list_of(struct(a = int32())))
 })
 
 test_that("Array$create() should have helpful error on lists with type hint", {
