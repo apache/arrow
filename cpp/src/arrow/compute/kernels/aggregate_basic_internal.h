@@ -61,18 +61,18 @@ struct SumLikeInit {
   }
 };
 
-template <typename T>
-struct SumResult {
-  T sum = 0;
-  size_t count = 0;
-};
-
 // _mm256_load_si256/_mm256_lddqu_si256 take __m256i* as input
 #define LOAD_SI256(addr) _mm256_load_si256(reinterpret_cast<const __m256i*>(addr))
 #define LOADU_SI256(addr) _mm256_lddqu_si256(reinterpret_cast<const __m256i*>(addr))
 // _mm_load_si128/_mm_lddqu_si128 take __m128i* as input
 #define LOAD_SI128(addr) _mm_load_si128(reinterpret_cast<const __m128i*>(addr))
 #define LOADU_SI128(addr) _mm_lddqu_si128(reinterpret_cast<const __m128i*>(addr))
+
+template <typename T>
+struct SumResult {
+  T sum = 0;
+  size_t count = 0;
+};
 
 template <typename T, typename SumT>
 inline SumResult<SumT> SumSparseBits(const uint8_t* valid_bits, int64_t valid_bits_offset,
