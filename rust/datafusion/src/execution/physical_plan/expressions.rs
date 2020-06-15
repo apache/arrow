@@ -43,6 +43,7 @@ use arrow::compute::kernels::comparison::{eq, gt, gt_eq, lt, lt_eq, neq};
 use arrow::compute::kernels::comparison::{
     eq_utf8, gt_eq_utf8, gt_utf8, like_utf8, lt_eq_utf8, lt_utf8, neq_utf8, nlike_utf8,
 };
+use arrow::compute::kernels::sort::{SortColumn, SortOptions};
 use arrow::datatypes::{DataType, Schema, TimeUnit};
 use arrow::record_batch::RecordBatch;
 
@@ -1262,6 +1263,25 @@ impl PhysicalExpr for Literal {
 /// Create a literal expression
 pub fn lit(value: ScalarValue) -> Arc<dyn PhysicalExpr> {
     Arc::new(Literal::new(value))
+}
+
+/// Represents Sort operation for a column in a RecordBatch
+#[derive(Clone)]
+pub struct PhysicalSortExpr {
+    /// Physical expression representing the column to sort
+    pub expr: Arc<dyn PhysicalExpr>,
+    /// Option to specify how the given column should be sorted
+    pub options: SortOptions,
+}
+
+impl PhysicalSortExpr {
+    /// evaluate the sort expression into SortColumn that can be passed into arrow sort kernel
+    pub fn evaluate_to_sort_column(&self, batch: &RecordBatch) -> Result<SortColumn> {
+        Ok(SortColumn {
+            values: self.expr.evaluate(batch)?,
+            options: Some(self.options),
+        })
+    }
 }
 
 #[cfg(test)]

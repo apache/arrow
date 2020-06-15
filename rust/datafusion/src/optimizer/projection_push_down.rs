@@ -226,9 +226,14 @@ impl ProjectionPushDown {
                 expr: Box::new(self.rewrite_expr(expr, mapping)?),
                 data_type: data_type.clone(),
             }),
-            Expr::Sort { expr, asc } => Ok(Expr::Sort {
+            Expr::Sort {
+                expr,
+                asc,
+                nulls_first,
+            } => Ok(Expr::Sort {
                 expr: Box::new(self.rewrite_expr(expr, mapping)?),
                 asc: *asc,
+                nulls_first: *nulls_first,
             }),
             Expr::AggregateFunction {
                 name,

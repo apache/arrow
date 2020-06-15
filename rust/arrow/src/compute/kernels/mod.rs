@@ -22,6 +22,7 @@ pub mod arithmetic;
 pub mod boolean;
 pub mod cast;
 pub mod comparison;
+pub mod concat;
 pub mod filter;
 pub mod limit;
 pub mod sort;

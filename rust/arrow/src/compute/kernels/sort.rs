@@ -122,7 +122,8 @@ impl Default for SortOptions {
     fn default() -> Self {
         Self {
             descending: false,
-            nulls_first: false,
+            // default to nulls first to match spark's behavior
+            nulls_first: true,
         }
     }
 }
@@ -246,8 +247,8 @@ pub struct SortColumn {
 ///     },
 /// ]).unwrap();
 ///
-/// assert_eq!(as_primitive_array::<Int64Type>(&sorted_columns[0]).value(0), -64);
-/// assert!(sorted_columns[0].is_null(4));
+/// assert_eq!(as_primitive_array::<Int64Type>(&sorted_columns[0]).value(1), -64);
+/// assert!(sorted_columns[0].is_null(0));
 /// ```
 pub fn lexsort(columns: &Vec<SortColumn>) -> Result<Vec<ArrayRef>> {
     let indices = lexsort_to_indices(columns)?;
@@ -428,22 +429,22 @@ mod tests {
         test_sort_to_indices_primitive_arrays::<Int8Type>(
             vec![None, Some(0), Some(2), Some(-1), Some(0), None],
             None,
-            vec![3, 1, 4, 2, 0, 5],
+            vec![0, 5, 3, 1, 4, 2],
         );
         test_sort_to_indices_primitive_arrays::<Int16Type>(
             vec![None, Some(0), Some(2), Some(-1), Some(0), None],
             None,
-            vec![3, 1, 4, 2, 0, 5],
+            vec![0, 5, 3, 1, 4, 2],
         );
         test_sort_to_indices_primitive_arrays::<Int32Type>(
             vec![None, Some(0), Some(2), Some(-1), Some(0), None],
             None,
-            vec![3, 1, 4, 2, 0, 5],
+            vec![0, 5, 3, 1, 4, 2],
         );
         test_sort_to_indices_primitive_arrays::<Int64Type>(
             vec![None, Some(0), Some(2), Some(-1), Some(0), None],
             None,
-            vec![3, 1, 4, 2, 0, 5],
+            vec![0, 5, 3, 1, 4, 2],
         );
 
         // descending
@@ -524,7 +525,7 @@ mod tests {
         test_sort_to_indices_primitive_arrays::<BooleanType>(
             vec![None, Some(false), Some(true), Some(true), Some(false), None],
             None,
-            vec![1, 4, 2, 3, 0, 5],
+            vec![0, 5, 1, 4, 2, 3],
         );
 
         // boolean, descending
@@ -554,22 +555,22 @@ mod tests {
         test_sort_primitive_arrays::<UInt8Type>(
             vec![None, Some(3), Some(5), Some(2), Some(3), None],
             None,
-            vec![Some(2), Some(3), Some(3), Some(5), None, None],
+            vec![None, None, Some(2), Some(3), Some(3), Some(5)],
         );
         test_sort_primitive_arrays::<UInt16Type>(
             vec![None, Some(3), Some(5), Some(2), Some(3), None],
             None,
-            vec![Some(2), Some(3), Some(3), Some(5), None, None],
+            vec![None, None, Some(2), Some(3), Some(3), Some(5)],
         );
         test_sort_primitive_arrays::<UInt32Type>(
             vec![None, Some(3), Some(5), Some(2), Some(3), None],
             None,
-            vec![Some(2), Some(3), Some(3), Some(5), None, None],
+            vec![None, None, Some(2), Some(3), Some(3), Some(5)],
         );
         test_sort_primitive_arrays::<UInt64Type>(
             vec![None, Some(3), Some(5), Some(2), Some(3), None],
             None,
-            vec![Some(2), Some(3), Some(3), Some(5), None, None],
+            vec![None, None, Some(2), Some(3), Some(3), Some(5)],
         );
 
         // descending
@@ -687,7 +688,7 @@ mod tests {
                 Some("-ad"),
             ],
             None,
-            vec![5, 1, 4, 2, 0, 3],
+            vec![0, 3, 5, 1, 4, 2],
         );
 
         test_sort_to_indices_string_arrays(
@@ -752,12 +753,12 @@ mod tests {
             ],
             None,
             vec![
+                None,
+                None,
                 Some("-ad"),
                 Some("bad"),
                 Some("glad"),
                 Some("sad"),
-                None,
-                None,
             ],
         );
 

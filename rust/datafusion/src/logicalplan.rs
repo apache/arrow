@@ -218,6 +218,8 @@ pub enum Expr {
         expr: Box<Expr>,
         /// The direction of the sort
         asc: bool,
+        /// Whether to put Nulls before all other data values
+        nulls_first: bool,
     },
     /// scalar function
     ScalarFunction {
@@ -444,11 +446,20 @@ impl fmt::Debug for Expr {
             Expr::BinaryExpr { left, op, right } => {
                 write!(f, "{:?} {:?} {:?}", left, op, right)
             }
-            Expr::Sort { expr, asc } => {
+            Expr::Sort {
+                expr,
+                asc,
+                nulls_first,
+            } => {
                 if *asc {
-                    write!(f, "{:?} ASC", expr)
+                    write!(f, "{:?} ASC", expr)?;
                 } else {
-                    write!(f, "{:?} DESC", expr)
+                    write!(f, "{:?} DESC", expr)?;
+                }
+                if *nulls_first {
+                    write!(f, " NULLS FIRST")
+                } else {
+                    write!(f, " NULLS LAST")
                 }
             }
             Expr::ScalarFunction { name, ref args, .. } => {
@@ -1008,6 +1019,36 @@ mod tests {
         let expected = "Projection: #state, #total_salary\
         \n  Aggregate: groupBy=[[#state]], aggr=[[SUM(#salary) AS total_salary]]\
         \n    TableScan: employee.csv projection=Some([3, 4])";
+
+        assert_eq!(expected, format!("{:?}", plan));
+
+        Ok(())
+    }
+
+    #[test]
+    fn plan_builder_sort() -> Result<()> {
+        let plan = LogicalPlanBuilder::scan(
+            "default",
+            "employee.csv",
+            &employee_schema(),
+            Some(vec![3, 4]),
+        )?
+        .sort(vec![
+            Expr::Sort {
+                expr: Box::new(col("state")),
+                asc: true,
+                nulls_first: true,
+            },
+            Expr::Sort {
+                expr: Box::new(col("total_salary")),
+                asc: false,
+                nulls_first: false,
+            },
+        ])?
+        .build()?;
+
+        let expected = "Sort: #state ASC NULLS FIRST, #total_salary DESC NULLS LAST\
+        \n  TableScan: employee.csv projection=Some([3, 4])";
 
         assert_eq!(expected, format!("{:?}", plan));
 
