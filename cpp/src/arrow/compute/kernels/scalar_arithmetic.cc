@@ -18,6 +18,10 @@
 #include "arrow/compute/kernels/common.h"
 #include "arrow/util/int_util.h"
 
+#ifndef __has_builtin
+#define __has_builtin(x) 0
+#endif
+
 namespace arrow {
 namespace compute {
 
@@ -65,6 +69,7 @@ struct Add {
 };
 
 struct AddChecked {
+#if __has_builtin(__builtin_add_overflow)
   template <typename T>
   static enable_if_integer<T> Call(KernelContext* ctx, T left, T right) {
     T result;
@@ -73,6 +78,25 @@ struct AddChecked {
     }
     return result;
   }
+#else
+  template <typename T>
+  static enable_if_unsigned_integer<T> Call(KernelContext* ctx, T left, T right) {
+    if (internal::HasAdditionOverflow(left, right)) {
+      ctx->SetStatus(Status::Invalid("overflow"));
+    }
+    return left + right;
+  }
+
+  template <typename T>
+  static enable_if_signed_integer<T> Call(KernelContext* ctx, T left, T right) {
+    auto unsigned_left = to_unsigned(left);
+    auto unsigned_right = to_unsigned(right);
+    if (internal::HasAdditionOverflow(unsigned_left, unsigned_right)) {
+      ctx->SetStatus(Status::Invalid("overflow"));
+    }
+    return unsigned_left + unsigned_right;
+  }
+#endif
 
   template <typename T>
   static constexpr enable_if_floating_point<T> Call(KernelContext*, T left, T right) {
@@ -98,6 +122,7 @@ struct Subtract {
 };
 
 struct SubtractChecked {
+#if __has_builtin(__builtin_sub_overflow)
   template <typename T>
   static enable_if_integer<T> Call(KernelContext* ctx, T left, T right) {
     T result;
@@ -106,6 +131,23 @@ struct SubtractChecked {
     }
     return result;
   }
+#else
+  template <typename T>
+  static enable_if_unsigned_integer<T> Call(KernelContext* ctx, T left, T right) {
+    if (internal::HasSubtractionOverflow(left, right)) {
+      ctx->SetStatus(Status::Invalid("overflow"));
+    }
+    return left - right;
+  }
+
+  template <typename T>
+  static enable_if_signed_integer<T> Call(KernelContext* ctx, T left, T right) {
+    if (internal::HasSubtractionOverflow(left, right)) {
+      ctx->SetStatus(Status::Invalid("overflow"));
+    }
+    return to_unsigned(left) - to_unsigned(right);
+  }
+#endif
 
   template <typename T>
   static constexpr enable_if_floating_point<T> Call(KernelContext*, T left, T right) {
@@ -156,9 +198,16 @@ struct MultiplyChecked {
   template <typename T>
   static enable_if_integer<T> Call(KernelContext* ctx, T left, T right) {
     T result;
+#if __has_builtin(__builtin_mul_overflow)
     if (__builtin_mul_overflow(left, right, &result)) {
       ctx->SetStatus(Status::Invalid("overflow"));
     }
+#else
+    result = Multiply::Call(ctx, left, right);
+    if (left != 0 && result / left != right) {
+      ctx->SetStatus(Status::Invalid("overflow"));
+    }
+#endif
     return result;
   }
 

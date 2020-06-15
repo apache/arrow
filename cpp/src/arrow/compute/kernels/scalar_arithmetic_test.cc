@@ -223,9 +223,27 @@ TYPED_TEST(TestBinaryArithmeticsSigned, OverflowWraps) {
 
   this->AssertBinop(arrow::compute::Subtract, MakeArray(min, max, min),
                     MakeArray(1, max, max), MakeArray(max, 0, 1));
-
   this->AssertBinop(arrow::compute::Multiply, MakeArray(min, max, max),
                     MakeArray(max, 2, max), MakeArray(min, CType(-2), 1));
+}
+
+TYPED_TEST(TestBinaryArithmeticsIntegral, OverflowRaises) {
+  using CType = typename TestFixture::CType;
+
+  auto min = std::numeric_limits<CType>::lowest();
+  auto max = std::numeric_limits<CType>::max();
+
+  this->SetOverflowCheck(true);
+
+  this->AssertBinopRaises(arrow::compute::Add, MakeArray(min, max, max),
+                          MakeArray(CType(-1), 1, max), "overflow");
+  this->AssertBinopRaises(arrow::compute::Subtract, MakeArray(min, max),
+                          MakeArray(1, max), "overflow");
+  this->AssertBinopRaises(arrow::compute::Subtract, MakeArray(min), MakeArray(max),
+                          "overflow");
+
+  this->AssertBinopRaises(arrow::compute::Multiply, MakeArray(min, max, max),
+                          MakeArray(max, 2, max), "overflow");
 }
 
 TYPED_TEST(TestBinaryArithmeticsSigned, OverflowRaises) {
@@ -236,12 +254,12 @@ TYPED_TEST(TestBinaryArithmeticsSigned, OverflowRaises) {
 
   this->SetOverflowCheck(true);
 
-  this->AssertBinopRaises(arrow::compute::Add, MakeArray(min, max, max),
-                          MakeArray(CType(-1), 1, max), "overflow");
-  this->AssertBinopRaises(arrow::compute::Subtract, MakeArray(min, max, min),
-                          MakeArray(1, max, max), "overflow");
-  this->AssertBinopRaises(arrow::compute::Multiply, MakeArray(min, max, max),
-                          MakeArray(max, 2, max), "overflow");
+  this->AssertBinop(arrow::compute::Multiply, MakeArray(max), MakeArray(-1),
+                    MakeArray(min + 1));
+  this->AssertBinopRaises(arrow::compute::Multiply, MakeArray(max), MakeArray(2),
+                          "overflow");
+  this->AssertBinopRaises(arrow::compute::Multiply, MakeArray(min), MakeArray(-1),
+                          "overflow");
 }
 
 TYPED_TEST(TestBinaryArithmeticsUnsigned, OverflowWraps) {
