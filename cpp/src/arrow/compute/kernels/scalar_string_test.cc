@@ -57,13 +57,13 @@ TYPED_TEST(TestStringKernels, AsciiLength) {
 }
 
 TYPED_TEST(TestStringKernels, AsciiUpper) {
-  this->CheckUnary("ascii_upper", "[\"aAa&\", null, \"\", \"b\"]", this->string_type(),
-                   "[\"AAA&\", null, \"\", \"B\"]");
+  this->CheckUnary("ascii_upper", "[\"aAazZæÆ&\", null, \"\", \"b\"]",
+                   this->string_type(), "[\"AAAZZæÆ&\", null, \"\", \"B\"]");
 }
 
 TYPED_TEST(TestStringKernels, AsciiLower) {
-  this->CheckUnary("ascii_lower", "[\"aAa&\", null, \"\", \"b\"]", this->string_type(),
-                   "[\"aaa&\", null, \"\", \"b\"]");
+  this->CheckUnary("ascii_lower", "[\"aAazZæÆ&\", null, \"\", \"b\"]",
+                   this->string_type(), "[\"aaazzæÆ&\", null, \"\", \"b\"]");
 }
 
 TYPED_TEST(TestStringKernels, Strptime) {
