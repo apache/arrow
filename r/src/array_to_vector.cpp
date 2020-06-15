@@ -418,6 +418,7 @@ class Converter_Struct : public Converter {
   std::vector<std::shared_ptr<Converter>> converters;
 };
 
+// Shouldn't this cast before dividing? Otherwise we're doing integer division
 double ms_to_seconds(int64_t ms) { return static_cast<double>(ms / 1000); }
 
 class Converter_Date64 : public Converter {
@@ -479,6 +480,7 @@ class Converter_Time : public Converter {
   SEXP Allocate(R_xlen_t n) const {
     Rcpp::NumericVector data(no_init(n));
     data.attr("class") = Rcpp::CharacterVector::create("hms", "difftime");
+    // hms difftime is always stored as "seconds"
     data.attr("units") = Rcpp::CharacterVector::create("secs");
     return data;
   }
@@ -499,6 +501,7 @@ class Converter_Time : public Converter {
 
  private:
   int TimeUnit_multiplier(const std::shared_ptr<Array>& array) const {
+    // hms difftime is always "seconds", so multiply based on the Array's TimeUnit
     switch (static_cast<unit_type*>(array->type().get())->unit()) {
       case TimeUnit::SECOND:
         return 1;
