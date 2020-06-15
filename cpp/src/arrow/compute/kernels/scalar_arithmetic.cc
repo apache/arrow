@@ -81,7 +81,7 @@ struct AddChecked {
 #else
   template <typename T>
   static enable_if_unsigned_integer<T> Call(KernelContext* ctx, T left, T right) {
-    if (internal::HasAdditionOverflow(left, right)) {
+    if (arrow::internal::HasAdditionOverflow(left, right)) {
       ctx->SetStatus(Status::Invalid("overflow"));
     }
     return left + right;
@@ -91,7 +91,7 @@ struct AddChecked {
   static enable_if_signed_integer<T> Call(KernelContext* ctx, T left, T right) {
     auto unsigned_left = to_unsigned(left);
     auto unsigned_right = to_unsigned(right);
-    if (internal::HasAdditionOverflow(unsigned_left, unsigned_right)) {
+    if (arrow::internal::HasAdditionOverflow(unsigned_left, unsigned_right)) {
       ctx->SetStatus(Status::Invalid("overflow"));
     }
     return unsigned_left + unsigned_right;
@@ -134,7 +134,7 @@ struct SubtractChecked {
 #else
   template <typename T>
   static enable_if_unsigned_integer<T> Call(KernelContext* ctx, T left, T right) {
-    if (internal::HasSubtractionOverflow(left, right)) {
+    if (arrow::internal::HasSubtractionOverflow(left, right)) {
       ctx->SetStatus(Status::Invalid("overflow"));
     }
     return left - right;
@@ -142,7 +142,7 @@ struct SubtractChecked {
 
   template <typename T>
   static enable_if_signed_integer<T> Call(KernelContext* ctx, T left, T right) {
-    if (internal::HasSubtractionOverflow(left, right)) {
+    if (arrow::internal::HasSubtractionOverflow(left, right)) {
       ctx->SetStatus(Status::Invalid("overflow"));
     }
     return to_unsigned(left) - to_unsigned(right);
