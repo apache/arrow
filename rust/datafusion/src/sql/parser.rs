@@ -71,9 +71,9 @@ pub struct DFParser {
 
 impl DFParser {
     /// Parse the specified tokens
-    pub fn new(sql: String) -> Result<Self, ParserError> {
+    pub fn new(sql: &str) -> Result<Self, ParserError> {
         let dialect = GenericSqlDialect {};
-        let mut tokenizer = Tokenizer::new(&dialect, &sql);
+        let mut tokenizer = Tokenizer::new(&dialect, sql);
         let tokens = tokenizer.tokenize()?;
         Ok(DFParser {
             parser: Parser::new(tokens),
@@ -81,7 +81,7 @@ impl DFParser {
     }
 
     /// Parse a SQL statement and produce an Abstract Syntax Tree (AST)
-    pub fn parse_sql(sql: String) -> Result<DFASTNode, ParserError> {
+    pub fn parse_sql(sql: &str) -> Result<DFASTNode, ParserError> {
         let mut parser = DFParser::new(sql)?;
         parser.parse()
     }

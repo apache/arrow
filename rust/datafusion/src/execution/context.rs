@@ -131,7 +131,7 @@ impl ExecutionContext {
 
     /// Creates a logical plan
     pub fn create_logical_plan(&mut self, sql: &str) -> Result<LogicalPlan> {
-        let ast = DFParser::parse_sql(String::from(sql))?;
+        let ast = DFParser::parse_sql(sql)?;
 
         match ast {
             DFASTNode::ANSI(ansi) => {
