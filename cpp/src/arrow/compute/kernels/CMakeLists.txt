@@ -28,6 +28,7 @@ add_arrow_compute_test(scalar_test
                        scalar_string_test.cc
                        test_util.cc)
 
+add_arrow_benchmark(scalar_arithmetic_benchmark PREFIX "arrow-compute")
 add_arrow_benchmark(scalar_compare_benchmark PREFIX "arrow-compute")
 add_arrow_benchmark(scalar_string_benchmark PREFIX "arrow-compute")
 
