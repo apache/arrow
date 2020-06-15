@@ -280,8 +280,10 @@ services:
         llvm: ${LLVM}
     shm_size: *shm-size
     ulimits: *ulimits
+    runtime: nvidia
     environment:
       <<: *ccache
+      ARROW_CUDA: ON
     volumes: *ubuntu-volumes
     command: *cpp-command
 
@@ -506,6 +508,7 @@ services:
     shm_size: *shm-size
     environment:
       <<: *ccache
+      ARROW_CUDA: ON
     volumes: *ubuntu-volumes
     command: &python-command >
       /bin/bash -c "
@@ -1134,13 +1137,13 @@ services:
         /arrow/ci/scripts/r_build.sh /arrow true &&
         /arrow/ci/scripts/docs_build.sh /arrow /build"
 
-  cuda-docs:
+  ubuntu-cuda-docs:
     # Usage:
     #   docker-compose build cuda-cpp
     #   docker-compose build cuda-python
     #   docker-compose build cuda-docs
     #   docker-compose run --rm cuda-docs
-    image: ${REPO}:${ARCH}-cuda-${CUDA}-python-3-docs
+    images: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cuda-${CUDA}-python-3-docs
     build:
       context: .
       dockerfile: ci/docker/linux-apt-docs.dockerfile
@@ -1149,7 +1152,7 @@ services:
       args:
         jdk: ${JDK}
         node: ${NODE}
-        base: ${REPO}:${ARCH}-cuda-${CUDA}-python-3
+        base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cuda-${CUDA}-python-3
     environment:
       <<: *ccache
       ARROW_GLIB_GTK_DOC: "true"
