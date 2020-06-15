@@ -21,6 +21,10 @@
 #include "arrow/util/bitmap_ops.h"
 
 namespace arrow {
+
+using internal::CopyBitmap;
+using internal::InvertBitmap;
+
 namespace compute {
 namespace {
 
@@ -41,8 +45,8 @@ struct IsValid {
       return;
     }
 
-    internal::CopyBitmap(arr.buffers[0]->data(), arr.offset, arr.length,
-                         out->buffers[1]->mutable_data(), out->offset);
+    CopyBitmap(arr.buffers[0]->data(), arr.offset, arr.length,
+               out->buffers[1]->mutable_data(), out->offset);
   }
 };
 
@@ -58,8 +62,8 @@ struct IsNull {
       return;
     }
 
-    internal::InvertBitmap(arr.buffers[0]->data(), arr.offset, arr.length,
-                           out->buffers[1]->mutable_data(), out->offset);
+    InvertBitmap(arr.buffers[0]->data(), arr.offset, arr.length,
+                 out->buffers[1]->mutable_data(), out->offset);
   }
 };
 
