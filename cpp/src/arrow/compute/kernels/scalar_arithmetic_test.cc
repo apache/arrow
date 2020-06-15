@@ -52,11 +52,6 @@ class TestBinaryArithmetics : public TestBase {
 
   void SetUp() { options_.check_overflow = false; }
 
-  void TearDown() {
-    options_.check_overflow = false;
-    // writer_ = StreamWriter{};
-  }
-
   // (Scalar, Scalar)
   void AssertBinop(BinaryFunction func, CType lhs, CType rhs, CType expected) {
     ASSERT_OK_AND_ASSIGN(auto left, MakeScalar(type_singleton(), lhs));
