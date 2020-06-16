@@ -138,7 +138,7 @@ jobs:
         working-directory: ../oss-fuzz
         run: |
           python3 -m pip install setuptools
-          python3 -m pip install -r infra/travis/requirements.txt
+          python3 -m pip install -r infra/ci/requirements.txt
       - name: Build image
         shell: bash
         working-directory: ../oss-fuzz
