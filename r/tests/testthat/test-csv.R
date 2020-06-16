@@ -170,6 +170,7 @@ test_that("read_csv_arrow() respects col_select", {
 })
 
 test_that("read_csv_arrow() can detect compression from file name", {
+  skip_if_not_available("gzip")
   tf <- tempfile(fileext = ".csv.gz")
   on.exit(unlink(tf))
 
