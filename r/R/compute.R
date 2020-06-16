@@ -55,7 +55,7 @@ max.Array <- function(..., na.rm = FALSE) {
 scalar_aggregate <- function(FUN, ..., na.rm = FALSE) {
   a <- collect_arrays_from_dots(list(...))
   if (!na.rm && a$null_count > 0) {
-    if (FUN == 'mean' || FUN == 'sum') {
+    if (FUN %in% c("mean", "sum")) {
       # Arrow sum/mean function always drops NAs so handle that here
       # https://issues.apache.org/jira/browse/ARROW-9054
       return(Scalar$create(NA_integer_, type = a$type))
