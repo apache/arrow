@@ -363,7 +363,7 @@ TEST_F(TestArray, ValidateBuffersPrimitive) {
   array = MakeArray(data);
   ASSERT_RAISES(Invalid, array->Validate());
 
-  // Null buffer absent but null_count > 0
+  // Null buffer absent but null_count > 0.
   data = ArrayData::Make(int64(), 2, {nullptr, data_buffer}, 1);
   array = MakeArray(data);
   ASSERT_RAISES(Invalid, array->Validate());
@@ -409,6 +409,13 @@ TEST(TestNullBuilder, Basics) {
 
 // ----------------------------------------------------------------------
 // Primitive type tests
+
+TEST(TestPrimitiveArray, CtorNoValidityBitmap) {
+  // ARROW-8863
+  std::shared_ptr<Buffer> data = *AllocateBuffer(40);
+  Int32Array arr(10, data);
+  ASSERT_EQ(arr.data()->null_count, 0);
+}
 
 TEST_F(TestBuilder, TestReserve) {
   UInt8Builder builder(pool_);

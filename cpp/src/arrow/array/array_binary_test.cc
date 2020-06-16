@@ -109,6 +109,13 @@ class TestStringArray : public ::testing::Test {
     AssertZeroPadded(*strings_);
   }
 
+  void TestArrayCtors() {
+    // ARROW-8863: ArrayData::null_count set to 0 when no validity bitmap
+    // provided
+    ArrayType arr(length_, offsets_buf_, value_buf_);
+    ASSERT_EQ(arr.data()->null_count, 0);
+  }
+
   void TestTotalValuesLength() {
     auto ty = TypeTraits<T>::type_singleton();
     auto arr = ArrayFromJSON(ty, R"(["a", null, "bbb", "cccc", "ddddd"])");
@@ -292,6 +299,8 @@ class TestStringArray : public ::testing::Test {
 TYPED_TEST_SUITE(TestStringArray, StringTypes);
 
 TYPED_TEST(TestStringArray, TestArrayBasics) { this->TestArrayBasics(); }
+
+TYPED_TEST(TestStringArray, TestArrayCtors) { this->TestArrayCtors(); }
 
 TYPED_TEST(TestStringArray, TestType) { this->TestType(); }
 
