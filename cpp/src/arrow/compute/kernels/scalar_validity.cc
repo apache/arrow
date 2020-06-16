@@ -34,9 +34,13 @@ struct IsValidOperator {
   }
 
   static void Call(KernelContext* ctx, const ArrayData& arr, ArrayData* out) {
-    if (arr.buffers[0] != nullptr && out->offset == arr.offset &&
-        out->length == arr.length) {
-      out->buffers[1] = arr.buffers[0];
+    DCHECK_EQ(out->offset, 0);
+    DCHECK_LE(out->length, arr.length);
+    if (arr.buffers[0] != nullptr) {
+      out->buffers[1] = arr.offset == 0
+                            ? arr.buffers[0]
+                            : SliceBuffer(arr.buffers[0], arr.offset / 8, arr.length / 8);
+      out->offset = arr.offset % 8;
       return;
     }
 
@@ -71,13 +75,13 @@ struct IsNullOperator {
 
 void MakeFunction(std::string name, std::vector<InputType> in_types, OutputType out_type,
                   ArrayKernelExec exec, FunctionRegistry* registry,
-                  NullHandling::type null_handling, MemAllocation::type mem_allocation) {
+                  MemAllocation::type mem_allocation, bool can_write_into_slices) {
   Arity arity{static_cast<int>(in_types.size())};
   auto func = std::make_shared<ScalarFunction>(name, arity);
 
   ScalarKernel kernel(std::move(in_types), out_type, exec);
-  kernel.null_handling = null_handling;
-  kernel.can_write_into_slices = true;
+  kernel.null_handling = NullHandling::OUTPUT_NOT_NULL;
+  kernel.can_write_into_slices = can_write_into_slices;
   kernel.mem_allocation = mem_allocation;
 
   DCHECK_OK(func->AddKernel(std::move(kernel)));
@@ -91,11 +95,11 @@ namespace internal {
 void RegisterScalarValidity(FunctionRegistry* registry) {
   MakeFunction("is_valid", {ValueDescr::ANY}, boolean(),
                codegen::SimpleUnary<IsValidOperator>, registry,
-               NullHandling::OUTPUT_NOT_NULL, MemAllocation::NO_PREALLOCATE);
+               MemAllocation::NO_PREALLOCATE, /*can_write_into_slices=*/false);
 
   MakeFunction("is_null", {ValueDescr::ANY}, boolean(),
-               codegen::SimpleUnary<IsNullOperator>, registry,
-               NullHandling::OUTPUT_NOT_NULL, MemAllocation::PREALLOCATE);
+               codegen::SimpleUnary<IsNullOperator>, registry, MemAllocation::PREALLOCATE,
+               /*can_write_into_slices=*/true);
 }
 
 }  // namespace internal
