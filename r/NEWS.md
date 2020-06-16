@@ -21,14 +21,17 @@
 
 ## Datasets
 
-* Read datasets directly on S3 by passing a URL like `ds <- open_dataset("s3://...")`. Currently requires a special C++ library build with additional dependencies; that is, this is not available in CRAN releases or in nightly packages.
 * CSV and other text-delimited datasets are now supported
+* Read datasets directly on S3 by passing a URL like `ds <- open_dataset("s3://...")`. Note that this currently requires a special C++ library build with additional dependencies; that is, this is not yet available in CRAN releases or in nightly packages.
+* When reading individual CSV and JSON files, compression is automatically detected from the file extension
 
 ## Other
 
+* Initial support for C++ aggregation methods: `sum()` and `mean()` are implemented for `Array` and `ChunkedArray`
 * Schema metadata is now exposed as a named list, and it can be modified by assignment like `batch$metadata$new_key <- "new value"`
 * Tables and RecordBatches have additional data.frame-like methods, including `dimnames()` and `as.list()`
 * Linux installation: some tweaks to OS detection for binaries, some updates to known installation issues in the vignette.
+* Various streamlining efforts to reduce library size and compile time.
 
 # arrow 0.17.1
 

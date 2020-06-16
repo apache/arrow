@@ -168,3 +168,15 @@ test_that("read_csv_arrow() respects col_select", {
   tib <- read_csv_arrow(tf, col_select = starts_with("Sepal"), as_data_frame = TRUE)
   expect_equal(tib, tibble::tibble(Sepal.Length = iris$Sepal.Length, Sepal.Width = iris$Sepal.Width))
 })
+
+test_that("read_csv_arrow() can detect compression from file name", {
+  tf <- tempfile(fileext = ".csv.gz")
+  on.exit(unlink(tf))
+
+  write.csv(iris, gzfile(tf), row.names = FALSE, quote = FALSE)
+
+  iris$Species <- as.character(iris$Species)
+
+  tab1 <- read_csv_arrow(tf)
+  expect_equivalent(iris, tab1)
+})

@@ -4,12 +4,17 @@
 \alias{make_readable_file}
 \title{Handle a range of possible input sources}
 \usage{
-make_readable_file(file, mmap = TRUE)
+make_readable_file(file, mmap = TRUE, compression = NULL)
 }
 \arguments{
 \item{file}{A character file name, \code{raw} vector, or an Arrow input stream}
 
 \item{mmap}{Logical: whether to memory-map the file (default \code{TRUE})}
+
+\item{compression}{If the file is compressed, created a \link{CompressedInputStream}
+with this compression codec, either a \link{Codec} or the string name of one.
+If \code{NULL} (default) and \code{file} is a string file name, the function will try
+to infer compression from the file extension.}
 }
 \value{
 An \code{InputStream} or a subclass of one.

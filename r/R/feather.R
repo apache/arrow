@@ -122,8 +122,7 @@ write_feather <- function(x,
 #' This function reads both the original, limited specification of the format
 #' and the version 2 specification, which is the Apache Arrow IPC file format.
 #'
-#' @param file A character file path, a raw vector, or `InputStream`, passed to
-#' `FeatherReader$create()`.
+#' @inheritParams read_ipc_stream
 #' @inheritParams read_delim_arrow
 #' @param ... additional parameters, passed to [FeatherReader$create()][FeatherReader]
 #'
