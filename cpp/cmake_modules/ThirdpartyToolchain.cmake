@@ -58,6 +58,7 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     RapidJSON
     Snappy
     Thrift
+    utf8proc
     ZLIB
     ZSTD)
 
@@ -135,6 +136,8 @@ macro(build_dependency DEPENDENCY_NAME)
     build_re2()
   elseif("${DEPENDENCY_NAME}" STREQUAL "Thrift")
     build_thrift()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "utf8proc")
+    build_utf8proc()
   elseif("${DEPENDENCY_NAME}" STREQUAL "ZLIB")
     build_zlib()
   elseif("${DEPENDENCY_NAME}" STREQUAL "ZSTD")
@@ -208,6 +211,10 @@ endif()
 
 if(ARROW_ORC OR ARROW_FLIGHT OR ARROW_GANDIVA)
   set(ARROW_WITH_PROTOBUF ON)
+endif()
+
+if(ARROW_COMPUTE)
+  set(ARROW_WITH_UTF8PROC ON)
 endif()
 
 # ----------------------------------------------------------------------
@@ -490,6 +497,16 @@ else()
     BZIP2_SOURCE_URL
     "https://sourceware.org/pub/bzip2/bzip2-${ARROW_BZIP2_BUILD_VERSION}.tar.gz"
     "https://github.com/ursa-labs/thirdparty/releases/download/latest/bzip2-${ARROW_BZIP2_BUILD_VERSION}.tar.gz"
+    )
+endif()
+
+if(DEFINED ENV{UTF8PROC_SOURCE_URL})
+  set(UTF8PROC_SOURCE_URL "$ENV{UTF8PROC_SOURCE_URL}")
+else()
+  set_urls(
+    UTF8PROC_SOURCE_URL
+    "https://github.com/JuliaStrings/utf8proc/archive/${ARROW_UTF8PROC_BUILD_VERSION}.tar.gz"
+    "https://github.com/ursa-labs/thirdparty/releases/download/latest/utf8proc-${ARROW_UTF8PROC_BUILD_VERSION}.tar.gz"
     )
 endif()
 
@@ -2011,6 +2028,41 @@ if(ARROW_WITH_BZ2)
                                      INTERFACE_INCLUDE_DIRECTORIES "${BZIP2_INCLUDE_DIR}")
   endif()
   include_directories(SYSTEM "${BZIP2_INCLUDE_DIR}")
+endif()
+
+macro(build_utf8proc)
+  message(STATUS "Building utf8proc from source")
+  set(UTF8PROC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/utf8proc_ep-install")
+  set(
+    UTF8PROC_STATIC_LIB
+    "${UTF8PROC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}utf8proc${CMAKE_STATIC_LIBRARY_SUFFIX}")
+
+  set(UTF8PROC_CMAKE_ARGS
+      ${EP_COMMON_TOOLCHAIN}
+      "-DCMAKE_INSTALL_PREFIX=${UTF8PROC_PREFIX}"
+      -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+      -DCMAKE_INSTALL_LIBDIR=${CMAKE_INSTALL_LIBDIR}
+      -DDBUILD_SHARED_LIBS=OFF)
+
+  externalproject_add(utf8proc_ep
+                      ${EP_LOG_OPTIONS}
+                      CMAKE_ARGS ${UTF8PROC_CMAKE_ARGS}
+                      INSTALL_DIR ${UTF8PROC_PREFIX}
+                      URL ${UTF8PROC_SOURCE_URL}
+                      BUILD_BYPRODUCTS "${UTF8PROC_STATIC_LIB}")
+
+  file(MAKE_DIRECTORY "${UTF8PROC_PREFIX}/include")
+  add_library(utf8proc::utf8proc STATIC IMPORTED)
+  set_target_properties(utf8proc::utf8proc
+                        PROPERTIES IMPORTED_LOCATION "${UTF8PROC_STATIC_LIB}"
+                                   INTERFACE_INCLUDE_DIRECTORIES "${UTF8PROC_PREFIX}/include")
+
+  add_dependencies(toolchain utf8proc_ep)
+  add_dependencies(utf8proc::utf8proc utf8proc_ep)
+endmacro()
+
+if (ARROW_WITH_UTF8PROC)
+  resolve_dependency(utf8proc)
 endif()
 
 macro(build_cares)

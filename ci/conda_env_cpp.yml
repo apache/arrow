@@ -28,6 +28,7 @@ gmock>=1.8.1
 grpc-cpp>=1.21.4
 gtest=1.8.1
 libprotobuf
+libutf8proc
 lz4-c
 make
 ninja
