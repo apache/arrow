@@ -1,0 +1,7 @@
+contact_links:
+  - name: User mailing list
+    url: mailto:dev@arrow.apache.org
+    about: Please ask and answer questions here.
+  - name: Issue tracker
+    url: https://issues.apache.org/jira/browse/ARROW
+    about: Please report bugs and request features here.
