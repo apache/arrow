@@ -36,14 +36,24 @@ namespace arrow {
 
 using internal::CountSetBits;
 
+static inline void AdjustNonNullable(std::vector<std::shared_ptr<Buffer>>* buffers,
+                                     int64_t* null_count) {
+  if (buffers->size() > 0) {
+    if (*null_count == 0) {
+      // In case there are no nulls, don't keep an allocated null bitmap around
+      (*buffers)[0] = nullptr;
+    } else if (*null_count == kUnknownNullCount && buffers->at(0) == nullptr) {
+      // Conversely, if no null bitmap is provided, set the null count to 0
+      *null_count = 0;
+    }
+  }
+}
+
 std::shared_ptr<ArrayData> ArrayData::Make(const std::shared_ptr<DataType>& type,
                                            int64_t length,
                                            std::vector<std::shared_ptr<Buffer>> buffers,
                                            int64_t null_count, int64_t offset) {
-  // In case there are no nulls, don't keep an allocated null bitmap around
-  if (buffers.size() > 0 && null_count == 0) {
-    buffers[0] = nullptr;
-  }
+  AdjustNonNullable(&buffers, &null_count);
   return std::make_shared<ArrayData>(type, length, std::move(buffers), null_count,
                                      offset);
 }
@@ -53,10 +63,7 @@ std::shared_ptr<ArrayData> ArrayData::Make(
     std::vector<std::shared_ptr<Buffer>> buffers,
     std::vector<std::shared_ptr<ArrayData>> child_data, int64_t null_count,
     int64_t offset) {
-  // In case there are no nulls, don't keep an allocated null bitmap around
-  if (buffers.size() > 0 && null_count == 0) {
-    buffers[0] = nullptr;
-  }
+  AdjustNonNullable(&buffers, &null_count);
   return std::make_shared<ArrayData>(type, length, std::move(buffers),
                                      std::move(child_data), null_count, offset);
 }
@@ -66,9 +73,7 @@ std::shared_ptr<ArrayData> ArrayData::Make(
     std::vector<std::shared_ptr<Buffer>> buffers,
     std::vector<std::shared_ptr<ArrayData>> child_data,
     std::shared_ptr<ArrayData> dictionary, int64_t null_count, int64_t offset) {
-  if (buffers.size() > 0 && null_count == 0) {
-    buffers[0] = nullptr;
-  }
+  AdjustNonNullable(&buffers, &null_count);
   auto data = std::make_shared<ArrayData>(type, length, std::move(buffers),
                                           std::move(child_data), null_count, offset);
   data->dictionary = std::move(dictionary);
