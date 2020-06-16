@@ -20,11 +20,12 @@
 #include <memory>
 
 #include "arrow/io/interfaces.h"
+#include "arrow/io/transform.h"
+
 #include "arrow/python/visibility.h"
 
-#include "arrow/python/config.h"
-
 #include "arrow/python/common.h"
+#include "arrow/python/config.h"
 
 namespace arrow {
 namespace py {
@@ -98,6 +99,20 @@ class ARROW_PYTHON_EXPORT PyForeignBuffer : public Buffer {
 
   OwnedRefNoGIL base_;
 };
+
+// All this rigamarole because Cython is really poor with std::function<>
+
+using TransformCallback = std::function<void(
+    PyObject*, const std::shared_ptr<Buffer>& src, std::shared_ptr<Buffer>* out)>;
+
+struct TransformInputStreamVTable {
+  TransformCallback transform;
+};
+
+ARROW_PYTHON_EXPORT
+std::shared_ptr<::arrow::io::InputStream> MakeTransformInputStream(
+    std::shared_ptr<::arrow::io::InputStream> wrapped, TransformInputStreamVTable vtable,
+    PyObject* arg);
 
 }  // namespace py
 }  // namespace arrow

@@ -17,8 +17,6 @@
 
 # distutils: language = c++
 
-from libcpp.functional cimport function
-
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 

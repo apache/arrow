@@ -982,6 +982,11 @@ cdef extern from "arrow/builder.h" namespace "arrow" nogil:
         CStatus Append(const int64_t value)
 
 
+# Use typedef to emulate syntax for std::function<void(..)>
+ctypedef void CallbackTransform(
+    object, const shared_ptr[CBuffer]& src, shared_ptr[CBuffer]* dest)
+
+
 cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
     enum FileMode" arrow::io::FileMode::type":
         FileMode_READ" arrow::io::FileMode::READ"
@@ -1106,6 +1111,16 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
             shared_ptr[COutputStream] raw)
 
         CResult[shared_ptr[COutputStream]] Detach()
+
+    cdef cppclass CTransformInputStreamVTable \
+            "arrow::py::TransformInputStreamVTable":
+        CTransformInputStreamVTable()
+        function[CallbackTransform] transform
+
+    shared_ptr[CInputStream] MakeTransformInputStream \
+        "arrow::py::MakeTransformInputStream"(
+        shared_ptr[CInputStream] wrapped, CTransformInputStreamVTable vtable,
+        object method_arg)
 
     # ----------------------------------------------------------------------
     # HDFS

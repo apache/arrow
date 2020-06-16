@@ -172,6 +172,7 @@ set(ARROW_SRCS
     io/interfaces.cc
     io/memory.cc
     io/slow.cc
+    io/transform.cc
     testing/util.cc
     util/basic_decimal.cc
     util/bit_block_counter.cc
