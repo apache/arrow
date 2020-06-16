@@ -59,7 +59,7 @@ template <typename Type, typename Base>
 struct Utf8Transform {
   using offset_type = typename Type::offset_type;
 
-  static offset_type transform(const uint8_t* input, offset_type input_string_ncodeunits,
+  static offset_type Transform(const uint8_t* input, offset_type input_string_ncodeunits,
                                uint8_t* output) {
     offset_type input_string_leftover_ncodeunits = input_string_ncodeunits;
     offset_type encoded_nbytes_total = 0;
@@ -112,7 +112,8 @@ struct Utf8Transform {
       // two code units (even) can grow to 3 code units.
       KERNEL_RETURN_IF_ERROR(
           ctx, ctx->Allocate(input_ncodeunits * 3 / 2).Value(&output->buffers[2]));
-      // TODO(maartenbreddels): Reuse offsets from input
+      // We could reuse the buffer if it is all ascii, benchmarking showed this not to
+      // matter
       // output->buffers[1] = input.buffers[1];
       KERNEL_RETURN_IF_ERROR(
           ctx, ctx->Allocate(input.buffers[1]->size()).Value(&output->buffers[1]));
@@ -127,11 +128,12 @@ struct Utf8Transform {
         offset_type input_string_end = input_string_offsets[i + 1];
         offset_type input_string_ncodeunits = input_string_end - input_string_offset;
         offset_type encoded_nbytes =
-            Base::transform(input_str + input_string_offset, input_string_ncodeunits,
+            Base::Transform(input_str + input_string_offset, input_string_ncodeunits,
                             output_str + output_ncodeunits);
         output_ncodeunits += encoded_nbytes;
         output_string_offsets[i + 1] = output_ncodeunits;
       }
+
       // trim the codepoint buffer, since we allocated too much
       KERNEL_RETURN_IF_ERROR(
           ctx,
@@ -142,7 +144,7 @@ struct Utf8Transform {
       if (input.is_valid) {
         result->is_valid = true;
         int64_t data_nbytes = input.value->size();
-        // See note about about section 5.18 of the Unicode spec for the x3
+        // See note above in the Array version explaining the 3 / 2
         KERNEL_RETURN_IF_ERROR(ctx,
                                ctx->Allocate(data_nbytes * 3 / 2).Value(&result->value));
         offset_type encoded_nbytes = Base::transform(input.value->data(), data_nbytes,
