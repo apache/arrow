@@ -18,6 +18,7 @@
 #include <memory>
 
 #include <gtest/gtest.h>
+#include <utf8proc.h>
 
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernels/test_util.h"
@@ -27,6 +28,13 @@ namespace arrow {
 namespace compute {
 
 using StringTypes = ::testing::Types<StringType, LargeStringType>;
+
+// interesting utf8 characters for testing (lower case / upper case):
+//  * ῦ / Υ͂ (3 to 4 code units) (Note, we don't support this yet, utf8proc does not use
+//  SpecialCasing.txt)
+//  * ɑ /  Ɑ (2 to 3 code units)
+//  * ı / I (2 to 1 code units)
+//  * Ⱥ / ⱥ  (2 to 3 code units)
 
 template <typename TestType>
 class TestStringKernels : public ::testing::Test {
@@ -68,6 +76,47 @@ TYPED_TEST(TestStringKernels, AsciiLower) {
                    this->string_type(), "[\"aaazzæÆ&\", null, \"\", \"bbb\"]");
 }
 
+TYPED_TEST(TestStringKernels, Utf8Upper) {
+  this->CheckUnary("utf8_upper", "[\"aAazZæÆ&\", null, \"\", \"b\"]", this->string_type(),
+                   "[\"AAAZZÆÆ&\", null, \"\", \"B\"]");
+
+  // test varying encoding lenghts and thus changing indices/offsets
+  this->CheckUnary("utf8_upper", "[\"ɑɽⱤoW\", null, \"ıI\", \"b\"]", this->string_type(),
+                   "[\"ⱭⱤⱤOW\", null, \"II\", \"B\"]");
+
+  // ῦ to Υ͂ not supported
+  // this->CheckUnary("utf8_upper", "[\"ῦɐɜʞȿ\"]", this->string_type(),
+  // "[\"Υ͂ⱯꞫꞰⱾ\"]");
+
+  // test maximum buffer growth
+  this->CheckUnary("utf8_upper", "[\"ɑɑɑɑ\"]", this->string_type(), "[\"ⱭⱭⱭⱭ\"]");
+
+  // Test truncation of invalid data ὖ == \xe1\xbd\x96)
+  this->CheckUnary("utf8_upper", "[\"ɑa\xFFɑ\", \"ɽ\xe1\xbdɽaa\"]", this->string_type(),
+                   "[\"ⱭA\", \"Ɽ\"]");
+}
+
+TYPED_TEST(TestStringKernels, Utf8Lower) {
+  this->CheckUnary("utf8_lower", "[\"aAazZæÆ&\", null, \"\", \"b\"]", this->string_type(),
+                   "[\"aaazzææ&\", null, \"\", \"b\"]");
+
+  // test varying encoding lenghts and thus changing indices/offsets
+  this->CheckUnary("utf8_lower", "[\"ⱭɽⱤoW\", null, \"ıI\", \"B\"]", this->string_type(),
+                   "[\"ɑɽɽow\", null, \"ıi\", \"b\"]");
+
+  // ῦ to Υ͂ is not supported, but in principle the reverse is, but it would need
+  // normalization
+  // this->CheckUnary("utf8_lower", "[\"Υ͂ⱯꞫꞰⱾ\"]", this->string_type(),
+  // "[\"ῦɐɜʞȿ\"]");
+
+  // test maximum buffer growth
+  this->CheckUnary("utf8_lower", "[\"ȺȺȺȺ\"]", this->string_type(), "[\"ⱥⱥⱥⱥ\"]");
+
+  // Test truncation of invalid data ὖ == \xe1\xbd\x96)
+  this->CheckUnary("utf8_lower", "[\"Ⱥa\xFFɑ\", \"Ɽ\xe1\xbdɽaa\"]", this->string_type(),
+                   "[\"ⱥa\", \"ɽ\"]");
+}
+
 TYPED_TEST(TestStringKernels, Strptime) {
   std::string input1 = R"(["5/1/2020", null, "12/11/1900"])";
   std::string output1 = R"(["2020-05-01", null, "1900-12-11"])";
@@ -79,6 +128,41 @@ TYPED_TEST(TestStringKernels, StrptimeDoesNotProvideDefaultOptions) {
   auto input =
       ArrayFromJSON(this->string_type(), R"(["2020-05-01", null, "1900-12-11"])");
   ASSERT_RAISES(Invalid, CallFunction("strptime", {input}));
+}
+
+TEST(TestStringKernels, UnicodeLibraryAssumptions) {
+  uint8_t output[4];
+  for (utf8proc_int32_t codepoint = 0x100; codepoint < 0x110000; codepoint++) {
+    utf8proc_ssize_t encoded_nbytes = utf8proc_encode_char(codepoint, output);
+    utf8proc_int32_t codepoint_upper = utf8proc_toupper(codepoint);
+    utf8proc_ssize_t encoded_nbytes_upper = utf8proc_encode_char(codepoint_upper, output);
+    if (encoded_nbytes == 2) {
+      EXPECT_LE(encoded_nbytes_upper, 3)
+          << "Expected the upper case codepoint for a 2 byte encoded codepoint to be "
+             "encoded in maximum 3 bytes, not "
+          << encoded_nbytes_upper;
+    }
+    if (encoded_nbytes == 3) {
+      EXPECT_LE(encoded_nbytes_upper, 3)
+          << "Expected the upper case codepoint for a 3 byte encoded codepoint to be "
+             "encoded in maximum 3 bytes, not "
+          << encoded_nbytes_upper;
+    }
+    utf8proc_int32_t codepoint_lower = utf8proc_tolower(codepoint);
+    utf8proc_ssize_t encoded_nbytes_lower = utf8proc_encode_char(codepoint_lower, output);
+    if (encoded_nbytes == 2) {
+      EXPECT_LE(encoded_nbytes_lower, 3)
+          << "Expected the lower case codepoint for a 2 byte encoded codepoint to be "
+             "encoded in maximum 3 bytes, not "
+          << encoded_nbytes_lower;
+    }
+    if (encoded_nbytes == 3) {
+      EXPECT_LE(encoded_nbytes_lower, 3)
+          << "Expected the lower case codepoint for a 3 byte encoded codepoint to be "
+             "encoded in maximum 3 bytes, not "
+          << encoded_nbytes_lower;
+    }
+  }
 }
 
 }  // namespace compute

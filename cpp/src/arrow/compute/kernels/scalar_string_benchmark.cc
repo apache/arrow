@@ -52,8 +52,13 @@ static void AsciiUpper(benchmark::State& state) {
   UnaryStringBenchmark(state, "ascii_upper");
 }
 
+static void Utf8Upper(benchmark::State& state) {
+  UnaryStringBenchmark(state, "utf8_upper");
+}
+
 BENCHMARK(AsciiLower);
 BENCHMARK(AsciiUpper);
+BENCHMARK(Utf8Upper);
 
 }  // namespace compute
 }  // namespace arrow

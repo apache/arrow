@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <utf8proc.h>
 #include <algorithm>
 #include <cctype>
 #include <string>
@@ -36,6 +37,114 @@ struct AsciiLength {
   template <typename OUT, typename ARG0 = util::string_view>
   static OUT Call(KernelContext*, ARG0 val) {
     return static_cast<OUT>(val.size());
+  }
+};
+
+template <typename Type, typename Base>
+struct Utf8Transform {
+  using offset_type = typename Type::offset_type;
+
+  static offset_type transform(const uint8_t* input, offset_type input_string_ncodeunits,
+                               uint8_t* output) {
+    offset_type input_string_leftover_ncodeunits = input_string_ncodeunits;
+    offset_type encoded_nbytes_total = 0;
+    while (input_string_leftover_ncodeunits) {
+      utf8proc_int32_t decoded_codepoint;
+      utf8proc_ssize_t decoded_nbytes =
+          utf8proc_iterate(input, input_string_leftover_ncodeunits, &decoded_codepoint);
+      if (decoded_nbytes < 0) {
+        // if we encounter invalid data, we trim the string
+        return encoded_nbytes_total;
+      }
+      input_string_leftover_ncodeunits -= decoded_nbytes;
+      input += decoded_nbytes;
+
+      utf8proc_int32_t transformed_codepoint =
+          Base::TransformCodepoint(decoded_codepoint);
+      utf8proc_ssize_t encoded_nbytes =
+          utf8proc_encode_char(transformed_codepoint, output);
+      if (encoded_nbytes < 0) {
+        // if we encounter invalid data, we trim the string
+        return encoded_nbytes_total;
+      }
+      output += encoded_nbytes;
+      encoded_nbytes_total += encoded_nbytes;
+    }
+    return encoded_nbytes_total;
+  }
+
+  static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    if (batch[0].kind() == Datum::ARRAY) {
+      const ArrayData& input = *batch[0].array();
+      ArrayData* output = out->mutable_array();
+
+      utf8proc_uint8_t const* input_str = input.buffers[2]->data();
+      offset_type const* input_string_offsets = input.GetValues<offset_type>(1);
+      offset_type input_ncodeunits = input.buffers[2]->size();
+      offset_type input_nstrings = (input.buffers[1]->size() / sizeof(offset_type)) - 1;
+
+      // Section 5.18 of the Unicode spec claim that the number of codepoints for case
+      // mapping can grow by a factor of 3. This means grow by a factor of 3 in bytes
+      // However, since we don't support all casings (SpecialCasing.txt) the growth
+      // is actually only at max 3/2 (as covered by the unittest).
+      // Note that rounding down the 3/2 is ok, since only codepoints encoded by
+      // two code units (even) can grow to 3 code units.
+      KERNEL_RETURN_IF_ERROR(
+          ctx, ctx->Allocate(input_ncodeunits * 3 / 2).Value(&output->buffers[2]));
+      // TODO(maartenbreddels): Reuse offsets from input
+      // output->buffers[1] = input.buffers[1];
+      KERNEL_RETURN_IF_ERROR(
+          ctx, ctx->Allocate(input.buffers[1]->size()).Value(&output->buffers[1]));
+      utf8proc_uint8_t* output_str = output->buffers[2]->mutable_data();
+      offset_type* output_string_offsets = output->GetMutableValues<offset_type>(1);
+      offset_type output_ncodeunits = 0;
+
+      offset_type output_string_offset = 0;
+      *output_string_offsets = output_string_offset;
+      for (int64_t i = 0; i < input_nstrings; i++) {
+        offset_type input_string_offset = input_string_offsets[i];
+        offset_type input_string_end = input_string_offsets[i + 1];
+        offset_type input_string_ncodeunits = input_string_end - input_string_offset;
+        offset_type encoded_nbytes =
+            Base::transform(input_str + input_string_offset, input_string_ncodeunits,
+                            output_str + output_ncodeunits);
+        output_ncodeunits += encoded_nbytes;
+        output_string_offsets[i + 1] = output_ncodeunits;
+      }
+      // trim the codepoint buffer, since we allocated too much
+      KERNEL_RETURN_IF_ERROR(
+          ctx,
+          output->buffers[2]->CopySlice(0, output_ncodeunits).Value(&output->buffers[2]));
+    } else {
+      const auto& input = checked_cast<const BaseBinaryScalar&>(*batch[0].scalar());
+      auto result = checked_pointer_cast<BaseBinaryScalar>(MakeNullScalar(out->type()));
+      if (input.is_valid) {
+        result->is_valid = true;
+        int64_t data_nbytes = input.value->size();
+        // See note about about section 5.18 of the Unicode spec for the x3
+        KERNEL_RETURN_IF_ERROR(ctx,
+                               ctx->Allocate(data_nbytes * 3 / 2).Value(&result->value));
+        offset_type encoded_nbytes = Base::transform(input.value->data(), data_nbytes,
+                                                     result->value->mutable_data());
+        KERNEL_RETURN_IF_ERROR(
+            ctx, result->value->CopySlice(0, encoded_nbytes).Value(&result->value));
+      }
+      out->value = result;
+    }
+  }
+};
+
+template <typename Type>
+struct Utf8Upper : Utf8Transform<Type, Utf8Upper<Type>> {
+  static utf8proc_int32_t TransformCodepoint(utf8proc_int32_t codepoint) {
+    return utf8proc_toupper(codepoint);
+  }
+};
+
+template <typename Type>
+struct Utf8Lower : Utf8Transform<Type, Utf8Lower<Type>> {
+  static utf8proc_int32_t TransformCodepoint(utf8proc_int32_t codepoint) {
+    return utf8proc_tolower(codepoint);
   }
 };
 
@@ -206,11 +315,23 @@ void MakeUnaryStringBatchKernel(std::string name, FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
+template <template <typename> typename Transformer>
+void MakeUnaryStringUtf8TransformKernel(std::string name, FunctionRegistry* registry) {
+  auto func = std::make_shared<ScalarFunction>(name, Arity::Unary());
+  ArrayKernelExec exec = Transformer<StringType>::Exec;
+  ArrayKernelExec exec_large = Transformer<LargeStringType>::Exec;
+  DCHECK_OK(func->AddKernel({utf8()}, utf8(), exec));
+  DCHECK_OK(func->AddKernel({large_utf8()}, large_utf8(), exec_large));
+  DCHECK_OK(registry->AddFunction(std::move(func)));
+}
+
 }  // namespace
 
 void RegisterScalarStringAscii(FunctionRegistry* registry) {
   MakeUnaryStringBatchKernel<AsciiUpper>("ascii_upper", registry);
   MakeUnaryStringBatchKernel<AsciiLower>("ascii_lower", registry);
+  MakeUnaryStringUtf8TransformKernel<Utf8Upper>("utf8_upper", registry);
+  MakeUnaryStringUtf8TransformKernel<Utf8Lower>("utf8_lower", registry);
   AddAsciiLength(registry);
   AddStrptime(registry);
 }
