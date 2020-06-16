@@ -385,6 +385,14 @@ test_that("Array<int8>$as_vector() converts to integer (ARROW-3794)", {
   expect_equal(a$as_vector(), 0:255)
 })
 
+test_that("Arrays of uint{32,64} convert to numeric", {
+  u32 <- Array$create(1L)$cast(uint32())
+  expect_identical(as.vector(u32), 1)
+
+  u64 <- Array$create(1L)$cast(uint64())
+  expect_identical(as.vector(u64), 1)
+})
+
 test_that("Array$create() recognise arrow::Array (ARROW-3815)", {
   a <- Array$create(1:10)
   expect_equal(a, Array$create(a))

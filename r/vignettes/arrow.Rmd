@@ -129,7 +129,7 @@ In the tables, entries with a `-` are not currently implemented.
 | uint8             | integer                  |
 | uint16            | integer                  |
 | uint32            | double                   |
-| uint64            | -                        |
+| uint64            | double                   |
 | float16           | -                        |
 | float32           | double                   |
 | float64           | double                   |
