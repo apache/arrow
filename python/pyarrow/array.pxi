@@ -2119,7 +2119,6 @@ def concat_arrays(arrays, MemoryPool memory_pool=None):
     """
     cdef:
         vector[shared_ptr[CArray]] c_arrays
-        shared_ptr[CArray] c_result
         Array array
         CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
 
@@ -2127,9 +2126,7 @@ def concat_arrays(arrays, MemoryPool memory_pool=None):
         c_arrays.push_back(array.sp_array)
 
     with nogil:
-        check_status(Concatenate(c_arrays, pool, &c_result))
-
-    return pyarrow_wrap_array(c_result)
+        return pyarrow_wrap_array(GetResultValue(Concatenate(c_arrays, pool)))
 
 
 def _empty_array(DataType type):

@@ -169,9 +169,7 @@ Result<std::shared_ptr<Array>> FlattenListArray(const ListArrayT& list_array,
     return non_null_fragments[0];
   }
 
-  std::shared_ptr<Array> flattened;
-  RETURN_NOT_OK(Concatenate(non_null_fragments, memory_pool, &flattened));
-  return flattened;
+  return Concatenate(non_null_fragments, memory_pool);
 }
 
 }  // namespace

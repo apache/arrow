@@ -746,12 +746,11 @@ Result<std::shared_ptr<Table>> Table::CombineChunks(MemoryPool* pool) const {
           safe_chunks.push_back(chunk);
         }
         chunks.emplace_back();
-        RETURN_NOT_OK(Concatenate(safe_chunks, pool, &chunks.back()));
+        ARROW_ASSIGN_OR_RAISE(chunks.back(), Concatenate(safe_chunks, pool));
       }
       compacted_columns[i] = std::make_shared<ChunkedArray>(std::move(chunks));
     } else {
-      std::shared_ptr<Array> compacted;
-      RETURN_NOT_OK(Concatenate(col->chunks(), pool, &compacted));
+      ARROW_ASSIGN_OR_RAISE(auto compacted, Concatenate(col->chunks(), pool));
       compacted_columns[i] = std::make_shared<ChunkedArray>(compacted);
     }
   }
