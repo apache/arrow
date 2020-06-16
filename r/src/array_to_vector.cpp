@@ -721,6 +721,10 @@ std::shared_ptr<Converter> Converter::Make(const std::shared_ptr<DataType>& type
       return std::make_shared<arrow::r::Converter_Promotion<REALSXP, arrow::UInt32Type>>(
           std::move(arrays));
 
+    case Type::UINT64:
+      return std::make_shared<arrow::r::Converter_Promotion<REALSXP, arrow::UInt64Type>>(
+          std::move(arrays));
+
     case Type::HALF_FLOAT:
       return std::make_shared<
           arrow::r::Converter_Promotion<REALSXP, arrow::HalfFloatType>>(
