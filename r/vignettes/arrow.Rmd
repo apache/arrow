@@ -130,7 +130,7 @@ In the tables, entries with a `-` are not currently implemented.
 | uint16            | integer                  |
 | uint32            | double                   |
 | uint64            | -                        |
-| float16           | -                   |
+| float16           | -                        |
 | float32           | double                   |
 | float64           | double                   |
 | utf8              | character                |
@@ -143,7 +143,7 @@ In the tables, entries with a `-` are not currently implemented.
 | timestamp         | POSIXct                  |
 | duration          | -                        |
 | decimal           | double                   |
-| dictionary        | factor                   |
+| dictionary        | factor^++^               |
 | list              | list                     |
 | fixed_size_list   | -                        |
 | struct            | data.frame               |
@@ -153,6 +153,8 @@ In the tables, entries with a `-` are not currently implemented.
 | large_utf8        | -                        |
 | large_binary      | -                        |
 | large_list        | -                        |
+
+^++^: Due to the limitation of R `factor`s, Arrow `dictionary` values are coerced to string when translated to R if they are not already strings.
 
 ## Class structure and package conventions
 

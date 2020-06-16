@@ -418,8 +418,7 @@ class Converter_Struct : public Converter {
   std::vector<std::shared_ptr<Converter>> converters;
 };
 
-// Shouldn't this cast before dividing? Otherwise we're doing integer division
-double ms_to_seconds(int64_t ms) { return static_cast<double>(ms / 1000); }
+double ms_to_seconds(int64_t ms) { return static_cast<double>(ms) / 1000; }
 
 class Converter_Date64 : public Converter {
  public:
