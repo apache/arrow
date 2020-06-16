@@ -446,6 +446,10 @@ test_that("Array$create() handles vector -> list arrays (ARROW-7662)", {
   expect_array_roundtrip(list("itsy", c("bitsy", "spider"), c("is")), list_of(utf8()))
   expect_array_roundtrip(list("itsy", character(0), c("bitsy", "spider", NA_character_), c("is")), list_of(utf8()))
 
+  # factor
+  expect_array_roundtrip(list(factor(c("b", "a"), levels = c("a", "b"))), list_of(dictionary(int8(), utf8())))
+  expect_array_roundtrip(list(factor(NA, levels = c("a", "b"))), list_of(dictionary(int8(), utf8())))
+
   # struct
   expect_array_roundtrip(
     list(tibble::tibble(a = integer(0), b = integer(0), c = character(0), d = logical(0))),

@@ -1242,6 +1242,10 @@ std::shared_ptr<arrow::Array> Array__from_vector(
   // factors only when type has been inferred
   if (type->id() == Type::DICTIONARY) {
     if (type_inferred || arrow::r::CheckCompatibleFactor(x, type)) {
+      // TODO: use VectorToArrayConverter instead, but it does not appear to work
+      // correctly with ordered dictionary yet
+      //
+      // return VectorToArrayConverter::Visit(x, type);
       return arrow::r::MakeFactorArray(x, type);
     }
 
