@@ -367,11 +367,26 @@ TEST_F(FileSystemDatasetFactoryTest, FilenameNotPartOfPartitions) {
 TEST_F(FileSystemDatasetFactoryTest, UnparseablePartitionExpression) {
   auto s = schema({field("first", int32()), field("second", int32())});
   factory_options_.partitioning = std::make_shared<HivePartitioning>(s);
-
   selector_.recursive = true;
-  MakeFactory({fs::File("first=one/file.parquet")});
 
-  ASSERT_RAISES(Invalid, factory_->Finish().status());
+  for (auto pathlist : {"first=one/file.parquet", "second=one/file.parquet",
+                        R"(first=1/second=0/file.parquet
+                           first=1/second=zero/file.parquet)"}) {
+    MakeFactory(ParsePathList(pathlist));
+    ASSERT_RAISES(Invalid, factory_->Finish().status());
+  }
+
+  for (auto pathlist : {
+           R"(first=1/file.parquet
+              second=0/file.parquet)",
+           R"(first=1/second=2/file.parquet
+              second=0/file.parquet)",
+           R"(first=1/file.parquet
+              second=0/first=1/file.parquet)",
+       }) {
+    MakeFactory(ParsePathList(pathlist));
+    ASSERT_OK(factory_->Finish().status());
+  }
 }
 
 std::shared_ptr<DatasetFactory> DatasetFactoryFromSchemas(
