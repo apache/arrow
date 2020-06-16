@@ -129,9 +129,9 @@ jobs:
               debian-cpp
             arch: 'arm32v7'
             runner: [self-hosted, linux, ARM]
-          - name: arm64v8-ubuntu-18.04-cpp
-            ubuntu: 18.04
-            title: ARM64v8 Ubuntu 18.04 C++
+          - name: arm64v8-ubuntu-20.04-cpp
+            ubuntu: 20.04
+            title: ARM64v8 Ubuntu 20.04 C++
             image: |
               -e CMAKE_BUILD_PARALLEL_LEVEL=1 \
               -e ARROW_PARQUET=OFF \
