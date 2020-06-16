@@ -455,6 +455,9 @@ test_that("Array$create() handles vector -> list arrays (ARROW-7662)", {
     list(tibble::tibble(a = list(integer()))),
     list_of(struct(a = list_of(int32())))
   )
+  # degenerated data frame
+  df <- structure(list(x = 1:2, y = 1), class = "data.frame", row.names = 1:2)
+  expect_error(Array$create(list(df)))
 })
 
 test_that("Array$create() should have helpful error on lists with type hint", {
