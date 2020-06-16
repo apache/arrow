@@ -1344,6 +1344,14 @@ Scalar__CastTo <- function(s, t){
     .Call(`_arrow_Scalar__CastTo` , s, t)
 }
 
+StructScalar__field <- function(s, i){
+    .Call(`_arrow_StructScalar__field` , s, i)
+}
+
+StructScalar__GetFieldByName <- function(s, name){
+    .Call(`_arrow_StructScalar__GetFieldByName` , s, name)
+}
+
 Scalar__as_vector <- function(scalar){
     .Call(`_arrow_Scalar__as_vector` , scalar)
 }

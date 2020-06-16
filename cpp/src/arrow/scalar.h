@@ -363,7 +363,9 @@ struct ARROW_EXPORT StructScalar : public Scalar {
   using TypeClass = StructType;
   using ValueType = std::vector<std::shared_ptr<Scalar>>;
 
-  std::vector<std::shared_ptr<Scalar>> value;
+  ScalarVector value;
+
+  Result<std::shared_ptr<Scalar>> field(FieldRef ref) const;
 
   StructScalar(ValueType value, std::shared_ptr<DataType> type)
       : Scalar(std::move(type), true), value(std::move(value)) {}

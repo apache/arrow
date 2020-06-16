@@ -146,23 +146,24 @@ SEXP from_datum(arrow::Datum datum) {
 std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     std::string func_name, List_ options) {
   if (func_name == "filter") {
-    auto out = std::make_shared<arrow::compute::FilterOptions>(
-        arrow::compute::FilterOptions::Defaults());
+    using Options = arrow::compute::FilterOptions;
+    auto out = std::make_shared<Options>(Options::Defaults());
     if (!Rf_isNull(options["keep_na"]) && options["keep_na"]) {
-      out->null_selection_behavior = arrow::compute::FilterOptions::EMIT_NULL;
+      out->null_selection_behavior = Options::EMIT_NULL;
     }
     return out;
   }
 
   if (func_name == "take") {
-    auto out = std::make_shared<arrow::compute::TakeOptions>(
-        arrow::compute::TakeOptions::Defaults());
+    using Options = arrow::compute::TakeOptions;
+    auto out = std::make_shared<Options>(Options::Defaults());
     return out;
   }
 
   if (func_name == "minmax") {
-    auto out = std::make_shared<arrow::compute::MinMaxOptions>(
-        arrow::compute::MinMaxOptions::Defaults());
+    using Options = arrow::compute::MinMaxOptions;
+    auto out = std::make_shared<Options>(Options::Defaults());
+    out->null_handling = options["na.rm"] ? Options::SKIP : Options::OUTPUT_NULL;
     return out;
   }
 

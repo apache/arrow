@@ -41,6 +41,18 @@ std::shared_ptr<arrow::Scalar> Scalar__CastTo(const std::shared_ptr<arrow::Scala
 }
 
 // [[arrow::export]]
+std::shared_ptr<arrow::Scalar> StructScalar__field(
+    const std::shared_ptr<arrow::StructScalar>& s, int i) {
+  return ValueOrStop(s->field(i));
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::Scalar> StructScalar__GetFieldByName(
+    const std::shared_ptr<arrow::StructScalar>& s, const std::string& name) {
+  return ValueOrStop(s->field(name));
+}
+
+// [[arrow::export]]
 SEXP Scalar__as_vector(const std::shared_ptr<arrow::Scalar>& scalar) {
   auto array = ValueOrStop(arrow::MakeArrayFromScalar(*scalar, 1));
 

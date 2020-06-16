@@ -5261,6 +5261,38 @@ RcppExport SEXP _arrow_Scalar__CastTo(SEXP s_sexp, SEXP t_sexp){
 
 // scalar.cpp
 #if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Scalar> StructScalar__field(const std::shared_ptr<arrow::StructScalar>& s, int i);
+RcppExport SEXP _arrow_StructScalar__field(SEXP s_sexp, SEXP i_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::StructScalar>&>::type s(s_sexp);
+	Rcpp::traits::input_parameter<int>::type i(i_sexp);
+	return Rcpp::wrap(StructScalar__field(s, i));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_StructScalar__field(SEXP s_sexp, SEXP i_sexp){
+	Rf_error("Cannot call StructScalar__field(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// scalar.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Scalar> StructScalar__GetFieldByName(const std::shared_ptr<arrow::StructScalar>& s, const std::string& name);
+RcppExport SEXP _arrow_StructScalar__GetFieldByName(SEXP s_sexp, SEXP name_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::StructScalar>&>::type s(s_sexp);
+	Rcpp::traits::input_parameter<const std::string&>::type name(name_sexp);
+	return Rcpp::wrap(StructScalar__GetFieldByName(s, name));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_StructScalar__GetFieldByName(SEXP s_sexp, SEXP name_sexp){
+	Rf_error("Cannot call StructScalar__GetFieldByName(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// scalar.cpp
+#if defined(ARROW_R_WITH_ARROW)
 SEXP Scalar__as_vector(const std::shared_ptr<arrow::Scalar>& scalar);
 RcppExport SEXP _arrow_Scalar__as_vector(SEXP scalar_sexp){
 BEGIN_RCPP
@@ -6160,6 +6192,8 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_Array__GetScalar", (DL_FUNC) &_arrow_Array__GetScalar, 2}, 
 		{ "_arrow_Scalar__ToString", (DL_FUNC) &_arrow_Scalar__ToString, 1}, 
 		{ "_arrow_Scalar__CastTo", (DL_FUNC) &_arrow_Scalar__CastTo, 2}, 
+		{ "_arrow_StructScalar__field", (DL_FUNC) &_arrow_StructScalar__field, 2}, 
+		{ "_arrow_StructScalar__GetFieldByName", (DL_FUNC) &_arrow_StructScalar__GetFieldByName, 2}, 
 		{ "_arrow_Scalar__as_vector", (DL_FUNC) &_arrow_Scalar__as_vector, 1}, 
 		{ "_arrow_Scalar__is_valid", (DL_FUNC) &_arrow_Scalar__is_valid, 1}, 
 		{ "_arrow_Scalar__type", (DL_FUNC) &_arrow_Scalar__type, 1}, 

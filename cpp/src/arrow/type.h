@@ -1545,7 +1545,8 @@ class ARROW_EXPORT FieldRef {
 
   /// Construct a by-name FieldRef. Multiple fields may match a by-name FieldRef:
   /// [f for f in schema.fields where f.name == self.name]
-  FieldRef(std::string name) : impl_(std::move(name)) {}  // NOLINT runtime/explicit
+  FieldRef(std::string name) : impl_(std::move(name)) {}    // NOLINT runtime/explicit
+  FieldRef(const char* name) : impl_(std::string(name)) {}  // NOLINT runtime/explicit
 
   /// Equivalent to a single index string of indices.
   FieldRef(int index) : impl_(FieldPath({index})) {}  // NOLINT runtime/explicit
@@ -1599,6 +1600,12 @@ class ARROW_EXPORT FieldRef {
   std::vector<FieldPath> FindAll(const Field& field) const;
   std::vector<FieldPath> FindAll(const DataType& type) const;
   std::vector<FieldPath> FindAll(const FieldVector& fields) const;
+
+  /// \brief Convenience function which applies FindAll to arg's type or schema.
+  std::vector<FieldPath> FindAll(const Array& array) const;
+  std::vector<FieldPath> FindAll(const ChunkedArray& array) const;
+  std::vector<FieldPath> FindAll(const RecordBatch& batch) const;
+  std::vector<FieldPath> FindAll(const Table& table) const;
 
   /// \brief Convenience function: raise an error if matches is empty.
   template <typename T>
