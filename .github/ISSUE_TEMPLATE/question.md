@@ -1,6 +1,6 @@
 ---
 name: Ask a question
-about: Please ask questions at <a href="mailto:user@arrow.apache.org">user@arrow.apache.org</a>
+about: Please ask questions at user@arrow.apache.org
 ---
 
 STOP! Are you reporting a bug, a possible bug, or requesting a
