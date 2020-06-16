@@ -249,7 +249,7 @@ Result<std::shared_ptr<Dataset>> FileSystemDatasetFactory::Finish(FinishOptions 
     if (auto relative = RemovePartitionBaseDir(path)) {
       auto relative_str = relative->to_string();
       auto basename_filename = fs::internal::GetAbstractPathParent(relative_str);
-      partition = partitioning->Parse(basename_filename.first).ValueOr(scalar(true));
+      ARROW_ASSIGN_OR_RAISE(partition, partitioning->Parse(basename_filename.first));
     }
 
     ARROW_ASSIGN_OR_RAISE(auto fragment, format_->MakeFragment({path, fs_}, partition));
