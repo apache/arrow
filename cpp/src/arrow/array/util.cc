@@ -333,7 +333,7 @@ class RepeatedArrayFactory {
       fields.emplace_back();
       ARROW_ASSIGN_OR_RAISE(fields.back(), MakeArrayFromScalar(*value, length_, pool_));
     }
-    out_ = std::make_shared<StructArray>(scalar_.type, std::move(fields));
+    out_ = std::make_shared<StructArray>(scalar_.type, length_, std::move(fields));
     return Status::OK();
   }
 

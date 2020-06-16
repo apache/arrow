@@ -313,20 +313,25 @@ TEST_F(TestArray, TestMakeArrayOfNull) {
 
 TEST_F(TestArray, TestMakeArrayFromScalar) {
   auto hello = Buffer::FromString("hello");
-  std::shared_ptr<Scalar> scalars[] = {
-      std::make_shared<BooleanScalar>(false),
-      std::make_shared<Int8Scalar>(3),
-      std::make_shared<UInt16Scalar>(3),
-      std::make_shared<Int32Scalar>(3),
-      std::make_shared<UInt64Scalar>(3),
-      std::make_shared<DoubleScalar>(3.0),
-      std::make_shared<BinaryScalar>(hello),
-      std::make_shared<LargeBinaryScalar>(hello),
-      std::make_shared<FixedSizeBinaryScalar>(
-          hello, fixed_size_binary(static_cast<int32_t>(hello->size()))),
-      std::make_shared<Decimal128Scalar>(Decimal128(10), decimal(16, 4)),
-      std::make_shared<StringScalar>(hello),
-      std::make_shared<LargeStringScalar>(hello)};
+  ScalarVector scalars{std::make_shared<BooleanScalar>(false),
+                       std::make_shared<Int8Scalar>(3),
+                       std::make_shared<UInt16Scalar>(3),
+                       std::make_shared<Int32Scalar>(3),
+                       std::make_shared<UInt64Scalar>(3),
+                       std::make_shared<DoubleScalar>(3.0),
+                       std::make_shared<BinaryScalar>(hello),
+                       std::make_shared<LargeBinaryScalar>(hello),
+                       std::make_shared<FixedSizeBinaryScalar>(
+                           hello, fixed_size_binary(static_cast<int32_t>(hello->size()))),
+                       std::make_shared<Decimal128Scalar>(Decimal128(10), decimal(16, 4)),
+                       std::make_shared<StringScalar>(hello),
+                       std::make_shared<LargeStringScalar>(hello),
+                       std::make_shared<StructScalar>(
+                           ScalarVector{
+                               std::make_shared<Int32Scalar>(2),
+                               std::make_shared<Int32Scalar>(6),
+                           },
+                           struct_({field("min", int32()), field("max", int32())}))};
 
   for (int64_t length : {16}) {
     for (auto scalar : scalars) {
