@@ -42,26 +42,32 @@ mean.ChunkedArray <- mean.Array
 #' @export
 mean.Scalar <- mean.Array
 
+#' @export
 min.Array <- function(..., na.rm = FALSE) {
-  extrema <- scalar_aggregate("minmax", ..., na.rm = na.rm)
-  # TODO: StructScalar needs field accessor methods in C++: ARROW-9070
-  Scalar$create(as.vector(extrema)$min)
+  scalar_aggregate("minmax", ..., na.rm = na.rm)$GetFieldByName("min")
+}
+
+#' @export
+max.Array <- function(..., na.rm = FALSE) {
+  scalar_aggregate("minmax", ..., na.rm = na.rm)$GetFieldByName("max")
 }
 
 scalar_aggregate <- function(FUN, ..., na.rm = FALSE) {
   a <- collect_arrays_from_dots(list(...))
   if (!na.rm && a$null_count > 0) {
-    # Arrow sum/mean function always drops NAs so handle that here
-    # https://issues.apache.org/jira/browse/ARROW-9054
-    Scalar$create(NA_integer_, type = a$type)
-  } else {
-    if (inherits(a$type, "Boolean")) {
-      # Bool sum/mean not implemented so cast to int
-      # https://issues.apache.org/jira/browse/ARROW-9055
-      a <- a$cast(int8())
+    if (FUN %in% c("mean", "sum")) {
+      # Arrow sum/mean function always drops NAs so handle that here
+      # https://issues.apache.org/jira/browse/ARROW-9054
+      return(Scalar$create(NA_integer_, type = a$type))
     }
-    shared_ptr(Scalar, call_function(FUN, a))
   }
+
+  if (inherits(a$type, "Boolean")) {
+    # Bool sum/mean not implemented so cast to int
+    # https://issues.apache.org/jira/browse/ARROW-9055
+    a <- a$cast(int8())
+  }
+  Scalar$create(call_function(FUN, a, options = list(na.rm = na.rm)))
 }
 
 collect_arrays_from_dots <- function(dots) {

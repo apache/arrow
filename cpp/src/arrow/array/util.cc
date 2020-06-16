@@ -327,6 +327,16 @@ class RepeatedArrayFactory {
     return Status::OK();
   }
 
+  Status Visit(const StructType& type) {
+    ArrayVector fields;
+    for (const auto& value : checked_cast<const StructScalar&>(scalar_).value) {
+      fields.emplace_back();
+      ARROW_ASSIGN_OR_RAISE(fields.back(), MakeArrayFromScalar(*value, length_, pool_));
+    }
+    out_ = std::make_shared<StructArray>(scalar_.type, length_, std::move(fields));
+    return Status::OK();
+  }
+
   Status Visit(const DataType& type) {
     return Status::NotImplemented("construction from scalar of type ", *scalar_.type);
   }

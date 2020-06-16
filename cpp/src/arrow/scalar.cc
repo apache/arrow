@@ -169,6 +169,14 @@ FixedSizeListScalar::FixedSizeListScalar(std::shared_ptr<Array> value)
     : BaseListScalar(
           value, fixed_size_list(value->type(), static_cast<int32_t>(value->length()))) {}
 
+Result<std::shared_ptr<Scalar>> StructScalar::field(FieldRef ref) const {
+  ARROW_ASSIGN_OR_RAISE(auto path, ref.FindOne(*type));
+  if (path.indices().size() != 1) {
+    return Status::NotImplemented("retrieval of nested fields from StructScalar");
+  }
+  return value[path.indices()[0]];
+}
+
 DictionaryScalar::DictionaryScalar(std::shared_ptr<DataType> type)
     : Scalar(std::move(type)),
       value(

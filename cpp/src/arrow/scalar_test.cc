@@ -433,4 +433,24 @@ TYPED_TEST(TestNumericScalar, Cast) {
   }
 }
 
+TEST(TestStructScalar, FieldAccess) {
+  StructScalar abc({MakeScalar(true), MakeNullScalar(int32()), MakeScalar("hello")},
+                   struct_({
+                       field("a", boolean()),
+                       field("b", int32()),
+                       field("b", utf8()),
+                   }));
+
+  ASSERT_OK_AND_ASSIGN(auto a, abc.field("a"));
+  AssertScalarsEqual(*a, *abc.value[0]);
+
+  ASSERT_RAISES(Invalid, abc.field("b").status());
+
+  ASSERT_OK_AND_ASSIGN(auto b, abc.field(1));
+  AssertScalarsEqual(*b, *abc.value[1]);
+
+  ASSERT_RAISES(Invalid, abc.field(5).status());
+  ASSERT_RAISES(Invalid, abc.field("c").status());
+}
+
 }  // namespace arrow

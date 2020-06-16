@@ -96,7 +96,6 @@ test_that("Bad input handling of call_function", {
 })
 
 test_that("min/max.Array", {
-  skip("arrow::MakeArrayFromScalar can't handle struct: ARROW-6604")
   ints <- 1:4
   a <- Array$create(ints)
   expect_is(min(a), "Scalar")
