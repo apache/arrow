@@ -429,7 +429,7 @@ TEST_F(TestTable, CombineChunks) {
   }
 }
 
-TEST_F(TestTable, CombineChunksStringColumn) {
+TEST_F(TestTable, LARGE_MEMORY_TEST(CombineChunksStringColumn)) {
   schema_ = schema({field("str", utf8())});
   arrays_ = {nullptr};
 
