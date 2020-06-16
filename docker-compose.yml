@@ -138,6 +138,8 @@ services:
   #     ubuntu-cpp
 
   conda-cpp:
+    # C++ build in conda environment, including the doxygen docs.
+    #
     # Usage:
     #   docker-compose build conda-cpp
     #   docker-compose run --rm conda-cpp
@@ -165,7 +167,7 @@ services:
       - .:/arrow:delegated
       - .docker/${ARCH}-conda-ccache:/ccache:delegated
     command: &cpp-conda-command
-      ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
+      ["/arrow/ci/scripts/cpp_build.sh /arrow /build true &&
         /arrow/ci/scripts/cpp_test.sh /arrow /build"]
 
   conda-cpp-valgrind:
