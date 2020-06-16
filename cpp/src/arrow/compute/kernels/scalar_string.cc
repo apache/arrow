@@ -31,6 +31,21 @@ namespace internal {
 
 namespace {
 
+// Code units in the range [a-z] can only be an encoding of an ascii
+// character/codepoint, not the 2nd, 3rd or 4th code unit (byte) of an different
+// codepoint. This guaranteed by non-overlap design of the unicode standard. (see
+// section 2.5 of Unicode Standard Core Specification v13.0)
+
+uint8_t ascii_tolower(uint8_t utf8_code_unit) {
+  return ((utf8_code_unit >= 'A') && (utf8_code_unit <= 'Z')) ? (utf8_code_unit + 32)
+                                                              : utf8_code_unit;
+}
+
+uint8_t ascii_toupper(uint8_t utf8_code_unit) {
+  return ((utf8_code_unit >= 'a') && (utf8_code_unit <= 'z')) ? (utf8_code_unit - 32)
+                                                              : utf8_code_unit;
+}
+
 // TODO: optional ascii validation
 
 struct AsciiLength {
@@ -48,6 +63,12 @@ struct Utf8Transform {
                                uint8_t* output) {
     offset_type input_string_leftover_ncodeunits = input_string_ncodeunits;
     offset_type encoded_nbytes_total = 0;
+    // try ascii first (much faster)
+    while (input_string_leftover_ncodeunits && (*input < 128)) {
+      *output++ = Base::TransformAscii(*input++);
+      input_string_leftover_ncodeunits--;
+      encoded_nbytes_total++;
+    }
     while (input_string_leftover_ncodeunits) {
       utf8proc_int32_t decoded_codepoint;
       utf8proc_ssize_t decoded_nbytes =
@@ -136,13 +157,19 @@ struct Utf8Transform {
 
 template <typename Type>
 struct Utf8Upper : Utf8Transform<Type, Utf8Upper<Type>> {
-  static utf8proc_int32_t TransformCodepoint(utf8proc_int32_t codepoint) {
+  inline static utf8proc_int32_t TransformAscii(utf8proc_int8_t utf8_code_unit) {
+    return ascii_toupper(utf8_code_unit);
+  }
+  inline static utf8proc_int32_t TransformCodepoint(utf8proc_int32_t codepoint) {
     return utf8proc_toupper(codepoint);
   }
 };
 
 template <typename Type>
 struct Utf8Lower : Utf8Transform<Type, Utf8Lower<Type>> {
+  inline static utf8proc_int32_t TransformAscii(utf8proc_int8_t utf8_code_unit) {
+    return ascii_tolower(utf8_code_unit);
+  }
   static utf8proc_int32_t TransformCodepoint(utf8proc_int32_t codepoint) {
     return utf8proc_tolower(codepoint);
   }
@@ -212,16 +239,7 @@ void StringDataTransform(KernelContext* ctx, const ExecBatch& batch,
 }
 
 void TransformAsciiUpper(const uint8_t* input, int64_t length, uint8_t* output) {
-  for (int64_t i = 0; i < length; ++i) {
-    const uint8_t utf8_code_unit = *input++;
-    // Code units in the range [a-z] can only be an encoding of an ascii
-    // character/codepoint, not the 2nd, 3rd or 4th code unit (byte) of an different
-    // codepoint. This guaranteed by non-overlap design of the unicode standard. (see
-    // section 2.5 of Unicode Standard Core Specification v13.0)
-    *output++ = ((utf8_code_unit >= 'a') && (utf8_code_unit <= 'z'))
-                    ? (utf8_code_unit - 32)
-                    : utf8_code_unit;
-  }
+  std::transform(input, input + length, output, ascii_toupper);
 }
 
 template <typename Type>
@@ -232,13 +250,7 @@ struct AsciiUpper {
 };
 
 void TransformAsciiLower(const uint8_t* input, int64_t length, uint8_t* output) {
-  for (int64_t i = 0; i < length; ++i) {
-    // As with TransformAsciiUpper, the same guarantee holds for the range [A-Z]
-    const uint8_t utf8_code_unit = *input++;
-    *output++ = ((utf8_code_unit >= 'A') && (utf8_code_unit <= 'Z'))
-                    ? (utf8_code_unit + 32)
-                    : utf8_code_unit;
-  }
+  std::transform(input, input + length, output, ascii_tolower);
 }
 
 template <typename Type>
