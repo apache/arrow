@@ -18,6 +18,7 @@
 #include <memory>
 
 #include "./arrow_types.h"
+#include "./arrow_vctrs.h"
 
 #if defined(ARROW_R_WITH_ARROW)
 #include <arrow/array/array_base.h>
@@ -201,6 +202,67 @@ struct VectorToArrayConverter {
     return Status::OK();
   }
 
+  template <typename T>
+  arrow::enable_if_t<is_struct_type<T>::value, Status> Visit(const T& type) {
+    using BuilderType = typename TypeTraits<T>::BuilderType;
+    ARROW_RETURN_IF(!Rf_inherits(x, "data.frame"),
+                    Status::RError("Expecting a data frame"));
+
+    auto* struct_builder = checked_cast<BuilderType*>(builder);
+
+    int64_t n = vctrs::short_vec_size(x);
+    RETURN_NOT_OK(struct_builder->Reserve(n));
+    RETURN_NOT_OK(struct_builder->AppendValues(n, NULLPTR));
+
+    int num_fields = struct_builder->num_fields();
+
+    // Visit each column of the data frame using the associated
+    // field builder
+    for (R_xlen_t i = 0; i < num_fields; i++) {
+      auto column_builder = struct_builder->field_builder(i);
+      SEXP x_i = VECTOR_ELT(x, i);
+      int64_t n_i = vctrs::short_vec_size(x_i);
+      if (n_i != n) {
+        SEXP name_i = STRING_ELT(Rf_getAttrib(x, R_NamesSymbol), i);
+        return Status::RError("Degenerated data frame. Column '", CHAR(name_i),
+                              "' has size ", n_i, " instead of the number of rows: ", n);
+      }
+
+      VectorToArrayConverter converter{x_i, column_builder};
+      RETURN_NOT_OK(arrow::VisitTypeInline(*column_builder->type().get(), &converter));
+    }
+
+    return Status::OK();
+  }
+
+  template <typename T>
+  arrow::enable_if_t<std::is_same<DictionaryType, T>::value, Status> Visit(
+      const T& type) {
+    // TODO: perhaps this replaces MakeFactorArrayImpl ?
+
+    ARROW_RETURN_IF(!Rf_isFactor(x), Status::RError("Expecting a factor"));
+    int64_t n = vctrs::short_vec_size(x);
+
+    auto* dict_builder = checked_cast<StringDictionaryBuilder*>(builder);
+    RETURN_NOT_OK(dict_builder->Reserve(n));
+
+    SEXP levels = Rf_getAttrib(x, R_LevelsSymbol);
+    auto memo = VectorToArrayConverter::Visit(levels, utf8());
+    RETURN_NOT_OK(dict_builder->InsertMemoValues(*memo));
+
+    int* p_values = INTEGER(x);
+    for (int64_t i = 0; i < n; i++, ++p_values) {
+      int v = *p_values;
+      if (v == NA_INTEGER) {
+        RETURN_NOT_OK(dict_builder->AppendNull());
+      } else {
+        RETURN_NOT_OK(dict_builder->Append(CHAR(STRING_ELT(levels, v - 1))));
+      }
+    }
+
+    return Status::OK();
+  }
+
   Status Visit(const arrow::DataType& type) {
     return Status::NotImplemented("Converting vector to arrow type ", type.ToString(),
                                   " not implemented");
@@ -221,10 +283,6 @@ struct VectorToArrayConverter {
   SEXP x;
   arrow::ArrayBuilder* builder;
 };
-
-std::shared_ptr<Array> MakeStringArray(SEXP x, const std::shared_ptr<DataType>& type) {
-  return VectorToArrayConverter::Visit(x, type);
-}
 
 template <typename Type>
 std::shared_ptr<Array> MakeFactorArrayImpl(Rcpp::IntegerVector_ factor,
@@ -276,7 +334,7 @@ std::shared_ptr<Array> MakeFactorArrayImpl(Rcpp::IntegerVector_ factor,
   auto array_indices = MakeArray(array_indices_data);
 
   SEXP levels = Rf_getAttrib(factor, R_LevelsSymbol);
-  auto dict = MakeStringArray(levels, utf8());
+  auto dict = VectorToArrayConverter::Visit(levels, utf8());
 
   return ValueOrStop(DictionaryArray::FromArrays(type, array_indices, dict));
 }
@@ -1178,12 +1236,16 @@ std::shared_ptr<arrow::Array> Array__from_vector(
 
   // treat strings separately for now
   if (type->id() == Type::STRING) {
-    return arrow::r::MakeStringArray(x, type);
+    return VectorToArrayConverter::Visit(x, type);
   }
 
   // factors only when type has been inferred
   if (type->id() == Type::DICTIONARY) {
     if (type_inferred || arrow::r::CheckCompatibleFactor(x, type)) {
+      // TODO: use VectorToArrayConverter instead, but it does not appear to work
+      // correctly with ordered dictionary yet
+      //
+      // return VectorToArrayConverter::Visit(x, type);
       return arrow::r::MakeFactorArray(x, type);
     }
 
@@ -1199,6 +1261,12 @@ std::shared_ptr<arrow::Array> Array__from_vector(
     if (!type_inferred) {
       StopIfNotOk(arrow::r::CheckCompatibleStruct(x, type));
     }
+    // TODO: when the type has been infered, we could go through
+    //       VectorToArrayConverter:
+    //
+    // else {
+    //   return VectorToArrayConverter::Visit(df, type);
+    // }
 
     return arrow::r::MakeStructArray(x, type);
   }
