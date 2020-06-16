@@ -25,6 +25,7 @@
 #include <utility>
 
 #include "arrow/array/array_base.h"
+#include "arrow/array/array_binary.h"
 #include "arrow/array/array_nested.h"
 #include "arrow/array/concatenate.h"
 #include "arrow/array/data.h"
@@ -35,6 +36,7 @@
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/vector.h"
@@ -721,9 +723,32 @@ Result<std::shared_ptr<Table>> Table::CombineChunks(MemoryPool* pool) const {
   const int ncolumns = num_columns();
   std::vector<std::shared_ptr<ChunkedArray>> compacted_columns(ncolumns);
   for (int i = 0; i < ncolumns; ++i) {
-    auto col = column(i);
+    const auto& col = column(i);
     if (col->num_chunks() <= 1) {
       compacted_columns[i] = col;
+      continue;
+    }
+
+    if (is_binary_like(col->type()->id())) {
+      // ARROW-5744 Allow binary columns to be combined into multiple chunks to avoid
+      // buffer overflow
+      ArrayVector chunks;
+      int chunk_i = 0;
+      while (chunk_i < col->num_chunks()) {
+        ArrayVector safe_chunks;
+        int64_t data_length = 0;
+        for (; chunk_i < col->num_chunks(); ++chunk_i) {
+          const auto& chunk = col->chunk(chunk_i);
+          data_length += checked_cast<const BinaryArray&>(*chunk).total_values_length();
+          if (data_length >= std::numeric_limits<int32_t>::max() - 1) {
+            break;
+          }
+          safe_chunks.push_back(chunk);
+        }
+        chunks.emplace_back();
+        RETURN_NOT_OK(Concatenate(safe_chunks, pool, &chunks.back()));
+      }
+      compacted_columns[i] = std::make_shared<ChunkedArray>(std::move(chunks));
     } else {
       std::shared_ptr<Array> compacted;
       RETURN_NOT_OK(Concatenate(col->chunks(), pool, &compacted));
