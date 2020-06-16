@@ -100,6 +100,8 @@ def _simple_binary_function(name):
 ascii_length = _simple_unary_function('ascii_length')
 ascii_upper = _simple_unary_function('ascii_upper')
 ascii_lower = _simple_unary_function('ascii_lower')
+utf8_upper = _simple_unary_function('utf8_upper')
+utf8_lower = _simple_unary_function('utf8_lower')
 
 is_valid = _simple_unary_function('is_valid')
 is_null = _simple_unary_function('is_null')
