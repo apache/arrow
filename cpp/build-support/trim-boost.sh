@@ -32,7 +32,9 @@ set -eu
 : ${BOOST_URL:=https://dl.bintray.com/boostorg/release/${BOOST_VERSION}/source/${BOOST_FILE}.tar.gz}
 
 # Arrow tests require these
-BOOST_LIBS="process.hpp filesystem.hpp"
+# TODO: is system still required? We declare `--with-libraries=filesystem,regex,system`
+# in cmake, but there is no #include <boost/system.hpp> in our source anymore
+BOOST_LIBS="system.hpp process.hpp filesystem.hpp"
 # Add these to be able to build those
 BOOST_LIBS="$BOOST_LIBS config build boost_install headers log predef"
 # Parquet needs this (if using gcc < 4.9)
