@@ -47,6 +47,7 @@ RUN conda create -n arrow -q \
         --file arrow/ci/conda_env_cpp.yml \
         --file arrow/ci/conda_env_gandiva.yml \
         compilers \
+        doxygen \
         gdb \
         git \
         valgrind && \
