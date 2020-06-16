@@ -215,7 +215,7 @@ test_that("array supports POSIXct (ARROW-3340)", {
   expect_array_roundtrip(times2, timestamp("us", "US/Eastern"))
 })
 
-test_that("array supports POSIXlt and without timezone", {
+test_that("array supports POSIXct without timezone", {
   # Make sure timezone is not set
   tz <- Sys.getenv("TZ")
   Sys.setenv(TZ = "")

@@ -10,12 +10,14 @@ vignette: >
 
 The Apache Arrow C++ library provides rich, powerful features for working with columnar data. The `arrow` R package provides both a low-level interface to the C++ library and some higher-level, R-flavored tools for working with it. This vignette provides an overview of how the pieces fit together, and it describes the conventions that the classes and methods follow in R.
 
-# Multi-file datasets
+# Features
+
+## Multi-file datasets
 
 The `arrow` package lets you work efficiently with large, multi-file datasets
 using `dplyr` methods. See `vignette("dataset", package = "arrow")` for an overview.
 
-# Reading and writing files
+## Reading and writing files
 
 `arrow` provides some simple functions for using the Arrow C++ library to read and write files.
 These functions are designed to drop into your normal R workflow
@@ -70,14 +72,14 @@ memory layout of the Arrow columnar format and are not intended as a direct
 replacement for existing R CSV readers (`base::read.csv`, `readr::read_csv`,
 `data.table::fread`) that return an R `data.frame`.
 
-# Working with Arrow data in Python
+## Working with Arrow data in Python
 
 Using [`reticulate`](https://rstudio.github.io/reticulate/), `arrow` lets you
 share data between R and Python (`pyarrow`) efficiently, enabling you to take
 advantage of the vibrant ecosystem of Python packages that build on top of
 Apache Arrow. See `vignette("python", package = "arrow")` for details.
 
-# Access to Arrow messages, buffers, and streams
+## Access to Arrow messages, buffers, and streams
 
 The `arrow` package also provides many lower-level bindings to the C++ library, which enable you
 to access and manipulate Arrow objects. You can use these to build connectors
@@ -86,7 +88,75 @@ to other applications and services that use Arrow. One example is Spark: the
 move data to and from Spark, yielding [significant performance
 gains](http://arrow.apache.org/blog/2019/01/25/r-spark-improvements/).
 
-# Class structure and package conventions
+# Internals
+
+## Mapping of R <--> Arrow types
+
+Arrow has a rich data type system that includes direct parallels with R's data types and much more.
+
+In the tables, entries with a `-` are not currently implemented.
+
+### R to Arrow
+
+| R type                   | Arrow type |
+|--------------------------|------------|
+| logical                  | boolean    |
+| integer                  | int32      |
+| double ("numeric")       | float64    |
+| character                | utf8       |
+| factor                   | dictionary |
+| raw                      | uint8      |
+| Date                     | date32     |
+| POSIXct                  | timestamp  |
+| POSIXlt                  | -          |
+| data.frame               | struct     |
+| list^+^                  | list       |
+| bit64::integer64         | int64      |
+| difftime                 | time32     |
+| vctrs::vctrs_unspecified | null       |
+
+^+^: Only lists where all elements are the same type are able to be translated to Arrow list type (which is a "list of" some type).
+
+### Arrow to R
+
+| Arrow type        | R type                   |
+|-------------------|--------------------------|
+| boolean           | logical                  |
+| int8              | integer                  |
+| int16             | integer                  |
+| int32             | integer                  |
+| int64             | bit64::integer64         |
+| uint8             | integer                  |
+| uint16            | integer                  |
+| uint32            | double                   |
+| uint64            | -                        |
+| float16           | -                        |
+| float32           | double                   |
+| float64           | double                   |
+| utf8              | character                |
+| binary            | -                        |
+| fixed_size_binary | -                        |
+| date32            | Date                     |
+| date64            | POSIXct                  |
+| time32            | hms::difftime            |
+| time64            | hms::difftime            |
+| timestamp         | POSIXct                  |
+| duration          | -                        |
+| decimal           | double                   |
+| dictionary        | factor^++^               |
+| list              | list                     |
+| fixed_size_list   | -                        |
+| struct            | data.frame               |
+| null              | vctrs::vctrs_unspecified |
+| map               | -                        |
+| union             | -                        |
+| large_utf8        | -                        |
+| large_binary      | -                        |
+| large_list        | -                        |
+
+^++^: Due to the limitation of R `factor`s, Arrow `dictionary` values are coerced to string when translated to R if they are not already strings.
+
+## Class structure and package conventions
 
 C++ is an object-oriented language, so the core logic of the Arrow library is encapsulated in classes and methods. In the R package, these classes are implemented as `R6` reference classes, most of which are exported from the namespace.
 
