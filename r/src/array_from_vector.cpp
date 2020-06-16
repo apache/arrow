@@ -203,7 +203,7 @@ struct VectorToArrayConverter {
   }
 
   template <typename T>
-  arrow::enable_if_t<arrow::is_struct_type<T>::value, Status> Visit(const T& type) {
+  arrow::enable_if_t<is_struct_type<T>::value, Status> Visit(const T& type) {
     using BuilderType = typename TypeTraits<T>::BuilderType;
     ARROW_RETURN_IF(!Rf_inherits(x, "data.frame"),
                     Status::RError("Expecting a data frame"));
@@ -230,6 +230,31 @@ struct VectorToArrayConverter {
 
       VectorToArrayConverter converter{x_i, column_builder};
       RETURN_NOT_OK(arrow::VisitTypeInline(*column_builder->type().get(), &converter));
+    }
+
+    return Status::OK();
+  }
+
+  template <typename T>
+  arrow::enable_if_t<std::is_same<DictionaryType, T>::value, Status> Visit(
+      const T& type) {
+    // TODO: perhaps this replaces MakeFactorArrayImpl ?
+
+    ARROW_RETURN_IF(!Rf_isFactor(x), Status::RError("Expecting a factor"));
+    int64_t n = vctrs::short_vec_size(x);
+
+    auto* dict_builder = checked_cast<StringDictionaryBuilder*>(builder);
+    RETURN_NOT_OK(dict_builder->Reserve(n));
+
+    int* p_values = INTEGER(x);
+    SEXP levels = Rf_getAttrib(x, R_LevelsSymbol);
+    for (int64_t i = 0; i < n; i++, ++p_values) {
+      int v = *p_values;
+      if (v == NA_INTEGER) {
+        RETURN_NOT_OK(dict_builder->AppendNull());
+      } else {
+        RETURN_NOT_OK(dict_builder->Append(CHAR(STRING_ELT(levels, v - 1))));
+      }
     }
 
     return Status::OK();
