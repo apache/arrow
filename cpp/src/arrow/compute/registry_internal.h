@@ -31,6 +31,7 @@ void RegisterScalarCast(FunctionRegistry* registry);
 void RegisterScalarComparison(FunctionRegistry* registry);
 void RegisterScalarSetLookup(FunctionRegistry* registry);
 void RegisterScalarStringAscii(FunctionRegistry* registry);
+void RegisterScalarValidity(FunctionRegistry* registry);
 
 // Vector functions
 void RegisterVectorFilter(FunctionRegistry* registry);

@@ -350,7 +350,7 @@ class TestDecryptionConfiguration
         parquet::DoubleReader* double_reader =
             static_cast<parquet::DoubleReader*>(column_reader.get());
 
-        // Get the ColumnChunkMetaData for the Dobule column
+        // Get the ColumnChunkMetaData for the Double column
         std::unique_ptr<ColumnChunkMetaData> double_md = rg_metadata->ColumnChunk(5);
 
         // Read all the rows in the column

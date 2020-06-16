@@ -55,7 +55,7 @@ class ARROW_EXPORT KernelContext {
   explicit KernelContext(ExecContext* exec_ctx) : exec_ctx_(exec_ctx) {}
 
   /// \brief Allocate buffer from the context's memory pool. The contents are
-  /// not uninitialized.
+  /// not initialized.
   Result<std::shared_ptr<Buffer>> Allocate(int64_t nbytes);
 
   /// \brief Allocate buffer for bitmap from the context's memory pool. Like
@@ -191,8 +191,8 @@ class ARROW_EXPORT InputType {
       : kind_(ANY_TYPE), shape_(shape) {}
 
   /// \brief Accept an exact value type.
-  InputType(std::shared_ptr<DataType> type,
-            ValueDescr::Shape shape = ValueDescr::ANY)  // NOLINT implicit construction
+  InputType(std::shared_ptr<DataType> type,  // NOLINT implicit construction
+            ValueDescr::Shape shape = ValueDescr::ANY)
       : kind_(EXACT_TYPE), shape_(shape), type_(std::move(type)) {}
 
   /// \brief Accept an exact value type and shape provided by a ValueDescr.
@@ -200,7 +200,7 @@ class ARROW_EXPORT InputType {
       : InputType(descr.type, descr.shape) {}
 
   /// \brief Use the passed TypeMatcher to type check.
-  InputType(std::shared_ptr<TypeMatcher> type_matcher,
+  InputType(std::shared_ptr<TypeMatcher> type_matcher,  // NOLINT implicit construction
             ValueDescr::Shape shape = ValueDescr::ANY)
       : kind_(USE_TYPE_MATCHER), shape_(shape), type_matcher_(std::move(type_matcher)) {}
 
@@ -329,7 +329,8 @@ class ARROW_EXPORT OutputType {
   /// \brief Output the exact type and shape provided by a ValueDescr
   OutputType(ValueDescr descr);  // NOLINT implicit construction
 
-  explicit OutputType(Resolver resolver) : kind_(COMPUTED), resolver_(resolver) {}
+  explicit OutputType(Resolver resolver)
+      : kind_(COMPUTED), resolver_(std::move(resolver)) {}
 
   OutputType(const OutputType& other) {
     this->kind_ = other.kind_;
@@ -529,7 +530,7 @@ struct Kernel {
   Kernel() {}
 
   Kernel(std::shared_ptr<KernelSignature> sig, KernelInit init)
-      : signature(std::move(sig)), init(init) {}
+      : signature(std::move(sig)), init(std::move(init)) {}
 
   Kernel(std::vector<InputType> in_types, OutputType out_type, KernelInit init)
       : Kernel(KernelSignature::Make(std::move(in_types), out_type), init) {}
@@ -566,11 +567,11 @@ struct ArrayKernel : public Kernel {
 
   ArrayKernel(std::shared_ptr<KernelSignature> sig, ArrayKernelExec exec,
               KernelInit init = NULLPTR)
-      : Kernel(std::move(sig), init), exec(exec) {}
+      : Kernel(std::move(sig), init), exec(std::move(exec)) {}
 
   ArrayKernel(std::vector<InputType> in_types, OutputType out_type, ArrayKernelExec exec,
               KernelInit init = NULLPTR)
-      : Kernel(std::move(in_types), std::move(out_type), init), exec(exec) {}
+      : Kernel(std::move(in_types), std::move(out_type), init), exec(std::move(exec)) {}
 
   /// \brief Perform a single invocation of this kernel. Depending on the
   /// implementation, it may only write into preallocated memory, while in some
@@ -617,11 +618,14 @@ struct VectorKernel : public ArrayKernel {
 
   VectorKernel(std::vector<InputType> in_types, OutputType out_type, ArrayKernelExec exec,
                KernelInit init = NULLPTR, VectorFinalize finalize = NULLPTR)
-      : ArrayKernel(std::move(in_types), out_type, exec, init), finalize(finalize) {}
+      : ArrayKernel(std::move(in_types), std::move(out_type), std::move(exec),
+                    std::move(init)),
+        finalize(std::move(finalize)) {}
 
   VectorKernel(std::shared_ptr<KernelSignature> sig, ArrayKernelExec exec,
                KernelInit init = NULLPTR, VectorFinalize finalize = NULLPTR)
-      : ArrayKernel(std::move(sig), exec, init), finalize(finalize) {}
+      : ArrayKernel(std::move(sig), std::move(exec), std::move(init)),
+        finalize(std::move(finalize)) {}
 
   /// \brief For VectorKernel, convert intermediate results into finalized
   /// results. Mutates input argument. Some kernels may accumulate state
@@ -679,9 +683,9 @@ struct ScalarAggregateKernel : public Kernel {
                         ScalarAggregateConsume consume, ScalarAggregateMerge merge,
                         ScalarAggregateFinalize finalize)
       : Kernel(std::move(sig), init),
-        consume(consume),
-        merge(merge),
-        finalize(finalize) {}
+        consume(std::move(consume)),
+        merge(std::move(merge)),
+        finalize(std::move(finalize)) {}
 
   ScalarAggregateKernel(std::vector<InputType> in_types, OutputType out_type,
                         KernelInit init, ScalarAggregateConsume consume,

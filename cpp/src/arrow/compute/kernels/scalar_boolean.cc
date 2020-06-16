@@ -81,8 +81,11 @@ void ComputeKleene(ComputeWord&& compute_word, KernelContext* ctx, const ArrayDa
 }
 
 struct Invert {
-  static void Call(KernelContext* ctx, bool value) {
-    ctx->SetStatus(Status::NotImplemented("NYI"));
+  static void Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
+    if (in.is_valid) {
+      checked_cast<BooleanScalar*>(out)->value =
+          !checked_cast<const BooleanScalar&>(in).value;
+    }
   }
 
   static void Call(KernelContext* ctx, const ArrayData& in, ArrayData* out) {

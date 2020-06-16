@@ -215,7 +215,8 @@ ARROW_EXPORT void AssertSchemaNotEqual(const std::shared_ptr<Schema>& lhs,
 ARROW_EXPORT void AssertTablesEqual(const Table& expected, const Table& actual,
                                     bool same_chunk_layout = true, bool flatten = false);
 
-ARROW_EXPORT void AssertDatumsEqual(const Datum& expected, const Datum& actual);
+ARROW_EXPORT void AssertDatumsEqual(const Datum& expected, const Datum& actual,
+                                    bool verbose = false);
 
 template <typename C_TYPE>
 void AssertNumericDataEqual(const C_TYPE* raw_data,

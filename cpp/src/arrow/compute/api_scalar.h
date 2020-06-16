@@ -221,6 +221,30 @@ ARROW_EXPORT
 Result<Datum> Match(const Datum& values, const Datum& value_set,
                     ExecContext* ctx = NULLPTR);
 
+/// \brief IsValid returns true for each element of `values` that is not null,
+/// false otherwise
+///
+/// \param[in] values input to examine for validity
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 1.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> IsValid(const Datum& values, ExecContext* ctx = NULLPTR);
+
+/// \brief IsNull returns true for each element of `values` that is null,
+/// false otherwise
+///
+/// \param[in] values input to examine for nullity
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 1.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> IsNull(const Datum& values, ExecContext* ctx = NULLPTR);
+
 // ----------------------------------------------------------------------
 // Temporal functions
 

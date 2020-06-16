@@ -265,7 +265,7 @@ class NullPropagator {
         }
       } else {
         // Scalar
-        is_all_null = true;
+        is_all_null = !value->scalar()->is_valid;
       }
     }
     if (!is_all_null) {
@@ -591,9 +591,18 @@ class ScalarExecutor : public FunctionExecutorImpl<ScalarFunction> {
     Datum out;
     RETURN_NOT_OK(PrepareNextOutput(batch, &out));
 
-    if (kernel_->null_handling == NullHandling::INTERSECTION &&
-        output_descr_.shape == ValueDescr::ARRAY) {
-      RETURN_NOT_OK(PropagateNulls(&kernel_ctx_, batch, out.mutable_array()));
+    if (kernel_->null_handling == NullHandling::INTERSECTION) {
+      if (output_descr_.shape == ValueDescr::ARRAY) {
+        RETURN_NOT_OK(PropagateNulls(&kernel_ctx_, batch, out.mutable_array()));
+      } else {
+        // set scalar validity
+        out.scalar()->is_valid =
+            std::all_of(batch.values.begin(), batch.values.end(),
+                        [](const Datum& input) { return input.scalar()->is_valid; });
+      }
+    } else if (kernel_->null_handling == NullHandling::OUTPUT_NOT_NULL &&
+               output_descr_.shape == ValueDescr::SCALAR) {
+      out.scalar()->is_valid = true;
     }
 
     kernel_->exec(&kernel_ctx_, batch, &out);

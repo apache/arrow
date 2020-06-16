@@ -355,6 +355,7 @@ if(ARROW_COMPUTE)
               compute/kernels/scalar_compare.cc
               compute/kernels/scalar_set_lookup.cc
               compute/kernels/scalar_string.cc
+              compute/kernels/scalar_validity.cc
               compute/kernels/vector_filter.cc
               compute/kernels/vector_hash.cc
               compute/kernels/vector_sort.cc

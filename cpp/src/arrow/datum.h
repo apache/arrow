@@ -261,6 +261,9 @@ struct ARROW_EXPORT Datum {
 
   bool Equals(const Datum& other) const;
 
+  bool operator==(const Datum& other) const { return Equals(other); }
+  bool operator!=(const Datum& other) const { return !Equals(other); }
+
   std::string ToString() const;
 };
 

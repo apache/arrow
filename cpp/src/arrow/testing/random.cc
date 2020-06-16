@@ -262,5 +262,61 @@ std::shared_ptr<Array> RandomArrayGenerator::Offsets(int64_t size, int32_t first
   return std::make_shared<Int32Array>(array_data);
 }
 
+struct RandomArrayGeneratorOfImpl {
+  Status Visit(const NullType&) {
+    out_ = std::make_shared<NullArray>(size_);
+    return Status::OK();
+  }
+
+  Status Visit(const BooleanType&) {
+    double probability = 0.25;
+    out_ = rag_->Boolean(size_, probability, null_probability_);
+    return Status::OK();
+  }
+
+  template <typename T>
+  enable_if_number<T, Status> Visit(const T&) {
+    auto max = std::numeric_limits<typename T::c_type>::max();
+    auto min = std::numeric_limits<typename T::c_type>::lowest();
+
+    out_ = rag_->Numeric<T>(size_, min, max, null_probability_);
+    return Status::OK();
+  }
+
+  template <typename T>
+  enable_if_base_binary<T, Status> Visit(const T& t) {
+    int32_t min_length = 0;
+    auto max_length = static_cast<int32_t>(std::sqrt(size_));
+
+    if (t.layout().buffers[1].byte_width == sizeof(int32_t)) {
+      out_ = rag_->String(size_, min_length, max_length, null_probability_);
+    } else {
+      out_ = rag_->LargeString(size_, min_length, max_length, null_probability_);
+    }
+    return out_->View(type_).Value(&out_);
+  }
+
+  Status Visit(const DataType& t) {
+    return Status::NotImplemented("generation of random arrays of type ", t);
+  }
+
+  std::shared_ptr<Array> Finish() && {
+    DCHECK_OK(VisitTypeInline(*type_, this));
+    return std::move(out_);
+  }
+
+  RandomArrayGenerator* rag_;
+  const std::shared_ptr<DataType>& type_;
+  int64_t size_;
+  double null_probability_;
+  std::shared_ptr<Array> out_;
+};
+
+std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(std::shared_ptr<DataType> type,
+                                                     int64_t size,
+                                                     double null_probability) {
+  return RandomArrayGeneratorOfImpl{this, type, size, null_probability, nullptr}.Finish();
+}
+
 }  // namespace random
 }  // namespace arrow

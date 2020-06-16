@@ -250,6 +250,21 @@ class ARROW_EXPORT RandomArrayGenerator {
                                            int32_t min_length, int32_t max_length,
                                            double null_probability = 0);
 
+  /// \brief Randomly generate an Array of the specified type, size, and null_probability.
+  ///
+  /// Generation parameters other than size and null_probability are determined based on
+  /// the type of Array to be generated.
+  /// If boolean the probabilities of true,false values are 0.25,0.75 respectively.
+  /// If numeric min,max will be the least and greatest representable values.
+  /// If string min_length,max_length will be 0,sqrt(size) respectively.
+  ///
+  /// \param[in] type the type of Array to generate
+  /// \param[in] size the size of the Array to generate
+  /// \param[in] null_probability the probability of a slot being null
+  /// \return a generated Array
+  std::shared_ptr<Array> ArrayOf(std::shared_ptr<DataType> type, int64_t size,
+                                 double null_probability);
+
   SeedType seed() { return seed_distribution_(seed_rng_); }
 
  private:

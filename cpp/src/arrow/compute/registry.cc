@@ -104,6 +104,7 @@ static std::unique_ptr<FunctionRegistry> CreateBuiltInRegistry() {
   RegisterScalarComparison(registry.get());
   RegisterScalarSetLookup(registry.get());
   RegisterScalarStringAscii(registry.get());
+  RegisterScalarValidity(registry.get());
 
   // Aggregate functions
   RegisterScalarAggregateBasic(registry.get());

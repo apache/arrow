@@ -254,9 +254,27 @@ ASSERT_EQUAL_IMPL(Field, Field, "fields")
 ASSERT_EQUAL_IMPL(Schema, Schema, "schemas")
 #undef ASSERT_EQUAL_IMPL
 
-void AssertDatumsEqual(const Datum& expected, const Datum& actual) {
-  // TODO: Implement better print
-  ASSERT_TRUE(actual.Equals(expected));
+void AssertDatumsEqual(const Datum& expected, const Datum& actual, bool verbose) {
+  ASSERT_EQ(expected.kind(), actual.kind())
+      << "expected:" << expected.ToString() << " got:" << actual.ToString();
+
+  switch (expected.kind()) {
+    case Datum::SCALAR:
+      AssertScalarsEqual(*expected.scalar(), *actual.scalar(), verbose);
+      break;
+    case Datum::ARRAY: {
+      auto expected_array = expected.make_array();
+      auto actual_array = actual.make_array();
+      AssertArraysEqual(*expected_array, *actual_array, verbose);
+    } break;
+    case Datum::CHUNKED_ARRAY:
+      AssertChunkedEquivalent(*expected.chunked_array(), *actual.chunked_array());
+      break;
+    default:
+      // TODO: Implement better print
+      ASSERT_TRUE(actual.Equals(expected));
+      break;
+  }
 }
 
 std::shared_ptr<Array> ArrayFromJSON(const std::shared_ptr<DataType>& type,
