@@ -246,8 +246,11 @@ struct VectorToArrayConverter {
     auto* dict_builder = checked_cast<StringDictionaryBuilder*>(builder);
     RETURN_NOT_OK(dict_builder->Reserve(n));
 
-    int* p_values = INTEGER(x);
     SEXP levels = Rf_getAttrib(x, R_LevelsSymbol);
+    auto memo = VectorToArrayConverter::Visit(levels, utf8());
+    RETURN_NOT_OK(dict_builder->InsertMemoValues(*memo));
+
+    int* p_values = INTEGER(x);
     for (int64_t i = 0; i < n; i++, ++p_values) {
       int v = *p_values;
       if (v == NA_INTEGER) {
@@ -280,10 +283,6 @@ struct VectorToArrayConverter {
   SEXP x;
   arrow::ArrayBuilder* builder;
 };
-
-std::shared_ptr<Array> MakeStringArray(SEXP x, const std::shared_ptr<DataType>& type) {
-  return VectorToArrayConverter::Visit(x, type);
-}
 
 template <typename Type>
 std::shared_ptr<Array> MakeFactorArrayImpl(Rcpp::IntegerVector_ factor,
@@ -335,7 +334,7 @@ std::shared_ptr<Array> MakeFactorArrayImpl(Rcpp::IntegerVector_ factor,
   auto array_indices = MakeArray(array_indices_data);
 
   SEXP levels = Rf_getAttrib(factor, R_LevelsSymbol);
-  auto dict = MakeStringArray(levels, utf8());
+  auto dict = VectorToArrayConverter::Visit(levels, utf8());
 
   return ValueOrStop(DictionaryArray::FromArrays(type, array_indices, dict));
 }
@@ -1237,7 +1236,7 @@ std::shared_ptr<arrow::Array> Array__from_vector(
 
   // treat strings separately for now
   if (type->id() == Type::STRING) {
-    return arrow::r::MakeStringArray(x, type);
+    return VectorToArrayConverter::Visit(x, type);
   }
 
   // factors only when type has been inferred
