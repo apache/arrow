@@ -17,7 +17,7 @@
 # under the License.
 
 NCORES=$(($(grep -c ^processor /proc/cpuinfo) + 1))
-PROTOBUF_VERSION="3.7.1"
+PROTOBUF_VERSION="3.12.1"
 
 curl -sL "https://github.com/google/protobuf/releases/download/v${PROTOBUF_VERSION}/protobuf-all-${PROTOBUF_VERSION}.tar.gz" -o protobuf-${PROTOBUF_VERSION}.tar.gz
 tar xf protobuf-${PROTOBUF_VERSION}.tar.gz

@@ -693,6 +693,8 @@ def docker_compose(obj, src):
               help="Whether to force pull the image and its ancestor images")
 @click.option('--force-build/--no-build', default=True,
               help="Whether to force build the image and its ancestor images")
+@click.option('--build-only', default=False, is_flag=True,
+              help="Pull and/or build the image, but do not run it")
 @click.option('--use-cache/--no-cache', default=True,
               help="Whether to use cache when building the image and its "
                    "ancestor images")
@@ -706,8 +708,8 @@ def docker_compose(obj, src):
 @click.option('--volume', '-v', multiple=True,
               help="Set volume within the container")
 @click.pass_obj
-def docker_compose_run(obj, image, command, env, force_pull, force_build,
-                       use_cache, use_leaf_cache, dry_run, volume):
+def docker_compose_run(obj, image, command, *, env, force_pull, force_build,
+                       build_only, use_cache, use_leaf_cache, dry_run, volume):
     """Execute docker-compose builds.
 
     To see the available builds run `archery docker list`.
@@ -760,6 +762,7 @@ def docker_compose_run(obj, image, command, env, force_pull, force_build,
             env=env,
             force_pull=force_pull,
             force_build=force_build,
+            build_only=build_only,
             use_cache=use_cache,
             use_leaf_cache=use_leaf_cache,
             volumes=volume

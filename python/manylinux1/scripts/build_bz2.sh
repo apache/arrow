@@ -16,14 +16,15 @@
 # specific language governing permissions and limitations
 # under the License.
 
-export BZ2_VERSION="1.0.6"
+NCORES=$(($(grep -c ^processor /proc/cpuinfo) + 1))
+export BZ2_VERSION="1.0.8"
 export CFLAGS="-Wall -Winline -O2 -fPIC -D_FILE_OFFSET_BITS=64"
 
 curl -sL "https://www.sourceware.org/pub/bzip2/bzip2-${BZ2_VERSION}.tar.gz" -o bzip2-${BZ2_VERSION}.tar.gz
 tar xf bzip2-${BZ2_VERSION}.tar.gz
 
 pushd bzip2-${BZ2_VERSION}
-make PREFIX=/usr CFLAGS="$CFLAGS" install -j8
+make PREFIX=/usr/local CFLAGS="$CFLAGS" install -j${NCORES}
 popd
 
 rm -rf bzip2-${BZ2_VERSION}.tar.gz bzip2-${BZ2_VERSION}

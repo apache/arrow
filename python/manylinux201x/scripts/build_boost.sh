@@ -16,12 +16,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
-BOOST_VERSION=1.68.0
+BOOST_VERSION=1.73.0
 BOOST_VERSION_UNDERSCORE=${BOOST_VERSION//\./_}
 NCORES=$(($(grep -c ^processor /proc/cpuinfo) + 1))
 
-curl -sL https://sourceforge.net/projects/boost/files/boost/${BOOST_VERSION}/boost_${BOOST_VERSION_UNDERSCORE}.tar.gz -o /boost_${BOOST_VERSION_UNDERSCORE}.tar.gz
-tar xf boost_${BOOST_VERSION_UNDERSCORE}.tar.gz
+curl -sL https://sourceforge.net/projects/boost/files/boost/${BOOST_VERSION}/boost_${BOOST_VERSION_UNDERSCORE}.tar.bz2 -o /boost_${BOOST_VERSION_UNDERSCORE}.tar.bz2
+tar xf boost_${BOOST_VERSION_UNDERSCORE}.tar.bz2
 mkdir /arrow_boost
 pushd /boost_${BOOST_VERSION_UNDERSCORE}
 ./bootstrap.sh
@@ -32,9 +32,10 @@ popd
 pushd /arrow_boost
 ls -l
 ./bootstrap.sh
-./bjam -j${NCORES} dll-path="'\$ORIGIN/'" cxxflags='-std=c++11 -fPIC' cflags=-fPIC linkflags="-std=c++11" variant=release link=shared --prefix=/arrow_boost_dist --with-filesystem --with-date_time --with-system --with-regex install
+./b2 -j${NCORES} dll-path="'\$ORIGIN/'" cxxflags='-std=c++11 -fPIC' cflags=-fPIC linkflags="-std=c++11" variant=release link=shared --prefix=/arrow_boost_dist --with-filesystem --with-date_time --with-system --with-regex install
 popd
-rm -rf boost_${BOOST_VERSION_UNDERSCORE}.tar.gz boost_${BOOST_VERSION_UNDERSCORE} arrow_boost
+
+rm -rf boost_${BOOST_VERSION_UNDERSCORE}.tar.* boost_${BOOST_VERSION_UNDERSCORE} arrow_boost
 # Boost always install header-only parts but they also take up quite some space.
 # We don't need them in array, so don't persist them in the docker layer.
 # fusion 16.7 MiB

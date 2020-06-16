@@ -16,7 +16,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-export SNAPPY_VERSION="1.1.7"
+export SNAPPY_VERSION="1.1.8"
 curl -sL "https://github.com/google/snappy/archive/${SNAPPY_VERSION}.tar.gz" -o snappy-${SNAPPY_VERSION}.tar.gz
 tar xf snappy-${SNAPPY_VERSION}.tar.gz
 pushd snappy-${SNAPPY_VERSION}

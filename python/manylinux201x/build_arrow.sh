@@ -100,6 +100,7 @@ PATH="${CPYTHON_PATH}/bin:${PATH}" cmake \
     -DARROW_GANDIVA_JAVA=OFF \
     -DARROW_GANDIVA_PC_CXX_FLAGS="-isystem;/opt/rh/devtoolset-8/root/usr/include/c++/8/;-isystem;/opt/rh/devtoolset-8/root/usr/include/c++/8/x86_64-redhat-linux/" \
     -DARROW_GANDIVA=${BUILD_ARROW_GANDIVA} \
+    -DARROW_GRPC_USE_SHARED=OFF \
     -DARROW_HDFS=ON \
     -DARROW_JEMALLOC=ON \
     -DARROW_ORC=OFF \
@@ -120,6 +121,7 @@ PATH="${CPYTHON_PATH}/bin:${PATH}" cmake \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_INSTALL_LIBDIR=lib \
     -DCMAKE_INSTALL_PREFIX=/arrow-dist \
+    -DCMAKE_UNITY_BUILD=ON \
     -DOPENSSL_USE_STATIC_LIBS=ON \
     -DORC_SOURCE=BUNDLED \
     -DZLIB_ROOT=/usr/local \
@@ -152,10 +154,12 @@ $PIP install repaired_wheels/*.whl
 # Test that the modules are importable
 $PYTHON_INTERPRETER -c "
 import pyarrow
+import pyarrow.csv
 import pyarrow.dataset
 import pyarrow.flight
 import pyarrow.fs
 import pyarrow._hdfs
+import pyarrow.json
 import pyarrow.parquet
 import pyarrow.plasma
 "
