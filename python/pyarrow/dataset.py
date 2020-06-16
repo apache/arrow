@@ -29,7 +29,6 @@ from pyarrow._dataset import (  # noqa
     DirectoryPartitioning,
     FileFormat,
     FileFragment,
-    FileSource,
     FileSystemDataset,
     FileSystemDatasetFactory,
     FileSystemFactoryOptions,
@@ -317,15 +316,6 @@ def _ensure_multiple_sources(paths, filesystem=None):
     return filesystem, paths
 
 
-def _is_native_file_wrappable(source):
-    import io
-    return isinstance(source, (FileSource,
-                               io.BufferedIOBase,
-                               pa.NativeFile,
-                               pa.Buffer,
-                               ))
-
-
 def _ensure_single_source(path, filesystem=None):
     """
     Treat path as either a recursively traversable directory or a single file.
@@ -423,14 +413,7 @@ def _filesystem_dataset(source, schema=None, filesystem=None,
     partitioning = _ensure_partitioning(partitioning)
 
     if isinstance(source, (list, tuple)):
-        if all(_is_path_like(elem) for elem in source):
-            fs, paths_or_selector = _ensure_multiple_sources(source,
-                                                             filesystem)
-        else:
-            fs, paths_or_selector = _MockFileSystem(), source
-    elif isinstance(source, FileSource):
-        # filesystem will be ignored
-        fs, paths_or_selector = _MockFileSystem(), [source]
+        fs, paths_or_selector = _ensure_multiple_sources(source, filesystem)
     else:
         fs, paths_or_selector = _ensure_single_source(source, filesystem)
 
@@ -660,13 +643,8 @@ def dataset(source, schema=None, format=None, filesystem=None,
     # TODO(kszucs): support InMemoryDataset for a table input
     if _is_path_like(source):
         return _filesystem_dataset(source, **kwargs)
-    elif _is_native_file_wrappable(source):
-        return _filesystem_dataset(FileSource(source), **kwargs)
     elif isinstance(source, (tuple, list)):
         if all(_is_path_like(elem) for elem in source):
-            return _filesystem_dataset(source, **kwargs)
-        elif all(_is_native_file_wrappable(elem) for elem in source):
-            source = [FileSource(elem) for elem in source]
             return _filesystem_dataset(source, **kwargs)
         elif all(isinstance(elem, Dataset) for elem in source):
             return _union_dataset(source, **kwargs)

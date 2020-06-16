@@ -44,8 +44,6 @@ def _forbid_instantiation(klass, subclasses_instead=True):
     raise TypeError(msg)
 
 
-ctypedef CResult[shared_ptr[CRandomAccessFile]] CCustomOpen()
-
 cdef class FileSource:
 
     cdef:
@@ -1477,7 +1475,7 @@ cdef class FileSystemDatasetFactory(DatasetFactory):
                  FileFormat format not None,
                  FileSystemFactoryOptions options=None):
         cdef:
-            vector[CFileSource] c_sources
+            vector[c_string] paths
             CFileSelector c_selector
             CResult[shared_ptr[CDatasetFactory]] result
             shared_ptr[CFileSystem] c_filesystem
@@ -1499,11 +1497,11 @@ cdef class FileSystemDatasetFactory(DatasetFactory):
                     c_options
                 )
         elif isinstance(paths_or_selector, (list, tuple)):
-            for path in paths_or_selector:
-                c_sources.push_back(FileSource(path, filesystem).unwrap())
+            paths = [tobytes(s) for s in paths_or_selector]
             with nogil:
-                result = CFileSystemDatasetFactory.MakeFromSources(
-                    move(c_sources),
+                result = CFileSystemDatasetFactory.MakeFromPaths(
+                    c_filesystem,
+                    paths,
                     c_format,
                     c_options
                 )

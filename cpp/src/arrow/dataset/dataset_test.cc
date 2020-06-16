@@ -589,9 +589,8 @@ class TestSchemaUnification : public TestUnionDataset {
       options.partitioning =
           std::make_shared<HivePartitioning>(SchemaFromNames({"part_ds", "part_df"}));
 
-      ARROW_ASSIGN_OR_RAISE(
-          auto factory, FileSystemDatasetFactory::Make(FileSource::FromPaths(fs_, paths),
-                                                       format, options));
+      ARROW_ASSIGN_OR_RAISE(auto factory,
+                            FileSystemDatasetFactory::Make(fs_, paths, format, options));
 
       ARROW_ASSIGN_OR_RAISE(auto schema, factory->Inspect());
 
@@ -774,8 +773,8 @@ TEST(TestDictPartitionColumn, SelectPartitionColumnFilterPhysicalColumn) {
   options.partition_base_dir = "/dataset";
   options.partitioning = std::make_shared<HivePartitioning>(schema({partition_field}));
 
-  ASSERT_OK_AND_ASSIGN(auto factory, FileSystemDatasetFactory::Make(
-                                         {FileSource(path, mock_fs)}, format, options));
+  ASSERT_OK_AND_ASSIGN(auto factory,
+                       FileSystemDatasetFactory::Make(mock_fs, {path}, format, options));
 
   ASSERT_OK_AND_ASSIGN(auto schema, factory->Inspect());
 

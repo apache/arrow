@@ -110,8 +110,7 @@ std::shared_ptr<ds::Dataset> GetDatasetFromFile(
   ds::FileSystemFactoryOptions options;
   // The factory will try to build a child dataset.
   auto factory =
-      ds::FileSystemDatasetFactory::Make({ds::FileSource{file, fs}}, format, options)
-          .ValueOrDie();
+      ds::FileSystemDatasetFactory::Make(fs, {file}, format, options).ValueOrDie();
 
   // Try to infer a common schema for all files.
   auto schema = factory->Inspect(conf.inspect_options).ValueOrDie();

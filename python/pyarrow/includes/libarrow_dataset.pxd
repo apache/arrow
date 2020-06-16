@@ -311,8 +311,9 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             "arrow::dataset::FileSystemDatasetFactory"(
                 CDatasetFactory):
         @staticmethod
-        CResult[shared_ptr[CDatasetFactory]] MakeFromSources "Make"(
-            vector[CFileSource] sources,
+        CResult[shared_ptr[CDatasetFactory]] MakeFromPaths "Make"(
+            shared_ptr[CFileSystem] filesystem,
+            vector[c_string] paths,
             shared_ptr[CFileFormat] format,
             CFileSystemFactoryOptions options
         )
