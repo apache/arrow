@@ -412,7 +412,7 @@ struct DoublingTransform {
       out_data[i * 2] = data[i];
       out_data[i * 2 + 1] = data[i];
     }
-    return dest;
+    return std::shared_ptr<Buffer>(std::move(dest));
   }
 };
 
@@ -436,7 +436,7 @@ struct SwappingTransform {
     if (has_pending_) {
       pending_byte_ = buf->data()[buf->size() - 1];
     }
-    return dest;
+    return std::shared_ptr<Buffer>(std::move(dest));
   }
 
  protected:
@@ -463,7 +463,7 @@ struct BaseShrinkingTransform {
     }
     DCHECK_GE(skip_bytes_, 0);
     DCHECK_LT(skip_bytes_, keep_every_);
-    return dest;
+    return std::shared_ptr<Buffer>(std::move(dest));
   }
 
  protected:

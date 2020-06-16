@@ -78,7 +78,7 @@ Result<std::shared_ptr<Buffer>> TransformInputStream::Read(int64_t nbytes) {
   if (bytes_read < nbytes) {
     RETURN_NOT_OK(buf->Resize(bytes_read, /*shrink_to_fit=*/true));
   }
-  return buf;
+  return std::shared_ptr<Buffer>(std::move(buf));
 }
 
 Result<int64_t> TransformInputStream::Read(int64_t nbytes, void* out) {
