@@ -114,7 +114,7 @@ jobs:
       matrix:
         name:
           - arm32v7-debian-10-cpp
-          - arm64v8-ubuntu-18.04-cpp
+          - arm64v8-ubuntu-20.04-cpp
         include:
           - name: arm32v7-debian-10-cpp
             debian: 10
