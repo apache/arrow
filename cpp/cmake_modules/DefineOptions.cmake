@@ -82,6 +82,8 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 
   define_option_string(ARROW_CXXFLAGS "Compiler flags to append when compiling Arrow" "")
 
+  define_option(ARROW_CXX_STANDARD "C++ standard to target (default C++11)" 11)
+
   define_option(ARROW_BUILD_STATIC "Build static libraries" ON)
 
   define_option(ARROW_BUILD_SHARED "Build shared libraries" ON)
