@@ -81,18 +81,18 @@ std::shared_ptr<ArrayData> ArrayData::Make(const std::shared_ptr<DataType>& type
   return std::make_shared<ArrayData>(type, length, null_count, offset);
 }
 
-ArrayData ArrayData::Slice(int64_t off, int64_t len) const {
+std::shared_ptr<ArrayData> ArrayData::Slice(int64_t off, int64_t len) const {
   ARROW_CHECK_LE(off, length) << "Slice offset greater than array length";
   len = std::min(length - off, len);
   off += offset;
 
-  auto copy = *this;
-  copy.length = len;
-  copy.offset = off;
+  auto copy = this->Copy();
+  copy->length = len;
+  copy->offset = off;
   if (null_count == length) {
-    copy.null_count = len;
+    copy->null_count = len;
   } else {
-    copy.null_count = null_count != 0 ? kUnknownNullCount : 0;
+    copy->null_count = null_count != 0 ? kUnknownNullCount : 0;
   }
   return copy;
 }

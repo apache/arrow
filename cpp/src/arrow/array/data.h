@@ -196,7 +196,7 @@ struct ARROW_EXPORT ArrayData {
   }
 
   // Construct a zero-copy slice of the data with the indicated offset and length
-  ArrayData Slice(int64_t offset, int64_t length) const;
+  std::shared_ptr<ArrayData> Slice(int64_t offset, int64_t length) const;
 
   void SetNullCount(int64_t v) { null_count.store(v); }
 

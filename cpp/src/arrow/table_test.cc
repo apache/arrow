@@ -841,18 +841,20 @@ TEST_F(TestRecordBatch, Validate) {
 }
 
 TEST_F(TestRecordBatch, Slice) {
-  const int length = 10;
+  const int length = 7;
 
   auto f0 = field("f0", int32());
   auto f1 = field("f1", uint8());
+  auto f2 = field("f2", int8());
 
-  std::vector<std::shared_ptr<Field>> fields = {f0, f1};
+  std::vector<std::shared_ptr<Field>> fields = {f0, f1, f2};
   auto schema = ::arrow::schema(fields);
 
   auto a0 = MakeRandomArray<Int32Array>(length);
   auto a1 = MakeRandomArray<UInt8Array>(length);
+  auto a2 = ArrayFromJSON(int8(), "[0, 1, 2, 3, 4, 5, 6]");
 
-  auto batch = RecordBatch::Make(schema, length, {a0, a1});
+  auto batch = RecordBatch::Make(schema, length, {a0, a1, a2});
 
   auto batch_slice = batch->Slice(2);
   auto batch_slice2 = batch->Slice(1, 5);
@@ -866,6 +868,11 @@ TEST_F(TestRecordBatch, Slice) {
     ASSERT_EQ(1, batch_slice2->column(i)->offset());
     ASSERT_EQ(5, batch_slice2->column(i)->length());
   }
+
+  // ARROW-9143: RecordBatch::Slice was incorrectly setting a2's
+  // ArrayData::null_count to kUnknownNullCount
+  ASSERT_EQ(batch_slice->column(2)->data()->null_count, 0);
+  ASSERT_EQ(batch_slice2->column(2)->data()->null_count, 0);
 }
 
 TEST_F(TestRecordBatch, AddColumn) {

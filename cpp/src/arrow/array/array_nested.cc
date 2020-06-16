@@ -486,8 +486,7 @@ std::shared_ptr<Array> StructArray::field(int i) const {
   if (!result) {
     std::shared_ptr<ArrayData> field_data;
     if (data_->offset != 0 || data_->child_data[i]->length != data_->length) {
-      field_data = std::make_shared<ArrayData>(
-          data_->child_data[i]->Slice(data_->offset, data_->length));
+      field_data = data_->child_data[i]->Slice(data_->offset, data_->length);
     } else {
       field_data = data_->child_data[i];
     }
@@ -515,7 +514,7 @@ Result<ArrayVector> StructArray::Flatten(MemoryPool* pool) const {
 
     // Need to adjust for parent offset
     if (data_->offset != 0 || data_->length != child_data->length) {
-      *child_data = child_data->Slice(data_->offset, data_->length);
+      child_data = child_data->Slice(data_->offset, data_->length);
     }
     std::shared_ptr<Buffer> child_null_bitmap = child_data->buffers[0];
     const int64_t child_offset = child_data->offset;
@@ -711,7 +710,7 @@ std::shared_ptr<Array> UnionArray::field(int i) const {
       // (for dense unions, the need to lookup through the offsets
       //  makes this unnecessary)
       if (data_->offset != 0 || child_data->length > data_->length) {
-        *child_data = child_data->Slice(data_->offset, data_->length);
+        child_data = child_data->Slice(data_->offset, data_->length);
       }
     }
     result = MakeArray(child_data);
