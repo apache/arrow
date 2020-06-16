@@ -23,8 +23,10 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/array/builder_binary.h"
 #include "arrow/array/data.h"
 #include "arrow/buffer.h"
+#include "arrow/buffer_builder.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/datum.h"
@@ -121,10 +123,26 @@ struct ArrayIterator<Type, enable_if_boolean<Type>> {
 
 template <typename Type>
 struct ArrayIterator<Type, enable_if_base_binary<Type>> {
-  int64_t position = 0;
-  typename TypeTraits<Type>::ArrayType arr;
-  explicit ArrayIterator(const ArrayData& data) : arr(data.Copy()) {}
-  util::string_view operator()() { return arr.GetView(position++); }
+  using offset_type = typename Type::offset_type;
+  const ArrayData& arr;
+  const offset_type* offsets;
+  offset_type cur_offset;
+  const char* data;
+  int64_t position;
+  explicit ArrayIterator(const ArrayData& arr)
+      : arr(arr),
+        offsets(reinterpret_cast<const offset_type*>(arr.buffers[1]->data()) +
+                arr.offset),
+        cur_offset(offsets[0]),
+        data(reinterpret_cast<const char*>(arr.buffers[2]->data())),
+        position(0) {}
+
+  util::string_view operator()() {
+    offset_type next_offset = offsets[position++ + 1];
+    auto result = util::string_view(data + cur_offset, next_offset - cur_offset);
+    cur_offset = next_offset;
+    return result;
+  }
 };
 
 template <typename Type, typename Enable = void>
@@ -229,8 +247,7 @@ Result<ValueDescr> FirstType(KernelContext*, const std::vector<ValueDescr>& desc
 
 void ExecFail(KernelContext* ctx, const ExecBatch& batch, Datum* out);
 
-void BinaryExecFlipped(KernelContext* ctx, ArrayKernelExec exec, const ExecBatch& batch,
-                       Datum* out);
+ArrayKernelExec MakeFlippedBinaryExec(ArrayKernelExec exec);
 
 // ----------------------------------------------------------------------
 // Helpers for iterating over common DataType instances for adding kernels to
@@ -485,18 +502,38 @@ struct ScalarUnaryNotNullStateful {
   struct ArrayExec<Type, enable_if_base_binary<Type>> {
     static void Exec(const ThisType& functor, KernelContext* ctx, const ExecBatch& batch,
                      Datum* out) {
-      typename TypeTraits<Type>::BuilderType builder;
-      VisitArrayValuesInline<Arg0Type>(*batch[0].array(), [&](util::optional<ARG0> v) {
-        if (v.has_value()) {
-          KERNEL_RETURN_IF_ERROR(ctx, builder.Append(functor.op.Call(ctx, *v)));
-        } else {
-          KERNEL_RETURN_IF_ERROR(ctx, builder.AppendNull());
+      using offset_type = typename Type::offset_type;
+      const ArrayData& arg0 = *batch[0].array();
+      typename TypeTraits<Type>::ArrayType arg0_boxed(batch[0].array());
+
+      ArrayData* out_arr = out->mutable_array();
+      TypedBufferBuilder<offset_type> offset_builder;
+      TypedBufferBuilder<uint8_t> data_builder;
+
+      KERNEL_RETURN_IF_ERROR(ctx, offset_builder.Reserve(arg0.length + 1));
+      offset_type offset = 0;
+
+      const offset_type* in_offsets = arg0_boxed.raw_value_offsets();
+      const uint8_t* in_data = arg0.buffers[2]->data();
+      offset_type cur_offset = in_offsets[0];
+      for (int64_t i = 0; i < arg0.length; ++i) {
+        offset_type next_offset = in_offsets[i + 1];
+        if (arg0_boxed.IsValid(i)) {
+          auto val_size = next_offset - cur_offset;
+          auto val =
+              functor.op.Call(ctx, util::string_view(in_data + cur_offset, val_size));
+          if (std::is_same<offset_type, int32_t>::value &&
+              (static_cast<int64_t>(offset) + val_size > kBinaryMemoryLimit)) {
+            ctx->SetStatus(Status::OutOfMemory("Overflowed 32-bit binary builder"));
+            return;
+          }
+          KERNEL_RETURN_IF_ERROR(ctx, data_builder.Append(val.data(), val_size));
         }
-      });
+        cur_offset = next_offset;
+      }
       if (!ctx->HasError()) {
-        std::shared_ptr<ArrayData> result;
-        ctx->SetStatus(builder.FinishInternal(&result));
-        out->value = std::move(result);
+        KERNEL_RETURN_IF_ERROR(ctx, offset_builder.Finish(&out_arr->buffers[1]));
+        KERNEL_RETURN_IF_ERROR(ctx, data_builder.Finish(&out_arr->buffers[2]));
       }
     }
   };
@@ -787,6 +824,41 @@ ArrayKernelExec Integer(detail::GetTypeId get_id) {
   }
 }
 
+template <template <typename...> class Generator, typename Type0, typename... Args>
+ArrayKernelExec IntegerBased(detail::GetTypeId get_id) {
+  switch (get_id.id) {
+    case Type::INT8:
+      return Generator<Type0, Int8Type, Args...>::Exec;
+    case Type::INT16:
+      return Generator<Type0, Int16Type, Args...>::Exec;
+    case Type::INT32:
+      return Generator<Type0, Int32Type, Args...>::Exec;
+    case Type::INT64:
+      return Generator<Type0, Int64Type, Args...>::Exec;
+    case Type::UINT8:
+      return Generator<Type0, UInt8Type, Args...>::Exec;
+    case Type::UINT16:
+      return Generator<Type0, UInt16Type, Args...>::Exec;
+    case Type::UINT32:
+      return Generator<Type0, UInt32Type, Args...>::Exec;
+    case Type::UINT64:
+      return Generator<Type0, UInt64Type, Args...>::Exec;
+    case Type::DATE32:
+      return Generator<Type0, Int32Type, Args...>::Exec;
+    case Type::DATE64:
+      return Generator<Type0, Int64Type, Args...>::Exec;
+    case Type::TIMESTAMP:
+      return Generator<Type0, Int64Type, Args...>::Exec;
+    case Type::TIME32:
+      return Generator<Type0, Int32Type, Args...>::Exec;
+    case Type::TIME64:
+      return Generator<Type0, Int64Type, Args...>::Exec;
+    default:
+      DCHECK(false);
+      return ExecFail;
+  }
+}
+
 // Generate a kernel given a templated functor for integer types
 //
 // See "Numeric" above for description of the generator functor
@@ -807,11 +879,30 @@ ArrayKernelExec SignedInteger(detail::GetTypeId get_id) {
   }
 }
 
-// Generate a kernel given a templated functor for base binary types
+// Generate a kernel given a templated functor for base binary types. Generates
+// a single kernel for binary/string and large binary / large string. If your
+// kernel implementation needs access to the specific type at compile time,
+// please use BaseBinarySpecific.
 //
 // See "Numeric" above for description of the generator functor
 template <template <typename...> class Generator, typename Type0, typename... Args>
 ArrayKernelExec BaseBinary(detail::GetTypeId get_id) {
+  switch (get_id.id) {
+    case Type::BINARY:
+    case Type::STRING:
+      return Generator<Type0, BinaryType, Args...>::Exec;
+    case Type::LARGE_BINARY:
+    case Type::LARGE_STRING:
+      return Generator<Type0, LargeBinaryType, Args...>::Exec;
+    default:
+      DCHECK(false);
+      return ExecFail;
+  }
+}
+
+// See BaseBinary documentation
+template <template <typename...> class Generator, typename Type0, typename... Args>
+ArrayKernelExec BaseBinarySpecific(detail::GetTypeId get_id) {
   switch (get_id.id) {
     case Type::BINARY:
       return Generator<Type0, BinaryType, Args...>::Exec;

@@ -31,11 +31,12 @@ void ExecFail(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   ctx->SetStatus(Status::NotImplemented("This kernel is malformed"));
 }
 
-void BinaryExecFlipped(KernelContext* ctx, ArrayKernelExec exec, const ExecBatch& batch,
-                       Datum* out) {
-  ExecBatch flipped_batch = batch;
-  std::swap(flipped_batch.values[0], flipped_batch.values[1]);
-  exec(ctx, flipped_batch, out);
+ArrayKernelExec MakeFlippedBinaryExec(ArrayKernelExec exec) {
+  return [exec](KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    ExecBatch flipped_batch = batch;
+    std::swap(flipped_batch.values[0], flipped_batch.values[1]);
+    exec(ctx, flipped_batch, out);
+  };
 }
 
 std::vector<std::shared_ptr<DataType>> g_signed_int_types;

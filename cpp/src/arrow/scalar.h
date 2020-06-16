@@ -105,6 +105,11 @@ struct ARROW_EXPORT PrimitiveScalar : public Scalar {
     ARROW_CHECK_EQ(this->type->id(), T::type_id);
   }
 
+  explicit PrimitiveScalar(std::shared_ptr<DataType> type)
+      : Scalar(std::move(type), false) {
+    ARROW_CHECK_EQ(this->type->id(), T::type_id);
+  }
+
   explicit PrimitiveScalar(ValueType value)
       : PrimitiveScalar(value, TypeTraits<T>::type_singleton()) {}
 
@@ -238,18 +243,8 @@ struct ARROW_EXPORT FixedSizeBinaryScalar : public BinaryScalar {
 };
 
 template <typename T>
-struct ARROW_EXPORT TemporalScalar : public Scalar {
-  using Scalar::Scalar;
-  using TypeClass = T;
-  using ValueType = typename T::c_type;
-
-  TemporalScalar(ValueType value, std::shared_ptr<DataType> type)
-      : Scalar(std::move(type), true), value(value) {}
-
-  explicit TemporalScalar(std::shared_ptr<DataType> type)
-      : Scalar(std::move(type), false) {}
-
-  ValueType value;
+struct ARROW_EXPORT TemporalScalar : public internal::PrimitiveScalar<T> {
+  using internal::PrimitiveScalar<T>::PrimitiveScalar;
 };
 
 template <typename T>
