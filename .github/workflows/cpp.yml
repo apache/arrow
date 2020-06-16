@@ -120,7 +120,7 @@ jobs:
             debian: 10
             title: ARM32v7 Debian 10 C++
             image: |
-              -e CMAKE_BUILD_PARALLEL_LEVEL=4 \
+              -e CPP_MAKE_PARALLELISM=4 \
               -e CXXFLAGS=-Wno-psabi \
               -e ARROW_PARQUET=OFF \
               -e ARROW_FLIGHT=OFF \
@@ -133,7 +133,7 @@ jobs:
             ubuntu: 20.04
             title: ARM64v8 Ubuntu 20.04 C++
             image: |
-              -e CMAKE_BUILD_PARALLEL_LEVEL=1 \
+              -e CPP_MAKE_PARALLELISM=1 \
               -e ARROW_PARQUET=OFF \
               ubuntu-cpp
             arch: 'arm64v8'
