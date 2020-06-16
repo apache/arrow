@@ -200,7 +200,7 @@ bool Array::RangeEquals(int64_t start_idx, int64_t end_idx, int64_t other_start_
 }
 
 std::shared_ptr<Array> Array::Slice(int64_t offset, int64_t length) const {
-  return MakeArray(std::make_shared<ArrayData>(data_->Slice(offset, length)));
+  return MakeArray(data_->Slice(offset, length));
 }
 
 std::shared_ptr<Array> Array::Slice(int64_t offset) const {

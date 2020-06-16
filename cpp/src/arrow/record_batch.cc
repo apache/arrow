@@ -121,14 +121,7 @@ class SimpleRecordBatch : public RecordBatch {
     std::vector<std::shared_ptr<ArrayData>> arrays;
     arrays.reserve(num_columns());
     for (const auto& field : columns_) {
-      int64_t col_length = std::min(field->length - offset, length);
-      int64_t col_offset = field->offset + offset;
-
-      auto new_data = std::make_shared<ArrayData>(*field);
-      new_data->length = col_length;
-      new_data->offset = col_offset;
-      new_data->null_count = kUnknownNullCount;
-      arrays.emplace_back(new_data);
+      arrays.emplace_back(field->Slice(offset, length));
     }
     int64_t num_rows = std::min(num_rows_ - offset, length);
     return std::make_shared<SimpleRecordBatch>(schema_, num_rows, std::move(arrays));

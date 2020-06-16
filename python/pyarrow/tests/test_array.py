@@ -1352,6 +1352,10 @@ def test_dictionary_encode_sliced():
         assert result.num_chunks == 0
         assert result.type == expected.type
 
+    # ARROW-9143 dictionary_encode after slice was segfaulting
+    array = pa.array(['foo', 'bar', 'baz'])
+    array.slice(1).dictionary_encode()
+
 
 def test_dictionary_encode_zero_length():
     # User-facing experience of ARROW-7008

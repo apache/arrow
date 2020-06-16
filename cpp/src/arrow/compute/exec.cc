@@ -643,11 +643,7 @@ class ScalarExecutor : public FunctionExecutorImpl<ScalarFunction> {
         if (batch.length < batch_iterator_->length()) {
           // If this is a partial execution, then we write into a slice of
           // preallocated_
-          //
-          // XXX: ArrayData::Slice not returning std::shared_ptr<ArrayData> is
-          // a nuisance
-          out->value = std::make_shared<ArrayData>(
-              preallocated_->Slice(batch_start_position, batch.length));
+          out->value = preallocated_->Slice(batch_start_position, batch.length);
         } else {
           // Otherwise write directly into preallocated_. The main difference
           // computationally (versus the Slice approach) is that the null_count

@@ -153,29 +153,31 @@ static Status PutOffsets(const std::shared_ptr<Buffer>& src, Offset first_offset
 
 class ConcatenateImpl {
  public:
-  ConcatenateImpl(const std::vector<ArrayData>& in, MemoryPool* pool)
-      : in_(in), pool_(pool) {
-    out_.type = in[0].type;
+  ConcatenateImpl(const std::vector<std::shared_ptr<const ArrayData>>& in,
+                  MemoryPool* pool)
+      : in_(std::move(in)), pool_(pool), out_(std::make_shared<ArrayData>()) {
+    out_->type = in[0]->type;
     for (size_t i = 0; i < in_.size(); ++i) {
-      out_.length += in[i].length;
-      if (out_.null_count == kUnknownNullCount || in[i].null_count == kUnknownNullCount) {
-        out_.null_count = kUnknownNullCount;
+      out_->length += in[i]->length;
+      if (out_->null_count == kUnknownNullCount ||
+          in[i]->null_count == kUnknownNullCount) {
+        out_->null_count = kUnknownNullCount;
         continue;
       }
-      out_.null_count += in[i].null_count;
+      out_->null_count += in[i]->null_count;
     }
-    out_.buffers.resize(in[0].buffers.size());
-    out_.child_data.resize(in[0].child_data.size());
-    for (auto& data : out_.child_data) {
+    out_->buffers.resize(in[0]->buffers.size());
+    out_->child_data.resize(in[0]->child_data.size());
+    for (auto& data : out_->child_data) {
       data = std::make_shared<ArrayData>();
     }
   }
 
-  Status Concatenate(ArrayData* out) && {
-    if (out_.null_count != 0) {
-      RETURN_NOT_OK(ConcatenateBitmaps(Bitmaps(0), pool_, &out_.buffers[0]));
+  Status Concatenate(std::shared_ptr<ArrayData>* out) && {
+    if (out_->null_count != 0) {
+      RETURN_NOT_OK(ConcatenateBitmaps(Bitmaps(0), pool_, &out_->buffers[0]));
     }
-    RETURN_NOT_OK(VisitTypeInline(*out_.type, this));
+    RETURN_NOT_OK(VisitTypeInline(*out_->type, this));
     *out = std::move(out_);
     return Status::OK();
   }
@@ -183,52 +185,52 @@ class ConcatenateImpl {
   Status Visit(const NullType&) { return Status::OK(); }
 
   Status Visit(const BooleanType&) {
-    return ConcatenateBitmaps(Bitmaps(1), pool_, &out_.buffers[1]);
+    return ConcatenateBitmaps(Bitmaps(1), pool_, &out_->buffers[1]);
   }
 
   Status Visit(const FixedWidthType& fixed) {
     // handles numbers, decimal128, fixed_size_binary
-    return ConcatenateBuffers(Buffers(1, fixed), pool_).Value(&out_.buffers[1]);
+    return ConcatenateBuffers(Buffers(1, fixed), pool_).Value(&out_->buffers[1]);
   }
 
   Status Visit(const BinaryType&) {
     std::vector<Range> value_ranges;
     RETURN_NOT_OK(ConcatenateOffsets<int32_t>(Buffers(1, sizeof(int32_t)), pool_,
-                                              &out_.buffers[1], &value_ranges));
-    return ConcatenateBuffers(Buffers(2, value_ranges), pool_).Value(&out_.buffers[2]);
+                                              &out_->buffers[1], &value_ranges));
+    return ConcatenateBuffers(Buffers(2, value_ranges), pool_).Value(&out_->buffers[2]);
   }
 
   Status Visit(const LargeBinaryType&) {
     std::vector<Range> value_ranges;
     RETURN_NOT_OK(ConcatenateOffsets<int64_t>(Buffers(1, sizeof(int64_t)), pool_,
-                                              &out_.buffers[1], &value_ranges));
-    return ConcatenateBuffers(Buffers(2, value_ranges), pool_).Value(&out_.buffers[2]);
+                                              &out_->buffers[1], &value_ranges));
+    return ConcatenateBuffers(Buffers(2, value_ranges), pool_).Value(&out_->buffers[2]);
   }
 
   Status Visit(const ListType&) {
     std::vector<Range> value_ranges;
     RETURN_NOT_OK(ConcatenateOffsets<int32_t>(Buffers(1, sizeof(int32_t)), pool_,
-                                              &out_.buffers[1], &value_ranges));
+                                              &out_->buffers[1], &value_ranges));
     return ConcatenateImpl(ChildData(0, value_ranges), pool_)
-        .Concatenate(out_.child_data[0].get());
+        .Concatenate(&out_->child_data[0]);
   }
 
   Status Visit(const LargeListType&) {
     std::vector<Range> value_ranges;
     RETURN_NOT_OK(ConcatenateOffsets<int64_t>(Buffers(1, sizeof(int64_t)), pool_,
-                                              &out_.buffers[1], &value_ranges));
+                                              &out_->buffers[1], &value_ranges));
     return ConcatenateImpl(ChildData(0, value_ranges), pool_)
-        .Concatenate(out_.child_data[0].get());
+        .Concatenate(&out_->child_data[0]);
   }
 
   Status Visit(const FixedSizeListType&) {
-    return ConcatenateImpl(ChildData(0), pool_).Concatenate(out_.child_data[0].get());
+    return ConcatenateImpl(ChildData(0), pool_).Concatenate(&out_->child_data[0]);
   }
 
   Status Visit(const StructType& s) {
     for (int i = 0; i < s.num_fields(); ++i) {
       RETURN_NOT_OK(
-          ConcatenateImpl(ChildData(i), pool_).Concatenate(out_.child_data[i].get()));
+          ConcatenateImpl(ChildData(i), pool_).Concatenate(&out_->child_data[i]));
     }
     return Status::OK();
   }
@@ -239,17 +241,17 @@ class ConcatenateImpl {
     // Two cases: all the dictionaries are the same, or unification is
     // required
     bool dictionaries_same = true;
-    std::shared_ptr<Array> dictionary0 = MakeArray(in_[0].dictionary);
+    std::shared_ptr<Array> dictionary0 = MakeArray(in_[0]->dictionary);
     for (size_t i = 1; i < in_.size(); ++i) {
-      if (!MakeArray(in_[i].dictionary)->Equals(dictionary0)) {
+      if (!MakeArray(in_[i]->dictionary)->Equals(dictionary0)) {
         dictionaries_same = false;
         break;
       }
     }
 
     if (dictionaries_same) {
-      out_.dictionary = in_[0].dictionary;
-      return ConcatenateBuffers(Buffers(1, *fixed), pool_).Value(&out_.buffers[1]);
+      out_->dictionary = in_[0]->dictionary;
+      return ConcatenateBuffers(Buffers(1, *fixed), pool_).Value(&out_->buffers[1]);
     } else {
       return Status::NotImplemented("Concat with dictionary unification NYI");
     }
@@ -272,10 +274,10 @@ class ConcatenateImpl {
   BufferVector Buffers(size_t index) {
     BufferVector buffers;
     buffers.reserve(in_.size());
-    for (const ArrayData& array_data : in_) {
-      const auto& buffer = array_data.buffers[index];
+    for (const std::shared_ptr<const ArrayData>& array_data : in_) {
+      const auto& buffer = array_data->buffers[index];
       if (buffer != nullptr) {
-        buffers.push_back(SliceBuffer(buffer, array_data.offset, array_data.length));
+        buffers.push_back(SliceBuffer(buffer, array_data->offset, array_data->length));
       }
     }
     return buffers;
@@ -290,7 +292,7 @@ class ConcatenateImpl {
     BufferVector buffers;
     buffers.reserve(in_.size());
     for (size_t i = 0; i < in_.size(); ++i) {
-      const auto& buffer = in_[i].buffers[index];
+      const auto& buffer = in_[i]->buffers[index];
       if (buffer != nullptr) {
         buffers.push_back(SliceBuffer(buffer, ranges[i].offset, ranges[i].length));
       } else {
@@ -308,11 +310,11 @@ class ConcatenateImpl {
   BufferVector Buffers(size_t index, int byte_width) {
     BufferVector buffers;
     buffers.reserve(in_.size());
-    for (const ArrayData& array_data : in_) {
-      const auto& buffer = array_data.buffers[index];
+    for (const std::shared_ptr<const ArrayData>& array_data : in_) {
+      const auto& buffer = array_data->buffers[index];
       if (buffer != nullptr) {
-        buffers.push_back(SliceBuffer(buffer, array_data.offset * byte_width,
-                                      array_data.length * byte_width));
+        buffers.push_back(SliceBuffer(buffer, array_data->offset * byte_width,
+                                      array_data->length * byte_width));
       }
     }
     return buffers;
@@ -333,36 +335,38 @@ class ConcatenateImpl {
   std::vector<Bitmap> Bitmaps(size_t index) {
     std::vector<Bitmap> bitmaps(in_.size());
     for (size_t i = 0; i < in_.size(); ++i) {
-      Range range(in_[i].offset, in_[i].length);
-      bitmaps[i] = Bitmap(in_[i].buffers[index], range);
+      Range range(in_[i]->offset, in_[i]->length);
+      bitmaps[i] = Bitmap(in_[i]->buffers[index], range);
     }
     return bitmaps;
   }
 
   // Gather the index-th child_data of each input into a vector.
   // Elements are sliced with that input's offset and length.
-  std::vector<ArrayData> ChildData(size_t index) {
-    std::vector<ArrayData> child_data(in_.size());
+  std::vector<std::shared_ptr<const ArrayData>> ChildData(size_t index) {
+    std::vector<std::shared_ptr<const ArrayData>> child_data(in_.size());
     for (size_t i = 0; i < in_.size(); ++i) {
-      child_data[i] = in_[i].child_data[index]->Slice(in_[i].offset, in_[i].length);
+      child_data[i] = in_[i]->child_data[index]->Slice(in_[i]->offset, in_[i]->length);
     }
     return child_data;
   }
 
   // Gather the index-th child_data of each input into a vector.
   // Elements are sliced with the explicitly passed ranges.
-  std::vector<ArrayData> ChildData(size_t index, const std::vector<Range>& ranges) {
+  std::vector<std::shared_ptr<const ArrayData>> ChildData(
+      size_t index, const std::vector<Range>& ranges) {
     DCHECK_EQ(in_.size(), ranges.size());
-    std::vector<ArrayData> child_data(in_.size());
+    std::vector<std::shared_ptr<const ArrayData>> child_data(in_.size());
     for (size_t i = 0; i < in_.size(); ++i) {
-      child_data[i] = in_[i].child_data[index]->Slice(ranges[i].offset, ranges[i].length);
+      child_data[i] =
+          in_[i]->child_data[index]->Slice(ranges[i].offset, ranges[i].length);
     }
     return child_data;
   }
 
-  const std::vector<ArrayData>& in_;
+  const std::vector<std::shared_ptr<const ArrayData>>& in_;
   MemoryPool* pool_;
-  ArrayData out_;
+  std::shared_ptr<ArrayData> out_;
 };
 
 Status Concatenate(const ArrayVector& arrays, MemoryPool* pool,
@@ -372,19 +376,19 @@ Status Concatenate(const ArrayVector& arrays, MemoryPool* pool,
   }
 
   // gather ArrayData of input arrays
-  std::vector<ArrayData> data(arrays.size());
+  std::vector<std::shared_ptr<const ArrayData>> data(arrays.size());
   for (size_t i = 0; i < arrays.size(); ++i) {
     if (!arrays[i]->type()->Equals(*arrays[0]->type())) {
       return Status::Invalid("arrays to be concatenated must be identically typed, but ",
                              *arrays[0]->type(), " and ", *arrays[i]->type(),
                              " were encountered.");
     }
-    data[i] = *arrays[i]->data();
+    data[i] = arrays[i]->data();
   }
 
-  ArrayData out_data;
+  std::shared_ptr<ArrayData> out_data;
   RETURN_NOT_OK(ConcatenateImpl(data, pool).Concatenate(&out_data));
-  *out = MakeArray(std::make_shared<ArrayData>(std::move(out_data)));
+  *out = MakeArray(out_data);
   return Status::OK();
 }
 
