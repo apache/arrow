@@ -58,7 +58,7 @@ generate a row of missing values (if \code{FALSE})?
 \item \code{check_utf8} Logical: check UTF8 validity of string columns? (default \code{TRUE})
 \item \code{null_values} character vector of recognized spellings for null values.
 Analogous to the \code{na.strings} argument to
-\code{\link[utils:read.csv]{read.csv()}} or \code{na} in \code{readr::read_csv()}.
+\code{\link[utils:read.table]{read.csv()}} or \code{na} in \code{readr::read_csv()}.
 \item \code{strings_can_be_null} Logical: can string / binary columns have
 null values? Similar to the \code{quoted_na} argument to \code{readr::read_csv()}.
 (default \code{FALSE})
