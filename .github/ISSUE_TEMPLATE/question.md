@@ -1,9 +1,7 @@
 ---
-name: Question
+name: Ask a question
 about: Please ask questions at user@arrow.apache.org
 ---
-
-The issue tracker is not for questions. If you have a question, please feel free to ask it on our community site, at https://community.rstudio.com/c/rstudio-ide.
 
 STOP! Are you reporting a bug, a possible bug, or requesting a
 feature? If so, please report under the ARROW project on the ASF JIRA
