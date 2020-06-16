@@ -30,11 +30,9 @@
 namespace arrow {
 namespace compute {
 
-void CheckScalarUnary(std::string func_name, std::shared_ptr<DataType> in_ty,
-                      std::string json_input, std::shared_ptr<DataType> out_ty,
-                      std::string json_expected, const FunctionOptions* options) {
-  auto input = ArrayFromJSON(in_ty, json_input);
-  auto expected = ArrayFromJSON(out_ty, json_expected);
+void CheckScalarUnary(std::string func_name, std::shared_ptr<Array> input,
+                      std::shared_ptr<Array> expected, const FunctionOptions* options,
+                      bool slices = true) {
   ASSERT_OK_AND_ASSIGN(Datum out, CallFunction(func_name, {input}, options));
   AssertArraysEqual(*expected, *out.make_array(), /*verbose=*/true);
 
@@ -44,6 +42,19 @@ void CheckScalarUnary(std::string func_name, std::shared_ptr<DataType> in_ty,
     ASSERT_OK_AND_ASSIGN(auto ex_val, expected->GetScalar(i));
     CheckScalarUnary(func_name, val, ex_val, options);
   }
+
+  if (slices) {
+    auto length = input->length() / 3;
+    CheckScalarUnary(func_name, input->Slice(length, length),
+                     expected->Slice(length, length), options, /*slices=*/false);
+  }
+}
+
+void CheckScalarUnary(std::string func_name, std::shared_ptr<DataType> in_ty,
+                      std::string json_input, std::shared_ptr<DataType> out_ty,
+                      std::string json_expected, const FunctionOptions* options) {
+  CheckScalarUnary(func_name, ArrayFromJSON(in_ty, json_input),
+                   ArrayFromJSON(out_ty, json_expected), options, /*slices=*/true);
 }
 
 void CheckScalarUnary(std::string func_name, std::shared_ptr<Scalar> input,

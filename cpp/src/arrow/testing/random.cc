@@ -264,7 +264,6 @@ std::shared_ptr<Array> RandomArrayGenerator::Offsets(int64_t size, int32_t first
 
 struct RandomArrayGeneratorOfImpl {
   Status Visit(const NullType&) {
-    DCHECK_NE(null_probability_, 0.0);
     out_ = std::make_shared<NullArray>(size_);
     return Status::OK();
   }

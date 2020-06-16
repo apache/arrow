@@ -68,12 +68,6 @@ struct IsNullOperator {
                  out->buffers[1]->mutable_data(), out->offset);
   }
 };
-}  // namespace
-
-namespace codegen {
-namespace {
-
-using arrow::compute::codegen::SimpleUnary;
 
 void MakeFunction(std::string name, std::vector<InputType> in_types, OutputType out_type,
                   ArrayKernelExec exec, FunctionRegistry* registry,
@@ -91,18 +85,17 @@ void MakeFunction(std::string name, std::vector<InputType> in_types, OutputType 
 }
 
 }  // namespace
-}  // namespace codegen
 
 namespace internal {
 
 void RegisterScalarValidity(FunctionRegistry* registry) {
-  codegen::MakeFunction("is_valid", {ValueDescr::ANY}, boolean(),
-                        codegen::SimpleUnary<IsValidOperator>, registry,
-                        NullHandling::OUTPUT_NOT_NULL, MemAllocation::NO_PREALLOCATE);
+  MakeFunction("is_valid", {ValueDescr::ANY}, boolean(),
+               codegen::SimpleUnary<IsValidOperator>, registry,
+               NullHandling::OUTPUT_NOT_NULL, MemAllocation::NO_PREALLOCATE);
 
-  codegen::MakeFunction("is_null", {ValueDescr::ANY}, boolean(),
-                        codegen::SimpleUnary<IsNullOperator>, registry,
-                        NullHandling::OUTPUT_NOT_NULL, MemAllocation::PREALLOCATE);
+  MakeFunction("is_null", {ValueDescr::ANY}, boolean(),
+               codegen::SimpleUnary<IsNullOperator>, registry,
+               NullHandling::OUTPUT_NOT_NULL, MemAllocation::PREALLOCATE);
 }
 
 }  // namespace internal
