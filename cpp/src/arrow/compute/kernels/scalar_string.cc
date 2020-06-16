@@ -147,7 +147,7 @@ struct Utf8Transform {
         // See note above in the Array version explaining the 3 / 2
         KERNEL_RETURN_IF_ERROR(ctx,
                                ctx->Allocate(data_nbytes * 3 / 2).Value(&result->value));
-        offset_type encoded_nbytes = Base::transform(input.value->data(), data_nbytes,
+        offset_type encoded_nbytes = Base::Transform(input.value->data(), data_nbytes,
                                                      result->value->mutable_data());
         KERNEL_RETURN_IF_ERROR(
             ctx, result->value->CopySlice(0, encoded_nbytes).Value(&result->value));
