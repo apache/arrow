@@ -18,6 +18,7 @@
 #include <memory>
 
 #include "./arrow_types.h"
+#include "./arrow_vctrs.h"
 
 #if defined(ARROW_R_WITH_ARROW)
 #include <arrow/array/array_base.h>
@@ -209,16 +210,8 @@ struct VectorToArrayConverter {
 
     auto* struct_builder = checked_cast<BuilderType*>(builder);
 
-    int64_t n = 0;
-    if (XLENGTH(x) > 0) {
-      // TODO: need a more generic way to get the vec_size(<data.frame>)
-      //       perhaps using vctrs::::short_vec_size
-      n = XLENGTH(VECTOR_ELT(x, 0));
-    }
+    int64_t n = vctrs::short_vec_size(x);
     RETURN_NOT_OK(struct_builder->Reserve(n));
-
-    // TODO: double check but seems fine that no value is NULL
-    //       as R data frame have no concept of a null row
     RETURN_NOT_OK(struct_builder->AppendValues(n, NULLPTR));
 
     int num_fields = struct_builder->num_fields();
@@ -227,7 +220,15 @@ struct VectorToArrayConverter {
     // field builder
     for (R_xlen_t i = 0; i < num_fields; i++) {
       auto column_builder = struct_builder->field_builder(i);
-      VectorToArrayConverter converter{VECTOR_ELT(x, i), column_builder};
+      SEXP x_i = VECTOR_ELT(x, i);
+      int64_t n_i = vctrs::short_vec_size(x_i);
+      if (n_i != n) {
+        SEXP name_i = STRING_ELT(Rf_getAttrib(x, R_NamesSymbol), i);
+        return Status::RError("Degenerated data frame. Column '", CHAR(name_i),
+                              "' has size ", n_i, " instead of the number of rows: ", n);
+      }
+
+      VectorToArrayConverter converter{x_i, column_builder};
       RETURN_NOT_OK(arrow::VisitTypeInline(*column_builder->type().get(), &converter));
     }
 
