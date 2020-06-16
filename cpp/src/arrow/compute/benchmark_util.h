@@ -24,9 +24,11 @@
 #include "arrow/util/cpu_info.h"
 
 namespace arrow {
-namespace compute {
 
 using internal::CpuInfo;
+
+namespace compute {
+
 static CpuInfo* cpu_info = CpuInfo::GetInstance();
 
 static const int64_t kL1Size = cpu_info->CacheSize(CpuInfo::L1_CACHE);

@@ -1568,6 +1568,8 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     cdef cppclass CFilterOptions \
             " arrow::compute::FilterOptions"(CFunctionOptions):
+        CFilterOptions()
+        CFilterOptions(CFilterNullSelectionBehavior null_selection)
         CFilterNullSelectionBehavior null_selection_behavior
 
     cdef cppclass CTakeOptions \

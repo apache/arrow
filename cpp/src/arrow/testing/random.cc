@@ -84,7 +84,7 @@ std::shared_ptr<Array> RandomArrayGenerator::Boolean(int64_t size, double probab
 
   BufferVector buffers{2};
   // Need 2 distinct generators such that probabilities are not shared.
-  GenOpt value_gen(seed(), 0, 1, probability);
+  GenOpt value_gen(seed(), 0, 1, 1 - probability);
   GenOpt null_gen(seed(), 0, 1, null_probability);
 
   int64_t null_count = 0;

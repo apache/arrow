@@ -17,29 +17,33 @@
 
 #pragma once
 
+#include <cstdint>
+
+#include "arrow/buffer.h"
+
 namespace arrow {
 namespace compute {
-
-class FunctionRegistry;
-
 namespace internal {
 
-// Built-in scalar / elementwise functions
-void RegisterScalarArithmetic(FunctionRegistry* registry);
-void RegisterScalarBoolean(FunctionRegistry* registry);
-void RegisterScalarCast(FunctionRegistry* registry);
-void RegisterScalarComparison(FunctionRegistry* registry);
-void RegisterScalarSetLookup(FunctionRegistry* registry);
-void RegisterScalarStringAscii(FunctionRegistry* registry);
-void RegisterScalarValidity(FunctionRegistry* registry);
+// An internal data structure for unpacking a primitive argument to pass to a
+// kernel implementation
+struct PrimitiveArg {
+  const uint8_t* is_valid;
+  const uint8_t* data;
+  int bit_width;
+  int64_t length;
+  int64_t offset;
+  int64_t null_count;
+};
 
-// Vector functions
-void RegisterVectorHash(FunctionRegistry* registry);
-void RegisterVectorSelection(FunctionRegistry* registry);
-void RegisterVectorSort(FunctionRegistry* registry);
+// Get validity bitmap data or return nullptr if there is no validity buffer
+const uint8_t* GetValidityBitmap(const ArrayData& data);
 
-// Aggregate functions
-void RegisterScalarAggregateBasic(FunctionRegistry* registry);
+int GetBitWidth(const DataType& type);
+
+// Reduce code size by dealing with the unboxing of the kernel inputs once
+// rather than duplicating compiled code to do all these in each kernel.
+PrimitiveArg GetPrimitiveArg(const ArrayData& arr);
 
 }  // namespace internal
 }  // namespace compute

@@ -45,7 +45,7 @@ class ARROW_EXPORT RandomArrayGenerator {
   /// \brief Generates a random BooleanArray
   ///
   /// \param[in] size the size of the array to generate
-  /// \param[in] probability the estimated number of active bits
+  /// \param[in] probability the probability of a value being 1 / bit-set
   /// \param[in] null_probability the probability of a row being null
   ///
   /// \return a generated Array

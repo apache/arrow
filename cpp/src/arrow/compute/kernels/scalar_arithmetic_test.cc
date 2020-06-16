@@ -97,7 +97,7 @@ std::string MakeArray(Elements... elements) {
   std::copy(elements_as_strings.begin(), elements_as_strings.end(),
             elements_as_views.begin());
 
-  return "[" + internal::JoinStrings(elements_as_views, ",") + "]";
+  return "[" + ::arrow::internal::JoinStrings(elements_as_views, ",") + "]";
 }
 
 template <typename T>

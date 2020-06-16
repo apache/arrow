@@ -205,7 +205,8 @@ TEST_F(TestBitBlockCounter, FourWordsRandomData) {
   }
 }
 
-TEST(TestBinaryBitBlockCounter, NextAndWord) {
+template <template <typename T> class Op, typename NextWordFunc>
+void CheckBinaryBitBlockOp(NextWordFunc&& get_next_word) {
   const int64_t nbytes = 1024;
   auto left = *AllocateBuffer(nbytes);
   auto right = *AllocateBuffer(nbytes);
@@ -218,12 +219,12 @@ TEST(TestBinaryBitBlockCounter, NextAndWord) {
                                   overlap_length);
     int64_t position = 0;
     do {
-      BitBlockCount block = counter.NextAndWord();
+      BitBlockCount block = get_next_word(&counter);
       int expected_popcount = 0;
       for (int j = 0; j < block.length; ++j) {
-        expected_popcount +=
-            static_cast<int>(BitUtil::GetBit(left->data(), position + left_offset + j) &&
-                             BitUtil::GetBit(right->data(), position + right_offset + j));
+        expected_popcount += static_cast<int>(
+            Op<bool>::Call(BitUtil::GetBit(left->data(), position + left_offset + j),
+                           BitUtil::GetBit(right->data(), position + right_offset + j)));
       }
       ASSERT_EQ(block.popcount, expected_popcount);
       position += block.length;
@@ -231,7 +232,7 @@ TEST(TestBinaryBitBlockCounter, NextAndWord) {
     // We made it through all the data
     ASSERT_EQ(position, overlap_length);
 
-    BitBlockCount block = counter.NextAndWord();
+    BitBlockCount block = get_next_word(&counter);
     ASSERT_EQ(block.length, 0);
     ASSERT_EQ(block.popcount, 0);
   };
@@ -243,8 +244,23 @@ TEST(TestBinaryBitBlockCounter, NextAndWord) {
   }
 }
 
-TEST(TestOptionalBitBlockCounter, Basics) {
-  const int64_t nbytes = 1024;
+TEST(TestBinaryBitBlockCounter, NextAndWord) {
+  CheckBinaryBitBlockOp<detail::BitBlockAnd>(
+      [](BinaryBitBlockCounter* counter) { return counter->NextAndWord(); });
+}
+
+TEST(TestBinaryBitBlockCounter, NextOrWord) {
+  CheckBinaryBitBlockOp<detail::BitBlockOr>(
+      [](BinaryBitBlockCounter* counter) { return counter->NextOrWord(); });
+}
+
+TEST(TestBinaryBitBlockCounter, NextOrNotWord) {
+  CheckBinaryBitBlockOp<detail::BitBlockOrNot>(
+      [](BinaryBitBlockCounter* counter) { return counter->NextOrNotWord(); });
+}
+
+TEST(TestOptionalBitBlockCounter, NextBlock) {
+  const int64_t nbytes = 5000;
   auto bitmap = *AllocateBitmap(nbytes * 8);
   random_bytes(nbytes, 0, bitmap->mutable_data());
 
@@ -262,6 +278,44 @@ TEST(TestOptionalBitBlockCounter, Basics) {
   }
 
   BitBlockCount optional_block = optional_counter.NextBlock();
+  ASSERT_EQ(optional_block.length, 0);
+  ASSERT_EQ(optional_block.popcount, 0);
+
+  OptionalBitBlockCounter optional_counter_no_bitmap(nullptr, 0, nbytes * 8);
+  BitBlockCount no_bitmap_block = optional_counter_no_bitmap.NextBlock();
+
+  int16_t max_length = std::numeric_limits<int16_t>::max();
+  ASSERT_EQ(no_bitmap_block.length, max_length);
+  ASSERT_EQ(no_bitmap_block.popcount, max_length);
+  no_bitmap_block = optional_counter_no_bitmap.NextBlock();
+  ASSERT_EQ(no_bitmap_block.length, nbytes * 8 - max_length);
+  ASSERT_EQ(no_bitmap_block.popcount, no_bitmap_block.length);
+}
+
+TEST(TestOptionalBitBlockCounter, NextWord) {
+  const int64_t nbytes = 5000;
+  auto bitmap = *AllocateBitmap(nbytes * 8);
+  random_bytes(nbytes, 0, bitmap->mutable_data());
+
+  OptionalBitBlockCounter optional_counter(bitmap, 0, nbytes * 8);
+  OptionalBitBlockCounter optional_counter_no_bitmap(nullptr, 0, nbytes * 8);
+  BitBlockCounter bit_counter(bitmap->data(), 0, nbytes * 8);
+
+  while (true) {
+    BitBlockCount block = bit_counter.NextWord();
+    BitBlockCount no_bitmap_block = optional_counter_no_bitmap.NextWord();
+    BitBlockCount optional_block = optional_counter.NextWord();
+    ASSERT_EQ(optional_block.length, block.length);
+    ASSERT_EQ(optional_block.popcount, block.popcount);
+
+    ASSERT_EQ(no_bitmap_block.length, block.length);
+    ASSERT_EQ(no_bitmap_block.popcount, block.length);
+    if (block.length == 0) {
+      break;
+    }
+  }
+
+  BitBlockCount optional_block = optional_counter.NextWord();
   ASSERT_EQ(optional_block.length, 0);
   ASSERT_EQ(optional_block.popcount, 0);
 }
