@@ -236,7 +236,7 @@ def test_filesystem_dataset(mockfs):
     # the root_partition keyword has a default
     dataset = ds.FileSystemDataset(
         fragments, schema=schema, format=file_format
-        )
+    )
     assert dataset.partition_expression.equals(ds.scalar(True))
 
     # from_paths partitions have defaults
