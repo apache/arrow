@@ -93,6 +93,18 @@ class TestListArray : public TestBuilder {
     for (size_t i = 0; i < values.size(); ++i) {
       ASSERT_EQ(values[i], varr->Value(i));
     }
+
+    auto offsets = std::dynamic_pointer_cast<OffsetArrayType>(result->offsets());
+    ASSERT_EQ(offsets->length(), result->length() + 1);
+    ASSERT_EQ(offsets->null_count(), 0);
+    AssertTypeEqual(*offsets->type(), OffsetType());
+
+    for (int64_t i = 0; i < result->length(); ++i) {
+      ASSERT_EQ(offsets->Value(i), result_->raw_value_offsets()[i]);
+    }
+    // last offset
+    ASSERT_EQ(offsets->Value(result->length()),
+              result_->raw_value_offsets()[result->length()]);
   }
 
   void TestBasics() {

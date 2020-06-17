@@ -114,6 +114,9 @@ class ARROW_EXPORT ListArray : public BaseListArray<ListType> {
   Result<std::shared_ptr<Array>> Flatten(
       MemoryPool* memory_pool = default_memory_pool()) const;
 
+  /// \brief Return list offsets as an Int32Array
+  std::shared_ptr<Array> offsets() const;
+
  protected:
   // This constructor defers SetData to a derived array class
   ListArray() = default;
@@ -155,6 +158,9 @@ class ARROW_EXPORT LargeListArray : public BaseListArray<LargeListType> {
   /// by non-empty lists (they are skipped, thus copying may be needed).
   Result<std::shared_ptr<Array>> Flatten(
       MemoryPool* memory_pool = default_memory_pool()) const;
+
+  /// \brief Return list offsets as an Int64Array
+  std::shared_ptr<Array> offsets() const;
 
  protected:
   void SetData(const std::shared_ptr<ArrayData>& data);

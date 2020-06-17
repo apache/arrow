@@ -514,6 +514,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         int32_t value_offset(int i)
         int32_t value_length(int i)
         shared_ptr[CArray] values()
+        shared_ptr[CArray] offsets()
         CResult[shared_ptr[CArray]] Flatten(CMemoryPool* memory_pool)
         shared_ptr[CDataType] value_type()
 
@@ -525,6 +526,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         int64_t value_offset(int i)
         int64_t value_length(int i)
         shared_ptr[CArray] values()
+        shared_ptr[CArray] offsets()
         CResult[shared_ptr[CArray]] Flatten(CMemoryPool* memory_pool)
         shared_ptr[CDataType] value_type()
 
