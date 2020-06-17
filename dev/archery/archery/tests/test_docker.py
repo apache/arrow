@@ -169,6 +169,14 @@ def create_config(directory, yml_content, env_content=None):
     return config_path
 
 
+def format_run(args):
+    cmd = ["run", "--rm"]
+    if isinstance(args, str):
+        return " ".join(cmd + [args])
+    else:
+        return cmd + args
+
+
 @pytest.fixture
 def arrow_compose_path(tmpdir):
     return create_config(tmpdir, arrow_compose_yml, arrow_compose_env)
@@ -176,20 +184,17 @@ def arrow_compose_path(tmpdir):
 
 def test_config_validation(tmpdir):
     config_path = create_config(tmpdir, missing_service_compose_yml)
-    compose = DockerCompose(config_path)
     msg = "`sub-foo` is defined in `x-hierarchy` bot not in `services`"
     with pytest.raises(ValueError, match=msg):
-        compose.validate()
+        DockerCompose(config_path)
 
     config_path = create_config(tmpdir, missing_node_compose_yml)
-    compose = DockerCompose(config_path)
     msg = "`sub-bar` is defined in `services` but not in `x-hierarchy`"
     with pytest.raises(ValueError, match=msg):
-        compose.validate()
+        DockerCompose(config_path)
 
     config_path = create_config(tmpdir, ok_compose_yml)
-    compose = DockerCompose(config_path)
-    compose.validate()
+    DockerCompose(config_path)  # no issue
 
 
 def assert_compose_calls(compose, expected_args, env=mock.ANY):
@@ -197,14 +202,13 @@ def assert_compose_calls(compose, expected_args, env=mock.ANY):
     expected_commands = []
     for args in expected_args:
         if isinstance(args, str):
-            cmd = base_command + re.split(r"\s", args)
-            expected_commands.append(cmd)
+            args = re.split(r"\s", args)
+        expected_commands.append(base_command + args)
     return assert_subprocess_calls(expected_commands, check=True, env=env)
 
 
 def test_arrow_example_validation_passes(arrow_compose_path):
-    compose = DockerCompose(arrow_compose_path)
-    compose.validate()
+    DockerCompose(arrow_compose_path)
 
 
 def test_compose_default_params_and_env(arrow_compose_path):
@@ -342,14 +346,14 @@ def test_compose_build_params(arrow_compose_path):
 
 def test_compose_run(arrow_compose_path):
     expected_calls = [
-        "run --rm conda-cpp",
+        format_run("conda-cpp"),
     ]
     compose = DockerCompose(arrow_compose_path)
     with assert_compose_calls(compose, expected_calls):
         compose.run('conda-cpp')
 
     expected_calls = [
-        "run --rm conda-python"
+        format_run("conda-python")
     ]
     expected_env = PartialEnv(PYTHON='3.6')
     with assert_compose_calls(compose, expected_calls, env=expected_env):
@@ -363,7 +367,7 @@ def test_compose_run(arrow_compose_path):
     compose = DockerCompose(arrow_compose_path, params=dict(PYTHON='3.8'))
     for command in ["bash", "echo 1"]:
         expected_calls = [
-            ["run", "--rm", "conda-python", command]
+            format_run(["conda-python", command]),
         ]
         expected_env = PartialEnv(PYTHON='3.8')
         with assert_compose_calls(compose, expected_calls, env=expected_env):
@@ -371,8 +375,8 @@ def test_compose_run(arrow_compose_path):
 
     expected_calls = [
         (
-            "run --rm -e CONTAINER_ENV_VAR_A=a -e CONTAINER_ENV_VAR_B=b "
-            "conda-python"
+            format_run("-e CONTAINER_ENV_VAR_A=a -e CONTAINER_ENV_VAR_B=b "
+                       "conda-python")
         )
     ]
     compose = DockerCompose(arrow_compose_path)
@@ -386,8 +390,8 @@ def test_compose_run(arrow_compose_path):
 
     expected_calls = [
         (
-            "run --rm --volume /host/build:/build "
-            "--volume /host/ccache:/ccache:delegated conda-python"
+            format_run("--volume /host/build:/build --volume "
+                       "/host/ccache:/ccache:delegated conda-python")
         )
     ]
     compose = DockerCompose(arrow_compose_path)
@@ -401,14 +405,14 @@ def test_compose_run_force_pull_and_build(arrow_compose_path):
 
     expected_calls = [
         "pull --ignore-pull-failures conda-cpp",
-        "run --rm conda-cpp"
+        format_run("conda-cpp")
     ]
     with assert_compose_calls(compose, expected_calls):
         compose.run('conda-cpp', force_pull=True)
 
     expected_calls = [
         "build conda-cpp",
-        "run --rm conda-cpp"
+        format_run("conda-cpp")
     ]
     with assert_compose_calls(compose, expected_calls):
         compose.run('conda-cpp', force_build=True)
@@ -416,7 +420,7 @@ def test_compose_run_force_pull_and_build(arrow_compose_path):
     expected_calls = [
         "pull --ignore-pull-failures conda-cpp",
         "build conda-cpp",
-        "run --rm conda-cpp"
+        format_run("conda-cpp")
     ]
     with assert_compose_calls(compose, expected_calls):
         compose.run('conda-cpp', force_pull=True, force_build=True)
@@ -428,7 +432,7 @@ def test_compose_run_force_pull_and_build(arrow_compose_path):
         "build conda-cpp",
         "build conda-python",
         "build conda-python-pandas",
-        "run --rm conda-python-pandas bash"
+        format_run("conda-python-pandas bash")
     ]
     with assert_compose_calls(compose, expected_calls):
         compose.run('conda-python-pandas', command='bash', force_build=True,
@@ -440,7 +444,7 @@ def test_compose_run_force_pull_and_build(arrow_compose_path):
         "build conda-cpp",
         "build conda-python",
         "build --no-cache conda-python-pandas",
-        "run --rm conda-python-pandas bash"
+        format_run("conda-python-pandas bash")
     ]
     with assert_compose_calls(compose, expected_calls):
         compose.run('conda-python-pandas', command='bash', force_build=True,
@@ -464,7 +468,6 @@ def test_compose_error(arrow_compose_path):
         PYTHON='3.8',
         PANDAS='master'
     ))
-    compose.validate()
 
     error = subprocess.CalledProcessError(99, [])
     with mock.patch('subprocess.run', side_effect=error):

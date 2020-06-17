@@ -19,19 +19,23 @@
 # instruction sets that would boost performance.
 include(CheckCXXCompilerFlag)
 # Get cpu architecture
-set(ARROW_CPU_FLAG "x86")
 
 message(STATUS "System processor: ${CMAKE_SYSTEM_PROCESSOR}")
 
-if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|ARM64")
-  set(ARROW_CPU_FLAG "armv8")
-elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "armv7")
-  set(ARROW_CPU_FLAG "armv7")
-elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "ppc")
-  set(ARROW_CPU_FLAG "ppc")
-elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "s390x")
-  set(ARROW_CPU_FLAG "s390x")
+if(NOT DEFINED ARROW_CPU_FLAG)
+  if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|ARM64")
+    set(ARROW_CPU_FLAG "armv8")
+  elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "armv7")
+    set(ARROW_CPU_FLAG "armv7")
+  elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "ppc")
+    set(ARROW_CPU_FLAG "ppc")
+  elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "s390x")
+    set(ARROW_CPU_FLAG "s390x")
+  else()
+    set(ARROW_CPU_FLAG "x86")
+  endif()
 endif()
+
 # Check architecture specific compiler flags
 if(ARROW_CPU_FLAG STREQUAL "x86")
   # x86/amd64 compiler flags, msvc/gcc/clang

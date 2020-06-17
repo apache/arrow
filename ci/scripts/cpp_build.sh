@@ -117,7 +117,7 @@ cmake -G "${CMAKE_GENERATOR:-Ninja}" \
       -DORC_SOURCE=${ORC_SOURCE:-} \
       -DPARQUET_BUILD_EXECUTABLES=${PARQUET_BUILD_EXECUTABLES:-OFF} \
       -DPARQUET_BUILD_EXAMPLES=${PARQUET_BUILD_EXAMPLES:-OFF} \
-      -DPARQUET_REQUIRE_ENCRYPTION=${ARROW_WITH_OPENSSL:-ON} \
+      -DPARQUET_REQUIRE_ENCRYPTION=${PARQUET_REQUIRE_ENCRYPTION:-ON} \
       -DProtobuf_SOURCE=${Protobuf_SOURCE:-} \
       -DRapidJSON_SOURCE=${RapidJSON_SOURCE:-} \
       -DRE2_SOURCE=${RE2_SOURCE:-} \
@@ -127,7 +127,11 @@ cmake -G "${CMAKE_GENERATOR:-Ninja}" \
       ${CMAKE_ARGS} \
       ${source_dir}
 
-time cmake --build . --target install
+if [ ! -z "${CPP_MAKE_PARALLELISM}" ]; then
+  time cmake --build . --target install -- -j${CPP_MAKE_PARALLELISM}
+else
+  time cmake --build . --target install
+fi
 
 popd
 

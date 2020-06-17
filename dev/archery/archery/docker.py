@@ -17,6 +17,7 @@
 
 import os
 import subprocess
+from io import StringIO
 
 from dotenv import dotenv_values
 from ruamel.yaml import YAML
@@ -54,33 +55,27 @@ class DockerCompose(Command):
 
     def __init__(self, config_path, dotenv_path=None, compose_bin=None,
                  params=None):
+        self.bin = default_bin(compose_bin, 'docker-compose')
+
         self.config_path = _ensure_path(config_path)
         if dotenv_path:
             self.dotenv_path = _ensure_path(dotenv_path)
         else:
             self.dotenv_path = self.config_path.parent / '.env'
 
+        self._read_env(params)
+        self._read_config()
+
+    def _read_config(self):
+        """
+        Validate and read the docker-compose.yml
+        """
         yaml = YAML()
         with self.config_path.open() as fp:
-            self.config = yaml.load(fp)
+            config = yaml.load(fp)
 
-        self.bin = default_bin(compose_bin, 'docker-compose')
-        self.nodes = dict(flatten(self.config['x-hierarchy']))
-        self.dotenv = dotenv_values(str(self.dotenv_path))
-        if params is None:
-            self.params = {}
-        else:
-            self.params = {k: v for k, v in params.items() if k in self.dotenv}
-
-        # forward the process' environment variables
-        self._compose_env = os.environ.copy()
-        # set the defaults from the dotenv files
-        self._compose_env.update(self.dotenv)
-        # override the defaults passed as parameters
-        self._compose_env.update(self.params)
-
-    def validate(self):
-        services = self.config['services'].keys()
+        services = config['services'].keys()
+        self.nodes = dict(flatten(config['x-hierarchy']))
         nodes = self.nodes.keys()
         errors = []
 
@@ -108,6 +103,26 @@ class DockerCompose(Command):
             raise ValueError(
                 'Found errors with docker-compose:\n{}'.format(msg)
             )
+
+        rendered_config = StringIO(result.stdout.decode())
+        self.config = yaml.load(rendered_config)
+
+    def _read_env(self, params):
+        """
+        Read .env and merge it with explicitly passed parameters.
+        """
+        self.dotenv = dotenv_values(str(self.dotenv_path))
+        if params is None:
+            self.params = {}
+        else:
+            self.params = {k: v for k, v in params.items() if k in self.dotenv}
+
+        # forward the process' environment variables
+        self._compose_env = os.environ.copy()
+        # set the defaults from the dotenv files
+        self._compose_env.update(self.dotenv)
+        # override the defaults passed as parameters
+        self._compose_env.update(self.params)
 
     def _validate_image(self, name):
         if name not in self.nodes:
@@ -162,7 +177,7 @@ class DockerCompose(Command):
 
     def run(self, image, command=None, *, env=None, force_pull=False,
             force_build=False, use_cache=True, use_leaf_cache=True,
-            volumes=None, build_only=False):
+            volumes=None, build_only=False, user=None):
         self._validate_image(image)
 
         if force_pull:
@@ -174,9 +189,13 @@ class DockerCompose(Command):
             return
 
         args = []
+        if user is not None:
+            args.extend(['-u', user])
+
         if env is not None:
             for k, v in env.items():
                 args.extend(['-e', '{}={}'.format(k, v)])
+
         if volumes is not None:
             for volume in volumes:
                 args.extend(['--volume', volume])
