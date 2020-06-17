@@ -1905,6 +1905,13 @@ def test_array_from_strided_bool():
     assert result.equals(expected)
 
 
+def test_boolean_true_count_false_count():
+    # ARROW-9145
+    arr = pa.array([True, True, None, False, None, True] * 1000)
+    assert arr.true_count == 3000
+    assert arr.false_count == 1000
+
+
 def test_buffers_primitive():
     a = pa.array([1, 2, None, 4], type=pa.int16())
     buffers = a.buffers()

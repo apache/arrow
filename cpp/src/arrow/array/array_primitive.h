@@ -84,6 +84,14 @@ class ARROW_EXPORT BooleanArray : public PrimitiveArray {
 
   bool GetView(int64_t i) const { return Value(i); }
 
+  /// \brief Return the number of false (0) values among the valid
+  /// values. Result is not cached.
+  int64_t false_count() const;
+
+  /// \brief Return the number of true (1) values among the valid
+  /// values. Result is not cached.
+  int64_t true_count() const;
+
  protected:
   using PrimitiveArray::PrimitiveArray;
 };

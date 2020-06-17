@@ -1158,6 +1158,13 @@ cdef class BooleanArray(Array):
     """
     Concrete class for Arrow arrays of boolean data type.
     """
+    @property
+    def false_count(self):
+        return (<CBooleanArray*> self.ap).false_count()
+
+    @property
+    def true_count(self):
+        return (<CBooleanArray*> self.ap).true_count()
 
 
 cdef class NumericArray(Array):
