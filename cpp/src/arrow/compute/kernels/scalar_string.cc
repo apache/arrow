@@ -36,12 +36,12 @@ namespace {
 // codepoint. This guaranteed by non-overlap design of the unicode standard. (see
 // section 2.5 of Unicode Standard Core Specification v13.0)
 
-uint8_t ascii_tolower(uint8_t utf8_code_unit) {
+static inline uint8_t ascii_tolower(uint8_t utf8_code_unit) {
   return ((utf8_code_unit >= 'A') && (utf8_code_unit <= 'Z')) ? (utf8_code_unit + 32)
                                                               : utf8_code_unit;
 }
 
-uint8_t ascii_toupper(uint8_t utf8_code_unit) {
+static inline uint8_t ascii_toupper(uint8_t utf8_code_unit) {
   return ((utf8_code_unit >= 'a') && (utf8_code_unit <= 'z')) ? (utf8_code_unit - 32)
                                                               : utf8_code_unit;
 }
@@ -55,9 +55,10 @@ struct AsciiLength {
   }
 };
 
-template <typename Type, typename Base>
+template <typename Type, template <typename> class Derived>
 struct Utf8Transform {
   using offset_type = typename Type::offset_type;
+  using DerivedClass = Derived<Type>;
 
   static offset_type Transform(const uint8_t* input, offset_type input_string_ncodeunits,
                                uint8_t* output) {
@@ -127,9 +128,9 @@ struct Utf8Transform {
         offset_type input_string_offset = input_string_offsets[i];
         offset_type input_string_end = input_string_offsets[i + 1];
         offset_type input_string_ncodeunits = input_string_end - input_string_offset;
-        offset_type encoded_nbytes =
-            Base::Transform(input_str + input_string_offset, input_string_ncodeunits,
-                            output_str + output_ncodeunits);
+        offset_type encoded_nbytes = DerivedClass::Transform(
+            input_str + input_string_offset, input_string_ncodeunits,
+            output_str + output_ncodeunits);
         output_ncodeunits += encoded_nbytes;
         output_string_offsets[i + 1] = output_ncodeunits;
       }
@@ -147,8 +148,8 @@ struct Utf8Transform {
         // See note above in the Array version explaining the 3 / 2
         KERNEL_RETURN_IF_ERROR(ctx,
                                ctx->Allocate(data_nbytes * 3 / 2).Value(&result->value));
-        offset_type encoded_nbytes = Base::Transform(input.value->data(), data_nbytes,
-                                                     result->value->mutable_data());
+        offset_type encoded_nbytes = DerivedClass::Transform(
+            input.value->data(), data_nbytes, result->value->mutable_data());
         KERNEL_RETURN_IF_ERROR(
             ctx, result->value->CopySlice(0, encoded_nbytes).Value(&result->value));
       }
@@ -329,7 +330,7 @@ void MakeUnaryStringBatchKernel(std::string name, FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
-template <template <typename> typename Transformer>
+template <template <typename> class Transformer>
 void MakeUnaryStringUtf8TransformKernel(std::string name, FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>(name, Arity::Unary());
   ArrayKernelExec exec = Transformer<StringType>::Exec;
