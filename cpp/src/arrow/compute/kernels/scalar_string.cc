@@ -41,6 +41,8 @@ struct AsciiLength {
 
 using TransformFunc = std::function<void(const uint8_t*, int64_t, uint8_t*)>;
 
+// Transform a buffer of offsets to one which begins with 0 and has same
+// value lengths.
 template <typename T>
 Status GetShiftedOffsets(KernelContext* ctx, const Buffer& input_buffer, int64_t offset,
                          int64_t length, std::shared_ptr<Buffer>* out) {
@@ -55,6 +57,8 @@ Status GetShiftedOffsets(KernelContext* ctx, const Buffer& input_buffer, int64_t
   return Status::OK();
 }
 
+// Apply `transform` to input character data- this function cannot change the
+// length
 template <typename Type>
 void StringDataTransform(KernelContext* ctx, const ExecBatch& batch,
                          TransformFunc transform, Datum* out) {
