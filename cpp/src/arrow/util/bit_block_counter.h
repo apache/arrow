@@ -190,7 +190,7 @@ class ARROW_EXPORT BinaryBitBlockCounter {
   /// \brief Computes "x | y" block for each available run of bits.
   BitBlockCount NextOrWord();
 
-  /// \brief Computes "x | !y" block for each available run of bits.
+  /// \brief Computes "x | ~y" block for each available run of bits.
   BitBlockCount NextOrNotWord();
 
  private:

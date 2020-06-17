@@ -52,7 +52,8 @@ PrimitiveArg GetPrimitiveArg(const ArrayData& arr) {
   if (arg.bit_width > 1) {
     arg.data += arr.offset * arg.bit_width / 8;
   }
-  arg.null_count = arr.GetNullCount();
+  // This may be kUnknownNullCount
+  arg.null_count = arr.null_count.load();
   return arg;
 }
 

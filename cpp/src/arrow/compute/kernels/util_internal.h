@@ -29,10 +29,15 @@ namespace internal {
 // kernel implementation
 struct PrimitiveArg {
   const uint8_t* is_valid;
+  // If the bit_width is a multiple of 8 (i.e. not boolean), then "data" should
+  // be shifted by offset * (bit_width / 8). For bit-packed data, the offset
+  // must be used when indexing.
   const uint8_t* data;
   int bit_width;
   int64_t length;
   int64_t offset;
+  // This may be kUnknownNullCount if the null_count has not yet been computed,
+  // so use null_count != 0 to determine "may have nulls".
   int64_t null_count;
 };
 

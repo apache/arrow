@@ -154,7 +154,8 @@ void CheckGetTakeIndicesCase(const Array& untyped_filter) {
 TEST(GetTakeIndices, RandomlyGenerated) {
   random::RandomArrayGenerator rng(kRandomSeed);
 
-  const int64_t length = 5000;
+  // Multiple of word size + 1
+  const int64_t length = 6401;
   for (auto null_prob : {0.0, 0.01, 0.999, 1.0}) {
     for (auto true_prob : {0.0, 0.01, 0.999, 1.0}) {
       auto filter = rng.Boolean(length, true_prob, null_prob);

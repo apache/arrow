@@ -45,6 +45,7 @@ using internal::BitBlockCount;
 using internal::BitBlockCounter;
 using internal::BitmapReader;
 using internal::CopyBitmap;
+using internal::CountSetBits;
 using internal::GetArrayView;
 using internal::IndexBoundsCheck;
 using internal::OptionalBitBlockCounter;
@@ -56,11 +57,11 @@ namespace internal {
 int64_t GetFilterOutputSize(const ArrayData& filter,
                             FilterOptions::NullSelectionBehavior null_selection) {
   int64_t output_size = 0;
-  int64_t position = 0;
-  if (filter.GetNullCount() > 0) {
+  if (filter.null_count.load() != 0) {
     const uint8_t* filter_is_valid = filter.buffers[0]->data();
     BinaryBitBlockCounter bit_counter(filter.buffers[1]->data(), filter.offset,
                                       filter_is_valid, filter.offset, filter.length);
+    int64_t position = 0;
     if (null_selection == FilterOptions::EMIT_NULL) {
       while (position < filter.length) {
         BitBlockCount block = bit_counter.NextOrNotWord();
@@ -75,14 +76,8 @@ int64_t GetFilterOutputSize(const ArrayData& filter,
       }
     }
   } else {
-    // The filter has no nulls, so we plow through its data as fast as
-    // possible.
-    BitBlockCounter bit_counter(filter.buffers[1]->data(), filter.offset, filter.length);
-    while (position < filter.length) {
-      BitBlockCount block = bit_counter.NextFourWords();
-      output_size += block.popcount;
-      position += block.length;
-    }
+    // The filter has no nulls, so we can use CountSetBits
+    output_size = CountSetBits(filter.buffers[1]->data(), filter.offset, filter.length);
   }
   return output_size;
 }
@@ -102,9 +97,9 @@ Result<std::shared_ptr<ArrayData>> GetTakeIndicesImpl(
 
   // The current position taking the filter offset into account
   int64_t position_with_offset = filter.offset;
-  if (filter.GetNullCount() > 0) {
-    // The filter has nulls, so we scan the validity bitmap and the filter data
-    // bitmap together, branching on the null selection type.
+  if (filter.null_count != 0) {
+    // The filter may have nulls, so we scan the validity bitmap and the filter
+    // data bitmap together, branching on the null selection type.
     const uint8_t* filter_is_valid = filter.buffers[0]->data();
 
     // To count blocks whether filter_data[i] || !filter_is_valid[i]
@@ -120,7 +115,7 @@ Result<std::shared_ptr<ArrayData>> GetTakeIndicesImpl(
             builder.UnsafeAppend(position++);
           }
           position_with_offset += and_block.length;
-        } else {
+        } else if (!and_block.NoneSet()) {
           // Some of the values are false or null
           for (int64_t i = 0; i < and_block.length; ++i) {
             if (BitUtil::GetBit(filter_is_valid, position_with_offset) &&
@@ -130,6 +125,9 @@ Result<std::shared_ptr<ArrayData>> GetTakeIndicesImpl(
             ++position;
             ++position_with_offset;
           }
+        } else {
+          position += and_block.length;
+          position_with_offset += and_block.length;
         }
       }
     } else {
@@ -174,7 +172,7 @@ Result<std::shared_ptr<ArrayData>> GetTakeIndicesImpl(
         int64_t run_length = 0;
 
         // If we've found a all-true block, then we scan forward until we find
-        // a block that has some false values (or we reach the end
+        // a block that has some false values (or we reach the end)
         while (current_block.length > 0 && current_block.AllSet()) {
           run_length += current_block.length;
           current_block = data_counter.NextWord();
@@ -186,7 +184,10 @@ Result<std::shared_ptr<ArrayData>> GetTakeIndicesImpl(
           builder.UnsafeAppend(position++);
         }
         position_with_offset += run_length;
-      } else {
+        // The current_block already computed, so advance to next loop
+        // iteration.
+        continue;
+      } else if (!current_block.NoneSet()) {
         // Must do bitchecking on the current block
         RETURN_NOT_OK(builder.Reserve(current_block.popcount));
         for (int64_t i = 0; i < current_block.length; ++i) {
@@ -196,8 +197,11 @@ Result<std::shared_ptr<ArrayData>> GetTakeIndicesImpl(
           ++position;
           ++position_with_offset;
         }
-        current_block = data_counter.NextWord();
+      } else {
+        position += current_block.length;
+        position_with_offset += current_block.length;
       }
+      current_block = data_counter.NextWord();
     }
   }
   std::shared_ptr<ArrayData> result;
@@ -223,27 +227,19 @@ Result<std::shared_ptr<ArrayData>> GetTakeIndices(
 
 namespace {
 
-template <typename ArrowType>
-struct GetCType {
-  using type = typename ArrowType::c_type;
-};
-
-// We want uint8_t for boolean instead of bool
-template <>
-struct GetCType<BooleanType> {
-  using type = uint8_t;
-};
-
 using FilterState = OptionsWrapper<FilterOptions>;
 using TakeState = OptionsWrapper<TakeOptions>;
 
-Status PreallocateData(KernelContext* ctx, int64_t length, int bit_width, Datum* out) {
+Status PreallocateData(KernelContext* ctx, int64_t length, int bit_width,
+                       bool allocate_validity, Datum* out) {
   // Preallocate memory
   ArrayData* out_arr = out->mutable_array();
   out_arr->length = length;
   out_arr->buffers.resize(2);
 
-  ARROW_ASSIGN_OR_RAISE(out_arr->buffers[0], ctx->AllocateBitmap(length));
+  if (allocate_validity) {
+    ARROW_ASSIGN_OR_RAISE(out_arr->buffers[0], ctx->AllocateBitmap(length));
+  }
   if (bit_width == 1) {
     ARROW_ASSIGN_OR_RAISE(out_arr->buffers[1], ctx->AllocateBitmap(length));
   } else {
@@ -284,7 +280,7 @@ struct PrimitiveTakeImpl {
     // If either the values or indices have nulls, we preemptively zero out the
     // out validity bitmap so that we don't have to use ClearBit in each
     // iteration for nulls.
-    if (values.null_count > 0 || indices.null_count > 0) {
+    if (values.null_count != 0 || indices.null_count != 0) {
       BitUtil::SetBitsTo(out_is_valid, out_offset, indices.length, false);
     }
 
@@ -383,7 +379,7 @@ struct BooleanTakeImpl {
     // If either the values or indices have nulls, we preemptively zero out the
     // out validity bitmap so that we don't have to use ClearBit in each
     // iteration for nulls.
-    if (values.null_count > 0 || indices.null_count > 0) {
+    if (values.null_count != 0 || indices.null_count != 0) {
       BitUtil::SetBitsTo(out_is_valid, out_offset, indices.length, false);
     }
     // Avoid uninitialized data in values array
@@ -494,8 +490,13 @@ void PrimitiveTake(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
 
   PrimitiveArg values = GetPrimitiveArg(*batch[0].array());
   PrimitiveArg indices = GetPrimitiveArg(*batch[1].array());
-  KERNEL_RETURN_IF_ERROR(ctx,
-                         PreallocateData(ctx, indices.length, values.bit_width, out));
+
+  // TODO: When neither values nor indices contain nulls, we can skip
+  // allocating the validity bitmap altogether and save time and space. A
+  // streamlined PrimitiveTakeImpl would need to be written that skips all
+  // interactions with the output validity bitmap, though.
+  KERNEL_RETURN_IF_ERROR(ctx, PreallocateData(ctx, indices.length, values.bit_width,
+                                              /*allocate_validity=*/true, out));
   switch (values.bit_width) {
     case 1:
       return TakeIndexDispatch<BooleanTakeImpl>(values, indices, out);
@@ -542,18 +543,19 @@ class DropNullCounter {
 
   // For when both validity bitmap and data are present
   BinaryBitBlockCounter data_and_validity_counter_;
-  bool has_validity_;
+  const bool has_validity_;
 };
 
 /// \brief The Filter implementation for primitive (fixed-width) types does not
-/// use the logical Arrow type but rather then physical C type. This way we
-/// only generate one take function for each byte width. We use the same
+/// use the logical Arrow type but rather the physical C type. This way we only
+/// generate one take function for each byte width. We use the same
 /// implementation here for boolean and fixed-byte-size inputs with some
 /// template specialization.
 template <typename ArrowType>
 class PrimitiveFilterImpl {
  public:
-  using T = typename GetCType<ArrowType>::type;
+  using T = typename std::conditional<std::is_same<ArrowType, BooleanType>::value,
+                                      uint8_t, typename ArrowType::c_type>::type;
 
   PrimitiveFilterImpl(const PrimitiveArg& values, const PrimitiveArg& filter,
                       FilterOptions::NullSelectionBehavior null_selection,
@@ -569,7 +571,10 @@ class PrimitiveFilterImpl {
         filter_offset_(filter.offset),
         null_selection_(null_selection) {
     ArrayData* out_arr = out_datum->mutable_array();
-    out_is_valid_ = out_arr->buffers[0]->mutable_data();
+    if (out_arr->buffers[0] != nullptr) {
+      // May not be allocated if neither filter nor values contains nulls
+      out_is_valid_ = out_arr->buffers[0]->mutable_data();
+    }
     out_data_ = reinterpret_cast<T*>(out_arr->buffers[1]->mutable_data());
     out_offset_ = out_arr->offset;
     out_length_ = out_arr->length;
@@ -577,9 +582,6 @@ class PrimitiveFilterImpl {
   }
 
   void ExecNonNull() {
-    // The result is all not-null
-    BitUtil::SetBitsTo(out_is_valid_, out_offset_ + out_position_, out_length_, true);
-
     // Fast filter when values and filter are not null
     // Bit counters used for both null_selection behaviors
     BitBlockCounter filter_counter(filter_data_, filter_offset_, values_length_);
@@ -641,104 +643,152 @@ class PrimitiveFilterImpl {
     };
 
     int64_t in_position = 0;
-    while (in_position < values_length_) {
-      BitBlockCount filter_block = drop_null_counter.NextBlock();
-      BitBlockCount filter_valid_block = filter_valid_counter.NextWord();
-      BitBlockCount data_block = data_counter.NextWord();
-      if (filter_block.AllSet() && data_block.AllSet()) {
-        // Fastest path: all values in block are included and not null
-        BitUtil::SetBitsTo(out_is_valid_, out_offset_ + out_position_,
-                           filter_block.length, true);
-        WriteValueSegment(in_position, filter_block.length);
-        in_position += filter_block.length;
-      } else if (filter_block.AllSet()) {
-        // Faster: all values are selected, but some values are null
-        // Batch copy bits from values validity bitmap to output validity bitmap
-        CopyBitmap(values_is_valid_, values_offset_ + in_position, filter_block.length,
-                   out_is_valid_, out_offset_ + out_position_);
-        WriteValueSegment(in_position, filter_block.length);
-        in_position += filter_block.length;
-      } else if (filter_block.NoneSet() && null_selection_ == FilterOptions::DROP) {
-        // For this exceedingly common case in low-selectivity filters we can
-        // skip further analysis of the data and move on to the next block.
-        in_position += filter_block.length;
-      } else {
-        // Some filter values are false or null
-        if (data_block.AllSet()) {
-          // No values are null
-          if (filter_valid_block.AllSet()) {
-            // Filter is non-null but some values are false
-            for (int64_t i = 0; i < filter_block.length; ++i) {
-              if (BitUtil::GetBit(filter_data_, filter_offset_ + in_position)) {
-                WriteNotNull(in_position);
+
+    auto WriteSelectedBlockAllNotNull = [&](int64_t length) {
+      BitUtil::SetBitsTo(out_is_valid_, out_offset_ + out_position_, length, true);
+      WriteValueSegment(in_position, length);
+      in_position += length;
+    };
+
+    auto WriteSelectedBlockSomeNull = [&](int64_t length) {
+      // Batch copy bits from values validity bitmap to output validity bitmap
+      CopyBitmap(values_is_valid_, values_offset_ + in_position, length, out_is_valid_,
+                 out_offset_ + out_position_);
+      WriteValueSegment(in_position, length);
+      in_position += length;
+    };
+
+    if (null_selection_ == FilterOptions::DROP) {
+      while (in_position < values_length_) {
+        BitBlockCount filter_block = drop_null_counter.NextBlock();
+        BitBlockCount filter_valid_block = filter_valid_counter.NextWord();
+        BitBlockCount data_block = data_counter.NextWord();
+        if (filter_block.AllSet() && data_block.AllSet()) {
+          WriteSelectedBlockAllNotNull(filter_block.length);
+        } else if (filter_block.AllSet()) {
+          // Faster: all values are selected, but some values are null
+          WriteSelectedBlockSomeNull(filter_block.length);
+        } else if (filter_block.NoneSet()) {
+          // For this exceedingly common case in low-selectivity filters we can
+          // skip further analysis of the data and move on to the next block.
+          in_position += filter_block.length;
+        } else {
+          // Some filter values are false or null
+          if (data_block.AllSet()) {
+            // No values are null
+            if (filter_valid_block.AllSet()) {
+              // Filter is non-null but some values are false
+              for (int64_t i = 0; i < filter_block.length; ++i) {
+                if (BitUtil::GetBit(filter_data_, filter_offset_ + in_position)) {
+                  WriteNotNull(in_position);
+                }
+                ++in_position;
               }
-              ++in_position;
+            } else {
+              // If any values are selected, they ARE NOT null
+              for (int64_t i = 0; i < filter_block.length; ++i) {
+                if (BitUtil::GetBit(filter_is_valid_, filter_offset_ + in_position) &&
+                    BitUtil::GetBit(filter_data_, filter_offset_ + in_position)) {
+                  WriteNotNull(in_position);
+                }
+                ++in_position;
+              }
             }
-          } else if (null_selection_ == FilterOptions::DROP) {
-            // If any values are selected, they ARE NOT null
-            for (int64_t i = 0; i < filter_block.length; ++i) {
-              if (BitUtil::GetBit(filter_is_valid_, filter_offset_ + in_position) &&
-                  BitUtil::GetBit(filter_data_, filter_offset_ + in_position)) {
-                WriteNotNull(in_position);
+          } else {  // !data_block.AllSet()
+            // Some values are null
+            if (filter_valid_block.AllSet()) {
+              // Filter is non-null but some values are false
+              for (int64_t i = 0; i < filter_block.length; ++i) {
+                if (BitUtil::GetBit(filter_data_, filter_offset_ + in_position)) {
+                  WriteMaybeNull(in_position);
+                }
+                ++in_position;
               }
-              ++in_position;
-            }
-          } else {  // null_selection == FilterOptions::EMIT_NULL
-            // Data values in this block are not null
-            for (int64_t i = 0; i < filter_block.length; ++i) {
-              const bool is_valid =
-                  BitUtil::GetBit(filter_is_valid_, filter_offset_ + in_position);
-              if (is_valid &&
-                  BitUtil::GetBit(filter_data_, filter_offset_ + in_position)) {
-                // Filter slot is non-null and set
-                WriteNotNull(in_position);
-              } else if (!is_valid) {
-                // Filter slot is null, so we have a null in the output
-                BitUtil::ClearBit(out_is_valid_, out_offset_ + out_position_);
-                WriteNull();
+            } else {
+              // If any values are selected, they ARE NOT null
+              for (int64_t i = 0; i < filter_block.length; ++i) {
+                if (BitUtil::GetBit(filter_is_valid_, filter_offset_ + in_position) &&
+                    BitUtil::GetBit(filter_data_, filter_offset_ + in_position)) {
+                  WriteMaybeNull(in_position);
+                }
+                ++in_position;
               }
-              ++in_position;
-            }
-          }
-        } else {  // !data_block.AllSet()
-          // Some values are null
-          if (filter_valid_block.AllSet()) {
-            // Filter is non-null but some values are false
-            for (int64_t i = 0; i < filter_block.length; ++i) {
-              if (BitUtil::GetBit(filter_data_, filter_offset_ + in_position)) {
-                WriteMaybeNull(in_position);
-              }
-              ++in_position;
-            }
-          } else if (null_selection_ == FilterOptions::DROP) {
-            // If any values are selected, they ARE NOT null
-            for (int64_t i = 0; i < filter_block.length; ++i) {
-              if (BitUtil::GetBit(filter_is_valid_, filter_offset_ + in_position) &&
-                  BitUtil::GetBit(filter_data_, filter_offset_ + in_position)) {
-                WriteMaybeNull(in_position);
-              }
-              ++in_position;
-            }
-          } else {  // null_selection == FilterOptions::EMIT_NULL
-            // Data values in this block are not null
-            for (int64_t i = 0; i < filter_block.length; ++i) {
-              const bool is_valid =
-                  BitUtil::GetBit(filter_is_valid_, filter_offset_ + in_position);
-              if (is_valid &&
-                  BitUtil::GetBit(filter_data_, filter_offset_ + in_position)) {
-                // Filter slot is non-null and set
-                WriteMaybeNull(in_position);
-              } else if (!is_valid) {
-                // Filter slot is null, so we have a null in the output
-                BitUtil::ClearBit(out_is_valid_, out_offset_ + out_position_);
-                WriteNull();
-              }
-              ++in_position;
             }
           }
-        }
-      }  // !filter_block.AllSet()
-    }    // while(in_position < values_length_)
+        }  // !filter_block.AllSet()
+      }    // while(in_position < values_length_)
+    } else {
+      // FilterOptions::EMIT_NULL
+      while (in_position < values_length_) {
+        BitBlockCount filter_block = drop_null_counter.NextBlock();
+        BitBlockCount filter_valid_block = filter_valid_counter.NextWord();
+        BitBlockCount data_block = data_counter.NextWord();
+        if (filter_block.AllSet() && data_block.AllSet()) {
+          // Fastest path: all values in block are included and not null
+          WriteSelectedBlockAllNotNull(filter_block.length);
+        } else if (filter_block.AllSet()) {
+          // Faster: all values are selected, but some values are null
+          WriteSelectedBlockSomeNull(filter_block.length);
+        } else {
+          // Some filter values are false or null
+          if (data_block.AllSet()) {
+            // No values are null
+            if (filter_valid_block.AllSet()) {
+              // Filter is non-null but some values are false
+              for (int64_t i = 0; i < filter_block.length; ++i) {
+                if (BitUtil::GetBit(filter_data_, filter_offset_ + in_position)) {
+                  WriteNotNull(in_position);
+                }
+                ++in_position;
+              }
+            } else {
+              // Data values in this block are not null
+              for (int64_t i = 0; i < filter_block.length; ++i) {
+                const bool is_valid =
+                    BitUtil::GetBit(filter_is_valid_, filter_offset_ + in_position);
+                if (is_valid &&
+                    BitUtil::GetBit(filter_data_, filter_offset_ + in_position)) {
+                  // Filter slot is non-null and set
+                  WriteNotNull(in_position);
+                } else if (!is_valid) {
+                  // Filter slot is null, so we have a null in the output
+                  BitUtil::ClearBit(out_is_valid_, out_offset_ + out_position_);
+                  WriteNull();
+                }
+                ++in_position;
+              }
+            }
+          } else {  // !data_block.AllSet()
+            // Some values are null
+            if (filter_valid_block.AllSet()) {
+              // Filter is non-null but some values are false
+              for (int64_t i = 0; i < filter_block.length; ++i) {
+                if (BitUtil::GetBit(filter_data_, filter_offset_ + in_position)) {
+                  WriteMaybeNull(in_position);
+                }
+                ++in_position;
+              }
+            } else {
+              // Data values in this block are not null
+              for (int64_t i = 0; i < filter_block.length; ++i) {
+                const bool is_valid =
+                    BitUtil::GetBit(filter_is_valid_, filter_offset_ + in_position);
+                if (is_valid &&
+                    BitUtil::GetBit(filter_data_, filter_offset_ + in_position)) {
+                  // Filter slot is non-null and set
+                  WriteMaybeNull(in_position);
+                } else if (!is_valid) {
+                  // Filter slot is null, so we have a null in the output
+                  BitUtil::ClearBit(out_is_valid_, out_offset_ + out_position_);
+                  WriteNull();
+                }
+                ++in_position;
+              }
+            }
+          }
+        }  // !filter_block.AllSet()
+      }    // while(in_position < values_length_)
+    }
   }
 
   // Write the next out_position given the selected in_position for the input
@@ -803,7 +853,6 @@ void PrimitiveFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
       state.options.null_selection_behavior;
 
   int64_t output_length = GetFilterOutputSize(*batch[1].array(), null_selection);
-  KERNEL_RETURN_IF_ERROR(ctx, PreallocateData(ctx, output_length, values.bit_width, out));
 
   // The output precomputed null count is unknown except in the narrow
   // condition that all the values are non-null and the filter will not cause
@@ -814,6 +863,15 @@ void PrimitiveFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   } else {
     out->mutable_array()->null_count = kUnknownNullCount;
   }
+
+  // When neither the values nor filter is known to have any nulls, we will
+  // elect the optimized ExecNonNull path where there is no need to populate a
+  // validity bitmap.
+  bool allocate_validity = values.null_count != 0 || filter.null_count != 0;
+
+  KERNEL_RETURN_IF_ERROR(
+      ctx, PreallocateData(ctx, output_length, values.bit_width, allocate_validity, out));
+
   switch (values.bit_width) {
     case 1:
       return PrimitiveFilterImpl<BooleanType>(values, filter, null_selection, out).Exec();
@@ -967,8 +1025,8 @@ struct Selection {
     const uint8_t* is_valid = GetValidityBitmap(*selection);
     OptionalBitIndexer indices_is_valid(selection->buffers[0], selection->offset);
     OptionalBitIndexer values_is_valid(values->buffers[0], values->offset);
-    const bool values_have_nulls = (values->GetNullCount() > 0);
 
+    const bool values_have_nulls = values->null_count.load() != 0;
     OptionalBitBlockCounter bit_counter(is_valid, selection->offset, selection->length);
     int64_t position = 0;
     while (position < selection->length) {
@@ -1050,79 +1108,106 @@ struct Selection {
       }
     };
 
-    while (in_position < selection->length) {
-      BitBlockCount filter_valid_block = filter_valid_counter.NextWord();
-      BitBlockCount values_valid_block = values_valid_counter.NextWord();
-      BitBlockCount filter_block = filter_counter.NextWord();
-      if (filter_block.NoneSet() && null_selection == FilterOptions::DROP) {
-        // For this exceedingly common case in low-selectivity filters we can
-        // skip further analysis of the data and move on to the next block.
-        in_position += filter_block.length;
-      } else if (filter_valid_block.AllSet()) {
-        // Simpler path: no filter values are null
-        if (filter_block.AllSet()) {
-          // Fastest path: filter values are all true and not null
-          if (values_valid_block.AllSet()) {
-            // The values aren't null either
-            validity_builder.UnsafeAppend(filter_block.length, true);
-            for (int64_t i = 0; i < filter_block.length; ++i) {
-              RETURN_NOT_OK(visit_valid(in_position++));
-            }
-          } else {
-            // Some of the values in this block are null
-            for (int64_t i = 0; i < filter_block.length; ++i) {
-              RETURN_NOT_OK(AppendMaybeNull(in_position++));
-            }
+    auto ProcessFilterAllValid = [&](const BitBlockCount& filter_block,
+                                     const BitBlockCount& values_valid_block) {
+      // Simpler path: no filter values are null
+      if (filter_block.AllSet()) {
+        // Fastest path: filter values are all true and not null
+        if (values_valid_block.AllSet()) {
+          // The values aren't null either
+          validity_builder.UnsafeAppend(filter_block.length, true);
+          for (int64_t i = 0; i < filter_block.length; ++i) {
+            RETURN_NOT_OK(visit_valid(in_position++));
           }
-        } else {  // !filter_block.AllSet()
-          // Some of the filter values are false, but all not null
-          if (values_valid_block.AllSet()) {
-            // All the values are not-null, so we can skip null checking for
-            // them
-            for (int64_t i = 0; i < filter_block.length; ++i) {
-              if (BitUtil::GetBit(filter_data, filter_offset + in_position)) {
-                RETURN_NOT_OK(AppendNotNull(in_position));
-              }
-              ++in_position;
-            }
-          } else {
-            // Some of the values in the block are null, so we have to check
-            // each one
-            for (int64_t i = 0; i < filter_block.length; ++i) {
-              if (BitUtil::GetBit(filter_data, filter_offset + in_position)) {
-                RETURN_NOT_OK(AppendMaybeNull(in_position));
-              }
-              ++in_position;
-            }
+        } else {
+          // Some of the values in this block are null
+          for (int64_t i = 0; i < filter_block.length; ++i) {
+            RETURN_NOT_OK(AppendMaybeNull(in_position++));
           }
         }
-      } else {  // !filter_valid_block.AllSet()
-        // Some of the filter values are null, so we have to handle the DROP
-        // versus EMIT_NULL null selection behavior.
-        if (null_selection == FilterOptions::DROP) {
-          // Filter null values are treated as false.
+      } else {  // !filter_block.AllSet()
+        // Some of the filter values are false, but all not null
+        if (values_valid_block.AllSet()) {
+          // All the values are not-null, so we can skip null checking for
+          // them
           for (int64_t i = 0; i < filter_block.length; ++i) {
-            if (BitUtil::GetBit(filter_is_valid, filter_offset + in_position) &&
-                BitUtil::GetBit(filter_data, filter_offset + in_position)) {
-              RETURN_NOT_OK(AppendMaybeNull(in_position));
+            if (BitUtil::GetBit(filter_data, filter_offset + in_position)) {
+              RETURN_NOT_OK(AppendNotNull(in_position));
             }
             ++in_position;
           }
         } else {
-          // Filter null values are appended to output as null whether the
-          // value in the corresponding slot is valid or not
+          // Some of the values in the block are null, so we have to check
+          // each one
           for (int64_t i = 0; i < filter_block.length; ++i) {
-            const bool filter_not_null =
-                BitUtil::GetBit(filter_is_valid, filter_offset + in_position);
-            if (filter_not_null &&
-                BitUtil::GetBit(filter_data, filter_offset + in_position)) {
+            if (BitUtil::GetBit(filter_data, filter_offset + in_position)) {
               RETURN_NOT_OK(AppendMaybeNull(in_position));
-            } else if (!filter_not_null) {
-              // EMIT_NULL case
-              RETURN_NOT_OK(AppendNull());
             }
             ++in_position;
           }
+        }
+      }
+      return Status::OK();
+    };
+
+    auto ProcessDropNull = [&](int64_t length) {
+      // Some of the filter values are null
+      for (int64_t i = 0; i < length; ++i) {
+        // Filter null values are treated as false.
+        if (BitUtil::GetBit(filter_is_valid, filter_offset + in_position) &&
+            BitUtil::GetBit(filter_data, filter_offset + in_position)) {
+          RETURN_NOT_OK(AppendMaybeNull(in_position));
+        }
+        ++in_position;
+      }
+      return Status::OK();
+    };
+
+    auto ProcessEmitNull = [&](int64_t length) {
+      // Filter null values are appended to output as null whether the
+      // value in the corresponding slot is valid or not
+      for (int64_t i = 0; i < length; ++i) {
+        const bool filter_not_null =
+            BitUtil::GetBit(filter_is_valid, filter_offset + in_position);
+        if (filter_not_null &&
+            BitUtil::GetBit(filter_data, filter_offset + in_position)) {
+          RETURN_NOT_OK(AppendMaybeNull(in_position));
+        } else if (!filter_not_null) {
+          // EMIT_NULL case
+          RETURN_NOT_OK(AppendNull());
+        }
+        ++in_position;
+      }
+      return Status::OK();
+    };
+
+    if (null_selection == FilterOptions::DROP) {
+      while (in_position < selection->length) {
+        BitBlockCount filter_valid_block = filter_valid_counter.NextWord();
+        BitBlockCount values_valid_block = values_valid_counter.NextWord();
+        BitBlockCount filter_block = filter_counter.NextWord();
+        if (filter_block.NoneSet()) {
+          // For this exceedingly common case in low-selectivity filters we can
+          // skip further analysis of the data and move on to the next block.
+          in_position += filter_block.length;
+        } else if (filter_valid_block.AllSet()) {
+          RETURN_NOT_OK(ProcessFilterAllValid(filter_block, values_valid_block));
+        } else {  // !filter_valid_block.AllSet()
+          RETURN_NOT_OK(ProcessDropNull(filter_block.length));
+        }
+      }
+    } else {
+      // FilterOptions::EMIT_NULL
+      while (in_position < selection->length) {
+        BitBlockCount filter_valid_block = filter_valid_counter.NextWord();
+        BitBlockCount values_valid_block = values_valid_counter.NextWord();
+        BitBlockCount filter_block = filter_counter.NextWord();
+        if (filter_valid_block.AllSet()) {
+          // Simpler path: no filter values are null
+          RETURN_NOT_OK(ProcessFilterAllValid(filter_block, values_valid_block));
+        } else {  // !filter_valid_block.AllSet()
+          // Some of the filter values are null
+          RETURN_NOT_OK(ProcessEmitNull(filter_block.length));
         }
       }
     }
