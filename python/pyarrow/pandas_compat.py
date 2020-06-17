@@ -699,21 +699,6 @@ def _reconstruct_block(item, columns=None, extension_columns=None):
     block_arr = item.get('block', None)
     placement = item['placement']
 
-    if (
-            (block_arr is not None) and
-            (block_arr.dtype.type == np.datetime64) and
-            (block_arr.dtype.name != "datetime64[ns]")
-    ):
-        # 1. Non-nanosecond timestamps can express dates outside
-        #    the range supported by nanoseconds.
-        # 2. If the dtype is datetime64 of any sort, deep inside
-        #    pandas' make_block() code path it will do
-        #    ensure_datetime64ns(values), which will blow up for
-        #    those out-of-range timestamps.
-        # 3. To support non-nanosecond timestamps we therefore need to
-        #    use a non-timestamp dtype (ARROW-5359).
-        block_arr = block_arr.astype(np.dtype("O"))
-
     if 'dictionary' in item:
         cat = _pandas_api.categorical_type.from_codes(
             block_arr, categories=item['dictionary'],

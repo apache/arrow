@@ -1135,13 +1135,11 @@ cdef _array_like_to_pandas(obj, options):
                 obj, &out))
 
     arr = wrap_array_output(out)
-    if (isinstance(arr, np.ndarray) and
-            (arr.dtype.type == np.datetime64) and
-            (arr.dtype.name != "datetime64[ns]")):
-        # ARROW-5359 - if we get non-ns datetime64 resolution, it means that
-        # timestamp_as_object=True was specified, and we need to convert to
-        # object dtype to avoid pandas coercing back to ns resolution
-        arr = arr.astype(np.dtype("O"))
+
+    if (isinstance(original_type, TimestampType) and
+            options["timestamp_as_object"]):
+        # ARROW-5359 - need to specify object dtype to avoid pandas to
+        # coerce back to ns resolution
         dtype = "object"
     else:
         dtype = None
