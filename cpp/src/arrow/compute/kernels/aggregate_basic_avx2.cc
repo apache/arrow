@@ -42,8 +42,8 @@ static __m256i kAvx2SparseEpi64Mask256[16];
 static __m256i kAvx2SparseEpi32Mask256[256];
 // The _mm_and_si128 table used for int16 to zero invaild values
 static __m128i kAvx2SparseEpi16Mask128[256];
-// The _mm_and_si64 table used for int8 to zero invaild values
-static __m64 kAvx2SparseEpi8Mask64[256];
+// The table used for int8 to zero invaild values
+static uint64_t kAvx2SparseEpi8Mask64[256];
 
 static void InitAvx2SparseMaskTables() {
   uint8_t* p = reinterpret_cast<uint8_t*>(kAvx2SparseEpi64Mask256);
@@ -284,25 +284,27 @@ inline SumResult<uint64_t> SumSparseBatchAvx2(const uint8_t* bitmap,
   return sum_result;
 }
 
-#define SUM_SPARSE_BATCH_AVX2_EPI32(Type, LoadSimd, CvtSimd, AddSimd)                  \
-  for (int64_t batch = 0; batch < num_batch; batch++) {                                \
-    for (int i = 0; i < kAvx2BatchBytes; i++) {                                        \
-      const uint8_t bits = bitmap[batch * kAvx2BatchBytes + i];                        \
-      /* Load 8 float/int32 and filter invalid values to zero */                       \
-      const __m256i src = _mm256_loadu_si256(                                          \
-          reinterpret_cast<const __m256i*>(&values[batch * kAvx2BatchSize + i * 8]));  \
-      const __m256i valid = _mm256_and_si256(src, kAvx2SparseEpi32Mask256[bits]);      \
-      const auto valid_values = reinterpret_cast<const Type*>(&valid);                 \
-                                                                                       \
-      /* Convert and add the first 4 float/int32 */                                    \
-      results_simd[i * kAvx2BatchBytes] = AddSimd(CvtSimd(LoadSimd(&valid_values[0])), \
-                                                  results_simd[i * kAvx2BatchBytes]);  \
-      /* Convert and add the second 4 floats/int32 */                                  \
-      results_simd[i * kAvx2BatchBytes + 1] = AddSimd(                                 \
-          CvtSimd(LoadSimd(&valid_values[4])), results_simd[i * kAvx2BatchBytes + 1]); \
-                                                                                       \
-      sum_result.count += BitUtil::kBytePopcount[bits];                                \
-    }                                                                                  \
+#define SUM_SPARSE_BATCH_AVX2_EPI32(Type, LoadSimd, CvtSimd, AddSimd)                 \
+  for (int64_t batch = 0; batch < num_batch; batch++) {                               \
+    for (int i = 0; i < kAvx2BatchBytes; i++) {                                       \
+      const uint8_t bits = bitmap[batch * kAvx2BatchBytes + i];                       \
+      /* Load 8 float/int32 and filter invalid values to zero */                      \
+      const __m256i src = _mm256_loadu_si256(                                         \
+          reinterpret_cast<const __m256i*>(&values[batch * kAvx2BatchSize + i * 8])); \
+      __m256i valid = _mm256_and_si256(src, kAvx2SparseEpi32Mask256[bits]);           \
+                                                                                      \
+      /* Convert and add the first 4 float/int32 */                                   \
+      results_simd[i * kAvx2BatchBytes] =                                             \
+          AddSimd(CvtSimd(LoadSimd(reinterpret_cast<const Type*>(&valid))),           \
+                  results_simd[i * kAvx2BatchBytes]);                                 \
+      /* Shuffle the high 4 int32 to beginning, then convert and add */               \
+      valid = _mm256_permute4x64_epi64(valid, 0b00001110);                            \
+      results_simd[i * kAvx2BatchBytes + 1] =                                         \
+          AddSimd(CvtSimd(LoadSimd(reinterpret_cast<const Type*>(&valid))),           \
+                  results_simd[i * kAvx2BatchBytes + 1]);                             \
+                                                                                      \
+      sum_result.count += BitUtil::kBytePopcount[bits];                               \
+    }                                                                                 \
   }
 
 template <>
@@ -337,25 +339,25 @@ inline SumResult<uint64_t> SumSparseBatchAvx2(const uint8_t* bitmap,
   return sum_result;
 }
 
-#define SUM_SPARSE_BATCH_AVX2_EPI16(Type, LoadSimd, CvtSimd, AddSimd)                  \
-  for (int64_t batch = 0; batch < num_batch; batch++) {                                \
-    for (int i = 0; i < kAvx2BatchBytes; i++) {                                        \
-      const uint8_t bits = bitmap[batch * kAvx2BatchBytes + i];                        \
-      /* Load 8 int16 and filter invalid values to zero */                             \
-      const __m128i src = _mm_loadu_si128(                                             \
-          reinterpret_cast<const __m128i*>(&values[batch * kAvx2BatchSize + i * 8]));  \
-      const __m128i valid = _mm_and_si128(src, kAvx2SparseEpi16Mask128[bits]);         \
-      const auto valid_values = reinterpret_cast<const Type*>(&valid);                 \
-                                                                                       \
-      /* Convert and add the first 4 int16 */                                          \
-      results_simd[i * kAvx2BatchBytes] = AddSimd(CvtSimd(LoadSimd(&valid_values[0])), \
-                                                  results_simd[i * kAvx2BatchBytes]);  \
-      /* Convert and add the second 4 int16 */                                         \
-      results_simd[i * kAvx2BatchBytes + 1] = AddSimd(                                 \
-          CvtSimd(LoadSimd(&valid_values[4])), results_simd[i * kAvx2BatchBytes + 1]); \
-                                                                                       \
-      sum_result.count += BitUtil::kBytePopcount[bits];                                \
-    }                                                                                  \
+#define SUM_SPARSE_BATCH_AVX2_EPI16(CvtSimd, AddSimd)                                 \
+  for (int64_t batch = 0; batch < num_batch; batch++) {                               \
+    for (int i = 0; i < kAvx2BatchBytes; i++) {                                       \
+      const uint8_t bits = bitmap[batch * kAvx2BatchBytes + i];                       \
+      /* Load 8 int16 and filter invalid values to zero */                            \
+      const __m128i src = _mm_loadu_si128(                                            \
+          reinterpret_cast<const __m128i*>(&values[batch * kAvx2BatchSize + i * 8])); \
+      const __m128i valid = _mm_and_si128(src, kAvx2SparseEpi16Mask128[bits]);        \
+                                                                                      \
+      /* Convert and add the first 4 int16 */                                         \
+      results_simd[i * kAvx2BatchBytes] =                                             \
+          AddSimd(CvtSimd(valid), results_simd[i * kAvx2BatchBytes]);                 \
+      /* Shuffle the high 4 int16 to beginning, then convert and add */               \
+      results_simd[i * kAvx2BatchBytes + 1] =                                         \
+          AddSimd(CvtSimd(_mm_shuffle_epi32(valid, 0b00001110)),                      \
+                  results_simd[i * kAvx2BatchBytes + 1]);                             \
+                                                                                      \
+      sum_result.count += BitUtil::kBytePopcount[bits];                               \
+    }                                                                                 \
   }
 
 template <>
@@ -363,8 +365,7 @@ template <>
 inline SumResult<int64_t> SumSparseBatchAvx2(const uint8_t* bitmap, const int16_t* values,
                                              int64_t num_batch) {
   SUM_SPARSE_BATCH_AVX2_START(int64_t, __m256i, _mm256_setzero_si256)
-  SUM_SPARSE_BATCH_AVX2_EPI16(int16_t, LOADU_SI128, _mm256_cvtepi16_epi64,
-                              _mm256_add_epi64)
+  SUM_SPARSE_BATCH_AVX2_EPI16(_mm256_cvtepi16_epi64, _mm256_add_epi64)
   SUM_SPARSE_BATCH_AVX2_END(int64_t)
   return sum_result;
 }
@@ -374,31 +375,32 @@ template <>
 inline SumResult<uint64_t> SumSparseBatchAvx2(const uint8_t* bitmap,
                                               const uint16_t* values, int64_t num_batch) {
   SUM_SPARSE_BATCH_AVX2_START(uint64_t, __m256i, _mm256_setzero_si256)
-  SUM_SPARSE_BATCH_AVX2_EPI16(uint16_t, LOADU_SI128, _mm256_cvtepu16_epi64,
-                              _mm256_add_epi64)
+  SUM_SPARSE_BATCH_AVX2_EPI16(_mm256_cvtepu16_epi64, _mm256_add_epi64)
   SUM_SPARSE_BATCH_AVX2_END(uint64_t)
   return sum_result;
 }
 
-#define SUM_SPARSE_BATCH_AVX2_EPI8(Type, LoadSimd, CvtSimd, AddSimd)                   \
-  for (int64_t batch = 0; batch < num_batch; batch++) {                                \
-    for (int i = 0; i < kAvx2BatchBytes; i++) {                                        \
-      const uint8_t bits = bitmap[batch * kAvx2BatchBytes + i];                        \
-      /* Load 8 int16 and filter invalid values to zero */                             \
-      const auto p = &values[batch * kAvx2BatchSize + i * 8];                          \
-      const __m64 src = _mm_set_pi8(p[7], p[6], p[5], p[4], p[3], p[2], p[1], p[0]);   \
-      const __m64 valid = _mm_and_si64(src, kAvx2SparseEpi8Mask64[bits]);              \
-      const auto valid_values = reinterpret_cast<const Type*>(&valid);                 \
-                                                                                       \
-      /* Convert and add the first 4 int8 */                                           \
-      results_simd[i * kAvx2BatchBytes] = AddSimd(CvtSimd(LoadSimd(&valid_values[0])), \
-                                                  results_simd[i * kAvx2BatchBytes]);  \
-      /* Convert and add the second 4 int8 */                                          \
-      results_simd[i * kAvx2BatchBytes + 1] = AddSimd(                                 \
-          CvtSimd(LoadSimd(&valid_values[4])), results_simd[i * kAvx2BatchBytes + 1]); \
-                                                                                       \
-      sum_result.count += BitUtil::kBytePopcount[bits];                                \
-    }                                                                                  \
+#define SUM_SPARSE_BATCH_AVX2_EPI8(CvtSimd, AddSimd)                                  \
+  for (int64_t batch = 0; batch < num_batch; batch++) {                               \
+    for (int i = 0; i < kAvx2BatchBytes; i++) {                                       \
+      const uint8_t bits = bitmap[batch * kAvx2BatchBytes + i];                       \
+      /* Load 8 int8 and filter invalid values to zero */                             \
+      const __m128i src = _mm_loadl_epi64(                                            \
+          reinterpret_cast<const __m128i*>(&values[batch * kAvx2BatchSize + i * 8])); \
+      const __m128i mask = _mm_loadl_epi64(                                           \
+          reinterpret_cast<const __m128i*>(&kAvx2SparseEpi8Mask64[bits]));            \
+      const __m128i valid = _mm_and_si128(src, mask);                                 \
+                                                                                      \
+      /* Convert and add the first 4 int16 */                                         \
+      results_simd[i * kAvx2BatchBytes] =                                             \
+          AddSimd(CvtSimd(valid), results_simd[i * kAvx2BatchBytes]);                 \
+      /* Shuffle the high 4 int8 to beginning, then convert and add */                \
+      results_simd[i * kAvx2BatchBytes + 1] =                                         \
+          AddSimd(CvtSimd(_mm_shuffle_epi32(valid, 0b00000001)),                      \
+                  results_simd[i * kAvx2BatchBytes + 1]);                             \
+                                                                                      \
+      sum_result.count += BitUtil::kBytePopcount[bits];                               \
+    }                                                                                 \
   }
 
 template <>
@@ -406,7 +408,7 @@ template <>
 inline SumResult<int64_t> SumSparseBatchAvx2(const uint8_t* bitmap, const int8_t* values,
                                              int64_t num_batch) {
   SUM_SPARSE_BATCH_AVX2_START(int64_t, __m256i, _mm256_setzero_si256)
-  SUM_SPARSE_BATCH_AVX2_EPI8(int8_t, LOADU_SI128, _mm256_cvtepi8_epi64, _mm256_add_epi64)
+  SUM_SPARSE_BATCH_AVX2_EPI8(_mm256_cvtepi8_epi64, _mm256_add_epi64)
   SUM_SPARSE_BATCH_AVX2_END(int64_t)
   return sum_result;
 }
@@ -416,7 +418,7 @@ template <>
 inline SumResult<uint64_t> SumSparseBatchAvx2(const uint8_t* bitmap,
                                               const uint8_t* values, int64_t num_batch) {
   SUM_SPARSE_BATCH_AVX2_START(uint64_t, __m256i, _mm256_setzero_si256)
-  SUM_SPARSE_BATCH_AVX2_EPI8(uint8_t, LOADU_SI128, _mm256_cvtepu8_epi64, _mm256_add_epi64)
+  SUM_SPARSE_BATCH_AVX2_EPI8(_mm256_cvtepu8_epi64, _mm256_add_epi64)
   SUM_SPARSE_BATCH_AVX2_END(uint64_t)
   return sum_result;
 }
