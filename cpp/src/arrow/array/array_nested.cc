@@ -258,6 +258,19 @@ Result<std::shared_ptr<Array>> ListArray::Flatten(MemoryPool* memory_pool) const
 Result<std::shared_ptr<Array>> LargeListArray::Flatten(MemoryPool* memory_pool) const {
   return FlattenListArray(*this, memory_pool);
 }
+
+std::shared_ptr<Int32Array> ListArray::offsets() const {
+  return std::make_shared<Int32Array>(data_->length + 1, data_->buffers[1],
+                                      /*null_bitmap=*/nullptr,
+                                      /*null_count=*/0, data_->offset);
+}
+
+std::shared_ptr<Int64Array> LargeListArray::offsets() const {
+  return std::make_shared<Int64Array>(data_->length + 1, data_->buffers[1],
+                                      /*null_bitmap=*/nullptr,
+                                      /*null_count=*/0, data_->offset);
+}
+
 // ----------------------------------------------------------------------
 // MapArray
 
