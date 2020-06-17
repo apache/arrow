@@ -149,7 +149,13 @@ services:
   ubuntu-ruby:
     image: dummy
   ubuntu-cuda:
-    image: dummy
+    image: dummy-cuda
+    environment:
+      CUDA_ENV: 1
+      OTHER_ENV: 2
+    volumes:
+     - /host:/container
+    command: /bin/bash -c "echo 1 > /tmp/dummy && cat /tmp/dummy"
 """
 
 arrow_compose_env = {
@@ -500,7 +506,14 @@ def test_image_with_gpu(arrow_compose_path):
     compose = DockerCompose(arrow_compose_path)
 
     expected_calls = [
-        "run --rm -it --gpus all dummy"
+        [
+            "run", "--rm", "-it", "--gpus", "all",
+            "-e", "CUDA_ENV=1",
+            "-e", "OTHER_ENV=2",
+            "-v", "/host:/container:rw",
+            "dummy-cuda",
+            "/bin/bash", "-c", "echo 1 > /tmp/dummy && cat /tmp/dummy"
+        ]
     ]
     with assert_docker_calls(compose, expected_calls):
         compose.run('ubuntu-cuda', force_pull=False, force_build=False)
