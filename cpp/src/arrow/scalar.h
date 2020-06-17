@@ -101,19 +101,10 @@ struct ARROW_EXPORT PrimitiveScalar : public Scalar {
 
   // Non-null constructor.
   PrimitiveScalar(ValueType value, std::shared_ptr<DataType> type)
-      : Scalar(std::move(type), true), value(value) {
-    ARROW_CHECK_EQ(this->type->id(), T::type_id);
-  }
+      : Scalar(std::move(type), true), value(value) {}
 
   explicit PrimitiveScalar(std::shared_ptr<DataType> type)
-      : Scalar(std::move(type), false) {
-    ARROW_CHECK_EQ(this->type->id(), T::type_id);
-  }
-
-  explicit PrimitiveScalar(ValueType value)
-      : PrimitiveScalar(value, TypeTraits<T>::type_singleton()) {}
-
-  PrimitiveScalar() : Scalar(TypeTraits<T>::type_singleton()) {}
+      : Scalar(std::move(type), false) {}
 
   ValueType value{};
 };
@@ -121,12 +112,26 @@ struct ARROW_EXPORT PrimitiveScalar : public Scalar {
 }  // namespace internal
 
 struct ARROW_EXPORT BooleanScalar : public internal::PrimitiveScalar<BooleanType, bool> {
-  using internal::PrimitiveScalar<BooleanType, bool>::PrimitiveScalar;
+  using Base = internal::PrimitiveScalar<BooleanType, bool>;
+  using Base::Base;
+
+  explicit BooleanScalar(bool value)
+    : Base(value, boolean()) {}
+
+  BooleanScalar() : Base(boolean()) {}
 };
 
 template <typename T>
 struct NumericScalar : public internal::PrimitiveScalar<T> {
-  using internal::PrimitiveScalar<T>::PrimitiveScalar;
+  using Base = typename internal::PrimitiveScalar<T>;
+  using Base::Base;
+  using TypeClass = typename Base::TypeClass;
+  using ValueType = typename Base::ValueType;
+
+  explicit NumericScalar(ValueType value)
+      : Base(value, TypeTraits<T>::type_singleton()) {}
+
+  NumericScalar() : Base(TypeTraits<T>::type_singleton()) {}
 };
 
 struct ARROW_EXPORT Int8Scalar : public NumericScalar<Int8Type> {
@@ -242,9 +247,17 @@ struct ARROW_EXPORT FixedSizeBinaryScalar : public BinaryScalar {
   explicit FixedSizeBinaryScalar(std::shared_ptr<DataType> type) : BinaryScalar(type) {}
 };
 
+template <typename T, typename StorageType = typename T::StorageType,
+          typename Enable = void>
+struct ARROW_EXPORT TemporalScalar : internal::PrimitiveScalar<StorageType> {
+  using internal::PrimitiveScalar<StorageType>::PrimitiveScalar;
+  using TypeClass = T;
+};
+
 template <typename T>
-struct ARROW_EXPORT TemporalScalar : public internal::PrimitiveScalar<T> {
+struct ARROW_EXPORT TemporalScalar<T, void, void> : internal::PrimitiveScalar<T> {
   using internal::PrimitiveScalar<T>::PrimitiveScalar;
+  using TypeClass = T;
 };
 
 template <typename T>
@@ -253,7 +266,7 @@ struct ARROW_EXPORT DateScalar : public TemporalScalar<T> {
   using ValueType = typename TemporalScalar<T>::ValueType;
 
   explicit DateScalar(ValueType value)
-      : TemporalScalar<T>(std::move(value), TypeTraits<T>::type_singleton()) {}
+    : TemporalScalar<T>(std::move(value), TypeTraits<T>::type_singleton()) {}
   DateScalar() : TemporalScalar<T>(TypeTraits<T>::type_singleton()) {}
 };
 
