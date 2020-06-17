@@ -163,7 +163,6 @@ else
 
   # Test that the modules are importable
   $PYTHON_INTERPRETER -c "
-import sys
 import pyarrow
 import pyarrow.csv
 import pyarrow.dataset
@@ -173,6 +172,7 @@ import pyarrow._hdfs
 import pyarrow.json
 import pyarrow.parquet
 import pyarrow.plasma
+import pyarrow._s3fs
   "
 
   # More thorough testing happens outside of the build to prevent
