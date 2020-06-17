@@ -7,7 +7,7 @@
 *.csv
 *.json
 *.snap
-.github/ISSUE_TEMPLATE.md
+.github/ISSUE_TEMPLATE/question.md
 ci/etc/rprofile
 cpp/CHANGELOG_PARQUET.md
 cpp/src/arrow/io/mman.h
