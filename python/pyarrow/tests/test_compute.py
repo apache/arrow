@@ -299,7 +299,6 @@ def test_compare_scalar(typ):
 
 
 def test_compare_chunked_array_mixed():
-
     arr = pa.array([1, 2, 3, 4, None])
     arr_chunked = pa.chunked_array([[1, 2, 3], [4, None]])
     arr_chunked2 = pa.chunked_array([[1, 2], [3, 4, None]])
@@ -312,3 +311,27 @@ def test_compare_chunked_array_mixed():
         arr_chunked == arr_chunked2,
     ]:
         assert result.equals(expected)
+
+
+def test_arithmetic_add():
+    left = pa.array([1, 2, 3, 4, 5])
+    right = pa.array([0, -1, 1, 2, 3])
+    result = pa.compute.add(left, right)
+    expected = pa.array([1, 1, 4, 6, 8])
+    assert result.equals(expected)
+
+
+def test_arithmetic_subtract():
+    left = pa.array([1, 2, 3, 4, 5])
+    right = pa.array([0, -1, 1, 2, 3])
+    result = pa.compute.subtract(left, right)
+    expected = pa.array([1, 3, 2, 2, 2])
+    assert result.equals(expected)
+
+
+def test_arithmetic_multiply():
+    left = pa.array([1, 2, 3, 4, 5])
+    right = pa.array([0, -1, 1, 2, 3])
+    result = pa.compute.multiply(left, right)
+    expected = pa.array([0, -2, 3, 8, 15])
+    assert result.equals(expected)
