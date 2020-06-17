@@ -338,7 +338,6 @@ def test_arithmetic_multiply():
 
 
 def test_isnull():
-
     arr = pa.array([1, 2, 3, None])
     result = arr.isnull()
     expected = pa.array([False, False, False, True])
