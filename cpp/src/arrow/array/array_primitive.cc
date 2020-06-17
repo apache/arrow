@@ -55,7 +55,8 @@ int64_t BooleanArray::false_count() const {
 }
 
 int64_t BooleanArray::true_count() const {
-  if (data_->buffers[0] != nullptr) {
+  if (data_->null_count.load() != 0) {
+    DCHECK(data_->buffers[0]);
     internal::BinaryBitBlockCounter bit_counter(data_->buffers[0]->data(), data_->offset,
                                                 data_->buffers[1]->data(), data_->offset,
                                                 data_->length);
