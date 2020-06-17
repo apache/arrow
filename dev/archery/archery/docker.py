@@ -17,6 +17,7 @@
 
 import os
 import re
+import shlex
 import subprocess
 from io import StringIO
 
@@ -245,11 +246,13 @@ class DockerCompose(Command):
                 args.append(command)
             else:
                 # replace whitespaces from the preformatted compose command
-                cmd = re.sub(r"\s+", " ", cc['command'], flags=re.MULTILINE)
-                args.append(cmd)
+                cmd = shlex.split(cc.get('command', ''))
+                cmd = [re.sub(r"\s+", " ", token) for token in cmd]
+                if cmd:
+                    args.extend(cmd)
 
             # execute as a plain docker cli command
-            return self._execute_docker('run', '--rm', *args)
+            return self._execute_docker('run', '--rm', '-it', *args)
 
         # execute as a docker-compose command
         args.append(image)

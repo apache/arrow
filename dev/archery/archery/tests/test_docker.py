@@ -114,6 +114,9 @@ services:
 arrow_compose_yml = """
 version: '3.5'
 
+x-with-gpus:
+  - ubuntu-cuda
+
 x-hierarchy:
   - conda-cpp:
     - conda-python:
@@ -124,6 +127,7 @@ x-hierarchy:
     - ubuntu-cpp-cmake32
     - ubuntu-c-glib:
       - ubuntu-ruby
+  - ubuntu-cuda
 
 services:
   conda-cpp:
@@ -143,6 +147,8 @@ services:
   ubuntu-c-glib:
     image: dummy
   ubuntu-ruby:
+    image: dummy
+  ubuntu-cuda:
     image: dummy
 """
 
@@ -195,6 +201,16 @@ def test_config_validation(tmpdir):
 
     config_path = create_config(tmpdir, ok_compose_yml)
     DockerCompose(config_path)  # no issue
+
+
+def assert_docker_calls(compose, expected_args):
+    base_command = ['docker']
+    expected_commands = []
+    for args in expected_args:
+        if isinstance(args, str):
+            args = re.split(r"\s", args)
+        expected_commands.append(base_command + args)
+    return assert_subprocess_calls(expected_commands, check=True)
 
 
 def assert_compose_calls(compose, expected_args, env=mock.ANY):
@@ -480,9 +496,19 @@ def test_compose_error(arrow_compose_path):
     assert "export PANDAS=master" in exception_message
 
 
+def test_image_with_gpu(arrow_compose_path):
+    compose = DockerCompose(arrow_compose_path)
+
+    expected_calls = [
+        "run --rm -it --gpus all dummy"
+    ]
+    with assert_docker_calls(compose, expected_calls):
+        compose.run('ubuntu-cuda', force_pull=False, force_build=False)
+
+
 def test_listing_images(arrow_compose_path):
     compose = DockerCompose(arrow_compose_path)
-    assert compose.images() == [
+    assert sorted(compose.images()) == [
         'conda-cpp',
         'conda-python',
         'conda-python-dask',
@@ -491,5 +517,6 @@ def test_listing_images(arrow_compose_path):
         'ubuntu-c-glib',
         'ubuntu-cpp',
         'ubuntu-cpp-cmake32',
+        'ubuntu-cuda',
         'ubuntu-ruby',
     ]
