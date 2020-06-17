@@ -70,9 +70,11 @@ Status TransformInputStream::Close() {
 
 Status TransformInputStream::Abort() { return impl_->wrapped_->Abort(); }
 
-bool TransformInputStream::closed() const { return impl_->wrapped_->closed(); }
+bool TransformInputStream::closed() const { return impl_->closed_; }
 
 Result<std::shared_ptr<Buffer>> TransformInputStream::Read(int64_t nbytes) {
+  RETURN_NOT_OK(impl_->CheckClosed());
+
   ARROW_ASSIGN_OR_RAISE(auto buf, AllocateResizableBuffer(nbytes));
   ARROW_ASSIGN_OR_RAISE(auto bytes_read, this->Read(nbytes, buf->mutable_data()));
   if (bytes_read < nbytes) {
@@ -82,6 +84,8 @@ Result<std::shared_ptr<Buffer>> TransformInputStream::Read(int64_t nbytes) {
 }
 
 Result<int64_t> TransformInputStream::Read(int64_t nbytes, void* out) {
+  RETURN_NOT_OK(impl_->CheckClosed());
+
   if (nbytes == 0) {
     return 0;
   }
@@ -131,11 +135,13 @@ Result<int64_t> TransformInputStream::Read(int64_t nbytes, void* out) {
       impl_->pending_.reset();
     }
   }
+  impl_->pos_ += copied_bytes;
   return copied_bytes;
 }
 
 Result<int64_t> TransformInputStream::Tell() const {
   RETURN_NOT_OK(impl_->CheckClosed());
+
   return impl_->pos_;
 }
 

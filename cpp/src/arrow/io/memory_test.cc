@@ -485,11 +485,13 @@ class TestTransformInputStream : public ::testing::Test {
     auto wrapped = std::make_shared<BufferReader>(util::string_view());
     auto stream = std::make_shared<TransformInputStream>(wrapped, transform());
 
+    ASSERT_OK_AND_EQ(0, stream->Tell());
     ASSERT_OK_AND_ASSIGN(auto buf, stream->Read(123));
     ASSERT_EQ(buf->size(), 0);
     ASSERT_OK_AND_ASSIGN(buf, stream->Read(0));
     ASSERT_EQ(buf->size(), 0);
     ASSERT_OK_AND_EQ(0, stream->Read(5, out_data_));
+    ASSERT_OK_AND_EQ(0, stream->Tell());
   }
 
   void TestBasics() {
@@ -501,6 +503,20 @@ class TestTransformInputStream : public ::testing::Test {
     std::shared_ptr<Buffer> actual;
     AccumulateReads(stream, 200, &actual);
     AssertBufferEqual(*actual, *expected);
+  }
+
+  void TestClose() {
+    auto src = Buffer::FromString("1234567890abcdefghi");
+    auto stream = std::make_shared<TransformInputStream>(
+        std::make_shared<BufferReader>(src), this->transform());
+    ASSERT_FALSE(stream->closed());
+    ASSERT_OK(stream->Close());
+    ASSERT_TRUE(stream->closed());
+    ASSERT_RAISES(Invalid, stream->Read(1));
+    ASSERT_RAISES(Invalid, stream->Read(1, out_data_));
+    ASSERT_RAISES(Invalid, stream->Tell());
+    ASSERT_OK(stream->Close());
+    ASSERT_TRUE(stream->closed());
   }
 
   void TestChunked() {
@@ -536,13 +552,24 @@ class TestTransformInputStream : public ::testing::Test {
                        std::function<int64_t()> gen_chunk_sizes,
                        std::shared_ptr<Buffer>* out) {
     std::vector<std::shared_ptr<Buffer>> buffers;
+    int64_t total_size = 0;
     while (true) {
       const int64_t chunk_size = gen_chunk_sizes();
       ASSERT_OK_AND_ASSIGN(auto buf, stream->Read(chunk_size));
-      if (chunk_size > 0 && buf->size() == 0) {
+      const int64_t buf_size = buf->size();
+      total_size += buf_size;
+      ASSERT_OK_AND_EQ(total_size, stream->Tell());
+      if (chunk_size > 0 && buf_size == 0) {
+        // EOF
         break;
       }
       buffers.push_back(std::move(buf));
+      if (buf_size < chunk_size) {
+        // Short read should imply EOF on next read
+        ASSERT_OK_AND_ASSIGN(auto buf, stream->Read(100));
+        ASSERT_EQ(buf->size(), 0);
+        break;
+      }
     }
     ASSERT_OK_AND_ASSIGN(*out, ConcatenateBuffers(buffers));
   }
@@ -566,6 +593,8 @@ TYPED_TEST_SUITE(TestTransformInputStream, TransformTypes);
 TYPED_TEST(TestTransformInputStream, EmptyStream) { this->TestEmptyStream(); }
 
 TYPED_TEST(TestTransformInputStream, Basics) { this->TestBasics(); }
+
+TYPED_TEST(TestTransformInputStream, Close) { this->TestClose(); }
 
 TYPED_TEST(TestTransformInputStream, Chunked) { this->TestChunked(); }
 
