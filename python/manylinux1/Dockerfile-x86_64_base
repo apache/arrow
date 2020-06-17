@@ -60,6 +60,7 @@ ENV THRIFT_HOME /usr/local
 
 ADD scripts/build_curl.sh /
 RUN /build_curl.sh
+ENV CURL_HOME /opt/curl
 
 ADD scripts/build_aws_sdk.sh /
 RUN /build_aws_sdk.sh

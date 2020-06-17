@@ -30,6 +30,7 @@ pushd build
 
 cmake .. -GNinja \
     -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_PREFIX_PATH=${CURL_HOME} \
     -DCMAKE_C_FLAGS=${CFLAGS} \
     -DCMAKE_CXX_FLAGS=${CFLAGS} \
     -DCMAKE_INSTALL_PREFIX=${PREFIX} \

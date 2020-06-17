@@ -17,7 +17,9 @@
 # under the License.
 
 export CURL_VERSION="7.70.0"
-export PREFIX="/usr/local"
+# Install our curl in a separate directory to distinguish from the already
+# existing /usr/local/libcurl.so (used by git tools)
+export PREFIX="/opt/curl"
 
 NCORES=$(($(grep -c ^processor /proc/cpuinfo) + 1))
 
@@ -40,8 +42,8 @@ pushd curl-${CURL_VERSION}
     --disable-mqtt \
     --disable-manual \
     --disable-shared \
-    --with-ssl=${PREFIX} \
-    --with-zlib=${PREFIX}
+    --with-ssl=/usr/local \
+    --with-zlib=/usr/local
 
 make -j${NCORES}
 make install
