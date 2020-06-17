@@ -28,6 +28,8 @@ expect_array_roundtrip <- function(x, type) {
     expect_identical(is.na(a), is.na(x))
   }
   expect_equal(as.vector(a), x)
+  # Make sure the storage mode is the same on roundtrip (esp. integer vs. numeric)
+  expect_identical(typeof(as.vector(a)), typeof(x))
 
   if (length(x)) {
     a_sliced <- a$Slice(1)
@@ -196,12 +198,6 @@ test_that("array supports Date (ARROW-3340)", {
 
   d[5] <- NA
   expect_array_roundtrip(d, date32())
-
-  # Test code path where Date is numeric underneath, not integer
-  d2 <- structure(as.numeric(d), class = "Date")
-  expect_array_roundtrip(d2, date32())
-  # PSA: IngestDoubleRange(Date32Builder) truncates decimals, so this only
-  # works where the dates are integer-ish
 })
 
 test_that("array supports POSIXct (ARROW-3340)", {

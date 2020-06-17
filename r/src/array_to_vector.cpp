@@ -164,15 +164,22 @@ class Converter_SimpleArray : public Converter {
   }
 };
 
-class Converter_Date32 : public Converter_SimpleArray<INTSXP> {
+class Converter_Date32 : public Converter_SimpleArray<REALSXP> {
  public:
   explicit Converter_Date32(const ArrayVector& arrays)
-      : Converter_SimpleArray<INTSXP>(arrays) {}
+      : Converter_SimpleArray<REALSXP>(arrays) {}
 
   SEXP Allocate(R_xlen_t n) const {
-    IntegerVector data(no_init(n));
+    Rcpp::NumericVector data(no_init(n));
     data.attr("class") = "Date";
     return data;
+  }
+
+  Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
+                           R_xlen_t start, R_xlen_t n) const {
+    auto convert = [](int days) { return static_cast<double>(days); };
+    return SomeNull_Ingest<REALSXP, int>(data, start, n, array->data()->GetValues<int>(1),
+                                         array, convert);
   }
 };
 
