@@ -540,8 +540,9 @@ Result<std::shared_ptr<DatasetFactory>> ParquetDatasetFactory::Make(
                                 std::move(metadata), base_path, std::move(options)));
 }
 
-static Result<std::string> FileFromRowGroup(const std::string& base_path,
-                                            const parquet::RowGroupMetaData& row_group) {
+static inline Result<std::string> FileFromRowGroup(
+    fs::FileSystem* filesystem, const std::string& base_path,
+    const parquet::RowGroupMetaData& row_group) {
   try {
     auto n_columns = row_group.num_columns();
     if (n_columns == 0) {
@@ -569,7 +570,9 @@ static Result<std::string> FileFromRowGroup(const std::string& base_path,
       }
     }
 
-    return fs::internal::JoinAbstractPath(std::vector<std::string>{base_path, path});
+    path = fs::internal::JoinAbstractPath(std::vector<std::string>{base_path, path});
+    // Normalizing path is required for Windows.
+    return filesystem->NormalizePath(std::move(path));
   } catch (const ::parquet::ParquetException& e) {
     return Status::Invalid("Extracting file path from RowGroup failed. Parquet threw:",
                            e.what());
@@ -585,7 +588,8 @@ Result<std::vector<std::string>> ParquetDatasetFactory::CollectPaths(
 
     for (int i = 0; i < metadata.num_row_groups(); i++) {
       auto row_group = metadata.RowGroup(i);
-      ARROW_ASSIGN_OR_RAISE(auto path, FileFromRowGroup(base_path_, *row_group));
+      ARROW_ASSIGN_OR_RAISE(auto path,
+                            FileFromRowGroup(filesystem_.get(), base_path_, *row_group));
       unique_paths.emplace(std::move(path));
     }
 
@@ -615,9 +619,8 @@ ParquetDatasetFactory::CollectParquetFragments(
 
     for (int i = 0; i < metadata.num_row_groups(); i++) {
       auto row_group = metadata.RowGroup(i);
-      ARROW_ASSIGN_OR_RAISE(auto path, FileFromRowGroup(base_path_, *row_group));
-      // Normalizing path is required for Windows.
-      ARROW_ASSIGN_OR_RAISE(path, filesystem_->NormalizePath(std::move(path)));
+      ARROW_ASSIGN_OR_RAISE(auto path,
+                            FileFromRowGroup(filesystem_.get(), base_path_, *row_group));
       auto stats = RowGroupStatisticsAsExpression(*row_group, manifest);
       auto num_rows = row_group->num_rows();
 
