@@ -147,7 +147,6 @@ void RegisterScalarComparison(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(MakeCompareFunction<Equal>("equal")));
   DCHECK_OK(registry->AddFunction(MakeCompareFunction<NotEqual>("not_equal")));
 
-  // Note: benchmarking suggests that >, >= perform better than <, <=
   auto greater = MakeCompareFunction<Greater>("greater");
   auto greater_equal = MakeCompareFunction<GreaterEqual>("greater_equal");
 
