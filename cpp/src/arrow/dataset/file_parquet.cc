@@ -468,13 +468,18 @@ Result<ScanTaskIterator> ParquetFileFragment::Scan(std::shared_ptr<ScanOptions> 
 
 Result<FragmentVector> ParquetFileFragment::SplitByRowGroup(
     const std::shared_ptr<Expression>& predicate) {
+  auto simplified_predicate = predicate->Assume(partition_expression());
+  if (!simplified_predicate->IsSatisfiable()) {
+    return FragmentVector{};
+  }
+
   std::vector<RowGroupInfo> row_groups;
   if (HasCompleteMetadata()) {
-    row_groups = FilterRowGroups(row_groups_, *predicate);
+    row_groups = FilterRowGroups(row_groups_, *simplified_predicate);
   } else {
     ARROW_ASSIGN_OR_RAISE(auto reader, parquet_format_.GetReader(source_));
     ARROW_ASSIGN_OR_RAISE(row_groups, AugmentRowGroups(row_groups_, reader.get()));
-    row_groups = FilterRowGroups(std::move(row_groups), *predicate);
+    row_groups = FilterRowGroups(std::move(row_groups), *simplified_predicate);
   }
 
   FragmentVector fragments;

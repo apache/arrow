@@ -703,6 +703,30 @@ def test_fragments_parquet_row_groups(tempdir):
 
 @pytest.mark.pandas
 @pytest.mark.parquet
+def test_fragments_parquet_row_groups_predicate(tempdir):
+    table, dataset = _create_dataset_for_fragments(tempdir, chunk_size=2)
+
+    fragment = list(dataset.get_fragments())[0]
+    assert fragment.partition_expression.equals(ds.field('part') == 'a')
+
+    # predicate may reference a partition field not present in the
+    # physical_schema if an explicit schema is provided to split_by_row_group
+
+    # filter matches partition_expression: all row groups
+    row_group_fragments = list(
+        fragment.split_by_row_group(ds.field('part') == 'a',
+                                    schema=dataset.schema))
+    assert len(row_group_fragments) == 2
+
+    # filter contradicts partition_expression: no row groups
+    row_group_fragments = list(
+        fragment.split_by_row_group(ds.field('part') == 'b',
+                                    schema=dataset.schema))
+    assert len(row_group_fragments) == 0
+
+
+@pytest.mark.pandas
+@pytest.mark.parquet
 def test_fragments_parquet_row_groups_reconstruct(tempdir):
     table, dataset = _create_dataset_for_fragments(tempdir, chunk_size=2)
 
