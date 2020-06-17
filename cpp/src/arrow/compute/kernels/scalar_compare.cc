@@ -94,12 +94,12 @@ std::shared_ptr<ScalarFunction> MakeCompareFunction(std::string name) {
     InputType in_type(match::TimestampUnit(unit));
     auto exec =
         codegen::IntegerBased<codegen::ScalarBinaryEqualTypes, BooleanType, Op>(int64());
-    DCHECK_OK(func->AddKernel({in_type, in_type}, boolean(), exec));
+    DCHECK_OK(func->AddKernel({in_type, in_type}, boolean(), std::move(exec)));
   }
   for (const std::shared_ptr<DataType>& ty : BaseBinaryTypes()) {
     auto exec =
         codegen::BaseBinary<codegen::ScalarBinaryEqualTypes, BooleanType, Op>(*ty);
-    DCHECK_OK(func->AddKernel({ty, ty}, boolean(), exec));
+    DCHECK_OK(func->AddKernel({ty, ty}, boolean(), std::move(exec)));
   }
 
   // TODO: Leave time32, time64, and duration for follow up work
