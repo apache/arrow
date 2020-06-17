@@ -1709,8 +1709,6 @@ static Status GetPandasWriterType(const ChunkedArray& data, const PandasOptions&
       } else if (options.coerce_temporal_nanoseconds) {
         *output_type = PandasWriter::DATETIME_NANO;
       } else {
-        // Timestamps will be converted to objects unless they are nanosecond
-        // resolution.
         switch (ts_type.unit()) {
           case TimeUnit::SECOND:
             *output_type = PandasWriter::DATETIME_SECOND;

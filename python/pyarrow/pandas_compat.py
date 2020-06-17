@@ -698,7 +698,6 @@ def _reconstruct_block(item, columns=None, extension_columns=None):
 
     block_arr = item.get('block', None)
     placement = item['placement']
-
     if 'dictionary' in item:
         cat = _pandas_api.categorical_type.from_codes(
             block_arr, categories=item['dictionary'],
