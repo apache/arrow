@@ -31,6 +31,69 @@ namespace internal {
 
 namespace {
 
+// lookup tables
+std::vector<uint32_t> lut_upper_codepoint;
+std::vector<uint32_t> lut_lower_codepoint;
+std::once_flag flag_case_luts;
+
+constexpr int MAX_CODEPOINT_CASE_CHANGE =
+    0xffff;  // no case changes above codepoint 0xffff (tested in unittest)
+
+static inline void utf8_encode(uint8_t*& str, uint32_t codepoint) {
+  if (codepoint < 0x80) {
+    *str++ = codepoint;
+  } else if (codepoint < 0x800) {
+    *str++ = 0xC0 + (codepoint >> 6);
+    *str++ = 0x80 + (codepoint & 0x3F);
+  } else if (codepoint < 0x10000) {
+    *str++ = 0xE0 + (codepoint >> 12);
+    *str++ = 0x80 + ((codepoint >> 6) & 0x3F);
+    *str++ = 0x80 + (codepoint & 0x3F);
+  } else if (codepoint < 0x200000) {
+    *str++ = 0xF0 + (codepoint >> 18);
+    *str++ = 0x80 + ((codepoint >> 12) & 0x3F);
+    *str++ = 0x80 + ((codepoint >> 6) & 0x3F);
+    *str++ = 0x80 + (codepoint & 0x3F);
+  } else {
+    *str++ = codepoint;
+  }
+}
+
+static inline uint32_t utf8_decode(const uint8_t*& str, size_t& length) {
+  if (*str < 0x80) {  //
+    length -= 1;
+    return *str++;
+  } else if (*str < 0xC0) {  //
+    length -= 1;
+    return *str++;
+  } else if (*str < 0xE0) {
+    length -= 2;
+    uint8_t code_unit_1 = (*str++) & 0x1F;  // take last 5 bits
+    uint8_t code_unit_2 = (*str++) & 0x3F;  // take last 6 bits
+    char32_t codepoint = (code_unit_1 << 6) + code_unit_2;
+    return codepoint;
+  } else if (*str < 0xF0) {
+    length -= 3;
+    uint8_t code_unit_1 = (*str++) & 0x0F;  // take last 4 bits
+    uint8_t code_unit_2 = (*str++) & 0x3F;  // take last 6 bits
+    uint8_t code_unit_3 = (*str++) & 0x3F;  // take last 6 bits
+    char32_t codepoint = (code_unit_1 << 12) + (code_unit_2 << 6) + code_unit_3;
+    return codepoint;
+  } else if (*str < 0xF8) {
+    length -= 4;
+    uint8_t code_unit_1 = (*str++) & 0x07;  // take last 3 bits
+    uint8_t code_unit_2 = (*str++) & 0x3F;  // take last 6 bits
+    uint8_t code_unit_3 = (*str++) & 0x3F;  // take last 6 bits
+    uint8_t code_unit_4 = (*str++) & 0x3F;  // take last 6 bits
+    char32_t codepoint =
+        (code_unit_1 << 18) + (code_unit_2 << 12) + (code_unit_3 << 6) + code_unit_4;
+    return codepoint;
+  } else {
+    length -= 1;
+    return *str++;
+  }
+}
+
 // Code units in the range [a-z] can only be an encoding of an ascii
 // character/codepoint, not the 2nd, 3rd or 4th code unit (byte) of an different
 // codepoint. This guaranteed by non-overlap design of the unicode standard. (see
@@ -44,6 +107,15 @@ static inline uint8_t ascii_tolower(uint8_t utf8_code_unit) {
 static inline uint8_t ascii_toupper(uint8_t utf8_code_unit) {
   return ((utf8_code_unit >= 'a') && (utf8_code_unit <= 'z')) ? (utf8_code_unit - 32)
                                                               : utf8_code_unit;
+}
+
+template <class UnaryOperation>
+static inline void utf8_transform(const uint8_t* first, const uint8_t* last,
+                                  uint8_t*& destination, UnaryOperation unary_op) {
+  size_t length = last - first;
+  while (length) {
+    utf8_encode(destination, unary_op(utf8_decode(first, length)));
+  }
 }
 
 // TODO: optional ascii validation
@@ -62,41 +134,23 @@ struct Utf8Transform {
 
   static offset_type Transform(const uint8_t* input, offset_type input_string_ncodeunits,
                                uint8_t* output) {
-    offset_type input_string_leftover_ncodeunits = input_string_ncodeunits;
     offset_type encoded_nbytes_total = 0;
-    // try ascii first (much faster)
-    while (input_string_leftover_ncodeunits && (*input < 128)) {
-      *output++ = Base::TransformAscii(*input++);
-      input_string_leftover_ncodeunits--;
-      encoded_nbytes_total++;
-    }
-    while (input_string_leftover_ncodeunits) {
-      utf8proc_int32_t decoded_codepoint;
-      utf8proc_ssize_t decoded_nbytes =
-          utf8proc_iterate(input, input_string_leftover_ncodeunits, &decoded_codepoint);
-      if (decoded_nbytes < 0) {
-        // if we encounter invalid data, we trim the string
-        return encoded_nbytes_total;
-      }
-      input_string_leftover_ncodeunits -= decoded_nbytes;
-      input += decoded_nbytes;
-
-      utf8proc_int32_t transformed_codepoint =
-          Base::TransformCodepoint(decoded_codepoint);
-      utf8proc_ssize_t encoded_nbytes =
-          utf8proc_encode_char(transformed_codepoint, output);
-      if (encoded_nbytes < 0) {
-        // if we encounter invalid data, we trim the string
-        return encoded_nbytes_total;
-      }
-      output += encoded_nbytes;
-      encoded_nbytes_total += encoded_nbytes;
-    }
-    return encoded_nbytes_total;
+    uint8_t* dest = output;
+    utf8_transform(input, input + input_string_ncodeunits, dest,
+                   DerivedClass::TransformCodepoint);
+    return dest - output;
   }
 
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     if (batch[0].kind() == Datum::ARRAY) {
+      std::call_once(flag_case_luts, []() {
+        lut_upper_codepoint.reserve(MAX_CODEPOINT_CASE_CHANGE);
+        lut_lower_codepoint.reserve(MAX_CODEPOINT_CASE_CHANGE);
+        for (int i = 0; i <= MAX_CODEPOINT_CASE_CHANGE; i++) {
+          lut_upper_codepoint.push_back(utf8proc_toupper(i));
+          lut_lower_codepoint.push_back(utf8proc_tolower(i));
+        }
+      });
       const ArrayData& input = *batch[0].array();
       ArrayData* output = out->mutable_array();
 
@@ -159,22 +213,22 @@ struct Utf8Transform {
 };
 
 template <typename Type>
-struct Utf8Upper : Utf8Transform<Type, Utf8Upper<Type>> {
-  inline static utf8proc_int32_t TransformAscii(utf8proc_int8_t utf8_code_unit) {
+struct Utf8Upper : Utf8Transform<Type, Utf8Upper> {
+  inline static char32_t TransformAscii(uint8_t utf8_code_unit) {
     return ascii_toupper(utf8_code_unit);
   }
-  inline static utf8proc_int32_t TransformCodepoint(utf8proc_int32_t codepoint) {
-    return utf8proc_toupper(codepoint);
+  inline static uint32_t TransformCodepoint(char32_t codepoint) {
+    return codepoint <= 0xffff ? lut_upper_codepoint[codepoint] : codepoint;
   }
 };
 
 template <typename Type>
-struct Utf8Lower : Utf8Transform<Type, Utf8Lower<Type>> {
-  inline static utf8proc_int32_t TransformAscii(utf8proc_int8_t utf8_code_unit) {
+struct Utf8Lower : Utf8Transform<Type, Utf8Lower> {
+  inline static char32_t TransformAscii(uint8_t utf8_code_unit) {
     return ascii_tolower(utf8_code_unit);
   }
-  static utf8proc_int32_t TransformCodepoint(utf8proc_int32_t codepoint) {
-    return utf8proc_tolower(codepoint);
+  static uint32_t TransformCodepoint(char32_t codepoint) {
+    return codepoint <= 0xffff ? lut_lower_codepoint[codepoint] : codepoint;
   }
 };
 
