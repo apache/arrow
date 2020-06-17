@@ -42,17 +42,17 @@ struct NotEqual {
   }
 };
 
-struct Less {
+struct Greater {
   template <typename T>
   static constexpr bool Call(KernelContext*, const T& left, const T& right) {
-    return left < right;
+    return left > right;
   }
 };
 
-struct LessEqual {
+struct GreaterEqual {
   template <typename T>
   static constexpr bool Call(KernelContext*, const T& left, const T& right) {
-    return left <= right;
+    return left >= right;
   }
 };
 
@@ -147,10 +147,12 @@ void RegisterScalarComparison(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(MakeCompareFunction<Equal>("equal")));
   DCHECK_OK(registry->AddFunction(MakeCompareFunction<NotEqual>("not_equal")));
 
-  auto less = MakeCompareFunction<Less>("less");
-  auto greater = MakeFlippedFunction("greater", *less);
-  auto less_equal = MakeCompareFunction<LessEqual>("less_equal");
-  auto greater_equal = MakeFlippedFunction("greater_equal", *less_equal);
+  // Note: benchmarking suggests that >, >= perform better than <, <=
+  auto greater = MakeCompareFunction<Greater>("greater");
+  auto greater_equal = MakeCompareFunction<GreaterEqual>("greater_equal");
+
+  auto less = MakeFlippedFunction("less", *greater);
+  auto less_equal = MakeFlippedFunction("less_equal", *greater_equal);
   DCHECK_OK(registry->AddFunction(std::move(less)));
   DCHECK_OK(registry->AddFunction(std::move(less_equal)));
   DCHECK_OK(registry->AddFunction(std::move(greater)));
