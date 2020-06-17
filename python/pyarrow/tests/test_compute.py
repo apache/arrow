@@ -335,3 +335,16 @@ def test_arithmetic_multiply():
     result = pa.compute.multiply(left, right)
     expected = pa.array([0, -2, 3, 8, 15])
     assert result.equals(expected)
+
+
+def test_isnull():
+
+    arr = pa.array([1, 2, 3, None])
+    result = arr.isnull()
+    expected = pa.array([False, False, False, True])
+    assert result.equals(expected)
+
+    arr = pa.chunked_array([[1, 2], [3, None]])
+    result = arr.isnull()
+    expected = pa.chunked_array([[False, False], [False, True]])
+    assert result.equals(expected)
