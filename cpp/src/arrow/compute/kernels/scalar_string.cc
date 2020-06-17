@@ -214,9 +214,6 @@ struct Utf8Transform {
 
 template <typename Type>
 struct Utf8Upper : Utf8Transform<Type, Utf8Upper> {
-  inline static char32_t TransformAscii(uint8_t utf8_code_unit) {
-    return ascii_toupper(utf8_code_unit);
-  }
   inline static uint32_t TransformCodepoint(char32_t codepoint) {
     return codepoint <= 0xffff ? lut_upper_codepoint[codepoint] : codepoint;
   }
@@ -224,9 +221,6 @@ struct Utf8Upper : Utf8Transform<Type, Utf8Upper> {
 
 template <typename Type>
 struct Utf8Lower : Utf8Transform<Type, Utf8Lower> {
-  inline static char32_t TransformAscii(uint8_t utf8_code_unit) {
-    return ascii_tolower(utf8_code_unit);
-  }
   static uint32_t TransformCodepoint(char32_t codepoint) {
     return codepoint <= 0xffff ? lut_lower_codepoint[codepoint] : codepoint;
   }
