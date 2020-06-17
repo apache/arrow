@@ -1228,7 +1228,8 @@ Result<std::shared_ptr<RecordBatch>> TreeEvaluator::Filter(
     auto selection_array = selection.make_array();
     compute::ExecContext ctx(pool);
     ARROW_ASSIGN_OR_RAISE(Datum filtered,
-                          compute::Filter(batch, selection_array, {}, &ctx));
+                          compute::Filter(batch, selection_array,
+                                          compute::FilterOptions::Defaults(), &ctx));
     return filtered.record_batch();
   }
 

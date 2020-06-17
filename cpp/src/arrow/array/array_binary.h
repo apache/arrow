@@ -85,6 +85,8 @@ class BaseBinaryArray : public FlatArray {
     return raw_value_offsets_ + data_->offset;
   }
 
+  const uint8_t* raw_data() const { return raw_data_; }
+
   /// \brief Return the data buffer absolute offset of the data for the value
   /// at the passed index.
   ///

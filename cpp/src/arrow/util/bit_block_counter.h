@@ -33,11 +33,50 @@ class Buffer;
 
 namespace internal {
 
+namespace detail {
+
+// These templates are here to help with unit tests
+
+template <typename T>
+struct BitBlockAnd {
+  static T Call(T left, T right) { return left & right; }
+};
+
+template <>
+struct BitBlockAnd<bool> {
+  static bool Call(bool left, bool right) { return left && right; }
+};
+
+template <typename T>
+struct BitBlockOr {
+  static T Call(T left, T right) { return left | right; }
+};
+
+template <>
+struct BitBlockOr<bool> {
+  static bool Call(bool left, bool right) { return left || right; }
+};
+
+template <typename T>
+struct BitBlockOrNot {
+  static T Call(T left, T right) { return left | ~right; }
+};
+
+template <>
+struct BitBlockOrNot<bool> {
+  static bool Call(bool left, bool right) { return left || !right; }
+};
+
+}  // namespace detail
+
 /// \brief Return value from bit block counters: the total number of bits and
 /// the number of set bits.
 struct BitBlockCount {
   int16_t length;
   int16_t popcount;
+
+  bool NoneSet() const { return this->popcount == 0; }
+  bool AllSet() const { return this->length == this->popcount; }
 };
 
 /// \brief A class that scans through a true/false bitmap to compute popcounts
@@ -104,6 +143,22 @@ class ARROW_EXPORT OptionalBitBlockCounter {
     }
   }
 
+  // Like NextBlock, but returns a word-sized block even when there is no
+  // validity bitmap
+  BitBlockCount NextWord() {
+    static constexpr int64_t kWordSize = 64;
+    if (has_bitmap_) {
+      BitBlockCount block = counter_.NextWord();
+      position_ += block.length;
+      return block;
+    } else {
+      int16_t block_size = static_cast<int16_t>(std::min(kWordSize, length_ - position_));
+      position_ += block_size;
+      // All values are non-null
+      return {block_size, block_size};
+    }
+  }
+
  private:
   BitBlockCounter counter_;
   int64_t position_;
@@ -132,7 +187,16 @@ class ARROW_EXPORT BinaryBitBlockCounter {
   /// blocks in subsequent invocations.
   BitBlockCount NextAndWord();
 
+  /// \brief Computes "x | y" block for each available run of bits.
+  BitBlockCount NextOrWord();
+
+  /// \brief Computes "x | ~y" block for each available run of bits.
+  BitBlockCount NextOrNotWord();
+
  private:
+  template <template <typename T> class Op>
+  BitBlockCount NextWord();
+
   const uint8_t* left_bitmap_;
   int64_t left_offset_;
   const uint8_t* right_bitmap_;

@@ -46,9 +46,10 @@
 #include "arrow/compute/kernels/test_util.h"
 
 namespace arrow {
-namespace compute {
 
 using internal::checked_cast;
+
+namespace compute {
 
 static constexpr const char* kInvalidUtf8 = "\xa0\xa1";
 

@@ -38,7 +38,10 @@ struct FilterOptions : public FunctionOptions {
     EMIT_NULL,
   };
 
-  static FilterOptions Defaults() { return FilterOptions{}; }
+  explicit FilterOptions(NullSelectionBehavior null_selection = DROP)
+      : null_selection_behavior(null_selection) {}
+
+  static FilterOptions Defaults() { return FilterOptions(); }
 
   NullSelectionBehavior null_selection_behavior = DROP;
 };
@@ -63,6 +66,24 @@ ARROW_EXPORT
 Result<Datum> Filter(const Datum& values, const Datum& filter,
                      const FilterOptions& options = FilterOptions::Defaults(),
                      ExecContext* ctx = NULLPTR);
+
+namespace internal {
+
+// These internal functions are implemented in kernels/vector_selection.cc
+
+/// \brief Return the number of selected indices in the boolean filter
+ARROW_EXPORT
+int64_t GetFilterOutputSize(const ArrayData& filter,
+                            FilterOptions::NullSelectionBehavior null_selection);
+
+/// \brief Compute uint64 selection indices for use with Take given a boolean
+/// filter
+ARROW_EXPORT
+Result<std::shared_ptr<ArrayData>> GetTakeIndices(
+    const ArrayData& filter, FilterOptions::NullSelectionBehavior null_selection,
+    MemoryPool* memory_pool = default_memory_pool());
+
+}  // namespace internal
 
 struct ARROW_EXPORT TakeOptions : public FunctionOptions {
   explicit TakeOptions(bool boundscheck = true) : boundscheck(boundscheck) {}

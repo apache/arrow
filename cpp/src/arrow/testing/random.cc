@@ -76,7 +76,8 @@ struct GenerateOptions {
   double probability_;
 };
 
-std::shared_ptr<Array> RandomArrayGenerator::Boolean(int64_t size, double probability,
+std::shared_ptr<Array> RandomArrayGenerator::Boolean(int64_t size,
+                                                     double true_probability,
                                                      double null_probability) {
   // The boolean generator does not care about the value distribution since it
   // only calls the GenerateBitmap method.
@@ -84,7 +85,13 @@ std::shared_ptr<Array> RandomArrayGenerator::Boolean(int64_t size, double probab
 
   BufferVector buffers{2};
   // Need 2 distinct generators such that probabilities are not shared.
-  GenOpt value_gen(seed(), 0, 1, probability);
+
+  // The "GenerateBitmap" function is written to generate validity bitmaps
+  // parameterized by the null probability, which is the probability of 0. For
+  // boolean data, the true probability is the probability of 1, so to use
+  // GenerateBitmap we must provide the probability of false instead.
+  GenOpt value_gen(seed(), 0, 1, 1 - true_probability);
+
   GenOpt null_gen(seed(), 0, 1, null_probability);
 
   int64_t null_count = 0;

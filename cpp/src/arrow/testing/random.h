@@ -45,11 +45,11 @@ class ARROW_EXPORT RandomArrayGenerator {
   /// \brief Generates a random BooleanArray
   ///
   /// \param[in] size the size of the array to generate
-  /// \param[in] probability the estimated number of active bits
+  /// \param[in] true_probability the probability of a value being 1 / bit-set
   /// \param[in] null_probability the probability of a row being null
   ///
   /// \return a generated Array
-  std::shared_ptr<Array> Boolean(int64_t size, double probability,
+  std::shared_ptr<Array> Boolean(int64_t size, double true_probability,
                                  double null_probability = 0);
 
   /// \brief Generates a random UInt8Array

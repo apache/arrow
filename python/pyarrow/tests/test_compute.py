@@ -158,7 +158,7 @@ def test_filter(ty, values):
 
     # non-boolean dtype
     mask = pa.array([0, 1, 0, 1, 0])
-    with pytest.raises(NotImplementedError, match="no kernel matching"):
+    with pytest.raises(NotImplementedError):
         arr.filter(mask)
 
     # wrong length
@@ -229,8 +229,7 @@ def test_filter_errors():
     for obj in [arr, batch, table]:
         # non-boolean dtype
         mask = pa.array([0, 1, 0, 1, 0])
-        with pytest.raises(NotImplementedError,
-                           match="no kernel matching input types"):
+        with pytest.raises(NotImplementedError):
             obj.filter(mask)
 
         # wrong length

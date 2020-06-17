@@ -15,31 +15,47 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#pragma once
+#include "arrow/compute/kernels/util_internal.h"
+
+#include <cstdint>
+
+#include "arrow/array/data.h"
+#include "arrow/type.h"
+#include "arrow/util/checked_cast.h"
 
 namespace arrow {
+
+using internal::checked_cast;
+
 namespace compute {
-
-class FunctionRegistry;
-
 namespace internal {
 
-// Built-in scalar / elementwise functions
-void RegisterScalarArithmetic(FunctionRegistry* registry);
-void RegisterScalarBoolean(FunctionRegistry* registry);
-void RegisterScalarCast(FunctionRegistry* registry);
-void RegisterScalarComparison(FunctionRegistry* registry);
-void RegisterScalarSetLookup(FunctionRegistry* registry);
-void RegisterScalarStringAscii(FunctionRegistry* registry);
-void RegisterScalarValidity(FunctionRegistry* registry);
+const uint8_t* GetValidityBitmap(const ArrayData& data) {
+  const uint8_t* bitmap = nullptr;
+  if (data.buffers[0]) {
+    bitmap = data.buffers[0]->data();
+  }
+  return bitmap;
+}
 
-// Vector functions
-void RegisterVectorHash(FunctionRegistry* registry);
-void RegisterVectorSelection(FunctionRegistry* registry);
-void RegisterVectorSort(FunctionRegistry* registry);
+int GetBitWidth(const DataType& type) {
+  return checked_cast<const FixedWidthType&>(type).bit_width();
+}
 
-// Aggregate functions
-void RegisterScalarAggregateBasic(FunctionRegistry* registry);
+PrimitiveArg GetPrimitiveArg(const ArrayData& arr) {
+  PrimitiveArg arg;
+  arg.is_valid = GetValidityBitmap(arr);
+  arg.data = arr.buffers[1]->data();
+  arg.bit_width = GetBitWidth(*arr.type);
+  arg.offset = arr.offset;
+  arg.length = arr.length;
+  if (arg.bit_width > 1) {
+    arg.data += arr.offset * arg.bit_width / 8;
+  }
+  // This may be kUnknownNullCount
+  arg.null_count = arr.null_count.load();
+  return arg;
+}
 
 }  // namespace internal
 }  // namespace compute

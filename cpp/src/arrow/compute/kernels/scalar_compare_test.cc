@@ -36,6 +36,9 @@
 #include "arrow/util/checked_cast.h"
 
 namespace arrow {
+
+using internal::BitmapReader;
+
 namespace compute {
 
 using util::string_view;
@@ -115,8 +118,8 @@ Datum SimpleScalarArrayCompare(CompareOptions options, const Datum& lhs,
     ArrayFromVector<BooleanType>(bitmap, &result);
   } else {
     std::vector<bool> null_bitmap(array->length());
-    auto reader = internal::BitmapReader(array->null_bitmap_data(), array->offset(),
-                                         array->length());
+    auto reader =
+        BitmapReader(array->null_bitmap_data(), array->offset(), array->length());
     for (int64_t i = 0; i < array->length(); i++, reader.Next()) {
       null_bitmap[i] = reader.IsSet();
     }
@@ -146,8 +149,8 @@ Datum SimpleScalarArrayCompare<StringType>(CompareOptions options, const Datum& 
     ArrayFromVector<BooleanType>(bitmap, &result);
   } else {
     std::vector<bool> null_bitmap(array->length());
-    auto reader = internal::BitmapReader(array->null_bitmap_data(), array->offset(),
-                                         array->length());
+    auto reader =
+        BitmapReader(array->null_bitmap_data(), array->offset(), array->length());
     for (int64_t i = 0; i < array->length(); i++, reader.Next()) {
       null_bitmap[i] = reader.IsSet();
     }

@@ -110,10 +110,9 @@ static std::unique_ptr<FunctionRegistry> CreateBuiltInRegistry() {
   RegisterScalarAggregateBasic(registry.get());
 
   // Vector functions
-  RegisterVectorFilter(registry.get());
   RegisterVectorHash(registry.get());
+  RegisterVectorSelection(registry.get());
   RegisterVectorSort(registry.get());
-  RegisterVectorTake(registry.get());
 
   return registry;
 }

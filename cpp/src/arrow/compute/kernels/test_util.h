@@ -39,6 +39,9 @@
 // IWYU pragma: end_exports
 
 namespace arrow {
+
+using internal::checked_cast;
+
 namespace compute {
 
 template <typename Type, typename T>
@@ -65,8 +68,8 @@ struct DatumEqual<Type, enable_if_floating_point<Type>> {
   static void EnsureEqual(const Datum& lhs, const Datum& rhs) {
     ASSERT_EQ(lhs.kind(), rhs.kind());
     if (lhs.kind() == Datum::SCALAR) {
-      auto left = internal::checked_cast<const ScalarType*>(lhs.scalar().get());
-      auto right = internal::checked_cast<const ScalarType*>(rhs.scalar().get());
+      auto left = checked_cast<const ScalarType*>(lhs.scalar().get());
+      auto right = checked_cast<const ScalarType*>(rhs.scalar().get());
       ASSERT_EQ(left->is_valid, right->is_valid);
       ASSERT_EQ(left->type->id(), right->type->id());
       ASSERT_NEAR(left->value, right->value, kArbitraryDoubleErrorBound);
@@ -80,8 +83,8 @@ struct DatumEqual<Type, enable_if_integer<Type>> {
   static void EnsureEqual(const Datum& lhs, const Datum& rhs) {
     ASSERT_EQ(lhs.kind(), rhs.kind());
     if (lhs.kind() == Datum::SCALAR) {
-      auto left = internal::checked_cast<const ScalarType*>(lhs.scalar().get());
-      auto right = internal::checked_cast<const ScalarType*>(rhs.scalar().get());
+      auto left = checked_cast<const ScalarType*>(lhs.scalar().get());
+      auto right = checked_cast<const ScalarType*>(rhs.scalar().get());
       ASSERT_EQ(*left, *right);
     }
   }
