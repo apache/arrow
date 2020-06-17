@@ -355,7 +355,7 @@ format, filesystem, and partition expressions manually:
 
     schema = pa.schema([("year", pa.int64()), ("col1", pa.int64()), ("col2", pa.float64())])
 
-    dataset = ds.FileSystemDataset(
+    dataset = ds.FileSystemDataset.from_paths(
         ["data_2018.parquet", "data_2019.parquet"], schema=schema, format=ds.ParquetFileFormat(),
         filesystem=fs.SubTreeFileSystem(str(base / "parquet_dataset_manual"), fs.LocalFileSystem()),
         partitions=[ds.field('year') == 2018, ds.field('year') == 2019])
