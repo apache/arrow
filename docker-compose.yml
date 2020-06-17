@@ -62,6 +62,11 @@ x-ccache: &ccache
   CCACHE_MAXSIZE: 500M
   CCACHE_DIR: /ccache
 
+x-with-gpus:
+  - ubuntu-cuda-cpp
+  - ubuntu-cuda-python
+  - ubuntu-cuda-docs
+
 x-hierarchy:
   # This section is used by the archery tool to enable building nested images,
   # so it is enough to call:
@@ -103,9 +108,6 @@ x-hierarchy:
   - fedora-cpp:
     - fedora-python
   - ubuntu-cpp:
-    - ubuntu-cuda-cpp:
-      - ubuntu-cuda-python:
-        - ubuntu-cuda-docs
     - ubuntu-cpp-cmake32
     - ubuntu-c-glib:
       - ubuntu-ruby
@@ -113,6 +115,9 @@ x-hierarchy:
     - ubuntu-python:
       - ubuntu-docs
     - ubuntu-r
+  - ubuntu-cuda-cpp:
+    - ubuntu-cuda-python:
+      - ubuntu-cuda-docs
   - ubuntu-csharp
   - ubuntu-cpp-sanitizer
   - ubuntu-r-sanitizer
