@@ -259,16 +259,19 @@ Result<std::shared_ptr<Array>> LargeListArray::Flatten(MemoryPool* memory_pool) 
   return FlattenListArray(*this, memory_pool);
 }
 
-std::shared_ptr<Array> ListArray::offsets() const {
-  return std::make_shared<Int32Array>(data_->length + 1, data_->buffers[1],
-                                      /*null_bitmap=*/nullptr,
-                                      /*null_count=*/0, data_->offset);
+static std::shared_ptr<Array> BoxOffsets(const std::shared_ptr<DataType>& boxed_type,
+                                         const ArrayData& data) {
+  std::vector<std::shared_ptr<Buffer>> buffers = {nullptr, data.buffers[1]};
+  auto offsets_data =
+      std::make_shared<ArrayData>(boxed_type, data.length + 1, std::move(buffers),
+                                  /*null_count=*/0, data.offset);
+  return MakeArray(offsets_data);
 }
 
+std::shared_ptr<Array> ListArray::offsets() const { return BoxOffsets(int32(), *data_); }
+
 std::shared_ptr<Array> LargeListArray::offsets() const {
-  return std::make_shared<Int64Array>(data_->length + 1, data_->buffers[1],
-                                      /*null_bitmap=*/nullptr,
-                                      /*null_count=*/0, data_->offset);
+  return BoxOffsets(int64(), *data_);
 }
 
 // ----------------------------------------------------------------------
