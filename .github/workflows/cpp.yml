@@ -102,8 +102,7 @@ jobs:
     #         hosted machines
     name: ${{ matrix.title }}
     runs-on: ${{ matrix.runner }}
-    # TODO(kszucs): enable only on push
-    if: ${{ !contains(github.event.pull_request.title, 'WIP') && github.repository == 'apache/arrow' }}
+    if: github.event_name == 'push'
     defaults:
       # to use certain environment variables are set by .bashrc an interactive
       # bash shell must be used
