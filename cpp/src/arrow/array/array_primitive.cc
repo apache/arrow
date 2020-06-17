@@ -55,11 +55,11 @@ int64_t BooleanArray::false_count() const {
 }
 
 int64_t BooleanArray::true_count() const {
-  int64_t count = 0;
   if (data_->buffers[0] != nullptr) {
     internal::BinaryBitBlockCounter bit_counter(data_->buffers[0]->data(), data_->offset,
                                                 data_->buffers[1]->data(), data_->offset,
                                                 data_->length);
+    int64_t count = 0;
     while (true) {
       internal::BitBlockCount block = bit_counter.NextAndWord();
       if (block.length == 0) {
@@ -67,18 +67,11 @@ int64_t BooleanArray::true_count() const {
       }
       count += block.popcount;
     }
+    return count;
   } else {
-    internal::BitBlockCounter bit_counter(data_->buffers[1]->data(), data_->offset,
-                                          data_->length);
-    while (true) {
-      internal::BitBlockCount block = bit_counter.NextFourWords();
-      if (block.length == 0) {
-        break;
-      }
-      count += block.popcount;
-    }
+    return internal::CountSetBits(data_->buffers[1]->data(), data_->offset,
+                                  data_->length);
   }
-  return count;
 }
 
 // ----------------------------------------------------------------------
