@@ -38,9 +38,11 @@ else()
   find_path(UTF8PROC_INCLUDE_DIR NAMES utf8proc.h PATH_SUFFIXES ${INCLUDE_PATH_SUFFIXES})
 endif()
 
-find_package_handle_standard_args(UTF8PROC REQUIRED_VARS UTF8PROC_LIB UTF8PROC_INCLUDE_DIR)
+find_package_handle_standard_args(utf8proc REQUIRED_VARS UTF8PROC_LIB UTF8PROC_INCLUDE_DIR)
 
-if(UTF8PROC_FOUND)
+# CMake 3.2 does uppercase the FOUND variable
+if(UTF8PROC_FOUND OR utf8proc_FOUND)
+  set(utf8proc_FOUND TRUE)
   add_library(utf8proc::utf8proc UNKNOWN IMPORTED)
   set_target_properties(utf8proc::utf8proc
                         PROPERTIES IMPORTED_LOCATION "${UTF8PROC_LIB}"
