@@ -1134,7 +1134,19 @@ cdef _array_like_to_pandas(obj, options):
                 (<ChunkedArray> obj).sp_chunked_array,
                 obj, &out))
 
-    result = pandas_api.series(wrap_array_output(out), name=name)
+    arr = wrap_array_output(out)
+    if (isinstance(arr, np.ndarray) and
+            (arr.dtype.type == np.datetime64) and
+            (arr.dtype.name != "datetime64[ns]")):
+        # ARROW-5359 - if we get non-ns datetime64 resolution, it means that
+        # timestamp_as_object=True was specified, and we need to convert to
+        # object dtype to avoid pandas coercing back to ns resolution
+        arr = arr.astype(np.dtype("O"))
+        dtype = "object"
+    else:
+        dtype = None
+
+    result = pandas_api.series(arr, dtype=dtype, name=name)
 
     if (isinstance(original_type, TimestampType) and
             original_type.tz is not None):
