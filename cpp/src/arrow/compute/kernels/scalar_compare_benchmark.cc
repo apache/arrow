@@ -30,37 +30,51 @@ namespace compute {
 
 constexpr auto kSeed = 0x94378165;
 
-static void CompareArrayScalarKernel(benchmark::State& state) {
-  RegressionArgs args(state);
-  const int64_t array_size = args.size / sizeof(int64_t);
+template <CompareOperator op, typename Type>
+static void CompareArrayScalar(benchmark::State& state) {
+  RegressionArgs args(state, /*size_is_bytes=*/false);
+  auto ty = TypeTraits<Type>::type_singleton();
   auto rand = random::RandomArrayGenerator(kSeed);
-  auto array = std::static_pointer_cast<NumericArray<Int64Type>>(
-      rand.Int64(array_size, -100, 100, args.null_proportion));
-
-  CompareOptions ge{GREATER_EQUAL};
-
+  auto array = rand.ArrayOf(ty, args.size, args.null_proportion);
+  auto scalar = *rand.ArrayOf(ty, 1, 0)->GetScalar(0);
   for (auto _ : state) {
-    ABORT_NOT_OK(Compare(array, Datum(int64_t(0)), ge).status());
+    ABORT_NOT_OK(Compare(array, Datum(scalar), CompareOptions(op)).status());
   }
 }
 
-static void CompareArrayArrayKernel(benchmark::State& state) {
-  RegressionArgs args(state);
-  const int64_t array_size = args.size / sizeof(int64_t);
+template <CompareOperator op, typename Type>
+static void CompareArrayArray(benchmark::State& state) {
+  RegressionArgs args(state, /*size_is_bytes=*/false);
+  auto ty = TypeTraits<Type>::type_singleton();
   auto rand = random::RandomArrayGenerator(kSeed);
-  auto lhs = std::static_pointer_cast<NumericArray<Int64Type>>(
-      rand.Int64(array_size, -100, 100, args.null_proportion));
-  auto rhs = std::static_pointer_cast<NumericArray<Int64Type>>(
-      rand.Int64(array_size, -100, 100, args.null_proportion));
-
-  CompareOptions ge(GREATER_EQUAL);
+  auto lhs = rand.ArrayOf(ty, args.size, args.null_proportion);
+  auto rhs = rand.ArrayOf(ty, args.size, args.null_proportion);
   for (auto _ : state) {
-    ABORT_NOT_OK(Compare(lhs, rhs, ge).status());
+    ABORT_NOT_OK(Compare(lhs, rhs, CompareOptions(op)).status());
   }
 }
 
-BENCHMARK(CompareArrayScalarKernel)->Apply(RegressionSetArgs);
-BENCHMARK(CompareArrayArrayKernel)->Apply(RegressionSetArgs);
+static void GreaterArrayArrayInt64(benchmark::State& state) {
+  CompareArrayArray<GREATER, Int64Type>(state);
+}
+
+static void GreaterArrayScalarInt64(benchmark::State& state) {
+  CompareArrayScalar<GREATER, Int64Type>(state);
+}
+
+static void GreaterArrayArrayString(benchmark::State& state) {
+  CompareArrayArray<GREATER, StringType>(state);
+}
+
+static void GreaterArrayScalarString(benchmark::State& state) {
+  CompareArrayScalar<GREATER, StringType>(state);
+}
+
+BENCHMARK(GreaterArrayArrayInt64)->Apply(RegressionSetArgs);
+BENCHMARK(GreaterArrayScalarInt64)->Apply(RegressionSetArgs);
+
+BENCHMARK(GreaterArrayArrayString)->Apply(RegressionSetArgs);
+BENCHMARK(GreaterArrayScalarString)->Apply(RegressionSetArgs);
 
 }  // namespace compute
 }  // namespace arrow
