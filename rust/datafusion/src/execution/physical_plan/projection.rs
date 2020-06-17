@@ -26,7 +26,7 @@ use crate::error::Result;
 use crate::execution::physical_plan::{
     BatchIterator, ExecutionPlan, Partition, PhysicalExpr,
 };
-use arrow::datatypes::{Field, Schema};
+use arrow::datatypes::Schema;
 use arrow::record_batch::RecordBatch;
 
 /// Execution plan for a projection
@@ -49,7 +49,7 @@ impl ProjectionExec {
 
         let fields: Result<Vec<_>> = expr
             .iter()
-            .map(|e| Ok(Field::new(&e.name(), e.data_type(&input_schema)?, true)))
+            .map(|e| e.to_schema_field(&input_schema))
             .collect();
 
         let schema = Arc::new(Schema::new(fields?));

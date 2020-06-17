@@ -93,6 +93,10 @@ impl PhysicalExpr for ScalarFunctionExpr {
         Ok(self.return_type.clone())
     }
 
+    fn nullable(&self, _input_schema: &Schema) -> Result<bool> {
+        Ok(true)
+    }
+
     fn evaluate(&self, batch: &RecordBatch) -> Result<ArrayRef> {
         // evaluate the arguments
         let inputs = self
