@@ -46,11 +46,14 @@ TEST(TypeMatcher, SameTypeId) {
 }
 
 TEST(TypeMatcher, TimestampTypeUnit) {
-  std::shared_ptr<TypeMatcher> matcher = match::TimestampTypeUnit(TimeUnit::MILLI);
+  auto matcher = match::TimestampTypeUnit(TimeUnit::MILLI);
+  auto matcher2 = match::Time32TypeUnit(TimeUnit::MILLI);
 
   ASSERT_TRUE(matcher->Matches(*timestamp(TimeUnit::MILLI)));
   ASSERT_TRUE(matcher->Matches(*timestamp(TimeUnit::MILLI, "utc")));
   ASSERT_FALSE(matcher->Matches(*timestamp(TimeUnit::SECOND)));
+  ASSERT_FALSE(matcher->Matches(*time32(TimeUnit::MILLI)));
+  ASSERT_TRUE(matcher2->Matches(*time32(TimeUnit::MILLI)));
 
   // Check ToString representation
   ASSERT_EQ("timestamp(s)", match::TimestampTypeUnit(TimeUnit::SECOND)->ToString());
@@ -62,6 +65,7 @@ TEST(TypeMatcher, TimestampTypeUnit) {
   ASSERT_TRUE(matcher->Equals(*matcher));
   ASSERT_TRUE(matcher->Equals(*match::TimestampTypeUnit(TimeUnit::MILLI)));
   ASSERT_FALSE(matcher->Equals(*match::TimestampTypeUnit(TimeUnit::MICRO)));
+  ASSERT_FALSE(matcher->Equals(*match::Time32TypeUnit(TimeUnit::MILLI)));
 }
 
 // ----------------------------------------------------------------------
