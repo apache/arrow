@@ -1702,9 +1702,8 @@ static Status GetPandasWriterType(const ChunkedArray& data, const PandasOptions&
         // Nanoseconds are never out of bounds for pandas, so in that case
         // we don't convert to object
         *output_type = PandasWriter::OBJECT;
-      }
-      // XXX: Hack here for ARROW-7723
-      else if (ts_type.timezone() != "" && !options.ignore_timezone) {
+      } else if (ts_type.timezone() != "" && !options.ignore_timezone) {
+        // XXX: ignore_timezone: hack here for ARROW-7723
         *output_type = PandasWriter::DATETIME_NANO_TZ;
       } else if (options.coerce_temporal_nanoseconds) {
         *output_type = PandasWriter::DATETIME_NANO;
