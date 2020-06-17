@@ -31,6 +31,7 @@
 #include "arrow/buffer.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/atomic_shared_ptr.h"
 #include "arrow/util/bit_util.h"
