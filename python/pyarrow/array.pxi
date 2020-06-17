@@ -1335,8 +1335,7 @@ cdef class ListArray(Array):
         """
         Return the offsets as an int32 array.
         """
-        cdef CListArray* arr = <CListArray*> self.ap
-        return pyarrow_wrap_array(<shared_ptr[CArray]> arr.offsets())
+        return pyarrow_wrap_array((<CListArray*> self.ap).offsets())
 
     def flatten(self, MemoryPool memory_pool=None):
         """
@@ -1417,8 +1416,7 @@ cdef class LargeListArray(Array):
         """
         Return the offsets as an int64 array.
         """
-        cdef CLargeListArray* arr = <CLargeListArray*> self.ap
-        return pyarrow_wrap_array(<shared_ptr[CArray]> arr.offsets())
+        return pyarrow_wrap_array((<CLargeListArray*> self.ap).offsets())
 
     def flatten(self, MemoryPool memory_pool=None):
         """

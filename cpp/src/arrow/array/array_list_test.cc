@@ -94,7 +94,7 @@ class TestListArray : public TestBuilder {
       ASSERT_EQ(values[i], varr->Value(i));
     }
 
-    auto offsets = result->offsets();
+    auto offsets = std::dynamic_pointer_cast<OffsetArrayType>(result->offsets());
     ASSERT_EQ(offsets->length(), result->length() + 1);
     ASSERT_EQ(offsets->null_count(), 0);
     ASSERT_EQ(offsets->type_id(), OffsetType::type_id);

@@ -115,7 +115,7 @@ class ARROW_EXPORT ListArray : public BaseListArray<ListType> {
       MemoryPool* memory_pool = default_memory_pool()) const;
 
   /// \brief Return list offsets as an Int32Array
-  std::shared_ptr<Int32Array> offsets() const;
+  std::shared_ptr<Array> offsets() const;
 
  protected:
   // This constructor defers SetData to a derived array class
@@ -160,7 +160,7 @@ class ARROW_EXPORT LargeListArray : public BaseListArray<LargeListType> {
       MemoryPool* memory_pool = default_memory_pool()) const;
 
   /// \brief Return list offsets as an Int64Array
-  std::shared_ptr<Int64Array> offsets() const;
+  std::shared_ptr<Array> offsets() const;
 
  protected:
   void SetData(const std::shared_ptr<ArrayData>& data);
