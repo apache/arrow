@@ -115,8 +115,7 @@ struct ARROW_EXPORT BooleanScalar : public internal::PrimitiveScalar<BooleanType
   using Base = internal::PrimitiveScalar<BooleanType, bool>;
   using Base::Base;
 
-  explicit BooleanScalar(bool value)
-    : Base(value, boolean()) {}
+  explicit BooleanScalar(bool value) : Base(value, boolean()) {}
 
   BooleanScalar() : Base(boolean()) {}
 };
@@ -266,7 +265,7 @@ struct ARROW_EXPORT DateScalar : public TemporalScalar<T> {
   using ValueType = typename TemporalScalar<T>::ValueType;
 
   explicit DateScalar(ValueType value)
-    : TemporalScalar<T>(std::move(value), TypeTraits<T>::type_singleton()) {}
+      : TemporalScalar<T>(std::move(value), TypeTraits<T>::type_singleton()) {}
   DateScalar() : TemporalScalar<T>(TypeTraits<T>::type_singleton()) {}
 };
 

@@ -371,23 +371,55 @@ TYPED_TEST(TestNumericCompareKernel, TestNullScalar) {
 }
 
 TYPED_TEST_SUITE(TestNumericCompareKernel, NumericArrowTypes);
-TYPED_TEST(TestNumericCompareKernel, RandomCompareArrayScalar) {
-  using ScalarType = typename TypeTraits<TypeParam>::ScalarType;
-  using CType = typename TypeTraits<TypeParam>::CType;
 
+template <typename Type>
+void DoRandomCompare(const std::shared_ptr<DataType>& type) {
+  using ScalarType = typename TypeTraits<Type>::ScalarType;
+  using CType = typename TypeTraits<Type>::CType;
   auto rand = random::RandomArrayGenerator(0x5416447);
   for (size_t i = 3; i < 10; i++) {
     for (auto null_probability : {0.0, 0.01, 0.1, 0.25, 0.5, 1.0}) {
       for (auto op : {EQUAL, NOT_EQUAL, GREATER, LESS_EQUAL}) {
         const int64_t length = static_cast<int64_t>(1ULL << i);
-        auto array = Datum(rand.Numeric<TypeParam>(length, 0, 100, null_probability));
-        auto fifty = Datum(std::make_shared<ScalarType>(CType(50)));
+        auto data =
+            rand.Numeric<typename Type::StorageType>(length, 0, 100, null_probability);
+
+        // Create view of data as the type (e.g. timestamp)
+        auto array = Datum(*data->View(type));
+        auto fifty = Datum(std::make_shared<ScalarType>(CType(50), type));
         auto options = CompareOptions(op);
-        ValidateCompare<TypeParam>(options, array, fifty);
-        ValidateCompare<TypeParam>(options, fifty, array);
+        ValidateCompare<Type>(options, array, fifty);
+        ValidateCompare<Type>(options, fifty, array);
       }
     }
   }
+  for (size_t i = 3; i < 5; i++) {
+    for (auto null_probability : {0.0, 0.01, 0.1, 0.25, 0.5, 1.0}) {
+      for (auto op : {EQUAL, NOT_EQUAL, GREATER, LESS_EQUAL}) {
+        const int64_t length = static_cast<int64_t>(1ULL << i);
+        auto lhs = rand.Numeric<typename Type::StorageType>(length << i, 0, 100,
+                                                            null_probability);
+        auto rhs = rand.Numeric<typename Type::StorageType>(length << i, 0, 100,
+                                                            null_probability);
+        auto options = CompareOptions(op);
+        ValidateCompare<Type>(options, *lhs->View(type), *rhs->View(type));
+      }
+    }
+  }
+}
+
+TYPED_TEST(TestNumericCompareKernel, RandomCompare) {
+  DoRandomCompare<TypeParam>(TypeTraits<TypeParam>::type_singleton());
+}
+
+TEST(TestTemporalCompareKernel, RandomCompare) {
+  DoRandomCompare<Date32Type>(date32());
+  DoRandomCompare<Date64Type>(date64());
+  DoRandomCompare<Time32Type>(time32(TimeUnit::SECOND));
+  DoRandomCompare<Time64Type>(time64(TimeUnit::MICRO));
+  DoRandomCompare<TimestampType>(timestamp(TimeUnit::SECOND));
+  DoRandomCompare<TimestampType>(timestamp(TimeUnit::MICRO));
+  DoRandomCompare<DurationType>(duration(TimeUnit::MILLI));
 }
 
 TYPED_TEST(TestNumericCompareKernel, SimpleCompareArrayArray) {
@@ -402,21 +434,6 @@ TYPED_TEST(TestNumericCompareKernel, SimpleCompareArrayArray) {
 
   CompareOptions lte(CompareOperator::LESS_EQUAL);
   ValidateCompare<TypeParam>(lte, "[1,2,3,4,5]", "[2,3,4,5,6]", "[1,1,1,1,1]");
-}
-
-TYPED_TEST(TestNumericCompareKernel, RandomCompareArrayArray) {
-  auto rand = random::RandomArrayGenerator(0x5416447);
-  for (size_t i = 3; i < 5; i++) {
-    for (auto null_probability : {0.0, 0.01, 0.1, 0.25, 0.5, 1.0}) {
-      for (auto op : {EQUAL, NOT_EQUAL, GREATER, LESS_EQUAL}) {
-        const int64_t length = static_cast<int64_t>(1ULL << i);
-        auto lhs = Datum(rand.Numeric<TypeParam>(length << i, 0, 100, null_probability));
-        auto rhs = Datum(rand.Numeric<TypeParam>(length << i, 0, 100, null_probability));
-        auto options = CompareOptions(op);
-        ValidateCompare<TypeParam>(options, lhs, rhs);
-      }
-    }
-  }
 }
 
 TEST(TestCompareTimestamps, Basics) {

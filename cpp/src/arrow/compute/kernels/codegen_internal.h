@@ -150,7 +150,7 @@ struct UnboxScalar;
 
 template <typename Type>
 struct UnboxScalar<Type, enable_if_has_c_type<Type>> {
-  using ScalarType = typename TypeTraits<Type>::ScalarType;
+  using ScalarType = ::arrow::internal::PrimitiveScalar<typename Type::StorageType>;
   static typename Type::c_type Unbox(const Datum& datum) {
     return datum.scalar_as<ScalarType>().value;
   }
