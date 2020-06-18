@@ -656,6 +656,33 @@ void TestPrimitiveBuilder<PBoolean>::Check(const std::unique_ptr<BooleanBuilder>
   ASSERT_EQ(0, builder->null_count());
 }
 
+TEST(TestBooleanArray, TrueCountFalseCount) {
+  random::RandomArrayGenerator rng(/*seed=*/0);
+
+  const int64_t length = 10000;
+  auto arr = rng.Boolean(length, /*true_probability=*/0.5, /*null_probability=*/0.1);
+
+  auto CheckArray = [&](const BooleanArray& values) {
+    int64_t expected_false = 0;
+    int64_t expected_true = 0;
+    for (int64_t i = 0; i < values.length(); ++i) {
+      if (values.IsValid(i)) {
+        if (values.Value(i)) {
+          ++expected_true;
+        } else {
+          ++expected_false;
+        }
+      }
+    }
+    ASSERT_EQ(values.true_count(), expected_true);
+    ASSERT_EQ(values.false_count(), expected_false);
+  };
+
+  CheckArray(checked_cast<const BooleanArray&>(*arr));
+  CheckArray(checked_cast<const BooleanArray&>(*arr->Slice(5)));
+  CheckArray(checked_cast<const BooleanArray&>(*arr->Slice(0, 0)));
+}
+
 TEST(TestPrimitiveAdHoc, TestType) {
   Int8Builder i8(default_memory_pool());
   ASSERT_TRUE(i8.type()->Equals(int8()));

@@ -445,6 +445,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     cdef cppclass CBooleanArray" arrow::BooleanArray"(CArray):
         c_bool Value(int i)
+        int64_t false_count()
+        int64_t true_count()
 
     cdef cppclass CUInt8Array" arrow::UInt8Array"(CArray):
         uint8_t Value(int i)
