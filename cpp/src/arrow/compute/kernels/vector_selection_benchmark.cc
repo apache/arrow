@@ -18,6 +18,7 @@
 #include "benchmark/benchmark.h"
 
 #include <cstdint>
+#include <sstream>
 
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/benchmark_util.h"
@@ -69,7 +70,11 @@ std::vector<FilterParams> g_filter_params = {
 // RAII struct to handle some of the boilerplate in filter
 struct FilterArgs {
   // size of memory tested (per iteration) in bytes
-  const int64_t size;
+  int64_t size;
+
+  // What to call the "size" that's reported in the console output, for result
+  // interpretability.
+  std::string size_name = "size";
 
   double values_null_proportion = 0.;
   double selected_proportion = 0.;
@@ -84,7 +89,7 @@ struct FilterArgs {
   }
 
   ~FilterArgs() {
-    state_.counters["size"] = static_cast<double>(size);
+    state_.counters[size_name] = static_cast<double>(size);
     state_.counters["select%"] = selected_proportion * 100;
     state_.counters["data null%"] = values_null_proportion * 100;
     state_.counters["mask null%"] = filter_null_proportion * 100;
@@ -198,6 +203,40 @@ struct FilterBenchmark {
       ABORT_NOT_OK(Filter(values, filter).status());
     }
   }
+
+  void BenchRecordBatch() {
+    const int64_t total_data_cells = 10000000;
+    const int64_t num_columns = state.range(0);
+    const int64_t num_rows = total_data_cells / num_columns;
+
+    auto col_data = rand.Float64(num_rows, 0, 1);
+
+    auto filter =
+        rand.Boolean(num_rows, args.selected_proportion, args.filter_null_proportion);
+
+    int64_t output_length =
+        internal::GetFilterOutputSize(*filter->data(), FilterOptions::DROP);
+
+    // HACK: set FilterArgs.size to the number of selected data cells *
+    // sizeof(double) for accurate memory processing performance
+    args.size = output_length * num_columns * sizeof(double);
+    args.size_name = "extracted_size";
+    state.counters["num_cols"] = static_cast<double>(num_columns);
+
+    std::vector<std::shared_ptr<Array>> columns;
+    std::vector<std::shared_ptr<Field>> fields;
+    for (int64_t i = 0; i < num_columns; ++i) {
+      std::stringstream ss;
+      ss << "f" << i;
+      fields.push_back(::arrow::field(ss.str(), float64()));
+      columns.push_back(col_data);
+    }
+
+    auto batch = RecordBatch::Make(schema(fields), num_rows, columns);
+    for (auto _ : state) {
+      ABORT_NOT_OK(Filter(batch, filter).status());
+    }
+  }
 };
 
 static void FilterInt64FilterNoNulls(benchmark::State& state) {
@@ -222,6 +261,10 @@ static void FilterStringFilterNoNulls(benchmark::State& state) {
 
 static void FilterStringFilterWithNulls(benchmark::State& state) {
   FilterBenchmark(state, true).String();
+}
+
+static void FilterRecordBatchNoNulls(benchmark::State& state) {
+  FilterBenchmark(state, false).BenchRecordBatch();
 }
 
 static void TakeInt64RandomIndicesNoNulls(benchmark::State& state) {
@@ -274,6 +317,15 @@ BENCHMARK(FilterFSLInt64FilterNoNulls)->Apply(FilterSetArgs);
 BENCHMARK(FilterFSLInt64FilterWithNulls)->Apply(FilterSetArgs);
 BENCHMARK(FilterStringFilterNoNulls)->Apply(FilterSetArgs);
 BENCHMARK(FilterStringFilterWithNulls)->Apply(FilterSetArgs);
+
+void FilterRecordBatchSetArgs(benchmark::internal::Benchmark* bench) {
+  for (auto num_cols : std::vector<int>({10, 50, 100})) {
+    for (int i = 0; i < static_cast<int>(g_filter_params.size()); ++i) {
+      bench->Args({num_cols, i});
+    }
+  }
+}
+BENCHMARK(FilterRecordBatchNoNulls)->Apply(FilterRecordBatchSetArgs);
 
 void TakeSetArgs(benchmark::internal::Benchmark* bench) {
   for (int64_t size : g_data_sizes) {
