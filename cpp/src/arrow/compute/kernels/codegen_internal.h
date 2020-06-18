@@ -474,44 +474,22 @@ struct ScalarUnaryNotNullStateful {
   struct ArrayExec<Type, enable_if_base_binary<Type>> {
     static void Exec(const ThisType& functor, KernelContext* ctx, const ExecBatch& batch,
                      Datum* out) {
-      // TODO: This code path is currently inadequately tested.
-
-      using offset_type = typename Type::offset_type;
-      const ArrayData& arg0 = *batch[0].array();
-      typename TypeTraits<Type>::ArrayType arg0_boxed(batch[0].array());
-
-      ArrayData* out_arr = out->mutable_array();
-      TypedBufferBuilder<offset_type> offset_builder;
-      TypedBufferBuilder<uint8_t> data_builder;
-
-      KERNEL_RETURN_IF_ERROR(ctx, offset_builder.Reserve(arg0.length + 1));
-      offset_type out_offset = 0;
-
-      const offset_type* in_offsets = arg0_boxed.raw_value_offsets();
-      const uint8_t* in_data = arg0.buffers[2]->data();
-      offset_type cur_offset = in_offsets[0];
-      for (int64_t i = 0; i < arg0.length; ++i) {
-        offset_builder.UnsafeAppend(out_offset);
-        offset_type next_offset = in_offsets[i + 1];
-        if (arg0_boxed.IsValid(i)) {
-          auto val_size = next_offset - cur_offset;
-          auto val =
-              functor.op.Call(ctx, util::string_view(in_data + cur_offset, val_size));
-          if (std::is_same<offset_type, int32_t>::value &&
-              (static_cast<int64_t>(out_offset) + val_size > kBinaryMemoryLimit)) {
-            ctx->SetStatus(Status::OutOfMemory("Overflowed 32-bit binary builder"));
-            return;
-          }
-          KERNEL_RETURN_IF_ERROR(ctx, data_builder.Append(val.data(), val_size));
-          out_offset += val_size;
+      // NOTE: This code is not currently used by any kernels and has
+      // suboptimal performance because it's recomputing the validity bitmap
+      // that is already computed by the kernel execution layer. Consider
+      // writing a lower-level "output adapter" for base binary types.
+      typename TypeTraits<Type>::BuilderType builder;
+      VisitArrayValuesInline<Arg0Type>(*batch[0].array(), [&](util::optional<ARG0> v) {
+        if (v.has_value()) {
+          KERNEL_RETURN_IF_ERROR(ctx, builder.Append(functor.op.Call(ctx, *v)));
+        } else {
+          KERNEL_RETURN_IF_ERROR(ctx, builder.AppendNull());
         }
-        cur_offset = next_offset;
-      }
-      // Last offset
-      offset_builder.UnsafeAppend(out_offset);
+      });
       if (!ctx->HasError()) {
-        KERNEL_RETURN_IF_ERROR(ctx, offset_builder.Finish(&out_arr->buffers[1]));
-        KERNEL_RETURN_IF_ERROR(ctx, data_builder.Finish(&out_arr->buffers[2]));
+        std::shared_ptr<ArrayData> result;
+        ctx->SetStatus(builder.FinishInternal(&result));
+        out->value = std::move(result);
       }
     }
   };
