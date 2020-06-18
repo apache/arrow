@@ -65,19 +65,20 @@ large data).
 When an API can return either an error code or a successful value, it usually
 does so by returning the template class
 :class:`arrow::Result <template\<class T\> arrow::Result>`.  However,
-some APIs (often legacy) return :class:`arrow::Status` and pass the result
-value as an out-pointer parameter.
+some APIs (usually deprecated) return :class:`arrow::Status` and pass the
+result value as an out-pointer parameter.
 
 Here is an example of checking the outcome of an operation::
 
    const int64_t buffer_size = 4096;
-   std::shared_ptr<arrow::Buffer> buffer;
 
-   auto status = arrow::AllocateBuffer(buffer_size, &buffer);
-   if (!status.ok()) {
+   auto maybe_buffer = arrow::AllocateBuffer(buffer_size, &buffer);
+   if (!maybe_buffer.ok()) {
       // ... handle error
+   } else {
+      std::shared_ptr<arrow::Buffer> buffer = *maybe_buffer;
+      // ... use allocated buffer
    }
-
 
 If the caller function itself returns a :class:`arrow::Result` or
 :class:`arrow::Status` and wants to propagate any non-successful outcome, two
@@ -95,7 +96,7 @@ For example::
    arrow::Status DoSomething() {
       const int64_t buffer_size = 4096;
       std::shared_ptr<arrow::Buffer> buffer;
-      ARROW_RETURN_NOT_OK(arrow::AllocateBuffer(buffer_size, &buffer));
+      ARROW_ASSIGN_OR_RAISE(buffer, arrow::AllocateBuffer(buffer_size));
       // ... allocation successful, do something with buffer below
 
       // return success at the end

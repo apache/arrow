@@ -100,4 +100,4 @@ The final output is located under ``docs/_build/html``.
 
 .. seealso::
 
-   :ref:`docker_builds`.
+   :ref:`docker-builds`.

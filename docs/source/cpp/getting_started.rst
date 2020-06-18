@@ -25,6 +25,7 @@ User Guide
 
    overview
    conventions
+   cmake
    memory
    arrays
    datatypes

@@ -15,12 +15,14 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-Examples
-========
+.. default-domain:: cpp
+.. highlight:: cpp
 
-.. toctree::
-   :maxdepth: 1
+Minimal build using CMake
+==========================
 
-   cmake_minimal_build
-   row_columnar_conversion
-   std::tuple-like ranges to Arrow <tuple_range_conversion>
+The folder ``cpp/examples/minimal_build/`` located inside the source tree
+contains a Docker-based example of building and using Arrow from a
+third-party project, using CMake.  The
+`README <https://github.com/apache/arrow/tree/master/cpp/examples/minimal_build/README.md>`_
+file in that folder has more information.
