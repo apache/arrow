@@ -476,7 +476,7 @@ struct CastFunctor<Decimal128Type, Decimal128Type> {
 template <typename OutType>
 void AddPrimitiveNumberCasts(const std::shared_ptr<DataType>& out_ty,
                              CastFunction* func) {
-  AddCommonCasts<OutType>(out_ty, func);
+  AddCommonCasts(out_ty->id(), out_ty, func);
 
   // Cast from boolean to number
   DCHECK_OK(func->AddKernel(Type::BOOL, {boolean()}, out_ty,
@@ -524,7 +524,7 @@ std::shared_ptr<CastFunction> GetCastToDecimal() {
 
   // Cast to decimal
   auto func = std::make_shared<CastFunction>("cast_decimal", Type::DECIMAL);
-  AddCommonCasts<Decimal128Type>(sig_out_ty, func.get());
+  AddCommonCasts(Type::DECIMAL, sig_out_ty, func.get());
 
   auto exec = CastFunctor<Decimal128Type, Decimal128Type>::Exec;
   // We resolve the output type of this kernel from the CastOptions
@@ -568,7 +568,7 @@ std::vector<std::shared_ptr<CastFunction>> GetNumericCasts() {
   // HalfFloat is a bit brain-damaged for now
   auto cast_half_float =
       std::make_shared<CastFunction>("cast_half_float", Type::HALF_FLOAT);
-  AddCommonCasts<HalfFloatType>(float16(), cast_half_float.get());
+  AddCommonCasts(Type::HALF_FLOAT, float16(), cast_half_float.get());
   functions.push_back(cast_half_float);
 
   functions.push_back(GetCastToFloating<FloatType>("cast_float"));

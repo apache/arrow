@@ -48,7 +48,7 @@ struct ParseBooleanString {
 
 std::vector<std::shared_ptr<CastFunction>> GetBooleanCasts() {
   auto func = std::make_shared<CastFunction>("cast_boolean", Type::BOOL);
-  AddCommonCasts<BooleanType>(boolean(), func.get());
+  AddCommonCasts(Type::BOOL, boolean(), func.get());
 
   for (const auto& ty : NumericTypes()) {
     ArrayKernelExec exec =
