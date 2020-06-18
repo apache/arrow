@@ -35,14 +35,28 @@ from pyarrow._fs import (  # noqa
 # For backward compatibility.
 FileStats = FileInfo
 
+_not_imported = []
+
 try:
     from pyarrow._hdfs import HadoopFileSystem  # noqa
 except ImportError:
-    pass
+    _not_imported.append("HadoopFileSystem")
 
 try:
     from pyarrow._s3fs import S3FileSystem, initialize_s3, finalize_s3  # noqa
 except ImportError:
-    pass
+    _not_imported.append("S3FileSystem")
 else:
     initialize_s3()
+
+
+def __getattr__(name):
+    if name in _not_imported:
+        raise ImportError(
+            "The pyarrow installation is not built with support for "
+            "'{0}'".format(name)
+        )
+
+    raise AttributeError(
+        "module 'pyarrow.fs' has no attribute '{0}'".format(name)
+    )
