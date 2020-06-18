@@ -284,6 +284,42 @@ const char* reverse_utf8(gdv_int64 context, const char* data, gdv_int32 data_len
   return ret;
 }
 
+// Trim a utf8 sequence
+FORCE_INLINE
+const char* trim_utf8(gdv_int64 context, const char* data, gdv_int32 data_len,
+                      int32_t* out_len) {
+  if (data_len == 0) {
+    *out_len = 0;
+    return "";
+  }
+
+  gdv_int32 start = 0, end = data_len - 1;
+  // start and end denote the first and last positions of non-space
+  // characters in the input string respectively
+  while (start <= end && data[start] == ' ') {
+    ++start;
+  }
+  while (end >= start && data[end] == ' ') {
+    --end;
+  }
+
+  // string with no leading/trailing spaces, return original string
+  if (start == 0 && end == data_len - 1) {
+    *out_len = data_len;
+    return data;
+  }
+
+  // string with all spaces
+  if (start > end) {
+    *out_len = 0;
+    return "";
+  }
+
+  // string has some leading/trailing spaces and some non-space characters
+  *out_len = end - start + 1;
+  return data + start;
+}
+
 // Truncates the string to given length
 FORCE_INLINE
 const char* castVARCHAR_utf8_int64(gdv_int64 context, const char* data,
