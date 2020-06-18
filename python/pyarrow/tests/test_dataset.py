@@ -1580,4 +1580,7 @@ def test_dataset_schema_metadata(tempdir):
     schema = dataset.to_table().schema
     projected_schema = dataset.to_table(columns=["a"]).schema
 
+    # ensure the pandas metadata is included in the schema
+    assert b"pandas" in schema.metadata
+    # ensure it is still there in a projected schema (with column selection)
     assert schema.equals(projected_schema, check_metadata=True)
