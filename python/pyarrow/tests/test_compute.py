@@ -19,7 +19,7 @@ import numpy as np
 import pytest
 
 import pyarrow as pa
-import pyarrow.compute
+import pyarrow.compute as pc
 
 
 all_array_types = [
@@ -60,34 +60,34 @@ numerical_arrow_types = [
 def test_sum_array(arrow_type):
     arr = pa.array([1, 2, 3, 4], type=arrow_type)
     assert arr.sum() == 10
-    assert pa.compute.sum(arr) == 10
+    assert pc.sum(arr) == 10
 
     arr = pa.array([], type=arrow_type)
     assert arr.sum() == None  # noqa: E711
-    assert pa.compute.sum(arr) == None  # noqa: E711
+    assert pc.sum(arr) == None  # noqa: E711
 
 
 @pytest.mark.parametrize('arrow_type', numerical_arrow_types)
 def test_sum_chunked_array(arrow_type):
     arr = pa.chunked_array([pa.array([1, 2, 3, 4], type=arrow_type)])
-    assert pa.compute.sum(arr) == 10
+    assert pc.sum(arr) == 10
 
     arr = pa.chunked_array([
         pa.array([1, 2], type=arrow_type), pa.array([3, 4], type=arrow_type)
     ])
-    assert pa.compute.sum(arr) == 10
+    assert pc.sum(arr) == 10
 
     arr = pa.chunked_array([
         pa.array([1, 2], type=arrow_type),
         pa.array([], type=arrow_type),
         pa.array([3, 4], type=arrow_type)
     ])
-    assert pa.compute.sum(arr) == 10
+    assert pc.sum(arr) == 10
 
     arr = pa.chunked_array((), type=arrow_type)
     print(arr, type(arr))
     assert arr.num_chunks == 0
-    assert pa.compute.sum(arr) == None  # noqa: E711
+    assert pc.sum(arr) == None  # noqa: E711
 
 
 @pytest.mark.parametrize(('ty', 'values'), all_array_types)
@@ -316,7 +316,7 @@ def test_compare_chunked_array_mixed():
 def test_arithmetic_add():
     left = pa.array([1, 2, 3, 4, 5])
     right = pa.array([0, -1, 1, 2, 3])
-    result = pa.compute.add(left, right)
+    result = pc.add(left, right)
     expected = pa.array([1, 1, 4, 6, 8])
     assert result.equals(expected)
 
@@ -324,7 +324,7 @@ def test_arithmetic_add():
 def test_arithmetic_subtract():
     left = pa.array([1, 2, 3, 4, 5])
     right = pa.array([0, -1, 1, 2, 3])
-    result = pa.compute.subtract(left, right)
+    result = pc.subtract(left, right)
     expected = pa.array([1, 3, 2, 2, 2])
     assert result.equals(expected)
 
@@ -332,6 +332,27 @@ def test_arithmetic_subtract():
 def test_arithmetic_multiply():
     left = pa.array([1, 2, 3, 4, 5])
     right = pa.array([0, -1, 1, 2, 3])
-    result = pa.compute.multiply(left, right)
+    result = pc.multiply(left, right)
     expected = pa.array([0, -2, 3, 8, 15])
+    assert result.equals(expected)
+
+
+def test_is_null():
+    arr = pa.array([1, 2, 3, None])
+    result = arr.is_null()
+    result = arr.is_null()
+    expected = pa.array([False, False, False, True])
+    assert result.equals(expected)
+    assert result.equals(pc.is_null(arr))
+    result = arr.is_valid()
+    expected = pa.array([True, True, True, False])
+    assert result.equals(expected)
+    assert result.equals(pc.is_valid(arr))
+
+    arr = pa.chunked_array([[1, 2], [3, None]])
+    result = arr.is_null()
+    expected = pa.chunked_array([[False, False], [False, True]])
+    assert result.equals(expected)
+    result = arr.is_valid()
+    expected = pa.chunked_array([[True, True], [True, False]])
     assert result.equals(expected)

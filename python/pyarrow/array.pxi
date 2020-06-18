@@ -865,8 +865,17 @@ cdef class Array(_PandasConvertible):
         else:
             return 0
 
-    def isnull(self):
-        raise NotImplementedError()
+    def is_null(self):
+        """
+        Return BooleanArray indicating the null values.
+        """
+        return _pc().is_null(self)
+
+    def is_valid(self):
+        """
+        Return BooleanArray indicating the non-null values.
+        """
+        return _pc().is_valid(self)
 
     def __getitem__(self, key):
         """
