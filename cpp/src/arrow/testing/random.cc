@@ -291,6 +291,17 @@ struct RandomArrayGeneratorOfImpl {
   }
 
   template <typename T>
+  enable_if_t<is_temporal_type<T>::value && !std::is_same<T, DayTimeIntervalType>::value,
+              Status>
+  Visit(const T&) {
+    auto max = std::numeric_limits<typename T::c_type>::max();
+    auto min = std::numeric_limits<typename T::c_type>::lowest();
+    auto values =
+        rag_->Numeric<typename T::PhysicalType>(size_, min, max, null_probability_);
+    return values->View(type_).Value(&out_);
+  }
+
+  template <typename T>
   enable_if_base_binary<T, Status> Visit(const T& t) {
     int32_t min_length = 0;
     auto max_length = static_cast<int32_t>(std::sqrt(size_));
@@ -301,6 +312,21 @@ struct RandomArrayGeneratorOfImpl {
       out_ = rag_->LargeString(size_, min_length, max_length, null_probability_);
     }
     return out_->View(type_).Value(&out_);
+  }
+
+  template <typename T>
+  enable_if_fixed_size_binary<T, Status> Visit(const T& t) {
+    const int32_t value_size = t.byte_width();
+    int64_t data_nbytes = size_ * value_size;
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> data, AllocateBuffer(data_nbytes));
+    random_bytes(data_nbytes, /*seed=*/0, data->mutable_data());
+    auto validity = rag_->Boolean(size_, 1 - null_probability_);
+
+    // Assemble the data for a FixedSizeBinaryArray
+    auto values_data = std::make_shared<ArrayData>(type_, size_);
+    values_data->buffers = {validity->data()->buffers[1], data};
+    out_ = MakeArray(values_data);
+    return Status::OK();
   }
 
   Status Visit(const DataType& t) {

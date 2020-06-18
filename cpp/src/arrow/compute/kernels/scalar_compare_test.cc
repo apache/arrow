@@ -373,46 +373,38 @@ TYPED_TEST(TestNumericCompareKernel, TestNullScalar) {
 TYPED_TEST_SUITE(TestNumericCompareKernel, NumericArrowTypes);
 
 template <typename Type>
-void DoRandomCompare(const std::shared_ptr<DataType>& type) {
-  using ScalarType = typename TypeTraits<Type>::ScalarType;
-  using CType = typename TypeTraits<Type>::CType;
-  auto rand = random::RandomArrayGenerator(0x5416447);
-  const int64_t length = 1000;
-  for (auto null_probability : {0.0, 0.01, 0.1, 0.25, 0.5, 1.0}) {
-    for (auto op : {EQUAL, NOT_EQUAL, GREATER, LESS_EQUAL}) {
-      auto data =
-          rand.Numeric<typename Type::PhysicalType>(length, 0, 100, null_probability);
+struct CompareRandomNumeric {
+  static void Test(const std::shared_ptr<DataType>& type) {
+    using ScalarType = typename TypeTraits<Type>::ScalarType;
+    using CType = typename TypeTraits<Type>::CType;
+    auto rand = random::RandomArrayGenerator(0x5416447);
+    const int64_t length = 1000;
+    for (auto null_probability : {0.0, 0.01, 0.1, 0.25, 0.5, 1.0}) {
+      for (auto op : {EQUAL, NOT_EQUAL, GREATER, LESS_EQUAL}) {
+        auto data =
+            rand.Numeric<typename Type::PhysicalType>(length, 0, 100, null_probability);
 
-      auto data1 =
-          rand.Numeric<typename Type::PhysicalType>(length, 0, 100, null_probability);
-      auto data2 =
-          rand.Numeric<typename Type::PhysicalType>(length, 0, 100, null_probability);
+        auto data1 =
+            rand.Numeric<typename Type::PhysicalType>(length, 0, 100, null_probability);
+        auto data2 =
+            rand.Numeric<typename Type::PhysicalType>(length, 0, 100, null_probability);
 
-      // Create view of data as the type (e.g. timestamp)
-      auto array1 = Datum(*data1->View(type));
-      auto array2 = Datum(*data2->View(type));
-      auto fifty = Datum(std::make_shared<ScalarType>(CType(50), type));
-      auto options = CompareOptions(op);
+        // Create view of data as the type (e.g. timestamp)
+        auto array1 = Datum(*data1->View(type));
+        auto array2 = Datum(*data2->View(type));
+        auto fifty = Datum(std::make_shared<ScalarType>(CType(50), type));
+        auto options = CompareOptions(op);
 
-      ValidateCompare<Type>(options, array1, fifty);
-      ValidateCompare<Type>(options, fifty, array1);
-      ValidateCompare<Type>(options, array1, array2);
+        ValidateCompare<Type>(options, array1, fifty);
+        ValidateCompare<Type>(options, fifty, array1);
+        ValidateCompare<Type>(options, array1, array2);
+      }
     }
   }
-}
+};
 
-TYPED_TEST(TestNumericCompareKernel, RandomCompare) {
-  DoRandomCompare<TypeParam>(TypeTraits<TypeParam>::type_singleton());
-}
-
-TEST(TestTemporalCompareKernel, RandomCompare) {
-  DoRandomCompare<Date32Type>(date32());
-  DoRandomCompare<Date64Type>(date64());
-  DoRandomCompare<Time32Type>(time32(TimeUnit::SECOND));
-  DoRandomCompare<Time64Type>(time64(TimeUnit::MICRO));
-  DoRandomCompare<TimestampType>(timestamp(TimeUnit::SECOND));
-  DoRandomCompare<TimestampType>(timestamp(TimeUnit::MICRO));
-  DoRandomCompare<DurationType>(duration(TimeUnit::MILLI));
+TEST(TestCompareKernel, PrimitiveRandomTests) {
+  TestRandomPrimitiveCTypes<CompareRandomNumeric>();
 }
 
 TYPED_TEST(TestNumericCompareKernel, SimpleCompareArrayArray) {
