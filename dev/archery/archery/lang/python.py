@@ -187,8 +187,8 @@ class NumpyDoc:
             Docstring._load_obj = orig_load_obj
             inspect.signature = orig_signature
 
-    def validate(self, from_package='', enable_rules=None,
-                 disable_rules=None):
+    def validate(self, from_package='', allow_rules=None,
+                 disallow_rules=None):
         results = []
 
         def callback(obj):
@@ -196,9 +196,9 @@ class NumpyDoc:
 
             errors = []
             for errcode, errmsg in result.get('errors', []):
-                if enable_rules and errcode not in enable_rules:
+                if allow_rules and errcode not in allow_rules:
                     continue
-                if disable_rules and errcode in disable_rules:
+                if disallow_rules and errcode in disallow_rules:
                     continue
                 errors.append((errcode, errmsg))
 
