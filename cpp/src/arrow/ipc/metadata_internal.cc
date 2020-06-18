@@ -961,7 +961,8 @@ Status MakeSparseTensorIndexCOO(FBB& fbb, const SparseCOOIndex& sparse_index,
   flatbuf::Buffer indices(indices_metadata.offset, indices_metadata.length);
 
   *fb_sparse_index =
-      flatbuf::CreateSparseTensorIndexCOO(fbb, indices_type_offset, fb_strides, &indices)
+      flatbuf::CreateSparseTensorIndexCOO(fbb, indices_type_offset, fb_strides, &indices,
+                                          sparse_index.is_canonical())
           .Union();
   *num_buffers = 1;
   return Status::OK();

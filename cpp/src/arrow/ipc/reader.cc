@@ -1263,9 +1263,9 @@ Result<std::shared_ptr<SparseIndex>> ReadSparseCOOIndex(
     strides[0] = indices_elsize * ndim;
     strides[1] = indices_elsize;
   }
-  // TODO: support is_canonical that read from buffer or stream
   return SparseCOOIndex::Make(
-      std::make_shared<Tensor>(indices_type, indices_data, indices_shape, strides));
+      std::make_shared<Tensor>(indices_type, indices_data, indices_shape, strides),
+      sparse_index->isCanonical());
 }
 
 Result<std::shared_ptr<SparseIndex>> ReadSparseCSXIndex(
