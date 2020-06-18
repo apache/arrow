@@ -113,6 +113,8 @@ class ARROW_FLIGHT_EXPORT ServerCallContext {
   virtual ~ServerCallContext() = default;
   /// \brief The name of the authenticated peer (may be the empty string)
   virtual const std::string& peer_identity() const = 0;
+  /// \brief The peer address (not validated)
+  virtual const std::string& peer() const = 0;
   /// \brief Look up a middleware by key. Do not maintain a reference
   /// to the object beyond the request body.
   /// \return The middleware, or nullptr if not found.

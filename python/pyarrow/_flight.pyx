@@ -1413,6 +1413,10 @@ cdef class ServerCallContext:
         """
         return tobytes(self.context.peer_identity())
 
+    def peer(self):
+        """Get the address of the peer."""
+        return frombytes(self.context.peer())
+
     def get_middleware(self, key):
         """
         Get a middleware instance by key.

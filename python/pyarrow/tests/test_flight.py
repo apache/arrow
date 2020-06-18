@@ -215,7 +215,7 @@ class EchoStreamFlightServer(EchoFlightServer):
 
     def do_action(self, context, action):
         if action.type == "who-am-i":
-            return [context.peer_identity()]
+            return [context.peer_identity(), context.peer().encode("utf-8")]
         raise NotImplementedError
 
 
@@ -935,8 +935,11 @@ def test_http_basic_auth():
         client = FlightClient(('localhost', server.port))
         action = flight.Action("who-am-i", b"")
         client.authenticate(HttpBasicClientAuthHandler('test', 'p4ssw0rd'))
-        identity = next(client.do_action(action))
+        results = client.do_action(action)
+        identity = next(results)
         assert identity.body.to_pybytes() == b'test'
+        peer_address = next(results)
+        assert peer_address.body.to_pybytes() != b''
 
 
 def test_http_basic_auth_invalid_password():
