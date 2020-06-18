@@ -318,9 +318,9 @@ def lint(ctx, src, fix, iwyu_all, **checks):
 @click.option("--src", metavar="<arrow_src>", default=None,
               callback=validate_arrow_sources,
               help="Specify Arrow source directory")
-@click.option("--whitelist", "-w", help="Allow only these rules")
-@click.option("--blacklist", "-b", help="Disallow these rules")
-def numpydoc(src, symbols, whitelist, blacklist):
+@click.option("--enable-rule", "-e", multi=True, help="Allow only these rules")
+@click.option("--disable-rule", "-d", multi=True, help="Disallow these rules")
+def numpydoc(src, symbols, enable_rule, disable_rule):
     """
     Pass list of modules or symbols as arguments to restrict the validation.
 
@@ -332,10 +332,10 @@ def numpydoc(src, symbols, whitelist, blacklist):
     archery numpydoc pyarrow.csv pyarrow.json pyarrow.parquet
     archery numpydoc pyarrow.array
     """
-    blacklist = blacklist or {'GL01', 'SA01', 'EX01', 'ES01'}
+    disable_rule = disable_rule or {'GL01', 'SA01', 'EX01', 'ES01'}
     try:
-        results = python_numpydoc(symbols, whitelist=whitelist,
-                                  blacklist=blacklist)
+        results = python_numpydoc(symbols, enable_rules=enable_rule,
+                                  disable_rule=disable_rule)
         for result in results:
             result.ok()
     except LintValidationException:

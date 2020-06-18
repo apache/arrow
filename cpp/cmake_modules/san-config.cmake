@@ -114,12 +114,12 @@ endif()
 
 if("${ARROW_USE_UBSAN}" OR "${ARROW_USE_ASAN}" OR "${ARROW_USE_TSAN}")
   # GCC 4.8 and 4.9 (latest as of this writing) don't allow you to specify a
-  # sanitizer blacklist.
+  # disabled entris for the sanitizer.
   if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang"
      OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     set(
       CMAKE_CXX_FLAGS
-      "${CMAKE_CXX_FLAGS} -fsanitize-blacklist=${BUILD_SUPPORT_DIR}/sanitize-blacklist.txt"
+      "${CMAKE_CXX_FLAGS} -fsanitize-blacklist=${BUILD_SUPPORT_DIR}/sanitizer-disabled-entries.txt"
       )
   else()
     message(
