@@ -58,7 +58,7 @@ scalar_aggregate <- function(FUN, ..., na.rm = FALSE) {
     if (FUN %in% c("mean", "sum")) {
       # Arrow sum/mean function always drops NAs so handle that here
       # https://issues.apache.org/jira/browse/ARROW-9054
-      return(Scalar$create(NA_integer_, type = a$type))
+      return(Scalar$create(NA_real_))
     }
   }
 
