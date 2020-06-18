@@ -78,7 +78,7 @@ jobs:
             pandas: latest
           - name: centos-python-3.6-manylinux1
             cache: manylinux1
-            image: --force-pull --no-build centos-python-manylinux1
+            image: centos-python-manylinux1
             title: AMD64 CentOS 5.11 Python 3.6 manylinux1
     env:
       PYTHON: ${{ matrix.python || 3.7 }}

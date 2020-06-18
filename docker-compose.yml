@@ -762,7 +762,6 @@ services:
     shm_size: *shm-size
     environment:
       <<: *ccache
-      PYARROW_PARALLEL: 3
       PYTHON_VERSION: ${PYTHON_VERSION:-3.6}
       UNICODE_WIDTH: ${UNICODE_WIDTH:-16}
     volumes:
@@ -783,7 +782,6 @@ services:
     shm_size: *shm-size
     environment:
       <<: *ccache
-      PYARROW_PARALLEL: 3
       PYTHON_VERSION: ${PYTHON_VERSION:-3.6}
       UNICODE_WIDTH: ${UNICODE_WIDTH:-16}
     volumes:
@@ -804,7 +802,6 @@ services:
     shm_size: *shm-size
     environment:
       <<: *ccache
-      PYARROW_PARALLEL: 3
       PYTHON_VERSION: ${PYTHON_VERSION:-3.6}
       UNICODE_WIDTH: ${UNICODE_WIDTH:-16}
     volumes:

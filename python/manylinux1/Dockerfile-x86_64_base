@@ -58,6 +58,13 @@ ADD scripts/build_thrift.sh /
 RUN /build_thrift.sh
 ENV THRIFT_HOME /usr/local
 
+ADD scripts/build_curl.sh /
+RUN /build_curl.sh
+ENV CURL_HOME /opt/curl
+
+ADD scripts/build_aws_sdk.sh /
+RUN /build_aws_sdk.sh
+
 ADD scripts/build_brotli.sh /
 RUN /build_brotli.sh
 ENV BROTLI_HOME /usr/local

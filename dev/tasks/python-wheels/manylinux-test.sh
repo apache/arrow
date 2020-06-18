@@ -39,10 +39,13 @@ fi
 # Test import and optional dependencies
 python -c "
 import pyarrow
-import pyarrow.parquet
-import pyarrow.plasma
-import pyarrow.fs
-import pyarrow._hdfs
+import pyarrow.csv
 import pyarrow.dataset
 import pyarrow.flight
+import pyarrow.fs
+import pyarrow._hdfs
+import pyarrow.json
+import pyarrow.parquet
+import pyarrow.plasma
+import pyarrow._s3fs
 "

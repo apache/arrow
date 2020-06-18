@@ -38,9 +38,12 @@ set -e
 
 cd /arrow/python
 
+NCORES=$(($(grep -c ^processor /proc/cpuinfo) + 1))
+
 # PyArrow build configuration
 export PYARROW_BUILD_TYPE='release'
 export PYARROW_CMAKE_GENERATOR='Ninja'
+export PYARROW_PARALLEL=${NCORES}
 
 # ARROW-6860: Disabling ORC in wheels until Protobuf static linking issues
 # across projects is resolved
@@ -48,6 +51,7 @@ export PYARROW_WITH_ORC=0
 export PYARROW_WITH_HDFS=1
 export PYARROW_WITH_PARQUET=1
 export PYARROW_WITH_PLASMA=1
+export PYARROW_WITH_S3=1
 export PYARROW_BUNDLE_ARROW_CPP=1
 export PYARROW_BUNDLE_BOOST=1
 export PYARROW_BOOST_NAMESPACE=arrow_boost
@@ -110,6 +114,7 @@ cmake \
     -DARROW_PLASMA=ON \
     -DARROW_PYTHON=ON \
     -DARROW_RPATH_ORIGIN=ON \
+    -DARROW_S3=ON \
     -DARROW_TENSORFLOW=ON \
     -DARROW_WITH_BROTLI=ON \
     -DARROW_WITH_BZ2=ON \
@@ -158,7 +163,6 @@ else
 
   # Test that the modules are importable
   $PYTHON_INTERPRETER -c "
-import sys
 import pyarrow
 import pyarrow.csv
 import pyarrow.dataset
@@ -168,6 +172,7 @@ import pyarrow._hdfs
 import pyarrow.json
 import pyarrow.parquet
 import pyarrow.plasma
+import pyarrow._s3fs
   "
 
   # More thorough testing happens outside of the build to prevent

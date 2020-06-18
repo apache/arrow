@@ -62,6 +62,12 @@ RUN /build_absl.sh
 ADD scripts/build_grpc.sh /
 RUN /build_grpc.sh
 
+ADD scripts/build_curl.sh /
+RUN /build_curl.sh
+
+ADD scripts/build_aws_sdk.sh /
+RUN /build_aws_sdk.sh
+
 ADD scripts/build_brotli.sh /
 RUN /build_brotli.sh
 ENV BROTLI_HOME /usr/local

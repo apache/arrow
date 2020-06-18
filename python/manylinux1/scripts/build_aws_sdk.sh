@@ -16,19 +16,32 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# XXX OpenSSL 1.1.1 needs Perl 5.10 to compile, so stick to 1.0.x
-OPENSSL_VERSION="1.0.2u"
-NCORES=$(($(grep -c ^processor /proc/cpuinfo) + 1))
+export AWS_SDK_VERSION="1.7.356"
+# Avoid compilation error due to a spurious warning
+export CFLAGS="-Wno-unused-parameter"
+export PREFIX="/usr/local"
 
-curl -sL https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz -o openssl-${OPENSSL_VERSION}.tar.gz
-tar xf openssl-${OPENSSL_VERSION}.tar.gz
+curl -sL "https://github.com/aws/aws-sdk-cpp/archive/${AWS_SDK_VERSION}.tar.gz" -o aws-sdk-cpp-${AWS_SDK_VERSION}.tar.gz
+tar xf aws-sdk-cpp-${AWS_SDK_VERSION}.tar.gz
+pushd aws-sdk-cpp-${AWS_SDK_VERSION}
 
-pushd openssl-${OPENSSL_VERSION}
+mkdir build
+pushd build
 
-./config -fpic no-shared --prefix=/usr/local
-make -j${NCORES}
-make install
+cmake .. -GNinja \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_PREFIX_PATH=${CURL_HOME} \
+    -DCMAKE_C_FLAGS=${CFLAGS} \
+    -DCMAKE_CXX_FLAGS=${CFLAGS} \
+    -DCMAKE_INSTALL_PREFIX=${PREFIX} \
+    -DBUILD_ONLY='s3;core;transfer;config' \
+    -DBUILD_SHARED_LIBS=OFF \
+    -DENABLE_UNITY_BUILD=ON \
+    -DENABLE_TESTING=OFF
+
+ninja install
 
 popd
+popd
 
-rm -rf openssl-${OPENSSL_VERSION}.tar.gz openssl-${OPENSSL_VERSION}
+rm -r aws-sdk-cpp-${AWS_SDK_VERSION}.tar.gz aws-sdk-cpp-${AWS_SDK_VERSION}
