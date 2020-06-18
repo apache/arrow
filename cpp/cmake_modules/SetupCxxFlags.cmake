@@ -64,10 +64,14 @@ elseif(ARROW_CPU_FLAG STREQUAL "armv8")
 endif()
 
 # Support C11
-set(CMAKE_C_STANDARD 11)
+if(NOT DEFINED CMAKE_C_STANDARD)
+  set(CMAKE_C_STANDARD 11)
+endif()
 
 # This ensures that things like c++11 get passed correctly
-set(CMAKE_CXX_STANDARD ${ARROW_CXX_STANDARD})
+if(NOT DEFINED CMAKE_CXX_STANDARD)
+  set(CMAKE_CXX_STANDARD 11)
+endif()
 
 # We require a C++11 compliant compiler
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
