@@ -62,9 +62,8 @@ scalar_aggregate <- function(FUN, ..., na.rm = FALSE) {
     }
   }
 
-  if (inherits(a$type, "Boolean")) {
-    # Bool sum/mean not implemented so cast to int
-    # https://issues.apache.org/jira/browse/ARROW-9055
+  if (inherits(a$type, "Boolean") && FUN %in% "minmax") {
+    # Bool minmax not implemented so cast to int
     a <- a$cast(int8())
   }
   Scalar$create(call_function(FUN, a, options = list(na.rm = na.rm)))
