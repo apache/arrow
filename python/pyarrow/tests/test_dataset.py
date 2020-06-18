@@ -1587,3 +1587,21 @@ def test_parquet_dataset_factory_partitioned(tempdir):
     result = result.to_pandas().sort_values("f1").reset_index(drop=True)
     expected = table.to_pandas()
     pd.testing.assert_frame_equal(result, expected)
+
+
+@pytest.mark.parquet
+@pytest.mark.pandas
+def test_dataset_schema_metadata(tempdir):
+    # ARROW-8802
+    df = pd.DataFrame({'a': [1, 2, 3]})
+    path = tempdir / "test.parquet"
+    df.to_parquet(path)
+    dataset = ds.dataset(path)
+
+    schema = dataset.to_table().schema
+    projected_schema = dataset.to_table(columns=["a"]).schema
+
+    # ensure the pandas metadata is included in the schema
+    assert b"pandas" in schema.metadata
+    # ensure it is still there in a projected schema (with column selection)
+    assert schema.equals(projected_schema, check_metadata=True)
