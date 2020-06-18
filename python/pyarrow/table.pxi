@@ -183,6 +183,12 @@ cdef class ChunkedArray(_PandasConvertible):
         """
         return _pc().call_function("is_null", [self])
 
+    def isvalid(self):
+        """
+        Return BooleanArray indicating the non-null values.
+        """
+        return _pc().call_function("is_valid", [self])
+
     def equals(self, ChunkedArray other):
         """
         Return whether the contents of two chunked arrays are equal.

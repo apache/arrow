@@ -871,6 +871,12 @@ cdef class Array(_PandasConvertible):
         """
         return _pc().call_function("is_null", [self])
 
+    def isvalid(self):
+        """
+        Return BooleanArray indicating the non-null values.
+        """
+        return _pc().call_function("is_valid", [self])
+
     def __getitem__(self, key):
         """
         Slice or return value at given index
