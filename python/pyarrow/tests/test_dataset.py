@@ -1560,9 +1560,10 @@ def _create_metadata_file(root_path):
 def _create_parquet_dataset_partitioned(root_path):
     import pyarrow.parquet as pq
 
-    table = pa.table({
-        'f1': range(20), 'f2': np.random.randn(20),
-        'part': np.repeat(['a', 'b'], 10)}
+    table = pa.table([
+        pa.array(range(20)), pa.array(np.random.randn(20)),
+        pa.array(np.repeat(['a', 'b'], 10))],
+        names=["f1", "f2", "part"]
     )
     pq.write_to_dataset(table, str(root_path), partition_cols=['part'])
     return _create_metadata_file(root_path), table
@@ -1571,19 +1572,18 @@ def _create_parquet_dataset_partitioned(root_path):
 @pytest.mark.parquet
 @pytest.mark.pandas
 def test_parquet_dataset_factory_partitioned(tempdir):
-    # TODO support for specifying partitioning scheme
-
     root_path = tempdir / "test_parquet_dataset_factory_partitioned"
     metadata_path, table = _create_parquet_dataset_partitioned(root_path)
 
-    dataset = ds.parquet_dataset(metadata_path)
-    # TODO partition column not yet included
-    # assert dataset.schema.equals(table.schema)
+    partitioning = ds.partitioning(flavor="hive")
+    dataset = ds.parquet_dataset(metadata_path, partitioning=partitioning)
+
+    assert dataset.schema.equals(table.schema)
     assert len(dataset.files) == 2
     result = dataset.to_table()
     assert result.num_rows == 20
 
     # the partitioned dataset does not preserve order
     result = result.to_pandas().sort_values("f1").reset_index(drop=True)
-    expected = table.to_pandas().drop(columns=["part"])
+    expected = table.to_pandas()
     pd.testing.assert_frame_equal(result, expected)

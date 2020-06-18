@@ -15,6 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/dataset/partition.h"
+
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
+
 #include <cstdint>
 #include <map>
 #include <memory>
@@ -22,11 +27,7 @@
 #include <string>
 #include <vector>
 
-#include <gmock/gmock.h>
-#include <gtest/gtest.h>
-
 #include "arrow/dataset/file_base.h"
-#include "arrow/dataset/partition.h"
 #include "arrow/dataset/test_util.h"
 #include "arrow/filesystem/localfs.h"
 #include "arrow/filesystem/path_util.h"
@@ -470,6 +471,22 @@ TEST_F(TestPartitioningWritePlan, Errors) {
       MakeWritePlanError("a"_ == 42 and "b"_ == "hello", "a"_ == 99 and "b"_ == "world",
                          "b"_ == "forever alone"));
 }
+
+TEST(TestStripPrefixAndFilename, Basic) {
+  ASSERT_EQ(StripPrefixAndFilename("", ""), "");
+  ASSERT_EQ(StripPrefixAndFilename("a.csv", ""), "");
+  ASSERT_EQ(StripPrefixAndFilename("a/b.csv", ""), "a");
+  ASSERT_EQ(StripPrefixAndFilename("/a/b/c.csv", "/a"), "b");
+  ASSERT_EQ(StripPrefixAndFilename("/a/b/c/d.csv", "/a"), "b/c");
+  ASSERT_EQ(StripPrefixAndFilename("/a/b/c.csv", "/a/b"), "");
+
+  std::vector<std::string> input{"/data/year=2019/file.parquet",
+                                 "/data/year=2019/month=12/file.parquet",
+                                 "/data/year=2019/month=12/day=01/file.parquet"};
+  EXPECT_THAT(StripPrefixAndFilename(input, "/data"),
+              testing::ElementsAre("year=2019", "year=2019/month=12",
+                                   "year=2019/month=12/day=01"));
+}  // namespace dataset
 
 }  // namespace dataset
 }  // namespace arrow

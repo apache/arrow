@@ -326,13 +326,19 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             CFileSystemFactoryOptions options
         )
 
+    cdef cppclass CParquetFactoryOptions \
+            "arrow::dataset::ParquetFactoryOptions":
+        CPartitioningOrFactory partitioning
+        c_string partition_base_dir
+
     cdef cppclass CParquetDatasetFactory \
             "arrow::dataset::ParquetDatasetFactory"(CDatasetFactory):
         @staticmethod
         CResult[shared_ptr[CDatasetFactory]] MakeFromMetaDataPath "Make"(
             const c_string& metadata_path,
             shared_ptr[CFileSystem] filesystem,
-            shared_ptr[CParquetFileFormat] format
+            shared_ptr[CParquetFileFormat] format,
+            CParquetFactoryOptions options
         )
 
         @staticmethod
@@ -340,5 +346,6 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             const CFileSource& metadata_path,
             const c_string& base_path,
             shared_ptr[CFileSystem] filesystem,
-            shared_ptr[CParquetFileFormat] format
+            shared_ptr[CParquetFileFormat] format,
+            CParquetFactoryOptions options
         )

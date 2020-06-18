@@ -1378,6 +1378,9 @@ cdef class FileSystemFactoryOptions:
         partition_base_dir prefix will be skipped for partitioning discovery.
         The ignored files will still be part of the Dataset, but will not
         have partition information.
+    partitioning: Partitioning/PartitioningFactory, optional
+       Apply the Partitioning to every discovered Fragment. See Partitioning or
+       PartitioningFactory documentation.
     exclude_invalid_files : bool, optional (default True)
         If True, invalid files will be excluded (file format specific check).
         This will incur IO for each files in a serial and single threaded
@@ -1567,6 +1570,82 @@ cdef class UnionDatasetFactory(DatasetFactory):
         self.union_factory = <CUnionDatasetFactory*> sp.get()
 
 
+cdef class ParquetFactoryOptions:
+    """
+    Influences the discovery of parquet dataset.
+
+    Parameters
+    ----------
+    partition_base_dir : str, optional
+        For the purposes of applying the partitioning, paths will be
+        stripped of the partition_base_dir. Files not matching the
+        partition_base_dir prefix will be skipped for partitioning discovery.
+        The ignored files will still be part of the Dataset, but will not
+        have partition information.
+    partitioning : Partitioning, PartitioningFactory, optional
+        The partitioning scheme applied to fragments, see ``Partitioning``.
+    """
+
+    cdef:
+        CParquetFactoryOptions options
+
+    __slots__ = ()  # avoid mistakingly creating attributes
+
+    def __init__(self, partition_base_dir=None, partitioning=None):
+        if isinstance(partitioning, PartitioningFactory):
+            self.partitioning_factory = partitioning
+        elif isinstance(partitioning, Partitioning):
+            self.partitioning = partitioning
+
+        if partition_base_dir is not None:
+            self.partition_base_dir = partition_base_dir
+
+    cdef inline CParquetFactoryOptions unwrap(self):
+        return self.options
+
+    @property
+    def partitioning(self):
+        """Partitioning to apply to discovered files.
+
+        NOTE: setting this property will overwrite partitioning_factory.
+        """
+        c_partitioning = self.options.partitioning.partitioning()
+        if c_partitioning.get() == nullptr:
+            return None
+        return Partitioning.wrap(c_partitioning)
+
+    @partitioning.setter
+    def partitioning(self, Partitioning value):
+        self.options.partitioning = (<Partitioning> value).unwrap()
+
+    @property
+    def partitioning_factory(self):
+        """PartitioningFactory to apply to discovered files and
+        discover a Partitioning.
+
+        NOTE: setting this property will overwrite partitioning.
+        """
+        c_factory = self.options.partitioning.factory()
+        if c_factory.get() == nullptr:
+            return None
+        return PartitioningFactory.wrap(c_factory)
+
+    @partitioning_factory.setter
+    def partitioning_factory(self, PartitioningFactory value):
+        self.options.partitioning = (<PartitioningFactory> value).unwrap()
+
+    @property
+    def partition_base_dir(self):
+        """
+        Base directory to strip paths before applying the partitioning.
+        """
+        return frombytes(self.options.partition_base_dir)
+
+    @partition_base_dir.setter
+    def partition_base_dir(self, value):
+        self.options.partition_base_dir = tobytes(value)
+
+
 cdef class ParquetDatasetFactory(DatasetFactory):
     """
     Create a ParquetDatasetFactory from a Parquet `_metadata` file.
@@ -1581,26 +1660,32 @@ cdef class ParquetDatasetFactory(DatasetFactory):
         files.
     format : ParquetFileFormat
         Parquet format options.
+    options : ParquetFactoryOptions, optional
+        Various flags influencing the discovery of filesystem paths.
     """
 
     cdef:
         CParquetDatasetFactory* parquet_factory
 
     def __init__(self, metadata_path, FileSystem filesystem not None,
-                 FileFormat format not None):
+                 FileFormat format not None,
+                 ParquetFactoryOptions options=None):
         cdef:
             c_string path
             shared_ptr[CFileSystem] c_filesystem
             shared_ptr[CParquetFileFormat] c_format
             CResult[shared_ptr[CDatasetFactory]] result
+            CParquetFactoryOptions c_options
 
         c_path = tobytes(metadata_path)
         c_filesystem = filesystem.unwrap()
         c_format = static_pointer_cast[CParquetFileFormat, CFileFormat](
             format.unwrap())
+        options = options or ParquetFactoryOptions()
+        c_options = options.unwrap()
 
         result = CParquetDatasetFactory.MakeFromMetaDataPath(
-            c_path, c_filesystem, c_format)
+            c_path, c_filesystem, c_format, c_options)
         self.init(GetResultValue(result))
 
     cdef init(self, shared_ptr[CDatasetFactory]& sp):

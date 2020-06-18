@@ -215,6 +215,34 @@ class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
   friend class ParquetFileFormat;
 };
 
+struct ParquetFactoryOptions {
+  // Either an explicit Partitioning or a PartitioningFactory to discover one.
+  //
+  // If a factory is provided, it will be used to infer a schema for partition fields
+  // based on file and directory paths then construct a Partitioning. The default
+  // is a Partitioning which will yield no partition information.
+  //
+  // The (explicit or discovered) partitioning will be applied to discovered files
+  // and the resulting partition information embedded in the Dataset.
+  PartitioningOrFactory partitioning{Partitioning::Default()};
+
+  // For the purposes of applying the partitioning, paths will be stripped
+  // of the partition_base_dir. Files not matching the partition_base_dir
+  // prefix will be skipped for partition discovery. The ignored files will still
+  // be part of the Dataset, but will not have partition information.
+  //
+  // Example:
+  // partition_base_dir = "/dataset";
+  //
+  // - "/dataset/US/sales.csv" -> "US/sales.csv" will be given to the partitioning
+  //
+  // - "/home/john/late_sales.csv" -> Will be ignored for partition discovery.
+  //
+  // This is useful for partitioning which parses directory when ordering
+  // is important, e.g. DirectoryPartitioning.
+  std::string partition_base_dir;
+};
+
 /// \brief Create FileSystemDataset from custom `_metadata` cache file.
 ///
 /// Dask and other systems will generate a cache metadata file by concatenating
@@ -234,9 +262,10 @@ class ARROW_DS_EXPORT ParquetDatasetFactory : public DatasetFactory {
   /// \param[in] metadata_path path of the metadata parquet file
   /// \param[in] filesystem from which to open/read the path
   /// \param[in] format to read the file with.
+  /// \param[in] options see ParquetFactoryOptions
   static Result<std::shared_ptr<DatasetFactory>> Make(
       const std::string& metadata_path, std::shared_ptr<fs::FileSystem> filesystem,
-      std::shared_ptr<ParquetFileFormat> format);
+      std::shared_ptr<ParquetFileFormat> format, ParquetFactoryOptions options);
 
   /// \brief Create a ParquetDatasetFactory from a metadata source.
   ///
@@ -248,10 +277,11 @@ class ARROW_DS_EXPORT ParquetDatasetFactory : public DatasetFactory {
   /// \param[in] base_path used as the prefix of every parquet files referenced
   /// \param[in] filesystem from which to read the files referenced.
   /// \param[in] format to read the file with.
+  /// \param[in] options see ParquetFactoryOptions
   static Result<std::shared_ptr<DatasetFactory>> Make(
       const FileSource& metadata, const std::string& base_path,
       std::shared_ptr<fs::FileSystem> filesystem,
-      std::shared_ptr<ParquetFileFormat> format);
+      std::shared_ptr<ParquetFileFormat> format, ParquetFactoryOptions options);
 
   Result<std::vector<std::shared_ptr<Schema>>> InspectSchemas(
       InspectOptions options) override;
@@ -262,17 +292,25 @@ class ARROW_DS_EXPORT ParquetDatasetFactory : public DatasetFactory {
   ParquetDatasetFactory(std::shared_ptr<fs::FileSystem> fs,
                         std::shared_ptr<ParquetFileFormat> format,
                         std::shared_ptr<parquet::FileMetaData> metadata,
-                        std::string base_path);
+                        std::string base_path, ParquetFactoryOptions options);
 
   std::shared_ptr<fs::FileSystem> filesystem_;
   std::shared_ptr<ParquetFileFormat> format_;
   std::shared_ptr<parquet::FileMetaData> metadata_;
   std::string base_path_;
+  ParquetFactoryOptions options_;
+  FragmentVector fragments_;
 
  private:
-  Result<std::vector<std::shared_ptr<FileFragment>>> CollectParquetFragments(
+  Result<std::vector<std::string>> CollectPaths(
       const parquet::FileMetaData& metadata,
       const parquet::ArrowReaderProperties& properties);
+
+  Result<std::vector<std::shared_ptr<FileFragment>>> CollectParquetFragments(
+      const parquet::FileMetaData& metadata,
+      const parquet::ArrowReaderProperties& properties, const Partitioning& partitioning);
+
+  Result<std::shared_ptr<Schema>> PartitionSchema();
 };
 
 }  // namespace dataset
