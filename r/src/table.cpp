@@ -18,6 +18,7 @@
 #include "./arrow_types.h"
 #if defined(ARROW_R_WITH_ARROW)
 
+#include <arrow/array/array_base.h>
 #include <arrow/table.h>
 #include <arrow/util/key_value_metadata.h>
 
