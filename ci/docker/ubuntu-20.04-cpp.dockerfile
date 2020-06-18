@@ -65,6 +65,7 @@ RUN apt-get update -y -q && \
         libsnappy-dev \
         libssl-dev \
         libthrift-dev \
+        libutf8proc-dev \
         libzstd-dev \
         make \
         ninja-build \

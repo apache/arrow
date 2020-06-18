@@ -51,6 +51,7 @@ RUN apt-get update -y -q && \
         liblz4-dev \
         libre2-dev \
         libssl-dev \
+        libutf8proc-dev \
         libzstd1-dev \
         llvm-${llvm}-dev \
         make \

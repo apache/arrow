@@ -53,6 +53,7 @@ RUN dnf update -y && \
         re2-devel \
         snappy-devel \
         thrift-devel \
+        utf8proc-devel \
         which \
         zlib-devel
 
