@@ -1590,13 +1590,13 @@ tasks:
     params:
       run: ubuntu-cpp
 
-  test-ubuntu-20.04-cpp-c++14:
+  test-ubuntu-20.04-cpp-14:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       run: "ubuntu-cpp -e CMAKE_ARGS=-DCMAKE_CXX_STANDARD=14"
 
-  test-ubuntu-20.04-cpp-c++17:
+  test-ubuntu-20.04-cpp-17:
     ci: github
     template: docker-tests/github.linux.yml
     params:
