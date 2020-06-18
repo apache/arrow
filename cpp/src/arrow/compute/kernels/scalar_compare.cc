@@ -56,12 +56,12 @@ struct GreaterEqual {
   }
 };
 
-// Implement Greater, GreaterEqual by flipping arguments to Less, LessEqual
+// Implement Less, LessEqual by flipping arguments to Greater, GreaterEqual
 
 template <typename Op>
 void AddIntegerCompare(const std::shared_ptr<DataType>& ty, ScalarFunction* func) {
   auto exec =
-      codegen::IntegerBased<codegen::ScalarBinaryEqualTypes, BooleanType, Op>(*ty);
+      GeneratePhysicalInteger<codegen::ScalarBinaryEqualTypes, BooleanType, Op>(*ty);
   DCHECK_OK(func->AddKernel({ty, ty}, boolean(), std::move(exec)));
 }
 
@@ -92,40 +92,38 @@ std::shared_ptr<ScalarFunction> MakeCompareFunction(std::string name) {
   // Add timestamp kernels
   for (auto unit : {TimeUnit::SECOND, TimeUnit::MILLI, TimeUnit::MICRO, TimeUnit::NANO}) {
     InputType in_type(match::TimestampTypeUnit(unit));
-    auto exec =
-        codegen::IntegerBased<codegen::ScalarBinaryEqualTypes, BooleanType, Op>(int64());
+    auto exec = GeneratePhysicalInteger<codegen::ScalarBinaryEqualTypes, BooleanType, Op>(
+        int64());
     DCHECK_OK(func->AddKernel({in_type, in_type}, boolean(), std::move(exec)));
   }
 
   // Duration
   for (auto unit : {TimeUnit::SECOND, TimeUnit::MILLI, TimeUnit::MICRO, TimeUnit::NANO}) {
     InputType in_type(match::DurationTypeUnit(unit));
-    auto exec =
-        codegen::IntegerBased<codegen::ScalarBinaryEqualTypes, BooleanType, Op>(int64());
+    auto exec = GeneratePhysicalInteger<codegen::ScalarBinaryEqualTypes, BooleanType, Op>(
+        int64());
     DCHECK_OK(func->AddKernel({in_type, in_type}, boolean(), std::move(exec)));
   }
 
   // Time32 and Time64
   for (auto unit : {TimeUnit::SECOND, TimeUnit::MILLI}) {
     InputType in_type(match::Time32TypeUnit(unit));
-    auto exec =
-        codegen::IntegerBased<codegen::ScalarBinaryEqualTypes, BooleanType, Op>(int32());
+    auto exec = GeneratePhysicalInteger<codegen::ScalarBinaryEqualTypes, BooleanType, Op>(
+        int32());
     DCHECK_OK(func->AddKernel({in_type, in_type}, boolean(), std::move(exec)));
   }
   for (auto unit : {TimeUnit::MICRO, TimeUnit::NANO}) {
     InputType in_type(match::Time64TypeUnit(unit));
-    auto exec =
-        codegen::IntegerBased<codegen::ScalarBinaryEqualTypes, BooleanType, Op>(int64());
+    auto exec = GeneratePhysicalInteger<codegen::ScalarBinaryEqualTypes, BooleanType, Op>(
+        int64());
     DCHECK_OK(func->AddKernel({in_type, in_type}, boolean(), std::move(exec)));
   }
 
   for (const std::shared_ptr<DataType>& ty : BaseBinaryTypes()) {
     auto exec =
-        codegen::BaseBinary<codegen::ScalarBinaryEqualTypes, BooleanType, Op>(*ty);
+        GenerateVarBinaryBase<codegen::ScalarBinaryEqualTypes, BooleanType, Op>(*ty);
     DCHECK_OK(func->AddKernel({ty, ty}, boolean(), std::move(exec)));
   }
-
-  // TODO: Leave time32, time64, and duration for follow up work
 
   return func;
 }

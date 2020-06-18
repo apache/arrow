@@ -485,7 +485,7 @@ class ARROW_EXPORT CTypeImpl : public BASE {
  public:
   static constexpr Type::type type_id = TYPE_ID;
   using c_type = C_TYPE;
-  using StorageType = DERIVED;
+  using PhysicalType = DERIVED;
 
   CTypeImpl() : BASE(TYPE_ID) {}
 
@@ -1125,7 +1125,7 @@ class ARROW_EXPORT Date32Type : public DateType {
   static constexpr Type::type type_id = Type::DATE32;
   static constexpr DateUnit UNIT = DateUnit::DAY;
   using c_type = int32_t;
-  using StorageType = Int32Type;
+  using PhysicalType = Int32Type;
 
   static constexpr const char* type_name() { return "date32"; }
 
@@ -1148,7 +1148,7 @@ class ARROW_EXPORT Date64Type : public DateType {
   static constexpr Type::type type_id = Type::DATE64;
   static constexpr DateUnit UNIT = DateUnit::MILLI;
   using c_type = int64_t;
-  using StorageType = Int64Type;
+  using PhysicalType = Int64Type;
 
   static constexpr const char* type_name() { return "date64"; }
 
@@ -1186,7 +1186,7 @@ class ARROW_EXPORT Time32Type : public TimeType {
  public:
   static constexpr Type::type type_id = Type::TIME32;
   using c_type = int32_t;
-  using StorageType = Int32Type;
+  using PhysicalType = Int32Type;
 
   static constexpr const char* type_name() { return "time32"; }
 
@@ -1205,7 +1205,7 @@ class ARROW_EXPORT Time64Type : public TimeType {
  public:
   static constexpr Type::type type_id = Type::TIME64;
   using c_type = int64_t;
-  using StorageType = Int64Type;
+  using PhysicalType = Int64Type;
 
   static constexpr const char* type_name() { return "time64"; }
 
@@ -1256,7 +1256,7 @@ class ARROW_EXPORT TimestampType : public TemporalType, public ParametricType {
 
   static constexpr Type::type type_id = Type::TIMESTAMP;
   using c_type = int64_t;
-  using StorageType = Int64Type;
+  using PhysicalType = Int64Type;
 
   static constexpr const char* type_name() { return "timestamp"; }
 
@@ -1302,7 +1302,7 @@ class ARROW_EXPORT MonthIntervalType : public IntervalType {
  public:
   static constexpr Type::type type_id = Type::INTERVAL_MONTHS;
   using c_type = int32_t;
-  using StorageType = Int32Type;
+  using PhysicalType = Int32Type;
 
   static constexpr const char* type_name() { return "month_interval"; }
 
@@ -1331,7 +1331,7 @@ class ARROW_EXPORT DayTimeIntervalType : public IntervalType {
     }
   };
   using c_type = DayMilliseconds;
-  using StorageType = DayTimeIntervalType;
+  using PhysicalType = DayTimeIntervalType;
 
   static_assert(sizeof(DayMilliseconds) == 8,
                 "DayMilliseconds struct assumed to be of size 8 bytes");
@@ -1356,7 +1356,7 @@ class ARROW_EXPORT DurationType : public TemporalType, public ParametricType {
 
   static constexpr Type::type type_id = Type::DURATION;
   using c_type = int64_t;
-  using StorageType = Int64Type;
+  using PhysicalType = Int64Type;
 
   static constexpr const char* type_name() { return "duration"; }
 

@@ -246,10 +246,10 @@ struct ARROW_EXPORT FixedSizeBinaryScalar : public BinaryScalar {
   explicit FixedSizeBinaryScalar(std::shared_ptr<DataType> type) : BinaryScalar(type) {}
 };
 
-template <typename T, typename StorageType = typename T::StorageType,
+template <typename T, typename PhysicalType = typename T::PhysicalType,
           typename Enable = void>
-struct ARROW_EXPORT TemporalScalar : internal::PrimitiveScalar<StorageType> {
-  using internal::PrimitiveScalar<StorageType>::PrimitiveScalar;
+struct ARROW_EXPORT TemporalScalar : internal::PrimitiveScalar<PhysicalType> {
+  using internal::PrimitiveScalar<PhysicalType>::PrimitiveScalar;
   using TypeClass = T;
 };
 

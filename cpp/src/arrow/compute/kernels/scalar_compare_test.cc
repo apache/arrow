@@ -377,33 +377,26 @@ void DoRandomCompare(const std::shared_ptr<DataType>& type) {
   using ScalarType = typename TypeTraits<Type>::ScalarType;
   using CType = typename TypeTraits<Type>::CType;
   auto rand = random::RandomArrayGenerator(0x5416447);
-  for (size_t i = 3; i < 10; i++) {
-    for (auto null_probability : {0.0, 0.01, 0.1, 0.25, 0.5, 1.0}) {
-      for (auto op : {EQUAL, NOT_EQUAL, GREATER, LESS_EQUAL}) {
-        const int64_t length = static_cast<int64_t>(1ULL << i);
-        auto data =
-            rand.Numeric<typename Type::StorageType>(length, 0, 100, null_probability);
+  const int64_t length = 1000;
+  for (auto null_probability : {0.0, 0.01, 0.1, 0.25, 0.5, 1.0}) {
+    for (auto op : {EQUAL, NOT_EQUAL, GREATER, LESS_EQUAL}) {
+      auto data =
+          rand.Numeric<typename Type::PhysicalType>(length, 0, 100, null_probability);
 
-        // Create view of data as the type (e.g. timestamp)
-        auto array = Datum(*data->View(type));
-        auto fifty = Datum(std::make_shared<ScalarType>(CType(50), type));
-        auto options = CompareOptions(op);
-        ValidateCompare<Type>(options, array, fifty);
-        ValidateCompare<Type>(options, fifty, array);
-      }
-    }
-  }
-  for (size_t i = 3; i < 5; i++) {
-    for (auto null_probability : {0.0, 0.01, 0.1, 0.25, 0.5, 1.0}) {
-      for (auto op : {EQUAL, NOT_EQUAL, GREATER, LESS_EQUAL}) {
-        const int64_t length = static_cast<int64_t>(1ULL << i);
-        auto lhs = rand.Numeric<typename Type::StorageType>(length << i, 0, 100,
-                                                            null_probability);
-        auto rhs = rand.Numeric<typename Type::StorageType>(length << i, 0, 100,
-                                                            null_probability);
-        auto options = CompareOptions(op);
-        ValidateCompare<Type>(options, *lhs->View(type), *rhs->View(type));
-      }
+      auto data1 =
+          rand.Numeric<typename Type::PhysicalType>(length, 0, 100, null_probability);
+      auto data2 =
+          rand.Numeric<typename Type::PhysicalType>(length, 0, 100, null_probability);
+
+      // Create view of data as the type (e.g. timestamp)
+      auto array1 = Datum(*data1->View(type));
+      auto array2 = Datum(*data2->View(type));
+      auto fifty = Datum(std::make_shared<ScalarType>(CType(50), type));
+      auto options = CompareOptions(op);
+
+      ValidateCompare<Type>(options, array1, fifty);
+      ValidateCompare<Type>(options, fifty, array1);
+      ValidateCompare<Type>(options, array1, array2);
     }
   }
 }

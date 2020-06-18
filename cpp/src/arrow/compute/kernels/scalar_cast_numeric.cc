@@ -484,13 +484,13 @@ void AddPrimitiveNumberCasts(const std::shared_ptr<DataType>& out_ty,
 
   // Cast from other numbers
   for (const std::shared_ptr<DataType>& in_ty : NumericTypes()) {
-    auto exec = codegen::Numeric<CastFunctor, OutType>(*in_ty);
+    auto exec = GenerateNumeric<CastFunctor, OutType>(*in_ty);
     DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty}, out_ty, exec));
   }
 
   // Cast from other strings
   for (const std::shared_ptr<DataType>& in_ty : BaseBinaryTypes()) {
-    auto exec = codegen::BaseBinary<CastFunctor, OutType>(*in_ty);
+    auto exec = GenerateVarBinaryBase<CastFunctor, OutType>(*in_ty);
     DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty}, out_ty, exec));
   }
 }
