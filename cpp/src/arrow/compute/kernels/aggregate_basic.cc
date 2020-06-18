@@ -92,8 +92,6 @@ std::unique_ptr<KernelState> CountInit(KernelContext*, const KernelInitArgs& arg
 // ----------------------------------------------------------------------
 // Sum implementation
 
-// factor out common part to a SumStateBase
-
 template <typename ArrowType,
           typename SumType = typename FindAccumulatorType<ArrowType>::Type>
 struct SumState {
