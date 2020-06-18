@@ -392,7 +392,9 @@ class AuthTestServer : public FlightServerBase {
   Status DoAction(const ServerCallContext& context, const Action& action,
                   std::unique_ptr<ResultStream>* result) override {
     auto buf = Buffer::FromString(context.peer_identity());
-    *result = std::unique_ptr<ResultStream>(new SimpleResultStream({Result{buf}}));
+    auto peer = Buffer::FromString(context.peer());
+    *result = std::unique_ptr<ResultStream>(
+        new SimpleResultStream({Result{buf}, Result{peer}}));
     return Status::OK();
   }
 };
@@ -1527,6 +1529,11 @@ TEST_F(TestAuthHandler, CheckPeerIdentity) {
   ASSERT_NE(result, nullptr);
   // Action returns the peer identity as the result.
   ASSERT_EQ(result->body->ToString(), "user");
+
+  ASSERT_OK(results->Next(&result));
+  ASSERT_NE(result, nullptr);
+  // Action returns the peer address as the result.
+  ASSERT_NE(result->body->ToString(), "");
 }
 
 TEST_F(TestBasicAuthHandler, PassAuthenticatedCalls) {

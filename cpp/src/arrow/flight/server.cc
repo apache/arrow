@@ -359,9 +359,11 @@ class DoExchangeMessageWriter : public FlightMessageWriter {
 
 class FlightServiceImpl;
 class GrpcServerCallContext : public ServerCallContext {
-  explicit GrpcServerCallContext(grpc::ServerContext* context) : context_(context) {}
+  explicit GrpcServerCallContext(grpc::ServerContext* context)
+      : context_(context), peer_(context_->peer()) {}
 
   const std::string& peer_identity() const override { return peer_identity_; }
+  const std::string& peer() const override { return peer_; }
 
   // Helper method that runs interceptors given the result of an RPC,
   // then returns the final gRPC status to send to the client
@@ -392,6 +394,7 @@ class GrpcServerCallContext : public ServerCallContext {
  private:
   friend class FlightServiceImpl;
   ServerContext* context_;
+  std::string peer_;
   std::string peer_identity_;
   std::vector<std::shared_ptr<ServerMiddleware>> middleware_;
   std::unordered_map<std::string, std::shared_ptr<ServerMiddleware>> middleware_map_;
