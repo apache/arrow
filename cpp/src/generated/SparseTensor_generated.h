@@ -146,7 +146,8 @@ struct SparseTensorIndexCOO FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_INDICESTYPE = 4,
     VT_INDICESSTRIDES = 6,
-    VT_INDICESBUFFER = 8
+    VT_INDICESBUFFER = 8,
+    VT_ISCANONICAL = 10
   };
   /// The type of values in indicesBuffer
   const org::apache::arrow::flatbuf::Int *indicesType() const {
@@ -161,6 +162,10 @@ struct SparseTensorIndexCOO FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table
   const org::apache::arrow::flatbuf::Buffer *indicesBuffer() const {
     return GetStruct<const org::apache::arrow::flatbuf::Buffer *>(VT_INDICESBUFFER);
   }
+  /// The canonicality flag
+  bool isCanonical() const {
+    return GetField<uint8_t>(VT_ISCANONICAL, 0) != 0;
+  }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyOffsetRequired(verifier, VT_INDICESTYPE) &&
@@ -168,6 +173,7 @@ struct SparseTensorIndexCOO FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table
            VerifyOffset(verifier, VT_INDICESSTRIDES) &&
            verifier.VerifyVector(indicesStrides()) &&
            VerifyFieldRequired<org::apache::arrow::flatbuf::Buffer>(verifier, VT_INDICESBUFFER) &&
+           VerifyField<uint8_t>(verifier, VT_ISCANONICAL) &&
            verifier.EndTable();
   }
 };
@@ -184,6 +190,9 @@ struct SparseTensorIndexCOOBuilder {
   }
   void add_indicesBuffer(const org::apache::arrow::flatbuf::Buffer *indicesBuffer) {
     fbb_.AddStruct(SparseTensorIndexCOO::VT_INDICESBUFFER, indicesBuffer);
+  }
+  void add_isCanonical(bool isCanonical) {
+    fbb_.AddElement<uint8_t>(SparseTensorIndexCOO::VT_ISCANONICAL, static_cast<uint8_t>(isCanonical), 0);
   }
   explicit SparseTensorIndexCOOBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
@@ -203,11 +212,13 @@ inline flatbuffers::Offset<SparseTensorIndexCOO> CreateSparseTensorIndexCOO(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<org::apache::arrow::flatbuf::Int> indicesType = 0,
     flatbuffers::Offset<flatbuffers::Vector<int64_t>> indicesStrides = 0,
-    const org::apache::arrow::flatbuf::Buffer *indicesBuffer = 0) {
+    const org::apache::arrow::flatbuf::Buffer *indicesBuffer = 0,
+    bool isCanonical = false) {
   SparseTensorIndexCOOBuilder builder_(_fbb);
   builder_.add_indicesBuffer(indicesBuffer);
   builder_.add_indicesStrides(indicesStrides);
   builder_.add_indicesType(indicesType);
+  builder_.add_isCanonical(isCanonical);
   return builder_.Finish();
 }
 
@@ -215,13 +226,15 @@ inline flatbuffers::Offset<SparseTensorIndexCOO> CreateSparseTensorIndexCOODirec
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<org::apache::arrow::flatbuf::Int> indicesType = 0,
     const std::vector<int64_t> *indicesStrides = nullptr,
-    const org::apache::arrow::flatbuf::Buffer *indicesBuffer = 0) {
+    const org::apache::arrow::flatbuf::Buffer *indicesBuffer = 0,
+    bool isCanonical = false) {
   auto indicesStrides__ = indicesStrides ? _fbb.CreateVector<int64_t>(*indicesStrides) : 0;
   return org::apache::arrow::flatbuf::CreateSparseTensorIndexCOO(
       _fbb,
       indicesType,
       indicesStrides__,
-      indicesBuffer);
+      indicesBuffer,
+      isCanonical);
 }
 
 /// Compressed Sparse format, that is matrix-specific.

@@ -63,6 +63,9 @@ table SparseTensorIndexCOO {
 
   /// The location and size of the indices matrix's data
   indicesBuffer: Buffer (required);
+
+  /// The canonicality flag
+  isCanonical: bool;
 }
 
 enum SparseMatrixCompressedAxis: short { Row, Column }
