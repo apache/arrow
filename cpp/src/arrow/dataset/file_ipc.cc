@@ -160,7 +160,7 @@ Result<ScanTaskIterator> IpcFileFormat::ScanFile(
 
 class IpcWriteTask : public WriteTask {
  public:
-  IpcWriteTask(FileSource destination, std::shared_ptr<FileFormat> format,
+  IpcWriteTask(WritableFileSource destination, std::shared_ptr<FileFormat> format,
                std::shared_ptr<Fragment> fragment,
                std::shared_ptr<ScanOptions> scan_options,
                std::shared_ptr<ScanContext> scan_context)
@@ -174,7 +174,7 @@ class IpcWriteTask : public WriteTask {
 
     auto schema = scan_options_->schema();
 
-    ARROW_ASSIGN_OR_RAISE(auto out_stream, destination_.OpenWritable());
+    ARROW_ASSIGN_OR_RAISE(auto out_stream, destination_.Open());
     ARROW_ASSIGN_OR_RAISE(auto writer, ipc::NewFileWriter(out_stream.get(), schema));
     ARROW_ASSIGN_OR_RAISE(auto scan_task_it,
                           fragment_->Scan(scan_options_, scan_context_));
@@ -200,7 +200,7 @@ class IpcWriteTask : public WriteTask {
 };
 
 Result<std::shared_ptr<WriteTask>> IpcFileFormat::WriteFragment(
-    FileSource destination, std::shared_ptr<Fragment> fragment,
+    WritableFileSource destination, std::shared_ptr<Fragment> fragment,
     std::shared_ptr<ScanOptions> scan_options,
     std::shared_ptr<ScanContext> scan_context) {
   return std::make_shared<IpcWriteTask>(std::move(destination), shared_from_this(),

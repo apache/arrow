@@ -49,17 +49,17 @@ TEST(FileSource, PathBased) {
 
   ASSERT_EQ(p1, source1.path());
   ASSERT_TRUE(localfs->Equals(*source1.filesystem()));
-  ASSERT_EQ(FileSource::PATH, source1.id());
   ASSERT_EQ(Compression::UNCOMPRESSED, source1.compression());
 
   ASSERT_EQ(p2, source2.path());
   ASSERT_TRUE(localfs->Equals(*source2.filesystem()));
-  ASSERT_EQ(FileSource::PATH, source2.id());
   ASSERT_EQ(Compression::GZIP, source2.compression());
 
   // Test copy constructor and comparison
-  FileSource source3 = source1;
-  ASSERT_EQ(source1, source3);
+  FileSource source3;
+  source3 = source1;
+  ASSERT_EQ(source1.path(), source3.path());
+  ASSERT_EQ(source1.filesystem(), source3.filesystem());
 }
 
 TEST(FileSource, BufferBased) {
@@ -69,13 +69,15 @@ TEST(FileSource, BufferBased) {
   FileSource source1(buf);
   FileSource source2(buf, Compression::LZ4);
 
-  ASSERT_EQ(FileSource::BUFFER, source1.id());
   ASSERT_TRUE(source1.buffer()->Equals(*buf));
   ASSERT_EQ(Compression::UNCOMPRESSED, source1.compression());
 
-  ASSERT_EQ(FileSource::BUFFER, source2.id());
   ASSERT_TRUE(source2.buffer()->Equals(*buf));
   ASSERT_EQ(Compression::LZ4, source2.compression());
+
+  FileSource source3;
+  source3 = source1;
+  ASSERT_EQ(source1.buffer(), source3.buffer());
 }
 
 TEST_F(TestFileSystemDataset, Basic) {

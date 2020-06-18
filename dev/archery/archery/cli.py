@@ -714,7 +714,7 @@ def docker_compose_run(obj, image, command, *, env, user, force_pull,
                        dry_run, volume):
     """Execute docker-compose builds.
 
-    To see the available builds run `archery docker list`.
+    To see the available builds run `archery docker images`.
 
     Examples:
 

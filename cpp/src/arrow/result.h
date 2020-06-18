@@ -298,7 +298,7 @@ class ARROW_MUST_USE_TYPE Result : public util::EqualityComparable<Result<T>> {
   ///
   /// \return The stored non-OK status object, or an OK status if this object
   ///         has a value.
-  Status status() const { return status_; }
+  const Status& status() const { return status_; }
 
   /// Gets the stored `T` value.
   ///
@@ -461,5 +461,10 @@ inline Status GenericToStatus(Result<T>&& res) {
 }
 
 }  // namespace internal
+
+template <typename T>
+Result<T> ToResult(T t) {
+  return Result<T>(std::move(t));
+}
 
 }  // namespace arrow

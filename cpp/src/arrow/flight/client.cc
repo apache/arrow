@@ -131,7 +131,7 @@ class FinishableStream {
   std::shared_ptr<Stream> stream() const { return stream_; }
 
   /// \brief Finish the call, adding server context to the given status.
-  virtual Status Finish(Status&& st) {
+  virtual Status Finish(Status st) {
     if (finished_) {
       return MergeStatus(std::move(st));
     }
@@ -202,7 +202,7 @@ class FinishableWritableStream : public FinishableStream<Stream, ReadT> {
     return Status::OK();
   }
 
-  Status Finish(Status&& st) override {
+  Status Finish(Status st) override {
     // This may be used concurrently by reader/writer side of a
     // stream, so it needs to be protected.
     std::lock_guard<std::mutex> guard(finish_mutex_);
@@ -223,14 +223,14 @@ class FinishableWritableStream : public FinishableStream<Stream, ReadT> {
     bool finished_writes = done_writing_ || this->stream()->WritesDone();
     done_writing_ = true;
 
-    Status result = FinishableStream<Stream, ReadT>::Finish(std::move(st));
+    st = FinishableStream<Stream, ReadT>::Finish(std::move(st));
 
     if (!finished_writes) {
       return Status::FromDetailAndArgs(
-          result.code(), result.detail(), result.message(),
+          st.code(), st.detail(), st.message(),
           ". Additionally, could not finish writing record batches before closing");
     }
-    return result;
+    return st;
   }
 
  private:
@@ -444,7 +444,7 @@ class GrpcIpcMessageReader : public ipc::MessageReader {
     // Validate IPC message
     auto result = data->OpenMessage();
     if (!result.ok()) {
-      return stream_->Finish(result.status());
+      return stream_->Finish(std::move(result).status());
     }
     *app_metadata_ = std::move(data->app_metadata);
     return result;

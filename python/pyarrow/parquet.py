@@ -1390,6 +1390,26 @@ class _ParquetDatasetV2:
                     "Keyword '{0}' is not yet supported with the new "
                     "Dataset API".format(keyword))
 
+        # map format arguments
+        read_options = {}
+        if buffer_size:
+            read_options.update(use_buffered_stream=True,
+                                buffer_size=buffer_size)
+        if read_dictionary is not None:
+            read_options.update(dictionary_columns=read_dictionary)
+        parquet_format = ds.ParquetFileFormat(read_options=read_options)
+
+        # map filters to Expressions
+        self._filters = filters
+        self._filter_expression = filters and _filters_to_expression(filters)
+
+        # check for single NativeFile dataset
+        if not isinstance(path_or_paths, list):
+            if not _is_path_like(path_or_paths):
+                self._fragment = parquet_format.make_fragment(path_or_paths)
+                self._dataset = None
+                return
+
         # map old filesystems to new one
         # TODO(dataset) deal with other file systems
         if isinstance(filesystem, LocalFileSystem):
@@ -1399,27 +1419,16 @@ class _ParquetDatasetV2:
             # path can in principle be URI for any filesystem)
             filesystem = pyarrow.fs.LocalFileSystem(use_mmap=True)
 
-        # map additional arguments
-        read_options = {}
-        if buffer_size:
-            read_options.update(use_buffered_stream=True,
-                                buffer_size=buffer_size)
-        if read_dictionary is not None:
-            read_options.update(dictionary_columns=read_dictionary)
-        parquet_format = ds.ParquetFileFormat(read_options=read_options)
-
         self._dataset = ds.dataset(path_or_paths, filesystem=filesystem,
                                    format=parquet_format,
                                    partitioning=partitioning)
-        self._filters = filters
-        if filters is not None:
-            self._filter_expression = _filters_to_expression(filters)
-        else:
-            self._filter_expression = None
+        self._fragment = None
 
     @property
     def schema(self):
-        return self._dataset.schema
+        if self._dataset is not None:
+            return self._dataset.schema
+        return self._fragment.physical_schema
 
     def read(self, columns=None, use_threads=True, use_pandas_metadata=False):
         """
@@ -1444,13 +1453,17 @@ class _ParquetDatasetV2:
         """
         # if use_pandas_metadata, we need to include index columns in the
         # column selection, to be able to restore those in the pandas DataFrame
-        metadata = self._dataset.schema.metadata
+        metadata = self.schema.metadata
         if columns is not None and use_pandas_metadata:
             if metadata and b'pandas' in metadata:
-                index_columns = set(_get_pandas_index_columns(metadata))
-                columns = columns + list(index_columns - set(columns))
+                # RangeIndex can be represented as dict instead of column name
+                index_columns = [
+                    col for col in _get_pandas_index_columns(metadata)
+                    if not isinstance(col, dict)
+                ]
+                columns = columns + list(set(index_columns) - set(columns))
 
-        table = self._dataset.to_table(
+        table = (self._dataset or self._fragment).to_table(
             columns=columns, filter=self._filter_expression,
             use_threads=use_threads
         )
@@ -1521,10 +1534,6 @@ def read_table(source, columns=None, use_threads=True, metadata=None,
                read_dictionary=None, filesystem=None, filters=None,
                buffer_size=0, partitioning="hive", use_legacy_dataset=True):
     if not use_legacy_dataset:
-        if not _is_path_like(source):
-            raise ValueError("File-like objects are not yet supported with "
-                             "the new Dataset API")
-
         dataset = _ParquetDatasetV2(
             source,
             filesystem=filesystem,

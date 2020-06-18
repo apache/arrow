@@ -579,6 +579,7 @@ cdef get_input_stream(object source, c_bool use_memory_map,
 cdef get_reader(object source, c_bool use_memory_map,
                 shared_ptr[CRandomAccessFile]* reader)
 cdef get_writer(object source, shared_ptr[COutputStream]* writer)
+cdef NativeFile get_native_file(object source, c_bool use_memory_map)
 
 # Default is allow_none=False
 cpdef DataType ensure_type(object type, bint allow_none=*)

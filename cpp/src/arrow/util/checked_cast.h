@@ -19,6 +19,7 @@
 
 #include <memory>
 #include <type_traits>
+#include <utility>
 
 namespace arrow {
 namespace internal {
@@ -39,11 +40,11 @@ inline OutputType checked_cast(InputType&& value) {
 }
 
 template <class T, class U>
-std::shared_ptr<T> checked_pointer_cast(const std::shared_ptr<U>& r) noexcept {
+std::shared_ptr<T> checked_pointer_cast(std::shared_ptr<U> r) noexcept {
 #ifdef NDEBUG
-  return std::static_pointer_cast<T>(r);
+  return std::static_pointer_cast<T>(std::move(r));
 #else
-  return std::dynamic_pointer_cast<T>(r);
+  return std::dynamic_pointer_cast<T>(std::move(r));
 #endif
 }
 

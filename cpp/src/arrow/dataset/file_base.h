@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include <functional>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -44,88 +45,109 @@ namespace dataset {
 /// be read like a file
 class ARROW_DS_EXPORT FileSource {
  public:
-  // NOTE(kszucs): it'd be better to separate the BufferSource from FileSource
-  enum SourceKind { PATH, BUFFER };
-
   FileSource(std::string path, std::shared_ptr<fs::FileSystem> filesystem,
-             Compression::type compression = Compression::UNCOMPRESSED,
-             bool writable = true)
-      : source_kind_(PATH),
-        path_(std::move(path)),
+             Compression::type compression = Compression::UNCOMPRESSED)
+      : path_(std::move(path)),
         filesystem_(std::move(filesystem)),
-        compression_(compression),
-        writable_(writable) {}
+        compression_(compression) {}
 
   explicit FileSource(std::shared_ptr<Buffer> buffer,
                       Compression::type compression = Compression::UNCOMPRESSED)
-      : source_kind_(BUFFER), buffer_(std::move(buffer)), compression_(compression) {}
+      : buffer_(std::move(buffer)), compression_(compression) {}
 
-  explicit FileSource(std::shared_ptr<ResizableBuffer> buffer,
+  using CustomOpen = std::function<Result<std::shared_ptr<io::RandomAccessFile>>()>;
+  explicit FileSource(CustomOpen open) : custom_open_(std::move(open)) {}
+
+  using CustomOpenWithCompression =
+      std::function<Result<std::shared_ptr<io::RandomAccessFile>>(Compression::type)>;
+  explicit FileSource(CustomOpenWithCompression open_with_compression,
                       Compression::type compression = Compression::UNCOMPRESSED)
-      : source_kind_(BUFFER),
-        buffer_(std::move(buffer)),
-        compression_(compression),
-        writable_(true) {}
+      : custom_open_(std::bind(std::move(open_with_compression), compression)),
+        compression_(compression) {}
 
-  bool operator==(const FileSource& other) const {
-    if (id() != other.id()) {
-      return false;
+  explicit FileSource(std::shared_ptr<io::RandomAccessFile> file,
+                      Compression::type compression = Compression::UNCOMPRESSED)
+      : custom_open_([=] { return ToResult(file); }), compression_(compression) {}
+
+  FileSource() : custom_open_(CustomOpen{&InvalidOpen}) {}
+
+  static std::vector<FileSource> FromPaths(const std::shared_ptr<fs::FileSystem>& fs,
+                                           std::vector<std::string> paths) {
+    std::vector<FileSource> sources;
+    for (auto&& path : paths) {
+      sources.emplace_back(std::move(path), fs);
     }
-
-    if (id() == PATH) {
-      return path() == other.path() && filesystem() == other.filesystem();
-    }
-
-    return buffer()->Equals(*other.buffer());
+    return sources;
   }
 
-  /// \brief The kind of file, whether stored in a filesystem, memory
-  /// resident, or other
-  SourceKind id() const { return source_kind_; }
+  /// \brief Return the type of raw compression on the file, if any.
+  Compression::type compression() const { return compression_; }
+
+  /// \brief Return the file path, if any. Only valid when file source wraps a path.
+  const std::string& path() const {
+    static std::string buffer_path = "<Buffer>";
+    static std::string custom_open_path = "<Buffer>";
+    return filesystem_ ? path_ : buffer_ ? buffer_path : custom_open_path;
+  }
+
+  /// \brief Return the filesystem, if any. Otherwise returns nullptr
+  const std::shared_ptr<fs::FileSystem>& filesystem() const { return filesystem_; }
+
+  /// \brief Return the buffer containing the file, if any. Otherwise returns nullptr
+  const std::shared_ptr<Buffer>& buffer() const { return buffer_; }
+
+  /// \brief Get a RandomAccessFile which views this file source
+  Result<std::shared_ptr<io::RandomAccessFile>> Open() const;
+
+ private:
+  static Result<std::shared_ptr<io::RandomAccessFile>> InvalidOpen() {
+    return Status::Invalid("Called Open() on an uninitialized FileSource");
+  }
+
+  std::string path_;
+  std::shared_ptr<fs::FileSystem> filesystem_;
+  std::shared_ptr<Buffer> buffer_;
+  CustomOpen custom_open_;
+  Compression::type compression_ = Compression::UNCOMPRESSED;
+};
+
+/// \brief The path and filesystem where an actual file is located or a buffer which can
+/// be written to like a file
+class ARROW_DS_EXPORT WritableFileSource {
+ public:
+  WritableFileSource(std::string path, std::shared_ptr<fs::FileSystem> filesystem,
+                     Compression::type compression = Compression::UNCOMPRESSED)
+      : path_(std::move(path)),
+        filesystem_(std::move(filesystem)),
+        compression_(compression) {}
+
+  explicit WritableFileSource(std::shared_ptr<ResizableBuffer> buffer,
+                              Compression::type compression = Compression::UNCOMPRESSED)
+      : buffer_(std::move(buffer)), compression_(compression) {}
 
   /// \brief Return the type of raw compression on the file, if any
   Compression::type compression() const { return compression_; }
 
-  /// \brief Whether the this source may be opened writable
-  bool writable() const { return writable_; }
-
-  /// \brief Return the file path, if any. Only valid when file source
-  /// type is PATH
+  /// \brief Return the file path, if any. Only valid when file source wraps a path.
   const std::string& path() const {
     static std::string buffer_path = "<Buffer>";
-    return id() == PATH ? path_ : buffer_path;
+    return filesystem_ ? path_ : buffer_path;
   }
 
-  /// \brief Return the filesystem, if any. Only non null when file
-  /// source type is PATH
-  const std::shared_ptr<fs::FileSystem>& filesystem() const {
-    static std::shared_ptr<fs::FileSystem> no_fs = NULLPTR;
-    return id() == PATH ? filesystem_ : no_fs;
-  }
+  /// \brief Return the filesystem, if any. Otherwise returns nullptr
+  const std::shared_ptr<fs::FileSystem>& filesystem() const { return filesystem_; }
 
-  /// \brief Return the buffer containing the file, if any. Only value
-  /// when file source type is BUFFER
-  const std::shared_ptr<Buffer>& buffer() const {
-    static std::shared_ptr<Buffer> path_buffer = NULLPTR;
-    return id() == BUFFER ? buffer_ : path_buffer;
-  }
-
-  /// \brief Get a RandomAccessFile which views this file source
-  Result<std::shared_ptr<arrow::io::RandomAccessFile>> Open() const;
+  /// \brief Return the buffer containing the file, if any. Otherwise returns nullptr
+  const std::shared_ptr<ResizableBuffer>& buffer() const { return buffer_; }
 
   /// \brief Get an OutputStream which wraps this file source
-  Result<std::shared_ptr<arrow::io::OutputStream>> OpenWritable() const;
+  Result<std::shared_ptr<arrow::io::OutputStream>> Open() const;
 
  private:
-  SourceKind source_kind_;
-
   std::string path_;
   std::shared_ptr<fs::FileSystem> filesystem_;
-
-  std::shared_ptr<Buffer> buffer_;
-
-  Compression::type compression_;
-  bool writable_ = false;
+  std::shared_ptr<ResizableBuffer> buffer_;
+  Compression::type compression_ = Compression::UNCOMPRESSED;
 };
 
 /// \brief Base class for file format implementation
@@ -159,7 +181,7 @@ class ARROW_DS_EXPORT FileFormat : public std::enable_shared_from_this<FileForma
   /// \brief Write a fragment. If the parent directory of destination does not exist, it
   /// will be created.
   virtual Result<std::shared_ptr<WriteTask>> WriteFragment(
-      FileSource destination, std::shared_ptr<Fragment> fragment,
+      WritableFileSource destination, std::shared_ptr<Fragment> fragment,
       std::shared_ptr<ScanOptions> options,
       std::shared_ptr<ScanContext> scan_context);  // FIXME(bkietz) make this pure virtual
 };
@@ -256,16 +278,16 @@ class ARROW_DS_EXPORT WriteTask {
 
   virtual ~WriteTask() = default;
 
-  const FileSource& destination() const;
+  const WritableFileSource& destination() const;
   const std::shared_ptr<FileFormat>& format() const { return format_; }
 
  protected:
-  WriteTask(FileSource destination, std::shared_ptr<FileFormat> format)
+  WriteTask(WritableFileSource destination, std::shared_ptr<FileFormat> format)
       : destination_(std::move(destination)), format_(std::move(format)) {}
 
   Status CreateDestinationParentDir() const;
 
-  FileSource destination_;
+  WritableFileSource destination_;
   std::shared_ptr<FileFormat> format_;
 };
 

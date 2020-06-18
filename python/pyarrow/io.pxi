@@ -1376,7 +1376,7 @@ cdef shared_ptr[CBuffer] as_c_buffer(object o) except *:
     return buf
 
 
-cdef NativeFile _get_native_file(object source, c_bool use_memory_map):
+cdef NativeFile get_native_file(object source, c_bool use_memory_map):
     try:
         source_path = _stringify_path(source)
     except TypeError:
@@ -1398,7 +1398,7 @@ cdef get_reader(object source, c_bool use_memory_map,
                 shared_ptr[CRandomAccessFile]* reader):
     cdef NativeFile nf
 
-    nf = _get_native_file(source, use_memory_map)
+    nf = get_native_file(source, use_memory_map)
     reader[0] = nf.get_random_access_file()
 
 
@@ -1418,7 +1418,7 @@ cdef get_input_stream(object source, c_bool use_memory_map,
     except TypeError:
         codec = None
 
-    nf = _get_native_file(source, use_memory_map)
+    nf = get_native_file(source, use_memory_map)
     input_stream = nf.get_input_stream()
 
     # codec is None if compression can't be detected
