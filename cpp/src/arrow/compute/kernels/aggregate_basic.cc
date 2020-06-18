@@ -92,6 +92,8 @@ std::unique_ptr<KernelState> CountInit(KernelContext*, const KernelInitArgs& arg
 // ----------------------------------------------------------------------
 // Sum implementation
 
+// factor out common part to a SumStateBase
+
 template <typename ArrowType,
           typename SumType = typename FindAccumulatorType<ArrowType>::Type>
 struct SumState {
@@ -255,6 +257,28 @@ struct SumState {
   }
 };
 
+template <>
+struct SumState<BooleanType> {
+  using SumType = typename FindAccumulatorType<BooleanType>::Type;
+  using ThisType = SumState<BooleanType, SumType>;
+
+  ThisType& operator+=(const ThisType& rhs) {
+    this->count += rhs.count;
+    this->sum += rhs.sum;
+    return *this;
+  }
+
+ public:
+  void Consume(const Array& input) {
+    const BooleanArray& array = static_cast<const BooleanArray&>(input);
+    count += array.length();
+    sum += array.true_count();
+  }
+
+  size_t count = 0;
+  typename SumType::c_type sum = 0;
+};
+
 template <typename ArrowType>
 struct SumImpl : public ScalarAggregator {
   using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
@@ -309,6 +333,11 @@ struct SumLikeInit {
 
   Status Visit(const HalfFloatType&) {
     return Status::NotImplemented("No sum implemented");
+  }
+
+  Status Visit(const BooleanType&) {
+    state.reset(new KernelClass<BooleanType>());
+    return Status::OK();
   }
 
   template <typename Type>
@@ -525,12 +554,14 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
   func = std::make_shared<ScalarAggregateFunction>("sum", Arity::Unary());
+  AddBasicAggKernels(SumInit, {boolean()}, int64(), func.get());
   AddBasicAggKernels(SumInit, SignedIntTypes(), int64(), func.get());
   AddBasicAggKernels(SumInit, UnsignedIntTypes(), uint64(), func.get());
   AddBasicAggKernels(SumInit, FloatingPointTypes(), float64(), func.get());
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
   func = std::make_shared<ScalarAggregateFunction>("mean", Arity::Unary());
+  AddBasicAggKernels(MeanInit, {boolean()}, float64(), func.get());
   AddBasicAggKernels(MeanInit, NumericTypes(), float64(), func.get());
   DCHECK_OK(registry->AddFunction(std::move(func)));
 

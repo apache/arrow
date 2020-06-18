@@ -127,6 +127,41 @@ void ValidateSum(const Array& array) {
   ValidateSum<ArrowType>(array, NaiveSum<ArrowType>(array));
 }
 
+using UnaryOp = Result<Datum>(const Datum&, ExecContext*);
+
+template <UnaryOp& Op, typename ScalarType>
+void ValidateBooleanAgg(const std::string& json,
+                        const std::shared_ptr<ScalarType>& expected) {
+  auto array = ArrayFromJSON(boolean(), json);
+  auto exp = Datum(expected);
+  ASSERT_OK_AND_ASSIGN(Datum result, Op(array, nullptr));
+  ASSERT_TRUE(result.Equals(exp));
+}
+
+TEST(TestBooleanAggregation, Sum) {
+  ValidateBooleanAgg<Sum>("[]", std::make_shared<UInt64Scalar>());
+  ValidateBooleanAgg<Sum>("[null]", std::make_shared<UInt64Scalar>(0));
+  ValidateBooleanAgg<Sum>("[null, false]", std::make_shared<UInt64Scalar>(0));
+  ValidateBooleanAgg<Sum>("[true]", std::make_shared<UInt64Scalar>(1));
+  ValidateBooleanAgg<Sum>("[true, false, true]", std::make_shared<UInt64Scalar>(2));
+  ValidateBooleanAgg<Sum>("[true, false, true, true, null]",
+                          std::make_shared<UInt64Scalar>(3));
+}
+
+TEST(TestBooleanAggregation, Mean) {
+  ValidateBooleanAgg<Mean>("[]", std::make_shared<DoubleScalar>());
+  ValidateBooleanAgg<Mean>("[null]", std::make_shared<DoubleScalar>(0));
+  ValidateBooleanAgg<Mean>("[null, false]", std::make_shared<DoubleScalar>(0));
+  ValidateBooleanAgg<Mean>("[true]", std::make_shared<DoubleScalar>(1));
+  ValidateBooleanAgg<Mean>("[true, false, true, false]",
+                           std::make_shared<DoubleScalar>(0.5));
+  ValidateBooleanAgg<Mean>("[true, null]", std::make_shared<DoubleScalar>(0.5));
+  ValidateBooleanAgg<Mean>("[true, null, false, true]",
+                           std::make_shared<DoubleScalar>(0.5));
+  ValidateBooleanAgg<Mean>("[true, null, false, false]",
+                           std::make_shared<DoubleScalar>(0.25));
+}
+
 template <typename ArrowType>
 class TestNumericSumKernel : public ::testing::Test {};
 
