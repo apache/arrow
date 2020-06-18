@@ -1587,18 +1587,20 @@ tasks:
   test-ubuntu-20.04-cpp:
     ci: github
     template: docker-tests/github.linux.yml
+    params:
+      run: ubuntu-cpp
 
   test-ubuntu-20.04-cpp-c++14:
     ci: github
     template: docker-tests/github.linux.yml
     params:
-      run: "-e CMAKE_ARGS=-DCMAKE_CXX_STANDARD=14"
+      run: "ubuntu-cpp -e CMAKE_ARGS=-DCMAKE_CXX_STANDARD=14"
 
   test-ubuntu-20.04-cpp-c++17:
     ci: github
     template: docker-tests/github.linux.yml
     params:
-      run: "-e CMAKE_ARGS=-DCMAKE_CXX_STANDARD=17"
+      run: "ubuntu-cpp -e CMAKE_ARGS=-DCMAKE_CXX_STANDARD=17"
 
   test-debian-c-glib:
     ci: circle
