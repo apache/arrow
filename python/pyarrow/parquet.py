@@ -1406,8 +1406,11 @@ class _ParquetDatasetV2:
         # check for single NativeFile dataset
         if not isinstance(path_or_paths, list):
             if not _is_path_like(path_or_paths):
-                self._fragment = parquet_format.make_fragment(path_or_paths)
-                self._dataset = None
+                fragment = parquet_format.make_fragment(path_or_paths)
+                self._dataset = ds.FileSystemDataset(
+                    [fragment], schema=fragment.physical_schema,
+                    format=parquet_format
+                )
                 return
 
         # map old filesystems to new one
@@ -1422,13 +1425,10 @@ class _ParquetDatasetV2:
         self._dataset = ds.dataset(path_or_paths, filesystem=filesystem,
                                    format=parquet_format,
                                    partitioning=partitioning)
-        self._fragment = None
 
     @property
     def schema(self):
-        if self._dataset is not None:
-            return self._dataset.schema
-        return self._fragment.physical_schema
+        return self._dataset.schema
 
     def read(self, columns=None, use_threads=True, use_pandas_metadata=False):
         """
@@ -1463,7 +1463,7 @@ class _ParquetDatasetV2:
                 ]
                 columns = columns + list(set(index_columns) - set(columns))
 
-        table = (self._dataset or self._fragment).to_table(
+        table = self._dataset.to_table(
             columns=columns, filter=self._filter_expression,
             use_threads=use_threads
         )

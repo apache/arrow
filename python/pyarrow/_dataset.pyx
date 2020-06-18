@@ -455,21 +455,19 @@ cdef class UnionDataset(Dataset):
 
 
 cdef class FileSystemDataset(Dataset):
-    """A Dataset created from a set of files on a particular filesystem.
+    """A Dataset of file fragments.
+
+    A FileSystemDataset is composed of one or more FileFragment.
 
     Parameters
     ----------
-    paths_or_selector : Union[FileSelector, List[str]]
-        List of files/directories to consume.
+    fragments : list[Fragments]
+        List of fragments to consume.
     schema : Schema
-        The top-level schema of the DataDataset.
+        The top-level schema of the Dataset.
     format : FileFormat
-        File format to create fragments from, currently only
-        ParquetFileFormat, IpcFileFormat, and CsvFileFormat are supported.
-    filesystem : FileSystem
-        The filesystem which files are from.
-    partitions : List[Expression], optional
-        Attach additional partition information for the file paths.
+        File format of the fragments, currently only ParquetFileFormat,
+        IpcFileFormat, and CsvFileFormat are supported.
     root_partition : Expression, optional
         The top-level partition of the DataDataset.
     """
@@ -477,52 +475,24 @@ cdef class FileSystemDataset(Dataset):
     cdef:
         CFileSystemDataset* filesystem_dataset
 
-    def __init__(self, paths_or_selector, schema=None, format=None,
-                 filesystem=None, partitions=None, root_partition=None):
+    def __init__(self, fragments, Schema schema, FileFormat format,
+                 root_partition=None):
         cdef:
-            FileInfo info
-            Expression expr
             FileFragment fragment
-            vector[CFileInfo] c_file_infos
-            vector[shared_ptr[CExpression]] c_partitions
-            shared_ptr[CFileFragment] c_fragment
             vector[shared_ptr[CFileFragment]] c_fragments
             CResult[shared_ptr[CDataset]] result
 
         root_partition = root_partition or _true
-
-        for arg, class_, name in [
-            (schema, Schema, 'schema'),
-            (format, FileFormat, 'format'),
-            (filesystem, FileSystem, 'filesystem'),
-            (root_partition, Expression, 'root_partition')
-        ]:
-            if not isinstance(arg, class_):
-                raise TypeError(
-                    "Argument '{0}' has incorrect type (expected {1}, "
-                    "got {2})".format(name, class_.__name__, type(arg))
-                )
-
-        infos = filesystem.get_file_info(paths_or_selector)
-
-        partitions = partitions or [_true] * len(infos)
-
-        if len(infos) != len(partitions):
-            raise ValueError(
-                'The number of files resulting from paths_or_selector '
-                'must be equal to the number of partitions.'
+        if not isinstance(root_partition, Expression):
+            raise TypeError(
+                "Argument 'root_partition' has incorrect type (expected "
+                "Epression, got {0})".format(type(root_partition))
             )
 
-        for expr in partitions:
-            c_partitions.push_back(expr.unwrap())
-
-        for i, info in enumerate(infos):
-            if info.is_file:
-                fragment = format.make_fragment(info.path, filesystem,
-                                                partitions[i])
-                c_fragments.push_back(
-                    static_pointer_cast[CFileFragment, CFragment](
-                        fragment.unwrap()))
+        for fragment in fragments:
+            c_fragments.push_back(
+                static_pointer_cast[CFileFragment, CFragment](
+                    fragment.unwrap()))
 
         result = CFileSystemDataset.Make(
             pyarrow_unwrap_schema(schema),
@@ -535,6 +505,57 @@ cdef class FileSystemDataset(Dataset):
     cdef void init(self, const shared_ptr[CDataset]& sp):
         Dataset.init(self, sp)
         self.filesystem_dataset = <CFileSystemDataset*> sp.get()
+
+    @classmethod
+    def from_paths(cls, paths, schema=None, format=None,
+                   filesystem=None, partitions=None, root_partition=None):
+        """A Dataset created from a list of paths on a particular filesystem.
+
+        Parameters
+        ----------
+        paths : list of str
+            List of file paths to create the fragments from.
+        schema : Schema
+            The top-level schema of the DataDataset.
+        format : FileFormat
+            File format to create fragments from, currently only
+            ParquetFileFormat, IpcFileFormat, and CsvFileFormat are supported.
+        filesystem : FileSystem
+            The filesystem which files are from.
+        partitions : List[Expression], optional
+            Attach additional partition information for the file paths.
+        root_partition : Expression, optional
+            The top-level partition of the DataDataset.
+        """
+        cdef:
+            FileFragment fragment
+
+        root_partition = root_partition or _true
+        for arg, class_, name in [
+            (schema, Schema, 'schema'),
+            (format, FileFormat, 'format'),
+            (filesystem, FileSystem, 'filesystem'),
+            (root_partition, Expression, 'root_partition')
+        ]:
+            if not isinstance(arg, class_):
+                raise TypeError(
+                    "Argument '{0}' has incorrect type (expected {1}, "
+                    "got {2})".format(name, class_.__name__, type(arg))
+                )
+
+        partitions = partitions or [_true] * len(paths)
+
+        if len(paths) != len(partitions):
+            raise ValueError(
+                'The number of files resulting from paths_or_selector '
+                'must be equal to the number of partitions.'
+            )
+
+        fragments = [
+            format.make_fragment(path, filesystem, partitions[i])
+            for i, path in enumerate(paths)
+        ]
+        return FileSystemDataset(fragments, schema, format, root_partition)
 
     @property
     def files(self):
