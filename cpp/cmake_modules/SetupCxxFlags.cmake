@@ -51,12 +51,11 @@ if(ARROW_CPU_FLAG STREQUAL "x86")
     set(ARROW_AVX512_FLAG "-march=skylake-avx512 -mbmi2")
     check_cxx_compiler_flag(${ARROW_SSE4_2_FLAG} CXX_SUPPORTS_SSE4_2)
   endif()
-  check_cxx_compiler_flag(${ARROW_AVX2_FLAG} CXX_SUPPORTS_AVX2)
-  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    # GCC 4.x has limited support to AVX2, disable it
-    if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS "5.0")
-      unset(CXX_SUPPORTS_AVX2 CACHE)
-    endif()
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU"
+     AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "5.0")
+    message(WARNING "Disable AVX2 as compiler doesn't support them well.")
+  else()
+    check_cxx_compiler_flag(${ARROW_AVX2_FLAG} CXX_SUPPORTS_AVX2)
   endif()
   check_cxx_compiler_flag(${ARROW_AVX512_FLAG} CXX_SUPPORTS_AVX512)
   # Runtime SIMD level it can get from compiler
