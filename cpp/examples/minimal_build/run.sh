@@ -16,20 +16,33 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Set $ARROW_ROOT to the path of your Arrow clone and run
+set -e
 
-# docker build -t arrow_cpp_minimal .
-# docker run --rm -t -i -v $PWD:/io -v $ARROW_ROOT:/arrow  arrow_cpp_minimal /io/build.sh
+cd /io
 
-BUILD_DIR=/build
-NPROC=$(nproc)
+export ARROW_BUILD_DIR=/build/arrow
+export EXAMPLE_BUILD_DIR=/build/example
 
-mkdir $BUILD_DIR
-pushd $BUILD_DIR
+echo
+echo "=="
+echo "== Building Arrow C++ library"
+echo "=="
+echo
 
-cmake /arrow/cpp -DARROW_JEMALLOC=OFF $ARROW_CMAKE_OPTIONS
+./build_arrow.sh
 
-make -j$NPROC
-make install
+echo
+echo "=="
+echo "== Building example project using Arrow C++ library"
+echo "=="
+echo
 
-popd
+./build_example.sh
+
+echo
+echo "=="
+echo "== Running example project"
+echo "=="
+echo
+
+${EXAMPLE_BUILD_DIR}/arrow_example
