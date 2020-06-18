@@ -101,6 +101,9 @@ ascii_length = _simple_unary_function('ascii_length')
 ascii_upper = _simple_unary_function('ascii_upper')
 ascii_lower = _simple_unary_function('ascii_lower')
 
+is_valid = _simple_unary_function('is_valid')
+is_null = _simple_unary_function('is_null')
+
 add = _simple_binary_function('add')
 subtract = _simple_binary_function('subtract')
 multiply = _simple_binary_function('multiply')
