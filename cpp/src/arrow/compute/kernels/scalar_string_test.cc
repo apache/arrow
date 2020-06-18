@@ -56,14 +56,16 @@ TYPED_TEST(TestStringKernels, AsciiLength) {
                    "[3, null, 0, 1]");
 }
 
-TYPED_TEST(TestStringKernels, DISABLED_AsciiUpper) {
-  this->CheckUnary("ascii_upper", "[\"aAazZæÆ&\", null, \"\", \"b\"]",
-                   this->string_type(), "[\"AAAZZæÆ&\", null, \"\", \"B\"]");
+TYPED_TEST(TestStringKernels, AsciiUpper) {
+  this->CheckUnary("ascii_upper", "[]", this->string_type(), "[]");
+  this->CheckUnary("ascii_upper", "[\"aAazZæÆ&\", null, \"\", \"bbb\"]",
+                   this->string_type(), "[\"AAAZZæÆ&\", null, \"\", \"BBB\"]");
 }
 
-TYPED_TEST(TestStringKernels, DISABLED_AsciiLower) {
-  this->CheckUnary("ascii_lower", "[\"aAazZæÆ&\", null, \"\", \"b\"]",
-                   this->string_type(), "[\"aaazzæÆ&\", null, \"\", \"b\"]");
+TYPED_TEST(TestStringKernels, AsciiLower) {
+  this->CheckUnary("ascii_lower", "[]", this->string_type(), "[]");
+  this->CheckUnary("ascii_lower", "[\"aAazZæÆ&\", null, \"\", \"BBB\"]",
+                   this->string_type(), "[\"aaazzæÆ&\", null, \"\", \"bbb\"]");
 }
 
 TYPED_TEST(TestStringKernels, Strptime) {
