@@ -21,6 +21,7 @@
 #include <gtest/gtest.h>
 
 #include "arrow/array/array_base.h"
+#include "arrow/chunked_array.h"
 #include "arrow/datum.h"
 #include "arrow/scalar.h"
 #include "arrow/table.h"

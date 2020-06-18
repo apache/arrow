@@ -141,6 +141,7 @@ set(ARROW_SRCS
     array/validate.cc
     builder.cc
     buffer.cc
+    chunked_array.cc
     compare.cc
     datum.cc
     device.cc
@@ -565,7 +566,12 @@ set_source_files_properties(public_api_test.cc
 add_arrow_test(scalar_test)
 add_arrow_test(type_test)
 
-add_arrow_test(table_test SOURCES table_test.cc table_builder_test.cc)
+add_arrow_test(table_test
+               SOURCES
+               chunked_array_test.cc
+               record_batch_test.cc
+               table_test.cc
+               table_builder_test.cc)
 
 add_arrow_test(tensor_test)
 add_arrow_test(sparse_tensor_test)

@@ -29,6 +29,7 @@
 #include <vector>
 
 #include "arrow/array.h"
+#include "arrow/chunked_array.h"
 #include "arrow/compare.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"

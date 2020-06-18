@@ -31,6 +31,7 @@
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
+#include "arrow/chunked_array.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/ipc/metadata_internal.h"
 #include "arrow/ipc/options.h"
