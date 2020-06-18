@@ -112,24 +112,27 @@ std::shared_ptr<TypeMatcher> SameTypeId(Type::type type_id) {
   return std::make_shared<SameTypeIdMatcher>(type_id);
 }
 
-class TimestampUnitMatcher : public TypeMatcher {
+template <typename ArrowType>
+class TimeUnitMatcher : public TypeMatcher {
+  using ThisType = TimeUnitMatcher<ArrowType>;
+
  public:
-  explicit TimestampUnitMatcher(TimeUnit::type accepted_unit)
+  explicit TimeUnitMatcher(TimeUnit::type accepted_unit)
       : accepted_unit_(accepted_unit) {}
 
   bool Matches(const DataType& type) const override {
-    if (type.id() != Type::TIMESTAMP) {
+    if (type.id() != ArrowType::type_id) {
       return false;
     }
-    const auto& ts_type = checked_cast<const TimestampType&>(type);
-    return ts_type.unit() == accepted_unit_;
+    const auto& time_type = checked_cast<const ArrowType&>(type);
+    return time_type.unit() == accepted_unit_;
   }
 
   bool Equals(const TypeMatcher& other) const override {
     if (this == &other) {
       return true;
     }
-    auto casted = dynamic_cast<const TimestampUnitMatcher*>(&other);
+    auto casted = dynamic_cast<const ThisType*>(&other);
     if (casted == nullptr) {
       return false;
     }
@@ -138,7 +141,8 @@ class TimestampUnitMatcher : public TypeMatcher {
 
   std::string ToString() const override {
     std::stringstream ss;
-    ss << "timestamp(" << ::arrow::internal::ToString(accepted_unit_) << ")";
+    ss << ArrowType::type_name() << "(" << ::arrow::internal::ToString(accepted_unit_)
+       << ")";
     return ss.str();
   }
 
@@ -146,8 +150,25 @@ class TimestampUnitMatcher : public TypeMatcher {
   TimeUnit::type accepted_unit_;
 };
 
-std::shared_ptr<TypeMatcher> TimestampUnit(TimeUnit::type unit) {
-  return std::make_shared<TimestampUnitMatcher>(unit);
+using DurationTypeUnitMatcher = TimeUnitMatcher<DurationType>;
+using Time32TypeUnitMatcher = TimeUnitMatcher<Time32Type>;
+using Time64TypeUnitMatcher = TimeUnitMatcher<Time64Type>;
+using TimestampTypeUnitMatcher = TimeUnitMatcher<TimestampType>;
+
+std::shared_ptr<TypeMatcher> TimestampTypeUnit(TimeUnit::type unit) {
+  return std::make_shared<TimestampTypeUnitMatcher>(unit);
+}
+
+std::shared_ptr<TypeMatcher> Time32TypeUnit(TimeUnit::type unit) {
+  return std::make_shared<Time32TypeUnitMatcher>(unit);
+}
+
+std::shared_ptr<TypeMatcher> Time64TypeUnit(TimeUnit::type unit) {
+  return std::make_shared<Time64TypeUnitMatcher>(unit);
+}
+
+std::shared_ptr<TypeMatcher> DurationTypeUnit(TimeUnit::type unit) {
+  return std::make_shared<DurationTypeUnitMatcher>(unit);
 }
 
 class IntegerMatcher : public TypeMatcher {

@@ -23,8 +23,10 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/array/builder_binary.h"
 #include "arrow/array/data.h"
 #include "arrow/buffer.h"
+#include "arrow/buffer_builder.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/datum.h"
@@ -121,10 +123,26 @@ struct ArrayIterator<Type, enable_if_boolean<Type>> {
 
 template <typename Type>
 struct ArrayIterator<Type, enable_if_base_binary<Type>> {
-  int64_t position = 0;
-  typename TypeTraits<Type>::ArrayType arr;
-  explicit ArrayIterator(const ArrayData& data) : arr(data.Copy()) {}
-  util::string_view operator()() { return arr.GetView(position++); }
+  using offset_type = typename Type::offset_type;
+  const ArrayData& arr;
+  const offset_type* offsets;
+  offset_type cur_offset;
+  const char* data;
+  int64_t position;
+  explicit ArrayIterator(const ArrayData& arr)
+      : arr(arr),
+        offsets(reinterpret_cast<const offset_type*>(arr.buffers[1]->data()) +
+                arr.offset),
+        cur_offset(offsets[0]),
+        data(reinterpret_cast<const char*>(arr.buffers[2]->data())),
+        position(0) {}
+
+  util::string_view operator()() {
+    offset_type next_offset = offsets[position++ + 1];
+    auto result = util::string_view(data + cur_offset, next_offset - cur_offset);
+    cur_offset = next_offset;
+    return result;
+  }
 };
 
 template <typename Type, typename Enable = void>
@@ -132,7 +150,7 @@ struct UnboxScalar;
 
 template <typename Type>
 struct UnboxScalar<Type, enable_if_has_c_type<Type>> {
-  using ScalarType = typename TypeTraits<Type>::ScalarType;
+  using ScalarType = ::arrow::internal::PrimitiveScalar<typename Type::PhysicalType>;
   static typename Type::c_type Unbox(const Datum& datum) {
     return datum.scalar_as<ScalarType>().value;
   }
@@ -229,8 +247,7 @@ Result<ValueDescr> FirstType(KernelContext*, const std::vector<ValueDescr>& desc
 
 void ExecFail(KernelContext* ctx, const ExecBatch& batch, Datum* out);
 
-void BinaryExecFlipped(KernelContext* ctx, ArrayKernelExec exec, const ExecBatch& batch,
-                       Datum* out);
+ArrayKernelExec MakeFlippedBinaryExec(ArrayKernelExec exec);
 
 // ----------------------------------------------------------------------
 // Helpers for iterating over common DataType instances for adding kernels to
@@ -305,34 +322,6 @@ void SimpleBinary(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     ctx->SetStatus(Status::NotImplemented("NYI"));
   } else if (batch.length > 0) {
     Operator::Call(ctx, *batch[0].array(), *batch[1].array(), out->mutable_array());
-  }
-}
-
-// A ArrayKernelExec-creation template that iterates over primitive non-boolean
-// inputs and writes into non-boolean primitive outputs.
-//
-// It may be possible to create a more generic template that can deal with any
-// input writing to any output, but we will need to write benchmarks to
-// investigate that on all compiler targets to ensure that the additional
-// template abstractions do not incur performance overhead. This template
-// provides a reference point for performance when there are no templates
-// dealing with value iteration.
-//
-// TODO: Run benchmarks to determine if OutputAdapter is a zero-cost abstraction
-template <typename Op, typename OutType, typename Arg0Type>
-void ScalarPrimitiveExecUnary(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  using OUT = typename OutType::c_type;
-  using ARG0 = typename Arg0Type::c_type;
-
-  if (batch[0].kind() == Datum::SCALAR) {
-    ctx->SetStatus(Status::NotImplemented("NYI"));
-  } else {
-    ArrayData* out_arr = out->mutable_array();
-    auto out_data = out_arr->GetMutableValues<OUT>(1);
-    auto arg0_data = batch[0].array()->GetValues<ARG0>(1);
-    for (int64_t i = 0; i < batch.length; ++i) {
-      *out_data++ = Op::template Call<OUT, ARG0>(ctx, *arg0_data++);
-    }
   }
 }
 
@@ -485,6 +474,10 @@ struct ScalarUnaryNotNullStateful {
   struct ArrayExec<Type, enable_if_base_binary<Type>> {
     static void Exec(const ThisType& functor, KernelContext* ctx, const ExecBatch& batch,
                      Datum* out) {
+      // NOTE: This code is not currently used by any kernels and has
+      // suboptimal performance because it's recomputing the validity bitmap
+      // that is already computed by the kernel execution layer. Consider
+      // writing a lower-level "output adapter" for base binary types.
       typename TypeTraits<Type>::BuilderType builder;
       VisitArrayValuesInline<Arg0Type>(*batch[0].array(), [&](util::optional<ARG0> v) {
         if (v.has_value()) {
@@ -644,15 +637,41 @@ struct ScalarBinary {
 template <typename OutType, typename ArgType, typename Op>
 using ScalarBinaryEqualTypes = ScalarBinary<OutType, ArgType, ArgType, Op>;
 
+}  // namespace codegen
+
 // ----------------------------------------------------------------------
-// Dynamic kernel selectors. These functors allow a kernel implementation to be
-// selected given a arrow::DataType instance. Using these functors triggers the
-// corresponding template that generate's the kernel's Exec function to be
-// instantiated
+// BEGIN of kernel generator-dispatchers ("GD")
+//
+// These GD functions instantiate kernel functor templates and select one of
+// the instantiated kernels dynamically based on the data type or Type::type id
+// that is passed. This enables functions to be populated with kernels by
+// looping over vectors of data types rather than using macros or other
+// approaches.
+//
+// The kernel functor must be of the form:
+//
+// template <typename Type0, typename Type1, Args...>
+// struct FUNCTOR {
+//   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+//     // IMPLEMENTATION
+//   }
+// };
+//
+// When you pass FUNCTOR to a GD function, you must pass at least one static
+// type along with the functor -- this is often the fixed return type of the
+// functor. This Type0 argument is passed as the first argument to the functor
+// during instantiation. The 2nd type passed to the functor is the DataType
+// subclass corresponding to the type passed as argument (not template type) to
+// the function.
+//
+// For example, GenerateNumeric<FUNCTOR, Type0>(int32()) will select a kernel
+// instantiated like FUNCTOR<Type0, Int32Type>. Any additional variadic
+// template arguments will be passed as additional template arguments to the
+// kernel template.
 
 namespace detail {
 
-// Convenience so we can pass DataType or Type::type into these kernel selectors
+// Convenience so we can pass DataType or Type::type for the GD's
 struct GetTypeId {
   Type::type id;
   GetTypeId(const std::shared_ptr<DataType>& type)  // NOLINT implicit construction
@@ -665,57 +684,9 @@ struct GetTypeId {
 
 }  // namespace detail
 
-// Generate a kernel given a functor of type
-//
-// struct OPERATOR_NAME {
-//   template <typename OUT, typename ARG0>
-//   static OUT Call(KernelContext*, ARG0 val) {
-//     // IMPLEMENTATION
-//   }
-// };
-template <typename Op>
-ArrayKernelExec NumericEqualTypesUnary(detail::GetTypeId get_id) {
-  switch (get_id.id) {
-    case Type::INT8:
-      return ScalarPrimitiveExecUnary<Op, Int8Type, Int8Type>;
-    case Type::UINT8:
-      return ScalarPrimitiveExecUnary<Op, UInt8Type, UInt8Type>;
-    case Type::INT16:
-      return ScalarPrimitiveExecUnary<Op, Int16Type, Int16Type>;
-    case Type::UINT16:
-      return ScalarPrimitiveExecUnary<Op, UInt16Type, UInt16Type>;
-    case Type::INT32:
-      return ScalarPrimitiveExecUnary<Op, Int32Type, Int32Type>;
-    case Type::UINT32:
-      return ScalarPrimitiveExecUnary<Op, UInt32Type, UInt32Type>;
-    case Type::INT64:
-      return ScalarPrimitiveExecUnary<Op, Int64Type, Int64Type>;
-    case Type::UINT64:
-      return ScalarPrimitiveExecUnary<Op, UInt64Type, UInt64Type>;
-    case Type::FLOAT:
-      return ScalarPrimitiveExecUnary<Op, FloatType, FloatType>;
-    case Type::DOUBLE:
-      return ScalarPrimitiveExecUnary<Op, DoubleType, DoubleType>;
-    default:
-      DCHECK(false);
-      return ExecFail;
-  }
-}
-
-// Generate a kernel given a templated functor. This template effectively
-// "curries" the first type argument. The functor must be of the form:
-//
-// template <typename Type0, typename Type1, Args...>
-// struct FUNCTOR {
-//   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-//     // IMPLEMENTATION
-//   }
-// };
-//
-// This function will generate exec functions where Type1 is one of the numeric
-// types
+// GD for numeric types (integer and floating point)
 template <template <typename...> class Generator, typename Type0, typename... Args>
-ArrayKernelExec Numeric(detail::GetTypeId get_id) {
+ArrayKernelExec GenerateNumeric(detail::GetTypeId get_id) {
   switch (get_id.id) {
     case Type::INT8:
       return Generator<Type0, Int8Type, Args...>::Exec;
@@ -747,7 +718,7 @@ ArrayKernelExec Numeric(detail::GetTypeId get_id) {
 //
 // See "Numeric" above for description of the generator functor
 template <template <typename...> class Generator, typename Type0, typename... Args>
-ArrayKernelExec FloatingPoint(detail::GetTypeId get_id) {
+ArrayKernelExec GenerateFloatingPoint(detail::GetTypeId get_id) {
   switch (get_id.id) {
     case Type::FLOAT:
       return Generator<Type0, FloatType, Args...>::Exec;
@@ -763,7 +734,7 @@ ArrayKernelExec FloatingPoint(detail::GetTypeId get_id) {
 //
 // See "Numeric" above for description of the generator functor
 template <template <typename...> class Generator, typename Type0, typename... Args>
-ArrayKernelExec Integer(detail::GetTypeId get_id) {
+ArrayKernelExec GenerateInteger(detail::GetTypeId get_id) {
   switch (get_id.id) {
     case Type::INT8:
       return Generator<Type0, Int8Type, Args...>::Exec;
@@ -787,11 +758,41 @@ ArrayKernelExec Integer(detail::GetTypeId get_id) {
   }
 }
 
+template <template <typename...> class Generator, typename Type0, typename... Args>
+ArrayKernelExec GeneratePhysicalInteger(detail::GetTypeId get_id) {
+  switch (get_id.id) {
+    case Type::INT8:
+      return Generator<Type0, Int8Type, Args...>::Exec;
+    case Type::INT16:
+      return Generator<Type0, Int16Type, Args...>::Exec;
+    case Type::INT32:
+    case Type::DATE32:
+    case Type::TIME32:
+      return Generator<Type0, Int32Type, Args...>::Exec;
+    case Type::INT64:
+    case Type::DATE64:
+    case Type::TIMESTAMP:
+    case Type::TIME64:
+      return Generator<Type0, Int64Type, Args...>::Exec;
+    case Type::UINT8:
+      return Generator<Type0, UInt8Type, Args...>::Exec;
+    case Type::UINT16:
+      return Generator<Type0, UInt16Type, Args...>::Exec;
+    case Type::UINT32:
+      return Generator<Type0, UInt32Type, Args...>::Exec;
+    case Type::UINT64:
+      return Generator<Type0, UInt64Type, Args...>::Exec;
+    default:
+      DCHECK(false);
+      return ExecFail;
+  }
+}
+
 // Generate a kernel given a templated functor for integer types
 //
 // See "Numeric" above for description of the generator functor
 template <template <typename...> class Generator, typename Type0, typename... Args>
-ArrayKernelExec SignedInteger(detail::GetTypeId get_id) {
+ArrayKernelExec GenerateSignedInteger(detail::GetTypeId get_id) {
   switch (get_id.id) {
     case Type::INT8:
       return Generator<Type0, Int8Type, Args...>::Exec;
@@ -807,11 +808,30 @@ ArrayKernelExec SignedInteger(detail::GetTypeId get_id) {
   }
 }
 
-// Generate a kernel given a templated functor for base binary types
+// Generate a kernel given a templated functor for base binary types. Generates
+// a single kernel for binary/string and large binary / large string. If your
+// kernel implementation needs access to the specific type at compile time,
+// please use BaseBinarySpecific.
 //
 // See "Numeric" above for description of the generator functor
 template <template <typename...> class Generator, typename Type0, typename... Args>
-ArrayKernelExec BaseBinary(detail::GetTypeId get_id) {
+ArrayKernelExec GenerateVarBinaryBase(detail::GetTypeId get_id) {
+  switch (get_id.id) {
+    case Type::BINARY:
+    case Type::STRING:
+      return Generator<Type0, BinaryType, Args...>::Exec;
+    case Type::LARGE_BINARY:
+    case Type::LARGE_STRING:
+      return Generator<Type0, LargeBinaryType, Args...>::Exec;
+    default:
+      DCHECK(false);
+      return ExecFail;
+  }
+}
+
+// See BaseBinary documentation
+template <template <typename...> class Generator, typename Type0, typename... Args>
+ArrayKernelExec GenerateVarBinary(detail::GetTypeId get_id) {
   switch (get_id.id) {
     case Type::BINARY:
       return Generator<Type0, BinaryType, Args...>::Exec;
@@ -831,7 +851,7 @@ ArrayKernelExec BaseBinary(detail::GetTypeId get_id) {
 //
 // See "Numeric" above for description of the generator functor
 template <template <typename...> class Generator, typename Type0, typename... Args>
-ArrayKernelExec Temporal(detail::GetTypeId get_id) {
+ArrayKernelExec GenerateTemporal(detail::GetTypeId get_id) {
   switch (get_id.id) {
     case Type::DATE32:
       return Generator<Type0, Date32Type, Args...>::Exec;
@@ -851,6 +871,8 @@ ArrayKernelExec Temporal(detail::GetTypeId get_id) {
   }
 }
 
-}  // namespace codegen
+// END of kernel generator-dispatchers
+// ----------------------------------------------------------------------
+
 }  // namespace compute
 }  // namespace arrow

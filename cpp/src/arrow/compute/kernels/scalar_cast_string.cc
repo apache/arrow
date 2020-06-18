@@ -139,7 +139,7 @@ void AddNumberToStringCasts(std::shared_ptr<DataType> out_ty, CastFunction* func
 
   for (const std::shared_ptr<DataType>& in_ty : NumericTypes()) {
     DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty}, out_ty,
-                              codegen::Numeric<CastFunctor, OutType>(*in_ty),
+                              GenerateNumeric<CastFunctor, OutType>(*in_ty),
                               NullHandling::COMPUTED_NO_PREALLOCATE));
   }
 }

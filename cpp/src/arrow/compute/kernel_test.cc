@@ -45,23 +45,27 @@ TEST(TypeMatcher, SameTypeId) {
   ASSERT_FALSE(matcher->Equals(*match::SameTypeId(Type::TIMESTAMP)));
 }
 
-TEST(TypeMatcher, TimestampUnit) {
-  std::shared_ptr<TypeMatcher> matcher = match::TimestampUnit(TimeUnit::MILLI);
+TEST(TypeMatcher, TimestampTypeUnit) {
+  auto matcher = match::TimestampTypeUnit(TimeUnit::MILLI);
+  auto matcher2 = match::Time32TypeUnit(TimeUnit::MILLI);
 
   ASSERT_TRUE(matcher->Matches(*timestamp(TimeUnit::MILLI)));
   ASSERT_TRUE(matcher->Matches(*timestamp(TimeUnit::MILLI, "utc")));
   ASSERT_FALSE(matcher->Matches(*timestamp(TimeUnit::SECOND)));
+  ASSERT_FALSE(matcher->Matches(*time32(TimeUnit::MILLI)));
+  ASSERT_TRUE(matcher2->Matches(*time32(TimeUnit::MILLI)));
 
   // Check ToString representation
-  ASSERT_EQ("timestamp(s)", match::TimestampUnit(TimeUnit::SECOND)->ToString());
-  ASSERT_EQ("timestamp(ms)", match::TimestampUnit(TimeUnit::MILLI)->ToString());
-  ASSERT_EQ("timestamp(us)", match::TimestampUnit(TimeUnit::MICRO)->ToString());
-  ASSERT_EQ("timestamp(ns)", match::TimestampUnit(TimeUnit::NANO)->ToString());
+  ASSERT_EQ("timestamp(s)", match::TimestampTypeUnit(TimeUnit::SECOND)->ToString());
+  ASSERT_EQ("timestamp(ms)", match::TimestampTypeUnit(TimeUnit::MILLI)->ToString());
+  ASSERT_EQ("timestamp(us)", match::TimestampTypeUnit(TimeUnit::MICRO)->ToString());
+  ASSERT_EQ("timestamp(ns)", match::TimestampTypeUnit(TimeUnit::NANO)->ToString());
 
   // Equals implementation
   ASSERT_TRUE(matcher->Equals(*matcher));
-  ASSERT_TRUE(matcher->Equals(*match::TimestampUnit(TimeUnit::MILLI)));
-  ASSERT_FALSE(matcher->Equals(*match::TimestampUnit(TimeUnit::MICRO)));
+  ASSERT_TRUE(matcher->Equals(*match::TimestampTypeUnit(TimeUnit::MILLI)));
+  ASSERT_FALSE(matcher->Equals(*match::TimestampTypeUnit(TimeUnit::MICRO)));
+  ASSERT_FALSE(matcher->Equals(*match::Time32TypeUnit(TimeUnit::MILLI)));
 }
 
 // ----------------------------------------------------------------------
@@ -135,7 +139,7 @@ TEST(InputType, Constructors) {
   ASSERT_EQ("array[Type::DECIMAL]", ty2_array.ToString());
   ASSERT_EQ("scalar[Type::DECIMAL]", ty2_scalar.ToString());
 
-  InputType ty7(match::TimestampUnit(TimeUnit::MICRO));
+  InputType ty7(match::TimestampTypeUnit(TimeUnit::MICRO));
   ASSERT_EQ("any[timestamp(us)]", ty7.ToString());
 }
 

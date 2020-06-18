@@ -148,7 +148,10 @@ ARROW_EXPORT std::shared_ptr<TypeMatcher> SameTypeId(Type::type type_id);
 
 /// \brief Match any TimestampType instance having the same unit, but the time
 /// zones can be different.
-ARROW_EXPORT std::shared_ptr<TypeMatcher> TimestampUnit(TimeUnit::type unit);
+ARROW_EXPORT std::shared_ptr<TypeMatcher> TimestampTypeUnit(TimeUnit::type unit);
+ARROW_EXPORT std::shared_ptr<TypeMatcher> Time32TypeUnit(TimeUnit::type unit);
+ARROW_EXPORT std::shared_ptr<TypeMatcher> Time64TypeUnit(TimeUnit::type unit);
+ARROW_EXPORT std::shared_ptr<TypeMatcher> DurationTypeUnit(TimeUnit::type unit);
 
 // \brief Match any integer type
 ARROW_EXPORT std::shared_ptr<TypeMatcher> Integer();

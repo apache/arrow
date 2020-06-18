@@ -52,13 +52,12 @@ std::vector<std::shared_ptr<CastFunction>> GetBooleanCasts() {
 
   for (const auto& ty : NumericTypes()) {
     ArrayKernelExec exec =
-        codegen::Numeric<codegen::ScalarUnary, BooleanType, IsNonZero>(*ty);
+        GenerateNumeric<codegen::ScalarUnary, BooleanType, IsNonZero>(*ty);
     DCHECK_OK(func->AddKernel(ty->id(), {ty}, boolean(), exec));
   }
   for (const auto& ty : BaseBinaryTypes()) {
-    ArrayKernelExec exec =
-        codegen::BaseBinary<codegen::ScalarUnaryNotNull, BooleanType, ParseBooleanString>(
-            *ty);
+    ArrayKernelExec exec = GenerateVarBinaryBase<codegen::ScalarUnaryNotNull, BooleanType,
+                                                 ParseBooleanString>(*ty);
     DCHECK_OK(func->AddKernel(ty->id(), {ty}, boolean(), exec));
   }
   return {func};
