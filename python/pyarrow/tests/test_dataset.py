@@ -254,6 +254,9 @@ def test_filesystem_dataset(mockfs):
     with pytest.raises(TypeError, match="incorrect type"):
         ds.FileSystemDataset(fragments, schema=schema, format=file_format,
                              root_partition=1)
+    # missing required argument in from_paths
+    with pytest.raises(TypeError, match="incorrect type"):
+        ds.FileSystemDataset.from_paths(fragments, format=file_format)
 
 
 def test_filesystem_dataset_no_filesystem_interaction():
