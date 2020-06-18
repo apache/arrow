@@ -4066,7 +4066,7 @@ def CheckTrailingSemicolon(filename, clean_lines, linenum, error):
     #  - INTERFACE_DEF
     #  - EXCLUSIVE_LOCKS_REQUIRED, SHARED_LOCKS_REQUIRED, LOCKS_EXCLUDED:
     #
-    # We implement a list of of safe macros instead of a list of
+    # We implement a list of safe macros instead of a list of
     # unsafe macros, even though the latter appears less frequently in
     # google code and would have been easier to implement.  This is because
     # the downside for getting the allowed checks wrong means some extra
