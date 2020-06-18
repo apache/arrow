@@ -28,28 +28,11 @@ The readers return `data.frame`s
 and the writers take `data.frame`s.
 
 Importantly, `arrow` provides basic read and write support for the [Apache
-Parquet](https://parquet.apache.org/) columnar data file format, without having to set up a database.
+Parquet](https://parquet.apache.org/) columnar data file format.
 
 ```r
 library(arrow)
 df <- read_parquet("path/to/file.parquet")
-```
-
-This function, along with the other readers in the package, takes an optional
-`col_select` argument, inspired by the
-[`vroom`](https://vroom.r-lib.org/reference/vroom.html) package.
-This argument lets you use the ["tidyselect" helper functions](https://tidyselect.r-lib.org/reference/select_helpers.html),
-as you can do in `dplyr::select()`, to specify that you only want to keep certain columns.
-You may also provide a character vector of column names to keep,
-as in the "select" argument to `data.table::fread()`.
-By narrowing your selection at read time, you can load a `data.frame` with less memory overhead.
-
-For example, suppose you had written the `iris` dataset to Parquet. You could
-read a `data.frame` with only the columns `c("Sepal.Length", "Sepal.Width")` by
-doing
-
-```r
-df <- read_parquet("iris.parquet", col_select = starts_with("Sepal"))
 ```
 
 Just as you can read, you can write Parquet files:
@@ -64,13 +47,14 @@ The `arrow` package also includes a faster and more robust implementation of the
 on the same underlying C++ library as the Python version does,
 resulting in more reliable and consistent behavior across the two languages, as
 well as [improved performance](https://wesmckinney.com/blog/feather-arrow-future/).
+`arrow` also by default writes the Feather V2 format,
+which supports a wider range of data types, as well as compression.
 
-In addition to these readers and writers, the `arrow` package has wrappers for
-other readers in the C++ library; see `?read_csv_arrow` and
-`?read_json_arrow`. These readers are being developed to optimize for the
-memory layout of the Arrow columnar format and are not intended as a direct
-replacement for existing R CSV readers (`base::read.csv`, `readr::read_csv`,
-`data.table::fread`) that return an R `data.frame`.
+For CSV and line-delimited JSON, there are `read_csv_arrow()` and `read_json_arrow()`, respectively.
+While `read_csv_arrow()` currently has fewer parsing options for dealing with
+every CSV format variation in the wild, for the files it can read, it is
+often significantly faster than other R CSV readers, such as
+`base::read.csv`, `readr::read_csv`, and `data.table::fread`.
 
 ## Working with Arrow data in Python
 
