@@ -18,7 +18,6 @@
 """
 FileSystem abstraction to interact with various local and remote filesystems.
 """
-import sys
 
 from pyarrow._fs import (  # noqa
     FileSelector,
@@ -51,16 +50,13 @@ else:
     initialize_s3()
 
 
-if sys.version_info >= (3, 7):
-
-    def __getattr__(name):
-
-        if name in _not_imported:
-            raise ImportError(
-                "The '{0}' class is not available in the current installation "
-                "of pyarrow".format(name)
-            )
-
-        raise AttributeError(
-            "module 'pyarrow.fs' has no attribute '{0}'".format(name)
+def __getattr__(name):
+    if name in _not_imported:
+        raise ImportError(
+            "The pyarrow installation is not built with support for "
+            "'{0}'".format(name)
         )
+
+    raise AttributeError(
+        "module 'pyarrow.fs' has no attribute '{0}'".format(name)
+    )
