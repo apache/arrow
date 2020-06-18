@@ -163,6 +163,27 @@ jobs:
         continue-on-error: true
         run: archery docker push ${{ matrix.image }}
 
+  build-example:
+    name: C++ Minimal Build Example
+    runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    strategy:
+      fail-fast: false
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Build Docker image
+        run: |
+          cd cpp/examples/minimal_build
+          docker build -t arrow_cpp_minimal .
+      - name: Compile and run example
+        run: |
+          ARROW_ROOT=$PWD
+          cd cpp/examples/minimal_build
+          docker run -v $PWD:/io -v $ARROW_ROOT:/arrow arrow_cpp_minimal /io/run.sh
+
   macos:
     name: AMD64 MacOS 10.15 C++
     runs-on: macos-latest
