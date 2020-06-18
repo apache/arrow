@@ -30,7 +30,8 @@ namespace compute {
 
 constexpr auto kSeed = 0x94378165;
 
-using BinaryOp = Result<Datum>(const Datum&, const Datum&, ExecContext*);
+using BinaryOp = Result<Datum>(const Datum&, const Datum&, ArithmeticOptions,
+                               ExecContext*);
 
 template <BinaryOp& Op, typename ArrowType, typename CType = typename ArrowType::c_type>
 static void ArrayScalarKernel(benchmark::State& state) {
@@ -46,7 +47,7 @@ static void ArrayScalarKernel(benchmark::State& state) {
 
   Datum fifteen(CType(15));
   for (auto _ : state) {
-    ABORT_NOT_OK(Op(lhs, fifteen, nullptr).status());
+    ABORT_NOT_OK(Op(lhs, fifteen, ArithmeticOptions(), nullptr).status());
   }
   state.SetItemsProcessed(state.iterations() * array_size);
 }
@@ -66,7 +67,7 @@ static void ArrayArrayKernel(benchmark::State& state) {
       rand.Numeric<ArrowType>(array_size, min, max, args.null_proportion));
 
   for (auto _ : state) {
-    ABORT_NOT_OK(Op(lhs, rhs, nullptr).status());
+    ABORT_NOT_OK(Op(lhs, rhs, ArithmeticOptions(), nullptr).status());
   }
   state.SetItemsProcessed(state.iterations() * array_size);
 }

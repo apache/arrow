@@ -100,6 +100,12 @@ bool HasAdditionOverflow(Integer value, Integer addend) {
   return (value > std::numeric_limits<Integer>::max() - addend);
 }
 
+/// Detect addition overflow between integers
+template <typename Integer>
+bool HasSubtractionOverflow(Integer value, Integer minuend) {
+  return (value < minuend);
+}
+
 /// Upcast an integer to the largest possible width (currently 64 bits)
 
 template <typename Integer>

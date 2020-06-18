@@ -47,8 +47,10 @@ class TestBinaryArithmetics : public TestBase {
     return TypeTraits<ArrowType>::type_singleton();
   }
 
-  using BinaryFunction =
-      std::function<Result<Datum>(const Datum&, const Datum&, ExecContext*)>;
+  using BinaryFunction = std::function<Result<Datum>(const Datum&, const Datum&,
+                                                     ArithmeticOptions, ExecContext*)>;
+
+  void SetUp() { options_.check_overflow = false; }
 
   // (Scalar, Scalar)
   void AssertBinop(BinaryFunction func, CType lhs, CType rhs, CType expected) {
@@ -56,7 +58,7 @@ class TestBinaryArithmetics : public TestBase {
     ASSERT_OK_AND_ASSIGN(auto right, MakeScalar(type_singleton(), rhs));
     ASSERT_OK_AND_ASSIGN(auto exp, MakeScalar(type_singleton(), expected));
 
-    ASSERT_OK_AND_ASSIGN(auto actual, func(left, right, nullptr));
+    ASSERT_OK_AND_ASSIGN(auto actual, func(left, right, options_, nullptr));
     AssertScalarsEqual(*exp, *actual.scalar(), true);
   }
 
@@ -67,7 +69,7 @@ class TestBinaryArithmetics : public TestBase {
     auto right = ArrayFromJSON(type_singleton(), rhs);
     auto exp = ArrayFromJSON(type_singleton(), expected);
 
-    ASSERT_OK_AND_ASSIGN(auto actual, func(left, right, nullptr));
+    ASSERT_OK_AND_ASSIGN(auto actual, func(left, right, options_, nullptr));
     ValidateAndAssertApproxEqual(actual.make_array(), expected);
   }
 
@@ -77,8 +79,17 @@ class TestBinaryArithmetics : public TestBase {
     auto left = ArrayFromJSON(type_singleton(), lhs);
     auto right = ArrayFromJSON(type_singleton(), rhs);
 
-    ASSERT_OK_AND_ASSIGN(Datum actual, func(left, right, nullptr));
+    ASSERT_OK_AND_ASSIGN(Datum actual, func(left, right, options_, nullptr));
     ValidateAndAssertApproxEqual(actual.make_array(), expected);
+  }
+
+  void AssertBinopRaises(BinaryFunction func, const std::string& lhs,
+                         const std::string& rhs, const std::string& expected_msg) {
+    auto left = ArrayFromJSON(type_singleton(), lhs);
+    auto right = ArrayFromJSON(type_singleton(), rhs);
+
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr(expected_msg),
+                                    func(left, right, options_, nullptr));
   }
 
   void ValidateAndAssertApproxEqual(std::shared_ptr<Array> actual,
@@ -87,6 +98,10 @@ class TestBinaryArithmetics : public TestBase {
     ASSERT_OK(actual->ValidateFull());
     AssertArraysApproxEqual(*exp, *actual);
   }
+
+  void SetOverflowCheck(bool value = true) { options_.check_overflow = value; }
+
+  ArithmeticOptions options_ = ArithmeticOptions();
 };
 
 template <typename... Elements>
@@ -130,57 +145,58 @@ TYPED_TEST_SUITE(TestBinaryArithmeticsUnsigned, UnsignedIntegerTypes);
 TYPED_TEST_SUITE(TestBinaryArithmeticsFloating, FloatingTypes);
 
 TYPED_TEST(TestBinaryArithmeticsIntegral, Add) {
-  this->AssertBinop(arrow::compute::Add, "[]", "[]", "[]");
-  this->AssertBinop(arrow::compute::Add, "[null]", "[null]", "[null]");
-  this->AssertBinop(arrow::compute::Add, "[3, 2, 6]", "[1, 0, 2]", "[4, 2, 8]");
+  for (auto check_overflow : {false, true}) {
+    this->SetOverflowCheck(check_overflow);
 
-  this->AssertBinop(arrow::compute::Add, "[1, 2, 3, 4, 5, 6, 7]", "[0, 1, 2, 3, 4, 5, 6]",
-                    "[1, 3, 5, 7, 9, 11, 13]");
+    this->AssertBinop(arrow::compute::Add, "[]", "[]", "[]");
+    this->AssertBinop(arrow::compute::Add, "[null]", "[null]", "[null]");
+    this->AssertBinop(arrow::compute::Add, "[3, 2, 6]", "[1, 0, 2]", "[4, 2, 8]");
 
-  this->AssertBinop(arrow::compute::Add, "[10, 12, 4, 50, 50, 32, 11]",
-                    "[2, 0, 6, 1, 5, 3, 4]", "[12, 12, 10, 51, 55, 35, 15]");
+    this->AssertBinop(arrow::compute::Add, "[1, 2, 3, 4, 5, 6, 7]",
+                      "[0, 1, 2, 3, 4, 5, 6]", "[1, 3, 5, 7, 9, 11, 13]");
 
-  this->AssertBinop(arrow::compute::Add, "[null, 1, 3, null, 2, 5]", "[1, 4, 2, 5, 0, 3]",
-                    "[null, 5, 5, null, 2, 8]");
-
-  this->AssertBinop(arrow::compute::Add, 10, "[null, 1, 3, null, 2, 5]",
-                    "[null, 11, 13, null, 12, 15]");
-
-  this->AssertBinop(arrow::compute::Add, 17, 42, 59);
+    this->AssertBinop(arrow::compute::Add, "[10, 12, 4, 50, 50, 32, 11]",
+                      "[2, 0, 6, 1, 5, 3, 4]", "[12, 12, 10, 51, 55, 35, 15]");
+    this->AssertBinop(arrow::compute::Add, "[null, 1, 3, null, 2, 5]",
+                      "[1, 4, 2, 5, 0, 3]", "[null, 5, 5, null, 2, 8]");
+    this->AssertBinop(arrow::compute::Add, 10, "[null, 1, 3, null, 2, 5]",
+                      "[null, 11, 13, null, 12, 15]");
+    this->AssertBinop(arrow::compute::Add, 17, 42, 59);
+  }
 }
 
 TYPED_TEST(TestBinaryArithmeticsIntegral, Sub) {
-  this->AssertBinop(arrow::compute::Subtract, "[]", "[]", "[]");
-  this->AssertBinop(arrow::compute::Subtract, "[null]", "[null]", "[null]");
-  this->AssertBinop(arrow::compute::Subtract, "[3, 2, 6]", "[1, 0, 2]", "[2, 2, 4]");
+  for (auto check_overflow : {false, true}) {
+    this->SetOverflowCheck(check_overflow);
 
-  this->AssertBinop(arrow::compute::Subtract, "[1, 2, 3, 4, 5, 6, 7]",
-                    "[0, 1, 2, 3, 4, 5, 6]", "[1, 1, 1, 1, 1, 1, 1]");
-
-  this->AssertBinop(arrow::compute::Subtract, 10, "[null, 1, 3, null, 2, 5]",
-                    "[null, 9, 7, null, 8, 5]");
-
-  this->AssertBinop(arrow::compute::Subtract, 20, 9, 11);
+    this->AssertBinop(arrow::compute::Subtract, "[]", "[]", "[]");
+    this->AssertBinop(arrow::compute::Subtract, "[null]", "[null]", "[null]");
+    this->AssertBinop(arrow::compute::Subtract, "[3, 2, 6]", "[1, 0, 2]", "[2, 2, 4]");
+    this->AssertBinop(arrow::compute::Subtract, "[1, 2, 3, 4, 5, 6, 7]",
+                      "[0, 1, 2, 3, 4, 5, 6]", "[1, 1, 1, 1, 1, 1, 1]");
+    this->AssertBinop(arrow::compute::Subtract, 10, "[null, 1, 3, null, 2, 5]",
+                      "[null, 9, 7, null, 8, 5]");
+    this->AssertBinop(arrow::compute::Subtract, 20, 9, 11);
+  }
 }
 
 TYPED_TEST(TestBinaryArithmeticsIntegral, Mul) {
-  this->AssertBinop(arrow::compute::Multiply, "[]", "[]", "[]");
-  this->AssertBinop(arrow::compute::Multiply, "[null]", "[null]", "[null]");
-  this->AssertBinop(arrow::compute::Multiply, "[3, 2, 6]", "[1, 0, 2]", "[3, 0, 12]");
+  for (auto check_overflow : {false, true}) {
+    this->SetOverflowCheck(check_overflow);
 
-  this->AssertBinop(arrow::compute::Multiply, "[1, 2, 3, 4, 5, 6, 7]",
-                    "[0, 1, 2, 3, 4, 5, 6]", "[0, 2, 6, 12, 20, 30, 42]");
-
-  this->AssertBinop(arrow::compute::Multiply, "[7, 6, 5, 4, 3, 2, 1]",
-                    "[6, 5, 4, 3, 2, 1, 0]", "[42, 30, 20, 12, 6, 2, 0]");
-
-  this->AssertBinop(arrow::compute::Multiply, "[null, 1, 3, null, 2, 5]",
-                    "[1, 4, 2, 5, 0, 3]", "[null, 4, 6, null, 0, 15]");
-
-  this->AssertBinop(arrow::compute::Multiply, 3, "[null, 1, 3, null, 2, 5]",
-                    "[null, 3, 9, null, 6, 15]");
-
-  this->AssertBinop(arrow::compute::Multiply, 6, 7, 42);
+    this->AssertBinop(arrow::compute::Multiply, "[]", "[]", "[]");
+    this->AssertBinop(arrow::compute::Multiply, "[null]", "[null]", "[null]");
+    this->AssertBinop(arrow::compute::Multiply, "[3, 2, 6]", "[1, 0, 2]", "[3, 0, 12]");
+    this->AssertBinop(arrow::compute::Multiply, "[1, 2, 3, 4, 5, 6, 7]",
+                      "[0, 1, 2, 3, 4, 5, 6]", "[0, 2, 6, 12, 20, 30, 42]");
+    this->AssertBinop(arrow::compute::Multiply, "[7, 6, 5, 4, 3, 2, 1]",
+                      "[6, 5, 4, 3, 2, 1, 0]", "[42, 30, 20, 12, 6, 2, 0]");
+    this->AssertBinop(arrow::compute::Multiply, "[null, 1, 3, null, 2, 5]",
+                      "[1, 4, 2, 5, 0, 3]", "[null, 4, 6, null, 0, 15]");
+    this->AssertBinop(arrow::compute::Multiply, 3, "[null, 1, 3, null, 2, 5]",
+                      "[null, 3, 9, null, 6, 15]");
+    this->AssertBinop(arrow::compute::Multiply, 6, 7, 42);
+  }
 }
 
 TYPED_TEST(TestBinaryArithmeticsSigned, Add) {
@@ -202,9 +218,43 @@ TYPED_TEST(TestBinaryArithmeticsSigned, OverflowWraps) {
 
   this->AssertBinop(arrow::compute::Subtract, MakeArray(min, max, min),
                     MakeArray(1, max, max), MakeArray(max, 0, 1));
-
   this->AssertBinop(arrow::compute::Multiply, MakeArray(min, max, max),
                     MakeArray(max, 2, max), MakeArray(min, CType(-2), 1));
+}
+
+TYPED_TEST(TestBinaryArithmeticsIntegral, OverflowRaises) {
+  using CType = typename TestFixture::CType;
+
+  auto min = std::numeric_limits<CType>::lowest();
+  auto max = std::numeric_limits<CType>::max();
+
+  this->SetOverflowCheck(true);
+
+  this->AssertBinopRaises(arrow::compute::Add, MakeArray(min, max, max),
+                          MakeArray(CType(-1), 1, max), "overflow");
+  this->AssertBinopRaises(arrow::compute::Subtract, MakeArray(min, max),
+                          MakeArray(1, max), "overflow");
+  this->AssertBinopRaises(arrow::compute::Subtract, MakeArray(min), MakeArray(max),
+                          "overflow");
+
+  this->AssertBinopRaises(arrow::compute::Multiply, MakeArray(min, max, max),
+                          MakeArray(max, 2, max), "overflow");
+}
+
+TYPED_TEST(TestBinaryArithmeticsSigned, OverflowRaises) {
+  using CType = typename TestFixture::CType;
+
+  auto min = std::numeric_limits<CType>::lowest();
+  auto max = std::numeric_limits<CType>::max();
+
+  this->SetOverflowCheck(true);
+
+  this->AssertBinop(arrow::compute::Multiply, MakeArray(max), MakeArray(-1),
+                    MakeArray(min + 1));
+  this->AssertBinopRaises(arrow::compute::Multiply, MakeArray(max), MakeArray(2),
+                          "overflow");
+  this->AssertBinopRaises(arrow::compute::Multiply, MakeArray(min), MakeArray(-1),
+                          "overflow");
 }
 
 TYPED_TEST(TestBinaryArithmeticsUnsigned, OverflowWraps) {
@@ -213,6 +263,7 @@ TYPED_TEST(TestBinaryArithmeticsUnsigned, OverflowWraps) {
   auto min = std::numeric_limits<CType>::lowest();
   auto max = std::numeric_limits<CType>::max();
 
+  this->SetOverflowCheck(false);
   this->AssertBinop(arrow::compute::Add, MakeArray(min, max, max),
                     MakeArray(CType(-1), 1, max), MakeArray(max, min, CType(-2)));
 
