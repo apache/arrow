@@ -221,7 +221,7 @@ struct FilterBenchmark {
     // sizeof(double) for accurate memory processing performance
     args.size = output_length * num_columns * sizeof(double);
     args.size_name = "extracted_size";
-    state.counters["num_cols"] = num_columns;
+    state.counters["num_cols"] = static_cast<double>(num_columns);
 
     std::vector<std::shared_ptr<Array>> columns;
     std::vector<std::shared_ptr<Field>> fields;
