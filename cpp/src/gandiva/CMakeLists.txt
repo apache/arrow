@@ -33,6 +33,8 @@ else()
   # LLVM 10 or later requires C++ 14
   if(CMAKE_CXX_STANDARD LESS 14)
     set(GANDIVA_CXX_STANDARD 14)
+  else()
+    set(GANDIVA_CXX_STANDARD ${CMAKE_CXX_STANDARD})
   endif()
 endif()
 
