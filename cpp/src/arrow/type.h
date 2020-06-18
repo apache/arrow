@@ -21,6 +21,7 @@
 #include <climits>
 #include <cstdint>
 #include <iosfwd>
+#include <limits>
 #include <memory>
 #include <string>
 #include <utility>
@@ -819,6 +820,8 @@ class ARROW_EXPORT BaseBinaryType : public DataType {
  public:
   using DataType::DataType;
 };
+
+constexpr int64_t kBinaryMemoryLimit = std::numeric_limits<int32_t>::max() - 1;
 
 /// \brief Concrete type class for variable-size binary data
 class ARROW_EXPORT BinaryType : public BaseBinaryType {

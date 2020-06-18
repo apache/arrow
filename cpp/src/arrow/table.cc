@@ -740,7 +740,7 @@ Result<std::shared_ptr<Table>> Table::CombineChunks(MemoryPool* pool) const {
         for (; chunk_i < col->num_chunks(); ++chunk_i) {
           const auto& chunk = col->chunk(chunk_i);
           data_length += checked_cast<const BinaryArray&>(*chunk).total_values_length();
-          if (data_length >= std::numeric_limits<int32_t>::max() - 1) {
+          if (data_length >= kBinaryMemoryLimit) {
             break;
           }
           safe_chunks.push_back(chunk);

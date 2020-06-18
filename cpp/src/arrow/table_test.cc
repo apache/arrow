@@ -433,7 +433,6 @@ TEST_F(TestTable, LARGE_MEMORY_TEST(CombineChunksStringColumn)) {
   schema_ = schema({field("str", utf8())});
   arrays_ = {nullptr};
 
-  constexpr int64_t kBinaryMemoryLimit = std::numeric_limits<int32_t>::max() - 1;
   std::string value(1 << 16, '-');
 
   auto num_rows = kBinaryMemoryLimit / static_cast<int64_t>(value.size());

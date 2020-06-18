@@ -41,8 +41,6 @@
 
 namespace arrow {
 
-constexpr int64_t kBinaryMemoryLimit = std::numeric_limits<int32_t>::max() - 1;
-
 // ----------------------------------------------------------------------
 // Binary and String
 
