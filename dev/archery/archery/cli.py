@@ -318,8 +318,10 @@ def lint(ctx, src, fix, iwyu_all, **checks):
 @click.option("--src", metavar="<arrow_src>", default=None,
               callback=validate_arrow_sources,
               help="Specify Arrow source directory")
-@click.option("--enable-rule", "-e", multiple=True, help="Allow only these rules")
-@click.option("--disable-rule", "-d", multiple=True, help="Disallow these rules")
+@click.option("--enable-rule", "-e", multiple=True,
+              help="Allow only these rules")
+@click.option("--disable-rule", "-d", multiple=True,
+              help="Disallow these rules")
 def numpydoc(src, symbols, enable_rule, disable_rule):
     """
     Pass list of modules or symbols as arguments to restrict the validation.
