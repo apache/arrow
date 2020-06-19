@@ -984,7 +984,8 @@ bool ArrayRangeEquals(const Array& left, const Array& right, int64_t left_start_
   bool are_equal;
   if (&left == &right) {
     are_equal = true;
-  } else if (left.type_id() != right.type_id() || !TypeEquals(*left.type(), *right.type(), false /* check_metadata */)) {
+  } else if (left.type_id() != right.type_id() ||
+             !TypeEquals(*left.type(), *right.type(), false /* check_metadata */)) {
     are_equal = false;
   } else if (left.length() == 0) {
     are_equal = true;
