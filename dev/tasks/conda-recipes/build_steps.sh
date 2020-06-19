@@ -36,7 +36,6 @@ export CONDA_BLD_PATH="${output_dir}"
 conda build \
     "${FEEDSTOCK_ROOT}/arrow-cpp" \
     "${FEEDSTOCK_ROOT}/parquet-cpp" \
-    "${FEEDSTOCK_ROOT}/pyarrow" \
     -m "${CI_SUPPORT}/${CONFIG}.yaml" \
     --clobber-file "${CI_SUPPORT}/clobber_${CONFIG}.yaml" \
     --output-folder "${output_dir}"

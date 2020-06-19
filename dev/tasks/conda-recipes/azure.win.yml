@@ -63,17 +63,8 @@ jobs:
       continueOnError: true
       displayName: remove strawberryperl
 
-    # Special cased version setting some more things!
     - script: |
-        conda.exe build arrow-cpp parquet-cpp pyarrow -m .ci_support\%CONFIG%.yaml
-      displayName: Build recipe (vs2008)
-      env:
-        VS90COMNTOOLS: "C:\\Program Files (x86)\\Common Files\\Microsoft\\Visual C++ for Python\\9.0\\VC\\bin"
-        PYTHONUNBUFFERED: 1
-      condition: contains(variables['CONFIG'], 'vs2008')
-
-    - script: |
-        conda.exe build arrow-cpp parquet-cpp pyarrow -m .ci_support\%CONFIG%.yaml
+        conda.exe build arrow-cpp parquet-cpp -m .ci_support\%CONFIG%.yaml
       displayName: Build recipe
       workingDirectory: arrow\dev\tasks\conda-recipes
       env:
