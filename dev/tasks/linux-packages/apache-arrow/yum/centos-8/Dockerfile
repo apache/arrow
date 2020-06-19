@@ -39,7 +39,7 @@ RUN \
     glog-devel \
     gobject-introspection-devel \
     gtk-doc \
-    # libzstd-devel \
+    libzstd-devel \
     llvm-devel \
     llvm-static \
     lz4-devel \
@@ -58,6 +58,6 @@ RUN \
     rpmdevtools \
     snappy-devel \
     tar \
-    utf8proc-devel \
+    # utf8proc-devel \
     zlib-devel && \
   dnf clean ${quiet} all
