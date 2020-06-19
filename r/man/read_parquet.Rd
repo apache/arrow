@@ -43,7 +43,7 @@ This function enables you to read Parquet files into R.
 tf <- tempfile()
 on.exit(unlink(tf))
 write_parquet(mtcars, tf)
-df <- read_parquet(tf)
+df <- read_parquet(tf, col_select = starts_with("d"))
 head(df)
 }
 }
