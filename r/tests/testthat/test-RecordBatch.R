@@ -102,10 +102,10 @@ test_that("RecordBatch", {
 })
 
 test_that("RecordBatch S3 methods", {
-  tab <- RecordBatch$create(iris)
+  tab <- RecordBatch$create(example_data)
   for (f in c("dim", "nrow", "ncol", "dimnames", "colnames", "row.names", "as.list")) {
     fun <- get(f)
-    expect_identical(fun(tab), fun(iris), info = f)
+    expect_identical(fun(tab), fun(example_data), info = f)
   }
 })
 

@@ -37,11 +37,11 @@ and the version 2 specification, which is the Apache Arrow IPC file format.
 \donttest{
 tf <- tempfile()
 on.exit(unlink(tf))
-write_feather(iris, tf)
+write_feather(mtcars, tf)
 df <- read_feather(tf)
 dim(df)
 # Can select columns
-df <- read_feather(tf, col_select = starts_with("Sepal"))
+df <- read_feather(tf, col_select = starts_with("d"))
 }
 }
 \seealso{

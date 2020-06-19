@@ -136,10 +136,10 @@ use \link{CsvTableReader} directly for lower-level access.
 \donttest{
   tf <- tempfile()
   on.exit(unlink(tf))
-  write.csv(iris, file = tf)
+  write.csv(mtcars, file = tf)
   df <- read_csv_arrow(tf)
   dim(df)
   # Can select columns
-  df <- read_csv_arrow(tf, col_select = starts_with("Sepal"))
+  df <- read_csv_arrow(tf, col_select = starts_with("d"))
 }
 }

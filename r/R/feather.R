@@ -135,11 +135,11 @@ write_feather <- function(x,
 #' \donttest{
 #' tf <- tempfile()
 #' on.exit(unlink(tf))
-#' write_feather(iris, tf)
+#' write_feather(mtcars, tf)
 #' df <- read_feather(tf)
 #' dim(df)
 #' # Can select columns
-#' df <- read_feather(tf, col_select = starts_with("Sepal"))
+#' df <- read_feather(tf, col_select = starts_with("d"))
 #' }
 read_feather <- function(file, col_select = NULL, as_data_frame = TRUE, ...) {
   if (!inherits(file, "InputStream")) {
