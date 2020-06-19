@@ -287,7 +287,7 @@ void AddCrossUnitCast(CastFunction* func) {
 std::shared_ptr<CastFunction> GetDate32Cast() {
   auto func = std::make_shared<CastFunction>("cast_date32", Type::DATE32);
   auto out_ty = date32();
-  AddCommonCasts<Date32Type>(out_ty, func.get());
+  AddCommonCasts(Type::DATE32, out_ty, func.get());
 
   // int32 -> date32
   AddZeroCopyCast(Type::INT32, int32(), date32(), func.get());
@@ -304,7 +304,7 @@ std::shared_ptr<CastFunction> GetDate32Cast() {
 std::shared_ptr<CastFunction> GetDate64Cast() {
   auto func = std::make_shared<CastFunction>("cast_date64", Type::DATE64);
   auto out_ty = date64();
-  AddCommonCasts<Date64Type>(out_ty, func.get());
+  AddCommonCasts(Type::DATE64, out_ty, func.get());
 
   // int64 -> date64
   AddZeroCopyCast(Type::INT64, int64(), date64(), func.get());
@@ -321,7 +321,7 @@ std::shared_ptr<CastFunction> GetDate64Cast() {
 
 std::shared_ptr<CastFunction> GetDurationCast() {
   auto func = std::make_shared<CastFunction>("cast_duration", Type::DURATION);
-  AddCommonCasts<DurationType>(kOutputTargetType, func.get());
+  AddCommonCasts(Type::DURATION, kOutputTargetType, func.get());
 
   auto seconds = duration(TimeUnit::SECOND);
   auto millis = duration(TimeUnit::MILLI);
@@ -339,7 +339,7 @@ std::shared_ptr<CastFunction> GetDurationCast() {
 
 std::shared_ptr<CastFunction> GetTime32Cast() {
   auto func = std::make_shared<CastFunction>("cast_time32", Type::TIME32);
-  AddCommonCasts<Date32Type>(kOutputTargetType, func.get());
+  AddCommonCasts(Type::TIME32, kOutputTargetType, func.get());
 
   // Zero copy when the unit is the same or same integer representation
   AddZeroCopyCast(Type::INT32, /*in_type=*/int32(), kOutputTargetType, func.get());
@@ -356,7 +356,7 @@ std::shared_ptr<CastFunction> GetTime32Cast() {
 
 std::shared_ptr<CastFunction> GetTime64Cast() {
   auto func = std::make_shared<CastFunction>("cast_time64", Type::TIME64);
-  AddCommonCasts<Time64Type>(kOutputTargetType, func.get());
+  AddCommonCasts(Type::TIME64, kOutputTargetType, func.get());
 
   // Zero copy when the unit is the same or same integer representation
   AddZeroCopyCast(Type::INT64, /*in_type=*/int64(), kOutputTargetType, func.get());
@@ -373,7 +373,7 @@ std::shared_ptr<CastFunction> GetTime64Cast() {
 
 std::shared_ptr<CastFunction> GetTimestampCast() {
   auto func = std::make_shared<CastFunction>("cast_timestamp", Type::TIMESTAMP);
-  AddCommonCasts<TimestampType>(kOutputTargetType, func.get());
+  AddCommonCasts(Type::TIMESTAMP, kOutputTargetType, func.get());
 
   // Same integer representation
   AddZeroCopyCast(Type::INT64, /*in_type=*/int64(), kOutputTargetType, func.get());
