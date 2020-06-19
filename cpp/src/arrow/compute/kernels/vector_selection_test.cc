@@ -40,44 +40,6 @@ using util::string_view;
 namespace compute {
 
 // ----------------------------------------------------------------------
-// Some random data generation helpers
-
-template <typename Type>
-std::shared_ptr<Array> RandomNumeric(int64_t length, double null_probability,
-                                     random::RandomArrayGenerator* rng) {
-  return rng->Numeric<Type>(length, 0, 127, null_probability);
-}
-
-std::shared_ptr<Array> RandomBoolean(int64_t length, double null_probability,
-                                     random::RandomArrayGenerator* rng) {
-  return rng->Boolean(length, 0.5, null_probability);
-}
-
-std::shared_ptr<Array> RandomString(int64_t length, double null_probability,
-                                    random::RandomArrayGenerator* rng) {
-  return rng->String(length, 0, 32, null_probability);
-}
-
-std::shared_ptr<Array> RandomLargeString(int64_t length, double null_probability,
-                                         random::RandomArrayGenerator* rng) {
-  return rng->LargeString(length, 0, 32, null_probability);
-}
-
-std::shared_ptr<Array> RandomFixedSizeBinary(int64_t length, double null_probability,
-                                             random::RandomArrayGenerator* rng) {
-  const int32_t value_size = 16;
-  int64_t data_nbytes = length * value_size;
-  std::shared_ptr<Buffer> data = *AllocateBuffer(data_nbytes);
-  random_bytes(data_nbytes, /*seed=*/0, data->mutable_data());
-  auto validity = rng->Boolean(length, 1 - null_probability);
-
-  // Assemble the data for a FixedSizeBinaryArray
-  auto values_data = std::make_shared<ArrayData>(fixed_size_binary(value_size), length);
-  values_data->buffers = {validity->data()->buffers[1], data};
-  return MakeArray(values_data);
-}
-
-// ----------------------------------------------------------------------
 
 TEST(GetTakeIndices, Basics) {
   auto CheckCase = [&](const std::string& filter_json, const std::string& indices_json,
@@ -317,39 +279,6 @@ TYPED_TEST(TestFilterKernelWithNumeric, FilterNumeric) {
   ASSERT_RAISES(Invalid, Filter(ArrayFromJSON(type, "[7, 8, 9]"),
                                 ArrayFromJSON(boolean(), "[]"), this->drop_));
 }
-
-template <typename DataGenerator>
-void DoRandomFilterTests(DataGenerator&& generate_values) {
-  auto rand = random::RandomArrayGenerator(kRandomSeed);
-  for (size_t i = 3; i < 10; i++) {
-    const int64_t length = static_cast<int64_t>(1ULL << i);
-    for (auto null_probability : {0.0, 0.01, 0.1, 0.999, 1.0}) {
-      for (auto true_probability : {0.0, 0.1, 0.999, 1.0}) {
-        auto values = generate_values(length, null_probability, &rand);
-        auto filter = rand.Boolean(length + 1, true_probability, null_probability);
-        auto filter_no_nulls = rand.Boolean(length + 1, true_probability, 0.0);
-        ValidateFilter(values, filter->Slice(0, values->length()));
-        ValidateFilter(values, filter_no_nulls->Slice(0, values->length()));
-        // Test values and filter have different offsets
-        ValidateFilter(values->Slice(3), filter->Slice(4));
-        ValidateFilter(values->Slice(3), filter_no_nulls->Slice(4));
-      }
-    }
-  }
-}
-
-TYPED_TEST(TestFilterKernelWithNumeric, FilterRandomNumeric) {
-  DoRandomFilterTests(RandomNumeric<TypeParam>);
-}
-
-TEST(TestFilter, RandomBoolean) { DoRandomFilterTests(RandomBoolean); }
-
-TEST(TestFilter, RandomString) {
-  DoRandomFilterTests(RandomString);
-  DoRandomFilterTests(RandomLargeString);
-}
-
-TEST(TestFilter, RandomFixedSizeBinary) { DoRandomFilterTests(RandomFixedSizeBinary); }
 
 template <typename CType>
 using Comparator = bool(CType, CType);
@@ -965,60 +894,6 @@ uint64_t GetMaxIndex(int64_t values_length) {
   return static_cast<uint64_t>(values_length - 1);
 }
 
-template <typename ValuesType, typename IndexType>
-void CheckTakeRandom(const std::shared_ptr<Array>& values, int64_t indices_length,
-                     double null_probability, random::RandomArrayGenerator* rand) {
-  using IndexCType = typename IndexType::c_type;
-  IndexCType max_index = GetMaxIndex<IndexCType>(values->length());
-  auto indices = rand->Numeric<IndexType>(indices_length, static_cast<IndexCType>(0),
-                                          max_index, null_probability);
-  auto indices_no_nulls = rand->Numeric<IndexType>(
-      indices_length, static_cast<IndexCType>(0), max_index, /*null_probability=*/0.0);
-  ValidateTake<ValuesType>(values, indices);
-  ValidateTake<ValuesType>(values, indices_no_nulls);
-  // Sliced indices array
-  if (indices_length >= 2) {
-    indices = indices->Slice(1, indices_length - 2);
-    indices_no_nulls = indices_no_nulls->Slice(1, indices_length - 2);
-    ValidateTake<ValuesType>(values, indices);
-    ValidateTake<ValuesType>(values, indices_no_nulls);
-  }
-}
-
-template <typename ValuesType, typename DataGenerator>
-void DoRandomTakeTests(DataGenerator&& generate_values) {
-  auto rand = random::RandomArrayGenerator(kRandomSeed);
-  for (const int64_t length : {1, 16, 59}) {
-    for (const int64_t indices_length : {0, 5, 30}) {
-      for (const auto null_probability : {0.0, 0.05, 0.25, 0.95, 1.0}) {
-        auto values = generate_values(length, null_probability, &rand);
-        CheckTakeRandom<ValuesType, Int8Type>(values, indices_length, null_probability,
-                                              &rand);
-        CheckTakeRandom<ValuesType, Int16Type>(values, indices_length, null_probability,
-                                               &rand);
-        CheckTakeRandom<ValuesType, Int32Type>(values, indices_length, null_probability,
-                                               &rand);
-        CheckTakeRandom<ValuesType, Int64Type>(values, indices_length, null_probability,
-                                               &rand);
-        CheckTakeRandom<ValuesType, UInt8Type>(values, indices_length, null_probability,
-                                               &rand);
-        CheckTakeRandom<ValuesType, UInt16Type>(values, indices_length, null_probability,
-                                                &rand);
-        CheckTakeRandom<ValuesType, UInt32Type>(values, indices_length, null_probability,
-                                                &rand);
-        CheckTakeRandom<ValuesType, UInt64Type>(values, indices_length, null_probability,
-                                                &rand);
-        // Sliced values array
-        if (length > 2) {
-          values = values->Slice(1, length - 2);
-          CheckTakeRandom<ValuesType, UInt64Type>(values, indices_length,
-                                                  null_probability, &rand);
-        }
-      }
-    }
-  }
-}
-
 template <typename ArrowType>
 class TestTakeKernel : public ::testing::Test {};
 
@@ -1078,21 +953,6 @@ TYPED_TEST(TestTakeKernelWithNumeric, TakeNumeric) {
                 TakeJSON(this->type_singleton(), "[7, 8, 9]", int8(), "[0, 9, 0]", &arr));
   ASSERT_RAISES(IndexError, TakeJSON(this->type_singleton(), "[7, 8, 9]", int8(),
                                      "[0, -1, 0]", &arr));
-}
-
-TYPED_TEST(TestTakeKernelWithNumeric, TakeRandomNumeric) {
-  DoRandomTakeTests<TypeParam>(RandomNumeric<TypeParam>);
-}
-
-TEST(TestTakeKernel, TakeBooleanRandom) { DoRandomTakeTests<BooleanType>(RandomBoolean); }
-
-TEST(TestTakeKernelString, Random) {
-  DoRandomTakeTests<StringType>(RandomString);
-  DoRandomTakeTests<LargeStringType>(RandomLargeString);
-}
-
-TEST(TestTakeKernelFixedSizeBinary, Random) {
-  DoRandomTakeTests<FixedSizeBinaryType>(RandomFixedSizeBinary);
 }
 
 template <typename TypeClass>
@@ -1632,6 +1492,111 @@ TEST_F(TestTakeKernelWithTable, TakeTable) {
       "[{\"a\": 4, \"b\": \"eh\"},{\"a\": 1, \"b\": \"\"},{\"a\": null, \"b\": \"yo\"}]"};
   this->AssertTake(schm, table_json, "[3, 1, 0]", expected_310);
   this->AssertChunkedTake(schm, table_json, {"[0, 1]", "[2, 3]"}, table_json);
+}
+
+// ----------------------------------------------------------------------
+// Random data tests
+
+template <typename Unused = void>
+struct FilterRandomTest {
+  static void Test(const std::shared_ptr<DataType>& type) {
+    auto rand = random::RandomArrayGenerator(kRandomSeed);
+    const int64_t length = static_cast<int64_t>(1ULL << 10);
+    for (auto null_probability : {0.0, 0.01, 0.1, 0.999, 1.0}) {
+      for (auto true_probability : {0.0, 0.1, 0.999, 1.0}) {
+        auto values = rand.ArrayOf(type, length, null_probability);
+        auto filter = rand.Boolean(length + 1, true_probability, null_probability);
+        auto filter_no_nulls = rand.Boolean(length + 1, true_probability, 0.0);
+        ValidateFilter(values, filter->Slice(0, values->length()));
+        ValidateFilter(values, filter_no_nulls->Slice(0, values->length()));
+        // Test values and filter have different offsets
+        ValidateFilter(values->Slice(3), filter->Slice(4));
+        ValidateFilter(values->Slice(3), filter_no_nulls->Slice(4));
+      }
+    }
+  }
+};
+
+template <typename ValuesType, typename IndexType>
+void CheckTakeRandom(const std::shared_ptr<Array>& values, int64_t indices_length,
+                     double null_probability, random::RandomArrayGenerator* rand) {
+  using IndexCType = typename IndexType::c_type;
+  IndexCType max_index = GetMaxIndex<IndexCType>(values->length());
+  auto indices = rand->Numeric<IndexType>(indices_length, static_cast<IndexCType>(0),
+                                          max_index, null_probability);
+  auto indices_no_nulls = rand->Numeric<IndexType>(
+      indices_length, static_cast<IndexCType>(0), max_index, /*null_probability=*/0.0);
+  ValidateTake<ValuesType>(values, indices);
+  ValidateTake<ValuesType>(values, indices_no_nulls);
+  // Sliced indices array
+  if (indices_length >= 2) {
+    indices = indices->Slice(1, indices_length - 2);
+    indices_no_nulls = indices_no_nulls->Slice(1, indices_length - 2);
+    ValidateTake<ValuesType>(values, indices);
+    ValidateTake<ValuesType>(values, indices_no_nulls);
+  }
+}
+
+template <typename ValuesType>
+struct TakeRandomTest {
+  static void Test(const std::shared_ptr<DataType>& type) {
+    auto rand = random::RandomArrayGenerator(kRandomSeed);
+    const int64_t values_length = 64 * 16 + 1;
+    const int64_t indices_length = 64 * 4 + 1;
+    for (const auto null_probability : {0.0, 0.001, 0.05, 0.25, 0.95, 0.999, 1.0}) {
+      auto values = rand.ArrayOf(type, values_length, null_probability);
+      CheckTakeRandom<ValuesType, Int8Type>(values, indices_length, null_probability,
+                                            &rand);
+      CheckTakeRandom<ValuesType, Int16Type>(values, indices_length, null_probability,
+                                             &rand);
+      CheckTakeRandom<ValuesType, Int32Type>(values, indices_length, null_probability,
+                                             &rand);
+      CheckTakeRandom<ValuesType, Int64Type>(values, indices_length, null_probability,
+                                             &rand);
+      CheckTakeRandom<ValuesType, UInt8Type>(values, indices_length, null_probability,
+                                             &rand);
+      CheckTakeRandom<ValuesType, UInt16Type>(values, indices_length, null_probability,
+                                              &rand);
+      CheckTakeRandom<ValuesType, UInt32Type>(values, indices_length, null_probability,
+                                              &rand);
+      CheckTakeRandom<ValuesType, UInt64Type>(values, indices_length, null_probability,
+                                              &rand);
+      // Sliced values array
+      if (values_length > 2) {
+        values = values->Slice(1, values_length - 2);
+        CheckTakeRandom<ValuesType, UInt64Type>(values, indices_length, null_probability,
+                                                &rand);
+      }
+    }
+  }
+};
+
+TEST(TestFilter, PrimitiveRandom) { TestRandomPrimitiveCTypes<FilterRandomTest>(); }
+
+TEST(TestFilter, RandomBoolean) { FilterRandomTest<>::Test(boolean()); }
+
+TEST(TestFilter, RandomString) {
+  FilterRandomTest<>::Test(utf8());
+  FilterRandomTest<>::Test(large_utf8());
+}
+
+TEST(TestFilter, RandomFixedSizeBinary) {
+  FilterRandomTest<>::Test(fixed_size_binary(0));
+  FilterRandomTest<>::Test(fixed_size_binary(16));
+}
+
+TEST(TestTake, PrimitiveRandom) { TestRandomPrimitiveCTypes<TakeRandomTest>(); }
+
+TEST(TestTake, RandomBoolean) { TakeRandomTest<BooleanType>::Test(boolean()); }
+
+TEST(TestTake, RandomString) {
+  TakeRandomTest<StringType>::Test(utf8());
+  TakeRandomTest<LargeStringType>::Test(large_utf8());
+}
+
+TEST(TestTake, RandomFixedSizeBinary) {
+  TakeRandomTest<FixedSizeBinaryType>::Test(fixed_size_binary(0));
+  TakeRandomTest<FixedSizeBinaryType>::Test(fixed_size_binary(16));
 }
 
 }  // namespace compute

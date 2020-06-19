@@ -104,5 +104,26 @@ using TestingStringTypes =
 
 static constexpr random::SeedType kRandomSeed = 0x0ff1ce;
 
+template <template <typename> class DoTestFunctor>
+void TestRandomPrimitiveCTypes() {
+  DoTestFunctor<Int8Type>::Test(int8());
+  DoTestFunctor<Int16Type>::Test(int16());
+  DoTestFunctor<Int32Type>::Test(int32());
+  DoTestFunctor<Int64Type>::Test(int64());
+  DoTestFunctor<UInt8Type>::Test(uint8());
+  DoTestFunctor<UInt16Type>::Test(uint16());
+  DoTestFunctor<UInt32Type>::Test(uint32());
+  DoTestFunctor<UInt64Type>::Test(uint64());
+  DoTestFunctor<FloatType>::Test(float32());
+  DoTestFunctor<DoubleType>::Test(float64());
+  DoTestFunctor<Date32Type>::Test(date32());
+  DoTestFunctor<Date64Type>::Test(date64());
+  DoTestFunctor<Time32Type>::Test(time32(TimeUnit::SECOND));
+  DoTestFunctor<Time64Type>::Test(time64(TimeUnit::MICRO));
+  DoTestFunctor<TimestampType>::Test(timestamp(TimeUnit::SECOND));
+  DoTestFunctor<TimestampType>::Test(timestamp(TimeUnit::MICRO));
+  DoTestFunctor<DurationType>::Test(duration(TimeUnit::MILLI));
+}
+
 }  // namespace compute
 }  // namespace arrow
