@@ -22,10 +22,10 @@
 #include <string>
 
 #include "arrow/array.h"
+#include "arrow/chunked_array.h"
 #include "arrow/compute/exec.h"
 #include "arrow/datum.h"
 #include "arrow/result.h"
-#include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
 
 namespace arrow {

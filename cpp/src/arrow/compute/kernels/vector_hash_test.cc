@@ -30,9 +30,9 @@
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
+#include "arrow/chunked_array.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
-#include "arrow/table.h"
 #include "arrow/testing/gtest_common.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"

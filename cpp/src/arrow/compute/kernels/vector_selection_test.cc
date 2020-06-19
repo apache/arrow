@@ -23,6 +23,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/chunked_array.h"
 #include "arrow/compute/api.h"
 #include "arrow/compute/kernels/test_util.h"
 #include "arrow/table.h"
