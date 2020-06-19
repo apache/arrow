@@ -71,8 +71,7 @@ Result<ValueDescr> ResolveOutputFromOptions(KernelContext* ctx,
 
 ARROW_EXPORT extern OutputType kOutputTargetType;
 
-void AddCommonCasts(Type::type out_type_id, OutputType out_ty,
-                    CastFunction* func);
+void AddCommonCasts(Type::type out_type_id, OutputType out_ty, CastFunction* func);
 
 }  // namespace internal
 }  // namespace compute

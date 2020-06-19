@@ -127,8 +127,7 @@ static bool CanCastFromDictionary(Type::type type_id) {
 
 void AddCommonCasts(Type::type out_type_id, OutputType out_ty, CastFunction* func) {
   // From null to this type
-  DCHECK_OK(func->AddKernel(Type::NA, {InputType::Array(null())}, out_ty,
-                            CastFromNull));
+  DCHECK_OK(func->AddKernel(Type::NA, {InputType::Array(null())}, out_ty, CastFromNull));
 
   // From dictionary to this type
   if (CanCastFromDictionary(out_type_id)) {

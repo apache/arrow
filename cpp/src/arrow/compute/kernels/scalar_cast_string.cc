@@ -155,7 +155,7 @@ std::vector<std::shared_ptr<CastFunction>> GetBinaryLikeCasts() {
   auto cast_fsb =
       std::make_shared<CastFunction>("cast_fixed_size_binary", Type::FIXED_SIZE_BINARY);
   AddCommonCasts(Type::FIXED_SIZE_BINARY, OutputType(ResolveOutputFromOptions),
-                                      cast_fsb.get());
+                 cast_fsb.get());
 
   auto cast_string = std::make_shared<CastFunction>("cast_string", Type::STRING);
   AddCommonCasts(Type::STRING, utf8(), cast_string.get());
