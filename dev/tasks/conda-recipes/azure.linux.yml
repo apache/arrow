@@ -7,7 +7,6 @@ jobs:
   variables:
     CONFIG: {{ config }}
     ARROW_VERSION: {{ arrow.no_rc_version }}
-    DOCKER_IMAGE: condaforge/linux-anvil-comp7
     UPLOAD_PACKAGES: False
 
   steps:
