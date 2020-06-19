@@ -24,6 +24,7 @@
 
 namespace arrow {
 namespace compute {
+namespace {
 
 template <typename T>
 using is_unsigned_integer = std::integral_constant<bool, std::is_integral<T>::value &&
@@ -217,7 +218,7 @@ struct MultiplyChecked {
   }
 };
 
-namespace codegen {
+using applicator::ScalarBinaryEqualTypes;
 
 // Generate a kernel given an arithmetic functor
 //
@@ -257,23 +258,23 @@ template <typename Op>
 void AddBinaryFunction(std::string name, FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>(name, Arity::Binary());
   for (const auto& ty : NumericTypes()) {
-    auto exec = codegen::NumericEqualTypesBinary<Op>(ty);
+    auto exec = NumericEqualTypesBinary<Op>(ty);
     DCHECK_OK(func->AddKernel({ty, ty}, ty, exec));
   }
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
-}  // namespace codegen
+}  // namespace
 
 namespace internal {
 
 void RegisterScalarArithmetic(FunctionRegistry* registry) {
-  codegen::AddBinaryFunction<Add>("add", registry);
-  codegen::AddBinaryFunction<AddChecked>("add_checked", registry);
-  codegen::AddBinaryFunction<Subtract>("subtract", registry);
-  codegen::AddBinaryFunction<SubtractChecked>("subtract_checked", registry);
-  codegen::AddBinaryFunction<Multiply>("multiply", registry);
-  codegen::AddBinaryFunction<MultiplyChecked>("multiply_checked", registry);
+  AddBinaryFunction<Add>("add", registry);
+  AddBinaryFunction<AddChecked>("add_checked", registry);
+  AddBinaryFunction<Subtract>("subtract", registry);
+  AddBinaryFunction<SubtractChecked>("subtract_checked", registry);
+  AddBinaryFunction<Multiply>("multiply", registry);
+  AddBinaryFunction<MultiplyChecked>("multiply_checked", registry);
 }
 
 }  // namespace internal

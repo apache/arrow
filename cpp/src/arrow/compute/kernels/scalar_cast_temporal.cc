@@ -270,7 +270,7 @@ template <typename I>
 struct CastFunctor<TimestampType, I, enable_if_t<is_base_binary_type<I>::value>> {
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     const auto& out_type = checked_cast<const TimestampType&>(*out->type());
-    codegen::ScalarUnaryNotNullStateful<TimestampType, I, ParseTimestamp> kernel(
+    applicator::ScalarUnaryNotNullStateful<TimestampType, I, ParseTimestamp> kernel(
         ParseTimestamp(out_type.unit()));
     return kernel.Exec(ctx, batch, out);
   }

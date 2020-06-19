@@ -217,10 +217,10 @@ struct CastFunctor<O, I,
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     const auto& options = checked_cast<const CastState*>(ctx->state())->options;
     if (!options.allow_int_overflow) {
-      codegen::ScalarUnaryNotNull<O, I, IntegerDowncastNoOverflow<O, I>>::Exec(ctx, batch,
-                                                                               out);
+      applicator::ScalarUnaryNotNull<O, I, IntegerDowncastNoOverflow<O, I>>::Exec(
+          ctx, batch, out);
     } else {
-      codegen::ScalarUnary<O, I, StaticCast>::Exec(ctx, batch, out);
+      applicator::ScalarUnary<O, I, StaticCast>::Exec(ctx, batch, out);
     }
   }
 };
@@ -246,9 +246,10 @@ struct CastFunctor<O, I, enable_if_t<is_float_truncate<O, I>::value>> {
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     const auto& options = checked_cast<const CastState*>(ctx->state())->options;
     if (options.allow_float_truncate) {
-      codegen::ScalarUnary<O, I, StaticCast>::Exec(ctx, batch, out);
+      applicator::ScalarUnary<O, I, StaticCast>::Exec(ctx, batch, out);
     } else {
-      codegen::ScalarUnaryNotNull<O, I, FloatToIntegerNoTruncate>::Exec(ctx, batch, out);
+      applicator::ScalarUnaryNotNull<O, I, FloatToIntegerNoTruncate>::Exec(ctx, batch,
+                                                                           out);
     }
   }
 };
@@ -261,7 +262,7 @@ struct CastFunctor<
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     // Due to various checks done via type-trait, the cast is safe and bear
     // no truncation.
-    codegen::ScalarUnary<O, I, StaticCast>::Exec(ctx, batch, out);
+    applicator::ScalarUnary<O, I, StaticCast>::Exec(ctx, batch, out);
   }
 };
 
@@ -280,7 +281,7 @@ struct BooleanToNumber {
 template <typename O>
 struct CastFunctor<O, BooleanType, enable_if_number<O>> {
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    codegen::ScalarUnary<O, BooleanType, BooleanToNumber>::Exec(ctx, batch, out);
+    applicator::ScalarUnary<O, BooleanType, BooleanToNumber>::Exec(ctx, batch, out);
   }
 };
 
@@ -302,7 +303,7 @@ struct ParseString {
 template <typename O, typename I>
 struct CastFunctor<O, I, enable_if_base_binary<I>> {
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    codegen::ScalarUnaryNotNull<O, I, ParseString<O>>::Exec(ctx, batch, out);
+    applicator::ScalarUnaryNotNull<O, I, ParseString<O>>::Exec(ctx, batch, out);
   }
 };
 
@@ -377,20 +378,21 @@ struct CastFunctor<O, Decimal128Type, enable_if_t<is_integer_type<O>::value>> {
     if (options.allow_decimal_truncate) {
       if (in_scale < 0) {
         // Unsafe upscale
-        codegen::ScalarUnaryNotNullStateful<O, Decimal128Type,
-                                            UnsafeUpscaleDecimalToInteger>
+        applicator::ScalarUnaryNotNullStateful<O, Decimal128Type,
+                                               UnsafeUpscaleDecimalToInteger>
             kernel(UnsafeUpscaleDecimalToInteger{in_scale, options.allow_int_overflow});
         return kernel.Exec(ctx, batch, out);
       } else {
         // Unsafe downscale
-        codegen::ScalarUnaryNotNullStateful<O, Decimal128Type,
-                                            UnsafeDownscaleDecimalToInteger>
+        applicator::ScalarUnaryNotNullStateful<O, Decimal128Type,
+                                               UnsafeDownscaleDecimalToInteger>
             kernel(UnsafeDownscaleDecimalToInteger{in_scale, options.allow_int_overflow});
         return kernel.Exec(ctx, batch, out);
       }
     } else {
       // Safe rescale
-      codegen::ScalarUnaryNotNullStateful<O, Decimal128Type, SafeRescaleDecimalToInteger>
+      applicator::ScalarUnaryNotNullStateful<O, Decimal128Type,
+                                             SafeRescaleDecimalToInteger>
           kernel(SafeRescaleDecimalToInteger{in_scale, options.allow_int_overflow});
       return kernel.Exec(ctx, batch, out);
     }
@@ -452,21 +454,21 @@ struct CastFunctor<Decimal128Type, Decimal128Type> {
     if (options.allow_decimal_truncate) {
       if (in_scale < out_scale) {
         // Unsafe upscale
-        codegen::ScalarUnaryNotNullStateful<Decimal128Type, Decimal128Type,
-                                            UnsafeUpscaleDecimal>
+        applicator::ScalarUnaryNotNullStateful<Decimal128Type, Decimal128Type,
+                                               UnsafeUpscaleDecimal>
             kernel(UnsafeUpscaleDecimal{out_scale, in_scale});
         return kernel.Exec(ctx, batch, out);
       } else {
         // Unsafe downscale
-        codegen::ScalarUnaryNotNullStateful<Decimal128Type, Decimal128Type,
-                                            UnsafeDownscaleDecimal>
+        applicator::ScalarUnaryNotNullStateful<Decimal128Type, Decimal128Type,
+                                               UnsafeDownscaleDecimal>
             kernel(UnsafeDownscaleDecimal{out_scale, in_scale});
         return kernel.Exec(ctx, batch, out);
       }
     } else {
       // Safe rescale
-      codegen::ScalarUnaryNotNullStateful<Decimal128Type, Decimal128Type,
-                                          SafeRescaleDecimal>
+      applicator::ScalarUnaryNotNullStateful<Decimal128Type, Decimal128Type,
+                                             SafeRescaleDecimal>
           kernel(SafeRescaleDecimal{out_scale, out_precision, in_scale});
       return kernel.Exec(ctx, batch, out);
     }

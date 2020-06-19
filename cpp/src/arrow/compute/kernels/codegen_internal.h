@@ -49,6 +49,7 @@
 namespace arrow {
 
 using internal::BitmapReader;
+using internal::checked_cast;
 using internal::FirstTimeBitmapWriter;
 using internal::GenerateBitsUnrolled;
 
@@ -151,22 +152,22 @@ struct UnboxScalar;
 template <typename Type>
 struct UnboxScalar<Type, enable_if_has_c_type<Type>> {
   using ScalarType = ::arrow::internal::PrimitiveScalar<typename Type::PhysicalType>;
-  static typename Type::c_type Unbox(const Datum& datum) {
-    return datum.scalar_as<ScalarType>().value;
+  static typename Type::c_type Unbox(const Scalar& val) {
+    return checked_cast<const ScalarType&>(val).value;
   }
 };
 
 template <typename Type>
 struct UnboxScalar<Type, enable_if_base_binary<Type>> {
-  static util::string_view Unbox(const Datum& datum) {
-    return util::string_view(*datum.scalar_as<BaseBinaryScalar>().value);
+  static util::string_view Unbox(const Scalar& val) {
+    return util::string_view(*checked_cast<const BaseBinaryScalar&>(val).value);
   }
 };
 
 template <>
 struct UnboxScalar<Decimal128Type> {
-  static Decimal128 Unbox(const Datum& datum) {
-    return datum.scalar_as<Decimal128Scalar>().value;
+  static Decimal128 Unbox(const Scalar& val) {
+    return checked_cast<const Decimal128Scalar&>(val).value;
   }
 };
 
@@ -288,10 +289,11 @@ const std::vector<std::shared_ptr<DataType>>& TemporalTypes();
 const std::vector<std::shared_ptr<DataType>>& PrimitiveTypes();
 
 // ----------------------------------------------------------------------
-// Template functions and utilities for generating ArrayKernelExec functions
-// for kernels given functors providing the right kind of template / prototype
+// "Applicators" take an operator definition (which may be scalar-valued or
+// array-valued) and creates an ArrayKernelExec which can be used to add an
+// ArrayKernel to a Function.
 
-namespace codegen {
+namespace applicator {
 
 // Generate an ArrayKernelExec given a functor that handles all of its own
 // iteration, etc.
@@ -385,27 +387,27 @@ struct ScalarUnary {
   using OUT = typename GetOutputType<OutType>::T;
   using ARG0 = typename GetViewType<Arg0Type>::T;
 
-  static void Array(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    ArrayIterator<Arg0Type> arg0(*batch[0].array());
+  static void Array(KernelContext* ctx, const ArrayData& arg0, Datum* out) {
+    ArrayIterator<Arg0Type> arg0_it(arg0);
     OutputAdapter<OutType>::Write(
-        ctx, out, [&]() -> OUT { return Op::template Call<OUT, ARG0>(ctx, arg0()); });
+        ctx, out, [&]() -> OUT { return Op::template Call<OUT, ARG0>(ctx, arg0_it()); });
   }
 
-  static void Scalar(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    if (batch[0].scalar()->is_valid) {
-      ARG0 arg0 = UnboxScalar<Arg0Type>::Unbox(batch[0]);
-      out->value =
-          BoxScalar<OutType>::Box(Op::template Call<OUT, ARG0>(ctx, arg0), out->type());
+  static void Scalar(KernelContext* ctx, const Scalar& arg0, Datum* out) {
+    if (arg0.is_valid) {
+      ARG0 arg0_val = UnboxScalar<Arg0Type>::Unbox(arg0);
+      out->value = BoxScalar<OutType>::Box(Op::template Call<OUT, ARG0>(ctx, arg0_val),
+                                           out->type());
     } else {
-      out->value = MakeNullScalar(batch[0].type());
+      out->value = MakeNullScalar(arg0.type);
     }
   }
 
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     if (batch[0].kind() == Datum::ARRAY) {
-      return Array(ctx, batch, out);
+      return Array(ctx, *batch[0].array(), out);
     } else {
-      return Scalar(ctx, batch, out);
+      return Scalar(ctx, *batch[0].scalar(), out);
     }
   }
 };
@@ -457,11 +459,11 @@ struct ScalarUnaryNotNullStateful {
   template <typename Type>
   struct ArrayExec<
       Type, enable_if_t<has_c_type<Type>::value && !is_boolean_type<Type>::value>> {
-    static void Exec(const ThisType& functor, KernelContext* ctx, const ExecBatch& batch,
+    static void Exec(const ThisType& functor, KernelContext* ctx, const ArrayData& arg0,
                      Datum* out) {
       ArrayData* out_arr = out->mutable_array();
       auto out_data = out_arr->GetMutableValues<OUT>(1);
-      VisitArrayValuesInline<Arg0Type>(*batch[0].array(), [&](util::optional<ARG0> v) {
+      VisitArrayValuesInline<Arg0Type>(arg0, [&](util::optional<ARG0> v) {
         if (v.has_value()) {
           *out_data = functor.op.template Call<OUT, ARG0>(ctx, *v);
         }
@@ -472,14 +474,14 @@ struct ScalarUnaryNotNullStateful {
 
   template <typename Type>
   struct ArrayExec<Type, enable_if_base_binary<Type>> {
-    static void Exec(const ThisType& functor, KernelContext* ctx, const ExecBatch& batch,
+    static void Exec(const ThisType& functor, KernelContext* ctx, const ArrayData& arg0,
                      Datum* out) {
       // NOTE: This code is not currently used by any kernels and has
       // suboptimal performance because it's recomputing the validity bitmap
       // that is already computed by the kernel execution layer. Consider
       // writing a lower-level "output adapter" for base binary types.
       typename TypeTraits<Type>::BuilderType builder;
-      VisitArrayValuesInline<Arg0Type>(*batch[0].array(), [&](util::optional<ARG0> v) {
+      VisitArrayValuesInline<Arg0Type>(arg0, [&](util::optional<ARG0> v) {
         if (v.has_value()) {
           KERNEL_RETURN_IF_ERROR(ctx, builder.Append(functor.op.Call(ctx, *v)));
         } else {
@@ -496,12 +498,12 @@ struct ScalarUnaryNotNullStateful {
 
   template <typename Type>
   struct ArrayExec<Type, enable_if_t<is_boolean_type<Type>::value>> {
-    static void Exec(const ThisType& functor, KernelContext* ctx, const ExecBatch& batch,
+    static void Exec(const ThisType& functor, KernelContext* ctx, const ArrayData& arg0,
                      Datum* out) {
       ArrayData* out_arr = out->mutable_array();
       FirstTimeBitmapWriter out_writer(out_arr->buffers[1]->mutable_data(),
                                        out_arr->offset, out_arr->length);
-      VisitArrayValuesInline<Arg0Type>(*batch[0].array(), [&](util::optional<ARG0> v) {
+      VisitArrayValuesInline<Arg0Type>(arg0, [&](util::optional<ARG0> v) {
         if (v.has_value()) {
           if (functor.op.template Call<OUT, ARG0>(ctx, *v)) {
             out_writer.Set();
@@ -515,11 +517,11 @@ struct ScalarUnaryNotNullStateful {
 
   template <typename Type>
   struct ArrayExec<Type, enable_if_t<std::is_same<Type, Decimal128Type>::value>> {
-    static void Exec(const ThisType& functor, KernelContext* ctx, const ExecBatch& batch,
+    static void Exec(const ThisType& functor, KernelContext* ctx, const ArrayData& arg0,
                      Datum* out) {
       ArrayData* out_arr = out->mutable_array();
       auto out_data = out_arr->GetMutableValues<uint8_t>(1);
-      VisitArrayValuesInline<Arg0Type>(*batch[0].array(), [&](util::optional<ARG0> v) {
+      VisitArrayValuesInline<Arg0Type>(arg0, [&](util::optional<ARG0> v) {
         if (v.has_value()) {
           functor.op.template Call<OUT, ARG0>(ctx, *v).ToBytes(out_data);
         }
@@ -528,21 +530,21 @@ struct ScalarUnaryNotNullStateful {
     }
   };
 
-  void Scalar(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    if (batch[0].scalar()->is_valid) {
-      ARG0 arg0 = UnboxScalar<Arg0Type>::Unbox(batch[0]);
-      out->value = BoxScalar<OutType>::Box(this->op.template Call<OUT, ARG0>(ctx, arg0),
-                                           out->type());
+  void Scalar(KernelContext* ctx, const Scalar& arg0, Datum* out) {
+    if (arg0.is_valid) {
+      ARG0 arg0_val = UnboxScalar<Arg0Type>::Unbox(arg0);
+      out->value = BoxScalar<OutType>::Box(
+          this->op.template Call<OUT, ARG0>(ctx, arg0_val), out->type());
     } else {
-      out->value = MakeNullScalar(batch[0].type());
+      out->value = MakeNullScalar(arg0.type);
     }
   }
 
   void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     if (batch[0].kind() == Datum::ARRAY) {
-      ArrayExec<OutType>::Exec(*this, ctx, batch, out);
+      ArrayExec<OutType>::Exec(*this, ctx, *batch[0].array(), out);
     } else {
-      return Scalar(ctx, batch, out);
+      return Scalar(ctx, *batch[0].scalar(), out);
     }
   }
 };
@@ -584,49 +586,53 @@ struct ScalarBinary {
   using ARG0 = typename GetViewType<Arg0Type>::T;
   using ARG1 = typename GetViewType<Arg1Type>::T;
 
-  static void ArrayArray(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    ArrayIterator<Arg0Type> arg0(*batch[0].array());
-    ArrayIterator<Arg1Type> arg1(*batch[1].array());
+  static void ArrayArray(KernelContext* ctx, const ArrayData& arg0, const ArrayData& arg1,
+                         Datum* out) {
+    ArrayIterator<Arg0Type> arg0_it(arg0);
+    ArrayIterator<Arg1Type> arg1_it(arg1);
     OutputAdapter<OutType>::Write(
-        ctx, out, [&]() -> OUT { return Op::template Call(ctx, arg0(), arg1()); });
+        ctx, out, [&]() -> OUT { return Op::template Call(ctx, arg0_it(), arg1_it()); });
   }
 
-  static void ArrayScalar(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    ArrayIterator<Arg0Type> arg0(*batch[0].array());
-    auto arg1 = UnboxScalar<Arg1Type>::Unbox(batch[1]);
+  static void ArrayScalar(KernelContext* ctx, const ArrayData& arg0, const Scalar& arg1,
+                          Datum* out) {
+    ArrayIterator<Arg0Type> arg0_it(arg0);
+    auto arg1_val = UnboxScalar<Arg1Type>::Unbox(arg1);
     OutputAdapter<OutType>::Write(
-        ctx, out, [&]() -> OUT { return Op::template Call(ctx, arg0(), arg1); });
+        ctx, out, [&]() -> OUT { return Op::template Call(ctx, arg0_it(), arg1_val); });
   }
 
-  static void ScalarArray(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    auto arg0 = UnboxScalar<Arg0Type>::Unbox(batch[0]);
-    ArrayIterator<Arg1Type> arg1(*batch[1].array());
+  static void ScalarArray(KernelContext* ctx, const Scalar& arg0, const ArrayData& arg1,
+                          Datum* out) {
+    auto arg0_val = UnboxScalar<Arg0Type>::Unbox(arg0);
+    ArrayIterator<Arg1Type> arg1_it(arg1);
     OutputAdapter<OutType>::Write(
-        ctx, out, [&]() -> OUT { return Op::template Call(ctx, arg0, arg1()); });
+        ctx, out, [&]() -> OUT { return Op::template Call(ctx, arg0_val, arg1_it()); });
   }
 
-  static void ScalarScalar(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  static void ScalarScalar(KernelContext* ctx, const Scalar& arg0, const Scalar& arg1,
+                           Datum* out) {
     if (out->scalar()->is_valid) {
-      auto arg0 = UnboxScalar<Arg0Type>::Unbox(batch[0]);
-      auto arg1 = UnboxScalar<Arg1Type>::Unbox(batch[1]);
-      out->value =
-          BoxScalar<OutType>::Box(Op::template Call(ctx, arg0, arg1), out->type());
+      auto arg0_val = UnboxScalar<Arg0Type>::Unbox(arg0);
+      auto arg1_val = UnboxScalar<Arg1Type>::Unbox(arg1);
+      out->value = BoxScalar<OutType>::Box(Op::template Call(ctx, arg0_val, arg1_val),
+                                           out->type());
     }
   }
 
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     if (batch[0].kind() == Datum::ARRAY) {
       if (batch[1].kind() == Datum::ARRAY) {
-        return ArrayArray(ctx, batch, out);
+        return ArrayArray(ctx, *batch[0].array(), *batch[1].array(), out);
       } else {
-        return ArrayScalar(ctx, batch, out);
+        return ArrayScalar(ctx, *batch[0].array(), *batch[1].scalar(), out);
       }
     } else {
       if (batch[1].kind() == Datum::ARRAY) {
         // e.g. if we were doing scalar < array, we flip and do array >= scalar
-        return ScalarArray(ctx, batch, out);
+        return ScalarArray(ctx, *batch[0].scalar(), *batch[1].array(), out);
       } else {
-        return ScalarScalar(ctx, batch, out);
+        return ScalarScalar(ctx, *batch[0].scalar(), *batch[1].scalar(), out);
       }
     }
   }
@@ -637,7 +643,7 @@ struct ScalarBinary {
 template <typename OutType, typename ArgType, typename Op>
 using ScalarBinaryEqualTypes = ScalarBinary<OutType, ArgType, ArgType, Op>;
 
-}  // namespace codegen
+}  // namespace applicator
 
 // ----------------------------------------------------------------------
 // BEGIN of kernel generator-dispatchers ("GD")
