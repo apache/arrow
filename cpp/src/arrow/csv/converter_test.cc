@@ -360,9 +360,9 @@ TEST(TimestampConversion, Basics) {
 
 TEST(TimestampConversion, Nulls) {
   auto type = timestamp(TimeUnit::MILLI);
-  AssertConversion<TimestampType, int64_t>(type, {"1970-01-01 00:01:00,,N/A\n"},
-                                           {{60000}, {0}, {0}},
-                                           {{true}, {false}, {false}});
+  AssertConversion<TimestampType, int64_t>(
+      type, {"1970-01-01 00:01:00,,N/A\n"}, {{60000}, {0}, {0}},
+      {{true}, {false}, {false}}, ConvertOptions::Defaults());
 }
 
 TEST(TimestampConversion, CustomNulls) {

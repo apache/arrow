@@ -64,13 +64,20 @@ elseif(ARROW_CPU_FLAG STREQUAL "armv8")
 endif()
 
 # Support C11
-set(CMAKE_C_STANDARD 11)
+if(NOT DEFINED CMAKE_C_STANDARD)
+  set(CMAKE_C_STANDARD 11)
+endif()
 
-# This ensures that things like gnu++11 get passed correctly
-set(CMAKE_CXX_STANDARD 11)
+# This ensures that things like c++11 get passed correctly
+if(NOT DEFINED CMAKE_CXX_STANDARD)
+  set(CMAKE_CXX_STANDARD 11)
+endif()
 
 # We require a C++11 compliant compiler
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# ARROW-6848: Do not use GNU (or other CXX) extensions
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 # Build with -fPIC so that can static link our libraries into other people's
 # shared libraries
@@ -196,6 +203,7 @@ if("${BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
   elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wall")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-conversion")
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-deprecated-declarations")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-sign-conversion")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-unused-variable")
   else()

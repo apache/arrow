@@ -1272,11 +1272,11 @@ Result<std::shared_ptr<SparseIndex>> ReadSparseCSFIndex(
 
   RETURN_NOT_OK(internal::GetSparseCSFIndexMetadata(
       sparse_index, &axis_order, &indices_size, &indptr_type, &indices_type));
-  for (int i = 0; i < static_cast<int>(indptr_buffers->Length()); ++i) {
+  for (int i = 0; i < static_cast<int>(indptr_buffers->size()); ++i) {
     ARROW_ASSIGN_OR_RAISE(indptr_data[i], file->ReadAt(indptr_buffers->Get(i)->offset(),
                                                        indptr_buffers->Get(i)->length()));
   }
-  for (int i = 0; i < static_cast<int>(indices_buffers->Length()); ++i) {
+  for (int i = 0; i < static_cast<int>(indices_buffers->size()); ++i) {
     ARROW_ASSIGN_OR_RAISE(indices_data[i],
                           file->ReadAt(indices_buffers->Get(i)->offset(),
                                        indices_buffers->Get(i)->length()));
