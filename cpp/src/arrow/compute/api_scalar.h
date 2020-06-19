@@ -45,6 +45,7 @@ struct ArithmeticOptions : public FunctionOptions {
 ///
 /// \param[in] left the first addend
 /// \param[in] right the second addend
+/// \param[in] options arithmetic options (overflow handling), optional
 /// \param[in] ctx the function execution context, optional
 /// \return the elementwise sum
 ARROW_EXPORT
@@ -57,6 +58,7 @@ Result<Datum> Add(const Datum& left, const Datum& right,
 ///
 /// \param[in] left the value subtracted from (minuend)
 /// \param[in] right the value by which the minuend is reduced (subtrahend)
+/// \param[in] options arithmetic options (overflow handling), optional
 /// \param[in] ctx the function execution context, optional
 /// \return the elementwise difference
 ARROW_EXPORT
@@ -69,6 +71,7 @@ Result<Datum> Subtract(const Datum& left, const Datum& right,
 ///
 /// \param[in] left the first factor
 /// \param[in] right the second factor
+/// \param[in] options arithmetic options (overflow handling), optional
 /// \param[in] ctx the function execution context, optional
 /// \return the elementwise product
 ARROW_EXPORT
