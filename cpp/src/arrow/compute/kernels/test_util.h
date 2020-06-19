@@ -116,6 +116,7 @@ void TestRandomPrimitiveCTypes() {
   DoTestFunctor<UInt64Type>::Test(uint64());
   DoTestFunctor<FloatType>::Test(float32());
   DoTestFunctor<DoubleType>::Test(float64());
+  DoTestFunctor<Date32Type>::Test(date32());
   DoTestFunctor<Date64Type>::Test(date64());
   DoTestFunctor<Time32Type>::Test(time32(TimeUnit::SECOND));
   DoTestFunctor<Time64Type>::Test(time64(TimeUnit::MICRO));
