@@ -37,6 +37,10 @@ from pyarrow.pandas_compat import get_logical_type, _pandas_api
 from pyarrow.tests.util import random_ascii, rands
 
 import pyarrow as pa
+try:
+    from pyarrow import parquet as pq
+except ImportError:
+    pass
 
 try:
     import pandas as pd
@@ -3944,3 +3948,70 @@ def test_metadata_compat_missing_field_name():
     result = table.to_pandas()
     # on python 3.5 the column order can differ -> adding check_like=True
     tm.assert_frame_equal(result, expected, check_like=True)
+
+
+def make_df_with_timestamps():
+    # Some of the milliseconds timestamps deliberately don't fit in the range
+    # that is possible with nanosecond timestamps.
+    df = pd.DataFrame({
+        'dateTimeMs': [
+            np.datetime64('0001-01-01 00:00', 'ms'),
+            np.datetime64('2012-05-02 12:35', 'ms'),
+            np.datetime64('2012-05-03 15:42', 'ms'),
+            np.datetime64('3000-05-03 15:42', 'ms'),
+        ],
+        'dateTimeNs': [
+            np.datetime64('1991-01-01 00:00', 'ns'),
+            np.datetime64('2012-05-02 12:35', 'ns'),
+            np.datetime64('2012-05-03 15:42', 'ns'),
+            np.datetime64('2050-05-03 15:42', 'ns'),
+        ],
+    })
+    # Not part of what we're testing, just ensuring that the inputs are what we
+    # expect.
+    assert (df.dateTimeMs.dtype, df.dateTimeNs.dtype) == (
+        # O == object, <M8[ns] == timestamp64[ns]
+        np.dtype("O"), np.dtype("<M8[ns]")
+    )
+    return df
+
+
+@pytest.mark.parquet
+def test_timestamp_as_object_parquet(tempdir):
+    # Timestamps can be stored as Parquet and reloaded into Pandas with no loss
+    # of information if the timestamp_as_object option is True.
+    df = make_df_with_timestamps()
+    table = pa.Table.from_pandas(df)
+    filename = tempdir / "timestamps_from_pandas.parquet"
+    pq.write_table(table, filename, version="2.0")
+    result = pq.read_table(filename)
+    df2 = result.to_pandas(timestamp_as_object=True)
+    tm.assert_frame_equal(df, df2)
+
+
+def test_timestamp_as_object_out_of_range():
+    # Out of range timestamps can be converted Arrow and reloaded into Pandas
+    # with no loss of information if the timestamp_as_object option is True.
+    df = make_df_with_timestamps()
+    table = pa.Table.from_pandas(df)
+    df2 = table.to_pandas(timestamp_as_object=True)
+    tm.assert_frame_equal(df, df2)
+
+
+@pytest.mark.parametrize("resolution", ["s", "ms", "us"])
+# One datetime outside nanosecond range, one inside nanosecond range:
+@pytest.mark.parametrize("dt", [datetime(1553, 1, 1), datetime(2020, 1, 1)])
+def test_timestamp_as_object_non_nanosecond(resolution, dt):
+    # Timestamps can be converted Arrow and reloaded into Pandas with no loss
+    # of information if the timestamp_as_object option is True.
+    arr = pa.array([dt], type=pa.timestamp(resolution))
+    result = arr.to_pandas(timestamp_as_object=True)
+    assert result.dtype == object
+    assert isinstance(result[0], datetime)
+    assert result[0] == dt
+
+    table = pa.table({'a': arr})
+    result = table.to_pandas(timestamp_as_object=True)['a']
+    assert result.dtype == object
+    assert isinstance(result[0], datetime)
+    assert result[0] == dt

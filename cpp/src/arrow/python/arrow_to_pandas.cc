@@ -934,6 +934,17 @@ struct ObjectWriterVisitor {
     return ConvertAsPyObjects<Type>(options, data, WrapValue, out_values);
   }
 
+  template <typename Type>
+  enable_if_timestamp<Type, Status> Visit(const Type& type) {
+    const TimeUnit::type unit = type.unit();
+    auto WrapValue = [unit](typename Type::c_type value, PyObject** out) {
+      RETURN_NOT_OK(internal::PyDateTime_from_int(value, unit, out));
+      RETURN_IF_PYERROR();
+      return Status::OK();
+    };
+    return ConvertAsPyObjects<Type>(options, data, WrapValue, out_values);
+  }
+
   Status Visit(const Decimal128Type& type) {
     OwnedRef decimal;
     OwnedRef Decimal;
@@ -982,7 +993,6 @@ struct ObjectWriterVisitor {
                   std::is_same<DurationType, Type>::value ||
                   std::is_same<ExtensionType, Type>::value ||
                   std::is_base_of<IntervalType, Type>::value ||
-                  std::is_same<TimestampType, Type>::value ||
                   std::is_base_of<UnionType, Type>::value,
               Status>
   Visit(const Type& type) {
@@ -1688,8 +1698,12 @@ static Status GetPandasWriterType(const ChunkedArray& data, const PandasOptions&
       break;
     case Type::TIMESTAMP: {
       const auto& ts_type = checked_cast<const TimestampType&>(*data.type());
-      // XXX: Hack here for ARROW-7723
-      if (ts_type.timezone() != "" && !options.ignore_timezone) {
+      if (options.timestamp_as_object && ts_type.unit() != TimeUnit::NANO) {
+        // Nanoseconds are never out of bounds for pandas, so in that case
+        // we don't convert to object
+        *output_type = PandasWriter::OBJECT;
+      } else if (ts_type.timezone() != "" && !options.ignore_timezone) {
+        // XXX: ignore_timezone: hack here for ARROW-7723
         *output_type = PandasWriter::DATETIME_NANO_TZ;
       } else if (options.coerce_temporal_nanoseconds) {
         *output_type = PandasWriter::DATETIME_NANO;

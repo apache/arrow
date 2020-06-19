@@ -512,6 +512,7 @@ cdef class _PandasConvertible:
             bint zero_copy_only=False,
             bint integer_object_nulls=False,
             bint date_as_object=True,
+            bint timestamp_as_object=False,
             bint use_threads=True,
             bint deduplicate_objects=True,
             bint ignore_metadata=False,
@@ -540,6 +541,11 @@ cdef class _PandasConvertible:
             Cast integers with nulls to objects
         date_as_object : bool, default True
             Cast dates to objects. If False, convert to datetime64[ns] dtype.
+        timestamp_as_object : bool, default False
+            Cast non-nanosecond timestamps (np.datetime64) to objects. This is
+            useful if you have timestamps that don't fit in the normal date
+            range of nanosecond timestamps (1678 CE-2262 CE).
+            If False, all timestamps are converted to datetime64[ns] dtype.
         use_threads: bool, default True
             Whether to parallelize the conversion using multiple threads.
         deduplicate_objects : bool, default False
@@ -582,6 +588,7 @@ cdef class _PandasConvertible:
             zero_copy_only=zero_copy_only,
             integer_object_nulls=integer_object_nulls,
             date_as_object=date_as_object,
+            timestamp_as_object=timestamp_as_object,
             use_threads=use_threads,
             deduplicate_objects=deduplicate_objects,
             safe=safe,
@@ -600,6 +607,7 @@ cdef PandasOptions _convert_pandas_options(dict options):
     result.zero_copy_only = options['zero_copy_only']
     result.integer_object_nulls = options['integer_object_nulls']
     result.date_as_object = options['date_as_object']
+    result.timestamp_as_object = options['timestamp_as_object']
     result.use_threads = options['use_threads']
     result.deduplicate_objects = options['deduplicate_objects']
     result.safe_cast = options['safe']
@@ -1135,7 +1143,17 @@ cdef _array_like_to_pandas(obj, options):
                 (<ChunkedArray> obj).sp_chunked_array,
                 obj, &out))
 
-    result = pandas_api.series(wrap_array_output(out), name=name)
+    arr = wrap_array_output(out)
+
+    if (isinstance(original_type, TimestampType) and
+            options["timestamp_as_object"]):
+        # ARROW-5359 - need to specify object dtype to avoid pandas to
+        # coerce back to ns resolution
+        dtype = "object"
+    else:
+        dtype = None
+
+    result = pandas_api.series(arr, dtype=dtype, name=name)
 
     if (isinstance(original_type, TimestampType) and
             original_type.tz is not None):

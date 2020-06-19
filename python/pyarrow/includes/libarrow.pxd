@@ -1742,6 +1742,7 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
         c_bool zero_copy_only
         c_bool integer_object_nulls
         c_bool date_as_object
+        c_bool timestamp_as_object
         c_bool use_threads
         c_bool coerce_temporal_nanoseconds
         c_bool deduplicate_objects
