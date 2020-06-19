@@ -140,7 +140,7 @@ void ValidateBooleanAgg(const std::string& json,
 
 TEST(TestBooleanAggregation, Sum) {
   ValidateBooleanAgg<Sum>("[]", std::make_shared<UInt64Scalar>());
-  ValidateBooleanAgg<Sum>("[null]", std::make_shared<UInt64Scalar>(0));
+  ValidateBooleanAgg<Sum>("[null]", std::make_shared<UInt64Scalar>());
   ValidateBooleanAgg<Sum>("[null, false]", std::make_shared<UInt64Scalar>(0));
   ValidateBooleanAgg<Sum>("[true]", std::make_shared<UInt64Scalar>(1));
   ValidateBooleanAgg<Sum>("[true, false, true]", std::make_shared<UInt64Scalar>(2));
@@ -150,15 +150,15 @@ TEST(TestBooleanAggregation, Sum) {
 
 TEST(TestBooleanAggregation, Mean) {
   ValidateBooleanAgg<Mean>("[]", std::make_shared<DoubleScalar>());
-  ValidateBooleanAgg<Mean>("[null]", std::make_shared<DoubleScalar>(0));
+  ValidateBooleanAgg<Mean>("[null]", std::make_shared<DoubleScalar>());
   ValidateBooleanAgg<Mean>("[null, false]", std::make_shared<DoubleScalar>(0));
   ValidateBooleanAgg<Mean>("[true]", std::make_shared<DoubleScalar>(1));
   ValidateBooleanAgg<Mean>("[true, false, true, false]",
                            std::make_shared<DoubleScalar>(0.5));
-  ValidateBooleanAgg<Mean>("[true, null]", std::make_shared<DoubleScalar>(0.5));
-  ValidateBooleanAgg<Mean>("[true, null, false, true]",
-                           std::make_shared<DoubleScalar>(0.5));
-  ValidateBooleanAgg<Mean>("[true, null, false, false]",
+  ValidateBooleanAgg<Mean>("[true, null]", std::make_shared<DoubleScalar>(1));
+  ValidateBooleanAgg<Mean>("[true, null, false, true, true]",
+                           std::make_shared<DoubleScalar>(0.75));
+  ValidateBooleanAgg<Mean>("[true, null, false, false, false]",
                            std::make_shared<DoubleScalar>(0.25));
 }
 

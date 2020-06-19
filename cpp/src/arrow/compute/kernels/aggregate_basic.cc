@@ -269,7 +269,7 @@ struct SumState<BooleanType> {
  public:
   void Consume(const Array& input) {
     const BooleanArray& array = static_cast<const BooleanArray&>(input);
-    count += array.length();
+    count += array.length() - array.null_count();
     sum += array.true_count();
   }
 
