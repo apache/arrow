@@ -289,10 +289,11 @@ const std::vector<std::shared_ptr<DataType>>& TemporalTypes();
 const std::vector<std::shared_ptr<DataType>>& PrimitiveTypes();
 
 // ----------------------------------------------------------------------
-// Template functions and utilities for generating ArrayKernelExec functions
-// for kernels given functors providing the right kind of template / prototype
+// "Applicators" take an operator definition (which may be scalar-valued or
+// array-valued) and creates an ArrayKernelExec which can be used to add an
+// ArrayKernel to a Function.
 
-namespace codegen {
+namespace applicator {
 
 // Generate an ArrayKernelExec given a functor that handles all of its own
 // iteration, etc.
@@ -642,7 +643,7 @@ struct ScalarBinary {
 template <typename OutType, typename ArgType, typename Op>
 using ScalarBinaryEqualTypes = ScalarBinary<OutType, ArgType, ArgType, Op>;
 
-}  // namespace codegen
+}  // namespace applicator
 
 // ----------------------------------------------------------------------
 // BEGIN of kernel generator-dispatchers ("GD")

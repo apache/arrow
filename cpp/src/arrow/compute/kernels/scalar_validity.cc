@@ -94,11 +94,12 @@ namespace internal {
 
 void RegisterScalarValidity(FunctionRegistry* registry) {
   MakeFunction("is_valid", {ValueDescr::ANY}, boolean(),
-               codegen::SimpleUnary<IsValidOperator>, registry,
+               applicator::SimpleUnary<IsValidOperator>, registry,
                MemAllocation::NO_PREALLOCATE, /*can_write_into_slices=*/false);
 
   MakeFunction("is_null", {ValueDescr::ANY}, boolean(),
-               codegen::SimpleUnary<IsNullOperator>, registry, MemAllocation::PREALLOCATE,
+               applicator::SimpleUnary<IsNullOperator>, registry,
+               MemAllocation::PREALLOCATE,
                /*can_write_into_slices=*/true);
 }
 

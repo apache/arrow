@@ -61,7 +61,7 @@ struct GreaterEqual {
 template <typename Op>
 void AddIntegerCompare(const std::shared_ptr<DataType>& ty, ScalarFunction* func) {
   auto exec =
-      GeneratePhysicalInteger<codegen::ScalarBinaryEqualTypes, BooleanType, Op>(*ty);
+      GeneratePhysicalInteger<applicator::ScalarBinaryEqualTypes, BooleanType, Op>(*ty);
   DCHECK_OK(func->AddKernel({ty, ty}, boolean(), std::move(exec)));
 }
 
@@ -69,7 +69,7 @@ template <typename InType, typename Op>
 void AddGenericCompare(const std::shared_ptr<DataType>& ty, ScalarFunction* func) {
   DCHECK_OK(
       func->AddKernel({ty, ty}, boolean(),
-                      codegen::ScalarBinaryEqualTypes<BooleanType, InType, Op>::Exec));
+                      applicator::ScalarBinaryEqualTypes<BooleanType, InType, Op>::Exec));
 }
 
 template <typename Op>
@@ -78,7 +78,7 @@ std::shared_ptr<ScalarFunction> MakeCompareFunction(std::string name) {
 
   DCHECK_OK(func->AddKernel(
       {boolean(), boolean()}, boolean(),
-      codegen::ScalarBinary<BooleanType, BooleanType, BooleanType, Op>::Exec));
+      applicator::ScalarBinary<BooleanType, BooleanType, BooleanType, Op>::Exec));
 
   for (const std::shared_ptr<DataType>& ty : IntTypes()) {
     AddIntegerCompare<Op>(ty, func.get());
@@ -92,36 +92,40 @@ std::shared_ptr<ScalarFunction> MakeCompareFunction(std::string name) {
   // Add timestamp kernels
   for (auto unit : {TimeUnit::SECOND, TimeUnit::MILLI, TimeUnit::MICRO, TimeUnit::NANO}) {
     InputType in_type(match::TimestampTypeUnit(unit));
-    auto exec = GeneratePhysicalInteger<codegen::ScalarBinaryEqualTypes, BooleanType, Op>(
-        int64());
+    auto exec =
+        GeneratePhysicalInteger<applicator::ScalarBinaryEqualTypes, BooleanType, Op>(
+            int64());
     DCHECK_OK(func->AddKernel({in_type, in_type}, boolean(), std::move(exec)));
   }
 
   // Duration
   for (auto unit : {TimeUnit::SECOND, TimeUnit::MILLI, TimeUnit::MICRO, TimeUnit::NANO}) {
     InputType in_type(match::DurationTypeUnit(unit));
-    auto exec = GeneratePhysicalInteger<codegen::ScalarBinaryEqualTypes, BooleanType, Op>(
-        int64());
+    auto exec =
+        GeneratePhysicalInteger<applicator::ScalarBinaryEqualTypes, BooleanType, Op>(
+            int64());
     DCHECK_OK(func->AddKernel({in_type, in_type}, boolean(), std::move(exec)));
   }
 
   // Time32 and Time64
   for (auto unit : {TimeUnit::SECOND, TimeUnit::MILLI}) {
     InputType in_type(match::Time32TypeUnit(unit));
-    auto exec = GeneratePhysicalInteger<codegen::ScalarBinaryEqualTypes, BooleanType, Op>(
-        int32());
+    auto exec =
+        GeneratePhysicalInteger<applicator::ScalarBinaryEqualTypes, BooleanType, Op>(
+            int32());
     DCHECK_OK(func->AddKernel({in_type, in_type}, boolean(), std::move(exec)));
   }
   for (auto unit : {TimeUnit::MICRO, TimeUnit::NANO}) {
     InputType in_type(match::Time64TypeUnit(unit));
-    auto exec = GeneratePhysicalInteger<codegen::ScalarBinaryEqualTypes, BooleanType, Op>(
-        int64());
+    auto exec =
+        GeneratePhysicalInteger<applicator::ScalarBinaryEqualTypes, BooleanType, Op>(
+            int64());
     DCHECK_OK(func->AddKernel({in_type, in_type}, boolean(), std::move(exec)));
   }
 
   for (const std::shared_ptr<DataType>& ty : BaseBinaryTypes()) {
     auto exec =
-        GenerateVarBinaryBase<codegen::ScalarBinaryEqualTypes, BooleanType, Op>(*ty);
+        GenerateVarBinaryBase<applicator::ScalarBinaryEqualTypes, BooleanType, Op>(*ty);
     DCHECK_OK(func->AddKernel({ty, ty}, boolean(), std::move(exec)));
   }
 

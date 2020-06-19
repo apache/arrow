@@ -142,9 +142,9 @@ struct AsciiLower {
 void AddAsciiLength(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>("ascii_length", Arity::Unary());
   ArrayKernelExec exec_offset_32 =
-      codegen::ScalarUnaryNotNull<Int32Type, StringType, AsciiLength>::Exec;
+      applicator::ScalarUnaryNotNull<Int32Type, StringType, AsciiLength>::Exec;
   ArrayKernelExec exec_offset_64 =
-      codegen::ScalarUnaryNotNull<Int64Type, LargeStringType, AsciiLength>::Exec;
+      applicator::ScalarUnaryNotNull<Int64Type, LargeStringType, AsciiLength>::Exec;
   DCHECK_OK(func->AddKernel({utf8()}, int32(), exec_offset_32));
   DCHECK_OK(func->AddKernel({large_utf8()}, int64(), exec_offset_64));
   DCHECK_OK(registry->AddFunction(std::move(func)));
@@ -175,7 +175,7 @@ struct ParseStrptime {
 template <typename InputType>
 void StrptimeExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   const auto& options = checked_cast<const StrptimeWrapper*>(ctx->state())->options;
-  codegen::ScalarUnaryNotNullStateful<TimestampType, InputType, ParseStrptime> kernel{
+  applicator::ScalarUnaryNotNullStateful<TimestampType, InputType, ParseStrptime> kernel{
       ParseStrptime(options)};
   return kernel.Exec(ctx, batch, out);
 }
