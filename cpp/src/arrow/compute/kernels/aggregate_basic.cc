@@ -461,7 +461,6 @@ struct MinMaxImpl : public ScalarAggregator {
       return;
     }
 
-    // const auto values = arr.raw_values();
     if (local.has_nulls) {
       BitmapReader reader(arr.null_bitmap_data(), arr.offset(), arr.length());
       for (int64_t i = 0; i < arr.length(); i++) {
