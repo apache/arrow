@@ -367,12 +367,37 @@ template <typename ArrowType, typename Enable = void>
 struct MinMaxState {};
 
 template <typename ArrowType>
+struct MinMaxState<ArrowType, enable_if_boolean<ArrowType>> {
+  using ThisType = MinMaxState<ArrowType>;
+  using T = typename ArrowType::c_type;
+
+  ThisType& operator+=(const ThisType& rhs) {
+    this->has_nulls |= rhs.has_nulls;
+    this->has_values |= rhs.has_values;
+    this->min = this->min && rhs.min;
+    this->max = this->max || rhs.max;
+    return *this;
+  }
+
+  void MergeOne(T value) {
+    this->min = this->min && value;
+    this->max = this->max || value;
+  }
+
+  T min = true;
+  T max = false;
+  bool has_nulls = false;
+  bool has_values = false;
+};
+
+template <typename ArrowType>
 struct MinMaxState<ArrowType, enable_if_integer<ArrowType>> {
   using ThisType = MinMaxState<ArrowType>;
   using T = typename ArrowType::c_type;
 
   ThisType& operator+=(const ThisType& rhs) {
     this->has_nulls |= rhs.has_nulls;
+    this->has_values |= rhs.has_values;
     this->min = std::min(this->min, rhs.min);
     this->max = std::max(this->max, rhs.max);
     return *this;
@@ -386,6 +411,7 @@ struct MinMaxState<ArrowType, enable_if_integer<ArrowType>> {
   T min = std::numeric_limits<T>::max();
   T max = std::numeric_limits<T>::min();
   bool has_nulls = false;
+  bool has_values = false;
 };
 
 template <typename ArrowType>
@@ -395,6 +421,7 @@ struct MinMaxState<ArrowType, enable_if_floating_point<ArrowType>> {
 
   ThisType& operator+=(const ThisType& rhs) {
     this->has_nulls |= rhs.has_nulls;
+    this->has_values |= rhs.has_values;
     this->min = std::fmin(this->min, rhs.min);
     this->max = std::fmax(this->max, rhs.max);
     return *this;
@@ -408,6 +435,7 @@ struct MinMaxState<ArrowType, enable_if_floating_point<ArrowType>> {
   T min = std::numeric_limits<T>::infinity();
   T max = -std::numeric_limits<T>::infinity();
   bool has_nulls = false;
+  bool has_values = false;
 };
 
 template <typename ArrowType>
@@ -424,24 +452,27 @@ struct MinMaxImpl : public ScalarAggregator {
 
     ArrayType arr(batch[0].array());
 
-    local.has_nulls = arr.null_count() > 0;
+    const auto null_count = arr.null_count();
+    local.has_nulls = null_count > 0;
+    local.has_values = (arr.length() - null_count) > 0;
+
     if (local.has_nulls && options.null_handling == MinMaxOptions::OUTPUT_NULL) {
       this->state = local;
       return;
     }
 
-    const auto values = arr.raw_values();
-    if (arr.null_count() > 0) {
+    // const auto values = arr.raw_values();
+    if (local.has_nulls) {
       BitmapReader reader(arr.null_bitmap_data(), arr.offset(), arr.length());
       for (int64_t i = 0; i < arr.length(); i++) {
         if (reader.IsSet()) {
-          local.MergeOne(values[i]);
+          local.MergeOne(arr.Value(i));
         }
         reader.Next();
       }
     } else {
       for (int64_t i = 0; i < arr.length(); i++) {
-        local.MergeOne(values[i]);
+        local.MergeOne(arr.Value(i));
       }
     }
     this->state = local;
@@ -456,7 +487,8 @@ struct MinMaxImpl : public ScalarAggregator {
     using ScalarType = typename TypeTraits<ArrowType>::ScalarType;
 
     std::vector<std::shared_ptr<Scalar>> values;
-    if (state.has_nulls && options.null_handling == MinMaxOptions::OUTPUT_NULL) {
+    if (!state.has_values ||
+        (state.has_nulls && options.null_handling == MinMaxOptions::OUTPUT_NULL)) {
       // (null, null)
       values = {std::make_shared<ScalarType>(), std::make_shared<ScalarType>()};
     } else {
@@ -488,6 +520,11 @@ struct MinMaxInitState {
 
   Status Visit(const HalfFloatType&) {
     return Status::NotImplemented("No sum implemented");
+  }
+
+  Status Visit(const BooleanType&) {
+    state.reset(new MinMaxImpl<BooleanType>(out_type, options));
+    return Status::OK();
   }
 
   template <typename Type>
@@ -566,6 +603,7 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
   static auto default_minmax_options = MinMaxOptions::Defaults();
   func = std::make_shared<ScalarAggregateFunction>("minmax", Arity::Unary(),
                                                    &default_minmax_options);
+  AddMinMaxKernels(MinMaxInit, {boolean()}, func.get());
   AddMinMaxKernels(MinMaxInit, NumericTypes(), func.get());
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
