@@ -115,5 +115,6 @@ test_that("min/max.Array", {
 
   bools <- c(TRUE, TRUE, FALSE)
   b <- Array$create(bools)
-  expect_identical(as.vector(min(b)), min(bools))
+  # R is inconsistent here: typeof(min(NA)) == "integer", not "logical"
+  expect_identical(as.vector(min(b)), as.logical(min(bools)))
 })

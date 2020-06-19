@@ -62,10 +62,6 @@ scalar_aggregate <- function(FUN, ..., na.rm = FALSE) {
     }
   }
 
-  if (inherits(a$type, "Boolean") && FUN %in% "minmax") {
-    # Bool minmax not implemented so cast to int
-    a <- a$cast(int8())
-  }
   Scalar$create(call_function(FUN, a, options = list(na.rm = na.rm)))
 }
 
