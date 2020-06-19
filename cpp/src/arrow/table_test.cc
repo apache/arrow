@@ -429,6 +429,31 @@ TEST_F(TestTable, CombineChunks) {
   }
 }
 
+TEST_F(TestTable, LARGE_MEMORY_TEST(CombineChunksStringColumn)) {
+  schema_ = schema({field("str", utf8())});
+  arrays_ = {nullptr};
+
+  std::string value(1 << 16, '-');
+
+  auto num_rows = kBinaryMemoryLimit / static_cast<int64_t>(value.size());
+  StringBuilder builder;
+  ASSERT_OK(builder.Resize(num_rows));
+  ASSERT_OK(builder.ReserveData(value.size() * num_rows));
+  for (int i = 0; i < num_rows; ++i) builder.UnsafeAppend(value);
+  ASSERT_OK(builder.Finish(&arrays_[0]));
+
+  auto batch = RecordBatch::Make(schema_, num_rows, arrays_);
+
+  ASSERT_OK_AND_ASSIGN(auto table, Table::FromRecordBatches({batch, batch}));
+  ASSERT_EQ(table->column(0)->num_chunks(), 2);
+
+  ASSERT_OK_AND_ASSIGN(auto compacted, table->CombineChunks());
+  EXPECT_TRUE(compacted->Equals(*table));
+
+  // can't compact these columns any further; they contain too much character data
+  ASSERT_EQ(compacted->column(0)->num_chunks(), 2);
+}
+
 TEST_F(TestTable, ConcatenateTables) {
   const int64_t length = 10;
 

@@ -31,6 +31,7 @@
 #include "arrow/buffer.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/atomic_shared_ptr.h"
 #include "arrow/util/bit_util.h"
@@ -169,9 +170,7 @@ Result<std::shared_ptr<Array>> FlattenListArray(const ListArrayT& list_array,
     return non_null_fragments[0];
   }
 
-  std::shared_ptr<Array> flattened;
-  RETURN_NOT_OK(Concatenate(non_null_fragments, memory_pool, &flattened));
-  return flattened;
+  return Concatenate(non_null_fragments, memory_pool);
 }
 
 }  // namespace

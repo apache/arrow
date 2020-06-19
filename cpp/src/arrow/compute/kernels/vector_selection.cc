@@ -1592,7 +1592,8 @@ Result<std::shared_ptr<ChunkedArray>> TakeCA(const ChunkedArray& values,
     // TODO Case 3: If indices are sorted, can slice them and call Array Take
 
     // Case 4: Else, concatenate chunks and call Array Take
-    RETURN_NOT_OK(Concatenate(values.chunks(), default_memory_pool(), &current_chunk));
+    ARROW_ASSIGN_OR_RAISE(current_chunk,
+                          Concatenate(values.chunks(), ctx->memory_pool()));
   }
   // Call Array Take on our single chunk
   ARROW_ASSIGN_OR_RAISE(new_chunks[0], TakeAA(*current_chunk, indices, options, ctx));
@@ -1612,8 +1613,8 @@ Result<std::shared_ptr<ChunkedArray>> TakeCC(const ChunkedArray& values,
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ChunkedArray> current_chunk,
                           TakeCA(values, *indices.chunk(i), options, ctx));
     // Concatenate the result to make a single array for this chunk
-    RETURN_NOT_OK(
-        Concatenate(current_chunk->chunks(), default_memory_pool(), &new_chunks[i]));
+    ARROW_ASSIGN_OR_RAISE(new_chunks[i],
+                          Concatenate(current_chunk->chunks(), ctx->memory_pool()));
   }
   return std::make_shared<ChunkedArray>(std::move(new_chunks));
 }

@@ -1907,8 +1907,9 @@ cdef extern from 'arrow/util/thread_pool.h' namespace 'arrow' nogil:
     CStatus SetCpuThreadPoolCapacity(int threads)
 
 cdef extern from 'arrow/array/concatenate.h' namespace 'arrow' nogil:
-    CStatus Concatenate(const vector[shared_ptr[CArray]]& arrays,
-                        CMemoryPool* pool, shared_ptr[CArray]* result)
+    CResult[shared_ptr[CArray]] Concatenate(
+        const vector[shared_ptr[CArray]]& arrays,
+        CMemoryPool* pool)
 
 cdef extern from 'arrow/c/abi.h':
     cdef struct ArrowSchema:

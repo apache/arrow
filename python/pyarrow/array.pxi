@@ -2128,17 +2128,16 @@ def concat_arrays(arrays, MemoryPool memory_pool=None):
     """
     cdef:
         vector[shared_ptr[CArray]] c_arrays
-        shared_ptr[CArray] c_result
-        Array array
+        shared_ptr[CArray] c_concatenated
         CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
 
     for array in arrays:
-        c_arrays.push_back(array.sp_array)
+        c_arrays.push_back(pyarrow_unwrap_array(array))
 
     with nogil:
-        check_status(Concatenate(c_arrays, pool, &c_result))
+        c_concatenated = GetResultValue(Concatenate(c_arrays, pool))
 
-    return pyarrow_wrap_array(c_result)
+    return pyarrow_wrap_array(c_concatenated)
 
 
 def _empty_array(DataType type):

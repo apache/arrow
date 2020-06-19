@@ -29,10 +29,10 @@
 #include "arrow/array/data.h"
 #include "arrow/array/util.h"
 #include "arrow/buffer.h"
-#include "arrow/extension_type.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
@@ -43,9 +43,9 @@ namespace arrow {
 
 /// offset, length pair for representing a Range of a buffer or array
 struct Range {
-  int64_t offset, length;
+  int64_t offset = -1, length = 0;
 
-  Range() : offset(-1), length(0) {}
+  Range() = default;
   Range(int64_t o, int64_t l) : offset(o), length(l) {}
 };
 
@@ -56,7 +56,7 @@ struct Bitmap {
   explicit Bitmap(const std::shared_ptr<Buffer>& buffer, Range r)
       : Bitmap(buffer ? buffer->data() : nullptr, r) {}
 
-  const uint8_t* data;
+  const uint8_t* data = nullptr;
   Range range;
 
   bool AllSet() const { return data == nullptr; }
@@ -66,15 +66,14 @@ struct Bitmap {
 static Status ConcatenateBitmaps(const std::vector<Bitmap>& bitmaps, MemoryPool* pool,
                                  std::shared_ptr<Buffer>* out) {
   int64_t out_length = 0;
-  for (size_t i = 0; i < bitmaps.size(); ++i) {
-    out_length += bitmaps[i].range.length;
+  for (const auto& bitmap : bitmaps) {
+    out_length += bitmap.range.length;
   }
   ARROW_ASSIGN_OR_RAISE(*out, AllocateBitmap(out_length, pool));
   uint8_t* dst = (*out)->mutable_data();
 
   int64_t bitmap_offset = 0;
-  for (size_t i = 0; i < bitmaps.size(); ++i) {
-    auto bitmap = bitmaps[i];
+  for (auto bitmap : bitmaps) {
     if (bitmap.AllSet()) {
       BitUtil::SetBitsTo(dst, bitmap_offset, bitmap.range.length, true);
     } else {
@@ -107,8 +106,8 @@ static Status ConcatenateOffsets(const BufferVector& buffers, MemoryPool* pool,
 
   // allocate output buffer
   int64_t out_length = 0;
-  for (size_t i = 0; i < buffers.size(); ++i) {
-    out_length += buffers[i]->size() / sizeof(Offset);
+  for (const auto& buffer : buffers) {
+    out_length += buffer->size() / sizeof(Offset);
   }
   ARROW_ASSIGN_OR_RAISE(*out, AllocateBuffer((out_length + 1) * sizeof(Offset), pool));
   auto dst = reinterpret_cast<Offset*>((*out)->mutable_data());
@@ -369,8 +368,7 @@ class ConcatenateImpl {
   std::shared_ptr<ArrayData> out_;
 };
 
-Status Concatenate(const ArrayVector& arrays, MemoryPool* pool,
-                   std::shared_ptr<Array>* out) {
+Result<std::shared_ptr<Array>> Concatenate(const ArrayVector& arrays, MemoryPool* pool) {
   if (arrays.size() == 0) {
     return Status::Invalid("Must pass at least one array");
   }
@@ -388,8 +386,12 @@ Status Concatenate(const ArrayVector& arrays, MemoryPool* pool,
 
   std::shared_ptr<ArrayData> out_data;
   RETURN_NOT_OK(ConcatenateImpl(data, pool).Concatenate(&out_data));
-  *out = MakeArray(out_data);
-  return Status::OK();
+  return MakeArray(std::move(out_data));
+}
+
+Status Concatenate(const ArrayVector& arrays, MemoryPool* pool,
+                   std::shared_ptr<Array>* out) {
+  return Concatenate(arrays, pool).Value(out);
 }
 
 }  // namespace arrow
