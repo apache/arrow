@@ -239,7 +239,7 @@ static const char* json_example4 = R"example(
             "nullable": false,
             "children": [
               {
-                "name": "some_key",
+                "name": "key",
                 "type": {
                   "name": "int",
                   "isSigned": true,
@@ -249,7 +249,7 @@ static const char* json_example4 = R"example(
                 "children": []
               },
               {
-                "name": "some_value",
+                "name": "value",
                 "type": {
                   "name": "int",
                   "isSigned": true,
@@ -280,13 +280,13 @@ static const char* json_example4 = R"example(
               "VALIDITY": [1, 1, 1, 1, 1],
               "children": [
                 {
-                  "name": "some_key",
+                  "name": "key",
                   "count": 5,
                   "VALIDITY": [1, 1, 1, 1, 1],
                   "DATA": [11, 22, 33, 44, 55]
                 },
                 {
-                  "name": "some_value",
+                  "name": "value",
                   "count": 5,
                   "VALIDITY": [1, 1, 0, 1, 1],
                   "DATA": [111, 222, 0, 444, 555]
@@ -667,8 +667,8 @@ TEST(TestJsonFileReadWrite, JsonExample4) {
   // Example 4: A map type with non-canonical field names
   ASSERT_OK_AND_ASSIGN(auto map_type,
                        MapType::Make(field("some_entries",
-                                           struct_({field("some_key", int16(), false),
-                                                    field("some_value", int32())}),
+                                           struct_({field("key", int16(), false),
+                                                    field("value", int32())}),
                                            false)));
   Schema ex_schema({field("maps", map_type)});
 
