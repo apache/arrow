@@ -66,10 +66,10 @@ test_that("Table cast (ARROW-3741)", {
 })
 
 test_that("Table S3 methods", {
-  tab <- Table$create(iris)
+  tab <- Table$create(example_data)
   for (f in c("dim", "nrow", "ncol", "dimnames", "colnames", "row.names", "as.list")) {
     fun <- get(f)
-    expect_identical(fun(tab), fun(iris), info = f)
+    expect_identical(fun(tab), fun(example_data), info = f)
   }
 })
 
