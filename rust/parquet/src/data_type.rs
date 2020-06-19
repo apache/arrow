@@ -67,16 +67,6 @@ impl Int96 {
         let seconds = (day - JULIAN_DAY_OF_EPOCH) * SECONDS_PER_DAY;
         let millis = seconds * MILLIS_PER_SECOND + nanoseconds / 1_000_000;
 
-        // TODO: Add support for negative milliseconds.
-        // Chrono library does not handle negative timestamps, but we could probably write
-        // something similar to java.util.Date and java.util.Calendar.
-        if millis < 0 {
-            panic!(
-                "Expected non-negative milliseconds when converting Int96, found {}",
-                millis
-            );
-        }
-
         millis
     }
 }
