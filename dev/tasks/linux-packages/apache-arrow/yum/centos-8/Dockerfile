@@ -58,5 +58,6 @@ RUN \
     rpmdevtools \
     snappy-devel \
     tar \
+    utf8proc-devel \
     zlib-devel && \
   dnf clean ${quiet} all

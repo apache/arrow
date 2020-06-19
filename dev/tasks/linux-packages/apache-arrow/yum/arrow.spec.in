@@ -45,6 +45,7 @@
 %define use_meson (%{_centos_ver} >= 8)
 
 %define have_rapidjson (%{_centos_ver} == 7)
+%define have_utf8proc (%{_centos_ver} >= 7)
 %define have_zstd (%{_centos_ver} < 8)
 
 Name:		@PACKAGE@
@@ -85,6 +86,9 @@ BuildRequires:	rapidjson-devel
 BuildRequires:	re2-devel
 %endif
 BuildRequires:	snappy-devel
+%if %{have_utf8proc}
+BuildRequires:	utf8proc-devel
+%endif
 BuildRequires:	zlib-devel
 
 %if %{use_flight}
@@ -231,6 +235,9 @@ Requires:	lz4
 Requires:	re2
 %endif
 Requires:	snappy
+%if %{have_utf8proc}
+Requires:	utf8proc
+%endif
 Requires:	zlib
 
 %description libs

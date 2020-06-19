@@ -22,6 +22,7 @@ Build-Depends:
   libre2-dev,
   libsnappy-dev,
   libssl-dev,
+  libutf8proc-dev,
   libzstd1-dev,
   nvidia-cuda-toolkit [!arm64],
   pkg-config,

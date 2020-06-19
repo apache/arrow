@@ -68,6 +68,7 @@ RUN \
     libre2-dev \
     libsnappy-dev \
     libssl-dev \
+    libutf8proc-dev \
     libzstd1-dev \
     lsb-release \
     pkg-config \
