@@ -2033,10 +2033,14 @@ endif()
 macro(build_utf8proc)
   message(STATUS "Building utf8proc from source")
   set(UTF8PROC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/utf8proc_ep-install")
-  set(
-    UTF8PROC_STATIC_LIB
-    "${UTF8PROC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}utf8proc${CMAKE_STATIC_LIBRARY_SUFFIX}"
-    )
+  if(MSVC)
+    set(UTF8PROC_STATIC_LIB "${UTF8PROC_PREFIX}/lib/utf8proc_static.lib")
+  else()
+    set(
+      UTF8PROC_STATIC_LIB
+      "${UTF8PROC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}utf8proc${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      )
+  endif()
 
   set(UTF8PROC_CMAKE_ARGS
       ${EP_COMMON_TOOLCHAIN}
