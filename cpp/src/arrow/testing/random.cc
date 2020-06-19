@@ -282,11 +282,17 @@ struct RandomArrayGeneratorOfImpl {
   }
 
   template <typename T>
-  enable_if_number<T, Status> Visit(const T&) {
+  enable_if_integer<T, Status> Visit(const T&) {
     auto max = std::numeric_limits<typename T::c_type>::max();
     auto min = std::numeric_limits<typename T::c_type>::lowest();
 
     out_ = rag_->Numeric<T>(size_, min, max, null_probability_);
+    return Status::OK();
+  }
+
+  template <typename T>
+  enable_if_floating_point<T, Status> Visit(const T&) {
+    out_ = rag_->Numeric<T>(size_, 0., 1., null_probability_);
     return Status::OK();
   }
 

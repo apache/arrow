@@ -1541,33 +1541,31 @@ template <typename ValuesType>
 struct TakeRandomTest {
   static void Test(const std::shared_ptr<DataType>& type) {
     auto rand = random::RandomArrayGenerator(kRandomSeed);
-    for (const int64_t length : {1, 16, 59}) {
-      for (const int64_t indices_length : {0, 5, 30}) {
-        for (const auto null_probability : {0.0, 0.05, 0.25, 0.95, 1.0}) {
-          auto values = rand.ArrayOf(type, length, null_probability);
-          CheckTakeRandom<ValuesType, Int8Type>(values, indices_length, null_probability,
+    const int64_t values_length = 64 * 16 + 1;
+    const int64_t indices_length = 64 * 4 + 1;
+    for (const auto null_probability : {0.0, 0.001, 0.05, 0.25, 0.95, 0.999, 1.0}) {
+      auto values = rand.ArrayOf(type, values_length, null_probability);
+      CheckTakeRandom<ValuesType, Int8Type>(values, indices_length, null_probability,
+                                            &rand);
+      CheckTakeRandom<ValuesType, Int16Type>(values, indices_length, null_probability,
+                                             &rand);
+      CheckTakeRandom<ValuesType, Int32Type>(values, indices_length, null_probability,
+                                             &rand);
+      CheckTakeRandom<ValuesType, Int64Type>(values, indices_length, null_probability,
+                                             &rand);
+      CheckTakeRandom<ValuesType, UInt8Type>(values, indices_length, null_probability,
+                                             &rand);
+      CheckTakeRandom<ValuesType, UInt16Type>(values, indices_length, null_probability,
+                                              &rand);
+      CheckTakeRandom<ValuesType, UInt32Type>(values, indices_length, null_probability,
+                                              &rand);
+      CheckTakeRandom<ValuesType, UInt64Type>(values, indices_length, null_probability,
+                                              &rand);
+      // Sliced values array
+      if (values_length > 2) {
+        values = values->Slice(1, values_length - 2);
+        CheckTakeRandom<ValuesType, UInt64Type>(values, indices_length, null_probability,
                                                 &rand);
-          CheckTakeRandom<ValuesType, Int16Type>(values, indices_length, null_probability,
-                                                 &rand);
-          CheckTakeRandom<ValuesType, Int32Type>(values, indices_length, null_probability,
-                                                 &rand);
-          CheckTakeRandom<ValuesType, Int64Type>(values, indices_length, null_probability,
-                                                 &rand);
-          CheckTakeRandom<ValuesType, UInt8Type>(values, indices_length, null_probability,
-                                                 &rand);
-          CheckTakeRandom<ValuesType, UInt16Type>(values, indices_length,
-                                                  null_probability, &rand);
-          CheckTakeRandom<ValuesType, UInt32Type>(values, indices_length,
-                                                  null_probability, &rand);
-          CheckTakeRandom<ValuesType, UInt64Type>(values, indices_length,
-                                                  null_probability, &rand);
-          // Sliced values array
-          if (length > 2) {
-            values = values->Slice(1, length - 2);
-            CheckTakeRandom<ValuesType, UInt64Type>(values, indices_length,
-                                                    null_probability, &rand);
-          }
-        }
       }
     }
   }
