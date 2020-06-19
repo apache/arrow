@@ -118,8 +118,7 @@ static std::unique_ptr<FunctionRegistry> CreateBuiltInRegistry() {
   // Register the override version according to cpu feature
   auto cpu_info = arrow::internal::CpuInfo::GetInstance();
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
-  if (cpu_info->IsSupported(arrow::internal::CpuInfo::AVX2) &&
-      cpu_info->IsSupported(arrow::internal::CpuInfo::BMI2)) {
+  if (cpu_info->IsSupported(arrow::internal::CpuInfo::AVX2)) {
     RegisterScalarAggregateBasicAvx2(registry.get());
   }
 #endif

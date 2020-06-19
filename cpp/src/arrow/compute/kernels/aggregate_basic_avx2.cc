@@ -184,16 +184,16 @@ SUM_DENSE_BATCH_AVX2_CVT(int32_t, int64_t, __m256i, _mm256_setzero_si256, LOAD_S
 SUM_DENSE_BATCH_AVX2_CVT(uint32_t, uint64_t, __m256i, _mm256_setzero_si256, LOAD_SI128,
                          _mm256_cvtepu32_epi64, _mm256_add_epi64)
 // Dense version for int16_t
-SUM_DENSE_BATCH_AVX2_CVT(int16_t, int64_t, __m256i, _mm256_setzero_si256, LOADU_SI128,
+SUM_DENSE_BATCH_AVX2_CVT(int16_t, int64_t, __m256i, _mm256_setzero_si256, LOAD_SI64,
                          _mm256_cvtepi16_epi64, _mm256_add_epi64)
 // Dense version for uint16_t
-SUM_DENSE_BATCH_AVX2_CVT(uint16_t, uint64_t, __m256i, _mm256_setzero_si256, LOADU_SI128,
+SUM_DENSE_BATCH_AVX2_CVT(uint16_t, uint64_t, __m256i, _mm256_setzero_si256, LOAD_SI64,
                          _mm256_cvtepu16_epi64, _mm256_add_epi64)
 // Dense version for int8_t
-SUM_DENSE_BATCH_AVX2_CVT(int8_t, int64_t, __m256i, _mm256_setzero_si256, LOADU_SI128,
+SUM_DENSE_BATCH_AVX2_CVT(int8_t, int64_t, __m256i, _mm256_setzero_si256, LOAD_SI32,
                          _mm256_cvtepi8_epi64, _mm256_add_epi64)
 // Dense version for uint8_t
-SUM_DENSE_BATCH_AVX2_CVT(uint8_t, uint64_t, __m256i, _mm256_setzero_si256, LOADU_SI128,
+SUM_DENSE_BATCH_AVX2_CVT(uint8_t, uint64_t, __m256i, _mm256_setzero_si256, LOAD_SI32,
                          _mm256_cvtepu8_epi64, _mm256_add_epi64)
 
 template <typename T, typename SumT>
@@ -473,20 +473,12 @@ struct SumStateAvx2 {
       idx++;
     }
 
-    // Fix for AddressSanitizer: heap-buffer-overflow READ of size
-    // Each batch handle 4 values, and the SIMD load size is 128 at least
-    constexpr int64_t kSafeSimdLoadLen =
-        (8 == sizeof(T)) ? 0 : (sizeof(__m128i) / sizeof(T)) - kAvx2StreamSize;
     // Parts can fill into batches
-    if ((length - idx) > kSafeSimdLoadLen) {
-      const int64_t length_batched =
-          BitUtil::RoundDown(length - idx - kSafeSimdLoadLen, kAvx2BatchSize);
-      SumResult<SumT> sum_result =
-          SumDenseBatchAvx2<T, SumT>(&values[idx], length_batched / kAvx2BatchSize);
-
-      local.sum += sum_result.sum;
-      idx += sum_result.count;
-    }
+    const int64_t length_batched = BitUtil::RoundDown(length - idx, kAvx2BatchSize);
+    SumResult<SumT> sum_result =
+        SumDenseBatchAvx2<T, SumT>(&values[idx], length_batched / kAvx2BatchSize);
+    local.sum += sum_result.sum;
+    idx += sum_result.count;
 
     // The trailing part
     for (; idx < length; idx++) {

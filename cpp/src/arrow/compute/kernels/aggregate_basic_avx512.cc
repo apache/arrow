@@ -146,10 +146,10 @@ SUM_DENSE_BATCH_AVX512_CVT(int16_t, int64_t, __m512i, _mm512_setzero_si512, LOAD
 SUM_DENSE_BATCH_AVX512_CVT(uint16_t, uint64_t, __m512i, _mm512_setzero_si512, LOAD_SI128,
                            _mm512_cvtepu16_epi64, _mm512_add_epi64)
 // Dense version for int8_t
-SUM_DENSE_BATCH_AVX512_CVT(int8_t, int64_t, __m512i, _mm512_setzero_si512, LOADU_SI128,
+SUM_DENSE_BATCH_AVX512_CVT(int8_t, int64_t, __m512i, _mm512_setzero_si512, LOAD_SI64,
                            _mm512_cvtepi8_epi64, _mm512_add_epi64)
 // Dense version for uint8_t
-SUM_DENSE_BATCH_AVX512_CVT(uint8_t, uint64_t, __m512i, _mm512_setzero_si512, LOADU_SI128,
+SUM_DENSE_BATCH_AVX512_CVT(uint8_t, uint64_t, __m512i, _mm512_setzero_si512, LOAD_SI64,
                            _mm512_cvtepu8_epi64, _mm512_add_epi64)
 
 template <typename T, typename SumT>
@@ -266,10 +266,10 @@ SUM_SPARSE_BATCH_AVX512_CVT(int16_t, int64_t, __m512i, _mm512_setzero_si512, LOA
 SUM_SPARSE_BATCH_AVX512_CVT(uint16_t, uint64_t, __m512i, _mm512_setzero_si512, LOAD_SI128,
                             _mm512_cvtepu16_epi64, _mm512_mask_add_epi64)
 // Sparse version for int8_t
-SUM_SPARSE_BATCH_AVX512_CVT(int8_t, int64_t, __m512i, _mm512_setzero_si512, LOADU_SI128,
+SUM_SPARSE_BATCH_AVX512_CVT(int8_t, int64_t, __m512i, _mm512_setzero_si512, LOAD_SI64,
                             _mm512_cvtepi8_epi64, _mm512_mask_add_epi64)
 // Sparse version for uint8_t
-SUM_SPARSE_BATCH_AVX512_CVT(uint8_t, uint64_t, __m512i, _mm512_setzero_si512, LOADU_SI128,
+SUM_SPARSE_BATCH_AVX512_CVT(uint8_t, uint64_t, __m512i, _mm512_setzero_si512, LOAD_SI64,
                             _mm512_cvtepu8_epi64, _mm512_mask_add_epi64)
 
 template <typename ArrowType,
@@ -322,19 +322,12 @@ struct SumStateAvx512 {
       idx++;
     }
 
-    // Fix for AddressSanitizer on int8: heap-buffer-overflow READ of size
-    // Each batch handle 8 values, and the SIMD load size is 128(16 int8) at least
-    constexpr int64_t kSafeSimdLoadLen = sizeof(T) == 1 ? 8 : 0;
     // Parts can fill into batches
-    if ((length - idx) > kSafeSimdLoadLen) {
-      const int64_t length_batched =
-          BitUtil::RoundDown(length - idx - kSafeSimdLoadLen, kAvx512BatchSize);
-      SumResult<SumT> sum_result =
-          SumDenseBatchAvx512<T, SumT>(&values[idx], length_batched / kAvx512BatchSize);
-
-      local.sum += sum_result.sum;
-      idx += sum_result.count;
-    }
+    const int64_t length_batched = BitUtil::RoundDown(length - idx, kAvx512BatchSize);
+    SumResult<SumT> sum_result =
+        SumDenseBatchAvx512<T, SumT>(&values[idx], length_batched / kAvx512BatchSize);
+    local.sum += sum_result.sum;
+    idx += sum_result.count;
 
     // The trailing part
     for (; idx < length; idx++) {

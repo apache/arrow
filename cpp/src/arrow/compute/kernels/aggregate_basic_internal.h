@@ -61,12 +61,10 @@ struct SumLikeInit {
   }
 };
 
-// _mm256_load_si256/_mm256_lddqu_si256 take __m256i* as input
 #define LOAD_SI256(addr) _mm256_load_si256(reinterpret_cast<const __m256i*>(addr))
-#define LOADU_SI256(addr) _mm256_lddqu_si256(reinterpret_cast<const __m256i*>(addr))
-// _mm_load_si128/_mm_lddqu_si128 take __m128i* as input
 #define LOAD_SI128(addr) _mm_load_si128(reinterpret_cast<const __m128i*>(addr))
-#define LOADU_SI128(addr) _mm_lddqu_si128(reinterpret_cast<const __m128i*>(addr))
+#define LOAD_SI64(addr) _mm_loadl_epi64(reinterpret_cast<const __m128i*>(addr))
+#define LOAD_SI32(addr) _mm_set1_epi32(*(reinterpret_cast<const int*>(addr)))
 
 template <typename T>
 struct SumResult {
