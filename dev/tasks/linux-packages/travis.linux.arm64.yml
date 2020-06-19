@@ -51,7 +51,7 @@ script:
   - rake version:update
   - |
     rake docker:pull || :
-  - travis_wait 40 rake BUILD_DIR=build {{ build_task }}
+  - rake BUILD_DIR=build {{ build_task }}
   - sudo rm -rf */*/build
   - popd
 
