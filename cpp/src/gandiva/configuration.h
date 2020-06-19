@@ -35,6 +35,8 @@ class GANDIVA_EXPORT Configuration {
  public:
   friend class ConfigurationBuilder;
 
+  explicit Configuration(bool optimize) : optimize_(optimize) {}
+
   std::size_t Hash() const;
   bool operator==(const Configuration& other) const;
   bool operator!=(const Configuration& other) const;
@@ -53,7 +55,12 @@ class GANDIVA_EXPORT Configuration {
 class GANDIVA_EXPORT ConfigurationBuilder {
  public:
   std::shared_ptr<Configuration> build() {
-    std::shared_ptr<Configuration> configuration(new Configuration());
+    std::shared_ptr<Configuration> configuration(new Configuration(true));
+    return configuration;
+  }
+
+  std::shared_ptr<Configuration> build(bool optimize) {
+    std::shared_ptr<Configuration> configuration(new Configuration(optimize));
     return configuration;
   }
 
@@ -63,7 +70,7 @@ class GANDIVA_EXPORT ConfigurationBuilder {
 
  private:
   static std::shared_ptr<Configuration> InitDefaultConfig() {
-    std::shared_ptr<Configuration> configuration(new Configuration());
+    std::shared_ptr<Configuration> configuration(new Configuration(true));
     return configuration;
   }
 

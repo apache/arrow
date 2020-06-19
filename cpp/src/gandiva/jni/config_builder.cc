@@ -33,9 +33,9 @@ using gandiva::ConfigurationBuilder;
  */
 JNIEXPORT jlong JNICALL
 Java_org_apache_arrow_gandiva_evaluator_ConfigurationBuilder_buildConfigInstance(
-    JNIEnv* env, jobject configuration) {
+    JNIEnv* env, jobject configuration, jboolean optimize) {
   ConfigurationBuilder configuration_builder;
-  std::shared_ptr<Configuration> config = configuration_builder.build();
+  std::shared_ptr<Configuration> config = configuration_builder.build(optimize);
   return ConfigHolder::MapInsert(config);
 }
 
