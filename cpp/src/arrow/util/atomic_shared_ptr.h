@@ -24,12 +24,13 @@
 namespace arrow {
 namespace internal {
 
-// https://gcc.gnu.org/onlinedocs/libstdc++/manual/abi.html#abi.versioning
-// https://gcc.gnu.org/develop.html#timeline
 #if defined(__GLIBCXX__) && __GLIBCXX__ < 20150422
 
-// atomic shared_ptr operations only appeared in gcc 5,
-// emulate them with unsafe ops on gcc 4.x.
+// Atomic shared_ptr operations only appeared in gcc 5's libstdc++,
+// emulate them with unsafe ops if unavailable.
+//
+// The libstdc++ version is a the encoded release date of gcc 5, see
+// https://gcc.gnu.org/onlinedocs/libstdc++/manual/abi.html#abi.versioning.__GLIBCXX__
 
 template <class T>
 inline std::shared_ptr<T> atomic_load(const std::shared_ptr<T>* p) {
