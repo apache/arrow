@@ -894,16 +894,6 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Expected non-negative milliseconds when converting Int96")]
-    fn test_row_convert_int96_invalid() {
-        // INT96 value does not depend on logical type
-        let descr = make_column_descr![PhysicalType::INT96, LogicalType::NONE];
-
-        let value = Int96::from(vec![0, 0, 0]);
-        Field::convert_int96(&descr, value);
-    }
-
-    #[test]
     fn test_row_convert_float() {
         // FLOAT value does not depend on logical type
         let descr = make_column_descr![PhysicalType::FLOAT, LogicalType::NONE];
