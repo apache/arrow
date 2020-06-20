@@ -426,6 +426,7 @@ impl<R: Read> Reader<R> {
     }
 
     /// Read the next batch of records
+    #[allow(clippy::should_implement_trait)]
     pub fn next(&mut self) -> Result<Option<RecordBatch>> {
         let mut rows: Vec<Value> = Vec::with_capacity(self.batch_size);
         let mut line = String::new();
@@ -445,7 +446,7 @@ impl<R: Read> Reader<R> {
         }
 
         let rows = &rows[..];
-        let projection = self.projection.clone().unwrap_or_else(|| vec![]);
+        let projection = self.projection.clone().unwrap_or_else(Vec::new);
         let arrays: Result<Vec<ArrayRef>> = self
             .schema
             .clone()

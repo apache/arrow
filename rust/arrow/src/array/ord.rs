@@ -69,63 +69,61 @@ impl OrdArray for NullArray {
 }
 
 /// Convert ArrayRef to OrdArray trait object
-pub fn as_ordarray(values: &ArrayRef) -> Result<Box<&OrdArray>> {
+pub fn as_ordarray(values: &ArrayRef) -> Result<&OrdArray> {
     match values.data_type() {
-        DataType::Boolean => Ok(Box::new(as_boolean_array(&values))),
-        DataType::Utf8 => Ok(Box::new(as_string_array(&values))),
-        DataType::Null => Ok(Box::new(as_null_array(&values))),
-        DataType::Int8 => Ok(Box::new(as_primitive_array::<Int8Type>(&values))),
-        DataType::Int16 => Ok(Box::new(as_primitive_array::<Int16Type>(&values))),
-        DataType::Int32 => Ok(Box::new(as_primitive_array::<Int32Type>(&values))),
-        DataType::Int64 => Ok(Box::new(as_primitive_array::<Int64Type>(&values))),
-        DataType::UInt8 => Ok(Box::new(as_primitive_array::<UInt8Type>(&values))),
-        DataType::UInt16 => Ok(Box::new(as_primitive_array::<UInt16Type>(&values))),
-        DataType::UInt32 => Ok(Box::new(as_primitive_array::<UInt32Type>(&values))),
-        DataType::UInt64 => Ok(Box::new(as_primitive_array::<UInt64Type>(&values))),
-        DataType::Date32(_) => Ok(Box::new(as_primitive_array::<Date32Type>(&values))),
-        DataType::Date64(_) => Ok(Box::new(as_primitive_array::<Date64Type>(&values))),
-        DataType::Time32(Second) => {
-            Ok(Box::new(as_primitive_array::<Time32SecondType>(&values)))
+        DataType::Boolean => Ok(as_boolean_array(&values)),
+        DataType::Utf8 => Ok(as_string_array(&values)),
+        DataType::Null => Ok(as_null_array(&values)),
+        DataType::Int8 => Ok(as_primitive_array::<Int8Type>(&values)),
+        DataType::Int16 => Ok(as_primitive_array::<Int16Type>(&values)),
+        DataType::Int32 => Ok(as_primitive_array::<Int32Type>(&values)),
+        DataType::Int64 => Ok(as_primitive_array::<Int64Type>(&values)),
+        DataType::UInt8 => Ok(as_primitive_array::<UInt8Type>(&values)),
+        DataType::UInt16 => Ok(as_primitive_array::<UInt16Type>(&values)),
+        DataType::UInt32 => Ok(as_primitive_array::<UInt32Type>(&values)),
+        DataType::UInt64 => Ok(as_primitive_array::<UInt64Type>(&values)),
+        DataType::Date32(_) => Ok(as_primitive_array::<Date32Type>(&values)),
+        DataType::Date64(_) => Ok(as_primitive_array::<Date64Type>(&values)),
+        DataType::Time32(Second) => Ok(as_primitive_array::<Time32SecondType>(&values)),
+        DataType::Time32(Millisecond) => {
+            Ok(as_primitive_array::<Time32MillisecondType>(&values))
         }
-        DataType::Time32(Millisecond) => Ok(Box::new(as_primitive_array::<
-            Time32MillisecondType,
-        >(&values))),
-        DataType::Time64(Microsecond) => Ok(Box::new(as_primitive_array::<
-            Time64MicrosecondType,
-        >(&values))),
-        DataType::Time64(Nanosecond) => Ok(Box::new(as_primitive_array::<
-            Time64NanosecondType,
-        >(&values))),
+        DataType::Time64(Microsecond) => {
+            Ok(as_primitive_array::<Time64MicrosecondType>(&values))
+        }
+        DataType::Time64(Nanosecond) => {
+            Ok(as_primitive_array::<Time64NanosecondType>(&values))
+        }
         DataType::Timestamp(Second, _) => {
-            Ok(Box::new(as_primitive_array::<TimestampSecondType>(&values)))
+            Ok(as_primitive_array::<TimestampSecondType>(&values))
         }
-        DataType::Timestamp(Millisecond, _) => Ok(Box::new(as_primitive_array::<
-            TimestampMillisecondType,
-        >(&values))),
-        DataType::Timestamp(Microsecond, _) => Ok(Box::new(as_primitive_array::<
-            TimestampMicrosecondType,
-        >(&values))),
-        DataType::Timestamp(Nanosecond, _) => Ok(Box::new(as_primitive_array::<
-            TimestampNanosecondType,
-        >(&values))),
-        DataType::Interval(IntervalUnit::YearMonth) => Ok(Box::new(
-            as_primitive_array::<IntervalYearMonthType>(&values),
-        )),
+        DataType::Timestamp(Millisecond, _) => {
+            Ok(as_primitive_array::<TimestampMillisecondType>(&values))
+        }
+        DataType::Timestamp(Microsecond, _) => {
+            Ok(as_primitive_array::<TimestampMicrosecondType>(&values))
+        }
+        DataType::Timestamp(Nanosecond, _) => {
+            Ok(as_primitive_array::<TimestampNanosecondType>(&values))
+        }
+        DataType::Interval(IntervalUnit::YearMonth) => {
+            Ok(as_primitive_array::<IntervalYearMonthType>(&values))
+        }
         DataType::Interval(IntervalUnit::DayTime) => {
-            Ok(Box::new(as_primitive_array::<IntervalDayTimeType>(&values)))
+            Ok(as_primitive_array::<IntervalDayTimeType>(&values))
         }
         DataType::Duration(TimeUnit::Second) => {
-            Ok(Box::new(as_primitive_array::<DurationSecondType>(&values)))
+            Ok(as_primitive_array::<DurationSecondType>(&values))
         }
-        DataType::Duration(TimeUnit::Millisecond) => Ok(Box::new(as_primitive_array::<
-            DurationMillisecondType,
-        >(&values))),
-        DataType::Duration(TimeUnit::Microsecond) => Ok(Box::new(as_primitive_array::<
-            DurationMicrosecondType,
-        >(&values))),
-        DataType::Duration(TimeUnit::Nanosecond) => Ok(Box::new(as_primitive_array::<
-            DurationNanosecondType,
-        >(&values))),
+        DataType::Duration(TimeUnit::Millisecond) => {
+            Ok(as_primitive_array::<DurationMillisecondType>(&values))
+        }
+        DataType::Duration(TimeUnit::Microsecond) => {
+            Ok(as_primitive_array::<DurationMicrosecondType>(&values))
+        }
+        DataType::Duration(TimeUnit::Nanosecond) => {
+            Ok(as_primitive_array::<DurationNanosecondType>(&values))
+        }
         t => Err(ArrowError::ComputeError(format!(
             "Lexical Sort not supported for data type {:?}",
             t

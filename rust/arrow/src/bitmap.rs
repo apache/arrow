@@ -51,6 +51,10 @@ impl Bitmap {
         self.bits.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.bits.is_empty()
+    }
+
     pub fn is_set(&self, i: usize) -> bool {
         assert!(i < (self.bits.len() << 3));
         unsafe { bit_util::get_bit_raw(self.bits.raw_data(), i) }
@@ -60,7 +64,7 @@ impl Bitmap {
         &self.bits
     }
 
-    pub fn to_buffer(self) -> Buffer {
+    pub fn into_buffer(self) -> Buffer {
         self.bits
     }
 }

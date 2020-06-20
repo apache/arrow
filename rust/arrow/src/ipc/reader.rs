@@ -631,6 +631,7 @@ impl<R: Read + Seek> FileReader<R> {
     }
 
     /// Read the next record batch
+    #[allow(clippy::should_implement_trait)]
     pub fn next(&mut self) -> Result<Option<RecordBatch>> {
         // get current block
         if self.current_block < self.total_blocks {
@@ -778,6 +779,7 @@ impl<R: Read> StreamReader<R> {
     }
 
     /// Read the next record batch
+    #[allow(clippy::should_implement_trait)]
     pub fn next(&mut self) -> Result<Option<RecordBatch>> {
         if self.finished {
             return Ok(None);

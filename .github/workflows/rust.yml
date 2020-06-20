@@ -42,6 +42,27 @@ env:
   ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
 
 jobs:
+  lint:
+    name: Lint with clippy
+    strategy:
+      matrix:
+        rust: [nightly-2020-04-22]
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+            toolchain: ${{ matrix.rust }}
+            override: true
+            components: clippy
+      - name: Run Clippy
+        shell: bash
+        run: ci/scripts/rust_lint.sh
 
   debian:
     name: AMD64 Debian 10 Rust ${{ matrix.rust }}

@@ -187,7 +187,7 @@ fn infer_file_schema<R: Read + Seek>(
 ///
 /// If `max_read_records` is not set, all files will be read fully to infer the schema.
 pub fn infer_schema_from_files(
-    files: &Vec<String>,
+    files: &[String],
     delimiter: u8,
     max_read_records: Option<usize>,
     has_header: bool,
@@ -207,7 +207,7 @@ pub fn infer_schema_from_files(
         }
         schemas.push(schema.clone());
         records_to_read -= records_read;
-        if records_to_read <= 0 {
+        if records_to_read == 0 {
             break;
         }
     }
@@ -283,11 +283,8 @@ impl<R: Read> Reader<R> {
         let mut reader_builder = csv_crate::ReaderBuilder::new();
         reader_builder.has_headers(has_header);
 
-        match delimiter {
-            Some(c) => {
-                reader_builder.delimiter(c);
-            }
-            _ => (),
+        if let Some(c) = delimiter {
+            reader_builder.delimiter(c);
         }
 
         let csv_reader = reader_builder.from_reader(buf_reader);
@@ -302,6 +299,7 @@ impl<R: Read> Reader<R> {
     }
 
     /// Read the next batch of rows
+    #[allow(clippy::should_implement_trait)]
     pub fn next(&mut self) -> Result<Option<RecordBatch>> {
         // read a batch of rows into memory
         let mut rows: Vec<StringRecord> = Vec::with_capacity(self.batch_size);
