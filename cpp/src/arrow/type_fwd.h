@@ -52,6 +52,7 @@ class DataType;
 class Field;
 class FieldRef;
 class KeyValueMetadata;
+enum class Endianness;
 class Schema;
 
 using DataTypeVector = std::vector<std::shared_ptr<DataType>>;
@@ -633,6 +634,17 @@ field(std::string name, std::shared_ptr<DataType> type, bool nullable = true,
 ARROW_EXPORT
 std::shared_ptr<Schema> schema(
     std::vector<std::shared_ptr<Field>> fields,
+    std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR);
+
+/// \brief Create a Schema instance
+///
+/// \param fields the schema's fields
+/// \param endianness the endianness of the data
+/// \param metadata any custom key-value metadata, default null
+/// \return schema shared_ptr to Schema
+ARROW_EXPORT
+std::shared_ptr<Schema> schema(
+    std::vector<std::shared_ptr<Field>> fields, Endianness endianness,
     std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR);
 
 /// @}

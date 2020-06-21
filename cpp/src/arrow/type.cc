@@ -1301,25 +1301,36 @@ void PrintTo(const FieldRef& ref, std::ostream* os) { *os << ref.ToString(); }
 class Schema::Impl {
  public:
   Impl(std::vector<std::shared_ptr<Field>> fields,
+       Endianness endianness,
        std::shared_ptr<const KeyValueMetadata> metadata)
       : fields_(std::move(fields)),
+        endianness_(endianness),
         name_to_index_(CreateNameToIndexMap(fields_)),
         metadata_(std::move(metadata)) {}
 
   std::vector<std::shared_ptr<Field>> fields_;
+  Endianness endianness_;
   std::unordered_multimap<std::string, int> name_to_index_;
   std::shared_ptr<const KeyValueMetadata> metadata_;
 };
 
 Schema::Schema(std::vector<std::shared_ptr<Field>> fields,
+               Endianness endianness,
                std::shared_ptr<const KeyValueMetadata> metadata)
     : detail::Fingerprintable(),
-      impl_(new Impl(std::move(fields), std::move(metadata))) {}
+      impl_(new Impl(std::move(fields), endianness, std::move(metadata))) {}
+
+Schema::Schema(std::vector<std::shared_ptr<Field>> fields,
+               std::shared_ptr<const KeyValueMetadata> metadata)
+    : detail::Fingerprintable(),
+      impl_(new Impl(std::move(fields), NATIVE_ENDIANNESS, std::move(metadata))) {}
 
 Schema::Schema(const Schema& schema)
     : detail::Fingerprintable(), impl_(new Impl(*schema.impl_)) {}
 
 Schema::~Schema() = default;
+
+Endianness Schema::endianness() const { return impl_->endianness_; }
 
 int Schema::num_fields() const { return static_cast<int>(impl_->fields_.size()); }
 
@@ -1336,6 +1347,11 @@ const std::vector<std::shared_ptr<Field>>& Schema::fields() const {
 bool Schema::Equals(const Schema& other, bool check_metadata) const {
   if (this == &other) {
     return true;
+  }
+
+  // checks endianness equality
+  if (endianness() != other.endianness()) {
+    return false;
   }
 
   // checks field equality
@@ -1659,6 +1675,12 @@ Status SchemaBuilder::AreCompatible(const std::vector<std::shared_ptr<Schema>>& 
 std::shared_ptr<Schema> schema(std::vector<std::shared_ptr<Field>> fields,
                                std::shared_ptr<const KeyValueMetadata> metadata) {
   return std::make_shared<Schema>(std::move(fields), std::move(metadata));
+}
+
+std::shared_ptr<Schema> schema(std::vector<std::shared_ptr<Field>> fields,
+                               Endianness endianness,
+                               std::shared_ptr<const KeyValueMetadata> metadata) {
+  return std::make_shared<Schema>(std::move(fields), endianness, std::move(metadata));
 }
 
 Result<std::shared_ptr<Schema>> UnifySchemas(

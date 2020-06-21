@@ -1604,6 +1604,15 @@ class ARROW_EXPORT FieldRef {
 // ----------------------------------------------------------------------
 // Schema
 
+enum class Endianness { LITTLE, BIG };
+#if ARROW_LITTLE_ENDIAN
+#define NATIVE_ENDIANNESS Endianness::LITTLE
+#define NONNATIVE_ENDIANNESS Endianness::BIG
+#else
+#define NATIVE_ENDIANNESS Endianness::BIG
+#define NONNATIVE_ENDIANNESS Endianness::LITTLE
+#endif
+
 /// \class Schema
 /// \brief Sequence of arrow::Field objects describing the columns of a record
 /// batch or table data structure
@@ -1611,6 +1620,10 @@ class ARROW_EXPORT Schema : public detail::Fingerprintable,
                             public util::EqualityComparable<Schema>,
                             public util::ToStringOstreamable<Schema> {
  public:
+  explicit Schema(std::vector<std::shared_ptr<Field>> fields,
+                  Endianness endianness,
+                  std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR);
+
   explicit Schema(std::vector<std::shared_ptr<Field>> fields,
                   std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR);
 
@@ -1621,6 +1634,9 @@ class ARROW_EXPORT Schema : public detail::Fingerprintable,
   /// Returns true if all of the schema fields are equal
   bool Equals(const Schema& other, bool check_metadata = false) const;
   bool Equals(const std::shared_ptr<Schema>& other, bool check_metadata = false) const;
+
+  /// Return endianness in the schema
+  Endianness endianness() const;
 
   /// \brief Return the number of fields (columns) in the schema
   int num_fields() const;
