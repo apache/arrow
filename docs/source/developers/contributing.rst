@@ -142,10 +142,12 @@ To sync your local copy of a branch, you may do the following::
 
     $ git pull upstream branch --rebase
 
-This will rebase your local commits on top of the tip of ``upstream/branch``.  In
-case there are conflicts, and your local commit history has multiple commits, you may
+This will rebase your local commits on top of the tip of ``upstream/branch``.  In case
+there are conflicts, and your local commit history has multiple commits, you may
 simplify the conflict resolution process by squashing your local commits into a single
-commit.  If you choose this route, you can abort the merge with::
+commit.  In the long run preserving the history isn't as important, because when your
+feature branch is merged upstream a squash happens automatically.  If you choose this
+route, you can abort the merge with::
 
     $ git merge --abort
 
@@ -161,9 +163,9 @@ remote repo still holds the old history, you would need to do a force push. ::
 
     $ git push --force origin branch
 
-Note about force pushing to a branch that is being reviewed: if you want reviewers to
+*Note about force pushing to a branch that is being reviewed:* if you want reviewers to
 look at your updates, please ensure you comment on the PR on GitHub as simply force
-pushing does not trigger a notification in the GitHub API.
+pushing does not trigger a notification in the GitHub user interface.
 
 Simplifying ``rebase``
 ++++++++++++++++++++++
