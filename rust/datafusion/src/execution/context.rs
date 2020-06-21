@@ -280,7 +280,7 @@ impl ExecutionContext {
 
     /// Create a physical plan from a logical plan
     pub fn create_physical_plan(
-        &mut self,
+        &self,
         logical_plan: &LogicalPlan,
         batch_size: usize,
     ) -> Result<Arc<dyn ExecutionPlan>> {
@@ -786,7 +786,7 @@ mod tests {
         .build()?;
         assert_fields_eq(&plan, vec!["b"]);
 
-        let mut ctx = ExecutionContext::new();
+        let ctx = ExecutionContext::new();
         let optimized_plan = ctx.optimize(&plan)?;
         match &optimized_plan {
             LogicalPlan::Projection { input, .. } => match &**input {
@@ -991,7 +991,7 @@ mod tests {
     #[test]
     fn aggregate_with_alias() -> Result<()> {
         let tmp_dir = TempDir::new("execute")?;
-        let mut ctx = create_ctx(&tmp_dir, 1)?;
+        let ctx = create_ctx(&tmp_dir, 1)?;
 
         let schema = Arc::new(Schema::new(vec![
             Field::new("state", DataType::Utf8, false),
