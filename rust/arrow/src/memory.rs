@@ -150,25 +150,32 @@ pub fn allocate_aligned(size: usize) -> *mut u8 {
 }
 
 pub unsafe fn free_aligned(ptr: *mut u8, size: usize) {
-    if size != 0x00 && ptr != BYPASS_PTR.as_ptr() {
+    if ptr != BYPASS_PTR.as_ptr() {
         std::alloc::dealloc(ptr, Layout::from_size_align_unchecked(size, ALIGNMENT));
     }
 }
 
 pub unsafe fn reallocate(ptr: *mut u8, old_size: usize, new_size: usize) -> *mut u8 {
     if ptr == BYPASS_PTR.as_ptr() {
-        allocate_aligned(new_size)
-    } else {
-        let new_ptr = std::alloc::realloc(
-            ptr,
-            Layout::from_size_align_unchecked(old_size, ALIGNMENT),
-            new_size,
-        );
-        if !new_ptr.is_null() && new_size > old_size {
-            new_ptr.add(old_size).write_bytes(0, new_size - old_size);
-        }
-        new_ptr
+        return allocate_aligned(new_size);
     }
+
+    if new_size == 0 {
+        free_aligned(ptr, old_size);
+        return BYPASS_PTR.as_ptr();
+    }
+
+    let new_ptr = std::alloc::realloc(
+        ptr,
+        Layout::from_size_align_unchecked(old_size, ALIGNMENT),
+        new_size,
+    );
+
+    if !new_ptr.is_null() && new_size > old_size {
+        new_ptr.add(old_size).write_bytes(0, new_size - old_size);
+    }
+
+    new_ptr
 }
 
 pub unsafe fn memcpy(dst: *mut u8, src: *const u8, len: usize) {
