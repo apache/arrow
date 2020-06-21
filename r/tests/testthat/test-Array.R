@@ -283,7 +283,7 @@ test_that("integer types casts (ARROW-3741)", {
 test_that("integer types cast safety (ARROW-3741, ARROW-5541)", {
   a <- Array$create(-(1:10))
   for (type in uint_types) {
-    expect_error(a$cast(type), regexp = "Integer value out of bounds")
+    expect_error(a$cast(type), regexp = "Integer value -1 not in range")
     expect_error(a$cast(type, safe = FALSE), NA)
   }
 })

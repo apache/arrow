@@ -27,12 +27,15 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_block_counter.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/ubsan.h"
 
 namespace arrow {
 namespace internal {
+
+using internal::checked_cast;
 
 static constexpr uint64_t max_uint8 =
     static_cast<uint64_t>(std::numeric_limits<uint8_t>::max());
@@ -682,6 +685,221 @@ Status CheckIntegersInRange(const Datum& datum, const Scalar& bound_lower,
       return CheckIntegersInRangeImpl<UInt32Type>(datum, bound_lower, bound_upper);
     case Type::UINT64:
       return CheckIntegersInRangeImpl<UInt64Type>(datum, bound_lower, bound_upper);
+    default:
+      return Status::Invalid("Invalid index type for boundschecking");
+  }
+}
+
+template <typename O, typename I, typename Enable = void>
+struct is_number_downcast {
+  static constexpr bool value = false;
+};
+
+template <typename O, typename I>
+struct is_number_downcast<
+    O, I, enable_if_t<is_number_type<O>::value && is_number_type<I>::value>> {
+  using O_T = typename O::c_type;
+  using I_T = typename I::c_type;
+
+  static constexpr bool value =
+      ((!std::is_same<O, I>::value) &&
+       // Both types are of the same sign-ness.
+       ((std::is_signed<O_T>::value == std::is_signed<I_T>::value) &&
+        // Both types are of the same integral-ness.
+        (std::is_floating_point<O_T>::value == std::is_floating_point<I_T>::value)) &&
+       // Smaller output size
+       (sizeof(O_T) < sizeof(I_T)));
+};
+
+template <typename O, typename I, typename Enable = void>
+struct is_number_upcast {
+  static constexpr bool value = false;
+};
+
+template <typename O, typename I>
+struct is_number_upcast<
+    O, I, enable_if_t<is_number_type<O>::value && is_number_type<I>::value>> {
+  using O_T = typename O::c_type;
+  using I_T = typename I::c_type;
+
+  static constexpr bool value =
+      ((!std::is_same<O, I>::value) &&
+       // Both types are of the same sign-ness.
+       ((std::is_signed<O_T>::value == std::is_signed<I_T>::value) &&
+        // Both types are of the same integral-ness.
+        (std::is_floating_point<O_T>::value == std::is_floating_point<I_T>::value)) &&
+       // Larger output size
+       (sizeof(O_T) > sizeof(I_T)));
+};
+
+template <typename O, typename I, typename Enable = void>
+struct is_integral_signed_to_unsigned {
+  static constexpr bool value = false;
+};
+
+template <typename O, typename I>
+struct is_integral_signed_to_unsigned<
+    O, I, enable_if_t<is_integer_type<O>::value && is_integer_type<I>::value>> {
+  using O_T = typename O::c_type;
+  using I_T = typename I::c_type;
+
+  static constexpr bool value =
+      ((!std::is_same<O, I>::value) &&
+       ((std::is_unsigned<O_T>::value && std::is_signed<I_T>::value)));
+};
+
+template <typename O, typename I, typename Enable = void>
+struct is_integral_unsigned_to_signed {
+  static constexpr bool value = false;
+};
+
+template <typename O, typename I>
+struct is_integral_unsigned_to_signed<
+    O, I, enable_if_t<is_integer_type<O>::value && is_integer_type<I>::value>> {
+  using O_T = typename O::c_type;
+  using I_T = typename I::c_type;
+
+  static constexpr bool value =
+      ((!std::is_same<O, I>::value) &&
+       ((std::is_signed<O_T>::value && std::is_unsigned<I_T>::value)));
+};
+
+// This set of functions SafeMinimum/SafeMaximum would be simplified with
+// C++17 and `if constexpr`.
+
+// clang-format doesn't handle this construct properly. Thus the macro, but it
+// also improves readability.
+//
+// The effective return type of the function is always `I::c_type`, this is
+// just how enable_if works with functions.
+#define RET_TYPE(TRAIT) enable_if_t<TRAIT<O, I>::value, typename I::c_type>
+
+template <typename O, typename I>
+constexpr RET_TYPE(std::is_same) SafeMinimum() {
+  using out_type = typename O::c_type;
+
+  return std::numeric_limits<out_type>::lowest();
+}
+
+template <typename O, typename I>
+constexpr RET_TYPE(std::is_same) SafeMaximum() {
+  using out_type = typename O::c_type;
+
+  return std::numeric_limits<out_type>::max();
+}
+
+template <typename O, typename I>
+constexpr RET_TYPE(is_number_downcast) SafeMinimum() {
+  using out_type = typename O::c_type;
+
+  return std::numeric_limits<out_type>::lowest();
+}
+
+template <typename O, typename I>
+constexpr RET_TYPE(is_number_downcast) SafeMaximum() {
+  using out_type = typename O::c_type;
+
+  return std::numeric_limits<out_type>::max();
+}
+
+template <typename O, typename I>
+constexpr RET_TYPE(is_number_upcast) SafeMinimum() {
+  using in_type = typename I::c_type;
+  return std::numeric_limits<in_type>::lowest();
+}
+
+template <typename O, typename I>
+constexpr RET_TYPE(is_number_upcast) SafeMaximum() {
+  using in_type = typename I::c_type;
+  return std::numeric_limits<in_type>::max();
+}
+
+template <typename O, typename I>
+constexpr RET_TYPE(is_integral_unsigned_to_signed) SafeMinimum() {
+  return 0;
+}
+
+template <typename O, typename I>
+constexpr RET_TYPE(is_integral_unsigned_to_signed) SafeMaximum() {
+  using in_type = typename I::c_type;
+  using out_type = typename O::c_type;
+
+  // Equality is missing because in_type::max() > out_type::max() when types
+  // are of the same width.
+  return static_cast<in_type>(sizeof(in_type) < sizeof(out_type)
+                                  ? std::numeric_limits<in_type>::max()
+                                  : std::numeric_limits<out_type>::max());
+}
+
+template <typename O, typename I>
+constexpr RET_TYPE(is_integral_signed_to_unsigned) SafeMinimum() {
+  return 0;
+}
+
+template <typename O, typename I>
+constexpr RET_TYPE(is_integral_signed_to_unsigned) SafeMaximum() {
+  using in_type = typename I::c_type;
+  using out_type = typename O::c_type;
+
+  return static_cast<in_type>(sizeof(in_type) <= sizeof(out_type)
+                                  ? std::numeric_limits<in_type>::max()
+                                  : std::numeric_limits<out_type>::max());
+}
+
+#undef RET_TYPE
+
+#define GET_MIN_MAX_CASE(TYPE, OUT_TYPE)    \
+  case Type::TYPE:                          \
+    *min = SafeMinimum<OUT_TYPE, InType>(); \
+    *max = SafeMaximum<OUT_TYPE, InType>(); \
+    break
+
+template <typename InType, typename T = typename InType::c_type>
+void GetSafeMinMax(Type::type out_type, T* min, T* max) {
+  switch (out_type) {
+    GET_MIN_MAX_CASE(INT8, Int8Type);
+    GET_MIN_MAX_CASE(INT16, Int16Type);
+    GET_MIN_MAX_CASE(INT32, Int32Type);
+    GET_MIN_MAX_CASE(INT64, Int64Type);
+    GET_MIN_MAX_CASE(UINT8, UInt8Type);
+    GET_MIN_MAX_CASE(UINT16, UInt16Type);
+    GET_MIN_MAX_CASE(UINT32, UInt32Type);
+    GET_MIN_MAX_CASE(UINT64, UInt64Type);
+    default:
+      break;
+  }
+}
+
+template <typename Type, typename CType = typename Type::c_type,
+          typename ScalarType = typename TypeTraits<Type>::ScalarType>
+Status IntegersCanFitImpl(const Datum& datum, const DataType& target_type) {
+  CType bound_min{}, bound_max{};
+  GetSafeMinMax<Type>(target_type.id(), &bound_min, &bound_max);
+  return CheckIntegersInRange(datum, ScalarType(bound_min), ScalarType(bound_max));
+}
+
+Status IntegersCanFit(const Datum& datum, const DataType& target_type) {
+  if (!is_integer(target_type.id())) {
+    return Status::Invalid("Target type is not an integer type: ", target_type);
+  }
+
+  switch (datum.type()->id()) {
+    case Type::INT8:
+      return IntegersCanFitImpl<Int8Type>(datum, target_type);
+    case Type::INT16:
+      return IntegersCanFitImpl<Int16Type>(datum, target_type);
+    case Type::INT32:
+      return IntegersCanFitImpl<Int32Type>(datum, target_type);
+    case Type::INT64:
+      return IntegersCanFitImpl<Int64Type>(datum, target_type);
+    case Type::UINT8:
+      return IntegersCanFitImpl<UInt8Type>(datum, target_type);
+    case Type::UINT16:
+      return IntegersCanFitImpl<UInt16Type>(datum, target_type);
+    case Type::UINT32:
+      return IntegersCanFitImpl<UInt32Type>(datum, target_type);
+    case Type::UINT64:
+      return IntegersCanFitImpl<UInt64Type>(datum, target_type);
     default:
       return Status::Invalid("Invalid index type for boundschecking");
   }

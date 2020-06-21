@@ -138,5 +138,11 @@ ARROW_EXPORT
 Status CheckIntegersInRange(const Datum& datum, const Scalar& bound_lower,
                             const Scalar& bound_upper);
 
+/// \brief Use CheckIntegersInRange to determine whether the passed integers
+/// can fit safely in the passed integer type. This helps quickly determine if
+/// integer narrowing (e.g. int64->int32) is safe to do.
+ARROW_EXPORT
+Status IntegersCanFit(const Datum& datum, const DataType& target_type);
+
 }  // namespace internal
 }  // namespace arrow
