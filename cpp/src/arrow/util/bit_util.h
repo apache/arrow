@@ -322,6 +322,15 @@ static inline uint16_t ByteSwap(uint16_t value) {
   return static_cast<uint16_t>(ByteSwap(static_cast<int16_t>(value)));
 }
 static inline uint8_t ByteSwap(uint8_t value) { return value; }
+static inline int8_t ByteSwap(int8_t value) { return value; }
+static inline double ByteSwap(double value) {
+  auto swapped = ARROW_BYTE_SWAP64(*reinterpret_cast<uint64_t*>(&value));
+  return *reinterpret_cast<double*>(&swapped);
+}
+static inline float ByteSwap(float value) {
+  auto swapped = ARROW_BYTE_SWAP64(*reinterpret_cast<uint32_t*>(&value));
+  return *reinterpret_cast<float*>(&swapped);
+}
 
 // Write the swapped bytes into dst. Src and dst cannot overlap.
 static inline void ByteSwap(void* dst, const void* src, int len) {
@@ -353,28 +362,32 @@ static inline void ByteSwap(void* dst, const void* src, int len) {
 #if ARROW_LITTLE_ENDIAN
 template <typename T,
           typename = internal::EnableIfIsOneOf<T, int64_t, uint64_t, int32_t, uint32_t,
-                                               int16_t, uint16_t, uint8_t>>
+                                               int16_t, uint16_t, uint8_t, int8_t,
+                                               float, double>>
 static inline T ToBigEndian(T value) {
   return ByteSwap(value);
 }
 
 template <typename T,
           typename = internal::EnableIfIsOneOf<T, int64_t, uint64_t, int32_t, uint32_t,
-                                               int16_t, uint16_t, uint8_t>>
+                                               int16_t, uint16_t, uint8_t, int8_t,
+                                               float, double>>
 static inline T ToLittleEndian(T value) {
   return value;
 }
 #else
 template <typename T,
           typename = internal::EnableIfIsOneOf<T, int64_t, uint64_t, int32_t, uint32_t,
-                                               int16_t, uint16_t, uint8_t>>
+                                               int16_t, uint16_t, uint8_t, int8_t,
+                                               float, double>>
 static inline T ToBigEndian(T value) {
   return value;
 }
 
 template <typename T,
           typename = internal::EnableIfIsOneOf<T, int64_t, uint64_t, int32_t, uint32_t,
-                                               int16_t, uint16_t, uint8_t>>
+                                               int16_t, uint16_t, uint8_t, int8_t,
+                                               float, double>>
 static inline T ToLittleEndian(T value) {
   return ByteSwap(value);
 }
