@@ -420,7 +420,7 @@ test_glib() {
 test_js() {
   pushd js
 
-  if [ "${INSTALL_NPM}" -gt 0 ]; then
+  if [ "${INSTALL_NODE}" -gt 0 ]; then
     export NVM_DIR="`pwd`/.nvm"
     mkdir -p $NVM_DIR
     curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.35.3/install.sh | bash
@@ -721,7 +721,9 @@ test_wheels() {
 # To deactivate one test, deactivate the test and all of its dependents
 # To explicitly select one test, set TEST_DEFAULT=0 TEST_X=1
 
-: ${INSTALL_NPM:=0}
+# Install NodeJS locally for running the JavaScript tests rather than using the
+# system Node installation, which may be too old.
+: ${INSTALL_NODE:=1}
 
 if [ "${ARTIFACT}" == "source" ]; then
   : ${TEST_SOURCE:=1}
