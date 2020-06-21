@@ -46,10 +46,10 @@ using internal::BinaryBitBlockCounter;
 using internal::BitBlockCount;
 using internal::BitBlockCounter;
 using internal::BitmapReader;
+using internal::CheckIndexBounds;
 using internal::CopyBitmap;
 using internal::CountSetBits;
 using internal::GetArrayView;
-using internal::IndexBoundsCheck;
 using internal::OptionalBitBlockCounter;
 using internal::OptionalBitIndexer;
 
@@ -487,7 +487,7 @@ void TakeIndexDispatch(const PrimitiveArg& values, const PrimitiveArg& indices,
 void PrimitiveTake(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   const auto& state = checked_cast<const TakeState&>(*ctx->state());
   if (state.options.boundscheck) {
-    KERNEL_RETURN_IF_ERROR(ctx, IndexBoundsCheck(*batch[1].array(), batch[0].length()));
+    KERNEL_RETURN_IF_ERROR(ctx, CheckIndexBounds(*batch[1].array(), batch[0].length()));
   }
 
   PrimitiveArg values = GetPrimitiveArg(*batch[0].array());
@@ -849,7 +849,7 @@ void PrimitiveFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
 void NullTake(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   const auto& state = checked_cast<const TakeState&>(*ctx->state());
   if (state.options.boundscheck) {
-    KERNEL_RETURN_IF_ERROR(ctx, IndexBoundsCheck(*batch[1].array(), batch[0].length()));
+    KERNEL_RETURN_IF_ERROR(ctx, CheckIndexBounds(*batch[1].array(), batch[0].length()));
   }
   out->value = std::make_shared<NullArray>(batch.length)->data();
 }
@@ -1737,7 +1737,7 @@ template <typename Impl>
 void TakeExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   const auto& state = checked_cast<const TakeState&>(*ctx->state());
   if (state.options.boundscheck) {
-    KERNEL_RETURN_IF_ERROR(ctx, IndexBoundsCheck(*batch[1].array(), batch[0].length()));
+    KERNEL_RETURN_IF_ERROR(ctx, CheckIndexBounds(*batch[1].array(), batch[0].length()));
   }
   Impl kernel(ctx, batch, /*output_length=*/batch[1].length(), out);
   KERNEL_RETURN_IF_ERROR(ctx, kernel.ExecTake());

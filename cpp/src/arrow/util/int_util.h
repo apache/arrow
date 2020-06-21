@@ -26,7 +26,10 @@
 
 namespace arrow {
 
+class DataType;
 struct ArrayData;
+struct Datum;
+struct Scalar;
 
 namespace internal {
 
@@ -122,11 +125,18 @@ UpcastInt(Integer v) {
   return v;
 }
 
-/// \brief Do vectorized boundschecking of integer-type indices. The indices
-/// must be non-nonnegative and strictly less than the passed upper limit
-/// (which is usually the length of an array that is being indexed-into).
+/// \brief Do vectorized boundschecking of integer-type array indices. The
+/// indices must be non-nonnegative and strictly less than the passed upper
+/// limit (which is usually the length of an array that is being indexed-into).
 ARROW_EXPORT
-Status IndexBoundsCheck(const ArrayData& indices, uint64_t upper_limit);
+Status CheckIndexBounds(const ArrayData& indices, uint64_t upper_limit);
+
+/// \brief Boundscheck integer values to determine if they are all between the
+/// passed upper and lower limits (inclusive). Upper and lower bounds must be
+/// the same type as the data and are not currently casted.
+ARROW_EXPORT
+Status CheckIntegersInRange(const Datum& datum, const Scalar& bound_lower,
+                            const Scalar& bound_upper);
 
 }  // namespace internal
 }  // namespace arrow

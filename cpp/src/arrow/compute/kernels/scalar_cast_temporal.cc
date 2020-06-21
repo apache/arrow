@@ -126,6 +126,9 @@ struct CastFunctor<
     enable_if_t<(is_timestamp_type<O>::value && is_timestamp_type<I>::value) ||
                 (is_duration_type<O>::value && is_duration_type<I>::value)>> {
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    // TODO: Make this work on scalar inputs
+    DCHECK_EQ(batch[0].kind(), Datum::ARRAY);
+
     const ArrayData& input = *batch[0].array();
     ArrayData* output = out->mutable_array();
 
@@ -144,6 +147,9 @@ struct CastFunctor<
 template <>
 struct CastFunctor<Date32Type, TimestampType> {
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    // TODO: Make this work on scalar inputs
+    DCHECK_EQ(batch[0].kind(), Datum::ARRAY);
+
     const ArrayData& input = *batch[0].array();
     ArrayData* output = out->mutable_array();
 
@@ -164,6 +170,9 @@ struct CastFunctor<Date32Type, TimestampType> {
 template <>
 struct CastFunctor<Date64Type, TimestampType> {
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    // TODO: Make this work on scalar inputs
+    DCHECK_EQ(batch[0].kind(), Datum::ARRAY);
+
     const CastOptions& options = checked_cast<const CastState&>(*ctx->state()).options;
     const ArrayData& input = *batch[0].array();
     ArrayData* output = out->mutable_array();
@@ -215,6 +224,9 @@ struct CastFunctor<O, I, enable_if_t<is_time_type<I>::value && is_time_type<O>::
   using out_t = typename O::c_type;
 
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    // TODO: Make this work on scalar inputs
+    DCHECK_EQ(batch[0].kind(), Datum::ARRAY);
+
     const ArrayData& input = *batch[0].array();
     ArrayData* output = out->mutable_array();
 
@@ -233,6 +245,9 @@ struct CastFunctor<O, I, enable_if_t<is_time_type<I>::value && is_time_type<O>::
 template <>
 struct CastFunctor<Date64Type, Date32Type> {
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    // TODO: Make this work on scalar inputs
+    DCHECK_EQ(batch[0].kind(), Datum::ARRAY);
+
     ShiftTime<int32_t, int64_t>(ctx, util::MULTIPLY, kMillisecondsInDay,
                                 *batch[0].array(), out->mutable_array());
   }
@@ -241,6 +256,9 @@ struct CastFunctor<Date64Type, Date32Type> {
 template <>
 struct CastFunctor<Date32Type, Date64Type> {
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    // TODO: Make this work on scalar inputs
+    DCHECK_EQ(batch[0].kind(), Datum::ARRAY);
+
     ShiftTime<int64_t, int32_t>(ctx, util::DIVIDE, kMillisecondsInDay, *batch[0].array(),
                                 out->mutable_array());
   }
