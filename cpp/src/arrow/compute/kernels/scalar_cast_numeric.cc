@@ -334,7 +334,7 @@ void GetSafeMinMax(Type::type out_type, T* min, T* max) {
 template <typename Type, typename CType = typename Type::c_type,
           typename ScalarType = typename TypeTraits<Type>::ScalarType>
 Status IntegersCanFitImpl(const Datum& datum, const DataType& target_type) {
-  CType bound_min, bound_max;
+  CType bound_min{}, bound_max{};
   GetSafeMinMax<Type>(target_type.id(), &bound_min, &bound_max);
   return CheckIntegersInRange(datum, ScalarType(bound_min), ScalarType(bound_max));
 }
