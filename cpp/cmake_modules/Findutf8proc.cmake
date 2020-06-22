@@ -15,17 +15,17 @@
 # specific language governing permissions and limitations
 # under the License.
 
-if(UTF8PROC_ROOT)
+if(utf8proc_ROOT)
   find_library(
     UTF8PROC_LIB
     NAMES utf8proc
           "${CMAKE_SHARED_LIBRARY_PREFIX}utf8proc${CMAKE_SHARED_LIBRARY_SUFFIX}"
-    PATHS ${UTF8PROC_ROOT}
+    PATHS ${utf8proc_ROOT}
     PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
     NO_DEFAULT_PATH)
   find_path(UTF8PROC_INCLUDE_DIR
             NAMES utf8proc.h
-            PATHS ${UTF8PROC_ROOT}
+            PATHS ${utf8proc_ROOT}
             NO_DEFAULT_PATH
             PATH_SUFFIXES ${INCLUDE_PATH_SUFFIXES})
 
