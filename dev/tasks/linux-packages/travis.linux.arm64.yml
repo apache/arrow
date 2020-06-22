@@ -65,11 +65,11 @@ after_success:
   - popd
   - |
     sudo -H pip3 install \
-      click \
+      "click>=7.1" \
       github3.py \
       jinja2 \
       jira \
-      pygit2 \
+      pygit2==0.26.4 \
       ruamel.yaml \
       setuptools_scm \
       toolz
