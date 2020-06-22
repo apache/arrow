@@ -142,8 +142,18 @@ class CppBenchmarkRunner(BenchmarkRunner):
     def default_configuration(**kwargs):
         """ Returns the default benchmark configuration. """
         return CppConfiguration(
-            build_type="release", with_tests=True, with_benchmarks=True,
-            with_compute=True, with_python=False, **kwargs)
+            build_type="release", with_tests=False, with_benchmarks=True,
+            with_compute=True,
+            with_dataset=True,
+            with_parquet=True,
+            with_python=False,
+            with_brotli=True,
+            with_bz2=True,
+            with_lz4=True,
+            with_snappy=True,
+            with_zlib=True,
+            with_zstd=True,
+            **kwargs)
 
     @property
     def suites_binaries(self):

@@ -52,7 +52,7 @@ class CppConfiguration:
                  with_compute=None, with_csv=None, with_cuda=None,
                  with_dataset=None, with_filesystem=None, with_flight=None,
                  with_gandiva=None, with_hdfs=None, with_hiveserver2=None,
-                 with_ipc=None, with_json=None, with_jni=None,
+                 with_ipc=True, with_json=None, with_jni=None,
                  with_mimalloc=None,
                  with_parquet=None, with_plasma=None, with_python=True,
                  with_r=None, with_s3=None,
