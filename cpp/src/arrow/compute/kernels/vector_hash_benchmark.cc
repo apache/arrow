@@ -48,6 +48,7 @@ static void BuildDictionary(benchmark::State& state) {  // NOLINT non-const refe
   while (state.KeepRunning()) {
     ABORT_NOT_OK(DictionaryEncode(arr).status());
   }
+  state.counters["null_percent"] = static_cast<double>(arr->null_count()) / arr->length();
   state.SetBytesProcessed(state.iterations() * values.size() * sizeof(int64_t));
 }
 
@@ -106,6 +107,7 @@ struct HashParams {
 
   void SetMetadata(benchmark::State& state) const {
     state.counters["null_percent"] = params.null_percent * 100;
+    state.counters["num_unique"] = static_cast<double>(params.num_unique);
     state.SetBytesProcessed(state.iterations() * params.length * sizeof(T));
   }
 };
@@ -142,6 +144,7 @@ struct HashParams<StringType> {
 
   void SetMetadata(benchmark::State& state) const {
     state.counters["null_percent"] = params.null_percent * 100;
+    state.counters["num_unique"] = static_cast<double>(params.num_unique);
     state.SetBytesProcessed(state.iterations() * params.length * byte_width);
   }
 };
