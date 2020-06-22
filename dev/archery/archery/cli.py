@@ -573,6 +573,7 @@ def benchmark_diff(ctx, src, preserve, output, cmake_extras,
         comparisons_json = _get_comparisons_as_json(runner_comp.comparisons)
         formatted = _format_comparisons_with_pandas(comparisons_json)
         output.write(formatted)
+        output.write('\n')
 
 
 def _get_comparisons_as_json(comparisons):
