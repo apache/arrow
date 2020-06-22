@@ -165,10 +165,6 @@ TEST(TestStringKernels, UnicodeLibraryAssumptions) {
              "encoded in maximum 3 bytes, not "
           << encoded_nbytes_upper;
     }
-    if (codepoint > 0xffff) {
-      EXPECT_EQ(codepoint, codepoint_upper)
-          << "Expected codepoint not to change (LUT protection)";
-    }
     utf8proc_int32_t codepoint_lower = utf8proc_tolower(codepoint);
     utf8proc_ssize_t encoded_nbytes_lower = utf8proc_encode_char(codepoint_lower, output);
     if (encoded_nbytes == 2) {
@@ -182,10 +178,6 @@ TEST(TestStringKernels, UnicodeLibraryAssumptions) {
           << "Expected the lower case codepoint for a 3 byte encoded codepoint to be "
              "encoded in maximum 3 bytes, not "
           << encoded_nbytes_lower;
-    }
-    if (codepoint > 0xffff) {
-      EXPECT_EQ(codepoint, codepoint_lower)
-          << "Expected codepoint not to change (LUT protection)";
     }
   }
 }

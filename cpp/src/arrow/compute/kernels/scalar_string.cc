@@ -39,8 +39,7 @@ std::once_flag flag_case_luts;
 constexpr uint32_t REPLACEMENT_CHAR =
     '?';  // the proper replacement char would be the 0xFFFD codepoint, but that can
           // increase string length by a factor of 3
-constexpr int MAX_CODEPOINT_CASE_CHANGE =
-    0xffff;  // no case changes above codepoint 0xffff (tested in unittest)
+constexpr int MAX_CODEPOINT_LUT = 0xffff;  // up to this codepoint is in a lookup table
 
 static inline void utf8_encode(uint8_t*& str, uint32_t codepoint) {
   if (codepoint < 0x80) {
@@ -176,9 +175,9 @@ struct Utf8Transform {
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     if (batch[0].kind() == Datum::ARRAY) {
       std::call_once(flag_case_luts, []() {
-        lut_upper_codepoint.reserve(MAX_CODEPOINT_CASE_CHANGE);
-        lut_lower_codepoint.reserve(MAX_CODEPOINT_CASE_CHANGE);
-        for (int i = 0; i <= MAX_CODEPOINT_CASE_CHANGE; i++) {
+        lut_upper_codepoint.reserve(MAX_CODEPOINT_LUT + 1);
+        lut_lower_codepoint.reserve(MAX_CODEPOINT_LUT + 1);
+        for (int i = 0; i <= MAX_CODEPOINT_LUT; i++) {
           lut_upper_codepoint.push_back(utf8proc_toupper(i));
           lut_lower_codepoint.push_back(utf8proc_tolower(i));
         }
@@ -261,14 +260,16 @@ struct Utf8Transform {
 template <typename Type>
 struct Utf8Upper : Utf8Transform<Type, Utf8Upper> {
   inline static uint32_t TransformCodepoint(char32_t codepoint) {
-    return codepoint <= 0xffff ? lut_upper_codepoint[codepoint] : codepoint;
+    return codepoint <= MAX_CODEPOINT_LUT ? lut_upper_codepoint[codepoint]
+                                          : utf8proc_toupper(codepoint);
   }
 };
 
 template <typename Type>
 struct Utf8Lower : Utf8Transform<Type, Utf8Lower> {
   static uint32_t TransformCodepoint(char32_t codepoint) {
-    return codepoint <= 0xffff ? lut_lower_codepoint[codepoint] : codepoint;
+    return codepoint <= MAX_CODEPOINT_LUT ? lut_lower_codepoint[codepoint]
+                                          : utf8proc_tolower(codepoint);
   }
 };
 
