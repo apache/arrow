@@ -686,7 +686,7 @@ Status CheckIntegersInRange(const Datum& datum, const Scalar& bound_lower,
     case Type::UINT64:
       return CheckIntegersInRangeImpl<UInt64Type>(datum, bound_lower, bound_upper);
     default:
-      return Status::Invalid("Invalid index type for boundschecking");
+      return Status::TypeError("Invalid index type for boundschecking");
   }
 }
 
@@ -901,7 +901,7 @@ Status IntegersCanFit(const Datum& datum, const DataType& target_type) {
     case Type::UINT64:
       return IntegersCanFitImpl<UInt64Type>(datum, target_type);
     default:
-      return Status::Invalid("Invalid index type for boundschecking");
+      return Status::TypeError("Invalid index type for boundschecking");
   }
 }
 

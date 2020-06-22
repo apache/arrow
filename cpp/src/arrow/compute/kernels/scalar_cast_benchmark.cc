@@ -59,7 +59,7 @@ static void BenchmarkFloatingToIntegerCast(benchmark::State& state,
   }
 }
 
-std::vector<int64_t> g_data_sizes = {kL1Size, kL2Size};
+std::vector<int64_t> g_data_sizes = {kL2Size};
 
 void CastSetArgs(benchmark::internal::Benchmark* bench) {
   for (int64_t size : g_data_sizes) {

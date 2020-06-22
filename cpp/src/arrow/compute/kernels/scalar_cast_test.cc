@@ -629,8 +629,6 @@ TEST_F(TestCast, FloatingPointToInt) {
   CheckCase<DoubleType, Int64Type>(v5, all_valid, e5, options);
 }
 
-// TODO: why is this bitness check needed here?
-#if ARROW_BITNESS >= 64
 TEST_F(TestCast, IntToFloatingPoint) {
   auto options = CastOptions::Safe();
 
@@ -659,7 +657,6 @@ TEST_F(TestCast, IntToFloatingPoint) {
 
   CheckFails<UInt64Type>({1LL << 53, (1LL << 53) + 1}, {true, true}, float64(), options);
 }
-#endif
 
 TEST_F(TestCast, DecimalToInt) {
   CastOptions options;
