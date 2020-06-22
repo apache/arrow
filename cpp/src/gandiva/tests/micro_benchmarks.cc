@@ -321,31 +321,6 @@ static void TimedTestInExpr(benchmark::State& state) {
   ASSERT_OK(status);
 }
 
-static void TimedTestToDate(benchmark::State& state) {
-  auto field_a = field("a", utf8());
-  auto schema = arrow::schema({field_a});
-  auto pool = arrow::default_memory_pool();
-
-  auto field_result = field("res", arrow::date64());
-
-  auto node_a = TreeExprBuilder::MakeField(field_a);
-  auto date_pattern = TreeExprBuilder::MakeStringLiteral("YYYY-MM-DD");
-  auto suppress_literal = TreeExprBuilder::MakeLiteral(1);
-  auto fn = TreeExprBuilder::MakeFunction(
-      "to_date", {node_a, date_pattern, suppress_literal}, arrow::date64());
-  auto expr = TreeExprBuilder::MakeExpression(fn, field_result);
-
-  std::shared_ptr<Projector> projector;
-  ASSERT_OK(Projector::Make(schema, {expr}, TestConfiguration(), &projector));
-
-  Utf8DateDataGenerator data_generator;
-  ProjectEvaluator evaluator(projector);
-
-  Status status = TimedEvaluate<arrow::StringType, std::string>(
-      schema, evaluator, data_generator, pool, 1 * MILLION, 16 * THOUSAND, state);
-  ASSERT_TRUE(status.ok());
-}
-
 static void DoDecimalAdd3(benchmark::State& state, int32_t precision, int32_t scale,
                           bool large = false) {
   // schema for input fields
@@ -469,7 +444,6 @@ BENCHMARK(TimedTestCastIntFromString)->MinTime(1.0)->Unit(benchmark::kMicrosecon
 BENCHMARK(TimedTestAllocs)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
 BENCHMARK(TimedTestMultiOr)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
 BENCHMARK(TimedTestInExpr)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
-BENCHMARK(TimedTestToDate)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
 BENCHMARK(DecimalAdd2Fast)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
 BENCHMARK(DecimalAdd2LeadingZeroes)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
 BENCHMARK(DecimalAdd2LeadingZeroesWithDiv)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
@@ -478,4 +452,5 @@ BENCHMARK(DecimalAdd3Fast)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
 BENCHMARK(DecimalAdd3LeadingZeroes)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
 BENCHMARK(DecimalAdd3LeadingZeroesWithDiv)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
 BENCHMARK(DecimalAdd3Large)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
+
 }  // namespace gandiva

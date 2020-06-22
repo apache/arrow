@@ -57,7 +57,7 @@ int64_t gdv_fn_to_date_utf8_utf8_int32(int64_t context_ptr, int64_t holder_ptr,
   gandiva::ExecutionContext* context =
       reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
   gandiva::ToDateHolder* holder = reinterpret_cast<gandiva::ToDateHolder*>(holder_ptr);
-  return (*holder)(context, std::string(data, data_len), in1_validity, out_valid);
+  return (*holder)(context, data, data_len, in1_validity, out_valid);
 }
 
 bool gdv_fn_in_expr_lookup_int32(int64_t ptr, int32_t value, bool in_validity) {
