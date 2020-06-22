@@ -153,10 +153,11 @@ route, you can abort the merge with::
 
 Following which, the local commits can be squashed interactively by running::
 
-    $ git rebase --interactive ORIG_HEAD
+    $ git rebase --interactive ORIG_HEAD~n
 
-After the squash, you can try the merge again, and this time conflict resolution should
-be relatively straightforward.
+Where ``n`` is the number of commits you have in your local branch.  After the squash,
+you can try the merge again, and this time conflict resolution should be relatively
+straightforward.
 
 Once you have an updated local copy, you can push to your remote repo.  Note, since your
 remote repo still holds the old history, you would need to do a force push. ::
