@@ -859,7 +859,7 @@ Schema message
 
 The Flatbuffers files `Schema.fbs`_ contains the definitions for all
 built-in logical data types and the ``Schema`` metadata type which
-represents the schema of a given record batch. A schema consists of of
+represents the schema of a given record batch. A schema consists of
 an ordered sequence of fields, each having a name and type. A
 serialized ``Schema`` does not contain any data buffers, only type
 metadata.
@@ -879,7 +879,7 @@ array. This includes:
   to allow matching a subsequent dictionary IPC message with the
   appropriate field.
 
-We additionally provide provide both schema-level and field-level
+We additionally provide both schema-level and field-level
 ``custom_metadata`` attributes allowing for systems to insert their
 own application defined metadata to customize behavior.
 
