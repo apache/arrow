@@ -52,36 +52,36 @@ TEST_F(TestToDateHolder, TestSimpleDateTime) {
   bool out_valid;
   std::string s("1986-12-01 01:01:01");
   int64_t millis_since_epoch =
-      to_date(&execution_context_, s.data(), s.length(), true, &out_valid);
+      to_date(&execution_context_, s.data(), (int)s.length(), true, &out_valid);
   EXPECT_EQ(millis_since_epoch, 533779200000);
 
   s = std::string("1986-12-01 01:01:01.11");
   millis_since_epoch =
-      to_date(&execution_context_, s.data(), s.length(), true, &out_valid);
+      to_date(&execution_context_, s.data(), (int)s.length(), true, &out_valid);
   EXPECT_EQ(millis_since_epoch, 533779200000);
 
   s = std::string("1986-12-01 01:01:01 +0800");
   millis_since_epoch =
-      to_date(&execution_context_, s.data(), s.length(), true, &out_valid);
+      to_date(&execution_context_, s.data(), (int)s.length(), true, &out_valid);
   EXPECT_EQ(millis_since_epoch, 533779200000);
 
 #if 0
   // TODO : this fails parsing with date::parse and strptime on linux
   s = std::string("1886-12-01 00:00:00");
   millis_since_epoch =
-      to_date(&execution_context_, s.data(), s.length(), true, &out_valid);
+      to_date(&execution_context_, s.data(), (int) s.length(), true, &out_valid);
   EXPECT_EQ(out_valid, true);
   EXPECT_EQ(millis_since_epoch, -2621894400000);
 #endif
 
   s = std::string("1886-12-01 01:01:01");
   millis_since_epoch =
-      to_date(&execution_context_, s.data(), s.length(), true, &out_valid);
+      to_date(&execution_context_, s.data(), (int)s.length(), true, &out_valid);
   EXPECT_EQ(millis_since_epoch, -2621894400000);
 
   s = std::string("1986-12-11 01:30:00");
   millis_since_epoch =
-      to_date(&execution_context_, s.data(), s.length(), true, &out_valid);
+      to_date(&execution_context_, s.data(), (int)s.length(), true, &out_valid);
   EXPECT_EQ(millis_since_epoch, 534643200000);
 }
 
@@ -93,28 +93,28 @@ TEST_F(TestToDateHolder, TestSimpleDate) {
   bool out_valid;
   std::string s("1986-12-01");
   int64_t millis_since_epoch =
-      to_date(&execution_context_, s.data(), s.length(), true, &out_valid);
+      to_date(&execution_context_, s.data(), (int)s.length(), true, &out_valid);
   EXPECT_EQ(millis_since_epoch, 533779200000);
 
   s = std::string("1986-12-01");
   millis_since_epoch =
-      to_date(&execution_context_, s.data(), s.length(), true, &out_valid);
+      to_date(&execution_context_, s.data(), (int)s.length(), true, &out_valid);
   EXPECT_EQ(millis_since_epoch, 533779200000);
 
   s = std::string("1886-12-1");
   millis_since_epoch =
-      to_date(&execution_context_, s.data(), s.length(), true, &out_valid);
+      to_date(&execution_context_, s.data(), (int)s.length(), true, &out_valid);
   EXPECT_EQ(millis_since_epoch, -2621894400000);
 
   s = std::string("2012-12-1");
   millis_since_epoch =
-      to_date(&execution_context_, s.data(), s.length(), true, &out_valid);
+      to_date(&execution_context_, s.data(), (int)s.length(), true, &out_valid);
   EXPECT_EQ(millis_since_epoch, 1354320000000);
 
   // wrong month. should return 0 since we are suppressing errors.
   s = std::string("1986-21-01 01:01:01 +0800");
   millis_since_epoch =
-      to_date(&execution_context_, s.data(), s.length(), true, &out_valid);
+      to_date(&execution_context_, s.data(), (int)s.length(), true, &out_valid);
   EXPECT_EQ(millis_since_epoch, 0);
 }
 
@@ -128,7 +128,7 @@ TEST_F(TestToDateHolder, TestSimpleDateTimeError) {
 
   std::string s("1986-01-40 01:01:01 +0800");
   int64_t millis_since_epoch =
-      to_date(&execution_context_, s.data(), s.length(), true, &out_valid);
+      to_date(&execution_context_, s.data(), (int)s.length(), true, &out_valid);
   EXPECT_EQ(0, millis_since_epoch);
   std::string expected_error =
       "Error parsing value 1986-01-40 01:01:01 +0800 for given format";
