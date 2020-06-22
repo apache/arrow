@@ -1487,8 +1487,10 @@ def get_generated_json_files(tempdir=None, flight=False):
 
     file_objs = [
         generate_primitive_case([], name='primitive_no_batches'),
-        generate_primitive_case([17, 20], name='primitive'),
-        generate_primitive_case([0, 0, 0], name='primitive_zerolength'),
+        generate_primitive_case([17, 20], name='primitive')
+        .skip_category('Rust'),
+        generate_primitive_case([0, 0, 0], name='primitive_zerolength')
+        .skip_category('Rust'),
 
         generate_primitive_large_offsets_case([17, 20])
         .skip_category('Go')
