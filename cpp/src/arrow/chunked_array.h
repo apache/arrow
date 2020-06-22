@@ -38,6 +38,32 @@ class MemoryPool;
 /// \class ChunkedArray
 /// \brief A data structure managing a list of primitive Arrow arrays logically
 /// as one large array
+///
+/// Data chunking is treated throughout this project largely as an
+/// implementation detail for performance and memory use optimization.
+/// ChunkedArray allows Array objects to be collected and interpreted
+/// as a single logical array without requiring an expensive concatenation
+/// step.
+///
+/// In some cases, data produced by a function may exceed the capacity of an
+/// Array (like BinaryArray or StringArray) and so returning multiple Arrays is
+/// the only possibility. In these cases, we recommend returning a ChunkedArray
+/// instead of vector of Arrays or some alternative.
+///
+/// When data is processed in parallel, it may not be practical or possible to
+/// create large contiguous memory allocations and write output into them. With
+/// some data types, like binary and string types, it is not possible at all to
+/// produce non-chunked array outputs without requiring a concatenation step at
+/// the end of processing.
+///
+/// Application developers may tune chunk sizes based on analysis of
+/// performance profiles but many developer-users will not need to be
+/// especially concerned with the chunking details.
+///
+/// Preserving the chunk layout/sizes in processing steps is generally not
+/// considered to be a contract in APIs. A function may decide to alter the
+/// chunking of its result. Similarly, APIs accepting multiple ChunkedArray
+/// inputs should not expect the chunk layout to be the same in each input.
 class ARROW_EXPORT ChunkedArray {
  public:
   /// \brief Construct a chunked array from a vector of arrays
