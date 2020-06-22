@@ -678,7 +678,7 @@ TEST(TestJsonFileReadWrite, JsonExample4) {
   auto expected_array = ArrayFromJSON(
       map(int16(), int32()),
       R"([[[11, 111], [22, 222], [33, null]], null, [[44, 444], [55, 555]]])");
-  EXPECT_FALSE(batch->column(0)->Equals(expected_array));
+  AssertArraysEqual(*batch->column(0), *expected_array);
 }
 
 #define BATCH_CASES()                                                             \

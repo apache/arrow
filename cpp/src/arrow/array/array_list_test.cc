@@ -724,6 +724,60 @@ TEST_F(TestMapArray, FromArrays) {
                 MapArray::FromArrays(offsets1, keys_with_null, tmp_items, pool_));
 }
 
+TEST_F(TestMapArray, FromArraysEquality) {
+  // More equality tests using MapArray::FromArrays
+  auto keys1 = ArrayFromJSON(utf8(), R"(["ab", "cd", "ef", "gh", "ij", "kl"])");
+  auto keys2 = ArrayFromJSON(utf8(), R"(["ab", "cd", "ef", "gh", "ij", "kl"])");
+  auto keys3 = ArrayFromJSON(utf8(), R"(["ab", "cd", "ef", "gh", "zz", "kl"])");
+  auto items1 = ArrayFromJSON(int16(), "[1, 2, 3, 4, 5, 6]");
+  auto items2 = ArrayFromJSON(int16(), "[1, 2, 3, 4, 5, 6]");
+  auto items3 = ArrayFromJSON(int16(), "[1, 2, 3, null, 5, 6]");
+  auto offsets1 = ArrayFromJSON(int32(), "[0, 1, 3, null, 5, 6]");
+  auto offsets2 = ArrayFromJSON(int32(), "[0, 1, 3, null, 5, 6]");
+  auto offsets3 = ArrayFromJSON(int32(), "[0, 1, 3, 3, 5, 6]");
+
+  ASSERT_OK_AND_ASSIGN(auto array1, MapArray::FromArrays(offsets1, keys1, items1));
+  ASSERT_OK_AND_ASSIGN(auto array2, MapArray::FromArrays(offsets2, keys2, items2));
+  ASSERT_OK_AND_ASSIGN(auto array3, MapArray::FromArrays(offsets3, keys2, items2));
+  ASSERT_OK_AND_ASSIGN(auto array4, MapArray::FromArrays(offsets2, keys3, items2));
+  ASSERT_OK_AND_ASSIGN(auto array5, MapArray::FromArrays(offsets2, keys2, items3));
+  ASSERT_OK_AND_ASSIGN(auto array6, MapArray::FromArrays(offsets3, keys3, items3));
+
+  ASSERT_TRUE(array1->Equals(array2));
+  ASSERT_TRUE(array1->RangeEquals(array2, 0, 5, 0));
+
+  ASSERT_FALSE(array1->Equals(array3));  // different offsets
+  ASSERT_FALSE(array1->RangeEquals(array3, 0, 5, 0));
+  ASSERT_TRUE(array1->RangeEquals(array3, 0, 2, 0));
+  ASSERT_FALSE(array1->RangeEquals(array3, 2, 5, 2));
+
+  ASSERT_FALSE(array1->Equals(array4));  // different keys
+  ASSERT_FALSE(array1->RangeEquals(array4, 0, 5, 0));
+  ASSERT_TRUE(array1->RangeEquals(array4, 0, 2, 0));
+  ASSERT_FALSE(array1->RangeEquals(array4, 2, 5, 2));
+
+  ASSERT_FALSE(array1->Equals(array5));  // different items
+  ASSERT_FALSE(array1->RangeEquals(array5, 0, 5, 0));
+  ASSERT_TRUE(array1->RangeEquals(array5, 0, 2, 0));
+  ASSERT_FALSE(array1->RangeEquals(array5, 2, 5, 2));
+
+  ASSERT_FALSE(array1->Equals(array6));  // different everything
+  ASSERT_FALSE(array1->RangeEquals(array6, 0, 5, 0));
+  ASSERT_TRUE(array1->RangeEquals(array6, 0, 2, 0));
+  ASSERT_FALSE(array1->RangeEquals(array6, 2, 5, 2));
+
+  // Map array equality should be indifferent to field names
+  ASSERT_OK_AND_ASSIGN(auto other_map_type,
+                       MapType::Make(field("some_entries",
+                                           struct_({field("some_key", utf8(), false),
+                                                    field("some_value", int16())}),
+                                           false)));
+  ASSERT_OK_AND_ASSIGN(auto array7,
+                       MapArray::FromArrays(other_map_type, offsets2, keys2, items2));
+  ASSERT_TRUE(array1->Equals(array7));
+  ASSERT_TRUE(array1->RangeEquals(array7, 0, 5, 0));
+}
+
 namespace {
 
 template <typename TYPE>
