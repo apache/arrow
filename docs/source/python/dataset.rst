@@ -325,6 +325,22 @@ The currently available classes are :class:`~pyarrow.fs.S3FileSystem` and
 details.
 
 
+Reading from Minio
+------------------
+
+In addition to cloud storage, pyarrow also supports reading from a MinIO object
+storage instance emulating S3 APIs. Paired with toxiproxy, this is useful for
+testing or benchmarking.
+
+.. code-block:: python
+
+    from pyarrow import fs
+
+    minio = fs.S3FileSystem(scheme="http", endpoint="localhost:9000")
+    dataset = ds.dataset("ursa-labs-taxi-data/", filesystem=minio,
+                         partitioning=["year", "month"])
+
+
 Manual specification of the Dataset
 -----------------------------------
 
