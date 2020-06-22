@@ -573,6 +573,7 @@ TEST(TestArithmeticOps, TestCastINT) {
   EXPECT_EQ(castINT_utf8(ctx_ptr, "02147483647", 11), 2147483647);
   EXPECT_EQ(castINT_utf8(ctx_ptr, "-2147483648", 11), -2147483648LL);
   EXPECT_EQ(castINT_utf8(ctx_ptr, "-02147483648", 12), -2147483648LL);
+  EXPECT_EQ(castINT_utf8(ctx_ptr, " 12 ", 4), 12);
 
   castINT_utf8(ctx_ptr, "2147483648", 10);
   EXPECT_THAT(ctx.get_error(),
@@ -618,6 +619,7 @@ TEST(TestArithmeticOps, TestCastBIGINT) {
             -9223372036854775807LL - 1);
   EXPECT_EQ(castBIGINT_utf8(ctx_ptr, "-009223372036854775808", 22),
             -9223372036854775807LL - 1);
+  EXPECT_EQ(castBIGINT_utf8(ctx_ptr, " 12 ", 4), 12);
 
   castBIGINT_utf8(ctx_ptr, "9223372036854775808", 19);
   EXPECT_THAT(ctx.get_error(),
@@ -658,6 +660,7 @@ TEST(TestArithmeticOps, TestCastFloat4) {
   EXPECT_EQ(castFLOAT4_utf8(ctx_ptr, "-45.34", 6), -45.34f);
   EXPECT_EQ(castFLOAT4_utf8(ctx_ptr, "0", 1), 0.0f);
   EXPECT_EQ(castFLOAT4_utf8(ctx_ptr, "5", 1), 5.0f);
+  EXPECT_EQ(castFLOAT4_utf8(ctx_ptr, " 3.4 ", 5), 3.4f);
 
   castFLOAT4_utf8(ctx_ptr, "", 0);
   EXPECT_THAT(ctx.get_error(),
@@ -678,6 +681,7 @@ TEST(TestParseStringHolder, TestCastFloat8) {
   EXPECT_EQ(castFLOAT8_utf8(ctx_ptr, "-45.34", 6), -45.34);
   EXPECT_EQ(castFLOAT8_utf8(ctx_ptr, "0", 1), 0.0);
   EXPECT_EQ(castFLOAT8_utf8(ctx_ptr, "5", 1), 5.0);
+  EXPECT_EQ(castFLOAT8_utf8(ctx_ptr, " 3.4 ", 5), 3.4);
 
   castFLOAT8_utf8(ctx_ptr, "", 0);
   EXPECT_THAT(ctx.get_error(),
