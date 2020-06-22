@@ -51,10 +51,10 @@ class MemoryPool;
 /// instead of vector of Arrays or some alternative.
 ///
 /// When data is processed in parallel, it may not be practical or possible to
-/// create large contiguous and write output into them. With some data types,
-/// like binary and string types, it is not possible at all to produce
-/// non-chunked array outputs without requiring a concatenation step at the end
-/// of processing.
+/// create large contiguous memory allocations and write output into them. With
+/// some data types, like binary and string types, it is not possible at all to
+/// produce non-chunked array outputs without requiring a concatenation step at
+/// the end of processing.
 ///
 /// Application developers may tune chunk sizes based on analysis of
 /// performance profiles but many developer-users will not need to be
