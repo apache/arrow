@@ -602,11 +602,10 @@ garrow_array_slice(GArrowArray *array,
  * @array: A #GArrowArray.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
- * Returns: (nullable) (transfer full):
+ * Returns: (nullable):
  *   The formatted array content or %NULL on error.
  *
- *   The returned string should be freed when with g_free() when no
- *   longer needed.
+ *   It should be freed with g_free() when no longer needed.
  *
  * Since: 0.4.0
  */
@@ -2505,8 +2504,7 @@ garrow_decimal128_array_class_init(GArrowDecimal128ArrayClass *klass)
  *
  * Returns: (transfer full): The formatted @i-th value.
  *
- *   The returned string should be freed with g_free() when no longer
- *   needed.
+ *   It should be freed with g_free() when no longer needed.
  *
  * Since: 0.10.0
  */

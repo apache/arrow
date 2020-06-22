@@ -316,11 +316,10 @@ garrow_chunked_array_slice(GArrowChunkedArray *chunked_array,
  * @chunked_array: A #GArrowChunkedArray.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
- * Returns: (nullable) (transfer full):
+ * Returns: (nullable):
  *   The formatted chunked array content or %NULL on error.
  *
- *   The returned string should be freed when with g_free() when no
- *   longer needed.
+ *   It should be freed with g_free() when no longer needed.
  *
  * Since: 0.11.0
  */

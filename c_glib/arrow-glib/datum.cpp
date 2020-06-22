@@ -170,10 +170,9 @@ garrow_datum_equal(GArrowDatum *datum, GArrowDatum *other_datum)
  * garrow_datum_to_string:
  * @datum: A #GArrowDatum.
  *
- * Returns: (transfer full): The formatted datum content.
+ * Returns: The formatted datum content.
  *
- *   The returned string should be freed when with g_free() when no
- *   longer needed.
+ *   It should be freed with g_free() when no longer needed.
  *
  * Since: 1.0.0
  */
