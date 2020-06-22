@@ -134,12 +134,19 @@ table FixedSizeBinary {
 table Bool {
 }
 
+/// Exact decimal value represented as an integer value in two's
+/// complement. Currently only 128-bit (16-byte) integers are used but this may
+/// be expanded in the future.
 table Decimal {
   /// Total number of decimal digits
   precision: int;
+
   /// Number of digits after the decimal point "."
   scale: int;
-  /// Number of bytes per value
+
+  /// Number of bytes per value. The only accepted width right now is 16 but
+  /// this field exists for forward compatibility so that other byte widths may
+  /// be supported in future format versions.
   byteWidth: int = 16;
 }
 
