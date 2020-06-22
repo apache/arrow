@@ -21,7 +21,7 @@ BUILD_EXT_FLAGS=""
 # Enable CUDA support
 if [[ ! -z "${cuda_compiler_version+x}" && "${cuda_compiler_version}" != "None" ]]
 then
-    BUILD_EXT_FLAGS="${BUILD_EXT_FLAGS} --with-cuda"
+    export PYARROW_WITH_CUDA=1
 else
     export PYARROW_WITH_CUDA=0
 fi
