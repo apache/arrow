@@ -208,6 +208,11 @@ class ARROW_EXPORT MapArray : public ListArray {
       const std::shared_ptr<Array>& offsets, const std::shared_ptr<Array>& keys,
       const std::shared_ptr<Array>& items, MemoryPool* pool = default_memory_pool());
 
+  static Result<std::shared_ptr<Array>> FromArrays(
+      std::shared_ptr<DataType> type, const std::shared_ptr<Array>& offsets,
+      const std::shared_ptr<Array>& keys, const std::shared_ptr<Array>& items,
+      MemoryPool* pool = default_memory_pool());
+
   const MapType* map_type() const { return map_type_; }
 
   /// \brief Return array object containing all map keys
@@ -222,6 +227,11 @@ class ARROW_EXPORT MapArray : public ListArray {
 
  protected:
   void SetData(const std::shared_ptr<ArrayData>& data);
+
+  static Result<std::shared_ptr<Array>> FromArraysInternal(
+      std::shared_ptr<DataType> type, const std::shared_ptr<Array>& offsets,
+      const std::shared_ptr<Array>& keys, const std::shared_ptr<Array>& items,
+      MemoryPool* pool);
 
  private:
   const MapType* map_type_;

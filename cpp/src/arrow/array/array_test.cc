@@ -157,6 +157,8 @@ TEST_F(TestArray, TestEquality) {
   // ARROW-2567: Ensure that not only the type id but also the type equality
   // itself is checked.
   ASSERT_FALSE(timestamp_us_array->Equals(timestamp_ns_array));
+  ASSERT_TRUE(timestamp_us_array->RangeEquals(0, 1, 0, timestamp_us_array));
+  ASSERT_FALSE(timestamp_us_array->RangeEquals(0, 1, 0, timestamp_ns_array));
 }
 
 TEST_F(TestArray, TestNullArrayEquality) {
