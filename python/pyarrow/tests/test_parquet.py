@@ -579,6 +579,22 @@ def test_pandas_parquet_native_file_roundtrip(tempdir, use_legacy_dataset):
     tm.assert_frame_equal(df, df_read)
 
 
+@parametrize_legacy_dataset
+def test_parquet_read_from_buffer(tempdir, use_legacy_dataset):
+    # reading from a buffer from python's open()
+    table = pa.table({"a": [1, 2, 3]})
+    pq.write_table(table, str(tempdir / "data.parquet"))
+
+    with open(str(tempdir / "data.parquet"), "rb") as f:
+        result = pq.read_table(f, use_legacy_dataset=use_legacy_dataset)
+    assert result.equals(table)
+
+    with open(str(tempdir / "data.parquet"), "rb") as f:
+        result = pq.read_table(pa.PythonFile(f),
+                               use_legacy_dataset=use_legacy_dataset)
+    assert result.equals(table)
+
+
 @pytest.mark.pandas
 @parametrize_legacy_dataset
 def test_parquet_incremental_file_build(tempdir, use_legacy_dataset):
