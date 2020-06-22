@@ -36,6 +36,9 @@ std::vector<uint32_t> lut_upper_codepoint;
 std::vector<uint32_t> lut_lower_codepoint;
 std::once_flag flag_case_luts;
 
+constexpr uint32_t REPLACEMENT_CHAR =
+    '?';  // the proper replacement char would be the 0xFFFD codepoint, but that can
+          // increase string length by a factor of 3
 constexpr int MAX_CODEPOINT_CASE_CHANGE =
     0xffff;  // no case changes above codepoint 0xffff (tested in unittest)
 
@@ -59,38 +62,67 @@ static inline void utf8_encode(uint8_t*& str, uint32_t codepoint) {
   }
 }
 
-static inline uint32_t utf8_decode(const uint8_t*& str, size_t& length) {
+static inline bool utf8_is_continuation(const uint8_t codeunit) {
+  return (codeunit & 0xC0) == 0x80;  // upper two bits should be 10
+}
+
+static inline uint32_t utf8_decode(const uint8_t*& str, int64_t& length) {
   if (*str < 0x80) {  //
     length -= 1;
     return *str++;
-  } else if (*str < 0xC0) {  //
+  } else if (*str < 0xC0) {  // invalid non-ascii char
     length -= 1;
-    return *str++;
+    str++;
+    return REPLACEMENT_CHAR;
   } else if (*str < 0xE0) {
-    length -= 2;
     uint8_t code_unit_1 = (*str++) & 0x1F;  // take last 5 bits
+    length -= 1;
+    if (!utf8_is_continuation(*str)) {
+      return REPLACEMENT_CHAR;
+    }
     uint8_t code_unit_2 = (*str++) & 0x3F;  // take last 6 bits
+    length -= 1;
     char32_t codepoint = (code_unit_1 << 6) + code_unit_2;
     return codepoint;
   } else if (*str < 0xF0) {
-    length -= 3;
     uint8_t code_unit_1 = (*str++) & 0x0F;  // take last 4 bits
+    length -= 1;
+    if (!utf8_is_continuation(*str)) {
+      return REPLACEMENT_CHAR;
+    }
     uint8_t code_unit_2 = (*str++) & 0x3F;  // take last 6 bits
+    length -= 1;
+    if (!utf8_is_continuation(*str)) {
+      return REPLACEMENT_CHAR;
+    }
     uint8_t code_unit_3 = (*str++) & 0x3F;  // take last 6 bits
+    length -= 1;
     char32_t codepoint = (code_unit_1 << 12) + (code_unit_2 << 6) + code_unit_3;
     return codepoint;
   } else if (*str < 0xF8) {
-    length -= 4;
     uint8_t code_unit_1 = (*str++) & 0x07;  // take last 3 bits
+    length -= 1;
+    if (!utf8_is_continuation(*str)) {
+      return REPLACEMENT_CHAR;
+    }
     uint8_t code_unit_2 = (*str++) & 0x3F;  // take last 6 bits
+    length -= 1;
+    if (!utf8_is_continuation(*str)) {
+      return REPLACEMENT_CHAR;
+    }
     uint8_t code_unit_3 = (*str++) & 0x3F;  // take last 6 bits
+    length -= 1;
+    if (!utf8_is_continuation(*str)) {
+      return REPLACEMENT_CHAR;
+    }
     uint8_t code_unit_4 = (*str++) & 0x3F;  // take last 6 bits
     char32_t codepoint =
         (code_unit_1 << 18) + (code_unit_2 << 12) + (code_unit_3 << 6) + code_unit_4;
     return codepoint;
-  } else {
+  } else {  // invalid non-ascii char
     length -= 1;
-    return *str++;
+    str++;
+    return REPLACEMENT_CHAR;
   }
 }
 
@@ -112,8 +144,8 @@ static inline uint8_t ascii_toupper(uint8_t utf8_code_unit) {
 template <class UnaryOperation>
 static inline void utf8_transform(const uint8_t* first, const uint8_t* last,
                                   uint8_t*& destination, UnaryOperation unary_op) {
-  size_t length = last - first;
-  while (length) {
+  int64_t length = last - first;
+  while (length > 0) {
     utf8_encode(destination, unary_op(utf8_decode(first, length)));
   }
 }

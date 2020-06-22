@@ -91,9 +91,9 @@ TYPED_TEST(TestStringKernels, Utf8Upper) {
   // test maximum buffer growth
   this->CheckUnary("utf8_upper", "[\"ɑɑɑɑ\"]", this->string_type(), "[\"ⱭⱭⱭⱭ\"]");
 
-  // Test truncation of invalid data ὖ == \xe1\xbd\x96)
+  // Test replacing invalid data by ? (ὖ == \xe1\xbd\x96)
   this->CheckUnary("utf8_upper", "[\"ɑa\xFFɑ\", \"ɽ\xe1\xbdɽaa\"]", this->string_type(),
-                   "[\"ⱭA\", \"Ɽ\"]");
+                   "[\"ⱭA?Ɑ\", \"Ɽ?ⱤAA\"]");
 }
 
 TYPED_TEST(TestStringKernels, Utf8Lower) {
@@ -112,9 +112,9 @@ TYPED_TEST(TestStringKernels, Utf8Lower) {
   // test maximum buffer growth
   this->CheckUnary("utf8_lower", "[\"ȺȺȺȺ\"]", this->string_type(), "[\"ⱥⱥⱥⱥ\"]");
 
-  // Test truncation of invalid data ὖ == \xe1\xbd\x96)
-  this->CheckUnary("utf8_lower", "[\"Ⱥa\xFFɑ\", \"Ɽ\xe1\xbdɽaa\"]", this->string_type(),
-                   "[\"ⱥa\", \"ɽ\"]");
+  // Test replacing invalid data by ? (ὖ == \xe1\xbd\x96)
+  this->CheckUnary("utf8_lower", "[\"Ⱥa\xFFⱭ\", \"Ɽ\xe1\xbdⱤaA\"]", this->string_type(),
+                   "[\"ⱥa?ɑ\", \"ɽ?ɽaa\"]");
 }
 
 TYPED_TEST(TestStringKernels, Strptime) {
