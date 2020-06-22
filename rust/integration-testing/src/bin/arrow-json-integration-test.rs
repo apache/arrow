@@ -192,7 +192,13 @@ fn record_batch_from_json(
                     .zip(json_col.data.unwrap())
                 {
                     match is_valid {
-                        1 => b.append_value(value.as_i64().unwrap()),
+                        1 => b.append_value(
+                            value
+                                .as_str()
+                                .unwrap()
+                                .parse()
+                                .expect("Unable to parse string as i64"),
+                        ),
                         _ => b.append_null(),
                     }
                     .unwrap();
@@ -261,7 +267,13 @@ fn record_batch_from_json(
                     .zip(json_col.data.unwrap())
                 {
                     match is_valid {
-                        1 => b.append_value(value.as_u64().unwrap()),
+                        1 => b.append_value(
+                            value
+                                .as_str()
+                                .unwrap()
+                                .parse()
+                                .expect("Unable to parse string as u64"),
+                        ),
                         _ => b.append_null(),
                     }
                     .unwrap();
@@ -423,6 +435,12 @@ fn validate(arrow_name: &str, json_name: &str, verbose: bool) -> Result<()> {
             json_schema, arrow_schema
         )));
     }
+
+    // compare number of batches
+    assert!(
+        json_batches.len() == arrow_reader.num_batches(),
+        "JSON batches and Arrow batches are unequal"
+    );
 
     if verbose {
         eprintln!(

@@ -1492,13 +1492,16 @@ def get_generated_json_files(tempdir=None, flight=False):
 
         generate_primitive_large_offsets_case([17, 20])
         .skip_category('Go')
-        .skip_category('JS'),
+        .skip_category('JS')
+        .skip_category('Rust'),
 
         generate_null_case([10, 0])
+        .skip_category('Rust')
         .skip_category('JS')   # TODO(ARROW-7900)
         .skip_category('Go'),  # TODO(ARROW-7901)
 
         generate_null_trivial_case([0, 0])
+        .skip_category('Rust')
         .skip_category('JS')   # TODO(ARROW-7900)
         .skip_category('Go'),  # TODO(ARROW-7901)
 
@@ -1506,7 +1509,8 @@ def get_generated_json_files(tempdir=None, flight=False):
         .skip_category('Go')  # TODO(ARROW-7948): Decimal + Go
         .skip_category('Rust'),
 
-        generate_datetime_case(),
+        generate_datetime_case()
+        .skip_category('Rust'),
 
         generate_interval_case()
         .skip_category('JS')  # TODO(ARROW-5239): Intervals + JS
@@ -1559,7 +1563,8 @@ def get_generated_json_files(tempdir=None, flight=False):
         generate_nested_dictionary_case()
         .skip_category('Go')
         .skip_category('Java')  # TODO(ARROW-7779)
-        .skip_category('JS'),
+        .skip_category('JS')
+        .skip_category('Rust'),
 
         generate_extension_case()
         .skip_category('Go')
