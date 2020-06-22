@@ -27,6 +27,7 @@ SEXP symbols::inspect = Rf_install("inspect");
 SEXP symbols::row_names = Rf_install("row.names");
 SEXP symbols::serialize_arrow_r_metadata = Rf_install(".serialize_arrow_r_metadata");
 SEXP symbols::as_list = Rf_install("as.list");
+SEXP symbols::ptype = Rf_install("ptype");
 
 SEXP get_classes_POSIXct() {
   SEXP classes = Rf_allocVector(STRSXP, 2);
@@ -50,9 +51,26 @@ SEXP get_names_metadata() {
   return names;
 }
 
+SEXP get_classes_vctrs_list_of() {
+  SEXP classes = Rf_allocVector(STRSXP, 3);
+  R_PreserveObject(classes);
+  SET_STRING_ELT(classes, 0, Rf_mkChar("vctrs_list_of"));
+  SET_STRING_ELT(classes, 1, Rf_mkChar("vctrs_vctr"));
+  SET_STRING_ELT(classes, 2, Rf_mkChar("list"));
+  return classes;
+}
+
+SEXP get_empty_raw() {
+  SEXP res = Rf_allocVector(RAWSXP, 0);
+  R_PreserveObject(res);
+  return res;
+}
+
 SEXP data::classes_POSIXct = get_classes_POSIXct();
 SEXP data::classes_metadata_r = get_classes_metadata_r();
 SEXP data::names_metadata = get_names_metadata();
+SEXP data::classes_vctrs_list_of = get_classes_vctrs_list_of();
+SEXP data::empty_raw = get_empty_raw();
 
 void inspect(SEXP obj) {
   Rcpp::Shield<SEXP> call_inspect(Rf_lang2(symbols::inspect, obj));

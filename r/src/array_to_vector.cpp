@@ -285,6 +285,54 @@ class Converter_Boolean : public Converter {
   }
 };
 
+class Converter_Binary : public Converter {
+ public:
+  explicit Converter_Binary(const ArrayVector& arrays) : Converter(arrays) {}
+
+  SEXP Allocate(R_xlen_t n) const {
+    SEXP res = PROTECT(Rf_allocVector(VECSXP, n));
+    Rf_setAttrib(res, R_ClassSymbol, data::classes_vctrs_list_of);
+    Rf_setAttrib(res, symbols::ptype, data::empty_raw);
+    UNPROTECT(1);
+    return res;
+  }
+
+  Status Ingest_all_nulls(SEXP data, R_xlen_t start, R_xlen_t n) const {
+    return Status::OK();
+  }
+
+  Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
+                           R_xlen_t start, R_xlen_t n) const {
+    const BinaryArray* binary_array = checked_cast<const BinaryArray*>(array.get());
+
+    auto ingest_one = [&](R_xlen_t i) {
+      int ni;
+      auto value = binary_array->GetValue(i, &ni);
+      SEXP raw = PROTECT(Rf_allocVector(RAWSXP, ni));
+      std::copy(value, value + ni, RAW(raw));
+
+      SET_VECTOR_ELT(data, i, raw);
+      UNPROTECT(1);
+    };
+
+    if (array->null_count()) {
+      internal::BitmapReader bitmap_reader(array->null_bitmap()->data(), array->offset(),
+                                           n);
+
+      for (R_xlen_t i = 0; i < n; i++, bitmap_reader.Next()) {
+        if (bitmap_reader.IsSet()) ingest_one(i);
+      }
+
+    } else {
+      for (R_xlen_t i = 0; i < n; i++) {
+        ingest_one(i);
+      }
+    }
+
+    return Status::OK();
+  }
+};
+
 class Converter_Dictionary : public Converter {
  public:
   explicit Converter_Dictionary(const ArrayVector& arrays) : Converter(arrays) {}
@@ -710,6 +758,9 @@ std::shared_ptr<Converter> Converter::Make(const std::shared_ptr<DataType>& type
       // need to handle 1-bit case
     case Type::BOOL:
       return std::make_shared<arrow::r::Converter_Boolean>(std::move(arrays));
+
+    case Type::BINARY:
+      return std::make_shared<arrow::r::Converter_Binary>(std::move(arrays));
 
       // handle memory dense strings
     case Type::STRING:

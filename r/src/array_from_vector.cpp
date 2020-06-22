@@ -142,6 +142,15 @@ struct VectorToArrayConverter {
     return Status::OK();
   }
 
+  Status Visit(const arrow::BinaryType& type) {
+    if (!(Rf_inherits(x, "vctrs_list_of") &&
+          TYPEOF(Rf_getAttrib(x, symbols::ptype)) == RAWSXP)) {
+      return Status::RError("Expecting a list of raw vectors");
+    }
+
+    return Status::OK();
+  }
+
   template <typename T>
   arrow::enable_if_base_binary<T, Status> Visit(const T& type) {
     using BuilderType = typename TypeTraits<T>::BuilderType;
@@ -916,6 +925,39 @@ class Time64Converter : public TimeConverter<Time64Type> {
   }
 };
 
+class BinaryVectorConverter : public VectorConverter {
+ public:
+  ~BinaryVectorConverter() {}
+
+  Status Init(ArrayBuilder* builder) {
+    typed_builder_ = checked_cast<BinaryBuilder*>(builder);
+    return Status::OK();
+  }
+
+  Status Ingest(SEXP obj) {
+    ARROW_RETURN_IF(TYPEOF(obj) != VECSXP, Status::RError("Expecting a list"));
+    R_xlen_t n = XLENGTH(obj);
+    for (R_xlen_t i = 0; i < n; i++) {
+      SEXP obj_i = VECTOR_ELT(obj, i);
+      if (obj_i == R_NilValue) {
+        RETURN_NOT_OK(typed_builder_->AppendNull());
+      } else {
+        ARROW_RETURN_IF(TYPEOF(obj_i) != RAWSXP,
+                        Status::RError("Expecting a raw vector"));
+        RETURN_NOT_OK(typed_builder_->Append(RAW(obj_i), XLENGTH(obj_i)));
+      }
+    }
+    return Status::OK();
+  }
+
+  Status GetResult(std::shared_ptr<arrow::Array>* result) {
+    return typed_builder_->Finish(result);
+  }
+
+ private:
+  BinaryBuilder* typed_builder_;
+};
+
 #define NUMERIC_CONVERTER(TYPE_ENUM, TYPE)                                               \
   case Type::TYPE_ENUM:                                                                  \
     *out =                                                                               \
@@ -936,6 +978,7 @@ class Time64Converter : public TimeConverter<Time64Type> {
 Status GetConverter(const std::shared_ptr<DataType>& type,
                     std::unique_ptr<VectorConverter>* out) {
   switch (type->id()) {
+    SIMPLE_CONVERTER_CASE(BINARY, BinaryVectorConverter);
     SIMPLE_CONVERTER_CASE(BOOL, BooleanVectorConverter);
     NUMERIC_CONVERTER(INT8, Int8Type);
     NUMERIC_CONVERTER(INT16, Int16Type);
@@ -1066,12 +1109,22 @@ std::shared_ptr<arrow::DataType> InferArrowTypeFromVector<VECSXP>(SEXP x) {
   if (Rf_inherits(x, "data.frame") || Rf_inherits(x, "POSIXlt")) {
     return InferArrowTypeFromDataFrame(x);
   } else {
-    if (XLENGTH(x) == 0) {
-      Rcpp::stop(
-          "Requires at least one element to infer the values' type of a list vector");
-    }
+    SEXP ptype = Rf_getAttrib(x, symbols::ptype);
+    if (ptype == R_NilValue) {
+      if (XLENGTH(x) == 0) {
+        Rcpp::stop(
+            "Requires at least one element to infer the values' type of a list vector");
+      }
 
-    return arrow::list(InferArrowType(VECTOR_ELT(x, 0)));
+      return arrow::list(InferArrowType(VECTOR_ELT(x, 0)));
+    } else {
+      // special case list(raw()) -> BinaryArray
+      if (TYPEOF(ptype) == RAWSXP) {
+        return arrow::binary();
+      }
+
+      return arrow::list(InferArrowType(ptype));
+    }
   }
 }
 
@@ -1285,7 +1338,6 @@ std::shared_ptr<arrow::Array> Array__from_vector(
   StopIfNotOk(converter->Ingest(x));
   std::shared_ptr<arrow::Array> result;
   StopIfNotOk(converter->GetResult(&result));
-
   return result;
 }
 
