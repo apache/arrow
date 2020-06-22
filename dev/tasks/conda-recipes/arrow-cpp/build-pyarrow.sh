@@ -21,7 +21,6 @@ BUILD_EXT_FLAGS=""
 # Enable CUDA support
 if [[ ! -z "${cuda_compiler_version+x}" && "${cuda_compiler_version}" != "None" ]]
 then
-    export PYARROW_WITH_CUDA=1
     BUILD_EXT_FLAGS="${BUILD_EXT_FLAGS} --with-cuda"
 else
     export PYARROW_WITH_CUDA=0
@@ -36,6 +35,6 @@ fi
 cd python
 
 $PYTHON setup.py \
-        build_ext $BUILD_EXT_FLAGS \
+        build_ext \
         install --single-version-externally-managed \
                 --record=record.txt
