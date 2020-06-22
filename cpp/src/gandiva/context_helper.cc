@@ -50,22 +50,6 @@ void ExportedContextFunctions::AddMappings(Engine* engine) const {
 
   engine->AddGlobalMappingForFunc("gdv_fn_context_arena_reset", types->void_type(), args,
                                   reinterpret_cast<void*>(gdv_fn_context_arena_reset));
-
-  args = {types->i64_type(),                      // int64_t context_ptr
-          types->i8_ptr_type(),                   // const char* data
-          types->i32_type(),                      // int32_t lenr
-          types->ptr_type(types->float_type())};  // float* val
-
-  engine->AddGlobalMappingForFunc("gdv_fn_context_parse_float32", types->i1_type(), args,
-                                  reinterpret_cast<void*>(gdv_fn_context_parse_float32));
-
-  args = {types->i64_type(),                       // int64_t context_ptr
-          types->i8_ptr_type(),                    // const char* data
-          types->i32_type(),                       // int32_t lenr
-          types->ptr_type(types->double_type())};  // double* val
-
-  engine->AddGlobalMappingForFunc("gdv_fn_context_parse_float64", types->i1_type(), args,
-                                  reinterpret_cast<void*>(gdv_fn_context_parse_float64));
 }
 
 }  // namespace gandiva
@@ -88,17 +72,5 @@ uint8_t* gdv_fn_context_arena_malloc(int64_t context_ptr, int32_t size) {
 void gdv_fn_context_arena_reset(int64_t context_ptr) {
   auto context = reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
   return context->arena()->Reset();
-}
-
-bool gdv_fn_context_parse_float32(int64_t context_ptr, const char* data, int32_t len,
-                                  float* val) {
-  auto context = reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
-  return context->parse_float(data, len, val);
-}
-
-bool gdv_fn_context_parse_float64(int64_t context_ptr, const char* data, int32_t len,
-                                  double* val) {
-  auto context = reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
-  return context->parse_double(data, len, val);
 }
 }

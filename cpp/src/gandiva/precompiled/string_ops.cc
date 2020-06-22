@@ -17,6 +17,8 @@
 
 // String functions
 
+#include "arrow/util/value_parsing.h"
+
 extern "C" {
 
 #include <limits.h>
@@ -671,5 +673,38 @@ const char* replace_utf8_utf8_utf8(gdv_int64 context, const char* text,
                                              from_str_len, to_str, to_str_len, 65535,
                                              out_len);
 }
+
+#define CAST_INT_FROM_STRING(OUT_TYPE, ARROW_TYPE, TYPE_NAME)                       \
+  FORCE_INLINE                                                                      \
+  gdv_##OUT_TYPE cast##TYPE_NAME##_utf8(int64_t context, const char* data,          \
+                                        int32_t len) {                              \
+    gdv_##OUT_TYPE val = 0;                                                         \
+    if (!arrow::internal::StringConverter<ARROW_TYPE>::Convert(data, len, &val)) {  \
+      gdv_fn_context_set_error_msg(context,                                         \
+                                   "Failed parsing the string to required format"); \
+    }                                                                               \
+    return val;                                                                     \
+  }
+
+CAST_INT_FROM_STRING(int32, arrow::Int32Type, INT)
+CAST_INT_FROM_STRING(int64, arrow::Int64Type, BIGINT)
+
+#define CAST_FLOAT_FROM_STRING(OUT_TYPE, ARROW_TYPE, TYPE_NAME)                     \
+  FORCE_INLINE                                                                      \
+  gdv_##OUT_TYPE cast##TYPE_NAME##_utf8(int64_t context, const char* data,          \
+                                        int32_t len) {                              \
+    gdv_##OUT_TYPE val = 0;                                                         \
+    if (!arrow::internal::StringConverter<ARROW_TYPE>::Convert(data, len, &val)) {  \
+      gdv_fn_context_set_error_msg(context,                                         \
+                                   "Failed parsing the string to required format"); \
+    }                                                                               \
+    return val;                                                                     \
+  }
+
+CAST_FLOAT_FROM_STRING(float32, arrow::FloatType, FLOAT4)
+CAST_FLOAT_FROM_STRING(float64, arrow::DoubleType, FLOAT8)
+
+#undef CAST_INT_FROM_STRING
+#undef CAST_FLOAT_FROM_STRING
 
 }  // extern "C"

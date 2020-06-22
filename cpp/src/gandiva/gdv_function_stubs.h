@@ -37,12 +37,6 @@ uint8_t* gdv_fn_context_arena_malloc(int64_t context_ptr, int32_t data_len);
 
 void gdv_fn_context_arena_reset(int64_t context_ptr);
 
-bool gdv_fn_context_parse_float32(int64_t context_ptr, const char* data, int32_t len,
-                                  float* val);
-
-bool gdv_fn_context_parse_float64(int64_t context_ptr, const char* data, int32_t len,
-                                  double* val);
-
 bool in_expr_lookup_int32(int64_t ptr, int32_t value, bool in_validity);
 
 bool in_expr_lookup_int64(int64_t ptr, int64_t value, bool in_validity);
