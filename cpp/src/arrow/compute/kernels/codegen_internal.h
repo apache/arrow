@@ -215,17 +215,15 @@ template <typename Type>
 struct BoxScalar<Type, enable_if_has_c_type<Type>> {
   using T = typename GetOutputType<Type>::T;
   using ScalarType = typename TypeTraits<Type>::ScalarType;
-  static std::shared_ptr<Scalar> Box(T val, const std::shared_ptr<DataType>& type) {
-    return std::make_shared<ScalarType>(val, type);
-  }
+  static void Box(T val, Scalar* out) { checked_cast<ScalarType*>(out)->value = val; }
 };
 
 template <typename Type>
 struct BoxScalar<Type, enable_if_base_binary<Type>> {
   using T = typename GetOutputType<Type>::T;
   using ScalarType = typename TypeTraits<Type>::ScalarType;
-  static std::shared_ptr<Scalar> Box(T val, const std::shared_ptr<DataType>&) {
-    return std::make_shared<ScalarType>(val);
+  static void Box(T val, Scalar* out) {
+    checked_cast<ScalarType*>(out)->value = std::make_shared<Buffer>(val);
   }
 };
 
@@ -233,9 +231,7 @@ template <>
 struct BoxScalar<Decimal128Type> {
   using T = Decimal128;
   using ScalarType = Decimal128Scalar;
-  static std::shared_ptr<Scalar> Box(T val, const std::shared_ptr<DataType>& type) {
-    return std::make_shared<ScalarType>(val, type);
-  }
+  static void Box(T val, Scalar* out) { checked_cast<ScalarType*>(out)->value = val; }
 };
 
 // ----------------------------------------------------------------------
@@ -396,8 +392,8 @@ struct ScalarUnary {
   static void Scalar(KernelContext* ctx, const Scalar& arg0, Datum* out) {
     if (arg0.is_valid) {
       ARG0 arg0_val = UnboxScalar<Arg0Type>::Unbox(arg0);
-      out->value = BoxScalar<OutType>::Box(Op::template Call<OUT, ARG0>(ctx, arg0_val),
-                                           out->type());
+      BoxScalar<OutType>::Box(Op::template Call<OUT, ARG0>(ctx, arg0_val),
+                              out->scalar().get());
     } else {
       out->value = MakeNullScalar(arg0.type);
     }
@@ -533,8 +529,8 @@ struct ScalarUnaryNotNullStateful {
   void Scalar(KernelContext* ctx, const Scalar& arg0, Datum* out) {
     if (arg0.is_valid) {
       ARG0 arg0_val = UnboxScalar<Arg0Type>::Unbox(arg0);
-      out->value = BoxScalar<OutType>::Box(
-          this->op.template Call<OUT, ARG0>(ctx, arg0_val), out->type());
+      BoxScalar<OutType>::Box(this->op.template Call<OUT, ARG0>(ctx, arg0_val),
+                              out->scalar().get());
     } else {
       out->value = MakeNullScalar(arg0.type);
     }
@@ -615,8 +611,8 @@ struct ScalarBinary {
     if (out->scalar()->is_valid) {
       auto arg0_val = UnboxScalar<Arg0Type>::Unbox(arg0);
       auto arg1_val = UnboxScalar<Arg1Type>::Unbox(arg1);
-      out->value = BoxScalar<OutType>::Box(Op::template Call(ctx, arg0_val, arg1_val),
-                                           out->type());
+      BoxScalar<OutType>::Box(Op::template Call(ctx, arg0_val, arg1_val),
+                              out->scalar().get());
     }
   }
 

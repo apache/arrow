@@ -15,19 +15,17 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#pragma once
-
 #include <algorithm>
-#include <vector>
+#include <cstdint>
+#include <string>
 
-#include "arrow/testing/gtest_util.h"
+#include "benchmark/benchmark.h"
+
 #include "arrow/util/cpu_info.h"
 
 namespace arrow {
 
 using internal::CpuInfo;
-
-namespace compute {
 
 static CpuInfo* cpu_info = CpuInfo::GetInstance();
 
@@ -53,6 +51,32 @@ struct BenchmarkArgsType<benchmark::internal::Benchmark* (
 // to apply C++ template magic.
 using ArgsType =
     typename BenchmarkArgsType<decltype(&benchmark::internal::Benchmark::Args)>::type;
+
+struct GenericItemsArgs {
+  // number of items processed per iteration
+  const int64_t size;
+
+  // proportion of nulls in generated arrays
+  double null_proportion;
+
+  explicit GenericItemsArgs(benchmark::State& state)
+      : size(state.range(0)), state_(state) {
+    if (state.range(1) == 0) {
+      this->null_proportion = 0.0;
+    } else {
+      this->null_proportion = std::min(1., 1. / static_cast<double>(state.range(1)));
+    }
+  }
+
+  ~GenericItemsArgs() {
+    state_.counters["size"] = static_cast<double>(size);
+    state_.counters["null_percent"] = null_proportion * 100;
+    state_.SetItemsProcessed(state_.iterations() * size);
+  }
+
+ private:
+  benchmark::State& state_;
+};
 
 void BenchmarkSetArgsWithSizes(benchmark::internal::Benchmark* bench,
                                const std::vector<int64_t>& sizes = kMemorySizes) {
@@ -111,5 +135,4 @@ struct RegressionArgs {
   bool size_is_bytes_;
 };
 
-}  // namespace compute
 }  // namespace arrow

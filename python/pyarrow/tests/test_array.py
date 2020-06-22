@@ -1035,8 +1035,7 @@ def test_floating_point_truncate_unsafe():
     ]
     for case in unsafe_cases:
         # test safe casting raises
-        with pytest.raises(pa.ArrowInvalid,
-                           match='Floating point value truncated'):
+        with pytest.raises(pa.ArrowInvalid, match='truncated'):
             _check_cast_case(case, safe=True)
 
         # test unsafe casting truncates
@@ -1172,8 +1171,7 @@ def test_decimal_to_decimal():
 def test_safe_cast_nan_to_int_raises():
     arr = pa.array([np.nan, 1.])
 
-    with pytest.raises(pa.ArrowInvalid,
-                       match='Floating point value truncated'):
+    with pytest.raises(pa.ArrowInvalid, match='truncated'):
         arr.cast(pa.int64(), safe=True)
 
 
