@@ -83,7 +83,7 @@ TEST(TestStringKernels, Utf8Upper32bitGrowth) {
   // since the utf8_upper kernel can grow it by 3/2, the max we should accept is is
   // 0x7fff * 0xffff * 2/3 = 0x5555 * 0xffff, so this should give us a CapacityError
   for (int64_t i = 0; i < 0x5556; i++) {
-    builder.Append(str);
+    ASSERT_OK(builder.Append(str));
   }
   std::shared_ptr<arrow::Array> array;
   arrow::Status st = builder.Finish(&array);
