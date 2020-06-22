@@ -1161,10 +1161,19 @@ cdef class Table(_PandasConvertible):
         Table
 
         """
-        new_columns = [self.column(c) for c in columns]
-        new_fields = [self.schema.field(c) for c in columns]
-        new_schema = schema(new_fields, metadata=self.schema.metadata)
-        return Table.from_arrays(new_columns, schema=new_schema)
+        cdef:
+            shared_ptr[CTable] c_table
+            vector[int] c_indices
+
+        for idx in columns:
+            idx = self._ensure_integer_index(idx)
+            idx = _normalize_index(idx, self.num_columns)
+            c_indices.push_back(<int> idx)
+
+        with nogil:
+            c_table = GetResultValue(self.table.SelectColumns(move(c_indices)))
+
+        return pyarrow_wrap_table(c_table)
 
     def replace_schema_metadata(self, metadata=None):
         """
@@ -1605,6 +1614,26 @@ cdef class Table(_PandasConvertible):
         """
         return self.schema.field(i)
 
+    def _ensure_integer_index(self, i):
+        """
+        Ensure integer index (convert string column name to integer if needed).
+        """
+        if isinstance(i, (bytes, str)):
+            field_indices = self.schema.get_all_field_indices(i)
+
+            if len(field_indices) == 0:
+                raise KeyError("Field \"{}\" does not exist in table schema"
+                               .format(i))
+            elif len(field_indices) > 1:
+                raise KeyError("Field \"{}\" exists {} times in table schema"
+                               .format(i, len(field_indices)))
+            else:
+                return field_indices[0]
+        elif isinstance(i, int):
+            return i
+        else:
+            raise TypeError("Index must either be string or integer")
+
     def column(self, i):
         """
         Select a column by its column name, or numeric index.
@@ -1618,21 +1647,7 @@ cdef class Table(_PandasConvertible):
         -------
         pyarrow.ChunkedArray
         """
-        if isinstance(i, (bytes, str)):
-            field_indices = self.schema.get_all_field_indices(i)
-
-            if len(field_indices) == 0:
-                raise KeyError("Field \"{}\" does not exist in table schema"
-                               .format(i))
-            elif len(field_indices) > 1:
-                raise KeyError("Field \"{}\" exists {} times in table schema"
-                               .format(i, len(field_indices)))
-            else:
-                return self._column(field_indices[0])
-        elif isinstance(i, int):
-            return self._column(i)
-        else:
-            raise TypeError("Index must either be string or integer")
+        return self._column(self._ensure_integer_index(i))
 
     def _column(self, int i):
         """

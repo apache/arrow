@@ -1439,6 +1439,11 @@ def test_table_select():
     expected = pa.table([a3, a2], ['f3', 'f2'])
     assert result.equals(expected)
 
+    # preserve metadata
+    table2 = table.replace_schema_metadata({"a": "test"})
+    result = table2.select(["f1", "f2"])
+    assert b"a" in result.schema.metadata
+
     # selecting non-existing column raises
     with pytest.raises(KeyError, match='Field "f5" does not exist'):
         table.select(['f5'])
