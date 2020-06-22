@@ -26,8 +26,8 @@
 #include "arrow/scalar.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
+#include "arrow/util/bit_block_counter.h"
 #include "arrow/util/bit_util.h"
-#include "arrow/util/bitmap_reader.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/functional.h"
 #include "arrow/util/optional.h"
@@ -116,6 +116,75 @@ namespace internal {
 template <typename T, typename Enable = void>
 struct ArrayDataInlineVisitor {};
 
+namespace detail {
+
+template <typename VisitNotNull, typename VisitNull>
+Status VisitBitBlocks(const std::shared_ptr<Buffer>& bitmap_buf, int64_t offset,
+                      int64_t length, VisitNotNull&& visit_not_null,
+                      VisitNull&& visit_null) {
+  const uint8_t* bitmap = nullptr;
+  if (bitmap_buf != nullptr) {
+    bitmap = bitmap_buf->data();
+  }
+  internal::OptionalBitBlockCounter bit_counter(bitmap, offset, length);
+  int64_t position = 0;
+  while (position < length) {
+    internal::BitBlockCount block = bit_counter.NextBlock();
+    if (block.AllSet()) {
+      for (int64_t i = 0; i < block.length; ++i, ++position) {
+        ARROW_RETURN_NOT_OK(visit_not_null(position));
+      }
+    } else if (block.NoneSet()) {
+      for (int64_t i = 0; i < block.length; ++i, ++position) {
+        ARROW_RETURN_NOT_OK(visit_null());
+      }
+    } else {
+      for (int64_t i = 0; i < block.length; ++i, ++position) {
+        if (BitUtil::GetBit(bitmap, offset + position)) {
+          ARROW_RETURN_NOT_OK(visit_not_null(position));
+        } else {
+          ARROW_RETURN_NOT_OK(visit_null());
+        }
+      }
+    }
+  }
+  return Status::OK();
+}
+
+template <typename VisitNotNull, typename VisitNull>
+void VisitBitBlocksVoid(const std::shared_ptr<Buffer>& bitmap_buf, int64_t offset,
+                        int64_t length, VisitNotNull&& visit_not_null,
+                        VisitNull&& visit_null) {
+  const uint8_t* bitmap = nullptr;
+  if (bitmap_buf != nullptr) {
+    bitmap = bitmap_buf->data();
+  }
+  internal::OptionalBitBlockCounter bit_counter(bitmap, offset, length);
+  int64_t position = 0;
+  while (position < length) {
+    internal::BitBlockCount block = bit_counter.NextBlock();
+    if (block.AllSet()) {
+      for (int64_t i = 0; i < block.length; ++i, ++position) {
+        visit_not_null(position);
+      }
+    } else if (block.NoneSet()) {
+      for (int64_t i = 0; i < block.length; ++i, ++position) {
+        visit_null();
+      }
+    } else {
+      for (int64_t i = 0; i < block.length; ++i, ++position) {
+        if (BitUtil::GetBit(bitmap, offset + position)) {
+          visit_not_null(position);
+        } else {
+          visit_null();
+        }
+      }
+    }
+  }
+}
+
+}  // namespace detail
+
 // Numeric and primitive C-compatible types
 template <typename T>
 struct ArrayDataInlineVisitor<T, enable_if_has_c_type<T>> {
@@ -124,47 +193,20 @@ struct ArrayDataInlineVisitor<T, enable_if_has_c_type<T>> {
   template <typename VisitFunc>
   static Status VisitStatus(const ArrayData& arr, VisitFunc&& func) {
     const c_type* data = arr.GetValues<c_type>(1);
-
-    if (arr.null_count != 0) {
-      internal::BitmapReader valid_reader(arr.buffers[0]->data(), arr.offset, arr.length);
-      for (int64_t i = 0; i < arr.length; ++i) {
-        const bool is_null = valid_reader.IsNotSet();
-        if (is_null) {
-          ARROW_RETURN_NOT_OK(func(util::optional<c_type>()));
-        } else {
-          ARROW_RETURN_NOT_OK(func(util::optional<c_type>(data[i])));
-        }
-        valid_reader.Next();
-      }
-    } else {
-      for (int64_t i = 0; i < arr.length; ++i) {
-        ARROW_RETURN_NOT_OK(func(util::optional<c_type>(data[i])));
-      }
-    }
-    return Status::OK();
+    return detail::VisitBitBlocks(
+        arr.buffers[0], arr.offset, arr.length,
+        [&](int64_t i) { return func(util::optional<c_type>(data[i])); },
+        [&]() { return func(util::optional<c_type>()); });
   }
 
   template <typename VisitFunc>
   static void VisitVoid(const ArrayData& arr, VisitFunc&& func) {
     using c_type = typename T::c_type;
     const c_type* data = arr.GetValues<c_type>(1);
-
-    if (arr.null_count != 0) {
-      internal::BitmapReader valid_reader(arr.buffers[0]->data(), arr.offset, arr.length);
-      for (int64_t i = 0; i < arr.length; ++i) {
-        const bool is_null = valid_reader.IsNotSet();
-        if (is_null) {
-          func(util::optional<c_type>());
-        } else {
-          func(util::optional<c_type>(data[i]));
-        }
-        valid_reader.Next();
-      }
-    } else {
-      for (int64_t i = 0; i < arr.length; ++i) {
-        func(util::optional<c_type>(data[i]));
-      }
-    }
+    detail::VisitBitBlocksVoid(
+        arr.buffers[0], arr.offset, arr.length,
+        [&](int64_t i) { func(util::optional<c_type>(data[i])); },
+        [&]() { func(util::optional<c_type>()); });
   }
 };
 
@@ -175,51 +217,24 @@ struct ArrayDataInlineVisitor<BooleanType> {
 
   template <typename VisitFunc>
   static Status VisitStatus(const ArrayData& arr, VisitFunc&& func) {
-    if (arr.null_count != 0) {
-      internal::BitmapReader valid_reader(arr.buffers[0]->data(), arr.offset, arr.length);
-      internal::BitmapReader value_reader(arr.buffers[1]->data(), arr.offset, arr.length);
-      for (int64_t i = 0; i < arr.length; ++i) {
-        const bool is_null = valid_reader.IsNotSet();
-        if (is_null) {
-          ARROW_RETURN_NOT_OK(func(util::optional<bool>()));
-        } else {
-          ARROW_RETURN_NOT_OK(func(util::optional<bool>(value_reader.IsSet())));
-        }
-        valid_reader.Next();
-        value_reader.Next();
-      }
-    } else {
-      internal::BitmapReader value_reader(arr.buffers[1]->data(), arr.offset, arr.length);
-      for (int64_t i = 0; i < arr.length; ++i) {
-        ARROW_RETURN_NOT_OK(func(util::optional<bool>(value_reader.IsSet())));
-        value_reader.Next();
-      }
-    }
-    return Status::OK();
+    int64_t offset = arr.offset;
+    const uint8_t* data = arr.buffers[1]->data();
+    return detail::VisitBitBlocks(
+        arr.buffers[0], offset, arr.length,
+        [&](int64_t i) {
+          return func(util::optional<bool>(BitUtil::GetBit(data, offset + i)));
+        },
+        [&]() { return func(util::optional<bool>()); });
   }
 
   template <typename VisitFunc>
   static void VisitVoid(const ArrayData& arr, VisitFunc&& func) {
-    if (arr.null_count != 0) {
-      internal::BitmapReader valid_reader(arr.buffers[0]->data(), arr.offset, arr.length);
-      internal::BitmapReader value_reader(arr.buffers[1]->data(), arr.offset, arr.length);
-      for (int64_t i = 0; i < arr.length; ++i) {
-        const bool is_null = valid_reader.IsNotSet();
-        if (is_null) {
-          func(util::optional<bool>());
-        } else {
-          func(util::optional<bool>(value_reader.IsSet()));
-        }
-        valid_reader.Next();
-        value_reader.Next();
-      }
-    } else {
-      internal::BitmapReader value_reader(arr.buffers[1]->data(), arr.offset, arr.length);
-      for (int64_t i = 0; i < arr.length; ++i) {
-        func(util::optional<bool>(value_reader.IsSet()));
-        value_reader.Next();
-      }
-    }
+    int64_t offset = arr.offset;
+    const uint8_t* data = arr.buffers[1]->data();
+    detail::VisitBitBlocksVoid(
+        arr.buffers[0], offset, arr.length,
+        [&](int64_t i) { func(util::optional<bool>(BitUtil::GetBit(data, offset + i))); },
+        [&]() { func(util::optional<bool>()); });
   }
 };
 
@@ -242,28 +257,14 @@ struct ArrayDataInlineVisitor<T, enable_if_base_binary<T>> {
       // index the non-sliced values array.
       data = arr.GetValues<uint8_t>(2, /*absolute_offset=*/0);
     }
-
-    if (arr.null_count != 0) {
-      internal::BitmapReader valid_reader(arr.buffers[0]->data(), arr.offset, arr.length);
-      for (int64_t i = 0; i < arr.length; ++i) {
-        const bool is_null = valid_reader.IsNotSet();
-        valid_reader.Next();
-        if (is_null) {
-          ARROW_RETURN_NOT_OK(func(util::optional<util::string_view>()));
-        } else {
+    return detail::VisitBitBlocks(
+        arr.buffers[0], arr.offset, arr.length,
+        [&](int64_t i) {
           auto value = util::string_view(reinterpret_cast<const char*>(data + offsets[i]),
                                          offsets[i + 1] - offsets[i]);
-          ARROW_RETURN_NOT_OK(func(util::optional<util::string_view>(value)));
-        }
-      }
-    } else {
-      for (int64_t i = 0; i < arr.length; ++i) {
-        auto value = util::string_view(reinterpret_cast<const char*>(data + offsets[i]),
-                                       offsets[i + 1] - offsets[i]);
-        ARROW_RETURN_NOT_OK(func(util::optional<util::string_view>(value)));
-      }
-    }
-    return Status::OK();
+          return func(util::optional<util::string_view>(value));
+        },
+        [&]() { return func(util::optional<util::string_view>()); });
   }
 
   template <typename VisitFunc>
@@ -281,26 +282,14 @@ struct ArrayDataInlineVisitor<T, enable_if_base_binary<T>> {
       data = arr.GetValues<uint8_t>(2, /*absolute_offset=*/0);
     }
 
-    if (arr.null_count != 0) {
-      internal::BitmapReader valid_reader(arr.buffers[0]->data(), arr.offset, arr.length);
-      for (int64_t i = 0; i < arr.length; ++i) {
-        const bool is_null = valid_reader.IsNotSet();
-        valid_reader.Next();
-        if (is_null) {
-          func(util::optional<util::string_view>());
-        } else {
+    detail::VisitBitBlocksVoid(
+        arr.buffers[0], arr.offset, arr.length,
+        [&](int64_t i) {
           auto value = util::string_view(reinterpret_cast<const char*>(data + offsets[i]),
                                          offsets[i + 1] - offsets[i]);
           func(util::optional<util::string_view>(value));
-        }
-      }
-    } else {
-      for (int64_t i = 0; i < arr.length; ++i) {
-        auto value = util::string_view(reinterpret_cast<const char*>(data + offsets[i]),
-                                       offsets[i + 1] - offsets[i]);
-        func(util::optional<util::string_view>(value));
-      }
-    }
+        },
+        [&]() { func(util::optional<util::string_view>()); });
   }
 };
 
@@ -314,31 +303,20 @@ struct ArrayDataInlineVisitor<T, enable_if_fixed_size_binary<T>> {
     const auto& fw_type = internal::checked_cast<const FixedSizeBinaryType&>(*arr.type);
 
     const int32_t byte_width = fw_type.byte_width();
-    const uint8_t* data =
-        arr.GetValues<uint8_t>(1,
-                               /*absolute_offset=*/arr.offset * byte_width);
+    const char* data = arr.GetValues<char>(1,
+                                           /*absolute_offset=*/arr.offset * byte_width);
 
-    if (arr.null_count != 0) {
-      internal::BitmapReader valid_reader(arr.buffers[0]->data(), arr.offset, arr.length);
-      for (int64_t i = 0; i < arr.length; ++i) {
-        const bool is_null = valid_reader.IsNotSet();
-        valid_reader.Next();
-        if (is_null) {
-          ARROW_RETURN_NOT_OK(func(util::optional<util::string_view>()));
-        } else {
-          auto value = util::string_view(reinterpret_cast<const char*>(data), byte_width);
-          ARROW_RETURN_NOT_OK(func(util::optional<util::string_view>(value)));
-        }
-        data += byte_width;
-      }
-    } else {
-      for (int64_t i = 0; i < arr.length; ++i) {
-        auto value = util::string_view(reinterpret_cast<const char*>(data), byte_width);
-        ARROW_RETURN_NOT_OK(func(util::optional<util::string_view>(value)));
-        data += byte_width;
-      }
-    }
-    return Status::OK();
+    return detail::VisitBitBlocks(
+        arr.buffers[0], arr.offset, arr.length,
+        [&](int64_t i) {
+          auto value = util::string_view(data, byte_width);
+          data += byte_width;
+          return func(util::optional<util::string_view>(value));
+        },
+        [&]() {
+          data += byte_width;
+          return func(util::optional<util::string_view>());
+        });
   }
 
   template <typename VisitFunc>
@@ -346,30 +324,20 @@ struct ArrayDataInlineVisitor<T, enable_if_fixed_size_binary<T>> {
     const auto& fw_type = internal::checked_cast<const FixedSizeBinaryType&>(*arr.type);
 
     const int32_t byte_width = fw_type.byte_width();
-    const uint8_t* data =
-        arr.GetValues<uint8_t>(1,
-                               /*absolute_offset=*/arr.offset * byte_width);
+    const char* data = arr.GetValues<char>(1,
+                                           /*absolute_offset=*/arr.offset * byte_width);
 
-    if (arr.null_count != 0) {
-      internal::BitmapReader valid_reader(arr.buffers[0]->data(), arr.offset, arr.length);
-      for (int64_t i = 0; i < arr.length; ++i) {
-        const bool is_null = valid_reader.IsNotSet();
-        valid_reader.Next();
-        if (is_null) {
-          func(util::optional<util::string_view>());
-        } else {
-          auto value = util::string_view(reinterpret_cast<const char*>(data), byte_width);
+    detail::VisitBitBlocksVoid(
+        arr.buffers[0], arr.offset, arr.length,
+        [&](int64_t i) {
+          auto value = util::string_view(data, byte_width);
+          data += byte_width;
           func(util::optional<util::string_view>(value));
-        }
-        data += byte_width;
-      }
-    } else {
-      for (int64_t i = 0; i < arr.length; ++i) {
-        auto value = util::string_view(reinterpret_cast<const char*>(data), byte_width);
-        func(util::optional<util::string_view>(value));
-        data += byte_width;
-      }
-    }
+        },
+        [&]() {
+          data += byte_width;
+          func(util::optional<util::string_view>());
+        });
   }
 };
 
@@ -456,16 +424,28 @@ template <typename VisitFunc>
 typename internal::call_traits::enable_if_return<VisitFunc, Status>::type
 VisitNullBitmapInline(const uint8_t* valid_bits, int64_t valid_bits_offset,
                       int64_t num_values, int64_t null_count, VisitFunc&& func) {
-  if (null_count != 0) {
-    internal::BitmapReader bit_reader(valid_bits, valid_bits_offset, num_values);
-    for (int i = 0; i < num_values; ++i) {
-      RETURN_NOT_OK(func(bit_reader.IsSet()));
-      bit_reader.Next();
+  ARROW_UNUSED(null_count);
+  internal::OptionalBitBlockCounter bit_counter(valid_bits, valid_bits_offset,
+                                                num_values);
+  int64_t position = 0;
+  int64_t offset_position = valid_bits_offset;
+  while (position < num_values) {
+    internal::BitBlockCount block = bit_counter.NextBlock();
+    if (block.AllSet()) {
+      for (int64_t i = 0; i < block.length; ++i) {
+        ARROW_RETURN_NOT_OK(func(true));
+      }
+    } else if (block.NoneSet()) {
+      for (int64_t i = 0; i < block.length; ++i) {
+        ARROW_RETURN_NOT_OK(func(false));
+      }
+    } else {
+      for (int64_t i = 0; i < block.length; ++i) {
+        ARROW_RETURN_NOT_OK(func(BitUtil::GetBit(valid_bits, offset_position + i)));
+      }
     }
-  } else {
-    for (int i = 0; i < num_values; ++i) {
-      RETURN_NOT_OK(func(true));
-    }
+    position += block.length;
+    offset_position += block.length;
   }
   return Status::OK();
 }
@@ -474,16 +454,28 @@ template <typename VisitFunc>
 typename internal::call_traits::enable_if_return<VisitFunc, void>::type
 VisitNullBitmapInline(const uint8_t* valid_bits, int64_t valid_bits_offset,
                       int64_t num_values, int64_t null_count, VisitFunc&& func) {
-  if (null_count != 0) {
-    internal::BitmapReader bit_reader(valid_bits, valid_bits_offset, num_values);
-    for (int64_t i = 0; i < num_values; ++i) {
-      func(bit_reader.IsSet());
-      bit_reader.Next();
+  ARROW_UNUSED(null_count);
+  internal::OptionalBitBlockCounter bit_counter(valid_bits, valid_bits_offset,
+                                                num_values);
+  int64_t position = 0;
+  int64_t offset_position = valid_bits_offset;
+  while (position < num_values) {
+    internal::BitBlockCount block = bit_counter.NextBlock();
+    if (block.AllSet()) {
+      for (int64_t i = 0; i < block.length; ++i) {
+        func(true);
+      }
+    } else if (block.NoneSet()) {
+      for (int64_t i = 0; i < block.length; ++i) {
+        func(false);
+      }
+    } else {
+      for (int64_t i = 0; i < block.length; ++i) {
+        func(BitUtil::GetBit(valid_bits, offset_position + i));
+      }
     }
-  } else {
-    for (int64_t i = 0; i < num_values; ++i) {
-      func(true);
-    }
+    position += block.length;
+    offset_position += block.length;
   }
 }
 
