@@ -169,7 +169,7 @@ struct Utf8Transform {
     uint8_t* dest = output;
     utf8_transform(input, input + input_string_ncodeunits, dest,
                    DerivedClass::TransformCodepoint);
-    return dest - output;
+    return (offset_type)(dest - output);
   }
 
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
@@ -190,7 +190,7 @@ struct Utf8Transform {
       utf8proc_uint8_t const* input_str =
           input.buffers[2]->data() + input_boxed.value_offset(0);
       offset_type input_ncodeunits = input_boxed.total_values_length();
-      offset_type input_nstrings = input.length;
+      offset_type input_nstrings = (offset_type)input.length;
 
       // Section 5.18 of the Unicode spec claim that the number of codepoints for case
       // mapping can grow by a factor of 3. This means grow by a factor of 3 in bytes
@@ -243,7 +243,7 @@ struct Utf8Transform {
       auto result = checked_pointer_cast<BaseBinaryScalar>(MakeNullScalar(out->type()));
       if (input.is_valid) {
         result->is_valid = true;
-        int64_t data_nbytes = input.value->size();
+        offset_type data_nbytes = (offset_type)input.value->size();
         // See note above in the Array version explaining the 3 / 2
         KERNEL_RETURN_IF_ERROR(ctx,
                                ctx->Allocate(data_nbytes * 3 / 2).Value(&result->value));
