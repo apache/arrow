@@ -197,8 +197,16 @@ struct Utf8Transform {
       // is actually only at max 3/2 (as covered by the unittest).
       // Note that rounding down the 3/2 is ok, since only codepoints encoded by
       // two code units (even) can grow to 3 code units.
+
+      int64_t output_ncodeunits_max = ((int64_t)input_ncodeunits) * 3 / 2;
+      if (output_ncodeunits_max > std::numeric_limits<offset_type>::max()) {
+        ctx->SetStatus(Status::CapacityError(
+            "Result might not fit in a 32bit utf8 array, convert to large_utf8"));
+        return;
+      }
+
       KERNEL_RETURN_IF_ERROR(
-          ctx, ctx->Allocate(input_ncodeunits * 3 / 2).Value(&output->buffers[2]));
+          ctx, ctx->Allocate(output_ncodeunits_max).Value(&output->buffers[2]));
       // We could reuse the buffer if it is all ascii, benchmarking showed this not to
       // matter
       // output->buffers[1] = input.buffers[1];
