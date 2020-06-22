@@ -55,6 +55,9 @@ Result<std::shared_ptr<CudaBuffer>> SerializeRecordBatch(const RecordBatch& batc
 
 /// \brief ReadRecordBatch specialized to handle metadata on CUDA device
 /// \param[in] schema the Schema for the record batch
+/// \param[in] dictionary_memo DictionaryMemo which has any
+/// dictionaries. Can be nullptr if you are sure there are no
+/// dictionary-encoded fields
 /// \param[in] buffer a CudaBuffer containing the complete IPC message
 /// \param[in] pool a MemoryPool to use for allocating space for the metadata
 /// \return RecordBatch or Status
