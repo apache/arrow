@@ -21,9 +21,6 @@ import re
 import sys
 import warnings
 
-from pyarrow import compat
-from pyarrow.compat import builtin_pickle
-
 
 # These are imprecise because the type (in pandas 0.x) depends on the presence
 # of nulls
@@ -115,9 +112,9 @@ cdef class DataType:
         self.type = type.get()
         self.pep3118_format = _datatype_to_pep3118(self.type)
 
-    cdef Field child(self, int i):
-        cdef int index = <int> _normalize_index(i, self.type.num_children())
-        return pyarrow_wrap_field(self.type.child(index))
+    cdef Field field(self, int i):
+        cdef int index = <int> _normalize_index(i, self.type.num_fields())
+        return pyarrow_wrap_field(self.type.field(index))
 
     @property
     def id(self):
@@ -136,7 +133,17 @@ cdef class DataType:
         """
         The number of child fields.
         """
-        return self.type.num_children()
+        import warnings
+        warnings.warn("num_children is deprecated, use num_fields",
+                      FutureWarning)
+        return self.num_fields
+
+    @property
+    def num_fields(self):
+        """
+        The number of child fields.
+        """
+        return self.type.num_fields()
 
     @property
     def num_buffers(self):
@@ -367,12 +374,6 @@ cdef class StructType(DataType):
         DataType.init(self, type)
         self.struct_type = <const CStructType*> type.get()
 
-    cdef Field field(self, int i):
-        """
-        Return a child field by its index.
-        """
-        return self.child(i)
-
     cdef Field field_by_name(self, name):
         """
         Return a child field by its name rather than its index.
@@ -404,9 +405,9 @@ cdef class StructType(DataType):
 
     def __len__(self):
         """
-        Like num_children().
+        Like num_fields().
         """
-        return self.type.num_children()
+        return self.type.num_fields()
 
     def __iter__(self):
         """
@@ -422,7 +423,7 @@ cdef class StructType(DataType):
         if isinstance(i, (bytes, str)):
             return self.field_by_name(i)
         elif isinstance(i, int):
-            return self.child(i)
+            return self.field(i)
         else:
             raise TypeError('Expected integer or string index')
 
@@ -461,9 +462,9 @@ cdef class UnionType(DataType):
 
     def __len__(self):
         """
-        Like num_children().
+        Like num_fields().
         """
-        return self.type.num_children()
+        return self.type.num_fields()
 
     def __iter__(self):
         """
@@ -474,9 +475,9 @@ cdef class UnionType(DataType):
 
     def __getitem__(self, i):
         """
-        Return a child member by its index.
+        Return a child field by its index.
         """
-        return self.child(i)
+        return self.field(i)
 
     def __reduce__(self):
         return union, (list(self), self.mode, self.type_codes)
@@ -2360,7 +2361,7 @@ def struct(fields):
         vector[shared_ptr[CField]] c_fields
         cdef shared_ptr[CDataType] struct_type
 
-    if isinstance(fields, compat.Mapping):
+    if isinstance(fields, Mapping):
         fields = fields.items()
 
     for item in fields:
@@ -2425,11 +2426,9 @@ def union(children_fields, mode, type_codes=None):
         c_type_codes = range(c_fields.size())
 
     if mode == UnionMode_SPARSE:
-        union_type.reset(new CUnionType(c_fields, c_type_codes,
-                                        _UnionMode_SPARSE))
+        union_type = CMakeSparseUnionType(c_fields, c_type_codes)
     else:
-        union_type.reset(new CUnionType(c_fields, c_type_codes,
-                                        _UnionMode_DENSE))
+        union_type = CMakeDenseUnionType(c_fields, c_type_codes)
 
     return pyarrow_wrap_data_type(union_type)
 
@@ -2557,7 +2556,7 @@ def schema(fields, metadata=None):
         Field py_field
         vector[shared_ptr[CField]] c_fields
 
-    if isinstance(fields, compat.Mapping):
+    if isinstance(fields, Mapping):
         fields = fields.items()
 
     for item in fields:

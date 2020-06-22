@@ -503,6 +503,10 @@ void ReleaseExportedArray(struct ArrowArray* array) {
 
 struct ArrayExporter {
   Status Export(const std::shared_ptr<ArrayData>& data) {
+    // Force computing null count.
+    // This is because ARROW-9037 is in version 0.17 and 0.17.1, and they are
+    // not able to import arrays without a null bitmap and null_count == -1.
+    data->GetNullCount();
     // Store buffer pointers
     export_.buffers_.resize(data->buffers.size());
     std::transform(data->buffers.begin(), data->buffers.end(), export_.buffers_.begin(),
@@ -513,7 +517,7 @@ struct ArrayExporter {
     // Export dictionary
     if (data->dictionary != nullptr) {
       dict_exporter_.reset(new ArrayExporter());
-      RETURN_NOT_OK(dict_exporter_->Export(data->dictionary->data()));
+      RETURN_NOT_OK(dict_exporter_->Export(data->dictionary));
     }
 
     // Export children
@@ -1063,7 +1067,11 @@ struct SchemaImporter {
                                c_struct_->format, "'");
       }
     }
-    type_ = union_(std::move(fields), std::move(type_codes), mode);
+    if (mode == UnionMode::SPARSE) {
+      type_ = sparse_union(std::move(fields), std::move(type_codes));
+    } else {
+      type_ = dense_union(std::move(fields), std::move(type_codes));
+    }
     return Status::OK();
   }
 
@@ -1191,9 +1199,14 @@ struct ArrayImporter {
     return ::arrow::MakeArray(data_);
   }
 
+  std::shared_ptr<ArrayData> GetArrayData() {
+    DCHECK_NE(data_, nullptr);
+    return data_;
+  }
+
   Result<std::shared_ptr<RecordBatch>> MakeRecordBatch(std::shared_ptr<Schema> schema) {
     DCHECK_NE(data_, nullptr);
-    if (data_->null_count != 0) {
+    if (data_->GetNullCount() != 0) {
       return Status::Invalid(
           "ArrowArray struct has non-zero null count, "
           "cannot be imported as RecordBatch");
@@ -1257,7 +1270,7 @@ struct ArrayImporter {
       // Import dictionary values
       ArrayImporter dict_importer(dict_type.value_type());
       RETURN_NOT_OK(dict_importer.ImportDict(this, c_struct_->dictionary));
-      ARROW_ASSIGN_OR_RAISE(data_->dictionary, dict_importer.MakeArray());
+      data_->dictionary = dict_importer.GetArrayData();
     } else {
       if (is_dict_type) {
         return Status::Invalid("Import type is ", type_->ToString(),
@@ -1313,14 +1326,16 @@ struct ArrayImporter {
 
   Status Visit(const UnionType& type) {
     auto mode = type.mode();
-    RETURN_NOT_OK(CheckNumBuffers(3));
+    if (mode == UnionMode::SPARSE) {
+      RETURN_NOT_OK(CheckNumBuffers(2));
+    } else {
+      RETURN_NOT_OK(CheckNumBuffers(3));
+    }
     RETURN_NOT_OK(AllocateArrayData());
     RETURN_NOT_OK(ImportNullBitmap());
     RETURN_NOT_OK(ImportFixedSizeBuffer(1, sizeof(int8_t)));
     if (mode == UnionMode::DENSE) {
       RETURN_NOT_OK(ImportFixedSizeBuffer(2, sizeof(int32_t)));
-    } else {
-      RETURN_NOT_OK(ImportUnusedBuffer(2));
     }
     return Status::OK();
   }
@@ -1396,7 +1411,7 @@ struct ArrayImporter {
 
   Status ImportNullBitmap(int32_t buffer_id = 0) {
     RETURN_NOT_OK(ImportBitsBuffer(buffer_id));
-    if (data_->null_count != 0 && data_->buffers[buffer_id] == nullptr) {
+    if (data_->null_count > 0 && data_->buffers[buffer_id] == nullptr) {
       return Status::Invalid(
           "ArrowArray struct has null bitmap buffer but non-zero null_count ",
           data_->null_count);
@@ -1409,8 +1424,6 @@ struct ArrayImporter {
     int64_t buffer_size = BitUtil::BytesForBits(c_struct_->length + c_struct_->offset);
     return ImportBuffer(buffer_id, buffer_size);
   }
-
-  Status ImportUnusedBuffer(int32_t buffer_id) { return ImportBuffer(buffer_id, 0); }
 
   Status ImportFixedSizeBuffer(int32_t buffer_id, int64_t byte_width) {
     // Compute visible size of buffer

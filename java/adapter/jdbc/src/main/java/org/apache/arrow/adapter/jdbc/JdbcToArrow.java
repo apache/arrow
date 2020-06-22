@@ -24,7 +24,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Calendar;
 
-import org.apache.arrow.memory.BaseAllocator;
+import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.VectorSchemaRoot;
@@ -80,7 +80,7 @@ public class JdbcToArrow {
    *                      ResultSet and Statement objects.
    */
   @Deprecated
-  public static VectorSchemaRoot sqlToArrow(Connection connection, String query, BaseAllocator allocator)
+  public static VectorSchemaRoot sqlToArrow(Connection connection, String query, BufferAllocator allocator)
       throws SQLException, IOException {
     Preconditions.checkNotNull(allocator, "Memory allocator object can not be null");
 
@@ -106,7 +106,7 @@ public class JdbcToArrow {
   public static VectorSchemaRoot sqlToArrow(
       Connection connection,
       String query,
-      BaseAllocator allocator,
+      BufferAllocator allocator,
       Calendar calendar) throws SQLException, IOException {
 
     Preconditions.checkNotNull(allocator, "Memory allocator object can not be null");
@@ -162,7 +162,7 @@ public class JdbcToArrow {
    * @throws SQLException on error
    */
   @Deprecated
-  public static VectorSchemaRoot sqlToArrow(ResultSet resultSet, BaseAllocator allocator)
+  public static VectorSchemaRoot sqlToArrow(ResultSet resultSet, BufferAllocator allocator)
       throws SQLException, IOException {
     Preconditions.checkNotNull(allocator, "Memory Allocator object can not be null");
 
@@ -197,7 +197,7 @@ public class JdbcToArrow {
   @Deprecated
   public static VectorSchemaRoot sqlToArrow(
       ResultSet resultSet,
-      BaseAllocator allocator,
+      BufferAllocator allocator,
       Calendar calendar)
       throws SQLException, IOException {
     Preconditions.checkNotNull(allocator, "Memory Allocator object can not be null");
@@ -245,7 +245,7 @@ public class JdbcToArrow {
    */
   public static ArrowVectorIterator sqlToArrowVectorIterator(
       ResultSet resultSet,
-      BaseAllocator allocator)
+      BufferAllocator allocator)
       throws SQLException, IOException {
     Preconditions.checkNotNull(allocator, "Memory Allocator object can not be null");
 

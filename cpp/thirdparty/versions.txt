@@ -23,40 +23,39 @@
 # `DEPENDENCIES` array (see the comment on top of the declaration for the
 # format).
 
+ARROW_ABSL_BUILD_VERSION=2eba343b51e0923cd3fb919a6abd6120590fc059
 ARROW_AWSSDK_BUILD_VERSION=1.7.160
 ARROW_BOOST_BUILD_VERSION=1.71.0
 ARROW_BROTLI_BUILD_VERSION=v1.0.7
 ARROW_BZIP2_BUILD_VERSION=1.0.8
-ARROW_CARES_BUILD_VERSION=1.15.0
-ARROW_GBENCHMARK_BUILD_VERSION=v1.5.0
-ARROW_GFLAGS_BUILD_VERSION=v2.2.0
-ARROW_GLOG_BUILD_VERSION=v0.3.5
-ARROW_GRPC_BUILD_VERSION=v1.25.0
+ARROW_CARES_BUILD_VERSION=1.16.1
+ARROW_GBENCHMARK_BUILD_VERSION=v1.5.1
+ARROW_GFLAGS_BUILD_VERSION=v2.2.2
+ARROW_GLOG_BUILD_VERSION=v0.4.0
+ARROW_GRPC_BUILD_VERSION=v1.29.1
 ARROW_GTEST_BUILD_VERSION=1.8.1
 ARROW_JEMALLOC_BUILD_VERSION=5.2.1
 ARROW_LZ4_BUILD_VERSION=v1.9.2
-# Need post-v1.0.6 version for https://github.com/microsoft/mimalloc/pull/140,
-# https://github.com/microsoft/mimalloc/pull/145 and
-# https://github.com/microsoft/mimalloc/pull/148
-ARROW_MIMALLOC_BUILD_VERSION=270e765454f98e8bab9d42609b153425f749fff6
+ARROW_MIMALLOC_BUILD_VERSION=v1.6.3
 ARROW_ORC_BUILD_VERSION=1.6.2
-ARROW_PROTOBUF_BUILD_VERSION=v3.7.1
+ARROW_PROTOBUF_BUILD_VERSION=v3.12.1
 # Because of https://github.com/Tencent/rapidjson/pull/1323, we require
 # a pre-release version of RapidJSON to build with GCC 8 without
 # warnings.
-ARROW_RAPIDJSON_BUILD_VERSION=2bbd33b33217ff4a73434ebf10cdac41e2ef5e34
+ARROW_RAPIDJSON_BUILD_VERSION=1a803826f1197b5e30703afe4b9c0e7dd48074f5
 ARROW_RE2_BUILD_VERSION=2019-08-01
-ARROW_SNAPPY_BUILD_VERSION=1.1.7
+ARROW_SNAPPY_BUILD_VERSION=1.1.8
 ARROW_THRIFT_BUILD_VERSION=0.12.0
 ARROW_THRIFT_BUILD_MD5_CHECKSUM=3deebbb4d1ca77dd9c9e009a1ea02183
 ARROW_ZLIB_BUILD_VERSION=1.2.11
-ARROW_ZSTD_BUILD_VERSION=v1.4.3
+ARROW_ZSTD_BUILD_VERSION=v1.4.5
 
 # The first field is the name of the environment variable expected by cmake.
 # This _must_ match what is defined. The second field is the name of the
 # generated archive file. The third field is the url of the project for the
 # given version.
 DEPENDENCIES=(
+  "ARROW_ABSL_URL absl-${ARROW_ABSL_BUILD_VERSION}.tar.gz https://github.com/abseil/abseil-cpp/archive/${ARROW_ABSL_BUILD_VERSION}.tar.gz"
   "ARROW_AWSSDK_URL aws-sdk-cpp-${ARROW_AWSSDK_BUILD_VERSION}.tar.gz https://github.com/aws/aws-sdk-cpp/archive/${ARROW_AWSSDK_BUILD_VERSION}.tar.gz"
   "ARROW_BOOST_URL boost-${ARROW_BOOST_BUILD_VERSION}.tar.gz https://dl.bintray.com/ursalabs/arrow-boost/boost_${ARROW_BOOST_BUILD_VERSION//./_}.tar.gz"
   "ARROW_BROTLI_URL brotli-${ARROW_BROTLI_BUILD_VERSION}.tar.gz https://github.com/google/brotli/archive/${ARROW_BROTLI_BUILD_VERSION}.tar.gz"

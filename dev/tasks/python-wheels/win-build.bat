@@ -17,10 +17,14 @@
 
 @echo on
 
+@rem Building Gandiva in the wheels is disabled for now to make the wheels
+@rem smaller.
+
+@rem --file=%ARROW_SRC%\ci\conda_env_gandiva.yml ^
+
 @rem create conda environment for compiling
 call conda create -n wheel-build -q -y -c conda-forge ^
     --file=%ARROW_SRC%\ci\conda_env_cpp.yml ^
-    --file=%ARROW_SRC%\ci\conda_env_gandiva.yml ^
     "vs2015_runtime<14.16" ^
     python=%PYTHON_VERSION% || exit /B
 
@@ -46,6 +50,7 @@ pushd %ARROW_SRC%\cpp\build
 cmake -G "%GENERATOR%" ^
       -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
       -DARROW_BOOST_USE_SHARED=OFF ^
+      -DARROW_BUILD_STATIC=OFF ^
       -DARROW_BUILD_TESTS=OFF ^
       -DCMAKE_BUILD_TYPE=Release ^
       -DARROW_DEPENDENCY_SOURCE=CONDA ^
@@ -59,10 +64,11 @@ cmake -G "%GENERATOR%" ^
       -DARROW_WITH_BROTLI=ON ^
       -DARROW_DATASET=ON ^
       -DARROW_FLIGHT=ON ^
-      -DARROW_PYTHON=ON ^
+      -DARROW_GANDIVA=OFF ^
+      -DARROW_MIMALLOC=ON ^
       -DARROW_PARQUET=ON ^
-      -DARROW_GANDIVA=ON ^
-      -DARROW_MIMAllOC=ON ^
+      -DARROW_PYTHON=ON ^
+      -DARROW_VERBOSE_THIRDPARTY_BUILD=ON ^
       -DZSTD_SOURCE=BUNDLED ^
       .. || exit /B
 cmake --build . --target install --config Release || exit /B
@@ -70,9 +76,10 @@ popd
 
 set PYARROW_BUILD_TYPE=Release
 set PYARROW_PARALLEL=8
+set PYARROW_INSTALL_TESTS=1
 set PYARROW_WITH_DATASET=1
 set PYARROW_WITH_FLIGHT=1
-set PYARROW_WITH_GANDIVA=1
+set PYARROW_WITH_GANDIVA=0
 set PYARROW_WITH_PARQUET=1
 set PYARROW_WITH_STATIC_BOOST=1
 set PYARROW_BUNDLE_ARROW_CPP=1
@@ -96,7 +103,6 @@ set ARROW_TEST_DATA=%ARROW_SRC%\testing\data
 %PYTHON_INTERPRETER% -c "import pyarrow" || exit /B
 %PYTHON_INTERPRETER% -c "import pyarrow.parquet" || exit /B
 %PYTHON_INTERPRETER% -c "import pyarrow.flight" || exit /B
-%PYTHON_INTERPRETER% -c "import pyarrow.gandiva" || exit /B
 %PYTHON_INTERPRETER% -c "import pyarrow.dataset" || exit /B
 
 @rem run the python tests, but disable the cython because there is a linking

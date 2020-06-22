@@ -16,7 +16,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-export RE2_VERSION="2019-04-01"
+export RE2_VERSION="2019-08-01"
 NCORES=$(($(grep -c ^processor /proc/cpuinfo) + 1))
 
 curl -sL "https://github.com/google/re2/archive/${RE2_VERSION}.tar.gz" -o re2-${RE2_VERSION}.tar.gz

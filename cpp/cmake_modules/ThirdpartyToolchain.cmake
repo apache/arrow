@@ -248,6 +248,14 @@ foreach(_VERSION_ENTRY ${TOOLCHAIN_VERSIONS_TXT})
   set(${_VARIABLE_NAME} ${_VARIABLE_VALUE})
 endforeach()
 
+if(DEFINED ENV{ARROW_ABSL_URL})
+  set(ABSL_SOURCE_URL "$ENV{ARROW_ABSL_URL}")
+else()
+  set_urls(
+    ABSL_SOURCE_URL
+    "https://github.com/abseil/abseil-cpp/archive/${ARROW_ABSL_BUILD_VERSION}.tar.gz")
+endif()
+
 if(DEFINED ENV{ARROW_AWSSDK_URL})
   set(AWSSDK_SOURCE_URL "$ENV{ARROW_AWSSDK_URL}")
 else()
@@ -589,14 +597,22 @@ macro(build_boost)
   else()
     set(BOOST_CONFIGURE_COMMAND "./bootstrap.sh")
   endif()
+
+  set(BOOST_BUILD_WITH_LIBRARIES "filesystem" "regex" "system")
+  string(REPLACE ";" "," BOOST_CONFIGURE_LIBRARIES "${BOOST_BUILD_WITH_LIBRARIES}")
   list(APPEND BOOST_CONFIGURE_COMMAND "--prefix=${BOOST_PREFIX}"
-              "--with-libraries=filesystem,regex,system")
+              "--with-libraries=${BOOST_CONFIGURE_LIBRARIES}")
   set(BOOST_BUILD_COMMAND "./b2" "-j${NPROC}" "link=${BOOST_BUILD_LINK}"
                           "variant=${BOOST_BUILD_VARIANT}")
   if(MSVC)
     string(REGEX
            REPLACE "([0-9])$" ".\\1" BOOST_TOOLSET_MSVC_VERSION ${MSVC_TOOLSET_VERSION})
     list(APPEND BOOST_BUILD_COMMAND "toolset=msvc-${BOOST_TOOLSET_MSVC_VERSION}")
+    set(BOOST_BUILD_WITH_LIBRARIES_MSVC)
+    foreach(_BOOST_LIB ${BOOST_BUILD_WITH_LIBRARIES})
+      list(APPEND BOOST_BUILD_WITH_LIBRARIES_MSVC "--with-${_BOOST_LIB}")
+    endforeach()
+    list(APPEND BOOST_BUILD_COMMAND ${BOOST_BUILD_WITH_LIBRARIES_MSVC})
   else()
     list(APPEND BOOST_BUILD_COMMAND "cxxflags=-fPIC")
   endif()
@@ -694,7 +710,7 @@ set(Boost_ADDITIONAL_VERSIONS
     "1.60.0"
     "1.60")
 
-# Thrift needs Boost if we're building the bundled version,
+# Thrift needs Boost if we're building the bundled version with version < 0.13,
 # so we first need to determine whether we're building it
 if(ARROW_WITH_THRIFT AND Thrift_SOURCE STREQUAL "AUTO")
   find_package(Thrift 0.11.0 MODULE COMPONENTS ${ARROW_THRIFT_REQUIRED_COMPONENTS})
@@ -703,19 +719,32 @@ if(ARROW_WITH_THRIFT AND Thrift_SOURCE STREQUAL "AUTO")
   endif()
 endif()
 
-# - Parquet requires boost only with gcc 4.8 (because of missing std::regex).
+# Thrift < 0.13 has a compile-time header dependency on boost
+if(Thrift_SOURCE STREQUAL "BUNDLED" AND ARROW_THRIFT_BUILD_VERSION VERSION_LESS "0.13")
+  set(THRIFT_REQUIRES_BOOST TRUE)
+elseif(THRIFT_VERSION VERSION_LESS "0.13")
+  set(THRIFT_REQUIRES_BOOST TRUE)
+else()
+  set(THRIFT_REQUIRES_BOOST FALSE)
+endif()
+
+# Parquet requires boost only with gcc 4.8 (because of missing std::regex).
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "4.9")
+  set(PARQUET_REQUIRES_BOOST TRUE)
+else()
+  set(PARQUET_REQUIRES_BOOST FALSE)
+endif()
+
 # - Gandiva has a compile-time (header-only) dependency on Boost, not runtime.
 # - Tests need Boost at runtime.
 # - S3FS and Flight benchmarks need Boost at runtime.
 if(ARROW_BUILD_INTEGRATION
    OR ARROW_BUILD_TESTS
+   OR ARROW_GANDIVA
    OR (ARROW_FLIGHT AND ARROW_BUILD_BENCHMARKS)
    OR (ARROW_S3 AND ARROW_BUILD_BENCHMARKS)
-   OR ARROW_GANDIVA
-   OR (ARROW_WITH_THRIFT AND Thrift_SOURCE STREQUAL "BUNDLED")
-   OR (ARROW_PARQUET
-       AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU"
-       AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "4.9"))
+   OR (ARROW_WITH_THRIFT AND THRIFT_REQUIRES_BOOST)
+   OR (ARROW_PARQUET AND PARQUET_REQUIRES_BOOST))
   set(ARROW_BOOST_REQUIRED TRUE)
 else()
   set(ARROW_BOOST_REQUIRED FALSE)
@@ -946,9 +975,14 @@ macro(build_glog)
   message(STATUS "Building glog from source")
   set(GLOG_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}/glog_ep-prefix/src/glog_ep")
   set(GLOG_INCLUDE_DIR "${GLOG_BUILD_DIR}/include")
+  if(${UPPERCASE_BUILD_TYPE} STREQUAL "DEBUG")
+    set(GLOG_LIB_SUFFIX "d")
+  else()
+    set(GLOG_LIB_SUFFIX "")
+  endif()
   set(
     GLOG_STATIC_LIB
-    "${GLOG_BUILD_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}glog${CMAKE_STATIC_LIBRARY_SUFFIX}"
+    "${GLOG_BUILD_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}glog${GLOG_LIB_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}"
     )
   set(GLOG_CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
   set(GLOG_CMAKE_C_FLAGS "${EP_C_FLAGS} -fPIC")
@@ -1013,10 +1047,15 @@ macro(build_gflags)
 
   set(GFLAGS_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/gflags_ep-prefix/src/gflags_ep")
   set(GFLAGS_INCLUDE_DIR "${GFLAGS_PREFIX}/include")
-  if(MSVC)
-    set(GFLAGS_STATIC_LIB "${GFLAGS_PREFIX}/lib/gflags_static.lib")
+  if(${UPPERCASE_BUILD_TYPE} STREQUAL "DEBUG")
+    set(GFLAGS_LIB_SUFFIX "_debug")
   else()
-    set(GFLAGS_STATIC_LIB "${GFLAGS_PREFIX}/lib/libgflags.a")
+    set(GFLAGS_LIB_SUFFIX "")
+  endif()
+  if(MSVC)
+    set(GFLAGS_STATIC_LIB "${GFLAGS_PREFIX}/lib/gflags_static${GFLAGS_LIB_SUFFIX}.lib")
+  else()
+    set(GFLAGS_STATIC_LIB "${GFLAGS_PREFIX}/lib/libgflags${GFLAGS_LIB_SUFFIX}.a")
   endif()
   set(GFLAGS_CMAKE_ARGS
       ${EP_COMMON_CMAKE_ARGS}
@@ -1371,19 +1410,19 @@ if(ARROW_MIMALLOC)
   message(STATUS "Building (vendored) mimalloc from source")
   # We only use a vendored mimalloc as we want to control its build options.
 
-  # XXX Careful: mimalloc library naming varies depend on build type capitalization:
-  # https://github.com/microsoft/mimalloc/issues/144
   set(MIMALLOC_LIB_BASE_NAME "mimalloc")
   if(WIN32)
     set(MIMALLOC_LIB_BASE_NAME "${MIMALLOC_LIB_BASE_NAME}-static")
   endif()
-  set(MIMALLOC_LIB_BASE_NAME "${MIMALLOC_LIB_BASE_NAME}-${LOWERCASE_BUILD_TYPE}")
+  if(${UPPERCASE_BUILD_TYPE} STREQUAL "DEBUG")
+    set(MIMALLOC_LIB_BASE_NAME "${MIMALLOC_LIB_BASE_NAME}-${LOWERCASE_BUILD_TYPE}")
+  endif()
 
   set(MIMALLOC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/mimalloc_ep/src/mimalloc_ep")
-  set(MIMALLOC_INCLUDE_DIR "${MIMALLOC_PREFIX}/lib/mimalloc-1.0/include")
+  set(MIMALLOC_INCLUDE_DIR "${MIMALLOC_PREFIX}/lib/mimalloc-1.6/include")
   set(
     MIMALLOC_STATIC_LIB
-    "${MIMALLOC_PREFIX}/lib/mimalloc-1.0/${CMAKE_STATIC_LIBRARY_PREFIX}${MIMALLOC_LIB_BASE_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX}"
+    "${MIMALLOC_PREFIX}/lib/mimalloc-1.6/${CMAKE_STATIC_LIBRARY_PREFIX}${MIMALLOC_LIB_BASE_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX}"
     )
 
   set(MIMALLOC_CMAKE_ARGS
@@ -1391,6 +1430,7 @@ if(ARROW_MIMALLOC)
       "-DCMAKE_INSTALL_PREFIX=${MIMALLOC_PREFIX}"
       -DMI_OVERRIDE=OFF
       -DMI_LOCAL_DYNAMIC_TLS=ON
+      -DMI_BUILD_OBJECT=OFF
       -DMI_BUILD_TESTS=OFF)
 
   externalproject_add(mimalloc_ep
@@ -1681,7 +1721,9 @@ if(ARROW_WITH_RAPIDJSON)
                  QUIET
                  HINTS
                  "${CMAKE_ROOT}")
-    if(NOT RapidJSON_FOUND)
+    if(RapidJSON_FOUND)
+      set(RAPIDJSON_INCLUDE_DIR ${RAPIDJSON_INCLUDE_DIRS})
+    else()
       # Ubuntu / Debian don't package the CMake config
       find_package(RapidJSONAlt ${ARROW_RAPIDJSON_REQUIRED_VERSION})
     endif()
@@ -1694,7 +1736,9 @@ if(ARROW_WITH_RAPIDJSON)
     # Fedora packages place the package information at the wrong location.
     # https://bugzilla.redhat.com/show_bug.cgi?id=1680400
     find_package(RapidJSON ${ARROW_RAPIDJSON_REQUIRED_VERSION} HINTS "${CMAKE_ROOT}")
-    if(NOT RapidJSON_FOUND)
+    if(RapidJSON_FOUND)
+      set(RAPIDJSON_INCLUDE_DIR ${RAPIDJSON_INCLUDE_DIRS})
+    else()
       # Ubuntu / Debian don't package the CMake config
       find_package(RapidJSONAlt ${ARROW_RAPIDJSON_REQUIRED_VERSION} REQUIRED)
     endif()
@@ -1855,20 +1899,37 @@ macro(build_zstd)
 
   file(MAKE_DIRECTORY "${ZSTD_PREFIX}/include")
 
-  add_library(ZSTD::zstd STATIC IMPORTED)
-  set_target_properties(ZSTD::zstd
+  add_library(zstd::libzstd STATIC IMPORTED)
+  set_target_properties(zstd::libzstd
                         PROPERTIES IMPORTED_LOCATION "${ZSTD_STATIC_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${ZSTD_PREFIX}/include")
 
   add_dependencies(toolchain zstd_ep)
-  add_dependencies(ZSTD::zstd zstd_ep)
+  add_dependencies(zstd::libzstd zstd_ep)
 endmacro()
 
 if(ARROW_WITH_ZSTD)
   resolve_dependency(ZSTD)
 
+  if(TARGET zstd::libzstd)
+    set(ARROW_ZSTD_LIBZSTD zstd::libzstd)
+  else()
+    # "SYSTEM" source will prioritize cmake config, which exports
+    # zstd::libzstd_{static,shared}
+    if(ARROW_ZSTD_USE_SHARED)
+      if(TARGET zstd::libzstd_shared)
+        set(ARROW_ZSTD_LIBZSTD zstd::libzstd_shared)
+      endif()
+    else()
+      if(TARGET zstd::libzstd_static)
+        set(ARROW_ZSTD_LIBZSTD zstd::libzstd_static)
+      endif()
+    endif()
+  endif()
+
   # TODO: Don't use global includes but rather target_include_directories
-  get_target_property(ZSTD_INCLUDE_DIR ZSTD::zstd INTERFACE_INCLUDE_DIRECTORIES)
+  get_target_property(ZSTD_INCLUDE_DIR ${ARROW_ZSTD_LIBZSTD}
+                      INTERFACE_INCLUDE_DIRECTORIES)
   include_directories(SYSTEM ${ZSTD_INCLUDE_DIR})
 endif()
 
@@ -1969,6 +2030,7 @@ macro(build_cares)
       -DCARES_STATIC=ON
       -DCARES_SHARED=OFF
       "-DCMAKE_C_FLAGS=${EP_C_FLAGS}"
+      -DCMAKE_INSTALL_LIBDIR=lib
       "-DCMAKE_INSTALL_PREFIX=${CARES_PREFIX}")
 
   externalproject_add(cares_ep
@@ -2012,6 +2074,48 @@ endif()
 
 macro(build_grpc)
   message(STATUS "Building gRPC from source")
+
+  # First need to build Abseil
+  set(ABSL_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/absl_ep-install")
+  set(ABSL_CMAKE_ARGS
+      -DABSL_RUN_TESTS=OFF
+      -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+      -DCMAKE_CXX_STANDARD=11
+      "-DCMAKE_CXX_FLAGS=${EP_CXX_FLAGS}"
+      -DCMAKE_INSTALL_LIBDIR=lib
+      "-DCMAKE_INSTALL_PREFIX=${ABSL_PREFIX}")
+  set(ABSL_BUILD_BYPRODUCTS)
+  set(ABSL_LIBRARIES)
+
+  # Abseil libraries gRPC depends on
+  set(_ABSL_LIBS
+      bad_optional_access
+      int128
+      raw_logging_internal
+      str_format_internal
+      strings
+      throw_delegate
+      time
+      time_zone)
+
+  foreach(_ABSL_LIB ${_ABSL_LIBS})
+    set(
+      _ABSL_STATIC_LIBRARY
+      "${ABSL_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}absl_${_ABSL_LIB}${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      )
+    add_library(absl::${_ABSL_LIB} STATIC IMPORTED)
+    set_target_properties(absl::${_ABSL_LIB}
+                          PROPERTIES IMPORTED_LOCATION ${_ABSL_STATIC_LIBRARY})
+    list(APPEND ABSL_BUILD_BYPRODUCTS ${_ABSL_STATIC_LIBRARY})
+    list(APPEND ABSL_LIBRARIES absl::${_ABSL_LIB})
+  endforeach()
+
+  externalproject_add(absl_ep
+                      ${EP_LOG_OPTIONS}
+                      URL ${ABSL_SOURCE_URL}
+                      CMAKE_ARGS ${ABSL_CMAKE_ARGS}
+                      BUILD_BYPRODUCTS ${ABSL_BUILD_BYPRODUCTS})
+
   set(GRPC_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}/grpc_ep-prefix/src/grpc_ep-build")
   set(GRPC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/grpc_ep-install")
   set(GRPC_HOME "${GRPC_PREFIX}")
@@ -2033,12 +2137,16 @@ macro(build_grpc)
     GRPC_STATIC_LIBRARY_ADDRESS_SORTING
     "${GRPC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}address_sorting${CMAKE_STATIC_LIBRARY_SUFFIX}"
     )
+  set(
+    GRPC_STATIC_LIBRARY_UPB
+    "${GRPC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}upb${CMAKE_STATIC_LIBRARY_SUFFIX}")
   set(GRPC_CPP_PLUGIN "${GRPC_PREFIX}/bin/grpc_cpp_plugin")
 
   set(GRPC_CMAKE_PREFIX)
 
   add_custom_target(grpc_dependencies)
 
+  add_dependencies(grpc_dependencies absl_ep)
   if(CARES_VENDORED)
     add_dependencies(grpc_dependencies cares_ep)
   endif()
@@ -2067,6 +2175,7 @@ macro(build_grpc)
 
   # ZLIB is never vendored
   set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${ZLIB_ROOT}")
+  set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${ABSL_PREFIX}")
 
   if(APPLE)
     # gRPC on MacOS will fail to build due to thread local variables.
@@ -2087,6 +2196,8 @@ macro(build_grpc)
   set(GRPC_CMAKE_ARGS
       -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
       -DCMAKE_PREFIX_PATH='${GRPC_PREFIX_PATH_ALT_SEP}'
+      -DgRPC_BUILD_CSHARP_EXT=OFF
+      -DgRPC_ABSL_PROVIDER=package
       -DgRPC_CARES_PROVIDER=package
       -DgRPC_GFLAGS_PROVIDER=package
       -DgRPC_PROTOBUF_PROVIDER=package
@@ -2096,7 +2207,6 @@ macro(build_grpc)
       -DCMAKE_C_FLAGS=${EP_C_FLAGS}
       -DCMAKE_INSTALL_PREFIX=${GRPC_PREFIX}
       -DCMAKE_INSTALL_LIBDIR=lib
-      "-DProtobuf_PROTOC_LIBRARY=${GRPC_Protobuf_PROTOC_LIBRARY}"
       -DBUILD_SHARED_LIBS=OFF)
   if(OPENSSL_ROOT_DIR)
     list(APPEND GRPC_CMAKE_ARGS -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_DIR})
@@ -2112,12 +2222,18 @@ macro(build_grpc)
                                        ${GRPC_STATIC_LIBRARY_GRPC}
                                        ${GRPC_STATIC_LIBRARY_GRPCPP}
                                        ${GRPC_STATIC_LIBRARY_ADDRESS_SORTING}
+                                       ${GRPC_STATIC_LIBRARY_UPB}
                                        ${GRPC_CPP_PLUGIN}
                       CMAKE_ARGS ${GRPC_CMAKE_ARGS} ${EP_LOG_OPTIONS}
                       DEPENDS ${grpc_dependencies})
 
   # Work around https://gitlab.kitware.com/cmake/cmake/issues/15052
   file(MAKE_DIRECTORY ${GRPC_INCLUDE_DIR})
+
+  add_library(gRPC::upb STATIC IMPORTED)
+  set_target_properties(gRPC::upb
+                        PROPERTIES IMPORTED_LOCATION "${GRPC_STATIC_LIBRARY_UPB}"
+                                   INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}")
 
   add_library(gRPC::gpr STATIC IMPORTED)
   set_target_properties(gRPC::gpr
@@ -2129,16 +2245,21 @@ macro(build_grpc)
                         PROPERTIES IMPORTED_LOCATION "${GRPC_STATIC_LIBRARY_GRPC}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}")
 
-  add_library(gRPC::grpc++ STATIC IMPORTED)
-  set_target_properties(gRPC::grpc++
-                        PROPERTIES IMPORTED_LOCATION "${GRPC_STATIC_LIBRARY_GRPCPP}"
-                                   INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}")
-
   add_library(gRPC::address_sorting STATIC IMPORTED)
   set_target_properties(gRPC::address_sorting
                         PROPERTIES IMPORTED_LOCATION
                                    "${GRPC_STATIC_LIBRARY_ADDRESS_SORTING}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}")
+
+  add_library(gRPC::grpc++ STATIC IMPORTED)
+  set_target_properties(
+    gRPC::grpc++
+    PROPERTIES IMPORTED_LOCATION
+               "${GRPC_STATIC_LIBRARY_GRPCPP}"
+               INTERFACE_LINK_LIBRARIES
+               "gRPC::grpc;gRPC::gpr;gRPC::upb;gRPC::address_sorting;${ABSL_LIBRARIES}"
+               INTERFACE_INCLUDE_DIRECTORIES
+               "${GRPC_INCLUDE_DIR}")
 
   add_executable(gRPC::grpc_cpp_plugin IMPORTED)
   set_target_properties(gRPC::grpc_cpp_plugin
@@ -2146,10 +2267,8 @@ macro(build_grpc)
 
   add_dependencies(grpc_ep grpc_dependencies)
   add_dependencies(toolchain grpc_ep)
-  add_dependencies(gRPC::gpr grpc_ep)
-  add_dependencies(gRPC::grpc grpc_ep)
   add_dependencies(gRPC::grpc++ grpc_ep)
-  add_dependencies(gRPC::address_sorting grpc_ep)
+  add_dependencies(gRPC::grpc_cpp_plugin grpc_ep)
   set(GRPC_VENDORED TRUE)
 endmacro()
 

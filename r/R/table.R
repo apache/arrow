@@ -146,21 +146,13 @@ Table <- R6Class("Table", inherit = ArrowObject,
       if (is.integer(i)) {
         i <- Array$create(i)
       }
-      if (inherits(i, "ChunkedArray")) {
-        return(shared_ptr(Table, Table__TakeChunked(self, i)))
-      }
-      assert_is(i, "Array")
-      shared_ptr(Table, Table__Take(self, i))
+      shared_ptr(Table, call_function("take", self, i))
     },
     Filter = function(i, keep_na = TRUE) {
       if (is.logical(i)) {
         i <- Array$create(i)
       }
-      if (inherits(i, "ChunkedArray")) {
-        return(shared_ptr(Table, Table__FilterChunked(self, i, keep_na)))
-      }
-      assert_is(i, "Array")
-      shared_ptr(Table, Table__Filter(self, i, keep_na))
+      shared_ptr(Table, call_function("filter", self, i, options = list(keep_na = keep_na)))
     },
 
     Equals = function(other, check_metadata = FALSE, ...) {

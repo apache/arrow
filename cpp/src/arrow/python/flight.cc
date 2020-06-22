@@ -140,6 +140,18 @@ Status PyFlightServer::DoPut(
   });
 }
 
+Status PyFlightServer::DoExchange(
+    const arrow::flight::ServerCallContext& context,
+    std::unique_ptr<arrow::flight::FlightMessageReader> reader,
+    std::unique_ptr<arrow::flight::FlightMessageWriter> writer) {
+  return SafeCallIntoPython([&] {
+    const Status status =
+        vtable_.do_exchange(server_.obj(), context, std::move(reader), std::move(writer));
+    RETURN_NOT_OK(CheckPyError());
+    return status;
+  });
+}
+
 Status PyFlightServer::DoAction(const arrow::flight::ServerCallContext& context,
                                 const arrow::flight::Action& action,
                                 std::unique_ptr<arrow::flight::ResultStream>* result) {
@@ -228,8 +240,8 @@ PyGeneratorFlightDataStream::PyGeneratorFlightDataStream(
 std::shared_ptr<Schema> PyGeneratorFlightDataStream::schema() { return schema_; }
 
 Status PyGeneratorFlightDataStream::GetSchemaPayload(FlightPayload* payload) {
-  return ipc::internal::GetSchemaPayload(*schema_, options_, &dictionary_memo_,
-                                         &payload->ipc_message);
+  return ipc::GetSchemaPayload(*schema_, options_, &dictionary_memo_,
+                               &payload->ipc_message);
 }
 
 Status PyGeneratorFlightDataStream::Next(FlightPayload* payload) {

@@ -22,6 +22,7 @@ use crate::arrow::record_batch::RecordBatch;
 use crate::error::Result;
 use crate::execution::context::ExecutionContext;
 use crate::logicalplan::{Expr, LogicalPlan};
+use arrow::datatypes::Schema;
 use std::sync::Arc;
 
 /// Table is an abstraction of a logical query plan
@@ -72,4 +73,7 @@ pub trait Table {
         ctx: &mut ExecutionContext,
         batch_size: usize,
     ) -> Result<Vec<RecordBatch>>;
+
+    /// Returns the schema
+    fn schema(&self) -> &Schema;
 }

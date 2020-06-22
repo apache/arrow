@@ -17,7 +17,6 @@
 
 import pytest
 
-from pyarrow.compat import unittest  # noqa
 from pyarrow.pandas_compat import _pandas_api  # noqa
 import pyarrow as pa
 

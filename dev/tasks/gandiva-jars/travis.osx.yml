@@ -39,7 +39,7 @@ before_script:
   - if [ $CROSSBOW_USE_COMMIT_ID = true ]; then git -C arrow checkout {{ arrow.head }}; else git -C arrow checkout FETCH_HEAD; fi
   - export TRAVIS_BUILD_DIR=$TRAVIS_BUILD_DIR/arrow
   - brew update
-  - brew install bison flex llvm@8
+  - brew install bison flex llvm
   - brew tap adoptopenjdk/openjdk
   - brew cask install adoptopenjdk8
   - export JAVA_HOME=/Library/Java/JavaVirtualMachines/adoptopenjdk-8.jdk/Contents/Home

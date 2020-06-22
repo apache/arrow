@@ -32,16 +32,24 @@ set of technologies that enable big data systems to process and move data fast.
 
 Major components of the project include:
 
- - [The Arrow Columnar In-Memory Format](https://github.com/apache/arrow/tree/master/format)
+ - [The Arrow Columnar In-Memory Format](https://github.com/apache/arrow/blob/master/docs/source/format/Columnar.rst):
+   a standard and efficient in-memory representation of various datatypes, plain or nested
+ - [The Arrow IPC Format](https://github.com/apache/arrow/blob/master/docs/source/format/Columnar.rst#serialization-and-interprocess-communication-ipc):
+   an efficient serialization of the Arrow format and associated metadata,
+   for communication between processes and heterogenous environments
+ - [The Arrow Flight RPC protocol](https://github.com/apache/arrow/tree/master/format/Flight.proto):
+   based on the Arrow IPC format, a building block for remote services exchanging
+   Arrow data with application-defined semantics (for example a storage server or a database)
  - [C++ libraries](https://github.com/apache/arrow/tree/master/cpp)
  - [C bindings using GLib](https://github.com/apache/arrow/tree/master/c_glib)
  - [C# .NET libraries](https://github.com/apache/arrow/tree/master/csharp)
- - [Gandiva](https://github.com/apache/arrow/tree/master/cpp/src/gandiva): an [LLVM](https://llvm.org)-based Arrow expression compiler, part of the C++ codebase
+ - [Gandiva](https://github.com/apache/arrow/tree/master/cpp/src/gandiva):
+   an [LLVM](https://llvm.org)-based Arrow expression compiler, part of the C++ codebase
  - [Go libraries](https://github.com/apache/arrow/tree/master/go)
  - [Java libraries](https://github.com/apache/arrow/tree/master/java)
  - [JavaScript libraries](https://github.com/apache/arrow/tree/master/js)
- - [Plasma Object Store](https://github.com/apache/arrow/tree/master/cpp/src/plasma): a
-   shared-memory blob store, part of the C++ codebase
+ - [Plasma Object Store](https://github.com/apache/arrow/tree/master/cpp/src/plasma):
+   a shared-memory blob store, part of the C++ codebase
  - [Python libraries](https://github.com/apache/arrow/tree/master/python)
  - [R libraries](https://github.com/apache/arrow/tree/master/r)
  - [Ruby libraries](https://github.com/apache/arrow/tree/master/ruby)
@@ -62,11 +70,18 @@ The reference Arrow libraries contain a number of distinct software components:
   sharing and handling memory-mapped files
 - IO interfaces to local and remote filesystems
 - Self-describing binary wire formats (streaming and batch/file-like) for
-  remote procedure calls (RPC) and
-  interprocess communication (IPC)
+  remote procedure calls (RPC) and interprocess communication (IPC)
 - Integration tests for verifying binary compatibility between the
   implementations (e.g. sending data from Java to C++)
 - Conversions to and from other in-memory data structures
+- Readers and writers for various widely-used file formats (such as Parquet, CSV)
+
+## Implementation status
+
+The official Arrow libraries in this repository are in different stages of
+implementing the Arrow format and related features.  See our current
+[feature matrix](https://github.com/apache/arrow/blob/master/docs/source/status.rst)
+on git master.
 
 ## How to Contribute
 

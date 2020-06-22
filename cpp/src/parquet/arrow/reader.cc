@@ -426,11 +426,9 @@ class LeafReader : public ColumnReaderImpl {
 
   Status NextBatch(int64_t records_to_read, std::shared_ptr<ChunkedArray>* out) override {
     BEGIN_PARQUET_CATCH_EXCEPTIONS
-
+    record_reader_->Reset();
     // Pre-allocation gives much better performance for flat columns
     record_reader_->Reserve(records_to_read);
-
-    record_reader_->Reset();
     while (records_to_read > 0) {
       if (!record_reader_->HasMoreData()) {
         break;
@@ -491,11 +489,20 @@ class NestedListReader : public ColumnReaderImpl {
 
     RETURN_NOT_OK(item_reader_->NextBatch(records_to_read, out));
 
-    // ARROW-3762(wesm): If item reader yields a chunked array, we reject as
-    // this is not yet implemented
-    if ((*out)->num_chunks() > 1) {
-      return Status::NotImplemented(
-          "Nested data conversions not implemented for chunked array outputs");
+    std::shared_ptr<Array> item_chunk;
+    switch ((*out)->num_chunks()) {
+      case 0: {
+        ARROW_ASSIGN_OR_RAISE(item_chunk, ::arrow::MakeArrayOfNull((*out)->type(), 0));
+        break;
+      }
+      case 1:
+        item_chunk = (*out)->chunk(0);
+        break;
+      default:
+        // ARROW-3762(wesm): If item reader yields a chunked array, we reject as
+        // this is not yet implemented
+        return Status::NotImplemented(
+            "Nested data conversions not implemented for chunked array outputs");
     }
 
     const int16_t* def_levels;
@@ -504,7 +511,7 @@ class NestedListReader : public ColumnReaderImpl {
     RETURN_NOT_OK(item_reader_->GetDefLevels(&def_levels, &num_levels));
     RETURN_NOT_OK(item_reader_->GetRepLevels(&rep_levels, &num_levels));
     std::shared_ptr<Array> result;
-    RETURN_NOT_OK(ReconstructNestedList((*out)->chunk(0), field_, max_definition_level_,
+    RETURN_NOT_OK(ReconstructNestedList(item_chunk, field_, max_definition_level_,
                                         max_repetition_level_, def_levels, rep_levels,
                                         num_levels, ctx_->pool, &result));
     *out = std::make_shared<ChunkedArray>(result);

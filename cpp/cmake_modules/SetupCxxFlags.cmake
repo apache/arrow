@@ -19,19 +19,23 @@
 # instruction sets that would boost performance.
 include(CheckCXXCompilerFlag)
 # Get cpu architecture
-set(ARROW_CPU_FLAG "x86")
 
 message(STATUS "System processor: ${CMAKE_SYSTEM_PROCESSOR}")
 
-if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|ARM64")
-  set(ARROW_CPU_FLAG "armv8")
-elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "armv7")
-  set(ARROW_CPU_FLAG "armv7")
-elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "ppc")
-  set(ARROW_CPU_FLAG "ppc")
-elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "s390x")
-  set(ARROW_CPU_FLAG "s390x")
+if(NOT DEFINED ARROW_CPU_FLAG)
+  if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|ARM64")
+    set(ARROW_CPU_FLAG "armv8")
+  elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "armv7")
+    set(ARROW_CPU_FLAG "armv7")
+  elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "ppc")
+    set(ARROW_CPU_FLAG "ppc")
+  elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "s390x")
+    set(ARROW_CPU_FLAG "s390x")
+  else()
+    set(ARROW_CPU_FLAG "x86")
+  endif()
 endif()
+
 # Check architecture specific compiler flags
 if(ARROW_CPU_FLAG STREQUAL "x86")
   # x86/amd64 compiler flags, msvc/gcc/clang
@@ -44,7 +48,7 @@ if(ARROW_CPU_FLAG STREQUAL "x86")
     set(ARROW_SSE4_2_FLAG "-msse4.2")
     set(ARROW_AVX2_FLAG "-mavx2")
     # skylake-avx512 consists of AVX512F,AVX512BW,AVX512VL,AVX512CD,AVX512DQ
-    set(ARROW_AVX512_FLAG "-march=skylake-avx512")
+    set(ARROW_AVX512_FLAG "-march=skylake-avx512 -mbmi2")
     check_cxx_compiler_flag(${ARROW_SSE4_2_FLAG} CXX_SUPPORTS_SSE4_2)
   endif()
   check_cxx_compiler_flag(${ARROW_AVX2_FLAG} CXX_SUPPORTS_AVX2)
@@ -60,13 +64,20 @@ elseif(ARROW_CPU_FLAG STREQUAL "armv8")
 endif()
 
 # Support C11
-set(CMAKE_C_STANDARD 11)
+if(NOT DEFINED CMAKE_C_STANDARD)
+  set(CMAKE_C_STANDARD 11)
+endif()
 
-# This ensures that things like gnu++11 get passed correctly
-set(CMAKE_CXX_STANDARD 11)
+# This ensures that things like c++11 get passed correctly
+if(NOT DEFINED CMAKE_CXX_STANDARD)
+  set(CMAKE_CXX_STANDARD 11)
+endif()
 
 # We require a C++11 compliant compiler
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# ARROW-6848: Do not use GNU (or other CXX) extensions
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 # Build with -fPIC so that can static link our libraries into other people's
 # shared libraries
@@ -192,6 +203,7 @@ if("${BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
   elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wall")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-conversion")
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-deprecated-declarations")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-sign-conversion")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-unused-variable")
   else()
@@ -313,13 +325,14 @@ if(ARROW_CPU_FLAG STREQUAL "x86")
       message(FATAL_ERROR "AVX512 required but compiler doesn't support it.")
     endif()
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} ${ARROW_AVX512_FLAG}")
-    add_definitions(-DARROW_HAVE_AVX512 -DARROW_HAVE_AVX2 -DARROW_HAVE_SSE4_2)
+    add_definitions(-DARROW_HAVE_AVX512 -DARROW_HAVE_AVX2 -DARROW_HAVE_BMI2
+                    -DARROW_HAVE_SSE4_2)
   elseif(ARROW_SIMD_LEVEL STREQUAL "AVX2")
     if(NOT CXX_SUPPORTS_AVX2)
       message(FATAL_ERROR "AVX2 required but compiler doesn't support it.")
     endif()
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} ${ARROW_AVX2_FLAG}")
-    add_definitions(-DARROW_HAVE_AVX2 -DARROW_HAVE_SSE4_2)
+    add_definitions(-DARROW_HAVE_AVX2 -DARROW_HAVE_BMI2 -DARROW_HAVE_SSE4_2)
   elseif(ARROW_SIMD_LEVEL STREQUAL "SSE4_2")
     if(NOT CXX_SUPPORTS_SSE4_2)
       message(FATAL_ERROR "SSE4.2 required but compiler doesn't support it.")

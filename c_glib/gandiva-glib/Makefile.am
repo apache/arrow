@@ -36,7 +36,6 @@ lib_LTLIBRARIES =				\
 
 libgandiva_glib_la_CXXFLAGS =			\
 	$(GLIB_CFLAGS)				\
-	$(ARROW_CFLAGS)				\
 	$(GANDIVA_CFLAGS)			\
 	$(GARROW_CFLAGS)			\
 	$(GGANDIVA_CFLAGS)
@@ -47,9 +46,8 @@ libgandiva_glib_la_LDFLAGS =			\
 
 libgandiva_glib_la_LIBADD =			\
 	$(GLIB_LIBS)				\
-	$(ARROW_LIBS)				\
-	$(GANDIVA_LIBS)				\
-	../arrow-glib/libarrow-glib.la
+	../arrow-glib/libarrow-glib.la		\
+	$(GANDIVA_LIBS)
 
 libgandiva_glib_la_headers =			\
 	expression.h				\

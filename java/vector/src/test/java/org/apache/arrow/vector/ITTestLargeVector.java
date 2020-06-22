@@ -182,6 +182,45 @@ public class ITTestLargeVector {
   }
 
   @Test
+  public void testLargeVarCharVector() {
+    logger.trace("Testing large var char vector.");
+
+    final long bufSize = 4 * 1024 * 1024 * 1024L;
+    final int vecLength = (int) (bufSize / BaseVariableWidthVector.OFFSET_WIDTH);
+    final String strElement = "a";
+
+    try (BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
+         VarCharVector largeVec = new VarCharVector("vec", allocator)) {
+      largeVec.allocateNew(vecLength);
+
+      logger.trace("Successfully allocated a vector with capacity " + vecLength);
+
+      for (int i = 0; i < vecLength; i++) {
+        largeVec.setSafe(i, strElement.getBytes());
+
+        if ((i + 1) % 10000 == 0) {
+          logger.trace("Successfully written " + (i + 1) + " values");
+        }
+      }
+      largeVec.setValueCount(vecLength);
+      assertTrue(largeVec.getOffsetBuffer().readableBytes() > Integer.MAX_VALUE);
+      assertTrue(largeVec.getDataBuffer().readableBytes() < Integer.MAX_VALUE);
+      logger.trace("Successfully written " + vecLength + " values");
+
+      for (int i = 0; i < vecLength; i++) {
+        byte[] val = largeVec.get(i);
+        assertEquals(strElement, new String(val));
+
+        if ((i + 1) % 10000 == 0) {
+          logger.trace("Successfully read " + (i + 1) + " values");
+        }
+      }
+      logger.trace("Successfully read " + vecLength + " values");
+    }
+    logger.trace("Successfully released the large vector.");
+  }
+
+  @Test
   public void testLargeLargeVarCharVector() {
     logger.trace("Testing large large var char vector.");
 

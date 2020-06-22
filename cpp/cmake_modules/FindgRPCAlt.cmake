@@ -12,20 +12,74 @@
 # limitations under the License.
 
 unset(GRPC_ALT_VERSION)
+
+if(ARROW_GRPC_USE_SHARED)
+  set(GRPC_GPR_LIB_NAMES)
+  set(GRPC_GRPC_LIB_NAMES)
+  set(GRPC_GRPCPP_LIB_NAMES)
+  set(GRPC_ADDRESS_SORTING_LIB_NAMES)
+  set(GRPC_UPB_LIB_NAMES)
+  if(CMAKE_IMPORT_LIBRARY_SUFFIX)
+    list(APPEND GRPC_GPR_LIB_NAMES
+                "${CMAKE_IMPORT_LIBRARY_PREFIX}gpr${CMAKE_IMPORT_LIBRARY_SUFFIX}")
+    list(APPEND GRPC_GRPC_LIB_NAMES
+                "${CMAKE_IMPORT_LIBRARY_PREFIX}grpc${CMAKE_IMPORT_LIBRARY_SUFFIX}")
+    list(APPEND GRPC_GRPCPP_LIB_NAMES
+                "${CMAKE_IMPORT_LIBRARY_PREFIX}grpc++${CMAKE_IMPORT_LIBRARY_SUFFIX}")
+    list(
+      APPEND GRPC_ADDRESS_SORTING_LIB_NAMES
+             "${CMAKE_IMPORT_LIBRARY_PREFIX}address_sorting${CMAKE_IMPORT_LIBRARY_SUFFIX}"
+      )
+    list(APPEND GRPC_UPB_LIB_NAMES
+                "${CMAKE_IMPORT_LIBRARY_PREFIX}upb${CMAKE_IMPORT_LIBRARY_SUFFIX}")
+  endif()
+  list(APPEND GRPC_GPR_LIB_NAMES
+              "${CMAKE_SHARED_LIBRARY_PREFIX}gpr${CMAKE_SHARED_LIBRARY_SUFFIX}")
+  list(APPEND GRPC_GRPC_LIB_NAMES
+              "${CMAKE_SHARED_LIBRARY_PREFIX}grpc${CMAKE_SHARED_LIBRARY_SUFFIX}")
+  list(APPEND GRPC_GRPCPP_LIB_NAMES
+              "${CMAKE_SHARED_LIBRARY_PREFIX}grpc++${CMAKE_SHARED_LIBRARY_SUFFIX}")
+  list(
+    APPEND GRPC_ADDRESS_SORTING_LIB_NAMES
+           "${CMAKE_SHARED_LIBRARY_PREFIX}address_sorting${CMAKE_SHARED_LIBRARY_SUFFIX}")
+  list(APPEND GRPC_UPB_LIB_NAMES
+              "${CMAKE_SHARED_LIBRARY_PREFIX}upb${CMAKE_SHARED_LIBRARY_SUFFIX}")
+else()
+  set(GRPC_GPR_LIB_NAMES
+      "${CMAKE_STATIC_LIBRARY_PREFIX}gpr${CMAKE_STATIC_LIBRARY_SUFFIX}")
+  set(GRPC_GRPC_LIB_NAMES
+      "${CMAKE_STATIC_LIBRARY_PREFIX}grpc${CMAKE_STATIC_LIBRARY_SUFFIX}")
+  set(GRPC_GRPCPP_LIB_NAMES
+      "${CMAKE_STATIC_LIBRARY_PREFIX}grpc++${CMAKE_STATIC_LIBRARY_SUFFIX}")
+  set(GRPC_ADDRESS_SORTING_LIB_NAMES
+      "${CMAKE_STATIC_LIBRARY_PREFIX}address_sorting${CMAKE_STATIC_LIBRARY_SUFFIX}")
+  set(GRPC_UPB_LIB_NAMES
+      "${CMAKE_STATIC_LIBRARY_PREFIX}upb${CMAKE_STATIC_LIBRARY_SUFFIX}")
+endif()
+
 if(gRPC_ROOT)
-  find_library(GRPC_GPR_LIB gpr
+  find_library(GRPC_GPR_LIB
+               NAMES ${GRPC_GPR_LIB_NAMES}
                PATHS ${gRPC_ROOT}
                PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
                NO_DEFAULT_PATH)
-  find_library(GRPC_GRPC_LIB grpc
+  find_library(GRPC_GRPC_LIB
+               NAMES ${GRPC_GRPC_LIB_NAMES}
                PATHS ${gRPC_ROOT}
                PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
                NO_DEFAULT_PATH)
-  find_library(GRPC_GRPCPP_LIB grpc++
+  find_library(GRPC_GRPCPP_LIB
+               NAMES ${GRPC_GRPCPP_LIB_NAMES}
                PATHS ${gRPC_ROOT}
                PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
                NO_DEFAULT_PATH)
-  find_library(GRPC_ADDRESS_SORTING_LIB address_sorting
+  find_library(GRPC_ADDRESS_SORTING_LIB
+               NAMES ${GRPC_ADDRESS_SORTING_LIB_NAMES}
+               PATHS ${gRPC_ROOT}
+               PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
+               NO_DEFAULT_PATH)
+  find_library(GRPC_UPB_LIB
+               NAMES ${GRPC_UPB_LIB_NAMES}
                PATHS ${gRPC_ROOT}
                PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
                NO_DEFAULT_PATH)
@@ -45,19 +99,28 @@ else()
     list(APPEND GRPC_PC_LIBRARY_DIRS "${GRPC_PC_LIBDIR}")
     message(STATUS "${GRPC_PC_LIBRARY_DIRS}")
 
-    find_library(GRPC_GPR_LIB gpr
+    find_library(GRPC_GPR_LIB
+                 NAMES ${GRPC_GPR_LIB_NAMES}
                  PATHS ${GRPC_PC_LIBRARY_DIRS}
                  PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
                  NO_DEFAULT_PATH)
-    find_library(GRPC_GRPC_LIB grpc
+    find_library(GRPC_GRPC_LIB
+                 NAMES ${GRPC_GRPC_LIB_NAMES}
                  PATHS ${GRPC_PC_LIBRARY_DIRS}
                  PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
                  NO_DEFAULT_PATH)
-    find_library(GRPC_GRPCPP_LIB grpc++
+    find_library(GRPC_GRPCPP_LIB
+                 NAMES ${GRPC_GRPCPP_LIB_NAMES}
                  PATHS ${GRPC_PC_LIBRARY_DIRS}
                  PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
                  NO_DEFAULT_PATH)
-    find_library(GRPC_ADDRESS_SORTING_LIB address_sorting
+    find_library(GRPC_ADDRESS_SORTING_LIB
+                 NAMES ${GRPC_ADDRESS_SORTING_LIB_NAMES}
+                 PATHS ${GRPC_PC_LIBRARY_DIRS}
+                 PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
+                 NO_DEFAULT_PATH)
+    find_library(GRPC_UPB_LIB
+                 NAMES ${GRPC_UPB_LIB_NAMES}
                  PATHS ${GRPC_PC_LIBRARY_DIRS}
                  PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
                  NO_DEFAULT_PATH)
@@ -66,10 +129,20 @@ else()
                  NO_DEFAULT_PATH
                  PATH_SUFFIXES "bin")
   else()
-    find_library(GRPC_GPR_LIB gpr PATH_SUFFIXES ${LIB_PATH_SUFFIXES})
-    find_library(GRPC_GRPC_LIB grpc PATH_SUFFIXES ${LIB_PATH_SUFFIXES})
-    find_library(GRPC_GRPCPP_LIB grpc++ PATH_SUFFIXES ${LIB_PATH_SUFFIXES})
-    find_library(GRPC_ADDRESS_SORTING_LIB address_sorting
+    find_library(GRPC_GPR_LIB
+                 NAMES ${GRPC_GPR_LIB_NAMES}
+                 PATH_SUFFIXES ${LIB_PATH_SUFFIXES})
+    find_library(GRPC_GRPC_LIB
+                 NAMES ${GRPC_GRPC_LIB_NAMES}
+                 PATH_SUFFIXES ${LIB_PATH_SUFFIXES})
+    find_library(GRPC_GRPCPP_LIB
+                 NAMES ${GRPC_GRPCPP_LIB_NAMES}
+                 PATH_SUFFIXES ${LIB_PATH_SUFFIXES})
+    find_library(GRPC_ADDRESS_SORTING_LIB
+                 NAMES ${GRPC_ADDRESS_SORTING_LIB_NAMES}
+                 PATH_SUFFIXES ${LIB_PATH_SUFFIXES})
+    find_library(GRPC_UPB_LIB
+                 NAMES ${GRPC_UPB_LIB_NAMES}
                  PATH_SUFFIXES ${LIB_PATH_SUFFIXES})
     find_program(GRPC_CPP_PLUGIN grpc_cpp_plugin PATH_SUFFIXES "bin")
     find_path(GRPC_INCLUDE_DIR NAMES grpc/grpc.h PATH_SUFFIXES ${INCLUDE_PATH_SUFFIXES})
@@ -96,14 +169,16 @@ if(gRPCAlt_FOUND)
                                    INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}")
 
   add_library(gRPC::grpc UNKNOWN IMPORTED)
-  set_target_properties(gRPC::grpc
-                        PROPERTIES IMPORTED_LOCATION "${GRPC_GRPC_LIB}"
-                                   INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}")
+  set_target_properties(
+    gRPC::grpc
+    PROPERTIES IMPORTED_LOCATION
+               "${GRPC_GRPC_LIB}"
+               INTERFACE_INCLUDE_DIRECTORIES
+               "${GRPC_INCLUDE_DIR}"
+               INTERFACE_LINK_LIBRARIES
+               "OpenSSL::SSL;OpenSSL::Crypto;ZLIB::ZLIB;c-ares::cares")
 
-  add_library(gRPC::grpc++ UNKNOWN IMPORTED)
-  set_target_properties(gRPC::grpc++
-                        PROPERTIES IMPORTED_LOCATION "${GRPC_GRPCPP_LIB}"
-                                   INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}")
+  set(_GRPCPP_LINK_LIBRARIES "gRPC::grpc;gRPC::gpr")
 
   if(GRPC_ADDRESS_SORTING_LIB)
     # Address sorting is optional and not always required.
@@ -111,7 +186,44 @@ if(gRPCAlt_FOUND)
     set_target_properties(gRPC::address_sorting
                           PROPERTIES IMPORTED_LOCATION "${GRPC_ADDRESS_SORTING_LIB}"
                                      INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}")
+    set(_GRPCPP_LINK_LIBRARIES "${_GRPCPP_LINK_LIBRARIES};gRPC::address_sorting")
   endif()
+
+  if(GRPC_UPB_LIB)
+    # upb is used by recent gRPC versions
+    add_library(gRPC::upb UNKNOWN IMPORTED)
+    set_target_properties(gRPC::upb
+                          PROPERTIES IMPORTED_LOCATION "${GRPC_UPB_LIB}"
+                                     INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}")
+    set(_GRPCPP_LINK_LIBRARIES "${_GRPCPP_LINK_LIBRARIES};gRPC::upb")
+  endif()
+
+  find_package(absl CONFIG)
+  if(absl_FOUND)
+    # Abseil libraries that recent gRPC versions depend on
+    set(_ABSL_LIBS
+        bad_optional_access
+        int128
+        raw_logging_internal
+        str_format_internal
+        strings
+        throw_delegate
+        time
+        time_zone)
+
+    foreach(_ABSL_LIB ${_ABSL_LIBS})
+      set(_GRPCPP_LINK_LIBRARIES "${_GRPCPP_LINK_LIBRARIES};absl::${_ABSL_LIB}")
+    endforeach()
+  endif()
+
+  add_library(gRPC::grpc++ UNKNOWN IMPORTED)
+  set_target_properties(gRPC::grpc++
+                        PROPERTIES IMPORTED_LOCATION
+                                   "${GRPC_GRPCPP_LIB}"
+                                   INTERFACE_LINK_LIBRARIES
+                                   "${_GRPCPP_LINK_LIBRARIES}"
+                                   INTERFACE_INCLUDE_DIRECTORIES
+                                   "${GRPC_INCLUDE_DIR}")
 
   add_executable(gRPC::grpc_cpp_plugin IMPORTED)
   set_target_properties(gRPC::grpc_cpp_plugin

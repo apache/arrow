@@ -75,23 +75,13 @@ ChunkedArray <- R6Class("ChunkedArray", inherit = ArrowObject,
       if (is.integer(i)) {
         i <- Array$create(i)
       }
-      # Invalid: Kernel does not support chunked array arguments
-      # so use the old method for both cases
-      if (inherits(i, "ChunkedArray")) {
-        return(shared_ptr(ChunkedArray, ChunkedArray__TakeChunked(self, i)))
-      }
-      assert_is(i, "Array")
-      return(shared_ptr(ChunkedArray, ChunkedArray__Take(self, i)))
+      shared_ptr(ChunkedArray, call_function("take", self, i))
     },
     Filter = function(i, keep_na = TRUE) {
       if (is.logical(i)) {
         i <- Array$create(i)
       }
-      if (inherits(i, "ChunkedArray")) {
-        return(shared_ptr(ChunkedArray, ChunkedArray__FilterChunked(self, i, keep_na)))
-      }
-      assert_is(i, "Array")
-      shared_ptr(ChunkedArray, ChunkedArray__Filter(self, i, keep_na))
+      shared_ptr(ChunkedArray, call_function("filter", self, i, options = list(keep_na = keep_na)))
     },
     cast = function(target_type, safe = TRUE, options = cast_options(safe)) {
       assert_is(options, "CastOptions")
@@ -159,3 +149,12 @@ head.ChunkedArray <- head.Array
 
 #' @export
 tail.ChunkedArray <- tail.Array
+
+#' @export
+as.double.ChunkedArray <- as.double.Array
+
+#' @export
+as.integer.ChunkedArray <- as.integer.Array
+
+#' @export
+as.character.ChunkedArray <- as.character.Array

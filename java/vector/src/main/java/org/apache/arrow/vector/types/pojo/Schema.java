@@ -26,16 +26,15 @@ import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
 import org.apache.arrow.flatbuf.KeyValue;
 import org.apache.arrow.util.Collections2;
 import org.apache.arrow.util.Preconditions;
+import org.apache.arrow.vector.ipc.message.FBSerializables;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -179,18 +178,7 @@ public class Schema {
       fieldOffsets[i] = fields.get(i).getField(builder);
     }
     int fieldsOffset = org.apache.arrow.flatbuf.Schema.createFieldsVector(builder, fieldOffsets);
-    int[] metadataOffsets = new int[metadata.size()];
-    Iterator<Entry<String, String>> metadataIterator = metadata.entrySet().iterator();
-    for (int i = 0; i < metadataOffsets.length; i++) {
-      Entry<String, String> kv = metadataIterator.next();
-      int keyOffset = builder.createString(kv.getKey());
-      int valueOffset = builder.createString(kv.getValue());
-      KeyValue.startKeyValue(builder);
-      KeyValue.addKey(builder, keyOffset);
-      KeyValue.addValue(builder, valueOffset);
-      metadataOffsets[i] = KeyValue.endKeyValue(builder);
-    }
-    int metadataOffset = org.apache.arrow.flatbuf.Field.createCustomMetadataVector(builder, metadataOffsets);
+    int metadataOffset = FBSerializables.writeKeyValues(builder, metadata);
     org.apache.arrow.flatbuf.Schema.startSchema(builder);
     org.apache.arrow.flatbuf.Schema.addFields(builder, fieldsOffset);
     org.apache.arrow.flatbuf.Schema.addCustomMetadata(builder, metadataOffset);

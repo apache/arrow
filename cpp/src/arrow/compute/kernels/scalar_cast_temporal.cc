@@ -17,11 +17,11 @@
 
 // Implementation of casting to (or between) temporal types
 
-#include <utility>
-#include <vector>
+#include <limits>
 
 #include "arrow/compute/kernels/common.h"
 #include "arrow/compute/kernels/scalar_cast_internal.h"
+#include "arrow/util/bitmap_reader.h"
 #include "arrow/util/time.h"
 #include "arrow/util/value_parsing.h"
 
@@ -136,8 +136,7 @@ struct CastFunctor<
     // The units may be equal if the time zones are different. We might go to
     // lengths to make this zero copy in the future but we leave it for now
 
-    auto conversion = util::kTimestampConversionTable[static_cast<int>(in_type.unit())]
-                                                     [static_cast<int>(out_type.unit())];
+    auto conversion = util::GetTimestampConversion(in_type.unit(), out_type.unit());
     ShiftTime<int64_t, int64_t>(ctx, conversion.first, conversion.second, input, output);
   }
 };
@@ -170,8 +169,7 @@ struct CastFunctor<Date64Type, TimestampType> {
     ArrayData* output = out->mutable_array();
     const auto& in_type = checked_cast<const TimestampType&>(*input.type);
 
-    auto conversion = util::kTimestampConversionTable[static_cast<int>(in_type.unit())]
-                                                     [static_cast<int>(TimeUnit::MILLI)];
+    auto conversion = util::GetTimestampConversion(in_type.unit(), TimeUnit::MILLI);
     ShiftTime<int64_t, int64_t>(ctx, conversion.first, conversion.second, input, output);
     if (!ctx->status().ok()) {
       return;
@@ -224,9 +222,7 @@ struct CastFunctor<O, I, enable_if_t<is_time_type<I>::value && is_time_type<O>::
     const auto& in_type = checked_cast<const I&>(*input.type);
     const auto& out_type = checked_cast<const O&>(*output->type);
     DCHECK_NE(in_type.unit(), out_type.unit()) << "Do not cast equal types";
-    auto conversion = util::kTimestampConversionTable[static_cast<int>(in_type.unit())]
-                                                     [static_cast<int>(out_type.unit())];
-
+    auto conversion = util::GetTimestampConversion(in_type.unit(), out_type.unit());
     ShiftTime<in_t, out_t>(ctx, conversion.first, conversion.second, input, output);
   }
 };
@@ -259,7 +255,7 @@ struct ParseTimestamp {
   template <typename OUT, typename ARG0>
   OUT Call(KernelContext* ctx, ARG0 val) const {
     ParseTimestampContext parse_ctx{this->unit};
-    OUT result;
+    OUT result = 0;
     if (ARROW_PREDICT_FALSE(
             !ParseValue<TimestampType>(val.data(), val.size(), &result, &parse_ctx))) {
       ctx->SetStatus(Status::Invalid("Failed to parse string: ", val));
@@ -274,7 +270,7 @@ template <typename I>
 struct CastFunctor<TimestampType, I, enable_if_t<is_base_binary_type<I>::value>> {
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     const auto& out_type = checked_cast<const TimestampType&>(*out->type());
-    codegen::ScalarUnaryNotNullStateful<TimestampType, I, ParseTimestamp> kernel(
+    applicator::ScalarUnaryNotNullStateful<TimestampType, I, ParseTimestamp> kernel(
         ParseTimestamp(out_type.unit()));
     return kernel.Exec(ctx, batch, out);
   }
@@ -291,7 +287,7 @@ void AddCrossUnitCast(CastFunction* func) {
 std::shared_ptr<CastFunction> GetDate32Cast() {
   auto func = std::make_shared<CastFunction>("cast_date32", Type::DATE32);
   auto out_ty = date32();
-  AddCommonCasts<Date32Type>(out_ty, func.get());
+  AddCommonCasts(Type::DATE32, out_ty, func.get());
 
   // int32 -> date32
   AddZeroCopyCast(Type::INT32, int32(), date32(), func.get());
@@ -308,7 +304,7 @@ std::shared_ptr<CastFunction> GetDate32Cast() {
 std::shared_ptr<CastFunction> GetDate64Cast() {
   auto func = std::make_shared<CastFunction>("cast_date64", Type::DATE64);
   auto out_ty = date64();
-  AddCommonCasts<Date64Type>(out_ty, func.get());
+  AddCommonCasts(Type::DATE64, out_ty, func.get());
 
   // int64 -> date64
   AddZeroCopyCast(Type::INT64, int64(), date64(), func.get());
@@ -325,7 +321,7 @@ std::shared_ptr<CastFunction> GetDate64Cast() {
 
 std::shared_ptr<CastFunction> GetDurationCast() {
   auto func = std::make_shared<CastFunction>("cast_duration", Type::DURATION);
-  AddCommonCasts<DurationType>(kOutputTargetType, func.get());
+  AddCommonCasts(Type::DURATION, kOutputTargetType, func.get());
 
   auto seconds = duration(TimeUnit::SECOND);
   auto millis = duration(TimeUnit::MILLI);
@@ -343,7 +339,7 @@ std::shared_ptr<CastFunction> GetDurationCast() {
 
 std::shared_ptr<CastFunction> GetTime32Cast() {
   auto func = std::make_shared<CastFunction>("cast_time32", Type::TIME32);
-  AddCommonCasts<Date32Type>(kOutputTargetType, func.get());
+  AddCommonCasts(Type::TIME32, kOutputTargetType, func.get());
 
   // Zero copy when the unit is the same or same integer representation
   AddZeroCopyCast(Type::INT32, /*in_type=*/int32(), kOutputTargetType, func.get());
@@ -360,7 +356,7 @@ std::shared_ptr<CastFunction> GetTime32Cast() {
 
 std::shared_ptr<CastFunction> GetTime64Cast() {
   auto func = std::make_shared<CastFunction>("cast_time64", Type::TIME64);
-  AddCommonCasts<Time64Type>(kOutputTargetType, func.get());
+  AddCommonCasts(Type::TIME64, kOutputTargetType, func.get());
 
   // Zero copy when the unit is the same or same integer representation
   AddZeroCopyCast(Type::INT64, /*in_type=*/int64(), kOutputTargetType, func.get());
@@ -377,7 +373,7 @@ std::shared_ptr<CastFunction> GetTime64Cast() {
 
 std::shared_ptr<CastFunction> GetTimestampCast() {
   auto func = std::make_shared<CastFunction>("cast_timestamp", Type::TIMESTAMP);
-  AddCommonCasts<TimestampType>(kOutputTargetType, func.get());
+  AddCommonCasts(Type::TIMESTAMP, kOutputTargetType, func.get());
 
   // Same integer representation
   AddZeroCopyCast(Type::INT64, /*in_type=*/int64(), kOutputTargetType, func.get());

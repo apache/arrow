@@ -127,13 +127,13 @@ Array <- R6Class("Array",
       if (is.integer(i)) {
         i <- Array$create(i)
       }
+      # ARROW-9001: autoboxing in call_function
+      result <- call_function("take", self, i)
       if (inherits(i, "ChunkedArray")) {
-        # Invalid: Kernel does not support chunked array arguments
-        # so use the old method
-        return(shared_ptr(ChunkedArray, Array__TakeChunked(self, i)))
+        return(shared_ptr(ChunkedArray, result))
+      } else {
+        Array$create(result)
       }
-      assert_is(i, "Array")
-      Array$create(call_function("take", self, i))
     },
     Filter = function(i, keep_na = TRUE) {
       if (is.logical(i)) {
@@ -341,3 +341,12 @@ is.Array <- function(x, type = NULL) {
   }
   is_it
 }
+
+#' @export
+as.double.Array <- function(x, ...) as.double(as.vector(x), ...)
+
+#' @export
+as.integer.Array <- function(x, ...) as.integer(as.vector(x), ...)
+
+#' @export
+as.character.Array <- function(x, ...) as.character(as.vector(x), ...)

@@ -347,7 +347,7 @@ struct ARROW_FLIGHT_EXPORT FlightEndpoint {
 struct ARROW_FLIGHT_EXPORT FlightPayload {
   std::shared_ptr<Buffer> descriptor;
   std::shared_ptr<Buffer> app_metadata;
-  ipc::internal::IpcPayload ipc_message;
+  ipc::IpcPayload ipc_message;
 };
 
 /// \brief Schema result returned after a schema request RPC
@@ -383,6 +383,12 @@ class ARROW_FLIGHT_EXPORT FlightInfo {
   explicit FlightInfo(const Data& data) : data_(data), reconstructed_schema_(false) {}
   explicit FlightInfo(Data&& data)
       : data_(std::move(data)), reconstructed_schema_(false) {}
+
+  /// \brief Factory method to construct a FlightInfo.
+  static arrow::Result<FlightInfo> Make(const Schema& schema,
+                                        const FlightDescriptor& descriptor,
+                                        const std::vector<FlightEndpoint>& endpoints,
+                                        int64_t total_records, int64_t total_bytes);
 
   /// \brief Deserialize the Arrow schema of the dataset, to be passed
   /// to each call to DoGet. Populate any dictionary encoded fields

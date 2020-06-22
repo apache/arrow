@@ -52,8 +52,9 @@ function build_wheel {
 
     pip install $(pip_opts) -r python/requirements-wheel-build.txt
 
-    export PYARROW_WITH_GANDIVA=1
-    export BUILD_ARROW_GANDIVA=ON
+    export PYARROW_INSTALL_TESTS=1
+    export PYARROW_WITH_GANDIVA=0
+    export BUILD_ARROW_GANDIVA=OFF
 
     git submodule update --init
     export ARROW_TEST_DATA=`pwd`/testing/data
@@ -62,12 +63,14 @@ function build_wheel {
     mkdir build
     pushd build
     cmake -DARROW_BUILD_SHARED=ON \
+          -DARROW_BUILD_STATIC=OFF \
           -DARROW_BUILD_TESTS=OFF \
           -DARROW_DATASET=ON \
           -DARROW_DEPENDENCY_SOURCE=BUNDLED \
           -DARROW_HDFS=ON \
           -DARROW_FLIGHT=ON \
           -DARROW_GANDIVA=${BUILD_ARROW_GANDIVA} \
+          -DARROW_GRPC_USE_SHARED=OFF \
           -DARROW_JEMALLOC=ON \
           -DARROW_ORC=OFF \
           -DARROW_PARQUET=ON \
@@ -137,6 +140,8 @@ function install_wheel {
 function run_unit_tests {
     pushd $1
 
+    export PYARROW_TEST_CYTHON=OFF
+
     # Install test dependencies
     pip install $(pip_opts) -r python/requirements-wheel-test.txt
 
@@ -156,6 +161,5 @@ import pyarrow.fs
 import pyarrow._hdfs
 import pyarrow.dataset
 import pyarrow.flight
-import pyarrow.gandiva
 "
 }

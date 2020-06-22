@@ -52,6 +52,10 @@ set_source_files_properties(init.cc
                             SKIP_UNITY_BUILD_INCLUSION
                             ON)
 
+if(ARROW_FILESYSTEM)
+  list(APPEND ARROW_PYTHON_SRCS filesystem.cc)
+endif()
+
 set(ARROW_PYTHON_DEPENDENCIES arrow_dependencies)
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")

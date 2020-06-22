@@ -38,8 +38,6 @@ namespace py {
 // Convert current Python error to a Status.  The Python error state is cleared
 // and can be restored with RestorePyError().
 ARROW_PYTHON_EXPORT Status ConvertPyError(StatusCode code = StatusCode::UnknownError);
-// Same as ConvertPyError(), but returns Status::OK() if no Python error is set.
-ARROW_PYTHON_EXPORT Status PassPyError();
 // Query whether the given Status is a Python error (as wrapped by ConvertPyError()).
 ARROW_PYTHON_EXPORT bool IsPyError(const Status& status);
 // Restore a Python error wrapped in a Status.
@@ -55,9 +53,9 @@ inline Status CheckPyError(StatusCode code = StatusCode::UnknownError) {
   }
 }
 
-#define RETURN_IF_PYERROR() ARROW_RETURN_NOT_OK(CheckPyError());
+#define RETURN_IF_PYERROR() ARROW_RETURN_NOT_OK(CheckPyError())
 
-#define PY_RETURN_IF_ERROR(CODE) ARROW_RETURN_NOT_OK(CheckPyError(CODE));
+#define PY_RETURN_IF_ERROR(CODE) ARROW_RETURN_NOT_OK(CheckPyError(CODE))
 
 // For Cython, as you can't define template C++ functions in Cython, only use them.
 // This function can set a Python exception.  It assumes that T has a (cheap)

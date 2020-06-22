@@ -32,7 +32,11 @@
 #' `parse_options`, `convert_options`, or `read_options` arguments, or you can
 #' use [CsvTableReader] directly for lower-level access.
 #'
-#' @inheritParams make_readable_file
+#' @param file A character file name, `raw` vector, or an Arrow input stream.
+#' If a file name, a memory-mapped Arrow [InputStream] will be opened and
+#' closed when finished; compression will be detected from the file extension
+#' and handled automatically. If an input stream is provided, it will be left
+#' open.
 #' @param delim Single character used to separate fields within a record.
 #' @param quote Single character used to quote strings.
 #' @param escape_double Does the file escape quotes by doubling them?
@@ -73,11 +77,11 @@
 #' \donttest{
 #'   tf <- tempfile()
 #'   on.exit(unlink(tf))
-#'   write.csv(iris, file = tf)
+#'   write.csv(mtcars, file = tf)
 #'   df <- read_csv_arrow(tf)
 #'   dim(df)
 #'   # Can select columns
-#'   df <- read_csv_arrow(tf, col_select = starts_with("Sepal"))
+#'   df <- read_csv_arrow(tf, col_select = starts_with("d"))
 #' }
 read_delim_arrow <- function(file,
                              delim = ",",
@@ -114,7 +118,7 @@ read_delim_arrow <- function(file,
     convert_options <- readr_to_csv_convert_options(na, quoted_na)
   }
 
-  if (is.string(file)) {
+  if (!inherits(file, "InputStream")) {
     file <- make_readable_file(file)
     on.exit(file$close())
   }

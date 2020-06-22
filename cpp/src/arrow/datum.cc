@@ -17,10 +17,18 @@
 
 #include "arrow/datum.h"
 
+#include <cstddef>
 #include <memory>
 #include <sstream>
 #include <vector>
 
+#include "arrow/array/array_base.h"
+#include "arrow/array/util.h"
+#include "arrow/chunked_array.h"
+#include "arrow/record_batch.h"
+#include "arrow/scalar.h"
+#include "arrow/table.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/memory.h"
 
 namespace arrow {
@@ -39,6 +47,16 @@ static bool CollectionEquals(const std::vector<Datum>& left,
   return true;
 }
 
+Datum::Datum(const Array& value) : Datum(value.data()) {}
+
+Datum::Datum(const std::shared_ptr<Array>& value)
+    : Datum(value ? value->data() : NULLPTR) {}
+
+Datum::Datum(std::shared_ptr<ChunkedArray> value) : value(std::move(value)) {}
+Datum::Datum(std::shared_ptr<RecordBatch> value) : value(std::move(value)) {}
+Datum::Datum(std::shared_ptr<Table> value) : value(std::move(value)) {}
+Datum::Datum(std::vector<Datum> value) : value(std::move(value)) {}
+
 Datum::Datum(bool value) : value(std::make_shared<BooleanScalar>(value)) {}
 Datum::Datum(int8_t value) : value(std::make_shared<Int8Scalar>(value)) {}
 Datum::Datum(uint8_t value) : value(std::make_shared<UInt8Scalar>(value)) {}
@@ -50,6 +68,15 @@ Datum::Datum(int64_t value) : value(std::make_shared<Int64Scalar>(value)) {}
 Datum::Datum(uint64_t value) : value(std::make_shared<UInt64Scalar>(value)) {}
 Datum::Datum(float value) : value(std::make_shared<FloatScalar>(value)) {}
 Datum::Datum(double value) : value(std::make_shared<DoubleScalar>(value)) {}
+
+Datum::Datum(const ChunkedArray& value)
+    : value(std::make_shared<ChunkedArray>(value.chunks(), value.type())) {}
+
+Datum::Datum(const Table& value)
+    : value(Table::Make(value.schema(), value.columns(), value.num_rows())) {}
+
+Datum::Datum(const RecordBatch& value)
+    : value(RecordBatch::Make(value.schema(), value.num_rows(), value.columns())) {}
 
 std::shared_ptr<Array> Datum::make_array() const {
   DCHECK_EQ(Datum::ARRAY, this->kind());

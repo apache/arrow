@@ -21,6 +21,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/array/array_dict.h"
 #include "arrow/builder.h"
 #include "arrow/ipc/json_simple.h"
 #include "arrow/type_traits.h"
@@ -804,7 +805,8 @@ Status GetConverter(const std::shared_ptr<DataType>& type,
     SIMPLE_CONVERTER_CASE(Type::LARGE_BINARY, StringConverter<LargeBinaryType>)
     SIMPLE_CONVERTER_CASE(Type::FIXED_SIZE_BINARY, FixedSizeBinaryConverter)
     SIMPLE_CONVERTER_CASE(Type::DECIMAL, DecimalConverter)
-    SIMPLE_CONVERTER_CASE(Type::UNION, UnionConverter)
+    SIMPLE_CONVERTER_CASE(Type::SPARSE_UNION, UnionConverter)
+    SIMPLE_CONVERTER_CASE(Type::DENSE_UNION, UnionConverter)
     SIMPLE_CONVERTER_CASE(Type::INTERVAL_MONTHS, IntegerConverter<MonthIntervalType>)
     SIMPLE_CONVERTER_CASE(Type::INTERVAL_DAY_TIME, DayTimeIntervalConverter)
     default:

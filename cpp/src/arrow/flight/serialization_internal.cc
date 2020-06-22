@@ -61,7 +61,7 @@ namespace arrow {
 namespace flight {
 namespace internal {
 
-using arrow::ipc::internal::IpcPayload;
+using arrow::ipc::IpcPayload;
 
 using google::protobuf::internal::WireFormatLite;
 using google::protobuf::io::ArrayOutputStream;
@@ -163,8 +163,8 @@ grpc::Slice SliceFromBuffer(const std::shared_ptr<Buffer>& buf) {
 static const uint8_t kPaddingBytes[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 
 // Update the sizes of our Protobuf fields based on the given IPC payload.
-grpc::Status IpcMessageHeaderSize(const arrow::ipc::internal::IpcPayload& ipc_msg,
-                                  bool has_body, size_t* body_size, size_t* header_size,
+grpc::Status IpcMessageHeaderSize(const arrow::ipc::IpcPayload& ipc_msg, bool has_body,
+                                  size_t* body_size, size_t* header_size,
                                   int32_t* metadata_size) {
   DCHECK_LT(ipc_msg.metadata->size(), kInt32Max);
   *metadata_size = static_cast<int32_t>(ipc_msg.metadata->size());
@@ -216,9 +216,9 @@ grpc::Status FlightDataSerialize(const FlightPayload& msg, ByteBuffer* out,
     header_size += 1 + WireFormatLite::LengthDelimitedSize(app_metadata_size);
   }
 
-  const arrow::ipc::internal::IpcPayload& ipc_msg = msg.ipc_message;
+  const arrow::ipc::IpcPayload& ipc_msg = msg.ipc_message;
   // No data in this payload (metadata-only).
-  bool has_ipc = ipc_msg.type != ipc::Message::NONE;
+  bool has_ipc = ipc_msg.type != ipc::MessageType::NONE;
   bool has_body = has_ipc ? ipc::Message::HasBody(ipc_msg.type) : false;
 
   if (has_ipc) {

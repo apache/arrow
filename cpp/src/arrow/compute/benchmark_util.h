@@ -17,15 +17,18 @@
 
 #pragma once
 
+#include <algorithm>
 #include <vector>
 
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/cpu_info.h"
 
 namespace arrow {
-namespace compute {
 
 using internal::CpuInfo;
+
+namespace compute {
+
 static CpuInfo* cpu_info = CpuInfo::GetInstance();
 
 static const int64_t kL1Size = cpu_info->CacheSize(CpuInfo::L1_CACHE);
@@ -55,9 +58,13 @@ void BenchmarkSetArgsWithSizes(benchmark::internal::Benchmark* bench,
                                const std::vector<int64_t>& sizes = kMemorySizes) {
   bench->Unit(benchmark::kMicrosecond);
 
-  for (auto size : sizes)
-    for (auto nulls : std::vector<ArgsType>({0, 1, 10, 50}))
-      bench->Args({static_cast<ArgsType>(size), nulls});
+  // 0 is treated as "no nulls"
+  for (const auto size : sizes) {
+    for (const auto inverse_null_proportion :
+         std::vector<ArgsType>({10000, 100, 10, 2, 1, 0})) {
+      bench->Args({static_cast<ArgsType>(size), inverse_null_proportion});
+    }
+  }
 }
 
 void BenchmarkSetArgs(benchmark::internal::Benchmark* bench) {
@@ -76,21 +83,32 @@ struct RegressionArgs {
   const int64_t size;
 
   // proportion of nulls in generated arrays
-  const double null_proportion;
+  double null_proportion;
 
-  explicit RegressionArgs(benchmark::State& state)
-      : size(state.range(0)),
-        null_proportion(static_cast<double>(state.range(1)) / 100.0),
-        state_(state) {}
+  // If size_is_bytes is true, then it's a number of bytes, otherwise it's the
+  // number of items processed (for reporting)
+  explicit RegressionArgs(benchmark::State& state, bool size_is_bytes = true)
+      : size(state.range(0)), state_(state), size_is_bytes_(size_is_bytes) {
+    if (state.range(1) == 0) {
+      this->null_proportion = 0.0;
+    } else {
+      this->null_proportion = std::min(1., 1. / static_cast<double>(state.range(1)));
+    }
+  }
 
   ~RegressionArgs() {
     state_.counters["size"] = static_cast<double>(size);
-    state_.counters["null_percent"] = static_cast<double>(state_.range(1));
-    state_.SetBytesProcessed(state_.iterations() * size);
+    state_.counters["null_percent"] = null_proportion * 100;
+    if (size_is_bytes_) {
+      state_.SetBytesProcessed(state_.iterations() * size);
+    } else {
+      state_.SetItemsProcessed(state_.iterations() * size);
+    }
   }
 
  private:
   benchmark::State& state_;
+  bool size_is_bytes_;
 };
 
 }  // namespace compute

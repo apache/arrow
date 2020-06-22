@@ -338,7 +338,7 @@ def test_struct_type():
     ]
     ty = pa.struct(fields)
 
-    assert len(ty) == ty.num_children == 3
+    assert len(ty) == ty.num_fields == 3
     assert list(ty) == fields
     assert ty[0].name == 'a'
     assert ty[2].type == pa.int32()
@@ -402,8 +402,8 @@ def test_struct_duplicate_field_names():
 
 def test_union_type():
     def check_fields(ty, fields):
-        assert ty.num_children == len(fields)
-        assert [ty[i] for i in range(ty.num_children)] == fields
+        assert ty.num_fields == len(fields)
+        assert [ty[i] for i in range(ty.num_fields)] == fields
 
     fields = [pa.field('x', pa.list_(pa.int32())),
               pa.field('y', pa.binary())]

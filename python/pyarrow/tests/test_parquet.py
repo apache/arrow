@@ -27,9 +27,9 @@ import pytest
 import numpy as np
 
 import pyarrow as pa
-from pyarrow.compat import guid
 from pyarrow.pandas_compat import _pandas_api
 from pyarrow.tests import util
+from pyarrow.util import guid
 from pyarrow.filesystem import LocalFileSystem, FileSystem
 
 
@@ -89,18 +89,11 @@ def _roundtrip_table(table, read_table_kwargs=None,
     read_table_kwargs = read_table_kwargs or {}
     write_table_kwargs = write_table_kwargs or {}
 
-    if use_legacy_dataset:
-        buf = io.BytesIO()
-        _write_table(table, buf, **write_table_kwargs)
-        buf.seek(0)
-        return _read_table(buf, **read_table_kwargs)
-    else:
-        from pyarrow.fs import _MockFileSystem
-        mockfs = _MockFileSystem()
-        with mockfs.open_output_stream("test") as out:
-            _write_table(table, out, **write_table_kwargs)
-        return _read_table("test", filesystem=mockfs, use_legacy_dataset=False,
-                           **read_table_kwargs)
+    buf = io.BytesIO()
+    _write_table(table, buf, **write_table_kwargs)
+    buf.seek(0)
+    return _read_table(buf, use_legacy_dataset=use_legacy_dataset,
+                       **read_table_kwargs)
 
 
 def _check_roundtrip(table, expected=None, read_table_kwargs=None,
@@ -349,7 +342,7 @@ def test_nested_list_nonnullable_roundtrip_bug(use_legacy_dataset):
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset_skip_buffer
+@parametrize_legacy_dataset
 def test_pandas_parquet_datetime_tz(use_legacy_dataset):
     s = pd.Series([datetime.datetime(2017, 9, 6)])
     s = s.dt.tz_localize('utc')
@@ -368,7 +361,7 @@ def test_pandas_parquet_datetime_tz(use_legacy_dataset):
     _write_table(arrow_table, f, coerce_timestamps='ms')
     f.seek(0)
 
-    table_read = pq.read_pandas(f)
+    table_read = pq.read_pandas(f, use_legacy_dataset=use_legacy_dataset)
 
     df_read = table_read.to_pandas()
     tm.assert_frame_equal(df, df_read)
@@ -572,9 +565,8 @@ def _test_dataframe(size=10000, seed=0):
     return df
 
 
-# TODO(ARROW-8074) NativeFile support
 @pytest.mark.pandas
-@parametrize_legacy_dataset_skip_buffer
+@parametrize_legacy_dataset
 def test_pandas_parquet_native_file_roundtrip(tempdir, use_legacy_dataset):
     df = _test_dataframe(10000)
     arrow_table = pa.Table.from_pandas(df)
@@ -588,7 +580,7 @@ def test_pandas_parquet_native_file_roundtrip(tempdir, use_legacy_dataset):
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset_skip_buffer
+@parametrize_legacy_dataset
 def test_parquet_incremental_file_build(tempdir, use_legacy_dataset):
     df = _test_dataframe(100)
     df['unique_id'] = 0
@@ -617,7 +609,7 @@ def test_parquet_incremental_file_build(tempdir, use_legacy_dataset):
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset_skip_buffer
+@parametrize_legacy_dataset
 def test_read_pandas_column_subset(tempdir, use_legacy_dataset):
     df = _test_dataframe(10000)
     arrow_table = pa.Table.from_pandas(df)
@@ -633,7 +625,7 @@ def test_read_pandas_column_subset(tempdir, use_legacy_dataset):
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset_skip_buffer
+@parametrize_legacy_dataset
 def test_pandas_parquet_empty_roundtrip(tempdir, use_legacy_dataset):
     df = _test_dataframe(0)
     arrow_table = pa.Table.from_pandas(df)
@@ -672,7 +664,7 @@ def test_pandas_can_write_nested_data(tempdir):
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset_skip_buffer
+@parametrize_legacy_dataset
 def test_pandas_parquet_pyfile_roundtrip(tempdir, use_legacy_dataset):
     filename = tempdir / 'pandas_pyfile_roundtrip.parquet'
     size = 5
@@ -1459,7 +1451,7 @@ def test_fixed_size_binary():
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset_skip_buffer
+@parametrize_legacy_dataset
 def test_multithreaded_read(use_legacy_dataset):
     df = alltypes_sample(size=10000)
 
@@ -1480,7 +1472,7 @@ def test_multithreaded_read(use_legacy_dataset):
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset_skip_buffer
+@parametrize_legacy_dataset
 def test_min_chunksize(use_legacy_dataset):
     data = pd.DataFrame([np.arange(4)], columns=['A', 'B', 'C', 'D'])
     table = pa.Table.from_pandas(data.reset_index())
@@ -3325,7 +3317,7 @@ def test_decimal_roundtrip_negative_scale(tempdir):
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset_skip_buffer
+@parametrize_legacy_dataset
 def test_parquet_writer_context_obj(tempdir, use_legacy_dataset):
     df = _test_dataframe(100)
     df['unique_id'] = 0
@@ -3352,7 +3344,7 @@ def test_parquet_writer_context_obj(tempdir, use_legacy_dataset):
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset_skip_buffer
+@parametrize_legacy_dataset
 def test_parquet_writer_context_obj_with_exception(
     tempdir, use_legacy_dataset
 ):
@@ -3388,7 +3380,7 @@ def test_parquet_writer_context_obj_with_exception(
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset_skip_buffer
+@parametrize_legacy_dataset
 def test_zlib_compression_bug(use_legacy_dataset):
     # ARROW-3514: "zlib deflate failed, output buffer too small"
     table = pa.Table.from_arrays([pa.array(['abc', 'def'])], ['some_col'])
@@ -3448,7 +3440,7 @@ def test_empty_row_groups(tempdir):
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset_skip_buffer
+@parametrize_legacy_dataset
 def test_parquet_writer_with_caller_provided_filesystem(use_legacy_dataset):
     out = pa.BufferOutputStream()
 
@@ -3558,7 +3550,7 @@ def test_read_column_invalid_index():
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset_skip_buffer
+@parametrize_legacy_dataset
 def test_direct_read_dictionary(use_legacy_dataset):
     # ARROW-3325
     repeats = 10
@@ -3610,7 +3602,7 @@ def test_dataset_read_dictionary(tempdir, use_legacy_dataset):
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset_skip_buffer
+@parametrize_legacy_dataset_not_supported  # ARROW-8799
 def test_direct_read_dictionary_subfield(use_legacy_dataset):
     repeats = 10
     nunique = 5
@@ -3726,7 +3718,7 @@ def test_parquet_file_too_small(tempdir, use_legacy_dataset):
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset_skip_buffer
+@parametrize_legacy_dataset
 def test_categorical_index_survives_roundtrip(use_legacy_dataset):
     # ARROW-3652, addressed by ARROW-3246
     df = pd.DataFrame([['a', 'b'], ['c', 'd']], columns=['c1', 'c2'])
@@ -3743,7 +3735,7 @@ def test_categorical_index_survives_roundtrip(use_legacy_dataset):
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset_skip_buffer
+@parametrize_legacy_dataset
 def test_categorical_order_survives_roundtrip(use_legacy_dataset):
     # ARROW-6302
     df = pd.DataFrame({"a": pd.Categorical(
@@ -3767,7 +3759,7 @@ def _simple_table_write_read(table):
     return pq.read_table(pa.BufferReader(contents))
 
 
-@parametrize_legacy_dataset_skip_buffer
+@parametrize_legacy_dataset
 def test_dictionary_array_automatically_read(use_legacy_dataset):
     # ARROW-3246
 
@@ -3833,7 +3825,7 @@ def test_field_id_metadata():
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset_skip_buffer
+@parametrize_legacy_dataset
 def test_pandas_categorical_na_type_row_groups(use_legacy_dataset):
     # ARROW-5085
     df = pd.DataFrame({"col": [None] * 100, "int": [1.0] * 100})
@@ -3853,7 +3845,7 @@ def test_pandas_categorical_na_type_row_groups(use_legacy_dataset):
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset_skip_buffer
+@parametrize_legacy_dataset
 def test_pandas_categorical_roundtrip(use_legacy_dataset):
     # ARROW-5480, this was enabled by ARROW-3246
 
@@ -3914,6 +3906,39 @@ def test_multi_dataset_metadata(tempdir):
     assert _md['num_row_groups'] == 2
     assert _md['serialized_size'] == 0
     assert md['serialized_size'] > 0
+
+
+def test_write_metadata(tempdir):
+    path = str(tempdir / "metadata")
+    schema = pa.schema([("a", "int64"), ("b", "float64")])
+
+    # write a pyarrow schema
+    pq.write_metadata(schema, path)
+    parquet_meta = pq.read_metadata(path)
+    assert parquet_meta.schema.to_arrow_schema().equals(schema)
+
+    # pass through writer keyword arguments
+    for version in ["1.0", "2.0"]:
+        pq.write_metadata(schema, path, version=version)
+        parquet_meta = pq.read_metadata(path)
+        assert parquet_meta.format_version == version
+
+    # metadata_collector: list of FileMetaData objects
+    table = pa.table({'a': [1, 2], 'b': [.1, .2]}, schema=schema)
+    pq.write_table(table, tempdir / "data.parquet")
+    parquet_meta = pq.read_metadata(str(tempdir / "data.parquet"))
+    pq.write_metadata(
+        schema, path, metadata_collector=[parquet_meta, parquet_meta]
+    )
+    parquet_meta_mult = pq.read_metadata(path)
+    assert parquet_meta_mult.num_row_groups == 2
+
+    # append metadata with different schema raises an error
+    with pytest.raises(RuntimeError, match="requires equal schemas"):
+        pq.write_metadata(
+            pa.schema([("a", "int32"), ("b", "null")]),
+            path, metadata_collector=[parquet_meta, parquet_meta]
+        )
 
 
 @parametrize_legacy_dataset
@@ -3988,7 +4013,7 @@ def test_table_large_metadata():
     _check_roundtrip(table)
 
 
-@parametrize_legacy_dataset_skip_buffer
+@parametrize_legacy_dataset
 @pytest.mark.parametrize('array_factory', [
     lambda: pa.array([0, None] * 10),
     lambda: pa.array([0, None] * 10).dictionary_encode(),

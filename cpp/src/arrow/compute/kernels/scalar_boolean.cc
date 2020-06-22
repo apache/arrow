@@ -15,10 +15,17 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <array>
+
 #include "arrow/compute/kernels/common.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/bitmap.h"
+#include "arrow/util/bitmap_ops.h"
 
 namespace arrow {
+
+using internal::Bitmap;
+
 namespace compute {
 
 namespace {
@@ -74,8 +81,11 @@ void ComputeKleene(ComputeWord&& compute_word, KernelContext* ctx, const ArrayDa
 }
 
 struct Invert {
-  static void Call(KernelContext* ctx, bool value) {
-    ctx->SetStatus(Status::NotImplemented("NYI"));
+  static void Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
+    if (in.is_valid) {
+      checked_cast<BooleanScalar*>(out)->value =
+          !checked_cast<const BooleanScalar&>(in).value;
+    }
   }
 
   static void Call(KernelContext* ctx, const ArrayData& in, ArrayData* out) {
@@ -167,15 +177,15 @@ namespace internal {
 
 void RegisterScalarBoolean(FunctionRegistry* registry) {
   // These functions can write into sliced output bitmaps
-  MakeFunction("invert", 1, codegen::SimpleUnary<Invert>, registry);
-  MakeFunction("and", 2, codegen::SimpleBinary<And>, registry);
-  MakeFunction("or", 2, codegen::SimpleBinary<Or>, registry);
-  MakeFunction("xor", 2, codegen::SimpleBinary<Xor>, registry);
+  MakeFunction("invert", 1, applicator::SimpleUnary<Invert>, registry);
+  MakeFunction("and", 2, applicator::SimpleBinary<And>, registry);
+  MakeFunction("or", 2, applicator::SimpleBinary<Or>, registry);
+  MakeFunction("xor", 2, applicator::SimpleBinary<Xor>, registry);
 
   // The Kleene logic kernels cannot write into sliced output bitmaps
-  MakeFunction("and_kleene", 2, codegen::SimpleBinary<KleeneAnd>, registry,
+  MakeFunction("and_kleene", 2, applicator::SimpleBinary<KleeneAnd>, registry,
                /*can_write_into_slices=*/false, NullHandling::COMPUTED_PREALLOCATE);
-  MakeFunction("or_kleene", 2, codegen::SimpleBinary<KleeneOr>, registry,
+  MakeFunction("or_kleene", 2, applicator::SimpleBinary<KleeneOr>, registry,
                /*can_write_into_slices=*/false, NullHandling::COMPUTED_PREALLOCATE);
 }
 

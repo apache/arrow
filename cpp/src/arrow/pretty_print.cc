@@ -27,6 +27,7 @@
 #include <vector>
 
 #include "arrow/array.h"
+#include "arrow/chunked_array.h"
 #include "arrow/pretty_print.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
@@ -353,8 +354,9 @@ class ArrayPrinter : public PrettyPrinter {
     if (array.mode() == UnionMode::DENSE) {
       Newline();
       Write("-- value_offsets: ");
-      Int32Array value_offsets(array.length(), array.value_offsets(), nullptr, 0,
-                               array.offset());
+      Int32Array value_offsets(
+          array.length(), checked_cast<const DenseUnionArray&>(array).value_offsets(),
+          nullptr, 0, array.offset());
       RETURN_NOT_OK(PrettyPrint(value_offsets, indent_ + options_.indent_size, sink_));
     }
 

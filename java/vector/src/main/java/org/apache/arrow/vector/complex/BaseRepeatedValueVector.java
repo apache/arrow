@@ -26,8 +26,8 @@ import java.util.Iterator;
 import java.util.List;
 
 import org.apache.arrow.memory.ArrowBuf;
-import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.util.CommonUtil;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.AddOrGetResult;
 import org.apache.arrow.vector.BaseFixedWidthVector;
@@ -122,7 +122,7 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
       }
     }
 
-    newAllocationSize = BaseAllocator.nextPowerOfTwo(newAllocationSize);
+    newAllocationSize = CommonUtil.nextPowerOfTwo(newAllocationSize);
     newAllocationSize = Math.min(newAllocationSize, (long) (OFFSET_WIDTH) * Integer.MAX_VALUE);
     assert newAllocationSize >= 1;
 

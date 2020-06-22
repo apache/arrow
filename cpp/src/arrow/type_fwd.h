@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <limits>
 #include <memory>
 #include <string>
 #include <vector>
@@ -33,6 +34,10 @@ template <typename T>
 class Result;
 
 class Status;
+
+namespace util {
+class Codec;
+}  // namespace util
 
 class Buffer;
 class Device;
@@ -64,6 +69,7 @@ using ScalarVector = std::vector<std::shared_ptr<Scalar>>;
 
 class ChunkedArray;
 class RecordBatch;
+class RecordBatchReader;
 class Table;
 
 using ChunkedArrayVector = std::vector<std::shared_ptr<ChunkedArray>>;
@@ -78,6 +84,8 @@ class NullType;
 class NullArray;
 class NullBuilder;
 struct NullScalar;
+
+class FixedWidthType;
 
 class BooleanType;
 class BooleanArray;
@@ -135,17 +143,25 @@ class StructBuilder;
 struct StructScalar;
 
 class Decimal128;
+class DecimalType;
 class Decimal128Type;
 class Decimal128Array;
 class Decimal128Builder;
 struct Decimal128Scalar;
 
-class UnionType;
-class UnionArray;
-struct UnionScalar;
 struct UnionMode {
   enum type { SPARSE, DENSE };
 };
+
+class SparseUnionType;
+class SparseUnionArray;
+class SparseUnionBuilder;
+struct SparseUnionScalar;
+
+class DenseUnionType;
+class DenseUnionArray;
+class DenseUnionBuilder;
+struct DenseUnionScalar;
 
 template <typename TypeClass>
 class NumericArray;
@@ -177,6 +193,9 @@ _NUMERIC_TYPE_DECL(Double)
 
 #undef _NUMERIC_TYPE_DECL
 
+enum class DateUnit : char { DAY = 0, MILLI = 1 };
+
+class DateType;
 class Date32Type;
 using Date32Array = NumericArray<Date32Type>;
 using Date32Builder = NumericBuilder<Date32Type>;
@@ -192,6 +211,7 @@ struct TimeUnit {
   enum type { SECOND = 0, MILLI = 1, MICRO = 2, NANO = 3 };
 };
 
+class TimeType;
 class Time32Type;
 using Time32Array = NumericArray<Time32Type>;
 using Time32Builder = NumericBuilder<Time32Type>;
@@ -298,16 +318,16 @@ std::shared_ptr<DataType> large_list(const std::shared_ptr<DataType>& value_type
 
 /// \brief Create a MapType instance from its key and value DataTypes
 ARROW_EXPORT
-std::shared_ptr<DataType> map(const std::shared_ptr<DataType>& key_type,
-                              const std::shared_ptr<DataType>& item_type,
+std::shared_ptr<DataType> map(std::shared_ptr<DataType> key_type,
+                              std::shared_ptr<DataType> item_type,
                               bool keys_sorted = false);
 
 /// \brief Create a MapType instance from its key DataType and value field.
 ///
 /// The field override is provided to communicate nullability of the value.
 ARROW_EXPORT
-std::shared_ptr<DataType> map(const std::shared_ptr<DataType>& key_type,
-                              const std::shared_ptr<Field>& item_field,
+std::shared_ptr<DataType> map(std::shared_ptr<DataType> key_type,
+                              std::shared_ptr<Field> item_field,
                               bool keys_sorted = false);
 
 /// \brief Create a FixedSizeListType instance from its child Field type
@@ -351,40 +371,83 @@ std::shared_ptr<DataType> ARROW_EXPORT time64(TimeUnit::type unit);
 std::shared_ptr<DataType> ARROW_EXPORT
 struct_(const std::vector<std::shared_ptr<Field>>& fields);
 
-/// \brief Create a UnionType instance
+/// \brief Create a SparseUnionType instance
+std::shared_ptr<DataType> ARROW_EXPORT sparse_union(FieldVector child_fields,
+                                                    std::vector<int8_t> type_codes = {});
+/// \brief Create a DenseUnionType instance
+std::shared_ptr<DataType> ARROW_EXPORT dense_union(FieldVector child_fields,
+                                                   std::vector<int8_t> type_codes = {});
+
+/// \brief Create a SparseUnionType instance
 std::shared_ptr<DataType> ARROW_EXPORT
+sparse_union(const ArrayVector& children, std::vector<std::string> field_names = {},
+             std::vector<int8_t> type_codes = {});
+/// \brief Create a DenseUnionType instance
+std::shared_ptr<DataType> ARROW_EXPORT
+dense_union(const ArrayVector& children, std::vector<std::string> field_names = {},
+            std::vector<int8_t> type_codes = {});
+
+/// \brief Create a UnionType instance
+ARROW_DEPRECATED("Deprecated in 1.0.0")
+inline std::shared_ptr<DataType> ARROW_EXPORT
 union_(const std::vector<std::shared_ptr<Field>>& child_fields,
-       const std::vector<int8_t>& type_codes, UnionMode::type mode = UnionMode::SPARSE);
+       const std::vector<int8_t>& type_codes, UnionMode::type mode = UnionMode::SPARSE) {
+  if (mode == UnionMode::SPARSE) {
+    return sparse_union(child_fields, type_codes);
+  } else {
+    return dense_union(child_fields, type_codes);
+  }
+}
 
 /// \brief Create a UnionType instance
-std::shared_ptr<DataType> ARROW_EXPORT
+ARROW_DEPRECATED("Deprecated in 1.0.0")
+inline std::shared_ptr<DataType> ARROW_EXPORT
 union_(const std::vector<std::shared_ptr<Field>>& child_fields,
-       UnionMode::type mode = UnionMode::SPARSE);
+       UnionMode::type mode = UnionMode::SPARSE) {
+  if (mode == UnionMode::SPARSE) {
+    return sparse_union(child_fields);
+  } else {
+    return dense_union(child_fields);
+  }
+}
 
 /// \brief Create a UnionType instance
-std::shared_ptr<DataType> ARROW_EXPORT union_(UnionMode::type mode = UnionMode::SPARSE);
-
-/// \brief Create a UnionType instance
-std::shared_ptr<DataType> ARROW_EXPORT
+ARROW_DEPRECATED("Deprecated in 1.0.0")
+inline std::shared_ptr<DataType> ARROW_EXPORT
 union_(const std::vector<std::shared_ptr<Array>>& children,
        const std::vector<std::string>& field_names, const std::vector<int8_t>& type_codes,
-       UnionMode::type mode = UnionMode::SPARSE);
+       UnionMode::type mode = UnionMode::SPARSE) {
+  if (mode == UnionMode::SPARSE) {
+    return sparse_union(children, field_names, type_codes);
+  } else {
+    return dense_union(children, field_names, type_codes);
+  }
+}
 
 /// \brief Create a UnionType instance
+ARROW_DEPRECATED("Deprecated in 1.0.0")
 inline std::shared_ptr<DataType> ARROW_EXPORT
 union_(const std::vector<std::shared_ptr<Array>>& children,
        const std::vector<std::string>& field_names,
        UnionMode::type mode = UnionMode::SPARSE) {
-  return union_(children, field_names, {}, mode);
+  if (mode == UnionMode::SPARSE) {
+    return sparse_union(children, field_names);
+  } else {
+    return dense_union(children, field_names);
+  }
 }
 
 /// \brief Create a UnionType instance
+ARROW_DEPRECATED("Deprecated in 1.0.0")
 inline std::shared_ptr<DataType> ARROW_EXPORT
 union_(const std::vector<std::shared_ptr<Array>>& children,
        UnionMode::type mode = UnionMode::SPARSE) {
-  return union_(children, {}, {}, mode);
+  if (mode == UnionMode::SPARSE) {
+    return sparse_union(children);
+  } else {
+    return dense_union(children);
+  }
 }
-
 /// \brief Create a DictionaryType instance
 /// \param[in] index_type the type of the dictionary indices (must be
 /// a signed integer)

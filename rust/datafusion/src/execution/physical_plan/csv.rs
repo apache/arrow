@@ -18,7 +18,6 @@
 //! Execution plan for reading CSV files
 
 use std::fs::File;
-use std::io::BufReader;
 use std::sync::{Arc, Mutex};
 
 use crate::error::{ExecutionError, Result};
@@ -147,10 +146,8 @@ impl CsvExec {
             return Err(ExecutionError::General("No files found".to_string()));
         }
 
-        let f = File::open(&filenames[0])?;
-
-        Ok(csv::infer_file_schema(
-            &mut BufReader::new(f),
+        Ok(csv::infer_schema_from_files(
+            &filenames,
             options.delimiter,
             Some(options.schema_infer_max_records),
             options.has_header,

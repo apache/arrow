@@ -40,6 +40,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/hashing.h"
+#include "arrow/util/int_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/parallel.h"
@@ -64,6 +65,7 @@ namespace arrow {
 class MemoryPool;
 
 using internal::checked_cast;
+using internal::IndexBoundsCheck;
 using internal::OptionalParallelFor;
 
 // ----------------------------------------------------------------------
@@ -932,6 +934,17 @@ struct ObjectWriterVisitor {
     return ConvertAsPyObjects<Type>(options, data, WrapValue, out_values);
   }
 
+  template <typename Type>
+  enable_if_timestamp<Type, Status> Visit(const Type& type) {
+    const TimeUnit::type unit = type.unit();
+    auto WrapValue = [unit](typename Type::c_type value, PyObject** out) {
+      RETURN_NOT_OK(internal::PyDateTime_from_int(value, unit, out));
+      RETURN_IF_PYERROR();
+      return Status::OK();
+    };
+    return ConvertAsPyObjects<Type>(options, data, WrapValue, out_values);
+  }
+
   Status Visit(const Decimal128Type& type) {
     OwnedRef decimal;
     OwnedRef Decimal;
@@ -980,8 +993,7 @@ struct ObjectWriterVisitor {
                   std::is_same<DurationType, Type>::value ||
                   std::is_same<ExtensionType, Type>::value ||
                   std::is_base_of<IntervalType, Type>::value ||
-                  std::is_same<TimestampType, Type>::value ||
-                  std::is_same<UnionType, Type>::value,
+                  std::is_base_of<UnionType, Type>::value,
               Status>
   Visit(const Type& type) {
     return Status::NotImplemented("No implemented conversion to object dtype: ",
@@ -1356,20 +1368,6 @@ bool NeedDictionaryUnification(const ChunkedArray& data) {
 }
 
 template <typename IndexType>
-Status CheckDictionaryIndices(const Array& arr, int64_t dict_length) {
-  const auto& typed_arr =
-      checked_cast<const typename TypeTraits<IndexType>::ArrayType&>(arr);
-  const typename IndexType::c_type* values = typed_arr.raw_values();
-  for (int64_t i = 0; i < arr.length(); ++i) {
-    if (arr.IsValid(i) && (values[i] < 0 || values[i] >= dict_length)) {
-      return Status::Invalid("Out of bounds dictionary index: ",
-                             static_cast<int64_t>(values[i]));
-    }
-  }
-  return Status::OK();
-}
-
-template <typename IndexType>
 class CategoricalWriter
     : public TypedPandasWriter<arrow_traits<IndexType::type_id>::npy_type> {
  public:
@@ -1446,14 +1444,10 @@ class CategoricalWriter
       const auto& indices = checked_cast<const ArrayType&>(*arr.indices());
       auto values = reinterpret_cast<const T*>(indices.raw_values());
 
-      int64_t dict_length = arr.dictionary()->length();
+      RETURN_NOT_OK(IndexBoundsCheck(*indices.data(), arr.dictionary()->length()));
       // Null is -1 in CategoricalBlock
       for (int i = 0; i < arr.length(); ++i) {
         if (indices.IsValid(i)) {
-          if (ARROW_PREDICT_FALSE(values[i] < 0 || values[i] >= dict_length)) {
-            return Status::Invalid("Out of bounds dictionary index: ",
-                                   static_cast<int64_t>(values[i]));
-          }
           *out_values++ = values[i];
         } else {
           *out_values++ = -1;
@@ -1484,13 +1478,11 @@ class CategoricalWriter
       auto transpose = reinterpret_cast<const int32_t*>(transpose_buffer->data());
       int64_t dict_length = arr.dictionary()->length();
 
+      RETURN_NOT_OK(IndexBoundsCheck(*indices.data(), dict_length));
+
       // Null is -1 in CategoricalBlock
       for (int i = 0; i < arr.length(); ++i) {
         if (indices.IsValid(i)) {
-          if (ARROW_PREDICT_FALSE(values[i] < 0 || values[i] >= dict_length)) {
-            return Status::Invalid("Out of bounds dictionary index: ",
-                                   static_cast<int64_t>(values[i]));
-          }
           *out_values++ = transpose[values[i]];
         } else {
           *out_values++ = -1;
@@ -1510,8 +1502,8 @@ class CategoricalWriter
     const auto indices_first = std::static_pointer_cast<ArrayType>(arr_first.indices());
 
     if (data.num_chunks() == 1 && indices_first->null_count() == 0) {
-      RETURN_NOT_OK(CheckDictionaryIndices<IndexType>(*indices_first,
-                                                      arr_first.dictionary()->length()));
+      RETURN_NOT_OK(
+          IndexBoundsCheck(*indices_first->data(), arr_first.dictionary()->length()));
 
       PyObject* wrapped;
       npy_intp dims[1] = {static_cast<npy_intp>(this->num_rows_)};
@@ -1706,8 +1698,12 @@ static Status GetPandasWriterType(const ChunkedArray& data, const PandasOptions&
       break;
     case Type::TIMESTAMP: {
       const auto& ts_type = checked_cast<const TimestampType&>(*data.type());
-      // XXX: Hack here for ARROW-7723
-      if (ts_type.timezone() != "" && !options.ignore_timezone) {
+      if (options.timestamp_as_object && ts_type.unit() != TimeUnit::NANO) {
+        // Nanoseconds are never out of bounds for pandas, so in that case
+        // we don't convert to object
+        *output_type = PandasWriter::OBJECT;
+      } else if (ts_type.timezone() != "" && !options.ignore_timezone) {
+        // XXX: ignore_timezone: hack here for ARROW-7723
         *output_type = PandasWriter::DATETIME_NANO_TZ;
       } else if (options.coerce_temporal_nanoseconds) {
         *output_type = PandasWriter::DATETIME_NANO;

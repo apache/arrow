@@ -55,7 +55,7 @@ install_arrow <- function(nightly = FALSE,
   conda <- isTRUE(grepl("conda", R.Version()$platform))
 
   if (sysname %in% c("windows", "darwin", "linux")) {
-    if (conda && !nightly && (sysname %in% c("darwin", "linux"))) {
+    if (conda && !nightly) {
       system("conda install -y -c conda-forge --strict-channel-priority r-arrow")
     } else {
       Sys.setenv(

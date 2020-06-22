@@ -21,7 +21,6 @@
 #include <iosfwd>
 #include <limits>
 #include <string>
-#include <type_traits>
 #include <utility>
 
 #include "arrow/result.h"

@@ -153,6 +153,13 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         CStatus Next(CFlightStreamChunk* out)
         CStatus ReadAll(shared_ptr[CTable]* table)
 
+    cdef cppclass CMetadataRecordBatchWriter \
+            " arrow::flight::MetadataRecordBatchWriter"(CRecordBatchWriter):
+        CStatus Begin(shared_ptr[CSchema] schema)
+        CStatus WriteMetadata(shared_ptr[CBuffer] app_metadata)
+        CStatus WriteWithMetadata(const CRecordBatch& batch,
+                                  shared_ptr[CBuffer] app_metadata)
+
     cdef cppclass CFlightStreamReader \
             " arrow::flight::FlightStreamReader"(CMetadataRecordBatchReader):
         void Cancel()
@@ -161,10 +168,12 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
             " arrow::flight::FlightMessageReader"(CMetadataRecordBatchReader):
         CFlightDescriptor& descriptor()
 
+    cdef cppclass CFlightMessageWriter \
+            " arrow::flight::FlightMessageWriter"(CMetadataRecordBatchWriter):
+        pass
+
     cdef cppclass CFlightStreamWriter \
-            " arrow::flight::FlightStreamWriter"(CRecordBatchWriter):
-        CStatus WriteWithMetadata(const CRecordBatch& batch,
-                                  shared_ptr[CBuffer] app_metadata)
+            " arrow::flight::FlightStreamWriter"(CMetadataRecordBatchWriter):
         CStatus DoneWriting()
 
     cdef cppclass CRecordBatchStream \
@@ -197,6 +206,7 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
 
     cdef cppclass CServerCallContext" arrow::flight::ServerCallContext":
         c_string& peer_identity()
+        c_string& peer()
         CServerMiddleware* GetMiddleware(const c_string& key)
 
     cdef cppclass CTimeoutDuration" arrow::flight::TimeoutDuration":
@@ -232,6 +242,8 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         " arrow::flight::FlightMethod::DoAction"
     CFlightMethod CFlightMethodListActions\
         " arrow::flight::FlightMethod::ListActions"
+    CFlightMethod CFlightMethodDoExchange\
+        " arrow::flight::FlightMethod::DoExchange"
 
     cdef cppclass CCallInfo" arrow::flight::CallInfo":
         CFlightMethod method
@@ -281,6 +293,8 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         c_string private_key
         c_string override_hostname
         vector[shared_ptr[CClientMiddlewareFactory]] middleware
+        int64_t write_size_limit_bytes
+        vector[pair[c_string, CIntStringVariant]] generic_options
 
     cdef cppclass CFlightClient" arrow::flight::FlightClient":
         @staticmethod
@@ -311,6 +325,10 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
                       shared_ptr[CSchema]& schema,
                       unique_ptr[CFlightStreamWriter]* stream,
                       unique_ptr[CFlightMetadataReader]* reader)
+        CStatus DoExchange(CFlightCallOptions& options,
+                           CFlightDescriptor& descriptor,
+                           unique_ptr[CFlightStreamWriter]* writer,
+                           unique_ptr[CFlightStreamReader]* reader)
 
     cdef cppclass CFlightStatusCode" arrow::flight::FlightStatusCode":
         bint operator==(CFlightStatusCode)
@@ -337,6 +355,15 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         @staticmethod
         shared_ptr[FlightStatusDetail] UnwrapStatus(const CStatus& status)
 
+    cdef cppclass FlightWriteSizeStatusDetail\
+            " arrow::flight::FlightWriteSizeStatusDetail":
+        int64_t limit()
+        int64_t actual()
+
+        @staticmethod
+        shared_ptr[FlightWriteSizeStatusDetail] UnwrapStatus(
+            const CStatus& status)
+
     cdef CStatus MakeFlightError" arrow::flight::MakeFlightError" \
         (CFlightStatusCode code, const c_string& message)
 
@@ -362,6 +389,9 @@ ctypedef CStatus cb_do_put(object, const CServerCallContext&,
 ctypedef CStatus cb_do_get(object, const CServerCallContext&,
                            const CTicket&,
                            unique_ptr[CFlightDataStream]*)
+ctypedef CStatus cb_do_exchange(object, const CServerCallContext&,
+                                unique_ptr[CFlightMessageReader],
+                                unique_ptr[CFlightMessageWriter])
 ctypedef CStatus cb_do_action(object, const CServerCallContext&,
                               const CAction&,
                               unique_ptr[CResultStream]*)
@@ -398,6 +428,7 @@ cdef extern from "arrow/python/flight.h" namespace "arrow::py::flight" nogil:
         function[cb_get_schema] get_schema
         function[cb_do_put] do_put
         function[cb_do_get] do_get
+        function[cb_do_exchange] do_exchange
         function[cb_do_action] do_action
         function[cb_list_actions] list_actions
 
@@ -501,3 +532,10 @@ cdef extern from "arrow/python/flight.h" namespace "arrow::py::flight" nogil:
     cdef CStatus SerializeBasicAuth" arrow::py::flight::SerializeBasicAuth"(
         CBasicAuth basic_auth,
         c_string* out)
+
+
+cdef extern from "arrow/util/variant.h" namespace "arrow" nogil:
+    cdef cppclass CIntStringVariant" arrow::util::variant<int, std::string>":
+        CIntStringVariant()
+        CIntStringVariant(int)
+        CIntStringVariant(c_string)

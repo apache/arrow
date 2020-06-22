@@ -110,12 +110,6 @@ FileSystemDatasetFactory::FileSystemDatasetFactory(
       format_(std::move(format)),
       options_(std::move(options)) {}
 
-util::optional<util::string_view> FileSystemDatasetFactory::RemovePartitionBaseDir(
-    util::string_view path) {
-  const util::string_view partition_base_dir{options_.partition_base_dir};
-  return fs::internal::RemoveAncestor(partition_base_dir, path);
-}
-
 Result<std::shared_ptr<DatasetFactory>> FileSystemDatasetFactory::Make(
     std::shared_ptr<fs::FileSystem> filesystem, const std::vector<std::string>& paths,
     std::shared_ptr<FileFormat> format, FileSystemFactoryOptions options) {
@@ -186,21 +180,6 @@ Result<std::shared_ptr<DatasetFactory>> FileSystemDatasetFactory::Make(
               std::move(options));
 }
 
-Result<std::shared_ptr<Schema>> FileSystemDatasetFactory::PartitionSchema() {
-  if (auto partitioning = options_.partitioning.partitioning()) {
-    return partitioning->schema();
-  }
-
-  std::vector<util::string_view> relative_paths;
-  for (const auto& path : paths_) {
-    if (auto relative = RemovePartitionBaseDir(path)) {
-      relative_paths.push_back(*relative);
-    }
-  }
-
-  return options_.partitioning.factory()->Inspect(relative_paths);
-}
-
 Result<std::vector<std::shared_ptr<Schema>>> FileSystemDatasetFactory::InspectSchemas(
     InspectOptions options) {
   std::vector<std::shared_ptr<Schema>> schemas;
@@ -213,7 +192,9 @@ Result<std::vector<std::shared_ptr<Schema>>> FileSystemDatasetFactory::InspectSc
     schemas.push_back(schema);
   }
 
-  ARROW_ASSIGN_OR_RAISE(auto partition_schema, PartitionSchema());
+  ARROW_ASSIGN_OR_RAISE(auto partition_schema,
+                        options_.partitioning.GetOrInferSchema(
+                            StripPrefixAndFilename(paths_, options_.partition_base_dir)));
   schemas.push_back(partition_schema);
 
   return schemas;
@@ -243,11 +224,8 @@ Result<std::shared_ptr<Dataset>> FileSystemDatasetFactory::Finish(FinishOptions 
 
   std::vector<std::shared_ptr<FileFragment>> fragments;
   for (const auto& path : paths_) {
-    std::shared_ptr<Expression> partition = scalar(true);
-    if (auto relative = RemovePartitionBaseDir(path)) {
-      partition = partitioning->Parse(relative->to_string()).ValueOr(scalar(true));
-    }
-
+    auto fixed_path = StripPrefixAndFilename(path, options_.partition_base_dir);
+    ARROW_ASSIGN_OR_RAISE(auto partition, partitioning->Parse(fixed_path));
     ARROW_ASSIGN_OR_RAISE(auto fragment, format_->MakeFragment({path, fs_}, partition));
     fragments.push_back(fragment);
   }

@@ -20,6 +20,7 @@
 set -e
 
 export ARROW_TEST_DATA=/arrow/testing/data
+export PYARROW_TEST_CYTHON=OFF
 
 python --version
 # Install built wheel
@@ -38,11 +39,13 @@ fi
 # Test import and optional dependencies
 python -c "
 import pyarrow
-import pyarrow.parquet
-import pyarrow.plasma
-import pyarrow.fs
-import pyarrow._hdfs
+import pyarrow.csv
 import pyarrow.dataset
 import pyarrow.flight
-import pyarrow.gandiva
+import pyarrow.fs
+import pyarrow._hdfs
+import pyarrow.json
+import pyarrow.parquet
+import pyarrow.plasma
+import pyarrow._s3fs
 "

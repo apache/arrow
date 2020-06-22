@@ -265,7 +265,7 @@ class DirectoryPartitioningFactory : public PartitioningFactory {
   std::string type_name() const override { return "schema"; }
 
   Result<std::shared_ptr<Schema>> Inspect(
-      const std::vector<string_view>& paths) const override {
+      const std::vector<std::string>& paths) const override {
     KeyValuePartitioningInspectImpl impl;
 
     for (const auto& name : field_names_) {
@@ -274,7 +274,7 @@ class DirectoryPartitioningFactory : public PartitioningFactory {
 
     for (auto path : paths) {
       size_t field_index = 0;
-      for (auto&& segment : fs::internal::SplitAbstractPath(path.to_string())) {
+      for (auto&& segment : fs::internal::SplitAbstractPath(path)) {
         if (field_index == field_names_.size()) break;
 
         impl.InsertRepr(static_cast<int>(field_index++), std::move(segment));
@@ -574,11 +574,11 @@ class HivePartitioningFactory : public PartitioningFactory {
   std::string type_name() const override { return "hive"; }
 
   Result<std::shared_ptr<Schema>> Inspect(
-      const std::vector<string_view>& paths) const override {
+      const std::vector<std::string>& paths) const override {
     KeyValuePartitioningInspectImpl impl;
 
     for (auto path : paths) {
-      for (auto&& segment : fs::internal::SplitAbstractPath(path.to_string())) {
+      for (auto&& segment : fs::internal::SplitAbstractPath(path)) {
         if (auto key = HivePartitioning::ParseKey(segment)) {
           impl.InsertRepr(key->name, key->value);
         }
@@ -596,6 +596,31 @@ class HivePartitioningFactory : public PartitioningFactory {
 
 std::shared_ptr<PartitioningFactory> HivePartitioning::MakeFactory() {
   return std::shared_ptr<PartitioningFactory>(new HivePartitioningFactory());
+}
+
+std::string StripPrefixAndFilename(const std::string& path, const std::string& prefix) {
+  auto maybe_base_less = fs::internal::RemoveAncestor(prefix, path);
+  auto base_less = maybe_base_less ? maybe_base_less->to_string() : path;
+  auto basename_filename = fs::internal::GetAbstractPathParent(base_less);
+  return basename_filename.first;
+}
+
+std::vector<std::string> StripPrefixAndFilename(const std::vector<std::string>& paths,
+                                                const std::string& prefix) {
+  std::vector<std::string> result;
+  for (const auto& path : paths) {
+    result.emplace_back(StripPrefixAndFilename(path, prefix));
+  }
+  return result;
+}
+
+Result<std::shared_ptr<Schema>> PartitioningOrFactory::GetOrInferSchema(
+    const std::vector<std::string>& paths) {
+  if (auto part = partitioning()) {
+    return part->schema();
+  }
+
+  return factory()->Inspect(paths);
 }
 
 }  // namespace dataset

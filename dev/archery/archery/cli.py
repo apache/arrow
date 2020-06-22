@@ -102,6 +102,9 @@ build_type = click.Choice(["debug", "relwithdebinfo", "release"],
 warn_level_type = click.Choice(["everything", "checkin", "production"],
                                case_sensitive=False)
 
+simd_level = click.Choice(["NONE", "SSE4_2", "AVX2", "AVX512"],
+                          case_sensitive=True)
+
 
 def cpp_toolchain_options(cmd):
     options = [
@@ -133,6 +136,8 @@ def _apply_options(cmd, options):
               help="Controls compiler warnings -W(no-)error.")
 @click.option("--use-gold-linker", default=True, type=BOOL,
               help="Toggles ARROW_USE_LD_GOLD option.")
+@click.option("--simd-level", default="SSE4_2", type=simd_level,
+              help="Toggles ARROW_SIMD_LEVEL option.")
 # Tests and benchmarks
 @click.option("--with-tests", default=True, type=BOOL,
               help="Build with tests.")
@@ -313,9 +318,11 @@ def lint(ctx, src, fix, iwyu_all, **checks):
 @click.option("--src", metavar="<arrow_src>", default=None,
               callback=validate_arrow_sources,
               help="Specify Arrow source directory")
-@click.option("--whitelist", "-w", help="Allow only these rules")
-@click.option("--blacklist", "-b", help="Disallow these rules")
-def numpydoc(src, symbols, whitelist, blacklist):
+@click.option("--allow-rule", "-a", multiple=True,
+              help="Allow only these rules")
+@click.option("--disallow-rule", "-d", multiple=True,
+              help="Disallow these rules")
+def numpydoc(src, symbols, allow_rule, disallow_rule):
     """
     Pass list of modules or symbols as arguments to restrict the validation.
 
@@ -327,10 +334,10 @@ def numpydoc(src, symbols, whitelist, blacklist):
     archery numpydoc pyarrow.csv pyarrow.json pyarrow.parquet
     archery numpydoc pyarrow.array
     """
-    blacklist = blacklist or {'GL01', 'SA01', 'EX01', 'ES01'}
+    disallow_rule = disallow_rule or {'GL01', 'SA01', 'EX01', 'ES01'}
     try:
-        results = python_numpydoc(symbols, whitelist=whitelist,
-                                  blacklist=blacklist)
+        results = python_numpydoc(symbols, allow_rules=allow_rule,
+                                  disallow_rule=disallow_rule)
         for result in results:
             result.ok()
     except LintValidationException:
@@ -676,7 +683,6 @@ def docker_compose(obj, src):
     # take the docker-compose parameters like PYTHON, PANDAS, UBUNTU from the
     # environment variables to keep the usage similar to docker-compose
     obj['compose'] = DockerCompose(config_path, params=os.environ)
-    obj['compose'].validate()
 
 
 @docker_compose.command('run')
@@ -684,10 +690,14 @@ def docker_compose(obj, src):
 @click.argument('command', required=False, default=None)
 @click.option('--env', '-e', multiple=True,
               help="Set environment variable within the container")
+@click.option('--user', '-u', default=None,
+              help="Username or UID to run the container with")
 @click.option('--force-pull/--no-pull', default=True,
               help="Whether to force pull the image and its ancestor images")
 @click.option('--force-build/--no-build', default=True,
               help="Whether to force build the image and its ancestor images")
+@click.option('--build-only', default=False, is_flag=True,
+              help="Pull and/or build the image, but do not run it")
 @click.option('--use-cache/--no-cache', default=True,
               help="Whether to use cache when building the image and its "
                    "ancestor images")
@@ -701,11 +711,12 @@ def docker_compose(obj, src):
 @click.option('--volume', '-v', multiple=True,
               help="Set volume within the container")
 @click.pass_obj
-def docker_compose_run(obj, image, command, env, force_pull, force_build,
-                       use_cache, use_leaf_cache, dry_run, volume):
+def docker_compose_run(obj, image, command, *, env, user, force_pull,
+                       force_build, build_only, use_cache, use_leaf_cache,
+                       dry_run, volume):
     """Execute docker-compose builds.
 
-    To see the available builds run `archery docker list`.
+    To see the available builds run `archery docker images`.
 
     Examples:
 
@@ -747,14 +758,16 @@ def docker_compose_run(obj, image, command, env, force_pull, force_build,
 
         compose._execute = MethodType(_print_command, compose)
 
-    env = dict(kv.split('=') for kv in env)
+    env = dict(kv.split('=', 1) for kv in env)
     try:
         compose.run(
             image,
             command=command,
             env=env,
+            user=user,
             force_pull=force_pull,
             force_build=force_build,
+            build_only=build_only,
             use_cache=use_cache,
             use_leaf_cache=use_leaf_cache,
             volumes=volume

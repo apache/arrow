@@ -17,14 +17,12 @@
 
 #include "arrow/compute/kernels/codegen_internal.h"
 
-#include <algorithm>
-#include <cstdint>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <vector>
 
 #include "arrow/type_fwd.h"
-#include "arrow/util/logging.h"
 
 namespace arrow {
 namespace compute {
@@ -33,11 +31,12 @@ void ExecFail(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   ctx->SetStatus(Status::NotImplemented("This kernel is malformed"));
 }
 
-void BinaryExecFlipped(KernelContext* ctx, ArrayKernelExec exec,
-                       const ExecBatch& batch, Datum* out) {
-  ExecBatch flipped_batch = batch;
-  std::swap(flipped_batch.values[0], flipped_batch.values[1]);
-  exec(ctx, flipped_batch, out);
+ArrayKernelExec MakeFlippedBinaryExec(ArrayKernelExec exec) {
+  return [exec](KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    ExecBatch flipped_batch = batch;
+    std::swap(flipped_batch.values[0], flipped_batch.values[1]);
+    exec(ctx, flipped_batch, out);
+  };
 }
 
 std::vector<std::shared_ptr<DataType>> g_signed_int_types;
@@ -76,10 +75,15 @@ static void InitStaticData() {
   Extend(g_floating_types, &g_numeric_types);
 
   // Temporal types
-  g_temporal_types = {date32(), date64(), time32(TimeUnit::SECOND),
-                      time32(TimeUnit::MILLI), time64(TimeUnit::MICRO),
-                      time64(TimeUnit::NANO), timestamp(TimeUnit::SECOND),
-                      timestamp(TimeUnit::MILLI), timestamp(TimeUnit::MICRO),
+  g_temporal_types = {date32(),
+                      date64(),
+                      time32(TimeUnit::SECOND),
+                      time32(TimeUnit::MILLI),
+                      time64(TimeUnit::MICRO),
+                      time64(TimeUnit::NANO),
+                      timestamp(TimeUnit::SECOND),
+                      timestamp(TimeUnit::MILLI),
+                      timestamp(TimeUnit::MICRO),
                       timestamp(TimeUnit::NANO)};
 
   // Base binary types (without FixedSizeBinary)
@@ -100,6 +104,11 @@ static void InitStaticData() {
 const std::vector<std::shared_ptr<DataType>>& BaseBinaryTypes() {
   std::call_once(codegen_static_initialized, InitStaticData);
   return g_base_binary_types;
+}
+
+const std::vector<std::shared_ptr<DataType>>& StringTypes() {
+  static DataTypeVector types = {utf8(), large_utf8()};
+  return types;
 }
 
 const std::vector<std::shared_ptr<DataType>>& SignedIntTypes() {
@@ -139,19 +148,20 @@ const std::vector<std::shared_ptr<DataType>>& PrimitiveTypes() {
 
 const std::vector<std::shared_ptr<DataType>>& ExampleParametricTypes() {
   static DataTypeVector example_parametric_types = {
-    decimal(12, 2),
-    duration(TimeUnit::SECOND),
-    timestamp(TimeUnit::SECOND),
-    time32(TimeUnit::SECOND),
-    time64(TimeUnit::MICRO),
-    fixed_size_binary(0),
-    list(null()),
-    large_list(null()),
-    fixed_size_list(field("dummy", null()), 0),
-    struct_({}),
-    union_({}),
-    dictionary(int32(), null()),
-    map(null(), null())};
+      decimal(12, 2),
+      duration(TimeUnit::SECOND),
+      timestamp(TimeUnit::SECOND),
+      time32(TimeUnit::SECOND),
+      time64(TimeUnit::MICRO),
+      fixed_size_binary(0),
+      list(null()),
+      large_list(null()),
+      fixed_size_list(field("dummy", null()), 0),
+      struct_({}),
+      sparse_union(FieldVector{}),
+      dense_union(FieldVector{}),
+      dictionary(int32(), null()),
+      map(null(), null())};
   return example_parametric_types;
 }
 

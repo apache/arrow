@@ -82,18 +82,27 @@ For memory-constrained environments, it is also possible to read a CSV file
 one batch at a time, using :func:`open_csv`.  It currently doesn't support
 parallel reading.
 
+Character encoding
+------------------
+
+CSV files are expected to be encoded in UTF8.  However, non-UTF8 data
+is accepted for ``binary`` columns.
+
 Performance
 -----------
 
 Due to the structure of CSV files, one cannot expect the same levels of
 performance as when reading dedicated binary formats like
 :ref:`Parquet <Parquet>`.  Nevertheless, Arrow strives to reduce the
-overhead of reading CSV files.
+overhead of reading CSV files.  A reasonable expectation is at least
+100 MB/s per core on a modern desktop machine (measured in source CSV bytes,
+not target Arrow data bytes).
 
 Performance options can be controlled through the :class:`ReadOptions` class.
 Multi-threaded reading is the default for highest performance, distributing
 the workload efficiently over all available cores.
 
 .. note::
-   The number of threads to use concurrently is automatically inferred by Arrow
-   and can be inspected using the :func:`~pyarrow.cpu_count()` function.
+   The number of concurrent threads is automatically inferred by Arrow.
+   You can inspect and change it using the :func:`~pyarrow.cpu_count()`
+   and :func:`~pyarrow.set_cpu_count()` functions, respectively.

@@ -63,7 +63,7 @@ public class MessageChannelReader implements AutoCloseable {
 
     // Read message body data if defined in message
     if (result.messageHasBody()) {
-      int bodyLength = (int) result.getMessageBodyLength();
+      long bodyLength = result.getMessageBodyLength();
       bodyBuffer = MessageSerializer.readMessageBody(in, bodyLength, allocator);
     }
 

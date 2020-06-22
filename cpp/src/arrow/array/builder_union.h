@@ -17,14 +17,19 @@
 
 #pragma once
 
+#include <cstdint>
 #include <memory>
 #include <string>
-#include <utility>
 #include <vector>
 
-#include "arrow/array.h"
+#include "arrow/array/array_nested.h"
 #include "arrow/array/builder_base.h"
+#include "arrow/array/data.h"
 #include "arrow/buffer_builder.h"
+#include "arrow/memory_pool.h"
+#include "arrow/status.h"
+#include "arrow/type.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow {
 
@@ -52,14 +57,7 @@ class ARROW_EXPORT BasicUnionBuilder : public ArrayBuilder {
   std::shared_ptr<DataType> type() const override;
 
  protected:
-  /// Use this constructor to initialize the UnionBuilder with no child builders,
-  /// allowing type to be inferred. You will need to call AppendChild for each of the
-  /// children builders you want to use.
-  BasicUnionBuilder(MemoryPool* pool, UnionMode::type mode);
-
-  /// Use this constructor to specify the type explicitly.
-  /// You can still add child builders to the union after using this constructor
-  BasicUnionBuilder(MemoryPool* pool, UnionMode::type mode,
+  BasicUnionBuilder(MemoryPool* pool,
                     const std::vector<std::shared_ptr<ArrayBuilder>>& children,
                     const std::shared_ptr<DataType>& type);
 
@@ -84,15 +82,14 @@ class ARROW_EXPORT DenseUnionBuilder : public BasicUnionBuilder {
   /// allowing type to be inferred. You will need to call AppendChild for each of the
   /// children builders you want to use.
   explicit DenseUnionBuilder(MemoryPool* pool)
-      : BasicUnionBuilder(pool, UnionMode::DENSE), offsets_builder_(pool) {}
+      : BasicUnionBuilder(pool, {}, dense_union(FieldVector{})), offsets_builder_(pool) {}
 
   /// Use this constructor to specify the type explicitly.
   /// You can still add child builders to the union after using this constructor
   DenseUnionBuilder(MemoryPool* pool,
                     const std::vector<std::shared_ptr<ArrayBuilder>>& children,
                     const std::shared_ptr<DataType>& type)
-      : BasicUnionBuilder(pool, UnionMode::DENSE, children, type),
-        offsets_builder_(pool) {}
+      : BasicUnionBuilder(pool, children, type), offsets_builder_(pool) {}
 
   Status AppendNull() final {
     ARROW_RETURN_NOT_OK(types_builder_.Append(0));
@@ -125,10 +122,7 @@ class ARROW_EXPORT DenseUnionBuilder : public BasicUnionBuilder {
     return AppendToBitmap(true);
   }
 
-  Status FinishInternal(std::shared_ptr<ArrayData>* out) override {
-    ARROW_RETURN_NOT_OK(BasicUnionBuilder::FinishInternal(out));
-    return offsets_builder_.Finish(&(*out)->buffers[2]);
-  }
+  Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
 
  private:
   TypedBufferBuilder<int32_t> offsets_builder_;
@@ -143,14 +137,14 @@ class ARROW_EXPORT SparseUnionBuilder : public BasicUnionBuilder {
   /// allowing type to be inferred. You will need to call AppendChild for each of the
   /// children builders you want to use.
   explicit SparseUnionBuilder(MemoryPool* pool)
-      : BasicUnionBuilder(pool, UnionMode::SPARSE) {}
+      : BasicUnionBuilder(pool, {}, sparse_union(FieldVector{})) {}
 
   /// Use this constructor to specify the type explicitly.
   /// You can still add child builders to the union after using this constructor
   SparseUnionBuilder(MemoryPool* pool,
                      const std::vector<std::shared_ptr<ArrayBuilder>>& children,
                      const std::shared_ptr<DataType>& type)
-      : BasicUnionBuilder(pool, UnionMode::SPARSE, children, type) {}
+      : BasicUnionBuilder(pool, children, type) {}
 
   Status AppendNull() final {
     ARROW_RETURN_NOT_OK(types_builder_.Append(0));

@@ -18,7 +18,7 @@
 # cython: language_level = 3
 
 from pyarrow.lib cimport check_status
-from pyarrow.compat import frombytes, tobytes
+from pyarrow.lib import frombytes, tobytes
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_fs cimport *

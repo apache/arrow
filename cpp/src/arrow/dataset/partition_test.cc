@@ -15,6 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/dataset/partition.h"
+
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
+
 #include <cstdint>
 #include <map>
 #include <memory>
@@ -22,11 +27,7 @@
 #include <string>
 #include <vector>
 
-#include <gmock/gmock.h>
-#include <gtest/gtest.h>
-
 #include "arrow/dataset/file_base.h"
-#include "arrow/dataset/partition.h"
 #include "arrow/dataset/test_util.h"
 #include "arrow/filesystem/localfs.h"
 #include "arrow/filesystem/path_util.h"
@@ -54,14 +55,14 @@ class TestPartitioning : public ::testing::Test {
     AssertParse(path, expected.Copy());
   }
 
-  void AssertInspect(const std::vector<util::string_view>& paths,
+  void AssertInspect(const std::vector<std::string>& paths,
                      const std::vector<std::shared_ptr<Field>>& expected) {
     ASSERT_OK_AND_ASSIGN(auto actual, factory_->Inspect(paths));
     ASSERT_EQ(*actual, Schema(expected));
     ASSERT_OK(factory_->Finish(actual).status());
   }
 
-  void AssertInspectError(const std::vector<util::string_view>& paths) {
+  void AssertInspectError(const std::vector<std::string>& paths) {
     ASSERT_RAISES(Invalid, factory_->Inspect(paths));
   }
 
@@ -350,28 +351,20 @@ class TestPartitioningWritePlan : public ::testing::Test {
     ExpectedWritePlan() = default;
 
     ExpectedWritePlan(const WritePlan& actual_plan, const FragmentVector& fragments) {
-      struct {
-        int i;
-        ExpectedWritePlan* this_;
-        const FragmentVector& fragments;
-        const WritePlan& actual_plan;
-
-        void operator()(const std::shared_ptr<Fragment>& fragment) {
+      int i = 0;
+      for (const auto& op : actual_plan.fragment_or_partition_expressions) {
+        if (op.kind() == WritePlan::FragmentOrPartitionExpression::FRAGMENT) {
+          auto fragment = op.fragment();
           auto fragment_index =
               static_cast<int>(std::find(fragments.begin(), fragments.end(), fragment) -
                                fragments.begin());
           auto path = fs::internal::GetAbstractPathParent(actual_plan.paths[i]).first;
-          this_->dirs_[path + "/"].fragments.push_back(fragment_index);
+          dirs_[path + "/"].fragments.push_back(fragment_index);
+        } else {
+          auto partition_expression = op.partition_expr();
+          dirs_[actual_plan.paths[i]].partition_expression = partition_expression;
         }
-
-        void operator()(const std::shared_ptr<Expression>& partition_expression) {
-          this_->dirs_[actual_plan.paths[i]].partition_expression = partition_expression;
-        }
-      } actual = {0, this, fragments, actual_plan};
-
-      for (const auto& op : actual_plan.fragment_or_partition_expressions) {
-        util::visit(actual, op);
-        ++actual.i;
+        ++i;
       }
     }
 
@@ -478,6 +471,22 @@ TEST_F(TestPartitioningWritePlan, Errors) {
       MakeWritePlanError("a"_ == 42 and "b"_ == "hello", "a"_ == 99 and "b"_ == "world",
                          "b"_ == "forever alone"));
 }
+
+TEST(TestStripPrefixAndFilename, Basic) {
+  ASSERT_EQ(StripPrefixAndFilename("", ""), "");
+  ASSERT_EQ(StripPrefixAndFilename("a.csv", ""), "");
+  ASSERT_EQ(StripPrefixAndFilename("a/b.csv", ""), "a");
+  ASSERT_EQ(StripPrefixAndFilename("/a/b/c.csv", "/a"), "b");
+  ASSERT_EQ(StripPrefixAndFilename("/a/b/c/d.csv", "/a"), "b/c");
+  ASSERT_EQ(StripPrefixAndFilename("/a/b/c.csv", "/a/b"), "");
+
+  std::vector<std::string> input{"/data/year=2019/file.parquet",
+                                 "/data/year=2019/month=12/file.parquet",
+                                 "/data/year=2019/month=12/day=01/file.parquet"};
+  EXPECT_THAT(StripPrefixAndFilename(input, "/data"),
+              testing::ElementsAre("year=2019", "year=2019/month=12",
+                                   "year=2019/month=12/day=01"));
+}  // namespace dataset
 
 }  // namespace dataset
 }  // namespace arrow

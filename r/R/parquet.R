@@ -20,7 +20,7 @@
 #' '[Parquet](https://parquet.apache.org/)' is a columnar storage file format.
 #' This function enables you to read Parquet files into R.
 #'
-#' @inheritParams read_delim_arrow
+#' @inheritParams read_feather
 #' @param props [ParquetReaderProperties]
 #' @param ... Additional arguments passed to `ParquetFileReader$create()`
 #'
@@ -31,7 +31,7 @@
 #' tf <- tempfile()
 #' on.exit(unlink(tf))
 #' write_parquet(mtcars, tf)
-#' df <- read_parquet(tf)
+#' df <- read_parquet(tf, col_select = starts_with("d"))
 #' head(df)
 #' }
 #' @export
@@ -403,7 +403,7 @@ ParquetFileWriter$create <- function(
   properties = ParquetWriterProperties$create(),
   arrow_properties = ParquetArrowWriterProperties$create()
 ) {
-  unique_ptr(
+  shared_ptr(
     ParquetFileWriter,
     parquet___arrow___ParquetFileWriter__Open(schema, sink, properties, arrow_properties)
   )
@@ -480,7 +480,7 @@ ParquetFileReader$create <- function(file,
   file <- make_readable_file(file, mmap)
   assert_is(props, "ParquetReaderProperties")
 
-  unique_ptr(ParquetFileReader, parquet___arrow___FileReader__OpenFile(file, props))
+  shared_ptr(ParquetFileReader, parquet___arrow___FileReader__OpenFile(file, props))
 }
 
 #' @title ParquetReaderProperties class

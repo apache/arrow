@@ -56,7 +56,7 @@ Reading and Writing Single Files
 --------------------------------
 
 The functions :func:`~.parquet.read_table` and :func:`~.parquet.write_table`
-read and write the :ref:`pyarrow.Table <data.table>` objects, respectively.
+read and write the :ref:`pyarrow.Table <data.table>` object, respectively.
 
 Let's look at a simple table:
 
@@ -125,6 +125,8 @@ control various settings when writing a Parquet file.
   pages within a column chunk. This currently defaults to 1MB
 * ``flavor``, to set compatibility options particular to a Parquet
   consumer like ``'spark'`` for Apache Spark.
+
+See the :func:`~pyarrow.parquet.write_table()` docstring for more details.
 
 There are some additional data type handling-specific options
 described below.
@@ -199,6 +201,33 @@ Alternatively python ``with`` syntax can also be use:
        for i in range(3):
            writer.write_table(table)
 
+Inspecting the Parquet File Metadata
+------------------------------------
+
+The ``FileMetaData`` of a Parquet file can be accessed through
+:class:`~.ParquetFile` as shown above:
+
+.. ipython:: python
+
+   parquet_file = pq.ParquetFile('example.parquet')
+   metadata = parquet_file.metadata
+
+or can also be read directly using :func:`~parquet.read_metadata`:
+
+.. ipython:: python
+
+   metadata = pq.read_metadata('example.parquet')
+   metadata
+
+The returned ``FileMetaData`` object allows to inspect the
+`Parquet file metadata <https://github.com/apache/parquet-format#metadata>`__,
+such as the row groups and column chunk metadata and statistics:
+
+.. ipython:: python
+
+   metadata.row_group(0)
+   metadata.row_group(0).column(0)
+
 .. ipython:: python
    :suppress:
 
@@ -228,8 +257,12 @@ Storing timestamps
 
 Some Parquet readers may only support timestamps stored in millisecond
 (``'ms'``) or microsecond (``'us'``) resolution. Since pandas uses nanoseconds
-to represent timestamps, this can occasionally be a nuisance. We provide the
-``coerce_timestamps`` option to allow you to select the desired resolution:
+to represent timestamps, this can occasionally be a nuisance. By default
+(when writing version 1.0 Parquet files), the nanoseconds will be cast to
+microseconds ('us').
+
+In addition, We provide the ``coerce_timestamps`` option to allow you to select
+the desired resolution:
 
 .. code-block:: python
 
@@ -243,6 +276,18 @@ an exception will be raised. This can be suppressed by passing
 
    pq.write_table(table, where, coerce_timestamps='ms',
                   allow_truncated_timestamps=True)
+
+Timestamps with nanoseconds can be stored without casting when using the
+more recent Parquet format version 2.0:
+
+.. code-block:: python
+
+   pq.write_table(table, where, version='2.0')
+
+However, many Parquet readers do not yet support this newer format version, and
+therefore the default is to write version 1.0 files. When compatibility across
+different processing frameworks is required, it is recommended to use the
+default version 1.0.
 
 Older Parquet implementations use ``INT96`` based storage of
 timestamps, but this is now deprecated. This includes some older
@@ -349,6 +394,75 @@ individual table writes are wrapped using ``with`` statements so the
 Compatibility Note: if using ``pq.write_to_dataset`` to create a table that
 will then be used by HIVE then partition column values must be compatible with
 the allowed character set of the HIVE version you are running.
+
+Writing ``_metadata`` and ``_common_medata`` files
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Some processing frameworks such as Spark or Dask (optionally) use ``_metadata``
+and ``_common_metadata`` files with partitioned datasets.
+
+Those files include information about the schema of the full dataset (for
+``_common_metadata``) and potentially all row group metadata of all files in the
+partitioned dataset as well (for ``_metadata``). The actual files are
+metadata-only Parquet files. Note this is not a Parquet standard, but a
+convention set in practice by those frameworks.
+
+Using those files can give a more efficient creation of a parquet Dataset,
+since it can use the stored schema and and file paths of all row groups,
+instead of inferring the schema and crawling the directories for all Parquet
+files (this is especially the case for filesystems where accessing files
+is expensive).
+
+The :func:`~pyarrow.parquet.write_to_dataset` function does not automatically
+write such metadata files, but you can use it to gather the metadata and
+combine and write them manually:
+
+.. code-block:: python
+
+   # Write a dataset and collect metadata information of all written files
+   metadata_collector = []
+   pq.write_to_dataset(table, root_path, metadata_collector=metadata_collector)
+
+   # Write the ``_common_metadata`` parquet file without row groups statistics
+   pq.write_metadata(table.schema, root_path / '_common_metadata')
+
+   # Write the ``_metadata`` parquet file with row groups statistics of all files
+   pq.write_metadata(
+       table.schema, root_path / '_metadata',
+       metadata_collector=metadata_collector
+   )
+
+When not using the :func:`~pyarrow.parquet.write_to_dataset` function, but
+writing the individual files of the partitioned dataset using
+:func:`~pyarrow.parquet.write_table` or :class:`~pyarrow.parquet.ParquetWriter`,
+the ``metadata_collector`` keyword can also be used to collect the FileMetaData
+of the written files. In this case, you need to ensure to set the file path
+contained in the row group metadata yourself before combining the metadata, and
+the schemas of all different files and collected FileMetaData objects should be
+the same:
+
+.. code-block:: python
+
+   metadata_collector = []
+   pq.write_table(
+       table1, root_path / "year=2017/data1.parquet",
+       metadata_collector=metadata_collector
+   )
+
+   # set the file path relative to the root of the partitioned dataset
+   metadata_collector[-1].set_file_path("year=2017/data1.parquet")
+
+   # combine and write the metadata
+   metadata = metadata_collector[0]
+   for _meta in metadata_collector[1:]:
+       metadata.append_row_groups(_meta)
+   metadata.write_metadata_file(root_path / "_metadata")
+
+   # or use pq.write_metadata to combine and write in a single step
+   pq.write_metadata(
+       table1.schema, root_path / "_metadata",
+       metadata_collector=metadata_collector
+   )
 
 Reading from Partitioned Datasets
 ------------------------------------------------

@@ -23,7 +23,7 @@ project('arrow-glib', 'c', 'cpp',
           'cpp_std=c++11',
         ])
 
-version = '0.18.0-SNAPSHOT'
+version = '1.0.0-SNAPSHOT'
 if version.endswith('-SNAPSHOT')
   version_numbers = version.split('-')[0].split('.')
   version_tag = version.split('-')[1]
@@ -70,9 +70,11 @@ if arrow_cpp_build_lib_dir == ''
   dependency('arrow-compute')
   dependency('arrow-csv')
   dependency('arrow-filesystem')
+  dependency('arrow-json')
 
   have_arrow_orc = dependency('arrow-orc', required: false).found()
   arrow_cuda = dependency('arrow-cuda', required: false)
+  arrow_dataset = dependency('arrow-dataset', required: false)
   gandiva = dependency('gandiva', required: false)
   parquet = dependency('parquet', required: false)
   plasma = dependency('plasma', required: false)
@@ -100,6 +102,9 @@ main(void)
   arrow_cuda = cpp_compiler.find_library('arrow_cuda',
                                          dirs: [arrow_cpp_build_lib_dir],
                                          required: false)
+  arrow_dataset = cpp_compiler.find_library('arrow_dataset',
+                                            dirs: [arrow_cpp_build_lib_dir],
+                                            required: false)
   gandiva = cpp_compiler.find_library('gandiva',
                                       dirs: [arrow_cpp_build_lib_dir],
                                       required: false)
@@ -126,6 +131,9 @@ subdir('arrow-glib')
 if arrow_cuda.found()
   subdir('arrow-cuda-glib')
 endif
+if arrow_dataset.found()
+  subdir('arrow-dataset-glib')
+endif
 if gandiva.found()
   subdir('gandiva-glib')
 endif
@@ -139,6 +147,9 @@ subdir('example')
 
 if get_option('gtk_doc')
   subdir('doc/arrow-glib')
+  if arrow_dataset.found()
+    subdir('doc/arrow-dataset-glib')
+  endif
   if gandiva.found()
     subdir('doc/gandiva-glib')
   endif
@@ -160,6 +171,7 @@ test('unit test',
      env: [
        'ARROW_GLIB_TYPELIB_DIR=@0@/arrow-glib'.format(meson.build_root()),
        'ARROW_CUDA_GLIB_TYPELIB_DIR=@0@/arrow-cuda-glib'.format(meson.build_root()),
+       'ARROW_DATASET_GLIB_TYPELIB_DIR=@0@/arrow-dataset-glib'.format(meson.build_root()),
        'GANDIVA_GLIB_TYPELIB_DIR=@0@/gandiva-glib'.format(meson.build_root()),
        'PARQUET_GLIB_TYPELIB_DIR=@0@/parquet-glib'.format(meson.build_root()),
        'PLASMA_GLIB_TYPELIB_DIR=@0@/plasma-glib'.format(meson.build_root()),

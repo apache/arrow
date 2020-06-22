@@ -267,6 +267,7 @@ struct TypeTraits<StringType> {
   using ArrayType = StringArray;
   using BuilderType = StringBuilder;
   using ScalarType = StringScalar;
+  using OffsetType = Int32Type;
   constexpr static bool is_parameter_free = true;
   static inline std::shared_ptr<DataType> type_singleton() { return utf8(); }
 };
@@ -276,6 +277,7 @@ struct TypeTraits<LargeStringType> {
   using ArrayType = LargeStringArray;
   using BuilderType = LargeStringBuilder;
   using ScalarType = LargeStringScalar;
+  using OffsetType = Int64Type;
   constexpr static bool is_parameter_free = true;
   static inline std::shared_ptr<DataType> type_singleton() { return large_utf8(); }
 };
@@ -356,9 +358,18 @@ struct TypeTraits<StructType> {
 };
 
 template <>
-struct TypeTraits<UnionType> {
-  using ArrayType = UnionArray;
-  using ScalarType = UnionScalar;
+struct TypeTraits<SparseUnionType> {
+  using ArrayType = SparseUnionArray;
+  using BuilderType = SparseUnionBuilder;
+  using ScalarType = SparseUnionScalar;
+  constexpr static bool is_parameter_free = false;
+};
+
+template <>
+struct TypeTraits<DenseUnionType> {
+  using ArrayType = DenseUnionArray;
+  using BuilderType = DenseUnionBuilder;
+  using ScalarType = DenseUnionScalar;
   constexpr static bool is_parameter_free = false;
 };
 
@@ -644,6 +655,14 @@ template <typename T, typename R = void>
 using enable_if_physical_unsigned_integer =
     enable_if_t<is_physical_unsigned_integer_type<T>::value, R>;
 
+template <typename T>
+using is_physical_integer_type =
+    std::integral_constant<bool, is_physical_unsigned_integer_type<T>::value ||
+                                     is_physical_signed_integer_type<T>::value>;
+
+template <typename T, typename R = void>
+using enable_if_physical_integer = enable_if_t<is_physical_integer_type<T>::value, R>;
+
 // Like is_floating_type but excluding half-floats which don't have a
 // float-like c type.
 template <typename T>
@@ -686,7 +705,6 @@ static inline bool is_floating(Type::type type_id) {
 
 static inline bool is_primitive(Type::type type_id) {
   switch (type_id) {
-    case Type::NA:
     case Type::BOOL:
     case Type::UINT8:
     case Type::INT8:
@@ -775,7 +793,8 @@ static inline bool is_nested(Type::type type_id) {
     case Type::FIXED_SIZE_LIST:
     case Type::MAP:
     case Type::STRUCT:
-    case Type::UNION:
+    case Type::SPARSE_UNION:
+    case Type::DENSE_UNION:
       return true;
     default:
       break;

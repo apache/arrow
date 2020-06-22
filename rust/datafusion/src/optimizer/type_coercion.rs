@@ -172,11 +172,8 @@ impl<'a> OptimizerRule for TypeCoercionRule<'a> {
             LogicalPlan::CsvScan { .. } => Ok(plan.clone()),
             LogicalPlan::EmptyRelation { .. } => Ok(plan.clone()),
             LogicalPlan::Limit { .. } => Ok(plan.clone()),
+            LogicalPlan::Sort { .. } => Ok(plan.clone()),
             LogicalPlan::CreateExternalTable { .. } => Ok(plan.clone()),
-            other => Err(ExecutionError::NotImplemented(format!(
-                "Type coercion optimizer rule does not support relation: {:?}",
-                other
-            ))),
         }
     }
 }

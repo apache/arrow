@@ -54,7 +54,8 @@ G_BEGIN_DECLS
  *   type. Storage type depends on the parameters.
  * @GARROW_TYPE_LIST: A list of some logical data type.
  * @GARROW_TYPE_STRUCT: Struct of logical types.
- * @GARROW_TYPE_UNION: Unions of logical types.
+ * @GARROW_TYPE_SPARSE_UNION: Sparse unions of logical types.
+ * @GARROW_TYPE_DENSE_UNION: Dense unions of logical types.
  * @GARROW_TYPE_DICTIONARY: Dictionary aka Category type.
  * @GARROW_TYPE_MAP: A repeated struct logical type.
  * @GARROW_TYPE_EXTENSION: Custom data type, implemented by user.
@@ -94,7 +95,8 @@ typedef enum {
   GARROW_TYPE_DECIMAL,
   GARROW_TYPE_LIST,
   GARROW_TYPE_STRUCT,
-  GARROW_TYPE_UNION,
+  GARROW_TYPE_SPARSE_UNION,
+  GARROW_TYPE_DENSE_UNION,
   GARROW_TYPE_DICTIONARY,
   GARROW_TYPE_MAP,
   GARROW_TYPE_EXTENSION,

@@ -47,6 +47,7 @@ struct ARROW_EXPORT HdfsOptions {
   void ConfigureBufferSize(int32_t buffer_size);
   void ConfigureBlockSize(int64_t default_block_size);
   void ConfigureKerberosTicketCachePath(std::string path);
+  void ConfigureExtraConf(std::string key, std::string val);
 
   bool Equals(const HdfsOptions& other) const;
 

@@ -36,7 +36,7 @@ class ApacheArrowArchiveKeyringPackageTask < PackageTask
     file @archive_name do
       rm_rf(@archive_base_name)
       mkdir(@archive_base_name)
-      download("https://dist.apache.org/repos/dist/dev/arrow/KEYS",
+      download("https://downloads.apache.org/arrow/KEYS",
                "#{@archive_base_name}/KEYS")
       sh("tar", "czf", @archive_name, @archive_base_name)
       rm_rf(@archive_base_name)

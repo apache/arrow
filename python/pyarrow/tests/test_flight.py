@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import ast
 import base64
 import os
 import struct
@@ -23,10 +24,11 @@ import threading
 import time
 import traceback
 
+import numpy as np
 import pytest
 import pyarrow as pa
 
-from pyarrow.compat import tobytes
+from pyarrow.lib import tobytes
 from pyarrow.util import pathlib, find_free_port
 
 try:
@@ -213,7 +215,7 @@ class EchoStreamFlightServer(EchoFlightServer):
 
     def do_action(self, context, action):
         if action.type == "who-am-i":
-            return iter([flight.Result(context.peer_identity())])
+            return [context.peer_identity(), context.peer().encode("utf-8")]
         raise NotImplementedError
 
 
@@ -305,7 +307,7 @@ class SlowFlightServer(FlightServerBase):
 
     def do_action(self, context, action):
         time.sleep(0.5)
-        return iter([])
+        return []
 
     @staticmethod
     def slow_stream():
@@ -344,6 +346,72 @@ class ErrorFlightServer(FlightServerBase):
             -1, -1
         )
         raise flight.FlightInternalError("foo")
+
+
+class ExchangeFlightServer(FlightServerBase):
+    """A server for testing DoExchange."""
+
+    def do_exchange(self, context, descriptor, reader, writer):
+        if descriptor.descriptor_type != flight.DescriptorType.CMD:
+            raise pa.ArrowInvalid("Must provide a command descriptor")
+        elif descriptor.command == b"echo":
+            return self.exchange_echo(context, reader, writer)
+        elif descriptor.command == b"get":
+            return self.exchange_do_get(context, reader, writer)
+        elif descriptor.command == b"put":
+            return self.exchange_do_put(context, reader, writer)
+        elif descriptor.command == b"transform":
+            return self.exchange_transform(context, reader, writer)
+        else:
+            raise pa.ArrowInvalid(
+                "Unknown command: {}".format(descriptor.command))
+
+    def exchange_do_get(self, context, reader, writer):
+        """Emulate DoGet with DoExchange."""
+        data = pa.Table.from_arrays([
+            pa.array(range(0, 10 * 1024))
+        ], names=["a"])
+        writer.begin(data.schema)
+        writer.write_table(data)
+
+    def exchange_do_put(self, context, reader, writer):
+        """Emulate DoPut with DoExchange."""
+        num_batches = 0
+        for chunk in reader:
+            if not chunk.data:
+                raise pa.ArrowInvalid("All chunks must have data.")
+            num_batches += 1
+        writer.write_metadata(str(num_batches).encode("utf-8"))
+
+    def exchange_echo(self, context, reader, writer):
+        """Run a simple echo server."""
+        started = False
+        for chunk in reader:
+            if not started and chunk.data:
+                writer.begin(chunk.data.schema)
+                started = True
+            if chunk.app_metadata and chunk.data:
+                writer.write_with_metadata(chunk.data, chunk.app_metadata)
+            elif chunk.app_metadata:
+                writer.write_metadata(chunk.app_metadata)
+            elif chunk.data:
+                writer.write_batch(chunk.data)
+            else:
+                assert False, "Should not happen"
+
+    def exchange_transform(self, context, reader, writer):
+        """Sum rows in an uploaded table."""
+        for field in reader.schema:
+            if not pa.types.is_integer(field.type):
+                raise pa.ArrowInvalid("Invalid field: " + repr(field))
+        table = reader.read_all()
+        sums = [0] * table.num_rows
+        for column in table:
+            for row, value in enumerate(column):
+                sums[row] += value.as_py()
+        result = pa.Table.from_arrays([pa.array(sums)], names=["sum"])
+        writer.begin(result.schema)
+        writer.write_table(result)
 
 
 class HttpBasicServerAuthHandler(ServerAuthHandler):
@@ -448,8 +516,17 @@ class HeaderFlightServer(FlightServerBase):
     def do_action(self, context, action):
         middleware = context.get_middleware("test")
         if middleware:
-            return iter([flight.Result(middleware.special_value.encode())])
-        return iter([flight.Result(b"")])
+            return [middleware.special_value.encode()]
+        return [b""]
+
+
+class MultiHeaderFlightServer(FlightServerBase):
+    """Test sending/receiving multiple (binary-valued) headers."""
+
+    def do_action(self, context, action):
+        middleware = context.get_middleware("test")
+        headers = repr(middleware.client_headers).encode("utf-8")
+        return [headers]
 
 
 class SelectiveAuthServerMiddlewareFactory(ServerMiddlewareFactory):
@@ -481,6 +558,79 @@ class SelectiveAuthClientMiddleware(ClientMiddleware):
         return {
             "x-auth-token": "password",
         }
+
+
+class RecordingServerMiddlewareFactory(ServerMiddlewareFactory):
+    """Record what methods were called."""
+
+    def __init__(self):
+        super().__init__()
+        self.methods = []
+
+    def start_call(self, info, headers):
+        self.methods.append(info.method)
+        return None
+
+
+class RecordingClientMiddlewareFactory(ClientMiddlewareFactory):
+    """Record what methods were called."""
+
+    def __init__(self):
+        super().__init__()
+        self.methods = []
+
+    def start_call(self, info):
+        self.methods.append(info.method)
+        return None
+
+
+class MultiHeaderClientMiddlewareFactory(ClientMiddlewareFactory):
+    """Test sending/receiving multiple (binary-valued) headers."""
+
+    def __init__(self):
+        # Read in test_middleware_multi_header below.
+        # The middleware instance will update this value.
+        self.last_headers = {}
+
+    def start_call(self, info):
+        return MultiHeaderClientMiddleware(self)
+
+
+class MultiHeaderClientMiddleware(ClientMiddleware):
+    """Test sending/receiving multiple (binary-valued) headers."""
+
+    EXPECTED = {
+        "x-text": ["foo", "bar"],
+        "x-binary-bin": [b"\x00", b"\x01"],
+    }
+
+    def __init__(self, factory):
+        self.factory = factory
+
+    def sending_headers(self):
+        return self.EXPECTED
+
+    def received_headers(self, headers):
+        # Let the test code know what the last set of headers we
+        # received were.
+        self.factory.last_headers = headers
+
+
+class MultiHeaderServerMiddlewareFactory(ServerMiddlewareFactory):
+    """Test sending/receiving multiple (binary-valued) headers."""
+
+    def start_call(self, info, headers):
+        return MultiHeaderServerMiddleware(headers)
+
+
+class MultiHeaderServerMiddleware(ServerMiddleware):
+    """Test sending/receiving multiple (binary-valued) headers."""
+
+    def __init__(self, client_headers):
+        self.client_headers = client_headers
+
+    def sending_headers(self):
+        return MultiHeaderClientMiddleware.EXPECTED
 
 
 def test_flight_server_location_argument():
@@ -621,11 +771,11 @@ class ConvenienceServer(FlightServerBase):
 
     def do_action(self, context, action):
         if action.type == 'simple-action':
-            return iter(self.simple_action_results)
+            return self.simple_action_results
         elif action.type == 'echo':
-            return iter([action.body])
+            return [action.body]
         elif action.type == 'bad-action':
-            return iter(['foo'])
+            return ['foo']
         elif action.type == 'arrow-exception':
             raise pa.ArrowMemoryError()
 
@@ -785,8 +935,11 @@ def test_http_basic_auth():
         client = FlightClient(('localhost', server.port))
         action = flight.Action("who-am-i", b"")
         client.authenticate(HttpBasicClientAuthHandler('test', 'p4ssw0rd'))
-        identity = next(client.do_action(action))
+        results = client.do_action(action)
+        identity = next(results)
         assert identity.body.to_pybytes() == b'test'
+        peer_address = next(results)
+        assert peer_address.body.to_pybytes() != b''
 
 
 def test_http_basic_auth_invalid_password():
@@ -922,6 +1075,34 @@ def test_flight_do_put_metadata():
                 assert buf is not None
                 server_idx, = struct.unpack('<i', buf.to_pybytes())
                 assert idx == server_idx
+
+
+def test_flight_do_put_limit():
+    """Try a simple do_put call with a size limit."""
+    large_batch = pa.RecordBatch.from_arrays([
+        pa.array(np.ones(768, dtype=np.int64())),
+    ], names=['a'])
+
+    with EchoFlightServer() as server:
+        client = FlightClient(('localhost', server.port),
+                              write_size_limit_bytes=4096)
+        writer, metadata_reader = client.do_put(
+            flight.FlightDescriptor.for_path(''),
+            large_batch.schema)
+        with writer:
+            with pytest.raises(flight.FlightWriteSizeExceededError,
+                               match="exceeded soft limit") as excinfo:
+                writer.write_batch(large_batch)
+            assert excinfo.value.limit == 4096
+            smaller_batches = [
+                large_batch.slice(0, 384),
+                large_batch.slice(384),
+            ]
+            for batch in smaller_batches:
+                writer.write_batch(batch)
+        expected = pa.Table.from_batches([large_batch])
+        actual = client.do_get(flight.Ticket(b'')).read_all()
+        assert expected == actual
 
 
 @pytest.mark.slow
@@ -1091,6 +1272,50 @@ def test_middleware_reject():
         assert b"password" == response.body.to_pybytes()
 
 
+def test_middleware_mapping():
+    """Test that middleware records methods correctly."""
+    server_middleware = RecordingServerMiddlewareFactory()
+    client_middleware = RecordingClientMiddlewareFactory()
+    with FlightServerBase(middleware={"test": server_middleware}) as server:
+        client = FlightClient(
+            ('localhost', server.port),
+            middleware=[client_middleware]
+        )
+
+        descriptor = flight.FlightDescriptor.for_command(b"")
+        with pytest.raises(NotImplementedError):
+            list(client.list_flights())
+        with pytest.raises(NotImplementedError):
+            client.get_flight_info(descriptor)
+        with pytest.raises(NotImplementedError):
+            client.get_schema(descriptor)
+        with pytest.raises(NotImplementedError):
+            client.do_get(flight.Ticket(b""))
+        with pytest.raises(NotImplementedError):
+            writer, _ = client.do_put(descriptor, pa.schema([]))
+            writer.close()
+        with pytest.raises(NotImplementedError):
+            list(client.do_action(flight.Action(b"", b"")))
+        with pytest.raises(NotImplementedError):
+            list(client.list_actions())
+        with pytest.raises(NotImplementedError):
+            writer, _ = client.do_exchange(descriptor)
+            writer.close()
+
+        expected = [
+            flight.FlightMethod.LIST_FLIGHTS,
+            flight.FlightMethod.GET_FLIGHT_INFO,
+            flight.FlightMethod.GET_SCHEMA,
+            flight.FlightMethod.DO_GET,
+            flight.FlightMethod.DO_PUT,
+            flight.FlightMethod.DO_ACTION,
+            flight.FlightMethod.LIST_ACTIONS,
+            flight.FlightMethod.DO_EXCHANGE,
+        ]
+        assert server_middleware.methods == expected
+        assert client_middleware.methods == expected
+
+
 def test_extra_info():
     with ErrorFlightServer() as server:
         client = FlightClient(('localhost', server.port))
@@ -1120,3 +1345,140 @@ def test_mtls():
             private_key=certs["certificates"][0].key)
         data = client.do_get(flight.Ticket(b'ints')).read_all()
         assert data.equals(table)
+
+
+def test_doexchange_get():
+    """Emulate DoGet with DoExchange."""
+    expected = pa.Table.from_arrays([
+        pa.array(range(0, 10 * 1024))
+    ], names=["a"])
+
+    with ExchangeFlightServer() as server:
+        client = FlightClient(("localhost", server.port))
+        descriptor = flight.FlightDescriptor.for_command(b"get")
+        writer, reader = client.do_exchange(descriptor)
+        with writer:
+            table = reader.read_all()
+        assert expected == table
+
+
+def test_doexchange_put():
+    """Emulate DoPut with DoExchange."""
+    data = pa.Table.from_arrays([
+        pa.array(range(0, 10 * 1024))
+    ], names=["a"])
+    batches = data.to_batches(max_chunksize=512)
+
+    with ExchangeFlightServer() as server:
+        client = FlightClient(("localhost", server.port))
+        descriptor = flight.FlightDescriptor.for_command(b"put")
+        writer, reader = client.do_exchange(descriptor)
+        with writer:
+            writer.begin(data.schema)
+            for batch in batches:
+                writer.write_batch(batch)
+            writer.done_writing()
+            chunk = reader.read_chunk()
+            assert chunk.data is None
+            expected_buf = str(len(batches)).encode("utf-8")
+            assert chunk.app_metadata == expected_buf
+
+
+def test_doexchange_echo():
+    """Try a DoExchange echo server."""
+    data = pa.Table.from_arrays([
+        pa.array(range(0, 10 * 1024))
+    ], names=["a"])
+    batches = data.to_batches(max_chunksize=512)
+
+    with ExchangeFlightServer() as server:
+        client = FlightClient(("localhost", server.port))
+        descriptor = flight.FlightDescriptor.for_command(b"echo")
+        writer, reader = client.do_exchange(descriptor)
+        with writer:
+            # Read/write metadata before starting data.
+            for i in range(10):
+                buf = str(i).encode("utf-8")
+                writer.write_metadata(buf)
+                chunk = reader.read_chunk()
+                assert chunk.data is None
+                assert chunk.app_metadata == buf
+
+            # Now write data without metadata.
+            writer.begin(data.schema)
+            for batch in batches:
+                writer.write_batch(batch)
+                assert reader.schema == data.schema
+                chunk = reader.read_chunk()
+                assert chunk.data == batch
+                assert chunk.app_metadata is None
+
+            # And write data with metadata.
+            for i, batch in enumerate(batches):
+                buf = str(i).encode("utf-8")
+                writer.write_with_metadata(batch, buf)
+                chunk = reader.read_chunk()
+                assert chunk.data == batch
+                assert chunk.app_metadata == buf
+
+
+def test_doexchange_transform():
+    """Transform a table with a service."""
+    data = pa.Table.from_arrays([
+        pa.array(range(0, 1024)),
+        pa.array(range(1, 1025)),
+        pa.array(range(2, 1026)),
+    ], names=["a", "b", "c"])
+    expected = pa.Table.from_arrays([
+        pa.array(range(3, 1024 * 3 + 3, 3)),
+    ], names=["sum"])
+
+    with ExchangeFlightServer() as server:
+        client = FlightClient(("localhost", server.port))
+        descriptor = flight.FlightDescriptor.for_command(b"transform")
+        writer, reader = client.do_exchange(descriptor)
+        with writer:
+            writer.begin(data.schema)
+            writer.write_table(data)
+            writer.done_writing()
+            table = reader.read_all()
+        assert expected == table
+
+
+def test_middleware_multi_header():
+    """Test sending/receiving multiple (binary-valued) headers."""
+    with MultiHeaderFlightServer(middleware={
+            "test": MultiHeaderServerMiddlewareFactory(),
+    }) as server:
+        headers = MultiHeaderClientMiddlewareFactory()
+        client = FlightClient(('localhost', server.port), middleware=[headers])
+        response = next(client.do_action(flight.Action(b"", b"")))
+        # The server echoes the headers it got back to us.
+        raw_headers = response.body.to_pybytes().decode("utf-8")
+        client_headers = ast.literal_eval(raw_headers)
+        # Don't directly compare; gRPC may add headers like User-Agent.
+        for header, values in MultiHeaderClientMiddleware.EXPECTED.items():
+            assert client_headers.get(header) == values
+            assert headers.last_headers.get(header) == values
+
+
+@pytest.mark.requires_testing_data
+def test_generic_options():
+    """Test setting generic client options."""
+    certs = example_tls_certs()
+
+    with ConstantFlightServer(tls_certificates=certs["certificates"]) as s:
+        # Try setting a string argument that will make requests fail
+        options = [("grpc.ssl_target_name_override", "fakehostname")]
+        client = flight.connect(('localhost', s.port),
+                                tls_root_certs=certs["root_cert"],
+                                generic_options=options)
+        with pytest.raises(flight.FlightUnavailableError):
+            client.do_get(flight.Ticket(b'ints'))
+        # Try setting an int argument that will make requests fail
+        options = [("grpc.max_receive_message_length", 32)]
+        client = flight.connect(('localhost', s.port),
+                                tls_root_certs=certs["root_cert"],
+                                generic_options=options)
+        with pytest.raises(pa.ArrowInvalid):
+            client.do_get(flight.Ticket(b'ints'))

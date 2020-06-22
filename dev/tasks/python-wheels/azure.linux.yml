@@ -34,20 +34,26 @@ jobs:
         git -C arrow submodule update --init --recursive
       displayName: Clone arrow
 
+    - script: pip install -e arrow/dev/archery[docker]
+      displayName: Setup Archery
+
     - script: |
         set -ex
-        docker -v
-        docker-compose -v
         cd arrow
         BUILD_IMAGE=centos-python-{{ wheel_tag }}
-        docker-compose pull --ignore-pull-failures $BUILD_IMAGE
-        # TODO(kou): Uncomment this when we resolve "ADD never use cache" problem.
-        # docker-compose build $BUILD_IMAGE
-        docker-compose run \
+        archery docker run \
           -e SETUPTOOLS_SCM_PRETEND_VERSION="{{ arrow.no_rc_version }}" \
           -e PYTHON_VERSION="{{ python_version }}" \
           -e UNICODE_WIDTH="{{ unicode_width }}" \
-          $BUILD_IMAGE
+          ${BUILD_IMAGE}
+        {% if arrow.branch == 'master' %}
+        archery docker push ${BUILD_IMAGE} || :
+        {% endif %}
+      env:
+        ARCHERY_DOCKER_USER: $(ARCHERY_DOCKER_USER)
+        ARCHERY_DOCKER_PASSWORD: $(ARCHERY_DOCKER_PASSWORD)
+        DOCKER_BUILDKIT: 0
+        COMPOSE_DOCKER_CLI_BUILD: 1
       displayName: Build wheel
 
     # auditwheel does always exit with 0 so it is mostly for debugging

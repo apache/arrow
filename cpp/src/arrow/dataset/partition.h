@@ -97,7 +97,7 @@ class ARROW_DS_EXPORT PartitioningFactory {
 
   /// Get the schema for the resulting Partitioning.
   virtual Result<std::shared_ptr<Schema>> Inspect(
-      const std::vector<util::string_view>& paths) const = 0;
+      const std::vector<std::string>& paths) const = 0;
 
   /// Create a partitioning using the provided schema
   /// (fields may be dropped).
@@ -254,7 +254,15 @@ class ARROW_DS_EXPORT FunctionPartitioning : public Partitioning {
   std::string name_;
 };
 
-// TODO(bkietz) use RE2 and named groups to provide RegexpPartitioning
+/// \brief Remove a prefix and the filename of a path.
+///
+/// e.g., `StripPrefixAndFilename("/data/year=2019/c.txt", "/data") -> "year=2019"`
+ARROW_DS_EXPORT std::string StripPrefixAndFilename(const std::string& path,
+                                                   const std::string& prefix);
+
+/// \brief Vector version of StripPrefixAndFilename.
+ARROW_DS_EXPORT std::vector<std::string> StripPrefixAndFilename(
+    const std::vector<std::string>& paths, const std::string& prefix);
 
 /// \brief Either a Partitioning or a PartitioningFactory
 class ARROW_DS_EXPORT PartitioningOrFactory {
@@ -288,6 +296,8 @@ class ARROW_DS_EXPORT PartitioningOrFactory {
     }
     return NULLPTR;
   }
+
+  Result<std::shared_ptr<Schema>> GetOrInferSchema(const std::vector<std::string>& paths);
 
  private:
   util::variant<std::shared_ptr<PartitioningFactory>, std::shared_ptr<Partitioning>>

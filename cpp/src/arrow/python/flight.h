@@ -81,6 +81,10 @@ class ARROW_PYFLIGHT_EXPORT PyFlightServerVtable {
                        std::unique_ptr<arrow::flight::FlightMetadataWriter>)>
       do_put;
   std::function<Status(PyObject*, const arrow::flight::ServerCallContext&,
+                       std::unique_ptr<arrow::flight::FlightMessageReader>,
+                       std::unique_ptr<arrow::flight::FlightMessageWriter>)>
+      do_exchange;
+  std::function<Status(PyObject*, const arrow::flight::ServerCallContext&,
                        const arrow::flight::Action&,
                        std::unique_ptr<arrow::flight::ResultStream>*)>
       do_action;
@@ -158,6 +162,9 @@ class ARROW_PYFLIGHT_EXPORT PyFlightServer : public arrow::flight::FlightServerB
   Status DoPut(const arrow::flight::ServerCallContext& context,
                std::unique_ptr<arrow::flight::FlightMessageReader> reader,
                std::unique_ptr<arrow::flight::FlightMetadataWriter> writer) override;
+  Status DoExchange(const arrow::flight::ServerCallContext& context,
+                    std::unique_ptr<arrow::flight::FlightMessageReader> reader,
+                    std::unique_ptr<arrow::flight::FlightMessageWriter> writer) override;
   Status DoAction(const arrow::flight::ServerCallContext& context,
                   const arrow::flight::Action& action,
                   std::unique_ptr<arrow::flight::ResultStream>* result) override;

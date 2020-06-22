@@ -22,7 +22,6 @@ from libcpp.functional cimport function
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 
-
 cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
 
     ctypedef enum CFileType "arrow::fs::FileType":
@@ -65,6 +64,7 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         CResult[vector[CFileInfo]] GetFileInfo(const CFileSelector& select)
         CStatus CreateDir(const c_string& path, c_bool recursive)
         CStatus DeleteDir(const c_string& path)
+        CStatus DeleteDirContents(const c_string& path)
         CStatus DeleteFile(const c_string& path)
         CStatus DeleteFiles(const vector[c_string]& paths)
         CStatus Move(const c_string& src, const c_string& dest)
@@ -162,6 +162,7 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         void ConfigureBufferSize(int32_t buffer_size)
         void ConfigureBlockSize(int64_t default_block_size)
         void ConfigureKerberosTicketCachePath(c_string path)
+        void ConfigureExtraConf(c_string key, c_string value)
 
     cdef cppclass CHadoopFileSystem "arrow::fs::HadoopFileSystem"(CFileSystem):
         @staticmethod
@@ -172,3 +173,55 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
     cdef cppclass CMockFileSystem "arrow::fs::internal::MockFileSystem"(
             CFileSystem):
         CMockFileSystem(CTimePoint current_time)
+
+
+# Callbacks for implementing Python filesystems
+# Use typedef to emulate syntax for std::function<void(..)>
+ctypedef void CallbackGetTypeName(object, c_string*)
+ctypedef c_bool CallbackEquals(object, const CFileSystem&)
+
+ctypedef void CallbackGetFileInfo(object, const c_string&, CFileInfo*)
+ctypedef void CallbackGetFileInfoVector(object, const vector[c_string]&,
+                                        vector[CFileInfo]*)
+ctypedef void CallbackGetFileInfoSelector(object, const CFileSelector&,
+                                          vector[CFileInfo]*)
+ctypedef void CallbackCreateDir(object, const c_string&, c_bool)
+ctypedef void CallbackDeleteDir(object, const c_string&)
+ctypedef void CallbackDeleteDirContents(object, const c_string&)
+ctypedef void CallbackDeleteFile(object, const c_string&)
+ctypedef void CallbackMove(object, const c_string&, const c_string&)
+ctypedef void CallbackCopyFile(object, const c_string&, const c_string&)
+
+ctypedef void CallbackOpenInputStream(object, const c_string&,
+                                      shared_ptr[CInputStream]*)
+ctypedef void CallbackOpenInputFile(object, const c_string&,
+                                    shared_ptr[CRandomAccessFile]*)
+ctypedef void CallbackOpenOutputStream(object, const c_string&,
+                                       shared_ptr[COutputStream]*)
+
+cdef extern from "arrow/python/filesystem.h" namespace "arrow::py::fs" nogil:
+
+    cdef cppclass CPyFileSystemVtable "arrow::py::fs::PyFileSystemVtable":
+        PyFileSystemVtable()
+        function[CallbackGetTypeName] get_type_name
+        function[CallbackEquals] equals
+        function[CallbackGetFileInfo] get_file_info
+        function[CallbackGetFileInfoVector] get_file_info_vector
+        function[CallbackGetFileInfoSelector] get_file_info_selector
+        function[CallbackCreateDir] create_dir
+        function[CallbackDeleteDir] delete_dir
+        function[CallbackDeleteDirContents] delete_dir_contents
+        function[CallbackDeleteFile] delete_file
+        function[CallbackMove] move
+        function[CallbackCopyFile] copy_file
+        function[CallbackOpenInputStream] open_input_stream
+        function[CallbackOpenInputFile] open_input_file
+        function[CallbackOpenOutputStream] open_output_stream
+        function[CallbackOpenOutputStream] open_append_stream
+
+    cdef cppclass CPyFileSystem "arrow::py::fs::PyFileSystem":
+        @staticmethod
+        shared_ptr[CPyFileSystem] Make(object handler,
+                                       CPyFileSystemVtable vtable)
+
+        PyObject* handler()

@@ -51,6 +51,7 @@ namespace json {
 
 using namespace ::arrow::ipc::test;  // NOLINT
 
+// A batch with primitive types
 static const char* json_example1 = R"example(
 {
   "schema": {
@@ -89,6 +90,7 @@ static const char* json_example1 = R"example(
 }
 )example";
 
+// A batch with extension types
 static const char* json_example2 = R"example(
 {
   "schema": {
@@ -142,6 +144,7 @@ static const char* json_example2 = R"example(
 }
 )example";
 
+// A batch with dict-extension types
 static const char* json_example3 = R"example(
 {
   "schema": {
@@ -208,6 +211,89 @@ static const char* json_example3 = R"example(
           "count": 5,
           "DATA": [2, 0, 1, 1, 2],
           "VALIDITY": [1, 1, 0, 1, 1]
+        }
+      ]
+    }
+  ]
+}
+)example";
+
+// A batch with a map type with non-canonical field names
+static const char* json_example4 = R"example(
+{
+  "schema": {
+    "fields": [
+      {
+        "name": "maps",
+        "type": {
+          "name": "map",
+          "keysSorted": false
+        },
+        "nullable": true,
+        "children": [
+          {
+            "name": "some_entries",
+            "type": {
+              "name": "struct"
+            },
+            "nullable": false,
+            "children": [
+              {
+                "name": "some_key",
+                "type": {
+                  "name": "int",
+                  "isSigned": true,
+                  "bitWidth": 16
+                },
+                "nullable": false,
+                "children": []
+              },
+              {
+                "name": "some_value",
+                "type": {
+                  "name": "int",
+                  "isSigned": true,
+                  "bitWidth": 32
+                },
+                "nullable": true,
+                "children": []
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "batches": [
+    {
+      "count": 3,
+      "columns": [
+        {
+          "name": "map_other_names",
+          "count": 3,
+          "VALIDITY": [1, 0, 1],
+          "OFFSET": [0, 3, 3, 5],
+          "children": [
+            {
+              "name": "some_entries",
+              "count": 5,
+              "VALIDITY": [1, 1, 1, 1, 1],
+              "children": [
+                {
+                  "name": "some_key",
+                  "count": 5,
+                  "VALIDITY": [1, 1, 1, 1, 1],
+                  "DATA": [11, 22, 33, 44, 55]
+                },
+                {
+                  "name": "some_value",
+                  "count": 5,
+                  "VALIDITY": [1, 1, 0, 1, 1],
+                  "DATA": [111, 222, 0, 444, 555]
+                }
+              ]
+            }
+          ]
         }
       ]
     }
@@ -313,8 +399,9 @@ TEST(TestJsonSchemaWriter, FlatTypes) {
       field("f15", date64()),
       field("f16", timestamp(TimeUnit::NANO)),
       field("f17", time64(TimeUnit::MICRO)),
-      field("f18", union_({field("u1", int8()), field("u2", time32(TimeUnit::MILLI))},
-                          {0, 1}, UnionMode::DENSE)),
+      field("f18",
+            dense_union({field("u1", int8()), field("u2", time32(TimeUnit::MILLI))},
+                        {0, 1})),
       field("f19", large_list(uint8())),
       field("f20", null()),
   };
@@ -498,19 +585,24 @@ TEST(TestJsonFileReadWrite, BasicRoundTrip) {
   }
 }
 
-TEST(TestJsonFileReadWrite, JsonExample1) {
-  auto buffer = Buffer::Wrap(json_example1, strlen(json_example1));
+static void ReadOneBatchJson(const char* json, const Schema& expected_schema,
+                             std::shared_ptr<RecordBatch>* out) {
+  auto buffer = Buffer::Wrap(json, strlen(json));
 
   std::unique_ptr<JsonReader> reader;
   ASSERT_OK(JsonReader::Open(buffer, &reader));
 
-  Schema ex_schema({field("foo", int32()), field("bar", float64())});
-
-  ASSERT_TRUE(reader->schema()->Equals(ex_schema));
+  AssertSchemaEqual(*reader->schema(), expected_schema, /*check_metadata=*/true);
   ASSERT_EQ(1, reader->num_record_batches());
 
+  ASSERT_OK(reader->ReadRecordBatch(0, out));
+}
+
+TEST(TestJsonFileReadWrite, JsonExample1) {
+  Schema ex_schema({field("foo", int32()), field("bar", float64())});
+
   std::shared_ptr<RecordBatch> batch;
-  ASSERT_OK(reader->ReadRecordBatch(0, &batch));
+  ReadOneBatchJson(json_example1, ex_schema, &batch);
 
   std::vector<bool> foo_valid = {true, false, true, true, true};
   std::vector<int32_t> foo_values = {1, 2, 3, 4, 5};
@@ -559,25 +651,34 @@ TEST(TestJsonFileReadWrite, JsonExample2) {
 TEST(TestJsonFileReadWrite, JsonExample3) {
   // Example 3: An extension type with a dictionary storage type
   auto dict_ext_type = std::make_shared<DictExtensionType>();
-  auto buffer = Buffer::Wrap(json_example3, strlen(json_example3));
-
   ExtensionTypeGuard ext_guard(dict_ext_type);
-
-  std::unique_ptr<JsonReader> reader;
-  ASSERT_OK(JsonReader::Open(buffer, &reader));
   Schema ex_schema({field("dict-extensions", dict_ext_type)});
 
-  AssertSchemaEqual(ex_schema, *reader->schema());
-  ASSERT_EQ(1, reader->num_record_batches());
-
   std::shared_ptr<RecordBatch> batch;
-  ASSERT_OK(reader->ReadRecordBatch(0, &batch));
-
+  ReadOneBatchJson(json_example3, ex_schema, &batch);
   auto storage_array = std::make_shared<DictionaryArray>(
       dict_ext_type->storage_type(), ArrayFromJSON(int8(), "[2, 0, null, 1, 2]"),
       ArrayFromJSON(utf8(), R"(["foo", "bar", "quux"])"));
   AssertArraysEqual(*batch->column(0), ExtensionArray(dict_ext_type, storage_array),
                     /*verbose=*/true);
+}
+
+TEST(TestJsonFileReadWrite, JsonExample4) {
+  // Example 4: A map type with non-canonical field names
+  ASSERT_OK_AND_ASSIGN(auto map_type,
+                       MapType::Make(field("some_entries",
+                                           struct_({field("some_key", int16(), false),
+                                                    field("some_value", int32())}),
+                                           false)));
+  Schema ex_schema({field("maps", map_type)});
+
+  std::shared_ptr<RecordBatch> batch;
+  ReadOneBatchJson(json_example4, ex_schema, &batch);
+
+  auto expected_array = ArrayFromJSON(
+      map(int16(), int32()),
+      R"([[[11, 111], [22, 222], [33, null]], null, [[44, 444], [55, 555]]])");
+  AssertArraysEqual(*batch->column(0), *expected_array);
 }
 
 #define BATCH_CASES()                                                             \

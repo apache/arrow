@@ -24,12 +24,11 @@
 #include <unordered_map>
 #include <utility>
 
-#include "arrow/array.h"
+#include "arrow/array/util.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/visibility.h"
 
 namespace arrow {
 
@@ -41,12 +40,6 @@ std::string ExtensionType::ToString() const {
   std::stringstream ss;
   ss << "extension<" << this->extension_name() << ">";
   return ss.str();
-}
-
-Status ExtensionType::Deserialize(std::shared_ptr<DataType> storage_type,
-                                  const std::string& serialized_data,
-                                  std::shared_ptr<DataType>* out) const {
-  return Deserialize(std::move(storage_type), serialized_data).Value(out);
 }
 
 ExtensionArray::ExtensionArray(const std::shared_ptr<ArrayData>& data) { SetData(data); }

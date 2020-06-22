@@ -14,7 +14,7 @@
   <parent>
     <groupId>org.apache.arrow</groupId>
     <artifactId>arrow-java-root</artifactId>
-    <version>0.18.0-SNAPSHOT</version>
+    <version>1.0.0-SNAPSHOT</version>
   </parent>
   <artifactId>arrow-memory</artifactId>
   <name>Arrow Memory</name>
@@ -61,6 +61,7 @@
               <systemPropertyVariables>
                 <java.io.tmpdir>${project.build.directory}</java.io.tmpdir>
                 <io.netty.tryReflectionSetAccessible>true</io.netty.tryReflectionSetAccessible>
+                <arrow.memory.debug.allocator>false</arrow.memory.debug.allocator>
                 <user.timezone>UTC</user.timezone>
               </systemPropertyVariables>
               <argLine></argLine>

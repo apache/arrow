@@ -17,14 +17,13 @@
 
 #pragma once
 
-#include <memory>
-#include <vector>
-
 #include "arrow/status.h"
-#include "arrow/type_fwd.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
+
+class Array;
+
 namespace internal {
 
 // Internal functions implementing Array::Validate() and friends.

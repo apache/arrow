@@ -18,7 +18,7 @@
 [package]
 name = "arrow-flight"
 description = "Apache Arrow Flight"
-version = "0.18.0-SNAPSHOT"
+version = "1.0.0-SNAPSHOT"
 edition = "2018"
 authors = ["Apache Arrow <dev@arrow.apache.org>"]
 homepage = "https://github.com/apache/arrow"

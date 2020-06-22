@@ -36,6 +36,7 @@ from pyarrow._dataset import (  # noqa
     HivePartitioning,
     IpcFileFormat,
     ParquetDatasetFactory,
+    ParquetFactoryOptions,
     ParquetFileFormat,
     ParquetFileFragment,
     ParquetReadOptions,
@@ -445,7 +446,8 @@ def _union_dataset(children, schema=None, **kwargs):
     return UnionDataset(schema, children)
 
 
-def parquet_dataset(metadata_path, schema=None, filesystem=None, format=None):
+def parquet_dataset(metadata_path, schema=None, filesystem=None, format=None,
+                    partitioning=None, partition_base_dir=None):
     """
     Create a FileSystemDataset from a `_metadata` file created via
     `pyarrrow.parquet.write_metadata`.
@@ -468,6 +470,16 @@ def parquet_dataset(metadata_path, schema=None, filesystem=None, format=None):
     format : ParquetFileFormat
         An instance of a ParquetFileFormat if special options needs to be
         passed.
+    partitioning : Partitioning, PartitioningFactory, str, list of str
+        The partitioning scheme specified with the ``partitioning()``
+        function. A flavor string can be used as shortcut, and with a list of
+        field names a DirectionaryPartitioning will be inferred.
+    partition_base_dir : str, optional
+        For the purposes of applying the partitioning, paths will be
+        stripped of the partition_base_dir. Files not matching the
+        partition_base_dir prefix will be skipped for partitioning discovery.
+        The ignored files will still be part of the Dataset, but will not
+        have partition information.
 
     Returns
     -------
@@ -486,8 +498,13 @@ def parquet_dataset(metadata_path, schema=None, filesystem=None, format=None):
         filesystem, _ = _ensure_filesystem(filesystem)
 
     metadata_path = _normalize_path(filesystem, _stringify_path(metadata_path))
+    options = ParquetFactoryOptions(
+        partition_base_dir=partition_base_dir,
+        partitioning=_ensure_partitioning(partitioning)
+    )
 
-    factory = ParquetDatasetFactory(metadata_path, filesystem, format)
+    factory = ParquetDatasetFactory(
+        metadata_path, filesystem, format, options=options)
     return factory.finish(schema)
 
 

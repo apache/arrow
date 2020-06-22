@@ -29,9 +29,21 @@ RUN \
     /etc/apt/apt.conf.d/disable-install-recommends
 
 ARG DEBUG
-ARG LLVM
+# LLVM 10 or later requires C++ 14 but g++-5's C++ 14 support is limited.
+# cpp/src/arrow/vendored/datetime/date.h doesn't work.
+# ARG LLVM
+ENV LLVM=8
 RUN \
   quiet=$([ "${DEBUG}" = "yes" ] || echo "-qq") && \
+  apt update ${quiet} && \
+  apt install -y -V ${quiet} \
+    apt-transport-https \
+    ca-certificates \
+    gnupg \
+    wget && \
+  wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
+  echo "deb https://apt.llvm.org/xenial/ llvm-toolchain-xenial-${LLVM} main" > \
+    /etc/apt/sources.list.d/llvm.list && \
   apt update ${quiet} && \
   apt install -y -V ${quiet} \
     autoconf-archive \

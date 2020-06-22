@@ -27,7 +27,7 @@ import io.netty.util.internal.PlatformDependent;
  */
 public class NettyAllocationManager extends AllocationManager {
 
-  public static final Factory FACTORY = new Factory();
+  public static final AllocationManager.Factory FACTORY = NettyAllocationManager::new;
 
   /**
    * The default cut-off value for switching allocation strategies.
@@ -105,15 +105,4 @@ public class NettyAllocationManager extends AllocationManager {
     return allocatedSize;
   }
 
-  /**
-   * Factory for creating {@link NettyAllocationManager}.
-   */
-  public static class Factory implements AllocationManager.Factory {
-    private Factory() {}
-
-    @Override
-    public AllocationManager create(BaseAllocator accountingAllocator, long size) {
-      return new NettyAllocationManager(accountingAllocator, size);
-    }
-  }
 }

@@ -44,12 +44,19 @@ TEST(TestHdfsOptions, FromUri) {
   ASSERT_EQ(options.connection_config.port, 0);
   ASSERT_EQ(options.connection_config.user, "");
 
-  ASSERT_OK(uri.Parse("hdfs://otherhost:9999/?replication=2"));
+  ASSERT_OK(uri.Parse("hdfs://otherhost:9999/?replication=2&kerb_ticket=kerb.ticket"));
   ASSERT_OK_AND_ASSIGN(options, HdfsOptions::FromUri(uri));
   ASSERT_EQ(options.replication, 2);
+  ASSERT_EQ(options.connection_config.kerb_ticket, "kerb.ticket");
   ASSERT_EQ(options.connection_config.host, "hdfs://otherhost");
   ASSERT_EQ(options.connection_config.port, 9999);
   ASSERT_EQ(options.connection_config.user, "");
+
+  ASSERT_OK(uri.Parse("hdfs://otherhost:9999/?hdfs_token=hdfs_token_ticket"));
+  ASSERT_OK_AND_ASSIGN(options, HdfsOptions::FromUri(uri));
+  ASSERT_EQ(options.connection_config.host, "hdfs://otherhost");
+  ASSERT_EQ(options.connection_config.port, 9999);
+  ASSERT_EQ(options.connection_config.extra_conf["hdfs_token"], "hdfs_token_ticket");
 
   ASSERT_OK(uri.Parse("viewfs://other-nn/mypath/myfile"));
   ASSERT_OK_AND_ASSIGN(options, HdfsOptions::FromUri(uri));

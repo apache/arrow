@@ -24,12 +24,8 @@
 #include "arrow/compute/function.h"
 #include "arrow/compute/registry.h"
 #include "arrow/result.h"
-#include "arrow/scalar.h"
 #include "arrow/status.h"
-#include "arrow/testing/gtest_common.h"
 #include "arrow/testing/gtest_util.h"
-#include "arrow/type.h"
-#include "arrow/util/checked_cast.h"
 #include "arrow/util/macros.h"
 
 namespace arrow {

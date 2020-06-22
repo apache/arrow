@@ -255,7 +255,7 @@ static const char* JSON_EXAMPLE = R"example(
     "fields": [
       {
         "name": "foo",
-        "type": {"name": "int", "isSigned": true, "bitWidth": 32},
+        "type": {"name": "int", "isSigned": true, "bitWidth": 64},
         "nullable": true, "children": []
       },
       {
@@ -272,7 +272,7 @@ static const char* JSON_EXAMPLE = R"example(
         {
           "name": "foo",
           "count": 5,
-          "DATA": [1, 2, 3, 4, 5],
+          "DATA": ["1", "2", "3", "4", "5"],
           "VALIDITY": [1, 0, 1, 1, 1]
         },
         {
@@ -289,7 +289,7 @@ static const char* JSON_EXAMPLE = R"example(
         {
           "name": "foo",
           "count": 4,
-          "DATA": [1, 2, 3, 4],
+          "DATA": ["-1", "0", "9223372036854775807", "-9223372036854775808"],
           "VALIDITY": [1, 0, 1, 1]
         },
         {

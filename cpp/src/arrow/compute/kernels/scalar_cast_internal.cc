@@ -15,14 +15,41 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <utility>
-
-#include "arrow/compute/kernels/common.h"
 #include "arrow/compute/kernels/scalar_cast_internal.h"
+#include "arrow/compute/cast_internal.h"
+#include "arrow/compute/kernels/common.h"
+#include "arrow/extension_type.h"
 
 namespace arrow {
 namespace compute {
 namespace internal {
+
+void UnpackDictionary(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  DictionaryArray dict_arr(batch[0].array());
+  const CastOptions& options = checked_cast<const CastState&>(*ctx->state()).options;
+
+  const auto& dict_type = *dict_arr.dictionary()->type();
+  if (!dict_type.Equals(options.to_type)) {
+    ctx->SetStatus(Status::Invalid("Cast type ", options.to_type->ToString(),
+                                   " incompatible with dictionary type ",
+                                   dict_type.ToString()));
+    return;
+  }
+
+  Result<Datum> result = Take(Datum(dict_arr.dictionary()), Datum(dict_arr.indices()),
+                              /*options=*/TakeOptions::Defaults(), ctx->exec_context());
+  if (!result.ok()) {
+    ctx->SetStatus(result.status());
+    return;
+  }
+  *out = *result;
+}
+
+void OutputAllNull(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  ArrayData* output = out->mutable_array();
+  output->buffers = {nullptr};
+  output->null_count = batch.length;
+}
 
 void CastFromExtension(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   const CastOptions& options = checked_cast<const CastState*>(ctx->state())->options;
@@ -37,6 +64,14 @@ void CastFromExtension(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
       ctx, Cast(*extension.storage(), out->type(), options, ctx->exec_context())
                .Value(&casted_storage));
   out->value = casted_storage.array();
+}
+
+void CastFromNull(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  ArrayData* output = out->mutable_array();
+  std::shared_ptr<Array> nulls;
+  Status s = MakeArrayOfNull(output->type, batch.length).Value(&nulls);
+  KERNEL_RETURN_IF_ERROR(ctx, s);
+  out->value = nulls->data();
 }
 
 Result<ValueDescr> ResolveOutputFromOptions(KernelContext* ctx,
@@ -83,6 +118,32 @@ void AddZeroCopyCast(Type::type in_type_id, InputType in_type, OutputType out_ty
   kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
   kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
   DCHECK_OK(func->AddKernel(in_type_id, std::move(kernel)));
+}
+
+static bool CanCastFromDictionary(Type::type type_id) {
+  return (is_primitive(type_id) || is_base_binary_like(type_id) ||
+          is_fixed_size_binary(type_id));
+}
+
+void AddCommonCasts(Type::type out_type_id, OutputType out_ty, CastFunction* func) {
+  // From null to this type
+  DCHECK_OK(func->AddKernel(Type::NA, {InputType::Array(null())}, out_ty, CastFromNull));
+
+  // From dictionary to this type
+  if (CanCastFromDictionary(out_type_id)) {
+    // Dictionary unpacking not implemented for boolean or nested types.
+    //
+    // XXX: Uses Take and does its own memory allocation for the moment. We can
+    // fix this later.
+    DCHECK_OK(func->AddKernel(
+        Type::DICTIONARY, {InputType::Array(Type::DICTIONARY)}, out_ty, UnpackDictionary,
+        NullHandling::COMPUTED_NO_PREALLOCATE, MemAllocation::NO_PREALLOCATE));
+  }
+
+  // From extension type to this type
+  DCHECK_OK(func->AddKernel(Type::EXTENSION, {InputType::Array(Type::EXTENSION)}, out_ty,
+                            CastFromExtension, NullHandling::COMPUTED_NO_PREALLOCATE,
+                            MemAllocation::NO_PREALLOCATE));
 }
 
 }  // namespace internal

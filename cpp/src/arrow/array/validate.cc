@@ -17,10 +17,16 @@
 
 #include "arrow/array/validate.h"
 
-#include "arrow/array.h"
+#include <vector>
+
+#include "arrow/array.h"  // IWYU pragma: keep
+#include "arrow/buffer.h"
+#include "arrow/extension_type.h"
+#include "arrow/type.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/int_util.h"
-#include "arrow/util/logging.h"
 #include "arrow/visitor_inline.h"
 
 namespace arrow {
@@ -183,7 +189,7 @@ struct ValidateArrayVisitor {
     if (!array.data()->dictionary) {
       return Status::Invalid("Dictionary values must be non-null");
     }
-    const Status dict_valid = ValidateArray(*array.data()->dictionary);
+    const Status dict_valid = ValidateArray(*MakeArray(array.data()->dictionary));
     if (!dict_valid.ok()) {
       return Status::Invalid("Dictionary array invalid: ", dict_valid.ToString());
     }
@@ -432,7 +438,8 @@ struct ValidateArrayDataVisitor {
       }
 
       // Check offsets
-      const int32_t* offsets = array.raw_value_offsets();
+      const int32_t* offsets =
+          checked_cast<const DenseUnionArray&>(array).raw_value_offsets();
       for (int64_t i = 0; i < array.length(); ++i) {
         if (array.IsNull(i)) {
           continue;

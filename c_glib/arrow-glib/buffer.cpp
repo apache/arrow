@@ -120,7 +120,16 @@ garrow_buffer_get_property(GObject *object,
                            GValue *value,
                            GParamSpec *pspec)
 {
-  G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+  auto priv = GARROW_BUFFER_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_PARENT:
+    g_value_set_object(value, priv->parent);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
 }
 
 static void
@@ -161,7 +170,7 @@ garrow_buffer_class_init(GArrowBufferClass *klass)
                              "Parent",
                              "The parent GArrowBuffer *",
                              GARROW_TYPE_BUFFER,
-                             static_cast<GParamFlags>(G_PARAM_WRITABLE |
+                             static_cast<GParamFlags>(G_PARAM_READWRITE |
                                                       G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_PARENT, spec);
 }

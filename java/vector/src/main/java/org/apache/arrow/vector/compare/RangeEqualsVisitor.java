@@ -148,9 +148,11 @@ public class RangeEqualsVisitor implements VectorVisitor<Boolean, Range> {
   }
 
   @Override
-  public Boolean visit(BaseLargeVariableWidthVector left, Range value) {
-    // TODO: support range comparison for BaseLargeVariableWidthVector.
-    throw new UnsupportedOperationException();
+  public Boolean visit(BaseLargeVariableWidthVector left, Range range) {
+    if (!validate(left)) {
+      return false;
+    }
+    return compareBaseLargeVariableWidthVectors(range);
   }
 
   @Override
@@ -363,6 +365,39 @@ public class RangeEqualsVisitor implements VectorVisitor<Boolean, Range> {
 
         final int startIndexRight = rightVector.getOffsetBuffer().getInt(rightIndex * offsetWidth);
         final int endIndexRight = rightVector.getOffsetBuffer().getInt((rightIndex + 1) * offsetWidth);
+
+        int ret = ByteFunctionHelpers.equal(leftVector.getDataBuffer(), startIndexLeft, endIndexLeft,
+            rightVector.getDataBuffer(), startIndexRight, endIndexRight);
+
+        if (ret == 0) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
+  protected boolean compareBaseLargeVariableWidthVectors(Range range) {
+    BaseLargeVariableWidthVector leftVector = (BaseLargeVariableWidthVector) left;
+    BaseLargeVariableWidthVector rightVector = (BaseLargeVariableWidthVector) right;
+
+    for (int i = 0; i < range.getLength(); i++) {
+      int leftIndex = range.getLeftStart() + i;
+      int rightIndex = range.getRightStart() + i;
+
+      boolean isNull = leftVector.isNull(leftIndex);
+      if (isNull != rightVector.isNull(rightIndex)) {
+        return false;
+      }
+
+      int offsetWidth = BaseLargeVariableWidthVector.OFFSET_WIDTH;
+
+      if (!isNull) {
+        final long startIndexLeft = leftVector.getOffsetBuffer().getLong((long) leftIndex * offsetWidth);
+        final long endIndexLeft = leftVector.getOffsetBuffer().getLong((long) (leftIndex + 1) * offsetWidth);
+
+        final long startIndexRight = rightVector.getOffsetBuffer().getLong((long) rightIndex * offsetWidth);
+        final long endIndexRight = rightVector.getOffsetBuffer().getLong((long) (rightIndex + 1) * offsetWidth);
 
         int ret = ByteFunctionHelpers.equal(leftVector.getDataBuffer(), startIndexLeft, endIndexLeft,
             rightVector.getDataBuffer(), startIndexRight, endIndexRight);

@@ -18,13 +18,13 @@ An object of class \code{TimeUnit::type} (inherits from \code{arrow-enum}) of le
 
 An object of class \code{DateUnit} (inherits from \code{arrow-enum}) of length 2.
 
-An object of class \code{Type::type} (inherits from \code{arrow-enum}) of length 29.
+An object of class \code{Type::type} (inherits from \code{arrow-enum}) of length 30.
 
 An object of class \code{StatusCode} (inherits from \code{arrow-enum}) of length 17.
 
 An object of class \code{FileMode} (inherits from \code{arrow-enum}) of length 3.
 
-An object of class \code{Message::Type} (inherits from \code{arrow-enum}) of length 5.
+An object of class \code{MessageType} (inherits from \code{arrow-enum}) of length 5.
 
 An object of class \code{Compression::type} (inherits from \code{arrow-enum}) of length 9.
 

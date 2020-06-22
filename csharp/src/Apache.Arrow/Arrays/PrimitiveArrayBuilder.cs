@@ -105,15 +105,15 @@ namespace Apache.Arrow
     {
         protected TBuilder Instance => this as TBuilder;
         protected ArrowBuffer.Builder<T> ValueBuffer { get; }
-        protected BooleanArray.Builder ValidityBuffer { get; }
+        protected ArrowBuffer.BitmapBuilder ValidityBuffer { get; }
 
         public int Length => ValueBuffer.Length;
-        protected int NullCount { get; set; }
+        protected int NullCount => ValidityBuffer.UnsetBitCount;
 
         internal PrimitiveArrayBuilder()
         {
             ValueBuffer = new ArrowBuffer.Builder<T>();
-            ValidityBuffer = new BooleanArray.Builder();
+            ValidityBuffer = new ArrowBuffer.BitmapBuilder();
         }
 
         public TBuilder Resize(int length)
@@ -156,7 +156,6 @@ namespace Apache.Arrow
         public TBuilder AppendNull()
         {
             ValidityBuffer.Append(false);
-            NullCount++;
             ValueBuffer.Append(default(T));
             return Instance;
         }
@@ -187,7 +186,7 @@ namespace Apache.Arrow
         public TArray Build(MemoryAllocator allocator = default)
         {
             ArrowBuffer validityBuffer = NullCount > 0
-                                    ? ValidityBuffer.Build(allocator).ValueBuffer
+                                    ? ValidityBuffer.Build(allocator)
                                     : ArrowBuffer.Empty;
 
             return Build(

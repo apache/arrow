@@ -24,11 +24,12 @@ from cython.operator cimport dereference as deref
 
 import pyarrow as pa
 from pyarrow.lib cimport *
+from pyarrow.lib import frombytes, tobytes
 from pyarrow.includes.libarrow_dataset cimport *
-from pyarrow.compat import frombytes, tobytes
 from pyarrow._fs cimport FileSystem, FileInfo, FileSelector
 from pyarrow._csv cimport ParseOptions
 from pyarrow._compute cimport CastOptions
+from pyarrow.util import _is_path_like, _stringify_path
 
 
 def _forbid_instantiation(klass, subclasses_instead=True):
@@ -41,6 +42,51 @@ def _forbid_instantiation(klass, subclasses_instead=True):
             ', '.join(subclasses)
         )
     raise TypeError(msg)
+
+
+cdef class FileSource:
+
+    cdef:
+        CFileSource wrapped
+
+    def __cinit__(self, file, FileSystem filesystem=None):
+        cdef:
+            shared_ptr[CFileSystem] c_filesystem
+            c_string c_path
+            shared_ptr[CRandomAccessFile] c_file
+            shared_ptr[CBuffer] c_buffer
+
+        if isinstance(file, FileSource):
+            self.wrapped = (<FileSource> file).wrapped
+
+        elif isinstance(file, Buffer):
+            c_buffer = pyarrow_unwrap_buffer(file)
+            self.wrapped = CFileSource(move(c_buffer))
+
+        elif _is_path_like(file):
+            if filesystem is None:
+                raise ValueError("cannot construct a FileSource from "
+                                 "a path without a FileSystem")
+            c_filesystem = filesystem.unwrap()
+            c_path = tobytes(_stringify_path(file))
+            self.wrapped = CFileSource(move(c_path), move(c_filesystem))
+
+        elif hasattr(file, 'read'):
+            # Optimistically hope this is file-like
+            c_file = get_native_file(file, False).get_random_access_file()
+            self.wrapped = CFileSource(move(c_file))
+
+        else:
+            raise TypeError("cannot construct a FileSource "
+                            "from " + str(file))
+
+    @staticmethod
+    def from_uri(uri):
+        filesystem, path = FileSystem.from_uri(uri)
+        return FileSource(path, filesystem)
+
+    cdef CFileSource unwrap(self) nogil:
+        return self.wrapped
 
 
 cdef class Expression:
@@ -226,16 +272,18 @@ cdef class Dataset:
 
     @staticmethod
     cdef wrap(const shared_ptr[CDataset]& sp):
-        cdef Dataset self
+        type_name = frombytes(sp.get().type_name())
 
-        typ = frombytes(sp.get().type_name())
-        if typ == 'union':
-            self = UnionDataset.__new__(UnionDataset)
-        elif typ == 'filesystem':
-            self = FileSystemDataset.__new__(FileSystemDataset)
-        else:
-            raise TypeError(typ)
+        classes = {
+            'union': UnionDataset,
+            'filesystem': FileSystemDataset,
+        }
 
+        class_ = classes.get(type_name, None)
+        if class_ is None:
+            raise TypeError(type_name)
+
+        cdef Dataset self = class_.__new__(class_)
         self.init(sp)
         return self
 
@@ -407,21 +455,19 @@ cdef class UnionDataset(Dataset):
 
 
 cdef class FileSystemDataset(Dataset):
-    """A Dataset created from a set of files on a particular filesystem.
+    """A Dataset of file fragments.
+
+    A FileSystemDataset is composed of one or more FileFragment.
 
     Parameters
     ----------
-    paths_or_selector : Union[FileSelector, List[FileInfo]]
-        List of files/directories to consume.
+    fragments : list[Fragments]
+        List of fragments to consume.
     schema : Schema
-        The top-level schema of the DataDataset.
+        The top-level schema of the Dataset.
     format : FileFormat
-        File format to create fragments from, currently only
-        ParquetFileFormat, IpcFileFormat, and CsvFileFormat are supported.
-    filesystem : FileSystem
-        The filesystem which files are from.
-    partitions : List[Expression], optional
-        Attach additional partition information for the file paths.
+        File format of the fragments, currently only ParquetFileFormat,
+        IpcFileFormat, and CsvFileFormat are supported.
     root_partition : Expression, optional
         The top-level partition of the DataDataset.
     """
@@ -429,53 +475,24 @@ cdef class FileSystemDataset(Dataset):
     cdef:
         CFileSystemDataset* filesystem_dataset
 
-    def __init__(self, paths_or_selector, schema=None, format=None,
-                 filesystem=None, partitions=None, root_partition=None):
+    def __init__(self, fragments, Schema schema, FileFormat format,
+                 root_partition=None):
         cdef:
-            FileInfo info
-            Expression expr
             FileFragment fragment
-            vector[CFileInfo] c_file_infos
-            vector[shared_ptr[CExpression]] c_partitions
-            shared_ptr[CFileFragment] c_fragment
             vector[shared_ptr[CFileFragment]] c_fragments
             CResult[shared_ptr[CDataset]] result
 
         root_partition = root_partition or _true
-
-        for arg, class_, name in [
-            (schema, Schema, 'schema'),
-            (format, FileFormat, 'format'),
-            (filesystem, FileSystem, 'filesystem'),
-            (root_partition, Expression, 'root_partition')
-        ]:
-            if not isinstance(arg, class_):
-                raise TypeError(
-                    "Argument '{0}' has incorrect type (expected {1}, "
-                    "got {2})".format(name, class_.__name__, type(arg))
-                )
-
-        infos = filesystem.get_file_info(paths_or_selector)
-
-        if partitions is None:
-            partitions = [_true] * len(infos)
-
-        if len(infos) != len(partitions):
-            raise ValueError(
-                'The number of files resulting from paths_or_selector '
-                'must be equal to the number of partitions.'
+        if not isinstance(root_partition, Expression):
+            raise TypeError(
+                "Argument 'root_partition' has incorrect type (expected "
+                "Epression, got {0})".format(type(root_partition))
             )
 
-        for expr in partitions:
-            c_partitions.push_back(expr.unwrap())
-
-        for i, info in enumerate(infos):
-            if info.is_file:
-                fragment = format.make_fragment(info.path, filesystem,
-                                                partitions[i])
-                c_fragments.push_back(
-                    static_pointer_cast[CFileFragment, CFragment](
-                        fragment.unwrap()))
+        for fragment in fragments:
+            c_fragments.push_back(
+                static_pointer_cast[CFileFragment, CFragment](
+                    fragment.unwrap()))
 
         result = CFileSystemDataset.Make(
             pyarrow_unwrap_schema(schema),
@@ -488,6 +505,57 @@ cdef class FileSystemDataset(Dataset):
     cdef void init(self, const shared_ptr[CDataset]& sp):
         Dataset.init(self, sp)
         self.filesystem_dataset = <CFileSystemDataset*> sp.get()
+
+    @classmethod
+    def from_paths(cls, paths, schema=None, format=None,
+                   filesystem=None, partitions=None, root_partition=None):
+        """A Dataset created from a list of paths on a particular filesystem.
+
+        Parameters
+        ----------
+        paths : list of str
+            List of file paths to create the fragments from.
+        schema : Schema
+            The top-level schema of the DataDataset.
+        format : FileFormat
+            File format to create fragments from, currently only
+            ParquetFileFormat, IpcFileFormat, and CsvFileFormat are supported.
+        filesystem : FileSystem
+            The filesystem which files are from.
+        partitions : List[Expression], optional
+            Attach additional partition information for the file paths.
+        root_partition : Expression, optional
+            The top-level partition of the DataDataset.
+        """
+        cdef:
+            FileFragment fragment
+
+        root_partition = root_partition or _true
+        for arg, class_, name in [
+            (schema, Schema, 'schema'),
+            (format, FileFormat, 'format'),
+            (filesystem, FileSystem, 'filesystem'),
+            (root_partition, Expression, 'root_partition')
+        ]:
+            if not isinstance(arg, class_):
+                raise TypeError(
+                    "Argument '{0}' has incorrect type (expected {1}, "
+                    "got {2})".format(name, class_.__name__, type(arg))
+                )
+
+        partitions = partitions or [_true] * len(paths)
+
+        if len(paths) != len(partitions):
+            raise ValueError(
+                'The number of files resulting from paths_or_selector '
+                'must be equal to the number of partitions.'
+            )
+
+        fragments = [
+            format.make_fragment(path, filesystem, partitions[i])
+            for i, path in enumerate(paths)
+        ]
+        return FileSystemDataset(fragments, schema, format, root_partition)
 
     @property
     def files(self):
@@ -531,50 +599,45 @@ cdef class FileFormat:
 
     @staticmethod
     cdef wrap(const shared_ptr[CFileFormat]& sp):
-        cdef FileFormat self
+        type_name = frombytes(sp.get().type_name())
 
-        typ = frombytes(sp.get().type_name())
-        if typ == 'parquet':
-            self = ParquetFileFormat.__new__(ParquetFileFormat)
-        elif typ == 'ipc':
-            self = IpcFileFormat.__new__(IpcFileFormat)
-        elif typ == 'csv':
-            self = CsvFileFormat.__new__(CsvFileFormat)
-        else:
-            raise TypeError(typ)
+        classes = {
+            'ipc': IpcFileFormat,
+            'csv': CsvFileFormat,
+            'parquet': ParquetFileFormat,
+        }
 
+        class_ = classes.get(type_name, None)
+        if class_ is None:
+            raise TypeError(type_name)
+
+        cdef FileFormat self = class_.__new__(class_)
         self.init(sp)
         return self
 
     cdef inline shared_ptr[CFileFormat] unwrap(self):
         return self.wrapped
 
-    def inspect(self, str path not None, FileSystem filesystem not None):
+    def inspect(self, file, filesystem=None):
         """Infer the schema of a file."""
-        cdef:
-            shared_ptr[CSchema] c_schema
-
-        c_schema = GetResultValue(self.format.Inspect(CFileSource(
-            tobytes(path), filesystem.unwrap())))
+        c_source = FileSource(file, filesystem).unwrap()
+        c_schema = GetResultValue(self.format.Inspect(c_source))
         return pyarrow_wrap_schema(move(c_schema))
 
-    def make_fragment(self, str path not None, FileSystem filesystem not None,
+    def make_fragment(self, file, filesystem=None,
                       Expression partition_expression=None):
         """
         Make a FileFragment of this FileFormat. The filter may not reference
         fields absent from the provided schema. If no schema is provided then
         one will be inferred.
         """
-        cdef:
-            shared_ptr[CFileFragment] c_fragment
-
         partition_expression = partition_expression or _true
 
-        c_fragment = GetResultValue(
-            self.format.MakeFragment(CFileSource(tobytes(path),
-                                                 filesystem.unwrap()),
+        c_source = FileSource(file, filesystem).unwrap()
+        c_fragment = <shared_ptr[CFragment]> GetResultValue(
+            self.format.MakeFragment(move(c_source),
                                      partition_expression.unwrap()))
-        return Fragment.wrap(<shared_ptr[CFragment]> move(c_fragment))
+        return Fragment.wrap(move(c_fragment))
 
     def __eq__(self, other):
         try:
@@ -590,26 +653,30 @@ cdef class Fragment:
         shared_ptr[CFragment] wrapped
         CFragment* fragment
 
+    def __init__(self):
+        _forbid_instantiation(self.__class__)
+
     cdef void init(self, const shared_ptr[CFragment]& sp):
         self.wrapped = sp
         self.fragment = sp.get()
 
     @staticmethod
     cdef wrap(const shared_ptr[CFragment]& sp):
-        # there's no discriminant in Fragment, so we can't downcast
-        # to FileFragment for the path property
-        cdef Fragment self = Fragment()
+        type_name = frombytes(sp.get().type_name())
 
-        typ = frombytes(sp.get().type_name())
-        if typ == 'ipc':
-            # IpcFileFormat does not have a corresponding subclass
-            # of FileFragment
-            self = FileFragment.__new__(FileFragment)
-        elif typ == 'parquet':
-            self = ParquetFileFragment.__new__(ParquetFileFragment)
-        else:
-            self = Fragment()
+        classes = {
+            # IpcFileFormat and CsvFileFormat do not have corresponding
+            # subclasses of FileFragment
+            'ipc': FileFragment,
+            'csv': FileFragment,
+            'parquet': ParquetFileFragment,
+        }
 
+        class_ = classes.get(type_name, None)
+        if class_ is None:
+            class_ = Fragment
+
+        cdef Fragment self = class_.__new__(class_)
         self.init(sp)
         return self
 
@@ -732,9 +799,13 @@ cdef class FileFragment(Fragment):
         it views a file. If instead it views a buffer, this will be None.
         """
         cdef:
-            shared_ptr[CFileSystem] fs
-        fs = self.file_fragment.source().filesystem()
-        return FileSystem.wrap(fs)
+            shared_ptr[CFileSystem] c_fs
+        c_fs = self.file_fragment.source().filesystem()
+
+        if c_fs.get() == nullptr:
+            return None
+
+        return FileSystem.wrap(c_fs)
 
     @property
     def buffer(self):
@@ -814,7 +885,8 @@ cdef class ParquetFileFragment(FileFragment):
             return None
         return [RowGroupInfo.wrap(row_group) for row_group in c_row_groups]
 
-    def split_by_row_group(self, Expression predicate=None):
+    def split_by_row_group(self, Expression predicate=None,
+                           Schema schema=None):
         """
         Split the fragment into multiple fragments.
 
@@ -826,6 +898,9 @@ cdef class ParquetFileFragment(FileFragment):
         ----------
         predicate : Expression, default None
             Exclude RowGroups whose statistics contradicts the predicate.
+        schema : Schema, default None
+            Schema to use when filtering row groups. Defaults to the
+            Fragment's phsyical schema
 
         Returns
         -------
@@ -836,7 +911,7 @@ cdef class ParquetFileFragment(FileFragment):
             shared_ptr[CExpression] c_predicate
             shared_ptr[CFragment] c_fragment
 
-        schema = self.physical_schema
+        schema = schema or self.physical_schema
         c_predicate = _insert_implicit_casts(predicate, schema)
         with nogil:
             c_fragments = move(GetResultValue(
@@ -937,27 +1012,25 @@ cdef class ParquetFileFormat(FileFormat):
     def __reduce__(self):
         return ParquetFileFormat, (self.read_options,)
 
-    def make_fragment(self, str path not None, FileSystem filesystem not None,
+    def make_fragment(self, file, filesystem=None,
                       Expression partition_expression=None, row_groups=None):
         cdef:
-            shared_ptr[CFileFragment] c_fragment
             vector[int] c_row_groups
 
         partition_expression = partition_expression or _true
 
         if row_groups is None:
-            return super().make_fragment(path, filesystem,
+            return super().make_fragment(file, filesystem,
                                          partition_expression)
 
-        for row_group in set(row_groups):
-            c_row_groups.push_back(<int> row_group)
+        c_source = FileSource(file, filesystem).unwrap()
+        c_row_groups = [<int> row_group for row_group in set(row_groups)]
 
-        c_fragment = GetResultValue(
-            self.parquet_format.MakeFragment(CFileSource(tobytes(path),
-                                                         filesystem.unwrap()),
+        c_fragment = <shared_ptr[CFragment]> GetResultValue(
+            self.parquet_format.MakeFragment(move(c_source),
                                              partition_expression.unwrap(),
                                              move(c_row_groups)))
-        return Fragment.wrap(<shared_ptr[CFragment]> move(c_fragment))
+        return Fragment.wrap(move(c_fragment))
 
 
 cdef class IpcFileFormat(FileFormat):
@@ -1015,16 +1088,18 @@ cdef class Partitioning:
 
     @staticmethod
     cdef wrap(const shared_ptr[CPartitioning]& sp):
-        cdef Partitioning self
+        type_name = frombytes(sp.get().type_name())
 
-        typ = frombytes(sp.get().type_name())
-        if typ == 'schema':
-            self = DirectoryPartitioning.__new__(DirectoryPartitioning)
-        elif typ == 'hive':
-            self = HivePartitioning.__new__(HivePartitioning)
-        else:
-            raise TypeError(typ)
+        classes = {
+            'schema': DirectoryPartitioning,
+            'hive': HivePartitioning,
+        }
 
+        class_ = classes.get(type_name, None)
+        if class_ is None:
+            raise TypeError(type_name)
+
+        cdef Partitioning self = class_.__new__(class_)
         self.init(sp)
         return self
 
@@ -1303,6 +1378,9 @@ cdef class FileSystemFactoryOptions:
         partition_base_dir prefix will be skipped for partitioning discovery.
         The ignored files will still be part of the Dataset, but will not
         have partition information.
+    partitioning: Partitioning/PartitioningFactory, optional
+       Apply the Partitioning to every discovered Fragment. See Partitioning or
+       PartitioningFactory documentation.
     exclude_invalid_files : bool, optional (default True)
         If True, invalid files will be excluded (file format specific check).
         This will incur IO for each files in a serial and single threaded
@@ -1426,24 +1504,23 @@ cdef class FileSystemDatasetFactory(DatasetFactory):
                  FileSystemFactoryOptions options=None):
         cdef:
             vector[c_string] paths
-            CFileSelector selector
+            CFileSelector c_selector
             CResult[shared_ptr[CDatasetFactory]] result
             shared_ptr[CFileSystem] c_filesystem
             shared_ptr[CFileFormat] c_format
             CFileSystemFactoryOptions c_options
 
+        options = options or FileSystemFactoryOptions()
+        c_options = options.unwrap()
         c_filesystem = filesystem.unwrap()
         c_format = format.unwrap()
 
-        options = options or FileSystemFactoryOptions()
-        c_options = options.unwrap()
-
         if isinstance(paths_or_selector, FileSelector):
             with nogil:
-                selector = (<FileSelector>paths_or_selector).selector
+                c_selector = (<FileSelector> paths_or_selector).selector
                 result = CFileSystemDatasetFactory.MakeFromSelector(
                     c_filesystem,
-                    selector,
+                    c_selector,
                     c_format,
                     c_options
                 )
@@ -1493,6 +1570,82 @@ cdef class UnionDatasetFactory(DatasetFactory):
         self.union_factory = <CUnionDatasetFactory*> sp.get()
 
 
+cdef class ParquetFactoryOptions:
+    """
+    Influences the discovery of parquet dataset.
+
+    Parameters
+    ----------
+    partition_base_dir : str, optional
+        For the purposes of applying the partitioning, paths will be
+        stripped of the partition_base_dir. Files not matching the
+        partition_base_dir prefix will be skipped for partitioning discovery.
+        The ignored files will still be part of the Dataset, but will not
+        have partition information.
+    partitioning : Partitioning, PartitioningFactory, optional
+        The partitioning scheme applied to fragments, see ``Partitioning``.
+    """
+
+    cdef:
+        CParquetFactoryOptions options
+
+    __slots__ = ()  # avoid mistakingly creating attributes
+
+    def __init__(self, partition_base_dir=None, partitioning=None):
+        if isinstance(partitioning, PartitioningFactory):
+            self.partitioning_factory = partitioning
+        elif isinstance(partitioning, Partitioning):
+            self.partitioning = partitioning
+
+        if partition_base_dir is not None:
+            self.partition_base_dir = partition_base_dir
+
+    cdef inline CParquetFactoryOptions unwrap(self):
+        return self.options
+
+    @property
+    def partitioning(self):
+        """Partitioning to apply to discovered files.
+
+        NOTE: setting this property will overwrite partitioning_factory.
+        """
+        c_partitioning = self.options.partitioning.partitioning()
+        if c_partitioning.get() == nullptr:
+            return None
+        return Partitioning.wrap(c_partitioning)
+
+    @partitioning.setter
+    def partitioning(self, Partitioning value):
+        self.options.partitioning = (<Partitioning> value).unwrap()
+
+    @property
+    def partitioning_factory(self):
+        """PartitioningFactory to apply to discovered files and
+        discover a Partitioning.
+
+        NOTE: setting this property will overwrite partitioning.
+        """
+        c_factory = self.options.partitioning.factory()
+        if c_factory.get() == nullptr:
+            return None
+        return PartitioningFactory.wrap(c_factory)
+
+    @partitioning_factory.setter
+    def partitioning_factory(self, PartitioningFactory value):
+        self.options.partitioning = (<PartitioningFactory> value).unwrap()
+
+    @property
+    def partition_base_dir(self):
+        """
+        Base directory to strip paths before applying the partitioning.
+        """
+        return frombytes(self.options.partition_base_dir)
+
+    @partition_base_dir.setter
+    def partition_base_dir(self, value):
+        self.options.partition_base_dir = tobytes(value)
+
+
 cdef class ParquetDatasetFactory(DatasetFactory):
     """
     Create a ParquetDatasetFactory from a Parquet `_metadata` file.
@@ -1507,26 +1660,32 @@ cdef class ParquetDatasetFactory(DatasetFactory):
         files.
     format : ParquetFileFormat
         Parquet format options.
+    options : ParquetFactoryOptions, optional
+        Various flags influencing the discovery of filesystem paths.
     """
 
     cdef:
         CParquetDatasetFactory* parquet_factory
 
     def __init__(self, metadata_path, FileSystem filesystem not None,
-                 FileFormat format not None):
+                 FileFormat format not None,
+                 ParquetFactoryOptions options=None):
         cdef:
             c_string path
             shared_ptr[CFileSystem] c_filesystem
             shared_ptr[CParquetFileFormat] c_format
             CResult[shared_ptr[CDatasetFactory]] result
+            CParquetFactoryOptions c_options
 
         c_path = tobytes(metadata_path)
         c_filesystem = filesystem.unwrap()
         c_format = static_pointer_cast[CParquetFileFormat, CFileFormat](
             format.unwrap())
+        options = options or ParquetFactoryOptions()
+        c_options = options.unwrap()
 
         result = CParquetDatasetFactory.MakeFromMetaDataPath(
-            c_path, c_filesystem, c_format)
+            c_path, c_filesystem, c_format, c_options)
         self.init(GetResultValue(result))
 
     cdef init(self, shared_ptr[CDatasetFactory]& sp):
@@ -1691,8 +1850,7 @@ cdef class Scanner:
         context = _build_scan_context(use_threads=use_threads,
                                       memory_pool=memory_pool)
 
-        if schema is None:
-            schema = fragment.physical_schema
+        schema = schema or fragment.physical_schema
 
         builder = make_shared[CScannerBuilder](pyarrow_unwrap_schema(schema),
                                                fragment.unwrap(), context)

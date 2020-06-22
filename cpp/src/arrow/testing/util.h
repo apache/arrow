@@ -169,6 +169,11 @@ Result<std::shared_ptr<Array>> ArrayFromBuilderVisitor(
   return ArrayFromBuilderVisitor(type, length, length, std::forward<Fn>(fn));
 }
 
+static inline std::vector<std::shared_ptr<DataType> (*)(FieldVector, std::vector<int8_t>)>
+UnionTypeFactories() {
+  return {sparse_union, dense_union};
+}
+
 // Get a TCP port number to listen on.  This is a different number every time,
 // as reusing the same port across tests can produce spurious bind errors on
 // Windows.

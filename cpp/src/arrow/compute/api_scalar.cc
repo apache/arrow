@@ -17,11 +17,13 @@
 
 #include "arrow/compute/api_scalar.h"
 
+#include <memory>
 #include <sstream>
 #include <string>
-#include <utility>
 
 #include "arrow/compute/exec.h"
+#include "arrow/status.h"
+#include "arrow/type.h"
 
 namespace arrow {
 namespace compute {
@@ -39,7 +41,16 @@ namespace compute {
 // ----------------------------------------------------------------------
 // Arithmetic
 
-SCALAR_EAGER_BINARY(Add, "add")
+#define SCALAR_ARITHMETIC_BINARY(NAME, REGISTRY_NAME, REGISTRY_CHECKED_NAME)           \
+  Result<Datum> NAME(const Datum& left, const Datum& right, ArithmeticOptions options, \
+                     ExecContext* ctx) {                                               \
+    auto func_name = (options.check_overflow) ? REGISTRY_CHECKED_NAME : REGISTRY_NAME; \
+    return CallFunction(func_name, {left, right}, ctx);                                \
+  }
+
+SCALAR_ARITHMETIC_BINARY(Add, "add", "add_checked")
+SCALAR_ARITHMETIC_BINARY(Subtract, "subtract", "subtract_checked")
+SCALAR_ARITHMETIC_BINARY(Multiply, "multiply", "multiply_checked")
 
 // ----------------------------------------------------------------------
 // Set-related operations
@@ -108,6 +119,12 @@ Result<Datum> Compare(const Datum& left, const Datum& right, CompareOptions opti
   }
   return CallFunction(func_name, {left, right}, &options, ctx);
 }
+
+// ----------------------------------------------------------------------
+// Validity functions
+
+SCALAR_EAGER_UNARY(IsValid, "is_valid")
+SCALAR_EAGER_UNARY(IsNull, "is_null")
 
 }  // namespace compute
 }  // namespace arrow

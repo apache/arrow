@@ -208,7 +208,8 @@ impl ProjectionPushDown {
             )),
             Expr::Column(i) => Ok(Expr::Column(self.new_index(mapping, i)?)),
             Expr::UnresolvedColumn(_) => Err(ExecutionError::ExecutionError(
-                "Columns need to be resolved before this rule can run".to_owned(),
+                "Columns need to be resolved before projection push down rule can run"
+                    .to_owned(),
             )),
             Expr::Literal(_) => Ok(expr.clone()),
             Expr::Not(e) => Ok(Expr::Not(Box::new(self.rewrite_expr(e, mapping)?))),
@@ -225,9 +226,14 @@ impl ProjectionPushDown {
                 expr: Box::new(self.rewrite_expr(expr, mapping)?),
                 data_type: data_type.clone(),
             }),
-            Expr::Sort { expr, asc } => Ok(Expr::Sort {
+            Expr::Sort {
+                expr,
+                asc,
+                nulls_first,
+            } => Ok(Expr::Sort {
                 expr: Box::new(self.rewrite_expr(expr, mapping)?),
                 asc: *asc,
+                nulls_first: *nulls_first,
             }),
             Expr::AggregateFunction {
                 name,

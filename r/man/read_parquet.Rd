@@ -13,7 +13,10 @@ read_parquet(
 )
 }
 \arguments{
-\item{file}{A character file name, \code{raw} vector, or an Arrow input stream}
+\item{file}{A character file name, \code{raw} vector, or an Arrow input stream.
+If a file name, a memory-mapped Arrow \link{InputStream} will be opened and
+closed when finished. If an input stream is provided, it will be left
+open.}
 
 \item{col_select}{A character vector of column names to keep, as in the
 "select" argument to \code{data.table::fread()}, or a
@@ -40,7 +43,7 @@ This function enables you to read Parquet files into R.
 tf <- tempfile()
 on.exit(unlink(tf))
 write_parquet(mtcars, tf)
-df <- read_parquet(tf)
+df <- read_parquet(tf, col_select = starts_with("d"))
 head(df)
 }
 }

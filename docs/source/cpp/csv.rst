@@ -107,6 +107,8 @@ column.  Type inference considers the following data types, in order:
 * Boolean
 * Timestamp (with seconds unit)
 * Float64
+* Dictionary<String> (if :member:`ConvertOptions::auto_dict_encode` is true)
+* Dictionary<Binary> (if :member:`ConvertOptions::auto_dict_encode` is true)
 * String
 * Binary
 
@@ -126,6 +128,15 @@ can be chosen from the following list:
 
 Other data types do not support conversion from CSV values and will error out.
 
+Dictionary inference
+--------------------
+
+If type inference is enabled and :member:`ConvertOptions::auto_dict_encode`
+is true, the CSV reader first tries to convert string-like columns to a
+dictionary-encoded string-like array.  It switches to a plain string-like
+array when the threshold in :member:`ConvertOptions::auto_dict_max_cardinality`
+is reached.
+
 Nulls
 -----
 
@@ -133,6 +144,12 @@ Null values are recognized from the spellings stored in
 :member:`ConvertOptions::null_values`.  The :func:`ConvertOptions::Defaults`
 factory method will initialize a number of conventional null spellings such
 as ``N/A``.
+
+Character encoding
+------------------
+
+CSV files are expected to be encoded in UTF8.  However, non-UTF8 data
+is accepted for Binary columns.
 
 Performance
 ===========

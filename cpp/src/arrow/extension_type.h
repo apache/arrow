@@ -23,8 +23,13 @@
 #include <memory>
 #include <string>
 
-#include "arrow/array.h"
+#include "arrow/array/array_base.h"
+#include "arrow/array/data.h"
+#include "arrow/result.h"
+#include "arrow/status.h"
 #include "arrow/type.h"
+#include "arrow/util/checked_cast.h"
+#include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -68,11 +73,6 @@ class ARROW_EXPORT ExtensionType : public DataType {
   virtual Result<std::shared_ptr<DataType>> Deserialize(
       std::shared_ptr<DataType> storage_type,
       const std::string& serialized_data) const = 0;
-
-  ARROW_DEPRECATED("Use Result-returning version")
-  Status Deserialize(std::shared_ptr<DataType> storage_type,
-                     const std::string& serialized_data,
-                     std::shared_ptr<DataType>* out) const;
 
   /// \brief Create a serialized representation of the extension type's
   /// metadata. The storage type will be handled automatically in IPC code

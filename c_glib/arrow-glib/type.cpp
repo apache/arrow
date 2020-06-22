@@ -96,8 +96,10 @@ garrow_type_from_raw(arrow::Type::type type)
     return GARROW_TYPE_STRUCT;
   case arrow::Type::type::MAP:
     return GARROW_TYPE_MAP;
-  case arrow::Type::type::UNION:
-    return GARROW_TYPE_UNION;
+  case arrow::Type::type::SPARSE_UNION:
+    return GARROW_TYPE_SPARSE_UNION;
+  case arrow::Type::type::DENSE_UNION:
+    return GARROW_TYPE_DENSE_UNION;
   case arrow::Type::type::DICTIONARY:
     return GARROW_TYPE_DICTIONARY;
   default:

@@ -195,7 +195,11 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         const c_string& path() const
         const shared_ptr[CFileSystem]& filesystem() const
         const shared_ptr[CBuffer]& buffer() const
-        CFileSource(c_string path, shared_ptr[CFileSystem] filesystem)
+        # HACK: Cython can't handle all the overloads so don't declare them.
+        # This means invalid construction of CFileSource won't be caught in
+        # the C++ generation phase (though it will still be caught when
+        # the generated C++ is compiled).
+        CFileSource(...)
 
     cdef cppclass CFileFormat "arrow::dataset::FileFormat":
         c_string type_name() const
@@ -322,13 +326,19 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             CFileSystemFactoryOptions options
         )
 
+    cdef cppclass CParquetFactoryOptions \
+            "arrow::dataset::ParquetFactoryOptions":
+        CPartitioningOrFactory partitioning
+        c_string partition_base_dir
+
     cdef cppclass CParquetDatasetFactory \
             "arrow::dataset::ParquetDatasetFactory"(CDatasetFactory):
         @staticmethod
         CResult[shared_ptr[CDatasetFactory]] MakeFromMetaDataPath "Make"(
             const c_string& metadata_path,
             shared_ptr[CFileSystem] filesystem,
-            shared_ptr[CParquetFileFormat] format
+            shared_ptr[CParquetFileFormat] format,
+            CParquetFactoryOptions options
         )
 
         @staticmethod
@@ -336,5 +346,6 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             const CFileSource& metadata_path,
             const c_string& base_path,
             shared_ptr[CFileSystem] filesystem,
-            shared_ptr[CParquetFileFormat] format
+            shared_ptr[CParquetFileFormat] format,
+            CParquetFactoryOptions options
         )

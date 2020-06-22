@@ -249,7 +249,7 @@ Status DeserializeSequence(PyObject* context, const Array& array, int64_t start_
                            const SerializedPyObject& blobs,
                            CreateSequenceFn&& create_sequence, SetItemFn&& set_item,
                            PyObject** out) {
-  const auto& data = checked_cast<const UnionArray&>(array);
+  const auto& data = checked_cast<const DenseUnionArray&>(array);
   OwnedRef result(create_sequence(stop_idx - start_idx));
   RETURN_IF_PYERROR();
   const int8_t* type_codes = data.raw_type_codes();
@@ -433,7 +433,7 @@ Status GetSerializedFromComponents(int num_tensors,
 
   // Zero-copy reconstruct sparse tensors
   for (int i = 0, n = num_sparse_tensors.num_total_tensors(); i < n; ++i) {
-    ipc::internal::IpcPayload payload;
+    ipc::IpcPayload payload;
     RETURN_NOT_OK(GetBuffer(buffer_index++, &payload.metadata));
 
     ARROW_ASSIGN_OR_RAISE(

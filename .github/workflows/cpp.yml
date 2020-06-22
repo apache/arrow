@@ -92,6 +92,98 @@ jobs:
         continue-on-error: true
         run: archery docker push ${{ matrix.image }}
 
+  docker-arm:
+    # NOTE: this job is specific for self-hosted runners
+    # CACHING: don't use the cache plugin because of various permission
+    #          issues and keep the cached docker volumes permanently on the
+    #          host
+    # PYTHON: no distributions are built for arm machines by the github
+    #         actions team, so python>3.6 must be preinstalled on the self
+    #         hosted machines
+    name: ${{ matrix.title }}
+    runs-on: ${{ matrix.runner }}
+    if: github.event_name == 'push'
+    defaults:
+      # to use certain environment variables are set by .bashrc an interactive
+      # bash shell must be used
+      run:
+        shell: bash -i {0}
+    strategy:
+      fail-fast: false
+      matrix:
+        name:
+          - arm32v7-debian-10-cpp
+          - arm64v8-ubuntu-20.04-cpp
+        include:
+          - name: arm32v7-debian-10-cpp
+            debian: 10
+            title: ARM32v7 Debian 10 C++
+            image: |
+              -e CPP_MAKE_PARALLELISM=4 \
+              -e CXXFLAGS=-Wno-psabi \
+              -e ARROW_PARQUET=OFF \
+              -e ARROW_FLIGHT=OFF \
+              -e ARROW_GANDIVA=OFF \
+              -e CMAKE_ARGS=-DARROW_CPU_FLAG=armv7 \
+              debian-cpp
+            arch: 'arm32v7'
+            runner: [self-hosted, linux, ARM]
+          - name: arm64v8-ubuntu-20.04-cpp
+            ubuntu: 20.04
+            title: ARM64v8 Ubuntu 20.04 C++
+            image: |
+              -e CPP_MAKE_PARALLELISM=1 \
+              -e ARROW_PARQUET=OFF \
+              ubuntu-cpp
+            arch: 'arm64v8'
+            runner: [self-hosted, linux, ARM64]
+    env:
+      # the defaults here should correspond to the values in .env
+      ARCH: ${{ matrix.arch || 'arm64v8' }}
+      DEBIAN: ${{ matrix.debian || 10 }}
+      FEDORA: ${{ matrix.fedora || 32 }}
+      UBUNTU: ${{ matrix.ubuntu || 18.04 }}
+      LLVM: 8
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        run: ci/scripts/util_checkout.sh
+      - name: Setup Archery
+        run: pip install -U -e dev/archery[docker]
+      - name: Execute Docker Build
+        # parallelism is reduced because the ARM builders are low on memory
+        run: |
+          ulimit -c unlimited
+          archery docker run ${{ matrix.image }}
+      - name: Docker Push
+        if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
+        continue-on-error: true
+        run: archery docker push ${{ matrix.image }}
+
+  build-example:
+    name: C++ Minimal Build Example
+    runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    strategy:
+      fail-fast: false
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Build Docker image
+        run: |
+          cd cpp/examples/minimal_build
+          docker build -t arrow_cpp_minimal .
+      - name: Compile and run example
+        run: |
+          ARROW_ROOT=$PWD
+          cd cpp/examples/minimal_build
+          docker run -v $PWD:/io -v $ARROW_ROOT:/arrow arrow_cpp_minimal /io/run.sh
+
   macos:
     name: AMD64 MacOS 10.15 C++
     runs-on: macos-latest
@@ -152,29 +244,32 @@ jobs:
             name: Windows 2019
             generator: Visual Studio 16 2019
     env:
+      ARROW_BOOST_USE_SHARED: OFF
+      ARROW_BUILD_BENCHMARKS: ON
+      ARROW_BUILD_SHARED: ON
+      ARROW_BUILD_STATIC: OFF
+      ARROW_BUILD_TESTS: ON
+      ARROW_DATASET: ON
+      ARROW_FLIGHT: OFF
+      ARROW_HDFS: ON
+      ARROW_HOME: /usr
+      ARROW_JEMALLOC: OFF
+      ARROW_MIMALLOC: ON
+      ARROW_PARQUET: ON
+      ARROW_USE_GLOG: OFF
+      ARROW_VERBOSE_THIRDPARTY_BUILD: OFF
+      ARROW_WITH_BROTLI: OFF
+      ARROW_WITH_BZ2: OFF
+      ARROW_WITH_LZ4: OFF
+      ARROW_WITH_SNAPPY: ON
+      ARROW_WITH_ZLIB: ON
+      ARROW_WITH_ZSTD: ON
+      BOOST_SOURCE: BUNDLED
       CMAKE_ARGS: '-A x64 -DOPENSSL_ROOT_DIR=C:\Program Files\OpenSSL-Win64'
       CMAKE_GENERATOR: ${{ matrix.generator }}
       CMAKE_INSTALL_LIBDIR: bin
       CMAKE_INSTALL_PREFIX: /usr
       CMAKE_UNITY_BUILD: ON
-      ARROW_HOME: /usr
-      ARROW_DATASET: ON
-      ARROW_JEMALLOC: OFF
-      ARROW_FLIGHT: OFF
-      ARROW_HDFS: ON
-      ARROW_PARQUET: ON
-      ARROW_WITH_ZLIB: ON
-      ARROW_WITH_LZ4: OFF
-      ARROW_WITH_BZ2: OFF
-      ARROW_WITH_ZSTD: ON
-      ARROW_WITH_SNAPPY: ON
-      ARROW_WITH_BROTLI: OFF
-      ARROW_USE_GLOG: OFF
-      ARROW_BUILD_TESTS: ON
-      ARROW_BUILD_SHARED: ON
-      ARROW_BUILD_STATIC: OFF
-      ARROW_BOOST_USE_SHARED: OFF
-      ARROW_VERBOSE_THIRDPARTY_BUILD: OFF
       NPROC: 2
     steps:
       - name: Disable Crash Dialogs
@@ -199,7 +294,6 @@ jobs:
       - name: Build
         shell: bash
         run: |
-          export BOOST_ROOT=$BOOST_ROOT_1_72_0
           ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
       - name: Test
         shell: bash
@@ -218,12 +312,13 @@ jobs:
     env:
       ARROW_BUILD_SHARED: ON
       ARROW_BUILD_STATIC: OFF
-      ARROW_BUILD_TYPE: release
       ARROW_BUILD_TESTS: ON
+      ARROW_BUILD_TYPE: release
       ARROW_DATASET: ON
       ARROW_FLIGHT: ON
+      ARROW_GANDIVA: ON
       ARROW_HDFS: OFF
-      ARROW_HOME: /mingw{{ matrix.mingw-n-bits }}
+      ARROW_HOME: /mingw${{ matrix.mingw-n-bits }}
       ARROW_JEMALLOC: OFF
       ARROW_PARQUET: ON
       ARROW_PYTHON: ON
@@ -243,7 +338,6 @@ jobs:
         -DBoost_NO_BOOST_CMAKE=ON
       CMAKE_GENERATOR: MSYS Makefiles
       CMAKE_UNITY_BUILD: ON
-      NPROC: 2
     steps:
       - name: Disable Crash Dialogs
         run: |
@@ -268,6 +362,12 @@ jobs:
           . ..\env.ps1
           bash ci\scripts\msys2_system_upgrade.sh
           bash ci\scripts\msys2_setup.sh cpp
+      - name: Cache ccache
+        uses: actions/cache@v1
+        with:
+          path: ccache
+          key: cpp-ccache-mingw${{ matrix.mingw-n-bits }}-${{ hashFiles('cpp/**') }}
+          restore-keys: cpp-ccache-mingw${{ matrix.mingw-n-bits }}-
       - name: Build
         run: |
           . ..\env.ps1

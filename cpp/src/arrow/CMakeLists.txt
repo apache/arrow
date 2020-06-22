@@ -120,7 +120,12 @@ function(ADD_ARROW_BENCHMARK REL_TEST_NAME)
 endfunction()
 
 set(ARROW_SRCS
-    array.cc
+    array/array_base.cc
+    array/array_binary.cc
+    array/array_decimal.cc
+    array/array_dict.cc
+    array/array_nested.cc
+    array/array_primitive.cc
     array/builder_adaptive.cc
     array/builder_base.cc
     array/builder_binary.cc
@@ -130,11 +135,13 @@ set(ARROW_SRCS
     array/builder_primitive.cc
     array/builder_union.cc
     array/concatenate.cc
-    array/dict_internal.cc
+    array/data.cc
     array/diff.cc
+    array/util.cc
     array/validate.cc
     builder.cc
     buffer.cc
+    chunked_array.cc
     compare.cc
     datum.cc
     device.cc
@@ -167,7 +174,11 @@ set(ARROW_SRCS
     io/slow.cc
     testing/util.cc
     util/basic_decimal.cc
+    util/bit_block_counter.cc
     util/bit_util.cc
+    util/bitmap.cc
+    util/bitmap_builders.cc
+    util/bitmap_ops.cc
     util/compression.cc
     util/cpu_info.cc
     util/decimal.cc
@@ -199,6 +210,10 @@ set(ARROW_SRCS
     vendored/double-conversion/fixed-dtoa.cc
     vendored/double-conversion/diy-fp.cc
     vendored/double-conversion/strtod.cc)
+
+if(APPLE)
+  list(APPEND ARROW_SRCS vendored/datetime/ios.mm)
+endif()
 
 set(ARROW_C_SRCS
     vendored/musl/strptime.c
@@ -340,10 +355,12 @@ if(ARROW_COMPUTE)
               compute/kernels/scalar_cast_temporal.cc
               compute/kernels/scalar_compare.cc
               compute/kernels/scalar_set_lookup.cc
-              compute/kernels/vector_filter.cc
+              compute/kernels/scalar_string.cc
+              compute/kernels/scalar_validity.cc
+              compute/kernels/util_internal.cc
               compute/kernels/vector_hash.cc
-              compute/kernels/vector_sort.cc
-              compute/kernels/vector_take.cc)
+              compute/kernels/vector_selection.cc
+              compute/kernels/vector_sort.cc)
 endif()
 
 if(ARROW_FILESYSTEM)
@@ -510,18 +527,18 @@ install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/arrow-config.cmake
 #
 # Unit tests
 #
-
 add_arrow_test(array_test
                SOURCES
-               array_test.cc
-               array_binary_test.cc
-               array_dict_test.cc
-               array_list_test.cc
-               array_struct_test.cc
-               array_union_test.cc
-               array_view_test.cc
+               array/array_test.cc
+               array/array_binary_test.cc
+               array/array_dict_test.cc
+               array/array_list_test.cc
+               array/array_struct_test.cc
+               array/array_union_test.cc
+               array/array_view_test.cc
                PRECOMPILED_HEADERS
                "$<$<COMPILE_LANGUAGE:CXX>:arrow/testing/pch.h>")
+
 add_arrow_test(buffer_test)
 
 if(ARROW_IPC)
@@ -549,7 +566,12 @@ set_source_files_properties(public_api_test.cc
 add_arrow_test(scalar_test)
 add_arrow_test(type_test)
 
-add_arrow_test(table_test SOURCES table_test.cc table_builder_test.cc)
+add_arrow_test(table_test
+               SOURCES
+               chunked_array_test.cc
+               record_batch_test.cc
+               table_test.cc
+               table_builder_test.cc)
 
 add_arrow_test(tensor_test)
 add_arrow_test(sparse_tensor_test)

@@ -17,7 +17,7 @@
 
 AC_PREREQ(2.65)
 
-m4_define([arrow_glib_version], 0.18.0-SNAPSHOT)
+m4_define([arrow_glib_version], 1.0.0-SNAPSHOT)
 AC_INIT([arrow-glib],
         arrow_glib_version,
         [https://issues.apache.org/jira/browse/ARROW],
@@ -155,6 +155,7 @@ if test "x$GARROW_ARROW_CPP_BUILD_DIR" = "x"; then
   arrow_packages="${arrow_packages} arrow-compute"
   arrow_packages="${arrow_packages} arrow-csv"
   arrow_packages="${arrow_packages} arrow-filesystem"
+  arrow_packages="${arrow_packages} arrow-json"
   PKG_CHECK_MODULES([ARROW], [${arrow_packages}])
   _PKG_CONFIG(ARROW_LIB_DIR, [variable=libdir], [arrow])
   ARROW_LIB_DIR="$pkg_cv_ARROW_LIB_DIR"
@@ -166,6 +167,10 @@ if test "x$GARROW_ARROW_CPP_BUILD_DIR" = "x"; then
                     [arrow-cuda],
                     [HAVE_ARROW_CUDA=yes],
                     [HAVE_ARROW_CUDA=no])
+  PKG_CHECK_MODULES([ARROW_DATASET],
+                    [arrow-dataset],
+                    [HAVE_ARROW_DATASET=yes],
+                    [HAVE_ARROW_DATASET=no])
   PKG_CHECK_MODULES([GANDIVA],
                     [gandiva],
                     [HAVE_GANDIVA=yes],
@@ -190,7 +195,7 @@ else
   AC_SUBST(ARROW_LIB_DIR)
 
   ARROW_CFLAGS="-I${ARROW_BUILD_INCLUDE_DIR} -I${ARROW_SOURCE_INCLUDE_DIR}"
-  ARROW_LIBS="-L${ARROW_LIB_DIR} -larrow"
+  ARROW_LIBS="-L\$(ARROW_LIB_DIR) -larrow"
   AC_SUBST(ARROW_CFLAGS)
   AC_SUBST(ARROW_LIBS)
 
@@ -200,10 +205,10 @@ else
     HAVE_ARROW_ORC=no
   fi
 
-  ARROW_CUDA_CFLAGS=""
+  ARROW_CUDA_CFLAGS="\$(ARROW_CFLAGS)"
   if test -f "${GARROW_ARROW_CPP_BUILD_DIR}/src/arrow/gpu/arrow-cuda.pc"; then
     HAVE_ARROW_CUDA=yes
-    ARROW_CUDA_LIBS="-larrow_cuda"
+    ARROW_CUDA_LIBS="-L\$(ARROW_LIB_DIR) -larrow_cuda -larrow"
     ARROW_CUDA_PKG_CONFIG_PATH="\$(ARROW_BUILD_DIR)/src/arrow/gpu"
   else
     HAVE_ARROW_CUDA=no
@@ -214,10 +219,21 @@ else
   AC_SUBST(ARROW_CUDA_LIBS)
   AC_SUBST(ARROW_CUDA_PKG_CONFIG_PATH)
 
-  GANDIVA_CFLAGS=""
+  ARROW_DATASET_CFLAGS="\$(ARROW_CFLAGS)"
+  if test -f "${GARROW_ARROW_CPP_BUILD_DIR}/src/arrow/dataset/arrow-dataset.pc"; then
+    HAVE_ARROW_DATASET=yes
+    ARROW_DATASET_LIBS="-L\$(ARROW_LIB_DIR) -larrow_dataset -lparquet -larrow"
+  else
+    HAVE_ARROW_DATASET=no
+    ARROW_DATASET_LIBS=""
+  fi
+  AC_SUBST(ARROW_DATASET_CFLAGS)
+  AC_SUBST(ARROW_DATASET_LIBS)
+
+  GANDIVA_CFLAGS="\$(ARROW_CFLAGS)"
   if test -f "${GARROW_ARROW_CPP_BUILD_DIR}/src/gandiva/gandiva.pc"; then
     HAVE_GANDIVA=yes
-    GANDIVA_LIBS="-lgandiva"
+    GANDIVA_LIBS="-L\$(ARROW_LIB_DIR) -lgandiva -larrow"
   else
     HAVE_GANDIVA=no
     GANDIVA_LIBS=""
@@ -225,10 +241,10 @@ else
   AC_SUBST(GANDIVA_CFLAGS)
   AC_SUBST(GANDIVA_LIBS)
 
-  PARQUET_CFLAGS=""
+  PARQUET_CFLAGS="\$(ARROW_CFLAGS)"
   if test -f "${GARROW_ARROW_CPP_BUILD_DIR}/src/parquet/parquet.pc"; then
     HAVE_PARQUET=yes
-    PARQUET_LIBS="-lparquet"
+    PARQUET_LIBS="-L\$(ARROW_LIB_DIR) -lparquet -larrow"
   else
     HAVE_PARQUET=no
     PARQUET_LIBS=""
@@ -236,10 +252,10 @@ else
   AC_SUBST(PARQUET_CFLAGS)
   AC_SUBST(PARQUET_LIBS)
 
-  PLASMA_CFLAGS=""
+  PLASMA_CFLAGS="\$(ARROW_CFLAGS)"
   if test -f "${GARROW_ARROW_CPP_BUILD_DIR}/src/plasma/plasma.pc"; then
     HAVE_PLASMA=yes
-    PLASMA_LIBS="-lplasma"
+    PLASMA_LIBS="-L\$(ARROW_LIB_DIR) -lplasma -larrow"
   else
     HAVE_PLASMA=no
     PLASMA_LIBS=""
@@ -271,6 +287,11 @@ fi
 AC_SUBST(ARROW_CUDA_GLIB_PACKAGE)
 AC_SUBST(PLASMA_ARROW_CUDA_PKG_CONFIG_PATH)
 
+AM_CONDITIONAL([HAVE_ARROW_DATASET], [test "$HAVE_ARROW_DATASET" = "yes"])
+if test "$HAVE_ARROW_DATASET" = "yes"; then
+  AC_DEFINE(HAVE_ARROW_DATASET, [1], [Define to 1 if Apache Arrow Datasets exists.])
+fi
+
 AM_CONDITIONAL([HAVE_GANDIVA], [test "$HAVE_GANDIVA" = "yes"])
 if test "$HAVE_GANDIVA" = "yes"; then
   AC_DEFINE(HAVE_GANDIVA, [1], [Define to 1 if Gandiva exists.])
@@ -293,6 +314,8 @@ AC_CONFIG_FILES([
   Makefile
   arrow-cuda-glib/Makefile
   arrow-cuda-glib/arrow-cuda-glib.pc
+  arrow-dataset-glib/Makefile
+  arrow-dataset-glib/arrow-dataset-glib.pc
   arrow-glib/Makefile
   arrow-glib/arrow-glib.pc
   arrow-glib/arrow-orc-glib.pc
@@ -306,6 +329,8 @@ AC_CONFIG_FILES([
   plasma-glib/Makefile
   plasma-glib/plasma-glib.pc
   doc/Makefile
+  doc/arrow-dataset-glib/Makefile
+  doc/arrow-dataset-glib/entities.xml
   doc/arrow-glib/Makefile
   doc/arrow-glib/entities.xml
   doc/gandiva-glib/Makefile

@@ -21,8 +21,12 @@
 #include <cstring>
 #include <limits>
 
+#include "arrow/array/data.h"
+#include "arrow/type.h"
+#include "arrow/util/bit_block_counter.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/macros.h"
 
 namespace arrow {
 namespace internal {
@@ -441,6 +445,95 @@ INSTANTIATE_ALL()
 #undef INSTANTIATE
 #undef INSTANTIATE_ALL
 #undef INSTANTIATE_ALL_DEST
+
+template <typename IndexCType, bool IsSigned = std::is_signed<IndexCType>::value>
+Status IndexBoundsCheckImpl(const ArrayData& indices, uint64_t upper_limit) {
+  // For unsigned integers, if the values array is larger than the maximum
+  // index value (e.g. especially for UINT8 / UINT16), then there is no need to
+  // boundscheck.
+  if (!IsSigned &&
+      upper_limit > static_cast<uint64_t>(std::numeric_limits<IndexCType>::max())) {
+    return Status::OK();
+  }
+
+  const IndexCType* indices_data = indices.GetValues<IndexCType>(1);
+  const uint8_t* bitmap = nullptr;
+  if (indices.buffers[0]) {
+    bitmap = indices.buffers[0]->data();
+  }
+  auto IsOutOfBounds = [&](int64_t i) -> bool {
+    return (
+        (IsSigned && indices_data[i] < 0) ||
+        (indices_data[i] >= 0 && static_cast<uint64_t>(indices_data[i]) >= upper_limit));
+  };
+  OptionalBitBlockCounter indices_bit_counter(bitmap, indices.offset, indices.length);
+  int64_t position = 0;
+  while (position < indices.length) {
+    BitBlockCount block = indices_bit_counter.NextBlock();
+    bool block_out_of_bounds = false;
+    if (block.popcount == block.length) {
+      // Fast path: branchless
+      for (int64_t i = 0; i < block.length; ++i) {
+        block_out_of_bounds |= IsOutOfBounds(i);
+      }
+    } else if (block.popcount > 0) {
+      // Indices have nulls, must only boundscheck non-null values
+      for (int64_t i = 0; i < block.length; ++i) {
+        if (BitUtil::GetBit(bitmap, indices.offset + position + i)) {
+          block_out_of_bounds |= IsOutOfBounds(i);
+        }
+      }
+    }
+    if (ARROW_PREDICT_FALSE(block_out_of_bounds)) {
+      if (indices.GetNullCount() > 0) {
+        for (int64_t i = 0; i < block.length; ++i) {
+          if (BitUtil::GetBit(bitmap, indices.offset + position + i)) {
+            if (IsOutOfBounds(i)) {
+              return Status::IndexError("Index ", static_cast<int64_t>(indices_data[i]),
+                                        " out of bounds");
+            }
+          }
+        }
+      } else {
+        for (int64_t i = 0; i < block.length; ++i) {
+          if (IsOutOfBounds(i)) {
+            return Status::IndexError("Index ", static_cast<int64_t>(indices_data[i]),
+                                      " out of bounds");
+          }
+        }
+      }
+    }
+    indices_data += block.length;
+    position += block.length;
+  }
+  return Status::OK();
+}
+
+/// \brief Branchless boundschecking of the indices. Processes batches of
+/// indices at a time and shortcircuits when encountering an out-of-bounds
+/// index in a batch
+Status IndexBoundsCheck(const ArrayData& indices, uint64_t upper_limit) {
+  switch (indices.type->id()) {
+    case Type::INT8:
+      return IndexBoundsCheckImpl<int8_t>(indices, upper_limit);
+    case Type::INT16:
+      return IndexBoundsCheckImpl<int16_t>(indices, upper_limit);
+    case Type::INT32:
+      return IndexBoundsCheckImpl<int32_t>(indices, upper_limit);
+    case Type::INT64:
+      return IndexBoundsCheckImpl<int64_t>(indices, upper_limit);
+    case Type::UINT8:
+      return IndexBoundsCheckImpl<uint8_t>(indices, upper_limit);
+    case Type::UINT16:
+      return IndexBoundsCheckImpl<uint16_t>(indices, upper_limit);
+    case Type::UINT32:
+      return IndexBoundsCheckImpl<uint32_t>(indices, upper_limit);
+    case Type::UINT64:
+      return IndexBoundsCheckImpl<uint64_t>(indices, upper_limit);
+    default:
+      return Status::Invalid("Invalid index type for boundschecking");
+  }
+}
 
 }  // namespace internal
 }  // namespace arrow

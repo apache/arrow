@@ -301,8 +301,8 @@ class SequenceBuilder {
 class DictBuilder {
  public:
   explicit DictBuilder(MemoryPool* pool = nullptr) : keys_(pool), vals_(pool) {
-    builder_.reset(new StructBuilder(struct_({field("keys", union_(UnionMode::DENSE)),
-                                              field("vals", union_(UnionMode::DENSE))}),
+    builder_.reset(new StructBuilder(struct_({field("keys", dense_union(FieldVector{})),
+                                              field("vals", dense_union(FieldVector{}))}),
                                      pool, {keys_.builder(), vals_.builder()}));
   }
 
@@ -371,7 +371,7 @@ Status CallCustomCallback(PyObject* context, PyObject* method_name, PyObject* el
                                       ": handler not registered");
   } else {
     *result = PyObject_CallMethodObjArgs(context, method_name, elem, NULL);
-    return PassPyError();
+    return CheckPyError();
   }
 }
 
@@ -713,7 +713,7 @@ Status SerializedPyObject::GetComponents(MemoryPool* memory_pool, PyObject** out
 
   OwnedRef result(PyDict_New());
   PyObject* buffers = PyList_New(0);
-  PyObject* num_sparse_tensors;
+  PyObject* num_sparse_tensors = nullptr;
 
   // TODO(wesm): Not sure how pedantic we need to be about checking the return
   // values of these functions. There are other places where we do not check
@@ -767,9 +767,8 @@ Status SerializedPyObject::GetComponents(MemoryPool* memory_pool, PyObject** out
 
   // For each sparse tensor, get a metadata buffer and buffers containing index and data
   for (const auto& sparse_tensor : this->sparse_tensors) {
-    ipc::internal::IpcPayload payload;
-    RETURN_NOT_OK(
-        ipc::internal::GetSparseTensorPayload(*sparse_tensor, memory_pool, &payload));
+    ipc::IpcPayload payload;
+    RETURN_NOT_OK(ipc::GetSparseTensorPayload(*sparse_tensor, memory_pool, &payload));
     RETURN_NOT_OK(PushBuffer(payload.metadata));
     for (const auto& body : payload.body_buffers) {
       RETURN_NOT_OK(PushBuffer(body));

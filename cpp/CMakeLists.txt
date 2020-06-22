@@ -18,7 +18,7 @@
 cmake_minimum_required(VERSION 3.2)
 message(STATUS "Building using CMake version: ${CMAKE_VERSION}")
 
-set(ARROW_VERSION "0.18.0-SNAPSHOT")
+set(ARROW_VERSION "1.0.0-SNAPSHOT")
 
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" ARROW_BASE_VERSION "${ARROW_VERSION}")
 
@@ -92,7 +92,7 @@ set(BUILD_SUPPORT_DIR "${CMAKE_SOURCE_DIR}/build-support")
 set(ARROW_CMAKE_INSTALL_DIR "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}")
 set(ARROW_DOC_DIR "share/doc/${PROJECT_NAME}")
 
-set(ARROW_LLVM_VERSIONS "8" "7")
+set(ARROW_LLVM_VERSIONS "10" "9" "8" "7")
 list(GET ARROW_LLVM_VERSIONS 0 ARROW_LLVM_VERSION_PRIMARY)
 string(REGEX
        REPLACE "^([0-9]+)(\\..+)?" "\\1" ARROW_LLVM_VERSION_PRIMARY_MAJOR
@@ -338,6 +338,11 @@ if(ARROW_ORC)
   set(ARROW_WITH_SNAPPY ON)
   set(ARROW_WITH_ZLIB ON)
   set(ARROW_WITH_ZSTD ON)
+endif()
+
+# datetime code used by iOS requires zlib support
+if(IOS)
+  set(ARROW_WITH_ZLIB ON)
 endif()
 
 if(NOT ARROW_BUILD_TESTS)
@@ -671,8 +676,8 @@ if(ARROW_WITH_ZLIB)
 endif()
 
 if(ARROW_WITH_ZSTD)
-  list(APPEND ARROW_STATIC_LINK_LIBS ZSTD::zstd)
-  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ZSTD::zstd)
+  list(APPEND ARROW_STATIC_LINK_LIBS ${ARROW_ZSTD_LIBZSTD})
+  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${ARROW_ZSTD_LIBZSTD})
 endif()
 
 if(ARROW_ORC)
@@ -705,6 +710,12 @@ add_dependencies(arrow_test_dependencies toolchain-tests)
 
 if(ARROW_STATIC_LINK_LIBS)
   add_dependencies(arrow_dependencies ${ARROW_STATIC_LINK_LIBS})
+  if(ARROW_ORC)
+    if(NOT MSVC)
+      list(APPEND ARROW_STATIC_LINK_LIBS ${CMAKE_DL_LIBS})
+      list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${CMAKE_DL_LIBS})
+    endif()
+  endif()
 endif()
 
 set(ARROW_SHARED_PRIVATE_LINK_LIBS ${ARROW_STATIC_LINK_LIBS})

@@ -26,6 +26,7 @@ use crate::execution::context::ExecutionContext;
 use crate::logicalplan::{Expr, LogicalPlan};
 use crate::logicalplan::{LogicalPlanBuilder, ScalarValue};
 use crate::table::*;
+use arrow::datatypes::Schema;
 
 /// Implementation of Table API
 pub struct TableImpl {
@@ -130,6 +131,11 @@ impl Table for TableImpl {
         batch_size: usize,
     ) -> Result<Vec<RecordBatch>> {
         ctx.collect_plan(&self.plan.clone(), batch_size)
+    }
+
+    /// Returns the schema from the logical plan
+    fn schema(&self) -> &Schema {
+        self.plan.schema().as_ref()
     }
 }
 

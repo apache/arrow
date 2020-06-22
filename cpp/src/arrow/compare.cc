@@ -39,6 +39,7 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
@@ -261,8 +262,10 @@ class RangeEqualsVisitor {
           return false;
         }
       } else {
-        const int32_t offset = left.raw_value_offsets()[i];
-        const int32_t o_offset = right.raw_value_offsets()[o_i];
+        const int32_t offset =
+            checked_cast<const DenseUnionArray&>(left).raw_value_offsets()[i];
+        const int32_t o_offset =
+            checked_cast<const DenseUnionArray&>(right).raw_value_offsets()[o_i];
         if (!left.field(child_num)->RangeEquals(offset, offset + 1, o_offset,
                                                 right.field(child_num))) {
           return false;
@@ -781,7 +784,9 @@ class TypeEqualsVisitor {
       result_ = false;
       return Status::OK();
     }
-    return VisitChildren(left);
+    result_ = left.key_type()->Equals(*right.key_type(), check_metadata_) &&
+              left.item_type()->Equals(*right.item_type(), check_metadata_);
+    return Status::OK();
   }
 
   Status Visit(const UnionType& left) {
@@ -850,7 +855,7 @@ class ScalarEqualsVisitor {
   template <typename T>
   typename std::enable_if<std::is_base_of<BaseBinaryScalar, T>::value, Status>::type
   Visit(const T& left) {
-    const auto& right = checked_cast<const BinaryScalar&>(right_);
+    const auto& right = checked_cast<const BaseBinaryScalar&>(right_);
     result_ = internal::SharedPtrEquals(left.value, right.value);
     return Status::OK();
   }

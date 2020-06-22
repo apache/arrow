@@ -38,12 +38,12 @@ from pyarrow.lib cimport (Buffer, Array, Schema,
                           pyarrow_wrap_buffer,
                           NativeFile, get_reader, get_writer)
 
-from pyarrow.compat import tobytes, frombytes
 from pyarrow.lib import (ArrowException, NativeFile, _stringify_path,
                          BufferOutputStream,
                          _datetime_conversion_functions,
                          _box_time_milli,
-                         _box_time_micro)
+                         _box_time_micro,
+                         tobytes, frombytes)
 
 cimport cpython as cp
 
@@ -1088,8 +1088,7 @@ cdef class ParquetReader:
             vector[int] c_row_groups
             vector[int] c_column_indices
 
-        if use_threads:
-            self.set_use_threads(use_threads)
+        self.set_use_threads(use_threads)
 
         for row_group in row_groups:
             c_row_groups.push_back(row_group)
@@ -1114,8 +1113,7 @@ cdef class ParquetReader:
             shared_ptr[CTable] ctable
             vector[int] c_column_indices
 
-        if use_threads:
-            self.set_use_threads(use_threads)
+        self.set_use_threads(use_threads)
 
         if column_indices is not None:
             for index in column_indices:

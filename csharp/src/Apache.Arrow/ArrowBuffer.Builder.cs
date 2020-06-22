@@ -23,6 +23,15 @@ namespace Apache.Arrow
 {
     public partial struct ArrowBuffer
     {
+        /// <summary>
+        /// The <see cref="Builder{T}"/> class is able to append value-type items, with fluent-style methods, to build
+        /// up an <see cref="ArrowBuffer"/> of contiguous items.
+        /// </summary>
+        /// <remarks>
+        /// Note that <see cref="bool"/> is not supported as a generic type argument for this class.  Please use
+        /// <see cref="BitmapBuilder"/> instead.
+        /// </remarks>
+        /// <typeparam name="T">Value-type of item to build into a buffer.</typeparam>
         public class Builder<T>
             where T : struct
         {
@@ -30,44 +39,95 @@ namespace Apache.Arrow
 
             private readonly int _size;
 
+            /// <summary>
+            /// Gets the number of items that can be contained in the memory allocated by the current instance.
+            /// </summary>
             public int Capacity => Memory.Length / _size;
+
+            /// <summary>
+            /// Gets the number of items currently appended.
+            /// </summary>
             public int Length { get; private set; }
+
+            /// <summary>
+            /// Gets the raw byte memory underpinning the builder.
+            /// </summary>
             public Memory<byte> Memory { get; private set; }
+
+            /// <summary>
+            /// Gets the span of memory underpinning the builder.
+            /// </summary>
             public Span<T> Span
             {
                 [MethodImpl(MethodImplOptions.AggressiveInlining)]
                 get => Memory.Span.CastTo<T>();
             }
 
+            /// <summary>
+            /// Creates an instance of the <see cref="Builder{T}"/> class.
+            /// </summary>
+            /// <param name="capacity">Number of items of initial capacity to reserve.</param>
             public Builder(int capacity = DefaultCapacity)
             {
+                // Using `bool` as the template argument, if used in an unrestricted fashion, would result in a buffer
+                // with inappropriate contents being produced.  Because C# does not support template specialisation,
+                // and because generic type constraints do not support negation, we will throw a runtime error to
+                // indicate that such a template type is not supported.
+                if (typeof(T) == typeof(bool))
+                {
+                    throw new NotSupportedException(
+                        $"An instance of {nameof(Builder<T>)} cannot be instantiated, as `bool` is not an " +
+                        $"appropriate generic type to use with this class - please use {nameof(BitmapBuilder)} " +
+                        $"instead");
+                }
+
                 _size = Unsafe.SizeOf<T>();
 
                 Memory = new byte[capacity * _size];
                 Length = 0;
             }
 
+            /// <summary>
+            /// Append a buffer, assumed to contain items of the same type.
+            /// </summary>
+            /// <param name="buffer">Buffer to append.</param>
+            /// <returns>Returns the builder (for fluent-style composition).</returns>
             public Builder<T> Append(ArrowBuffer buffer)
             {
                 Append(buffer.Span.CastTo<T>());
                 return this;
             }
 
+            /// <summary>
+            /// Append a single item.
+            /// </summary>
+            /// <param name="value">Item to append.</param>
+            /// <returns>Returns the builder (for fluent-style composition).</returns>
             public Builder<T> Append(T value)
             {
-                EnsureCapacity(1);
+                EnsureAdditionalCapacity(1);
                 Span[Length++] = value;
                 return this;
             }
 
+            /// <summary>
+            /// Append a span of items.
+            /// </summary>
+            /// <param name="source">Source of item span.</param>
+            /// <returns>Returns the builder (for fluent-style composition).</returns>
             public Builder<T> Append(ReadOnlySpan<T> source)
             {
-                EnsureCapacity(source.Length);
+                EnsureAdditionalCapacity(source.Length);
                 source.CopyTo(Span.Slice(Length, source.Length));
                 Length += source.Length;
                 return this;
             }
 
+            /// <summary>
+            /// Append a number of items.
+            /// </summary>
+            /// <param name="values">Items to append.</param>
+            /// <returns>Returns the builder (for fluent-style composition).</returns>
             public Builder<T> AppendRange(IEnumerable<T> values)
             {
                 if (values != null)
@@ -81,20 +141,51 @@ namespace Apache.Arrow
                 return this;
             }
 
-            public Builder<T> Reserve(int capacity)
+            /// <summary>
+            /// Reserve a given number of items' additional capacity.
+            /// </summary>
+            /// <param name="additionalCapacity">Number of items of required additional capacity.</param>
+            /// <returns>Returns the builder (for fluent-style composition).</returns>
+            public Builder<T> Reserve(int additionalCapacity)
             {
-                EnsureCapacity(capacity);
+                if (additionalCapacity < 0)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(additionalCapacity));
+                }
+
+                EnsureAdditionalCapacity(additionalCapacity);
                 return this;
             }
 
+            /// <summary>
+            /// Resize the buffer to a given size.
+            /// </summary>
+            /// <remarks>
+            /// Note that if the required capacity is larger than the current length of the populated buffer so far,
+            /// the buffer's contents in the new, expanded region are undefined.
+            /// </remarks>
+            /// <remarks>
+            /// Note that if the required capacity is smaller than the current length of the populated buffer so far,
+            /// the buffer will be truncated and items at the end of the buffer will be lost.
+            /// </remarks>
+            /// <remarks>
+            /// Note also that a negative capacity will result in the buffer being resized to zero.
+            /// </remarks>
+            /// <param name="capacity">Number of items of required capacity.</param>
+            /// <returns>Returns the builder (for fluent-style composition).</returns>
             public Builder<T> Resize(int capacity)
             {
+                capacity = capacity < 0 ? 0 : capacity;
                 EnsureCapacity(capacity);
-                Length = Math.Max(0, capacity);
+                Length = capacity;
 
                 return this;
             }
 
+            /// <summary>
+            /// Clear all contents appended so far.
+            /// </summary>
+            /// <returns>Returns the builder (for fluent-style composition).</returns>
             public Builder<T> Clear()
             {
                 Span.Fill(default);
@@ -102,6 +193,11 @@ namespace Apache.Arrow
                 return this;
             }
 
+            /// <summary>
+            /// Build an Arrow buffer from the appended contents so far.
+            /// </summary>
+            /// <param name="allocator">Optional memory allocator.</param>
+            /// <returns>Returns an <see cref="ArrowBuffer"/> object.</returns>
             public ArrowBuffer Build(MemoryAllocator allocator = default)
             {
                 int currentBytesLength = Length * _size;
@@ -114,29 +210,28 @@ namespace Apache.Arrow
                 return new ArrowBuffer(memoryOwner);
             }
 
-            private void EnsureCapacity(int n)
+            private void EnsureAdditionalCapacity(int additionalCapacity)
             {
-                int length = checked(Length + n);
+                EnsureCapacity(checked(Length + additionalCapacity));
+            }
 
-                if (length > Capacity)
+            private void EnsureCapacity(int requiredCapacity)
+            {
+                if (requiredCapacity > Capacity)
                 {
                     // TODO: specifiable growth strategy
-
-                    int capacity = Math.Max(length * _size, Memory.Length * 2);
+                    // Double the length of the in-memory array, or use the byte count of the capacity, whichever is
+                    // greater.
+                    int capacity = Math.Max(requiredCapacity * _size, Memory.Length * 2);
                     Reallocate(capacity);
                 }
             }
 
-            private void Reallocate(int length)
+            private void Reallocate(int numBytes)
             {
-                if (length < 0)
+                if (numBytes != 0)
                 {
-                    throw new ArgumentOutOfRangeException(nameof(length));
-                }
-
-                if (length != 0)
-                {
-                    var memory = new Memory<byte>(new byte[length]);
+                    var memory = new Memory<byte>(new byte[numBytes]);
                     Memory.CopyTo(memory);
 
                     Memory = memory;

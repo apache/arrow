@@ -25,19 +25,15 @@
 #include <vector>
 
 #include "arrow/compute/kernel.h"
+#include "arrow/compute/type_fwd.h"
+#include "arrow/datum.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
-
-struct Datum;
-struct ValueDescr;
-
 namespace compute {
-
-class ExecContext;
 
 /// \brief Base class for specifying options configuring a function's behavior,
 /// such as error handling.
@@ -60,7 +56,10 @@ struct ARROW_EXPORT Arity {
   static Arity Ternary() { return Arity(3, false); }
 
   /// \brief A function taking a variable number of arguments
-  static Arity VarArgs(int min_args = 1) { return Arity(min_args, true); }
+  ///
+  /// \param[in] min_args the minimum number of arguments required when
+  /// invoking the function
+  static Arity VarArgs(int min_args = 0) { return Arity(min_args, true); }
 
   explicit Arity(int num_args, bool is_varargs = false)
       : num_args(num_args), is_varargs(is_varargs) {}
@@ -94,7 +93,11 @@ class ARROW_EXPORT Function {
     VECTOR,
 
     /// A function that computes scalar summary statistics from array input.
-    SCALAR_AGGREGATE
+    SCALAR_AGGREGATE,
+
+    /// A function that dispatches to other functions and does not contain its
+    /// own kernels.
+    META
   };
 
   virtual ~Function() = default;
@@ -228,6 +231,27 @@ class ARROW_EXPORT ScalarAggregateFunction
   /// argument types (without implicit type casts or scalar->array promotions)
   Result<const ScalarAggregateKernel*> DispatchExact(
       const std::vector<ValueDescr>& values) const;
+};
+
+/// \brief A function that dispatches to other functions. Must implement
+/// MetaFunction::ExecuteImpl.
+///
+/// For Array, ChunkedArray, and Scalar Datum kinds, may rely on the execution
+/// of concrete Function types, but must handle other Datum kinds on its own.
+class ARROW_EXPORT MetaFunction : public Function {
+ public:
+  int num_kernels() const override { return 0; }
+
+  Result<Datum> Execute(const std::vector<Datum>& args, const FunctionOptions* options,
+                        ExecContext* ctx) const override;
+
+ protected:
+  virtual Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
+                                    const FunctionOptions* options,
+                                    ExecContext* ctx) const = 0;
+
+  MetaFunction(std::string name, const Arity& arity)
+      : Function(std::move(name), Function::META, arity) {}
 };
 
 }  // namespace compute

@@ -82,6 +82,37 @@ void AssertArraysEqual(const Array& expected, const Array& actual, bool verbose)
   }
 }
 
+void AssertArraysApproxEqual(const Array& expected, const Array& actual, bool verbose) {
+  std::stringstream diff;
+  if (!expected.ApproxEquals(actual, EqualOptions().diff_sink(&diff))) {
+    if (verbose) {
+      ::arrow::PrettyPrintOptions options(/*indent=*/2);
+      options.window = 50;
+      diff << "Expected:\n";
+      ARROW_EXPECT_OK(PrettyPrint(expected, options, &diff));
+      diff << "\nActual:\n";
+      ARROW_EXPECT_OK(PrettyPrint(actual, options, &diff));
+    }
+    FAIL() << diff.str();
+  }
+}
+
+void AssertScalarsEqual(const Scalar& expected, const Scalar& actual, bool verbose) {
+  std::stringstream diff;
+  // ARROW-8956, ScalarEquals returns false when both are null
+  if (!expected.is_valid && !actual.is_valid) {
+    // We consider both being null to be equal in this function
+    return;
+  }
+  if (!expected.Equals(actual)) {
+    if (verbose) {
+      diff << "Expected:\n" << expected.ToString();
+      diff << "\nActual:\n" << actual.ToString();
+    }
+    FAIL() << diff.str();
+  }
+}
+
 void AssertBatchesEqual(const RecordBatch& expected, const RecordBatch& actual,
                         bool check_metadata) {
   AssertTsEqual(expected, actual, check_metadata);
@@ -223,9 +254,27 @@ ASSERT_EQUAL_IMPL(Field, Field, "fields")
 ASSERT_EQUAL_IMPL(Schema, Schema, "schemas")
 #undef ASSERT_EQUAL_IMPL
 
-void AssertDatumsEqual(const Datum& expected, const Datum& actual) {
-  // TODO: Implement better print
-  ASSERT_TRUE(actual.Equals(expected));
+void AssertDatumsEqual(const Datum& expected, const Datum& actual, bool verbose) {
+  ASSERT_EQ(expected.kind(), actual.kind())
+      << "expected:" << expected.ToString() << " got:" << actual.ToString();
+
+  switch (expected.kind()) {
+    case Datum::SCALAR:
+      AssertScalarsEqual(*expected.scalar(), *actual.scalar(), verbose);
+      break;
+    case Datum::ARRAY: {
+      auto expected_array = expected.make_array();
+      auto actual_array = actual.make_array();
+      AssertArraysEqual(*expected_array, *actual_array, verbose);
+    } break;
+    case Datum::CHUNKED_ARRAY:
+      AssertChunkedEquivalent(*expected.chunked_array(), *actual.chunked_array());
+      break;
+    default:
+      // TODO: Implement better print
+      ASSERT_TRUE(actual.Equals(expected));
+      break;
+  }
 }
 
 std::shared_ptr<Array> ArrayFromJSON(const std::shared_ptr<DataType>& type,

@@ -22,18 +22,182 @@ import pickle
 import sys
 
 import pytest
+import weakref
 
 import pyarrow as pa
 from pyarrow.tests.test_io import assert_file_not_found
-from pyarrow.fs import (FileType, FileSelector, FileSystem, LocalFileSystem,
-                        SubTreeFileSystem,
-                        _MockFileSystem)
+from pyarrow.fs import (FileType, FileInfo, FileSelector, FileSystem,
+                        LocalFileSystem, SubTreeFileSystem, _MockFileSystem,
+                        FileSystemHandler, PyFileSystem)
+
+
+class DummyHandler(FileSystemHandler):
+    def __init__(self, value=42):
+        self._value = value
+
+    def __eq__(self, other):
+        if isinstance(other, FileSystemHandler):
+            return self._value == other._value
+        return NotImplemented
+
+    def __ne__(self, other):
+        if isinstance(other, FileSystemHandler):
+            return self._value != other._value
+        return NotImplemented
+
+    def get_type_name(self):
+        return "dummy"
+
+    def get_file_info(self, paths):
+        info = []
+        for path in paths:
+            if "file" in path:
+                info.append(FileInfo(path, FileType.File))
+            elif "dir" in path:
+                info.append(FileInfo(path, FileType.Directory))
+            elif "notfound" in path:
+                info.append(FileInfo(path, FileType.NotFound))
+            elif "badtype" in path:
+                # Will raise when converting
+                info.append(object())
+            else:
+                raise IOError
+        return info
+
+    def get_file_info_selector(self, selector):
+        if selector.base_dir != "somedir":
+            if selector.allow_not_found:
+                return []
+            else:
+                raise FileNotFoundError(selector.base_dir)
+        infos = [
+            FileInfo("somedir/file1", FileType.File, size=123),
+            FileInfo("somedir/subdir1", FileType.Directory),
+        ]
+        if selector.recursive:
+            infos += [
+                FileInfo("somedir/subdir1/file2", FileType.File, size=456),
+            ]
+        return infos
+
+    def create_dir(self, path, recursive):
+        if path == "recursive":
+            assert recursive is True
+        elif path == "non-recursive":
+            assert recursive is False
+        else:
+            raise IOError
+
+    def delete_dir(self, path):
+        assert path == "delete_dir"
+
+    def delete_dir_contents(self, path):
+        assert path == "delete_dir_contents"
+
+    def delete_file(self, path):
+        assert path == "delete_file"
+
+    def move(self, src, dest):
+        assert src == "move_from"
+        assert dest == "move_to"
+
+    def copy_file(self, src, dest):
+        assert src == "copy_file_from"
+        assert dest == "copy_file_to"
+
+    def open_input_stream(self, path):
+        if "notfound" in path:
+            raise FileNotFoundError(path)
+        data = "{0}:input_stream".format(path).encode('utf8')
+        return pa.BufferReader(data)
+
+    def open_input_file(self, path):
+        if "notfound" in path:
+            raise FileNotFoundError(path)
+        data = "{0}:input_file".format(path).encode('utf8')
+        return pa.BufferReader(data)
+
+    def open_output_stream(self, path):
+        if "notfound" in path:
+            raise FileNotFoundError(path)
+        return pa.BufferOutputStream()
+
+    def open_append_stream(self, path):
+        if "notfound" in path:
+            raise FileNotFoundError(path)
+        return pa.BufferOutputStream()
+
+
+class ProxyHandler(FileSystemHandler):
+
+    def __init__(self, fs):
+        self._fs = fs
+
+    def __eq__(self, other):
+        if isinstance(other, ProxyHandler):
+            return self._fs == other._fs
+        return NotImplemented
+
+    def __ne__(self, other):
+        if isinstance(other, ProxyHandler):
+            return self._fs != other._fs
+        return NotImplemented
+
+    def get_type_name(self):
+        return "proxy::" + self._fs.type_name
+
+    def get_file_info(self, paths):
+        return self._fs.get_file_info(paths)
+
+    def get_file_info_selector(self, selector):
+        return self._fs.get_file_info(selector)
+
+    def create_dir(self, path, recursive):
+        return self._fs.create_dir(path, recursive=recursive)
+
+    def delete_dir(self, path):
+        return self._fs.delete_dir(path)
+
+    def delete_dir_contents(self, path):
+        return self._fs.delete_dir_contents(path)
+
+    def delete_file(self, path):
+        return self._fs.delete_file(path)
+
+    def move(self, src, dest):
+        return self._fs.move(src, dest)
+
+    def copy_file(self, src, dest):
+        return self._fs.copy_file(src, dest)
+
+    def open_input_stream(self, path):
+        return self._fs.open_input_stream(path)
+
+    def open_input_file(self, path):
+        return self._fs.open_input_file(path)
+
+    def open_output_stream(self, path):
+        return self._fs.open_output_stream(path)
+
+    def open_append_stream(self, path):
+        return self._fs.open_append_stream(path)
 
 
 @pytest.fixture
 def localfs(request, tempdir):
     return dict(
         fs=LocalFileSystem(),
+        pathfn=lambda p: (tempdir / p).as_posix(),
+        allow_copy_file=True,
+        allow_move_dir=True,
+        allow_append_to_file=True,
+    )
+
+
+@pytest.fixture
+def py_localfs(request, tempdir):
+    return dict(
+        fs=PyFileSystem(ProxyHandler(LocalFileSystem())),
         pathfn=lambda p: (tempdir / p).as_posix(),
         allow_copy_file=True,
         allow_move_dir=True,
@@ -156,6 +320,10 @@ def hdfs(request, hdfs_connection):
         pytest.lazy_fixture('mockfs'),
         id='_MockFileSystem()'
     ),
+    pytest.param(
+        pytest.lazy_fixture('py_localfs'),
+        id='PyFileSystem(ProxyHandler(LocalFileSystem()))'
+    ),
 ])
 def filesystem_config(request):
     return request.param
@@ -184,6 +352,59 @@ def allow_copy_file(request, filesystem_config):
 @pytest.fixture
 def allow_append_to_file(request, filesystem_config):
     return filesystem_config['allow_append_to_file']
+
+
+def check_mtime(file_info):
+    assert isinstance(file_info.mtime, datetime)
+    assert isinstance(file_info.mtime_ns, int)
+    assert file_info.mtime_ns >= 0
+    assert file_info.mtime_ns == pytest.approx(
+        file_info.mtime.timestamp() * 1e9)
+    # It's an aware UTC datetime
+    tzinfo = file_info.mtime.tzinfo
+    assert tzinfo is not None
+    assert tzinfo.utcoffset(None) == timedelta(0)
+
+
+def check_mtime_absent(file_info):
+    assert file_info.mtime is None
+    assert file_info.mtime_ns is None
+
+
+def check_mtime_or_absent(file_info):
+    if file_info.mtime is None:
+        check_mtime_absent(file_info)
+    else:
+        check_mtime(file_info)
+
+
+def test_file_info_constructor():
+    dt = datetime.fromtimestamp(1568799826, timezone.utc)
+
+    info = FileInfo("foo/bar")
+    assert info.path == "foo/bar"
+    assert info.base_name == "bar"
+    assert info.type == FileType.Unknown
+    assert info.size is None
+    check_mtime_absent(info)
+
+    info = FileInfo("foo/baz.txt", type=FileType.File, size=123,
+                    mtime=1568799826.5)
+    assert info.path == "foo/baz.txt"
+    assert info.base_name == "baz.txt"
+    assert info.type == FileType.File
+    assert info.size == 123
+    assert info.mtime_ns == 1568799826500000000
+    check_mtime(info)
+
+    info = FileInfo("foo", type=FileType.Directory, mtime=dt)
+    assert info.path == "foo"
+    assert info.base_name == "foo"
+    assert info.type == FileType.Directory
+    assert info.size is None
+    assert info.mtime == dt
+    assert info.mtime_ns == 1568799826000000000
+    check_mtime(info)
 
 
 def test_cannot_instantiate_base_filesystem():
@@ -254,6 +475,13 @@ def test_filesystem_is_functional_after_pickling(fs, pathfn):
     assert c_info.type == FileType.File
 
 
+def test_type_name():
+    fs = LocalFileSystem()
+    assert fs.type_name == "local"
+    fs = _MockFileSystem()
+    assert fs.type_name == "mock"
+
+
 def test_non_path_like_input_raises(fs):
     class Path:
         pass
@@ -263,18 +491,6 @@ def test_non_path_like_input_raises(fs):
     for path in invalid_paths:
         with pytest.raises(TypeError):
             fs.create_dir(path)
-
-
-def check_mtime(file_info):
-    assert isinstance(file_info.mtime, datetime)
-    assert isinstance(file_info.mtime_ns, int)
-    if file_info.mtime_ns >= 0:
-        assert file_info.mtime_ns == pytest.approx(
-            file_info.mtime.timestamp() * 1e9)
-        # It's an aware UTC datetime
-        tzinfo = file_info.mtime.tzinfo
-        assert tzinfo is not None
-        assert tzinfo.utcoffset(None) == timedelta(0)
 
 
 def test_get_file_info(fs, pathfn):
@@ -295,7 +511,8 @@ def test_get_file_info(fs, pathfn):
     assert 'aaa' in repr(aaa_info)
     assert aaa_info.extension == ''
     assert 'FileType.Directory' in repr(aaa_info)
-    check_mtime(aaa_info)
+    assert aaa_info.size is None
+    check_mtime_or_absent(aaa_info)
 
     assert bb_info.path == str(bb)
     assert bb_info.base_name == 'bb'
@@ -317,8 +534,10 @@ def test_get_file_info(fs, pathfn):
     assert zzz_info.base_name == 'zzz'
     assert zzz_info.extension == ''
     assert zzz_info.type == FileType.NotFound
+    assert zzz_info.size is None
+    assert zzz_info.mtime is None
     assert 'FileType.NotFound' in repr(zzz_info)
-    check_mtime(zzz_info)
+    check_mtime_absent(zzz_info)
 
 
 def test_get_file_info_with_selector(fs, pathfn):
@@ -351,7 +570,7 @@ def test_get_file_info_with_selector(fs, pathfn):
                 assert info.type == FileType.Directory
             else:
                 raise ValueError('unexpected path {}'.format(info.path))
-            check_mtime(info)
+            check_mtime_or_absent(info)
     finally:
         fs.delete_file(file_a)
         fs.delete_file(file_b)
@@ -378,7 +597,21 @@ def test_delete_dir(fs, pathfn):
     nd = pathfn('directory/nested/')
 
     fs.create_dir(nd)
-    fs.delete_dir(nd)
+    fs.delete_dir(d)
+    with pytest.raises(pa.ArrowIOError):
+        fs.delete_dir(nd)
+    with pytest.raises(pa.ArrowIOError):
+        fs.delete_dir(d)
+
+
+def test_delete_dir_contents(fs, pathfn):
+    d = pathfn('directory/')
+    nd = pathfn('directory/nested/')
+
+    fs.create_dir(nd)
+    fs.delete_dir_contents(d)
+    with pytest.raises(pa.ArrowIOError):
+        fs.delete_dir(nd)
     fs.delete_dir(d)
     with pytest.raises(pa.ArrowIOError):
         fs.delete_dir(d)
@@ -646,6 +879,9 @@ def test_hdfs_options(hdfs_connection):
                              kerb_ticket=pathlib.Path("cache_path"))
     hdfs10 = HadoopFileSystem(host, port, user='localuser',
                               kerb_ticket="cache_path2")
+    hdfs11 = HadoopFileSystem(host, port, user='localuser',
+                              kerb_ticket="cache_path",
+                              extra_conf={'hdfs_token': 'abcd'})
 
     assert hdfs1 == hdfs2
     assert hdfs5 == hdfs6
@@ -658,6 +894,7 @@ def test_hdfs_options(hdfs_connection):
     assert hdfs7 != hdfs8
     assert hdfs8 == hdfs9
     assert hdfs10 != hdfs9
+    assert hdfs11 != hdfs8
 
     with pytest.raises(TypeError):
         HadoopFileSystem()
@@ -665,7 +902,7 @@ def test_hdfs_options(hdfs_connection):
         HadoopFileSystem.from_uri(3)
 
     for fs in [hdfs1, hdfs2, hdfs3, hdfs4, hdfs5, hdfs6, hdfs7, hdfs8,
-               hdfs9, hdfs10]:
+               hdfs9, hdfs10, hdfs11]:
         assert pickle.loads(pickle.dumps(fs)) == fs
 
     host, port, user = hdfs_connection
@@ -731,3 +968,167 @@ def test_filesystem_from_uri_s3(s3_connection, s3_server):
     [info] = fs.get_file_info([path])
     assert info.path == path
     assert info.type == FileType.Directory
+
+
+def test_py_filesystem():
+    handler = DummyHandler()
+    fs = PyFileSystem(handler)
+    assert isinstance(fs, PyFileSystem)
+    assert fs.type_name == "py::dummy"
+    assert fs.handler is handler
+
+    with pytest.raises(TypeError):
+        PyFileSystem(None)
+
+
+def test_py_filesystem_equality():
+    handler1 = DummyHandler(1)
+    handler2 = DummyHandler(2)
+    handler3 = DummyHandler(2)
+    fs1 = PyFileSystem(handler1)
+    fs2 = PyFileSystem(handler1)
+    fs3 = PyFileSystem(handler2)
+    fs4 = PyFileSystem(handler3)
+
+    assert fs2 is not fs1
+    assert fs3 is not fs2
+    assert fs4 is not fs3
+    assert fs2 == fs1  # Same handler
+    assert fs3 != fs2  # Unequal handlers
+    assert fs4 == fs3  # Equal handlers
+
+    assert fs1 != LocalFileSystem()
+    assert fs1 != object()
+
+
+def test_py_filesystem_pickling():
+    handler = DummyHandler()
+    fs = PyFileSystem(handler)
+
+    serialized = pickle.dumps(fs)
+    restored = pickle.loads(serialized)
+    assert isinstance(restored, FileSystem)
+    assert restored == fs
+    assert restored.handler == handler
+    assert restored.type_name == "py::dummy"
+
+
+def test_py_filesystem_lifetime():
+    handler = DummyHandler()
+    fs = PyFileSystem(handler)
+    assert isinstance(fs, PyFileSystem)
+    wr = weakref.ref(handler)
+    handler = None
+    assert wr() is not None
+    fs = None
+    assert wr() is None
+
+    # Taking the .handler attribute doesn't wreck reference counts
+    handler = DummyHandler()
+    fs = PyFileSystem(handler)
+    wr = weakref.ref(handler)
+    handler = None
+    assert wr() is fs.handler
+    assert wr() is not None
+    fs = None
+    assert wr() is None
+
+
+def test_py_filesystem_get_file_info():
+    handler = DummyHandler()
+    fs = PyFileSystem(handler)
+
+    [info] = fs.get_file_info(['some/dir'])
+    assert info.path == 'some/dir'
+    assert info.type == FileType.Directory
+
+    [info] = fs.get_file_info(['some/file'])
+    assert info.path == 'some/file'
+    assert info.type == FileType.File
+
+    [info] = fs.get_file_info(['notfound'])
+    assert info.path == 'notfound'
+    assert info.type == FileType.NotFound
+
+    with pytest.raises(TypeError):
+        fs.get_file_info(['badtype'])
+
+    with pytest.raises(IOError):
+        fs.get_file_info(['xxx'])
+
+
+def test_py_filesystem_get_file_info_selector():
+    handler = DummyHandler()
+    fs = PyFileSystem(handler)
+
+    selector = FileSelector(base_dir="somedir")
+    infos = fs.get_file_info(selector)
+    assert len(infos) == 2
+    assert infos[0].path == "somedir/file1"
+    assert infos[0].type == FileType.File
+    assert infos[0].size == 123
+    assert infos[1].path == "somedir/subdir1"
+    assert infos[1].type == FileType.Directory
+    assert infos[1].size is None
+
+    selector = FileSelector(base_dir="somedir", recursive=True)
+    infos = fs.get_file_info(selector)
+    assert len(infos) == 3
+    assert infos[0].path == "somedir/file1"
+    assert infos[1].path == "somedir/subdir1"
+    assert infos[2].path == "somedir/subdir1/file2"
+
+    selector = FileSelector(base_dir="notfound")
+    with pytest.raises(FileNotFoundError):
+        fs.get_file_info(selector)
+
+    selector = FileSelector(base_dir="notfound", allow_not_found=True)
+    assert fs.get_file_info(selector) == []
+
+
+def test_py_filesystem_ops():
+    handler = DummyHandler()
+    fs = PyFileSystem(handler)
+
+    fs.create_dir("recursive", recursive=True)
+    fs.create_dir("non-recursive", recursive=False)
+    with pytest.raises(IOError):
+        fs.create_dir("foobar")
+
+    fs.delete_dir("delete_dir")
+    fs.delete_dir_contents("delete_dir_contents")
+    fs.delete_file("delete_file")
+    fs.move("move_from", "move_to")
+    fs.copy_file("copy_file_from", "copy_file_to")
+
+
+def test_py_open_input_stream():
+    fs = PyFileSystem(DummyHandler())
+
+    with fs.open_input_stream("somefile") as f:
+        assert f.read() == b"somefile:input_stream"
+    with pytest.raises(FileNotFoundError):
+        fs.open_input_stream("notfound")
+
+
+def test_py_open_input_file():
+    fs = PyFileSystem(DummyHandler())
+
+    with fs.open_input_file("somefile") as f:
+        assert f.read() == b"somefile:input_file"
+    with pytest.raises(FileNotFoundError):
+        fs.open_input_file("notfound")
+
+
+def test_py_open_output_stream():
+    fs = PyFileSystem(DummyHandler())
+
+    with fs.open_output_stream("somefile") as f:
+        f.write(b"data")
+
+
+def test_py_open_append_stream():
+    fs = PyFileSystem(DummyHandler())
+
+    with fs.open_append_stream("somefile") as f:
+        f.write(b"data")

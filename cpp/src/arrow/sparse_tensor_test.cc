@@ -17,6 +17,7 @@
 
 // Unit tests for DataType (and subclasses), Field, and Schema
 
+#include <cmath>
 #include <cstdint>
 #include <memory>
 #include <string>

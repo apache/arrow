@@ -24,8 +24,12 @@
 #include <utility>
 #include <vector>
 
-#include "arrow/array.h"
+#include "arrow/array/array_base.h"
+#include "arrow/array/array_primitive.h"
+#include "arrow/array/data.h"
+#include "arrow/array/util.h"
 #include "arrow/buffer.h"
+#include "arrow/chunked_array.h"
 #include "arrow/compute/exec_internal.h"
 #include "arrow/compute/function.h"
 #include "arrow/compute/kernel.h"
@@ -34,10 +38,10 @@
 #include "arrow/datum.h"
 #include "arrow/scalar.h"
 #include "arrow/status.h"
-#include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/cpu_info.h"
 #include "arrow/util/logging.h"
@@ -48,8 +52,6 @@ using internal::BitmapAnd;
 using internal::checked_cast;
 using internal::CopyBitmap;
 using internal::CpuInfo;
-
-class MemoryPool;
 
 namespace compute {
 
@@ -263,7 +265,7 @@ class NullPropagator {
         }
       } else {
         // Scalar
-        is_all_null = true;
+        is_all_null = !value->scalar()->is_valid;
       }
     }
     if (!is_all_null) {
@@ -589,9 +591,18 @@ class ScalarExecutor : public FunctionExecutorImpl<ScalarFunction> {
     Datum out;
     RETURN_NOT_OK(PrepareNextOutput(batch, &out));
 
-    if (kernel_->null_handling == NullHandling::INTERSECTION &&
-        output_descr_.shape == ValueDescr::ARRAY) {
-      RETURN_NOT_OK(PropagateNulls(&kernel_ctx_, batch, out.mutable_array()));
+    if (kernel_->null_handling == NullHandling::INTERSECTION) {
+      if (output_descr_.shape == ValueDescr::ARRAY) {
+        RETURN_NOT_OK(PropagateNulls(&kernel_ctx_, batch, out.mutable_array()));
+      } else {
+        // set scalar validity
+        out.scalar()->is_valid =
+            std::all_of(batch.values.begin(), batch.values.end(),
+                        [](const Datum& input) { return input.scalar()->is_valid; });
+      }
+    } else if (kernel_->null_handling == NullHandling::OUTPUT_NOT_NULL &&
+               output_descr_.shape == ValueDescr::SCALAR) {
+      out.scalar()->is_valid = true;
     }
 
     kernel_->exec(&kernel_ctx_, batch, &out);
@@ -641,11 +652,7 @@ class ScalarExecutor : public FunctionExecutorImpl<ScalarFunction> {
         if (batch.length < batch_iterator_->length()) {
           // If this is a partial execution, then we write into a slice of
           // preallocated_
-          //
-          // XXX: ArrayData::Slice not returning std::shared_ptr<ArrayData> is
-          // a nuisance
-          out->value = std::make_shared<ArrayData>(
-              preallocated_->Slice(batch_start_position, batch.length));
+          out->value = preallocated_->Slice(batch_start_position, batch.length);
         } else {
           // Otherwise write directly into preallocated_. The main difference
           // computationally (versus the Slice approach) is that the null_count

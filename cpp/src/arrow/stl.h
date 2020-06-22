@@ -27,7 +27,9 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/array.h"
 #include "arrow/builder.h"
+#include "arrow/chunked_array.h"
 #include "arrow/compute/api.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"

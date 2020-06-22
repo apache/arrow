@@ -20,9 +20,9 @@
 
 #pragma once
 
+#include <map>
 #include <memory>
 #include <string>
-#include <unordered_map>
 #include <utility>
 
 #include "arrow/flight/visibility.h"  // IWYU pragma: keep
@@ -33,7 +33,10 @@ namespace arrow {
 
 namespace flight {
 
-using CallHeaders = std::unordered_multimap<util::string_view, util::string_view>;
+/// \brief Headers sent from the client or server.
+///
+/// Header values are ordered.
+using CallHeaders = std::multimap<util::string_view, util::string_view>;
 
 /// \brief A write-only wrapper around headers for an RPC call.
 class ARROW_FLIGHT_EXPORT AddCallHeaders {

@@ -100,7 +100,9 @@ std::shared_ptr<ds::Dataset> GetDatasetFromDirectory(
 std::shared_ptr<ds::Dataset> GetParquetDatasetFromMetadata(
     std::shared_ptr<fs::FileSystem> fs, std::shared_ptr<ds::ParquetFileFormat> format,
     std::string metadata_path) {
-  auto factory = ds::ParquetDatasetFactory::Make(metadata_path, fs, format).ValueOrDie();
+  ds::ParquetFactoryOptions options;
+  auto factory =
+      ds::ParquetDatasetFactory::Make(metadata_path, fs, format, options).ValueOrDie();
   return factory->Finish().ValueOrDie();
 }
 
@@ -109,7 +111,8 @@ std::shared_ptr<ds::Dataset> GetDatasetFromFile(
     std::string file) {
   ds::FileSystemFactoryOptions options;
   // The factory will try to build a child dataset.
-  auto factory = ds::FileSystemDatasetFactory::Make(fs, {file}, format, options).ValueOrDie();
+  auto factory =
+      ds::FileSystemDatasetFactory::Make(fs, {file}, format, options).ValueOrDie();
 
   // Try to infer a common schema for all files.
   auto schema = factory->Inspect(conf.inspect_options).ValueOrDie();
@@ -117,7 +120,8 @@ std::shared_ptr<ds::Dataset> GetDatasetFromFile(
   // with the previous one, e.g. `factory->Finish(compatible_schema)`.
   auto child = factory->Finish(conf.finish_options).ValueOrDie();
 
-  ds::DatasetVector children{conf.repeat, child};
+  ds::DatasetVector children;
+  children.resize(conf.repeat, child);
   auto dataset = ds::UnionDataset::Make(std::move(schema), std::move(children));
 
   return dataset.ValueOrDie();

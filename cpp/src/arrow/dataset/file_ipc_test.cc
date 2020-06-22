@@ -29,6 +29,7 @@
 #include "arrow/io/memory.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/record_batch.h"
+#include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 
@@ -86,10 +87,10 @@ class TestIpcFileFormat : public ArrowIpcWriterMixin {
                                     kBatchRepetitions);
   }
 
-  Result<FileSource> GetFileSink() {
+  Result<WritableFileSource> GetFileSink() {
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ResizableBuffer> buffer,
                           AllocateResizableBuffer(0));
-    return FileSource(std::move(buffer));
+    return WritableFileSource(std::move(buffer));
   }
 
   RecordBatchIterator Batches(ScanTaskIterator scan_task_it) {

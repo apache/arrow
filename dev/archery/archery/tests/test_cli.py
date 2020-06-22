@@ -26,13 +26,15 @@ from archery.docker import DockerCompose
 
 @pytest.mark.parametrize(('command', 'args', 'kwargs'), [
     (
-        ['ubuntu-cpp'],
+        ['ubuntu-cpp', '--build-only'],
         ['ubuntu-cpp'],
         dict(
             command=None,
             env={},
+            user=None,
             force_pull=True,
             force_build=True,
+            build_only=True,
             use_cache=True,
             use_leaf_cache=True,
             volumes=()
@@ -44,8 +46,10 @@ from archery.docker import DockerCompose
         dict(
             command='bash',
             env={},
+            user=None,
             force_pull=True,
             force_build=True,
+            build_only=False,
             use_cache=True,
             use_leaf_cache=True,
             volumes=()
@@ -57,8 +61,10 @@ from archery.docker import DockerCompose
         dict(
             command=None,
             env={},
+            user=None,
             force_pull=False,
             force_build=False,
+            build_only=False,
             use_cache=True,
             use_leaf_cache=True,
             volumes=()
@@ -66,22 +72,27 @@ from archery.docker import DockerCompose
     ),
     (
         [
-            'ubuntu-cpp', '--no-pull', '--force-build', '--no-cache',
-            '--no-leaf-cache'
+            'ubuntu-cpp', '--no-pull', '--force-build', '--user', 'me',
+            '--no-cache', '--no-leaf-cache'
         ],
         ['ubuntu-cpp'],
         dict(
             command=None,
             env={},
+            user='me',
             force_pull=False,
             force_build=True,
+            build_only=False,
             use_cache=False,
             use_leaf_cache=False,
             volumes=()
         )
     ),
     (
-        ['-e', 'ARROW_GANDIVA=OFF', '-e', 'ARROW_FLIGHT=ON', 'ubuntu-cpp'],
+        [
+            '-e', 'ARROW_GANDIVA=OFF', '-e', 'ARROW_FLIGHT=ON', '-u', 'root',
+            'ubuntu-cpp'
+        ],
         ['ubuntu-cpp'],
         dict(
             command=None,
@@ -89,8 +100,10 @@ from archery.docker import DockerCompose
                 'ARROW_GANDIVA': 'OFF',
                 'ARROW_FLIGHT': 'ON'
             },
+            user='root',
             force_pull=True,
             force_build=True,
+            build_only=False,
             use_cache=True,
             use_leaf_cache=True,
             volumes=()
@@ -105,8 +118,10 @@ from archery.docker import DockerCompose
         dict(
             command=None,
             env={},
+            user=None,
             force_pull=True,
             force_build=True,
+            build_only=False,
             use_cache=True,
             use_leaf_cache=True,
             volumes=(

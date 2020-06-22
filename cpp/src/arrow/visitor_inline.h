@@ -27,6 +27,7 @@
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/bitmap_reader.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/functional.h"
 #include "arrow/util/optional.h"
@@ -73,7 +74,8 @@ namespace arrow {
   ACTION(Map);                                  \
   ACTION(FixedSizeList);                        \
   ACTION(Struct);                               \
-  ACTION(Union);                                \
+  ACTION(SparseUnion);                          \
+  ACTION(DenseUnion);                           \
   ACTION(Dictionary);                           \
   ACTION(Extension)
 

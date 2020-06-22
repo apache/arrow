@@ -19,6 +19,7 @@
 
 #include <cstdint>
 #include <cstdlib>
+#include <iostream>
 #include <memory>
 #include <string>
 #include <type_traits>
@@ -440,29 +441,40 @@ class ArrayWriter {
     return Status::OK();
   }
 
-  template <typename T, bool IsSigned = std::is_signed<typename T::value_type>::value>
-  void WriteIntegerDataValues(const T& arr) {
-    static const char null_string[] = "0";
-    const auto data = arr.raw_values();
+  template <typename ArrayType, typename TypeClass = typename ArrayType::TypeClass,
+            typename CType = typename TypeClass::c_type>
+  enable_if_t<is_physical_integer_type<TypeClass>::value &&
+              sizeof(CType) != sizeof(int64_t)>
+  WriteDataValues(const ArrayType& arr) {
+    static const std::string null_string = "0";
     for (int64_t i = 0; i < arr.length(); ++i) {
       if (arr.IsValid(i)) {
-        IsSigned ? writer_->Int64(data[i]) : writer_->Uint64(data[i]);
+        writer_->Int64(arr.Value(i));
       } else {
-        writer_->RawNumber(null_string, sizeof(null_string));
+        writer_->RawNumber(null_string.data(),
+                           static_cast<rj::SizeType>(null_string.size()));
       }
     }
   }
 
-  template <typename ArrayType>
-  enable_if_physical_signed_integer<typename ArrayType::TypeClass> WriteDataValues(
-      const ArrayType& arr) {
-    WriteIntegerDataValues<ArrayType>(arr);
-  }
+  template <typename ArrayType, typename TypeClass = typename ArrayType::TypeClass,
+            typename CType = typename TypeClass::c_type>
+  enable_if_t<is_physical_integer_type<TypeClass>::value &&
+              sizeof(CType) == sizeof(int64_t)>
+  WriteDataValues(const ArrayType& arr) {
+    ::arrow::internal::StringFormatter<typename CTypeTraits<CType>::ArrowType> fmt;
 
-  template <typename ArrayType>
-  enable_if_physical_unsigned_integer<typename ArrayType::TypeClass> WriteDataValues(
-      const ArrayType& arr) {
-    WriteIntegerDataValues<ArrayType>(arr);
+    static const std::string null_string = "0";
+    for (int64_t i = 0; i < arr.length(); ++i) {
+      if (arr.IsValid(i)) {
+        fmt(arr.Value(i), [&](util::string_view repr) {
+          writer_->String(repr.data(), static_cast<rj::SizeType>(repr.size()));
+        });
+      } else {
+        writer_->String(null_string.data(),
+                        static_cast<rj::SizeType>(null_string.size()));
+      }
+    }
   }
 
   template <typename ArrayType>
@@ -656,7 +668,8 @@ class ArrayWriter {
 
     WriteIntegerField("TYPE_ID", array.raw_type_codes(), array.length());
     if (type.mode() == UnionMode::DENSE) {
-      WriteIntegerField("OFFSET", array.raw_value_offsets(), array.length());
+      auto offsets = checked_cast<const DenseUnionArray&>(array).raw_value_offsets();
+      WriteIntegerField("OFFSET", offsets, array.length());
     }
     std::vector<std::shared_ptr<Array>> children;
     children.reserve(array.num_fields());
@@ -752,19 +765,11 @@ static Status GetMap(const RjObject& json_type,
     return Status::Invalid("Map must have exactly one child");
   }
 
-  if (children[0]->type()->id() != Type::STRUCT ||
-      children[0]->type()->num_fields() != 2) {
-    return Status::Invalid("Map's key-item pairs must be structs");
-  }
-
   const auto& it_keys_sorted = json_type.FindMember("keysSorted");
   RETURN_NOT_BOOL("keysSorted", it_keys_sorted, json_type);
-
-  auto pair_children = children[0]->type()->fields();
-
   bool keys_sorted = it_keys_sorted->value.GetBool();
-  *type = map(pair_children[0]->type(), pair_children[1]->type(), keys_sorted);
-  return Status::OK();
+
+  return MapType::Make(children[0], keys_sorted).Value(type);
 }
 
 static Status GetFixedSizeBinary(const RjObject& json_type,
@@ -941,7 +946,11 @@ static Status GetUnion(const RjObject& json_type,
     type_codes.push_back(static_cast<int8_t>(val.GetInt()));
   }
 
-  *type = union_(children, type_codes, mode);
+  if (mode == UnionMode::SPARSE) {
+    *type = sparse_union(std::move(children), std::move(type_codes));
+  } else {
+    *type = dense_union(std::move(children), std::move(type_codes));
+  }
 
   return Status::OK();
 }
@@ -1154,18 +1163,24 @@ enable_if_boolean<T, bool> UnboxValue(const rj::Value& val) {
   return val.GetBool();
 }
 
-template <typename T>
-enable_if_physical_signed_integer<T, typename T::c_type> UnboxValue(
-    const rj::Value& val) {
+template <typename T, typename CType = typename T::c_type>
+enable_if_t<is_physical_integer_type<T>::value && sizeof(CType) != sizeof(int64_t), CType>
+UnboxValue(const rj::Value& val) {
   DCHECK(val.IsInt64());
-  return static_cast<typename T::c_type>(val.GetInt64());
+  return static_cast<CType>(val.GetInt64());
 }
 
-template <typename T>
-enable_if_physical_unsigned_integer<T, typename T::c_type> UnboxValue(
-    const rj::Value& val) {
-  DCHECK(val.IsUint());
-  return static_cast<typename T::c_type>(val.GetUint64());
+template <typename T, typename CType = typename T::c_type>
+enable_if_t<is_physical_integer_type<T>::value && sizeof(CType) == sizeof(int64_t), CType>
+UnboxValue(const rj::Value& val) {
+  DCHECK(val.IsString());
+
+  CType out;
+  bool success = ::arrow::internal::ParseValue<typename CTypeTraits<CType>::ArrowType>(
+      val.GetString(), val.GetStringLength(), &out);
+
+  DCHECK(success);
+  return out;
 }
 
 template <typename T>
@@ -1417,10 +1432,7 @@ class ArrayReader {
   }
 
   Status Visit(const MapType& type) {
-    auto list_type = std::make_shared<ListType>(field(
-        "entries",
-        struct_({field("key", type.key_type(), false), field("value", type.item_type())}),
-        false));
+    auto list_type = std::make_shared<ListType>(type.value_field());
     std::shared_ptr<Array> list_array;
     RETURN_NOT_OK(CreateList<ListType>(list_type, &list_array));
     auto map_data = list_array->data();
@@ -1464,7 +1476,6 @@ class ArrayReader {
 
     std::shared_ptr<Buffer> validity_buffer;
     std::shared_ptr<Buffer> type_id_buffer;
-    std::shared_ptr<Buffer> offsets_buffer;
 
     RETURN_NOT_OK(GetValidityBuffer(is_valid_, &null_count, &validity_buffer));
 
@@ -1473,18 +1484,24 @@ class ArrayReader {
     RETURN_NOT_OK(
         GetIntArray<uint8_t>(json_type_ids->value.GetArray(), length_, &type_id_buffer));
 
-    if (type.mode() == UnionMode::DENSE) {
-      const auto& json_offsets = obj_.FindMember("OFFSET");
-      RETURN_NOT_ARRAY("OFFSET", json_offsets, obj_);
-      RETURN_NOT_OK(
-          GetIntArray<int32_t>(json_offsets->value.GetArray(), length_, &offsets_buffer));
-    }
-
     std::vector<std::shared_ptr<Array>> children;
     RETURN_NOT_OK(GetChildren(obj_, type, &children));
 
-    result_ = std::make_shared<UnionArray>(type_, length_, children, type_id_buffer,
-                                           offsets_buffer, validity_buffer, null_count);
+    if (type.mode() == UnionMode::SPARSE) {
+      result_ = std::make_shared<SparseUnionArray>(
+          type_, length_, children, type_id_buffer, validity_buffer, null_count);
+    } else {
+      const auto& json_offsets = obj_.FindMember("OFFSET");
+      RETURN_NOT_ARRAY("OFFSET", json_offsets, obj_);
+
+      std::shared_ptr<Buffer> offsets_buffer;
+      RETURN_NOT_OK(
+          GetIntArray<int32_t>(json_offsets->value.GetArray(), length_, &offsets_buffer));
+
+      result_ =
+          std::make_shared<DenseUnionArray>(type_, length_, children, type_id_buffer,
+                                            offsets_buffer, validity_buffer, null_count);
+    }
 
     return Status::OK();
   }

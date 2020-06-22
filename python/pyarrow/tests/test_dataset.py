@@ -194,70 +194,91 @@ def test_filesystem_dataset(mockfs):
     schema = pa.schema([
         pa.field('const', pa.int64())
     ])
-
     file_format = ds.ParquetFileFormat()
-
     paths = ['subdir/1/xxx/file0.parquet', 'subdir/2/yyy/file1.parquet']
-    partitions = [ds.scalar(True), ds.scalar(True)]
+    partitions = [ds.field('part') == x for x in range(1, 3)]
+    fragments = [file_format.make_fragment(path, mockfs, part)
+                 for path, part in zip(paths, partitions)]
+    root_partition = ds.field('level') == ds.scalar(1337)
 
-    dataset = ds.FileSystemDataset(
-        schema=schema,
-        format=file_format,
-        filesystem=mockfs,
-        paths_or_selector=paths,
-        partitions=partitions
+    dataset_from_fragments = ds.FileSystemDataset(
+        fragments, schema=schema, format=file_format,
+        root_partition=root_partition,
+    )
+    dataset_from_paths = ds.FileSystemDataset.from_paths(
+        paths, schema=schema, format=file_format, filesystem=mockfs,
+        partitions=partitions, root_partition=root_partition,
     )
 
-    assert isinstance(dataset.format, ds.ParquetFileFormat)
+    for dataset in [dataset_from_fragments, dataset_from_paths]:
+        assert isinstance(dataset, ds.FileSystemDataset)
+        assert isinstance(dataset.format, ds.ParquetFileFormat)
+        assert dataset.partition_expression.equals(root_partition)
+        assert set(dataset.files) == set(paths)
 
-    # the root_partition and partitions keywords have defaults
+        fragments = list(dataset.get_fragments())
+        for fragment, partition, path in zip(fragments, partitions, paths):
+            assert fragment.partition_expression.equals(partition)
+            assert fragment.path == path
+            assert isinstance(fragment.format, ds.ParquetFileFormat)
+            assert isinstance(fragment, ds.ParquetFileFragment)
+            assert fragment.row_groups is None
+
+            row_group_fragments = list(fragment.split_by_row_group())
+            assert len(row_group_fragments) == 1
+            assert isinstance(row_group_fragments[0], ds.ParquetFileFragment)
+            assert row_group_fragments[0].path == path
+            assert row_group_fragments[0].row_groups == [ds.RowGroupInfo(0)]
+
+        fragments = list(dataset.get_fragments(filter=ds.field("const") == 0))
+        assert len(fragments) == 2
+
+    # the root_partition keyword has a default
     dataset = ds.FileSystemDataset(
-        paths, schema, format=file_format, filesystem=mockfs,
+        fragments, schema=schema, format=file_format
     )
+    assert dataset.partition_expression.equals(ds.scalar(True))
 
-    assert isinstance(dataset.format, ds.ParquetFileFormat)
+    # from_paths partitions have defaults
+    dataset = ds.FileSystemDataset.from_paths(
+        paths, schema=schema, format=file_format, filesystem=mockfs
+    )
+    assert dataset.partition_expression.equals(ds.scalar(True))
+    for fragment in dataset.get_fragments():
+        assert fragment.partition_expression.equals(ds.scalar(True))
 
     # validation of required arguments
     with pytest.raises(TypeError, match="incorrect type"):
-        ds.FileSystemDataset(paths, format=file_format, filesystem=mockfs)
-    with pytest.raises(TypeError, match="incorrect type"):
-        ds.FileSystemDataset(paths, schema=schema, filesystem=mockfs)
-    with pytest.raises(TypeError, match="incorrect type"):
-        ds.FileSystemDataset(paths, schema=schema, format=file_format)
+        ds.FileSystemDataset(fragments, file_format, schema)
     # validation of root_partition
     with pytest.raises(TypeError, match="incorrect type"):
-        ds.FileSystemDataset(paths, schema=schema, format=file_format,
-                             filesystem=mockfs, root_partition=1)
+        ds.FileSystemDataset(fragments, schema=schema, format=file_format,
+                             root_partition=1)
+    # missing required argument in from_paths
+    with pytest.raises(TypeError, match="incorrect type"):
+        ds.FileSystemDataset.from_paths(fragments, format=file_format)
 
-    root_partition = ds.field('level') == ds.scalar(1337)
-    partitions = [ds.field('part') == x for x in range(1, 3)]
-    dataset = ds.FileSystemDataset(
-        paths_or_selector=paths,
-        schema=schema,
-        root_partition=root_partition,
-        filesystem=mockfs,
-        partitions=partitions,
-        format=file_format
+
+def test_filesystem_dataset_no_filesystem_interaction():
+    # ARROW-8283
+    schema = pa.schema([
+        pa.field('f1', pa.int64())
+    ])
+    file_format = ds.IpcFileFormat()
+    paths = ['nonexistingfile.arrow']
+
+    # creating the dataset itself doesn't raise
+    dataset = ds.FileSystemDataset.from_paths(
+        paths, schema=schema, format=file_format,
+        filesystem=fs.LocalFileSystem(),
     )
-    assert dataset.partition_expression.equals(root_partition)
-    assert set(dataset.files) == set(paths)
 
-    fragments = list(dataset.get_fragments())
-    for fragment, partition, path in zip(fragments, partitions, paths):
-        assert fragment.partition_expression.equals(partition)
-        assert fragment.path == path
-        assert isinstance(fragment.format, ds.ParquetFileFormat)
-        assert isinstance(fragment, ds.ParquetFileFragment)
-        assert fragment.row_groups is None
+    # getting fragments also doesn't raise
+    dataset.get_fragments()
 
-        row_group_fragments = list(fragment.split_by_row_group())
-        assert len(row_group_fragments) == 1
-        assert isinstance(fragment, ds.ParquetFileFragment)
-        assert row_group_fragments[0].path == path
-        assert row_group_fragments[0].row_groups == [ds.RowGroupInfo(0)]
-
-    fragments = list(dataset.get_fragments(filter=ds.field("const") == 0))
-    assert len(fragments) == 2
+    # scanning does raise
+    with pytest.raises(FileNotFoundError):
+        dataset.to_table()
 
 
 def test_dataset(dataset):
@@ -356,6 +377,10 @@ def test_partitioning():
         (ds.field('beta') == ds.scalar(3))
     )
     assert expr.equals(expected)
+
+    for shouldfail in ['/alpha=one/beta=2', '/alpha=one', '/beta=two']:
+        with pytest.raises(pa.ArrowInvalid):
+            partitioning.parse(shouldfail)
 
 
 def test_expression_serialization():
@@ -695,6 +720,30 @@ def test_fragments_parquet_row_groups(tempdir):
     assert len(row_group_fragments) == 1
     result = row_group_fragments[0].to_table(filter=ds.field('f1') < 1)
     assert len(result) == 1
+
+
+@pytest.mark.pandas
+@pytest.mark.parquet
+def test_fragments_parquet_row_groups_predicate(tempdir):
+    table, dataset = _create_dataset_for_fragments(tempdir, chunk_size=2)
+
+    fragment = list(dataset.get_fragments())[0]
+    assert fragment.partition_expression.equals(ds.field('part') == 'a')
+
+    # predicate may reference a partition field not present in the
+    # physical_schema if an explicit schema is provided to split_by_row_group
+
+    # filter matches partition_expression: all row groups
+    row_group_fragments = list(
+        fragment.split_by_row_group(ds.field('part') == 'a',
+                                    schema=dataset.schema))
+    assert len(row_group_fragments) == 2
+
+    # filter contradicts partition_expression: no row groups
+    row_group_fragments = list(
+        fragment.split_by_row_group(ds.field('part') == 'b',
+                                    schema=dataset.schema))
+    assert len(row_group_fragments) == 0
 
 
 @pytest.mark.pandas
@@ -1511,9 +1560,10 @@ def _create_metadata_file(root_path):
 def _create_parquet_dataset_partitioned(root_path):
     import pyarrow.parquet as pq
 
-    table = pa.table({
-        'f1': range(20), 'f2': np.random.randn(20),
-        'part': np.repeat(['a', 'b'], 10)}
+    table = pa.table([
+        pa.array(range(20)), pa.array(np.random.randn(20)),
+        pa.array(np.repeat(['a', 'b'], 10))],
+        names=["f1", "f2", "part"]
     )
     pq.write_to_dataset(table, str(root_path), partition_cols=['part'])
     return _create_metadata_file(root_path), table
@@ -1522,19 +1572,36 @@ def _create_parquet_dataset_partitioned(root_path):
 @pytest.mark.parquet
 @pytest.mark.pandas
 def test_parquet_dataset_factory_partitioned(tempdir):
-    # TODO support for specifying partitioning scheme
-
     root_path = tempdir / "test_parquet_dataset_factory_partitioned"
     metadata_path, table = _create_parquet_dataset_partitioned(root_path)
 
-    dataset = ds.parquet_dataset(metadata_path)
-    # TODO partition column not yet included
-    # assert dataset.schema.equals(table.schema)
+    partitioning = ds.partitioning(flavor="hive")
+    dataset = ds.parquet_dataset(metadata_path, partitioning=partitioning)
+
+    assert dataset.schema.equals(table.schema)
     assert len(dataset.files) == 2
     result = dataset.to_table()
     assert result.num_rows == 20
 
     # the partitioned dataset does not preserve order
     result = result.to_pandas().sort_values("f1").reset_index(drop=True)
-    expected = table.to_pandas().drop(columns=["part"])
+    expected = table.to_pandas()
     pd.testing.assert_frame_equal(result, expected)
+
+
+@pytest.mark.parquet
+@pytest.mark.pandas
+def test_dataset_schema_metadata(tempdir):
+    # ARROW-8802
+    df = pd.DataFrame({'a': [1, 2, 3]})
+    path = tempdir / "test.parquet"
+    df.to_parquet(path)
+    dataset = ds.dataset(path)
+
+    schema = dataset.to_table().schema
+    projected_schema = dataset.to_table(columns=["a"]).schema
+
+    # ensure the pandas metadata is included in the schema
+    assert b"pandas" in schema.metadata
+    # ensure it is still there in a projected schema (with column selection)
+    assert schema.equals(projected_schema, check_metadata=True)

@@ -15,26 +15,22 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <algorithm>
-#include <cstdint>
 #include <cstring>
-#include <memory>
 #include <mutex>
-#include <sstream>
-#include <string>
-#include <type_traits>
-#include <utility>
-#include <vector>
 
+#include "arrow/array/array_base.h"
+#include "arrow/array/array_dict.h"
+#include "arrow/array/array_nested.h"
+#include "arrow/array/builder_primitive.h"
 #include "arrow/array/dict_internal.h"
-#include "arrow/builder.h"
+#include "arrow/array/util.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/kernels/common.h"
+#include "arrow/result.h"
 #include "arrow/util/hashing.h"
+#include "arrow/util/optional.h"
 
 namespace arrow {
-
-class MemoryPool;
 
 using internal::DictionaryTraits;
 using internal::HashTraits;
@@ -504,12 +500,15 @@ void AddHashKernels(VectorFunction* func, VectorKernel base,
 
   // Example parametric types that we want to match only on Type::type
   auto parametric_types = {time32(TimeUnit::SECOND), time64(TimeUnit::MICRO),
-                           timestamp(TimeUnit::SECOND), fixed_size_binary(0),
-                           decimal(12, 2)};
+                           timestamp(TimeUnit::SECOND), fixed_size_binary(0)};
   for (const auto& ty : parametric_types) {
     base.signature = KernelSignature::Make({InputType::Array(ty->id())}, out_ty);
     AddKernel<Action>(func, base, /*dummy=*/ty);
   }
+
+  // Handle Decimal as a physical string, not a number
+  base.signature = KernelSignature::Make({InputType::Array(Type::DECIMAL)}, out_ty);
+  AddKernel<Action>(func, base, fixed_size_binary(0));
 }
 
 }  // namespace

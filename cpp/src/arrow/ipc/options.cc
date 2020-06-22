@@ -17,6 +17,8 @@
 
 #include "arrow/ipc/options.h"
 
+#include "arrow/status.h"
+
 namespace arrow {
 namespace ipc {
 

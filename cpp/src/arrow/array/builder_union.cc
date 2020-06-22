@@ -17,9 +17,10 @@
 
 #include "arrow/array/builder_union.h"
 
-#include <limits>
+#include <cstddef>
 #include <utility>
 
+#include "arrow/buffer.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 
@@ -38,22 +39,25 @@ Status BasicUnionBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
     RETURN_NOT_OK(children_[i]->FinishInternal(&child_data[i]));
   }
 
-  *out = ArrayData::Make(type(), length(), {null_bitmap, types, nullptr}, null_count_);
+  *out = ArrayData::Make(type(), length(), {null_bitmap, types}, null_count_);
   (*out)->child_data = std::move(child_data);
   return Status::OK();
 }
 
+Status DenseUnionBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
+  ARROW_RETURN_NOT_OK(BasicUnionBuilder::FinishInternal(out));
+  (*out)->buffers.resize(3);
+  ARROW_RETURN_NOT_OK(offsets_builder_.Finish(&(*out)->buffers[2]));
+  return Status::OK();
+}
+
 BasicUnionBuilder::BasicUnionBuilder(
-    MemoryPool* pool, UnionMode::type mode,
-    const std::vector<std::shared_ptr<ArrayBuilder>>& children,
+    MemoryPool* pool, const std::vector<std::shared_ptr<ArrayBuilder>>& children,
     const std::shared_ptr<DataType>& type)
-    : ArrayBuilder(pool),
-      child_fields_(children.size()),
-      mode_(mode),
-      types_builder_(pool) {
-  DCHECK_EQ(type->id(), Type::UNION);
+    : ArrayBuilder(pool), child_fields_(children.size()), types_builder_(pool) {
   const auto& union_type = checked_cast<const UnionType&>(*type);
-  DCHECK_EQ(union_type.mode(), mode);
+  mode_ = union_type.mode();
+
   DCHECK_EQ(children.size(), union_type.type_codes().size());
 
   type_codes_ = union_type.type_codes();
@@ -71,9 +75,6 @@ BasicUnionBuilder::BasicUnionBuilder(
     type_id_to_children_[type_id] = children[i].get();
   }
 }
-
-BasicUnionBuilder::BasicUnionBuilder(MemoryPool* pool, UnionMode::type mode)
-    : BasicUnionBuilder(pool, mode, {}, union_(mode)) {}
 
 int8_t BasicUnionBuilder::AppendChild(const std::shared_ptr<ArrayBuilder>& new_child,
                                       const std::string& field_name) {
@@ -95,7 +96,8 @@ std::shared_ptr<DataType> BasicUnionBuilder::type() const {
   for (size_t i = 0; i < child_fields.size(); ++i) {
     child_fields[i] = child_fields_[i]->WithType(children_[i]->type());
   }
-  return union_(std::move(child_fields), type_codes_, mode_);
+  return mode_ == UnionMode::SPARSE ? sparse_union(std::move(child_fields), type_codes_)
+                                    : dense_union(std::move(child_fields), type_codes_);
 }
 
 int8_t BasicUnionBuilder::NextTypeId() {

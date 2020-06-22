@@ -36,6 +36,8 @@
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/bitmap_generate.h"
+#include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
@@ -730,7 +732,7 @@ Status NumPyConverter::Visit(const StructType& type) {
     for (auto field : type.fields()) {
       PyObject* tup = PyDict_GetItemString(dtype_->fields, field->name().c_str());
       if (tup == NULL) {
-        return Status::TypeError("Missing field '", field->name(), "' in struct array");
+        return Status::Invalid("Missing field '", field->name(), "' in struct array");
       }
       PyArray_Descr* sub_dtype =
           reinterpret_cast<PyArray_Descr*>(PyTuple_GET_ITEM(tup, 0));
@@ -826,7 +828,9 @@ Status NdarrayToArrow(MemoryPool* pool, PyObject* ao, PyObject* mo, bool from_pa
                       const compute::CastOptions& cast_options,
                       std::shared_ptr<ChunkedArray>* out) {
   if (!PyArray_Check(ao)) {
-    return Status::Invalid("Input object was not a NumPy array");
+    // This code path cannot be reached by Python unit tests currently so this
+    // is only a sanity check.
+    return Status::TypeError("Input object was not a NumPy array");
   }
   if (PyArray_NDIM(reinterpret_cast<PyArrayObject*>(ao)) != 1) {
     return Status::Invalid("only handle 1-dimensional arrays");

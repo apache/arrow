@@ -3031,6 +3031,30 @@ TEST_P(TestArrowReadDictionary, ReadWholeFileDict) {
   CheckReadWholeFile(*ex_table);
 }
 
+TEST_P(TestArrowReadDictionary, ZeroChunksListOfDictionary) {
+  // ARROW-8799
+  properties_.set_read_dictionary(0, true);
+  dense_values_.reset();
+  auto values = std::make_shared<ChunkedArray>(::arrow::ArrayVector{},
+                                               ::arrow::list(::arrow::utf8()));
+  options.num_rows = 0;
+  options.num_row_groups = 1;
+  expected_dense_ = MakeSimpleTable(values, false);
+
+  WriteSimple();
+
+  ASSERT_OK_AND_ASSIGN(auto reader, GetReader());
+
+  std::unique_ptr<ColumnReader> column_reader;
+  ASSERT_OK_NO_THROW(reader->GetColumn(0, &column_reader));
+
+  std::shared_ptr<ChunkedArray> chunked_out;
+  ASSERT_OK(column_reader->NextBatch(1 << 15, &chunked_out));
+
+  ASSERT_EQ(chunked_out->length(), 0);
+  ASSERT_EQ(chunked_out->num_chunks(), 1);
+}
+
 TEST_P(TestArrowReadDictionary, IncrementalReads) {
   // ARROW-6895
   options.num_rows = 100;

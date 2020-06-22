@@ -17,8 +17,6 @@
 
 from cpython.ref cimport PyObject
 
-from pyarrow.compat import frombytes, pickle
-
 
 def is_named_tuple(cls):
     """

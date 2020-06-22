@@ -59,6 +59,24 @@ namespace Apache.Arrow.Tests
                     BitUtility.CountBits(data, offset));
             }
 
+            [Theory]
+            [InlineData(new byte[] { 0b11111111 }, 0, 8, 8)]
+            [InlineData(new byte[] { 0b11111111 }, 0, 4, 4)]
+            [InlineData(new byte[] { 0b11111111 }, 3, 2, 2)]
+            [InlineData(new byte[] { 0b11111111 }, 3, 5, 5)]
+            [InlineData(new byte[] { 0b11111111, 0b11111111 }, 9, 7, 7)]
+            [InlineData(new byte[] { 0b11111111, 0b11111111 }, 7, 2, 2)]
+            [InlineData(new byte[] { 0b11111111, 0b11111111, 0b11111111 }, 0, 24, 24)]
+            [InlineData(new byte[] { 0b11111111, 0b11111111, 0b11111111 }, 8, 16, 16)]
+            [InlineData(new byte[] { 0b11111111, 0b11111111, 0b11111111 }, 0, 16, 16)]
+            [InlineData(new byte[] { 0b11111111, 0b11111111, 0b11111111 }, 3, 18, 18)]
+            [InlineData(new byte[] { 0b11111111 }, -1, 0, 0)]
+            public void CountsAllOneBitsFromOffsetWithinLength(byte[] data, int offset, int length, int expectedCount)
+            {
+                var actualCount = BitUtility.CountBits(data, offset, length);
+                Assert.Equal(expectedCount, actualCount);
+            }
+
             [Fact]
             public void CountsZeroBitsWhenDataIsEmpty()
             {

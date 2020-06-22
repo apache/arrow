@@ -285,7 +285,8 @@ namespace red_arrow {
     // VISIT(Interval)
     VISIT(List)
     VISIT(Struct)
-    VISIT(Union)
+    VISIT(SparseUnion)
+    VISIT(DenseUnion)
     VISIT(Dictionary)
     VISIT(Decimal128)
     // TODO
@@ -388,7 +389,8 @@ namespace red_arrow {
     // VISIT(Interval)
     VISIT(List)
     VISIT(Struct)
-    VISIT(Union)
+    VISIT(SparseUnion)
+    VISIT(DenseUnion)
     VISIT(Dictionary)
     VISIT(Decimal128)
     // TODO
@@ -432,10 +434,10 @@ namespace red_arrow {
       index_ = index;
       switch (array.mode()) {
       case arrow::UnionMode::SPARSE:
-        convert_sparse(array);
+        convert_sparse(static_cast<const arrow::SparseUnionArray&>(array));
         break;
       case arrow::UnionMode::DENSE:
-        convert_dense(array);
+        convert_dense(static_cast<const arrow::DenseUnionArray&>(array));
         break;
       default:
         rb_raise(rb_eArgError, "Invalid union mode");
@@ -479,7 +481,8 @@ namespace red_arrow {
     // VISIT(Interval)
     VISIT(List)
     VISIT(Struct)
-    VISIT(Union)
+    VISIT(SparseUnion)
+    VISIT(DenseUnion)
     VISIT(Dictionary)
     VISIT(Decimal128)
     // TODO
@@ -516,7 +519,7 @@ namespace red_arrow {
       return 0;
     }
 
-    void convert_sparse(const arrow::UnionArray& array) {
+    void convert_sparse(const arrow::SparseUnionArray& array) {
       const auto type =
         std::static_pointer_cast<arrow::UnionType>(array.type()).get();
       const auto tag = "[raw-records][union-sparse-array]";
@@ -530,7 +533,7 @@ namespace red_arrow {
       field_name_ = field_name_keep;
     }
 
-    void convert_dense(const arrow::UnionArray& array) {
+    void convert_dense(const arrow::DenseUnionArray& array) {
       const auto type =
         std::static_pointer_cast<arrow::UnionType>(array.type()).get();
       const auto tag = "[raw-records][union-dense-array]";

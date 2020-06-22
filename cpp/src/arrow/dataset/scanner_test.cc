@@ -21,6 +21,7 @@
 
 #include "arrow/dataset/test_util.h"
 #include "arrow/record_batch.h"
+#include "arrow/table.h"
 #include "arrow/testing/generator.h"
 #include "arrow/testing/util.h"
 

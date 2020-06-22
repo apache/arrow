@@ -908,7 +908,7 @@ RcppExport SEXP _arrow_ChunkedArray__Equals(SEXP x_sexp, SEXP y_sexp){
 
 // compression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::unique_ptr<arrow::util::Codec> util___Codec__Create(arrow::Compression::type codec, int compression_level);
+std::shared_ptr<arrow::util::Codec> util___Codec__Create(arrow::Compression::type codec, int compression_level);
 RcppExport SEXP _arrow_util___Codec__Create(SEXP codec_sexp, SEXP compression_level_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<arrow::Compression::type>::type codec(codec_sexp);
@@ -924,10 +924,10 @@ RcppExport SEXP _arrow_util___Codec__Create(SEXP codec_sexp, SEXP compression_le
 
 // compression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::string util___Codec__name(const std::unique_ptr<arrow::util::Codec>& codec);
+std::string util___Codec__name(const std::shared_ptr<arrow::util::Codec>& codec);
 RcppExport SEXP _arrow_util___Codec__name(SEXP codec_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::unique_ptr<arrow::util::Codec>&>::type codec(codec_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::util::Codec>&>::type codec(codec_sexp);
 	return Rcpp::wrap(util___Codec__name(codec));
 END_RCPP
 }
@@ -954,10 +954,10 @@ RcppExport SEXP _arrow_util___Codec__IsAvailable(SEXP codec_sexp){
 
 // compression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::io::CompressedOutputStream> io___CompressedOutputStream__Make(const std::unique_ptr<arrow::util::Codec>& codec, const std::shared_ptr<arrow::io::OutputStream>& raw);
+std::shared_ptr<arrow::io::CompressedOutputStream> io___CompressedOutputStream__Make(const std::shared_ptr<arrow::util::Codec>& codec, const std::shared_ptr<arrow::io::OutputStream>& raw);
 RcppExport SEXP _arrow_io___CompressedOutputStream__Make(SEXP codec_sexp, SEXP raw_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::unique_ptr<arrow::util::Codec>&>::type codec(codec_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::util::Codec>&>::type codec(codec_sexp);
 	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::OutputStream>&>::type raw(raw_sexp);
 	return Rcpp::wrap(io___CompressedOutputStream__Make(codec, raw));
 END_RCPP
@@ -970,10 +970,10 @@ RcppExport SEXP _arrow_io___CompressedOutputStream__Make(SEXP codec_sexp, SEXP r
 
 // compression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::io::CompressedInputStream> io___CompressedInputStream__Make(const std::unique_ptr<arrow::util::Codec>& codec, const std::shared_ptr<arrow::io::InputStream>& raw);
+std::shared_ptr<arrow::io::CompressedInputStream> io___CompressedInputStream__Make(const std::shared_ptr<arrow::util::Codec>& codec, const std::shared_ptr<arrow::io::InputStream>& raw);
 RcppExport SEXP _arrow_io___CompressedInputStream__Make(SEXP codec_sexp, SEXP raw_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::unique_ptr<arrow::util::Codec>&>::type codec(codec_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::util::Codec>&>::type codec(codec_sexp);
 	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::InputStream>&>::type raw(raw_sexp);
 	return Rcpp::wrap(io___CompressedInputStream__Make(codec, raw));
 END_RCPP
@@ -1066,187 +1066,6 @@ END_RCPP
 #else
 RcppExport SEXP _arrow_Table__cast(SEXP table_sexp, SEXP schema_sexp, SEXP options_sexp){
 	Rf_error("Cannot call Table__cast(). Please use arrow::install_arrow() to install required runtime libraries. ");
-}
-#endif
-
-// compute.cpp
-#if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::ChunkedArray> Array__TakeChunked(const std::shared_ptr<arrow::Array>& values, const std::shared_ptr<arrow::ChunkedArray>& indices);
-RcppExport SEXP _arrow_Array__TakeChunked(SEXP values_sexp, SEXP indices_sexp){
-BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type values(values_sexp);
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ChunkedArray>&>::type indices(indices_sexp);
-	return Rcpp::wrap(Array__TakeChunked(values, indices));
-END_RCPP
-}
-#else
-RcppExport SEXP _arrow_Array__TakeChunked(SEXP values_sexp, SEXP indices_sexp){
-	Rf_error("Cannot call Array__TakeChunked(). Please use arrow::install_arrow() to install required runtime libraries. ");
-}
-#endif
-
-// compute.cpp
-#if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::RecordBatch> RecordBatch__Take(const std::shared_ptr<arrow::RecordBatch>& batch, const std::shared_ptr<arrow::Array>& indices);
-RcppExport SEXP _arrow_RecordBatch__Take(SEXP batch_sexp, SEXP indices_sexp){
-BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type indices(indices_sexp);
-	return Rcpp::wrap(RecordBatch__Take(batch, indices));
-END_RCPP
-}
-#else
-RcppExport SEXP _arrow_RecordBatch__Take(SEXP batch_sexp, SEXP indices_sexp){
-	Rf_error("Cannot call RecordBatch__Take(). Please use arrow::install_arrow() to install required runtime libraries. ");
-}
-#endif
-
-// compute.cpp
-#if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::ChunkedArray> ChunkedArray__Take(const std::shared_ptr<arrow::ChunkedArray>& values, const std::shared_ptr<arrow::Array>& indices);
-RcppExport SEXP _arrow_ChunkedArray__Take(SEXP values_sexp, SEXP indices_sexp){
-BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ChunkedArray>&>::type values(values_sexp);
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type indices(indices_sexp);
-	return Rcpp::wrap(ChunkedArray__Take(values, indices));
-END_RCPP
-}
-#else
-RcppExport SEXP _arrow_ChunkedArray__Take(SEXP values_sexp, SEXP indices_sexp){
-	Rf_error("Cannot call ChunkedArray__Take(). Please use arrow::install_arrow() to install required runtime libraries. ");
-}
-#endif
-
-// compute.cpp
-#if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::ChunkedArray> ChunkedArray__TakeChunked(const std::shared_ptr<arrow::ChunkedArray>& values, const std::shared_ptr<arrow::ChunkedArray>& indices);
-RcppExport SEXP _arrow_ChunkedArray__TakeChunked(SEXP values_sexp, SEXP indices_sexp){
-BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ChunkedArray>&>::type values(values_sexp);
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ChunkedArray>&>::type indices(indices_sexp);
-	return Rcpp::wrap(ChunkedArray__TakeChunked(values, indices));
-END_RCPP
-}
-#else
-RcppExport SEXP _arrow_ChunkedArray__TakeChunked(SEXP values_sexp, SEXP indices_sexp){
-	Rf_error("Cannot call ChunkedArray__TakeChunked(). Please use arrow::install_arrow() to install required runtime libraries. ");
-}
-#endif
-
-// compute.cpp
-#if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::Table> Table__Take(const std::shared_ptr<arrow::Table>& table, const std::shared_ptr<arrow::Array>& indices);
-RcppExport SEXP _arrow_Table__Take(SEXP table_sexp, SEXP indices_sexp){
-BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type indices(indices_sexp);
-	return Rcpp::wrap(Table__Take(table, indices));
-END_RCPP
-}
-#else
-RcppExport SEXP _arrow_Table__Take(SEXP table_sexp, SEXP indices_sexp){
-	Rf_error("Cannot call Table__Take(). Please use arrow::install_arrow() to install required runtime libraries. ");
-}
-#endif
-
-// compute.cpp
-#if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::Table> Table__TakeChunked(const std::shared_ptr<arrow::Table>& table, const std::shared_ptr<arrow::ChunkedArray>& indices);
-RcppExport SEXP _arrow_Table__TakeChunked(SEXP table_sexp, SEXP indices_sexp){
-BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ChunkedArray>&>::type indices(indices_sexp);
-	return Rcpp::wrap(Table__TakeChunked(table, indices));
-END_RCPP
-}
-#else
-RcppExport SEXP _arrow_Table__TakeChunked(SEXP table_sexp, SEXP indices_sexp){
-	Rf_error("Cannot call Table__TakeChunked(). Please use arrow::install_arrow() to install required runtime libraries. ");
-}
-#endif
-
-// compute.cpp
-#if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::RecordBatch> RecordBatch__Filter(const std::shared_ptr<arrow::RecordBatch>& batch, const std::shared_ptr<arrow::Array>& filter, bool keep_na);
-RcppExport SEXP _arrow_RecordBatch__Filter(SEXP batch_sexp, SEXP filter_sexp, SEXP keep_na_sexp){
-BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type filter(filter_sexp);
-	Rcpp::traits::input_parameter<bool>::type keep_na(keep_na_sexp);
-	return Rcpp::wrap(RecordBatch__Filter(batch, filter, keep_na));
-END_RCPP
-}
-#else
-RcppExport SEXP _arrow_RecordBatch__Filter(SEXP batch_sexp, SEXP filter_sexp, SEXP keep_na_sexp){
-	Rf_error("Cannot call RecordBatch__Filter(). Please use arrow::install_arrow() to install required runtime libraries. ");
-}
-#endif
-
-// compute.cpp
-#if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::ChunkedArray> ChunkedArray__Filter(const std::shared_ptr<arrow::ChunkedArray>& values, const std::shared_ptr<arrow::Array>& filter, bool keep_na);
-RcppExport SEXP _arrow_ChunkedArray__Filter(SEXP values_sexp, SEXP filter_sexp, SEXP keep_na_sexp){
-BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ChunkedArray>&>::type values(values_sexp);
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type filter(filter_sexp);
-	Rcpp::traits::input_parameter<bool>::type keep_na(keep_na_sexp);
-	return Rcpp::wrap(ChunkedArray__Filter(values, filter, keep_na));
-END_RCPP
-}
-#else
-RcppExport SEXP _arrow_ChunkedArray__Filter(SEXP values_sexp, SEXP filter_sexp, SEXP keep_na_sexp){
-	Rf_error("Cannot call ChunkedArray__Filter(). Please use arrow::install_arrow() to install required runtime libraries. ");
-}
-#endif
-
-// compute.cpp
-#if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::ChunkedArray> ChunkedArray__FilterChunked(const std::shared_ptr<arrow::ChunkedArray>& values, const std::shared_ptr<arrow::ChunkedArray>& filter, bool keep_na);
-RcppExport SEXP _arrow_ChunkedArray__FilterChunked(SEXP values_sexp, SEXP filter_sexp, SEXP keep_na_sexp){
-BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ChunkedArray>&>::type values(values_sexp);
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ChunkedArray>&>::type filter(filter_sexp);
-	Rcpp::traits::input_parameter<bool>::type keep_na(keep_na_sexp);
-	return Rcpp::wrap(ChunkedArray__FilterChunked(values, filter, keep_na));
-END_RCPP
-}
-#else
-RcppExport SEXP _arrow_ChunkedArray__FilterChunked(SEXP values_sexp, SEXP filter_sexp, SEXP keep_na_sexp){
-	Rf_error("Cannot call ChunkedArray__FilterChunked(). Please use arrow::install_arrow() to install required runtime libraries. ");
-}
-#endif
-
-// compute.cpp
-#if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::Table> Table__Filter(const std::shared_ptr<arrow::Table>& table, const std::shared_ptr<arrow::Array>& filter, bool keep_na);
-RcppExport SEXP _arrow_Table__Filter(SEXP table_sexp, SEXP filter_sexp, SEXP keep_na_sexp){
-BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type filter(filter_sexp);
-	Rcpp::traits::input_parameter<bool>::type keep_na(keep_na_sexp);
-	return Rcpp::wrap(Table__Filter(table, filter, keep_na));
-END_RCPP
-}
-#else
-RcppExport SEXP _arrow_Table__Filter(SEXP table_sexp, SEXP filter_sexp, SEXP keep_na_sexp){
-	Rf_error("Cannot call Table__Filter(). Please use arrow::install_arrow() to install required runtime libraries. ");
-}
-#endif
-
-// compute.cpp
-#if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::Table> Table__FilterChunked(const std::shared_ptr<arrow::Table>& table, const std::shared_ptr<arrow::ChunkedArray>& filter, bool keep_na);
-RcppExport SEXP _arrow_Table__FilterChunked(SEXP table_sexp, SEXP filter_sexp, SEXP keep_na_sexp){
-BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ChunkedArray>&>::type filter(filter_sexp);
-	Rcpp::traits::input_parameter<bool>::type keep_na(keep_na_sexp);
-	return Rcpp::wrap(Table__FilterChunked(table, filter, keep_na));
-END_RCPP
-}
-#else
-RcppExport SEXP _arrow_Table__FilterChunked(SEXP table_sexp, SEXP filter_sexp, SEXP keep_na_sexp){
-	Rf_error("Cannot call Table__FilterChunked(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -4005,7 +3824,7 @@ RcppExport SEXP _arrow_ipc___Message__Verify(SEXP message_sexp){
 
 // message.cpp
 #if defined(ARROW_R_WITH_ARROW)
-arrow::ipc::Message::Type ipc___Message__type(const std::unique_ptr<arrow::ipc::Message>& message);
+arrow::ipc::MessageType ipc___Message__type(const std::unique_ptr<arrow::ipc::Message>& message);
 RcppExport SEXP _arrow_ipc___Message__type(SEXP message_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const std::unique_ptr<arrow::ipc::Message>&>::type message(message_sexp);
@@ -4082,7 +3901,7 @@ RcppExport SEXP _arrow_ipc___ReadSchema_Message(SEXP message_sexp){
 
 // message.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::unique_ptr<arrow::ipc::MessageReader> ipc___MessageReader__Open(const std::shared_ptr<arrow::io::InputStream>& stream);
+std::shared_ptr<arrow::ipc::MessageReader> ipc___MessageReader__Open(const std::shared_ptr<arrow::io::InputStream>& stream);
 RcppExport SEXP _arrow_ipc___MessageReader__Open(SEXP stream_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::InputStream>&>::type stream(stream_sexp);
@@ -4097,7 +3916,7 @@ RcppExport SEXP _arrow_ipc___MessageReader__Open(SEXP stream_sexp){
 
 // message.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::unique_ptr<arrow::ipc::Message> ipc___MessageReader__ReadNextMessage(const std::unique_ptr<arrow::ipc::MessageReader>& reader);
+std::shared_ptr<arrow::ipc::Message> ipc___MessageReader__ReadNextMessage(const std::unique_ptr<arrow::ipc::MessageReader>& reader);
 RcppExport SEXP _arrow_ipc___MessageReader__ReadNextMessage(SEXP reader_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const std::unique_ptr<arrow::ipc::MessageReader>&>::type reader(reader_sexp);
@@ -4112,7 +3931,7 @@ RcppExport SEXP _arrow_ipc___MessageReader__ReadNextMessage(SEXP reader_sexp){
 
 // message.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::unique_ptr<arrow::ipc::Message> ipc___ReadMessage(const std::shared_ptr<arrow::io::InputStream>& stream);
+std::shared_ptr<arrow::ipc::Message> ipc___ReadMessage(const std::shared_ptr<arrow::io::InputStream>& stream);
 RcppExport SEXP _arrow_ipc___ReadMessage(SEXP stream_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::InputStream>&>::type stream(stream_sexp);
@@ -4209,7 +4028,7 @@ RcppExport SEXP _arrow_parquet___arrow___ArrowReaderProperties__set_read_diction
 
 // parquet.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::unique_ptr<parquet::arrow::FileReader> parquet___arrow___FileReader__OpenFile(const std::shared_ptr<arrow::io::RandomAccessFile>& file, const std::shared_ptr<parquet::ArrowReaderProperties>& props);
+std::shared_ptr<parquet::arrow::FileReader> parquet___arrow___FileReader__OpenFile(const std::shared_ptr<arrow::io::RandomAccessFile>& file, const std::shared_ptr<parquet::ArrowReaderProperties>& props);
 RcppExport SEXP _arrow_parquet___arrow___FileReader__OpenFile(SEXP file_sexp, SEXP props_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::RandomAccessFile>&>::type file(file_sexp);
@@ -4225,10 +4044,10 @@ RcppExport SEXP _arrow_parquet___arrow___FileReader__OpenFile(SEXP file_sexp, SE
 
 // parquet.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::Table> parquet___arrow___FileReader__ReadTable1(const std::unique_ptr<parquet::arrow::FileReader>& reader);
+std::shared_ptr<arrow::Table> parquet___arrow___FileReader__ReadTable1(const std::shared_ptr<parquet::arrow::FileReader>& reader);
 RcppExport SEXP _arrow_parquet___arrow___FileReader__ReadTable1(SEXP reader_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::unique_ptr<parquet::arrow::FileReader>&>::type reader(reader_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<parquet::arrow::FileReader>&>::type reader(reader_sexp);
 	return Rcpp::wrap(parquet___arrow___FileReader__ReadTable1(reader));
 END_RCPP
 }
@@ -4240,10 +4059,10 @@ RcppExport SEXP _arrow_parquet___arrow___FileReader__ReadTable1(SEXP reader_sexp
 
 // parquet.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::Table> parquet___arrow___FileReader__ReadTable2(const std::unique_ptr<parquet::arrow::FileReader>& reader, const std::vector<int>& column_indices);
+std::shared_ptr<arrow::Table> parquet___arrow___FileReader__ReadTable2(const std::shared_ptr<parquet::arrow::FileReader>& reader, const std::vector<int>& column_indices);
 RcppExport SEXP _arrow_parquet___arrow___FileReader__ReadTable2(SEXP reader_sexp, SEXP column_indices_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::unique_ptr<parquet::arrow::FileReader>&>::type reader(reader_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<parquet::arrow::FileReader>&>::type reader(reader_sexp);
 	Rcpp::traits::input_parameter<const std::vector<int>&>::type column_indices(column_indices_sexp);
 	return Rcpp::wrap(parquet___arrow___FileReader__ReadTable2(reader, column_indices));
 END_RCPP
@@ -4256,10 +4075,10 @@ RcppExport SEXP _arrow_parquet___arrow___FileReader__ReadTable2(SEXP reader_sexp
 
 // parquet.cpp
 #if defined(ARROW_R_WITH_ARROW)
-int64_t parquet___arrow___FileReader__num_rows(const std::unique_ptr<parquet::arrow::FileReader>& reader);
+int64_t parquet___arrow___FileReader__num_rows(const std::shared_ptr<parquet::arrow::FileReader>& reader);
 RcppExport SEXP _arrow_parquet___arrow___FileReader__num_rows(SEXP reader_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::unique_ptr<parquet::arrow::FileReader>&>::type reader(reader_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<parquet::arrow::FileReader>&>::type reader(reader_sexp);
 	return Rcpp::wrap(parquet___arrow___FileReader__num_rows(reader));
 END_RCPP
 }
@@ -4271,7 +4090,7 @@ RcppExport SEXP _arrow_parquet___arrow___FileReader__num_rows(SEXP reader_sexp){
 
 // parquet.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<parquet::ArrowWriterProperties::Builder> parquet___ArrowWriterProperties___Builder__create();
+std::shared_ptr<parquet::ArrowWriterPropertiesBuilder> parquet___ArrowWriterProperties___Builder__create();
 RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__create(){
 BEGIN_RCPP
 	return Rcpp::wrap(parquet___ArrowWriterProperties___Builder__create());
@@ -4285,10 +4104,10 @@ RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__create(){
 
 // parquet.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void parquet___ArrowWriterProperties___Builder__store_schema(const std::shared_ptr<parquet::ArrowWriterProperties::Builder>& builder);
+void parquet___ArrowWriterProperties___Builder__store_schema(const std::shared_ptr<parquet::ArrowWriterPropertiesBuilder>& builder);
 RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__store_schema(SEXP builder_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<parquet::ArrowWriterProperties::Builder>&>::type builder(builder_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<parquet::ArrowWriterPropertiesBuilder>&>::type builder(builder_sexp);
 	parquet___ArrowWriterProperties___Builder__store_schema(builder);
 	return R_NilValue;
 END_RCPP
@@ -4301,10 +4120,10 @@ RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__store_schema(S
 
 // parquet.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void parquet___ArrowWriterProperties___Builder__enable_deprecated_int96_timestamps(const std::shared_ptr<parquet::ArrowWriterProperties::Builder>& builder);
+void parquet___ArrowWriterProperties___Builder__enable_deprecated_int96_timestamps(const std::shared_ptr<parquet::ArrowWriterPropertiesBuilder>& builder);
 RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__enable_deprecated_int96_timestamps(SEXP builder_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<parquet::ArrowWriterProperties::Builder>&>::type builder(builder_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<parquet::ArrowWriterPropertiesBuilder>&>::type builder(builder_sexp);
 	parquet___ArrowWriterProperties___Builder__enable_deprecated_int96_timestamps(builder);
 	return R_NilValue;
 END_RCPP
@@ -4317,10 +4136,10 @@ RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__enable_depreca
 
 // parquet.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void parquet___ArrowWriterProperties___Builder__disable_deprecated_int96_timestamps(const std::shared_ptr<parquet::ArrowWriterProperties::Builder>& builder);
+void parquet___ArrowWriterProperties___Builder__disable_deprecated_int96_timestamps(const std::shared_ptr<parquet::ArrowWriterPropertiesBuilder>& builder);
 RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__disable_deprecated_int96_timestamps(SEXP builder_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<parquet::ArrowWriterProperties::Builder>&>::type builder(builder_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<parquet::ArrowWriterPropertiesBuilder>&>::type builder(builder_sexp);
 	parquet___ArrowWriterProperties___Builder__disable_deprecated_int96_timestamps(builder);
 	return R_NilValue;
 END_RCPP
@@ -4333,10 +4152,10 @@ RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__disable_deprec
 
 // parquet.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void parquet___ArrowWriterProperties___Builder__coerce_timestamps(const std::shared_ptr<parquet::ArrowWriterProperties::Builder>& builder, arrow::TimeUnit::type unit);
+void parquet___ArrowWriterProperties___Builder__coerce_timestamps(const std::shared_ptr<parquet::ArrowWriterPropertiesBuilder>& builder, arrow::TimeUnit::type unit);
 RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__coerce_timestamps(SEXP builder_sexp, SEXP unit_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<parquet::ArrowWriterProperties::Builder>&>::type builder(builder_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<parquet::ArrowWriterPropertiesBuilder>&>::type builder(builder_sexp);
 	Rcpp::traits::input_parameter<arrow::TimeUnit::type>::type unit(unit_sexp);
 	parquet___ArrowWriterProperties___Builder__coerce_timestamps(builder, unit);
 	return R_NilValue;
@@ -4350,10 +4169,10 @@ RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__coerce_timesta
 
 // parquet.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void parquet___ArrowWriterProperties___Builder__allow_truncated_timestamps(const std::shared_ptr<parquet::ArrowWriterProperties::Builder>& builder);
+void parquet___ArrowWriterProperties___Builder__allow_truncated_timestamps(const std::shared_ptr<parquet::ArrowWriterPropertiesBuilder>& builder);
 RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__allow_truncated_timestamps(SEXP builder_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<parquet::ArrowWriterProperties::Builder>&>::type builder(builder_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<parquet::ArrowWriterPropertiesBuilder>&>::type builder(builder_sexp);
 	parquet___ArrowWriterProperties___Builder__allow_truncated_timestamps(builder);
 	return R_NilValue;
 END_RCPP
@@ -4366,10 +4185,10 @@ RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__allow_truncate
 
 // parquet.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void parquet___ArrowWriterProperties___Builder__disallow_truncated_timestamps(const std::shared_ptr<parquet::ArrowWriterProperties::Builder>& builder);
+void parquet___ArrowWriterProperties___Builder__disallow_truncated_timestamps(const std::shared_ptr<parquet::ArrowWriterPropertiesBuilder>& builder);
 RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__disallow_truncated_timestamps(SEXP builder_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<parquet::ArrowWriterProperties::Builder>&>::type builder(builder_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<parquet::ArrowWriterPropertiesBuilder>&>::type builder(builder_sexp);
 	parquet___ArrowWriterProperties___Builder__disallow_truncated_timestamps(builder);
 	return R_NilValue;
 END_RCPP
@@ -4382,10 +4201,10 @@ RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__disallow_trunc
 
 // parquet.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<parquet::ArrowWriterProperties> parquet___ArrowWriterProperties___Builder__build(const std::shared_ptr<parquet::ArrowWriterProperties::Builder>& builder);
+std::shared_ptr<parquet::ArrowWriterProperties> parquet___ArrowWriterProperties___Builder__build(const std::shared_ptr<parquet::ArrowWriterPropertiesBuilder>& builder);
 RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__build(SEXP builder_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<parquet::ArrowWriterProperties::Builder>&>::type builder(builder_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<parquet::ArrowWriterPropertiesBuilder>&>::type builder(builder_sexp);
 	return Rcpp::wrap(parquet___ArrowWriterProperties___Builder__build(builder));
 END_RCPP
 }
@@ -4411,7 +4230,7 @@ RcppExport SEXP _arrow_parquet___default_writer_properties(){
 
 // parquet.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<parquet::WriterProperties::Builder> parquet___WriterProperties___Builder__create();
+std::shared_ptr<parquet::WriterPropertiesBuilder> parquet___WriterProperties___Builder__create();
 RcppExport SEXP _arrow_parquet___WriterProperties___Builder__create(){
 BEGIN_RCPP
 	return Rcpp::wrap(parquet___WriterProperties___Builder__create());
@@ -4425,10 +4244,10 @@ RcppExport SEXP _arrow_parquet___WriterProperties___Builder__create(){
 
 // parquet.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void parquet___WriterProperties___Builder__version(const std::shared_ptr<parquet::WriterProperties::Builder>& builder, const parquet::ParquetVersion::type& version);
+void parquet___WriterProperties___Builder__version(const std::shared_ptr<parquet::WriterPropertiesBuilder>& builder, const parquet::ParquetVersion::type& version);
 RcppExport SEXP _arrow_parquet___WriterProperties___Builder__version(SEXP builder_sexp, SEXP version_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<parquet::WriterProperties::Builder>&>::type builder(builder_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<parquet::WriterPropertiesBuilder>&>::type builder(builder_sexp);
 	Rcpp::traits::input_parameter<const parquet::ParquetVersion::type&>::type version(version_sexp);
 	parquet___WriterProperties___Builder__version(builder, version);
 	return R_NilValue;
@@ -4442,10 +4261,10 @@ RcppExport SEXP _arrow_parquet___WriterProperties___Builder__version(SEXP builde
 
 // parquet.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void parquet___ArrowWriterProperties___Builder__default_compression(const std::shared_ptr<parquet::WriterProperties::Builder>& builder, const arrow::Compression::type& compression);
+void parquet___ArrowWriterProperties___Builder__default_compression(const std::shared_ptr<parquet::WriterPropertiesBuilder>& builder, const arrow::Compression::type& compression);
 RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__default_compression(SEXP builder_sexp, SEXP compression_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<parquet::WriterProperties::Builder>&>::type builder(builder_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<parquet::WriterPropertiesBuilder>&>::type builder(builder_sexp);
 	Rcpp::traits::input_parameter<const arrow::Compression::type&>::type compression(compression_sexp);
 	parquet___ArrowWriterProperties___Builder__default_compression(builder, compression);
 	return R_NilValue;
@@ -4459,10 +4278,10 @@ RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__default_compre
 
 // parquet.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void parquet___ArrowWriterProperties___Builder__set_compressions(const std::shared_ptr<parquet::WriterProperties::Builder>& builder, const std::vector<std::string>& paths, const Rcpp::IntegerVector& types);
+void parquet___ArrowWriterProperties___Builder__set_compressions(const std::shared_ptr<parquet::WriterPropertiesBuilder>& builder, const std::vector<std::string>& paths, const Rcpp::IntegerVector& types);
 RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__set_compressions(SEXP builder_sexp, SEXP paths_sexp, SEXP types_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<parquet::WriterProperties::Builder>&>::type builder(builder_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<parquet::WriterPropertiesBuilder>&>::type builder(builder_sexp);
 	Rcpp::traits::input_parameter<const std::vector<std::string>&>::type paths(paths_sexp);
 	Rcpp::traits::input_parameter<const Rcpp::IntegerVector&>::type types(types_sexp);
 	parquet___ArrowWriterProperties___Builder__set_compressions(builder, paths, types);
@@ -4477,10 +4296,10 @@ RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__set_compressio
 
 // parquet.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void parquet___ArrowWriterProperties___Builder__default_compression_level(const std::shared_ptr<parquet::WriterProperties::Builder>& builder, int compression_level);
+void parquet___ArrowWriterProperties___Builder__default_compression_level(const std::shared_ptr<parquet::WriterPropertiesBuilder>& builder, int compression_level);
 RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__default_compression_level(SEXP builder_sexp, SEXP compression_level_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<parquet::WriterProperties::Builder>&>::type builder(builder_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<parquet::WriterPropertiesBuilder>&>::type builder(builder_sexp);
 	Rcpp::traits::input_parameter<int>::type compression_level(compression_level_sexp);
 	parquet___ArrowWriterProperties___Builder__default_compression_level(builder, compression_level);
 	return R_NilValue;
@@ -4494,10 +4313,10 @@ RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__default_compre
 
 // parquet.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void parquet___ArrowWriterProperties___Builder__set_compression_levels(const std::shared_ptr<parquet::WriterProperties::Builder>& builder, const std::vector<std::string>& paths, const Rcpp::IntegerVector& levels);
+void parquet___ArrowWriterProperties___Builder__set_compression_levels(const std::shared_ptr<parquet::WriterPropertiesBuilder>& builder, const std::vector<std::string>& paths, const Rcpp::IntegerVector& levels);
 RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__set_compression_levels(SEXP builder_sexp, SEXP paths_sexp, SEXP levels_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<parquet::WriterProperties::Builder>&>::type builder(builder_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<parquet::WriterPropertiesBuilder>&>::type builder(builder_sexp);
 	Rcpp::traits::input_parameter<const std::vector<std::string>&>::type paths(paths_sexp);
 	Rcpp::traits::input_parameter<const Rcpp::IntegerVector&>::type levels(levels_sexp);
 	parquet___ArrowWriterProperties___Builder__set_compression_levels(builder, paths, levels);
@@ -4512,10 +4331,10 @@ RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__set_compressio
 
 // parquet.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void parquet___ArrowWriterProperties___Builder__default_write_statistics(const std::shared_ptr<parquet::WriterProperties::Builder>& builder, bool write_statistics);
+void parquet___ArrowWriterProperties___Builder__default_write_statistics(const std::shared_ptr<parquet::WriterPropertiesBuilder>& builder, bool write_statistics);
 RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__default_write_statistics(SEXP builder_sexp, SEXP write_statistics_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<parquet::WriterProperties::Builder>&>::type builder(builder_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<parquet::WriterPropertiesBuilder>&>::type builder(builder_sexp);
 	Rcpp::traits::input_parameter<bool>::type write_statistics(write_statistics_sexp);
 	parquet___ArrowWriterProperties___Builder__default_write_statistics(builder, write_statistics);
 	return R_NilValue;
@@ -4529,10 +4348,10 @@ RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__default_write_
 
 // parquet.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void parquet___ArrowWriterProperties___Builder__default_use_dictionary(const std::shared_ptr<parquet::WriterProperties::Builder>& builder, bool use_dictionary);
+void parquet___ArrowWriterProperties___Builder__default_use_dictionary(const std::shared_ptr<parquet::WriterPropertiesBuilder>& builder, bool use_dictionary);
 RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__default_use_dictionary(SEXP builder_sexp, SEXP use_dictionary_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<parquet::WriterProperties::Builder>&>::type builder(builder_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<parquet::WriterPropertiesBuilder>&>::type builder(builder_sexp);
 	Rcpp::traits::input_parameter<bool>::type use_dictionary(use_dictionary_sexp);
 	parquet___ArrowWriterProperties___Builder__default_use_dictionary(builder, use_dictionary);
 	return R_NilValue;
@@ -4546,10 +4365,10 @@ RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__default_use_di
 
 // parquet.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void parquet___ArrowWriterProperties___Builder__set_use_dictionary(const std::shared_ptr<parquet::WriterProperties::Builder>& builder, const std::vector<std::string>& paths, const Rcpp::LogicalVector& use_dictionary);
+void parquet___ArrowWriterProperties___Builder__set_use_dictionary(const std::shared_ptr<parquet::WriterPropertiesBuilder>& builder, const std::vector<std::string>& paths, const Rcpp::LogicalVector& use_dictionary);
 RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__set_use_dictionary(SEXP builder_sexp, SEXP paths_sexp, SEXP use_dictionary_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<parquet::WriterProperties::Builder>&>::type builder(builder_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<parquet::WriterPropertiesBuilder>&>::type builder(builder_sexp);
 	Rcpp::traits::input_parameter<const std::vector<std::string>&>::type paths(paths_sexp);
 	Rcpp::traits::input_parameter<const Rcpp::LogicalVector&>::type use_dictionary(use_dictionary_sexp);
 	parquet___ArrowWriterProperties___Builder__set_use_dictionary(builder, paths, use_dictionary);
@@ -4564,10 +4383,10 @@ RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__set_use_dictio
 
 // parquet.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void parquet___ArrowWriterProperties___Builder__set_write_statistics(const std::shared_ptr<parquet::WriterProperties::Builder>& builder, const std::vector<std::string>& paths, const Rcpp::LogicalVector& write_statistics);
+void parquet___ArrowWriterProperties___Builder__set_write_statistics(const std::shared_ptr<parquet::WriterPropertiesBuilder>& builder, const std::vector<std::string>& paths, const Rcpp::LogicalVector& write_statistics);
 RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__set_write_statistics(SEXP builder_sexp, SEXP paths_sexp, SEXP write_statistics_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<parquet::WriterProperties::Builder>&>::type builder(builder_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<parquet::WriterPropertiesBuilder>&>::type builder(builder_sexp);
 	Rcpp::traits::input_parameter<const std::vector<std::string>&>::type paths(paths_sexp);
 	Rcpp::traits::input_parameter<const Rcpp::LogicalVector&>::type write_statistics(write_statistics_sexp);
 	parquet___ArrowWriterProperties___Builder__set_write_statistics(builder, paths, write_statistics);
@@ -4582,10 +4401,10 @@ RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__set_write_stat
 
 // parquet.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void parquet___ArrowWriterProperties___Builder__data_page_size(const std::shared_ptr<parquet::WriterProperties::Builder>& builder, int64_t data_page_size);
+void parquet___ArrowWriterProperties___Builder__data_page_size(const std::shared_ptr<parquet::WriterPropertiesBuilder>& builder, int64_t data_page_size);
 RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__data_page_size(SEXP builder_sexp, SEXP data_page_size_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<parquet::WriterProperties::Builder>&>::type builder(builder_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<parquet::WriterPropertiesBuilder>&>::type builder(builder_sexp);
 	Rcpp::traits::input_parameter<int64_t>::type data_page_size(data_page_size_sexp);
 	parquet___ArrowWriterProperties___Builder__data_page_size(builder, data_page_size);
 	return R_NilValue;
@@ -4599,10 +4418,10 @@ RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__data_page_size
 
 // parquet.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<parquet::WriterProperties> parquet___WriterProperties___Builder__build(const std::shared_ptr<parquet::WriterProperties::Builder>& builder);
+std::shared_ptr<parquet::WriterProperties> parquet___WriterProperties___Builder__build(const std::shared_ptr<parquet::WriterPropertiesBuilder>& builder);
 RcppExport SEXP _arrow_parquet___WriterProperties___Builder__build(SEXP builder_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<parquet::WriterProperties::Builder>&>::type builder(builder_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<parquet::WriterPropertiesBuilder>&>::type builder(builder_sexp);
 	return Rcpp::wrap(parquet___WriterProperties___Builder__build(builder));
 END_RCPP
 }
@@ -4614,7 +4433,7 @@ RcppExport SEXP _arrow_parquet___WriterProperties___Builder__build(SEXP builder_
 
 // parquet.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::unique_ptr<parquet::arrow::FileWriter> parquet___arrow___ParquetFileWriter__Open(const std::shared_ptr<arrow::Schema>& schema, const std::shared_ptr<arrow::io::OutputStream>& sink, const std::shared_ptr<parquet::WriterProperties>& properties, const std::shared_ptr<parquet::ArrowWriterProperties>& arrow_properties);
+std::shared_ptr<parquet::arrow::FileWriter> parquet___arrow___ParquetFileWriter__Open(const std::shared_ptr<arrow::Schema>& schema, const std::shared_ptr<arrow::io::OutputStream>& sink, const std::shared_ptr<parquet::WriterProperties>& properties, const std::shared_ptr<parquet::ArrowWriterProperties>& arrow_properties);
 RcppExport SEXP _arrow_parquet___arrow___ParquetFileWriter__Open(SEXP schema_sexp, SEXP sink_sexp, SEXP properties_sexp, SEXP arrow_properties_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
@@ -4632,10 +4451,10 @@ RcppExport SEXP _arrow_parquet___arrow___ParquetFileWriter__Open(SEXP schema_sex
 
 // parquet.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void parquet___arrow___FileWriter__WriteTable(const std::unique_ptr<parquet::arrow::FileWriter>& writer, const std::shared_ptr<arrow::Table>& table, int64_t chunk_size);
+void parquet___arrow___FileWriter__WriteTable(const std::shared_ptr<parquet::arrow::FileWriter>& writer, const std::shared_ptr<arrow::Table>& table, int64_t chunk_size);
 RcppExport SEXP _arrow_parquet___arrow___FileWriter__WriteTable(SEXP writer_sexp, SEXP table_sexp, SEXP chunk_size_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::unique_ptr<parquet::arrow::FileWriter>&>::type writer(writer_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<parquet::arrow::FileWriter>&>::type writer(writer_sexp);
 	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
 	Rcpp::traits::input_parameter<int64_t>::type chunk_size(chunk_size_sexp);
 	parquet___arrow___FileWriter__WriteTable(writer, table, chunk_size);
@@ -4650,10 +4469,10 @@ RcppExport SEXP _arrow_parquet___arrow___FileWriter__WriteTable(SEXP writer_sexp
 
 // parquet.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void parquet___arrow___FileWriter__Close(const std::unique_ptr<parquet::arrow::FileWriter>& writer);
+void parquet___arrow___FileWriter__Close(const std::shared_ptr<parquet::arrow::FileWriter>& writer);
 RcppExport SEXP _arrow_parquet___arrow___FileWriter__Close(SEXP writer_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::unique_ptr<parquet::arrow::FileWriter>&>::type writer(writer_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<parquet::arrow::FileWriter>&>::type writer(writer_sexp);
 	parquet___arrow___FileWriter__Close(writer);
 	return R_NilValue;
 END_RCPP
@@ -4685,10 +4504,10 @@ RcppExport SEXP _arrow_parquet___arrow___WriteTable(SEXP table_sexp, SEXP sink_s
 
 // parquet.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::Schema> parquet___arrow___FileReader__GetSchema(const std::unique_ptr<parquet::arrow::FileReader>& reader);
+std::shared_ptr<arrow::Schema> parquet___arrow___FileReader__GetSchema(const std::shared_ptr<parquet::arrow::FileReader>& reader);
 RcppExport SEXP _arrow_parquet___arrow___FileReader__GetSchema(SEXP reader_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::unique_ptr<parquet::arrow::FileReader>&>::type reader(reader_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<parquet::arrow::FileReader>&>::type reader(reader_sexp);
 	return Rcpp::wrap(parquet___arrow___FileReader__GetSchema(reader));
 END_RCPP
 }
@@ -5442,6 +5261,38 @@ RcppExport SEXP _arrow_Scalar__CastTo(SEXP s_sexp, SEXP t_sexp){
 
 // scalar.cpp
 #if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Scalar> StructScalar__field(const std::shared_ptr<arrow::StructScalar>& s, int i);
+RcppExport SEXP _arrow_StructScalar__field(SEXP s_sexp, SEXP i_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::StructScalar>&>::type s(s_sexp);
+	Rcpp::traits::input_parameter<int>::type i(i_sexp);
+	return Rcpp::wrap(StructScalar__field(s, i));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_StructScalar__field(SEXP s_sexp, SEXP i_sexp){
+	Rf_error("Cannot call StructScalar__field(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// scalar.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Scalar> StructScalar__GetFieldByName(const std::shared_ptr<arrow::StructScalar>& s, const std::string& name);
+RcppExport SEXP _arrow_StructScalar__GetFieldByName(SEXP s_sexp, SEXP name_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::StructScalar>&>::type s(s_sexp);
+	Rcpp::traits::input_parameter<const std::string&>::type name(name_sexp);
+	return Rcpp::wrap(StructScalar__GetFieldByName(s, name));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_StructScalar__GetFieldByName(SEXP s_sexp, SEXP name_sexp){
+	Rf_error("Cannot call StructScalar__GetFieldByName(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// scalar.cpp
+#if defined(ARROW_R_WITH_ARROW)
 SEXP Scalar__as_vector(const std::shared_ptr<arrow::Scalar>& scalar);
 RcppExport SEXP _arrow_Scalar__as_vector(SEXP scalar_sexp){
 BEGIN_RCPP
@@ -6073,17 +5924,6 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ChunkedArray__cast", (DL_FUNC) &_arrow_ChunkedArray__cast, 3}, 
 		{ "_arrow_RecordBatch__cast", (DL_FUNC) &_arrow_RecordBatch__cast, 3}, 
 		{ "_arrow_Table__cast", (DL_FUNC) &_arrow_Table__cast, 3}, 
-		{ "_arrow_Array__TakeChunked", (DL_FUNC) &_arrow_Array__TakeChunked, 2}, 
-		{ "_arrow_RecordBatch__Take", (DL_FUNC) &_arrow_RecordBatch__Take, 2}, 
-		{ "_arrow_ChunkedArray__Take", (DL_FUNC) &_arrow_ChunkedArray__Take, 2}, 
-		{ "_arrow_ChunkedArray__TakeChunked", (DL_FUNC) &_arrow_ChunkedArray__TakeChunked, 2}, 
-		{ "_arrow_Table__Take", (DL_FUNC) &_arrow_Table__Take, 2}, 
-		{ "_arrow_Table__TakeChunked", (DL_FUNC) &_arrow_Table__TakeChunked, 2}, 
-		{ "_arrow_RecordBatch__Filter", (DL_FUNC) &_arrow_RecordBatch__Filter, 3}, 
-		{ "_arrow_ChunkedArray__Filter", (DL_FUNC) &_arrow_ChunkedArray__Filter, 3}, 
-		{ "_arrow_ChunkedArray__FilterChunked", (DL_FUNC) &_arrow_ChunkedArray__FilterChunked, 3}, 
-		{ "_arrow_Table__Filter", (DL_FUNC) &_arrow_Table__Filter, 3}, 
-		{ "_arrow_Table__FilterChunked", (DL_FUNC) &_arrow_Table__FilterChunked, 3}, 
 		{ "_arrow_compute__CallFunction", (DL_FUNC) &_arrow_compute__CallFunction, 3}, 
 		{ "_arrow_csv___ReadOptions__initialize", (DL_FUNC) &_arrow_csv___ReadOptions__initialize, 1}, 
 		{ "_arrow_csv___ParseOptions__initialize", (DL_FUNC) &_arrow_csv___ParseOptions__initialize, 1}, 
@@ -6352,6 +6192,8 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_Array__GetScalar", (DL_FUNC) &_arrow_Array__GetScalar, 2}, 
 		{ "_arrow_Scalar__ToString", (DL_FUNC) &_arrow_Scalar__ToString, 1}, 
 		{ "_arrow_Scalar__CastTo", (DL_FUNC) &_arrow_Scalar__CastTo, 2}, 
+		{ "_arrow_StructScalar__field", (DL_FUNC) &_arrow_StructScalar__field, 2}, 
+		{ "_arrow_StructScalar__GetFieldByName", (DL_FUNC) &_arrow_StructScalar__GetFieldByName, 2}, 
 		{ "_arrow_Scalar__as_vector", (DL_FUNC) &_arrow_Scalar__as_vector, 1}, 
 		{ "_arrow_Scalar__is_valid", (DL_FUNC) &_arrow_Scalar__is_valid, 1}, 
 		{ "_arrow_Scalar__type", (DL_FUNC) &_arrow_Scalar__type, 1}, 

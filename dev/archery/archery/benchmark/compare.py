@@ -21,6 +21,43 @@
 DEFAULT_THRESHOLD = 0.05
 
 
+def items_per_seconds_fmt(value):
+    if value < 1000:
+        return "{} items/sec".format(value)
+    if value < 1000**2:
+        return "{:.3f}k items/sec".format(value / 1000)
+    if value < 1000**3:
+        return "{:.3f}m items/sec".format(value / 1000**2)
+    else:
+        return "{:.3f}b items/sec".format(value / 1000**3)
+
+
+def bytes_per_seconds_fmt(value):
+    if value < 1024:
+        return "{} bytes/sec".format(value)
+    if value < 1024**2:
+        return "{:.3f} KiB/sec".format(value / 1024)
+    if value < 1024**3:
+        return "{:.3f} MiB/sec".format(value / 1024**2)
+    if value < 1024**4:
+        return "{:.3f} GiB/sec".format(value / 1024**3)
+    else:
+        return "{:.3f} TiB/sec".format(value / 1024**4)
+
+
+def change_fmt(value):
+    return "{:.3%}".format(value)
+
+
+def formatter_for_unit(unit):
+    if unit == "bytes_per_second":
+        return bytes_per_seconds_fmt
+    elif unit == "items_per_second":
+        return items_per_seconds_fmt
+    else:
+        return lambda x: x
+
+
 class BenchmarkComparator:
     """ Compares two benchmarks.
 
@@ -69,6 +106,19 @@ class BenchmarkComparator:
         change = self.change
         adjusted_change = change if self.less_is_better else -change
         return (self.confidence and adjusted_change > self.threshold)
+
+    @property
+    def formatted(self):
+        fmt = formatter_for_unit(self.unit)
+        return {
+            "benchmark": self.name,
+            "change": change_fmt(self.change),
+            "regression": self.regression,
+            "baseline": fmt(self.baseline.value),
+            "contender": fmt(self.contender.value),
+            "unit": self.unit,
+            "less_is_better": self.less_is_better,
+        }
 
     def compare(self, comparator=None):
         return {

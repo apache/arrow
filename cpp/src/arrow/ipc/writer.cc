@@ -45,6 +45,7 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/compression.h"
 #include "arrow/util/key_value_metadata.h"
@@ -397,7 +398,7 @@ class RecordBatchSerializer {
     return Status::OK();
   }
 
-  Status Visit(const UnionArray& array) {
+  Status Visit(const SparseUnionArray& array) {
     const int64_t offset = array.offset();
     const int64_t length = array.length();
 
@@ -408,91 +409,103 @@ class RecordBatchSerializer {
     out_->body_buffers.emplace_back(type_codes);
 
     --max_recursion_depth_;
-    if (array.mode() == UnionMode::DENSE) {
-      const auto& type = checked_cast<const UnionType&>(*array.type());
+    for (int i = 0; i < array.num_fields(); ++i) {
+      // Sparse union, slicing is done for us by field()
+      RETURN_NOT_OK(VisitArray(*array.field(i)));
+    }
+    ++max_recursion_depth_;
+    return Status::OK();
+  }
 
-      std::shared_ptr<Buffer> value_offsets;
-      RETURN_NOT_OK(GetTruncatedBuffer(
-          offset, length, static_cast<int32_t>(sizeof(int32_t)), array.value_offsets(),
-          options_.memory_pool, &value_offsets));
+  Status Visit(const DenseUnionArray& array) {
+    const int64_t offset = array.offset();
+    const int64_t length = array.length();
 
-      // The Union type codes are not necessary 0-indexed
-      int8_t max_code = 0;
-      for (int8_t code : type.type_codes()) {
-        if (code > max_code) {
-          max_code = code;
+    std::shared_ptr<Buffer> type_codes;
+    RETURN_NOT_OK(GetTruncatedBuffer(
+        offset, length, static_cast<int32_t>(sizeof(UnionArray::type_code_t)),
+        array.type_codes(), options_.memory_pool, &type_codes));
+    out_->body_buffers.emplace_back(type_codes);
+
+    --max_recursion_depth_;
+    const auto& type = checked_cast<const UnionType&>(*array.type());
+
+    std::shared_ptr<Buffer> value_offsets;
+    RETURN_NOT_OK(
+        GetTruncatedBuffer(offset, length, static_cast<int32_t>(sizeof(int32_t)),
+                           array.value_offsets(), options_.memory_pool, &value_offsets));
+
+    // The Union type codes are not necessary 0-indexed
+    int8_t max_code = 0;
+    for (int8_t code : type.type_codes()) {
+      if (code > max_code) {
+        max_code = code;
+      }
+    }
+
+    // Allocate an array of child offsets. Set all to -1 to indicate that we
+    // haven't observed a first occurrence of a particular child yet
+    std::vector<int32_t> child_offsets(max_code + 1, -1);
+    std::vector<int32_t> child_lengths(max_code + 1, 0);
+
+    if (offset != 0) {
+      // This is an unpleasant case. Because the offsets are different for
+      // each child array, when we have a sliced array, we need to "rebase"
+      // the value_offsets for each array
+
+      const int32_t* unshifted_offsets = array.raw_value_offsets();
+      const int8_t* type_codes = array.raw_type_codes();
+
+      // Allocate the shifted offsets
+      ARROW_ASSIGN_OR_RAISE(
+          auto shifted_offsets_buffer,
+          AllocateBuffer(length * sizeof(int32_t), options_.memory_pool));
+      int32_t* shifted_offsets =
+          reinterpret_cast<int32_t*>(shifted_offsets_buffer->mutable_data());
+
+      // Offsets may not be ascending, so we need to find out the start offset
+      // for each child
+      for (int64_t i = 0; i < length; ++i) {
+        const uint8_t code = type_codes[i];
+        if (child_offsets[code] == -1) {
+          child_offsets[code] = unshifted_offsets[i];
+        } else {
+          child_offsets[code] = std::min(child_offsets[code], unshifted_offsets[i]);
         }
       }
 
-      // Allocate an array of child offsets. Set all to -1 to indicate that we
-      // haven't observed a first occurrence of a particular child yet
-      std::vector<int32_t> child_offsets(max_code + 1, -1);
-      std::vector<int32_t> child_lengths(max_code + 1, 0);
+      // Now compute shifted offsets by subtracting child offset
+      for (int64_t i = 0; i < length; ++i) {
+        const int8_t code = type_codes[i];
+        shifted_offsets[i] = unshifted_offsets[i] - child_offsets[code];
+        // Update the child length to account for observed value
+        child_lengths[code] = std::max(child_lengths[code], shifted_offsets[i] + 1);
+      }
 
+      value_offsets = std::move(shifted_offsets_buffer);
+    }
+    out_->body_buffers.emplace_back(value_offsets);
+
+    // Visit children and slice accordingly
+    for (int i = 0; i < type.num_fields(); ++i) {
+      std::shared_ptr<Array> child = array.field(i);
+
+      // TODO: ARROW-809, for sliced unions, tricky to know how much to
+      // truncate the children. For now, we are truncating the children to be
+      // no longer than the parent union.
       if (offset != 0) {
-        // This is an unpleasant case. Because the offsets are different for
-        // each child array, when we have a sliced array, we need to "rebase"
-        // the value_offsets for each array
+        const int8_t code = type.type_codes()[i];
+        const int64_t child_offset = child_offsets[code];
+        const int64_t child_length = child_lengths[code];
 
-        const int32_t* unshifted_offsets = array.raw_value_offsets();
-        const int8_t* type_codes = array.raw_type_codes();
-
-        // Allocate the shifted offsets
-        ARROW_ASSIGN_OR_RAISE(
-            auto shifted_offsets_buffer,
-            AllocateBuffer(length * sizeof(int32_t), options_.memory_pool));
-        int32_t* shifted_offsets =
-            reinterpret_cast<int32_t*>(shifted_offsets_buffer->mutable_data());
-
-        // Offsets may not be ascending, so we need to find out the start offset
-        // for each child
-        for (int64_t i = 0; i < length; ++i) {
-          const uint8_t code = type_codes[i];
-          if (child_offsets[code] == -1) {
-            child_offsets[code] = unshifted_offsets[i];
-          } else {
-            child_offsets[code] = std::min(child_offsets[code], unshifted_offsets[i]);
-          }
+        if (child_offset > 0) {
+          child = child->Slice(child_offset, child_length);
+        } else if (child_length < child->length()) {
+          // This case includes when child is not encountered at all
+          child = child->Slice(0, child_length);
         }
-
-        // Now compute shifted offsets by subtracting child offset
-        for (int64_t i = 0; i < length; ++i) {
-          const int8_t code = type_codes[i];
-          shifted_offsets[i] = unshifted_offsets[i] - child_offsets[code];
-          // Update the child length to account for observed value
-          child_lengths[code] = std::max(child_lengths[code], shifted_offsets[i] + 1);
-        }
-
-        value_offsets = std::move(shifted_offsets_buffer);
       }
-      out_->body_buffers.emplace_back(value_offsets);
-
-      // Visit children and slice accordingly
-      for (int i = 0; i < type.num_fields(); ++i) {
-        std::shared_ptr<Array> child = array.field(i);
-
-        // TODO: ARROW-809, for sliced unions, tricky to know how much to
-        // truncate the children. For now, we are truncating the children to be
-        // no longer than the parent union.
-        if (offset != 0) {
-          const int8_t code = type.type_codes()[i];
-          const int64_t child_offset = child_offsets[code];
-          const int64_t child_length = child_lengths[code];
-
-          if (child_offset > 0) {
-            child = child->Slice(child_offset, child_length);
-          } else if (child_length < child->length()) {
-            // This case includes when child is not encountered at all
-            child = child->Slice(0, child_length);
-          }
-        }
-        RETURN_NOT_OK(VisitArray(*child));
-      }
-    } else {
-      for (int i = 0; i < array.num_fields(); ++i) {
-        // Sparse union, slicing is done for us by field()
-        RETURN_NOT_OK(VisitArray(*array.field(i)));
-      }
+      RETURN_NOT_OK(VisitArray(*child));
     }
     ++max_recursion_depth_;
     return Status::OK();
@@ -545,6 +558,8 @@ class DictionarySerializer : public RecordBatchSerializer {
   int64_t dictionary_id_;
 };
 
+}  // namespace internal
+
 Status WriteIpcPayload(const IpcPayload& payload, const IpcWriteOptions& options,
                        io::OutputStream* dst, int32_t* metadata_length) {
   RETURN_NOT_OK(WriteMessage(*payload.metadata, options, dst, metadata_length));
@@ -583,31 +598,29 @@ Status WriteIpcPayload(const IpcPayload& payload, const IpcWriteOptions& options
 
 Status GetSchemaPayload(const Schema& schema, const IpcWriteOptions& options,
                         DictionaryMemo* dictionary_memo, IpcPayload* out) {
-  out->type = Message::SCHEMA;
-  return WriteSchemaMessage(schema, dictionary_memo, &out->metadata);
+  out->type = MessageType::SCHEMA;
+  return internal::WriteSchemaMessage(schema, dictionary_memo, &out->metadata);
 }
 
 Status GetDictionaryPayload(int64_t id, const std::shared_ptr<Array>& dictionary,
                             const IpcWriteOptions& options, IpcPayload* out) {
-  out->type = Message::DICTIONARY_BATCH;
+  out->type = MessageType::DICTIONARY_BATCH;
   // Frame of reference is 0, see ARROW-384
-  DictionarySerializer assembler(id, /*buffer_start_offset=*/0, options, out);
+  internal::DictionarySerializer assembler(id, /*buffer_start_offset=*/0, options, out);
   return assembler.Assemble(dictionary);
 }
 
 Status GetRecordBatchPayload(const RecordBatch& batch, const IpcWriteOptions& options,
                              IpcPayload* out) {
-  out->type = Message::RECORD_BATCH;
-  RecordBatchSerializer assembler(/*buffer_start_offset=*/0, options, out);
+  out->type = MessageType::RECORD_BATCH;
+  internal::RecordBatchSerializer assembler(/*buffer_start_offset=*/0, options, out);
   return assembler.Assemble(batch);
 }
-
-}  // namespace internal
 
 Status WriteRecordBatch(const RecordBatch& batch, int64_t buffer_start_offset,
                         io::OutputStream* dst, int32_t* metadata_length,
                         int64_t* body_length, const IpcWriteOptions& options) {
-  internal::IpcPayload payload;
+  IpcPayload payload;
   internal::RecordBatchSerializer assembler(buffer_start_offset, options, &payload);
   RETURN_NOT_OK(assembler.Assemble(batch));
 
@@ -617,7 +630,7 @@ Status WriteRecordBatch(const RecordBatch& batch, int64_t buffer_start_offset,
   // The body size is computed in the payload
   *body_length = payload.body_length;
 
-  return internal::WriteIpcPayload(payload, options, dst, metadata_length);
+  return WriteIpcPayload(payload, options, dst, metadata_length);
 }
 
 Status WriteRecordBatchStream(const std::vector<std::shared_ptr<RecordBatch>>& batches,
@@ -840,31 +853,39 @@ class SparseTensorSerializer {
   int64_t buffer_start_offset_;
 };
 
-Status GetSparseTensorPayload(const SparseTensor& sparse_tensor, MemoryPool* pool,
-                              IpcPayload* out) {
-  SparseTensorSerializer writer(0, out);
-  return writer.Assemble(sparse_tensor);
-}
-
 }  // namespace internal
 
 Status WriteSparseTensor(const SparseTensor& sparse_tensor, io::OutputStream* dst,
                          int32_t* metadata_length, int64_t* body_length) {
-  internal::IpcPayload payload;
+  IpcPayload payload;
   internal::SparseTensorSerializer writer(0, &payload);
   RETURN_NOT_OK(writer.Assemble(sparse_tensor));
 
   *body_length = payload.body_length;
-  return internal::WriteIpcPayload(payload, IpcWriteOptions::Defaults(), dst,
-                                   metadata_length);
+  return WriteIpcPayload(payload, IpcWriteOptions::Defaults(), dst, metadata_length);
+}
+
+Status GetSparseTensorPayload(const SparseTensor& sparse_tensor, MemoryPool* pool,
+                              IpcPayload* out) {
+  internal::SparseTensorSerializer writer(0, out);
+  return writer.Assemble(sparse_tensor);
 }
 
 Result<std::unique_ptr<Message>> GetSparseTensorMessage(const SparseTensor& sparse_tensor,
                                                         MemoryPool* pool) {
-  internal::IpcPayload payload;
-  RETURN_NOT_OK(internal::GetSparseTensorPayload(sparse_tensor, pool, &payload));
+  IpcPayload payload;
+  RETURN_NOT_OK(GetSparseTensorPayload(sparse_tensor, pool, &payload));
   return std::unique_ptr<Message>(
       new Message(std::move(payload.metadata), std::move(payload.body_buffers[0])));
+}
+
+int64_t GetPayloadSize(const IpcPayload& payload, const IpcWriteOptions& options) {
+  const int32_t prefix_size = options.write_legacy_ipc_format ? 4 : 8;
+  const int32_t flatbuffer_size = static_cast<int32_t>(payload.metadata->size());
+  const int32_t padded_message_length = static_cast<int32_t>(
+      PaddedLength(flatbuffer_size + prefix_size, options.alignment));
+  // body_length already accounts for padding
+  return payload.body_length + padded_message_length;
 }
 
 Status GetRecordBatchSize(const RecordBatch& batch, int64_t* size) {
@@ -979,7 +1000,7 @@ class ARROW_EXPORT IpcFormatWriter : public RecordBatchWriter {
     started_ = true;
     RETURN_NOT_OK(payload_writer_->Start());
 
-    internal::IpcPayload payload;
+    IpcPayload payload;
     RETURN_NOT_OK(GetSchemaPayload(schema_, options_, dictionary_memo_, &payload));
     return payload_writer_->WritePayload(payload);
   }
@@ -996,7 +1017,7 @@ class ARROW_EXPORT IpcFormatWriter : public RecordBatchWriter {
     RETURN_NOT_OK(CollectDictionaries(batch, dictionary_memo_));
 
     for (const auto& pair : dictionary_memo_->dictionaries()) {
-      internal::IpcPayload payload;
+      IpcPayload payload;
       int64_t dictionary_id = pair.first;
       const auto& dictionary = pair.second;
 
@@ -1097,7 +1118,7 @@ class PayloadFileWriter : public internal::IpcPayloadWriter, protected StreamBoo
 
   ~PayloadFileWriter() override = default;
 
-  Status WritePayload(const internal::IpcPayload& payload) override {
+  Status WritePayload(const IpcPayload& payload) override {
 #ifndef NDEBUG
     // Catch bug fixed in ARROW-3236
     RETURN_NOT_OK(UpdatePositionCheckAligned());
@@ -1110,10 +1131,10 @@ class PayloadFileWriter : public internal::IpcPayloadWriter, protected StreamBoo
 
     // Record position and size of some message types, to list them in the footer
     switch (payload.type) {
-      case Message::DICTIONARY_BATCH:
+      case MessageType::DICTIONARY_BATCH:
         dictionaries_.push_back(block);
         break;
-      case Message::RECORD_BATCH:
+      case MessageType::RECORD_BATCH:
         record_batches_.push_back(block);
         break;
       default:
@@ -1251,114 +1272,6 @@ Result<std::shared_ptr<Buffer>> SerializeSchema(const Schema& schema,
   RETURN_NOT_OK(writer.Start());
   return stream->Finish();
 }
-
-// ----------------------------------------------------------------------
-// Deprecated functions
-
-Status RecordBatchStreamWriter::Open(io::OutputStream* sink,
-                                     const std::shared_ptr<Schema>& schema,
-                                     std::shared_ptr<RecordBatchWriter>* out) {
-  ASSIGN_OR_RAISE(*out, NewStreamWriter(sink, schema));
-  return Status::OK();
-}
-
-Result<std::shared_ptr<RecordBatchWriter>> RecordBatchStreamWriter::Open(
-    io::OutputStream* sink, const std::shared_ptr<Schema>& schema) {
-  return NewStreamWriter(sink, schema);
-}
-
-Result<std::shared_ptr<RecordBatchWriter>> RecordBatchStreamWriter::Open(
-    io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
-    const IpcWriteOptions& options) {
-  return NewStreamWriter(sink, schema, options);
-}
-
-Status RecordBatchFileWriter::Open(io::OutputStream* sink,
-                                   const std::shared_ptr<Schema>& schema,
-                                   std::shared_ptr<RecordBatchWriter>* out) {
-  ASSIGN_OR_RAISE(*out, NewFileWriter(sink, schema));
-  return Status::OK();
-}
-
-Result<std::shared_ptr<RecordBatchWriter>> RecordBatchFileWriter::Open(
-    io::OutputStream* sink, const std::shared_ptr<Schema>& schema) {
-  return NewFileWriter(sink, schema);
-}
-
-Result<std::shared_ptr<RecordBatchWriter>> RecordBatchFileWriter::Open(
-    io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
-    const IpcWriteOptions& options) {
-  return NewFileWriter(sink, schema, options);
-}
-
-Status SerializeRecordBatch(const RecordBatch& batch, const IpcWriteOptions& options,
-                            std::shared_ptr<Buffer>* out) {
-  return SerializeRecordBatch(batch, options).Value(out);
-}
-
-Status SerializeRecordBatch(const RecordBatch& batch, MemoryPool* pool,
-                            std::shared_ptr<Buffer>* out) {
-  IpcWriteOptions options;
-  options.memory_pool = pool;
-  return SerializeRecordBatch(batch, options).Value(out);
-}
-
-Status SerializeRecordBatch(const RecordBatch& batch, MemoryPool* pool,
-                            io::OutputStream* out) {
-  IpcWriteOptions options;
-  options.memory_pool = pool;
-  return SerializeRecordBatch(batch, options, out);
-}
-
-Status SerializeSchema(const Schema& schema, DictionaryMemo* dictionary_memo,
-                       MemoryPool* pool, std::shared_ptr<Buffer>* out) {
-  return SerializeSchema(schema, dictionary_memo, pool).Value(out);
-}
-
-Status WriteRecordBatch(const RecordBatch& batch, int64_t buffer_start_offset,
-                        io::OutputStream* dst, int32_t* metadata_length,
-                        int64_t* body_length, const IpcWriteOptions& options,
-                        MemoryPool* pool) {
-  IpcWriteOptions modified_options = options;
-  modified_options.memory_pool = pool;
-  return WriteRecordBatch(batch, buffer_start_offset, dst, metadata_length, body_length,
-                          modified_options);
-}
-
-Status GetTensorMessage(const Tensor& tensor, MemoryPool* pool,
-                        std::unique_ptr<Message>* out) {
-  return GetTensorMessage(tensor, pool).Value(out);
-}
-
-Status GetSparseTensorMessage(const SparseTensor& sparse_tensor, MemoryPool* pool,
-                              std::unique_ptr<Message>* out) {
-  return GetSparseTensorMessage(sparse_tensor, pool).Value(out);
-}
-
-namespace internal {
-
-Status OpenRecordBatchWriter(std::unique_ptr<IpcPayloadWriter> sink,
-                             const std::shared_ptr<Schema>& schema,
-                             std::unique_ptr<RecordBatchWriter>* out) {
-  return OpenRecordBatchWriter(std::move(sink), schema).Value(out);
-}
-
-Status GetRecordBatchPayload(const RecordBatch& batch, const IpcWriteOptions& options,
-                             MemoryPool* pool, IpcPayload* out) {
-  IpcWriteOptions modified_options = options;
-  modified_options.memory_pool = pool;
-  return GetRecordBatchPayload(batch, modified_options, out);
-}
-
-Status GetDictionaryPayload(int64_t id, const std::shared_ptr<Array>& dictionary,
-                            const IpcWriteOptions& options, MemoryPool* pool,
-                            IpcPayload* payload) {
-  IpcWriteOptions modified_options = options;
-  modified_options.memory_pool = pool;
-  return GetDictionaryPayload(id, dictionary, modified_options, payload);
-}
-
-}  // namespace internal
 
 }  // namespace ipc
 }  // namespace arrow

@@ -25,6 +25,8 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/filesystem/type_fwd.h"
+#include "arrow/io/type_fwd.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/compare.h"
 #include "arrow/util/macros.h"
@@ -32,37 +34,12 @@
 #include "arrow/util/windows_fixup.h"
 
 namespace arrow {
-
-namespace io {
-
-class InputStream;
-class LatencyGenerator;
-class OutputStream;
-class RandomAccessFile;
-
-}  // namespace io
-
 namespace fs {
 
 // A system clock time point expressed as a 64-bit (or more) number of
 // nanoseconds since the epoch.
 using TimePoint =
     std::chrono::time_point<std::chrono::system_clock, std::chrono::nanoseconds>;
-
-/// \brief FileSystem entry type
-enum class FileType : int8_t {
-  /// Entry is not found
-  NotFound,
-  /// Entry exists but its type is unknown
-  ///
-  /// This can designate a special file such as a Unix socket or character
-  /// device, or Windows NUL / CON / ...
-  Unknown,
-  /// Entry is a regular file
-  File,
-  /// Entry is a directory
-  Directory
-};
 
 ARROW_EXPORT std::string ToString(FileType);
 
@@ -135,7 +112,6 @@ struct ARROW_EXPORT FileInfo : public util::EqualityComparable<FileInfo> {
   int64_t size_ = kNoSize;
   TimePoint mtime_ = kNoTime;
 };
-using FileStats ARROW_DEPRECATED_USING("Use FileInfo") = struct FileInfo;
 
 ARROW_EXPORT std::ostream& operator<<(std::ostream& os, const FileInfo&);
 
@@ -379,18 +355,6 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUriOrPath(
     const std::string& uri, std::string* out_path = NULLPTR);
 
 /// @}
-
-/// \brief Create a new FileSystem by URI
-///
-/// Recognized schemes are "file", "mock", "hdfs" and "s3fs".
-///
-/// \param[in] uri a URI-based path, ex: file:///some/local/path
-/// \param[out] out_fs FileSystem instance.
-/// \param[out] out_path (optional) Path inside the filesystem.
-/// \return Status
-ARROW_DEPRECATED("Use Result-returning version")
-Status FileSystemFromUri(const std::string& uri, std::shared_ptr<FileSystem>* out_fs,
-                         std::string* out_path = NULLPTR);
 
 }  // namespace fs
 }  // namespace arrow

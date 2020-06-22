@@ -495,10 +495,6 @@ Result<CudaDeviceManager*> CudaDeviceManager::Instance() {
   return instance_.get();
 }
 
-Status CudaDeviceManager::GetInstance(CudaDeviceManager** manager) {
-  return Instance().Value(manager);
-}
-
 Result<std::shared_ptr<CudaDevice>> CudaDeviceManager::GetDevice(int device_number) {
   return impl_->GetDevice(device_number);
 }
@@ -507,19 +503,9 @@ Result<std::shared_ptr<CudaContext>> CudaDeviceManager::GetContext(int device_nu
   return impl_->GetContext(device_number);
 }
 
-Status CudaDeviceManager::GetContext(int device_number,
-                                     std::shared_ptr<CudaContext>* out) {
-  return impl_->GetContext(device_number).Value(out);
-}
-
 Result<std::shared_ptr<CudaContext>> CudaDeviceManager::GetSharedContext(
     int device_number, void* ctx) {
   return impl_->GetSharedContext(device_number, ctx);
-}
-
-Status CudaDeviceManager::GetSharedContext(int device_number, void* ctx,
-                                           std::shared_ptr<CudaContext>* out) {
-  return impl_->GetSharedContext(device_number, ctx).Value(out);
 }
 
 Result<std::shared_ptr<CudaHostBuffer>> CudaDeviceManager::AllocateHost(int device_number,
@@ -527,11 +513,6 @@ Result<std::shared_ptr<CudaHostBuffer>> CudaDeviceManager::AllocateHost(int devi
   uint8_t* data = nullptr;
   RETURN_NOT_OK(impl_->AllocateHost(device_number, nbytes, &data));
   return std::make_shared<CudaHostBuffer>(data, nbytes);
-}
-
-Status CudaDeviceManager::AllocateHost(int device_number, int64_t nbytes,
-                                       std::shared_ptr<CudaHostBuffer>* out) {
-  return AllocateHost(device_number, nbytes).Value(out);
 }
 
 Status CudaDeviceManager::FreeHost(void* data, int64_t nbytes) {
@@ -553,17 +534,8 @@ Result<std::shared_ptr<CudaBuffer>> CudaContext::Allocate(int64_t nbytes) {
   return std::make_shared<CudaBuffer>(data, nbytes, this->shared_from_this(), true);
 }
 
-Status CudaContext::Allocate(int64_t nbytes, std::shared_ptr<CudaBuffer>* out) {
-  return Allocate(nbytes).Value(out);
-}
-
 Result<std::shared_ptr<CudaBuffer>> CudaContext::View(uint8_t* data, int64_t nbytes) {
   return std::make_shared<CudaBuffer>(data, nbytes, this->shared_from_this(), false);
-}
-
-Status CudaContext::View(uint8_t* data, int64_t nbytes,
-                         std::shared_ptr<CudaBuffer>* out) {
-  return View(data, nbytes).Value(out);
 }
 
 Result<std::shared_ptr<CudaIpcMemHandle>> CudaContext::ExportIpcBuffer(void* data,
@@ -638,28 +610,6 @@ Result<std::shared_ptr<CudaBuffer>> CudaContext::OpenIpcBuffer(
   }
 }
 
-Status CudaContext::OpenIpcBuffer(const CudaIpcMemHandle& ipc_handle,
-                                  std::shared_ptr<CudaBuffer>* out) {
-  if (ipc_handle.memory_size() > 0) {
-    ContextSaver set_temporary(*this);
-    uint8_t* data = nullptr;
-    RETURN_NOT_OK(impl_->OpenIpcBuffer(ipc_handle, &data));
-    // Need to ask the device how big the buffer is
-    size_t allocation_size = 0;
-    CU_RETURN_NOT_OK("cuMemGetAddressRange",
-                     cuMemGetAddressRange(nullptr, &allocation_size,
-                                          reinterpret_cast<CUdeviceptr>(data)));
-    *out = std::make_shared<CudaBuffer>(data, allocation_size, this->shared_from_this(),
-                                        true, true);
-  } else {
-    // zero-sized buffer does not own data (which is nullptr), hence
-    // CloseIpcBuffer will not be called (see CudaBuffer::Close).
-    *out =
-        std::make_shared<CudaBuffer>(nullptr, 0, this->shared_from_this(), false, true);
-  }
-  return Status::OK();
-}
-
 Status CudaContext::CloseIpcBuffer(CudaBuffer* buf) {
   ContextSaver set_temporary(*this);
   CU_RETURN_NOT_OK("cuIpcCloseMemHandle", cuIpcCloseMemHandle(buf->address()));
@@ -689,12 +639,6 @@ Result<uintptr_t> CudaContext::GetDeviceAddress(uintptr_t addr) {
 
 Result<uintptr_t> CudaContext::GetDeviceAddress(uint8_t* addr) {
   return GetDeviceAddress(reinterpret_cast<uintptr_t>(addr));
-}
-
-Status CudaContext::GetDeviceAddress(uint8_t* addr, uint8_t** devaddr) {
-  ARROW_ASSIGN_OR_RAISE(auto ptr, GetDeviceAddress(addr));
-  *devaddr = reinterpret_cast<uint8_t*>(ptr);
-  return Status::OK();
 }
 
 }  // namespace cuda

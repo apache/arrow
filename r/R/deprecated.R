@@ -34,18 +34,18 @@ read_record_batch <- function(obj, schema) {
 #' @rdname read_ipc_stream
 #' @export
 #' @include ipc_stream.R
-read_table <- function(x, ...) {
+read_table <- function(file, ...) {
   .Deprecated("read_arrow")
-  read_arrow(x, ..., as_data_frame = FALSE)
+  read_arrow(file, ..., as_data_frame = FALSE)
 }
 
 #' @rdname read_ipc_stream
 #' @export
-read_arrow <- function(x, ...) {
-  if (inherits(x, "raw")) {
-    read_ipc_stream(x, ...)
+read_arrow <- function(file, ...) {
+  if (inherits(file, "raw")) {
+    read_ipc_stream(file, ...)
   } else {
-    read_feather(x, ...)
+    read_feather(file, ...)
   }
 }
 

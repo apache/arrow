@@ -17,20 +17,29 @@
 
 #include "benchmark/benchmark.h"
 
-#include <algorithm>
 #include <array>
 #include <bitset>
-#include <vector>
+#include <cstdint>
+#include <cstdlib>
+#include <cstring>
+#include <memory>
+#include <utility>
 
+#include "arrow/array/array_base.h"
+#include "arrow/array/array_primitive.h"
 #include "arrow/buffer.h"
-#include "arrow/builder.h"
-#include "arrow/memory_pool.h"
-#include "arrow/testing/gtest_util.h"
+#include "arrow/result.h"
+#include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/bitmap.h"
+#include "arrow/util/bitmap_generate.h"
+#include "arrow/util/bitmap_ops.h"
+#include "arrow/util/bitmap_reader.h"
+#include "arrow/util/bitmap_visit.h"
+#include "arrow/util/bitmap_writer.h"
 
 namespace arrow {
-
 namespace BitUtil {
 
 #ifdef ARROW_WITH_BENCHMARKS_REFERENCE
@@ -334,20 +343,19 @@ static void SetBitsTo(benchmark::State& state) {
 
 constexpr int64_t kBufferSize = 1024 * 8;
 
-template <int64_t Offset = 0>
+template <int64_t OffsetSrc, int64_t OffsetDest = 0>
 static void CopyBitmap(benchmark::State& state) {  // NOLINT non-const reference
   const int64_t buffer_size = state.range(0);
   const int64_t bits_size = buffer_size * 8;
   std::shared_ptr<Buffer> buffer = CreateRandomBuffer(buffer_size);
 
   const uint8_t* src = buffer->data();
-  const int64_t offset = Offset;
-  const int64_t length = bits_size - offset;
+  const int64_t length = bits_size - OffsetSrc;
 
   auto copy = *AllocateEmptyBitmap(length);
 
   for (auto _ : state) {
-    internal::CopyBitmap(src, offset, length, copy->mutable_data(), 0, false);
+    internal::CopyBitmap(src, OffsetSrc, length, copy->mutable_data(), OffsetDest);
   }
 
   state.SetBytesProcessed(state.iterations() * buffer_size);
@@ -358,10 +366,39 @@ static void CopyBitmapWithoutOffset(
   CopyBitmap<0>(state);
 }
 
-// Trigger the slow path where the buffer is not byte aligned.
+// Trigger the slow path where the source buffer is not byte aligned.
 static void CopyBitmapWithOffset(benchmark::State& state) {  // NOLINT non-const reference
   CopyBitmap<4>(state);
 }
+
+// Trigger the slow path where both source and dest buffer are not byte aligend.
+static void CopyBitmapWithOffsetBoth(benchmark::State& state) { CopyBitmap<3, 7>(state); }
+
+// Benchmark the worst case of comparing two identical bitmap
+template <int64_t Offset = 0>
+static void BitmapEquals(benchmark::State& state) {
+  const int64_t buffer_size = state.range(0);
+  const int64_t bits_size = buffer_size * 8;
+  std::shared_ptr<Buffer> buffer = CreateRandomBuffer(buffer_size);
+
+  const uint8_t* src = buffer->data();
+  const int64_t offset = Offset;
+  const int64_t length = bits_size - offset;
+
+  auto copy = *AllocateEmptyBitmap(length + offset);
+  internal::CopyBitmap(src, 0, length, copy->mutable_data(), offset);
+
+  for (auto _ : state) {
+    auto is_same = internal::BitmapEquals(src, 0, copy->data(), offset, length);
+    benchmark::DoNotOptimize(is_same);
+  }
+
+  state.SetBytesProcessed(state.iterations() * buffer_size);
+}
+
+static void BitmapEqualsWithoutOffset(benchmark::State& state) { BitmapEquals<0>(state); }
+
+static void BitmapEqualsWithOffset(benchmark::State& state) { BitmapEquals<4>(state); }
 
 #ifdef ARROW_WITH_BENCHMARKS_REFERENCE
 static void ReferenceNaiveBitmapReader(benchmark::State& state) {
@@ -391,6 +428,10 @@ BENCHMARK(GenerateBitsUnrolled)->Arg(kBufferSize);
 
 BENCHMARK(CopyBitmapWithoutOffset)->Arg(kBufferSize);
 BENCHMARK(CopyBitmapWithOffset)->Arg(kBufferSize);
+BENCHMARK(CopyBitmapWithOffsetBoth)->Arg(kBufferSize);
+
+BENCHMARK(BitmapEqualsWithoutOffset)->Arg(kBufferSize);
+BENCHMARK(BitmapEqualsWithOffset)->Arg(kBufferSize);
 
 #define AND_BENCHMARK_RANGES                      \
   {                                               \

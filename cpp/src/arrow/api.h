@@ -23,6 +23,7 @@
 #include "arrow/array/concatenate.h"        // IYWU pragma: export
 #include "arrow/buffer.h"                   // IYWU pragma: export
 #include "arrow/builder.h"                  // IYWU pragma: export
+#include "arrow/chunked_array.h"            // IYWU pragma: export
 #include "arrow/compare.h"                  // IYWU pragma: export
 #include "arrow/extension_type.h"           // IYWU pragma: export
 #include "arrow/memory_pool.h"              // IYWU pragma: export

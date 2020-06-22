@@ -101,14 +101,10 @@ struct ARROW_EXPORT PrimitiveScalar : public Scalar {
 
   // Non-null constructor.
   PrimitiveScalar(ValueType value, std::shared_ptr<DataType> type)
-      : Scalar(std::move(type), true), value(value) {
-    ARROW_CHECK_EQ(this->type->id(), T::type_id);
-  }
+      : Scalar(std::move(type), true), value(value) {}
 
-  explicit PrimitiveScalar(ValueType value)
-      : PrimitiveScalar(value, TypeTraits<T>::type_singleton()) {}
-
-  PrimitiveScalar() : Scalar(TypeTraits<T>::type_singleton()) {}
+  explicit PrimitiveScalar(std::shared_ptr<DataType> type)
+      : Scalar(std::move(type), false) {}
 
   ValueType value{};
 };
@@ -116,12 +112,25 @@ struct ARROW_EXPORT PrimitiveScalar : public Scalar {
 }  // namespace internal
 
 struct ARROW_EXPORT BooleanScalar : public internal::PrimitiveScalar<BooleanType, bool> {
-  using internal::PrimitiveScalar<BooleanType, bool>::PrimitiveScalar;
+  using Base = internal::PrimitiveScalar<BooleanType, bool>;
+  using Base::Base;
+
+  explicit BooleanScalar(bool value) : Base(value, boolean()) {}
+
+  BooleanScalar() : Base(boolean()) {}
 };
 
 template <typename T>
 struct NumericScalar : public internal::PrimitiveScalar<T> {
-  using internal::PrimitiveScalar<T>::PrimitiveScalar;
+  using Base = typename internal::PrimitiveScalar<T>;
+  using Base::Base;
+  using TypeClass = typename Base::TypeClass;
+  using ValueType = typename Base::ValueType;
+
+  explicit NumericScalar(ValueType value)
+      : Base(value, TypeTraits<T>::type_singleton()) {}
+
+  NumericScalar() : Base(TypeTraits<T>::type_singleton()) {}
 };
 
 struct ARROW_EXPORT Int8Scalar : public NumericScalar<Int8Type> {
@@ -224,6 +233,8 @@ struct ARROW_EXPORT LargeStringScalar : public LargeBinaryScalar {
   explicit LargeStringScalar(std::shared_ptr<Buffer> value)
       : LargeStringScalar(std::move(value), large_utf8()) {}
 
+  explicit LargeStringScalar(std::string s);
+
   LargeStringScalar() : LargeStringScalar(large_utf8()) {}
 };
 
@@ -235,19 +246,17 @@ struct ARROW_EXPORT FixedSizeBinaryScalar : public BinaryScalar {
   explicit FixedSizeBinaryScalar(std::shared_ptr<DataType> type) : BinaryScalar(type) {}
 };
 
-template <typename T>
-struct ARROW_EXPORT TemporalScalar : public Scalar {
-  using Scalar::Scalar;
+template <typename T, typename PhysicalType = typename T::PhysicalType,
+          typename Enable = void>
+struct ARROW_EXPORT TemporalScalar : internal::PrimitiveScalar<PhysicalType> {
+  using internal::PrimitiveScalar<PhysicalType>::PrimitiveScalar;
   using TypeClass = T;
-  using ValueType = typename T::c_type;
+};
 
-  TemporalScalar(ValueType value, std::shared_ptr<DataType> type)
-      : Scalar(std::move(type), true), value(value) {}
-
-  explicit TemporalScalar(std::shared_ptr<DataType> type)
-      : Scalar(std::move(type), false) {}
-
-  ValueType value;
+template <typename T>
+struct ARROW_EXPORT TemporalScalar<T, void, void> : internal::PrimitiveScalar<T> {
+  using internal::PrimitiveScalar<T>::PrimitiveScalar;
+  using TypeClass = T;
 };
 
 template <typename T>
@@ -361,7 +370,9 @@ struct ARROW_EXPORT StructScalar : public Scalar {
   using TypeClass = StructType;
   using ValueType = std::vector<std::shared_ptr<Scalar>>;
 
-  std::vector<std::shared_ptr<Scalar>> value;
+  ScalarVector value;
+
+  Result<std::shared_ptr<Scalar>> field(FieldRef ref) const;
 
   StructScalar(ValueType value, std::shared_ptr<DataType> type)
       : Scalar(std::move(type), true), value(std::move(value)) {}
@@ -371,7 +382,16 @@ struct ARROW_EXPORT StructScalar : public Scalar {
 
 struct ARROW_EXPORT UnionScalar : public Scalar {
   using Scalar::Scalar;
-  using TypeClass = UnionType;
+};
+
+struct ARROW_EXPORT SparseUnionScalar : public UnionScalar {
+  using UnionScalar::UnionScalar;
+  using TypeClass = SparseUnionType;
+};
+
+struct ARROW_EXPORT DenseUnionScalar : public UnionScalar {
+  using UnionScalar::UnionScalar;
+  using TypeClass = DenseUnionType;
 };
 
 struct ARROW_EXPORT DictionaryScalar : public Scalar {

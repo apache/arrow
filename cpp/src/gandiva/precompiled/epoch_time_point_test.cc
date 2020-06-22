@@ -31,7 +31,7 @@ TEST(TestEpochTimePoint, TestTm) {
   EpochTimePoint tp(ts);
 
   struct tm* tm_ptr;
-#if defined(_MSC_VER)
+#if defined(_WIN32)
   __time64_t tsec = ts / 1000;
   tm_ptr = _gmtime64(&tsec);
 #else

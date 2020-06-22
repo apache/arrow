@@ -34,6 +34,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/bitmap_builders.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 
@@ -47,6 +48,7 @@ namespace ipc {
 namespace internal {
 namespace json {
 
+using ::arrow::internal::BytesToBits;
 using ::arrow::internal::checked_cast;
 using ::arrow::internal::checked_pointer_cast;
 
@@ -668,7 +670,7 @@ TEST(TestMap, StringToInteger) {
   std::vector<int32_t> offsets = {0, 2, 2, 3, 3};
   auto expected_keys = ArrayFromJSON(utf8(), R"(["joe", "mark", "cap"])");
   auto expected_values = ArrayFromJSON(int32(), "[0, null, 8]");
-  ASSERT_OK_AND_ASSIGN(auto expected_null_bitmap, BitUtil::BytesToBits({1, 0, 1, 1}));
+  ASSERT_OK_AND_ASSIGN(auto expected_null_bitmap, BytesToBits({1, 0, 1, 1}));
   auto expected =
       std::make_shared<MapArray>(type, 4, Buffer::Wrap(offsets), expected_keys,
                                  expected_values, expected_null_bitmap, 1);
@@ -992,8 +994,8 @@ TEST(TestDenseUnion, Basics) {
   auto field_a = field("a", int8());
   auto field_b = field("b", boolean());
 
-  auto type = union_({field_a, field_b}, {4, 8}, UnionMode::DENSE);
-  auto array = checked_pointer_cast<UnionArray>(
+  auto type = dense_union({field_a, field_b}, {4, 8});
+  auto array = checked_pointer_cast<DenseUnionArray>(
       ArrayFromJSON(type, "[null, [4, 122], [8, true], [4, null], null, [8, false]]"));
 
   auto expected_types = ArrayFromJSON(int8(), "[null, 4, 8, 4, null, 8]");
@@ -1002,7 +1004,7 @@ TEST(TestDenseUnion, Basics) {
   auto expected_b = ArrayFromJSON(boolean(), "[true, false]");
 
   ASSERT_OK_AND_ASSIGN(
-      auto expected, UnionArray::MakeDense(*expected_types, *expected_offsets,
+      auto expected, DenseUnionArray::Make(*expected_types, *expected_offsets,
                                            {expected_a, expected_b}, {"a", "b"}, {4, 8}));
 
   ASSERT_ARRAYS_EQUAL(*expected, *array);
@@ -1017,7 +1019,7 @@ TEST(TestSparseUnion, Basics) {
   auto field_a = field("a", int8());
   auto field_b = field("b", boolean());
 
-  auto type = union_({field_a, field_b}, {4, 8}, UnionMode::SPARSE);
+  auto type = sparse_union({field_a, field_b}, {4, 8});
   auto array = ArrayFromJSON(type, "[[4, 122], [8, true], [4, null], null, [8, false]]");
 
   auto expected_types = ArrayFromJSON(int8(), "[4, 8, 4, null, 8]");
@@ -1025,7 +1027,7 @@ TEST(TestSparseUnion, Basics) {
   auto expected_b = ArrayFromJSON(boolean(), "[null, true, null, null, false]");
 
   ASSERT_OK_AND_ASSIGN(auto expected,
-                       UnionArray::MakeSparse(*expected_types, {expected_a, expected_b},
+                       SparseUnionArray::Make(*expected_types, {expected_a, expected_b},
                                               {"a", "b"}, {4, 8}));
 
   ASSERT_ARRAYS_EQUAL(*expected, *array);
@@ -1034,7 +1036,7 @@ TEST(TestSparseUnion, Basics) {
 TEST(TestDenseUnion, ListOfUnion) {
   auto field_a = field("a", int8());
   auto field_b = field("b", boolean());
-  auto union_type = union_({field_a, field_b}, {4, 8}, UnionMode::DENSE);
+  auto union_type = dense_union({field_a, field_b}, {4, 8});
   auto list_type = list(union_type);
   auto array =
       checked_pointer_cast<ListArray>(ArrayFromJSON(list_type,
@@ -1050,7 +1052,7 @@ TEST(TestDenseUnion, ListOfUnion) {
 
   ASSERT_OK_AND_ASSIGN(
       auto expected_values,
-      UnionArray::MakeDense(*expected_types, *expected_offsets, {expected_a, expected_b},
+      DenseUnionArray::Make(*expected_types, *expected_offsets, {expected_a, expected_b},
                             {"a", "b"}, {4, 8}));
   auto expected_list_offsets = ArrayFromJSON(int32(), "[0, 2, 5]");
   ASSERT_OK_AND_ASSIGN(auto expected,
@@ -1059,9 +1061,9 @@ TEST(TestDenseUnion, ListOfUnion) {
   ASSERT_ARRAYS_EQUAL(*expected, *array);
 
   // ensure that the array is as dense as we expect
-  auto array_values = checked_pointer_cast<UnionArray>(array->values());
+  auto array_values = checked_pointer_cast<DenseUnionArray>(array->values());
   ASSERT_TRUE(array_values->value_offsets()->Equals(
-      *checked_pointer_cast<UnionArray>(expected_values)->value_offsets()));
+      *checked_pointer_cast<DenseUnionArray>(expected_values)->value_offsets()));
   ASSERT_ARRAYS_EQUAL(*expected_a, *array_values->field(0));
   ASSERT_ARRAYS_EQUAL(*expected_b, *array_values->field(1));
 }
@@ -1069,7 +1071,7 @@ TEST(TestDenseUnion, ListOfUnion) {
 TEST(TestSparseUnion, ListOfUnion) {
   auto field_a = field("a", int8());
   auto field_b = field("b", boolean());
-  auto union_type = union_({field_a, field_b}, {4, 8}, UnionMode::SPARSE);
+  auto union_type = sparse_union({field_a, field_b}, {4, 8});
   auto list_type = list(union_type);
   auto array = ArrayFromJSON(list_type,
                              "["
@@ -1082,7 +1084,7 @@ TEST(TestSparseUnion, ListOfUnion) {
   auto expected_b = ArrayFromJSON(boolean(), "[null, true, null, null, false]");
 
   ASSERT_OK_AND_ASSIGN(auto expected_values,
-                       UnionArray::MakeSparse(*expected_types, {expected_a, expected_b},
+                       SparseUnionArray::Make(*expected_types, {expected_a, expected_b},
                                               {"a", "b"}, {4, 8}));
   auto expected_list_offsets = ArrayFromJSON(int32(), "[0, 2, 5]");
   ASSERT_OK_AND_ASSIGN(auto expected,
@@ -1097,8 +1099,8 @@ TEST(TestDenseUnion, UnionOfStructs) {
       field("wtf", struct_({field("whiskey", int8()), field("tango", float64()),
                             field("foxtrot", list(int8()))})),
       field("q", struct_({field("quebec", utf8())}))};
-  auto type = union_(fields, {0, 23, 47}, UnionMode::DENSE);
-  auto array = checked_pointer_cast<UnionArray>(ArrayFromJSON(type, R"([
+  auto type = dense_union(fields, {0, 23, 47});
+  auto array = checked_pointer_cast<DenseUnionArray>(ArrayFromJSON(type, R"([
     [0, {"alpha": 0.0, "bravo": "charlie"}],
     [23, {"whiskey": 99}],
     [0, {"bravo": "mike"}],
@@ -1120,7 +1122,7 @@ TEST(TestDenseUnion, UnionOfStructs) {
 
   ASSERT_OK_AND_ASSIGN(
       auto expected,
-      UnionArray::MakeDense(*expected_types, *expected_offsets, expected_fields,
+      DenseUnionArray::Make(*expected_types, *expected_offsets, expected_fields,
                             {"ab", "wtf", "q"}, {0, 23, 47}));
 
   ASSERT_ARRAYS_EQUAL(*expected, *array);
@@ -1139,7 +1141,7 @@ TEST(TestSparseUnion, UnionOfStructs) {
       field("wtf", struct_({field("whiskey", int8()), field("tango", float64()),
                             field("foxtrot", list(int8()))})),
       field("q", struct_({field("quebec", utf8())}))};
-  auto type = union_(fields, {0, 23, 47}, UnionMode::SPARSE);
+  auto type = sparse_union(fields, {0, 23, 47});
   auto array = ArrayFromJSON(type, R"([
     [0, {"alpha": 0.0, "bravo": "charlie"}],
     [23, {"whiskey": 99}],
@@ -1167,7 +1169,7 @@ TEST(TestSparseUnion, UnionOfStructs) {
       ArrayFromJSON(fields[2]->type(), "[null, null, null, null, null]")};
 
   ASSERT_OK_AND_ASSIGN(auto expected,
-                       UnionArray::MakeSparse(*expected_types, expected_fields,
+                       SparseUnionArray::Make(*expected_types, expected_fields,
                                               {"ab", "wtf", "q"}, {0, 23, 47}));
 
   ASSERT_ARRAYS_EQUAL(*expected, *array);
@@ -1176,7 +1178,7 @@ TEST(TestSparseUnion, UnionOfStructs) {
 TEST(TestDenseUnion, Errors) {
   auto field_a = field("a", int8());
   auto field_b = field("b", boolean());
-  std::shared_ptr<DataType> type = union_({field_a, field_b}, {4, 8}, UnionMode::DENSE);
+  std::shared_ptr<DataType> type = dense_union({field_a, field_b}, {4, 8});
   std::shared_ptr<Array> array;
 
   ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[\"not a valid type_id\"]", &array));
@@ -1193,7 +1195,7 @@ TEST(TestDenseUnion, Errors) {
 TEST(TestSparseUnion, Errors) {
   auto field_a = field("a", int8());
   auto field_b = field("b", boolean());
-  std::shared_ptr<DataType> type = union_({field_a, field_b}, {4, 8}, UnionMode::SPARSE);
+  std::shared_ptr<DataType> type = sparse_union({field_a, field_b}, {4, 8});
   std::shared_ptr<Array> array;
 
   ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[\"not a valid type_id\"]", &array));

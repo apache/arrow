@@ -80,8 +80,12 @@ variable are set, the system property takes precedence.
 
 ## Java Properties
 
-For java 9 or later, should set "-Dio.netty.tryReflectionSetAccessible=true".
+ * For java 9 or later, should set "-Dio.netty.tryReflectionSetAccessible=true".
 This fixes `java.lang.UnsupportedOperationException: sun.misc.Unsafe or java.nio.DirectByteBuffer.(long, int) not available`. thrown by netty.
+ * To support duplicate fields in a `StructVector` enable "-Darrow.struct.conflict.policy=CONFLICT_APPEND".
+Duplicate fields are ignored (`CONFLICT_REPLACE`) by default and overwritten. To support different policies for 
+conflicting or duplicate fields set this JVM flag or use the correct static constructor methods for `StructVector`s.
+
 ## Java Code Style Guide
 
 Arrow Java follows the Google style guide [here][3] with the following

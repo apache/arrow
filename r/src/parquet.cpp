@@ -58,19 +58,19 @@ void parquet___arrow___ArrowReaderProperties__set_read_dictionary(
 }
 
 // [[arrow::export]]
-std::unique_ptr<parquet::arrow::FileReader> parquet___arrow___FileReader__OpenFile(
+std::shared_ptr<parquet::arrow::FileReader> parquet___arrow___FileReader__OpenFile(
     const std::shared_ptr<arrow::io::RandomAccessFile>& file,
     const std::shared_ptr<parquet::ArrowReaderProperties>& props) {
   std::unique_ptr<parquet::arrow::FileReader> reader;
   parquet::arrow::FileReaderBuilder builder;
   PARQUET_THROW_NOT_OK(builder.Open(file));
   PARQUET_THROW_NOT_OK(builder.properties(*props)->Build(&reader));
-  return reader;
+  return std::move(reader);
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Table> parquet___arrow___FileReader__ReadTable1(
-    const std::unique_ptr<parquet::arrow::FileReader>& reader) {
+    const std::shared_ptr<parquet::arrow::FileReader>& reader) {
   std::shared_ptr<arrow::Table> table;
   PARQUET_THROW_NOT_OK(reader->ReadTable(&table));
   return table;
@@ -78,7 +78,7 @@ std::shared_ptr<arrow::Table> parquet___arrow___FileReader__ReadTable1(
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Table> parquet___arrow___FileReader__ReadTable2(
-    const std::unique_ptr<parquet::arrow::FileReader>& reader,
+    const std::shared_ptr<parquet::arrow::FileReader>& reader,
     const std::vector<int>& column_indices) {
   std::shared_ptr<arrow::Table> table;
   PARQUET_THROW_NOT_OK(reader->ReadTable(column_indices, &table));
@@ -87,57 +87,71 @@ std::shared_ptr<arrow::Table> parquet___arrow___FileReader__ReadTable2(
 
 // [[arrow::export]]
 int64_t parquet___arrow___FileReader__num_rows(
-    const std::unique_ptr<parquet::arrow::FileReader>& reader) {
+    const std::shared_ptr<parquet::arrow::FileReader>& reader) {
   return reader->parquet_reader()->metadata()->num_rows();
 }
 
+namespace parquet {
+
+class WriterPropertiesBuilder : public WriterProperties::Builder {
+ public:
+  using WriterProperties::Builder::Builder;
+};
+
+class ArrowWriterPropertiesBuilder : public ArrowWriterProperties::Builder {
+ public:
+  using ArrowWriterProperties::Builder::Builder;
+};
+
+}  // namespace parquet
+
 // [[arrow::export]]
-std::shared_ptr<parquet::ArrowWriterProperties::Builder>
+std::shared_ptr<parquet::ArrowWriterPropertiesBuilder>
 parquet___ArrowWriterProperties___Builder__create() {
-  return std::make_shared<parquet::ArrowWriterProperties::Builder>();
+  return std::make_shared<parquet::ArrowWriterPropertiesBuilder>();
 }
 
 // [[arrow::export]]
 void parquet___ArrowWriterProperties___Builder__store_schema(
-    const std::shared_ptr<parquet::ArrowWriterProperties::Builder>& builder) {
+    const std::shared_ptr<parquet::ArrowWriterPropertiesBuilder>& builder) {
   builder->store_schema();
 }
 
 // [[arrow::export]]
 void parquet___ArrowWriterProperties___Builder__enable_deprecated_int96_timestamps(
-    const std::shared_ptr<parquet::ArrowWriterProperties::Builder>& builder) {
+    const std::shared_ptr<parquet::ArrowWriterPropertiesBuilder>& builder) {
   builder->enable_deprecated_int96_timestamps();
 }
 
 // [[arrow::export]]
 void parquet___ArrowWriterProperties___Builder__disable_deprecated_int96_timestamps(
-    const std::shared_ptr<parquet::ArrowWriterProperties::Builder>& builder) {
+    const std::shared_ptr<parquet::ArrowWriterPropertiesBuilder>& builder) {
   builder->disable_deprecated_int96_timestamps();
 }
 
 // [[arrow::export]]
 void parquet___ArrowWriterProperties___Builder__coerce_timestamps(
-    const std::shared_ptr<parquet::ArrowWriterProperties::Builder>& builder,
+    const std::shared_ptr<parquet::ArrowWriterPropertiesBuilder>& builder,
     arrow::TimeUnit::type unit) {
   builder->coerce_timestamps(unit);
 }
 
 // [[arrow::export]]
 void parquet___ArrowWriterProperties___Builder__allow_truncated_timestamps(
-    const std::shared_ptr<parquet::ArrowWriterProperties::Builder>& builder) {
+    const std::shared_ptr<parquet::ArrowWriterPropertiesBuilder>& builder) {
   builder->allow_truncated_timestamps();
 }
 
 // [[arrow::export]]
 void parquet___ArrowWriterProperties___Builder__disallow_truncated_timestamps(
-    const std::shared_ptr<parquet::ArrowWriterProperties::Builder>& builder) {
+    const std::shared_ptr<parquet::ArrowWriterPropertiesBuilder>& builder) {
   builder->disallow_truncated_timestamps();
 }
 
 // [[arrow::export]]
 std::shared_ptr<parquet::ArrowWriterProperties>
 parquet___ArrowWriterProperties___Builder__build(
-    const std::shared_ptr<parquet::ArrowWriterProperties::Builder>& builder) {
+    const std::shared_ptr<parquet::ArrowWriterPropertiesBuilder>& builder) {
   return builder->build();
 }
 
@@ -147,28 +161,28 @@ std::shared_ptr<parquet::WriterProperties> parquet___default_writer_properties()
 }
 
 // [[arrow::export]]
-std::shared_ptr<parquet::WriterProperties::Builder>
+std::shared_ptr<parquet::WriterPropertiesBuilder>
 parquet___WriterProperties___Builder__create() {
-  return std::make_shared<parquet::WriterProperties::Builder>();
+  return std::make_shared<parquet::WriterPropertiesBuilder>();
 }
 
 // [[arrow::export]]
 void parquet___WriterProperties___Builder__version(
-    const std::shared_ptr<parquet::WriterProperties::Builder>& builder,
+    const std::shared_ptr<parquet::WriterPropertiesBuilder>& builder,
     const parquet::ParquetVersion::type& version) {
   builder->version(version);
 }
 
 // [[arrow::export]]
 void parquet___ArrowWriterProperties___Builder__default_compression(
-    const std::shared_ptr<parquet::WriterProperties::Builder>& builder,
+    const std::shared_ptr<parquet::WriterPropertiesBuilder>& builder,
     const arrow::Compression::type& compression) {
   builder->compression(compression);
 }
 
 // [[arrow::export]]
 void parquet___ArrowWriterProperties___Builder__set_compressions(
-    const std::shared_ptr<parquet::WriterProperties::Builder>& builder,
+    const std::shared_ptr<parquet::WriterPropertiesBuilder>& builder,
     const std::vector<std::string>& paths, const Rcpp::IntegerVector& types) {
   auto n = paths.size();
   for (decltype(n) i = 0; i < n; i++) {
@@ -178,14 +192,14 @@ void parquet___ArrowWriterProperties___Builder__set_compressions(
 
 // [[arrow::export]]
 void parquet___ArrowWriterProperties___Builder__default_compression_level(
-    const std::shared_ptr<parquet::WriterProperties::Builder>& builder,
+    const std::shared_ptr<parquet::WriterPropertiesBuilder>& builder,
     int compression_level) {
   builder->compression_level(compression_level);
 }
 
 // [[arrow::export]]
 void parquet___ArrowWriterProperties___Builder__set_compression_levels(
-    const std::shared_ptr<parquet::WriterProperties::Builder>& builder,
+    const std::shared_ptr<parquet::WriterPropertiesBuilder>& builder,
     const std::vector<std::string>& paths, const Rcpp::IntegerVector& levels) {
   auto n = paths.size();
   for (decltype(n) i = 0; i < n; i++) {
@@ -195,7 +209,7 @@ void parquet___ArrowWriterProperties___Builder__set_compression_levels(
 
 // [[arrow::export]]
 void parquet___ArrowWriterProperties___Builder__default_write_statistics(
-    const std::shared_ptr<parquet::WriterProperties::Builder>& builder,
+    const std::shared_ptr<parquet::WriterPropertiesBuilder>& builder,
     bool write_statistics) {
   if (write_statistics) {
     builder->enable_statistics();
@@ -206,7 +220,7 @@ void parquet___ArrowWriterProperties___Builder__default_write_statistics(
 
 // [[arrow::export]]
 void parquet___ArrowWriterProperties___Builder__default_use_dictionary(
-    const std::shared_ptr<parquet::WriterProperties::Builder>& builder,
+    const std::shared_ptr<parquet::WriterPropertiesBuilder>& builder,
     bool use_dictionary) {
   if (use_dictionary) {
     builder->enable_dictionary();
@@ -217,7 +231,7 @@ void parquet___ArrowWriterProperties___Builder__default_use_dictionary(
 
 // [[arrow::export]]
 void parquet___ArrowWriterProperties___Builder__set_use_dictionary(
-    const std::shared_ptr<parquet::WriterProperties::Builder>& builder,
+    const std::shared_ptr<parquet::WriterPropertiesBuilder>& builder,
     const std::vector<std::string>& paths, const Rcpp::LogicalVector& use_dictionary) {
   builder->disable_dictionary();
   auto n = paths.size();
@@ -232,7 +246,7 @@ void parquet___ArrowWriterProperties___Builder__set_use_dictionary(
 
 // [[arrow::export]]
 void parquet___ArrowWriterProperties___Builder__set_write_statistics(
-    const std::shared_ptr<parquet::WriterProperties::Builder>& builder,
+    const std::shared_ptr<parquet::WriterPropertiesBuilder>& builder,
     const std::vector<std::string>& paths, const Rcpp::LogicalVector& write_statistics) {
   builder->disable_statistics();
   auto n = paths.size();
@@ -247,19 +261,19 @@ void parquet___ArrowWriterProperties___Builder__set_write_statistics(
 
 // [[arrow::export]]
 void parquet___ArrowWriterProperties___Builder__data_page_size(
-    const std::shared_ptr<parquet::WriterProperties::Builder>& builder,
+    const std::shared_ptr<parquet::WriterPropertiesBuilder>& builder,
     int64_t data_page_size) {
   builder->data_pagesize(data_page_size);
 }
 
 // [[arrow::export]]
 std::shared_ptr<parquet::WriterProperties> parquet___WriterProperties___Builder__build(
-    const std::shared_ptr<parquet::WriterProperties::Builder>& builder) {
+    const std::shared_ptr<parquet::WriterPropertiesBuilder>& builder) {
   return builder->build();
 }
 
 // [[arrow::export]]
-std::unique_ptr<parquet::arrow::FileWriter> parquet___arrow___ParquetFileWriter__Open(
+std::shared_ptr<parquet::arrow::FileWriter> parquet___arrow___ParquetFileWriter__Open(
     const std::shared_ptr<arrow::Schema>& schema,
     const std::shared_ptr<arrow::io::OutputStream>& sink,
     const std::shared_ptr<parquet::WriterProperties>& properties,
@@ -268,19 +282,19 @@ std::unique_ptr<parquet::arrow::FileWriter> parquet___arrow___ParquetFileWriter_
   PARQUET_THROW_NOT_OK(
       parquet::arrow::FileWriter::Open(*schema, arrow::default_memory_pool(), sink,
                                        properties, arrow_properties, &writer));
-  return writer;
+  return std::move(writer);
 }
 
 // [[arrow::export]]
 void parquet___arrow___FileWriter__WriteTable(
-    const std::unique_ptr<parquet::arrow::FileWriter>& writer,
+    const std::shared_ptr<parquet::arrow::FileWriter>& writer,
     const std::shared_ptr<arrow::Table>& table, int64_t chunk_size) {
   PARQUET_THROW_NOT_OK(writer->WriteTable(*table, chunk_size));
 }
 
 // [[arrow::export]]
 void parquet___arrow___FileWriter__Close(
-    const std::unique_ptr<parquet::arrow::FileWriter>& writer) {
+    const std::shared_ptr<parquet::arrow::FileWriter>& writer) {
   PARQUET_THROW_NOT_OK(writer->Close());
 }
 
@@ -297,7 +311,7 @@ void parquet___arrow___WriteTable(
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Schema> parquet___arrow___FileReader__GetSchema(
-    const std::unique_ptr<parquet::arrow::FileReader>& reader) {
+    const std::shared_ptr<parquet::arrow::FileReader>& reader) {
   std::shared_ptr<arrow::Schema> schema;
   StopIfNotOk(reader->GetSchema(&schema));
   return schema;
