@@ -34,10 +34,15 @@ def regex_filter(re_expr):
     return lambda s: re_comp.search(s)
 
 
+DEFAULT_REPETITIONS = 1
+
+
 class BenchmarkRunner:
-    def __init__(self, suite_filter=None, benchmark_filter=None):
+    def __init__(self, suite_filter=None, benchmark_filter=None,
+                 repetitions=DEFAULT_REPETITIONS):
         self.suite_filter = suite_filter
         self.benchmark_filter = benchmark_filter
+        self.repetitions = repetitions
 
     @property
     def suites(self):
@@ -158,7 +163,7 @@ class CppBenchmarkRunner(BenchmarkRunner):
         if not benchmark_names:
             return None
 
-        results = suite_cmd.results()
+        results = suite_cmd.results(repetitions=self.repetitions)
         benchmarks = GoogleBenchmark.from_json(results.get("benchmarks"))
         return BenchmarkSuite(name, benchmarks)
 

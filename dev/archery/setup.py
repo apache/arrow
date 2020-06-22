@@ -25,6 +25,7 @@ if sys.version_info < (3, 5):
     sys.exit('Python < 3.5 is not supported')
 
 extras = {
+    'benchmark': ['pandas'],
     'bot': ['ruamel.yaml', 'pygithub'],
     'docker': ['ruamel.yaml', 'python-dotenv']
 }
