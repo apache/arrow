@@ -35,7 +35,6 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/compare.h"
 #include "arrow/util/decimal.h"
-#include "arrow/util/logging.h"
 #include "arrow/util/string_view.h"
 #include "arrow/util/visibility.h"
 
