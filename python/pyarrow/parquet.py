@@ -1130,9 +1130,9 @@ metadata_nthreads: int, default 1
                                      read_dictionary=read_dictionary,
                                      memory_map=memory_map,
                                      buffer_size=buffer_size,
+                                     split_row_groups=split_row_groups,
                                      # unsupported keywords
                                      schema=schema, metadata=metadata,
-                                     split_row_groups=split_row_groups,
                                      validate_schema=validate_schema,
                                      metadata_nthreads=metadata_nthreads)
         self = object.__new__(cls)
@@ -1376,15 +1376,14 @@ class _ParquetDatasetV2:
 
     def __init__(self, path_or_paths, filesystem=None, filters=None,
                  partitioning="hive", read_dictionary=None, buffer_size=None,
-                 memory_map=False, **kwargs):
+                 memory_map=False, split_row_groups=False, **kwargs):
         import pyarrow.dataset as ds
         import pyarrow.fs
 
         # Raise error for not supported keywords
         for keyword, default in [
                 ("schema", None), ("metadata", None),
-                ("split_row_groups", False), ("validate_schema", True),
-                ("metadata_nthreads", 1)]:
+                ("validate_schema", True), ("metadata_nthreads", 1)]:
             if keyword in kwargs and kwargs[keyword] is not default:
                 raise ValueError(
                     "Keyword '{0}' is not yet supported with the new "
@@ -1404,27 +1403,36 @@ class _ParquetDatasetV2:
         self._filter_expression = filters and _filters_to_expression(filters)
 
         # check for single NativeFile dataset
-        if not isinstance(path_or_paths, list):
-            if not _is_path_like(path_or_paths):
-                fragment = parquet_format.make_fragment(path_or_paths)
-                self._dataset = ds.FileSystemDataset(
-                    [fragment], schema=fragment.physical_schema,
-                    format=parquet_format
-                )
-                return
+        if (not isinstance(path_or_paths, list) and
+                not _is_path_like(path_or_paths)):
+            fragment = parquet_format.make_fragment(path_or_paths)
+            dataset = ds.FileSystemDataset(
+                [fragment], schema=fragment.physical_schema,
+                format=parquet_format
+            )
+        else:
+            # map old filesystems to new one
+            # TODO(dataset) deal with other file systems
+            if isinstance(filesystem, LocalFileSystem):
+                filesystem = pyarrow.fs.LocalFileSystem(use_mmap=memory_map)
+            elif filesystem is None and memory_map:
+                # if memory_map is specified, assume local file system (string
+                # path can in principle be URI for any filesystem)
+                filesystem = pyarrow.fs.LocalFileSystem(use_mmap=True)
 
-        # map old filesystems to new one
-        # TODO(dataset) deal with other file systems
-        if isinstance(filesystem, LocalFileSystem):
-            filesystem = pyarrow.fs.LocalFileSystem(use_mmap=memory_map)
-        elif filesystem is None and memory_map:
-            # if memory_map is specified, assume local file system (string
-            # path can in principle be URI for any filesystem)
-            filesystem = pyarrow.fs.LocalFileSystem(use_mmap=True)
+            dataset = ds.dataset(path_or_paths, filesystem=filesystem,
+                                 format=parquet_format,
+                                 partitioning=partitioning)
 
-        self._dataset = ds.dataset(path_or_paths, filesystem=filesystem,
-                                   format=parquet_format,
-                                   partitioning=partitioning)
+        if split_row_groups:
+            fragments = dataset.get_fragments()
+            fragments = [rg for fragment in fragments
+                         for rg in fragment.split_by_row_group()]
+            dataset = ds.FileSystemDataset(
+                fragments, dataset.schema, dataset.format,
+                dataset.partition_expression
+            )
+        self._dataset = dataset
 
     @property
     def schema(self):
