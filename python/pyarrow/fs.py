@@ -85,7 +85,10 @@ class FSSpecHandler(FileSystemHandler):
         return NotImplemented
 
     def get_type_name(self):
-        return "fsspec+{0}".format(self.fs.protocol)
+        protocol = self.fs.protocol
+        if isinstance(protocol, list):
+            protocol = protocol[0]
+        return "fsspec+{0}".format(protocol)
 
     @staticmethod
     def _create_file_info(path, info):
