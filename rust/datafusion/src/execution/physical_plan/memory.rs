@@ -20,9 +20,9 @@
 use std::sync::{Arc, Mutex};
 
 use crate::error::Result;
-use crate::execution::physical_plan::{BatchIterator, ExecutionPlan, Partition};
+use crate::execution::physical_plan::{ExecutionPlan, Partition};
 use arrow::datatypes::Schema;
-use arrow::record_batch::RecordBatch;
+use arrow::record_batch::{RecordBatch, SendableBatchReader};
 
 /// Execution plan for reading in-memory batches of data
 pub struct MemoryExec {
@@ -99,7 +99,7 @@ impl MemoryPartition {
 
 impl Partition for MemoryPartition {
     /// Execute this partition and return an iterator over RecordBatch
-    fn execute(&self) -> Result<Arc<Mutex<dyn BatchIterator>>> {
+    fn execute(&self) -> Result<Arc<Mutex<dyn SendableBatchReader>>> {
         Ok(Arc::new(Mutex::new(MemoryIterator::try_new(
             self.data.clone(),
             self.schema.clone(),
@@ -136,7 +136,7 @@ impl MemoryIterator {
     }
 }
 
-impl BatchIterator for MemoryIterator {
+impl SendableBatchReader for MemoryIterator {
     /// Get the schema
     fn schema(&self) -> Arc<Schema> {
         self.schema.clone()

@@ -216,16 +216,30 @@ impl Into<StructArray> for RecordBatch {
     }
 }
 
-/// Definition of record batch reader.
-pub trait RecordBatchReader {
-    /// Returns schemas of this record batch reader.
-    /// Implementation of this trait should guarantee that all record batches returned
-    /// by this reader should have same schema as returned from this method.
+/// Definition of type that can read `RecordBatch`'s in a single-threaded context.
+pub trait BatchReader {
+    /// Returns schema of this `BatchReader`.
+    ///
+    /// Implementation of this trait should guarantee that all `RecordBatch`'s returned by this
+    /// reader should have same schema as returned from this method.
     fn schema(&mut self) -> SchemaRef;
 
-    /// Returns next record batch.
-    fn next_batch(&mut self) -> Result<Option<RecordBatch>>;
+    /// Reads the next `RecordBatch`.
+    fn next(&mut self) -> Result<Option<RecordBatch>>;
 }
+
+/// Definition of type that can read `RecordBatch`'s in a multi-threaded context.
+pub trait SendableBatchReader: Send + Sync {
+    /// Returns schemas of this `BatchReader`.
+    ///
+    /// Implementation of this trait should guarantee that all `RecordBatch`'s returned by this
+    /// reader should have same schema as returned from this method.
+    fn schema(&self) -> Arc<Schema>;
+
+    /// Reads the next `RecordBatch`.
+    fn next(&mut self) -> Result<Option<RecordBatch>>;
+}
+
 
 #[cfg(test)]
 mod tests {

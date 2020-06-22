@@ -37,7 +37,8 @@ use std::fs::File;
 
 use arrow::csv;
 use arrow::datatypes::{Field, Schema};
-use arrow::record_batch::RecordBatch;
+use arrow::error::Result as ArrowResult;
+use arrow::record_batch::{RecordBatch, SendableBatchReader};
 use std::string::String;
 use std::sync::Arc;
 
@@ -45,7 +46,7 @@ use crate::datasource::{ScanResult, TableProvider};
 use crate::error::Result;
 use crate::execution::physical_plan::csv::CsvExec;
 pub use crate::execution::physical_plan::csv::CsvReadOptions;
-use crate::execution::physical_plan::{BatchIterator, ExecutionPlan};
+use crate::execution::physical_plan::ExecutionPlan;
 
 /// Represents a CSV file with a provided schema
 pub struct CsvFile {
@@ -144,12 +145,12 @@ impl CsvBatchIterator {
     }
 }
 
-impl BatchIterator for CsvBatchIterator {
+impl SendableBatchReader for CsvBatchIterator {
     fn schema(&self) -> Arc<Schema> {
         self.schema.clone()
     }
 
-    fn next(&mut self) -> Result<Option<RecordBatch>> {
-        Ok(self.reader.next()?)
+    fn next(&mut self) -> ArrowResult<Option<RecordBatch>> {
+        self.reader.next()
     }
 }

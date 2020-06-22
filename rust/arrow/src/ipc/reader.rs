@@ -30,7 +30,8 @@ use crate::compute::cast;
 use crate::datatypes::{DataType, Field, IntervalUnit, Schema, SchemaRef};
 use crate::error::{ArrowError, Result};
 use crate::ipc;
-use crate::record_batch::{RecordBatch, RecordBatchReader};
+use crate::record_batch::{RecordBatch, BatchReader};
+use crate::util::bit_util;
 use DataType::*;
 
 const CONTINUATION_MARKER: u32 = 0xffff_ffff;
@@ -631,8 +632,7 @@ impl<R: Read + Seek> FileReader<R> {
     }
 
     /// Read the next record batch
-    #[allow(clippy::should_implement_trait)]
-    pub fn next(&mut self) -> Result<Option<RecordBatch>> {
+    pub fn next_batch(&mut self) -> Result<Option<RecordBatch>> {
         // get current block
         if self.current_block < self.total_blocks {
             let block = self.blocks[self.current_block];
@@ -700,13 +700,13 @@ impl<R: Read + Seek> FileReader<R> {
     }
 }
 
-impl<R: Read + Seek> RecordBatchReader for FileReader<R> {
+impl<R: Read + Seek> BatchReader for FileReader<R> {
     fn schema(&mut self) -> SchemaRef {
         self.schema.clone()
     }
 
-    fn next_batch(&mut self) -> Result<Option<RecordBatch>> {
-        self.next()
+    fn next(&mut self) -> Result<Option<RecordBatch>> {
+        self.next_batch()
     }
 }
 
@@ -779,8 +779,7 @@ impl<R: Read> StreamReader<R> {
     }
 
     /// Read the next record batch
-    #[allow(clippy::should_implement_trait)]
-    pub fn next(&mut self) -> Result<Option<RecordBatch>> {
+    pub fn next_batch(&mut self) -> Result<Option<RecordBatch>> {
         if self.finished {
             return Ok(None);
         }
@@ -858,13 +857,14 @@ impl<R: Read> StreamReader<R> {
     }
 }
 
-impl<R: Read> RecordBatchReader for StreamReader<R> {
+impl<R: Read> BatchReader for StreamReader<R> {
     fn schema(&mut self) -> SchemaRef {
         self.schema.clone()
     }
 
-    fn next_batch(&mut self) -> Result<Option<RecordBatch>> {
-        self.next()
+    #[allow(clippy::should_implement_trait)]
+    fn next(&mut self) -> Result<Option<RecordBatch>> {
+        self.next_batch()
     }
 }
 

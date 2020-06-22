@@ -22,12 +22,11 @@ use std::fs::metadata;
 use std::sync::{Arc, Mutex};
 
 use crate::error::{ExecutionError, Result};
-use crate::execution::physical_plan::BatchIterator;
 
 use crate::logicalplan::ScalarValue;
 use arrow::array::{self, ArrayRef};
 use arrow::datatypes::{DataType, Schema};
-use arrow::record_batch::RecordBatch;
+use arrow::record_batch::{RecordBatch, SendableBatchReader};
 
 /// Iterator over a vector of record batches
 pub struct RecordBatchIterator {
@@ -47,7 +46,7 @@ impl RecordBatchIterator {
     }
 }
 
-impl BatchIterator for RecordBatchIterator {
+impl SendableBatchReader for RecordBatchIterator {
     fn schema(&self) -> Arc<Schema> {
         self.schema.clone()
     }
@@ -63,7 +62,7 @@ impl BatchIterator for RecordBatchIterator {
 }
 
 /// Create a vector of record batches from an iterator
-pub fn collect(it: Arc<Mutex<dyn BatchIterator>>) -> Result<Vec<RecordBatch>> {
+pub fn collect(it: Arc<Mutex<dyn SendableBatchReader>>) -> Result<Vec<RecordBatch>> {
     let mut it = it.lock().unwrap();
     let mut results: Vec<RecordBatch> = vec![];
     loop {

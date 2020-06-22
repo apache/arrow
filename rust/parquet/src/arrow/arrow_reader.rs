@@ -25,7 +25,7 @@ use crate::file::reader::FileReader;
 use arrow::array::StructArray;
 use arrow::datatypes::{DataType as ArrowType, Schema, SchemaRef};
 use arrow::error::Result as ArrowResult;
-use arrow::record_batch::{RecordBatch, RecordBatchReader};
+use arrow::record_batch::{RecordBatch, BatchReader};
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -33,7 +33,7 @@ use std::sync::Arc;
 /// With this api, user can get arrow schema from parquet file, and read parquet data
 /// into arrow arrays.
 pub trait ArrowReader {
-    type RecordReader: RecordBatchReader;
+    type RecordReader: BatchReader;
 
     /// Read parquet schema and convert it into arrow schema.
     fn get_schema(&mut self) -> Result<Schema>;
@@ -143,12 +143,12 @@ pub struct ParquetRecordBatchReader {
     schema: SchemaRef,
 }
 
-impl RecordBatchReader for ParquetRecordBatchReader {
+impl BatchReader for ParquetRecordBatchReader {
     fn schema(&mut self) -> SchemaRef {
         self.schema.clone()
     }
 
-    fn next_batch(&mut self) -> ArrowResult<Option<RecordBatch>> {
+    fn next(&mut self) -> ArrowResult<Option<RecordBatch>> {
         self.array_reader
             .next_batch(self.batch_size)
             .map_err(|err| err.into())

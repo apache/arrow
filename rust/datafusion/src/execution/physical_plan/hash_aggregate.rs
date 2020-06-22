@@ -23,7 +23,7 @@ use std::sync::{Arc, Mutex};
 
 use crate::error::{ExecutionError, Result};
 use crate::execution::physical_plan::{
-    Accumulator, AggregateExpr, BatchIterator, ExecutionPlan, Partition, PhysicalExpr,
+    Accumulator, AggregateExpr, ExecutionPlan, Partition, PhysicalExpr,
 };
 
 use arrow::array::{
@@ -36,7 +36,7 @@ use arrow::array::{
     UInt8Builder,
 };
 use arrow::datatypes::{DataType, Field, Schema};
-use arrow::record_batch::RecordBatch;
+use arrow::record_batch::{RecordBatch, SendableBatchReader};
 
 use crate::execution::physical_plan::expressions::Column;
 use crate::logicalplan::ScalarValue;
@@ -151,7 +151,7 @@ impl HashAggregatePartition {
 }
 
 impl Partition for HashAggregatePartition {
-    fn execute(&self) -> Result<Arc<Mutex<dyn BatchIterator>>> {
+    fn execute(&self) -> Result<Arc<Mutex<dyn SendableBatchReader>>> {
         if self.group_expr.is_empty() {
             Ok(Arc::new(Mutex::new(HashAggregateIterator::new(
                 self.schema.clone(),
@@ -246,7 +246,7 @@ struct GroupedHashAggregateIterator {
     schema: Arc<Schema>,
     group_expr: Vec<Arc<dyn PhysicalExpr>>,
     aggr_expr: Vec<Arc<dyn AggregateExpr>>,
-    input: Arc<Mutex<dyn BatchIterator>>,
+    input: Arc<Mutex<dyn SendableBatchReader>>,
     finished: bool,
 }
 
@@ -256,7 +256,7 @@ impl GroupedHashAggregateIterator {
         schema: Arc<Schema>,
         group_expr: Vec<Arc<dyn PhysicalExpr>>,
         aggr_expr: Vec<Arc<dyn AggregateExpr>>,
-        input: Arc<Mutex<dyn BatchIterator>>,
+        input: Arc<Mutex<dyn SendableBatchReader>>,
     ) -> Self {
         GroupedHashAggregateIterator {
             schema,
@@ -284,7 +284,7 @@ macro_rules! update_accumulators {
     }};
 }
 
-impl BatchIterator for GroupedHashAggregateIterator {
+impl SendableBatchReader for GroupedHashAggregateIterator {
     fn schema(&self) -> Arc<Schema> {
         self.schema.clone()
     }
@@ -540,7 +540,7 @@ impl BatchIterator for GroupedHashAggregateIterator {
 struct HashAggregateIterator {
     schema: Arc<Schema>,
     aggr_expr: Vec<Arc<dyn AggregateExpr>>,
-    input: Arc<Mutex<dyn BatchIterator>>,
+    input: Arc<Mutex<dyn SendableBatchReader>>,
     finished: bool,
 }
 
@@ -549,7 +549,7 @@ impl HashAggregateIterator {
     pub fn new(
         schema: Arc<Schema>,
         aggr_expr: Vec<Arc<dyn AggregateExpr>>,
-        input: Arc<Mutex<dyn BatchIterator>>,
+        input: Arc<Mutex<dyn SendableBatchReader>>,
     ) -> Self {
         HashAggregateIterator {
             schema,
@@ -560,7 +560,7 @@ impl HashAggregateIterator {
     }
 }
 
-impl BatchIterator for HashAggregateIterator {
+impl SendableBatchReader for HashAggregateIterator {
     fn schema(&self) -> Arc<Schema> {
         self.schema.clone()
     }

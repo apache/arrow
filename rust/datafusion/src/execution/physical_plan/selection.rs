@@ -21,12 +21,12 @@ use std::sync::{Arc, Mutex};
 
 use crate::error::{ExecutionError, Result};
 use crate::execution::physical_plan::{
-    BatchIterator, ExecutionPlan, Partition, PhysicalExpr,
+    ExecutionPlan, Partition, PhysicalExpr,
 };
 use arrow::array::BooleanArray;
 use arrow::compute::filter;
 use arrow::datatypes::Schema;
-use arrow::record_batch::RecordBatch;
+use arrow::record_batch::{RecordBatch, SendableBatchReader};
 
 /// Execution plan for a Selection
 pub struct SelectionExec {
@@ -87,7 +87,7 @@ struct SelectionPartition {
 
 impl Partition for SelectionPartition {
     /// Execute the Selection
-    fn execute(&self) -> Result<Arc<Mutex<dyn BatchIterator>>> {
+    fn execute(&self) -> Result<Arc<Mutex<dyn SendableBatchReader>>> {
         Ok(Arc::new(Mutex::new(SelectionIterator {
             schema: self.schema.clone(),
             expr: self.expr.clone(),
@@ -100,10 +100,10 @@ impl Partition for SelectionPartition {
 struct SelectionIterator {
     schema: Arc<Schema>,
     expr: Arc<dyn PhysicalExpr>,
-    input: Arc<Mutex<dyn BatchIterator>>,
+    input: Arc<Mutex<dyn SendableBatchReader>>,
 }
 
-impl BatchIterator for SelectionIterator {
+impl SendableBatchReader for SelectionIterator {
     /// Get the schema
     fn schema(&self) -> Arc<Schema> {
         self.schema.clone()

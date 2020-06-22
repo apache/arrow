@@ -24,9 +24,9 @@ use std::thread;
 
 use crate::error::{ExecutionError, Result};
 use crate::execution::physical_plan::common;
-use crate::execution::physical_plan::{BatchIterator, ExecutionPlan, Partition};
+use crate::execution::physical_plan::{ExecutionPlan, Partition};
 use arrow::datatypes::Schema;
-use arrow::record_batch::{RecordBatch, RecordBatchReader};
+use arrow::record_batch::{RecordBatch, BatchReader, SendableBatchReader};
 use parquet::file::reader::SerializedFileReader;
 
 use crossbeam::channel::{unbounded, Receiver, RecvError, SendError, Sender};
@@ -106,7 +106,7 @@ impl ExecutionPlan for ParquetExec {
 }
 
 struct ParquetPartition {
-    iterator: Arc<Mutex<dyn BatchIterator>>,
+    iterator: Arc<Mutex<dyn SendableBatchReader>>,
 }
 
 impl ParquetPartition {
@@ -143,7 +143,7 @@ impl ParquetPartition {
                     {
                         Ok(mut batch_reader) => {
                             while let Ok(_) = request_rx.recv() {
-                                match batch_reader.next_batch() {
+                                match batch_reader.next() {
                                     Ok(Some(batch)) => {
                                         response_tx.send(Ok(Some(batch))).unwrap();
                                     }
@@ -191,7 +191,7 @@ impl ParquetPartition {
 }
 
 impl Partition for ParquetPartition {
-    fn execute(&self) -> Result<Arc<Mutex<dyn BatchIterator>>> {
+    fn execute(&self) -> Result<Arc<Mutex<dyn SendableBatchReader>>> {
         Ok(self.iterator.clone())
     }
 }
@@ -202,7 +202,7 @@ struct ParquetIterator {
     response_rx: Receiver<Result<Option<RecordBatch>>>,
 }
 
-impl BatchIterator for ParquetIterator {
+impl SendableBatchReader for ParquetIterator {
     fn schema(&self) -> Arc<Schema> {
         self.schema.clone()
     }
