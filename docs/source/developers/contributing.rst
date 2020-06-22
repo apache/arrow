@@ -147,9 +147,9 @@ there are conflicts, and your local commit history has multiple commits, you may
 simplify the conflict resolution process by squashing your local commits into a single
 commit.  In the long run preserving the history isn't as important, because when your
 feature branch is merged upstream a squash happens automatically.  If you choose this
-route, you can abort the merge with::
+route, you can abort the rebase with::
 
-    $ git merge --abort
+    $ git rebase --abort
 
 Following which, the local commits can be squashed interactively by running::
 
