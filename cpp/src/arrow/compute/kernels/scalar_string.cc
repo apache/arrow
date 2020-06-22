@@ -163,10 +163,10 @@ template <typename Type, template <typename> class Derived>
 struct Utf8Transform {
   using offset_type = typename Type::offset_type;
   using DerivedClass = Derived<Type>;
+  using ArrayType = typename TypeTraits<Type>::ArrayType;
 
   static offset_type Transform(const uint8_t* input, offset_type input_string_ncodeunits,
                                uint8_t* output) {
-    offset_type encoded_nbytes_total = 0;
     uint8_t* dest = output;
     utf8_transform(input, input + input_string_ncodeunits, dest,
                    DerivedClass::TransformCodepoint);
@@ -184,12 +184,14 @@ struct Utf8Transform {
         }
       });
       const ArrayData& input = *batch[0].array();
+      ArrayType input_boxed(batch[0].array());
       ArrayData* output = out->mutable_array();
 
-      utf8proc_uint8_t const* input_str = input.buffers[2]->data();
       offset_type const* input_string_offsets = input.GetValues<offset_type>(1);
-      offset_type input_ncodeunits = input.buffers[2]->size();
-      offset_type input_nstrings = (input.buffers[1]->size() / sizeof(offset_type)) - 1;
+      utf8proc_uint8_t const* input_str =
+          input.buffers[2]->data() + input_boxed.value_offset(0);
+      offset_type input_ncodeunits = input_boxed.total_values_length();
+      offset_type input_nstrings = input.length;
 
       // Section 5.18 of the Unicode spec claim that the number of codepoints for case
       // mapping can grow by a factor of 3. This means grow by a factor of 3 in bytes
@@ -210,17 +212,21 @@ struct Utf8Transform {
       // We could reuse the buffer if it is all ascii, benchmarking showed this not to
       // matter
       // output->buffers[1] = input.buffers[1];
-      KERNEL_RETURN_IF_ERROR(
-          ctx, ctx->Allocate(input.buffers[1]->size()).Value(&output->buffers[1]));
+      KERNEL_RETURN_IF_ERROR(ctx,
+                             ctx->Allocate((input_nstrings + 1) * sizeof(offset_type))
+                                 .Value(&output->buffers[1]));
       utf8proc_uint8_t* output_str = output->buffers[2]->mutable_data();
       offset_type* output_string_offsets = output->GetMutableValues<offset_type>(1);
       offset_type output_ncodeunits = 0;
 
       offset_type output_string_offset = 0;
       *output_string_offsets = output_string_offset;
+      offset_type input_string_first_offset = input_string_offsets[0];
       for (int64_t i = 0; i < input_nstrings; i++) {
-        offset_type input_string_offset = input_string_offsets[i];
-        offset_type input_string_end = input_string_offsets[i + 1];
+        offset_type input_string_offset =
+            input_string_offsets[i] - input_string_first_offset;
+        offset_type input_string_end =
+            input_string_offsets[i + 1] - input_string_first_offset;
         offset_type input_string_ncodeunits = input_string_end - input_string_offset;
         offset_type encoded_nbytes = DerivedClass::Transform(
             input_str + input_string_offset, input_string_ncodeunits,
