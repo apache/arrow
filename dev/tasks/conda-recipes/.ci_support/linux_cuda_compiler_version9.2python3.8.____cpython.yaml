@@ -10,27 +10,31 @@ channel_sources:
 - conda-forge,defaults
 channel_targets:
 - conda-forge main
+cuda_compiler:
+- nvcc
+cuda_compiler_version:
+- '9.2'
 cxx_compiler:
 - gxx
 cxx_compiler_version:
 - '7'
 docker_image:
-- condaforge/linux-anvil-comp7
+- condaforge/linux-anvil-cuda:9.2
+gflags:
+- '2.2'
 glog:
 - 0.4.0
 grpc_cpp:
-- '1.27'
+- '1.29'
 libprotobuf:
-- '3.11'
+- '3.12'
 lz4_c:
-- 1.8.3
+- 1.9.2
 pin_run_as_build:
   boost-cpp:
     max_pin: x.x.x
   bzip2:
     max_pin: x
-  grpc-cpp:
-    max_pin: x.x
   lz4-c:
     max_pin: x.x.x
   python:
@@ -41,9 +45,14 @@ pin_run_as_build:
   zstd:
     max_pin: x.x.x
 python:
-- '3.6'
+- 3.8.* *_cpython
+re2:
+- 2020.06.01
 snappy:
 - '1'
+zip_keys:
+- - cuda_compiler_version
+  - docker_image
 zlib:
 - '1.2'
 zstd:

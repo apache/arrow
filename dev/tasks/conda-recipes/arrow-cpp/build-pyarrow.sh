@@ -16,6 +16,21 @@ export PYARROW_WITH_ORC=1
 export PYARROW_WITH_PARQUET=1
 export PYARROW_WITH_PLASMA=1
 export PYARROW_WITH_S3=1
+BUILD_EXT_FLAGS=""
+
+# Enable CUDA support
+if [[ ! -z "${cuda_compiler_version+x}" && "${cuda_compiler_version}" != "None" ]]
+then
+    export PYARROW_WITH_CUDA=1
+else
+    export PYARROW_WITH_CUDA=0
+fi
+
+# Resolve: Make Error at cmake_modules/SetupCxxFlags.cmake:338 (message): Unsupported arch flag: -march=.
+if [[ "$(uname -m)" = "aarch64" ]]
+then
+    export PYARROW_CMAKE_OPTIONS="-DARROW_ARMV8_ARCH=armv8-a"
+fi
 
 cd python
 
