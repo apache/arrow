@@ -126,6 +126,9 @@ strides: {0.strides}""".format(self)
         buffer.suboffsets = NULL
 
 
+ctypedef CSparseCOOIndex* _CSparseCOOIndexPtr
+
+
 cdef class SparseCOOTensor:
     """
     A sparse COO tensor.
@@ -199,7 +202,13 @@ shape: {0.shape}""".format(self)
             for x in dim_names:
                 c_dim_names.push_back(tobytes(x))
 
-        coords = np.vstack([obj.row, obj.col]).T
+        row = obj.row
+        col = obj.col
+        if obj.has_canonical_format:
+            order = np.lexsort((col, row)) # row-major order
+            row = row[order]
+            col = col[order]
+        coords = np.vstack([row, col]).T
         coords = np.require(coords, dtype='i8', requirements='C')
 
         check_status(NdarraysToSparseCOOTensor(c_default_memory_pool(),
@@ -270,8 +279,10 @@ shape: {0.shape}""".format(self)
                                               &out_data, &out_coords))
         data = PyObject_to_object(out_data)
         coords = PyObject_to_object(out_coords)
-        result = coo_matrix((data[:, 0], (coords[:, 0], coords[:, 1])),
-                            shape=self.shape)
+        row, col = coords[:,0], coords[:, 1]
+        result = coo_matrix((data[:, 0], (row, col)), shape=self.shape)
+        if self.has_canonical_format:
+            result.sum_duplicates()
         return result
 
     def to_pydata_sparse(self):
@@ -340,6 +351,15 @@ shape: {0.shape}""".format(self)
     def non_zero_length(self):
         return self.stp.non_zero_length()
 
+    @property
+    def has_canonical_format(self):
+        cdef:
+            _CSparseCOOIndexPtr csi;
+
+        csi = dynamic_cast[_CSparseCOOIndexPtr](self.stp.sparse_index().get())
+        if csi != nullptr:
+            return csi.is_canonical()
+        return True
 
 cdef class SparseCSRMatrix:
     """
