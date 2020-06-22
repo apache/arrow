@@ -427,10 +427,10 @@ void MakeUnaryStringBatchKernel(std::string name, FunctionRegistry* registry) {
 template <template <typename> class Transformer>
 void MakeUnaryStringUtf8TransformKernel(std::string name, FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>(name, Arity::Unary());
-  ArrayKernelExec exec = Transformer<StringType>::Exec;
-  ArrayKernelExec exec_large = Transformer<LargeStringType>::Exec;
-  DCHECK_OK(func->AddKernel({utf8()}, utf8(), exec));
-  DCHECK_OK(func->AddKernel({large_utf8()}, large_utf8(), exec_large));
+  ArrayKernelExec exec_32 = Transformer<StringType>::Exec;
+  ArrayKernelExec exec_64 = Transformer<LargeStringType>::Exec;
+  DCHECK_OK(func->AddKernel({utf8()}, utf8(), exec_32));
+  DCHECK_OK(func->AddKernel({large_utf8()}, large_utf8(), exec_64));
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
