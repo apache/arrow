@@ -28,6 +28,7 @@
 #include <arrow-glib/codec.h>
 #include <arrow-glib/compute.h>
 #include <arrow-glib/data-type.h>
+#include <arrow-glib/datum.h>
 #include <arrow-glib/enums.h>
 #include <arrow-glib/error.h>
 #include <arrow-glib/field.h>

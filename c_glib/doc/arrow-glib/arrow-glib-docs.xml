@@ -77,6 +77,10 @@
       <title>Table builder</title>
       <xi:include href="xml/table-builder.xml"/>
     </chapter>
+    <chapter id="datum">
+      <title>Datum</title>
+      <xi:include href="xml/datum.xml"/>
+    </chapter>
     <chapter id="buffer">
       <title>Buffer</title>
       <xi:include href="xml/buffer.xml"/>

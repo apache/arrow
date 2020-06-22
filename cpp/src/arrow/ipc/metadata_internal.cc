@@ -36,6 +36,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/key_value_metadata.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/ubsan.h"
 #include "arrow/visitor_inline.h"
 

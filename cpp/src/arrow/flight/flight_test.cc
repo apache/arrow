@@ -36,6 +36,7 @@
 #include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/make_unique.h"
 
 #ifdef GRPCPP_GRPCPP_H

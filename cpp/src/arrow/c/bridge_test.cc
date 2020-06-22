@@ -32,6 +32,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 #include "arrow/util/key_value_metadata.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/string_view.h"
 

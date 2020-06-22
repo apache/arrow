@@ -33,6 +33,7 @@
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 namespace dataset {
