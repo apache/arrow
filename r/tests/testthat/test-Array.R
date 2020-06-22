@@ -52,8 +52,11 @@ test_that("Integer Array", {
 test_that("binary Array", {
   bin <- vctrs::list_of(as.raw(1:10), as.raw(0:255), .ptype = raw())
   expect_array_roundtrip(bin, binary())
-})
 
+  # degenerate
+  bin <- structure(list(1L), ptype = raw())
+  expect_error(Array$create(bin))
+})
 
 test_that("Slice() and RangeEquals()", {
   ints <- c(1:10, 101:110, 201:205)
