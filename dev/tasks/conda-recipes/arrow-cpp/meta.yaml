@@ -68,6 +68,7 @@ outputs:
         - glog
         - grpc-cpp
         - libprotobuf
+        - libutf8proc
         - clangdev 10.* # [not win]
         - llvmdev 10.* # [not win]
         # llvmdev 9.* or later require Visual Studio 2017
