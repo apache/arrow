@@ -39,11 +39,11 @@ class MemoryPool;
 /// \brief A data structure managing a list of primitive Arrow arrays logically
 /// as one large array
 ///
-/// Data chunking is treated throughout this project is handled largely as an
-/// implementation detail for performance and memory use
-/// optimization. ChunkedArray allows Array objects to be collected and
-/// interpreted as a single logical array without requiring an expensive
-/// concatenation step.
+/// Data chunking is treated throughout this project largely as an
+/// implementation detail for performance and memory use optimization.
+/// ChunkedArray allows Array objects to be collected and interpreted
+/// as a single logical array without requiring an expensive concatenation
+/// step.
 ///
 /// In some cases, data produced by a function may exceed the capacity of an
 /// Array (like BinaryArray or StringArray) and so returning multiple Arrays is
@@ -62,8 +62,8 @@ class MemoryPool;
 ///
 /// Preserving the chunk layout/sizes in processing steps is generally not
 /// considered to be a contract in APIs. A function may decide to alter the
-/// chunk of its result. Similarly, APIs accepting multiple ChunkedArray inputs
-/// should not expect the chunk layout to be the same in each input.
+/// chunking of its result. Similarly, APIs accepting multiple ChunkedArray
+/// inputs should not expect the chunk layout to be the same in each input.
 class ARROW_EXPORT ChunkedArray {
  public:
   /// \brief Construct a chunked array from a vector of arrays
