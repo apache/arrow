@@ -2058,7 +2058,10 @@ macro(build_utf8proc)
   file(MAKE_DIRECTORY "${UTF8PROC_PREFIX}/include")
   add_library(utf8proc::utf8proc STATIC IMPORTED)
   set_target_properties(utf8proc::utf8proc
-                        PROPERTIES IMPORTED_LOCATION "${UTF8PROC_STATIC_LIB}"
+                        PROPERTIES IMPORTED_LOCATION
+                                   "${UTF8PROC_STATIC_LIB}"
+                                   INTERFACE_COMPILER_DEFINITIONS
+                                   "UTF8PROC_STATIC"
                                    INTERFACE_INCLUDE_DIRECTORIES
                                    "${UTF8PROC_PREFIX}/include")
 
