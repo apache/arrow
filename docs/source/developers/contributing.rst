@@ -127,3 +127,52 @@ To contribute a patch:
 * Add new unit tests for your code.
 
 Thank you in advance for your contributions!
+
+Common Git conventions followed within the project
+--------------------------------------------------
+
+If you are tracking the Arrow source repository locally, following some common Git
+conventions would make everyone's workflow compatible.  These recommendations along with
+their rationale are outlined below.
+
+It is strongly discouraged to use a regular ``git merge``, as a linear commit history is
+prefered by the project.  It is much easier to maintain, and makes for easier
+``cherry-picking`` of features; useful for backporting fixes to maintenance releases.
+To sync your local copy of a branch, you may do the following::
+
+    $ git pull upstream branch --rebase
+
+This will rebase your local commits on top of the tip of ``upstream/branch``.  In case
+there are conflicts, and your local commit history has multiple commits, you may
+simplify the conflict resolution process by squashing your local commits into a single
+commit.  In the long run preserving the history isn't as important, because when your
+feature branch is merged upstream a squash happens automatically.  If you choose this
+route, you can abort the rebase with::
+
+    $ git rebase --abort
+
+Following which, the local commits can be squashed interactively by running::
+
+    $ git rebase --interactive ORIG_HEAD~n
+
+Where ``n`` is the number of commits you have in your local branch.  After the squash,
+you can try the merge again, and this time conflict resolution should be relatively
+straightforward.
+
+Once you have an updated local copy, you can push to your remote repo.  Note, since your
+remote repo still holds the old history, you would need to do a force push. ::
+
+    $ git push --force origin branch
+
+*Note about force pushing to a branch that is being reviewed:* if you want reviewers to
+look at your updates, please ensure you comment on the PR on GitHub as simply force
+pushing does not trigger a notification in the GitHub user interface.
+
+Simplifying ``rebase``
+++++++++++++++++++++++
+
+If you set the following in your repo's ``.git/config``, the ``--rebase`` option can be
+ommitted from the ``git pull`` command, as it is implied by default. ::
+
+    [pull]
+            rebase = true
