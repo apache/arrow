@@ -490,23 +490,22 @@ else()
     )
 endif()
 
-if(DEFINED ENV{BZIP2_SOURCE_URL})
-  set(BZIP2_SOURCE_URL "$ENV{BZIP2_SOURCE_URL}")
+if(DEFINED ENV{ARROW_BZIP2_SOURCE_URL})
+  set(ARROW_BZIP2_SOURCE_URL "$ENV{ARROW_BZIP2_SOURCE_URL}")
 else()
   set_urls(
-    BZIP2_SOURCE_URL
+    ARROW_BZIP2_SOURCE_URL
     "https://sourceware.org/pub/bzip2/bzip2-${ARROW_BZIP2_BUILD_VERSION}.tar.gz"
     "https://github.com/ursa-labs/thirdparty/releases/download/latest/bzip2-${ARROW_BZIP2_BUILD_VERSION}.tar.gz"
     )
 endif()
 
-if(DEFINED ENV{UTF8PROC_SOURCE_URL})
-  set(UTF8PROC_SOURCE_URL "$ENV{UTF8PROC_SOURCE_URL}")
+if(DEFINED ENV{ARROW_UTF8PROC_SOURCE_URL})
+  set(ARROW_UTF8PROC_SOURCE_URL "$ENV{ARROW_UTF8PROC_SOURCE_URL}")
 else()
   set_urls(
-    UTF8PROC_SOURCE_URL
+    ARROW_UTF8PROC_SOURCE_URL
     "https://github.com/JuliaStrings/utf8proc/archive/${ARROW_UTF8PROC_BUILD_VERSION}.tar.gz"
-    "https://github.com/ursa-labs/thirdparty/releases/download/latest/utf8proc-${ARROW_UTF8PROC_BUILD_VERSION}.tar.gz"
     )
 endif()
 
@@ -2003,7 +2002,7 @@ macro(build_bzip2)
                       INSTALL_COMMAND ${MAKE} install PREFIX=${BZIP2_PREFIX}
                                       ${BZIP2_EXTRA_ARGS}
                       INSTALL_DIR ${BZIP2_PREFIX}
-                      URL ${BZIP2_SOURCE_URL}
+                      URL ${ARROW_BZIP2_SOURCE_URL}
                       BUILD_BYPRODUCTS "${BZIP2_STATIC_LIB}")
 
   file(MAKE_DIRECTORY "${BZIP2_PREFIX}/include")
@@ -2053,7 +2052,7 @@ macro(build_utf8proc)
                       ${EP_LOG_OPTIONS}
                       CMAKE_ARGS ${UTF8PROC_CMAKE_ARGS}
                       INSTALL_DIR ${UTF8PROC_PREFIX}
-                      URL ${UTF8PROC_SOURCE_URL}
+                      URL ${ARROW_UTF8PROC_SOURCE_URL}
                       BUILD_BYPRODUCTS "${UTF8PROC_STATIC_LIB}")
 
   file(MAKE_DIRECTORY "${UTF8PROC_PREFIX}/include")
