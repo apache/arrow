@@ -17,7 +17,7 @@
 
 os: linux
 arch: arm64
-dist: bionic
+dist: focal
 language: minimal
 
 addons:
@@ -69,7 +69,7 @@ after_success:
       github3.py \
       jinja2 \
       jira \
-      pygit2==0.26.4 \
+      pygit2 \
       ruamel.yaml \
       setuptools_scm \
       toolz
