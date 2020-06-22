@@ -42,7 +42,7 @@ DEFINE_int32(server_port, 31337, "The port to connect to");
 DEFINE_int32(num_servers, 1, "Number of performance servers to run");
 DEFINE_int32(num_streams, 4, "Number of streams for each server");
 DEFINE_int32(num_threads, 4, "Number of concurrent gets");
-DEFINE_int32(records_per_stream, 10000000, "Total records per stream");
+DEFINE_int64(records_per_stream, 10000000, "Total records per stream");
 DEFINE_int32(records_per_batch, 4096, "Total records per batch within stream");
 DEFINE_bool(test_put, false, "Test DoPut instead of DoGet");
 
@@ -155,8 +155,8 @@ arrow::Result<PerformanceResult> RunDoPutTest(FlightClient* client,
 
   std::shared_ptr<RecordBatch> batch = RecordBatch::Make(schema, length, arrays);
 
-  int records_sent = 0;
-  const int total_records = token.definition().records_per_stream();
+  int64_t records_sent = 0;
+  const int64_t total_records = token.definition().records_per_stream();
   while (records_sent < total_records) {
     if (records_sent + length > total_records) {
       const int last_length = total_records - records_sent;
