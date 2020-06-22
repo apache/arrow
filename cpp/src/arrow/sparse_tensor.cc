@@ -184,7 +184,7 @@ void get_coo_index_tensor_row(const std::shared_ptr<Tensor>& coords, const int64
 }
 
 bool DetectSparseCOOIndexCanonicality(const std::shared_ptr<Tensor>& coords) {
-  DCHECK(coords->ndim() == 2);
+  DCHECK_EQ(coords->ndim(), 2);
 
   const auto& shape = coords->shape();
   const int64_t non_zero_length = shape[0];

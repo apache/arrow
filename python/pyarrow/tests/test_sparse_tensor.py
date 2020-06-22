@@ -418,7 +418,6 @@ def test_sparse_coo_tensor_scipy_roundtrip(dtype_str, arrow_type):
         dense_array = scipy_matrix.toarray()
     assert np.array_equal(dense_array, sparse_tensor.to_tensor().to_numpy())
 
-
     # canonical sparse coo matrix
     scipy_matrix.sum_duplicates()
     sparse_tensor = pa.SparseCOOTensor.from_scipy(scipy_matrix,
@@ -428,6 +427,7 @@ def test_sparse_coo_tensor_scipy_roundtrip(dtype_str, arrow_type):
     assert scipy_matrix.has_canonical_format
     assert sparse_tensor.has_canonical_format
     assert out_scipy_matrix.has_canonical_format
+
 
 @pytest.mark.skipif(not csr_matrix, reason="requires scipy")
 @pytest.mark.parametrize('dtype_str,arrow_type', tensor_type_pairs)

@@ -205,7 +205,7 @@ shape: {0.shape}""".format(self)
         row = obj.row
         col = obj.col
         if obj.has_canonical_format:
-            order = np.lexsort((col, row)) # row-major order
+            order = np.lexsort((col, row))  # row-major order
             row = row[order]
             col = col[order]
         coords = np.vstack([row, col]).T
@@ -279,7 +279,7 @@ shape: {0.shape}""".format(self)
                                               &out_data, &out_coords))
         data = PyObject_to_object(out_data)
         coords = PyObject_to_object(out_coords)
-        row, col = coords[:,0], coords[:, 1]
+        row, col = coords[:, 0], coords[:, 1]
         result = coo_matrix((data[:, 0], (row, col)), shape=self.shape)
         if self.has_canonical_format:
             result.sum_duplicates()
@@ -354,7 +354,7 @@ shape: {0.shape}""".format(self)
     @property
     def has_canonical_format(self):
         cdef:
-            _CSparseCOOIndexPtr csi;
+            _CSparseCOOIndexPtr csi
 
         csi = dynamic_cast[_CSparseCOOIndexPtr](self.stp.sparse_index().get())
         if csi != nullptr:
