@@ -532,7 +532,6 @@ void AddHashKernels(VectorFunction* func, VectorKernel base,
     DCHECK_OK(func->AddKernel(base));
   }
 
-  // Handle Decimal as a physical string, not a number
   base.init = GetHashInit<Action>(Type::DECIMAL);
   base.signature = KernelSignature::Make({InputType::Array(Type::DECIMAL)}, out_ty);
   DCHECK_OK(func->AddKernel(base));
