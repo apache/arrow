@@ -33,6 +33,20 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
 cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
+    cdef enum CExpressionType "arrow::dataset::ExpressionType::type":
+        CExpressionType_FIELD "arrow::dataset::ExpressionType::type::FIELD"
+        CExpressionType_SCALAR "arrow::dataset::ExpressionType::type::SCALAR"
+        CExpressionType_NOT "arrow::dataset::ExpressionType::type::NOT"
+        CExpressionType_CAST "arrow::dataset::ExpressionType::type::CAST"
+        CExpressionType_AND "arrow::dataset::ExpressionType::type::AND"
+        CExpressionType_OR "arrow::dataset::ExpressionType::type::OR"
+        CExpressionType_COMPARISON \
+            "arrow::dataset::ExpressionType::type::COMPARISON"
+        CExpressionType_IS_VALID \
+            "arrow::dataset::ExpressionType::type::IS_VALID"
+        CExpressionType_IN "arrow::dataset::ExpressionType::type::IN"
+        CExpressionType_CUSTOM "arrow::dataset::ExpressionType::type::CUSTOM"
+
     cdef cppclass CExpression "arrow::dataset::Expression":
         c_bool Equals(const CExpression& other) const
         c_bool Equals(const shared_ptr[CExpression]& other) const
@@ -42,6 +56,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             const shared_ptr[CExpression]& given) const
         c_string ToString() const
         shared_ptr[CExpression] Copy() const
+        CExpressionType type() const
 
         const CExpression& In(shared_ptr[CArray]) const
         const CExpression& IsValid() const
@@ -52,6 +67,28 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         @staticmethod
         CResult[shared_ptr[CExpression]] Deserialize(const CBuffer& buffer)
         CResult[shared_ptr[CBuffer]] Serialize() const
+
+    cdef cppclass CBinaryExpression "arrow::dataset::BinaryExpression"(
+            CExpression):
+        const shared_ptr[CExpression]& left_operand() const
+        const shared_ptr[CExpression]& right_operand() const
+
+    cdef cppclass CScalarExpression "arrow::dataset::ScalarExpression"(
+            CExpression):
+        CScalarExpression(const shared_ptr[CScalar]& value)
+        const shared_ptr[CScalar]& value() const
+
+    cdef cppclass CFieldExpression "arrow::dataset::FieldExpression"(
+            CExpression):
+        CFieldExpression(c_string name)
+        c_string name() const
+
+    cdef cppclass CComparisonExpression "arrow::dataset::ComparisonExpression"(
+            CBinaryExpression):
+        CComparisonExpression(CCompareOperator op,
+                              shared_ptr[CExpression] left_operand,
+                              shared_ptr[CExpression] right_operand)
+        CCompareOperator op() const
 
     ctypedef vector[shared_ptr[CExpression]] CExpressionVector \
         "arrow::dataset::ExpressionVector"
@@ -221,6 +258,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         int id() const
         int64_t num_rows() const
         bint Equals(const CRowGroupInfo& other)
+        const shared_ptr[CExpression]& statistics()
 
     cdef cppclass CParquetFileFragment "arrow::dataset::ParquetFileFragment"(
             CFileFragment):

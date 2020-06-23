@@ -46,8 +46,39 @@ from pyarrow._dataset import (  # noqa
     Scanner,
     ScanTask,
     UnionDataset,
-    UnionDatasetFactory
+    UnionDatasetFactory,
+    _unwrap_statistics
 )
+
+
+def _get_min_max(typ, field, scalar):
+
+    typ, field_name = _unwrap_statistics(field)
+    if typ != "field":
+        raise ValueError("invalid expression: {0}".format(field))
+    typ, scalar_value = _unwrap_statistics(scalar)
+    if typ != "scalar":
+        raise ValueError("invalid expression: {0}".format(field))
+    return {field_name: {typ: scalar_value.as_py()}}
+
+
+def _recurse_expressions(expr, l):
+
+    typ, exprs = _unwrap_statistics(expr)
+    if typ == "and":
+        for sub in exprs:
+            _recurse_expressions(sub, l)
+    elif typ == "comp":
+        l.append(_get_min_max(*exprs))
+    else:
+        raise ValueError("invalid expression: {0}".format(expr))
+
+
+def get_min_max_statistics(expr):
+
+    result = []
+    _recurse_expressions(expr, result)
+    return result
 
 
 def field(name):

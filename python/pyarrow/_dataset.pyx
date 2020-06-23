@@ -865,6 +865,58 @@ cdef class RowGroupInfo:
             CRowGroupInfo c_info = row_group.info
         return self.info.Equals(c_info)
 
+    @property
+    def statistics(self):
+        cdef shared_ptr[CExpression] expr = self.info.statistics()
+        if expr.get() == nullptr:
+            return None
+        else:
+            return Expression.wrap(expr)
+
+
+def _unwrap_statistics(Expression statistics):
+    cdef:
+        shared_ptr[CExpression] expr = statistics.unwrap()
+        CBinaryExpression* and_expr
+        CComparisonExpression* comp_expr
+        CFieldExpression* field_expr
+        CScalarExpression* scalar_expr
+        shared_ptr[CExpression] left_operand, right_operand
+        CCompareOperator comp_op
+        c_string field_name
+        shared_ptr[CScalar] scalar
+
+    typ = expr.get().type()
+    if typ == CExpressionType_AND:
+        and_expr = <CBinaryExpression*> expr.get()
+        left_operand = and_expr.left_operand()
+        right_operand = and_expr.right_operand()
+        return "and", (Expression.wrap(left_operand), Expression.wrap(right_operand))
+    elif typ == CExpressionType_COMPARISON:
+        # comparison in statistics is always >= or <=
+        # TODO handle "field == null()"
+        comp_expr = <CComparisonExpression*> expr.get()
+        left_operand = comp_expr.left_operand()
+        right_operand = comp_expr.right_operand()
+        comp_op = comp_expr.op()
+        if comp_op == CCompareOperator_GREATER_EQUAL:
+            comp_type = "min"
+        elif comp_op == CCompareOperator_LESS_EQUAL:
+            comp_type = "max"
+        else:
+            return None
+        return "comp", (comp_type, Expression.wrap(left_operand), Expression.wrap(right_operand))
+    elif typ == CExpressionType_FIELD:
+        field_expr = <CFieldExpression*> expr.get()
+        field_name = field_expr.name()
+        return "field", frombytes(field_name)
+    elif typ == CExpressionType_SCALAR:
+        scalar_expr = <CScalarExpression*> expr.get()
+        scalar = scalar_expr.value()
+        return "scalar", pyarrow_wrap_scalar(scalar)
+    else:
+        return None
+
 
 cdef class ParquetFileFragment(FileFragment):
     """A Fragment representing a parquet file."""
