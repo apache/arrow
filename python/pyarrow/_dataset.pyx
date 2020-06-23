@@ -624,7 +624,8 @@ cdef class FileFormat:
         c_source = _make_file_source(file, filesystem)
         c_fragment = <shared_ptr[CFragment]> GetResultValue(
             self.format.MakeFragment(move(c_source),
-                                     partition_expression.unwrap()))
+                                     partition_expression.unwrap(),
+                                     <shared_ptr[CSchema]>nullptr))
         return Fragment.wrap(move(c_fragment))
 
     def __eq__(self, other):
@@ -1025,7 +1026,8 @@ cdef class ParquetFileFormat(FileFormat):
     def make_fragment(self, file, filesystem=None,
                       Expression partition_expression=None, row_groups=None):
         cdef:
-            vector[int] c_row_groups
+            vector[int] c_row_group_ids
+            vector[CRowGroupInfo] c_row_groups
 
         partition_expression = partition_expression or _true
 
@@ -1034,12 +1036,14 @@ cdef class ParquetFileFormat(FileFormat):
                                          partition_expression)
 
         c_source = _make_file_source(file, filesystem)
-        c_row_groups = [<int> row_group for row_group in set(row_groups)]
+        c_row_group_ids = [<int> row_group for row_group in set(row_groups)]
+        c_row_groups = CRowGroupInfo.FromIdentifiers(move(c_row_group_ids))
 
         c_fragment = <shared_ptr[CFragment]> GetResultValue(
             self.parquet_format.MakeFragment(move(c_source),
                                              partition_expression.unwrap(),
-                                             move(c_row_groups)))
+                                             move(c_row_groups),
+                                             <shared_ptr[CSchema]>nullptr))
         return Fragment.wrap(move(c_fragment))
 
 

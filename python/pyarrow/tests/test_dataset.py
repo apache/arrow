@@ -1639,3 +1639,25 @@ def test_dataset_schema_metadata(tempdir):
     assert b"pandas" in schema.metadata
     # ensure it is still there in a projected schema (with column selection)
     assert schema.equals(projected_schema, check_metadata=True)
+
+
+@pytest.mark.parquet
+def test_filter_mismatching_schema(tempdir):
+    # ARROW-9146
+    import pyarrow.parquet as pq
+
+    table = pa.table({"col": pa.array([1, 2, 3, 4], type='int32')})
+    pq.write_table(table, str(tempdir / "data.parquet"))
+
+    # specifying explicit schema, but that mismatches the schema of the data
+    schema = pa.schema([("col", pa.int64())])
+    dataset = ds.dataset(
+        tempdir / "data.parquet", format="parquet", schema=schema)
+
+    # filtering on a column with such type mismatch should give a proper error
+    with pytest.raises(TypeError):
+        dataset.to_table(filter=ds.field("col") > 2)
+
+    fragment = list(dataset.get_fragments())[0]
+    with pytest.raises(TypeError):
+        fragment.to_table(filter=ds.field("col") > 2, schema=schema)

@@ -152,10 +152,11 @@ Result<std::shared_ptr<Schema>> IpcFileFormat::Inspect(const FileSource& source)
   return reader->schema();
 }
 
-Result<ScanTaskIterator> IpcFileFormat::ScanFile(
-    const FileSource& source, std::shared_ptr<ScanOptions> options,
-    std::shared_ptr<ScanContext> context) const {
-  return IpcScanTaskIterator::Make(options, context, source);
+Result<ScanTaskIterator> IpcFileFormat::ScanFile(std::shared_ptr<ScanOptions> options,
+                                                 std::shared_ptr<ScanContext> context,
+                                                 FileFragment* fragment) const {
+  return IpcScanTaskIterator::Make(std::move(options), std::move(context),
+                                   fragment->source());
 }
 
 class IpcWriteTask : public WriteTask {

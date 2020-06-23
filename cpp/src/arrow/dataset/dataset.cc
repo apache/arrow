@@ -32,19 +32,32 @@
 namespace arrow {
 namespace dataset {
 
-Fragment::Fragment(std::shared_ptr<Expression> partition_expression)
-    : partition_expression_(std::move(partition_expression)) {
+Fragment::Fragment(std::shared_ptr<Expression> partition_expression,
+                   std::shared_ptr<Schema> physical_schema)
+    : partition_expression_(std::move(partition_expression)),
+      physical_schema_(std::move(physical_schema)) {
   DCHECK_NE(partition_expression_, nullptr);
 }
 
-Result<std::shared_ptr<Schema>> InMemoryFragment::ReadPhysicalSchema() { return schema_; }
+Result<std::shared_ptr<Schema>> Fragment::ReadPhysicalSchema() {
+  auto lock = physical_schema_mutex_.Lock();
+  if (physical_schema_ == NULLPTR) {
+    ARROW_ASSIGN_OR_RAISE(physical_schema_, ReadPhysicalSchemaImpl());
+  }
+  return physical_schema_;
+}
+
+Result<std::shared_ptr<Schema>> InMemoryFragment::ReadPhysicalSchemaImpl() {
+  return physical_schema_;
+}
 
 InMemoryFragment::InMemoryFragment(std::shared_ptr<Schema> schema,
                                    RecordBatchVector record_batches,
                                    std::shared_ptr<Expression> partition_expression)
-    : Fragment(std::move(partition_expression)),
-      schema_(std::move(schema)),
-      record_batches_(std::move(record_batches)) {}
+    : Fragment(std::move(partition_expression), std::move(schema)),
+      record_batches_(std::move(record_batches)) {
+  DCHECK_NE(physical_schema_, nullptr);
+}
 
 InMemoryFragment::InMemoryFragment(RecordBatchVector record_batches,
                                    std::shared_ptr<Expression> partition_expression)

@@ -203,9 +203,9 @@ class DummyFileFormat : public FileFormat {
   }
 
   /// \brief Open a file for scanning (always returns an empty iterator)
-  Result<ScanTaskIterator> ScanFile(const FileSource& source,
-                                    std::shared_ptr<ScanOptions> options,
-                                    std::shared_ptr<ScanContext> context) const override {
+  Result<ScanTaskIterator> ScanFile(std::shared_ptr<ScanOptions> options,
+                                    std::shared_ptr<ScanContext> context,
+                                    FileFragment* fragment) const override {
     return MakeEmptyIterator<std::shared_ptr<ScanTask>>();
   }
 
@@ -233,16 +233,16 @@ class JSONRecordBatchFileFormat : public FileFormat {
   }
 
   /// \brief Open a file for scanning
-  Result<ScanTaskIterator> ScanFile(const FileSource& source,
-                                    std::shared_ptr<ScanOptions> options,
-                                    std::shared_ptr<ScanContext> context) const override {
-    ARROW_ASSIGN_OR_RAISE(auto file, source.Open());
+  Result<ScanTaskIterator> ScanFile(std::shared_ptr<ScanOptions> options,
+                                    std::shared_ptr<ScanContext> context,
+                                    FileFragment* fragment) const override {
+    ARROW_ASSIGN_OR_RAISE(auto file, fragment->source().Open());
     ARROW_ASSIGN_OR_RAISE(int64_t size, file->GetSize());
     ARROW_ASSIGN_OR_RAISE(auto buffer, file->Read(size));
 
     util::string_view view{*buffer};
 
-    ARROW_ASSIGN_OR_RAISE(auto schema, Inspect(source));
+    ARROW_ASSIGN_OR_RAISE(auto schema, Inspect(fragment->source()));
     std::shared_ptr<RecordBatch> batch = RecordBatchFromJSON(schema, view);
     return ScanTaskIteratorFromRecordBatch({batch}, std::move(options),
                                            std::move(context));

@@ -54,14 +54,22 @@ Result<std::shared_ptr<arrow::io::OutputStream>> WritableFileSource::Open() cons
   return std::make_shared<::arrow::io::BufferOutputStream>(buffer_);
 }
 
-Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(FileSource source) {
-  return MakeFragment(std::move(source), scalar(true));
+Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(
+    FileSource source, std::shared_ptr<Schema> physical_schema) {
+  return MakeFragment(std::move(source), scalar(true), std::move(physical_schema));
 }
 
 Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(
     FileSource source, std::shared_ptr<Expression> partition_expression) {
-  return std::shared_ptr<FileFragment>(new FileFragment(
-      std::move(source), shared_from_this(), std::move(partition_expression)));
+  return MakeFragment(std::move(source), std::move(partition_expression), nullptr);
+}
+
+Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(
+    FileSource source, std::shared_ptr<Expression> partition_expression,
+    std::shared_ptr<Schema> physical_schema) {
+  return std::shared_ptr<FileFragment>(
+      new FileFragment(std::move(source), shared_from_this(),
+                       std::move(partition_expression), std::move(physical_schema)));
 }
 
 Result<std::shared_ptr<WriteTask>> FileFormat::WriteFragment(
@@ -71,13 +79,13 @@ Result<std::shared_ptr<WriteTask>> FileFormat::WriteFragment(
   return Status::NotImplemented("writing fragment of format ", type_name());
 }
 
-Result<std::shared_ptr<Schema>> FileFragment::ReadPhysicalSchema() {
+Result<std::shared_ptr<Schema>> FileFragment::ReadPhysicalSchemaImpl() {
   return format_->Inspect(source_);
 }
 
 Result<ScanTaskIterator> FileFragment::Scan(std::shared_ptr<ScanOptions> options,
                                             std::shared_ptr<ScanContext> context) {
-  return format_->ScanFile(source_, std::move(options), std::move(context));
+  return format_->ScanFile(std::move(options), std::move(context), this);
 }
 
 FileSystemDataset::FileSystemDataset(std::shared_ptr<Schema> schema,
