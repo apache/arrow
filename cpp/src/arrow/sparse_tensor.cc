@@ -140,8 +140,8 @@ inline Status CheckSparseCOOIndexValidity(const std::shared_ptr<DataType>& type,
   return Status::OK();
 }
 
-void get_coo_index_tensor_row(const std::shared_ptr<Tensor>& coords, const int64_t row,
-                              std::vector<int64_t>* out_index) {
+void GetCOOIndexTensorRow(const std::shared_ptr<Tensor>& coords, const int64_t row,
+                          std::vector<int64_t>* out_index) {
   const auto& fw_index_value_type =
       internal::checked_cast<const FixedWidthType&>(*coords->type());
   const size_t indices_elsize = fw_index_value_type.bit_width() / CHAR_BIT;
@@ -192,9 +192,9 @@ bool DetectSparseCOOIndexCanonicality(const std::shared_ptr<Tensor>& coords) {
 
   const int64_t ndim = shape[1];
   std::vector<int64_t> last_index, index;
-  get_coo_index_tensor_row(coords, 0, &last_index);
+  GetCOOIndexTensorRow(coords, 0, &last_index);
   for (int64_t i = 1; i < non_zero_length; ++i) {
-    get_coo_index_tensor_row(coords, i, &index);
+    GetCOOIndexTensorRow(coords, i, &index);
     int64_t j = 0;
     while (j < ndim) {
       if (last_index[j] > index[j]) {
