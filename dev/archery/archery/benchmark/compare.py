@@ -118,6 +118,7 @@ class BenchmarkComparator:
             "contender": fmt(self.contender.value),
             "unit": self.unit,
             "less_is_better": self.less_is_better,
+            "counters": str(self.baseline.counters)
         }
 
     def compare(self, comparator=None):
@@ -129,6 +130,7 @@ class BenchmarkComparator:
             "contender": self.contender.value,
             "unit": self.unit,
             "less_is_better": self.less_is_better,
+            "counters": self.baseline.counters
         }
 
     def __call__(self, **kwargs):

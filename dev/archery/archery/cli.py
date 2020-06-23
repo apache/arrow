@@ -16,6 +16,7 @@
 # under the License.
 
 from collections import namedtuple
+from io import StringIO
 import click
 import errno
 import json
@@ -467,6 +468,9 @@ def benchmark_run(ctx, rev_or_path, src, preserve, output, cmake_extras,
 @click.option("--threshold", type=float, default=DEFAULT_THRESHOLD,
               show_default=True,
               help="Regression failure threshold in percentage.")
+@click.option("--repetitions", type=int, default=1, show_default=True,
+              help=("Number of repetitions of each benchmark. Increasing "
+                    "may improve result precision."))
 @click.argument("contender", metavar="[<contender>",
                 default=ArrowSources.WORKSPACE, required=False)
 @click.argument("baseline", metavar="[<baseline>]]", default="origin/master",
@@ -474,7 +478,7 @@ def benchmark_run(ctx, rev_or_path, src, preserve, output, cmake_extras,
 @click.pass_context
 def benchmark_diff(ctx, src, preserve, output, cmake_extras,
                    suite_filter, benchmark_filter,
-                   threshold, contender, baseline, **kwargs):
+                   repetitions, threshold, contender, baseline, **kwargs):
     """Compare (diff) benchmark runs.
 
     This command acts like git-diff but for benchmark results.
@@ -554,17 +558,41 @@ def benchmark_diff(ctx, src, preserve, output, cmake_extras,
 
         runner_cont = BenchmarkRunner.from_rev_or_path(
             src, root, contender, conf,
-            suite_filter=suite_filter, benchmark_filter=benchmark_filter)
+            repetitions=repetitions,
+            suite_filter=suite_filter,
+            benchmark_filter=benchmark_filter)
         runner_base = BenchmarkRunner.from_rev_or_path(
             src, root, baseline, conf,
-            suite_filter=suite_filter, benchmark_filter=benchmark_filter)
+            repetitions=repetitions,
+            suite_filter=suite_filter,
+            benchmark_filter=benchmark_filter)
 
         runner_comp = RunnerComparator(runner_cont, runner_base, threshold)
 
         # TODO(kszucs): test that the output is properly formatted jsonlines
-        for comparator in runner_comp.comparisons:
-            json.dump(comparator, output, cls=JsonEncoder)
-            output.write("\n")
+        comparisons_json = _get_comparisons_as_json(runner_comp.comparisons)
+        formatted = _format_comparisons_with_pandas(comparisons_json)
+        output.write(formatted)
+        output.write('\n')
+
+
+def _get_comparisons_as_json(comparisons):
+    buf = StringIO()
+    for comparator in comparisons:
+        json.dump(comparator, buf, cls=JsonEncoder)
+        buf.write("\n")
+
+    return buf.getvalue()
+
+
+def _format_comparisons_with_pandas(comparisons_json):
+    import pandas as pd
+    df = pd.read_json(StringIO(comparisons_json), lines=True)
+    # parse change % so we can sort by it
+    df['change %'] = df.pop('change').str[:-1].map(float)
+    df = df[['benchmark', 'baseline', 'contender', 'change %', 'counters']]
+    df = df.sort_values(by='change %', ascending=False)
+    return df.to_string()
 
 
 # ----------------------------------------------------------------------
