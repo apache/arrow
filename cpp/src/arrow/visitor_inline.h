@@ -194,9 +194,9 @@ struct ArrayDataInlineVisitor<T, enable_if_has_c_type<T>> {
                             NullFunc&& null_func) {
     const c_type* data = arr.GetValues<c_type>(1);
     auto visit_valid = [&](int64_t i) { return valid_func(data[i]); };
-    return detail::VisitBitBlocks(
-        arr.buffers[0], arr.offset, arr.length,
-        std::move(visit_valid), std::forward<NullFunc>(null_func));
+    return detail::VisitBitBlocks(arr.buffers[0], arr.offset, arr.length,
+                                  std::move(visit_valid),
+                                  std::forward<NullFunc>(null_func));
   }
 
   template <typename ValidFunc, typename NullFunc>
@@ -205,9 +205,8 @@ struct ArrayDataInlineVisitor<T, enable_if_has_c_type<T>> {
     using c_type = typename T::c_type;
     const c_type* data = arr.GetValues<c_type>(1);
     auto visit_valid = [&](int64_t i) { valid_func(data[i]); };
-    detail::VisitBitBlocksVoid(
-        arr.buffers[0], arr.offset, arr.length, std::move(visit_valid),
-        std::forward<NullFunc>(null_func));
+    detail::VisitBitBlocksVoid(arr.buffers[0], arr.offset, arr.length,
+                               std::move(visit_valid), std::forward<NullFunc>(null_func));
   }
 };
 
