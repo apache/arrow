@@ -97,5 +97,14 @@ def test_leak3():
                          check_interval=50, tolerance=20)
 
 
+def test_ARROW_8801():
+    x = pd.to_datetime(np.random.randint(0, 2**32, size=2**20),
+                       unit='ms', utc=True)
+    table = pa.table(pd.DataFrame({'x': x}))
+
+    assert_does_not_leak(lambda: table.to_pandas(split_blocks=False),
+                         iterations=1000, check_interval=50, tolerance=1000)
+
+
 if __name__ == '__main__':
-    test_leak3()
+    test_ARROW_8801()

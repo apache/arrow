@@ -403,12 +403,18 @@ class PandasWriter {
     return Status::OK();
   }
 
-  virtual Status GetSeriesResult(PyObject** out) { return GetBlock1D(out); }
+  // Caller steals the reference to this object
+  virtual Status GetSeriesResult(PyObject** out) {
+    RETURN_NOT_OK(MakeBlock1D());
+    // Caller owns the object now
+    *out = block_arr_.detach();
+    return Status::OK();
+  }
 
  protected:
   virtual Status AddResultMetadata(PyObject* result) { return Status::OK(); }
 
-  Status GetBlock1D(PyObject** out) {
+  Status MakeBlock1D() {
     // For Series or for certain DataFrame block types, we need to shape to a
     // 1D array when there is only one column
     PyAcquireGIL lock;
@@ -420,9 +426,17 @@ class PandasWriter {
     dims.ptr = new_dims;
     dims.len = 1;
 
-    *out = PyArray_Newshape(reinterpret_cast<PyArrayObject*>(block_arr_.obj()), &dims,
-                            NPY_ANYORDER);
+    PyObject* reshaped = PyArray_Newshape(
+        reinterpret_cast<PyArrayObject*>(block_arr_.obj()), &dims, NPY_ANYORDER);
     RETURN_IF_PYERROR();
+
+    // ARROW-8801: Here a PyArrayObject is created that is not being managed by
+    // any OwnedRef object. This object is then put in the resulting object
+    // with PyDict_SetItemString, which increments the reference count, so a
+    // memory leak ensues. There are several ways to fix the memory leak but a
+    // simple one is to put the reshaped 1D block array in this OwnedRefNoGIL
+    // so it will be correctly decref'd when this class is destructed.
+    block_arr_.reset(reshaped);
     return Status::OK();
   }
 
@@ -1269,13 +1283,18 @@ class DatetimeTZWriter : public DatetimeNanoWriter {
       : DatetimeNanoWriter(options, num_rows, 1), timezone_(timezone) {}
 
  protected:
-  Status GetResultBlock(PyObject** out) override { return GetBlock1D(out); }
+  Status GetResultBlock(PyObject** out) override {
+    RETURN_NOT_OK(MakeBlock1D());
+    *out = block_arr_.obj();
+    return Status::OK();
+  }
 
   Status AddResultMetadata(PyObject* result) override {
     PyObject* py_tz = PyUnicode_FromStringAndSize(
         timezone_.c_str(), static_cast<Py_ssize_t>(timezone_.size()));
     RETURN_IF_PYERROR();
     PyDict_SetItemString(result, "timezone", py_tz);
+    Py_DECREF(py_tz);
     return Status::OK();
   }
 
