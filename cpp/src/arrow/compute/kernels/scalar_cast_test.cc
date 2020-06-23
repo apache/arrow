@@ -246,8 +246,7 @@ class TestCast : public TestBase {
     ArrayFromVector<SourceType, std::string>(src_type, valid, strings, &array);
     CheckZeroCopy(*array, dest_type);
 
-    CheckCase<SourceType, std::string, DestType, std::string>(
-        src_type, strings, all, dest_type, strings, options);
+    CheckCase<SourceType, DestType>(src_type, strings, all, dest_type, strings, options);
   }
 
   template <typename DestType>
