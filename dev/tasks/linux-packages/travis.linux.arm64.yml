@@ -17,7 +17,7 @@
 
 os: linux
 arch: arm64
-dist: bionic
+dist: focal
 language: minimal
 
 addons:
@@ -65,11 +65,11 @@ after_success:
   - popd
   - |
     sudo -H pip3 install \
-      click \
+      "click>=7.1" \
       github3.py \
       jinja2 \
       jira \
-      pygit2==0.26.4 \
+      pygit2==0.28.2 \
       ruamel.yaml \
       setuptools_scm \
       toolz
