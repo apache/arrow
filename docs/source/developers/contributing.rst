@@ -47,7 +47,7 @@ many timezones to participate more equally.
 See `the community page <https://arrow.apache.org/community/>`_ for links to
 subscribe to the mailing lists and to view archives.
 
-Report bugs and request features
+Report bugs and propose features
 ================================
 
 Using the software and sharing your experience is a very helpful contribution
