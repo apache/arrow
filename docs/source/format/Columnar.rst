@@ -21,6 +21,8 @@
 Arrow Columnar Format
 *********************
 
+*Version: 1.0*
+
 The "Arrow Columnar Format" includes a language-agnostic in-memory
 data structure specification, metadata serialization, and a protocol
 for serialization and generic data transport.
@@ -1026,7 +1028,7 @@ should be defined in a ``DictionaryBatch`` before they are used in a
 ``RecordBatch``, as long as the keys are defined somewhere in the
 file. Further more, it is invalid to have more then one **non-delta**
 dictionary batch per dictionary ID (i.e. dictionary replacement is not
-supported).  Delta dictionaries are applied in the order they appear in 
+supported).  Delta dictionaries are applied in the order they appear in
 the file footer.
 
 Dictionary Messages
