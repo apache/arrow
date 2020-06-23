@@ -37,7 +37,7 @@ static void BuildDictionary(benchmark::State& state) {  // NOLINT non-const refe
   std::vector<bool> is_valid;
   for (int64_t i = 0; i < iterations; i++) {
     for (int64_t j = 0; j < i; j++) {
-      is_valid.push_back((i + j) % 9 == 0);
+      is_valid.push_back((i + j) % 9 != 0);
       values.push_back(j);
     }
   }
