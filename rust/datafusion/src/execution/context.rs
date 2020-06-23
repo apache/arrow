@@ -763,6 +763,27 @@ mod tests {
     }
 
     #[test]
+    fn preserve_nullability_on_projection() -> Result<()> {
+        let tmp_dir = TempDir::new("execute")?;
+        let ctx = create_ctx(&tmp_dir, 1)?;
+
+        let schema = Arc::new(Schema::new(vec![Field::new(
+            "state",
+            DataType::Utf8,
+            false,
+        )]));
+
+        let plan = LogicalPlanBuilder::scan("default", "test", schema.as_ref(), None)?
+            .project(vec![col("state")])?
+            .build()?;
+
+        let plan = ctx.optimize(&plan)?;
+        let physical_plan = ctx.create_physical_plan(&Arc::new(plan), 1024)?;
+        assert_eq!(physical_plan.schema().field(0).is_nullable(), false);
+        Ok(())
+    }
+
+    #[test]
     fn projection_on_memory_scan() -> Result<()> {
         let schema = Schema::new(vec![
             Field::new("a", DataType::Int32, false),

@@ -72,6 +72,10 @@ impl PhysicalExpr for Alias {
         self.expr.data_type(input_schema)
     }
 
+    fn nullable(&self, input_schema: &Schema) -> Result<bool> {
+        self.expr.nullable(input_schema)
+    }
+
     fn evaluate(&self, batch: &RecordBatch) -> Result<ArrayRef> {
         self.expr.evaluate(batch)
     }
@@ -102,6 +106,11 @@ impl PhysicalExpr for Column {
     /// Get the data type of this expression, given the schema of the input
     fn data_type(&self, input_schema: &Schema) -> Result<DataType> {
         Ok(input_schema.field(self.index).data_type().clone())
+    }
+
+    /// Decide whehter this expression is nullable, given the schema of the input
+    fn nullable(&self, input_schema: &Schema) -> Result<bool> {
+        Ok(input_schema.field(self.index).is_nullable())
     }
 
     /// Evaluate the expression
@@ -1023,6 +1032,11 @@ impl PhysicalExpr for BinaryExpr {
         self.left.data_type(input_schema)
     }
 
+    fn nullable(&self, _input_schema: &Schema) -> Result<bool> {
+        // binary operator should always return a boolean value
+        Ok(false)
+    }
+
     fn evaluate(&self, batch: &RecordBatch) -> Result<ArrayRef> {
         let left = self.left.evaluate(batch)?;
         let right = self.right.evaluate(batch)?;
@@ -1106,6 +1120,11 @@ impl PhysicalExpr for NotExpr {
         return Ok(DataType::Boolean);
     }
 
+    fn nullable(&self, _input_schema: &Schema) -> Result<bool> {
+        // !Null == true
+        Ok(false)
+    }
+
     fn evaluate(&self, batch: &RecordBatch) -> Result<ArrayRef> {
         let arg = self.arg.evaluate(batch)?;
         if arg.data_type() != &DataType::Boolean {
@@ -1182,6 +1201,10 @@ impl PhysicalExpr for CastExpr {
         Ok(self.cast_type.clone())
     }
 
+    fn nullable(&self, input_schema: &Schema) -> Result<bool> {
+        self.expr.nullable(input_schema)
+    }
+
     fn evaluate(&self, batch: &RecordBatch) -> Result<ArrayRef> {
         let value = self.expr.evaluate(batch)?;
         Ok(cast(&value, &self.cast_type)?)
@@ -1219,6 +1242,13 @@ impl PhysicalExpr for Literal {
 
     fn data_type(&self, _input_schema: &Schema) -> Result<DataType> {
         Ok(self.value.get_datatype())
+    }
+
+    fn nullable(&self, _input_schema: &Schema) -> Result<bool> {
+        match &self.value {
+            ScalarValue::Null => Ok(true),
+            _ => Ok(false),
+        }
     }
 
     fn evaluate(&self, batch: &RecordBatch) -> Result<ArrayRef> {

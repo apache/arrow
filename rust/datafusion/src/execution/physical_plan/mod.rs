@@ -24,7 +24,7 @@ use std::sync::{Arc, Mutex};
 use crate::error::Result;
 use crate::logicalplan::ScalarValue;
 use arrow::array::ArrayRef;
-use arrow::datatypes::{DataType, Schema};
+use arrow::datatypes::{DataType, Field, Schema};
 use arrow::record_batch::RecordBatch;
 
 /// Partition-aware execution plan for a relation
@@ -55,8 +55,18 @@ pub trait PhysicalExpr: Send + Sync {
     fn name(&self) -> String;
     /// Get the data type of this expression, given the schema of the input
     fn data_type(&self, input_schema: &Schema) -> Result<DataType>;
+    /// Decide whehter this expression is nullable, given the schema of the input
+    fn nullable(&self, input_schema: &Schema) -> Result<bool>;
     /// Evaluate an expression against a RecordBatch
     fn evaluate(&self, batch: &RecordBatch) -> Result<ArrayRef>;
+    /// Generate schema Field type for this expression
+    fn to_schema_field(&self, input_schema: &Schema) -> Result<Field> {
+        Ok(Field::new(
+            &self.name(),
+            self.data_type(input_schema)?,
+            self.nullable(input_schema)?,
+        ))
+    }
 }
 
 /// Agggregate expression that can be evaluated against a RecordBatch
