@@ -145,10 +145,13 @@ void AddNumberToStringCasts(std::shared_ptr<DataType> out_ty, CastFunction* func
 std::vector<std::shared_ptr<CastFunction>> GetBinaryLikeCasts() {
   auto cast_binary = std::make_shared<CastFunction>("cast_binary", Type::BINARY);
   AddCommonCasts(Type::BINARY, binary(), cast_binary.get());
+  AddZeroCopyCast(Type::STRING, {utf8()}, binary(), cast_binary.get());
 
   auto cast_large_binary =
       std::make_shared<CastFunction>("cast_large_binary", Type::LARGE_BINARY);
   AddCommonCasts(Type::LARGE_BINARY, large_binary(), cast_large_binary.get());
+  AddZeroCopyCast(Type::LARGE_STRING, {large_utf8()}, large_binary(),
+                  cast_large_binary.get());
 
   auto cast_fsb =
       std::make_shared<CastFunction>("cast_fixed_size_binary", Type::FIXED_SIZE_BINARY);

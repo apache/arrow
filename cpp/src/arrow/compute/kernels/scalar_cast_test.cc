@@ -229,6 +229,27 @@ class TestCast : public TestBase {
                                     /*check_scalar=*/false);
   }
 
+  template <typename SourceType, typename DestType>
+  void TestCastStringToBinary() {
+    CastOptions options;
+    auto src_type = TypeTraits<SourceType>::type_singleton();
+    auto dest_type = TypeTraits<DestType>::type_singleton();
+
+    // All valid except the last one
+    std::vector<bool> all = {1, 1, 1, 1, 1};
+    std::vector<bool> valid = {1, 1, 1, 1, 0};
+    std::vector<std::string> strings = {"Hi", "olá mundo", "你好世界", "", kInvalidUtf8};
+
+    std::shared_ptr<Array> array;
+
+    // Should accept when invalid but null.
+    ArrayFromVector<SourceType, std::string>(src_type, valid, strings, &array);
+    CheckZeroCopy(*array, dest_type);
+
+    CheckCase<SourceType, std::string, DestType, std::string>(
+        src_type, strings, all, dest_type, strings, options);
+  }
+
   template <typename DestType>
   void TestCastNumberToString() {
     auto dest_type = TypeTraits<DestType>::type_singleton();
@@ -1442,6 +1463,12 @@ TEST_F(TestCast, BinaryToString) { TestCastBinaryToString<BinaryType, StringType
 
 TEST_F(TestCast, LargeBinaryToLargeString) {
   TestCastBinaryToString<LargeBinaryType, LargeStringType>();
+}
+
+TEST_F(TestCast, StringToBinary) { TestCastStringToBinary<StringType, BinaryType>(); }
+
+TEST_F(TestCast, LargeStringToLargeBinary) {
+  TestCastStringToBinary<LargeStringType, LargeBinaryType>();
 }
 
 TEST_F(TestCast, NumberToString) { TestCastNumberToString<StringType>(); }
