@@ -310,7 +310,7 @@ def py_fsspec_localfs(request, tempdir):
 
 @pytest.fixture
 def py_fsspec_memoryfs(request, tempdir):
-    fsspec = pytest.importorskip("fsspec", min_version="0.7.5")
+    fsspec = pytest.importorskip("fsspec", minversion="0.7.5")
     fs = fsspec.filesystem('memory')
     return dict(
         fs=PyFileSystem(FSSpecHandler(fs)),
