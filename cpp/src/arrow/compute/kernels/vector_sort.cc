@@ -254,12 +254,12 @@ template <template <typename...> class ExecTemplate>
 void AddSortingKernels(VectorKernel base, VectorFunction* func) {
   for (const auto& ty : NumericTypes()) {
     base.signature = KernelSignature::Make({InputType::Array(ty)}, uint64());
-    base.exec = GenerateNumeric<ExecTemplate, UInt64Type>(*ty);
+    base.exec = GeneratePhysicalInteger<ExecTemplate, UInt64Type>(*ty);
     DCHECK_OK(func->AddKernel(base));
   }
   for (const auto& ty : BaseBinaryTypes()) {
     base.signature = KernelSignature::Make({InputType::Array(ty)}, uint64());
-    base.exec = GenerateVarBinary<ExecTemplate, UInt64Type>(*ty);
+    base.exec = GenerateVarBinaryBase<ExecTemplate, UInt64Type>(*ty);
     DCHECK_OK(func->AddKernel(base));
   }
 }
