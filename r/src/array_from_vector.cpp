@@ -191,7 +191,7 @@ struct VectorToArrayConverter {
     RETURN_NOT_OK(builder->Reserve(n));
     for (R_xlen_t i = 0; i < n; i++) {
       SEXP vector = VECTOR_ELT(x, i);
-      if (vector == R_NilValue) {
+      if (Rf_isNull(vector)) {
         RETURN_NOT_OK(list_builder->AppendNull());
         continue;
       }
@@ -939,7 +939,7 @@ class BinaryVectorConverter : public VectorConverter {
     R_xlen_t n = XLENGTH(obj);
     for (R_xlen_t i = 0; i < n; i++) {
       SEXP obj_i = VECTOR_ELT(obj, i);
-      if (obj_i == R_NilValue) {
+      if (Rf_isNull(obj_i)) {
         RETURN_NOT_OK(typed_builder_->AppendNull());
       } else {
         ARROW_RETURN_IF(TYPEOF(obj_i) != RAWSXP,
@@ -1110,7 +1110,7 @@ std::shared_ptr<arrow::DataType> InferArrowTypeFromVector<VECSXP>(SEXP x) {
     return InferArrowTypeFromDataFrame(x);
   } else {
     SEXP ptype = Rf_getAttrib(x, symbols::ptype);
-    if (ptype == R_NilValue) {
+    if (Rf_isNull(ptype)) {
       if (XLENGTH(x) == 0) {
         Rcpp::stop(
             "Requires at least one element to infer the values' type of a list vector");
