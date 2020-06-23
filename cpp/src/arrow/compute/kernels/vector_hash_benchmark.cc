@@ -48,8 +48,10 @@ static void BuildDictionary(benchmark::State& state) {  // NOLINT non-const refe
   while (state.KeepRunning()) {
     ABORT_NOT_OK(DictionaryEncode(arr).status());
   }
-  state.counters["null_percent"] = static_cast<double>(arr->null_count()) / arr->length();
+  state.counters["null_percent"] =
+      static_cast<double>(arr->null_count()) / arr->length() * 100;
   state.SetBytesProcessed(state.iterations() * values.size() * sizeof(int64_t));
+  state.SetItemsProcessed(state.iterations() * values.size());
 }
 
 static void BuildStringDictionary(
@@ -73,14 +75,14 @@ static void BuildStringDictionary(
   while (state.KeepRunning()) {
     ABORT_NOT_OK(DictionaryEncode(arr).status());
   }
-  // Assuming a string here needs on average 2 bytes
   state.SetBytesProcessed(state.iterations() * total_bytes);
+  state.SetItemsProcessed(state.iterations() * data.size());
 }
 
 struct HashBenchCase {
   int64_t length;
   int64_t num_unique;
-  double null_percent;
+  double null_probability;
 };
 
 template <typename Type>
@@ -97,8 +99,8 @@ struct HashParams {
     for (int64_t draw : draws) {
       values.push_back(static_cast<T>(draw));
     }
-    if (params.null_percent > 0) {
-      random_is_valid(params.length, params.null_percent, &is_valid);
+    if (params.null_probability > 0) {
+      random_is_valid(params.length, params.null_probability, &is_valid);
       ArrayFromVector<Type, T>(is_valid, values, arr);
     } else {
       ArrayFromVector<Type, T>(values, arr);
@@ -106,9 +108,10 @@ struct HashParams {
   }
 
   void SetMetadata(benchmark::State& state) const {
-    state.counters["null_percent"] = params.null_percent * 100;
+    state.counters["null_percent"] = params.null_probability * 100;
     state.counters["num_unique"] = static_cast<double>(params.num_unique);
     state.SetBytesProcessed(state.iterations() * params.length * sizeof(T));
+    state.SetItemsProcessed(state.iterations() * params.length);
   }
 };
 
@@ -126,13 +129,13 @@ struct HashParams<StringType> {
     random_bytes(total_bytes, seed, uniques.data());
 
     std::vector<bool> is_valid;
-    if (params.null_percent > 0) {
-      random_is_valid(params.length, params.null_percent, &is_valid);
+    if (params.null_probability > 0) {
+      random_is_valid(params.length, params.null_probability, &is_valid);
     }
 
     StringBuilder builder;
     for (int64_t i = 0; i < params.length; ++i) {
-      if (params.null_percent == 0 || is_valid[i]) {
+      if (params.null_probability == 0 || is_valid[i]) {
         ABORT_NOT_OK(builder.Append(uniques.data() + this->byte_width * draws[i],
                                     this->byte_width));
       } else {
@@ -143,9 +146,10 @@ struct HashParams<StringType> {
   }
 
   void SetMetadata(benchmark::State& state) const {
-    state.counters["null_percent"] = params.null_percent * 100;
+    state.counters["null_percent"] = params.null_probability * 100;
     state.counters["num_unique"] = static_cast<double>(params.num_unique);
     state.SetBytesProcessed(state.iterations() * params.length * byte_width);
+    state.SetItemsProcessed(state.iterations() * params.length);
   }
 };
 
@@ -171,7 +175,6 @@ void BenchDictionaryEncode(benchmark::State& state, const ParamType& params) {
 }
 
 constexpr int kHashBenchmarkLength = 1 << 22;
-constexpr int k1k = 1 << 10;
 
 // clang-format off
 std::vector<HashBenchCase> uint8_bench_cases = {
@@ -179,6 +182,7 @@ std::vector<HashBenchCase> uint8_bench_cases = {
   {kHashBenchmarkLength, 200, 0.001},
   {kHashBenchmarkLength, 200, 0.01},
   {kHashBenchmarkLength, 200, 0.1},
+  {kHashBenchmarkLength, 200, 0.5},
   {kHashBenchmarkLength, 200, 0.99},
   {kHashBenchmarkLength, 200, 1}
 };
@@ -190,18 +194,20 @@ static void UniqueUInt8(benchmark::State& state) {
 
 // clang-format off
 std::vector<HashBenchCase> general_bench_cases = {
-  {kHashBenchmarkLength, k1k, 0},
-  {kHashBenchmarkLength, k1k, 0.001},
-  {kHashBenchmarkLength, k1k, 0.01},
-  {kHashBenchmarkLength, k1k, 0.1},
-  {kHashBenchmarkLength, k1k, 0.99},
-  {kHashBenchmarkLength, k1k, 1},
-  {kHashBenchmarkLength, 10 * k1k, 0},
-  {kHashBenchmarkLength, 10 * k1k, 0.001},
-  {kHashBenchmarkLength, 10 * k1k, 0.01},
-  {kHashBenchmarkLength, 10 * k1k, 0.1},
-  {kHashBenchmarkLength, 10 * k1k, 0.99},
-  {kHashBenchmarkLength, 10 * k1k, 1},
+  {kHashBenchmarkLength, 100, 0},
+  {kHashBenchmarkLength, 100, 0.001},
+  {kHashBenchmarkLength, 100, 0.01},
+  {kHashBenchmarkLength, 100, 0.1},
+  {kHashBenchmarkLength, 100, 0.5},
+  {kHashBenchmarkLength, 100, 0.99},
+  {kHashBenchmarkLength, 100, 1},
+  {kHashBenchmarkLength, 100000, 0},
+  {kHashBenchmarkLength, 100000, 0.001},
+  {kHashBenchmarkLength, 100000, 0.01},
+  {kHashBenchmarkLength, 100000, 0.1},
+  {kHashBenchmarkLength, 100000, 0.5},
+  {kHashBenchmarkLength, 100000, 0.99},
+  {kHashBenchmarkLength, 100000, 1},
 };
 // clang-format on
 

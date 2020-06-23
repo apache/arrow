@@ -381,7 +381,7 @@ def benchmark_filter_options(cmd):
                      help="Regex filtering benchmark suites."),
         click.option("--benchmark-filter", metavar="<regex>",
                      show_default=True, type=str, default=None,
-                     help="Regex filtering benchmark suites.")
+                     help="Regex filtering benchmarks.")
     ]
     return _apply_options(cmd, options)
 
