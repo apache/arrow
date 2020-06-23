@@ -44,49 +44,37 @@ def _forbid_instantiation(klass, subclasses_instead=True):
     raise TypeError(msg)
 
 
-cdef class FileSource:
+cdef CFileSource _make_file_source(object file, FileSystem filesystem=None):
 
     cdef:
-        CFileSource wrapped
+        CFileSource c_source
+        shared_ptr[CFileSystem] c_filesystem
+        c_string c_path
+        shared_ptr[CRandomAccessFile] c_file
+        shared_ptr[CBuffer] c_buffer
 
-    def __cinit__(self, file, FileSystem filesystem=None):
-        cdef:
-            shared_ptr[CFileSystem] c_filesystem
-            c_string c_path
-            shared_ptr[CRandomAccessFile] c_file
-            shared_ptr[CBuffer] c_buffer
+    if isinstance(file, Buffer):
+        c_buffer = pyarrow_unwrap_buffer(file)
+        c_source = CFileSource(move(c_buffer))
 
-        if isinstance(file, FileSource):
-            self.wrapped = (<FileSource> file).wrapped
+    elif _is_path_like(file):
+        if filesystem is None:
+            raise ValueError("cannot construct a FileSource from "
+                             "a path without a FileSystem")
+        c_filesystem = filesystem.unwrap()
+        c_path = tobytes(_stringify_path(file))
+        c_source = CFileSource(move(c_path), move(c_filesystem))
 
-        elif isinstance(file, Buffer):
-            c_buffer = pyarrow_unwrap_buffer(file)
-            self.wrapped = CFileSource(move(c_buffer))
+    elif hasattr(file, 'read'):
+        # Optimistically hope this is file-like
+        c_file = get_native_file(file, False).get_random_access_file()
+        c_source = CFileSource(move(c_file))
 
-        elif _is_path_like(file):
-            if filesystem is None:
-                raise ValueError("cannot construct a FileSource from "
-                                 "a path without a FileSystem")
-            c_filesystem = filesystem.unwrap()
-            c_path = tobytes(_stringify_path(file))
-            self.wrapped = CFileSource(move(c_path), move(c_filesystem))
+    else:
+        raise TypeError("cannot construct a FileSource "
+                        "from " + str(file))
 
-        elif hasattr(file, 'read'):
-            # Optimistically hope this is file-like
-            c_file = get_native_file(file, False).get_random_access_file()
-            self.wrapped = CFileSource(move(c_file))
-
-        else:
-            raise TypeError("cannot construct a FileSource "
-                            "from " + str(file))
-
-    @staticmethod
-    def from_uri(uri):
-        filesystem, path = FileSystem.from_uri(uri)
-        return FileSource(path, filesystem)
-
-    cdef CFileSource unwrap(self) nogil:
-        return self.wrapped
+    return c_source
 
 
 cdef class Expression:
@@ -620,7 +608,7 @@ cdef class FileFormat:
 
     def inspect(self, file, filesystem=None):
         """Infer the schema of a file."""
-        c_source = FileSource(file, filesystem).unwrap()
+        c_source = _make_file_source(file, filesystem)
         c_schema = GetResultValue(self.format.Inspect(c_source))
         return pyarrow_wrap_schema(move(c_schema))
 
@@ -633,7 +621,7 @@ cdef class FileFormat:
         """
         partition_expression = partition_expression or _true
 
-        c_source = FileSource(file, filesystem).unwrap()
+        c_source = _make_file_source(file, filesystem)
         c_fragment = <shared_ptr[CFragment]> GetResultValue(
             self.format.MakeFragment(move(c_source),
                                      partition_expression.unwrap()))
@@ -1023,7 +1011,7 @@ cdef class ParquetFileFormat(FileFormat):
             return super().make_fragment(file, filesystem,
                                          partition_expression)
 
-        c_source = FileSource(file, filesystem).unwrap()
+        c_source = _make_file_source(file, filesystem)
         c_row_groups = [<int> row_group for row_group in set(row_groups)]
 
         c_fragment = <shared_ptr[CFragment]> GetResultValue(
