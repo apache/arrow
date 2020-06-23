@@ -15,17 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' @include type.R
+context("String encoding")
 
-StructType <- R6Class("StructType",
-  inherit = NestedType,
-  public = list(
-    GetFieldByName = function(name) shared_ptr(Field, StructType__GetFieldByName(self, name)),
-    GetFieldIndex = function(name) StructType__GetFieldIndex(self, name)
-  )
-)
-StructType$create <- function(...) shared_ptr(StructType, struct_(.fields(list(...))))
-
-#' @rdname data-type
-#' @export
-struct <- StructType$create
+test_that("We handle non-UTF strings", {
+  # Move the code with non-UTF strings to a separate file so that we don't
+  # get a parse error on *cough* certain platforms
+  skip_on_cran()
+  source("latin1.R", encoding = "latin1")
+})

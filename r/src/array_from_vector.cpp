@@ -159,6 +159,9 @@ struct VectorToArrayConverter {
       if (s == NA_STRING) {
         RETURN_NOT_OK(binary_builder->AppendNull());
         continue;
+      } else {
+        // Make sure we're ingesting UTF-8
+        s = Rf_mkCharCE(Rf_translateCharUTF8(s), CE_UTF8);
       }
 
       RETURN_NOT_OK(binary_builder->Append(CHAR(s), LENGTH(s)));
@@ -1056,7 +1059,9 @@ static inline std::shared_ptr<arrow::DataType> InferArrowTypeFromDataFrame(SEXP 
   SEXP names = Rf_getAttrib(x, R_NamesSymbol);
   std::vector<std::shared_ptr<arrow::Field>> fields(n);
   for (R_xlen_t i = 0; i < n; i++) {
-    const auto* field_name = CHAR(STRING_ELT(names, i));
+    // Make sure we're ingesting UTF-8
+    const auto* field_name =
+        CHAR(Rf_mkCharCE(Rf_translateCharUTF8(STRING_ELT(names, i)), CE_UTF8));
     fields[i] = arrow::field(field_name, InferArrowType(VECTOR_ELT(x, i)));
   }
   return arrow::struct_(std::move(fields));
@@ -1210,11 +1215,13 @@ arrow::Status CheckCompatibleStruct(SEXP obj,
   // types of the fields, because Array__from_vector will error
   // when not compatible.
   SEXP names = Rf_getAttrib(obj, R_NamesSymbol);
+  SEXP name_i;
   for (int i = 0; i < num_fields; i++) {
-    if (type->field(i)->name() != CHAR(STRING_ELT(names, i))) {
+    name_i = Rf_mkCharCE(Rf_translateCharUTF8(STRING_ELT(names, i)), CE_UTF8);
+    if (type->field(i)->name() != CHAR(name_i)) {
       return Status::RError("Field name in position ", i, " (", type->field(i)->name(),
                             ") does not match the name of the column of the data frame (",
-                            CHAR(STRING_ELT(names, i)), ")");
+                            CHAR(name_i), ")");
     }
   }
 
