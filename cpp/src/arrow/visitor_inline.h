@@ -30,7 +30,6 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/functional.h"
-#include "arrow/util/optional.h"
 #include "arrow/util/string_view.h"
 
 namespace arrow {
@@ -190,12 +189,13 @@ template <typename T>
 struct ArrayDataInlineVisitor<T, enable_if_has_c_type<T>> {
   using c_type = typename T::c_type;
 
-  template <typename ValidFunc>
-  static Status VisitStatus(const ArrayData& arr, ValidFunc&& func) {
+  template <typename ValidFunc, typename NullFunc>
+  static Status VisitStatus(const ArrayData& arr, ValidFunc&& valid_func,
+                            NullFunc&& null_func) {
     const c_type* data = arr.GetValues<c_type>(1);
     return detail::VisitBitBlocks(
         arr.buffers[0], arr.offset, arr.length,
-        [&](int64_t i) { return func(data[i]); },
+        [&](int64_t i) { return valid_func(data[i]); },
         std::forward<NullFunc>(null_func));
   }
 
@@ -205,8 +205,7 @@ struct ArrayDataInlineVisitor<T, enable_if_has_c_type<T>> {
     using c_type = typename T::c_type;
     const c_type* data = arr.GetValues<c_type>(1);
     detail::VisitBitBlocksVoid(
-        arr.buffers[0], arr.offset, arr.length,
-        [&](int64_t i) { valid_func(data[i]); },
+        arr.buffers[0], arr.offset, arr.length, [&](int64_t i) { valid_func(data[i]); },
         std::forward<NullFunc>(null_func));
   }
 };
@@ -223,20 +222,19 @@ struct ArrayDataInlineVisitor<BooleanType> {
     const uint8_t* data = arr.buffers[1]->data();
     return detail::VisitBitBlocks(
         arr.buffers[0], offset, arr.length,
-        [&](int64_t i) {
-          return valid_func(BitUtil::GetBit(data, offset + i));
-        },
+        [&](int64_t i) { return valid_func(BitUtil::GetBit(data, offset + i)); },
         std::forward<NullFunc>(null_func));
   }
 
-  template <typename ValidFunc>
-  static void VisitVoid(const ArrayData& arr, ValidFunc&& func) {
+  template <typename ValidFunc, typename NullFunc>
+  static void VisitVoid(const ArrayData& arr, ValidFunc&& valid_func,
+                        NullFunc&& null_func) {
     int64_t offset = arr.offset;
     const uint8_t* data = arr.buffers[1]->data();
     detail::VisitBitBlocksVoid(
         arr.buffers[0], offset, arr.length,
-        [&](int64_t i) { func(BitUtil::GetBit(data, offset + i)); },
-        [&]() { func(); });
+        [&](int64_t i) { valid_func(BitUtil::GetBit(data, offset + i)); },
+        std::forward<NullFunc>(null_func));
   }
 };
 
@@ -245,8 +243,9 @@ template <typename T>
 struct ArrayDataInlineVisitor<T, enable_if_base_binary<T>> {
   using c_type = util::string_view;
 
-  template <typename ValidFunc>
-  static Status VisitStatus(const ArrayData& arr, ValidFunc&& func) {
+  template <typename ValidFunc, typename NullFunc>
+  static Status VisitStatus(const ArrayData& arr, ValidFunc&& valid_func,
+                            NullFunc&& null_func) {
     using offset_type = typename T::offset_type;
     constexpr uint8_t empty_value = 0;
 
@@ -264,13 +263,14 @@ struct ArrayDataInlineVisitor<T, enable_if_base_binary<T>> {
         [&](int64_t i) {
           auto value = util::string_view(reinterpret_cast<const char*>(data + offsets[i]),
                                          offsets[i + 1] - offsets[i]);
-          return func(util::optional<util::string_view>(value));
+          return valid_func(value);
         },
-        [&]() { return func(util::optional<util::string_view>()); });
+        std::forward<NullFunc>(null_func));
   }
 
-  template <typename ValidFunc>
-  static void VisitVoid(const ArrayData& arr, ValidFunc&& func) {
+  template <typename ValidFunc, typename NullFunc>
+  static void VisitVoid(const ArrayData& arr, ValidFunc&& valid_func,
+                        NullFunc&& null_func) {
     using offset_type = typename T::offset_type;
     constexpr uint8_t empty_value = 0;
 
@@ -289,9 +289,9 @@ struct ArrayDataInlineVisitor<T, enable_if_base_binary<T>> {
         [&](int64_t i) {
           auto value = util::string_view(reinterpret_cast<const char*>(data + offsets[i]),
                                          offsets[i + 1] - offsets[i]);
-          func(util::optional<util::string_view>(value));
+          valid_func(value);
         },
-        [&]() { func(util::optional<util::string_view>()); });
+        std::forward<NullFunc>(null_func));
   }
 };
 
@@ -300,8 +300,9 @@ template <typename T>
 struct ArrayDataInlineVisitor<T, enable_if_fixed_size_binary<T>> {
   using c_type = util::string_view;
 
-  template <typename ValidFunc>
-  static Status VisitStatus(const ArrayData& arr, ValidFunc&& func) {
+  template <typename ValidFunc, typename NullFunc>
+  static Status VisitStatus(const ArrayData& arr, ValidFunc&& valid_func,
+                            NullFunc&& null_func) {
     const auto& fw_type = internal::checked_cast<const FixedSizeBinaryType&>(*arr.type);
 
     const int32_t byte_width = fw_type.byte_width();
@@ -313,16 +314,17 @@ struct ArrayDataInlineVisitor<T, enable_if_fixed_size_binary<T>> {
         [&](int64_t i) {
           auto value = util::string_view(data, byte_width);
           data += byte_width;
-          return func(util::optional<util::string_view>(value));
+          return valid_func(value);
         },
         [&]() {
           data += byte_width;
-          return func(util::optional<util::string_view>());
+          return null_func();
         });
   }
 
-  template <typename ValidFunc>
-  static void VisitVoid(const ArrayData& arr, ValidFunc&& func) {
+  template <typename ValidFunc, typename NullFunc>
+  static void VisitVoid(const ArrayData& arr, ValidFunc&& valid_func,
+                        NullFunc&& null_func) {
     const auto& fw_type = internal::checked_cast<const FixedSizeBinaryType&>(*arr.type);
 
     const int32_t byte_width = fw_type.byte_width();
@@ -332,13 +334,12 @@ struct ArrayDataInlineVisitor<T, enable_if_fixed_size_binary<T>> {
     detail::VisitBitBlocksVoid(
         arr.buffers[0], arr.offset, arr.length,
         [&](int64_t i) {
-          auto value = util::string_view(data, byte_width);
+          valid_func(util::string_view(data, byte_width));
           data += byte_width;
-          func(util::optional<util::string_view>(value));
         },
         [&]() {
           data += byte_width;
-          func(util::optional<util::string_view>());
+          null_func();
         });
   }
 };
@@ -348,26 +349,28 @@ struct ArrayDataInlineVisitor<T, enable_if_fixed_size_binary<T>> {
 // Visit an array's data values, in order, without overhead.
 //
 // The given `ValidFunc` should be a callable with either of these signatures:
-// - void(util::optional<scalar_type>)
-// - Status(util::optional<scalar_type>)
+// - void(scalar_type)
+// - Status(scalar_type)
+//
+// The `NullFunc` should have the same return type as `ValidFunc`.
 //
 // ... where `scalar_type` depends on the array data type:
 // - the type's `c_type`, if any
 // - for boolean arrays, a `bool`
 // - for binary, string and fixed-size binary arrays, a `util::string_view`
 
-template <typename T, typename ValidFunc>
+template <typename T, typename ValidFunc, typename NullFunc>
 typename internal::call_traits::enable_if_return<ValidFunc, Status>::type
-VisitArrayDataInline(const ArrayData& arr, ValidFunc&& func) {
-  return internal::ArrayDataInlineVisitor<T>::VisitStatus(arr,
-                                                          std::forward<ValidFunc>(func));
+VisitArrayDataInline(const ArrayData& arr, ValidFunc&& valid_func, NullFunc&& null_func) {
+  return internal::ArrayDataInlineVisitor<T>::VisitStatus(
+      arr, std::forward<ValidFunc>(valid_func), std::forward<NullFunc>(null_func));
 }
 
-template <typename T, typename ValidFunc>
+template <typename T, typename ValidFunc, typename NullFunc>
 typename internal::call_traits::enable_if_return<ValidFunc, void>::type
-VisitArrayDataInline(const ArrayData& arr, ValidFunc&& func) {
-  return internal::ArrayDataInlineVisitor<T>::VisitVoid(arr,
-                                                        std::forward<ValidFunc>(func));
+VisitArrayDataInline(const ArrayData& arr, ValidFunc&& valid_func, NullFunc&& null_func) {
+  return internal::ArrayDataInlineVisitor<T>::VisitVoid(
+      arr, std::forward<ValidFunc>(valid_func), std::forward<NullFunc>(null_func));
 }
 
 // Visit an array's data values, in order, without overhead.
@@ -388,14 +391,9 @@ struct ArrayDataVisitor {
 
   template <typename Visitor>
   static Status Visit(const ArrayData& arr, Visitor* visitor) {
-    auto func = [visitor](util::optional<c_type> v) {
-      if (v.has_value()) {
-        return visitor->VisitValue(*v);
-      } else {
-        return visitor->VisitNull();
-      }
-    };
-    return InlineVisitorType::VisitStatus(arr, std::move(func));
+    return InlineVisitorType::VisitStatus(
+        arr, [visitor](c_type v) { return visitor->VisitValue(v); },
+        [visitor]() { return visitor->VisitNull(); });
   }
 };
 
@@ -419,13 +417,16 @@ inline Status VisitScalarInline(const Scalar& scalar, VISITOR* visitor) {
 // Visit a null bitmap, in order, without overhead.
 //
 // The given `ValidFunc` should be a callable with either of these signatures:
-// - void(bool is_valid)
-// - Status(bool is_valid)
+// - void()
+// - Status()
+//
+// The `NullFunc` should have the same return type as `ValidFunc`.
 
-template <typename ValidFunc>
+template <typename ValidFunc, typename NullFunc>
 typename internal::call_traits::enable_if_return<ValidFunc, Status>::type
 VisitNullBitmapInline(const uint8_t* valid_bits, int64_t valid_bits_offset,
-                      int64_t num_values, int64_t null_count, ValidFunc&& func) {
+                      int64_t num_values, int64_t null_count, ValidFunc&& valid_func,
+                      NullFunc&& null_func) {
   ARROW_UNUSED(null_count);
   internal::OptionalBitBlockCounter bit_counter(valid_bits, valid_bits_offset,
                                                 num_values);
@@ -435,15 +436,17 @@ VisitNullBitmapInline(const uint8_t* valid_bits, int64_t valid_bits_offset,
     internal::BitBlockCount block = bit_counter.NextBlock();
     if (block.AllSet()) {
       for (int64_t i = 0; i < block.length; ++i) {
-        ARROW_RETURN_NOT_OK(func(true));
+        ARROW_RETURN_NOT_OK(valid_func());
       }
     } else if (block.NoneSet()) {
       for (int64_t i = 0; i < block.length; ++i) {
-        ARROW_RETURN_NOT_OK(func(false));
+        ARROW_RETURN_NOT_OK(null_func());
       }
     } else {
       for (int64_t i = 0; i < block.length; ++i) {
-        ARROW_RETURN_NOT_OK(func(BitUtil::GetBit(valid_bits, offset_position + i)));
+        ARROW_RETURN_NOT_OK(BitUtil::GetBit(valid_bits, offset_position + i)
+                                ? valid_func()
+                                : null_func());
       }
     }
     position += block.length;
@@ -452,10 +455,11 @@ VisitNullBitmapInline(const uint8_t* valid_bits, int64_t valid_bits_offset,
   return Status::OK();
 }
 
-template <typename ValidFunc>
+template <typename ValidFunc, typename NullFunc>
 typename internal::call_traits::enable_if_return<ValidFunc, void>::type
 VisitNullBitmapInline(const uint8_t* valid_bits, int64_t valid_bits_offset,
-                      int64_t num_values, int64_t null_count, ValidFunc&& func) {
+                      int64_t num_values, int64_t null_count, ValidFunc&& valid_func,
+                      NullFunc&& null_func) {
   ARROW_UNUSED(null_count);
   internal::OptionalBitBlockCounter bit_counter(valid_bits, valid_bits_offset,
                                                 num_values);
@@ -465,15 +469,15 @@ VisitNullBitmapInline(const uint8_t* valid_bits, int64_t valid_bits_offset,
     internal::BitBlockCount block = bit_counter.NextBlock();
     if (block.AllSet()) {
       for (int64_t i = 0; i < block.length; ++i) {
-        func(true);
+        valid_func();
       }
     } else if (block.NoneSet()) {
       for (int64_t i = 0; i < block.length; ++i) {
-        func(false);
+        null_func();
       }
     } else {
       for (int64_t i = 0; i < block.length; ++i) {
-        func(BitUtil::GetBit(valid_bits, offset_position + i));
+        BitUtil::GetBit(valid_bits, offset_position + i) ? valid_func() : null_func();
       }
     }
     position += block.length;

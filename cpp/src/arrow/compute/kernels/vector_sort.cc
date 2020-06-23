@@ -130,28 +130,18 @@ class CountSorter {
     // first slot reserved for prefix sum, last slot for null value
     std::vector<CounterType> counts(1 + value_range + 1);
 
-    auto update_counts = [&](util::optional<c_type> v) {
-      if (v.has_value()) {
-        ++counts[*v - min_ + 1];
-      } else {
-        ++counts[value_range + 1];
-      }
-    };
-    VisitArrayDataInline<ArrowType>(*values.data(), std::move(update_counts));
+    VisitArrayDataInline<ArrowType>(
+        *values.data(), [&](c_type v) { ++counts[v - min_ + 1]; },
+        [&]() { ++counts[value_range + 1]; });
 
     for (uint32_t i = 1; i <= value_range; ++i) {
       counts[i] += counts[i - 1];
     }
 
     int64_t index = 0;
-    auto write_index = [&](util::optional<c_type> v) {
-      if (v.has_value()) {
-        indices_begin[counts[*v - min_]++] = index++;
-      } else {
-        indices_begin[counts[value_range]++] = index++;
-      }
-    };
-    VisitArrayDataInline<ArrowType>(*values.data(), std::move(write_index));
+    VisitArrayDataInline<ArrowType>(
+        *values.data(), [&](c_type v) { indices_begin[counts[v - min_]++] = index++; },
+        [&]() { indices_begin[counts[value_range]++] = index++; });
   }
 };
 
@@ -169,13 +159,13 @@ class CountOrCompareSorter {
       c_type min{std::numeric_limits<c_type>::max()};
       c_type max{std::numeric_limits<c_type>::min()};
 
-      auto update_minmax = [&min, &max](util::optional<c_type> v) {
-        if (v.has_value()) {
-          min = std::min(min, *v);
-          max = std::max(max, *v);
-        }
-      };
-      VisitArrayDataInline<ArrowType>(*values.data(), std::move(update_minmax));
+      VisitArrayDataInline<ArrowType>(
+          *values.data(),
+          [&](c_type v) {
+            min = std::min(min, v);
+            max = std::max(max, v);
+          },
+          [&]() {});
       // For signed int32/64, (max - min) may overflow and trigger UBSAN.
       // Cast to largest unsigned type(uint64_t) before subtraction.
       if (static_cast<uint64_t>(max) - static_cast<uint64_t>(min) <=

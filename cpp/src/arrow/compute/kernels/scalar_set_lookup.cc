@@ -46,11 +46,12 @@ struct SetLookupState : public KernelState {
 
   Status Init(const SetLookupOptions& options) {
     using T = typename GetViewType<Type>::T;
-    auto insert_value = [&](util::optional<T> v) {
-      if (v.has_value()) {
-        int32_t unused_memo_index;
-        return lookup_table.GetOrInsert(*v, &unused_memo_index);
-      } else if (!options.skip_nulls) {
+    auto visit_valid = [&](T v) {
+      int32_t unused_memo_index;
+      return lookup_table.GetOrInsert(v, &unused_memo_index);
+    };
+    auto visit_null = [&]() {
+      if (!options.skip_nulls) {
         lookup_table.GetOrInsertNull();
       }
       return Status::OK();
@@ -58,12 +59,14 @@ struct SetLookupState : public KernelState {
     if (options.value_set.kind() == Datum::ARRAY) {
       const std::shared_ptr<ArrayData>& value_set = options.value_set.array();
       this->lookup_null_count += value_set->GetNullCount();
-      return VisitArrayDataInline<Type>(*value_set, insert_value);
+      return VisitArrayDataInline<Type>(*value_set, std::move(visit_valid),
+                                        std::move(visit_null));
     } else {
       const ChunkedArray& value_set = *options.value_set.chunked_array();
       for (const std::shared_ptr<Array>& chunk : value_set.chunks()) {
         this->lookup_null_count += chunk->null_count();
-        RETURN_NOT_OK(VisitArrayDataInline<Type>(*chunk->data(), insert_value));
+        RETURN_NOT_OK(VisitArrayDataInline<Type>(*chunk->data(), std::move(visit_valid),
+                                                 std::move(visit_null)));
       }
       return Status::OK();
     }
@@ -162,27 +165,27 @@ struct MatchVisitor {
 
     int32_t null_index = state.lookup_table.GetNull();
     RETURN_NOT_OK(this->builder.Reserve(data.length));
-    auto lookup_value = [&](util::optional<T> v) {
-      if (v.has_value()) {
-        int32_t index = state.lookup_table.Get(*v);
-        if (index != -1) {
-          // matching needle; output index from value_set
-          this->builder.UnsafeAppend(index);
-        } else {
-          // no matching needle; output null
-          this->builder.UnsafeAppendNull();
-        }
-      } else {
-        if (null_index != -1) {
-          // value_set included null
-          this->builder.UnsafeAppend(null_index);
-        } else {
-          // value_set does not include null; output null
-          this->builder.UnsafeAppendNull();
-        }
-      }
-    };
-    VisitArrayDataInline<Type>(data, lookup_value);
+    VisitArrayDataInline<Type>(
+        data,
+        [&](T v) {
+          int32_t index = state.lookup_table.Get(v);
+          if (index != -1) {
+            // matching needle; output index from value_set
+            this->builder.UnsafeAppend(index);
+          } else {
+            // no matching needle; output null
+            this->builder.UnsafeAppendNull();
+          }
+        },
+        [&]() {
+          if (null_index != -1) {
+            // value_set included null
+            this->builder.UnsafeAppend(null_index);
+          } else {
+            // value_set does not include null; output null
+            this->builder.UnsafeAppendNull();
+          }
+        });
     return Status::OK();
   }
 
@@ -249,15 +252,20 @@ struct IsInVisitor {
     }
     FirstTimeBitmapWriter writer(output->buffers[1]->mutable_data(), output->offset,
                                  output->length);
-    auto lookup_value = [&](util::optional<T> v) {
-      if (!v.has_value() || state.lookup_table.Get(*v) != -1) {
-        writer.Set();
-      } else {
-        writer.Clear();
-      }
-      writer.Next();
-    };
-    VisitArrayDataInline<Type>(this->data, std::move(lookup_value));
+    VisitArrayDataInline<Type>(
+        this->data,
+        [&](T v) {
+          if (state.lookup_table.Get(v) != -1) {
+            writer.Set();
+          } else {
+            writer.Clear();
+          }
+          writer.Next();
+        },
+        [&]() {
+          writer.Set();
+          writer.Next();
+        });
     writer.Finish();
     return Status::OK();
   }
