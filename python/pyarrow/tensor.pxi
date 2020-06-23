@@ -365,7 +365,7 @@ shape: {0.shape}""".format(self)
         cdef:
             _CSparseCOOIndexPtr csi
 
-        csi = dynamic_cast[_CSparseCOOIndexPtr](self.stp.sparse_index().get())
+        csi = <_CSparseCOOIndexPtr>(self.stp.sparse_index().get())
         if csi != nullptr:
             return csi.is_canonical()
         return True
