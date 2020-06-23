@@ -247,25 +247,30 @@ struct ArrayDataInlineVisitor<T, enable_if_base_binary<T>> {
   static Status VisitStatus(const ArrayData& arr, ValidFunc&& valid_func,
                             NullFunc&& null_func) {
     using offset_type = typename T::offset_type;
-    constexpr uint8_t empty_value = 0;
+    constexpr char empty_value = 0;
 
     const offset_type* offsets = arr.GetValues<offset_type>(1);
-    const uint8_t* data;
+    const char* data;
     if (!arr.buffers[2]) {
       data = &empty_value;
     } else {
       // Do not apply the array offset to the values array; the value_offsets
       // index the non-sliced values array.
-      data = arr.GetValues<uint8_t>(2, /*absolute_offset=*/0);
+      data = arr.GetValues<char>(2, /*absolute_offset=*/0);
     }
+    offset_type cur_offset = *offsets++;
     return detail::VisitBitBlocks(
         arr.buffers[0], arr.offset, arr.length,
         [&](int64_t i) {
-          auto value = util::string_view(reinterpret_cast<const char*>(data + offsets[i]),
-                                         offsets[i + 1] - offsets[i]);
+          ARROW_UNUSED(i);
+          auto value = util::string_view(data + cur_offset, *offsets - cur_offset);
+          cur_offset = *offsets++;
           return valid_func(value);
         },
-        std::forward<NullFunc>(null_func));
+        [&]() {
+          cur_offset = *offsets++;
+          return null_func();
+        });
   }
 
   template <typename ValidFunc, typename NullFunc>

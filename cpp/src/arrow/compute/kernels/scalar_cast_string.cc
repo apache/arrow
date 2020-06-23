@@ -60,9 +60,7 @@ struct CastFunctor<O, I,
         [&](value_type v) {
           return formatter(v, [&](util::string_view v) { return builder.Append(v); });
         },
-        [&]() {
-          return builder.AppendNull();
-        }));
+        [&]() { return builder.AppendNull(); }));
 
     std::shared_ptr<Array> output_array;
     RETURN_NOT_OK(builder.Finish(&output_array));
