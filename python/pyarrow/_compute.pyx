@@ -176,6 +176,7 @@ num_kernels: {}
     def call(self, args, FunctionOptions options=None):
         cdef:
             const CFunctionOptions* c_options = NULL
+            CExecContext* c_exec_ctx = NULL
             vector[CDatum] c_args
             CDatum result
 
@@ -185,7 +186,9 @@ num_kernels: {}
             c_options = options.get_options()
 
         with nogil:
-            result = GetResultValue(self.base_func.Execute(c_args, c_options))
+            result = GetResultValue(self.base_func.Execute(c_args,
+                                                           c_options,
+                                                           c_exec_ctx))
 
         return wrap_datum(result)
 

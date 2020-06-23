@@ -1521,7 +1521,8 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         const CArity& arity() const
         int num_kernels() const
         CResult[CDatum] Execute(const vector[CDatum]& args,
-                                const CFunctionOptions* options)
+                                const CFunctionOptions* options,
+                                CExecContext* ctx)
 
     cdef cppclass CScalarFunction" arrow::compute::ScalarFunction"(CFunction):
         vector[const CScalarKernel*] kernels() const
