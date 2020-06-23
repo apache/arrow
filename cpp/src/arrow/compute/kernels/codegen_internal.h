@@ -44,7 +44,6 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/make_unique.h"
-#include "arrow/util/nameof.h"
 #include "arrow/util/optional.h"
 #include "arrow/util/string_view.h"
 #include "arrow/visitor_inline.h"
