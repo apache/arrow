@@ -283,9 +283,13 @@ class RegularHashKernelImpl : public HashKernelImpl {
         },
         [this]() {
           if (with_memo_visit_null) {
-            memo_table_->GetOrInsertNull(
-                [this](int32_t memo_index) { action_.ObserveNullFound(memo_index); },
-                [this](int32_t memo_index) { action_.ObserveNullNotFound(memo_index); });
+            auto on_found = [this](int32_t memo_index) {
+              action_.ObserveNullFound(memo_index);
+            };
+            auto on_not_found = [this](int32_t memo_index) {
+              action_.ObserveNullNotFound(memo_index);
+            };
+            memo_table_->GetOrInsertNull(std::move(on_found), std::move(on_not_found));
           } else {
             action_.ObserveNullNotFound(-1);
           }
