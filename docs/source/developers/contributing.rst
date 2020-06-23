@@ -133,6 +133,11 @@ the issue has been identified, and they won't know when it has been fixed.
 Try to anticipate the questions you might be asked by someone working to
 understand the issue and provide those supporting details up front.
 
+Other resources:
+
+* `Mozilla's bug-reporting guidelines <https://developer.mozilla.org/en-US/docs/Mozilla/QA/Bug_writing_guidelines>`_
+* `Reprex do's and don'ts <https://reprex.tidyverse.org/articles/reprex-dos-and-donts.html>`_
+
 Improve documentation
 =====================
 
