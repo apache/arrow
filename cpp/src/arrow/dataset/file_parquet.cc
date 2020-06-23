@@ -688,8 +688,9 @@ ParquetDatasetFactory::CollectParquetFragments(
           partitioning.Parse(StripPrefixAndFilename(path, options_.partition_base_dir))
               .ValueOr(scalar(true));
       ARROW_ASSIGN_OR_RAISE(
-          auto fragment, format_->MakeFragment({path, filesystem_}, std::move(partition),
-                                               std::move(elem.second)));
+          auto fragment,
+          format_->MakeFragment({path, filesystem_}, std::move(partition),
+                                std::move(elem.second), manifest.origin_schema));
       fragments.push_back(std::move(fragment));
     }
 
