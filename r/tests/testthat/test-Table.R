@@ -334,5 +334,5 @@ test_that("Table metadata", {
 
 test_that("Table handles null type (ARROW-7064)", {
   tab <- Table$create(a = 1:10, n = vctrs::unspecified(10))
-  expect_equal(tab$schema,  schema(a = int32(), n = null()))
+  expect_true(tab$schema$Equals(schema(a = int32(), n = null()), FALSE))
 })

@@ -22,6 +22,7 @@
 #include <arrow/table.h>
 #include <arrow/util/bitmap_reader.h>
 #include <arrow/util/bitmap_writer.h>
+#include <arrow/util/key_value_metadata.h>
 #include <arrow/util/parallel.h>
 #include <arrow/util/task_group.h>
 
@@ -867,6 +868,15 @@ Rcpp::List RecordBatch__to_dataframe(const std::shared_ptr<arrow::RecordBatch>& 
   } else {
     return arrow::r::to_dataframe_serial(nr, nc, names, converters);
   }
+}
+
+SEXP arrow_unserialize(const std::string& data) {
+  SEXP s = PROTECT(Rf_mkString(data.c_str()));
+  SEXP call = PROTECT(Rf_lang2(arrow::r::symbols::arrow_unserialize, s));
+  SEXP res = PROTECT(Rf_eval(call, arrow::r::ns::arrow));
+  UNPROTECT(3);
+
+  return res;
 }
 
 // [[arrow::export]]

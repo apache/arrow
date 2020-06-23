@@ -172,13 +172,22 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp) {
   std::shared_ptr<arrow::Schema> schema;
 
   if (Rf_isNull(schema_sxp)) {
-    // infer the schema from the ...
+    // infer the schema from the `...`
     std::vector<std::shared_ptr<arrow::Field>> fields(num_fields);
-    SEXP names = Rf_getAttrib(lst, R_NamesSymbol);
 
-    auto fill_one_column = [&columns, &fields](int j, SEXP x, SEXP name) {
+    bool has_metadata = false;
+    SEXP metadata = PROTECT(Rf_allocVector(VECSXP, 2));
+    SEXP metadata_columns = PROTECT(Rf_allocVector(VECSXP, num_fields));
+    SEXP metadata_columns_names = PROTECT(Rf_allocVector(STRSXP, num_fields));
+    Rf_setAttrib(metadata_columns, R_NamesSymbol, metadata_columns_names);
+    SET_VECTOR_ELT(metadata, 1, metadata_columns);
+
+    SEXP names = Rf_getAttrib(lst, R_NamesSymbol);
+    auto fill_one_column = [&columns, &fields, &metadata_columns, &metadata_columns_names,
+                            &has_metadata](int j, SEXP x, SEXP name) {
       // Make sure we're ingesting UTF-8
       name = Rf_mkCharCE(Rf_translateCharUTF8(name), CE_UTF8);
+      SET_STRING_ELT(metadata_columns_names, j, name);
       if (Rf_inherits(x, "ChunkedArray")) {
         auto chunked_array = arrow::r::extract<arrow::ChunkedArray>(x);
         fields[j] = arrow::field(CHAR(name), chunked_array->type());
@@ -191,6 +200,11 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp) {
         auto array = Array__from_vector(x, R_NilValue);
         fields[j] = arrow::field(CHAR(name), array->type());
         columns[j] = std::make_shared<arrow::ChunkedArray>(array);
+        SEXP att = ATTRIB(x);
+        if (att != R_NilValue) {
+          SET_VECTOR_ELT(metadata_columns, j, ATTRIB(x));
+          has_metadata = true;
+        }
       }
     };
 
@@ -209,7 +223,20 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp) {
       }
     }
 
-    schema = std::make_shared<arrow::Schema>(std::move(fields));
+    if (has_metadata) {
+      SEXP serialise_call =
+          PROTECT(Rf_lang2(arrow::r::symbols::arrow_serialize, metadata));
+      SEXP serialised = PROTECT(Rf_eval(serialise_call, arrow::r::ns::arrow));
+
+      schema = std::make_shared<arrow::Schema>(
+          std::move(fields),
+          arrow::key_value_metadata({"r"}, {CHAR(STRING_ELT(serialised, 0))}));
+      UNPROTECT(2);
+    } else {
+      schema = std::make_shared<arrow::Schema>(std::move(fields));
+    }
+    UNPROTECT(3);
+
   } else if (Rf_inherits(schema_sxp, "Schema")) {
     // use the schema that is given
     schema = arrow::r::extract<arrow::Schema>(schema_sxp);

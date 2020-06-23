@@ -25,6 +25,8 @@ SEXP symbols::xp = Rf_install(".:xp:.");
 SEXP symbols::dot_Internal = Rf_install(".Internal");
 SEXP symbols::inspect = Rf_install("inspect");
 SEXP symbols::row_names = Rf_install("row.names");
+SEXP symbols::arrow_serialize = Rf_install(".arrow_serialize");
+SEXP symbols::arrow_unserialize = Rf_install(".arrow_unserialize");
 
 SEXP get_classes_POSIXct() {
   SEXP classes = Rf_allocVector(STRSXP, 2);
@@ -41,6 +43,16 @@ void inspect(SEXP obj) {
   Rcpp::Shield<SEXP> call_internal(Rf_lang2(symbols::dot_Internal, call_inspect));
   Rf_eval(call_internal, R_GlobalEnv);
 }
+
+SEXP get_arrow_ns() {
+  SEXP name = PROTECT(Rf_ScalarString(Rf_mkChar("arrow")));
+  SEXP ns = R_FindNamespace(name);
+  R_PreserveObject(ns);
+  UNPROTECT(1);
+  return ns;
+}
+
+SEXP ns::arrow = get_arrow_ns();
 
 }  // namespace r
 }  // namespace arrow

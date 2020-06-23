@@ -190,6 +190,14 @@ Table <- R6Class("Table", inherit = ArrowObject,
   )
 )
 
+.arrow_serialize <- function(x) {
+  rawToChar(serialize(x, NULL, ascii = TRUE))
+}
+
+.arrow_unserialize <- function(x) {
+  unserialize(charToRaw(x))
+}
+
 Table$create <- function(..., schema = NULL) {
   dots <- list2(...)
   # making sure there are always names
@@ -202,7 +210,27 @@ Table$create <- function(..., schema = NULL) {
 
 #' @export
 as.data.frame.Table <- function(x, row.names = NULL, optional = FALSE, ...) {
-  Table__to_dataframe(x, use_threads = option_use_threads())
+  df <- Table__to_dataframe(x, use_threads = option_use_threads())
+
+  if (!is.null(r_metadata <- x$metadata$r)) {
+    r_metadata <- .arrow_unserialize(r_metadata)
+
+    df_metadata <- r_metadata[[1L]]
+    if (!is.null(df_metadata)) {
+      attributes(df) <- df_metadata
+    }
+
+    columns_metadata <- r_metadata[[2L]]
+    names <- names(columns_metadata)
+    for(name in names) {
+      atts <- columns_metadata[[name]]
+      if (!is.null(atts) && name %in% names(df)) {
+        attributes(df[[name]]) <- as.list(atts)
+      }
+    }
+  }
+
+  df
 }
 
 #' @export
