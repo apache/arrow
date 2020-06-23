@@ -151,36 +151,33 @@ void GetCOOIndexTensorRow(const std::shared_ptr<Tensor>& coords, const int64_t r
   DCHECK(0 <= row && row < non_zero_length);
 
   const int64_t ndim = shape[1];
-  std::vector<int64_t> index;
-  index.reserve(ndim);
+  out_index->resize(ndim);
 
   switch (indices_elsize) {
     case 1:  // Int8, UInt8
       for (int64_t i = 0; i < ndim; ++i) {
-        index.push_back(static_cast<int64_t>(coords->Value<UInt8Type>({row, i})));
+        (*out_index)[i] = static_cast<int64_t>(coords->Value<UInt8Type>({row, i}));
       }
       break;
     case 2:  // Int16, UInt16
       for (int64_t i = 0; i < ndim; ++i) {
-        index.push_back(static_cast<int64_t>(coords->Value<UInt16Type>({row, i})));
+        (*out_index)[i] = static_cast<int64_t>(coords->Value<UInt16Type>({row, i}));
       }
       break;
     case 4:  // Int32, UInt32
       for (int64_t i = 0; i < ndim; ++i) {
-        index.push_back(static_cast<int64_t>(coords->Value<UInt32Type>({row, i})));
+        (*out_index)[i] = static_cast<int64_t>(coords->Value<UInt32Type>({row, i}));
       }
       break;
     case 8:  // Int64
       for (int64_t i = 0; i < ndim; ++i) {
-        index.push_back(coords->Value<Int64Type>({row, i}));
+        (*out_index)[i] = coords->Value<Int64Type>({row, i});
       }
       break;
     default:
       DCHECK(false) << "Must not reach here";
       break;
   }
-
-  *out_index = std::move(index);
 }
 
 bool DetectSparseCOOIndexCanonicality(const std::shared_ptr<Tensor>& coords) {
