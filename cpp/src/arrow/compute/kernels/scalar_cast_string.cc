@@ -55,14 +55,12 @@ struct CastFunctor<O, I,
   static Status Convert(KernelContext* ctx, const ArrayData& input, ArrayData* output) {
     FormatterType formatter(input.type);
     BuilderType builder(input.type, ctx->memory_pool());
-    auto convert_value = [&](util::optional<value_type> v) {
-      if (v.has_value()) {
-        return formatter(*v, [&](util::string_view v) { return builder.Append(v); });
-      } else {
-        return builder.AppendNull();
-      }
-    };
-    RETURN_NOT_OK(VisitArrayDataInline<I>(input, std::move(convert_value)));
+    RETURN_NOT_OK(VisitArrayDataInline<I>(
+        input,
+        [&](value_type v) {
+          return formatter(v, [&](util::string_view v) { return builder.Append(v); });
+        },
+        [&]() { return builder.AppendNull(); }));
 
     std::shared_ptr<Array> output_array;
     RETURN_NOT_OK(builder.Finish(&output_array));

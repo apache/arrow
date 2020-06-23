@@ -411,23 +411,25 @@ struct ScalarUnary {
 // A VisitArrayDataInline variant that passes a Decimal128 value,
 // not util::string_view, for decimal128 arrays,
 
-template <typename T, typename VisitFunc>
+template <typename T, typename VisitFunc, typename NullFunc>
 static typename std::enable_if<!std::is_same<T, Decimal128Type>::value, void>::type
-VisitArrayValuesInline(const ArrayData& arr, VisitFunc&& func) {
-  VisitArrayDataInline<T>(arr, std::forward<VisitFunc>(func));
+VisitArrayValuesInline(const ArrayData& arr, VisitFunc&& valid_func,
+                       NullFunc&& null_func) {
+  VisitArrayDataInline<T>(arr, std::forward<VisitFunc>(valid_func),
+                          std::forward<NullFunc>(null_func));
 }
 
-template <typename T, typename VisitFunc>
+template <typename T, typename VisitFunc, typename NullFunc>
 static typename std::enable_if<std::is_same<T, Decimal128Type>::value, void>::type
-VisitArrayValuesInline(const ArrayData& arr, VisitFunc&& func) {
-  VisitArrayDataInline<T>(arr, [&](util::optional<util::string_view> v) {
-    if (v.has_value()) {
-      const auto dec_value = Decimal128(reinterpret_cast<const uint8_t*>(v->data()));
-      func(dec_value);
-    } else {
-      func(util::optional<Decimal128>{});
-    }
-  });
+VisitArrayValuesInline(const ArrayData& arr, VisitFunc&& valid_func,
+                       NullFunc&& null_func) {
+  VisitArrayDataInline<T>(
+      arr,
+      [&](util::string_view v) {
+        const auto dec_value = Decimal128(reinterpret_cast<const uint8_t*>(v.data()));
+        valid_func(dec_value);
+      },
+      std::forward<NullFunc>(null_func));
 }
 
 // An alternative to ScalarUnary that Applies a scalar operation with state on
@@ -459,12 +461,13 @@ struct ScalarUnaryNotNullStateful {
                      Datum* out) {
       ArrayData* out_arr = out->mutable_array();
       auto out_data = out_arr->GetMutableValues<OUT>(1);
-      VisitArrayValuesInline<Arg0Type>(arg0, [&](util::optional<ARG0> v) {
-        if (v.has_value()) {
-          *out_data = functor.op.template Call<OUT, ARG0>(ctx, *v);
-        }
-        ++out_data;
-      });
+      VisitArrayValuesInline<Arg0Type>(
+          arg0,
+          [&](ARG0 v) { *out_data++ = functor.op.template Call<OUT, ARG0>(ctx, v); },
+          [&]() {
+            // null
+            ++out_data;
+          });
     }
   };
 
@@ -477,13 +480,12 @@ struct ScalarUnaryNotNullStateful {
       // that is already computed by the kernel execution layer. Consider
       // writing a lower-level "output adapter" for base binary types.
       typename TypeTraits<Type>::BuilderType builder;
-      VisitArrayValuesInline<Arg0Type>(arg0, [&](util::optional<ARG0> v) {
-        if (v.has_value()) {
-          KERNEL_RETURN_IF_ERROR(ctx, builder.Append(functor.op.Call(ctx, *v)));
-        } else {
-          KERNEL_RETURN_IF_ERROR(ctx, builder.AppendNull());
-        }
-      });
+      VisitArrayValuesInline<Arg0Type>(
+          arg0,
+          [&](ARG0 v) {
+            KERNEL_RETURN_IF_ERROR(ctx, builder.Append(functor.op.Call(ctx, v)));
+          },
+          [&]() { KERNEL_RETURN_IF_ERROR(ctx, builder.AppendNull()); });
       if (!ctx->HasError()) {
         std::shared_ptr<ArrayData> result;
         ctx->SetStatus(builder.FinishInternal(&result));
@@ -499,14 +501,19 @@ struct ScalarUnaryNotNullStateful {
       ArrayData* out_arr = out->mutable_array();
       FirstTimeBitmapWriter out_writer(out_arr->buffers[1]->mutable_data(),
                                        out_arr->offset, out_arr->length);
-      VisitArrayValuesInline<Arg0Type>(arg0, [&](util::optional<ARG0> v) {
-        if (v.has_value()) {
-          if (functor.op.template Call<OUT, ARG0>(ctx, *v)) {
-            out_writer.Set();
-          }
-        }
-        out_writer.Next();
-      });
+      VisitArrayValuesInline<Arg0Type>(
+          arg0,
+          [&](ARG0 v) {
+            if (functor.op.template Call<OUT, ARG0>(ctx, v)) {
+              out_writer.Set();
+            }
+            out_writer.Next();
+          },
+          [&]() {
+            // null
+            out_writer.Clear();
+            out_writer.Next();
+          });
       out_writer.Finish();
     }
   };
@@ -517,12 +524,13 @@ struct ScalarUnaryNotNullStateful {
                      Datum* out) {
       ArrayData* out_arr = out->mutable_array();
       auto out_data = out_arr->GetMutableValues<uint8_t>(1);
-      VisitArrayValuesInline<Arg0Type>(arg0, [&](util::optional<ARG0> v) {
-        if (v.has_value()) {
-          functor.op.template Call<OUT, ARG0>(ctx, *v).ToBytes(out_data);
-        }
-        out_data += 16;
-      });
+      VisitArrayValuesInline<Arg0Type>(
+          arg0,
+          [&](ARG0 v) {
+            functor.op.template Call<OUT, ARG0>(ctx, v).ToBytes(out_data);
+            out_data += 16;
+          },
+          [&]() { out_data += 16; });
     }
   };
 

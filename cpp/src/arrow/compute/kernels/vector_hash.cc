@@ -28,7 +28,6 @@
 #include "arrow/compute/kernels/common.h"
 #include "arrow/result.h"
 #include "arrow/util/hashing.h"
-#include "arrow/util/optional.h"
 
 namespace arrow {
 
@@ -268,65 +267,70 @@ class RegularHashKernelImpl : public HashKernelImpl {
 
   template <bool HasError = with_error_status>
   enable_if_t<!HasError, Status> DoAppend(const ArrayData& arr) {
-    auto process_value = [this](util::optional<Scalar> v) {
-      if (v.has_value()) {
-        auto on_found = [this](int32_t memo_index) { action_.ObserveFound(memo_index); };
-        auto on_not_found = [this](int32_t memo_index) {
-          action_.ObserveNotFound(memo_index);
-        };
-
-        int32_t unused_memo_index;
-        return memo_table_->GetOrInsert(*v, std::move(on_found), std::move(on_not_found),
-                                        &unused_memo_index);
-      } else {
-        // Null
-        if (with_memo_visit_null) {
+    return VisitArrayDataInline<Type>(
+        arr,
+        [this](Scalar v) {
           auto on_found = [this](int32_t memo_index) {
-            action_.ObserveNullFound(memo_index);
+            action_.ObserveFound(memo_index);
           };
           auto on_not_found = [this](int32_t memo_index) {
-            action_.ObserveNullNotFound(memo_index);
+            action_.ObserveNotFound(memo_index);
           };
-          memo_table_->GetOrInsertNull(std::move(on_found), std::move(on_not_found));
-        } else {
-          action_.ObserveNullNotFound(-1);
-        }
-        return Status::OK();
-      }
-    };
-    return VisitArrayDataInline<Type>(arr, std::move(process_value));
+
+          int32_t unused_memo_index;
+          return memo_table_->GetOrInsert(v, std::move(on_found), std::move(on_not_found),
+                                          &unused_memo_index);
+        },
+        [this]() {
+          if (with_memo_visit_null) {
+            auto on_found = [this](int32_t memo_index) {
+              action_.ObserveNullFound(memo_index);
+            };
+            auto on_not_found = [this](int32_t memo_index) {
+              action_.ObserveNullNotFound(memo_index);
+            };
+            memo_table_->GetOrInsertNull(std::move(on_found), std::move(on_not_found));
+          } else {
+            action_.ObserveNullNotFound(-1);
+          }
+          return Status::OK();
+        });
   }
 
   template <bool HasError = with_error_status>
   enable_if_t<HasError, Status> DoAppend(const ArrayData& arr) {
-    auto process_value = [this](util::optional<Scalar> v) {
-      Status s = Status::OK();
-      if (v.has_value()) {
-        auto on_found = [this](int32_t memo_index) { action_.ObserveFound(memo_index); };
-        auto on_not_found = [this, &s](int32_t memo_index) {
-          action_.ObserveNotFound(memo_index, &s);
-        };
-
-        int32_t unused_memo_index;
-        RETURN_NOT_OK(memo_table_->GetOrInsert(
-            *v, std::move(on_found), std::move(on_not_found), &unused_memo_index));
-      } else {
-        // Null
-        if (with_memo_visit_null) {
+    return VisitArrayDataInline<Type>(
+        arr,
+        [this](Scalar v) {
+          Status s = Status::OK();
           auto on_found = [this](int32_t memo_index) {
-            action_.ObserveNullFound(memo_index);
+            action_.ObserveFound(memo_index);
           };
           auto on_not_found = [this, &s](int32_t memo_index) {
-            action_.ObserveNullNotFound(memo_index, &s);
+            action_.ObserveNotFound(memo_index, &s);
           };
-          memo_table_->GetOrInsertNull(std::move(on_found), std::move(on_not_found));
-        } else {
-          action_.ObserveNullNotFound(-1);
-        }
-      }
-      return s;
-    };
-    return VisitArrayDataInline<Type>(arr, std::move(process_value));
+
+          int32_t unused_memo_index;
+          RETURN_NOT_OK(memo_table_->GetOrInsert(
+              v, std::move(on_found), std::move(on_not_found), &unused_memo_index));
+          return s;
+        },
+        [this]() {
+          // Null
+          Status s = Status::OK();
+          if (with_memo_visit_null) {
+            auto on_found = [this](int32_t memo_index) {
+              action_.ObserveNullFound(memo_index);
+            };
+            auto on_not_found = [this, &s](int32_t memo_index) {
+              action_.ObserveNullNotFound(memo_index, &s);
+            };
+            memo_table_->GetOrInsertNull(std::move(on_found), std::move(on_not_found));
+          } else {
+            action_.ObserveNullNotFound(-1);
+          }
+          return s;
+        });
   }
 
  protected:
