@@ -24,6 +24,7 @@
 
 namespace arrow {
 namespace compute {
+namespace internal {
 namespace {
 
 template <typename T>
@@ -267,8 +268,6 @@ std::shared_ptr<ScalarFunction> MakeArithmeticFunction(std::string name) {
 
 }  // namespace
 
-namespace internal {
-
 void RegisterScalarArithmetic(FunctionRegistry* registry) {
   // ----------------------------------------------------------------------
   auto add = MakeArithmeticFunction<Add>("add");
@@ -283,7 +282,7 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   auto subtract = MakeArithmeticFunction<Subtract>("subtract");
 
   // Add subtract(timestamp, timestamp) -> duration
-  for (auto unit : {TimeUnit::SECOND, TimeUnit::MILLI, TimeUnit::MICRO, TimeUnit::NANO}) {
+  for (auto unit : AllTimeUnits()) {
     InputType in_type(match::TimestampTypeUnit(unit));
     auto exec = NumericEqualTypesBinary<Subtract>(Type::TIMESTAMP);
     DCHECK_OK(subtract->AddKernel({in_type, in_type}, duration(unit), std::move(exec)));
@@ -302,7 +301,6 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   // ----------------------------------------------------------------------
   auto multiply_checked = MakeArithmeticFunction<MultiplyChecked>("multiply_checked");
   DCHECK_OK(registry->AddFunction(std::move(multiply_checked)));
-
 }
 
 }  // namespace internal

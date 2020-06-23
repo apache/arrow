@@ -90,7 +90,7 @@ std::shared_ptr<ScalarFunction> MakeCompareFunction(std::string name) {
   AddGenericCompare<DoubleType, Op>(float64(), func.get());
 
   // Add timestamp kernels
-  for (auto unit : {TimeUnit::SECOND, TimeUnit::MILLI, TimeUnit::MICRO, TimeUnit::NANO}) {
+  for (auto unit : AllTimeUnits()) {
     InputType in_type(match::TimestampTypeUnit(unit));
     auto exec =
         GeneratePhysicalInteger<applicator::ScalarBinaryEqualTypes, BooleanType, Op>(
@@ -99,7 +99,7 @@ std::shared_ptr<ScalarFunction> MakeCompareFunction(std::string name) {
   }
 
   // Duration
-  for (auto unit : {TimeUnit::SECOND, TimeUnit::MILLI, TimeUnit::MICRO, TimeUnit::NANO}) {
+  for (auto unit : AllTimeUnits()) {
     InputType in_type(match::DurationTypeUnit(unit));
     auto exec =
         GeneratePhysicalInteger<applicator::ScalarBinaryEqualTypes, BooleanType, Op>(
