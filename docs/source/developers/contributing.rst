@@ -31,6 +31,12 @@ This page provides some orientation for how to get involved. It also offers
 some recommendations on how to get best results when engaging with the
 community.
 
+Code of Conduct
+===============
+
+All participation in the Apache Arrow project is governed by the ASF's
+`Code of Conduct <https://www.apache.org/foundation/policies/conduct.html>`_.
+
 Join the mailing lists
 ======================
 
@@ -85,7 +91,8 @@ right people see it:
 * Use the **Component** field to indicate the area of the project that your
   issue pertains to (for example "Python" or "C++").
 * Also prefix the issue title with the component name in brackets, for example
-  ``[Python] issue name`` ; this helps when navigating lists of open issues.
+  ``[Python] issue name`` ; this helps when navigating lists of open issues,
+  and it also makes our changelogs more readable.
 * If you're reporting something that used to work in a previous version
   but doesn't work in the current release, you can add the "Affects version"
   field. For feature requests and other proposals, "Affects version" isn't
@@ -102,10 +109,13 @@ Tips for successful bug reports
 No one likes having bugs in their software, and in an ideal world, all bugs
 would get fixed as soon as they were reported. However, time and attention are
 finite, especially in an open-source project where most contributors are
-participating in their spare time. In order for your bug to get prompt
+participating in their spare time. All contributors in Apache projects are
+volunteers and act as individuals, even if they are contributing to the project
+as part of their job responsibilities.
+
+In order for your bug to get prompt
 attention, there are things you can do to make it easier for contributors to
 reproduce and fix it.
-
 When you're reporting a bug, please help us understand the issue by providing,
 to the best of your ability,
 
@@ -179,6 +189,8 @@ To contribute a patch:
   So that your pull request syncs with the JIRA issue, prefix your pull request
   name with the JIRA issue id (ex:
   `ARROW-767: [C++] Filesystem abstraction <https://github.com/apache/arrow/pull/4225>`_).
+* Give the pull request a clear, brief description: when the pull request is
+  merged, this will be retained in the extended commit message.
 * Make sure that your code passes the unit tests. You can find instructions how
   to run the unit tests for each Arrow component in its respective README file.
 
@@ -199,14 +211,21 @@ in the end. To make the review process smooth for everyone, try to
   whether or not they are officially documented or checked.
 
 When tests are passing and the pull request has been approved by the interested
-parties, a committer will merge the pull request. This is done with a
+parties, a `committer <https://arrow.apache.org/committers/>`_
+will merge the pull request. This is done with a
 command-line utility that does a squash merge, so all of your commits will be
 registered as a single commit to the master branch; this simplifies the
-connection between JIRA issues and commits, and it makes it easier to bisect
-history to identify where changes were introduced. A side effect of this way of
+connection between JIRA issues and commits, makes it easier to bisect
+history to identify where changes were introduced, and helps us be able to
+cherry-pick individual patches onto a maintenance branch.
+
+A side effect of this way of
 merging is that your pull request will appear in the GitHub interface to have
 been "closed without merge". Do not be alarmed: if you look at the bottom, you
-will see a message that says "@user closed this in $COMMIT".
+will see a message that says ``@user closed this in $COMMIT``. In the commit
+message of that commit, the merge tool adds the pull request description, a
+link back to the pull request, and attribution to the contributor and any
+co-authors.
 
 Local git conventions
 +++++++++++++++++++++
@@ -229,20 +248,20 @@ To start a new branch, pull the latest from upstream first::
 
    $ git fetch upstream
    $ git checkout master
-   $ git reset --hard upstream/master
-   $ git checkout -b $NEW_BRANCH_NAME
+   $ git pull --ff-only upstream master
+   $ git checkout -b $BRANCH
 
 It does not matter what you call your branch. Some people like to use the JIRA
 number as branch name, others use descriptive names.
 
 Once you have a branch going, you should sync with ``upstream/master``
-regularly, as many commits merge to master every day.
+regularly, as many commits are merged to master every day.
 It is recommended to use ``git rebase`` rather than ``git merge``.
 To sync your local copy of a branch, you may do the following::
 
-    $ git pull upstream branch --rebase
+    $ git pull upstream $BRANCH --rebase
 
-This will rebase your local commits on top of the tip of ``upstream/branch``.  In case
+This will rebase your local commits on top of the tip of ``upstream/$BRANCH``.  In case
 there are conflicts, and your local commit history has multiple commits, you may
 simplify the conflict resolution process by squashing your local commits into a single
 commit. Preserving the commit history isn't as important because when your
@@ -280,9 +299,3 @@ to your branch, which they sometimes do to help move a pull request along.
 In addition, the GitHub PR "suggestion" feature can also add commits to
 your branch, so it is possible that your local copy of your branch is missing
 some additions.
-
-Code of Conduct
-===============
-
-All participation in the Apache Arrow project is governed by the ASF's
-`Code of Conduct <https://www.apache.org/foundation/policies/conduct.html>`_.
