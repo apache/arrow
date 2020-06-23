@@ -64,7 +64,11 @@ table SparseTensorIndexCOO {
   /// The location and size of the indices matrix's data
   indicesBuffer: Buffer (required);
 
-  /// The canonicality flag
+  /// This flag is true if and only if the indices matrix is sorted in
+  /// row-major order, and does not have duplicated entries.
+  /// This sort order is the same as of Tensorflow's SparseTensor,
+  /// but it is inverse order of SciPy's canonical coo_matrix
+  /// (SciPy employs column-major order for its coo_matrix).
   isCanonical: bool;
 }
 

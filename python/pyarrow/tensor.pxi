@@ -204,8 +204,13 @@ shape: {0.shape}""".format(self)
 
         row = obj.row
         col = obj.col
+
+        # When SciPy's coo_matrix has canonical format, its indices matrix is
+        # sorted in column-major order.  As Arrow's SparseCOOIndex is sorted
+        # in row-major order if it is canonical, we must sort indices matrix
+        # into row-major order to keep its canonicalness, here.
         if obj.has_canonical_format:
-            order = np.lexsort((col, row))  # row-major order
+            order = np.lexsort((col, row))  # sort in row-major order
             row = row[order]
             col = col[order]
         coords = np.vstack([row, col]).T
@@ -281,6 +286,10 @@ shape: {0.shape}""".format(self)
         coords = PyObject_to_object(out_coords)
         row, col = coords[:, 0], coords[:, 1]
         result = coo_matrix((data[:, 0], (row, col)), shape=self.shape)
+
+        # As the description in from_scipy above, we sorted indices matrix in row-major order
+        # if SciPy's coo_matrix has canonical format.  So, we must call sum_duplicates() to
+        # make the result coo_matrix has canonical format.
         if self.has_canonical_format:
             result.sum_duplicates()
         return result
