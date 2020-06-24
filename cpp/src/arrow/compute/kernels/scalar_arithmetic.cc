@@ -24,6 +24,7 @@
 
 namespace arrow {
 namespace compute {
+namespace internal {
 namespace {
 
 template <typename T>
@@ -241,6 +242,7 @@ ArrayKernelExec NumericEqualTypesBinary(detail::GetTypeId get_id) {
     case Type::UINT32:
       return ScalarBinaryEqualTypes<UInt32Type, UInt32Type, Op>::Exec;
     case Type::INT64:
+    case Type::TIMESTAMP:
       return ScalarBinaryEqualTypes<Int64Type, Int64Type, Op>::Exec;
     case Type::UINT64:
       return ScalarBinaryEqualTypes<UInt64Type, UInt64Type, Op>::Exec;
@@ -255,26 +257,50 @@ ArrayKernelExec NumericEqualTypesBinary(detail::GetTypeId get_id) {
 }
 
 template <typename Op>
-void AddBinaryFunction(std::string name, FunctionRegistry* registry) {
+std::shared_ptr<ScalarFunction> MakeArithmeticFunction(std::string name) {
   auto func = std::make_shared<ScalarFunction>(name, Arity::Binary());
   for (const auto& ty : NumericTypes()) {
     auto exec = NumericEqualTypesBinary<Op>(ty);
     DCHECK_OK(func->AddKernel({ty, ty}, ty, exec));
   }
-  DCHECK_OK(registry->AddFunction(std::move(func)));
+  return func;
 }
 
 }  // namespace
 
-namespace internal {
-
 void RegisterScalarArithmetic(FunctionRegistry* registry) {
-  AddBinaryFunction<Add>("add", registry);
-  AddBinaryFunction<AddChecked>("add_checked", registry);
-  AddBinaryFunction<Subtract>("subtract", registry);
-  AddBinaryFunction<SubtractChecked>("subtract_checked", registry);
-  AddBinaryFunction<Multiply>("multiply", registry);
-  AddBinaryFunction<MultiplyChecked>("multiply_checked", registry);
+  // ----------------------------------------------------------------------
+  auto add = MakeArithmeticFunction<Add>("add");
+  DCHECK_OK(registry->AddFunction(std::move(add)));
+
+  // ----------------------------------------------------------------------
+  auto add_checked = MakeArithmeticFunction<AddChecked>("add_checked");
+  DCHECK_OK(registry->AddFunction(std::move(add_checked)));
+
+  // ----------------------------------------------------------------------
+  // subtract
+  auto subtract = MakeArithmeticFunction<Subtract>("subtract");
+
+  // Add subtract(timestamp, timestamp) -> duration
+  for (auto unit : AllTimeUnits()) {
+    InputType in_type(match::TimestampTypeUnit(unit));
+    auto exec = NumericEqualTypesBinary<Subtract>(Type::TIMESTAMP);
+    DCHECK_OK(subtract->AddKernel({in_type, in_type}, duration(unit), std::move(exec)));
+  }
+
+  DCHECK_OK(registry->AddFunction(std::move(subtract)));
+
+  // ----------------------------------------------------------------------
+  auto subtract_checked = MakeArithmeticFunction<SubtractChecked>("subtract_checked");
+  DCHECK_OK(registry->AddFunction(std::move(subtract_checked)));
+
+  // ----------------------------------------------------------------------
+  auto multiply = MakeArithmeticFunction<Multiply>("multiply");
+  DCHECK_OK(registry->AddFunction(std::move(multiply)));
+
+  // ----------------------------------------------------------------------
+  auto multiply_checked = MakeArithmeticFunction<MultiplyChecked>("multiply_checked");
+  DCHECK_OK(registry->AddFunction(std::move(multiply_checked)));
 }
 
 }  // namespace internal

@@ -35,6 +35,7 @@ using internal::DictionaryTraits;
 using internal::HashTraits;
 
 namespace compute {
+namespace internal {
 
 namespace {
 
@@ -538,8 +539,6 @@ void AddHashKernels(VectorFunction* func, VectorKernel base,
 }
 
 }  // namespace
-
-namespace internal {
 
 void RegisterVectorHash(FunctionRegistry* registry) {
   VectorKernel base;

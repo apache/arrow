@@ -54,6 +54,7 @@ using internal::FirstTimeBitmapWriter;
 using internal::GenerateBitsUnrolled;
 
 namespace compute {
+namespace internal {
 
 #ifdef ARROW_EXTRA_ERROR_CONTEXT
 
@@ -256,6 +257,9 @@ const std::vector<std::shared_ptr<DataType>>& SignedIntTypes();
 const std::vector<std::shared_ptr<DataType>>& UnsignedIntTypes();
 const std::vector<std::shared_ptr<DataType>>& IntTypes();
 const std::vector<std::shared_ptr<DataType>>& FloatingPointTypes();
+
+ARROW_EXPORT
+const std::vector<TimeUnit::type>& AllTimeUnits();
 
 // Returns a vector of example instances of parametric types such as
 //
@@ -885,5 +889,6 @@ ArrayKernelExec GenerateTemporal(detail::GetTypeId get_id) {
 // END of kernel generator-dispatchers
 // ----------------------------------------------------------------------
 
+}  // namespace internal
 }  // namespace compute
 }  // namespace arrow

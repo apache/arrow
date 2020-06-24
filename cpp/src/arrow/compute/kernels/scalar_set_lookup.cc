@@ -31,6 +31,7 @@ using internal::checked_cast;
 using internal::HashTraits;
 
 namespace compute {
+namespace internal {
 namespace {
 
 template <typename T, typename R = void>
@@ -315,8 +316,6 @@ void AddBasicSetLookupKernels(ScalarKernel kernel,
 }
 
 }  // namespace
-
-namespace internal {
 
 void RegisterScalarSetLookup(FunctionRegistry* registry) {
   // IsIn always writes into preallocated memory
