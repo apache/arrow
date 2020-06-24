@@ -21,44 +21,57 @@
 #include <memory>
 #include <utility>
 
+#include "arrow/util/type_traits.h"
+
 namespace arrow {
 namespace internal {
 
-#if defined(__GLIBCPP__) /* Before GCC 3.4.0 */ ||                           \
-    (defined(__GLIBCXX__) && __GLIBCXX__ < 20150422 /* Before GCC 5.1 */) || \
-    (defined(__GLIBCXX__) && __GLIBCXX__ == 20150623 /* GCC 4.8.5 */) ||     \
-    (defined(__GLIBCXX__) && __GLIBCXX__ == 20150626 /* GCC 4.9.3 */) ||     \
-    (defined(__GLIBCXX__) && __GLIBCXX__ == 20160803 /* GCC 4.9.4 */)
-
-// Atomic shared_ptr operations only appeared in gcc 5's libstdc++,
+// Atomic shared_ptr operations only appeared in libstdc++ since GCC 5,
 // emulate them with unsafe ops if unavailable.
-//
-// The libstdc++ version is a the encoded release date of gcc 5, see
-// https://gcc.gnu.org/onlinedocs/libstdc++/manual/abi.html#abi.versioning.__GLIBCXX__
+// See https://gcc.gnu.org/bugzilla/show_bug.cgi?id=57250
+
+template <typename T, typename = void>
+struct IsAtomicLoadSharedPtrAvailable : std::false_type {};
+
+template <typename T>
+struct IsAtomicLoadSharedPtrAvailable<
+    T, void_t<decltype(std::atomic_load(std::declval<const std::shared_ptr<T>*>()))>>
+    : std::true_type {};
 
 template <class T>
-inline std::shared_ptr<T> atomic_load(const std::shared_ptr<T>* p) {
-  return *p;
-}
-
-template <class T>
-inline void atomic_store(std::shared_ptr<T>* p, std::shared_ptr<T> r) {
-  *p = r;
-}
-
-#else  // GLIBC version < 5
-
-template <class T>
-inline std::shared_ptr<T> atomic_load(const std::shared_ptr<T>* p) {
+inline typename std::enable_if<IsAtomicLoadSharedPtrAvailable<T>::value,
+                               std::shared_ptr<T>>::type
+atomic_load(const std::shared_ptr<T>* p) {
   return std::atomic_load(p);
 }
 
 template <class T>
-inline void atomic_store(std::shared_ptr<T>* p, std::shared_ptr<T> r) {
+inline typename std::enable_if<!IsAtomicLoadSharedPtrAvailable<T>::value,
+                               std::shared_ptr<T>>::type
+atomic_load(const std::shared_ptr<T>* p) {
+  return *p;
+}
+
+template <typename T, typename = void>
+struct IsAtomicStoreSharedPtrAvailable : std::false_type {};
+
+template <typename T>
+struct IsAtomicStoreSharedPtrAvailable<
+    T, void_t<decltype(std::atomic_store(std::declval<std::shared_ptr<T>*>(),
+                                         std::declval<std::shared_ptr<T>>()))>>
+    : std::true_type {};
+
+template <class T>
+inline typename std::enable_if<IsAtomicLoadSharedPtrAvailable<T>::value, void>::type
+atomic_store(std::shared_ptr<T>* p, std::shared_ptr<T> r) {
   std::atomic_store(p, std::move(r));
 }
 
-#endif  // GLIBC version < 5
+template <class T>
+inline typename std::enable_if<!IsAtomicLoadSharedPtrAvailable<T>::value, void>::type
+atomic_store(std::shared_ptr<T>* p, std::shared_ptr<T> r) {
+  *p = r;
+}
 
 }  // namespace internal
 }  // namespace arrow
