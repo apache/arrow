@@ -24,7 +24,11 @@
 namespace arrow {
 namespace internal {
 
-#if defined(__GLIBCXX__) && __GLIBCXX__ < 20150422
+#if defined(__GLIBCPP__) /* Before GCC 3.4.0 */ ||                           \
+    (defined(__GLIBCXX__) && __GLIBCXX__ < 20150422 /* Before GCC 5.1 */) || \
+    (defined(__GLIBCXX__) && __GLIBCXX__ == 20150623 /* GCC 4.8.5 */) ||     \
+    (defined(__GLIBCXX__) && __GLIBCXX__ == 20150626 /* GCC 4.9.3 */) ||     \
+    (defined(__GLIBCXX__) && __GLIBCXX__ == 20160803 /* GCC 4.9.4 */)
 
 // Atomic shared_ptr operations only appeared in gcc 5's libstdc++,
 // emulate them with unsafe ops if unavailable.
@@ -42,7 +46,7 @@ inline void atomic_store(std::shared_ptr<T>* p, std::shared_ptr<T> r) {
   *p = r;
 }
 
-#else  // defined(__GLIBCXX__) && __GLIBCXX__ < 20150422
+#else  // GLIBC version < 5
 
 template <class T>
 inline std::shared_ptr<T> atomic_load(const std::shared_ptr<T>* p) {
@@ -54,7 +58,7 @@ inline void atomic_store(std::shared_ptr<T>* p, std::shared_ptr<T> r) {
   std::atomic_store(p, std::move(r));
 }
 
-#endif  // defined(__GLIBCXX__) && __GLIBCXX__ < 20150422
+#endif  // GLIBC version < 5
 
 }  // namespace internal
 }  // namespace arrow
