@@ -111,7 +111,7 @@ from pyarrow.lib import (null, bool_,
                          Time32Array, Time64Array, DurationArray,
                          Decimal128Array, StructArray, ExtensionArray,
                          scalar, NA, _NULL as NULL, Scalar,
-                         BooleanScalar,
+                         NullScalar, BooleanScalar,
                          Int8Scalar, Int16Scalar, Int32Scalar, Int64Scalar,
                          UInt8Scalar, UInt16Scalar, UInt32Scalar, UInt64Scalar,
                          HalfFloatScalar, FloatScalar, DoubleScalar,
@@ -203,7 +203,7 @@ def _plasma_store_entry_point():
 # ----------------------------------------------------------------------
 # Deprecations
 
-from pyarrow.util import _deprecate_api  # noqa
+from pyarrow.util import _deprecate_api, _deprecate_class # noqa
 
 read_message = _deprecate_api("read_message", "ipc.read_message",
                               ipc.read_message, "0.17.0")
@@ -235,14 +235,13 @@ open_stream = _deprecate_api("open_stream", "ipc.open_stream",
 open_file = _deprecate_api("open_file", "ipc.open_file", ipc.open_file,
                            "0.17.0")
 
-# Deprecate the older scalar array values
-
-ArrayValue = _deprecate_api("ArrayValue", "Scalar", Scalar, "1.0.0")
 
 def _deprecate_scalar(ty, symbol):
-    return _deprecate_api(
-        "{}Value".format(ty), "{}Scalar".format(ty), symbol, "1.0.0"
-    )
+    return _deprecate_class("{}Value".format(ty), symbol, "1.0.0")
+
+
+ArrayValue = _deprecate_class("ArrayValue", Scalar, "1.0.0")
+NullType = _deprecate_class("NullType", NullScalar, "1.0.0")
 
 BooleanValue = _deprecate_scalar("Boolean", BooleanScalar)
 Int8Value = _deprecate_scalar("Int8", Int8Scalar)

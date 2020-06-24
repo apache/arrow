@@ -41,6 +41,24 @@ def _deprecate_api(old_name, new_name, api, next_version):
     return wrapper
 
 
+def _deprecate_class(old_name, new_class, next_version,
+                     instancecheck=True):
+    """
+    Raise warning if a deprecated class is used in an isinstance check.
+    """
+    msg = 'pyarrow.{} is deprecated as of {}, please use pyarrow.{} instead'
+
+    class _DeprecatedMeta(type):
+        def __instancecheck__(self, other):
+            warnings.warn(
+                msg.format(old_name, next_version, new_class.__name__),
+                FutureWarning
+            )
+            return isinstance(other, new_class)
+
+    return _DeprecatedMeta(old_name, (new_class,), {})
+
+
 def _is_path_like(path):
     # PEP519 filesystem path protocol is available from python 3.6, so pathlib
     # doesn't implement __fspath__ for earlier versions

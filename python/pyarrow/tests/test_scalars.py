@@ -23,34 +23,37 @@ import numpy as np
 import pyarrow as pa
 
 
-@pytest.mark.parametrize(['value', 'ty', 'klass'], [
-    (None, None, pa.lib.NullScalar),
-    (False, None, pa.lib.BooleanScalar),
-    (True, None, pa.lib.BooleanScalar),
-    (1, None, pa.lib.Int64Scalar),
-    (-1, None, pa.lib.Int64Scalar),
-    (1, pa.int8(), pa.lib.Int8Scalar),
-    (1, pa.uint8(), pa.lib.UInt8Scalar),
-    (1, pa.int16(), pa.lib.Int16Scalar),
-    (1, pa.uint16(), pa.lib.UInt16Scalar),
-    (1, pa.int32(), pa.lib.Int32Scalar),
-    (1, pa.uint32(), pa.lib.UInt32Scalar),
-    (1, pa.int64(), pa.lib.Int64Scalar),
-    (1, pa.uint64(), pa.lib.UInt64Scalar),
-    (1.0, None, pa.lib.DoubleScalar),
-    (np.float16(1.0), pa.float16(), pa.lib.HalfFloatScalar),
-    (1.0, pa.float32(), pa.lib.FloatScalar),
-    ("string", None, pa.lib.StringScalar),
-    (b"bytes", None, pa.lib.BinaryScalar),
-    ([1, 2, 3], None, pa.lib.ListScalar),
-    ([1, 2, 3, 4], pa.large_list(pa.int8()), pa.lib.LargeListScalar),
+@pytest.mark.parametrize(['value', 'ty', 'klass', 'deprecated'], [
+    (None, None, pa.NullScalar, pa.NullType),
+    (False, None, pa.BooleanScalar, pa.BooleanValue),
+    (True, None, pa.BooleanScalar, pa.BooleanValue),
+    (1, None, pa.Int64Scalar, pa.Int64Value),
+    (-1, None, pa.Int64Scalar, pa.Int64Value),
+    (1, pa.int8(), pa.Int8Scalar, pa.Int8Value),
+    (1, pa.uint8(), pa.UInt8Scalar, pa.UInt8Value),
+    (1, pa.int16(), pa.Int16Scalar, pa.Int16Value),
+    (1, pa.uint16(), pa.UInt16Scalar, pa.UInt16Value),
+    (1, pa.int32(), pa.Int32Scalar, pa.Int32Value),
+    (1, pa.uint32(), pa.UInt32Scalar, pa.UInt32Value),
+    (1, pa.int64(), pa.Int64Scalar, pa.Int64Value),
+    (1, pa.uint64(), pa.UInt64Scalar, pa.UInt64Value),
+    (1.0, None, pa.DoubleScalar, pa.DoubleValue),
+    (np.float16(1.0), pa.float16(), pa.HalfFloatScalar, pa.HalfFloatValue),
+    (1.0, pa.float32(), pa.FloatScalar, pa.FloatValue),
+    ("string", None, pa.StringScalar, pa.StringValue),
+    (b"bytes", None, pa.BinaryScalar, pa.BinaryValue),
+    ([1, 2, 3], None, pa.ListScalar, pa.ListValue),
+    ([1, 2, 3, 4], pa.large_list(pa.int8()), pa.LargeListScalar,
+     pa.LargeListValue),
     # date
     # time
 ])
-def test_type_inference(value, ty, klass):
+def test_type_inference(value, ty, klass, deprecated):
     s = pa.scalar(value, type=ty)
     assert isinstance(s, klass)
     assert s == value
+    with pytest.warns(FutureWarning):
+        isinstance(s, deprecated)
 
 
 def test_null_singleton():
@@ -117,7 +120,7 @@ def test_bool():
 def test_numerics():
     # int64
     s = pa.scalar(1)
-    assert isinstance(s, pa.Int64Value)
+    assert isinstance(s, pa.Int64Scalar)
     assert repr(s) == "<pyarrow.Int64Scalar: 1>"
     assert str(s) == "1"
     assert s.as_py() == 1
@@ -125,7 +128,7 @@ def test_numerics():
 
     # float64
     s = pa.scalar(1.5)
-    assert isinstance(s, pa.DoubleValue)
+    assert isinstance(s, pa.DoubleScalar)
     assert repr(s) == "<pyarrow.DoubleScalar: 1.5>"
     assert str(s) == "1.5"
     assert s.as_py() == 1.5
@@ -133,7 +136,7 @@ def test_numerics():
 
     # float16
     s = pa.scalar(np.float16(0.5), type=pa.float16())
-    assert isinstance(s, pa.HalfFloatValue)
+    assert isinstance(s, pa.HalfFloatScalar)
     assert repr(s) == "<pyarrow.HalfFloatScalar: 0.5>"
     assert str(s) == "0.5"
     assert s.as_py() == 0.5
