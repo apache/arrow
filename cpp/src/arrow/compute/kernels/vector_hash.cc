@@ -457,11 +457,15 @@ KernelInit GetHashInit(Type::type type_id) {
 }
 
 template <typename Action>
-std::unique_ptr<KernelState> HashInit(KernelContext* ctx, const KernelInitArgs& args) {
+std::unique_ptr<KernelState> DictionaryHashInit(KernelContext* ctx,
+                                                const KernelInitArgs& args) {
   const auto& dict_type = checked_cast<const DictionaryType&>(*args.inputs[0].type);
-  ctx->SetStatus(result->Reset());
-  return std::move(result);
-
+  switch (dict_type.index_type()->id()) {
+    case Type::INT8:
+    case Type::INT16:
+    case Type::INT32:
+    case Type::INT64:
+  }
 }
 
 void HashExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
