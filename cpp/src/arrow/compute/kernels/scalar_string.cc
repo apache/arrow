@@ -153,7 +153,7 @@ void AddAsciiLength(FunctionRegistry* registry) {
 // ----------------------------------------------------------------------
 // strptime string parsing
 
-using StrptimeWrapper = OptionsWrapper<StrptimeOptions>;
+using StrptimeState = OptionsWrapper<StrptimeOptions>;
 
 struct ParseStrptime {
   explicit ParseStrptime(const StrptimeOptions& options)
@@ -174,24 +174,25 @@ struct ParseStrptime {
 
 template <typename InputType>
 void StrptimeExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  const auto& options = checked_cast<const StrptimeWrapper*>(ctx->state())->options;
   applicator::ScalarUnaryNotNullStateful<TimestampType, InputType, ParseStrptime> kernel{
-      ParseStrptime(options)};
+      ParseStrptime(StrptimeState::Get(ctx))};
   return kernel.Exec(ctx, batch, out);
 }
 
 Result<ValueDescr> StrptimeResolve(KernelContext* ctx, const std::vector<ValueDescr>&) {
-  const auto& options = checked_cast<const StrptimeWrapper*>(ctx->state())->options;
-  return ::arrow::timestamp(options.unit);
+  if (ctx->state()) {
+    return ::arrow::timestamp(StrptimeState::Get(ctx).unit);
+  }
+
+  return Status::Invalid("strptime does not provide default StrptimeOptions");
 }
 
 void AddStrptime(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>("strptime", Arity::Unary());
   DCHECK_OK(func->AddKernel({utf8()}, OutputType(StrptimeResolve),
-                            StrptimeExec<StringType>, InitWrapOptions<StrptimeOptions>));
+                            StrptimeExec<StringType>, StrptimeState::Init));
   DCHECK_OK(func->AddKernel({large_utf8()}, OutputType(StrptimeResolve),
-                            StrptimeExec<LargeStringType>,
-                            InitWrapOptions<StrptimeOptions>));
+                            StrptimeExec<LargeStringType>, StrptimeState::Init));
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 

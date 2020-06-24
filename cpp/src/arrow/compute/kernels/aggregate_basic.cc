@@ -20,6 +20,7 @@
 #include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/kernels/aggregate_internal.h"
 #include "arrow/compute/kernels/common.h"
+#include "arrow/util/make_unique.h"
 
 namespace arrow {
 namespace compute {
@@ -48,8 +49,7 @@ void AggregateFinalize(KernelContext* ctx, Datum* out) {
 // Count implementation
 
 struct CountImpl : public ScalarAggregator {
-  explicit CountImpl(CountOptions options)
-      : options(std::move(options)), non_nulls(0), nulls(0) {}
+  explicit CountImpl(CountOptions options) : options(std::move(options)) {}
 
   void Consume(KernelContext*, const ExecBatch& batch) override {
     const ArrayData& input = *batch[0].array();
@@ -85,8 +85,8 @@ struct CountImpl : public ScalarAggregator {
 };
 
 std::unique_ptr<KernelState> CountInit(KernelContext*, const KernelInitArgs& args) {
-  return std::unique_ptr<KernelState>(
-      new CountImpl(static_cast<const CountOptions&>(*args.options)));
+  return ::arrow::internal::make_unique<CountImpl>(
+      static_cast<const CountOptions&>(*args.options));
 }
 
 // ----------------------------------------------------------------------
@@ -514,7 +514,9 @@ void AddMinMaxKernels(KernelInit init,
 }
 
 void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
-  auto func = std::make_shared<ScalarAggregateFunction>("count", Arity::Unary());
+  static auto default_count_options = CountOptions::Defaults();
+  auto func = std::make_shared<ScalarAggregateFunction>("count", Arity::Unary(),
+                                                        &default_count_options);
 
   /// Takes any array input, outputs int64 scalar
   InputType any_array(ValueDescr::ARRAY);
@@ -532,7 +534,9 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
   AddBasicAggKernels(MeanInit, NumericTypes(), float64(), func.get());
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
-  func = std::make_shared<ScalarAggregateFunction>("minmax", Arity::Unary());
+  static auto default_minmax_options = MinMaxOptions::Defaults();
+  func = std::make_shared<ScalarAggregateFunction>("minmax", Arity::Unary(),
+                                                   &default_minmax_options);
   AddMinMaxKernels(MinMaxInit, NumericTypes(), func.get());
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }

@@ -39,9 +39,11 @@
 #include "arrow/util/bitmap_generate.h"
 #include "arrow/util/bitmap_reader.h"
 #include "arrow/util/bitmap_writer.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/make_unique.h"
 #include "arrow/util/optional.h"
 #include "arrow/util/string_view.h"
 #include "arrow/visitor_inline.h"
@@ -81,17 +83,32 @@ namespace internal {
 
 #endif  // ARROW_EXTRA_ERROR_CONTEXT
 
+/// KernelState adapter for the common case of kernels whose only
+/// state is an instance of a subclass of FunctionOptions.
+/// Default FunctionOptions are *not* handled here.
 template <typename OptionsType>
 struct OptionsWrapper : public KernelState {
-  explicit OptionsWrapper(const OptionsType& options) : options(options) {}
+  explicit OptionsWrapper(OptionsType options) : options(std::move(options)) {}
+
+  static std::unique_ptr<KernelState> Init(KernelContext* ctx,
+                                           const KernelInitArgs& args) {
+    if (auto options = static_cast<const OptionsType*>(args.options)) {
+      return ::arrow::internal::make_unique<OptionsWrapper>(*options);
+    }
+
+    ctx->SetStatus(
+        Status::Invalid("Attempted to initialize KernelState from null FunctionOptions"));
+    return NULLPTR;
+  }
+
+  static const OptionsType& Get(const KernelState& state) {
+    return ::arrow::internal::checked_cast<const OptionsWrapper&>(state).options;
+  }
+
+  static const OptionsType& Get(KernelContext* ctx) { return Get(*ctx->state()); }
+
   OptionsType options;
 };
-
-template <typename OptionsType>
-std::unique_ptr<KernelState> InitWrapOptions(KernelContext*, const KernelInitArgs& args) {
-  return std::unique_ptr<KernelState>(
-      new OptionsWrapper<OptionsType>(*static_cast<const OptionsType*>(args.options)));
-}
 
 // ----------------------------------------------------------------------
 // Iteration / value access utilities

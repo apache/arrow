@@ -26,7 +26,7 @@
 namespace arrow {
 namespace compute {
 
-typedef ::testing::Types<StringType, LargeStringType> StringTypes;
+using StringTypes = ::testing::Types<StringType, LargeStringType>;
 
 template <typename TestType>
 class TestStringKernels : public ::testing::Test {
@@ -52,7 +52,7 @@ class TestStringKernels : public ::testing::Test {
 TYPED_TEST_SUITE(TestStringKernels, StringTypes);
 
 TYPED_TEST(TestStringKernels, AsciiLength) {
-  this->CheckUnary("ascii_length", "[\"aaa\", null, \"\", \"b\"]", this->offset_type(),
+  this->CheckUnary("ascii_length", R"(["aaa", null, "", "b"])", this->offset_type(),
                    "[3, null, 0, 1]");
 }
 
@@ -73,6 +73,12 @@ TYPED_TEST(TestStringKernels, Strptime) {
   std::string output1 = R"(["2020-05-01", null, "1900-12-11"])";
   StrptimeOptions options("%m/%d/%Y", TimeUnit::MICRO);
   this->CheckUnary("strptime", input1, timestamp(TimeUnit::MICRO), output1, &options);
+}
+
+TYPED_TEST(TestStringKernels, StrptimeDoesNotProvideDefaultOptions) {
+  auto input =
+      ArrayFromJSON(this->string_type(), R"(["2020-05-01", null, "1900-12-11"])");
+  ASSERT_RAISES(Invalid, CallFunction("strptime", {input}));
 }
 
 }  // namespace compute

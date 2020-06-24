@@ -517,12 +517,13 @@ struct KernelInitArgs {
   /// used to avoid the cost of copying the struct into the args struct.
   const std::vector<ValueDescr>& inputs;
 
-  /// \brief Opaque options specific to this kernel. Is nullptr for functions
+  /// \brief Opaque options specific to this kernel. May be nullptr for functions
   /// that do not require options.
   const FunctionOptions* options;
 };
 
 /// \brief Common initializer function for all kernel types.
+/// If an error occurs it will be stored in the KernelContext; nullptr will be returned.
 using KernelInit =
     std::function<std::unique_ptr<KernelState>(KernelContext*, const KernelInitArgs&)>;
 
@@ -530,20 +531,20 @@ using KernelInit =
 /// optionally the state initialization function, along with some common
 /// attributes
 struct Kernel {
-  Kernel() {}
+  Kernel() = default;
 
   Kernel(std::shared_ptr<KernelSignature> sig, KernelInit init)
       : signature(std::move(sig)), init(std::move(init)) {}
 
   Kernel(std::vector<InputType> in_types, OutputType out_type, KernelInit init)
-      : Kernel(KernelSignature::Make(std::move(in_types), out_type), init) {}
+      : Kernel(KernelSignature::Make(std::move(in_types), out_type), std::move(init)) {}
 
   /// \brief The "signature" of the kernel containing the InputType input
   /// argument validators and OutputType output type and shape resolver.
   std::shared_ptr<KernelSignature> signature;
 
   /// \brief Create a new KernelState for invocations of this kernel, e.g. to
-  /// set up any options or state relevant for execution. May be nullptr
+  /// set up any options or state relevant for execution.
   KernelInit init;
 
   /// \brief Indicates whether execution can benefit from parallelization

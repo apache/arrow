@@ -205,7 +205,7 @@ TYPED_TEST(TestRandomNumericSumKernel, RandomSliceArraySum) {
 ///
 /// Count
 ///
-//
+
 using CountPair = std::pair<int64_t, int64_t>;
 
 static CountPair NaiveCount(const Array& array) {
@@ -367,13 +367,13 @@ class TestNumericMinMaxKernel : public ::testing::Test {
 
   void AssertMinMaxIs(const std::string& json, c_type expected_min, c_type expected_max,
                       const MinMaxOptions& options) {
-    auto array = ArrayFromJSON(Traits::type_singleton(), json);
+    auto array = ArrayFromJSON(type_singleton(), json);
     AssertMinMaxIs(array, expected_min, expected_max, options);
   }
 
   void AssertMinMaxIs(const std::vector<std::string>& json, c_type expected_min,
                       c_type expected_max, const MinMaxOptions& options) {
-    auto array = ChunkedArrayFromJSON(Traits::type_singleton(), json);
+    auto array = ChunkedArrayFromJSON(type_singleton(), json);
     AssertMinMaxIs(array, expected_min, expected_max, options);
   }
 
@@ -387,15 +387,17 @@ class TestNumericMinMaxKernel : public ::testing::Test {
   }
 
   void AssertMinMaxIsNull(const std::string& json, const MinMaxOptions& options) {
-    auto array = ArrayFromJSON(Traits::type_singleton(), json);
+    auto array = ArrayFromJSON(type_singleton(), json);
     AssertMinMaxIsNull(array, options);
   }
 
   void AssertMinMaxIsNull(const std::vector<std::string>& json,
                           const MinMaxOptions& options) {
-    auto array = ChunkedArrayFromJSON(Traits::type_singleton(), json);
+    auto array = ChunkedArrayFromJSON(type_singleton(), json);
     AssertMinMaxIsNull(array, options);
   }
+
+  std::shared_ptr<DataType> type_singleton() { return Traits::type_singleton(); }
 };
 
 template <typename ArrowType>
@@ -452,6 +454,18 @@ TYPED_TEST(TestFloatingMinMaxKernel, Floats) {
   this->AssertMinMaxIsNull(chunked_input1, options);
   this->AssertMinMaxIsNull(chunked_input2, options);
   this->AssertMinMaxIsNull(chunked_input3, options);
+}
+
+TYPED_TEST(TestFloatingMinMaxKernel, DefaultOptions) {
+  auto values = ArrayFromJSON(this->type_singleton(), "[0, 1, 2, 3, 4]");
+
+  ASSERT_OK_AND_ASSIGN(auto no_options_provided, CallFunction("minmax", {values}));
+
+  auto default_options = MinMaxOptions::Defaults();
+  ASSERT_OK_AND_ASSIGN(auto explicit_defaults,
+                       CallFunction("minmax", {values}, &default_options));
+
+  AssertDatumsEqual(explicit_defaults, no_options_provided);
 }
 
 }  // namespace compute

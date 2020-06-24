@@ -245,6 +245,20 @@ TEST_F(TestFilterKernelWithBoolean, FilterBoolean) {
   this->AssertFilter("[true, false, true]", "[null, 1, 0]", "[null, false]");
 }
 
+TEST_F(TestFilterKernelWithBoolean, DefaultOptions) {
+  auto values = ArrayFromJSON(int8(), "[7, 8, null, 9]");
+  auto filter = ArrayFromJSON(boolean(), "[1, 1, 0, null]");
+
+  ASSERT_OK_AND_ASSIGN(auto no_options_provided,
+                       CallFunction("filter", {values, filter}));
+
+  auto default_options = FilterOptions::Defaults();
+  ASSERT_OK_AND_ASSIGN(auto explicit_defaults,
+                       CallFunction("filter", {values, filter}, &default_options));
+
+  AssertDatumsEqual(explicit_defaults, no_options_provided);
+}
+
 template <typename ArrowType>
 class TestFilterKernelWithNumeric : public TestFilterKernel<ArrowType> {
  protected:
@@ -912,6 +926,18 @@ TEST(TestTakeKernel, InvalidIndexType) {
   std::shared_ptr<Array> arr;
   ASSERT_RAISES(NotImplemented, TakeJSON(null(), "[null, null, null]", float32(),
                                          "[0.0, 1.0, 0.1]", &arr));
+}
+
+TEST(TestTakeKernel, DefaultOptions) {
+  auto indices = ArrayFromJSON(int8(), "[null, 2, 0, 3]");
+  auto values = ArrayFromJSON(int8(), "[7, 8, 9, null]");
+  ASSERT_OK_AND_ASSIGN(auto no_options_provided, CallFunction("take", {values, indices}));
+
+  auto default_options = TakeOptions::Defaults();
+  ASSERT_OK_AND_ASSIGN(auto explicit_defaults,
+                       CallFunction("take", {values, indices}, &default_options));
+
+  AssertDatumsEqual(explicit_defaults, no_options_provided);
 }
 
 TEST(TestTakeKernel, TakeBoolean) {

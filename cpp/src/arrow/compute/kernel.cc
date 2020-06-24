@@ -67,7 +67,7 @@ Result<std::shared_ptr<Buffer>> KernelContext::AllocateBitmap(int64_t num_bits) 
 }
 
 void KernelContext::SetStatus(const Status& status) {
-  if (ARROW_PREDICT_FALSE(!status_.ok())) {
+  if (ARROW_PREDICT_TRUE(status.ok())) {
     return;
   }
   status_ = status;

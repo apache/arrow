@@ -485,8 +485,7 @@ void TakeIndexDispatch(const PrimitiveArg& values, const PrimitiveArg& indices,
 }
 
 void PrimitiveTake(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  const auto& state = checked_cast<const TakeState&>(*ctx->state());
-  if (state.options.boundscheck) {
+  if (TakeState::Get(ctx).boundscheck) {
     KERNEL_RETURN_IF_ERROR(ctx, CheckIndexBounds(*batch[1].array(), batch[0].length()));
   }
 
@@ -800,11 +799,10 @@ inline void PrimitiveFilterImpl<BooleanType>::WriteNull() {
 }
 
 void PrimitiveFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  const auto& state = checked_cast<const FilterState&>(*ctx->state());
   PrimitiveArg values = GetPrimitiveArg(*batch[0].array());
   PrimitiveArg filter = GetPrimitiveArg(*batch[1].array());
   FilterOptions::NullSelectionBehavior null_selection =
-      state.options.null_selection_behavior;
+      FilterState::Get(ctx).null_selection_behavior;
 
   int64_t output_length = GetFilterOutputSize(*batch[1].array(), null_selection);
 
@@ -847,17 +845,15 @@ void PrimitiveFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
 // Null take and filter
 
 void NullTake(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  const auto& state = checked_cast<const TakeState&>(*ctx->state());
-  if (state.options.boundscheck) {
+  if (TakeState::Get(ctx).boundscheck) {
     KERNEL_RETURN_IF_ERROR(ctx, CheckIndexBounds(*batch[1].array(), batch[0].length()));
   }
   out->value = std::make_shared<NullArray>(batch.length)->data();
 }
 
 void NullFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  const auto& state = checked_cast<const FilterState&>(*ctx->state());
-  int64_t output_length =
-      GetFilterOutputSize(*batch[1].array(), state.options.null_selection_behavior);
+  int64_t output_length = GetFilterOutputSize(
+      *batch[1].array(), FilterState::Get(ctx).null_selection_behavior);
   out->value = std::make_shared<NullArray>(output_length)->data();
 }
 
@@ -865,22 +861,20 @@ void NullFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
 // Dictionary take and filter
 
 void DictionaryTake(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  const auto& state = checked_cast<const TakeState&>(*ctx->state());
   DictionaryArray values(batch[0].array());
   Datum result;
-  KERNEL_RETURN_IF_ERROR(
-      ctx, Take(Datum(values.indices()), batch[1], state.options, ctx->exec_context())
-               .Value(&result));
+  KERNEL_RETURN_IF_ERROR(ctx, Take(Datum(values.indices()), batch[1], TakeState::Get(ctx),
+                                   ctx->exec_context())
+                                  .Value(&result));
   DictionaryArray taken_values(values.type(), result.make_array(), values.dictionary());
   out->value = taken_values.data();
 }
 
 void DictionaryFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  const auto& state = checked_cast<const FilterState&>(*ctx->state());
   DictionaryArray dict_values(batch[0].array());
   Datum result;
   KERNEL_RETURN_IF_ERROR(ctx, Filter(Datum(dict_values.indices()), batch[1].array(),
-                                     state.options, ctx->exec_context())
+                                     FilterState::Get(ctx), ctx->exec_context())
                                   .Value(&result));
   DictionaryArray filtered_values(dict_values.type(), result.make_array(),
                                   dict_values.dictionary());
@@ -891,22 +885,20 @@ void DictionaryFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
 // Extension take and filter
 
 void ExtensionTake(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  const auto& state = checked_cast<const TakeState&>(*ctx->state());
   ExtensionArray values(batch[0].array());
   Datum result;
-  KERNEL_RETURN_IF_ERROR(
-      ctx, Take(Datum(values.storage()), batch[1], state.options, ctx->exec_context())
-               .Value(&result));
+  KERNEL_RETURN_IF_ERROR(ctx, Take(Datum(values.storage()), batch[1], TakeState::Get(ctx),
+                                   ctx->exec_context())
+                                  .Value(&result));
   ExtensionArray taken_values(values.type(), result.make_array());
   out->value = taken_values.data();
 }
 
 void ExtensionFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  const auto& state = checked_cast<const FilterState&>(*ctx->state());
   ExtensionArray ext_values(batch[0].array());
   Datum result;
   KERNEL_RETURN_IF_ERROR(ctx, Filter(Datum(ext_values.storage()), batch[1].array(),
-                                     state.options, ctx->exec_context())
+                                     FilterState::Get(ctx), ctx->exec_context())
                                   .Value(&result));
   ExtensionArray filtered_values(ext_values.type(), result.make_array());
   out->value = filtered_values.data();
@@ -1023,8 +1015,7 @@ struct Selection {
   // nulls coming from the filter when using FilterOptions::EMIT_NULL
   template <typename ValidVisitor, typename NullVisitor>
   Status VisitFilter(ValidVisitor&& visit_valid, NullVisitor&& visit_null) {
-    const auto& state = checked_cast<const FilterState&>(*ctx->state());
-    auto null_selection = state.options.null_selection_behavior;
+    auto null_selection = FilterState::Get(ctx).null_selection_behavior;
 
     const auto filter_data = selection->buffers[1]->data();
 
@@ -1470,13 +1461,12 @@ struct StructImpl : public Selection<StructImpl, StructType> {
 };
 
 void StructFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  const auto& state = checked_cast<const FilterState&>(*ctx->state());
-
   // Transform filter to selection indices and then use Take.
   std::shared_ptr<ArrayData> indices;
   KERNEL_RETURN_IF_ERROR(
-      ctx, GetTakeIndices(*batch[1].array(), state.options.null_selection_behavior)
-               .Value(&indices));
+      ctx,
+      GetTakeIndices(*batch[1].array(), FilterState::Get(ctx).null_selection_behavior)
+          .Value(&indices));
 
   Datum result;
   KERNEL_RETURN_IF_ERROR(ctx, Take(batch[0], Datum(indices), TakeOptions::NoBoundsCheck(),
@@ -1533,9 +1523,12 @@ Result<std::shared_ptr<Table>> FilterTable(const Table& table, const Datum& filt
   return Table::Make(table.schema(), std::move(new_columns));
 }
 
+static auto kDefaultFilterOptions = FilterOptions::Defaults();
+
 class FilterMetaFunction : public MetaFunction {
  public:
-  FilterMetaFunction() : MetaFunction("filter", Arity::Binary()) {}
+  FilterMetaFunction()
+      : MetaFunction("filter", Arity::Binary(), &kDefaultFilterOptions) {}
 
   Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
                             const FunctionOptions* options,
@@ -1668,6 +1661,8 @@ Result<std::shared_ptr<Table>> TakeTC(const Table& table, const ChunkedArray& in
   return Table::Make(table.schema(), columns);
 }
 
+static auto kDefaultTakeOptions = TakeOptions::Defaults();
+
 // Metafunction for dispatching to different Take implementations other than
 // Array-Array.
 //
@@ -1675,7 +1670,7 @@ Result<std::shared_ptr<Table>> TakeTC(const Table& table, const ChunkedArray& in
 // overly complex dispatching, there is no parallelization.
 class TakeMetaFunction : public MetaFunction {
  public:
-  TakeMetaFunction() : MetaFunction("take", Arity::Binary()) {}
+  TakeMetaFunction() : MetaFunction("take", Arity::Binary(), &kDefaultTakeOptions) {}
 
   Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
                             const FunctionOptions* options,
@@ -1724,19 +1719,16 @@ class TakeMetaFunction : public MetaFunction {
 
 template <typename Impl>
 void FilterExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  const auto& state = checked_cast<const FilterState&>(*ctx->state());
-
   // TODO: where are the values and filter length equality checked?
-  int64_t output_length =
-      GetFilterOutputSize(*batch[1].array(), state.options.null_selection_behavior);
+  int64_t output_length = GetFilterOutputSize(
+      *batch[1].array(), FilterState::Get(ctx).null_selection_behavior);
   Impl kernel(ctx, batch, output_length, out);
   KERNEL_RETURN_IF_ERROR(ctx, kernel.ExecFilter());
 }
 
 template <typename Impl>
 void TakeExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  const auto& state = checked_cast<const TakeState&>(*ctx->state());
-  if (state.options.boundscheck) {
+  if (TakeState::Get(ctx).boundscheck) {
     KERNEL_RETURN_IF_ERROR(ctx, CheckIndexBounds(*batch[1].array(), batch[0].length()));
   }
   Impl kernel(ctx, batch, /*output_length=*/batch[1].length(), out);
@@ -1751,8 +1743,9 @@ struct SelectionKernelDescr {
 void RegisterSelectionFunction(const std::string& name, VectorKernel base_kernel,
                                InputType selection_type,
                                const std::vector<SelectionKernelDescr>& descrs,
+                               const FunctionOptions* default_options,
                                FunctionRegistry* registry) {
-  auto func = std::make_shared<VectorFunction>(name, Arity::Binary());
+  auto func = std::make_shared<VectorFunction>(name, Arity::Binary(), default_options);
   for (auto& descr : descrs) {
     base_kernel.signature = KernelSignature::Make(
         {std::move(descr.input), selection_type}, OutputType(FirstType));
@@ -1786,10 +1779,10 @@ void RegisterVectorSelection(FunctionRegistry* registry) {
   };
 
   VectorKernel filter_base;
-  filter_base.init = InitWrapOptions<FilterOptions>;
+  filter_base.init = FilterState::Init;
   RegisterSelectionFunction("array_filter", filter_base,
                             /*selection_type=*/InputType::Array(boolean()),
-                            filter_kernel_descrs, registry);
+                            filter_kernel_descrs, &kDefaultFilterOptions, registry);
 
   DCHECK_OK(registry->AddFunction(std::make_shared<FilterMetaFunction>()));
 
@@ -1814,12 +1807,12 @@ void RegisterVectorSelection(FunctionRegistry* registry) {
   };
 
   VectorKernel take_base;
-  take_base.init = InitWrapOptions<TakeOptions>;
+  take_base.init = TakeState::Init;
   take_base.can_execute_chunkwise = false;
   RegisterSelectionFunction(
       "array_take", take_base,
       /*selection_type=*/InputType(match::Integer(), ValueDescr::ARRAY),
-      take_kernel_descrs, registry);
+      take_kernel_descrs, &kDefaultTakeOptions, registry);
 
   DCHECK_OK(registry->AddFunction(std::make_shared<TakeMetaFunction>()));
 }
