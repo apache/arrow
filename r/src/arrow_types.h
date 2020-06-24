@@ -141,6 +141,12 @@ void TraverseDots(SEXP dots, int num_fields, Lambda lambda) {
   }
 }
 
+arrow::Status InferSchemaFromDots(SEXP lst, SEXP schema_sxp, int num_fields,
+                                  std::shared_ptr<arrow::Schema>& schema);
+
+arrow::Status AddMetadataFromDots(SEXP lst, int num_fields,
+                                  std::shared_ptr<arrow::Schema>& schema);
+
 }  // namespace r
 }  // namespace arrow
 

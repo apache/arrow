@@ -29,7 +29,7 @@ test_that("RecordBatch", {
   batch <- record_batch(tbl)
 
   expect_equal(batch, batch)
-  expect_equal(
+  expect_equivalent(
     batch$schema,
     schema(
       int = int32(), dbl = float64(),
@@ -86,7 +86,7 @@ test_that("RecordBatch", {
   expect_error(batch$column("one"), class = "Rcpp::not_compatible")
 
   batch2 <- batch$RemoveColumn(0)
-  expect_equal(
+  expect_equivalent(
     batch2$schema,
     schema(dbl = float64(), lgl = boolean(), chr = utf8(), fct = dictionary(int8(), utf8()))
   )
@@ -203,7 +203,7 @@ test_that("RecordBatch with 0 rows are supported", {
   batch <- record_batch(tbl)
   expect_equal(batch$num_columns, 5L)
   expect_equal(batch$num_rows, 0L)
-  expect_equal(
+  expect_equivalent(
     batch$schema,
     schema(
       int = int32(),
@@ -255,14 +255,14 @@ test_that("RecordBatch dim() and nrow() (ARROW-3816)", {
 
 test_that("record_batch() handles Array", {
   batch <- record_batch(x = 1:10, y = Array$create(1:10))
-  expect_equal(batch$schema, schema(x = int32(), y = int32()))
+  expect_equivalent(batch$schema, schema(x = int32(), y = int32()))
 })
 
 test_that("record_batch() handles data frame columns", {
   tib <- tibble::tibble(x = 1:10, y = 1:10)
   # because tib is named here, this becomes a struct array
   batch <- record_batch(a = 1:10, b = tib)
-  expect_equal(
+  expect_equivalent(
     batch$schema,
     schema(
       a = int32(),
@@ -288,7 +288,7 @@ test_that("record_batch() handles data frame columns with schema spec", {
   tib_float$y <- as.numeric(tib_float$y)
   schema <- schema(a = int32(), b = struct(x = int16(), y = float64()))
   batch <- record_batch(a = 1:10, b = tib, schema = schema)
-  expect_equal(batch$schema, schema)
+  expect_equivalent(batch$schema, schema)
   out <- as.data.frame(batch)
   expect_equivalent(out, tibble::tibble(a = 1:10, b = tib_float))
 
@@ -334,7 +334,7 @@ test_that("record_batch() only auto splice data frames", {
 
 test_that("record_batch() handles null type (ARROW-7064)", {
   batch <- record_batch(a = 1:10, n = vctrs::unspecified(10))
-  expect_equal(batch$schema,  schema(a = int32(), n = null()))
+  expect_equivalent(batch$schema,  schema(a = int32(), n = null()))
 })
 
 test_that("RecordBatch$Equals", {
