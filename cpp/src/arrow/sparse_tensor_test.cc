@@ -922,8 +922,13 @@ INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt32, TestSparseCSRMatrixForIndexValueType,
                                UInt32Type);
 INSTANTIATE_TYPED_TEST_SUITE_P(TestInt64, TestSparseCSRMatrixForIndexValueType,
                                Int64Type);
-INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt64, TestSparseCSRMatrixForIndexValueType,
-                               UInt64Type);
+
+TEST(TestSparseCSRMatrixForUInt64Index, Make) {
+  std::vector<int64_t> dense_values = {1, 0,  2, 0,  0,  3, 0,  4, 5, 0,  6, 0,
+                                       0, 11, 0, 12, 13, 0, 14, 0, 0, 15, 0, 16};
+  Tensor dense_tensor(uint64(), Buffer::Wrap(dense_values), {6, 4});
+  ASSERT_RAISES(Invalid, SparseCSRMatrix::Make(dense_tensor, uint64()));
+}
 
 template <typename IndexValueType>
 class TestSparseCSCMatrixBase : public TestSparseTensorBase<Int64Type> {
