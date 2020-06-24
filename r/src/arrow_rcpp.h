@@ -39,7 +39,6 @@ struct symbols {
 
 struct data {
   static SEXP classes_POSIXct;
-  static SEXP classes_metadata;
   static SEXP classes_metadata_r;
 
   static SEXP names_metadata;

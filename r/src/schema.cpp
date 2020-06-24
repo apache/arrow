@@ -91,7 +91,6 @@ Rcpp::List Schema__metadata(const std::shared_ptr<arrow::Schema>& schema) {
     names_out[i] = key;
   }
   out.attr("names") = names_out;
-  Rf_setAttrib(out, R_ClassSymbol, arrow::r::data::classes_metadata);
   return out;
 }
 
