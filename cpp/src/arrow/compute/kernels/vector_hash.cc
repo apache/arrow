@@ -403,24 +403,14 @@ struct HashKernelTraits<Type, Action, enable_if_has_string_view<Type>> {
   using HashKernelImpl = RegularHashKernelImpl<Type, util::string_view, Action>;
 };
 
-template <typename T, typename R = void>
-using enable_if_can_hash =
-    enable_if_t<is_null_type<T>::value || has_c_type<T>::value ||
-                    is_base_binary_type<T>::value || is_fixed_size_binary_type<T>::value,
-                R>;
-
 template <typename Type, typename Action>
-struct HashInitFunctor {
+std::unique_ptr<KernelState> HashInit(KernelContext* ctx, const KernelInitArgs& args) {
   using HashKernelType = typename HashKernelTraits<Type, Action>::HashKernelImpl;
-
-  static std::unique_ptr<KernelState> Init(KernelContext* ctx,
-                                           const KernelInitArgs& args) {
-    auto result = std::unique_ptr<HashKernel>(
-        new HashKernelType(args.inputs[0].type, ctx->memory_pool()));
-    ctx->SetStatus(result->Reset());
-    return std::move(result);
-  }
-};
+  auto result = std::unique_ptr<HashKernel>(
+      new HashKernelType(args.inputs[0].type, ctx->memory_pool()));
+  ctx->SetStatus(result->Reset());
+  return std::move(result);
+}
 
 template <typename Action>
 KernelInit GetHashInit(Type::type type_id) {
@@ -428,21 +418,21 @@ KernelInit GetHashInit(Type::type type_id) {
   // representation
   switch (type_id) {
     case Type::NA:
-      return HashInitFunctor<NullType, Action>::Init;
+      return HashInit<NullType, Action>;
     case Type::BOOL:
-      return HashInitFunctor<BooleanType, Action>::Init;
+      return HashInit<BooleanType, Action>;
     case Type::INT8:
     case Type::UINT8:
-      return HashInitFunctor<UInt8Type, Action>::Init;
+      return HashInit<UInt8Type, Action>;
     case Type::INT16:
     case Type::UINT16:
-      return HashInitFunctor<UInt16Type, Action>::Init;
+      return HashInit<UInt16Type, Action>;
     case Type::INT32:
     case Type::UINT32:
     case Type::FLOAT:
     case Type::DATE32:
     case Type::TIME32:
-      return HashInitFunctor<UInt32Type, Action>::Init;
+      return HashInit<UInt32Type, Action>;
     case Type::INT64:
     case Type::UINT64:
     case Type::DOUBLE:
@@ -450,20 +440,28 @@ KernelInit GetHashInit(Type::type type_id) {
     case Type::TIME64:
     case Type::TIMESTAMP:
     case Type::DURATION:
-      return HashInitFunctor<UInt64Type, Action>::Init;
+      return HashInit<UInt64Type, Action>;
     case Type::BINARY:
     case Type::STRING:
-      return HashInitFunctor<BinaryType, Action>::Init;
+      return HashInit<BinaryType, Action>;
     case Type::LARGE_BINARY:
     case Type::LARGE_STRING:
-      return HashInitFunctor<LargeBinaryType, Action>::Init;
+      return HashInit<LargeBinaryType, Action>;
     case Type::FIXED_SIZE_BINARY:
     case Type::DECIMAL:
-      return HashInitFunctor<FixedSizeBinaryType, Action>::Init;
+      return HashInit<FixedSizeBinaryType, Action>;
     default:
       DCHECK(false);
       return nullptr;
   }
+}
+
+template <typename Action>
+std::unique_ptr<KernelState> HashInit(KernelContext* ctx, const KernelInitArgs& args) {
+  const auto& dict_type = checked_cast<const DictionaryType&>(*args.inputs[0].type);
+  ctx->SetStatus(result->Reset());
+  return std::move(result);
+
 }
 
 void HashExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
@@ -535,6 +533,11 @@ void AddHashKernels(VectorFunction* func, VectorKernel base,
 
   base.init = GetHashInit<Action>(Type::DECIMAL);
   base.signature = KernelSignature::Make({InputType::Array(Type::DECIMAL)}, out_ty);
+  DCHECK_OK(func->AddKernel(base));
+
+  // Dictionary hashing
+  base.init = DictionaryHashInit<Action>;
+  base.signature = KernelSignature::Make({InputType::Array(Type::DICTIONARY)}, out_ty);
   DCHECK_OK(func->AddKernel(base));
 }
 
