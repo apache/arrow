@@ -69,6 +69,10 @@ struct ScalarFromArraySlotImpl {
     return Finish(a.Value(index_));
   }
 
+  Status Visit(const Decimal128Array& a) {
+    return Finish(Decimal128(a.GetValue(index_)));
+  }
+
   template <typename T>
   Status Visit(const BaseBinaryArray<T>& a) {
     return Finish(a.GetString(index_));
@@ -99,9 +103,11 @@ struct ScalarFromArraySlotImpl {
   }
 
   Status Visit(const DictionaryArray& a) {
-    // TODO(kszucs): add index value as well
+    ARROW_ASSIGN_OR_RAISE(auto index, a.indices()->GetScalar(index_));
     ARROW_ASSIGN_OR_RAISE(auto value, a.dictionary()->GetScalar(a.GetValueIndex(index_)));
-    return Finish(std::move(value));
+    out_ = std::shared_ptr<Scalar>(
+        new DictionaryScalar(std::move(index), std::move(value), array_.type()));
+    return Status::OK();
   }
 
   Status Visit(const ExtensionArray& a) {

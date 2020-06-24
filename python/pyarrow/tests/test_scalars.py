@@ -174,8 +174,7 @@ def test_timestamp(self):
         arrow_type = pa.timestamp(unit, tz=tz)
 
         dtype = 'datetime64[{}]'.format(unit)
-        arrow_arr = pa.Array.from_pandas(arr.astype(dtype),
-                                            type=arrow_type)
+        arrow_arr = pa.Array.from_pandas(arr.astype(dtype), type=arrow_type)
         expected = (pd.Timestamp('2000-01-01 12:34:56')
                     .tz_localize('utc')
                     .tz_convert(tz))
@@ -397,11 +396,12 @@ def test_dictionary():
     arr = pa.DictionaryArray.from_arrays(indices, dictionary)
     expected = ['baz', 'bar', 'baz', 'foo']
 
-    for i, (k, v) in enumerate(zip(indices, expected)):
+    for j, (i, v) in enumerate(zip(indices, expected)):
         assert arr[i].as_py() == v
+        assert arr[j].index.as_py() == i
+        assert arr[j].value.as_py() == v
+        assert arr[i].index_value == i
         assert arr[i].dictionary_value == v
-        # TODO(kszucs): the C++ scalar impl doesn't have the index value
-        # assert arr[i].index_value == k
 
 
 # TODO(kszucs): raise on errror signed

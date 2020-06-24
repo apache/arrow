@@ -22,8 +22,8 @@ cdef class Scalar:
     """
 
     def __init__(self):
-        raise TypeError("Do not call {}'s constructor directly."
-                        .format(self.__class__.__name__))
+        raise TypeError("Do not call {}'s constructor directly, use "
+                        "pa.scalar() instead.".format(self.__class__.__name__))
 
     cdef void init(self, const shared_ptr[CScalar]& wrapped):
         self.wrapped = wrapped
@@ -65,6 +65,7 @@ cdef class Scalar:
         return self.as_py() == other
 
     def __hash__(self):
+        # TODO(kszucs): use C++ hash if implemented for the type
         return hash(self.as_py())
 
     def as_py(self):
@@ -271,9 +272,12 @@ cdef class DecimalScalar(Scalar):
         cdef:
             CDecimal128Scalar* sp = <CDecimal128Scalar*> self.wrapped.get()
             CDecimal128Type* dtype = <CDecimal128Type*> sp.type.get()
-        return _pydecimal.Decimal(
-            frombytes(sp.value.ToString(dtype.scale()))
-        )
+        if sp.is_valid:
+            return _pydecimal.Decimal(
+                frombytes(sp.value.ToString(dtype.scale()))
+            )
+        else:
+            return None
 
 
 cdef class Date32Scalar(Scalar):
@@ -618,8 +622,11 @@ cdef class StructScalar(Scalar):
             CStructType* dtype = <CStructType*> sp.type.get()
             vector[shared_ptr[CField]] fields = dtype.fields()
 
-        return {frombytes(fields[i].get().name()): Scalar.wrap(sp.value[i])
-                for i in range(dtype.num_fields())}
+        if sp.is_valid:
+            return {frombytes(fields[i].get().name()): Scalar.wrap(sp.value[i])
+                    for i in range(dtype.num_fields())}
+        else:
+            return None
 
 
 cdef class MapScalar(ListScalar):
@@ -660,8 +667,24 @@ cdef class MapScalar(ListScalar):
 
 cdef class DictionaryScalar(Scalar):
     """
-    Concrete class for dictionary-encoded array elements.
+    Concrete class for dictionary-encoded scalars.
     """
+
+    @property
+    def index(self):
+        """
+        Return this value's underlying index as a scalar.
+        """
+        cdef CDictionaryScalar* sp = <CDictionaryScalar*> self.wrapped.get()
+        return Scalar.wrap(sp.index) if sp.is_valid else None
+
+    @property
+    def value(self):
+        """
+        Return this value's underlying dictionary value as a scalar.
+        """
+        cdef CDictionaryScalar* sp = <CDictionaryScalar*> self.wrapped.get()
+        return Scalar.wrap(sp.value) if sp.is_valid else None
 
     def as_py(self):
         """
@@ -669,64 +692,17 @@ cdef class DictionaryScalar(Scalar):
 
         The exact type depends on the dictionary value type.
         """
-        cdef:
-            CDictionaryScalar* sp = <CDictionaryScalar*> self.wrapped.get()
-        return Scalar.wrap(sp.value).as_py()
+        value = self.value
+        return None if value is None else value.as_py()
+
+    # TODO(kszucs): deprecate these
+    @property
+    def index_value(self):
+        return self.index
 
     @property
     def dictionary_value(self):
-        """
-        Return this value's underlying dictionary value as a scalar.
-        """
-        cdef:
-            CDictionaryScalar* sp = <CDictionaryScalar*> self.wrapped.get()
-        return self.as_py()
-
-    # @property
-    # def index_value(self):
-    #     """
-    #     Return this value's underlying index as a ArrayValue of the right
-    #     signed integer type.
-    #     """
-    #     cdef CDictionaryArray* darr = \
-    #         <CDictionaryArray*>(self.sp_array.get())
-    #     indices = pyarrow_wrap_array(darr.indices())
-    #     return indices[self.index]
-
-
-# cdef class UnionValue(ArrayValue):
-#     """
-#     Concrete class for union array elements.
-#     """
-
-#     cdef void _set_array(self, const shared_ptr[CArray]& sp_array):
-#         self.sp_array = sp_array
-#         self.ap = <CUnionArray*> sp_array.get()
-
-#     cdef getitem(self, int64_t i):
-#         cdef int child_id = self.ap.child_id(i)
-#         cdef shared_ptr[CArray] child = self.ap.field(child_id)
-#         cdef CDenseUnionArray* dense
-#         if self.ap.mode() == _UnionMode_SPARSE:
-#             return box_scalar(self.type[child_id].type, child, i)
-#         else:
-#             dense = <CDenseUnionArray*> self.ap
-#             return box_scalar(self.type[child_id].type, child,
-#                               dense.value_offset(i))
-
-#     def as_py(self):
-#         """
-#         Return this value as a Python object.
-
-#         The exact type depends on the underlying union member.
-#         """
-#         return self.getitem(self.index).as_py()
-
-
-#     _Type_DURATION: DurationValue,
-#     _Type_SPARSE_UNION: UnionValue,
-#     _Type_DENSE_UNION: UnionValue,
-# }
+        return self.value
 
 
 cdef dict _scalar_classes = {
