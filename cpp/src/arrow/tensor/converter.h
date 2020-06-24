@@ -24,6 +24,9 @@
 namespace arrow {
 namespace internal {
 
+Status CheckSparseIndexMaximumValue(const std::shared_ptr<DataType>& index_value_type,
+                                    const std::vector<int64_t>& shape);
+
 Status MakeSparseCOOTensorFromTensor(const Tensor& tensor,
                                      const std::shared_ptr<DataType>& index_value_type,
                                      MemoryPool* pool,

@@ -603,8 +603,13 @@ INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt32, TestSparseCOOTensorForIndexValueType,
                                UInt32Type);
 INSTANTIATE_TYPED_TEST_SUITE_P(TestInt64, TestSparseCOOTensorForIndexValueType,
                                Int64Type);
-INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt64, TestSparseCOOTensorForIndexValueType,
-                               UInt64Type);
+
+TEST(TestSparseCOOTensorForUInt64Index, Make) {
+  std::vector<int64_t> dense_values = {1, 0,  2, 0,  0,  3, 0,  4, 5, 0,  6, 0,
+    0, 11, 0, 12, 13, 0, 14, 0, 0, 15, 0, 16};
+  Tensor dense_tensor(uint64(), Buffer::Wrap(dense_values), {2, 3, 4});
+  ASSERT_RAISES(Invalid, SparseCOOTensor::Make(dense_tensor, uint64()));
+}
 
 template <typename IndexValueType>
 class TestSparseCSRMatrixBase : public TestSparseTensorBase<Int64Type> {

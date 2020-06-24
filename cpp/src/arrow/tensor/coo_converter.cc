@@ -69,6 +69,42 @@ void AssignIndex(uint8_t* indices, int64_t val, const int elsize) {
   }
 }
 
+template <typename IndexValueType>
+Status CheckSparseIndexMaximumValue(const std::vector<int64_t>& shape) {
+  using c_index_value_type = typename IndexValueType::c_type;
+  constexpr int64_t type_max = static_cast<int64_t>(std::numeric_limits<c_index_value_type>::max());
+  auto greater_than_type_max = [&](int64_t x) { return x > type_max; };
+  if (std::any_of(shape.begin(), shape.end(), greater_than_type_max)) {
+    return Status::Invalid("The bit width of the index value type is too small");
+  }
+  return Status::OK();
+}
+
+template <>
+Status CheckSparseIndexMaximumValue<Int64Type>(const std::vector<int64_t>& shape) {
+  return Status::OK();
+}
+
+template <>
+Status CheckSparseIndexMaximumValue<UInt64Type>(const std::vector<int64_t>& shape) {
+  return Status::Invalid("UInt64Type cannot be used as IndexValueType of SparseIndex");
+}
+
+#define CALL_CHECK_MAXIMUM_VALUE(TYPE_CLASS) \
+  case TYPE_CLASS##Type::type_id:            \
+    return CheckSparseIndexMaximumValue<TYPE_CLASS##Type>(shape);
+
+Status CheckSparseIndexMaximumValue(const std::shared_ptr<DataType>& index_value_type,
+                                    const std::vector<int64_t>& shape) {
+  switch (index_value_type->id()) {
+    ARROW_GENERATE_FOR_ALL_INTEGER_TYPES(CALL_CHECK_MAXIMUM_VALUE);
+    default:
+      return Status::TypeError("Unsupported SparseTensor index value type");
+  }
+}
+
+#undef CALL_TYPE_SPECIFIC_CONVERT
+
 // ----------------------------------------------------------------------
 // SparseTensorConverter for SparseCOOIndex
 
@@ -80,6 +116,8 @@ class SparseCOOTensorConverter {
       : tensor_(tensor), index_value_type_(index_value_type), pool_(pool) {}
 
   Status Convert() {
+    RETURN_NOT_OK(CheckSparseIndexMaximumValue(index_value_type_, tensor_.shape()));
+
     const int index_elsize = checked_cast<const IntegerType&>(*index_value_type_).bit_width() / CHAR_BIT;
     const int value_elsize = checked_cast<const FixedWidthType&>(*tensor_.type()).bit_width() / CHAR_BIT;
 
