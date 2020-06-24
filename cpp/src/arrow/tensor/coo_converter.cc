@@ -189,7 +189,8 @@ class SparseCOOTensorConverter {
   MemoryPool* pool_;
 };
 
-template <typename TYPE>
+}  // namespace
+
 Status MakeSparseCOOTensorFromTensor(const Tensor& tensor,
                                      const std::shared_ptr<DataType>& index_value_type,
                                      MemoryPool* pool,
@@ -202,29 +203,6 @@ Status MakeSparseCOOTensorFromTensor(const Tensor& tensor,
   *out_data = converter.data;
   return Status::OK();
 }
-
-}  // namespace
-
-#define MAKE_SPARSE_TENSOR_FROM_TENSOR(TYPE_CLASS)          \
-  case TYPE_CLASS##Type::type_id:                           \
-    return MakeSparseCOOTensorFromTensor<TYPE_CLASS##Type>( \
-        tensor, index_value_type, pool, out_sparse_index, out_data);
-
-Status MakeSparseCOOTensorFromTensor(const Tensor& tensor,
-                                     const std::shared_ptr<DataType>& index_value_type,
-                                     MemoryPool* pool,
-                                     std::shared_ptr<SparseIndex>* out_sparse_index,
-                                     std::shared_ptr<Buffer>* out_data) {
-  switch (tensor.type()->id()) {
-    ARROW_GENERATE_FOR_ALL_NUMERIC_TYPES(MAKE_SPARSE_TENSOR_FROM_TENSOR);
-      // LCOV_EXCL_START: ignore program failure
-    default:
-      return Status::TypeError("Unsupported Tensor value type");
-      // LCOV_EXCL_STOP
-  }
-}
-
-#undef MAKE_SPARSE_TENSOR_FROM_TENSOR
 
 }  // namespace internal
 }  // namespace arrow
