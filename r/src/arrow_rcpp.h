@@ -34,10 +34,14 @@ struct symbols {
   static SEXP row_names;
   static SEXP arrow_serialize;
   static SEXP arrow_unserialize;
+  static SEXP as_list;
 };
 
 struct data {
   static SEXP classes_POSIXct;
+  static SEXP classes_metadata;
+  static SEXP classes_metadata_r;
+
   static SEXP names_metadata;
 };
 

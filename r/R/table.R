@@ -225,7 +225,7 @@ as.data.frame.Table <- function(x, row.names = NULL, optional = FALSE, ...) {
     for(name in names) {
       atts <- columns_metadata[[name]]
       if (!is.null(atts) && name %in% names(df)) {
-        attributes(df[[name]]) <- as.list(atts)
+        attributes(df[[name]]) <- atts
       }
     }
   }

@@ -27,12 +27,25 @@ SEXP symbols::inspect = Rf_install("inspect");
 SEXP symbols::row_names = Rf_install("row.names");
 SEXP symbols::arrow_serialize = Rf_install(".arrow_serialize");
 SEXP symbols::arrow_unserialize = Rf_install(".arrow_unserialize");
+SEXP symbols::as_list = Rf_install("as.list");
 
 SEXP get_classes_POSIXct() {
   SEXP classes = Rf_allocVector(STRSXP, 2);
   R_PreserveObject(classes);
   SET_STRING_ELT(classes, 0, Rf_mkChar("POSIXct"));
   SET_STRING_ELT(classes, 1, Rf_mkChar("POSIXt"));
+  return classes;
+}
+
+SEXP get_classes_metadata() {
+  SEXP classes = Rf_mkString("arrow:::metadata");
+  R_PreserveObject(classes);
+  return classes;
+}
+
+SEXP get_classes_metadata_r() {
+  SEXP classes = Rf_mkString("arrow:::metadata_r");
+  R_PreserveObject(classes);
   return classes;
 }
 
@@ -45,6 +58,8 @@ SEXP get_names_metadata() {
 }
 
 SEXP data::classes_POSIXct = get_classes_POSIXct();
+SEXP data::classes_metadata = get_classes_metadata();
+SEXP data::classes_metadata_r = get_classes_metadata_r();
 SEXP data::names_metadata = get_names_metadata();
 
 void inspect(SEXP obj) {

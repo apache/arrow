@@ -208,8 +208,11 @@ arrow::Status AddMetadataFromDots(SEXP lst, int num_fields,
 
     SEXP att = ATTRIB(x);
     if (att != R_NilValue) {
-      SET_VECTOR_ELT(metadata_columns, j, ATTRIB(x));
+      SEXP att_list_call = PROTECT(Rf_lang2(arrow::r::symbols::as_list, att));
+      SEXP att_list = PROTECT(Rf_eval(att_list_call, R_GlobalEnv));
+      SET_VECTOR_ELT(metadata_columns, j, att_list);
       has_metadata = true;
+      UNPROTECT(2);
     }
   };
 
