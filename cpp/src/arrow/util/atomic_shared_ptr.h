@@ -21,7 +21,7 @@
 #include <memory>
 #include <utility>
 
-#include "arrow/util/type_traits.h"
+#include "arrow/type_traits.h"
 
 namespace arrow {
 namespace internal {
@@ -31,45 +31,61 @@ namespace internal {
 // See https://gcc.gnu.org/bugzilla/show_bug.cgi?id=57250
 
 template <typename T, typename = void>
-struct IsAtomicLoadSharedPtrAvailable : std::false_type {};
+struct is_atomic_load_shared_ptr_available : std::false_type {};
 
 template <typename T>
-struct IsAtomicLoadSharedPtrAvailable<
+struct is_atomic_load_shared_ptr_available<
     T, void_t<decltype(std::atomic_load(std::declval<const std::shared_ptr<T>*>()))>>
     : std::true_type {};
 
+template <typename T>
+using enable_if_atomic_load_shared_ptr_available =
+    enable_if_t<is_atomic_load_shared_ptr_available<T>::value, T>;
+
+template <typename T>
+using enable_if_atomic_load_shared_ptr_unavailable =
+    enable_if_t<!is_atomic_load_shared_ptr_available<T>::value, T>;
+
 template <class T>
-inline typename std::enable_if<IsAtomicLoadSharedPtrAvailable<T>::value,
-                               std::shared_ptr<T>>::type
-atomic_load(const std::shared_ptr<T>* p) {
+inline enable_if_atomic_load_shared_ptr_available<std::shared_ptr<T>> atomic_load(
+    const std::shared_ptr<T>* p) {
   return std::atomic_load(p);
 }
 
 template <class T>
-inline typename std::enable_if<!IsAtomicLoadSharedPtrAvailable<T>::value,
-                               std::shared_ptr<T>>::type
-atomic_load(const std::shared_ptr<T>* p) {
+inline enable_if_atomic_load_shared_ptr_unavailable<std::shared_ptr<T>> atomic_load(
+    const std::shared_ptr<T>* p) {
   return *p;
 }
 
 template <typename T, typename = void>
-struct IsAtomicStoreSharedPtrAvailable : std::false_type {};
+struct is_atomic_store_shared_ptr_available : std::false_type {};
 
 template <typename T>
-struct IsAtomicStoreSharedPtrAvailable<
+struct is_atomic_store_shared_ptr_available<
     T, void_t<decltype(std::atomic_store(std::declval<std::shared_ptr<T>*>(),
                                          std::declval<std::shared_ptr<T>>()))>>
     : std::true_type {};
 
+template <typename T>
+using enable_if_atomic_store_shared_ptr_available =
+    enable_if_t<is_atomic_store_shared_ptr_available<T>::value, T>;
+
+template <typename T>
+using enable_if_atomic_store_shared_ptr_unavailable =
+    enable_if_t<!is_atomic_store_shared_ptr_available<T>::value, T>;
+
 template <class T>
-inline typename std::enable_if<IsAtomicLoadSharedPtrAvailable<T>::value, void>::type
-atomic_store(std::shared_ptr<T>* p, std::shared_ptr<T> r) {
+inline void atomic_store(
+    enable_if_atomic_store_shared_ptr_available<std::shared_ptr<T>*> p,
+    std::shared_ptr<T> r) {
   std::atomic_store(p, std::move(r));
 }
 
 template <class T>
-inline typename std::enable_if<!IsAtomicLoadSharedPtrAvailable<T>::value, void>::type
-atomic_store(std::shared_ptr<T>* p, std::shared_ptr<T> r) {
+inline void atomic_store(
+    enable_if_atomic_store_shared_ptr_unavailable<std::shared_ptr<T>*> p,
+    std::shared_ptr<T> r) {
   *p = r;
 }
 

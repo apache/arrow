@@ -41,14 +41,5 @@ template <typename T>
 struct is_null_pointer : std::is_same<std::nullptr_t, typename std::remove_cv<T>::type> {
 };
 
-template <typename... Ts>
-struct VoidTImpl {
-  using type = void;
-};
-
-/// \brief void_t from C++17
-template <typename... Ts>
-using void_t = typename VoidTImpl<Ts...>::type;
-
 }  // namespace internal
 }  // namespace arrow
