@@ -51,13 +51,9 @@ inline void IncrementIndex(std::vector<int64_t>& coord,
 // ----------------------------------------------------------------------
 // SparseTensorConverter for SparseCOOIndex
 
-template <typename TYPE>
 class SparseCOOTensorConverter {
  public:
-  using NumericTensorType = NumericTensor<TYPE>;
-  using value_type = typename NumericTensorType::value_type;
-
-  SparseCOOTensorConverter(const NumericTensorType& tensor,
+  SparseCOOTensorConverter(const Tensor& tensor,
                            const std::shared_ptr<DataType>& index_value_type,
                            MemoryPool* pool)
       : tensor_(tensor), index_value_type_(index_value_type), pool_(pool) {}
@@ -65,7 +61,10 @@ class SparseCOOTensorConverter {
   template <typename IndexValueType>
   Status Convert() {
     using c_index_value_type = typename IndexValueType::c_type;
-    const int64_t indices_elsize = sizeof(c_index_value_type);
+    const int indices_elsize = sizeof(c_index_value_type);
+
+    const auto& value_type = checked_cast<const FixedWidthType&>(*tensor_.type());
+    const int value_elsize = value_type.bit_width() / CHAR_BIT;
 
     const int64_t ndim = tensor_.ndim();
     ARROW_ASSIGN_OR_RAISE(int64_t nonzero_count, tensor_.CountNonZero());
@@ -76,31 +75,37 @@ class SparseCOOTensorConverter {
         reinterpret_cast<c_index_value_type*>(indices_buffer->mutable_data());
 
     ARROW_ASSIGN_OR_RAISE(auto values_buffer,
-                          AllocateBuffer(sizeof(value_type) * nonzero_count, pool_));
-    value_type* values = reinterpret_cast<value_type*>(values_buffer->mutable_data());
+                          AllocateBuffer(value_elsize * nonzero_count, pool_));
+    uint8_t* values = values_buffer->mutable_data();
 
+    auto nonzero_p = [](uint8_t x) { return x != 0; };
+    const uint8_t* tensor_data = tensor_.raw_data();
     if (ndim <= 1) {
-      const value_type* data = reinterpret_cast<const value_type*>(tensor_.raw_data());
       const int64_t count = ndim == 0 ? 1 : tensor_.shape()[0];
-      for (int64_t i = 0; i < count; ++i, ++data) {
-        if (*data != 0) {
+      for (int64_t i = 0; i < count; ++i) {
+        if (std::any_of(tensor_data, tensor_data + value_elsize, nonzero_p)) {
           *indices++ = static_cast<c_index_value_type>(i);
-          *values++ = *data;
+          std::copy_n(tensor_data, value_elsize, values);
+          values += value_elsize;
         }
+        tensor_data += value_elsize;
       }
     } else {
       const std::vector<int64_t>& shape = tensor_.shape();
       std::vector<int64_t> coord(ndim, 0);  // The current logical coordinates
 
       for (int64_t n = tensor_.size(); n > 0; n--) {
-        const value_type x = tensor_.Value(coord);
-        if (tensor_.Value(coord) != 0) {
-          *values++ = x;
+        int64_t offset = tensor_.CalculateValueOffset(coord);
+        if (std::any_of(tensor_data + offset, tensor_data + offset + value_elsize, nonzero_p)) {
+          std::copy_n(tensor_data + offset, value_elsize, values);
+          values += value_elsize;
+
           // Write indices in row-major order.
           for (int64_t i = 0; i < ndim; ++i) {
             *indices++ = static_cast<c_index_value_type>(coord[i]);
           }
         }
+
         IncrementIndex(coord, shape);
       }
     }
@@ -135,7 +140,7 @@ class SparseCOOTensorConverter {
   std::shared_ptr<Buffer> data;
 
  private:
-  const NumericTensorType& tensor_;
+  const Tensor& tensor_;
   const std::shared_ptr<DataType>& index_value_type_;
   MemoryPool* pool_;
 };
@@ -146,8 +151,7 @@ Status MakeSparseCOOTensorFromTensor(const Tensor& tensor,
                                      MemoryPool* pool,
                                      std::shared_ptr<SparseIndex>* out_sparse_index,
                                      std::shared_ptr<Buffer>* out_data) {
-  NumericTensor<TYPE> numeric_tensor(tensor.data(), tensor.shape(), tensor.strides());
-  SparseCOOTensorConverter<TYPE> converter(numeric_tensor, index_value_type, pool);
+  SparseCOOTensorConverter converter(tensor, index_value_type, pool);
   RETURN_NOT_OK(converter.Convert());
 
   *out_sparse_index = checked_pointer_cast<SparseIndex>(converter.sparse_index);
