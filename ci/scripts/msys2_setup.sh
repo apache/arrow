@@ -41,6 +41,7 @@ case "${target}" in
     packages+=(${MINGW_PACKAGE_PREFIX}-rapidjson)
     packages+=(${MINGW_PACKAGE_PREFIX}-snappy)
     packages+=(${MINGW_PACKAGE_PREFIX}-thrift)
+    packages+=(${MINGW_PACKAGE_PREFIX}-libutf8proc)
     packages+=(${MINGW_PACKAGE_PREFIX}-zlib)
     packages+=(${MINGW_PACKAGE_PREFIX}-zstd)
   ;;

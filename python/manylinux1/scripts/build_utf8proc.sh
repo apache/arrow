@@ -1,3 +1,4 @@
+#!/bin/bash -ex
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,27 +16,23 @@
 # specific language governing permissions and limitations
 # under the License.
 
-aws-sdk-cpp
-benchmark=1.4.1
-boost-cpp>=1.68.0
-brotli
-bzip2
-c-ares
-cmake
-gflags
-glog
-gmock>=1.8.1
-grpc-cpp>=1.21.4
-gtest=1.8.1
-libprotobuf
-libutf8proc
-lz4-c
-make
-ninja
-pkg-config
-python
-rapidjson
-snappy
-thrift-cpp>=0.11.0
-zlib
-zstd
+NCORES=$(($(grep -c ^processor /proc/cpuinfo) + 1))
+export UTF8PROC_VERSION="2.5.0"
+export PREFIX="/usr/local"
+
+curl -sL "https://github.com/JuliaStrings/utf8proc/archive/v${UTF8PROC_VERSION}.tar.gz" -o utf8proc-$UTF8PROC_VERSION}.tar.gz
+tar xf utf8proc-$UTF8PROC_VERSION}.tar.gz
+
+pushd utf8proc-${UTF8PROC_VERSION}
+mkdir build
+pushd build
+cmake .. -GNinja \
+  -DBUILD_SHARED_LIBS=OFF \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_INSTALL_PREFIX=${PREFIX}
+
+ninja install
+popd
+popd
+
+rm -rf utf8proc-${UTF8PROC_VERSION}.tar.gz utf8proc-${UTF8PROC_VERSION}

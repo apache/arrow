@@ -702,6 +702,12 @@ if(ARROW_S3)
   list(APPEND ARROW_LINK_LIBS ${AWSSDK_LINK_LIBRARIES})
 endif()
 
+if(ARROW_WITH_UTF8PROC)
+  list(APPEND ARROW_LINK_LIBS utf8proc::utf8proc)
+  list(APPEND ARROW_STATIC_LINK_LIBS utf8proc::utf8proc)
+  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS utf8proc::utf8proc)
+endif()
+
 add_custom_target(arrow_dependencies)
 add_custom_target(arrow_benchmark_dependencies)
 add_custom_target(arrow_test_dependencies)

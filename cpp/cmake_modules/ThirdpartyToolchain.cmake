@@ -58,6 +58,7 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     RapidJSON
     Snappy
     Thrift
+    utf8proc
     ZLIB
     ZSTD)
 
@@ -135,6 +136,8 @@ macro(build_dependency DEPENDENCY_NAME)
     build_re2()
   elseif("${DEPENDENCY_NAME}" STREQUAL "Thrift")
     build_thrift()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "utf8proc")
+    build_utf8proc()
   elseif("${DEPENDENCY_NAME}" STREQUAL "ZLIB")
     build_zlib()
   elseif("${DEPENDENCY_NAME}" STREQUAL "ZSTD")
@@ -208,6 +211,10 @@ endif()
 
 if(ARROW_ORC OR ARROW_FLIGHT OR ARROW_GANDIVA)
   set(ARROW_WITH_PROTOBUF ON)
+endif()
+
+if(ARROW_COMPUTE)
+  set(ARROW_WITH_UTF8PROC ON)
 endif()
 
 # ----------------------------------------------------------------------
@@ -483,13 +490,22 @@ else()
     )
 endif()
 
-if(DEFINED ENV{BZIP2_SOURCE_URL})
-  set(BZIP2_SOURCE_URL "$ENV{BZIP2_SOURCE_URL}")
+if(DEFINED ENV{ARROW_BZIP2_SOURCE_URL})
+  set(ARROW_BZIP2_SOURCE_URL "$ENV{ARROW_BZIP2_SOURCE_URL}")
 else()
   set_urls(
-    BZIP2_SOURCE_URL
+    ARROW_BZIP2_SOURCE_URL
     "https://sourceware.org/pub/bzip2/bzip2-${ARROW_BZIP2_BUILD_VERSION}.tar.gz"
     "https://github.com/ursa-labs/thirdparty/releases/download/latest/bzip2-${ARROW_BZIP2_BUILD_VERSION}.tar.gz"
+    )
+endif()
+
+if(DEFINED ENV{ARROW_UTF8PROC_SOURCE_URL})
+  set(ARROW_UTF8PROC_SOURCE_URL "$ENV{ARROW_UTF8PROC_SOURCE_URL}")
+else()
+  set_urls(
+    ARROW_UTF8PROC_SOURCE_URL
+    "https://github.com/JuliaStrings/utf8proc/archive/${ARROW_UTF8PROC_BUILD_VERSION}.tar.gz"
     )
 endif()
 
@@ -1986,7 +2002,7 @@ macro(build_bzip2)
                       INSTALL_COMMAND ${MAKE} install PREFIX=${BZIP2_PREFIX}
                                       ${BZIP2_EXTRA_ARGS}
                       INSTALL_DIR ${BZIP2_PREFIX}
-                      URL ${BZIP2_SOURCE_URL}
+                      URL ${ARROW_BZIP2_SOURCE_URL}
                       BUILD_BYPRODUCTS "${BZIP2_STATIC_LIB}")
 
   file(MAKE_DIRECTORY "${BZIP2_PREFIX}/include")
@@ -2011,6 +2027,64 @@ if(ARROW_WITH_BZ2)
                                      INTERFACE_INCLUDE_DIRECTORIES "${BZIP2_INCLUDE_DIR}")
   endif()
   include_directories(SYSTEM "${BZIP2_INCLUDE_DIR}")
+endif()
+
+macro(build_utf8proc)
+  message(STATUS "Building utf8proc from source")
+  set(UTF8PROC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/utf8proc_ep-install")
+  if(MSVC)
+    set(UTF8PROC_STATIC_LIB "${UTF8PROC_PREFIX}/lib/utf8proc_static.lib")
+  else()
+    set(
+      UTF8PROC_STATIC_LIB
+      "${UTF8PROC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}utf8proc${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      )
+  endif()
+
+  set(UTF8PROC_CMAKE_ARGS
+      ${EP_COMMON_TOOLCHAIN}
+      "-DCMAKE_INSTALL_PREFIX=${UTF8PROC_PREFIX}"
+      -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+      -DCMAKE_INSTALL_LIBDIR=lib
+      -DDBUILD_SHARED_LIBS=OFF)
+
+  externalproject_add(utf8proc_ep
+                      ${EP_LOG_OPTIONS}
+                      CMAKE_ARGS ${UTF8PROC_CMAKE_ARGS}
+                      INSTALL_DIR ${UTF8PROC_PREFIX}
+                      URL ${ARROW_UTF8PROC_SOURCE_URL}
+                      BUILD_BYPRODUCTS "${UTF8PROC_STATIC_LIB}")
+
+  file(MAKE_DIRECTORY "${UTF8PROC_PREFIX}/include")
+  add_library(utf8proc::utf8proc STATIC IMPORTED)
+  set_target_properties(utf8proc::utf8proc
+                        PROPERTIES IMPORTED_LOCATION
+                                   "${UTF8PROC_STATIC_LIB}"
+                                   INTERFACE_COMPILER_DEFINITIONS
+                                   "UTF8PROC_STATIC"
+                                   INTERFACE_INCLUDE_DIRECTORIES
+                                   "${UTF8PROC_PREFIX}/include")
+
+  add_dependencies(toolchain utf8proc_ep)
+  add_dependencies(utf8proc::utf8proc utf8proc_ep)
+endmacro()
+
+if(ARROW_WITH_UTF8PROC)
+  resolve_dependency(utf8proc)
+
+  # TODO: Don't use global definitions but rather
+  # target_compile_definitions or target_link_libraries
+  get_target_property(UTF8PROC_COMPILER_DEFINITIONS utf8proc::utf8proc
+                      INTERFACE_COMPILER_DEFINITIONS)
+  if(UTF8PROC_COMPILER_DEFINITIONS)
+    add_definitions(-D${UTF8PROC_COMPILER_DEFINITIONS})
+  endif()
+
+  # TODO: Don't use global includes but rather
+  # target_include_directories or target_link_libraries
+  get_target_property(UTF8PROC_INCLUDE_DIR utf8proc::utf8proc
+                      INTERFACE_INCLUDE_DIRECTORIES)
+  include_directories(SYSTEM ${UTF8PROC_INCLUDE_DIR})
 endif()
 
 macro(build_cares)

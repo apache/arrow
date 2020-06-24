@@ -123,6 +123,7 @@ cmake -G "${CMAKE_GENERATOR:-Ninja}" \
       -DRE2_SOURCE=${RE2_SOURCE:-} \
       -DSnappy_SOURCE=${Snappy_SOURCE:-} \
       -DThrift_SOURCE=${Thrift_SOURCE:-} \
+      -Dutf8proc_SOURCE=${utf8proc_SOURCE:-} \
       -DZSTD_SOURCE=${ZSTD_SOURCE:-} \
       ${CMAKE_ARGS} \
       ${source_dir}

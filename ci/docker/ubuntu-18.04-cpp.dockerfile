@@ -78,6 +78,7 @@ RUN apt-get update -y -q && \
         libre2-dev \
         libsnappy-dev \
         libssl-dev \
+        libutf8proc-dev \
         libzstd-dev \
         ninja-build \
         pkg-config \

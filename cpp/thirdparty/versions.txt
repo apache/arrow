@@ -47,6 +47,7 @@ ARROW_RE2_BUILD_VERSION=2019-08-01
 ARROW_SNAPPY_BUILD_VERSION=1.1.8
 ARROW_THRIFT_BUILD_VERSION=0.12.0
 ARROW_THRIFT_BUILD_MD5_CHECKSUM=3deebbb4d1ca77dd9c9e009a1ea02183
+ARROW_UTF8PROC_BUILD_VERSION=v2.5.0
 ARROW_ZLIB_BUILD_VERSION=1.2.11
 ARROW_ZSTD_BUILD_VERSION=v1.4.5
 
@@ -75,6 +76,7 @@ DEPENDENCIES=(
   "ARROW_RE2_URL re2-${ARROW_RE2_BUILD_VERSION}.tar.gz https://github.com/google/re2/archive/${ARROW_RE2_BUILD_VERSION}.tar.gz"
   "ARROW_SNAPPY_URL snappy-${ARROW_SNAPPY_BUILD_VERSION}.tar.gz https://github.com/google/snappy/archive/${ARROW_SNAPPY_BUILD_VERSION}.tar.gz"
   "ARROW_THRIFT_URL thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz https://archive.apache.org/dist/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
+  "ARROW_UTF8PROC_URL utf8proc-${ARROW_UTF8PROC_BUILD_VERSION}.tar.gz https://github.com/JuliaStrings/utf8proc/archive/${ARROW_UTF8PROC_BUILD_VERSION}.tar.gz"
   "ARROW_ZLIB_URL zlib-${ARROW_ZLIB_BUILD_VERSION}.tar.gz https://zlib.net/fossils/zlib-${ARROW_ZLIB_BUILD_VERSION}.tar.gz"
   "ARROW_ZSTD_URL zstd-${ARROW_ZSTD_BUILD_VERSION}.tar.gz https://github.com/facebook/zstd/archive/${ARROW_ZSTD_BUILD_VERSION}.tar.gz"
 )

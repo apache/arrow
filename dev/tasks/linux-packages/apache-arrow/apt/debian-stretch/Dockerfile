@@ -70,6 +70,7 @@ RUN \
     libre2-dev \
     libsnappy-dev \
     libssl-dev \
+    libutf8proc-dev \
     libzstd-dev \
     lsb-release \
     ninja-build \

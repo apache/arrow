@@ -45,7 +45,7 @@
 %define use_meson (%{_centos_ver} >= 8)
 
 %define have_rapidjson (%{_centos_ver} == 7)
-%define have_zstd (%{_centos_ver} < 8)
+%define have_utf8proc (%{_centos_ver} == 7)
 
 Name:		@PACKAGE@
 Version:	@VERSION@
@@ -71,9 +71,7 @@ BuildRequires:	git
 %if %{_centos_ver} >= 7
 BuildRequires:	glog-devel
 %endif
-%if %{have_zstd}
 BuildRequires:	libzstd-devel
-%endif
 BuildRequires:	lz4-devel
 BuildRequires:	pkgconfig
 BuildRequires:	python%{python_version}-devel
@@ -85,6 +83,9 @@ BuildRequires:	rapidjson-devel
 BuildRequires:	re2-devel
 %endif
 BuildRequires:	snappy-devel
+%if %{have_utf8proc}
+BuildRequires:	utf8proc-devel
+%endif
 BuildRequires:	zlib-devel
 
 %if %{use_flight}
@@ -223,14 +224,15 @@ Requires:	brotli
 Requires:	gflags
 Requires:	glog
 %endif
-%if %{have_zstd}
 Requires:	libzstd
-%endif
 Requires:	lz4
 %if %{_centos_ver} >= 8
 Requires:	re2
 %endif
 Requires:	snappy
+%if %{have_utf8proc}
+Requires:	utf8proc
+%endif
 Requires:	zlib
 
 %description libs
