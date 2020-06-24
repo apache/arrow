@@ -105,16 +105,9 @@ class PlainEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
                  int64_t valid_bits_offset) override {
     PARQUET_ASSIGN_OR_THROW(
         auto buffer, arrow::AllocateBuffer(num_values * sizeof(T), this->memory_pool()));
-    int32_t num_valid_values = 0;
-    arrow::internal::BitmapReader valid_bits_reader(valid_bits, valid_bits_offset,
-                                                    num_values);
     T* data = reinterpret_cast<T*>(buffer->mutable_data());
-    for (int32_t i = 0; i < num_values; i++) {
-      if (valid_bits_reader.IsSet()) {
-        data[num_valid_values++] = src[i];
-      }
-      valid_bits_reader.Next();
-    }
+    int num_valid_values = arrow::util::internal::SpacedCompress<T>(
+        src, num_values, valid_bits, valid_bits_offset, data);
     Put(data, num_valid_values);
   }
 
@@ -305,16 +298,9 @@ class PlainEncoder<BooleanType> : public EncoderImpl, virtual public BooleanEnco
                  int64_t valid_bits_offset) override {
     PARQUET_ASSIGN_OR_THROW(
         auto buffer, arrow::AllocateBuffer(num_values * sizeof(T), this->memory_pool()));
-    int32_t num_valid_values = 0;
-    arrow::internal::BitmapReader valid_bits_reader(valid_bits, valid_bits_offset,
-                                                    num_values);
     T* data = reinterpret_cast<T*>(buffer->mutable_data());
-    for (int32_t i = 0; i < num_values; i++) {
-      if (valid_bits_reader.IsSet()) {
-        data[num_valid_values++] = src[i];
-      }
-      valid_bits_reader.Next();
-    }
+    int num_valid_values = arrow::util::internal::SpacedCompress<T>(
+        src, num_values, valid_bits, valid_bits_offset, data);
     Put(data, num_valid_values);
   }
 
@@ -897,16 +883,9 @@ void ByteStreamSplitEncoder<DType>::PutSpaced(const T* src, int num_values,
                                               int64_t valid_bits_offset) {
   PARQUET_ASSIGN_OR_THROW(
       auto buffer, arrow::AllocateBuffer(num_values * sizeof(T), this->memory_pool()));
-  int32_t num_valid_values = 0;
-  arrow::internal::BitmapReader valid_bits_reader(valid_bits, valid_bits_offset,
-                                                  num_values);
   T* data = reinterpret_cast<T*>(buffer->mutable_data());
-  for (int32_t i = 0; i < num_values; i++) {
-    if (valid_bits_reader.IsSet()) {
-      data[num_valid_values++] = src[i];
-    }
-    valid_bits_reader.Next();
-  }
+  int num_valid_values = arrow::util::internal::SpacedCompress<T>(
+      src, num_values, valid_bits, valid_bits_offset, data);
   Put(data, num_valid_values);
 }
 
