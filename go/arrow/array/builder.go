@@ -208,7 +208,7 @@ func (b *builder) UnsafeAppendBoolToBitmap(isValid bool) {
 	b.length++
 }
 
-func newBuilder(mem memory.Allocator, dtype arrow.DataType) Builder {
+func NewBuilder(mem memory.Allocator, dtype arrow.DataType) Builder {
 	// FIXME(sbinet): use a type switch on dtype instead?
 	switch dtype.ID() {
 	case arrow.NULL:
