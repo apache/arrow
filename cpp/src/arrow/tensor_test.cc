@@ -34,8 +34,7 @@
 namespace arrow {
 
 void AssertCountNonZero(const Tensor& t, int64_t expected) {
-  int64_t count = -1;
-  ASSERT_OK(t.CountNonZero(&count));
+  ASSERT_OK_AND_ASSIGN(int64_t count, t.CountNonZero());
   ASSERT_EQ(count, expected);
 }
 

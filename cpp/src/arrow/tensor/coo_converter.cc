@@ -68,8 +68,7 @@ class SparseCOOTensorConverter {
     const int64_t indices_elsize = sizeof(c_index_value_type);
 
     const int64_t ndim = tensor_.ndim();
-    int64_t nonzero_count = -1;
-    RETURN_NOT_OK(tensor_.CountNonZero(&nonzero_count));
+    ARROW_ASSIGN_OR_RAISE(int64_t nonzero_count, tensor_.CountNonZero());
 
     ARROW_ASSIGN_OR_RAISE(auto indices_buffer,
                           AllocateBuffer(indices_elsize * ndim * nonzero_count, pool_));

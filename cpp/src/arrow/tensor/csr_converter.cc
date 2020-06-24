@@ -64,8 +64,7 @@ class SparseCSRMatrixConverter {
 
     const int64_t nr = tensor_.shape()[0];
     const int64_t nc = tensor_.shape()[1];
-    int64_t nonzero_count = -1;
-    RETURN_NOT_OK(tensor_.CountNonZero(&nonzero_count));
+    ARROW_ASSIGN_OR_RAISE(int64_t nonzero_count, tensor_.CountNonZero());
 
     std::shared_ptr<Buffer> indptr_buffer;
     std::shared_ptr<Buffer> indices_buffer;

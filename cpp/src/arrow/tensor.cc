@@ -254,12 +254,11 @@ inline int64_t TensorCountNonZero(const Tensor& tensor) {
 }
 
 struct NonZeroCounter {
-  NonZeroCounter(const Tensor& tensor, int64_t* result)
-      : tensor_(tensor), result_(result) {}
+  explicit NonZeroCounter(const Tensor& tensor) : tensor_(tensor) {}
 
   template <typename TYPE>
   enable_if_number<TYPE, Status> Visit(const TYPE& type) {
-    *result_ = TensorCountNonZero<TYPE>(tensor_);
+    result = TensorCountNonZero<TYPE>(tensor_);
     return Status::OK();
   }
 
@@ -269,14 +268,15 @@ struct NonZeroCounter {
   }
 
   const Tensor& tensor_;
-  int64_t* result_;
+  int64_t result;
 };
 
 }  // namespace
 
-Status Tensor::CountNonZero(int64_t* result) const {
-  NonZeroCounter counter(*this, result);
-  return VisitTypeInline(*type(), &counter);
+Result<int64_t> Tensor::CountNonZero() const {
+  NonZeroCounter counter(*this);
+  RETURN_NOT_OK(VisitTypeInline(*type(), &counter));
+  return counter.result;
 }
 
 }  // namespace arrow

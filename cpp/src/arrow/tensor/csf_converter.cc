@@ -77,8 +77,7 @@ class SparseCSFTensorConverter {
     // Axis order as ascending order of dimension size is a good heuristic but is not
     // necessarily optimal.
     std::vector<int64_t> axis_order = internal::ArgSort(tensor_.shape());
-    int64_t nonzero_count = -1;
-    RETURN_NOT_OK(tensor_.CountNonZero(&nonzero_count));
+    ARROW_ASSIGN_OR_RAISE(int64_t nonzero_count, tensor_.CountNonZero());
 
     ARROW_ASSIGN_OR_RAISE(auto values_buffer,
                           AllocateBuffer(sizeof(value_type) * nonzero_count, pool_));

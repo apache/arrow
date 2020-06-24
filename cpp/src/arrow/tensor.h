@@ -140,7 +140,11 @@ class ARROW_EXPORT Tensor {
   bool Equals(const Tensor& other, const EqualOptions& = EqualOptions::Defaults()) const;
 
   /// Compute the number of non-zero values in the tensor
-  Status CountNonZero(int64_t* result) const;
+  Result<int64_t> CountNonZero() const;
+
+  /// Compute the number of non-zero values in the tensor
+  ARROW_DEPRECATED("Use Result-returning version")
+  Status CountNonZero(int64_t* result) const { return CountNonZero().Value(result); }
 
   /// Return the offset of the given index on the given strides
   static int64_t CalculateValueOffset(const std::vector<int64_t>& strides,
