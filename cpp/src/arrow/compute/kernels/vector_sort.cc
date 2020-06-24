@@ -33,7 +33,7 @@ namespace {
 // partition_indices implementation
 
 // We need to preserve the options
-using PartitionIndicesState = OptionsWrapper<PartitionOptions>;
+using PartitionIndicesState = internal::OptionsWrapper<PartitionOptions>;
 
 Status GetPhysicalView(const std::shared_ptr<ArrayData>& arr,
                        const std::shared_ptr<DataType>& type,
