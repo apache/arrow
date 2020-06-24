@@ -75,6 +75,10 @@ class TestPartitioning : public ::testing::Test {
     return field(std::move(name), utf8());
   }
 
+  static std::shared_ptr<Field> Dict(std::string name) {
+    return field(std::move(name), dictionary(int8(), utf8()));
+  }
+
   std::shared_ptr<Partitioning> partitioning_;
   std::shared_ptr<PartitioningFactory> factory_;
 };
@@ -139,6 +143,23 @@ TEST_F(TestPartitioning, DiscoverSchema) {
   AssertInspect({"/0/1", "/hello"}, {Str("alpha"), Int("beta")});
 }
 
+TEST_F(TestPartitioning, DictionaryInference) {
+  PartitioningFactoryOptions options;
+  options.max_partition_dictionary_size = 2;
+  factory_ = DirectoryPartitioning::MakeFactory({"alpha", "beta"}, options);
+
+  // type is still int32 if possible
+  AssertInspect({"/0/1"}, {Int("alpha"), Int("beta")});
+
+  // successful dictionary inference
+  AssertInspect({"/a/0"}, {Dict("alpha"), Int("beta")});
+  AssertInspect({"/a/0", "/a/1"}, {Dict("alpha"), Int("beta")});
+  AssertInspect({"/a/0", "/b/0", "/a/1", "/b/1"}, {Dict("alpha"), Int("beta")});
+
+  // fall back to string if max dictionary size is exceeded
+  AssertInspect({"/a/0", "/b/0", "/c/1", "/d/1"}, {Str("alpha"), Int("beta")});
+}
+
 TEST_F(TestPartitioning, DiscoverSchemaSegfault) {
   // ARROW-7638
   factory_ = DirectoryPartitioning::MakeFactory({"alpha", "beta"});
@@ -183,6 +204,27 @@ TEST_F(TestPartitioning, DiscoverHiveSchema) {
   // missing path segments will not cause an error
   AssertInspect({"/alpha=0/beta=1", "/beta=2/alpha=3", "/gamma=what"},
                 {Int("alpha"), Int("beta"), Str("gamma")});
+}
+
+TEST_F(TestPartitioning, HiveDictionaryInference) {
+  PartitioningFactoryOptions options;
+  options.max_partition_dictionary_size = 2;
+  factory_ = HivePartitioning::MakeFactory(options);
+
+  // type is still int32 if possible
+  AssertInspect({"/alpha=0/beta=1"}, {Int("alpha"), Int("beta")});
+
+  // successful dictionary inference
+  AssertInspect({"/alpha=a/beta=0"}, {Dict("alpha"), Int("beta")});
+  AssertInspect({"/alpha=a/beta=0", "/alpha=a/1"}, {Dict("alpha"), Int("beta")});
+  AssertInspect(
+      {"/alpha=a/beta=0", "/alpha=b/beta=0", "/alpha=a/beta=1", "/alpha=b/beta=1"},
+      {Dict("alpha"), Int("beta")});
+
+  // fall back to string if max dictionary size is exceeded
+  AssertInspect(
+      {"/alpha=a/beta=0", "/alpha=b/beta=0", "/alpha=c/beta=1", "/alpha=d/beta=1"},
+      {Str("alpha"), Int("beta")});
 }
 
 TEST_F(TestPartitioning, EtlThenHive) {

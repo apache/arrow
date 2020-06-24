@@ -1172,7 +1172,7 @@ cdef class DirectoryPartitioning(Partitioning):
         self.directory_partitioning = <CDirectoryPartitioning*> sp.get()
 
     @staticmethod
-    def discover(field_names):
+    def discover(field_names, object max_partition_dictionary_size = 0):
         """
         Discover a DirectoryPartitioning.
 
@@ -1180,6 +1180,11 @@ cdef class DirectoryPartitioning(Partitioning):
         ----------
         field_names : list of str
             The names to associate with the values from the subdirectory names.
+        max_partition_dictionary_size : int or None, default 0
+            The maximum number of unique values to consider for dictionary
+            encoding. By default no field will be inferred as dictionary
+            encoded. If None is provided dictionary encoding will be used for
+            every string field.
 
         Returns
         -------
@@ -1187,12 +1192,18 @@ cdef class DirectoryPartitioning(Partitioning):
             To be used in the FileSystemFactoryOptions.
         """
         cdef:
-            PartitioningFactory factory
+            CPartitioningFactoryOptions options
             vector[c_string] c_field_names
+
+        if max_partition_dictionary_size is None:
+            max_partition_dictionary_size = -1
+
+        options.max_partition_dictionary_size = \
+            int(max_partition_dictionary_size)
+
         c_field_names = [tobytes(s) for s in field_names]
-        factory = PartitioningFactory.wrap(
-            CDirectoryPartitioning.MakeFactory(c_field_names))
-        return factory
+        return PartitioningFactory.wrap(
+            CDirectoryPartitioning.MakeFactory(c_field_names, options))
 
 
 cdef class HivePartitioning(Partitioning):
@@ -1243,9 +1254,17 @@ cdef class HivePartitioning(Partitioning):
         self.hive_partitioning = <CHivePartitioning*> sp.get()
 
     @staticmethod
-    def discover():
+    def discover(object max_partition_dictionary_size = 0):
         """
         Discover a HivePartitioning.
+
+        Params
+        ------
+        max_partition_dictionary_size : int or None, default 0
+            The maximum number of unique values to consider for dictionary
+            encoding. By default no field will be inferred as dictionary
+            encoded. If -1 is provided dictionary encoding will be used for
+            every string field.
 
         Returns
         -------
@@ -1253,10 +1272,16 @@ cdef class HivePartitioning(Partitioning):
             To be used in the FileSystemFactoryOptions.
         """
         cdef:
-            PartitioningFactory factory
-        factory = PartitioningFactory.wrap(
-            CHivePartitioning.MakeFactory())
-        return factory
+            CPartitioningFactoryOptions options
+
+        if max_partition_dictionary_size is None:
+            max_partition_dictionary_size = -1
+
+        options.max_partition_dictionary_size = \
+            int(max_partition_dictionary_size)
+
+        return PartitioningFactory.wrap(
+            CHivePartitioning.MakeFactory(options))
 
 
 cdef class DatasetFactory:

@@ -202,8 +202,12 @@ Result<std::string> DirectoryPartitioning::FormatKey(const Key& key, int i) cons
 
 class KeyValuePartitioningInspectImpl {
  public:
+  explicit KeyValuePartitioningInspectImpl(const PartitioningFactoryOptions& options)
+      : options_(options) {}
+
   static Result<std::shared_ptr<DataType>> InferType(
-      const std::string& name, const std::vector<std::string>& reprs) {
+      const std::string& name, const std::unordered_set<std::string>& reprs,
+      int max_partition_dictionary_size) {
     if (reprs.empty()) {
       return Status::Invalid("No segments were available for field '", name,
                              "'; couldn't infer type");
@@ -218,7 +222,25 @@ class KeyValuePartitioningInspectImpl {
       return int32();
     }
 
-    return utf8();
+    static_assert(static_cast<size_t>(-1) > 100, "");
+
+    if (reprs.size() > static_cast<size_t>(max_partition_dictionary_size)) {
+      return utf8();
+    }
+
+    auto int8_max = static_cast<size_t>(std::numeric_limits<int8_t>::max()) + 1;
+    auto int16_max = static_cast<size_t>(std::numeric_limits<int16_t>::max()) + 1;
+    auto int32_max = static_cast<size_t>(std::numeric_limits<int32_t>::max()) + 1;
+
+    if (reprs.size() <= int8_max) {
+      return dictionary(int8(), utf8());
+    } else if (reprs.size() <= int16_max) {
+      return dictionary(int16(), utf8());
+    } else if (reprs.size() <= int32_max) {
+      return dictionary(int32(), utf8());
+    } else {
+      return dictionary(int64(), utf8());
+    }
   }
 
   int GetOrInsertField(const std::string& name) {
@@ -235,9 +257,7 @@ class KeyValuePartitioningInspectImpl {
     InsertRepr(GetOrInsertField(name), std::move(repr));
   }
 
-  void InsertRepr(int index, std::string repr) {
-    values_[index].push_back(std::move(repr));
-  }
+  void InsertRepr(int index, std::string repr) { values_[index].insert(std::move(repr)); }
 
   Result<std::shared_ptr<Schema>> Finish() {
     std::vector<std::shared_ptr<Field>> fields(name_to_index_.size());
@@ -245,7 +265,8 @@ class KeyValuePartitioningInspectImpl {
     for (const auto& name_index : name_to_index_) {
       const auto& name = name_index.first;
       auto index = name_index.second;
-      ARROW_ASSIGN_OR_RAISE(auto type, InferType(name, values_[index]));
+      ARROW_ASSIGN_OR_RAISE(auto type, InferType(name, values_[index],
+                                                 options_.max_partition_dictionary_size));
       fields[index] = field(name, type);
     }
 
@@ -254,19 +275,21 @@ class KeyValuePartitioningInspectImpl {
 
  private:
   std::unordered_map<std::string, int> name_to_index_;
-  std::vector<std::vector<std::string>> values_;
+  std::vector<std::unordered_set<std::string>> values_;
+  const PartitioningFactoryOptions& options_;
 };
 
 class DirectoryPartitioningFactory : public PartitioningFactory {
  public:
-  explicit DirectoryPartitioningFactory(std::vector<std::string> field_names)
-      : field_names_(std::move(field_names)) {}
+  DirectoryPartitioningFactory(std::vector<std::string> field_names,
+                               PartitioningFactoryOptions options)
+      : field_names_(std::move(field_names)), options_(options) {}
 
   std::string type_name() const override { return "schema"; }
 
   Result<std::shared_ptr<Schema>> Inspect(
       const std::vector<std::string>& paths) const override {
-    KeyValuePartitioningInspectImpl impl;
+    KeyValuePartitioningInspectImpl impl(options_);
 
     for (const auto& name : field_names_) {
       impl.GetOrInsertField(name);
@@ -308,6 +331,7 @@ class DirectoryPartitioningFactory : public PartitioningFactory {
 
  private:
   std::vector<std::string> field_names_;
+  PartitioningFactoryOptions options_;
 };
 
 struct DirectoryPartitioningFactory::MakeWritePlanImpl {
@@ -550,9 +574,9 @@ Result<WritePlan> DirectoryPartitioningFactory::MakeWritePlan(
 }
 
 std::shared_ptr<PartitioningFactory> DirectoryPartitioning::MakeFactory(
-    std::vector<std::string> field_names) {
+    std::vector<std::string> field_names, PartitioningFactoryOptions options) {
   return std::shared_ptr<PartitioningFactory>(
-      new DirectoryPartitioningFactory(std::move(field_names)));
+      new DirectoryPartitioningFactory(std::move(field_names), options));
 }
 
 util::optional<KeyValuePartitioning::Key> HivePartitioning::ParseKey(
@@ -571,11 +595,14 @@ Result<std::string> HivePartitioning::FormatKey(const Key& key, int i) const {
 
 class HivePartitioningFactory : public PartitioningFactory {
  public:
+  explicit HivePartitioningFactory(PartitioningFactoryOptions options)
+      : options_(options) {}
+
   std::string type_name() const override { return "hive"; }
 
   Result<std::shared_ptr<Schema>> Inspect(
       const std::vector<std::string>& paths) const override {
-    KeyValuePartitioningInspectImpl impl;
+    KeyValuePartitioningInspectImpl impl(options_);
 
     for (auto path : paths) {
       for (auto&& segment : fs::internal::SplitAbstractPath(path)) {
@@ -592,10 +619,14 @@ class HivePartitioningFactory : public PartitioningFactory {
       const std::shared_ptr<Schema>& schema) const override {
     return std::shared_ptr<Partitioning>(new HivePartitioning(schema));
   }
+
+ private:
+  PartitioningFactoryOptions options_;
 };
 
-std::shared_ptr<PartitioningFactory> HivePartitioning::MakeFactory() {
-  return std::shared_ptr<PartitioningFactory>(new HivePartitioningFactory());
+std::shared_ptr<PartitioningFactory> HivePartitioning::MakeFactory(
+    PartitioningFactoryOptions options) {
+  return std::shared_ptr<PartitioningFactory>(new HivePartitioningFactory(options));
 }
 
 std::string StripPrefixAndFilename(const std::string& path, const std::string& prefix) {

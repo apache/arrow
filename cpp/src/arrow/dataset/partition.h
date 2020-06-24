@@ -86,6 +86,17 @@ class ARROW_DS_EXPORT Partitioning {
   std::shared_ptr<Schema> schema_;
 };
 
+struct PartitioningFactoryOptions {
+  /// When inferring a schema for partition fields, string fields may be inferred as
+  /// a dictionary type instead. This can be more efficient when materializing virtual
+  /// columns. If the number of discovered unique values of a string field exceeds
+  /// max_partition_dictionary_size, it will instead be inferred as a string.
+  ///
+  /// max_partition_dictionary_size = 0: No fields will be inferred as dictionary.
+  /// max_partition_dictionary_size = -1: All fields will be inferred as dictionary.
+  int max_partition_dictionary_size = 0;
+};
+
 /// \brief PartitioningFactory provides creation of a partitioning  when the
 /// specific schema must be inferred from available paths (no explicit schema is known).
 class ARROW_DS_EXPORT PartitioningFactory {
@@ -203,7 +214,7 @@ class ARROW_DS_EXPORT DirectoryPartitioning : public KeyValuePartitioning {
   Result<std::string> FormatKey(const Key& key, int i) const override;
 
   static std::shared_ptr<PartitioningFactory> MakeFactory(
-      std::vector<std::string> field_names);
+      std::vector<std::string> field_names, PartitioningFactoryOptions = {});
 };
 
 /// \brief Multi-level, directory based partitioning
@@ -230,7 +241,8 @@ class ARROW_DS_EXPORT HivePartitioning : public KeyValuePartitioning {
 
   static util::optional<Key> ParseKey(const std::string& segment);
 
-  static std::shared_ptr<PartitioningFactory> MakeFactory();
+  static std::shared_ptr<PartitioningFactory> MakeFactory(
+      PartitioningFactoryOptions = {});
 };
 
 /// \brief Implementation provided by lambda or other callable
