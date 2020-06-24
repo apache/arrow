@@ -179,6 +179,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CResult[shared_ptr[CArray]] View(const shared_ptr[CDataType]& type)
 
     shared_ptr[CArray] MakeArray(const shared_ptr[CArrayData]& data)
+    CResult[shared_ptr[CArray]] MakeArrayOfNull(
+        const shared_ptr[CDataType]& type, int64_t length, CMemoryPool* pool)
 
     CStatus DebugPrint(const CArray& arr, int indent)
 
