@@ -264,6 +264,25 @@ def test_asarray():
     assert np_arr.tolist() == ['a', 'b', 'c', 'a', 'b']
 
 
+@pytest.mark.parametrize('ty', [
+    None,
+    pa.null(),
+    pa.int8(),
+    pa.string()
+])
+def test_nulls(ty):
+    arr = pa.nulls(3, type=ty)
+    expected = pa.array([None, None, None], type=ty)
+
+    assert len(arr) == 3
+    assert arr.equals(expected)
+
+    if ty is None:
+        assert arr.type == pa.null()
+    else:
+        assert arr.type == ty
+
+
 def test_array_getitem():
     arr = pa.array(range(10, 15))
     lst = arr.to_pylist()

@@ -316,6 +316,24 @@ def asarray(values, type=None):
         return array(values, type=type)
 
 
+def nulls(size, type=None, MemoryPool memory_pool=None):
+    cdef:
+        CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
+        int64_t length = size
+        shared_ptr[CDataType] ty
+        shared_ptr[CArray] arr
+
+    type = ensure_type(type, allow_none=True)
+    if type is None:
+        type = null()
+
+    ty = pyarrow_unwrap_data_type(type)
+    with nogil:
+        arr = GetResultValue(MakeArrayOfNull(ty, length, pool))
+
+    return pyarrow_wrap_array(arr)
+
+
 def infer_type(values, mask=None, from_pandas=False):
     """
     Attempt to infer Arrow data type that can hold the passed Python
