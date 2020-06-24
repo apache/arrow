@@ -24,8 +24,15 @@
 namespace arrow {
 namespace internal {
 
-Status CheckSparseIndexMaximumValue(const std::shared_ptr<DataType>& index_value_type,
-                                    const std::vector<int64_t>& shape);
+struct SparseTensorConverterMixin {
+  static Status CheckSparseIndexMaximumValue(
+      const std::shared_ptr<DataType>& index_value_type,
+      const std::vector<int64_t>& shape);
+
+  static bool IsNonZero(const uint8_t val) { return val != 0; }
+
+  static void AssignIndex(uint8_t* indices, int64_t val, const int elsize);
+};
 
 Status MakeSparseCOOTensorFromTensor(const Tensor& tensor,
                                      const std::shared_ptr<DataType>& index_value_type,

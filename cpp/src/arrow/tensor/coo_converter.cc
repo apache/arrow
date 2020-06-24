@@ -48,68 +48,14 @@ inline void IncrementIndex(std::vector<int64_t>& coord,
   }
 }
 
-bool IsNonZero(const uint8_t val) { return val != 0; }
-
-void AssignIndex(uint8_t* indices, int64_t val, const int elsize) {
-  switch (elsize) {
-    case 1:
-      *indices = static_cast<uint8_t>(val);
-      break;
-    case 2:
-      *reinterpret_cast<uint16_t*>(indices) = static_cast<uint16_t>(val);
-      break;
-    case 4:
-      *reinterpret_cast<uint32_t*>(indices) = static_cast<uint32_t>(val);
-      break;
-    case 8:
-      *reinterpret_cast<int64_t*>(indices) = val;
-      break;
-    default:
-      break;
-  }
-}
-
-template <typename IndexValueType>
-Status CheckSparseIndexMaximumValue(const std::vector<int64_t>& shape) {
-  using c_index_value_type = typename IndexValueType::c_type;
-  constexpr int64_t type_max =
-      static_cast<int64_t>(std::numeric_limits<c_index_value_type>::max());
-  auto greater_than_type_max = [&](int64_t x) { return x > type_max; };
-  if (std::any_of(shape.begin(), shape.end(), greater_than_type_max)) {
-    return Status::Invalid("The bit width of the index value type is too small");
-  }
-  return Status::OK();
-}
-
-template <>
-Status CheckSparseIndexMaximumValue<Int64Type>(const std::vector<int64_t>& shape) {
-  return Status::OK();
-}
-
-template <>
-Status CheckSparseIndexMaximumValue<UInt64Type>(const std::vector<int64_t>& shape) {
-  return Status::Invalid("UInt64Type cannot be used as IndexValueType of SparseIndex");
-}
-
-#define CALL_CHECK_MAXIMUM_VALUE(TYPE_CLASS) \
-  case TYPE_CLASS##Type::type_id:            \
-    return CheckSparseIndexMaximumValue<TYPE_CLASS##Type>(shape);
-
-Status CheckSparseIndexMaximumValue(const std::shared_ptr<DataType>& index_value_type,
-                                    const std::vector<int64_t>& shape) {
-  switch (index_value_type->id()) {
-    ARROW_GENERATE_FOR_ALL_INTEGER_TYPES(CALL_CHECK_MAXIMUM_VALUE);
-    default:
-      return Status::TypeError("Unsupported SparseTensor index value type");
-  }
-}
-
-#undef CALL_TYPE_SPECIFIC_CONVERT
-
 // ----------------------------------------------------------------------
 // SparseTensorConverter for SparseCOOIndex
 
-class SparseCOOTensorConverter {
+class SparseCOOTensorConverter : private SparseTensorConverterMixin {
+  using SparseTensorConverterMixin::AssignIndex;
+  using SparseTensorConverterMixin::CheckSparseIndexMaximumValue;
+  using SparseTensorConverterMixin::IsNonZero;
+
  public:
   SparseCOOTensorConverter(const Tensor& tensor,
                            const std::shared_ptr<DataType>& index_value_type,
@@ -189,7 +135,65 @@ class SparseCOOTensorConverter {
   MemoryPool* pool_;
 };
 
+template <typename IndexValueType>
+Status CheckSparseIndexMaximumValue(const std::vector<int64_t>& shape) {
+  using c_index_value_type = typename IndexValueType::c_type;
+  constexpr int64_t type_max =
+      static_cast<int64_t>(std::numeric_limits<c_index_value_type>::max());
+  auto greater_than_type_max = [&](int64_t x) { return x > type_max; };
+  if (std::any_of(shape.begin(), shape.end(), greater_than_type_max)) {
+    return Status::Invalid("The bit width of the index value type is too small");
+  }
+  return Status::OK();
+}
+
+template <>
+Status CheckSparseIndexMaximumValue<Int64Type>(const std::vector<int64_t>& shape) {
+  return Status::OK();
+}
+
+template <>
+Status CheckSparseIndexMaximumValue<UInt64Type>(const std::vector<int64_t>& shape) {
+  return Status::Invalid("UInt64Type cannot be used as IndexValueType of SparseIndex");
+}
+
 }  // namespace
+
+#define CALL_CHECK_MAXIMUM_VALUE(TYPE_CLASS) \
+  case TYPE_CLASS##Type::type_id:            \
+    return arrow::internal::CheckSparseIndexMaximumValue<TYPE_CLASS##Type>(shape);
+
+Status SparseTensorConverterMixin::CheckSparseIndexMaximumValue(
+    const std::shared_ptr<DataType>& index_value_type,
+    const std::vector<int64_t>& shape) {
+  switch (index_value_type->id()) {
+    ARROW_GENERATE_FOR_ALL_INTEGER_TYPES(CALL_CHECK_MAXIMUM_VALUE);
+    default:
+      return Status::TypeError("Unsupported SparseTensor index value type");
+  }
+}
+
+#undef CALL_TYPE_SPECIFIC_CONVERT
+
+void SparseTensorConverterMixin::AssignIndex(uint8_t* indices, int64_t val,
+                                             const int elsize) {
+  switch (elsize) {
+    case 1:
+      *indices = static_cast<uint8_t>(val);
+      break;
+    case 2:
+      *reinterpret_cast<uint16_t*>(indices) = static_cast<uint16_t>(val);
+      break;
+    case 4:
+      *reinterpret_cast<uint32_t*>(indices) = static_cast<uint32_t>(val);
+      break;
+    case 8:
+      *reinterpret_cast<int64_t*>(indices) = val;
+      break;
+    default:
+      break;
+  }
+}
 
 Status MakeSparseCOOTensorFromTensor(const Tensor& tensor,
                                      const std::shared_ptr<DataType>& index_value_type,
