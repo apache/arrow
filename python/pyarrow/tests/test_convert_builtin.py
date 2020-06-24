@@ -781,7 +781,7 @@ def test_sequence_explicit_types(input):
         assert x.type == t
         assert x.null_count == 1
         assert x[0].as_py() == datetime.date(2000, 1, 1)
-        assert x[1] is pa.NA
+        assert x[1].as_py() is None
 
 
 def test_date32_overflow():

@@ -17,426 +17,391 @@
 
 import datetime
 import pytest
-import unittest
 
 import numpy as np
 
 import pyarrow as pa
 
 
-class TestScalars(unittest.TestCase):
+@pytest.mark.parametrize(['value', 'ty', 'klass'], [
+    (None, None, pa.lib.NullScalar),
+    (False, None, pa.lib.BooleanScalar),
+    (True, None, pa.lib.BooleanScalar),
+    (1, None, pa.lib.Int64Scalar),
+    (-1, None, pa.lib.Int64Scalar),
+    (1, pa.int8(), pa.lib.Int8Scalar),
+    (1, pa.uint8(), pa.lib.UInt8Scalar),
+    (1, pa.int16(), pa.lib.Int16Scalar),
+    (1, pa.uint16(), pa.lib.UInt16Scalar),
+    (1, pa.int32(), pa.lib.Int32Scalar),
+    (1, pa.uint32(), pa.lib.UInt32Scalar),
+    (1, pa.int64(), pa.lib.Int64Scalar),
+    (1, pa.uint64(), pa.lib.UInt64Scalar),
+    (1.0, None, pa.lib.DoubleScalar),
+    (np.float16(1.0), pa.float16(), pa.lib.HalfFloatScalar),
+    (1.0, pa.float32(), pa.lib.FloatScalar),
+    ("string", None, pa.lib.StringScalar),
+    (b"bytes", None, pa.lib.BinaryScalar),
+    ([1, 2, 3], None, pa.lib.ListScalar),
+    ([1, 2, 3, 4], pa.large_list(pa.int8()), pa.lib.LargeListScalar),
+    # date
+    # time
+])
+def test_type_inference(value, ty, klass):
+    s = pa.scalar(value, type=ty)
+    assert isinstance(s, klass)
+    assert s == value
 
-    def test_null_singleton(self):
-        with pytest.raises(Exception):
-            pa.NAType()
 
-    def test_nulls(self):
-        arr = pa.array([None, None])
-        for v in arr:
-            assert v is pa.NA
-            assert v.as_py() is None
+def test_null_singleton():
+    with pytest.raises(Exception):
+        pa.NullScalar()
 
-    def test_null_equality(self):
-        assert (pa.NA == pa.NA) is pa.NA
-        assert (pa.NA == 1) is pa.NA
 
-    def test_bool(self):
-        arr = pa.array([True, None, False, None])
+def test_nulls():
+    arr = pa.array([None, None])
+    for v in arr:
+        assert v is pa.NA
+        assert v.as_py() is None
 
-        v = arr[0]
-        assert isinstance(v, pa.BooleanValue)
-        assert repr(v) == "True"
-        assert str(v) == "True"
-        assert v.as_py() is True
 
-        assert arr[1] is pa.NA
+def test_null_equality():
+    assert (pa.NA == pa.NA) is pa.NA
+    assert (pa.NA == 1) is pa.NA
 
-    def test_int64(self):
-        arr = pa.array([1, 2, None])
 
-        v = arr[0]
-        assert isinstance(v, pa.Int64Value)
-        assert repr(v) == "1"
-        assert str(v) == "1"
-        assert v.as_py() == 1
-        assert v == 1
+def test_hashing():
+    # ARROW-640
 
-        assert arr[2] is pa.NA
+    # int hashing
+    int_arr = pa.array([1, 1, 2, 1])
+    assert hash(int_arr[0]) == hash(1)
 
-    def test_double(self):
-        arr = pa.array([1.5, None, 3])
+    # float hashing
+    float_arr = pa.array([1.4, 1.2, 2.5, 1.8])
+    assert hash(float_arr[0]) == hash(1.4)
 
-        v = arr[0]
-        assert isinstance(v, pa.DoubleValue)
-        assert repr(v) == "1.5"
-        assert str(v) == "1.5"
-        assert v.as_py() == 1.5
-        assert v == 1.5
+    # string hashing
+    str_arr = pa.array(["foo", "bar"])
+    assert hash(str_arr[1]) == hash("bar")
 
-        assert arr[1] is pa.NA
+    # binary hashing
+    byte_arr = pa.array([b'foo', None, b'bar'])
+    assert hash(byte_arr[2]) == hash(b"bar")
 
-        v = arr[2]
-        assert v.as_py() == 3.0
+    # array to set
+    arr = pa.array([1, 1, 2, 1])
+    set_from_array = set(arr)
+    assert isinstance(set_from_array, set)
+    assert set_from_array == {1, 2}
 
-    def test_half_float(self):
-        arr = pa.array([np.float16(1.5), None], type=pa.float16())
-        v = arr[0]
-        assert isinstance(v, pa.HalfFloatValue)
-        assert repr(v) == "1.5"
-        assert str(v) == "1.5"
-        assert v.as_py() == 1.5
-        assert v == 1.5
 
-        assert arr[1] is pa.NA
+# TODO(kszucs): test array.__getitem__ in test_array.py
 
-    def test_string_unicode(self):
-        arr = pa.array(['foo', None, 'mañana'])
+def test_bool():
+    false = pa.scalar(False)
+    true = pa.scalar(True)
 
-        v = arr[0]
-        assert isinstance(v, pa.StringValue)
-        assert v.as_py() == 'foo'
-        assert repr(v) == repr("foo")
-        assert str(v) == "foo"
-        assert v == 'foo'
-        # Assert that newly created values are equal to the previously created
-        # one.
-        assert v == arr[0]
+    assert isinstance(false, pa.BooleanScalar)
+    assert isinstance(true, pa.BooleanScalar)
 
-        assert arr[1] is pa.NA
+    assert repr(true) == "<pyarrow.BooleanScalar: True>"
+    assert str(true) == "True"
+    assert repr(false) == "<pyarrow.BooleanScalar: False>"
+    assert str(false) == "False"
 
-        v = arr[2].as_py()
-        assert v == 'mañana'
-        assert isinstance(v, str)
+    assert true.as_py() is True
+    assert false.as_py() is False
 
-    def test_large_string_unicode(self):
-        arr = pa.array(['foo', None, 'mañana'], type=pa.large_string())
 
-        v = arr[0]
-        assert isinstance(v, pa.LargeStringValue)
-        assert v.as_py() == 'foo'
-        assert repr(v) == repr("foo")
-        assert str(v) == "foo"
-        assert v == 'foo'
-        # Assert that newly created values are equal to the previously created
-        # one.
-        assert v == arr[0]
+def test_numerics():
+    # int64
+    s = pa.scalar(1)
+    assert isinstance(s, pa.Int64Value)
+    assert repr(s) == "<pyarrow.Int64Scalar: 1>"
+    assert str(s) == "1"
+    assert s.as_py() == 1
+    assert s == 1
 
-        assert arr[1] is pa.NA
+    # float64
+    s = pa.scalar(1.5)
+    assert isinstance(s, pa.DoubleValue)
+    assert repr(s) == "<pyarrow.DoubleScalar: 1.5>"
+    assert str(s) == "1.5"
+    assert s.as_py() == 1.5
+    assert s == 1.5
 
-        v = arr[2].as_py()
-        assert v == 'mañana'
-        assert isinstance(v, str)
+    # float16
+    s = pa.scalar(np.float16(0.5), type=pa.float16())
+    assert isinstance(s, pa.HalfFloatValue)
+    assert repr(s) == "<pyarrow.HalfFloatScalar: 0.5>"
+    assert str(s) == "0.5"
+    assert s.as_py() == 0.5
+    assert s == 0.5
 
-    def test_bytes(self):
-        arr = pa.array([b'foo', None, 'bar'])
 
-        def check_value(v, expected):
-            assert isinstance(v, pa.BinaryValue)
-            assert v.as_py() == expected
-            assert str(v) == str(expected)
-            assert repr(v) == repr(expected)
-            assert v == expected
-            assert v != b'xxxxx'
-            buf = v.as_buffer()
-            assert isinstance(buf, pa.Buffer)
-            assert buf.to_pybytes() == expected
+def test_date():
+    # ARROW-5125
+    d1 = datetime.date(3200, 1, 1)
+    d2 = datetime.date(1960, 1, 1)
 
-        check_value(arr[0], b'foo')
-        assert arr[1] is pa.NA
-        check_value(arr[2], b'bar')
+    for ty in [pa.date32(), pa.date64()]:
+        for d in [d1, d2]:
+            s = pa.scalar(d, type=ty)
+            assert s == d
 
-    def test_large_bytes(self):
-        arr = pa.array([b'foo', None, 'bar'], type=pa.large_binary())
 
-        def check_value(v, expected):
-            assert isinstance(v, pa.LargeBinaryValue)
-            assert v.as_py() == expected
-            assert str(v) == str(expected)
-            assert repr(v) == repr(expected)
-            assert v == expected
-            assert v != b'xxxxx'
-            buf = v.as_buffer()
-            assert isinstance(buf, pa.Buffer)
-            assert buf.to_pybytes() == expected
+# TODO(kszucs): add time32/64 tests including units
+# TODO(kszucs): add decimal tests including scale
 
-        check_value(arr[0], b'foo')
-        assert arr[1] is pa.NA
-        check_value(arr[2], b'bar')
 
-    def test_fixed_size_bytes(self):
-        data = [b'foof', None, b'barb']
-        arr = pa.array(data, type=pa.binary(4))
+@pytest.mark.pandas
+def test_timestamp(self):
+    import pandas as pd
+    arr = pd.date_range('2000-01-01 12:34:56', periods=10).values
 
-        v = arr[0]
-        assert isinstance(v, pa.FixedSizeBinaryValue)
-        assert v.as_py() == b'foof'
+    units = ['ns', 'us', 'ms', 's']
 
-        assert arr[1] is pa.NA
+    for i, unit in enumerate(units):
+        dtype = 'datetime64[{}]'.format(unit)
+        arrow_arr = pa.Array.from_pandas(arr.astype(dtype))
+        expected = pd.Timestamp('2000-01-01 12:34:56')
 
-        v = arr[2].as_py()
-        assert v == b'barb'
-        assert isinstance(v, bytes)
+        assert arrow_arr[0].as_py() == expected
+        assert arrow_arr[0].value * 1000**i == expected.value
 
-    def test_list(self):
-        arr = pa.array([['foo', None], None, ['bar'], []])
-
-        v = arr[0]
-        assert len(v) == 2
-        assert isinstance(v, pa.ListValue)
-        assert repr(v) == "['foo', None]"
-        assert v.as_py() == ['foo', None]
-        assert v[0].as_py() == 'foo'
-        assert v[1] is pa.NA
-        assert v[-1] == v[1]
-        assert v[-2] == v[0]
-        with pytest.raises(IndexError):
-            v[-3]
-        with pytest.raises(IndexError):
-            v[2]
-
-        assert arr[1] is pa.NA
-
-        v = arr[3]
-        assert len(v) == 0
-
-    def test_large_list(self):
-        arr = pa.array([[123, None], None, [456], []],
-                       type=pa.large_list(pa.int16()))
-
-        v = arr[0]
-        assert len(v) == 2
-        assert isinstance(v, pa.LargeListValue)
-        assert repr(v) == "[123, None]"
-        assert v.as_py() == [123, None]
-        assert v[0].as_py() == 123
-        assert v[1] is pa.NA
-        assert v[-1] == v[1]
-        assert v[-2] == v[0]
-        with pytest.raises(IndexError):
-            v[-3]
-        with pytest.raises(IndexError):
-            v[2]
-
-        assert arr[1] is pa.NA
-
-        v = arr[3]
-        assert len(v) == 0
-
-    def test_map(self):
-        arr = pa.array([[('a', 1), ('b', 2)], None, [], [('c', None)]],
-                       pa.map_(pa.string(), pa.int8()))
-        v = arr[0]
-        assert len(v) == 2
-        assert isinstance(v, pa.MapValue)
-        assert repr(v) == repr([('a', 1), ('b', 2)])
-        assert v.as_py() == [('a', 1), ('b', 2)]
-        assert v[1] == ('b', 2)
-        assert v[-1] == v[1]
-        assert v[-2] == v[0]
-        with pytest.raises(IndexError):
-            v[-3]
-        with pytest.raises(IndexError):
-            v[2]
-
-        assert arr[1] is pa.NA
-
-        assert len(arr[2]) == 0
-
-        v = arr[3]
-        assert v == [('c', None)]
-        assert len(v) == 1
-        assert v[0][0] == 'c'
-        assert v[0][1] is pa.NA
-
-    def test_fixed_size_list(self):
-        arr = pa.array([[1, None, 3], [4, 5, 6]], pa.list_(pa.int64(), 3))
-
-        v = arr[0]
-        assert len(v) == 3
-        assert isinstance(v, pa.FixedSizeListValue)
-        assert repr(v) == "[1, None, 3]"
-        assert v.as_py() == [1, None, 3]
-        assert v[0].as_py() == 1
-        assert v[1] is pa.NA
-        assert v[-1] == v[2]
-        with pytest.raises(IndexError):
-            v[-4]
-        with pytest.raises(IndexError):
-            v[3]
-
-    def test_date(self):
-        # ARROW-5125
-        d1, d2 = datetime.date(3200, 1, 1), datetime.date(1960, 1, 1),
-        extremes = pa.array([d1, d2], type=pa.date32())
-        assert extremes[0] == d1
-        assert extremes[1] == d2
-        extremes = pa.array([d1, d2], type=pa.date64())
-        assert extremes[0] == d1
-        assert extremes[1] == d2
-
-    @pytest.mark.pandas
-    def test_timestamp(self):
-        import pandas as pd
-        arr = pd.date_range('2000-01-01 12:34:56', periods=10).values
-
-        units = ['ns', 'us', 'ms', 's']
-
-        for i, unit in enumerate(units):
-            dtype = 'datetime64[{}]'.format(unit)
-            arrow_arr = pa.Array.from_pandas(arr.astype(dtype))
-            expected = pd.Timestamp('2000-01-01 12:34:56')
-
-            assert arrow_arr[0].as_py() == expected
-            assert arrow_arr[0].value * 1000**i == expected.value
-
-            tz = 'America/New_York'
-            arrow_type = pa.timestamp(unit, tz=tz)
-
-            dtype = 'datetime64[{}]'.format(unit)
-            arrow_arr = pa.Array.from_pandas(arr.astype(dtype),
-                                             type=arrow_type)
-            expected = (pd.Timestamp('2000-01-01 12:34:56')
-                        .tz_localize('utc')
-                        .tz_convert(tz))
-
-            assert arrow_arr[0].as_py() == expected
-            assert arrow_arr[0].value * 1000**i == expected.value
-
-    @pytest.mark.nopandas
-    def test_timestamp_nanos_nopandas(self):
-        # ARROW-5450
-        import pytz
         tz = 'America/New_York'
-        ty = pa.timestamp('ns', tz=tz)
-        arr = pa.array([
-            946684800000000000,  # 2000-01-01 00:00:00
-        ], type=ty)
+        arrow_type = pa.timestamp(unit, tz=tz)
 
-        tzinfo = pytz.timezone(tz)
-        expected = datetime.datetime(2000, 1, 1, tzinfo=tzinfo)
-        expected = tzinfo.fromutc(expected)
-        result = arr[0].as_py()
-        assert result == expected
-        assert result.year == 1999
-        assert result.hour == 19
+        dtype = 'datetime64[{}]'.format(unit)
+        arrow_arr = pa.Array.from_pandas(arr.astype(dtype),
+                                            type=arrow_type)
+        expected = (pd.Timestamp('2000-01-01 12:34:56')
+                    .tz_localize('utc')
+                    .tz_convert(tz))
 
-        # Non-zero nanos yields ValueError
-        arr = pa.array([946684800000000001], type=ty)
-        with pytest.raises(ValueError):
-            arr[0].as_py()
+        assert arrow_arr[0].as_py() == expected
+        assert arrow_arr[0].value * 1000**i == expected.value
 
-    def test_timestamp_no_overflow(self):
-        # ARROW-5450
-        import pytz
-        timestamp_rows = [
-            datetime.datetime(1, 1, 1, 0, 0, 0, tzinfo=pytz.utc),
-            None,
-            datetime.datetime(9999, 12, 31, 23, 59, 59, 999999,
-                              tzinfo=pytz.utc),
-            datetime.datetime(1970, 1, 1, 0, 0, 0,
-                              tzinfo=pytz.utc),
-        ]
-        arr = pa.array(timestamp_rows, pa.timestamp("us", tz="UTC"))
-        result = arr.to_pylist()
-        assert result == timestamp_rows
 
-    def test_duration(self):
-        arr = np.array([0, 3600000000000], dtype='timedelta64[ns]')
+@pytest.mark.nopandas
+def test_timestamp_nanos_nopandas():
+    # ARROW-5450
+    import pytz
+    tz = 'America/New_York'
+    ty = pa.timestamp('ns', tz=tz)
 
-        units = ['us', 'ms', 's']
+    # 2000-01-01 00:00:00 + 1 microsecond
+    s = pa.scalar(946684800000000000 + 1000, type=ty)
 
-        for i, unit in enumerate(units):
-            dtype = 'timedelta64[{}]'.format(unit)
-            arrow_arr = pa.array(arr.astype(dtype))
-            expected = datetime.timedelta(seconds=60*60)
-            assert isinstance(arrow_arr[1].as_py(), datetime.timedelta)
-            assert arrow_arr[1].as_py() == expected
-            assert (arrow_arr[1].value * 1000**(i+1) ==
-                    expected.total_seconds() * 1e9)
+    tzinfo = pytz.timezone(tz)
+    expected = datetime.datetime(2000, 1, 1, microsecond=1, tzinfo=tzinfo)
+    expected = tzinfo.fromutc(expected)
+    result = s.as_py()
+    assert result == expected
+    assert result.year == 1999
+    assert result.hour == 19
 
-    @pytest.mark.pandas
-    def test_duration_nanos_pandas(self):
-        import pandas as pd
-        arr = pa.array([0, 3600000000000], type=pa.duration('ns'))
-        expected = pd.Timedelta('1 hour')
-        assert isinstance(arr[1].as_py(), pd.Timedelta)
-        assert arr[1].as_py() == expected
-        assert arr[1].value == expected.value
+    # Non-zero nanos yields ValueError
+    s = pa.scalar(946684800000000001, type=ty)
+    with pytest.raises(ValueError):
+        s.as_py()
 
-        # Non-zero nanos work fine
-        arr = pa.array([946684800000000001], type=pa.duration('ns'))
-        assert arr[0].as_py() == pd.Timedelta(946684800000000001, unit='ns')
 
-    @pytest.mark.nopandas
-    def test_duration_nanos_nopandas(self):
-        arr = pa.array([0, 3600000000000], pa.duration('ns'))
+def test_timestamp_no_overflow():
+    # ARROW-5450
+    import pytz
+
+    timestamps = [
+        datetime.datetime(1, 1, 1, 0, 0, 0, tzinfo=pytz.utc),
+        datetime.datetime(9999, 12, 31, 23, 59, 59, 999999, tzinfo=pytz.utc),
+        datetime.datetime(1970, 1, 1, 0, 0, 0, tzinfo=pytz.utc),
+    ]
+    for ts in timestamps:
+        s = pa.scalar(ts, type=pa.timestamp("us", tz="UTC"))
+        assert s == ts
+        assert s.as_py() == ts
+
+
+def test_duration():
+    arr = np.array([0, 3600000000000], dtype='timedelta64[ns]')
+
+    units = ['us', 'ms', 's']
+
+    for i, unit in enumerate(units):
+        dtype = 'timedelta64[{}]'.format(unit)
+        arrow_arr = pa.array(arr.astype(dtype))
         expected = datetime.timedelta(seconds=60*60)
-        assert isinstance(arr[1].as_py(), datetime.timedelta)
-        assert arr[1].as_py() == expected
-        assert arr[1].value == expected.total_seconds() * 1e9
+        assert isinstance(arrow_arr[1].as_py(), datetime.timedelta)
+        assert arrow_arr[1].as_py() == expected
+        assert (arrow_arr[1].value * 1000**(i+1) ==
+                expected.total_seconds() * 1e9)
 
-        # Non-zero nanos yields ValueError
-        arr = pa.array([946684800000000001], type=pa.duration('ns'))
-        with pytest.raises(ValueError):
-            arr[0].as_py()
 
-    @pytest.mark.pandas
-    def test_dictionary(self):
-        import pandas as pd
-        colors = ['red', 'green', 'blue']
-        colors_dict = {'red': 0, 'green': 1, 'blue': 2}
-        values = pd.Series(colors * 4)
+@pytest.mark.pandas
+def test_duration_nanos_pandas():
+    import pandas as pd
+    arr = pa.array([0, 3600000000000], type=pa.duration('ns'))
+    expected = pd.Timedelta('1 hour')
+    assert isinstance(arr[1].as_py(), pd.Timedelta)
+    assert arr[1].as_py() == expected
+    assert arr[1].value == expected.value
 
-        categorical = pd.Categorical(values, categories=colors)
+    # Non-zero nanos work fine
+    arr = pa.array([946684800000000001], type=pa.duration('ns'))
+    assert arr[0].as_py() == pd.Timedelta(946684800000000001, unit='ns')
 
-        v = pa.DictionaryArray.from_arrays(categorical.codes,
-                                           categorical.categories)
-        for i, c in enumerate(values):
-            assert v[i].as_py() == c
-            assert v[i].dictionary_value == c
-            assert v[i].index_value == colors_dict[c]
 
-    def test_int_hash(self):
-        # ARROW-640
-        int_arr = pa.array([1, 1, 2, 1])
-        assert hash(int_arr[0]) == hash(1)
+@pytest.mark.nopandas
+def test_duration_nanos_nopandas():
+    arr = pa.array([0, 3600000000000], pa.duration('ns'))
+    expected = datetime.timedelta(seconds=60*60)
+    assert isinstance(arr[1].as_py(), datetime.timedelta)
+    assert arr[1].as_py() == expected
+    assert arr[1].value == expected.total_seconds() * 1e9
 
-    def test_float_hash(self):
-        # ARROW-640
-        float_arr = pa.array([1.4, 1.2, 2.5, 1.8])
-        assert hash(float_arr[0]) == hash(1.4)
+    # Non-zero nanos yields ValueError
+    arr = pa.array([946684800000000001], type=pa.duration('ns'))
+    with pytest.raises(ValueError):
+        arr[0].as_py()
 
-    def test_string_hash(self):
-        # ARROW-640
-        str_arr = pa.array(["foo", "bar"])
-        assert hash(str_arr[1]) == hash("bar")
 
-    def test_bytes_hash(self):
-        # ARROW-640
-        byte_arr = pa.array([b'foo', None, b'bar'])
-        assert hash(byte_arr[2]) == hash(b"bar")
+@pytest.mark.parametrize('value', ['foo', 'mañana'])
+@pytest.mark.parametrize(('ty', 'scalar_typ'), [
+    (pa.string(), pa.StringScalar),
+    (pa.large_string(), pa.LargeStringScalar)
+])
+def test_string(value, ty, scalar_typ):
+    s = pa.scalar(value, type=ty)
+    assert isinstance(s, scalar_typ)
+    assert s.as_py() == value
+    assert s.as_py() != 'something'
+    assert repr(value) in repr(s)
+    assert str(s) == str(value)
 
-    def test_array_to_set(self):
-        # ARROW-640
-        arr = pa.array([1, 1, 2, 1])
-        set_from_array = set(arr)
-        assert isinstance(set_from_array, set)
-        assert set_from_array == {1, 2}
+    buf = s.as_buffer()
+    assert isinstance(buf, pa.Buffer)
+    assert buf.to_pybytes() == value.encode()
 
-    def test_struct_value_subscripting(self):
-        ty = pa.struct([pa.field('x', pa.int16()),
-                        pa.field('y', pa.float32())])
-        arr = pa.array([(1, 2.5), (3, 4.5), (5, 6.5)], type=ty)
 
-        assert arr[0]['x'] == 1
-        assert arr[0]['y'] == 2.5
-        assert arr[1]['x'] == 3
-        assert arr[1]['y'] == 4.5
-        assert arr[2]['x'] == 5
-        assert arr[2]['y'] == 6.5
+@pytest.mark.parametrize('value', [b'foo', b'bar'])
+@pytest.mark.parametrize(('ty', 'scalar_typ'), [
+    (pa.binary(), pa.BinaryScalar),
+    (pa.large_binary(), pa.LargeBinaryScalar)
+])
+def test_binary(value, ty, scalar_typ):
+    s = pa.scalar(value, type=ty)
+    assert isinstance(s, scalar_typ)
+    assert s.as_py() == value
+    assert str(s) == str(value)
+    assert repr(value) in repr(s)
+    assert s == value
+    assert s != b'xxxxx'
 
-        with pytest.raises(IndexError):
-            arr[4]['non-existent']
+    buf = s.as_buffer()
+    assert isinstance(buf, pa.Buffer)
+    assert buf.to_pybytes() == value
 
-        with pytest.raises(KeyError):
-            arr[0]['non-existent']
+
+def test_fixed_size_binary():
+    s = pa.scalar(b'foof', type=pa.binary(4))
+    assert isinstance(s, pa.FixedSizeBinaryScalar)
+    assert s.as_py() == b'foof'
+
+    with pytest.raises(pa.ArrowInvalid):
+        pa.scalar(b'foof5', type=pa.binary(4))
+
+
+@pytest.mark.parametrize(('ty', 'klass'), [
+    (pa.list_(pa.string()), pa.ListScalar),
+    (pa.large_list(pa.string()), pa.LargeListScalar)
+])
+def test_list(ty, klass):
+    v = ['foo', None]
+    s = pa.scalar(v, type=ty)
+    assert len(s) == 2
+    assert isinstance(s, klass)
+    assert repr(v) in repr(s)
+    assert s.as_py() == v
+    assert s[0].as_py() == 'foo'
+    # TODO(kszucs) assert v[1] is pa.NA
+    assert s[-1] == s[1]
+    assert s[-2] == s[0]
+    with pytest.raises(IndexError):
+        s[-3]
+    with pytest.raises(IndexError):
+        s[2]
+
+
+def test_fixed_size_list():
+    s = pa.scalar([1, None, 3], type=pa.list_(pa.int64(), 3))
+
+    assert len(s) == 3
+    assert isinstance(s, pa.FixedSizeListScalar)
+    assert repr(s) == "<pyarrow.FixedSizeListScalar: [1, None, 3]>"
+    assert s.as_py() == [1, None, 3]
+    assert s[0].as_py() == 1
+    # TODO(kszucs): assert v[1] is pa.NA
+    assert s[-1] == s[2]
+    with pytest.raises(IndexError):
+        s[-4]
+    with pytest.raises(IndexError):
+        s[3]
+
+
+def test_struct():
+    ty = pa.struct([
+        pa.field('x', pa.int16()),
+        pa.field('y', pa.float32())
+    ])
+
+    v = {'x': 2, 'y': 3.5}
+    s = pa.scalar(v, type=ty)
+    assert s.as_py() == v
+    assert s == v
+    assert len(s) == 2
+    assert s['x'] == 2
+    assert s['y'] == 3.5
+
+    with pytest.raises(IndexError):
+        s['non-existent']
+
+
+def test_map():
+    ty = pa.map_(pa.string(), pa.int8())
+    v = [('a', 1), ('b', 2)]
+    s = pa.scalar(v, type=ty)
+
+    assert len(s) == 2
+    assert isinstance(s, pa.MapScalar)
+    assert repr(s) == (
+        "<pyarrow.MapScalar: ["
+        "(<pyarrow.StringScalar: 'a'>, <pyarrow.Int8Scalar: 1>), "
+        "(<pyarrow.StringScalar: 'b'>, <pyarrow.Int8Scalar: 2>)"
+        "]>"
+    )
+    assert s.as_py() == v
+    assert s[1] == ('b', 2)
+    assert s[-1] == s[1]
+    assert s[-2] == s[0]
+    with pytest.raises(IndexError):
+        s[-3]
+    with pytest.raises(IndexError):
+        s[2]
+
+
+def test_dictionary():
+    indices = pa.array([2, 1, 2, 0])
+    dictionary = pa.array(['foo', 'bar', 'baz'])
+
+    arr = pa.DictionaryArray.from_arrays(indices, dictionary)
+    expected = ['baz', 'bar', 'baz', 'foo']
+
+    for i, (k, v) in enumerate(zip(indices, expected)):
+        assert arr[i].as_py() == v
+        assert arr[i].dictionary_value == v
+        # TODO(kszucs): the C++ scalar impl doesn't have the index value
+        # assert arr[i].index_value == k
+
+
+# TODO(kszucs): raise on errror signed

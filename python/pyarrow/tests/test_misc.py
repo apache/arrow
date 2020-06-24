@@ -120,7 +120,6 @@ def test_cpu_count():
     pa.LargeListValue,
     pa.MapValue,
     pa.FixedSizeListValue,
-    pa.UnionValue,
     pa.StructValue,
     pa.DictionaryValue,
     pa.ipc.Message,

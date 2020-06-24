@@ -99,6 +99,7 @@ struct ScalarFromArraySlotImpl {
   }
 
   Status Visit(const DictionaryArray& a) {
+    // TODO(kszucs): add index value as well
     ARROW_ASSIGN_OR_RAISE(auto value, a.dictionary()->GetScalar(a.GetValueIndex(index_)));
     return Finish(std::move(value));
   }

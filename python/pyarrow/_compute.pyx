@@ -24,6 +24,7 @@ import pyarrow.lib as lib
 
 import numpy as np
 
+
 cdef wrap_scalar_function(const shared_ptr[CFunction]& sp_func):
     cdef ScalarFunction func = ScalarFunction.__new__(ScalarFunction)
     func.init(sp_func)
@@ -252,8 +253,8 @@ cdef _pack_compute_args(object values, vector[CDatum]* out):
             out.push_back(CDatum((<Array> val).sp_array))
         elif isinstance(val, ChunkedArray):
             out.push_back(CDatum((<ChunkedArray> val).sp_chunked_array))
-        elif isinstance(val, ScalarValue):
-            out.push_back(CDatum((<ScalarValue> val).sp_scalar))
+        elif isinstance(val, Scalar):
+            out.push_back(CDatum((<Scalar> val).unwrap()))
         elif isinstance(val, RecordBatch):
             out.push_back(CDatum((<RecordBatch> val).sp_batch))
         elif isinstance(val, Table):

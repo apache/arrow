@@ -109,20 +109,43 @@ from pyarrow.lib import (null, bool_,
                          DictionaryArray,
                          Date32Array, Date64Array, TimestampArray,
                          Time32Array, Time64Array, DurationArray,
-                         Decimal128Array, StructArray, ExtensionArray,
-                         ArrayValue, Scalar, NA, _NULL as NULL,
-                         BooleanValue,
-                         Int8Value, Int16Value, Int32Value, Int64Value,
-                         UInt8Value, UInt16Value, UInt32Value, UInt64Value,
-                         HalfFloatValue, FloatValue, DoubleValue,
-                         ListValue, LargeListValue, MapValue, FixedSizeListValue,
-                         BinaryValue, StringValue,
-                         LargeBinaryValue, LargeStringValue,
-                         FixedSizeBinaryValue,
-                         DecimalValue, UnionValue, StructValue, DictionaryValue,
-                         Date32Value, Date64Value,
-                         Time32Value, Time64Value,
-                         TimestampValue, DurationValue)
+                         Decimal128Array, StructArray, ExtensionArray)
+
+from pyarrow.lib import (
+    scalar, NA, _NULL as NULL,
+    Scalar,
+    BooleanScalar,
+    Int8Scalar,
+    Int16Scalar,
+    Int32Scalar,
+    Int64Scalar,
+    UInt8Scalar,
+    UInt16Scalar,
+    UInt32Scalar,
+    UInt64Scalar,
+    HalfFloatScalar,
+    FloatScalar,
+    DoubleScalar,
+    ListScalar,
+    LargeListScalar,
+    MapScalar,
+    FixedSizeListScalar,
+    BinaryScalar,
+    StringScalar,
+    LargeBinaryScalar,
+    LargeStringScalar,
+    FixedSizeBinaryScalar,
+    DecimalScalar,
+    # UnionScalar,
+    StructScalar,
+    DictionaryScalar,
+    Date32Scalar,
+    Date64Scalar,
+    Time32Scalar,
+    Time64Scalar,
+    TimestampScalar,
+    DurationScalar
+)
 
 # Buffers, allocation
 from pyarrow.lib import (Buffer, ResizableBuffer, foreign_buffer, py_buffer,
@@ -202,7 +225,6 @@ def _plasma_store_entry_point():
 # ----------------------------------------------------------------------
 # Deprecations
 
-
 from pyarrow.util import _deprecate_api  # noqa
 
 read_message = _deprecate_api("read_message", "ipc.read_message",
@@ -234,6 +256,40 @@ open_stream = _deprecate_api("open_stream", "ipc.open_stream",
 
 open_file = _deprecate_api("open_file", "ipc.open_file", ipc.open_file,
                            "0.17.0")
+
+# Deprecate the older scalar array values
+ArrayValue = ScalarValue = Scalar
+BooleanValue = BooleanScalar
+Int8Value = Int8Scalar
+Int16Value = Int16Scalar
+Int32Value = Int32Scalar
+Int64Value = Int64Scalar
+UInt8Value = UInt8Scalar
+UInt16Value = UInt16Scalar
+UInt32Value = UInt32Scalar
+UInt64Value = UInt64Scalar
+HalfFloatValue = HalfFloatScalar
+FloatValue = FloatScalar
+DoubleValue = DoubleScalar
+ListValue = ListScalar
+LargeListValue = LargeListScalar
+MapValue = MapScalar
+FixedSizeListValue = FixedSizeListScalar
+BinaryValue = BinaryScalar
+StringValue = StringScalar
+LargeBinaryValue = LargeBinaryScalar
+LargeStringValue = LargeStringScalar
+FixedSizeBinaryValue = FixedSizeBinaryScalar
+DecimalValue = DecimalScalar
+# UnionValue = UnionScalar
+StructValue = StructScalar
+DictionaryValue = DictionaryScalar
+Date32Value = Date32Scalar
+Date64Value = Date64Scalar
+Time32Value = Time32Scalar
+Time64Value = Time64Scalar
+TimestampValue = TimestampScalar
+DurationValue = DurationScalar
 
 # TODO: Deprecate these somehow in the pyarrow namespace
 from pyarrow.ipc import (Message, MessageReader,

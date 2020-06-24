@@ -923,7 +923,7 @@ cdef class Array(_PandasConvertible):
         return self.getitem(_normalize_index(key, self.length()))
 
     cdef getitem(self, int64_t i):
-        return box_scalar(self.type, self.sp_array, i)
+        return Scalar.wrap(GetResultValue(self.ap.GetScalar(i)))
 
     def slice(self, offset=0, length=None):
         """
