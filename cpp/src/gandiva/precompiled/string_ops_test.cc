@@ -426,6 +426,33 @@ TEST(TestStringOps, TestReverse) {
   ctx.Reset();
 }
 
+TEST(TestStringOps, TestTrim) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+  gdv_int32 out_len = 0;
+  const char* out_str;
+
+  out_str = trim_utf8(ctx_ptr, "TestString", 10, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "TestString");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = trim_utf8(ctx_ptr, "      TestString  ", 18, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "TestString");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = trim_utf8(ctx_ptr, " Test  çåå†bD   ", 21, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "Test  çåå†bD");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = trim_utf8(ctx_ptr, "", 0, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = trim_utf8(ctx_ptr, "      ", 6, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+}
+
 TEST(TestStringOps, TestLocate) {
   gandiva::ExecutionContext ctx;
   uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
