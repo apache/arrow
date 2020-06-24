@@ -83,7 +83,12 @@ Schema <- R6Class("Schema",
     }
   ),
   active = list(
-    names = function() Schema__field_names(self),
+    names = function() {
+      out <- Schema__field_names(self)
+      # Hack: Rcpp should set the encoding
+      Encoding(out) <- "UTF-8"
+      out
+    },
     num_fields = function() Schema__num_fields(self),
     fields = function() map(Schema__fields(self), shared_ptr, class = Field),
     HasMetadata = function() Schema__HasMetadata(self),
