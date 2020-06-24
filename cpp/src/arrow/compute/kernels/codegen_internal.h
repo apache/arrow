@@ -783,6 +783,7 @@ ArrayKernelExec GeneratePhysicalInteger(detail::GetTypeId get_id) {
     case Type::DATE64:
     case Type::TIMESTAMP:
     case Type::TIME64:
+    case Type::DURATION:
       return Generator<Type0, Int64Type, Args...>::Exec;
     case Type::UINT8:
       return Generator<Type0, UInt8Type, Args...>::Exec;

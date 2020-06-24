@@ -410,7 +410,6 @@ using enable_if_can_hash =
 
 template <typename Type, typename Action>
 struct HashInitFunctor {
-  using ArrayType = typename TypeTraits<Type>::ArrayType;
   using HashKernelType = typename HashKernelTraits<Type, Action>::HashKernelImpl;
 
   static std::unique_ptr<KernelState> Init(KernelContext* ctx,
@@ -423,19 +422,48 @@ struct HashInitFunctor {
 };
 
 template <typename Action>
-struct HashInitVisitor {
-  VectorKernel* out;
-
-  Status Visit(const DataType& type) {
-    return Status::NotImplemented("Hashing not available for ", type.ToString());
+KernelInit GetHashInit(Type::type type_id) {
+  // ARROW-8933: Generate only a single hash kernel per physical data
+  // representation
+  switch (type_id) {
+    case Type::NA:
+      return HashInitFunctor<NullType, Action>::Init;
+    case Type::BOOL:
+      return HashInitFunctor<BooleanType, Action>::Init;
+    case Type::INT8:
+    case Type::UINT8:
+      return HashInitFunctor<UInt8Type, Action>::Init;
+    case Type::INT16:
+    case Type::UINT16:
+      return HashInitFunctor<UInt16Type, Action>::Init;
+    case Type::INT32:
+    case Type::UINT32:
+    case Type::FLOAT:
+    case Type::DATE32:
+    case Type::TIME32:
+      return HashInitFunctor<UInt32Type, Action>::Init;
+    case Type::INT64:
+    case Type::UINT64:
+    case Type::DOUBLE:
+    case Type::DATE64:
+    case Type::TIME64:
+    case Type::TIMESTAMP:
+    case Type::DURATION:
+      return HashInitFunctor<UInt64Type, Action>::Init;
+    case Type::BINARY:
+    case Type::STRING:
+      return HashInitFunctor<BinaryType, Action>::Init;
+    case Type::LARGE_BINARY:
+    case Type::LARGE_STRING:
+      return HashInitFunctor<LargeBinaryType, Action>::Init;
+    case Type::FIXED_SIZE_BINARY:
+    case Type::DECIMAL:
+      return HashInitFunctor<FixedSizeBinaryType, Action>::Init;
+    default:
+      DCHECK(false);
+      return nullptr;
   }
-
-  template <typename Type>
-  enable_if_can_hash<Type, Status> Visit(const Type&) {
-    out->init = HashInitFunctor<Type, Action>::Init;
-    return Status::OK();
-  }
-};
+}
 
 void HashExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   auto hash_impl = checked_cast<HashKernel*>(ctx->state());
@@ -486,33 +514,27 @@ ValueDescr ValueCountsOutput(KernelContext*, const std::vector<ValueDescr>& desc
 }
 
 template <typename Action>
-void AddKernel(VectorFunction* func, VectorKernel kernel,
-               const std::shared_ptr<DataType>& type) {
-  HashInitVisitor<Action> visitor{&kernel};
-  DCHECK_OK(VisitTypeInline(*type, &visitor));
-  DCHECK_OK(func->AddKernel(std::move(kernel)));
-}
-
-template <typename Action>
 void AddHashKernels(VectorFunction* func, VectorKernel base,
                     OutputType::Resolver out_resolver) {
   OutputType out_ty(out_resolver);
   for (const auto& ty : PrimitiveTypes()) {
+    base.init = GetHashInit<Action>(ty->id());
     base.signature = KernelSignature::Make({InputType::Array(ty)}, out_ty);
-    AddKernel<Action>(func, base, ty);
+    DCHECK_OK(func->AddKernel(base));
   }
 
   // Example parametric types that we want to match only on Type::type
   auto parametric_types = {time32(TimeUnit::SECOND), time64(TimeUnit::MICRO),
                            timestamp(TimeUnit::SECOND), fixed_size_binary(0)};
   for (const auto& ty : parametric_types) {
+    base.init = GetHashInit<Action>(ty->id());
     base.signature = KernelSignature::Make({InputType::Array(ty->id())}, out_ty);
-    AddKernel<Action>(func, base, /*dummy=*/ty);
+    DCHECK_OK(func->AddKernel(base));
   }
 
-  // Handle Decimal as a physical string, not a number
+  base.init = GetHashInit<Action>(Type::DECIMAL);
   base.signature = KernelSignature::Make({InputType::Array(Type::DECIMAL)}, out_ty);
-  AddKernel<Action>(func, base, fixed_size_binary(0));
+  DCHECK_OK(func->AddKernel(base));
 }
 
 }  // namespace

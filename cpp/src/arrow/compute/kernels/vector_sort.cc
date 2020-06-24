@@ -19,6 +19,7 @@
 #include <limits>
 #include <numeric>
 
+#include "arrow/array/data.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/kernels/common.h"
 #include "arrow/util/optional.h"
@@ -37,11 +38,26 @@ struct PartitionIndicesState : public KernelState {
   int64_t pivot;
 };
 
+Status GetPhysicalView(const std::shared_ptr<ArrayData>& arr,
+                       const std::shared_ptr<DataType>& type,
+                       std::shared_ptr<ArrayData>* out) {
+  if (!arr->type->Equals(*type)) {
+    return ::arrow::internal::GetArrayView(arr, type).Value(out);
+  } else {
+    *out = arr;
+    return Status::OK();
+  }
+}
+
 template <typename OutType, typename InType>
 struct PartitionIndices {
   using ArrayType = typename TypeTraits<InType>::ArrayType;
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    ArrayType arr(batch[0].array());
+    std::shared_ptr<ArrayData> arg0;
+    KERNEL_RETURN_IF_ERROR(
+        ctx,
+        GetPhysicalView(batch[0].array(), TypeTraits<InType>::type_singleton(), &arg0));
+    ArrayType arr(arg0);
 
     int64_t pivot = checked_cast<const PartitionIndicesState&>(*ctx->state()).pivot;
     if (pivot > arr.length()) {
@@ -227,7 +243,11 @@ template <typename OutType, typename InType>
 struct SortIndices {
   using ArrayType = typename TypeTraits<InType>::ArrayType;
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    ArrayType arr(batch[0].array());
+    std::shared_ptr<ArrayData> arg0;
+    KERNEL_RETURN_IF_ERROR(
+        ctx,
+        GetPhysicalView(batch[0].array(), TypeTraits<InType>::type_singleton(), &arg0));
+    ArrayType arr(arg0);
     ArrayData* out_arr = out->mutable_array();
     uint64_t* out_begin = out_arr->GetMutableValues<uint64_t>(1);
     uint64_t* out_end = out_begin + arr.length();
@@ -259,7 +279,7 @@ void AddSortingKernels(VectorKernel base, VectorFunction* func) {
   }
   for (const auto& ty : BaseBinaryTypes()) {
     base.signature = KernelSignature::Make({InputType::Array(ty)}, uint64());
-    base.exec = GenerateVarBinary<ExecTemplate, UInt64Type>(*ty);
+    base.exec = GenerateVarBinaryBase<ExecTemplate, UInt64Type>(*ty);
     DCHECK_OK(func->AddKernel(base));
   }
 }
