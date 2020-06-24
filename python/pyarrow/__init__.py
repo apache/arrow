@@ -109,43 +109,21 @@ from pyarrow.lib import (null, bool_,
                          DictionaryArray,
                          Date32Array, Date64Array, TimestampArray,
                          Time32Array, Time64Array, DurationArray,
-                         Decimal128Array, StructArray, ExtensionArray)
-
-from pyarrow.lib import (
-    scalar, NA, _NULL as NULL,
-    Scalar,
-    BooleanScalar,
-    Int8Scalar,
-    Int16Scalar,
-    Int32Scalar,
-    Int64Scalar,
-    UInt8Scalar,
-    UInt16Scalar,
-    UInt32Scalar,
-    UInt64Scalar,
-    HalfFloatScalar,
-    FloatScalar,
-    DoubleScalar,
-    ListScalar,
-    LargeListScalar,
-    MapScalar,
-    FixedSizeListScalar,
-    BinaryScalar,
-    StringScalar,
-    LargeBinaryScalar,
-    LargeStringScalar,
-    FixedSizeBinaryScalar,
-    DecimalScalar,
-    UnionScalar,
-    StructScalar,
-    DictionaryScalar,
-    Date32Scalar,
-    Date64Scalar,
-    Time32Scalar,
-    Time64Scalar,
-    TimestampScalar,
-    DurationScalar
-)
+                         Decimal128Array, StructArray, ExtensionArray,
+                         scalar, NA, _NULL as NULL, Scalar,
+                         BooleanScalar,
+                         Int8Scalar, Int16Scalar, Int32Scalar, Int64Scalar,
+                         UInt8Scalar, UInt16Scalar, UInt32Scalar, UInt64Scalar,
+                         HalfFloatScalar, FloatScalar, DoubleScalar,
+                         DecimalScalar,
+                         ListScalar, LargeListScalar, FixedSizeListScalar,
+                         Date32Scalar, Date64Scalar,
+                         Time32Scalar, Time64Scalar,
+                         BinaryScalar, LargeBinaryScalar,
+                         StringScalar, LargeStringScalar,
+                         FixedSizeBinaryScalar, DictionaryScalar,
+                         MapScalar, UnionScalar, StructScalar,
+                         TimestampScalar, DurationScalar)
 
 # Buffers, allocation
 from pyarrow.lib import (Buffer, ResizableBuffer, foreign_buffer, py_buffer,
@@ -258,38 +236,47 @@ open_file = _deprecate_api("open_file", "ipc.open_file", ipc.open_file,
                            "0.17.0")
 
 # Deprecate the older scalar array values
-ArrayValue = ScalarValue = Scalar
-BooleanValue = BooleanScalar
-Int8Value = Int8Scalar
-Int16Value = Int16Scalar
-Int32Value = Int32Scalar
-Int64Value = Int64Scalar
-UInt8Value = UInt8Scalar
-UInt16Value = UInt16Scalar
-UInt32Value = UInt32Scalar
-UInt64Value = UInt64Scalar
-HalfFloatValue = HalfFloatScalar
-FloatValue = FloatScalar
-DoubleValue = DoubleScalar
-ListValue = ListScalar
-LargeListValue = LargeListScalar
-MapValue = MapScalar
-FixedSizeListValue = FixedSizeListScalar
-BinaryValue = BinaryScalar
-StringValue = StringScalar
-LargeBinaryValue = LargeBinaryScalar
-LargeStringValue = LargeStringScalar
-FixedSizeBinaryValue = FixedSizeBinaryScalar
-DecimalValue = DecimalScalar
-UnionValue = UnionScalar
-StructValue = StructScalar
-DictionaryValue = DictionaryScalar
-Date32Value = Date32Scalar
-Date64Value = Date64Scalar
-Time32Value = Time32Scalar
-Time64Value = Time64Scalar
-TimestampValue = TimestampScalar
-DurationValue = DurationScalar
+
+ArrayValue = _deprecate_api("ArrayValue", "Scalar", Scalar, "1.0.0")
+
+def _deprecate_scalar(ty, symbol):
+    return _deprecate_api(
+        "{}Value".format(ty), "{}Scalar".format(ty), symbol, "1.0.0"
+    )
+
+BooleanValue = _deprecate_scalar("Boolean", BooleanScalar)
+Int8Value = _deprecate_scalar("Int8", Int8Scalar)
+Int16Value = _deprecate_scalar("Int16", Int16Scalar)
+Int32Value = _deprecate_scalar("Int32", Int32Scalar)
+Int64Value = _deprecate_scalar("Int64", Int64Scalar)
+UInt8Value = _deprecate_scalar("UInt8", UInt8Scalar)
+UInt16Value = _deprecate_scalar("UInt16", UInt16Scalar)
+UInt32Value = _deprecate_scalar("UInt32", UInt32Scalar)
+UInt64Value = _deprecate_scalar("UInt64", UInt64Scalar)
+HalfFloatValue = _deprecate_scalar("HalfFloat", HalfFloatScalar)
+FloatValue = _deprecate_scalar("Float", FloatScalar)
+DoubleValue = _deprecate_scalar("Double", DoubleScalar)
+ListValue = _deprecate_scalar("List", ListScalar)
+LargeListValue = _deprecate_scalar("LargeList", LargeListScalar)
+MapValue = _deprecate_scalar("Map", MapScalar)
+FixedSizeListValue = _deprecate_scalar("FixedSizeList", FixedSizeListScalar)
+BinaryValue = _deprecate_scalar("Binary", BinaryScalar)
+StringValue = _deprecate_scalar("String", StringScalar)
+LargeBinaryValue = _deprecate_scalar("LargeBinary", LargeBinaryScalar)
+LargeStringValue = _deprecate_scalar("LargeString", LargeStringScalar)
+FixedSizeBinaryValue = _deprecate_scalar("FixedSizeBinary",
+                                         FixedSizeBinaryScalar)
+DecimalValue = _deprecate_scalar("Decimal", DecimalScalar)
+UnionValue = _deprecate_scalar("Union", UnionScalar)
+StructValue = _deprecate_scalar("Struct", StructScalar)
+DictionaryValue = _deprecate_scalar("Dictionary", DictionaryScalar)
+Date32Value = _deprecate_scalar("Date32", Date32Scalar)
+Date64Value = _deprecate_scalar("Date64", Date64Scalar)
+Time32Value = _deprecate_scalar("Time32", Time32Scalar)
+Time64Value = _deprecate_scalar("Time64", Time64Scalar)
+TimestampValue = _deprecate_scalar("Timestamp", TimestampScalar)
+DurationValue = _deprecate_scalar("Duration", DurationScalar)
+
 
 # TODO: Deprecate these somehow in the pyarrow namespace
 from pyarrow.ipc import (Message, MessageReader,
