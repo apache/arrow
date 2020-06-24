@@ -38,6 +38,7 @@ struct symbols {
 
 struct data {
   static SEXP classes_POSIXct;
+  static SEXP names_metadata;
 };
 
 struct ns {

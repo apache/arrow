@@ -177,6 +177,7 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp) {
 
     bool has_metadata = false;
     SEXP metadata = PROTECT(Rf_allocVector(VECSXP, 2));
+    Rf_setAttrib(metadata, R_NamesSymbol, arrow::r::data::names_metadata);
     SEXP metadata_columns = PROTECT(Rf_allocVector(VECSXP, num_fields));
     SEXP metadata_columns_names = PROTECT(Rf_allocVector(STRSXP, num_fields));
     Rf_setAttrib(metadata_columns, R_NamesSymbol, metadata_columns_names);

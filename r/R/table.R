@@ -215,12 +215,12 @@ as.data.frame.Table <- function(x, row.names = NULL, optional = FALSE, ...) {
   if (!is.null(r_metadata <- x$metadata$r)) {
     r_metadata <- .arrow_unserialize(r_metadata)
 
-    df_metadata <- r_metadata[[1L]]
+    df_metadata <- r_metadata$data
     if (!is.null(df_metadata)) {
       attributes(df) <- df_metadata
     }
 
-    columns_metadata <- r_metadata[[2L]]
+    columns_metadata <- r_metadata$columns
     names <- names(columns_metadata)
     for(name in names) {
       atts <- columns_metadata[[name]]
