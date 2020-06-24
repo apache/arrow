@@ -676,7 +676,7 @@ cdef class DictionaryScalar(Scalar):
         Return this value's underlying index as a scalar.
         """
         cdef CDictionaryScalar* sp = <CDictionaryScalar*> self.wrapped.get()
-        return Scalar.wrap(sp.index) if sp.is_valid else None
+        return Scalar.wrap(sp.index)
 
     @property
     def value(self):
@@ -684,7 +684,7 @@ cdef class DictionaryScalar(Scalar):
         Return this value's underlying dictionary value as a scalar.
         """
         cdef CDictionaryScalar* sp = <CDictionaryScalar*> self.wrapped.get()
-        return Scalar.wrap(sp.value) if sp.is_valid else None
+        return Scalar.wrap(sp.value)
 
     def as_py(self):
         """
@@ -698,11 +698,36 @@ cdef class DictionaryScalar(Scalar):
     # TODO(kszucs): deprecate these
     @property
     def index_value(self):
-        return self.index
+        index = self.index
+        return None if index is None else self.index
 
     @property
     def dictionary_value(self):
-        return self.value
+        value = self.value
+        return None if value is None else self.value
+
+
+cdef class UnionScalar(Scalar):
+    """
+    Concrete class for Union scalars.
+    """
+
+    @property
+    def value(self):
+        """
+        Return this value's underlying dictionary value as a scalar.
+        """
+        cdef CDictionaryScalar* sp = <CDictionaryScalar*> self.wrapped.get()
+        return Scalar.wrap(sp.value)
+
+    def as_py(self):
+        """
+        Return this value as a Python object.
+
+        The exact type depends on the dictionary value type.
+        """
+        value = self.value
+        return None if value is None else value.as_py()
 
 
 cdef dict _scalar_classes = {
@@ -736,6 +761,8 @@ cdef dict _scalar_classes = {
     _Type_STRUCT: StructScalar,
     _Type_MAP: MapScalar,
     _Type_DICTIONARY: DictionaryScalar,
+    _Type_SPARSE_UNION: UnionScalar,
+    _Type_DENSE_UNION: UnionScalar,
 }
 
 

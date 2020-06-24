@@ -136,7 +136,7 @@ from pyarrow.lib import (
     LargeStringScalar,
     FixedSizeBinaryScalar,
     DecimalScalar,
-    # UnionScalar,
+    UnionScalar,
     StructScalar,
     DictionaryScalar,
     Date32Scalar,
@@ -281,7 +281,7 @@ LargeBinaryValue = LargeBinaryScalar
 LargeStringValue = LargeStringScalar
 FixedSizeBinaryValue = FixedSizeBinaryScalar
 DecimalValue = DecimalScalar
-# UnionValue = UnionScalar
+UnionValue = UnionScalar
 StructValue = StructScalar
 DictionaryValue = DictionaryScalar
 Date32Value = Date32Scalar

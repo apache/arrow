@@ -98,8 +98,21 @@ struct ScalarFromArraySlotImpl {
     return Finish(std::move(children));
   }
 
-  Status Visit(const UnionArray& a) {
-    return Status::NotImplemented("Non-null UnionScalar");
+  Status Visit(const SparseUnionArray& a) {
+    // child array which stores the actual value
+    auto arr = a.field(a.child_id(index_));
+    // no need to adjust the index
+    ARROW_ASSIGN_OR_RAISE(out_, arr->GetScalar(index_));
+    return Status::OK();
+  }
+
+  Status Visit(const DenseUnionArray& a) {
+    // child array which stores the actual value
+    auto arr = a.field(a.child_id(index_));
+    // need to look up the value based on offsets
+    auto offset = a.value_offset(index_);
+    ARROW_ASSIGN_OR_RAISE(out_, arr->GetScalar(offset));
+    return Status::OK();
   }
 
   Status Visit(const DictionaryArray& a) {

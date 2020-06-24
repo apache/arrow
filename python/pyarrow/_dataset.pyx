@@ -216,21 +216,8 @@ cdef class Expression:
     @staticmethod
     def _scalar(value):
         cdef:
-            shared_ptr[CScalar] scalar
-
-        if value is None:
-            scalar.reset(new CNullScalar())
-        elif isinstance(value, bool):
-            scalar = MakeScalar(<c_bool>value)
-        elif isinstance(value, float):
-            scalar = MakeScalar(<double>value)
-        elif isinstance(value, int):
-            scalar = MakeScalar(<int64_t>value)
-        elif isinstance(value, (bytes, str)):
-            scalar = MakeStringScalar(tobytes(value))
-        else:
-            raise TypeError('Not yet supported scalar value: {}'.format(value))
-
+            Scalar scalar = pa.scalar(value)
+            shared_ptr[CScalar] wrapped = scalar.unwrap()
         return Expression.wrap(CMakeScalarExpression(move(scalar)))
 
 

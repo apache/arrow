@@ -939,6 +939,9 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CScalar] index
         shared_ptr[CScalar] value
 
+    cdef cppclass CUnionScalar" arrow::UnionScalar"(CScalar):
+        shared_ptr[CScalar] value
+
     shared_ptr[CScalar] MakeScalar[Value](Value value)
     shared_ptr[CScalar] MakeStringScalar" arrow::MakeScalar"(c_string value)
 

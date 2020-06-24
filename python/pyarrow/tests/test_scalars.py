@@ -397,11 +397,12 @@ def test_dictionary():
     expected = ['baz', 'bar', 'baz', 'foo']
 
     for j, (i, v) in enumerate(zip(indices, expected)):
-        assert arr[i].as_py() == v
-        assert arr[j].index.as_py() == i
-        assert arr[j].value.as_py() == v
-        assert arr[i].index_value == i
-        assert arr[i].dictionary_value == v
+        s = arr[j]
+        assert s.as_py() == v
+        assert s.index.as_py() == i
+        assert s.value.as_py() == v
+        assert s.index_value == i
+        assert s.dictionary_value == v
 
 
 # TODO(kszucs): raise on errror signed
