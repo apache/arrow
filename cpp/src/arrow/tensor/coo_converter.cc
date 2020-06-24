@@ -72,7 +72,8 @@ void AssignIndex(uint8_t* indices, int64_t val, const int elsize) {
 template <typename IndexValueType>
 Status CheckSparseIndexMaximumValue(const std::vector<int64_t>& shape) {
   using c_index_value_type = typename IndexValueType::c_type;
-  constexpr int64_t type_max = static_cast<int64_t>(std::numeric_limits<c_index_value_type>::max());
+  constexpr int64_t type_max =
+      static_cast<int64_t>(std::numeric_limits<c_index_value_type>::max());
   auto greater_than_type_max = [&](int64_t x) { return x > type_max; };
   if (std::any_of(shape.begin(), shape.end(), greater_than_type_max)) {
     return Status::Invalid("The bit width of the index value type is too small");
@@ -118,8 +119,10 @@ class SparseCOOTensorConverter {
   Status Convert() {
     RETURN_NOT_OK(CheckSparseIndexMaximumValue(index_value_type_, tensor_.shape()));
 
-    const int index_elsize = checked_cast<const IntegerType&>(*index_value_type_).bit_width() / CHAR_BIT;
-    const int value_elsize = checked_cast<const FixedWidthType&>(*tensor_.type()).bit_width() / CHAR_BIT;
+    const int index_elsize =
+        checked_cast<const IntegerType&>(*index_value_type_).bit_width() / CHAR_BIT;
+    const int value_elsize =
+        checked_cast<const FixedWidthType&>(*tensor_.type()).bit_width() / CHAR_BIT;
 
     const int64_t ndim = tensor_.ndim();
     ARROW_ASSIGN_OR_RAISE(int64_t nonzero_count, tensor_.CountNonZero());
@@ -151,7 +154,8 @@ class SparseCOOTensorConverter {
 
       for (int64_t n = tensor_.size(); n > 0; n--) {
         int64_t offset = tensor_.CalculateValueOffset(coord);
-        if (std::any_of(tensor_data + offset, tensor_data + offset + value_elsize, IsNonZero)) {
+        if (std::any_of(tensor_data + offset, tensor_data + offset + value_elsize,
+                        IsNonZero)) {
           std::copy_n(tensor_data + offset, value_elsize, values);
           values += value_elsize;
 
