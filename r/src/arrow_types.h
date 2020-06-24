@@ -72,6 +72,8 @@ auto ValueOrStop(R&& result) -> decltype(std::forward<R>(result).ValueOrDie()) {
 
 namespace r {
 
+std::shared_ptr<arrow::DataType> InferArrowType(SEXP x);
+
 template <typename T>
 inline std::shared_ptr<T> extract(SEXP x) {
   return Rcpp::ConstReferenceSmartPtrInputParameter<std::shared_ptr<T>>(x);

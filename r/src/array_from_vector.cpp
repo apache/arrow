@@ -52,8 +52,6 @@ inline bool is_na<int>(int value) {
   return value == NA_INTEGER;
 }
 
-std::shared_ptr<arrow::DataType> InferArrowType(SEXP x);
-
 struct VectorToArrayConverter {
   Status Visit(const arrow::NullType& type) {
     auto* null_builder = checked_cast<NullBuilder*>(builder);

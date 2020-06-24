@@ -103,7 +103,7 @@ test_that("reading schema from Buffer", {
 test_that("Input validation when creating a table with a schema", {
   expect_error(
     Table$create(b = 1, schema = c(b = float64())), # list not Schema
-    "schema must be an arrow::Schema or NULL"
+    "`schema` must be an arrow::Schema or NULL"
   )
 })
 
