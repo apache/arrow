@@ -57,11 +57,13 @@ Status MakeSparseTensorFromTensor(const Tensor& tensor,
       return MakeSparseCOOTensorFromTensor(tensor, index_value_type, pool,
                                            out_sparse_index, out_data);
     case SparseTensorFormat::CSR:
-      return MakeSparseCSRMatrixFromTensor(tensor, index_value_type, pool,
-                                           out_sparse_index, out_data);
+      return MakeSparseCSXMatrixFromTensor(SparseMatrixCompressedAxis::ROW, tensor,
+                                           index_value_type, pool, out_sparse_index,
+                                           out_data);
     case SparseTensorFormat::CSC:
-      return MakeSparseCSCMatrixFromTensor(tensor, index_value_type, pool,
-                                           out_sparse_index, out_data);
+      return MakeSparseCSXMatrixFromTensor(SparseMatrixCompressedAxis::COLUMN, tensor,
+                                           index_value_type, pool, out_sparse_index,
+                                           out_data);
     case SparseTensorFormat::CSF:
       return MakeSparseCSFTensorFromTensor(tensor, index_value_type, pool,
                                            out_sparse_index, out_data);

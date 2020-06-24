@@ -38,16 +38,16 @@ namespace {
 // ----------------------------------------------------------------------
 // SparseTensorConverter for SparseCSRIndex
 
-class SparseCSRMatrixConverter : private SparseTensorConverterMixin {
+class SparseCSXMatrixConverter : private SparseTensorConverterMixin {
   using SparseTensorConverterMixin::AssignIndex;
   using SparseTensorConverterMixin::CheckSparseIndexMaximumValue;
   using SparseTensorConverterMixin::IsNonZero;
 
  public:
-  SparseCSRMatrixConverter(const Tensor& tensor,
+  SparseCSXMatrixConverter(SparseMatrixCompressedAxis axis, const Tensor& tensor,
                            const std::shared_ptr<DataType>& index_value_type,
                            MemoryPool* pool)
-      : tensor_(tensor), index_value_type_(index_value_type), pool_(pool) {}
+      : axis_(axis), tensor_(tensor), index_value_type_(index_value_type), pool_(pool) {}
 
   Status Convert() {
     RETURN_NOT_OK(CheckSparseIndexMaximumValue(index_value_type_, tensor_.shape()));
@@ -62,8 +62,9 @@ class SparseCSRMatrixConverter : private SparseTensorConverterMixin {
       return Status::Invalid("Invalid tensor dimension");
     }
 
-    const int64_t nr = tensor_.shape()[0];
-    const int64_t nc = tensor_.shape()[1];
+    const int major_axis = static_cast<int>(axis_);
+    const int64_t n_major = tensor_.shape()[major_axis];
+    const int64_t n_minor = tensor_.shape()[1 - major_axis];
     ARROW_ASSIGN_OR_RAISE(int64_t nonzero_count, tensor_.CountNonZero());
 
     std::shared_ptr<Buffer> indptr_buffer;
@@ -73,25 +74,31 @@ class SparseCSRMatrixConverter : private SparseTensorConverterMixin {
                           AllocateBuffer(value_elsize * nonzero_count, pool_));
     auto* values = values_buffer->mutable_data();
 
-    const uint8_t* tensor_data = tensor_.raw_data();
+    const auto* tensor_data = tensor_.raw_data();
 
     if (ndim <= 1) {
       return Status::NotImplemented("TODO for ndim <= 1");
     } else {
       ARROW_ASSIGN_OR_RAISE(indptr_buffer,
-                            AllocateBuffer(index_elsize * (nr + 1), pool_));
+                            AllocateBuffer(index_elsize * (n_major + 1), pool_));
       auto* indptr = indptr_buffer->mutable_data();
 
       ARROW_ASSIGN_OR_RAISE(indices_buffer,
                             AllocateBuffer(index_elsize * nonzero_count, pool_));
       auto* indices = indices_buffer->mutable_data();
 
+      std::vector<int64_t> coords(2);
       int64_t k = 0;
       std::fill_n(indptr, index_elsize, 0);
       indptr += index_elsize;
-      for (int64_t i = 0; i < nr; ++i) {
-        for (int64_t j = 0; j < nc; ++j) {
-          int64_t offset = tensor_.CalculateValueOffset({i, j});
+      for (int64_t i = 0; i < n_major; ++i) {
+        for (int64_t j = 0; j < n_minor; ++j) {
+          if (axis_ == SparseMatrixCompressedAxis::ROW) {
+            coords = {i, j};
+          } else {
+            coords = {j, i};
+          }
+          const int64_t offset = tensor_.CalculateValueOffset(coords);
           if (std::any_of(tensor_data + offset, tensor_data + offset + value_elsize,
                           IsNonZero)) {
             std::copy_n(tensor_data + offset, value_elsize, values);
@@ -108,7 +115,7 @@ class SparseCSRMatrixConverter : private SparseTensorConverterMixin {
       }
     }
 
-    std::vector<int64_t> indptr_shape({nr + 1});
+    std::vector<int64_t> indptr_shape({n_major + 1});
     std::shared_ptr<Tensor> indptr_tensor =
         std::make_shared<Tensor>(index_value_type_, indptr_buffer, indptr_shape);
 
@@ -116,16 +123,21 @@ class SparseCSRMatrixConverter : private SparseTensorConverterMixin {
     std::shared_ptr<Tensor> indices_tensor =
         std::make_shared<Tensor>(index_value_type_, indices_buffer, indices_shape);
 
-    sparse_index = std::make_shared<SparseCSRIndex>(indptr_tensor, indices_tensor);
+    if (axis_ == SparseMatrixCompressedAxis::ROW) {
+      sparse_index = std::make_shared<SparseCSRIndex>(indptr_tensor, indices_tensor);
+    } else {
+      sparse_index = std::make_shared<SparseCSCIndex>(indptr_tensor, indices_tensor);
+    }
     data = std::move(values_buffer);
 
     return Status::OK();
   }
 
-  std::shared_ptr<SparseCSRIndex> sparse_index;
+  std::shared_ptr<SparseIndex> sparse_index;
   std::shared_ptr<Buffer> data;
 
  private:
+  SparseMatrixCompressedAxis axis_;
   const Tensor& tensor_;
   const std::shared_ptr<DataType>& index_value_type_;
   MemoryPool* pool_;
@@ -133,15 +145,16 @@ class SparseCSRMatrixConverter : private SparseTensorConverterMixin {
 
 }  // namespace
 
-Status MakeSparseCSRMatrixFromTensor(const Tensor& tensor,
+Status MakeSparseCSXMatrixFromTensor(SparseMatrixCompressedAxis axis,
+                                     const Tensor& tensor,
                                      const std::shared_ptr<DataType>& index_value_type,
                                      MemoryPool* pool,
                                      std::shared_ptr<SparseIndex>* out_sparse_index,
                                      std::shared_ptr<Buffer>* out_data) {
-  SparseCSRMatrixConverter converter(tensor, index_value_type, pool);
+  SparseCSXMatrixConverter converter(axis, tensor, index_value_type, pool);
   RETURN_NOT_OK(converter.Convert());
 
-  *out_sparse_index = checked_pointer_cast<SparseIndex>(converter.sparse_index);
+  *out_sparse_index = converter.sparse_index;
   *out_data = converter.data;
   return Status::OK();
 }

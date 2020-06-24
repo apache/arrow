@@ -158,9 +158,8 @@ set(ARROW_SRCS
     table_builder.cc
     tensor.cc
     tensor/coo_converter.cc
-    tensor/csc_converter.cc
     tensor/csf_converter.cc
-    tensor/csr_converter.cc
+    tensor/csx_converter.cc
     type.cc
     visitor.cc
     c/bridge.cc
