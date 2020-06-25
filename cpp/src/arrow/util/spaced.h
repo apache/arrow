@@ -116,7 +116,7 @@ inline int SpacedExpand(T* buffer, int num_values, int null_count,
 
   // Depending on the number of nulls, some of the value slots in buffer may
   // be uninitialized, and this will cause valgrind warnings / potentially UB
-  std::memset(&buffer[idx_decode + 1], 0, null_count * sizeof(T));
+  std::memset(static_cast<void*>(&buffer[idx_decode + 1]), 0, null_count * sizeof(T));
   if (idx_decode < 0) {
     return num_values;
   }
