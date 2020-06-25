@@ -63,7 +63,7 @@ def __getattr__(name):
     )
 
 
-def _ensure_filesystem(filesystem):
+def _ensure_filesystem(filesystem, use_mmap=False):
     if isinstance(filesystem, FileSystem):
         return filesystem
 
@@ -76,14 +76,14 @@ def _ensure_filesystem(filesystem):
         if isinstance(filesystem, fsspec.AbstractFileSystem):
             if type(filesystem).__name__ == 'LocalFileSystem':
                 # In case its a simple LocalFileSystem, use native arrow one
-                return LocalFileSystem()
+                return LocalFileSystem(use_mmap=use_mmap)
             return PyFileSystem(FSSpecHandler(filesystem))
 
     # map old filesystems to new ones
     from pyarrow.filesystem import LocalFileSystem as LegacyLocalFileSystem
 
     if isinstance(filesystem, LegacyLocalFileSystem):
-        return LocalFileSystem()
+        return LocalFileSystem(use_mmap=use_mmap)
     # TODO handle HDFS?
 
     raise TypeError("Unrecognized filesystem: {}".format(type(filesystem)))
