@@ -2107,4 +2107,4 @@ def test_dataset_project_only_partition_columns(tempdir):
     all_cols = dataset.to_table(use_threads=False)
     part_only = dataset.to_table(columns=['part'], use_threads=False)
 
-    assert all_cols.column('part') == part_only.column('part')
+    assert all_cols.column('part').equals(part_only.column('part'))
