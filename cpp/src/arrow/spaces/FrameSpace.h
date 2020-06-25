@@ -430,7 +430,7 @@ namespace arrow::spaces {
         size_t version_ = 0;
         std::shared_ptr<ImmutableDataFrame> currentFrame_;
 
-        std::mutex mutationMutex_;
+        mutable std::mutex mutationMutex_;
 
     public:
 
