@@ -198,7 +198,7 @@ Status WriteDictionaryMessage(
     const int64_t id, const int64_t length, const int64_t body_length,
     const std::shared_ptr<const KeyValueMetadata>& custom_metadata,
     const std::vector<FieldMetadata>& nodes, const std::vector<BufferMetadata>& buffers,
-    const IpcWriteOptions& options, std::shared_ptr<Buffer>* out);
+    const IpcWriteOptions& options, std::shared_ptr<Buffer>* out, bool isDelta);
 
 static inline Result<std::shared_ptr<Buffer>> WriteFlatbufferBuilder(
     flatbuffers::FlatBufferBuilder& fbb) {

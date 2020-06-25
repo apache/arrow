@@ -78,6 +78,10 @@ class ARROW_EXPORT DictionaryMemo {
   /// KeyError if that dictionary already exists
   Status AddDictionary(int64_t id, const std::shared_ptr<Array>& dictionary);
 
+  /// \brief Update a dictionary to the memo with a particular id. Returns
+  /// KeyError if that dictionary does not exists
+  Status UpdateDictionary(int64_t id, const std::shared_ptr<Array>& dictionary);
+
   /// \brief The stored dictionaries, in ascending id order.
   DictionaryVector dictionaries() const;
 

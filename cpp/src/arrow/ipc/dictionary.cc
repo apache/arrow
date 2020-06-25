@@ -142,6 +142,15 @@ Status DictionaryMemo::AddDictionary(int64_t id,
   return Status::OK();
 }
 
+Status DictionaryMemo::UpdateDictionary(int64_t id,
+                                        const std::shared_ptr<Array>& dictionary) {
+  if (!HasDictionary(id)) {
+    return Status::KeyError("Dictionary with id ", id, " does not exists");
+  }
+  id_to_dictionary_[id] = dictionary;
+  return Status::OK();
+}
+
 DictionaryMemo::DictionaryVector DictionaryMemo::dictionaries() const {
   // Sort dictionaries by ascending id.   This ensures that, in the case
   // of nested dictionaries, inner dictionaries are emitted before outer

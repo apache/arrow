@@ -1228,6 +1228,152 @@ TEST_P(TestFileFormat, RoundTrip) {
   TestZeroLengthRoundTrip(*GetParam(), options);
 }
 
+Status MakeDictionaryBatch(std::shared_ptr<RecordBatch>* out) {
+  const int64_t length = 6;
+
+  std::vector<bool> is_valid = {true, true, false, true, true, true};
+
+  auto dict_ty = utf8();
+
+  auto dict = ArrayFromJSON(dict_ty, "[\"foo\", \"bar\", \"baz\"]");
+
+  auto f0_type = arrow::dictionary(arrow::int32(), dict_ty);
+  auto f1_type = arrow::dictionary(arrow::int8(), dict_ty);
+
+  std::shared_ptr<Array> indices0, indices1;
+  std::vector<int32_t> indices0_values = {1, 2, -1, 0, 2, 0};
+  std::vector<int8_t> indices1_values = {0, 0, 2, 2, 1, 1};
+
+  ArrayFromVector<Int32Type, int32_t>(is_valid, indices0_values, &indices0);
+  ArrayFromVector<Int8Type, int8_t>(is_valid, indices1_values, &indices1);
+
+  auto a0 = std::make_shared<DictionaryArray>(f0_type, indices0, dict);
+  auto a1 = std::make_shared<DictionaryArray>(f1_type, indices1, dict);
+
+  // construct batch
+  auto schema = ::arrow::schema({field("dict1", f0_type), field("dict2", f1_type)});
+
+  *out = RecordBatch::Make(schema, length, {a0, a1});
+  return Status::OK();
+}
+
+// A record batch writer implementation that supports manually specifying dictionaries.
+class TestRecordBatchWriter : public RecordBatchWriter {
+ public:
+  explicit TestRecordBatchWriter(const Schema& schema) : schema_(schema) {
+    buffer_ = *AllocateResizableBuffer(0);
+    sink_.reset(new io::BufferOutputStream(buffer_));
+    payload_writer_ = *internal::NewPayloadStreamWriter(sink_.get());
+  }
+
+  Status WriteRecordBatch(const RecordBatch& batch) override {
+    // dumb implementation
+    return Status::OK();
+  }
+
+  Status Start() {
+    RETURN_NOT_OK(payload_writer_->Start());
+
+    // write schema
+    IpcPayload payload;
+    RETURN_NOT_OK(GetSchemaPayload(schema_, IpcWriteOptions::Defaults(),
+                                   &dictionary_memo_, &payload));
+    return payload_writer_->WritePayload(payload);
+  }
+
+  Status WriteDictionary(int64_t dictionary_id, const std::shared_ptr<Array>& dictionary,
+                         bool isDelta) {
+    IpcPayload payload;
+    RETURN_NOT_OK(GetDictionaryPayload(dictionary_id, dictionary,
+                                       IpcWriteOptions::Defaults(), &payload, isDelta));
+    RETURN_NOT_OK(payload_writer_->WritePayload(payload));
+    return Status::OK();
+  }
+
+  Status WriteBatchPayload(const RecordBatch& batch) {
+    // write record batch payload only
+    IpcPayload payload;
+    RETURN_NOT_OK(GetRecordBatchPayload(batch, IpcWriteOptions::Defaults(), &payload));
+    return payload_writer_->WritePayload(payload);
+  }
+
+  Status Close() override {
+    RETURN_NOT_OK(payload_writer_->Close());
+    return sink_->Close();
+  }
+
+  Status ReadBatch(std::shared_ptr<RecordBatch>* out_batch) {
+    auto buf_reader = std::make_shared<io::BufferReader>(buffer_);
+    std::shared_ptr<RecordBatchReader> reader;
+    ARROW_ASSIGN_OR_RAISE(
+        reader, RecordBatchStreamReader::Open(buf_reader, IpcReadOptions::Defaults()))
+    return reader->ReadNext(out_batch);
+  }
+
+  std::unique_ptr<internal::IpcPayloadWriter> payload_writer_;
+  const Schema& schema_;
+  DictionaryMemo dictionary_memo_;
+  std::shared_ptr<ResizableBuffer> buffer_;
+  std::unique_ptr<io::BufferOutputStream> sink_;
+};
+
+TEST(TestDictionaryBatch, CombineDictionary) {
+  std::shared_ptr<RecordBatch> in_batch;
+  std::shared_ptr<RecordBatch> out_batch;
+  ASSERT_OK(MakeDictionaryBatch(&in_batch));
+
+  auto dict_ty = utf8();
+  auto dict1 = ArrayFromJSON(dict_ty, "[\"foo\", \"bar\"]");
+  auto dict2 = ArrayFromJSON(dict_ty, "[\"baz\"]");
+
+  TestRecordBatchWriter writer(*in_batch->schema());
+  ASSERT_OK(writer.Start());
+
+  // combine dictionaries to make up the
+  // original dictionaries.
+  ASSERT_OK(writer.WriteDictionary(0L, dict1, false));
+  ASSERT_OK(writer.WriteDictionary(0L, dict2, true));
+
+  ASSERT_OK(writer.WriteDictionary(1L, dict1, false));
+  ASSERT_OK(writer.WriteDictionary(1L, dict2, true));
+
+  ASSERT_OK(writer.WriteBatchPayload(*in_batch));
+  ASSERT_OK(writer.Close());
+
+  ASSERT_OK(writer.ReadBatch(&out_batch));
+
+  ASSERT_BATCHES_EQUAL(*in_batch, *out_batch);
+}
+
+TEST(TestDictionaryBatch, ReplaceDictionary) {
+  std::shared_ptr<RecordBatch> in_batch;
+  std::shared_ptr<RecordBatch> out_batch;
+  ASSERT_OK(MakeDictionaryBatch(&in_batch));
+
+  auto dict_ty = utf8();
+  auto dict = ArrayFromJSON(dict_ty, "[\"foo\", \"bar\", \"baz\"]");
+  auto dict1 = ArrayFromJSON(dict_ty, "[\"foo1\", \"bar1\", \"baz1\"]");
+  auto dict2 = ArrayFromJSON(dict_ty, "[\"foo2\", \"bar2\", \"baz2\"]");
+
+  TestRecordBatchWriter writer(*in_batch->schema());
+  ASSERT_OK(writer.Start());
+
+  // the old dictionaries will be overwritten by
+  // the new dictionaries with the same ids.
+  ASSERT_OK(writer.WriteDictionary(0L, dict1, false));
+  ASSERT_OK(writer.WriteDictionary(0L, dict, false));
+
+  ASSERT_OK(writer.WriteDictionary(1L, dict2, false));
+  ASSERT_OK(writer.WriteDictionary(1L, dict, false));
+
+  ASSERT_OK(writer.WriteBatchPayload(*in_batch));
+  ASSERT_OK(writer.Close());
+
+  ASSERT_OK(writer.ReadBatch(&out_batch));
+
+  ASSERT_BATCHES_EQUAL(*in_batch, *out_batch);
+}
+
 TEST_P(TestStreamFormat, RoundTrip) {
   TestRoundTrip(*GetParam(), IpcWriteOptions::Defaults());
   TestZeroLengthRoundTrip(*GetParam(), IpcWriteOptions::Defaults());

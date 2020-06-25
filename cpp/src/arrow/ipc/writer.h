@@ -292,10 +292,12 @@ Status GetSchemaPayload(const Schema& schema, const IpcWriteOptions& options,
 /// \param[in] dictionary the dictionary values
 /// \param[in] options options for serialization
 /// \param[out] payload the output IpcPayload
+/// \param[in] isDelta whether the dictionary is a delta dictionary
 /// \return Status
 ARROW_EXPORT
 Status GetDictionaryPayload(int64_t id, const std::shared_ptr<Array>& dictionary,
-                            const IpcWriteOptions& options, IpcPayload* payload);
+                            const IpcWriteOptions& options, IpcPayload* payload,
+                            bool isDelta = false);
 
 /// \brief Compute IpcPayload for the given record batch
 /// \param[in] batch the RecordBatch that is being serialized
@@ -340,6 +342,29 @@ class ARROW_EXPORT IpcPayloadWriter {
 
   virtual Status Close() = 0;
 };
+
+/// Create a new IPC payload stream writer from stream sink. User is
+/// responsible for closing the actual OutputStream.
+///
+/// \param[in] sink output stream to write to
+/// \param[in] options options for serialization
+/// \return Result<std::shared_ptr<IpcPayloadWriter>>
+ARROW_EXPORT
+Result<std::unique_ptr<IpcPayloadWriter>> NewPayloadStreamWriter(
+    io::OutputStream* sink, const IpcWriteOptions& options = IpcWriteOptions::Defaults());
+
+/// Create a new IPC payload file writer from stream sink.
+///
+/// \param[in] sink output stream to write to
+/// \param[in] schema the schema of the record batches to be written
+/// \param[in] options options for serialization, optional
+/// \param[in] metadata custom metadata for File Footer, optional
+/// \return Status
+ARROW_EXPORT
+Result<std::unique_ptr<IpcPayloadWriter>> NewPayloadFileWriter(
+    io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
+    const IpcWriteOptions& options = IpcWriteOptions::Defaults(),
+    const std::shared_ptr<const KeyValueMetadata>& metadata = NULLPTR);
 
 /// Create a new RecordBatchWriter from IpcPayloadWriter and schema.
 ///
