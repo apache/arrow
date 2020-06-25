@@ -25,6 +25,7 @@
 #include <limits>
 #include <vector>
 
+#include "arrow/util/bit_block_counter.h"
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_stream_utils.h"
 #include "arrow/util/bit_util.h"
@@ -468,9 +469,35 @@ inline int RleDecoder::GetBatchSpaced(int batch_size, int null_count,
   if (null_count == 0) {
     return GetBatch<T>(out, batch_size);
   }
+
   PlainRleConverter<T> converter;
-  return GetSpaced<T, /*run_type=*/T, PlainRleConverter<T>>(
-      converter, batch_size, null_count, valid_bits, valid_bits_offset, out);
+  arrow::internal::BitBlockCounter block_counter(valid_bits, valid_bits_offset,
+                                                 batch_size);
+
+  int total_processed = 0;
+  int processed = 0;
+  arrow::internal::BitBlockCount block;
+
+  do {
+    block = block_counter.NextFourWords();
+    if (block.length == 0) {
+      break;
+    }
+    if (block.AllSet()) {
+      processed = GetBatch<T>(out, block.length);
+    } else if (block.NoneSet()) {
+      converter.FillZero(out, out + block.length);
+      processed = block.length;
+    } else {
+      processed = GetSpaced<T, /*RunType=*/T, PlainRleConverter<T>>(
+          converter, block.length, block.length - block.popcount, valid_bits,
+          valid_bits_offset, out);
+    }
+    total_processed += processed;
+    out += block.length;
+    valid_bits_offset += block.length;
+  } while (processed == block.length);
+  return total_processed;
 }
 
 static inline bool IndexInRange(int32_t idx, int32_t dictionary_length) {
@@ -580,13 +607,36 @@ inline int RleDecoder::GetBatchWithDictSpaced(const T* dictionary,
   if (null_count == 0) {
     return GetBatchWithDict<T>(dictionary, dictionary_length, out, batch_size);
   }
-
+  arrow::internal::BitBlockCounter block_counter(valid_bits, valid_bits_offset,
+                                                 batch_size);
   using IndexType = int32_t;
   DictionaryConverter<T> converter;
   converter.dictionary = dictionary;
   converter.dictionary_length = dictionary_length;
-  return GetSpaced<T, /*RunType=*/IndexType, DictionaryConverter<T>>(
-      converter, batch_size, null_count, valid_bits, valid_bits_offset, out);
+
+  int total_processed = 0;
+  int processed = 0;
+  arrow::internal::BitBlockCount block;
+  do {
+    block = block_counter.NextFourWords();
+    if (block.length == 0) {
+      break;
+    }
+    if (block.AllSet()) {
+      processed = GetBatchWithDict<T>(dictionary, dictionary_length, out, block.length);
+    } else if (block.NoneSet()) {
+      converter.FillZero(out, out + block.length);
+      processed = block.length;
+    } else {
+      processed = GetSpaced<T, /*RunType=*/IndexType, DictionaryConverter<T>>(
+          converter, block.length, block.length - block.popcount, valid_bits,
+          valid_bits_offset, out);
+    }
+    total_processed += processed;
+    out += block.length;
+    valid_bits_offset += block.length;
+  } while (processed == block.length);
+  return total_processed;
 }
 
 template <typename T>
