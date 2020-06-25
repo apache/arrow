@@ -43,6 +43,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
 #include "arrow/util/iterator.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 
@@ -599,6 +600,18 @@ TYPED_TEST(TestTransformInputStream, Close) { this->TestClose(); }
 TYPED_TEST(TestTransformInputStream, Chunked) { this->TestChunked(); }
 
 TYPED_TEST(TestTransformInputStream, StressChunked) { this->TestStressChunked(); }
+
+static Result<std::shared_ptr<Buffer>> FailingTransform(
+    const std::shared_ptr<Buffer>& buf) {
+  return Status::UnknownError("Failed transform");
+}
+
+TEST(TestTransformInputStream, FailingTransform) {
+  auto src = Buffer::FromString("1234567890abcdefghi");
+  auto stream = std::make_shared<TransformInputStream>(
+      std::make_shared<BufferReader>(src), FailingTransform);
+  ASSERT_RAISES(UnknownError, stream->Read(5));
+}
 
 // -----------------------------------------------------------------------
 // Test various utilities

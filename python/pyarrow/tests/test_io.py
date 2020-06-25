@@ -1340,6 +1340,34 @@ def test_transcoding_no_ops(src_encoding, dest_encoding):
         stream, src_encoding, dest_encoding) is stream
 
 
+@pytest.mark.parametrize('src_encoding, dest_encoding',
+                         [('utf-8', 'ascii'),
+                          ('utf-8', 'latin-1'),
+                          ])
+def test_transcoding_encoding_error(src_encoding, dest_encoding):
+    # Character \u0100 cannot be represented in the destination encoding
+    stream = pa.transcoding_input_stream(
+        pa.BufferReader("\u0100".encode(src_encoding)),
+        src_encoding,
+        dest_encoding)
+    with pytest.raises(UnicodeEncodeError):
+        stream.read(1)
+
+
+@pytest.mark.parametrize('src_encoding, dest_encoding',
+                         [('utf-8', 'utf-16'),
+                          ('utf-16', 'utf-8'),
+                          ])
+def test_transcoding_decoding_error(src_encoding, dest_encoding):
+    # The given bytestring is not valid in the source encoding
+    stream = pa.transcoding_input_stream(
+        pa.BufferReader(b"\xff\xff\xff\xff"),
+        src_encoding,
+        dest_encoding)
+    with pytest.raises(UnicodeError):
+        stream.read(1)
+
+
 # ----------------------------------------------------------------------
 # High-level API
 
