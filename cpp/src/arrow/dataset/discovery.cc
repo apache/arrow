@@ -177,26 +177,21 @@ Result<std::shared_ptr<DatasetFactory>> FileSystemDatasetFactory::Make(
 
   ARROW_ASSIGN_OR_RAISE(auto files, filesystem->GetFileInfo(selector));
 
-  // XXX We may avoid copying around vectors of FileInfo by filtering in place.
-  std::vector<fs::FileInfo> filtered_files;
-  for (const auto& info : files) {
-    const auto& path = info.path();
-
-    if (!info.IsFile()) {
-      continue;
-    }
-
-    if (StartsWithAnyOf(path, options.selector_ignore_prefixes)) {
-      continue;
-    }
-
-    filtered_files.push_back(info);
-  }
+  // Filter out anything that's not a file or that's explicitly ignored
+  auto files_end =
+      std::remove_if(files.begin(), files.end(), [&](const fs::FileInfo& info) {
+        if (!info.IsFile() ||
+            StartsWithAnyOf(info.path(), options.selector_ignore_prefixes)) {
+          return true;
+        }
+        return false;
+      });
+  files.erase(files_end, files.end());
 
   // Sorting by path guarantees a stability sometimes needed by unit tests.
-  std::sort(filtered_files.begin(), filtered_files.end(), fs::FileInfo::ByPath());
+  std::sort(files.begin(), files.end(), fs::FileInfo::ByPath());
 
-  return Make(std::move(filesystem), std::move(filtered_files), std::move(format),
+  return Make(std::move(filesystem), std::move(files), std::move(format),
               std::move(options));
 }
 
