@@ -250,10 +250,11 @@ TEST(BitRunReader, NormalOperation) {
                                                          {/*length=*/65, /*set=*/true}}));
 }
 
-TEST(BitRunReader, AllZero) {
+TEST(BitRunReader, AllFirstByteCombos) {
   for (int offset = 0; offset < 8; offset++) {
     for (int64_t x = 0; x < (1 << 8) - 1; x++) {
-      internal::BitRunReader reader(reinterpret_cast<uint8_t*>(&x),
+      int64_t bits = BitUtil::ToLittleEndian(x);
+      internal::BitRunReader reader(reinterpret_cast<uint8_t*>(&bits),
                                     /*start_offset=*/offset,
                                     /*length=*/8 - offset);
       std::vector<internal::BitRun> results;
@@ -306,7 +307,7 @@ TEST(BitRunReader, ScalarComparison) {
   const uint8_t* bitmap = buffer->data();
 
   internal::BitRunReader reader(bitmap, 0, kNumBits);
-  internal::BitRunReaderScalar scalar_reader(bitmap, 0, kNumBits);
+  internal::BitRunReaderLinear scalar_reader(bitmap, 0, kNumBits);
   internal::BitRun br, brs;
   int64_t br_bits = 0;
   int64_t brs_bits = 0;

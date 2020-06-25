@@ -44,9 +44,9 @@ static inline bool operator==(const BitRun& lhs, const BitRun& rhs) {
   return lhs.length == rhs.length && lhs.set == rhs.set;
 }
 
-class BitRunReaderScalar {
+class BitRunReaderLinear {
  public:
-  BitRunReaderScalar(const uint8_t* bitmap, int64_t start_offset, int64_t length)
+  BitRunReaderLinear(const uint8_t* bitmap, int64_t start_offset, int64_t length)
       : reader_(bitmap, start_offset, length) {}
 
   BitRun NextRun() {
@@ -63,7 +63,7 @@ class BitRunReaderScalar {
   BitmapReader reader_;
 };
 
-#if defined(ARROW_LITTLE_ENDIAN)
+#if ARROW_LITTLE_ENDIAN
 /// A convenience class for counting the number of continguous set/unset bits
 /// in a bitmap.
 class ARROW_EXPORT BitRunReader {
@@ -159,7 +159,7 @@ class ARROW_EXPORT BitRunReader {
   bool current_run_bit_set_;
 };
 #else
-using BitRunReader = BitRunReaderScalar;
+using BitRunReader = BitRunReaderLinear;
 #endif
 
 }  // namespace internal
