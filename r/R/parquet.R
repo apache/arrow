@@ -194,7 +194,7 @@ ParquetArrowWriterPropertiesBuilder <- R6Class("ParquetArrowWriterPropertiesBuil
         unit <- make_valid_time_unit(coerce_timestamps,
           c("ms" = TimeUnit$MILLI, "us" = TimeUnit$MICRO)
         )
-        parquet___ArrowWriterProperties___Builder__coerce_timestamps(unit)
+        parquet___ArrowWriterProperties___Builder__coerce_timestamps(self, unit)
       }
       self
     },

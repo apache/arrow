@@ -89,6 +89,19 @@ test_that("write_parquet() handles various write_statistics= specs", {
   expect_parquet_roundtrip(tab, write_statistics = c(x1 = TRUE, x2 = TRUE))
 })
 
+test_that("write_parquet() can truncate timestamps", {
+  tab <- Table$create(x1 = as.POSIXct("2020/06/03 18:00:00", tz = "UTC"))
+  expect_type_equal(tab$x1, timestamp("us", "UTC"))
+
+  tf <- tempfile()
+  on.exit(unlink(tf))
+
+  write_parquet(tab, tf, coerce_timestamps = "ms", allow_truncated_timestamps = TRUE)
+  new <- read_parquet(tf, as_data_frame = FALSE)
+  expect_type_equal(new$x1, timestamp("ms", "UTC"))
+  expect_equivalent(as.data.frame(tab), as.data.frame(new))
+})
+
 test_that("make_valid_version()", {
   expect_equal(make_valid_version("1.0"), ParquetVersionType$PARQUET_1_0)
   expect_equal(make_valid_version("2.0"), ParquetVersionType$PARQUET_2_0)
