@@ -25,7 +25,9 @@
 namespace arrow {
 namespace util {
 
-/// A wrapper around std::mutex since we can't use it directly due to CPP/CLI
+/// A wrapper around std::mutex since we can't use it directly in
+/// public headers due to C++/CLI.
+/// https://docs.microsoft.com/en-us/cpp/standard-library/mutex#remarks
 class ARROW_EXPORT Mutex {
  public:
   Mutex();
