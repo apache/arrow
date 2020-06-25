@@ -215,8 +215,19 @@ cdef class Expression:
 
     @staticmethod
     def _scalar(value):
-        cdef Scalar scalar = pa.scalar(value)
-        return Expression.wrap(CMakeScalarExpression(move(scalar.unwrap())))
+        cdef:
+            Scalar scalar
+
+        if isinstance(value, Scalar):
+            scalar = value
+        else:
+            scalar = pa.scalar(value)
+
+        return Expression.wrap(
+            shared_ptr[CExpression](
+                new CScalarExpression(move(scalar.unwrap()))
+            )
+        )
 
 
 _deserialize = Expression._deserialize

@@ -296,7 +296,10 @@ class RepeatedArrayFactory {
     return out_;
   }
 
-  Status Visit(const NullType&) { return Status::OK(); }
+  Status Visit(const NullType&) {
+    out_ = std::make_shared<NullArray>(length_);
+    return Status::OK();
+  }
 
   Status Visit(const BooleanType&) {
     ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateBitmap(length_, pool_));

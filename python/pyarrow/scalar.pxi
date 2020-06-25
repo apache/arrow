@@ -84,12 +84,10 @@ cdef class NullScalar(Scalar):
         global NA
         if NA is not None:
             raise Exception('Cannot create multiple NAType instances')
+        self.init(shared_ptr[CScalar](new CNullScalar()))
 
     def __init__(self):
         pass
-
-    def __repr__(self):
-        return 'NULL'
 
     def __eq__(self, other):
         return NA
@@ -320,6 +318,35 @@ cdef class Date64Scalar(Scalar):
             return None
 
 
+def _datetime_from_int(int64_t value, TimeUnit unit, tzinfo=None):
+    if unit == TimeUnit_SECOND:
+        delta = datetime.timedelta(seconds=value)
+    elif unit == TimeUnit_MILLI:
+        delta = datetime.timedelta(milliseconds=value)
+    elif unit == TimeUnit_MICRO:
+        delta = datetime.timedelta(microseconds=value)
+    else:
+        # TimeUnit_NANO: prefer pandas timestamps if available
+        if _pandas_api.have_pandas:
+            return _pandas_api.pd.Timestamp(value, tz=tzinfo, unit='ns')
+        # otherwise safely truncate to microsecond resolution datetime
+        if value % 1000 != 0:
+            raise ValueError(
+                "Nanosecond resolution temporal type {} is not safely "
+                "convertible to microseconds to convert to datetime.datetime. "
+                "Install pandas to return as Timestamp with nanosecond "
+                "support or access the .value attribute.".format(value)
+            )
+        delta = datetime.timedelta(microseconds=value)
+
+    dt = datetime.datetime(1970, 1, 1) + delta
+    # adjust timezone if set to the datatype
+    if tzinfo is not None:
+        dt = tzinfo.fromutc(dt)
+
+    return dt
+
+
 cdef class Time32Scalar(Scalar):
     """
     Concrete class for time32 scalars.
@@ -334,12 +361,7 @@ cdef class Time32Scalar(Scalar):
             CTime32Type* dtype = <CTime32Type*> sp.type.get()
 
         if sp.is_valid:
-            epoch = datetime.datetime(1970, 1, 1)
-            if dtype.unit() == TimeUnit_SECOND:
-                delta = datetime.timedelta(seconds=sp.value)
-            else:
-                delta = datetime.timedelta(milliseconds=sp.value)
-            return (epoch + delta).time()
+            return _datetime_from_int(sp.value, unit=dtype.unit()).time()
         else:
             return None
 
@@ -358,12 +380,7 @@ cdef class Time64Scalar(Scalar):
             CTime64Type* dtype = <CTime64Type*> sp.type.get()
 
         if sp.is_valid:
-            epoch = datetime.datetime(1970, 1, 1)
-            if dtype.unit() == TimeUnit_MICRO:
-                delta = datetime.timedelta(microseconds=sp.value)
-            else:
-                delta = datetime.timedelta(microseconds=sp.value / 1000)
-            return (epoch + delta).time()
+            return _datetime_from_int(sp.value, unit=dtype.unit()).time()
         else:
             return None
 
@@ -386,8 +403,6 @@ cdef class TimestampScalar(Scalar):
         cdef:
             CTimestampScalar* sp = <CTimestampScalar*> self.wrapped.get()
             CTimestampType* dtype = <CTimestampType*> sp.type.get()
-            TimeUnit unit = dtype.unit()
-            int64_t seconds, micros
 
         if not sp.is_valid:
             return None
@@ -399,39 +414,7 @@ cdef class TimestampScalar(Scalar):
         else:
             tzinfo = None
 
-        if unit == TimeUnit_SECOND:
-            seconds = sp.value
-            micros = 0
-        elif unit == TimeUnit_MILLI:
-            seconds = sp.value // 1_000
-            micros = (sp.value % 1_000) * 1_000
-        elif unit == TimeUnit_MICRO:
-            seconds = sp.value // 1_000_000
-            micros = sp.value % 1_000_000
-        else:
-            # TimeUnit_NANO: prefer pandas timestamps if available
-            if _pandas_api.have_pandas:
-                return _pandas_api.pd.Timestamp(sp.value, tz=tzinfo, unit='ns')
-            # otherwise safely truncate to microsecond resolution datetime
-            if sp.value % 1000 != 0:
-                raise ValueError(
-                    "Nanosecond timestamp {} is not safely convertible to "
-                    "microseconds to convert to datetime.datetime. Install "
-                    "pandas to return as Timestamp with nanosecond support or "
-                    "access the .value attribute.".format(sp.value)
-                )
-            seconds = sp.value // 1_000_000_000
-            micros = (sp.value // 1_000) % 1_000_000
-
-        # construct datetime object
-        dt = datetime.datetime(1970, 1, 1)
-        dt += datetime.timedelta(seconds=seconds, microseconds=micros)
-
-        # adjust timezone if set to the datatype
-        if tzinfo is not None:
-            dt = tzinfo.fromutc(dt)
-
-        return dt
+        return _datetime_from_int(sp.value, unit=dtype.unit(), tzinfo=tzinfo)
 
 
 cdef class DurationScalar(Scalar):
@@ -786,5 +769,4 @@ def scalar(value, DataType type=None, bint safe=True,
     assert chunked.get().num_chunks() == 1
     array = chunked.get().chunk(0)
     scalar = GetResultValue(array.get().GetScalar(0))
-
     return Scalar.wrap(scalar)

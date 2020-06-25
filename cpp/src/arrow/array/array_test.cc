@@ -290,7 +290,6 @@ TEST_F(TestArray, TestMakeArrayOfNull) {
       decimal(16, 4),
       utf8(),
       large_utf8(),
-
       list(utf8()),
       list(int64()),  // ARROW-9071
       large_list(large_utf8()),

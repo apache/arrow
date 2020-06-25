@@ -159,7 +159,7 @@ def test_date():
 
 
 @pytest.mark.pandas
-def test_timestamp(self):
+def test_timestamp():
     import pandas as pd
     arr = pd.date_range('2000-01-01 12:34:56', periods=10).values
 
