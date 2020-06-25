@@ -132,8 +132,8 @@ void VerifyResults(T* result, T* expected, int num_values) {
 }
 
 template <typename T>
-void VerifyResultsSpaced(T* result, T* expected, int num_values, uint8_t* valid_bits,
-                         int64_t valid_bits_offset) {
+void VerifyResultsSpaced(T* result, T* expected, int num_values,
+                         const uint8_t* valid_bits, int64_t valid_bits_offset) {
   for (auto i = 0; i < num_values; ++i) {
     if (BitUtil::GetBit(valid_bits, valid_bits_offset + i)) {
       ASSERT_EQ(expected[i], result[i]) << i;
@@ -150,7 +150,7 @@ void VerifyResults<FLBA>(FLBA* result, FLBA* expected, int num_values) {
 
 template <>
 void VerifyResultsSpaced<FLBA>(FLBA* result, FLBA* expected, int num_values,
-                               uint8_t* valid_bits, int64_t valid_bits_offset) {
+                               const uint8_t* valid_bits, int64_t valid_bits_offset) {
   for (auto i = 0; i < num_values; ++i) {
     if (BitUtil::GetBit(valid_bits, valid_bits_offset + i)) {
       ASSERT_EQ(0, memcmp(expected[i].ptr, result[i].ptr, flba_length)) << i;
@@ -210,22 +210,25 @@ class TestEncodingBase : public ::testing::Test {
 
   virtual void CheckRoundtrip() = 0;
 
-  virtual void CheckRoundtripSpaced(int64_t valid_bits_offset) {}
+  virtual void CheckRoundtripSpaced(const uint8_t* valid_bits,
+                                    int64_t valid_bits_offset) {}
 
   void Execute(int nvalues, int repeats) {
     InitData(nvalues, repeats);
     CheckRoundtrip();
   }
 
-  void ExecuteSpaced(int nvalues, int repeats, int64_t valid_bits_offset) {
+  void ExecuteSpaced(int nvalues, int repeats, int64_t valid_bits_offset,
+                     double null_probability) {
     InitData(nvalues, repeats);
-    auto num_value_valid_bits_buffer =
-        static_cast<int>(arrow::BitUtil::BytesForBits(num_values_ + valid_bits_offset));
-    valid_bits_buffer_.resize(num_value_valid_bits_buffer * sizeof(uint8_t));
-    // Random initialization the valid bits map
-    random_bytes(num_value_valid_bits_buffer, 0, &valid_bits_buffer_);
-    valid_bits_ = valid_bits_buffer_.data();
-    CheckRoundtripSpaced(valid_bits_offset);
+
+    int64_t size = num_values_ + valid_bits_offset;
+    auto rand = ::arrow::random::RandomArrayGenerator(1923);
+    const auto array = rand.UInt8(size, 0, 100, null_probability);
+    const auto valid_bits = array->null_bitmap_data();
+    if (valid_bits) {
+      CheckRoundtripSpaced(valid_bits, valid_bits_offset);
+    }
   }
 
  protected:
@@ -238,9 +241,6 @@ class TestEncodingBase : public ::testing::Test {
   std::vector<uint8_t> input_bytes_;
   std::vector<uint8_t> output_bytes_;
   std::vector<uint8_t> data_buffer_;
-
-  uint8_t* valid_bits_;  // valid bits map for spaced
-  std::vector<uint8_t> valid_bits_buffer_;
 
   std::shared_ptr<Buffer> encode_buffer_;
   std::shared_ptr<ColumnDescriptor> descr_;
@@ -256,8 +256,7 @@ class TestEncodingBase : public ::testing::Test {
   using TestEncodingBase<Type>::data_buffer_;   \
   using TestEncodingBase<Type>::type_length_;   \
   using TestEncodingBase<Type>::encode_buffer_; \
-  using TestEncodingBase<Type>::decode_buf_;    \
-  using TestEncodingBase<Type>::valid_bits_
+  using TestEncodingBase<Type>::decode_buf_;
 
 template <typename Type>
 class TestPlainEncoding : public TestEncodingBase<Type> {
@@ -278,25 +277,25 @@ class TestPlainEncoding : public TestEncodingBase<Type> {
     ASSERT_NO_FATAL_FAILURE(VerifyResults<T>(decode_buf_, draws_, num_values_));
   }
 
-  void CheckRoundtripSpaced(int64_t valid_bits_offset) {
+  void CheckRoundtripSpaced(const uint8_t* valid_bits, int64_t valid_bits_offset) {
     auto encoder = MakeTypedEncoder<Type>(Encoding::PLAIN, false, descr_.get());
     auto decoder = MakeTypedDecoder<Type>(Encoding::PLAIN, descr_.get());
     int null_count = 0;
     for (auto i = 0; i < num_values_; i++) {
-      if (!BitUtil::GetBit(valid_bits_, valid_bits_offset + i)) {
+      if (!BitUtil::GetBit(valid_bits, valid_bits_offset + i)) {
         null_count++;
       }
     }
 
-    encoder->PutSpaced(draws_, num_values_, valid_bits_, valid_bits_offset);
+    encoder->PutSpaced(draws_, num_values_, valid_bits, valid_bits_offset);
     encode_buffer_ = encoder->FlushValues();
     decoder->SetData(num_values_ - null_count, encode_buffer_->data(),
                      static_cast<int>(encode_buffer_->size()));
     auto values_decoded = decoder->DecodeSpaced(decode_buf_, num_values_, null_count,
-                                                valid_bits_, valid_bits_offset);
+                                                valid_bits, valid_bits_offset);
     ASSERT_EQ(num_values_, values_decoded);
     ASSERT_NO_FATAL_FAILURE(VerifyResultsSpaced<T>(decode_buf_, draws_, num_values_,
-                                                   valid_bits_, valid_bits_offset));
+                                                   valid_bits, valid_bits_offset));
   }
 
  protected:
@@ -313,16 +312,18 @@ TYPED_TEST(TestPlainEncoding, BasicRoundTrip) {
   constexpr int kSimdSize = kAvx512Size;  // Current the max is Avx512
   constexpr int kMultiSimdSize = kSimdSize * 33;
 
-  // Test with both size and offset up to 3 Simd block
-  for (auto i = 1; i < kSimdSize * 3; i++) {
-    ASSERT_NO_FATAL_FAILURE(this->ExecuteSpaced(i, 1, 0));
-    ASSERT_NO_FATAL_FAILURE(this->ExecuteSpaced(i, 1, i + 1));
+  for (auto null_prob : {0.001, 0.1, 0.5, 0.9, 0.999}) {
+    // Test with both size and offset up to 3 Simd block
+    for (auto i = 1; i < kSimdSize * 3; i++) {
+      ASSERT_NO_FATAL_FAILURE(this->ExecuteSpaced(i, 1, 0, null_prob));
+      ASSERT_NO_FATAL_FAILURE(this->ExecuteSpaced(i, 1, i + 1, null_prob));
+    }
+    // Large block and offset
+    ASSERT_NO_FATAL_FAILURE(this->ExecuteSpaced(kMultiSimdSize, 1, 0, null_prob));
+    ASSERT_NO_FATAL_FAILURE(this->ExecuteSpaced(kMultiSimdSize + 33, 1, 0, null_prob));
+    ASSERT_NO_FATAL_FAILURE(this->ExecuteSpaced(kMultiSimdSize, 1, 33, null_prob));
+    ASSERT_NO_FATAL_FAILURE(this->ExecuteSpaced(kMultiSimdSize + 33, 1, 33, null_prob));
   }
-  // Large block and offset
-  ASSERT_NO_FATAL_FAILURE(this->ExecuteSpaced(kMultiSimdSize, 1, 0));
-  ASSERT_NO_FATAL_FAILURE(this->ExecuteSpaced(kMultiSimdSize + 33, 1, 0));
-  ASSERT_NO_FATAL_FAILURE(this->ExecuteSpaced(kMultiSimdSize, 1, 33));
-  ASSERT_NO_FATAL_FAILURE(this->ExecuteSpaced(kMultiSimdSize + 33, 1, 33));
 }
 
 // ----------------------------------------------------------------------
