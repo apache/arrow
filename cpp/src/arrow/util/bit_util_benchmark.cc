@@ -323,8 +323,8 @@ static void BitRunReader(benchmark::State& state) {
   BenchmarkBitRunReader<internal::BitRunReader>(state, state.range(0));
 }
 
-static void BitRunReaderScalar(benchmark::State& state) {
-  BenchmarkBitRunReader<internal::BitRunReaderScalar>(state, state.range(0));
+static void BitRunReaderLinear(benchmark::State& state) {
+  BenchmarkBitRunReader<internal::BitRunReaderLinear>(state, state.range(0));
 }
 
 static void BitmapWriter(benchmark::State& state) {
@@ -468,7 +468,7 @@ BENCHMARK(BitRunReader)
     ->Arg(60)
     ->Arg(75)
     ->Arg(99);
-BENCHMARK(BitRunReaderScalar)
+BENCHMARK(BitRunReaderLinear)
     ->Arg(-1)
     ->Arg(0)
     ->Arg(10)
