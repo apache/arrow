@@ -24,6 +24,8 @@
 namespace arrow {
 namespace internal {
 
+#if ARROW_LITTLE_ENDIAN
+
 BitRunReader::BitRunReader(const uint8_t* bitmap, int64_t start_offset, int64_t length)
     : bitmap_(bitmap + (start_offset / 8)),
       position_(start_offset % 8),
@@ -45,6 +47,8 @@ BitRunReader::BitRunReader(const uint8_t* bitmap, int64_t start_offset, int64_t 
   // Clear out any preceding bits.
   word_ = word_ & ~BitUtil::LeastSignficantBitMask(position_);
 }
+
+#endif
 
 }  // namespace internal
 }  // namespace arrow
