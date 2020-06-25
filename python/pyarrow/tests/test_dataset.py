@@ -1623,6 +1623,49 @@ def test_parquet_dataset_factory_partitioned(tempdir):
     pd.testing.assert_frame_equal(result, expected)
 
 
+def _ProxyHandler__open_input_file__only_meta(self, path):
+    if not path.endswith("_metadata"):
+        raise AssertionError("open_input_file called")
+    return self._fs.open_input_file(path)
+
+
+def _ProxyHandler__open_input_file__error(self, path):
+    raise AssertionError("open_input_file called")
+
+
+def test_parquet_dataset_lazy_filtering(tempdir, monkeypatch):
+    # Test to ensure that no IO happens when filtering a dataset
+    # created with ParquetDatasetFactory from a _metadata file
+    from .test_fs import ProxyHandler
+    from pyarrow.fs import PyFileSystem, LocalFileSystem
+
+    root_path = tempdir / "test_parquet_dataset_lazy_filtering"
+    metadata_path, _ = _create_parquet_dataset_partitioned(root_path)
+    fs = PyFileSystem(ProxyHandler(LocalFileSystem()))
+
+    # patch proxyhandler to raise when opening any other file than _metadata
+    monkeypatch.setattr(ProxyHandler, "open_input_file",
+                        _ProxyHandler__open_input_file__only_meta)
+
+    partitioning = ds.partitioning(flavor="hive")
+    dataset = ds.parquet_dataset(
+        metadata_path, partitioning=partitioning, filesystem=fs)
+
+    # patch proxyhandler to raise when opening any file
+    monkeypatch.setattr(ProxyHandler, "open_input_file",
+                        _ProxyHandler__open_input_file__error)
+
+    # filtering fragments should not open any file
+    fragments = list(dataset.get_fragments())
+    dataset.get_fragments(ds.field("f1") > 15)
+    # TODO this raises
+    fragments[0].split_by_row_group(ds.field("f1") > 15)
+
+    # but actually scanning does open files
+    with pytest.raises(AssertionError, match="open_input_file called"):
+        dataset.to_table()
+
+
 @pytest.mark.parquet
 @pytest.mark.pandas
 def test_dataset_schema_metadata(tempdir):
