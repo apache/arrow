@@ -259,59 +259,57 @@ ParquetWriterPropertiesBuilder <- R6Class("ParquetWriterPropertiesBuilder", inhe
     set_version = function(version) {
       parquet___ArrowWriterProperties___Builder__version(self, make_valid_version(version))
     },
-
-    set_compression = function(table, compression){
-      private$.set(table, compression_from_name(compression), "compression", is.integer,
-        parquet___ArrowWriterProperties___Builder__default_compression,
+    set_compression = function(table, compression) {
+      compression <- compression_from_name(compression)
+      assert_that(is.integer(compression))
+      private$.set(table, compression,
         parquet___ArrowWriterProperties___Builder__set_compressions
       )
     },
-
     set_compression_level = function(table, compression_level){
-      private$.set(table, compression_level, "compression_level", is_integerish,
-        parquet___ArrowWriterProperties___Builder__default_compression_level,
+      assert_that(is_integerish(compression_level))
+      private$.set(table, compression_level,
         parquet___ArrowWriterProperties___Builder__set_compression_levels
       )
     },
-
     set_dictionary = function(table, use_dictionary) {
-      private$.set(table, use_dictionary, "use_dictionary", is.logical,
-        parquet___ArrowWriterProperties___Builder__default_use_dictionary,
+      assert_that(is.logical(use_dictionary))
+      private$.set(table, use_dictionary,
         parquet___ArrowWriterProperties___Builder__set_use_dictionary
       )
     },
-
     set_write_statistics = function(table, write_statistics) {
-      private$.set(table, write_statistics, "write_statistics", is.logical,
-        parquet___ArrowWriterProperties___Builder__default_write_statistics,
+      assert_that(is.logical(write_statistics))
+      private$.set(table, write_statistics,
         parquet___ArrowWriterProperties___Builder__set_write_statistics
       )
     },
-
     set_data_page_size = function(data_page_size) {
       parquet___ArrowWriterProperties___Builder__data_page_size(self, data_page_size)
     }
   ),
 
   private = list(
-    .set = function(table, value, name, is, default, multiple) {
-      msg <- paste0("unsupported ", name, "= specification")
-      assert_that(is(value), msg = msg)
+    .set = function(table, value, FUN) {
+      msg <- paste0("unsupported ", substitute(value), "= specification")
       column_names <- names(table)
-      if (is.null(given_names <- names(value))) {
-        if (length(value) == 1L) {
-          default(self, value)
-        } else if (length(value) == length(column_names)) {
-          multiple(self, column_names, value)
+      given_names <- names(value)
+      if (is.null(given_names)) {
+        if (length(value) %in% c(1L, length(column_names))) {
+          # If there's a single, unnamed value, FUN will set it globally
+          # If there are values for all columns, send them along with the names
+          FUN(self, column_names, value)
+        } else {
+          abort(msg)
         }
-      } else if(all(given_names %in% column_names)) {
-        multiple(self, given_names, value)
+      } else if (all(given_names %in% column_names)) {
+        # Use the given names
+        FUN(self, given_names, value)
       } else {
         abort(msg)
       }
     }
   )
-
 )
 
 ParquetWriterProperties$create <- function(table,

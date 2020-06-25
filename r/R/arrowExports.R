@@ -1064,28 +1064,12 @@ parquet___WriterProperties___Builder__version <- function(builder, version){
     invisible(.Call(`_arrow_parquet___WriterProperties___Builder__version` , builder, version))
 }
 
-parquet___ArrowWriterProperties___Builder__default_compression <- function(builder, compression){
-    invisible(.Call(`_arrow_parquet___ArrowWriterProperties___Builder__default_compression` , builder, compression))
-}
-
 parquet___ArrowWriterProperties___Builder__set_compressions <- function(builder, paths, types){
     invisible(.Call(`_arrow_parquet___ArrowWriterProperties___Builder__set_compressions` , builder, paths, types))
 }
 
-parquet___ArrowWriterProperties___Builder__default_compression_level <- function(builder, compression_level){
-    invisible(.Call(`_arrow_parquet___ArrowWriterProperties___Builder__default_compression_level` , builder, compression_level))
-}
-
 parquet___ArrowWriterProperties___Builder__set_compression_levels <- function(builder, paths, levels){
     invisible(.Call(`_arrow_parquet___ArrowWriterProperties___Builder__set_compression_levels` , builder, paths, levels))
-}
-
-parquet___ArrowWriterProperties___Builder__default_write_statistics <- function(builder, write_statistics){
-    invisible(.Call(`_arrow_parquet___ArrowWriterProperties___Builder__default_write_statistics` , builder, write_statistics))
-}
-
-parquet___ArrowWriterProperties___Builder__default_use_dictionary <- function(builder, use_dictionary){
-    invisible(.Call(`_arrow_parquet___ArrowWriterProperties___Builder__default_use_dictionary` , builder, use_dictionary))
 }
 
 parquet___ArrowWriterProperties___Builder__set_use_dictionary <- function(builder, paths, use_dictionary){

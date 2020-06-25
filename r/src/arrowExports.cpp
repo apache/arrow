@@ -4138,23 +4138,6 @@ RcppExport SEXP _arrow_parquet___WriterProperties___Builder__version(SEXP builde
 
 // parquet.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void parquet___ArrowWriterProperties___Builder__default_compression(const std::shared_ptr<parquet::WriterPropertiesBuilder>& builder, const arrow::Compression::type& compression);
-RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__default_compression(SEXP builder_sexp, SEXP compression_sexp){
-BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<parquet::WriterPropertiesBuilder>&>::type builder(builder_sexp);
-	Rcpp::traits::input_parameter<const arrow::Compression::type&>::type compression(compression_sexp);
-	parquet___ArrowWriterProperties___Builder__default_compression(builder, compression);
-	return R_NilValue;
-END_RCPP
-}
-#else
-RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__default_compression(SEXP builder_sexp, SEXP compression_sexp){
-	Rf_error("Cannot call parquet___ArrowWriterProperties___Builder__default_compression(). Please use arrow::install_arrow() to install required runtime libraries. ");
-}
-#endif
-
-// parquet.cpp
-#if defined(ARROW_R_WITH_ARROW)
 void parquet___ArrowWriterProperties___Builder__set_compressions(const std::shared_ptr<parquet::WriterPropertiesBuilder>& builder, const std::vector<std::string>& paths, const Rcpp::IntegerVector& types);
 RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__set_compressions(SEXP builder_sexp, SEXP paths_sexp, SEXP types_sexp){
 BEGIN_RCPP
@@ -4173,23 +4156,6 @@ RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__set_compressio
 
 // parquet.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void parquet___ArrowWriterProperties___Builder__default_compression_level(const std::shared_ptr<parquet::WriterPropertiesBuilder>& builder, int compression_level);
-RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__default_compression_level(SEXP builder_sexp, SEXP compression_level_sexp){
-BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<parquet::WriterPropertiesBuilder>&>::type builder(builder_sexp);
-	Rcpp::traits::input_parameter<int>::type compression_level(compression_level_sexp);
-	parquet___ArrowWriterProperties___Builder__default_compression_level(builder, compression_level);
-	return R_NilValue;
-END_RCPP
-}
-#else
-RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__default_compression_level(SEXP builder_sexp, SEXP compression_level_sexp){
-	Rf_error("Cannot call parquet___ArrowWriterProperties___Builder__default_compression_level(). Please use arrow::install_arrow() to install required runtime libraries. ");
-}
-#endif
-
-// parquet.cpp
-#if defined(ARROW_R_WITH_ARROW)
 void parquet___ArrowWriterProperties___Builder__set_compression_levels(const std::shared_ptr<parquet::WriterPropertiesBuilder>& builder, const std::vector<std::string>& paths, const Rcpp::IntegerVector& levels);
 RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__set_compression_levels(SEXP builder_sexp, SEXP paths_sexp, SEXP levels_sexp){
 BEGIN_RCPP
@@ -4203,40 +4169,6 @@ END_RCPP
 #else
 RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__set_compression_levels(SEXP builder_sexp, SEXP paths_sexp, SEXP levels_sexp){
 	Rf_error("Cannot call parquet___ArrowWriterProperties___Builder__set_compression_levels(). Please use arrow::install_arrow() to install required runtime libraries. ");
-}
-#endif
-
-// parquet.cpp
-#if defined(ARROW_R_WITH_ARROW)
-void parquet___ArrowWriterProperties___Builder__default_write_statistics(const std::shared_ptr<parquet::WriterPropertiesBuilder>& builder, bool write_statistics);
-RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__default_write_statistics(SEXP builder_sexp, SEXP write_statistics_sexp){
-BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<parquet::WriterPropertiesBuilder>&>::type builder(builder_sexp);
-	Rcpp::traits::input_parameter<bool>::type write_statistics(write_statistics_sexp);
-	parquet___ArrowWriterProperties___Builder__default_write_statistics(builder, write_statistics);
-	return R_NilValue;
-END_RCPP
-}
-#else
-RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__default_write_statistics(SEXP builder_sexp, SEXP write_statistics_sexp){
-	Rf_error("Cannot call parquet___ArrowWriterProperties___Builder__default_write_statistics(). Please use arrow::install_arrow() to install required runtime libraries. ");
-}
-#endif
-
-// parquet.cpp
-#if defined(ARROW_R_WITH_ARROW)
-void parquet___ArrowWriterProperties___Builder__default_use_dictionary(const std::shared_ptr<parquet::WriterPropertiesBuilder>& builder, bool use_dictionary);
-RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__default_use_dictionary(SEXP builder_sexp, SEXP use_dictionary_sexp){
-BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<parquet::WriterPropertiesBuilder>&>::type builder(builder_sexp);
-	Rcpp::traits::input_parameter<bool>::type use_dictionary(use_dictionary_sexp);
-	parquet___ArrowWriterProperties___Builder__default_use_dictionary(builder, use_dictionary);
-	return R_NilValue;
-END_RCPP
-}
-#else
-RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__default_use_dictionary(SEXP builder_sexp, SEXP use_dictionary_sexp){
-	Rf_error("Cannot call parquet___ArrowWriterProperties___Builder__default_use_dictionary(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -5999,12 +5931,8 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_parquet___ArrowWriterProperties___create", (DL_FUNC) &_arrow_parquet___ArrowWriterProperties___create, 3}, 
 		{ "_arrow_parquet___WriterProperties___Builder__create", (DL_FUNC) &_arrow_parquet___WriterProperties___Builder__create, 0}, 
 		{ "_arrow_parquet___WriterProperties___Builder__version", (DL_FUNC) &_arrow_parquet___WriterProperties___Builder__version, 2}, 
-		{ "_arrow_parquet___ArrowWriterProperties___Builder__default_compression", (DL_FUNC) &_arrow_parquet___ArrowWriterProperties___Builder__default_compression, 2}, 
 		{ "_arrow_parquet___ArrowWriterProperties___Builder__set_compressions", (DL_FUNC) &_arrow_parquet___ArrowWriterProperties___Builder__set_compressions, 3}, 
-		{ "_arrow_parquet___ArrowWriterProperties___Builder__default_compression_level", (DL_FUNC) &_arrow_parquet___ArrowWriterProperties___Builder__default_compression_level, 2}, 
 		{ "_arrow_parquet___ArrowWriterProperties___Builder__set_compression_levels", (DL_FUNC) &_arrow_parquet___ArrowWriterProperties___Builder__set_compression_levels, 3}, 
-		{ "_arrow_parquet___ArrowWriterProperties___Builder__default_write_statistics", (DL_FUNC) &_arrow_parquet___ArrowWriterProperties___Builder__default_write_statistics, 2}, 
-		{ "_arrow_parquet___ArrowWriterProperties___Builder__default_use_dictionary", (DL_FUNC) &_arrow_parquet___ArrowWriterProperties___Builder__default_use_dictionary, 2}, 
 		{ "_arrow_parquet___ArrowWriterProperties___Builder__set_use_dictionary", (DL_FUNC) &_arrow_parquet___ArrowWriterProperties___Builder__set_use_dictionary, 3}, 
 		{ "_arrow_parquet___ArrowWriterProperties___Builder__set_write_statistics", (DL_FUNC) &_arrow_parquet___ArrowWriterProperties___Builder__set_write_statistics, 3}, 
 		{ "_arrow_parquet___ArrowWriterProperties___Builder__data_page_size", (DL_FUNC) &_arrow_parquet___ArrowWriterProperties___Builder__data_page_size, 2}, 

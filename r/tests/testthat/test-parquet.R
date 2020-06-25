@@ -79,6 +79,15 @@ test_that("write_parquet() handles various use_dictionary= specs", {
   expect_parquet_roundtrip(tab, use_dictionary = TRUE)
   expect_parquet_roundtrip(tab, use_dictionary = c(TRUE, FALSE, TRUE))
   expect_parquet_roundtrip(tab, use_dictionary = c(x1 = TRUE, x2 = TRUE))
+  expect_error(
+    write_parquet(tab, tempfile(), use_dictionary = c(TRUE, FALSE)),
+    "unsupported use_dictionary= specification"
+  )
+  expect_error(
+    write_parquet(tab, tempfile(), use_dictionary = 12),
+    "is.logical(use_dictionary) is not TRUE",
+    fixed = TRUE
+  )
 })
 
 test_that("write_parquet() handles various write_statistics= specs", {
