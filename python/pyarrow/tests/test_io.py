@@ -18,6 +18,7 @@
 import bz2
 from contextlib import contextmanager
 from io import (BytesIO, StringIO, TextIOWrapper, BufferedIOBase, IOBase)
+import itertools
 import gc
 import gzip
 import os
@@ -1287,6 +1288,84 @@ def test_compressed_recordbatch_stream(compression):
     stream = pa.CompressedInputStream(pa.BufferReader(buf), compression)
     got_table = pa.RecordBatchStreamReader(stream).read_all()
     assert got_table == table
+
+
+# ----------------------------------------------------------------------
+# Transform input streams
+
+unicode_transcoding_example = (
+    "Dès Noël où un zéphyr haï me vêt de glaçons würmiens "
+    "je dîne d’exquis rôtis de bœuf au kir à l’aÿ d’âge mûr & cætera !"
+)
+
+
+def check_transcoding(data, src_encoding, dest_encoding, chunk_sizes):
+    chunk_sizes = iter(chunk_sizes)
+    stream = pa.transcoding_input_stream(
+        pa.BufferReader(data.encode(src_encoding)),
+        src_encoding, dest_encoding)
+    out = []
+    while True:
+        buf = stream.read(next(chunk_sizes))
+        out.append(buf)
+        if not buf:
+            break
+    out = b''.join(out)
+    assert out.decode(dest_encoding) == data
+
+
+@pytest.mark.parametrize('src_encoding, dest_encoding',
+                         [('utf-8', 'utf-16'),
+                          ('utf-16', 'utf-8'),
+                          ('utf-8', 'utf-32-le'),
+                          ('utf-8', 'utf-32-be'),
+                          ])
+def test_transcoding_input_stream(src_encoding, dest_encoding):
+    # All at once
+    check_transcoding(unicode_transcoding_example,
+                      src_encoding, dest_encoding, [1000, 0])
+    # Incremental
+    check_transcoding(unicode_transcoding_example,
+                      src_encoding, dest_encoding,
+                      itertools.cycle([1, 2, 3, 5]))
+
+
+@pytest.mark.parametrize('src_encoding, dest_encoding',
+                         [('utf-8', 'utf-8'),
+                          ('utf-8', 'UTF8')])
+def test_transcoding_no_ops(src_encoding, dest_encoding):
+    # No indirection is wasted when a trivial transcoding is requested
+    stream = pa.BufferReader(b"abc123")
+    assert pa.transcoding_input_stream(
+        stream, src_encoding, dest_encoding) is stream
+
+
+@pytest.mark.parametrize('src_encoding, dest_encoding',
+                         [('utf-8', 'ascii'),
+                          ('utf-8', 'latin-1'),
+                          ])
+def test_transcoding_encoding_error(src_encoding, dest_encoding):
+    # Character \u0100 cannot be represented in the destination encoding
+    stream = pa.transcoding_input_stream(
+        pa.BufferReader("\u0100".encode(src_encoding)),
+        src_encoding,
+        dest_encoding)
+    with pytest.raises(UnicodeEncodeError):
+        stream.read(1)
+
+
+@pytest.mark.parametrize('src_encoding, dest_encoding',
+                         [('utf-8', 'utf-16'),
+                          ('utf-16', 'utf-8'),
+                          ])
+def test_transcoding_decoding_error(src_encoding, dest_encoding):
+    # The given bytestring is not valid in the source encoding
+    stream = pa.transcoding_input_stream(
+        pa.BufferReader(b"\xff\xff\xff\xff"),
+        src_encoding,
+        dest_encoding)
+    with pytest.raises(UnicodeError):
+        stream.read(1)
 
 
 # ----------------------------------------------------------------------

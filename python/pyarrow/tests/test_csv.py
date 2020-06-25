@@ -108,7 +108,8 @@ def test_read_options():
     check_options_class(cls, use_threads=[True, False],
                         skip_rows=[0, 3],
                         column_names=[[], ["ab", "cd"]],
-                        autogenerate_column_names=[False, True])
+                        autogenerate_column_names=[False, True],
+                        encoding=['utf8', 'utf16'])
 
     assert opts.block_size > 0
     opts.block_size = 12345
@@ -1035,6 +1036,36 @@ class BaseTestStreamingCSVRead:
                           [{'g': [None, None],
                             'e': ["2", "5"],
                             'f': [3, 6]}])
+
+    def test_encoding(self):
+        # latin-1 (invalid utf-8)
+        rows = b"a,b\nun,\xe9l\xe9phant"
+        read_options = ReadOptions()
+        reader = self.open_bytes(rows, read_options=read_options)
+        expected_schema = pa.schema([('a', pa.string()),
+                                     ('b', pa.binary())])
+        self.check_reader(reader, expected_schema,
+                          [{'a': ["un"],
+                            'b': [b"\xe9l\xe9phant"]}])
+
+        read_options.encoding = 'latin1'
+        reader = self.open_bytes(rows, read_options=read_options)
+        expected_schema = pa.schema([('a', pa.string()),
+                                     ('b', pa.string())])
+        self.check_reader(reader, expected_schema,
+                          [{'a': ["un"],
+                            'b': ["éléphant"]}])
+
+        # utf-16
+        rows = (b'\xff\xfea\x00,\x00b\x00\n\x00u\x00n\x00,'
+                b'\x00\xe9\x00l\x00\xe9\x00p\x00h\x00a\x00n\x00t\x00')
+        read_options.encoding = 'utf16'
+        reader = self.open_bytes(rows, read_options=read_options)
+        expected_schema = pa.schema([('a', pa.string()),
+                                     ('b', pa.string())])
+        self.check_reader(reader, expected_schema,
+                          [{'a': ["un"],
+                            'b': ["éléphant"]}])
 
     def test_small_random_csv(self):
         csv, expected = make_random_csv(num_cols=2, num_rows=10)
