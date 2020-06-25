@@ -258,31 +258,32 @@ bool PyFloat_IsNaN(PyObject* obj) {
 namespace {
 
 static std::once_flag pandas_static_initialized;
-static OwnedRef pandas_NaTType;
-static Status pandas_import_status;
+static PyTypeObject* pandas_NaTType = nullptr;
 
 void GetPandasStaticSymbols() {
   OwnedRef pandas;
   Status s = ImportModule("pandas", &pandas);
   if (!s.ok()) {
-    pandas_import_status = s;
     return;
   }
 
   OwnedRef nat_value;
   s = ImportFromModule(pandas.obj(), "NaT", &nat_value);
   if (!s.ok()) {
-    pandas_import_status = s;
     return;
   }
-  pandas_NaTType.reset(PyObject_Type(nat_value.obj()));
+  PyObject* nat_type = PyObject_Type(nat_value.obj());
+  pandas_NaTType = reinterpret_cast<PyTypeObject*>(nat_type);
+
+  // PyObject_Type returns a new reference but we trust that pandas.NaT will
+  // outlive our use of this PyObject*
+  Py_DECREF(nat_type);
 }
 
 }  // namespace
 
-Status InitPandasStaticData() {
+void InitPandasStaticData() {
   std::call_once(pandas_static_initialized, GetPandasStaticSymbols);
-  return pandas_import_status;
 }
 
 bool PandasObjectIsNull(PyObject* obj) {
@@ -292,8 +293,7 @@ bool PandasObjectIsNull(PyObject* obj) {
   if (obj == Py_None) {
     return true;
   }
-  PyTypeObject* NaT = reinterpret_cast<PyTypeObject*>(pandas_NaTType.obj());
-  if (PyFloat_IsNaN(obj) || (NaT && PyObject_TypeCheck(obj, NaT)) ||
+  if (PyFloat_IsNaN(obj) || (pandas_NaTType && PyObject_TypeCheck(obj, pandas_NaTType)) ||
       (internal::PyDecimal_Check(obj) && internal::PyDecimal_ISNAN(obj))) {
     return true;
   }

@@ -1172,7 +1172,9 @@ Status GetConverterFlat(const std::shared_ptr<DataType>& type, bool strict_conve
 Status GetConverter(const std::shared_ptr<DataType>& type, bool from_pandas,
                     bool strict_conversions, std::unique_ptr<SeqConverter>* out) {
   if (from_pandas) {
-    RETURN_NOT_OK(internal::InitPandasStaticData());
+    // ARROW-842: If pandas is not installed then null checks will be less
+    // comprehensive, but that is okay.
+    internal::InitPandasStaticData();
   }
 
   switch (type->id()) {

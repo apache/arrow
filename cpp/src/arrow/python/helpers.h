@@ -70,7 +70,7 @@ inline bool IsPyInteger(PyObject* obj) { return PyLong_Check(obj); }
 
 // \brief Import symbols from pandas that we need for various type-checking,
 // like pandas.NaT or pandas.NA
-Status InitPandasStaticData();
+void InitPandasStaticData();
 
 // \brief Use pandas missing value semantics to check if a value is null
 ARROW_PYTHON_EXPORT
