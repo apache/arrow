@@ -463,12 +463,17 @@ void RowGroupInfo::SetStatisticsExpression() {
     return;
   }
 
+  if (statistics_->value.empty()) {
+    statistics_expression_ = scalar(true);
+    return;
+  }
+
   ExpressionVector expressions{statistics_->value.size()};
 
   for (size_t i = 0; i < expressions.size(); ++i) {
     const auto& col_stats =
         internal::checked_cast<const StructScalar&>(*statistics_->value[i]);
-    auto field_expr = field_ref(statistics_->type->field(i)->name());
+    auto field_expr = field_ref(statistics_->type->field(static_cast<int>(i))->name());
 
     DCHECK_EQ(col_stats.value.size(), 2);
     const auto& min = col_stats.value[0];
@@ -480,8 +485,7 @@ void RowGroupInfo::SetStatisticsExpression() {
                                    : equal(std::move(field_expr), scalar(min));
   }
 
-  statistics_expression_ =
-      expressions.empty() ? scalar(true) : and_(std::move(expressions));
+  statistics_expression_ = and_(std::move(expressions));
 }
 
 bool RowGroupInfo::Satisfy(const Expression& predicate) const {
