@@ -2474,9 +2474,7 @@ cdef class FlightServerBase:
         self.wait()
 
 
-def connect(location, *, tls_root_certs=None, cert_chain=None,
-            private_key=None, override_hostname=None, middleware=None,
-            write_size_limit_bytes=None, generic_options=None):
+def connect(location, **kwargs):
     """
     Connect to the Flight server
     Parameters
@@ -2507,7 +2505,4 @@ def connect(location, *, tls_root_certs=None, cert_chain=None,
     -------
     client : FlightClient
     """
-    return FlightClient(location, tls_root_certs=tls_root_certs,
-                        cert_chain=cert_chain, private_key=private_key,
-                        override_hostname=override_hostname,
-                        middleware=middleware, generic_options=generic_options)
+    return FlightClient(location, **kwargs)
