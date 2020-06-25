@@ -46,14 +46,20 @@ enum MetadataVersion:short {
 ///      values here are intented to represent higher level
 ///      features, additional details maybe negotiated
 ///      with key-value pairs specific to the protocol.
+///
+/// Enums added to this list should be assigned power-of-two values
+/// to facilitate exchanging and comparing bitmaps for supported
+/// features.
 enum Feature : int {
+  /// Needed to make flatbuffers happy.
+  UNUSED = 0,
   /// The stream makes use of multiple full dictionaries with the
   /// same ID and assumes clients implement dictionary replacement
   /// correctly.
-  DICTIONARY_REPLACEMENT = 0,
+  DICTIONARY_REPLACEMENT = 1,
   /// The stream makes use of compressed bodies as described
   /// in Message.fbs.
-  COMPRESSED_BODY
+  COMPRESSED_BODY = 2
 }
 
 /// These are stored in the flatbuffer in the Type union below
