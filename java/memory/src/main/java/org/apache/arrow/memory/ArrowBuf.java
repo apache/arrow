@@ -845,24 +845,30 @@ public final class ArrowBuf implements AutoCloseable {
         // after copy, bump the next read position for the src ByteBuffer
         src.position(src.position() + length);
       } else {
-        // copy word at a time
-        while (length - 128 >= LONG_SIZE) {
-          for (int x = 0; x < 16; x++) {
+        final ByteOrder originalByteOrder = src.order();
+        src.order(ByteOrder.LITTLE_ENDIAN);
+        try {
+          // copy word at a time
+          while (length - 128 >= LONG_SIZE) {
+            for (int x = 0; x < 16; x++) {
+              MemoryUtil.UNSAFE.putLong(dstAddress, src.getLong());
+              length -= LONG_SIZE;
+              dstAddress += LONG_SIZE;
+            }
+          }
+          while (length >= LONG_SIZE) {
             MemoryUtil.UNSAFE.putLong(dstAddress, src.getLong());
             length -= LONG_SIZE;
             dstAddress += LONG_SIZE;
           }
-        }
-        while (length >= LONG_SIZE) {
-          MemoryUtil.UNSAFE.putLong(dstAddress, src.getLong());
-          length -= LONG_SIZE;
-          dstAddress += LONG_SIZE;
-        }
-        // copy last byte
-        while (length > 0) {
-          MemoryUtil.UNSAFE.putByte(dstAddress, src.get());
-          --length;
-          ++dstAddress;
+          // copy last byte
+          while (length > 0) {
+            MemoryUtil.UNSAFE.putByte(dstAddress, src.get());
+            --length;
+            ++dstAddress;
+          }
+        } finally {
+          src.order(originalByteOrder);
         }
       }
     }
