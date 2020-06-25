@@ -52,7 +52,7 @@ inline int SpacedCompress(const T* src, int num_values, const uint8_t* valid_bit
     valid_bits_offset++;
   }
 
-  // The aligned parts scaned with BitBlockCounter
+  // The aligned parts scanned with BitBlockCounter
   arrow::internal::BitBlockCounter data_counter(valid_bits, valid_bits_offset,
                                                 num_values - leading_bits);
   auto current_block = data_counter.NextWord();
@@ -93,7 +93,8 @@ inline int SpacedCompress(const T* src, int num_values, const uint8_t* valid_bit
   return num_valid_values;
 }
 
-/// \brief Expand the buffer but leave spaces for null entries.
+/// \brief Relocate values in buffer into positions of non-null values as indicated by
+/// a validity bitmap.
 ///
 /// \param[in, out] buffer the in-place buffer
 /// \param[in] num_values total size of buffer including null slots
@@ -115,7 +116,7 @@ inline int SpacedExpand(T* buffer, int num_values, int null_count,
 
   // Depending on the number of nulls, some of the value slots in buffer may
   // be uninitialized, and this will cause valgrind warnings / potentially UB
-  std::memset(static_cast<void*>(&buffer[idx_decode + 1]), 0, null_count * sizeof(T));
+  std::memset(&buffer[idx_decode + 1], 0, null_count * sizeof(T));
   if (idx_decode < 0) {
     return num_values;
   }
@@ -137,7 +138,7 @@ inline int SpacedExpand(T* buffer, int num_values, int null_count,
     trailing_bits--;
   }
 
-  // The aligned parts scaned from the back with BitBlockCounter
+  // The aligned parts scanned from the back with BitBlockCounter
   auto aligned_words = p.aligned_words;
   T tmp[kBatchSize];
   std::memset(&tmp, 0, kBatchSize * sizeof(T));
