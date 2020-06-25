@@ -89,9 +89,9 @@ struct PartitionIndices {
 };
 
 template <typename ArrayType, typename VisitorNotNull, typename VisitorNull>
-inline void VisitRawValueInline(const ArrayType& values,
-                                VisitorNotNull&& visitor_not_null,
-                                VisitorNull&& visitor_null) {
+inline void VisitRawValuesInline(const ArrayType& values,
+                                 VisitorNotNull&& visitor_not_null,
+                                 VisitorNull&& visitor_null) {
   const auto data = values.raw_values();
   if (values.null_count() > 0) {
     BitmapReader reader(values.null_bitmap_data(), values.offset(), values.length());
@@ -170,16 +170,17 @@ class CountSorter {
     // first slot reserved for prefix sum
     std::vector<CounterType> counts(1 + value_range);
 
-    VisitRawValueInline(values, [&](c_type v) { ++counts[v - min_ + 1]; }, []() {});
+    VisitRawValuesInline(
+        values, [&](c_type v) { ++counts[v - min_ + 1]; }, []() {});
 
     for (uint32_t i = 1; i <= value_range; ++i) {
       counts[i] += counts[i - 1];
     }
 
     int64_t index = 0;
-    VisitRawValueInline(values,
-                        [&](c_type v) { indices_begin[counts[v - min_]++] = index++; },
-                        [&]() { indices_begin[counts[value_range]++] = index++; });
+    VisitRawValuesInline(
+        values, [&](c_type v) { indices_begin[counts[v - min_]++] = index++; },
+        [&]() { indices_begin[counts[value_range]++] = index++; });
   }
 };
 
@@ -197,7 +198,7 @@ class CountOrCompareSorter {
       c_type min{std::numeric_limits<c_type>::max()};
       c_type max{std::numeric_limits<c_type>::min()};
 
-      VisitRawValueInline(
+      VisitRawValuesInline(
           values,
           [&](c_type v) {
             min = std::min(min, v);
