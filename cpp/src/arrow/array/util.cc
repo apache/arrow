@@ -317,13 +317,10 @@ class RepeatedArrayFactory {
 
   Status Visit(const DictionaryType& type) {
     const auto& value = checked_cast<const DictionaryScalar&>(scalar_).value;
-    ARROW_ASSIGN_OR_RAISE(auto dictionary, MakeArrayFromScalar(*value, 1, pool_));
-
-    ARROW_ASSIGN_OR_RAISE(auto zero, MakeScalar(type.index_type(), 0));
-    ARROW_ASSIGN_OR_RAISE(auto indices, MakeArrayFromScalar(*zero, length_, pool_));
-
+    ARROW_ASSIGN_OR_RAISE(auto indices,
+                          MakeArrayFromScalar(*value.index, length_, pool_));
     out_ = std::make_shared<DictionaryArray>(scalar_.type, std::move(indices),
-                                             std::move(dictionary));
+                                             value.dictionary);
     return Status::OK();
   }
 

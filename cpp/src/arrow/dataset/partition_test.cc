@@ -59,7 +59,7 @@ class TestPartitioning : public ::testing::Test {
                      const std::vector<std::shared_ptr<Field>>& expected) {
     ASSERT_OK_AND_ASSIGN(auto actual, factory_->Inspect(paths));
     ASSERT_EQ(*actual, Schema(expected));
-    ASSERT_OK(factory_->Finish(actual).status());
+    ASSERT_OK_AND_ASSIGN(partitioning_, factory_->Finish(actual));
   }
 
   void AssertInspectError(const std::vector<std::string>& paths) {
@@ -76,7 +76,7 @@ class TestPartitioning : public ::testing::Test {
   }
 
   static std::shared_ptr<Field> Dict(std::string name) {
-    return field(std::move(name), dictionary(int8(), utf8()));
+    return field(std::move(name), dictionary(int32(), utf8()));
   }
 
   std::shared_ptr<Partitioning> partitioning_;
@@ -160,6 +160,31 @@ TEST_F(TestPartitioning, DictionaryInference) {
   AssertInspect({"/a/0", "/b/0", "/c/1", "/d/1"}, {Str("alpha"), Int("beta")});
 }
 
+TEST_F(TestPartitioning, DictionaryHasUniqueValues) {
+  PartitioningFactoryOptions options;
+  options.max_partition_dictionary_size = -1;
+  factory_ = DirectoryPartitioning::MakeFactory({"alpha"}, options);
+
+  auto alpha = Dict("alpha");
+  AssertInspect({"/a", "/b", "/a", "/b", "/c", "/a"}, {alpha});
+  ASSERT_OK_AND_ASSIGN(auto partitioning, factory_->Finish(schema({alpha})));
+
+  auto expected_dictionary = internal::checked_pointer_cast<StringArray>(
+      ArrayFromJSON(utf8(), R"(["a", "b", "c"])"));
+
+  for (int32_t i = 0; i < expected_dictionary->length(); ++i) {
+    DictionaryScalar::ValueType index_and_dictionary{std::make_shared<Int32Scalar>(i),
+                                                     expected_dictionary};
+    auto dictionary_scalar =
+        std::make_shared<DictionaryScalar>(index_and_dictionary, alpha->type());
+
+    auto path = "/" + expected_dictionary->GetString(i);
+    AssertParse(path, "alpha"_ == dictionary_scalar);
+  }
+
+  AssertParseError("/yosemite");  // not in inspected dictionary
+}
+
 TEST_F(TestPartitioning, DiscoverSchemaSegfault) {
   // ARROW-7638
   factory_ = DirectoryPartitioning::MakeFactory({"alpha", "beta"});
@@ -225,6 +250,32 @@ TEST_F(TestPartitioning, HiveDictionaryInference) {
   AssertInspect(
       {"/alpha=a/beta=0", "/alpha=b/beta=0", "/alpha=c/beta=1", "/alpha=d/beta=1"},
       {Str("alpha"), Int("beta")});
+}
+
+TEST_F(TestPartitioning, HiveDictionaryHasUniqueValues) {
+  PartitioningFactoryOptions options;
+  options.max_partition_dictionary_size = -1;
+  factory_ = HivePartitioning::MakeFactory(options);
+
+  auto alpha = Dict("alpha");
+  AssertInspect({"/alpha=a", "/alpha=b", "/alpha=a", "/alpha=b", "/alpha=c", "/alpha=a"},
+                {alpha});
+  ASSERT_OK_AND_ASSIGN(auto partitioning, factory_->Finish(schema({alpha})));
+
+  auto expected_dictionary = internal::checked_pointer_cast<StringArray>(
+      ArrayFromJSON(utf8(), R"(["a", "b", "c"])"));
+
+  for (int32_t i = 0; i < expected_dictionary->length(); ++i) {
+    DictionaryScalar::ValueType index_and_dictionary{std::make_shared<Int32Scalar>(i),
+                                                     expected_dictionary};
+    auto dictionary_scalar =
+        std::make_shared<DictionaryScalar>(index_and_dictionary, alpha->type());
+
+    auto path = "/alpha=" + expected_dictionary->GetString(i);
+    AssertParse(path, "alpha"_ == dictionary_scalar);
+  }
+
+  AssertParseError("/alpha=yosemite");  // not in inspected dictionary
 }
 
 TEST_F(TestPartitioning, EtlThenHive) {

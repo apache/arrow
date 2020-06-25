@@ -818,9 +818,9 @@ def test_partitioning_factory_dictionary(mockfs):
     max_size_to_inferred_type = {
         0: pa.string(),
         1: pa.string(),
-        2: pa.dictionary(pa.int8(), pa.string()),
-        64: pa.dictionary(pa.int8(), pa.string()),
-        None: pa.dictionary(pa.int8(), pa.string()),
+        2: pa.dictionary(pa.int32(), pa.string()),
+        64: pa.dictionary(pa.int32(), pa.string()),
+        None: pa.dictionary(pa.int32(), pa.string()),
     }
 
     for max_size, expected_type in max_size_to_inferred_type.items():
@@ -833,6 +833,14 @@ def test_partitioning_factory_dictionary(mockfs):
 
         inferred_schema = factory.inspect()
         assert inferred_schema.field('key').type == expected_type
+
+        if expected_type == pa.string():
+            continue
+
+        table = factory.finish().to_table().combine_chunks()
+        actual = table.column('key').chunk(0)
+        expected = pa.array(['xxx'] * 5 + ['yyy'] * 5).dictionary_encode()
+        assert actual.equals(expected)
 
 
 def test_partitioning_function():

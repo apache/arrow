@@ -19,12 +19,15 @@
 
 #include <algorithm>
 #include <chrono>
-#include <map>
 #include <memory>
+#include <set>
 #include <stack>
 #include <utility>
 #include <vector>
 
+#include "arrow/array/array_base.h"
+#include "arrow/array/builder_binary.h"
+#include "arrow/compute/api_scalar.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/filter.h"
@@ -135,20 +138,53 @@ Status KeyValuePartitioning::SetDefaultValuesFromKeys(const Expression& expr,
 }
 
 Result<std::shared_ptr<Expression>> KeyValuePartitioning::ConvertKey(
-    const Key& key, const Schema& schema) {
-  ARROW_ASSIGN_OR_RAISE(auto field, FieldRef(key.name).GetOneOrNone(schema));
-  if (field == nullptr) {
+    const Key& key, const Schema& schema, const ArrayVector& dictionaries) {
+  ARROW_ASSIGN_OR_RAISE(auto match, FieldRef(key.name).FindOneOrNone(schema));
+  if (match.indices().empty()) {
     return scalar(true);
   }
 
-  ARROW_ASSIGN_OR_RAISE(auto converted, Scalar::Parse(field->type(), key.value));
+  auto field_index = match.indices()[0];
+  auto field = schema.field(field_index);
+
+  std::shared_ptr<Scalar> converted;
+
+  if (field->type()->id() == Type::DICTIONARY) {
+    if (dictionaries.empty() || dictionaries[field_index] == nullptr) {
+      return Status::Invalid("No dictionary provided for dictionary field ",
+                             field->ToString());
+    }
+
+    DictionaryScalar::ValueType value;
+    value.dictionary = dictionaries[field_index];
+
+    if (!value.dictionary->type()->Equals(
+            checked_cast<const DictionaryType&>(*field->type()).value_type())) {
+      return Status::TypeError("Dictionary supplied for field ", field->ToString(),
+                               " had incorrect type ",
+                               value.dictionary->type()->ToString());
+    }
+
+    // look up the partition value in the dictionary
+    ARROW_ASSIGN_OR_RAISE(converted, Scalar::Parse(value.dictionary->type(), key.value));
+    ARROW_ASSIGN_OR_RAISE(auto index, compute::Match(converted, value.dictionary));
+    value.index = index.scalar();
+    if (!value.index->is_valid) {
+      return Status::Invalid("Dictionary supplied for field ", field->ToString(),
+                             " does not contain '", key.value, "'");
+    }
+    converted = std::make_shared<DictionaryScalar>(std::move(value), field->type());
+  } else {
+    ARROW_ASSIGN_OR_RAISE(converted, Scalar::Parse(field->type(), key.value));
+  }
+
   return equal(field_ref(field->name()), scalar(converted));
 }
 
 Result<std::shared_ptr<Expression>> KeyValuePartitioning::Parse(
     const std::string& segment, int i) const {
   if (auto key = ParseKey(segment, i)) {
-    return ConvertKey(*key, *schema_);
+    return ConvertKey(*key, *schema_, dictionaries_);
   }
 
   return scalar(true);
@@ -205,9 +241,9 @@ class KeyValuePartitioningInspectImpl {
   explicit KeyValuePartitioningInspectImpl(const PartitioningFactoryOptions& options)
       : options_(options) {}
 
-  static Result<std::shared_ptr<DataType>> InferType(
-      const std::string& name, const std::unordered_set<std::string>& reprs,
-      int max_partition_dictionary_size) {
+  static Result<std::shared_ptr<DataType>> InferType(const std::string& name,
+                                                     const std::set<std::string>& reprs,
+                                                     int max_partition_dictionary_size) {
     if (reprs.empty()) {
       return Status::Invalid("No segments were available for field '", name,
                              "'; couldn't infer type");
@@ -222,25 +258,11 @@ class KeyValuePartitioningInspectImpl {
       return int32();
     }
 
-    static_assert(static_cast<size_t>(-1) > 100, "");
-
     if (reprs.size() > static_cast<size_t>(max_partition_dictionary_size)) {
       return utf8();
     }
 
-    auto int8_max = static_cast<size_t>(std::numeric_limits<int8_t>::max()) + 1;
-    auto int16_max = static_cast<size_t>(std::numeric_limits<int16_t>::max()) + 1;
-    auto int32_max = static_cast<size_t>(std::numeric_limits<int32_t>::max()) + 1;
-
-    if (reprs.size() <= int8_max) {
-      return dictionary(int8(), utf8());
-    } else if (reprs.size() <= int16_max) {
-      return dictionary(int16(), utf8());
-    } else if (reprs.size() <= int32_max) {
-      return dictionary(int32(), utf8());
-    } else {
-      return dictionary(int64(), utf8());
-    }
+    return dictionary(int32(), utf8());
   }
 
   int GetOrInsertField(const std::string& name) {
@@ -259,7 +281,11 @@ class KeyValuePartitioningInspectImpl {
 
   void InsertRepr(int index, std::string repr) { values_[index].insert(std::move(repr)); }
 
-  Result<std::shared_ptr<Schema>> Finish() {
+  Result<std::shared_ptr<Schema>> Finish(ArrayVector* dictionaries) {
+    if (options_.max_partition_dictionary_size != 0) {
+      dictionaries->resize(name_to_index_.size());
+    }
+
     std::vector<std::shared_ptr<Field>> fields(name_to_index_.size());
 
     for (const auto& name_index : name_to_index_) {
@@ -267,7 +293,14 @@ class KeyValuePartitioningInspectImpl {
       auto index = name_index.second;
       ARROW_ASSIGN_OR_RAISE(auto type, InferType(name, values_[index],
                                                  options_.max_partition_dictionary_size));
-      fields[index] = field(name, type);
+      if (type->id() == Type::DICTIONARY) {
+        StringBuilder builder;
+        for (const auto& repr : values_[index]) {
+          RETURN_NOT_OK(builder.Append(repr));
+        }
+        RETURN_NOT_OK(builder.Finish(&dictionaries->at(index)));
+      }
+      fields[index] = field(name, std::move(type));
     }
 
     return ::arrow::schema(std::move(fields));
@@ -275,7 +308,7 @@ class KeyValuePartitioningInspectImpl {
 
  private:
   std::unordered_map<std::string, int> name_to_index_;
-  std::vector<std::unordered_set<std::string>> values_;
+  std::vector<std::set<std::string>> values_;
   const PartitioningFactoryOptions& options_;
 };
 
@@ -288,7 +321,7 @@ class DirectoryPartitioningFactory : public PartitioningFactory {
   std::string type_name() const override { return "schema"; }
 
   Result<std::shared_ptr<Schema>> Inspect(
-      const std::vector<std::string>& paths) const override {
+      const std::vector<std::string>& paths) override {
     KeyValuePartitioningInspectImpl impl(options_);
 
     for (const auto& name : field_names_) {
@@ -304,7 +337,7 @@ class DirectoryPartitioningFactory : public PartitioningFactory {
       }
     }
 
-    return impl.Finish();
+    return impl.Finish(&dictionaries_);
   }
 
   Result<std::shared_ptr<Partitioning>> Finish(
@@ -317,7 +350,7 @@ class DirectoryPartitioningFactory : public PartitioningFactory {
     // drop fields which aren't in field_names_
     auto out_schema = SchemaFromColumnNames(schema, field_names_);
 
-    return std::make_shared<DirectoryPartitioning>(std::move(out_schema));
+    return std::make_shared<DirectoryPartitioning>(std::move(out_schema), dictionaries_);
   }
 
   struct MakeWritePlanImpl;
@@ -331,6 +364,7 @@ class DirectoryPartitioningFactory : public PartitioningFactory {
 
  private:
   std::vector<std::string> field_names_;
+  ArrayVector dictionaries_;
   PartitioningFactoryOptions options_;
 };
 
@@ -601,7 +635,7 @@ class HivePartitioningFactory : public PartitioningFactory {
   std::string type_name() const override { return "hive"; }
 
   Result<std::shared_ptr<Schema>> Inspect(
-      const std::vector<std::string>& paths) const override {
+      const std::vector<std::string>& paths) override {
     KeyValuePartitioningInspectImpl impl(options_);
 
     for (auto path : paths) {
@@ -612,15 +646,16 @@ class HivePartitioningFactory : public PartitioningFactory {
       }
     }
 
-    return impl.Finish();
+    return impl.Finish(&dictionaries_);
   }
 
   Result<std::shared_ptr<Partitioning>> Finish(
       const std::shared_ptr<Schema>& schema) const override {
-    return std::shared_ptr<Partitioning>(new HivePartitioning(schema));
+    return std::shared_ptr<Partitioning>(new HivePartitioning(schema, dictionaries_));
   }
 
  private:
+  ArrayVector dictionaries_;
   PartitioningFactoryOptions options_;
 };
 

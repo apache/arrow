@@ -943,7 +943,10 @@ class ScalarEqualsVisitor {
   Status Visit(const UnionScalar& left) { return Status::NotImplemented("union"); }
 
   Status Visit(const DictionaryScalar& left) {
-    return Status::NotImplemented("dictionary");
+    const auto& right = checked_cast<const DictionaryScalar&>(right_);
+    result_ = left.value.index->Equals(right.value.index) &&
+              left.value.dictionary->Equals(right.value.dictionary);
+    return Status::OK();
   }
 
   Status Visit(const ExtensionScalar& left) {
