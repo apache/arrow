@@ -576,13 +576,13 @@ having the values: ``[{f=1.2}, null, {f=3.4}, {i=5}]``
 
       |Byte 0   | Byte 1      | Byte 2   | Byte 3   | Bytes 4-63  |
       |---------|-------------|----------|----------|-------------|
-      | 0       | unspecified | 0        | 1        | unspecified |
+      | 0       | 0           | 0        | 1        | unspecified |
 
     * Offset buffer:
 
       |Bytes 0-3 | Bytes 4-7   | Bytes 8-11 | Bytes 12-15 | Bytes 16-63 |
       |----------|-------------|------------|-------------|-------------|
-      | 0        | unspecified | 1          | 0           | unspecified |
+      | 0        | 1           | 2          | 0           | unspecified |
 
     * Children arrays:
       * Field-0 array (f: float):
@@ -591,7 +591,7 @@ having the values: ``[{f=1.2}, null, {f=3.4}, {i=5}]``
 
         * Value Buffer:
 
-          | Bytes 0-11     | Bytes 8-63  |
+          | Bytes 0-11     | Bytes 12-63  |
           |----------------|-------------|
           | 1.2, null, 3.4 | unspecified |
 
