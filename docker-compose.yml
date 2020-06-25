@@ -62,6 +62,11 @@ x-ccache: &ccache
   CCACHE_MAXSIZE: 500M
   CCACHE_DIR: /ccache
 
+x-with-gpus:
+  - ubuntu-cuda-cpp
+  - ubuntu-cuda-python
+  - ubuntu-cuda-docs
+
 x-hierarchy:
   # This section is used by the archery tool to enable building nested images,
   # so it is enough to call:
@@ -91,8 +96,6 @@ x-hierarchy:
       - conda-python-kartothek
       - conda-python-spark
     - conda-r
-  - cuda-cpp:
-    - cuda-python
   - debian-cpp:
     - debian-c-glib:
       - debian-ruby
@@ -112,6 +115,9 @@ x-hierarchy:
     - ubuntu-python:
       - ubuntu-docs
     - ubuntu-r
+  - ubuntu-cuda-cpp:
+    - ubuntu-cuda-python:
+      - ubuntu-cuda-docs
   - ubuntu-csharp
   - ubuntu-cpp-sanitizer
   - ubuntu-r-sanitizer
@@ -200,34 +206,6 @@ services:
     volumes: *conda-volumes
     command: *cpp-conda-command
 
-  cuda-cpp:
-    # Usage:
-    #   docker-compose build cuda-cpp
-    #   docker-compose run --rm cuda-cpp
-    # Also need to edit the host docker configuration as follows:
-    #   https://github.com/docker/compose/issues/6691#issuecomment-561504928
-    # Parameters:
-    #   ARCH: amd64
-    #   CUDA: 9.1, 10.0, 10.1
-    image: ${REPO}:${ARCH}-cuda-${CUDA}-cpp
-    build:
-      context: .
-      dockerfile: ci/docker/cuda-${CUDA}-cpp.dockerfile
-      cache_from:
-        - ${REPO}:${ARCH}-cuda-${CUDA}-cpp
-    shm_size: *shm-size
-    ulimits: *ulimits
-    environment:
-      <<: *ccache
-      ARROW_ENABLE_TIMING_TESTS:  # inherit
-    volumes: &cuda-volumes
-      - .:/arrow:delegated
-      - ${DOCKER_VOLUME_DIRECTORY:-.docker}/${ARCH}-cuda-${CUDA}-ccache:/ccache:delegated
-    command: &cpp-command >
-      /bin/bash -c "
-        /arrow/ci/scripts/cpp_build.sh /arrow /build &&
-        /arrow/ci/scripts/cpp_test.sh /arrow /build"
-
   debian-cpp:
     # Usage:
     #   docker-compose build debian-cpp
@@ -252,7 +230,10 @@ services:
     volumes: &debian-volumes
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_DIRECTORY:-.docker}/${ARCH}-debian-${DEBIAN}-ccache:/ccache:delegated
-    command: *cpp-command
+    command: &cpp-command >
+      /bin/bash -c "
+        /arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        /arrow/ci/scripts/cpp_test.sh /arrow /build"
 
   ubuntu-cpp:
     # Usage:
@@ -268,7 +249,7 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
       args:
-        arch: ${ARCH}
+        base: "${ARCH}/ubuntu:${UBUNTU}"
         clang_tools: ${CLANG_TOOLS}
         llvm: ${LLVM}
     shm_size: *shm-size
@@ -279,6 +260,33 @@ services:
     volumes: &ubuntu-volumes
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_DIRECTORY:-.docker}/${ARCH}-ubuntu-${UBUNTU}-ccache:/ccache:delegated
+    command: *cpp-command
+
+  ubuntu-cuda-cpp:
+    # Usage:
+    #   docker-compose build cuda-cpp
+    #   docker-compose run --rm cuda-cpp
+    # Also need to edit the host docker configuration as follows:
+    #   https://github.com/docker/compose/issues/6691#issuecomment-561504928
+    # Parameters:
+    #   ARCH: amd64
+    #   CUDA: 9.1, 10.0, 10.1
+    image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cuda-${CUDA}-cpp
+    build:
+      context: .
+      dockerfile: ci/docker/ubuntu-${UBUNTU}-cpp.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cuda-${CUDA}-cpp
+      args:
+        base: nvidia/cuda:10.0-devel-ubuntu${UBUNTU}
+        clang_tools: ${CLANG_TOOLS}
+        llvm: ${LLVM}
+    shm_size: *shm-size
+    ulimits: *ulimits
+    environment:
+      <<: *ccache
+      ARROW_CUDA: "ON"
+    volumes: *ubuntu-volumes
     command: *cpp-command
 
   ubuntu-cpp-sanitizer:
@@ -483,7 +491,7 @@ services:
         /arrow/ci/scripts/python_build.sh /arrow /build &&
         /arrow/ci/scripts/python_test.sh /arrow"]
 
-  cuda-python:
+  ubuntu-cuda-python:
     # Usage:
     #   docker-compose build cuda-cpp
     #   docker-compose build cuda-python
@@ -491,18 +499,19 @@ services:
     # Parameters:
     #   ARCH: amd64
     #   CUDA: 8.0, 10.0, ...
-    image: ${REPO}:${ARCH}-cuda-${CUDA}-python-3
+    image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cuda-${CUDA}-python-3
     build:
       context: .
       dockerfile: ci/docker/linux-apt-python-3.dockerfile
       cache_from:
-        - ${REPO}:${ARCH}-cuda-${CUDA}-python-3
+        - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cuda-${CUDA}-python-3
       args:
-        base: ${REPO}:${ARCH}-cuda-${CUDA}-cpp
+        base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cuda-${CUDA}-cpp
     shm_size: *shm-size
     environment:
       <<: *ccache
-    volumes: *cuda-volumes
+      ARROW_CUDA: "ON"
+    volumes: *ubuntu-volumes
     command: &python-command >
       /bin/bash -c "
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
@@ -1118,7 +1127,7 @@ services:
       <<: *ccache
       ARROW_GLIB_GTK_DOC: "true"
     volumes: *ubuntu-volumes
-    command:
+    command: &docs-command >
       /bin/bash -c "
         /arrow/ci/scripts/cpp_build.sh /arrow /build true &&
         /arrow/ci/scripts/c_glib_build.sh /arrow /build &&
@@ -1127,6 +1136,30 @@ services:
         /arrow/ci/scripts/js_build.sh /arrow true &&
         /arrow/ci/scripts/r_build.sh /arrow true &&
         /arrow/ci/scripts/docs_build.sh /arrow /build"
+
+  ubuntu-cuda-docs:
+    # Usage:
+    #   docker-compose build ubuntu-cuda-cpp
+    #   docker-compose build ubuntu-cuda-python
+    #   docker-compose build ubuntu-cuda-docs
+    #   docker-compose run --rm ubuntu-cuda-docs
+    # Notes about --runtime and --gpus and docker-compose incompatibility
+    image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cuda-${CUDA}-python-3-docs
+    build:
+      context: .
+      dockerfile: ci/docker/linux-apt-docs.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-docs
+      args:
+        jdk: ${JDK}
+        node: ${NODE}
+        base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cuda-${CUDA}-python-3
+    environment:
+      <<: *ccache
+      ARROW_CUDA: "ON"
+      ARROW_GLIB_GTK_DOC: "true"
+    volumes: *ubuntu-volumes
+    command: *docs-command
 
   ################################# Tools #####################################
 
