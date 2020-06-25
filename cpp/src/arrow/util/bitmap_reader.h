@@ -57,6 +57,8 @@ class BitmapReader {
 
   int64_t position() const { return position_; }
 
+  int64_t length() const { return length_; }
+
  private:
   const uint8_t* bitmap_;
   int64_t position_;

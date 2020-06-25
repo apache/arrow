@@ -22,9 +22,6 @@
 #include <limits>
 #include <memory>
 
-#include "arrow/util/bit_util.h"
-#include "arrow/util/bitmap_ops.h"
-#include "arrow/util/ubsan.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
