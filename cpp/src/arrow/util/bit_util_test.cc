@@ -264,7 +264,7 @@ TEST(BitRunReader, AllZero) {
       } while (rl.length != 0);
       EXPECT_EQ(results.back().length, 0);
       results.pop_back();
-      int sum = 0;
+      int64_t sum = 0;
       for (const auto& result : results) {
         sum += result.length;
       }
