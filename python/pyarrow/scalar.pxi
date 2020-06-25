@@ -58,15 +58,20 @@ cdef class Scalar:
     def __str__(self):
         return str(self.as_py())
 
+    def equals(self, Scalar other):
+        return self.wrapped.get().Equals(other.unwrap().get()[0])
+
     def __eq__(self, other):
-        # TODO(kszucs): use c++ Equals
-        if isinstance(other, Scalar):
-            other = other.as_py()
-        return self.as_py() == other
+        try:
+            if not isinstance(other, Scalar):
+                other = scalar(other, type=self.type)
+            return self.equals(other)
+        except (TypeError, ValueError, ArrowInvalid):
+            return NotImplemented
 
     def __hash__(self):
-        # TODO(kszucs): use C++ hash if implemented for the type
-        return hash(self.as_py())
+        cdef CScalarHash hasher
+        return hasher(self.wrapped)
 
     def as_py(self):
         raise NotImplementedError()
@@ -91,6 +96,10 @@ cdef class NullScalar(Scalar):
 
     def __eq__(self, other):
         return NA
+
+    def __hash__(self):
+        cdef CScalarHash hasher
+        return hasher(self.wrapped)
 
     def as_py(self):
         """
@@ -224,6 +233,18 @@ cdef class HalfFloatScalar(Scalar):
     Concrete class for float scalars.
     """
 
+    def __hash__(self):
+        cdef CScalarHash hasher
+        return hasher(self.wrapped)
+
+    def __eq__(self, other):
+        if hasattr(self, 'as_py'):
+            if isinstance(other, Scalar):
+                other = other.as_py()
+            return self.as_py() == other
+        else:
+            raise NotImplementedError
+
     def as_py(self):
         """
         Return this value as a Python float.
@@ -258,7 +279,7 @@ cdef class DoubleScalar(Scalar):
         return sp.value if sp.is_valid else None
 
 
-cdef class DecimalScalar(Scalar):
+cdef class Decimal128Scalar(Scalar):
     """
     Concrete class for decimal128 scalars.
     """
@@ -337,7 +358,7 @@ def _datetime_from_int(int64_t value, TimeUnit unit, tzinfo=None):
                 "Install pandas to return as Timestamp with nanosecond "
                 "support or access the .value attribute.".format(value)
             )
-        delta = datetime.timedelta(microseconds=value)
+        delta = datetime.timedelta(microseconds=value // 1000)
 
     dt = datetime.datetime(1970, 1, 1) + delta
     # adjust timezone if set to the datatype
@@ -726,7 +747,7 @@ cdef dict _scalar_classes = {
     _Type_HALF_FLOAT: HalfFloatScalar,
     _Type_FLOAT: FloatScalar,
     _Type_DOUBLE: DoubleScalar,
-    _Type_DECIMAL: DecimalScalar,
+    _Type_DECIMAL: Decimal128Scalar,
     _Type_DATE32: Date32Scalar,
     _Type_DATE64: Date64Scalar,
     _Type_TIME32: Time32Scalar,

@@ -16,6 +16,7 @@
 # under the License.
 
 import datetime
+import decimal
 import pytest
 
 import numpy as np
@@ -24,7 +25,6 @@ import pyarrow as pa
 
 
 @pytest.mark.parametrize(['value', 'ty', 'klass', 'deprecated'], [
-    (None, None, pa.NullScalar, pa.NullType),
     (False, None, pa.BooleanScalar, pa.BooleanValue),
     (True, None, pa.BooleanScalar, pa.BooleanValue),
     (1, None, pa.Int64Scalar, pa.Int64Value),
@@ -45,13 +45,17 @@ import pyarrow as pa
     ([1, 2, 3], None, pa.ListScalar, pa.ListValue),
     ([1, 2, 3, 4], pa.large_list(pa.int8()), pa.LargeListScalar,
      pa.LargeListValue),
-    # date
-    # time
+    (datetime.date.today(), None, pa.Date32Scalar, pa.Date64Value),
+    (datetime.datetime.now(), None, pa.TimestampScalar, pa.TimestampValue),
+    ({'a': 1, 'b': [1, 2]}, None, pa.StructScalar, pa.StructValue)
 ])
-def test_type_inference(value, ty, klass, deprecated):
+def test_basics(value, ty, klass, deprecated):
     s = pa.scalar(value, type=ty)
     assert isinstance(s, klass)
     assert s == value
+    assert s == s
+    assert s != "else"
+    assert hash(s) == hash(s)
     with pytest.warns(FutureWarning):
         isinstance(s, deprecated)
 
@@ -62,6 +66,11 @@ def test_null_singleton():
 
 
 def test_nulls():
+    null = pa.scalar(None)
+    assert null is pa.NA
+    assert null.as_py() is None
+    assert (null == "something") is pa.NA
+
     arr = pa.array([None, None])
     for v in arr:
         assert v is pa.NA
@@ -75,31 +84,12 @@ def test_null_equality():
 
 def test_hashing():
     # ARROW-640
-
-    # int hashing
-    int_arr = pa.array([1, 1, 2, 1])
-    assert hash(int_arr[0]) == hash(1)
-
-    # float hashing
-    float_arr = pa.array([1.4, 1.2, 2.5, 1.8])
-    assert hash(float_arr[0]) == hash(1.4)
-
-    # string hashing
-    str_arr = pa.array(["foo", "bar"])
-    assert hash(str_arr[1]) == hash("bar")
-
-    # binary hashing
-    byte_arr = pa.array([b'foo', None, b'bar'])
-    assert hash(byte_arr[2]) == hash(b"bar")
-
-    # array to set
-    arr = pa.array([1, 1, 2, 1])
+    values = list(range(500))
+    arr = pa.array(values + values)
     set_from_array = set(arr)
     assert isinstance(set_from_array, set)
-    assert set_from_array == {1, 2}
+    assert len(set_from_array) == 500
 
-
-# TODO(kszucs): test array.__getitem__ in test_array.py
 
 def test_bool():
     false = pa.scalar(False)
@@ -126,6 +116,9 @@ def test_numerics():
     assert s.as_py() == 1
     assert s == 1
 
+    with pytest.raises(OverflowError):
+        pa.scalar(-1, type=pa.uint8())
+
     # float64
     s = pa.scalar(1.5)
     assert isinstance(s, pa.DoubleScalar)
@@ -143,6 +136,24 @@ def test_numerics():
     assert s == 0.5
 
 
+def test_decimal():
+    v = decimal.Decimal("1.123")
+    s = pa.scalar(v)
+    assert isinstance(s, pa.Decimal128Scalar)
+    assert s.as_py() == v
+    assert s.type == pa.decimal128(4, 3)
+
+    v = decimal.Decimal("1.1234")
+    with pytest.raises(pa.ArrowInvalid):
+        pa.scalar(v, type=pa.decimal128(4, scale=3))
+    with pytest.raises(pa.ArrowInvalid):
+        pa.scalar(v, type=pa.decimal128(5, scale=3))
+
+    s = pa.scalar(v, type=pa.decimal128(5, scale=4))
+    assert isinstance(s, pa.Decimal128Scalar)
+    assert s.as_py() == v
+
+
 def test_date():
     # ARROW-5125
     d1 = datetime.date(3200, 1, 1)
@@ -154,8 +165,15 @@ def test_date():
             assert s == d
 
 
-# TODO(kszucs): add time32/64 tests including units
-# TODO(kszucs): add decimal tests including scale
+def test_time():
+    t1 = datetime.time(18, 0)
+    t2 = datetime.time(21, 0)
+
+    types = [pa.time32('s'), pa.time32('ms'), pa.time64('us'), pa.time64('ns')]
+    for ty in types:
+        for t in [t1, t2]:
+            s = pa.scalar(t, type=ty)
+            assert s == t
 
 
 @pytest.mark.pandas
@@ -326,7 +344,7 @@ def test_list(ty, klass):
     assert repr(v) in repr(s)
     assert s.as_py() == v
     assert s[0].as_py() == 'foo'
-    # TODO(kszucs) assert v[1] is pa.NA
+    assert s[1].as_py() is None
     assert s[-1] == s[1]
     assert s[-2] == s[0]
     with pytest.raises(IndexError):
@@ -343,7 +361,7 @@ def test_fixed_size_list():
     assert repr(s) == "<pyarrow.FixedSizeListScalar: [1, None, 3]>"
     assert s.as_py() == [1, None, 3]
     assert s[0].as_py() == 1
-    # TODO(kszucs): assert v[1] is pa.NA
+    assert s[1].as_py() is None
     assert s[-1] == s[2]
     with pytest.raises(IndexError):
         s[-4]
@@ -406,6 +424,3 @@ def test_dictionary():
         assert s.value.as_py() == v
         # assert s.index_value == i
         assert s.dictionary_value == v
-
-
-# TODO(kszucs): raise on errror signed

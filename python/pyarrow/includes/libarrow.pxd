@@ -858,6 +858,10 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CDataType] type
         c_bool is_valid
         c_string ToString() const
+        c_bool Equals(const CScalar& other) const
+
+    cdef cppclass CScalarHash" arrow::Scalar::Hash":
+        size_t operator()(const shared_ptr[CScalar]& scalar) const
 
     cdef cppclass CNullScalar" arrow::NullScalar"(CScalar):
         CNullScalar()

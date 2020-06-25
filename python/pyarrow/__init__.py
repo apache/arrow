@@ -115,7 +115,7 @@ from pyarrow.lib import (null, bool_,
                          Int8Scalar, Int16Scalar, Int32Scalar, Int64Scalar,
                          UInt8Scalar, UInt16Scalar, UInt32Scalar, UInt64Scalar,
                          HalfFloatScalar, FloatScalar, DoubleScalar,
-                         DecimalScalar,
+                         Decimal128Scalar,
                          ListScalar, LargeListScalar, FixedSizeListScalar,
                          Date32Scalar, Date64Scalar,
                          Time32Scalar, Time64Scalar,
@@ -265,7 +265,7 @@ LargeBinaryValue = _deprecate_scalar("LargeBinary", LargeBinaryScalar)
 LargeStringValue = _deprecate_scalar("LargeString", LargeStringScalar)
 FixedSizeBinaryValue = _deprecate_scalar("FixedSizeBinary",
                                          FixedSizeBinaryScalar)
-DecimalValue = _deprecate_scalar("Decimal", DecimalScalar)
+Decimal128Value = _deprecate_scalar("Decimal128", Decimal128Scalar)
 UnionValue = _deprecate_scalar("Union", UnionScalar)
 StructValue = _deprecate_scalar("Struct", StructScalar)
 DictionaryValue = _deprecate_scalar("Dictionary", DictionaryScalar)
