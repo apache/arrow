@@ -124,6 +124,32 @@ def mockfs():
     return mockfs
 
 
+@pytest.fixture
+def open_logging_fs(monkeypatch):
+    from pyarrow.fs import PyFileSystem, LocalFileSystem
+    from .test_fs import ProxyHandler
+
+    opened = set()
+
+    def open_input_file(self, path):
+        opened.add(path)
+        return self._fs.open_input_file(path)
+
+    @contextlib.contextmanager
+    def assert_opens(paths):
+        paths = set(map(str, paths))
+        opened.clear()
+        try:
+            yield
+        finally:
+            assert opened == set(map(str, paths))
+
+    # patch proxyhandler to log calls to open_input_file
+    monkeypatch.setattr(ProxyHandler, "open_input_file", open_input_file)
+    fs = PyFileSystem(ProxyHandler(LocalFileSystem()))
+    return fs, assert_opens
+
+
 @pytest.fixture(scope='module')
 def multisourcefs(request):
     request.config.pyarrow.requires('pandas')
@@ -1623,46 +1649,38 @@ def test_parquet_dataset_factory_partitioned(tempdir):
     pd.testing.assert_frame_equal(result, expected)
 
 
-def _ProxyHandler__open_input_file__only_meta(self, path):
-    if not path.endswith("_metadata"):
-        raise AssertionError("open_input_file called")
-    return self._fs.open_input_file(path)
+@pytest.mark.parquet
+@pytest.mark.pandas
+def test_parquet_dataset_lazy_filtering(tempdir, open_logging_fs):
+    fs, assert_opens = open_logging_fs
 
-
-def _ProxyHandler__open_input_file__error(self, path):
-    raise AssertionError("open_input_file called")
-
-
-def test_parquet_dataset_lazy_filtering(tempdir, monkeypatch):
     # Test to ensure that no IO happens when filtering a dataset
     # created with ParquetDatasetFactory from a _metadata file
-    from .test_fs import ProxyHandler
-    from pyarrow.fs import PyFileSystem, LocalFileSystem
 
     root_path = tempdir / "test_parquet_dataset_lazy_filtering"
     metadata_path, _ = _create_parquet_dataset_partitioned(root_path)
-    fs = PyFileSystem(ProxyHandler(LocalFileSystem()))
 
-    # patch proxyhandler to raise when opening any other file than _metadata
-    monkeypatch.setattr(ProxyHandler, "open_input_file",
-                        _ProxyHandler__open_input_file__only_meta)
+    # creating the dataset should only open the metadata file
+    with assert_opens([metadata_path]):
+        dataset = ds.parquet_dataset(
+            metadata_path,
+            partitioning=ds.partitioning(flavor="hive"),
+            filesystem=fs)
 
-    partitioning = ds.partitioning(flavor="hive")
-    dataset = ds.parquet_dataset(
-        metadata_path, partitioning=partitioning, filesystem=fs)
-
-    # patch proxyhandler to raise when opening any file
-    monkeypatch.setattr(ProxyHandler, "open_input_file",
-                        _ProxyHandler__open_input_file__error)
+    # materializing fragments should not open any file
+    with assert_opens([]):
+        fragments = list(dataset.get_fragments())
 
     # filtering fragments should not open any file
-    fragments = list(dataset.get_fragments())
-    dataset.get_fragments(ds.field("f1") > 15)
-    # TODO this raises
-    fragments[0].split_by_row_group(ds.field("f1") > 15)
+    with assert_opens([]):
+        list(dataset.get_fragments(ds.field("f1") > 15))
+
+    # splitting by row group should still not open any file
+    with assert_opens([]):
+        fragments[0].split_by_row_group(ds.field("f1") > 15)
 
     # but actually scanning does open files
-    with pytest.raises(AssertionError, match="open_input_file called"):
+    with assert_opens([f.path for f in fragments]):
         dataset.to_table()
 
 

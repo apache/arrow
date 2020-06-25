@@ -646,6 +646,12 @@ Result<std::vector<std::string>> ParquetDatasetFactory::CollectPaths(
   }
 }
 
+Result<std::shared_ptr<Schema>> GetSchema(const parquet::FileMetaData& metadata) {
+  std::shared_ptr<Schema> schema;
+  RETURN_NOT_OK(parquet::arrow::FromParquetSchema(metadata.schema(), &schema));
+  return schema;
+}
+
 Result<std::vector<std::shared_ptr<FileFragment>>>
 ParquetDatasetFactory::CollectParquetFragments(
     const parquet::FileMetaData& metadata,
@@ -680,6 +686,7 @@ ParquetDatasetFactory::CollectParquetFragments(
       }
     }
 
+    ARROW_ASSIGN_OR_RAISE(auto physical_schema, GetSchema(metadata));
     std::vector<std::shared_ptr<FileFragment>> fragments;
     fragments.reserve(path_to_row_group_infos.size());
     for (auto&& elem : path_to_row_group_infos) {
@@ -688,9 +695,8 @@ ParquetDatasetFactory::CollectParquetFragments(
           partitioning.Parse(StripPrefixAndFilename(path, options_.partition_base_dir))
               .ValueOr(scalar(true));
       ARROW_ASSIGN_OR_RAISE(
-          auto fragment,
-          format_->MakeFragment({path, filesystem_}, std::move(partition),
-                                std::move(elem.second), manifest.origin_schema));
+          auto fragment, format_->MakeFragment({path, filesystem_}, std::move(partition),
+                                               std::move(elem.second), physical_schema));
       fragments.push_back(std::move(fragment));
     }
 
@@ -704,9 +710,9 @@ Result<std::vector<std::shared_ptr<Schema>>> ParquetDatasetFactory::InspectSchem
     InspectOptions options) {
   std::vector<std::shared_ptr<Schema>> schemas;
 
-  std::shared_ptr<Schema> schema;
-  RETURN_NOT_OK(parquet::arrow::FromParquetSchema(metadata_->schema(), &schema));
-  schemas.push_back(std::move(schema));
+  // The physical_schema from the _metadata file is always yielded
+  ARROW_ASSIGN_OR_RAISE(auto physical_schema, GetSchema(*metadata_));
+  schemas.push_back(std::move(physical_schema));
 
   if (options_.partitioning.factory() != nullptr) {
     // Gather paths found in RowGroups' ColumnChunks.
