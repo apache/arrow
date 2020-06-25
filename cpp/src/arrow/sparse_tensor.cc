@@ -45,6 +45,46 @@ Status SparseIndex::ValidateShape(const std::vector<int64_t>& shape) const {
 }
 
 namespace internal {
+namespace {
+
+template <typename IndexValueType>
+Status CheckSparseIndexMaximumValue(const std::vector<int64_t>& shape) {
+  using c_index_value_type = typename IndexValueType::c_type;
+  constexpr int64_t type_max =
+      static_cast<int64_t>(std::numeric_limits<c_index_value_type>::max());
+  auto greater_than_type_max = [&](int64_t x) { return x > type_max; };
+  if (std::any_of(shape.begin(), shape.end(), greater_than_type_max)) {
+    return Status::Invalid("The bit width of the index value type is too small");
+  }
+  return Status::OK();
+}
+
+template <>
+Status CheckSparseIndexMaximumValue<Int64Type>(const std::vector<int64_t>& shape) {
+  return Status::OK();
+}
+
+template <>
+Status CheckSparseIndexMaximumValue<UInt64Type>(const std::vector<int64_t>& shape) {
+  return Status::Invalid("UInt64Type cannot be used as IndexValueType of SparseIndex");
+}
+
+}  // namespace
+
+#define CALL_CHECK_MAXIMUM_VALUE(TYPE_CLASS) \
+  case TYPE_CLASS##Type::type_id:            \
+    return CheckSparseIndexMaximumValue<TYPE_CLASS##Type>(shape);
+
+Status CheckSparseIndexMaximumValue(const std::shared_ptr<DataType>& index_value_type,
+                                    const std::vector<int64_t>& shape) {
+  switch (index_value_type->id()) {
+    ARROW_GENERATE_FOR_ALL_INTEGER_TYPES(CALL_CHECK_MAXIMUM_VALUE);
+    default:
+      return Status::TypeError("Unsupported SparseTensor index value type");
+  }
+}
+
+#undef CALL_CHECK_MAXIMUM_VALUE
 
 Status MakeSparseTensorFromTensor(const Tensor& tensor,
                                   SparseTensorFormat::type sparse_format_id,
@@ -294,6 +334,9 @@ inline Status CheckSparseCOOIndexValidity(const std::shared_ptr<DataType>& type,
   if (shape.size() != 2) {
     return Status::Invalid("SparseCOOIndex indices must be a matrix");
   }
+
+  RETURN_NOT_OK(internal::CheckSparseIndexMaximumValue(type, shape));
+
   if (!internal::IsTensorStridesContiguous(type, shape, strides)) {
     return Status::Invalid("SparseCOOIndex indices must be contiguous");
   }
@@ -357,6 +400,10 @@ Status ValidateSparseCSXIndex(const std::shared_ptr<DataType>& indptr_type,
   if (indices_shape.size() != 1) {
     return Status::Invalid(type_name, " indices must be a vector");
   }
+
+  RETURN_NOT_OK(internal::CheckSparseIndexMaximumValue(indptr_type, indptr_shape));
+  RETURN_NOT_OK(internal::CheckSparseIndexMaximumValue(indices_type, indices_shape));
+
   return Status::OK();
 }
 
@@ -380,8 +427,6 @@ inline Status CheckSparseCSFIndexValidity(const std::shared_ptr<DataType>& indpt
                                           const std::shared_ptr<DataType>& indices_type,
                                           const int64_t num_indptrs,
                                           const int64_t num_indices,
-                                          const std::vector<int64_t>& indptr_shape,
-                                          const std::vector<int64_t>& indices_shape,
                                           const int64_t axis_order_size) {
   if (!is_integer(indptr_type->id())) {
     return Status::TypeError("Type of SparseCSFIndex indptr must be integer");
@@ -420,8 +465,15 @@ Result<std::shared_ptr<SparseCSFIndex>> SparseCSFIndex::Make(
                                           std::vector<int64_t>({indices_shapes[i]}));
 
   RETURN_NOT_OK(CheckSparseCSFIndexValidity(indptr_type, indices_type, indptr.size(),
-                                            indices.size(), indptr.back()->shape(),
-                                            indices.back()->shape(), axis_order.size()));
+                                            indices.size(), axis_order.size()));
+
+  for (auto tensor : indptr) {
+    RETURN_NOT_OK(internal::CheckSparseIndexMaximumValue(indptr_type, tensor->shape()));
+  }
+
+  for (auto tensor : indices) {
+    RETURN_NOT_OK(internal::CheckSparseIndexMaximumValue(indices_type, tensor->shape()));
+  }
 
   return std::make_shared<SparseCSFIndex>(indptr, indices, axis_order);
 }
@@ -431,9 +483,9 @@ SparseCSFIndex::SparseCSFIndex(const std::vector<std::shared_ptr<Tensor>>& indpt
                                const std::vector<std::shared_ptr<Tensor>>& indices,
                                const std::vector<int64_t>& axis_order)
     : SparseIndexBase(), indptr_(indptr), indices_(indices), axis_order_(axis_order) {
-  ARROW_CHECK_OK(CheckSparseCSFIndexValidity(
-      indptr_.front()->type(), indices_.front()->type(), indptr_.size(), indices_.size(),
-      indptr_.back()->shape(), indices_.back()->shape(), axis_order_.size()));
+  ARROW_CHECK_OK(CheckSparseCSFIndexValidity(indptr_.front()->type(),
+                                             indices_.front()->type(), indptr_.size(),
+                                             indices_.size(), axis_order_.size()));
 }
 
 std::string SparseCSFIndex::ToString() const { return std::string("SparseCSFIndex"); }

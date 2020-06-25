@@ -59,7 +59,6 @@ inline void IncrementIndex(std::vector<int64_t>& coord, const std::vector<int64_
 
 class SparseCSFTensorConverter : private SparseTensorConverterMixin {
   using SparseTensorConverterMixin::AssignIndex;
-  using SparseTensorConverterMixin::CheckSparseIndexMaximumValue;
   using SparseTensorConverterMixin::IsNonZero;
 
  public:

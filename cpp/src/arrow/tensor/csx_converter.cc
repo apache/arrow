@@ -40,7 +40,6 @@ namespace {
 
 class SparseCSXMatrixConverter : private SparseTensorConverterMixin {
   using SparseTensorConverterMixin::AssignIndex;
-  using SparseTensorConverterMixin::CheckSparseIndexMaximumValue;
   using SparseTensorConverterMixin::IsNonZero;
 
  public:

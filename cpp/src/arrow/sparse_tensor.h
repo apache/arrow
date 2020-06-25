@@ -38,6 +38,13 @@ namespace arrow {
 
 class MemoryPool;
 
+namespace internal {
+
+Status CheckSparseIndexMaximumValue(const std::shared_ptr<DataType>& index_value_type,
+                                    const std::vector<int64_t>& shape);
+
+}  // namespace internal
+
 // ----------------------------------------------------------------------
 // SparseIndex class
 
