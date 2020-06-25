@@ -845,6 +845,28 @@ cdef class RowGroupInfo:
     def num_rows(self):
         return self.info.num_rows()
 
+    @property
+    def statistics(self):
+        if not self.info.HasStatistics():
+            return None
+
+        cdef:
+            CStructScalar* c_statistics
+            CStructScalar* c_minmax
+
+        statistics = dict()
+        c_statistics = self.info.statistics().get()
+        for i in range(c_statistics.value.size()):
+            name = frombytes(c_statistics.type.get().field(i).get().name())
+            c_minmax = <CStructScalar*> c_statistics.value[i].get()
+
+            statistics[name] = {
+                'min': pyarrow_wrap_scalar(c_minmax.value[0]).as_py(),
+                'max': pyarrow_wrap_scalar(c_minmax.value[1]).as_py(),
+            }
+
+        return statistics
+
     def __eq__(self, other):
         if not isinstance(other, RowGroupInfo):
             return False
