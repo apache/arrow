@@ -1505,6 +1505,21 @@ INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt32, TestSparseCSFTensorForIndexValueType,
                                UInt32Type);
 INSTANTIATE_TYPED_TEST_SUITE_P(TestInt64, TestSparseCSFTensorForIndexValueType,
                                Int64Type);
-INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt64, TestSparseCSFTensorForIndexValueType,
-                               UInt64Type);
+
+TEST(TestSparseCSFMatrixForUInt64Index, Make) {
+  int16_t dense_values[2][3][4][5] = {};
+  dense_values[0][0][0][1] = 1;
+  dense_values[0][0][0][2] = 2;
+  dense_values[0][1][0][0] = 3;
+  dense_values[0][1][0][2] = 4;
+  dense_values[0][1][1][0] = 5;
+  dense_values[1][1][1][0] = 6;
+  dense_values[1][1][1][1] = 7;
+  dense_values[1][1][1][2] = 8;
+
+  Tensor dense_tensor(uint64(), Buffer::Wrap(dense_values, sizeof(dense_values)),
+                      {2, 3, 4, 5});
+  ASSERT_RAISES(Invalid, SparseCSFTensor::Make(dense_tensor, uint64()));
+}
+
 }  // namespace arrow
