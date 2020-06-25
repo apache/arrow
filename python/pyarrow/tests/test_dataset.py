@@ -820,7 +820,7 @@ def test_partitioning_factory_dictionary(mockfs):
         1: pa.string(),
         2: pa.dictionary(pa.int8(), pa.string()),
         64: pa.dictionary(pa.int8(), pa.string()),
-        #None: pa.dictionary(pa.int8(), pa.string()),
+        None: pa.dictionary(pa.int8(), pa.string()),
     }
 
     for max_size, expected_type in max_size_to_inferred_type.items():

@@ -1172,7 +1172,7 @@ cdef class DirectoryPartitioning(Partitioning):
         self.directory_partitioning = <CDirectoryPartitioning*> sp.get()
 
     @staticmethod
-    def discover(field_names, object max_partition_dictionary_size = 0):
+    def discover(field_names, object max_partition_dictionary_size=0):
         """
         Discover a DirectoryPartitioning.
 
@@ -1254,7 +1254,7 @@ cdef class HivePartitioning(Partitioning):
         self.hive_partitioning = <CHivePartitioning*> sp.get()
 
     @staticmethod
-    def discover(object max_partition_dictionary_size = 0):
+    def discover(object max_partition_dictionary_size=0):
         """
         Discover a HivePartitioning.
 
