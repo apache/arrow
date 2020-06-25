@@ -106,58 +106,27 @@ class ArrowWriterPropertiesBuilder : public ArrowWriterProperties::Builder {
 }  // namespace parquet
 
 // [[arrow::export]]
-std::shared_ptr<parquet::ArrowWriterPropertiesBuilder>
-parquet___ArrowWriterProperties___Builder__create() {
-  return std::make_shared<parquet::ArrowWriterPropertiesBuilder>();
-}
-
-// [[arrow::export]]
-void parquet___ArrowWriterProperties___Builder__store_schema(
-    const std::shared_ptr<parquet::ArrowWriterPropertiesBuilder>& builder) {
+std::shared_ptr<parquet::ArrowWriterProperties> parquet___ArrowWriterProperties___create(
+    bool allow_truncated_timestamps, bool use_deprecated_int96_timestamps,
+    int timestamp_unit) {
+  auto builder = std::make_shared<parquet::ArrowWriterPropertiesBuilder>();
   builder->store_schema();
-}
 
-// [[arrow::export]]
-void parquet___ArrowWriterProperties___Builder__enable_deprecated_int96_timestamps(
-    const std::shared_ptr<parquet::ArrowWriterPropertiesBuilder>& builder) {
-  builder->enable_deprecated_int96_timestamps();
-}
+  if (allow_truncated_timestamps) {
+    builder->allow_truncated_timestamps();
+  } else {
+    builder->disallow_truncated_timestamps();
+  }
+  if (use_deprecated_int96_timestamps) {
+    builder->enable_deprecated_int96_timestamps();
+  } else {
+    builder->disable_deprecated_int96_timestamps();
+  }
+  if (timestamp_unit > -1) {
+    builder->coerce_timestamps(static_cast<arrow::TimeUnit::type>(timestamp_unit));
+  }
 
-// [[arrow::export]]
-void parquet___ArrowWriterProperties___Builder__disable_deprecated_int96_timestamps(
-    const std::shared_ptr<parquet::ArrowWriterPropertiesBuilder>& builder) {
-  builder->disable_deprecated_int96_timestamps();
-}
-
-// [[arrow::export]]
-void parquet___ArrowWriterProperties___Builder__coerce_timestamps(
-    const std::shared_ptr<parquet::ArrowWriterPropertiesBuilder>& builder,
-    arrow::TimeUnit::type unit) {
-  builder->coerce_timestamps(unit);
-}
-
-// [[arrow::export]]
-void parquet___ArrowWriterProperties___Builder__allow_truncated_timestamps(
-    const std::shared_ptr<parquet::ArrowWriterPropertiesBuilder>& builder) {
-  builder->allow_truncated_timestamps();
-}
-
-// [[arrow::export]]
-void parquet___ArrowWriterProperties___Builder__disallow_truncated_timestamps(
-    const std::shared_ptr<parquet::ArrowWriterPropertiesBuilder>& builder) {
-  builder->disallow_truncated_timestamps();
-}
-
-// [[arrow::export]]
-std::shared_ptr<parquet::ArrowWriterProperties>
-parquet___ArrowWriterProperties___Builder__build(
-    const std::shared_ptr<parquet::ArrowWriterPropertiesBuilder>& builder) {
   return builder->build();
-}
-
-// [[arrow::export]]
-std::shared_ptr<parquet::WriterProperties> parquet___default_writer_properties() {
-  return parquet::default_writer_properties();
 }
 
 // [[arrow::export]]
