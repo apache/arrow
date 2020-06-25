@@ -126,7 +126,7 @@ def mockfs():
 
 @pytest.fixture
 def open_logging_fs(monkeypatch):
-    from pyarrow.fs import PyFileSystem, LocalFileSystem
+    from pyarrow.fs import PyFileSystem, LocalFileSystem, _normalize_path
     from .test_fs import ProxyHandler
 
     opened = set()
@@ -135,18 +135,21 @@ def open_logging_fs(monkeypatch):
         opened.add(path)
         return self._fs.open_input_file(path)
 
+    # patch proxyhandler to log calls to open_input_file
+    monkeypatch.setattr(ProxyHandler, "open_input_file", open_input_file)
+    fs = PyFileSystem(ProxyHandler(LocalFileSystem()))
+
+    def normalized(paths):
+        return {_normalize_path(fs, str(p)) for p in paths}
+
     @contextlib.contextmanager
-    def assert_opens(paths):
-        paths = set(map(str, paths))
+    def assert_opens(expected_opened):
         opened.clear()
         try:
             yield
         finally:
-            assert opened == set(map(str, paths))
+            assert normalized(opened) == normalized(expected_opened)
 
-    # patch proxyhandler to log calls to open_input_file
-    monkeypatch.setattr(ProxyHandler, "open_input_file", open_input_file)
-    fs = PyFileSystem(ProxyHandler(LocalFileSystem()))
     return fs, assert_opens
 
 
