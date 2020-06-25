@@ -33,13 +33,11 @@ BitRunReader::BitRunReader(const uint8_t* bitmap, int64_t start_offset, int64_t 
     return;
   }
 
-  //// On the initial load if there is an offset we need to account for this when
+  // On the initial load if there is an offset we need to account for this when
   // loading bytes.  Every other call to LoadWord() should only occur when
   // position_ is a multiple of 64.
   current_run_bit_set_ = !BitUtil::GetBit(bitmap, start_offset);
-  int64_t shift_offset = position_ % 8;
-  int64_t bits_remaining = (length_ - position_) + shift_offset;
-  bits_remaining += (bits_remaining % 8) == 0 && shift_offset > 0;
+  int64_t bits_remaining = length + position_;
 
   LoadWord(bits_remaining);
 

@@ -250,6 +250,29 @@ TEST(BitRunReader, NormalOperation) {
                                                          {/*length=*/65, /*set=*/true}}));
 }
 
+TEST(BitRunReader, AllZero) {
+  for (int offset = 0; offset < 8; offset++) {
+    for (int64_t x = 0; x < (1 << 8) - 1; x++) {
+      internal::BitRunReader reader(reinterpret_cast<uint8_t*>(&x),
+                                    /*start_offset=*/offset,
+                                    /*length=*/8 - offset);
+      std::vector<internal::BitRun> results;
+      internal::BitRun rl;
+      do {
+        rl = reader.NextRun();
+        results.push_back(rl);
+      } while (rl.length != 0);
+      EXPECT_EQ(results.back().length, 0);
+      results.pop_back();
+      int sum = 0;
+      for (const auto& result : results) {
+        sum += result.length;
+      }
+      ASSERT_EQ(sum, 8 - offset);
+    }
+  }
+}
+
 TEST(BitRunReader, TruncatedAtWord) {
   std::vector<int> bm_vector;
   bm_vector.insert(bm_vector.end(), /*n=*/7, /*val=*/1);
@@ -321,7 +344,7 @@ TEST(BitRunReader, TruncatedWithinWordMultipleOf8Bits) {
   EXPECT_EQ(results.back().length, 0);
   results.pop_back();
   EXPECT_THAT(results, ElementsAreArray(std::vector<internal::BitRun>{
-                           {/*length=*/6, /*set=*/true}, {/*length=*/2, /*set=*/false}}));
+                           {/*length=*/6, /*set=*/true}, {/*length=*/1, /*set=*/false}}));
 }
 
 TEST(BitRunReader, TruncatedWithinWord) {
