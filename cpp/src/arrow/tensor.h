@@ -56,6 +56,10 @@ static inline bool is_tensor_supported(Type::type type_id) {
 namespace internal {
 
 ARROW_EXPORT
+void ComputeRowMajorStrides(const FixedWidthType& type, const std::vector<int64_t>& shape,
+                            std::vector<int64_t>* strides);
+
+ARROW_EXPORT
 bool IsTensorStridesContiguous(const std::shared_ptr<DataType>& type,
                                const std::vector<int64_t>& shape,
                                const std::vector<int64_t>& strides);

@@ -38,9 +38,10 @@ namespace arrow {
 
 using internal::checked_cast;
 
-static void ComputeRowMajorStrides(const FixedWidthType& type,
-                                   const std::vector<int64_t>& shape,
-                                   std::vector<int64_t>* strides) {
+namespace internal {
+
+void ComputeRowMajorStrides(const FixedWidthType& type, const std::vector<int64_t>& shape,
+                            std::vector<int64_t>* strides) {
   int64_t remaining = type.bit_width() / 8;
   for (int64_t dimsize : shape) {
     remaining *= dimsize;
@@ -56,6 +57,8 @@ static void ComputeRowMajorStrides(const FixedWidthType& type,
     strides->push_back(remaining);
   }
 }
+
+}  // namespace internal
 
 static void ComputeColumnMajorStrides(const FixedWidthType& type,
                                       const std::vector<int64_t>& shape,
@@ -80,7 +83,7 @@ inline bool IsTensorStridesRowMajor(const std::shared_ptr<DataType>& type,
                                     const std::vector<int64_t>& strides) {
   std::vector<int64_t> c_strides;
   const auto& fw_type = checked_cast<const FixedWidthType&>(*type);
-  ComputeRowMajorStrides(fw_type, shape, &c_strides);
+  internal::ComputeRowMajorStrides(fw_type, shape, &c_strides);
   return strides == c_strides;
 }
 
@@ -170,7 +173,8 @@ Tensor::Tensor(const std::shared_ptr<DataType>& type, const std::shared_ptr<Buff
     : type_(type), data_(data), shape_(shape), strides_(strides), dim_names_(dim_names) {
   ARROW_CHECK(is_tensor_supported(type->id()));
   if (shape.size() > 0 && strides.size() == 0) {
-    ComputeRowMajorStrides(checked_cast<const FixedWidthType&>(*type_), shape, &strides_);
+    internal::ComputeRowMajorStrides(checked_cast<const FixedWidthType&>(*type_), shape,
+                                     &strides_);
   }
 }
 

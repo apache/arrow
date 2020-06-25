@@ -535,8 +535,30 @@ bool SparseTensor::Equals(const SparseTensor& other, const EqualOptions& opts) c
   return SparseTensorEquals(*this, other, opts);
 }
 
-Status SparseTensor::ToTensor(MemoryPool* pool, std::shared_ptr<Tensor>* out) const {
-  return internal::MakeTensorFromSparseTensor(pool, this, out);
+Result<std::shared_ptr<Tensor>> SparseTensor::ToTensor(MemoryPool* pool) const {
+  switch (format_id()) {
+    case SparseTensorFormat::COO:
+      return MakeTensorFromSparseCOOTensor(
+          pool, internal::checked_cast<const SparseCOOTensor*>(this));
+      break;
+
+    case SparseTensorFormat::CSR:
+      return MakeTensorFromSparseCSRMatrix(
+          pool, internal::checked_cast<const SparseCSRMatrix*>(this));
+      break;
+
+    case SparseTensorFormat::CSC:
+      return MakeTensorFromSparseCSCMatrix(
+          pool, internal::checked_cast<const SparseCSCMatrix*>(this));
+      break;
+
+    case SparseTensorFormat::CSF:
+      return MakeTensorFromSparseCSFTensor(
+          pool, internal::checked_cast<const SparseCSFTensor*>(this));
+
+    default:
+      return Status::NotImplemented("Unsupported SparseIndex format type");
+  }
 }
 
 }  // namespace arrow

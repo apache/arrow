@@ -156,6 +156,26 @@ void SparseTensorConverterMixin::AssignIndex(uint8_t* indices, int64_t val,
   }
 }
 
+int64_t SparseTensorConverterMixin::GetIndexValue(const uint8_t* value_ptr,
+                                                  const int elsize) {
+  switch (elsize) {
+    case 1:
+      return *value_ptr;
+
+    case 2:
+      return *reinterpret_cast<const uint16_t*>(value_ptr);
+
+    case 4:
+      return *reinterpret_cast<const uint32_t*>(value_ptr);
+
+    case 8:
+      return *reinterpret_cast<const int64_t*>(value_ptr);
+
+    default:
+      return 0;
+  }
+}
+
 Status MakeSparseCOOTensorFromTensor(const Tensor& tensor,
                                      const std::shared_ptr<DataType>& index_value_type,
                                      MemoryPool* pool,
@@ -167,6 +187,48 @@ Status MakeSparseCOOTensorFromTensor(const Tensor& tensor,
   *out_sparse_index = checked_pointer_cast<SparseIndex>(converter.sparse_index);
   *out_data = converter.data;
   return Status::OK();
+}
+
+Result<std::shared_ptr<Tensor>> MakeTensorFromSparseCOOTensor(
+    MemoryPool* pool, const SparseCOOTensor* sparse_tensor) {
+  const auto& sparse_index =
+      checked_cast<const SparseCOOIndex&>(*sparse_tensor->sparse_index());
+  const auto& coords = sparse_index.indices();
+  const auto* coords_data = coords->raw_data();
+
+  const auto& index_type = checked_cast<const FixedWidthType&>(*coords->type());
+  const int index_elsize = index_type.bit_width() / CHAR_BIT;
+
+  const auto& value_type = checked_cast<const FixedWidthType&>(*sparse_tensor->type());
+  const int value_elsize = value_type.bit_width() / CHAR_BIT;
+  ARROW_ASSIGN_OR_RAISE(auto values_buffer,
+                        AllocateBuffer(value_elsize * sparse_tensor->size(), pool));
+  auto values = values_buffer->mutable_data();
+  std::fill_n(values, value_elsize * sparse_tensor->size(), 0);
+
+  std::vector<int64_t> strides;
+  ComputeRowMajorStrides(value_type, sparse_tensor->shape(), &strides);
+
+  const auto* raw_data = sparse_tensor->raw_data();
+  const int ndim = sparse_tensor->ndim();
+
+  for (int64_t i = 0; i < sparse_tensor->non_zero_length(); ++i) {
+    int64_t offset = 0;
+
+    for (int j = 0; j < ndim; ++j) {
+      auto index = static_cast<int64_t>(
+          SparseTensorConverterMixin::GetIndexValue(coords_data, index_elsize));
+      offset += index * strides[j];
+      coords_data += index_elsize;
+    }
+
+    std::copy_n(raw_data, value_elsize, values + offset);
+    raw_data += value_elsize;
+  }
+
+  return std::make_shared<Tensor>(sparse_tensor->type(), std::move(values_buffer),
+                                  sparse_tensor->shape(), strides,
+                                  sparse_tensor->dim_names());
 }
 
 }  // namespace internal

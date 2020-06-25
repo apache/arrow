@@ -170,6 +170,101 @@ class SparseCSFTensorConverter : private SparseTensorConverterMixin {
   MemoryPool* pool_;
 };
 
+class TensorBuilderFromSparseCSFTensor : private SparseTensorConverterMixin {
+  using SparseTensorConverterMixin::GetIndexValue;
+
+  MemoryPool* pool_;
+  const SparseCSFTensor* sparse_tensor_;
+  const SparseCSFIndex* sparse_index_;
+  const std::vector<std::shared_ptr<Tensor>>& indptr_;
+  const std::vector<std::shared_ptr<Tensor>>& indices_;
+  const std::vector<int64_t>& axis_order_;
+  const std::vector<int64_t>& shape_;
+  const int64_t non_zero_length_;
+  const int ndim_;
+  const int64_t tensor_size_;
+  const FixedWidthType& value_type_;
+  const int value_elsize_;
+  const uint8_t* raw_data_;
+  std::vector<int64_t> strides_;
+  std::shared_ptr<Buffer> values_buffer_;
+  uint8_t* values_;
+
+ public:
+  TensorBuilderFromSparseCSFTensor(const SparseCSFTensor* sparse_tensor, MemoryPool* pool)
+      : pool_(pool),
+        sparse_tensor_(sparse_tensor),
+        sparse_index_(
+            checked_cast<const SparseCSFIndex*>(sparse_tensor->sparse_index().get())),
+        indptr_(sparse_index_->indptr()),
+        indices_(sparse_index_->indices()),
+        axis_order_(sparse_index_->axis_order()),
+        shape_(sparse_tensor->shape()),
+        non_zero_length_(sparse_tensor->non_zero_length()),
+        ndim_(sparse_tensor->ndim()),
+        tensor_size_(sparse_tensor->size()),
+        value_type_(checked_cast<const FixedWidthType&>(*sparse_tensor->type())),
+        value_elsize_(value_type_.bit_width() / CHAR_BIT),
+        raw_data_(sparse_tensor->raw_data()) {}
+
+  int ElementSize(const std::shared_ptr<Tensor>& tensor) const {
+    return checked_cast<const FixedWidthType&>(*tensor->type()).bit_width() / CHAR_BIT;
+  }
+
+  Result<std::shared_ptr<Tensor>> Build() {
+    internal::ComputeRowMajorStrides(value_type_, shape_, &strides_);
+
+    ARROW_ASSIGN_OR_RAISE(values_buffer_,
+                          AllocateBuffer(value_elsize_ * tensor_size_, pool_));
+    values_ = values_buffer_->mutable_data();
+    std::fill_n(values_, value_elsize_ * tensor_size_, 0);
+
+    const int64_t start = 0;
+    const int64_t stop = indptr_[0]->size() - 1;
+    ExpandValues(0, 0, start, stop);
+
+    return std::make_shared<Tensor>(sparse_tensor_->type(), std::move(values_buffer_),
+                                    shape_, strides_, sparse_tensor_->dim_names());
+  }
+
+  void ExpandValues(const int64_t dim, const int64_t dim_offset, const int64_t start,
+                    const int64_t stop) {
+    const auto& cur_indices = indices_[dim];
+    const int indices_elsize = ElementSize(cur_indices);
+    const auto* indices_data = cur_indices->raw_data() + start * indices_elsize;
+
+    if (dim == ndim_ - 1) {
+      for (auto i = start; i < stop; ++i) {
+        const int64_t index =
+            SparseTensorConverterMixin::GetIndexValue(indices_data, indices_elsize);
+        const int64_t offset = dim_offset + index * strides_[axis_order_[dim]];
+
+        std::copy_n(raw_data_ + i * value_elsize_, value_elsize_, values_ + offset);
+
+        indices_data += indices_elsize;
+      }
+    } else {
+      const auto& cur_indptr = indptr_[dim];
+      const int indptr_elsize = ElementSize(cur_indptr);
+      const auto* indptr_data = cur_indptr->raw_data() + start * indptr_elsize;
+
+      for (int64_t i = start; i < stop; ++i) {
+        const int64_t index =
+            SparseTensorConverterMixin::GetIndexValue(indices_data, indices_elsize);
+        const int64_t offset = dim_offset + index * strides_[axis_order_[dim]];
+        const int64_t next_start = GetIndexValue(indptr_data, indptr_elsize);
+        const int64_t next_stop =
+            GetIndexValue(indptr_data + indptr_elsize, indptr_elsize);
+
+        ExpandValues(dim + 1, offset, next_start, next_stop);
+
+        indices_data += indices_elsize;
+        indptr_data += indptr_elsize;
+      }
+    }
+  }
+};
+
 }  // namespace
 
 Status MakeSparseCSFTensorFromTensor(const Tensor& tensor,
@@ -183,6 +278,12 @@ Status MakeSparseCSFTensorFromTensor(const Tensor& tensor,
   *out_sparse_index = checked_pointer_cast<SparseIndex>(converter.sparse_index);
   *out_data = converter.data;
   return Status::OK();
+}
+
+Result<std::shared_ptr<Tensor>> MakeTensorFromSparseCSFTensor(
+    MemoryPool* pool, const SparseCSFTensor* sparse_tensor) {
+  TensorBuilderFromSparseCSFTensor builder(sparse_tensor, pool);
+  return builder.Build();
 }
 
 }  // namespace internal
