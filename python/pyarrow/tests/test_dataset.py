@@ -1146,10 +1146,8 @@ def test_open_dataset_non_existing_file():
         ds.dataset('file:i-am-not-existing.parquet', format='parquet')
 
 
-@pytest.mark.parquet
-@pytest.mark.s3
-def test_open_dataset_from_uri_s3(s3_connection, s3_server):
-    # open dataset from non-localfs string path
+@pytest.fixture
+def s3_example_simple(s3_connection, s3_server):
     from pyarrow.fs import FileSystem
     import pyarrow.parquet as pq
 
@@ -1166,11 +1164,41 @@ def test_open_dataset_from_uri_s3(s3_connection, s3_server):
     with fs.open_output_stream("mybucket/data.parquet") as out:
         pq.write_table(table, out)
 
+    return table, path, fs, uri, host, port, access_key, secret_key
+
+
+@pytest.mark.parquet
+@pytest.mark.s3
+def test_open_dataset_from_uri_s3(s3_example_simple):
+    # open dataset from non-localfs string path
+    table, path, fs, uri, _, _, _, _ = s3_example_simple
+
     # full string URI
     dataset = ds.dataset(uri, format="parquet")
     assert dataset.to_table().equals(table)
 
     # passing filesystem object
+    dataset = ds.dataset(path, format="parquet", filesystem=fs)
+    assert dataset.to_table().equals(table)
+
+
+@pytest.mark.parquet
+@pytest.mark.s3  # still needed to create the data
+def test_open_dataset_from_uri_s3_fsspec(s3_example_simple):
+    table, path, _, _, host, port, access_key, secret_key = s3_example_simple
+    s3fs = pytest.importorskip("s3fs")
+
+    from pyarrow.fs import PyFileSystem, FSSpecHandler
+
+    fs = s3fs.S3FileSystem(
+        key=access_key,
+        secret=secret_key,
+        client_kwargs={
+            'endpoint_url': 'http://{}:{}'.format(host, port)
+        }
+    )
+    fs = PyFileSystem(FSSpecHandler(fs))
+
     dataset = ds.dataset(path, format="parquet", filesystem=fs)
     assert dataset.to_table().equals(table)
 

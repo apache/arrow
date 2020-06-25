@@ -60,3 +60,135 @@ def __getattr__(name):
     raise AttributeError(
         "module 'pyarrow.fs' has no attribute '{0}'".format(name)
     )
+
+
+class FSSpecHandler(FileSystemHandler):
+    """
+    Handler for fsspec-based Python filesystems.
+
+    https://filesystem-spec.readthedocs.io/en/latest/index.html
+
+    >>> PyFileSystem(FSSpecHandler(fsspec_fs))
+    """
+
+    def __init__(self, fs):
+        self.fs = fs
+
+    def __eq__(self, other):
+        if isinstance(other, FSSpecHandler):
+            return self.fs == other.fs
+        return NotImplemented
+
+    def __ne__(self, other):
+        if isinstance(other, FSSpecHandler):
+            return self.fs != other.fs
+        return NotImplemented
+
+    def get_type_name(self):
+        protocol = self.fs.protocol
+        if isinstance(protocol, list):
+            protocol = protocol[0]
+        return "fsspec+{0}".format(protocol)
+
+    @staticmethod
+    def _create_file_info(path, info):
+        size = info["size"]
+        if info["type"] == "file":
+            ftype = FileType.File
+        elif info["type"] == "directory":
+            ftype = FileType.Directory
+            # some fsspec filesystems include a file size for directories
+            size = None
+        else:
+            ftype = FileType.Unknown
+        return FileInfo(path, ftype, size=size, mtime=info.get("mtime", None))
+
+    def get_file_info(self, paths):
+        infos = []
+        for path in paths:
+            try:
+                info = self.fs.info(path)
+            except FileNotFoundError:
+                infos.append(FileInfo(path, FileType.NotFound))
+            else:
+                infos.append(self._create_file_info(path, info))
+        return infos
+
+    def get_file_info_selector(self, selector):
+        if not self.fs.isdir(selector.base_dir):
+            if self.fs.exists(selector.base_dir):
+                raise NotADirectoryError(selector.base_dir)
+            else:
+                if selector.allow_not_found:
+                    return []
+                else:
+                    raise FileNotFoundError(selector.base_dir)
+
+        if selector.recursive:
+            maxdepth = None
+        else:
+            maxdepth = 1
+
+        infos = []
+        selected_files = self.fs.find(
+            selector.base_dir, maxdepth=maxdepth, withdirs=True, detail=True
+        )
+        for path, info in selected_files.items():
+            infos.append(self._create_file_info(path, info))
+
+        return infos
+
+    def create_dir(self, path, recursive):
+        # mkdir also raises FileNotFoundError when base directory is not found
+        self.fs.mkdir(path, create_parents=recursive)
+
+    def delete_dir(self, path):
+        self.fs.rm(path, recursive=True)
+
+    def delete_dir_contents(self, path):
+        for subpath in self.fs.listdir(path, detail=False):
+            if self.fs.isdir(subpath):
+                self.fs.rm(subpath, recursive=True)
+            elif self.fs.isfile(subpath):
+                self.fs.rm(subpath)
+
+    def delete_file(self, path):
+        # fs.rm correctly raises IsADirectoryError when `path` is a directory
+        # instead of a file and `recursive` is not set to True
+        if not self.fs.exists(path):
+            raise FileNotFoundError(path)
+        self.fs.rm(path)
+
+    def move(self, src, dest):
+        self.fs.mv(src, dest)
+
+    def copy_file(self, src, dest):
+        # fs.copy correctly raises IsADirectoryError when `src` is a directory
+        # instead of a file
+        self.fs.copy(src, dest)
+
+    def open_input_stream(self, path):
+        from pyarrow import PythonFile
+
+        if not self.fs.isfile(path):
+            raise FileNotFoundError(path)
+
+        return PythonFile(self.fs.open(path, mode="rb"), mode="r")
+
+    def open_input_file(self, path):
+        from pyarrow import PythonFile
+
+        if not self.fs.isfile(path):
+            raise FileNotFoundError(path)
+
+        return PythonFile(self.fs.open(path, mode="rb"), mode="r")
+
+    def open_output_stream(self, path):
+        from pyarrow import PythonFile
+
+        return PythonFile(self.fs.open(path, mode="wb"), mode="w")
+
+    def open_append_stream(self, path):
+        from pyarrow import PythonFile
+
+        return PythonFile(self.fs.open(path, mode="ab"), mode="w")
