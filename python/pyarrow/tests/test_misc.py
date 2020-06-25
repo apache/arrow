@@ -106,7 +106,7 @@ def test_cpu_count():
     pa.HalfFloatScalar,
     pa.FloatScalar,
     pa.DoubleScalar,
-    pa.DecimalScalar,
+    pa.Decimal128Scalar,
     pa.Date32Scalar,
     pa.Date64Scalar,
     pa.Time32Scalar,

@@ -203,7 +203,8 @@ def _plasma_store_entry_point():
 # ----------------------------------------------------------------------
 # Deprecations
 
-from pyarrow.util import _deprecate_api, _deprecate_class # noqa
+
+from pyarrow.util import _deprecate_api, _deprecate_class
 
 read_message = _deprecate_api("read_message", "ipc.read_message",
                               ipc.read_message, "0.17.0")
