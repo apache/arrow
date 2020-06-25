@@ -30,17 +30,11 @@ namespace fs {
 static constexpr double kTimeSlack = 2.0;  // In seconds
 
 static inline FileInfo File(std::string path) {
-  FileInfo info;
-  info.set_type(FileType::File);
-  info.set_path(path);
-  return info;
+  return FileInfo(std::move(path), FileType::File);
 }
 
 static inline FileInfo Dir(std::string path) {
-  FileInfo info;
-  info.set_type(FileType::Directory);
-  info.set_path(path);
-  return info;
+  return FileInfo(std::move(path), FileType::Directory);
 }
 
 ARROW_EXPORT
@@ -115,7 +109,9 @@ class ARROW_EXPORT GenericFileSystemTest {
   void TestOpenOutputStream();
   void TestOpenAppendStream();
   void TestOpenInputStream();
+  void TestOpenInputStreamWithFileInfo();
   void TestOpenInputFile();
+  void TestOpenInputFileWithFileInfo();
 
  protected:
   // This function should return the filesystem under test.
@@ -153,7 +149,9 @@ class ARROW_EXPORT GenericFileSystemTest {
   void TestOpenOutputStream(FileSystem* fs);
   void TestOpenAppendStream(FileSystem* fs);
   void TestOpenInputStream(FileSystem* fs);
+  void TestOpenInputStreamWithFileInfo(FileSystem* fs);
   void TestOpenInputFile(FileSystem* fs);
+  void TestOpenInputFileWithFileInfo(FileSystem* fs);
 };
 
 #define GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, NAME) \
@@ -177,7 +175,9 @@ class ARROW_EXPORT GenericFileSystemTest {
   GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, OpenOutputStream)                 \
   GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, OpenAppendStream)                 \
   GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, OpenInputStream)                  \
-  GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, OpenInputFile)
+  GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, OpenInputStreamWithFileInfo)      \
+  GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, OpenInputFile)                    \
+  GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, OpenInputFileWithFileInfo)
 
 #define GENERIC_FS_TEST_FUNCTIONS(TEST_CLASS) \
   GENERIC_FS_TEST_FUNCTIONS_MACROS(TEST_F, TEST_CLASS)

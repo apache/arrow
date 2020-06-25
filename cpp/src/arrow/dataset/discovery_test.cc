@@ -222,9 +222,10 @@ TEST_F(FileSystemDatasetFactoryTest, MissingDirectories) {
   factory_options_.partitioning = std::make_shared<HivePartitioning>(
       schema({field("a", int32()), field("b", int32())}));
 
+  auto paths = std::vector<std::string>{partition_path, unpartition_path};
+
   ASSERT_OK_AND_ASSIGN(
-      factory_, FileSystemDatasetFactory::Make(fs_, {partition_path, unpartition_path},
-                                               format_, factory_options_));
+      factory_, FileSystemDatasetFactory::Make(fs_, paths, format_, factory_options_));
 
   InspectOptions options;
   AssertInspect(schema({field("a", int32()), field("b", int32())}), options);

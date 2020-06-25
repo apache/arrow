@@ -64,6 +64,7 @@
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/filesystem/path_util.h"
 #include "arrow/filesystem/s3_internal.h"
+#include "arrow/filesystem/util_internal.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
 #include "arrow/io/util_internal.h"
@@ -83,16 +84,16 @@ using ::Aws::Client::AWSError;
 using ::Aws::S3::S3Errors;
 namespace S3Model = Aws::S3::Model;
 
-using ::arrow::fs::internal::ConnectRetryStrategy;
-using ::arrow::fs::internal::ErrorToStatus;
-using ::arrow::fs::internal::FromAwsDatetime;
-using ::arrow::fs::internal::FromAwsString;
-using ::arrow::fs::internal::IsAlreadyExists;
-using ::arrow::fs::internal::IsNotFound;
-using ::arrow::fs::internal::OutcomeToResult;
-using ::arrow::fs::internal::OutcomeToStatus;
-using ::arrow::fs::internal::ToAwsString;
-using ::arrow::fs::internal::ToURLEncodedAwsString;
+using internal::ConnectRetryStrategy;
+using internal::ErrorToStatus;
+using internal::FromAwsDatetime;
+using internal::FromAwsString;
+using internal::IsAlreadyExists;
+using internal::IsNotFound;
+using internal::OutcomeToResult;
+using internal::OutcomeToStatus;
+using internal::ToAwsString;
+using internal::ToURLEncodedAwsString;
 
 const char* kS3DefaultRegion = "us-east-1";
 
@@ -278,24 +279,25 @@ struct S3Path {
   std::string key;
   std::vector<std::string> key_parts;
 
-  static Status FromString(const std::string& s, S3Path* out) {
+  static Result<S3Path> FromString(const std::string& s) {
     const auto src = internal::RemoveTrailingSlash(s);
     auto first_sep = src.find_first_of(kSep);
     if (first_sep == 0) {
       return Status::Invalid("Path cannot start with a separator ('", s, "')");
     }
     if (first_sep == std::string::npos) {
-      *out = {std::string(src), std::string(src), "", {}};
-      return Status::OK();
+      return S3Path{std::string(src), std::string(src), "", {}};
     }
-    out->full_path = std::string(src);
-    out->bucket = std::string(src.substr(0, first_sep));
-    out->key = std::string(src.substr(first_sep + 1));
-    out->key_parts = internal::SplitAbstractPath(out->key);
-    return Validate(out);
+    S3Path path;
+    path.full_path = std::string(src);
+    path.bucket = std::string(src.substr(0, first_sep));
+    path.key = std::string(src.substr(first_sep + 1));
+    path.key_parts = internal::SplitAbstractPath(path.key);
+    RETURN_NOT_OK(Validate(&path));
+    return path;
   }
 
-  static Status Validate(S3Path* path) {
+  static Status Validate(const S3Path* path) {
     auto result = internal::ValidateAbstractPathParts(path->key_parts);
     if (!result.ok()) {
       return Status::Invalid(result.message(), " in path ", path->full_path);
@@ -335,15 +337,15 @@ struct S3Path {
 
 // XXX return in OutcomeToStatus instead?
 Status PathNotFound(const S3Path& path) {
-  return Status::IOError("Path does not exist '", path.full_path, "'");
+  return ::arrow::fs::internal::PathNotFound(path.full_path);
 }
 
 Status PathNotFound(const std::string& bucket, const std::string& key) {
-  return Status::IOError("Path does not exist '", bucket, kSep, key, "'");
+  return ::arrow::fs::internal::PathNotFound(bucket + kSep + key);
 }
 
 Status NotAFile(const S3Path& path) {
-  return Status::IOError("Not a regular file: '", path.full_path, "'");
+  return ::arrow::fs::internal::NotAFile(path.full_path);
 }
 
 Status ValidateFilePath(const S3Path& path) {
@@ -397,9 +399,17 @@ class ObjectInputFile : public io::RandomAccessFile {
   ObjectInputFile(Aws::S3::S3Client* client, const S3Path& path)
       : client_(client), path_(path) {}
 
+  ObjectInputFile(Aws::S3::S3Client* client, const S3Path& path, int64_t size)
+      : client_(client), path_(path), content_length_(size) {}
+
   Status Init() {
     // Issue a HEAD Object to get the content-length and ensure any
     // errors (e.g. file not found) don't wait until the first Read() call.
+    if (content_length_ != kNoSize) {
+      DCHECK_GE(content_length_, 0);
+      return Status::OK();
+    }
+
     S3Model::HeadObjectRequest req;
     req.SetBucket(ToAwsString(path_.bucket));
     req.SetKey(ToAwsString(path_.key));
@@ -518,7 +528,7 @@ class ObjectInputFile : public io::RandomAccessFile {
   S3Path path_;
   bool closed_ = false;
   int64_t pos_ = 0;
-  int64_t content_length_ = -1;
+  int64_t content_length_ = kNoSize;
 };
 
 // Minimum size for each part of a multipart upload, except for the last part.
@@ -1242,8 +1252,7 @@ bool S3FileSystem::Equals(const FileSystem& other) const {
 S3Options S3FileSystem::options() const { return impl_->options(); }
 
 Result<FileInfo> S3FileSystem::GetFileInfo(const std::string& s) {
-  S3Path path;
-  RETURN_NOT_OK(S3Path::FromString(s, &path));
+  ARROW_ASSIGN_OR_RAISE(auto path, S3Path::FromString(s));
   FileInfo info;
   info.set_path(s);
 
@@ -1308,8 +1317,7 @@ Result<FileInfo> S3FileSystem::GetFileInfo(const std::string& s) {
 }
 
 Result<std::vector<FileInfo>> S3FileSystem::GetFileInfo(const FileSelector& select) {
-  S3Path base_path;
-  RETURN_NOT_OK(S3Path::FromString(select.base_dir, &base_path));
+  ARROW_ASSIGN_OR_RAISE(auto base_path, S3Path::FromString(select.base_dir));
 
   std::vector<FileInfo> results;
 
@@ -1335,8 +1343,7 @@ Result<std::vector<FileInfo>> S3FileSystem::GetFileInfo(const FileSelector& sele
 }
 
 Status S3FileSystem::CreateDir(const std::string& s, bool recursive) {
-  S3Path path;
-  RETURN_NOT_OK(S3Path::FromString(s, &path));
+  ARROW_ASSIGN_OR_RAISE(auto path, S3Path::FromString(s));
 
   if (path.key.empty()) {
     // Create bucket
@@ -1377,8 +1384,7 @@ Status S3FileSystem::CreateDir(const std::string& s, bool recursive) {
 }
 
 Status S3FileSystem::DeleteDir(const std::string& s) {
-  S3Path path;
-  RETURN_NOT_OK(S3Path::FromString(s, &path));
+  ARROW_ASSIGN_OR_RAISE(auto path, S3Path::FromString(s));
 
   if (path.empty()) {
     return Status::NotImplemented("Cannot delete all S3 buckets");
@@ -1400,8 +1406,7 @@ Status S3FileSystem::DeleteDir(const std::string& s) {
 }
 
 Status S3FileSystem::DeleteDirContents(const std::string& s) {
-  S3Path path;
-  RETURN_NOT_OK(S3Path::FromString(s, &path));
+  ARROW_ASSIGN_OR_RAISE(auto path, S3Path::FromString(s));
 
   if (path.empty()) {
     return Status::NotImplemented("Cannot delete all S3 buckets");
@@ -1412,8 +1417,7 @@ Status S3FileSystem::DeleteDirContents(const std::string& s) {
 }
 
 Status S3FileSystem::DeleteFile(const std::string& s) {
-  S3Path path;
-  RETURN_NOT_OK(S3Path::FromString(s, &path));
+  ARROW_ASSIGN_OR_RAISE(auto path, S3Path::FromString(s));
   RETURN_NOT_OK(ValidateFilePath(path));
 
   // Check the object exists
@@ -1443,10 +1447,9 @@ Status S3FileSystem::Move(const std::string& src, const std::string& dest) {
   // one must copy all directory contents one by one (including object data),
   // then delete the original contents.
 
-  S3Path src_path, dest_path;
-  RETURN_NOT_OK(S3Path::FromString(src, &src_path));
+  ARROW_ASSIGN_OR_RAISE(auto src_path, S3Path::FromString(src));
   RETURN_NOT_OK(ValidateFilePath(src_path));
-  RETURN_NOT_OK(S3Path::FromString(dest, &dest_path));
+  ARROW_ASSIGN_OR_RAISE(auto dest_path, S3Path::FromString(dest));
   RETURN_NOT_OK(ValidateFilePath(dest_path));
 
   if (src_path == dest_path) {
@@ -1459,10 +1462,9 @@ Status S3FileSystem::Move(const std::string& src, const std::string& dest) {
 }
 
 Status S3FileSystem::CopyFile(const std::string& src, const std::string& dest) {
-  S3Path src_path, dest_path;
-  RETURN_NOT_OK(S3Path::FromString(src, &src_path));
+  ARROW_ASSIGN_OR_RAISE(auto src_path, S3Path::FromString(src));
   RETURN_NOT_OK(ValidateFilePath(src_path));
-  RETURN_NOT_OK(S3Path::FromString(dest, &dest_path));
+  ARROW_ASSIGN_OR_RAISE(auto dest_path, S3Path::FromString(dest));
   RETURN_NOT_OK(ValidateFilePath(dest_path));
 
   if (src_path == dest_path) {
@@ -1473,8 +1475,34 @@ Status S3FileSystem::CopyFile(const std::string& src, const std::string& dest) {
 
 Result<std::shared_ptr<io::InputStream>> S3FileSystem::OpenInputStream(
     const std::string& s) {
-  S3Path path;
-  RETURN_NOT_OK(S3Path::FromString(s, &path));
+  ARROW_ASSIGN_OR_RAISE(auto path, S3Path::FromString(s));
+  RETURN_NOT_OK(ValidateFilePath(path));
+
+  auto ptr = std::make_shared<ObjectInputFile>(impl_->client_.get(), path);
+  RETURN_NOT_OK(ptr->Init());
+  return ptr;
+}
+
+Result<std::shared_ptr<io::InputStream>> S3FileSystem::OpenInputStream(
+    const FileInfo& info) {
+  if (info.type() == FileType::NotFound) {
+    return ::arrow::fs::internal::PathNotFound(info.path());
+  }
+  if (info.type() != FileType::File && info.type() != FileType::Unknown) {
+    return ::arrow::fs::internal::NotAFile(info.path());
+  }
+
+  ARROW_ASSIGN_OR_RAISE(auto path, S3Path::FromString(info.path()));
+  RETURN_NOT_OK(ValidateFilePath(path));
+
+  auto ptr = std::make_shared<ObjectInputFile>(impl_->client_.get(), path, info.size());
+  RETURN_NOT_OK(ptr->Init());
+  return ptr;
+}
+
+Result<std::shared_ptr<io::RandomAccessFile>> S3FileSystem::OpenInputFile(
+    const std::string& s) {
+  ARROW_ASSIGN_OR_RAISE(auto path, S3Path::FromString(s));
   RETURN_NOT_OK(ValidateFilePath(path));
 
   auto ptr = std::make_shared<ObjectInputFile>(impl_->client_.get(), path);
@@ -1483,20 +1511,25 @@ Result<std::shared_ptr<io::InputStream>> S3FileSystem::OpenInputStream(
 }
 
 Result<std::shared_ptr<io::RandomAccessFile>> S3FileSystem::OpenInputFile(
-    const std::string& s) {
-  S3Path path;
-  RETURN_NOT_OK(S3Path::FromString(s, &path));
+    const FileInfo& info) {
+  if (info.type() == FileType::NotFound) {
+    return ::arrow::fs::internal::PathNotFound(info.path());
+  }
+  if (info.type() != FileType::File && info.type() != FileType::Unknown) {
+    return ::arrow::fs::internal::NotAFile(info.path());
+  }
+
+  ARROW_ASSIGN_OR_RAISE(auto path, S3Path::FromString(info.path()));
   RETURN_NOT_OK(ValidateFilePath(path));
 
-  auto ptr = std::make_shared<ObjectInputFile>(impl_->client_.get(), path);
+  auto ptr = std::make_shared<ObjectInputFile>(impl_->client_.get(), path, info.size());
   RETURN_NOT_OK(ptr->Init());
   return ptr;
 }
 
 Result<std::shared_ptr<io::OutputStream>> S3FileSystem::OpenOutputStream(
     const std::string& s) {
-  S3Path path;
-  RETURN_NOT_OK(S3Path::FromString(s, &path));
+  ARROW_ASSIGN_OR_RAISE(auto path, S3Path::FromString(s));
   RETURN_NOT_OK(ValidateFilePath(path));
 
   auto ptr =

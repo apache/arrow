@@ -311,7 +311,7 @@ struct MakeFileSystemDatasetMixin {
       }
 
       ASSERT_OK_AND_ASSIGN(auto fragment,
-                           format->MakeFragment({info.path(), fs_}, partitions[i]));
+                           format->MakeFragment({info, fs_}, partitions[i]));
       fragments.push_back(std::move(fragment));
     }
 

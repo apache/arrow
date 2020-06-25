@@ -826,6 +826,36 @@ void GenericFileSystemTest::TestOpenInputStream(FileSystem* fs) {
   ASSERT_RAISES(IOError, fs->OpenInputStream("AB"));
 }
 
+void GenericFileSystemTest::TestOpenInputStreamWithFileInfo(FileSystem* fs) {
+  ASSERT_OK(fs->CreateDir("AB"));
+  CreateFile(fs, "AB/abc", "some data");
+
+  ASSERT_OK_AND_ASSIGN(auto info, fs->GetFileInfo("AB/abc"));
+
+  ASSERT_OK_AND_ASSIGN(auto stream, fs->OpenInputStream(info));
+  ASSERT_OK_AND_ASSIGN(auto buffer, stream->Read(9));
+  AssertBufferEqual(*buffer, "some data");
+
+  // Passing an incomplete FileInfo should also work
+  info.set_type(FileType::Unknown);
+  info.set_size(kNoSize);
+  info.set_mtime(kNoTime);
+  ASSERT_OK_AND_ASSIGN(stream, fs->OpenInputStream(info));
+  ASSERT_OK_AND_ASSIGN(buffer, stream->Read(4));
+  AssertBufferEqual(*buffer, "some");
+
+  // File does not exist
+  ASSERT_OK_AND_ASSIGN(info, fs->GetFileInfo("zzzzt"));
+  ASSERT_RAISES(IOError, fs->OpenInputStream(info));
+  // (same, with incomplete FileInfo)
+  info.set_type(FileType::Unknown);
+  ASSERT_RAISES(IOError, fs->OpenInputStream(info));
+
+  // Cannot open directory
+  ASSERT_OK_AND_ASSIGN(info, fs->GetFileInfo("AB"));
+  ASSERT_RAISES(IOError, fs->OpenInputStream(info));
+}
+
 void GenericFileSystemTest::TestOpenInputFile(FileSystem* fs) {
   ASSERT_OK(fs->CreateDir("AB"));
   CreateFile(fs, "AB/abc", "some other data");
@@ -845,6 +875,38 @@ void GenericFileSystemTest::TestOpenInputFile(FileSystem* fs) {
 
   // Cannot open directory
   ASSERT_RAISES(IOError, fs->OpenInputFile("AB"));
+}
+
+void GenericFileSystemTest::TestOpenInputFileWithFileInfo(FileSystem* fs) {
+  ASSERT_OK(fs->CreateDir("AB"));
+  CreateFile(fs, "AB/abc", "some data");
+
+  ASSERT_OK_AND_ASSIGN(auto info, fs->GetFileInfo("AB/abc"));
+
+  ASSERT_OK_AND_ASSIGN(auto file, fs->OpenInputFile(info));
+  ASSERT_OK_AND_EQ(9, file->GetSize());
+  ASSERT_OK_AND_ASSIGN(auto buffer, file->Read(9));
+  AssertBufferEqual(*buffer, "some data");
+
+  // Passing an incomplete FileInfo should also work
+  info.set_type(FileType::Unknown);
+  info.set_size(kNoSize);
+  info.set_mtime(kNoTime);
+  ASSERT_OK_AND_ASSIGN(file, fs->OpenInputFile(info));
+  ASSERT_OK_AND_EQ(9, file->GetSize());
+  ASSERT_OK_AND_ASSIGN(buffer, file->Read(4));
+  AssertBufferEqual(*buffer, "some");
+
+  // File does not exist
+  ASSERT_OK_AND_ASSIGN(info, fs->GetFileInfo("zzzzt"));
+  ASSERT_RAISES(IOError, fs->OpenInputFile(info));
+  // (same, with incomplete FileInfo)
+  info.set_type(FileType::Unknown);
+  ASSERT_RAISES(IOError, fs->OpenInputFile(info));
+
+  // Cannot open directory
+  ASSERT_OK_AND_ASSIGN(info, fs->GetFileInfo("AB"));
+  ASSERT_RAISES(IOError, fs->OpenInputFile(info));
 }
 
 #define GENERIC_FS_TEST_DEFINE(FUNC_NAME) \
@@ -867,7 +929,11 @@ GENERIC_FS_TEST_DEFINE(TestGetFileInfoSelectorWithRecursion)
 GENERIC_FS_TEST_DEFINE(TestOpenOutputStream)
 GENERIC_FS_TEST_DEFINE(TestOpenAppendStream)
 GENERIC_FS_TEST_DEFINE(TestOpenInputStream)
+GENERIC_FS_TEST_DEFINE(TestOpenInputStreamWithFileInfo)
 GENERIC_FS_TEST_DEFINE(TestOpenInputFile)
+GENERIC_FS_TEST_DEFINE(TestOpenInputFileWithFileInfo)
+
+#undef GENERIC_FS_TEST_DEFINE
 
 }  // namespace fs
 }  // namespace arrow

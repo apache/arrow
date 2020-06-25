@@ -264,6 +264,10 @@ ARROW_DS_EXPORT std::string StripPrefixAndFilename(const std::string& path,
 ARROW_DS_EXPORT std::vector<std::string> StripPrefixAndFilename(
     const std::vector<std::string>& paths, const std::string& prefix);
 
+/// \brief Vector version of StripPrefixAndFilename.
+ARROW_DS_EXPORT std::vector<std::string> StripPrefixAndFilename(
+    const std::vector<fs::FileInfo>& files, const std::string& prefix);
+
 /// \brief Either a Partitioning or a PartitioningFactory
 class ARROW_DS_EXPORT PartitioningOrFactory {
  public:
