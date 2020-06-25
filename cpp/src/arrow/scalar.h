@@ -410,8 +410,8 @@ struct ARROW_EXPORT DictionaryScalar : public Scalar {
 
   explicit DictionaryScalar(std::shared_ptr<DataType> type);
 
-  DictionaryScalar(IndexType index, ValueType value, std::shared_ptr<DataType> type)
-      : Scalar(std::move(type), true), index(std::move(index)), value(std::move(value)) {}
+  DictionaryScalar(ValueType value, std::shared_ptr<DataType> type)
+      : Scalar(std::move(type), true), value(std::move(value)) {}
 };
 
 struct ARROW_EXPORT ExtensionScalar : public Scalar {

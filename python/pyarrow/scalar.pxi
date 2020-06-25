@@ -653,13 +653,13 @@ cdef class DictionaryScalar(Scalar):
     Concrete class for dictionary-encoded scalars.
     """
 
-    @property
-    def index(self):
-        """
-        Return this value's underlying index as a scalar.
-        """
-        cdef CDictionaryScalar* sp = <CDictionaryScalar*> self.wrapped.get()
-        return Scalar.wrap(sp.index)
+    # @property
+    # def index(self):
+    #     """
+    #     Return this value's underlying index as a scalar.
+    #     """
+    #     cdef CDictionaryScalar* sp = <CDictionaryScalar*> self.wrapped.get()
+    #     return Scalar.wrap(sp.index)
 
     @property
     def value(self):
@@ -679,10 +679,10 @@ cdef class DictionaryScalar(Scalar):
         return None if value is None else value.as_py()
 
     # TODO(kszucs): deprecate these
-    @property
-    def index_value(self):
-        index = self.index
-        return None if index is None else self.index
+    # @property
+    # def index_value(self):
+    #     index = self.index
+    #     return None if index is None else self.index
 
     @property
     def dictionary_value(self):

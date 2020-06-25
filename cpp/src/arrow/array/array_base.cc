@@ -116,11 +116,8 @@ struct ScalarFromArraySlotImpl {
   }
 
   Status Visit(const DictionaryArray& a) {
-    ARROW_ASSIGN_OR_RAISE(auto index, a.indices()->GetScalar(index_));
     ARROW_ASSIGN_OR_RAISE(auto value, a.dictionary()->GetScalar(a.GetValueIndex(index_)));
-    out_ = std::shared_ptr<Scalar>(
-        new DictionaryScalar(std::move(index), std::move(value), array_.type()));
-    return Status::OK();
+    return Finish(std::move(value));
   }
 
   Status Visit(const ExtensionArray& a) {
