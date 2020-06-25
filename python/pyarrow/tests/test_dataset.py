@@ -2093,6 +2093,7 @@ def test_filter_mismatching_schema(tempdir):
 
 
 @pytest.mark.parquet
+@pytest.mark.pandas
 def test_dataset_project_only_partition_columns(tempdir):
     # ARROW-8729
     import pyarrow.parquet as pq
