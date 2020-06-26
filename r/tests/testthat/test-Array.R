@@ -160,12 +160,16 @@ test_that("Array supports logical vectors (ARROW-3341)", {
 test_that("Array supports character vectors (ARROW-3339)", {
   # without NA
   expect_array_roundtrip(c("itsy", "bitsy", "spider"), utf8())
+  expect_array_roundtrip(c("itsy", "bitsy", "spider"), large_utf8())
+
   # with NA
   expect_array_roundtrip(c("itsy", NA, "spider"), utf8())
+  expect_array_roundtrip(c("itsy", NA, "spider"), large_utf8())
 })
 
 test_that("empty arrays are supported", {
   expect_array_roundtrip(character(), utf8())
+  expect_array_roundtrip(character(), large_utf8())
   expect_array_roundtrip(integer(), int32())
   expect_array_roundtrip(numeric(), float64())
   expect_array_roundtrip(factor(character()), dictionary(int8(), utf8()))

@@ -187,6 +187,7 @@ class Converter_Date32 : public Converter_SimpleArray<REALSXP> {
   }
 };
 
+template <typename StringArrayType>
 struct Converter_String : public Converter {
  public:
   explicit Converter_String(const ArrayVector& arrays) : Converter(arrays) {}
@@ -221,7 +222,7 @@ struct Converter_String : public Converter {
       return Status::OK();
     }
 
-    arrow::StringArray* string_array = static_cast<arrow::StringArray*>(array.get());
+    StringArrayType* string_array = static_cast<StringArrayType*>(array.get());
     if (array->null_count()) {
       // need to watch for nulls
       arrow::internal::BitmapReader null_reader(array->null_bitmap_data(),
@@ -798,7 +799,12 @@ std::shared_ptr<Converter> Converter::Make(const std::shared_ptr<DataType>& type
 
       // handle memory dense strings
     case Type::STRING:
-      return std::make_shared<arrow::r::Converter_String>(std::move(arrays));
+      return std::make_shared<arrow::r::Converter_String<arrow::StringArray>>(
+          std::move(arrays));
+
+    case Type::LARGE_STRING:
+      return std::make_shared<arrow::r::Converter_String<arrow::LargeStringArray>>(
+          std::move(arrays));
 
     case Type::DICTIONARY:
       return std::make_shared<arrow::r::Converter_Dictionary>(std::move(arrays));
