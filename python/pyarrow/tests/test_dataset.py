@@ -1687,7 +1687,7 @@ def test_parquet_dataset_lazy_filtering(tempdir, open_logging_fs):
 
     # FIXME(bkietz) on Windows this results in FileNotFoundErrors.
     # but actually scanning does open files
-    #with assert_opens([f.path for f in fragments]):
+    # with assert_opens([f.path for f in fragments]):
     #    dataset.to_table()
 
 

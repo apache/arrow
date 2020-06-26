@@ -222,6 +222,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         bint Equals(const CRowGroupInfo& other)
         c_bool HasStatistics() const
         shared_ptr[CStructScalar] statistics() const
+
         @staticmethod
         vector[CRowGroupInfo] FromIdentifiers(vector[int])
 
