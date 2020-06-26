@@ -502,6 +502,34 @@ struct MinMaxImpl : public ScalarAggregator {
   MinMaxState<ArrowType> state;
 };
 
+struct BooleanMinMaxImpl : public MinMaxImpl<BooleanType> {
+
+  using MinMaxImpl::MinMaxImpl;
+
+  void Consume(KernelContext*, const ExecBatch& batch) override {
+    StateType local;
+    ArrayType arr(batch[0].array());
+
+    const auto arr_length = arr.length();
+    const auto null_count = arr.null_count();
+    const auto valid_count = arr_length - null_count;
+
+    local.has_nulls = null_count > 0;
+    local.has_values = valid_count > 0;
+    if (local.has_nulls && options.null_handling == MinMaxOptions::OUTPUT_NULL) {
+      this->state = local;
+      return;
+    }
+
+    const auto true_count = arr.true_count();
+    const auto false_count = valid_count - true_count;
+    local.max = true_count > 0;
+    local.min = false_count == 0;
+
+    this->state = local;
+  }
+};
+
 struct MinMaxInitState {
   std::unique_ptr<KernelState> state;
   KernelContext* ctx;
@@ -522,7 +550,7 @@ struct MinMaxInitState {
   }
 
   Status Visit(const BooleanType&) {
-    state.reset(new MinMaxImpl<BooleanType>(out_type, options));
+    state.reset(new BooleanMinMaxImpl(out_type, options));
     return Status::OK();
   }
 
