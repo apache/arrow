@@ -129,18 +129,19 @@ def open_logging_fs(monkeypatch):
     from pyarrow.fs import PyFileSystem, LocalFileSystem, _normalize_path
     from .test_fs import ProxyHandler
 
-    opened = set()
+    localfs = LocalFileSystem()
+    def normalized(paths):
+        return {_normalize_path(localfs, str(p)) for p in paths}
 
+    opened = set()
     def open_input_file(self, path):
+        path = _normalize_path(localfs, str(path))
         opened.add(path)
         return self._fs.open_input_file(path)
 
     # patch proxyhandler to log calls to open_input_file
     monkeypatch.setattr(ProxyHandler, "open_input_file", open_input_file)
-    fs = PyFileSystem(ProxyHandler(LocalFileSystem()))
-
-    def normalized(paths):
-        return {_normalize_path(fs, str(p)) for p in paths}
+    fs = PyFileSystem(ProxyHandler(localfs))
 
     @contextlib.contextmanager
     def assert_opens(expected_opened):
