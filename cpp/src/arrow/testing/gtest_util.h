@@ -137,8 +137,6 @@ namespace arrow {
 // ----------------------------------------------------------------------
 // Useful testing::Types declarations
 
-typedef ::testing::Types<BooleanType> BooleanArrowType;
-
 typedef ::testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type, Int8Type,
                          Int16Type, Int32Type, Int64Type, FloatType, DoubleType>
     NumericArrowTypes;

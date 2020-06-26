@@ -436,16 +436,14 @@ class TestPrimitiveMinMaxKernel : public ::testing::Test {
 };
 
 template <typename ArrowType>
-class TestBooleanMinMaxKernel : public TestPrimitiveMinMaxKernel<ArrowType> {};
-
-template <typename ArrowType>
 class TestIntegerMinMaxKernel : public TestPrimitiveMinMaxKernel<ArrowType> {};
 
 template <typename ArrowType>
 class TestFloatingMinMaxKernel : public TestPrimitiveMinMaxKernel<ArrowType> {};
 
-TYPED_TEST_SUITE(TestBooleanMinMaxKernel, BooleanArrowType);
-TYPED_TEST(TestBooleanMinMaxKernel, Basics) {
+class TestBooleanMinMaxKernel : public TestPrimitiveMinMaxKernel<BooleanType> {};
+
+TEST_F(TestBooleanMinMaxKernel, Basics) {
   MinMaxOptions options;
   std::vector<std::string> chunked_input0 = {"[]", "[]"};
   std::vector<std::string> chunked_input1 = {"[true, true, null]", "[true, null]"};
