@@ -73,7 +73,13 @@ DataType <- R6Class("DataType",
         SPARSE_UNION = stop("Type SPARSE_UNION not implemented yet"),
         DENSE_UNION = stop("Type DENSE_UNION not implemented yet"),
         DICTIONARY = shared_ptr(DictionaryType, self$pointer()),
-        MAP = stop("Type MAP not implemented yet")
+        MAP = stop("Type MAP not implemented yet"),
+        EXTENSION = stop("Type EXTENSION not implemented yet"),
+        FIXED_SIZE_LIST = stop("Type FIXED_SIZE_LIST not implemented yet"),
+        DURATION = stop("Type DURATION not implemented yet"),
+        LARGE_STRING = stop("Type LARGE_STRING not implemented yet"),
+        LARGE_BINARY = stop("Type LARGE_BINARY not implemented yet"),
+        LARGE_LIST = stop("Type LARGE_LIST not implemented yet")
       )
     }
   ),
