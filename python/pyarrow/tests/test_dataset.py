@@ -1662,7 +1662,7 @@ def test_parquet_dataset_lazy_filtering(tempdir, open_logging_fs):
     # created with ParquetDatasetFactory from a _metadata file
 
     root_path = tempdir / "test_parquet_dataset_lazy_filtering"
-    metadata_path, _ = _create_parquet_dataset_partitioned(root_path)
+    metadata_path, _ = _create_parquet_dataset_simple(root_path)
 
     # creating the dataset should only open the metadata file
     with assert_opens([metadata_path]):
