@@ -56,6 +56,9 @@ jobs:
         UBUNTU: "20.04"
         cares_SOURCE: "BUNDLED"
         gRPC_SOURCE: "BUNDLED"
+  allow_failures:
+    - arch: arm64
+    - arch: s390x
 
 env:
   DOCKER_BUILDKIT: 0
