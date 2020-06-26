@@ -715,6 +715,12 @@ def test_fragments_parquet_row_groups(tempdir):
     assert len(result) == 2
     assert result.equals(table.slice(0, 2))
 
+    assert row_group_fragments[0].row_groups is not None
+    assert row_group_fragments[0].row_groups[0].statistics == {
+        'f1': {'min': 0, 'max': 1},
+        'f2': {'min': 1, 'max': 1},
+    }
+
     fragment = list(dataset.get_fragments(filter=ds.field('f1') < 1))[0]
     row_group_fragments = list(fragment.split_by_row_group(ds.field('f1') < 1))
     assert len(row_group_fragments) == 1

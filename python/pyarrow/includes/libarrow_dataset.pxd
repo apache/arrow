@@ -216,11 +216,11 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
     cdef cppclass CRowGroupInfo "arrow::dataset::RowGroupInfo":
         CRowGroupInfo()
         CRowGroupInfo(int id)
-        CRowGroupInfo(
-            int id, int64_t n_rows, shared_ptr[CExpression] statistics)
         int id() const
         int64_t num_rows() const
         bint Equals(const CRowGroupInfo& other)
+        c_bool HasStatistics() const
+        shared_ptr[CStructScalar] statistics() const
 
     cdef cppclass CParquetFileFragment "arrow::dataset::ParquetFileFragment"(
             CFileFragment):

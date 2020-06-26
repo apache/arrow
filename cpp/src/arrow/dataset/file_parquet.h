@@ -134,8 +134,10 @@ class ARROW_DS_EXPORT RowGroupInfo : public util::EqualityComparable<RowGroupInf
   explicit RowGroupInfo(int id) : RowGroupInfo(id, -1, NULLPTR) {}
 
   /// \brief Construct a RowGroup from an identifier with statistics.
-  RowGroupInfo(int id, int64_t num_rows, std::shared_ptr<Expression> statistics)
-      : id_(id), num_rows_(num_rows), statistics_(std::move(statistics)) {}
+  RowGroupInfo(int id, int64_t num_rows, std::shared_ptr<StructScalar> statistics)
+      : id_(id), num_rows_(num_rows), statistics_(std::move(statistics)) {
+    SetStatisticsExpression();
+  }
 
   /// \brief Transform a vector of identifiers into a vector of RowGroupInfos
   static std::vector<RowGroupInfo> FromIdentifiers(const std::vector<int> ids);
@@ -150,10 +152,13 @@ class ARROW_DS_EXPORT RowGroupInfo : public util::EqualityComparable<RowGroupInf
   int64_t num_rows() const { return num_rows_; }
   void set_num_rows(int64_t num_rows) { num_rows_ = num_rows; }
 
-  /// \brief Return the RowGroup's statistics
-  const std::shared_ptr<Expression>& statistics() const { return statistics_; }
-  void set_statistics(std::shared_ptr<Expression> statistics) {
+  /// \brief Return the RowGroup's statistics as a StructScalar with a field for
+  /// each column with statistics.
+  /// Each field will also be a StructScalar with "min" and "max" fields.
+  const std::shared_ptr<StructScalar>& statistics() const { return statistics_; }
+  void set_statistics(std::shared_ptr<StructScalar> statistics) {
     statistics_ = std::move(statistics);
+    SetStatisticsExpression();
   }
 
   /// \brief Indicate if statistics are set.
@@ -169,9 +174,12 @@ class ARROW_DS_EXPORT RowGroupInfo : public util::EqualityComparable<RowGroupInf
   bool Equals(const RowGroupInfo& other) const { return id() == other.id(); }
 
  private:
+  void SetStatisticsExpression();
+
   int id_;
   int64_t num_rows_;
-  std::shared_ptr<Expression> statistics_;
+  std::shared_ptr<Expression> statistics_expression_;
+  std::shared_ptr<StructScalar> statistics_;
 };
 
 /// \brief A FileFragment with parquet logic.

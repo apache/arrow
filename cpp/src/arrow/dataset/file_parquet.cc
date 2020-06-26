@@ -124,22 +124,32 @@ static Result<SchemaManifest> GetSchemaManifest(
   return manifest;
 }
 
-static std::shared_ptr<Expression> ColumnChunkStatisticsAsExpression(
+static std::shared_ptr<StructScalar> MakeMinMaxScalar(std::shared_ptr<Scalar> min,
+                                                      std::shared_ptr<Scalar> max) {
+  DCHECK(min->type->Equals(max->type));
+  return std::make_shared<StructScalar>(ScalarVector{min, max},
+                                        struct_({
+                                            field("min", min->type),
+                                            field("max", max->type),
+                                        }));
+}
+
+static std::shared_ptr<StructScalar> ColumnChunkStatisticsAsStructScalar(
     const SchemaField& schema_field, const parquet::RowGroupMetaData& metadata) {
   // For the remaining of this function, failure to extract/parse statistics
-  // are ignored by returning the `true` scalar. The goal is two fold. First
-  // avoid that an optimization break the computation. Second, allow the
+  // are ignored by returning nullptr. The goal is two fold. First
+  // avoid an optimization which breaks the computation. Second, allow the
   // following columns to maybe succeed in extracting column statistics.
 
   // For now, only leaf (primitive) types are supported.
   if (!schema_field.is_leaf()) {
-    return scalar(true);
+    return nullptr;
   }
 
   auto column_metadata = metadata.ColumnChunk(schema_field.column_index);
   auto statistics = column_metadata->statistics();
   if (statistics == nullptr) {
-    return scalar(true);
+    return nullptr;
   }
 
   const auto& field = schema_field.field;
@@ -147,28 +157,31 @@ static std::shared_ptr<Expression> ColumnChunkStatisticsAsExpression(
 
   // Optimize for corner case where all values are nulls
   if (statistics->num_values() == statistics->null_count()) {
-    return equal(field_expr, scalar(MakeNullScalar(field->type())));
+    auto null = MakeNullScalar(field->type());
+    return MakeMinMaxScalar(null, null);
   }
 
   std::shared_ptr<Scalar> min, max;
   if (!StatisticsAsScalars(*statistics, &min, &max).ok()) {
-    return scalar(true);
+    return nullptr;
   }
 
-  return and_(greater_equal(field_expr, scalar(min)),
-              less_equal(field_expr, scalar(max)));
+  return MakeMinMaxScalar(std::move(min), std::move(max));
 }
 
-static std::shared_ptr<Expression> RowGroupStatisticsAsExpression(
+static std::shared_ptr<StructScalar> RowGroupStatisticsAsStructScalar(
     const parquet::RowGroupMetaData& metadata, const SchemaManifest& manifest) {
-  const auto& fields = manifest.schema_fields;
-  ExpressionVector expressions;
-  expressions.reserve(fields.size());
-  for (const auto& field : fields) {
-    expressions.emplace_back(ColumnChunkStatisticsAsExpression(field, metadata));
+  FieldVector fields;
+  ScalarVector statistics;
+  for (const auto& schema_field : manifest.schema_fields) {
+    if (auto min_max = ColumnChunkStatisticsAsStructScalar(schema_field, metadata)) {
+      fields.push_back(field(schema_field.field->name(), min_max->type));
+      statistics.push_back(std::move(min_max));
+    }
   }
 
-  return expressions.empty() ? scalar(true) : and_(expressions);
+  return std::make_shared<StructScalar>(std::move(statistics),
+                                        struct_(std::move(fields)));
 }
 
 class ParquetScanTaskIterator {
@@ -349,7 +362,7 @@ static inline Result<std::vector<RowGroupInfo>> AugmentRowGroups(
     if (!info.HasStatistics() && info.id() < num_row_groups) {
       auto row_group = metadata->RowGroup(info.id());
       info.set_num_rows(row_group->num_rows());
-      info.set_statistics(RowGroupStatisticsAsExpression(*row_group, manifest));
+      info.set_statistics(RowGroupStatisticsAsStructScalar(*row_group, manifest));
     }
   };
   std::for_each(row_groups.begin(), row_groups.end(), augment);
@@ -444,8 +457,39 @@ std::vector<RowGroupInfo> RowGroupInfo::FromCount(int count) {
   return result;
 }
 
+void RowGroupInfo::SetStatisticsExpression() {
+  if (!HasStatistics()) {
+    statistics_expression_ = nullptr;
+    return;
+  }
+
+  if (statistics_->value.empty()) {
+    statistics_expression_ = scalar(true);
+    return;
+  }
+
+  ExpressionVector expressions{statistics_->value.size()};
+
+  for (size_t i = 0; i < expressions.size(); ++i) {
+    const auto& col_stats =
+        internal::checked_cast<const StructScalar&>(*statistics_->value[i]);
+    auto field_expr = field_ref(statistics_->type->field(static_cast<int>(i))->name());
+
+    DCHECK_EQ(col_stats.value.size(), 2);
+    const auto& min = col_stats.value[0];
+    const auto& max = col_stats.value[1];
+
+    DCHECK_EQ(min->is_valid, max->is_valid);
+    expressions[i] = min->is_valid ? and_(greater_equal(field_expr, scalar(min)),
+                                          less_equal(field_expr, scalar(max)))
+                                   : equal(std::move(field_expr), scalar(min));
+  }
+
+  statistics_expression_ = and_(std::move(expressions));
+}
+
 bool RowGroupInfo::Satisfy(const Expression& predicate) const {
-  return !HasStatistics() || predicate.IsSatisfiableWith(statistics_);
+  return !HasStatistics() || predicate.IsSatisfiableWith(statistics_expression_);
 }
 
 ///
@@ -622,7 +666,7 @@ ParquetDatasetFactory::CollectParquetFragments(
       auto row_group = metadata.RowGroup(i);
       ARROW_ASSIGN_OR_RAISE(auto path,
                             FileFromRowGroup(filesystem_.get(), base_path_, *row_group));
-      auto stats = RowGroupStatisticsAsExpression(*row_group, manifest);
+      auto stats = RowGroupStatisticsAsStructScalar(*row_group, manifest);
       auto num_rows = row_group->num_rows();
 
       // Insert the path, or increase the count of row groups. It will be
