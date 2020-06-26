@@ -79,7 +79,7 @@ DataType <- R6Class("DataType",
         DURATION = stop("Type DURATION not implemented yet"),
         LARGE_STRING = large_utf8(),
         LARGE_BINARY = large_binary(),
-        LARGE_LIST = stop("Type LARGE_LIST not implemented yet")
+        LARGE_LIST = shared_ptr(LargeListType, self$pointer())
       )
     }
   ),

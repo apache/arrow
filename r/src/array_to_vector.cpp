@@ -636,6 +636,7 @@ class Converter_Decimal : public Converter {
   }
 };
 
+template <typename ListArrayType>
 class Converter_List : public Converter {
  private:
   std::shared_ptr<arrow::DataType> value_type_;
@@ -670,7 +671,7 @@ class Converter_List : public Converter {
 
   Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
                            R_xlen_t start, R_xlen_t n) const {
-    auto list_array = checked_cast<const arrow::ListArray*>(array.get());
+    auto list_array = checked_cast<const ListArrayType*>(array.get());
     auto values_array = list_array->values();
 
     auto ingest_one = [&](R_xlen_t i) {
@@ -887,9 +888,14 @@ std::shared_ptr<Converter> Converter::Make(const std::shared_ptr<DataType>& type
       return std::make_shared<arrow::r::Converter_Struct>(std::move(arrays));
 
     case Type::LIST:
-      return std::make_shared<arrow::r::Converter_List>(
+      return std::make_shared<arrow::r::Converter_List<arrow::ListArray>>(
           std::move(arrays),
           checked_cast<const arrow::ListType*>(type.get())->value_type());
+
+    case Type::LARGE_LIST:
+      return std::make_shared<arrow::r::Converter_List<arrow::LargeListArray>>(
+          std::move(arrays),
+          checked_cast<const arrow::LargeListType*>(type.get())->value_type());
 
     case Type::NA:
       return std::make_shared<arrow::r::Converter_Null>(std::move(arrays));

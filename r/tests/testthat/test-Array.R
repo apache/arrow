@@ -21,7 +21,7 @@ expect_array_roundtrip <- function(x, type) {
   a <- Array$create(x, type = type)
   expect_type_equal(a$type, type)
   expect_identical(length(a), length(x))
-  if (!inherits(type, "ListType")) {
+  if (!inherits(type, "ListType") && !inherits(type, "LargeListType")) {
     # TODO: revisit how missingness works with ListArrays
     # R list objects don't handle missingness the same way as other vectors.
     # Is there some vctrs thing we should do on the roundtrip back to R?
@@ -36,7 +36,7 @@ expect_array_roundtrip <- function(x, type) {
     x_sliced <- x[-1]
     expect_type_equal(a_sliced$type, type)
     expect_identical(length(a_sliced), length(x_sliced))
-    if (!inherits(type, "ListType")) {
+    if (!inherits(type, "ListType") && !inherits(type, "LargeListType")) {
       expect_identical(is.na(a_sliced), is.na(x_sliced))
     }
     expect_equivalent(as.vector(a_sliced), x_sliced)
@@ -493,6 +493,49 @@ test_that("Array$create() handles vector -> list arrays (ARROW-7662)", {
   # degenerated data frame
   df <- structure(list(x = 1:2, y = 1), class = "data.frame", row.names = 1:2)
   expect_error(Array$create(list(df)))
+})
+
+test_that("Array$create() handles vector -> large list arrays", {
+  # Should be able to create an empty list with a type hint.
+  expect_is(Array$create(list(), large_list_of(bool())), "LargeListArray")
+
+  # logical
+  expect_array_roundtrip(list(NA), large_list_of(bool()))
+  expect_array_roundtrip(list(logical(0)), large_list_of(bool()))
+  expect_array_roundtrip(list(c(TRUE), c(FALSE), c(FALSE, TRUE)), large_list_of(bool()))
+  expect_array_roundtrip(list(c(TRUE), c(FALSE), NA, logical(0), c(FALSE, NA, TRUE)), large_list_of(bool()))
+
+  # integer
+  expect_array_roundtrip(list(NA_integer_), large_list_of(int32()))
+  expect_array_roundtrip(list(integer(0)), large_list_of(int32()))
+  expect_array_roundtrip(list(1:2, 3:4, 12:18), large_list_of(int32()))
+  expect_array_roundtrip(list(c(1:2), NA_integer_, integer(0), c(12:18, NA_integer_)), large_list_of(int32()))
+
+  # numeric
+  expect_array_roundtrip(list(NA_real_), large_list_of(float64()))
+  expect_array_roundtrip(list(numeric(0)), large_list_of(float64()))
+  expect_array_roundtrip(list(1, c(2, 3), 4), large_list_of(float64()))
+  expect_array_roundtrip(list(1, numeric(0), c(2, 3, NA_real_), 4), large_list_of(float64()))
+
+  # character
+  expect_array_roundtrip(list(NA_character_), large_list_of(utf8()))
+  expect_array_roundtrip(list(character(0)), large_list_of(utf8()))
+  expect_array_roundtrip(list("itsy", c("bitsy", "spider"), c("is")), large_list_of(utf8()))
+  expect_array_roundtrip(list("itsy", character(0), c("bitsy", "spider", NA_character_), c("is")), large_list_of(utf8()))
+
+  # factor
+  expect_array_roundtrip(list(factor(c("b", "a"), levels = c("a", "b"))), large_list_of(dictionary(int8(), utf8())))
+  expect_array_roundtrip(list(factor(NA, levels = c("a", "b"))), large_list_of(dictionary(int8(), utf8())))
+
+  # struct
+  expect_array_roundtrip(
+    list(tibble::tibble(a = integer(0), b = integer(0), c = character(0), d = logical(0))),
+    large_list_of(struct(a = int32(), b = int32(), c = utf8(), d = bool()))
+  )
+  expect_array_roundtrip(
+    list(tibble::tibble(a = list(integer()))),
+    large_list_of(struct(a = list_of(int32())))
+  )
 })
 
 test_that("Array$create() should have helpful error on lists with type hint", {

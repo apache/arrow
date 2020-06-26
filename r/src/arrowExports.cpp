@@ -366,6 +366,21 @@ RcppExport SEXP _arrow_ListArray__value_type(SEXP array_sexp){
 
 // array.cpp
 #if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::DataType> LargeListArray__value_type(const std::shared_ptr<arrow::LargeListArray>& array);
+RcppExport SEXP _arrow_LargeListArray__value_type(SEXP array_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::LargeListArray>&>::type array(array_sexp);
+	return Rcpp::wrap(LargeListArray__value_type(array));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_LargeListArray__value_type(SEXP array_sexp){
+	Rf_error("Cannot call LargeListArray__value_type(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// array.cpp
+#if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Array> ListArray__values(const std::shared_ptr<arrow::ListArray>& array);
 RcppExport SEXP _arrow_ListArray__values(SEXP array_sexp){
 BEGIN_RCPP
@@ -376,6 +391,21 @@ END_RCPP
 #else
 RcppExport SEXP _arrow_ListArray__values(SEXP array_sexp){
 	Rf_error("Cannot call ListArray__values(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// array.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Array> LargeListArray__values(const std::shared_ptr<arrow::LargeListArray>& array);
+RcppExport SEXP _arrow_LargeListArray__values(SEXP array_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::LargeListArray>&>::type array(array_sexp);
+	return Rcpp::wrap(LargeListArray__values(array));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_LargeListArray__values(SEXP array_sexp){
+	Rf_error("Cannot call LargeListArray__values(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -397,6 +427,22 @@ RcppExport SEXP _arrow_ListArray__value_length(SEXP array_sexp, SEXP i_sexp){
 
 // array.cpp
 #if defined(ARROW_R_WITH_ARROW)
+int64_t LargeListArray__value_length(const std::shared_ptr<arrow::LargeListArray>& array, int64_t i);
+RcppExport SEXP _arrow_LargeListArray__value_length(SEXP array_sexp, SEXP i_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::LargeListArray>&>::type array(array_sexp);
+	Rcpp::traits::input_parameter<int64_t>::type i(i_sexp);
+	return Rcpp::wrap(LargeListArray__value_length(array, i));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_LargeListArray__value_length(SEXP array_sexp, SEXP i_sexp){
+	Rf_error("Cannot call LargeListArray__value_length(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// array.cpp
+#if defined(ARROW_R_WITH_ARROW)
 int32_t ListArray__value_offset(const std::shared_ptr<arrow::ListArray>& array, int64_t i);
 RcppExport SEXP _arrow_ListArray__value_offset(SEXP array_sexp, SEXP i_sexp){
 BEGIN_RCPP
@@ -413,6 +459,22 @@ RcppExport SEXP _arrow_ListArray__value_offset(SEXP array_sexp, SEXP i_sexp){
 
 // array.cpp
 #if defined(ARROW_R_WITH_ARROW)
+int64_t LargeListArray__value_offset(const std::shared_ptr<arrow::LargeListArray>& array, int64_t i);
+RcppExport SEXP _arrow_LargeListArray__value_offset(SEXP array_sexp, SEXP i_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::LargeListArray>&>::type array(array_sexp);
+	Rcpp::traits::input_parameter<int64_t>::type i(i_sexp);
+	return Rcpp::wrap(LargeListArray__value_offset(array, i));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_LargeListArray__value_offset(SEXP array_sexp, SEXP i_sexp){
+	Rf_error("Cannot call LargeListArray__value_offset(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// array.cpp
+#if defined(ARROW_R_WITH_ARROW)
 Rcpp::IntegerVector ListArray__raw_value_offsets(const std::shared_ptr<arrow::ListArray>& array);
 RcppExport SEXP _arrow_ListArray__raw_value_offsets(SEXP array_sexp){
 BEGIN_RCPP
@@ -423,6 +485,21 @@ END_RCPP
 #else
 RcppExport SEXP _arrow_ListArray__raw_value_offsets(SEXP array_sexp){
 	Rf_error("Cannot call ListArray__raw_value_offsets(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// array.cpp
+#if defined(ARROW_R_WITH_ARROW)
+Rcpp::IntegerVector LargeListArray__raw_value_offsets(const std::shared_ptr<arrow::LargeListArray>& array);
+RcppExport SEXP _arrow_LargeListArray__raw_value_offsets(SEXP array_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::LargeListArray>&>::type array(array_sexp);
+	return Rcpp::wrap(LargeListArray__raw_value_offsets(array));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_LargeListArray__raw_value_offsets(SEXP array_sexp){
+	Rf_error("Cannot call LargeListArray__raw_value_offsets(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -5761,10 +5838,15 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_StructArray__GetFieldByName", (DL_FUNC) &_arrow_StructArray__GetFieldByName, 2}, 
 		{ "_arrow_StructArray__Flatten", (DL_FUNC) &_arrow_StructArray__Flatten, 1}, 
 		{ "_arrow_ListArray__value_type", (DL_FUNC) &_arrow_ListArray__value_type, 1}, 
+		{ "_arrow_LargeListArray__value_type", (DL_FUNC) &_arrow_LargeListArray__value_type, 1}, 
 		{ "_arrow_ListArray__values", (DL_FUNC) &_arrow_ListArray__values, 1}, 
+		{ "_arrow_LargeListArray__values", (DL_FUNC) &_arrow_LargeListArray__values, 1}, 
 		{ "_arrow_ListArray__value_length", (DL_FUNC) &_arrow_ListArray__value_length, 2}, 
+		{ "_arrow_LargeListArray__value_length", (DL_FUNC) &_arrow_LargeListArray__value_length, 2}, 
 		{ "_arrow_ListArray__value_offset", (DL_FUNC) &_arrow_ListArray__value_offset, 2}, 
+		{ "_arrow_LargeListArray__value_offset", (DL_FUNC) &_arrow_LargeListArray__value_offset, 2}, 
 		{ "_arrow_ListArray__raw_value_offsets", (DL_FUNC) &_arrow_ListArray__raw_value_offsets, 1}, 
+		{ "_arrow_LargeListArray__raw_value_offsets", (DL_FUNC) &_arrow_LargeListArray__raw_value_offsets, 1}, 
 		{ "_arrow_Array__infer_type", (DL_FUNC) &_arrow_Array__infer_type, 1}, 
 		{ "_arrow_Array__from_vector", (DL_FUNC) &_arrow_Array__from_vector, 2}, 
 		{ "_arrow_ChunkedArray__from_list", (DL_FUNC) &_arrow_ChunkedArray__from_list, 2}, 

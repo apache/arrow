@@ -93,6 +93,8 @@ Array <- R6Class("Array",
         shared_ptr(StructArray, self$pointer())
       } else if (type_id == Type$LIST) {
         shared_ptr(ListArray, self$pointer())
+      } else if (type_id == Type$LARGE_LIST){
+        shared_ptr(LargeListArray, self$pointer())
       } else {
         self
       }
@@ -227,6 +229,22 @@ ListArray <- R6Class("ListArray", inherit = Array,
   ),
   active = list(
     value_type = function() DataType$create(ListArray__value_type(self))
+  )
+)
+
+#' @rdname array
+#' @usage NULL
+#' @format NULL
+#' @export
+LargeListArray <- R6Class("LargeListArray", inherit = Array,
+  public = list(
+    values = function() Array$create(LargeListArray__values(self)),
+    value_length = function(i) LargeListArray__value_length(self, i),
+    value_offset = function(i) LargeListArray__value_offset(self, i),
+    raw_value_offsets = function() LargeListArray__raw_value_offsets(self)
+  ),
+  active = list(
+    value_type = function() DataType$create(LargeListArray__value_type(self))
   )
 )
 

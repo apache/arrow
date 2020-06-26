@@ -92,20 +92,40 @@ ListArray__value_type <- function(array){
     .Call(`_arrow_ListArray__value_type` , array)
 }
 
+LargeListArray__value_type <- function(array){
+    .Call(`_arrow_LargeListArray__value_type` , array)
+}
+
 ListArray__values <- function(array){
     .Call(`_arrow_ListArray__values` , array)
+}
+
+LargeListArray__values <- function(array){
+    .Call(`_arrow_LargeListArray__values` , array)
 }
 
 ListArray__value_length <- function(array, i){
     .Call(`_arrow_ListArray__value_length` , array, i)
 }
 
+LargeListArray__value_length <- function(array, i){
+    .Call(`_arrow_LargeListArray__value_length` , array, i)
+}
+
 ListArray__value_offset <- function(array, i){
     .Call(`_arrow_ListArray__value_offset` , array, i)
 }
 
+LargeListArray__value_offset <- function(array, i){
+    .Call(`_arrow_LargeListArray__value_offset` , array, i)
+}
+
 ListArray__raw_value_offsets <- function(array){
     .Call(`_arrow_ListArray__raw_value_offsets` , array)
+}
+
+LargeListArray__raw_value_offsets <- function(array){
+    .Call(`_arrow_LargeListArray__raw_value_offsets` , array)
 }
 
 Array__infer_type <- function(x){

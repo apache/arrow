@@ -373,10 +373,6 @@ std::shared_ptr<Array> MakeStructArray(SEXP df, const std::shared_ptr<DataType>&
   return std::make_shared<StructArray>(type, rows, children);
 }
 
-std::shared_ptr<Array> MakeListArray(SEXP x, const std::shared_ptr<DataType>& type) {
-  return VectorToArrayConverter::Visit(x, type);
-}
-
 template <typename T>
 int64_t time_cast(T value);
 
@@ -1362,8 +1358,8 @@ std::shared_ptr<arrow::Array> Array__from_vector(
     Rcpp::stop("Object incompatible with dictionary type");
   }
 
-  if (type->id() == Type::LIST) {
-    return arrow::r::MakeListArray(x, type);
+  if (type->id() == Type::LIST || type->id() == Type::LARGE_LIST) {
+    return VectorToArrayConverter::Visit(x, type);
   }
 
   // struct types
