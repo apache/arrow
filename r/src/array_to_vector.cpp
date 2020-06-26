@@ -286,8 +286,10 @@ class Converter_Boolean : public Converter {
   }
 };
 
+template <typename ArrayType>
 class Converter_Binary : public Converter {
  public:
+  using offset_type = typename ArrayType::offset_type;
   explicit Converter_Binary(const ArrayVector& arrays) : Converter(arrays) {}
 
   SEXP Allocate(R_xlen_t n) const {
@@ -304,16 +306,21 @@ class Converter_Binary : public Converter {
 
   Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
                            R_xlen_t start, R_xlen_t n) const {
-    const BinaryArray* binary_array = checked_cast<const BinaryArray*>(array.get());
+    const ArrayType* binary_array = checked_cast<const ArrayType*>(array.get());
 
     auto ingest_one = [&](R_xlen_t i) {
-      int ni;
+      offset_type ni;
       auto value = binary_array->GetValue(i, &ni);
+      if (ni > R_XLEN_T_MAX) {
+        return Status::RError("Array too big to be represented as a raw vector");
+      }
       SEXP raw = PROTECT(Rf_allocVector(RAWSXP, ni));
       std::copy(value, value + ni, RAW(raw));
 
       SET_VECTOR_ELT(data, i, raw);
       UNPROTECT(1);
+
+      return Status::OK();
     };
 
     if (array->null_count()) {
@@ -321,12 +328,12 @@ class Converter_Binary : public Converter {
                                            n);
 
       for (R_xlen_t i = 0; i < n; i++, bitmap_reader.Next()) {
-        if (bitmap_reader.IsSet()) ingest_one(i);
+        if (bitmap_reader.IsSet()) RETURN_NOT_OK(ingest_one(i));
       }
 
     } else {
       for (R_xlen_t i = 0; i < n; i++) {
-        ingest_one(i);
+        RETURN_NOT_OK(ingest_one(i));
       }
     }
 
@@ -782,7 +789,10 @@ std::shared_ptr<Converter> Converter::Make(const std::shared_ptr<DataType>& type
       return std::make_shared<arrow::r::Converter_Boolean>(std::move(arrays));
 
     case Type::BINARY:
-      return std::make_shared<arrow::r::Converter_Binary>(std::move(arrays));
+      return std::make_shared<arrow::r::Converter_Binary<arrow::BinaryArray>>(std::move(arrays));
+
+    case Type::LARGE_BINARY:
+      return std::make_shared<arrow::r::Converter_Binary<arrow::LargeBinaryArray>>(std::move(arrays));
 
       // handle memory dense strings
     case Type::STRING:
