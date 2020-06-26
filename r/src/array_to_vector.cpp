@@ -19,6 +19,7 @@
 #if defined(ARROW_R_WITH_ARROW)
 
 #include <arrow/array.h>
+#include <arrow/builder.h>
 #include <arrow/datum.h>
 #include <arrow/table.h>
 #include <arrow/util/bitmap_reader.h>
@@ -628,10 +629,31 @@ class Converter_Decimal : public Converter {
 };
 
 class Converter_List : public Converter {
- public:
-  explicit Converter_List(const ArrayVector& arrays) : Converter(arrays) {}
+ private:
+  std::shared_ptr<arrow::DataType> value_type_;
 
-  SEXP Allocate(R_xlen_t n) const { return Rcpp::List(no_init(n)); }
+ public:
+  explicit Converter_List(const ArrayVector& arrays,
+                          const std::shared_ptr<arrow::DataType>& value_type)
+      : Converter(arrays), value_type_(value_type) {}
+
+  SEXP Allocate(R_xlen_t n) const {
+    Rcpp::List res(no_init(n));
+    Rf_setAttrib(res, R_ClassSymbol, arrow::r::data::classes_vctrs_list_of);
+
+    // Build an empty array to match value_type
+    std::unique_ptr<arrow::ArrayBuilder> builder;
+    StopIfNotOk(arrow::MakeBuilder(arrow::default_memory_pool(), value_type_, &builder));
+
+    std::shared_ptr<arrow::Array> array;
+    StopIfNotOk(builder->Finish(&array));
+
+    // convert to an R object to store as the list' ptype
+    SEXP ptype = Array__as_vector(array);
+    Rf_setAttrib(res, arrow::r::symbols::ptype, ptype);
+
+    return res;
+  }
 
   Status Ingest_all_nulls(SEXP data, R_xlen_t start, R_xlen_t n) const {
     // nothing to do, list contain NULL by default
@@ -847,7 +869,9 @@ std::shared_ptr<Converter> Converter::Make(const std::shared_ptr<DataType>& type
       return std::make_shared<arrow::r::Converter_Struct>(std::move(arrays));
 
     case Type::LIST:
-      return std::make_shared<arrow::r::Converter_List>(std::move(arrays));
+      return std::make_shared<arrow::r::Converter_List>(
+          std::move(arrays),
+          checked_cast<const arrow::ListType*>(type.get())->value_type());
 
     case Type::NA:
       return std::make_shared<arrow::r::Converter_Null>(std::move(arrays));

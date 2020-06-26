@@ -27,7 +27,7 @@ expect_array_roundtrip <- function(x, type) {
     # Is there some vctrs thing we should do on the roundtrip back to R?
     expect_identical(is.na(a), is.na(x))
   }
-  expect_equal(as.vector(a), x)
+  expect_equivalent(as.vector(a), x)
   # Make sure the storage mode is the same on roundtrip (esp. integer vs. numeric)
   expect_identical(typeof(as.vector(a)), typeof(x))
 
@@ -39,7 +39,7 @@ expect_array_roundtrip <- function(x, type) {
     if (!inherits(type, "ListType")) {
       expect_identical(is.na(a_sliced), is.na(x_sliced))
     }
-    expect_equal(as.vector(a_sliced), x_sliced)
+    expect_equivalent(as.vector(a_sliced), x_sliced)
   }
   invisible(a)
 }
