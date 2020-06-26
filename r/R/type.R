@@ -77,7 +77,7 @@ DataType <- R6Class("DataType",
         EXTENSION = stop("Type EXTENSION not implemented yet"),
         FIXED_SIZE_LIST = stop("Type FIXED_SIZE_LIST not implemented yet"),
         DURATION = stop("Type DURATION not implemented yet"),
-        LARGE_STRING = stop("Type LARGE_STRING not implemented yet"),
+        LARGE_STRING = large_utf8(),
         LARGE_BINARY = large_binary(),
         LARGE_LIST = stop("Type LARGE_LIST not implemented yet")
       )
@@ -147,6 +147,7 @@ Float32 <- R6Class("Float32", inherit = FixedWidthType)
 Float64 <- R6Class("Float64", inherit = FixedWidthType)
 Boolean <- R6Class("Boolean", inherit = FixedWidthType)
 Utf8 <- R6Class("Utf8", inherit = DataType)
+LargeUtf8 <- R6Class("LargeUtf8", inherit = DataType)
 Binary <- R6Class("Binary", inherit = DataType)
 FixedSizeBinary <- R6Class("FixedSizeBinary", inherit = FixedWidthType)
 LargeBinary <- R6Class("LargeBinary", inherit = DataType)
@@ -292,6 +293,10 @@ bool <- boolean
 #' @rdname data-type
 #' @export
 utf8 <- function() shared_ptr(Utf8, Utf8__initialize())
+
+#' @rdname data-type
+#' @export
+large_utf8 <- function() shared_ptr(LargeUtf8, LargeUtf8__initialize())
 
 #' @rdname data-type
 #' @export

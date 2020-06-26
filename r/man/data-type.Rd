@@ -18,7 +18,9 @@
 \alias{boolean}
 \alias{bool}
 \alias{utf8}
+\alias{large_utf8}
 \alias{binary}
+\alias{large_binary}
 \alias{string}
 \alias{date32}
 \alias{date64}
@@ -63,7 +65,11 @@ bool()
 
 utf8()
 
+large_utf8()
+
 binary(byte_width = NULL)
+
+large_binary()
 
 string()
 

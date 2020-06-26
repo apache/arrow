@@ -81,6 +81,9 @@ std::shared_ptr<arrow::DataType> Boolean__initialize() { return arrow::boolean()
 std::shared_ptr<arrow::DataType> Utf8__initialize() { return arrow::utf8(); }
 
 // [[arrow::export]]
+std::shared_ptr<arrow::DataType> LargeUtf8__initialize() { return arrow::large_utf8(); }
+
+// [[arrow::export]]
 std::shared_ptr<arrow::DataType> Binary__initialize() { return arrow::binary(); }
 
 // [[arrow::export]]
