@@ -52,7 +52,9 @@ namespace org.apache.arrow.flatbuf;
 ///    [2, 2, 3, 1, 2, 0],
 ///    [0, 1, 0, 0, 3, 4]]
 ///
-/// Note that the indices are sorted in lexicographical order.
+/// When isCanonical is true, the indices is sorted in lexicographical order
+/// (row-major order), and it does not have duplicated entries.  Otherwise,
+/// the indices may not be sorted, or may have duplicated entries.
 table SparseTensorIndexCOO {
   /// The type of values in indicesBuffer
   indicesType: Int (required);
