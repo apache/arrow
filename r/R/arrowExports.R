@@ -60,10 +60,6 @@ Array__View <- function(array, type){
     .Call(`_arrow_Array__View` , array, type)
 }
 
-Array__Mask <- function(array){
-    .Call(`_arrow_Array__Mask` , array)
-}
-
 Array__Validate <- function(array){
     invisible(.Call(`_arrow_Array__Validate` , array))
 }

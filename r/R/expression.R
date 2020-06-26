@@ -22,7 +22,13 @@ array_expression <- function(FUN, ...) {
 }
 
 #' @export
-Ops.Array <- function(e1, e2) array_expression(.Generic, e1, e2)
+Ops.Array <- function(e1, e2) {
+  if (.Generic == "!") {
+    array_expression(.Generic, e1)
+  } else {
+    array_expression(.Generic, e1, e2)
+  }
+}
 
 #' @export
 Ops.ChunkedArray <- Ops.Array

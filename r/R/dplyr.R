@@ -202,9 +202,14 @@ filter_mask <- function(.data) {
   } else {
     comp_func <- function(operator) {
       force(operator)
-      function(e1, e2) array_expression(operator, e1, e2)
+      if (operator == "!") {
+        function(e1) array_expression(operator, e1)
+      } else {
+        function(e1, e2) array_expression(operator, e1, e2)
+      }
     }
     var_binder <- function(x) .data$.data[[x]]
+    f_env$is.na <- function(x) array_expression("is.na", x)
   }
 
   # First add the functions

@@ -150,22 +150,6 @@ std::shared_ptr<arrow::Array> Array__View(const std::shared_ptr<arrow::Array>& a
 }
 
 // [[arrow::export]]
-LogicalVector Array__Mask(const std::shared_ptr<arrow::Array>& array) {
-  if (array->null_count() == 0) {
-    return LogicalVector(array->length(), true);
-  }
-
-  auto n = array->length();
-  LogicalVector res(no_init(n));
-  arrow::internal::BitmapReader bitmap_reader(array->null_bitmap()->data(),
-                                              array->offset(), n);
-  for (int64_t i = 0; i < n; i++, bitmap_reader.Next()) {
-    res[i] = bitmap_reader.IsSet();
-  }
-  return res;
-}
-
-// [[arrow::export]]
 void Array__Validate(const std::shared_ptr<arrow::Array>& array) {
   StopIfNotOk(array->Validate());
 }
