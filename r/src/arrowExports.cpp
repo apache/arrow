@@ -1893,6 +1893,20 @@ RcppExport SEXP _arrow_Binary__initialize(){
 
 // datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::DataType> LargeBinary__initialize();
+RcppExport SEXP _arrow_LargeBinary__initialize(){
+BEGIN_RCPP
+	return Rcpp::wrap(LargeBinary__initialize());
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_LargeBinary__initialize(){
+	Rf_error("Cannot call LargeBinary__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// datatype.cpp
+#if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> Date32__initialize();
 RcppExport SEXP _arrow_Date32__initialize(){
 BEGIN_RCPP
@@ -5787,6 +5801,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_Boolean__initialize", (DL_FUNC) &_arrow_Boolean__initialize, 0}, 
 		{ "_arrow_Utf8__initialize", (DL_FUNC) &_arrow_Utf8__initialize, 0}, 
 		{ "_arrow_Binary__initialize", (DL_FUNC) &_arrow_Binary__initialize, 0}, 
+		{ "_arrow_LargeBinary__initialize", (DL_FUNC) &_arrow_LargeBinary__initialize, 0}, 
 		{ "_arrow_Date32__initialize", (DL_FUNC) &_arrow_Date32__initialize, 0}, 
 		{ "_arrow_Date64__initialize", (DL_FUNC) &_arrow_Date64__initialize, 0}, 
 		{ "_arrow_Null__initialize", (DL_FUNC) &_arrow_Null__initialize, 0}, 

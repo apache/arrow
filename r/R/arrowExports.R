@@ -488,6 +488,10 @@ Binary__initialize <- function(){
     .Call(`_arrow_Binary__initialize` )
 }
 
+LargeBinary__initialize <- function(){
+    .Call(`_arrow_LargeBinary__initialize` )
+}
+
 Date32__initialize <- function(){
     .Call(`_arrow_Date32__initialize` )
 }
