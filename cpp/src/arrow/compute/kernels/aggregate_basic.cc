@@ -503,7 +503,6 @@ struct MinMaxImpl : public ScalarAggregator {
 };
 
 struct BooleanMinMaxImpl : public MinMaxImpl<BooleanType> {
-
   using MinMaxImpl::MinMaxImpl;
 
   void Consume(KernelContext*, const ExecBatch& batch) override {
