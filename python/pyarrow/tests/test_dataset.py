@@ -124,6 +124,38 @@ def mockfs():
     return mockfs
 
 
+@pytest.fixture
+def open_logging_fs(monkeypatch):
+    from pyarrow.fs import PyFileSystem, LocalFileSystem, _normalize_path
+    from .test_fs import ProxyHandler
+
+    localfs = LocalFileSystem()
+
+    def normalized(paths):
+        return {_normalize_path(localfs, str(p)) for p in paths}
+
+    opened = set()
+
+    def open_input_file(self, path):
+        path = _normalize_path(localfs, str(path))
+        opened.add(path)
+        return self._fs.open_input_file(path)
+
+    # patch proxyhandler to log calls to open_input_file
+    monkeypatch.setattr(ProxyHandler, "open_input_file", open_input_file)
+    fs = PyFileSystem(ProxyHandler(localfs))
+
+    @contextlib.contextmanager
+    def assert_opens(expected_opened):
+        opened.clear()
+        try:
+            yield
+        finally:
+            assert normalized(opened) == normalized(expected_opened)
+
+    return fs, assert_opens
+
+
 @pytest.fixture(scope='module')
 def multisourcefs(request):
     request.config.pyarrow.requires('pandas')
@@ -1625,6 +1657,42 @@ def test_parquet_dataset_factory_partitioned(tempdir):
 
 @pytest.mark.parquet
 @pytest.mark.pandas
+def test_parquet_dataset_lazy_filtering(tempdir, open_logging_fs):
+    fs, assert_opens = open_logging_fs
+
+    # Test to ensure that no IO happens when filtering a dataset
+    # created with ParquetDatasetFactory from a _metadata file
+
+    root_path = tempdir / "test_parquet_dataset_lazy_filtering"
+    metadata_path, _ = _create_parquet_dataset_simple(root_path)
+
+    # creating the dataset should only open the metadata file
+    with assert_opens([metadata_path]):
+        dataset = ds.parquet_dataset(
+            metadata_path,
+            partitioning=ds.partitioning(flavor="hive"),
+            filesystem=fs)
+
+    # materializing fragments should not open any file
+    with assert_opens([]):
+        fragments = list(dataset.get_fragments())
+
+    # filtering fragments should not open any file
+    with assert_opens([]):
+        list(dataset.get_fragments(ds.field("f1") > 15))
+
+    # splitting by row group should still not open any file
+    with assert_opens([]):
+        fragments[0].split_by_row_group(ds.field("f1") > 15)
+
+    # FIXME(bkietz) on Windows this results in FileNotFoundErrors.
+    # but actually scanning does open files
+    # with assert_opens([f.path for f in fragments]):
+    #    dataset.to_table()
+
+
+@pytest.mark.parquet
+@pytest.mark.pandas
 def test_dataset_schema_metadata(tempdir):
     # ARROW-8802
     df = pd.DataFrame({'a': [1, 2, 3]})
@@ -1639,3 +1707,25 @@ def test_dataset_schema_metadata(tempdir):
     assert b"pandas" in schema.metadata
     # ensure it is still there in a projected schema (with column selection)
     assert schema.equals(projected_schema, check_metadata=True)
+
+
+@pytest.mark.parquet
+def test_filter_mismatching_schema(tempdir):
+    # ARROW-9146
+    import pyarrow.parquet as pq
+
+    table = pa.table({"col": pa.array([1, 2, 3, 4], type='int32')})
+    pq.write_table(table, str(tempdir / "data.parquet"))
+
+    # specifying explicit schema, but that mismatches the schema of the data
+    schema = pa.schema([("col", pa.int64())])
+    dataset = ds.dataset(
+        tempdir / "data.parquet", format="parquet", schema=schema)
+
+    # filtering on a column with such type mismatch should give a proper error
+    with pytest.raises(TypeError):
+        dataset.to_table(filter=ds.field("col") > 2)
+
+    fragment = list(dataset.get_fragments())[0]
+    with pytest.raises(TypeError):
+        fragment.to_table(filter=ds.field("col") > 2, schema=schema)

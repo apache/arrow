@@ -206,7 +206,8 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         CResult[shared_ptr[CSchema]] Inspect(const CFileSource&) const
         CResult[shared_ptr[CFileFragment]] MakeFragment(
             CFileSource source,
-            shared_ptr[CExpression] partition_expression)
+            shared_ptr[CExpression] partition_expression,
+            shared_ptr[CSchema] physical_schema)
 
     cdef cppclass CFileFragment "arrow::dataset::FileFragment"(
             CFragment):
@@ -221,6 +222,9 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         bint Equals(const CRowGroupInfo& other)
         c_bool HasStatistics() const
         shared_ptr[CStructScalar] statistics() const
+
+        @staticmethod
+        vector[CRowGroupInfo] FromIdentifiers(vector[int])
 
     cdef cppclass CParquetFileFragment "arrow::dataset::ParquetFileFragment"(
             CFileFragment):
@@ -252,7 +256,8 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         CResult[shared_ptr[CFileFragment]] MakeFragment(
             CFileSource source,
             shared_ptr[CExpression] partition_expression,
-            vector[int] row_groups)
+            vector[CRowGroupInfo] row_groups,
+            shared_ptr[CSchema] physical_schema)
 
     cdef cppclass CIpcFileFormat "arrow::dataset::IpcFileFormat"(
             CFileFormat):

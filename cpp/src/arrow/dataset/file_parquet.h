@@ -95,30 +95,22 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
   Result<std::shared_ptr<Schema>> Inspect(const FileSource& source) const override;
 
   /// \brief Open a file for scanning
-  Result<ScanTaskIterator> ScanFile(const FileSource& source,
-                                    std::shared_ptr<ScanOptions> options,
-                                    std::shared_ptr<ScanContext> context) const override;
-
-  /// \brief Open a file for scanning, restricted to the specified row groups.
-  Result<ScanTaskIterator> ScanFile(const FileSource& source,
-                                    std::shared_ptr<ScanOptions> options,
+  Result<ScanTaskIterator> ScanFile(std::shared_ptr<ScanOptions> options,
                                     std::shared_ptr<ScanContext> context,
-                                    std::vector<RowGroupInfo> row_groups) const;
+                                    FileFragment* file) const override;
 
   using FileFormat::MakeFragment;
 
   /// \brief Create a Fragment, restricted to the specified row groups.
   Result<std::shared_ptr<FileFragment>> MakeFragment(
       FileSource source, std::shared_ptr<Expression> partition_expression,
-      std::vector<RowGroupInfo> row_groups);
-
-  Result<std::shared_ptr<FileFragment>> MakeFragment(
-      FileSource source, std::shared_ptr<Expression> partition_expression,
-      std::vector<int> row_groups);
+      std::vector<RowGroupInfo> row_groups,
+      std::shared_ptr<Schema> physical_schema = NULLPTR);
 
   /// \brief Create a Fragment targeting all RowGroups.
   Result<std::shared_ptr<FileFragment>> MakeFragment(
-      FileSource source, std::shared_ptr<Expression> partition_expression) override;
+      FileSource source, std::shared_ptr<Expression> partition_expression,
+      std::shared_ptr<Schema> physical_schema) override;
 
   /// \brief Return a FileReader on the given source.
   Result<std::unique_ptr<parquet::arrow::FileReader>> GetReader(
@@ -196,9 +188,6 @@ class ARROW_DS_EXPORT RowGroupInfo : public util::EqualityComparable<RowGroupInf
 /// significant performance boost when scanning high latency file systems.
 class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
  public:
-  Result<ScanTaskIterator> Scan(std::shared_ptr<ScanOptions> options,
-                                std::shared_ptr<ScanContext> context) override;
-
   Result<FragmentVector> SplitByRowGroup(const std::shared_ptr<Expression>& predicate);
 
   /// \brief Return the RowGroups selected by this fragment. An empty list
@@ -214,7 +203,11 @@ class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
  private:
   ParquetFileFragment(FileSource source, std::shared_ptr<FileFormat> format,
                       std::shared_ptr<Expression> partition_expression,
+                      std::shared_ptr<Schema> physical_schema,
                       std::vector<RowGroupInfo> row_groups);
+
+  // TODO(bkietz) override ReadPhysicalSchemaImpl to augment row_groups_
+  // while a reader is opened anyway
 
   std::vector<RowGroupInfo> row_groups_;
   ParquetFileFormat& parquet_format_;

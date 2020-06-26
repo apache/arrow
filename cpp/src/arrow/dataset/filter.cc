@@ -870,6 +870,10 @@ Result<std::shared_ptr<DataType>> NotExpression::Validate(const Schema& schema) 
 
 Result<std::shared_ptr<DataType>> InExpression::Validate(const Schema& schema) const {
   ARROW_ASSIGN_OR_RAISE(auto operand_type, operand_->Validate(schema));
+  if (operand_type->id() == Type::NA || set_->type()->id() == Type::NA) {
+    return boolean();
+  }
+
   if (!operand_type->Equals(set_->type())) {
     return Status::TypeError("mismatch: set type ", *set_->type(), " vs operand type ",
                              *operand_type);
