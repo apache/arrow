@@ -16,6 +16,9 @@
 # under the License.
 
 
+import collections
+
+
 cdef class Scalar:
     """
     The base class for scalars.
@@ -49,6 +52,10 @@ cdef class Scalar:
     @property
     def type(self):
         return pyarrow_wrap_data_type(self.wrapped.get().type)
+
+    @property
+    def is_valid(self):
+        return self.wrapped.get().is_valid
 
     def __repr__(self):
         return '<pyarrow.{}: {!r}>'.format(
@@ -579,7 +586,7 @@ cdef class LargeListScalar(ListScalar):
     pass
 
 
-cdef class StructScalar(Scalar):
+cdef class StructScalar(Scalar, collections.abc.Mapping):
     """
     Concrete class for struct scalars.
     """
@@ -587,6 +594,24 @@ cdef class StructScalar(Scalar):
     def __len__(self):
         cdef CStructScalar* sp = <CStructScalar*> self.wrapped.get()
         return sp.value.size()
+
+    def __iter__(self):
+        cdef:
+            CStructScalar* sp = <CStructScalar*> self.wrapped.get()
+            CStructType* dtype = <CStructType*> sp.type.get()
+            vector[shared_ptr[CField]] fields = dtype.fields()
+
+        if sp.is_valid:
+            for i in range(dtype.num_fields()):
+                yield frombytes(fields[i].get().name())
+
+    def __contains__(self, key):
+        try:
+            self[key]
+        except IndexError:
+            return False
+        else:
+            return True
 
     def __getitem__(self, key):
         """
@@ -621,14 +646,8 @@ cdef class StructScalar(Scalar):
         """
         Return this value as a Python dict.
         """
-        cdef:
-            CStructScalar* sp = <CStructScalar*> self.wrapped.get()
-            CStructType* dtype = <CStructType*> sp.type.get()
-            vector[shared_ptr[CField]] fields = dtype.fields()
-
-        if sp.is_valid:
-            return {frombytes(fields[i].get().name()): Scalar.wrap(sp.value[i])
-                    for i in range(dtype.num_fields())}
+        if self.is_valid:
+            return {k: v.as_py() for k, v in self.items()}
         else:
             return None
 

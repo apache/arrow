@@ -175,7 +175,14 @@ Result<std::shared_ptr<Scalar>> StructScalar::field(FieldRef ref) const {
   if (path.indices().size() != 1) {
     return Status::NotImplemented("retrieval of nested fields from StructScalar");
   }
-  return value[path.indices()[0]];
+  auto index = path.indices()[0];
+  if (is_valid) {
+    return value[index];
+  } else {
+    const auto& struct_type = checked_cast<const StructType&>(*this->type);
+    const auto& field_type = struct_type.field(index)->type();
+    return MakeNullScalar(field_type);
+  }
 }
 
 DictionaryScalar::DictionaryScalar(std::shared_ptr<DataType> type)

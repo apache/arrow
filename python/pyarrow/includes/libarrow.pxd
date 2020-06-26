@@ -947,7 +947,6 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CScalar] value
 
     shared_ptr[CScalar] MakeScalar[Value](Value value)
-    shared_ptr[CScalar] MakeStringScalar" arrow::MakeScalar"(c_string value)
 
     cdef cppclass CConcatenateTablesOptions" arrow::ConcatenateTablesOptions":
         c_bool unify_schemas

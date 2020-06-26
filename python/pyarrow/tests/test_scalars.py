@@ -56,8 +56,13 @@ def test_basics(value, ty, klass, deprecated):
     assert s == s
     assert s != "else"
     assert hash(s) == hash(s)
+    assert s.is_valid is True
     with pytest.warns(FutureWarning):
         isinstance(s, deprecated)
+
+    s = pa.scalar(None, type=s.type)
+    assert s.is_valid is False
+    assert s.as_py() is None
 
 
 def test_null_singleton():
@@ -377,14 +382,37 @@ def test_struct():
 
     v = {'x': 2, 'y': 3.5}
     s = pa.scalar(v, type=ty)
+    assert list(s) == list(s.keys()) == ['x', 'y']
+    assert list(s.values()) == [2, 3.5]
+    assert list(s.items()) == [('x', 2), ('y', 3.5)]
+    assert 'x' in s
+    assert 'y' in s
+    assert 'z' not in s
+
     assert s.as_py() == v
+    assert repr(s) != repr(v)
+    assert repr(s.as_py()) == repr(v)
     assert s == v
     assert len(s) == 2
+    assert isinstance(s['x'], pa.Int16Scalar)
+    assert isinstance(s['y'], pa.FloatScalar)
     assert s['x'] == 2
     assert s['y'] == 3.5
 
     with pytest.raises(IndexError):
         s['non-existent']
+
+    s = pa.scalar(None, type=ty)
+    assert list(s) == []
+    assert s.as_py() is None
+    assert 'x' in s
+    assert 'y' in s
+    assert isinstance(s['x'], pa.Int16Scalar)
+    assert isinstance(s['y'], pa.FloatScalar)
+    assert s['x'].is_valid is False
+    assert s['y'].is_valid is False
+    assert s['x'].as_py() is None
+    assert s['y'].as_py() is None
 
 
 def test_map():
