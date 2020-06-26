@@ -21,7 +21,7 @@ expect_array_roundtrip <- function(x, type) {
   a <- Array$create(x, type = type)
   expect_type_equal(a$type, type)
   expect_identical(length(a), length(x))
-  if (!inherits(type, "ListType") && !inherits(type, "LargeListType")) {
+  if (!inherits(type, c("ListType", "LargeListType"))) {
     # TODO: revisit how missingness works with ListArrays
     # R list objects don't handle missingness the same way as other vectors.
     # Is there some vctrs thing we should do on the roundtrip back to R?
