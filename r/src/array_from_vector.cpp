@@ -971,6 +971,51 @@ class BinaryVectorConverter : public VectorConverter {
   Builder* typed_builder_;
 };
 
+template <typename Builder>
+class StringVectorConverter : public VectorConverter {
+ public:
+  ~StringVectorConverter() {}
+
+  Status Init(ArrayBuilder* builder) {
+    typed_builder_ = checked_cast<Builder*>(builder);
+    return Status::OK();
+  }
+
+  Status Ingest(SEXP obj) {
+    ARROW_RETURN_IF(TYPEOF(obj) != STRSXP,
+                    Status::RError("Expecting a character vector"));
+    R_xlen_t n = XLENGTH(obj);
+
+    // Reserve enough space before appending
+    int64_t size = 0;
+    for (R_xlen_t i = 0; i < n; i++) {
+      SEXP string_i = STRING_ELT(obj, i);
+      if (string_i != NA_STRING) {
+        size += XLENGTH(string_i);
+      }
+    }
+    RETURN_NOT_OK(typed_builder_->Reserve(size));
+
+    // append
+    for (R_xlen_t i = 0; i < n; i++) {
+      SEXP string_i = STRING_ELT(obj, i);
+      if (string_i == NA_STRING) {
+        RETURN_NOT_OK(typed_builder_->AppendNull());
+      } else {
+        RETURN_NOT_OK(typed_builder_->Append(CHAR(string_i), XLENGTH(string_i)));
+      }
+    }
+    return Status::OK();
+  }
+
+  Status GetResult(std::shared_ptr<arrow::Array>* result) {
+    return typed_builder_->Finish(result);
+  }
+
+ private:
+  Builder* typed_builder_;
+};
+
 #define NUMERIC_CONVERTER(TYPE_ENUM, TYPE)                                               \
   case Type::TYPE_ENUM:                                                                  \
     *out =                                                                               \
@@ -994,6 +1039,8 @@ Status GetConverter(const std::shared_ptr<DataType>& type,
     SIMPLE_CONVERTER_CASE(BINARY, BinaryVectorConverter<arrow::BinaryBuilder>);
     SIMPLE_CONVERTER_CASE(LARGE_BINARY, BinaryVectorConverter<arrow::LargeBinaryBuilder>);
     SIMPLE_CONVERTER_CASE(BOOL, BooleanVectorConverter);
+    SIMPLE_CONVERTER_CASE(STRING, StringVectorConverter<arrow::StringBuilder>);
+    SIMPLE_CONVERTER_CASE(LARGE_STRING, StringVectorConverter<arrow::LargeStringBuilder>);
     NUMERIC_CONVERTER(INT8, Int8Type);
     NUMERIC_CONVERTER(INT16, Int16Type);
     NUMERIC_CONVERTER(INT32, Int32Type);
@@ -1300,11 +1347,6 @@ std::shared_ptr<arrow::Array> Array__from_vector(
   // directly. This still needs to handle the null bitmap
   if (arrow::r::can_reuse_memory(x, type)) {
     return arrow::r::Array__from_vector_reuse_memory(x);
-  }
-
-  // treat strings separately for now
-  if (type->id() == Type::STRING || type->id() == Type::LARGE_STRING) {
-    return VectorToArrayConverter::Visit(x, type);
   }
 
   // factors only when type has been inferred
