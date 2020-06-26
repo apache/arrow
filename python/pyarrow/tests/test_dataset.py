@@ -130,10 +130,12 @@ def open_logging_fs(monkeypatch):
     from .test_fs import ProxyHandler
 
     localfs = LocalFileSystem()
+
     def normalized(paths):
         return {_normalize_path(localfs, str(p)) for p in paths}
 
     opened = set()
+
     def open_input_file(self, path):
         path = _normalize_path(localfs, str(path))
         opened.add(path)
