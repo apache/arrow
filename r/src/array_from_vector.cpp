@@ -1303,7 +1303,7 @@ std::shared_ptr<arrow::Array> Array__from_vector(
   }
 
   // treat strings separately for now
-  if (type->id() == Type::STRING) {
+  if (type->id() == Type::STRING || type->id() == Type::LARGE_STRING) {
     return VectorToArrayConverter::Visit(x, type);
   }
 

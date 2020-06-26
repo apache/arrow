@@ -484,6 +484,10 @@ Utf8__initialize <- function(){
     .Call(`_arrow_Utf8__initialize` )
 }
 
+LargeUtf8__initialize <- function(){
+    .Call(`_arrow_LargeUtf8__initialize` )
+}
+
 Binary__initialize <- function(){
     .Call(`_arrow_Binary__initialize` )
 }
