@@ -925,12 +925,13 @@ class Time64Converter : public TimeConverter<Time64Type> {
   }
 };
 
+template <typename Builder>
 class BinaryVectorConverter : public VectorConverter {
  public:
   ~BinaryVectorConverter() {}
 
   Status Init(ArrayBuilder* builder) {
-    typed_builder_ = checked_cast<BinaryBuilder*>(builder);
+    typed_builder_ = checked_cast<Builder*>(builder);
     return Status::OK();
   }
 
@@ -967,7 +968,7 @@ class BinaryVectorConverter : public VectorConverter {
   }
 
  private:
-  BinaryBuilder* typed_builder_;
+  Builder* typed_builder_;
 };
 
 #define NUMERIC_CONVERTER(TYPE_ENUM, TYPE)                                               \
@@ -990,7 +991,8 @@ class BinaryVectorConverter : public VectorConverter {
 Status GetConverter(const std::shared_ptr<DataType>& type,
                     std::unique_ptr<VectorConverter>* out) {
   switch (type->id()) {
-    SIMPLE_CONVERTER_CASE(BINARY, BinaryVectorConverter);
+    SIMPLE_CONVERTER_CASE(BINARY, BinaryVectorConverter<arrow::BinaryBuilder>);
+    SIMPLE_CONVERTER_CASE(LARGE_BINARY, BinaryVectorConverter<arrow::LargeBinaryBuilder>);
     SIMPLE_CONVERTER_CASE(BOOL, BooleanVectorConverter);
     NUMERIC_CONVERTER(INT8, Int8Type);
     NUMERIC_CONVERTER(INT16, Int16Type);

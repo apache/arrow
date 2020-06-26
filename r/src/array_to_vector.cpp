@@ -789,10 +789,12 @@ std::shared_ptr<Converter> Converter::Make(const std::shared_ptr<DataType>& type
       return std::make_shared<arrow::r::Converter_Boolean>(std::move(arrays));
 
     case Type::BINARY:
-      return std::make_shared<arrow::r::Converter_Binary<arrow::BinaryArray>>(std::move(arrays));
+      return std::make_shared<arrow::r::Converter_Binary<arrow::BinaryArray>>(
+          std::move(arrays));
 
     case Type::LARGE_BINARY:
-      return std::make_shared<arrow::r::Converter_Binary<arrow::LargeBinaryArray>>(std::move(arrays));
+      return std::make_shared<arrow::r::Converter_Binary<arrow::LargeBinaryArray>>(
+          std::move(arrays));
 
       // handle memory dense strings
     case Type::STRING:

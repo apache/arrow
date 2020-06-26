@@ -18,7 +18,7 @@
 context("Array")
 
 expect_array_roundtrip <- function(x, type) {
-  a <- Array$create(x)
+  a <- Array$create(x, type = type)
   expect_type_equal(a$type, type)
   expect_identical(length(a), length(x))
   if (!inherits(type, "ListType")) {
@@ -52,6 +52,7 @@ test_that("Integer Array", {
 test_that("binary Array", {
   bin <- vctrs::list_of(as.raw(1:10), as.raw(0:255), .ptype = raw())
   expect_array_roundtrip(bin, binary())
+  expect_array_roundtrip(bin, large_binary())
 
   # degenerate
   bin <- structure(list(1L), ptype = raw())
