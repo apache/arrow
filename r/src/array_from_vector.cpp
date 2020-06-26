@@ -937,13 +937,24 @@ class BinaryVectorConverter : public VectorConverter {
   Status Ingest(SEXP obj) {
     ARROW_RETURN_IF(TYPEOF(obj) != VECSXP, Status::RError("Expecting a list"));
     R_xlen_t n = XLENGTH(obj);
+
+    // Reserve enough space before appending
+    int64_t size = 0;
+    for (R_xlen_t i = 0; i < n; i++) {
+      SEXP obj_i = VECTOR_ELT(obj, i);
+      if (!Rf_isNull(obj_i)) {
+        ARROW_RETURN_IF(TYPEOF(obj_i) != RAWSXP,
+                        Status::RError("Expecting a raw vector"));
+        size += XLENGTH(obj_i);
+      }
+    }
+
+    // append
     for (R_xlen_t i = 0; i < n; i++) {
       SEXP obj_i = VECTOR_ELT(obj, i);
       if (Rf_isNull(obj_i)) {
         RETURN_NOT_OK(typed_builder_->AppendNull());
       } else {
-        ARROW_RETURN_IF(TYPEOF(obj_i) != RAWSXP,
-                        Status::RError("Expecting a raw vector"));
         RETURN_NOT_OK(typed_builder_->Append(RAW(obj_i), XLENGTH(obj_i)));
       }
     }
