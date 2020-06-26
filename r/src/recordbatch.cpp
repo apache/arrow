@@ -246,6 +246,7 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays__known_schema(
   SEXP names = Rf_getAttrib(lst, R_NamesSymbol);
 
   auto fill_array = [&arrays, &schema](int j, SEXP x, SEXP name) {
+    name = Rf_mkCharCE(Rf_translateCharUTF8(name), CE_UTF8);
     if (schema->field(j)->name() != CHAR(name)) {
       Rcpp::stop("field at index %d has name '%s' != '%s'", j + 1,
                  schema->field(j)->name(), CHAR(name));
@@ -290,7 +291,8 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays(SEXP schema_sxp, SE
 
   auto fill_array = [&arrays, &arrays_names](int j, SEXP x, SEXP name) {
     arrays[j] = Array__from_vector(x, R_NilValue);
-    arrays_names[j] = CHAR(name);
+    // Make sure we're ingesting UTF-8
+    arrays_names[j] = CHAR(Rf_mkCharCE(Rf_translateCharUTF8(name), CE_UTF8));
   };
 
   for (R_xlen_t i = 0, j = 0; j < num_fields; i++) {
