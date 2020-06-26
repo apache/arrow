@@ -2055,6 +2055,21 @@ RcppExport SEXP _arrow_list__(SEXP x_sexp){
 
 // datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
+SEXP large_list__(SEXP x);
+RcppExport SEXP _arrow_large_list__(SEXP x_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<SEXP>::type x(x_sexp);
+	return Rcpp::wrap(large_list__(x));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_large_list__(SEXP x_sexp){
+	Rf_error("Cannot call large_list__(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// datatype.cpp
+#if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> struct_(List fields);
 RcppExport SEXP _arrow_struct_(SEXP fields_sexp){
 BEGIN_RCPP
@@ -2415,6 +2430,36 @@ END_RCPP
 #else
 RcppExport SEXP _arrow_ListType__value_type(SEXP type_sexp){
 	Rf_error("Cannot call ListType__value_type(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// datatype.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Field> LargeListType__value_field(const std::shared_ptr<arrow::LargeListType>& type);
+RcppExport SEXP _arrow_LargeListType__value_field(SEXP type_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::LargeListType>&>::type type(type_sexp);
+	return Rcpp::wrap(LargeListType__value_field(type));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_LargeListType__value_field(SEXP type_sexp){
+	Rf_error("Cannot call LargeListType__value_field(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// datatype.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::DataType> LargeListType__value_type(const std::shared_ptr<arrow::LargeListType>& type);
+RcppExport SEXP _arrow_LargeListType__value_type(SEXP type_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::LargeListType>&>::type type(type_sexp);
+	return Rcpp::wrap(LargeListType__value_type(type));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_LargeListType__value_type(SEXP type_sexp){
+	Rf_error("Cannot call LargeListType__value_type(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -5826,6 +5871,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_Time32__initialize", (DL_FUNC) &_arrow_Time32__initialize, 1}, 
 		{ "_arrow_Time64__initialize", (DL_FUNC) &_arrow_Time64__initialize, 1}, 
 		{ "_arrow_list__", (DL_FUNC) &_arrow_list__, 1}, 
+		{ "_arrow_large_list__", (DL_FUNC) &_arrow_large_list__, 1}, 
 		{ "_arrow_struct_", (DL_FUNC) &_arrow_struct_, 1}, 
 		{ "_arrow_DataType__ToString", (DL_FUNC) &_arrow_DataType__ToString, 1}, 
 		{ "_arrow_DataType__name", (DL_FUNC) &_arrow_DataType__name, 1}, 
@@ -5850,6 +5896,8 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_StructType__GetFieldIndex", (DL_FUNC) &_arrow_StructType__GetFieldIndex, 2}, 
 		{ "_arrow_ListType__value_field", (DL_FUNC) &_arrow_ListType__value_field, 1}, 
 		{ "_arrow_ListType__value_type", (DL_FUNC) &_arrow_ListType__value_type, 1}, 
+		{ "_arrow_LargeListType__value_field", (DL_FUNC) &_arrow_LargeListType__value_field, 1}, 
+		{ "_arrow_LargeListType__value_type", (DL_FUNC) &_arrow_LargeListType__value_type, 1}, 
 		{ "_arrow_dataset___expr__field_ref", (DL_FUNC) &_arrow_dataset___expr__field_ref, 1}, 
 		{ "_arrow_dataset___expr__equal", (DL_FUNC) &_arrow_dataset___expr__equal, 2}, 
 		{ "_arrow_dataset___expr__not_equal", (DL_FUNC) &_arrow_dataset___expr__not_equal, 2}, 

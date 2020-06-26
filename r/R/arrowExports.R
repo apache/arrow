@@ -532,6 +532,10 @@ list__ <- function(x){
     .Call(`_arrow_list__` , x)
 }
 
+large_list__ <- function(x){
+    .Call(`_arrow_large_list__` , x)
+}
+
 struct_ <- function(fields){
     .Call(`_arrow_struct_` , fields)
 }
@@ -626,6 +630,14 @@ ListType__value_field <- function(type){
 
 ListType__value_type <- function(type){
     .Call(`_arrow_ListType__value_type` , type)
+}
+
+LargeListType__value_field <- function(type){
+    .Call(`_arrow_LargeListType__value_field` , type)
+}
+
+LargeListType__value_type <- function(type){
+    .Call(`_arrow_LargeListType__value_type` , type)
 }
 
 dataset___expr__field_ref <- function(name){

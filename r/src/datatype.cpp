@@ -151,6 +151,22 @@ SEXP list__(SEXP x) {
 }
 
 // [[arrow::export]]
+SEXP large_list__(SEXP x) {
+  if (Rf_inherits(x, "Field")) {
+    Rcpp::ConstReferenceSmartPtrInputParameter<std::shared_ptr<arrow::Field>> field(x);
+    return wrap(arrow::large_list(field));
+  }
+
+  if (Rf_inherits(x, "DataType")) {
+    Rcpp::ConstReferenceSmartPtrInputParameter<std::shared_ptr<arrow::DataType>> type(x);
+    return wrap(arrow::large_list(type));
+  }
+
+  stop("incompatible");
+  return R_NilValue;
+}
+
+// [[arrow::export]]
 std::shared_ptr<arrow::DataType> struct_(List fields) {
   return arrow::struct_(arrow::r::List_to_shared_ptr_vector<arrow::Field>(fields));
 }
@@ -277,6 +293,18 @@ std::shared_ptr<arrow::Field> ListType__value_field(
 // [[arrow::export]]
 std::shared_ptr<arrow::DataType> ListType__value_type(
     const std::shared_ptr<arrow::ListType>& type) {
+  return type->value_type();
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::Field> LargeListType__value_field(
+    const std::shared_ptr<arrow::LargeListType>& type) {
+  return type->value_field();
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::DataType> LargeListType__value_type(
+    const std::shared_ptr<arrow::LargeListType>& type) {
   return type->value_type();
 }
 

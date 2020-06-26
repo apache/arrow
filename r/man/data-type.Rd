@@ -30,6 +30,7 @@
 \alias{timestamp}
 \alias{decimal}
 \alias{list_of}
+\alias{large_list_of}
 \alias{struct}
 \title{Apache Arrow data types}
 \usage{
@@ -88,6 +89,8 @@ timestamp(unit = c("s", "ms", "us", "ns"), timezone = "")
 decimal(precision, scale)
 
 list_of(type)
+
+large_list_of(type)
 
 struct(...)
 }

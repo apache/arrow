@@ -28,3 +28,15 @@ ListType <- R6Class("ListType",
 #' @rdname data-type
 #' @export
 list_of <- function(type) shared_ptr(ListType, list__(type))
+
+LargeListType <- R6Class("LargeListType",
+  inherit = NestedType,
+  active = list(
+    value_field = function() shared_ptr(Field, LargeListType__value_field(self)),
+    value_type = function() DataType$create(LargeListType__value_type(self))
+  )
+)
+
+#' @rdname data-type
+#' @export
+large_list_of <- function(type) shared_ptr(LargeListType, large_list__(type))
