@@ -143,7 +143,9 @@ class ArrowSources:
         # A local clone is required to leave the current sources intact such
         # that builds depending on said sources are not invalidated (or worse
         # slightly affected when re-invoking the generator).
-        git.clone("--local", self.path, clone_dir)
+        # "--local" only works when dest dir is on same volume of source dir.
+        # "--shared" works even if dest dir is on different volume.
+        git.clone("--shared", self.path, clone_dir)
 
         # Revision can reference "origin/" (or any remotes) that are not found
         # in the local clone. Thus, revisions are dereferenced in the source
