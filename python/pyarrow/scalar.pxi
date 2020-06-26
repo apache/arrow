@@ -545,7 +545,8 @@ cdef class ListScalar(Scalar):
     Concrete class for list-like scalars.
     """
 
-    cdef array(self):
+    @property
+    def values(self):
         cdef CListScalar* sp = <CListScalar*> self.wrapped.get()
         if sp.is_valid:
             return pyarrow_wrap_array(sp.value)
@@ -556,25 +557,25 @@ cdef class ListScalar(Scalar):
         """
         Return the number of values.
         """
-        return len(self.array())
+        return len(self.values)
 
     def __getitem__(self, i):
         """
         Return the value at the given index.
         """
-        return self.array()[_normalize_index(i, len(self))]
+        return self.values[_normalize_index(i, len(self))]
 
     def __iter__(self):
         """
         Iterate over this element's values.
         """
-        return iter(self.array())
+        return iter(self.values)
 
     def as_py(self):
         """
         Return this value as a Python list.
         """
-        arr = self.array()
+        arr = self.values
         return None if arr is None else arr.to_pylist()
 
 
@@ -661,7 +662,7 @@ cdef class MapScalar(ListScalar):
         """
         Return the value at the given index.
         """
-        arr = self.array()
+        arr = self.values
         if arr is None:
             raise IndexError(i)
         dct = arr[_normalize_index(i, len(arr))]
@@ -671,7 +672,7 @@ cdef class MapScalar(ListScalar):
         """
         Iterate over this element's values.
         """
-        arr = self.array()
+        arr = self.values
         if arr is None:
             return iter(zip(arr.field('key'), arr.field('value')))
         else:
@@ -681,7 +682,7 @@ cdef class MapScalar(ListScalar):
         """
         Return this value as a Python list.
         """
-        arr = self.array()
+        arr = self.values
         if arr is not None:
             return list(zip(arr.field('key'), arr.field('value')))
         else:

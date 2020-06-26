@@ -344,7 +344,10 @@ def test_fixed_size_binary():
 def test_list(ty, klass):
     v = ['foo', None]
     s = pa.scalar(v, type=ty)
+    assert s.type == ty
     assert len(s) == 2
+    assert isinstance(s.values, pa.Array)
+    assert s.values == v
     assert isinstance(s, klass)
     assert repr(v) in repr(s)
     assert s.as_py() == v
@@ -422,6 +425,7 @@ def test_map():
 
     assert len(s) == 2
     assert isinstance(s, pa.MapScalar)
+    assert isinstance(s.values, pa.Array)
     assert repr(s) == (
         "<pyarrow.MapScalar: ["
         "(<pyarrow.StringScalar: 'a'>, <pyarrow.Int8Scalar: 1>), "
