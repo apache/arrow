@@ -1128,15 +1128,15 @@ std::shared_ptr<arrow::DataType> InferArrowTypeFromVector<VECSXP>(SEXP x) {
             "Requires at least one element to infer the values' type of a list vector");
       }
 
-      return arrow::list(InferArrowType(VECTOR_ELT(x, 0)));
-    } else {
-      // special case list(raw()) -> BinaryArray
-      if (TYPEOF(ptype) == RAWSXP) {
-        return arrow::binary();
-      }
-
-      return arrow::list(InferArrowType(ptype));
+      ptype = VECTOR_ELT(x, 0);
     }
+
+    // special case list(raw()) -> BinaryArray
+    if (TYPEOF(ptype) == RAWSXP) {
+      return arrow::binary();
+    }
+
+    return arrow::list(InferArrowType(ptype));
   }
 }
 
