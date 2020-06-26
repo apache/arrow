@@ -948,6 +948,7 @@ class BinaryVectorConverter : public VectorConverter {
         size += XLENGTH(obj_i);
       }
     }
+    RETURN_NOT_OK(typed_builder_->Reserve(size));
 
     // append
     for (R_xlen_t i = 0; i < n; i++) {
