@@ -36,7 +36,7 @@ expect_array_roundtrip <- function(x, type) {
     x_sliced <- x[-1]
     expect_type_equal(a_sliced$type, type)
     expect_identical(length(a_sliced), length(x_sliced))
-    if (!inherits(type, "ListType") && !inherits(type, "LargeListType")) {
+    if (!inherits(type, c("ListType", "LargeListType"))) {
       expect_identical(is.na(a_sliced), is.na(x_sliced))
     }
     expect_equivalent(as.vector(a_sliced), x_sliced)
