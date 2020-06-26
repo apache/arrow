@@ -558,6 +558,22 @@ TEST_F(TestHashKernel, DictEncodeDecimal) {
                                               {}, {0, 0, 1, 0, 2});
 }
 
+TEST_F(TestHashKernel, UniqueDictionary) {
+  for (auto index_ty : {int8(), int16(), int32(), int64()}) {
+    auto indices = ArrayFromJSON(index_ty, "[3, 0, 1, 3, 0, 1, 3, 0, 1]");
+    auto dict = ArrayFromJSON(int64(), "[10, 20, 30, 40]");
+
+    auto dict_ty = dictionary(index_ty, int64());
+
+    auto ex_indices = ArrayFromJSON(index_ty, "[3, 0, 1]");
+
+    auto input = std::make_shared<DictionaryArray>(dict_ty, indices, dict);
+    auto expected = std::make_shared<DictionaryArray>(dict_ty, ex_indices, dict);
+    CheckUnique(input, expected);
+  }
+}
+
+
 /* TODO(ARROW-4124): Determine if we want to do something that is reproducible with
  * floats.
 TEST_F(TestHashKernel, ValueCountsFloat) {

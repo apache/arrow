@@ -217,6 +217,8 @@ class HashKernel : public KernelState {
   virtual Status FlushFinal(Datum* out) = 0;
   // Get the values (keys) accumulated in the dictionary so far.
   virtual Status GetDictionary(std::shared_ptr<ArrayData>* out) = 0;
+
+  virtual std::shared_ptr<DataType> value_type() const = 0;
 };
 
 // ----------------------------------------------------------------------
@@ -264,6 +266,10 @@ class RegularHashKernelImpl : public HashKernelImpl {
   Status GetDictionary(std::shared_ptr<ArrayData>* out) override {
     return DictionaryTraits<Type>::GetDictionaryArrayData(pool_, type_, *memo_table_,
                                                           0 /* start_offset */, out);
+  }
+
+  std::shared_ptr<DataType> value_type() const override {
+    return type_;
   }
 
   template <bool HasError = with_error_status>
@@ -376,6 +382,10 @@ class NullHashKernelImpl : public HashKernelImpl {
     return Status::OK();
   }
 
+  std::shared_ptr<DataType> value_type() const override {
+    return type_;
+  }
+
  protected:
   MemoryPool* pool_;
   std::shared_ptr<DataType> type_;
@@ -460,12 +470,25 @@ template <typename Action>
 std::unique_ptr<KernelState> DictionaryHashInit(KernelContext* ctx,
                                                 const KernelInitArgs& args) {
   const auto& dict_type = checked_cast<const DictionaryType&>(*args.inputs[0].type);
+  KernelInit init_func;
   switch (dict_type.index_type()->id()) {
     case Type::INT8:
+      init_func = GetHashInit<Action>(Type::INT8);
+      break;
     case Type::INT16:
+      init_func = GetHashInit<Action>(Type::INT16);
+      break;
     case Type::INT32:
+      init_func = GetHashInit<Action>(Type::INT32);
+      break;
     case Type::INT64:
+      init_func = GetHashInit<Action>(Type::INT64);
+      break;
+    default:
+      DCHECK(false) << "Unsupported dictionary index type";
+      break;
   }
+  return init_func(ctx, args);
 }
 
 void HashExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
@@ -475,6 +498,15 @@ void HashExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
 }
 
 void UniqueFinalize(KernelContext* ctx, std::vector<Datum>* out) {
+  auto hash_impl = checked_cast<HashKernel*>(ctx->state());
+  std::shared_ptr<ArrayData> uniques;
+  KERNEL_RETURN_IF_ERROR(ctx, hash_impl->GetDictionary(&uniques));
+  *out = {Datum(uniques)};
+}
+
+void UniqueFinalizeDictionary(KernelContext* ctx, std::vector<Datum>* out) {
+  UniqueFinalize(ctx, out);
+  (*out)[0].mutable_array()
   auto hash_impl = checked_cast<HashKernel*>(ctx->state());
   std::shared_ptr<ArrayData> uniques;
   KERNEL_RETURN_IF_ERROR(ctx, hash_impl->GetDictionary(&uniques));
