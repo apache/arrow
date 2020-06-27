@@ -1789,12 +1789,26 @@ cdef class BinaryArray(Array):
     """
     Concrete class for Arrow arrays of variable-sized binary data type.
     """
+    @property
+    def total_values_length(self):
+        """
+        The number of bytes from beginning to end of the data buffer addressed
+        by the offsets of this BinaryArray.
+        """
+        return (<CBinaryArray*> self.ap).total_values_length()
 
 
 cdef class LargeBinaryArray(Array):
     """
     Concrete class for Arrow arrays of large variable-sized binary data type.
     """
+    @property
+    def total_values_length(self):
+        """
+        The number of bytes from beginning to end of the data buffer addressed
+        by the offsets of this LargeBinaryArray.
+        """
+        return (<CLargeBinaryArray*> self.ap).total_values_length()
 
 
 cdef class DictionaryArray(Array):
