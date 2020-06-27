@@ -829,6 +829,7 @@ class ARROW_EXPORT BinaryType : public BaseBinaryType {
   static constexpr Type::type type_id = Type::BINARY;
   static constexpr bool is_utf8 = false;
   using offset_type = int32_t;
+  using PhysicalType = BinaryType;
 
   static constexpr const char* type_name() { return "binary"; }
 
@@ -856,6 +857,7 @@ class ARROW_EXPORT LargeBinaryType : public BaseBinaryType {
   static constexpr Type::type type_id = Type::LARGE_BINARY;
   static constexpr bool is_utf8 = false;
   using offset_type = int64_t;
+  using PhysicalType = LargeBinaryType;
 
   static constexpr const char* type_name() { return "large_binary"; }
 
@@ -882,7 +884,7 @@ class ARROW_EXPORT StringType : public BinaryType {
  public:
   static constexpr Type::type type_id = Type::STRING;
   static constexpr bool is_utf8 = true;
-  using EquivalentBinaryType = BinaryType;
+  using PhysicalType = BinaryType;
 
   static constexpr const char* type_name() { return "utf8"; }
 
@@ -900,7 +902,7 @@ class ARROW_EXPORT LargeStringType : public LargeBinaryType {
  public:
   static constexpr Type::type type_id = Type::LARGE_STRING;
   static constexpr bool is_utf8 = true;
-  using EquivalentBinaryType = LargeBinaryType;
+  using PhysicalType = LargeBinaryType;
 
   static constexpr const char* type_name() { return "large_utf8"; }
 
