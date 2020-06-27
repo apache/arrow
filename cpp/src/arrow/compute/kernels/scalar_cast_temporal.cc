@@ -39,6 +39,12 @@ constexpr int64_t kMillisecondsInDay = 86400000;
 // From one timestamp to another
 
 template <typename in_type, typename out_type>
+struct TimeShifter {
+  template <typename OUT, typename ARG0>
+  OUT Call(KernelContext* ctx, ARG0 val) const {}
+};
+
+template <typename in_type, typename out_type>
 void ShiftTime(KernelContext* ctx, const util::DivideOrMultiply factor_op,
                const int64_t factor, const ArrayData& input, ArrayData* output) {
   const CastOptions& options = checked_cast<const CastState&>(*ctx->state()).options;

@@ -169,9 +169,10 @@ struct UnboxScalar;
 
 template <typename Type>
 struct UnboxScalar<Type, enable_if_has_c_type<Type>> {
-  using ScalarType = ::arrow::internal::PrimitiveScalar<typename Type::PhysicalType>;
-  static typename Type::c_type Unbox(const Scalar& val) {
-    return checked_cast<const ScalarType&>(val).value;
+  using T = typename Type::c_type;
+  static T Unbox(const Scalar& val) {
+    return *reinterpret_cast<const T*>(
+        checked_cast<const ::arrow::internal::PrimitiveScalarBase&>(val).data());
   }
 };
 

@@ -42,6 +42,10 @@ struct CastFunctor<
 
 void CastFromExtension(KernelContext* ctx, const ExecBatch& batch, Datum* out);
 
+// Utility for numeric casts
+void CastNumberToNumberUnsafe(Type::type in_type, Type::type out_type, const Datum& input,
+                              Datum* out);
+
 // ----------------------------------------------------------------------
 // Dictionary to other things
 
