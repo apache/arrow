@@ -110,8 +110,7 @@ class TestFeatherBase {
   std::shared_ptr<Buffer> output_;
 };
 
-class TestFeather : public ::testing::TestWithParam<TestParam>,
-                    public TestFeatherBase {
+class TestFeather : public ::testing::TestWithParam<TestParam>, public TestFeatherBase {
  public:
   void SetUp() { TestFeatherBase::SetUp(); }
 

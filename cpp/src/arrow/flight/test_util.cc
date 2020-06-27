@@ -537,9 +537,8 @@ std::vector<FlightInfo> ExampleFlightInfo() {
   ARROW_EXPECT_OK(MakeFlightInfo(*schema2, descr2, {endpoint3}, 1000, 100000, &flight2));
   ARROW_EXPECT_OK(MakeFlightInfo(*schema3, descr3, {endpoint4}, -1, -1, &flight3));
   ARROW_EXPECT_OK(MakeFlightInfo(*schema4, descr4, {endpoint5}, 1000, 100000, &flight4));
-  return {
-    FlightInfo(flight1), FlightInfo(flight2), FlightInfo(flight3), FlightInfo(flight4)
-  };
+  return {FlightInfo(flight1), FlightInfo(flight2), FlightInfo(flight3),
+          FlightInfo(flight4)};
 }
 
 Status ExampleIntBatches(BatchVector* out) {

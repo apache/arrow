@@ -1454,10 +1454,10 @@ TEST_F(TestDoPut, DoPutInts) {
       int64(), "[0, 4294967298, 9223372036854775807, -9223372036854775808, null]");
   auto a7 = ArrayFromJSON(
       uint64(), "[0, 4294967298, 9223372036854775807, 18446744073709551615, null]");
-  auto schema = arrow::schema(
-      {field("f0", a0->type()), field("f1", a1->type()), field("f2", a2->type()),
-       field("f3", a3->type()), field("f4", a4->type()), field("f5", a5->type()),
-       field("f6", a6->type()), field("f7", a7->type())});
+  auto schema = arrow::schema({field("f0", a0->type()), field("f1", a1->type()),
+                               field("f2", a2->type()), field("f3", a3->type()),
+                               field("f4", a4->type()), field("f5", a5->type()),
+                               field("f6", a6->type()), field("f7", a7->type())});
   batches.push_back(
       RecordBatch::Make(schema, a0->length(), {a0, a1, a2, a3, a4, a5, a6, a7}));
 
