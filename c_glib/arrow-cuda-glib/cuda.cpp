@@ -24,6 +24,7 @@
 #include <arrow-glib/buffer.hpp>
 #include <arrow-glib/error.hpp>
 #include <arrow-glib/input-stream.hpp>
+#include <arrow-glib/ipc-options.hpp>
 #include <arrow-glib/output-stream.hpp>
 #include <arrow-glib/readable.hpp>
 #include <arrow-glib/record-batch.hpp>
@@ -448,6 +449,7 @@ garrow_cuda_buffer_get_context(GArrowCUDABuffer *buffer)
  * garrow_cuda_buffer_read_record_batch:
  * @buffer: A #GArrowCUDABuffer.
  * @schema: A #GArrowSchema for record batch.
+ * @options: (nullable): A #GArrowReadOptions.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: (transfer full): A newly created #GArrowRecordBatch on
@@ -458,19 +460,40 @@ garrow_cuda_buffer_get_context(GArrowCUDABuffer *buffer)
 GArrowRecordBatch *
 garrow_cuda_buffer_read_record_batch(GArrowCUDABuffer *buffer,
                                      GArrowSchema *schema,
+                                     GArrowReadOptions *options,
                                      GError **error)
 {
   auto arrow_buffer = garrow_cuda_buffer_get_raw(buffer);
   auto arrow_schema = garrow_schema_get_raw(schema);
-  auto pool = arrow::default_memory_pool();
-  auto arrow_record_batch = arrow::cuda::ReadRecordBatch(arrow_schema,
-                                                         arrow_buffer,
-                                                         pool);
-  if (garrow::check(error, arrow_record_batch,
-                    "[cuda][buffer][read-record-batch]")) {
-    return garrow_record_batch_new_raw(&(*arrow_record_batch));
+
+  if (options) {
+    auto arrow_options = garrow_read_options_get_raw(options);
+    auto arrow_dictionary_memo =
+      garrow_read_options_get_dictionary_memo_raw(options);
+    auto arrow_record_batch =
+      arrow::cuda::ReadRecordBatch(arrow_schema,
+                                   arrow_dictionary_memo,
+                                   arrow_buffer,
+                                   arrow_options->memory_pool);
+    if (garrow::check(error, arrow_record_batch,
+                      "[cuda][buffer][read-record-batch]")) {
+      return garrow_record_batch_new_raw(&(*arrow_record_batch));
+    } else {
+      return NULL;
+    }
   } else {
-    return NULL;
+    auto arrow_pool = arrow::default_memory_pool();
+    auto arrow_record_batch =
+      arrow::cuda::ReadRecordBatch(arrow_schema,
+                                   nullptr,
+                                   arrow_buffer,
+                                   arrow_pool);
+    if (garrow::check(error, arrow_record_batch,
+                      "[cuda][buffer][read-record-batch]")) {
+      return garrow_record_batch_new_raw(&(*arrow_record_batch));
+    } else {
+      return NULL;
+    }
   }
 }
 
