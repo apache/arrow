@@ -61,7 +61,7 @@ class MemoryPool;
 using internal::checked_cast;
 using internal::ParseValue;
 
-namespace internal {
+namespace testing {
 namespace json {
 
 using ::arrow::ipc::DictionaryMemo;
@@ -1810,5 +1810,5 @@ Status ReadArray(MemoryPool* pool, const rj::Value& json_array, const Schema& sc
 }
 
 }  // namespace json
-}  // namespace internal
+}  // namespace testing
 }  // namespace arrow

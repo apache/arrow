@@ -88,7 +88,7 @@ class DictionaryMemo;
 
 }  // namespace ipc
 
-namespace internal {
+namespace testing {
 namespace json {
 
 /// \brief Append integration test Schema format to rapidjson writer
@@ -125,5 +125,5 @@ Status ReadArray(MemoryPool* pool, const rj::Value& json_obj, const Schema& sche
                  ipc::DictionaryMemo* dict_memo, std::shared_ptr<Array>* array);
 
 }  // namespace json
-}  // namespace internal
+}  // namespace testing
 }  // namespace arrow

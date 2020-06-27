@@ -31,5 +31,3 @@ elseif(ARROW_BUILD_INTEGRATION)
   add_dependencies(arrow-json-integration-test arrow arrow_testing)
   add_dependencies(arrow-integration arrow-json-integration-test)
 endif()
-
-add_arrow_test(testing_json_test SOURCES json_test.cc)
