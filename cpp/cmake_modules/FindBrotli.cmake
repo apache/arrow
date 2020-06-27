@@ -17,7 +17,7 @@
 #
 #  find_package(Brotli)
 
-# Favor shared libraries over dynamic libraries, and handle various spellings
+# Favor shared libraries over static libraries, and handle various spellings
 set(BROTLI_COMMON_LIB_NAMES
     brotlicommon
     brotlicommon-static
