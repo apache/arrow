@@ -1316,6 +1316,21 @@ def test_value_counts_simple():
             assert result.field("counts").equals(expected_counts)
 
 
+def test_unique_value_counts_dictionary_type():
+    indices = pa.array([3, 0, 0, 0, 1, 1, 3, 0, 1, 3, 0, 1])
+    dictionary = pa.array(['foo', 'bar', 'baz', 'qux'])
+
+    arr = pa.DictionaryArray.from_arrays(indices, dictionary)
+
+    unique_result = arr.unique()
+    expected = pa.DictionaryArray.from_arrays(indices.unique(), dictionary)
+    assert unique_result.equals(expected)
+
+    result = arr.value_counts()
+    result.field('values').equals(unique_result)
+    result.field('counts').equals(pa.array([3, 5, 4], type='int64'))
+
+
 def test_dictionary_encode_simple():
     cases = [
         (pa.array([1, 2, 3, None, 1, 2, 3]),

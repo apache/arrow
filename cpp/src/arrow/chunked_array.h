@@ -81,6 +81,10 @@ class ARROW_EXPORT ChunkedArray {
   /// As the data type is passed explicitly, the vector may be empty.
   ChunkedArray(ArrayVector chunks, std::shared_ptr<DataType> type);
 
+  // \brief Constructor with basic input validation.
+  static Result<std::shared_ptr<ChunkedArray>> Make(
+      ArrayVector chunks, std::shared_ptr<DataType> type = NULLPTR);
+
   /// \return the total length of the chunked array; computed on construction
   int64_t length() const { return length_; }
 
