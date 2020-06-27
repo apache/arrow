@@ -17,8 +17,8 @@
 
 context("Array")
 
-expect_array_roundtrip <- function(x, type) {
-  a <- Array$create(x, type = type)
+expect_array_roundtrip <- function(x, type, as = NULL) {
+  a <- Array$create(x, type = as)
   expect_type_equal(a$type, type)
   expect_identical(length(a), length(x))
   if (!inherits(type, c("ListType", "LargeListType"))) {
@@ -52,7 +52,7 @@ test_that("Integer Array", {
 test_that("binary Array", {
   bin <- vctrs::list_of(as.raw(1:10), as.raw(0:255), .ptype = raw())
   expect_array_roundtrip(bin, binary())
-  expect_array_roundtrip(bin, large_binary())
+  expect_array_roundtrip(bin, large_binary(), as = large_binary())
 
   # degenerate
   bin <- structure(list(1L), ptype = raw())
@@ -160,16 +160,16 @@ test_that("Array supports logical vectors (ARROW-3341)", {
 test_that("Array supports character vectors (ARROW-3339)", {
   # without NA
   expect_array_roundtrip(c("itsy", "bitsy", "spider"), utf8())
-  expect_array_roundtrip(c("itsy", "bitsy", "spider"), large_utf8())
+  expect_array_roundtrip(c("itsy", "bitsy", "spider"), large_utf8(), as = large_utf8())
 
   # with NA
   expect_array_roundtrip(c("itsy", NA, "spider"), utf8())
-  expect_array_roundtrip(c("itsy", NA, "spider"), large_utf8())
+  expect_array_roundtrip(c("itsy", NA, "spider"), large_utf8(), as = large_utf8())
 })
 
 test_that("empty arrays are supported", {
   expect_array_roundtrip(character(), utf8())
-  expect_array_roundtrip(character(), large_utf8())
+  expect_array_roundtrip(character(), large_utf8(), as = large_utf8())
   expect_array_roundtrip(integer(), int32())
   expect_array_roundtrip(numeric(), float64())
   expect_array_roundtrip(factor(character()), dictionary(int8(), utf8()))
@@ -497,44 +497,46 @@ test_that("Array$create() handles vector -> list arrays (ARROW-7662)", {
 
 test_that("Array$create() handles vector -> large list arrays", {
   # Should be able to create an empty list with a type hint.
-  expect_is(Array$create(list(), large_list_of(bool())), "LargeListArray")
+  expect_is(Array$create(list(), type = large_list_of(bool())), "LargeListArray")
 
   # logical
-  expect_array_roundtrip(list(NA), large_list_of(bool()))
-  expect_array_roundtrip(list(logical(0)), large_list_of(bool()))
-  expect_array_roundtrip(list(c(TRUE), c(FALSE), c(FALSE, TRUE)), large_list_of(bool()))
-  expect_array_roundtrip(list(c(TRUE), c(FALSE), NA, logical(0), c(FALSE, NA, TRUE)), large_list_of(bool()))
+  expect_array_roundtrip(list(NA), large_list_of(bool()), as = large_list_of(bool()))
+  expect_array_roundtrip(list(logical(0)), large_list_of(bool()), as = large_list_of(bool()))
+  expect_array_roundtrip(list(c(TRUE), c(FALSE), c(FALSE, TRUE)), large_list_of(bool()), as = large_list_of(bool()))
+  expect_array_roundtrip(list(c(TRUE), c(FALSE), NA, logical(0), c(FALSE, NA, TRUE)), large_list_of(bool()), as = large_list_of(bool()))
 
   # integer
-  expect_array_roundtrip(list(NA_integer_), large_list_of(int32()))
-  expect_array_roundtrip(list(integer(0)), large_list_of(int32()))
-  expect_array_roundtrip(list(1:2, 3:4, 12:18), large_list_of(int32()))
-  expect_array_roundtrip(list(c(1:2), NA_integer_, integer(0), c(12:18, NA_integer_)), large_list_of(int32()))
+  expect_array_roundtrip(list(NA_integer_), large_list_of(int32()), as = large_list_of(int32()))
+  expect_array_roundtrip(list(integer(0)), large_list_of(int32()), as = large_list_of(int32()))
+  expect_array_roundtrip(list(1:2, 3:4, 12:18), large_list_of(int32()), as = large_list_of(int32()))
+  expect_array_roundtrip(list(c(1:2), NA_integer_, integer(0), c(12:18, NA_integer_)), large_list_of(int32()), as = large_list_of(int32()))
 
   # numeric
-  expect_array_roundtrip(list(NA_real_), large_list_of(float64()))
-  expect_array_roundtrip(list(numeric(0)), large_list_of(float64()))
-  expect_array_roundtrip(list(1, c(2, 3), 4), large_list_of(float64()))
-  expect_array_roundtrip(list(1, numeric(0), c(2, 3, NA_real_), 4), large_list_of(float64()))
+  expect_array_roundtrip(list(NA_real_), large_list_of(float64()), as = large_list_of(float64()))
+  expect_array_roundtrip(list(numeric(0)), large_list_of(float64()), as = large_list_of(float64()))
+  expect_array_roundtrip(list(1, c(2, 3), 4), large_list_of(float64()), as = large_list_of(float64()))
+  expect_array_roundtrip(list(1, numeric(0), c(2, 3, NA_real_), 4), large_list_of(float64()), as = large_list_of(float64()))
 
   # character
-  expect_array_roundtrip(list(NA_character_), large_list_of(utf8()))
-  expect_array_roundtrip(list(character(0)), large_list_of(utf8()))
-  expect_array_roundtrip(list("itsy", c("bitsy", "spider"), c("is")), large_list_of(utf8()))
-  expect_array_roundtrip(list("itsy", character(0), c("bitsy", "spider", NA_character_), c("is")), large_list_of(utf8()))
+  expect_array_roundtrip(list(NA_character_), large_list_of(utf8()), as = large_list_of(utf8()))
+  expect_array_roundtrip(list(character(0)), large_list_of(utf8()), as = large_list_of(utf8()))
+  expect_array_roundtrip(list("itsy", c("bitsy", "spider"), c("is")), large_list_of(utf8()), as = large_list_of(utf8()))
+  expect_array_roundtrip(list("itsy", character(0), c("bitsy", "spider", NA_character_), c("is")), large_list_of(utf8()), as = large_list_of(utf8()))
 
   # factor
-  expect_array_roundtrip(list(factor(c("b", "a"), levels = c("a", "b"))), large_list_of(dictionary(int8(), utf8())))
-  expect_array_roundtrip(list(factor(NA, levels = c("a", "b"))), large_list_of(dictionary(int8(), utf8())))
+  expect_array_roundtrip(list(factor(c("b", "a"), levels = c("a", "b"))), large_list_of(dictionary(int8(), utf8())), as = large_list_of(dictionary(int8(), utf8())))
+  expect_array_roundtrip(list(factor(NA, levels = c("a", "b"))), large_list_of(dictionary(int8(), utf8())), as = large_list_of(dictionary(int8(), utf8())))
 
   # struct
   expect_array_roundtrip(
     list(tibble::tibble(a = integer(0), b = integer(0), c = character(0), d = logical(0))),
-    large_list_of(struct(a = int32(), b = int32(), c = utf8(), d = bool()))
+    large_list_of(struct(a = int32(), b = int32(), c = utf8(), d = bool())),
+    as = large_list_of(struct(a = int32(), b = int32(), c = utf8(), d = bool()))
   )
   expect_array_roundtrip(
     list(tibble::tibble(a = list(integer()))),
-    large_list_of(struct(a = list_of(int32())))
+    large_list_of(struct(a = list_of(int32()))),
+    as = large_list_of(struct(a = list_of(int32())))
   )
 })
 
