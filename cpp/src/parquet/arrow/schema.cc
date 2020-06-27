@@ -226,10 +226,13 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
   int scale = -1;
 
   switch (field->type()->id()) {
-    case ArrowTypeId::NA:
+    case ArrowTypeId::NA: {
       type = ParquetType::INT32;
       logical_type = LogicalType::Null();
-      break;
+      if (repetition != Repetition::OPTIONAL) {
+        return Status::Invalid("NullType Arrow field must be nullable");
+      }
+    } break;
     case ArrowTypeId::BOOL:
       type = ParquetType::BOOLEAN;
       break;
