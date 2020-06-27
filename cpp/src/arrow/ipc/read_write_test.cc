@@ -300,7 +300,8 @@ TEST_F(TestSchemaMetadata, KeyValueMetadata) {
                     &MakeStringTypesRecordBatchWithNulls, &MakeStruct, &MakeUnion,       \
                     &MakeDictionary, &MakeNestedDictionary, &MakeDates, &MakeTimestamps, \
                     &MakeTimes, &MakeFWBinary, &MakeNull, &MakeDecimal,                  \
-                    &MakeBooleanBatch, &MakeIntervals, &MakeUuid, &MakeDictExtension)
+                    &MakeBooleanBatch, &MakeFloatBatch, &MakeIntervals, &MakeUuid,       \
+                    &MakeDictExtension)
 
 static int g_file_number = 0;
 

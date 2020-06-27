@@ -1019,8 +1019,9 @@ TEST(TestJsonFileReadWrite, JsonExample4) {
       &MakeIntRecordBatch, &MakeListRecordBatch, &MakeFixedSizeListRecordBatch,   \
       &MakeNonNullRecordBatch, &MakeZeroLengthRecordBatch, &MakeDeeplyNestedList, \
       &MakeStringTypesRecordBatchWithNulls, &MakeStruct, &MakeUnion, &MakeDates,  \
-      &MakeTimestamps, &MakeTimes, &MakeFWBinary, &MakeDecimal, &MakeDictionary,  \
-      &MakeNestedDictionary, &MakeIntervals, &MakeUuid, &MakeDictExtension)
+      &MakeTimestamps, &MakeTimes, &MakeFWBinary, &MakeDecimal, &MakeFloatBatch,  \
+      &MakeDictionary, &MakeNestedDictionary, &MakeIntervals, &MakeUuid,          \
+      &MakeDictExtension)
 
 class TestJsonRoundTrip : public ::testing::TestWithParam<MakeRecordBatch*> {
  public:

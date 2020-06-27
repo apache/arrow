@@ -76,6 +76,13 @@ ARROW_TESTING_EXPORT
 Status MakeIntRecordBatch(std::shared_ptr<RecordBatch>* out);
 
 ARROW_TESTING_EXPORT
+Status MakeFloatBatchSized(int length, std::shared_ptr<RecordBatch>* out,
+                           uint32_t seed = 0);
+
+ARROW_TESTING_EXPORT
+Status MakeFloatBatch(std::shared_ptr<RecordBatch>* out);
+
+ARROW_TESTING_EXPORT
 Status MakeRandomStringArray(int64_t length, bool include_nulls, MemoryPool* pool,
                              std::shared_ptr<Array>* out);
 

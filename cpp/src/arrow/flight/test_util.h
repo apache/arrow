@@ -144,6 +144,9 @@ ARROW_FLIGHT_EXPORT
 Status ExampleIntBatches(BatchVector* out);
 
 ARROW_FLIGHT_EXPORT
+Status ExampleFloatBatches(BatchVector* out);
+
+ARROW_FLIGHT_EXPORT
 Status ExampleDictBatches(BatchVector* out);
 
 ARROW_FLIGHT_EXPORT

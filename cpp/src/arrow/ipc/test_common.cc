@@ -79,6 +79,17 @@ Status MakeRandomInt32Array(int64_t length, bool include_nulls, MemoryPool* pool
   return Status::OK();
 }
 
+template <typename ArrayType>
+static Status MakeRandomArray(int64_t length, bool include_nulls, MemoryPool* pool,
+                              std::shared_ptr<Array>* out, uint32_t seed) {
+  random::RandomArrayGenerator rand(seed);
+  const double null_probability = include_nulls ? 0.5 : 0.0;
+
+  *out = rand.Numeric<ArrayType>(length, 0, 1000, null_probability);
+
+  return Status::OK();
+}
+
 template <typename TypeClass>
 static Status MakeListArray(const std::shared_ptr<Array>& child_array, int num_lists,
                             bool include_nulls, MemoryPool* pool,
@@ -194,21 +205,52 @@ Status MakeBooleanBatch(std::shared_ptr<RecordBatch>* out) {
 
 Status MakeIntBatchSized(int length, std::shared_ptr<RecordBatch>* out, uint32_t seed) {
   // Make the schema
-  auto f0 = field("f0", int32());
-  auto f1 = field("f1", int32());
-  auto schema = ::arrow::schema({f0, f1});
+  auto f0 = field("f0", int8());
+  auto f1 = field("f1", uint8());
+  auto f2 = field("f2", int16());
+  auto f3 = field("f3", uint16());
+  auto f4 = field("f4", int32());
+  auto f5 = field("f5", uint32());
+  auto f6 = field("f6", int64());
+  auto f7 = field("f7", uint64());
+  auto schema = ::arrow::schema({f0, f1, f2, f3, f4, f5, f6, f7});
 
   // Example data
-  std::shared_ptr<Array> a0, a1;
+  std::shared_ptr<Array> a0, a1, a2, a3, a4, a5, a6, a7;
   MemoryPool* pool = default_memory_pool();
-  RETURN_NOT_OK(MakeRandomInt32Array(length, false, pool, &a0, seed));
-  RETURN_NOT_OK(MakeRandomInt32Array(length, true, pool, &a1, seed + 1));
-  *out = RecordBatch::Make(schema, length, {a0, a1});
+  RETURN_NOT_OK(MakeRandomArray<Int8Type>(length, false, pool, &a0, seed));
+  RETURN_NOT_OK(MakeRandomArray<UInt8Type>(length, false, pool, &a1, seed));
+  RETURN_NOT_OK(MakeRandomArray<Int16Type>(length, false, pool, &a2, seed));
+  RETURN_NOT_OK(MakeRandomArray<UInt16Type>(length, false, pool, &a3, seed));
+  RETURN_NOT_OK(MakeRandomArray<Int32Type>(length, false, pool, &a4, seed));
+  RETURN_NOT_OK(MakeRandomArray<UInt32Type>(length, false, pool, &a5, seed));
+  RETURN_NOT_OK(MakeRandomArray<Int64Type>(length, false, pool, &a6, seed));
+  RETURN_NOT_OK(MakeRandomArray<UInt64Type>(length, false, pool, &a7, seed));
+  *out = RecordBatch::Make(schema, length, {a0, a1, a2, a3, a4, a5, a6, a7});
   return Status::OK();
 }
 
 Status MakeIntRecordBatch(std::shared_ptr<RecordBatch>* out) {
   return MakeIntBatchSized(10, out);
+}
+
+Status MakeFloatBatchSized(int length, std::shared_ptr<RecordBatch>* out, uint32_t seed) {
+  // Make the schema
+  auto f0 = field("f0", float32());
+  auto f1 = field("f1", float64());
+  auto schema = ::arrow::schema({f0, f1});
+
+  // Example data
+  std::shared_ptr<Array> a0, a1;
+  MemoryPool* pool = default_memory_pool();
+  RETURN_NOT_OK(MakeRandomArray<FloatType>(length, false, pool, &a0, seed));
+  RETURN_NOT_OK(MakeRandomArray<DoubleType>(length, true, pool, &a1, seed + 1));
+  *out = RecordBatch::Make(schema, length, {a0, a1});
+  return Status::OK();
+}
+
+Status MakeFloatBatch(std::shared_ptr<RecordBatch>* out) {
+  return MakeFloatBatchSized(10, out);
 }
 
 Status MakeRandomStringArray(int64_t length, bool include_nulls, MemoryPool* pool,
