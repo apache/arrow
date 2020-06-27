@@ -485,9 +485,10 @@ std::shared_ptr<Schema> ExampleIntSchema() {
 }
 
 std::shared_ptr<Schema> ExampleFloatSchema() {
-  auto f0 = field("f0", float32());
-  auto f1 = field("f1", float64());
-  return ::arrow::schema({f0, f1});
+  auto f0 = field("f0", float16());
+  auto f1 = field("f1", float32());
+  auto f2 = field("f2", float64());
+  return ::arrow::schema({f0, f1, f2});
 }
 
 std::shared_ptr<Schema> ExampleStringSchema() {

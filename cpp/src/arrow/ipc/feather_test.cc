@@ -213,7 +213,7 @@ TEST_P(TestFeather, PrimitiveIntRoundTrip) {
 
 TEST_P(TestFeather, PrimitiveFloatRoundTrip) {
   std::shared_ptr<RecordBatch> batch;
-  ASSERT_OK(ipc::test::MakeFloatBatch(&batch));
+  ASSERT_OK(ipc::test::MakeFloat3264Batch(&batch));
 
   ASSERT_OK_AND_ASSIGN(auto table, Table::FromRecordBatches({batch}));
 
@@ -315,7 +315,7 @@ TEST_P(TestFeather, SliceIntRoundTrip) {
 
 TEST_P(TestFeather, SliceFloatRoundTrip) {
   std::shared_ptr<RecordBatch> batch;
-  ASSERT_OK(ipc::test::MakeFloatBatchSized(600, &batch));
+  ASSERT_OK(ipc::test::MakeFloat3264BatchSized(600, &batch));
   CheckSlices(batch);
 }
 

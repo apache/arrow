@@ -148,6 +148,7 @@ PRIMITIVE_RAND_INTEGER_IMPL(Int64, int64_t, Int64Type)
 #define PRIMITIVE_RAND_FLOAT_IMPL(Name, CType, ArrowType) \
   PRIMITIVE_RAND_IMPL(Name, CType, ArrowType, std::uniform_real_distribution<CType>)
 
+PRIMITIVE_RAND_FLOAT_IMPL(Float16, float, HalfFloatType)
 PRIMITIVE_RAND_FLOAT_IMPL(Float32, float, FloatType)
 PRIMITIVE_RAND_FLOAT_IMPL(Float64, double, DoubleType)
 
