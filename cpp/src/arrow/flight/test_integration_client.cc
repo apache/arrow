@@ -30,12 +30,12 @@
 #include "arrow/io/file.h"
 #include "arrow/io/test_common.h"
 #include "arrow/ipc/dictionary.h"
-#include "arrow/ipc/json_integration.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
 #include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/json_integration.h"
 #include "arrow/util/logging.h"
 
 #include "arrow/flight/api.h"

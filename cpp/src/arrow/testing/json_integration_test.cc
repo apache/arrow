@@ -29,7 +29,6 @@
 #include <gtest/gtest.h>
 
 #include "arrow/io/file.h"
-#include "arrow/ipc/json_integration.h"
 #include "arrow/ipc/reader.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/pretty_print.h"
@@ -37,6 +36,7 @@
 #include "arrow/status.h"
 #include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/json_integration.h"
 #include "arrow/type.h"
 #include "arrow/util/io_util.h"
 
@@ -52,8 +52,6 @@ namespace arrow {
 
 class Buffer;
 using internal::TemporaryDir;
-
-namespace ipc {
 
 // Convert JSON file to IPC binary format
 static Status ConvertJsonToArrow(const std::string& json_path,
@@ -72,7 +70,8 @@ static Status ConvertJsonToArrow(const std::string& json_path,
               << reader->schema()->ToString(/* show_metadata = */ true) << std::endl;
   }
 
-  ARROW_ASSIGN_OR_RAISE(auto writer, NewFileWriter(out_file.get(), reader->schema()));
+  ARROW_ASSIGN_OR_RAISE(auto writer,
+                        ipc::NewFileWriter(out_file.get(), reader->schema()));
   for (int i = 0; i < reader->num_record_batches(); ++i) {
     std::shared_ptr<RecordBatch> batch;
     RETURN_NOT_OK(reader->ReadRecordBatch(i, &batch));
@@ -87,8 +86,8 @@ static Status ConvertArrowToJson(const std::string& arrow_path,
   ARROW_ASSIGN_OR_RAISE(auto in_file, io::ReadableFile::Open(arrow_path));
   ARROW_ASSIGN_OR_RAISE(auto out_file, io::FileOutputStream::Open(json_path));
 
-  std::shared_ptr<RecordBatchFileReader> reader;
-  ARROW_ASSIGN_OR_RAISE(reader, RecordBatchFileReader::Open(in_file.get()));
+  std::shared_ptr<ipc::RecordBatchFileReader> reader;
+  ARROW_ASSIGN_OR_RAISE(reader, ipc::RecordBatchFileReader::Open(in_file.get()));
 
   if (FLAGS_verbose) {
     std::cout << "Found schema:\n" << reader->schema()->ToString() << std::endl;
@@ -121,8 +120,8 @@ static Status ValidateArrowVsJson(const std::string& arrow_path,
   // Construct Arrow reader
   ARROW_ASSIGN_OR_RAISE(auto arrow_file, io::ReadableFile::Open(arrow_path));
 
-  std::shared_ptr<RecordBatchFileReader> arrow_reader;
-  ARROW_ASSIGN_OR_RAISE(arrow_reader, RecordBatchFileReader::Open(arrow_file.get()));
+  std::shared_ptr<ipc::RecordBatchFileReader> arrow_reader;
+  ARROW_ASSIGN_OR_RAISE(arrow_reader, ipc::RecordBatchFileReader::Open(arrow_file.get()));
 
   auto json_schema = json_reader->schema();
   auto arrow_schema = arrow_reader->schema();
@@ -372,7 +371,6 @@ TEST_F(TestJSONIntegration, ErrorStates) {
   ASSERT_RAISES(Invalid, RunCommand(json_path, "", "VALIDATE"));
 }
 
-}  // namespace ipc
 }  // namespace arrow
 
 int main(int argc, char** argv) {
@@ -381,7 +379,7 @@ int main(int argc, char** argv) {
   int ret = 0;
 
   if (FLAGS_integration) {
-    arrow::Status result = arrow::ipc::RunCommand(FLAGS_json, FLAGS_arrow, FLAGS_mode);
+    arrow::Status result = arrow::RunCommand(FLAGS_json, FLAGS_arrow, FLAGS_mode);
     if (!result.ok()) {
       std::cout << "Error message: " << result.ToString() << std::endl;
       ret = 1;

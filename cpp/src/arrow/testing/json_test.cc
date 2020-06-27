@@ -28,13 +28,13 @@
 #include "arrow/buffer.h"
 #include "arrow/builder.h"
 #include "arrow/ipc/dictionary.h"
-#include "arrow/ipc/json_integration.h"
-#include "arrow/ipc/json_internal.h"
 #include "arrow/ipc/test_common.h"
 #include "arrow/memory_pool.h"
 #include "arrow/record_batch.h"
 #include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/json_integration.h"
+#include "arrow/testing/json_internal.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
@@ -45,9 +45,10 @@ namespace arrow {
 
 using internal::checked_cast;
 
-namespace ipc {
 namespace internal {
 namespace json {
+
+using ::arrow::ipc::DictionaryMemo;
 
 using namespace ::arrow::ipc::test;  // NOLINT
 
@@ -730,5 +731,4 @@ INSTANTIATE_TEST_SUITE_P(TestJsonRoundTrip, TestJsonRoundTrip, BATCH_CASES());
 
 }  // namespace json
 }  // namespace internal
-}  // namespace ipc
 }  // namespace arrow

@@ -279,6 +279,8 @@ endif()
 set(ARROW_TESTING_SRCS
     io/test_common.cc
     ipc/test_common.cc
+    testing/json_integration.cc
+    testing/json_internal.cc
     testing/gtest_util.cc
     testing/random.cc
     testing/generator.cc)
@@ -409,8 +411,7 @@ if(ARROW_IPC)
               ipc/writer.cc)
 
   if(ARROW_JSON)
-    list(
-      APPEND ARROW_SRCS ipc/json_integration.cc ipc/json_internal.cc ipc/json_simple.cc)
+    list(APPEND ARROW_SRCS ipc/json_simple.cc)
   endif()
 endif()
 

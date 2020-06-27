@@ -86,12 +86,15 @@ namespace ipc {
 
 class DictionaryMemo;
 
+}  // namespace ipc
+
 namespace internal {
 namespace json {
 
 /// \brief Append integration test Schema format to rapidjson writer
 ARROW_EXPORT
-Status WriteSchema(const Schema& schema, DictionaryMemo* dict_memo, RjWriter* writer);
+Status WriteSchema(const Schema& schema, ipc::DictionaryMemo* dict_memo,
+                   RjWriter* writer);
 
 ARROW_EXPORT
 Status WriteDictionary(int64_t id, const std::shared_ptr<Array>& dictionary,
@@ -105,23 +108,22 @@ Status WriteArray(const std::string& name, const Array& array, RjWriter* writer)
 
 ARROW_EXPORT
 Status ReadSchema(const rj::Value& json_obj, MemoryPool* pool,
-                  DictionaryMemo* dictionary_memo, std::shared_ptr<Schema>* schema);
+                  ipc::DictionaryMemo* dictionary_memo, std::shared_ptr<Schema>* schema);
 
 ARROW_EXPORT
 Status ReadRecordBatch(const rj::Value& json_obj, const std::shared_ptr<Schema>& schema,
-                       DictionaryMemo* dict_memo, MemoryPool* pool,
+                       ipc::DictionaryMemo* dict_memo, MemoryPool* pool,
                        std::shared_ptr<RecordBatch>* batch);
 
 ARROW_EXPORT
 Status ReadArray(MemoryPool* pool, const rj::Value& json_obj,
-                 const std::shared_ptr<Field>& type, DictionaryMemo* dict_memo,
+                 const std::shared_ptr<Field>& type, ipc::DictionaryMemo* dict_memo,
                  std::shared_ptr<Array>* array);
 
 ARROW_EXPORT
 Status ReadArray(MemoryPool* pool, const rj::Value& json_obj, const Schema& schema,
-                 DictionaryMemo* dict_memo, std::shared_ptr<Array>* array);
+                 ipc::DictionaryMemo* dict_memo, std::shared_ptr<Array>* array);
 
 }  // namespace json
 }  // namespace internal
-}  // namespace ipc
 }  // namespace arrow

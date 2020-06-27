@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/ipc/json_integration.h"
+#include "arrow/testing/json_integration.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -26,10 +26,10 @@
 #include "arrow/buffer.h"
 #include "arrow/io/file.h"
 #include "arrow/ipc/dictionary.h"
-#include "arrow/ipc/json_internal.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/testing/json_internal.h"
 #include "arrow/type.h"
 #include "arrow/util/logging.h"
 
@@ -40,7 +40,9 @@
 using std::size_t;
 
 namespace arrow {
-namespace ipc {
+
+using ipc::DictionaryMemo;
+
 namespace internal {
 namespace json {
 
@@ -209,5 +211,4 @@ Status JsonReader::ReadRecordBatch(int i, std::shared_ptr<RecordBatch>* batch) c
 
 }  // namespace json
 }  // namespace internal
-}  // namespace ipc
 }  // namespace arrow

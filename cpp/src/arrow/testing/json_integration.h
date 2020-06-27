@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Implement Arrow JSON serialization format
+// Implement Arrow JSON serialization format for integration tests
 
 #pragma once
 
@@ -36,7 +36,6 @@ namespace io {
 class ReadableFile;
 }  // namespace io
 
-namespace ipc {
 namespace internal {
 namespace json {
 
@@ -129,5 +128,4 @@ class ARROW_EXPORT JsonReader {
 
 }  // namespace json
 }  // namespace internal
-}  // namespace ipc
 }  // namespace arrow
