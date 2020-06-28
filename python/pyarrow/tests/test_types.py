@@ -112,6 +112,12 @@ def test_is_null():
     assert not types.is_null(pa.list_(pa.int32()))
 
 
+def test_null_field_may_not_be_non_nullable():
+    # ARROW-7273
+    with pytest.raises(ValueError):
+        pa.field('f0', pa.null(), nullable=False)
+
+
 def test_is_decimal():
     assert types.is_decimal(pa.decimal128(19, 4))
     assert not types.is_decimal(pa.int32())
