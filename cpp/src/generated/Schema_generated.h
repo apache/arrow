@@ -1163,11 +1163,16 @@ inline flatbuffers::Offset<Bool> CreateBool(
   return builder_.Finish();
 }
 
+/// Exact decimal value represented as an integer value in two's
+/// complement. Currently only 128-bit (16-byte) integers are used but this may
+/// be expanded in the future. The representation uses the endianness indicated
+/// in the Schema.
 struct Decimal FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef DecimalBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_PRECISION = 4,
-    VT_SCALE = 6
+    VT_SCALE = 6,
+    VT_BITWIDTH = 8
   };
   /// Total number of decimal digits
   int32_t precision() const {
@@ -1177,10 +1182,18 @@ struct Decimal FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   int32_t scale() const {
     return GetField<int32_t>(VT_SCALE, 0);
   }
+  /// Number of bits per value. The only accepted width right now is 128 but
+  /// this field exists for forward compatibility so that other bit widths may
+  /// be supported in future format versions. We use bitWidth for consistency
+  /// with Int::bitWidth.
+  int32_t bitWidth() const {
+    return GetField<int32_t>(VT_BITWIDTH, 128);
+  }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<int32_t>(verifier, VT_PRECISION) &&
            VerifyField<int32_t>(verifier, VT_SCALE) &&
+           VerifyField<int32_t>(verifier, VT_BITWIDTH) &&
            verifier.EndTable();
   }
 };
@@ -1194,6 +1207,9 @@ struct DecimalBuilder {
   }
   void add_scale(int32_t scale) {
     fbb_.AddElement<int32_t>(Decimal::VT_SCALE, scale, 0);
+  }
+  void add_bitWidth(int32_t bitWidth) {
+    fbb_.AddElement<int32_t>(Decimal::VT_BITWIDTH, bitWidth, 128);
   }
   explicit DecimalBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
@@ -1210,8 +1226,10 @@ struct DecimalBuilder {
 inline flatbuffers::Offset<Decimal> CreateDecimal(
     flatbuffers::FlatBufferBuilder &_fbb,
     int32_t precision = 0,
-    int32_t scale = 0) {
+    int32_t scale = 0,
+    int32_t bitWidth = 128) {
   DecimalBuilder builder_(_fbb);
+  builder_.add_bitWidth(bitWidth);
   builder_.add_scale(scale);
   builder_.add_precision(precision);
   return builder_.Finish();
