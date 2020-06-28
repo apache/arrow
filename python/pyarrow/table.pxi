@@ -1947,8 +1947,8 @@ def table(data, names=None, schema=None, metadata=None, nthreads=None):
     metadata : dict or Mapping, default None
         Optional metadata for the schema (if schema not passed).
     nthreads : int, default None (may use up to system CPU count threads)
-        For DataFrame inputs: if greater than 1, convert columns to Arrow in
-        parallel using indicated number of threads.
+        For pandas.DataFrame inputs: if greater than 1, convert columns to
+        Arrow in parallel using indicated number of threads.
 
     Returns
     -------
