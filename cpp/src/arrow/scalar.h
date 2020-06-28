@@ -92,20 +92,29 @@ struct ARROW_EXPORT NullScalar : public Scalar {
 
 namespace internal {
 
-template <typename T, typename CType = typename T::c_type>
-struct ARROW_EXPORT PrimitiveScalar : public Scalar {
+struct ARROW_EXPORT PrimitiveScalarBase : public Scalar {
   using Scalar::Scalar;
+  virtual void* mutable_data() = 0;
+  virtual const void* data() const = 0;
+};
+
+template <typename T, typename CType = typename T::c_type>
+struct ARROW_EXPORT PrimitiveScalar : public PrimitiveScalarBase {
+  using PrimitiveScalarBase::PrimitiveScalarBase;
   using TypeClass = T;
   using ValueType = CType;
 
   // Non-null constructor.
   PrimitiveScalar(ValueType value, std::shared_ptr<DataType> type)
-      : Scalar(std::move(type), true), value(value) {}
+      : PrimitiveScalarBase(std::move(type), true), value(value) {}
 
   explicit PrimitiveScalar(std::shared_ptr<DataType> type)
-      : Scalar(std::move(type), false) {}
+      : PrimitiveScalarBase(std::move(type), false) {}
 
   ValueType value{};
+
+  void* mutable_data() override { return &value; }
+  const void* data() const override { return &value; }
 };
 
 }  // namespace internal
@@ -245,15 +254,8 @@ struct ARROW_EXPORT FixedSizeBinaryScalar : public BinaryScalar {
   explicit FixedSizeBinaryScalar(std::shared_ptr<DataType> type) : BinaryScalar(type) {}
 };
 
-template <typename T, typename PhysicalType = typename T::PhysicalType,
-          typename Enable = void>
-struct ARROW_EXPORT TemporalScalar : internal::PrimitiveScalar<PhysicalType> {
-  using internal::PrimitiveScalar<PhysicalType>::PrimitiveScalar;
-  using TypeClass = T;
-};
-
 template <typename T>
-struct ARROW_EXPORT TemporalScalar<T, void, void> : internal::PrimitiveScalar<T> {
+struct ARROW_EXPORT TemporalScalar : internal::PrimitiveScalar<T> {
   using internal::PrimitiveScalar<T>::PrimitiveScalar;
   using TypeClass = T;
 };
