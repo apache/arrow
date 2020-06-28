@@ -472,6 +472,17 @@ if(ARROW_BUILD_STATIC AND WIN32)
   target_compile_definitions(arrow_static PUBLIC ARROW_STATIC)
 endif()
 
+if(ARROW_WITH_BACKTRACE)
+  find_package(Backtrace)
+
+  foreach(LIB_TARGET ${ARROW_LIBRARIES})
+    target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_EXPORTING)
+    if(Backtrace_FOUND AND ARROW_WITH_BACKTRACE)
+      target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_WITH_BACKTRACE)
+    endif()
+  endforeach()
+endif()
+
 if(ARROW_BUILD_TESTS
    OR ARROW_BUILD_BENCHMARKS
    OR ARROW_BUILD_INTEGRATION
@@ -501,20 +512,11 @@ if(ARROW_BUILD_TESTS
   add_dependencies(arrow_testing ${ARROW_TESTING_LIBRARIES})
 
   if(ARROW_BUILD_STATIC AND WIN32)
-    target_compile_definitions(arrow_testing_static PUBLIC ARROW_STATIC)
+    target_compile_definitions(arrow_testing_static PUBLIC ARROW_TESTING_STATIC)
   endif()
 
-  set(ARROW_LIBRARIES ${ARROW_LIBRARIES} ${ARROW_TESTING_LIBRARIES})
-endif()
-
-if(ARROW_WITH_BACKTRACE)
-  find_package(Backtrace)
-
-  foreach(LIB_TARGET ${ARROW_LIBRARIES})
-    target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_EXPORTING)
-    if(Backtrace_FOUND AND ARROW_WITH_BACKTRACE)
-      target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_WITH_BACKTRACE)
-    endif()
+  foreach(LIB_TARGET ${ARROW_TESTING_LIBRARIES})
+    target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_TESTING_EXPORTING)
   endforeach()
 endif()
 
