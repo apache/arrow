@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ARG base="amd64/ubuntu:18.04"
+ARG base=amd64/ubuntu:18.04
 FROM ${base}
 
 # pipefail is enabled for proper error detection in the `wget | apt-key add`
