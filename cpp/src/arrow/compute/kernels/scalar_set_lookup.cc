@@ -34,12 +34,6 @@ namespace compute {
 namespace internal {
 namespace {
 
-template <typename T, typename R = void>
-using enable_if_supports_set_lookup =
-    enable_if_t<has_c_type<T>::value || is_base_binary_type<T>::value ||
-                    is_fixed_size_binary_type<T>::value || is_decimal_type<T>::value,
-                R>;
-
 template <typename Type>
 struct SetLookupState : public KernelState {
   explicit SetLookupState(MemoryPool* pool)
@@ -91,6 +85,30 @@ struct SetLookupState<NullType> : public KernelState {
   int64_t lookup_null_count;
 };
 
+// TODO: Put this concept somewhere reusable
+template <int width>
+struct UnsignedIntType;
+
+template <>
+struct UnsignedIntType<1> {
+  using Type = UInt8Type;
+};
+
+template <>
+struct UnsignedIntType<2> {
+  using Type = UInt16Type;
+};
+
+template <>
+struct UnsignedIntType<4> {
+  using Type = UInt32Type;
+};
+
+template <>
+struct UnsignedIntType<8> {
+  using Type = UInt64Type;
+};
+
 // Constructing the type requires a type parameter
 struct InitStateVisitor {
   KernelContext* ctx;
@@ -114,14 +132,23 @@ struct InitStateVisitor {
   Status Visit(const DataType&) { return Init<NullType>(); }
 
   template <typename Type>
-  enable_if_supports_set_lookup<Type, Status> Visit(const Type&) {
-    return Init<Type>();
+  enable_if_boolean<Type, Status> Visit(const Type&) {
+    return Init<BooleanType>();
   }
 
-  // Handle Decimal128 as a physical string, not a number
-  Status Visit(const Decimal128Type& type) {
-    return Visit(checked_cast<const FixedSizeBinaryType&>(type));
+  template <typename Type>
+  enable_if_t<has_c_type<Type>::value && !is_boolean_type<Type>::value, Status> Visit(
+      const Type&) {
+    return Init<typename UnsignedIntType<sizeof(typename Type::c_type)>::Type>();
   }
+
+  template <typename Type>
+  enable_if_base_binary<Type, Status> Visit(const Type&) {
+    return Init<typename Type::PhysicalType>();
+  }
+
+  // Handle Decimal128Type, FixedSizeBinaryType
+  Status Visit(const FixedSizeBinaryType& type) { return Init<FixedSizeBinaryType>(); }
 
   Status GetResult(std::unique_ptr<KernelState>* out) {
     RETURN_NOT_OK(VisitTypeInline(*options->value_set.type(), this));
@@ -163,7 +190,7 @@ struct MatchVisitor {
   }
 
   template <typename Type>
-  enable_if_supports_set_lookup<Type, Status> Visit(const Type&) {
+  Status ProcessMatch() {
     using T = typename GetViewType<Type>::T;
 
     const auto& state = checked_cast<const SetLookupState<Type>&>(*ctx->state());
@@ -194,9 +221,25 @@ struct MatchVisitor {
     return Status::OK();
   }
 
-  // Handle Decimal128 as a physical string, not a number
-  Status Visit(const Decimal128Type& type) {
-    return Visit(checked_cast<const FixedSizeBinaryType&>(type));
+  template <typename Type>
+  enable_if_boolean<Type, Status> Visit(const Type&) {
+    return ProcessMatch<BooleanType>();
+  }
+
+  template <typename Type>
+  enable_if_t<has_c_type<Type>::value && !is_boolean_type<Type>::value, Status> Visit(
+      const Type&) {
+    return ProcessMatch<typename UnsignedIntType<sizeof(typename Type::c_type)>::Type>();
+  }
+
+  template <typename Type>
+  enable_if_base_binary<Type, Status> Visit(const Type&) {
+    return ProcessMatch<typename Type::PhysicalType>();
+  }
+
+  // Handle Decimal128Type, FixedSizeBinaryType
+  Status Visit(const FixedSizeBinaryType& type) {
+    return ProcessMatch<FixedSizeBinaryType>();
   }
 
   Status Execute() {
@@ -243,7 +286,7 @@ struct IsInVisitor {
   }
 
   template <typename Type>
-  enable_if_supports_set_lookup<Type, Status> Visit(const Type&) {
+  Status ProcessIsIn() {
     using T = typename GetViewType<Type>::T;
     const auto& state = checked_cast<const SetLookupState<Type>&>(*ctx->state());
     ArrayData* output = out->mutable_array();
@@ -275,9 +318,25 @@ struct IsInVisitor {
     return Status::OK();
   }
 
-  // Handle Decimal128 as a physical string, not a number
-  Status Visit(const Decimal128Type& type) {
-    return Visit(checked_cast<const FixedSizeBinaryType&>(type));
+  template <typename Type>
+  enable_if_boolean<Type, Status> Visit(const Type&) {
+    return ProcessIsIn<BooleanType>();
+  }
+
+  template <typename Type>
+  enable_if_t<has_c_type<Type>::value && !is_boolean_type<Type>::value, Status> Visit(
+      const Type&) {
+    return ProcessIsIn<typename UnsignedIntType<sizeof(typename Type::c_type)>::Type>();
+  }
+
+  template <typename Type>
+  enable_if_base_binary<Type, Status> Visit(const Type&) {
+    return ProcessIsIn<typename Type::PhysicalType>();
+  }
+
+  // Handle Decimal128Type, FixedSizeBinaryType
+  Status Visit(const FixedSizeBinaryType& type) {
+    return ProcessIsIn<FixedSizeBinaryType>();
   }
 
   Status Execute() { return VisitTypeInline(*data.type, this); }

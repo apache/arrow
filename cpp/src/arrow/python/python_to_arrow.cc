@@ -642,8 +642,7 @@ class StringConverter
       // We should have bailed out earlier
       DCHECK(!STRICT);
 
-      auto binary_type =
-          TypeTraits<typename TypeClass::EquivalentBinaryType>::type_singleton();
+      auto binary_type = TypeTraits<typename TypeClass::PhysicalType>::type_singleton();
       return (*out)->View(binary_type).Value(out);
     }
     return Status::OK();
