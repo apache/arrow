@@ -102,8 +102,7 @@ jobs:
     #         hosted machines
     name: ${{ matrix.title }}
     runs-on: ${{ matrix.runner }}
-    # ARROW-9260: Disable self-hosted builds util ARM64v8 build can be fixed
-    if: false   # github.event_name == 'push'
+    if: github.event_name == 'push'
     defaults:
       # to use certain environment variables are set by .bashrc an interactive
       # bash shell must be used

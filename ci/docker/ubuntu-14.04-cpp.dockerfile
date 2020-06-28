@@ -15,8 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ARG arch=amd64
-FROM ${arch}/ubuntu:14.04
+ARG base=amd64/ubuntu:14.04
+FROM ${base}
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
