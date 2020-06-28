@@ -165,15 +165,15 @@ TEST_P(TestFeather, ReadIndicesOrNames) {
 
   DoWrite(*table);
 
-  auto expected = Table::Make(schema({field("f1", int32())}), {batch1->column(1)});
+  auto expected = Table::Make(schema({field("f4", int32())}), {batch1->column(4)});
 
   std::shared_ptr<Table> result1, result2;
 
-  std::vector<int> indices = {1};
+  std::vector<int> indices = {4};
   ASSERT_OK(reader_->Read(indices, &result1));
   AssertTablesEqual(*expected, *result1);
 
-  std::vector<std::string> names = {"f1"};
+  std::vector<std::string> names = {"f4"};
   ASSERT_OK(reader_->Read(names, &result2));
   AssertTablesEqual(*expected, *result2);
 }
@@ -201,27 +201,13 @@ TEST_P(TestFeather, SetNumRows) {
 TEST_P(TestFeather, PrimitiveIntRoundTrip) {
   std::shared_ptr<RecordBatch> batch;
   ASSERT_OK(ipc::test::MakeIntRecordBatch(&batch));
-
-  ASSERT_OK_AND_ASSIGN(auto table, Table::FromRecordBatches({batch}));
-
-  DoWrite(*table);
-
-  std::shared_ptr<Table> result;
-  ASSERT_OK(reader_->Read(&result));
-  AssertTablesEqual(*table, *result);
+  CheckRoundtrip(batch);
 }
 
 TEST_P(TestFeather, PrimitiveFloatRoundTrip) {
   std::shared_ptr<RecordBatch> batch;
   ASSERT_OK(ipc::test::MakeFloat3264Batch(&batch));
-
-  ASSERT_OK_AND_ASSIGN(auto table, Table::FromRecordBatches({batch}));
-
-  DoWrite(*table);
-
-  std::shared_ptr<Table> result;
-  ASSERT_OK(reader_->Read(&result));
-  AssertTablesEqual(*table, *result);
+  CheckRoundtrip(batch);
 }
 
 TEST_P(TestFeather, CategoryRoundtrip) {
@@ -315,6 +301,7 @@ TEST_P(TestFeather, SliceIntRoundTrip) {
 
 TEST_P(TestFeather, SliceFloatRoundTrip) {
   std::shared_ptr<RecordBatch> batch;
+  // Float16 is not supported by FeatherV1
   ASSERT_OK(ipc::test::MakeFloat3264BatchSized(600, &batch));
   CheckSlices(batch);
 }

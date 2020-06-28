@@ -90,6 +90,28 @@ static Status MakeRandomArray(int64_t length, bool include_nulls, MemoryPool* po
   return Status::OK();
 }
 
+template <>
+Status MakeRandomArray<Int8Type>(int64_t length, bool include_nulls, MemoryPool* pool,
+                                 std::shared_ptr<Array>* out, uint32_t seed) {
+  random::RandomArrayGenerator rand(seed);
+  const double null_probability = include_nulls ? 0.5 : 0.0;
+
+  *out = rand.Numeric<Int8Type>(length, 0, 127, null_probability);
+
+  return Status::OK();
+}
+
+template <>
+Status MakeRandomArray<UInt8Type>(int64_t length, bool include_nulls, MemoryPool* pool,
+                                  std::shared_ptr<Array>* out, uint32_t seed) {
+  random::RandomArrayGenerator rand(seed);
+  const double null_probability = include_nulls ? 0.5 : 0.0;
+
+  *out = rand.Numeric<UInt8Type>(length, 0, 127, null_probability);
+
+  return Status::OK();
+}
+
 template <typename TypeClass>
 static Status MakeListArray(const std::shared_ptr<Array>& child_array, int num_lists,
                             bool include_nulls, MemoryPool* pool,
