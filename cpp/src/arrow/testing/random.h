@@ -148,7 +148,7 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   /// \param[in] null_probability the probability of a row being null
   ///
   /// \return a generated Array
-  std::shared_ptr<Array> Float16(int64_t size, float min, float max,
+  std::shared_ptr<Array> Float16(int64_t size, int16_t min, int16_t max,
                                  double null_probability = 0);
 
   /// \brief Generates a random FloatArray
@@ -202,7 +202,7 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
         return Int64(size, static_cast<int64_t>(min), static_cast<int64_t>(max),
                      null_probability);
       case Type::HALF_FLOAT:
-        return Float16(size, static_cast<float>(min), static_cast<float>(max),
+        return Float16(size, static_cast<int16_t>(min), static_cast<int16_t>(max),
                        null_probability);
       case Type::FLOAT:
         return Float32(size, static_cast<float>(min), static_cast<float>(max),

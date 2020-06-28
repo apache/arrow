@@ -144,11 +144,12 @@ PRIMITIVE_RAND_INTEGER_IMPL(UInt32, uint32_t, UInt32Type)
 PRIMITIVE_RAND_INTEGER_IMPL(Int32, int32_t, Int32Type)
 PRIMITIVE_RAND_INTEGER_IMPL(UInt64, uint64_t, UInt64Type)
 PRIMITIVE_RAND_INTEGER_IMPL(Int64, int64_t, Int64Type)
+// Generate 16bit values for half-float
+PRIMITIVE_RAND_INTEGER_IMPL(Float16, int16_t, HalfFloatType)
 
 #define PRIMITIVE_RAND_FLOAT_IMPL(Name, CType, ArrowType) \
   PRIMITIVE_RAND_IMPL(Name, CType, ArrowType, std::uniform_real_distribution<CType>)
 
-PRIMITIVE_RAND_FLOAT_IMPL(Float16, float, HalfFloatType)
 PRIMITIVE_RAND_FLOAT_IMPL(Float32, float, FloatType)
 PRIMITIVE_RAND_FLOAT_IMPL(Float64, double, DoubleType)
 
