@@ -36,19 +36,11 @@ function(ADD_ARROW_IPC_TEST REL_TEST_NAME)
     set(PREFIX "arrow-ipc")
   endif()
 
-  if(ARG_LABELS)
-    set(LABELS ${ARG_LABELS})
-  else()
-    set(LABELS "arrow_ipc")
-  endif()
-
   add_arrow_test(${REL_TEST_NAME}
                  EXTRA_LINK_LIBS
                  ${ARROW_DATASET_TEST_LINK_LIBS}
                  PREFIX
                  ${PREFIX}
-                 LABELS
-                 ${LABELS}
                  ${ARG_UNPARSED_ARGUMENTS})
 endfunction()
 

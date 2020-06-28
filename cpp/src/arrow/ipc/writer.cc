@@ -155,7 +155,7 @@ class RecordBatchSerializer {
   // Override this for writing dictionary metadata
   virtual Status SerializeMetadata(int64_t num_rows) {
     return WriteRecordBatchMessage(num_rows, out_->body_length, custom_metadata_,
-                                   field_nodes_, buffer_meta_, &out_->metadata);
+                                   field_nodes_, buffer_meta_, options_, &out_->metadata);
   }
 
   void AppendCustomMetadata(const std::string& key, const std::string& value) {
@@ -185,10 +185,6 @@ class RecordBatchSerializer {
     std::unique_ptr<util::Codec> codec;
 
     RETURN_NOT_OK(internal::CheckCompressionSupported(options_.compression));
-
-    // TODO check allowed values for compression?
-    AppendCustomMetadata("ARROW:experimental_compression",
-                         util::Codec::GetCodecAsString(options_.compression));
 
     ARROW_ASSIGN_OR_RAISE(
         codec, util::Codec::Create(options_.compression, options_.compression_level));
@@ -543,7 +539,7 @@ class DictionarySerializer : public RecordBatchSerializer {
 
   Status SerializeMetadata(int64_t num_rows) override {
     return WriteDictionaryMessage(dictionary_id_, num_rows, out_->body_length,
-                                  custom_metadata_, field_nodes_, buffer_meta_,
+                                  custom_metadata_, field_nodes_, buffer_meta_, options_,
                                   &out_->metadata);
   }
 
