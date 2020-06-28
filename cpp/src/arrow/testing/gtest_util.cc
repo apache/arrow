@@ -389,6 +389,28 @@ void CompareBatch(const RecordBatch& left, const RecordBatch& right,
   }
 }
 
+void ApproxCompareBatch(const RecordBatch& left, const RecordBatch& right,
+                        bool compare_metadata) {
+  if (!left.schema()->Equals(*right.schema(), compare_metadata)) {
+    FAIL() << "Left schema: " << left.schema()->ToString(compare_metadata)
+           << "\nRight schema: " << right.schema()->ToString(compare_metadata);
+  }
+  ASSERT_EQ(left.num_columns(), right.num_columns())
+      << left.schema()->ToString() << " result: " << right.schema()->ToString();
+  ASSERT_EQ(left.num_rows(), right.num_rows());
+  for (int i = 0; i < left.num_columns(); ++i) {
+    if (!left.column(i)->ApproxEquals(right.column(i))) {
+      std::stringstream ss;
+      ss << "Idx: " << i << " Name: " << left.column_name(i);
+      ss << std::endl << "Left: ";
+      ASSERT_OK(PrettyPrint(*left.column(i), 0, &ss));
+      ss << std::endl << "Right: ";
+      ASSERT_OK(PrettyPrint(*right.column(i), 0, &ss));
+      FAIL() << ss.str();
+    }
+  }
+}
+
 class LocaleGuard::Impl {
  public:
   explicit Impl(const char* new_locale) : global_locale_(std::locale()) {

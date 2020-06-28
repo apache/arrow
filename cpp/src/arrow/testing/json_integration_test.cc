@@ -1050,7 +1050,8 @@ void CheckRoundtrip(const RecordBatch& batch) {
   std::shared_ptr<RecordBatch> result_batch;
   ASSERT_OK(reader->ReadRecordBatch(0, &result_batch));
 
-  CompareBatch(batch, *result_batch);
+  // take care of float rounding error in the text representation
+  ApproxCompareBatch(batch, *result_batch);
 }
 
 TEST_P(TestJsonRoundTrip, RoundTrip) {

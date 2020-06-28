@@ -233,6 +233,9 @@ void AssertNumericDataEqual(const C_TYPE* raw_data,
 ARROW_TESTING_EXPORT void CompareBatch(const RecordBatch& left, const RecordBatch& right,
                                        bool compare_metadata = true);
 
+ARROW_EXPORT void ApproxCompareBatch(const RecordBatch& left, const RecordBatch& right,
+                                     bool compare_metadata = true);
+
 // Check if the padding of the buffers of the array is zero.
 // Also cause valgrind warnings if the padding bytes are uninitialized.
 ARROW_TESTING_EXPORT void AssertZeroPadded(const Array& array);
