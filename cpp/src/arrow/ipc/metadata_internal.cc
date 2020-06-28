@@ -29,6 +29,7 @@
 #include "arrow/io/interfaces.h"
 #include "arrow/ipc/dictionary.h"
 #include "arrow/ipc/message.h"
+#include "arrow/ipc/options.h"
 #include "arrow/ipc/util.h"
 #include "arrow/sparse_tensor.h"
 #include "arrow/status.h"
@@ -839,6 +840,7 @@ Result<std::shared_ptr<Buffer>> WriteFBMessage(
 using FieldNodeVector =
     flatbuffers::Offset<flatbuffers::Vector<const flatbuf::FieldNode*>>;
 using BufferVector = flatbuffers::Offset<flatbuffers::Vector<const flatbuf::Buffer*>>;
+using BodyCompressionOffset = flatbuffers::Offset<flatbuf::BodyCompression>;
 
 static Status WriteFieldNodes(FBB& fbb, const std::vector<FieldMetadata>& nodes,
                               FieldNodeVector* out) {
@@ -870,17 +872,38 @@ static Status WriteBuffers(FBB& fbb, const std::vector<BufferMetadata>& buffers,
   return Status::OK();
 }
 
+static Status GetBodyCompression(FBB& fbb, const IpcWriteOptions& options,
+                                 BodyCompressionOffset* out) {
+  if (options.compression != Compression::UNCOMPRESSED) {
+    flatbuf::CompressionType codec;
+    if (options.compression == Compression::LZ4_FRAME) {
+      codec = flatbuf::CompressionType::LZ4_FRAME;
+    } else if (options.compression == Compression::ZSTD) {
+      codec = flatbuf::CompressionType::ZSTD;
+    } else {
+      return Status::Invalid("Unsupported IPC compression codec: ",
+                             util::Codec::GetCodecAsString(options.compression));
+    }
+    *out = flatbuf::CreateBodyCompression(fbb, codec,
+                                          flatbuf::BodyCompressionMethod::BUFFER);
+  }
+  return Status::OK();
+}
+
 static Status MakeRecordBatch(FBB& fbb, int64_t length, int64_t body_length,
                               const std::vector<FieldMetadata>& nodes,
                               const std::vector<BufferMetadata>& buffers,
-                              RecordBatchOffset* offset) {
+                              const IpcWriteOptions& options, RecordBatchOffset* offset) {
   FieldNodeVector fb_nodes;
-  BufferVector fb_buffers;
-
   RETURN_NOT_OK(WriteFieldNodes(fbb, nodes, &fb_nodes));
+
+  BufferVector fb_buffers;
   RETURN_NOT_OK(WriteBuffers(fbb, buffers, &fb_buffers));
 
-  *offset = flatbuf::CreateRecordBatch(fbb, length, fb_nodes, fb_buffers);
+  BodyCompressionOffset fb_compression;
+  RETURN_NOT_OK(GetBodyCompression(fbb, options, &fb_compression));
+
+  *offset = flatbuf::CreateRecordBatch(fbb, length, fb_nodes, fb_buffers, fb_compression);
   return Status::OK();
 }
 
@@ -1125,10 +1148,11 @@ Status WriteRecordBatchMessage(
     int64_t length, int64_t body_length,
     const std::shared_ptr<const KeyValueMetadata>& custom_metadata,
     const std::vector<FieldMetadata>& nodes, const std::vector<BufferMetadata>& buffers,
-    std::shared_ptr<Buffer>* out) {
+    const IpcWriteOptions& options, std::shared_ptr<Buffer>* out) {
   FBB fbb;
   RecordBatchOffset record_batch;
-  RETURN_NOT_OK(MakeRecordBatch(fbb, length, body_length, nodes, buffers, &record_batch));
+  RETURN_NOT_OK(
+      MakeRecordBatch(fbb, length, body_length, nodes, buffers, options, &record_batch));
   return WriteFBMessage(fbb, flatbuf::MessageHeader::RecordBatch, record_batch.Union(),
                         body_length, custom_metadata)
       .Value(out);
@@ -1183,10 +1207,11 @@ Status WriteDictionaryMessage(
     int64_t id, int64_t length, int64_t body_length,
     const std::shared_ptr<const KeyValueMetadata>& custom_metadata,
     const std::vector<FieldMetadata>& nodes, const std::vector<BufferMetadata>& buffers,
-    std::shared_ptr<Buffer>* out) {
+    const IpcWriteOptions& options, std::shared_ptr<Buffer>* out) {
   FBB fbb;
   RecordBatchOffset record_batch;
-  RETURN_NOT_OK(MakeRecordBatch(fbb, length, body_length, nodes, buffers, &record_batch));
+  RETURN_NOT_OK(
+      MakeRecordBatch(fbb, length, body_length, nodes, buffers, options, &record_batch));
   auto dictionary_batch = flatbuf::CreateDictionaryBatch(fbb, id, record_batch).Union();
   return WriteFBMessage(fbb, flatbuf::MessageHeader::DictionaryBatch, dictionary_batch,
                         body_length, custom_metadata)

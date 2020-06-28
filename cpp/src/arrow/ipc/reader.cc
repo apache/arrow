@@ -478,7 +478,29 @@ Result<std::shared_ptr<RecordBatch>> LoadRecordBatch(
 // ----------------------------------------------------------------------
 // Array loading
 
-Status GetCompression(const flatbuf::Message* message, Compression::type* out) {
+Status GetCompression(const flatbuf::RecordBatch* batch, Compression::type* out) {
+  *out = Compression::UNCOMPRESSED;
+  const flatbuf::BodyCompression* compression = batch->compression();
+  if (compression != nullptr) {
+    if (compression->method() != flatbuf::BodyCompressionMethod::BUFFER) {
+      // Forward compatibility
+      return Status::Invalid("This library only supports BUFFER compression method");
+    }
+
+    if (compression->codec() == flatbuf::CompressionType::LZ4_FRAME) {
+      *out = Compression::LZ4_FRAME;
+    } else if (compression->codec() == flatbuf::CompressionType::ZSTD) {
+      *out = Compression::ZSTD;
+    } else {
+      return Status::Invalid("Unsupported codec in RecordBatch::compression metadata");
+    }
+    return Status::OK();
+  }
+  return Status::OK();
+}
+
+Status GetCompressionExperimental(const flatbuf::Message* message,
+                                  Compression::type* out) {
   *out = Compression::UNCOMPRESSED;
   if (message->custom_metadata() != nullptr) {
     // TODO: Ensure this deserialization only ever happens once
@@ -489,7 +511,7 @@ Status GetCompression(const flatbuf::Message* message, Compression::type* out) {
       ARROW_ASSIGN_OR_RAISE(*out,
                             util::Codec::GetCompressionType(metadata->value(index)));
     }
-    RETURN_NOT_OK(internal::CheckCompressionSupported(*out));
+    return internal::CheckCompressionSupported(*out);
   }
   return Status::OK();
 }
@@ -535,8 +557,15 @@ Result<std::shared_ptr<RecordBatch>> ReadRecordBatchInternal(
     return Status::IOError(
         "Header-type of flatbuffer-encoded Message is not RecordBatch.");
   }
+
   Compression::type compression;
-  RETURN_NOT_OK(GetCompression(message, &compression));
+  RETURN_NOT_OK(GetCompression(batch, &compression));
+  if (compression == Compression::UNCOMPRESSED &&
+      message->version() == flatbuf::MetadataVersion::V4) {
+    // Possibly obtain codec information from experimental serialization format
+    // in 0.17.x
+    RETURN_NOT_OK(GetCompressionExperimental(message, &compression));
+  }
   return LoadRecordBatch(batch, schema, inclusion_mask, dictionary_memo, options,
                          compression, file);
 }
@@ -623,8 +652,17 @@ Status ReadDictionary(const Buffer& metadata, DictionaryMemo* dictionary_memo,
         "Header-type of flatbuffer-encoded Message is not DictionaryBatch.");
   }
 
+  // The dictionary is embedded in a record batch with a single column
+  auto batch_meta = dictionary_batch->data();
+
   Compression::type compression;
-  RETURN_NOT_OK(GetCompression(message, &compression));
+  RETURN_NOT_OK(GetCompression(batch_meta, &compression));
+  if (compression == Compression::UNCOMPRESSED &&
+      message->version() == flatbuf::MetadataVersion::V4) {
+    // Possibly obtain codec information from experimental serialization format
+    // in 0.17.x
+    RETURN_NOT_OK(GetCompressionExperimental(message, &compression));
+  }
 
   int64_t id = dictionary_batch->id();
 
@@ -635,8 +673,6 @@ Status ReadDictionary(const Buffer& metadata, DictionaryMemo* dictionary_memo,
 
   auto value_field = ::arrow::field("dummy", value_type);
 
-  // The dictionary is embedded in a record batch with a single column
-  auto batch_meta = dictionary_batch->data();
   CHECK_FLATBUFFERS_NOT_NULL(batch_meta, "DictionaryBatch.data");
 
   std::shared_ptr<RecordBatch> batch;

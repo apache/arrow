@@ -20,6 +20,7 @@
 #include <cstdint>
 #include <vector>
 
+#include "arrow/ipc/type_fwd.h"
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/compression.h"
@@ -65,6 +66,10 @@ struct ARROW_EXPORT IpcWriteOptions {
   /// \brief Use global CPU thread pool to parallelize any computational tasks
   /// like compression
   bool use_threads = true;
+
+  /// \brief Format version to use for IPC messages and their
+  /// metadata. Presently using V4 version (readable by v0.8.0 and later).
+  MetadataVersion metadata_version = MetadataVersion::V4;
 
   static IpcWriteOptions Defaults();
 };
