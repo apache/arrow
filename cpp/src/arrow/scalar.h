@@ -92,7 +92,7 @@ struct ARROW_EXPORT NullScalar : public Scalar {
 
 namespace internal {
 
-struct PrimitiveScalarBase : public Scalar {
+struct ARROW_EXPORT PrimitiveScalarBase : public Scalar {
   using Scalar::Scalar;
   virtual void* mutable_data() = 0;
   virtual const void* data() const = 0;
