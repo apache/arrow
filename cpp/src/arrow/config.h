@@ -15,19 +15,33 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#define ARROW_VERSION_MAJOR @ARROW_VERSION_MAJOR@
-#define ARROW_VERSION_MINOR @ARROW_VERSION_MINOR@
-#define ARROW_VERSION_PATCH @ARROW_VERSION_PATCH@
-#define ARROW_VERSION ((ARROW_VERSION_MAJOR * 1000) + ARROW_VERSION_MINOR) * 1000 + ARROW_VERSION_PATCH
+#pragma once
 
-#define ARROW_VERSION_STRING "@ARROW_VERSION_MAJOR@.@ARROW_VERSION_MINOR@.@ARROW_VERSION_PATCH@"
+#include <string>
 
-#define ARROW_SO_VERSION "@ARROW_SO_VERSION@"
-#define ARROW_FULL_SO_VERSION "@ARROW_FULL_SO_VERSION@"
+#include "arrow/util/config.h"  // IWYU pragma: export
+#include "arrow/util/visibility.h"
 
-#define ARROW_GIT_ID "@ARROW_GIT_ID@"
-#define ARROW_GIT_DESCRIPTION "@ARROW_GIT_DESCRIPTION@"
+namespace arrow {
 
-#define ARROW_PACKAGE_KIND "@ARROW_PACKAGE_KIND@"
+struct BuildInfo {
+  int major;
+  int minor;
+  int patch;
+  std::string version_string;
+  std::string so_version;
+  std::string full_so_version;
+  std::string git_id;
+  std::string git_description;
+  std::string package_kind;
+};
 
-#cmakedefine GRPCPP_PP_INCLUDE
+/// Get runtime build info.
+///
+/// The returned values correspond to exact loaded version of the Arrow library,
+/// rather than the values frozen at application compile-time through the `ARROW_*`
+/// preprocessor definitions.
+ARROW_EXPORT
+const BuildInfo& GetBuildInfo();
+
+}  // namespace arrow

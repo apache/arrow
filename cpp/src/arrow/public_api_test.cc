@@ -15,6 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <sstream>
+#include <string>
+
 #include "arrow/api.h"      // IWYU pragma: keep
 #include "arrow/io/api.h"   // IWYU pragma: keep
 #include "arrow/ipc/api.h"  // IWYU pragma: keep
@@ -31,6 +34,20 @@
 #error "arrow/util/parallel.h is an internal header"
 #endif
 
+#include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
-TEST(_, _) {}
+namespace arrow {
+
+TEST(Misc, BuildInfo) {
+  const auto& info = GetBuildInfo();
+  ASSERT_EQ(info.major, ARROW_VERSION_MAJOR);
+  ASSERT_GE(info.minor, ARROW_VERSION_MINOR);
+  ASSERT_GE(info.patch, ARROW_VERSION_PATCH);
+  std::stringstream ss;
+  ss << info.major << "." << info.minor << "." << info.patch;
+  ASSERT_THAT(info.version_string, ::testing::HasSubstr(ss.str()));
+  ASSERT_THAT(info.full_so_version, ::testing::HasSubstr(info.so_version));
+}
+
+}  // namespace arrow
