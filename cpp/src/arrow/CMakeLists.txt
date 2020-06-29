@@ -173,7 +173,6 @@ set(ARROW_SRCS
     io/memory.cc
     io/slow.cc
     io/transform.cc
-    testing/util.cc
     util/basic_decimal.cc
     util/bit_block_counter.cc
     util/bit_run_reader.cc
@@ -283,7 +282,8 @@ set(ARROW_TESTING_SRCS
     testing/json_internal.cc
     testing/gtest_util.cc
     testing/random.cc
-    testing/generator.cc)
+    testing/generator.cc
+    testing/util.cc)
 
 # Add dependencies for third-party allocators.
 # If possible we only want memory_pool.cc to wait for allocators to finish building,

@@ -22,28 +22,28 @@
 #include <vector>
 
 #include "arrow/csv/parser.h"
-#include "arrow/util/visibility.h"
+#include "arrow/testing/visibility.h"
 
 namespace arrow {
 namespace csv {
 
-ARROW_EXPORT
+ARROW_TESTING_EXPORT
 std::string MakeCSVData(std::vector<std::string> lines);
 
 // Make a BlockParser from a vector of lines representing a CSV file
-ARROW_EXPORT
+ARROW_TESTING_EXPORT
 void MakeCSVParser(std::vector<std::string> lines, ParseOptions options, int32_t num_cols,
                    std::shared_ptr<BlockParser>* out);
 
-ARROW_EXPORT
+ARROW_TESTING_EXPORT
 void MakeCSVParser(std::vector<std::string> lines, ParseOptions options,
                    std::shared_ptr<BlockParser>* out);
 
-ARROW_EXPORT
+ARROW_TESTING_EXPORT
 void MakeCSVParser(std::vector<std::string> lines, std::shared_ptr<BlockParser>* out);
 
 // Make a BlockParser from a vector of strings representing a single CSV column
-ARROW_EXPORT
+ARROW_TESTING_EXPORT
 void MakeColumnParser(std::vector<std::string> items, std::shared_ptr<BlockParser>* out);
 
 }  // namespace csv

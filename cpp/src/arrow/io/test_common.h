@@ -22,24 +22,24 @@
 #include <vector>
 
 #include "arrow/type_fwd.h"
-#include "arrow/util/visibility.h"
+#include "arrow/testing/visibility.h"
 
 namespace arrow {
 namespace io {
 
 class MemoryMappedFile;
 
-ARROW_EXPORT
+ARROW_TESTING_EXPORT
 void AssertFileContents(const std::string& path, const std::string& contents);
 
-ARROW_EXPORT bool FileExists(const std::string& path);
+ARROW_TESTING_EXPORT bool FileExists(const std::string& path);
 
-ARROW_EXPORT bool FileIsClosed(int fd);
+ARROW_TESTING_EXPORT bool FileIsClosed(int fd);
 
-ARROW_EXPORT
+ARROW_TESTING_EXPORT
 Status ZeroMemoryMap(MemoryMappedFile* file);
 
-class ARROW_EXPORT MemoryMapFixture {
+class ARROW_TESTING_EXPORT MemoryMapFixture {
  public:
   void TearDown();
 
