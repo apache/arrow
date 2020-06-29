@@ -50,6 +50,13 @@ TEST_F(TestValidityKernels, ArrayIsValid) {
                    "[false, true, true, false]");
 }
 
+TEST_F(TestValidityKernels, IsValidIsNullNullType) {
+  CheckScalarUnary("is_null", std::make_shared<NullArray>(5),
+                   ArrayFromJSON(boolean(), "[true, true, true, true, true]"));
+  CheckScalarUnary("is_valid", std::make_shared<NullArray>(5),
+                   ArrayFromJSON(boolean(), "[false, false, false, false, false]"));
+}
+
 TEST_F(TestValidityKernels, ArrayIsValidBufferPassthruOptimization) {
   Datum arg = ArrayFromJSON(boolean(), "[null, 1, 0, null]");
   ASSERT_OK_AND_ASSIGN(auto validity, arrow::compute::IsValid(arg));
