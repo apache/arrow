@@ -280,11 +280,13 @@ class DoExchangeMessageWriter : public FlightMessageWriter {
       grpc::ServerReaderWriter<pb::FlightData, pb::FlightData>* stream)
       : stream_(stream), ipc_options_(::arrow::ipc::IpcWriteOptions::Defaults()) {}
 
-  Status Begin(const std::shared_ptr<Schema>& schema) override {
+  Status Begin(const std::shared_ptr<Schema>& schema,
+               const ipc::IpcWriteOptions& options) override {
     if (started_) {
       return Status::Invalid("This writer has already been started.");
     }
     started_ = true;
+    ipc_options_ = options;
 
     FlightPayload schema_payload;
     RETURN_NOT_OK(ipc::GetSchemaPayload(*schema, ipc_options_, &dictionary_memo_,
@@ -966,10 +968,8 @@ class RecordBatchStream::RecordBatchStreamImpl {
   };
 
   RecordBatchStreamImpl(const std::shared_ptr<RecordBatchReader>& reader,
-                        MemoryPool* pool)
-      : reader_(reader), ipc_options_(ipc::IpcWriteOptions::Defaults()) {
-    ipc_options_.memory_pool = pool;
-  }
+                        const ipc::IpcWriteOptions& options)
+      : reader_(reader), ipc_options_(options) {}
 
   std::shared_ptr<Schema> schema() { return reader_->schema(); }
 
@@ -1040,8 +1040,8 @@ class RecordBatchStream::RecordBatchStreamImpl {
 FlightDataStream::~FlightDataStream() {}
 
 RecordBatchStream::RecordBatchStream(const std::shared_ptr<RecordBatchReader>& reader,
-                                     MemoryPool* pool) {
-  impl_.reset(new RecordBatchStreamImpl(reader, pool));
+                                     const ipc::IpcWriteOptions& options) {
+  impl_.reset(new RecordBatchStreamImpl(reader, options));
 }
 
 RecordBatchStream::~RecordBatchStream() {}
