@@ -333,7 +333,9 @@ test_that("Table metadata", {
 })
 
 test_that("Table R metadata", {
-  expect_identical(as.data.frame(Table$create(example_with_metadata)), example_with_metadata)
+  tab <- Table$create(example_with_metadata)
+  expect_output(print(tab$metadata), "arrow_r_metadata")
+  expect_identical(as.data.frame(tab), example_with_metadata)
 })
 
 test_that("Table handles null type (ARROW-7064)", {
