@@ -92,8 +92,6 @@ struct Utf8Transform {
       ArrayType input_boxed(batch[0].array());
       ArrayData* output = out->mutable_array();
 
-      offset_type const* input_string_offsets = input.GetValues<offset_type>(1);
-      uint8_t const* input_str = input.buffers[2]->data() + input_boxed.value_offset(0);
       offset_type input_ncodeunits = input_boxed.total_values_length();
       offset_type input_nstrings = static_cast<offset_type>(input.length);
 
