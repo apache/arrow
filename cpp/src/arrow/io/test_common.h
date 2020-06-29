@@ -21,8 +21,8 @@
 #include <string>
 #include <vector>
 
-#include "arrow/type_fwd.h"
 #include "arrow/testing/visibility.h"
+#include "arrow/type_fwd.h"
 
 namespace arrow {
 namespace io {
