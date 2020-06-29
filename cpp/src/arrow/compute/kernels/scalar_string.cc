@@ -23,6 +23,7 @@
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernels/common.h"
 #include "arrow/compute/kernels/scalar_string_internal.h"
+#include "arrow/util/utf8.h"
 #include "arrow/util/value_parsing.h"
 
 namespace arrow {
@@ -32,97 +33,20 @@ namespace internal {
 namespace {
 
 // lookup tables
+constexpr int kMaxCodepointLookup = 0xffff;  // up to this codepoint is in a lookup table
 std::vector<uint32_t> lut_upper_codepoint;
 std::vector<uint32_t> lut_lower_codepoint;
 std::once_flag flag_case_luts;
 
-constexpr uint32_t REPLACEMENT_CHAR =
-    '?';  // the proper replacement char would be the 0xFFFD codepoint, but that can
-          // increase string length by a factor of 3
-constexpr int MAX_CODEPOINT_LUT = 0xffff;  // up to this codepoint is in a lookup table
-
-static inline void utf8_encode(uint8_t*& str, uint32_t codepoint) {
-  if (codepoint < 0x80) {
-    *str++ = codepoint;
-  } else if (codepoint < 0x800) {
-    *str++ = 0xC0 + (codepoint >> 6);
-    *str++ = 0x80 + (codepoint & 0x3F);
-  } else if (codepoint < 0x10000) {
-    *str++ = 0xE0 + (codepoint >> 12);
-    *str++ = 0x80 + ((codepoint >> 6) & 0x3F);
-    *str++ = 0x80 + (codepoint & 0x3F);
-  } else if (codepoint < 0x200000) {
-    *str++ = 0xF0 + (codepoint >> 18);
-    *str++ = 0x80 + ((codepoint >> 12) & 0x3F);
-    *str++ = 0x80 + ((codepoint >> 6) & 0x3F);
-    *str++ = 0x80 + (codepoint & 0x3F);
-  } else {
-    *str++ = codepoint;
-  }
-}
-
-static inline bool utf8_is_continuation(const uint8_t codeunit) {
-  return (codeunit & 0xC0) == 0x80;  // upper two bits should be 10
-}
-
-static inline uint32_t utf8_decode(const uint8_t*& str, int64_t& length) {
-  if (*str < 0x80) {  //
-    length -= 1;
-    return *str++;
-  } else if (*str < 0xC0) {  // invalid non-ascii char
-    length -= 1;
-    str++;
-    return REPLACEMENT_CHAR;
-  } else if (*str < 0xE0) {
-    uint8_t code_unit_1 = (*str++) & 0x1F;  // take last 5 bits
-    length -= 1;
-    if (!utf8_is_continuation(*str)) {
-      return REPLACEMENT_CHAR;
+void EnsureLookupTablesFilled() {
+  std::call_once(flag_case_luts, []() {
+    lut_upper_codepoint.reserve(kMaxCodepointLookup + 1);
+    lut_lower_codepoint.reserve(kMaxCodepointLookup + 1);
+    for (int i = 0; i <= kMaxCodepointLookup; i++) {
+      lut_upper_codepoint.push_back(utf8proc_toupper(i));
+      lut_lower_codepoint.push_back(utf8proc_tolower(i));
     }
-    uint8_t code_unit_2 = (*str++) & 0x3F;  // take last 6 bits
-    length -= 1;
-    char32_t codepoint = (code_unit_1 << 6) + code_unit_2;
-    return codepoint;
-  } else if (*str < 0xF0) {
-    uint8_t code_unit_1 = (*str++) & 0x0F;  // take last 4 bits
-    length -= 1;
-    if (!utf8_is_continuation(*str)) {
-      return REPLACEMENT_CHAR;
-    }
-    uint8_t code_unit_2 = (*str++) & 0x3F;  // take last 6 bits
-    length -= 1;
-    if (!utf8_is_continuation(*str)) {
-      return REPLACEMENT_CHAR;
-    }
-    uint8_t code_unit_3 = (*str++) & 0x3F;  // take last 6 bits
-    length -= 1;
-    char32_t codepoint = (code_unit_1 << 12) + (code_unit_2 << 6) + code_unit_3;
-    return codepoint;
-  } else if (*str < 0xF8) {
-    uint8_t code_unit_1 = (*str++) & 0x07;  // take last 3 bits
-    length -= 1;
-    if (!utf8_is_continuation(*str)) {
-      return REPLACEMENT_CHAR;
-    }
-    uint8_t code_unit_2 = (*str++) & 0x3F;  // take last 6 bits
-    length -= 1;
-    if (!utf8_is_continuation(*str)) {
-      return REPLACEMENT_CHAR;
-    }
-    uint8_t code_unit_3 = (*str++) & 0x3F;  // take last 6 bits
-    length -= 1;
-    if (!utf8_is_continuation(*str)) {
-      return REPLACEMENT_CHAR;
-    }
-    uint8_t code_unit_4 = (*str++) & 0x3F;  // take last 6 bits
-    char32_t codepoint =
-        (code_unit_1 << 18) + (code_unit_2 << 12) + (code_unit_3 << 6) + code_unit_4;
-    return codepoint;
-  } else {  // invalid non-ascii char
-    length -= 1;
-    str++;
-    return REPLACEMENT_CHAR;
-  }
+  });
 }
 
 // Code units in the range [a-z] can only be an encoding of an ascii
@@ -140,15 +64,6 @@ static inline uint8_t ascii_toupper(uint8_t utf8_code_unit) {
                                                               : utf8_code_unit;
 }
 
-template <class UnaryOperation>
-static inline void utf8_transform(const uint8_t* first, const uint8_t* last,
-                                  uint8_t*& destination, UnaryOperation unary_op) {
-  int64_t length = last - first;
-  while (length > 0) {
-    utf8_encode(destination, unary_op(utf8_decode(first, length)));
-  }
-}
-
 // TODO: optional ascii validation
 
 struct AsciiLength {
@@ -158,39 +73,29 @@ struct AsciiLength {
   }
 };
 
-template <typename Type, template <typename> class Derived>
+template <typename Type, typename Derived>
 struct Utf8Transform {
   using offset_type = typename Type::offset_type;
-  using DerivedClass = Derived<Type>;
   using ArrayType = typename TypeTraits<Type>::ArrayType;
 
   static offset_type Transform(const uint8_t* input, offset_type input_string_ncodeunits,
                                uint8_t* output) {
-    uint8_t* dest = output;
-    utf8_transform(input, input + input_string_ncodeunits, dest,
-                   DerivedClass::TransformCodepoint);
-    return (offset_type)(dest - output);
+    uint8_t* output_end = arrow::util::Utf8Transform(
+        input, input + input_string_ncodeunits, output, Derived::TransformCodepoint);
+    return static_cast<offset_type>(output_end - output);
   }
 
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     if (batch[0].kind() == Datum::ARRAY) {
-      std::call_once(flag_case_luts, []() {
-        lut_upper_codepoint.reserve(MAX_CODEPOINT_LUT + 1);
-        lut_lower_codepoint.reserve(MAX_CODEPOINT_LUT + 1);
-        for (int i = 0; i <= MAX_CODEPOINT_LUT; i++) {
-          lut_upper_codepoint.push_back(utf8proc_toupper(i));
-          lut_lower_codepoint.push_back(utf8proc_tolower(i));
-        }
-      });
+      EnsureLookupTablesFilled();
       const ArrayData& input = *batch[0].array();
       ArrayType input_boxed(batch[0].array());
       ArrayData* output = out->mutable_array();
 
       offset_type const* input_string_offsets = input.GetValues<offset_type>(1);
-      utf8proc_uint8_t const* input_str =
-          input.buffers[2]->data() + input_boxed.value_offset(0);
+      uint8_t const* input_str = input.buffers[2]->data() + input_boxed.value_offset(0);
       offset_type input_ncodeunits = input_boxed.total_values_length();
-      offset_type input_nstrings = (offset_type)input.length;
+      offset_type input_nstrings = static_cast<offset_type>(input.length);
 
       // Section 5.18 of the Unicode spec claim that the number of codepoints for case
       // mapping can grow by a factor of 3. This means grow by a factor of 3 in bytes
@@ -214,22 +119,16 @@ struct Utf8Transform {
       KERNEL_RETURN_IF_ERROR(ctx,
                              ctx->Allocate((input_nstrings + 1) * sizeof(offset_type))
                                  .Value(&output->buffers[1]));
-      utf8proc_uint8_t* output_str = output->buffers[2]->mutable_data();
+      uint8_t* output_str = output->buffers[2]->mutable_data();
       offset_type* output_string_offsets = output->GetMutableValues<offset_type>(1);
       offset_type output_ncodeunits = 0;
 
-      offset_type output_string_offset = 0;
-      *output_string_offsets = output_string_offset;
-      offset_type input_string_first_offset = input_string_offsets[0];
+      output_string_offsets[0] = 0;
       for (int64_t i = 0; i < input_nstrings; i++) {
-        offset_type input_string_offset =
-            input_string_offsets[i] - input_string_first_offset;
-        offset_type input_string_end =
-            input_string_offsets[i + 1] - input_string_first_offset;
-        offset_type input_string_ncodeunits = input_string_end - input_string_offset;
-        offset_type encoded_nbytes = DerivedClass::Transform(
-            input_str + input_string_offset, input_string_ncodeunits,
-            output_str + output_ncodeunits);
+        offset_type input_string_ncodeunits;
+        const uint8_t* input_string = input_boxed.GetValue(i, &input_string_ncodeunits);
+        offset_type encoded_nbytes = Derived::Transform(
+            input_string, input_string_ncodeunits, output_str + output_ncodeunits);
         output_ncodeunits += encoded_nbytes;
         output_string_offsets[i + 1] = output_ncodeunits;
       }
@@ -243,12 +142,12 @@ struct Utf8Transform {
       auto result = checked_pointer_cast<BaseBinaryScalar>(MakeNullScalar(out->type()));
       if (input.is_valid) {
         result->is_valid = true;
-        offset_type data_nbytes = (offset_type)input.value->size();
+        offset_type data_nbytes = static_cast<offset_type>(input.value->size());
         // See note above in the Array version explaining the 3 / 2
         KERNEL_RETURN_IF_ERROR(ctx,
                                ctx->Allocate(data_nbytes * 3 / 2).Value(&result->value));
-        offset_type encoded_nbytes = DerivedClass::Transform(
-            input.value->data(), data_nbytes, result->value->mutable_data());
+        offset_type encoded_nbytes = Derived::Transform(input.value->data(), data_nbytes,
+                                                        result->value->mutable_data());
         KERNEL_RETURN_IF_ERROR(
             ctx, result->value->CopySlice(0, encoded_nbytes).Value(&result->value));
       }
@@ -258,18 +157,18 @@ struct Utf8Transform {
 };
 
 template <typename Type>
-struct Utf8Upper : Utf8Transform<Type, Utf8Upper> {
-  inline static uint32_t TransformCodepoint(char32_t codepoint) {
-    return codepoint <= MAX_CODEPOINT_LUT ? lut_upper_codepoint[codepoint]
-                                          : utf8proc_toupper(codepoint);
+struct Utf8Upper : Utf8Transform<Type, Utf8Upper<Type>> {
+  inline static uint32_t TransformCodepoint(uint32_t codepoint) {
+    return codepoint <= kMaxCodepointLookup ? lut_upper_codepoint[codepoint]
+                                            : utf8proc_toupper(codepoint);
   }
 };
 
 template <typename Type>
-struct Utf8Lower : Utf8Transform<Type, Utf8Lower> {
-  static uint32_t TransformCodepoint(char32_t codepoint) {
-    return codepoint <= MAX_CODEPOINT_LUT ? lut_lower_codepoint[codepoint]
-                                          : utf8proc_tolower(codepoint);
+struct Utf8Lower : Utf8Transform<Type, Utf8Lower<Type>> {
+  static uint32_t TransformCodepoint(uint32_t codepoint) {
+    return codepoint <= kMaxCodepointLookup ? lut_lower_codepoint[codepoint]
+                                            : utf8proc_tolower(codepoint);
   }
 };
 

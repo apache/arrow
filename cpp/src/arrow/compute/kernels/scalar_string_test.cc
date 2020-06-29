@@ -76,7 +76,7 @@ TYPED_TEST(TestStringKernels, AsciiLower) {
                    this->string_type(), "[\"aaazzæÆ&\", null, \"\", \"bbb\"]");
 }
 
-TEST(TestStringKernels, Utf8Upper32bitGrowth) {
+TEST(TestStringKernels, LARGE_MEMORY_TEST(Utf8Upper32bitGrowth)) {
   std::string str(0xffff, 'a');
   arrow::StringBuilder builder;
   // 0x7fff * 0xffff is the max a 32 bit string array can hold
@@ -108,7 +108,7 @@ TYPED_TEST(TestStringKernels, Utf8Upper) {
   // test maximum buffer growth
   this->CheckUnary("utf8_upper", "[\"ɑɑɑɑ\"]", this->string_type(), "[\"ⱭⱭⱭⱭ\"]");
 
-  // Test replacing invalid data by ? (ὖ == \xe1\xbd\x96)
+  // Test replacing invalid data by ? (a truncated ὖ == \xe1\xbd\x96)
   this->CheckUnary("utf8_upper", "[\"ɑa\xFFɑ\", \"ɽ\xe1\xbdɽaa\"]", this->string_type(),
                    "[\"ⱭA?Ɑ\", \"Ɽ?ⱤAA\"]");
 }
@@ -129,7 +129,7 @@ TYPED_TEST(TestStringKernels, Utf8Lower) {
   // test maximum buffer growth
   this->CheckUnary("utf8_lower", "[\"ȺȺȺȺ\"]", this->string_type(), "[\"ⱥⱥⱥⱥ\"]");
 
-  // Test replacing invalid data by ? (ὖ == \xe1\xbd\x96)
+  // Test replacing invalid data by ? (a truncated ὖ == \xe1\xbd\x96)
   this->CheckUnary("utf8_lower", "[\"Ⱥa\xFFⱭ\", \"Ɽ\xe1\xbdⱤaA\"]", this->string_type(),
                    "[\"ⱥa?ɑ\", \"ɽ?ɽaa\"]");
 }
@@ -153,29 +153,19 @@ TEST(TestStringKernels, UnicodeLibraryAssumptions) {
     utf8proc_ssize_t encoded_nbytes = utf8proc_encode_char(codepoint, output);
     utf8proc_int32_t codepoint_upper = utf8proc_toupper(codepoint);
     utf8proc_ssize_t encoded_nbytes_upper = utf8proc_encode_char(codepoint_upper, output);
+    // validate that upper casing will only lead to a byte length growth of max 3/2
     if (encoded_nbytes == 2) {
       EXPECT_LE(encoded_nbytes_upper, 3)
           << "Expected the upper case codepoint for a 2 byte encoded codepoint to be "
              "encoded in maximum 3 bytes, not "
           << encoded_nbytes_upper;
     }
-    if (encoded_nbytes == 3) {
-      EXPECT_LE(encoded_nbytes_upper, 3)
-          << "Expected the upper case codepoint for a 3 byte encoded codepoint to be "
-             "encoded in maximum 3 bytes, not "
-          << encoded_nbytes_upper;
-    }
     utf8proc_int32_t codepoint_lower = utf8proc_tolower(codepoint);
     utf8proc_ssize_t encoded_nbytes_lower = utf8proc_encode_char(codepoint_lower, output);
+    // validate that lower casing will only lead to a byte length growth of max 3/2
     if (encoded_nbytes == 2) {
       EXPECT_LE(encoded_nbytes_lower, 3)
           << "Expected the lower case codepoint for a 2 byte encoded codepoint to be "
-             "encoded in maximum 3 bytes, not "
-          << encoded_nbytes_lower;
-    }
-    if (encoded_nbytes == 3) {
-      EXPECT_LE(encoded_nbytes_lower, 3)
-          << "Expected the lower case codepoint for a 3 byte encoded codepoint to be "
              "encoded in maximum 3 bytes, not "
           << encoded_nbytes_lower;
     }

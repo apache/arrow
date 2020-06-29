@@ -28,8 +28,7 @@ namespace compute {
 
 constexpr auto kSeed = 0x94378165;
 
-static void UnaryStringBenchmark(benchmark::State& state, const std::string& func_name,
-                                 bool touches_offsets = false) {
+static void UnaryStringBenchmark(benchmark::State& state, const std::string& func_name) {
   const int64_t array_length = 1 << 20;
   const int64_t value_min_size = 0;
   const int64_t value_max_size = 32;
@@ -42,9 +41,7 @@ static void UnaryStringBenchmark(benchmark::State& state, const std::string& fun
     ABORT_NOT_OK(CallFunction(func_name, {values}));
   }
   state.SetItemsProcessed(state.iterations() * array_length);
-  state.SetBytesProcessed(state.iterations() *
-                          ((touches_offsets ? values->data()->buffers[1]->size() : 0) +
-                           values->data()->buffers[2]->size()));
+  state.SetBytesProcessed(state.iterations() * values->data()->buffers[2]->size());
 }
 
 static void AsciiLower(benchmark::State& state) {
@@ -56,11 +53,11 @@ static void AsciiUpper(benchmark::State& state) {
 }
 
 static void Utf8Upper(benchmark::State& state) {
-  UnaryStringBenchmark(state, "utf8_upper", true);
+  UnaryStringBenchmark(state, "utf8_upper");
 }
 
 static void Utf8Lower(benchmark::State& state) {
-  UnaryStringBenchmark(state, "utf8_lower", true);
+  UnaryStringBenchmark(state, "utf8_lower");
 }
 
 BENCHMARK(AsciiLower);
