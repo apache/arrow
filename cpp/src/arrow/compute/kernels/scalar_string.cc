@@ -15,10 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <utf8proc.h>
 #include <algorithm>
 #include <cctype>
 #include <string>
+
+#include <utf8proc.h>
 
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernels/common.h"
@@ -33,7 +34,8 @@ namespace internal {
 namespace {
 
 // lookup tables
-constexpr int kMaxCodepointLookup = 0xffff;  // up to this codepoint is in a lookup table
+constexpr uint32_t kMaxCodepointLookup =
+    0xffff;  // up to this codepoint is in a lookup table
 std::vector<uint32_t> lut_upper_codepoint;
 std::vector<uint32_t> lut_lower_codepoint;
 std::once_flag flag_case_luts;
@@ -42,7 +44,7 @@ void EnsureLookupTablesFilled() {
   std::call_once(flag_case_luts, []() {
     lut_upper_codepoint.reserve(kMaxCodepointLookup + 1);
     lut_lower_codepoint.reserve(kMaxCodepointLookup + 1);
-    for (int i = 0; i <= kMaxCodepointLookup; i++) {
+    for (uint32_t i = 0; i <= kMaxCodepointLookup; i++) {
       lut_upper_codepoint.push_back(utf8proc_toupper(i));
       lut_lower_codepoint.push_back(utf8proc_tolower(i));
     }
@@ -102,7 +104,7 @@ struct Utf8Transform {
       // Note that rounding down the 3/2 is ok, since only codepoints encoded by
       // two code units (even) can grow to 3 code units.
 
-      int64_t output_ncodeunits_max = ((int64_t)input_ncodeunits) * 3 / 2;
+      int64_t output_ncodeunits_max = static_cast<int64_t>(input_ncodeunits) * 3 / 2;
       if (output_ncodeunits_max > std::numeric_limits<offset_type>::max()) {
         ctx->SetStatus(Status::CapacityError(
             "Result might not fit in a 32bit utf8 array, convert to large_utf8"));
