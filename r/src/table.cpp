@@ -236,6 +236,17 @@ arrow::Status AddMetadataFromDots(SEXP lst, int num_fields,
   Rf_setAttrib(metadata, R_NamesSymbol, arrow::r::data::names_metadata);
 
   bool has_metadata = false;
+  // TODO: we want to keep any top-level data-frame attributes
+  // but the auto-splice code has stripped them out by the time we get here
+  // https://issues.apache.org/jira/browse/ARROW-9271
+  //
+  // SEXP att = ATTRIB(lst);
+  // if (!Rf_isNull(att)) {
+  //   SEXP att_list_call = PROTECT(Rf_lang2(arrow::r::symbols::as_list, att));
+  //   SET_VECTOR_ELT(metadata, 0, PROTECT(Rf_eval(att_list_call, R_GlobalEnv)));
+  //   UNPROTECT(2);
+  //   has_metadata = true;
+  // }
   SET_VECTOR_ELT(metadata, 1, CollectColumnMetadata(lst, num_fields, has_metadata));
   UNPROTECT(2);  // CollectColumnMetadata adds 2 PROTECTS
 
