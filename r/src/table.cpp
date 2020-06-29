@@ -185,17 +185,11 @@ arrow::Status InferSchemaFromDots(SEXP lst, SEXP schema_sxp, int num_fields,
   return arrow::Status::OK();
 }
 
-arrow::Status AddMetadataFromDots(SEXP lst, int num_fields,
-                                  std::shared_ptr<arrow::Schema>& schema) {
-  // Preallocate the r_metadata object: list(attributes=list(), columns=namedList(fields))
-  SEXP metadata = PROTECT(Rf_allocVector(VECSXP, 2));
-  Rf_setAttrib(metadata, R_NamesSymbol, arrow::r::data::names_metadata);
+SEXP CollectColumnMetadata(SEXP lst, int num_fields, bool& has_metadata) {
+  // Preallocate for the lambda to fill in
   SEXP metadata_columns = PROTECT(Rf_allocVector(VECSXP, num_fields));
   SEXP metadata_columns_names = PROTECT(Rf_allocVector(STRSXP, num_fields));
   Rf_setAttrib(metadata_columns, R_NamesSymbol, metadata_columns_names);
-  SET_VECTOR_ELT(metadata, 1, metadata_columns);
-
-  bool has_metadata = false;
 
   auto extract_one_metadata = [&metadata_columns, &metadata_columns_names, &has_metadata](
                                   int j, SEXP x, SEXP name) {
@@ -208,23 +202,42 @@ arrow::Status AddMetadataFromDots(SEXP lst, int num_fields,
     }
 
     SEXP att = ATTRIB(x);
-    if (Rf_inherits(x, "data.frame")) {
-      // TODO: Recurse
-      // SET_VECTOR_ELT(metadata_columns, j, RECURSIVE_SOMETHING);
-    } else if (!Rf_isNull(att)) {
+    if (!Rf_isNull(att) || Rf_inherits(x, "data.frame")) {
       // Each field in columns is also: list(attributes=list(), columns=namedList(fields))
       // Only nested types will have columns though
       SEXP att_list = PROTECT(Rf_allocVector(VECSXP, 2));
       Rf_setAttrib(att_list, R_NamesSymbol, arrow::r::data::names_metadata);
-      SEXP att_list_call = PROTECT(Rf_lang2(arrow::r::symbols::as_list, att));
-      SET_VECTOR_ELT(att_list, 0, PROTECT(Rf_eval(att_list_call, R_GlobalEnv)));
+      if (!Rf_isNull(att)) {
+        SEXP att_list_call = PROTECT(Rf_lang2(arrow::r::symbols::as_list, att));
+        SET_VECTOR_ELT(att_list, 0, PROTECT(Rf_eval(att_list_call, R_GlobalEnv)));
+        UNPROTECT(2);
+      }
+      if (Rf_inherits(x, "data.frame")) {
+        int inner_num_fields;
+        StopIfNotOk(arrow::r::count_fields(x, &inner_num_fields));
+        SEXP struct_cols =
+            PROTECT(CollectColumnMetadata(x, inner_num_fields, has_metadata));
+        SET_VECTOR_ELT(att_list, 1, struct_cols);
+        UNPROTECT(3);
+      }
       SET_VECTOR_ELT(metadata_columns, j, att_list);
       has_metadata = true;
-      UNPROTECT(3);
+      UNPROTECT(1);
     }
   };
 
   arrow::r::TraverseDots(lst, num_fields, extract_one_metadata);
+  return metadata_columns;
+}
+
+arrow::Status AddMetadataFromDots(SEXP lst, int num_fields,
+                                  std::shared_ptr<arrow::Schema>& schema) {
+  // Preallocate the r_metadata object: list(attributes=list(), columns=namedList(fields))
+  SEXP metadata = PROTECT(Rf_allocVector(VECSXP, 2));
+  Rf_setAttrib(metadata, R_NamesSymbol, arrow::r::data::names_metadata);
+
+  bool has_metadata = false;
+  SET_VECTOR_ELT(metadata, 1, CollectColumnMetadata(lst, num_fields, has_metadata));
 
   if (has_metadata) {
     SEXP serialise_call = PROTECT(Rf_lang2(arrow::r::symbols::arrow_serialize, metadata));

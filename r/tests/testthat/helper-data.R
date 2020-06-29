@@ -29,6 +29,8 @@ example_with_metadata <- tibble::tibble(
   b = 2,
   c = tibble::tibble(
     c1 = structure("inner", extra_attr = "something"),
-    c2 = 4
-  )
+    c2 = 4,
+    c3 = 50
+  ),
+  d = "four"
 )
