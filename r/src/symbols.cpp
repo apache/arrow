@@ -46,7 +46,7 @@ SEXP get_classes_metadata_r() {
 SEXP get_names_metadata() {
   SEXP names = Rf_allocVector(STRSXP, 2);
   R_PreserveObject(names);
-  SET_STRING_ELT(names, 0, Rf_mkChar("data"));
+  SET_STRING_ELT(names, 0, Rf_mkChar("attributes"));
   SET_STRING_ELT(names, 1, Rf_mkChar("columns"));
   return names;
 }

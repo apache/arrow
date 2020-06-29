@@ -268,19 +268,18 @@ as.data.frame.RecordBatch <- function(x, row.names = NULL, optional = FALSE, ...
   df
 }
 
-apply_arrow_r_metadata <- function(df, r_metadata) {
-  if (!is.null(r_metadata$data)) {
-    attributes(df) <- r_metadata$data
+apply_arrow_r_metadata <- function(x, r_metadata) {
+  if (!is.null(r_metadata$attributes)) {
+    attributes(x) <- r_metadata$attributes
   }
 
   columns_metadata <- r_metadata$columns
-  for(name in names(columns_metadata)) {
-    atts <- columns_metadata[[name]]
-    if (!is.null(atts) && name %in% names(df)) {
-      attributes(df[[name]]) <- atts
+  if (length(names(x)) && !is.null(columns_metadata)) {
+    for (name in intersect(names(columns_metadata), names(x))) {
+      x[[name]] <- apply_arrow_r_metadata(x[[name]], columns_metadata[[name]])
     }
   }
-  df
+  x
 }
 
 #' @export
