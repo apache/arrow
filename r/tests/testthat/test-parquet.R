@@ -179,17 +179,9 @@ test_that("write_parquet() returns its input", {
 })
 
 test_that("R metadata roundtrip via parquet", {
-  df <- tibble::tibble(
-    a = structure("one", class = "special_string"),
-    b = 2,
-    c = tibble::tibble(
-      c1 = structure("inner", extra_attr = "something"),
-      c2 = 4
-    )
-  )
   tf <- tempfile()
   on.exit(unlink(tf))
 
-  write_parquet(df, tf)
-  expect_identical(read_parquet(tf), df)
+  write_parquet(example_with_metadata, tf)
+  expect_identical(read_parquet(tf), example_with_metadata)
 })

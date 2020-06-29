@@ -261,7 +261,26 @@ dim.RecordBatch <- function(x) {
 
 #' @export
 as.data.frame.RecordBatch <- function(x, row.names = NULL, optional = FALSE, ...) {
-  RecordBatch__to_dataframe(x, use_threads = option_use_threads())
+  df <- RecordBatch__to_dataframe(x, use_threads = option_use_threads())
+  if (!is.null(r_metadata <- x$metadata$r)) {
+    df <- apply_arrow_r_metadata(df, .arrow_unserialize(r_metadata))
+  }
+  df
+}
+
+apply_arrow_r_metadata <- function(df, r_metadata) {
+  if (!is.null(r_metadata$data)) {
+    attributes(df) <- r_metadata$data
+  }
+
+  columns_metadata <- r_metadata$columns
+  for(name in names(columns_metadata)) {
+    atts <- columns_metadata[[name]]
+    if (!is.null(atts) && name %in% names(df)) {
+      attributes(df[[name]]) <- atts
+    }
+  }
+  df
 }
 
 #' @export

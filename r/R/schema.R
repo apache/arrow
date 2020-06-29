@@ -196,12 +196,7 @@ unify_schemas <- function(..., schemas = list(...)) {
 }
 
 #' @export
-`print.arrow:::metadata` <- function(x, ...) {
-  NextMethod()
-}
-
-#' @export
-`print.arrow:::metadata_r` <- function(x, ...) {
+print.arrow_r_metadata <- function(x, ...) {
   print(unclass(x))
   str(.arrow_unserialize(x))
   invisible(x)

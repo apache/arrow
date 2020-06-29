@@ -186,19 +186,11 @@ test_that("read_feather closes connection to file", {
 })
 
 test_that("R metadata roundtrip via feather", {
-  df <- tibble::tibble(
-    a = structure("one", class = "special_string"),
-    b = 2,
-    c = tibble::tibble(
-      c1 = structure("inner", extra_attr = "something"),
-      c2 = 4
-    )
-  )
   tf <- tempfile()
   on.exit(unlink(tf))
 
-  write_feather(df, tf)
-  expect_identical(read_feather(tf), df)
+  write_feather(example_with_metadata, tf)
+  expect_identical(read_feather(tf), example_with_metadata)
 })
 
 unlink(feather_file)

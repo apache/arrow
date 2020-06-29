@@ -23,3 +23,12 @@ example_data <- tibble::tibble(
   chr = letters[c(1:5, NA, 7:10)],
   fct = factor(letters[c(1:4, NA, NA, 7:10)])
 )
+
+example_with_metadata <- tibble::tibble(
+  a = structure("one", class = "special_string"),
+  b = 2,
+  c = tibble::tibble(
+    c1 = structure("inner", extra_attr = "something"),
+    c2 = 4
+  )
+)

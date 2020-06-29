@@ -333,15 +333,7 @@ test_that("Table metadata", {
 })
 
 test_that("Table R metadata", {
-  df <- tibble::tibble(
-    a = structure("one", class = "special_string"),
-    b = 2,
-    c = tibble::tibble(
-      c1 = structure("inner", extra_attr = "something"),
-      c2 = 4
-    )
-  )
-  expect_identical(as.data.frame(Table$create(df)), df)
+  expect_identical(as.data.frame(Table$create(example_with_metadata)), example_with_metadata)
 })
 
 test_that("Table handles null type (ARROW-7064)", {

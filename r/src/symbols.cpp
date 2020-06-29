@@ -38,7 +38,7 @@ SEXP get_classes_POSIXct() {
 }
 
 SEXP get_classes_metadata_r() {
-  SEXP classes = Rf_mkString("arrow:::metadata_r");
+  SEXP classes = Rf_mkString("arrow_r_metadata");
   R_PreserveObject(classes);
   return classes;
 }
