@@ -420,7 +420,13 @@ Status FromParquetSchema(
     const auto& schema_field = manifest.schema_fields[i];
     fields[i] = schema_field.field;
   }
-  *out = ::arrow::schema(fields, key_value_metadata);
+  if (manifest.origin_schema) {
+    // ARROW-8980: If the ARROW:schema was in the input metadata, then
+    // manifest.origin_schema will have it scrubbed out
+    *out = ::arrow::schema(fields, manifest.origin_schema->metadata());
+  } else {
+    *out = ::arrow::schema(fields, key_value_metadata);
+  }
   return Status::OK();
 }
 

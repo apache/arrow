@@ -186,9 +186,6 @@ def test_pandas_parquet_2_0_roundtrip(tempdir, chunk_size, use_legacy_dataset):
     assert table_read.schema.pandas_metadata is not None
 
     read_metadata = table_read.schema.metadata
-    if not use_legacy_dataset:
-        read_metadata.pop(b"ARROW:schema")
-
     assert arrow_table.schema.metadata == read_metadata
 
     df_read = table_read.to_pandas()
@@ -442,9 +439,6 @@ def test_pandas_parquet_2_0_roundtrip_read_pandas_no_index_written(
     assert not js['index_columns']
 
     read_metadata = table_read.schema.metadata
-    if not use_legacy_dataset:
-        read_metadata.pop(b"ARROW:schema")
-
     assert arrow_table.schema.metadata == read_metadata
 
     df_read = table_read.to_pandas()
@@ -3931,7 +3925,12 @@ def test_write_metadata(tempdir):
     # write a pyarrow schema
     pq.write_metadata(schema, path)
     parquet_meta = pq.read_metadata(path)
-    assert parquet_meta.schema.to_arrow_schema().equals(schema)
+    schema_as_arrow = parquet_meta.schema.to_arrow_schema()
+    assert schema_as_arrow.equals(schema)
+
+    # ARROW-8980: Check that the ARROW:schema metadata key was removed
+    if schema_as_arrow.metadata:
+        assert b'ARROW:schema' not in schema_as_arrow.metadata
 
     # pass through writer keyword arguments
     for version in ["1.0", "2.0"]:
