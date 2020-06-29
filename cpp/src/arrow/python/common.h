@@ -20,8 +20,6 @@
 #include <memory>
 #include <utility>
 
-#include "arrow/python/config.h"
-
 #include "arrow/buffer.h"
 #include "arrow/python/pyarrow.h"
 #include "arrow/python/visibility.h"

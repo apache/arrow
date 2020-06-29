@@ -27,7 +27,28 @@ from pyarrow.util import _stringify_path
 
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
+import os
 import pathlib
+import sys
+
+
+cdef _init_ca_paths():
+    cdef CFileSystemGlobalOptions options
+
+    import ssl
+    paths = ssl.get_default_verify_paths()
+    if paths.cafile:
+        options.tls_ca_file_path = os.fsencode(paths.cafile)
+    if paths.capath:
+        options.tls_ca_dir_path = os.fsencode(paths.capath)
+    check_status(CFileSystemsInitialize(options))
+
+
+if sys.platform == 'linux':
+    # ARROW-9261: On Linux, we may need to fixup the paths to TLS CA certs
+    # (especially in manylinux packages) since the values hardcoded at
+    # compile-time in libcurl may be wrong.
+    _init_ca_paths()
 
 
 cdef inline c_string _path_as_bytes(path) except *:
@@ -696,7 +717,7 @@ cdef class LocalFileSystem(FileSystem):
         a mmap'ed file or a regular file.
     """
 
-    def __init__(self, use_mmap=False):
+    def __init__(self, *, use_mmap=False):
         cdef:
             CLocalFileSystemOptions opts
             shared_ptr[CLocalFileSystem] fs
@@ -711,9 +732,16 @@ cdef class LocalFileSystem(FileSystem):
         FileSystem.init(self, c_fs)
         self.localfs = <CLocalFileSystem*> c_fs.get()
 
+    @classmethod
+    def _reconstruct(cls, kwargs):
+        # __reduce__ doesn't allow passing named arguments directly to the
+        # reconstructor, hence this wrapper.
+        return cls(**kwargs)
+
     def __reduce__(self):
         cdef CLocalFileSystemOptions opts = self.localfs.options()
-        return LocalFileSystem, (opts.use_mmap,)
+        return LocalFileSystem._reconstruct, (dict(
+            use_mmap=opts.use_mmap),)
 
 
 cdef class SubTreeFileSystem(FileSystem):

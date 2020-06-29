@@ -32,6 +32,7 @@ cmake .. -GNinja \
     -DCMAKE_INSTALL_PREFIX=${PREFIX} \
     -DBUILD_ONLY='s3;core;transfer;config' \
     -DBUILD_SHARED_LIBS=OFF \
+    -DENABLE_CURL_LOGGING=ON \
     -DENABLE_UNITY_BUILD=ON \
     -DENABLE_TESTING=OFF
 

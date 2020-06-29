@@ -165,6 +165,10 @@ void S3Options::ConfigureDefaultCredentials() {
       std::make_shared<Aws::Auth::DefaultAWSCredentialsProviderChain>();
 }
 
+void S3Options::ConfigureAnonymousCredentials() {
+  credentials_provider = std::make_shared<Aws::Auth::AnonymousAWSCredentialsProvider>();
+}
+
 void S3Options::ConfigureAccessKey(const std::string& access_key,
                                    const std::string& secret_key) {
   credentials_provider = std::make_shared<Aws::Auth::SimpleAWSCredentialsProvider>(
@@ -184,6 +188,12 @@ std::string S3Options::GetSecretKey() const {
 S3Options S3Options::Defaults() {
   S3Options options;
   options.ConfigureDefaultCredentials();
+  return options;
+}
+
+S3Options S3Options::Anonymous() {
+  S3Options options;
+  options.ConfigureAnonymousCredentials();
   return options;
 }
 
@@ -874,6 +884,13 @@ class S3FileSystem::Impl {
       return Status::Invalid("Invalid S3 connection scheme '", options_.scheme, "'");
     }
     client_config_.retryStrategy = std::make_shared<ConnectRetryStrategy>();
+    if (!internal::global_options.tls_ca_file_path.empty()) {
+      client_config_.caFile = ToAwsString(internal::global_options.tls_ca_file_path);
+    }
+    if (!internal::global_options.tls_ca_dir_path.empty()) {
+      client_config_.caPath = ToAwsString(internal::global_options.tls_ca_dir_path);
+    }
+
     bool use_virtual_addressing = options_.endpoint_override.empty();
     client_.reset(
         new Aws::S3::S3Client(credentials_, client_config_,

@@ -378,5 +378,25 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUriOrPath(
 
 /// @}
 
+struct FileSystemGlobalOptions {
+  /// Path to a single PEM file holding all TLS CA certificates
+  ///
+  /// If empty, the underlying TLS library's defaults will be used.
+  std::string tls_ca_file_path;
+
+  /// Path to a directory holding TLS CA certificates in individual PEM files
+  /// named along the OpenSSL "hashed" format.
+  ///
+  /// If empty, the underlying TLS library's defaults will be used.
+  std::string tls_ca_dir_path;
+};
+
+/// Experimental: optional global initialization routine
+///
+/// This is for environments (such as manylinux) where the path
+/// to TLS CA certificates needs to be configured at runtime.
+ARROW_EXPORT
+Status Initialize(const FileSystemGlobalOptions& options);
+
 }  // namespace fs
 }  // namespace arrow

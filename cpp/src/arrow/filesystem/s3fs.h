@@ -58,6 +58,9 @@ struct ARROW_EXPORT S3Options {
   /// Configure with the default AWS credentials provider chain.
   void ConfigureDefaultCredentials();
 
+  /// Configure with anonymous credentials.  This will only let you access public buckets.
+  void ConfigureAnonymousCredentials();
+
   /// Configure with explicit access and secret key.
   void ConfigureAccessKey(const std::string& access_key, const std::string& secret_key);
 
@@ -71,6 +74,10 @@ struct ARROW_EXPORT S3Options {
   /// This is recommended if you use the standard AWS environment variables
   /// and/or configuration file.
   static S3Options Defaults();
+  /// \brief Initialize with anonymous credentials.
+  ///
+  /// This will only let you access public buckets.
+  static S3Options Anonymous();
   /// \brief Initialize with explicit access and secret key
   static S3Options FromAccessKey(const std::string& access_key,
                                  const std::string& secret_key);

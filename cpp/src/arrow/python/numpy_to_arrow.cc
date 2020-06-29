@@ -48,7 +48,6 @@
 #include "arrow/compute/api_scalar.h"
 
 #include "arrow/python/common.h"
-#include "arrow/python/config.h"
 #include "arrow/python/datetime.h"
 #include "arrow/python/helpers.h"
 #include "arrow/python/iterators.h"

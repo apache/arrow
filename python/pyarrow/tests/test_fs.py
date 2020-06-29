@@ -444,9 +444,9 @@ def check_mtime_or_absent(file_info):
         check_mtime(file_info)
 
 
-def skip_s3fs(fs):
+def skip_fsspec_s3fs(fs):
     if fs.type_name == "py::fsspec+s3":
-        pytest.xfail(reason='Not working with s3fs')
+        pytest.xfail(reason="Not working with fsspec's s3fs")
 
 
 def test_file_info_constructor():
@@ -528,7 +528,7 @@ def test_filesystem_pickling(fs):
 def test_filesystem_is_functional_after_pickling(fs, pathfn):
     if isinstance(fs, _MockFileSystem):
         pytest.xfail(reason='MockFileSystem is not serializable')
-    skip_s3fs(fs)
+    skip_fsspec_s3fs(fs)
 
     aaa = pathfn('a/aa/aaa/')
     bb = pathfn('a/bb')
@@ -566,7 +566,7 @@ def test_non_path_like_input_raises(fs):
 
 
 def test_get_file_info(fs, pathfn):
-    skip_s3fs(fs)  # s3fs doesn't create nested directories
+    skip_fsspec_s3fs(fs)  # s3fs doesn't create nested directories
 
     aaa = pathfn('a/aa/aaa/')
     bb = pathfn('a/bb')
@@ -617,7 +617,7 @@ def test_get_file_info(fs, pathfn):
 
 
 def test_get_file_info_with_selector(fs, pathfn):
-    skip_s3fs(fs)
+    skip_fsspec_s3fs(fs)
 
     base_dir = pathfn('selector-dir/')
     file_a = pathfn('selector-dir/test_file_a')
@@ -657,7 +657,7 @@ def test_get_file_info_with_selector(fs, pathfn):
 
 
 def test_create_dir(fs, pathfn):
-    skip_s3fs(fs)  # create_dir doesn't create dir, so delete dir fails
+    skip_fsspec_s3fs(fs)  # create_dir doesn't create dir, so delete dir fails
 
     d = pathfn('test-directory/')
 
@@ -673,7 +673,7 @@ def test_create_dir(fs, pathfn):
 
 
 def test_delete_dir(fs, pathfn):
-    skip_s3fs(fs)
+    skip_fsspec_s3fs(fs)
 
     d = pathfn('directory/')
     nd = pathfn('directory/nested/')
@@ -687,7 +687,7 @@ def test_delete_dir(fs, pathfn):
 
 
 def test_delete_dir_contents(fs, pathfn):
-    skip_s3fs(fs)
+    skip_fsspec_s3fs(fs)
 
     d = pathfn('directory/')
     nd = pathfn('directory/nested/')
@@ -1220,3 +1220,13 @@ def test_py_open_append_stream():
 
     with fs.open_append_stream("somefile") as f:
         f.write(b"data")
+
+
+@pytest.mark.s3
+def test_s3_real_aws():
+    # Exercise connection code with an AWS-backed S3 bucket.
+    # This is a minimal integration check for ARROW-9261 and similar issues.
+    from pyarrow.fs import S3FileSystem
+    fs = S3FileSystem(anonymous=True)
+    entries = fs.get_file_info(FileSelector('ursa-labs-taxi-data'))
+    assert len(entries) > 0
