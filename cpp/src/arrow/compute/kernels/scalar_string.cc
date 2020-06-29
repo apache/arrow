@@ -80,11 +80,16 @@ struct Utf8Transform {
   using offset_type = typename Type::offset_type;
   using ArrayType = typename TypeTraits<Type>::ArrayType;
 
-  static offset_type Transform(const uint8_t* input, offset_type input_string_ncodeunits,
-                               uint8_t* output) {
-    uint8_t* output_end = arrow::util::Utf8Transform(
-        input, input + input_string_ncodeunits, output, Derived::TransformCodepoint);
-    return static_cast<offset_type>(output_end - output);
+  static bool Transform(const uint8_t* input, offset_type input_string_ncodeunits,
+                        uint8_t* output, offset_type* output_written) {
+    uint8_t* output_start = output;
+    if (ARROW_PREDICT_FALSE(
+            !arrow::util::Utf8Transform(input, input + input_string_ncodeunits, &output,
+                                        Derived::TransformCodepoint))) {
+      return false;
+    }
+    *output_written = static_cast<offset_type>(output - output_start);
+    return true;
   }
 
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
@@ -128,8 +133,13 @@ struct Utf8Transform {
       for (int64_t i = 0; i < input_nstrings; i++) {
         offset_type input_string_ncodeunits;
         const uint8_t* input_string = input_boxed.GetValue(i, &input_string_ncodeunits);
-        offset_type encoded_nbytes = Derived::Transform(
-            input_string, input_string_ncodeunits, output_str + output_ncodeunits);
+        offset_type encoded_nbytes;
+        if (ARROW_PREDICT_FALSE(!Derived::Transform(input_string, input_string_ncodeunits,
+                                                    output_str + output_ncodeunits,
+                                                    &encoded_nbytes))) {
+          ctx->SetStatus(Status::Invalid("Invalid UTF8 sequence in input"));
+          return;
+        }
         output_ncodeunits += encoded_nbytes;
         output_string_offsets[i + 1] = output_ncodeunits;
       }
@@ -147,8 +157,13 @@ struct Utf8Transform {
         KERNEL_ASSIGN_OR_RAISE(auto value_buffer, ctx,
                                ctx->Allocate(data_nbytes * 3 / 2));
         result->value = value_buffer;
-        offset_type encoded_nbytes = Derived::Transform(input.value->data(), data_nbytes,
-                                                        value_buffer->mutable_data());
+        offset_type encoded_nbytes;
+        if (ARROW_PREDICT_FALSE(!Derived::Transform(input.value->data(), data_nbytes,
+                                                    value_buffer->mutable_data(),
+                                                    &encoded_nbytes))) {
+          ctx->SetStatus(Status::Invalid("Invalid UTF8 sequence in input"));
+          return;
+        }
         KERNEL_RETURN_IF_ERROR(
             ctx, value_buffer->Resize(encoded_nbytes, /*shrink_to_fit=*/true));
       }

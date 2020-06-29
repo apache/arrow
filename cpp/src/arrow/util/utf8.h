@@ -276,9 +276,7 @@ inline bool ValidateAscii(const util::string_view& str) {
 ARROW_EXPORT
 Result<const uint8_t*> SkipUTF8BOM(const uint8_t* data, int64_t size);
 
-constexpr uint32_t kReplacementChar =
-    '?';  // the proper replacement char would be the 0xFFFD codepoint, but that can
-          // increase string length by a factor of 3
+static constexpr uint32_t kMaxUnicodeCodepoint = 0x110000;
 
 static inline bool Utf8IsContinuation(const uint8_t codeunit) {
   return (codeunit & 0xC0) == 0x80;  // upper two bits should be 10
@@ -294,81 +292,78 @@ static inline uint8_t* Utf8Encode(uint8_t* str, uint32_t codepoint) {
     *str++ = 0xE0 + (codepoint >> 12);
     *str++ = 0x80 + ((codepoint >> 6) & 0x3F);
     *str++ = 0x80 + (codepoint & 0x3F);
-  } else if (codepoint < 0x200000) {
+  } else {
+    // Assume proper codepoints are always passed
+    assert(codepoint < kMaxUnicodeCodepoint);
     *str++ = 0xF0 + (codepoint >> 18);
     *str++ = 0x80 + ((codepoint >> 12) & 0x3F);
     *str++ = 0x80 + ((codepoint >> 6) & 0x3F);
     *str++ = 0x80 + (codepoint & 0x3F);
-  } else {
-    // this shouldn never happen, assuming we pass proper codepoints
-    *str++ = kReplacementChar;
   }
   return str;
 }
 
-static inline const uint8_t* Utf8Decode(const uint8_t* str, uint32_t* codepoint) {
+static inline bool Utf8Decode(const uint8_t** data, uint32_t* codepoint) {
+  const uint8_t* str = *data;
   if (*str < 0x80) {  // ascci
     *codepoint = *str++;
-  } else if (*str < 0xC0) {  // invalid non-ascii char
-    str++;
-    *codepoint = kReplacementChar;
+  } else if (ARROW_PREDICT_FALSE(*str < 0xC0)) {  // invalid non-ascii char
+    return false;
   } else if (*str < 0xE0) {
     uint8_t code_unit_1 = (*str++) & 0x1F;  // take last 5 bits
-    if (!Utf8IsContinuation(*str)) {
-      *codepoint = kReplacementChar;
-      return str;
+    if (ARROW_PREDICT_FALSE(!Utf8IsContinuation(*str))) {
+      return false;
     }
     uint8_t code_unit_2 = (*str++) & 0x3F;  // take last 6 bits
     *codepoint = (code_unit_1 << 6) + code_unit_2;
   } else if (*str < 0xF0) {
     uint8_t code_unit_1 = (*str++) & 0x0F;  // take last 4 bits
-    if (!Utf8IsContinuation(*str)) {
-      *codepoint = kReplacementChar;
-      return str;
+    if (ARROW_PREDICT_FALSE(!Utf8IsContinuation(*str))) {
+      return false;
     }
     uint8_t code_unit_2 = (*str++) & 0x3F;  // take last 6 bits
-    if (!Utf8IsContinuation(*str)) {
-      *codepoint = kReplacementChar;
-      return str;
+    if (ARROW_PREDICT_FALSE(!Utf8IsContinuation(*str))) {
+      return false;
     }
     uint8_t code_unit_3 = (*str++) & 0x3F;  // take last 6 bits
     *codepoint = (code_unit_1 << 12) + (code_unit_2 << 6) + code_unit_3;
   } else if (*str < 0xF8) {
     uint8_t code_unit_1 = (*str++) & 0x07;  // take last 3 bits
-    if (!Utf8IsContinuation(*str)) {
-      *codepoint = kReplacementChar;
-      return str;
+    if (ARROW_PREDICT_FALSE(!Utf8IsContinuation(*str))) {
+      return false;
     }
     uint8_t code_unit_2 = (*str++) & 0x3F;  // take last 6 bits
-    if (!Utf8IsContinuation(*str)) {
-      *codepoint = kReplacementChar;
-      return str;
+    if (ARROW_PREDICT_FALSE(!Utf8IsContinuation(*str))) {
+      return false;
     }
     uint8_t code_unit_3 = (*str++) & 0x3F;  // take last 6 bits
-    if (!Utf8IsContinuation(*str)) {
-      *codepoint = kReplacementChar;
-      return str;
+    if (ARROW_PREDICT_FALSE(!Utf8IsContinuation(*str))) {
+      return false;
     }
     uint8_t code_unit_4 = (*str++) & 0x3F;  // take last 6 bits
     *codepoint =
         (code_unit_1 << 18) + (code_unit_2 << 12) + (code_unit_3 << 6) + code_unit_4;
   } else {  // invalid non-ascii char
-    str++;
-    *codepoint = kReplacementChar;
+    return false;
   }
-  return str;
+  *data = str;
+  return true;
 }
 
 template <class UnaryOperation>
-static inline uint8_t* Utf8Transform(const uint8_t* first, const uint8_t* last,
-                                     uint8_t* destination, UnaryOperation&& unary_op) {
+static inline bool Utf8Transform(const uint8_t* first, const uint8_t* last,
+                                 uint8_t** destination, UnaryOperation&& unary_op) {
   const uint8_t* i = first;
+  uint8_t* out = *destination;
   while (i < last) {
     uint32_t codepoint = 0;
-    i = Utf8Decode(i, &codepoint);
-    destination = Utf8Encode(destination, unary_op(codepoint));
+    if (ARROW_PREDICT_FALSE(!Utf8Decode(&i, &codepoint))) {
+      return false;
+    }
+    out = Utf8Encode(out, unary_op(codepoint));
   }
-  return destination;
+  *destination = out;
+  return true;
 }
 
 }  // namespace util

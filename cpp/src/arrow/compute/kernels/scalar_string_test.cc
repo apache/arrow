@@ -108,9 +108,11 @@ TYPED_TEST(TestStringKernels, Utf8Upper) {
   // test maximum buffer growth
   this->CheckUnary("utf8_upper", "[\"ɑɑɑɑ\"]", this->string_type(), "[\"ⱭⱭⱭⱭ\"]");
 
-  // Test replacing invalid data by ? (a truncated ὖ == \xe1\xbd\x96)
-  this->CheckUnary("utf8_upper", "[\"ɑa\xFFɑ\", \"ɽ\xe1\xbdɽaa\"]", this->string_type(),
-                   "[\"ⱭA?Ɑ\", \"Ɽ?ⱤAA\"]");
+  // Test invalid data
+  auto invalid_input =
+      ArrayFromJSON(this->string_type(), "[\"ɑa\xFFɑ\", \"ɽ\xe1\xbdɽaa\"]");
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("Invalid UTF8 sequence"),
+                                  CallFunction("utf8_upper", {invalid_input}));
 }
 
 TYPED_TEST(TestStringKernels, Utf8Lower) {
@@ -129,9 +131,11 @@ TYPED_TEST(TestStringKernels, Utf8Lower) {
   // test maximum buffer growth
   this->CheckUnary("utf8_lower", "[\"ȺȺȺȺ\"]", this->string_type(), "[\"ⱥⱥⱥⱥ\"]");
 
-  // Test replacing invalid data by ? (a truncated ὖ == \xe1\xbd\x96)
-  this->CheckUnary("utf8_lower", "[\"Ⱥa\xFFⱭ\", \"Ɽ\xe1\xbdⱤaA\"]", this->string_type(),
-                   "[\"ⱥa?ɑ\", \"ɽ?ɽaa\"]");
+  // Test invalid data
+  auto invalid_input =
+      ArrayFromJSON(this->string_type(), "[\"Ⱥa\xFFⱭ\", \"Ɽ\xe1\xbdⱤaA\"]");
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("Invalid UTF8 sequence"),
+                                  CallFunction("utf8_lower", {invalid_input}));
 }
 
 TYPED_TEST(TestStringKernels, Strptime) {
