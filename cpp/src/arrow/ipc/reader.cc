@@ -655,6 +655,8 @@ Status ReadDictionary(const Buffer& metadata, DictionaryMemo* dictionary_memo,
   // The dictionary is embedded in a record batch with a single column
   auto batch_meta = dictionary_batch->data();
 
+  CHECK_FLATBUFFERS_NOT_NULL(batch_meta, "DictionaryBatch.data");
+
   Compression::type compression;
   RETURN_NOT_OK(GetCompression(batch_meta, &compression));
   if (compression == Compression::UNCOMPRESSED &&
@@ -672,8 +674,6 @@ Status ReadDictionary(const Buffer& metadata, DictionaryMemo* dictionary_memo,
   RETURN_NOT_OK(dictionary_memo->GetDictionaryType(id, &value_type));
 
   auto value_field = ::arrow::field("dummy", value_type);
-
-  CHECK_FLATBUFFERS_NOT_NULL(batch_meta, "DictionaryBatch.data");
 
   std::shared_ptr<RecordBatch> batch;
   ARROW_ASSIGN_OR_RAISE(
