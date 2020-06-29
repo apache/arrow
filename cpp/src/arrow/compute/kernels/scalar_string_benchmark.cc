@@ -35,6 +35,7 @@ static void UnaryStringBenchmark(benchmark::State& state, const std::string& fun
   const double null_probability = 0.01;
   random::RandomArrayGenerator rng(kSeed);
 
+  // NOTE: this produces only-Ascii data
   auto values =
       rng.String(array_length, value_min_size, value_max_size, null_probability);
   for (auto _ : state) {

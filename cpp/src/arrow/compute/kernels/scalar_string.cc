@@ -111,14 +111,15 @@ struct Utf8Transform {
         return;
       }
 
-      KERNEL_RETURN_IF_ERROR(
-          ctx, ctx->Allocate(output_ncodeunits_max).Value(&output->buffers[2]));
-      // We could reuse the buffer if it is all ascii, benchmarking showed this not to
-      // matter
-      // output->buffers[1] = input.buffers[1];
-      KERNEL_RETURN_IF_ERROR(ctx,
-                             ctx->Allocate((input_nstrings + 1) * sizeof(offset_type))
-                                 .Value(&output->buffers[1]));
+      KERNEL_ASSIGN_OR_RAISE(auto values_buffer, ctx,
+                             ctx->Allocate(output_ncodeunits_max));
+      output->buffers[2] = values_buffer;
+
+      // We could reuse the indices if the data is all ascii, benchmarking showed this
+      // not to matter.
+      //   output->buffers[1] = input.buffers[1];
+      KERNEL_ASSIGN_OR_RAISE(output->buffers[1], ctx,
+                             ctx->Allocate((input_nstrings + 1) * sizeof(offset_type)));
       uint8_t* output_str = output->buffers[2]->mutable_data();
       offset_type* output_string_offsets = output->GetMutableValues<offset_type>(1);
       offset_type output_ncodeunits = 0;
@@ -133,10 +134,9 @@ struct Utf8Transform {
         output_string_offsets[i + 1] = output_ncodeunits;
       }
 
-      // trim the codepoint buffer, since we allocated too much
+      // Trim the codepoint buffer, since we allocated too much
       KERNEL_RETURN_IF_ERROR(
-          ctx,
-          output->buffers[2]->CopySlice(0, output_ncodeunits).Value(&output->buffers[2]));
+          ctx, values_buffer->Resize(output_ncodeunits, /*shrink_to_fit=*/true));
     } else {
       const auto& input = checked_cast<const BaseBinaryScalar&>(*batch[0].scalar());
       auto result = checked_pointer_cast<BaseBinaryScalar>(MakeNullScalar(out->type()));
@@ -144,12 +144,13 @@ struct Utf8Transform {
         result->is_valid = true;
         offset_type data_nbytes = static_cast<offset_type>(input.value->size());
         // See note above in the Array version explaining the 3 / 2
-        KERNEL_RETURN_IF_ERROR(ctx,
-                               ctx->Allocate(data_nbytes * 3 / 2).Value(&result->value));
+        KERNEL_ASSIGN_OR_RAISE(auto value_buffer, ctx,
+                               ctx->Allocate(data_nbytes * 3 / 2));
+        result->value = value_buffer;
         offset_type encoded_nbytes = Derived::Transform(input.value->data(), data_nbytes,
-                                                        result->value->mutable_data());
+                                                        value_buffer->mutable_data());
         KERNEL_RETURN_IF_ERROR(
-            ctx, result->value->CopySlice(0, encoded_nbytes).Value(&result->value));
+            ctx, value_buffer->Resize(encoded_nbytes, /*shrink_to_fit=*/true));
       }
       out->value = result;
     }

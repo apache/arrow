@@ -83,6 +83,17 @@ namespace internal {
 
 #endif  // ARROW_EXTRA_ERROR_CONTEXT
 
+#define KERNEL_ASSIGN_OR_RAISE_IMPL(result_name, lhs, ctx, rexpr) \
+  auto result_name = (rexpr);                                     \
+  KERNEL_RETURN_IF_ERROR(ctx, (result_name).status());            \
+  lhs = std::move(result_name).MoveValueUnsafe();
+
+#define KERNEL_ASSIGN_OR_RAISE_NAME(x, y) ARROW_CONCAT(x, y)
+
+#define KERNEL_ASSIGN_OR_RAISE(lhs, ctx, rexpr)                                          \
+  KERNEL_ASSIGN_OR_RAISE_IMPL(KERNEL_ASSIGN_OR_RAISE_NAME(_error_or_value, __COUNTER__), \
+                              lhs, ctx, rexpr);
+
 /// KernelState adapter for the common case of kernels whose only
 /// state is an instance of a subclass of FunctionOptions.
 /// Default FunctionOptions are *not* handled here.

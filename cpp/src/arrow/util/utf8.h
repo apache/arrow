@@ -361,7 +361,7 @@ static inline const uint8_t* Utf8Decode(const uint8_t* str, uint32_t* codepoint)
 
 template <class UnaryOperation>
 static inline uint8_t* Utf8Transform(const uint8_t* first, const uint8_t* last,
-                                     uint8_t* destination, UnaryOperation unary_op) {
+                                     uint8_t* destination, UnaryOperation&& unary_op) {
   const uint8_t* i = first;
   while (i < last) {
     uint32_t codepoint = 0;
