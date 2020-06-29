@@ -35,11 +35,11 @@
 #include "arrow/status.h"
 #include "arrow/testing/gtest_compat.h"
 #include "arrow/testing/util.h"
+#include "arrow/testing/visibility.h"
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/visibility.h"
 
 // NOTE: failing must be inline in the macros below, to get correct file / line number
 // reporting on test failures.
@@ -158,65 +158,68 @@ struct Datum;
 #define ASSERT_TABLES_EQUAL(lhs, rhs) AssertTablesEqual((lhs), (rhs))
 
 // If verbose is true, then the arrays will be pretty printed
-ARROW_EXPORT void AssertArraysEqual(const Array& expected, const Array& actual,
-                                    bool verbose = false);
-ARROW_EXPORT void AssertArraysApproxEqual(const Array& expected, const Array& actual,
-                                          bool verbose = false);
+ARROW_TESTING_EXPORT void AssertArraysEqual(const Array& expected, const Array& actual,
+                                            bool verbose = false);
+ARROW_TESTING_EXPORT void AssertArraysApproxEqual(const Array& expected,
+                                                  const Array& actual,
+                                                  bool verbose = false);
 // Returns true when values are both null
-ARROW_EXPORT void AssertScalarsEqual(const Scalar& expected, const Scalar& actual,
-                                     bool verbose = false);
-ARROW_EXPORT void AssertBatchesEqual(const RecordBatch& expected,
-                                     const RecordBatch& actual,
-                                     bool check_metadata = false);
-ARROW_EXPORT void AssertChunkedEqual(const ChunkedArray& expected,
-                                     const ChunkedArray& actual);
-ARROW_EXPORT void AssertChunkedEqual(const ChunkedArray& actual,
-                                     const ArrayVector& expected);
+ARROW_TESTING_EXPORT void AssertScalarsEqual(const Scalar& expected, const Scalar& actual,
+                                             bool verbose = false);
+ARROW_TESTING_EXPORT void AssertBatchesEqual(const RecordBatch& expected,
+                                             const RecordBatch& actual,
+                                             bool check_metadata = false);
+ARROW_TESTING_EXPORT void AssertChunkedEqual(const ChunkedArray& expected,
+                                             const ChunkedArray& actual);
+ARROW_TESTING_EXPORT void AssertChunkedEqual(const ChunkedArray& actual,
+                                             const ArrayVector& expected);
 // Like ChunkedEqual, but permits different chunk layout
-ARROW_EXPORT void AssertChunkedEquivalent(const ChunkedArray& expected,
-                                          const ChunkedArray& actual);
-ARROW_EXPORT void AssertBufferEqual(const Buffer& buffer,
-                                    const std::vector<uint8_t>& expected);
-ARROW_EXPORT void AssertBufferEqual(const Buffer& buffer, const std::string& expected);
-ARROW_EXPORT void AssertBufferEqual(const Buffer& buffer, const Buffer& expected);
+ARROW_TESTING_EXPORT void AssertChunkedEquivalent(const ChunkedArray& expected,
+                                                  const ChunkedArray& actual);
+ARROW_TESTING_EXPORT void AssertBufferEqual(const Buffer& buffer,
+                                            const std::vector<uint8_t>& expected);
+ARROW_TESTING_EXPORT void AssertBufferEqual(const Buffer& buffer,
+                                            const std::string& expected);
+ARROW_TESTING_EXPORT void AssertBufferEqual(const Buffer& buffer, const Buffer& expected);
 
-ARROW_EXPORT void AssertTypeEqual(const DataType& lhs, const DataType& rhs,
-                                  bool check_metadata = false);
-ARROW_EXPORT void AssertTypeEqual(const std::shared_ptr<DataType>& lhs,
-                                  const std::shared_ptr<DataType>& rhs,
-                                  bool check_metadata = false);
-ARROW_EXPORT void AssertFieldEqual(const Field& lhs, const Field& rhs,
-                                   bool check_metadata = false);
-ARROW_EXPORT void AssertFieldEqual(const std::shared_ptr<Field>& lhs,
-                                   const std::shared_ptr<Field>& rhs,
-                                   bool check_metadata = false);
-ARROW_EXPORT void AssertSchemaEqual(const Schema& lhs, const Schema& rhs,
-                                    bool check_metadata = false);
-ARROW_EXPORT void AssertSchemaEqual(const std::shared_ptr<Schema>& lhs,
-                                    const std::shared_ptr<Schema>& rhs,
-                                    bool check_metadata = false);
+ARROW_TESTING_EXPORT void AssertTypeEqual(const DataType& lhs, const DataType& rhs,
+                                          bool check_metadata = false);
+ARROW_TESTING_EXPORT void AssertTypeEqual(const std::shared_ptr<DataType>& lhs,
+                                          const std::shared_ptr<DataType>& rhs,
+                                          bool check_metadata = false);
+ARROW_TESTING_EXPORT void AssertFieldEqual(const Field& lhs, const Field& rhs,
+                                           bool check_metadata = false);
+ARROW_TESTING_EXPORT void AssertFieldEqual(const std::shared_ptr<Field>& lhs,
+                                           const std::shared_ptr<Field>& rhs,
+                                           bool check_metadata = false);
+ARROW_TESTING_EXPORT void AssertSchemaEqual(const Schema& lhs, const Schema& rhs,
+                                            bool check_metadata = false);
+ARROW_TESTING_EXPORT void AssertSchemaEqual(const std::shared_ptr<Schema>& lhs,
+                                            const std::shared_ptr<Schema>& rhs,
+                                            bool check_metadata = false);
 
-ARROW_EXPORT void AssertTypeNotEqual(const DataType& lhs, const DataType& rhs,
-                                     bool check_metadata = false);
-ARROW_EXPORT void AssertTypeNotEqual(const std::shared_ptr<DataType>& lhs,
-                                     const std::shared_ptr<DataType>& rhs,
-                                     bool check_metadata = false);
-ARROW_EXPORT void AssertFieldNotEqual(const Field& lhs, const Field& rhs,
-                                      bool check_metadata = false);
-ARROW_EXPORT void AssertFieldNotEqual(const std::shared_ptr<Field>& lhs,
-                                      const std::shared_ptr<Field>& rhs,
-                                      bool check_metadata = false);
-ARROW_EXPORT void AssertSchemaNotEqual(const Schema& lhs, const Schema& rhs,
-                                       bool check_metadata = false);
-ARROW_EXPORT void AssertSchemaNotEqual(const std::shared_ptr<Schema>& lhs,
-                                       const std::shared_ptr<Schema>& rhs,
-                                       bool check_metadata = false);
+ARROW_TESTING_EXPORT void AssertTypeNotEqual(const DataType& lhs, const DataType& rhs,
+                                             bool check_metadata = false);
+ARROW_TESTING_EXPORT void AssertTypeNotEqual(const std::shared_ptr<DataType>& lhs,
+                                             const std::shared_ptr<DataType>& rhs,
+                                             bool check_metadata = false);
+ARROW_TESTING_EXPORT void AssertFieldNotEqual(const Field& lhs, const Field& rhs,
+                                              bool check_metadata = false);
+ARROW_TESTING_EXPORT void AssertFieldNotEqual(const std::shared_ptr<Field>& lhs,
+                                              const std::shared_ptr<Field>& rhs,
+                                              bool check_metadata = false);
+ARROW_TESTING_EXPORT void AssertSchemaNotEqual(const Schema& lhs, const Schema& rhs,
+                                               bool check_metadata = false);
+ARROW_TESTING_EXPORT void AssertSchemaNotEqual(const std::shared_ptr<Schema>& lhs,
+                                               const std::shared_ptr<Schema>& rhs,
+                                               bool check_metadata = false);
 
-ARROW_EXPORT void AssertTablesEqual(const Table& expected, const Table& actual,
-                                    bool same_chunk_layout = true, bool flatten = false);
+ARROW_TESTING_EXPORT void AssertTablesEqual(const Table& expected, const Table& actual,
+                                            bool same_chunk_layout = true,
+                                            bool flatten = false);
 
-ARROW_EXPORT void AssertDatumsEqual(const Datum& expected, const Datum& actual,
-                                    bool verbose = false);
+ARROW_TESTING_EXPORT void AssertDatumsEqual(const Datum& expected, const Datum& actual,
+                                            bool verbose = false);
 
 template <typename C_TYPE>
 void AssertNumericDataEqual(const C_TYPE* raw_data,
@@ -227,16 +230,16 @@ void AssertNumericDataEqual(const C_TYPE* raw_data,
   }
 }
 
-ARROW_EXPORT void CompareBatch(const RecordBatch& left, const RecordBatch& right,
-                               bool compare_metadata = true);
+ARROW_TESTING_EXPORT void CompareBatch(const RecordBatch& left, const RecordBatch& right,
+                                       bool compare_metadata = true);
 
 // Check if the padding of the buffers of the array is zero.
 // Also cause valgrind warnings if the padding bytes are uninitialized.
-ARROW_EXPORT void AssertZeroPadded(const Array& array);
+ARROW_TESTING_EXPORT void AssertZeroPadded(const Array& array);
 
 // Check if the valid buffer bytes are initialized
 // and cause valgrind warnings otherwise.
-ARROW_EXPORT void TestInitialized(const Array& array);
+ARROW_TESTING_EXPORT void TestInitialized(const Array& array);
 
 template <typename BuilderType>
 void FinishAndCheckPadding(BuilderType* builder, std::shared_ptr<Array>* out) {
@@ -251,24 +254,24 @@ void FinishAndCheckPadding(BuilderType* builder, std::shared_ptr<Array>* out) {
 
 // ArrayFromJSON: construct an Array from a simple JSON representation
 
-ARROW_EXPORT
+ARROW_TESTING_EXPORT
 std::shared_ptr<Array> ArrayFromJSON(const std::shared_ptr<DataType>&,
                                      util::string_view json);
 
-ARROW_EXPORT
+ARROW_TESTING_EXPORT
 std::shared_ptr<Array> DictArrayFromJSON(const std::shared_ptr<DataType>& type,
                                          util::string_view indices_json,
                                          util::string_view dictionary_json);
 
-ARROW_EXPORT
+ARROW_TESTING_EXPORT
 std::shared_ptr<RecordBatch> RecordBatchFromJSON(const std::shared_ptr<Schema>&,
                                                  util::string_view);
 
-ARROW_EXPORT
+ARROW_TESTING_EXPORT
 std::shared_ptr<ChunkedArray> ChunkedArrayFromJSON(const std::shared_ptr<DataType>&,
                                                    const std::vector<std::string>& json);
 
-ARROW_EXPORT
+ARROW_TESTING_EXPORT
 std::shared_ptr<Table> TableFromJSON(const std::shared_ptr<Schema>&,
                                      const std::vector<std::string>& json);
 
@@ -408,7 +411,7 @@ void AssertSortedEquals(std::vector<T> u, std::vector<T> v) {
   ASSERT_EQ(u, v);
 }
 
-ARROW_EXPORT
+ARROW_TESTING_EXPORT
 void SleepFor(double seconds);
 
 template <typename T>
@@ -422,7 +425,7 @@ std::vector<T> IteratorToVector(Iterator<T> iterator) {
 // new locale doesn't exist on the local machine.
 // ATTENTION: may crash with an assertion failure on Windows debug builds.
 // See ARROW-6108, also https://gerrit.libreoffice.org/#/c/54110/
-class ARROW_EXPORT LocaleGuard {
+class ARROW_TESTING_EXPORT LocaleGuard {
  public:
   explicit LocaleGuard(const char* new_locale);
   ~LocaleGuard();

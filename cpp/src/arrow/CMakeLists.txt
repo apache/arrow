@@ -173,7 +173,6 @@ set(ARROW_SRCS
     io/memory.cc
     io/slow.cc
     io/transform.cc
-    testing/util.cc
     util/basic_decimal.cc
     util/bit_block_counter.cc
     util/bit_run_reader.cc
@@ -279,9 +278,12 @@ endif()
 set(ARROW_TESTING_SRCS
     io/test_common.cc
     ipc/test_common.cc
+    testing/json_integration.cc
+    testing/json_internal.cc
     testing/gtest_util.cc
     testing/random.cc
-    testing/generator.cc)
+    testing/generator.cc
+    testing/util.cc)
 
 # Add dependencies for third-party allocators.
 # If possible we only want memory_pool.cc to wait for allocators to finish building,
@@ -409,8 +411,7 @@ if(ARROW_IPC)
               ipc/writer.cc)
 
   if(ARROW_JSON)
-    list(
-      APPEND ARROW_SRCS ipc/json_integration.cc ipc/json_internal.cc ipc/json_simple.cc)
+    list(APPEND ARROW_SRCS ipc/json_simple.cc)
   endif()
 endif()
 
@@ -471,6 +472,17 @@ if(ARROW_BUILD_STATIC AND WIN32)
   target_compile_definitions(arrow_static PUBLIC ARROW_STATIC)
 endif()
 
+if(ARROW_WITH_BACKTRACE)
+  find_package(Backtrace)
+
+  foreach(LIB_TARGET ${ARROW_LIBRARIES})
+    target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_EXPORTING)
+    if(Backtrace_FOUND AND ARROW_WITH_BACKTRACE)
+      target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_WITH_BACKTRACE)
+    endif()
+  endforeach()
+endif()
+
 if(ARROW_BUILD_TESTS
    OR ARROW_BUILD_BENCHMARKS
    OR ARROW_BUILD_INTEGRATION
@@ -500,20 +512,11 @@ if(ARROW_BUILD_TESTS
   add_dependencies(arrow_testing ${ARROW_TESTING_LIBRARIES})
 
   if(ARROW_BUILD_STATIC AND WIN32)
-    target_compile_definitions(arrow_testing_static PUBLIC ARROW_STATIC)
+    target_compile_definitions(arrow_testing_static PUBLIC ARROW_TESTING_STATIC)
   endif()
 
-  set(ARROW_LIBRARIES ${ARROW_LIBRARIES} ${ARROW_TESTING_LIBRARIES})
-endif()
-
-if(ARROW_WITH_BACKTRACE)
-  find_package(Backtrace)
-
-  foreach(LIB_TARGET ${ARROW_LIBRARIES})
-    target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_EXPORTING)
-    if(Backtrace_FOUND AND ARROW_WITH_BACKTRACE)
-      target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_WITH_BACKTRACE)
-    endif()
+  foreach(LIB_TARGET ${ARROW_TESTING_LIBRARIES})
+    target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_TESTING_EXPORTING)
   endforeach()
 endif()
 

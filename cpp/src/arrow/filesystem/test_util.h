@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "arrow/filesystem/filesystem.h"
+#include "arrow/testing/visibility.h"
 
 namespace arrow {
 namespace fs {
@@ -43,43 +44,43 @@ static inline FileInfo Dir(std::string path) {
   return info;
 }
 
-ARROW_EXPORT
+ARROW_TESTING_EXPORT
 void CreateFile(FileSystem* fs, const std::string& path, const std::string& data);
 
 // Sort a vector of FileInfo by lexicographic path order
-ARROW_EXPORT
+ARROW_TESTING_EXPORT
 void SortInfos(std::vector<FileInfo>* infos);
 
-ARROW_EXPORT
+ARROW_TESTING_EXPORT
 void AssertFileInfo(const FileInfo& info, const std::string& path, FileType type);
 
-ARROW_EXPORT
+ARROW_TESTING_EXPORT
 void AssertFileInfo(const FileInfo& info, const std::string& path, FileType type,
                     TimePoint mtime);
 
-ARROW_EXPORT
+ARROW_TESTING_EXPORT
 void AssertFileInfo(const FileInfo& info, const std::string& path, FileType type,
                     TimePoint mtime, int64_t size);
 
-ARROW_EXPORT
+ARROW_TESTING_EXPORT
 void AssertFileInfo(const FileInfo& info, const std::string& path, FileType type,
                     int64_t size);
 
-ARROW_EXPORT
+ARROW_TESTING_EXPORT
 void AssertFileInfo(FileSystem* fs, const std::string& path, FileType type);
 
-ARROW_EXPORT
+ARROW_TESTING_EXPORT
 void AssertFileInfo(FileSystem* fs, const std::string& path, FileType type,
                     TimePoint mtime);
 
-ARROW_EXPORT
+ARROW_TESTING_EXPORT
 void AssertFileInfo(FileSystem* fs, const std::string& path, FileType type,
                     TimePoint mtime, int64_t size);
 
-ARROW_EXPORT
+ARROW_TESTING_EXPORT
 void AssertFileInfo(FileSystem* fs, const std::string& path, FileType type, int64_t size);
 
-ARROW_EXPORT
+ARROW_TESTING_EXPORT
 void AssertFileContents(FileSystem* fs, const std::string& path,
                         const std::string& expected_data);
 
@@ -94,7 +95,7 @@ void AssertDurationBetween(Duration d, double min_secs, double max_secs) {
 // To use this class, subclass both from it and ::testing::Test,
 // implement GetEmptyFileSystem(), and use GENERIC_FS_TEST_FUNCTIONS()
 // to define the various tests.
-class ARROW_EXPORT GenericFileSystemTest {
+class ARROW_TESTING_EXPORT GenericFileSystemTest {
  public:
   virtual ~GenericFileSystemTest();
 

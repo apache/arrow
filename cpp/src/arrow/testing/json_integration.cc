@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/ipc/json_integration.h"
+#include "arrow/testing/json_integration.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -26,10 +26,10 @@
 #include "arrow/buffer.h"
 #include "arrow/io/file.h"
 #include "arrow/ipc/dictionary.h"
-#include "arrow/ipc/json_internal.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/testing/json_internal.h"
 #include "arrow/type.h"
 #include "arrow/util/logging.h"
 
@@ -40,16 +40,17 @@
 using std::size_t;
 
 namespace arrow {
-namespace ipc {
-namespace internal {
-namespace json {
+
+using ipc::DictionaryMemo;
+
+namespace testing {
 
 // ----------------------------------------------------------------------
 // Writer implementation
 
-class JsonWriter::JsonWriterImpl {
+class IntegrationJsonWriter::Impl {
  public:
-  explicit JsonWriterImpl(const std::shared_ptr<Schema>& schema)
+  explicit Impl(const std::shared_ptr<Schema>& schema)
       : schema_(schema), first_batch_written_(false) {
     writer_.reset(new RjWriter(string_buffer_));
   }
@@ -68,7 +69,7 @@ class JsonWriter::JsonWriterImpl {
       writer_->Key("dictionaries");
       writer_->StartArray();
       for (const auto& entry : dictionary_memo_.dictionaries()) {
-        RETURN_NOT_OK(WriteDictionary(entry.first, entry.second, writer_.get()));
+        RETURN_NOT_OK(json::WriteDictionary(entry.first, entry.second, writer_.get()));
       }
       writer_->EndArray();
     }
@@ -107,30 +108,32 @@ class JsonWriter::JsonWriterImpl {
   std::unique_ptr<RjWriter> writer_;
 };
 
-JsonWriter::JsonWriter(const std::shared_ptr<Schema>& schema) {
-  impl_.reset(new JsonWriterImpl(schema));
+IntegrationJsonWriter::IntegrationJsonWriter(const std::shared_ptr<Schema>& schema) {
+  impl_.reset(new Impl(schema));
 }
 
-JsonWriter::~JsonWriter() {}
+IntegrationJsonWriter::~IntegrationJsonWriter() {}
 
-Status JsonWriter::Open(const std::shared_ptr<Schema>& schema,
-                        std::unique_ptr<JsonWriter>* writer) {
-  *writer = std::unique_ptr<JsonWriter>(new JsonWriter(schema));
+Status IntegrationJsonWriter::Open(const std::shared_ptr<Schema>& schema,
+                                   std::unique_ptr<IntegrationJsonWriter>* writer) {
+  *writer = std::unique_ptr<IntegrationJsonWriter>(new IntegrationJsonWriter(schema));
   return (*writer)->impl_->Start();
 }
 
-Status JsonWriter::Finish(std::string* result) { return impl_->Finish(result); }
+Status IntegrationJsonWriter::Finish(std::string* result) {
+  return impl_->Finish(result);
+}
 
-Status JsonWriter::WriteRecordBatch(const RecordBatch& batch) {
+Status IntegrationJsonWriter::WriteRecordBatch(const RecordBatch& batch) {
   return impl_->WriteRecordBatch(batch);
 }
 
 // ----------------------------------------------------------------------
 // Reader implementation
 
-class JsonReader::JsonReaderImpl {
+class IntegrationJsonReader::Impl {
  public:
-  JsonReaderImpl(MemoryPool* pool, const std::shared_ptr<Buffer>& data)
+  Impl(MemoryPool* pool, const std::shared_ptr<Buffer>& data)
       : pool_(pool), data_(data), record_batches_(nullptr) {}
 
   Status ParseAndReadSchema() {
@@ -174,40 +177,42 @@ class JsonReader::JsonReaderImpl {
   DictionaryMemo dictionary_memo_;
 };
 
-JsonReader::JsonReader(MemoryPool* pool, const std::shared_ptr<Buffer>& data) {
-  impl_.reset(new JsonReaderImpl(pool, data));
+IntegrationJsonReader::IntegrationJsonReader(MemoryPool* pool,
+                                             const std::shared_ptr<Buffer>& data) {
+  impl_.reset(new Impl(pool, data));
 }
 
-JsonReader::~JsonReader() {}
+IntegrationJsonReader::~IntegrationJsonReader() {}
 
-Status JsonReader::Open(const std::shared_ptr<Buffer>& data,
-                        std::unique_ptr<JsonReader>* reader) {
+Status IntegrationJsonReader::Open(const std::shared_ptr<Buffer>& data,
+                                   std::unique_ptr<IntegrationJsonReader>* reader) {
   return Open(default_memory_pool(), data, reader);
 }
 
-Status JsonReader::Open(MemoryPool* pool, const std::shared_ptr<Buffer>& data,
-                        std::unique_ptr<JsonReader>* reader) {
-  *reader = std::unique_ptr<JsonReader>(new JsonReader(pool, data));
+Status IntegrationJsonReader::Open(MemoryPool* pool, const std::shared_ptr<Buffer>& data,
+                                   std::unique_ptr<IntegrationJsonReader>* reader) {
+  *reader = std::unique_ptr<IntegrationJsonReader>(new IntegrationJsonReader(pool, data));
   return (*reader)->impl_->ParseAndReadSchema();
 }
 
-Status JsonReader::Open(MemoryPool* pool,
-                        const std::shared_ptr<io::ReadableFile>& in_file,
-                        std::unique_ptr<JsonReader>* reader) {
+Status IntegrationJsonReader::Open(MemoryPool* pool,
+                                   const std::shared_ptr<io::ReadableFile>& in_file,
+                                   std::unique_ptr<IntegrationJsonReader>* reader) {
   ARROW_ASSIGN_OR_RAISE(int64_t file_size, in_file->GetSize());
   ARROW_ASSIGN_OR_RAISE(auto json_buffer, in_file->Read(file_size));
   return Open(pool, json_buffer, reader);
 }
 
-std::shared_ptr<Schema> JsonReader::schema() const { return impl_->schema(); }
+std::shared_ptr<Schema> IntegrationJsonReader::schema() const { return impl_->schema(); }
 
-int JsonReader::num_record_batches() const { return impl_->num_record_batches(); }
+int IntegrationJsonReader::num_record_batches() const {
+  return impl_->num_record_batches();
+}
 
-Status JsonReader::ReadRecordBatch(int i, std::shared_ptr<RecordBatch>* batch) const {
+Status IntegrationJsonReader::ReadRecordBatch(int i,
+                                              std::shared_ptr<RecordBatch>* batch) const {
   return impl_->ReadRecordBatch(i, batch);
 }
 
-}  // namespace json
-}  // namespace internal
-}  // namespace ipc
+}  // namespace testing
 }  // namespace arrow

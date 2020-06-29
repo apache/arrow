@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Implement Arrow JSON serialization format
+// Implement Arrow JSON serialization format for integration tests
 
 #pragma once
 
@@ -23,7 +23,7 @@
 #include <string>
 
 #include "arrow/status.h"
-#include "arrow/util/visibility.h"
+#include "arrow/testing/visibility.h"
 
 namespace arrow {
 
@@ -36,17 +36,15 @@ namespace io {
 class ReadableFile;
 }  // namespace io
 
-namespace ipc {
-namespace internal {
-namespace json {
+namespace testing {
 
-/// \class JsonWriter
+/// \class IntegrationJsonWriter
 /// \brief Write the JSON representation of an Arrow record batch file or stream
 ///
 /// This is used for integration testing
-class ARROW_EXPORT JsonWriter {
+class ARROW_TESTING_EXPORT IntegrationJsonWriter {
  public:
-  ~JsonWriter();
+  ~IntegrationJsonWriter();
 
   /// \brief Create a new JSON writer that writes to memory
   ///
@@ -54,7 +52,7 @@ class ARROW_EXPORT JsonWriter {
   /// \param[out] out the returned writer object
   /// \return Status
   static Status Open(const std::shared_ptr<Schema>& schema,
-                     std::unique_ptr<JsonWriter>* out);
+                     std::unique_ptr<IntegrationJsonWriter>* out);
 
   /// \brief Append a record batch
   Status WriteRecordBatch(const RecordBatch& batch);
@@ -66,20 +64,20 @@ class ARROW_EXPORT JsonWriter {
   Status Finish(std::string* result);
 
  private:
-  explicit JsonWriter(const std::shared_ptr<Schema>& schema);
+  explicit IntegrationJsonWriter(const std::shared_ptr<Schema>& schema);
 
   // Hide RapidJSON details from public API
-  class JsonWriterImpl;
-  std::unique_ptr<JsonWriterImpl> impl_;
+  class Impl;
+  std::unique_ptr<Impl> impl_;
 };
 
-/// \class JsonReader
+/// \class IntegrationJsonReader
 /// \brief Read the JSON representation of an Arrow record batch file or stream
 ///
 /// This is used for integration testing
-class ARROW_EXPORT JsonReader {
+class ARROW_TESTING_EXPORT IntegrationJsonReader {
  public:
-  ~JsonReader();
+  ~IntegrationJsonReader();
 
   /// \brief Create a new JSON reader
   ///
@@ -88,7 +86,7 @@ class ARROW_EXPORT JsonReader {
   /// \param[out] reader the returned reader object
   /// \return Status
   static Status Open(MemoryPool* pool, const std::shared_ptr<Buffer>& data,
-                     std::unique_ptr<JsonReader>* reader);
+                     std::unique_ptr<IntegrationJsonReader>* reader);
 
   /// \brief Create a new JSON reader that uses the default memory pool
   ///
@@ -96,7 +94,7 @@ class ARROW_EXPORT JsonReader {
   /// \param[out] reader the returned reader object
   /// \return Status
   static Status Open(const std::shared_ptr<Buffer>& data,
-                     std::unique_ptr<JsonReader>* reader);
+                     std::unique_ptr<IntegrationJsonReader>* reader);
 
   /// \brief Create a new JSON reader from a file
   ///
@@ -105,7 +103,7 @@ class ARROW_EXPORT JsonReader {
   /// \param[out] reader the returned reader object
   /// \return Status
   static Status Open(MemoryPool* pool, const std::shared_ptr<io::ReadableFile>& in_file,
-                     std::unique_ptr<JsonReader>* reader);
+                     std::unique_ptr<IntegrationJsonReader>* reader);
 
   /// \brief Return the schema read from the JSON
   std::shared_ptr<Schema> schema() const;
@@ -120,14 +118,12 @@ class ARROW_EXPORT JsonReader {
   Status ReadRecordBatch(int i, std::shared_ptr<RecordBatch>* batch) const;
 
  private:
-  JsonReader(MemoryPool* pool, const std::shared_ptr<Buffer>& data);
+  IntegrationJsonReader(MemoryPool* pool, const std::shared_ptr<Buffer>& data);
 
   // Hide RapidJSON details from public API
-  class JsonReaderImpl;
-  std::unique_ptr<JsonReaderImpl> impl_;
+  class Impl;
+  std::unique_ptr<Impl> impl_;
 };
 
-}  // namespace json
-}  // namespace internal
-}  // namespace ipc
+}  // namespace testing
 }  // namespace arrow

@@ -24,12 +24,12 @@
 
 #include "arrow/record_batch.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/visibility.h"
 #include "arrow/type.h"
-#include "arrow/util/visibility.h"
 
 namespace arrow {
 
-class ARROW_EXPORT ConstantArrayGenerator {
+class ARROW_TESTING_EXPORT ConstantArrayGenerator {
  public:
   /// \brief Generates a constant BooleanArray
   ///
