@@ -613,6 +613,8 @@ static inline Result<std::string> FileFromRowGroup(
       }
     }
 
+    // TODO Is it possible to infer the file size and return a populated FileInfo?
+    // This could avoid some spurious HEAD requests on S3 (ARROW-8950)
     path = fs::internal::JoinAbstractPath(std::vector<std::string>{base_path, path});
     // Normalizing path is required for Windows.
     return filesystem->NormalizePath(std::move(path));

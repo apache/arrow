@@ -36,7 +36,7 @@ namespace dataset {
 
 Result<std::shared_ptr<arrow::io::RandomAccessFile>> FileSource::Open() const {
   if (filesystem_) {
-    return filesystem_->OpenInputFile(path_);
+    return filesystem_->OpenInputFile(file_info_);
   }
 
   if (buffer_) {

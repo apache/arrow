@@ -556,6 +556,7 @@ function(ADD_TEST_CASE REL_TEST_NAME)
       EXTRA_INCLUDES
       EXTRA_DEPENDENCIES
       LABELS
+      EXTRA_LABELS
       PREFIX)
   cmake_parse_arguments(ARG
                         "${options}"
@@ -652,10 +653,15 @@ function(ADD_TEST_CASE REL_TEST_NAME)
     add_dependencies(${TARGET} ${TEST_NAME})
   endforeach()
 
+  set(LABELS)
+  list(APPEND LABELS "unittest")
   if(ARG_LABELS)
-    set(ARG_LABELS "unittest;${ARG_LABELS}")
-  else()
-    set(ARG_LABELS unittest)
+    list(APPEND LABELS ${ARG_LABELS})
+  endif()
+  # EXTRA_LABELS don't create their own dependencies, they are only used
+  # to ease running certain test categories.
+  if(ARG_EXTRA_LABELS)
+    list(APPEND LABELS ${ARG_EXTRA_LABELS})
   endif()
 
   foreach(LABEL ${ARG_LABELS})
@@ -673,7 +679,7 @@ function(ADD_TEST_CASE REL_TEST_NAME)
     add_dependencies(${LABEL_TEST_NAME} ${TEST_NAME})
   endforeach()
 
-  set_property(TEST ${TEST_NAME} APPEND PROPERTY LABELS ${ARG_LABELS})
+  set_property(TEST ${TEST_NAME} APPEND PROPERTY LABELS ${LABELS})
 endfunction()
 
 #

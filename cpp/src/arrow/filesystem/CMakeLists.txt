@@ -25,10 +25,12 @@ add_arrow_test(filesystem-test
                SOURCES
                filesystem_test.cc
                localfs_test.cc
-               path_forest_test.cc)
+               path_forest_test.cc
+               EXTRA_LABELS
+               filesystem)
 
 if(ARROW_S3)
-  add_arrow_test(s3fs_test)
+  add_arrow_test(s3fs_test EXTRA_LABELS filesystem)
 
   if(ARROW_BUILD_TESTS)
     add_executable(arrow-s3fs-narrative-test s3fs_narrative_test.cc)
@@ -48,5 +50,5 @@ if(ARROW_S3)
 endif()
 
 if(ARROW_HDFS)
-  add_arrow_test(hdfs_test)
+  add_arrow_test(hdfs_test EXTRA_LABELS filesystem)
 endif()

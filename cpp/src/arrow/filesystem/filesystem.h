@@ -56,6 +56,9 @@ struct ARROW_EXPORT FileInfo : public util::EqualityComparable<FileInfo> {
   FileInfo(const FileInfo&) = default;
   FileInfo& operator=(const FileInfo&) = default;
 
+  explicit FileInfo(std::string path, FileType type = FileType::Unknown)
+      : path_(std::move(path)), type_(type) {}
+
   /// The file type
   FileType type() const { return type_; }
   void set_type(FileType type) { type_ = type; }
@@ -107,8 +110,8 @@ struct ARROW_EXPORT FileInfo : public util::EqualityComparable<FileInfo> {
   };
 
  protected:
-  FileType type_ = FileType::Unknown;
   std::string path_;
+  FileType type_ = FileType::Unknown;
   int64_t size_ = kNoSize;
   TimePoint mtime_ = kNoTime;
 };
@@ -205,10 +208,23 @@ class ARROW_EXPORT FileSystem : public std::enable_shared_from_this<FileSystem> 
   /// Open an input stream for sequential reading.
   virtual Result<std::shared_ptr<io::InputStream>> OpenInputStream(
       const std::string& path) = 0;
+  /// Open an input stream for sequential reading.
+  ///
+  /// This override assumes the given FileInfo validly represents the file's
+  /// characteristics, and may optimize access depending on them (for example
+  /// avoid querying the file size or its existence).
+  virtual Result<std::shared_ptr<io::InputStream>> OpenInputStream(const FileInfo& info);
 
   /// Open an input file for random access reading.
   virtual Result<std::shared_ptr<io::RandomAccessFile>> OpenInputFile(
       const std::string& path) = 0;
+  /// Open an input file for random access reading.
+  ///
+  /// This override assumes the given FileInfo validly represents the file's
+  /// characteristics, and may optimize access depending on them (for example
+  /// avoid querying the file size or its existence).
+  virtual Result<std::shared_ptr<io::RandomAccessFile>> OpenInputFile(
+      const FileInfo& info);
 
   /// Open an output stream for sequential writing.
   ///
@@ -266,8 +282,11 @@ class ARROW_EXPORT SubTreeFileSystem : public FileSystem {
 
   Result<std::shared_ptr<io::InputStream>> OpenInputStream(
       const std::string& path) override;
+  Result<std::shared_ptr<io::InputStream>> OpenInputStream(const FileInfo& info) override;
   Result<std::shared_ptr<io::RandomAccessFile>> OpenInputFile(
       const std::string& path) override;
+  Result<std::shared_ptr<io::RandomAccessFile>> OpenInputFile(
+      const FileInfo& info) override;
   Result<std::shared_ptr<io::OutputStream>> OpenOutputStream(
       const std::string& path) override;
   Result<std::shared_ptr<io::OutputStream>> OpenAppendStream(
@@ -318,8 +337,11 @@ class ARROW_EXPORT SlowFileSystem : public FileSystem {
 
   Result<std::shared_ptr<io::InputStream>> OpenInputStream(
       const std::string& path) override;
+  Result<std::shared_ptr<io::InputStream>> OpenInputStream(const FileInfo& info) override;
   Result<std::shared_ptr<io::RandomAccessFile>> OpenInputFile(
       const std::string& path) override;
+  Result<std::shared_ptr<io::RandomAccessFile>> OpenInputFile(
+      const FileInfo& info) override;
   Result<std::shared_ptr<io::OutputStream>> OpenOutputStream(
       const std::string& path) override;
   Result<std::shared_ptr<io::OutputStream>> OpenAppendStream(
