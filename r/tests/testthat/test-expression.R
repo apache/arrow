@@ -48,7 +48,6 @@ test_that("C++ expressions", {
   ts <- Expression$scalar(as.POSIXct("2020-01-17 11:11:11"))
   i64 <- Expression$scalar(bit64::as.integer64(42))
   time <- Expression$scalar(hms::hms(56, 34, 12))
-  dict <- Expression$scalar(factor("a"))
 
   expect_is(f == g, "Expression")
   expect_is(f == 4, "Expression")
@@ -57,7 +56,6 @@ test_that("C++ expressions", {
   expect_is(f == date, "Expression")
   expect_is(f == i64, "Expression")
   expect_is(f == time, "Expression")
-  expect_is(f == dict, "Expression")
   # can't seem to make this work right now because of R Ops.method dispatch
   # expect_is(f == as.Date("2020-01-15"), "Expression")
   expect_is(f == ts, "Expression")
