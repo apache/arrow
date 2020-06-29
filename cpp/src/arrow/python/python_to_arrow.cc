@@ -674,8 +674,7 @@ class StringConverter : public BinaryLikeConverter<Type, null_coding> {
     if (binary_count_) {
       // We should have bailed out earlier
       DCHECK(!STRICT);
-      auto binary_type =
-          TypeTraits<typename Type::EquivalentBinaryType>::type_singleton();
+      auto binary_type = TypeTraits<typename Type::PhysicalType>::type_singleton();
       return (*out)->View(binary_type).Value(out);
     }
     return Status::OK();
