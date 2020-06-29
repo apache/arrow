@@ -499,8 +499,6 @@ test_that("Dataset and query print methods", {
       "ts: timestamp[us, tz=UTC]",
       "group: int32",
       "other: string",
-      "",
-      "See $metadata for additional Schema metadata",
       sep = "\n"
     ),
     fixed = TRUE
