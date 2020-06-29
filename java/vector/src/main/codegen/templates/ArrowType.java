@@ -306,6 +306,8 @@ public abstract class ArrowType {
     }
   }
 
+  private static final int defaultDecimalBitWidth = 128;
+
   public static org.apache.arrow.vector.types.pojo.ArrowType getTypeForField(org.apache.arrow.flatbuf.Field field) {
     switch(field.typeType()) {
     <#list arrowTypes.types as type>
@@ -324,6 +326,12 @@ public abstract class ArrowType {
       ${field.type} ${field.name} = ${nameLower}Type.${field.name}();
       </#if>
       </#list>
+      <#if type.name == "Decimal">
+      int bitWidth = ${nameLower}Type.bitWidth();
+      if (bitWidth != defaultDecimalBitWidth) {
+        throw new IllegalArgumentException("Library only supports 128-bit decimal values");
+      }
+      </#if>
       return new ${name}(<#list type.fields as field><#if field.valueType??>${field.valueType}.fromFlatbufID(${field.name})<#else>${field.name}</#if><#if field_has_next>, </#if></#list>);
     }
     </#list>
