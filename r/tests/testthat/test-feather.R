@@ -177,11 +177,28 @@ test_that("read_feather requires RandomAccessFile and errors nicely otherwise (A
 
 test_that("read_feather closes connection to file", {
   tf <- tempfile()
+  on.exit(unlink(tf))
   write_feather(tib, sink = tf)
   expect_true(file.exists(tf))
   read_feather(tf)
   expect_error(file.remove(tf), NA)
   expect_false(file.exists(tf))
+})
+
+test_that("R metadata roundtrip via feather", {
+  df <- tibble::tibble(
+    a = structure("one", class = "special_string"),
+    b = 2,
+    c = tibble::tibble(
+      c1 = structure("inner", extra_attr = "something"),
+      c2 = 4
+    )
+  )
+  tf <- tempfile()
+  on.exit(unlink(tf))
+
+  write_feather(df, tf)
+  expect_identical(read_feather(tf), df)
 })
 
 unlink(feather_file)

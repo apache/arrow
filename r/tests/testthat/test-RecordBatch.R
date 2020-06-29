@@ -379,3 +379,15 @@ test_that("RecordBatch metadata", {
   rb$metadata <- NULL
   expect_equivalent(rb$metadata, list())
 })
+
+test_that("RecordBatch R metadata", {
+  df <- tibble::tibble(
+    a = structure("one", class = "special_string"),
+    b = 2,
+    c = tibble::tibble(
+      c1 = structure("inner", extra_attr = "something"),
+      c2 = 4
+    )
+  )
+  expect_identical(as.data.frame(record_batch(df)), df)
+})

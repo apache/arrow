@@ -332,6 +332,18 @@ test_that("Table metadata", {
   expect_equivalent(tab$metadata, list())
 })
 
+test_that("Table R metadata", {
+  df <- tibble::tibble(
+    a = structure("one", class = "special_string"),
+    b = 2,
+    c = tibble::tibble(
+      c1 = structure("inner", extra_attr = "something"),
+      c2 = 4
+    )
+  )
+  expect_identical(as.data.frame(Table$create(df)), df)
+})
+
 test_that("Table handles null type (ARROW-7064)", {
   tab <- Table$create(a = 1:10, n = vctrs::unspecified(10))
   expect_equivalent(tab$schema, schema(a = int32(), n = null()))
