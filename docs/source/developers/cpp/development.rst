@@ -113,7 +113,7 @@ target that is executable from the root of the repository:
 
 .. code-block:: shell
 
-   docker-compose run lint
+   docker-compose run ubuntu-lint
 
 Cleaning includes with include-what-you-use (IWYU)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
