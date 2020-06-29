@@ -215,10 +215,9 @@ SEXP CollectColumnMetadata(SEXP lst, int num_fields, bool& has_metadata) {
       if (Rf_inherits(x, "data.frame")) {
         int inner_num_fields;
         StopIfNotOk(arrow::r::count_fields(x, &inner_num_fields));
-        SEXP struct_cols =
-            PROTECT(CollectColumnMetadata(x, inner_num_fields, has_metadata));
-        SET_VECTOR_ELT(att_list, 1, struct_cols);
-        UNPROTECT(3);
+        SET_VECTOR_ELT(att_list, 1,
+                       CollectColumnMetadata(x, inner_num_fields, has_metadata));
+        UNPROTECT(2);  // CollectColumnMetadata adds 2 PROTECTS
       }
       SET_VECTOR_ELT(metadata_columns, j, att_list);
       has_metadata = true;
@@ -238,6 +237,7 @@ arrow::Status AddMetadataFromDots(SEXP lst, int num_fields,
 
   bool has_metadata = false;
   SET_VECTOR_ELT(metadata, 1, CollectColumnMetadata(lst, num_fields, has_metadata));
+  UNPROTECT(2);  // CollectColumnMetadata adds 2 PROTECTS
 
   if (has_metadata) {
     SEXP serialise_call = PROTECT(Rf_lang2(arrow::r::symbols::arrow_serialize, metadata));
@@ -248,7 +248,7 @@ arrow::Status AddMetadataFromDots(SEXP lst, int num_fields,
 
     UNPROTECT(2);
   }
-  UNPROTECT(3);
+  UNPROTECT(1);
 
   return arrow::Status::OK();
 }
