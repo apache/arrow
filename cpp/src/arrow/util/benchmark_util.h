@@ -98,7 +98,7 @@ void BenchmarkSetArgs(benchmark::internal::Benchmark* bench) {
 void RegressionSetArgs(benchmark::internal::Benchmark* bench) {
   // Regression do not need to account for cache hierarchy, thus optimize for
   // the best case.
-  BenchmarkSetArgsWithSizes(bench, {kL2Size});
+  BenchmarkSetArgsWithSizes(bench, {kL1Size});
 }
 
 // RAII struct to handle some of the boilerplate in regression benchmarks
