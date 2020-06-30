@@ -413,7 +413,7 @@ def test_struct():
     assert s['x'] == 2
     assert s['y'] == 3.5
 
-    with pytest.raises(IndexError):
+    with pytest.raises(KeyError):
         s['non-existent']
 
     s = pa.scalar(None, type=ty)
