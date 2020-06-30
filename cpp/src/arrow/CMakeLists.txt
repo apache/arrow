@@ -603,6 +603,7 @@ add_subdirectory(testing)
 add_subdirectory(array)
 add_subdirectory(c)
 add_subdirectory(io)
+add_subdirectory(tensor)
 add_subdirectory(util)
 add_subdirectory(vendored)
 
