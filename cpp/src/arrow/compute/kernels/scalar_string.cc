@@ -345,15 +345,37 @@ template <typename offset_type>
 void TransformContainsExact(const uint8_t* pattern, int64_t pattern_length,
                             const offset_type* offsets, const uint8_t* data,
                             int64_t length, uint8_t* output) {
+  // This is an implementation of the Knuth-Morris-Pratt algorithm
+
+  // Phase 1: Build the prefix table
+  std::vector<offset_type> prefix_table(pattern_length + 1);
+  offset_type prefix_length = -1;
+  prefix_table[0] = -1;
+  for (offset_type pos = 0; pos < pattern_length; ++pos) {
+    // The prefix cannot be expanded, reset.
+    if (prefix_length >= 0 && pattern[pos] != pattern[prefix_length]) {
+      prefix_length = prefix_table[prefix_length];
+    }
+    prefix_length++;
+    prefix_table[pos + 1] = prefix_length;
+  }
+
+  // Phase 2: Find the prefix in the data
   FirstTimeBitmapWriter bitmap_writer(output, 0, length);
   for (int64_t i = 0; i < length; ++i) {
+    const uint8_t* current_data = data + offsets[i];
     int64_t current_length = offsets[i + 1] - offsets[i];
 
-    // Search for the pattern at every possible position
-    for (int64_t k = 0; k < (current_length - pattern_length + 1); k++) {
-      if (memcmp(pattern, data + offsets[i] + k, pattern_length) == 0) {
-        bitmap_writer.Set();
-        break;
+    int64_t pattern_pos = 0;
+    for (int64_t k = 0; k < current_length; k++) {
+      if (pattern[pattern_pos] == current_data[k]) {
+        pattern_pos++;
+        if (pattern_pos == pattern_length) {
+          bitmap_writer.Set();
+          break;
+        }
+      } else {
+        pattern_pos = std::max<offset_type>(0, prefix_table[pattern_pos]);
       }
     }
     bitmap_writer.Next();

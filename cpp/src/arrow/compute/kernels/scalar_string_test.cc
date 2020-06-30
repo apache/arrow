@@ -152,6 +152,10 @@ TYPED_TEST(TestStringKernels, ContainsExact) {
   this->CheckUnary("contains_exact", "[]", boolean(), "[]", &options);
   this->CheckUnary("contains_exact", R"(["abc", "acb", "cab", null, "bac"])", boolean(),
                    "[true, false, true, null, false]", &options);
+
+  ContainsExactOptions options_repeated{"abab"};
+  this->CheckUnary("contains_exact", R"(["abab", "ab", "cababc", null, "bac"])",
+                   boolean(), "[true, false, true, null, false]", &options_repeated);
 }
 
 TYPED_TEST(TestStringKernels, Strptime) {
