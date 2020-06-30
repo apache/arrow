@@ -81,8 +81,7 @@ public class VectorLoader {
     for (int j = 0; j < bufferLayoutCount; j++) {
       ArrowBuf nextBuf = buffers.next();
       if (codec != null) {
-        long estimatedBufSize = codec.estimateDecompressedSize(nextBuf);
-        nextBuf = codec.decompress(nextBuf, estimatedBufSize);
+        nextBuf = codec.decompress(nextBuf);
       }
       ownBuffers.add(nextBuf);
     }

@@ -98,8 +98,7 @@ public class VectorUnloader {
     }
     if (codec != null) {
       fieldBuffers = fieldBuffers.stream().map(buf -> {
-        long estimatedSize = codec.estimateCompressedSize(buf);
-        return codec.compress(buf, estimatedSize);
+        return codec.compress(buf);
       }).collect(Collectors.toList());
     }
     buffers.addAll(fieldBuffers);

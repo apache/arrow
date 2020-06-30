@@ -31,17 +31,20 @@ public class CompressionUtility {
 
   /**
    * Creates the {@link ArrowBodyCompression} object, given the {@link CompressionCodec}.
+   * The implementation of this method should depend on the values of {@link CompressionType#names}.
    */
   public static ArrowBodyCompression createBodyCompression(CompressionCodec codec) {
     if (codec == null) {
       return null;
     }
-    for (int i = 0; i < CompressionType.names.length; i++) {
-      if (CompressionType.names[i].equals(codec.getCodecName())) {
-        return new ArrowBodyCompression((byte) i, BodyCompressionMethod.BUFFER);
-      }
+    switch (codec.getCodecName()) {
+      case "LZ4_FRAME":
+        return new ArrowBodyCompression((byte) 0, BodyCompressionMethod.BUFFER);
+      case "ZSTD":
+        return new ArrowBodyCompression((byte) 1, BodyCompressionMethod.BUFFER);
+      default:
+        throw new IllegalArgumentException("Unknown codec: " + codec.getCodecName());
     }
-    throw new IllegalArgumentException("Unknown codec: " + codec.getCodecName());
   }
 
   /**

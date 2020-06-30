@@ -25,40 +25,18 @@ import org.apache.arrow.memory.ArrowBuf;
 public interface CompressionCodec {
 
   /**
-   * Given a buffer, estimate the compressed size.
-   * Please note this operation is optional, and some compression methods may not support it.
-   *
-   * @param input the input buffer to be estimated.
-   * @return the estimated size of the compressed data.
-   */
-  long estimateCompressedSize(ArrowBuf input);
-
-  /**
    * Compress a buffer.
    * @param input the buffer to compress.
-   * @param estimatedOutputSize the estimated size of the output data.
-   *     Note that this is optional, and may not be equal to the actual output size.
    * @return the compressed buffer.
    */
-  ArrowBuf compress(ArrowBuf input, long estimatedOutputSize);
-
-  /**
-   * Given a compressed buffer, estimate the decompressed size.
-   * Please note this operation is optional, and some compression methods may not support it.
-   *
-   * @param input the input buffer to be estimated.
-   * @return the estimated size of the decompressed data.
-   */
-  long estimateDecompressedSize(ArrowBuf input);
+  ArrowBuf compress(ArrowBuf input);
 
   /**
    * Decompress a buffer.
    * @param input the buffer to be decompressed.
-   * @param estimatedOutputSize the estimated size of the output data.
-   *      Note that this is optional, and may not be equal to the actual output size.
    * @return the decompressed buffer.
    */
-  ArrowBuf decompress(ArrowBuf input, long estimatedOutputSize);
+  ArrowBuf decompress(ArrowBuf input);
 
   /**
    * Gets the name of the codec.
