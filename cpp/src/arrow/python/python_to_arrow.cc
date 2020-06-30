@@ -261,7 +261,7 @@ struct ValueConverter<TimestampType> {
       RETURN_NOT_OK(internal::CIntFromPython(obj, &value));
     }
     return value;
-  };
+  }
 
   static inline Result<int64_t> FromNumpy(PyObject* obj, TimeUnit::type unit) {
     // validate that the numpy scalar has np.datetime64 dtype
@@ -817,7 +817,7 @@ class BaseListConverter : public TypedConverter<TypeClass, null_coding> {
     return value_converter_->Extend(obj, list_size);
   }
 
-  virtual Status GetResult(std::shared_ptr<ChunkedArray>* out) override {
+  Status GetResult(std::shared_ptr<ChunkedArray>* out) override {
     // TODO: Improved handling of chunked children
     if (value_converter_->num_chunks() > 0) {
       return Status::Invalid("List child type ",
