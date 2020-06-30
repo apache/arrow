@@ -61,7 +61,7 @@ test_that("Table R metadata", {
 test_that("R metadata is not stored for types that map to Arrow types (factor, Date, etc.)", {
   tab <- Table$create(example_data[1:6])
   expect_null(tab$metadata$r)
-  expect_null(Table$create(example_with_times[1:2])$metadata$r)
+  expect_null(Table$create(example_with_times[1:3])$metadata$r)
 })
 
 test_that("Garbage R metadata doesn't break things", {
