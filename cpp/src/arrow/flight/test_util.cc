@@ -537,6 +537,15 @@ Status ExampleDictBatches(BatchVector* out) {
   return Status::OK();
 }
 
+Status ExampleNestedBatches(BatchVector* out) {
+  std::shared_ptr<RecordBatch> batch;
+  for (int i = 0; i < 3; ++i) {
+    RETURN_NOT_OK(ipc::test::MakeListRecordBatch(&batch));
+    out->push_back(batch);
+  }
+  return Status::OK();
+}
+
 std::vector<ActionType> ExampleActionTypes() {
   return {{"drop", "drop a dataset"}, {"cache", "cache a dataset"}};
 }

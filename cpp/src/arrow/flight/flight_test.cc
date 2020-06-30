@@ -465,10 +465,82 @@ class MetadataTestServer : public FlightServerBase {
   }
 };
 
+// Server for testing custom IPC options support
+class OptionsTestServer : public FlightServerBase {
+  Status DoGet(const ServerCallContext& context, const Ticket& request,
+               std::unique_ptr<FlightDataStream>* data_stream) override {
+    BatchVector batches;
+    RETURN_NOT_OK(ExampleNestedBatches(&batches));
+    auto reader = std::make_shared<BatchIterator>(batches[0]->schema(), batches);
+    *data_stream = std::unique_ptr<FlightDataStream>(new RecordBatchStream(reader));
+    return Status::OK();
+  }
+
+  // Just echo the number of batches written. The client will try to
+  // call this method with different write options set.
+  Status DoPut(const ServerCallContext& context,
+               std::unique_ptr<FlightMessageReader> reader,
+               std::unique_ptr<FlightMetadataWriter> writer) override {
+    FlightStreamChunk chunk;
+    int counter = 0;
+    while (true) {
+      RETURN_NOT_OK(reader->Next(&chunk));
+      if (chunk.data == nullptr) break;
+      counter++;
+    }
+    auto metadata = Buffer::FromString(std::to_string(counter));
+    return writer->WriteMetadata(*metadata);
+  }
+
+  // Echo client data, but with write options set to limit the nesting
+  // level.
+  Status DoExchange(const ServerCallContext& context,
+                    std::unique_ptr<FlightMessageReader> reader,
+                    std::unique_ptr<FlightMessageWriter> writer) override {
+    FlightStreamChunk chunk;
+    auto options = ipc::IpcWriteOptions::Defaults();
+    options.max_recursion_depth = 1;
+    bool begun = false;
+    while (true) {
+      RETURN_NOT_OK(reader->Next(&chunk));
+      if (!chunk.data && !chunk.app_metadata) {
+        break;
+      }
+      if (!begun && chunk.data) {
+        begun = true;
+        RETURN_NOT_OK(writer->Begin(chunk.data->schema(), options));
+      }
+      if (chunk.data && chunk.app_metadata) {
+        RETURN_NOT_OK(writer->WriteWithMetadata(*chunk.data, chunk.app_metadata));
+      } else if (chunk.data) {
+        RETURN_NOT_OK(writer->WriteRecordBatch(*chunk.data));
+      } else if (chunk.app_metadata) {
+        RETURN_NOT_OK(writer->WriteMetadata(chunk.app_metadata));
+      }
+    }
+    return Status::OK();
+  }
+};
+
 class TestMetadata : public ::testing::Test {
  public:
   void SetUp() {
     ASSERT_OK(MakeServer<MetadataTestServer>(
+        &server_, &client_, [](FlightServerOptions* options) { return Status::OK(); },
+        [](FlightClientOptions* options) { return Status::OK(); }));
+  }
+
+  void TearDown() { ASSERT_OK(server_->Shutdown()); }
+
+ protected:
+  std::unique_ptr<FlightClient> client_;
+  std::unique_ptr<FlightServerBase> server_;
+};
+
+class TestOptions : public ::testing::Test {
+ public:
+  void SetUp() {
+    ASSERT_OK(MakeServer<OptionsTestServer>(
         &server_, &client_, [](FlightServerOptions* options) { return Status::OK(); },
         [](FlightClientOptions* options) { return Status::OK(); }));
   }
@@ -1806,6 +1878,88 @@ TEST_F(TestMetadata, DoPutReadMetadata) {
   // As opposed to DoPutDrainMetadata, now we've read the messages, so
   // make sure this still closes as expected.
   ASSERT_OK(writer->Close());
+}
+
+TEST_F(TestOptions, DoGetReadOptions) {
+  // Call DoGet, but with a very low read nesting depth set to fail the call.
+  Ticket ticket{""};
+  auto options = FlightCallOptions();
+  options.read_options.max_recursion_depth = 1;
+  std::unique_ptr<FlightStreamReader> stream;
+  ASSERT_OK(client_->DoGet(options, ticket, &stream));
+  FlightStreamChunk chunk;
+  ASSERT_RAISES(Invalid, stream->Next(&chunk));
+}
+
+TEST_F(TestOptions, DoPutWriteOptions) {
+  // Call DoPut, but with a very low write nesting depth set to fail the call.
+  std::unique_ptr<FlightStreamWriter> writer;
+  std::unique_ptr<FlightMetadataReader> reader;
+  BatchVector expected_batches;
+  ASSERT_OK(ExampleNestedBatches(&expected_batches));
+
+  auto options = FlightCallOptions();
+  options.write_options.max_recursion_depth = 1;
+  ASSERT_OK(client_->DoPut(options, FlightDescriptor{}, expected_batches[0]->schema(),
+                           &writer, &reader));
+  for (const auto& batch : expected_batches) {
+    ASSERT_RAISES(Invalid, writer->WriteRecordBatch(*batch));
+  }
+}
+
+TEST_F(TestOptions, DoExchangeClientWriteOptions) {
+  // Call DoExchange and write nested data, but with a very low nesting depth set to
+  // fail the call.
+  auto options = FlightCallOptions();
+  options.write_options.max_recursion_depth = 1;
+  auto descr = FlightDescriptor::Command("");
+  std::unique_ptr<FlightStreamReader> reader;
+  std::unique_ptr<FlightStreamWriter> writer;
+  ASSERT_OK(client_->DoExchange(options, descr, &writer, &reader));
+  BatchVector batches;
+  ASSERT_OK(ExampleNestedBatches(&batches));
+  ASSERT_OK(writer->Begin(batches[0]->schema()));
+  for (const auto& batch : batches) {
+    ASSERT_RAISES(Invalid, writer->WriteRecordBatch(*batch));
+  }
+  ASSERT_OK(writer->DoneWriting());
+  ASSERT_OK(writer->Close());
+}
+
+TEST_F(TestOptions, DoExchangeClientWriteOptionsBegin) {
+  // Call DoExchange and write nested data, but with a very low nesting depth set to
+  // fail the call. Here the options are set explicitly when we write data and not in the
+  // call options.
+  auto descr = FlightDescriptor::Command("");
+  std::unique_ptr<FlightStreamReader> reader;
+  std::unique_ptr<FlightStreamWriter> writer;
+  ASSERT_OK(client_->DoExchange(descr, &writer, &reader));
+  BatchVector batches;
+  ASSERT_OK(ExampleNestedBatches(&batches));
+  auto options = ipc::IpcWriteOptions::Defaults();
+  options.max_recursion_depth = 1;
+  ASSERT_OK(writer->Begin(batches[0]->schema(), options));
+  for (const auto& batch : batches) {
+    ASSERT_RAISES(Invalid, writer->WriteRecordBatch(*batch));
+  }
+  ASSERT_OK(writer->DoneWriting());
+  ASSERT_OK(writer->Close());
+}
+
+TEST_F(TestOptions, DoExchangeServerWriteOptions) {
+  // Call DoExchange and write nested data, but with a very low nesting depth set to fail
+  // the call. (The low nesting depth is set on the server side.)
+  auto descr = FlightDescriptor::Command("");
+  std::unique_ptr<FlightStreamReader> reader;
+  std::unique_ptr<FlightStreamWriter> writer;
+  ASSERT_OK(client_->DoExchange(descr, &writer, &reader));
+  BatchVector batches;
+  ASSERT_OK(ExampleNestedBatches(&batches));
+  ASSERT_OK(writer->Begin(batches[0]->schema()));
+  FlightStreamChunk chunk;
+  ASSERT_OK(writer->WriteRecordBatch(*batches[0]));
+  ASSERT_OK(writer->DoneWriting());
+  ASSERT_RAISES(Invalid, writer->Close());
 }
 
 TEST_F(TestRejectServerMiddleware, Rejected) {

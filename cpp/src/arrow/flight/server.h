@@ -30,12 +30,11 @@
 #include "arrow/flight/types.h"       // IWYU pragma: keep
 #include "arrow/flight/visibility.h"  // IWYU pragma: keep
 #include "arrow/ipc/dictionary.h"
-#include "arrow/memory_pool.h"
+#include "arrow/ipc/options.h"
 #include "arrow/record_batch.h"
 
 namespace arrow {
 
-class MemoryPool;
 class Schema;
 class Status;
 
@@ -65,9 +64,10 @@ class ARROW_FLIGHT_EXPORT FlightDataStream {
 class ARROW_FLIGHT_EXPORT RecordBatchStream : public FlightDataStream {
  public:
   /// \param[in] reader produces a sequence of record batches
-  /// \param[in,out] pool a MemoryPool to use for allocations
-  explicit RecordBatchStream(const std::shared_ptr<RecordBatchReader>& reader,
-                             MemoryPool* pool = default_memory_pool());
+  /// \param[in] options IPC options for writing
+  explicit RecordBatchStream(
+      const std::shared_ptr<RecordBatchReader>& reader,
+      const ipc::IpcWriteOptions& options = ipc::IpcWriteOptions::Defaults());
   ~RecordBatchStream() override;
 
   std::shared_ptr<Schema> schema() override;

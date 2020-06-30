@@ -26,6 +26,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/ipc/options.h"
 #include "arrow/ipc/reader.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/status.h"
@@ -36,7 +37,6 @@
 
 namespace arrow {
 
-class MemoryPool;
 class RecordBatch;
 class Schema;
 
@@ -59,6 +59,12 @@ class ARROW_FLIGHT_EXPORT FlightCallOptions {
   /// mean an implementation-defined default behavior will be used
   /// instead. This is the default value.
   TimeoutDuration timeout;
+
+  /// \brief IPC reader options, if applicable for the call.
+  ipc::IpcReadOptions read_options;
+
+  /// \brief IPC writer options, if applicable for the call.
+  ipc::IpcWriteOptions write_options;
 };
 
 /// \brief Indicate that the client attempted to write a message

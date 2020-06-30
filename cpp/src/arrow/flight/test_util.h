@@ -147,6 +147,9 @@ ARROW_FLIGHT_EXPORT
 Status ExampleDictBatches(BatchVector* out);
 
 ARROW_FLIGHT_EXPORT
+Status ExampleNestedBatches(BatchVector* out);
+
+ARROW_FLIGHT_EXPORT
 std::vector<FlightInfo> ExampleFlightInfo();
 
 ARROW_FLIGHT_EXPORT

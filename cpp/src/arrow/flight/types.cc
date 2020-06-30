@@ -285,6 +285,10 @@ Status MetadataRecordBatchReader::ReadAll(std::shared_ptr<Table>* table) {
   return Table::FromRecordBatches(schema, std::move(batches)).Value(table);
 }
 
+Status MetadataRecordBatchWriter::Begin(const std::shared_ptr<Schema>& schema) {
+  return Begin(schema, ipc::IpcWriteOptions::Defaults());
+}
+
 SimpleFlightListing::SimpleFlightListing(const std::vector<FlightInfo>& flights)
     : position_(0), flights_(flights) {}
 
