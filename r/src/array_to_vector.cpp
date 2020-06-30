@@ -22,7 +22,6 @@
 #include <arrow/table.h>
 #include <arrow/util/bitmap_reader.h>
 #include <arrow/util/bitmap_writer.h>
-#include <arrow/util/key_value_metadata.h>
 #include <arrow/util/parallel.h>
 #include <arrow/util/task_group.h>
 

@@ -251,13 +251,13 @@ test_that("table() handles ... of arrays, chunked arrays, vectors", {
   tbl <- tibble::tibble(x = 1:10, y = letters[1:10])
 
   tab <- Table$create(a = a, b = ca, c = v, !!!tbl)
-  expect_equivalent(
+  expect_equal(
     tab$schema,
     schema(a = int32(), b = int32(), c = float64(), x = int32(), y = utf8())
   )
   res <- as.data.frame(tab)
   expect_equal(names(res), c("a", "b", "c", "x", "y"))
-  expect_equivalent(res,
+  expect_equal(res,
     tibble::tibble(a = 1:10, b = 1:10, c = v, x = 1:10, y = letters[1:10])
   )
 })

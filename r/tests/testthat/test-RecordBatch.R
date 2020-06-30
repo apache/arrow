@@ -29,7 +29,7 @@ test_that("RecordBatch", {
   batch <- record_batch(tbl)
 
   expect_equal(batch, batch)
-  expect_equivalent(
+  expect_equal(
     batch$schema,
     schema(
       int = int32(), dbl = float64(),
@@ -86,7 +86,7 @@ test_that("RecordBatch", {
   expect_error(batch$column("one"), class = "Rcpp::not_compatible")
 
   batch2 <- batch$RemoveColumn(0)
-  expect_equivalent(
+  expect_equal(
     batch2$schema,
     schema(dbl = float64(), lgl = boolean(), chr = utf8(), fct = dictionary(int8(), utf8()))
   )
@@ -203,7 +203,7 @@ test_that("RecordBatch with 0 rows are supported", {
   batch <- record_batch(tbl)
   expect_equal(batch$num_columns, 5L)
   expect_equal(batch$num_rows, 0L)
-  expect_equivalent(
+  expect_equal(
     batch$schema,
     schema(
       int = int32(),
@@ -255,7 +255,7 @@ test_that("RecordBatch dim() and nrow() (ARROW-3816)", {
 
 test_that("record_batch() handles Array", {
   batch <- record_batch(x = 1:10, y = Array$create(1:10))
-  expect_equivalent(batch$schema, schema(x = int32(), y = int32()))
+  expect_equal(batch$schema, schema(x = int32(), y = int32()))
 })
 
 test_that("record_batch() handles data frame columns", {
