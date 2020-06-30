@@ -106,13 +106,23 @@ pub struct ByteArray {
 impl PartialOrd for ByteArray {
     fn partial_cmp(&self, other: &ByteArray) -> Option<Ordering> {
         if self.data.is_some() && other.data.is_some() {
-            if self.len() > other.len() { Some(Ordering::Greater) } else if self.len() < other.len() { Some(Ordering::Less) } else {
+            if self.len() > other.len() {
+                Some(Ordering::Greater)
+            } else if self.len() < other.len() {
+                Some(Ordering::Less)
+            } else {
                 for (v1, v2) in self.data().iter().zip(other.data().iter()) {
-                    if *v1 > *v2 { return Some(Ordering::Greater); } else if *v1 < *v2 { return Some(Ordering::Less); }
+                    if *v1 > *v2 {
+                        return Some(Ordering::Greater);
+                    } else if *v1 < *v2 {
+                        return Some(Ordering::Less);
+                    }
                 }
                 return Some(Ordering::Equal);
             }
-        } else { None }
+        } else {
+            None
+        }
     }
 }
 
@@ -414,12 +424,12 @@ impl AsBytes for str {
 /// presentation.
 pub trait DataType: 'static {
     type T: std::cmp::PartialEq
-    + std::fmt::Debug
-    + std::default::Default
-    + std::clone::Clone
-    + AsBytes
-    + FromBytes
-    + PartialOrd;
+        + std::fmt::Debug
+        + std::default::Default
+        + std::clone::Clone
+        + AsBytes
+        + FromBytes
+        + PartialOrd;
 
     /// Returns Parquet physical type.
     fn get_physical_type() -> Type;
@@ -428,37 +438,39 @@ pub trait DataType: 'static {
     fn get_type_size() -> usize;
 
     fn get_column_reader(column_writer: ColumnReader) -> Option<ColumnReaderImpl<Self>>
-        where
-            Self: Sized;
+    where
+        Self: Sized;
 
     fn get_column_writer(column_writer: ColumnWriter) -> Option<ColumnWriterImpl<Self>>
-        where
-            Self: Sized;
+    where
+        Self: Sized;
 
     fn get_column_writer_ref(
         column_writer: &ColumnWriter,
     ) -> Option<&ColumnWriterImpl<Self>>
-        where
-            Self: Sized;
+    where
+        Self: Sized;
 
     fn get_column_writer_mut(
         column_writer: &mut ColumnWriter,
     ) -> Option<&mut ColumnWriterImpl<Self>>
-        where
-            Self: Sized;
+    where
+        Self: Sized;
 }
 
 // Workaround bug in specialization
 pub trait SliceAsBytesDataType: DataType
-    where
-        Self::T: SliceAsBytes,
-{}
+where
+    Self::T: SliceAsBytes,
+{
+}
 
 impl<T> SliceAsBytesDataType for T
-    where
-        T: DataType,
-        <T as DataType>::T: SliceAsBytes,
-{}
+where
+    T: DataType,
+    <T as DataType>::T: SliceAsBytes,
+{
+}
 
 macro_rules! make_type {
     ($name:ident, $physical_ty:path, $reader_ident: ident, $writer_ident: ident, $native_ty:ty, $size:expr) => {
