@@ -15,33 +15,24 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#pragma once
+#include <gtest/gtest.h>
+
+#include "arrow/compute/api.h"
+#include "arrow/compute/kernels/test_util.h"
+#include "arrow/result.h"
+#include "arrow/testing/gtest_util.h"
 
 namespace arrow {
 namespace compute {
 
-class FunctionRegistry;
+TEST(TestVectorNested, ListFlatten) {
+  for (auto ty : {list(int32()), large_list(int32())}) {
+    auto input = ArrayFromJSON(ty, "[[0, null, 1], null, [2, 3], []]");
+    auto expected = ArrayFromJSON(int32(), "[0, null, 1, 2, 3]");
+    ASSERT_OK_AND_ASSIGN(Datum out, CallFunction("list_flatten", {input}));
+    AssertArraysEqual(*expected, *out.make_array());
+  }
+}
 
-namespace internal {
-
-// Built-in scalar / elementwise functions
-void RegisterScalarArithmetic(FunctionRegistry* registry);
-void RegisterScalarBoolean(FunctionRegistry* registry);
-void RegisterScalarCast(FunctionRegistry* registry);
-void RegisterScalarComparison(FunctionRegistry* registry);
-void RegisterScalarSetLookup(FunctionRegistry* registry);
-void RegisterScalarStringAscii(FunctionRegistry* registry);
-void RegisterScalarValidity(FunctionRegistry* registry);
-
-// Vector functions
-void RegisterVectorHash(FunctionRegistry* registry);
-void RegisterVectorSelection(FunctionRegistry* registry);
-void RegisterVectorNested(FunctionRegistry* registry);
-void RegisterVectorSort(FunctionRegistry* registry);
-
-// Aggregate functions
-void RegisterScalarAggregateBasic(FunctionRegistry* registry);
-
-}  // namespace internal
 }  // namespace compute
 }  // namespace arrow
