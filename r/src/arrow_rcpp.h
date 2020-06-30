@@ -56,7 +56,7 @@ namespace internal {
 template <typename Pointer>
 Pointer r6_to_smart_pointer(SEXP self) {
   return reinterpret_cast<Pointer>(
-      EXTPTR_PTR(Rf_findVarInFrame(self, arrow::r::symbols::xp)));
+      R_ExternalPtrAddr(Rf_findVarInFrame(self, arrow::r::symbols::xp)));
 }
 
 }  // namespace internal
