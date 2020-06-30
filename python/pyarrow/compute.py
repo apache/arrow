@@ -113,6 +113,24 @@ subtract = _simple_binary_function('subtract')
 multiply = _simple_binary_function('multiply')
 
 
+def contains_exact(array, pattern):
+    """
+    Check whether a pattern occurs as part of the values of the array.
+
+    Parameters
+    ----------
+    array : pyarrow.Array or pyarrow.ChunkedArray
+    pattern : str
+        pattern to search for exact matches
+
+    Returns
+    -------
+    result : pyarrow.Array or pyarrow.ChunkedArray
+    """
+    return call_function("contains_exact", [array],
+                         _pc.ContainsExactOptions(pattern))
+
+
 def sum(array):
     """
     Sum the values in a numerical (chunked) array.

@@ -263,7 +263,7 @@ Result<Datum> IsNull(const Datum& values, ExecContext* ctx = NULLPTR);
 // String functions
 
 struct ARROW_EXPORT ContainsExactOptions : public FunctionOptions {
-  explicit ContainsExactOptions(std::string pattern) : pattern(pattern) {}
+  explicit ContainsExactOptions(std::string pattern = "") : pattern(pattern) {}
 
   std::string pattern;
 };

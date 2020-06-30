@@ -1582,6 +1582,11 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         c_bool allow_float_truncate
         c_bool allow_invalid_utf8
 
+    cdef cppclass CContainsExactOptions \
+            "arrow::compute::ContainsExactOptions"(CFunctionOptions):
+        ContainsExactOptions(c_string pattern)
+        c_string pattern
+
     enum CFilterNullSelectionBehavior \
             "arrow::compute::FilterOptions::NullSelectionBehavior":
         CFilterNullSelectionBehavior_DROP \

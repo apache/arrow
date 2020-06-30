@@ -398,6 +398,17 @@ cdef class CastOptions(FunctionOptions):
         self.options.allow_invalid_utf8 = flag
 
 
+cdef class ContainsExactOptions(FunctionOptions):
+    cdef:
+        CContainsExactOptions contains_exact_options
+
+    def __init__(self, pattern):
+        self.contains_exact_options.pattern = tobytes(pattern)
+
+    cdef const CFunctionOptions* get_options(self) except NULL:
+        return &self.contains_exact_options
+
+
 cdef class FilterOptions(FunctionOptions):
     cdef:
         CFilterOptions filter_options
