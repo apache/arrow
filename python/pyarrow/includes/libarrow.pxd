@@ -1825,17 +1825,13 @@ cdef extern from 'arrow/python/init.h':
     int arrow_init_numpy() except -1
 
 
-cdef extern from 'arrow/python/common.h' namespace "arrow::py":
-    c_bool IsPyError(const CStatus& status)
-    void RestorePyError(const CStatus& status)
-
-
 cdef extern from 'arrow/python/pyarrow.h' namespace 'arrow::py':
     int import_pyarrow() except -1
 
 
-cdef extern from 'arrow/python/config.h' namespace 'arrow::py':
-    void set_numpy_nan(object o)
+cdef extern from 'arrow/python/common.h' namespace "arrow::py":
+    c_bool IsPyError(const CStatus& status)
+    void RestorePyError(const CStatus& status)
 
 
 cdef extern from 'arrow/python/inference.h' namespace 'arrow::py':

@@ -40,6 +40,8 @@ pushd curl-${CURL_VERSION}
     --disable-mqtt \
     --disable-manual \
     --disable-shared \
+    --without-ca-bundle \
+    --without-ca-path \
     --with-ssl=${PREFIX} \
     --with-zlib=${PREFIX}
 

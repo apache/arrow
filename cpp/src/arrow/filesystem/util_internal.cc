@@ -59,6 +59,8 @@ Status NotAFile(const std::string& path) {
   return Status::IOError("Not a regular file: '", path, "'");
 }
 
+FileSystemGlobalOptions global_options;
+
 }  // namespace internal
 }  // namespace fs
 }  // namespace arrow

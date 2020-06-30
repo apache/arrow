@@ -22,10 +22,8 @@
 #include "arrow/io/interfaces.h"
 #include "arrow/io/transform.h"
 
-#include "arrow/python/visibility.h"
-
 #include "arrow/python/common.h"
-#include "arrow/python/config.h"
+#include "arrow/python/visibility.h"
 
 namespace arrow {
 namespace py {

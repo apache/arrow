@@ -42,6 +42,8 @@ pushd curl-${CURL_VERSION}
     --disable-mqtt \
     --disable-manual \
     --disable-shared \
+    --without-ca-bundle \
+    --without-ca-path \
     --with-ssl=/usr/local \
     --with-zlib=/usr/local
 

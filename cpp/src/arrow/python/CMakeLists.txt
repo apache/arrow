@@ -30,7 +30,6 @@ set(ARROW_PYTHON_SRCS
     arrow_to_pandas.cc
     benchmark.cc
     common.cc
-    config.cc
     datetime.cc
     decimal.cc
     deserialize.cc

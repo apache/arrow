@@ -515,5 +515,10 @@ Status FileSystemFromUri(const std::string& uri, std::shared_ptr<FileSystem>* ou
   return FileSystemFromUri(uri, out_path).Value(out_fs);
 }
 
+Status Initialize(const FileSystemGlobalOptions& options) {
+  internal::global_options = options;
+  return Status::OK();
+}
+
 }  // namespace fs
 }  // namespace arrow

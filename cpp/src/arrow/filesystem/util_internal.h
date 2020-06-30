@@ -45,6 +45,8 @@ Status NotADir(const std::string& path);
 ARROW_EXPORT
 Status NotAFile(const std::string& path);
 
+extern FileSystemGlobalOptions global_options;
+
 }  // namespace internal
 }  // namespace fs
 }  // namespace arrow

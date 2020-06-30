@@ -50,7 +50,6 @@
 #include "arrow/compute/api.h"
 
 #include "arrow/python/common.h"
-#include "arrow/python/config.h"
 #include "arrow/python/datetime.h"
 #include "arrow/python/decimal.h"
 #include "arrow/python/helpers.h"

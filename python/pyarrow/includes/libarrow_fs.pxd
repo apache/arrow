@@ -84,6 +84,14 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         "arrow::fs::FileSystemFromUriOrPath"(const c_string& uri,
                                              c_string* out_path)
 
+    cdef cppclass CFileSystemGlobalOptions \
+            "arrow::fs::FileSystemGlobalOptions":
+        c_string tls_ca_file_path
+        c_string tls_ca_dir_path
+
+    CStatus CFileSystemsInitialize "arrow::fs::Initialize" \
+        (const CFileSystemGlobalOptions& options)
+
     cdef cppclass CLocalFileSystemOptions "arrow::fs::LocalFileSystemOptions":
         c_bool use_mmap
 
@@ -130,6 +138,9 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
 
         @staticmethod
         CS3Options Defaults()
+
+        @staticmethod
+        CS3Options Anonymous()
 
         @staticmethod
         CS3Options FromAccessKey(const c_string& access_key,
