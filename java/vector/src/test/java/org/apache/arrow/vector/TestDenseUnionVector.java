@@ -23,6 +23,7 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -31,6 +32,7 @@ import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.DenseUnionVector;
 import org.apache.arrow.vector.complex.StructVector;
+import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.holders.NullableBigIntHolder;
 import org.apache.arrow.vector.holders.NullableBitHolder;
 import org.apache.arrow.vector.holders.NullableFloat4Holder;
@@ -43,6 +45,7 @@ import org.apache.arrow.vector.types.UnionMode;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
+import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.JsonStringHashMap;
 import org.apache.arrow.vector.util.Text;
 import org.apache.arrow.vector.util.TransferPair;
@@ -611,6 +614,36 @@ public class TestDenseUnionVector {
       assertEquals(1, floagVector.getValueCount());
       assertEquals(9.0f, floagVector.get(0), 0);
     }
+  }
+
+  @Test
+  public void testDenseUnionFromMinorType() {
+    final Field denseField = new Field(
+        "union",
+        new FieldType(
+            /* nullable */ false,
+            new ArrowType.Union(UnionMode.Dense, new int[]{0}),
+            /* dictionary */ null),
+        Collections.emptyList());
+    final Field sparseField = new Field(
+        "union",
+        new FieldType(
+            /* nullable */ false,
+            new ArrowType.Union(UnionMode.Sparse, new int[]{0}),
+            /* dictionary */ null),
+        Collections.emptyList());
+    final Schema denseSchema = new Schema(Collections.singletonList(denseField));
+    final Schema sparseSchema = new Schema(Collections.singletonList(sparseField));
+    try (final VectorSchemaRoot root = VectorSchemaRoot.create(sparseSchema, allocator)) {
+      assertTrue(root.getVector("union") instanceof UnionVector);
+    }
+    try (final VectorSchemaRoot root = VectorSchemaRoot.create(denseSchema, allocator)) {
+      assertTrue(root.getVector("union") instanceof DenseUnionVector);
+    }
+    assertEquals(MinorType.DENSEUNION,
+        Types.getMinorTypeForArrowType(new ArrowType.Union(UnionMode.Dense, new int[]{0})));
+    assertEquals(MinorType.UNION,
+        Types.getMinorTypeForArrowType(new ArrowType.Union(UnionMode.Sparse, new int[]{0})));
   }
 
   private static NullableIntHolder newIntHolder(int value) {
