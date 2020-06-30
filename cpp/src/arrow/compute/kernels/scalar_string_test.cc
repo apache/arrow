@@ -77,20 +77,22 @@ TYPED_TEST(TestStringKernels, AsciiLower) {
 }
 
 TEST(TestStringKernels, LARGE_MEMORY_TEST(Utf8Upper32bitGrowth)) {
-  std::string str(0xffff, 'a');
-  arrow::StringBuilder builder;
   // 0x7fff * 0xffff is the max a 32 bit string array can hold
   // since the utf8_upper kernel can grow it by 3/2, the max we should accept is is
   // 0x7fff * 0xffff * 2/3 = 0x5555 * 0xffff, so this should give us a CapacityError
-  for (int64_t i = 0; i < 0x5556; i++) {
-    ASSERT_OK(builder.Append(str));
-  }
+  std::string str(0x5556 * 0xffff, 'a');
+  arrow::StringBuilder builder;
+  ASSERT_OK(builder.Append(str));
   std::shared_ptr<arrow::Array> array;
   arrow::Status st = builder.Finish(&array);
   const FunctionOptions* options = nullptr;
   EXPECT_RAISES_WITH_MESSAGE_THAT(CapacityError,
                                   testing::HasSubstr("Result might not fit"),
                                   CallFunction("utf8_upper", {array}, options));
+  ASSERT_OK_AND_ASSIGN(auto scalar, array->GetScalar(0));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(CapacityError,
+                                  testing::HasSubstr("Result might not fit"),
+                                  CallFunction("utf8_upper", {scalar}, options));
 }
 
 TYPED_TEST(TestStringKernels, Utf8Upper) {
