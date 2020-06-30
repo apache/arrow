@@ -56,12 +56,12 @@ class ARROW_EXPORT KernelContext {
 
   /// \brief Allocate buffer from the context's memory pool. The contents are
   /// not initialized.
-  Result<std::shared_ptr<Buffer>> Allocate(int64_t nbytes);
+  Result<std::shared_ptr<ResizableBuffer>> Allocate(int64_t nbytes);
 
   /// \brief Allocate buffer for bitmap from the context's memory pool. Like
   /// Allocate, the contents of the buffer are not initialized but the last
   /// byte is preemptively zeroed to help avoid ASAN or valgrind issues.
-  Result<std::shared_ptr<Buffer>> AllocateBitmap(int64_t num_bits);
+  Result<std::shared_ptr<ResizableBuffer>> AllocateBitmap(int64_t num_bits);
 
   /// \brief Indicate that an error has occurred, to be checked by a exec caller
   /// \param[in] status a Status instance.

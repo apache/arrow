@@ -19,9 +19,12 @@
 #include <cctype>
 #include <string>
 
+#include <utf8proc.h>
+
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernels/common.h"
 #include "arrow/compute/kernels/scalar_string_internal.h"
+#include "arrow/util/utf8.h"
 #include "arrow/util/value_parsing.h"
 
 namespace arrow {
@@ -30,12 +33,165 @@ namespace internal {
 
 namespace {
 
+// lookup tables
+constexpr uint32_t kMaxCodepointLookup =
+    0xffff;  // up to this codepoint is in a lookup table
+std::vector<uint32_t> lut_upper_codepoint;
+std::vector<uint32_t> lut_lower_codepoint;
+std::once_flag flag_case_luts;
+
+void EnsureLookupTablesFilled() {
+  std::call_once(flag_case_luts, []() {
+    lut_upper_codepoint.reserve(kMaxCodepointLookup + 1);
+    lut_lower_codepoint.reserve(kMaxCodepointLookup + 1);
+    for (uint32_t i = 0; i <= kMaxCodepointLookup; i++) {
+      lut_upper_codepoint.push_back(utf8proc_toupper(i));
+      lut_lower_codepoint.push_back(utf8proc_tolower(i));
+    }
+  });
+}
+
+// Code units in the range [a-z] can only be an encoding of an ascii
+// character/codepoint, not the 2nd, 3rd or 4th code unit (byte) of an different
+// codepoint. This guaranteed by non-overlap design of the unicode standard. (see
+// section 2.5 of Unicode Standard Core Specification v13.0)
+
+static inline uint8_t ascii_tolower(uint8_t utf8_code_unit) {
+  return ((utf8_code_unit >= 'A') && (utf8_code_unit <= 'Z')) ? (utf8_code_unit + 32)
+                                                              : utf8_code_unit;
+}
+
+static inline uint8_t ascii_toupper(uint8_t utf8_code_unit) {
+  return ((utf8_code_unit >= 'a') && (utf8_code_unit <= 'z')) ? (utf8_code_unit - 32)
+                                                              : utf8_code_unit;
+}
+
 // TODO: optional ascii validation
 
 struct AsciiLength {
   template <typename OUT, typename ARG0 = util::string_view>
   static OUT Call(KernelContext*, ARG0 val) {
     return static_cast<OUT>(val.size());
+  }
+};
+
+template <typename Type, typename Derived>
+struct Utf8Transform {
+  using offset_type = typename Type::offset_type;
+  using ArrayType = typename TypeTraits<Type>::ArrayType;
+
+  static bool Transform(const uint8_t* input, offset_type input_string_ncodeunits,
+                        uint8_t* output, offset_type* output_written) {
+    uint8_t* output_start = output;
+    if (ARROW_PREDICT_FALSE(
+            !arrow::util::Utf8Transform(input, input + input_string_ncodeunits, &output,
+                                        Derived::TransformCodepoint))) {
+      return false;
+    }
+    *output_written = static_cast<offset_type>(output - output_start);
+    return true;
+  }
+
+  static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    if (batch[0].kind() == Datum::ARRAY) {
+      EnsureLookupTablesFilled();
+      const ArrayData& input = *batch[0].array();
+      ArrayType input_boxed(batch[0].array());
+      ArrayData* output = out->mutable_array();
+
+      offset_type input_ncodeunits = input_boxed.total_values_length();
+      offset_type input_nstrings = static_cast<offset_type>(input.length);
+
+      // Section 5.18 of the Unicode spec claim that the number of codepoints for case
+      // mapping can grow by a factor of 3. This means grow by a factor of 3 in bytes
+      // However, since we don't support all casings (SpecialCasing.txt) the growth
+      // is actually only at max 3/2 (as covered by the unittest).
+      // Note that rounding down the 3/2 is ok, since only codepoints encoded by
+      // two code units (even) can grow to 3 code units.
+
+      int64_t output_ncodeunits_max = static_cast<int64_t>(input_ncodeunits) * 3 / 2;
+      if (output_ncodeunits_max > std::numeric_limits<offset_type>::max()) {
+        ctx->SetStatus(Status::CapacityError(
+            "Result might not fit in a 32bit utf8 array, convert to large_utf8"));
+        return;
+      }
+
+      KERNEL_ASSIGN_OR_RAISE(auto values_buffer, ctx,
+                             ctx->Allocate(output_ncodeunits_max));
+      output->buffers[2] = values_buffer;
+
+      // We could reuse the indices if the data is all ascii, benchmarking showed this
+      // not to matter.
+      //   output->buffers[1] = input.buffers[1];
+      KERNEL_ASSIGN_OR_RAISE(output->buffers[1], ctx,
+                             ctx->Allocate((input_nstrings + 1) * sizeof(offset_type)));
+      uint8_t* output_str = output->buffers[2]->mutable_data();
+      offset_type* output_string_offsets = output->GetMutableValues<offset_type>(1);
+      offset_type output_ncodeunits = 0;
+
+      output_string_offsets[0] = 0;
+      for (int64_t i = 0; i < input_nstrings; i++) {
+        offset_type input_string_ncodeunits;
+        const uint8_t* input_string = input_boxed.GetValue(i, &input_string_ncodeunits);
+        offset_type encoded_nbytes;
+        if (ARROW_PREDICT_FALSE(!Derived::Transform(input_string, input_string_ncodeunits,
+                                                    output_str + output_ncodeunits,
+                                                    &encoded_nbytes))) {
+          ctx->SetStatus(Status::Invalid("Invalid UTF8 sequence in input"));
+          return;
+        }
+        output_ncodeunits += encoded_nbytes;
+        output_string_offsets[i + 1] = output_ncodeunits;
+      }
+
+      // Trim the codepoint buffer, since we allocated too much
+      KERNEL_RETURN_IF_ERROR(
+          ctx, values_buffer->Resize(output_ncodeunits, /*shrink_to_fit=*/true));
+    } else {
+      const auto& input = checked_cast<const BaseBinaryScalar&>(*batch[0].scalar());
+      auto result = checked_pointer_cast<BaseBinaryScalar>(MakeNullScalar(out->type()));
+      if (input.is_valid) {
+        result->is_valid = true;
+        offset_type data_nbytes = static_cast<offset_type>(input.value->size());
+
+        // See note above in the Array version explaining the 3 / 2
+        int64_t output_ncodeunits_max = static_cast<int64_t>(data_nbytes) * 3 / 2;
+        if (output_ncodeunits_max > std::numeric_limits<offset_type>::max()) {
+          ctx->SetStatus(Status::CapacityError(
+              "Result might not fit in a 32bit utf8 array, convert to large_utf8"));
+          return;
+        }
+        KERNEL_ASSIGN_OR_RAISE(auto value_buffer, ctx,
+                               ctx->Allocate(output_ncodeunits_max));
+        result->value = value_buffer;
+        offset_type encoded_nbytes;
+        if (ARROW_PREDICT_FALSE(!Derived::Transform(input.value->data(), data_nbytes,
+                                                    value_buffer->mutable_data(),
+                                                    &encoded_nbytes))) {
+          ctx->SetStatus(Status::Invalid("Invalid UTF8 sequence in input"));
+          return;
+        }
+        KERNEL_RETURN_IF_ERROR(
+            ctx, value_buffer->Resize(encoded_nbytes, /*shrink_to_fit=*/true));
+      }
+      out->value = result;
+    }
+  }
+};
+
+template <typename Type>
+struct Utf8Upper : Utf8Transform<Type, Utf8Upper<Type>> {
+  inline static uint32_t TransformCodepoint(uint32_t codepoint) {
+    return codepoint <= kMaxCodepointLookup ? lut_upper_codepoint[codepoint]
+                                            : utf8proc_toupper(codepoint);
+  }
+};
+
+template <typename Type>
+struct Utf8Lower : Utf8Transform<Type, Utf8Lower<Type>> {
+  static uint32_t TransformCodepoint(uint32_t codepoint) {
+    return codepoint <= kMaxCodepointLookup ? lut_lower_codepoint[codepoint]
+                                            : utf8proc_tolower(codepoint);
   }
 };
 
@@ -103,16 +259,7 @@ void StringDataTransform(KernelContext* ctx, const ExecBatch& batch,
 }
 
 void TransformAsciiUpper(const uint8_t* input, int64_t length, uint8_t* output) {
-  for (int64_t i = 0; i < length; ++i) {
-    const uint8_t utf8_code_unit = *input++;
-    // Code units in the range [a-z] can only be an encoding of an ascii
-    // character/codepoint, not the 2nd, 3rd or 4th code unit (byte) of an different
-    // codepoint. This guaranteed by non-overlap design of the unicode standard. (see
-    // section 2.5 of Unicode Standard Core Specification v13.0)
-    *output++ = ((utf8_code_unit >= 'a') && (utf8_code_unit <= 'z'))
-                    ? (utf8_code_unit - 32)
-                    : utf8_code_unit;
-  }
+  std::transform(input, input + length, output, ascii_toupper);
 }
 
 template <typename Type>
@@ -123,13 +270,7 @@ struct AsciiUpper {
 };
 
 void TransformAsciiLower(const uint8_t* input, int64_t length, uint8_t* output) {
-  for (int64_t i = 0; i < length; ++i) {
-    // As with TransformAsciiUpper, the same guarantee holds for the range [A-Z]
-    const uint8_t utf8_code_unit = *input++;
-    *output++ = ((utf8_code_unit >= 'A') && (utf8_code_unit <= 'Z'))
-                    ? (utf8_code_unit + 32)
-                    : utf8_code_unit;
-  }
+  std::transform(input, input + length, output, ascii_tolower);
 }
 
 template <typename Type>
@@ -206,11 +347,23 @@ void MakeUnaryStringBatchKernel(std::string name, FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
+template <template <typename> class Transformer>
+void MakeUnaryStringUtf8TransformKernel(std::string name, FunctionRegistry* registry) {
+  auto func = std::make_shared<ScalarFunction>(name, Arity::Unary());
+  ArrayKernelExec exec_32 = Transformer<StringType>::Exec;
+  ArrayKernelExec exec_64 = Transformer<LargeStringType>::Exec;
+  DCHECK_OK(func->AddKernel({utf8()}, utf8(), exec_32));
+  DCHECK_OK(func->AddKernel({large_utf8()}, large_utf8(), exec_64));
+  DCHECK_OK(registry->AddFunction(std::move(func)));
+}
+
 }  // namespace
 
 void RegisterScalarStringAscii(FunctionRegistry* registry) {
   MakeUnaryStringBatchKernel<AsciiUpper>("ascii_upper", registry);
   MakeUnaryStringBatchKernel<AsciiLower>("ascii_lower", registry);
+  MakeUnaryStringUtf8TransformKernel<Utf8Upper>("utf8_upper", registry);
+  MakeUnaryStringUtf8TransformKernel<Utf8Lower>("utf8_lower", registry);
   AddAsciiLength(registry);
   AddStrptime(registry);
 }

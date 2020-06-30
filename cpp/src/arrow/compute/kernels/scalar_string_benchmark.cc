@@ -35,8 +35,12 @@ static void UnaryStringBenchmark(benchmark::State& state, const std::string& fun
   const double null_probability = 0.01;
   random::RandomArrayGenerator rng(kSeed);
 
+  // NOTE: this produces only-Ascii data
   auto values =
       rng.String(array_length, value_min_size, value_max_size, null_probability);
+  // Make sure lookup tables are initialized before measuring
+  ABORT_NOT_OK(CallFunction(func_name, {values}));
+
   for (auto _ : state) {
     ABORT_NOT_OK(CallFunction(func_name, {values}));
   }
@@ -52,8 +56,18 @@ static void AsciiUpper(benchmark::State& state) {
   UnaryStringBenchmark(state, "ascii_upper");
 }
 
+static void Utf8Upper(benchmark::State& state) {
+  UnaryStringBenchmark(state, "utf8_upper");
+}
+
+static void Utf8Lower(benchmark::State& state) {
+  UnaryStringBenchmark(state, "utf8_lower");
+}
+
 BENCHMARK(AsciiLower);
 BENCHMARK(AsciiUpper);
+BENCHMARK(Utf8Lower);
+BENCHMARK(Utf8Upper);
 
 }  // namespace compute
 }  // namespace arrow
