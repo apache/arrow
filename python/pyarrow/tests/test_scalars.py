@@ -45,7 +45,7 @@ import pyarrow as pa
     ([1, 2, 3], None, pa.ListScalar, pa.ListValue),
     ([1, 2, 3, 4], pa.large_list(pa.int8()), pa.LargeListScalar,
      pa.LargeListValue),
-    (datetime.date.today(), None, pa.Date32Scalar, pa.Date64Value),
+    (datetime.date.today(), None, pa.Date32Scalar, pa.Date32Value),
     (datetime.datetime.now(), None, pa.TimestampScalar, pa.TimestampValue),
     ({'a': 1, 'b': [1, 2]}, None, pa.StructScalar, pa.StructValue)
 ])
@@ -53,20 +53,21 @@ def test_basics(value, ty, klass, deprecated):
     s = pa.scalar(value, type=ty)
     assert isinstance(s, klass)
     assert s == value
-    assert s == s
+    assert s == pa.scalar(value, type=ty)
     assert s != "else"
     assert hash(s) == hash(s)
     assert s.is_valid is True
     with pytest.warns(FutureWarning):
-        isinstance(s, deprecated)
+        assert isinstance(s, deprecated)
 
     s = pa.scalar(None, type=s.type)
     assert s.is_valid is False
     assert s.as_py() is None
+    assert s != pa.scalar(value, type=ty)
 
 
 def test_null_singleton():
-    with pytest.raises(Exception):
+    with pytest.raises(RuntimeError):
         pa.NullScalar()
 
 
@@ -359,6 +360,16 @@ def test_list(ty, klass):
         s[-3]
     with pytest.raises(IndexError):
         s[2]
+
+
+def test_list_from_numpy():
+    print(repr(pa.scalar(np.array([1, 2, 3]))))
+
+
+# @pytest.mark.pandas
+# def test_list_from_pandas():
+#     import pandas as pd
+#     pa.scalar(pd.Series([1, 2, 3]), from_pandas=True))
 
 
 def test_fixed_size_list():

@@ -417,12 +417,12 @@ def test_partitioning():
 
 def test_expression_serialization():
     a = ds.scalar(1)
-    a_ = ds.scalar(pa.scalar(1))
     b = ds.scalar(1.1)
     c = ds.scalar(True)
     d = ds.scalar("string")
     e = ds.scalar(None)
     f = ds.scalar({'a': 1})
+    g = ds.scalar(pa.scalar(1))
 
     condition = ds.field('i64') > 5
     schema = pa.schema([
@@ -437,7 +437,7 @@ def test_expression_serialization():
     assert condition.assume(ds.field('i64') == 7).equals(
         ds.scalar(True))
 
-    all_exprs = [a, a_, b, c, d, e, f, a == b, a > b, a & b, a | b, ~c,
+    all_exprs = [a, b, c, d, e, f, g, a == b, a > b, a & b, a | b, ~c,
                  d.is_valid(), a.cast(pa.int32(), safe=False),
                  a.cast(pa.int32(), safe=False), a.isin([1, 2, 3]),
                  ds.field('i64') > 5, ds.field('i64') == 5,

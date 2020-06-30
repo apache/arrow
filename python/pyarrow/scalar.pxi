@@ -51,10 +51,16 @@ cdef class Scalar:
 
     @property
     def type(self):
+        """
+        Data type of the Scalar object.
+        """
         return pyarrow_wrap_data_type(self.wrapped.get().type)
 
     @property
     def is_valid(self):
+        """
+        Holds a valid (non-null) value.
+        """
         return self.wrapped.get().is_valid
 
     def __repr__(self):
@@ -95,7 +101,7 @@ cdef class NullScalar(Scalar):
     def __cinit__(self):
         global NA
         if NA is not None:
-            raise Exception('Cannot create multiple NAType instances')
+            raise RuntimeError('Cannot create multiple NullScalar instances')
         self.init(shared_ptr[CScalar](new CNullScalar()))
 
     def __init__(self):
@@ -245,12 +251,9 @@ cdef class HalfFloatScalar(Scalar):
         return hasher(self.wrapped)
 
     def __eq__(self, other):
-        if hasattr(self, 'as_py'):
-            if isinstance(other, Scalar):
-                other = other.as_py()
-            return self.as_py() == other
-        else:
-            raise NotImplementedError
+        if isinstance(other, Scalar):
+            other = other.as_py()
+        return self.as_py() == other
 
     def as_py(self):
         """
@@ -437,8 +440,6 @@ cdef class TimestampScalar(Scalar):
 
         if not dtype.timezone().empty():
             tzinfo = string_to_tzinfo(frombytes(dtype.timezone()))
-            if not isinstance(tzinfo, datetime.tzinfo):
-                tzinfo = string_to_tzinfo(tzinfo)
         else:
             tzinfo = None
 
@@ -506,10 +507,7 @@ cdef class BinaryScalar(Scalar):
         Return this value as a Python bytes.
         """
         buffer = self.as_buffer()
-        if buffer is not None:
-            return self.as_buffer().to_pybytes()
-        else:
-            return None
+        return None if buffer is None else buffer.to_pybytes()
 
 
 cdef class LargeBinaryScalar(BinaryScalar):
@@ -530,10 +528,7 @@ cdef class StringScalar(BinaryScalar):
         Return this value as a Python string.
         """
         buffer = self.as_buffer()
-        if buffer is not None:
-            return frombytes(self.as_buffer().to_pybytes())
-        else:
-            return None
+        return None if buffer is None else str(buffer, 'utf8')
 
 
 cdef class LargeStringScalar(StringScalar):
@@ -609,7 +604,7 @@ cdef class StructScalar(Scalar, collections.abc.Mapping):
     def __contains__(self, key):
         try:
             self[key]
-        except IndexError:
+        except (KeyError, IndexError):
             return False
         else:
             return True
@@ -641,7 +636,10 @@ cdef class StructScalar(Scalar, collections.abc.Mapping):
         try:
             return Scalar.wrap(GetResultValue(sp.field(ref)))
         except ArrowInvalid:
-            raise IndexError(key)
+            if isinstance(key, int):
+                raise IndexError(key)
+            else:
+                raise KeyError(key)
 
     def as_py(self):
         """
@@ -705,28 +703,30 @@ cdef class DictionaryScalar(Scalar):
     @property
     def value(self):
         """
-        Return this value's underlying dictionary value as a scalar.
+        Return the encoded value as a scalar.
         """
         cdef CDictionaryScalar* sp = <CDictionaryScalar*> self.wrapped.get()
         return Scalar.wrap(sp.value)
 
     def as_py(self):
         """
-        Return this value as a Python object.
-
-        The exact type depends on the dictionary value type.
+        Return this encoded value as a Python object.
         """
         value = self.value
         return None if value is None else value.as_py()
 
-    # TODO(kszucs): deprecate these
     # @property
     # def index_value(self):
+    #     warnings.warn("`dictionary_value` property is deprecated as of 1.0.0"
+    #                   "please use the `value` property instead",
+    #                   FutureWarning)
     #     index = self.index
     #     return None if index is None else self.index
 
     @property
     def dictionary_value(self):
+        warnings.warn("`dictionary_value` property is deprecated as of 1.0.0, "
+                      "please use the `value` property instead", FutureWarning)
         value = self.value
         return None if value is None else self.value
 
@@ -790,8 +790,52 @@ cdef dict _scalar_classes = {
 }
 
 
-def scalar(value, DataType type=None, bint safe=True,
+def scalar(value, DataType type=None, *, from_pandas=None,
            MemoryPool memory_pool=None):
+    """
+    Create a pyarrow.Scalar instance from a Python object.
+
+    Parameters
+    ----------
+    value : Any
+        Python object coercible to arrow's type system.
+    type : pyarrow.DataType
+        Explicit type to attempt to coerce to, otherwise will be inferred from
+        the value.
+    from_pandas : bool, default None
+        Use pandas's semantics for inferring nulls from values in
+        ndarray-like data. Defaults to False if not passed explicitly by user,
+        or True if a pandas object is passed in.
+    memory_pool : pyarrow.MemoryPool, optional
+        If not passed, will allocate memory from the currently-set default
+        memory pool.
+
+    Returns
+    -------
+    scalar : pyarrow.Scalar
+
+    Notes
+    -----
+    Localized timestamps will currently be returned as UTC (pandas's native
+    representation). Timezone-naive data will be implicitly interpreted as
+    UTC.
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+
+    >>> pa.scalar(42)
+    <pyarrow.Int64Scalar: 42>
+
+    >>> pa.scalar("string")
+    <pyarrow.StringScalar: 'string'>
+
+    >>> pa.scalar([1, 2])
+    <pyarrow.ListScalar: [1, 2]>
+
+    >>> pa.scalar([1, 2], type=pa.list_(pa.int16()))
+    <pyarrow.ListScalar: [1, 2]>
+    """
     cdef:
         PyConversionOptions options
         shared_ptr[CScalar] scalar
@@ -800,12 +844,13 @@ def scalar(value, DataType type=None, bint safe=True,
 
     options.size = 1
     options.pool = maybe_unbox_memory_pool(memory_pool)
-    # options.from_pandas = from_pandas
+    options.from_pandas = from_pandas
     if type is not None:
         options.type = type.sp_type
 
-    # with nogil:
-    check_status(ConvertPySequence([value], None, options, &chunked))
+    value = [value]
+    with nogil:
+        check_status(ConvertPySequence(value, None, options, &chunked))
 
     assert chunked.get().num_chunks() == 1
     array = chunked.get().chunk(0)

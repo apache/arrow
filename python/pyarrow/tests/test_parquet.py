@@ -2023,7 +2023,6 @@ def test_filters_invalid_pred_op(tempdir, use_legacy_dataset):
         assert dataset.read().num_rows == 0
 
     with pytest.raises(ValueError):
-        # dataset API returns TypeError when trying create invalid comparison
         pq.ParquetDataset(base_path,
                           filesystem=fs,
                           filters=[('integers', '!=', {3})],

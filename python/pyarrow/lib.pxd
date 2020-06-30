@@ -190,10 +190,6 @@ cdef class Scalar:
     cdef inline shared_ptr[CScalar] unwrap(self) nogil
 
 
-cdef class NAType(Scalar):
-    pass
-
-
 cdef class _PandasConvertible:
     pass
 
