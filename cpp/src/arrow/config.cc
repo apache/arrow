@@ -22,6 +22,7 @@ namespace arrow {
 
 static const BuildInfo kBuildInfo = {
     // clang-format off
+    ARROW_VERSION,
     ARROW_VERSION_MAJOR,
     ARROW_VERSION_MINOR,
     ARROW_VERSION_PATCH,

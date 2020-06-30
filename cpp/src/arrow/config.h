@@ -25,9 +25,15 @@
 namespace arrow {
 
 struct BuildInfo {
-  int major;
-  int minor;
-  int patch;
+  /// The packed version number, e.g. 1002003 (decimal) for Arrow 1.2.3
+  int version;
+  /// The "major" version number, e.g. 1 for Arrow 1.2.3
+  int version_major;
+  /// The "minor" version number, e.g. 2 for Arrow 1.2.3
+  int version_minor;
+  /// The "patch" version number, e.g. 3 for Arrow 1.2.3
+  int version_patch;
+  /// The version string, e.g. "1.2.3"
   std::string version_string;
   std::string so_version;
   std::string full_so_version;
@@ -36,7 +42,7 @@ struct BuildInfo {
   std::string package_kind;
 };
 
-/// Get runtime build info.
+/// \brief Get runtime build info.
 ///
 /// The returned values correspond to exact loaded version of the Arrow library,
 /// rather than the values frozen at application compile-time through the `ARROW_*`

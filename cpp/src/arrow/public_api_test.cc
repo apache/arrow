@@ -41,11 +41,15 @@ namespace arrow {
 
 TEST(Misc, BuildInfo) {
   const auto& info = GetBuildInfo();
-  ASSERT_EQ(info.major, ARROW_VERSION_MAJOR);
-  ASSERT_GE(info.minor, ARROW_VERSION_MINOR);
-  ASSERT_GE(info.patch, ARROW_VERSION_PATCH);
+  // The runtime version (GetBuildInfo) should have the same major number as the
+  // build-time version (ARROW_VERSION), but may have a greater minor / patch number.
+  ASSERT_EQ(info.version_major, ARROW_VERSION_MAJOR);
+  ASSERT_GE(info.version_minor, ARROW_VERSION_MINOR);
+  ASSERT_GE(info.version_patch, ARROW_VERSION_PATCH);
+  ASSERT_GE(info.version, ARROW_VERSION);
+  ASSERT_LT(info.version, ARROW_VERSION + 1000 * 1000);  // Same major version
   std::stringstream ss;
-  ss << info.major << "." << info.minor << "." << info.patch;
+  ss << info.version_major << "." << info.version_minor << "." << info.version_patch;
   ASSERT_THAT(info.version_string, ::testing::HasSubstr(ss.str()));
   ASSERT_THAT(info.full_so_version, ::testing::HasSubstr(info.so_version));
 }
