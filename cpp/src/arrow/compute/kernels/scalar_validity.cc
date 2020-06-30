@@ -26,6 +26,7 @@ using internal::CopyBitmap;
 using internal::InvertBitmap;
 
 namespace compute {
+namespace internal {
 namespace {
 
 struct IsValidOperator {
@@ -88,17 +89,47 @@ void MakeFunction(std::string name, std::vector<InputType> in_types, OutputType 
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
+void IsValidExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  const Datum& arg0 = batch[0];
+  if (arg0.type()->id() == Type::NA) {
+    auto false_value = std::make_shared<BooleanScalar>(false);
+    if (arg0.kind() == Datum::SCALAR) {
+      out->value = false_value;
+    } else {
+      std::shared_ptr<Array> false_values;
+      KERNEL_RETURN_IF_ERROR(
+          ctx, MakeArrayFromScalar(*false_value, out->length(), ctx->memory_pool())
+                   .Value(&false_values));
+      out->value = false_values->data();
+    }
+  } else {
+    applicator::SimpleUnary<IsValidOperator>(ctx, batch, out);
+  }
+}
+
+void IsNullExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  const Datum& arg0 = batch[0];
+  if (arg0.type()->id() == Type::NA) {
+    if (arg0.kind() == Datum::SCALAR) {
+      out->value = std::make_shared<BooleanScalar>(true);
+    } else {
+      // Data is preallocated
+      ArrayData* out_arr = out->mutable_array();
+      BitUtil::SetBitsTo(out_arr->buffers[1]->mutable_data(), out_arr->offset,
+                         out_arr->length, true);
+    }
+  } else {
+    applicator::SimpleUnary<IsNullOperator>(ctx, batch, out);
+  }
+}
+
 }  // namespace
 
-namespace internal {
-
 void RegisterScalarValidity(FunctionRegistry* registry) {
-  MakeFunction("is_valid", {ValueDescr::ANY}, boolean(),
-               applicator::SimpleUnary<IsValidOperator>, registry,
+  MakeFunction("is_valid", {ValueDescr::ANY}, boolean(), IsValidExec, registry,
                MemAllocation::NO_PREALLOCATE, /*can_write_into_slices=*/false);
 
-  MakeFunction("is_null", {ValueDescr::ANY}, boolean(),
-               applicator::SimpleUnary<IsNullOperator>, registry,
+  MakeFunction("is_null", {ValueDescr::ANY}, boolean(), IsNullExec, registry,
                MemAllocation::PREALLOCATE,
                /*can_write_into_slices=*/true);
 }

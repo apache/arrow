@@ -20,6 +20,7 @@
 
 from libc.stdlib cimport malloc, free
 
+import codecs
 import re
 import sys
 import threading
@@ -1329,6 +1330,68 @@ cdef class BufferedOutputStream(NativeFile):
         raw.is_writable = True
         raw.set_output_stream(c_raw)
         return raw
+
+
+cdef void _cb_transform(transform_func, const shared_ptr[CBuffer]& src,
+                        shared_ptr[CBuffer]* dest) except *:
+    py_dest = transform_func(pyarrow_wrap_buffer(src))
+    dest[0] = pyarrow_unwrap_buffer(py_buffer(py_dest))
+
+
+cdef class TransformInputStream(NativeFile):
+
+    def __init__(self, NativeFile stream, transform_func):
+        self.set_input_stream(TransformInputStream.make_native(
+            stream.get_input_stream(), transform_func))
+        self.is_readable = True
+
+    @staticmethod
+    cdef shared_ptr[CInputStream] make_native(
+            shared_ptr[CInputStream] stream, transform_func) except *:
+        cdef:
+            shared_ptr[CInputStream] transform_stream
+            CTransformInputStreamVTable vtable
+
+        vtable.transform = _cb_transform
+        return MakeTransformInputStream(stream, move(vtable),
+                                        transform_func)
+
+
+class Transcoder:
+
+    def __init__(self, decoder, encoder):
+        self._decoder = decoder
+        self._encoder = encoder
+
+    def __call__(self, buf):
+        final = len(buf) == 0
+        return self._encoder.encode(self._decoder.decode(buf, final), final)
+
+
+def transcoding_input_stream(stream, src_encoding, dest_encoding):
+    src_codec = codecs.lookup(src_encoding)
+    dest_codec = codecs.lookup(dest_encoding)
+    if src_codec.name == dest_codec.name:
+        # Avoid losing performance on no-op transcoding
+        # (encoding errors won't be detected)
+        return stream
+    return TransformInputStream(stream,
+                                Transcoder(src_codec.incrementaldecoder(),
+                                           dest_codec.incrementalencoder()))
+
+
+cdef shared_ptr[CInputStream] native_transcoding_input_stream(
+        shared_ptr[CInputStream] stream, src_encoding,
+        dest_encoding) except *:
+    src_codec = codecs.lookup(src_encoding)
+    dest_codec = codecs.lookup(dest_encoding)
+    if src_codec.name == dest_codec.name:
+        # Avoid losing performance on no-op transcoding
+        # (encoding errors won't be detected)
+        return stream
+    return TransformInputStream.make_native(
+        stream, Transcoder(src_codec.incrementaldecoder(),
+                           dest_codec.incrementalencoder()))
 
 
 def py_buffer(object obj):

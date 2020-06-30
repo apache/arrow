@@ -71,7 +71,7 @@ ArrowObject <- R6Class("ArrowObject",
   public = list(
     initialize = function(xp) self$set_pointer(xp),
 
-    pointer = function() self$`.:xp:.`,
+    pointer = function() get(".:xp:.", envir = self),
     `.:xp:.` = NULL,
     set_pointer = function(xp) {
       if (!inherits(xp, "externalptr")) {

@@ -23,6 +23,7 @@
 #include "arrow/array/array_base.h"
 #include "arrow/type.h"
 #include "arrow/util/bit_block_counter.h"
+#include "arrow/util/bitmap_ops.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {

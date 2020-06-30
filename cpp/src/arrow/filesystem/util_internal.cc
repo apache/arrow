@@ -47,6 +47,18 @@ Status CopyStream(const std::shared_ptr<io::InputStream>& src,
   return Status::OK();
 }
 
+Status PathNotFound(const std::string& path) {
+  return Status::IOError("Path does not exist '", path, "'");
+}
+
+Status NotADir(const std::string& path) {
+  return Status::IOError("Not a directory: '", path, "'");
+}
+
+Status NotAFile(const std::string& path) {
+  return Status::IOError("Not a regular file: '", path, "'");
+}
+
 }  // namespace internal
 }  // namespace fs
 }  // namespace arrow

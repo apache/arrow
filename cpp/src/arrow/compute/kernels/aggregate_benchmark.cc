@@ -315,9 +315,13 @@ static void SumKernel(benchmark::State& state) {
   }
 }
 
+static void SumKernelArgs(benchmark::internal::Benchmark* bench) {
+  BenchmarkSetArgsWithSizes(bench, {1 * 1024 * 1024});  // 1M
+}
+
 #define SUM_KERNEL_BENCHMARK(FuncName, Type)                                \
   static void FuncName(benchmark::State& state) { SumKernel<Type>(state); } \
-  BENCHMARK(FuncName)->Apply(RegressionSetArgs)
+  BENCHMARK(FuncName)->Apply(SumKernelArgs)
 
 SUM_KERNEL_BENCHMARK(SumKernelFloat, FloatType);
 SUM_KERNEL_BENCHMARK(SumKernelDouble, DoubleType);

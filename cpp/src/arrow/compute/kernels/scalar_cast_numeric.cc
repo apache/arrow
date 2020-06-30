@@ -34,134 +34,16 @@ using internal::ParseValue;
 namespace compute {
 namespace internal {
 
-template <typename OutT, typename InT>
-ARROW_DISABLE_UBSAN("float-cast-overflow")
-void DoStaticCast(const void* in_data, int64_t in_offset, int64_t length,
-                  int64_t out_offset, void* out_data) {
-  auto in = reinterpret_cast<const InT*>(in_data) + in_offset;
-  auto out = reinterpret_cast<OutT*>(out_data) + out_offset;
-  for (int64_t i = 0; i < length; ++i) {
-    *out++ = static_cast<OutT>(*in++);
-  }
-}
-
-using StaticCastFunc = std::function<void(const void*, int64_t, int64_t, int64_t, void*)>;
-
-template <typename OutType, typename InType, typename Enable = void>
-struct CastPrimitive {
-  static void Exec(const ExecBatch& batch, Datum* out) {
-    using OutT = typename OutType::c_type;
-    using InT = typename InType::c_type;
-    using OutScalar = typename TypeTraits<OutType>::ScalarType;
-    using InScalar = typename TypeTraits<InType>::ScalarType;
-
-    StaticCastFunc caster = DoStaticCast<OutT, InT>;
-    if (batch[0].kind() == Datum::ARRAY) {
-      const ArrayData& arr = *batch[0].array();
-      ArrayData* out_arr = out->mutable_array();
-      caster(arr.buffers[1]->data(), arr.offset, arr.length, out_arr->offset,
-             out_arr->buffers[1]->mutable_data());
-    } else {
-      // Scalar path. Use the caster with length 1 to place the casted value into
-      // the output
-      const auto& in_scalar = batch[0].scalar_as<InScalar>();
-      auto out_scalar = checked_cast<OutScalar*>(out->scalar().get());
-      caster(&in_scalar.value, /*in_offset=*/0, /*length=*/1, /*out_offset=*/0,
-             &out_scalar->value);
-    }
-  }
-};
-
-template <typename OutType, typename InType>
-struct CastPrimitive<OutType, InType, enable_if_t<std::is_same<OutType, InType>::value>> {
-  // memcpy output
-  static void Exec(const ExecBatch& batch, Datum* out) {
-    using T = typename InType::c_type;
-    using OutScalar = typename TypeTraits<OutType>::ScalarType;
-    using InScalar = typename TypeTraits<InType>::ScalarType;
-
-    if (batch[0].kind() == Datum::ARRAY) {
-      const ArrayData& arr = *batch[0].array();
-      ArrayData* out_arr = out->mutable_array();
-      std::memcpy(
-          reinterpret_cast<T*>(out_arr->buffers[1]->mutable_data()) + out_arr->offset,
-          reinterpret_cast<const T*>(arr.buffers[1]->data()) + arr.offset,
-          arr.length * sizeof(T));
-    } else {
-      // Scalar path. Use the caster with length 1 to place the casted value into
-      // the output
-      const auto& in_scalar = batch[0].scalar_as<InScalar>();
-      checked_cast<OutScalar*>(out->scalar().get())->value = in_scalar.value;
-    }
-  }
-};
-
-template <typename InType>
-void CastNumberImpl(const ExecBatch& batch, Datum* out) {
-  switch (out->type()->id()) {
-    case Type::INT8:
-      return CastPrimitive<Int8Type, InType>::Exec(batch, out);
-    case Type::INT16:
-      return CastPrimitive<Int16Type, InType>::Exec(batch, out);
-    case Type::INT32:
-      return CastPrimitive<Int32Type, InType>::Exec(batch, out);
-    case Type::INT64:
-      return CastPrimitive<Int64Type, InType>::Exec(batch, out);
-    case Type::UINT8:
-      return CastPrimitive<UInt8Type, InType>::Exec(batch, out);
-    case Type::UINT16:
-      return CastPrimitive<UInt16Type, InType>::Exec(batch, out);
-    case Type::UINT32:
-      return CastPrimitive<UInt32Type, InType>::Exec(batch, out);
-    case Type::UINT64:
-      return CastPrimitive<UInt64Type, InType>::Exec(batch, out);
-    case Type::FLOAT:
-      return CastPrimitive<FloatType, InType>::Exec(batch, out);
-    case Type::DOUBLE:
-      return CastPrimitive<DoubleType, InType>::Exec(batch, out);
-    default:
-      break;
-  }
-}
-
-void CastNumberToNumberUnsafe(const ExecBatch& batch, Datum* out) {
-  switch (batch[0].type()->id()) {
-    case Type::INT8:
-      return CastNumberImpl<Int8Type>(batch, out);
-    case Type::INT16:
-      return CastNumberImpl<Int16Type>(batch, out);
-    case Type::INT32:
-      return CastNumberImpl<Int32Type>(batch, out);
-    case Type::INT64:
-      return CastNumberImpl<Int64Type>(batch, out);
-    case Type::UINT8:
-      return CastNumberImpl<UInt8Type>(batch, out);
-    case Type::UINT16:
-      return CastNumberImpl<UInt16Type>(batch, out);
-    case Type::UINT32:
-      return CastNumberImpl<UInt32Type>(batch, out);
-    case Type::UINT64:
-      return CastNumberImpl<UInt64Type>(batch, out);
-    case Type::FLOAT:
-      return CastNumberImpl<FloatType>(batch, out);
-    case Type::DOUBLE:
-      return CastNumberImpl<DoubleType>(batch, out);
-    default:
-      DCHECK(false);
-      break;
-  }
-}
-
 void CastIntegerToInteger(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   const auto& options = checked_cast<const CastState*>(ctx->state())->options;
   if (!options.allow_int_overflow) {
     KERNEL_RETURN_IF_ERROR(ctx, IntegersCanFit(batch[0], *out->type()));
   }
-  CastNumberToNumberUnsafe(batch, out);
+  CastNumberToNumberUnsafe(batch[0].type()->id(), out->type()->id(), batch[0], out);
 }
 
 void CastFloatingToFloating(KernelContext*, const ExecBatch& batch, Datum* out) {
-  CastNumberToNumberUnsafe(batch, out);
+  CastNumberToNumberUnsafe(batch[0].type()->id(), out->type()->id(), batch[0], out);
 }
 
 // ----------------------------------------------------------------------
@@ -291,7 +173,7 @@ Status CheckFloatToIntTruncation(const Datum& input, const Datum& output) {
 
 void CastFloatingToInteger(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   const auto& options = checked_cast<const CastState*>(ctx->state())->options;
-  CastNumberToNumberUnsafe(batch, out);
+  CastNumberToNumberUnsafe(batch[0].type()->id(), out->type()->id(), batch[0], out);
   if (!options.allow_float_truncate) {
     KERNEL_RETURN_IF_ERROR(ctx, CheckFloatToIntTruncation(batch[0], *out));
   }
@@ -369,11 +251,11 @@ Status CheckForIntegerToFloatingTruncation(const Datum& input, Type::type out_ty
 
 void CastIntegerToFloating(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   const auto& options = checked_cast<const CastState*>(ctx->state())->options;
+  Type::type out_type = out->type()->id();
   if (!options.allow_float_truncate) {
-    KERNEL_RETURN_IF_ERROR(
-        ctx, CheckForIntegerToFloatingTruncation(batch[0], out->type()->id()));
+    KERNEL_RETURN_IF_ERROR(ctx, CheckForIntegerToFloatingTruncation(batch[0], out_type));
   }
-  CastNumberToNumberUnsafe(batch, out);
+  CastNumberToNumberUnsafe(batch[0].type()->id(), out_type, batch[0], out);
 }
 
 // ----------------------------------------------------------------------

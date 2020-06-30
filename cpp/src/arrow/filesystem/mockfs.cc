@@ -26,6 +26,7 @@
 #include "arrow/buffer.h"
 #include "arrow/filesystem/mockfs.h"
 #include "arrow/filesystem/path_util.h"
+#include "arrow/filesystem/util_internal.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
 #include "arrow/util/logging.h"
@@ -37,18 +38,6 @@ namespace fs {
 namespace internal {
 
 namespace {
-
-Status PathNotFound(const std::string& path) {
-  return Status::IOError("Path does not exist '", path, "'");
-}
-
-Status NotADir(const std::string& path) {
-  return Status::IOError("Not a directory: '", path, "'");
-}
-
-Status NotAFile(const std::string& path) {
-  return Status::IOError("Not a regular file: '", path, "'");
-}
 
 ////////////////////////////////////////////////////////////////////////////
 // Filesystem structure

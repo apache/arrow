@@ -666,7 +666,6 @@ Status SchemaManifest::Make(const SchemaDescriptor* schema,
                             const std::shared_ptr<const KeyValueMetadata>& metadata,
                             const ArrowReaderProperties& properties,
                             SchemaManifest* manifest) {
-  std::shared_ptr<::arrow::Schema> origin_schema;
   RETURN_NOT_OK(
       GetOriginSchema(metadata, &manifest->schema_metadata, &manifest->origin_schema));
 

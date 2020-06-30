@@ -593,12 +593,14 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CBuffer] value_data()
         int32_t value_offset(int64_t i)
         int32_t value_length(int64_t i)
+        int32_t total_values_length()
 
     cdef cppclass CLargeBinaryArray" arrow::LargeBinaryArray"(CArray):
         const uint8_t* GetValue(int i, int64_t* length)
         shared_ptr[CBuffer] value_data()
         int64_t value_offset(int64_t i)
         int64_t value_length(int64_t i)
+        int64_t total_values_length()
 
     cdef cppclass CStringArray" arrow::StringArray"(CBinaryArray):
         CStringArray(int64_t length, shared_ptr[CBuffer] value_offsets,
@@ -886,6 +888,9 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CStringScalar" arrow::StringScalar"(CScalar):
         shared_ptr[CBuffer] value
 
+    cdef cppclass CStructScalar" arrow::StructScalar"(CScalar):
+        vector[shared_ptr[CScalar]] value
+
     shared_ptr[CScalar] MakeScalar[Value](Value value)
     shared_ptr[CScalar] MakeStringScalar" arrow::MakeScalar"(c_string value)
 
@@ -980,6 +985,11 @@ cdef extern from "arrow/builder.h" namespace "arrow" nogil:
     cdef cppclass CDate64Builder "arrow::Date64Builder"(CArrayBuilder):
         CDate64Builder(CMemoryPool* pool)
         CStatus Append(const int64_t value)
+
+
+# Use typedef to emulate syntax for std::function<void(..)>
+ctypedef void CallbackTransform(
+    object, const shared_ptr[CBuffer]& src, shared_ptr[CBuffer]* dest)
 
 
 cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
@@ -1106,6 +1116,16 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
             shared_ptr[COutputStream] raw)
 
         CResult[shared_ptr[COutputStream]] Detach()
+
+    cdef cppclass CTransformInputStreamVTable \
+            "arrow::py::TransformInputStreamVTable":
+        CTransformInputStreamVTable()
+        function[CallbackTransform] transform
+
+    shared_ptr[CInputStream] MakeTransformInputStream \
+        "arrow::py::MakeTransformInputStream"(
+        shared_ptr[CInputStream] wrapped, CTransformInputStreamVTable vtable,
+        object method_arg)
 
     # ----------------------------------------------------------------------
     # HDFS

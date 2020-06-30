@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/ipc/json_internal.h"
+#include "arrow/testing/json_internal.h"
 
 #include <cstdint>
 #include <cstdlib>
@@ -61,9 +61,10 @@ class MemoryPool;
 using internal::checked_cast;
 using internal::ParseValue;
 
-namespace ipc {
-namespace internal {
+namespace testing {
 namespace json {
+
+using ::arrow::ipc::DictionaryMemo;
 
 static std::string GetFloatingPrecisionName(FloatingPointType::Precision precision) {
   switch (precision) {
@@ -1809,6 +1810,5 @@ Status ReadArray(MemoryPool* pool, const rj::Value& json_array, const Schema& sc
 }
 
 }  // namespace json
-}  // namespace internal
-}  // namespace ipc
+}  // namespace testing
 }  // namespace arrow

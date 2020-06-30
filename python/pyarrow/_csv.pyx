@@ -22,12 +22,15 @@
 
 from cython.operator cimport dereference as deref
 
+import codecs
 from collections.abc import Mapping
+
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.lib cimport (check_status, Field, MemoryPool, Schema,
                           _CRecordBatchReader, ensure_type,
                           maybe_unbox_memory_pool, get_input_stream,
+                          native_transcoding_input_stream,
                           pyarrow_wrap_schema, pyarrow_wrap_table,
                           pyarrow_wrap_data_type, pyarrow_unwrap_data_type)
 from pyarrow.lib import frombytes, tobytes
@@ -63,15 +66,20 @@ cdef class ReadOptions:
         If true, column names will be of the form "f0", "f1"...
         If false, column names will be read from the first CSV row
         after `skip_rows`.
+    encoding: str, optional (default 'utf8')
+        The character encoding of the CSV data.  Columns that cannot
+        decode using this encoding can still be read as Binary.
     """
     cdef:
         CCSVReadOptions options
+        public object encoding
 
     # Avoid mistakingly creating attributes
     __slots__ = ()
 
     def __init__(self, *, use_threads=None, block_size=None, skip_rows=None,
-                 column_names=None, autogenerate_column_names=None):
+                 column_names=None, autogenerate_column_names=None,
+                 encoding='utf8'):
         self.options = CCSVReadOptions.Defaults()
         if use_threads is not None:
             self.use_threads = use_threads
@@ -83,6 +91,8 @@ cdef class ReadOptions:
             self.column_names = column_names
         if autogenerate_column_names is not None:
             self.autogenerate_column_names= autogenerate_column_names
+        # Python-specific option
+        self.encoding = encoding
 
     @property
     def use_threads(self):
@@ -594,9 +604,14 @@ cdef class ConvertOptions:
         self.options.timestamp_parsers = move(c_parsers)
 
 
-cdef _get_reader(input_file, shared_ptr[CInputStream]* out):
+cdef _get_reader(input_file, ReadOptions read_options,
+                 shared_ptr[CInputStream]* out):
     use_memory_map = False
     get_input_stream(input_file, use_memory_map, out)
+    if read_options is not None:
+        out[0] = native_transcoding_input_stream(out[0],
+                                                 read_options.encoding,
+                                                 'utf8')
 
 
 cdef _get_read_options(ReadOptions read_options, CCSVReadOptions* out):
@@ -658,9 +673,6 @@ def read_csv(input_file, read_options=None, parse_options=None,
     """
     Read a Table from a stream of CSV data.
 
-    The input CSV data should be encoded in UTF8.  Non-UTF8 data can still
-    be read and converted as Binary columns.
-
     Parameters
     ----------
     input_file: string, path or file-like object
@@ -692,7 +704,7 @@ def read_csv(input_file, read_options=None, parse_options=None,
         shared_ptr[CCSVReader] reader
         shared_ptr[CTable] table
 
-    _get_reader(input_file, &stream)
+    _get_reader(input_file, read_options, &stream)
     _get_read_options(read_options, &c_read_options)
     _get_parse_options(parse_options, &c_parse_options)
     _get_convert_options(convert_options, &c_convert_options)
@@ -711,9 +723,6 @@ def open_csv(input_file, read_options=None, parse_options=None,
              convert_options=None, MemoryPool memory_pool=None):
     """
     Open a streaming reader of CSV data.
-
-    The input CSV data should be encoded in UTF8.  Non-UTF8 data can still
-    be read and converted as Binary columns.
 
     Reading using this function is always single-threaded.
 
@@ -746,7 +755,7 @@ def open_csv(input_file, read_options=None, parse_options=None,
         CCSVConvertOptions c_convert_options
         CSVStreamingReader reader
 
-    _get_reader(input_file, &stream)
+    _get_reader(input_file, read_options, &stream)
     _get_read_options(read_options, &c_read_options)
     _get_parse_options(parse_options, &c_parse_options)
     _get_convert_options(convert_options, &c_convert_options)

@@ -387,8 +387,9 @@ class Converter_Struct : public Converter {
     Rcpp::CharacterVector colnames(nf);
     for (int i = 0; i < nf; i++) {
       out[i] = converters[i]->Allocate(n);
-      colnames[i] = type->field(i)->name();
+      colnames[i] = Rcpp::String(type->field(i)->name(), CE_UTF8);
     }
+
     IntegerVector rn(2);
     rn[0] = NA_INTEGER;
     rn[1] = -n;
@@ -856,7 +857,7 @@ Rcpp::List RecordBatch__to_dataframe(const std::shared_ptr<arrow::RecordBatch>& 
   std::vector<std::shared_ptr<arrow::r::Converter>> converters(nc);
 
   for (int64_t i = 0; i < nc; i++) {
-    names[i] = batch->column_name(i);
+    names[i] = Rcpp::String(batch->column_name(i), CE_UTF8);
     arrays[i] = {batch->column(i)};
     converters[i] = arrow::r::Converter::Make(batch->column(i)->type(), arrays[i]);
   }
@@ -879,7 +880,7 @@ Rcpp::List Table__to_dataframe(const std::shared_ptr<arrow::Table>& table,
   for (int64_t i = 0; i < nc; i++) {
     converters[i] =
         arrow::r::Converter::Make(table->column(i)->type(), table->column(i)->chunks());
-    names[i] = table->field(i)->name();
+    names[i] = Rcpp::String(table->field(i)->name(), CE_UTF8);
   }
 
   if (use_threads) {

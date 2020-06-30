@@ -88,6 +88,28 @@ struct PartitionIndices {
   }
 };
 
+template <typename ArrayType, typename VisitorNotNull, typename VisitorNull>
+inline void VisitRawValuesInline(const ArrayType& values,
+                                 VisitorNotNull&& visitor_not_null,
+                                 VisitorNull&& visitor_null) {
+  const auto data = values.raw_values();
+  if (values.null_count() > 0) {
+    BitmapReader reader(values.null_bitmap_data(), values.offset(), values.length());
+    for (int64_t i = 0; i < values.length(); ++i) {
+      if (reader.IsSet()) {
+        visitor_not_null(data[i]);
+      } else {
+        visitor_null();
+      }
+      reader.Next();
+    }
+  } else {
+    for (int64_t i = 0; i < values.length(); ++i) {
+      visitor_not_null(data[i]);
+    }
+  }
+}
+
 }  // namespace
 
 template <typename ArrowType>
@@ -145,20 +167,19 @@ class CountSorter {
                     const ArrayType& values) {
     const uint32_t value_range = value_range_;
 
-    // first slot reserved for prefix sum, last slot for null value
-    std::vector<CounterType> counts(1 + value_range + 1);
+    // first slot reserved for prefix sum
+    std::vector<CounterType> counts(1 + value_range);
 
-    VisitArrayDataInline<ArrowType>(
-        *values.data(), [&](c_type v) { ++counts[v - min_ + 1]; },
-        [&]() { ++counts[value_range + 1]; });
+    VisitRawValuesInline(
+        values, [&](c_type v) { ++counts[v - min_ + 1]; }, []() {});
 
     for (uint32_t i = 1; i <= value_range; ++i) {
       counts[i] += counts[i - 1];
     }
 
     int64_t index = 0;
-    VisitArrayDataInline<ArrowType>(
-        *values.data(), [&](c_type v) { indices_begin[counts[v - min_]++] = index++; },
+    VisitRawValuesInline(
+        values, [&](c_type v) { indices_begin[counts[v - min_]++] = index++; },
         [&]() { indices_begin[counts[value_range]++] = index++; });
   }
 };
@@ -177,13 +198,14 @@ class CountOrCompareSorter {
       c_type min{std::numeric_limits<c_type>::max()};
       c_type max{std::numeric_limits<c_type>::min()};
 
-      VisitArrayDataInline<ArrowType>(
-          *values.data(),
+      VisitRawValuesInline(
+          values,
           [&](c_type v) {
             min = std::min(min, v);
             max = std::max(max, v);
           },
-          [&]() {});
+          []() {});
+
       // For signed int32/64, (max - min) may overflow and trigger UBSAN.
       // Cast to largest unsigned type(uint64_t) before subtraction.
       if (static_cast<uint64_t>(max) - static_cast<uint64_t>(min) <=

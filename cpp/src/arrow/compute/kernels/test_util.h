@@ -95,6 +95,10 @@ void CheckScalarUnary(std::string func_name, std::shared_ptr<DataType> in_ty,
                       std::string json_expected,
                       const FunctionOptions* options = nullptr);
 
+void CheckScalarUnary(std::string func_name, std::shared_ptr<Array> input,
+                      std::shared_ptr<Array> expected,
+                      const FunctionOptions* options = nullptr);
+
 void CheckScalarUnary(std::string func_name, std::shared_ptr<Scalar> input,
                       std::shared_ptr<Scalar> expected,
                       const FunctionOptions* options = nullptr);

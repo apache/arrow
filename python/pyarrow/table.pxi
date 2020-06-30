@@ -1926,7 +1926,7 @@ def record_batch(data, names=None, schema=None, metadata=None):
         raise TypeError("Expected pandas DataFrame or list of arrays")
 
 
-def table(data, names=None, schema=None, metadata=None):
+def table(data, names=None, schema=None, metadata=None, nthreads=None):
     """
     Create a pyarrow.Table from a Python data structure or sequence of arrays.
 
@@ -1946,6 +1946,9 @@ def table(data, names=None, schema=None, metadata=None):
         specified in the schema, when data is a dict or DataFrame).
     metadata : dict or Mapping, default None
         Optional metadata for the schema (if schema not passed).
+    nthreads : int, default None (may use up to system CPU count threads)
+        For pandas.DataFrame inputs: if greater than 1, convert columns to
+        Arrow in parallel using indicated number of threads.
 
     Returns
     -------
@@ -1973,7 +1976,7 @@ def table(data, names=None, schema=None, metadata=None):
             raise ValueError(
                 "The 'names' and 'metadata' arguments are not valid when "
                 "passing a pandas DataFrame")
-        return Table.from_pandas(data, schema=schema)
+        return Table.from_pandas(data, schema=schema, nthreads=nthreads)
     else:
         raise TypeError(
             "Expected pandas DataFrame, python dictionary or list of arrays")

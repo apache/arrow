@@ -608,8 +608,19 @@ std::string StripPrefixAndFilename(const std::string& path, const std::string& p
 std::vector<std::string> StripPrefixAndFilename(const std::vector<std::string>& paths,
                                                 const std::string& prefix) {
   std::vector<std::string> result;
+  result.reserve(paths.size());
   for (const auto& path : paths) {
     result.emplace_back(StripPrefixAndFilename(path, prefix));
+  }
+  return result;
+}
+
+std::vector<std::string> StripPrefixAndFilename(const std::vector<fs::FileInfo>& files,
+                                                const std::string& prefix) {
+  std::vector<std::string> result;
+  result.reserve(files.size());
+  for (const auto& info : files) {
+    result.emplace_back(StripPrefixAndFilename(info.path(), prefix));
   }
   return result;
 }

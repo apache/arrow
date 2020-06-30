@@ -110,6 +110,18 @@ def test_binary_format():
     assert result == expected
 
 
+def test_binary_total_values_length():
+    arr = pa.array([b'0000', None, b'11111', b'222222', b'3333333'],
+                   type='binary')
+    large_arr = pa.array([b'0000', None, b'11111', b'222222', b'3333333'],
+                         type='large_binary')
+
+    assert arr.total_values_length == 22
+    assert arr.slice(1, 3).total_values_length == 11
+    assert large_arr.total_values_length == 22
+    assert large_arr.slice(1, 3).total_values_length == 11
+
+
 def test_to_numpy_zero_copy():
     arr = pa.array(range(10))
 
@@ -1314,6 +1326,21 @@ def test_value_counts_simple():
                            pa.field("counts", pa.int64())]))
             assert result.field("values").equals(expected_values)
             assert result.field("counts").equals(expected_counts)
+
+
+def test_unique_value_counts_dictionary_type():
+    indices = pa.array([3, 0, 0, 0, 1, 1, 3, 0, 1, 3, 0, 1])
+    dictionary = pa.array(['foo', 'bar', 'baz', 'qux'])
+
+    arr = pa.DictionaryArray.from_arrays(indices, dictionary)
+
+    unique_result = arr.unique()
+    expected = pa.DictionaryArray.from_arrays(indices.unique(), dictionary)
+    assert unique_result.equals(expected)
+
+    result = arr.value_counts()
+    result.field('values').equals(unique_result)
+    result.field('counts').equals(pa.array([3, 5, 4], type='int64'))
 
 
 def test_dictionary_encode_simple():

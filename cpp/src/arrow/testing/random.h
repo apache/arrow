@@ -25,8 +25,8 @@
 #include <random>
 #include <vector>
 
+#include "arrow/testing/visibility.h"
 #include "arrow/type.h"
-#include "arrow/util/visibility.h"
 
 namespace arrow {
 
@@ -37,7 +37,7 @@ namespace random {
 using SeedType = std::random_device::result_type;
 constexpr SeedType kSeedMax = std::numeric_limits<SeedType>::max();
 
-class ARROW_EXPORT RandomArrayGenerator {
+class ARROW_TESTING_EXPORT RandomArrayGenerator {
  public:
   explicit RandomArrayGenerator(SeedType seed)
       : seed_distribution_(static_cast<SeedType>(1), kSeedMax), seed_rng_(seed) {}

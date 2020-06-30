@@ -177,6 +177,8 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp) {
     SEXP names = Rf_getAttrib(lst, R_NamesSymbol);
 
     auto fill_one_column = [&columns, &fields](int j, SEXP x, SEXP name) {
+      // Make sure we're ingesting UTF-8
+      name = Rf_mkCharCE(Rf_translateCharUTF8(name), CE_UTF8);
       if (Rf_inherits(x, "ChunkedArray")) {
         auto chunked_array = arrow::r::extract<arrow::ChunkedArray>(x);
         fields[j] = arrow::field(CHAR(name), chunked_array->type());

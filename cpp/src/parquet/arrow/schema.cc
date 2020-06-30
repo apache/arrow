@@ -226,10 +226,13 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
   int scale = -1;
 
   switch (field->type()->id()) {
-    case ArrowTypeId::NA:
+    case ArrowTypeId::NA: {
       type = ParquetType::INT32;
       logical_type = LogicalType::Null();
-      break;
+      if (repetition != Repetition::OPTIONAL) {
+        return Status::Invalid("NullType Arrow field must be nullable");
+      }
+    } break;
     case ArrowTypeId::BOOL:
       type = ParquetType::BOOLEAN;
       break;
@@ -417,7 +420,13 @@ Status FromParquetSchema(
     const auto& schema_field = manifest.schema_fields[i];
     fields[i] = schema_field.field;
   }
-  *out = ::arrow::schema(fields, key_value_metadata);
+  if (manifest.origin_schema) {
+    // ARROW-8980: If the ARROW:schema was in the input metadata, then
+    // manifest.origin_schema will have it scrubbed out
+    *out = ::arrow::schema(fields, manifest.origin_schema->metadata());
+  } else {
+    *out = ::arrow::schema(fields, key_value_metadata);
+  }
   return Status::OK();
 }
 

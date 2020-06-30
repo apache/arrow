@@ -47,7 +47,13 @@ class ARROW_DS_EXPORT FileSource {
  public:
   FileSource(std::string path, std::shared_ptr<fs::FileSystem> filesystem,
              Compression::type compression = Compression::UNCOMPRESSED)
-      : path_(std::move(path)),
+      : file_info_(std::move(path)),
+        filesystem_(std::move(filesystem)),
+        compression_(compression) {}
+
+  FileSource(fs::FileInfo info, std::shared_ptr<fs::FileSystem> filesystem,
+             Compression::type compression = Compression::UNCOMPRESSED)
+      : file_info_(std::move(info)),
         filesystem_(std::move(filesystem)),
         compression_(compression) {}
 
@@ -87,7 +93,7 @@ class ARROW_DS_EXPORT FileSource {
   const std::string& path() const {
     static std::string buffer_path = "<Buffer>";
     static std::string custom_open_path = "<Buffer>";
-    return filesystem_ ? path_ : buffer_ ? buffer_path : custom_open_path;
+    return filesystem_ ? file_info_.path() : buffer_ ? buffer_path : custom_open_path;
   }
 
   /// \brief Return the filesystem, if any. Otherwise returns nullptr
@@ -104,7 +110,7 @@ class ARROW_DS_EXPORT FileSource {
     return Status::Invalid("Called Open() on an uninitialized FileSource");
   }
 
-  std::string path_;
+  fs::FileInfo file_info_;
   std::shared_ptr<fs::FileSystem> filesystem_;
   std::shared_ptr<Buffer> buffer_;
   CustomOpen custom_open_;
@@ -167,16 +173,22 @@ class ARROW_DS_EXPORT FileFormat : public std::enable_shared_from_this<FileForma
   /// \brief Return the schema of the file if possible.
   virtual Result<std::shared_ptr<Schema>> Inspect(const FileSource& source) const = 0;
 
-  /// \brief Open a file for scanning
-  virtual Result<ScanTaskIterator> ScanFile(
-      const FileSource& source, std::shared_ptr<ScanOptions> options,
-      std::shared_ptr<ScanContext> context) const = 0;
+  /// \brief Open a FileFragment for scanning.
+  /// May populate lazy properties of the FileFragment.
+  virtual Result<ScanTaskIterator> ScanFile(std::shared_ptr<ScanOptions> options,
+                                            std::shared_ptr<ScanContext> context,
+                                            FileFragment* file) const = 0;
 
   /// \brief Open a fragment
   virtual Result<std::shared_ptr<FileFragment>> MakeFragment(
+      FileSource source, std::shared_ptr<Expression> partition_expression,
+      std::shared_ptr<Schema> physical_schema);
+
+  Result<std::shared_ptr<FileFragment>> MakeFragment(
       FileSource source, std::shared_ptr<Expression> partition_expression);
 
-  Result<std::shared_ptr<FileFragment>> MakeFragment(FileSource source);
+  Result<std::shared_ptr<FileFragment>> MakeFragment(
+      FileSource source, std::shared_ptr<Schema> physical_schema = NULLPTR);
 
   /// \brief Write a fragment. If the parent directory of destination does not exist, it
   /// will be created.
@@ -189,8 +201,6 @@ class ARROW_DS_EXPORT FileFormat : public std::enable_shared_from_this<FileForma
 /// \brief A Fragment that is stored in a file with a known format
 class ARROW_DS_EXPORT FileFragment : public Fragment {
  public:
-  Result<std::shared_ptr<Schema>> ReadPhysicalSchema() override;
-
   Result<ScanTaskIterator> Scan(std::shared_ptr<ScanOptions> options,
                                 std::shared_ptr<ScanContext> context) override;
 
@@ -202,10 +212,13 @@ class ARROW_DS_EXPORT FileFragment : public Fragment {
 
  protected:
   FileFragment(FileSource source, std::shared_ptr<FileFormat> format,
-               std::shared_ptr<Expression> partition_expression)
-      : Fragment(std::move(partition_expression)),
+               std::shared_ptr<Expression> partition_expression,
+               std::shared_ptr<Schema> physical_schema)
+      : Fragment(std::move(partition_expression), std::move(physical_schema)),
         source_(std::move(source)),
         format_(std::move(format)) {}
+
+  Result<std::shared_ptr<Schema>> ReadPhysicalSchemaImpl() override;
 
   FileSource source_;
   std::shared_ptr<FileFormat> format_;

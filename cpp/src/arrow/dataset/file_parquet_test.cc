@@ -501,8 +501,11 @@ TEST_F(TestParquetFileFormat, ExplicitRowGroupSelection) {
   opts_ = ScanOptions::Make(reader->schema());
 
   auto row_groups_fragment = [&](std::vector<int> row_groups) {
+    std::shared_ptr<Schema> physical_schema = nullptr;
     EXPECT_OK_AND_ASSIGN(auto fragment,
-                         format_->MakeFragment(*source, scalar(true), row_groups));
+                         format_->MakeFragment(*source, scalar(true),
+                                               RowGroupInfo::FromIdentifiers(row_groups),
+                                               physical_schema));
     return internal::checked_pointer_cast<ParquetFileFragment>(fragment);
   };
 

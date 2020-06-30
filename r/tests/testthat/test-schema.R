@@ -67,6 +67,9 @@ test_that("Schema $GetFieldByName", {
   expect_null(schm$GetFieldByName("f"))
   # TODO: schema(b = double(), b = string())$GetFieldByName("b")
   # also returns NULL and probably should error bc duplicated names
+
+  expect_equal(schm$b, field("b", double()))
+  expect_equal(schm[["b"]], field("b", double()))
 })
 
 test_that("reading schema from Buffer", {

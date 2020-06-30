@@ -581,6 +581,10 @@ cdef get_reader(object source, c_bool use_memory_map,
 cdef get_writer(object source, shared_ptr[COutputStream]* writer)
 cdef NativeFile get_native_file(object source, c_bool use_memory_map)
 
+cdef shared_ptr[CInputStream] native_transcoding_input_stream(
+    shared_ptr[CInputStream] stream, src_encoding,
+    dest_encoding) except *
+
 # Default is allow_none=False
 cpdef DataType ensure_type(object type, bint allow_none=*)
 

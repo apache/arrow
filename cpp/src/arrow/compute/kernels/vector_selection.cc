@@ -233,19 +233,18 @@ using FilterState = OptionsWrapper<FilterOptions>;
 using TakeState = OptionsWrapper<TakeOptions>;
 
 Status PreallocateData(KernelContext* ctx, int64_t length, int bit_width,
-                       bool allocate_validity, Datum* out) {
+                       bool allocate_validity, ArrayData* out) {
   // Preallocate memory
-  ArrayData* out_arr = out->mutable_array();
-  out_arr->length = length;
-  out_arr->buffers.resize(2);
+  out->length = length;
+  out->buffers.resize(2);
 
   if (allocate_validity) {
-    ARROW_ASSIGN_OR_RAISE(out_arr->buffers[0], ctx->AllocateBitmap(length));
+    ARROW_ASSIGN_OR_RAISE(out->buffers[0], ctx->AllocateBitmap(length));
   }
   if (bit_width == 1) {
-    ARROW_ASSIGN_OR_RAISE(out_arr->buffers[1], ctx->AllocateBitmap(length));
+    ARROW_ASSIGN_OR_RAISE(out->buffers[1], ctx->AllocateBitmap(length));
   } else {
-    ARROW_ASSIGN_OR_RAISE(out_arr->buffers[1], ctx->Allocate(length * bit_width / 8));
+    ARROW_ASSIGN_OR_RAISE(out->buffers[1], ctx->Allocate(length * bit_width / 8));
   }
   return Status::OK();
 }
@@ -265,7 +264,7 @@ Status PreallocateData(KernelContext* ctx, int64_t length, int bit_width,
 template <typename IndexCType, typename ValueCType>
 struct PrimitiveTakeImpl {
   static void Exec(const PrimitiveArg& values, const PrimitiveArg& indices,
-                   Datum* out_datum) {
+                   ArrayData* out_arr) {
     auto values_data = reinterpret_cast<const ValueCType*>(values.data);
     auto values_is_valid = values.is_valid;
     auto values_offset = values.offset;
@@ -274,7 +273,6 @@ struct PrimitiveTakeImpl {
     auto indices_is_valid = indices.is_valid;
     auto indices_offset = indices.offset;
 
-    ArrayData* out_arr = out_datum->mutable_array();
     auto out = out_arr->GetMutableValues<ValueCType>(1);
     auto out_is_valid = out_arr->buffers[0]->mutable_data();
     auto out_offset = out_arr->offset;
@@ -364,7 +362,7 @@ struct PrimitiveTakeImpl {
 template <typename IndexCType>
 struct BooleanTakeImpl {
   static void Exec(const PrimitiveArg& values, const PrimitiveArg& indices,
-                   Datum* out_datum) {
+                   ArrayData* out_arr) {
     const uint8_t* values_data = values.data;
     auto values_is_valid = values.is_valid;
     auto values_offset = values.offset;
@@ -373,7 +371,6 @@ struct BooleanTakeImpl {
     auto indices_is_valid = indices.is_valid;
     auto indices_offset = indices.offset;
 
-    ArrayData* out_arr = out_datum->mutable_array();
     auto out = out_arr->buffers[1]->mutable_data();
     auto out_is_valid = out_arr->buffers[0]->mutable_data();
     auto out_offset = out_arr->offset;
@@ -463,7 +460,7 @@ struct BooleanTakeImpl {
 
 template <template <typename...> class TakeImpl, typename... Args>
 void TakeIndexDispatch(const PrimitiveArg& values, const PrimitiveArg& indices,
-                       Datum* out) {
+                       ArrayData* out) {
   // With the simplifying assumption that boundschecking has taken place
   // already at a higher level, we can now assume that the index values are all
   // non-negative. Thus, we can interpret signed integers as unsigned and avoid
@@ -492,23 +489,25 @@ void PrimitiveTake(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   PrimitiveArg values = GetPrimitiveArg(*batch[0].array());
   PrimitiveArg indices = GetPrimitiveArg(*batch[1].array());
 
+  ArrayData* out_arr = out->mutable_array();
+
   // TODO: When neither values nor indices contain nulls, we can skip
   // allocating the validity bitmap altogether and save time and space. A
   // streamlined PrimitiveTakeImpl would need to be written that skips all
   // interactions with the output validity bitmap, though.
   KERNEL_RETURN_IF_ERROR(ctx, PreallocateData(ctx, indices.length, values.bit_width,
-                                              /*allocate_validity=*/true, out));
+                                              /*allocate_validity=*/true, out_arr));
   switch (values.bit_width) {
     case 1:
-      return TakeIndexDispatch<BooleanTakeImpl>(values, indices, out);
+      return TakeIndexDispatch<BooleanTakeImpl>(values, indices, out_arr);
     case 8:
-      return TakeIndexDispatch<PrimitiveTakeImpl, int8_t>(values, indices, out);
+      return TakeIndexDispatch<PrimitiveTakeImpl, int8_t>(values, indices, out_arr);
     case 16:
-      return TakeIndexDispatch<PrimitiveTakeImpl, int16_t>(values, indices, out);
+      return TakeIndexDispatch<PrimitiveTakeImpl, int16_t>(values, indices, out_arr);
     case 32:
-      return TakeIndexDispatch<PrimitiveTakeImpl, int32_t>(values, indices, out);
+      return TakeIndexDispatch<PrimitiveTakeImpl, int32_t>(values, indices, out_arr);
     case 64:
-      return TakeIndexDispatch<PrimitiveTakeImpl, int64_t>(values, indices, out);
+      return TakeIndexDispatch<PrimitiveTakeImpl, int64_t>(values, indices, out_arr);
     default:
       DCHECK(false) << "Invalid values byte width";
       break;
@@ -560,7 +559,7 @@ class PrimitiveFilterImpl {
 
   PrimitiveFilterImpl(const PrimitiveArg& values, const PrimitiveArg& filter,
                       FilterOptions::NullSelectionBehavior null_selection,
-                      Datum* out_datum)
+                      ArrayData* out_arr)
       : values_is_valid_(values.is_valid),
         values_data_(reinterpret_cast<const T*>(values.data)),
         values_null_count_(values.null_count),
@@ -571,7 +570,6 @@ class PrimitiveFilterImpl {
         filter_null_count_(filter.null_count),
         filter_offset_(filter.offset),
         null_selection_(null_selection) {
-    ArrayData* out_arr = out_datum->mutable_array();
     if (out_arr->buffers[0] != nullptr) {
       // May not be allocated if neither filter nor values contains nulls
       out_is_valid_ = out_arr->buffers[0]->mutable_data();
@@ -806,14 +804,16 @@ void PrimitiveFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
 
   int64_t output_length = GetFilterOutputSize(*batch[1].array(), null_selection);
 
+  ArrayData* out_arr = out->mutable_array();
+
   // The output precomputed null count is unknown except in the narrow
   // condition that all the values are non-null and the filter will not cause
   // any new nulls to be created.
   if (values.null_count == 0 &&
       (null_selection == FilterOptions::DROP || filter.null_count == 0)) {
-    out->mutable_array()->null_count = 0;
+    out_arr->null_count = 0;
   } else {
-    out->mutable_array()->null_count = kUnknownNullCount;
+    out_arr->null_count = kUnknownNullCount;
   }
 
   // When neither the values nor filter is known to have any nulls, we will
@@ -821,23 +821,343 @@ void PrimitiveFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   // validity bitmap.
   bool allocate_validity = values.null_count != 0 || filter.null_count != 0;
 
-  KERNEL_RETURN_IF_ERROR(
-      ctx, PreallocateData(ctx, output_length, values.bit_width, allocate_validity, out));
+  KERNEL_RETURN_IF_ERROR(ctx, PreallocateData(ctx, output_length, values.bit_width,
+                                              allocate_validity, out_arr));
 
   switch (values.bit_width) {
     case 1:
-      return PrimitiveFilterImpl<BooleanType>(values, filter, null_selection, out).Exec();
+      return PrimitiveFilterImpl<BooleanType>(values, filter, null_selection, out_arr)
+          .Exec();
     case 8:
-      return PrimitiveFilterImpl<UInt8Type>(values, filter, null_selection, out).Exec();
+      return PrimitiveFilterImpl<UInt8Type>(values, filter, null_selection, out_arr)
+          .Exec();
     case 16:
-      return PrimitiveFilterImpl<UInt16Type>(values, filter, null_selection, out).Exec();
+      return PrimitiveFilterImpl<UInt16Type>(values, filter, null_selection, out_arr)
+          .Exec();
     case 32:
-      return PrimitiveFilterImpl<UInt32Type>(values, filter, null_selection, out).Exec();
+      return PrimitiveFilterImpl<UInt32Type>(values, filter, null_selection, out_arr)
+          .Exec();
     case 64:
-      return PrimitiveFilterImpl<UInt64Type>(values, filter, null_selection, out).Exec();
+      return PrimitiveFilterImpl<UInt64Type>(values, filter, null_selection, out_arr)
+          .Exec();
     default:
       DCHECK(false) << "Invalid values bit width";
       break;
+  }
+}
+
+// ----------------------------------------------------------------------
+// Optimized filter for base binary types (32-bit and 64-bit)
+
+#define BINARY_FILTER_SETUP_COMMON()                                                    \
+  auto raw_offsets =                                                                    \
+      reinterpret_cast<const offset_type*>(values.buffers[1]->data()) + values.offset;  \
+  const uint8_t* raw_data = values.buffers[2]->data();                                  \
+                                                                                        \
+  TypedBufferBuilder<offset_type> offset_builder(ctx->memory_pool());                   \
+  TypedBufferBuilder<uint8_t> data_builder(ctx->memory_pool());                         \
+  RETURN_NOT_OK(offset_builder.Reserve(output_length + 1));                             \
+                                                                                        \
+  /* Presize the data builder with a rough estimate */                                  \
+  if (values.length > 0) {                                                              \
+    const double mean_value_length = (raw_offsets[values.length] - raw_offsets[0]) /    \
+                                     static_cast<double>(values.length);                \
+    RETURN_NOT_OK(                                                                      \
+        data_builder.Reserve(static_cast<int64_t>(mean_value_length * output_length))); \
+  }                                                                                     \
+  int64_t space_available = data_builder.capacity();                                    \
+  int64_t in_position = 0;                                                              \
+  int64_t out_position = 0;                                                             \
+  offset_type offset = 0;
+
+#define APPEND_RAW_DATA(DATA, NBYTES)                                  \
+  if (ARROW_PREDICT_FALSE(NBYTES > space_available)) {                 \
+    RETURN_NOT_OK(data_builder.Reserve(NBYTES));                       \
+    space_available = data_builder.capacity() - data_builder.length(); \
+  }                                                                    \
+  data_builder.UnsafeAppend(DATA, NBYTES);                             \
+  space_available -= NBYTES
+
+#define APPEND_SINGLE_VALUE()                                                       \
+  do {                                                                              \
+    offset_type val_size = raw_offsets[in_position + 1] - raw_offsets[in_position]; \
+    APPEND_RAW_DATA(raw_data + raw_offsets[in_position], val_size);                 \
+    offset += val_size;                                                             \
+  } while (0)
+
+// Optimized binary filter for the case where neither values nor filter have
+// nulls
+template <typename Type>
+Status BinaryFilterNonNullImpl(KernelContext* ctx, const ArrayData& values,
+                               const ArrayData& filter, int64_t output_length,
+                               FilterOptions::NullSelectionBehavior null_selection,
+                               ArrayData* out) {
+  using offset_type = typename Type::offset_type;
+  const auto filter_data = filter.buffers[1]->data();
+  const int64_t filter_offset = filter.offset;
+  BitBlockCounter filter_counter(filter_data, filter.offset, filter.length);
+  BINARY_FILTER_SETUP_COMMON();
+
+  while (in_position < filter.length) {
+    BitBlockCount filter_block = filter_counter.NextWord();
+    if (filter_block.NoneSet()) {
+      // For this exceedingly common case in low-selectivity filters we can
+      // skip further analysis of the data and move on to the next block.
+      in_position += filter_block.length;
+    } else {
+      // Simpler path: no filter values are null
+      if (filter_block.AllSet()) {
+        // Fastest path: filter values are all true and not null
+        // Bulk-append raw data
+        offset_type block_data_bytes =
+            (raw_offsets[in_position + filter_block.length] - raw_offsets[in_position]);
+        APPEND_RAW_DATA(raw_data + raw_offsets[in_position], block_data_bytes);
+        // Append offsets
+        offset_type cur_offset = raw_offsets[in_position];
+        for (int64_t i = 0; i < filter_block.length; ++i, ++in_position) {
+          offset_builder.UnsafeAppend(offset);
+          offset += raw_offsets[in_position + 1] - cur_offset;
+          cur_offset = raw_offsets[in_position + 1];
+        }
+        out_position += filter_block.length;
+      } else {  // !filter_block.AllSet()
+        // Some of the filter values are false, but all not null
+        // All the values are not-null, so we can skip null checking for
+        // them
+        for (int64_t i = 0; i < filter_block.length; ++i, ++in_position) {
+          if (BitUtil::GetBit(filter_data, filter_offset + in_position)) {
+            offset_builder.UnsafeAppend(offset);
+            APPEND_SINGLE_VALUE();
+          }
+        }
+      }
+    }
+  }
+  offset_builder.UnsafeAppend(offset);
+  out->length = output_length;
+  RETURN_NOT_OK(offset_builder.Finish(&out->buffers[1]));
+  return data_builder.Finish(&out->buffers[2]);
+}
+
+template <typename Type>
+Status BinaryFilterImpl(KernelContext* ctx, const ArrayData& values,
+                        const ArrayData& filter, int64_t output_length,
+                        FilterOptions::NullSelectionBehavior null_selection,
+                        ArrayData* out) {
+  using offset_type = typename Type::offset_type;
+
+  const auto filter_data = filter.buffers[1]->data();
+  const uint8_t* filter_is_valid = GetValidityBitmap(filter);
+  const int64_t filter_offset = filter.offset;
+
+  const uint8_t* values_is_valid = GetValidityBitmap(values);
+  const int64_t values_offset = values.offset;
+
+  uint8_t* out_is_valid = out->buffers[0]->mutable_data();
+  // Zero bits and then only have to set valid values to true
+  BitUtil::SetBitsTo(out_is_valid, 0, output_length, false);
+
+  // We use 3 block counters for fast scanning of the filter
+  //
+  // * values_valid_counter: for values null/not-null
+  // * filter_valid_counter: for filter null/not-null
+  // * filter_counter: for filter true/false
+  OptionalBitBlockCounter values_valid_counter(values_is_valid, values_offset,
+                                               values.length);
+  OptionalBitBlockCounter filter_valid_counter(filter_is_valid, filter_offset,
+                                               filter.length);
+  BitBlockCounter filter_counter(filter_data, filter_offset, filter.length);
+
+  BINARY_FILTER_SETUP_COMMON();
+
+  while (in_position < filter.length) {
+    BitBlockCount filter_valid_block = filter_valid_counter.NextWord();
+    BitBlockCount values_valid_block = values_valid_counter.NextWord();
+    BitBlockCount filter_block = filter_counter.NextWord();
+    if (filter_block.NoneSet() && null_selection == FilterOptions::DROP) {
+      // For this exceedingly common case in low-selectivity filters we can
+      // skip further analysis of the data and move on to the next block.
+      in_position += filter_block.length;
+    } else if (filter_valid_block.AllSet()) {
+      // Simpler path: no filter values are null
+      if (filter_block.AllSet()) {
+        // Fastest path: filter values are all true and not null
+        if (values_valid_block.AllSet()) {
+          // The values aren't null either
+          BitUtil::SetBitsTo(out_is_valid, out_position, filter_block.length, true);
+
+          // Bulk-append raw data
+          offset_type block_data_bytes =
+              (raw_offsets[in_position + filter_block.length] - raw_offsets[in_position]);
+          APPEND_RAW_DATA(raw_data + raw_offsets[in_position], block_data_bytes);
+          // Append offsets
+          for (int64_t i = 0; i < filter_block.length; ++i, ++in_position) {
+            offset_builder.UnsafeAppend(offset);
+            offset += raw_offsets[in_position + 1] - raw_offsets[in_position];
+          }
+          out_position += filter_block.length;
+        } else {
+          // Some of the values in this block are null
+          for (int64_t i = 0; i < filter_block.length;
+               ++i, ++in_position, ++out_position) {
+            offset_builder.UnsafeAppend(offset);
+            if (BitUtil::GetBit(values_is_valid, values_offset + in_position)) {
+              BitUtil::SetBit(out_is_valid, out_position);
+              APPEND_SINGLE_VALUE();
+            }
+          }
+        }
+      } else {  // !filter_block.AllSet()
+        // Some of the filter values are false, but all not null
+        if (values_valid_block.AllSet()) {
+          // All the values are not-null, so we can skip null checking for
+          // them
+          for (int64_t i = 0; i < filter_block.length; ++i, ++in_position) {
+            if (BitUtil::GetBit(filter_data, filter_offset + in_position)) {
+              offset_builder.UnsafeAppend(offset);
+              BitUtil::SetBit(out_is_valid, out_position++);
+              APPEND_SINGLE_VALUE();
+            }
+          }
+        } else {
+          // Some of the values in the block are null, so we have to check
+          // each one
+          for (int64_t i = 0; i < filter_block.length; ++i, ++in_position) {
+            if (BitUtil::GetBit(filter_data, filter_offset + in_position)) {
+              offset_builder.UnsafeAppend(offset);
+              if (BitUtil::GetBit(values_is_valid, values_offset + in_position)) {
+                BitUtil::SetBit(out_is_valid, out_position);
+                APPEND_SINGLE_VALUE();
+              }
+              ++out_position;
+            }
+          }
+        }
+      }
+    } else {  // !filter_valid_block.AllSet()
+      // Some of the filter values are null, so we have to handle the DROP
+      // versus EMIT_NULL null selection behavior.
+      if (null_selection == FilterOptions::DROP) {
+        // Filter null values are treated as false.
+        if (values_valid_block.AllSet()) {
+          for (int64_t i = 0; i < filter_block.length; ++i, ++in_position) {
+            if (BitUtil::GetBit(filter_is_valid, filter_offset + in_position) &&
+                BitUtil::GetBit(filter_data, filter_offset + in_position)) {
+              offset_builder.UnsafeAppend(offset);
+              BitUtil::SetBit(out_is_valid, out_position++);
+              APPEND_SINGLE_VALUE();
+            }
+          }
+        } else {
+          for (int64_t i = 0; i < filter_block.length; ++i, ++in_position) {
+            if (BitUtil::GetBit(filter_is_valid, filter_offset + in_position) &&
+                BitUtil::GetBit(filter_data, filter_offset + in_position)) {
+              offset_builder.UnsafeAppend(offset);
+              if (BitUtil::GetBit(values_is_valid, values_offset + in_position)) {
+                BitUtil::SetBit(out_is_valid, out_position);
+                APPEND_SINGLE_VALUE();
+              }
+              ++out_position;
+            }
+          }
+        }
+      } else {
+        // EMIT_NULL
+
+        // Filter null values are appended to output as null whether the
+        // value in the corresponding slot is valid or not
+        if (values_valid_block.AllSet()) {
+          for (int64_t i = 0; i < filter_block.length; ++i, ++in_position) {
+            const bool filter_not_null =
+                BitUtil::GetBit(filter_is_valid, filter_offset + in_position);
+            if (filter_not_null &&
+                BitUtil::GetBit(filter_data, filter_offset + in_position)) {
+              offset_builder.UnsafeAppend(offset);
+              BitUtil::SetBit(out_is_valid, out_position++);
+              APPEND_SINGLE_VALUE();
+            } else if (!filter_not_null) {
+              offset_builder.UnsafeAppend(offset);
+              ++out_position;
+            }
+          }
+        } else {
+          for (int64_t i = 0; i < filter_block.length; ++i, ++in_position) {
+            const bool filter_not_null =
+                BitUtil::GetBit(filter_is_valid, filter_offset + in_position);
+            if (filter_not_null &&
+                BitUtil::GetBit(filter_data, filter_offset + in_position)) {
+              offset_builder.UnsafeAppend(offset);
+              if (BitUtil::GetBit(values_is_valid, values_offset + in_position)) {
+                BitUtil::SetBit(out_is_valid, out_position);
+                APPEND_SINGLE_VALUE();
+              }
+              ++out_position;
+            } else if (!filter_not_null) {
+              offset_builder.UnsafeAppend(offset);
+              ++out_position;
+            }
+          }
+        }
+      }
+    }
+  }
+  offset_builder.UnsafeAppend(offset);
+  out->length = output_length;
+  RETURN_NOT_OK(offset_builder.Finish(&out->buffers[1]));
+  return data_builder.Finish(&out->buffers[2]);
+}
+
+#undef BINARY_FILTER_SETUP_COMMON
+#undef APPEND_RAW_DATA
+#undef APPEND_SINGLE_VALUE
+
+void BinaryFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  FilterOptions::NullSelectionBehavior null_selection =
+      FilterState::Get(ctx).null_selection_behavior;
+
+  const ArrayData& values = *batch[0].array();
+  const ArrayData& filter = *batch[1].array();
+  int64_t output_length = GetFilterOutputSize(filter, null_selection);
+  ArrayData* out_arr = out->mutable_array();
+
+  // The output precomputed null count is unknown except in the narrow
+  // condition that all the values are non-null and the filter will not cause
+  // any new nulls to be created.
+  if (values.null_count == 0 &&
+      (null_selection == FilterOptions::DROP || filter.null_count == 0)) {
+    out_arr->null_count = 0;
+  } else {
+    out_arr->null_count = kUnknownNullCount;
+  }
+  Type::type type_id = values.type->id();
+  if (values.null_count == 0 && filter.null_count == 0) {
+    // Faster no-nulls case
+    if (is_binary_like(type_id)) {
+      KERNEL_RETURN_IF_ERROR(
+          ctx, BinaryFilterNonNullImpl<BinaryType>(ctx, values, filter, output_length,
+                                                   null_selection, out_arr));
+    } else if (is_large_binary_like(type_id)) {
+      KERNEL_RETURN_IF_ERROR(
+          ctx, BinaryFilterNonNullImpl<LargeBinaryType>(
+                   ctx, values, filter, output_length, null_selection, out_arr));
+    } else {
+      DCHECK(false);
+    }
+  } else {
+    // Output may have nulls
+    KERNEL_RETURN_IF_ERROR(
+        ctx, ctx->AllocateBitmap(output_length).Value(&out_arr->buffers[0]));
+    if (is_binary_like(type_id)) {
+      KERNEL_RETURN_IF_ERROR(
+          ctx, BinaryFilterImpl<BinaryType>(ctx, values, filter, output_length,
+                                            null_selection, out_arr));
+    } else if (is_large_binary_like(type_id)) {
+      KERNEL_RETURN_IF_ERROR(
+          ctx, BinaryFilterImpl<LargeBinaryType>(ctx, values, filter, output_length,
+                                                 null_selection, out_arr));
+    } else {
+      DCHECK(false);
+    }
   }
 }
 
@@ -1195,8 +1515,8 @@ struct Selection {
 
 static inline Status VisitNoop() { return Status::OK(); }
 
-// A take implementation for 32-bit and 64-bit variable binary types. Common
-// generated kernels are shared between Binary/String and
+// A selection implementation for 32-bit and 64-bit variable binary
+// types. Common generated kernels are shared between Binary/String and
 // LargeBinary/LargeString
 template <typename Type>
 struct VarBinaryImpl : public Selection<VarBinaryImpl<Type>, Type> {
@@ -1761,10 +2081,8 @@ void RegisterVectorSelection(FunctionRegistry* registry) {
   // Filter kernels
   std::vector<SelectionKernelDescr> filter_kernel_descrs = {
       {InputType(match::Primitive(), ValueDescr::ARRAY), PrimitiveFilter},
-      {InputType(match::BinaryLike(), ValueDescr::ARRAY),
-       FilterExec<VarBinaryImpl<BinaryType>>},
-      {InputType(match::LargeBinaryLike(), ValueDescr::ARRAY),
-       FilterExec<VarBinaryImpl<LargeBinaryType>>},
+      {InputType(match::BinaryLike(), ValueDescr::ARRAY), BinaryFilter},
+      {InputType(match::LargeBinaryLike(), ValueDescr::ARRAY), BinaryFilter},
       {InputType::Array(Type::FIXED_SIZE_BINARY), FilterExec<FSBImpl>},
       {InputType::Array(null()), NullFilter},
       {InputType::Array(Type::DECIMAL), FilterExec<FSBImpl>},

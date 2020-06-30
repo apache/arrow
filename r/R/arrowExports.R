@@ -1052,40 +1052,8 @@ parquet___arrow___FileReader__num_rows <- function(reader){
     .Call(`_arrow_parquet___arrow___FileReader__num_rows` , reader)
 }
 
-parquet___ArrowWriterProperties___Builder__create <- function(){
-    .Call(`_arrow_parquet___ArrowWriterProperties___Builder__create` )
-}
-
-parquet___ArrowWriterProperties___Builder__store_schema <- function(builder){
-    invisible(.Call(`_arrow_parquet___ArrowWriterProperties___Builder__store_schema` , builder))
-}
-
-parquet___ArrowWriterProperties___Builder__enable_deprecated_int96_timestamps <- function(builder){
-    invisible(.Call(`_arrow_parquet___ArrowWriterProperties___Builder__enable_deprecated_int96_timestamps` , builder))
-}
-
-parquet___ArrowWriterProperties___Builder__disable_deprecated_int96_timestamps <- function(builder){
-    invisible(.Call(`_arrow_parquet___ArrowWriterProperties___Builder__disable_deprecated_int96_timestamps` , builder))
-}
-
-parquet___ArrowWriterProperties___Builder__coerce_timestamps <- function(builder, unit){
-    invisible(.Call(`_arrow_parquet___ArrowWriterProperties___Builder__coerce_timestamps` , builder, unit))
-}
-
-parquet___ArrowWriterProperties___Builder__allow_truncated_timestamps <- function(builder){
-    invisible(.Call(`_arrow_parquet___ArrowWriterProperties___Builder__allow_truncated_timestamps` , builder))
-}
-
-parquet___ArrowWriterProperties___Builder__disallow_truncated_timestamps <- function(builder){
-    invisible(.Call(`_arrow_parquet___ArrowWriterProperties___Builder__disallow_truncated_timestamps` , builder))
-}
-
-parquet___ArrowWriterProperties___Builder__build <- function(builder){
-    .Call(`_arrow_parquet___ArrowWriterProperties___Builder__build` , builder)
-}
-
-parquet___default_writer_properties <- function(){
-    .Call(`_arrow_parquet___default_writer_properties` )
+parquet___ArrowWriterProperties___create <- function(allow_truncated_timestamps, use_deprecated_int96_timestamps, timestamp_unit){
+    .Call(`_arrow_parquet___ArrowWriterProperties___create` , allow_truncated_timestamps, use_deprecated_int96_timestamps, timestamp_unit)
 }
 
 parquet___WriterProperties___Builder__create <- function(){
@@ -1096,28 +1064,12 @@ parquet___WriterProperties___Builder__version <- function(builder, version){
     invisible(.Call(`_arrow_parquet___WriterProperties___Builder__version` , builder, version))
 }
 
-parquet___ArrowWriterProperties___Builder__default_compression <- function(builder, compression){
-    invisible(.Call(`_arrow_parquet___ArrowWriterProperties___Builder__default_compression` , builder, compression))
-}
-
 parquet___ArrowWriterProperties___Builder__set_compressions <- function(builder, paths, types){
     invisible(.Call(`_arrow_parquet___ArrowWriterProperties___Builder__set_compressions` , builder, paths, types))
 }
 
-parquet___ArrowWriterProperties___Builder__default_compression_level <- function(builder, compression_level){
-    invisible(.Call(`_arrow_parquet___ArrowWriterProperties___Builder__default_compression_level` , builder, compression_level))
-}
-
 parquet___ArrowWriterProperties___Builder__set_compression_levels <- function(builder, paths, levels){
     invisible(.Call(`_arrow_parquet___ArrowWriterProperties___Builder__set_compression_levels` , builder, paths, levels))
-}
-
-parquet___ArrowWriterProperties___Builder__default_write_statistics <- function(builder, write_statistics){
-    invisible(.Call(`_arrow_parquet___ArrowWriterProperties___Builder__default_write_statistics` , builder, write_statistics))
-}
-
-parquet___ArrowWriterProperties___Builder__default_use_dictionary <- function(builder, use_dictionary){
-    invisible(.Call(`_arrow_parquet___ArrowWriterProperties___Builder__default_use_dictionary` , builder, use_dictionary))
 }
 
 parquet___ArrowWriterProperties___Builder__set_use_dictionary <- function(builder, paths, use_dictionary){
