@@ -294,6 +294,9 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   define_option(ARROW_PROTOBUF_USE_SHARED
                 "Rely on Protocol Buffers shared libraries where relevant" ON)
 
+  define_option(ARROW_BROTLI_USE_SHARED "Rely on Brotli shared libraries where relevant"
+                ON)
+
   define_option(ARROW_ZSTD_USE_SHARED "Rely on zstd shared libraries where relevant" ON)
 
   define_option(ARROW_WITH_BACKTRACE "Build with backtrace support" ON)
