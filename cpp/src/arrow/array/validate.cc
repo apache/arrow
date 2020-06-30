@@ -430,11 +430,17 @@ struct ValidateArrayDataVisitor {
   // Fallback
   Status Visit(const Array& array) { return Status::OK(); }
 
-  Status Visit(const StringArray& array) { return ValidateBinaryArray(array); }
+  Status Visit(const StringArray& array) {
+    RETURN_NOT_OK(ValidateBinaryArray(array));
+    return array.ValidateUTF8();
+  }
+
+  Status Visit(const LargeStringArray& array) {
+    RETURN_NOT_OK(ValidateBinaryArray(array));
+    return array.ValidateUTF8();
+  }
 
   Status Visit(const BinaryArray& array) { return ValidateBinaryArray(array); }
-
-  Status Visit(const LargeStringArray& array) { return ValidateBinaryArray(array); }
 
   Status Visit(const LargeBinaryArray& array) { return ValidateBinaryArray(array); }
 

@@ -161,6 +161,11 @@ class ARROW_EXPORT StringArray : public BinaryArray {
               const std::shared_ptr<Buffer>& data,
               const std::shared_ptr<Buffer>& null_bitmap = NULLPTR,
               int64_t null_count = kUnknownNullCount, int64_t offset = 0);
+
+  /// \brief Validate that this array contains only valid UTF8 entries
+  ///
+  /// This check is also implied by ValidateFull()
+  Status ValidateUTF8() const;
 };
 
 /// Concrete Array class for large variable-size binary data
@@ -189,6 +194,11 @@ class ARROW_EXPORT LargeStringArray : public LargeBinaryArray {
                    const std::shared_ptr<Buffer>& data,
                    const std::shared_ptr<Buffer>& null_bitmap = NULLPTR,
                    int64_t null_count = kUnknownNullCount, int64_t offset = 0);
+
+  /// \brief Validate that this array contains only valid UTF8 entries
+  ///
+  /// This check is also implied by ValidateFull()
+  Status ValidateUTF8() const;
 };
 
 // ----------------------------------------------------------------------

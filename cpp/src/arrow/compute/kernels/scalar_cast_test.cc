@@ -83,9 +83,13 @@ class TestCast : public TestBase {
  public:
   void CheckPass(const Array& input, const Array& expected,
                  const std::shared_ptr<DataType>& out_type, const CastOptions& options,
-                 bool check_scalar = true) {
+                 bool check_scalar = true, bool validate_full = true) {
     ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> result, Cast(input, out_type, options));
-    ASSERT_OK(result->ValidateFull());
+    if (validate_full) {
+      ASSERT_OK(result->ValidateFull());
+    } else {
+      ASSERT_OK(result->Validate());
+    }
     AssertArraysEqual(expected, *result, /*verbose=*/true);
 
     if (input.type_id() == Type::DECIMAL || out_type->id() == Type::DECIMAL) {
@@ -161,7 +165,7 @@ class TestCast : public TestBase {
                  const std::vector<I_TYPE>& in_values, const std::vector<bool>& is_valid,
                  const std::shared_ptr<DataType>& out_type,
                  const std::vector<O_TYPE>& out_values, const CastOptions& options,
-                 bool check_scalar = true) {
+                 bool check_scalar = true, bool validate_full = true) {
     ASSERT_EQ(in_values.size(), out_values.size());
     std::shared_ptr<Array> input, expected;
     if (is_valid.size() > 0) {
@@ -172,11 +176,12 @@ class TestCast : public TestBase {
       ArrayFromVector<InType, I_TYPE>(in_type, in_values, &input);
       ArrayFromVector<OutType, O_TYPE>(out_type, out_values, &expected);
     }
-    CheckPass(*input, *expected, out_type, options, check_scalar);
+    CheckPass(*input, *expected, out_type, options, check_scalar, validate_full);
 
     // Check a sliced variant
     if (input->length() > 1) {
-      CheckPass(*input->Slice(1), *expected->Slice(1), out_type, options, check_scalar);
+      CheckPass(*input->Slice(1), *expected->Slice(1), out_type, options, check_scalar,
+                validate_full);
     }
   }
 
@@ -184,10 +189,11 @@ class TestCast : public TestBase {
             typename O_TYPE = typename OutType::c_type>
   void CheckCase(const std::vector<I_TYPE>& in_values, const std::vector<bool>& is_valid,
                  const std::vector<O_TYPE>& out_values, const CastOptions& options,
-                 bool check_scalar = true) {
+                 bool check_scalar = true, bool validate_full = true) {
     CheckCase<InType, OutType, I_TYPE, O_TYPE>(
         TypeTraits<InType>::type_singleton(), in_values, is_valid,
-        TypeTraits<OutType>::type_singleton(), out_values, options, check_scalar);
+        TypeTraits<OutType>::type_singleton(), out_values, options, check_scalar,
+        validate_full);
   }
 
   void CheckCaseJSON(const std::shared_ptr<DataType>& in_type,
@@ -239,7 +245,7 @@ class TestCast : public TestBase {
     // Should accept due to option override
     options.allow_invalid_utf8 = true;
     CheckCase<SourceType, DestType>(strings, all, strings, options,
-                                    /*check_scalar=*/false);
+                                    /*check_scalar=*/false, /*validate_full=*/false);
   }
 
   template <typename SourceType, typename DestType>
