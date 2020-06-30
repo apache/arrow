@@ -147,6 +147,13 @@ TYPED_TEST(TestStringKernels, Utf8Lower) {
 
 #endif  // ARROW_WITH_UTF8PROC
 
+TYPED_TEST(TestStringKernels, ContainsExact) {
+  ContainsExactOptions options{"ab"};
+  this->CheckUnary("contains_exact", "[]", boolean(), "[]", &options);
+  this->CheckUnary("contains_exact", R"(["abc", "acb", "cab", null, "bac"])", boolean(),
+                   "[true, false, true, null, false]", &options);
+}
+
 TYPED_TEST(TestStringKernels, Strptime) {
   std::string input1 = R"(["5/1/2020", null, "12/11/1900"])";
   std::string output1 = R"(["2020-05-01", null, "1900-12-11"])";
