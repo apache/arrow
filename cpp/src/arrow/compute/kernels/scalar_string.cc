@@ -300,31 +300,24 @@ void AddAsciiLength(FunctionRegistry* registry) {
 // ----------------------------------------------------------------------
 // exact pattern detection
 
-template <typename offset_type>
 using StrToBoolTransformFunc =
-    std::function<void(const offset_type*, const uint8_t*, int64_t, uint8_t*)>;
+    std::function<void(const void*, const uint8_t*, int64_t, int64_t, uint8_t*)>;
 
 // Apply `transform` to input character data- this function cannot change the
 // length
 template <typename Type>
 void StringBoolTransform(KernelContext* ctx, const ExecBatch& batch,
-                         StrToBoolTransformFunc<typename Type::offset_type> transform,
-                         Datum* out) {
+                         StrToBoolTransformFunc transform, Datum* out) {
   using offset_type = typename Type::offset_type;
 
   if (batch[0].kind() == Datum::ARRAY) {
     const ArrayData& input = *batch[0].array();
-
     ArrayData* out_arr = out->mutable_array();
-
-    // Allocate space for output data
-    KERNEL_RETURN_IF_ERROR(
-        ctx,
-        ctx->Allocate(BitUtil::BytesForBits(input.length)).Value(&out_arr->buffers[1]));
     if (input.length > 0) {
       transform(
           reinterpret_cast<const offset_type*>(input.buffers[1]->data()) + input.offset,
-          input.buffers[2]->data(), input.length, out_arr->buffers[1]->mutable_data());
+          input.buffers[2]->data(), input.length, out_arr->offset,
+          out_arr->buffers[1]->mutable_data());
     }
   } else {
     const auto& input = checked_cast<const BaseBinaryScalar&>(*batch[0].scalar());
@@ -332,10 +325,10 @@ void StringBoolTransform(KernelContext* ctx, const ExecBatch& batch,
     uint8_t result_value = 0;
     if (input.is_valid) {
       result->is_valid = true;
-      KERNEL_RETURN_IF_ERROR(ctx, ctx->Allocate(1).Value(&result->value));
       std::array<offset_type, 2> offsets{0,
                                          static_cast<offset_type>(input.value->size())};
-      transform(offsets.data(), input.value->data(), 1, &result_value);
+      transform(offsets.data(), input.value->data(), 1, /*output_offset=*/0,
+                &result_value);
       out->value = std::make_shared<BooleanScalar>(result_value > 0);
     }
   }
@@ -344,7 +337,7 @@ void StringBoolTransform(KernelContext* ctx, const ExecBatch& batch,
 template <typename offset_type>
 void TransformContainsExact(const uint8_t* pattern, int64_t pattern_length,
                             const offset_type* offsets, const uint8_t* data,
-                            int64_t length, uint8_t* output) {
+                            int64_t length, int64_t output_offset, uint8_t* output) {
   // This is an implementation of the Knuth-Morris-Pratt algorithm
 
   // Phase 1: Build the prefix table
@@ -361,7 +354,7 @@ void TransformContainsExact(const uint8_t* pattern, int64_t pattern_length,
   }
 
   // Phase 2: Find the prefix in the data
-  FirstTimeBitmapWriter bitmap_writer(output, 0, length);
+  FirstTimeBitmapWriter bitmap_writer(output, output_offset, length);
   for (int64_t i = 0; i < length; ++i) {
     const uint8_t* current_data = data + offsets[i];
     int64_t current_length = offsets[i + 1] - offsets[i];
@@ -387,16 +380,20 @@ using ContainsExactState = OptionsWrapper<ContainsExactOptions>;
 
 template <typename Type>
 struct ContainsExact {
+  using offset_type = typename Type::offset_type;
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    ContainsExactOptions arg =
-        checked_cast<const ContainsExactState&>(*ctx->state()).options;
-    auto transform_func =
-        std::bind(TransformContainsExact<typename Type::offset_type>,
-                  reinterpret_cast<const uint8_t*>(arg.pattern.c_str()),
-                  arg.pattern.length(), std::placeholders::_1, std::placeholders::_2,
-                  std::placeholders::_3, std::placeholders::_4);
-
-    StringBoolTransform<Type>(ctx, batch, transform_func, out);
+    ContainsExactOptions arg = ContainsExactState::Get(ctx);
+    const uint8_t* pat = reinterpret_cast<const uint8_t*>(arg.pattern.c_str());
+    const int64_t pat_size = arg.pattern.length();
+    StringBoolTransform<Type>(
+        ctx, batch,
+        [pat, pat_size](const void* offsets, const uint8_t* data, int64_t length,
+                        int64_t output_offset, uint8_t* output) {
+          TransformContainsExact<offset_type>(
+              pat, pat_size, reinterpret_cast<const offset_type*>(offsets), data, length,
+              output_offset, output);
+        },
+        out);
   }
 };
 
