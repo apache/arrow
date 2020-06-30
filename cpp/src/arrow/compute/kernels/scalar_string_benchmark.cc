@@ -56,6 +56,7 @@ static void AsciiUpper(benchmark::State& state) {
   UnaryStringBenchmark(state, "ascii_upper");
 }
 
+#ifdef ARROW_WITH_UTF8PROC
 static void Utf8Upper(benchmark::State& state) {
   UnaryStringBenchmark(state, "utf8_upper");
 }
@@ -63,11 +64,14 @@ static void Utf8Upper(benchmark::State& state) {
 static void Utf8Lower(benchmark::State& state) {
   UnaryStringBenchmark(state, "utf8_lower");
 }
+#endif
 
 BENCHMARK(AsciiLower);
 BENCHMARK(AsciiUpper);
+#ifdef ARROW_WITH_UTF8PROC
 BENCHMARK(Utf8Lower);
 BENCHMARK(Utf8Upper);
+#endif
 
 }  // namespace compute
 }  // namespace arrow

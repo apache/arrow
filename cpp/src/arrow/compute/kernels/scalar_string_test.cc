@@ -18,7 +18,10 @@
 #include <memory>
 
 #include <gtest/gtest.h>
+
+#ifdef ARROW_WITH_UTF8PROC
 #include <utf8proc.h>
+#endif
 
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernels/test_util.h"
@@ -95,6 +98,8 @@ TEST(TestStringKernels, LARGE_MEMORY_TEST(Utf8Upper32bitGrowth)) {
                                   CallFunction("utf8_upper", {scalar}, options));
 }
 
+#ifdef ARROW_WITH_UTF8PROC
+
 TYPED_TEST(TestStringKernels, Utf8Upper) {
   this->CheckUnary("utf8_upper", "[\"aAazZæÆ&\", null, \"\", \"b\"]", this->string_type(),
                    "[\"AAAZZÆÆ&\", null, \"\", \"B\"]");
@@ -140,6 +145,8 @@ TYPED_TEST(TestStringKernels, Utf8Lower) {
                                   CallFunction("utf8_lower", {invalid_input}));
 }
 
+#endif  // ARROW_WITH_UTF8PROC
+
 TYPED_TEST(TestStringKernels, Strptime) {
   std::string input1 = R"(["5/1/2020", null, "12/11/1900"])";
   std::string output1 = R"(["2020-05-01", null, "1900-12-11"])";
@@ -153,6 +160,7 @@ TYPED_TEST(TestStringKernels, StrptimeDoesNotProvideDefaultOptions) {
   ASSERT_RAISES(Invalid, CallFunction("strptime", {input}));
 }
 
+#ifdef ARROW_WITH_UTF8PROC
 TEST(TestStringKernels, UnicodeLibraryAssumptions) {
   uint8_t output[4];
   for (utf8proc_int32_t codepoint = 0x100; codepoint < 0x110000; codepoint++) {
@@ -177,6 +185,7 @@ TEST(TestStringKernels, UnicodeLibraryAssumptions) {
     }
   }
 }
+#endif
 
 }  // namespace compute
 }  // namespace arrow

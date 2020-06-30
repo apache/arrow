@@ -213,8 +213,9 @@ if(ARROW_ORC OR ARROW_FLIGHT OR ARROW_GANDIVA)
   set(ARROW_WITH_PROTOBUF ON)
 endif()
 
-if(ARROW_COMPUTE)
-  set(ARROW_WITH_UTF8PROC ON)
+if(NOT ARROW_COMPUTE)
+  # utf8proc is only potentially used in kernels for now
+  set(ARROW_WITH_UTF8PROC OFF)
 endif()
 
 # ----------------------------------------------------------------------
@@ -2093,6 +2094,8 @@ endmacro()
 
 if(ARROW_WITH_UTF8PROC)
   resolve_dependency(utf8proc)
+
+  add_definitions(-DARROW_WITH_UTF8PROC)
 
   # TODO: Don't use global definitions but rather
   # target_compile_definitions or target_link_libraries
