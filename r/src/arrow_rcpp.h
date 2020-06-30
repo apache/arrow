@@ -32,8 +32,7 @@ struct symbols {
   static SEXP dot_Internal;
   static SEXP inspect;
   static SEXP row_names;
-  static SEXP arrow_serialize;
-  static SEXP arrow_unserialize;
+  static SEXP serialize_arrow_r_metadata;
   static SEXP as_list;
 };
 

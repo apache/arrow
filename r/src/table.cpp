@@ -306,7 +306,8 @@ arrow::Status AddMetadataFromDots(SEXP lst, int num_fields,
   UNPROTECT(2);  // CollectColumnMetadata adds 2 PROTECTS
 
   if (has_metadata) {
-    SEXP serialise_call = PROTECT(Rf_lang2(arrow::r::symbols::arrow_serialize, metadata));
+    SEXP serialise_call =
+        PROTECT(Rf_lang2(arrow::r::symbols::serialize_arrow_r_metadata, metadata));
     SEXP serialised = PROTECT(Rf_eval(serialise_call, arrow::r::ns::arrow));
 
     schema = schema->WithMetadata(

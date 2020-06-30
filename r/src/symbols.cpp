@@ -25,8 +25,7 @@ SEXP symbols::xp = Rf_install(".:xp:.");
 SEXP symbols::dot_Internal = Rf_install(".Internal");
 SEXP symbols::inspect = Rf_install("inspect");
 SEXP symbols::row_names = Rf_install("row.names");
-SEXP symbols::arrow_serialize = Rf_install(".arrow_serialize");
-SEXP symbols::arrow_unserialize = Rf_install(".arrow_unserialize");
+SEXP symbols::serialize_arrow_r_metadata = Rf_install(".serialize_arrow_r_metadata");
 SEXP symbols::as_list = Rf_install("as.list");
 
 SEXP get_classes_POSIXct() {

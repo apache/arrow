@@ -870,15 +870,6 @@ Rcpp::List RecordBatch__to_dataframe(const std::shared_ptr<arrow::RecordBatch>& 
   }
 }
 
-SEXP arrow_unserialize(const std::string& data) {
-  SEXP s = PROTECT(Rf_mkString(data.c_str()));
-  SEXP call = PROTECT(Rf_lang2(arrow::r::symbols::arrow_unserialize, s));
-  SEXP res = PROTECT(Rf_eval(call, arrow::r::ns::arrow));
-  UNPROTECT(3);
-
-  return res;
-}
-
 // [[arrow::export]]
 Rcpp::List Table__to_dataframe(const std::shared_ptr<arrow::Table>& table,
                                bool use_threads) {

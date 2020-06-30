@@ -190,14 +190,6 @@ Table <- R6Class("Table", inherit = ArrowObject,
   )
 )
 
-.arrow_serialize <- function(x) {
-  rawToChar(serialize(x, NULL, ascii = TRUE))
-}
-
-.arrow_unserialize <- function(x) {
-  unserialize(charToRaw(x))
-}
-
 Table$create <- function(..., schema = NULL) {
   dots <- list2(...)
   # making sure there are always names
@@ -212,7 +204,7 @@ Table$create <- function(..., schema = NULL) {
 as.data.frame.Table <- function(x, row.names = NULL, optional = FALSE, ...) {
   df <- Table__to_dataframe(x, use_threads = option_use_threads())
   if (!is.null(r_metadata <- x$metadata$r)) {
-    df <- apply_arrow_r_metadata(df, .arrow_unserialize(r_metadata))
+    df <- apply_arrow_r_metadata(df, .unserialize_arrow_r_metadata(r_metadata))
   }
   df
 }
