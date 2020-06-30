@@ -375,7 +375,7 @@ impl WriterBuilder {
             timestamp_format: self
                 .timestamp_format
                 .unwrap_or_else(|| DEFAULT_TIMESTAMP_FORMAT.to_string()),
-            beginning: false,
+            beginning: true,
         }
     }
 }
