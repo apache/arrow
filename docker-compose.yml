@@ -1102,8 +1102,7 @@ services:
         /arrow/ci/scripts/go_build.sh /arrow &&
         /arrow/ci/scripts/java_build.sh /arrow /build &&
         /arrow/ci/scripts/js_build.sh /arrow /build &&
-        pip install -e /arrow/dev/archery &&
-        archery integration --with-all --run-flight"]
+        /arrow/ci/scripts/integration_arrow.sh /arrow /build"]
 
   ################################ Docs #######################################
 
