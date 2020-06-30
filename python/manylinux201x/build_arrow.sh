@@ -70,6 +70,9 @@ PYTHON_INTERPRETER="${CPYTHON_PATH}/bin/python"
 PIP="${CPYTHON_PATH}/bin/pip"
 PATH="${PATH}:${CPYTHON_PATH}"
 
+# Will be "manylinux2010" or "manylinux2014"
+manylinux_kind=$(${PYTHON_INTERPRETER} -c "import os; print(os.environ['AUDITWHEEL_PLAT'].split('_')[0], end='')")
+
 # XXX The Docker image doesn't include Python libs, this confuses CMake
 # (https://github.com/pypa/manylinux/issues/484)
 py_libname=$(${PYTHON_INTERPRETER} -c "import sysconfig; print(sysconfig.get_config_var('LDLIBRARY'))")
@@ -108,6 +111,7 @@ PATH="${CPYTHON_PATH}/bin:${PATH}" cmake \
     -DARROW_HDFS=ON \
     -DARROW_JEMALLOC=ON \
     -DARROW_ORC=OFF \
+    -DARROW_PACKAGE_KIND=${manylinux_kind} \
     -DARROW_PARQUET=ON \
     -DARROW_PLASMA=ON \
     -DARROW_PYTHON=ON \

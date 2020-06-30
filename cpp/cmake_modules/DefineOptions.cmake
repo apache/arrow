@@ -86,6 +86,15 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 
   define_option(ARROW_BUILD_SHARED "Build shared libraries" ON)
 
+  define_option_string(ARROW_PACKAGE_KIND
+                       "Arbitrary string that identifies the kind of package;\
+(for informational purposes)" "")
+
+  define_option_string(ARROW_GIT_ID "The Arrow git commit id (if any)" "")
+
+  define_option_string(ARROW_GIT_DESCRIPTION "The Arrow git commit description (if any)"
+                       "")
+
   define_option(ARROW_NO_DEPRECATED_API "Exclude deprecated APIs from build" OFF)
 
   define_option(ARROW_USE_CCACHE "Use ccache when compiling (if available)" ON)
@@ -463,3 +472,20 @@ macro(config_summary_cmake_setters path)
   endforeach()
 
 endmacro()
+
+#----------------------------------------------------------------------
+# Compute default values for omitted variables
+
+if(NOT ARROW_GIT_ID)
+  execute_process(COMMAND "git" "log" "-n1" "--format=%H"
+                  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+                  OUTPUT_VARIABLE ARROW_GIT_ID
+                  OUTPUT_STRIP_TRAILING_WHITESPACE)
+endif()
+if(NOT ARROW_GIT_DESCRIPTION)
+  execute_process(COMMAND "git" "describe" "--tags" "--dirty"
+                  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+                  ERROR_QUIET
+                  OUTPUT_VARIABLE ARROW_GIT_DESCRIPTION
+                  OUTPUT_STRIP_TRAILING_WHITESPACE)
+endif()

@@ -15,19 +15,26 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#define ARROW_VERSION_MAJOR @ARROW_VERSION_MAJOR@
-#define ARROW_VERSION_MINOR @ARROW_VERSION_MINOR@
-#define ARROW_VERSION_PATCH @ARROW_VERSION_PATCH@
-#define ARROW_VERSION ((ARROW_VERSION_MAJOR * 1000) + ARROW_VERSION_MINOR) * 1000 + ARROW_VERSION_PATCH
+#include "arrow/config.h"
+#include "arrow/util/config.h"
 
-#define ARROW_VERSION_STRING "@ARROW_VERSION_MAJOR@.@ARROW_VERSION_MINOR@.@ARROW_VERSION_PATCH@"
+namespace arrow {
 
-#define ARROW_SO_VERSION "@ARROW_SO_VERSION@"
-#define ARROW_FULL_SO_VERSION "@ARROW_FULL_SO_VERSION@"
+static const BuildInfo kBuildInfo = {
+    // clang-format off
+    ARROW_VERSION,
+    ARROW_VERSION_MAJOR,
+    ARROW_VERSION_MINOR,
+    ARROW_VERSION_PATCH,
+    ARROW_VERSION_STRING,
+    ARROW_SO_VERSION,
+    ARROW_FULL_SO_VERSION,
+    ARROW_GIT_ID,
+    ARROW_GIT_DESCRIPTION,
+    ARROW_PACKAGE_KIND,
+    // clang-format on
+};
 
-#define ARROW_GIT_ID "@ARROW_GIT_ID@"
-#define ARROW_GIT_DESCRIPTION "@ARROW_GIT_DESCRIPTION@"
+const BuildInfo& GetBuildInfo() { return kBuildInfo; }
 
-#define ARROW_PACKAGE_KIND "@ARROW_PACKAGE_KIND@"
-
-#cmakedefine GRPCPP_PP_INCLUDE
+}  // namespace arrow

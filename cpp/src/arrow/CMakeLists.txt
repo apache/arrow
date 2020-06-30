@@ -143,6 +143,7 @@ set(ARROW_SRCS
     buffer.cc
     chunked_array.cc
     compare.cc
+    config.cc
     datum.cc
     device.cc
     extension_type.cc
