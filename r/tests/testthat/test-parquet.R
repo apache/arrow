@@ -177,11 +177,3 @@ test_that("write_parquet() returns its input", {
   df_out <- write_parquet(df, tf)
   expect_equivalent(df, df_out)
 })
-
-test_that("R metadata roundtrip via parquet", {
-  tf <- tempfile()
-  on.exit(unlink(tf))
-
-  write_parquet(example_with_metadata, tf)
-  expect_identical(read_parquet(tf), example_with_metadata)
-})

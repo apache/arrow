@@ -185,20 +185,4 @@ test_that("read_feather closes connection to file", {
   expect_false(file.exists(tf))
 })
 
-test_that("R metadata roundtrip via feather", {
-  tf <- tempfile()
-  on.exit(unlink(tf))
-
-  write_feather(example_with_metadata, tf)
-  expect_identical(read_feather(tf), example_with_metadata)
-})
-
-test_that("haven types roundtrip via feather", {
-  tf <- tempfile()
-  on.exit(unlink(tf))
-
-  write_feather(haven_data, tf)
-  expect_identical(read_feather(tf), haven_data)
-})
-
 unlink(feather_file)
