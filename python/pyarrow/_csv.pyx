@@ -448,8 +448,7 @@ cdef class ConvertOptions:
     @property
     def column_types(self):
         """
-        Map column names to column types
-        (disabling type inference on those columns).
+        Explicitly map column names to column types.
         """
         d = {frombytes(item.first): pyarrow_wrap_data_type(item.second)
              for item in self.options.column_types}
