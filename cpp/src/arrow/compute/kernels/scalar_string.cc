@@ -153,9 +153,16 @@ struct Utf8Transform {
       if (input.is_valid) {
         result->is_valid = true;
         offset_type data_nbytes = static_cast<offset_type>(input.value->size());
+
         // See note above in the Array version explaining the 3 / 2
+        int64_t output_ncodeunits_max = static_cast<int64_t>(data_nbytes) * 3 / 2;
+        if (output_ncodeunits_max > std::numeric_limits<offset_type>::max()) {
+          ctx->SetStatus(Status::CapacityError(
+              "Result might not fit in a 32bit utf8 array, convert to large_utf8"));
+          return;
+        }
         KERNEL_ASSIGN_OR_RAISE(auto value_buffer, ctx,
-                               ctx->Allocate(data_nbytes * 3 / 2));
+                               ctx->Allocate(output_ncodeunits_max));
         result->value = value_buffer;
         offset_type encoded_nbytes;
         if (ARROW_PREDICT_FALSE(!Derived::Transform(input.value->data(), data_nbytes,
