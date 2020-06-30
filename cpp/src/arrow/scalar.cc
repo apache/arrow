@@ -22,6 +22,7 @@
 #include <utility>
 
 #include "arrow/array.h"
+#include "arrow/array/util.h"
 #include "arrow/buffer.h"
 #include "arrow/compare.h"
 #include "arrow/type.h"
@@ -179,9 +180,10 @@ Result<std::shared_ptr<Scalar>> StructScalar::field(FieldRef ref) const {
 
 DictionaryScalar::DictionaryScalar(std::shared_ptr<DataType> type)
     : Scalar(std::move(type)),
-      value(
-          MakeNullScalar(checked_cast<const DictionaryType&>(*this->type).value_type())) {
-}
+      value{MakeNullScalar(checked_cast<const DictionaryType&>(*this->type).index_type()),
+            MakeArrayOfNull(checked_cast<const DictionaryType&>(*this->type).value_type(),
+                            0)
+                .ValueOrDie()} {}
 
 template <typename T>
 using scalar_constructor_has_arrow_type =
@@ -225,6 +227,11 @@ std::shared_ptr<Scalar> MakeNullScalar(std::shared_ptr<DataType> type) {
 std::string Scalar::ToString() const {
   if (!this->is_valid) {
     return "null";
+  }
+  if (type->id() == Type::DICTIONARY) {
+    auto dict_scalar = checked_cast<const DictionaryScalar*>(this);
+    return dict_scalar->value.dictionary->ToString() + "[" +
+           dict_scalar->value.index->ToString() + "]";
   }
   auto maybe_repr = CastTo(utf8());
   if (maybe_repr.ok()) {

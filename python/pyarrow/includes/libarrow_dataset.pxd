@@ -272,6 +272,10 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         CResult[shared_ptr[CExpression]] Parse(const c_string & path) const
         const shared_ptr[CSchema] & schema()
 
+    cdef cppclass CPartitioningFactoryOptions \
+            "arrow::dataset::PartitioningFactoryOptions":
+        int max_partition_dictionary_size
+
     cdef cppclass CPartitioningFactory "arrow::dataset::PartitioningFactory":
         pass
 
@@ -281,14 +285,15 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
         @staticmethod
         shared_ptr[CPartitioningFactory] MakeFactory(
-            vector[c_string] field_names)
+            vector[c_string] field_names, CPartitioningFactoryOptions)
 
     cdef cppclass CHivePartitioning \
             "arrow::dataset::HivePartitioning"(CPartitioning):
         CHivePartitioning(shared_ptr[CSchema] schema)
 
         @staticmethod
-        shared_ptr[CPartitioningFactory] MakeFactory()
+        shared_ptr[CPartitioningFactory] MakeFactory(
+            CPartitioningFactoryOptions)
 
     cdef cppclass CPartitioningOrFactory \
             "arrow::dataset::PartitioningOrFactory":

@@ -254,9 +254,25 @@ struct MatchVisitor {
   }
 };
 
+void ExecArrayOrScalar(KernelContext* ctx, const Datum& in, Datum* out,
+                       std::function<Status(const ArrayData&)> array_impl) {
+  if (in.is_array()) {
+    KERNEL_RETURN_IF_ERROR(ctx, array_impl(*in.array()));
+    return;
+  }
+
+  std::shared_ptr<Array> in_array;
+  std::shared_ptr<Scalar> out_scalar;
+  KERNEL_RETURN_IF_ERROR(ctx, MakeArrayFromScalar(*in.scalar(), 1).Value(&in_array));
+  KERNEL_RETURN_IF_ERROR(ctx, array_impl(*in_array->data()));
+  KERNEL_RETURN_IF_ERROR(ctx, out->make_array()->GetScalar(0).Value(&out_scalar));
+  *out = std::move(out_scalar);
+}
+
 void ExecMatch(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  MatchVisitor dispatch(ctx, *batch[0].array(), out);
-  ctx->SetStatus(dispatch.Execute());
+  ExecArrayOrScalar(ctx, batch[0], out, [&](const ArrayData& in) {
+    return MatchVisitor(ctx, in, out).Execute();
+  });
 }
 
 // ----------------------------------------------------------------------
@@ -343,8 +359,9 @@ struct IsInVisitor {
 };
 
 void ExecIsIn(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  IsInVisitor dispatch(ctx, *batch[0].array(), out);
-  ctx->SetStatus(dispatch.Execute());
+  ExecArrayOrScalar(ctx, batch[0], out, [&](const ArrayData& in) {
+    return IsInVisitor(ctx, in, out).Execute();
+  });
 }
 
 // Unary set lookup kernels available for the following input types
@@ -361,7 +378,7 @@ void AddBasicSetLookupKernels(ScalarKernel kernel,
                               ScalarFunction* func) {
   auto AddKernels = [&](const std::vector<std::shared_ptr<DataType>>& types) {
     for (const std::shared_ptr<DataType>& ty : types) {
-      kernel.signature = KernelSignature::Make({InputType::Array(ty)}, out_ty);
+      kernel.signature = KernelSignature::Make({ty}, out_ty);
       DCHECK_OK(func->AddKernel(kernel));
     }
   };
@@ -390,7 +407,7 @@ void RegisterScalarSetLookup(FunctionRegistry* registry) {
 
     AddBasicSetLookupKernels(isin_base, /*output_type=*/boolean(), isin.get());
 
-    isin_base.signature = KernelSignature::Make({InputType::Array(null())}, boolean());
+    isin_base.signature = KernelSignature::Make({null()}, boolean());
     isin_base.null_handling = NullHandling::COMPUTED_PREALLOCATE;
     DCHECK_OK(isin->AddKernel(isin_base));
     DCHECK_OK(registry->AddFunction(isin));
@@ -406,7 +423,7 @@ void RegisterScalarSetLookup(FunctionRegistry* registry) {
     auto match = std::make_shared<ScalarFunction>("match", Arity::Unary());
     AddBasicSetLookupKernels(match_base, /*output_type=*/int32(), match.get());
 
-    match_base.signature = KernelSignature::Make({InputType::Array(null())}, int32());
+    match_base.signature = KernelSignature::Make({null()}, int32());
     DCHECK_OK(match->AddKernel(match_base));
     DCHECK_OK(registry->AddFunction(match));
   }

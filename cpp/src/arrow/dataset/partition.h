@@ -86,6 +86,17 @@ class ARROW_DS_EXPORT Partitioning {
   std::shared_ptr<Schema> schema_;
 };
 
+struct PartitioningFactoryOptions {
+  /// When inferring a schema for partition fields, string fields may be inferred as
+  /// a dictionary type instead. This can be more efficient when materializing virtual
+  /// columns. If the number of discovered unique values of a string field exceeds
+  /// max_partition_dictionary_size, it will instead be inferred as a string.
+  ///
+  /// max_partition_dictionary_size = 0: No fields will be inferred as dictionary.
+  /// max_partition_dictionary_size = -1: All fields will be inferred as dictionary.
+  int max_partition_dictionary_size = 0;
+};
+
 /// \brief PartitioningFactory provides creation of a partitioning  when the
 /// specific schema must be inferred from available paths (no explicit schema is known).
 class ARROW_DS_EXPORT PartitioningFactory {
@@ -96,8 +107,9 @@ class ARROW_DS_EXPORT PartitioningFactory {
   virtual std::string type_name() const = 0;
 
   /// Get the schema for the resulting Partitioning.
+  /// This may reset internal state, for example dictionaries of unique representations.
   virtual Result<std::shared_ptr<Schema>> Inspect(
-      const std::vector<std::string>& paths) const = 0;
+      const std::vector<std::string>& paths) = 0;
 
   /// Create a partitioning using the provided schema
   /// (fields may be dropped).
@@ -169,7 +181,8 @@ class ARROW_DS_EXPORT KeyValuePartitioning : public Partitioning {
   /// Convert a Key to a full expression.
   /// If the field referenced in key is absent from the schema will be ignored.
   static Result<std::shared_ptr<Expression>> ConvertKey(const Key& key,
-                                                        const Schema& schema);
+                                                        const Schema& schema,
+                                                        const ArrayVector& dictionaries);
 
   /// Extract a partition key from a path segment.
   virtual util::optional<Key> ParseKey(const std::string& segment, int i) const = 0;
@@ -182,7 +195,14 @@ class ARROW_DS_EXPORT KeyValuePartitioning : public Partitioning {
   Result<std::string> Format(const Expression& expr, int i) const override;
 
  protected:
-  using Partitioning::Partitioning;
+  KeyValuePartitioning(std::shared_ptr<Schema> schema, ArrayVector dictionaries)
+      : Partitioning(std::move(schema)), dictionaries_(std::move(dictionaries)) {
+    if (dictionaries_.empty()) {
+      dictionaries_.resize(schema_->num_fields());
+    }
+  }
+
+  ArrayVector dictionaries_;
 };
 
 /// \brief DirectoryPartitioning parses one segment of a path for each field in its
@@ -193,8 +213,11 @@ class ARROW_DS_EXPORT KeyValuePartitioning : public Partitioning {
 /// parsed to ("year"_ == 2009 and "month"_ == 11)
 class ARROW_DS_EXPORT DirectoryPartitioning : public KeyValuePartitioning {
  public:
-  explicit DirectoryPartitioning(std::shared_ptr<Schema> schema)
-      : KeyValuePartitioning(std::move(schema)) {}
+  // If a field in schema is of dictionary type, the corresponding element of dictionaries
+  // must be contain the dictionary of values for that field.
+  explicit DirectoryPartitioning(std::shared_ptr<Schema> schema,
+                                 ArrayVector dictionaries = {})
+      : KeyValuePartitioning(std::move(schema), std::move(dictionaries)) {}
 
   std::string type_name() const override { return "schema"; }
 
@@ -203,7 +226,7 @@ class ARROW_DS_EXPORT DirectoryPartitioning : public KeyValuePartitioning {
   Result<std::string> FormatKey(const Key& key, int i) const override;
 
   static std::shared_ptr<PartitioningFactory> MakeFactory(
-      std::vector<std::string> field_names);
+      std::vector<std::string> field_names, PartitioningFactoryOptions = {});
 };
 
 /// \brief Multi-level, directory based partitioning
@@ -217,8 +240,10 @@ class ARROW_DS_EXPORT DirectoryPartitioning : public KeyValuePartitioning {
 /// "/day=321/ignored=3.4/year=2009" parses to ("year"_ == 2009 and "day"_ == 321)
 class ARROW_DS_EXPORT HivePartitioning : public KeyValuePartitioning {
  public:
-  explicit HivePartitioning(std::shared_ptr<Schema> schema)
-      : KeyValuePartitioning(std::move(schema)) {}
+  // If a field in schema is of dictionary type, the corresponding element of dictionaries
+  // must be contain the dictionary of values for that field.
+  explicit HivePartitioning(std::shared_ptr<Schema> schema, ArrayVector dictionaries = {})
+      : KeyValuePartitioning(std::move(schema), std::move(dictionaries)) {}
 
   std::string type_name() const override { return "hive"; }
 
@@ -230,7 +255,8 @@ class ARROW_DS_EXPORT HivePartitioning : public KeyValuePartitioning {
 
   static util::optional<Key> ParseKey(const std::string& segment);
 
-  static std::shared_ptr<PartitioningFactory> MakeFactory();
+  static std::shared_ptr<PartitioningFactory> MakeFactory(
+      PartitioningFactoryOptions = {});
 };
 
 /// \brief Implementation provided by lambda or other callable
@@ -272,40 +298,28 @@ ARROW_DS_EXPORT std::vector<std::string> StripPrefixAndFilename(
 class ARROW_DS_EXPORT PartitioningOrFactory {
  public:
   explicit PartitioningOrFactory(std::shared_ptr<Partitioning> partitioning)
-      : variant_(std::move(partitioning)) {}
+      : partitioning_(std::move(partitioning)) {}
 
   explicit PartitioningOrFactory(std::shared_ptr<PartitioningFactory> factory)
-      : variant_(std::move(factory)) {}
+      : factory_(std::move(factory)) {}
 
   PartitioningOrFactory& operator=(std::shared_ptr<Partitioning> partitioning) {
-    variant_ = std::move(partitioning);
-    return *this;
+    return *this = PartitioningOrFactory(std::move(partitioning));
   }
 
   PartitioningOrFactory& operator=(std::shared_ptr<PartitioningFactory> factory) {
-    variant_ = std::move(factory);
-    return *this;
+    return *this = PartitioningOrFactory(std::move(factory));
   }
 
-  std::shared_ptr<Partitioning> partitioning() const {
-    if (util::holds_alternative<std::shared_ptr<Partitioning>>(variant_)) {
-      return util::get<std::shared_ptr<Partitioning>>(variant_);
-    }
-    return NULLPTR;
-  }
+  const std::shared_ptr<Partitioning>& partitioning() const { return partitioning_; }
 
-  std::shared_ptr<PartitioningFactory> factory() const {
-    if (util::holds_alternative<std::shared_ptr<PartitioningFactory>>(variant_)) {
-      return util::get<std::shared_ptr<PartitioningFactory>>(variant_);
-    }
-    return NULLPTR;
-  }
+  const std::shared_ptr<PartitioningFactory>& factory() const { return factory_; }
 
   Result<std::shared_ptr<Schema>> GetOrInferSchema(const std::vector<std::string>& paths);
 
  private:
-  util::variant<std::shared_ptr<PartitioningFactory>, std::shared_ptr<Partitioning>>
-      variant_;
+  std::shared_ptr<PartitioningFactory> factory_;
+  std::shared_ptr<Partitioning> partitioning_;
 };
 
 }  // namespace dataset

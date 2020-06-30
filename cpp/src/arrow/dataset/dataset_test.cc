@@ -760,10 +760,11 @@ TEST_F(TestSchemaUnification, SelectMixedColumnsAndFilter) {
 TEST(TestDictPartitionColumn, SelectPartitionColumnFilterPhysicalColumn) {
   auto partition_field = field("part", dictionary(int32(), utf8()));
   auto path = "/dataset/part=one/data.json";
+  auto dictionary = ArrayFromJSON(utf8(), R"(["one"])");
 
   auto mock_fs = std::make_shared<fs::internal::MockFileSystem>(fs::kNoTime);
   ARROW_EXPECT_OK(mock_fs->CreateFile(path, R"([ {"phy_1": 111, "phy_2": 211} ])",
-                                      /* recursive */ true));
+                                      /*recursive=*/true));
 
   auto physical_schema = SchemaFromNames({"phy_1", "phy_2"});
   auto format = std::make_shared<JSONRecordBatchFileFormat>(
@@ -771,7 +772,8 @@ TEST(TestDictPartitionColumn, SelectPartitionColumnFilterPhysicalColumn) {
 
   FileSystemFactoryOptions options;
   options.partition_base_dir = "/dataset";
-  options.partitioning = std::make_shared<HivePartitioning>(schema({partition_field}));
+  options.partitioning = std::make_shared<HivePartitioning>(schema({partition_field}),
+                                                            ArrayVector{dictionary});
 
   ASSERT_OK_AND_ASSIGN(auto factory,
                        FileSystemDatasetFactory::Make(mock_fs, {path}, format, options));

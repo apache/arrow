@@ -397,8 +397,10 @@ struct ARROW_EXPORT DenseUnionScalar : public UnionScalar {
 
 struct ARROW_EXPORT DictionaryScalar : public Scalar {
   using TypeClass = DictionaryType;
-  using ValueType = std::shared_ptr<Scalar>;
-  ValueType value;
+  struct ValueType {
+    std::shared_ptr<Scalar> index;
+    std::shared_ptr<Array> dictionary;
+  } value;
 
   explicit DictionaryScalar(std::shared_ptr<DataType> type);
 
