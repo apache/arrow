@@ -19,7 +19,9 @@
 #include <cctype>
 #include <string>
 
+#ifdef ARROW_WITH_UTF8PROC
 #include <utf8proc.h>
+#endif
 
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernels/common.h"
@@ -32,24 +34,6 @@ namespace compute {
 namespace internal {
 
 namespace {
-
-// lookup tables
-constexpr uint32_t kMaxCodepointLookup =
-    0xffff;  // up to this codepoint is in a lookup table
-std::vector<uint32_t> lut_upper_codepoint;
-std::vector<uint32_t> lut_lower_codepoint;
-std::once_flag flag_case_luts;
-
-void EnsureLookupTablesFilled() {
-  std::call_once(flag_case_luts, []() {
-    lut_upper_codepoint.reserve(kMaxCodepointLookup + 1);
-    lut_lower_codepoint.reserve(kMaxCodepointLookup + 1);
-    for (uint32_t i = 0; i <= kMaxCodepointLookup; i++) {
-      lut_upper_codepoint.push_back(utf8proc_toupper(i));
-      lut_lower_codepoint.push_back(utf8proc_tolower(i));
-    }
-  });
-}
 
 // Code units in the range [a-z] can only be an encoding of an ascii
 // character/codepoint, not the 2nd, 3rd or 4th code unit (byte) of an different
@@ -74,6 +58,26 @@ struct AsciiLength {
     return static_cast<OUT>(val.size());
   }
 };
+
+#ifdef ARROW_WITH_UTF8PROC
+
+// Direct lookup tables for unicode properties
+constexpr uint32_t kMaxCodepointLookup =
+    0xffff;  // up to this codepoint is in a lookup table
+std::vector<uint32_t> lut_upper_codepoint;
+std::vector<uint32_t> lut_lower_codepoint;
+std::once_flag flag_case_luts;
+
+void EnsureLookupTablesFilled() {
+  std::call_once(flag_case_luts, []() {
+    lut_upper_codepoint.reserve(kMaxCodepointLookup + 1);
+    lut_lower_codepoint.reserve(kMaxCodepointLookup + 1);
+    for (uint32_t i = 0; i <= kMaxCodepointLookup; i++) {
+      lut_upper_codepoint.push_back(utf8proc_toupper(i));
+      lut_lower_codepoint.push_back(utf8proc_tolower(i));
+    }
+  });
+}
 
 template <typename Type, typename Derived>
 struct Utf8Transform {
@@ -194,6 +198,8 @@ struct Utf8Lower : Utf8Transform<Type, Utf8Lower<Type>> {
                                             : utf8proc_tolower(codepoint);
   }
 };
+
+#endif  // ARROW_WITH_UTF8PROC
 
 using TransformFunc = std::function<void(const uint8_t*, int64_t, uint8_t*)>;
 
@@ -347,6 +353,8 @@ void MakeUnaryStringBatchKernel(std::string name, FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
+#ifdef ARROW_WITH_UTF8PROC
+
 template <template <typename> class Transformer>
 void MakeUnaryStringUtf8TransformKernel(std::string name, FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>(name, Arity::Unary());
@@ -357,13 +365,17 @@ void MakeUnaryStringUtf8TransformKernel(std::string name, FunctionRegistry* regi
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
+#endif
+
 }  // namespace
 
 void RegisterScalarStringAscii(FunctionRegistry* registry) {
   MakeUnaryStringBatchKernel<AsciiUpper>("ascii_upper", registry);
   MakeUnaryStringBatchKernel<AsciiLower>("ascii_lower", registry);
+#ifdef ARROW_WITH_UTF8PROC
   MakeUnaryStringUtf8TransformKernel<Utf8Upper>("utf8_upper", registry);
   MakeUnaryStringUtf8TransformKernel<Utf8Lower>("utf8_lower", registry);
+#endif
   AddAsciiLength(registry);
   AddStrptime(registry);
 }
