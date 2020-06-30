@@ -81,8 +81,8 @@ cp $MSYS_LIB_DIR/mingw64/lib/lib{thrift,snappy}.a $DST_DIR/${RWINLIB_LIB_DIR}/x6
 cp $MSYS_LIB_DIR/mingw32/lib/lib{thrift,snappy}.a $DST_DIR/${RWINLIB_LIB_DIR}/i386
 
 # These are from https://dl.bintray.com/rtools/mingw{32,64}/
-cp $MSYS_LIB_DIR/mingw64/lib/lib{zstd,lz4,crypto,utf8proc}.a $DST_DIR/lib/x64
-cp $MSYS_LIB_DIR/mingw32/lib/lib{zstd,lz4,crypto,utf8proc}.a $DST_DIR/lib/i386
+cp $MSYS_LIB_DIR/mingw64/lib/lib{zstd,lz4,crypto}.a $DST_DIR/lib/x64
+cp $MSYS_LIB_DIR/mingw32/lib/lib{zstd,lz4,crypto}.a $DST_DIR/lib/i386
 
 # Create build artifact
 zip -r ${DST_DIR}.zip $DST_DIR
