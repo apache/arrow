@@ -25,6 +25,8 @@ SEXP symbols::xp = Rf_install(".:xp:.");
 SEXP symbols::dot_Internal = Rf_install(".Internal");
 SEXP symbols::inspect = Rf_install("inspect");
 SEXP symbols::row_names = Rf_install("row.names");
+SEXP symbols::serialize_arrow_r_metadata = Rf_install(".serialize_arrow_r_metadata");
+SEXP symbols::as_list = Rf_install("as.list");
 
 SEXP get_classes_POSIXct() {
   SEXP classes = Rf_allocVector(STRSXP, 2);
@@ -34,13 +36,39 @@ SEXP get_classes_POSIXct() {
   return classes;
 }
 
+SEXP get_classes_metadata_r() {
+  SEXP classes = Rf_mkString("arrow_r_metadata");
+  R_PreserveObject(classes);
+  return classes;
+}
+
+SEXP get_names_metadata() {
+  SEXP names = Rf_allocVector(STRSXP, 2);
+  R_PreserveObject(names);
+  SET_STRING_ELT(names, 0, Rf_mkChar("attributes"));
+  SET_STRING_ELT(names, 1, Rf_mkChar("columns"));
+  return names;
+}
+
 SEXP data::classes_POSIXct = get_classes_POSIXct();
+SEXP data::classes_metadata_r = get_classes_metadata_r();
+SEXP data::names_metadata = get_names_metadata();
 
 void inspect(SEXP obj) {
   Rcpp::Shield<SEXP> call_inspect(Rf_lang2(symbols::inspect, obj));
   Rcpp::Shield<SEXP> call_internal(Rf_lang2(symbols::dot_Internal, call_inspect));
   Rf_eval(call_internal, R_GlobalEnv);
 }
+
+SEXP get_arrow_ns() {
+  SEXP name = PROTECT(Rf_ScalarString(Rf_mkChar("arrow")));
+  SEXP ns = R_FindNamespace(name);
+  R_PreserveObject(ns);
+  UNPROTECT(1);
+  return ns;
+}
+
+SEXP ns::arrow = get_arrow_ns();
 
 }  // namespace r
 }  // namespace arrow

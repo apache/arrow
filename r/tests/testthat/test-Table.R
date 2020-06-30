@@ -332,7 +332,34 @@ test_that("Table metadata", {
   expect_equivalent(tab$metadata, list())
 })
 
+test_that("Table R metadata", {
+  tab <- Table$create(example_with_metadata)
+  expect_output(print(tab$metadata), "arrow_r_metadata")
+  expect_identical(as.data.frame(tab), example_with_metadata)
+})
+
+test_that("R metadata is not stored for simple factors", {
+  tab <- Table$create(example_data[1:6])
+  expect_null(tab$metadata$r)
+})
+
+test_that("Garbage R metadata doesn't break things", {
+  tab <- Table$create(example_data[1:6])
+  tab$metadata$r <- "garbage"
+  expect_warning(
+    expect_identical(as.data.frame(tab), example_data[1:6]),
+    "Invalid metadata$r",
+    fixed = TRUE
+  )
+  tab$metadata$r <- .serialize_arrow_r_metadata("garbage")
+  expect_warning(
+    expect_identical(as.data.frame(tab), example_data[1:6]),
+    "Invalid metadata$r",
+    fixed = TRUE
+  )
+})
+
 test_that("Table handles null type (ARROW-7064)", {
   tab <- Table$create(a = 1:10, n = vctrs::unspecified(10))
-  expect_equal(tab$schema,  schema(a = int32(), n = null()))
+  expect_equivalent(tab$schema, schema(a = int32(), n = null()))
 })

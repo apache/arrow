@@ -261,7 +261,40 @@ dim.RecordBatch <- function(x) {
 
 #' @export
 as.data.frame.RecordBatch <- function(x, row.names = NULL, optional = FALSE, ...) {
-  RecordBatch__to_dataframe(x, use_threads = option_use_threads())
+  df <- RecordBatch__to_dataframe(x, use_threads = option_use_threads())
+  if (!is.null(r_metadata <- x$metadata$r)) {
+    df <- apply_arrow_r_metadata(df, .unserialize_arrow_r_metadata(r_metadata))
+  }
+  df
+}
+
+.serialize_arrow_r_metadata <- function(x) {
+  rawToChar(serialize(x, NULL, ascii = TRUE))
+}
+
+.unserialize_arrow_r_metadata <- function(x) {
+  tryCatch(unserialize(charToRaw(x)), error = function(e) {
+    warning("Invalid metadata$r", call. = FALSE)
+    NULL
+  })
+}
+
+apply_arrow_r_metadata <- function(x, r_metadata) {
+  tryCatch({
+    if (!is.null(r_metadata$attributes)) {
+      attributes(x) <- r_metadata$attributes
+    }
+
+    columns_metadata <- r_metadata$columns
+    if (length(names(x)) && !is.null(columns_metadata)) {
+      for (name in intersect(names(columns_metadata), names(x))) {
+        x[[name]] <- apply_arrow_r_metadata(x[[name]], columns_metadata[[name]])
+      }
+    }
+  }, error = function(e) {
+    warning("Invalid metadata$r", call. = FALSE)
+  })
+  x
 }
 
 #' @export

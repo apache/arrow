@@ -32,10 +32,19 @@ struct symbols {
   static SEXP dot_Internal;
   static SEXP inspect;
   static SEXP row_names;
+  static SEXP serialize_arrow_r_metadata;
+  static SEXP as_list;
 };
 
 struct data {
   static SEXP classes_POSIXct;
+  static SEXP classes_metadata_r;
+
+  static SEXP names_metadata;
+};
+
+struct ns {
+  static SEXP arrow;
 };
 
 }  // namespace r

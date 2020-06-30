@@ -262,7 +262,7 @@ test_that("record_batch() handles data frame columns", {
   tib <- tibble::tibble(x = 1:10, y = 1:10)
   # because tib is named here, this becomes a struct array
   batch <- record_batch(a = 1:10, b = tib)
-  expect_equal(
+  expect_equivalent(
     batch$schema,
     schema(
       a = int32(),
@@ -288,7 +288,7 @@ test_that("record_batch() handles data frame columns with schema spec", {
   tib_float$y <- as.numeric(tib_float$y)
   schema <- schema(a = int32(), b = struct(x = int16(), y = float64()))
   batch <- record_batch(a = 1:10, b = tib, schema = schema)
-  expect_equal(batch$schema, schema)
+  expect_equivalent(batch$schema, schema)
   out <- as.data.frame(batch)
   expect_equivalent(out, tibble::tibble(a = 1:10, b = tib_float))
 
@@ -334,7 +334,7 @@ test_that("record_batch() only auto splice data frames", {
 
 test_that("record_batch() handles null type (ARROW-7064)", {
   batch <- record_batch(a = 1:10, n = vctrs::unspecified(10))
-  expect_equal(batch$schema,  schema(a = int32(), n = null()))
+  expect_equivalent(batch$schema,  schema(a = int32(), n = null()))
 })
 
 test_that("RecordBatch$Equals", {
@@ -378,4 +378,8 @@ test_that("RecordBatch metadata", {
   expect_identical(rb$metadata, list(test = "TRUE"))
   rb$metadata <- NULL
   expect_equivalent(rb$metadata, list())
+})
+
+test_that("RecordBatch R metadata", {
+  expect_identical(as.data.frame(record_batch(example_with_metadata)), example_with_metadata)
 })

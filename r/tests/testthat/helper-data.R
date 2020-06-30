@@ -23,3 +23,20 @@ example_data <- tibble::tibble(
   chr = letters[c(1:5, NA, 7:10)],
   fct = factor(letters[c(1:4, NA, NA, 7:10)])
 )
+
+example_with_metadata <- tibble::tibble(
+  a = structure("one", class = "special_string"),
+  b = 2,
+  c = tibble::tibble(
+    c1 = structure("inner", extra_attr = "something"),
+    c2 = 4,
+    c3 = 50
+  ),
+  d = "four"
+)
+# TODO: collect top-level dataset metadata
+# https://issues.apache.org/jira/browse/ARROW-9271
+# attr(example_with_metadata, "top_level") <- list(
+#   field_one = 12,
+#   field_two = "more stuff"
+# )

@@ -177,11 +177,20 @@ test_that("read_feather requires RandomAccessFile and errors nicely otherwise (A
 
 test_that("read_feather closes connection to file", {
   tf <- tempfile()
+  on.exit(unlink(tf))
   write_feather(tib, sink = tf)
   expect_true(file.exists(tf))
   read_feather(tf)
   expect_error(file.remove(tf), NA)
   expect_false(file.exists(tf))
+})
+
+test_that("R metadata roundtrip via feather", {
+  tf <- tempfile()
+  on.exit(unlink(tf))
+
+  write_feather(example_with_metadata, tf)
+  expect_identical(read_feather(tf), example_with_metadata)
 })
 
 unlink(feather_file)

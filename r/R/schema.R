@@ -194,3 +194,10 @@ read_schema <- function(stream, ...) {
 unify_schemas <- function(..., schemas = list(...)) {
   shared_ptr(Schema, arrow__UnifySchemas(schemas))
 }
+
+#' @export
+print.arrow_r_metadata <- function(x, ...) {
+  str(x)
+  str(.unserialize_arrow_r_metadata(x))
+  invisible(x)
+}
