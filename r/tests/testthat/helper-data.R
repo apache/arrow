@@ -40,3 +40,18 @@ example_with_metadata <- tibble::tibble(
 #   field_one = 12,
 #   field_two = "more stuff"
 # )
+
+haven_data <- tibble::tibble(
+  num = structure(c(5.1, 4.9),
+    format.spss = "F8.2"
+  ),
+  cat_int = structure(c(3, 1),
+    format.spss = "F8.0",
+    labels = c(first = 1, second = 2, third = 3),
+    class = c("haven_labelled", "vctrs_vctr", "double")
+  ),
+  cat_chr = structure(c("B", "B"),
+    labels = c(Alpha = "A", Beta = "B"),
+    class = c("haven_labelled", "vctrs_vctr", "character")
+  )
+)
