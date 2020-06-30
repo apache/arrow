@@ -267,6 +267,8 @@ class PrepareTest < Test::Unit::TestCase
                      hunks: [
                        ["-version = \"#{@snapshot_version}\"",
                         "+version = \"#{@release_version}\""],
+                        ["-arrow-flight = { path = \"../arrow-flight\", optional = true, version = \"#{@snapshot_version}\" }",
+                        "+arrow-flight = { path = \"../arrow-flight\", optional = true, version = \"#{@release_version}\" }"],
                      ],
                    },
                    {
