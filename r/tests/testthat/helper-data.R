@@ -55,3 +55,9 @@ haven_data <- tibble::tibble(
     class = c("haven_labelled", "vctrs_vctr", "character")
   )
 )
+
+example_with_times <- tibble::tibble(
+  date = Sys.Date() + 1:10,
+  posixct = Sys.time() + 1:10,
+  posixlt = as.POSIXlt(Sys.time() + 1:10)
+)

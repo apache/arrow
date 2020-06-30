@@ -58,9 +58,10 @@ test_that("Table R metadata", {
   expect_identical(as.data.frame(tab), example_with_metadata)
 })
 
-test_that("R metadata is not stored for simple factors", {
+test_that("R metadata is not stored for types that map to Arrow types (factor, Date, etc.)", {
   tab <- Table$create(example_data[1:6])
   expect_null(tab$metadata$r)
+  expect_null(Table$create(example_with_times[1:2])$metadata$r)
 })
 
 test_that("Garbage R metadata doesn't break things", {
@@ -78,7 +79,6 @@ test_that("Garbage R metadata doesn't break things", {
     fixed = TRUE
   )
 })
-
 
 test_that("RecordBatch metadata", {
   rb <- RecordBatch$create(x = 1:2, y = c("a", "b"))
@@ -119,4 +119,10 @@ test_that("haven types roundtrip via feather", {
 
   write_feather(haven_data, tf)
   expect_identical(read_feather(tf), haven_data)
+})
+
+test_that("Date/time type roundtrip", {
+  rb <- record_batch(example_with_times)
+  expect_is(rb$schema$posixlt$type, "StructType")
+  expect_identical(as.data.frame(rb), example_with_times)
 })

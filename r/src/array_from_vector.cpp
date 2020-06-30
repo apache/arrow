@@ -1067,7 +1067,7 @@ static inline std::shared_ptr<arrow::DataType> InferArrowTypeFromDataFrame(SEXP 
 
 template <>
 std::shared_ptr<arrow::DataType> InferArrowTypeFromVector<VECSXP>(SEXP x) {
-  if (Rf_inherits(x, "data.frame")) {
+  if (Rf_inherits(x, "data.frame") || Rf_inherits(x, "POSIXlt")) {
     return InferArrowTypeFromDataFrame(x);
   } else {
     if (XLENGTH(x) == 0) {
