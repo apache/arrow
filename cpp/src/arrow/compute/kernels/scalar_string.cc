@@ -310,12 +310,10 @@ template <typename Type>
 void StringBoolTransform(KernelContext* ctx, const ExecBatch& batch,
                          StrToBoolTransformFunc<typename Type::offset_type> transform,
                          Datum* out) {
-  using ArrayType = typename TypeTraits<Type>::ArrayType;
   using offset_type = typename Type::offset_type;
 
   if (batch[0].kind() == Datum::ARRAY) {
     const ArrayData& input = *batch[0].array();
-    ArrayType input_boxed(batch[0].array());
 
     ArrayData* out_arr = out->mutable_array();
 
@@ -324,9 +322,9 @@ void StringBoolTransform(KernelContext* ctx, const ExecBatch& batch,
         ctx,
         ctx->Allocate(BitUtil::BytesForBits(input.length)).Value(&out_arr->buffers[1]));
     if (input.length > 0) {
-      transform(reinterpret_cast<const offset_type*>(input.buffers[1]->data()),
-                input.buffers[2]->data(), input.length,
-                out_arr->buffers[1]->mutable_data());
+      transform(
+          reinterpret_cast<const offset_type*>(input.buffers[1]->data()) + input.offset,
+          input.buffers[2]->data(), input.length, out_arr->buffers[1]->mutable_data());
     }
   } else {
     const auto& input = checked_cast<const BaseBinaryScalar&>(*batch[0].scalar());
