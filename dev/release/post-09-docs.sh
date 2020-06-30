@@ -29,6 +29,11 @@ if [ "$#" -ne 1 ]; then
   exit 1
 fi
 
+if ! type nvidia-smi > /dev/null; then
+  echo "Use a CUDA capable machine to update the apidocs"
+  exit 1
+fi
+
 version=$1
 release_tag="apache-arrow-${version}"
 branch_name=release-docs-${version}
@@ -40,22 +45,22 @@ rm -rf docs/*
 popd
 
 pushd "${ARROW_DIR}"
-git checkout "${release_tag}"
+# git checkout "${release_tag}"
 
-docker-compose build ubuntu-cpp
-docker-compose build ubuntu-python
-docker-compose build ubuntu-docs
-docker-compose run --rm \
+archery docker run \
   -v "${ARROW_SITE_DIR}/docs:/build/docs" \
   -e ARROW_DOCS_VERSION="${version}" \
-  ubuntu-docs
-popd
+  ubuntu-cuda-docs
 
-pushd "${ARROW_SITE_DIR}"
-git add docs
-git commit -m "[Website] Update documentations for ${version}"
-git push -u origin ${branch_name}
-popd
+: ${PUSH:=1}
+
+if [ ${PUSH} -gt 0 ]; then
+  pushd "${ARROW_SITE_DIR}"
+  git add docs
+  git commit -m "[Website] Update documentations for ${version}"
+  git push -u origin ${branch_name}
+  popd
+fi
 
 echo "Success!"
 echo "Create a pull request:"
