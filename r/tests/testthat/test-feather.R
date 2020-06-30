@@ -193,4 +193,12 @@ test_that("R metadata roundtrip via feather", {
   expect_identical(read_feather(tf), example_with_metadata)
 })
 
+test_that("haven types roundtrip via feather", {
+  tf <- tempfile()
+  on.exit(unlink(tf))
+
+  write_feather(haven_data, tf)
+  expect_identical(read_feather(tf), haven_data)
+})
+
 unlink(feather_file)
