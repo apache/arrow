@@ -45,7 +45,7 @@ rm -rf docs/*
 popd
 
 pushd "${ARROW_DIR}"
-# git checkout "${release_tag}"
+git checkout "${release_tag}"
 
 archery docker run \
   -v "${ARROW_SITE_DIR}/docs:/build/docs" \
