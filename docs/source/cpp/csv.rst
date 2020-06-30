@@ -46,23 +46,24 @@ A CSV file is read from a :class:`~arrow::io::InputStream`.
       auto convert_options = arrow::csv::ConvertOptions::Defaults();
 
       // Instantiate TableReader from input stream and options
-      arrow::Result<std::shared_ptr<arrow::csv::TableReader> reader_result =
+      auto maybe_reader =
         arrow::csv::TableReader::Make(pool,
                                       input,
                                       read_options,
                                       parse_options,
                                       convert_options);
-      if (!reader_result.ok()) {
+      if (!maybe_reader.ok()) {
          // Handle TableReader instantiation error...
       }
+      std::shared_ptr<arrow::csv::TableReader> reader = *maybe_reader;
 
       // Read table from CSV file
-      arrow::Result<std::shared_ptr<arrow::Table>> table_result =
-        reader_result.ValueOrDie()->Read();
-      if (!table_result.ok()) {
+      auto maybe_table = reader->Read();
+      if (!maybe_table.ok()) {
          // Handle CSV read error
          // (for example a CSV syntax error or failed type conversion)
       }
+      std::shared_ptr<arrow::Table> table = *maybe_table;
    }
 
 Column names
