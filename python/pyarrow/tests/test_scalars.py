@@ -462,8 +462,13 @@ def test_dictionary():
 
     for j, (i, v) in enumerate(zip(indices, expected)):
         s = arr[j]
+
         assert s.as_py() == v
-        # assert s.index.as_py() == i
+        assert s.index.as_py() == i
         assert s.value.as_py() == v
-        # assert s.index_value == i
-        assert s.dictionary_value == v
+        assert s.dictionary == dictionary
+
+        with pytest.warns(FutureWarning):
+            assert s.index_value == i
+        with pytest.warns(FutureWarning):
+            assert s.dictionary_value == v

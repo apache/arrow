@@ -692,21 +692,26 @@ cdef class DictionaryScalar(Scalar):
     Concrete class for dictionary-encoded scalars.
     """
 
-    # @property
-    # def index(self):
-    #     """
-    #     Return this value's underlying index as a scalar.
-    #     """
-    #     cdef CDictionaryScalar* sp = <CDictionaryScalar*> self.wrapped.get()
-    #     return Scalar.wrap(sp.index)
+    @property
+    def index(self):
+        """
+        Return this value's underlying index as a scalar.
+        """
+        cdef CDictionaryScalar* sp = <CDictionaryScalar*> self.wrapped.get()
+        return Scalar.wrap(sp.value.index)
 
     @property
     def value(self):
         """
         Return the encoded value as a scalar.
         """
+        # TODO(kszucs): optimize it to spare uneccessary python object boxing
+        return self.dictionary[self.index.as_py()] if self.is_valid else None
+
+    @property
+    def dictionary(self):
         cdef CDictionaryScalar* sp = <CDictionaryScalar*> self.wrapped.get()
-        return Scalar.wrap(sp.value)
+        return pyarrow_wrap_array(sp.value.dictionary)
 
     def as_py(self):
         """
@@ -715,13 +720,13 @@ cdef class DictionaryScalar(Scalar):
         value = self.value
         return None if value is None else value.as_py()
 
-    # @property
-    # def index_value(self):
-    #     warnings.warn("`dictionary_value` property is deprecated as of 1.0.0"
-    #                   "please use the `value` property instead",
-    #                   FutureWarning)
-    #     index = self.index
-    #     return None if index is None else self.index
+    @property
+    def index_value(self):
+        warnings.warn("`dictionary_value` property is deprecated as of 1.0.0"
+                      "please use the `value` property instead",
+                      FutureWarning)
+        index = self.index
+        return None if index is None else self.index
 
     @property
     def dictionary_value(self):
@@ -739,16 +744,14 @@ cdef class UnionScalar(Scalar):
     @property
     def value(self):
         """
-        Return this value's underlying dictionary value as a scalar.
+        Return underlying value as a scalar.
         """
-        cdef CDictionaryScalar* sp = <CDictionaryScalar*> self.wrapped.get()
+        cdef CUnionScalar* sp = <CUnionScalar*> self.wrapped.get()
         return Scalar.wrap(sp.value)
 
     def as_py(self):
         """
-        Return this value as a Python object.
-
-        The exact type depends on the dictionary value type.
+        Return underlying value as a Python object.
         """
         value = self.value
         return None if value is None else value.as_py()
