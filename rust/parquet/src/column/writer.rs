@@ -16,23 +16,25 @@
 // under the License.
 
 //! Contains column writer API.
-
 use std::{cmp, collections::VecDeque, rc::Rc};
 
 use crate::basic::{Compression, Encoding, PageType, Type};
-use crate::column::page::{CompressedPage, Page, PageWriteSpec, PageWriter};
-use crate::compression::{create_codec, Codec};
+use crate::column::page::{CompressedPage, Page, PageWriter, PageWriteSpec};
+use crate::compression::{Codec, create_codec};
 use crate::data_type::*;
+use crate::data_type::AsBytes;
 use crate::encodings::{
-    encoding::{get_encoder, DictEncoder, Encoder},
-    levels::{max_buffer_size, LevelEncoder},
+    encoding::{DictEncoder, Encoder, get_encoder},
+    levels::{LevelEncoder, max_buffer_size},
 };
 use crate::errors::{ParquetError, Result};
 use crate::file::{
     metadata::ColumnChunkMetaData,
     properties::{WriterProperties, WriterPropertiesPtr, WriterVersion},
 };
+use crate::file::statistics::Statistics;
 use crate::schema::types::ColumnDescPtr;
+use crate::util::bit_util::FromBytes;
 use crate::util::memory::{ByteBufferPtr, MemTracker};
 
 /// Column writer for a Parquet type.
@@ -45,6 +47,22 @@ pub enum ColumnWriter {
     DoubleColumnWriter(ColumnWriterImpl<DoubleType>),
     ByteArrayColumnWriter(ColumnWriterImpl<ByteArrayType>),
     FixedLenByteArrayColumnWriter(ColumnWriterImpl<FixedLenByteArrayType>),
+}
+
+macro_rules! gen_page_stats_section {
+    ($self: ident, $physical_ty: ty, $stat_fn: ident) => {{
+        let min = $self.min_page_value.clone().and_then(|v| Some(read_num_bytes!($physical_ty, v.as_bytes().len(), &v.as_bytes())));
+        let max = $self.max_page_value.clone().and_then(|v| Some(read_num_bytes!($physical_ty, v.as_bytes().len(), &v.as_bytes())));
+        Statistics::$stat_fn(min, max, $self.page_distinct_count, $self.num_page_nulls, false)
+    }};
+}
+
+macro_rules! gen_column_stats_section {
+    ($self: ident, $physical_ty: ty, $stat_fn: ident) => {{
+        let min = $self.min_column_value.clone().and_then(|v| Some(read_num_bytes!($physical_ty, v.as_bytes().len(), &v.as_bytes())));
+        let max = $self.max_column_value.clone().and_then(|v| Some(read_num_bytes!($physical_ty, v.as_bytes().len(), &v.as_bytes())));
+        Statistics::$stat_fn(min, max, $self.column_distinct_count, $self.num_column_nulls, false)
+    }};
 }
 
 /// Gets a specific column writer corresponding to column descriptor `descr`.
@@ -149,6 +167,10 @@ pub struct ColumnWriterImpl<T: DataType> {
     num_buffered_values: u32,
     num_buffered_encoded_values: u32,
     num_buffered_rows: u32,
+    min_page_value: Option<T::T>,
+    max_page_value: Option<T::T>,
+    num_page_nulls: u64,
+    page_distinct_count: Option<u64>,
     // Metrics per column writer
     total_bytes_written: u64,
     total_rows_written: u64,
@@ -157,6 +179,10 @@ pub struct ColumnWriterImpl<T: DataType> {
     total_num_values: u64,
     dictionary_page_offset: Option<u64>,
     data_page_offset: Option<u64>,
+    min_column_value: Option<T::T>,
+    max_column_value: Option<T::T>,
+    num_column_nulls: u64,
+    column_distinct_count: Option<u64>,
     // Reused buffers
     def_levels_sink: Vec<i16>,
     rep_levels_sink: Vec<i16>,
@@ -192,7 +218,7 @@ impl<T: DataType> ColumnWriterImpl<T> {
                 .unwrap_or(Self::fallback_encoding(&props)),
             Rc::new(MemTracker::new()),
         )
-        .unwrap();
+            .unwrap();
 
         Self {
             descr,
@@ -216,26 +242,26 @@ impl<T: DataType> ColumnWriterImpl<T> {
             def_levels_sink: vec![],
             rep_levels_sink: vec![],
             data_pages: VecDeque::new(),
+            min_page_value: None,
+            max_page_value: None,
+            num_page_nulls: 0,
+            page_distinct_count: None,
+            min_column_value: None,
+            max_column_value: None,
+            num_column_nulls: 0,
+            column_distinct_count: None,
         }
     }
 
-    /// Writes batch of values, definition levels and repetition levels.
-    /// Returns number of values processed (written).
-    ///
-    /// If definition and repetition levels are provided, we write fully those levels and
-    /// select how many values to write (this number will be returned), since number of
-    /// actual written values may be smaller than provided values.
-    ///
-    /// If only values are provided, then all values are written and the length of
-    /// of the values buffer is returned.
-    ///
-    /// Definition and/or repetition levels can be omitted, if values are
-    /// non-nullable and/or non-repeated.
-    pub fn write_batch(
+    fn write_batch_internal(
         &mut self,
         values: &[T::T],
         def_levels: Option<&[i16]>,
         rep_levels: Option<&[i16]>,
+        min: &Option<T::T>,
+        max: &Option<T::T>,
+        null_count: Option<u64>,
+        distinct_count: Option<u64>,
     ) -> Result<usize> {
         // We check for DataPage limits only after we have inserted the values. If a user
         // writes a large number of values, the DataPage size can be well above the limit.
@@ -263,11 +289,32 @@ impl<T: DataType> ColumnWriterImpl<T> {
         let mut values_offset = 0;
         let mut levels_offset = 0;
 
+        // Process pre-calculated statistics
+        match (min, max) {
+            (Some(min), Some(max)) => {
+                if self.min_column_value.is_none() || self.min_column_value.as_ref().unwrap() > min { self.min_column_value = Some(min.clone()); }
+                if self.max_column_value.is_none() || self.max_column_value.as_ref().unwrap() < max { self.max_column_value = Some(max.clone()); }
+            }
+            (None, Some(_)) | (Some(_), None) => panic!("min/max should be both set or both None"),
+            (None, None) => {}
+        }
+
+        if let Some(distinct) = distinct_count {
+            self.column_distinct_count = Some(self.column_distinct_count.unwrap_or(0) + distinct);
+        }
+
+        if let Some(nulls) = null_count {
+            self.num_column_nulls += nulls;
+        }
+
+        let calculate_page_stats = (min.is_none() || max.is_none()) && null_count.is_none() && distinct_count.is_none();
+
         for _ in 0..num_batches {
             values_offset += self.write_mini_batch(
                 &values[values_offset..values_offset + write_batch_size],
                 def_levels.map(|lv| &lv[levels_offset..levels_offset + write_batch_size]),
                 rep_levels.map(|lv| &lv[levels_offset..levels_offset + write_batch_size]),
+                calculate_page_stats,
             )?;
             levels_offset += write_batch_size;
         }
@@ -276,10 +323,48 @@ impl<T: DataType> ColumnWriterImpl<T> {
             &values[values_offset..],
             def_levels.map(|lv| &lv[levels_offset..]),
             rep_levels.map(|lv| &lv[levels_offset..]),
+            calculate_page_stats,
         )?;
 
         // Return total number of values processed.
         Ok(values_offset)
+    }
+
+    /// Writes batch of values, definition levels and repetition levels.
+    /// Returns number of values processed (written).
+    ///
+    /// If definition and repetition levels are provided, we write fully those levels and
+    /// select how many values to write (this number will be returned), since number of
+    /// actual written values may be smaller than provided values.
+    ///
+    /// If only values are provided, then all values are written and the length of
+    /// of the values buffer is returned.
+    ///
+    /// Definition and/or repetition levels can be omitted, if values are
+    /// non-nullable and/or non-repeated.
+    pub fn write_batch(
+        &mut self,
+        values: &[T::T],
+        def_levels: Option<&[i16]>,
+        rep_levels: Option<&[i16]>,
+    ) -> Result<usize> {
+        self.write_batch_internal(values, def_levels, rep_levels, &None, &None, None, None)
+    }
+
+    /// Writer may optionally provide pre-calculated statistics for this batch, in which case we do
+    /// not calculate page level statistics as this will defeat the purpose of speeding up the write
+    /// process with pre-calculated statistics.
+    pub fn write_batch_with_statistics(
+        &mut self,
+        values: &[T::T],
+        def_levels: Option<&[i16]>,
+        rep_levels: Option<&[i16]>,
+        min: &Option<T::T>,
+        max: &Option<T::T>,
+        nulls_count: Option<u64>,
+        distinct_count: Option<u64>,
+    ) -> Result<usize> {
+        self.write_batch_internal(values, def_levels, rep_levels, min, max, nulls_count, distinct_count)
     }
 
     /// Returns total number of bytes written by this column writer so far.
@@ -316,6 +401,7 @@ impl<T: DataType> ColumnWriterImpl<T> {
         values: &[T::T],
         def_levels: Option<&[i16]>,
         rep_levels: Option<&[i16]>,
+        calculate_page_stats: bool,
     ) -> Result<usize> {
         let num_values;
         let mut values_to_write = 0;
@@ -346,7 +432,11 @@ impl<T: DataType> ColumnWriterImpl<T> {
             let levels = def_levels.unwrap();
             num_values = levels.len();
             for &level in levels {
-                values_to_write += (level == self.descr.max_def_level()) as usize;
+                if level == self.descr.max_def_level() {
+                    values_to_write += 1;
+                } else {
+                    if calculate_page_stats { self.num_page_nulls += 1 };
+                }
             }
 
             self.write_definition_levels(levels);
@@ -387,7 +477,12 @@ impl<T: DataType> ColumnWriterImpl<T> {
             ));
         }
 
-        // TODO: update page statistics
+        if calculate_page_stats {
+            for val in &values[0..values_to_write] {
+                if self.min_page_value.is_none() || self.min_page_value.as_ref().unwrap() > val { self.min_page_value = Some(val.clone()); }
+                if self.max_page_value.is_none() || self.max_page_value.as_ref().unwrap() < val { self.max_page_value = Some(val.clone()); }
+            }
+        }
 
         self.write_values(&values[0..values_to_write])?;
 
@@ -395,7 +490,7 @@ impl<T: DataType> ColumnWriterImpl<T> {
         self.num_buffered_encoded_values += values_to_write as u32;
 
         if self.should_add_data_page() {
-            self.add_data_page()?;
+            self.add_data_page(calculate_page_stats)?;
         }
 
         if self.should_dict_fallback() {
@@ -463,7 +558,7 @@ impl<T: DataType> ColumnWriterImpl<T> {
 
     /// Adds data page.
     /// Data page is either buffered in case of dictionary encoding or written directly.
-    fn add_data_page(&mut self) -> Result<()> {
+    fn add_data_page(&mut self, calculate_page_stat: bool) -> Result<()> {
         // Extract encoded values
         let value_bytes = match self.dict_encoder {
             Some(ref mut encoder) => encoder.write_indices()?,
@@ -479,6 +574,15 @@ impl<T: DataType> ColumnWriterImpl<T> {
 
         let max_def_level = self.descr.max_def_level();
         let max_rep_level = self.descr.max_rep_level();
+
+        let mut page_statistics: Option<Statistics> = None;
+
+        if calculate_page_stat {
+            if self.min_column_value.is_none() || self.min_column_value.as_ref().unwrap() > self.min_page_value.as_ref().unwrap() { self.min_column_value = self.min_page_value.clone(); }
+            if self.max_column_value.is_none() || self.max_column_value.as_ref().unwrap() < self.max_page_value.as_ref().unwrap() { self.max_column_value = self.max_page_value.clone(); }
+            self.num_column_nulls += self.num_page_nulls;
+            page_statistics = Some(self.make_page_statistics());
+        }
 
         let compressed_page = match self.props.writer_version() {
             WriterVersion::PARQUET_1_0 => {
@@ -519,8 +623,7 @@ impl<T: DataType> ColumnWriterImpl<T> {
                     encoding,
                     def_level_encoding: Encoding::RLE,
                     rep_level_encoding: Encoding::RLE,
-                    // TODO: process statistics
-                    statistics: None,
+                    statistics: page_statistics,
                 };
 
                 CompressedPage::new(data_page, uncompressed_size)
@@ -570,8 +673,7 @@ impl<T: DataType> ColumnWriterImpl<T> {
                     def_levels_byte_len: def_levels_byte_len as u32,
                     rep_levels_byte_len: rep_levels_byte_len as u32,
                     is_compressed: self.compressor.is_some(),
-                    // TODO: process statistics
-                    statistics: None,
+                    statistics: page_statistics,
                 };
 
                 CompressedPage::new(data_page, uncompressed_size)
@@ -594,6 +696,10 @@ impl<T: DataType> ColumnWriterImpl<T> {
         self.num_buffered_values = 0;
         self.num_buffered_encoded_values = 0;
         self.num_buffered_rows = 0;
+        self.min_page_value = None;
+        self.max_page_value = None;
+        self.num_page_nulls = 0;
+        self.page_distinct_count = None;
 
         Ok(())
     }
@@ -603,8 +709,9 @@ impl<T: DataType> ColumnWriterImpl<T> {
     #[inline]
     fn flush_data_pages(&mut self) -> Result<()> {
         // Write all outstanding data to a new page.
+        let calculate_page_stats = self.min_page_value.is_some() && self.max_page_value.is_some();
         if self.num_buffered_values > 0 {
-            self.add_data_page()?;
+            self.add_data_page(calculate_page_stats)?;
         }
 
         while let Some(page) = self.data_pages.pop_front() {
@@ -643,6 +750,7 @@ impl<T: DataType> ColumnWriterImpl<T> {
         // We use only RLE level encoding for data page v1 and data page v2.
         encodings.push(Encoding::RLE);
 
+        let statistics = self.make_column_statistics();
         let metadata = ColumnChunkMetaData::builder(self.descr.clone())
             .set_compression(self.codec)
             .set_encodings(encodings)
@@ -652,6 +760,7 @@ impl<T: DataType> ColumnWriterImpl<T> {
             .set_num_values(num_values)
             .set_data_page_offset(data_page_offset)
             .set_dictionary_page_offset(dict_page_offset)
+            .set_statistics(statistics)
             .build()?;
 
         self.page_writer.write_metadata(&metadata)?;
@@ -755,6 +864,32 @@ impl<T: DataType> ColumnWriterImpl<T> {
     fn get_page_writer_ref(&self) -> &Box<PageWriter> {
         &self.page_writer
     }
+
+    fn make_column_statistics(&self) -> Statistics {
+        match self.descr.physical_type() {
+            Type::INT32 => gen_column_stats_section!(self, i32, int32),
+            Type::BOOLEAN => gen_column_stats_section!(self, i32, int32),
+            Type::INT64 => gen_column_stats_section!(self, i64, int64),
+            Type::INT96 => gen_column_stats_section!(self, Int96, int96),
+            Type::FLOAT => gen_column_stats_section!(self, f32, float),
+            Type::DOUBLE => gen_column_stats_section!(self, f64, double),
+            Type::BYTE_ARRAY => gen_column_stats_section!(self, ByteArray, byte_array),
+            Type::FIXED_LEN_BYTE_ARRAY => gen_column_stats_section!(self, ByteArray, fixed_len_byte_array),
+        }
+    }
+
+    fn make_page_statistics(&self) -> Statistics {
+        match self.descr.physical_type() {
+            Type::INT32 => gen_page_stats_section!(self, i32, int32),
+            Type::BOOLEAN => gen_page_stats_section!(self, i32, int32),
+            Type::INT64 => gen_page_stats_section!(self, i64, int64),
+            Type::INT96 => gen_page_stats_section!(self, Int96, int96),
+            Type::FLOAT => gen_page_stats_section!(self, f32, float),
+            Type::DOUBLE => gen_page_stats_section!(self, f64, double),
+            Type::BYTE_ARRAY => gen_page_stats_section!(self, ByteArray, byte_array),
+            Type::FIXED_LEN_BYTE_ARRAY => gen_page_stats_section!(self, ByteArray, fixed_len_byte_array),
+        }
+    }
 }
 
 // ----------------------------------------------------------------------
@@ -846,13 +981,11 @@ impl EncodingWriteSupport for ColumnWriterImpl<FixedLenByteArrayType> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     use rand::distributions::uniform::SampleUniform;
 
     use crate::column::{
         page::PageReader,
-        reader::{get_column_reader, get_typed_column_reader, ColumnReaderImpl},
+        reader::{ColumnReaderImpl, get_column_reader, get_typed_column_reader},
     };
     use crate::file::{
         properties::WriterProperties, reader::SerializedPageReader,
@@ -863,6 +996,8 @@ mod tests {
         io::{FileSink, FileSource},
         test_common::{get_temp_file, random_numbers_range},
     };
+
+    use super::*;
 
     #[test]
     fn test_column_writer_inconsistent_def_rep_length() {
@@ -966,9 +1101,7 @@ mod tests {
                 .build(),
         );
         let mut writer = get_test_column_writer::<BoolType>(page_writer, 0, 0, props);
-        writer
-            .write_batch(&[true, false, true, false], None, None)
-            .unwrap();
+        writer.write_batch(&[true, false, true, false], None, None).unwrap();
 
         let (bytes_written, rows_written, metadata) = writer.close().unwrap();
         // PlainEncoder uses bit writer to write boolean values, which all fit into 1
@@ -1255,6 +1388,45 @@ mod tests {
         assert_eq!(metadata.uncompressed_size(), 20);
         assert_eq!(metadata.data_page_offset(), 0);
         assert_eq!(metadata.dictionary_page_offset(), Some(0));
+        if let Some(stats) = metadata.statistics() {
+            assert!(stats.has_min_max_set());
+            assert_eq!(stats.null_count(), 0);
+            assert_eq!(stats.distinct_count(), None);
+            if let Statistics::Int32(stats) = stats {
+                assert_eq!(stats.min(), &1);
+                assert_eq!(stats.max(), &4);
+            } else { assert!(false, "expecting Statistics::Int32"); }
+        } else { assert!(false, "metadata missing statistics"); }
+    }
+
+    #[test]
+    fn test_column_writer_precalculated_statistics() {
+        let page_writer = get_test_page_writer();
+        let props = Rc::new(WriterProperties::builder().build());
+        let mut writer = get_test_column_writer::<Int32Type>(page_writer, 0, 0, props);
+        writer.write_batch_with_statistics(&[1, 2, 3, 4], None, None, &Some(-17), &Some(9000), Some(21), Some(55)).unwrap();
+
+        let (bytes_written, rows_written, metadata) = writer.close().unwrap();
+        assert_eq!(bytes_written, 20);
+        assert_eq!(rows_written, 4);
+        assert_eq!(
+            metadata.encodings(),
+            &vec![Encoding::PLAIN, Encoding::RLE_DICTIONARY, Encoding::RLE]
+        );
+        assert_eq!(metadata.num_values(), 8); // dictionary + value indexes
+        assert_eq!(metadata.compressed_size(), 20);
+        assert_eq!(metadata.uncompressed_size(), 20);
+        assert_eq!(metadata.data_page_offset(), 0);
+        assert_eq!(metadata.dictionary_page_offset(), Some(0));
+        if let Some(stats) = metadata.statistics() {
+            assert!(stats.has_min_max_set());
+            assert_eq!(stats.null_count(), 21);
+            assert_eq!(stats.distinct_count().unwrap_or(0), 55);
+            if let Statistics::Int32(stats) = stats {
+                assert_eq!(stats.min(), &-17);
+                assert_eq!(stats.max(), &9000);
+            } else { assert!(false, "expecting Statistics::Int32"); }
+        } else { assert!(false, "metadata missing statistics"); }
     }
 
     #[test]
@@ -1434,7 +1606,7 @@ mod tests {
                 Compression::UNCOMPRESSED,
                 Int32Type::get_physical_type(),
             )
-            .unwrap(),
+                .unwrap(),
         );
         let mut res = Vec::new();
         while let Some(page) = page_reader.get_next_page().unwrap() {
@@ -1545,7 +1717,7 @@ mod tests {
                 column_metadata.compression(),
                 T::get_physical_type(),
             )
-            .unwrap(),
+                .unwrap(),
         );
         let reader =
             get_test_column_reader::<T>(page_reader, max_def_level, max_rep_level);
