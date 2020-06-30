@@ -34,6 +34,7 @@
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
 #include "arrow/table.h"
+#include "arrow/type.h"
 #include "arrow/util/bit_block_counter.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
@@ -50,6 +51,7 @@ using internal::CheckIndexBounds;
 using internal::CopyBitmap;
 using internal::CountSetBits;
 using internal::GetArrayView;
+using internal::GetByteWidth;
 using internal::OptionalBitBlockCounter;
 using internal::OptionalBitIndexer;
 
@@ -1460,8 +1462,7 @@ struct Selection {
   Status ExecTake() {
     RETURN_NOT_OK(this->validity_builder.Reserve(output_length));
     RETURN_NOT_OK(Init());
-    int index_width =
-        checked_cast<const FixedWidthType&>(*this->selection->type).bit_width() / 8;
+    int index_width = GetByteWidth(*this->selection->type);
 
     // CTRP dispatch here
     switch (index_width) {

@@ -42,13 +42,14 @@ namespace internal {
 
 void ComputeRowMajorStrides(const FixedWidthType& type, const std::vector<int64_t>& shape,
                             std::vector<int64_t>* strides) {
-  int64_t remaining = type.bit_width() / 8;
+  const int byte_width = GetByteWidth(type);
+  int64_t remaining = byte_width;
   for (int64_t dimsize : shape) {
     remaining *= dimsize;
   }
 
   if (remaining == 0) {
-    strides->assign(shape.size(), type.bit_width() / 8);
+    strides->assign(shape.size(), byte_width);
     return;
   }
 
@@ -63,10 +64,11 @@ void ComputeRowMajorStrides(const FixedWidthType& type, const std::vector<int64_
 static void ComputeColumnMajorStrides(const FixedWidthType& type,
                                       const std::vector<int64_t>& shape,
                                       std::vector<int64_t>* strides) {
-  int64_t total = type.bit_width() / 8;
+  const int byte_width = internal::GetByteWidth(type);
+  int64_t total = byte_width;
   for (int64_t dimsize : shape) {
     if (dimsize == 0) {
-      strides->assign(shape.size(), type.bit_width() / 8);
+      strides->assign(shape.size(), byte_width);
       return;
     }
   }
@@ -131,7 +133,7 @@ Status CheckTensorStridesValidity(const std::shared_ptr<Buffer>& data,
     --last_index[i];
   }
   int64_t last_offset = Tensor::CalculateValueOffset(strides, last_index);
-  const int byte_width = internal::checked_cast<const FixedWidthType&>(*type).bit_width() / CHAR_BIT;
+  const int byte_width = internal::GetByteWidth(*type);
   if (last_offset + byte_width > data->size()) {
     return Status::Invalid("strides must not involve buffer over run");
   }

@@ -159,8 +159,7 @@ Result<std::shared_ptr<SparseCOOIndex>> SparseCOOIndex::Make(
   if (!is_integer(indices_type->id())) {
     return Status::TypeError("Type of SparseCOOIndex indices must be integer");
   }
-  const int64_t elsize =
-      internal::checked_cast<const IntegerType&>(*indices_type).bit_width() / 8;
+  const int64_t elsize = internal::GetByteWidth(*indices_type);
   std::vector<int64_t> indices_shape({non_zero_length, ndim});
   std::vector<int64_t> indices_strides({elsize * ndim, elsize});
   return Make(indices_type, indices_shape, indices_strides, indices_data);

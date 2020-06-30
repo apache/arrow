@@ -64,10 +64,8 @@ class SparseCOOTensorConverter : private SparseTensorConverterMixin {
   Status Convert() {
     RETURN_NOT_OK(CheckSparseIndexMaximumValue(index_value_type_, tensor_.shape()));
 
-    const int index_elsize =
-        checked_cast<const IntegerType&>(*index_value_type_).bit_width() / CHAR_BIT;
-    const int value_elsize =
-        checked_cast<const FixedWidthType&>(*tensor_.type()).bit_width() / CHAR_BIT;
+    const int index_elsize = GetByteWidth(*index_value_type_);
+    const int value_elsize = GetByteWidth(*tensor_.type());
 
     const int64_t ndim = tensor_.ndim();
     ARROW_ASSIGN_OR_RAISE(int64_t nonzero_count, tensor_.CountNonZero());
@@ -196,11 +194,10 @@ Result<std::shared_ptr<Tensor>> MakeTensorFromSparseCOOTensor(
   const auto& coords = sparse_index.indices();
   const auto* coords_data = coords->raw_data();
 
-  const auto& index_type = checked_cast<const FixedWidthType&>(*coords->type());
-  const int index_elsize = index_type.bit_width() / CHAR_BIT;
+  const int index_elsize = GetByteWidth(*coords->type());
 
   const auto& value_type = checked_cast<const FixedWidthType&>(*sparse_tensor->type());
-  const int value_elsize = value_type.bit_width() / CHAR_BIT;
+  const int value_elsize = GetByteWidth(value_type);
   ARROW_ASSIGN_OR_RAISE(auto values_buffer,
                         AllocateBuffer(value_elsize * sparse_tensor->size(), pool));
   auto values = values_buffer->mutable_data();
