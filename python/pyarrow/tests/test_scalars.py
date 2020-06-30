@@ -363,7 +363,9 @@ def test_list(ty, klass):
 
 
 def test_list_from_numpy():
-    print(repr(pa.scalar(np.array([1, 2, 3]))))
+    s = pa.scalar(np.array([1, 2, 3]))
+    assert s.type == pa.list_(pa.int64())
+    assert s.as_py() == [1, 2, 3]
 
 
 # @pytest.mark.pandas
