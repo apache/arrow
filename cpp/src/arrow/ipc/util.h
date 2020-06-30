@@ -19,6 +19,8 @@
 
 #include <cstdint>
 
+#include "arrow/type.h"
+
 namespace arrow {
 namespace ipc {
 

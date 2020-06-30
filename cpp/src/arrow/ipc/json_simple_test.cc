@@ -998,9 +998,9 @@ TEST(TestDenseUnion, Basics) {
   auto array = checked_pointer_cast<DenseUnionArray>(
       ArrayFromJSON(type, "[null, [4, 122], [8, true], [4, null], null, [8, false]]"));
 
-  auto expected_types = ArrayFromJSON(int8(), "[null, 4, 8, 4, null, 8]");
-  auto expected_offsets = ArrayFromJSON(int32(), "[0, 0, 0, 1, 0, 1]");
-  auto expected_a = ArrayFromJSON(int8(), "[122, null]");
+  auto expected_types = ArrayFromJSON(int8(), "[4, 4, 8, 4, 4, 8]");
+  auto expected_offsets = ArrayFromJSON(int32(), "[0, 1, 0, 2, 3, 1]");
+  auto expected_a = ArrayFromJSON(int8(), "[null, 122, null, null]");
   auto expected_b = ArrayFromJSON(boolean(), "[true, false]");
 
   ASSERT_OK_AND_ASSIGN(
@@ -1022,7 +1022,7 @@ TEST(TestSparseUnion, Basics) {
   auto type = sparse_union({field_a, field_b}, {4, 8});
   auto array = ArrayFromJSON(type, "[[4, 122], [8, true], [4, null], null, [8, false]]");
 
-  auto expected_types = ArrayFromJSON(int8(), "[4, 8, 4, null, 8]");
+  auto expected_types = ArrayFromJSON(int8(), "[4, 8, 4, 4, 8]");
   auto expected_a = ArrayFromJSON(int8(), "[122, null, null, null, null]");
   auto expected_b = ArrayFromJSON(boolean(), "[null, true, null, null, false]");
 
@@ -1045,9 +1045,9 @@ TEST(TestDenseUnion, ListOfUnion) {
                                                     "[[4, null], null, [8, false]]"
                                                     "]"));
 
-  auto expected_types = ArrayFromJSON(int8(), "[4, 8, 4, null, 8]");
-  auto expected_offsets = ArrayFromJSON(int32(), "[0, 0, 1, 0, 1]");
-  auto expected_a = ArrayFromJSON(int8(), "[122, null]");
+  auto expected_types = ArrayFromJSON(int8(), "[4, 8, 4, 4, 8]");
+  auto expected_offsets = ArrayFromJSON(int32(), "[0, 0, 1, 2, 1]");
+  auto expected_a = ArrayFromJSON(int8(), "[122, null, null]");
   auto expected_b = ArrayFromJSON(boolean(), "[true, false]");
 
   ASSERT_OK_AND_ASSIGN(
@@ -1079,7 +1079,7 @@ TEST(TestSparseUnion, ListOfUnion) {
                              "[[4, null], null, [8, false]]"
                              "]");
 
-  auto expected_types = ArrayFromJSON(int8(), "[4, 8, 4, null, 8]");
+  auto expected_types = ArrayFromJSON(int8(), "[4, 8, 4, 4, 8]");
   auto expected_a = ArrayFromJSON(int8(), "[122, null, null, null, null]");
   auto expected_b = ArrayFromJSON(boolean(), "[null, true, null, null, false]");
 
@@ -1108,11 +1108,12 @@ TEST(TestDenseUnion, UnionOfStructs) {
     [23, {"tango": 8.25, "foxtrot": [0, 2, 3]}]
   ])"));
 
-  auto expected_types = ArrayFromJSON(int8(), "[0, 23, 0, null, 23]");
-  auto expected_offsets = ArrayFromJSON(int32(), "[0, 0, 1, 0, 1]");
+  auto expected_types = ArrayFromJSON(int8(), "[0, 23, 0, 0, 23]");
+  auto expected_offsets = ArrayFromJSON(int32(), "[0, 0, 1, 2, 1]");
   ArrayVector expected_fields = {ArrayFromJSON(fields[0]->type(), R"([
       {"alpha": 0.0, "bravo": "charlie"},
-      {"bravo": "mike"}
+      {"bravo": "mike"},
+      null
     ])"),
                                  ArrayFromJSON(fields[1]->type(), R"([
       {"whiskey": 99},
@@ -1150,7 +1151,7 @@ TEST(TestSparseUnion, UnionOfStructs) {
     [23, {"tango": 8.25, "foxtrot": [0, 2, 3]}]
   ])");
 
-  auto expected_types = ArrayFromJSON(int8(), "[0, 23, 0, null, 23]");
+  auto expected_types = ArrayFromJSON(int8(), "[0, 23, 0, 0, 23]");
   ArrayVector expected_fields = {
       ArrayFromJSON(fields[0]->type(), R"([
       {"alpha": 0.0, "bravo": "charlie"},

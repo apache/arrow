@@ -664,9 +664,7 @@ class ArrayWriter {
   }
 
   Status Visit(const UnionArray& array) {
-    WriteValidityField(array);
     const auto& type = checked_cast<const UnionType&>(*array.type());
-
     WriteIntegerField("TYPE_ID", array.raw_type_codes(), array.length());
     if (type.mode() == UnionMode::DENSE) {
       auto offsets = checked_cast<const DenseUnionArray&>(array).raw_value_offsets();
@@ -1473,12 +1471,7 @@ class ArrayReader {
   }
 
   Status Visit(const UnionType& type) {
-    int32_t null_count = 0;
-
-    std::shared_ptr<Buffer> validity_buffer;
     std::shared_ptr<Buffer> type_id_buffer;
-
-    RETURN_NOT_OK(GetValidityBuffer(is_valid_, &null_count, &validity_buffer));
 
     const auto& json_type_ids = obj_.FindMember("TYPE_ID");
     RETURN_NOT_ARRAY("TYPE_ID", json_type_ids, obj_);
@@ -1489,8 +1482,8 @@ class ArrayReader {
     RETURN_NOT_OK(GetChildren(obj_, type, &children));
 
     if (type.mode() == UnionMode::SPARSE) {
-      result_ = std::make_shared<SparseUnionArray>(
-          type_, length_, children, type_id_buffer, validity_buffer, null_count);
+      result_ =
+          std::make_shared<SparseUnionArray>(type_, length_, children, type_id_buffer);
     } else {
       const auto& json_offsets = obj_.FindMember("OFFSET");
       RETURN_NOT_ARRAY("OFFSET", json_offsets, obj_);
@@ -1499,9 +1492,8 @@ class ArrayReader {
       RETURN_NOT_OK(
           GetIntArray<int32_t>(json_offsets->value.GetArray(), length_, &offsets_buffer));
 
-      result_ =
-          std::make_shared<DenseUnionArray>(type_, length_, children, type_id_buffer,
-                                            offsets_buffer, validity_buffer, null_count);
+      result_ = std::make_shared<DenseUnionArray>(type_, length_, children,
+                                                  type_id_buffer, offsets_buffer);
     }
 
     return Status::OK();
@@ -1609,8 +1601,8 @@ class ArrayReader {
   Status Parse(std::shared_ptr<Array>* out) {
     RETURN_NOT_OK(GetObjectInt(obj_, "count", &length_));
 
-    if (type_->id() != Type::NA) {
-      // Null type is the only type without any buffers
+    if (::arrow::internal::HasValidityBitmap(type_->id())) {
+      // Null and union types don't have a validity bitmap
       RETURN_NOT_OK(ParseValidityBitmap());
     }
 

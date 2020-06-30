@@ -58,7 +58,7 @@ class ARROW_EXPORT ArrayBuilder {
 
   int num_children() const { return static_cast<int>(children_.size()); }
 
-  int64_t length() const { return length_; }
+  virtual int64_t length() const { return length_; }
   int64_t null_count() const { return null_count_; }
   int64_t capacity() const { return capacity_; }
 

@@ -593,9 +593,9 @@ Status UnionType::ValidateParameters(const std::vector<std::shared_ptr<Field>>& 
 DataTypeLayout UnionType::layout() const {
   if (mode() == UnionMode::SPARSE) {
     return DataTypeLayout(
-        {DataTypeLayout::Bitmap(), DataTypeLayout::FixedWidth(sizeof(uint8_t))});
+        {DataTypeLayout::AlwaysNull(), DataTypeLayout::FixedWidth(sizeof(uint8_t))});
   } else {
-    return DataTypeLayout({DataTypeLayout::Bitmap(),
+    return DataTypeLayout({DataTypeLayout::AlwaysNull(),
                            DataTypeLayout::FixedWidth(sizeof(uint8_t)),
                            DataTypeLayout::FixedWidth(sizeof(int32_t))});
   }

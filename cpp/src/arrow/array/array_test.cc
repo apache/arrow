@@ -298,8 +298,6 @@ TEST_F(TestArray, TestMakeArrayOfNull) {
       fixed_size_list(int64(), 4),
       dictionary(int32(), utf8()),
       struct_({field("a", utf8()), field("b", int32())}),
-      sparse_union({field("a", utf8()), field("b", int32())}, {0, 1}),
-      dense_union({field("a", utf8()), field("b", int32())}, {0, 1}),
       // clang-format on
   };
 
@@ -309,6 +307,43 @@ TEST_F(TestArray, TestMakeArrayOfNull) {
       ASSERT_OK(array->ValidateFull());
       ASSERT_EQ(array->length(), length);
       ASSERT_EQ(array->null_count(), length);
+    }
+  }
+}
+
+TEST_F(TestArray, TestMakeArrayOfNullUnion) {
+  // Unions need special checking -- the top level null count is 0 (per
+  // ARROW-9222) so we check the first child to make sure is contains all nulls
+  // and check that the type_ids all point to the first child
+  const int64_t union_length = 10;
+  auto s_union_ty = sparse_union({field("a", utf8()), field("b", int32())}, {0, 1});
+  ASSERT_OK_AND_ASSIGN(auto s_union_nulls, MakeArrayOfNull(s_union_ty, union_length));
+  ASSERT_EQ(s_union_nulls->null_count(), 0);
+  {
+    const auto& typed_union = checked_cast<const SparseUnionArray&>(*s_union_nulls);
+    ASSERT_EQ(typed_union.field(0)->null_count(), union_length);
+
+    // Check type codes are all 0
+    for (int i = 0; i < union_length; ++i) {
+      ASSERT_EQ(typed_union.raw_type_codes()[i], 0);
+    }
+  }
+
+  auto d_union_ty = dense_union({field("a", utf8()), field("b", int32())}, {0, 1});
+  ASSERT_OK_AND_ASSIGN(auto d_union_nulls, MakeArrayOfNull(d_union_ty, union_length));
+  ASSERT_EQ(d_union_nulls->null_count(), 0);
+  {
+    const auto& typed_union = checked_cast<const DenseUnionArray&>(*d_union_nulls);
+
+    // Child field has length 1 which is a null element
+    ASSERT_EQ(typed_union.field(0)->length(), 1);
+    ASSERT_EQ(typed_union.field(0)->null_count(), 1);
+
+    // Check type codes are all 0 and the offsets point to the first element of
+    // the first child
+    for (int i = 0; i < union_length; ++i) {
+      ASSERT_EQ(typed_union.raw_type_codes()[i], 0);
+      ASSERT_EQ(typed_union.raw_value_offsets()[i], 0);
     }
   }
 }

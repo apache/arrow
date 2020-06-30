@@ -62,8 +62,8 @@ TEST(TestUnionArray, TestSliceEquals) {
     TestInitialized(*array);
   };
 
+  CheckUnion(batch->column(0));
   CheckUnion(batch->column(1));
-  CheckUnion(batch->column(2));
 }
 
 TEST(TestSparseUnionArray, Validate) {
@@ -75,25 +75,25 @@ TEST(TestSparseUnionArray, Validate) {
 
   auto arr = std::make_shared<SparseUnionArray>(type, 2, children, type_ids);
   ASSERT_OK(arr->ValidateFull());
-  arr = std::make_shared<SparseUnionArray>(type, 1, children, type_ids, nullptr, 0,
+  arr = std::make_shared<SparseUnionArray>(type, 1, children, type_ids,
                                            /*offset=*/1);
   ASSERT_OK(arr->ValidateFull());
-  arr = std::make_shared<SparseUnionArray>(type, 0, children, type_ids, nullptr, 0,
+  arr = std::make_shared<SparseUnionArray>(type, 0, children, type_ids,
                                            /*offset=*/2);
   ASSERT_OK(arr->ValidateFull());
 
   // Length + offset < child length, but it's ok
-  arr = std::make_shared<SparseUnionArray>(type, 1, children, type_ids, nullptr, 0,
+  arr = std::make_shared<SparseUnionArray>(type, 1, children, type_ids,
                                            /*offset=*/0);
   ASSERT_OK(arr->ValidateFull());
 
   // Length + offset > child length
-  arr = std::make_shared<SparseUnionArray>(type, 1, children, type_ids, nullptr, 0,
+  arr = std::make_shared<SparseUnionArray>(type, 1, children, type_ids,
                                            /*offset=*/2);
   ASSERT_RAISES(Invalid, arr->ValidateFull());
 
   // Offset > child length
-  arr = std::make_shared<SparseUnionArray>(type, 0, children, type_ids, nullptr, 0,
+  arr = std::make_shared<SparseUnionArray>(type, 0, children, type_ids,
                                            /*offset=*/3);
   ASSERT_RAISES(Invalid, arr->ValidateFull());
 }

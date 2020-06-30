@@ -35,6 +35,7 @@
 #include "arrow/io/memory.h"
 #include "arrow/ipc/message.h"
 #include "arrow/ipc/metadata_internal.h"
+#include "arrow/ipc/util.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/record_batch.h"
 #include "arrow/sparse_tensor.h"
@@ -178,27 +179,29 @@ class ArrayLoader {
     return Status::OK();
   }
 
-  Status LoadCommon() {
+  Status LoadCommon(Type::type type_id) {
     // This only contains the length and null count, which we need to figure
     // out what to do with the buffers. For example, if null_count == 0, then
     // we can skip that buffer without reading from shared memory
     RETURN_NOT_OK(GetFieldMetadata(field_index_++, out_));
 
-    // extract null_bitmap which is common to all arrays
-    if (out_->null_count == 0) {
-      out_->buffers[0] = nullptr;
-    } else {
-      RETURN_NOT_OK(GetBuffer(buffer_index_, &out_->buffers[0]));
+    if (::arrow::internal::HasValidityBitmap(type_id)) {
+      // Extract null_bitmap which is common to all arrays except for unions.
+      if (out_->null_count == 0) {
+        out_->buffers[0] = nullptr;
+      } else {
+        RETURN_NOT_OK(GetBuffer(buffer_index_, &out_->buffers[0]));
+      }
+      buffer_index_++;
     }
-    buffer_index_++;
     return Status::OK();
   }
 
   template <typename TYPE>
-  Status LoadPrimitive() {
+  Status LoadPrimitive(Type::type type_id) {
     out_->buffers.resize(2);
 
-    RETURN_NOT_OK(LoadCommon());
+    RETURN_NOT_OK(LoadCommon(type_id));
     if (out_->length > 0) {
       RETURN_NOT_OK(GetBuffer(buffer_index_++, &out_->buffers[1]));
     } else {
@@ -209,10 +212,10 @@ class ArrayLoader {
   }
 
   template <typename TYPE>
-  Status LoadBinary() {
+  Status LoadBinary(Type::type type_id) {
     out_->buffers.resize(3);
 
-    RETURN_NOT_OK(LoadCommon());
+    RETURN_NOT_OK(LoadCommon(type_id));
     RETURN_NOT_OK(GetBuffer(buffer_index_++, &out_->buffers[1]));
     return GetBuffer(buffer_index_++, &out_->buffers[2]);
   }
@@ -221,7 +224,7 @@ class ArrayLoader {
   Status LoadList(const TYPE& type) {
     out_->buffers.resize(2);
 
-    RETURN_NOT_OK(LoadCommon());
+    RETURN_NOT_OK(LoadCommon(type.id()));
     RETURN_NOT_OK(GetBuffer(buffer_index_++, &out_->buffers[1]));
 
     const int num_children = type.num_fields();
@@ -259,17 +262,17 @@ class ArrayLoader {
                   !std::is_base_of<DictionaryType, T>::value,
               Status>
   Visit(const T& type) {
-    return LoadPrimitive<T>();
+    return LoadPrimitive<T>(type.id());
   }
 
   template <typename T>
   enable_if_base_binary<T, Status> Visit(const T& type) {
-    return LoadBinary<T>();
+    return LoadBinary<T>(type.id());
   }
 
   Status Visit(const FixedSizeBinaryType& type) {
     out_->buffers.resize(2);
-    RETURN_NOT_OK(LoadCommon());
+    RETURN_NOT_OK(LoadCommon(type.id()));
     return GetBuffer(buffer_index_++, &out_->buffers[1]);
   }
 
@@ -286,7 +289,7 @@ class ArrayLoader {
   Status Visit(const FixedSizeListType& type) {
     out_->buffers.resize(1);
 
-    RETURN_NOT_OK(LoadCommon());
+    RETURN_NOT_OK(LoadCommon(type.id()));
 
     const int num_children = type.num_fields();
     if (num_children != 1) {
@@ -298,7 +301,7 @@ class ArrayLoader {
 
   Status Visit(const StructType& type) {
     out_->buffers.resize(1);
-    RETURN_NOT_OK(LoadCommon());
+    RETURN_NOT_OK(LoadCommon(type.id()));
     return LoadChildren(type.fields());
   }
 
@@ -306,7 +309,12 @@ class ArrayLoader {
     int n_buffers = type.mode() == UnionMode::SPARSE ? 2 : 3;
     out_->buffers.resize(n_buffers);
 
-    RETURN_NOT_OK(LoadCommon());
+    RETURN_NOT_OK(LoadCommon(type.id()));
+
+    // Validity bitmap placeholder like for NullType, which is never sent or
+    // received in IPC.
+    out_->buffers[0] = nullptr;
+
     if (out_->length > 0) {
       RETURN_NOT_OK(GetBuffer(buffer_index_, &out_->buffers[1]));
       if (type.mode() == UnionMode::DENSE) {

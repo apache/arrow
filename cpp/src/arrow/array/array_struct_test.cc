@@ -256,16 +256,6 @@ TEST_F(TestStructBuilder, TestAppendNull) {
   ASSERT_OK(builder_->AppendNull());
   ASSERT_EQ(2, static_cast<int>(builder_->num_fields()));
 
-  ListBuilder* list_vb = checked_cast<ListBuilder*>(builder_->field_builder(0));
-  ASSERT_OK(list_vb->AppendNull());
-  ASSERT_OK(list_vb->AppendNull());
-  ASSERT_EQ(2, list_vb->length());
-
-  Int32Builder* int_vb = checked_cast<Int32Builder*>(builder_->field_builder(1));
-  ASSERT_OK(int_vb->AppendNull());
-  ASSERT_OK(int_vb->AppendNull());
-  ASSERT_EQ(2, int_vb->length());
-
   Done();
 
   ASSERT_OK(result_->ValidateFull());

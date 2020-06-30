@@ -30,8 +30,9 @@ using internal::checked_cast;
 using internal::checked_pointer_cast;
 
 Status BasicUnionBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
-  std::shared_ptr<Buffer> types, null_bitmap;
-  RETURN_NOT_OK(null_bitmap_builder_.Finish(&null_bitmap));
+  int64_t length = types_builder_.length();
+
+  std::shared_ptr<Buffer> types;
   RETURN_NOT_OK(types_builder_.Finish(&types));
 
   std::vector<std::shared_ptr<ArrayData>> child_data(children_.size());
@@ -39,7 +40,7 @@ Status BasicUnionBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
     RETURN_NOT_OK(children_[i]->FinishInternal(&child_data[i]));
   }
 
-  *out = ArrayData::Make(type(), length(), {null_bitmap, types}, null_count_);
+  *out = ArrayData::Make(type(), length, {nullptr, types}, /*null_count=*/0);
   (*out)->child_data = std::move(child_data);
   return Status::OK();
 }
@@ -79,13 +80,10 @@ BasicUnionBuilder::BasicUnionBuilder(
 int8_t BasicUnionBuilder::AppendChild(const std::shared_ptr<ArrayBuilder>& new_child,
                                       const std::string& field_name) {
   children_.push_back(new_child);
-
   auto new_type_id = NextTypeId();
 
   type_id_to_children_[new_type_id] = new_child.get();
-
   child_fields_.push_back(field(field_name, nullptr));
-
   type_codes_.push_back(static_cast<int8_t>(new_type_id));
 
   return new_type_id;

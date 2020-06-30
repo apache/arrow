@@ -21,10 +21,10 @@ class TestDenseUnionArray < Test::Unit::TestCase
   sub_test_case(".new") do
     sub_test_case("default") do
       def setup
-        type_ids = build_int8_array([0, 1, nil, 1, 1])
-        value_offsets = build_int32_array([0, 0, 0, 1, 2])
+        type_ids = build_int8_array([0, 1, 0, 1, 1])
+        value_offsets = build_int32_array([0, 0, 1, 1, 2])
         fields = [
-          build_int16_array([1]),
+          build_int16_array([1, nil]),
           build_string_array(["a", "b", "c"]),
         ]
         @array = Arrow::DenseUnionArray.new(type_ids, value_offsets, fields)
@@ -41,7 +41,7 @@ class TestDenseUnionArray < Test::Unit::TestCase
 
       def test_field
         assert_equal([
-                       build_int16_array([1]),
+                       build_int16_array([1, nil]),
                        build_string_array(["a", "b", "c"]),
                      ],
                      [
@@ -59,10 +59,10 @@ class TestDenseUnionArray < Test::Unit::TestCase
         ]
         type_codes = [11, 13]
         @data_type = Arrow::DenseUnionDataType.new(data_type_fields, type_codes)
-        type_ids = build_int8_array([11, 13, nil, 13, 13])
-        value_offsets = build_int32_array([0, 0, 0, 1, 2])
+        type_ids = build_int8_array([11, 13, 11, 13, 13])
+        value_offsets = build_int32_array([0, 0, 1, 1, 2])
         fields = [
-          build_int16_array([1]),
+          build_int16_array([1, nil]),
           build_string_array(["a", "b", "c"])
         ]
         @array = Arrow::DenseUnionArray.new(@data_type, type_ids, value_offsets, fields)
@@ -75,7 +75,7 @@ class TestDenseUnionArray < Test::Unit::TestCase
 
       def test_field
         assert_equal([
-                       build_int16_array([1]),
+                       build_int16_array([1, nil]),
                        build_string_array(["a", "b", "c"]),
                      ],
                      [
