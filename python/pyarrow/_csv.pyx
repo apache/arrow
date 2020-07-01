@@ -342,9 +342,9 @@ cdef class ConvertOptions:
     ----------
     check_utf8 : bool, optional (default True)
         Whether to check UTF8 validity of string columns.
-    column_types: dict, optional
-        Map column names to column types
-        (disabling type inference on those columns).
+    column_types: pa.Schema or dict, optional
+        Explicitly map column names to column types. Passing this argument
+        disables type inference on the defined columns.
     null_values: list, optional
         A sequence of strings that denote nulls in the data
         (defaults are appropriate in most cases). Note that by default,
@@ -366,7 +366,6 @@ cdef class ConvertOptions:
         If true, then strings in null_values are considered null for
         string columns.
         If false, then all strings are valid string values.
-
     auto_dict_encode: bool, optional (default False)
         Whether to try to automatically dict-encode string / binary data.
         If true, then when type inference detects a string or binary column,
@@ -377,7 +376,6 @@ cdef class ConvertOptions:
     auto_dict_max_cardinality: int, optional
         The maximum dictionary cardinality for `auto_dict_encode`.
         This value is per chunk.
-
     include_columns: list, optional
         The names of columns to include in the Table.
         If empty, the Table will include all columns from the CSV file.
@@ -450,8 +448,7 @@ cdef class ConvertOptions:
     @property
     def column_types(self):
         """
-        Map column names to column types
-        (disabling type inference on those columns).
+        Explicitly map column names to column types.
         """
         d = {frombytes(item.first): pyarrow_wrap_data_type(item.second)
              for item in self.options.column_types}
