@@ -235,7 +235,7 @@ SEXP CollectColumnMetadata(SEXP lst, int num_fields, bool& has_metadata) {
         } else if (Rf_inherits(x, "hms") && Rf_inherits(x, "difftime")) {
           bad_fields = {"class", "units"};
         }
-        if (Rf_length(att_list) > bad_fields.size()) {
+        if (Rf_length(att_list) > (int)bad_fields.size()) {
           // If the fields we should exclude are the only ones we have,
           // there's nothing to do. Otherwise, set what we have.
           SET_VECTOR_ELT(r_meta, 0, att_list);
