@@ -63,7 +63,10 @@ import pyarrow.lib as _lib
 if _gc_enabled:
     _gc.enable()
 
-from pyarrow.lib import cpu_count, set_cpu_count
+from pyarrow.lib import (BuildInfo, VersionInfo,
+                         build_info, version, version_info,
+                         cpu_count, set_cpu_count)
+
 from pyarrow.lib import (null, bool_,
                          int8, int16, int32, int64,
                          uint8, uint16, uint32, uint64,

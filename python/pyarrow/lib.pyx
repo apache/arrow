@@ -109,6 +109,9 @@ include "compat.pxi"
 # Exception types and Status handling
 include "error.pxi"
 
+# Configuration information
+include "config.pxi"
+
 # pandas API shim
 include "pandas-shim.pxi"
 

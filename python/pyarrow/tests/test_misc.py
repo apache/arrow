@@ -42,6 +42,16 @@ def test_cpu_count():
         pa.set_cpu_count(n)
 
 
+def test_build_info():
+    assert isinstance(pa.build_info, pa.BuildInfo)
+    assert isinstance(pa.version_info, pa.VersionInfo)
+    assert isinstance(pa.version, str)
+    assert isinstance(pa.__version__, str)
+    assert pa.build_info.version_info == pa.version_info
+
+    # assert pa.version == pa.__version__  # XXX currently false
+
+
 @pytest.mark.parametrize('klass', [
     pa.Field,
     pa.Schema,
