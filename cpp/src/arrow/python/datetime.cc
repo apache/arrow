@@ -14,17 +14,20 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
+#include "arrow/python/datetime.h"
 
 #include <algorithm>
 #include <chrono>
 #include <iostream>
+#include <regex>
 
 #include "arrow/python/common.h"
-#include "arrow/python/datetime.h"
+#include "arrow/python/helpers.h"
 #include "arrow/python/platform.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/value_parsing.h"
 
 namespace arrow {
 namespace py {
@@ -260,6 +263,42 @@ Status PyDateTime_from_int(int64_t val, const TimeUnit::type unit, PyObject** ou
 int64_t PyDate_to_days(PyDateTime_Date* pydate) {
   return get_days_from_date(PyDateTime_GET_YEAR(pydate), PyDateTime_GET_MONTH(pydate),
                             PyDateTime_GET_DAY(pydate));
+}
+
+// GIL must be held when calling this function.
+Status StringToTzinfo(const std::string& tz, PyObject** tzinfo) {
+  static const std::regex kFixedOffset("([+-])(0[0-9]|1[0-9]|2[0-3]):([0-5][0-9])$");
+  OwnedRef pytz;
+  RETURN_NOT_OK(internal::ImportModule("pytz", &pytz));
+
+  std::cmatch match;
+  if (std::regex_match(tz.c_str(), match, kFixedOffset)) {
+    int sign = -1;
+    if (match.str(1) == "+") {
+      sign = 1;
+    }
+    OwnedRef fixed_offset;
+    RETURN_NOT_OK(internal::ImportFromModule(pytz.obj(), "FixedOffset", &fixed_offset));
+    uint32_t minutes, hours;
+    if (!::arrow::internal::ParseUnsigned(match[2].first, match[2].length(), &hours) ||
+        !::arrow::internal::ParseUnsigned(match[3].first, match[3].length(), &minutes)) {
+      return Status::Invalid("Invalid timezone: ", timezone);
+    }
+    OwnedRef total_minutes(PyLong_FromLong(
+        sign * ((static_cast<int>(hours) * 60) + static_cast<int>(minutes))));
+    RETURN_IF_PYERROR();
+    *tzinfo = PyObject_CallFunctionObjArgs(fixed_offset.obj(), total_minutes.obj(), NULL);
+    RETURN_IF_PYERROR();
+    return Status::OK();
+  }
+
+  OwnedRef timezone;
+  RETURN_NOT_OK(internal::ImportFromModule(pytz.obj(), "timezone", &timezone));
+  OwnedRef py_tz_string(
+      PyUnicode_FromStringAndSize(tz.c_str(), static_cast<Py_ssize_t>(tz.size())));
+  *tzinfo = PyObject_CallFunctionObjArgs(timezone.obj(), py_tz_string.obj(), NULL);
+  RETURN_IF_PYERROR();
+  return Status::OK();
 }
 
 }  // namespace internal
