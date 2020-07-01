@@ -351,16 +351,16 @@ struct ValueConverter<Type, enable_if_string_like<Type>> {
     return std::move(view);
   }
 
-  static inline Result<PyBytesView> FromPython(PyObject* obj, bool& is_utf8) {
+  static inline Result<PyBytesView> FromPython(PyObject* obj, bool* is_utf8) {
     PyBytesView view;
 
     // Non-strict conversion; keep track of whether values are unicode or bytes
     if (PyUnicode_Check(obj)) {
-      is_utf8 = true;
+      *is_utf8 = true;
       RETURN_NOT_OK(view.FromUnicode(obj));
     } else {
       // If not unicode or bytes, FromBinary will error
-      is_utf8 = false;
+      *is_utf8 = false;
       RETURN_NOT_OK(view.FromBinary(obj));
     }
     return std::move(view);
@@ -661,7 +661,7 @@ class StringConverter : public BinaryLikeConverter<Type, null_coding> {
       // observe, the result will be bytes
       bool is_utf8;
       ARROW_ASSIGN_OR_RAISE(this->string_view_,
-                            ValueConverter<Type>::FromPython(obj, is_utf8));
+                            ValueConverter<Type>::FromPython(obj, &is_utf8));
       if (!is_utf8) {
         ++binary_count_;
       }
