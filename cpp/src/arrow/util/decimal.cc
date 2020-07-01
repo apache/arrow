@@ -99,16 +99,18 @@ namespace {
 
 template <typename Real, typename Derived>
 struct Decimal128FromReal {
-  static Result<Decimal128> FromPositiveReal(Real x, int32_t precision, int32_t scale) {
+  static Result<Decimal128> FromPositiveReal(Real real, int32_t precision,
+                                             int32_t scale) {
+    auto x = real;
     if (scale >= -38 && scale <= 38) {
       x *= Derived::powers_of_ten()[scale + 38];
     } else {
-      x *= std::pow(x, 10);
+      x *= std::pow(static_cast<Real>(10), static_cast<Real>(scale));
     }
     x = std::nearbyint(x);
     const auto max_abs = Derived::powers_of_ten()[precision + 38];
     if (x <= -max_abs || x >= max_abs) {
-      return Status::Invalid("Cannot convert ", x,
+      return Status::Invalid("Cannot convert ", real,
                              " to Decimal128(precision = ", precision,
                              ", scale = ", scale, "): overflow");
     }

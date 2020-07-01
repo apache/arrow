@@ -357,6 +357,13 @@ void CheckDecimalFromReal(Real real, int32_t precision, int32_t scale,
 }
 
 template <typename Real>
+void CheckDecimalFromRealIntegerString(Real real, int32_t precision, int32_t scale,
+                                       const std::string& expected) {
+  ASSERT_OK_AND_ASSIGN(auto dec, Decimal128::FromReal(real, precision, scale));
+  ASSERT_EQ(dec.ToIntegerString(), expected);
+}
+
+template <typename Real>
 struct FromRealTestParam {
   Real real;
   int32_t precision;
@@ -468,6 +475,20 @@ INSTANTIATE_TEST_SUITE_P(
 ));
 // clang-format on
 
+TEST(TestDecimalFromRealFloat, LargeValues) {
+  // Test the entire float range
+  for (int32_t scale = -38; scale <= 38; ++scale) {
+    float real = std::pow(10.0f, static_cast<float>(scale));
+    CheckDecimalFromRealIntegerString(real, 1, -scale, "1");
+  }
+  for (int32_t scale = -37; scale <= 36; ++scale) {
+    float real = 123.f * std::pow(10.f, static_cast<float>(scale));
+    CheckDecimalFromRealIntegerString(real, 2, -scale - 1, "12");
+    CheckDecimalFromRealIntegerString(real, 3, -scale, "123");
+    CheckDecimalFromRealIntegerString(real, 4, -scale + 1, "1230");
+  }
+}
+
 // Custom test for Decimal128::FromReal(double, ...)
 class TestDecimalFromRealDouble : public ::testing::TestWithParam<FromDoubleTestParam> {};
 
@@ -504,6 +525,20 @@ INSTANTIATE_TEST_SUITE_P(
                             "-9999999999999997885934389197.7453174784"}
 ));
 // clang-format on
+
+TEST(TestDecimalFromRealDouble, LargeValues) {
+  // Test the entire double range
+  for (int32_t scale = -308; scale <= 308; ++scale) {
+    double real = std::pow(10.0, static_cast<double>(scale));
+    CheckDecimalFromRealIntegerString(real, 1, -scale, "1");
+  }
+  for (int32_t scale = -307; scale <= 306; ++scale) {
+    double real = 123. * std::pow(10.0, static_cast<double>(scale));
+    CheckDecimalFromRealIntegerString(real, 2, -scale - 1, "12");
+    CheckDecimalFromRealIntegerString(real, 3, -scale, "123");
+    CheckDecimalFromRealIntegerString(real, 4, -scale + 1, "1230");
+  }
+}
 
 TEST(Decimal128Test, TestSmallNumberFormat) {
   Decimal128 value("0.2");
