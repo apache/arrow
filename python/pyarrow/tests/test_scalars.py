@@ -419,7 +419,7 @@ def test_struct():
     ]
     assert list(s.items()) == [
         ('x', pa.scalar(2, type=pa.int16())),
-        ('y',  pa.scalar(3.5, type=pa.float32()))
+        ('y', pa.scalar(3.5, type=pa.float32()))
     ]
     assert 'x' in s
     assert 'y' in s

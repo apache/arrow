@@ -105,13 +105,6 @@ cdef class NullScalar(Scalar):
     def __init__(self):
         pass
 
-    def __eq__(self, other):
-        return other is NA
-
-    def __hash__(self):
-        cdef CScalarHash hasher
-        return hasher(self.wrapped)
-
     def as_py(self):
         """
         Return this value as a Python None.
