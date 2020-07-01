@@ -49,55 +49,30 @@ pub enum ColumnWriter {
     FixedLenByteArrayColumnWriter(ColumnWriterImpl<FixedLenByteArrayType>),
 }
 
-macro_rules! gen_page_stats_section {
-    ($self: ident, $physical_ty: ty, $stat_fn: ident) => {{
-        let min = $self.min_page_value.clone().and_then(|v| {
-            Some(read_num_bytes!(
-                $physical_ty,
-                v.as_bytes().len(),
-                &v.as_bytes()
-            ))
-        });
-        let max = $self.max_page_value.clone().and_then(|v| {
-            Some(read_num_bytes!(
-                $physical_ty,
-                v.as_bytes().len(),
-                &v.as_bytes()
-            ))
-        });
-        Statistics::$stat_fn(
-            min,
-            max,
-            $self.page_distinct_count,
-            $self.num_page_nulls,
-            false,
-        )
-    }};
+pub enum Level {
+    Page,
+    Column,
 }
 
-macro_rules! gen_column_stats_section {
-    ($self: ident, $physical_ty: ty, $stat_fn: ident) => {{
-        let min = $self.min_column_value.clone().and_then(|v| {
+macro_rules! gen_stats_section {
+    ($physical_ty: ty, $stat_fn: ident, $min: ident, $max: ident, $distinct: ident, $nulls: ident) => {{
+        let min = $min.as_ref().and_then(|v| {
+            println!("min: {:?} {}", &v.as_bytes(), v.as_bytes().len());
             Some(read_num_bytes!(
                 $physical_ty,
                 v.as_bytes().len(),
                 &v.as_bytes()
             ))
         });
-        let max = $self.max_column_value.clone().and_then(|v| {
+        let max = $max.as_ref().and_then(|v| {
+            println!("max: {:?} {}", &v.as_bytes(), v.as_bytes().len());
             Some(read_num_bytes!(
                 $physical_ty,
                 v.as_bytes().len(),
                 &v.as_bytes()
             ))
         });
-        Statistics::$stat_fn(
-            min,
-            max,
-            $self.column_distinct_count,
-            $self.num_column_nulls,
-            false,
-        )
+        Statistics::$stat_fn(min, max, $distinct, $nulls, false)
     }};
 }
 
@@ -946,31 +921,43 @@ impl<T: DataType> ColumnWriterImpl<T> {
     }
 
     fn make_column_statistics(&self) -> Statistics {
-        match self.descr.physical_type() {
-            Type::INT32 => gen_column_stats_section!(self, i32, int32),
-            Type::BOOLEAN => gen_column_stats_section!(self, i32, int32),
-            Type::INT64 => gen_column_stats_section!(self, i64, int64),
-            Type::INT96 => gen_column_stats_section!(self, Int96, int96),
-            Type::FLOAT => gen_column_stats_section!(self, f32, float),
-            Type::DOUBLE => gen_column_stats_section!(self, f64, double),
-            Type::BYTE_ARRAY => gen_column_stats_section!(self, ByteArray, byte_array),
-            Type::FIXED_LEN_BYTE_ARRAY => {
-                gen_column_stats_section!(self, ByteArray, fixed_len_byte_array)
-            }
-        }
+        self.make_typed_statistics(Level::Column)
     }
 
     fn make_page_statistics(&self) -> Statistics {
+        self.make_typed_statistics(Level::Page)
+    }
+
+    pub fn make_typed_statistics(&self, level: Level) -> Statistics {
+        let (min, max, distinct, nulls) = match level {
+            Level::Page => (
+                self.min_page_value.as_ref(),
+                self.max_page_value.as_ref(),
+                self.page_distinct_count,
+                self.num_page_nulls,
+            ),
+            Level::Column => (
+                self.min_column_value.as_ref(),
+                self.max_column_value.as_ref(),
+                self.column_distinct_count,
+                self.num_column_nulls,
+            ),
+        };
         match self.descr.physical_type() {
-            Type::INT32 => gen_page_stats_section!(self, i32, int32),
-            Type::BOOLEAN => gen_page_stats_section!(self, i32, int32),
-            Type::INT64 => gen_page_stats_section!(self, i64, int64),
-            Type::INT96 => gen_page_stats_section!(self, Int96, int96),
-            Type::FLOAT => gen_page_stats_section!(self, f32, float),
-            Type::DOUBLE => gen_page_stats_section!(self, f64, double),
-            Type::BYTE_ARRAY => gen_page_stats_section!(self, ByteArray, byte_array),
-            Type::FIXED_LEN_BYTE_ARRAY => {
-                gen_page_stats_section!(self, ByteArray, fixed_len_byte_array)
+            Type::INT32 => gen_stats_section!(i32, int32, min, max, distinct, nulls),
+            Type::BOOLEAN => gen_stats_section!(i32, int32, min, max, distinct, nulls),
+            Type::INT64 => gen_stats_section!(i64, int64, min, max, distinct, nulls),
+            Type::INT96 => gen_stats_section!(Int96, int96, min, max, distinct, nulls),
+            Type::FLOAT => gen_stats_section!(f32, float, min, max, distinct, nulls),
+            Type::DOUBLE => gen_stats_section!(f64, double, min, max, distinct, nulls),
+            Type::BYTE_ARRAY | Type::FIXED_LEN_BYTE_ARRAY => {
+                let min = min
+                    .as_ref()
+                    .and_then(|v| Some(ByteArray::from(v.as_bytes().to_vec())));
+                let max = max
+                    .as_ref()
+                    .and_then(|v| Some(ByteArray::from(v.as_bytes().to_vec())));
+                Statistics::byte_array(min, max, distinct, nulls, false)
             }
         }
     }
