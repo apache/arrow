@@ -163,8 +163,7 @@ inline int64_t PyDelta_to_ns(PyDateTime_Delta* pytimedelta) {
 ///  * As used in the Olson time zone database (the "tz database" or
 ///   "tzdata"), such as "America/New_York"
 /// * An absolute time zone offset of the form +XX:XX or -XX:XX, such as +07:30
-
-// GIL must be held when calling this method.
+/// GIL must be held when calling this method.
 ARROW_PYTHON_EXPORT
 Status StringToTzinfo(const std::string& tz, PyObject** tzinfo);
 
