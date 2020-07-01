@@ -111,7 +111,7 @@ def test_chunked_array_iter():
     arr = pa.chunked_array(data)
 
     for i, j in zip(range(10), arr):
-        assert i == j
+        assert i == j.as_py()
 
     assert isinstance(arr, Iterable)
 

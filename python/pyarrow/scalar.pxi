@@ -713,8 +713,7 @@ cdef class DictionaryScalar(Scalar):
         """
         Return this encoded value as a Python object.
         """
-        value = self.value
-        return None if value is None else value.as_py()
+        return self.value.as_py() if self.is_valid else None
 
     @property
     def index_value(self):

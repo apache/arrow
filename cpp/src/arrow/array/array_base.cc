@@ -117,7 +117,7 @@ struct ScalarFromArraySlotImpl {
 
   Status Visit(const DictionaryArray& a) {
     auto scalar = DictionaryScalar(a.type());
-    scalar.is_valid = true;
+    scalar.is_valid = array_.IsValid(index_);
     scalar.value.index = MakeScalar(a.GetValueIndex(index_));
     scalar.value.dictionary = a.dictionary();
     out_ = std::make_shared<DictionaryScalar>(std::move(scalar));

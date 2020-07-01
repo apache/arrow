@@ -59,35 +59,33 @@ numerical_arrow_types = [
 @pytest.mark.parametrize('arrow_type', numerical_arrow_types)
 def test_sum_array(arrow_type):
     arr = pa.array([1, 2, 3, 4], type=arrow_type)
-    assert arr.sum() == 10
-    assert pc.sum(arr) == 10
+    assert arr.sum().as_py() == 10
+    assert pc.sum(arr).as_py() == 10
 
     arr = pa.array([], type=arrow_type)
-    assert arr.sum() == None  # noqa: E711
-    assert pc.sum(arr) == None  # noqa: E711
+    assert arr.sum().as_py() is None  # noqa: E711
 
 
 @pytest.mark.parametrize('arrow_type', numerical_arrow_types)
 def test_sum_chunked_array(arrow_type):
     arr = pa.chunked_array([pa.array([1, 2, 3, 4], type=arrow_type)])
-    assert pc.sum(arr) == 10
+    assert pc.sum(arr).as_py() == 10
 
     arr = pa.chunked_array([
         pa.array([1, 2], type=arrow_type), pa.array([3, 4], type=arrow_type)
     ])
-    assert pc.sum(arr) == 10
+    assert pc.sum(arr).as_py() == 10
 
     arr = pa.chunked_array([
         pa.array([1, 2], type=arrow_type),
         pa.array([], type=arrow_type),
         pa.array([3, 4], type=arrow_type)
     ])
-    assert pc.sum(arr) == 10
+    assert pc.sum(arr).as_py() == 10
 
     arr = pa.chunked_array((), type=arrow_type)
-    print(arr, type(arr))
     assert arr.num_chunks == 0
-    assert pc.sum(arr) == None  # noqa: E711
+    assert pc.sum(arr).as_py() is None  # noqa: E711
 
 
 def test_binary_contains_exact():
