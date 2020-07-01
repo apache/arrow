@@ -18,20 +18,14 @@
 #include <cmath>
 
 #include "arrow/compute/api_aggregate.h"
+#include "arrow/compute/kernels/aggregate_basic_internal.h"
 #include "arrow/compute/kernels/aggregate_internal.h"
 #include "arrow/compute/kernels/common.h"
 #include "arrow/util/make_unique.h"
 
 namespace arrow {
 namespace compute {
-
-namespace {
-
-struct ScalarAggregator : public KernelState {
-  virtual void Consume(KernelContext* ctx, const ExecBatch& batch) = 0;
-  virtual void MergeFrom(KernelContext* ctx, const KernelState& src) = 0;
-  virtual void Finalize(KernelContext* ctx, Datum* out) = 0;
-};
+namespace aggregate {
 
 void AggregateConsume(KernelContext* ctx, const ExecBatch& batch) {
   checked_cast<ScalarAggregator*>(ctx->state())->Consume(ctx, batch);
@@ -92,271 +86,45 @@ std::unique_ptr<KernelState> CountInit(KernelContext*, const KernelInitArgs& arg
 // ----------------------------------------------------------------------
 // Sum implementation
 
-template <typename ArrowType,
-          typename SumType = typename FindAccumulatorType<ArrowType>::Type>
-struct SumState {
-  using ThisType = SumState<ArrowType, SumType>;
-  using T = typename TypeTraits<ArrowType>::CType;
-  using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
+// Round size optimized based on data type and compiler
+template <typename T>
+struct RoundSizeDefault {
+  static constexpr int64_t size = 16;
+};
 
-  // A small number of elements rounded to the next cacheline. This should
-  // amount to a maximum of 4 cachelines when dealing with 8 bytes elements.
-  static constexpr int64_t kTinyThreshold = 32;
-  static_assert(kTinyThreshold >= (2 * CHAR_BIT) + 1,
-                "ConsumeSparse requires 3 bytes of null bitmap, and 17 is the"
-                "required minimum number of bits/elements to cover 3 bytes.");
-
-  ThisType operator+(const ThisType& rhs) const {
-    return ThisType(this->count + rhs.count, this->sum + rhs.sum);
-  }
-
-  ThisType& operator+=(const ThisType& rhs) {
-    this->count += rhs.count;
-    this->sum += rhs.sum;
-
-    return *this;
-  }
-
- public:
-  void Consume(const Array& input) {
-    const ArrayType& array = static_cast<const ArrayType&>(input);
-    if (input.null_count() == 0) {
-      (*this) += ConsumeDense(array);
-    } else if (input.length() <= kTinyThreshold) {
-      // In order to simplify ConsumeSparse implementation (requires at least 3
-      // bytes of bitmap data), small arrays are handled differently.
-      (*this) += ConsumeTiny(array);
-    } else {
-      (*this) += ConsumeSparse(array);
-    }
-  }
-
-  size_t count = 0;
-  typename SumType::c_type sum = 0;
-
- private:
-  ThisType ConsumeDense(const ArrayType& array) const {
-    ThisType local;
-    const auto values = array.raw_values();
-    const int64_t length = array.length();
-
-    constexpr int64_t kRoundFactor = 8;
-    const int64_t length_rounded = BitUtil::RoundDown(length, kRoundFactor);
-    typename SumType::c_type sum_rounded[kRoundFactor] = {0};
-
-    // Unrolled the loop to add the results in parrel
-    for (int64_t i = 0; i < length_rounded; i += kRoundFactor) {
-      for (int64_t k = 0; k < kRoundFactor; k++) {
-        sum_rounded[k] += values[i + k];
-      }
-    }
-    for (int64_t k = 0; k < kRoundFactor; k++) {
-      local.sum += sum_rounded[k];
-    }
-
-    // The trailing part
-    for (int64_t i = length_rounded; i < length; ++i) {
-      local.sum += values[i];
-    }
-
-    local.count = length;
-    return local;
-  }
-
-  ThisType ConsumeTiny(const ArrayType& array) const {
-    ThisType local;
-
-    BitmapReader reader(array.null_bitmap_data(), array.offset(), array.length());
-    const auto values = array.raw_values();
-    for (int64_t i = 0; i < array.length(); i++) {
-      if (reader.IsSet()) {
-        local.sum += values[i];
-        local.count++;
-      }
-      reader.Next();
-    }
-
-    return local;
-  }
-
-  // While this is not branchless, gcc needs this to be in a different function
-  // for it to generate cmov which ends to be slightly faster than
-  // multiplication but safe for handling NaN with doubles.
-  inline T MaskedValue(bool valid, T value) const { return valid ? value : 0; }
-
-  inline ThisType UnrolledSum(uint8_t bits, const T* values) const {
-    ThisType local;
-
-    if (bits < 0xFF) {
-      // Some nulls
-      for (size_t i = 0; i < 8; i++) {
-        local.sum += MaskedValue(bits & (1U << i), values[i]);
-      }
-      local.count += BitUtil::kBytePopcount[bits];
-    } else {
-      // No nulls
-      for (size_t i = 0; i < 8; i++) {
-        local.sum += values[i];
-      }
-      local.count += 8;
-    }
-
-    return local;
-  }
-
-  ThisType ConsumeSparse(const ArrayType& array) const {
-    ThisType local;
-
-    // Sliced bitmaps on non-byte positions induce problem with the branchless
-    // unrolled technique. Thus extra padding is added on both left and right
-    // side of the slice such that both ends are byte-aligned. The first and
-    // last bitmap are properly masked to ignore extra values induced by
-    // padding.
-    //
-    // The execution is divided in 3 sections.
-    //
-    // 1. Compute the sum of the first masked byte.
-    // 2. Compute the sum of the middle bytes
-    // 3. Compute the sum of the last masked byte.
-
-    const int64_t length = array.length();
-    const int64_t offset = array.offset();
-
-    // The number of bytes covering the range, this includes partial bytes.
-    // This number bounded by `<= (length / 8) + 2`, e.g. a possible extra byte
-    // on the left, and on the right.
-    const int64_t covering_bytes = BitUtil::CoveringBytes(offset, length);
-    DCHECK_GE(covering_bytes, 3);
-
-    // Align values to the first batch of 8 elements. Note that raw_values() is
-    // already adjusted with the offset, thus we rewind a little to align to
-    // the closest 8-batch offset.
-    const auto values = array.raw_values() - (offset % 8);
-
-    // Align bitmap at the first consumable byte.
-    const auto bitmap = array.null_bitmap_data() + BitUtil::RoundDown(offset, 8) / 8;
-
-    // Consume the first (potentially partial) byte.
-    const uint8_t first_mask = BitUtil::kTrailingBitmask[offset % 8];
-    local += UnrolledSum(bitmap[0] & first_mask, values);
-
-    // Consume the (full) middle bytes. The loop iterates in unit of
-    // batches of 8 values and 1 byte of bitmap.
-    for (int64_t i = 1; i < covering_bytes - 1; i++) {
-      local += UnrolledSum(bitmap[i], &values[i * 8]);
-    }
-
-    // Consume the last (potentially partial) byte.
-    const int64_t last_idx = covering_bytes - 1;
-    const uint8_t last_mask = BitUtil::kPrecedingWrappingBitmask[(offset + length) % 8];
-    local += UnrolledSum(bitmap[last_idx] & last_mask, &values[last_idx * 8]);
-
-    return local;
-  }
+// Round size set to 32 for float/int32_t/uint32_t
+template <>
+struct RoundSizeDefault<float> {
+  static constexpr int64_t size = 32;
 };
 
 template <>
-struct SumState<BooleanType> {
-  using SumType = typename FindAccumulatorType<BooleanType>::Type;
-  using ThisType = SumState<BooleanType, SumType>;
+struct RoundSizeDefault<int32_t> {
+  static constexpr int64_t size = 32;
+};
 
-  ThisType& operator+=(const ThisType& rhs) {
-    this->count += rhs.count;
-    this->sum += rhs.sum;
-    return *this;
-  }
-
- public:
-  void Consume(const Array& input) {
-    const BooleanArray& array = static_cast<const BooleanArray&>(input);
-    count += array.length() - array.null_count();
-    sum += array.true_count();
-  }
-
-  size_t count = 0;
-  typename SumType::c_type sum = 0;
+template <>
+struct RoundSizeDefault<uint32_t> {
+  static constexpr int64_t size = 32;
 };
 
 template <typename ArrowType>
-struct SumImpl : public ScalarAggregator {
-  using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
-  using ThisType = SumImpl<ArrowType>;
-  using SumType = typename FindAccumulatorType<ArrowType>::Type;
-  using OutputType = typename TypeTraits<SumType>::ScalarType;
-
-  void Consume(KernelContext*, const ExecBatch& batch) override {
-    this->state.Consume(ArrayType(batch[0].array()));
-  }
-
-  void MergeFrom(KernelContext*, const KernelState& src) override {
-    const auto& other = checked_cast<const ThisType&>(src);
-    this->state += other.state;
-  }
-
-  void Finalize(KernelContext*, Datum* out) override {
-    if (state.count == 0) {
-      out->value = std::make_shared<OutputType>();
-    } else {
-      out->value = MakeScalar(state.sum);
-    }
-  }
-
-  SumState<ArrowType> state;
-};
+struct SumImplDefault
+    : public SumImpl<RoundSizeDefault<typename TypeTraits<ArrowType>::CType>::size,
+                     ArrowType> {};
 
 template <typename ArrowType>
-struct MeanImpl : public SumImpl<ArrowType> {
-  void Finalize(KernelContext*, Datum* out) override {
-    const bool is_valid = this->state.count > 0;
-    const double divisor = static_cast<double>(is_valid ? this->state.count : 1UL);
-    const double mean = static_cast<double>(this->state.sum) / divisor;
-
-    if (!is_valid) {
-      out->value = std::make_shared<DoubleScalar>();
-    } else {
-      out->value = std::make_shared<DoubleScalar>(mean);
-    }
-  }
-};
-
-template <template <typename> class KernelClass>
-struct SumLikeInit {
-  std::unique_ptr<KernelState> state;
-  KernelContext* ctx;
-  const DataType& type;
-
-  SumLikeInit(KernelContext* ctx, const DataType& type) : ctx(ctx), type(type) {}
-
-  Status Visit(const DataType&) { return Status::NotImplemented("No sum implemented"); }
-
-  Status Visit(const HalfFloatType&) {
-    return Status::NotImplemented("No sum implemented");
-  }
-
-  Status Visit(const BooleanType&) {
-    state.reset(new KernelClass<BooleanType>());
-    return Status::OK();
-  }
-
-  template <typename Type>
-  enable_if_number<Type, Status> Visit(const Type&) {
-    state.reset(new KernelClass<Type>());
-    return Status::OK();
-  }
-
-  std::unique_ptr<KernelState> Create() {
-    ctx->SetStatus(VisitTypeInline(type, this));
-    return std::move(state);
-  }
-};
+struct MeanImplDefault
+    : public MeanImpl<RoundSizeDefault<typename TypeTraits<ArrowType>::CType>::size,
+                      ArrowType> {};
 
 std::unique_ptr<KernelState> SumInit(KernelContext* ctx, const KernelInitArgs& args) {
-  SumLikeInit<SumImpl> visitor(ctx, *args.inputs[0].type);
+  SumLikeInit<SumImplDefault> visitor(ctx, *args.inputs[0].type);
   return visitor.Create();
 }
 
 std::unique_ptr<KernelState> MeanInit(KernelContext* ctx, const KernelInitArgs& args) {
-  SumLikeInit<MeanImpl> visitor(ctx, *args.inputs[0].type);
+  SumLikeInit<MeanImplDefault> visitor(ctx, *args.inputs[0].type);
   return visitor.Create();
 }
 
@@ -572,10 +340,6 @@ std::unique_ptr<KernelState> MinMaxInit(KernelContext* ctx, const KernelInitArgs
   return visitor.Create();
 }
 
-}  // namespace
-
-namespace internal {
-
 void AddAggKernel(std::shared_ptr<KernelSignature> sig, KernelInit init,
                   ScalarAggregateFunction* func) {
   DCHECK_OK(func->AddKernel(ScalarAggregateKernel(std::move(sig), init, AggregateConsume,
@@ -603,6 +367,9 @@ void AddMinMaxKernels(KernelInit init,
   }
 }
 
+}  // namespace aggregate
+
+namespace internal {
 void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
   static auto default_count_options = CountOptions::Defaults();
   auto func = std::make_shared<ScalarAggregateFunction>("count", Arity::Unary(),
@@ -610,27 +377,31 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
 
   /// Takes any array input, outputs int64 scalar
   InputType any_array(ValueDescr::ARRAY);
-  AddAggKernel(KernelSignature::Make({any_array}, ValueDescr::Scalar(int64())), CountInit,
-               func.get());
+  aggregate::AddAggKernel(KernelSignature::Make({any_array}, ValueDescr::Scalar(int64())),
+                          aggregate::CountInit, func.get());
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
   func = std::make_shared<ScalarAggregateFunction>("sum", Arity::Unary());
-  AddBasicAggKernels(SumInit, {boolean()}, int64(), func.get());
-  AddBasicAggKernels(SumInit, SignedIntTypes(), int64(), func.get());
-  AddBasicAggKernels(SumInit, UnsignedIntTypes(), uint64(), func.get());
-  AddBasicAggKernels(SumInit, FloatingPointTypes(), float64(), func.get());
+  aggregate::AddBasicAggKernels(aggregate::SumInit, {boolean()}, int64(), func.get());
+  aggregate::AddBasicAggKernels(aggregate::SumInit, SignedIntTypes(), int64(),
+                                func.get());
+  aggregate::AddBasicAggKernels(aggregate::SumInit, UnsignedIntTypes(), uint64(),
+                                func.get());
+  aggregate::AddBasicAggKernels(aggregate::SumInit, FloatingPointTypes(), float64(),
+                                func.get());
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
   func = std::make_shared<ScalarAggregateFunction>("mean", Arity::Unary());
-  AddBasicAggKernels(MeanInit, {boolean()}, float64(), func.get());
-  AddBasicAggKernels(MeanInit, NumericTypes(), float64(), func.get());
+  aggregate::AddBasicAggKernels(aggregate::MeanInit, {boolean()}, float64(), func.get());
+  aggregate::AddBasicAggKernels(aggregate::MeanInit, NumericTypes(), float64(),
+                                func.get());
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
   static auto default_minmax_options = MinMaxOptions::Defaults();
   func = std::make_shared<ScalarAggregateFunction>("minmax", Arity::Unary(),
                                                    &default_minmax_options);
-  AddMinMaxKernels(MinMaxInit, {boolean()}, func.get());
-  AddMinMaxKernels(MinMaxInit, NumericTypes(), func.get());
+  aggregate::AddMinMaxKernels(aggregate::MinMaxInit, {boolean()}, func.get());
+  aggregate::AddMinMaxKernels(aggregate::MinMaxInit, NumericTypes(), func.get());
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
