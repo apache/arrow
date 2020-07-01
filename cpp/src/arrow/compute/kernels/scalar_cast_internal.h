@@ -75,6 +75,10 @@ Result<ValueDescr> ResolveOutputFromOptions(KernelContext* ctx,
 
 ARROW_EXPORT extern OutputType kOutputTargetType;
 
+// Add generic casts to out_ty from:
+// - the null type
+// - dictionary with out_ty as given value type
+// - extension types with a compatible storage type
 void AddCommonCasts(Type::type out_type_id, OutputType out_ty, CastFunction* func);
 
 }  // namespace internal

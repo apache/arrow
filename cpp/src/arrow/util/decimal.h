@@ -32,6 +32,8 @@ namespace arrow {
 
 /// Represents a signed 128-bit integer in two's complement.
 /// Calculations wrap around and overflow is ignored.
+/// The max decimal precision that can be safely represented is
+/// 38 significant digits.
 ///
 /// For a discussion of the algorithms, look at Knuth's volume 2,
 /// Semi-numerical Algorithms section 4.3.1.
@@ -100,6 +102,9 @@ class ARROW_EXPORT Decimal128 : public BasicDecimal128 {
   static Result<Decimal128> FromString(const util::string_view& s);
   static Result<Decimal128> FromString(const std::string& s);
   static Result<Decimal128> FromString(const char* s);
+
+  static Result<Decimal128> FromReal(double real, int32_t precision, int32_t scale);
+  static Result<Decimal128> FromReal(float real, int32_t precision, int32_t scale);
 
   /// \brief Convert from a big-endian byte representation. The length must be
   ///        between 1 and 16.

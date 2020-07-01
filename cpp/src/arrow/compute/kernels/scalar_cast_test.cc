@@ -101,6 +101,28 @@ class TestCast : public TestBase {
     }
   }
 
+  void CheckFails(const Array& input, const std::shared_ptr<DataType>& out_type,
+                  const CastOptions& options, bool check_scalar = true) {
+    ASSERT_RAISES(Invalid, Cast(input, out_type, options));
+
+    if (input.type_id() == Type::DECIMAL || out_type->id() == Type::DECIMAL) {
+      // ARROW-9194
+      check_scalar = false;
+    }
+
+    // For the scalars, check that at least one of the input fails (since many
+    // of the tests contains a mix of passing and failing values). In some
+    // cases we will want to check more precisely
+    if (check_scalar) {
+      int64_t num_failing = 0;
+      for (int64_t i = 0; i < input.length(); ++i) {
+        auto maybe_out = Cast(*input.GetScalar(i), out_type, options);
+        num_failing += static_cast<int>(maybe_out.status().IsInvalid());
+      }
+      ASSERT_GT(num_failing, 0);
+    }
+  }
+
   template <typename InType, typename I_TYPE = typename TestCType<InType>::type>
   void CheckFails(const std::shared_ptr<DataType>& in_type,
                   const std::vector<I_TYPE>& in_values, const std::vector<bool>& is_valid,
@@ -112,24 +134,7 @@ class TestCast : public TestBase {
     } else {
       ArrayFromVector<InType, I_TYPE>(in_type, in_values, &input);
     }
-    ASSERT_RAISES(Invalid, Cast(*input, out_type, options));
-
-    if (in_type->id() == Type::DECIMAL || out_type->id() == Type::DECIMAL) {
-      // ARROW-9194
-      check_scalar = false;
-    }
-
-    // For the scalars, check that at least one of the input fails (since many
-    // of the tests contains a mix of passing and failing values). In some
-    // cases we will want to check more precisely
-    if (check_scalar) {
-      int64_t num_failing = 0;
-      for (int64_t i = 0; i < input->length(); ++i) {
-        auto maybe_out = Cast(*input->GetScalar(i), out_type, options);
-        num_failing += static_cast<int>(maybe_out.status().IsInvalid());
-      }
-      ASSERT_GT(num_failing, 0);
-    }
+    CheckFails(*input, out_type, options, check_scalar);
   }
 
   template <typename InType, typename I_TYPE = typename TestCType<InType>::type>
@@ -200,6 +205,14 @@ class TestCast : public TestBase {
       CheckPass(*input->Slice(1), *expected->Slice(1), out_type, options,
                 /*check_scalar=*/false);
     }
+  }
+
+  void CheckFailsJSON(const std::shared_ptr<DataType>& in_type,
+                      const std::shared_ptr<DataType>& out_type,
+                      const std::string& in_json, bool check_scalar = true,
+                      const CastOptions& options = CastOptions()) {
+    std::shared_ptr<Array> input = ArrayFromJSON(in_type, in_json);
+    CheckFails(*input, out_type, options, check_scalar);
   }
 
   template <typename SourceType, typename DestType>
@@ -368,6 +381,23 @@ class TestCast : public TestBase {
     CheckCase<SourceType, TimestampType>(src_type, strings, is_valid, type, e, options);
 
     // NOTE: timestamp parsing is tested comprehensively in parsing-util-test.cc
+  }
+
+  void TestCastFloatingToDecimal(const std::shared_ptr<DataType>& in_type) {
+    auto out_type = decimal(5, 2);
+
+    CheckCaseJSON(in_type, out_type, "[0.0, null, 123.45, 123.456, 999.994]",
+                  R"(["0.00", null, "123.45", "123.46", "999.99"])");
+
+    // Overflow
+    CastOptions options{};
+    out_type = decimal(5, 2);
+    CheckFailsJSON(in_type, out_type, "[999.996]", /*check_scalar=*/true, options);
+
+    options.allow_decimal_truncate = true;
+    CheckCaseJSON(in_type, out_type, "[0.0, null, 999.996, 123.45, 999.994]",
+                  R"(["0.00", null, "0.00", "123.45", "999.99"])", /*check_scalar=*/true,
+                  options);
   }
 };
 
@@ -899,6 +929,34 @@ TEST_F(TestCast, DecimalToDecimal) {
 
   check_truncate(decimal(4, 2), v4, is_valid1, decimal(4, 3), e4);
   check_truncate(decimal(4, 2), v5, is_valid1, decimal(2, 1), e5);
+}
+
+TEST_F(TestCast, FloatToDecimal) {
+  auto in_type = float32();
+
+  TestCastFloatingToDecimal(in_type);
+
+  // 2**64 + 2**41 (exactly representable as a float)
+  auto out_type = decimal(20, 0);
+  CheckCaseJSON(in_type, out_type, "[1.8446746e+19, -1.8446746e+19]",
+                R"(["18446746272732807168", "-18446746272732807168"])");
+  out_type = decimal(20, 4);
+  CheckCaseJSON(in_type, out_type, "[1.8446746e+15, -1.8446746e+15]",
+                R"(["1844674627273280.7168", "-1844674627273280.7168"])");
+}
+
+TEST_F(TestCast, DoubleToDecimal) {
+  auto in_type = float64();
+
+  TestCastFloatingToDecimal(in_type);
+
+  // 2**64 + 2**11 (exactly representable as a double)
+  auto out_type = decimal(20, 0);
+  CheckCaseJSON(in_type, out_type, "[1.8446744073709556e+19, -1.8446744073709556e+19]",
+                R"(["18446744073709555712", "-18446744073709555712"])");
+  out_type = decimal(20, 4);
+  CheckCaseJSON(in_type, out_type, "[1.8446744073709556e+15, -1.8446744073709556e+15]",
+                R"(["1844674407370955.5712", "-1844674407370955.5712"])");
 }
 
 TEST_F(TestCast, TimestampToTimestamp) {
