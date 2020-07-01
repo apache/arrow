@@ -744,6 +744,7 @@ Status ConvertListsLike(const PandasOptions& options, const ChunkedArray& data,
   // nanoseconds. Bit of a hack but this seemed the simplest thing to satisfy
   // the existing unit tests
   PandasOptions modified_options = options;
+  // Force object converation here as well for timestamps?
   modified_options.coerce_temporal_nanoseconds = false;
 
   OwnedRefNoGIL owned_numpy_array;
