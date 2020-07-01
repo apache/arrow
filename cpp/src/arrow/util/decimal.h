@@ -138,12 +138,38 @@ class ARROW_EXPORT Decimal128 : public BasicDecimal128 {
     return ToInteger<T>().Value(out);
   }
 
+  /// \brief Convert to a floating-point number (scaled)
+  float ToFloat(int32_t scale) const;
+  /// \brief Convert to a floating-point number (scaled)
+  double ToDouble(int32_t scale) const;
+
+  /// \brief Convert to a floating-point number (scaled)
+  template <typename T>
+  T ToReal(int32_t scale) const {
+    return ToRealConversion<T>::ToReal(*this, scale);
+  }
+
   friend ARROW_EXPORT std::ostream& operator<<(std::ostream& os,
                                                const Decimal128& decimal);
 
  private:
   /// Converts internal error code to Status
   Status ToArrowStatus(DecimalStatus dstatus) const;
+
+  template <typename T>
+  struct ToRealConversion {};
+};
+
+template <>
+struct Decimal128::ToRealConversion<float> {
+  static float ToReal(const Decimal128& dec, int32_t scale) { return dec.ToFloat(scale); }
+};
+
+template <>
+struct Decimal128::ToRealConversion<double> {
+  static double ToReal(const Decimal128& dec, int32_t scale) {
+    return dec.ToDouble(scale);
+  }
 };
 
 }  // namespace arrow

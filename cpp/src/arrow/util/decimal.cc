@@ -98,7 +98,7 @@ static constexpr double kDoublePowersOfTen[2 * 38 + 1] = {
 namespace {
 
 template <typename Real, typename Derived>
-struct Decimal128FromReal {
+struct DecimalRealConversion {
   static Result<Decimal128> FromPositiveReal(Real real, int32_t precision,
                                              int32_t scale) {
     auto x = real;
@@ -140,24 +140,59 @@ struct Decimal128FromReal {
       return FromPositiveReal(x, precision, scale);
     }
   }
+
+  static Real ToRealPositive(const Decimal128& decimal, int32_t scale) {
+    Real x = static_cast<Real>(decimal.high_bits()) * Derived::two_to_64();
+    x += static_cast<Real>(decimal.low_bits());
+    if (scale >= -38 && scale <= 38) {
+      x *= Derived::powers_of_ten()[-scale + 38];
+    } else {
+      x *= std::pow(static_cast<Real>(10), static_cast<Real>(-scale));
+    }
+    return x;
+  }
+
+  static Real ToReal(Decimal128 decimal, int32_t scale) {
+    if (decimal.high_bits() < 0) {
+      // Convert the absolute value to avoid precision loss
+      decimal.Negate();
+      return -ToRealPositive(decimal, scale);
+    } else {
+      return ToRealPositive(decimal, scale);
+    }
+  }
 };
 
-struct Decimal128FromFloat : public Decimal128FromReal<float, Decimal128FromFloat> {
+struct DecimalFloatConversion
+    : public DecimalRealConversion<float, DecimalFloatConversion> {
   static constexpr const float* powers_of_ten() { return kFloatPowersOfTen; }
+
+  static constexpr float two_to_64() { return 1.8446744e+19f; }
 };
 
-struct Decimal128FromDouble : public Decimal128FromReal<double, Decimal128FromDouble> {
+struct DecimalDoubleConversion
+    : public DecimalRealConversion<double, DecimalDoubleConversion> {
   static constexpr const double* powers_of_ten() { return kDoublePowersOfTen; }
+
+  static constexpr double two_to_64() { return 1.8446744073709552e+19; }
 };
 
 }  // namespace
 
 Result<Decimal128> Decimal128::FromReal(float x, int32_t precision, int32_t scale) {
-  return Decimal128FromFloat::FromReal(x, precision, scale);
+  return DecimalFloatConversion::FromReal(x, precision, scale);
 }
 
 Result<Decimal128> Decimal128::FromReal(double x, int32_t precision, int32_t scale) {
-  return Decimal128FromDouble::FromReal(x, precision, scale);
+  return DecimalDoubleConversion::FromReal(x, precision, scale);
+}
+
+float Decimal128::ToFloat(int32_t scale) const {
+  return DecimalFloatConversion::ToReal(*this, scale);
+}
+
+double Decimal128::ToDouble(int32_t scale) const {
+  return DecimalDoubleConversion::ToReal(*this, scale);
 }
 
 std::string Decimal128::ToIntegerString() const {

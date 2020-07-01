@@ -399,6 +399,14 @@ class TestCast : public TestBase {
                   R"(["0.00", null, "0.00", "123.45", "999.99"])", /*check_scalar=*/true,
                   options);
   }
+
+  void TestCastDecimalToFloating(const std::shared_ptr<DataType>& out_type) {
+    auto in_type = decimal(5, 2);
+
+    CheckCaseJSON(in_type, out_type, R"(["0.00", null, "123.45", "999.99"])",
+                  "[0.0, null, 123.45, 999.99]");
+    // Edge cases are tested in Decimal128::ToReal()
+  }
 };
 
 TEST_F(TestCast, SameTypeZeroCopy) {
@@ -943,6 +951,8 @@ TEST_F(TestCast, FloatToDecimal) {
   out_type = decimal(20, 4);
   CheckCaseJSON(in_type, out_type, "[1.8446746e+15, -1.8446746e+15]",
                 R"(["1844674627273280.7168", "-1844674627273280.7168"])");
+
+  // More edge cases tested in Decimal128::FromReal
 }
 
 TEST_F(TestCast, DoubleToDecimal) {
@@ -957,6 +967,18 @@ TEST_F(TestCast, DoubleToDecimal) {
   out_type = decimal(20, 4);
   CheckCaseJSON(in_type, out_type, "[1.8446744073709556e+15, -1.8446744073709556e+15]",
                 R"(["1844674407370955.5712", "-1844674407370955.5712"])");
+
+  // More edge cases tested in Decimal128::FromReal
+}
+
+TEST_F(TestCast, DecimalToFloat) {
+  auto out_type = float32();
+  TestCastDecimalToFloating(out_type);
+}
+
+TEST_F(TestCast, DecimalToDouble) {
+  auto out_type = float64();
+  TestCastDecimalToFloating(out_type);
 }
 
 TEST_F(TestCast, TimestampToTimestamp) {
