@@ -471,7 +471,7 @@ struct CastFunctor<Decimal128Type, Decimal128Type> {
 // Real to decimal
 
 template <bool AllowTruncate>
-struct SafeRealToDecimal {
+struct RealToDecimal {
   template <typename OUT, typename RealType>
   Decimal128 Call(KernelContext* ctx, RealType val) const {
     auto result = Decimal128::FromReal(val, out_precision_, out_scale_);
@@ -488,6 +488,9 @@ struct SafeRealToDecimal {
   int32_t out_scale_, out_precision_;
 };
 
+using SafeRealToDecimal = RealToDecimal<true>;
+using UnsafeRealToDecimal = RealToDecimal<false>;
+
 template <typename I>
 struct CastFunctor<Decimal128Type, I, enable_if_floating_point<I>> {
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
@@ -498,14 +501,12 @@ struct CastFunctor<Decimal128Type, I, enable_if_floating_point<I>> {
     const auto out_precision = out_type_inst.precision();
 
     if (options.allow_decimal_truncate) {
-      using ExecutorType = SafeRealToDecimal<true>;
-      applicator::ScalarUnaryNotNullStateful<Decimal128Type, I, ExecutorType> kernel(
-          ExecutorType{out_scale, out_precision});
+      applicator::ScalarUnaryNotNullStateful<Decimal128Type, I, SafeRealToDecimal> kernel(
+          SafeRealToDecimal{out_scale, out_precision});
       return kernel.Exec(ctx, batch, out);
     } else {
-      using ExecutorType = SafeRealToDecimal<false>;
-      applicator::ScalarUnaryNotNullStateful<Decimal128Type, I, ExecutorType> kernel(
-          ExecutorType{out_scale, out_precision});
+      applicator::ScalarUnaryNotNullStateful<Decimal128Type, I, UnsafeRealToDecimal>
+          kernel(UnsafeRealToDecimal{out_scale, out_precision});
       return kernel.Exec(ctx, batch, out);
     }
   }
