@@ -169,6 +169,7 @@ test_that("Array supports character vectors (ARROW-3339)", {
 
 test_that("Character vectors > 2GB become large_utf8", {
   skip_on_cran()
+  skip_if_not_dev_mode()
   big <- make_big_string()
   expect_array_roundtrip(big, large_utf8())
 })
