@@ -2844,6 +2844,75 @@ mod tests {
     }
 
     #[test]
+    fn test_large_list_array() {
+        // Construct a value array
+        let value_data = ArrayData::builder(DataType::Int32)
+            .len(8)
+            .add_buffer(Buffer::from(&[0, 1, 2, 3, 4, 5, 6, 7].to_byte_slice()))
+            .build();
+
+        // Construct a buffer for value offsets, for the nested array:
+        //  [[0, 1, 2], [3, 4, 5], [6, 7]]
+        let value_offsets = Buffer::from(&[0i64, 3, 6, 8].to_byte_slice());
+
+        // Construct a list array from the above two
+        let list_data_type = DataType::LargeList(Box::new(DataType::Int32));
+        let list_data = ArrayData::builder(list_data_type.clone())
+            .len(3)
+            .add_buffer(value_offsets.clone())
+            .add_child_data(value_data.clone())
+            .build();
+        let list_array = LargeListArray::from(list_data);
+
+        let values = list_array.values();
+        assert_eq!(value_data, values.data());
+        assert_eq!(DataType::Int32, list_array.value_type());
+        assert_eq!(3, list_array.len());
+        assert_eq!(0, list_array.null_count());
+        assert_eq!(6, list_array.value_offset(2));
+        assert_eq!(2, list_array.value_length(2));
+        assert_eq!(
+            0,
+            list_array
+                .value(0)
+                .as_any()
+                .downcast_ref::<Int32Array>()
+                .unwrap()
+                .value(0)
+        );
+        for i in 0..3 {
+            assert!(list_array.is_valid(i));
+            assert!(!list_array.is_null(i));
+        }
+
+        // Now test with a non-zero offset
+        let list_data = ArrayData::builder(list_data_type)
+            .len(3)
+            .offset(1)
+            .add_buffer(value_offsets)
+            .add_child_data(value_data.clone())
+            .build();
+        let list_array = LargeListArray::from(list_data);
+
+        let values = list_array.values();
+        assert_eq!(value_data, values.data());
+        assert_eq!(DataType::Int32, list_array.value_type());
+        assert_eq!(3, list_array.len());
+        assert_eq!(0, list_array.null_count());
+        assert_eq!(6, list_array.value_offset(1));
+        assert_eq!(2, list_array.value_length(1));
+        assert_eq!(
+            3,
+            list_array
+                .value(0)
+                .as_any()
+                .downcast_ref::<Int32Array>()
+                .unwrap()
+                .value(0)
+        );
+    }
+
+    #[test]
     fn test_dictionary_array() {
         // Construct a value array
         let value_data = ArrayData::builder(DataType::Int8)
@@ -3045,6 +3114,72 @@ mod tests {
         // Check offset and length for each non-null value.
         let sliced_list_array =
             sliced_array.as_any().downcast_ref::<ListArray>().unwrap();
+        assert_eq!(2, sliced_list_array.value_offset(2));
+        assert_eq!(2, sliced_list_array.value_length(2));
+        assert_eq!(4, sliced_list_array.value_offset(3));
+        assert_eq!(2, sliced_list_array.value_length(3));
+        assert_eq!(6, sliced_list_array.value_offset(5));
+        assert_eq!(3, sliced_list_array.value_length(5));
+    }
+
+    #[test]
+    fn test_large_list_array_slice() {
+        // Construct a value array
+        let value_data = ArrayData::builder(DataType::Int32)
+            .len(10)
+            .add_buffer(Buffer::from(
+                &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].to_byte_slice(),
+            ))
+            .build();
+
+        // Construct a buffer for value offsets, for the nested array:
+        //  [[0, 1], null, null, [2, 3], [4, 5], null, [6, 7, 8], null, [9]]
+        let value_offsets =
+            Buffer::from(&[0i64, 2, 2, 2, 4, 6, 6, 9, 9, 10].to_byte_slice());
+        // 01011001 00000001
+        let mut null_bits: [u8; 2] = [0; 2];
+        bit_util::set_bit(&mut null_bits, 0);
+        bit_util::set_bit(&mut null_bits, 3);
+        bit_util::set_bit(&mut null_bits, 4);
+        bit_util::set_bit(&mut null_bits, 6);
+        bit_util::set_bit(&mut null_bits, 8);
+
+        // Construct a list array from the above two
+        let list_data_type = DataType::LargeList(Box::new(DataType::Int32));
+        let list_data = ArrayData::builder(list_data_type.clone())
+            .len(9)
+            .add_buffer(value_offsets.clone())
+            .add_child_data(value_data.clone())
+            .null_bit_buffer(Buffer::from(null_bits))
+            .build();
+        let list_array = LargeListArray::from(list_data);
+
+        let values = list_array.values();
+        assert_eq!(value_data, values.data());
+        assert_eq!(DataType::Int32, list_array.value_type());
+        assert_eq!(9, list_array.len());
+        assert_eq!(4, list_array.null_count());
+        assert_eq!(2, list_array.value_offset(3));
+        assert_eq!(2, list_array.value_length(3));
+
+        let sliced_array = list_array.slice(1, 6);
+        assert_eq!(6, sliced_array.len());
+        assert_eq!(1, sliced_array.offset());
+        assert_eq!(3, sliced_array.null_count());
+
+        for i in 0..sliced_array.len() {
+            if bit_util::get_bit(&null_bits, sliced_array.offset() + i) {
+                assert!(sliced_array.is_valid(i));
+            } else {
+                assert!(sliced_array.is_null(i));
+            }
+        }
+
+        // Check offset and length for each non-null value.
+        let sliced_list_array = sliced_array
+            .as_any()
+            .downcast_ref::<LargeListArray>()
+            .unwrap();
         assert_eq!(2, sliced_list_array.value_offset(2));
         assert_eq!(2, sliced_list_array.value_length(2));
         assert_eq!(4, sliced_list_array.value_offset(3));
@@ -3295,11 +3430,70 @@ mod tests {
     }
 
     #[test]
+    fn test_large_binary_array_from_list_array() {
+        let values: [u8; 12] = [
+            b'h', b'e', b'l', b'l', b'o', b'p', b'a', b'r', b'q', b'u', b'e', b't',
+        ];
+        let values_data = ArrayData::builder(DataType::UInt8)
+            .len(12)
+            .add_buffer(Buffer::from(&values[..]))
+            .build();
+        let offsets: [i64; 4] = [0, 5, 5, 12];
+
+        // Array data: ["hello", "", "parquet"]
+        let array_data1 = ArrayData::builder(DataType::LargeBinary)
+            .len(3)
+            .add_buffer(Buffer::from(offsets.to_byte_slice()))
+            .add_buffer(Buffer::from(&values[..]))
+            .build();
+        let binary_array1 = LargeBinaryArray::from(array_data1);
+
+        let array_data2 = ArrayData::builder(DataType::Binary)
+            .len(3)
+            .add_buffer(Buffer::from(offsets.to_byte_slice()))
+            .add_child_data(values_data)
+            .build();
+        let list_array = LargeListArray::from(array_data2);
+        let binary_array2 = LargeBinaryArray::from(list_array);
+
+        assert_eq!(2, binary_array2.data().buffers().len());
+        assert_eq!(0, binary_array2.data().child_data().len());
+
+        assert_eq!(binary_array1.len(), binary_array2.len());
+        assert_eq!(binary_array1.null_count(), binary_array2.null_count());
+        for i in 0..binary_array1.len() {
+            assert_eq!(binary_array1.value(i), binary_array2.value(i));
+            assert_eq!(binary_array1.value_offset(i), binary_array2.value_offset(i));
+            assert_eq!(binary_array1.value_length(i), binary_array2.value_length(i));
+        }
+    }
+
+    #[test]
     fn test_string_array_from_u8_slice() {
         let values: Vec<&str> = vec!["hello", "", "parquet"];
 
         // Array data: ["hello", "", "parquet"]
         let string_array = StringArray::from(values);
+
+        assert_eq!(3, string_array.len());
+        assert_eq!(0, string_array.null_count());
+        assert_eq!("hello", string_array.value(0));
+        assert_eq!("", string_array.value(1));
+        assert_eq!("parquet", string_array.value(2));
+        assert_eq!(5, string_array.value_offset(2));
+        assert_eq!(7, string_array.value_length(2));
+        for i in 0..3 {
+            assert!(string_array.is_valid(i));
+            assert!(!string_array.is_null(i));
+        }
+    }
+
+    #[test]
+    fn test_large_string_array_from_u8_slice() {
+        let values: Vec<&str> = vec!["hello", "", "parquet"];
+
+        // Array data: ["hello", "", "parquet"]
+        let string_array = LargeStringArray::from(values);
 
         assert_eq!(3, string_array.len());
         assert_eq!(0, string_array.null_count());
@@ -3518,10 +3712,10 @@ mod tests {
     }
 
     #[test]
-    fn test_fixed_size_binary_array_fmt_debug() {
-        let arr: StringArray = vec!["hello", "arrow"].into();
+    fn test_large_string_array_fmt_debug() {
+        let arr: LargeStringArray = vec!["hello", "arrow"].into();
         assert_eq!(
-            "StringArray\n[\n  \"hello\",\n  \"arrow\",\n]",
+            "LargeStringArray\n[\n  \"hello\",\n  \"arrow\",\n]",
             format!("{:?}", arr)
         );
     }

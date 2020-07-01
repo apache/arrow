@@ -2749,9 +2749,75 @@ mod tests {
     }
 
     #[test]
+    fn test_large_list_array_builder() {
+        let values_builder = Int32Builder::new(10);
+        let mut builder = LargeListBuilder::new(values_builder);
+
+        //  [[0, 1, 2], [3, 4, 5], [6, 7]]
+        builder.values().append_value(0).unwrap();
+        builder.values().append_value(1).unwrap();
+        builder.values().append_value(2).unwrap();
+        builder.append(true).unwrap();
+        builder.values().append_value(3).unwrap();
+        builder.values().append_value(4).unwrap();
+        builder.values().append_value(5).unwrap();
+        builder.append(true).unwrap();
+        builder.values().append_value(6).unwrap();
+        builder.values().append_value(7).unwrap();
+        builder.append(true).unwrap();
+        let list_array = builder.finish();
+
+        let values = list_array.values().data().buffers()[0].clone();
+        assert_eq!(
+            Buffer::from(&[0, 1, 2, 3, 4, 5, 6, 7].to_byte_slice()),
+            values
+        );
+        assert_eq!(
+            Buffer::from(&[0i64, 3, 6, 8].to_byte_slice()),
+            list_array.data().buffers()[0].clone()
+        );
+        assert_eq!(DataType::Int32, list_array.value_type());
+        assert_eq!(3, list_array.len());
+        assert_eq!(0, list_array.null_count());
+        assert_eq!(6, list_array.value_offset(2));
+        assert_eq!(2, list_array.value_length(2));
+        for i in 0..3 {
+            assert!(list_array.is_valid(i));
+            assert!(!list_array.is_null(i));
+        }
+    }
+
+    #[test]
     fn test_list_array_builder_nulls() {
         let values_builder = Int32Builder::new(10);
         let mut builder = ListBuilder::new(values_builder);
+
+        //  [[0, 1, 2], null, [3, null, 5], [6, 7]]
+        builder.values().append_value(0).unwrap();
+        builder.values().append_value(1).unwrap();
+        builder.values().append_value(2).unwrap();
+        builder.append(true).unwrap();
+        builder.append(false).unwrap();
+        builder.values().append_value(3).unwrap();
+        builder.values().append_null().unwrap();
+        builder.values().append_value(5).unwrap();
+        builder.append(true).unwrap();
+        builder.values().append_value(6).unwrap();
+        builder.values().append_value(7).unwrap();
+        builder.append(true).unwrap();
+        let list_array = builder.finish();
+
+        assert_eq!(DataType::Int32, list_array.value_type());
+        assert_eq!(4, list_array.len());
+        assert_eq!(1, list_array.null_count());
+        assert_eq!(3, list_array.value_offset(2));
+        assert_eq!(3, list_array.value_length(2));
+    }
+
+    #[test]
+    fn test_large_list_array_builder_nulls() {
+        let values_builder = Int32Builder::new(10);
+        let mut builder = LargeListBuilder::new(values_builder);
 
         //  [[0, 1, 2], null, [3, null, 5], [6, 7]]
         builder.values().append_value(0).unwrap();
@@ -2934,6 +3000,37 @@ mod tests {
         let array = builder.finish();
 
         let binary_array = BinaryArray::from(array);
+
+        assert_eq!(3, binary_array.len());
+        assert_eq!(0, binary_array.null_count());
+        assert_eq!([b'h', b'e', b'l', b'l', b'o'], binary_array.value(0));
+        assert_eq!([] as [u8; 0], binary_array.value(1));
+        assert_eq!([b'w', b'o', b'r', b'l', b'd'], binary_array.value(2));
+        assert_eq!(5, binary_array.value_offset(2));
+        assert_eq!(5, binary_array.value_length(2));
+    }
+
+    #[test]
+    fn test_large_binary_array_builder() {
+        let mut builder = LargeBinaryBuilder::new(20);
+
+        builder.append_byte(b'h').unwrap();
+        builder.append_byte(b'e').unwrap();
+        builder.append_byte(b'l').unwrap();
+        builder.append_byte(b'l').unwrap();
+        builder.append_byte(b'o').unwrap();
+        builder.append(true).unwrap();
+        builder.append(true).unwrap();
+        builder.append_byte(b'w').unwrap();
+        builder.append_byte(b'o').unwrap();
+        builder.append_byte(b'r').unwrap();
+        builder.append_byte(b'l').unwrap();
+        builder.append_byte(b'd').unwrap();
+        builder.append(true).unwrap();
+
+        let array = builder.finish();
+
+        let binary_array = LargeBinaryArray::from(array);
 
         assert_eq!(3, binary_array.len());
         assert_eq!(0, binary_array.null_count());

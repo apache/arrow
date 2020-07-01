@@ -1860,6 +1860,83 @@ mod tests {
     }
 
     #[test]
+    fn test_large_string_equal() {
+        let a = LargeStringArray::from(vec!["hello", "world"]);
+        let b = LargeStringArray::from(vec!["hello", "world"]);
+        assert!(a.equals(&b));
+        assert!(b.equals(&a));
+
+        let b = LargeStringArray::from(vec!["hello", "arrow"]);
+        assert!(!a.equals(&b));
+        assert!(!b.equals(&a));
+
+        // Test the case where null_count > 0
+
+        let a = LargeStringArray::try_from(vec![
+            Some("hello"),
+            None,
+            None,
+            Some("world"),
+            None,
+            None,
+        ])
+        .unwrap();
+
+        let b = LargeStringArray::try_from(vec![
+            Some("hello"),
+            None,
+            None,
+            Some("world"),
+            None,
+            None,
+        ])
+        .unwrap();
+        assert!(a.equals(&b));
+        assert!(b.equals(&a));
+
+        let b = LargeStringArray::try_from(vec![
+            Some("hello"),
+            Some("foo"),
+            None,
+            Some("world"),
+            None,
+            None,
+        ])
+        .unwrap();
+        assert!(!a.equals(&b));
+        assert!(!b.equals(&a));
+
+        let b = LargeStringArray::try_from(vec![
+            Some("hello"),
+            None,
+            None,
+            Some("arrow"),
+            None,
+            None,
+        ])
+        .unwrap();
+        assert!(!a.equals(&b));
+        assert!(!b.equals(&a));
+
+        // Test the case where offset != 0
+
+        let a_slice = a.slice(0, 3);
+        let b_slice = b.slice(0, 3);
+        assert!(a_slice.equals(&*b_slice));
+        assert!(b_slice.equals(&*a_slice));
+
+        let a_slice = a.slice(0, 5);
+        let b_slice = b.slice(0, 5);
+        assert!(!a_slice.equals(&*b_slice));
+        assert!(!b_slice.equals(&*a_slice));
+
+        let a_slice = a.slice(4, 1);
+        let b_slice = b.slice(4, 1);
+        assert!(a_slice.equals(&*b_slice));
+        assert!(b_slice.equals(&*a_slice));
+    }
+
+    #[test]
     fn test_struct_equal() {
         let string_builder = StringBuilder::new(5);
         let int_builder = Int32Builder::new(5);
