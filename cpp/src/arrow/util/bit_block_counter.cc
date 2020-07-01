@@ -30,7 +30,9 @@ namespace arrow {
 namespace internal {
 
 static constexpr int64_t kWordBits = 64;
-static constexpr int64_t kFourWordsBits = 256;
+static constexpr int64_t kFourWordsBits = kWordBits * 4;
+
+int64_t BitBlockCounterWordSize() { return kWordBits; }
 
 static inline uint64_t LoadWord(const uint8_t* bytes) {
   return BitUtil::ToLittleEndian(util::SafeLoadAs<uint64_t>(bytes));

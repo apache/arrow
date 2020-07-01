@@ -76,6 +76,9 @@ struct BitBlockCount {
   bool AllSet() const { return this->length == this->popcount; }
 };
 
+/// \brief Return the word step size of each bit block counter run
+int64_t BitBlockCounterWordSize();
+
 /// \brief A class that scans through a true/false bitmap to compute popcounts
 /// 64 or 256 bits at a time. This is used to accelerate processing of
 /// mostly-not-null array data.
