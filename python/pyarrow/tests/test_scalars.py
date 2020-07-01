@@ -52,8 +52,9 @@ import pyarrow as pa
 def test_basics(value, ty, klass, deprecated):
     s = pa.scalar(value, type=ty)
     assert isinstance(s, klass)
-    assert s == value
+    assert s.as_py() == value
     assert s == pa.scalar(value, type=ty)
+    assert s != value
     assert s != "else"
     assert hash(s) == hash(s)
     assert s.is_valid is True
@@ -75,17 +76,16 @@ def test_nulls():
     null = pa.scalar(None)
     assert null is pa.NA
     assert null.as_py() is None
-    assert (null == "something") is pa.NA
+    assert null != "something"
+    assert (null == pa.scalar(None)) is True
+    assert (null == 0) is False
+    assert pa.NA == pa.NA
+    assert pa.NA not in [5]
 
     arr = pa.array([None, None])
     for v in arr:
         assert v is pa.NA
         assert v.as_py() is None
-
-
-def test_null_equality():
-    assert (pa.NA == pa.NA) is pa.NA
-    assert (pa.NA == 1) is pa.NA
 
 
 def test_hashing():
@@ -120,7 +120,6 @@ def test_numerics():
     assert repr(s) == "<pyarrow.Int64Scalar: 1>"
     assert str(s) == "1"
     assert s.as_py() == 1
-    assert s == 1
 
     with pytest.raises(OverflowError):
         pa.scalar(-1, type=pa.uint8())
@@ -131,7 +130,6 @@ def test_numerics():
     assert repr(s) == "<pyarrow.DoubleScalar: 1.5>"
     assert str(s) == "1.5"
     assert s.as_py() == 1.5
-    assert s == 1.5
 
     # float16
     s = pa.scalar(np.float16(0.5), type=pa.float16())
@@ -139,7 +137,6 @@ def test_numerics():
     assert repr(s) == "<pyarrow.HalfFloatScalar: 0.5>"
     assert str(s) == "0.5"
     assert s.as_py() == 0.5
-    assert s == 0.5
 
 
 def test_decimal():
@@ -168,7 +165,7 @@ def test_date():
     for ty in [pa.date32(), pa.date64()]:
         for d in [d1, d2]:
             s = pa.scalar(d, type=ty)
-            assert s == d
+            assert s.as_py() == d
 
 
 def test_time():
@@ -179,7 +176,7 @@ def test_time():
     for ty in types:
         for t in [t1, t2]:
             s = pa.scalar(t, type=ty)
-            assert s == t
+            assert s.as_py() == t
 
 
 @pytest.mark.pandas
@@ -245,7 +242,6 @@ def test_timestamp_no_overflow():
     ]
     for ts in timestamps:
         s = pa.scalar(ts, type=pa.timestamp("us", tz="UTC"))
-        assert s == ts
         assert s.as_py() == ts
 
 
@@ -321,7 +317,7 @@ def test_binary(value, ty, scalar_typ):
     assert s.as_py() == value
     assert str(s) == str(value)
     assert repr(value) in repr(s)
-    assert s == value
+    assert s.as_py() == value
     assert s != b'xxxxx'
 
     buf = s.as_buffer()
@@ -399,8 +395,14 @@ def test_struct():
     v = {'x': 2, 'y': 3.5}
     s = pa.scalar(v, type=ty)
     assert list(s) == list(s.keys()) == ['x', 'y']
-    assert list(s.values()) == [2, 3.5]
-    assert list(s.items()) == [('x', 2), ('y', 3.5)]
+    assert list(s.values()) == [
+        pa.scalar(2, type=pa.int16()),
+        pa.scalar(3.5, type=pa.float32())
+    ]
+    assert list(s.items()) == [
+        ('x', pa.scalar(2, type=pa.int16())),
+        ('y',  pa.scalar(3.5, type=pa.float32()))
+    ]
     assert 'x' in s
     assert 'y' in s
     assert 'z' not in s
@@ -408,12 +410,11 @@ def test_struct():
     assert s.as_py() == v
     assert repr(s) != repr(v)
     assert repr(s.as_py()) == repr(v)
-    assert s == v
     assert len(s) == 2
     assert isinstance(s['x'], pa.Int16Scalar)
     assert isinstance(s['y'], pa.FloatScalar)
-    assert s['x'] == 2
-    assert s['y'] == 3.5
+    assert s['x'].as_py() == 2
+    assert s['y'].as_py() == 3.5
 
     with pytest.raises(KeyError):
         s['non-existent']
@@ -439,14 +440,12 @@ def test_map():
     assert len(s) == 2
     assert isinstance(s, pa.MapScalar)
     assert isinstance(s.values, pa.Array)
-    assert repr(s) == (
-        "<pyarrow.MapScalar: ["
-        "(<pyarrow.StringScalar: 'a'>, <pyarrow.Int8Scalar: 1>), "
-        "(<pyarrow.StringScalar: 'b'>, <pyarrow.Int8Scalar: 2>)"
-        "]>"
-    )
+    assert repr(s) == "<pyarrow.MapScalar: [('a', 1), ('b', 2)]>"
     assert s.as_py() == v
-    assert s[1] == ('b', 2)
+    assert s[1] == (
+        pa.scalar('b', type=pa.string()),
+        pa.scalar(2, type=pa.int8())
+    )
     assert s[-1] == s[1]
     assert s[-2] == s[0]
     with pytest.raises(IndexError):
@@ -456,8 +455,8 @@ def test_map():
 
 
 def test_dictionary():
-    indices = pa.array([2, 1, 2, 0])
-    dictionary = pa.array(['foo', 'bar', 'baz'])
+    indices = [2, 1, 2, 0]
+    dictionary = ['foo', 'bar', 'baz']
 
     arr = pa.DictionaryArray.from_arrays(indices, dictionary)
     expected = ['baz', 'bar', 'baz', 'foo']
@@ -466,11 +465,11 @@ def test_dictionary():
         s = arr[j]
 
         assert s.as_py() == v
-        assert s.index.as_py() == i
         assert s.value.as_py() == v
+        assert s.index.as_py() == i
         assert s.dictionary == dictionary
 
         with pytest.warns(FutureWarning):
-            assert s.index_value == i
+            assert s.index_value.as_py() == i
         with pytest.warns(FutureWarning):
-            assert s.dictionary_value == v
+            assert s.dictionary_value.as_py() == v

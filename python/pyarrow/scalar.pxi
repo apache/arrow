@@ -76,10 +76,8 @@ cdef class Scalar:
 
     def __eq__(self, other):
         try:
-            if not isinstance(other, Scalar):
-                other = scalar(other, type=self.type)
             return self.equals(other)
-        except (TypeError, ValueError, ArrowInvalid):
+        except TypeError:
             return NotImplemented
 
     def __hash__(self):
@@ -108,7 +106,7 @@ cdef class NullScalar(Scalar):
         pass
 
     def __eq__(self, other):
-        return NA
+        return other is NA
 
     def __hash__(self):
         cdef CScalarHash hasher
@@ -246,14 +244,14 @@ cdef class HalfFloatScalar(Scalar):
     Concrete class for float scalars.
     """
 
-    def __hash__(self):
-        cdef CScalarHash hasher
-        return hasher(self.wrapped)
+    # def __hash__(self):
+    #     cdef CScalarHash hasher
+    #     return hasher(self.wrapped)
 
-    def __eq__(self, other):
-        if isinstance(other, Scalar):
-            other = other.as_py()
-        return self.as_py() == other
+    # def __eq__(self, other):
+    #     if isinstance(other, Scalar):
+    #         other = other.as_py()
+    #     return self.as_py() == other
 
     def as_py(self):
         """
@@ -682,7 +680,8 @@ cdef class MapScalar(ListScalar):
         """
         arr = self.values
         if arr is not None:
-            return list(zip(arr.field('key'), arr.field('value')))
+            pairs = zip(arr.field('key'), arr.field('value'))
+            return [(k.as_py(), v.as_py()) for k, v in pairs]
         else:
             return None
 
@@ -705,8 +704,14 @@ cdef class DictionaryScalar(Scalar):
         """
         Return the encoded value as a scalar.
         """
-        # TODO(kszucs): optimize it to spare uneccessary python object boxing
-        return self.dictionary[self.index.as_py()] if self.is_valid else None
+        cdef:
+            CDictionaryScalar* sp = <CDictionaryScalar*> self.wrapped.get()
+            CInt64Scalar* index = <CInt64Scalar*> sp.value.index.get()
+            shared_ptr[CScalar] value
+        value = GetResultValue(
+            sp.value.dictionary.get().GetScalar(index.value)
+        )
+        return Scalar.wrap(value)
 
     @property
     def dictionary(self):
@@ -722,18 +727,16 @@ cdef class DictionaryScalar(Scalar):
 
     @property
     def index_value(self):
-        warnings.warn("`dictionary_value` property is deprecated as of 1.0.0"
-                      "please use the `value` property instead",
+        warnings.warn("`index_value` property is deprecated as of 1.0.0"
+                      "please use the `index` property instead",
                       FutureWarning)
-        index = self.index
-        return None if index is None else self.index
+        return self.index
 
     @property
     def dictionary_value(self):
         warnings.warn("`dictionary_value` property is deprecated as of 1.0.0, "
                       "please use the `value` property instead", FutureWarning)
-        value = self.value
-        return None if value is None else self.value
+        return self.value
 
 
 cdef class UnionScalar(Scalar):
