@@ -25,7 +25,6 @@ pushd build
 cmake -DCMAKE_BUILD_TYPE=release \
     -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
     -DCMAKE_INSTALL_PREFIX=/usr/local \
-    -DBUILD_SHARED_LIBS=OFF \
     -GNinja \
     ..
 ninja install

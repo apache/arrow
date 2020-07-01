@@ -887,7 +887,7 @@ macro(build_brotli)
     "${BROTLI_PREFIX}/${BROTLI_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}brotlicommon-static${CMAKE_STATIC_LIBRARY_SUFFIX}"
     )
   set(BROTLI_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS} "-DCMAKE_INSTALL_PREFIX=${BROTLI_PREFIX}"
-                        -DCMAKE_INSTALL_LIBDIR=${BROTLI_LIB_DIR} -DBUILD_SHARED_LIBS=OFF)
+                        -DCMAKE_INSTALL_LIBDIR=${BROTLI_LIB_DIR})
 
   externalproject_add(brotli_ep
                       URL ${BROTLI_SOURCE_URL}
