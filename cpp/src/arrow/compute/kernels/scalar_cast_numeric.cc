@@ -492,7 +492,7 @@ using SafeRealToDecimal = RealToDecimal<true>;
 using UnsafeRealToDecimal = RealToDecimal<false>;
 
 template <typename I>
-struct CastFunctor<Decimal128Type, I, enable_if_floating_point<I>> {
+struct CastFunctor<Decimal128Type, I, enable_if_t<is_floating_type<I>::value>> {
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     const auto& options = checked_cast<const CastState*>(ctx->state())->options;
     ArrayData* output = out->mutable_array();
