@@ -47,51 +47,22 @@ using internal::CopyBitmap;
 // ----------------------------------------------------------------------
 // DictionaryArray
 
-/// \brief Perform validation check to determine if all dictionary indices
-/// are within valid range (0 <= index < upper_bound)
-///
-/// \param[in] indices array of dictionary indices
-/// \param[in] upper_bound upper bound of valid range for indices
-/// \return Status
-template <typename ArrowType>
-Status ValidateDictionaryIndices(const std::shared_ptr<Array>& indices,
-                                 const int64_t upper_bound) {
-  using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
-  const auto& array = checked_cast<const ArrayType&>(*indices);
-  const typename ArrowType::c_type* data = array.raw_values();
-  const int64_t size = array.length();
-
-  if (array.null_count() == 0) {
-    for (int64_t idx = 0; idx < size; ++idx) {
-      if (data[idx] < 0 || data[idx] >= upper_bound) {
-        return Status::Invalid("Dictionary has out-of-bound index [0, dict.length)");
-      }
-    }
-  } else {
-    for (int64_t idx = 0; idx < size; ++idx) {
-      if (!array.IsNull(idx)) {
-        if (data[idx] < 0 || data[idx] >= upper_bound) {
-          return Status::Invalid("Dictionary has out-of-bound index [0, dict.length)");
-        }
-      }
-    }
-  }
-
-  return Status::OK();
-}
-
 std::shared_ptr<Array> DictionaryArray::indices() const { return indices_; }
 
 int64_t DictionaryArray::GetValueIndex(int64_t i) const {
   switch (indices_->type_id()) {
     case Type::INT8:
+    case Type::UINT8:
       return checked_cast<const Int8Array&>(*indices_).Value(i);
     case Type::INT16:
+    case Type::UINT16:
       return checked_cast<const Int16Array&>(*indices_).Value(i);
     case Type::INT32:
-      return checked_cast<const Int32Array&>(*indices_).Value(i);
+    case Type::UINT32:
+      return checked_cast<const UInt32Array&>(*indices_).Value(i);
     case Type::INT64:
-      return checked_cast<const Int64Array&>(*indices_).Value(i);
+    case Type::UINT64:
+      return checked_cast<const UInt64Array&>(*indices_).Value(i);
     default:
       break;
   }
@@ -144,27 +115,8 @@ Result<std::shared_ptr<Array>> DictionaryArray::FromArrays(
   const auto& dict = checked_cast<const DictionaryType&>(*type);
   ARROW_CHECK_EQ(indices->type_id(), dict.index_type()->id());
 
-  int64_t upper_bound = dictionary->length();
-  Status is_valid;
-
-  switch (indices->type_id()) {
-    case Type::INT8:
-      is_valid = ValidateDictionaryIndices<Int8Type>(indices, upper_bound);
-      break;
-    case Type::INT16:
-      is_valid = ValidateDictionaryIndices<Int16Type>(indices, upper_bound);
-      break;
-    case Type::INT32:
-      is_valid = ValidateDictionaryIndices<Int32Type>(indices, upper_bound);
-      break;
-    case Type::INT64:
-      is_valid = ValidateDictionaryIndices<Int64Type>(indices, upper_bound);
-      break;
-    default:
-      return Status::NotImplemented("Dictionary index type not supported: ",
-                                    indices->type()->ToString());
-  }
-  RETURN_NOT_OK(is_valid);
+  RETURN_NOT_OK(internal::CheckIndexBounds(*indices->data(),
+                                           static_cast<uint64_t>(dictionary->length())));
   return std::make_shared<DictionaryArray>(type, indices, dictionary);
 }
 
