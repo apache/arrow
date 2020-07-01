@@ -676,7 +676,7 @@ class Converter_Null : public Converter {
   }
 };
 
-bool arrays_can_fit_integer(ArrayVector arrays) {
+bool ArraysCanFitInteger(ArrayVector arrays) {
   bool out = false;
   auto i32 = arrow::int32();
   for (const auto& array : arrays) {
@@ -740,7 +740,7 @@ std::shared_ptr<Converter> Converter::Make(const std::shared_ptr<DataType>& type
 
       // promotions to numeric vector, if they don't fit into int32
     case Type::UINT32:
-      if (arrays_can_fit_integer(arrays)) {
+      if (ArraysCanFitInteger(arrays)) {
         return std::make_shared<arrow::r::Converter_Promotion<INTSXP, arrow::UInt32Type>>(
             std::move(arrays));
       } else {
@@ -749,7 +749,7 @@ std::shared_ptr<Converter> Converter::Make(const std::shared_ptr<DataType>& type
       }
 
     case Type::UINT64:
-      if (arrays_can_fit_integer(arrays)) {
+      if (ArraysCanFitInteger(arrays)) {
         return std::make_shared<arrow::r::Converter_Promotion<INTSXP, arrow::UInt64Type>>(
             std::move(arrays));
       } else {
@@ -778,7 +778,7 @@ std::shared_ptr<Converter> Converter::Make(const std::shared_ptr<DataType>& type
 
     case Type::INT64:
       // Prefer integer if it fits
-      if (arrays_can_fit_integer(arrays)) {
+      if (ArraysCanFitInteger(arrays)) {
         return std::make_shared<arrow::r::Converter_Promotion<INTSXP, arrow::Int64Type>>(
             std::move(arrays));
       } else {

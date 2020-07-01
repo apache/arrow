@@ -243,14 +243,16 @@ test_that("Timezone handling in Arrow roundtrip (ARROW-3543)", {
 })
 
 test_that("array supports integer64", {
-  x <- bit64::as.integer64(1:10)
+  x <- bit64::as.integer64(1:10) + MAX_INT
   expect_array_roundtrip(x, int64())
 
   x[4] <- NA
   expect_array_roundtrip(x, int64())
 
   # all NA int64 (ARROW-3795)
-  expect_array_roundtrip(bit64::as.integer64(NA), int64())
+  all_na <- Array$create(bit64::as.integer64(NA))
+  expect_type_equal(all_na, int64())
+  expect_true(as.vector(is.na(all_na)))
 })
 
 test_that("array supports difftime", {
@@ -381,12 +383,23 @@ test_that("Array<int8>$as_vector() converts to integer (ARROW-3794)", {
   expect_equal(a$as_vector(), 0:255)
 })
 
-test_that("Arrays of uint{32,64} convert to numeric", {
+test_that("Arrays of {,u}int{32,64} convert to integer if they can fit", {
   u32 <- Array$create(1L)$cast(uint32())
-  expect_identical(as.vector(u32), 1)
+  expect_identical(as.vector(u32), 1L)
 
   u64 <- Array$create(1L)$cast(uint64())
-  expect_identical(as.vector(u64), 1)
+  expect_identical(as.vector(u64), 1L)
+
+  i64 <- Array$create(bit64::as.integer64(1:10))
+  expect_identical(as.vector(i64), 1:10)
+})
+
+test_that("Arrays of uint{32,64} convert to numeric if they can't fit integer", {
+  u32 <- Array$create(bit64::as.integer64(1) + MAX_INT)$cast(uint32())
+  expect_identical(as.vector(u32), 1 + MAX_INT)
+
+  u64 <- Array$create(bit64::as.integer64(1) + MAX_INT)$cast(uint64())
+  expect_identical(as.vector(u64), 1 + MAX_INT)
 })
 
 test_that("Array$create() recognise arrow::Array (ARROW-3815)", {

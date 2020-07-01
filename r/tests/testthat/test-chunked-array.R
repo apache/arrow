@@ -198,7 +198,7 @@ test_that("ChunkedArray supports POSIXct (ARROW-3716)", {
 })
 
 test_that("ChunkedArray supports integer64 (ARROW-3716)", {
-  x <- bit64::as.integer64(1:10)
+  x <- bit64::as.integer64(1:10) + MAX_INT
   expect_chunked_roundtrip(list(x, x), int64())
 })
 

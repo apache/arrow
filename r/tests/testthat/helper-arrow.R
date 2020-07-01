@@ -26,6 +26,8 @@ if (tolower(Sys.info()[["sysname"]]) == "windows") {
 
 set.seed(1)
 
+MAX_INT <- 2147483647L
+
 test_that <- function(what, code) {
   testthat::test_that(what, {
     skip_if(getOption("..skip.tests", TRUE), "arrow C++ library not available")
