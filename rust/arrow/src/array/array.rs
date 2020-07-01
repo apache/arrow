@@ -1407,6 +1407,11 @@ impl BinaryArray {
             )
         }
     }
+
+    /// Returns a new binary array builder
+    pub fn builder(capacity: usize) -> BinaryBuilder {
+        BinaryBuilder::new(capacity)
+    }
 }
 
 impl LargeBinaryArray {
@@ -1423,9 +1428,9 @@ impl LargeBinaryArray {
         }
     }
 
-    // Returns a new binary array builder
-    pub fn builder(capacity: usize) -> BinaryBuilder {
-        BinaryBuilder::new(capacity)
+    /// Returns a new large binary array builder
+    pub fn builder(capacity: usize) -> LargeBinaryBuilder {
+        LargeBinaryBuilder::new(capacity)
     }
 }
 
@@ -1443,6 +1448,11 @@ impl StringArray {
 
             std::str::from_utf8_unchecked(slice)
         }
+    }
+
+    /// Returns a new string array builder
+    pub fn builder(capacity: usize) -> StringBuilder {
+        StringBuilder::new(capacity)
     }
 }
 
@@ -1462,9 +1472,9 @@ impl LargeStringArray {
         }
     }
 
-    // Returns a new string array builder
-    pub fn builder(capacity: usize) -> StringBuilder {
-        StringBuilder::new(capacity)
+    // Returns a new large string array builder
+    pub fn builder(capacity: usize) -> LargeStringBuilder {
+        LargeStringBuilder::new(capacity)
     }
 }
 

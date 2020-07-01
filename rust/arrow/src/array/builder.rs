@@ -861,6 +861,98 @@ where
         self
     }
 
+    /// Appends data from other arrays into the builder
+    ///
+    /// This is most useful when concatenating arrays of the same type into a builder.
+    fn append_data(&mut self, data: &[ArrayDataRef]) -> Result<()> {
+        // validate arraydata and reserve memory
+        let mut total_len = 0;
+        for array in data {
+            if array.data_type() != &self.data_type() {
+                return Err(ArrowError::InvalidArgumentError(
+                    "Cannot append data to builder if data types are different"
+                        .to_string(),
+                ));
+            }
+            if array.buffers().len() != 1 {
+                return Err(ArrowError::InvalidArgumentError(
+                    "List arrays should have 1 buffer".to_string(),
+                ));
+            }
+            if array.child_data().len() != 1 {
+                return Err(ArrowError::InvalidArgumentError(
+                    "List arrays should have 1 child_data element".to_string(),
+                ));
+            }
+            total_len += array.len();
+        }
+        // reserve memory
+        self.offsets_builder.reserve(total_len)?;
+        self.bitmap_builder.reserve(total_len)?;
+        // values_builder is allocated by the relevant builder, and is not allocated here
+
+        // determine the latest offset on the builder
+        let mut cum_offset = if self.offsets_builder.len() == 0 {
+            0
+        } else {
+            // peek into buffer to get last appended offset
+            let buffer = self.offsets_builder.buffer.data();
+            let len = self.offsets_builder.len();
+            let (start, end) = ((len - 1) * 8, len * 8);
+            let slice = &buffer[start..end];
+            i64::from_le_bytes(slice.try_into().unwrap())
+        };
+        for array in data {
+            let len = array.len();
+            if len == 0 {
+                continue;
+            }
+            let offset = array.offset();
+
+            // `typed_data` is unsafe, however this call is safe as `LargeListArray` has i64 offsets
+            let offsets = unsafe {
+                &array.buffers()[0].typed_data::<i64>()[offset..(len + offset) + 1]
+            };
+            // the offsets of the child array determine its length
+            // this could be obtained by getting the concrete ListArray and getting value_offsets
+            let offset_at_len = offsets[offsets.len() - 1] as usize;
+            let first_offset = offsets[0] as usize;
+            // create the child array and offset it
+            let child_data = &array.child_data()[0];
+            let child_array = make_array(child_data.clone());
+            // slice the child array to account for offsets
+            let sliced = child_array.slice(first_offset, offset_at_len - first_offset);
+            self.values().append_data(&[sliced.data()])?;
+            let adjusted_offsets: Vec<i64> = offsets
+                .windows(2)
+                .into_iter()
+                .map(|w| {
+                    let curr_offset = w[1] - w[0] + cum_offset;
+                    cum_offset = curr_offset;
+                    curr_offset
+                })
+                .collect();
+            self.offsets_builder
+                .append_slice(adjusted_offsets.as_slice())?;
+
+            for i in 0..len {
+                // account for offset as `ArrayData` does not
+                self.bitmap_builder.append(array.is_valid(offset + i))?;
+            }
+        }
+
+        // append array length
+        self.len += total_len;
+        Ok(())
+    }
+
+    /// Returns the data type of the builder
+    ///
+    /// This is used for validating array data types in `append_data`
+    fn data_type(&self) -> DataType {
+        DataType::LargeList(Box::new(self.values_builder.data_type()))
+    }
+
     /// Returns the builder as a mutable `Any` reference.
     fn as_any_mut(&mut self) -> &mut Any {
         self
@@ -1192,6 +1284,20 @@ impl ArrayBuilder for LargeBinaryBuilder {
         self
     }
 
+    /// Appends data from other arrays into the builder
+    ///
+    /// This is most useful when concatenating arrays of the same type into a builder.
+    fn append_data(&mut self, data: &[ArrayDataRef]) -> Result<()> {
+        append_large_binary_data(&mut self.builder, &DataType::LargeBinary, data)
+    }
+
+    /// Returns the data type of the builder
+    ///
+    /// This is used for validating array data types in `append_data`
+    fn data_type(&self) -> DataType {
+        DataType::LargeBinary
+    }
+
     /// Returns the boxed builder as a box of `Any`.
     fn into_box_any(self: Box<Self>) -> Box<Any> {
         self
@@ -1301,6 +1407,58 @@ fn append_binary_data(
     Ok(())
 }
 
+// Helper function for appending LargeBinary and LargeUtf8 data
+fn append_large_binary_data(
+    builder: &mut LargeListBuilder<UInt8Builder>,
+    data_type: &DataType,
+    data: &[ArrayDataRef],
+) -> Result<()> {
+    // validate arraydata and reserve memory
+    for array in data {
+        if array.data_type() != data_type {
+            return Err(ArrowError::InvalidArgumentError(
+                "Cannot append data to builder if data types are different".to_string(),
+            ));
+        }
+        if array.buffers().len() != 2 {
+            return Err(ArrowError::InvalidArgumentError(
+                "Binary/String arrays should have 2 buffers".to_string(),
+            ));
+        }
+    }
+
+    builder.append_data(
+        &data
+            .iter()
+            .map(|array| {
+                // convert string to List<u8> to reuse list's cast
+                let int_data = &array.buffers()[1];
+                let int_data = Arc::new(ArrayData::new(
+                    DataType::UInt8,
+                    int_data.len(),
+                    None,
+                    None,
+                    0,
+                    vec![int_data.clone()],
+                    vec![],
+                )) as ArrayDataRef;
+
+                Arc::new(ArrayData::new(
+                    DataType::LargeList(Box::new(DataType::UInt8)),
+                    array.len(),
+                    None,
+                    array.null_buffer().map(|buf| buf.clone()),
+                    array.offset(),
+                    vec![(&array.buffers()[0]).clone()],
+                    vec![int_data],
+                ))
+            })
+            .collect::<Vec<ArrayDataRef>>(),
+    )?;
+
+    Ok(())
+}
+
 impl ArrayBuilder for LargeStringBuilder {
     /// Returns the builder as a non-mutable `Any` reference.
     fn as_any(&self) -> &Any {
@@ -1310,6 +1468,20 @@ impl ArrayBuilder for LargeStringBuilder {
     /// Returns the builder as a mutable `Any` reference.
     fn as_any_mut(&mut self) -> &mut Any {
         self
+    }
+
+    /// Appends data from other arrays into the builder
+    ///
+    /// This is most useful when concatenating arrays of the same type into a builder.
+    fn append_data(&mut self, data: &[ArrayDataRef]) -> Result<()> {
+        append_large_binary_data(&mut self.builder, &DataType::LargeUtf8, data)
+    }
+
+    /// Returns the data type of the builder
+    ///
+    /// This is used for validating array data types in `append_data`
+    fn data_type(&self) -> DataType {
+        DataType::LargeUtf8
     }
 
     /// Returns the boxed builder as a box of `Any`.

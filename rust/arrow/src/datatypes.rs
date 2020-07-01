@@ -1334,12 +1334,15 @@ impl Field {
             | DataType::Time64(_)
             | DataType::Duration(_)
             | DataType::Binary
+            | DataType::LargeBinary
             | DataType::Interval(_)
+            | DataType::LargeList(_)
             | DataType::List(_)
             | DataType::Dictionary(_, _)
             | DataType::FixedSizeList(_, _)
             | DataType::FixedSizeBinary(_)
-            | DataType::Utf8 => {
+            | DataType::Utf8
+            | DataType::LargeUtf8 => {
                 if self.data_type != from.data_type {
                     return Err(ArrowError::SchemaError(
                         "Fail to merge schema Field due to conflicting datatype"
