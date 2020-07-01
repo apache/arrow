@@ -357,6 +357,7 @@ class Converter_Dictionary : public Converter {
       case Type::UINT16:
       case Type::INT16:
       case Type::INT32:
+        // TODO: also add int64, uint32, uint64 downcasts, if possible
         break;
       default:
         Rcpp::stop("Cannot convert Dictionary Array of type `%s` to R",

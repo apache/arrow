@@ -351,15 +351,20 @@ std::shared_ptr<Array> MakeFactorArrayImpl(Rcpp::IntegerVector_ factor,
 
 std::shared_ptr<Array> MakeFactorArray(Rcpp::IntegerVector_ factor,
                                        const std::shared_ptr<arrow::DataType>& type) {
-  SEXP levels = factor.attr("levels");
-  int n = Rf_length(levels);
-  if (n < 128) {
+  auto* dict_type = checked_cast<arrow::DictionaryType*>(type.get());
+  auto index_type = dict_type->index_type();
+  if (index_type->Equals(int8())) {
     return MakeFactorArrayImpl<arrow::Int8Type>(factor, type);
-  } else if (n < 32768) {
+  } else if (index_type->Equals(int16())) {
     return MakeFactorArrayImpl<arrow::Int16Type>(factor, type);
-  } else {
+  } else if (index_type->Equals(int32())) {
     return MakeFactorArrayImpl<arrow::Int32Type>(factor, type);
+  } else if (index_type->Equals(int64())) {
+    return MakeFactorArrayImpl<arrow::Int64Type>(factor, type);
   }
+
+  Rcpp::stop(tfm::format("Cannot convert to dictionary with index_type %s",
+                         index_type->ToString()));
 }
 
 std::shared_ptr<Array> MakeStructArray(SEXP df, const std::shared_ptr<DataType>& type) {
