@@ -33,9 +33,10 @@ test_that("sum.Array", {
   expect_is(sum(na, na.rm = TRUE), "Scalar")
   expect_identical(as.numeric(sum(na, na.rm = TRUE)), sum(floats, na.rm = TRUE))
 
-  bools <- c(TRUE, TRUE, FALSE)
+  bools <- c(TRUE, NA, TRUE, FALSE)
   b <- Array$create(bools)
   expect_identical(as.integer(sum(b)), sum(bools))
+  expect_identical(as.integer(sum(b, na.rm = TRUE)), sum(bools, na.rm = TRUE))
 })
 
 test_that("sum.ChunkedArray", {
@@ -73,9 +74,10 @@ test_that("mean.Array", {
   expect_is(mean(na, na.rm = TRUE), "Scalar")
   expect_identical(as.vector(mean(na, na.rm = TRUE)), mean(floats, na.rm = TRUE))
 
-  bools <- c(TRUE, TRUE, FALSE)
+  bools <- c(TRUE, NA, TRUE, FALSE)
   b <- Array$create(bools)
   expect_identical(as.vector(mean(b)), mean(bools))
+  expect_identical(as.integer(sum(b, na.rm = TRUE)), sum(bools, na.rm = TRUE))
 })
 
 test_that("mean.ChunkedArray", {
@@ -113,5 +115,6 @@ test_that("min/max.Array", {
 
   bools <- c(TRUE, TRUE, FALSE)
   b <- Array$create(bools)
-  expect_identical(as.vector(min(b)), min(bools))
+  # R is inconsistent here: typeof(min(NA)) == "integer", not "logical"
+  expect_identical(as.vector(min(b)), as.logical(min(bools)))
 })

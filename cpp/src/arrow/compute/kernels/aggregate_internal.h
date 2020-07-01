@@ -28,6 +28,11 @@ template <typename I, typename Enable = void>
 struct FindAccumulatorType {};
 
 template <typename I>
+struct FindAccumulatorType<I, enable_if_boolean<I>> {
+  using Type = UInt64Type;
+};
+
+template <typename I>
 struct FindAccumulatorType<I, enable_if_signed_integer<I>> {
   using Type = Int64Type;
 };
