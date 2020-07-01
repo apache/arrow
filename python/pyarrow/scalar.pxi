@@ -244,15 +244,6 @@ cdef class HalfFloatScalar(Scalar):
     Concrete class for float scalars.
     """
 
-    # def __hash__(self):
-    #     cdef CScalarHash hasher
-    #     return hasher(self.wrapped)
-
-    # def __eq__(self, other):
-    #     if isinstance(other, Scalar):
-    #         other = other.as_py()
-    #     return self.as_py() == other
-
     def as_py(self):
         """
         Return this value as a Python float.
