@@ -541,7 +541,7 @@ class PARQUET_NO_EXPORT StructReader : public ColumnReaderImpl {
       : ctx_(std::move(ctx)),
         schema_field_(schema_field),
         filtered_field_(std::move(filtered_field)),
-        struct_def_level_(schema_field.max_definition_level),
+        struct_def_level_(schema_field.definition_level),
         children_(std::move(children)) {}
 
   Status NextBatch(int64_t records_to_read, std::shared_ptr<ChunkedArray>* out) override;
@@ -742,9 +742,8 @@ Status GetReader(const SchemaField& field, const std::shared_ptr<ReaderContext>&
     std::unique_ptr<ColumnReaderImpl> child_reader;
     RETURN_NOT_OK(GetReader(*child, ctx, &child_reader));
     // Use the max definition/repetition level of the leaf here
-    out->reset(new NestedListReader(ctx, list_field, child->max_definition_level,
-                                    child->max_repetition_level,
-                                    std::move(child_reader)));
+    out->reset(new NestedListReader(ctx, list_field, child->definition_level,
+                                    child->repetition_level, std::move(child_reader)));
   } else if (type_id == ::arrow::Type::STRUCT) {
     std::vector<std::shared_ptr<Field>> child_fields;
     std::vector<std::unique_ptr<ColumnReaderImpl>> child_readers;
