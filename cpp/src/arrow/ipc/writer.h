@@ -292,12 +292,22 @@ Status GetSchemaPayload(const Schema& schema, const IpcWriteOptions& options,
 /// \param[in] dictionary the dictionary values
 /// \param[in] options options for serialization
 /// \param[out] payload the output IpcPayload
-/// \param[in] isDelta whether the dictionary is a delta dictionary
 /// \return Status
 ARROW_EXPORT
 Status GetDictionaryPayload(int64_t id, const std::shared_ptr<Array>& dictionary,
-                            const IpcWriteOptions& options, IpcPayload* payload,
-                            bool isDelta = false);
+                            const IpcWriteOptions& options, IpcPayload* payload);
+
+/// \brief Compute IpcPayload for a dictionary
+/// \param[in] id the dictionary id
+/// \param[in] isDelta whether the dictionary is a delta dictionary
+/// \param[in] dictionary the dictionary values
+/// \param[in] options options for serialization
+/// \param[out] payload the output IpcPayload
+/// \return Status
+ARROW_EXPORT
+Status GetDictionaryPayload(int64_t id, bool isDelta,
+                            const std::shared_ptr<Array>& dictionary,
+                            const IpcWriteOptions& options, IpcPayload* payload);
 
 /// \brief Compute IpcPayload for the given record batch
 /// \param[in] batch the RecordBatch that is being serialized
@@ -350,7 +360,7 @@ class ARROW_EXPORT IpcPayloadWriter {
 /// \param[in] options options for serialization
 /// \return Result<std::shared_ptr<IpcPayloadWriter>>
 ARROW_EXPORT
-Result<std::unique_ptr<IpcPayloadWriter>> NewPayloadStreamWriter(
+Result<std::unique_ptr<IpcPayloadWriter>> MakePayloadStreamWriter(
     io::OutputStream* sink, const IpcWriteOptions& options = IpcWriteOptions::Defaults());
 
 /// Create a new IPC payload file writer from stream sink.
@@ -361,7 +371,7 @@ Result<std::unique_ptr<IpcPayloadWriter>> NewPayloadStreamWriter(
 /// \param[in] metadata custom metadata for File Footer, optional
 /// \return Status
 ARROW_EXPORT
-Result<std::unique_ptr<IpcPayloadWriter>> NewPayloadFileWriter(
+Result<std::unique_ptr<IpcPayloadWriter>> MakePayloadFileWriter(
     io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
     const IpcWriteOptions& options = IpcWriteOptions::Defaults(),
     const std::shared_ptr<const KeyValueMetadata>& metadata = NULLPTR);

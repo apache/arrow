@@ -25,6 +25,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
@@ -78,9 +79,14 @@ class ARROW_EXPORT DictionaryMemo {
   /// KeyError if that dictionary already exists
   Status AddDictionary(int64_t id, const std::shared_ptr<Array>& dictionary);
 
-  /// \brief Update a dictionary to the memo with a particular id. Returns
+  /// \brief Append a dictionary delta to the memo with a particular id. Returns
   /// KeyError if that dictionary does not exists
-  Status UpdateDictionary(int64_t id, const std::shared_ptr<Array>& dictionary);
+  Status AddDictionaryDelta(int64_t id, const std::shared_ptr<Array>& dictionary,
+                            MemoryPool* pool);
+
+  /// \brief Add a dictionary to the memo if it does not have one with the id,
+  /// otherwise, replace the dictionary with the new one.
+  Status AddOrReplaceDictionary(int64_t id, const std::shared_ptr<Array>& dictionary);
 
   /// \brief The stored dictionaries, in ascending id order.
   DictionaryVector dictionaries() const;

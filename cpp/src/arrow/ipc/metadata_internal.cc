@@ -1209,10 +1209,10 @@ Result<std::shared_ptr<Buffer>> WriteSparseTensorMessage(
 }
 
 Status WriteDictionaryMessage(
-    int64_t id, int64_t length, int64_t body_length,
+    int64_t id, bool isDelta, int64_t length, int64_t body_length,
     const std::shared_ptr<const KeyValueMetadata>& custom_metadata,
     const std::vector<FieldMetadata>& nodes, const std::vector<BufferMetadata>& buffers,
-    const IpcWriteOptions& options, std::shared_ptr<Buffer>* out, bool isDelta) {
+    const IpcWriteOptions& options, std::shared_ptr<Buffer>* out) {
   FBB fbb;
   RecordBatchOffset record_batch;
   RETURN_NOT_OK(

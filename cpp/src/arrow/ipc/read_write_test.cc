@@ -1229,23 +1229,13 @@ TEST_P(TestFileFormat, RoundTrip) {
 }
 
 Status MakeDictionaryBatch(std::shared_ptr<RecordBatch>* out) {
-  const int64_t length = 6;
+  auto f0_type = arrow::dictionary(int32(), utf8());
+  auto f1_type = arrow::dictionary(int8(), utf8());
 
-  std::vector<bool> is_valid = {true, true, false, true, true, true};
+  auto dict = ArrayFromJSON(utf8(), "[\"foo\", \"bar\", \"baz\"]");
 
-  auto dict_ty = utf8();
-
-  auto dict = ArrayFromJSON(dict_ty, "[\"foo\", \"bar\", \"baz\"]");
-
-  auto f0_type = arrow::dictionary(arrow::int32(), dict_ty);
-  auto f1_type = arrow::dictionary(arrow::int8(), dict_ty);
-
-  std::shared_ptr<Array> indices0, indices1;
-  std::vector<int32_t> indices0_values = {1, 2, -1, 0, 2, 0};
-  std::vector<int8_t> indices1_values = {0, 0, 2, 2, 1, 1};
-
-  ArrayFromVector<Int32Type, int32_t>(is_valid, indices0_values, &indices0);
-  ArrayFromVector<Int8Type, int8_t>(is_valid, indices1_values, &indices1);
+  auto indices0 = ArrayFromJSON(int32(), "[1, 2, null, 0, 2, 0]");
+  auto indices1 = ArrayFromJSON(int8(), "[0, 0, 2, 2, 1, 1]");
 
   auto a0 = std::make_shared<DictionaryArray>(f0_type, indices0, dict);
   auto a1 = std::make_shared<DictionaryArray>(f1_type, indices1, dict);
@@ -1253,22 +1243,18 @@ Status MakeDictionaryBatch(std::shared_ptr<RecordBatch>* out) {
   // construct batch
   auto schema = ::arrow::schema({field("dict1", f0_type), field("dict2", f1_type)});
 
-  *out = RecordBatch::Make(schema, length, {a0, a1});
+  *out = RecordBatch::Make(schema, 6, {a0, a1});
   return Status::OK();
 }
 
-// A record batch writer implementation that supports manually specifying dictionaries.
-class TestRecordBatchWriter : public RecordBatchWriter {
+// A utility that supports reading/writing record batches,
+// and manually specifying dictionaries.
+class DictionaryBatchHelper {
  public:
-  explicit TestRecordBatchWriter(const Schema& schema) : schema_(schema) {
+  explicit DictionaryBatchHelper(const Schema& schema) : schema_(schema) {
     buffer_ = *AllocateResizableBuffer(0);
     sink_.reset(new io::BufferOutputStream(buffer_));
-    payload_writer_ = *internal::NewPayloadStreamWriter(sink_.get());
-  }
-
-  Status WriteRecordBatch(const RecordBatch& batch) override {
-    // dumb implementation
-    return Status::OK();
+    payload_writer_ = *internal::MakePayloadStreamWriter(sink_.get());
   }
 
   Status Start() {
@@ -1284,8 +1270,8 @@ class TestRecordBatchWriter : public RecordBatchWriter {
   Status WriteDictionary(int64_t dictionary_id, const std::shared_ptr<Array>& dictionary,
                          bool isDelta) {
     IpcPayload payload;
-    RETURN_NOT_OK(GetDictionaryPayload(dictionary_id, dictionary,
-                                       IpcWriteOptions::Defaults(), &payload, isDelta));
+    RETURN_NOT_OK(GetDictionaryPayload(dictionary_id, isDelta, dictionary,
+                                       IpcWriteOptions::Defaults(), &payload));
     RETURN_NOT_OK(payload_writer_->WritePayload(payload));
     return Status::OK();
   }
@@ -1297,7 +1283,7 @@ class TestRecordBatchWriter : public RecordBatchWriter {
     return payload_writer_->WritePayload(payload);
   }
 
-  Status Close() override {
+  Status Close() {
     RETURN_NOT_OK(payload_writer_->Close());
     return sink_->Close();
   }
@@ -1322,25 +1308,24 @@ TEST(TestDictionaryBatch, CombineDictionary) {
   std::shared_ptr<RecordBatch> out_batch;
   ASSERT_OK(MakeDictionaryBatch(&in_batch));
 
-  auto dict_ty = utf8();
-  auto dict1 = ArrayFromJSON(dict_ty, "[\"foo\", \"bar\"]");
-  auto dict2 = ArrayFromJSON(dict_ty, "[\"baz\"]");
+  auto dict1 = ArrayFromJSON(utf8(), "[\"foo\", \"bar\"]");
+  auto dict2 = ArrayFromJSON(utf8(), "[\"baz\"]");
 
-  TestRecordBatchWriter writer(*in_batch->schema());
-  ASSERT_OK(writer.Start());
+  DictionaryBatchHelper helper(*in_batch->schema());
+  ASSERT_OK(helper.Start());
 
   // combine dictionaries to make up the
   // original dictionaries.
-  ASSERT_OK(writer.WriteDictionary(0L, dict1, false));
-  ASSERT_OK(writer.WriteDictionary(0L, dict2, true));
+  ASSERT_OK(helper.WriteDictionary(0L, dict1, false));
+  ASSERT_OK(helper.WriteDictionary(0L, dict2, true));
 
-  ASSERT_OK(writer.WriteDictionary(1L, dict1, false));
-  ASSERT_OK(writer.WriteDictionary(1L, dict2, true));
+  ASSERT_OK(helper.WriteDictionary(1L, dict1, false));
+  ASSERT_OK(helper.WriteDictionary(1L, dict2, true));
 
-  ASSERT_OK(writer.WriteBatchPayload(*in_batch));
-  ASSERT_OK(writer.Close());
+  ASSERT_OK(helper.WriteBatchPayload(*in_batch));
+  ASSERT_OK(helper.Close());
 
-  ASSERT_OK(writer.ReadBatch(&out_batch));
+  ASSERT_OK(helper.ReadBatch(&out_batch));
 
   ASSERT_BATCHES_EQUAL(*in_batch, *out_batch);
 }
@@ -1350,26 +1335,25 @@ TEST(TestDictionaryBatch, ReplaceDictionary) {
   std::shared_ptr<RecordBatch> out_batch;
   ASSERT_OK(MakeDictionaryBatch(&in_batch));
 
-  auto dict_ty = utf8();
-  auto dict = ArrayFromJSON(dict_ty, "[\"foo\", \"bar\", \"baz\"]");
-  auto dict1 = ArrayFromJSON(dict_ty, "[\"foo1\", \"bar1\", \"baz1\"]");
-  auto dict2 = ArrayFromJSON(dict_ty, "[\"foo2\", \"bar2\", \"baz2\"]");
+  auto dict = ArrayFromJSON(utf8(), "[\"foo\", \"bar\", \"baz\"]");
+  auto dict1 = ArrayFromJSON(utf8(), "[\"foo1\", \"bar1\", \"baz1\"]");
+  auto dict2 = ArrayFromJSON(utf8(), "[\"foo2\", \"bar2\", \"baz2\"]");
 
-  TestRecordBatchWriter writer(*in_batch->schema());
-  ASSERT_OK(writer.Start());
+  DictionaryBatchHelper helper(*in_batch->schema());
+  ASSERT_OK(helper.Start());
 
   // the old dictionaries will be overwritten by
   // the new dictionaries with the same ids.
-  ASSERT_OK(writer.WriteDictionary(0L, dict1, false));
-  ASSERT_OK(writer.WriteDictionary(0L, dict, false));
+  ASSERT_OK(helper.WriteDictionary(0L, dict1, false));
+  ASSERT_OK(helper.WriteDictionary(0L, dict, false));
 
-  ASSERT_OK(writer.WriteDictionary(1L, dict2, false));
-  ASSERT_OK(writer.WriteDictionary(1L, dict, false));
+  ASSERT_OK(helper.WriteDictionary(1L, dict2, false));
+  ASSERT_OK(helper.WriteDictionary(1L, dict, false));
 
-  ASSERT_OK(writer.WriteBatchPayload(*in_batch));
-  ASSERT_OK(writer.Close());
+  ASSERT_OK(helper.WriteBatchPayload(*in_batch));
+  ASSERT_OK(helper.Close());
 
-  ASSERT_OK(writer.ReadBatch(&out_batch));
+  ASSERT_OK(helper.ReadBatch(&out_batch));
 
   ASSERT_BATCHES_EQUAL(*in_batch, *out_batch);
 }

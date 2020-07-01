@@ -29,7 +29,6 @@
 #include <flatbuffers/flatbuffers.h>  // IWYU pragma: export
 
 #include "arrow/array.h"
-#include "arrow/array/concatenate.h"
 #include "arrow/buffer.h"
 #include "arrow/extension_type.h"
 #include "arrow/io/interfaces.h"
@@ -686,18 +685,9 @@ Status ReadDictionary(const Buffer& metadata, DictionaryMemo* dictionary_memo,
   }
   auto dictionary = batch->column(0);
   if (dictionary_batch->isDelta()) {
-    std::shared_ptr<Array> originalDict, combinedDict;
-    RETURN_NOT_OK(dictionary_memo->GetDictionary(id, &originalDict));
-    ArrayVector dictsToCombine{originalDict, dictionary};
-    ARROW_ASSIGN_OR_RAISE(combinedDict, Concatenate(dictsToCombine, options.memory_pool));
-    return dictionary_memo->UpdateDictionary(id, combinedDict);
+    return dictionary_memo->AddDictionaryDelta(id, dictionary, options.memory_pool);
   }
-
-  if (dictionary_memo->HasDictionary(id)) {
-    return dictionary_memo->UpdateDictionary(id, dictionary);
-  } else {
-    return dictionary_memo->AddDictionary(id, dictionary);
-  }
+  return dictionary_memo->AddOrReplaceDictionary(id, dictionary);
 }
 
 Status ParseDictionary(const Message& message, DictionaryMemo* dictionary_memo,
