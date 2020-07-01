@@ -122,7 +122,7 @@ def test_numerics():
     assert s.as_py() == 1
 
     with pytest.raises(OverflowError):
-        pa.scalar(-1, type=pa.uint8())
+        pa.scalar(-1, type='uint8')
 
     # float64
     s = pa.scalar(1.5)
@@ -132,7 +132,7 @@ def test_numerics():
     assert s.as_py() == 1.5
 
     # float16
-    s = pa.scalar(np.float16(0.5), type=pa.float16())
+    s = pa.scalar(np.float16(0.5), type='float16')
     assert isinstance(s, pa.HalfFloatScalar)
     assert repr(s) == "<pyarrow.HalfFloatScalar: 0.5>"
     assert str(s) == "0.5"
@@ -364,10 +364,28 @@ def test_list_from_numpy():
     assert s.as_py() == [1, 2, 3]
 
 
-# @pytest.mark.pandas
-# def test_list_from_pandas():
-#     import pandas as pd
-#     pa.scalar(pd.Series([1, 2, 3]), from_pandas=True))
+@pytest.mark.pandas
+def test_list_from_pandas():
+    import pandas as pd
+
+    s = pa.scalar(pd.Series([1, 2, 3]))
+    assert s.as_py() == [1, 2, 3]
+
+    cases = [
+        (np.nan, 'null'),
+        (['string', np.nan], pa.list_(pa.binary())),
+        (['string', np.nan], pa.list_(pa.utf8())),
+        ([b'string', np.nan], pa.list_(pa.binary(6))),
+        ([True, np.nan], pa.list_(pa.bool_())),
+        ([decimal.Decimal('0'), np.nan], pa.list_(pa.decimal128(12, 2))),
+    ]
+    for case, ty in cases:
+        # Both types of exceptions are raised. May want to clean that up
+        with pytest.raises((ValueError, TypeError)):
+            pa.scalar(case, type=ty)
+
+        # from_pandas option suppresses failure
+        s = pa.scalar(case, type=ty, from_pandas=True)
 
 
 def test_fixed_size_list():

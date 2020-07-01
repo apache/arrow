@@ -787,8 +787,7 @@ cdef dict _scalar_classes = {
 }
 
 
-def scalar(value, DataType type=None, *, from_pandas=None,
-           MemoryPool memory_pool=None):
+def scalar(value, type=None, *, from_pandas=None, MemoryPool memory_pool=None):
     """
     Create a pyarrow.Scalar instance from a Python object.
 
@@ -811,12 +810,6 @@ def scalar(value, DataType type=None, *, from_pandas=None,
     -------
     scalar : pyarrow.Scalar
 
-    Notes
-    -----
-    Localized timestamps will currently be returned as UTC (pandas's native
-    representation). Timezone-naive data will be implicitly interpreted as
-    UTC.
-
     Examples
     --------
     >>> import pyarrow as pa
@@ -834,16 +827,29 @@ def scalar(value, DataType type=None, *, from_pandas=None,
     <pyarrow.ListScalar: [1, 2]>
     """
     cdef:
+        DataType ty
         PyConversionOptions options
         shared_ptr[CScalar] scalar
         shared_ptr[CArray] array
         shared_ptr[CChunkedArray] chunked
+        bint is_pandas_object = False
+
+    type = ensure_type(type, allow_none=True)
+
+    if _is_array_like(value):
+        value = get_values(value, &is_pandas_object)
 
     options.size = 1
     options.pool = maybe_unbox_memory_pool(memory_pool)
-    options.from_pandas = from_pandas
+
     if type is not None:
-        options.type = type.sp_type
+        ty = ensure_type(type)
+        options.type = ty.sp_type
+
+    if from_pandas is None:
+        options.from_pandas = is_pandas_object
+    else:
+        options.from_pandas = from_pandas
 
     value = [value]
     with nogil:
