@@ -27,29 +27,27 @@ test_that("read_table handles various input streams (ARROW-3450, ARROW-3505)", {
 
   tf <- tempfile()
   on.exit(unlink(tf))
-  write_arrow(tab, tf)
+  expect_deprecated(
+    write_arrow(tab, tf),
+    "write_feather"
+  )
 
-  bytes <- write_arrow(tab, raw())
-
-  tab1 <- read_arrow(tf, as_data_frame = FALSE)
+  tab1 <- read_feather(tf, as_data_frame = FALSE)
   tab2 <- read_feather(normalizePath(tf), as_data_frame = FALSE)
 
   readable_file <- ReadableFile$create(tf)
-  tab3 <- read_arrow(readable_file, as_data_frame = FALSE)
+  expect_deprecated(
+    tab3 <- read_arrow(readable_file, as_data_frame = FALSE),
+    "read_feather"
+  )
   readable_file$close()
 
   mmap_file <- mmap_open(tf)
-  # check for deprecation message
-  expect_deprecated(
-    tab4 <- read_table(mmap_file),
-    "read_arrow"
-  )
   mmap_file$close()
 
   expect_equal(tab, tab1)
   expect_equal(tab, tab2)
   expect_equal(tab, tab3)
-  expect_equal(tab, tab4)
 })
 
 test_that("Table cast (ARROW-3741)", {

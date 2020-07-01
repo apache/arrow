@@ -32,6 +32,8 @@
 * Tables and RecordBatches have additional data.frame-like methods, including `dimnames()` and `as.list()`
 * Linux installation: some tweaks to OS detection for binaries, some updates to known installation issues in the vignette.
 * Various streamlining efforts to reduce library size and compile time.
+* `read_arrow` and `write_arrow` are now deprecated; use the `read/write_feather()` and `read/write_ipc_stream()` functions depending on whether you're working with the Arrow IPC file or stream format, respectively.
+* Previously deprecated `FileStats`, `read_record_batch`, and `read_table` have been removed.
 
 # arrow 0.17.1
 
