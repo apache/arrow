@@ -1388,7 +1388,7 @@ class ARROW_EXPORT DurationType : public TemporalType, public ParametricType {
 // in memory)
 
 /// \brief Dictionary-encoded value type with data-dependent
-/// dictionary
+/// dictionary. Indices are represented by any integer types.
 class ARROW_EXPORT DictionaryType : public FixedWidthType {
  public:
   static constexpr Type::type type_id = Type::DICTIONARY;
