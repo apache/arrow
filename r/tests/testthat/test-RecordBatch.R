@@ -366,20 +366,3 @@ test_that("RecordBatch$Equals(check_metadata)", {
 
   expect_false(rb1$Equals(24)) # Not a RecordBatch
 })
-
-test_that("RecordBatch metadata", {
-  rb <- RecordBatch$create(x = 1:2, y = c("a", "b"))
-  expect_equivalent(rb$metadata, list())
-  rb$metadata <- list(test = TRUE)
-  expect_identical(rb$metadata, list(test = "TRUE"))
-  rb$metadata$foo <- 42
-  expect_identical(rb$metadata, list(test = "TRUE", foo = "42"))
-  rb$metadata$foo <- NULL
-  expect_identical(rb$metadata, list(test = "TRUE"))
-  rb$metadata <- NULL
-  expect_equivalent(rb$metadata, list())
-})
-
-test_that("RecordBatch R metadata", {
-  expect_identical(as.data.frame(record_batch(example_with_metadata)), example_with_metadata)
-})

@@ -92,7 +92,7 @@ In the tables, entries with a `-` are not currently implemented.
 | raw                      | uint8      |
 | Date                     | date32     |
 | POSIXct                  | timestamp  |
-| POSIXlt                  | -          |
+| POSIXlt                  | struct     |
 | data.frame               | struct     |
 | list^+^                  | list       |
 | bit64::integer64         | int64      |
@@ -139,6 +139,14 @@ In the tables, entries with a `-` are not currently implemented.
 | large_list        | -                        |
 
 ^++^: Due to the limitation of R `factor`s, Arrow `dictionary` values are coerced to string when translated to R if they are not already strings.
+
+### R object attributes
+
+Arrow supports custom key-value metadata attached to Schemas. When we convert a `data.frame` to an Arrow Table or RecordBatch, the package stores any `attributes()` attached to the columns of the `data.frame` in the Arrow object's Schema. These attributes are stored under the "r" key; you can assign additional string metadata under any other key you wish, like `x$metadata$new_key <- "new value"`.
+
+This metadata is preserved when writing the table to Feather or Parquet, and when reading those files into R, or when calling `as.data.frame()` on a Table/RecordBatch, the column attributes are restored to the columns of the resulting `data.frame`. This means that custom data types, including `haven::labelled`, `vctrs` annotations, and others, are preserved when doing a round-trip through Arrow.
+
+Note that the `attributes()` stored in `$metadata$r` are only understood by R. If you write a `data.frame` with `haven` columns to a Feather file and read that in Pandas, the `haven` metadata won't be recognized there. (Similarly, Pandas writes its own custom metadata, which the R package does not consume.) You are free, however, to define custom metadata conventions for your application and assign any (string) values you want to other metadata keys.
 
 ## Class structure and package conventions
 

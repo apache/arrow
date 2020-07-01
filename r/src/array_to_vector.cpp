@@ -535,7 +535,10 @@ class Converter_Timestamp : public Converter_Time<value_type, TimestampType> {
     Rf_classgets(data, arrow::r::data::classes_POSIXct);
     auto array = checked_cast<const TimestampArray*>(this->arrays_[0].get());
     auto array_type = checked_cast<const TimestampType*>(array->type().get());
-    data.attr("tzone") = array_type->timezone();
+    std::string tzone = array_type->timezone();
+    if (tzone.size() > 0) {
+      data.attr("tzone") = tzone;
+    }
     return data;
   }
 };
