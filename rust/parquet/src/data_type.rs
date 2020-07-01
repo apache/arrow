@@ -623,8 +623,8 @@ impl FromBytes for ByteArray {
     fn from_be_bytes(_bs: Self::Buffer) -> Self {
         unreachable!()
     }
-    fn from_ne_bytes(_bs: Self::Buffer) -> Self {
-        unreachable!()
+    fn from_ne_bytes(bs: Self::Buffer) -> Self {
+        ByteArray::from(bs.to_vec())
     }
 }
 

@@ -630,13 +630,13 @@ mod tests {
                 Some(ByteArray::from(vec![1, 2, 3])),
                 None,
                 0,
-                true
+                true,
             ) != Statistics::fixed_len_byte_array(
                 Some(ByteArray::from(vec![1, 2, 3])),
                 Some(ByteArray::from(vec![1, 2, 3])),
                 None,
                 0,
-                true
+                true,
             )
         );
     }
