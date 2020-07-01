@@ -532,14 +532,14 @@ class RecordBatchSerializer {
 
 class DictionarySerializer : public RecordBatchSerializer {
  public:
-  DictionarySerializer(int64_t dictionary_id, bool isDelta, int64_t buffer_start_offset,
+  DictionarySerializer(int64_t dictionary_id, bool is_delta, int64_t buffer_start_offset,
                        const IpcWriteOptions& options, IpcPayload* out)
       : RecordBatchSerializer(buffer_start_offset, options, out),
         dictionary_id_(dictionary_id),
-        isDelta_(isDelta) {}
+        is_delta_(is_delta) {}
 
   Status SerializeMetadata(int64_t num_rows) override {
-    return WriteDictionaryMessage(dictionary_id_, isDelta_, num_rows, out_->body_length,
+    return WriteDictionaryMessage(dictionary_id_, is_delta_, num_rows, out_->body_length,
                                   custom_metadata_, field_nodes_, buffer_meta_, options_,
                                   &out_->metadata);
   }
@@ -553,7 +553,7 @@ class DictionarySerializer : public RecordBatchSerializer {
 
  private:
   int64_t dictionary_id_;
-  bool isDelta_;
+  bool is_delta_;
 };
 
 }  // namespace internal
@@ -605,12 +605,12 @@ Status GetDictionaryPayload(int64_t id, const std::shared_ptr<Array>& dictionary
   return GetDictionaryPayload(id, false, dictionary, options, out);
 }
 
-Status GetDictionaryPayload(int64_t id, bool isDelta,
+Status GetDictionaryPayload(int64_t id, bool is_delta,
                             const std::shared_ptr<Array>& dictionary,
                             const IpcWriteOptions& options, IpcPayload* out) {
   out->type = MessageType::DICTIONARY_BATCH;
   // Frame of reference is 0, see ARROW-384
-  internal::DictionarySerializer assembler(id, isDelta, /*buffer_start_offset=*/0,
+  internal::DictionarySerializer assembler(id, is_delta, /*buffer_start_offset=*/0,
                                            options, out);
   return assembler.Assemble(dictionary);
 }

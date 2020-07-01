@@ -299,13 +299,13 @@ Status GetDictionaryPayload(int64_t id, const std::shared_ptr<Array>& dictionary
 
 /// \brief Compute IpcPayload for a dictionary
 /// \param[in] id the dictionary id
-/// \param[in] isDelta whether the dictionary is a delta dictionary
+/// \param[in] is_delta whether the dictionary is a delta dictionary
 /// \param[in] dictionary the dictionary values
 /// \param[in] options options for serialization
 /// \param[out] payload the output IpcPayload
 /// \return Status
 ARROW_EXPORT
-Status GetDictionaryPayload(int64_t id, bool isDelta,
+Status GetDictionaryPayload(int64_t id, bool is_delta,
                             const std::shared_ptr<Array>& dictionary,
                             const IpcWriteOptions& options, IpcPayload* payload);
 

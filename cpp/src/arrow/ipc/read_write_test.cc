@@ -1268,9 +1268,9 @@ class DictionaryBatchHelper {
   }
 
   Status WriteDictionary(int64_t dictionary_id, const std::shared_ptr<Array>& dictionary,
-                         bool isDelta) {
+                         bool is_delta) {
     IpcPayload payload;
-    RETURN_NOT_OK(GetDictionaryPayload(dictionary_id, isDelta, dictionary,
+    RETURN_NOT_OK(GetDictionaryPayload(dictionary_id, is_delta, dictionary,
                                        IpcWriteOptions::Defaults(), &payload));
     RETURN_NOT_OK(payload_writer_->WritePayload(payload));
     return Status::OK();
@@ -1303,7 +1303,7 @@ class DictionaryBatchHelper {
   std::unique_ptr<io::BufferOutputStream> sink_;
 };
 
-TEST(TestDictionaryBatch, CombineDictionary) {
+TEST(TestDictionaryBatch, DictionaryDelta) {
   std::shared_ptr<RecordBatch> in_batch;
   std::shared_ptr<RecordBatch> out_batch;
   ASSERT_OK(MakeDictionaryBatch(&in_batch));
@@ -1314,13 +1314,11 @@ TEST(TestDictionaryBatch, CombineDictionary) {
   DictionaryBatchHelper helper(*in_batch->schema());
   ASSERT_OK(helper.Start());
 
-  // combine dictionaries to make up the
-  // original dictionaries.
-  ASSERT_OK(helper.WriteDictionary(0L, dict1, false));
-  ASSERT_OK(helper.WriteDictionary(0L, dict2, true));
+  ASSERT_OK(helper.WriteDictionary(0L, dict1, /*is_delta=*/false));
+  ASSERT_OK(helper.WriteDictionary(0L, dict2, /*is_delta=*/true));
 
-  ASSERT_OK(helper.WriteDictionary(1L, dict1, false));
-  ASSERT_OK(helper.WriteDictionary(1L, dict2, true));
+  ASSERT_OK(helper.WriteDictionary(1L, dict1, /*is_delta=*/false));
+  ASSERT_OK(helper.WriteDictionary(1L, dict2, /*is_delta=*/true));
 
   ASSERT_OK(helper.WriteBatchPayload(*in_batch));
   ASSERT_OK(helper.Close());
@@ -1330,7 +1328,30 @@ TEST(TestDictionaryBatch, CombineDictionary) {
   ASSERT_BATCHES_EQUAL(*in_batch, *out_batch);
 }
 
-TEST(TestDictionaryBatch, ReplaceDictionary) {
+TEST(TestDictionaryBatch, DictionaryDeltaWithUnknownId) {
+  std::shared_ptr<RecordBatch> in_batch;
+  std::shared_ptr<RecordBatch> out_batch;
+  ASSERT_OK(MakeDictionaryBatch(&in_batch));
+
+  auto dict1 = ArrayFromJSON(utf8(), "[\"foo\", \"bar\"]");
+  auto dict2 = ArrayFromJSON(utf8(), "[\"baz\"]");
+
+  DictionaryBatchHelper helper(*in_batch->schema());
+  ASSERT_OK(helper.Start());
+
+  ASSERT_OK(helper.WriteDictionary(0L, dict1, /*is_delta=*/false));
+  ASSERT_OK(helper.WriteDictionary(0L, dict2, /*is_delta=*/true));
+
+  /* This delta dictionary does not have a base dictionary previously in stream */
+  ASSERT_OK(helper.WriteDictionary(1L, dict2, /*is_delta=*/true));
+
+  ASSERT_OK(helper.WriteBatchPayload(*in_batch));
+  ASSERT_OK(helper.Close());
+
+  ASSERT_RAISES(KeyError, helper.ReadBatch(&out_batch));
+}
+
+TEST(TestDictionaryBatch, DictionaryReplacement) {
   std::shared_ptr<RecordBatch> in_batch;
   std::shared_ptr<RecordBatch> out_batch;
   ASSERT_OK(MakeDictionaryBatch(&in_batch));
@@ -1344,11 +1365,11 @@ TEST(TestDictionaryBatch, ReplaceDictionary) {
 
   // the old dictionaries will be overwritten by
   // the new dictionaries with the same ids.
-  ASSERT_OK(helper.WriteDictionary(0L, dict1, false));
-  ASSERT_OK(helper.WriteDictionary(0L, dict, false));
+  ASSERT_OK(helper.WriteDictionary(0L, dict1, /*is_delta=*/false));
+  ASSERT_OK(helper.WriteDictionary(0L, dict, /*is_delta=*/false));
 
-  ASSERT_OK(helper.WriteDictionary(1L, dict2, false));
-  ASSERT_OK(helper.WriteDictionary(1L, dict, false));
+  ASSERT_OK(helper.WriteDictionary(1L, dict2, /*is_delta=*/false));
+  ASSERT_OK(helper.WriteDictionary(1L, dict, /*is_delta=*/false));
 
   ASSERT_OK(helper.WriteBatchPayload(*in_batch));
   ASSERT_OK(helper.Close());
