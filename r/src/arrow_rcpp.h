@@ -34,6 +34,7 @@ struct symbols {
   static SEXP row_names;
   static SEXP serialize_arrow_r_metadata;
   static SEXP as_list;
+  static SEXP ptype;
 };
 
 struct data {
@@ -41,6 +42,8 @@ struct data {
   static SEXP classes_metadata_r;
 
   static SEXP names_metadata;
+  static SEXP classes_vctrs_list_of;
+  static SEXP empty_raw;
 };
 
 struct ns {

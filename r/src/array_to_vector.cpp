@@ -19,6 +19,7 @@
 #if defined(ARROW_R_WITH_ARROW)
 
 #include <arrow/array.h>
+#include <arrow/builder.h>
 #include <arrow/datum.h>
 #include <arrow/table.h>
 #include <arrow/util/bitmap_reader.h>
@@ -186,6 +187,7 @@ class Converter_Date32 : public Converter_SimpleArray<REALSXP> {
   }
 };
 
+template <typename StringArrayType>
 struct Converter_String : public Converter {
  public:
   explicit Converter_String(const ArrayVector& arrays) : Converter(arrays) {}
@@ -220,7 +222,7 @@ struct Converter_String : public Converter {
       return Status::OK();
     }
 
-    arrow::StringArray* string_array = static_cast<arrow::StringArray*>(array.get());
+    StringArrayType* string_array = static_cast<StringArrayType*>(array.get());
     if (array->null_count()) {
       // need to watch for nulls
       arrow::internal::BitmapReader null_reader(array->null_bitmap_data(),
@@ -278,6 +280,61 @@ class Converter_Boolean : public Converter {
     } else {
       for (R_xlen_t i = 0; i < n; i++, data_reader.Next(), ++p_data) {
         *p_data = data_reader.IsSet();
+      }
+    }
+
+    return Status::OK();
+  }
+};
+
+template <typename ArrayType>
+class Converter_Binary : public Converter {
+ public:
+  using offset_type = typename ArrayType::offset_type;
+  explicit Converter_Binary(const ArrayVector& arrays) : Converter(arrays) {}
+
+  SEXP Allocate(R_xlen_t n) const {
+    SEXP res = PROTECT(Rf_allocVector(VECSXP, n));
+    Rf_setAttrib(res, R_ClassSymbol, data::classes_vctrs_list_of);
+    Rf_setAttrib(res, symbols::ptype, data::empty_raw);
+    UNPROTECT(1);
+    return res;
+  }
+
+  Status Ingest_all_nulls(SEXP data, R_xlen_t start, R_xlen_t n) const {
+    return Status::OK();
+  }
+
+  Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
+                           R_xlen_t start, R_xlen_t n) const {
+    const ArrayType* binary_array = checked_cast<const ArrayType*>(array.get());
+
+    auto ingest_one = [&](R_xlen_t i) {
+      offset_type ni;
+      auto value = binary_array->GetValue(i, &ni);
+      if (ni > R_XLEN_T_MAX) {
+        return Status::RError("Array too big to be represented as a raw vector");
+      }
+      SEXP raw = PROTECT(Rf_allocVector(RAWSXP, ni));
+      std::copy(value, value + ni, RAW(raw));
+
+      SET_VECTOR_ELT(data, i, raw);
+      UNPROTECT(1);
+
+      return Status::OK();
+    };
+
+    if (array->null_count()) {
+      internal::BitmapReader bitmap_reader(array->null_bitmap()->data(), array->offset(),
+                                           n);
+
+      for (R_xlen_t i = 0; i < n; i++, bitmap_reader.Next()) {
+        if (bitmap_reader.IsSet()) RETURN_NOT_OK(ingest_one(i));
+      }
+
+    } else {
+      for (R_xlen_t i = 0; i < n; i++) {
+        RETURN_NOT_OK(ingest_one(i));
       }
     }
 
@@ -579,11 +636,33 @@ class Converter_Decimal : public Converter {
   }
 };
 
+template <typename ListArrayType>
 class Converter_List : public Converter {
- public:
-  explicit Converter_List(const ArrayVector& arrays) : Converter(arrays) {}
+ private:
+  std::shared_ptr<arrow::DataType> value_type_;
 
-  SEXP Allocate(R_xlen_t n) const { return Rcpp::List(no_init(n)); }
+ public:
+  explicit Converter_List(const ArrayVector& arrays,
+                          const std::shared_ptr<arrow::DataType>& value_type)
+      : Converter(arrays), value_type_(value_type) {}
+
+  SEXP Allocate(R_xlen_t n) const {
+    Rcpp::List res(no_init(n));
+    Rf_setAttrib(res, R_ClassSymbol, arrow::r::data::classes_vctrs_list_of);
+
+    // Build an empty array to match value_type
+    std::unique_ptr<arrow::ArrayBuilder> builder;
+    StopIfNotOk(arrow::MakeBuilder(arrow::default_memory_pool(), value_type_, &builder));
+
+    std::shared_ptr<arrow::Array> array;
+    StopIfNotOk(builder->Finish(&array));
+
+    // convert to an R object to store as the list' ptype
+    SEXP ptype = Array__as_vector(array);
+    Rf_setAttrib(res, arrow::r::symbols::ptype, ptype);
+
+    return res;
+  }
 
   Status Ingest_all_nulls(SEXP data, R_xlen_t start, R_xlen_t n) const {
     // nothing to do, list contain NULL by default
@@ -592,7 +671,7 @@ class Converter_List : public Converter {
 
   Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
                            R_xlen_t start, R_xlen_t n) const {
-    auto list_array = checked_cast<const arrow::ListArray*>(array.get());
+    auto list_array = checked_cast<const ListArrayType*>(array.get());
     auto values_array = list_array->values();
 
     auto ingest_one = [&](R_xlen_t i) {
@@ -711,9 +790,22 @@ std::shared_ptr<Converter> Converter::Make(const std::shared_ptr<DataType>& type
     case Type::BOOL:
       return std::make_shared<arrow::r::Converter_Boolean>(std::move(arrays));
 
+    case Type::BINARY:
+      return std::make_shared<arrow::r::Converter_Binary<arrow::BinaryArray>>(
+          std::move(arrays));
+
+    case Type::LARGE_BINARY:
+      return std::make_shared<arrow::r::Converter_Binary<arrow::LargeBinaryArray>>(
+          std::move(arrays));
+
       // handle memory dense strings
     case Type::STRING:
-      return std::make_shared<arrow::r::Converter_String>(std::move(arrays));
+      return std::make_shared<arrow::r::Converter_String<arrow::StringArray>>(
+          std::move(arrays));
+
+    case Type::LARGE_STRING:
+      return std::make_shared<arrow::r::Converter_String<arrow::LargeStringArray>>(
+          std::move(arrays));
 
     case Type::DICTIONARY:
       return std::make_shared<arrow::r::Converter_Dictionary>(std::move(arrays));
@@ -796,7 +888,14 @@ std::shared_ptr<Converter> Converter::Make(const std::shared_ptr<DataType>& type
       return std::make_shared<arrow::r::Converter_Struct>(std::move(arrays));
 
     case Type::LIST:
-      return std::make_shared<arrow::r::Converter_List>(std::move(arrays));
+      return std::make_shared<arrow::r::Converter_List<arrow::ListArray>>(
+          std::move(arrays),
+          checked_cast<const arrow::ListType*>(type.get())->value_type());
+
+    case Type::LARGE_LIST:
+      return std::make_shared<arrow::r::Converter_List<arrow::LargeListArray>>(
+          std::move(arrays),
+          checked_cast<const arrow::LargeListType*>(type.get())->value_type());
 
     case Type::NA:
       return std::make_shared<arrow::r::Converter_Null>(std::move(arrays));

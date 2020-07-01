@@ -81,7 +81,15 @@ std::shared_ptr<arrow::DataType> Boolean__initialize() { return arrow::boolean()
 std::shared_ptr<arrow::DataType> Utf8__initialize() { return arrow::utf8(); }
 
 // [[arrow::export]]
+std::shared_ptr<arrow::DataType> LargeUtf8__initialize() { return arrow::large_utf8(); }
+
+// [[arrow::export]]
 std::shared_ptr<arrow::DataType> Binary__initialize() { return arrow::binary(); }
+
+// [[arrow::export]]
+std::shared_ptr<arrow::DataType> LargeBinary__initialize() {
+  return arrow::large_binary();
+}
 
 // [[arrow::export]]
 std::shared_ptr<arrow::DataType> Date32__initialize() { return arrow::date32(); }
@@ -136,6 +144,22 @@ SEXP list__(SEXP x) {
   if (Rf_inherits(x, "DataType")) {
     Rcpp::ConstReferenceSmartPtrInputParameter<std::shared_ptr<arrow::DataType>> type(x);
     return wrap(arrow::list(type));
+  }
+
+  stop("incompatible");
+  return R_NilValue;
+}
+
+// [[arrow::export]]
+SEXP large_list__(SEXP x) {
+  if (Rf_inherits(x, "Field")) {
+    Rcpp::ConstReferenceSmartPtrInputParameter<std::shared_ptr<arrow::Field>> field(x);
+    return wrap(arrow::large_list(field));
+  }
+
+  if (Rf_inherits(x, "DataType")) {
+    Rcpp::ConstReferenceSmartPtrInputParameter<std::shared_ptr<arrow::DataType>> type(x);
+    return wrap(arrow::large_list(type));
   }
 
   stop("incompatible");
@@ -269,6 +293,18 @@ std::shared_ptr<arrow::Field> ListType__value_field(
 // [[arrow::export]]
 std::shared_ptr<arrow::DataType> ListType__value_type(
     const std::shared_ptr<arrow::ListType>& type) {
+  return type->value_type();
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::Field> LargeListType__value_field(
+    const std::shared_ptr<arrow::LargeListType>& type) {
+  return type->value_field();
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::DataType> LargeListType__value_type(
+    const std::shared_ptr<arrow::LargeListType>& type) {
   return type->value_type();
 }
 

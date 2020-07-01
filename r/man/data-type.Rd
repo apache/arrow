@@ -18,7 +18,9 @@
 \alias{boolean}
 \alias{bool}
 \alias{utf8}
+\alias{large_utf8}
 \alias{binary}
+\alias{large_binary}
 \alias{string}
 \alias{date32}
 \alias{date64}
@@ -28,6 +30,7 @@
 \alias{timestamp}
 \alias{decimal}
 \alias{list_of}
+\alias{large_list_of}
 \alias{struct}
 \title{Apache Arrow data types}
 \usage{
@@ -63,7 +66,11 @@ bool()
 
 utf8()
 
+large_utf8()
+
 binary(byte_width = NULL)
+
+large_binary()
 
 string()
 
@@ -82,6 +89,8 @@ timestamp(unit = c("s", "ms", "us", "ns"), timezone = "")
 decimal(precision, scale)
 
 list_of(type)
+
+large_list_of(type)
 
 struct(...)
 }

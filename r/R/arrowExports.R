@@ -92,20 +92,40 @@ ListArray__value_type <- function(array){
     .Call(`_arrow_ListArray__value_type` , array)
 }
 
+LargeListArray__value_type <- function(array){
+    .Call(`_arrow_LargeListArray__value_type` , array)
+}
+
 ListArray__values <- function(array){
     .Call(`_arrow_ListArray__values` , array)
+}
+
+LargeListArray__values <- function(array){
+    .Call(`_arrow_LargeListArray__values` , array)
 }
 
 ListArray__value_length <- function(array, i){
     .Call(`_arrow_ListArray__value_length` , array, i)
 }
 
+LargeListArray__value_length <- function(array, i){
+    .Call(`_arrow_LargeListArray__value_length` , array, i)
+}
+
 ListArray__value_offset <- function(array, i){
     .Call(`_arrow_ListArray__value_offset` , array, i)
 }
 
+LargeListArray__value_offset <- function(array, i){
+    .Call(`_arrow_LargeListArray__value_offset` , array, i)
+}
+
 ListArray__raw_value_offsets <- function(array){
     .Call(`_arrow_ListArray__raw_value_offsets` , array)
+}
+
+LargeListArray__raw_value_offsets <- function(array){
+    .Call(`_arrow_LargeListArray__raw_value_offsets` , array)
 }
 
 Array__infer_type <- function(x){
@@ -484,8 +504,16 @@ Utf8__initialize <- function(){
     .Call(`_arrow_Utf8__initialize` )
 }
 
+LargeUtf8__initialize <- function(){
+    .Call(`_arrow_LargeUtf8__initialize` )
+}
+
 Binary__initialize <- function(){
     .Call(`_arrow_Binary__initialize` )
+}
+
+LargeBinary__initialize <- function(){
+    .Call(`_arrow_LargeBinary__initialize` )
 }
 
 Date32__initialize <- function(){
@@ -522,6 +550,10 @@ Time64__initialize <- function(unit){
 
 list__ <- function(x){
     .Call(`_arrow_list__` , x)
+}
+
+large_list__ <- function(x){
+    .Call(`_arrow_large_list__` , x)
 }
 
 struct_ <- function(fields){
@@ -618,6 +650,14 @@ ListType__value_field <- function(type){
 
 ListType__value_type <- function(type){
     .Call(`_arrow_ListType__value_type` , type)
+}
+
+LargeListType__value_field <- function(type){
+    .Call(`_arrow_LargeListType__value_field` , type)
+}
+
+LargeListType__value_type <- function(type){
+    .Call(`_arrow_LargeListType__value_type` , type)
 }
 
 dataset___expr__field_ref <- function(name){
