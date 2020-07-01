@@ -19,15 +19,18 @@
 #if defined(ARROW_R_WITH_ARROW)
 
 #include <arrow/array.h>
+#include <arrow/datum.h>
 #include <arrow/table.h>
 #include <arrow/util/bitmap_reader.h>
 #include <arrow/util/bitmap_writer.h>
+#include <arrow/util/int_util.h>
 #include <arrow/util/parallel.h>
 #include <arrow/util/task_group.h>
 
 namespace arrow {
 
 using internal::checked_cast;
+using internal::IntegersCanFit;
 
 namespace r {
 
@@ -676,6 +679,17 @@ class Converter_Null : public Converter {
   }
 };
 
+bool ArraysCanFitInteger(ArrayVector arrays) {
+  bool out = false;
+  auto i32 = arrow::int32();
+  for (const auto& array : arrays) {
+    if (!out) {
+      out = arrow::IntegersCanFit(arrow::Datum(array), *i32).ok();
+    }
+  }
+  return out;
+}
+
 std::shared_ptr<Converter> Converter::Make(const std::shared_ptr<DataType>& type,
                                            ArrayVector arrays) {
   if (arrays.empty()) {
@@ -727,14 +741,24 @@ std::shared_ptr<Converter> Converter::Make(const std::shared_ptr<DataType>& type
       return std::make_shared<arrow::r::Converter_Promotion<INTSXP, arrow::UInt16Type>>(
           std::move(arrays));
 
-      // promotions to numeric vector
+      // promotions to numeric vector, if they don't fit into int32
     case Type::UINT32:
-      return std::make_shared<arrow::r::Converter_Promotion<REALSXP, arrow::UInt32Type>>(
-          std::move(arrays));
+      if (ArraysCanFitInteger(arrays)) {
+        return std::make_shared<arrow::r::Converter_Promotion<INTSXP, arrow::UInt32Type>>(
+            std::move(arrays));
+      } else {
+        return std::make_shared<
+            arrow::r::Converter_Promotion<REALSXP, arrow::UInt32Type>>(std::move(arrays));
+      }
 
     case Type::UINT64:
-      return std::make_shared<arrow::r::Converter_Promotion<REALSXP, arrow::UInt64Type>>(
-          std::move(arrays));
+      if (ArraysCanFitInteger(arrays)) {
+        return std::make_shared<arrow::r::Converter_Promotion<INTSXP, arrow::UInt64Type>>(
+            std::move(arrays));
+      } else {
+        return std::make_shared<
+            arrow::r::Converter_Promotion<REALSXP, arrow::UInt64Type>>(std::move(arrays));
+      }
 
     case Type::HALF_FLOAT:
       return std::make_shared<
@@ -745,7 +769,7 @@ std::shared_ptr<Converter> Converter::Make(const std::shared_ptr<DataType>& type
       return std::make_shared<arrow::r::Converter_Promotion<REALSXP, arrow::FloatType>>(
           std::move(arrays));
 
-      // time32 ane time64
+      // time32 and time64
     case Type::TIME32:
       return std::make_shared<arrow::r::Converter_Time<int32_t>>(std::move(arrays));
 
@@ -756,7 +780,13 @@ std::shared_ptr<Converter> Converter::Make(const std::shared_ptr<DataType>& type
       return std::make_shared<arrow::r::Converter_Timestamp<int64_t>>(std::move(arrays));
 
     case Type::INT64:
-      return std::make_shared<arrow::r::Converter_Int64>(std::move(arrays));
+      // Prefer integer if it fits
+      if (ArraysCanFitInteger(arrays)) {
+        return std::make_shared<arrow::r::Converter_Promotion<INTSXP, arrow::Int64Type>>(
+            std::move(arrays));
+      } else {
+        return std::make_shared<arrow::r::Converter_Int64>(std::move(arrays));
+      }
 
     case Type::DECIMAL:
       return std::make_shared<arrow::r::Converter_Decimal>(std::move(arrays));

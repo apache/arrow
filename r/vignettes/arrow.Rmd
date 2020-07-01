@@ -109,11 +109,11 @@ In the tables, entries with a `-` are not currently implemented.
 | int8              | integer                  |
 | int16             | integer                  |
 | int32             | integer                  |
-| int64             | bit64::integer64         |
+| int64             | integer^++^              |
 | uint8             | integer                  |
 | uint16            | integer                  |
-| uint32            | double                   |
-| uint64            | double                   |
+| uint32            | integer^++^              |
+| uint64            | integer^++^              |
 | float16           | -                        |
 | float32           | double                   |
 | float64           | double                   |
@@ -127,7 +127,7 @@ In the tables, entries with a `-` are not currently implemented.
 | timestamp         | POSIXct                  |
 | duration          | -                        |
 | decimal           | double                   |
-| dictionary        | factor^++^               |
+| dictionary        | factor^+++^              |
 | list              | list                     |
 | fixed_size_list   | -                        |
 | struct            | data.frame               |
@@ -138,7 +138,9 @@ In the tables, entries with a `-` are not currently implemented.
 | large_binary      | -                        |
 | large_list        | -                        |
 
-^++^: Due to the limitation of R `factor`s, Arrow `dictionary` values are coerced to string when translated to R if they are not already strings.
+^++^: These integer types may contain values that exceed the range of R's `integer` type (32-bit signed integer). When they do, `uint32` and `uint64` are converted to `double` ("numeric") and `int64` is converted to `bit64::integer64`.
+
+^+++^: Due to the limitation of R `factor`s, Arrow `dictionary` values are coerced to string when translated to R if they are not already strings.
 
 ### R object attributes
 
