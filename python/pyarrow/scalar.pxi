@@ -488,7 +488,7 @@ cdef class BinaryScalar(Scalar):
         """
         Return a view over this value as a Buffer object.
         """
-        cdef CBinaryScalar* sp = <CBinaryScalar*> self.wrapped.get()
+        cdef CBaseBinaryScalar* sp = <CBaseBinaryScalar*> self.wrapped.get()
         return pyarrow_wrap_buffer(sp.value) if sp.is_valid else None
 
     def as_py(self):

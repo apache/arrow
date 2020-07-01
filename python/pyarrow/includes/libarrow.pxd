@@ -923,11 +923,14 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CDurationScalar" arrow::DurationScalar"(CScalar):
         int64_t value
 
-    cdef cppclass CBinaryScalar" arrow::BinaryScalar"(CScalar):
+    cdef cppclass CBaseBinaryScalar" arrow::BaseBinaryScalar"(CScalar):
         shared_ptr[CBuffer] value
 
-    cdef cppclass CStringScalar" arrow::StringScalar"(CScalar):
-        shared_ptr[CBuffer] value
+    cdef cppclass CBinaryScalar" arrow::BinaryScalar"(CBaseBinaryScalar):
+        pass
+
+    cdef cppclass CStringScalar" arrow::StringScalar"(CBinaryScalar):
+        pass
 
     cdef cppclass CListScalar" arrow::ListScalar"(CScalar):
         shared_ptr[CArray] value
