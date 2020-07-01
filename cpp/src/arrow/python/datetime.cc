@@ -282,7 +282,7 @@ Status StringToTzinfo(const std::string& tz, PyObject** tzinfo) {
     uint32_t minutes, hours;
     if (!::arrow::internal::ParseUnsigned(match[2].first, match[2].length(), &hours) ||
         !::arrow::internal::ParseUnsigned(match[3].first, match[3].length(), &minutes)) {
-      return Status::Invalid("Invalid timezone: ", timezone);
+      return Status::Invalid("Invalid timezone: ", tz);
     }
     OwnedRef total_minutes(PyLong_FromLong(
         sign * ((static_cast<int>(hours) * 60) + static_cast<int>(minutes))));
