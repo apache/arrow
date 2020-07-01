@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "arrow/array.h"
+#include "arrow/array/concatenate.h"
 #include "arrow/extension_type.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
@@ -138,6 +139,23 @@ Status DictionaryMemo::AddDictionary(int64_t id,
   if (HasDictionary(id)) {
     return Status::KeyError("Dictionary with id ", id, " already exists");
   }
+  id_to_dictionary_[id] = dictionary;
+  return Status::OK();
+}
+
+Status DictionaryMemo::AddDictionaryDelta(int64_t id,
+                                          const std::shared_ptr<Array>& dictionary,
+                                          MemoryPool* pool) {
+  std::shared_ptr<Array> originalDict, combinedDict;
+  RETURN_NOT_OK(GetDictionary(id, &originalDict));
+  ArrayVector dictsToCombine{originalDict, dictionary};
+  ARROW_ASSIGN_OR_RAISE(combinedDict, Concatenate(dictsToCombine, pool));
+  id_to_dictionary_[id] = combinedDict;
+  return Status::OK();
+}
+
+Status DictionaryMemo::AddOrReplaceDictionary(int64_t id,
+                                              const std::shared_ptr<Array>& dictionary) {
   id_to_dictionary_[id] = dictionary;
   return Status::OK();
 }

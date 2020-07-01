@@ -684,7 +684,10 @@ Status ReadDictionary(const Buffer& metadata, DictionaryMemo* dictionary_memo,
     return Status::Invalid("Dictionary record batch must only contain one field");
   }
   auto dictionary = batch->column(0);
-  return dictionary_memo->AddDictionary(id, dictionary);
+  if (dictionary_batch->isDelta()) {
+    return dictionary_memo->AddDictionaryDelta(id, dictionary, options.memory_pool);
+  }
+  return dictionary_memo->AddOrReplaceDictionary(id, dictionary);
 }
 
 Status ParseDictionary(const Message& message, DictionaryMemo* dictionary_memo,
@@ -698,8 +701,7 @@ Status ParseDictionary(const Message& message, DictionaryMemo* dictionary_memo,
 
 Status UpdateDictionaries(const Message& message, DictionaryMemo* dictionary_memo,
                           const IpcReadOptions& options) {
-  // TODO(wesm): implement delta dictionaries
-  return Status::NotImplemented("Delta dictionaries not yet implemented");
+  return ParseDictionary(message, dictionary_memo, options);
 }
 
 // ----------------------------------------------------------------------
@@ -735,23 +737,25 @@ class RecordBatchStreamReaderImpl : public RecordBatchStreamReader {
       return Status::OK();
     }
 
-    ARROW_ASSIGN_OR_RAISE(std::unique_ptr<Message> message,
-                          message_reader_->ReadNextMessage());
+    std::unique_ptr<Message> message;
+    ARROW_ASSIGN_OR_RAISE(message, message_reader_->ReadNextMessage());
     if (message == nullptr) {
       // End of stream
       *batch = nullptr;
       return Status::OK();
     }
 
-    if (message->type() == MessageType::DICTIONARY_BATCH) {
-      return UpdateDictionaries(*message, &dictionary_memo_, options_);
-    } else {
-      CHECK_HAS_BODY(*message);
-      ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message->body()));
-      return ReadRecordBatchInternal(*message->metadata(), schema_, field_inclusion_mask_,
-                                     &dictionary_memo_, options_, reader.get())
-          .Value(batch);
+    // continue to read other dictionaries, if any
+    while (message->type() == MessageType::DICTIONARY_BATCH) {
+      RETURN_NOT_OK(UpdateDictionaries(*message, &dictionary_memo_, options_));
+      ARROW_ASSIGN_OR_RAISE(message, message_reader_->ReadNextMessage());
     }
+
+    CHECK_HAS_BODY(*message);
+    ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message->body()));
+    return ReadRecordBatchInternal(*message->metadata(), schema_, field_inclusion_mask_,
+                                   &dictionary_memo_, options_, reader.get())
+        .Value(batch);
   }
 
   std::shared_ptr<Schema> schema() const override { return out_schema_; }

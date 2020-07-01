@@ -1209,7 +1209,7 @@ Result<std::shared_ptr<Buffer>> WriteSparseTensorMessage(
 }
 
 Status WriteDictionaryMessage(
-    int64_t id, int64_t length, int64_t body_length,
+    int64_t id, bool is_delta, int64_t length, int64_t body_length,
     const std::shared_ptr<const KeyValueMetadata>& custom_metadata,
     const std::vector<FieldMetadata>& nodes, const std::vector<BufferMetadata>& buffers,
     const IpcWriteOptions& options, std::shared_ptr<Buffer>* out) {
@@ -1217,7 +1217,8 @@ Status WriteDictionaryMessage(
   RecordBatchOffset record_batch;
   RETURN_NOT_OK(
       MakeRecordBatch(fbb, length, body_length, nodes, buffers, options, &record_batch));
-  auto dictionary_batch = flatbuf::CreateDictionaryBatch(fbb, id, record_batch).Union();
+  auto dictionary_batch =
+      flatbuf::CreateDictionaryBatch(fbb, id, record_batch, is_delta).Union();
   return WriteFBMessage(fbb, flatbuf::MessageHeader::DictionaryBatch, dictionary_batch,
                         body_length, custom_metadata)
       .Value(out);

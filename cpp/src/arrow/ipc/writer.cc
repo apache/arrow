@@ -532,13 +532,14 @@ class RecordBatchSerializer {
 
 class DictionarySerializer : public RecordBatchSerializer {
  public:
-  DictionarySerializer(int64_t dictionary_id, int64_t buffer_start_offset,
+  DictionarySerializer(int64_t dictionary_id, bool is_delta, int64_t buffer_start_offset,
                        const IpcWriteOptions& options, IpcPayload* out)
       : RecordBatchSerializer(buffer_start_offset, options, out),
-        dictionary_id_(dictionary_id) {}
+        dictionary_id_(dictionary_id),
+        is_delta_(is_delta) {}
 
   Status SerializeMetadata(int64_t num_rows) override {
-    return WriteDictionaryMessage(dictionary_id_, num_rows, out_->body_length,
+    return WriteDictionaryMessage(dictionary_id_, is_delta_, num_rows, out_->body_length,
                                   custom_metadata_, field_nodes_, buffer_meta_, options_,
                                   &out_->metadata);
   }
@@ -552,6 +553,7 @@ class DictionarySerializer : public RecordBatchSerializer {
 
  private:
   int64_t dictionary_id_;
+  bool is_delta_;
 };
 
 }  // namespace internal
@@ -600,9 +602,16 @@ Status GetSchemaPayload(const Schema& schema, const IpcWriteOptions& options,
 
 Status GetDictionaryPayload(int64_t id, const std::shared_ptr<Array>& dictionary,
                             const IpcWriteOptions& options, IpcPayload* out) {
+  return GetDictionaryPayload(id, false, dictionary, options, out);
+}
+
+Status GetDictionaryPayload(int64_t id, bool is_delta,
+                            const std::shared_ptr<Array>& dictionary,
+                            const IpcWriteOptions& options, IpcPayload* out) {
   out->type = MessageType::DICTIONARY_BATCH;
   // Frame of reference is 0, see ARROW-384
-  internal::DictionarySerializer assembler(id, /*buffer_start_offset=*/0, options, out);
+  internal::DictionarySerializer assembler(id, is_delta, /*buffer_start_offset=*/0,
+                                           options, out);
   return assembler.Assemble(dictionary);
 }
 
@@ -1211,6 +1220,19 @@ Result<std::unique_ptr<RecordBatchWriter>> OpenRecordBatchWriter(
   // XXX should we call Start()?
   return ::arrow::internal::make_unique<internal::IpcFormatWriter>(std::move(sink),
                                                                    schema, options);
+}
+
+Result<std::unique_ptr<IpcPayloadWriter>> MakePayloadStreamWriter(
+    io::OutputStream* sink, const IpcWriteOptions& options) {
+  return ::arrow::internal::make_unique<internal::PayloadStreamWriter>(sink, options);
+}
+
+Result<std::unique_ptr<IpcPayloadWriter>> MakePayloadFileWriter(
+    io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
+    const IpcWriteOptions& options,
+    const std::shared_ptr<const KeyValueMetadata>& metadata) {
+  return ::arrow::internal::make_unique<internal::PayloadFileWriter>(options, schema,
+                                                                     metadata, sink);
 }
 
 }  // namespace internal

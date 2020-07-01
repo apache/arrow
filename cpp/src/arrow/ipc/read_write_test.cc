@@ -1228,6 +1228,157 @@ TEST_P(TestFileFormat, RoundTrip) {
   TestZeroLengthRoundTrip(*GetParam(), options);
 }
 
+Status MakeDictionaryBatch(std::shared_ptr<RecordBatch>* out) {
+  auto f0_type = arrow::dictionary(int32(), utf8());
+  auto f1_type = arrow::dictionary(int8(), utf8());
+
+  auto dict = ArrayFromJSON(utf8(), "[\"foo\", \"bar\", \"baz\"]");
+
+  auto indices0 = ArrayFromJSON(int32(), "[1, 2, null, 0, 2, 0]");
+  auto indices1 = ArrayFromJSON(int8(), "[0, 0, 2, 2, 1, 1]");
+
+  auto a0 = std::make_shared<DictionaryArray>(f0_type, indices0, dict);
+  auto a1 = std::make_shared<DictionaryArray>(f1_type, indices1, dict);
+
+  // construct batch
+  auto schema = ::arrow::schema({field("dict1", f0_type), field("dict2", f1_type)});
+
+  *out = RecordBatch::Make(schema, 6, {a0, a1});
+  return Status::OK();
+}
+
+// A utility that supports reading/writing record batches,
+// and manually specifying dictionaries.
+class DictionaryBatchHelper {
+ public:
+  explicit DictionaryBatchHelper(const Schema& schema) : schema_(schema) {
+    buffer_ = *AllocateResizableBuffer(0);
+    sink_.reset(new io::BufferOutputStream(buffer_));
+    payload_writer_ = *internal::MakePayloadStreamWriter(sink_.get());
+  }
+
+  Status Start() {
+    RETURN_NOT_OK(payload_writer_->Start());
+
+    // write schema
+    IpcPayload payload;
+    RETURN_NOT_OK(GetSchemaPayload(schema_, IpcWriteOptions::Defaults(),
+                                   &dictionary_memo_, &payload));
+    return payload_writer_->WritePayload(payload);
+  }
+
+  Status WriteDictionary(int64_t dictionary_id, const std::shared_ptr<Array>& dictionary,
+                         bool is_delta) {
+    IpcPayload payload;
+    RETURN_NOT_OK(GetDictionaryPayload(dictionary_id, is_delta, dictionary,
+                                       IpcWriteOptions::Defaults(), &payload));
+    RETURN_NOT_OK(payload_writer_->WritePayload(payload));
+    return Status::OK();
+  }
+
+  Status WriteBatchPayload(const RecordBatch& batch) {
+    // write record batch payload only
+    IpcPayload payload;
+    RETURN_NOT_OK(GetRecordBatchPayload(batch, IpcWriteOptions::Defaults(), &payload));
+    return payload_writer_->WritePayload(payload);
+  }
+
+  Status Close() {
+    RETURN_NOT_OK(payload_writer_->Close());
+    return sink_->Close();
+  }
+
+  Status ReadBatch(std::shared_ptr<RecordBatch>* out_batch) {
+    auto buf_reader = std::make_shared<io::BufferReader>(buffer_);
+    std::shared_ptr<RecordBatchReader> reader;
+    ARROW_ASSIGN_OR_RAISE(
+        reader, RecordBatchStreamReader::Open(buf_reader, IpcReadOptions::Defaults()))
+    return reader->ReadNext(out_batch);
+  }
+
+  std::unique_ptr<internal::IpcPayloadWriter> payload_writer_;
+  const Schema& schema_;
+  DictionaryMemo dictionary_memo_;
+  std::shared_ptr<ResizableBuffer> buffer_;
+  std::unique_ptr<io::BufferOutputStream> sink_;
+};
+
+TEST(TestDictionaryBatch, DictionaryDelta) {
+  std::shared_ptr<RecordBatch> in_batch;
+  std::shared_ptr<RecordBatch> out_batch;
+  ASSERT_OK(MakeDictionaryBatch(&in_batch));
+
+  auto dict1 = ArrayFromJSON(utf8(), "[\"foo\", \"bar\"]");
+  auto dict2 = ArrayFromJSON(utf8(), "[\"baz\"]");
+
+  DictionaryBatchHelper helper(*in_batch->schema());
+  ASSERT_OK(helper.Start());
+
+  ASSERT_OK(helper.WriteDictionary(0L, dict1, /*is_delta=*/false));
+  ASSERT_OK(helper.WriteDictionary(0L, dict2, /*is_delta=*/true));
+
+  ASSERT_OK(helper.WriteDictionary(1L, dict1, /*is_delta=*/false));
+  ASSERT_OK(helper.WriteDictionary(1L, dict2, /*is_delta=*/true));
+
+  ASSERT_OK(helper.WriteBatchPayload(*in_batch));
+  ASSERT_OK(helper.Close());
+
+  ASSERT_OK(helper.ReadBatch(&out_batch));
+
+  ASSERT_BATCHES_EQUAL(*in_batch, *out_batch);
+}
+
+TEST(TestDictionaryBatch, DictionaryDeltaWithUnknownId) {
+  std::shared_ptr<RecordBatch> in_batch;
+  std::shared_ptr<RecordBatch> out_batch;
+  ASSERT_OK(MakeDictionaryBatch(&in_batch));
+
+  auto dict1 = ArrayFromJSON(utf8(), "[\"foo\", \"bar\"]");
+  auto dict2 = ArrayFromJSON(utf8(), "[\"baz\"]");
+
+  DictionaryBatchHelper helper(*in_batch->schema());
+  ASSERT_OK(helper.Start());
+
+  ASSERT_OK(helper.WriteDictionary(0L, dict1, /*is_delta=*/false));
+  ASSERT_OK(helper.WriteDictionary(0L, dict2, /*is_delta=*/true));
+
+  /* This delta dictionary does not have a base dictionary previously in stream */
+  ASSERT_OK(helper.WriteDictionary(1L, dict2, /*is_delta=*/true));
+
+  ASSERT_OK(helper.WriteBatchPayload(*in_batch));
+  ASSERT_OK(helper.Close());
+
+  ASSERT_RAISES(KeyError, helper.ReadBatch(&out_batch));
+}
+
+TEST(TestDictionaryBatch, DictionaryReplacement) {
+  std::shared_ptr<RecordBatch> in_batch;
+  std::shared_ptr<RecordBatch> out_batch;
+  ASSERT_OK(MakeDictionaryBatch(&in_batch));
+
+  auto dict = ArrayFromJSON(utf8(), "[\"foo\", \"bar\", \"baz\"]");
+  auto dict1 = ArrayFromJSON(utf8(), "[\"foo1\", \"bar1\", \"baz1\"]");
+  auto dict2 = ArrayFromJSON(utf8(), "[\"foo2\", \"bar2\", \"baz2\"]");
+
+  DictionaryBatchHelper helper(*in_batch->schema());
+  ASSERT_OK(helper.Start());
+
+  // the old dictionaries will be overwritten by
+  // the new dictionaries with the same ids.
+  ASSERT_OK(helper.WriteDictionary(0L, dict1, /*is_delta=*/false));
+  ASSERT_OK(helper.WriteDictionary(0L, dict, /*is_delta=*/false));
+
+  ASSERT_OK(helper.WriteDictionary(1L, dict2, /*is_delta=*/false));
+  ASSERT_OK(helper.WriteDictionary(1L, dict, /*is_delta=*/false));
+
+  ASSERT_OK(helper.WriteBatchPayload(*in_batch));
+  ASSERT_OK(helper.Close());
+
+  ASSERT_OK(helper.ReadBatch(&out_batch));
+
+  ASSERT_BATCHES_EQUAL(*in_batch, *out_batch);
+}
+
 TEST_P(TestStreamFormat, RoundTrip) {
   TestRoundTrip(*GetParam(), IpcWriteOptions::Defaults());
   TestZeroLengthRoundTrip(*GetParam(), IpcWriteOptions::Defaults());
