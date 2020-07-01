@@ -926,14 +926,11 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CBaseBinaryScalar" arrow::BaseBinaryScalar"(CScalar):
         shared_ptr[CBuffer] value
 
-    cdef cppclass CBinaryScalar" arrow::BinaryScalar"(CBaseBinaryScalar):
-        pass
-
-    cdef cppclass CStringScalar" arrow::StringScalar"(CBinaryScalar):
-        pass
-
-    cdef cppclass CListScalar" arrow::ListScalar"(CScalar):
+    cdef cppclass CBaseListScalar" arrow::BaseListScalar"(CScalar):
         shared_ptr[CArray] value
+
+    cdef cppclass CListScalar" arrow::ListScalar"(CBaseListScalar):
+        pass
 
     cdef cppclass CMapScalar" arrow::MapScalar"(CListScalar):
         pass

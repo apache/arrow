@@ -531,7 +531,7 @@ cdef class ListScalar(Scalar):
 
     @property
     def values(self):
-        cdef CListScalar* sp = <CListScalar*> self.wrapped.get()
+        cdef CBaseListScalar* sp = <CBaseListScalar*> self.wrapped.get()
         if sp.is_valid:
             return pyarrow_wrap_array(sp.value)
         else:

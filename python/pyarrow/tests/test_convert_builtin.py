@@ -968,7 +968,9 @@ def test_sequence_timestamp_from_int_with_unit():
     arr_s = pa.array(data, type=s)
     assert len(arr_s) == 1
     assert arr_s.type == s
-    assert repr(arr_s[0].as_py()) == "datetime.datetime(1970, 1, 1, 0, 0, 1)"
+    assert repr(arr_s[0]) == (
+        "<pyarrow.TimestampScalar: datetime.datetime(1970, 1, 1, 0, 0, 1)>"
+    )
     assert str(arr_s[0]) == "1970-01-01 00:00:01"
 
     arr_ms = pa.array(data, type=ms)
