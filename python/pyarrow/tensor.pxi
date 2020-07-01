@@ -287,9 +287,10 @@ shape: {0.shape}""".format(self)
         row, col = coords[:, 0], coords[:, 1]
         result = coo_matrix((data[:, 0], (row, col)), shape=self.shape)
 
-        # As the description in from_scipy above, we sorted indices matrix in row-major order
-        # if SciPy's coo_matrix has canonical format.  So, we must call sum_duplicates() to
-        # make the result coo_matrix has canonical format.
+        # As the description in from_scipy above, we sorted indices matrix
+        # in row-major order if SciPy's coo_matrix has canonical format.
+        # So, we must call sum_duplicates() to make the result coo_matrix
+        # has canonical format.
         if self.has_canonical_format:
             result.sum_duplicates()
         return result
