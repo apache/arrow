@@ -987,7 +987,7 @@ class StringVectorConverter : public VectorConverter {
     for (R_xlen_t i = 0; i < n; i++) {
       SEXP string_i = STRING_ELT(obj, i);
       if (string_i != NA_STRING) {
-        size += XLENGTH(string_i);
+        size += XLENGTH(Rf_mkCharCE(Rf_translateCharUTF8(string_i), CE_UTF8));
       }
     }
     RETURN_NOT_OK(typed_builder_->Reserve(size));
@@ -998,6 +998,8 @@ class StringVectorConverter : public VectorConverter {
       if (string_i == NA_STRING) {
         RETURN_NOT_OK(typed_builder_->AppendNull());
       } else {
+        // Make sure we're ingesting UTF-8
+        string_i = Rf_mkCharCE(Rf_translateCharUTF8(string_i), CE_UTF8);
         RETURN_NOT_OK(typed_builder_->Append(CHAR(string_i), XLENGTH(string_i)));
       }
     }
