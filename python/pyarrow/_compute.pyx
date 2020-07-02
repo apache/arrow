@@ -403,11 +403,11 @@ cdef class BinaryContainsExactOptions(FunctionOptions):
         unique_ptr[CBinaryContainsExactOptions] binary_contains_exact_options
 
     def __init__(self, pattern):
-        self.binary_contains_exact_options.pattern.reset(
+        self.binary_contains_exact_options.reset(
             new CBinaryContainsExactOptions(tobytes(pattern)))
 
     cdef const CFunctionOptions* get_options(self) except NULL:
-        return &self.binary_contains_exact_options
+        return self.binary_contains_exact_options.get()
 
 
 cdef class FilterOptions(FunctionOptions):

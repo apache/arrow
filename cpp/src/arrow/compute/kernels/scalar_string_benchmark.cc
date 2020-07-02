@@ -59,7 +59,7 @@ static void AsciiUpper(benchmark::State& state) {
 
 static void BinaryContainsExact(benchmark::State& state) {
   BinaryContainsExactOptions options("abac");
-  UnaryStringBenchmark(state, "contains_exact", &options);
+  UnaryStringBenchmark(state, "binary_contains_exact", &options);
 }
 
 #ifdef ARROW_WITH_UTF8PROC
