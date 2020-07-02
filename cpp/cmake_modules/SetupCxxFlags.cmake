@@ -52,7 +52,12 @@ if(ARROW_CPU_FLAG STREQUAL "x86")
     check_cxx_compiler_flag(${ARROW_SSE4_2_FLAG} CXX_SUPPORTS_SSE4_2)
   endif()
   check_cxx_compiler_flag(${ARROW_AVX2_FLAG} CXX_SUPPORTS_AVX2)
-  check_cxx_compiler_flag(${ARROW_AVX512_FLAG} CXX_SUPPORTS_AVX512)
+  if(MINGW)
+    # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=65782
+    message(STATUS "Disbale AVX512 support on MINGW for now")
+  else()
+    check_cxx_compiler_flag(${ARROW_AVX512_FLAG} CXX_SUPPORTS_AVX512)
+  endif()
   # Runtime SIMD level it can get from compiler
   if(CXX_SUPPORTS_SSE4_2)
     add_definitions(-DARROW_HAVE_RUNTIME_SSE4_2)
