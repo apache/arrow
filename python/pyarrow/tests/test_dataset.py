@@ -16,6 +16,7 @@
 # under the License.
 
 import contextlib
+import datetime
 import os
 import pathlib
 import pickle
@@ -817,6 +818,104 @@ def test_fragments_parquet_row_groups(tempdir):
     assert len(row_group_fragments) == 1
     result = row_group_fragments[0].to_table(filter=ds.field('f1') < 1)
     assert len(result) == 1
+
+
+def _create_dataset_all_types(tempdir, chunk_size=None):
+    import pyarrow.parquet as pq
+
+    table = pa.table(
+        [
+            pa.array([True, None, False], pa.bool_()),
+            pa.array([1, 10, 42], pa.int8()),
+            pa.array([1, 10, 42], pa.uint8()),
+            pa.array([1, 10, 42], pa.int16()),
+            pa.array([1, 10, 42], pa.uint16()),
+            pa.array([1, 10, 42], pa.int32()),
+            pa.array([1, 10, 42], pa.uint32()),
+            pa.array([1, 10, 42], pa.int64()),
+            pa.array([1, 10, 42], pa.uint64()),
+            pa.array([1.0, 10.0, 42.0], pa.float32()),
+            pa.array([1.0, 10.0, 42.0], pa.float64()),
+            pa.array(['a', None, 'z'], pa.utf8()),
+            # pa.array(['a', None, 'z'], pa.binary()),
+            # pa.array([1, 10, 42], pa.timestamp('s')),
+            # pa.array([1, 10, 42], pa.timestamp('ms')),
+            # pa.array([1, 10, 42], pa.timestamp('us')),
+            # pa.array([1, 10, 42], pa.date32()),
+            # pa.array([1, 10, 4200000000], pa.date64()),
+            # pa.array([1, 10, 42], pa.time32('s')),
+            # pa.array([1, 10, 42], pa.time64('us')),
+        ],
+        names=[
+            'boolean',
+            'int8',
+            'uint8',
+            'int16',
+            'uint16',
+            'int32',
+            'uint32',
+            'int64',
+            'uint64',
+            'float',
+            'double',
+            'utf8',
+            # 'binary',
+            # 'ts[s]',
+            # 'ts[ms]',
+            # 'ts[us]',
+            # 'date32',
+            # 'date64',
+            # 'time32',
+            # 'time64',
+        ]
+    )
+
+    path = str(tempdir / "test_parquet_dataset_all_types")
+
+    # write_to_dataset currently requires pandas
+    pq.write_to_dataset(table, path, chunk_size=chunk_size)
+
+    return table, ds.dataset(path, format="parquet", partitioning="hive")
+
+
+@pytest.mark.pandas
+@pytest.mark.parquet
+def test_parquet_fragment_statistics(tempdir):
+    table, dataset = _create_dataset_all_types(tempdir)
+
+    fragment = list(dataset.get_fragments())[0]
+
+    def dt_s(x): return datetime.datetime(1970, 1, 1, 0, 0, x)
+    def dt_ms(x): return datetime.datetime(1970, 1, 1, 0, 0, 0, x*1000)
+    def dt_us(x): return datetime.datetime(1970, 1, 1, 0, 0, 0, x)
+    date = datetime.date
+    time = datetime.time
+
+    # list and scan row group fragments
+    row_group_fragments = list(fragment.split_by_row_group())
+    assert row_group_fragments[0].row_groups is not None
+    assert row_group_fragments[0].row_groups[0].statistics == {
+        'boolean': {'min': False, 'max': True},
+        'int8': {'min': 1, 'max': 42},
+        'uint8': {'min': 1, 'max': 42},
+        'int16': {'min': 1, 'max': 42},
+        'uint16': {'min': 1, 'max': 42},
+        'int32': {'min': 1, 'max': 42},
+        'uint32': {'min': 1, 'max': 42},
+        'int64': {'min': 1, 'max': 42},
+        'uint64': {'min': 1, 'max': 42},
+        'float': {'min': 1.0, 'max': 42.0},
+        'double': {'min': 1.0, 'max': 42.0},
+        'utf8': {'min': 'a', 'max': 'z'},
+        # 'binary': {'min': b'a', 'max': b'z'},
+        # 'ts[s]': {'min': dt_s(1), 'max': dt_s(42)},
+        # 'ts[ms]': {'min': dt_ms(1), 'max': dt_ms(42)},
+        # 'ts[us]': {'min': dt_us(1), 'max': dt_us(42)},
+        # 'date32': {'min': date(1970, 1, 2), 'max': date(1970, 2, 12)},
+        # 'date64': {'min': date(1970, 1, 1), 'max': date(1970, 2, 18)},
+        # 'time32': {'min': time(0, 0, 1), 'max': time(0, 0, 42)},
+        # 'time64': {'min': time(0, 0, 0, 1), 'max': time(0, 0, 0, 42)},
+    }
 
 
 @pytest.mark.pandas

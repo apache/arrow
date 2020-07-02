@@ -192,7 +192,7 @@ static inline Status ByteArrayStatisticsAsScalars(const Statistics& statistics,
   ARROW_ASSIGN_OR_RAISE(
       *min, ::arrow::MakeScalar(type, Buffer::FromString(statistics.EncodeMin())));
   ARROW_ASSIGN_OR_RAISE(
-      *max, ::arrow::MakeScalar(type, Buffer::FromString(statistics.EncodeMin())));
+      *max, ::arrow::MakeScalar(type, Buffer::FromString(statistics.EncodeMax())));
 
   return Status::OK();
 }
