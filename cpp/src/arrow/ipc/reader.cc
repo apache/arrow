@@ -867,8 +867,8 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
 
     CHECK_HAS_BODY(*message);
     ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message->body()));
-    return ::arrow::ipc::ReadRecordBatch(*message->metadata(), schema_, &dictionary_memo_,
-                                         options_, reader.get());
+    return ReadRecordBatchInternal(*message->metadata(), schema_, field_inclusion_mask_,
+                                   &dictionary_memo_, options_, reader.get());
   }
 
   Status Open(const std::shared_ptr<io::RandomAccessFile>& file, int64_t footer_offset,

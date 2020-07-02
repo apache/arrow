@@ -107,7 +107,7 @@ Result<std::shared_ptr<RecordBatchWriter>> NewStreamWriter(
 /// \param[in] schema the schema of the record batches to be written
 /// \param[in] options options for serialization, optional
 /// \param[in] metadata custom metadata for File Footer, optional
-/// \return Status
+/// \return Result<std::shared_ptr<RecordBatchWriter>>
 ARROW_EXPORT
 Result<std::shared_ptr<RecordBatchWriter>> NewFileWriter(
     io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
