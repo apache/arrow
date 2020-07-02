@@ -1885,6 +1885,7 @@ def string_to_tzinfo(name):
     check_status(libarrow.StringToTzinfo(name.encode('utf-8'), &tz))
     return PyObject_to_object(tz)
 
+
 def timestamp(unit, tz=None):
     """
     Create instance of timestamp type with resolution and optional time zone.
