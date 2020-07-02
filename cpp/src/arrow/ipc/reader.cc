@@ -684,6 +684,8 @@ Status ReadDictionary(const Buffer& metadata, DictionaryMemo* dictionary_memo,
     return Status::Invalid("Dictionary record batch must only contain one field");
   }
   auto dictionary = batch->column(0);
+  // Validate the dictionary for safe delta concatenation
+  RETURN_NOT_OK(dictionary->Validate());
   if (dictionary_batch->isDelta()) {
     return dictionary_memo->AddDictionaryDelta(id, dictionary, options.memory_pool);
   }
@@ -737,18 +739,19 @@ class RecordBatchStreamReaderImpl : public RecordBatchStreamReader {
       return Status::OK();
     }
 
+    // Continue to read other dictionaries, if any
     std::unique_ptr<Message> message;
     ARROW_ASSIGN_OR_RAISE(message, message_reader_->ReadNextMessage());
+
+    while (message != nullptr && message->type() == MessageType::DICTIONARY_BATCH) {
+      RETURN_NOT_OK(UpdateDictionaries(*message, &dictionary_memo_, options_));
+      ARROW_ASSIGN_OR_RAISE(message, message_reader_->ReadNextMessage());
+    }
+
     if (message == nullptr) {
       // End of stream
       *batch = nullptr;
       return Status::OK();
-    }
-
-    // continue to read other dictionaries, if any
-    while (message->type() == MessageType::DICTIONARY_BATCH) {
-      RETURN_NOT_OK(UpdateDictionaries(*message, &dictionary_memo_, options_));
-      ARROW_ASSIGN_OR_RAISE(message, message_reader_->ReadNextMessage());
     }
 
     CHECK_HAS_BODY(*message);

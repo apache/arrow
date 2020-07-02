@@ -27,6 +27,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/int_util.h"
+#include "arrow/util/logging.h"
 #include "arrow/visitor_inline.h"
 
 namespace arrow {
@@ -216,7 +217,31 @@ struct ValidateArrayVisitor {
     if (array.value_data() == nullptr) {
       return Status::Invalid("value data buffer is null");
     }
-    return ValidateOffsets(array);
+    RETURN_NOT_OK(ValidateOffsets(array));
+
+    if (array.length() > 0) {
+      const auto first_offset = array.value_offset(0);
+      const auto last_offset = array.value_offset(array.length());
+      // This early test avoids undefined behaviour when computing `data_extent`
+      if (first_offset < 0 || last_offset < 0) {
+        return Status::Invalid("Negative offsets in binary array");
+      }
+      const auto data_extent = last_offset - first_offset;
+      const auto values_length = array.value_data()->size();
+      if (values_length < data_extent) {
+        return Status::Invalid("Length spanned by binary offsets (", data_extent,
+                               ") larger than values array (size ", values_length, ")");
+      }
+      // These tests ensure that array concatenation is safe if Validate() succeeds
+      // (for delta dictionaries)
+      if (first_offset > values_length || last_offset > values_length) {
+        return Status::Invalid("First or last binary offset out of bounds");
+      }
+      if (first_offset > last_offset) {
+        return Status::Invalid("First offset larger than last offset in binary array");
+      }
+    }
+    return Status::OK();
   }
 
   template <typename ListArrayType>
@@ -240,6 +265,14 @@ struct ValidateArrayVisitor {
       if (values_length < data_extent) {
         return Status::Invalid("Length spanned by list offsets (", data_extent,
                                ") larger than values array (length ", values_length, ")");
+      }
+      // These tests ensure that array concatenation is safe if Validate() succeeds
+      // (for delta dictionaries)
+      if (first_offset > values_length || last_offset > values_length) {
+        return Status::Invalid("First or last list offset out of bounds");
+      }
+      if (first_offset > last_offset) {
+        return Status::Invalid("First offset larger than last offset in list array");
       }
     }
 
