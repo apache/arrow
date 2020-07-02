@@ -81,6 +81,7 @@
 //! )
 //! ```
 
+#[allow(clippy::module_inception)]
 mod array;
 mod builder;
 mod cast;

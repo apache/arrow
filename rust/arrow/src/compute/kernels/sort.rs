@@ -271,7 +271,7 @@ pub fn lexsort_to_indices(columns: &Vec<SortColumn>) -> Result<UInt32Array> {
     // convert ArrayRefs to OrdArray trait objects and perform row count check
     let flat_columns = columns
         .iter()
-        .map(|column| -> Result<(Box<&OrdArray>, SortOptions)> {
+        .map(|column| -> Result<(&OrdArray, SortOptions)> {
             // row count check
             let curr_row_count = column.values.len() - column.values.offset();
             match row_count {
@@ -292,7 +292,7 @@ pub fn lexsort_to_indices(columns: &Vec<SortColumn>) -> Result<UInt32Array> {
                 column.options.unwrap_or_default(),
             ))
         })
-        .collect::<Result<Vec<(Box<&OrdArray>, SortOptions)>>>()?;
+        .collect::<Result<Vec<(&OrdArray, SortOptions)>>>()?;
 
     let lex_comparator = |a_idx: &usize, b_idx: &usize| -> Ordering {
         for column in flat_columns.iter() {

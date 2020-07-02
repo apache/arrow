@@ -1218,11 +1218,6 @@ impl Field {
         }
     }
 
-    /// Converts to a `String` representation of the `Field`
-    pub fn to_string(&self) -> String {
-        format!("{}: {:?}", self.name, self.data_type)
-    }
-
     /// Merge field into self if it is compatible. Struct will be merged recursively.
     ///
     /// Example:
@@ -1251,7 +1246,7 @@ impl Field {
                 DataType::Struct(from_nested_fields) => {
                     for from_field in from_nested_fields {
                         let mut is_new_field = true;
-                        for self_field in nested_fields.into_iter() {
+                        for self_field in nested_fields.iter_mut() {
                             if self_field.name != from_field.name {
                                 continue;
                             }
@@ -1274,7 +1269,7 @@ impl Field {
                 DataType::Union(from_nested_fields) => {
                     for from_field in from_nested_fields {
                         let mut is_new_field = true;
-                        for self_field in nested_fields.into_iter() {
+                        for self_field in nested_fields.iter_mut() {
                             if from_field == self_field {
                                 is_new_field = false;
                                 break;
@@ -1336,7 +1331,7 @@ impl Field {
 
 impl fmt::Display for Field {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.to_string())
+        write!(f, "{}: {:?}", self.name, self.data_type)
     }
 }
 
@@ -1429,7 +1424,7 @@ impl Schema {
     ///     ]),
     /// );
     /// ```
-    pub fn try_merge(schemas: &Vec<Self>) -> Result<Self> {
+    pub fn try_merge(schemas: &[Self]) -> Result<Self> {
         let mut merged = Self::empty();
 
         for schema in schemas {

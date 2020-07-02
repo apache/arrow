@@ -172,7 +172,7 @@ impl UnionArray {
             .iter()
             .filter(|i| *i < &0)
             .collect::<Vec<&i8>>();
-        if invalid_type_ids.len() > 0 {
+        if !invalid_type_ids.is_empty() {
             return Err(ArrowError::InvalidArgumentError(format!(
                 "Type Ids must be positive and cannot be greater than the number of \
                 child arrays, found:\n{:?}",
@@ -188,7 +188,7 @@ impl UnionArray {
                 .iter()
                 .filter(|i| *i < &0 || *i > &max_len)
                 .collect::<Vec<&i32>>();
-            if invalid_offsets.len() > 0 {
+            if !invalid_offsets.is_empty() {
                 return Err(ArrowError::InvalidArgumentError(format!(
                     "Offsets must be positive and within the length of the Array, \
                     found:\n{:?}",
@@ -325,7 +325,7 @@ impl fmt::Debug for UnionArray {
                 column.data_type()
             )?;
             fmt::Debug::fmt(column, f)?;
-            writeln!(f, "")?;
+            writeln!(f)?;
         }
         writeln!(f, "]")
     }
@@ -484,7 +484,7 @@ impl UnionBuilder {
 
     /// Appends a null to this builder.
     pub fn append_null(&mut self) -> Result<()> {
-        if let None = self.bitmap_builder {
+        if self.bitmap_builder.is_none() {
             let mut builder = BooleanBufferBuilder::new(self.len + 1);
             for _ in 0..self.len {
                 builder.append(true)?;
@@ -499,7 +499,7 @@ impl UnionBuilder {
         self.type_id_builder.append(i8::default())?;
 
         // Handle sparse union
-        if let None = self.value_offset_builder {
+        if self.value_offset_builder.is_none() {
             for (_, fd) in self.fields.iter_mut() {
                 fd.append_null_dynamic()?;
             }
@@ -518,25 +518,22 @@ impl UnionBuilder {
 
         let mut field_data = match self.fields.remove(&type_name) {
             Some(data) => data,
-            None => {
-                let field_data = match self.value_offset_builder {
-                    Some(_) => {
-                        FieldData::new(self.fields.len() as i8, T::get_data_type(), None)
+            None => match self.value_offset_builder {
+                Some(_) => {
+                    FieldData::new(self.fields.len() as i8, T::get_data_type(), None)
+                }
+                None => {
+                    let mut fd = FieldData::new(
+                        self.fields.len() as i8,
+                        T::get_data_type(),
+                        Some(BooleanBufferBuilder::new(1)),
+                    );
+                    for _ in 0..self.len {
+                        fd.append_null::<T>()?;
                     }
-                    None => {
-                        let mut fd = FieldData::new(
-                            self.fields.len() as i8,
-                            T::get_data_type(),
-                            Some(BooleanBufferBuilder::new(1)),
-                        );
-                        for _ in 0..self.len {
-                            fd.append_null::<T>()?;
-                        }
-                        fd
-                    }
-                };
-                field_data
-            }
+                    fd
+                }
+            },
         };
         self.type_id_builder.append(field_data.type_id)?;
 

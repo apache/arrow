@@ -146,6 +146,10 @@ impl ArrayData {
         self.len
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
     /// Returns the offset of this array
     pub fn offset(&self) -> usize {
         self.offset
