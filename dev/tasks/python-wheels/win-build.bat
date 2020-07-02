@@ -30,10 +30,6 @@ call conda create -n wheel-build -q -y -c conda-forge ^
 
 call conda.bat activate wheel-build
 
-@rem Having issues with the Brotli static libraries from conda-forge, so we
-@rem rely on the bundled build for now.
-call conda.bat remove -y brotli
-
 @rem Cannot use conda_env_python.yml here because conda-forge has
 @rem ceased providing up-to-date packages for Python 3.5
 pip install -r %ARROW_SRC%\python\requirements-wheel-build.txt
@@ -74,7 +70,6 @@ cmake -G "%GENERATOR%" ^
       -DARROW_PARQUET=ON ^
       -DARROW_PYTHON=ON ^
       -DARROW_VERBOSE_THIRDPARTY_BUILD=ON ^
-      -DBrotli_SOURCE=BUNDLED ^
       -DZSTD_SOURCE=BUNDLED ^
       .. || exit /B
 cmake --build . --target install --config Release || exit /B
