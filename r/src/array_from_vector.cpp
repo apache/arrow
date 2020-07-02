@@ -351,20 +351,20 @@ std::shared_ptr<Array> MakeFactorArrayImpl(Rcpp::IntegerVector_ factor,
 
 std::shared_ptr<Array> MakeFactorArray(Rcpp::IntegerVector_ factor,
                                        const std::shared_ptr<arrow::DataType>& type) {
-  auto* dict_type = checked_cast<arrow::DictionaryType*>(type.get());
-  auto index_type = dict_type->index_type();
-  if (index_type->Equals(int8())) {
-    return MakeFactorArrayImpl<arrow::Int8Type>(factor, type);
-  } else if (index_type->Equals(int16())) {
-    return MakeFactorArrayImpl<arrow::Int16Type>(factor, type);
-  } else if (index_type->Equals(int32())) {
-    return MakeFactorArrayImpl<arrow::Int32Type>(factor, type);
-  } else if (index_type->Equals(int64())) {
-    return MakeFactorArrayImpl<arrow::Int64Type>(factor, type);
+  const auto& dict_type = checked_cast<const arrow::DictionaryType&>(*type);
+  switch (dict_type.index_type()->id()) {
+    case Type::INT8:
+      return MakeFactorArrayImpl<arrow::Int8Type>(factor, type);
+    case Type::INT16:
+      return MakeFactorArrayImpl<arrow::Int16Type>(factor, type);
+    case Type::INT32:
+      return MakeFactorArrayImpl<arrow::Int32Type>(factor, type);
+    case Type::INT64:
+      return MakeFactorArrayImpl<arrow::Int64Type>(factor, type);
+    default:
+      Rcpp::stop(tfm::format("Cannot convert to dictionary with index_type %s",
+                             dict_type.index_type()->ToString()));
   }
-
-  Rcpp::stop(tfm::format("Cannot convert to dictionary with index_type %s",
-                         index_type->ToString()));
 }
 
 std::shared_ptr<Array> MakeStructArray(SEXP df, const std::shared_ptr<DataType>& type) {
