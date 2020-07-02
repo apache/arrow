@@ -113,7 +113,8 @@ inline Status CheckTensorValidity(const std::shared_ptr<DataType>& type,
 
 Status CheckTensorStridesValidity(const std::shared_ptr<Buffer>& data,
                                   const std::vector<int64_t>& shape,
-                                  const std::vector<int64_t>& strides) {
+                                  const std::vector<int64_t>& strides,
+                                  const std::shared_ptr<DataType>& type) {
   if (strides.size() != shape.size()) {
     return Status::Invalid("strides must have the same length as shape");
   }
@@ -127,7 +128,8 @@ Status CheckTensorStridesValidity(const std::shared_ptr<Buffer>& data,
     --last_index[i];
   }
   int64_t last_offset = Tensor::CalculateValueOffset(strides, last_index);
-  if (last_offset >= data->size()) {
+  const int byte_width = internal::checked_cast<const FixedWidthType&>(*type).bit_width() / CHAR_BIT;
+  if (last_offset + byte_width > data->size()) {
     return Status::Invalid("strides must not involve buffer over run");
   }
   return Status::OK();
@@ -151,7 +153,7 @@ Status ValidateTensorParameters(const std::shared_ptr<DataType>& type,
                                 const std::vector<std::string>& dim_names) {
   RETURN_NOT_OK(CheckTensorValidity(type, data, shape));
   if (!strides.empty()) {
-    RETURN_NOT_OK(CheckTensorStridesValidity(data, shape, strides));
+    RETURN_NOT_OK(CheckTensorStridesValidity(data, shape, strides, type));
   }
   if (dim_names.size() > shape.size()) {
     return Status::Invalid("too many dim_names are supplied");
