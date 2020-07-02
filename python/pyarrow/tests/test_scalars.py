@@ -359,7 +359,7 @@ def test_list(ty, klass):
 
 
 def test_list_from_numpy():
-    s = pa.scalar(np.array([1, 2, 3]))
+    s = pa.scalar(np.array([1, 2, 3], dtype=np.int64()))
     assert s.type == pa.list_(pa.int64())
     assert s.as_py() == [1, 2, 3]
 
