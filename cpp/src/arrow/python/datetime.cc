@@ -272,7 +272,7 @@ Status StringToTzinfo(const std::string& tz, PyObject** tzinfo) {
   RETURN_NOT_OK(internal::ImportModule("pytz", &pytz));
 
   std::cmatch match;
-  if (std::regex_match(tz.c_str(), match, kFixedOffset)) {
+  if (std::regex_match(tz.data(), tz.data() + tz.size(), match, kFixedOffset)) {
     int sign = -1;
     if (match.str(1) == "+") {
       sign = 1;

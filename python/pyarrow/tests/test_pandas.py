@@ -22,7 +22,7 @@ import multiprocessing as mp
 import sys
 
 from collections import OrderedDict
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, time, timedelta, timezone
 from distutils.version import LooseVersion
 
 import hypothesis as h
@@ -3321,9 +3321,12 @@ def test_cast_timestamp_unit():
     assert result.equals(expected)
 
 
-def test_struct_with_timestamp_tz():
+def test_nested_with_timestamp_tz():
     # ARROW-7723
     ts = pd.Timestamp.now()
+    # This is used for verifying timezone conversion to micros are not
+    # important
+    ts_dt = ts.to_pydatetime().replace(microsecond=0)
 
     # XXX: Ensure that this data does not get promoted to nanoseconds (and thus
     # integers) to preserve behavior in 0.15.1
@@ -3332,7 +3335,9 @@ def test_struct_with_timestamp_tz():
         arr2 = pa.array([ts], type=pa.timestamp(unit, tz='America/New_York'))
 
         arr3 = pa.StructArray.from_arrays([arr, arr], ['start', 'stop'])
+        list_arr3 = pa.ListArray.from_arrays([0, 1], arr)
         arr4 = pa.StructArray.from_arrays([arr2, arr2], ['start', 'stop'])
+        list_arr4 = pa.ListArray.from_arrays([0, 1], arr2)
 
         result = arr3.to_pandas()
         assert isinstance(result[0]['start'], datetime)
@@ -3340,24 +3345,40 @@ def test_struct_with_timestamp_tz():
         assert isinstance(result[0]['stop'], datetime)
         assert result[0]['stop'].tzinfo is None
 
+        result = list_arr3.to_pandas()
+        assert isinstance(result[0][0], datetime)
+        assert result[0][0].tzinfo is None
+
         result = arr4.to_pandas()
         assert isinstance(result[0]['start'], datetime)
         assert result[0]['start'].tzinfo is not None
+        utc_dt = result[0]['start'].astimezone(timezone.utc)
+        assert utc_dt.replace(tzinfo=None, microsecond=0) == ts_dt
         assert isinstance(result[0]['stop'], datetime)
-        assert result[0]['start'].tzinfo is not None
+        assert result[0]['stop'].tzinfo is not None
+
+        result = list_arr4.to_pandas()
+        assert isinstance(result[0][0], datetime)
+        utc_dt = result[0][0].astimezone(timezone.utc)
+        assert utc_dt.replace(tzinfo=None, microsecond=0) == ts_dt
+        assert result[0][0].tzinfo is not None
 
         # same conversion for table
-        result = pa.table({'a': arr3}).to_pandas()
+        result = pa.table({'a': arr3, 'b': list_arr3}).to_pandas()
         assert isinstance(result['a'][0]['start'], datetime)
         assert result['a'][0]['start'].tzinfo is None
         assert isinstance(result['a'][0]['stop'], datetime)
-        assert result['a'][0]['start'].tzinfo is None
+        assert result['a'][0]['stop'].tzinfo is None
+        assert isinstance(result['b'][0][0], datetime)
+        assert result['b'][0][0].tzinfo is None
 
-        result = pa.table({'a': arr4}).to_pandas()
+        result = pa.table({'a': arr4, 'b': list_arr4}).to_pandas()
         assert isinstance(result['a'][0]['start'], datetime)
         assert result['a'][0]['start'].tzinfo is not None
         assert isinstance(result['a'][0]['stop'], datetime)
-        assert result['a'][0]['start'].tzinfo is not None
+        assert result['a'][0]['stop'].tzinfo is not None
+        assert isinstance(result['b'][0][0], datetime)
+        assert result['b'][0][0].tzinfo is not None
 
 
 # ----------------------------------------------------------------------

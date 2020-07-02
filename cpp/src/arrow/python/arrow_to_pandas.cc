@@ -744,8 +744,8 @@ Status ConvertListsLike(const PandasOptions& options, const ChunkedArray& data,
   // nanoseconds. Bit of a hack but this seemed the simplest thing to satisfy
   // the existing unit tests
   PandasOptions modified_options = options;
-  // Force object converation here as well for timestamps?
   modified_options.coerce_temporal_nanoseconds = false;
+  modified_options.timestamp_as_object = true;
 
   OwnedRefNoGIL owned_numpy_array;
   RETURN_NOT_OK(ConvertChunkedArrayToPandas(modified_options, flat_column, nullptr,
@@ -951,16 +951,32 @@ struct ObjectWriterVisitor {
   template <typename Type>
   enable_if_timestamp<Type, Status> Visit(const Type& type) {
     const TimeUnit::type unit = type.unit();
-    PyObject* tzinfo = nullptr;
+    OwnedRef tzinfo;
+    OwnedRef utc_kwargs;
+    OwnedRef empty_args;
     if (!type.timezone().empty()) {
-      RETURN_NOT_OK(internal::StringToTzinfo(type.timezone(), &tzinfo));
+      RETURN_NOT_OK(internal::StringToTzinfo(type.timezone(), tzinfo.ref()));
+      utc_kwargs.reset(PyDict_New());
+      RETURN_IF_PYERROR();
+
+      OwnedRef utc;
+      RETURN_NOT_OK(internal::StringToTzinfo("utc", utc.ref()));
+      PyDict_SetItemString(utc_kwargs.obj(), "tzinfo", utc.obj());
+      RETURN_IF_PYERROR();
+
+      empty_args.reset(PyTuple_New(0));
+      RETURN_IF_PYERROR();
     }
-    auto WrapValue = [unit, tzinfo](typename Type::c_type value, PyObject** out) {
-      OwnedRef tz(tzinfo);
+    auto WrapValue = [&](typename Type::c_type value, PyObject** out) {
       RETURN_NOT_OK(internal::PyDateTime_from_int(value, unit, out));
       RETURN_IF_PYERROR();
-      if (tzinfo != nullptr) {
-        PyObject* with_tz = PyObject_CallMethod(*out, "astimezone", "O", tzinfo);
+      if (tzinfo.obj() != nullptr) {
+        OwnedRef replace(PyObject_GetAttrString(*out, "replace"));
+        OwnedRef with_utc(
+            PyObject_Call(replace.obj(), empty_args.obj(), utc_kwargs.obj()));
+        RETURN_IF_PYERROR();
+        PyObject* with_tz =
+            PyObject_CallMethod(with_utc.obj(), "astimezone", "O", tzinfo.obj());
         RETURN_IF_PYERROR();
         Py_DECREF(*out);
         *out = with_tz;
