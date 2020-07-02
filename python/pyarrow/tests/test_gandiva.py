@@ -120,7 +120,7 @@ def test_in_expr():
     condition = builder.make_condition(cond)
     filter = gandiva.make_filter(table.schema, condition)
     result = filter.evaluate(table.to_batches()[0], pa.default_memory_pool())
-    assert list(result.to_array()) == [1, 2]
+    assert result.to_array().equals(pa.array([1, 2], type=pa.uint32()))
 
     # int32
     arr = pa.array([3, 1, 4, 1, 5, 9, 2, 6, 5, 4])
@@ -130,7 +130,7 @@ def test_in_expr():
     condition = builder.make_condition(cond)
     filter = gandiva.make_filter(table.schema, condition)
     result = filter.evaluate(table.to_batches()[0], pa.default_memory_pool())
-    assert list(result.to_array()) == [1, 3, 4, 8]
+    assert result.to_array().equals(pa.array([1, 3, 4, 8], type=pa.uint32()))
 
     # int64
     arr = pa.array([3, 1, 4, 1, 5, 9, 2, 6, 5, 4])
@@ -140,7 +140,7 @@ def test_in_expr():
     condition = builder.make_condition(cond)
     filter = gandiva.make_filter(table.schema, condition)
     result = filter.evaluate(table.to_batches()[0], pa.default_memory_pool())
-    assert list(result.to_array()) == [1, 3, 4, 8]
+    assert result.to_array().equals(pa.array([1, 3, 4, 8], type=pa.uint32()))
 
 
 @pytest.mark.skip(reason="Gandiva C++ did not have *real* binary, "
@@ -163,7 +163,7 @@ def test_in_expr_todo():
 
     filter = gandiva.make_filter(table.schema, condition)
     result = filter.evaluate(table.to_batches()[0], pa.default_memory_pool())
-    assert list(result.to_array()) == [1, 2]
+    assert result.to_array().equals(pa.array([1, 2], type=pa.uint32()))
 
     # timestamp
     datetime_1 = datetime.datetime.utcfromtimestamp(1542238951.621877)
@@ -241,7 +241,7 @@ def test_boolean():
 
     filter = gandiva.make_filter(table.schema, condition)
     result = filter.evaluate(table.to_batches()[0], pa.default_memory_pool())
-    assert list(result.to_array()) == [0, 2, 5]
+    assert result.to_array().equals(pa.array([0, 2, 5], type=pa.uint32()))
 
 
 @pytest.mark.gandiva
