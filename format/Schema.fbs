@@ -20,17 +20,24 @@
 namespace org.apache.arrow.flatbuf;
 
 enum MetadataVersion:short {
-  /// 0.1.0
+  /// 0.1.0 (October 2016).
   V1,
 
-  /// 0.2.0
+  /// 0.2.0 (February 2017). Non-backwards compatible with V1.
   V2,
 
-  /// 0.3.0 -> 0.7.1
+  /// 0.3.0 -> 0.7.1 (May - December 2017). Non-backwards compatible with V2.
   V3,
 
-  /// >= 0.8.0
+  /// >= 0.8.0 (December 2017). Non-backwards compatible with V3.
   V4,
+
+  /// >= 1.0.0 (July 2020. Backwards compatible with V4 (V5 readers can read V4
+  /// metadata and IPC messages). Implementations are recommended to provide a
+  /// V4 compatibility mode with V5 format changes disabled.
+  ///
+  /// TODO: Add list of non-forward compatible changes.
+  V5,
 }
 
 /// These are stored in the flatbuffer in the Type union below
