@@ -3016,16 +3016,16 @@ def test_large_table_int32_overflow():
     _write_table(table, f)
 
 
-# TODO(ARROW-8074) buffer support
-def _simple_table_roundtrip(table, **write_kwargs):
+def _simple_table_roundtrip(table, use_legacy_dataset=False, **write_kwargs):
     stream = pa.BufferOutputStream()
     _write_table(table, stream, **write_kwargs)
     buf = stream.getvalue()
-    return _read_table(buf)
+    return _read_table(buf, use_legacy_dataset=use_legacy_dataset)
 
 
 @pytest.mark.large_memory
-def test_byte_array_exactly_2gb():
+@parametrize_legacy_dataset
+def test_byte_array_exactly_2gb(use_legacy_dataset):
     # Test edge case reported in ARROW-3762
     val = b'x' * (1 << 10)
 
@@ -3038,13 +3038,15 @@ def test_byte_array_exactly_2gb():
     for case in cases:
         values = pa.chunked_array([base, pa.array(case)])
         t = pa.table([values], names=['f0'])
-        result = _simple_table_roundtrip(t, use_dictionary=False)
+        result = _simple_table_roundtrip(
+            t, use_legacy_dataset=use_legacy_dataset, use_dictionary=False)
         assert t.equals(result)
 
 
 @pytest.mark.pandas
 @pytest.mark.large_memory
-def test_binary_array_overflow_to_chunked():
+@parametrize_legacy_dataset_not_supported  # TODO(dataset) ARROW-9297
+def test_binary_array_overflow_to_chunked(use_legacy_dataset):
     # ARROW-3762
 
     # 2^31 + 1 bytes
@@ -3054,7 +3056,8 @@ def test_binary_array_overflow_to_chunked():
     df = pd.DataFrame({'byte_col': values})
 
     tbl = pa.Table.from_pandas(df, preserve_index=False)
-    read_tbl = _simple_table_roundtrip(tbl)
+    read_tbl = _simple_table_roundtrip(
+        tbl, use_legacy_dataset=use_legacy_dataset)
 
     col0_data = read_tbl[0]
     assert isinstance(col0_data, pa.ChunkedArray)
@@ -3067,7 +3070,8 @@ def test_binary_array_overflow_to_chunked():
 
 @pytest.mark.pandas
 @pytest.mark.large_memory
-def test_list_of_binary_large_cell():
+@parametrize_legacy_dataset
+def test_list_of_binary_large_cell(use_legacy_dataset):
     # ARROW-4688
     data = []
 
@@ -3080,7 +3084,8 @@ def test_list_of_binary_large_cell():
 
     arr = pa.array(data)
     table = pa.Table.from_arrays([arr], ['chunky_cells'])
-    read_table = _simple_table_roundtrip(table)
+    read_table = _simple_table_roundtrip(
+        table, use_legacy_dataset=use_legacy_dataset)
     assert table.equals(read_table)
 
 
