@@ -30,7 +30,6 @@ edition = "2018"
 
 [dependencies]
 parquet-format = "2.6.1"
-quick-error = "1.2"
 byteorder = "1"
 thrift = "0.13"
 snap = { version = "1.0", optional = true }
