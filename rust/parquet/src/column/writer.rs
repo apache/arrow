@@ -515,16 +515,7 @@ impl<T: DataType> ColumnWriterImpl<T> {
 
         if calculate_page_stats {
             for val in &values[0..values_to_write] {
-                if self.min_page_value.is_none()
-                    || self.min_page_value.as_ref().unwrap() > val
-                {
-                    self.min_page_value = Some(val.clone());
-                }
-                if self.max_page_value.is_none()
-                    || self.max_page_value.as_ref().unwrap() < val
-                {
-                    self.max_page_value = Some(val.clone());
-                }
+                self.update_page_min_max(val);
             }
         }
 
@@ -622,18 +613,7 @@ impl<T: DataType> ColumnWriterImpl<T> {
         let mut page_statistics: Option<Statistics> = None;
 
         if calculate_page_stat {
-            if self.min_column_value.is_none()
-                || self.min_column_value.as_ref().unwrap()
-                    > self.min_page_value.as_ref().unwrap()
-            {
-                self.min_column_value = self.min_page_value.clone();
-            }
-            if self.max_column_value.is_none()
-                || self.max_column_value.as_ref().unwrap()
-                    < self.max_page_value.as_ref().unwrap()
-            {
-                self.max_column_value = self.max_page_value.clone();
-            }
+            self.update_column_min_max();
             self.num_column_nulls += self.num_page_nulls;
             page_statistics = Some(self.make_page_statistics());
         }
@@ -959,6 +939,30 @@ impl<T: DataType> ColumnWriterImpl<T> {
                     .and_then(|v| Some(ByteArray::from(v.as_bytes().to_vec())));
                 Statistics::byte_array(min, max, distinct, nulls, false)
             }
+        }
+    }
+
+    fn update_page_min_max(&mut self, val: &T::T) {
+        if self.min_page_value.is_none() || self.min_page_value.as_ref().unwrap() > val {
+            self.min_page_value = Some(val.clone());
+        }
+        if self.max_page_value.is_none() || self.max_page_value.as_ref().unwrap() < val {
+            self.max_page_value = Some(val.clone());
+        }
+    }
+
+    fn update_column_min_max(&mut self) {
+        if self.min_column_value.is_none()
+            || self.min_column_value.as_ref().unwrap()
+                > self.min_page_value.as_ref().unwrap()
+        {
+            self.min_column_value = self.min_page_value.clone();
+        }
+        if self.max_column_value.is_none()
+            || self.max_column_value.as_ref().unwrap()
+                < self.max_page_value.as_ref().unwrap()
+        {
+            self.max_column_value = self.max_page_value.clone();
         }
     }
 }
