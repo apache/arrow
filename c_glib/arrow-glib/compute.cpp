@@ -85,9 +85,29 @@ G_BEGIN_DECLS
  * @title: Computation on array
  * @include: arrow-glib/arrow-glib.h
  *
- * #GArrowCastOptions is a class to customize garrow_array_cast().
+ * #GArrowExecuteContext is a class to customize how to execute a
+ * function.
  *
- * #GArrowCountOptions is a class to customize garrow_array_count().
+ * #GArrowFunctionOptions is an interface for function options. All
+ * function options such as #GArrowCastOptions must implement this
+ * interface.
+ *
+ * #GArrowFunction is a class to process data.
+ *
+ * #GArrowCastOptions is a class to customize the `cast` function and
+ * garrow_array_cast().
+ *
+ * #GArrowCountOptions is a class to customize the `count` function and
+ * garrow_array_count().
+ *
+ * #GArrowFilterOptions is a class to customize the `filter` function and
+ * garrow_array_filter() family.
+ *
+ * #GArrowTakeOptions is a class to customize the `take` function and
+ * garrow_array_take() family.
+ *
+ * #GArrowCompareOptions is a class to customize the `equal` function
+ * family and garrow_int8_array_compare() family.
  *
  * There are many functions to compute data on an array.
  */
