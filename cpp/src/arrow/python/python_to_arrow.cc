@@ -995,7 +995,7 @@ class StructConverter : public TypedConverter<StructType, null_coding> {
   }
 
   // Append a missing item
-  Status AppendNull() { return this->typed_builder_->AppendNull(); }
+  Status AppendNull() override { return this->typed_builder_->AppendNull(); }
 
  protected:
   Status AppendDictItem(PyObject* obj) {

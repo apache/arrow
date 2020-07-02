@@ -685,7 +685,7 @@ Result<std::shared_ptr<Array>> DenseUnionArray::Make(
   }
 
   if (value_offsets.null_count() != 0) {
-    return Status::Invalid("Make does not allow NAs in value_offsets");
+    return Status::Invalid("Make does not allow nulls in value_offsets");
   }
 
   if (field_names.size() > 0 && field_names.size() != children.size()) {
