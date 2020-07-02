@@ -329,7 +329,7 @@ garrow_array_class_init(GArrowArrayClass *klass)
   spec = g_param_spec_pointer("array",
                               "Array",
                               "The raw std::shared<arrow::Array> *",
-                              static_cast<GParamFlags>(G_PARAM_READWRITE |
+                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
                                                        G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_ARRAY, spec);
 

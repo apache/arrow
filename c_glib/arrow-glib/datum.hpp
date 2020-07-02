@@ -23,18 +23,20 @@
 
 #include <arrow-glib/datum.h>
 
-std::shared_ptr<arrow::Datum>
+arrow::Datum
 garrow_datum_get_raw(GArrowDatum *datum);
+GArrowDatum *
+garrow_datum_new_raw(arrow::Datum *arrow_datum);
 
 GArrowArrayDatum *
-garrow_array_datum_new_raw(std::shared_ptr<arrow::Datum> *arrow_datum,
+garrow_array_datum_new_raw(arrow::Datum *arrow_datum,
                            GArrowArray *value);
 GArrowChunkedArrayDatum *
-garrow_chunked_array_datum_new_raw(std::shared_ptr<arrow::Datum> *arrow_datum,
+garrow_chunked_array_datum_new_raw(arrow::Datum *arrow_datum,
                                    GArrowChunkedArray *value);
 GArrowRecordBatchDatum *
-garrow_record_batch_datum_new_raw(std::shared_ptr<arrow::Datum> *arrow_datum,
+garrow_record_batch_datum_new_raw(arrow::Datum *arrow_datum,
                                   GArrowRecordBatch *value);
 GArrowTableDatum *
-garrow_table_datum_new_raw(std::shared_ptr<arrow::Datum> *arrow_datum,
+garrow_table_datum_new_raw(arrow::Datum *arrow_datum,
                            GArrowTable *value);

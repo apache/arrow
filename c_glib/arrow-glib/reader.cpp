@@ -1683,10 +1683,10 @@ garrow_json_read_options_set_property(GObject *object,
     break;
   case PROP_JSON_READER_SCHEMA:
     {
+      auto schema = g_value_dup_object(value);
       if (priv->schema) {
         g_object_unref(priv->schema);
       }
-      auto schema = g_value_dup_object(value);
       if (schema) {
         priv->schema = GARROW_SCHEMA(schema);
         priv->parse_options.explicit_schema = garrow_schema_get_raw(priv->schema);

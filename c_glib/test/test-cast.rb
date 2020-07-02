@@ -43,10 +43,11 @@ class TestCast < Test::Unit::TestCase
 
   sub_test_case("allow-time-truncate") do
     def test_default
-      after_epoch = 1504953190854 # 2017-09-09T10:33:10.854Z
-      second_timestamp = Arrow::TimestampDataType.new(:second)
+      after_epoch_in_milli = 1504953190854 # 2017-09-09T10:33:10.854Z
+      second_timestamp_data_type = Arrow::TimestampDataType.new(:second)
+      milli_array = build_timestamp_array(:milli, [after_epoch_in_milli])
       assert_raise(Arrow::Error::Invalid) do
-        build_timestamp_array(:milli, [after_epoch]).cast(second_timestamp)
+        milli_array.cast(second_timestamp_data_type)
       end
     end
 
@@ -57,9 +58,56 @@ class TestCast < Test::Unit::TestCase
       second_array = build_timestamp_array(:second,
                                            [after_epoch_in_milli / 1000])
       milli_array  = build_timestamp_array(:milli, [after_epoch_in_milli])
-      second_timestamp = Arrow::TimestampDataType.new(:second)
+      second_timestamp_data_type = Arrow::TimestampDataType.new(:second)
       assert_equal(second_array,
-                   milli_array.cast(second_timestamp, options))
+                   milli_array.cast(second_timestamp_data_type, options))
+    end
+  end
+
+  sub_test_case("allow-time-overflow") do
+    def test_default
+      after_epoch_in_second = 95617584000 # 5000-01-01T00:00:00Z
+      nano_timestamp_data_type = Arrow::TimestampDataType.new(:nano)
+      second_array = build_timestamp_array(:second, [after_epoch_in_second])
+      assert_raise(Arrow::Error::Invalid) do
+        second_array.cast(nano_timestamp_data_type)
+      end
+    end
+
+    def test_true
+      options = Arrow::CastOptions.new
+      options.allow_time_overflow = true
+      after_epoch_in_second = 95617584000 # 5000-01-01T00:00:00Z
+      second_array = build_timestamp_array(:second,
+                                           [after_epoch_in_second])
+      after_epoch_in_nano_overflowed =
+        (after_epoch_in_second * 1000 * 1000 * 1000) % (2 ** 64)
+      nano_array   = build_timestamp_array(:nano,
+                                           [after_epoch_in_nano_overflowed])
+      nano_timestamp_data_type = Arrow::TimestampDataType.new(:nano)
+      assert_equal(nano_array,
+                   second_array.cast(nano_timestamp_data_type, options))
+    end
+  end
+
+  sub_test_case("allow-decimal-truncate") do
+    def test_default
+      decimal128_data_type = Arrow::Decimal128DataType.new(8, 2)
+      decimal128_array = build_decimal128_array(decimal128_data_type,
+                                                ["23423445"])
+      assert_raise(Arrow::Error::Invalid) do
+        decimal128_array.cast(Arrow::Int64DataType.new)
+      end
+    end
+
+    def test_true
+      options = Arrow::CastOptions.new
+      options.allow_decimal_truncate = true
+      decimal128_data_type = Arrow::Decimal128DataType.new(8, 2)
+      decimal128_array = build_decimal128_array(decimal128_data_type,
+                                                ["23423445"])
+      assert_equal(build_int64_array([234234]),
+                   decimal128_array.cast(Arrow::Int64DataType.new, options))
     end
   end
 
