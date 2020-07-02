@@ -19,7 +19,9 @@
 
 set -e
 
-pushd rust/arrow
+source_dir=${1}/rust
+
+pushd ${source_dir}
     max_error_cnt=3
     max_warn_cnt=9
 
