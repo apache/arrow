@@ -109,10 +109,6 @@ else()
   endif()
 endif()
 
-message(STATUS "BROTLI_COMMON_LIBRARY: ${BROTLI_COMMON_LIBRARY}")
-message(STATUS "BROTLI_ENC_LIBRARY: ${BROTLI_ENC_LIBRARY}")
-message(STATUS "BROTLI_DEC_LIBRARY: ${BROTLI_DEC_LIBRARY}")
-
 find_package_handle_standard_args(Brotli
                                   REQUIRED_VARS
                                   BROTLI_COMMON_LIBRARY
