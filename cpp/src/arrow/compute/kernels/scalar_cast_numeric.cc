@@ -467,6 +467,42 @@ struct CastFunctor<Decimal128Type, Decimal128Type> {
   }
 };
 
+// ----------------------------------------------------------------------
+// Real to decimal
+
+struct RealToDecimal {
+  template <typename OUT, typename RealType>
+  Decimal128 Call(KernelContext* ctx, RealType val) const {
+    auto result = Decimal128::FromReal(val, out_precision_, out_scale_);
+    if (ARROW_PREDICT_FALSE(!result.ok())) {
+      if (!allow_truncate_) {
+        ctx->SetStatus(result.status());
+      }
+      return Decimal128();  // Zero
+    } else {
+      return *std::move(result);
+    }
+  }
+
+  int32_t out_scale_, out_precision_;
+  bool allow_truncate_;
+};
+
+template <typename I>
+struct CastFunctor<Decimal128Type, I, enable_if_t<is_floating_type<I>::value>> {
+  static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    const auto& options = checked_cast<const CastState*>(ctx->state())->options;
+    ArrayData* output = out->mutable_array();
+    const auto& out_type_inst = checked_cast<const Decimal128Type&>(*output->type);
+    const auto out_scale = out_type_inst.scale();
+    const auto out_precision = out_type_inst.precision();
+
+    applicator::ScalarUnaryNotNullStateful<Decimal128Type, I, RealToDecimal> kernel(
+        RealToDecimal{out_scale, out_precision, options.allow_decimal_truncate});
+    return kernel.Exec(ctx, batch, out);
+  }
+};
+
 namespace {
 
 template <typename OutType>
@@ -530,10 +566,16 @@ std::shared_ptr<CastFunction> GetCastToFloating(std::string name) {
 std::shared_ptr<CastFunction> GetCastToDecimal() {
   OutputType sig_out_ty(ResolveOutputFromOptions);
 
-  // Cast to decimal
   auto func = std::make_shared<CastFunction>("cast_decimal", Type::DECIMAL);
   AddCommonCasts(Type::DECIMAL, sig_out_ty, func.get());
 
+  // Cast from floating point
+  DCHECK_OK(func->AddKernel(Type::FLOAT, {float32()}, sig_out_ty,
+                            CastFunctor<Decimal128Type, FloatType>::Exec));
+  DCHECK_OK(func->AddKernel(Type::DOUBLE, {float64()}, sig_out_ty,
+                            CastFunctor<Decimal128Type, DoubleType>::Exec));
+
+  // Cast from other decimal
   auto exec = CastFunctor<Decimal128Type, Decimal128Type>::Exec;
   // We resolve the output type of this kernel from the CastOptions
   DCHECK_OK(func->AddKernel(Type::DECIMAL, {InputType::Array(Type::DECIMAL)}, sig_out_ty,
