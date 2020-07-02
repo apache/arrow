@@ -340,23 +340,6 @@ TEST(TestArrayView, SparseUnionAsStruct) {
   auto expected = ArrayFromJSON(ty1, "[[0, 0, 0], [0, 65535, 1.5], [1, 42, -2.5]]");
   CheckView(arr, expected);
   CheckView(expected, arr);
-
-  // With nulls
-  indices = ArrayFromJSON(int8(), "[null, 0, 1]");
-  ASSERT_OK_AND_ASSIGN(arr, SparseUnionArray::Make(*indices, {child1, child2}));
-  ASSERT_OK(arr->ValidateFull());
-  expected = ArrayFromJSON(ty1, "[null, [0, 65535, 1.5], [1, 42, -2.5]]");
-  CheckView(arr, expected);
-  //   CheckView(expected, arr);  // XXX currently fails
-
-  // With nested nulls
-  child1 = ArrayFromJSON(int16(), "[0, -1, null]");
-  child2 = ArrayFromJSON(int32(), "[0, null, -1071644672]");
-  ASSERT_OK_AND_ASSIGN(arr, SparseUnionArray::Make(*indices, {child1, child2}));
-  ASSERT_OK(arr->ValidateFull());
-  expected = ArrayFromJSON(ty1, "[null, [0, 65535, null], [1, null, -2.5]]");
-  CheckView(arr, expected);
-  //   CheckView(expected, arr);  // XXX currently fails
 }
 
 TEST(TestArrayView, DecimalRoundTrip) {

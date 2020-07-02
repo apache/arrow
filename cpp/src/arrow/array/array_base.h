@@ -86,15 +86,16 @@ class ARROW_EXPORT Array {
   std::shared_ptr<DataType> type() const { return data_->type; }
   Type::type type_id() const { return data_->type->id(); }
 
-  /// Buffer for the null bitmap.
+  /// Buffer for the validity (null) bitmap, if any. Note that Union types
+  /// never have a null bitmap.
   ///
-  /// Note that for `null_count == 0`, this can be null.
+  /// Note that for `null_count == 0` or for null type, this will be null.
   /// This buffer does not account for any slice offset
   std::shared_ptr<Buffer> null_bitmap() const { return data_->buffers[0]; }
 
   /// Raw pointer to the null bitmap.
   ///
-  /// Note that for `null_count == 0`, this can be null.
+  /// Note that for `null_count == 0` or for null type, this will be null.
   /// This buffer does not account for any slice offset
   const uint8_t* null_bitmap_data() const { return null_bitmap_data_; }
 

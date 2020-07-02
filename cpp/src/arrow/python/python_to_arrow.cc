@@ -995,15 +995,7 @@ class StructConverter : public TypedConverter<StructType, null_coding> {
   }
 
   // Append a missing item
-  Status AppendNull() override {
-    RETURN_NOT_OK(this->typed_builder_->AppendNull());
-    // Need to also insert a missing item on all child builders
-    // (compare with ListConverter)
-    for (int i = 0; i < num_fields_; i++) {
-      RETURN_NOT_OK(this->value_converters_[i]->Append(Py_None));
-    }
-    return Status::OK();
-  }
+  Status AppendNull() override { return this->typed_builder_->AppendNull(); }
 
  protected:
   Status AppendDictItem(PyObject* obj) {

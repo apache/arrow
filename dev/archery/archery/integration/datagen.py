@@ -911,50 +911,40 @@ class _BaseUnionField(Field):
     def _get_children(self):
         return [field.get_json() for field in self.fields]
 
-    def _make_type_ids(self, is_valid):
-        type_ids = np.random.choice(self.type_ids, len(is_valid))
-        # Mark 0 for null entries (mimics C++ UnionBuilder behaviour)
-        return np.choose(is_valid, [0, type_ids])
+    def _make_type_ids(self, size):
+        return np.random.choice(self.type_ids, size)
 
 
 class SparseUnionField(_BaseUnionField):
     mode = 'SPARSE'
 
     def generate_column(self, size, name=None):
-        is_valid = self._make_is_valid(size)
-
-        array_type_ids = self._make_type_ids(is_valid)
+        array_type_ids = self._make_type_ids(size)
         field_values = [field.generate_column(size) for field in self.fields]
 
         if name is None:
             name = self.name
-        return SparseUnionColumn(name, size, is_valid, array_type_ids,
-                                 field_values)
+        return SparseUnionColumn(name, size, array_type_ids, field_values)
 
 
 class DenseUnionField(_BaseUnionField):
     mode = 'DENSE'
 
     def generate_column(self, size, name=None):
-        is_valid = self._make_is_valid(size)
-
         # Reverse mapping {logical type id => physical child id}
         child_ids = [None] * (max(self.type_ids) + 1)
         for i, type_id in enumerate(self.type_ids):
             child_ids[type_id] = i
 
-        array_type_ids = self._make_type_ids(is_valid)
+        array_type_ids = self._make_type_ids(size)
         offsets = []
         child_sizes = [0] * len(self.fields)
 
         for i in range(size):
-            if is_valid[i]:
-                child_id = child_ids[array_type_ids[i]]
-                offset = child_sizes[child_id]
-                offsets.append(offset)
-                child_sizes[child_id] = offset + 1
-            else:
-                offsets.append(0)
+            child_id = child_ids[array_type_ids[i]]
+            offset = child_sizes[child_id]
+            offsets.append(offset)
+            child_sizes[child_id] = offset + 1
 
         field_values = [
             field.generate_column(child_size)
@@ -962,8 +952,8 @@ class DenseUnionField(_BaseUnionField):
 
         if name is None:
             name = self.name
-        return DenseUnionColumn(name, size, is_valid, array_type_ids,
-                                offsets, field_values)
+        return DenseUnionColumn(name, size, array_type_ids, offsets,
+                                field_values)
 
 
 class Dictionary(object):
@@ -1065,16 +1055,14 @@ class StructColumn(Column):
 
 class SparseUnionColumn(Column):
 
-    def __init__(self, name, count, is_valid, type_ids, field_values):
+    def __init__(self, name, count, type_ids, field_values):
         super().__init__(name, count)
-        self.is_valid = is_valid
         self.type_ids = type_ids
         self.field_values = field_values
 
     def _get_buffers(self):
         return [
-            ('VALIDITY', [int(v) for v in self.is_valid]),
-            ('TYPE_ID', [int(v) for v in self.type_ids]),
+            ('TYPE_ID', [int(v) for v in self.type_ids])
         ]
 
     def _get_children(self):
@@ -1083,16 +1071,14 @@ class SparseUnionColumn(Column):
 
 class DenseUnionColumn(Column):
 
-    def __init__(self, name, count, is_valid, type_ids, offsets, field_values):
+    def __init__(self, name, count, type_ids, offsets, field_values):
         super().__init__(name, count)
-        self.is_valid = is_valid
         self.type_ids = type_ids
         self.offsets = offsets
         self.field_values = field_values
 
     def _get_buffers(self):
         return [
-            ('VALIDITY', [int(v) for v in self.is_valid]),
             ('TYPE_ID', [int(v) for v in self.type_ids]),
             ('OFFSET', [int(v) for v in self.offsets]),
         ]

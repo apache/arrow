@@ -199,7 +199,10 @@ class NullArrayFactory {
     return out_;
   }
 
-  Status Visit(const NullType&) { return Status::OK(); }
+  Status Visit(const NullType&) {
+    out_->buffers.resize(1, nullptr);
+    return Status::OK();
+  }
 
   Status Visit(const FixedWidthType&) {
     out_->buffers.resize(2, buffer_);
@@ -233,10 +236,28 @@ class NullArrayFactory {
   }
 
   Status Visit(const UnionType& type) {
-    auto n_buffers = type.mode() == UnionMode::SPARSE ? 2 : 3;
-    out_->buffers.resize(n_buffers, buffer_);
+    out_->buffers.resize(2);
+
+    // First buffer is always null
+    out_->buffers[0] = nullptr;
+
+    // Type codes are all zero, so we can use buffer_ which has had it's memory
+    // zeroed
+    out_->buffers[1] = buffer_;
+
+    // For sparse unions, we now create children with the same length as the
+    // parent
+    int64_t child_length = length_;
+    if (type.mode() == UnionMode::DENSE) {
+      // For dense unions, we set the offsets to all zero and create children
+      // with length 1
+      out_->buffers.resize(3);
+      out_->buffers[2] = buffer_;
+
+      child_length = 1;
+    }
     for (int i = 0; i < type_->num_fields(); ++i) {
-      ARROW_ASSIGN_OR_RAISE(out_->child_data[i], CreateChild(i, length_));
+      ARROW_ASSIGN_OR_RAISE(out_->child_data[i], CreateChild(i, child_length));
     }
     return Status::OK();
   }

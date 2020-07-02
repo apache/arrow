@@ -443,11 +443,10 @@ Status MakeUnion(std::shared_ptr<RecordBatch>* out) {
   auto sparse_type = sparse_union(union_fields, type_codes);
   auto dense_type = dense_union(union_fields, type_codes);
 
-  auto f0 = field("sparse_nonnull", sparse_type, false);
-  auto f1 = field("sparse", sparse_type);
-  auto f2 = field("dense", dense_type);
+  auto f0 = field("sparse", sparse_type);
+  auto f1 = field("dense", dense_type);
 
-  auto schema = ::arrow::schema({f0, f1, f2});
+  auto schema = ::arrow::schema({f0, f1});
 
   // Create data
   std::vector<std::shared_ptr<Array>> sparse_children(2);
@@ -476,22 +475,13 @@ Status MakeUnion(std::shared_ptr<RecordBatch>* out) {
   std::vector<int32_t> offsets = {0, 0, 1, 2, 1, 2, 3};
   RETURN_NOT_OK(CopyBufferFromVector(offsets, default_memory_pool(), &offsets_buffer));
 
-  std::vector<uint8_t> null_bytes(length, 1);
-  null_bytes[2] = 0;
-  ARROW_ASSIGN_OR_RAISE(auto null_bitmap, internal::BytesToBits(null_bytes));
-
-  // construct individual nullable/non-nullable struct arrays
-  auto sparse_no_nulls = std::make_shared<SparseUnionArray>(
-      sparse_type, length, sparse_children, type_ids_buffer);
   auto sparse = std::make_shared<SparseUnionArray>(sparse_type, length, sparse_children,
-                                                   type_ids_buffer, null_bitmap, 1);
-
-  auto dense =
-      std::make_shared<DenseUnionArray>(dense_type, length, dense_children,
-                                        type_ids_buffer, offsets_buffer, null_bitmap, 1);
+                                                   type_ids_buffer);
+  auto dense = std::make_shared<DenseUnionArray>(dense_type, length, dense_children,
+                                                 type_ids_buffer, offsets_buffer);
 
   // construct batch
-  std::vector<std::shared_ptr<Array>> arrays = {sparse_no_nulls, sparse, dense};
+  std::vector<std::shared_ptr<Array>> arrays = {sparse, dense};
   *out = RecordBatch::Make(schema, length, arrays);
   return Status::OK();
 }

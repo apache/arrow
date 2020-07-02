@@ -401,9 +401,7 @@ class ARROW_EXPORT SparseUnionArray : public UnionArray {
   explicit SparseUnionArray(std::shared_ptr<ArrayData> data);
 
   SparseUnionArray(std::shared_ptr<DataType> type, int64_t length, ArrayVector children,
-                   std::shared_ptr<Buffer> type_ids,
-                   std::shared_ptr<Buffer> null_bitmap = NULLPTR,
-                   int64_t null_count = kUnknownNullCount, int64_t offset = 0);
+                   std::shared_ptr<Buffer> type_ids, int64_t offset = 0);
 
   /// \brief Construct SparseUnionArray from type_ids and children
   ///
@@ -438,7 +436,9 @@ class ARROW_EXPORT SparseUnionArray : public UnionArray {
   void SetData(std::shared_ptr<ArrayData> data);
 };
 
-/// Concrete Array class for dense union data
+/// \brief Concrete Array class for dense union data
+///
+/// Note that union types do not have a validity bitmap
 class ARROW_EXPORT DenseUnionArray : public UnionArray {
  public:
   using TypeClass = DenseUnionType;
@@ -447,9 +447,7 @@ class ARROW_EXPORT DenseUnionArray : public UnionArray {
 
   DenseUnionArray(std::shared_ptr<DataType> type, int64_t length, ArrayVector children,
                   std::shared_ptr<Buffer> type_ids,
-                  std::shared_ptr<Buffer> value_offsets = NULLPTR,
-                  std::shared_ptr<Buffer> null_bitmap = NULLPTR,
-                  int64_t null_count = kUnknownNullCount, int64_t offset = 0);
+                  std::shared_ptr<Buffer> value_offsets = NULLPTR, int64_t offset = 0);
 
   /// \brief Construct DenseUnionArray from type_ids, value_offsets, and children
   ///

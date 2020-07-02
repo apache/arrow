@@ -610,9 +610,11 @@ void UnionArray::SetData(std::shared_ptr<ArrayData> data) {
 
 void SparseUnionArray::SetData(std::shared_ptr<ArrayData> data) {
   this->UnionArray::SetData(std::move(data));
-
   ARROW_CHECK_EQ(data_->type->id(), Type::SPARSE_UNION);
   ARROW_CHECK_EQ(data_->buffers.size(), 2);
+
+  // No validity bitmap
+  ARROW_CHECK_EQ(data_->buffers[0], nullptr);
 }
 
 void DenseUnionArray::SetData(const std::shared_ptr<ArrayData>& data) {
@@ -620,6 +622,10 @@ void DenseUnionArray::SetData(const std::shared_ptr<ArrayData>& data) {
 
   ARROW_CHECK_EQ(data_->type->id(), Type::DENSE_UNION);
   ARROW_CHECK_EQ(data_->buffers.size(), 3);
+
+  // No validity bitmap
+  ARROW_CHECK_EQ(data_->buffers[0], nullptr);
+
   auto value_offsets = data_->buffers[2];
   raw_value_offsets_ = value_offsets == nullptr
                            ? nullptr
@@ -632,12 +638,10 @@ SparseUnionArray::SparseUnionArray(std::shared_ptr<ArrayData> data) {
 
 SparseUnionArray::SparseUnionArray(std::shared_ptr<DataType> type, int64_t length,
                                    ArrayVector children,
-                                   std::shared_ptr<Buffer> type_codes,
-                                   std::shared_ptr<Buffer> null_bitmap,
-                                   int64_t null_count, int64_t offset) {
-  auto internal_data = ArrayData::Make(
-      std::move(type), length,
-      BufferVector{std::move(null_bitmap), std::move(type_codes)}, null_count, offset);
+                                   std::shared_ptr<Buffer> type_codes, int64_t offset) {
+  auto internal_data = ArrayData::Make(std::move(type), length,
+                                       BufferVector{nullptr, std::move(type_codes)},
+                                       /*null_count=*/0, offset);
   for (const auto& child : children) {
     internal_data->child_data.push_back(child->data());
   }
@@ -650,13 +654,11 @@ DenseUnionArray::DenseUnionArray(const std::shared_ptr<ArrayData>& data) {
 
 DenseUnionArray::DenseUnionArray(std::shared_ptr<DataType> type, int64_t length,
                                  ArrayVector children, std::shared_ptr<Buffer> type_ids,
-                                 std::shared_ptr<Buffer> value_offsets,
-                                 std::shared_ptr<Buffer> null_bitmap, int64_t null_count,
-                                 int64_t offset) {
+                                 std::shared_ptr<Buffer> value_offsets, int64_t offset) {
   auto internal_data = ArrayData::Make(
       std::move(type), length,
-      BufferVector{std::move(null_bitmap), std::move(type_ids), std::move(value_offsets)},
-      null_count, offset);
+      BufferVector{nullptr, std::move(type_ids), std::move(value_offsets)},
+      /*null_count=*/0, offset);
   for (const auto& child : children) {
     internal_data->child_data.push_back(child->data());
   }
@@ -678,8 +680,12 @@ Result<std::shared_ptr<Array>> DenseUnionArray::Make(
     return Status::TypeError("UnionArray type_ids must be signed int8");
   }
 
+  if (type_ids.null_count() != 0) {
+    return Status::Invalid("Union type ids may not have nulls");
+  }
+
   if (value_offsets.null_count() != 0) {
-    return Status::Invalid("Make does not allow NAs in value_offsets");
+    return Status::Invalid("Make does not allow nulls in value_offsets");
   }
 
   if (field_names.size() > 0 && field_names.size() != children.size()) {
@@ -690,14 +696,13 @@ Result<std::shared_ptr<Array>> DenseUnionArray::Make(
     return Status::Invalid("type_codes must have the same length as children");
   }
 
-  BufferVector buffers = {type_ids.null_bitmap(),
-                          checked_cast<const Int8Array&>(type_ids).values(),
+  BufferVector buffers = {nullptr, checked_cast<const Int8Array&>(type_ids).values(),
                           checked_cast<const Int32Array&>(value_offsets).values()};
 
   auto union_type = dense_union(children, std::move(field_names), std::move(type_codes));
   auto internal_data =
       ArrayData::Make(std::move(union_type), type_ids.length(), std::move(buffers),
-                      type_ids.null_count(), type_ids.offset());
+                      /*null_count=*/0, type_ids.offset());
   for (const auto& child : children) {
     internal_data->child_data.push_back(child->data());
   }
@@ -711,6 +716,10 @@ Result<std::shared_ptr<Array>> SparseUnionArray::Make(
     return Status::TypeError("UnionArray type_ids must be signed int8");
   }
 
+  if (type_ids.null_count() != 0) {
+    return Status::Invalid("Union type ids may not have nulls");
+  }
+
   if (field_names.size() > 0 && field_names.size() != children.size()) {
     return Status::Invalid("field_names must have the same length as children");
   }
@@ -719,12 +728,11 @@ Result<std::shared_ptr<Array>> SparseUnionArray::Make(
     return Status::Invalid("type_codes must have the same length as children");
   }
 
-  BufferVector buffers = {type_ids.null_bitmap(),
-                          checked_cast<const Int8Array&>(type_ids).values()};
+  BufferVector buffers = {nullptr, checked_cast<const Int8Array&>(type_ids).values()};
   auto union_type = sparse_union(children, std::move(field_names), std::move(type_codes));
   auto internal_data =
       ArrayData::Make(std::move(union_type), type_ids.length(), std::move(buffers),
-                      type_ids.null_count(), type_ids.offset());
+                      /*null_count=*/0, type_ids.offset());
   for (const auto& child : children) {
     internal_data->child_data.push_back(child->data());
     if (child->length() != type_ids.length()) {

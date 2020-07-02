@@ -137,8 +137,8 @@ class RecordBatchSerializer {
     // push back all common elements
     field_nodes_.push_back({arr.length(), arr.null_count(), 0});
 
-    // Null type has no validity bitmap
-    if (arr.type_id() != Type::NA) {
+    // Null and union types have no validity bitmap
+    if (::arrow::internal::HasValidityBitmap(arr.type_id())) {
       if (arr.null_count() > 0) {
         std::shared_ptr<Buffer> bitmap;
         RETURN_NOT_OK(GetTruncatedBitmap(arr.offset(), arr.length(), arr.null_bitmap(),

@@ -33,6 +33,10 @@
 
 namespace arrow {
 
+/// \brief Base class for union array builds.
+///
+/// Note that while we subclass ArrayBuilder, as union types do not have a
+/// validity bitmap, the bitmap builder member of ArrayBuilder is not used.
 class ARROW_EXPORT BasicUnionBuilder : public ArrayBuilder {
  public:
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
@@ -55,6 +59,8 @@ class ARROW_EXPORT BasicUnionBuilder : public ArrayBuilder {
                      const std::string& field_name = "");
 
   std::shared_ptr<DataType> type() const override;
+
+  int64_t length() const override { return types_builder_.length(); }
 
  protected:
   BasicUnionBuilder(MemoryPool* pool,
@@ -92,15 +98,23 @@ class ARROW_EXPORT DenseUnionBuilder : public BasicUnionBuilder {
       : BasicUnionBuilder(pool, children, type), offsets_builder_(pool) {}
 
   Status AppendNull() final {
-    ARROW_RETURN_NOT_OK(types_builder_.Append(0));
-    ARROW_RETURN_NOT_OK(offsets_builder_.Append(0));
-    return AppendToBitmap(false);
+    const int8_t first_child_code = type_codes_[0];
+    ArrayBuilder* child_builder = type_id_to_children_[first_child_code];
+    ARROW_RETURN_NOT_OK(types_builder_.Append(first_child_code));
+    ARROW_RETURN_NOT_OK(
+        offsets_builder_.Append(static_cast<int32_t>(child_builder->length())));
+    // Append a null arbitrarily to the first child
+    return child_builder->AppendNull();
   }
 
   Status AppendNulls(int64_t length) final {
-    ARROW_RETURN_NOT_OK(types_builder_.Append(length, 0));
-    ARROW_RETURN_NOT_OK(offsets_builder_.Append(length, 0));
-    return AppendToBitmap(length, false);
+    const int8_t first_child_code = type_codes_[0];
+    ArrayBuilder* child_builder = type_id_to_children_[first_child_code];
+    ARROW_RETURN_NOT_OK(types_builder_.Append(length, first_child_code));
+    ARROW_RETURN_NOT_OK(
+        offsets_builder_.Append(length, static_cast<int32_t>(child_builder->length())));
+    // Append just a single null to the first child
+    return child_builder->AppendNull();
   }
 
   /// \brief Append an element to the UnionArray. This must be followed
@@ -118,8 +132,7 @@ class ARROW_EXPORT DenseUnionBuilder : public BasicUnionBuilder {
           "child");
     }
     auto offset = static_cast<int32_t>(type_id_to_children_[next_type]->length());
-    ARROW_RETURN_NOT_OK(offsets_builder_.Append(offset));
-    return AppendToBitmap(true);
+    return offsets_builder_.Append(offset);
   }
 
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
@@ -146,14 +159,25 @@ class ARROW_EXPORT SparseUnionBuilder : public BasicUnionBuilder {
                      const std::shared_ptr<DataType>& type)
       : BasicUnionBuilder(pool, children, type) {}
 
+  /// \brief Append a null value. A null is added automatically to all the
+  /// children but the type id in the slot will be 0
   Status AppendNull() final {
-    ARROW_RETURN_NOT_OK(types_builder_.Append(0));
-    return AppendToBitmap(false);
+    ARROW_RETURN_NOT_OK(types_builder_.Append(type_codes_[0]));
+    for (int8_t code : type_codes_) {
+      ARROW_RETURN_NOT_OK(type_id_to_children_[code]->AppendNull());
+    }
+    return Status::OK();
   }
 
+  /// \brief Append multiple null values. Nulls will be automatically appended
+  /// to all the children but the type ids will be all 0.
   Status AppendNulls(int64_t length) final {
-    ARROW_RETURN_NOT_OK(types_builder_.Append(length, 0));
-    return AppendToBitmap(length, false);
+    ARROW_RETURN_NOT_OK(types_builder_.Append(length, type_codes_[0]));
+    // Append nulls to children
+    for (int8_t code : type_codes_) {
+      ARROW_RETURN_NOT_OK(type_id_to_children_[code]->AppendNulls(length));
+    }
+    return Status::OK();
   }
 
   /// \brief Append an element to the UnionArray. This must be followed
@@ -163,10 +187,7 @@ class ARROW_EXPORT SparseUnionBuilder : public BasicUnionBuilder {
   ///
   /// The corresponding child builder must be appended to independently after this method
   /// is called, and all other child builders must have null appended
-  Status Append(int8_t next_type) {
-    ARROW_RETURN_NOT_OK(types_builder_.Append(next_type));
-    return AppendToBitmap(true);
-  }
+  Status Append(int8_t next_type) { return types_builder_.Append(next_type); }
 };
 
 }  // namespace arrow

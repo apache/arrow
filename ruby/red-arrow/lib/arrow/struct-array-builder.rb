@@ -108,9 +108,6 @@ module Arrow
     alias_method :append_null_raw, :append_null
     def append_null
       append_null_raw
-      cached_field_builders.each do |builder|
-        builder.append_null
-      end
     end
 
     # @since 0.12.0

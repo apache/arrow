@@ -65,7 +65,7 @@ class Converter {
 
   virtual Status AppendValue(const rj::Value& json_obj) = 0;
 
-  virtual Status AppendNull() = 0;
+  Status AppendNull() { return this->builder()->AppendNull(); }
 
   virtual Status AppendValues(const rj::Value& json_array) = 0;
 
@@ -113,8 +113,6 @@ class NullConverter final : public ConcreteConverter<NullConverter> {
     builder_ = std::make_shared<NullBuilder>();
   }
 
-  Status AppendNull() override { return builder_->AppendNull(); }
-
   Status AppendValue(const rj::Value& json_obj) override {
     if (json_obj.IsNull()) {
       return AppendNull();
@@ -137,8 +135,6 @@ class BooleanConverter final : public ConcreteConverter<BooleanConverter> {
     type_ = type;
     builder_ = std::make_shared<BooleanBuilder>();
   }
-
-  Status AppendNull() override { return builder_->AppendNull(); }
 
   Status AppendValue(const rj::Value& json_obj) override {
     if (json_obj.IsNull()) {
@@ -232,11 +228,9 @@ class IntegerConverter final : public ConcreteConverter<IntegerConverter<Type>> 
     return Status::OK();
   }
 
-  Status AppendNull() override { return builder_->AppendNull(); }
-
   Status AppendValue(const rj::Value& json_obj) override {
     if (json_obj.IsNull()) {
-      return AppendNull();
+      return this->AppendNull();
     }
     c_type value;
     RETURN_NOT_OK(ConvertNumber<Type>(json_obj, *this->type_, &value));
@@ -262,11 +256,9 @@ class FloatConverter final : public ConcreteConverter<FloatConverter<Type>> {
     builder_ = std::make_shared<NumericBuilder<Type>>();
   }
 
-  Status AppendNull() override { return builder_->AppendNull(); }
-
   Status AppendValue(const rj::Value& json_obj) override {
     if (json_obj.IsNull()) {
-      return AppendNull();
+      return this->AppendNull();
     }
     c_type value;
     RETURN_NOT_OK(ConvertNumber<Type>(json_obj, *this->type_, &value));
@@ -290,11 +282,9 @@ class DecimalConverter final : public ConcreteConverter<DecimalConverter> {
     builder_ = std::make_shared<DecimalBuilder>(type);
   }
 
-  Status AppendNull() override { return builder_->AppendNull(); }
-
   Status AppendValue(const rj::Value& json_obj) override {
     if (json_obj.IsNull()) {
-      return AppendNull();
+      return this->AppendNull();
     }
     if (json_obj.IsString()) {
       int32_t precision, scale;
@@ -328,11 +318,9 @@ class TimestampConverter final : public ConcreteConverter<TimestampConverter> {
     builder_ = std::make_shared<TimestampBuilder>(type, default_memory_pool());
   }
 
-  Status AppendNull() override { return builder_->AppendNull(); }
-
   Status AppendValue(const rj::Value& json_obj) override {
     if (json_obj.IsNull()) {
-      return AppendNull();
+      return this->AppendNull();
     }
     int64_t value;
     if (json_obj.IsNumber()) {
@@ -366,11 +354,9 @@ class DayTimeIntervalConverter final
     builder_ = std::make_shared<DayTimeIntervalBuilder>(default_memory_pool());
   }
 
-  Status AppendNull() override { return builder_->AppendNull(); }
-
   Status AppendValue(const rj::Value& json_obj) override {
     if (json_obj.IsNull()) {
-      return AppendNull();
+      return this->AppendNull();
     }
     DayTimeIntervalType::DayMilliseconds value;
     if (!json_obj.IsArray()) {
@@ -405,11 +391,9 @@ class StringConverter final : public ConcreteConverter<StringConverter<TYPE>> {
     builder_ = std::make_shared<BuilderType>(type, default_memory_pool());
   }
 
-  Status AppendNull() override { return builder_->AppendNull(); }
-
   Status AppendValue(const rj::Value& json_obj) override {
     if (json_obj.IsNull()) {
-      return AppendNull();
+      return this->AppendNull();
     }
     if (json_obj.IsString()) {
       auto view = util::string_view(json_obj.GetString(), json_obj.GetStringLength());
@@ -436,11 +420,9 @@ class FixedSizeBinaryConverter final
     builder_ = std::make_shared<FixedSizeBinaryBuilder>(type, default_memory_pool());
   }
 
-  Status AppendNull() override { return builder_->AppendNull(); }
-
   Status AppendValue(const rj::Value& json_obj) override {
     if (json_obj.IsNull()) {
-      return AppendNull();
+      return this->AppendNull();
     }
     if (json_obj.IsString()) {
       auto view = util::string_view(json_obj.GetString(), json_obj.GetStringLength());
@@ -481,11 +463,9 @@ class ListConverter final : public ConcreteConverter<ListConverter<TYPE>> {
     return Status::OK();
   }
 
-  Status AppendNull() override { return builder_->AppendNull(); }
-
   Status AppendValue(const rj::Value& json_obj) override {
     if (json_obj.IsNull()) {
-      return AppendNull();
+      return this->AppendNull();
     }
     RETURN_NOT_OK(builder_->Append());
     // Extend the child converter with this JSON array
@@ -517,11 +497,9 @@ class MapConverter final : public ConcreteConverter<MapConverter> {
     return Status::OK();
   }
 
-  Status AppendNull() override { return builder_->AppendNull(); }
-
   Status AppendValue(const rj::Value& json_obj) override {
     if (json_obj.IsNull()) {
-      return AppendNull();
+      return this->AppendNull();
     }
     RETURN_NOT_OK(builder_->Append());
     if (!json_obj.IsArray()) {
@@ -570,11 +548,9 @@ class FixedSizeListConverter final : public ConcreteConverter<FixedSizeListConve
     return Status::OK();
   }
 
-  Status AppendNull() override { return builder_->AppendNull(); }
-
   Status AppendValue(const rj::Value& json_obj) override {
     if (json_obj.IsNull()) {
-      return AppendNull();
+      return this->AppendNull();
     }
     RETURN_NOT_OK(builder_->Append());
     // Extend the child converter with this JSON array
@@ -613,19 +589,12 @@ class StructConverter final : public ConcreteConverter<StructConverter> {
     return Status::OK();
   }
 
-  Status AppendNull() override {
-    for (auto& converter : child_converters_) {
-      RETURN_NOT_OK(converter->AppendNull());
-    }
-    return builder_->AppendNull();
-  }
-
   // Append a JSON value that is either an array of N elements in order
   // or an object mapping struct names to values (omitted struct members
   // are mapped to null).
   Status AppendValue(const rj::Value& json_obj) override {
     if (json_obj.IsNull()) {
-      return AppendNull();
+      return this->AppendNull();
     }
     if (json_obj.IsArray()) {
       auto size = json_obj.Size();
@@ -701,20 +670,11 @@ class UnionConverter final : public ConcreteConverter<UnionConverter> {
     return Status::OK();
   }
 
-  Status AppendNull() override {
-    if (mode_ == UnionMode::SPARSE) {
-      for (auto& converter : child_converters_) {
-        RETURN_NOT_OK(converter->AppendNull());
-      }
-    }
-    return builder_->AppendNull();
-  }
-
   // Append a JSON value that must be a 2-long array, containing the type_id
   // and value of the UnionArray's slot.
   Status AppendValue(const rj::Value& json_obj) override {
     if (json_obj.IsNull()) {
-      return AppendNull();
+      return this->AppendNull();
     }
     if (!json_obj.IsArray()) {
       return JSONTypeError("array", json_obj.GetType());
