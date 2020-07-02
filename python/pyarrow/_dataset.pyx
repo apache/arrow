@@ -881,10 +881,15 @@ cdef class RowGroupInfo:
             name = frombytes(c_statistics.type.get().field(i).get().name())
             c_minmax = <CStructScalar*> c_statistics.value[i].get()
 
-            statistics[name] = {
-                'min': pyarrow_wrap_scalar(c_minmax.value[0]).as_py(),
-                'max': pyarrow_wrap_scalar(c_minmax.value[1]).as_py(),
-            }
+            try:
+                statistics[name] = {
+                    'min': pyarrow_wrap_scalar(c_minmax.value[0]).as_py(),
+                    'max': pyarrow_wrap_scalar(c_minmax.value[1]).as_py(),
+                }
+            except ValueError:
+                # Don't threat failure to parse/convert a single Scalar as a
+                # failure. The min/max will simply be missing for this field.
+                pass
 
         return statistics
 

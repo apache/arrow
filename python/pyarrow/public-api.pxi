@@ -249,6 +249,9 @@ cdef api object pyarrow_wrap_scalar(const shared_ptr[CScalar]& sp_scalar):
     if data_type == NULL:
         raise ValueError('Scalar data type was NULL')
 
+    if data_type.id() not in _scalar_classes:
+        raise ValueError('Scalar type not supported')
+
     klass = _scalar_classes[data_type.id()]
 
     cdef Scalar scalar = klass.__new__(klass)

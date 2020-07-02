@@ -1301,9 +1301,9 @@ class TestPrimitiveParquetIO : public TestParquetIO<TestType> {
     std::shared_ptr<Scalar> min, max;
     this->ReadSingleColumnFileStatistics(std::move(file_reader), &min, &max);
 
-    ASSERT_OK_AND_ASSIGN(auto value, ::arrow::MakeScalar(
-          ::arrow::TypeTraits<TestType>::type_singleton(),
-          test_traits<TestType>::value));
+    ASSERT_OK_AND_ASSIGN(
+        auto value, ::arrow::MakeScalar(::arrow::TypeTraits<TestType>::type_singleton(),
+                                        test_traits<TestType>::value));
 
     ASSERT_TRUE(value->Equals(*min));
     ASSERT_TRUE(value->Equals(*max));

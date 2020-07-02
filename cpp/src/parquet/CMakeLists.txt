@@ -175,6 +175,7 @@ set(PARQUET_SRCS
     arrow/reader.cc
     arrow/reader_internal.cc
     arrow/schema.cc
+    arrow/schema_internal.cc
     arrow/writer.cc
     bloom_filter.cc
     column_reader.cc
