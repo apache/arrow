@@ -321,3 +321,19 @@ test_that("Table handles null type (ARROW-7064)", {
   tab <- Table$create(a = 1:10, n = vctrs::unspecified(10))
   expect_equivalent(tab$schema, schema(a = int32(), n = null()))
 })
+
+test_that("Can create table with specific dictionary types", {
+  fact <- example_data[,"fct"]
+  int_types <- c(int8(), int16(), int32(), int64())
+  # TODO: test uint types when format allows
+  # uint_types <- c(uint8(), uint16(), uint32(), uint64())
+  for (i in int_types) {
+    sch <- schema(fct = dictionary(i, utf8()))
+    tab <- Table$create(fact, schema = sch)
+    expect_equal(sch, tab$schema)
+    if (i != int64()) {
+      # TODO: same downcast to int32 as we do for int64() type elsewhere
+      expect_identical(as.data.frame(tab), fact)
+    }
+  }
+})
