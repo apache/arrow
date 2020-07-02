@@ -954,31 +954,15 @@ struct ObjectWriterVisitor {
   enable_if_timestamp<Type, Status> Visit(const Type& type) {
     const TimeUnit::type unit = type.unit();
     OwnedRef tzinfo;
-    OwnedRef utc_kwargs;
-    OwnedRef empty_args;
     if (!type.timezone().empty()) {
       RETURN_NOT_OK(internal::StringToTzinfo(type.timezone(), tzinfo.ref()));
-      utc_kwargs.reset(PyDict_New());
-      RETURN_IF_PYERROR();
-
-      OwnedRef utc;
-      RETURN_NOT_OK(internal::StringToTzinfo("utc", utc.ref()));
-      PyDict_SetItemString(utc_kwargs.obj(), "tzinfo", utc.obj());
-      RETURN_IF_PYERROR();
-
-      empty_args.reset(PyTuple_New(0));
       RETURN_IF_PYERROR();
     }
     auto WrapValue = [&](typename Type::c_type value, PyObject** out) {
       RETURN_NOT_OK(internal::PyDateTime_from_int(value, unit, out));
       RETURN_IF_PYERROR();
       if (tzinfo.obj() != nullptr) {
-        OwnedRef replace(PyObject_GetAttrString(*out, "replace"));
-        OwnedRef with_utc(
-            PyObject_Call(replace.obj(), empty_args.obj(), utc_kwargs.obj()));
-        RETURN_IF_PYERROR();
-        PyObject* with_tz =
-            PyObject_CallMethod(with_utc.obj(), "astimezone", "O", tzinfo.obj());
+        PyObject* with_tz = PyObject_CallMethod(tzinfo.obj(), "fromutc", "O", *out);
         RETURN_IF_PYERROR();
         Py_DECREF(*out);
         *out = with_tz;
