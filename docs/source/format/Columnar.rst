@@ -571,7 +571,7 @@ having the values: ``[{f=1.2}, null, {f=3.4}, {i=5}]``
 
 ::
 
-    * Length: 4, Null count: 1
+    * Length: 4, Null count: 0
     * Types buffer:
 
       |Byte 0   | Byte 1      | Byte 2   | Byte 3   | Bytes 4-63  |
@@ -586,7 +586,7 @@ having the values: ``[{f=1.2}, null, {f=3.4}, {i=5}]``
 
     * Children arrays:
       * Field-0 array (f: float):
-        * Length: 2, nulls: 0
+        * Length: 2, Null count: 1
         * Validity bitmap buffer: 00000101
 
         * Value Buffer:
@@ -597,7 +597,7 @@ having the values: ``[{f=1.2}, null, {f=3.4}, {i=5}]``
 
 
       * Field-1 array (i: int32):
-        * Length: 1, nulls: 0
+        * Length: 1, Null count: 0
         * Validity bitmap buffer: Not required
 
         * Value Buffer:
@@ -687,10 +687,9 @@ will have the following layout: ::
             |------------|-----------------------|
             | joemark    | unspecified (padding) |
 
-Note that a child array may have a non-null slot even if the types array
-indicates that a slot contains a different type at the index, so the
-"unselected" values in child arrays for value slots where a different type is
-indicated are ignored.
+Only the slot in the array corresponding to the type index is considered. All
+"unselected" values are ignored and could be any semantically correct array
+value.
 
 Null Layout
 -----------
