@@ -2405,14 +2405,16 @@ def test_read_multiple_files(tempdir, use_legacy_dataset):
 
     # Read with provided metadata
     # TODO(dataset) specifying metadata not yet supported
+    metadata = pq.read_metadata(paths[0])
     if use_legacy_dataset:
-        metadata = pq.read_metadata(paths[0])
-
         result2 = read_multiple_files(paths, metadata=metadata)
         assert result2.equals(expected)
 
         result3 = pa.localfs.read_parquet(dirpath, schema=metadata.schema)
         assert result3.equals(expected)
+    else:
+        with pytest.raises(ValueError, match="no longer supported"):
+            pq.read_table(paths, metadata=metadata, use_legacy_dataset=False)
 
     # Read column subset
     to_read = [0, 2, 6, result.num_columns - 1]
@@ -4102,7 +4104,7 @@ def test_dataset_unsupported_keywords():
     with pytest.raises(ValueError, match="not yet supported with the new"):
         pq.ParquetDataset("", use_legacy_dataset=False, metadata_nthreads=4)
 
-    with pytest.raises(ValueError, match="not yet supported with the new"):
+    with pytest.raises(ValueError, match="no longer supported"):
         pq.read_table("", use_legacy_dataset=False, metadata=pa.schema([]))
 
 

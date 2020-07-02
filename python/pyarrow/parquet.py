@@ -1540,6 +1540,13 @@ def read_table(source, columns=None, use_threads=True, metadata=None,
                read_dictionary=None, filesystem=None, filters=None,
                buffer_size=0, partitioning="hive", use_legacy_dataset=False):
     if not use_legacy_dataset:
+        if metadata is not None:
+            raise ValueError(
+                "The 'metadata' keyword is no longer supported with the new "
+                "datasets-based implementation. Specify "
+                "'use_legacy_dataset=True' to temporarily recover the old "
+                "behaviour."
+            )
         dataset = _ParquetDatasetV2(
             source,
             filesystem=filesystem,
@@ -1548,15 +1555,8 @@ def read_table(source, columns=None, use_threads=True, metadata=None,
             read_dictionary=read_dictionary,
             buffer_size=buffer_size,
             filters=filters,
-            # unsupported keywords
-            metadata=metadata
         )
-        if metadata is not None:
-            raise ValueError(
-                "The 'metadata' keyword is no longer supported with the new "
-                "datasets-based implementation. Specify "
-                "'use_legacy_dataset=True' to recover the old behaviour."
-            )
+
         return dataset.read(columns=columns, use_threads=use_threads,
                             use_pandas_metadata=use_pandas_metadata)
 
