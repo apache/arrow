@@ -335,9 +335,10 @@ void StringBoolTransform(KernelContext* ctx, const ExecBatch& batch,
 }
 
 template <typename offset_type>
-void TransformContainsExact(const uint8_t* pattern, int64_t pattern_length,
-                            const offset_type* offsets, const uint8_t* data,
-                            int64_t length, int64_t output_offset, uint8_t* output) {
+void TransformBinaryContainsExact(const uint8_t* pattern, int64_t pattern_length,
+                                  const offset_type* offsets, const uint8_t* data,
+                                  int64_t length, int64_t output_offset,
+                                  uint8_t* output) {
   // This is an implementation of the Knuth-Morris-Pratt algorithm
 
   // Phase 1: Build the prefix table
@@ -376,20 +377,20 @@ void TransformContainsExact(const uint8_t* pattern, int64_t pattern_length,
   bitmap_writer.Finish();
 }
 
-using ContainsExactState = OptionsWrapper<ContainsExactOptions>;
+using BinaryContainsExactState = OptionsWrapper<BinaryContainsExactOptions>;
 
 template <typename Type>
-struct ContainsExact {
+struct BinaryContainsExact {
   using offset_type = typename Type::offset_type;
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    ContainsExactOptions arg = ContainsExactState::Get(ctx);
+    BinaryContainsExactOptions arg = BinaryContainsExactState::Get(ctx);
     const uint8_t* pat = reinterpret_cast<const uint8_t*>(arg.pattern.c_str());
     const int64_t pat_size = arg.pattern.length();
     StringBoolTransform<Type>(
         ctx, batch,
         [pat, pat_size](const void* offsets, const uint8_t* data, int64_t length,
                         int64_t output_offset, uint8_t* output) {
-          TransformContainsExact<offset_type>(
+          TransformBinaryContainsExact<offset_type>(
               pat, pat_size, reinterpret_cast<const offset_type*>(offsets), data, length,
               output_offset, output);
         },
@@ -397,13 +398,14 @@ struct ContainsExact {
   }
 };
 
-void AddContainsExact(FunctionRegistry* registry) {
-  auto func = std::make_shared<ScalarFunction>("contains_exact", Arity::Unary());
-  auto exec_32 = ContainsExact<StringType>::Exec;
-  auto exec_64 = ContainsExact<LargeStringType>::Exec;
-  DCHECK_OK(func->AddKernel({utf8()}, boolean(), exec_32, ContainsExactState::Init));
+void AddBinaryContainsExact(FunctionRegistry* registry) {
+  auto func = std::make_shared<ScalarFunction>("binary_contains_exact", Arity::Unary());
+  auto exec_32 = BinaryContainsExact<StringType>::Exec;
+  auto exec_64 = BinaryContainsExact<LargeStringType>::Exec;
   DCHECK_OK(
-      func->AddKernel({large_utf8()}, boolean(), exec_64, ContainsExactState::Init));
+      func->AddKernel({utf8()}, boolean(), exec_32, BinaryContainsExactState::Init));
+  DCHECK_OK(func->AddKernel({large_utf8()}, boolean(), exec_64,
+                            BinaryContainsExactState::Init));
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
@@ -487,7 +489,7 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
   MakeUnaryStringUtf8TransformKernel<Utf8Lower>("utf8_lower", registry);
 #endif
   AddAsciiLength(registry);
-  AddContainsExact(registry);
+  AddBinaryContainsExact(registry);
   AddStrptime(registry);
 }
 

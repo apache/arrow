@@ -57,8 +57,8 @@ static void AsciiUpper(benchmark::State& state) {
   UnaryStringBenchmark(state, "ascii_upper");
 }
 
-static void ContainsExact(benchmark::State& state) {
-  ContainsExactOptions options("abac");
+static void BinaryContainsExact(benchmark::State& state) {
+  BinaryContainsExactOptions options("abac");
   UnaryStringBenchmark(state, "contains_exact", &options);
 }
 
@@ -74,7 +74,7 @@ static void Utf8Lower(benchmark::State& state) {
 
 BENCHMARK(AsciiLower);
 BENCHMARK(AsciiUpper);
-BENCHMARK(ContainsExact);
+BENCHMARK(BinaryContainsExact);
 #ifdef ARROW_WITH_UTF8PROC
 BENCHMARK(Utf8Lower);
 BENCHMARK(Utf8Upper);

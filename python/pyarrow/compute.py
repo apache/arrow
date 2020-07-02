@@ -113,9 +113,9 @@ subtract = _simple_binary_function('subtract')
 multiply = _simple_binary_function('multiply')
 
 
-def contains_exact(array, pattern):
+def binary_contains_exact(array, pattern):
     """
-    Check whether a pattern occurs as part of the values of the array.
+    Test if pattern is contained within a value of a binary array.
 
     Parameters
     ----------
@@ -127,8 +127,8 @@ def contains_exact(array, pattern):
     -------
     result : pyarrow.Array or pyarrow.ChunkedArray
     """
-    return call_function("contains_exact", [array],
-                         _pc.ContainsExactOptions(pattern))
+    return call_function("binary_contains_exact", [array],
+                         _pc.BinaryContainsExactOptions(pattern))
 
 
 def sum(array):

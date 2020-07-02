@@ -1566,6 +1566,11 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     CFunctionRegistry* GetFunctionRegistry()
 
+    cdef cppclass CBinaryContainsExactOptions \
+            "arrow::compute::BinaryContainsExactOptions"(CFunctionOptions):
+        BinaryContainsExactOptions(c_string pattern)
+        c_string pattern
+
     cdef cppclass CCastOptions" arrow::compute::CastOptions"(CFunctionOptions):
         CCastOptions()
         CCastOptions(c_bool safe)
@@ -1581,11 +1586,6 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         c_bool allow_time_overflow
         c_bool allow_float_truncate
         c_bool allow_invalid_utf8
-
-    cdef cppclass CContainsExactOptions \
-            "arrow::compute::ContainsExactOptions"(CFunctionOptions):
-        ContainsExactOptions(c_string pattern)
-        c_string pattern
 
     enum CFilterNullSelectionBehavior \
             "arrow::compute::FilterOptions::NullSelectionBehavior":

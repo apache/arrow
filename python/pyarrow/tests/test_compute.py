@@ -90,9 +90,9 @@ def test_sum_chunked_array(arrow_type):
     assert pc.sum(arr) == None  # noqa: E711
 
 
-def test_contains_exact():
+def test_binary_contains_exact():
     arr = pa.array(["ab", "abc", "ba", None])
-    result = pc.contains_exact(arr, "ab")
+    result = pc.binary_contains_exact(arr, "ab")
     expected = pa.array([True, True, False, None])
     assert expected.equals(result)
 

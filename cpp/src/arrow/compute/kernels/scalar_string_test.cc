@@ -147,14 +147,14 @@ TYPED_TEST(TestStringKernels, Utf8Lower) {
 
 #endif  // ARROW_WITH_UTF8PROC
 
-TYPED_TEST(TestStringKernels, ContainsExact) {
-  ContainsExactOptions options{"ab"};
-  this->CheckUnary("contains_exact", "[]", boolean(), "[]", &options);
-  this->CheckUnary("contains_exact", R"(["abc", "acb", "cab", null, "bac"])", boolean(),
-                   "[true, false, true, null, false]", &options);
+TYPED_TEST(TestStringKernels, BinaryContainsExact) {
+  BinaryContainsExactOptions options{"ab"};
+  this->CheckUnary("binary_contains_exact", "[]", boolean(), "[]", &options);
+  this->CheckUnary("binary_contains_exact", R"(["abc", "acb", "cab", null, "bac"])",
+                   boolean(), "[true, false, true, null, false]", &options);
 
-  ContainsExactOptions options_repeated{"abab"};
-  this->CheckUnary("contains_exact", R"(["abab", "ab", "cababc", null, "bac"])",
+  BinaryContainsExactOptions options_repeated{"abab"};
+  this->CheckUnary("binary_contains_exact", R"(["abab", "ab", "cababc", null, "bac"])",
                    boolean(), "[true, false, true, null, false]", &options_repeated);
 }
 
