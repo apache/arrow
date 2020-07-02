@@ -478,7 +478,7 @@ mod tests {
                 None,
             ],
             None,
-            vec![3, 1, 4, 2, 0, 5],
+            vec![0, 5, 3, 1, 4, 2],
         );
         test_sort_to_indices_primitive_arrays::<Float64Type>(
             vec![
@@ -490,7 +490,7 @@ mod tests {
                 None,
             ],
             None,
-            vec![3, 1, 4, 2, 0, 5],
+            vec![0, 5, 3, 1, 4, 2],
         );
 
         // descending
