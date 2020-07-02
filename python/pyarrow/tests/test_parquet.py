@@ -3818,10 +3818,8 @@ def test_dictionary_array_automatically_read(use_legacy_dataset):
 
     assert result.equals(table)
 
-    # TODO(dataset) ARROW:schema is not yet removed -> ARROW-9009
-    if use_legacy_dataset:
-        # The only key in the metadata was the Arrow schema key
-        assert result.schema.metadata is None
+    # The only key in the metadata was the Arrow schema key
+    assert result.schema.metadata is None
 
 
 def test_field_id_metadata():
