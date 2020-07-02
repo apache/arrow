@@ -372,10 +372,14 @@ if(ARROW_COMPUTE)
   if(CXX_SUPPORTS_AVX2)
     list(APPEND ARROW_SRCS compute/kernels/aggregate_sum_avx2.cc)
     set_source_files_properties(compute/kernels/aggregate_sum_avx2.cc PROPERTIES
+                                SKIP_PRECOMPILE_HEADERS ON)
+    set_source_files_properties(compute/kernels/aggregate_sum_avx2.cc PROPERTIES
                                 COMPILE_FLAGS ${ARROW_AVX2_FLAG})
   endif()
   if(CXX_SUPPORTS_AVX512)
     list(APPEND ARROW_SRCS compute/kernels/aggregate_sum_avx512.cc)
+    set_source_files_properties(compute/kernels/aggregate_sum_avx512.cc PROPERTIES
+                                SKIP_PRECOMPILE_HEADERS ON)
     set_source_files_properties(compute/kernels/aggregate_sum_avx512.cc PROPERTIES
                                 COMPILE_FLAGS ${ARROW_AVX512_FLAG})
   endif()
