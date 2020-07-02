@@ -706,13 +706,12 @@ values by integers referencing a **dictionary** usually consisting of
 unique values. It can be effective when you have data with many
 repeated values.
 
-Any array can be dictionary-encoded. The dictionary is stored as an
-optional property of an array. When a field is dictionary encoded, the
-values are represented by an array of signed integers representing the
-index of the value in the dictionary. The memory layout for a
-dictionary-encoded array is the same as that of a primitive signed
-integer layout. The dictionary is handled as a separate columnar array
-with its own respective layout.
+Any array can be dictionary-encoded. The dictionary is stored as an optional
+property of an array. When a field is dictionary encoded, the values are
+represented by an array of non-negative integers representing the index of the
+value in the dictionary. The memory layout for a dictionary-encoded array is
+the same as that of a primitive integer layout. The dictionary is handled as a
+separate columnar array with its own respective layout.
 
 As an example, you could have the following data: ::
 
@@ -747,6 +746,12 @@ nulls:
 
 The null count of such arrays is dictated only by the validity bitmap
 of its indices, irrespective of any null values in the dictionary.
+
+Since unsigned integers can be more difficult to work with in some cases
+(e.g. in the JVM), we recommend preferring signed integers over unsigned
+integers for representing dictionary indices. Additionally, we recommend
+avoiding using 64-bit unsigned integer indices unless they are required by an
+application.
 
 We discuss dictionary encoding as it relates to serialization further
 below.

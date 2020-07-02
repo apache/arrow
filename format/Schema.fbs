@@ -288,8 +288,11 @@ table DictionaryEncoding {
   /// DictionaryBatch messages
   id: long;
 
-  /// The dictionary indices are constrained to be positive integers. If this
-  /// field is null, the indices must be signed int32
+  /// The dictionary indices are constrained to be non-negative integers. If
+  /// this field is null, the indices must be signed int32. To maximize
+  /// cross-language compatibility and performance, implementations are
+  /// recommended to prefer signed integer types over unsigned integer types
+  /// and to avoid uint64 indices unless they are required by an application.
   indexType: Int;
 
   /// By default, dictionaries are not ordered, or the order does not have
