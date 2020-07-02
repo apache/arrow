@@ -268,8 +268,8 @@ garrow_function_find(const gchar *name)
  * garrow_function_execute:
  * @function: A #GArrowFunction.
  * @args: (element-type GArrowDatum): A list of #GArrowDatum.
- * @options: (nullable): Options for the execution as an object of
- *   subclass of #GArrowFunction.
+ * @options: (nullable): Options for the execution as an object that
+ *   implements  #GArrowFunctionOptions.
  * @context: (nullable): A #GArrowExecuteContext for the execution.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
