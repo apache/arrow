@@ -1302,8 +1302,8 @@ bool CheckCompatibleFactor(SEXP obj, const std::shared_ptr<arrow::DataType>& typ
     return false;
   }
 
-  auto* dict_type = checked_cast<arrow::DictionaryType*>(type.get());
-  return dict_type->value_type()->Equals(utf8());
+  const auto& dict_type = checked_cast<const arrow::DictionaryType&>(*type);
+  return dict_type.value_type()->Equals(utf8());
 }
 
 arrow::Status CheckCompatibleStruct(SEXP obj,
