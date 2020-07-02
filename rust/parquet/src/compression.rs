@@ -22,7 +22,7 @@
 //!
 //! # Example
 //!
-//! ```rust
+//! ```no_run
 //! use parquet::{basic::Compression, compression::create_codec};
 //!
 //! let mut codec = match create_codec(Compression::SNAPPY) {
@@ -39,14 +39,6 @@
 //!
 //! assert_eq!(output, data);
 //! ```
-
-use std::io::{self, Read, Write};
-
-use brotli;
-use flate2::{read, write, Compression};
-use lz4;
-use snap::raw::{decompress_len, max_compress_len, Decoder, Encoder};
-use zstd;
 
 use crate::basic::Compression as CodecType;
 use crate::errors::{ParquetError, Result};
@@ -70,202 +62,261 @@ pub trait Codec {
 /// This returns `None` if the codec type is `UNCOMPRESSED`.
 pub fn create_codec(codec: CodecType) -> Result<Option<Box<Codec>>> {
     match codec {
+        #[cfg(any(feature = "brotli", test))]
         CodecType::BROTLI => Ok(Some(Box::new(BrotliCodec::new()))),
+        #[cfg(any(feature = "flate2", test))]
         CodecType::GZIP => Ok(Some(Box::new(GZipCodec::new()))),
+        #[cfg(any(feature = "snap", test))]
         CodecType::SNAPPY => Ok(Some(Box::new(SnappyCodec::new()))),
+        #[cfg(any(feature = "lz4", test))]
         CodecType::LZ4 => Ok(Some(Box::new(LZ4Codec::new()))),
+        #[cfg(any(feature = "zstd", test))]
         CodecType::ZSTD => Ok(Some(Box::new(ZSTDCodec::new()))),
         CodecType::UNCOMPRESSED => Ok(None),
         _ => Err(nyi_err!("The codec type {} is not supported yet", codec)),
     }
 }
 
-/// Codec for Snappy compression format.
-pub struct SnappyCodec {
-    decoder: Decoder,
-    encoder: Encoder,
-}
+#[cfg(any(feature = "snap", test))]
+mod snappy_codec {
+    use snap::raw::{decompress_len, max_compress_len, Decoder, Encoder};
 
-impl SnappyCodec {
-    /// Creates new Snappy compression codec.
-    fn new() -> Self {
-        Self {
-            decoder: Decoder::new(),
-            encoder: Encoder::new(),
-        }
-    }
-}
+    use crate::compression::Codec;
+    use crate::errors::Result;
 
-impl Codec for SnappyCodec {
-    fn decompress(
-        &mut self,
-        input_buf: &[u8],
-        output_buf: &mut Vec<u8>,
-    ) -> Result<usize> {
-        let len = decompress_len(input_buf)?;
-        output_buf.resize(len, 0);
-        self.decoder
-            .decompress(input_buf, output_buf)
-            .map_err(|e| e.into())
+    /// Codec for Snappy compression format.
+    pub struct SnappyCodec {
+        decoder: Decoder,
+        encoder: Encoder,
     }
 
-    fn compress(&mut self, input_buf: &[u8], output_buf: &mut Vec<u8>) -> Result<()> {
-        let required_len = max_compress_len(input_buf.len());
-        if output_buf.len() < required_len {
-            output_buf.resize(required_len, 0);
-        }
-        let n = self.encoder.compress(input_buf, &mut output_buf[..])?;
-        output_buf.truncate(n);
-        Ok(())
-    }
-}
-
-/// Codec for GZIP compression algorithm.
-pub struct GZipCodec {}
-
-impl GZipCodec {
-    /// Creates new GZIP compression codec.
-    fn new() -> Self {
-        Self {}
-    }
-}
-
-impl Codec for GZipCodec {
-    fn decompress(
-        &mut self,
-        input_buf: &[u8],
-        output_buf: &mut Vec<u8>,
-    ) -> Result<usize> {
-        let mut decoder = read::GzDecoder::new(input_buf);
-        decoder.read_to_end(output_buf).map_err(|e| e.into())
-    }
-
-    fn compress(&mut self, input_buf: &[u8], output_buf: &mut Vec<u8>) -> Result<()> {
-        let mut encoder = write::GzEncoder::new(output_buf, Compression::default());
-        encoder.write_all(input_buf)?;
-        encoder.try_finish().map_err(|e| e.into())
-    }
-}
-
-const BROTLI_DEFAULT_BUFFER_SIZE: usize = 4096;
-const BROTLI_DEFAULT_COMPRESSION_QUALITY: u32 = 1; // supported levels 0-9
-const BROTLI_DEFAULT_LG_WINDOW_SIZE: u32 = 22; // recommended between 20-22
-
-/// Codec for Brotli compression algorithm.
-pub struct BrotliCodec {}
-
-impl BrotliCodec {
-    /// Creates new Brotli compression codec.
-    fn new() -> Self {
-        Self {}
-    }
-}
-
-impl Codec for BrotliCodec {
-    fn decompress(
-        &mut self,
-        input_buf: &[u8],
-        output_buf: &mut Vec<u8>,
-    ) -> Result<usize> {
-        brotli::Decompressor::new(input_buf, BROTLI_DEFAULT_BUFFER_SIZE)
-            .read_to_end(output_buf)
-            .map_err(|e| e.into())
-    }
-
-    fn compress(&mut self, input_buf: &[u8], output_buf: &mut Vec<u8>) -> Result<()> {
-        let mut encoder = brotli::CompressorWriter::new(
-            output_buf,
-            BROTLI_DEFAULT_BUFFER_SIZE,
-            BROTLI_DEFAULT_COMPRESSION_QUALITY,
-            BROTLI_DEFAULT_LG_WINDOW_SIZE,
-        );
-        encoder.write_all(&input_buf[..])?;
-        encoder.flush().map_err(|e| e.into())
-    }
-}
-
-const LZ4_BUFFER_SIZE: usize = 4096;
-
-/// Codec for LZ4 compression algorithm.
-pub struct LZ4Codec {}
-
-impl LZ4Codec {
-    /// Creates new LZ4 compression codec.
-    fn new() -> Self {
-        Self {}
-    }
-}
-
-impl Codec for LZ4Codec {
-    fn decompress(
-        &mut self,
-        input_buf: &[u8],
-        output_buf: &mut Vec<u8>,
-    ) -> Result<usize> {
-        let mut decoder = lz4::Decoder::new(input_buf)?;
-        let mut buffer: [u8; LZ4_BUFFER_SIZE] = [0; LZ4_BUFFER_SIZE];
-        let mut total_len = 0;
-        loop {
-            let len = decoder.read(&mut buffer)?;
-            if len == 0 {
-                break;
-            }
-            total_len += len;
-            output_buf.write_all(&buffer[0..len])?;
-        }
-        Ok(total_len)
-    }
-
-    fn compress(&mut self, input_buf: &[u8], output_buf: &mut Vec<u8>) -> Result<()> {
-        let mut encoder = lz4::EncoderBuilder::new().build(output_buf)?;
-        let mut from = 0;
-        loop {
-            let to = std::cmp::min(from + LZ4_BUFFER_SIZE, input_buf.len());
-            encoder.write_all(&input_buf[from..to])?;
-            from += LZ4_BUFFER_SIZE;
-            if from >= input_buf.len() {
-                break;
+    impl SnappyCodec {
+        /// Creates new Snappy compression codec.
+        pub(crate) fn new() -> Self {
+            Self {
+                decoder: Decoder::new(),
+                encoder: Encoder::new(),
             }
         }
-        encoder.finish().1.map_err(|e| e.into())
     }
-}
 
-/// Codec for Zstandard compression algorithm.
-pub struct ZSTDCodec {}
-
-impl ZSTDCodec {
-    /// Creates new Zstandard compression codec.
-    fn new() -> Self {
-        Self {}
-    }
-}
-
-/// Compression level (1-21) for ZSTD. Choose 1 here for better compression speed.
-const ZSTD_COMPRESSION_LEVEL: i32 = 1;
-
-impl Codec for ZSTDCodec {
-    fn decompress(
-        &mut self,
-        input_buf: &[u8],
-        output_buf: &mut Vec<u8>,
-    ) -> Result<usize> {
-        let mut decoder = zstd::Decoder::new(input_buf)?;
-        match io::copy(&mut decoder, output_buf) {
-            Ok(n) => Ok(n as usize),
-            Err(e) => Err(e.into()),
+    impl Codec for SnappyCodec {
+        fn decompress(
+            &mut self,
+            input_buf: &[u8],
+            output_buf: &mut Vec<u8>,
+        ) -> Result<usize> {
+            let len = decompress_len(input_buf)?;
+            output_buf.resize(len, 0);
+            self.decoder
+                .decompress(input_buf, output_buf)
+                .map_err(|e| e.into())
         }
-    }
 
-    fn compress(&mut self, input_buf: &[u8], output_buf: &mut Vec<u8>) -> Result<()> {
-        let mut encoder = zstd::Encoder::new(output_buf, ZSTD_COMPRESSION_LEVEL)?;
-        encoder.write_all(&input_buf[..])?;
-        match encoder.finish() {
-            Ok(_) => Ok(()),
-            Err(e) => Err(e.into()),
+        fn compress(&mut self, input_buf: &[u8], output_buf: &mut Vec<u8>) -> Result<()> {
+            let required_len = max_compress_len(input_buf.len());
+            if output_buf.len() < required_len {
+                output_buf.resize(required_len, 0);
+            }
+            let n = self.encoder.compress(input_buf, &mut output_buf[..])?;
+            output_buf.truncate(n);
+            Ok(())
         }
     }
 }
+#[cfg(any(feature = "snap", test))]
+pub use snappy_codec::*;
+
+#[cfg(any(feature = "flate2", test))]
+mod gzip_codec {
+
+    use std::io::{Read, Write};
+
+    use flate2::{read, write, Compression};
+
+    use crate::compression::Codec;
+    use crate::errors::Result;
+
+    /// Codec for GZIP compression algorithm.
+    pub struct GZipCodec {}
+
+    impl GZipCodec {
+        /// Creates new GZIP compression codec.
+        pub(crate) fn new() -> Self {
+            Self {}
+        }
+    }
+
+    impl Codec for GZipCodec {
+        fn decompress(
+            &mut self,
+            input_buf: &[u8],
+            output_buf: &mut Vec<u8>,
+        ) -> Result<usize> {
+            let mut decoder = read::GzDecoder::new(input_buf);
+            decoder.read_to_end(output_buf).map_err(|e| e.into())
+        }
+
+        fn compress(&mut self, input_buf: &[u8], output_buf: &mut Vec<u8>) -> Result<()> {
+            let mut encoder = write::GzEncoder::new(output_buf, Compression::default());
+            encoder.write_all(input_buf)?;
+            encoder.try_finish().map_err(|e| e.into())
+        }
+    }
+}
+#[cfg(any(feature = "flate2", test))]
+pub use gzip_codec::*;
+
+#[cfg(any(feature = "brotli", test))]
+mod brotli_codec {
+
+    use std::io::{Read, Write};
+
+    use crate::compression::Codec;
+    use crate::errors::Result;
+
+    const BROTLI_DEFAULT_BUFFER_SIZE: usize = 4096;
+    const BROTLI_DEFAULT_COMPRESSION_QUALITY: u32 = 1; // supported levels 0-9
+    const BROTLI_DEFAULT_LG_WINDOW_SIZE: u32 = 22; // recommended between 20-22
+
+    /// Codec for Brotli compression algorithm.
+    pub struct BrotliCodec {}
+
+    impl BrotliCodec {
+        /// Creates new Brotli compression codec.
+        pub(crate) fn new() -> Self {
+            Self {}
+        }
+    }
+
+    impl Codec for BrotliCodec {
+        fn decompress(
+            &mut self,
+            input_buf: &[u8],
+            output_buf: &mut Vec<u8>,
+        ) -> Result<usize> {
+            brotli::Decompressor::new(input_buf, BROTLI_DEFAULT_BUFFER_SIZE)
+                .read_to_end(output_buf)
+                .map_err(|e| e.into())
+        }
+
+        fn compress(&mut self, input_buf: &[u8], output_buf: &mut Vec<u8>) -> Result<()> {
+            let mut encoder = brotli::CompressorWriter::new(
+                output_buf,
+                BROTLI_DEFAULT_BUFFER_SIZE,
+                BROTLI_DEFAULT_COMPRESSION_QUALITY,
+                BROTLI_DEFAULT_LG_WINDOW_SIZE,
+            );
+            encoder.write_all(&input_buf[..])?;
+            encoder.flush().map_err(|e| e.into())
+        }
+    }
+}
+#[cfg(any(feature = "brotli", test))]
+pub use brotli_codec::*;
+
+#[cfg(any(feature = "lz4", test))]
+mod lz4_codec {
+    use std::io::{Read, Write};
+
+    use crate::compression::Codec;
+    use crate::errors::Result;
+
+    const LZ4_BUFFER_SIZE: usize = 4096;
+
+    /// Codec for LZ4 compression algorithm.
+    pub struct LZ4Codec {}
+
+    impl LZ4Codec {
+        /// Creates new LZ4 compression codec.
+        pub(crate) fn new() -> Self {
+            Self {}
+        }
+    }
+
+    impl Codec for LZ4Codec {
+        fn decompress(
+            &mut self,
+            input_buf: &[u8],
+            output_buf: &mut Vec<u8>,
+        ) -> Result<usize> {
+            let mut decoder = lz4::Decoder::new(input_buf)?;
+            let mut buffer: [u8; LZ4_BUFFER_SIZE] = [0; LZ4_BUFFER_SIZE];
+            let mut total_len = 0;
+            loop {
+                let len = decoder.read(&mut buffer)?;
+                if len == 0 {
+                    break;
+                }
+                total_len += len;
+                output_buf.write_all(&buffer[0..len])?;
+            }
+            Ok(total_len)
+        }
+
+        fn compress(&mut self, input_buf: &[u8], output_buf: &mut Vec<u8>) -> Result<()> {
+            let mut encoder = lz4::EncoderBuilder::new().build(output_buf)?;
+            let mut from = 0;
+            loop {
+                let to = std::cmp::min(from + LZ4_BUFFER_SIZE, input_buf.len());
+                encoder.write_all(&input_buf[from..to])?;
+                from += LZ4_BUFFER_SIZE;
+                if from >= input_buf.len() {
+                    break;
+                }
+            }
+            encoder.finish().1.map_err(|e| e.into())
+        }
+    }
+}
+#[cfg(any(feature = "lz4", test))]
+pub use lz4_codec::*;
+
+#[cfg(any(feature = "zstd", test))]
+mod zstd_codec {
+    use std::io::{self, Write};
+
+    use crate::compression::Codec;
+    use crate::errors::Result;
+
+    /// Codec for Zstandard compression algorithm.
+    pub struct ZSTDCodec {}
+
+    impl ZSTDCodec {
+        /// Creates new Zstandard compression codec.
+        pub(crate) fn new() -> Self {
+            Self {}
+        }
+    }
+
+    /// Compression level (1-21) for ZSTD. Choose 1 here for better compression speed.
+    const ZSTD_COMPRESSION_LEVEL: i32 = 1;
+
+    impl Codec for ZSTDCodec {
+        fn decompress(
+            &mut self,
+            input_buf: &[u8],
+            output_buf: &mut Vec<u8>,
+        ) -> Result<usize> {
+            let mut decoder = zstd::Decoder::new(input_buf)?;
+            match io::copy(&mut decoder, output_buf) {
+                Ok(n) => Ok(n as usize),
+                Err(e) => Err(e.into()),
+            }
+        }
+
+        fn compress(&mut self, input_buf: &[u8], output_buf: &mut Vec<u8>) -> Result<()> {
+            let mut encoder = zstd::Encoder::new(output_buf, ZSTD_COMPRESSION_LEVEL)?;
+            encoder.write_all(&input_buf[..])?;
+            match encoder.finish() {
+                Ok(_) => Ok(()),
+                Err(e) => Err(e.into()),
+            }
+        }
+    }
+}
+#[cfg(any(feature = "zstd", test))]
+pub use zstd_codec::*;
 
 #[cfg(test)]
 mod tests {
