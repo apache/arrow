@@ -321,9 +321,9 @@ void StringBoolTransform(KernelContext* ctx, const ExecBatch& batch,
     }
   } else {
     const auto& input = checked_cast<const BaseBinaryScalar&>(*batch[0].scalar());
-    auto result = checked_pointer_cast<BooleanScalar>(MakeNullScalar(out->type()));
-    uint8_t result_value = 0;
     if (input.is_valid) {
+      auto result = checked_pointer_cast<BooleanScalar>(MakeNullScalar(out->type()));
+      uint8_t result_value = 0;
       result->is_valid = true;
       std::array<offset_type, 2> offsets{0,
                                          static_cast<offset_type>(input.value->size())};
