@@ -21,6 +21,7 @@ import io.netty.buffer.AbstractByteBufAllocator;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.CompositeByteBuf;
 import io.netty.buffer.ExpandableByteBuf;
+import io.netty.buffer.NettyArrowBuf;
 
 /**
  * An implementation of ByteBufAllocator that wraps a Arrow BufferAllocator. This allows the RPC
@@ -56,7 +57,7 @@ public class ArrowByteBufAllocator extends AbstractByteBufAllocator {
 
   @Override
   public ByteBuf buffer(int initialCapacity) {
-    return new ExpandableByteBuf(allocator.buffer(initialCapacity).asNettyBuffer(), allocator);
+    return new ExpandableByteBuf(NettyArrowBuf.unwrapBuffer(allocator.buffer(initialCapacity)), allocator);
   }
 
   @Override
@@ -86,7 +87,7 @@ public class ArrowByteBufAllocator extends AbstractByteBufAllocator {
 
   @Override
   public ByteBuf directBuffer(int initialCapacity) {
-    return allocator.buffer(initialCapacity).asNettyBuffer();
+    return NettyArrowBuf.unwrapBuffer(allocator.buffer(initialCapacity));
   }
 
   @Override

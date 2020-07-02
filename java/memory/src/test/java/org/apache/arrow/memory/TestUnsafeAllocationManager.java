@@ -28,10 +28,8 @@ import org.junit.Test;
 public class TestUnsafeAllocationManager {
 
   private BaseAllocator createUnsafeAllocator() {
-    return new RootAllocator(BaseAllocator.configBuilder()
-        .allocationManagerFactory((accountingAllocator, requestedSize) ->
-            new UnsafeAllocationManager(
-                accountingAllocator, requestedSize)).build());
+    return new RootAllocator(BaseAllocator.configBuilder().allocationManagerFactory(UnsafeAllocationManager.FACTORY)
+        .build());
   }
 
   private void readWriteArrowBuf(ArrowBuf buffer) {

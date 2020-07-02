@@ -57,6 +57,7 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufInputStream;
 import io.netty.buffer.CompositeByteBuf;
 import io.netty.buffer.Unpooled;
+import io.netty.buffer.UnpooledByteBufAllocator;
 
 /**
  * The in-memory representation of FlightData used to manage a stream of Arrow messages.
@@ -333,14 +334,14 @@ class ArrowMessage implements AutoCloseable {
 
       if (appMetadata != null && appMetadata.capacity() > 0) {
         // Must call slice() as CodedOutputStream#writeByteBuffer writes -capacity- bytes, not -limit- bytes
-        cos.writeByteBuffer(FlightData.APP_METADATA_FIELD_NUMBER, appMetadata.asNettyBuffer().nioBuffer().slice());
+        cos.writeByteBuffer(FlightData.APP_METADATA_FIELD_NUMBER, appMetadata.nioBuffer().slice());
       }
 
       cos.writeTag(FlightData.DATA_BODY_FIELD_NUMBER, WireFormat.WIRETYPE_LENGTH_DELIMITED);
       int size = 0;
       List<ByteBuf> allBufs = new ArrayList<>();
       for (ArrowBuf b : bufs) {
-        allBufs.add(b.asNettyBuffer());
+        allBufs.add(Unpooled.wrappedBuffer(b.nioBuffer()).retain());
         size += b.readableBytes();
         // [ARROW-4213] These buffers must be aligned to an 8-byte boundary in order to be readable from C++.
         if (b.readableBytes() % 8 != 0) {
@@ -349,19 +350,19 @@ class ArrowMessage implements AutoCloseable {
           size += paddingBytes;
           allBufs.add(PADDING_BUFFERS.get(paddingBytes).retain());
         }
-        // gRPC/Netty will decrement the reference count (via the ByteBufInputStream below) when written, so increment
-        // the reference count
-        b.getReferenceManager().retain();
       }
       // rawvarint is used for length definition.
       cos.writeUInt32NoTag(size);
       cos.flush();
 
-      ArrowBuf initialBuf = allocator.buffer(baos.size());
+      ByteBuf initialBuf = Unpooled.buffer(baos.size());
       initialBuf.writeBytes(baos.toByteArray());
-      final CompositeByteBuf bb = new CompositeByteBuf(allocator.getAsByteBufAllocator(), true,
+      final CompositeByteBuf bb = new CompositeByteBuf(UnpooledByteBufAllocator.DEFAULT, true,
           Math.max(2, bufs.size() + 1),
-          ImmutableList.<ByteBuf>builder().add(initialBuf.asNettyBuffer()).addAll(allBufs).build());
+          ImmutableList.<ByteBuf>builder()
+              .add(initialBuf)
+              .addAll(allBufs)
+              .build());
       final ByteBufInputStream is = new DrainableByteBufInputStream(bb);
       return is;
     } catch (Exception ex) {

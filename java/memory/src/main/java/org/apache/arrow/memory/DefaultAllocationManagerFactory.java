@@ -32,4 +32,9 @@ public class DefaultAllocationManagerFactory implements AllocationManager.Factor
   public AllocationManager create(BaseAllocator accountingAllocator, long size) {
     return new NettyAllocationManager(accountingAllocator, size);
   }
+
+  @Override
+  public ArrowBuf empty() {
+    return NettyAllocationManager.EMPTY_BUFFER;
+  }
 }

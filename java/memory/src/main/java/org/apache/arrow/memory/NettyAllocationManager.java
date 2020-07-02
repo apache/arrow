@@ -27,7 +27,18 @@ import io.netty.util.internal.PlatformDependent;
  */
 public class NettyAllocationManager extends AllocationManager {
 
-  public static final AllocationManager.Factory FACTORY = NettyAllocationManager::new;
+  public static final AllocationManager.Factory FACTORY = new AllocationManager.Factory() {
+
+    @Override
+    public AllocationManager create(BaseAllocator accountingAllocator, long size) {
+      return new NettyAllocationManager(accountingAllocator, size);
+    }
+
+    @Override
+    public ArrowBuf empty() {
+      return EMPTY_BUFFER;
+    }
+  };
 
   /**
    * The default cut-off value for switching allocation strategies.
@@ -39,6 +50,10 @@ public class NettyAllocationManager extends AllocationManager {
 
   private static final PooledByteBufAllocatorL INNER_ALLOCATOR = new PooledByteBufAllocatorL();
   static final UnsafeDirectLittleEndian EMPTY = INNER_ALLOCATOR.empty;
+  static final ArrowBuf EMPTY_BUFFER = new ArrowBuf(ReferenceManager.NO_OP,
+      null,
+      0,
+      NettyAllocationManager.EMPTY.memoryAddress());
   static final long CHUNK_SIZE = INNER_ALLOCATOR.getChunkSize();
 
   private final long allocatedSize;

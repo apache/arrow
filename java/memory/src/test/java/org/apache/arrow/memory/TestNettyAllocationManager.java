@@ -33,9 +33,17 @@ public class TestNettyAllocationManager {
 
   private BaseAllocator createCustomizedAllocator() {
     return new RootAllocator(BaseAllocator.configBuilder()
-        .allocationManagerFactory((accountingAllocator, requestedSize) ->
-            new NettyAllocationManager(
-                accountingAllocator, requestedSize, CUSTOMIZED_ALLOCATION_CUTOFF_VALUE)).build());
+        .allocationManagerFactory(new AllocationManager.Factory() {
+          @Override
+          public AllocationManager create(BaseAllocator accountingAllocator, long size) {
+            return new NettyAllocationManager(accountingAllocator, size, CUSTOMIZED_ALLOCATION_CUTOFF_VALUE);
+          }
+
+          @Override
+          public ArrowBuf empty() {
+            return null;
+          }
+        }).build());
   }
 
   private void readWriteArrowBuf(ArrowBuf buffer) {

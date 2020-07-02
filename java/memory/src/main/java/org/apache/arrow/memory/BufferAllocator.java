@@ -19,8 +19,6 @@ package org.apache.arrow.memory;
 
 import java.util.Collection;
 
-import io.netty.buffer.ByteBufAllocator;
-
 /**
  * Wrapper class to deal with byte buffer allocation. Ensures users only use designated methods.
  */
@@ -50,16 +48,6 @@ public interface BufferAllocator extends AutoCloseable {
    * @throws OutOfMemoryException if buffer cannot be allocated
    */
   ArrowBuf buffer(long size, BufferManager manager);
-
-  /**
-   * Returns the allocator this allocator falls back to when it needs more memory.
-   *
-   * @return the underlying allocator used by this allocator
-   *
-   * @deprecated This method may be removed in a future release.
-   */
-  @Deprecated
-  ByteBufAllocator getAsByteBufAllocator();
 
   /**
    * Create a new child allocator.

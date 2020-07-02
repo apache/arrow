@@ -22,13 +22,14 @@ import static org.junit.Assert.assertEquals;
 import org.junit.Test;
 
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.NettyArrowBuf;
 
 public class TestEndianness {
 
   @Test
   public void testLittleEndian() {
     final BufferAllocator a = new RootAllocator(10000);
-    final ByteBuf b = a.buffer(4).asNettyBuffer();
+    final ByteBuf b = NettyArrowBuf.unwrapBuffer(a.buffer(4));
     b.setInt(0, 35);
     assertEquals(b.getByte(0), 35);
     assertEquals(b.getByte(1), 0);

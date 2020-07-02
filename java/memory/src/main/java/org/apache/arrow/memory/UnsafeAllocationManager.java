@@ -24,7 +24,23 @@ import org.apache.arrow.memory.util.MemoryUtil;
  */
 public final class UnsafeAllocationManager extends AllocationManager {
 
-  public static final AllocationManager.Factory FACTORY = UnsafeAllocationManager::new;
+  private static final ArrowBuf EMPTY = new ArrowBuf(ReferenceManager.NO_OP,
+      null,
+      0,
+      MemoryUtil.UNSAFE.allocateMemory(0)
+  );
+
+  public static final AllocationManager.Factory FACTORY = new Factory() {
+    @Override
+    public AllocationManager create(BaseAllocator accountingAllocator, long size) {
+      return new UnsafeAllocationManager(accountingAllocator, size);
+    }
+
+    @Override
+    public ArrowBuf empty() {
+      return EMPTY;
+    }
+  };
 
   private final long allocatedSize;
 

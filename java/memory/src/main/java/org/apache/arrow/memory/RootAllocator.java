@@ -37,7 +37,8 @@ public class RootAllocator extends BaseAllocator {
   }
 
   public RootAllocator(final AllocationListener listener, final long limit) {
-    this(listener, limit, DefaultRoundingPolicy.INSTANCE);
+    //todo fix DefaultRoundingPolicy when using Netty
+    this(listener, limit, DefaultRoundingPolicy.DEFAULT_ROUNDING_POLICY);
   }
 
   /**

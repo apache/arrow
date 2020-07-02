@@ -33,7 +33,7 @@ public class TestNettyArrowBuf {
     try (BufferAllocator allocator = new RootAllocator(128);
          ArrowBuf buf = allocator.buffer(20);
     ) {
-      NettyArrowBuf nettyBuf = buf.asNettyBuffer();
+      NettyArrowBuf nettyBuf = NettyArrowBuf.unwrapBuffer(buf);
       nettyBuf.writerIndex(20);
       nettyBuf.readerIndex(10);
       NettyArrowBuf slicedBuffer = nettyBuf.slice();
@@ -47,7 +47,7 @@ public class TestNettyArrowBuf {
     try (BufferAllocator allocator = new RootAllocator(128);
          ArrowBuf buf = allocator.buffer(20);
     ) {
-      NettyArrowBuf nettyBuf = buf.asNettyBuffer();
+      NettyArrowBuf nettyBuf = NettyArrowBuf.unwrapBuffer(buf);
       ByteBuffer byteBuffer = nettyBuf.nioBuffer(4, 6);
       // Nio Buffers should always be 0 indexed
       Assert.assertEquals(0, byteBuffer.position());
@@ -63,7 +63,7 @@ public class TestNettyArrowBuf {
     try (BufferAllocator allocator = new RootAllocator(128);
          ArrowBuf buf = allocator.buffer(20);
     ) {
-      NettyArrowBuf nettyBuf = buf.asNettyBuffer();
+      NettyArrowBuf nettyBuf = NettyArrowBuf.unwrapBuffer(buf);
       ByteBuffer byteBuffer = nettyBuf.internalNioBuffer(4, 6);
       Assert.assertEquals(0, byteBuffer.position());
       Assert.assertEquals(6, byteBuffer.limit());
@@ -78,7 +78,7 @@ public class TestNettyArrowBuf {
     try (BufferAllocator allocator = new RootAllocator(128);
          ArrowBuf buf = allocator.buffer(20);
     ) {
-      NettyArrowBuf nettyBuf = buf.asNettyBuffer();
+      NettyArrowBuf nettyBuf = NettyArrowBuf.unwrapBuffer(buf);
       int [] intVals = new int[] {Integer.MIN_VALUE, Short.MIN_VALUE - 1, Short.MIN_VALUE, 0 ,
         Short.MAX_VALUE , Short.MAX_VALUE + 1, Integer.MAX_VALUE};
       for (int intValue :intVals ) {
@@ -104,7 +104,7 @@ public class TestNettyArrowBuf {
   public void testSetCompositeBuffer() {
     try (BufferAllocator allocator = new RootAllocator(128);
          ArrowBuf buf = allocator.buffer(20);
-         NettyArrowBuf buf2 = allocator.buffer(20).asNettyBuffer();
+         NettyArrowBuf buf2 = NettyArrowBuf.unwrapBuffer(allocator.buffer(20));
     ) {
       CompositeByteBuf byteBufs = new CompositeByteBuf(new ArrowByteBufAllocator(allocator),
               true, 1);
@@ -112,7 +112,7 @@ public class TestNettyArrowBuf {
       buf2.setInt(0, expected);
       buf2.writerIndex(4);
       byteBufs.addComponent(true, buf2);
-      buf.asNettyBuffer().setBytes(0, byteBufs, 4);
+      NettyArrowBuf.unwrapBuffer(buf).setBytes(0, byteBufs, 4);
       int actual = buf.getInt(0);
       Assert.assertEquals(expected, actual);
     }
@@ -127,12 +127,12 @@ public class TestNettyArrowBuf {
               true, 1);
       int expected = 4;
       buf.setInt(0, expected);
-      NettyArrowBuf buf2 = allocator.buffer(20).asNettyBuffer();
+      NettyArrowBuf buf2 = NettyArrowBuf.unwrapBuffer(allocator.buffer(20));
       // composite buffers are a bit weird, need to jump hoops
       // to set capacity.
       byteBufs.addComponent(true, buf2);
       byteBufs.capacity(20);
-      buf.asNettyBuffer().getBytes(0, byteBufs, 4);
+      NettyArrowBuf.unwrapBuffer(buf).getBytes(0, byteBufs, 4);
       int actual = byteBufs.getInt(0);
       Assert.assertEquals(expected, actual);
       byteBufs.component(0).release();
