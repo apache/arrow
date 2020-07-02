@@ -1547,15 +1547,34 @@ def read_table(source, columns=None, use_threads=True, metadata=None,
                 "'use_legacy_dataset=True' to temporarily recover the old "
                 "behaviour."
             )
-        dataset = _ParquetDatasetV2(
-            source,
-            filesystem=filesystem,
-            partitioning=partitioning,
-            memory_map=memory_map,
-            read_dictionary=read_dictionary,
-            buffer_size=buffer_size,
-            filters=filters,
-        )
+        try:
+            dataset = _ParquetDatasetV2(
+                source,
+                filesystem=filesystem,
+                partitioning=partitioning,
+                memory_map=memory_map,
+                read_dictionary=read_dictionary,
+                buffer_size=buffer_size,
+                filters=filters,
+            )
+        except ImportError:
+            # fall back on ParquetFile for simple cases when pyarrow.dataset
+            # module is not available
+            if filters is not None:
+                raise ValueError(
+                    "the 'filters' keyword is not supported when the "
+                    "pyarrow.dataset module is not available"
+                )
+            if partitioning != "hive":
+                raise ValueError(
+                    "the 'partitioning' keyword is not supported when the "
+                    "pyarrow.dataset module is not available"
+                )
+            # TODO test that source is not a directory or a list
+            # TODO check filesystem?
+            dataset = ParquetFile(
+                source, metadata=metadata, read_dictionary=read_dictionary,
+                memory_map=memory_map, buffer_size=buffer_size)
 
         return dataset.read(columns=columns, use_threads=use_threads,
                             use_pandas_metadata=use_pandas_metadata)
