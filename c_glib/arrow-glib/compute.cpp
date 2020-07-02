@@ -146,7 +146,7 @@ garrow_execute_context_new(void)
 
 G_DEFINE_INTERFACE(GArrowFunctionOptions,
                    garrow_function_options,
-                   G_TYPE_OBJECT)
+                   G_TYPE_INVALID)
 
 static void
 garrow_function_options_default_init(GArrowFunctionOptionsInterface *iface)
