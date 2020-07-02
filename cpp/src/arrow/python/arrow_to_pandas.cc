@@ -649,16 +649,19 @@ inline Status ConvertStruct(const PandasOptions& options, const ChunkedArray& da
   // datetime.datetime does not support nanoseconds).
   // We force the object conversion to preserve the value of the timezone.
   PandasOptions modified_options = options;
-  modified_options.timestamp_as_object = true;
   modified_options.coerce_temporal_nanoseconds = false;
 
   for (int c = 0; c < data.num_chunks(); c++) {
     auto arr = checked_cast<const StructArray*>(data.chunk(c).get());
     // Convert the struct arrays first
     for (int32_t i = 0; i < num_fields; i++) {
+      // Se notes above about conversion.
+      std::shared_ptr<Array> field = arr->field(static_cast<int>(i));
+      modified_options.timestamp_as_object =
+          field->type()->id() == Type::TIMESTAMP &&
+          !checked_cast<const TimestampType&>(*field->type()).timezone().empty();
       PyObject* numpy_array;
-      RETURN_NOT_OK(ConvertArrayToPandas(
-          modified_options, arr->field(static_cast<int>(i)), nullptr, &numpy_array));
+      RETURN_NOT_OK(ConvertArrayToPandas(modified_options, field, nullptr, &numpy_array));
       fields_data[i].reset(numpy_array);
     }
 
@@ -745,7 +748,6 @@ Status ConvertListsLike(const PandasOptions& options, const ChunkedArray& data,
   // the existing unit tests
   PandasOptions modified_options = options;
   modified_options.coerce_temporal_nanoseconds = false;
-  modified_options.timestamp_as_object = true;
 
   OwnedRefNoGIL owned_numpy_array;
   RETURN_NOT_OK(ConvertChunkedArrayToPandas(modified_options, flat_column, nullptr,

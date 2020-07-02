@@ -3335,19 +3335,13 @@ def test_nested_with_timestamp_tz():
         arr2 = pa.array([ts], type=pa.timestamp(unit, tz='America/New_York'))
 
         arr3 = pa.StructArray.from_arrays([arr, arr], ['start', 'stop'])
-        list_arr3 = pa.ListArray.from_arrays([0, 1], arr)
         arr4 = pa.StructArray.from_arrays([arr2, arr2], ['start', 'stop'])
-        list_arr4 = pa.ListArray.from_arrays([0, 1], arr2)
 
         result = arr3.to_pandas()
         assert isinstance(result[0]['start'], datetime)
         assert result[0]['start'].tzinfo is None
         assert isinstance(result[0]['stop'], datetime)
         assert result[0]['stop'].tzinfo is None
-
-        result = list_arr3.to_pandas()
-        assert isinstance(result[0][0], datetime)
-        assert result[0][0].tzinfo is None
 
         result = arr4.to_pandas()
         assert isinstance(result[0]['start'], datetime)
@@ -3357,28 +3351,18 @@ def test_nested_with_timestamp_tz():
         assert isinstance(result[0]['stop'], datetime)
         assert result[0]['stop'].tzinfo is not None
 
-        result = list_arr4.to_pandas()
-        assert isinstance(result[0][0], datetime)
-        utc_dt = result[0][0].astimezone(timezone.utc)
-        assert utc_dt.replace(tzinfo=None, microsecond=0) == ts_dt
-        assert result[0][0].tzinfo is not None
-
         # same conversion for table
-        result = pa.table({'a': arr3, 'b': list_arr3}).to_pandas()
+        result = pa.table({'a': arr3}).to_pandas()
         assert isinstance(result['a'][0]['start'], datetime)
         assert result['a'][0]['start'].tzinfo is None
         assert isinstance(result['a'][0]['stop'], datetime)
         assert result['a'][0]['stop'].tzinfo is None
-        assert isinstance(result['b'][0][0], datetime)
-        assert result['b'][0][0].tzinfo is None
 
-        result = pa.table({'a': arr4, 'b': list_arr4}).to_pandas()
+        result = pa.table({'a': arr4}).to_pandas()
         assert isinstance(result['a'][0]['start'], datetime)
         assert result['a'][0]['start'].tzinfo is not None
         assert isinstance(result['a'][0]['stop'], datetime)
         assert result['a'][0]['stop'].tzinfo is not None
-        assert isinstance(result['b'][0][0], datetime)
-        assert result['b'][0][0].tzinfo is not None
 
 
 # ----------------------------------------------------------------------
