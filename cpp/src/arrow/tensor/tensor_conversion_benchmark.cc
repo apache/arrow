@@ -20,9 +20,13 @@
 #include "arrow/sparse_tensor.h"
 #include "arrow/testing/gtest_util.h"
 
+#include <random>
+
 namespace arrow {
 
-template <typename ValueType, typename IndexType>
+enum ContiguousType { ROW_MAJOR, COLUMN_MAJOR, STRIDED };
+
+template <ContiguousType contiguous_type, typename ValueType, typename IndexType>
 class TensorConversionFixture : public benchmark::Fixture {
  protected:
   using c_value_type = typename ValueType::c_type;
@@ -36,17 +40,55 @@ class TensorConversionFixture : public benchmark::Fixture {
 
  public:
   void SetUp(const ::benchmark::State& state) {
-    std::vector<int64_t> shape = {5, 2, 4, 3};
-    auto n = std::accumulate(shape.begin(), shape.end(), int64_t(0));
-    values_.resize(n);
-    for (int64_t i = 0; i < n; ++i) {
-      values_[i] = i;
+    std::vector<int64_t> shape = {30, 8, 20, 9};
+    auto n = std::accumulate(shape.begin(), shape.end(), int64_t(1),
+                             [](int64_t acc, int64_t i) { return acc * i; });
+    auto m = n / 100;
+
+    switch (contiguous_type) {
+      case STRIDED:
+        values_.resize(2 * n);
+        for (int64_t i = 0; i < 100; ++i) {
+          values_[2 * i * m] = i;
+        }
+        break;
+      default:
+        values_.resize(n);
+        for (int64_t i = 0; i < 100; ++i) {
+          values_[i * m] = i;
+        }
+        break;
     }
-    ABORT_NOT_OK(Tensor::Make(value_type_, Buffer::Wrap(values_), shape).Value(&tensor_));
+
+    std::vector<int64_t> strides;
+    int64_t total = sizeof(c_value_type);
+    switch (contiguous_type) {
+      case ROW_MAJOR:
+        break;
+      case COLUMN_MAJOR: {
+        for (auto i : shape) {
+          strides.push_back(total);
+          total *= i;
+        }
+        break;
+      }
+      case STRIDED: {
+        total *= 2;
+        for (auto i : shape) {
+          strides.push_back(total);
+          total *= i;
+        }
+        break;
+      }
+    }
+    ABORT_NOT_OK(
+        Tensor::Make(value_type_, Buffer::Wrap(values_), shape, strides).Value(&tensor_));
   }
+
+  void SetUpRowMajor() {}
 };
 
-template <typename ValueType, typename IndexType>
+template <ContiguousType contiguous_type, typename ValueType, typename IndexType>
 class MatrixConversionFixture : public benchmark::Fixture {
  protected:
   using c_value_type = typename ValueType::c_type;
@@ -60,42 +102,102 @@ class MatrixConversionFixture : public benchmark::Fixture {
 
  public:
   void SetUp(const ::benchmark::State& state) {
-    std::vector<int64_t> shape = {8, 15};
-    auto n = std::accumulate(shape.begin(), shape.end(), int64_t(0));
-    values_.resize(n);
-    for (int64_t i = 0; i < n; ++i) {
-      values_[i] = i;
+    std::vector<int64_t> shape = {88, 113};
+    auto n = std::accumulate(shape.begin(), shape.end(), int64_t(1),
+                             [](int64_t acc, int64_t i) { return acc * i; });
+    auto m = n / 100;
+
+    switch (contiguous_type) {
+      case STRIDED:
+        values_.resize(2 * n);
+        for (int64_t i = 0; i < 100; ++i) {
+          values_[2 * i * m] = i;
+        }
+        break;
+      default:
+        values_.resize(n);
+        for (int64_t i = 0; i < 100; ++i) {
+          values_[i * m] = i;
+        }
+        break;
+    }
+
+    std::vector<int64_t> strides;
+    int64_t total = sizeof(c_value_type);
+    switch (contiguous_type) {
+      case ROW_MAJOR:
+        break;
+      case COLUMN_MAJOR: {
+        for (auto i : shape) {
+          strides.push_back(total);
+          total *= i;
+        }
+        break;
+      }
+      case STRIDED: {
+        total *= 2;
+        for (auto i : shape) {
+          strides.push_back(total);
+          total *= i;
+        }
+        break;
+      }
     }
     ABORT_NOT_OK(Tensor::Make(value_type_, Buffer::Wrap(values_), shape).Value(&tensor_));
   }
 };
 
-#define DEFINE_TYPED_TENSOR_CONVERSION_FIXTURE(value_type_name) \
-  template <typename IndexType> using value_type_name##TensorConversionFixture = TensorConversionFixture<value_type_name##Type, IndexType>
+#define DEFINE_TYPED_TENSOR_CONVERSION_FIXTURE(value_type_name)                \
+  template <typename IndexType>                                                \
+  using value_type_name##RowMajorTensorConversionFixture =                     \
+      TensorConversionFixture<ROW_MAJOR, value_type_name##Type, IndexType>;    \
+  template <typename IndexType>                                                \
+  using value_type_name##ColumnMajorTensorConversionFixture =                  \
+      TensorConversionFixture<COLUMN_MAJOR, value_type_name##Type, IndexType>; \
+  template <typename IndexType>                                                \
+  using value_type_name##StridedTensorConversionFixture =                      \
+      TensorConversionFixture<STRIDED, value_type_name##Type, IndexType>
 
 DEFINE_TYPED_TENSOR_CONVERSION_FIXTURE(Int8);
 DEFINE_TYPED_TENSOR_CONVERSION_FIXTURE(Int16);
 DEFINE_TYPED_TENSOR_CONVERSION_FIXTURE(Float);
 DEFINE_TYPED_TENSOR_CONVERSION_FIXTURE(Double);
 
-#define DEFINE_TYPED_MATRIX_CONVERSION_FIXTURE(value_type_name) \
-  template <typename IndexType> using value_type_name##MatrixConversionFixture = MatrixConversionFixture<value_type_name##Type, IndexType>
+#define DEFINE_TYPED_MATRIX_CONVERSION_FIXTURE(value_type_name)                \
+  template <typename IndexType>                                                \
+  using value_type_name##RowMajorMatrixConversionFixture =                     \
+      MatrixConversionFixture<ROW_MAJOR, value_type_name##Type, IndexType>;    \
+  template <typename IndexType>                                                \
+  using value_type_name##ColumnMajorMatrixConversionFixture =                  \
+      MatrixConversionFixture<COLUMN_MAJOR, value_type_name##Type, IndexType>; \
+  template <typename IndexType>                                                \
+  using value_type_name##StridedMatrixConversionFixture =                      \
+      MatrixConversionFixture<STRIDED, value_type_name##Type, IndexType>
 
 DEFINE_TYPED_MATRIX_CONVERSION_FIXTURE(Int8);
 DEFINE_TYPED_MATRIX_CONVERSION_FIXTURE(Int16);
 DEFINE_TYPED_MATRIX_CONVERSION_FIXTURE(Float);
 DEFINE_TYPED_MATRIX_CONVERSION_FIXTURE(Double);
 
-#define BENCHMARK_CONVERT_TENSOR(kind, format, value_type_name, index_type_name) \
-  BENCHMARK_TEMPLATE_F(value_type_name##kind##ConversionFixture, \
-                       ConvertToSparse##format##kind##index_type_name, \
-                       index_type_name##Type)(benchmark::State& state) {  /* NOLINT non-const reference */ \
-    std::shared_ptr<Sparse##format##kind> sparse_tensor; \
-    for (auto _ : state) { \
-      ABORT_NOT_OK(Sparse##format##kind::Make(*this->tensor_, this->index_type_).Value(&sparse_tensor)); \
-    } \
-    benchmark::DoNotOptimize(sparse_tensor); \
+#define BENCHMARK_CONVERT_TENSOR_(Contiguous, kind, format, value_type_name,     \
+                                  index_type_name)                               \
+  BENCHMARK_TEMPLATE_F(value_type_name##Contiguous##kind##ConversionFixture,     \
+                       ConvertToSparse##format##kind##index_type_name,           \
+                       index_type_name##Type)                                    \
+  (benchmark::State & state) { /* NOLINT non-const reference */                  \
+    std::shared_ptr<Sparse##format##kind> sparse_tensor;                         \
+    for (auto _ : state) {                                                       \
+      ABORT_NOT_OK(Sparse##format##kind::Make(*this->tensor_, this->index_type_) \
+                       .Value(&sparse_tensor));                                  \
+    }                                                                            \
+    benchmark::DoNotOptimize(sparse_tensor);                                     \
   }
+
+#define BENCHMARK_CONVERT_TENSOR(kind, format, value_type_name, index_type_name)       \
+  BENCHMARK_CONVERT_TENSOR_(RowMajor, kind, format, value_type_name, index_type_name); \
+  BENCHMARK_CONVERT_TENSOR_(ColumnMajor, kind, format, value_type_name,                \
+                            index_type_name);                                          \
+  BENCHMARK_CONVERT_TENSOR_(Strided, kind, format, value_type_name, index_type_name)
 
 BENCHMARK_CONVERT_TENSOR(Tensor, COO, Int8, Int8);
 BENCHMARK_CONVERT_TENSOR(Tensor, COO, Int8, Int16);
