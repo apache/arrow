@@ -17,8 +17,10 @@
 
 #include "arrow/tensor/converter.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <memory>
+#include <numeric>
 #include <vector>
 
 #include "arrow/buffer.h"
@@ -34,8 +36,9 @@ class MemoryPool;
 namespace internal {
 namespace {
 
-inline void IncrementIndex(std::vector<int64_t>& coord,
-                           const std::vector<int64_t>& shape) {
+template <typename c_index_type>
+inline void IncrementRowMajorIndex(std::vector<c_index_type>& coord,
+                                   const std::vector<int64_t>& shape) {
   const int64_t ndim = shape.size();
   ++coord[ndim - 1];
   if (coord[ndim - 1] == shape[ndim - 1]) {
@@ -47,6 +50,178 @@ inline void IncrementIndex(std::vector<int64_t>& coord,
     }
   }
 }
+
+template <typename c_index_type, typename c_value_type>
+void ConvertRowMajorTensor(const Tensor& tensor, c_index_type* indices,
+                           c_value_type* values, const int64_t size) {
+  const auto ndim = tensor.ndim();
+  const auto& shape = tensor.shape();
+  const c_value_type* tensor_data =
+      reinterpret_cast<const c_value_type*>(tensor.raw_data());
+
+  constexpr c_value_type zero = 0;
+  std::vector<c_index_type> coord(ndim, 0);
+  for (int64_t n = tensor.size(); n > 0; --n) {
+    const c_value_type x = *tensor_data;
+    if (ARROW_PREDICT_FALSE(x != zero)) {
+      std::copy(coord.begin(), coord.end(), indices);
+      *values++ = x;
+      indices += ndim;
+    }
+
+    IncrementRowMajorIndex(coord, shape);
+    ++tensor_data;
+  }
+}
+
+template <typename c_index_type, typename c_value_type>
+void ConvertColumnMajorTensor(const Tensor& tensor, c_index_type* out_indices,
+                              c_value_type* out_values, const int64_t size) {
+  const auto ndim = tensor.ndim();
+  std::vector<c_index_type> indices(ndim * size);
+  std::vector<c_value_type> values(size);
+  ConvertRowMajorTensor(tensor, indices.data(), values.data(), size);
+
+  // transpose indices
+  for (int64_t i = 0; i < size; ++i) {
+    for (int j = 0; j < ndim / 2; ++j) {
+      std::swap(indices[i * ndim + j], indices[i * ndim + ndim - j - 1]);
+    }
+  }
+
+  // sort indices
+  std::vector<int64_t> order(size);
+  std::iota(order.begin(), order.end(), 0);
+  std::sort(order.begin(), order.end(), [&](const int64_t xi, const int64_t yi) {
+    const int64_t x_offset = xi * ndim;
+    const int64_t y_offset = yi * ndim;
+    for (int j = 0; j < ndim; ++j) {
+      const auto x = indices[x_offset + j];
+      const auto y = indices[y_offset + j];
+      if (x < y) return true;
+      if (x > y) return false;
+    }
+    return false;
+  });
+
+  // transfer result
+  const auto* indices_data = indices.data();
+  for (int64_t i = 0; i < size; ++i) {
+    out_values[i] = values[i];
+
+    std::copy_n(indices_data, ndim, out_indices);
+    indices_data += ndim;
+    out_indices += ndim;
+  }
+}
+
+template <typename c_index_type, typename c_value_type>
+void ConvertStridedTensor(const Tensor& tensor, c_index_type* indices,
+                          c_value_type* values, const int64_t size) {
+  using ValueType = typename CTypeTraits<c_value_type>::ArrowType;
+  const auto& shape = tensor.shape();
+  const auto ndim = tensor.ndim();
+  std::vector<int64_t> coord(ndim, 0);
+
+  constexpr c_value_type zero = 0;
+  c_value_type x;
+  int64_t i;
+  for (int64_t n = tensor.size(); n > 0; --n) {
+    x = tensor.Value<ValueType>(coord);
+    if (ARROW_PREDICT_FALSE(x != zero)) {
+      *values++ = x;
+      for (i = 0; i < ndim; ++i) {
+        *indices++ = static_cast<c_index_type>(coord[i]);
+      }
+    }
+
+    IncrementRowMajorIndex(coord, shape);
+  }
+}
+
+#define CONVERT_ROW_MAJOR_TENSOR(index_type, indices, value_type, values, size) \
+  ConvertRowMajorTensor<index_type, value_type>(                                \
+      tensor_, reinterpret_cast<index_type*>(indices),                          \
+      reinterpret_cast<value_type*>(values), size)
+
+#define CONVERT_COLUMN_MAJOR_TENSOR(index_type, indices, value_type, values, size) \
+  ConvertColumnMajorTensor<index_type, value_type>(                                \
+      tensor_, reinterpret_cast<index_type*>(indices),                             \
+      reinterpret_cast<value_type*>(values), size)
+
+#define CONVERT_STRIDED_TENSOR(index_type, indices, value_type, values, size) \
+  ConvertStridedTensor<index_type, value_type>(                               \
+      tensor_, reinterpret_cast<index_type*>(indices),                        \
+      reinterpret_cast<value_type*>(values), size)
+
+#define DISPATCH_CONVERT_TENSOR_INLINE(kind, indices, index_elsize, values,   \
+                                       value_elsize, size)                    \
+  switch (index_elsize) {                                                     \
+    case 1:                                                                   \
+      switch (value_elsize) {                                                 \
+        case 1:                                                               \
+          CONVERT_##kind##_TENSOR(uint8_t, indices, uint8_t, values, size);   \
+          break;                                                              \
+        case 2:                                                               \
+          CONVERT_##kind##_TENSOR(uint8_t, indices, uint16_t, values, size);  \
+          break;                                                              \
+        case 4:                                                               \
+          CONVERT_##kind##_TENSOR(uint8_t, indices, uint32_t, values, size);  \
+          break;                                                              \
+        case 8:                                                               \
+          CONVERT_##kind##_TENSOR(uint8_t, indices, int64_t, values, size);   \
+          break;                                                              \
+      }                                                                       \
+      break;                                                                  \
+    case 2:                                                                   \
+      switch (value_elsize) {                                                 \
+        case 1:                                                               \
+          CONVERT_##kind##_TENSOR(uint16_t, indices, uint8_t, values, size);  \
+          break;                                                              \
+        case 2:                                                               \
+          CONVERT_##kind##_TENSOR(uint16_t, indices, uint16_t, values, size); \
+          break;                                                              \
+        case 4:                                                               \
+          CONVERT_##kind##_TENSOR(uint16_t, indices, uint32_t, values, size); \
+          break;                                                              \
+        case 8:                                                               \
+          CONVERT_##kind##_TENSOR(uint16_t, indices, int64_t, values, size);  \
+          break;                                                              \
+      }                                                                       \
+      break;                                                                  \
+    case 4:                                                                   \
+      switch (value_elsize) {                                                 \
+        case 1:                                                               \
+          CONVERT_##kind##_TENSOR(uint32_t, indices, uint8_t, values, size);  \
+          break;                                                              \
+        case 2:                                                               \
+          CONVERT_##kind##_TENSOR(uint32_t, indices, uint16_t, values, size); \
+          break;                                                              \
+        case 4:                                                               \
+          CONVERT_##kind##_TENSOR(uint32_t, indices, uint32_t, values, size); \
+          break;                                                              \
+        case 8:                                                               \
+          CONVERT_##kind##_TENSOR(uint32_t, indices, int64_t, values, size);  \
+          break;                                                              \
+      }                                                                       \
+      break;                                                                  \
+    case 8:                                                                   \
+      switch (value_elsize) {                                                 \
+        case 1:                                                               \
+          CONVERT_##kind##_TENSOR(int64_t, indices, uint8_t, values, size);   \
+          break;                                                              \
+        case 2:                                                               \
+          CONVERT_##kind##_TENSOR(int64_t, indices, uint16_t, values, size);  \
+          break;                                                              \
+        case 4:                                                               \
+          CONVERT_##kind##_TENSOR(int64_t, indices, uint32_t, values, size);  \
+          break;                                                              \
+        case 8:                                                               \
+          CONVERT_##kind##_TENSOR(int64_t, indices, int64_t, values, size);   \
+          break;                                                              \
+      }                                                                       \
+      break;                                                                  \
+  }
 
 // ----------------------------------------------------------------------
 // SparseTensorConverter for SparseCOOIndex
@@ -92,26 +267,15 @@ class SparseCOOTensorConverter : private SparseTensorConverterMixin {
         }
         tensor_data += value_elsize;
       }
+    } else if (tensor_.is_row_major()) {
+      DISPATCH_CONVERT_TENSOR_INLINE(ROW_MAJOR, indices, index_elsize, values,
+                                     value_elsize, nonzero_count);
+    } else if (tensor_.is_column_major()) {
+      DISPATCH_CONVERT_TENSOR_INLINE(COLUMN_MAJOR, indices, index_elsize, values,
+                                     value_elsize, nonzero_count);
     } else {
-      const std::vector<int64_t>& shape = tensor_.shape();
-      std::vector<int64_t> coord(ndim, 0);  // The current logical coordinates
-
-      for (int64_t n = tensor_.size(); n > 0; n--) {
-        int64_t offset = tensor_.CalculateValueOffset(coord);
-        if (std::any_of(tensor_data + offset, tensor_data + offset + value_elsize,
-                        IsNonZero)) {
-          std::copy_n(tensor_data + offset, value_elsize, values);
-          values += value_elsize;
-
-          // Write indices in row-major order.
-          for (int64_t i = 0; i < ndim; ++i) {
-            AssignIndex(indices, coord[i], index_elsize);
-            indices += index_elsize;
-          }
-        }
-
-        IncrementIndex(coord, shape);
-      }
+      DISPATCH_CONVERT_TENSOR_INLINE(STRIDED, indices, index_elsize, values, value_elsize,
+                                     nonzero_count);
     }
 
     // make results
