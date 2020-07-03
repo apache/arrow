@@ -49,7 +49,7 @@ G_BEGIN_DECLS
  */
 
 typedef struct GArrowDatumPrivate_ {
-  std::shared_ptr<arrow::Datum> datum;
+  arrow::Datum datum;
 } GArrowDatumPrivate;
 
 enum {
@@ -68,7 +68,7 @@ garrow_datum_finalize(GObject *object)
 {
   auto priv = GARROW_DATUM_GET_PRIVATE(object);
 
-  priv->datum.~shared_ptr();
+  priv->datum.~Datum();
 
   G_OBJECT_CLASS(garrow_datum_parent_class)->finalize(object);
 }
@@ -83,8 +83,7 @@ garrow_datum_set_property(GObject *object,
 
   switch (prop_id) {
   case PROP_DATUM:
-    priv->datum =
-      *static_cast<std::shared_ptr<arrow::Datum> *>(g_value_get_pointer(value));
+    priv->datum = *static_cast<arrow::Datum *>(g_value_get_pointer(value));
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -96,7 +95,7 @@ static void
 garrow_datum_init(GArrowDatum *object)
 {
   auto priv = GARROW_DATUM_GET_PRIVATE(object);
-  new(&priv->datum) std::shared_ptr<arrow::Datum>;
+  new(&priv->datum) arrow::Datum;
 }
 
 static void
@@ -110,7 +109,7 @@ garrow_datum_class_init(GArrowDatumClass *klass)
   GParamSpec *spec;
   spec = g_param_spec_pointer("datum",
                               "Datum",
-                              "The raw std::shared_ptr<arrow::Datum> *",
+                              "The raw arrow::Datum *",
                               static_cast<GParamFlags>(G_PARAM_WRITABLE |
                                                        G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_DATUM, spec);
@@ -128,8 +127,8 @@ garrow_datum_class_init(GArrowDatumClass *klass)
 gboolean
 garrow_datum_is_array(GArrowDatum *datum)
 {
-  const auto arrow_datum = garrow_datum_get_raw(datum);
-  return arrow_datum->is_array();
+  const auto &arrow_datum = garrow_datum_get_raw(datum);
+  return arrow_datum.is_array();
 }
 
 /**
@@ -144,8 +143,8 @@ garrow_datum_is_array(GArrowDatum *datum)
 gboolean
 garrow_datum_is_array_like(GArrowDatum *datum)
 {
-  const auto arrow_datum = garrow_datum_get_raw(datum);
-  return arrow_datum->is_arraylike();
+  const auto &arrow_datum = garrow_datum_get_raw(datum);
+  return arrow_datum.is_arraylike();
 }
 
 /**
@@ -161,9 +160,9 @@ garrow_datum_is_array_like(GArrowDatum *datum)
 gboolean
 garrow_datum_equal(GArrowDatum *datum, GArrowDatum *other_datum)
 {
-  const auto arrow_datum = garrow_datum_get_raw(datum);
-  const auto arrow_other_datum = garrow_datum_get_raw(other_datum);
-  return arrow_datum->Equals(*arrow_other_datum);
+  const auto &arrow_datum = garrow_datum_get_raw(datum);
+  const auto &arrow_other_datum = garrow_datum_get_raw(other_datum);
+  return arrow_datum.Equals(arrow_other_datum);
 }
 
 /**
@@ -179,8 +178,8 @@ garrow_datum_equal(GArrowDatum *datum, GArrowDatum *other_datum)
 gchar *
 garrow_datum_to_string(GArrowDatum *datum)
 {
-  const auto arrow_datum = garrow_datum_get_raw(datum);
-  return g_strdup(arrow_datum->ToString().c_str());
+  const auto &arrow_datum = garrow_datum_get_raw(datum);
+  return g_strdup(arrow_datum.ToString().c_str());
 }
 
 
@@ -286,7 +285,7 @@ GArrowArrayDatum *
 garrow_array_datum_new(GArrowArray *value)
 {
   auto arrow_value = garrow_array_get_raw(value);
-  auto arrow_datum = std::make_shared<arrow::Datum>(arrow_value);
+  arrow::Datum arrow_datum(arrow_value);
   return garrow_array_datum_new_raw(&arrow_datum, value);
 }
 
@@ -389,7 +388,7 @@ GArrowChunkedArrayDatum *
 garrow_chunked_array_datum_new(GArrowChunkedArray *value)
 {
   auto arrow_value = garrow_chunked_array_get_raw(value);
-  auto arrow_datum = std::make_shared<arrow::Datum>(arrow_value);
+  arrow::Datum arrow_datum(arrow_value);
   return garrow_chunked_array_datum_new_raw(&arrow_datum, value);
 }
 
@@ -492,7 +491,7 @@ GArrowRecordBatchDatum *
 garrow_record_batch_datum_new(GArrowRecordBatch *value)
 {
   auto arrow_value = garrow_record_batch_get_raw(value);
-  auto arrow_datum = std::make_shared<arrow::Datum>(arrow_value);
+  arrow::Datum arrow_datum(arrow_value);
   return garrow_record_batch_datum_new_raw(&arrow_datum, value);
 }
 
@@ -595,22 +594,60 @@ GArrowTableDatum *
 garrow_table_datum_new(GArrowTable *value)
 {
   auto arrow_value = garrow_table_get_raw(value);
-  auto arrow_datum = std::make_shared<arrow::Datum>(arrow_value);
+  arrow::Datum arrow_datum(arrow_value);
   return garrow_table_datum_new_raw(&arrow_datum, value);
 }
 
 
 G_END_DECLS
 
-std::shared_ptr<arrow::Datum>
+arrow::Datum
 garrow_datum_get_raw(GArrowDatum *datum)
 {
   auto priv = GARROW_DATUM_GET_PRIVATE(datum);
   return priv->datum;
 }
 
+GArrowDatum *
+garrow_datum_new_raw(arrow::Datum *arrow_datum)
+{
+  switch (arrow_datum->kind()) {
+  case arrow::Datum::ARRAY:
+    {
+      auto arrow_array = arrow_datum->make_array();
+      auto array = garrow_array_new_raw(&arrow_array);
+      return GARROW_DATUM(garrow_array_datum_new_raw(arrow_datum, array));
+    }
+  case arrow::Datum::CHUNKED_ARRAY:
+    {
+      auto arrow_chunked_array = arrow_datum->chunked_array();
+      auto chunked_array = garrow_chunked_array_new_raw(&arrow_chunked_array);
+      auto chunked_array_datum =
+        garrow_chunked_array_datum_new_raw(arrow_datum, chunked_array);
+      return GARROW_DATUM(chunked_array_datum);
+    }
+  case arrow::Datum::RECORD_BATCH:
+    {
+      auto arrow_record_batch = arrow_datum->record_batch();
+      auto record_batch = garrow_record_batch_new_raw(&arrow_record_batch);
+      auto record_batch_datum =
+        garrow_record_batch_datum_new_raw(arrow_datum, record_batch);
+      return GARROW_DATUM(record_batch_datum);
+    }
+  case arrow::Datum::TABLE:
+    {
+      auto arrow_table = arrow_datum->table();
+      auto table = garrow_table_new_raw(&arrow_table);
+      return GARROW_DATUM(garrow_table_datum_new_raw(arrow_datum, table));
+    }
+  default:
+    // TODO
+    return NULL;
+  }
+}
+
 GArrowArrayDatum *
-garrow_array_datum_new_raw(std::shared_ptr<arrow::Datum> *arrow_datum,
+garrow_array_datum_new_raw(arrow::Datum *arrow_datum,
                            GArrowArray *value)
 {
   return GARROW_ARRAY_DATUM(g_object_new(GARROW_TYPE_ARRAY_DATUM,
@@ -620,7 +657,7 @@ garrow_array_datum_new_raw(std::shared_ptr<arrow::Datum> *arrow_datum,
 }
 
 GArrowChunkedArrayDatum *
-garrow_chunked_array_datum_new_raw(std::shared_ptr<arrow::Datum> *arrow_datum,
+garrow_chunked_array_datum_new_raw(arrow::Datum *arrow_datum,
                                    GArrowChunkedArray *value)
 {
   return GARROW_CHUNKED_ARRAY_DATUM(g_object_new(GARROW_TYPE_CHUNKED_ARRAY_DATUM,
@@ -630,7 +667,7 @@ garrow_chunked_array_datum_new_raw(std::shared_ptr<arrow::Datum> *arrow_datum,
 }
 
 GArrowRecordBatchDatum *
-garrow_record_batch_datum_new_raw(std::shared_ptr<arrow::Datum> *arrow_datum,
+garrow_record_batch_datum_new_raw(arrow::Datum *arrow_datum,
                                   GArrowRecordBatch *value)
 {
   return GARROW_RECORD_BATCH_DATUM(g_object_new(GARROW_TYPE_RECORD_BATCH_DATUM,
@@ -640,7 +677,7 @@ garrow_record_batch_datum_new_raw(std::shared_ptr<arrow::Datum> *arrow_datum,
 }
 
 GArrowTableDatum *
-garrow_table_datum_new_raw(std::shared_ptr<arrow::Datum> *arrow_datum,
+garrow_table_datum_new_raw(arrow::Datum *arrow_datum,
                            GArrowTable *value)
 {
   return GARROW_TABLE_DATUM(g_object_new(GARROW_TYPE_TABLE_DATUM,

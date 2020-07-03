@@ -27,6 +27,7 @@
 #include <arrow-glib/compute.hpp>
 #include <arrow-glib/chunked-array.hpp>
 #include <arrow-glib/data-type.hpp>
+#include <arrow-glib/datum.hpp>
 #include <arrow-glib/enums.h>
 #include <arrow-glib/error.hpp>
 #include <arrow-glib/record-batch.hpp>
@@ -84,32 +85,292 @@ G_BEGIN_DECLS
  * @title: Computation on array
  * @include: arrow-glib/arrow-glib.h
  *
- * #GArrowCastOptions is a class to customize garrow_array_cast().
+ * #GArrowExecuteContext is a class to customize how to execute a
+ * function.
  *
- * #GArrowCountOptions is a class to customize garrow_array_count().
+ * #GArrowFunctionOptions is an interface for function options. All
+ * function options such as #GArrowCastOptions must implement this
+ * interface.
+ *
+ * #GArrowFunction is a class to process data.
+ *
+ * #GArrowCastOptions is a class to customize the `cast` function and
+ * garrow_array_cast().
+ *
+ * #GArrowCountOptions is a class to customize the `count` function and
+ * garrow_array_count().
+ *
+ * #GArrowFilterOptions is a class to customize the `filter` function and
+ * garrow_array_filter() family.
+ *
+ * #GArrowTakeOptions is a class to customize the `take` function and
+ * garrow_array_take() family.
+ *
+ * #GArrowCompareOptions is a class to customize the `equal` function
+ * family and garrow_int8_array_compare() family.
  *
  * There are many functions to compute data on an array.
  */
 
+typedef struct GArrowExecuteContextPrivate_ {
+  arrow::compute::ExecContext context;
+} GArrowExecuteContextPrivate;
+
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowExecuteContext,
+                           garrow_execute_context,
+                           G_TYPE_OBJECT)
+
+#define GARROW_EXECUTE_CONTEXT_GET_PRIVATE(object) \
+  static_cast<GArrowExecuteContextPrivate *>(      \
+    garrow_execute_context_get_instance_private(   \
+      GARROW_EXECUTE_CONTEXT(object)))
+
+static void
+garrow_execute_context_finalize(GObject *object)
+{
+  auto priv = GARROW_EXECUTE_CONTEXT_GET_PRIVATE(object);
+  priv->context.~ExecContext();
+  G_OBJECT_CLASS(garrow_execute_context_parent_class)->finalize(object);
+}
+
+static void
+garrow_execute_context_init(GArrowExecuteContext *object)
+{
+  auto priv = GARROW_EXECUTE_CONTEXT_GET_PRIVATE(object);
+  new(&priv->context) arrow::compute::ExecContext(arrow::default_memory_pool(),
+                                                  nullptr);
+}
+
+static void
+garrow_execute_context_class_init(GArrowExecuteContextClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->finalize = garrow_execute_context_finalize;
+}
+
+/**
+ * garrow_execute_context_new:
+ *
+ * Returns: A newly created #GArrowExecuteContext.
+ *
+ * Since: 1.0.0
+ */
+GArrowExecuteContext *
+garrow_execute_context_new(void)
+{
+  auto execute_context = g_object_new(GARROW_TYPE_EXECUTE_CONTEXT, NULL);
+  return GARROW_EXECUTE_CONTEXT(execute_context);
+}
+
+
+G_DEFINE_INTERFACE(GArrowFunctionOptions,
+                   garrow_function_options,
+                   G_TYPE_INVALID)
+
+static void
+garrow_function_options_default_init(GArrowFunctionOptionsInterface *iface)
+{
+}
+
+
+typedef struct GArrowFunctionPrivate_ {
+  std::shared_ptr<arrow::compute::Function> function;
+} GArrowFunctionPrivate;
+
+enum {
+  PROP_FUNCTION = 1,
+};
+
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowFunction,
+                           garrow_function,
+                           G_TYPE_OBJECT)
+
+#define GARROW_FUNCTION_GET_PRIVATE(object)        \
+  static_cast<GArrowFunctionPrivate *>(            \
+    garrow_function_get_instance_private(          \
+      GARROW_FUNCTION(object)))
+
+static void
+garrow_function_finalize(GObject *object)
+{
+  auto priv = GARROW_FUNCTION_GET_PRIVATE(object);
+  priv->function.~shared_ptr();
+  G_OBJECT_CLASS(garrow_function_parent_class)->finalize(object);
+}
+
+static void
+garrow_function_set_property(GObject *object,
+                             guint prop_id,
+                             const GValue *value,
+                             GParamSpec *pspec)
+{
+  auto priv = GARROW_FUNCTION_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_FUNCTION:
+    priv->function =
+      *static_cast<std::shared_ptr<arrow::compute::Function> *>(
+        g_value_get_pointer(value));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_function_init(GArrowFunction *object)
+{
+  auto priv = GARROW_FUNCTION_GET_PRIVATE(object);
+  new(&priv->function) std::shared_ptr<arrow::compute::Function>;
+}
+
+static void
+garrow_function_class_init(GArrowFunctionClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->finalize     = garrow_function_finalize;
+  gobject_class->set_property = garrow_function_set_property;
+
+  GParamSpec *spec;
+  spec = g_param_spec_pointer("function",
+                              "Function",
+                              "The raw std::shared<arrow::compute::Function> *",
+                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
+                                                       G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class, PROP_FUNCTION, spec);
+}
+
+/**
+ * garrow_function_find:
+ * @name: A function name to be found.
+ *
+ * Returns: (transfer full):
+ *   The found #GArrowFunction or %NULL on not found.
+ *
+ * Since: 1.0.0
+ */
+GArrowFunction *
+garrow_function_find(const gchar *name)
+{
+  auto arrow_function_registry = arrow::compute::GetFunctionRegistry();
+  auto arrow_function_result = arrow_function_registry->GetFunction(name);
+  if (!arrow_function_result.ok()) {
+    return NULL;
+  }
+  auto arrow_function = *arrow_function_result;
+  return garrow_function_new_raw(&arrow_function);
+}
+
+/**
+ * garrow_function_execute:
+ * @function: A #GArrowFunction.
+ * @args: (element-type GArrowDatum): A list of #GArrowDatum.
+ * @options: (nullable): Options for the execution as an object that
+ *   implements  #GArrowFunctionOptions.
+ * @context: (nullable): A #GArrowExecuteContext for the execution.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable) (transfer full):
+ *   A return value of the execution as #GArrowData on success, %NULL on error.
+ *
+ * Since: 1.0.0
+ */
+GArrowDatum *
+garrow_function_execute(GArrowFunction *function,
+                        GList *args,
+                        GArrowFunctionOptions *options,
+                        GArrowExecuteContext *context,
+                        GError **error)
+{
+  auto arrow_function = garrow_function_get_raw(function);
+  std::vector<arrow::Datum> arrow_args;
+  for (GList *node = args; node; node = node->next) {
+    GArrowDatum *datum = GARROW_DATUM(node->data);
+    arrow_args.push_back(garrow_datum_get_raw(datum));
+  }
+  const arrow::compute::FunctionOptions *arrow_options;
+  if (options) {
+    arrow_options = garrow_function_options_get_raw(options);
+  } else {
+    arrow_options = arrow_function->default_options();
+  }
+  arrow::Result<arrow::Datum> arrow_result_result;
+  if (context) {
+    auto arrow_context = garrow_execute_context_get_raw(context);
+    arrow_result_result = arrow_function->Execute(arrow_args,
+                                                  arrow_options,
+                                                  arrow_context);
+  } else {
+    arrow::compute::ExecContext arrow_context;
+    arrow_result_result = arrow_function->Execute(arrow_args,
+                                                  arrow_options,
+                                                  &arrow_context);
+  }
+  if (garrow::check(error, arrow_result_result, "[function][execute]")) {
+    auto arrow_result = *arrow_result_result;
+    return garrow_datum_new_raw(&arrow_result);
+  } else {
+    return NULL;
+  }
+}
+
+
 typedef struct GArrowCastOptionsPrivate_ {
+  GArrowDataType *to_data_type;
   arrow::compute::CastOptions options;
 } GArrowCastOptionsPrivate;
 
 enum {
-  PROP_ALLOW_INT_OVERFLOW = 1,
+  PROP_TO_DATA_TYPE = 1,
+  PROP_ALLOW_INT_OVERFLOW,
   PROP_ALLOW_TIME_TRUNCATE,
+  PROP_ALLOW_TIME_OVERFLOW,
+  PROP_ALLOW_DECIMAL_TRUNCATE,
   PROP_ALLOW_FLOAT_TRUNCATE,
   PROP_ALLOW_INVALID_UTF8,
 };
 
-G_DEFINE_TYPE_WITH_PRIVATE(GArrowCastOptions,
-                           garrow_cast_options,
-                           G_TYPE_OBJECT)
+static arrow::compute::FunctionOptions *
+garrow_cast_options_get_raw_function_options(GArrowFunctionOptions *options)
+{
+  return garrow_cast_options_get_raw(GARROW_CAST_OPTIONS(options));
+}
+
+static void
+garrow_cast_options_function_options_interface_init(
+  GArrowFunctionOptionsInterface *iface)
+{
+  iface->get_raw = garrow_cast_options_get_raw_function_options;
+}
+
+G_DEFINE_TYPE_WITH_CODE(GArrowCastOptions,
+                        garrow_cast_options,
+                        G_TYPE_OBJECT,
+                        G_ADD_PRIVATE(GArrowCastOptions)
+                        G_IMPLEMENT_INTERFACE(
+                          GARROW_TYPE_FUNCTION_OPTIONS,
+                          garrow_cast_options_function_options_interface_init))
 
 #define GARROW_CAST_OPTIONS_GET_PRIVATE(object) \
   static_cast<GArrowCastOptionsPrivate *>(      \
     garrow_cast_options_get_instance_private(   \
       GARROW_CAST_OPTIONS(object)))
+
+static void
+garrow_cast_options_dispose(GObject *object)
+{
+  auto priv = GARROW_CAST_OPTIONS_GET_PRIVATE(object);
+
+  if (priv->to_data_type) {
+    g_object_unref(priv->to_data_type);
+    priv->to_data_type = NULL;
+  }
+
+  G_OBJECT_CLASS(garrow_cast_options_parent_class)->dispose(object);
+}
 
 static void
 garrow_cast_options_finalize(GObject *object)
@@ -128,11 +389,32 @@ garrow_cast_options_set_property(GObject *object,
   auto priv = GARROW_CAST_OPTIONS_GET_PRIVATE(object);
 
   switch (prop_id) {
+  case PROP_TO_DATA_TYPE:
+    {
+      auto to_data_type = g_value_dup_object(value);
+      if (priv->to_data_type) {
+        g_object_unref(priv->to_data_type);
+      }
+      if (to_data_type) {
+        priv->to_data_type = GARROW_DATA_TYPE(to_data_type);
+        priv->options.to_type = garrow_data_type_get_raw(priv->to_data_type);
+      } else {
+        priv->to_data_type = NULL;
+        priv->options.to_type = nullptr;
+      }
+      break;
+    }
   case PROP_ALLOW_INT_OVERFLOW:
     priv->options.allow_int_overflow = g_value_get_boolean(value);
     break;
   case PROP_ALLOW_TIME_TRUNCATE:
     priv->options.allow_time_truncate = g_value_get_boolean(value);
+    break;
+  case PROP_ALLOW_TIME_OVERFLOW:
+    priv->options.allow_time_overflow = g_value_get_boolean(value);
+    break;
+  case PROP_ALLOW_DECIMAL_TRUNCATE:
+    priv->options.allow_decimal_truncate = g_value_get_boolean(value);
     break;
   case PROP_ALLOW_FLOAT_TRUNCATE:
     priv->options.allow_float_truncate = g_value_get_boolean(value);
@@ -155,11 +437,20 @@ garrow_cast_options_get_property(GObject *object,
   auto priv = GARROW_CAST_OPTIONS_GET_PRIVATE(object);
 
   switch (prop_id) {
+  case PROP_TO_DATA_TYPE:
+    g_value_set_object(value, priv->to_data_type);
+    break;
   case PROP_ALLOW_INT_OVERFLOW:
     g_value_set_boolean(value, priv->options.allow_int_overflow);
     break;
   case PROP_ALLOW_TIME_TRUNCATE:
     g_value_set_boolean(value, priv->options.allow_time_truncate);
+    break;
+  case PROP_ALLOW_TIME_OVERFLOW:
+    g_value_set_boolean(value, priv->options.allow_time_overflow);
+    break;
+  case PROP_ALLOW_DECIMAL_TRUNCATE:
+    g_value_set_boolean(value, priv->options.allow_decimal_truncate);
     break;
   case PROP_ALLOW_FLOAT_TRUNCATE:
     g_value_set_boolean(value, priv->options.allow_float_truncate);
@@ -185,11 +476,27 @@ garrow_cast_options_class_init(GArrowCastOptionsClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
 
+  gobject_class->dispose      = garrow_cast_options_dispose;
   gobject_class->finalize     = garrow_cast_options_finalize;
   gobject_class->set_property = garrow_cast_options_set_property;
   gobject_class->get_property = garrow_cast_options_get_property;
 
   GParamSpec *spec;
+
+  /**
+   * GArrowCastOptions:to-data-type:
+   *
+   * The GArrowDataType being casted to.
+   *
+   * Since: 1.0.0
+   */
+  spec = g_param_spec_object("to-data-type",
+                             "To data type",
+                             "The GArrowDataType being casted to",
+                             GARROW_TYPE_DATA_TYPE,
+                             static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_TO_DATA_TYPE, spec);
+
   /**
    * GArrowCastOptions:allow-int-overflow:
    *
@@ -217,6 +524,34 @@ garrow_cast_options_class_init(GArrowCastOptionsClass *klass)
                               FALSE,
                               static_cast<GParamFlags>(G_PARAM_READWRITE));
   g_object_class_install_property(gobject_class, PROP_ALLOW_TIME_TRUNCATE, spec);
+
+  /**
+   * GArrowCastOptions:allow-time-overflow:
+   *
+   * Whether time overflow is allowed or not.
+   *
+   * Since: 1.0.0
+   */
+  spec = g_param_spec_boolean("allow-time-overflow",
+                              "Allow time overflow",
+                              "Whether time overflow is allowed or not",
+                              FALSE,
+                              static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_ALLOW_TIME_OVERFLOW, spec);
+
+  /**
+   * GArrowCastOptions:allow-decimal-truncate:
+   *
+   * Whether truncating decimal value is allowed or not.
+   *
+   * Since: 1.0.0
+   */
+  spec = g_param_spec_boolean("allow-decimal-truncate",
+                              "Allow decimal truncate",
+                              "Whether truncating decimal value is allowed or not",
+                              FALSE,
+                              static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_ALLOW_DECIMAL_TRUNCATE, spec);
 
   /**
    * GArrowCastOptions:allow-float-truncate:
@@ -270,9 +605,26 @@ enum {
   PROP_MODE = 1,
 };
 
-G_DEFINE_TYPE_WITH_PRIVATE(GArrowCountOptions,
-                           garrow_count_options,
-                           G_TYPE_OBJECT)
+static arrow::compute::FunctionOptions *
+garrow_count_options_get_raw_function_options(GArrowFunctionOptions *options)
+{
+  return garrow_count_options_get_raw(GARROW_COUNT_OPTIONS(options));
+}
+
+static void
+garrow_count_options_function_options_interface_init(
+  GArrowFunctionOptionsInterface *iface)
+{
+  iface->get_raw = garrow_count_options_get_raw_function_options;
+}
+
+G_DEFINE_TYPE_WITH_CODE(GArrowCountOptions,
+                        garrow_count_options,
+                        G_TYPE_OBJECT,
+                        G_ADD_PRIVATE(GArrowCountOptions)
+                        G_IMPLEMENT_INTERFACE(
+                          GARROW_TYPE_FUNCTION_OPTIONS,
+                          garrow_count_options_function_options_interface_init))
 
 #define GARROW_COUNT_OPTIONS_GET_PRIVATE(object)        \
   static_cast<GArrowCountOptionsPrivate *>(             \
@@ -380,9 +732,26 @@ enum {
   PROP_NULL_SELECTION_BEHAVIOR = 1,
 };
 
-G_DEFINE_TYPE_WITH_PRIVATE(GArrowFilterOptions,
-                           garrow_filter_options,
-                           G_TYPE_OBJECT)
+static arrow::compute::FunctionOptions *
+garrow_filter_options_get_raw_function_options(GArrowFunctionOptions *options)
+{
+  return garrow_filter_options_get_raw(GARROW_FILTER_OPTIONS(options));
+}
+
+static void
+garrow_filter_options_function_options_interface_init(
+  GArrowFunctionOptionsInterface *iface)
+{
+  iface->get_raw = garrow_filter_options_get_raw_function_options;
+}
+
+G_DEFINE_TYPE_WITH_CODE(GArrowFilterOptions,
+                        garrow_filter_options,
+                        G_TYPE_OBJECT,
+                        G_ADD_PRIVATE(GArrowFilterOptions)
+                        G_IMPLEMENT_INTERFACE(
+                          GARROW_TYPE_FUNCTION_OPTIONS,
+                          garrow_filter_options_function_options_interface_init))
 
 #define GARROW_FILTER_OPTIONS_GET_PRIVATE(object)        \
   static_cast<GArrowFilterOptionsPrivate *>(             \
@@ -489,9 +858,26 @@ typedef struct GArrowTakeOptionsPrivate_ {
   arrow::compute::TakeOptions options;
 } GArrowTakeOptionsPrivate;
 
-G_DEFINE_TYPE_WITH_PRIVATE(GArrowTakeOptions,
-                           garrow_take_options,
-                           G_TYPE_OBJECT)
+static arrow::compute::FunctionOptions *
+garrow_take_options_get_raw_function_options(GArrowFunctionOptions *options)
+{
+  return garrow_take_options_get_raw(GARROW_TAKE_OPTIONS(options));
+}
+
+static void
+garrow_take_options_function_options_interface_init(
+  GArrowFunctionOptionsInterface *iface)
+{
+  iface->get_raw = garrow_take_options_get_raw_function_options;
+}
+
+G_DEFINE_TYPE_WITH_CODE(GArrowTakeOptions,
+                        garrow_take_options,
+                        G_TYPE_OBJECT,
+                        G_ADD_PRIVATE(GArrowTakeOptions)
+                        G_IMPLEMENT_INTERFACE(
+                          GARROW_TYPE_FUNCTION_OPTIONS,
+                          garrow_take_options_function_options_interface_init))
 
 #define GARROW_TAKE_OPTIONS_GET_PRIVATE(object)        \
   static_cast<GArrowTakeOptionsPrivate *>(             \
@@ -544,9 +930,26 @@ enum {
   PROP_OPERATOR = 1,
 };
 
-G_DEFINE_TYPE_WITH_PRIVATE(GArrowCompareOptions,
-                           garrow_compare_options,
-                           G_TYPE_OBJECT)
+static arrow::compute::FunctionOptions *
+garrow_compare_options_get_raw_function_options(GArrowFunctionOptions *options)
+{
+  return garrow_compare_options_get_raw(GARROW_COMPARE_OPTIONS(options));
+}
+
+static void
+garrow_compare_options_function_options_interface_init(
+  GArrowFunctionOptionsInterface *iface)
+{
+  iface->get_raw = garrow_compare_options_get_raw_function_options;
+}
+
+G_DEFINE_TYPE_WITH_CODE(GArrowCompareOptions,
+                        garrow_compare_options,
+                        G_TYPE_OBJECT,
+                        G_ADD_PRIVATE(GArrowCompareOptions)
+                        G_IMPLEMENT_INTERFACE(
+                          GARROW_TYPE_FUNCTION_OPTIONS,
+                          garrow_compare_options_function_options_interface_init))
 
 #define GARROW_COMPARE_OPTIONS_GET_PRIVATE(object)        \
   static_cast<GArrowCompareOptionsPrivate *>(             \
@@ -2024,13 +2427,49 @@ garrow_record_batch_filter(GArrowRecordBatch *record_batch,
 
 G_END_DECLS
 
+arrow::compute::ExecContext *
+garrow_execute_context_get_raw(GArrowExecuteContext *context)
+{
+  auto priv = GARROW_EXECUTE_CONTEXT_GET_PRIVATE(context);
+  return &priv->context;
+}
+
+arrow::compute::FunctionOptions *
+garrow_function_options_get_raw(GArrowFunctionOptions *options)
+{
+  auto iface = GARROW_FUNCTION_OPTIONS_GET_IFACE(options);
+  return iface->get_raw(options);
+}
+
+GArrowFunction *
+garrow_function_new_raw(std::shared_ptr<arrow::compute::Function> *arrow_function)
+{
+  return GARROW_FUNCTION(g_object_new(GARROW_TYPE_FUNCTION,
+                                      "function", arrow_function,
+                                      NULL));
+}
+
+std::shared_ptr<arrow::compute::Function>
+garrow_function_get_raw(GArrowFunction *function)
+{
+  auto priv = GARROW_FUNCTION_GET_PRIVATE(function);
+  return priv->function;
+}
+
 GArrowCastOptions *
 garrow_cast_options_new_raw(arrow::compute::CastOptions *arrow_cast_options)
 {
+  GArrowDataType *to_data_type = NULL;
+  if (arrow_cast_options->to_type) {
+    to_data_type = garrow_data_type_new_raw(&(arrow_cast_options->to_type));
+  }
   auto cast_options =
     g_object_new(GARROW_TYPE_CAST_OPTIONS,
+                 "to-data-type", to_data_type,
                  "allow-int-overflow", arrow_cast_options->allow_int_overflow,
                  "allow-time-truncate", arrow_cast_options->allow_time_truncate,
+                 "allow-time-overflow", arrow_cast_options->allow_time_overflow,
+                 "allow-decimal-truncate", arrow_cast_options->allow_decimal_truncate,
                  "allow-float-truncate", arrow_cast_options->allow_float_truncate,
                  "allow-invalid-utf8", arrow_cast_options->allow_invalid_utf8,
                  NULL);

@@ -42,7 +42,7 @@ G_DEFINE_INTERFACE(GArrowFile,
                    G_TYPE_OBJECT)
 
 static void
-garrow_file_default_init (GArrowFileInterface *iface)
+garrow_file_default_init(GArrowFileInterface *iface)
 {
 }
 
@@ -55,7 +55,7 @@ garrow_file_default_init (GArrowFileInterface *iface)
  */
 gboolean
 garrow_file_close(GArrowFile *file,
-                     GError **error)
+                  GError **error)
 {
   auto arrow_file = garrow_file_get_raw(file);
 

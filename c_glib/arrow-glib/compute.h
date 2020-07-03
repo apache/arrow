@@ -19,12 +19,55 @@
 
 #pragma once
 
-#include <arrow-glib/array.h>
-#include <arrow-glib/chunked-array.h>
-#include <arrow-glib/record-batch.h>
-#include <arrow-glib/table.h>
+#include <arrow-glib/datum.h>
 
 G_BEGIN_DECLS
+
+#define GARROW_TYPE_EXECUTE_CONTEXT (garrow_execute_context_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowExecuteContext,
+                         garrow_execute_context,
+                         GARROW,
+                         EXECUTE_CONTEXT,
+                         GObject)
+struct _GArrowExecuteContextClass
+{
+  GObjectClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_1_0
+GArrowExecuteContext *garrow_execute_context_new(void);
+
+
+#define GARROW_TYPE_FUNCTION_OPTIONS (garrow_function_options_get_type())
+G_DECLARE_INTERFACE(GArrowFunctionOptions,
+                    garrow_function_options,
+                    GARROW,
+                    FUNCTION_OPTIONS,
+                    GObject)
+
+
+#define GARROW_TYPE_FUNCTION (garrow_function_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowFunction,
+                         garrow_function,
+                         GARROW,
+                         FUNCTION,
+                         GObject)
+struct _GArrowFunctionClass
+{
+  GObjectClass parent_class;
+};
+
+
+GARROW_AVAILABLE_IN_1_0
+GArrowFunction *garrow_function_find(const gchar *name);
+
+GARROW_AVAILABLE_IN_1_0
+GArrowDatum *garrow_function_execute(GArrowFunction *function,
+                                     GList *args,
+                                     GArrowFunctionOptions *options,
+                                     GArrowExecuteContext *context,
+                                     GError **error);
+
 
 #define GARROW_TYPE_CAST_OPTIONS (garrow_cast_options_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowCastOptions,
@@ -156,7 +199,7 @@ GArrowArray *garrow_array_cast(GArrowArray *array,
                                GArrowCastOptions *options,
                                GError **error);
 GArrowArray *garrow_array_unique(GArrowArray *array,
-                                GError **error);
+                                 GError **error);
 GArrowDictionaryArray *garrow_array_dictionary_encode(GArrowArray *array,
                                                       GError **error);
 GARROW_AVAILABLE_IN_0_13
