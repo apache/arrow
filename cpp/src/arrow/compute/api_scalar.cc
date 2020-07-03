@@ -126,5 +126,24 @@ Result<Datum> Compare(const Datum& left, const Datum& right, CompareOptions opti
 SCALAR_EAGER_UNARY(IsValid, "is_valid")
 SCALAR_EAGER_UNARY(IsNull, "is_null")
 
+Result<Datum> FillNull(const Datum& values, const Datum& fill_value, ExecContext* ctx) {
+  if (!values.is_arraylike()) {
+    return Status::Invalid("Values must be Array or ChunkedArray");
+  }
+
+  if (!fill_value.is_scalar()) {
+    return Status::Invalid("fill value must be a scalar");
+  }
+
+  if (!values.type()->Equals(fill_value.type())) {
+    std::stringstream ss;
+    ss << "Array type didn't match type of fill value: " << values.type()->ToString()
+       << " vs " << fill_value.type()->ToString();
+    return Status::Invalid(ss.str());
+  }
+  FillNullOptions options(fill_value);
+  return CallFunction("fill_null", {values}, &options, ctx);
+}
+
 }  // namespace compute
 }  // namespace arrow
