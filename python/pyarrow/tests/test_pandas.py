@@ -3324,14 +3324,14 @@ def test_cast_timestamp_unit():
 def test_nested_with_timestamp_tz():
     # ARROW-7723
     ts = pd.Timestamp.now()
-    # This is used for verifying timezone conversion to micros are not
-    # important
     ts_dt = ts.to_pydatetime()
 
     # XXX: Ensure that this data does not get promoted to nanoseconds (and thus
     # integers) to preserve behavior in 0.15.1
     for unit in ['s', 'ms', 'us']:
         if unit in ['s', 'ms']:
+            # This is used for verifying timezone conversion to micros are not
+            # important
             truncate = lambda x: x.replace(microsecond=0)
         else:
             truncate = lambda x: x
