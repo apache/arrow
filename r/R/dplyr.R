@@ -165,7 +165,7 @@ filter.arrow_dplyr_query <- function(.data, ..., .preserve = FALSE) {
       # Abort. We don't want to auto-collect if this is a Dataset because that
       # could blow up, too big.
       stop(
-        "Filter expression not supported for Arrow Dataset: ", bads,
+        "Filter expression not supported for Arrow Datasets: ", bads,
         "\nCall collect() first to pull data into R.",
         call. = FALSE
       )
@@ -346,7 +346,7 @@ query_on_dataset <- function(x) inherits(x$.data, "Dataset")
 
 not_implemented_for_dataset <- function(method) {
   stop(
-    method, " is not currently implemented for Arrow Dataset. ",
+    method, " is not currently implemented for Arrow Datasets. ",
     "Call collect() first to pull data into R.",
     call. = FALSE
   )

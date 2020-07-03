@@ -467,18 +467,18 @@ test_that("dplyr method not implemented messages", {
   # This one is more nuanced
   expect_error(
     ds %>% filter(int > 6, dbl > max(dbl)),
-    "Filter expression not supported for Arrow Dataset: dbl > max(dbl)\nCall collect() first to pull data into R.",
+    "Filter expression not supported for Arrow Datasets: dbl > max(dbl)\nCall collect() first to pull data into R.",
     fixed = TRUE
   )
   # One explicit test of the full message
   expect_error(
     ds %>% summarize(mean(int)),
-    "summarize() is not currently implemented for Arrow Dataset. Call collect() first to pull data into R.",
+    "summarize() is not currently implemented for Arrow Datasets. Call collect() first to pull data into R.",
     fixed = TRUE
   )
   # Helper for everything else
   expect_not_implemented <- function(x) {
-    expect_error(x, "is not currently implemented for Arrow Dataset")
+    expect_error(x, "is not currently implemented for Arrow Datasets")
   }
   expect_not_implemented(ds %>% arrange(int))
   expect_not_implemented(ds %>% mutate(int = int + 2))

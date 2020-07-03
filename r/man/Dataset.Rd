@@ -8,7 +8,7 @@
 \alias{FileSystemDatasetFactory}
 \title{Multi-file datasets}
 \description{
-Arrow Dataset allow you to query against data that has been split across
+Arrow Datasets allow you to query against data that has been split across
 multiple files. This sharding of data may indicate partitioning, which
 can accelerate queries that only touch some partitions (files).
 
