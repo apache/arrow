@@ -1372,7 +1372,13 @@ cdef class BaseListArray(Array):
         >>> arr = pa.array([[1, 2, 3], [], None, [4]],
         ...                type=pa.list_(pa.int32()))
         >>> arr.value_parent_indices()
-        [0, 0, 0, 3]
+        <pyarrow.lib.Int32Array object at 0x7efc5db958a0>
+        [
+          0,
+          0,
+          0,
+          3
+        ]
         """
         return _pc().list_parent_indices(self)
 
@@ -1386,7 +1392,13 @@ cdef class BaseListArray(Array):
         >>> arr = pa.array([[1, 2, 3], [], None, [4]],
         ...                type=pa.list_(pa.int32()))
         >>> arr.value_lengths()
-        [3, 0, null, 4]
+        <pyarrow.lib.Int32Array object at 0x7efc5db95910>
+        [
+          3,
+          0,
+          null,
+          1
+        ]
         """
         return _pc().list_value_lengths(self)
 
