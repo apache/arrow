@@ -649,12 +649,21 @@ def test_make_parquet_fragment_from_buffer():
 
     buffer = out.getvalue()
 
-    parquet_format = ds.ParquetFileFormat()
-    fragment = parquet_format.make_fragment(buffer)
-    assert fragment.to_table().equals(table)
+    formats = [
+        ds.ParquetFileFormat(),
+        ds.ParquetFileFormat(
+            read_options=ds.ParquetReadOptions(
+                use_buffered_stream=True,
+                buffer_size=4096,
+            )
+        )
+    ]
+    for f in formats:
+        fragment = f.make_fragment(buffer)
+        assert fragment.to_table().equals(table)
 
-    pickled = pickle.loads(pickle.dumps(fragment))
-    assert pickled.to_table().equals(table)
+        pickled = pickle.loads(pickle.dumps(fragment))
+        assert pickled.to_table().equals(table)
 
 
 def _create_dataset_for_fragments(tempdir, chunk_size=None):
