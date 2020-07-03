@@ -20,8 +20,8 @@ exec_prefix=@exec_prefix@
 libdir=@libdir@
 includedir=@includedir@
 
-Name: Apache Arrow Datasets GLib
-Description: C API for Apache Arrow Datasets based on GLib
+Name: Apache Arrow Dataset GLib
+Description: C API for Apache Arrow Dataset based on GLib
 Version: @VERSION@
 Libs: -L${libdir} -larrow-dataset-glib
 Cflags: -I${includedir}

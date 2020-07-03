@@ -70,7 +70,7 @@ Depends:
   libparquet100 (= ${binary:Version})
 Description: Apache Arrow is a data processing library for analysis
  .
- This package provides C++ library files for Datasets module.
+ This package provides C++ library files for Dataset module.
 
 Package: libarrow-flight100
 Section: libs
@@ -148,7 +148,7 @@ Depends:
   libparquet-dev (= ${binary:Version})
 Description: Apache Arrow is a data processing library for analysis
  .
- This package provides C++ header files for Datasets module.
+ This package provides C++ header files for dataset module.
 
 Package: libarrow-flight-dev
 Section: libdevel
@@ -376,7 +376,7 @@ Depends:
   libarrow-dataset100 (= ${binary:Version})
 Description: Apache Arrow is a data processing library for analysis
  .
- This package provides GLib based library files for Datasets module.
+ This package provides GLib based library files for dataset module.
 
 Package: gir1.2-arrow-dataset-1.0
 Section: introspection
@@ -387,7 +387,7 @@ Depends:
   ${misc:Depends}
 Description: Apache Arrow is a data processing library for analysis
  .
- This package provides GObject Introspection typelib files for Datasets module.
+ This package provides GObject Introspection typelib files for dataset module.
 
 Package: libarrow-dataset-glib-dev
 Section: libdevel
@@ -401,7 +401,7 @@ Depends:
   gir1.2-arrow-dataset-1.0 (= ${binary:Version})
 Description: Apache Arrow is a data processing library for analysis
  .
- This package provides GLib based header files for Datasets module.
+ This package provides GLib based header files for dataset module.
 
 Package: libarrow-dataset-glib-doc
 Section: doc
@@ -412,7 +412,7 @@ Depends:
 Recommends: libarrow-glib-doc
 Description: Apache Arrow is a data processing library for analysis
  .
- This package provides documentations for Datasets module.
+ This package provides documentations for dataset module.
 
 Package: libgandiva-glib100
 Section: libs
