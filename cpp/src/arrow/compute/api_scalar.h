@@ -260,6 +260,15 @@ ARROW_EXPORT
 Result<Datum> IsNull(const Datum& values, ExecContext* ctx = NULLPTR);
 
 // ----------------------------------------------------------------------
+// String functions
+
+struct ARROW_EXPORT BinaryContainsExactOptions : public FunctionOptions {
+  explicit BinaryContainsExactOptions(std::string pattern) : pattern(pattern) {}
+
+  std::string pattern;
+};
+
+// ----------------------------------------------------------------------
 // Temporal functions
 
 struct ARROW_EXPORT StrptimeOptions : public FunctionOptions {

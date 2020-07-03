@@ -90,6 +90,13 @@ def test_sum_chunked_array(arrow_type):
     assert pc.sum(arr) == None  # noqa: E711
 
 
+def test_binary_contains_exact():
+    arr = pa.array(["ab", "abc", "ba", None])
+    result = pc.binary_contains_exact(arr, "ab")
+    expected = pa.array([True, True, False, None])
+    assert expected.equals(result)
+
+
 @pytest.mark.parametrize(('ty', 'values'), all_array_types)
 def test_take(ty, values):
     arr = pa.array(values, type=ty)

@@ -398,6 +398,18 @@ cdef class CastOptions(FunctionOptions):
         self.options.allow_invalid_utf8 = flag
 
 
+cdef class BinaryContainsExactOptions(FunctionOptions):
+    cdef:
+        unique_ptr[CBinaryContainsExactOptions] binary_contains_exact_options
+
+    def __init__(self, pattern):
+        self.binary_contains_exact_options.reset(
+            new CBinaryContainsExactOptions(tobytes(pattern)))
+
+    cdef const CFunctionOptions* get_options(self) except NULL:
+        return self.binary_contains_exact_options.get()
+
+
 cdef class FilterOptions(FunctionOptions):
     cdef:
         CFilterOptions filter_options

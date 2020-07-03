@@ -28,7 +28,8 @@ namespace compute {
 
 constexpr auto kSeed = 0x94378165;
 
-static void UnaryStringBenchmark(benchmark::State& state, const std::string& func_name) {
+static void UnaryStringBenchmark(benchmark::State& state, const std::string& func_name,
+                                 const FunctionOptions* options = nullptr) {
   const int64_t array_length = 1 << 20;
   const int64_t value_min_size = 0;
   const int64_t value_max_size = 32;
@@ -39,10 +40,10 @@ static void UnaryStringBenchmark(benchmark::State& state, const std::string& fun
   auto values =
       rng.String(array_length, value_min_size, value_max_size, null_probability);
   // Make sure lookup tables are initialized before measuring
-  ABORT_NOT_OK(CallFunction(func_name, {values}));
+  ABORT_NOT_OK(CallFunction(func_name, {values}, options));
 
   for (auto _ : state) {
-    ABORT_NOT_OK(CallFunction(func_name, {values}));
+    ABORT_NOT_OK(CallFunction(func_name, {values}, options));
   }
   state.SetItemsProcessed(state.iterations() * array_length);
   state.SetBytesProcessed(state.iterations() * values->data()->buffers[2]->size());
@@ -54,6 +55,11 @@ static void AsciiLower(benchmark::State& state) {
 
 static void AsciiUpper(benchmark::State& state) {
   UnaryStringBenchmark(state, "ascii_upper");
+}
+
+static void BinaryContainsExact(benchmark::State& state) {
+  BinaryContainsExactOptions options("abac");
+  UnaryStringBenchmark(state, "binary_contains_exact", &options);
 }
 
 #ifdef ARROW_WITH_UTF8PROC
@@ -68,6 +74,7 @@ static void Utf8Lower(benchmark::State& state) {
 
 BENCHMARK(AsciiLower);
 BENCHMARK(AsciiUpper);
+BENCHMARK(BinaryContainsExact);
 #ifdef ARROW_WITH_UTF8PROC
 BENCHMARK(Utf8Lower);
 BENCHMARK(Utf8Upper);

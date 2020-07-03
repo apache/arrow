@@ -298,6 +298,118 @@ void AddAsciiLength(FunctionRegistry* registry) {
 }
 
 // ----------------------------------------------------------------------
+// exact pattern detection
+
+using StrToBoolTransformFunc =
+    std::function<void(const void*, const uint8_t*, int64_t, int64_t, uint8_t*)>;
+
+// Apply `transform` to input character data- this function cannot change the
+// length
+template <typename Type>
+void StringBoolTransform(KernelContext* ctx, const ExecBatch& batch,
+                         StrToBoolTransformFunc transform, Datum* out) {
+  using offset_type = typename Type::offset_type;
+
+  if (batch[0].kind() == Datum::ARRAY) {
+    const ArrayData& input = *batch[0].array();
+    ArrayData* out_arr = out->mutable_array();
+    if (input.length > 0) {
+      transform(
+          reinterpret_cast<const offset_type*>(input.buffers[1]->data()) + input.offset,
+          input.buffers[2]->data(), input.length, out_arr->offset,
+          out_arr->buffers[1]->mutable_data());
+    }
+  } else {
+    const auto& input = checked_cast<const BaseBinaryScalar&>(*batch[0].scalar());
+    if (input.is_valid) {
+      auto result = checked_pointer_cast<BooleanScalar>(MakeNullScalar(out->type()));
+      uint8_t result_value = 0;
+      result->is_valid = true;
+      std::array<offset_type, 2> offsets{0,
+                                         static_cast<offset_type>(input.value->size())};
+      transform(offsets.data(), input.value->data(), 1, /*output_offset=*/0,
+                &result_value);
+      out->value = std::make_shared<BooleanScalar>(result_value > 0);
+    }
+  }
+}
+
+template <typename offset_type>
+void TransformBinaryContainsExact(const uint8_t* pattern, int64_t pattern_length,
+                                  const offset_type* offsets, const uint8_t* data,
+                                  int64_t length, int64_t output_offset,
+                                  uint8_t* output) {
+  // This is an implementation of the Knuth-Morris-Pratt algorithm
+
+  // Phase 1: Build the prefix table
+  std::vector<offset_type> prefix_table(pattern_length + 1);
+  offset_type prefix_length = -1;
+  prefix_table[0] = -1;
+  for (offset_type pos = 0; pos < pattern_length; ++pos) {
+    // The prefix cannot be expanded, reset.
+    if (prefix_length >= 0 && pattern[pos] != pattern[prefix_length]) {
+      prefix_length = prefix_table[prefix_length];
+    }
+    prefix_length++;
+    prefix_table[pos + 1] = prefix_length;
+  }
+
+  // Phase 2: Find the prefix in the data
+  FirstTimeBitmapWriter bitmap_writer(output, output_offset, length);
+  for (int64_t i = 0; i < length; ++i) {
+    const uint8_t* current_data = data + offsets[i];
+    int64_t current_length = offsets[i + 1] - offsets[i];
+
+    int64_t pattern_pos = 0;
+    for (int64_t k = 0; k < current_length; k++) {
+      if (pattern[pattern_pos] == current_data[k]) {
+        pattern_pos++;
+        if (pattern_pos == pattern_length) {
+          bitmap_writer.Set();
+          break;
+        }
+      } else {
+        pattern_pos = std::max<offset_type>(0, prefix_table[pattern_pos]);
+      }
+    }
+    bitmap_writer.Next();
+  }
+  bitmap_writer.Finish();
+}
+
+using BinaryContainsExactState = OptionsWrapper<BinaryContainsExactOptions>;
+
+template <typename Type>
+struct BinaryContainsExact {
+  using offset_type = typename Type::offset_type;
+  static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    BinaryContainsExactOptions arg = BinaryContainsExactState::Get(ctx);
+    const uint8_t* pat = reinterpret_cast<const uint8_t*>(arg.pattern.c_str());
+    const int64_t pat_size = arg.pattern.length();
+    StringBoolTransform<Type>(
+        ctx, batch,
+        [pat, pat_size](const void* offsets, const uint8_t* data, int64_t length,
+                        int64_t output_offset, uint8_t* output) {
+          TransformBinaryContainsExact<offset_type>(
+              pat, pat_size, reinterpret_cast<const offset_type*>(offsets), data, length,
+              output_offset, output);
+        },
+        out);
+  }
+};
+
+void AddBinaryContainsExact(FunctionRegistry* registry) {
+  auto func = std::make_shared<ScalarFunction>("binary_contains_exact", Arity::Unary());
+  auto exec_32 = BinaryContainsExact<StringType>::Exec;
+  auto exec_64 = BinaryContainsExact<LargeStringType>::Exec;
+  DCHECK_OK(
+      func->AddKernel({utf8()}, boolean(), exec_32, BinaryContainsExactState::Init));
+  DCHECK_OK(func->AddKernel({large_utf8()}, boolean(), exec_64,
+                            BinaryContainsExactState::Init));
+  DCHECK_OK(registry->AddFunction(std::move(func)));
+}
+
+// ----------------------------------------------------------------------
 // strptime string parsing
 
 using StrptimeState = OptionsWrapper<StrptimeOptions>;
@@ -377,6 +489,7 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
   MakeUnaryStringUtf8TransformKernel<Utf8Lower>("utf8_lower", registry);
 #endif
   AddAsciiLength(registry);
+  AddBinaryContainsExact(registry);
   AddStrptime(registry);
 }
 
