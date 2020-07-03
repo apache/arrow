@@ -16,7 +16,6 @@
 # under the License.
 
 import contextlib
-import datetime
 import os
 import pathlib
 import pickle
@@ -885,11 +884,12 @@ def test_parquet_fragment_statistics(tempdir):
 
     fragment = list(dataset.get_fragments())[0]
 
-    def dt_s(x): return datetime.datetime(1970, 1, 1, 0, 0, x)
-    def dt_ms(x): return datetime.datetime(1970, 1, 1, 0, 0, 0, x*1000)
-    def dt_us(x): return datetime.datetime(1970, 1, 1, 0, 0, 0, x)
-    date = datetime.date
-    time = datetime.time
+    # import datetime
+    # def dt_s(x): return datetime.datetime(1970, 1, 1, 0, 0, x)
+    # def dt_ms(x): return datetime.datetime(1970, 1, 1, 0, 0, 0, x*1000)
+    # def dt_us(x): return datetime.datetime(1970, 1, 1, 0, 0, 0, x)
+    # date = datetime.date
+    # time = datetime.time
 
     # list and scan row group fragments
     row_group_fragments = list(fragment.split_by_row_group())
