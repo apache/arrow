@@ -107,6 +107,8 @@ is_valid = _simple_unary_function('is_valid')
 is_null = _simple_unary_function('is_null')
 
 list_flatten = _simple_unary_function('list_flatten')
+list_parent_indices = _simple_unary_function('list_parent_indices')
+list_value_lengths = _simple_unary_function('list_value_lengths')
 
 add = _simple_binary_function('add')
 subtract = _simple_binary_function('subtract')

@@ -29,6 +29,7 @@ void RegisterScalarArithmetic(FunctionRegistry* registry);
 void RegisterScalarBoolean(FunctionRegistry* registry);
 void RegisterScalarCast(FunctionRegistry* registry);
 void RegisterScalarComparison(FunctionRegistry* registry);
+void RegisterScalarNested(FunctionRegistry* registry);
 void RegisterScalarSetLookup(FunctionRegistry* registry);
 void RegisterScalarStringAscii(FunctionRegistry* registry);
 void RegisterScalarValidity(FunctionRegistry* registry);

@@ -307,6 +307,7 @@ struct TypeTraits<ListType> {
   using OffsetType = Int32Type;
   using OffsetArrayType = Int32Array;
   using OffsetBuilderType = Int32Builder;
+  using OffsetScalarType = Int32Scalar;
   constexpr static bool is_parameter_free = false;
 };
 
@@ -318,6 +319,7 @@ struct TypeTraits<LargeListType> {
   using OffsetType = Int64Type;
   using OffsetArrayType = Int64Array;
   using OffsetBuilderType = Int64Builder;
+  using OffsetScalarType = Int64Scalar;
   constexpr static bool is_parameter_free = false;
 };
 

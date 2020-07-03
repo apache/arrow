@@ -34,5 +34,25 @@ TEST(TestVectorNested, ListFlatten) {
   }
 }
 
+TEST(TestVectorNested, ListParentIndices) {
+  for (auto ty : {list(int32()), large_list(int32())}) {
+    auto input = ArrayFromJSON(ty, "[[0, null, 1], null, [2, 3], [], [4, 5]]");
+
+    auto out_ty = ty->id() == Type::LIST ? int32() : int64();
+    auto expected = ArrayFromJSON(out_ty, "[0, 0, 0, 2, 2, 4, 4]");
+    ASSERT_OK_AND_ASSIGN(Datum out, CallFunction("list_parent_indices", {input}));
+    AssertArraysEqual(*expected, *out.make_array());
+  }
+
+  // Construct a list with non-empty null slots
+  auto input = ArrayFromJSON(list(int32()), "[[0, null, 1], [0, 0], [2, 3], [], [4, 5]]");
+  std::shared_ptr<ArrayData> data = input->data()->Copy();
+  data->buffers[0] =
+      (ArrayFromJSON(boolean(), "[true, false, true, true, true]")->data()->buffers[1]);
+  auto expected = ArrayFromJSON(int32(), "[0, 0, 0, 1, 1, 2, 2, 4, 4]");
+  ASSERT_OK_AND_ASSIGN(Datum out, CallFunction("list_parent_indices", {data}));
+  AssertArraysEqual(*expected, *out.make_array());
+}
+
 }  // namespace compute
 }  // namespace arrow
