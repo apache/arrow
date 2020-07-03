@@ -935,8 +935,10 @@ def _create_directory_of_files(base_dir):
 
 
 def _check_dataset(dataset, table):
-    assert dataset.schema.equals(table.schema)
-    assert dataset.to_table().equals(table)
+    # also test that pickle roundtrip keeps the functionality
+    for d in [dataset, pickle.loads(pickle.dumps(dataset))]:
+        assert dataset.schema.equals(table.schema)
+        assert dataset.to_table().equals(table)
 
 
 def _check_dataset_from_path(path, table, **kwargs):
@@ -987,6 +989,10 @@ def test_open_dataset_list_of_files(tempdir):
         ds.dataset([path1, path2]),
         ds.dataset([str(path1), str(path2)])
     ]
+    datasets += [
+        pickle.loads(pickle.dumps(d)) for d in datasets
+    ]
+
     for dataset in datasets:
         assert dataset.schema.equals(table.schema)
         result = dataset.to_table()
@@ -1020,6 +1026,10 @@ def test_construct_from_single_directory(tempdir):
     t2 = d2.to_table()
     t3 = d3.to_table()
     assert t1 == t2 == t3
+
+    for d in [d1, d2, d3]:
+        restored = pickle.loads(pickle.dumps(d))
+        assert restored.to_table() == t1
 
 
 def test_construct_from_list_of_files(tempdir):
@@ -1056,17 +1066,23 @@ def test_construct_from_list_of_mixed_paths_fails(mockfs):
 
 def test_construct_from_mixed_child_datasets(mockfs):
     # isntantiate from a list of mixed paths
-    dataset = ds.dataset([
-        ds.dataset(['subdir/1/xxx/file0.parquet',
-                    'subdir/2/yyy/file1.parquet'], filesystem=mockfs),
-        ds.dataset('subdir', filesystem=mockfs)
-    ])
+    a = ds.dataset(['subdir/1/xxx/file0.parquet',
+                    'subdir/2/yyy/file1.parquet'], filesystem=mockfs)
+    b = ds.dataset('subdir', filesystem=mockfs)
+
+    dataset = ds.dataset([a, b])
+
     assert isinstance(dataset, ds.UnionDataset)
     assert len(list(dataset.get_fragments())) == 4
 
     table = dataset.to_table()
     assert len(table) == 20
     assert table.num_columns == 4
+
+    assert len(dataset.children) == 2
+    for child in dataset.children:
+        assert child.files == ['subdir/1/xxx/file0.parquet',
+                               'subdir/2/yyy/file1.parquet']
 
 
 def test_construct_empty_dataset():
@@ -1199,6 +1215,9 @@ def test_open_union_dataset(tempdir):
 
     union = ds.dataset([dataset, dataset])
     assert isinstance(union, ds.UnionDataset)
+
+    pickled = pickle.loads(pickle.dumps(union))
+    assert pickled.to_table() == union.to_table()
 
 
 def test_open_union_dataset_with_additional_kwargs(multisourcefs):
