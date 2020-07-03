@@ -18,8 +18,8 @@
 libdir=@CMAKE_INSTALL_FULL_LIBDIR@
 includedir=@CMAKE_INSTALL_FULL_INCLUDEDIR@
 
-Name: Apache Arrow Datasets
-Description: Apache Arrow Datasets provides an API to read and write semantic datasets stored in different locations and formats.
+Name: Apache Arrow Dataset
+Description: Apache Arrow Dataset provides an API to read and write semantic datasets stored in different locations and formats.
 Version: @ARROW_VERSION@
 Requires: arrow parquet
 Libs: -L${libdir} -larrow_dataset

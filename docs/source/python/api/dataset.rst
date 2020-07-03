@@ -19,8 +19,8 @@
 
 .. _api.dataset:
 
-Datasets
-========
+Dataset
+=======
 
 .. warning::
 

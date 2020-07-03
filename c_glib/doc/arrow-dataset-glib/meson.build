@@ -18,7 +18,7 @@
 # under the License.
 
 package_id = 'arrow-dataset-glib'
-package_name = 'Apache Arrow Datasets GLib'
+package_name = 'Apache Arrow Dataset GLib'
 entities_conf = configuration_data()
 entities_conf.set('PACKAGE', package_id)
 entities_conf.set('PACKAGE_BUGREPORT',

@@ -281,7 +281,7 @@ License:	Apache-2.0
 Requires:	%{name}-libs = %{version}-%{release}
 
 %description dataset-libs
-This package contains the libraries for Apache Arrow Datasets.
+This package contains the libraries for Apache Arrow dataset.
 
 %files dataset-libs
 %defattr(-,root,root,-)
@@ -289,12 +289,12 @@ This package contains the libraries for Apache Arrow Datasets.
 %{_libdir}/libarrow_dataset.so.*
 
 %package dataset-devel
-Summary:	Libraries and header files for Apache Arrow Datasets.
+Summary:	Libraries and header files for Apache Arrow dataset.
 License:	Apache-2.0
 Requires:	%{name}-dataset-libs = %{version}-%{release}
 
 %description dataset-devel
-Libraries and header files for Apache Arrow Datasets.
+Libraries and header files for Apache Arrow dataset.
 
 %files dataset-devel
 %defattr(-,root,root,-)
@@ -585,13 +585,13 @@ Documentation for Apache Arrow GLib.
 %{_datadir}/gtk-doc/html/arrow-glib/
 
 %package dataset-glib-libs
-Summary:	Runtime libraries for Apache Arrow Datasets GLib
+Summary:	Runtime libraries for Apache Arrow dataset GLib
 License:	Apache-2.0
 Requires:	%{name}-dataset-libs = %{version}-%{release}
 Requires:	%{name}-glib-libs = %{version}-%{release}
 
 %description dataset-glib-libs
-This package contains the libraries for Apache Arrow Datasets GLib.
+This package contains the libraries for Apache Arrow dataset GLib.
 
 %files dataset-glib-libs
 %defattr(-,root,root,-)
@@ -600,13 +600,13 @@ This package contains the libraries for Apache Arrow Datasets GLib.
 %{_datadir}/gir-1.0/ArrowDataset-1.0.gir
 
 %package dataset-glib-devel
-Summary:	Libraries and header files for Apache Arrow Datasets GLib
+Summary:	Libraries and header files for Apache Arrow dataset GLib
 License:	Apache-2.0
 Requires:	%{name}-dataset-devel = %{version}-%{release}
 Requires:	%{name}-glib-devel = %{version}-%{release}
 
 %description dataset-glib-devel
-Libraries and header files for Apache Arrow Datasets GLib.
+Libraries and header files for Apache Arrow dataset GLib.
 
 %files dataset-glib-devel
 %defattr(-,root,root,-)
@@ -618,11 +618,11 @@ Libraries and header files for Apache Arrow Datasets GLib.
 %{_libdir}/girepository-1.0/ArrowDataset-1.0.typelib
 
 %package dataset-glib-doc
-Summary:	Documentation for Apache Arrow Datasets GLib
+Summary:	Documentation for Apache Arrow dataset GLib
 License:	Apache-2.0
 
 %description dataset-glib-doc
-Documentation for Apache Arrow Datasets GLib.
+Documentation for Apache Arrow dataset GLib.
 
 %files dataset-glib-doc
 %defattr(-,root,root,-)
