@@ -887,7 +887,7 @@ cdef class RowGroupInfo:
                     'max': pyarrow_wrap_scalar(c_minmax.value[1]).as_py(),
                 }
             except ValueError:
-                # Don't threat failure to parse/convert a single Scalar as a
+                # Don't treat failure to parse/convert a single Scalar as a
                 # failure. The min/max will simply be missing for this field.
                 pass
 
