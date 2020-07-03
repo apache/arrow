@@ -49,13 +49,13 @@ class TensorConversionFixture : public benchmark::Fixture {
       case STRIDED:
         values_.resize(2 * n);
         for (int64_t i = 0; i < 100; ++i) {
-          values_[2 * i * m] = i;
+          values_[2 * i * m] = static_cast<c_value_type>(i);
         }
         break;
       default:
         values_.resize(n);
         for (int64_t i = 0; i < 100; ++i) {
-          values_[i * m] = i;
+          values_[i * m] = static_cast<c_value_type>(i);
         }
         break;
     }
@@ -111,13 +111,13 @@ class MatrixConversionFixture : public benchmark::Fixture {
       case STRIDED:
         values_.resize(2 * n);
         for (int64_t i = 0; i < 100; ++i) {
-          values_[2 * i * m] = i;
+          values_[2 * i * m] = static_cast<c_value_type>(i);
         }
         break;
       default:
         values_.resize(n);
         for (int64_t i = 0; i < 100; ++i) {
-          values_[i * m] = i;
+          values_[i * m] = static_cast<c_value_type>(i);
         }
         break;
     }
