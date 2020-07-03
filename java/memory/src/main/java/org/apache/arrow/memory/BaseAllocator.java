@@ -716,7 +716,7 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
      */
     @Value.Default
     AllocationManager.Factory getAllocationManagerFactory() {
-      return DefaultAllocationManagerOption.DEFAULT_ALLOCATION_MANAGER_FACTORY;
+      return DefaultAllocationManagerOption.getDefaultAllocationManagerFactory();
     }
 
     /**
