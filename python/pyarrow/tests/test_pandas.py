@@ -3326,11 +3326,15 @@ def test_nested_with_timestamp_tz():
     ts = pd.Timestamp.now()
     # This is used for verifying timezone conversion to micros are not
     # important
-    ts_dt = ts.to_pydatetime().replace(microsecond=0)
+    ts_dt = ts.to_pydatetime()
 
     # XXX: Ensure that this data does not get promoted to nanoseconds (and thus
     # integers) to preserve behavior in 0.15.1
     for unit in ['s', 'ms', 'us']:
+        if unit in ['s', 'ms']:
+            truncate = lambda x: x.replace(microsecond=0)
+        else:
+            truncate = lambda x: x
         arr = pa.array([ts], type=pa.timestamp(unit))
         arr2 = pa.array([ts], type=pa.timestamp(unit, tz='America/New_York'))
 
@@ -3347,7 +3351,7 @@ def test_nested_with_timestamp_tz():
         assert isinstance(result[0]['start'], datetime)
         assert result[0]['start'].tzinfo is not None
         utc_dt = result[0]['start'].astimezone(timezone.utc)
-        assert utc_dt.replace(tzinfo=None, microsecond=0) == ts_dt
+        assert truncate(utc_dt).replace(tzinfo=None) == truncate(ts_dt)
         assert isinstance(result[0]['stop'], datetime)
         assert result[0]['stop'].tzinfo is not None
 
