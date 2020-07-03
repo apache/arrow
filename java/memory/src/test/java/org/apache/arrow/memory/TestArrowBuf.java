@@ -19,8 +19,10 @@ package org.apache.arrow.memory;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.Arrays;
 
 import org.junit.AfterClass;
@@ -36,7 +38,7 @@ public class TestArrowBuf {
   public static void beforeClass() {
     allocator = new RootAllocator(MAX_ALLOCATION);
   }
-  
+
   /** Ensure the allocator is closed. */
   @AfterClass
   public static void afterClass() {
@@ -118,6 +120,26 @@ public class TestArrowBuf {
     try (ArrowBuf buf = allocator.buffer(expected.length)) {
       buf.setBytes(0, data, from, to - from);
 
+      byte[] actual = new byte[expected.length];
+      buf.getBytes(0, actual);
+      assertArrayEquals(expected, actual);
+    }
+  }
+
+  /** ARROW-9221: guard against big-endian byte buffers. */
+  @Test
+  public void testSetBytesBigEndian() {
+    final byte[] expected = new byte[64];
+    for (int i = 0; i < expected.length; i++) {
+      expected[i] = (byte) i;
+    }
+    // Only this code path is susceptible: others use unsafe or byte-by-byte copies, while this override copies longs.
+    final ByteBuffer data = ByteBuffer.wrap(expected).asReadOnlyBuffer();
+    assertFalse(data.hasArray());
+    assertFalse(data.isDirect());
+    assertEquals(ByteOrder.BIG_ENDIAN, data.order());
+    try (ArrowBuf buf = allocator.buffer(expected.length)) {
+      buf.setBytes(0, data);
       byte[] actual = new byte[expected.length];
       buf.getBytes(0, actual);
       assertArrayEquals(expected, actual);
