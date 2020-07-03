@@ -17,8 +17,9 @@
 
 //! Data types that connect Parquet physical types with their Rust-specific
 //! representations.
-
+use std::cmp::Ordering;
 use std::mem;
+use std::str::from_utf8;
 
 use byteorder::{BigEndian, ByteOrder};
 
@@ -30,11 +31,10 @@ use crate::util::{
     bit_util::{from_ne_slice, FromBytes},
     memory::{ByteBuffer, ByteBufferPtr},
 };
-use std::str::from_utf8;
 
 /// Rust representation for logical type INT96, value is backed by an array of `u32`.
 /// The type only takes 12 bytes, without extra padding.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialOrd)]
 pub struct Int96 {
     value: Option<[u32; 3]>,
 }
@@ -101,6 +101,29 @@ impl From<Vec<u32>> for Int96 {
 #[derive(Clone, Debug)]
 pub struct ByteArray {
     data: Option<ByteBufferPtr>,
+}
+
+impl PartialOrd for ByteArray {
+    fn partial_cmp(&self, other: &ByteArray) -> Option<Ordering> {
+        if self.data.is_some() && other.data.is_some() {
+            if self.len() > other.len() {
+                Some(Ordering::Greater)
+            } else if self.len() < other.len() {
+                Some(Ordering::Less)
+            } else {
+                for (v1, v2) in self.data().iter().zip(other.data().iter()) {
+                    if *v1 > *v2 {
+                        return Some(Ordering::Greater);
+                    } else if *v1 < *v2 {
+                        return Some(Ordering::Less);
+                    }
+                }
+                return Some(Ordering::Equal);
+            }
+        } else {
+            None
+        }
+    }
 }
 
 impl ByteArray {
@@ -405,7 +428,8 @@ pub trait DataType: 'static {
         + std::default::Default
         + std::clone::Clone
         + AsBytes
-        + FromBytes;
+        + FromBytes
+        + PartialOrd;
 
     /// Returns Parquet physical type.
     fn get_physical_type() -> Type;
@@ -450,6 +474,7 @@ where
 
 macro_rules! make_type {
     ($name:ident, $physical_ty:path, $reader_ident: ident, $writer_ident: ident, $native_ty:ty, $size:expr) => {
+        #[derive(Clone)]
         pub struct $name {}
 
         impl DataType for $name {
@@ -598,8 +623,8 @@ impl FromBytes for ByteArray {
     fn from_be_bytes(_bs: Self::Buffer) -> Self {
         unreachable!()
     }
-    fn from_ne_bytes(_bs: Self::Buffer) -> Self {
-        unreachable!()
+    fn from_ne_bytes(bs: Self::Buffer) -> Self {
+        ByteArray::from(bs.to_vec())
     }
 }
 
@@ -689,5 +714,21 @@ mod tests {
         assert!(Decimal::from_i32(222, 5, 2) != Decimal::from_i32(222, 5, 3));
 
         assert!(Decimal::from_i64(222, 5, 2) != Decimal::from_i32(222, 5, 2));
+    }
+
+    #[test]
+    fn test_byte_array_ord() {
+        let ba1 = ByteArray::from(vec![1, 2, 3]);
+        let ba11 = ByteArray::from(vec![1, 2, 3]);
+        let ba2 = ByteArray::from(vec![3, 4]);
+        let ba3 = ByteArray::from(vec![1, 2, 4]);
+        let ba4 = ByteArray::from(vec![]);
+        let ba5 = ByteArray::from(vec![2, 2, 3]);
+
+        assert!(ba1 > ba2);
+        assert!(ba3 > ba1);
+        assert!(ba1 > ba4);
+        assert_eq!(ba1, ba11);
+        assert!(ba5 > ba1);
     }
 }
