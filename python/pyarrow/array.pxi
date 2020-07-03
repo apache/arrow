@@ -1174,7 +1174,9 @@ cdef _array_like_to_pandas(obj, options):
     result = pandas_api.series(arr, dtype=dtype, name=name)
 
     if (isinstance(original_type, TimestampType) and
-            original_type.tz is not None):
+            original_type.tz is not None and
+            # can be object dtype for non-ns and timestamp_as_object=True
+            result.dtype.kind == "M"):
         from pyarrow.pandas_compat import make_tz_aware
         result = make_tz_aware(result, original_type.tz)
 

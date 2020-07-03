@@ -4027,19 +4027,23 @@ def test_timestamp_as_object_out_of_range():
 
 
 @pytest.mark.parametrize("resolution", ["s", "ms", "us"])
+@pytest.mark.parametrize("tz", [None, "America/New_York"])
 # One datetime outside nanosecond range, one inside nanosecond range:
 @pytest.mark.parametrize("dt", [datetime(1553, 1, 1), datetime(2020, 1, 1)])
-def test_timestamp_as_object_non_nanosecond(resolution, dt):
+def test_timestamp_as_object_non_nanosecond(resolution, tz, dt):
     # Timestamps can be converted Arrow and reloaded into Pandas with no loss
     # of information if the timestamp_as_object option is True.
-    arr = pa.array([dt], type=pa.timestamp(resolution))
-    result = arr.to_pandas(timestamp_as_object=True)
-    assert result.dtype == object
-    assert isinstance(result[0], datetime)
-    assert result[0] == dt
-
+    arr = pa.array([dt], type=pa.timestamp(resolution, tz=tz))
     table = pa.table({'a': arr})
-    result = table.to_pandas(timestamp_as_object=True)['a']
-    assert result.dtype == object
-    assert isinstance(result[0], datetime)
-    assert result[0] == dt
+
+    for result in [
+        arr.to_pandas(timestamp_as_object=True),
+        table.to_pandas(timestamp_as_object=True)['a']
+    ]:
+        assert result.dtype == object
+        assert isinstance(result[0], datetime)
+        if tz:
+            assert result[0].tzinfo is not None
+        else:
+            assert result[0].tzinfo is None
+        assert result[0] == dt
