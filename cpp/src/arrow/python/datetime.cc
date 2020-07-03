@@ -19,7 +19,6 @@
 #include <algorithm>
 #include <chrono>
 #include <iostream>
-#include <regex>
 
 #include "arrow/python/common.h"
 #include "arrow/python/helpers.h"
@@ -32,6 +31,44 @@
 namespace arrow {
 namespace py {
 namespace internal {
+
+namespace {
+
+bool MatchFixedOffset(const std::string& tz, util::string_view* sign,
+                      util::string_view* hour, util::string_view* minute) {
+  if (tz.size() < 5) {
+    return false;
+  }
+  const char* iter = tz.data();
+  if (*iter == '+' || *iter == '-') {
+    *sign = util::string_view(iter, 1);
+    iter++;
+    if (tz.size() < 6) {
+      return false;
+    }
+  }
+  if ((((*iter == '0' || *iter == '1') && *(iter + 1) >= '0' && *(iter + 1) <= '9') ||
+       (*iter == '2' && *(iter + 1) >= '0' && *(iter + 1) <= '3'))) {
+    *hour = util::string_view(iter, 2);
+    iter += 2;
+  } else {
+    return false;
+  }
+  if (*iter != ':') {
+    return false;
+  }
+  iter++;
+
+  if (*iter >= '0' && *iter <= '5' && *(iter + 1) >= '0' && *(iter + 1) <= '9') {
+    *minute = util::string_view(iter, 2);
+    iter += 2;
+  } else {
+    return false;
+  }
+  return iter == (tz.data() + tz.size());
+}
+
+}  // namespace
 
 PyDateTime_CAPI* datetime_api = nullptr;
 
@@ -267,21 +304,21 @@ int64_t PyDate_to_days(PyDateTime_Date* pydate) {
 
 // GIL must be held when calling this function.
 Status StringToTzinfo(const std::string& tz, PyObject** tzinfo) {
-  static const std::regex kFixedOffset("([+-])(0[0-9]|1[0-9]|2[0-3]):([0-5][0-9])$");
+  util::string_view sign_str, hour_str, minute_str;
   OwnedRef pytz;
   RETURN_NOT_OK(internal::ImportModule("pytz", &pytz));
 
-  std::cmatch match;
-  if (std::regex_match(tz.data(), tz.data() + tz.size(), match, kFixedOffset)) {
+  if (MatchFixedOffset(tz, &sign_str, &hour_str, &minute_str)) {
     int sign = -1;
-    if (match.str(1) == "+") {
+    if (sign_str == "+") {
       sign = 1;
     }
     OwnedRef fixed_offset;
     RETURN_NOT_OK(internal::ImportFromModule(pytz.obj(), "FixedOffset", &fixed_offset));
     uint32_t minutes, hours;
-    if (!::arrow::internal::ParseUnsigned(match[2].first, match[2].length(), &hours) ||
-        !::arrow::internal::ParseUnsigned(match[3].first, match[3].length(), &minutes)) {
+    if (!::arrow::internal::ParseUnsigned(hour_str.data(), hour_str.size(), &hours) ||
+        !::arrow::internal::ParseUnsigned(minute_str.data(), minute_str.size(),
+                                          &minutes)) {
       return Status::Invalid("Invalid timezone: ", tz);
     }
     OwnedRef total_minutes(PyLong_FromLong(

@@ -650,17 +650,14 @@ inline Status ConvertStruct(const PandasOptions& options, const ChunkedArray& da
   // We force the object conversion to preserve the value of the timezone.
   PandasOptions modified_options = options;
   modified_options.coerce_temporal_nanoseconds = false;
+  modified_options.timestamp_as_object = true;
 
   for (int c = 0; c < data.num_chunks(); c++) {
     auto arr = checked_cast<const StructArray*>(data.chunk(c).get());
     // Convert the struct arrays first
     for (int32_t i = 0; i < num_fields; i++) {
-      // Se notes above about conversion.
-      std::shared_ptr<Array> field = arr->field(static_cast<int>(i));
-      modified_options.timestamp_as_object =
-          field->type()->id() == Type::TIMESTAMP &&
-          !checked_cast<const TimestampType&>(*field->type()).timezone().empty();
       PyObject* numpy_array;
+      std::shared_ptr<Array> field = arr->field(static_cast<int>(i));
       RETURN_NOT_OK(ConvertArrayToPandas(modified_options, field, nullptr, &numpy_array));
       fields_data[i].reset(numpy_array);
     }
