@@ -613,7 +613,7 @@ def test_make_fragment(multisourcefs):
         assert row_group_fragment.row_groups == [ds.RowGroupInfo(0)]
 
 
-def test_make_fragment_from_buffer():
+def test_make_csv_fragment_from_buffer():
     content = textwrap.dedent("""
         alpha,num,animal
         a,12,dog
@@ -633,6 +633,28 @@ def test_make_fragment_from_buffer():
 
     pickled = pickle.loads(pickle.dumps(fragment))
     assert pickled.to_table().equals(fragment.to_table())
+
+
+@pytest.mark.parquet
+def test_make_parquet_fragment_from_buffer():
+    import pyarrow.parquet as pq
+
+    table = pa.table([['a', 'b', 'c'],
+                      [12, 11, 10],
+                      ['dog', 'cat', 'rabbit']],
+                     names=['alpha', 'num', 'animal'])
+
+    out = pa.BufferOutputStream()
+    pq.write_table(table, out)
+
+    buffer = out.getvalue()
+
+    parquet_format = ds.ParquetFileFormat()
+    fragment = parquet_format.make_fragment(buffer)
+    assert fragment.to_table().equals(table)
+
+    pickled = pickle.loads(pickle.dumps(fragment))
+    assert pickled.to_table().equals(table)
 
 
 def _create_dataset_for_fragments(tempdir, chunk_size=None):
