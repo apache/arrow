@@ -42,8 +42,9 @@ def test_total_bytes_allocated():
 
 def test_getitem_NULL():
     arr = pa.array([1, None, 2])
-    assert isinstance(arr[1], pa.Int64Scalar)
     assert arr[1].as_py() is None
+    assert arr[1].is_valid is False
+    assert isinstance(arr[1], pa.Int64Scalar)
 
 
 def test_constructor_raises():
@@ -584,14 +585,12 @@ def test_dictionary_from_numpy():
     assert d2.dictionary.to_pylist() == dictionary.tolist()
 
     for i in range(len(indices)):
-        assert d1[i].dictionary == dictionary
         assert d1[i].as_py() == dictionary[indices[i]]
 
-        print(i, d2[i])
-        # if mask[i]:
-        #     assert d2[i].as_py() is None
-        # else:
-        #     assert d2[i].as_py() == dictionary[indices[i]]
+        if mask[i]:
+            assert d2[i].as_py() is None
+        else:
+            assert d2[i].as_py() == dictionary[indices[i]]
 
 
 def test_dictionary_from_boxed_arrays():
