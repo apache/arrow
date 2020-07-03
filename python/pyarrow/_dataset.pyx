@@ -790,8 +790,9 @@ cdef class FileFragment(Fragment):
         self.file_fragment = <CFileFragment*> sp.get()
 
     def __reduce__(self):
+        buffer = self.buffer
         return self.format.make_fragment, (
-            self.path,
+            self.path if buffer is None else buffer,
             self.filesystem,
             self.partition_expression
         )

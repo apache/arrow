@@ -19,6 +19,7 @@ import contextlib
 import os
 import pathlib
 import pickle
+import textwrap
 
 import numpy as np
 import pytest
@@ -612,6 +613,28 @@ def test_make_fragment(multisourcefs):
         assert row_group_fragment.row_groups == [ds.RowGroupInfo(0)]
 
 
+def test_make_fragment_from_buffer():
+    content = textwrap.dedent("""
+        alpha,num,animal
+        a,12,dog
+        b,11,cat
+        c,10,rabbit
+    """)
+    buffer = pa.py_buffer(content.encode('utf-8'))
+
+    csv_format = ds.CsvFileFormat()
+    fragment = csv_format.make_fragment(buffer)
+
+    expected = pa.table([['a', 'b', 'c'],
+                         [12, 11, 10],
+                         ['dog', 'cat', 'rabbit']],
+                        names=['alpha', 'num', 'animal'])
+    assert fragment.to_table().equals(expected)
+
+    pickled = pickle.loads(pickle.dumps(fragment))
+    assert pickled.to_table().equals(fragment.to_table())
+
+
 def _create_dataset_for_fragments(tempdir, chunk_size=None):
     import pyarrow.parquet as pq
 
@@ -695,6 +718,10 @@ def test_fragments_reconstruct(tempdir):
 
     fragment = list(dataset.get_fragments())[0]
     parquet_format = fragment.format
+
+    # test pickle roundtrip
+    pickled_fragment = pickle.loads(pickle.dumps(fragment))
+    assert pickled_fragment.to_table() == fragment.to_table()
 
     # manually re-construct a fragment, with explicit schema
     new_fragment = parquet_format.make_fragment(
@@ -792,6 +819,10 @@ def test_fragments_parquet_row_groups_reconstruct(tempdir):
     fragment = list(dataset.get_fragments())[0]
     parquet_format = fragment.format
     row_group_fragments = list(fragment.split_by_row_group())
+
+    # test pickle roundtrip
+    pickled_fragment = pickle.loads(pickle.dumps(fragment))
+    assert pickled_fragment.to_table() == fragment.to_table()
 
     # manually re-construct row group fragments
     new_fragment = parquet_format.make_fragment(
@@ -1011,7 +1042,10 @@ def test_construct_from_single_file(tempdir):
     d2 = ds.dataset(path, filesystem=fs.LocalFileSystem())
     # instantiate from a single file with prefixed filesystem URI
     d3 = ds.dataset(relative_path, filesystem=_filesystem_uri(directory))
-    assert d1.to_table() == d2.to_table() == d3.to_table()
+    # pickle roundtrip
+    d4 = pickle.loads(pickle.dumps(d1))
+
+    assert d1.to_table() == d2.to_table() == d3.to_table() == d4.to_table()
 
 
 def test_construct_from_single_directory(tempdir):
@@ -1027,6 +1061,7 @@ def test_construct_from_single_directory(tempdir):
     t3 = d3.to_table()
     assert t1 == t2 == t3
 
+    # test pickle roundtrip
     for d in [d1, d2, d3]:
         restored = pickle.loads(pickle.dumps(d))
         assert restored.to_table() == t1
