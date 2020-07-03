@@ -39,8 +39,7 @@ public class DefaultAllocationManagerOption {
   /**
    * The default allocation manager factory.
    */
-  public static final AllocationManager.Factory DEFAULT_ALLOCATION_MANAGER_FACTORY =
-      getDefaultAllocationManagerFactory();
+  private static AllocationManager.Factory DEFAULT_ALLOCATION_MANAGER_FACTORY = null;
 
   /**
    * The allocation manager type.
@@ -83,19 +82,25 @@ public class DefaultAllocationManagerOption {
   }
 
   static AllocationManager.Factory getDefaultAllocationManagerFactory() {
+    if (DEFAULT_ALLOCATION_MANAGER_FACTORY != null) {
+      return DEFAULT_ALLOCATION_MANAGER_FACTORY;
+    }
     AllocationManagerType type = getDefaultAllocationManagerType();
-
     switch (type) {
       case Netty:
-        return getNettyFactory();
+        DEFAULT_ALLOCATION_MANAGER_FACTORY = getNettyFactory();
+        break;
       case Unsafe:
-        return getUnsafeFactory();
+        DEFAULT_ALLOCATION_MANAGER_FACTORY = getUnsafeFactory();
+        break;
       case Unknown:
         LOGGER.info("allocation manager type not specified, using netty as the default type");
-        return getFactory(CheckAllocator.check());
+        DEFAULT_ALLOCATION_MANAGER_FACTORY = getFactory(CheckAllocator.check());
+        break;
       default:
         throw new IllegalStateException("Unknown allocation manager type: " + type);
     }
+    return DEFAULT_ALLOCATION_MANAGER_FACTORY;
   }
 
   private static AllocationManager.Factory getFactory(String clazzName) {
