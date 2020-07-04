@@ -34,6 +34,9 @@ namespace internal {
 
 namespace {
 
+// Same as Regex '([+-])(0[0-9]|1[0-9]|2[0-3]):([0-5][0-9])$'.
+// GCC 4.9 doesn't support regex, so handcode until support for it
+// is dropped.
 bool MatchFixedOffset(const std::string& tz, util::string_view* sign,
                       util::string_view* hour, util::string_view* minute) {
   if (tz.size() < 5) {
@@ -303,6 +306,8 @@ int64_t PyDate_to_days(PyDateTime_Date* pydate) {
 }
 
 // GIL must be held when calling this function.
+// Converted from python.  See https://github.com/apache/arrow/pull/7604
+// for details.
 Status StringToTzinfo(const std::string& tz, PyObject** tzinfo) {
   util::string_view sign_str, hour_str, minute_str;
   OwnedRef pytz;
