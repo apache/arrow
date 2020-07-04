@@ -49,7 +49,8 @@ class SparseCSXMatrixConverter : private SparseTensorConverterMixin {
       : axis_(axis), tensor_(tensor), index_value_type_(index_value_type), pool_(pool) {}
 
   Status Convert() {
-    RETURN_NOT_OK(CheckSparseIndexMaximumValue(index_value_type_, tensor_.shape()));
+    RETURN_NOT_OK(::arrow::internal::CheckSparseIndexMaximumValue(index_value_type_,
+                                                                  tensor_.shape()));
 
     const int index_elsize = GetByteWidth(*index_value_type_);
     const int value_elsize = GetByteWidth(*tensor_.type());
