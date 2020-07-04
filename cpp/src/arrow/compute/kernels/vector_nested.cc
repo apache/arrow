@@ -56,7 +56,7 @@ void ListParentIndices(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     // we write out the indices so make sure they are accounted for. This
     // behavior could be changed if needed in the future.
     for (offset_type j = offsets[i]; j < offsets[i + 1]; ++j) {
-      *out_indices++ = i;
+      *out_indices++ = static_cast<offset_type>(i);
     }
   }
 }
