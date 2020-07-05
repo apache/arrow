@@ -211,7 +211,9 @@ pub(crate) fn get_data_type(field: ipc::Field, may_be_dictionary: bool) -> DataT
             }
         }
         ipc::Type::Binary => DataType::Binary,
+        ipc::Type::LargeBinary => DataType::LargeBinary,
         ipc::Type::Utf8 => DataType::Utf8,
+        ipc::Type::LargeUtf8 => DataType::LargeUtf8,
         ipc::Type::FixedSizeBinary => {
             let fsb = field.type_as_fixed_size_binary().unwrap();
             DataType::FixedSizeBinary(fsb.byteWidth())
@@ -291,6 +293,15 @@ pub(crate) fn get_data_type(field: ipc::Field, may_be_dictionary: bool) -> DataT
             let child_field = children.get(0);
             // returning int16 for now, to test, not sure how to get data type
             DataType::List(Box::new(get_data_type(child_field, false)))
+        }
+        ipc::Type::LargeList => {
+            let children = field.children().unwrap();
+            if children.len() != 1 {
+                panic!("expect a large list to have one child")
+            }
+            let child_field = children.get(0);
+            // returning int16 for now, to test, not sure how to get data type
+            DataType::LargeList(Box::new(get_data_type(child_field, false)))
         }
         ipc::Type::FixedSizeList => {
             let children = field.children().unwrap();
@@ -401,11 +412,27 @@ pub(crate) fn get_fb_field_type<'a: 'b, 'b>(
                 Some(children),
             )
         }
+        LargeBinary => {
+            let children = fbb.create_vector(&empty_fields[..]);
+            (
+                ipc::Type::LargeBinary,
+                ipc::LargeBinaryBuilder::new(fbb).finish().as_union_value(),
+                Some(children),
+            )
+        }
         Utf8 => {
             let children = fbb.create_vector(&empty_fields[..]);
             (
                 ipc::Type::Utf8,
                 ipc::Utf8Builder::new(fbb).finish().as_union_value(),
+                Some(children),
+            )
+        }
+        LargeUtf8 => {
+            let children = fbb.create_vector(&empty_fields[..]);
+            (
+                ipc::Type::LargeUtf8,
+                ipc::LargeUtf8Builder::new(fbb).finish().as_union_value(),
                 Some(children),
             )
         }
@@ -535,6 +562,27 @@ pub(crate) fn get_fb_field_type<'a: 'b, 'b>(
             (
                 ipc::Type::List,
                 ipc::ListBuilder::new(fbb).finish().as_union_value(),
+                Some(children),
+            )
+        }
+        LargeList(ref list_type) => {
+            let inner_types = get_fb_field_type(list_type, fbb);
+            let child = ipc::Field::create(
+                fbb,
+                &ipc::FieldArgs {
+                    name: None,
+                    nullable: false,
+                    type_type: inner_types.0,
+                    type_: Some(inner_types.1),
+                    dictionary: None,
+                    children: inner_types.2,
+                    custom_metadata: None,
+                },
+            );
+            let children = fbb.create_vector(&[child]);
+            (
+                ipc::Type::LargeList,
+                ipc::LargeListBuilder::new(fbb).finish().as_union_value(),
                 Some(children),
             )
         }

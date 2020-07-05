@@ -269,6 +269,9 @@ fn arrow_to_parquet_type(field: &Field) -> Result<Type> {
             let dict_field = Field::new(name, *value.clone(), field.is_nullable());
             arrow_to_parquet_type(&dict_field)
         }
+        DataType::LargeUtf8 | DataType::LargeBinary | DataType::LargeList(_) => {
+            Err(ArrowError("Large arrays not supported".to_string()))
+        }
     }
 }
 /// This struct is used to group methods and data structures used to convert parquet
