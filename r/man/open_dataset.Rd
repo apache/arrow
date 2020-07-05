@@ -58,7 +58,7 @@ A \link{Dataset} R6 object. Use \code{dplyr} methods on it to query the data,
 or call \code{\link[=Scanner]{$NewScan()}} to construct a query directly.
 }
 \description{
-Arrow Dataset allow you to query against data that has been split across
+Arrow Datasets allow you to query against data that has been split across
 multiple files. This sharding of data may indicate partitioning, which
 can accelerate queries that only touch some partitions (files). Call
 \code{open_dataset()} to point to a directory of data files and return a

@@ -19,7 +19,7 @@
 
 # arrow 0.17.1.9000
 
-## Dataset
+## Datasets
 
 * CSV and other text-delimited datasets are now supported
 * Read datasets directly on S3 by passing a URL like `ds <- open_dataset("s3://...")`. Note that this currently requires a special C++ library build with additional dependencies; that is, this is not yet available in CRAN releases or in nightly packages.
@@ -77,10 +77,10 @@ us to use `reticulate` to share data between R and Python (`pyarrow`) efficientl
 
 See `vignette("python", package = "arrow")` for details.
 
-## Dataset
+## Datasets
 
 * Dataset reading benefits from many speedups and fixes in the C++ library
-* Dataset has a `dim()` method, which sums rows across all files (#6635, @boshek)
+* Datasets have a `dim()` method, which sums rows across all files (#6635, @boshek)
 * Combine multiple datasets into a single queryable `UnionDataset` with the `c()` method
 * Dataset filtering now treats `NA` as `FALSE`, consistent with `dplyr::filter()`
 * Dataset filtering is now correctly supported for all Arrow date/time/timestamp column types
@@ -111,7 +111,7 @@ similar to the `write_*` functions in the `readr` package (#6387, @boshek)
 
 ## Multi-file datasets
 
-This release includes a `dplyr` interface to Arrow Dataset,
+This release includes a `dplyr` interface to Arrow Datasets,
 which let you work efficiently with large, multi-file datasets as a single entity.
 Explore a directory of data files with `open_dataset()` and then use `dplyr` methods to `select()`, `filter()`, etc. Work will be done where possible in Arrow memory. When necessary, data is pulled into R for further computation. `dplyr` methods are conditionally loaded if you have `dplyr` available; it is not a hard dependency.
 

@@ -1,17 +1,17 @@
 ---
-title: "Working with Arrow Dataset and dplyr"
+title: "Working with Arrow Datasets and dplyr"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Working with Arrow Dataset and dplyr}
+  %\VignetteIndexEntry{Working with Arrow Datasets and dplyr}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
 
 Apache Arrow lets you work efficiently with large, multi-file datasets.
-The `arrow` R package provides a `dplyr` interface to Arrow Dataset,
+The `arrow` R package provides a `dplyr` interface to Arrow Datasets,
 as well as other tools for interactive exploration of Arrow data.
 
-This vignette introduces Dataset and shows how to use `dplyr` to analyze them.
+This vignette introduces Datasets and shows how to use `dplyr` to analyze them.
 It describes both what is possible to do with Arrow now
 and what is on the immediate development roadmap.
 
@@ -70,7 +70,7 @@ dir.exists("nyc-taxi")
 ## Getting started
 
 Because `dplyr` is not necessary for many Arrow workflows,
-it is an optional (`Suggests`) dependency. So, to work with Dataset,
+it is an optional (`Suggests`) dependency. So, to work with Datasets,
 we need to load both `arrow` and `dplyr`.
 
 ```{r}
@@ -272,11 +272,11 @@ in order to declare the types of the virtual columns that define the partitions.
 This would be useful, in our taxi dataset example, if you wanted to keep
 "month" as a string instead of an integer for some reason.
 
-Another feature of Dataset is that they can be composed of multiple data sources.
+Another feature of Datasets is that they can be composed of multiple data sources.
 That is, you may have a directory of partitioned Parquet files in one location,
 and in another directory, files that haven't been partitioned.
 In the future, when there is support for cloud storage and other file formats,
 this would mean you could point to an S3 bucked of Parquet data and a directory
 of CSVs on the local file system and query them together as a single dataset.
 To create a multi-source dataset, provide a list of datasets to `open_dataset()`
-instead of a file path, or simply concatenate them like `big_dataset <- c(ds1, ds2)`. 
+instead of a file path, or simply concatenate them like `big_dataset <- c(ds1, ds2)`.
