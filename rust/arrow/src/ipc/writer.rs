@@ -95,17 +95,17 @@ impl<W: Write> FileWriter<W> {
             let mut fields = vec![];
             for field in self.schema.fields() {
                 let fb_field_name = fbb.create_string(field.name().as_str());
-                let (ipc_type_type, ipc_type, ipc_children) =
+                let field_type =
                     ipc::convert::get_fb_field_type(field.data_type(), &mut fbb);
                 let mut field_builder = ipc::FieldBuilder::new(&mut fbb);
                 field_builder.add_name(fb_field_name);
-                field_builder.add_type_type(ipc_type_type);
+                field_builder.add_type_type(field_type.type_type);
                 field_builder.add_nullable(field.is_nullable());
-                match ipc_children {
+                match field_type.children {
                     None => {}
                     Some(children) => field_builder.add_children(children),
                 };
-                field_builder.add_type_(ipc_type);
+                field_builder.add_type_(field_type.type_);
                 fields.push(field_builder.finish());
             }
 

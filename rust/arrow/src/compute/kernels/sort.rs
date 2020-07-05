@@ -250,7 +250,7 @@ pub struct SortColumn {
 /// assert_eq!(as_primitive_array::<Int64Type>(&sorted_columns[0]).value(1), -64);
 /// assert!(sorted_columns[0].is_null(0));
 /// ```
-pub fn lexsort(columns: &Vec<SortColumn>) -> Result<Vec<ArrayRef>> {
+pub fn lexsort(columns: &[SortColumn]) -> Result<Vec<ArrayRef>> {
     let indices = lexsort_to_indices(columns)?;
     columns
         .iter()
@@ -260,7 +260,7 @@ pub fn lexsort(columns: &Vec<SortColumn>) -> Result<Vec<ArrayRef>> {
 
 /// Sort elements lexicographically from a list of `ArrayRef` into an unsigned integer
 /// (`UInt32Array`) of indices.
-pub fn lexsort_to_indices(columns: &Vec<SortColumn>) -> Result<UInt32Array> {
+pub fn lexsort_to_indices(columns: &[SortColumn]) -> Result<UInt32Array> {
     if columns.len() == 1 {
         // fallback to non-lexical sort
         let column = &columns[0];
@@ -304,7 +304,7 @@ pub fn lexsort_to_indices(columns: &Vec<SortColumn>) -> Result<UInt32Array> {
                     match values.cmp_value(*a_idx, *b_idx) {
                         // equal, move on to next column
                         Ordering::Equal => continue,
-                        order @ _ => {
+                        order => {
                             if sort_option.descending {
                                 return order.reverse();
                             } else {

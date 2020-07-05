@@ -21,21 +21,6 @@ set -e
 
 source_dir=${1}/rust
 
-pushd ${source_dir}
-    max_error_cnt=3
-    max_warn_cnt=9
-
-    error_msg=$(cargo clippy -- -A clippy::redundant_field_names 2>&1 | grep 'error: aborting due to')
-
-    error_cnt=$(echo "${error_msg}" | awk '{print $5}')
-    [[ ${error_cnt} -gt ${max_error_cnt} ]] && {
-        echo "More clippy errors introduced, got: ${error_cnt}, was: ${max_error_cnt}"
-        exit 1
-    }
-
-    warn_cnt=$(echo "${error_msg}" | awk '{print $8}')
-    [[ ${warn_cnt} -gt ${max_warn_cnt} ]] && {
-        echo "More clippy warnings introduced, got: ${warn_cnt}, was: ${max_warn_cnt}"
-        exit 1
-    }
+pushd ${source_dir}/arrow
+    cargo clippy -- -A clippy::redundant_field_names
 popd

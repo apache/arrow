@@ -129,6 +129,21 @@ pub trait Array: fmt::Debug + Send + Sync + ArrayEqual + JsonEqual {
         self.data().len()
     }
 
+    /// Returns whether this array is empty.
+    ///
+    /// # Example:
+    ///
+    /// ```
+    /// use arrow::array::{Array, Int32Array};
+    ///
+    /// let array = Int32Array::from(vec![1, 2, 3, 4, 5]);
+    ///
+    /// assert_eq!(array.is_empty(), false);
+    /// ```
+    fn is_empty(&self) -> bool {
+        self.data().is_empty()
+    }
+
     /// Returns the offset into the underlying data used by this array(-slice).
     /// Note that the underlying data can be shared by many arrays.
     /// This defaults to `0`.
@@ -358,6 +373,14 @@ impl<T> RawPtrBox<T> {
 unsafe impl<T> Send for RawPtrBox<T> {}
 unsafe impl<T> Sync for RawPtrBox<T> {}
 
+fn as_aligned_pointer<T>(p: *const u8) -> *const T {
+    assert!(
+        memory::is_aligned(p, mem::align_of::<T>()),
+        "memory is not aligned"
+    );
+    p as *const T
+}
+
 /// Array whose elements are of primitive types.
 pub struct PrimitiveArray<T: ArrowPrimitiveType> {
     data: ArrayDataRef,
@@ -445,6 +468,11 @@ impl<T: ArrowNumericType> PrimitiveArray<T> {
     /// Returns the length of this array.
     pub fn len(&self) -> usize {
         self.data.len()
+    }
+
+    /// Returns whether this array is empty.
+    pub fn is_empty(&self) -> bool {
+        self.data.is_empty()
     }
 
     /// Returns a raw pointer to the values of this array.
@@ -1089,11 +1117,7 @@ impl From<ArrayDataRef> for ListArray {
         );
         let values = make_array(data.child_data()[0].clone());
         let raw_value_offsets = data.buffers()[0].raw_data();
-        assert!(
-            memory::is_aligned(raw_value_offsets, mem::align_of::<i32>()),
-            "memory is not aligned"
-        );
-        let value_offsets = raw_value_offsets as *const i32;
+        let value_offsets: *const i32 = as_aligned_pointer(raw_value_offsets);
         unsafe {
             assert_eq!(*value_offsets.offset(0), 0, "offsets do not start at zero");
         }
@@ -1120,11 +1144,7 @@ impl From<ArrayDataRef> for LargeListArray {
         );
         let values = make_array(data.child_data()[0].clone());
         let raw_value_offsets = data.buffers()[0].raw_data();
-        assert!(
-            memory::is_aligned(raw_value_offsets, mem::align_of::<i64>()),
-            "memory is not aligned"
-        );
-        let value_offsets = raw_value_offsets as *const i64;
+        let value_offsets: *const i64 = as_aligned_pointer(raw_value_offsets);
         unsafe {
             assert_eq!(*value_offsets.offset(0), 0, "offsets do not start at zero");
         }
@@ -1530,14 +1550,10 @@ impl From<ArrayDataRef> for BinaryArray {
             "BinaryArray data should contain 2 buffers only (offsets and values)"
         );
         let raw_value_offsets = data.buffers()[0].raw_data();
-        assert!(
-            memory::is_aligned(raw_value_offsets, mem::align_of::<i32>()),
-            "memory is not aligned"
-        );
         let value_data = data.buffers()[1].raw_data();
         Self {
             data,
-            value_offsets: RawPtrBox::new(raw_value_offsets as *const i32),
+            value_offsets: RawPtrBox::new(as_aligned_pointer::<i32>(raw_value_offsets)),
             value_data: RawPtrBox::new(value_data),
         }
     }
@@ -1551,14 +1567,10 @@ impl From<ArrayDataRef> for LargeBinaryArray {
             "LargeBinaryArray data should contain 2 buffers only (offsets and values)"
         );
         let raw_value_offsets = data.buffers()[0].raw_data();
-        assert!(
-            memory::is_aligned(raw_value_offsets, mem::align_of::<i64>()),
-            "memory is not aligned"
-        );
         let value_data = data.buffers()[1].raw_data();
         Self {
             data,
-            value_offsets: RawPtrBox::new(raw_value_offsets as *const i64),
+            value_offsets: RawPtrBox::new(as_aligned_pointer::<i64>(raw_value_offsets)),
             value_data: RawPtrBox::new(value_data),
         }
     }
@@ -1572,14 +1584,10 @@ impl From<ArrayDataRef> for StringArray {
             "StringArray data should contain 2 buffers only (offsets and values)"
         );
         let raw_value_offsets = data.buffers()[0].raw_data();
-        assert!(
-            memory::is_aligned(raw_value_offsets, mem::align_of::<i32>()),
-            "memory is not aligned"
-        );
         let value_data = data.buffers()[1].raw_data();
         Self {
             data,
-            value_offsets: RawPtrBox::new(raw_value_offsets as *const i32),
+            value_offsets: RawPtrBox::new(as_aligned_pointer::<i32>(raw_value_offsets)),
             value_data: RawPtrBox::new(value_data),
         }
     }
@@ -1593,14 +1601,10 @@ impl From<ArrayDataRef> for LargeStringArray {
             "LargeStringArray data should contain 2 buffers only (offsets and values)"
         );
         let raw_value_offsets = data.buffers()[0].raw_data();
-        assert!(
-            memory::is_aligned(raw_value_offsets, mem::align_of::<i64>()),
-            "memory is not aligned"
-        );
         let value_data = data.buffers()[1].raw_data();
         Self {
             data,
-            value_offsets: RawPtrBox::new(raw_value_offsets as *const i64),
+            value_offsets: RawPtrBox::new(as_aligned_pointer::<i64>(raw_value_offsets)),
             value_data: RawPtrBox::new(value_data),
         }
     }
@@ -2225,6 +2229,11 @@ impl<'a, K: ArrowPrimitiveType> DictionaryArray<K> {
     /// The length of the dictionary is the length of the keys array.
     pub fn len(&self) -> usize {
         self.data.len()
+    }
+
+    /// Whether this dictionary is empty
+    pub fn is_empty(&self) -> bool {
+        self.data.is_empty()
     }
 
     // Currently exists for compatibility purposes with Arrow IPC.
