@@ -560,30 +560,57 @@ namespace red_arrow {
   public:
     explicit DictionaryArrayValueConverter(ArrayValueConverter* converter)
       : array_value_converter_(converter),
-        index_(0),
+        value_index_(0),
         result_(Qnil) {
     }
 
     VALUE convert(const arrow::DictionaryArray& array,
                   const int64_t index) {
-      index_ = index;
-      auto indices = array.indices().get();
-      check_status(indices->Accept(this),
+      value_index_ = array.GetValueIndex(index);
+      auto dictionary = array.dictionary().get();
+      check_status(dictionary->Accept(this),
                    "[raw-records][dictionary-array]");
       return result_;
     }
 
-    // TODO: Convert to real value.
 #define VISIT(TYPE)                                                     \
     arrow::Status Visit(const arrow::TYPE ## Array& array) override {   \
-      result_ = convert_value(array, index_);                           \
+      result_ = convert_value(array, value_index_);                     \
       return arrow::Status::OK();                                       \
       }
 
+    VISIT(Null)
+    VISIT(Boolean)
     VISIT(Int8)
     VISIT(Int16)
     VISIT(Int32)
     VISIT(Int64)
+    VISIT(UInt8)
+    VISIT(UInt16)
+    VISIT(UInt32)
+    VISIT(UInt64)
+    // TODO
+    // VISIT(HalfFloat)
+    VISIT(Float)
+    VISIT(Double)
+    VISIT(Binary)
+    VISIT(String)
+    VISIT(FixedSizeBinary)
+    VISIT(Date32)
+    VISIT(Date64)
+    VISIT(Time32)
+    VISIT(Time64)
+    VISIT(Timestamp)
+    // TODO
+    // VISIT(Interval)
+    VISIT(List)
+    VISIT(Struct)
+    VISIT(SparseUnion)
+    VISIT(DenseUnion)
+    VISIT(Dictionary)
+    VISIT(Decimal128)
+    // TODO
+    // VISIT(Extension)
 
 #undef VISIT
 
@@ -595,7 +622,7 @@ namespace red_arrow {
     }
 
     ArrayValueConverter* array_value_converter_;
-    int64_t index_;
+    int64_t value_index_;
     VALUE result_;
   };
 
