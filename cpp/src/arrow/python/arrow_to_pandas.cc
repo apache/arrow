@@ -65,6 +65,7 @@ class MemoryPool;
 
 using internal::checked_cast;
 using internal::CheckIndexBounds;
+using internal::GetByteWidth;
 using internal::OptionalParallelFor;
 
 // ----------------------------------------------------------------------
@@ -259,7 +260,7 @@ inline const T* GetPrimitiveValues(const Array& arr) {
   if (arr.length() == 0) {
     return nullptr;
   }
-  int elsize = checked_cast<const FixedWidthType&>(*arr.type()).bit_width() / 8;
+  const int elsize = GetByteWidth(*arr.type());
   const auto& prim_arr = checked_cast<const PrimitiveArray&>(arr);
   return reinterpret_cast<const T*>(prim_arr.values()->data() + arr.offset() * elsize);
 }

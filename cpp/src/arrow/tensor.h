@@ -56,6 +56,10 @@ static inline bool is_tensor_supported(Type::type type_id) {
 namespace internal {
 
 ARROW_EXPORT
+void ComputeRowMajorStrides(const FixedWidthType& type, const std::vector<int64_t>& shape,
+                            std::vector<int64_t>* strides);
+
+ARROW_EXPORT
 bool IsTensorStridesContiguous(const std::shared_ptr<DataType>& type,
                                const std::vector<int64_t>& shape,
                                const std::vector<int64_t>& strides);
@@ -140,7 +144,11 @@ class ARROW_EXPORT Tensor {
   bool Equals(const Tensor& other, const EqualOptions& = EqualOptions::Defaults()) const;
 
   /// Compute the number of non-zero values in the tensor
-  Status CountNonZero(int64_t* result) const;
+  Result<int64_t> CountNonZero() const;
+
+  /// Compute the number of non-zero values in the tensor
+  ARROW_DEPRECATED("Use Result-returning version")
+  Status CountNonZero(int64_t* result) const { return CountNonZero().Value(result); }
 
   /// Return the offset of the given index on the given strides
   static int64_t CalculateValueOffset(const std::vector<int64_t>& strides,
@@ -153,11 +161,15 @@ class ARROW_EXPORT Tensor {
     return offset;
   }
 
+  int64_t CalculateValueOffset(const std::vector<int64_t>& index) const {
+    return Tensor::CalculateValueOffset(strides_, index);
+  }
+
   /// Returns the value at the given index without data-type and bounds checks
   template <typename ValueType>
   const typename ValueType::c_type& Value(const std::vector<int64_t>& index) const {
     using c_type = typename ValueType::c_type;
-    const int64_t offset = Tensor::CalculateValueOffset(strides_, index);
+    const int64_t offset = CalculateValueOffset(index);
     const c_type* ptr = reinterpret_cast<const c_type*>(raw_data() + offset);
     return *ptr;
   }

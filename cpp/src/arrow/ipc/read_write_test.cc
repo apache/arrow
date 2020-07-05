@@ -56,6 +56,7 @@
 namespace arrow {
 
 using internal::checked_cast;
+using internal::GetByteWidth;
 
 namespace ipc {
 namespace test {
@@ -1611,9 +1612,7 @@ class TestTensorRoundTrip : public ::testing::Test, public IpcTestFixture {
   void CheckTensorRoundTrip(const Tensor& tensor) {
     int32_t metadata_length;
     int64_t body_length;
-
-    const auto& type = checked_cast<const FixedWidthType&>(*tensor.type());
-    const int elem_size = type.bit_width() / 8;
+    const int elem_size = GetByteWidth(*tensor.type());
 
     ASSERT_OK(mmap_->Seek(0));
 
@@ -1687,8 +1686,7 @@ class TestSparseTensorRoundTrip : public ::testing::Test, public IpcTestFixture 
   void TearDown() { IpcTestFixture::TearDown(); }
 
   void CheckSparseCOOTensorRoundTrip(const SparseCOOTensor& sparse_tensor) {
-    const auto& type = checked_cast<const FixedWidthType&>(*sparse_tensor.type());
-    const int elem_size = type.bit_width() / 8;
+    const int elem_size = GetByteWidth(*sparse_tensor.type());
     const int index_elem_size = sizeof(typename IndexValueType::c_type);
 
     int32_t metadata_length;
@@ -1728,8 +1726,7 @@ class TestSparseTensorRoundTrip : public ::testing::Test, public IpcTestFixture 
                       std::is_same<SparseIndexType, SparseCSCIndex>::value,
                   "SparseIndexType must be either SparseCSRIndex or SparseCSCIndex");
 
-    const auto& type = checked_cast<const FixedWidthType&>(*sparse_tensor.type());
-    const int elem_size = type.bit_width() / 8;
+    const int elem_size = GetByteWidth(*sparse_tensor.type());
     const int index_elem_size = sizeof(typename IndexValueType::c_type);
 
     int32_t metadata_length;
@@ -1770,8 +1767,7 @@ class TestSparseTensorRoundTrip : public ::testing::Test, public IpcTestFixture 
   }
 
   void CheckSparseCSFTensorRoundTrip(const SparseCSFTensor& sparse_tensor) {
-    const auto& type = checked_cast<const FixedWidthType&>(*sparse_tensor.type());
-    const int elem_size = type.bit_width() / 8;
+    const int elem_size = GetByteWidth(*sparse_tensor.type());
     const int index_elem_size = sizeof(typename IndexValueType::c_type);
 
     int32_t metadata_length;
@@ -1841,13 +1837,13 @@ class TestSparseTensorRoundTrip : public ::testing::Test, public IpcTestFixture 
   }
 
   template <typename ValueType>
-  std::shared_ptr<SparseCOOTensor> MakeSparseCOOTensor(
+  Result<std::shared_ptr<SparseCOOTensor>> MakeSparseCOOTensor(
       const std::shared_ptr<SparseCOOIndex>& si, std::vector<ValueType>& sparse_values,
       const std::vector<int64_t>& shape,
       const std::vector<std::string>& dim_names = {}) const {
     auto data = Buffer::Wrap(sparse_values);
-    return std::make_shared<SparseCOOTensor>(si, CTypeTraits<ValueType>::type_singleton(),
-                                             data, shape, dim_names);
+    return SparseCOOTensor::Make(si, CTypeTraits<ValueType>::type_singleton(), data,
+                                 shape, dim_names);
   }
 };
 
@@ -1895,7 +1891,8 @@ TYPED_TEST_P(TestSparseTensorRoundTrip, WithSparseCOOIndexRowMajor) {
   std::vector<int64_t> shape = {2, 3, 4};
   std::vector<std::string> dim_names = {"foo", "bar", "baz"};
   std::vector<int64_t> values = {1, 2, 3, 4, 5, 6, 11, 12, 13, 14, 15, 16};
-  auto st = this->MakeSparseCOOTensor(si, values, shape, dim_names);
+  std::shared_ptr<SparseCOOTensor> st;
+  ASSERT_OK_AND_ASSIGN(st, this->MakeSparseCOOTensor(si, values, shape, dim_names));
 
   this->CheckSparseCOOTensorRoundTrip(*st);
 }
@@ -1942,7 +1939,9 @@ TYPED_TEST_P(TestSparseTensorRoundTrip, WithSparseCOOIndexColumnMajor) {
   std::vector<int64_t> shape = {2, 3, 4};
   std::vector<std::string> dim_names = {"foo", "bar", "baz"};
   std::vector<int64_t> values = {1, 2, 3, 4, 5, 6, 11, 12, 13, 14, 15, 16};
-  auto st = this->MakeSparseCOOTensor(si, values, shape, dim_names);
+
+  std::shared_ptr<SparseCOOTensor> st;
+  ASSERT_OK_AND_ASSIGN(st, this->MakeSparseCOOTensor(si, values, shape, dim_names));
 
   this->CheckSparseCOOTensorRoundTrip(*st);
 }
@@ -2023,7 +2022,6 @@ INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt16, TestSparseTensorRoundTrip, UInt16Type
 INSTANTIATE_TYPED_TEST_SUITE_P(TestInt32, TestSparseTensorRoundTrip, Int32Type);
 INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt32, TestSparseTensorRoundTrip, UInt32Type);
 INSTANTIATE_TYPED_TEST_SUITE_P(TestInt64, TestSparseTensorRoundTrip, Int64Type);
-INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt64, TestSparseTensorRoundTrip, UInt64Type);
 
 TEST(TestRecordBatchStreamReader, MalformedInput) {
   const std::string empty_str = "";

@@ -38,6 +38,14 @@ namespace arrow {
 
 class MemoryPool;
 
+namespace internal {
+
+ARROW_EXPORT
+Status CheckSparseIndexMaximumValue(const std::shared_ptr<DataType>& index_value_type,
+                                    const std::vector<int64_t>& shape);
+
+}  // namespace internal
+
 // ----------------------------------------------------------------------
 // SparseIndex class
 
@@ -465,15 +473,17 @@ class ARROW_EXPORT SparseTensor {
   /// \brief Return dense representation of sparse tensor as tensor
   ///
   /// The returned Tensor has row-major order (C-like).
-  Status ToTensor(std::shared_ptr<Tensor>* out) const {
-    return ToTensor(default_memory_pool(), out);
+  Result<std::shared_ptr<Tensor>> ToTensor(MemoryPool* pool) const;
+  Result<std::shared_ptr<Tensor>> ToTensor() const {
+    return ToTensor(default_memory_pool());
   }
 
-  /// \brief Return dense representation of sparse tensor as tensor
-  /// using specified memory pool
-  ///
-  /// The returned Tensor has row-major order (C-like).
-  Status ToTensor(MemoryPool* pool, std::shared_ptr<Tensor>* out) const;
+  /// \brief Status-return version of ToTensor().
+  ARROW_DEPRECATED("Use Result-returning version")
+  Status ToTensor(std::shared_ptr<Tensor>* out) const { return ToTensor().Value(out); }
+  Status ToTensor(MemoryPool* pool, std::shared_ptr<Tensor>* out) const {
+    return ToTensor(pool).Value(out);
+  }
 
  protected:
   // Constructor with all attributes

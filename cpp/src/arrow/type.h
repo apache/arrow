@@ -29,6 +29,7 @@
 
 #include "arrow/result.h"
 #include "arrow/type_fwd.h"  // IWYU pragma: export
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/variant.h"
 #include "arrow/util/visibility.h"
@@ -1937,6 +1938,9 @@ std::string ToString(Type::type id);
 
 ARROW_EXPORT
 std::string ToString(TimeUnit::type unit);
+
+ARROW_EXPORT
+int GetByteWidth(const DataType& type);
 
 }  // namespace internal
 

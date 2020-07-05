@@ -428,8 +428,7 @@ class RangeEqualsVisitor {
 };
 
 static bool IsEqualPrimitive(const PrimitiveArray& left, const PrimitiveArray& right) {
-  const auto& size_meta = checked_cast<const FixedWidthType&>(*left.type());
-  const int byte_width = size_meta.bit_width() / CHAR_BIT;
+  const int byte_width = internal::GetByteWidth(*left.type());
 
   const uint8_t* left_data = nullptr;
   const uint8_t* right_data = nullptr;
@@ -1079,11 +1078,10 @@ bool IntegerTensorEquals(const Tensor& left, const Tensor& right) {
     if (!(left_row_major_p && right_row_major_p) &&
         !(left_column_major_p && right_column_major_p)) {
       const auto& type = checked_cast<const FixedWidthType&>(*left.type());
-      are_equal =
-          StridedIntegerTensorContentEquals(0, 0, 0, type.bit_width() / 8, left, right);
+      are_equal = StridedIntegerTensorContentEquals(0, 0, 0, internal::GetByteWidth(type),
+                                                    left, right);
     } else {
-      const auto& size_meta = checked_cast<const FixedWidthType&>(*left.type());
-      const int byte_width = size_meta.bit_width() / CHAR_BIT;
+      const int byte_width = internal::GetByteWidth(*left.type());
       DCHECK_GT(byte_width, 0);
 
       const uint8_t* left_data = left.data()->data();
@@ -1243,8 +1241,7 @@ struct SparseTensorEqualsImpl<SparseIndexType, SparseIndexType> {
       return false;
     }
 
-    const auto& size_meta = checked_cast<const FixedWidthType&>(*left.type());
-    const int byte_width = size_meta.bit_width() / CHAR_BIT;
+    const int byte_width = internal::GetByteWidth(*left.type());
     DCHECK_GT(byte_width, 0);
 
     const uint8_t* left_data = left.data()->data();

@@ -312,8 +312,7 @@ TEST_F(TestSparseCOOTensor, TestToTensor) {
 
   ASSERT_EQ(5, sparse_tensor->non_zero_length());
   ASSERT_TRUE(sparse_tensor->is_mutable());
-  std::shared_ptr<Tensor> dense_tensor;
-  ASSERT_OK(sparse_tensor->ToTensor(&dense_tensor));
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Tensor> dense_tensor, sparse_tensor->ToTensor());
   ASSERT_TRUE(tensor.Equals(*dense_tensor));
 }
 
@@ -603,8 +602,13 @@ INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt32, TestSparseCOOTensorForIndexValueType,
                                UInt32Type);
 INSTANTIATE_TYPED_TEST_SUITE_P(TestInt64, TestSparseCOOTensorForIndexValueType,
                                Int64Type);
-INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt64, TestSparseCOOTensorForIndexValueType,
-                               UInt64Type);
+
+TEST(TestSparseCOOTensorForUInt64Index, Make) {
+  std::vector<int64_t> dense_values = {1, 0,  2, 0,  0,  3, 0,  4, 5, 0,  6, 0,
+                                       0, 11, 0, 12, 13, 0, 14, 0, 0, 15, 0, 16};
+  Tensor dense_tensor(uint64(), Buffer::Wrap(dense_values), {2, 3, 4});
+  ASSERT_RAISES(Invalid, SparseCOOTensor::Make(dense_tensor, uint64()));
+}
 
 template <typename IndexValueType>
 class TestSparseCSRMatrixBase : public TestSparseTensorBase<Int64Type> {
@@ -739,8 +743,7 @@ TEST_F(TestSparseCSRMatrix, TestToTensor) {
   ASSERT_EQ(7, sparse_tensor->non_zero_length());
   ASSERT_TRUE(sparse_tensor->is_mutable());
 
-  std::shared_ptr<Tensor> dense_tensor;
-  ASSERT_OK(sparse_tensor->ToTensor(&dense_tensor));
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Tensor> dense_tensor, sparse_tensor->ToTensor());
   ASSERT_TRUE(tensor.Equals(*dense_tensor));
 }
 
@@ -917,8 +920,13 @@ INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt32, TestSparseCSRMatrixForIndexValueType,
                                UInt32Type);
 INSTANTIATE_TYPED_TEST_SUITE_P(TestInt64, TestSparseCSRMatrixForIndexValueType,
                                Int64Type);
-INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt64, TestSparseCSRMatrixForIndexValueType,
-                               UInt64Type);
+
+TEST(TestSparseCSRMatrixForUInt64Index, Make) {
+  std::vector<int64_t> dense_values = {1, 0,  2, 0,  0,  3, 0,  4, 5, 0,  6, 0,
+                                       0, 11, 0, 12, 13, 0, 14, 0, 0, 15, 0, 16};
+  Tensor dense_tensor(uint64(), Buffer::Wrap(dense_values), {6, 4});
+  ASSERT_RAISES(Invalid, SparseCSRMatrix::Make(dense_tensor, uint64()));
+}
 
 template <typename IndexValueType>
 class TestSparseCSCMatrixBase : public TestSparseTensorBase<Int64Type> {
@@ -1053,8 +1061,7 @@ TEST_F(TestSparseCSCMatrix, TestToTensor) {
   ASSERT_EQ(7, sparse_tensor->non_zero_length());
   ASSERT_TRUE(sparse_tensor->is_mutable());
 
-  std::shared_ptr<Tensor> dense_tensor;
-  ASSERT_OK(sparse_tensor->ToTensor(&dense_tensor));
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Tensor> dense_tensor, sparse_tensor->ToTensor());
   ASSERT_TRUE(tensor.Equals(*dense_tensor));
 }
 
@@ -1384,8 +1391,8 @@ TYPED_TEST_P(TestSparseCSFTensorForIndexValueType, TestSparseTensorToTensor) {
   auto dense_buffer = Buffer::Wrap(this->dense_values_, sizeof(this->dense_values_));
   Tensor dense_tensor(int16(), dense_buffer, shape, {}, this->dim_names_);
 
-  std::shared_ptr<Tensor> dt;
-  ASSERT_OK(this->sparse_tensor_from_dense_->ToTensor(&dt));
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Tensor> dt,
+                       this->sparse_tensor_from_dense_->ToTensor());
   ASSERT_TRUE(dense_tensor.Equals(*dt));
   ASSERT_EQ(dense_tensor.dim_names(), dt->dim_names());
 }
@@ -1393,8 +1400,8 @@ TYPED_TEST_P(TestSparseCSFTensorForIndexValueType, TestSparseTensorToTensor) {
 TYPED_TEST_P(TestSparseCSFTensorForIndexValueType, TestRoundTrip) {
   using IndexValueType = TypeParam;
 
-  std::shared_ptr<Tensor> dt;
-  ASSERT_OK(this->sparse_tensor_from_dense_->ToTensor(&dt));
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Tensor> dt,
+                       this->sparse_tensor_from_dense_->ToTensor());
   std::shared_ptr<SparseCSFTensor> st;
   ASSERT_OK_AND_ASSIGN(
       st, SparseCSFTensor::Make(*dt, TypeTraits<IndexValueType>::type_singleton()));
@@ -1432,8 +1439,8 @@ TYPED_TEST_P(TestSparseCSFTensorForIndexValueType, TestAlternativeAxisOrder) {
   auto st_2 = this->MakeSparseTensor(si_2, sparse_values_2, shape, dim_names);
 
   std::shared_ptr<Tensor> dt_1, dt_2;
-  ASSERT_OK(st_1->ToTensor(&dt_1));
-  ASSERT_OK(st_2->ToTensor(&dt_2));
+  ASSERT_OK_AND_ASSIGN(dt_1, st_1->ToTensor());
+  ASSERT_OK_AND_ASSIGN(dt_2, st_2->ToTensor());
 
   ASSERT_FALSE(st_1->Equals(*st_2));
   ASSERT_TRUE(dt_1->Equals(*dt_2));
@@ -1471,8 +1478,7 @@ TYPED_TEST_P(TestSparseCSFTensorForIndexValueType, TestNonAscendingShape) {
   auto si = this->MakeSparseCSFIndex(axis_order, indptr_values, indices_values);
   auto st = this->MakeSparseTensor(si, sparse_values, shape, this->dim_names_);
 
-  std::shared_ptr<Tensor> dt;
-  ASSERT_OK(st->ToTensor(&dt));
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Tensor> dt, st->ToTensor());
   ASSERT_TRUE(dt->Equals(dense_tensor));
   ASSERT_TRUE(st->Equals(*sparse_tensor));
 }
@@ -1495,6 +1501,21 @@ INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt32, TestSparseCSFTensorForIndexValueType,
                                UInt32Type);
 INSTANTIATE_TYPED_TEST_SUITE_P(TestInt64, TestSparseCSFTensorForIndexValueType,
                                Int64Type);
-INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt64, TestSparseCSFTensorForIndexValueType,
-                               UInt64Type);
+
+TEST(TestSparseCSFMatrixForUInt64Index, Make) {
+  int16_t dense_values[2][3][4][5] = {};
+  dense_values[0][0][0][1] = 1;
+  dense_values[0][0][0][2] = 2;
+  dense_values[0][1][0][0] = 3;
+  dense_values[0][1][0][2] = 4;
+  dense_values[0][1][1][0] = 5;
+  dense_values[1][1][1][0] = 6;
+  dense_values[1][1][1][1] = 7;
+  dense_values[1][1][1][2] = 8;
+
+  Tensor dense_tensor(uint64(), Buffer::Wrap(dense_values, sizeof(dense_values)),
+                      {2, 3, 4, 5});
+  ASSERT_RAISES(Invalid, SparseCSFTensor::Make(dense_tensor, uint64()));
+}
+
 }  // namespace arrow
