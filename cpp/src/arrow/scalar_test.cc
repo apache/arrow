@@ -124,6 +124,21 @@ TYPED_TEST(TestNumericScalar, MakeScalar) {
   ASSERT_EQ(ScalarType(3), *three);
 }
 
+TEST(TestDecimalScalar, Basics) {
+  auto ty = decimal(3, 2);
+  auto pi = Decimal128Scalar(Decimal128("3.14"), ty);
+  auto null = MakeNullScalar(ty);
+
+  ASSERT_EQ(pi.value, Decimal128("3.14"));
+
+  // test Array.GetScalar
+  auto arr = ArrayFromJSON(ty, "[null, \"3.14\"]");
+  ASSERT_OK_AND_ASSIGN(auto first, arr->GetScalar(0));
+  ASSERT_OK_AND_ASSIGN(auto second, arr->GetScalar(1));
+  ASSERT_TRUE(first->Equals(null));
+  ASSERT_TRUE(second->Equals(pi));
+}
+
 TEST(TestBinaryScalar, Basics) {
   std::string data = "test data";
   auto buf = std::make_shared<Buffer>(data);
@@ -535,12 +550,10 @@ TYPED_TEST(TestNumericScalar, Cast) {
 }
 
 TEST(TestStructScalar, FieldAccess) {
-  StructScalar abc({MakeScalar(true), MakeNullScalar(int32()), MakeScalar("hello")},
-                   struct_({
-                       field("a", boolean()),
-                       field("b", int32()),
-                       field("b", utf8()),
-                   }));
+  StructScalar abc({MakeScalar(true), MakeNullScalar(int32()), MakeScalar("hello"),
+                    MakeNullScalar(int64())},
+                   struct_({field("a", boolean()), field("b", int32()),
+                            field("b", utf8()), field("d", int64())}));
 
   ASSERT_OK_AND_ASSIGN(auto a, abc.field("a"));
   AssertScalarsEqual(*a, *abc.value[0]);
@@ -552,6 +565,75 @@ TEST(TestStructScalar, FieldAccess) {
 
   ASSERT_RAISES(Invalid, abc.field(5).status());
   ASSERT_RAISES(Invalid, abc.field("c").status());
+
+  ASSERT_OK_AND_ASSIGN(auto d, abc.field("d"));
+  ASSERT_TRUE(d->Equals(MakeNullScalar(int64())));
+}
+
+TEST(TestDictionaryScalar, Basics) {
+  auto ty = dictionary(int8(), utf8());
+  auto dict = ArrayFromJSON(utf8(), "[\"alpha\", \"beta\", \"gamma\"]");
+
+  DictionaryScalar::ValueType alpha;
+  ASSERT_OK_AND_ASSIGN(alpha.index, MakeScalar(int8(), 0));
+  alpha.dictionary = dict;
+
+  DictionaryScalar::ValueType gamma;
+  ASSERT_OK_AND_ASSIGN(gamma.index, MakeScalar(int8(), 2));
+  gamma.dictionary = dict;
+
+  auto scalar_null = MakeNullScalar(ty);
+  auto scalar_alpha = DictionaryScalar(alpha, ty);
+  auto scalar_gamma = DictionaryScalar(gamma, ty);
+
+  // test Array.GetScalar
+  DictionaryArray arr(ty, ArrayFromJSON(int8(), "[2, 0, 1, null]"), dict);
+  ASSERT_OK_AND_ASSIGN(auto first, arr.GetScalar(0));
+  ASSERT_OK_AND_ASSIGN(auto second, arr.GetScalar(1));
+  ASSERT_OK_AND_ASSIGN(auto last, arr.GetScalar(3));
+
+  ASSERT_TRUE(first->Equals(scalar_gamma));
+  ASSERT_TRUE(second->Equals(scalar_alpha));
+  ASSERT_TRUE(last->Equals(scalar_null));
+}
+
+TEST(TestSparseUnionScalar, Basics) {
+  auto sparse_ty = sparse_union({field("string", utf8()), field("number", uint64())});
+
+  auto alpha = MakeScalar("alpha");
+  auto beta = MakeScalar("beta");
+  ASSERT_OK_AND_ASSIGN(auto two, MakeScalar(uint64(), 2));
+
+  auto sparse_alpha = UnionScalar(alpha, sparse_ty);
+  auto sparse_beta = UnionScalar(beta, sparse_ty);
+  auto sparse_two = UnionScalar(two, sparse_ty);
+
+  // test Array.GetScalar
+  auto children = std::vector<std::shared_ptr<Array>>(2);
+  ArrayFromVector<StringType, std::string>({"alpha", "", "beta", "", "gamma"},
+                                           &children[0]);
+  ArrayFromVector<UInt64Type>({1, 2, 11, 22, 111}, &children[1]);
+
+  auto type_ids = ArrayFromJSON(int8(), "[0, 1, 0, 0, 1]");
+  auto validity = ArrayFromJSON(boolean(), "[true, true, true, false, false]");
+  SparseUnionArray arr(sparse_ty, 5, children, type_ids->data()->buffers[1],
+                       validity->data()->buffers[1]);
+  ASSERT_OK(arr.ValidateFull());
+
+  ASSERT_OK_AND_ASSIGN(auto first, arr.GetScalar(0));
+  ASSERT_TRUE(first->Equals(sparse_alpha));
+
+  ASSERT_OK_AND_ASSIGN(auto second, arr.GetScalar(1));
+  ASSERT_TRUE(second->Equals(sparse_two));
+
+  ASSERT_OK_AND_ASSIGN(auto third, arr.GetScalar(2));
+  ASSERT_TRUE(third->Equals(sparse_beta));
+
+  ASSERT_OK_AND_ASSIGN(auto fourth, arr.GetScalar(3));
+  ASSERT_TRUE(fourth->Equals(MakeNullScalar(sparse_ty)));
+
+  ASSERT_OK_AND_ASSIGN(auto fifth, arr.GetScalar(4));
+  ASSERT_TRUE(fifth->Equals(MakeNullScalar(sparse_ty)));
 }
 
 }  // namespace arrow

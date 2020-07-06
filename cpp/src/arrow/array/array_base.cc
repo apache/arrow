@@ -102,7 +102,8 @@ struct ScalarFromArraySlotImpl {
     // child array which stores the actual value
     auto arr = a.field(a.child_id(index_));
     // no need to adjust the index
-    ARROW_ASSIGN_OR_RAISE(out_, arr->GetScalar(index_));
+    ARROW_ASSIGN_OR_RAISE(auto value, arr->GetScalar(index_));
+    out_ = std::shared_ptr<Scalar>(new SparseUnionScalar(value, a.type()));
     return Status::OK();
   }
 
@@ -116,10 +117,17 @@ struct ScalarFromArraySlotImpl {
   }
 
   Status Visit(const DictionaryArray& a) {
-    auto scalar = DictionaryScalar(a.type());
+    auto ty = a.type();
+
+    ARROW_ASSIGN_OR_RAISE(auto index,
+                          MakeScalar(checked_cast<DictionaryType&>(*ty).index_type(),
+                                     a.GetValueIndex(index_)));
+
+    auto scalar = DictionaryScalar(ty);
     scalar.is_valid = array_.IsValid(index_);
-    scalar.value.index = MakeScalar(a.GetValueIndex(index_));
+    scalar.value.index = index;
     scalar.value.dictionary = a.dictionary();
+
     out_ = std::make_shared<DictionaryScalar>(std::move(scalar));
     return Status::OK();
   }
