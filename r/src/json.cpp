@@ -46,9 +46,8 @@ std::shared_ptr<arrow::json::TableReader> json___TableReader__Make(
     const std::shared_ptr<arrow::io::InputStream>& input,
     const std::shared_ptr<arrow::json::ReadOptions>& read_options,
     const std::shared_ptr<arrow::json::ParseOptions>& parse_options) {
-  return ValueOrStop(arrow::json::TableReader::Make(arrow::default_memory_pool(),
-                                                    input, *read_options,
-                                                    *parse_options));
+  return ValueOrStop(arrow::json::TableReader::Make(arrow::default_memory_pool(), input,
+                                                    *read_options, *parse_options));
 }
 
 // [[arrow::export]]
