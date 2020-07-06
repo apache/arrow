@@ -640,9 +640,9 @@ def test_make_parquet_fragment_from_buffer():
     import pyarrow.parquet as pq
 
     arrays = [
-        ['a', 'b', 'c'],
-        [12, 11, 10],
-        ['dog', 'cat', 'rabbit']
+        pa.array(['a', 'b', 'c']),
+        pa.array([12, 11, 10]),
+        pa.array(['dog', 'cat', 'rabbit'])
     ]
     dictionary_arrays = [
         arrays[0].dictionary_encode(),
