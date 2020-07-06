@@ -378,9 +378,9 @@ class Converter_Dictionary : public Converter {
     data.attr("levels") = Rf_coerceVector(
         ArrayVector__as_vector(dict->length(), dict->type(), {dict}), STRSXP);
     if (ordered) {
-      data.attr("class") = Rcpp::CharacterVector::create("ordered", "factor");
+      Rf_classgets(data, arrow::r::data::classes_ordered);
     } else {
-      data.attr("class") = "factor";
+      Rf_classgets(data, arrow::r::data::classes_factor);
     }
     return data;
   }

@@ -50,8 +50,12 @@ SEXP get_empty_raw() {
 
 SEXP data::classes_POSIXct = preserved_strings({"POSIXct", "POSIXt"});
 SEXP data::classes_metadata_r = preserved_strings({"arrow_r_metadata"});
+SEXP data::classes_factor = preserved_strings({"factor"});
+SEXP data::classes_ordered = preserved_strings({"ordered", "factor"});
+
 SEXP data::names_metadata = preserved_strings({"attributes", "columns"});
-SEXP data::classes_vctrs_list_of = preserved_strings({"vctrs_list_of", "vctrs_vctr", "list"});
+SEXP data::classes_vctrs_list_of =
+    preserved_strings({"vctrs_list_of", "vctrs_vctr", "list"});
 SEXP data::empty_raw = get_empty_raw();
 
 void inspect(SEXP obj) {

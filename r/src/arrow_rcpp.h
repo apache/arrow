@@ -40,6 +40,8 @@ struct symbols {
 struct data {
   static SEXP classes_POSIXct;
   static SEXP classes_metadata_r;
+  static SEXP classes_factor;
+  static SEXP classes_ordered;
 
   static SEXP names_metadata;
   static SEXP classes_vctrs_list_of;
