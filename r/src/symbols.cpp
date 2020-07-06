@@ -30,27 +30,39 @@ SEXP symbols::as_list = Rf_install("as.list");
 SEXP symbols::ptype = Rf_install("ptype");
 SEXP symbols::byte_width = Rf_install("byte_width");
 
-SEXP preserved_strings(std::initializer_list<std::string> list) {
+SEXP precious(SEXP x) {
+  R_PreserveObject(x);
+  return x;
+}
+
+SEXP strings(std::initializer_list<std::string> list) {
   size_t n = list.size();
-  SEXP s = Rf_allocVector(STRSXP, n);
-  R_PreserveObject(s);
+  SEXP s = PROTECT(Rf_allocVector(STRSXP, n));
 
   auto it = list.begin();
   for (size_t i = 0; i < n; i++, ++it) {
     SET_STRING_ELT(s, i, Rf_mkCharLen(it->c_str(), it->size()));
   }
 
+  UNPROTECT(1);
   return s;
 }
 
-SEXP get_classes_fixed_size_binary() {
-  SEXP classes = Rf_allocVector(STRSXP, 4);
-  R_PreserveObject(classes);
-  SET_STRING_ELT(classes, 0, Rf_mkChar("arrow_fixed_size_binary"));
-  SET_STRING_ELT(classes, 1, Rf_mkChar("vctrs_list_of"));
-  SET_STRING_ELT(classes, 2, Rf_mkChar("vctrs_vctr"));
-  SET_STRING_ELT(classes, 3, Rf_mkChar("list"));
-  return classes;
+SEXP raws(std::initializer_list<Rbyte> list) {
+  size_t n = list.size();
+  SEXP s = PROTECT(Rf_allocVector(RAWSXP, n));
+
+  std::copy(list.begin(), list.end(), RAW(s));
+
+  UNPROTECT(1);
+  return s;
+}
+
+SEXP r_namespace(std::string name) {
+  SEXP s_name = PROTECT(strings({name}));
+  SEXP ns = R_FindNamespace(s_name);
+  UNPROTECT(1);
+  return ns;
 }
 
 SEXP get_empty_raw() {
@@ -59,12 +71,15 @@ SEXP get_empty_raw() {
   return res;
 }
 
-SEXP data::classes_POSIXct = get_classes_POSIXct();
-SEXP data::classes_metadata_r = get_classes_metadata_r();
-SEXP data::names_metadata = get_names_metadata();
-SEXP data::classes_vctrs_list_of = get_classes_vctrs_list_of();
-SEXP data::classes_fixed_size_binary = get_classes_fixed_size_binary();
-SEXP data::empty_raw = get_empty_raw();
+SEXP data::classes_POSIXct = precious(strings({"POSIXct", "POSIXt"}));
+SEXP data::classes_metadata_r = precious(strings({"arrow_r_metadata"}));
+SEXP data::classes_vctrs_list_of = precious(strings({"vctrs_list_of", "vctrs_vctr", "list"}));
+SEXP data::classes_fixed_size_binary = precious(strings({"arrow_fixed_size_binary", "vctrs_list_of", "vctrs_vctr", "list"}));
+
+SEXP data::names_metadata = precious(strings({"attributes", "columns"}));
+SEXP data::empty_raw = precious(raws({}));
+
+SEXP ns::arrow = precious(r_namespace("arrow"));
 
 void inspect(SEXP obj) {
   Rcpp::Shield<SEXP> call_inspect(Rf_lang2(symbols::inspect, obj));
@@ -72,15 +87,6 @@ void inspect(SEXP obj) {
   Rf_eval(call_internal, R_GlobalEnv);
 }
 
-SEXP get_arrow_ns() {
-  SEXP name = PROTECT(Rf_ScalarString(Rf_mkChar("arrow")));
-  SEXP ns = R_FindNamespace(name);
-  R_PreserveObject(ns);
-  UNPROTECT(1);
-  return ns;
-}
-
-SEXP ns::arrow = get_arrow_ns();
 
 }  // namespace r
 }  // namespace arrow
