@@ -36,6 +36,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/int_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/visitor_inline.h"
 
@@ -131,6 +132,14 @@ static Status ConcatenateOffsets(const BufferVector& buffers, MemoryPool* pool,
 template <typename Offset>
 static Status PutOffsets(const std::shared_ptr<Buffer>& src, Offset first_offset,
                          Offset* dst, Range* values_range) {
+  if (src->size() == 0) {
+    // It's allowed to have an empty offsets buffer for a 0-length array
+    // (see Array::Validate)
+    values_range->offset = 0;
+    values_range->length = 0;
+    return Status::OK();
+  }
+
   // Get the range of offsets to transfer from src
   auto src_begin = reinterpret_cast<const Offset*>(src->data());
   auto src_end = reinterpret_cast<const Offset*>(src->data() + src->size());
@@ -145,8 +154,12 @@ static Status PutOffsets(const std::shared_ptr<Buffer>& src, Offset first_offset
   // Write offsets into dst, ensuring that the first offset written is
   // first_offset
   auto adjustment = first_offset - src_begin[0];
-  std::transform(src_begin, src_end, dst,
-                 [adjustment](Offset offset) { return offset + adjustment; });
+  // NOTE: Concatenate can be called during IPC reads to append delta dictionaries.
+  // Avoid UB on non-validated input by doing the addition in the unsigned domain.
+  // (the result can later be validated using Array::ValidateFull)
+  std::transform(src_begin, src_end, dst, [adjustment](Offset offset) {
+    return internal::SafeSignedAdd(offset, adjustment);
+  });
   return Status::OK();
 }
 
