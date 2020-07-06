@@ -63,7 +63,9 @@ impl SendableRecordBatchReader for RecordBatchIterator {
 }
 
 /// Create a vector of record batches from an iterator
-pub fn collect(it: Arc<Mutex<dyn SendableRecordBatchReader>>) -> Result<Vec<RecordBatch>> {
+pub fn collect(
+    it: Arc<Mutex<dyn SendableRecordBatchReader>>,
+) -> Result<Vec<RecordBatch>> {
     let mut it = it.lock().unwrap();
     let mut results: Vec<RecordBatch> = vec![];
     loop {

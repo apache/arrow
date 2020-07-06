@@ -25,7 +25,7 @@ use crate::file::reader::FileReader;
 use arrow::array::StructArray;
 use arrow::datatypes::{DataType as ArrowType, Schema, SchemaRef};
 use arrow::error::Result as ArrowResult;
-use arrow::record_batch::{RecordBatchReader, RecordBatch};
+use arrow::record_batch::{RecordBatch, RecordBatchReader};
 use std::rc::Rc;
 use std::sync::Arc;
 

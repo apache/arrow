@@ -24,7 +24,7 @@ use serde_json::{Number as VNumber, Value};
 
 use crate::array::*;
 use crate::datatypes::*;
-use crate::record_batch::{RecordBatchReader, RecordBatch};
+use crate::record_batch::{RecordBatch, RecordBatchReader};
 
 /// A struct that represents an Arrow file with a schema and record batches
 #[derive(Deserialize, Serialize, Debug)]

@@ -30,7 +30,7 @@ use crate::compute::cast;
 use crate::datatypes::{DataType, Field, IntervalUnit, Schema, SchemaRef};
 use crate::error::{ArrowError, Result};
 use crate::ipc;
-use crate::record_batch::{RecordBatchReader, RecordBatch};
+use crate::record_batch::{RecordBatch, RecordBatchReader};
 use DataType::*;
 
 const CONTINUATION_MARKER: u32 = 0xffff_ffff;
@@ -861,7 +861,6 @@ impl<R: Read> RecordBatchReader for StreamReader<R> {
         self.schema.clone()
     }
 
-    #[allow(clippy::should_implement_trait)]
     fn next(&mut self) -> Result<Option<RecordBatch>> {
         self.next_batch()
     }

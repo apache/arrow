@@ -27,7 +27,7 @@ use crate::execution::physical_plan::common;
 use crate::execution::physical_plan::{ExecutionPlan, Partition};
 use arrow::datatypes::Schema;
 use arrow::error::{ArrowError, Result as ArrowResult};
-use arrow::record_batch::{RecordBatchReader, RecordBatch, SendableRecordBatchReader};
+use arrow::record_batch::{RecordBatch, RecordBatchReader, SendableRecordBatchReader};
 use parquet::file::reader::SerializedFileReader;
 
 use crossbeam::channel::{unbounded, Receiver, RecvError, SendError, Sender};

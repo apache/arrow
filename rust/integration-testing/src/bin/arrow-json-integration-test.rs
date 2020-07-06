@@ -25,7 +25,7 @@ use arrow::datatypes::{DataType, DateUnit, IntervalUnit, Schema};
 use arrow::error::{ArrowError, Result};
 use arrow::ipc::reader::FileReader;
 use arrow::ipc::writer::FileWriter;
-use arrow::record_batch::{RecordBatchReader, RecordBatch};
+use arrow::record_batch::{RecordBatch, RecordBatchReader};
 
 use hex::decode;
 use std::env;
