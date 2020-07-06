@@ -688,14 +688,8 @@ cdef class DictionaryScalar(Scalar):
         """
         Return the encoded value as a scalar.
         """
-        cdef:
-            CDictionaryScalar* sp = <CDictionaryScalar*> self.wrapped.get()
-            CInt64Scalar* index = <CInt64Scalar*> sp.value.index.get()
-            shared_ptr[CScalar] value
-        value = GetResultValue(
-            sp.value.dictionary.get().GetScalar(index.value)
-        )
-        return Scalar.wrap(value)
+        cdef CDictionaryScalar* sp = <CDictionaryScalar*> self.wrapped.get()
+        return Scalar.wrap(GetResultValue(sp.GetEncodedValue()))
 
     @property
     def dictionary(self):

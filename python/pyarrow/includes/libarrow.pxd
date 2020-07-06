@@ -945,6 +945,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
             shared_ptr[CArray] dictionary
 
         CDictionaryValue value
+        CResult[shared_ptr[CScalar]] GetEncodedValue()
 
     cdef cppclass CUnionScalar" arrow::UnionScalar"(CScalar):
         shared_ptr[CScalar] value

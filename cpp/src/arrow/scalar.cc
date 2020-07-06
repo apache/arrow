@@ -192,6 +192,35 @@ DictionaryScalar::DictionaryScalar(std::shared_ptr<DataType> type)
                             0)
                 .ValueOrDie()} {}
 
+Result<std::shared_ptr<Scalar>> DictionaryScalar::GetEncodedValue() const {
+  const auto& dict_type = checked_cast<DictionaryType&>(*type);
+
+  if (!is_valid) {
+    return MakeNullScalar(dict_type.value_type());
+  }
+
+  int64_t index_value = 0;
+  switch (dict_type.index_type()->id()) {
+    case Type::INT8:
+      index_value = checked_cast<const Int8Scalar&>(*value.index).value;
+      break;
+    case Type::INT16:
+      index_value = checked_cast<const Int16Scalar&>(*value.index).value;
+      break;
+    case Type::INT32:
+      index_value = checked_cast<const Int32Scalar&>(*value.index).value;
+      break;
+    case Type::INT64:
+      index_value = checked_cast<const Int64Scalar&>(*value.index).value;
+      break;
+    default:
+      return Status::Invalid("Not implemented dictionary index type");
+      break;
+  }
+
+  return value.dictionary->GetScalar(index_value);
+}
+
 template <typename T>
 using scalar_constructor_has_arrow_type =
     std::is_constructible<typename TypeTraits<T>::ScalarType, std::shared_ptr<DataType>>;

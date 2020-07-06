@@ -586,6 +586,21 @@ TEST(TestDictionaryScalar, Basics) {
   auto scalar_alpha = DictionaryScalar(alpha, ty);
   auto scalar_gamma = DictionaryScalar(gamma, ty);
 
+  ASSERT_OK_AND_ASSIGN(
+      auto encoded_null,
+      checked_cast<const DictionaryScalar&>(*scalar_null).GetEncodedValue());
+  ASSERT_TRUE(encoded_null->Equals(MakeNullScalar(utf8())));
+
+  ASSERT_OK_AND_ASSIGN(
+      auto encoded_alpha,
+      checked_cast<const DictionaryScalar&>(scalar_alpha).GetEncodedValue());
+  ASSERT_TRUE(encoded_alpha->Equals(MakeScalar("alpha")));
+
+  ASSERT_OK_AND_ASSIGN(
+      auto encoded_gamma,
+      checked_cast<const DictionaryScalar&>(scalar_gamma).GetEncodedValue());
+  ASSERT_TRUE(encoded_gamma->Equals(MakeScalar("gamma")));
+
   // test Array.GetScalar
   DictionaryArray arr(ty, ArrayFromJSON(int8(), "[2, 0, 1, null]"), dict);
   ASSERT_OK_AND_ASSIGN(auto first, arr.GetScalar(0));

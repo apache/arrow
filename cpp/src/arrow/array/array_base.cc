@@ -125,7 +125,7 @@ struct ScalarFromArraySlotImpl {
                                      a.GetValueIndex(index_)));
 
     auto scalar = DictionaryScalar(ty);
-    scalar.is_valid = array_.IsValid(index_);
+    scalar.is_valid = a.IsValid(index_);
     scalar.value.index = index;
     scalar.value.dictionary = a.dictionary();
 
