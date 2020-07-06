@@ -165,6 +165,8 @@ bool is_substr_utf8_utf8(const char* data, gdv_int32 data_len, const char* subst
 
 gdv_int32 utf8_length(gdv_int64 context, const char* data, gdv_int32 data_len);
 
+gdv_int32 utf8_last_char_pos(gdv_int64 context, const char* data, gdv_int32 data_len);
+
 gdv_date64 castDATE_utf8(int64_t execution_context, const char* input, gdv_int32 length);
 
 gdv_date64 castDATE_int64(gdv_int64 date);
@@ -200,8 +202,26 @@ const char* lower_utf8(gdv_int64 context, const char* data, gdv_int32 data_len,
 const char* reverse_utf8(gdv_int64 context, const char* data, gdv_int32 data_len,
                          int32_t* out_len);
 
-const char* trim_utf8(gdv_int64 context, const char* data, gdv_int32 data_len,
-                      int32_t* out_len);
+const char* ltrim_utf8(gdv_int64 context, const char* data, gdv_int32 data_len,
+                       int32_t* out_len);
+
+const char* rtrim_utf8(gdv_int64 context, const char* data, gdv_int32 data_len,
+                       int32_t* out_len);
+
+const char* btrim_utf8(gdv_int64 context, const char* data, gdv_int32 data_len,
+                       int32_t* out_len);
+
+const char* ltrim_utf8_utf8(gdv_int64 context, const char* basetext,
+                            gdv_int32 basetext_len, const char* trimtext,
+                            gdv_int32 trimtext_len, int32_t* out_len);
+
+const char* rtrim_utf8_utf8(gdv_int64 context, const char* basetext,
+                            gdv_int32 basetext_len, const char* trimtext,
+                            gdv_int32 trimtext_len, int32_t* out_len);
+
+const char* btrim_utf8_utf8(gdv_int64 context, const char* basetext,
+                            gdv_int32 basetext_len, const char* trimtext,
+                            gdv_int32 trimtext_len, int32_t* out_len);
 
 gdv_int32 locate_utf8_utf8(gdv_int64 context, const char* sub_str, gdv_int32 sub_str_len,
                            const char* str, gdv_int32 str_len);
