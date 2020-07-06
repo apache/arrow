@@ -18,13 +18,18 @@
 cmake_minimum_required(VERSION 3.2)
 message(STATUS "Building using CMake version: ${CMAKE_VERSION}")
 
+# Compiler id for Apple Clang is now AppleClang.
 cmake_policy(SET CMP0025 NEW)
+
 # IN_LIST if() operator
-cmake_policy(SET CMP0057 NEW)
+if(POLICY CMP0057)
+  cmake_policy(SET CMP0057 NEW)
+endif()
 
 # Compatibility with CMake 3.1
+# Only interpret if() arguments as variables or keywords when unquoted.
 if(POLICY CMP0054)
-  # http://www.cmake.org/cmake/help/v3.1/policy/CMP0054.html
+  # https://www.cmake.org/cmake/help/v3.1/policy/CMP0054.html
   cmake_policy(SET CMP0054 NEW)
 endif()
 
@@ -33,7 +38,7 @@ if(POLICY CMP0068)
   cmake_policy(SET CMP0068 NEW)
 endif()
 
-# don't ignore <PackageName>_ROOT variables in find_package
+# Don't ignore <PackageName>_ROOT variables in find_package
 if(POLICY CMP0074)
   # https://cmake.org/cmake/help/v3.12/policy/CMP0074.html
   cmake_policy(SET CMP0074 NEW)
