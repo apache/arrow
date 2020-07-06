@@ -240,7 +240,6 @@ pub trait SendableBatchReader: Send + Sync {
     fn next(&mut self) -> Result<Option<RecordBatch>>;
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;

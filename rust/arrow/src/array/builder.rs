@@ -3498,6 +3498,7 @@ mod tests {
     }
 
     #[test]
+    #[should_panic(expected = "DictionaryKeyOverflowError")]
     fn test_primitive_dictionary_overflow() {
         let key_builder = PrimitiveBuilder::<UInt8Type>::new(257);
         let value_builder = PrimitiveBuilder::<UInt32Type>::new(257);
@@ -3507,10 +3508,7 @@ mod tests {
             builder.append(i + 1000).unwrap();
         }
         // Special error if the key overflows (256th entry)
-        assert_eq!(
-            builder.append(1257),
-            Err(ArrowError::DictionaryKeyOverflowError)
-        );
+        builder.append(1257).unwrap();
     }
 
     #[test]

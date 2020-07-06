@@ -30,8 +30,7 @@ use crate::compute::cast;
 use crate::datatypes::{DataType, Field, IntervalUnit, Schema, SchemaRef};
 use crate::error::{ArrowError, Result};
 use crate::ipc;
-use crate::record_batch::{RecordBatch, BatchReader};
-use crate::util::bit_util;
+use crate::record_batch::{BatchReader, RecordBatch};
 use DataType::*;
 
 const CONTINUATION_MARKER: u32 = 0xffff_ffff;

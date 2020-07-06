@@ -415,9 +415,9 @@ mod tests {
     use flate2::read::GzDecoder;
 
     use crate::array::*;
-    use crate::record_batch::BatchReader;
     use crate::datatypes::Field;
     use crate::ipc::reader::*;
+    use crate::record_batch::BatchReader;
     use crate::util::integration_util::*;
     use std::env;
     use std::fs::File;

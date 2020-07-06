@@ -22,11 +22,10 @@
 
 use std::sync::{Arc, Mutex};
 
-use crate::error::Result;
-use crate::execution::physical_plan::{
-    ExecutionPlan, Partition, PhysicalExpr,
-};
+use crate::error::{ExecutionError, Result};
+use crate::execution::physical_plan::{ExecutionPlan, Partition, PhysicalExpr};
 use arrow::datatypes::Schema;
+use arrow::error::Result as ArrowResult;
 use arrow::record_batch::{RecordBatch, SendableBatchReader};
 
 /// Execution plan for a projection
@@ -121,13 +120,16 @@ impl SendableBatchReader for ProjectionIterator {
     }
 
     /// Get the next batch
-    fn next(&mut self) -> Result<Option<RecordBatch>> {
+    fn next(&mut self) -> ArrowResult<Option<RecordBatch>> {
         let mut input = self.input.lock().unwrap();
         match input.next()? {
             Some(batch) => {
                 let arrays: Result<Vec<_>> =
                     self.expr.iter().map(|expr| expr.evaluate(&batch)).collect();
-                Ok(Some(RecordBatch::try_new(self.schema.clone(), arrays?)?))
+                Ok(Some(RecordBatch::try_new(
+                    self.schema.clone(),
+                    arrays.map_err(ExecutionError::into_arrow_external_error)?,
+                )?))
             }
             None => Ok(None),
         }

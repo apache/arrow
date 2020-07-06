@@ -22,6 +22,7 @@ use std::sync::{Arc, Mutex};
 use crate::error::Result;
 use crate::execution::physical_plan::{ExecutionPlan, Partition};
 use arrow::datatypes::Schema;
+use arrow::error::Result as ArrowResult;
 use arrow::record_batch::{RecordBatch, SendableBatchReader};
 
 /// Execution plan for reading in-memory batches of data
@@ -143,7 +144,7 @@ impl SendableBatchReader for MemoryIterator {
     }
 
     /// Get the next RecordBatch
-    fn next(&mut self) -> Result<Option<RecordBatch>> {
+    fn next(&mut self) -> ArrowResult<Option<RecordBatch>> {
         if self.index < self.data.len() {
             self.index += 1;
             let batch = &self.data[self.index - 1];

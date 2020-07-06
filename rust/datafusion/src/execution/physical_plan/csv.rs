@@ -25,6 +25,7 @@ use crate::execution::physical_plan::common;
 use crate::execution::physical_plan::{ExecutionPlan, Partition};
 use arrow::csv;
 use arrow::datatypes::Schema;
+use arrow::error::Result as ArrowResult;
 use arrow::record_batch::{RecordBatch, SendableBatchReader};
 
 /// CSV file read option
@@ -269,7 +270,7 @@ impl SendableBatchReader for CsvIterator {
     }
 
     /// Get the next RecordBatch
-    fn next(&mut self) -> Result<Option<RecordBatch>> {
+    fn next(&mut self) -> ArrowResult<Option<RecordBatch>> {
         Ok(self.reader.next()?)
     }
 }

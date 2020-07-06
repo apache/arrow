@@ -162,7 +162,7 @@ fn collect_with_limit(
                 // end of result set
                 return Ok(results);
             }
-            Err(e) => return Err(e),
+            Err(e) => return Err(ExecutionError::from(e)),
         }
     }
 }

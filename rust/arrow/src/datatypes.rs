@@ -2350,26 +2350,27 @@ mod tests {
     }
 
     #[test]
+    #[should_panic(expected = "InvalidArgumentError(\"nickname\")")]
     fn schema_index_of() {
         let schema = person_schema();
-        assert_eq!(schema.index_of("first_name"), Ok(0));
-        assert_eq!(schema.index_of("last_name"), Ok(1));
-        assert_eq!(
-            schema.index_of("nickname"),
-            Err(ArrowError::InvalidArgumentError("nickname".to_owned()))
-        );
+        assert_eq!(schema.index_of("first_name").unwrap(), 0);
+        assert_eq!(schema.index_of("last_name").unwrap(), 1);
+        schema.index_of("nickname").unwrap();
     }
 
     #[test]
-    fn schema_field_with_name() -> Result<()> {
+    #[should_panic(expected = "InvalidArgumentError(\"nickname\")")]
+    fn schema_field_with_name() {
         let schema = person_schema();
-        assert_eq!(schema.field_with_name("first_name")?.name(), "first_name");
-        assert_eq!(schema.field_with_name("last_name")?.name(), "last_name");
         assert_eq!(
-            schema.field_with_name("nickname"),
-            Err(ArrowError::InvalidArgumentError("nickname".to_owned()))
+            schema.field_with_name("first_name").unwrap().name(),
+            "first_name"
         );
-        Ok(())
+        assert_eq!(
+            schema.field_with_name("last_name").unwrap().name(),
+            "last_name"
+        );
+        schema.field_with_name("nickname").unwrap();
     }
 
     #[test]

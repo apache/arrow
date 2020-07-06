@@ -26,6 +26,7 @@ use crate::error::{ExecutionError, Result};
 use crate::logicalplan::ScalarValue;
 use arrow::array::{self, ArrayRef};
 use arrow::datatypes::{DataType, Schema};
+use arrow::error::Result as ArrowResult;
 use arrow::record_batch::{RecordBatch, SendableBatchReader};
 
 /// Iterator over a vector of record batches
@@ -51,7 +52,7 @@ impl SendableBatchReader for RecordBatchIterator {
         self.schema.clone()
     }
 
-    fn next(&mut self) -> Result<Option<RecordBatch>> {
+    fn next(&mut self) -> ArrowResult<Option<RecordBatch>> {
         if self.index < self.batches.len() {
             self.index += 1;
             Ok(Some(self.batches[self.index - 1].as_ref().clone()))
@@ -74,7 +75,7 @@ pub fn collect(it: Arc<Mutex<dyn SendableBatchReader>>) -> Result<Vec<RecordBatc
                 // end of result set
                 return Ok(results);
             }
-            Err(e) => return Err(e),
+            Err(e) => return Err(ExecutionError::from(e)),
         }
     }
 }

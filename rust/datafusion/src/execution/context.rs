@@ -624,7 +624,7 @@ impl ExecutionContext {
                                 writer.write(&batch)?;
                             }
                             Ok(None) => break,
-                            Err(e) => return Err(e),
+                            Err(e) => return Err(ExecutionError::from(e)),
                         }
                     }
                     Ok(())

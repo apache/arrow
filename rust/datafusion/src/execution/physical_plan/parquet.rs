@@ -26,7 +26,8 @@ use crate::error::{ExecutionError, Result};
 use crate::execution::physical_plan::common;
 use crate::execution::physical_plan::{ExecutionPlan, Partition};
 use arrow::datatypes::Schema;
-use arrow::record_batch::{RecordBatch, BatchReader, SendableBatchReader};
+use arrow::error::{ArrowError, Result as ArrowResult};
+use arrow::record_batch::{BatchReader, RecordBatch, SendableBatchReader};
 use parquet::file::reader::SerializedFileReader;
 
 use crossbeam::channel::{unbounded, Receiver, RecvError, SendError, Sender};
@@ -121,8 +122,8 @@ impl ParquetPartition {
         // on a thread and communicate with channels
         let (request_tx, request_rx): (Sender<()>, Receiver<()>) = unbounded();
         let (response_tx, response_rx): (
-            Sender<Result<Option<RecordBatch>>>,
-            Receiver<Result<Option<RecordBatch>>>,
+            Sender<ArrowResult<Option<RecordBatch>>>,
+            Receiver<ArrowResult<Option<RecordBatch>>>,
         ) = unbounded();
 
         let filename = filename.to_string();
@@ -153,7 +154,7 @@ impl ParquetPartition {
                                     }
                                     Err(e) => {
                                         response_tx
-                                            .send(Err(ExecutionError::General(format!(
+                                            .send(Err(ArrowError::ParquetError(format!(
                                                 "{:?}",
                                                 e
                                             ))))
@@ -166,7 +167,7 @@ impl ParquetPartition {
 
                         Err(e) => {
                             response_tx
-                                .send(Err(ExecutionError::General(format!("{:?}", e))))
+                                .send(Err(ArrowError::ParquetError(format!("{:?}", e))))
                                 .unwrap();
                         }
                     }
@@ -174,7 +175,7 @@ impl ParquetPartition {
 
                 Err(e) => {
                     response_tx
-                        .send(Err(ExecutionError::General(format!("{:?}", e))))
+                        .send(Err(ArrowError::ParquetError(format!("{:?}", e))))
                         .unwrap();
                 }
             }
@@ -199,7 +200,7 @@ impl Partition for ParquetPartition {
 struct ParquetIterator {
     schema: Arc<Schema>,
     request_tx: Sender<()>,
-    response_rx: Receiver<Result<Option<RecordBatch>>>,
+    response_rx: Receiver<ArrowResult<Option<RecordBatch>>>,
 }
 
 impl SendableBatchReader for ParquetIterator {
@@ -207,7 +208,7 @@ impl SendableBatchReader for ParquetIterator {
         self.schema.clone()
     }
 
-    fn next(&mut self) -> Result<Option<RecordBatch>> {
+    fn next(&mut self) -> ArrowResult<Option<RecordBatch>> {
         match self.request_tx.send(()) {
             Ok(_) => match self.response_rx.recv() {
                 Ok(batch) => batch,

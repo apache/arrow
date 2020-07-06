@@ -36,6 +36,7 @@ use arrow::array::{
     UInt8Builder,
 };
 use arrow::datatypes::{DataType, Field, Schema};
+use arrow::error::Result as ArrowResult;
 use arrow::record_batch::{RecordBatch, SendableBatchReader};
 
 use crate::execution::physical_plan::expressions::Column;
@@ -198,7 +199,12 @@ macro_rules! aggr_array_from_map_entries {
         let mut builder = $BUILDER::new($MAP.len());
         let mut err = false;
         for v in $MAP.values() {
-            match v[$COL_INDEX].as_ref().borrow().get_value()? {
+            match v[$COL_INDEX]
+                .as_ref()
+                .borrow()
+                .get_value()
+                .map_err(ExecutionError::into_arrow_external_error)?
+            {
                 Some(ScalarValue::$TY(n)) => builder.append_value(n as $TY2).unwrap(),
                 None => builder.append_null().unwrap(),
                 _ => err = true,
@@ -278,7 +284,9 @@ macro_rules! update_accumulators {
             if $ARRAY.is_valid(row) {
                 let value = Some($SCALAR_TY(primitive_array.value(row)));
                 let mut accum = $ACCUM[row][$COL].borrow_mut();
-                accum.accumulate_scalar(value)?;
+                accum
+                    .accumulate_scalar(value)
+                    .map_err(ExecutionError::into_arrow_external_error)?;
             }
         }
     }};
@@ -289,7 +297,7 @@ impl SendableBatchReader for GroupedHashAggregateIterator {
         self.schema.clone()
     }
 
-    fn next(&mut self) -> Result<Option<RecordBatch>> {
+    fn next(&mut self) -> ArrowResult<Option<RecordBatch>> {
         if self.finished {
             return Ok(None);
         }
@@ -309,15 +317,21 @@ impl SendableBatchReader for GroupedHashAggregateIterator {
             let group_values = self
                 .group_expr
                 .iter()
-                .map(|expr| expr.evaluate(&batch))
-                .collect::<Result<Vec<_>>>()?;
+                .map(|expr| {
+                    expr.evaluate(&batch)
+                        .map_err(ExecutionError::into_arrow_external_error)
+                })
+                .collect::<ArrowResult<Vec<_>>>()?;
 
             // evaluate the inputs to the aggregate expressions for this batch
             let aggr_input_values = self
                 .aggr_expr
                 .iter()
-                .map(|expr| expr.evaluate_input(&batch))
-                .collect::<Result<Vec<_>>>()?;
+                .map(|expr| {
+                    expr.evaluate_input(&batch)
+                        .map_err(ExecutionError::into_arrow_external_error)
+                })
+                .collect::<ArrowResult<Vec<_>>>()?;
 
             // create vector large enough to hold the grouping key
             let mut key = Vec::with_capacity(group_values.len());
@@ -331,7 +345,8 @@ impl SendableBatchReader for GroupedHashAggregateIterator {
 
             for row in 0..batch.num_rows() {
                 // create grouping key for this row
-                create_key(&group_values, row, &mut key)?;
+                create_key(&group_values, row, &mut key)
+                    .map_err(ExecutionError::into_arrow_external_error)?;
 
                 if let Some(accumulator_set) = map.get(&key) {
                     accumulators.push(accumulator_set.clone());
@@ -429,7 +444,7 @@ impl SendableBatchReader for GroupedHashAggregateIterator {
                         return Err(ExecutionError::ExecutionError(format!(
                             "Unsupported data type {:?} for result of aggregate expression",
                             other
-                        )));
+                        )).into_arrow_external_error());
                     }
                 };
             }
@@ -444,7 +459,8 @@ impl SendableBatchReader for GroupedHashAggregateIterator {
         // grouping values
         for i in 0..self.group_expr.len() {
             let array: Result<ArrayRef> = match self.group_expr[i]
-                .data_type(&input_schema)?
+                .data_type(&input_schema)
+                .map_err(ExecutionError::into_arrow_external_error)?
             {
                 DataType::UInt8 => {
                     group_array_from_map_entries!(UInt8Builder, UInt8, map, i)
@@ -478,7 +494,8 @@ impl SendableBatchReader for GroupedHashAggregateIterator {
                             _ => {
                                 return Err(ExecutionError::ExecutionError(
                                     "Unexpected value for Utf8 group column".to_string(),
-                                ))
+                                )
+                                .into_arrow_external_error())
                             }
                         }
                     }
@@ -488,11 +505,13 @@ impl SendableBatchReader for GroupedHashAggregateIterator {
                     "Unsupported group by expr".to_string(),
                 )),
             };
-            result_arrays.push(array?);
+            result_arrays.push(array.map_err(ExecutionError::into_arrow_external_error)?);
 
             // aggregate values
             for i in 0..self.aggr_expr.len() {
-                let aggr_data_type = self.aggr_expr[i].data_type(&input_schema)?;
+                let aggr_data_type = self.aggr_expr[i]
+                    .data_type(&input_schema)
+                    .map_err(ExecutionError::into_arrow_external_error)?;
                 let array = match aggr_data_type {
                     DataType::UInt8 => {
                         aggr_array_from_map_entries!(UInt64Builder, UInt8, u64, map, i)
@@ -528,7 +547,8 @@ impl SendableBatchReader for GroupedHashAggregateIterator {
                         "Unsupported aggregate expr".to_string(),
                     )),
                 };
-                result_arrays.push(array?);
+                result_arrays
+                    .push(array.map_err(ExecutionError::into_arrow_external_error)?);
             }
         }
 
@@ -565,7 +585,7 @@ impl SendableBatchReader for HashAggregateIterator {
         self.schema.clone()
     }
 
-    fn next(&mut self) -> Result<Option<RecordBatch>> {
+    fn next(&mut self) -> ArrowResult<Option<RecordBatch>> {
         if self.finished {
             return Ok(None);
         }
@@ -587,15 +607,23 @@ impl SendableBatchReader for HashAggregateIterator {
             let aggr_input_values = self
                 .aggr_expr
                 .iter()
-                .map(|expr| expr.evaluate_input(&batch))
-                .collect::<Result<Vec<_>>>()?;
+                .map(|expr| {
+                    expr.evaluate_input(&batch)
+                        .map_err(ExecutionError::into_arrow_external_error)
+                })
+                .collect::<ArrowResult<Vec<_>>>()?;
 
             // iterate over each row in the batch
             let _ = accumulators
                 .iter()
                 .zip(aggr_input_values.iter())
-                .map(|(accum, input)| accum.borrow_mut().accumulate_batch(input))
-                .collect::<Result<Vec<_>>>()?;
+                .map(|(accum, input)| {
+                    accum
+                        .borrow_mut()
+                        .accumulate_batch(input)
+                        .map_err(ExecutionError::into_arrow_external_error)
+                })
+                .collect::<ArrowResult<Vec<_>>>()?;
         }
 
         let input_schema = input.schema();
@@ -605,8 +633,13 @@ impl SendableBatchReader for HashAggregateIterator {
 
         // aggregate values
         for i in 0..self.aggr_expr.len() {
-            let aggr_data_type = self.aggr_expr[i].data_type(&input_schema)?;
-            let value = accumulators[i].borrow_mut().get_value()?;
+            let aggr_data_type = self.aggr_expr[i]
+                .data_type(&input_schema)
+                .map_err(ExecutionError::into_arrow_external_error)?;
+            let value = accumulators[i]
+                .borrow_mut()
+                .get_value()
+                .map_err(ExecutionError::into_arrow_external_error)?;
             let array = match aggr_data_type {
                 DataType::UInt8 => {
                     aggr_array_from_accumulator!(UInt64Builder, UInt8, u64, value)
@@ -642,7 +675,7 @@ impl SendableBatchReader for HashAggregateIterator {
                     "Unsupported aggregate expr".to_string(),
                 )),
             };
-            result_arrays.push(array?);
+            result_arrays.push(array.map_err(ExecutionError::into_arrow_external_error)?);
         }
 
         let batch = RecordBatch::try_new(self.schema.clone(), result_arrays)?;

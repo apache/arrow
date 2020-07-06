@@ -25,12 +25,12 @@ use arrow::array::ArrayRef;
 pub use arrow::compute::SortOptions;
 use arrow::compute::{concat, lexsort_to_indices, take, SortColumn, TakeOptions};
 use arrow::datatypes::Schema;
-use arrow::record_batch::RecordBatch;
+use arrow::record_batch::{RecordBatch, SendableBatchReader};
 
 use crate::error::Result;
 use crate::execution::physical_plan::common::RecordBatchIterator;
 use crate::execution::physical_plan::expressions::PhysicalSortExpr;
-use crate::execution::physical_plan::{common, BatchIterator, ExecutionPlan, Partition};
+use crate::execution::physical_plan::{common, ExecutionPlan, Partition};
 
 /// Sort execution plan
 pub struct SortExec {
@@ -74,7 +74,7 @@ struct SortPartition {
 
 impl Partition for SortPartition {
     /// Execute the sort
-    fn execute(&self) -> Result<Arc<Mutex<dyn BatchIterator>>> {
+    fn execute(&self) -> Result<Arc<Mutex<dyn SendableBatchReader>>> {
         let threads: Vec<JoinHandle<Result<Vec<RecordBatch>>>> = self
             .input
             .iter()

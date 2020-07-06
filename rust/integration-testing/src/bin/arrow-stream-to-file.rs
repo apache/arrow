@@ -18,10 +18,10 @@
 use std::env;
 use std::io;
 
-use arrow::record_batch::BatchReader;
 use arrow::error::Result;
 use arrow::ipc::reader::StreamReader;
 use arrow::ipc::writer::FileWriter;
+use arrow::record_batch::BatchReader;
 
 fn main() -> Result<()> {
     let args: Vec<String> = env::args().collect();

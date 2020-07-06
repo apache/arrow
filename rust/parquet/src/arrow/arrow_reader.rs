@@ -25,7 +25,7 @@ use crate::file::reader::FileReader;
 use arrow::array::StructArray;
 use arrow::datatypes::{DataType as ArrowType, Schema, SchemaRef};
 use arrow::error::Result as ArrowResult;
-use arrow::record_batch::{RecordBatch, BatchReader};
+use arrow::record_batch::{BatchReader, RecordBatch};
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -221,7 +221,7 @@ mod tests {
     use arrow::array::{
         Array, BooleanArray, FixedSizeBinaryArray, StringArray, StructArray,
     };
-    use arrow::record_batch::RecordBatchReader;
+    use arrow::record_batch::BatchReader;
     use rand::RngCore;
     use serde_json::json;
     use serde_json::Value::{Array as JArray, Null as JNull, Object as JObject};
@@ -399,7 +399,7 @@ mod tests {
         for i in 0..num_iterations {
             let start = i * record_batch_size;
 
-            let batch = record_reader.next_batch().unwrap();
+            let batch = record_reader.next().unwrap();
             if start < expected_data.len() {
                 let end = min(start + record_batch_size, expected_data.len());
                 assert!(batch.is_some());
@@ -475,13 +475,13 @@ mod tests {
     }
 
     fn compare_batch_json(
-        record_batch_reader: &mut RecordBatchReader,
+        record_batch_reader: &mut dyn BatchReader,
         json_values: Vec<serde_json::Value>,
         max_len: usize,
     ) {
         for i in 0..20 {
             let array: Option<StructArray> = record_batch_reader
-                .next_batch()
+                .next()
                 .expect("Failed to read record batch!")
                 .map(|r| r.into());
 

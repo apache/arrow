@@ -20,8 +20,8 @@
 
 use crate::error::Result;
 use crate::execution::physical_plan::common::RecordBatchIterator;
-use crate::execution::physical_plan::{common, ExecutionPlan};
 use crate::execution::physical_plan::Partition;
+use crate::execution::physical_plan::{common, ExecutionPlan};
 use arrow::datatypes::Schema;
 use arrow::record_batch::{RecordBatch, SendableBatchReader};
 use std::sync::{Arc, Mutex};

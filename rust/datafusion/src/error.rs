@@ -54,6 +54,13 @@ pub enum ExecutionError {
     ExecutionError(String),
 }
 
+impl ExecutionError {
+    /// Wraps this `ExecutionError` in arrow's `ExternalError` variant.
+    pub fn into_arrow_external_error(self) -> ArrowError {
+        ArrowError::from_external_error(Box::new(self))
+    }
+}
+
 impl From<Error> for ExecutionError {
     fn from(e: Error) -> Self {
         ExecutionError::IoError(e)

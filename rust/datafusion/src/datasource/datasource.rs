@@ -19,8 +19,8 @@
 
 use std::sync::{Arc, Mutex};
 
-use arrow::record_batch::SendableBatchReader;
 use arrow::datatypes::Schema;
+use arrow::record_batch::SendableBatchReader;
 
 use crate::error::Result;
 

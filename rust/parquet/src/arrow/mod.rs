@@ -23,7 +23,7 @@
 //! # Example of reading parquet file into arrow record batch
 //!
 //! ```rust, no_run
-//! use arrow::record_batch::RecordBatchReader;
+//! use arrow::record_batch::BatchReader;
 //! use parquet::file::reader::SerializedFileReader;
 //! use parquet::arrow::{ParquetFileArrowReader, ArrowReader};
 //! use std::rc::Rc;
@@ -40,7 +40,7 @@
 //! let mut record_batch_reader = arrow_reader.get_record_reader(2048).unwrap();
 //!
 //! loop {
-//!    let record_batch = record_batch_reader.next_batch().unwrap().unwrap();
+//!    let record_batch = record_batch_reader.next().unwrap().unwrap();
 //!    if record_batch.num_rows() > 0 {
 //!        println!("Read {} records.", record_batch.num_rows());
 //!    } else {

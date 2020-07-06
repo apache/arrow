@@ -20,12 +20,11 @@
 use std::sync::{Arc, Mutex};
 
 use crate::error::{ExecutionError, Result};
-use crate::execution::physical_plan::{
-    ExecutionPlan, Partition, PhysicalExpr,
-};
+use crate::execution::physical_plan::{ExecutionPlan, Partition, PhysicalExpr};
 use arrow::array::BooleanArray;
 use arrow::compute::filter;
 use arrow::datatypes::Schema;
+use arrow::error::Result as ArrowResult;
 use arrow::record_batch::{RecordBatch, SendableBatchReader};
 
 /// Execution plan for a Selection
@@ -110,12 +109,15 @@ impl SendableBatchReader for SelectionIterator {
     }
 
     /// Get the next batch
-    fn next(&mut self) -> Result<Option<RecordBatch>> {
+    fn next(&mut self) -> ArrowResult<Option<RecordBatch>> {
         let mut input = self.input.lock().unwrap();
         match input.next()? {
             Some(batch) => {
                 // evaluate the selection predicate to get a boolean array
-                let predicate_result = self.expr.evaluate(&batch)?;
+                let predicate_result = self
+                    .expr
+                    .evaluate(&batch)
+                    .map_err(ExecutionError::into_arrow_external_error)?;
 
                 if let Some(f) = predicate_result.as_any().downcast_ref::<BooleanArray>()
                 {
@@ -133,7 +135,8 @@ impl SendableBatchReader for SelectionIterator {
                 } else {
                     Err(ExecutionError::InternalError(
                         "Predicate evaluated to non-boolean value".to_string(),
-                    ))
+                    )
+                    .into_arrow_external_error())
                 }
             }
             None => Ok(None),
