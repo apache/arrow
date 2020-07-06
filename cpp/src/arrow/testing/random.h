@@ -143,8 +143,8 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   /// \brief Generates a random HalfFloatArray
   ///
   /// \param[in] size the size of the array to generate
-  /// \param[in] min the lower bound of the uniform distribution
-  /// \param[in] max the upper bound of the uniform distribution
+  /// \param[in] min the lower bound of the distribution
+  /// \param[in] max the upper bound of the distribution
   /// \param[in] null_probability the probability of a row being null
   ///
   /// \return a generated Array

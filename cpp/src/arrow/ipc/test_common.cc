@@ -80,8 +80,8 @@ Status MakeRandomInt32Array(int64_t length, bool include_nulls, MemoryPool* pool
 }
 
 template <typename ArrayType>
-static Status MakeRandomArray(int64_t length, bool include_nulls, MemoryPool* pool,
-                              std::shared_ptr<Array>* out, uint32_t seed) {
+Status MakeRandomArray(int64_t length, bool include_nulls, MemoryPool* pool,
+                       std::shared_ptr<Array>* out, uint32_t seed) {
   random::RandomArrayGenerator rand(seed);
   const double null_probability = include_nulls ? 0.5 : 0.0;
 
