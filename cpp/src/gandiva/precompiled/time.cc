@@ -699,6 +699,11 @@ gdv_timestamp castTIMESTAMP_utf8(int64_t context, const char* input, gdv_int32 l
 
 gdv_timestamp castTIMESTAMP_date64(gdv_date64 date_in_millis) { return date_in_millis; }
 
+gdv_date64 castDATE_timestamp(gdv_timestamp timestamp_in_millis) {
+  EpochTimePoint tp(timestamp_in_millis);
+  return tp.ClearTimeOfDay().MillisSinceEpoch();
+}
+
 const char* castVARCHAR_timestamp_int64(gdv_int64 context, gdv_timestamp in,
                                         gdv_int64 length, gdv_int32* out_len) {
   gdv_int64 year = extractYear_timestamp(in);
