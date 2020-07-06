@@ -43,13 +43,10 @@
 namespace arrow {
 namespace compute {
 
-template <typename Type, typename T = typename TypeTraits<Type>::c_type>
-void CheckFillNull(const std::shared_ptr<DataType>& type, const std::vector<T>& in_values,
-                   const std::vector<bool>& in_is_valid, const Datum fill_value,
-                   const std::vector<T>& out_values,
-                   const std::vector<bool>& out_is_valid) {
-  std::shared_ptr<Array> input = _MakeArray<Type, T>(type, in_values, in_is_valid);
-  std::shared_ptr<Array> expected = _MakeArray<Type, T>(type, out_values, out_is_valid);
+void CheckFillNull(const std::shared_ptr<DataType>& type, const std::string& in_values,
+                   const Datum fill_value, const std::string& out_values) {
+  std::shared_ptr<Array> input = ArrayFromJSON(type, in_values);
+  std::shared_ptr<Array> expected = ArrayFromJSON(type, out_values);
 
   ASSERT_OK_AND_ASSIGN(Datum datum_out, FillNull(input, fill_value));
   std::shared_ptr<Array> result = datum_out.make_array();
@@ -63,8 +60,15 @@ template <typename Type>
 class TestFillNullPrimitive : public ::testing::Test {};
 
 typedef ::testing::Types<Int8Type, UInt8Type, Int16Type, UInt16Type, Int32Type,
-                         UInt32Type, Int64Type, UInt64Type, Date32Type, Date64Type>
+                         UInt32Type, Int64Type, UInt64Type, FloatType, DoubleType,
+                         Date32Type, Date64Type>
     PrimitiveTypes;
+
+TEST_F(TestFillNullKernel, FillNullInvalidScalar) {
+  auto scalar = std::make_shared<Int8Scalar>(3);
+  scalar->is_valid = false;
+  CheckFillNull(int8(), "[1, null, 3, 2]", Datum(scalar), "[1, null, 3, 2]");
+}
 
 TYPED_TEST_SUITE(TestFillNullPrimitive, PrimitiveTypes);
 
@@ -74,63 +78,42 @@ TYPED_TEST(TestFillNullPrimitive, FillNull) {
   auto type = TypeTraits<TypeParam>::type_singleton();
   auto scalar = std::make_shared<ScalarType>(static_cast<T>(5));
   // No Nulls
-  CheckFillNull<TypeParam, T>(type, {2, 4, 7, 9}, {true, true, true, true}, Datum(scalar),
-                              {2, 4, 7, 9}, {true, true, true, true});
-  // Some Nulls
-  CheckFillNull<TypeParam, T>(type, {2, 4, 7, 8}, {false, true, false, true},
-                              Datum(scalar), {5, 4, 5, 8}, {true, true, true, true});
+  CheckFillNull(type, "[2, 4, 7, 9]", Datum(scalar), "[2, 4, 7, 9]");
+  // Some Null
+  CheckFillNull(type, "[null, 4, null, 8]", Datum(scalar), "[5, 4, 5, 8]");
   // Empty Array
-  CheckFillNull<TypeParam, T>(type, {}, {}, Datum(scalar), {}, {});
+  CheckFillNull(type, "[]", Datum(scalar), "[]");
 }
 
 TEST_F(TestFillNullKernel, FillNullNull) {
   auto datum = Datum(std::make_shared<NullScalar>());
-  CheckFillNull<NullType, std::nullptr_t>(null(), {0, 0, 0, 0},
-                                          {false, false, false, false}, datum,
-                                          {0, 0, 0, 0}, {false, false, false, false});
-  CheckFillNull<NullType, std::nullptr_t>(null(), {NULL, NULL, NULL, NULL}, {}, datum,
-                                          {NULL, NULL, NULL, NULL}, {});
-  CheckFillNull<NullType, std::nullptr_t>(null(), {0, 0, 0, 0},
-                                          {false, false, false, false}, datum,
-                                          {0, 0, 0, 0}, {false, false, false, false});
-  CheckFillNull<NullType, std::nullptr_t>(null(), {NULL, NULL, NULL, NULL}, {}, datum,
-                                          {NULL, NULL, NULL, NULL}, {});
+  CheckFillNull(null(), "[null, null, null, null]", datum, "[null, null, null, null]");
 }
 
 TEST_F(TestFillNullKernel, FillNullBoolean) {
   auto scalar1 = std::make_shared<BooleanScalar>(false);
   auto scalar2 = std::make_shared<BooleanScalar>(true);
   // no nulls
-  CheckFillNull<BooleanType, bool>(boolean(), {true, false, true, false},
-                                   {true, true, true, true}, Datum(scalar1),
-                                   {true, false, true, false}, {true, true, true, true});
+  CheckFillNull(boolean(), "[true, false, true, false]", Datum(scalar1),
+                "[true, false, true, false]");
   // some nulls
-  CheckFillNull<BooleanType, bool>(boolean(), {true, false, true, false},
-                                   {false, true, true, false}, Datum(scalar1),
-                                   {false, false, true, false}, {true, true, true, true});
-  CheckFillNull<BooleanType, bool>(boolean(), {true, false, true, false},
-                                   {false, true, false, false}, Datum(scalar2),
-                                   {true, false, true, true}, {true, true, true, true});
+  CheckFillNull(boolean(), "[true, false, false, null]", Datum(scalar1),
+                "[true, false, false, false]");
+  CheckFillNull(boolean(), "[true, null, false, null]", Datum(scalar2),
+                "[true, true, false, true]");
 }
 
 TEST_F(TestFillNullKernel, FillNullTimeStamp) {
   auto time32_type = time32(TimeUnit::SECOND);
   auto time64_type = time64(TimeUnit::NANO);
-  auto scalar1 = Datum(std::make_shared<Time32Scalar>(5, time32_type));
-  auto scalar2 = Datum(std::make_shared<Time64Scalar>(6, time64_type));
+  auto scalar1 = std::make_shared<Time32Scalar>(5, time32_type);
+  auto scalar2 = std::make_shared<Time64Scalar>(6, time64_type);
   // no nulls
-  CheckFillNull<Time32Type, int32_t>(time32_type, {2, 1, 6, 9}, {true, true, true, true},
-                                     Datum(scalar1), {2, 1, 6, 9},
-                                     {true, true, true, true});
-  CheckFillNull<Time32Type, int32_t>(time32_type, {2, 1, 6, 9},
-                                     {true, false, true, false}, Datum(scalar1),
-                                     {2, 5, 6, 5}, {true, true, true, true});
+  CheckFillNull(time32_type, "[2, 1, 6, 9]", Datum(scalar1), "[2, 1, 6, 9]");
+  CheckFillNull(time64_type, "[2, 1, 6, 9]", Datum(scalar2), "[2, 1, 6, 9]");
   // some nulls
-  CheckFillNull<Time64Type, int64_t>(time64_type, {2, 1, 6, 9}, {true, true, true, true},
-                                     scalar2, {2, 1, 6, 9}, {true, true, true, true});
-  CheckFillNull<Time64Type, int64_t>(time64_type, {2, 1, 6, 9},
-                                     {true, false, true, false}, scalar2, {2, 6, 6, 6},
-                                     {true, true, true, true});
+  CheckFillNull(time32_type, "[2, 1, 6, null]", Datum(scalar1), "[2, 1, 6, 5]");
+  CheckFillNull(time64_type, "[2, 1, 6, null]", Datum(scalar2), "[2, 1, 6, 6]");
 }
 
 }  // namespace compute

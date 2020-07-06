@@ -1,4 +1,3 @@
-
 // Licensed to the Apache Software Foundation (ASF) under one
 // or more contributor license agreements.  See the NOTICE file
 // distributed with this work for additional information
@@ -16,7 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/array/array_base.h"
 #include "arrow/array/builder_primitive.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernels/common.h"
@@ -26,194 +24,217 @@
 
 namespace arrow {
 
+using internal::BitBlockCount;
+using internal::BitBlockCounter;
+
 namespace compute {
 namespace internal {
+
 namespace {
 
-template <typename T, typename R = void>
-using enable_if_supports_fill_null = enable_if_t<has_c_type<T>::value, R>;
+template <typename OutType, typename InType, typename Enable = void>
+struct FillNullFunctor {};
 
-template <typename Type>
-struct FillNullState : public KernelState {
-  explicit FillNullState(MemoryPool* pool) {}
+template <typename OutType, typename InType>
+struct FillNullFunctor<OutType, InType, enable_if_t<is_number_type<InType>::value>> {
+  using value_type = typename TypeTraits<InType>::CType;
+  using BuilderType = typename TypeTraits<OutType>::BuilderType;
 
-  Status Init(const FillNullOptions& options) {
-    fill_value = options.fill_value.scalar();
-    return Status::OK();
+  static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    const Datum& in_arr = batch[0];
+    const Datum& fill_value = batch[1];
+
+    if (!in_arr.is_arraylike()) {
+      ctx->SetStatus(Status::Invalid("Values must be Array or ChunkedArray"));
+    }
+    if (!fill_value.is_scalar()) {
+      ctx->SetStatus(Status::Invalid("fill value must be a scalar"));
+    }
+
+    ctx->SetStatus(Fill(ctx, *in_arr.array(), *fill_value.scalar(), out));
   }
 
-  std::shared_ptr<Scalar> fill_value;
-};
+  static Status Fill(KernelContext* ctx, const ArrayData& data, const Scalar& fill_value,
+                     Datum* out) {
+    value_type value = UnboxScalar<InType>::Unbox(fill_value);
+    ArrayData* output = out->mutable_array();
 
-template <>
-struct FillNullState<NullType> : public KernelState {
-  explicit FillNullState(MemoryPool*) {}
+    if (data.null_count != 0 && fill_value.is_valid) {
+      BuilderType builder(data.type, ctx->memory_pool());
+      RETURN_NOT_OK(builder.Reserve(data.length));
 
-  Status Init(const FillNullOptions& options) { return Status::OK(); }
+      RETURN_NOT_OK(VisitArrayDataInline<InType>(
+          data, [&](value_type v) { return builder.Append(v); },
+          [&]() { return builder.Append(value); }));
 
-  std::shared_ptr<Scalar> fill_value;
-};
+      std::shared_ptr<Array> output_array;
+      RETURN_NOT_OK(builder.Finish(&output_array));
+      *output = std::move(*output_array->data());
 
-struct InitFillNullStateVisitor {
-  KernelContext* ctx;
-  const FillNullOptions* options;
-  std::unique_ptr<KernelState> result;
-
-  InitFillNullStateVisitor(KernelContext* ctx, const FillNullOptions* options)
-      : ctx(ctx), options(options) {}
-
-  template <typename Type>
-  Status Init() {
-    using StateType = FillNullState<Type>;
-    result.reset(new StateType(ctx->exec_context()->memory_pool()));
-    return static_cast<StateType*>(result.get())->Init(*options);
-  }
-
-  Status Visit(const DataType&) { return Init<NullType>(); }
-
-  template <typename Type>
-  enable_if_supports_fill_null<Type, Status> Visit(const Type&) {
-    return Init<Type>();
-  }
-
-  Status GetResult(std::unique_ptr<KernelState>* out) {
-    RETURN_NOT_OK(VisitTypeInline(*options->fill_value.type(), this));
-    *out = std::move(result);
-    return Status::OK();
-  }
-};
-
-std::unique_ptr<KernelState> InitFillNull(KernelContext* ctx,
-                                          const KernelInitArgs& args) {
-  InitFillNullStateVisitor visitor{ctx,
-                                   static_cast<const FillNullOptions*>(args.options)};
-  std::unique_ptr<KernelState> result;
-  ctx->SetStatus(visitor.GetResult(&result));
-  return result;
-}
-
-struct ScalarFillVisitor {
-  KernelContext* ctx;
-  const ArrayData& data;
-  Datum* out;
-
-  ScalarFillVisitor(KernelContext* ctx, const ArrayData& data, Datum* out)
-      : ctx(ctx), data(data), out(out) {}
-
-  Status Visit(const DataType&) {
-    ArrayData* out_arr = out->mutable_array();
-    *out_arr = data;
-    return Status::OK();
-  }
-
-  Status Visit(const BooleanType&) {
-    const auto& state = checked_cast<const FillNullState<BooleanType>&>(*ctx->state());
-    bool value = UnboxScalar<BooleanType>::Unbox(*state.fill_value);
-    ArrayData* out_arr = out->mutable_array();
-    FirstTimeBitmapWriter bit_writer(out_arr->buffers[1]->mutable_data(), out_arr->offset,
-                                     out_arr->length);
-    FirstTimeBitmapWriter bit_writer_validity(out_arr->buffers[0]->mutable_data(),
-                                              out_arr->offset, out_arr->length);
-    if (data.null_count != 0) {
-      BitmapReader bit_reader(data.buffers[1]->data(), data.offset, data.length);
-      BitmapReader bit_reader_validity(data.buffers[0]->data(), data.offset, data.length);
-      for (int64_t i = 0; i < data.length; i++) {
-        if (bit_reader_validity.IsNotSet()) {
-          if (value == true) {
-            bit_writer.Set();
-          } else {
-            bit_writer.Clear();
-          }
-          bit_writer_validity.Set();
-        } else {
-          if (bit_reader.IsSet()) {
-            bit_writer.Set();
-          } else {
-            bit_writer.Clear();
-          }
-          bit_writer_validity.Set();
-        }
-        bit_reader.Next();
-        bit_writer.Next();
-        bit_reader_validity.Next();
-        bit_writer_validity.Next();
-      }
-      bit_writer_validity.Finish();
-      bit_writer.Finish();
     } else {
-      *out_arr = data;
+      *output = data;
     }
     return Status::OK();
   }
+};
 
-  template <typename Type>
-  enable_if_supports_fill_null<Type, Status> Visit(const Type&) {
-    using T = typename GetViewType<Type>::T;
-    const auto& state = checked_cast<const FillNullState<Type>&>(*ctx->state());
-    T value = UnboxScalar<Type>::Unbox(*state.fill_value);
-    const T* in_data = data.GetValues<T>(1);
-    ArrayData* out_arr = out->mutable_array();
-    auto out_data = out_arr->GetMutableValues<T>(1);
+template <typename OutType, typename InType>
+struct FillNullFunctor<OutType, InType, enable_if_t<is_boolean_type<InType>::value>> {
+  using value_type = typename TypeTraits<InType>::CType;
 
-    if (data.null_count != 0) {
-      BitmapReader bit_reader(data.buffers[0]->data(), data.offset, data.length);
-      for (int64_t i = 0; i < data.length; i++) {
-        if (bit_reader.IsNotSet()) {
-          out_data[i] = value;
+  static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    const Datum& in_arr = batch[0];
+    const Datum& fill_value = batch[1];
+
+    if (!in_arr.is_arraylike()) {
+      ctx->SetStatus(Status::Invalid("Values must be Array or ChunkedArray"));
+    }
+    if (!fill_value.is_scalar()) {
+      ctx->SetStatus(Status::Invalid("fill value must be a scalar"));
+    }
+
+    ctx->SetStatus(Fill(ctx, *in_arr.array(), *fill_value.scalar(), out));
+  }
+
+  static Status Fill(KernelContext* ctx, const ArrayData& data, const Scalar& fill_value,
+                     Datum* out) {
+    value_type value = UnboxScalar<InType>::Unbox(fill_value);
+    ArrayData* output = out->mutable_array();
+
+    if (data.null_count != 0 && fill_value.is_valid) {
+      int64_t position = 0;
+      const uint8_t* bitmap = data.buffers[1]->data();
+      const uint8_t* bitmap_validity = output->buffers[0]->data();
+      auto length = data.length;
+      auto offset = data.offset;
+
+      BooleanBuilder builder(data.type, ctx->memory_pool());
+      RETURN_NOT_OK(builder.Reserve(length));
+      BitBlockCounter bit_counter(bitmap_validity, offset, length);
+      while (position < length) {
+        BitBlockCount block = bit_counter.NextWord();
+        if (block.AllSet()) {
+          for (int64_t i = 0; i < block.length; ++i, ++position) {
+            if (BitUtil::GetBit(bitmap, offset + position)) {
+              RETURN_NOT_OK(builder.Append(true));
+            } else {
+              RETURN_NOT_OK(builder.Append(false));
+            }
+          }
+        } else if (block.NoneSet()) {
+          for (int64_t i = 0; i < block.length; ++i, ++position) {
+            RETURN_NOT_OK(builder.Append(value));
+          }
         } else {
-          out_data[i] = static_cast<T>(in_data[i]);
+          for (int64_t i = 0; i < block.length; ++i, ++position) {
+            if (BitUtil::GetBit(bitmap_validity, offset + position)) {
+              if (BitUtil::GetBit(bitmap, offset + position)) {
+                RETURN_NOT_OK(builder.Append(true));
+              } else {
+                RETURN_NOT_OK(builder.Append(false));
+              }
+            } else {
+              RETURN_NOT_OK(builder.Append(value));
+            }
+          }
         }
-        bit_reader.Next();
       }
-      BitUtil::SetBitsTo(out_arr->buffers[0]->mutable_data(), out_arr->offset,
-                         out_arr->length, true);
+      std::shared_ptr<Array> output_array;
+      RETURN_NOT_OK(builder.Finish(&output_array));
+      *output = std::move(*output_array->data());
     } else {
-      *out_arr = data;
+      *output = data;
     }
     return Status::OK();
   }
-
-  Status Execute() { return VisitTypeInline(*data.type, this); }
 };
 
-void ExecFillNull(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  ScalarFillVisitor dispatch(ctx, *batch[0].array(), out);
-  ctx->SetStatus(dispatch.Execute());
+template <typename OutType, typename InType>
+struct FillNullFunctor<OutType, InType, enable_if_t<is_null_type<InType>::value>> {
+  static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    const Datum& in_arr = batch[0];
+    const Datum& fill_value = batch[1];
+
+    if (!in_arr.is_arraylike()) {
+      ctx->SetStatus(Status::Invalid("Values must be Array or ChunkedArray"));
+    }
+    if (!fill_value.is_scalar()) {
+      ctx->SetStatus(Status::Invalid("fill value must be a scalar"));
+    }
+
+    ctx->SetStatus(Fill(ctx, *in_arr.array(), *fill_value.scalar(), out));
+  }
+
+  static Status Fill(KernelContext* ctx, const ArrayData& data, const Scalar& fill_value,
+                     Datum* out) {
+    ArrayData* output = out->mutable_array();
+    *output = data;
+    return Status::OK();
+  }
+};
+
+template <template <typename...> class Generator>
+ArrayKernelExec GeneratePhysicalIntegerSameType(detail::GetTypeId get_id) {
+  switch (get_id.id) {
+    case Type::INT8:
+      return Generator<Int8Type, Int8Type>::Exec;
+    case Type::INT16:
+      return Generator<Int16Type, Int16Type>::Exec;
+    case Type::INT32:
+    case Type::DATE32:
+    case Type::TIME32:
+      return Generator<Int32Type, Int32Type>::Exec;
+    case Type::INT64:
+    case Type::DATE64:
+    case Type::TIMESTAMP:
+    case Type::TIME64:
+    case Type::DURATION:
+      return Generator<Int64Type, Int64Type>::Exec;
+    case Type::UINT8:
+      return Generator<UInt8Type, UInt8Type>::Exec;
+    case Type::UINT16:
+      return Generator<UInt16Type, UInt16Type>::Exec;
+    case Type::UINT32:
+      return Generator<UInt32Type, UInt32Type>::Exec;
+    case Type::UINT64:
+      return Generator<UInt64Type, UInt64Type>::Exec;
+    case Type::BOOL:
+      return Generator<BooleanType, BooleanType>::Exec;
+    case Type::DOUBLE:
+      return Generator<DoubleType, DoubleType>::Exec;
+    case Type::FLOAT:
+      return Generator<FloatType, FloatType>::Exec;
+    case Type::NA:
+      return Generator<NullType, NullType>::Exec;
+    default:
+      DCHECK(false);
+      return ExecFail;
+  }
 }
 
 void AddBasicFillNullKernels(ScalarKernel kernel, ScalarFunction* func) {
   auto AddKernels = [&](const std::vector<std::shared_ptr<DataType>>& types) {
     for (const std::shared_ptr<DataType>& ty : types) {
-      kernel.signature = KernelSignature::Make({InputType::Array(ty)}, ty);
-      DCHECK_OK(func->AddKernel(kernel));
+      auto exec = GeneratePhysicalIntegerSameType<FillNullFunctor>(*ty);
+      DCHECK_OK(func->AddKernel({InputType::Array(ty), InputType::Scalar(ty)}, ty,
+                                std::move(exec)));
     }
   };
 
   AddKernels(NumericTypes());
   AddKernels(TemporalTypes());
-
-  std::vector<std::shared_ptr<DataType>> other_types = {boolean()};
-
-  for (auto ty : other_types) {
-    kernel.signature = KernelSignature::Make({InputType::Array(ty)}, ty);
-    DCHECK_OK(func->AddKernel(kernel));
-  }
+  AddKernels({boolean(), null()});
 }
 
 }  // namespace
 
 void RegisterScalarFillNull(FunctionRegistry* registry) {
-  // Fill Null always writes into preallocated memory
   {
     ScalarKernel fill_null_base;
-    fill_null_base.init = InitFillNull;
-    fill_null_base.exec = ExecFillNull;
-    auto fill_null = std::make_shared<ScalarFunction>("fill_null", Arity::Unary());
-
+    fill_null_base.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
+    fill_null_base.mem_allocation = MemAllocation::NO_PREALLOCATE;
+    auto fill_null = std::make_shared<ScalarFunction>("fill_null", Arity::Binary());
     AddBasicFillNullKernels(fill_null_base, fill_null.get());
-    fill_null_base.signature = KernelSignature::Make({InputType::Array(null())}, null());
-    fill_null_base.null_handling = NullHandling::COMPUTED_PREALLOCATE;
-    DCHECK_OK(fill_null->AddKernel(fill_null_base));
     DCHECK_OK(registry->AddFunction(fill_null));
   }
 }

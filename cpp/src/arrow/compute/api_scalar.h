@@ -259,12 +259,6 @@ Result<Datum> IsValid(const Datum& values, ExecContext* ctx = NULLPTR);
 ARROW_EXPORT
 Result<Datum> IsNull(const Datum& values, ExecContext* ctx = NULLPTR);
 
-struct ARROW_EXPORT FillNullOptions : public FunctionOptions {
-  explicit FillNullOptions(Datum fill_value) : fill_value(std::move(fill_value)) {}
-
-  Datum fill_value;
-};
-
 /// \brief FillNull replaces each null element in `values`
 /// with `fill_value`
 ///
