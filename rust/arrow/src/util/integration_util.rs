@@ -24,7 +24,7 @@ use serde_json::{Number as VNumber, Value};
 
 use crate::array::*;
 use crate::datatypes::*;
-use crate::record_batch::{BatchReader, RecordBatch};
+use crate::record_batch::{RecordBatchReader, RecordBatch};
 
 /// A struct that represents an Arrow file with a schema and record batches
 #[derive(Deserialize, Serialize, Debug)]
@@ -73,7 +73,7 @@ pub struct ArrowJsonColumn {
 
 impl ArrowJson {
     /// Compare the Arrow JSON with a record batch reader
-    pub fn equals_reader(&self, reader: &mut BatchReader) -> bool {
+    pub fn equals_reader(&self, reader: &mut RecordBatchReader) -> bool {
         if !self.schema.equals_schema(&reader.schema()) {
             return false;
         }

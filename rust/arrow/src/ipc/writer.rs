@@ -417,7 +417,7 @@ mod tests {
     use crate::array::*;
     use crate::datatypes::Field;
     use crate::ipc::reader::*;
-    use crate::record_batch::BatchReader;
+    use crate::record_batch::RecordBatchReader;
     use crate::util::integration_util::*;
     use std::env;
     use std::fs::File;

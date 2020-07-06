@@ -38,7 +38,7 @@ use std::fs::File;
 use arrow::csv;
 use arrow::datatypes::{Field, Schema};
 use arrow::error::Result as ArrowResult;
-use arrow::record_batch::{RecordBatch, SendableBatchReader};
+use arrow::record_batch::{RecordBatch, SendableRecordBatchReader};
 use std::string::String;
 use std::sync::Arc;
 
@@ -145,7 +145,7 @@ impl CsvBatchIterator {
     }
 }
 
-impl SendableBatchReader for CsvBatchIterator {
+impl SendableRecordBatchReader for CsvBatchIterator {
     fn schema(&self) -> Arc<Schema> {
         self.schema.clone()
     }

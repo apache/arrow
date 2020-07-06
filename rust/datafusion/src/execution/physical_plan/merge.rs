@@ -23,7 +23,7 @@ use crate::execution::physical_plan::common::RecordBatchIterator;
 use crate::execution::physical_plan::Partition;
 use crate::execution::physical_plan::{common, ExecutionPlan};
 use arrow::datatypes::Schema;
-use arrow::record_batch::{RecordBatch, SendableBatchReader};
+use arrow::record_batch::{RecordBatch, SendableRecordBatchReader};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::thread::JoinHandle;
@@ -65,7 +65,7 @@ struct MergePartition {
 }
 
 impl Partition for MergePartition {
-    fn execute(&self) -> Result<Arc<Mutex<dyn SendableBatchReader>>> {
+    fn execute(&self) -> Result<Arc<Mutex<dyn SendableRecordBatchReader>>> {
         let threads: Vec<JoinHandle<Result<Vec<RecordBatch>>>> = self
             .partitions
             .iter()

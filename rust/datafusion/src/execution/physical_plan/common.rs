@@ -27,7 +27,7 @@ use crate::logicalplan::ScalarValue;
 use arrow::array::{self, ArrayRef};
 use arrow::datatypes::{DataType, Schema};
 use arrow::error::Result as ArrowResult;
-use arrow::record_batch::{RecordBatch, SendableBatchReader};
+use arrow::record_batch::{RecordBatch, SendableRecordBatchReader};
 
 /// Iterator over a vector of record batches
 pub struct RecordBatchIterator {
@@ -47,7 +47,7 @@ impl RecordBatchIterator {
     }
 }
 
-impl SendableBatchReader for RecordBatchIterator {
+impl SendableRecordBatchReader for RecordBatchIterator {
     fn schema(&self) -> Arc<Schema> {
         self.schema.clone()
     }
@@ -63,7 +63,7 @@ impl SendableBatchReader for RecordBatchIterator {
 }
 
 /// Create a vector of record batches from an iterator
-pub fn collect(it: Arc<Mutex<dyn SendableBatchReader>>) -> Result<Vec<RecordBatch>> {
+pub fn collect(it: Arc<Mutex<dyn SendableRecordBatchReader>>) -> Result<Vec<RecordBatch>> {
     let mut it = it.lock().unwrap();
     let mut results: Vec<RecordBatch> = vec![];
     loop {

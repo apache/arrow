@@ -217,8 +217,8 @@ impl Into<StructArray> for RecordBatch {
 }
 
 /// Definition of type that can read `RecordBatch`'s in a single-threaded context.
-pub trait BatchReader {
-    /// Returns schema of this `BatchReader`.
+pub trait RecordBatchReader {
+    /// Returns schema of this `RecordBatchReader`.
     ///
     /// Implementation of this trait should guarantee that all `RecordBatch`'s returned by this
     /// reader should have same schema as returned from this method.
@@ -229,8 +229,8 @@ pub trait BatchReader {
 }
 
 /// Definition of type that can read `RecordBatch`'s in a multi-threaded context.
-pub trait SendableBatchReader: Send + Sync {
-    /// Returns schemas of this `BatchReader`.
+pub trait SendableRecordBatchReader: Send + Sync {
+    /// Returns schemas of this `SendableRecordBatchReader`.
     ///
     /// Implementation of this trait should guarantee that all `RecordBatch`'s returned by this
     /// reader should have same schema as returned from this method.

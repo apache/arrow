@@ -20,13 +20,13 @@
 use std::sync::{Arc, Mutex};
 
 use arrow::datatypes::Schema;
-use arrow::record_batch::SendableBatchReader;
+use arrow::record_batch::SendableRecordBatchReader;
 
 use crate::error::Result;
 
-/// Returned by implementors of `Table#scan`, this `SendableBatchReader` is wrapped with
+/// Returned by implementors of `Table#scan`, this `SendableRecordBatchReader` is wrapped with
 /// an `Arc` and `Mutex` so that it can be shared across threads as it is used.
-pub type ScanResult = Arc<Mutex<dyn SendableBatchReader>>;
+pub type ScanResult = Arc<Mutex<dyn SendableRecordBatchReader>>;
 
 /// Source table
 pub trait TableProvider {

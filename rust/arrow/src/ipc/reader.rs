@@ -30,7 +30,7 @@ use crate::compute::cast;
 use crate::datatypes::{DataType, Field, IntervalUnit, Schema, SchemaRef};
 use crate::error::{ArrowError, Result};
 use crate::ipc;
-use crate::record_batch::{BatchReader, RecordBatch};
+use crate::record_batch::{RecordBatchReader, RecordBatch};
 use DataType::*;
 
 const CONTINUATION_MARKER: u32 = 0xffff_ffff;
@@ -699,7 +699,7 @@ impl<R: Read + Seek> FileReader<R> {
     }
 }
 
-impl<R: Read + Seek> BatchReader for FileReader<R> {
+impl<R: Read + Seek> RecordBatchReader for FileReader<R> {
     fn schema(&mut self) -> SchemaRef {
         self.schema.clone()
     }
@@ -856,7 +856,7 @@ impl<R: Read> StreamReader<R> {
     }
 }
 
-impl<R: Read> BatchReader for StreamReader<R> {
+impl<R: Read> RecordBatchReader for StreamReader<R> {
     fn schema(&mut self) -> SchemaRef {
         self.schema.clone()
     }

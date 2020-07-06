@@ -25,7 +25,7 @@ use crate::file::reader::FileReader;
 use arrow::array::StructArray;
 use arrow::datatypes::{DataType as ArrowType, Schema, SchemaRef};
 use arrow::error::Result as ArrowResult;
-use arrow::record_batch::{BatchReader, RecordBatch};
+use arrow::record_batch::{RecordBatchReader, RecordBatch};
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -33,7 +33,7 @@ use std::sync::Arc;
 /// With this api, user can get arrow schema from parquet file, and read parquet data
 /// into arrow arrays.
 pub trait ArrowReader {
-    type RecordReader: BatchReader;
+    type RecordReader: RecordBatchReader;
 
     /// Read parquet schema and convert it into arrow schema.
     fn get_schema(&mut self) -> Result<Schema>;
@@ -143,7 +143,7 @@ pub struct ParquetRecordBatchReader {
     schema: SchemaRef,
 }
 
-impl BatchReader for ParquetRecordBatchReader {
+impl RecordBatchReader for ParquetRecordBatchReader {
     fn schema(&mut self) -> SchemaRef {
         self.schema.clone()
     }
@@ -221,7 +221,7 @@ mod tests {
     use arrow::array::{
         Array, BooleanArray, FixedSizeBinaryArray, StringArray, StructArray,
     };
-    use arrow::record_batch::BatchReader;
+    use arrow::record_batch::RecordBatchReader;
     use rand::RngCore;
     use serde_json::json;
     use serde_json::Value::{Array as JArray, Null as JNull, Object as JObject};
@@ -475,7 +475,7 @@ mod tests {
     }
 
     fn compare_batch_json(
-        record_batch_reader: &mut dyn BatchReader,
+        record_batch_reader: &mut dyn RecordBatchReader,
         json_values: Vec<serde_json::Value>,
         max_len: usize,
     ) {

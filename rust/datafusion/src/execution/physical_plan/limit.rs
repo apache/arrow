@@ -24,7 +24,7 @@ use crate::execution::physical_plan::Partition;
 use arrow::array::ArrayRef;
 use arrow::compute::limit;
 use arrow::datatypes::Schema;
-use arrow::record_batch::{RecordBatch, SendableBatchReader};
+use arrow::record_batch::{RecordBatch, SendableRecordBatchReader};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::thread::JoinHandle;
@@ -78,7 +78,7 @@ struct LimitPartition {
 }
 
 impl Partition for LimitPartition {
-    fn execute(&self) -> Result<Arc<Mutex<dyn SendableBatchReader>>> {
+    fn execute(&self) -> Result<Arc<Mutex<dyn SendableRecordBatchReader>>> {
         // collect up to "limit" rows on each partition
         let threads: Vec<JoinHandle<Result<Vec<RecordBatch>>>> = self
             .partitions
@@ -136,7 +136,7 @@ pub fn truncate_batch(batch: &RecordBatch, n: usize) -> Result<RecordBatch> {
 
 /// Create a vector of record batches from an iterator
 fn collect_with_limit(
-    it: Arc<Mutex<dyn SendableBatchReader>>,
+    it: Arc<Mutex<dyn SendableRecordBatchReader>>,
     limit: usize,
 ) -> Result<Vec<RecordBatch>> {
     let mut count = 0;

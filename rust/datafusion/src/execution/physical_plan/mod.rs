@@ -25,7 +25,7 @@ use crate::error::Result;
 use crate::logicalplan::ScalarValue;
 use arrow::array::ArrayRef;
 use arrow::datatypes::{DataType, Field, Schema};
-use arrow::record_batch::{RecordBatch, SendableBatchReader};
+use arrow::record_batch::{RecordBatch, SendableRecordBatchReader};
 
 /// Partition-aware execution plan for a relation
 pub trait ExecutionPlan {
@@ -38,7 +38,7 @@ pub trait ExecutionPlan {
 /// Represents a partition of an execution plan that can be executed on a thread
 pub trait Partition: Send + Sync {
     /// Execute this partition and return an iterator over RecordBatch
-    fn execute(&self) -> Result<Arc<Mutex<dyn SendableBatchReader>>>;
+    fn execute(&self) -> Result<Arc<Mutex<dyn SendableRecordBatchReader>>>;
 }
 
 /// Expression that can be evaluated against a RecordBatch
