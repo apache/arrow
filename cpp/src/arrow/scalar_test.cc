@@ -624,15 +624,12 @@ TEST(TestSparseUnionScalar, Basics) {
   auto scalar_two = SparseUnionScalar(two, ty);
 
   // test Array.GetScalar
-  auto children = std::vector<std::shared_ptr<Array>>(2);
-  ArrayFromVector<StringType, std::string>({"alpha", "", "beta", "", "gamma"},
-                                           &children[0]);
-  ArrayFromVector<UInt64Type>({1, 2, 11, 22, 111}, &children[1]);
+  std::vector<std::shared_ptr<Array>> children{
+      ArrayFromJSON(utf8(), "[\"alpha\", \"\", \"beta\", null, \"gamma\"]"),
+      ArrayFromJSON(uint64(), "[1, 2, 11, 22, null]")};
 
   auto type_ids = ArrayFromJSON(int8(), "[0, 1, 0, 0, 1]");
-  auto validity = ArrayFromJSON(boolean(), "[true, true, true, false, false]");
-  SparseUnionArray arr(ty, 5, children, type_ids->data()->buffers[1],
-                       validity->data()->buffers[1]);
+  SparseUnionArray arr(ty, 5, children, type_ids->data()->buffers[1]);
   ASSERT_OK(arr.ValidateFull());
 
   ASSERT_OK_AND_ASSIGN(auto first, arr.GetScalar(0));
@@ -665,15 +662,14 @@ TEST(TestDenseUnionScalar, Basics) {
   auto scalar_three = DenseUnionScalar(three, ty);
 
   // test Array.GetScalar
-  auto children = std::vector<std::shared_ptr<Array>>(2);
-  ArrayFromVector<StringType, std::string>({"alpha", "beta"}, &children[0]);
-  ArrayFromVector<UInt64Type>({2, 3}, &children[1]);
+  std::vector<std::shared_ptr<Array>> children = {
+      ArrayFromJSON(utf8(), "[\"alpha\", \"beta\", null]"),
+      ArrayFromJSON(uint64(), "[2, 3]")};
 
   auto type_ids = ArrayFromJSON(int8(), "[0, 1, 0, 0, 1]");
-  auto offsets = ArrayFromJSON(int32(), "[0, 0, 1, 0, 1]");
-  auto validity = ArrayFromJSON(boolean(), "[true, true, true, false, true]");
+  auto offsets = ArrayFromJSON(int32(), "[0, 0, 1, 2, 1]");
   DenseUnionArray arr(ty, 5, children, type_ids->data()->buffers[1],
-                      offsets->data()->buffers[1], validity->data()->buffers[1]);
+                      offsets->data()->buffers[1]);
   ASSERT_OK(arr.ValidateFull());
 
   ASSERT_OK_AND_ASSIGN(auto first, arr.GetScalar(0));

@@ -103,7 +103,11 @@ struct ScalarFromArraySlotImpl {
     auto arr = a.field(a.child_id(index_));
     // no need to adjust the index
     ARROW_ASSIGN_OR_RAISE(auto value, arr->GetScalar(index_));
-    out_ = std::shared_ptr<Scalar>(new SparseUnionScalar(value, a.type()));
+    if (value->is_valid) {
+      out_ = std::shared_ptr<Scalar>(new SparseUnionScalar(value, a.type()));
+    } else {
+      out_ = MakeNullScalar(a.type());
+    }
     return Status::OK();
   }
 
@@ -113,7 +117,11 @@ struct ScalarFromArraySlotImpl {
     // need to look up the value based on offsets
     auto offset = a.value_offset(index_);
     ARROW_ASSIGN_OR_RAISE(auto value, arr->GetScalar(offset));
-    out_ = std::shared_ptr<Scalar>(new DenseUnionScalar(value, a.type()));
+    if (value->is_valid) {
+      out_ = std::shared_ptr<Scalar>(new DenseUnionScalar(value, a.type()));
+    } else {
+      out_ = MakeNullScalar(a.type());
+    }
     return Status::OK();
   }
 
