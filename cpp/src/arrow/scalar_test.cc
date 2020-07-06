@@ -598,15 +598,15 @@ TEST(TestDictionaryScalar, Basics) {
 }
 
 TEST(TestSparseUnionScalar, Basics) {
-  auto sparse_ty = sparse_union({field("string", utf8()), field("number", uint64())});
+  auto ty = sparse_union({field("string", utf8()), field("number", uint64())});
 
   auto alpha = MakeScalar("alpha");
   auto beta = MakeScalar("beta");
   ASSERT_OK_AND_ASSIGN(auto two, MakeScalar(uint64(), 2));
 
-  auto sparse_alpha = UnionScalar(alpha, sparse_ty);
-  auto sparse_beta = UnionScalar(beta, sparse_ty);
-  auto sparse_two = UnionScalar(two, sparse_ty);
+  auto scalar_alpha = SparseUnionScalar(alpha, ty);
+  auto scalar_beta = SparseUnionScalar(beta, ty);
+  auto scalar_two = SparseUnionScalar(two, ty);
 
   // test Array.GetScalar
   auto children = std::vector<std::shared_ptr<Array>>(2);
@@ -616,24 +616,65 @@ TEST(TestSparseUnionScalar, Basics) {
 
   auto type_ids = ArrayFromJSON(int8(), "[0, 1, 0, 0, 1]");
   auto validity = ArrayFromJSON(boolean(), "[true, true, true, false, false]");
-  SparseUnionArray arr(sparse_ty, 5, children, type_ids->data()->buffers[1],
+  SparseUnionArray arr(ty, 5, children, type_ids->data()->buffers[1],
                        validity->data()->buffers[1]);
   ASSERT_OK(arr.ValidateFull());
 
   ASSERT_OK_AND_ASSIGN(auto first, arr.GetScalar(0));
-  ASSERT_TRUE(first->Equals(sparse_alpha));
+  ASSERT_TRUE(first->Equals(scalar_alpha));
 
   ASSERT_OK_AND_ASSIGN(auto second, arr.GetScalar(1));
-  ASSERT_TRUE(second->Equals(sparse_two));
+  ASSERT_TRUE(second->Equals(scalar_two));
 
   ASSERT_OK_AND_ASSIGN(auto third, arr.GetScalar(2));
-  ASSERT_TRUE(third->Equals(sparse_beta));
+  ASSERT_TRUE(third->Equals(scalar_beta));
 
   ASSERT_OK_AND_ASSIGN(auto fourth, arr.GetScalar(3));
-  ASSERT_TRUE(fourth->Equals(MakeNullScalar(sparse_ty)));
+  ASSERT_TRUE(fourth->Equals(MakeNullScalar(ty)));
 
   ASSERT_OK_AND_ASSIGN(auto fifth, arr.GetScalar(4));
-  ASSERT_TRUE(fifth->Equals(MakeNullScalar(sparse_ty)));
+  ASSERT_TRUE(fifth->Equals(MakeNullScalar(ty)));
+}
+
+TEST(TestDenseUnionScalar, Basics) {
+  auto ty = dense_union({field("string", utf8()), field("number", uint64())});
+
+  auto alpha = MakeScalar("alpha");
+  auto beta = MakeScalar("beta");
+  ASSERT_OK_AND_ASSIGN(auto two, MakeScalar(uint64(), 2));
+  ASSERT_OK_AND_ASSIGN(auto three, MakeScalar(uint64(), 3));
+
+  auto scalar_alpha = DenseUnionScalar(alpha, ty);
+  auto scalar_beta = DenseUnionScalar(beta, ty);
+  auto scalar_two = DenseUnionScalar(two, ty);
+  auto scalar_three = DenseUnionScalar(three, ty);
+
+  // test Array.GetScalar
+  auto children = std::vector<std::shared_ptr<Array>>(2);
+  ArrayFromVector<StringType, std::string>({"alpha", "beta"}, &children[0]);
+  ArrayFromVector<UInt64Type>({2, 3}, &children[1]);
+
+  auto type_ids = ArrayFromJSON(int8(), "[0, 1, 0, 0, 1]");
+  auto offsets = ArrayFromJSON(int32(), "[0, 0, 1, 0, 1]");
+  auto validity = ArrayFromJSON(boolean(), "[true, true, true, false, true]");
+  DenseUnionArray arr(ty, 5, children, type_ids->data()->buffers[1],
+                      offsets->data()->buffers[1], validity->data()->buffers[1]);
+  ASSERT_OK(arr.ValidateFull());
+
+  ASSERT_OK_AND_ASSIGN(auto first, arr.GetScalar(0));
+  ASSERT_TRUE(first->Equals(scalar_alpha));
+
+  ASSERT_OK_AND_ASSIGN(auto second, arr.GetScalar(1));
+  ASSERT_TRUE(second->Equals(scalar_two));
+
+  ASSERT_OK_AND_ASSIGN(auto third, arr.GetScalar(2));
+  ASSERT_TRUE(third->Equals(scalar_beta));
+
+  ASSERT_OK_AND_ASSIGN(auto fourth, arr.GetScalar(3));
+  ASSERT_TRUE(fourth->Equals(MakeNullScalar(ty)));
+
+  ASSERT_OK_AND_ASSIGN(auto fifth, arr.GetScalar(4));
+  ASSERT_TRUE(fifth->Equals(scalar_three));
 }
 
 }  // namespace arrow

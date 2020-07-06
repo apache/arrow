@@ -112,7 +112,8 @@ struct ScalarFromArraySlotImpl {
     auto arr = a.field(a.child_id(index_));
     // need to look up the value based on offsets
     auto offset = a.value_offset(index_);
-    ARROW_ASSIGN_OR_RAISE(out_, arr->GetScalar(offset));
+    ARROW_ASSIGN_OR_RAISE(auto value, arr->GetScalar(offset));
+    out_ = std::shared_ptr<Scalar>(new DenseUnionScalar(value, a.type()));
     return Status::OK();
   }
 
