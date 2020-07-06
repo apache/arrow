@@ -38,6 +38,10 @@ TEST(TestNullScalar, Basics) {
   NullScalar scalar;
   ASSERT_FALSE(scalar.is_valid);
   ASSERT_TRUE(scalar.type->Equals(*null()));
+
+  ASSERT_OK_AND_ASSIGN(auto arr, MakeArrayOfNull(null(), 1));
+  ASSERT_OK_AND_ASSIGN(auto first, arr->GetScalar(0));
+  ASSERT_TRUE(first->Equals(scalar));
 }
 
 template <typename T>
@@ -80,6 +84,15 @@ TYPED_TEST(TestNumericScalar, Basics) {
 
   auto dyn_null_value = MakeNullScalar(expected_type);
   ASSERT_EQ(*null_value, *dyn_null_value);
+
+  // test Array.GetScalar
+  auto arr = ArrayFromJSON(expected_type, "[null, 1, 2]");
+  ASSERT_OK_AND_ASSIGN(auto null, arr->GetScalar(0));
+  ASSERT_OK_AND_ASSIGN(auto one, arr->GetScalar(1));
+  ASSERT_OK_AND_ASSIGN(auto two, arr->GetScalar(2));
+  ASSERT_TRUE(null->Equals(*null_value));
+  ASSERT_TRUE(one->Equals(ScalarType(1)));
+  ASSERT_TRUE(two->Equals(ScalarType(2)));
 }
 
 TYPED_TEST(TestNumericScalar, Hashing) {
@@ -143,6 +156,15 @@ TEST(TestBinaryScalar, Basics) {
 
   StringScalar null_value2;
   ASSERT_FALSE(null_value2.is_valid);
+
+  // test Array.GetScalar
+  auto arr = ArrayFromJSON(binary(), "[null, \"one\", \"two\"]");
+  ASSERT_OK_AND_ASSIGN(auto null, arr->GetScalar(0));
+  ASSERT_OK_AND_ASSIGN(auto one, arr->GetScalar(1));
+  ASSERT_OK_AND_ASSIGN(auto two, arr->GetScalar(2));
+  ASSERT_TRUE(null->Equals(null_value));
+  ASSERT_TRUE(one->Equals(BinaryScalar(Buffer::FromString("one"))));
+  ASSERT_TRUE(two->Equals(BinaryScalar(Buffer::FromString("two"))));
 }
 
 TEST(TestStringScalar, MakeScalar) {
@@ -154,6 +176,15 @@ TEST(TestStringScalar, MakeScalar) {
 
   ASSERT_OK_AND_ASSIGN(three, Scalar::Parse(utf8(), "three"));
   ASSERT_EQ(StringScalar("three"), *three);
+
+  // test Array.GetScalar
+  auto arr = ArrayFromJSON(utf8(), "[null, \"one\", \"two\"]");
+  ASSERT_OK_AND_ASSIGN(auto null, arr->GetScalar(0));
+  ASSERT_OK_AND_ASSIGN(auto one, arr->GetScalar(1));
+  ASSERT_OK_AND_ASSIGN(auto two, arr->GetScalar(2));
+  ASSERT_TRUE(null->Equals(MakeNullScalar(utf8())));
+  ASSERT_TRUE(one->Equals(StringScalar("one")));
+  ASSERT_TRUE(two->Equals(StringScalar("two")));
 }
 
 TEST(TestFixedSizeBinaryScalar, Basics) {
@@ -166,6 +197,16 @@ TEST(TestFixedSizeBinaryScalar, Basics) {
   ASSERT_TRUE(value.value->Equals(*buf));
   ASSERT_TRUE(value.is_valid);
   ASSERT_TRUE(value.type->Equals(*ex_type));
+
+  // test Array.GetScalar
+  auto ty = fixed_size_binary(3);
+  auto arr = ArrayFromJSON(ty, "[null, \"one\", \"two\"]");
+  ASSERT_OK_AND_ASSIGN(auto null, arr->GetScalar(0));
+  ASSERT_OK_AND_ASSIGN(auto one, arr->GetScalar(1));
+  ASSERT_OK_AND_ASSIGN(auto two, arr->GetScalar(2));
+  ASSERT_TRUE(null->Equals(MakeNullScalar(ty)));
+  ASSERT_TRUE(one->Equals(FixedSizeBinaryScalar(Buffer::FromString("one"), ty)));
+  ASSERT_TRUE(two->Equals(FixedSizeBinaryScalar(Buffer::FromString("two"), ty)));
 }
 
 TEST(TestFixedSizeBinaryScalar, MakeScalar) {
@@ -199,6 +240,17 @@ TEST(TestDateScalars, Basics) {
   ASSERT_TRUE(date64_val.type->Equals(*date64()));
   ASSERT_TRUE(date64_val.is_valid);
   ASSERT_FALSE(date64_null.is_valid);
+
+  // test Array.GetScalar
+  for (auto ty : {date32(), date64()}) {
+    auto arr = ArrayFromJSON(ty, "[5, null, 42]");
+    ASSERT_OK_AND_ASSIGN(auto first, arr->GetScalar(0));
+    ASSERT_OK_AND_ASSIGN(auto null, arr->GetScalar(1));
+    ASSERT_OK_AND_ASSIGN(auto last, arr->GetScalar(2));
+    ASSERT_TRUE(null->Equals(MakeNullScalar(ty)));
+    ASSERT_TRUE(first->Equals(MakeScalar(ty, 5).ValueOrDie()));
+    ASSERT_TRUE(last->Equals(MakeScalar(ty, 42).ValueOrDie()));
+  }
 }
 
 TEST(TestDateScalars, MakeScalar) {
@@ -234,6 +286,17 @@ TEST(TestTimeScalars, Basics) {
   ASSERT_TRUE(time64_val.is_valid);
   ASSERT_FALSE(time64_null.is_valid);
   ASSERT_TRUE(time64_null.type->Equals(*type4));
+
+  // test Array.GetScalar
+  for (auto ty : {type1, type2, type3, type4}) {
+    auto arr = ArrayFromJSON(ty, "[5, null, 42]");
+    ASSERT_OK_AND_ASSIGN(auto first, arr->GetScalar(0));
+    ASSERT_OK_AND_ASSIGN(auto null, arr->GetScalar(1));
+    ASSERT_OK_AND_ASSIGN(auto last, arr->GetScalar(2));
+    ASSERT_TRUE(null->Equals(MakeNullScalar(ty)));
+    ASSERT_TRUE(first->Equals(MakeScalar(ty, 5).ValueOrDie()));
+    ASSERT_TRUE(last->Equals(MakeScalar(ty, 42).ValueOrDie()));
+  }
 }
 
 TEST(TestTimeScalars, MakeScalar) {
@@ -277,6 +340,17 @@ TEST(TestTimestampScalars, Basics) {
   ASSERT_NE(ts_val1, ts_val2);
   ASSERT_NE(ts_val1, ts_null);
   ASSERT_NE(ts_val2, ts_null);
+
+  // test Array.GetScalar
+  for (auto ty : {type1, type2}) {
+    auto arr = ArrayFromJSON(ty, "[5, null, 42]");
+    ASSERT_OK_AND_ASSIGN(auto first, arr->GetScalar(0));
+    ASSERT_OK_AND_ASSIGN(auto null, arr->GetScalar(1));
+    ASSERT_OK_AND_ASSIGN(auto last, arr->GetScalar(2));
+    ASSERT_TRUE(null->Equals(MakeNullScalar(ty)));
+    ASSERT_TRUE(first->Equals(MakeScalar(ty, 5).ValueOrDie()));
+    ASSERT_TRUE(last->Equals(MakeScalar(ty, 42).ValueOrDie()));
+  }
 }
 
 TEST(TestTimestampScalars, MakeScalar) {
@@ -355,6 +429,17 @@ TEST(TestDurationScalars, Basics) {
   ASSERT_NE(ts_val1, ts_val2);
   ASSERT_NE(ts_val1, ts_null);
   ASSERT_NE(ts_val2, ts_null);
+
+  // test Array.GetScalar
+  for (auto ty : {type1, type2}) {
+    auto arr = ArrayFromJSON(ty, "[5, null, 42]");
+    ASSERT_OK_AND_ASSIGN(auto first, arr->GetScalar(0));
+    ASSERT_OK_AND_ASSIGN(auto null, arr->GetScalar(1));
+    ASSERT_OK_AND_ASSIGN(auto last, arr->GetScalar(2));
+    ASSERT_TRUE(null->Equals(MakeNullScalar(ty)));
+    ASSERT_TRUE(first->Equals(MakeScalar(ty, 5).ValueOrDie()));
+    ASSERT_TRUE(last->Equals(MakeScalar(ty, 42).ValueOrDie()));
+  }
 }
 
 TEST(TestMonthIntervalScalars, Basics) {
@@ -376,6 +461,15 @@ TEST(TestMonthIntervalScalars, Basics) {
   ASSERT_NE(ts_val1, ts_val2);
   ASSERT_NE(ts_val1, ts_null);
   ASSERT_NE(ts_val2, ts_null);
+
+  // test Array.GetScalar
+  auto arr = ArrayFromJSON(type, "[5, null, 42]");
+  ASSERT_OK_AND_ASSIGN(auto first, arr->GetScalar(0));
+  ASSERT_OK_AND_ASSIGN(auto null, arr->GetScalar(1));
+  ASSERT_OK_AND_ASSIGN(auto last, arr->GetScalar(2));
+  ASSERT_TRUE(null->Equals(MakeNullScalar(type)));
+  ASSERT_TRUE(first->Equals(MakeScalar(type, 5).ValueOrDie()));
+  ASSERT_TRUE(last->Equals(MakeScalar(type, 42).ValueOrDie()));
 }
 
 TEST(TestDayTimeIntervalScalars, Basics) {
@@ -397,6 +491,13 @@ TEST(TestDayTimeIntervalScalars, Basics) {
   ASSERT_NE(ts_val1, ts_val2);
   ASSERT_NE(ts_val1, ts_null);
   ASSERT_NE(ts_val2, ts_null);
+
+  // test Array.GetScalar
+  auto arr = ArrayFromJSON(type, "[[2, 2], null]");
+  ASSERT_OK_AND_ASSIGN(auto first, arr->GetScalar(0));
+  ASSERT_OK_AND_ASSIGN(auto null, arr->GetScalar(1));
+  ASSERT_TRUE(null->Equals(ts_null));
+  ASSERT_TRUE(first->Equals(ts_val2));
 }
 
 // TODO test HalfFloatScalar
