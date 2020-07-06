@@ -67,6 +67,19 @@ void AssertTsEqual(const T& expected, const T& actual, ExtraArgs... args) {
   }
 }
 
+template <typename T>
+void AssertTsApproxEqual(const T& expected, const T& actual) {
+  if (!expected.ApproxEquals(actual)) {
+    std::stringstream pp_expected;
+    std::stringstream pp_actual;
+    ::arrow::PrettyPrintOptions options(/*indent=*/2);
+    options.window = 50;
+    ARROW_EXPECT_OK(PrettyPrint(expected, options, &pp_expected));
+    ARROW_EXPECT_OK(PrettyPrint(actual, options, &pp_actual));
+    FAIL() << "Got: \n" << pp_actual.str() << "\nExpected: \n" << pp_expected.str();
+  }
+}
+
 void AssertArraysEqual(const Array& expected, const Array& actual, bool verbose) {
   std::stringstream diff;
   if (!expected.Equals(actual, EqualOptions().diff_sink(&diff))) {
@@ -116,6 +129,10 @@ void AssertScalarsEqual(const Scalar& expected, const Scalar& actual, bool verbo
 void AssertBatchesEqual(const RecordBatch& expected, const RecordBatch& actual,
                         bool check_metadata) {
   AssertTsEqual(expected, actual, check_metadata);
+}
+
+void AssertBatchesApproxEqual(const RecordBatch& expected, const RecordBatch& actual) {
+  AssertTsApproxEqual(expected, actual);
 }
 
 void AssertChunkedEqual(const ChunkedArray& expected, const ChunkedArray& actual) {

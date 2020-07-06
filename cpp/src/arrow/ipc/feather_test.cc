@@ -165,6 +165,7 @@ TEST_P(TestFeather, ReadIndicesOrNames) {
 
   DoWrite(*table);
 
+  // int32 type is at the column f4 of the result of MakeIntRecordBatch
   auto expected = Table::Make(schema({field("f4", int32())}), {batch1->column(4)});
 
   std::shared_ptr<Table> result1, result2;

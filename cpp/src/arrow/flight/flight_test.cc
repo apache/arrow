@@ -376,7 +376,20 @@ class TestFlightClient : public ::testing::Test {
     for (int i = 0; i < num_batches; ++i) {
       ASSERT_OK(stream->Next(&chunk));
       ASSERT_NE(nullptr, chunk.data);
+#if !defined(__MINGW32__)
       ASSERT_BATCHES_EQUAL(*expected_batches[i], *chunk.data);
+#else
+      // In MINGW32, the following code does not have the reproducibility at the LSB
+      // even when this is called twice with the same seed.
+      // As a workaround, use approxEqual
+      //   /* from GenerateTypedData in random.cc */
+      //   std::default_random_engine rng(seed);  // seed = 282475250
+      //   std::uniform_real_distribution<double> dist;
+      //   std::generate(data, data + n,          // n = 10
+      //                 [&dist, &rng] { return static_cast<ValueType>(dist(rng)); });
+      //   /* data[1] = 0x40852cdfe23d3976 or 0x40852cdfe23d3975 */
+      ASSERT_BATCHES_APPROX_EQUAL(*expected_batches[i], *chunk.data);
+#endif
     }
 
     // Stream exhausted
