@@ -777,7 +777,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CSparseCOOTensor" arrow::SparseCOOTensor":
         shared_ptr[CDataType] type()
         shared_ptr[CBuffer] data()
-        CStatus ToTensor(shared_ptr[CTensor]*)
+        CResult[shared_ptr[CTensor]] ToTensor()
 
         const vector[int64_t]& shape()
         int64_t size()
@@ -794,7 +794,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CSparseCSRMatrix" arrow::SparseCSRMatrix":
         shared_ptr[CDataType] type()
         shared_ptr[CBuffer] data()
-        CStatus ToTensor(shared_ptr[CTensor]*)
+        CResult[shared_ptr[CTensor]] ToTensor()
 
         const vector[int64_t]& shape()
         int64_t size()
@@ -811,7 +811,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CSparseCSCMatrix" arrow::SparseCSCMatrix":
         shared_ptr[CDataType] type()
         shared_ptr[CBuffer] data()
-        CStatus ToTensor(shared_ptr[CTensor]*)
+        CResult[shared_ptr[CTensor]] ToTensor()
 
         const vector[int64_t]& shape()
         int64_t size()
@@ -828,7 +828,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CSparseCSFTensor" arrow::SparseCSFTensor":
         shared_ptr[CDataType] type()
         shared_ptr[CBuffer] data()
-        CStatus ToTensor(shared_ptr[CTensor]*)
+        CResult[shared_ptr[CTensor]] ToTensor()
 
         const vector[int64_t]& shape()
         int64_t size()
@@ -1485,14 +1485,11 @@ cdef extern from "arrow/json/reader.h" namespace "arrow::json" nogil:
 
     cdef cppclass CJSONReader" arrow::json::TableReader":
         @staticmethod
-        CStatus Make(CMemoryPool*, shared_ptr[CInputStream],
-                     CJSONReadOptions, CJSONParseOptions,
-                     shared_ptr[CJSONReader]* out)
+        CResult[shared_ptr[CJSONReader]] Make(
+            CMemoryPool*, shared_ptr[CInputStream],
+            CJSONReadOptions, CJSONParseOptions)
 
-        CStatus Read(shared_ptr[CTable]* out)
-
-    cdef CStatus ParseOne(CJSONParseOptions options, shared_ptr[CBuffer] json,
-                          shared_ptr[CRecordBatch]* out)
+        CResult[shared_ptr[CTable]] Read()
 
 
 cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
