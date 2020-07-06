@@ -71,18 +71,19 @@ struct SumState {
   typename SumType::c_type sum = 0;
 
  private:
+  template <int64_t kDenseRoundSize>
   ThisType ConsumeDense(const T* values, const int64_t length) const {
     ThisType local;
-    const int64_t length_rounded = BitUtil::RoundDown(length, kRoundSize);
-    typename SumType::c_type sum_rounded[kRoundSize] = {0};
+    const int64_t length_rounded = BitUtil::RoundDown(length, kDenseRoundSize);
+    typename SumType::c_type sum_rounded[kDenseRoundSize] = {0};
 
     // Unrolled the loop to add the results in parallel
-    for (int64_t i = 0; i < length_rounded; i += kRoundSize) {
-      for (int64_t k = 0; k < kRoundSize; k++) {
+    for (int64_t i = 0; i < length_rounded; i += kDenseRoundSize) {
+      for (int64_t k = 0; k < kDenseRoundSize; k++) {
         sum_rounded[k] += values[i + k];
       }
     }
-    for (int64_t k = 0; k < kRoundSize; k++) {
+    for (int64_t k = 0; k < kDenseRoundSize; k++) {
       local.sum += sum_rounded[k];
     }
 
@@ -95,29 +96,11 @@ struct SumState {
     return local;
   }
 
-  inline ThisType ConsumeDenseTinyAligned(const T* values, const int64_t length) const {
-    ThisType local;
-    typename SumType::c_type sum_rounded[8] = {0};
-
-    // Unrolled the loop to add the results in parallel
-    for (int64_t i = 0; i < length; i += 8) {
-      for (int64_t k = 0; k < 8; k++) {
-        sum_rounded[k] += values[i + k];
-      }
-    }
-    for (int64_t k = 0; k < 8; k++) {
-      local.sum += sum_rounded[k];
-    }
-
-    local.count = length;
-    return local;
-  }
-
   ThisType ConsumeDense(const ArrayType& array) const {
     const auto values = array.raw_values();
     const int64_t length = array.length();
 
-    return ConsumeDense(values, length);
+    return ConsumeDense<kRoundSize>(values, length);
   }
 
   // While this is not branchless, gcc needs this to be in a different function
@@ -179,9 +162,9 @@ struct SumState {
         }
         // Aggregate the dense parts
         if (run_length >= kRoundSize * 8) {
-          local += ConsumeDense(&values[idx], run_length);
+          local += ConsumeDense<kRoundSize>(&values[idx], run_length);
         } else {
-          local += ConsumeDenseTinyAligned(&values[idx], run_length);
+          local += ConsumeDense<8>(&values[idx], run_length);
         }
         idx += run_length;
         offset += run_length;
