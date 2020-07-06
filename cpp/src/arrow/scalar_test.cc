@@ -645,17 +645,35 @@ TEST(TestSparseUnionScalar, Basics) {
   ASSERT_OK_AND_ASSIGN(auto first, arr.GetScalar(0));
   ASSERT_TRUE(first->Equals(scalar_alpha));
 
+  const auto& first_as_union = checked_cast<const SparseUnionScalar&>(*first);
+  ASSERT_TRUE(first_as_union.is_valid);
+  ASSERT_TRUE(first_as_union.value->Equals(alpha));
+
   ASSERT_OK_AND_ASSIGN(auto second, arr.GetScalar(1));
   ASSERT_TRUE(second->Equals(scalar_two));
+
+  const auto& second_as_union = checked_cast<const SparseUnionScalar&>(*second);
+  ASSERT_TRUE(second_as_union.is_valid);
+  ASSERT_TRUE(second_as_union.value->Equals(two));
 
   ASSERT_OK_AND_ASSIGN(auto third, arr.GetScalar(2));
   ASSERT_TRUE(third->Equals(scalar_beta));
 
+  const auto& third_as_union = checked_cast<const SparseUnionScalar&>(*third);
+  ASSERT_TRUE(third_as_union.is_valid);
+  ASSERT_TRUE(third_as_union.value->Equals(beta));
+
   ASSERT_OK_AND_ASSIGN(auto fourth, arr.GetScalar(3));
   ASSERT_TRUE(fourth->Equals(MakeNullScalar(ty)));
 
+  const auto& fourth_as_union = checked_cast<const SparseUnionScalar&>(*fourth);
+  ASSERT_FALSE(fourth_as_union.is_valid);
+
   ASSERT_OK_AND_ASSIGN(auto fifth, arr.GetScalar(4));
   ASSERT_TRUE(fifth->Equals(MakeNullScalar(ty)));
+
+  const auto& fifth_as_union = checked_cast<const SparseUnionScalar&>(*fifth);
+  ASSERT_FALSE(fifth_as_union.is_valid);
 }
 
 TEST(TestDenseUnionScalar, Basics) {
@@ -685,17 +703,36 @@ TEST(TestDenseUnionScalar, Basics) {
   ASSERT_OK_AND_ASSIGN(auto first, arr.GetScalar(0));
   ASSERT_TRUE(first->Equals(scalar_alpha));
 
+  const auto& first_as_union = checked_cast<const DenseUnionScalar&>(*first);
+  ASSERT_TRUE(first_as_union.value->Equals(alpha));
+  ASSERT_TRUE(first_as_union.is_valid);
+
   ASSERT_OK_AND_ASSIGN(auto second, arr.GetScalar(1));
   ASSERT_TRUE(second->Equals(scalar_two));
+
+  const auto& second_as_union = checked_cast<const DenseUnionScalar&>(*second);
+  ASSERT_TRUE(second_as_union.value->Equals(two));
+  ASSERT_TRUE(second_as_union.is_valid);
 
   ASSERT_OK_AND_ASSIGN(auto third, arr.GetScalar(2));
   ASSERT_TRUE(third->Equals(scalar_beta));
 
+  const auto& third_as_union = checked_cast<const DenseUnionScalar&>(*third);
+  ASSERT_TRUE(third_as_union.value->Equals(beta));
+  ASSERT_TRUE(third_as_union.is_valid);
+
   ASSERT_OK_AND_ASSIGN(auto fourth, arr.GetScalar(3));
   ASSERT_TRUE(fourth->Equals(MakeNullScalar(ty)));
 
+  const auto& fourth_as_union = checked_cast<const DenseUnionScalar&>(*fourth);
+  ASSERT_FALSE(fourth_as_union.is_valid);
+
   ASSERT_OK_AND_ASSIGN(auto fifth, arr.GetScalar(4));
   ASSERT_TRUE(fifth->Equals(scalar_three));
+
+  const auto& fifth_as_union = checked_cast<const DenseUnionScalar&>(*fifth);
+  ASSERT_TRUE(fifth_as_union.value->Equals(three));
+  ASSERT_TRUE(fifth_as_union.is_valid);
 }
 
 }  // namespace arrow
