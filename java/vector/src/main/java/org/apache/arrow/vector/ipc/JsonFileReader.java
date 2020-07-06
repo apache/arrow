@@ -562,7 +562,9 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
     if (bufferType.equals(VALIDITY)) {
       reader = helper.BIT;
     } else if (bufferType.equals(OFFSET)) {
-      if (type == Types.MinorType.LARGEVARCHAR || type == Types.MinorType.LARGEVARBINARY) {
+      if (type == Types.MinorType.LARGELIST ||
+          type == Types.MinorType.LARGEVARCHAR ||
+          type == Types.MinorType.LARGEVARBINARY) {
         reader = helper.INT8;
       } else {
         reader = helper.INT4;
