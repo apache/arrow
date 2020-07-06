@@ -43,8 +43,12 @@
   s3_register("dplyr::tbl_vars", "arrow_dplyr_query")
   s3_register("reticulate::py_to_r", "pyarrow.lib.Array")
   s3_register("reticulate::py_to_r", "pyarrow.lib.RecordBatch")
+  s3_register("reticulate::py_to_r", "pyarrow.lib.ChunkedArray")
+  s3_register("reticulate::py_to_r", "pyarrow.lib.Table")
   s3_register("reticulate::r_to_py", "Array")
   s3_register("reticulate::r_to_py", "RecordBatch")
+  s3_register("reticulate::r_to_py", "ChunkedArray")
+  s3_register("reticulate::r_to_py", "Table")
   invisible()
 }
 
