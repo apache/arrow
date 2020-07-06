@@ -941,7 +941,13 @@ class ScalarEqualsVisitor {
 
   Status Visit(const UnionScalar& left) {
     const auto& right = checked_cast<const UnionScalar&>(right_);
-    result_ = left.value->Equals(*right.value);
+    if (left.is_valid && right.is_valid) {
+      result_ = left.value->Equals(*right.value);
+    } else if (!left.is_valid && !right.is_valid) {
+      result_ = true;
+    } else {
+      result_ = false;
+    }
     return Status::OK();
   }
 
