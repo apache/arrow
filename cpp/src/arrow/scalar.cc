@@ -214,7 +214,7 @@ Result<std::shared_ptr<Scalar>> DictionaryScalar::GetEncodedValue() const {
       index_value = checked_cast<const Int64Scalar&>(*value.index).value;
       break;
     default:
-      return Status::Invalid("Not implemented dictionary index type");
+      return Status::TypeError("Not implemented dictionary index type");
       break;
   }
 

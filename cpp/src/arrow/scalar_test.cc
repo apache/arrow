@@ -92,7 +92,9 @@ TYPED_TEST(TestNumericScalar, Basics) {
   ASSERT_OK_AND_ASSIGN(auto two, arr->GetScalar(2));
   ASSERT_TRUE(null->Equals(*null_value));
   ASSERT_TRUE(one->Equals(ScalarType(1)));
+  ASSERT_FALSE(one->Equals(ScalarType(2)));
   ASSERT_TRUE(two->Equals(ScalarType(2)));
+  ASSERT_FALSE(two->Equals(ScalarType(3)));
 }
 
 TYPED_TEST(TestNumericScalar, Hashing) {
@@ -136,7 +138,9 @@ TEST(TestDecimalScalar, Basics) {
   ASSERT_OK_AND_ASSIGN(auto first, arr->GetScalar(0));
   ASSERT_OK_AND_ASSIGN(auto second, arr->GetScalar(1));
   ASSERT_TRUE(first->Equals(null));
+  ASSERT_FALSE(first->Equals(pi));
   ASSERT_TRUE(second->Equals(pi));
+  ASSERT_FALSE(second->Equals(null));
 }
 
 TEST(TestBinaryScalar, Basics) {
@@ -180,6 +184,7 @@ TEST(TestBinaryScalar, Basics) {
   ASSERT_TRUE(null->Equals(null_value));
   ASSERT_TRUE(one->Equals(BinaryScalar(Buffer::FromString("one"))));
   ASSERT_TRUE(two->Equals(BinaryScalar(Buffer::FromString("two"))));
+  ASSERT_FALSE(two->Equals(BinaryScalar(Buffer::FromString("else"))));
 }
 
 TEST(TestStringScalar, MakeScalar) {
@@ -200,6 +205,7 @@ TEST(TestStringScalar, MakeScalar) {
   ASSERT_TRUE(null->Equals(MakeNullScalar(utf8())));
   ASSERT_TRUE(one->Equals(StringScalar("one")));
   ASSERT_TRUE(two->Equals(StringScalar("two")));
+  ASSERT_FALSE(two->Equals(Int64Scalar(1)));
 }
 
 TEST(TestFixedSizeBinaryScalar, Basics) {
@@ -265,6 +271,7 @@ TEST(TestDateScalars, Basics) {
     ASSERT_TRUE(null->Equals(MakeNullScalar(ty)));
     ASSERT_TRUE(first->Equals(MakeScalar(ty, 5).ValueOrDie()));
     ASSERT_TRUE(last->Equals(MakeScalar(ty, 42).ValueOrDie()));
+    ASSERT_FALSE(last->Equals(MakeScalar("string")));
   }
 }
 
@@ -311,6 +318,7 @@ TEST(TestTimeScalars, Basics) {
     ASSERT_TRUE(null->Equals(MakeNullScalar(ty)));
     ASSERT_TRUE(first->Equals(MakeScalar(ty, 5).ValueOrDie()));
     ASSERT_TRUE(last->Equals(MakeScalar(ty, 42).ValueOrDie()));
+    ASSERT_FALSE(last->Equals(MakeScalar("string")));
   }
 }
 
@@ -365,6 +373,7 @@ TEST(TestTimestampScalars, Basics) {
     ASSERT_TRUE(null->Equals(MakeNullScalar(ty)));
     ASSERT_TRUE(first->Equals(MakeScalar(ty, 5).ValueOrDie()));
     ASSERT_TRUE(last->Equals(MakeScalar(ty, 42).ValueOrDie()));
+    ASSERT_FALSE(last->Equals(MakeScalar(int64(), 42).ValueOrDie()));
   }
 }
 
@@ -568,6 +577,7 @@ TEST(TestStructScalar, FieldAccess) {
 
   ASSERT_OK_AND_ASSIGN(auto d, abc.field("d"));
   ASSERT_TRUE(d->Equals(MakeNullScalar(int64())));
+  ASSERT_FALSE(d->Equals(MakeScalar(int64(), 12).ValueOrDie()));
 }
 
 TEST(TestDictionaryScalar, Basics) {
