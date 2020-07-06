@@ -295,7 +295,8 @@ shape: {0.shape}""".format(self)
         """
 
         cdef shared_ptr[CTensor] ctensor
-        check_status(self.stp.ToTensor(&ctensor))
+        with nogil:
+            ctensor = GetResultValue(self.stp.ToTensor())
 
         return pyarrow_wrap_tensor(ctensor)
 
@@ -479,7 +480,7 @@ shape: {0.shape}""".format(self)
         """
         cdef shared_ptr[CTensor] ctensor
         with nogil:
-            check_status(self.stp.ToTensor(&ctensor))
+            ctensor = GetResultValue(self.stp.ToTensor())
 
         return pyarrow_wrap_tensor(ctensor)
 
@@ -663,7 +664,7 @@ shape: {0.shape}""".format(self)
 
         cdef shared_ptr[CTensor] ctensor
         with nogil:
-            check_status(self.stp.ToTensor(&ctensor))
+            ctensor = GetResultValue(self.stp.ToTensor())
 
         return pyarrow_wrap_tensor(ctensor)
 
@@ -816,7 +817,7 @@ shape: {0.shape}""".format(self)
 
         cdef shared_ptr[CTensor] ctensor
         with nogil:
-            check_status(self.stp.ToTensor(&ctensor))
+            ctensor = GetResultValue(self.stp.ToTensor())
 
         return pyarrow_wrap_tensor(ctensor)
 

@@ -120,12 +120,10 @@ static void BenchmarkJSONReading(benchmark::State& state,  // NOLINT non-const r
     std::shared_ptr<io::InputStream> input;
     ABORT_NOT_OK(MakeStream(json, &input));
 
-    std::shared_ptr<TableReader> reader;
-    ASSERT_OK(TableReader::Make(default_memory_pool(), input, read_options, parse_options,
-                                &reader));
+    ASSERT_OK_AND_ASSIGN(auto reader, TableReader::Make(default_memory_pool(), input,
+                                                        read_options, parse_options));
 
-    std::shared_ptr<Table> table;
-    ABORT_NOT_OK(reader->Read(&table));
+    std::shared_ptr<Table> table = *reader->Read();
   }
 
   state.SetBytesProcessed(state.iterations() * json.size());
