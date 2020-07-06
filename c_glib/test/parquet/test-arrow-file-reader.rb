@@ -26,7 +26,7 @@ class TestParquetArrowFileReader < Test::Unit::TestCase
     @table = build_table("a" => @a_array,
                          "b" => @b_array)
     writer = Parquet::ArrowFileWriter.new(@table.schema, @file.path)
-    chunk_size = 2
+    chunk_size = 1
     writer.write_table(@table, chunk_size)
     writer.close
     @reader = Parquet::ArrowFileReader.new(@file.path)
@@ -37,6 +37,19 @@ class TestParquetArrowFileReader < Test::Unit::TestCase
 a: string
 b: int32
     SCHEMA
+  end
+
+  sub_test_case("#read_row_group") do
+    test("with column indices") do
+      assert_equal(build_table("b" => @b_array.slice(0, 1)),
+                   @reader.read_row_group(0, [-1]))
+    end
+
+    test("without column indices") do
+      assert_equal(build_table("a" => @a_array.slice(1, 1),
+                               "b" => @b_array.slice(1, 1)),
+                   @reader.read_row_group(1))
+    end
   end
 
   def test_read_column
