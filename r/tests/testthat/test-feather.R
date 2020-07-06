@@ -187,7 +187,7 @@ test_that("read_feather closes connection to file", {
 
 test_that("Character vectors > 2GB can write to feather", {
   skip_on_cran()
-  skip_if_not_dev_mode()
+  skip_if_not_running_large_memory_tests()
   df <- tibble::tibble(big = make_big_string())
   tf <- tempfile()
   on.exit(unlink(tf))

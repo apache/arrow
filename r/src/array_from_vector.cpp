@@ -1165,7 +1165,7 @@ std::shared_ptr<arrow::DataType> InferArrowTypeFromVector<STRSXP>(SEXP x) {
     if (string_i != NA_STRING) {
       size += XLENGTH(Rf_mkCharCE(Rf_translateCharUTF8(string_i), CE_UTF8));
     }
-    if (size > 2147483646) {
+    if (size > arrow::kBinaryMemoryLimit) {
       // Exceeds 2GB capacity of utf8 type, so use large
       return large_utf8();
     }
