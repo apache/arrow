@@ -4044,6 +4044,8 @@ def test_timestamp_as_object_non_nanosecond(resolution, tz, dt):
         assert isinstance(result[0], datetime)
         if tz:
             assert result[0].tzinfo is not None
+            expected = result[0].tzinfo.fromutc(dt)
         else:
             assert result[0].tzinfo is None
-        assert result[0] == dt
+            expected = dt
+        assert result[0] == expected
