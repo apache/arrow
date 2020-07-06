@@ -639,46 +639,31 @@ def test_make_csv_fragment_from_buffer():
 def test_make_parquet_fragment_from_buffer():
     import pyarrow.parquet as pq
 
-    cases = [
-        (
-            pa.table(
-                [
-                    ['a', 'b', 'c'],
-                    [12, 11, 10],
-                    ['dog', 'cat', 'rabbit']
-                ],
-                names=[
-                    'alpha',
-                    'num',
-                    'animal'
-                ]
-            ),
-            ds.ParquetFileFormat(),
-        ),
-        (
-            pa.table(
-                [
-                    pa.array(['a', 'b', 'c']).dictionary_encode(),
-                    pa.array([12, 11, 10]),
-                    pa.array(['dog', 'cat', 'rabbit']).dictionary_encode()
-                ],
-                names=[
-                    'alpha',
-                    'num',
-                    'animal'
-                ]
-            ),
-            ds.ParquetFileFormat(
-                read_options=ds.ParquetReadOptions(
-                    use_buffered_stream=True,
-                    buffer_size=4096,
-                    dictionary_columns=['alpha', 'animal']
-                )
-            )
-        )
+    arrays = [
+        ['a', 'b', 'c'],
+        [12, 11, 10],
+        ['dog', 'cat', 'rabbit']
     ]
+    dictionary_arrays = [
+        arrays[0].dictionary_encode(),
+        arrays[1],
+        arrays[2].dictionary_encode()
+    ]
+    dictionary_format = ds.ParquetFileFormat(
+        read_options=ds.ParquetReadOptions(
+            use_buffered_stream=True,
+            buffer_size=4096,
+            dictionary_columns=['alpha', 'animal']
+        )
+    )
 
-    for table, format_ in cases:
+    cases = [
+        (arrays, ds.ParquetFileFormat()),
+        (dictionary_arrays, dictionary_format)
+    ]
+    for arrays, format_ in cases:
+        table = pa.table(arrays, names=['alpha', 'num', 'animal'])
+
         out = pa.BufferOutputStream()
         pq.write_table(table, out)
         buffer = out.getvalue()
