@@ -343,8 +343,12 @@ class Converter_Binary : public Converter {
 };
 
 class Converter_Dictionary : public Converter {
+ private:
+  bool need_unification_;
+
  public:
-  explicit Converter_Dictionary(const ArrayVector& arrays) : Converter(arrays) {}
+  explicit Converter_Dictionary(const ArrayVector& arrays)
+      : Converter(arrays), need_unification_(NeedUnification()) {}
 
   SEXP Allocate(R_xlen_t n) const {
     IntegerVector data(no_init(n));
@@ -425,6 +429,21 @@ class Converter_Dictionary : public Converter {
 
     return SomeNull_Ingest<INTSXP, value_type>(
         data, start, n, indices->data()->GetValues<value_type>(1), indices, to_r_index);
+  }
+
+  bool NeedUnification() {
+    int n = arrays_.size();
+    if (n < 2) {
+      return false;
+    }
+    const auto& arr_first = checked_cast<const DictionaryArray&>(*arrays_[0]);
+    for (int i = 1; i < n; i++) {
+      const auto& arr = checked_cast<const DictionaryArray&>(*arrays_[i]);
+      if (!(arr_first.dictionary()->Equals(arr.dictionary()))) {
+        return true;
+      }
+    }
+    return false;
   }
 };
 
