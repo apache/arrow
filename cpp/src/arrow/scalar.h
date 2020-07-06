@@ -383,6 +383,12 @@ struct ARROW_EXPORT StructScalar : public Scalar {
 
 struct ARROW_EXPORT UnionScalar : public Scalar {
   using Scalar::Scalar;
+  using ValueType = std::shared_ptr<Scalar>;
+
+  ValueType value;
+
+  UnionScalar(ValueType value, std::shared_ptr<DataType> type)
+      : Scalar(std::move(type), true), value(std::move(value)) {}
 };
 
 struct ARROW_EXPORT SparseUnionScalar : public UnionScalar {
@@ -406,6 +412,8 @@ struct ARROW_EXPORT DictionaryScalar : public Scalar {
 
   DictionaryScalar(ValueType value, std::shared_ptr<DataType> type)
       : Scalar(std::move(type), true), value(std::move(value)) {}
+
+  Result<std::shared_ptr<Scalar>> GetEncodedValue() const;
 };
 
 struct ARROW_EXPORT ExtensionScalar : public Scalar {

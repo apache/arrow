@@ -38,6 +38,10 @@ TEST(TestNullScalar, Basics) {
   NullScalar scalar;
   ASSERT_FALSE(scalar.is_valid);
   ASSERT_TRUE(scalar.type->Equals(*null()));
+
+  ASSERT_OK_AND_ASSIGN(auto arr, MakeArrayOfNull(null(), 1));
+  ASSERT_OK_AND_ASSIGN(auto first, arr->GetScalar(0));
+  ASSERT_TRUE(first->Equals(scalar));
 }
 
 template <typename T>
@@ -80,6 +84,17 @@ TYPED_TEST(TestNumericScalar, Basics) {
 
   auto dyn_null_value = MakeNullScalar(expected_type);
   ASSERT_EQ(*null_value, *dyn_null_value);
+
+  // test Array.GetScalar
+  auto arr = ArrayFromJSON(expected_type, "[null, 1, 2]");
+  ASSERT_OK_AND_ASSIGN(auto null, arr->GetScalar(0));
+  ASSERT_OK_AND_ASSIGN(auto one, arr->GetScalar(1));
+  ASSERT_OK_AND_ASSIGN(auto two, arr->GetScalar(2));
+  ASSERT_TRUE(null->Equals(*null_value));
+  ASSERT_TRUE(one->Equals(ScalarType(1)));
+  ASSERT_FALSE(one->Equals(ScalarType(2)));
+  ASSERT_TRUE(two->Equals(ScalarType(2)));
+  ASSERT_FALSE(two->Equals(ScalarType(3)));
 }
 
 TYPED_TEST(TestNumericScalar, Hashing) {
@@ -109,6 +124,23 @@ TYPED_TEST(TestNumericScalar, MakeScalar) {
 
   ASSERT_OK_AND_ASSIGN(three, Scalar::Parse(type, "3"));
   ASSERT_EQ(ScalarType(3), *three);
+}
+
+TEST(TestDecimalScalar, Basics) {
+  auto ty = decimal(3, 2);
+  auto pi = Decimal128Scalar(Decimal128("3.14"), ty);
+  auto null = MakeNullScalar(ty);
+
+  ASSERT_EQ(pi.value, Decimal128("3.14"));
+
+  // test Array.GetScalar
+  auto arr = ArrayFromJSON(ty, "[null, \"3.14\"]");
+  ASSERT_OK_AND_ASSIGN(auto first, arr->GetScalar(0));
+  ASSERT_OK_AND_ASSIGN(auto second, arr->GetScalar(1));
+  ASSERT_TRUE(first->Equals(null));
+  ASSERT_FALSE(first->Equals(pi));
+  ASSERT_TRUE(second->Equals(pi));
+  ASSERT_FALSE(second->Equals(null));
 }
 
 TEST(TestBinaryScalar, Basics) {
@@ -143,6 +175,16 @@ TEST(TestBinaryScalar, Basics) {
 
   StringScalar null_value2;
   ASSERT_FALSE(null_value2.is_valid);
+
+  // test Array.GetScalar
+  auto arr = ArrayFromJSON(binary(), "[null, \"one\", \"two\"]");
+  ASSERT_OK_AND_ASSIGN(auto null, arr->GetScalar(0));
+  ASSERT_OK_AND_ASSIGN(auto one, arr->GetScalar(1));
+  ASSERT_OK_AND_ASSIGN(auto two, arr->GetScalar(2));
+  ASSERT_TRUE(null->Equals(null_value));
+  ASSERT_TRUE(one->Equals(BinaryScalar(Buffer::FromString("one"))));
+  ASSERT_TRUE(two->Equals(BinaryScalar(Buffer::FromString("two"))));
+  ASSERT_FALSE(two->Equals(BinaryScalar(Buffer::FromString("else"))));
 }
 
 TEST(TestStringScalar, MakeScalar) {
@@ -154,6 +196,16 @@ TEST(TestStringScalar, MakeScalar) {
 
   ASSERT_OK_AND_ASSIGN(three, Scalar::Parse(utf8(), "three"));
   ASSERT_EQ(StringScalar("three"), *three);
+
+  // test Array.GetScalar
+  auto arr = ArrayFromJSON(utf8(), "[null, \"one\", \"two\"]");
+  ASSERT_OK_AND_ASSIGN(auto null, arr->GetScalar(0));
+  ASSERT_OK_AND_ASSIGN(auto one, arr->GetScalar(1));
+  ASSERT_OK_AND_ASSIGN(auto two, arr->GetScalar(2));
+  ASSERT_TRUE(null->Equals(MakeNullScalar(utf8())));
+  ASSERT_TRUE(one->Equals(StringScalar("one")));
+  ASSERT_TRUE(two->Equals(StringScalar("two")));
+  ASSERT_FALSE(two->Equals(Int64Scalar(1)));
 }
 
 TEST(TestFixedSizeBinaryScalar, Basics) {
@@ -166,6 +218,16 @@ TEST(TestFixedSizeBinaryScalar, Basics) {
   ASSERT_TRUE(value.value->Equals(*buf));
   ASSERT_TRUE(value.is_valid);
   ASSERT_TRUE(value.type->Equals(*ex_type));
+
+  // test Array.GetScalar
+  auto ty = fixed_size_binary(3);
+  auto arr = ArrayFromJSON(ty, "[null, \"one\", \"two\"]");
+  ASSERT_OK_AND_ASSIGN(auto null, arr->GetScalar(0));
+  ASSERT_OK_AND_ASSIGN(auto one, arr->GetScalar(1));
+  ASSERT_OK_AND_ASSIGN(auto two, arr->GetScalar(2));
+  ASSERT_TRUE(null->Equals(MakeNullScalar(ty)));
+  ASSERT_TRUE(one->Equals(FixedSizeBinaryScalar(Buffer::FromString("one"), ty)));
+  ASSERT_TRUE(two->Equals(FixedSizeBinaryScalar(Buffer::FromString("two"), ty)));
 }
 
 TEST(TestFixedSizeBinaryScalar, MakeScalar) {
@@ -199,6 +261,18 @@ TEST(TestDateScalars, Basics) {
   ASSERT_TRUE(date64_val.type->Equals(*date64()));
   ASSERT_TRUE(date64_val.is_valid);
   ASSERT_FALSE(date64_null.is_valid);
+
+  // test Array.GetScalar
+  for (auto ty : {date32(), date64()}) {
+    auto arr = ArrayFromJSON(ty, "[5, null, 42]");
+    ASSERT_OK_AND_ASSIGN(auto first, arr->GetScalar(0));
+    ASSERT_OK_AND_ASSIGN(auto null, arr->GetScalar(1));
+    ASSERT_OK_AND_ASSIGN(auto last, arr->GetScalar(2));
+    ASSERT_TRUE(null->Equals(MakeNullScalar(ty)));
+    ASSERT_TRUE(first->Equals(MakeScalar(ty, 5).ValueOrDie()));
+    ASSERT_TRUE(last->Equals(MakeScalar(ty, 42).ValueOrDie()));
+    ASSERT_FALSE(last->Equals(MakeScalar("string")));
+  }
 }
 
 TEST(TestDateScalars, MakeScalar) {
@@ -234,6 +308,18 @@ TEST(TestTimeScalars, Basics) {
   ASSERT_TRUE(time64_val.is_valid);
   ASSERT_FALSE(time64_null.is_valid);
   ASSERT_TRUE(time64_null.type->Equals(*type4));
+
+  // test Array.GetScalar
+  for (auto ty : {type1, type2, type3, type4}) {
+    auto arr = ArrayFromJSON(ty, "[5, null, 42]");
+    ASSERT_OK_AND_ASSIGN(auto first, arr->GetScalar(0));
+    ASSERT_OK_AND_ASSIGN(auto null, arr->GetScalar(1));
+    ASSERT_OK_AND_ASSIGN(auto last, arr->GetScalar(2));
+    ASSERT_TRUE(null->Equals(MakeNullScalar(ty)));
+    ASSERT_TRUE(first->Equals(MakeScalar(ty, 5).ValueOrDie()));
+    ASSERT_TRUE(last->Equals(MakeScalar(ty, 42).ValueOrDie()));
+    ASSERT_FALSE(last->Equals(MakeScalar("string")));
+  }
 }
 
 TEST(TestTimeScalars, MakeScalar) {
@@ -277,6 +363,18 @@ TEST(TestTimestampScalars, Basics) {
   ASSERT_NE(ts_val1, ts_val2);
   ASSERT_NE(ts_val1, ts_null);
   ASSERT_NE(ts_val2, ts_null);
+
+  // test Array.GetScalar
+  for (auto ty : {type1, type2}) {
+    auto arr = ArrayFromJSON(ty, "[5, null, 42]");
+    ASSERT_OK_AND_ASSIGN(auto first, arr->GetScalar(0));
+    ASSERT_OK_AND_ASSIGN(auto null, arr->GetScalar(1));
+    ASSERT_OK_AND_ASSIGN(auto last, arr->GetScalar(2));
+    ASSERT_TRUE(null->Equals(MakeNullScalar(ty)));
+    ASSERT_TRUE(first->Equals(MakeScalar(ty, 5).ValueOrDie()));
+    ASSERT_TRUE(last->Equals(MakeScalar(ty, 42).ValueOrDie()));
+    ASSERT_FALSE(last->Equals(MakeScalar(int64(), 42).ValueOrDie()));
+  }
 }
 
 TEST(TestTimestampScalars, MakeScalar) {
@@ -355,6 +453,17 @@ TEST(TestDurationScalars, Basics) {
   ASSERT_NE(ts_val1, ts_val2);
   ASSERT_NE(ts_val1, ts_null);
   ASSERT_NE(ts_val2, ts_null);
+
+  // test Array.GetScalar
+  for (auto ty : {type1, type2}) {
+    auto arr = ArrayFromJSON(ty, "[5, null, 42]");
+    ASSERT_OK_AND_ASSIGN(auto first, arr->GetScalar(0));
+    ASSERT_OK_AND_ASSIGN(auto null, arr->GetScalar(1));
+    ASSERT_OK_AND_ASSIGN(auto last, arr->GetScalar(2));
+    ASSERT_TRUE(null->Equals(MakeNullScalar(ty)));
+    ASSERT_TRUE(first->Equals(MakeScalar(ty, 5).ValueOrDie()));
+    ASSERT_TRUE(last->Equals(MakeScalar(ty, 42).ValueOrDie()));
+  }
 }
 
 TEST(TestMonthIntervalScalars, Basics) {
@@ -376,6 +485,15 @@ TEST(TestMonthIntervalScalars, Basics) {
   ASSERT_NE(ts_val1, ts_val2);
   ASSERT_NE(ts_val1, ts_null);
   ASSERT_NE(ts_val2, ts_null);
+
+  // test Array.GetScalar
+  auto arr = ArrayFromJSON(type, "[5, null, 42]");
+  ASSERT_OK_AND_ASSIGN(auto first, arr->GetScalar(0));
+  ASSERT_OK_AND_ASSIGN(auto null, arr->GetScalar(1));
+  ASSERT_OK_AND_ASSIGN(auto last, arr->GetScalar(2));
+  ASSERT_TRUE(null->Equals(MakeNullScalar(type)));
+  ASSERT_TRUE(first->Equals(MakeScalar(type, 5).ValueOrDie()));
+  ASSERT_TRUE(last->Equals(MakeScalar(type, 42).ValueOrDie()));
 }
 
 TEST(TestDayTimeIntervalScalars, Basics) {
@@ -397,6 +515,13 @@ TEST(TestDayTimeIntervalScalars, Basics) {
   ASSERT_NE(ts_val1, ts_val2);
   ASSERT_NE(ts_val1, ts_null);
   ASSERT_NE(ts_val2, ts_null);
+
+  // test Array.GetScalar
+  auto arr = ArrayFromJSON(type, "[[2, 2], null]");
+  ASSERT_OK_AND_ASSIGN(auto first, arr->GetScalar(0));
+  ASSERT_OK_AND_ASSIGN(auto null, arr->GetScalar(1));
+  ASSERT_TRUE(null->Equals(ts_null));
+  ASSERT_TRUE(first->Equals(ts_val2));
 }
 
 // TODO test HalfFloatScalar
@@ -434,12 +559,10 @@ TYPED_TEST(TestNumericScalar, Cast) {
 }
 
 TEST(TestStructScalar, FieldAccess) {
-  StructScalar abc({MakeScalar(true), MakeNullScalar(int32()), MakeScalar("hello")},
-                   struct_({
-                       field("a", boolean()),
-                       field("b", int32()),
-                       field("b", utf8()),
-                   }));
+  StructScalar abc({MakeScalar(true), MakeNullScalar(int32()), MakeScalar("hello"),
+                    MakeNullScalar(int64())},
+                   struct_({field("a", boolean()), field("b", int32()),
+                            field("b", utf8()), field("d", int64())}));
 
   ASSERT_OK_AND_ASSIGN(auto a, abc.field("a"));
   AssertScalarsEqual(*a, *abc.value[0]);
@@ -451,6 +574,165 @@ TEST(TestStructScalar, FieldAccess) {
 
   ASSERT_RAISES(Invalid, abc.field(5).status());
   ASSERT_RAISES(Invalid, abc.field("c").status());
+
+  ASSERT_OK_AND_ASSIGN(auto d, abc.field("d"));
+  ASSERT_TRUE(d->Equals(MakeNullScalar(int64())));
+  ASSERT_FALSE(d->Equals(MakeScalar(int64(), 12).ValueOrDie()));
+}
+
+TEST(TestDictionaryScalar, Basics) {
+  auto ty = dictionary(int8(), utf8());
+  auto dict = ArrayFromJSON(utf8(), "[\"alpha\", \"beta\", \"gamma\"]");
+
+  DictionaryScalar::ValueType alpha;
+  ASSERT_OK_AND_ASSIGN(alpha.index, MakeScalar(int8(), 0));
+  alpha.dictionary = dict;
+
+  DictionaryScalar::ValueType gamma;
+  ASSERT_OK_AND_ASSIGN(gamma.index, MakeScalar(int8(), 2));
+  gamma.dictionary = dict;
+
+  auto scalar_null = MakeNullScalar(ty);
+  auto scalar_alpha = DictionaryScalar(alpha, ty);
+  auto scalar_gamma = DictionaryScalar(gamma, ty);
+
+  ASSERT_OK_AND_ASSIGN(
+      auto encoded_null,
+      checked_cast<const DictionaryScalar&>(*scalar_null).GetEncodedValue());
+  ASSERT_TRUE(encoded_null->Equals(MakeNullScalar(utf8())));
+
+  ASSERT_OK_AND_ASSIGN(
+      auto encoded_alpha,
+      checked_cast<const DictionaryScalar&>(scalar_alpha).GetEncodedValue());
+  ASSERT_TRUE(encoded_alpha->Equals(MakeScalar("alpha")));
+
+  ASSERT_OK_AND_ASSIGN(
+      auto encoded_gamma,
+      checked_cast<const DictionaryScalar&>(scalar_gamma).GetEncodedValue());
+  ASSERT_TRUE(encoded_gamma->Equals(MakeScalar("gamma")));
+
+  // test Array.GetScalar
+  DictionaryArray arr(ty, ArrayFromJSON(int8(), "[2, 0, 1, null]"), dict);
+  ASSERT_OK_AND_ASSIGN(auto first, arr.GetScalar(0));
+  ASSERT_OK_AND_ASSIGN(auto second, arr.GetScalar(1));
+  ASSERT_OK_AND_ASSIGN(auto last, arr.GetScalar(3));
+
+  ASSERT_TRUE(first->Equals(scalar_gamma));
+  ASSERT_TRUE(second->Equals(scalar_alpha));
+  ASSERT_TRUE(last->Equals(scalar_null));
+}
+
+TEST(TestSparseUnionScalar, Basics) {
+  auto ty = sparse_union({field("string", utf8()), field("number", uint64())});
+
+  auto alpha = MakeScalar("alpha");
+  auto beta = MakeScalar("beta");
+  ASSERT_OK_AND_ASSIGN(auto two, MakeScalar(uint64(), 2));
+
+  auto scalar_alpha = SparseUnionScalar(alpha, ty);
+  auto scalar_beta = SparseUnionScalar(beta, ty);
+  auto scalar_two = SparseUnionScalar(two, ty);
+
+  // test Array.GetScalar
+  std::vector<std::shared_ptr<Array>> children{
+      ArrayFromJSON(utf8(), "[\"alpha\", \"\", \"beta\", null, \"gamma\"]"),
+      ArrayFromJSON(uint64(), "[1, 2, 11, 22, null]")};
+
+  auto type_ids = ArrayFromJSON(int8(), "[0, 1, 0, 0, 1]");
+  SparseUnionArray arr(ty, 5, children, type_ids->data()->buffers[1]);
+  ASSERT_OK(arr.ValidateFull());
+
+  ASSERT_OK_AND_ASSIGN(auto first, arr.GetScalar(0));
+  ASSERT_TRUE(first->Equals(scalar_alpha));
+
+  const auto& first_as_union = checked_cast<const SparseUnionScalar&>(*first);
+  ASSERT_TRUE(first_as_union.is_valid);
+  ASSERT_TRUE(first_as_union.value->Equals(alpha));
+
+  ASSERT_OK_AND_ASSIGN(auto second, arr.GetScalar(1));
+  ASSERT_TRUE(second->Equals(scalar_two));
+
+  const auto& second_as_union = checked_cast<const SparseUnionScalar&>(*second);
+  ASSERT_TRUE(second_as_union.is_valid);
+  ASSERT_TRUE(second_as_union.value->Equals(two));
+
+  ASSERT_OK_AND_ASSIGN(auto third, arr.GetScalar(2));
+  ASSERT_TRUE(third->Equals(scalar_beta));
+
+  const auto& third_as_union = checked_cast<const SparseUnionScalar&>(*third);
+  ASSERT_TRUE(third_as_union.is_valid);
+  ASSERT_TRUE(third_as_union.value->Equals(beta));
+
+  ASSERT_OK_AND_ASSIGN(auto fourth, arr.GetScalar(3));
+  ASSERT_TRUE(fourth->Equals(MakeNullScalar(ty)));
+
+  const auto& fourth_as_union = checked_cast<const SparseUnionScalar&>(*fourth);
+  ASSERT_FALSE(fourth_as_union.is_valid);
+
+  ASSERT_OK_AND_ASSIGN(auto fifth, arr.GetScalar(4));
+  ASSERT_TRUE(fifth->Equals(MakeNullScalar(ty)));
+
+  const auto& fifth_as_union = checked_cast<const SparseUnionScalar&>(*fifth);
+  ASSERT_FALSE(fifth_as_union.is_valid);
+}
+
+TEST(TestDenseUnionScalar, Basics) {
+  auto ty = dense_union({field("string", utf8()), field("number", uint64())});
+
+  auto alpha = MakeScalar("alpha");
+  auto beta = MakeScalar("beta");
+  ASSERT_OK_AND_ASSIGN(auto two, MakeScalar(uint64(), 2));
+  ASSERT_OK_AND_ASSIGN(auto three, MakeScalar(uint64(), 3));
+
+  auto scalar_alpha = DenseUnionScalar(alpha, ty);
+  auto scalar_beta = DenseUnionScalar(beta, ty);
+  auto scalar_two = DenseUnionScalar(two, ty);
+  auto scalar_three = DenseUnionScalar(three, ty);
+
+  // test Array.GetScalar
+  std::vector<std::shared_ptr<Array>> children = {
+      ArrayFromJSON(utf8(), "[\"alpha\", \"beta\", null]"),
+      ArrayFromJSON(uint64(), "[2, 3]")};
+
+  auto type_ids = ArrayFromJSON(int8(), "[0, 1, 0, 0, 1]");
+  auto offsets = ArrayFromJSON(int32(), "[0, 0, 1, 2, 1]");
+  DenseUnionArray arr(ty, 5, children, type_ids->data()->buffers[1],
+                      offsets->data()->buffers[1]);
+  ASSERT_OK(arr.ValidateFull());
+
+  ASSERT_OK_AND_ASSIGN(auto first, arr.GetScalar(0));
+  ASSERT_TRUE(first->Equals(scalar_alpha));
+
+  const auto& first_as_union = checked_cast<const DenseUnionScalar&>(*first);
+  ASSERT_TRUE(first_as_union.value->Equals(alpha));
+  ASSERT_TRUE(first_as_union.is_valid);
+
+  ASSERT_OK_AND_ASSIGN(auto second, arr.GetScalar(1));
+  ASSERT_TRUE(second->Equals(scalar_two));
+
+  const auto& second_as_union = checked_cast<const DenseUnionScalar&>(*second);
+  ASSERT_TRUE(second_as_union.value->Equals(two));
+  ASSERT_TRUE(second_as_union.is_valid);
+
+  ASSERT_OK_AND_ASSIGN(auto third, arr.GetScalar(2));
+  ASSERT_TRUE(third->Equals(scalar_beta));
+
+  const auto& third_as_union = checked_cast<const DenseUnionScalar&>(*third);
+  ASSERT_TRUE(third_as_union.value->Equals(beta));
+  ASSERT_TRUE(third_as_union.is_valid);
+
+  ASSERT_OK_AND_ASSIGN(auto fourth, arr.GetScalar(3));
+  ASSERT_TRUE(fourth->Equals(MakeNullScalar(ty)));
+
+  const auto& fourth_as_union = checked_cast<const DenseUnionScalar&>(*fourth);
+  ASSERT_FALSE(fourth_as_union.is_valid);
+
+  ASSERT_OK_AND_ASSIGN(auto fifth, arr.GetScalar(4));
+  ASSERT_TRUE(fifth->Equals(scalar_three));
+
+  const auto& fifth_as_union = checked_cast<const DenseUnionScalar&>(*fifth);
+  ASSERT_TRUE(fifth_as_union.value->Equals(three));
+  ASSERT_TRUE(fifth_as_union.is_valid);
 }
 
 }  // namespace arrow

@@ -296,8 +296,6 @@ class RepeatedArrayFactory {
     return out_;
   }
 
-  Status Visit(const NullType&) { return Status::OK(); }
-
   Status Visit(const BooleanType&) {
     ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateBitmap(length_, pool_));
     BitUtil::SetBitsTo(buffer->mutable_data(), 0, length_,

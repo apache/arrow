@@ -179,102 +179,15 @@ cdef class Schema:
 
 
 cdef class Scalar:
-    cdef readonly:
-        DataType type
-
-
-cdef class NAType(Scalar):
-    pass
-
-
-cdef class ArrayValue(Scalar):
     cdef:
-        shared_ptr[CArray] sp_array
-        int64_t index
+        shared_ptr[CScalar] wrapped
 
-    cdef void init(self, DataType type,
-                   const shared_ptr[CArray]& sp_array, int64_t index)
+    cdef void init(self, const shared_ptr[CScalar]& wrapped)
 
-    cdef void _set_array(self, const shared_ptr[CArray]& sp_array)
+    @staticmethod
+    cdef wrap(const shared_ptr[CScalar]& wrapped)
 
-cdef class ScalarValue(Scalar):
-    cdef:
-        shared_ptr[CScalar] sp_scalar
-
-    cdef void init(self, const shared_ptr[CScalar]& sp_scalar)
-
-cdef class Int8Value(ArrayValue):
-    pass
-
-
-cdef class Int64Value(ArrayValue):
-    pass
-
-
-cdef class ListValue(ArrayValue):
-    cdef readonly:
-        DataType value_type
-
-    cdef:
-        CListArray* ap
-
-    cdef getitem(self, int64_t i)
-    cdef int64_t length(self)
-
-
-cdef class LargeListValue(ArrayValue):
-    cdef readonly:
-        DataType value_type
-
-    cdef:
-        CLargeListArray* ap
-
-    cdef getitem(self, int64_t i)
-    cdef int64_t length(self)
-
-
-cdef class MapValue(ArrayValue):
-    cdef readonly:
-        DataType key_type
-        DataType item_type
-
-    cdef:
-        CMapArray* ap
-
-    cdef getitem(self, int64_t i)
-    cdef int64_t length(self)
-
-
-cdef class FixedSizeListValue(ArrayValue):
-    cdef readonly:
-        DataType value_type
-
-    cdef:
-        CFixedSizeListArray* ap
-
-    cdef getitem(self, int64_t i)
-    cdef int64_t length(self)
-
-
-cdef class StructValue(ArrayValue):
-    cdef:
-        CStructArray* ap
-
-
-cdef class UnionValue(ArrayValue):
-    cdef:
-        CUnionArray* ap
-        list value_types
-
-    cdef getitem(self, int64_t i)
-
-
-cdef class StringValue(ArrayValue):
-    pass
-
-
-cdef class FixedSizeBinaryValue(ArrayValue):
-    pass
+    cdef inline shared_ptr[CScalar] unwrap(self) nogil
 
 
 cdef class _PandasConvertible:
@@ -471,9 +384,6 @@ cdef class ExtensionArray(Array):
 
 cdef wrap_array_output(PyObject* output)
 cdef wrap_datum(const CDatum& datum)
-cdef object box_scalar(DataType type,
-                       const shared_ptr[CArray]& sp_array,
-                       int64_t index)
 
 
 cdef class ChunkedArray(_PandasConvertible):

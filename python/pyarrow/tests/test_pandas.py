@@ -1242,7 +1242,7 @@ class TestConvertDateTimeLikeTypes:
         assert parr.type == t1
         assert parr[0].as_py() == pytimes[0]
         assert parr[1].as_py() == pytimes[1]
-        assert parr[2] is pa.NA
+        assert parr[2].as_py() is None
 
         # DataFrame
         df = pd.DataFrame({'times': aobjs})

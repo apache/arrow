@@ -231,15 +231,12 @@ cdef api object pyarrow_wrap_chunked_array(
 
 
 cdef api bint pyarrow_is_scalar(object value):
-    return isinstance(value, ScalarValue)
+    return isinstance(value, Scalar)
 
 
 cdef api shared_ptr[CScalar] pyarrow_unwrap_scalar(object scalar):
-    cdef ScalarValue value
     if pyarrow_is_scalar(scalar):
-        value = <ScalarValue>(scalar)
-        return value.sp_scalar
-
+        return (<Scalar> scalar).unwrap()
     return shared_ptr[CScalar]()
 
 
@@ -254,7 +251,7 @@ cdef api object pyarrow_wrap_scalar(const shared_ptr[CScalar]& sp_scalar):
 
     klass = _scalar_classes[data_type.id()]
 
-    cdef ScalarValue scalar = klass.__new__(klass)
+    cdef Scalar scalar = klass.__new__(klass)
     scalar.init(sp_scalar)
     return scalar
 

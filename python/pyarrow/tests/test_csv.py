@@ -567,7 +567,7 @@ class BaseTestCSVRead:
         assert table.schema == schema
         dict_values = table['a'].chunk(0).dictionary
         assert len(dict_values) == 2
-        assert dict_values[0] == "ab"
+        assert dict_values[0].as_py() == "ab"
         assert dict_values[1].as_buffer() == b"cd\xff"
 
         # With invalid UTF8, checked

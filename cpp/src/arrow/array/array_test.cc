@@ -290,7 +290,6 @@ TEST_F(TestArray, TestMakeArrayOfNull) {
       decimal(16, 4),
       utf8(),
       large_utf8(),
-
       list(utf8()),
       list(int64()),  // ARROW-9071
       large_list(large_utf8()),
@@ -349,6 +348,11 @@ TEST_F(TestArray, TestMakeArrayOfNullUnion) {
 }
 
 TEST_F(TestArray, TestMakeArrayFromScalar) {
+  ASSERT_OK_AND_ASSIGN(auto null_array, MakeArrayFromScalar(NullScalar(), 5));
+  ASSERT_OK(null_array->ValidateFull());
+  ASSERT_EQ(null_array->length(), 5);
+  ASSERT_EQ(null_array->null_count(), 5);
+
   auto hello = Buffer::FromString("hello");
   ScalarVector scalars{std::make_shared<BooleanScalar>(false),
                        std::make_shared<Int8Scalar>(3),

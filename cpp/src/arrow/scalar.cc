@@ -175,7 +175,14 @@ Result<std::shared_ptr<Scalar>> StructScalar::field(FieldRef ref) const {
   if (path.indices().size() != 1) {
     return Status::NotImplemented("retrieval of nested fields from StructScalar");
   }
-  return value[path.indices()[0]];
+  auto index = path.indices()[0];
+  if (is_valid) {
+    return value[index];
+  } else {
+    const auto& struct_type = checked_cast<const StructType&>(*this->type);
+    const auto& field_type = struct_type.field(index)->type();
+    return MakeNullScalar(field_type);
+  }
 }
 
 DictionaryScalar::DictionaryScalar(std::shared_ptr<DataType> type)
@@ -184,6 +191,35 @@ DictionaryScalar::DictionaryScalar(std::shared_ptr<DataType> type)
             MakeArrayOfNull(checked_cast<const DictionaryType&>(*this->type).value_type(),
                             0)
                 .ValueOrDie()} {}
+
+Result<std::shared_ptr<Scalar>> DictionaryScalar::GetEncodedValue() const {
+  const auto& dict_type = checked_cast<DictionaryType&>(*type);
+
+  if (!is_valid) {
+    return MakeNullScalar(dict_type.value_type());
+  }
+
+  int64_t index_value = 0;
+  switch (dict_type.index_type()->id()) {
+    case Type::INT8:
+      index_value = checked_cast<const Int8Scalar&>(*value.index).value;
+      break;
+    case Type::INT16:
+      index_value = checked_cast<const Int16Scalar&>(*value.index).value;
+      break;
+    case Type::INT32:
+      index_value = checked_cast<const Int32Scalar&>(*value.index).value;
+      break;
+    case Type::INT64:
+      index_value = checked_cast<const Int64Scalar&>(*value.index).value;
+      break;
+    default:
+      return Status::TypeError("Not implemented dictionary index type");
+      break;
+  }
+
+  return value.dictionary->GetScalar(index_value);
+}
 
 template <typename T>
 using scalar_constructor_has_arrow_type =

@@ -17,8 +17,6 @@
 
 #include "arrow/dataset/dataset.h"
 
-#include <tuple>
-
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/discovery.h"
 #include "arrow/dataset/partition.h"

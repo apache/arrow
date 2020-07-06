@@ -923,7 +923,7 @@ cdef class Array(_PandasConvertible):
         return self.getitem(_normalize_index(key, self.length()))
 
     cdef getitem(self, int64_t i):
-        return box_scalar(self.type, self.sp_array, i)
+        return Scalar.wrap(GetResultValue(self.ap.GetScalar(i)))
 
     def slice(self, offset=0, length=None):
         """
@@ -1618,11 +1618,13 @@ cdef class UnionArray(Array):
         -------
         union_array : UnionArray
         """
-        cdef shared_ptr[CArray] out
-        cdef vector[shared_ptr[CArray]] c
-        cdef Array child
-        cdef vector[c_string] c_field_names
-        cdef vector[int8_t] c_type_codes
+        cdef:
+            shared_ptr[CArray] out
+            vector[shared_ptr[CArray]] c
+            Array child
+            vector[c_string] c_field_names
+            vector[int8_t] c_type_codes
+
         for child in children:
             c.push_back(child.sp_array)
         if field_names is not None:
@@ -1631,10 +1633,12 @@ cdef class UnionArray(Array):
         if type_codes is not None:
             for x in type_codes:
                 c_type_codes.push_back(x)
+
         with nogil:
             out = GetResultValue(CDenseUnionArray.Make(
                 deref(types.ap), deref(value_offsets.ap), c, c_field_names,
                 c_type_codes))
+
         cdef Array result = pyarrow_wrap_array(out)
         result.validate()
         return result
@@ -1657,11 +1661,13 @@ cdef class UnionArray(Array):
         -------
         union_array : UnionArray
         """
-        cdef shared_ptr[CArray] out
-        cdef vector[shared_ptr[CArray]] c
-        cdef Array child
-        cdef vector[c_string] c_field_names
-        cdef vector[int8_t] c_type_codes
+        cdef:
+            shared_ptr[CArray] out
+            vector[shared_ptr[CArray]] c
+            Array child
+            vector[c_string] c_field_names
+            vector[int8_t] c_type_codes
+
         for child in children:
             c.push_back(child.sp_array)
         if field_names is not None:
@@ -1670,9 +1676,11 @@ cdef class UnionArray(Array):
         if type_codes is not None:
             for x in type_codes:
                 c_type_codes.push_back(x)
+
         with nogil:
             out = GetResultValue(CSparseUnionArray.Make(
                 deref(types.ap), c, c_field_names, c_type_codes))
+
         cdef Array result = pyarrow_wrap_array(out)
         result.validate()
         return result

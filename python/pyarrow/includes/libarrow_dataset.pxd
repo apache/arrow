@@ -56,10 +56,12 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
     ctypedef vector[shared_ptr[CExpression]] CExpressionVector \
         "arrow::dataset::ExpressionVector"
 
+    cdef cppclass CScalarExpression \
+            "arrow::dataset::ScalarExpression"(CExpression):
+        CScalarExpression(const shared_ptr[CScalar]& value)
+
     cdef shared_ptr[CExpression] CMakeFieldExpression \
         "arrow::dataset::field_ref"(c_string name)
-    cdef shared_ptr[CExpression] CMakeScalarExpression \
-        "arrow::dataset::scalar"(shared_ptr[CScalar] value)
     cdef shared_ptr[CExpression] CMakeNotExpression \
         "arrow::dataset::not_"(shared_ptr[CExpression] operand)
     cdef shared_ptr[CExpression] CMakeAndExpression \

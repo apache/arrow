@@ -421,6 +421,8 @@ def test_expression_serialization():
     c = ds.scalar(True)
     d = ds.scalar("string")
     e = ds.scalar(None)
+    f = ds.scalar({'a': 1})
+    g = ds.scalar(pa.scalar(1))
 
     condition = ds.field('i64') > 5
     schema = pa.schema([
@@ -435,7 +437,7 @@ def test_expression_serialization():
     assert condition.assume(ds.field('i64') == 7).equals(
         ds.scalar(True))
 
-    all_exprs = [a, b, c, d, e, a == b, a > b, a & b, a | b, ~c,
+    all_exprs = [a, b, c, d, e, f, g, a == b, a > b, a & b, a | b, ~c,
                  d.is_valid(), a.cast(pa.int32(), safe=False),
                  a.cast(pa.int32(), safe=False), a.isin([1, 2, 3]),
                  ds.field('i64') > 5, ds.field('i64') == 5,
@@ -464,18 +466,8 @@ def test_expression_construction():
     with pytest.raises(TypeError):
         field.isin(1)
 
-    # operations with non-scalar values
-    with pytest.raises(TypeError):
-        field == [1]
-
-    with pytest.raises(TypeError):
+    with pytest.raises(pa.ArrowInvalid):
         field != {1}
-
-    with pytest.raises(TypeError):
-        field & [1]
-
-    with pytest.raises(TypeError):
-        field | [1]
 
 
 def test_parquet_read_options():
