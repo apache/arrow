@@ -1003,7 +1003,7 @@ TEST(TestDictionary, Validate) {
 
 TEST(TestDictionary, FromArrays) {
   auto dict = ArrayFromJSON(utf8(), "[\"foo\", \"bar\", \"baz\"]");
-  for (auto index_ty : testing::dictionary_index_types()) {
+  for (auto index_ty : test::dictionary_index_types()) {
     auto dict_type = dictionary(index_ty, utf8());
 
     auto indices1 = ArrayFromJSON(index_ty, "[1, 2, 0, 0, 2, 0]");
@@ -1052,39 +1052,48 @@ static void CheckTranspose(const std::shared_ptr<Array>& input,
 
 TEST(TestDictionary, TransposeBasic) {
   auto dict = ArrayFromJSON(utf8(), "[\"A\", \"B\", \"C\"]");
-  auto dict_type = dictionary(int16(), utf8());
-  auto indices = ArrayFromJSON(int16(), "[1, 2, 0, 0]");
-  // ["B", "C", "A", "A"]
-  ASSERT_OK_AND_ASSIGN(auto arr, DictionaryArray::FromArrays(dict_type, indices, dict));
-  // ["C", "A"]
-  auto sliced = arr->Slice(1, 2);
 
-  // Transpose to same index type
-  {
-    auto out_dict_type = dict_type;
+  auto CheckIndexType = [&](const std::shared_ptr<DataType>& index_ty) {
+    auto dict_type = dictionary(index_ty, utf8());
+    auto indices = ArrayFromJSON(index_ty, "[1, 2, 0, 0]");
+    // ["B", "C", "A", "A"]
+    ASSERT_OK_AND_ASSIGN(auto arr, DictionaryArray::FromArrays(dict_type, indices, dict));
+    // ["C", "A"]
+    auto sliced = arr->Slice(1, 2);
+
+    // Transpose to same index type
+    {
+      auto out_dict_type = dict_type;
+      auto out_dict = ArrayFromJSON(utf8(), "[\"Z\", \"A\", \"C\", \"B\"]");
+      auto expected_indices = ArrayFromJSON(index_ty, "[3, 2, 1, 1]");
+      std::vector<int32_t> transpose_map = {1, 3, 2};
+      CheckTranspose(arr, transpose_map.data(), out_dict_type, out_dict,
+                     expected_indices);
+
+      // Sliced
+      expected_indices = ArrayFromJSON(index_ty, "[2, 1]");
+      CheckTranspose(sliced, transpose_map.data(), out_dict_type, out_dict,
+                     expected_indices);
+    }
+
+    // Transpose to other index type
     auto out_dict = ArrayFromJSON(utf8(), "[\"Z\", \"A\", \"C\", \"B\"]");
-    auto expected_indices = ArrayFromJSON(int16(), "[3, 2, 1, 1]");
     std::vector<int32_t> transpose_map = {1, 3, 2};
-    CheckTranspose(arr, transpose_map.data(), out_dict_type, out_dict, expected_indices);
+    for (auto other_ty : test::dictionary_index_types()) {
+      auto out_dict_type = dictionary(other_ty, utf8());
+      auto expected_indices = ArrayFromJSON(other_ty, "[3, 2, 1, 1]");
+      CheckTranspose(arr, transpose_map.data(), out_dict_type, out_dict,
+                     expected_indices);
 
-    // Sliced
-    expected_indices = ArrayFromJSON(int16(), "[2, 1]");
-    CheckTranspose(sliced, transpose_map.data(), out_dict_type, out_dict,
-                   expected_indices);
-  }
+      // Sliced
+      expected_indices = ArrayFromJSON(other_ty, "[2, 1]");
+      CheckTranspose(sliced, transpose_map.data(), out_dict_type, out_dict,
+                     expected_indices);
+    }
+  };
 
-  // Transpose to other index type
-  {
-    auto out_dict_type = dictionary(int8(), utf8());
-    auto out_dict = ArrayFromJSON(utf8(), "[\"Z\", \"A\", \"C\", \"B\"]");
-    auto expected_indices = ArrayFromJSON(int8(), "[3, 2, 1, 1]");
-    std::vector<int32_t> transpose_map = {1, 3, 2};
-    CheckTranspose(arr, transpose_map.data(), out_dict_type, out_dict, expected_indices);
-
-    // Sliced
-    expected_indices = ArrayFromJSON(int8(), "[2, 1]");
-    CheckTranspose(sliced, transpose_map.data(), out_dict_type, out_dict,
-                   expected_indices);
+  for (auto ty : test::dictionary_index_types()) {
+    CheckIndexType(ty);
   }
 }
 
@@ -1134,7 +1143,7 @@ TEST(TestDictionary, GetValueIndex) {
   auto dict = ArrayFromJSON(int32(), "[10, 20, 30, 40, 50, 60]");
 
   const auto& typed_indices_int64 = checked_cast<const Int64Array&>(*indices_int64);
-  for (auto index_ty : testing::dictionary_index_types()) {
+  for (auto index_ty : test::dictionary_index_types()) {
     auto indices = ArrayFromJSON(index_ty, indices_json);
     auto dict_ty = dictionary(index_ty, int32());
 

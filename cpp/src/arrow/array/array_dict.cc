@@ -256,15 +256,13 @@ inline bool IsTrivialTransposition(const int32_t* transpose_map,
 }
 
 template <typename InType, typename OutType>
-Result<std::shared_ptr<Array>> TransposeDictIndices(
-    MemoryPool* pool, const ArrayData& in_data, const int32_t* transpose_map,
-    const std::shared_ptr<ArrayData>& out_data) {
+void TransposeDictIndices(const ArrayData& in_data, const int32_t* transpose_map,
+                          ArrayData* out_data) {
   using in_c_type = typename InType::c_type;
   using out_c_type = typename OutType::c_type;
   internal::TransposeInts(in_data.GetValues<in_c_type>(1),
                           out_data->GetMutableValues<out_c_type>(1), in_data.length,
                           transpose_map);
-  return MakeArray(out_data);
 }
 
 }  // namespace
@@ -312,32 +310,43 @@ Result<std::shared_ptr<Array>> DictionaryArray::Transpose(
       type, data_->length, {null_bitmap, std::move(out_buffer)}, data_->null_count);
   out_data->dictionary = dictionary->data();
 
-#define TRANSPOSE_IN_OUT_CASE(IN_INDEX_TYPE, OUT_INDEX_TYPE)                 \
-  case OUT_INDEX_TYPE::type_id:                                              \
-    return TransposeDictIndices<IN_INDEX_TYPE, OUT_INDEX_TYPE>(pool, *data_, \
-                                                               transpose_map, out_data);
+#define TRANSPOSE_IN_OUT_CASE(IN_INDEX_TYPE, OUT_INDEX_TYPE)                   \
+  case OUT_INDEX_TYPE::type_id:                                                \
+    TransposeDictIndices<IN_INDEX_TYPE, OUT_INDEX_TYPE>(*data_, transpose_map, \
+                                                        out_data.get());       \
+    break;
 
 #define TRANSPOSE_IN_CASE(IN_INDEX_TYPE)                        \
   case IN_INDEX_TYPE::type_id:                                  \
     switch (out_type_id) {                                      \
+      TRANSPOSE_IN_OUT_CASE(IN_INDEX_TYPE, UInt8Type)           \
       TRANSPOSE_IN_OUT_CASE(IN_INDEX_TYPE, Int8Type)            \
+      TRANSPOSE_IN_OUT_CASE(IN_INDEX_TYPE, UInt16Type)          \
       TRANSPOSE_IN_OUT_CASE(IN_INDEX_TYPE, Int16Type)           \
+      TRANSPOSE_IN_OUT_CASE(IN_INDEX_TYPE, UInt32Type)          \
       TRANSPOSE_IN_OUT_CASE(IN_INDEX_TYPE, Int32Type)           \
+      TRANSPOSE_IN_OUT_CASE(IN_INDEX_TYPE, UInt64Type)          \
       TRANSPOSE_IN_OUT_CASE(IN_INDEX_TYPE, Int64Type)           \
       default:                                                  \
         return Status::NotImplemented("unexpected index type"); \
-    }
+    }                                                           \
+    break;
 
   switch (in_type_id) {
+    TRANSPOSE_IN_CASE(UInt8Type)
     TRANSPOSE_IN_CASE(Int8Type)
+    TRANSPOSE_IN_CASE(UInt16Type)
     TRANSPOSE_IN_CASE(Int16Type)
+    TRANSPOSE_IN_CASE(UInt32Type)
     TRANSPOSE_IN_CASE(Int32Type)
+    TRANSPOSE_IN_CASE(UInt64Type)
     TRANSPOSE_IN_CASE(Int64Type)
     default:
       return Status::NotImplemented("unexpected index type");
   }
 #undef TRANSPOSE_IN_CASE
 #undef TRANSPOSE_IN_OUT_CASE
+  return MakeArray(out_data);
 }
 
 }  // namespace arrow

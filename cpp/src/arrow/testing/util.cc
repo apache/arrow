@@ -233,7 +233,7 @@ int GetListenPort() {
   return port;
 }
 
-namespace testing {
+namespace test {
 
 const std::vector<std::shared_ptr<DataType>>& dictionary_index_types() {
   static std::vector<std::shared_ptr<DataType>> types = {
@@ -241,6 +241,6 @@ const std::vector<std::shared_ptr<DataType>>& dictionary_index_types() {
   return types;
 }
 
-}  // namespace testing
+}  // namespace test
 
 }  // namespace arrow

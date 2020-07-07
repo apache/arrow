@@ -435,15 +435,23 @@ void TransposeInts(const InputInt* src, OutputInt* dest, int64_t length,
       const SRC* source, DEST* dest, int64_t length, const int32_t* transpose_map);
 
 #define INSTANTIATE_ALL_DEST(DEST) \
+  INSTANTIATE(uint8_t, DEST)       \
   INSTANTIATE(int8_t, DEST)        \
+  INSTANTIATE(uint16_t, DEST)      \
   INSTANTIATE(int16_t, DEST)       \
+  INSTANTIATE(uint32_t, DEST)      \
   INSTANTIATE(int32_t, DEST)       \
+  INSTANTIATE(uint64_t, DEST)      \
   INSTANTIATE(int64_t, DEST)
 
-#define INSTANTIATE_ALL()       \
-  INSTANTIATE_ALL_DEST(int8_t)  \
-  INSTANTIATE_ALL_DEST(int16_t) \
-  INSTANTIATE_ALL_DEST(int32_t) \
+#define INSTANTIATE_ALL()        \
+  INSTANTIATE_ALL_DEST(uint8_t)  \
+  INSTANTIATE_ALL_DEST(int8_t)   \
+  INSTANTIATE_ALL_DEST(uint16_t) \
+  INSTANTIATE_ALL_DEST(int16_t)  \
+  INSTANTIATE_ALL_DEST(uint32_t) \
+  INSTANTIATE_ALL_DEST(int32_t)  \
+  INSTANTIATE_ALL_DEST(uint64_t) \
   INSTANTIATE_ALL_DEST(int64_t)
 
 INSTANTIATE_ALL()
