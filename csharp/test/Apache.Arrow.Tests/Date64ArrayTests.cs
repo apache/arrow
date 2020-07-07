@@ -18,7 +18,7 @@ using Xunit;
 
 namespace Apache.Arrow.Tests
 {
-    public class Date32ArrayTests
+    public class Date64ArrayTests
     {
         public class GetDate
         {
@@ -26,7 +26,7 @@ namespace Apache.Arrow.Tests
             public void SetAndGetNull()
             {
                 // Arrange
-                var array = new Date32Array.Builder()
+                var array = new Date64Array.Builder()
                     .AppendNull()
                     .Build();
 
@@ -49,7 +49,7 @@ namespace Apache.Arrow.Tests
             {
                 // Arrange
                 var expected = new DateTime(year, month, day);
-                var array = new Date32Array.Builder()
+                var array = new Date64Array.Builder()
                     .Resize(1)
                     .Set(0, expected)
                     .Build();
@@ -60,6 +60,37 @@ namespace Apache.Arrow.Tests
                 // Assert
                 Assert.NotNull(actual);
                 Assert.Equal(expected, actual.Value);
+            }
+        }
+
+        public class GetValue
+        {
+            [Theory]
+            [InlineData(1, 1, 1)]
+            [InlineData(1969, 12, 31)]
+            [InlineData(1970, 1, 1)]
+            [InlineData(1970, 1, 2)]
+            [InlineData(1972, 6, 30)] // First announced leap second
+            [InlineData(2015, 6, 30)] // This date contained a leap second
+            [InlineData(2016, 12, 31)] // This date contained a leap second
+            [InlineData(9999, 12, 31)]
+            public void MultipleOf86400000(int year, int month, int day)
+            {
+                // Arrange
+                var date = new DateTime(year, month, day);
+                var array = new Date64Array.Builder()
+                    .Resize(1)
+                    .Set(0, date)
+                    .Build();
+
+                // Act
+                var value = array.GetValue(0);
+
+                // Assert
+                // According to the schema, values in a Date64 type are required
+                // to be evenly divisible by 86400000 (i.e. no leap seconds).
+                Assert.NotNull(value);
+                Assert.Equal(0, value.Value % 86400000);
             }
         }
     }
