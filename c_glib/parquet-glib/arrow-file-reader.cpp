@@ -220,10 +220,8 @@ gparquet_arrow_file_reader_read_table(GParquetArrowFileReader *reader,
  * @row_group_index: A row group index to be read.
  * @column_indices: (array length=n_column_indices) (nullable):
  *   Column indices to be read. %NULL means that all columns are read.
- *
  *   If an index is negative, the index is counted backward from the
  *   end of the columns. `-1` means the last column.
- *
  * @n_column_indices: The number of elements of @column_indices.
  * @error: (nullable): Return locatipcn for a #GError or %NULL.
  *
@@ -305,10 +303,8 @@ gparquet_arrow_file_reader_get_schema(GParquetArrowFileReader *reader,
  * gparquet_arrow_file_reader_read_column_data:
  * @reader: A #GParquetArrowFileReader.
  * @i: The index of the column to be read.
- *
  *   If an index is negative, the index is counted backward from the
  *   end of the columns. `-1` means the last column.
- *
  * @error: (nullable): Return locatipcn for a #GError or %NULL.
  *
  * Returns: (transfer full) (nullable): A read #GArrowChunkedArray.
