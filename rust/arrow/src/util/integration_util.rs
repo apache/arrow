@@ -393,7 +393,7 @@ fn json_from_col(col: &ArrowJsonColumn, data_type: &DataType) -> Vec<Value> {
                 .unwrap()
                 .iter()
                 .map(|v| {
-                    Value::Number(VNumber::from(match v {
+                    Value::Number(match v {
                         Value::Number(number) => number.clone(),
                         Value::String(string) => VNumber::from(
                             string
@@ -401,7 +401,7 @@ fn json_from_col(col: &ArrowJsonColumn, data_type: &DataType) -> Vec<Value> {
                                 .expect("Unable to parse string as i64"),
                         ),
                         t => panic!("Cannot convert {} to number", t),
-                    }))
+                    })
                 })
                 .collect();
             merge_json_array(

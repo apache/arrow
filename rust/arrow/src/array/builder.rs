@@ -135,6 +135,20 @@ pub trait BufferBuilderTrait<T: ArrowPrimitiveType> {
     /// ```
     fn len(&self) -> usize;
 
+    /// Returns whether the internal buffer is empty.
+    ///
+    /// # Example:
+    ///
+    /// ```
+    /// use arrow::array::{UInt8BufferBuilder, BufferBuilderTrait};
+    ///
+    /// let mut builder = UInt8BufferBuilder::new(10);
+    /// builder.append(42);
+    ///
+    /// assert_eq!(builder.is_empty(), false);
+    /// ```
+    fn is_empty(&self) -> bool;
+
     /// Returns the actual capacity (number of elements) of the internal buffer.
     ///
     /// Note: the internal capacity returned by this method might be larger than
@@ -248,6 +262,10 @@ impl<T: ArrowPrimitiveType> BufferBuilderTrait<T> for BufferBuilder<T> {
 
     fn len(&self) -> usize {
         self.len
+    }
+
+    fn is_empty(&self) -> bool {
+        self.len == 0
     }
 
     fn capacity(&self) -> usize {
@@ -402,6 +420,9 @@ pub trait ArrayBuilder: Any {
     /// Returns the number of array slots in the builder
     fn len(&self) -> usize;
 
+    /// Returns whether number of array slots is zero
+    fn is_empty(&self) -> bool;
+
     /// Appends data from other arrays into the builder
     ///
     /// This is most useful when concatenating arrays of the same type into a builder.
@@ -458,6 +479,11 @@ impl<T: ArrowPrimitiveType> ArrayBuilder for PrimitiveBuilder<T> {
     /// Returns the number of array slots in the builder
     fn len(&self) -> usize {
         self.values_builder.len
+    }
+
+    /// Returns whether the number of array slots is zero
+    fn is_empty(&self) -> bool {
+        self.values_builder.is_empty()
     }
 
     /// Appends data from other arrays into the builder
@@ -725,7 +751,6 @@ where
             self.values().append_data(&[sliced.data()])?;
             let adjusted_offsets: Vec<i32> = offsets
                 .windows(2)
-                .into_iter()
                 .map(|w| {
                     let curr_offset = w[1] - w[0] + cum_offset;
                     cum_offset = curr_offset;
@@ -766,6 +791,11 @@ where
     /// Returns the number of array slots in the builder
     fn len(&self) -> usize {
         self.len
+    }
+
+    /// Returns whether the number of array slots is zero
+    fn is_empty(&self) -> bool {
+        self.len == 0
     }
 
     /// Builds the array and reset this builder.
@@ -925,7 +955,6 @@ where
             self.values().append_data(&[sliced.data()])?;
             let adjusted_offsets: Vec<i64> = offsets
                 .windows(2)
-                .into_iter()
                 .map(|w| {
                     let curr_offset = w[1] - w[0] + cum_offset;
                     cum_offset = curr_offset;
@@ -966,6 +995,11 @@ where
     /// Returns the number of array slots in the builder
     fn len(&self) -> usize {
         self.len
+    }
+
+    /// Returns whether the number of array slots is zero
+    fn is_empty(&self) -> bool {
+        self.len == 0
     }
 
     /// Builds the array and reset this builder.
@@ -1137,6 +1171,11 @@ where
         self.len
     }
 
+    /// Returns whether the number of array slots is zero
+    fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
     /// Builds the array and reset this builder.
     fn finish(&mut self) -> ArrayRef {
         Arc::new(self.finish())
@@ -1267,6 +1306,11 @@ impl ArrayBuilder for BinaryBuilder {
         self.builder.len()
     }
 
+    /// Returns whether the number of array slots is zero
+    fn is_empty(&self) -> bool {
+        self.builder.is_empty()
+    }
+
     /// Builds the array and reset this builder.
     fn finish(&mut self) -> ArrayRef {
         Arc::new(self.finish())
@@ -1308,6 +1352,11 @@ impl ArrayBuilder for LargeBinaryBuilder {
         self.builder.len()
     }
 
+    /// Returns whether the number of array slots is zero
+    fn is_empty(&self) -> bool {
+        self.builder.is_empty()
+    }
+
     /// Builds the array and reset this builder.
     fn finish(&mut self) -> ArrayRef {
         Arc::new(self.finish())
@@ -1347,6 +1396,11 @@ impl ArrayBuilder for StringBuilder {
     /// Returns the number of array slots in the builder
     fn len(&self) -> usize {
         self.builder.len()
+    }
+
+    /// Returns whether the number of array slots is zero
+    fn is_empty(&self) -> bool {
+        self.builder.is_empty()
     }
 
     /// Builds the array and reset this builder.
@@ -1447,7 +1501,7 @@ fn append_large_binary_data(
                     DataType::LargeList(Box::new(DataType::UInt8)),
                     array.len(),
                     None,
-                    array.null_buffer().map(|buf| buf.clone()),
+                    array.null_buffer().cloned(),
                     array.offset(),
                     vec![(&array.buffers()[0]).clone()],
                     vec![int_data],
@@ -1492,6 +1546,11 @@ impl ArrayBuilder for LargeStringBuilder {
     /// Returns the number of array slots in the builder
     fn len(&self) -> usize {
         self.builder.len()
+    }
+
+    /// Returns whether the number of array slots is zero
+    fn is_empty(&self) -> bool {
+        self.builder.is_empty()
     }
 
     /// Builds the array and reset this builder.
@@ -1570,6 +1629,11 @@ impl ArrayBuilder for FixedSizeBinaryBuilder {
     /// Returns the number of array slots in the builder
     fn len(&self) -> usize {
         self.builder.len()
+    }
+
+    /// Returns whether the number of array slots is zero
+    fn is_empty(&self) -> bool {
+        self.builder.is_empty()
     }
 
     /// Builds the array and reset this builder.
@@ -1817,6 +1881,11 @@ impl ArrayBuilder for StructBuilder {
     /// builder should have the equal number of elements.
     fn len(&self) -> usize {
         self.len
+    }
+
+    /// Returns whether the number of array slots is zero
+    fn is_empty(&self) -> bool {
+        self.len == 0
     }
 
     /// Appends data from other arrays into the builder
@@ -2125,6 +2194,11 @@ where
         self.keys_builder.len()
     }
 
+    /// Returns whether the number of array slots is zero
+    fn is_empty(&self) -> bool {
+        self.keys_builder.is_empty()
+    }
+
     /// Appends data from other arrays into the builder
     ///
     /// This is most useful when concatenating arrays of the same type into a builder.
@@ -2282,6 +2356,11 @@ where
     /// Returns the number of array slots in the builder
     fn len(&self) -> usize {
         self.keys_builder.len()
+    }
+
+    /// Returns whether the number of array slots is zero
+    fn is_empty(&self) -> bool {
+        self.keys_builder.is_empty()
     }
 
     /// Appends data from other arrays into the builder
