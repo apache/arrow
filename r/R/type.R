@@ -61,6 +61,7 @@ DataType <- R6Class("DataType",
         DOUBLE = float64(),
         STRING = utf8(),
         BINARY = binary(),
+        FIXED_SIZE_BINARY = shared_ptr(FixedSizeBinary, self$pointer()),
         DATE32 = date32(),
         DATE64 = date64(),
         TIMESTAMP = shared_ptr(Timestamp, self$pointer()),
@@ -301,17 +302,19 @@ large_utf8 <- function() shared_ptr(LargeUtf8, LargeUtf8__initialize())
 #' @rdname data-type
 #' @export
 binary <- function(byte_width = NULL) {
-  if (is.null(byte_width)) {
-    shared_ptr(Binary, Binary__initialize())
-  } else {
-    shared_ptr(FixedSizeBinary, FixedSizeBinary__initialize(byte_width))
-  }
+  shared_ptr(Binary, Binary__initialize())
 }
 
 #' @rdname data-type
 #' @export
 large_binary <- function() {
   shared_ptr(LargeBinary, LargeBinary__initialize())
+}
+
+#' @rdname data-type
+#' @export
+fixed_size_binary <- function(byte_width) {
+  shared_ptr(FixedSizeBinary, FixedSizeBinary__initialize(byte_width))
 }
 
 #' @rdname data-type

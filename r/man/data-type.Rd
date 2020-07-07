@@ -21,6 +21,7 @@
 \alias{large_utf8}
 \alias{binary}
 \alias{large_binary}
+\alias{fixed_size_binary}
 \alias{string}
 \alias{date32}
 \alias{date64}
@@ -71,6 +72,8 @@ large_utf8()
 binary(byte_width = NULL)
 
 large_binary()
+
+fixed_size_binary(byte_width)
 
 string()
 
