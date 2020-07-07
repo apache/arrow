@@ -196,7 +196,11 @@ filter_mask <- function(.data) {
   if (query_on_dataset(.data)) {
     comp_func <- function(operator) {
       force(operator)
-      function(e1, e2) make_expression(operator, e1, e2)
+      if (operator == "!") {
+        function(e1) Expression$not(e1)
+      } else {
+        function(e1, e2) make_expression(operator, e1, e2)
+      }
     }
     var_binder <- function(x) Expression$field_ref(x)
   } else {
@@ -213,7 +217,7 @@ filter_mask <- function(.data) {
   }
 
   # First add the functions
-  func_names <- set_names(c(names(comparison_function_map), "&", "|", "%in%"))
+  func_names <- set_names(c(names(.array_function_map), "%in%"))
   env_bind(f_env, !!!lapply(func_names, comp_func))
   # Then add the column references
   # Renaming is handled automatically by the named list

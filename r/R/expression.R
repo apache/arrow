@@ -17,24 +17,72 @@
 
 #' @include arrowExports.R
 
+#' @export
+Ops.Array <- function(e1, e2) {
+  if (.Generic == "!") {
+    shared_ptr(Array, call_function("invert", e1))
+  } else if (.Generic %in% names(.array_function_map)) {
+    if (!inherits(e1, "ArrowObject")) {
+      # TODO: Array$create if lengths are equal?
+      # TODO: these kernels should autocast like the dataset ones do (e.g. int vs. float)
+      e1 <- Scalar$create(e1, type = e2$type)
+    }
+    if (!inherits(e2, "ArrowObject")) {
+      e2 <- Scalar$create(e2, type = e1$type)
+    }
+    shared_ptr(Array, call_function(.array_function_map[[.Generic]], e1, e2))
+  } else {
+    # Arithmetic?
+    array_expression(.Generic, e1, e2)
+  }
+}
+
+.array_function_map <- list(
+  "==" = "equal",
+  "!=" = "not_equal",
+  ">" = "greater",
+  ">=" = "greater_equal",
+  "<" = "less",
+  "<=" = "less_equal",
+  "&" = "and_kleene",
+  "|" = "or_kleene",
+  "!" = "invert"
+)
+
+#' @export
+Ops.ChunkedArray <- function(e1, e2) {
+  # TODO: when call_function can return a properly classed output, Ops.Array
+  # and Ops.ChunkedArray can be the same, not copypasta
+  if (.Generic == "!") {
+    shared_ptr(ChunkedArray, call_function("invert", e1))
+  } else if (.Generic %in% names(.array_function_map)) {
+    if (!inherits(e1, "ArrowObject")) {
+      # TODO: Array$create if lengths are equal?
+      # TODO: these kernels should autocast like the dataset ones do (e.g. int vs. float)
+      e1 <- Scalar$create(e1, type = e2$type)
+    }
+    if (!inherits(e2, "ArrowObject")) {
+      e2 <- Scalar$create(e2, type = e1$type)
+    }
+    shared_ptr(ChunkedArray, call_function(.array_function_map[[.Generic]], e1, e2))
+  } else {
+    # Arithmetic?
+    array_expression(.Generic, e1, e2)
+  }
+}
+
 array_expression <- function(FUN, ...) {
   structure(list(fun = FUN, args = list(...)), class = "array_expression")
 }
 
 #' @export
-Ops.Array <- function(e1, e2) {
+Ops.array_expression <- function(e1, e2) {
   if (.Generic == "!") {
     array_expression(.Generic, e1)
   } else {
     array_expression(.Generic, e1, e2)
   }
 }
-
-#' @export
-Ops.ChunkedArray <- Ops.Array
-
-#' @export
-Ops.array_expression <- Ops.Array
 
 #' @export
 is.na.array_expression <- function(x) array_expression("is.na", x)

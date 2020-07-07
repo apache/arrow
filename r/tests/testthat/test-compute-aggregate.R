@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("compute")
+context("compute: aggregation")
 
 test_that("sum.Array", {
   ints <- 1:5

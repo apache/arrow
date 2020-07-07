@@ -18,25 +18,17 @@
 context("Expressions")
 
 test_that("Can create an expression", {
-  expect_is(Array$create(1:5) + 4, "array_expression")
-})
-
-test_that("Recursive expression generation", {
-  a <- Array$create(1:5)
-  expect_is(a == 4 | a == 3, "array_expression")
+  expect_is(array_expression("+", Array$create(1:5), 4), "array_expression")
 })
 
 test_that("as.vector(array_expression)", {
-  a <- Array$create(1:5)
-  expect_equal(as.vector(a + 4), 5:9)
-  expect_equal(as.vector(a == 4 | a == 3), c(FALSE, FALSE, TRUE, TRUE, FALSE))
+  expect_equal(as.vector(array_expression("+", Array$create(1:5), 4)), 5:9)
 })
 
 test_that("array_expression print method", {
-  a <- Array$create(1:5)
   expect_output(
-    print(a == 4 | a == 3),
-    capture.output(print(c(FALSE, FALSE, TRUE, TRUE, FALSE))),
+    print(array_expression("+", Array$create(1:5), 4)),
+    capture.output(print(5:9)),
     fixed = TRUE
   )
 })
