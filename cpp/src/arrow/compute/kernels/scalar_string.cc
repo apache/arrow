@@ -208,7 +208,6 @@ struct BinaryToBoolean {
       for (int64_t i = 0; i < input_nstrings; i++) {
         offset_type input_string_ncodeunits;
         const uint8_t* input_string = input_boxed.GetValue(i, &input_string_ncodeunits);
-        offset_type encoded_nbytes;
         bool boolean_result =
             Derived::Predicate(ctx, input_string, input_string_ncodeunits);
         if (!ctx->status().ok()) {
