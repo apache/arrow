@@ -47,6 +47,7 @@ class ARROW_PYTHON_EXPORT PyFileSystemVtable {
   std::function<void(PyObject*, const std::string& path, bool)> create_dir;
   std::function<void(PyObject*, const std::string& path)> delete_dir;
   std::function<void(PyObject*, const std::string& path)> delete_dir_contents;
+  std::function<void(PyObject*)> delete_root_dir_contents;
   std::function<void(PyObject*, const std::string& path)> delete_file;
   std::function<void(PyObject*, const std::string& src, const std::string& dest)> move;
   std::function<void(PyObject*, const std::string& src, const std::string& dest)>
@@ -87,6 +88,7 @@ class ARROW_PYTHON_EXPORT PyFileSystem : public arrow::fs::FileSystem {
 
   Status DeleteDir(const std::string& path) override;
   Status DeleteDirContents(const std::string& path) override;
+  Status DeleteRootDirContents() override;
 
   Status DeleteFile(const std::string& path) override;
 

@@ -146,12 +146,21 @@ class FSSpecHandler(FileSystemHandler):
     def delete_dir(self, path):
         self.fs.rm(path, recursive=True)
 
-    def delete_dir_contents(self, path):
+    def _delete_dir_contents(self, path):
         for subpath in self.fs.listdir(path, detail=False):
             if self.fs.isdir(subpath):
                 self.fs.rm(subpath, recursive=True)
             elif self.fs.isfile(subpath):
                 self.fs.rm(subpath)
+
+    def delete_dir_contents(self, path):
+        if path.strip("/") == "":
+            raise ValueError(
+                "delete_dir_contents called on path '", path, "'")
+        self._delete_dir_contents(path)
+
+    def delete_root_dir_contents(self):
+        self._delete_dir_contents("/")
 
     def delete_file(self, path):
         # fs.rm correctly raises IsADirectoryError when `path` is a directory

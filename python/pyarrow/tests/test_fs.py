@@ -92,7 +92,12 @@ class DummyHandler(FileSystemHandler):
         assert path == "delete_dir"
 
     def delete_dir_contents(self, path):
+        if not path.strip("/"):
+            raise ValueError
         assert path == "delete_dir_contents"
+
+    def delete_root_dir_contents(self):
+        pass
 
     def delete_file(self, path):
         assert path == "delete_file"
@@ -161,6 +166,9 @@ class ProxyHandler(FileSystemHandler):
     def delete_dir_contents(self, path):
         return self._fs.delete_dir_contents(path)
 
+    def delete_root_dir_contents(self):
+        return self._fs.delete_dir_contents("", accept_root_dir=True)
+
     def delete_file(self, path):
         return self._fs.delete_file(path)
 
@@ -209,6 +217,17 @@ def py_localfs(request, tempdir):
 def mockfs(request):
     return dict(
         fs=_MockFileSystem(),
+        pathfn=lambda p: p,
+        allow_copy_file=True,
+        allow_move_dir=True,
+        allow_append_to_file=True,
+    )
+
+
+@pytest.fixture
+def py_mockfs(request):
+    return dict(
+        fs=PyFileSystem(ProxyHandler(_MockFileSystem())),
         pathfn=lambda p: p,
         allow_copy_file=True,
         allow_move_dir=True,
@@ -379,6 +398,10 @@ def py_fsspec_s3fs(request, s3_connection, s3_server):
         id='PyFileSystem(ProxyHandler(LocalFileSystem()))'
     ),
     pytest.param(
+        pytest.lazy_fixture('py_mockfs'),
+        id='PyFileSystem(ProxyHandler(_MockFileSystem()))'
+    ),
+    pytest.param(
         pytest.lazy_fixture('py_fsspec_localfs'),
         id='PyFileSystem(FSSpecHandler(fsspec.LocalFileSystem()))'
     ),
@@ -516,7 +539,7 @@ def test_subtree_filesystem():
 
 
 def test_filesystem_pickling(fs):
-    if isinstance(fs, _MockFileSystem):
+    if fs.type_name.split('::')[-1] == 'mock':
         pytest.xfail(reason='MockFileSystem is not serializable')
 
     serialized = pickle.dumps(fs)
@@ -526,7 +549,7 @@ def test_filesystem_pickling(fs):
 
 
 def test_filesystem_is_functional_after_pickling(fs, pathfn):
-    if isinstance(fs, _MockFileSystem):
+    if fs.type_name.split('::')[-1] == 'mock':
         pytest.xfail(reason='MockFileSystem is not serializable')
     skip_fsspec_s3fs(fs)
 
@@ -699,6 +722,33 @@ def test_delete_dir_contents(fs, pathfn):
     fs.delete_dir(d)
     with pytest.raises(pa.ArrowIOError):
         fs.delete_dir(d)
+
+
+def _check_root_dir_contents(config):
+    fs = config['fs']
+    pathfn = config['pathfn']
+
+    d = pathfn('directory/')
+    nd = pathfn('directory/nested/')
+
+    fs.create_dir(nd)
+    with pytest.raises(pa.ArrowInvalid):
+        fs.delete_dir_contents("")
+    with pytest.raises(pa.ArrowInvalid):
+        fs.delete_dir_contents("/")
+    with pytest.raises(pa.ArrowInvalid):
+        fs.delete_dir_contents("//")
+
+    fs.delete_dir_contents("", accept_root_dir=True)
+    fs.delete_dir_contents("/", accept_root_dir=True)
+    fs.delete_dir_contents("//", accept_root_dir=True)
+    with pytest.raises(pa.ArrowIOError):
+        fs.delete_dir(d)
+
+
+def test_delete_root_dir_contents(mockfs, py_mockfs):
+    _check_root_dir_contents(mockfs)
+    _check_root_dir_contents(py_mockfs)
 
 
 def test_copy_file(fs, pathfn, allow_copy_file):
@@ -1185,6 +1235,10 @@ def test_py_filesystem_ops():
 
     fs.delete_dir("delete_dir")
     fs.delete_dir_contents("delete_dir_contents")
+    for path in ("", "/", "//"):
+        with pytest.raises(ValueError):
+            fs.delete_dir_contents(path)
+        fs.delete_dir_contents(path, accept_root_dir=True)
     fs.delete_file("delete_file")
     fs.move("move_from", "move_to")
     fs.copy_file("copy_file_from", "copy_file_to")

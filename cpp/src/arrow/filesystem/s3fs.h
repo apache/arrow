@@ -112,6 +112,7 @@ class ARROW_EXPORT S3FileSystem : public FileSystem {
 
   Status DeleteDir(const std::string& path) override;
   Status DeleteDirContents(const std::string& path) override;
+  Status DeleteRootDirContents() override;
 
   Status DeleteFile(const std::string& path) override;
 

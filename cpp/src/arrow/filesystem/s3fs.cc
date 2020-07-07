@@ -1433,6 +1433,10 @@ Status S3FileSystem::DeleteDirContents(const std::string& s) {
   return impl_->EnsureDirectoryExists(path);
 }
 
+Status S3FileSystem::DeleteRootDirContents() {
+  return Status::NotImplemented("Cannot delete all S3 buckets");
+}
+
 Status S3FileSystem::DeleteFile(const std::string& s) {
   ARROW_ASSIGN_OR_RAISE(auto path, S3Path::FromString(s));
   RETURN_NOT_OK(ValidateFilePath(path));
