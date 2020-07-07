@@ -57,12 +57,12 @@ DEFINE_bool(verbose, true, "Verbose output");
 
 namespace arrow {
 
-class Buffer;
 using internal::TemporaryDir;
+using ipc::DictionaryMemo;
+using ipc::IpcWriteOptions;
+using ipc::MetadataVersion;
 
 namespace testing {
-
-using ::arrow::ipc::DictionaryMemo;
 
 using namespace ::arrow::ipc::test;  // NOLINT
 
@@ -83,8 +83,11 @@ static Status ConvertJsonToArrow(const std::string& json_path,
               << reader->schema()->ToString(/* show_metadata = */ true) << std::endl;
   }
 
+  auto options = IpcWriteOptions::Defaults();
+  // Use V5 to get up-to-date Union buffer layout
+  options.metadata_version = MetadataVersion::V5;
   ARROW_ASSIGN_OR_RAISE(auto writer,
-                        ipc::NewFileWriter(out_file.get(), reader->schema()));
+                        ipc::NewFileWriter(out_file.get(), reader->schema(), options));
   for (int i = 0; i < reader->num_record_batches(); ++i) {
     std::shared_ptr<RecordBatch> batch;
     RETURN_NOT_OK(reader->ReadRecordBatch(i, &batch));

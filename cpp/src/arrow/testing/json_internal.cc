@@ -940,6 +940,7 @@ static Status GetUnion(const RjObject& json_type,
 
   std::vector<int8_t> type_codes;
   const auto& id_array = it_type_codes->value.GetArray();
+  type_codes.reserve(id_array.Size());
   for (const rj::Value& val : id_array) {
     DCHECK(val.IsInt());
     type_codes.push_back(static_cast<int8_t>(val.GetInt()));
@@ -1591,6 +1592,7 @@ class ArrayReader {
     RETURN_NOT_ARRAY("VALIDITY", json_valid_iter, obj_);
     const auto& json_validity = json_valid_iter->value.GetArray();
     DCHECK_EQ(static_cast<int>(json_validity.Size()), length_);
+    is_valid_.reserve(json_validity.Size());
     for (const rj::Value& val : json_validity) {
       DCHECK(val.IsInt());
       is_valid_.push_back(val.GetInt() != 0);

@@ -37,7 +37,10 @@ Status ConvertToFile() {
   io::StdoutStream sink;
 
   ARROW_ASSIGN_OR_RAISE(auto reader, RecordBatchStreamReader::Open(&input));
-  ARROW_ASSIGN_OR_RAISE(auto writer, NewFileWriter(&sink, reader->schema()));
+  auto options = IpcWriteOptions::Defaults();
+  // Use V5 to get up-to-date Union buffer layout
+  options.metadata_version = MetadataVersion::V5;
+  ARROW_ASSIGN_OR_RAISE(auto writer, NewFileWriter(&sink, reader->schema(), options));
   std::shared_ptr<RecordBatch> batch;
   while (true) {
     ARROW_ASSIGN_OR_RAISE(batch, reader->Next());

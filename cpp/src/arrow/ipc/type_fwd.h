@@ -30,8 +30,11 @@ enum class MetadataVersion : char {
   /// 0.3.0 to 0.7.1
   V3,
 
-  /// >= 0.8.0
-  V4
+  /// 0.8.0 to 0.17.0
+  V4,
+
+  /// >= 1.0.0
+  V5
 };
 
 class Message;

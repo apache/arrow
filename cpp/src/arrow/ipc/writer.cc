@@ -138,8 +138,9 @@ class RecordBatchSerializer {
     // push back all common elements
     field_nodes_.push_back({arr.length(), arr.null_count(), 0});
 
-    // Null and union types have no validity bitmap
-    if (::arrow::internal::HasValidityBitmap(arr.type_id())) {
+    // In V4, null types have no validity bitmap
+    // In V5 and later, null and union types have no validity bitmap
+    if (internal::HasValidityBitmap(arr.type_id(), options_.metadata_version)) {
       if (arr.null_count() > 0) {
         std::shared_ptr<Buffer> bitmap;
         RETURN_NOT_OK(GetTruncatedBitmap(arr.offset(), arr.length(), arr.null_bitmap(),
@@ -597,7 +598,7 @@ Status WriteIpcPayload(const IpcPayload& payload, const IpcWriteOptions& options
 Status GetSchemaPayload(const Schema& schema, const IpcWriteOptions& options,
                         DictionaryMemo* dictionary_memo, IpcPayload* out) {
   out->type = MessageType::SCHEMA;
-  return internal::WriteSchemaMessage(schema, dictionary_memo, &out->metadata);
+  return internal::WriteSchemaMessage(schema, dictionary_memo, options, &out->metadata);
 }
 
 Status GetDictionaryPayload(int64_t id, const std::shared_ptr<Array>& dictionary,
@@ -654,10 +655,10 @@ namespace {
 
 Status WriteTensorHeader(const Tensor& tensor, io::OutputStream* dst,
                          int32_t* metadata_length) {
-  std::shared_ptr<Buffer> metadata;
-  ARROW_ASSIGN_OR_RAISE(metadata, internal::WriteTensorMessage(tensor, 0));
   IpcWriteOptions options;
   options.alignment = kTensorAlignment;
+  std::shared_ptr<Buffer> metadata;
+  ARROW_ASSIGN_OR_RAISE(metadata, internal::WriteTensorMessage(tensor, 0, options));
   return WriteMessage(*metadata, options, dst, metadata_length);
 }
 
@@ -745,8 +746,11 @@ Result<std::unique_ptr<Message>> GetTensorMessage(const Tensor& tensor,
     tensor_to_write = temp_tensor.get();
   }
 
+  IpcWriteOptions options;
+  options.alignment = kTensorAlignment;
   std::shared_ptr<Buffer> metadata;
-  ARROW_ASSIGN_OR_RAISE(metadata, internal::WriteTensorMessage(*tensor_to_write, 0));
+  ARROW_ASSIGN_OR_RAISE(metadata,
+                        internal::WriteTensorMessage(*tensor_to_write, 0, options));
   return std::unique_ptr<Message>(new Message(metadata, tensor_to_write->data()));
 }
 
@@ -755,7 +759,9 @@ namespace internal {
 class SparseTensorSerializer {
  public:
   SparseTensorSerializer(int64_t buffer_start_offset, IpcPayload* out)
-      : out_(out), buffer_start_offset_(buffer_start_offset) {}
+      : out_(out),
+        buffer_start_offset_(buffer_start_offset),
+        options_(IpcWriteOptions::Defaults()) {}
 
   ~SparseTensorSerializer() = default;
 
@@ -791,7 +797,8 @@ class SparseTensorSerializer {
   }
 
   Status SerializeMetadata(const SparseTensor& sparse_tensor) {
-    return WriteSparseTensorMessage(sparse_tensor, out_->body_length, buffer_meta_)
+    return WriteSparseTensorMessage(sparse_tensor, out_->body_length, buffer_meta_,
+                                    options_)
         .Value(&out_->metadata);
   }
 
@@ -852,8 +859,8 @@ class SparseTensorSerializer {
   IpcPayload* out_;
 
   std::vector<internal::BufferMetadata> buffer_meta_;
-
   int64_t buffer_start_offset_;
+  IpcWriteOptions options_;
 };
 
 }  // namespace internal

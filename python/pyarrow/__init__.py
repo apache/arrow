@@ -200,9 +200,9 @@ def _plasma_store_entry_point():
                                             "plasma-store-server")
     _os.execv(plasma_store_executable, _sys.argv)
 
+
 # ----------------------------------------------------------------------
 # Deprecations
-
 
 from pyarrow.util import _deprecate_api, _deprecate_class
 
@@ -279,7 +279,7 @@ DurationValue = _deprecate_scalar("Duration", DurationScalar)
 
 
 # TODO: Deprecate these somehow in the pyarrow namespace
-from pyarrow.ipc import (Message, MessageReader,
+from pyarrow.ipc import (Message, MessageReader, MetadataVersion,
                          RecordBatchFileReader, RecordBatchFileWriter,
                          RecordBatchStreamReader, RecordBatchStreamWriter)
 

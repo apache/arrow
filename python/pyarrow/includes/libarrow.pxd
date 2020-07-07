@@ -1287,11 +1287,12 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         MessageType_DICTIONARY_BATCH\
             " arrow::ipc::MessageType::DICTIONARY_BATCH"
 
-    enum MetadataVersion" arrow::ipc::MetadataVersion":
-        MessageType_V1" arrow::ipc::MetadataVersion::V1"
-        MessageType_V2" arrow::ipc::MetadataVersion::V2"
-        MessageType_V3" arrow::ipc::MetadataVersion::V3"
-        MessageType_V4" arrow::ipc::MetadataVersion::V4"
+    enum CMetadataVersion" arrow::ipc::MetadataVersion":
+        CMetadataVersion_V1" arrow::ipc::MetadataVersion::V1"
+        CMetadataVersion_V2" arrow::ipc::MetadataVersion::V2"
+        CMetadataVersion_V3" arrow::ipc::MetadataVersion::V3"
+        CMetadataVersion_V4" arrow::ipc::MetadataVersion::V4"
+        CMetadataVersion_V5" arrow::ipc::MetadataVersion::V5"
 
     cdef cppclass CIpcWriteOptions" arrow::ipc::IpcWriteOptions":
         c_bool allow_64bit
@@ -1329,7 +1330,7 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         c_bool Equals(const CMessage& other)
 
         shared_ptr[CBuffer] metadata()
-        MetadataVersion metadata_version()
+        CMetadataVersion metadata_version()
         MessageType type()
 
         CStatus SerializeTo(COutputStream* stream,
