@@ -152,7 +152,7 @@ struct VectorToArrayConverter {
 
   Status Visit(const arrow::FixedSizeBinaryType& type) {
     if (!(Rf_inherits(x, "vctrs_list_of") &&
-        TYPEOF(Rf_getAttrib(x, symbols::ptype)) == RAWSXP)) {
+          TYPEOF(Rf_getAttrib(x, symbols::ptype)) == RAWSXP)) {
       return Status::RError("Expecting a list of raw vectors");
     }
 
@@ -982,7 +982,7 @@ class BinaryVectorConverter : public VectorConverter {
 };
 
 class FixedSizeBinaryVectorConverter : public VectorConverter {
-public:
+ public:
   ~FixedSizeBinaryVectorConverter() {}
 
   Status Init(ArrayBuilder* builder) {
@@ -1002,7 +1002,8 @@ public:
         ARROW_RETURN_IF(TYPEOF(obj_i) != RAWSXP,
                         Status::RError("Expecting a raw vector"));
         ARROW_RETURN_IF(XLENGTH(obj_i) != byte_width,
-                        Status::RError("Expecting a raw vector of ", byte_width, " bytes, not ", XLENGTH(obj_i)));
+                        Status::RError("Expecting a raw vector of ", byte_width,
+                                       " bytes, not ", XLENGTH(obj_i)));
       }
     }
     RETURN_NOT_OK(typed_builder_->Reserve(n * byte_width));
@@ -1023,7 +1024,7 @@ public:
     return typed_builder_->Finish(result);
   }
 
-private:
+ private:
   FixedSizeBinaryBuilder* typed_builder_;
 };
 

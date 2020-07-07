@@ -317,6 +317,27 @@ fixed_size_binary <- function(byte_width) {
   shared_ptr(FixedSizeBinary, FixedSizeBinary__initialize(byte_width))
 }
 
+#' @importFrom vctrs vec_ptype_full
+#' @method vec_ptype_full arrow_fixed_size_binary
+#' @export
+vec_ptype_full.arrow_fixed_size_binary <- function(x, ...) {
+  paste0("fixed_size_binary<", attr(x, "byte_width"), ">")
+}
+
+#' @importFrom vctrs vec_ptype_abbr
+#' @method vec_ptype_abbr arrow_fixed_size_binary
+#' @export
+vec_ptype_abbr.arrow_fixed_size_binary <- function(x, ...) {
+  paste0("fixed_size_binary<", attr(x, "byte_width"), ">")
+}
+
+#' @importFrom vctrs obj_str_footer
+#' @method obj_str_footer arrow_fixed_size_binary
+#' @export
+obj_str_footer.arrow_fixed_size_binary <- function(x, ..., indent.str = "", nest.lev = 0) {
+  invisible(NULL)
+}
+
 #' @rdname data-type
 #' @export
 string <- utf8

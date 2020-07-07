@@ -294,6 +294,25 @@ class Converter_Boolean : public Converter {
   }
 };
 
+template <typename Lambda>
+Status IngestSome(const std::shared_ptr<arrow::Array>& array, R_xlen_t n, Lambda lambda) {
+  if (array->null_count()) {
+    internal::BitmapReader bitmap_reader(array->null_bitmap()->data(), array->offset(),
+                                         n);
+
+    for (R_xlen_t i = 0; i < n; i++, bitmap_reader.Next()) {
+      if (bitmap_reader.IsSet()) RETURN_NOT_OK(lambda(i));
+    }
+
+  } else {
+    for (R_xlen_t i = 0; i < n; i++) {
+      RETURN_NOT_OK(lambda(i));
+    }
+  }
+
+  return Status::OK();
+}
+
 template <typename ArrayType>
 class Converter_Binary : public Converter {
  public:
@@ -331,22 +350,50 @@ class Converter_Binary : public Converter {
       return Status::OK();
     };
 
-    if (array->null_count()) {
-      internal::BitmapReader bitmap_reader(array->null_bitmap()->data(), array->offset(),
-                                           n);
+    return IngestSome(array, n, ingest_one);
+  }
+};
 
-      for (R_xlen_t i = 0; i < n; i++, bitmap_reader.Next()) {
-        if (bitmap_reader.IsSet()) RETURN_NOT_OK(ingest_one(i));
-      }
+class Converter_FixedSizeBinary : public Converter {
+ public:
+  explicit Converter_FixedSizeBinary(const ArrayVector& arrays, int byte_width)
+      : Converter(arrays), byte_width_(byte_width) {}
 
-    } else {
-      for (R_xlen_t i = 0; i < n; i++) {
-        RETURN_NOT_OK(ingest_one(i));
-      }
-    }
+  SEXP Allocate(R_xlen_t n) const {
+    SEXP res = PROTECT(Rf_allocVector(VECSXP, n));
+    Rf_setAttrib(res, R_ClassSymbol, data::classes_fixed_size_binary);
+    Rf_setAttrib(res, symbols::ptype, data::empty_raw);
+    Rf_setAttrib(res, symbols::byte_width, Rf_ScalarInteger(byte_width_));
+    UNPROTECT(1);
+    return res;
+  }
 
+  Status Ingest_all_nulls(SEXP data, R_xlen_t start, R_xlen_t n) const {
     return Status::OK();
   }
+
+  Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
+                           R_xlen_t start, R_xlen_t n) const {
+    const FixedSizeBinaryArray* binary_array =
+        checked_cast<const FixedSizeBinaryArray*>(array.get());
+
+    int byte_width = binary_array->byte_width();
+    auto ingest_one = [&, byte_width](R_xlen_t i) {
+      auto value = binary_array->GetValue(i);
+      SEXP raw = PROTECT(Rf_allocVector(RAWSXP, byte_width));
+      std::copy(value, value + byte_width, RAW(raw));
+
+      SET_VECTOR_ELT(data, i, raw);
+      UNPROTECT(1);
+
+      return Status::OK();
+    };
+
+    return IngestSome(array, n, ingest_one);
+  }
+
+ private:
+  int byte_width_;
 };
 
 class Converter_Dictionary : public Converter {
@@ -870,6 +917,11 @@ std::shared_ptr<Converter> Converter::Make(const std::shared_ptr<DataType>& type
     case Type::LARGE_BINARY:
       return std::make_shared<arrow::r::Converter_Binary<arrow::LargeBinaryArray>>(
           std::move(arrays));
+
+    case Type::FIXED_SIZE_BINARY:
+      return std::make_shared<arrow::r::Converter_FixedSizeBinary>(
+          std::move(arrays),
+          checked_cast<const FixedSizeBinaryType&>(*type).byte_width());
 
       // handle memory dense strings
     case Type::STRING:

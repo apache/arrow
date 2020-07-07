@@ -28,6 +28,7 @@ SEXP symbols::row_names = Rf_install("row.names");
 SEXP symbols::serialize_arrow_r_metadata = Rf_install(".serialize_arrow_r_metadata");
 SEXP symbols::as_list = Rf_install("as.list");
 SEXP symbols::ptype = Rf_install("ptype");
+SEXP symbols::byte_width = Rf_install("byte_width");
 
 SEXP preserved_strings(std::initializer_list<std::string> list) {
   size_t n = list.size();
@@ -42,20 +43,27 @@ SEXP preserved_strings(std::initializer_list<std::string> list) {
   return s;
 }
 
+SEXP get_classes_fixed_size_binary() {
+  SEXP classes = Rf_allocVector(STRSXP, 4);
+  R_PreserveObject(classes);
+  SET_STRING_ELT(classes, 0, Rf_mkChar("arrow_fixed_size_binary"));
+  SET_STRING_ELT(classes, 1, Rf_mkChar("vctrs_list_of"));
+  SET_STRING_ELT(classes, 2, Rf_mkChar("vctrs_vctr"));
+  SET_STRING_ELT(classes, 3, Rf_mkChar("list"));
+  return classes;
+}
+
 SEXP get_empty_raw() {
   SEXP res = Rf_allocVector(RAWSXP, 0);
   R_PreserveObject(res);
   return res;
 }
 
-SEXP data::classes_POSIXct = preserved_strings({"POSIXct", "POSIXt"});
-SEXP data::classes_metadata_r = preserved_strings({"arrow_r_metadata"});
-SEXP data::classes_factor = preserved_strings({"factor"});
-SEXP data::classes_ordered = preserved_strings({"ordered", "factor"});
-
-SEXP data::names_metadata = preserved_strings({"attributes", "columns"});
-SEXP data::classes_vctrs_list_of =
-    preserved_strings({"vctrs_list_of", "vctrs_vctr", "list"});
+SEXP data::classes_POSIXct = get_classes_POSIXct();
+SEXP data::classes_metadata_r = get_classes_metadata_r();
+SEXP data::names_metadata = get_names_metadata();
+SEXP data::classes_vctrs_list_of = get_classes_vctrs_list_of();
+SEXP data::classes_fixed_size_binary = get_classes_fixed_size_binary();
 SEXP data::empty_raw = get_empty_raw();
 
 void inspect(SEXP obj) {

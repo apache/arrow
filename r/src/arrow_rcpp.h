@@ -35,16 +35,16 @@ struct symbols {
   static SEXP serialize_arrow_r_metadata;
   static SEXP as_list;
   static SEXP ptype;
+  static SEXP byte_width;
 };
 
 struct data {
   static SEXP classes_POSIXct;
   static SEXP classes_metadata_r;
-  static SEXP classes_factor;
-  static SEXP classes_ordered;
+  static SEXP classes_vctrs_list_of;
+  static SEXP classes_fixed_size_binary;
 
   static SEXP names_metadata;
-  static SEXP classes_vctrs_list_of;
   static SEXP empty_raw;
 };
 
