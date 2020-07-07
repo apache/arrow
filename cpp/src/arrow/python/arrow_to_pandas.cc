@@ -1597,25 +1597,30 @@ Status MakeWriter(const PandasOptions& options, PandasWriter::type writer_type,
     *writer = std::make_shared<TYPE>(options, num_rows, num_columns); \
     break;
 
+#define CATEGORICAL_CASE(TYPE)                                              \
+  case TYPE::type_id:                                                       \
+    *writer = std::make_shared<CategoricalWriter<TYPE>>(options, num_rows); \
+    break;
+
   switch (writer_type) {
     case PandasWriter::CATEGORICAL: {
       const auto& index_type = *checked_cast<const DictionaryType&>(type).index_type();
       switch (index_type.id()) {
-        case Type::INT8:
-          *writer = std::make_shared<CategoricalWriter<Int8Type>>(options, num_rows);
-          break;
-        case Type::INT16:
-          *writer = std::make_shared<CategoricalWriter<Int16Type>>(options, num_rows);
-          break;
-        case Type::INT32:
-          *writer = std::make_shared<CategoricalWriter<Int32Type>>(options, num_rows);
-          break;
-        case Type::INT64:
-          *writer = std::make_shared<CategoricalWriter<Int64Type>>(options, num_rows);
-          break;
+        CATEGORICAL_CASE(Int8Type);
+        CATEGORICAL_CASE(Int16Type);
+        CATEGORICAL_CASE(Int32Type);
+        CATEGORICAL_CASE(Int64Type);
+        case Type::UINT8:
+        case Type::UINT16:
+        case Type::UINT32:
+        case Type::UINT64:
+          return Status::TypeError(
+              "Converting unsigned dictionary indices to pandas",
+              " not yet supported, index type: ", index_type.ToString());
         default:
-          return Status::NotImplemented("Unsupported categorical index type:",
-                                        index_type.ToString());
+          // Unreachable
+          DCHECK(false);
+          break;
       }
     } break;
     case PandasWriter::EXTENSION:
@@ -1652,6 +1657,7 @@ Status MakeWriter(const PandasOptions& options, PandasWriter::type writer_type,
   }
 
 #undef BLOCK_CASE
+#undef CATEGORICAL_CASE
 
   return Status::OK();
 }

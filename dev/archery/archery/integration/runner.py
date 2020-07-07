@@ -389,6 +389,9 @@ def write_js_test_json(directory):
     datagen.generate_dictionary_case().write(
         os.path.join(directory, 'dictionary.json')
     )
+    datagen.generate_dictionary_unsigned_case().write(
+        os.path.join(directory, 'dictionary_unsigned.json')
+    )
     datagen.generate_primitive_case([]).write(
         os.path.join(directory, 'primitive_no_batches.json')
     )
