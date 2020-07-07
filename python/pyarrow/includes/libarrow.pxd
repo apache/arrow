@@ -1526,7 +1526,8 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
 
 cdef extern from "arrow/json/options.h" nogil:
 
-    enum CUnexpectedFieldBehavior" arrow::json::UnexpectedFieldBehavior":
+    ctypedef enum CUnexpectedFieldBehavior \
+            "arrow::json::UnexpectedFieldBehavior":
         CUnexpectedFieldBehavior_Ignore \
             "arrow::json::UnexpectedFieldBehavior::Ignore"
         CUnexpectedFieldBehavior_Error \
