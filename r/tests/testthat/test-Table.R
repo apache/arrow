@@ -337,3 +337,15 @@ test_that("Can create table with specific dictionary types", {
     }
   }
 })
+
+test_that("Table unifies dictionary on conversion back to R (ARROW-8374)", {
+  b1 <- record_batch(f = factor(c("a"), levels = c("a", "b")))
+  b2 <- record_batch(f = factor(c("c"), levels = c("c", "d")))
+  b3 <- record_batch(f = factor(NA, levels = "a"))
+  b4 <- record_batch(f = factor())
+
+  res <- tibble::tibble(f = factor(c("a", "c", NA), levels = c("a", "b", "c", "d")))
+  tab <- Table$create(b1, b2, b3, b4)
+
+  expect_identical(as.data.frame(tab), res)
+})

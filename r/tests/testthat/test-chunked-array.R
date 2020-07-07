@@ -392,3 +392,15 @@ test_that("ChunkedArray$Equals", {
   expect_true(a$Equals(b))
   expect_false(a$Equals(vec))
 })
+
+test_that("Converting a chunked array unifies factors (ARROW-8374)", {
+  f1 <- factor(c("a"), levels = c("a", "b"))
+  f2 <- factor(c("c"), levels = c("c", "d"))
+  f3 <- factor(NA, levels = "a")
+  f4 <- factor()
+
+  res <- factor(c("a", "c", NA), levels = c("a", "b", "c", "d"))
+  ca <- ChunkedArray$create(f1, f2, f3, f4)
+
+  expect_identical(ca$as_vector(), res)
+})
