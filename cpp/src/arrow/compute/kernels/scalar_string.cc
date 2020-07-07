@@ -462,6 +462,8 @@ void AddBinaryContainsExact(FunctionRegistry* registry) {
 
 // IsAlpha/Digit etc
 
+#ifdef ARROW_WITH_UTF8PROC
+
 static inline bool HasAnyUnicodeGeneralCategory(uint32_t codepoint, uint32_t mask) {
   uint32_t general_category = 1 << utf8proc_category(codepoint);
   // for e.g. undefined (but valid) codepoints, general_category == 0
@@ -519,29 +521,8 @@ static inline bool IsAlphaCharacterUnicode(uint32_t codepoint) {
                                       UTF8PROC_CATEGORY_LM, UTF8PROC_CATEGORY_LO);
 }
 
-static inline bool IsLowerCaseCharacterAscii(uint8_t ascii_character) {
-  return (ascii_character >= 'a') && (ascii_character <= 'z');
-}
-
-static inline bool IsUpperCaseCharacterAscii(uint8_t ascii_character) {
-  return (ascii_character >= 'A') && (ascii_character <= 'Z');
-}
-
-static inline bool IsCasedCharacterAscii(uint8_t ascii_character) {
-  return IsLowerCaseCharacterAscii(ascii_character) ||
-         IsUpperCaseCharacterAscii(ascii_character);
-}
-
-static inline bool IsAlphaCharacterAscii(uint8_t ascii_character) {
-  return IsCasedCharacterAscii(ascii_character);  // same
-}
-
 static inline bool IsDecimalCharacterUnicode(uint32_t codepoint) {
   return HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_ND);
-}
-
-static inline bool IsDecimalCharacterAscii(uint8_t ascii_character) {
-  return ((ascii_character >= '0') && (ascii_character <= '9'));
 }
 
 static inline bool IsDigitCharacterUnicode(uint32_t codepoint) {
@@ -567,11 +548,6 @@ static inline bool IsSpaceCharacterUnicode(uint32_t codepoint) {
          property->bidi_class == UTF8PROC_BIDI_CLASS_S;
 }
 
-static inline bool IsSpaceCharacterAscii(uint8_t ascii_character) {
-  return ((ascii_character >= 0x09) && (ascii_character <= 0x0D)) ||
-         (ascii_character == ' ');
-}
-
 static inline bool IsPrintableCharacterUnicode(uint32_t codepoint) {
   uint32_t general_category = utf8proc_category(codepoint);
   return (general_category != 0) &&
@@ -579,6 +555,34 @@ static inline bool IsPrintableCharacterUnicode(uint32_t codepoint) {
                                        UTF8PROC_CATEGORY_CF, UTF8PROC_CATEGORY_CS,
                                        UTF8PROC_CATEGORY_CO, UTF8PROC_CATEGORY_ZS,
                                        UTF8PROC_CATEGORY_ZL, UTF8PROC_CATEGORY_ZP);
+}
+
+#endif
+
+static inline bool IsLowerCaseCharacterAscii(uint8_t ascii_character) {
+  return (ascii_character >= 'a') && (ascii_character <= 'z');
+}
+
+static inline bool IsUpperCaseCharacterAscii(uint8_t ascii_character) {
+  return (ascii_character >= 'A') && (ascii_character <= 'Z');
+}
+
+static inline bool IsCasedCharacterAscii(uint8_t ascii_character) {
+  return IsLowerCaseCharacterAscii(ascii_character) ||
+         IsUpperCaseCharacterAscii(ascii_character);
+}
+
+static inline bool IsAlphaCharacterAscii(uint8_t ascii_character) {
+  return IsCasedCharacterAscii(ascii_character);  // same
+}
+
+static inline bool IsDecimalCharacterAscii(uint8_t ascii_character) {
+  return ((ascii_character >= '0') && (ascii_character <= '9'));
+}
+
+static inline bool IsSpaceCharacterAscii(uint8_t ascii_character) {
+  return ((ascii_character >= 0x09) && (ascii_character <= 0x0D)) ||
+         (ascii_character == ' ');
 }
 
 static inline bool IsPrintableCharacterAscii(uint8_t ascii_character) {
