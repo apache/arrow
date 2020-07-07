@@ -71,6 +71,7 @@ cmake -G "%GENERATOR%" ^
       -DARROW_VERBOSE_THIRDPARTY_BUILD=ON ^
       -DBrotli_SOURCE=BUNDLED ^
       -DZSTD_SOURCE=BUNDLED ^
+      -DARROW_WITH_UTF8PROC=OFF ^
       .. || exit /B
 cmake --build . --target install --config Release || exit /B
 popd
