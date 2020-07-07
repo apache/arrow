@@ -836,14 +836,14 @@ def _create_dataset_all_types(tempdir, chunk_size=None):
             pa.array([1.0, 10.0, 42.0], pa.float32()),
             pa.array([1.0, 10.0, 42.0], pa.float64()),
             pa.array(['a', None, 'z'], pa.utf8()),
-            # pa.array(['a', None, 'z'], pa.binary()),
-            # pa.array([1, 10, 42], pa.timestamp('s')),
-            # pa.array([1, 10, 42], pa.timestamp('ms')),
-            # pa.array([1, 10, 42], pa.timestamp('us')),
-            # pa.array([1, 10, 42], pa.date32()),
-            # pa.array([1, 10, 4200000000], pa.date64()),
-            # pa.array([1, 10, 42], pa.time32('s')),
-            # pa.array([1, 10, 42], pa.time64('us')),
+            pa.array(['a', None, 'z'], pa.binary()),
+            pa.array([1, 10, 42], pa.timestamp('s')),
+            pa.array([1, 10, 42], pa.timestamp('ms')),
+            pa.array([1, 10, 42], pa.timestamp('us')),
+            pa.array([1, 10, 42], pa.date32()),
+            pa.array([1, 10, 4200000000], pa.date64()),
+            pa.array([1, 10, 42], pa.time32('s')),
+            pa.array([1, 10, 42], pa.time64('us')),
         ],
         names=[
             'boolean',
@@ -858,14 +858,14 @@ def _create_dataset_all_types(tempdir, chunk_size=None):
             'float',
             'double',
             'utf8',
-            # 'binary',
-            # 'ts[s]',
-            # 'ts[ms]',
-            # 'ts[us]',
-            # 'date32',
-            # 'date64',
-            # 'time32',
-            # 'time64',
+            'binary',
+            'ts[s]',
+            'ts[ms]',
+            'ts[us]',
+            'date32',
+            'date64',
+            'time32',
+            'time64',
         ]
     )
 
@@ -884,12 +884,12 @@ def test_parquet_fragment_statistics(tempdir):
 
     fragment = list(dataset.get_fragments())[0]
 
-    # import datetime
-    # def dt_s(x): return datetime.datetime(1970, 1, 1, 0, 0, x)
-    # def dt_ms(x): return datetime.datetime(1970, 1, 1, 0, 0, 0, x*1000)
-    # def dt_us(x): return datetime.datetime(1970, 1, 1, 0, 0, 0, x)
-    # date = datetime.date
-    # time = datetime.time
+    import datetime
+    def dt_s(x): return datetime.datetime(1970, 1, 1, 0, 0, x)
+    def dt_ms(x): return datetime.datetime(1970, 1, 1, 0, 0, 0, x*1000)
+    def dt_us(x): return datetime.datetime(1970, 1, 1, 0, 0, 0, x)
+    date = datetime.date
+    time = datetime.time
 
     # list and scan row group fragments
     row_group_fragments = list(fragment.split_by_row_group())
@@ -907,14 +907,14 @@ def test_parquet_fragment_statistics(tempdir):
         'float': {'min': 1.0, 'max': 42.0},
         'double': {'min': 1.0, 'max': 42.0},
         'utf8': {'min': 'a', 'max': 'z'},
-        # 'binary': {'min': b'a', 'max': b'z'},
-        # 'ts[s]': {'min': dt_s(1), 'max': dt_s(42)},
-        # 'ts[ms]': {'min': dt_ms(1), 'max': dt_ms(42)},
-        # 'ts[us]': {'min': dt_us(1), 'max': dt_us(42)},
-        # 'date32': {'min': date(1970, 1, 2), 'max': date(1970, 2, 12)},
-        # 'date64': {'min': date(1970, 1, 1), 'max': date(1970, 2, 18)},
-        # 'time32': {'min': time(0, 0, 1), 'max': time(0, 0, 42)},
-        # 'time64': {'min': time(0, 0, 0, 1), 'max': time(0, 0, 0, 42)},
+        'binary': {'min': b'a', 'max': b'z'},
+        'ts[s]': {'min': dt_s(1), 'max': dt_s(42)},
+        'ts[ms]': {'min': dt_ms(1), 'max': dt_ms(42)},
+        'ts[us]': {'min': dt_us(1), 'max': dt_us(42)},
+        'date32': {'min': date(1970, 1, 2), 'max': date(1970, 2, 12)},
+        'date64': {'min': date(1970, 1, 1), 'max': date(1970, 2, 18)},
+        'time32': {'min': time(0, 0, 1), 'max': time(0, 0, 42)},
+        'time64': {'min': time(0, 0, 0, 1), 'max': time(0, 0, 0, 42)},
     }
 
 
