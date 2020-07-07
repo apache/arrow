@@ -15,29 +15,16 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! Defines `ArrowError` for representing failures in various Arrow operations
+//! Defines `ArrowError` for representing failures in various Arrow operations.
 use std::fmt::{Debug, Display, Formatter};
 
 use csv as csv_crate;
 use std::error::Error;
 
-#[derive(Debug)]
-pub struct ExternalError {
-    pub source: Box<dyn Error + Send + Sync>,
-}
-
-impl Error for ExternalError {}
-
-impl Display for ExternalError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Arrow external error: {}", self.source)
-    }
-}
-
-/// Many different operations in the `arrow` crate return this error type
+/// Many different operations in the `arrow` crate return this error type.
 #[derive(Debug)]
 pub enum ArrowError {
-    ExternalError(ExternalError),
+    ExternalError(Box<dyn Error + Send + Sync>),
     MemoryError(String),
     ParseError(String),
     SchemaError(String),
@@ -52,10 +39,11 @@ pub enum ArrowError {
 }
 
 impl ArrowError {
+    /// Wraps an external error in an `ArrowError`.
     pub fn from_external_error(
         error: Box<dyn ::std::error::Error + Send + Sync>,
     ) -> Self {
-        Self::ExternalError(ExternalError { source: error })
+        Self::ExternalError(error)
     }
 }
 
@@ -94,7 +82,7 @@ impl From<::std::string::FromUtf8Error> for ArrowError {
 impl Display for ArrowError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            ArrowError::ExternalError(source) => Display::fmt(&source, f),
+            ArrowError::ExternalError(source) => write!(f, "External error: {}", &source),
             ArrowError::MemoryError(desc) => write!(f, "Memory error: {}", desc),
             ArrowError::ParseError(desc) => write!(f, "Parser error: {}", desc),
             ArrowError::SchemaError(desc) => write!(f, "Schema error: {}", desc),
