@@ -918,6 +918,19 @@ def test_parquet_fragment_statistics(tempdir):
     }
 
 
+@pytest.mark.parquet
+def test_parquet_fragment_statistics_nulls(tempdir):
+    import pyarrow.parquet as pq
+
+    table = pa.table({'a': [0, 1, None, None], 'b': ['a', 'b', None, None]})
+    pq.write_table(table, tempdir / "test.parquet", row_group_size=2)
+
+    dataset = ds.dataset(tempdir / "test.parquet", format="parquet")
+    fragments = list(dataset.get_fragments())[0].split_by_row_group()
+    # second row group has all nulls -> no statistics
+    assert fragments[1].row_groups[0].statistics == {}
+
+
 @pytest.mark.pandas
 @pytest.mark.parquet
 def test_fragments_parquet_row_groups_predicate(tempdir):
