@@ -56,7 +56,7 @@ impl ExecutionPlan for DatasourceExec {
     }
 }
 
-/// Wrapper to convert a `ader` into a `Partition`.
+/// Wrapper to convert a `SendableRecordBatchReader` into a `Partition`.
 pub struct DatasourcePartition {
     batch_iter: Arc<Mutex<dyn SendableRecordBatchReader>>,
 }
