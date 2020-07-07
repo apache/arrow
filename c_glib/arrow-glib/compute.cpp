@@ -77,6 +77,32 @@ garrow_numeric_array_compare(GArrowArrayType array,
   }
 }
 
+template <typename GArrowTypeNewRaw>
+auto
+garrow_take(arrow::Datum arrow_values,
+            arrow::Datum arrow_indices,
+            GArrowTakeOptions *options,
+            GArrowTypeNewRaw garrow_type_new_raw,
+            GError **error,
+            const gchar *tag) -> decltype(garrow_type_new_raw(arrow::Datum()))
+{
+  arrow::Result<arrow::Datum> arrow_taken_datum;
+  if (options) {
+    auto arrow_options = garrow_take_options_get_raw(options);
+    arrow_taken_datum = arrow::compute::Take(arrow_values,
+                                             arrow_indices,
+                                             *arrow_options);
+  } else {
+    arrow_taken_datum = arrow::compute::Take(arrow_values,
+                                             arrow_indices);
+  }
+  if (garrow::check(error, arrow_taken_datum, tag)) {
+    return garrow_type_new_raw(*arrow_taken_datum);
+  } else {
+    return NULL;
+  }
+}
+
 G_BEGIN_DECLS
 
 /**
@@ -1585,24 +1611,17 @@ garrow_array_take(GArrowArray *array,
                   GError **error)
 {
   auto arrow_array = garrow_array_get_raw(array);
-  auto arrow_array_raw = arrow_array.get();
   auto arrow_indices = garrow_array_get_raw(indices);
-  auto arrow_indices_raw = arrow_indices.get();
-  arrow::Result<std::shared_ptr<arrow::Array>> arrow_taken_array;
-  if (options) {
-    auto arrow_options = garrow_take_options_get_raw(options);
-    arrow_taken_array = arrow::compute::Take(*arrow_array_raw,
-                                             *arrow_indices_raw,
-                                             *arrow_options);
-  } else {
-    arrow_taken_array = arrow::compute::Take(*arrow_array_raw,
-                                             *arrow_indices_raw);
-  }
-  if (garrow::check(error, arrow_taken_array, "[array][take]")) {
-    return garrow_array_new_raw(&(*arrow_taken_array));
-  } else {
-    return NULL;
-  }
+  return garrow_take(
+    arrow::Datum(arrow_array),
+    arrow::Datum(arrow_indices),
+    options,
+    [](arrow::Datum arrow_datum) {
+      auto arrow_taken_array = arrow_datum.make_array();
+      return garrow_array_new_raw(&arrow_taken_array);
+    },
+    error,
+    "[array][take][array]");
 }
 
 /**
@@ -1624,26 +1643,17 @@ garrow_array_take_chunked_array(GArrowArray *array,
                                 GError **error)
 {
   auto arrow_array = garrow_array_get_raw(array);
-  auto arrow_array_raw = arrow_array.get();
   auto arrow_indices = garrow_chunked_array_get_raw(indices);
-  auto arrow_indices_raw = arrow_indices.get();
-  arrow::Result<std::shared_ptr<arrow::ChunkedArray>> arrow_taken_chunked_array;
-  if (options) {
-    auto arrow_options = garrow_take_options_get_raw(options);
-    arrow_taken_chunked_array = arrow::compute::Take(*arrow_array_raw,
-                                                     *arrow_indices_raw,
-                                                     *arrow_options);
-  } else {
-    arrow_taken_chunked_array = arrow::compute::Take(*arrow_array_raw,
-                                                     *arrow_indices_raw);
-  }
-  if (garrow::check(error,
-                    arrow_taken_chunked_array,
-                    "[array][take][chunked-array]")) {
-    return garrow_chunked_array_new_raw(&(*arrow_taken_chunked_array));
-  } else {
-    return NULL;
-  }
+  return garrow_take(
+    arrow::Datum(arrow_array),
+    arrow::Datum(arrow_indices),
+    options,
+    [](arrow::Datum arrow_datum) {
+      auto arrow_taken_chunked_array = arrow_datum.chunked_array();
+      return garrow_chunked_array_new_raw(&arrow_taken_chunked_array);
+    },
+    error,
+    "[array][take][chunked-array]");
 }
 
 /**
@@ -1665,24 +1675,17 @@ garrow_table_take(GArrowTable *table,
                   GError **error)
 {
   auto arrow_table = garrow_table_get_raw(table);
-  auto arrow_table_raw = arrow_table.get();
   auto arrow_indices = garrow_array_get_raw(indices);
-  auto arrow_indices_raw = arrow_indices.get();
-  arrow::Result<std::shared_ptr<arrow::Table>> arrow_taken_table;
-  if (options) {
-    auto arrow_options = garrow_take_options_get_raw(options);
-    arrow_taken_table = arrow::compute::Take(*arrow_table_raw,
-                                             *arrow_indices_raw,
-                                             *arrow_options);
-  } else {
-    arrow_taken_table = arrow::compute::Take(*arrow_table_raw,
-                                             *arrow_indices_raw);
-  }
-  if (garrow::check(error, arrow_taken_table, "[table][take]")) {
-    return garrow_table_new_raw(&(*arrow_taken_table));
-  } else {
-    return NULL;
-  }
+  return garrow_take(
+    arrow::Datum(arrow_table),
+    arrow::Datum(arrow_indices),
+    options,
+    [](arrow::Datum arrow_datum) {
+      auto arrow_taken_table = arrow_datum.table();
+      return garrow_table_new_raw(&arrow_taken_table);
+    },
+    error,
+    "[table][take]");
 }
 
 /**
@@ -1704,24 +1707,17 @@ garrow_table_take_chunked_array(GArrowTable *table,
                                 GError **error)
 {
   auto arrow_table = garrow_table_get_raw(table);
-  auto arrow_table_raw = arrow_table.get();
   auto arrow_indices = garrow_chunked_array_get_raw(indices);
-  auto arrow_indices_raw = arrow_indices.get();
-  arrow::Result<std::shared_ptr<arrow::Table>> arrow_taken_table;
-  if (options) {
-    auto arrow_options = garrow_take_options_get_raw(options);
-    arrow_taken_table = arrow::compute::Take(*arrow_table_raw,
-                                             *arrow_indices_raw,
-                                             *arrow_options);
-  } else {
-    arrow_taken_table = arrow::compute::Take(*arrow_table_raw,
-                                             *arrow_indices_raw);
-  }
-  if (garrow::check(error, arrow_taken_table, "[table][take][chunked-array]")) {
-    return garrow_table_new_raw(&(*arrow_taken_table));
-  } else {
-    return NULL;
-  }
+  return garrow_take(
+    arrow::Datum(arrow_table),
+    arrow::Datum(arrow_indices),
+    options,
+    [](arrow::Datum arrow_datum) {
+      auto arrow_taken_table = arrow_datum.table();
+      return garrow_table_new_raw(&arrow_taken_table);
+    },
+    error,
+    "[table][take][chunked-array]");
 }
 
 /**
@@ -1743,24 +1739,17 @@ garrow_chunked_array_take(GArrowChunkedArray *chunked_array,
                           GError **error)
 {
   auto arrow_chunked_array = garrow_chunked_array_get_raw(chunked_array);
-  auto arrow_chunked_array_raw = arrow_chunked_array.get();
   auto arrow_indices = garrow_array_get_raw(indices);
-  auto arrow_indices_raw = arrow_indices.get();
-  arrow::Result<std::shared_ptr<arrow::ChunkedArray>> arrow_taken_chunked_array;
-  if (options) {
-    auto arrow_options = garrow_take_options_get_raw(options);
-    arrow_taken_chunked_array = arrow::compute::Take(*arrow_chunked_array_raw,
-                                                     *arrow_indices_raw,
-                                                     *arrow_options);
-  } else {
-    arrow_taken_chunked_array = arrow::compute::Take(*arrow_chunked_array_raw,
-                                                     *arrow_indices_raw);
-  }
-  if (garrow::check(error, arrow_taken_chunked_array, "[chunked-array][take]")) {
-    return garrow_chunked_array_new_raw(&(*arrow_taken_chunked_array));
-  } else {
-    return NULL;
-  }
+  return garrow_take(
+    arrow::Datum(arrow_chunked_array),
+    arrow::Datum(arrow_indices),
+    options,
+    [](arrow::Datum arrow_datum) {
+      auto arrow_taken_chunked_array = arrow_datum.chunked_array();
+      return garrow_chunked_array_new_raw(&arrow_taken_chunked_array);
+    },
+    error,
+    "[chunked-array][take]");
 }
 
 /**
@@ -1782,26 +1771,17 @@ garrow_chunked_array_take_chunked_array(GArrowChunkedArray *chunked_array,
                                         GError **error)
 {
   auto arrow_chunked_array = garrow_chunked_array_get_raw(chunked_array);
-  auto arrow_chunked_array_raw = arrow_chunked_array.get();
   auto arrow_indices = garrow_chunked_array_get_raw(indices);
-  auto arrow_indices_raw = arrow_indices.get();
-  arrow::Result<std::shared_ptr<arrow::ChunkedArray>> arrow_taken_chunked_array;
-  if (options) {
-    auto arrow_options = garrow_take_options_get_raw(options);
-    arrow_taken_chunked_array = arrow::compute::Take(*arrow_chunked_array_raw,
-                                                     *arrow_indices_raw,
-                                                     *arrow_options);
-  } else {
-    arrow_taken_chunked_array = arrow::compute::Take(*arrow_chunked_array_raw,
-                                                     *arrow_indices_raw);
-  }
-  if (garrow::check(error,
-                    arrow_taken_chunked_array,
-                    "[chunked-array][take][chunked-array]")) {
-    return garrow_chunked_array_new_raw(&(*arrow_taken_chunked_array));
-  } else {
-    return NULL;
-  }
+  return garrow_take(
+    arrow::Datum(arrow_chunked_array),
+    arrow::Datum(arrow_indices),
+    options,
+    [](arrow::Datum arrow_datum) {
+      auto arrow_taken_chunked_array = arrow_datum.chunked_array();
+      return garrow_chunked_array_new_raw(&arrow_taken_chunked_array);
+    },
+    error,
+    "[chunked-array][take][chunked-array]");
 }
 
 /**
@@ -1823,25 +1803,17 @@ garrow_record_batch_take(GArrowRecordBatch *record_batch,
                          GError **error)
 {
   auto arrow_record_batch = garrow_record_batch_get_raw(record_batch);
-  auto arrow_record_batch_raw = arrow_record_batch.get();
   auto arrow_indices = garrow_array_get_raw(indices);
-  auto arrow_indices_raw = arrow_indices.get();
-  arrow::Result<std::shared_ptr<arrow::RecordBatch>> arrow_taken_record_batch;
-  if (options) {
-    auto arrow_options = garrow_take_options_get_raw(options);
-    arrow_taken_record_batch = arrow::compute::Take(*arrow_record_batch_raw,
-                                                    *arrow_indices_raw,
-                                                    *arrow_options);
-  } else {
-    arrow_taken_record_batch = arrow::compute::Take(*arrow_record_batch_raw,
-                                                    *arrow_indices_raw);
-  }
-
-  if (garrow::check(error, arrow_taken_record_batch, "[record-batch][take]")) {
-    return garrow_record_batch_new_raw(&(*arrow_taken_record_batch));
-  } else {
-    return NULL;
-  }
+  return garrow_take(
+    arrow::Datum(arrow_record_batch),
+    arrow::Datum(arrow_indices),
+    options,
+    [](arrow::Datum arrow_datum) {
+      auto arrow_taken_record_batch = arrow_datum.record_batch();
+      return garrow_record_batch_new_raw(&arrow_taken_record_batch);
+    },
+    error,
+    "[record-batch][take]");
 }
 
 

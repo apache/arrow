@@ -209,34 +209,37 @@ Result<Datum> DictionaryEncode(const Datum& data, ExecContext* ctx = NULLPTR);
 // ----------------------------------------------------------------------
 // Deprecated functions
 
-// TODO: Add deprecation warnings to these functions
-// ARROW_DEPRECATED("Deprecated in 1.0.0. Use Datum-based version")
-
+ARROW_DEPRECATED("Deprecated in 1.0.0. Use Datum-based version")
 ARROW_EXPORT
 Result<std::shared_ptr<ChunkedArray>> Take(
     const ChunkedArray& values, const Array& indices,
     const TakeOptions& options = TakeOptions::Defaults(), ExecContext* context = NULLPTR);
 
+ARROW_DEPRECATED("Deprecated in 1.0.0. Use Datum-based version")
 ARROW_EXPORT
 Result<std::shared_ptr<ChunkedArray>> Take(
     const ChunkedArray& values, const ChunkedArray& indices,
     const TakeOptions& options = TakeOptions::Defaults(), ExecContext* context = NULLPTR);
 
+ARROW_DEPRECATED("Deprecated in 1.0.0. Use Datum-based version")
 ARROW_EXPORT
 Result<std::shared_ptr<ChunkedArray>> Take(
     const Array& values, const ChunkedArray& indices,
     const TakeOptions& options = TakeOptions::Defaults(), ExecContext* context = NULLPTR);
 
+ARROW_DEPRECATED("Deprecated in 1.0.0. Use Datum-based version")
 ARROW_EXPORT
 Result<std::shared_ptr<RecordBatch>> Take(
     const RecordBatch& batch, const Array& indices,
     const TakeOptions& options = TakeOptions::Defaults(), ExecContext* context = NULLPTR);
 
+ARROW_DEPRECATED("Deprecated in 1.0.0. Use Datum-based version")
 ARROW_EXPORT
 Result<std::shared_ptr<Table>> Take(const Table& table, const Array& indices,
                                     const TakeOptions& options = TakeOptions::Defaults(),
                                     ExecContext* context = NULLPTR);
 
+ARROW_DEPRECATED("Deprecated in 1.0.0. Use Datum-based version")
 ARROW_EXPORT
 Result<std::shared_ptr<Table>> Take(const Table& table, const ChunkedArray& indices,
                                     const TakeOptions& options = TakeOptions::Defaults(),
