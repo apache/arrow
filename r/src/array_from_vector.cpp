@@ -147,6 +147,14 @@ struct VectorToArrayConverter {
           TYPEOF(Rf_getAttrib(x, symbols::ptype)) == RAWSXP)) {
       return Status::RError("Expecting a list of raw vectors");
     }
+    return Status::OK();
+  }
+
+  Status Visit(const arrow::FixedSizeBinaryType& type) {
+    if (!(Rf_inherits(x, "vctrs_list_of") &&
+        TYPEOF(Rf_getAttrib(x, symbols::ptype)) == RAWSXP)) {
+      return Status::RError("Expecting a list of raw vectors");
+    }
 
     return Status::OK();
   }
@@ -973,6 +981,52 @@ class BinaryVectorConverter : public VectorConverter {
   Builder* typed_builder_;
 };
 
+class FixedSizeBinaryVectorConverter : public VectorConverter {
+public:
+  ~FixedSizeBinaryVectorConverter() {}
+
+  Status Init(ArrayBuilder* builder) {
+    typed_builder_ = checked_cast<FixedSizeBinaryBuilder*>(builder);
+    return Status::OK();
+  }
+
+  Status Ingest(SEXP obj) {
+    ARROW_RETURN_IF(TYPEOF(obj) != VECSXP, Status::RError("Expecting a list"));
+    R_xlen_t n = XLENGTH(obj);
+
+    // Reserve enough space before appending
+    int32_t byte_width = typed_builder_->byte_width();
+    for (R_xlen_t i = 0; i < n; i++) {
+      SEXP obj_i = VECTOR_ELT(obj, i);
+      if (!Rf_isNull(obj_i)) {
+        ARROW_RETURN_IF(TYPEOF(obj_i) != RAWSXP,
+                        Status::RError("Expecting a raw vector"));
+        ARROW_RETURN_IF(XLENGTH(obj_i) != byte_width,
+                        Status::RError("Expecting a raw vector of ", byte_width, " bytes, not ", XLENGTH(obj_i)));
+      }
+    }
+    RETURN_NOT_OK(typed_builder_->Reserve(n * byte_width));
+
+    // append
+    for (R_xlen_t i = 0; i < n; i++) {
+      SEXP obj_i = VECTOR_ELT(obj, i);
+      if (Rf_isNull(obj_i)) {
+        RETURN_NOT_OK(typed_builder_->AppendNull());
+      } else {
+        RETURN_NOT_OK(typed_builder_->Append(RAW(obj_i)));
+      }
+    }
+    return Status::OK();
+  }
+
+  Status GetResult(std::shared_ptr<arrow::Array>* result) {
+    return typed_builder_->Finish(result);
+  }
+
+private:
+  FixedSizeBinaryBuilder* typed_builder_;
+};
+
 template <typename Builder>
 class StringVectorConverter : public VectorConverter {
  public:
@@ -1042,6 +1096,7 @@ Status GetConverter(const std::shared_ptr<DataType>& type,
   switch (type->id()) {
     SIMPLE_CONVERTER_CASE(BINARY, BinaryVectorConverter<arrow::BinaryBuilder>);
     SIMPLE_CONVERTER_CASE(LARGE_BINARY, BinaryVectorConverter<arrow::LargeBinaryBuilder>);
+    SIMPLE_CONVERTER_CASE(FIXED_SIZE_BINARY, FixedSizeBinaryVectorConverter);
     SIMPLE_CONVERTER_CASE(BOOL, BooleanVectorConverter);
     SIMPLE_CONVERTER_CASE(STRING, StringVectorConverter<arrow::StringBuilder>);
     SIMPLE_CONVERTER_CASE(LARGE_STRING, StringVectorConverter<arrow::LargeStringBuilder>);
