@@ -426,8 +426,7 @@ Status MockFileSystem::DeleteDirContents(const std::string& path) {
 
   if (parts.empty()) {
     // Wipe filesystem
-    impl_->RootDir().entries.clear();
-    return Status::OK();
+    return internal::InvalidDeleteDirContents(path);
   }
 
   Entry* entry = impl_->FindEntry(parts);
@@ -438,6 +437,11 @@ Status MockFileSystem::DeleteDirContents(const std::string& path) {
     return NotADir(path);
   }
   entry->as_dir().entries.clear();
+  return Status::OK();
+}
+
+Status MockFileSystem::DeleteRootDirContents() {
+  impl_->RootDir().entries.clear();
   return Status::OK();
 }
 

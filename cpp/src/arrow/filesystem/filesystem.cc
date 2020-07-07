@@ -253,8 +253,19 @@ Status SubTreeFileSystem::DeleteDir(const std::string& path) {
 }
 
 Status SubTreeFileSystem::DeleteDirContents(const std::string& path) {
+  if (internal::IsEmptyPath(path)) {
+    return internal::InvalidDeleteDirContents(path);
+  }
   auto s = PrependBase(path);
   return base_fs_->DeleteDirContents(s);
+}
+
+Status SubTreeFileSystem::DeleteRootDirContents() {
+  if (base_path_.empty()) {
+    return base_fs_->DeleteRootDirContents();
+  } else {
+    return base_fs_->DeleteDirContents(base_path_);
+  }
 }
 
 Status SubTreeFileSystem::DeleteFile(const std::string& path) {
@@ -365,6 +376,11 @@ Status SlowFileSystem::DeleteDir(const std::string& path) {
 Status SlowFileSystem::DeleteDirContents(const std::string& path) {
   latencies_->Sleep();
   return base_fs_->DeleteDirContents(path);
+}
+
+Status SlowFileSystem::DeleteRootDirContents() {
+  latencies_->Sleep();
+  return base_fs_->DeleteRootDirContents();
 }
 
 Status SlowFileSystem::DeleteFile(const std::string& path) {

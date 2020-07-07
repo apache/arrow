@@ -59,6 +59,12 @@ Status NotAFile(const std::string& path) {
   return Status::IOError("Not a regular file: '", path, "'");
 }
 
+Status InvalidDeleteDirContents(const std::string& path) {
+  return Status::Invalid(
+      "DeleteDirContents called on invalid path '", path, "'. ",
+      "If you wish to delete the root directory's contents, call DeleteRootDirContents.");
+}
+
 FileSystemGlobalOptions global_options;
 
 }  // namespace internal

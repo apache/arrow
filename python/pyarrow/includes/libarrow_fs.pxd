@@ -63,6 +63,7 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         CStatus CreateDir(const c_string& path, c_bool recursive)
         CStatus DeleteDir(const c_string& path)
         CStatus DeleteDirContents(const c_string& path)
+        CStatus DeleteRootDirContents()
         CStatus DeleteFile(const c_string& path)
         CStatus DeleteFiles(const vector[c_string]& paths)
         CStatus Move(const c_string& src, const c_string& dest)
@@ -197,6 +198,7 @@ ctypedef void CallbackGetFileInfoSelector(object, const CFileSelector&,
 ctypedef void CallbackCreateDir(object, const c_string&, c_bool)
 ctypedef void CallbackDeleteDir(object, const c_string&)
 ctypedef void CallbackDeleteDirContents(object, const c_string&)
+ctypedef void CallbackDeleteRootDirContents(object)
 ctypedef void CallbackDeleteFile(object, const c_string&)
 ctypedef void CallbackMove(object, const c_string&, const c_string&)
 ctypedef void CallbackCopyFile(object, const c_string&, const c_string&)
@@ -220,6 +222,7 @@ cdef extern from "arrow/python/filesystem.h" namespace "arrow::py::fs" nogil:
         function[CallbackCreateDir] create_dir
         function[CallbackDeleteDir] delete_dir
         function[CallbackDeleteDirContents] delete_dir_contents
+        function[CallbackDeleteRootDirContents] delete_root_dir_contents
         function[CallbackDeleteFile] delete_file
         function[CallbackMove] move
         function[CallbackCopyFile] copy_file

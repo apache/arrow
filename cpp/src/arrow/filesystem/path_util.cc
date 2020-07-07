@@ -227,6 +227,15 @@ std::string ToSlashes(util::string_view v) {
   return s;
 }
 
+bool IsEmptyPath(util::string_view v) {
+  for (const auto c : v) {
+    if (c != '/') {
+      return false;
+    }
+  }
+  return true;
+}
+
 }  // namespace internal
 }  // namespace fs
 }  // namespace arrow

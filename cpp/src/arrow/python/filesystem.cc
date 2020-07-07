@@ -119,6 +119,13 @@ Status PyFileSystem::DeleteDirContents(const std::string& path) {
   });
 }
 
+Status PyFileSystem::DeleteRootDirContents() {
+  return SafeCallIntoPython([&]() -> Status {
+    vtable_.delete_root_dir_contents(handler_.obj());
+    return CheckPyError();
+  });
+}
+
 Status PyFileSystem::DeleteFile(const std::string& path) {
   return SafeCallIntoPython([&]() -> Status {
     vtable_.delete_file(handler_.obj(), path);

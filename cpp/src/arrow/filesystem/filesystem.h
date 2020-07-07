@@ -181,8 +181,15 @@ class ARROW_EXPORT FileSystem : public std::enable_shared_from_this<FileSystem> 
   /// Delete a directory's contents, recursively.
   ///
   /// Like DeleteDir, but doesn't delete the directory itself.
-  /// Passing an empty path ("") will wipe the entire filesystem tree.
+  /// Passing an empty path ("" or "/") is disallowed, see DeleteRootDirContents.
   virtual Status DeleteDirContents(const std::string& path) = 0;
+
+  /// EXPERIMENTAL: Delete the root directory's contents, recursively.
+  ///
+  /// Implementations may decide to raise an error if this operation is
+  /// too dangerous.
+  // NOTE: may decide to remove this if it's deemed not useful
+  virtual Status DeleteRootDirContents() = 0;
 
   /// Delete a file.
   virtual Status DeleteFile(const std::string& path) = 0;
@@ -273,6 +280,7 @@ class ARROW_EXPORT SubTreeFileSystem : public FileSystem {
 
   Status DeleteDir(const std::string& path) override;
   Status DeleteDirContents(const std::string& path) override;
+  Status DeleteRootDirContents() override;
 
   Status DeleteFile(const std::string& path) override;
 
@@ -328,6 +336,7 @@ class ARROW_EXPORT SlowFileSystem : public FileSystem {
 
   Status DeleteDir(const std::string& path) override;
   Status DeleteDirContents(const std::string& path) override;
+  Status DeleteRootDirContents() override;
 
   Status DeleteFile(const std::string& path) override;
 
