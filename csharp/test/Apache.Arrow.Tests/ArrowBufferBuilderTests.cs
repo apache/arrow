@@ -136,7 +136,7 @@ namespace Apache.Arrow.Tests
                 var length = builder.Length;
                 var data = Enumerable.Range(0, 10).Select(x => x).ToArray();
                 var count = data.Length;
-                
+
                 builder.AppendRange(data);
 
                 Assert.Equal(length + count, builder.Length);
@@ -200,14 +200,15 @@ namespace Apache.Arrow.Tests
             }
 
             [Fact]
-            public void NegativeLengthResizesToZero()
+            public void NegativeLengthThrows()
             {
+                // Arrange
                 var builder = new ArrowBuffer.Builder<int>();
                 builder.Append(10);
                 builder.Append(20);
-                builder.Resize(-1);
 
-                Assert.Equal(0, builder.Length);
+                // Act/Assert
+                Assert.Throws<ArgumentOutOfRangeException>(() => builder.Resize(-1));
             }
         }
 
