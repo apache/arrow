@@ -171,6 +171,8 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         CResult[shared_ptr[CUnionDataset]] Make(shared_ptr[CSchema] schema,
                                                 CDatasetVector children)
 
+        const CDatasetVector& children() const
+
     cdef cppclass CInspectOptions "arrow::dataset::InspectOptions":
         int fragments
 
