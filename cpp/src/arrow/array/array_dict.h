@@ -98,7 +98,9 @@ class ARROW_EXPORT DictionaryArray : public Array {
   std::shared_ptr<Array> dictionary() const;
   std::shared_ptr<Array> indices() const;
 
-  /// \brief Return the ith value of indices, cast to int64_t
+  /// \brief Return the ith value of indices, cast to int64_t. Not recommended
+  /// for use in performance-sensitive code. Does not validate whether the
+  /// value is null or out-of-bounds.
   int64_t GetValueIndex(int64_t i) const;
 
   const DictionaryType* dict_type() const { return dict_type_; }

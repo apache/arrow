@@ -181,4 +181,11 @@ UnionTypeFactories() {
 // Windows.
 ARROW_TESTING_EXPORT int GetListenPort();
 
+namespace testing {
+
+ARROW_TESTING_EXPORT
+const std::vector<std::shared_ptr<DataType>>& dictionary_index_types();
+
+}  // namespace testing
+
 }  // namespace arrow
