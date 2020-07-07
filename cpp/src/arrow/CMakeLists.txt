@@ -359,6 +359,7 @@ if(ARROW_COMPUTE)
               compute/kernels/scalar_cast_string.cc
               compute/kernels/scalar_cast_temporal.cc
               compute/kernels/scalar_compare.cc
+              compute/kernels/scalar_nested.cc
               compute/kernels/scalar_set_lookup.cc
               compute/kernels/scalar_string.cc
               compute/kernels/scalar_validity.cc
