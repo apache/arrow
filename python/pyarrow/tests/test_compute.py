@@ -141,7 +141,7 @@ def test_string_py_compat_boolean(function_name, ascii):
         if hasattr(pc, arrow_name):
             ar = pa.array([c])
             cpython_value = getattr(c, py_name)()
-            arrow_value = getattr(pc, arrow_name)(ar)[0]
+            arrow_value = getattr(pc, arrow_name)(ar)[0].as_py()
             assert arrow_value == cpython_value
 
 
