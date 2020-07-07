@@ -489,7 +489,7 @@ cdef class FileSystem:
             (if path is empty or "/")
         """
         cdef c_string directory = _path_as_bytes(path)
-        if accept_root_dir and directory in (b"", b"/"):
+        if accept_root_dir and directory.strip(b"/") == b"":
             with nogil:
                 check_status(self.fs.DeleteRootDirContents())
         else:

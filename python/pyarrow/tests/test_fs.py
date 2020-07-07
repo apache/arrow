@@ -92,7 +92,7 @@ class DummyHandler(FileSystemHandler):
         assert path == "delete_dir"
 
     def delete_dir_contents(self, path):
-        if path in ("", "/"):
+        if not path.strip("/"):
             raise ValueError
         assert path == "delete_dir_contents"
 
@@ -736,8 +736,12 @@ def _check_root_dir_contents(config):
         fs.delete_dir_contents("")
     with pytest.raises(pa.ArrowInvalid):
         fs.delete_dir_contents("/")
+    with pytest.raises(pa.ArrowInvalid):
+        fs.delete_dir_contents("//")
 
     fs.delete_dir_contents("", accept_root_dir=True)
+    fs.delete_dir_contents("/", accept_root_dir=True)
+    fs.delete_dir_contents("//", accept_root_dir=True)
     with pytest.raises(pa.ArrowIOError):
         fs.delete_dir(d)
 
@@ -1231,9 +1235,10 @@ def test_py_filesystem_ops():
 
     fs.delete_dir("delete_dir")
     fs.delete_dir_contents("delete_dir_contents")
-    with pytest.raises(ValueError):
-        fs.delete_dir_contents("")
-    fs.delete_dir_contents("", accept_root_dir=True)
+    for path in ("", "/", "//"):
+        with pytest.raises(ValueError):
+            fs.delete_dir_contents(path)
+        fs.delete_dir_contents(path, accept_root_dir=True)
     fs.delete_file("delete_file")
     fs.move("move_from", "move_to")
     fs.copy_file("copy_file_from", "copy_file_to")

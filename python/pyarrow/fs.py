@@ -154,7 +154,7 @@ class FSSpecHandler(FileSystemHandler):
                 self.fs.rm(subpath)
 
     def delete_dir_contents(self, path):
-        if path in ("", "/"):
+        if path.strip("/") == "":
             raise ValueError(
                 "delete_dir_contents called on path '", path, "'")
         self._delete_dir_contents(path)
