@@ -282,7 +282,7 @@ static inline bool Utf8IsContinuation(const uint8_t codeunit) {
   return (codeunit & 0xC0) == 0x80;  // upper two bits should be 10
 }
 
-static inline uint8_t* Utf8Encode(uint8_t* str, uint32_t codepoint) {
+static inline uint8_t* UTF8Encode(uint8_t* str, uint32_t codepoint) {
   if (codepoint < 0x80) {
     *str++ = codepoint;
   } else if (codepoint < 0x800) {
@@ -303,7 +303,7 @@ static inline uint8_t* Utf8Encode(uint8_t* str, uint32_t codepoint) {
   return str;
 }
 
-static inline bool Utf8Decode(const uint8_t** data, uint32_t* codepoint) {
+static inline bool UTF8Decode(const uint8_t** data, uint32_t* codepoint) {
   const uint8_t* str = *data;
   if (*str < 0x80) {  // ascci
     *codepoint = *str++;
@@ -351,16 +351,16 @@ static inline bool Utf8Decode(const uint8_t** data, uint32_t* codepoint) {
 }
 
 template <class UnaryOperation>
-static inline bool Utf8Transform(const uint8_t* first, const uint8_t* last,
+static inline bool UTF8Transform(const uint8_t* first, const uint8_t* last,
                                  uint8_t** destination, UnaryOperation&& unary_op) {
   const uint8_t* i = first;
   uint8_t* out = *destination;
   while (i < last) {
     uint32_t codepoint = 0;
-    if (ARROW_PREDICT_FALSE(!Utf8Decode(&i, &codepoint))) {
+    if (ARROW_PREDICT_FALSE(!UTF8Decode(&i, &codepoint))) {
       return false;
     }
-    out = Utf8Encode(out, unary_op(codepoint));
+    out = UTF8Encode(out, unary_op(codepoint));
   }
   *destination = out;
   return true;

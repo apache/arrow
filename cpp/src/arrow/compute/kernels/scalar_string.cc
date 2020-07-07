@@ -80,7 +80,7 @@ void EnsureLookupTablesFilled() {
 }
 
 template <typename Type, typename Derived>
-struct Utf8Transform {
+struct UTF8Transform {
   using offset_type = typename Type::offset_type;
   using ArrayType = typename TypeTraits<Type>::ArrayType;
 
@@ -88,7 +88,7 @@ struct Utf8Transform {
                         uint8_t* output, offset_type* output_written) {
     uint8_t* output_start = output;
     if (ARROW_PREDICT_FALSE(
-            !arrow::util::Utf8Transform(input, input + input_string_ncodeunits, &output,
+            !arrow::util::UTF8Transform(input, input + input_string_ncodeunits, &output,
                                         Derived::TransformCodepoint))) {
       return false;
     }
@@ -184,7 +184,7 @@ struct Utf8Transform {
 };
 
 template <typename Type>
-struct Utf8Upper : Utf8Transform<Type, Utf8Upper<Type>> {
+struct UTF8Upper : UTF8Transform<Type, UTF8Upper<Type>> {
   inline static uint32_t TransformCodepoint(uint32_t codepoint) {
     return codepoint <= kMaxCodepointLookup ? lut_upper_codepoint[codepoint]
                                             : utf8proc_toupper(codepoint);
@@ -192,7 +192,7 @@ struct Utf8Upper : Utf8Transform<Type, Utf8Upper<Type>> {
 };
 
 template <typename Type>
-struct Utf8Lower : Utf8Transform<Type, Utf8Lower<Type>> {
+struct UTF8Lower : UTF8Transform<Type, UTF8Lower<Type>> {
   static uint32_t TransformCodepoint(uint32_t codepoint) {
     return codepoint <= kMaxCodepointLookup ? lut_lower_codepoint[codepoint]
                                             : utf8proc_tolower(codepoint);
@@ -468,7 +468,7 @@ void MakeUnaryStringBatchKernel(std::string name, FunctionRegistry* registry) {
 #ifdef ARROW_WITH_UTF8PROC
 
 template <template <typename> class Transformer>
-void MakeUnaryStringUtf8TransformKernel(std::string name, FunctionRegistry* registry) {
+void MakeUnaryStringUTF8TransformKernel(std::string name, FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>(name, Arity::Unary());
   ArrayKernelExec exec_32 = Transformer<StringType>::Exec;
   ArrayKernelExec exec_64 = Transformer<LargeStringType>::Exec;
@@ -485,8 +485,8 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
   MakeUnaryStringBatchKernel<AsciiUpper>("ascii_upper", registry);
   MakeUnaryStringBatchKernel<AsciiLower>("ascii_lower", registry);
 #ifdef ARROW_WITH_UTF8PROC
-  MakeUnaryStringUtf8TransformKernel<Utf8Upper>("utf8_upper", registry);
-  MakeUnaryStringUtf8TransformKernel<Utf8Lower>("utf8_lower", registry);
+  MakeUnaryStringUTF8TransformKernel<UTF8Upper>("utf8_upper", registry);
+  MakeUnaryStringUTF8TransformKernel<UTF8Lower>("utf8_lower", registry);
 #endif
   AddAsciiLength(registry);
   AddBinaryContainsExact(registry);
