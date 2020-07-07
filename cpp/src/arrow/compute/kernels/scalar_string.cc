@@ -50,6 +50,11 @@ static inline uint8_t ascii_toupper(uint8_t utf8_code_unit) {
                                                               : utf8_code_unit;
 }
 
+template <typename T>
+static inline bool IsAsciiCharacter(T character) {
+  return character < 128;
+}
+
 // TODO: optional ascii validation
 
 struct AsciiLength {
@@ -179,6 +184,54 @@ struct UTF8Transform {
             ctx, value_buffer->Resize(encoded_nbytes, /*shrink_to_fit=*/true));
       }
       out->value = result;
+    }
+  }
+};
+
+template <typename StringType, typename Derived>
+struct BinaryToBoolean {
+  using offset_type = typename StringType::offset_type;
+  using ArrayType = typename TypeTraits<StringType>::ArrayType;
+
+  static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    if (batch[0].kind() == Datum::ARRAY) {
+      EnsureLookupTablesFilled();
+      const ArrayData& input = *batch[0].array();
+      ArrayType input_boxed(batch[0].array());
+      ArrayData* out_arr = out->mutable_array();
+
+      // offset_type input_ncodeunits = input_boxed.total_values_length();
+      offset_type input_nstrings = static_cast<offset_type>(input.length);
+
+      FirstTimeBitmapWriter bitmap_writer(out_arr->buffers[1]->mutable_data(),
+                                          out_arr->offset, input.length);
+      for (int64_t i = 0; i < input_nstrings; i++) {
+        offset_type input_string_ncodeunits;
+        const uint8_t* input_string = input_boxed.GetValue(i, &input_string_ncodeunits);
+        offset_type encoded_nbytes;
+        bool boolean_result =
+            Derived::Predicate(ctx, input_string, input_string_ncodeunits);
+        if (!ctx->status().ok()) {
+          // UTF decoding can lead to issues
+          return;
+        }
+        if (boolean_result) {
+          bitmap_writer.Set();
+        }
+        bitmap_writer.Next();
+      }
+      bitmap_writer.Finish();
+    } else {
+      const auto& input = checked_cast<const BaseBinaryScalar&>(*batch[0].scalar());
+      if (input.is_valid) {
+        offset_type data_nbytes = static_cast<offset_type>(input.value->size());
+        bool boolean_result = Derived::Predicate(ctx, input.value->data(), data_nbytes);
+        if (!ctx->status().ok()) {
+          // UTF decoding can lead to issues
+          return;
+        }
+        out->value = std::make_shared<BooleanScalar>(boolean_result);
+      }
     }
   }
 };
@@ -322,9 +375,7 @@ void StringBoolTransform(KernelContext* ctx, const ExecBatch& batch,
   } else {
     const auto& input = checked_cast<const BaseBinaryScalar&>(*batch[0].scalar());
     if (input.is_valid) {
-      auto result = checked_pointer_cast<BooleanScalar>(MakeNullScalar(out->type()));
       uint8_t result_value = 0;
-      result->is_valid = true;
       std::array<offset_type, 2> offsets{0,
                                          static_cast<offset_type>(input.value->size())};
       transform(offsets.data(), input.value->data(), 1, /*output_offset=*/0,
@@ -409,6 +460,413 @@ void AddBinaryContainsExact(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
+// IsAlpha/Digit etc
+
+static inline bool HasAnyUnicodeGeneralCategory(uint32_t codepoint, uint32_t mask) {
+  uint32_t general_category = 1 << utf8proc_category(codepoint);
+  // for e.g. undefined (but valid) codepoints, general_category == 0
+  return (general_category != 0) && ((general_category & mask) != 0);
+}
+
+template <typename... Categories>
+static inline bool HasAnyUnicodeGeneralCategory(uint32_t codepoint, uint32_t mask,
+                                                utf8proc_category_t category,
+                                                Categories... categories) {
+  return HasAnyUnicodeGeneralCategory(codepoint, mask | (1 << category), categories...);
+}
+
+template <typename... Categories>
+static inline bool HasAnyUnicodeGeneralCategory(uint32_t codepoint,
+                                                utf8proc_category_t category,
+                                                Categories... categories) {
+  return HasAnyUnicodeGeneralCategory(codepoint, static_cast<uint32_t>(1u << category),
+                                      categories...);
+}
+
+static inline bool IsUpperCaseCharacterRoman(uint32_t codepoint) {
+  // Roman letter Ⅰ to Ⅿ are seen as capital (see 4.2 of Unicode spec)
+  // DerivedCoreProperties.txt should have this information, but it is not stored in
+  // the utf8proc library.
+  return (codepoint >= 0x2160) && (codepoint <= 0x216f);
+}
+
+static inline bool IsUpperCaseCharacterCircled(uint32_t codepoint) {
+  // Circled letters Ⓐ-Ⓩ are seen as capital (see 4.2 of Unicode spec)
+  // DerivedCoreProperties.txt should have this information, but it is not stored in
+  // the utf8proc library.
+  return (codepoint >= 0x24b6) && (codepoint <= 0x24cf);
+}
+
+static inline bool IsCasedCharacterUnicode(uint32_t codepoint) {
+  return HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_LU,
+                                      UTF8PROC_CATEGORY_LL, UTF8PROC_CATEGORY_LT) ||
+         IsUpperCaseCharacterRoman(codepoint) || IsUpperCaseCharacterCircled(codepoint);
+  ;
+}
+
+static inline bool IsLowerCaseCharacterUnicode(uint32_t codepoint) {
+  return HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_LL);
+}
+
+static inline bool IsUpperCaseCharacterUnicode(uint32_t codepoint) {
+  return HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_LU) ||
+         IsUpperCaseCharacterRoman(codepoint) || IsUpperCaseCharacterCircled(codepoint);
+}
+
+static inline bool IsAlphaCharacterUnicode(uint32_t codepoint) {
+  return HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_LU,
+                                      UTF8PROC_CATEGORY_LL, UTF8PROC_CATEGORY_LT,
+                                      UTF8PROC_CATEGORY_LM, UTF8PROC_CATEGORY_LO);
+}
+
+static inline bool IsLowerCaseCharacterAscii(uint8_t ascii_character) {
+  return (ascii_character >= 'a') && (ascii_character <= 'z');
+}
+
+static inline bool IsUpperCaseCharacterAscii(uint8_t ascii_character) {
+  return (ascii_character >= 'A') && (ascii_character <= 'Z');
+}
+
+static inline bool IsCasedCharacterAscii(uint8_t ascii_character) {
+  return IsLowerCaseCharacterAscii(ascii_character) ||
+         IsUpperCaseCharacterAscii(ascii_character);
+}
+
+static inline bool IsAlphaCharacterAscii(uint8_t ascii_character) {
+  return IsCasedCharacterAscii(ascii_character);  // same
+}
+
+static inline bool IsDecimalCharacterUnicode(uint32_t codepoint) {
+  return HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_ND);
+}
+
+static inline bool IsDecimalCharacterAscii(uint8_t ascii_character) {
+  return ((ascii_character >= '0') && (ascii_character <= '9'));
+}
+
+static inline bool IsDigitCharacterUnicode(uint32_t codepoint) {
+  // Python defines this as Numeric_Type=Digit or Numeric_Type=Decimal.
+  // utf8proc has no support for this, this is the best we can do:
+  return HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_ND);
+}
+
+static inline bool IsNumericCharacterUnicode(uint32_t codepoint) {
+  // Formally this is not correct, but utf8proc does not allow us to query for Numerical
+  // properties, e.g. Numeric_Value and Numeric_Type
+  // Python defines Numeric as Numeric_Type=Digit, Numeric_Type=Decimal or
+  // Numeric_Type=Numeric.
+  return HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_ND,
+                                      UTF8PROC_CATEGORY_NL, UTF8PROC_CATEGORY_NO);
+}
+
+static inline bool IsSpaceCharacterUnicode(uint32_t codepoint) {
+  auto property = utf8proc_get_property(codepoint);
+  return HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_ZS) ||
+         property->bidi_class == UTF8PROC_BIDI_CLASS_WS ||
+         property->bidi_class == UTF8PROC_BIDI_CLASS_B ||
+         property->bidi_class == UTF8PROC_BIDI_CLASS_S;
+}
+
+static inline bool IsSpaceCharacterAscii(uint8_t ascii_character) {
+  return ((ascii_character >= 0x09) && (ascii_character <= 0x0D)) ||
+         (ascii_character == ' ');
+}
+
+static inline bool IsPrintableCharacterUnicode(uint32_t codepoint) {
+  uint32_t general_category = utf8proc_category(codepoint);
+  return (general_category != 0) &&
+         !HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_CC,
+                                       UTF8PROC_CATEGORY_CF, UTF8PROC_CATEGORY_CS,
+                                       UTF8PROC_CATEGORY_CO, UTF8PROC_CATEGORY_ZS,
+                                       UTF8PROC_CATEGORY_ZL, UTF8PROC_CATEGORY_ZP);
+}
+
+static inline bool IsPrintableCharacterAscii(uint8_t ascii_character) {
+  return ((ascii_character >= ' ') && (ascii_character <= '~'));
+}
+
+template <typename StringType, typename Derived, bool allow_empty = false>
+struct CharacterPredicateUnicode
+    : BinaryToBoolean<StringType,
+                      CharacterPredicateUnicode<StringType, Derived, allow_empty>> {
+  using offset_type = typename StringType::offset_type;
+  static inline bool Predicate(KernelContext* ctx, const uint8_t* input,
+                               offset_type input_string_ncodeunits) {
+    if (allow_empty && input_string_ncodeunits == 0) {
+      return true;
+    }
+    bool all;
+    bool any = false;
+    if (!ARROW_PREDICT_TRUE(arrow::util::UTF8AllOf(
+            input, input + input_string_ncodeunits, &all, [&any](uint32_t codepoint) {
+              any |= Derived::PredicateCharacterAny(codepoint);
+              return Derived::PredicateCharacterAll(codepoint);
+            }))) {
+      ctx->SetStatus(Status::Invalid("Invalid UTF8 sequence in input"));
+      return false;
+    }
+    return all & any;
+  }
+  static inline bool PredicateCharacterAny(uint32_t) {
+    return true;  // default condition make sure there is at least 1 charachter
+  }
+};
+
+template <typename StringType, typename Derived, bool allow_empty = false>
+struct CharacterPredicateAscii
+    : BinaryToBoolean<StringType,
+                      CharacterPredicateAscii<StringType, Derived, allow_empty>> {
+  using offset_type = typename StringType::offset_type;
+  static inline bool Predicate(KernelContext* ctx, const uint8_t* input,
+                               offset_type input_string_ncodeunits) {
+    if (allow_empty && input_string_ncodeunits == 0) {
+      return true;
+    }
+    bool any = false;
+    bool all = std::all_of(input, input + input_string_ncodeunits,
+                           [&any](uint8_t ascii_character) {
+                             any |= Derived::PredicateCharacterAny(ascii_character);
+                             return Derived::PredicateCharacterAll(ascii_character);
+                           });
+    return all & any;
+  }
+  static inline bool PredicateCharacterAny(uint8_t) {
+    return true;  // default condition make sure there is at least 1 charachter
+  }
+};
+
+template <typename StringType>
+struct IsAlphaNumericUnicode
+    : CharacterPredicateUnicode<StringType, IsAlphaNumericUnicode<StringType>> {
+  static inline bool PredicateCharacterAll(uint32_t codepoint) {
+    return IsAlphaCharacterUnicode(codepoint) || IsDecimalCharacterUnicode(codepoint) ||
+           IsNumericCharacterUnicode(codepoint) || IsDigitCharacterUnicode(codepoint);
+  }
+};
+
+template <typename StringType>
+struct IsAlphaNumericAscii
+    : CharacterPredicateAscii<StringType, IsAlphaNumericAscii<StringType>> {
+  static inline bool PredicateCharacterAll(uint32_t codepoint) {
+    return IsAlphaCharacterAscii(codepoint) || IsDecimalCharacterAscii(codepoint);
+  }
+};
+
+template <typename StringType>
+struct IsAlphaUnicode
+    : CharacterPredicateUnicode<StringType, IsAlphaUnicode<StringType>> {
+  static inline bool PredicateCharacterAll(uint32_t codepoint) {
+    return IsAlphaCharacterUnicode(codepoint);
+  }
+};
+
+template <typename StringType>
+struct IsAlphaAscii : CharacterPredicateAscii<StringType, IsAlphaAscii<StringType>> {
+  static inline bool PredicateCharacterAll(uint8_t ascii_character) {
+    return IsAlphaCharacterAscii(ascii_character);
+  }
+};
+
+template <typename StringType>
+struct IsDecimalUnicode
+    : CharacterPredicateUnicode<StringType, IsDecimalUnicode<StringType>> {
+  static inline bool PredicateCharacterAll(uint32_t codepoint) {
+    return IsDecimalCharacterUnicode(codepoint);
+  }
+};
+
+template <typename StringType>
+struct IsDecimalAscii : CharacterPredicateAscii<StringType, IsDecimalAscii<StringType>> {
+  static inline bool PredicateCharacterAll(uint8_t ascii_character) {
+    return IsDecimalCharacterAscii(ascii_character);
+  }
+};
+
+template <typename StringType>
+struct IsDigitUnicode
+    : CharacterPredicateUnicode<StringType, IsDigitUnicode<StringType>> {
+  static inline bool PredicateCharacterAll(uint32_t codepoint) {
+    return IsDigitCharacterUnicode(codepoint);
+  }
+};
+
+template <typename StringType>
+struct IsNumericUnicode
+    : CharacterPredicateUnicode<StringType, IsNumericUnicode<StringType>> {
+  static inline bool PredicateCharacterAll(uint32_t codepoint) {
+    return IsNumericCharacterUnicode(codepoint);
+  }
+};
+
+template <typename StringType>
+struct IsAscii : BinaryToBoolean<StringType, IsAscii<StringType>> {
+  using offset_type = typename StringType::offset_type;
+  static bool Predicate(KernelContext* ctx, const uint8_t* input,
+                        offset_type input_string_nascii_characters) {
+    return std::all_of(input, input + input_string_nascii_characters,
+                       IsAsciiCharacter<uint8_t>);
+  }
+};
+
+template <typename StringType>
+struct IsLowerUnicode
+    : CharacterPredicateUnicode<StringType, IsLowerUnicode<StringType>> {
+  static inline bool PredicateCharacterAll(uint32_t codepoint) {
+    // Only for cased character it needs to be lower case
+    return !IsCasedCharacterUnicode(codepoint) || IsLowerCaseCharacterUnicode(codepoint);
+  }
+  static inline bool PredicateCharacterAny(uint32_t codepoint) {
+    return IsCasedCharacterUnicode(codepoint);  // at least 1 cased character
+  }
+};
+
+template <typename StringType>
+struct IsLowerAscii : CharacterPredicateAscii<StringType, IsLowerAscii<StringType>> {
+  static inline bool PredicateCharacterAll(uint8_t ascii_character) {
+    // Only for cased character it needs to be lower case
+    return !IsCasedCharacterAscii(ascii_character) ||
+           IsLowerCaseCharacterAscii(ascii_character);
+  }
+  static inline bool PredicateCharacterAny(uint8_t ascii_character) {
+    return IsCasedCharacterAscii(ascii_character);  // at least 1 cased character
+  }
+};
+
+template <typename StringType>
+struct IsPrintableUnicode
+    : CharacterPredicateUnicode<StringType, IsPrintableUnicode<StringType>,
+                                /*allow_empty=*/true> {
+  static inline bool PredicateCharacterAll(uint32_t codepoint) {
+    return codepoint == ' ' || IsPrintableCharacterUnicode(codepoint);
+  }
+};
+
+template <typename StringType>
+struct IsPrintableAscii
+    : CharacterPredicateAscii<StringType, IsPrintableAscii<StringType>,
+                              /*allow_empty=*/true> {
+  static inline bool PredicateCharacterAll(uint8_t ascii_character) {
+    return IsPrintableCharacterAscii(ascii_character);
+  }
+};
+
+template <typename StringType>
+struct IsSpaceUnicode
+    : CharacterPredicateUnicode<StringType, IsSpaceUnicode<StringType>> {
+  static inline bool PredicateCharacterAll(uint32_t codepoint) {
+    return IsSpaceCharacterUnicode(codepoint);
+  }
+};
+
+template <typename StringType>
+struct IsSpaceAscii : CharacterPredicateAscii<StringType, IsSpaceAscii<StringType>> {
+  static inline bool PredicateCharacterAll(uint8_t ascii_character) {
+    return IsSpaceCharacterAscii(ascii_character);
+  }
+};
+
+template <typename StringType>
+struct IsTitleUnicode : BinaryToBoolean<StringType, IsTitleUnicode<StringType>> {
+  using offset_type = typename StringType::offset_type;
+  static bool Predicate(KernelContext* ctx, const uint8_t* input,
+                        offset_type input_string_ncodeunits) {
+    // rules:
+    // * 1: lower case follows cased
+    // * 2: upper case follows uncased
+    // * 3: at least 1 cased character (which logically should be upper/title)
+    bool rules_1_and_2;
+    bool previous_cased = false;  // in LL, LU or LT
+    bool rule_3 = false;
+    bool status =
+        arrow::util::UTF8AllOf(input, input + input_string_ncodeunits, &rules_1_and_2,
+                               [&previous_cased, &rule_3](uint32_t codepoint) {
+                                 if (IsLowerCaseCharacterUnicode(codepoint)) {
+                                   if (!previous_cased) return false;  // rule 1 broken
+                                   previous_cased = true;
+                                 } else if (IsCasedCharacterUnicode(codepoint)) {
+                                   if (previous_cased) return false;  // rule 2 broken
+                                   // next should be a lower case or uncased
+                                   previous_cased = true;
+                                   rule_3 = true;  // rule 3 obeyed
+                                 } else {
+                                   // a non-cased char, like _ or 1
+                                   // next should be upper case or more uncased
+                                   previous_cased = false;
+                                 }
+                                 return true;
+                               });
+    if (!ARROW_PREDICT_TRUE(status)) {
+      ctx->SetStatus(Status::Invalid("Invalid UTF8 sequence in input"));
+      return false;
+    }
+    return rules_1_and_2 & rule_3;
+  }
+};
+
+template <typename StringType>
+struct IsTitleAscii : BinaryToBoolean<StringType, IsTitleAscii<StringType>> {
+  using offset_type = typename StringType::offset_type;
+  static bool Predicate(KernelContext* ctx, const uint8_t* input,
+                        offset_type input_string_ncodeunits) {
+    // rules:
+    // * 1: lower case follows cased
+    // * 2: upper case follows uncased
+    // * 3: at least 1 cased character (which logically should be upper/title)
+    bool rules_1_and_2 = true;
+    bool previous_cased = false;  // in LL, LU or LT
+    bool rule_3 = false;
+    // we cannot rely on std::all_of because we need guaranteed order
+    for (const uint8_t* c = input; c < input + input_string_ncodeunits; ++c) {
+      if (IsLowerCaseCharacterAscii(*c)) {
+        if (!previous_cased) {
+          // rule 1 broken
+          rules_1_and_2 = false;
+          break;
+        }
+        previous_cased = true;
+      } else if (IsCasedCharacterAscii(*c)) {
+        if (previous_cased) {
+          // rule 2 broken
+          rules_1_and_2 = false;
+          break;
+        }
+        // next should be a lower case or uncased
+        previous_cased = true;
+        rule_3 = true;  // rule 3 obeyed
+      } else {
+        // a non-cased char, like _ or 1
+        // next should be upper case or more uncased
+        previous_cased = false;
+      }
+    }
+    return rules_1_and_2 & rule_3;
+  }
+};
+
+template <typename StringType>
+struct IsUpperUnicode
+    : CharacterPredicateUnicode<StringType, IsUpperUnicode<StringType>> {
+  static inline bool PredicateCharacterAll(uint32_t codepoint) {
+    // Only for cased character it needs to be lower case
+    return !IsCasedCharacterUnicode(codepoint) || IsUpperCaseCharacterUnicode(codepoint);
+  }
+  static inline bool PredicateCharacterAny(uint32_t codepoint) {
+    return IsCasedCharacterUnicode(codepoint);  // at least 1 cased character
+  }
+};
+
+template <typename StringType>
+struct IsUpperAscii : CharacterPredicateAscii<StringType, IsUpperAscii<StringType>> {
+  static inline bool PredicateCharacterAll(uint8_t ascii_character) {
+    // Only for cased character it needs to be lower case
+    return !IsCasedCharacterAscii(ascii_character) ||
+           IsUpperCaseCharacterAscii(ascii_character);
+  }
+  static inline bool PredicateCharacterAny(uint8_t ascii_character) {
+    return IsCasedCharacterAscii(ascii_character);  // at least 1 cased character
+  }
+};
+
 // ----------------------------------------------------------------------
 // strptime string parsing
 
@@ -477,6 +935,16 @@ void MakeUnaryStringUTF8TransformKernel(std::string name, FunctionRegistry* regi
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
+template <template <typename> class Transformer>
+void AddUnaryString(std::string name, FunctionRegistry* registry) {
+  auto func = std::make_shared<ScalarFunction>(name, Arity::Unary());
+  ArrayKernelExec exec_32 = Transformer<StringType>::Exec;
+  ArrayKernelExec exec_64 = Transformer<LargeStringType>::Exec;
+  DCHECK_OK(func->AddKernel({utf8()}, boolean(), exec_32));
+  DCHECK_OK(func->AddKernel({large_utf8()}, boolean(), exec_64));
+  DCHECK_OK(registry->AddFunction(std::move(func)));
+}
+
 #endif
 
 }  // namespace
@@ -484,10 +952,35 @@ void MakeUnaryStringUTF8TransformKernel(std::string name, FunctionRegistry* regi
 void RegisterScalarStringAscii(FunctionRegistry* registry) {
   MakeUnaryStringBatchKernel<AsciiUpper>("ascii_upper", registry);
   MakeUnaryStringBatchKernel<AsciiLower>("ascii_lower", registry);
+
+  AddUnaryString<IsAscii>("binary_isascii", registry);
+
+  AddUnaryString<IsAlphaNumericAscii>("string_isalnum_ascii", registry);
+  AddUnaryString<IsAlphaAscii>("string_isalpha_ascii", registry);
+  AddUnaryString<IsDecimalAscii>("string_isdecimal_ascii", registry);
+  // no isdigic for ascii, since it is the same as isdecimal
+  AddUnaryString<IsLowerAscii>("string_islower_ascii", registry);
+  // no isnumeric for ascii, since it is the same as isdecimal
+  AddUnaryString<IsPrintableAscii>("string_isprintable_ascii", registry);
+  AddUnaryString<IsSpaceAscii>("string_isspace_ascii", registry);
+  AddUnaryString<IsTitleAscii>("string_istitle_ascii", registry);
+  AddUnaryString<IsUpperAscii>("string_isupper_ascii", registry);
 #ifdef ARROW_WITH_UTF8PROC
   MakeUnaryStringUTF8TransformKernel<UTF8Upper>("utf8_upper", registry);
   MakeUnaryStringUTF8TransformKernel<UTF8Lower>("utf8_lower", registry);
+  AddUnaryString<IsAlphaNumericUnicode>("string_isalnum_unicode", registry);
+  AddUnaryString<IsAlphaUnicode>("string_isalpha_unicode", registry);
+  AddUnaryString<IsDecimalUnicode>("string_isdecimal_unicode", registry);
+  AddUnaryString<IsDigitUnicode>("string_isdigit_unicode", registry);
+  AddUnaryString<IsLowerUnicode>("string_islower_unicode", registry);
+  AddUnaryString<IsNumericUnicode>("string_isnumeric_unicode", registry);
+  AddUnaryString<IsPrintableUnicode>("string_isprintable_unicode", registry);
+  AddUnaryString<IsSpaceUnicode>("string_isspace_unicode", registry);
+  AddUnaryString<IsTitleUnicode>("string_istitle_unicode", registry);
+  AddUnaryString<IsUpperUnicode>("string_isupper_unicode", registry);
+
 #endif
+
   AddAsciiLength(registry);
   AddBinaryContainsExact(registry);
   AddStrptime(registry);

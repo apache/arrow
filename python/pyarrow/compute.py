@@ -103,6 +103,28 @@ ascii_lower = _simple_unary_function('ascii_lower')
 utf8_upper = _simple_unary_function('utf8_upper')
 utf8_lower = _simple_unary_function('utf8_lower')
 
+binary_isascii = _simple_unary_function('binary_isascii')
+
+string_isalnum_ascii = _simple_unary_function('string_isalnum_ascii')
+string_isalnum_unicode = _simple_unary_function('string_isalnum_unicode')
+string_isalpha_ascii = _simple_unary_function('string_isalpha_ascii')
+string_isalpha_unicode = _simple_unary_function('string_isalpha_unicode')
+string_isascii = binary_isascii
+string_isdecimal_ascii = _simple_unary_function('string_isdecimal_ascii')
+string_isdecimal_unicode = _simple_unary_function('string_isdecimal_unicode')
+string_isdigit_unicode = _simple_unary_function('string_isdigit_unicode')
+string_isdigit_ascii = string_isdecimal_ascii # alias
+string_islower_unicode = _simple_unary_function('string_islower_unicode')
+string_islower_ascii = _simple_unary_function('string_islower_ascii')
+string_isnumeric_unicode = _simple_unary_function('string_isnumeric_unicode')
+string_isnumeric_ascii = string_isdecimal_ascii  # alias
+string_isprintable_unicode = _simple_unary_function('string_isprintable_unicode')
+string_isprintable_ascii = _simple_unary_function('string_isprintable_ascii')
+string_istitle_unicode = _simple_unary_function('string_istitle_unicode')
+string_istitle_ascii = _simple_unary_function('string_istitle_ascii')
+string_isupper_unicode = _simple_unary_function('string_isupper_unicode')
+string_isupper_ascii = _simple_unary_function('string_isupper_ascii')
+
 is_valid = _simple_unary_function('is_valid')
 is_null = _simple_unary_function('is_null')
 
