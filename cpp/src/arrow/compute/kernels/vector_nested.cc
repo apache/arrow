@@ -47,9 +47,8 @@ void ListParentIndices(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
 
   out_arr->length = values_length;
   out_arr->null_count = 0;
-  KERNEL_RETURN_IF_ERROR(
-      ctx,
-      (ctx->Allocate(values_length * sizeof(offset_type)).Value(&out_arr->buffers[1])));
+  KERNEL_ASSIGN_OR_RAISE(out_arr->buffers[1], ctx,
+                         ctx->Allocate(values_length * sizeof(offset_type)));
   auto out_indices = reinterpret_cast<offset_type*>(out_arr->buffers[1]->mutable_data());
   for (int64_t i = 0; i < list.length(); ++i) {
     // Note: In most cases, null slots are empty, but when they are non-empty
