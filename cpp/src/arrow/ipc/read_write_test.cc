@@ -450,6 +450,7 @@ class TestIpcRoundTrip : public ::testing::TestWithParam<MakeRecordBatch*>,
     std::shared_ptr<RecordBatch> batch;
     ASSERT_OK(MakeIntRecordBatch(&batch));
 
+    mmap_.reset();  // Ditch previous mmap view, to avoid errors on Windows
     ASSERT_OK_AND_ASSIGN(mmap_,
                          io::MemoryMapFixture::InitMemoryMap(1 << 16, "test-metadata"));
 
