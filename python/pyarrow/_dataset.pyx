@@ -932,12 +932,13 @@ cdef class ParquetFileFragment(FileFragment):
 
         Yield a Fragment wrapping each row group in this ParquetFileFragment.
         Row groups will be excluded whose metadata contradicts the optional
-        predicate.
+        filter.
 
         Parameters
         ----------
         filter : Expression, default None
-            Exclude RowGroups whose statistics contradicts the predicate.
+            Only include the row groups which satisfy this predicate (using
+            the Parquet RowGroup statistics).
         schema : Schema, default None
             Schema to use when filtering row groups. Defaults to the
             Fragment's phsyical schema
