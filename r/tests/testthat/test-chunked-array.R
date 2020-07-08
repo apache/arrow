@@ -93,52 +93,16 @@ test_that("ChunkedArray", {
 })
 
 test_that("print ChunkedArray", {
-  x1 <- chunked_array(c(1,2,3), c(4,5,6))
-  expect_output(
-    print(x1),
-    paste(
-      "ChunkedArray",
-      "<double>",
-      "[",
-      "  1,",
-      "  2,",
-      "  3,",
-      "  ...",
-      "]",
-      sep = "\n"
-    ),
-    fixed = TRUE
-  )
-  x2 <- chunked_array(1:30, c(4,5,6))
-  expect_output(
-    print(x2),
-    paste(
-      "ChunkedArray",
-      "<int32>",
-      "[",
-      "  1,",
-      "  2,",
-      "  3,",
-      "  4,",
-      "  5,",
-      "  6,",
-      "  7,",
-      "  8,",
-      "  9,",
-      "  10,",
-      "  ...",
-      "]",
-      sep = "\n"
-    ),
-    fixed = TRUE
-  )
-  # If there's only one chunk, it should look like a regular Array
-  x3 <- chunked_array(1:30)
-  expect_output(
-    print(x3),
-    paste0("Chunked", paste(capture.output(print(Array$create(1:30))), collapse = "\n")),
-    fixed = TRUE
-  )
+  verify_output(test_path("test-chunked-array.txt"), {
+    x1 <- chunked_array(c(1,2,3), c(4,5,6))
+    print(x1)
+
+    x2 <- chunked_array(1:30, c(4,5,6))
+    print(x2)
+
+    x3 <- chunked_array(1:30)
+    print(x3)
+  })
 })
 
 test_that("ChunkedArray handles !!! splicing", {

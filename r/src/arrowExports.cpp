@@ -983,6 +983,21 @@ RcppExport SEXP _arrow_ChunkedArray__Equals(SEXP x_sexp, SEXP y_sexp){
 }
 #endif
 
+// chunkedarray.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::string ChunkedArray__ToString(const std::shared_ptr<arrow::ChunkedArray>& x);
+RcppExport SEXP _arrow_ChunkedArray__ToString(SEXP x_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ChunkedArray>&>::type x(x_sexp);
+	return Rcpp::wrap(ChunkedArray__ToString(x));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_ChunkedArray__ToString(SEXP x_sexp){
+	Rf_error("Cannot call ChunkedArray__ToString(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
 // compression.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::util::Codec> util___Codec__Create(arrow::Compression::type codec, int compression_level);
@@ -5878,6 +5893,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ChunkedArray__View", (DL_FUNC) &_arrow_ChunkedArray__View, 2}, 
 		{ "_arrow_ChunkedArray__Validate", (DL_FUNC) &_arrow_ChunkedArray__Validate, 1}, 
 		{ "_arrow_ChunkedArray__Equals", (DL_FUNC) &_arrow_ChunkedArray__Equals, 2}, 
+		{ "_arrow_ChunkedArray__ToString", (DL_FUNC) &_arrow_ChunkedArray__ToString, 1}, 
 		{ "_arrow_util___Codec__Create", (DL_FUNC) &_arrow_util___Codec__Create, 2}, 
 		{ "_arrow_util___Codec__name", (DL_FUNC) &_arrow_util___Codec__name, 1}, 
 		{ "_arrow_util___Codec__IsAvailable", (DL_FUNC) &_arrow_util___Codec__IsAvailable, 1}, 
