@@ -96,7 +96,7 @@ public class ArrowFileWriter extends ArrowWriter {
     out.writeIntLittleEndian(0);
 
     long footerStart = out.getCurrentPosition();
-    out.write(new ArrowFooter(schema, dictionaryBlocks, recordBlocks, metaData), false);
+    out.write(new ArrowFooter(schema, dictionaryBlocks, recordBlocks, metaData, option.metadataVersion), false);
     int footerLength = (int) (out.getCurrentPosition() - footerStart);
     if (footerLength <= 0) {
       throw new InvalidArrowFileException("invalid footer");

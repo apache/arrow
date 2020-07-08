@@ -27,12 +27,14 @@ import java.util.Map;
 
 import org.apache.arrow.flatbuf.Footer;
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.util.VisibleForTesting;
 import org.apache.arrow.vector.ipc.message.ArrowBlock;
 import org.apache.arrow.vector.ipc.message.ArrowDictionaryBatch;
 import org.apache.arrow.vector.ipc.message.ArrowFooter;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
 import org.apache.arrow.vector.types.pojo.Schema;
+import org.apache.arrow.vector.validate.MetadataV4UnionChecker;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -96,6 +98,7 @@ public class ArrowFileReader extends ArrowReader {
       Footer footerFB = Footer.getRootAsFooter(footerBuffer);
       this.footer = new ArrowFooter(footerFB);
     }
+    MetadataV4UnionChecker.checkRead(footer.getSchema(), footer.getMetadataVersion());
     return footer.getSchema();
   }
 
@@ -179,6 +182,11 @@ public class ArrowFileReader extends ArrowReader {
     }
     currentRecordBatch = blockIndex;
     return loadNextBatch();
+  }
+
+  @VisibleForTesting
+  ArrowFooter getFooter() {
+    return footer;
   }
 
   private ArrowDictionaryBatch readDictionaryBatch(SeekableReadChannel in,

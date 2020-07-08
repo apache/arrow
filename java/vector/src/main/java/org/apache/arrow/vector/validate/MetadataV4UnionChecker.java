@@ -17,12 +17,13 @@
 
 package org.apache.arrow.vector.validate;
 
+import java.io.IOException;
 import java.util.Iterator;
 
-import org.apache.arrow.vector.ipc.message.IpcOption;
 import org.apache.arrow.vector.types.MetadataVersion;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.Schema;
 
 /**
  * Given a field, checks that no Union fields are present.
@@ -51,8 +52,8 @@ public final class MetadataV4UnionChecker {
   /**
    * Check the schema, raising an error if an unsupported feature is used (e.g. unions with < V5 metadata).
    */
-  public static void checkForUnion(Iterator<Field> fields, IpcOption option) {
-    if (option.metadataVersion.toFlatbufID() >= MetadataVersion.V5.toFlatbufID()) {
+  public static void checkForUnion(Iterator<Field> fields, MetadataVersion metadataVersion) {
+    if (metadataVersion.toFlatbufID() >= MetadataVersion.V5.toFlatbufID()) {
       return;
     }
     while (fields.hasNext()) {
@@ -60,6 +61,21 @@ public final class MetadataV4UnionChecker {
       if (union != null) {
         throw new IllegalArgumentException(
             "Cannot write union with V4 metadata version, use V5 instead. Found field: " + union);
+      }
+    }
+  }
+
+  /**
+   * Check the schema, raising an error if an unsupported feature is used (e.g. unions with < V5 metadata).
+   */
+  public static void checkRead(Schema schema, MetadataVersion metadataVersion) throws IOException {
+    if (metadataVersion.toFlatbufID() >= MetadataVersion.V5.toFlatbufID()) {
+      return;
+    }
+    for (final Field field : schema.getFields()) {
+      Field union = check(field);
+      if (union != null) {
+        throw new IOException("Cannot read union with V4 metadata version. Found field: " + union);
       }
     }
   }

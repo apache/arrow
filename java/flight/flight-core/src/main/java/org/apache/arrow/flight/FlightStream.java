@@ -17,6 +17,7 @@
 
 package org.apache.arrow.flight;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -31,6 +32,7 @@ import org.apache.arrow.flight.grpc.StatusUtils;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.AutoCloseables;
+import org.apache.arrow.util.VisibleForTesting;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorLoader;
 import org.apache.arrow.vector.VectorSchemaRoot;
@@ -42,6 +44,7 @@ import org.apache.arrow.vector.types.MetadataVersion;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.DictionaryUtility;
+import org.apache.arrow.vector.validate.MetadataV4UnionChecker;
 
 import com.google.common.util.concurrent.SettableFuture;
 
@@ -73,7 +76,7 @@ public class FlightStream implements AutoCloseable {
   private volatile VectorLoader loader;
   private volatile Throwable ex;
   private volatile ArrowBuf applicationMetadata = null;
-  // Visible for testing only.
+  @VisibleForTesting
   volatile MetadataVersion metadataVersion = null;
 
   /**
@@ -360,14 +363,21 @@ public class FlightStream implements AutoCloseable {
             dictionaries.put(entry.getValue());
           }
           schema = new Schema(fields, schema.getCustomMetadata());
+          metadataVersion = MetadataVersion.fromFlatbufID(msg.asSchemaMessage().getMessage().version());
+          try {
+            MetadataV4UnionChecker.checkRead(schema, metadataVersion);
+          } catch (IOException e) {
+            queue.add(DONE_EX);
+            ex = e;
+            break;
+          }
+
           fulfilledRoot = VectorSchemaRoot.create(schema, allocator);
           loader = new VectorLoader(fulfilledRoot);
           if (msg.getDescriptor() != null) {
             descriptor.set(new FlightDescriptor(msg.getDescriptor()));
           }
           root.set(fulfilledRoot);
-          metadataVersion = MetadataVersion.fromFlatbufID(msg.asSchemaMessage().getMessage().version());
-
           break;
         }
         case RECORD_BATCH:

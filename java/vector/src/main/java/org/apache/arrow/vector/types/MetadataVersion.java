@@ -38,6 +38,8 @@ public enum MetadataVersion {
 
   ;
 
+  public static final MetadataVersion DEFAULT = V5;
+
   private static final MetadataVersion[] valuesByFlatbufId =
       new MetadataVersion[MetadataVersion.values().length];
 

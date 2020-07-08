@@ -79,7 +79,7 @@ public class FlightInfo {
     Objects.requireNonNull(schema);
     Objects.requireNonNull(descriptor);
     Objects.requireNonNull(endpoints);
-    MetadataV4UnionChecker.checkForUnion(schema.getFields().iterator(), option);
+    MetadataV4UnionChecker.checkForUnion(schema.getFields().iterator(), option.metadataVersion);
     this.schema = schema;
     this.descriptor = descriptor;
     this.endpoints = endpoints;

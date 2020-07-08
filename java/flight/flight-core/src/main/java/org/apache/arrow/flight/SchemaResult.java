@@ -52,7 +52,7 @@ public class SchemaResult {
    * Create a schema result with specific IPC options for serialization.
    */
   public SchemaResult(Schema schema, IpcOption option) {
-    MetadataV4UnionChecker.checkForUnion(schema.getFields().iterator(), option);
+    MetadataV4UnionChecker.checkForUnion(schema.getFields().iterator(), option.metadataVersion);
     this.schema = schema;
     this.option = option;
   }

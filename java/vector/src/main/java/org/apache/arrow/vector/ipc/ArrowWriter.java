@@ -84,7 +84,7 @@ public abstract class ArrowWriter implements AutoCloseable {
     List<Field> fields = new ArrayList<>(root.getSchema().getFields().size());
     Set<Long> dictionaryIdsUsed = new HashSet<>();
 
-    MetadataV4UnionChecker.checkForUnion(root.getSchema().getFields().iterator(), option);
+    MetadataV4UnionChecker.checkForUnion(root.getSchema().getFields().iterator(), option.metadataVersion);
     // Convert fields with dictionaries to have dictionary type
     for (Field field : root.getSchema().getFields()) {
       fields.add(DictionaryUtility.toMessageFormat(field, provider, dictionaryIdsUsed));

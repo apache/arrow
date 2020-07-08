@@ -624,6 +624,7 @@ public class TestRoundTrip extends BaseFileTest {
         ArrowStreamReader streamReader = new ArrowStreamReader(inputStream, readerAllocator)) {
       fileValidator.accept(fileReader);
       streamValidator.accept(streamReader);
+      assertEquals(writeOption.metadataVersion, fileReader.getFooter().getMetadataVersion());
       assertEquals(metadata, fileReader.getMetaData());
     }
   }

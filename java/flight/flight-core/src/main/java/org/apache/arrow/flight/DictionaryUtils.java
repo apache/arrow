@@ -58,7 +58,7 @@ final class DictionaryUtils {
                                        final Consumer<ArrowMessage> messageCallback) throws Exception {
     final Set<Long> dictionaryIds = new HashSet<>();
     final Schema schema = generateSchema(originalSchema, provider, dictionaryIds);
-    MetadataV4UnionChecker.checkForUnion(schema.getFields().iterator(), option);
+    MetadataV4UnionChecker.checkForUnion(schema.getFields().iterator(), option.metadataVersion);
     // Send the schema message
     final Flight.FlightDescriptor protoDescriptor = descriptor == null ? null : descriptor.toProtocol();
     try (final ArrowMessage message = new ArrowMessage(protoDescriptor, schema, option)) {
