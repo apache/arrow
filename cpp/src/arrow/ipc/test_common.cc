@@ -534,12 +534,24 @@ Status MakeDictionary(std::shared_ptr<RecordBatch>* out) {
   auto dict4 = ArrayFromJSON(dict4_ty, "[[44, 55], [], [66]]");
   auto a4 = std::make_shared<DictionaryArray>(f4_type, indices4, dict4);
 
-  // construct batch
-  auto schema = ::arrow::schema(
-      {field("dict1", f0_type), field("dict2", f1_type), field("dict3", f2_type),
-       field("list<encoded utf8>", f3_type), field("encoded list<int8>", f4_type)});
+  std::vector<std::shared_ptr<Field>> fields = {
+      field("dict1", f0_type), field("dict2", f1_type), field("dict3", f2_type),
+      field("list<encoded utf8>", f3_type), field("encoded list<int8>", f4_type)};
+  std::vector<std::shared_ptr<Array>> arrays = {a0, a1, a2, a3, a4};
 
-  *out = RecordBatch::Make(schema, length, {a0, a1, a2, a3, a4});
+  // Ensure all dictionary index types are represented
+  int field_index = 5;
+  for (auto index_ty : all_dictionary_index_types()) {
+    std::stringstream ss;
+    ss << "dict" << field_index++;
+    auto ty = arrow::dictionary(index_ty, dict_ty);
+    auto indices = ArrayFromJSON(index_ty, "[0, 1, 2, 0, 2, 2]");
+    fields.push_back(field(ss.str(), ty));
+    arrays.push_back(std::make_shared<DictionaryArray>(ty, indices, dict1));
+  }
+
+  // construct batch
+  *out = RecordBatch::Make(::arrow::schema(fields), length, arrays);
   return Status::OK();
 }
 

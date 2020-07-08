@@ -761,10 +761,8 @@ Result<std::shared_ptr<DataType>> Decimal128Type::Make(int32_t precision, int32_
 
 Status DictionaryType::ValidateParameters(const DataType& index_type,
                                           const DataType& value_type) {
-  const bool index_type_ok = is_integer(index_type.id()) &&
-                             checked_cast<const IntegerType&>(index_type).is_signed();
-  if (!index_type_ok) {
-    return Status::TypeError("Dictionary index type should be signed integer, got ",
+  if (!is_integer(index_type.id())) {
+    return Status::TypeError("Dictionary index type should be integer, got ",
                              index_type.ToString());
   }
   return Status::OK();

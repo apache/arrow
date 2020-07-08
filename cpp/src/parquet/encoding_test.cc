@@ -873,42 +873,49 @@ TYPED_TEST(EncodingAdHocTyped, DictArrowDirectPut) { this->Dict(0); }
 TEST(DictEncodingAdHoc, PutDictionaryPutIndices) {
   // Part of ARROW-3246
   auto dict_values = arrow::ArrayFromJSON(arrow::binary(), "[\"foo\", \"bar\", \"baz\"]");
-  auto indices = arrow::ArrayFromJSON(arrow::int32(), "[0, 1, 2]");
-  auto indices_nulls = arrow::ArrayFromJSON(arrow::int32(), "[null, 0, 1, null, 2]");
 
-  auto expected = arrow::ArrayFromJSON(arrow::binary(),
-                                       "[\"foo\", \"bar\", \"baz\", null, "
-                                       "\"foo\", \"bar\", null, \"baz\"]");
+  auto CheckIndexType = [&](const std::shared_ptr<arrow::DataType>& index_ty) {
+    auto indices = arrow::ArrayFromJSON(index_ty, "[0, 1, 2]");
+    auto indices_nulls = arrow::ArrayFromJSON(index_ty, "[null, 0, 1, null, 2]");
 
-  auto owned_encoder = MakeTypedEncoder<ByteArrayType>(Encoding::PLAIN,
-                                                       /*use_dictionary=*/true);
-  auto owned_decoder = MakeDictDecoder<ByteArrayType>();
+    auto expected = arrow::ArrayFromJSON(arrow::binary(),
+                                         "[\"foo\", \"bar\", \"baz\", null, "
+                                         "\"foo\", \"bar\", null, \"baz\"]");
 
-  auto encoder = dynamic_cast<DictEncoder<ByteArrayType>*>(owned_encoder.get());
+    auto owned_encoder = MakeTypedEncoder<ByteArrayType>(Encoding::PLAIN,
+                                                         /*use_dictionary=*/true);
+    auto owned_decoder = MakeDictDecoder<ByteArrayType>();
 
-  ASSERT_NO_THROW(encoder->PutDictionary(*dict_values));
+    auto encoder = dynamic_cast<DictEncoder<ByteArrayType>*>(owned_encoder.get());
 
-  // Trying to call PutDictionary again throws
-  ASSERT_THROW(encoder->PutDictionary(*dict_values), ParquetException);
+    ASSERT_NO_THROW(encoder->PutDictionary(*dict_values));
 
-  ASSERT_NO_THROW(encoder->PutIndices(*indices));
-  ASSERT_NO_THROW(encoder->PutIndices(*indices_nulls));
+    // Trying to call PutDictionary again throws
+    ASSERT_THROW(encoder->PutDictionary(*dict_values), ParquetException);
 
-  std::unique_ptr<ByteArrayDecoder> decoder;
-  std::shared_ptr<Buffer> buf, dict_buf;
-  int num_values = static_cast<int>(expected->length() - expected->null_count());
-  GetDictDecoder(encoder, num_values, &buf, &dict_buf, nullptr, &decoder);
+    ASSERT_NO_THROW(encoder->PutIndices(*indices));
+    ASSERT_NO_THROW(encoder->PutIndices(*indices_nulls));
 
-  typename EncodingTraits<ByteArrayType>::Accumulator acc;
-  acc.builder.reset(new arrow::BinaryBuilder);
-  ASSERT_EQ(num_values,
-            decoder->DecodeArrow(static_cast<int>(expected->length()),
-                                 static_cast<int>(expected->null_count()),
-                                 expected->null_bitmap_data(), expected->offset(), &acc));
+    std::unique_ptr<ByteArrayDecoder> decoder;
+    std::shared_ptr<Buffer> buf, dict_buf;
+    int num_values = static_cast<int>(expected->length() - expected->null_count());
+    GetDictDecoder(encoder, num_values, &buf, &dict_buf, nullptr, &decoder);
 
-  std::shared_ptr<::arrow::Array> result;
-  ASSERT_OK(acc.builder->Finish(&result));
-  arrow::AssertArraysEqual(*expected, *result);
+    typename EncodingTraits<ByteArrayType>::Accumulator acc;
+    acc.builder.reset(new arrow::BinaryBuilder);
+    ASSERT_EQ(num_values, decoder->DecodeArrow(static_cast<int>(expected->length()),
+                                               static_cast<int>(expected->null_count()),
+                                               expected->null_bitmap_data(),
+                                               expected->offset(), &acc));
+
+    std::shared_ptr<::arrow::Array> result;
+    ASSERT_OK(acc.builder->Finish(&result));
+    arrow::AssertArraysEqual(*expected, *result);
+  };
+
+  for (auto ty : ::arrow::all_dictionary_index_types()) {
+    CheckIndexType(ty);
+  }
 }
 
 TYPED_TEST(EncodingAdHocTyped, DictArrowDirectPutIndices) { this->DictPutIndices(); }

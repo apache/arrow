@@ -817,13 +817,9 @@ struct SchemaImporter {
     // Import dictionary type
     if (c_struct_->dictionary != nullptr) {
       // Check this index type
-      bool indices_ok = false;
-      if (is_integer(type_->id())) {
-        indices_ok = checked_cast<const IntegerType&>(*type_).is_signed();
-      }
-      if (!indices_ok) {
+      if (!is_integer(type_->id())) {
         return Status::Invalid(
-            "ArrowSchema struct has a dictionary but is not a signed integer type: ",
+            "ArrowSchema struct has a dictionary but is not an integer type: ",
             type_->ToString());
       }
       SchemaImporter dict_importer;

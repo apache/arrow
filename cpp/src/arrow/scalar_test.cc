@@ -581,45 +581,51 @@ TEST(TestStructScalar, FieldAccess) {
 }
 
 TEST(TestDictionaryScalar, Basics) {
-  auto ty = dictionary(int8(), utf8());
-  auto dict = ArrayFromJSON(utf8(), "[\"alpha\", \"beta\", \"gamma\"]");
+  auto CheckIndexType = [&](const std::shared_ptr<DataType>& index_ty) {
+    auto ty = dictionary(index_ty, utf8());
+    auto dict = ArrayFromJSON(utf8(), "[\"alpha\", \"beta\", \"gamma\"]");
 
-  DictionaryScalar::ValueType alpha;
-  ASSERT_OK_AND_ASSIGN(alpha.index, MakeScalar(int8(), 0));
-  alpha.dictionary = dict;
+    DictionaryScalar::ValueType alpha;
+    ASSERT_OK_AND_ASSIGN(alpha.index, MakeScalar(index_ty, 0));
+    alpha.dictionary = dict;
 
-  DictionaryScalar::ValueType gamma;
-  ASSERT_OK_AND_ASSIGN(gamma.index, MakeScalar(int8(), 2));
-  gamma.dictionary = dict;
+    DictionaryScalar::ValueType gamma;
+    ASSERT_OK_AND_ASSIGN(gamma.index, MakeScalar(index_ty, 2));
+    gamma.dictionary = dict;
 
-  auto scalar_null = MakeNullScalar(ty);
-  auto scalar_alpha = DictionaryScalar(alpha, ty);
-  auto scalar_gamma = DictionaryScalar(gamma, ty);
+    auto scalar_null = MakeNullScalar(ty);
+    auto scalar_alpha = DictionaryScalar(alpha, ty);
+    auto scalar_gamma = DictionaryScalar(gamma, ty);
 
-  ASSERT_OK_AND_ASSIGN(
-      auto encoded_null,
-      checked_cast<const DictionaryScalar&>(*scalar_null).GetEncodedValue());
-  ASSERT_TRUE(encoded_null->Equals(MakeNullScalar(utf8())));
+    ASSERT_OK_AND_ASSIGN(
+        auto encoded_null,
+        checked_cast<const DictionaryScalar&>(*scalar_null).GetEncodedValue());
+    ASSERT_TRUE(encoded_null->Equals(MakeNullScalar(utf8())));
 
-  ASSERT_OK_AND_ASSIGN(
-      auto encoded_alpha,
-      checked_cast<const DictionaryScalar&>(scalar_alpha).GetEncodedValue());
-  ASSERT_TRUE(encoded_alpha->Equals(MakeScalar("alpha")));
+    ASSERT_OK_AND_ASSIGN(
+        auto encoded_alpha,
+        checked_cast<const DictionaryScalar&>(scalar_alpha).GetEncodedValue());
+    ASSERT_TRUE(encoded_alpha->Equals(MakeScalar("alpha")));
 
-  ASSERT_OK_AND_ASSIGN(
-      auto encoded_gamma,
-      checked_cast<const DictionaryScalar&>(scalar_gamma).GetEncodedValue());
-  ASSERT_TRUE(encoded_gamma->Equals(MakeScalar("gamma")));
+    ASSERT_OK_AND_ASSIGN(
+        auto encoded_gamma,
+        checked_cast<const DictionaryScalar&>(scalar_gamma).GetEncodedValue());
+    ASSERT_TRUE(encoded_gamma->Equals(MakeScalar("gamma")));
 
-  // test Array.GetScalar
-  DictionaryArray arr(ty, ArrayFromJSON(int8(), "[2, 0, 1, null]"), dict);
-  ASSERT_OK_AND_ASSIGN(auto first, arr.GetScalar(0));
-  ASSERT_OK_AND_ASSIGN(auto second, arr.GetScalar(1));
-  ASSERT_OK_AND_ASSIGN(auto last, arr.GetScalar(3));
+    // test Array.GetScalar
+    DictionaryArray arr(ty, ArrayFromJSON(index_ty, "[2, 0, 1, null]"), dict);
+    ASSERT_OK_AND_ASSIGN(auto first, arr.GetScalar(0));
+    ASSERT_OK_AND_ASSIGN(auto second, arr.GetScalar(1));
+    ASSERT_OK_AND_ASSIGN(auto last, arr.GetScalar(3));
 
-  ASSERT_TRUE(first->Equals(scalar_gamma));
-  ASSERT_TRUE(second->Equals(scalar_alpha));
-  ASSERT_TRUE(last->Equals(scalar_null));
+    ASSERT_TRUE(first->Equals(scalar_gamma));
+    ASSERT_TRUE(second->Equals(scalar_alpha));
+    ASSERT_TRUE(last->Equals(scalar_null));
+  };
+
+  for (auto ty : all_dictionary_index_types()) {
+    CheckIndexType(ty);
+  }
 }
 
 TEST(TestSparseUnionScalar, Basics) {

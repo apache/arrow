@@ -376,7 +376,7 @@ test_that("DictionaryType works as expected (ARROW-3355)", {
 test_that("DictionaryType validation", {
   expect_error(
     dictionary(utf8(), int32()),
-    "Dictionary index type should be signed integer, got string"
+    "Dictionary index type should be integer, got string"
   )
   expect_error(dictionary(4, utf8()), 'index_type must be a "DataType"')
   expect_error(dictionary(int8(), "strings"), 'value_type must be a "DataType"')

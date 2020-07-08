@@ -1744,16 +1744,18 @@ typedef ::testing::Types<NullType, UInt8Type, Int8Type, UInt16Type, Int16Type, I
 TYPED_TEST_SUITE(TestDictionaryCast, TestTypes);
 
 TYPED_TEST(TestDictionaryCast, Basic) {
-  CastOptions options;
-  std::shared_ptr<Array> plain_array =
-      TestBase::MakeRandomArray<typename TypeTraits<TypeParam>::ArrayType>(10, 2);
+  std::shared_ptr<Array> dict =
+      TestBase::MakeRandomArray<typename TypeTraits<TypeParam>::ArrayType>(5, 1);
+  for (auto index_ty : all_dictionary_index_types()) {
+    auto indices = ArrayFromJSON(index_ty, "[4, 0, 1, 2, 0, 4, null, 2]");
+    auto dict_ty = dictionary(index_ty, dict->type());
+    auto dict_arr = *DictionaryArray::FromArrays(dict_ty, indices, dict);
+    std::shared_ptr<Array> expected = *Take(*dict, *indices);
 
-  ASSERT_OK_AND_ASSIGN(Datum encoded, DictionaryEncode(plain_array->data()));
-  ASSERT_EQ(encoded.array()->type->id(), Type::DICTIONARY);
-
-  // TODO: Should casting dictionary scalars work?
-  this->CheckPass(*MakeArray(encoded.array()), *plain_array, plain_array->type(), options,
-                  /*check_scalar=*/false);
+    // TODO: Should casting dictionary scalars work?
+    this->CheckPass(*dict_arr, *expected, expected->type(), CastOptions::Safe(),
+                    /*check_scalar=*/false);
+  }
 }
 
 TYPED_TEST(TestDictionaryCast, NoNulls) {

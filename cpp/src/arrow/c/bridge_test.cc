@@ -355,14 +355,41 @@ TEST_F(TestSchemaExport, Union) {
              {ARROW_FLAG_NULLABLE, 0, ARROW_FLAG_NULLABLE});
 }
 
+std::string GetIndexFormat(Type::type type_id) {
+  switch (type_id) {
+    case Type::UINT8:
+      return "C";
+    case Type::INT8:
+      return "c";
+    case Type::UINT16:
+      return "S";
+    case Type::INT16:
+      return "s";
+    case Type::UINT32:
+      return "I";
+    case Type::INT32:
+      return "i";
+    case Type::UINT64:
+      return "L";
+    case Type::INT64:
+      return "l";
+    default:
+      DCHECK(false);
+      return "";
+  }
+}
+
 TEST_F(TestSchemaExport, Dictionary) {
-  TestNested(dictionary(int32(), utf8()), {"i", "u"}, {"", ""});
-  TestNested(dictionary(int32(), list(utf8()), /*ordered=*/true), {"i", "+l", "u"},
-             {"", "", "item"},
-             {ARROW_FLAG_NULLABLE | ARROW_FLAG_DICTIONARY_ORDERED, ARROW_FLAG_NULLABLE,
-              ARROW_FLAG_NULLABLE});
-  TestNested(large_list(dictionary(int32(), list(utf8()))), {"+L", "i", "+l", "u"},
-             {"", "item", "", "item"});
+  for (auto index_ty : all_dictionary_index_types()) {
+    std::string index_fmt = GetIndexFormat(index_ty->id());
+    TestNested(dictionary(index_ty, utf8()), {index_fmt, "u"}, {"", ""});
+    TestNested(dictionary(index_ty, list(utf8()), /*ordered=*/true),
+               {index_fmt, "+l", "u"}, {"", "", "item"},
+               {ARROW_FLAG_NULLABLE | ARROW_FLAG_DICTIONARY_ORDERED, ARROW_FLAG_NULLABLE,
+                ARROW_FLAG_NULLABLE});
+    TestNested(large_list(dictionary(index_ty, list(utf8()))),
+               {"+L", index_fmt, "+l", "u"}, {"", "item", "", "item"});
+  }
 }
 
 TEST_F(TestSchemaExport, ExportField) {
@@ -809,7 +836,7 @@ TEST_F(TestArrayExport, Dictionary) {
   {
     auto factory = [](std::shared_ptr<Array>* out) -> Status {
       auto values = ArrayFromJSON(utf8(), R"(["foo", "bar", "quux"])");
-      auto indices = ArrayFromJSON(int32(), "[0, 2, 1, null, 1]");
+      auto indices = ArrayFromJSON(uint16(), "[0, 2, 1, null, 1]");
       return DictionaryArray::FromArrays(dictionary(indices->type(), values->type()),
                                          indices, values)
           .Value(out);
@@ -2383,11 +2410,12 @@ TEST_F(TestSchemaRoundtrip, Union) {
 }
 
 TEST_F(TestSchemaRoundtrip, Dictionary) {
-  TestWithTypeFactory([&]() { return dictionary(int32(), utf8()); });
-  TestWithTypeFactory([&]() { return dictionary(int32(), utf8(), /*ordered=*/true); });
-
-  TestWithTypeFactory([&]() { return dictionary(int32(), list(utf8())); });
-  TestWithTypeFactory([&]() { return list(dictionary(int32(), list(utf8()))); });
+  for (auto index_ty : all_dictionary_index_types()) {
+    TestWithTypeFactory([&]() { return dictionary(index_ty, utf8()); });
+    TestWithTypeFactory([&]() { return dictionary(index_ty, utf8(), /*ordered=*/true); });
+    TestWithTypeFactory([&]() { return dictionary(index_ty, list(utf8())); });
+    TestWithTypeFactory([&]() { return list(dictionary(index_ty, list(utf8()))); });
+  }
 }
 
 TEST_F(TestSchemaRoundtrip, Map) {

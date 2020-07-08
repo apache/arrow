@@ -420,9 +420,10 @@ static Status GetDictionaryEncoding(FBB& fbb, const std::shared_ptr<Field>& fiel
   // We assume that the dictionary index type (as an integer) has already been
   // validated elsewhere, and can safely assume we are dealing with signed
   // integers
-  const auto& fw_index_type = checked_cast<const FixedWidthType&>(*type.index_type());
+  const auto& index_type = checked_cast<const IntegerType&>(*type.index_type());
 
-  auto index_type_offset = flatbuf::CreateInt(fbb, fw_index_type.bit_width(), true);
+  auto index_type_offset =
+      flatbuf::CreateInt(fbb, index_type.bit_width(), index_type.is_signed());
 
   // TODO(wesm): ordered dictionaries
   *out = flatbuf::CreateDictionaryEncoding(fbb, dictionary_id, index_type_offset,
