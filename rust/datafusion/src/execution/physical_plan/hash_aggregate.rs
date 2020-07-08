@@ -213,12 +213,6 @@ macro_rules! aggr_array_from_accumulator {
     }};
 }
 
-#[derive(Debug)]
-struct MapEntry {
-    k: Vec<KeyScalar>,
-    v: Vec<Option<ScalarValue>>,
-}
-
 struct GroupedHashAggregateIterator {
     schema: SchemaRef,
     group_expr: Vec<Arc<dyn PhysicalExpr>>,
