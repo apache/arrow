@@ -955,29 +955,29 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
 
   AddUnaryString<IsAscii>("binary_isascii", registry);
 
-  AddUnaryString<IsAlphaNumericAscii>("string_isalnum_ascii", registry);
-  AddUnaryString<IsAlphaAscii>("string_isalpha_ascii", registry);
-  AddUnaryString<IsDecimalAscii>("string_isdecimal_ascii", registry);
+  AddUnaryString<IsAlphaNumericAscii>("ascii_isalnum", registry);
+  AddUnaryString<IsAlphaAscii>("ascii_isalpha", registry);
+  AddUnaryString<IsDecimalAscii>("ascii_isdecimal", registry);
   // no isdigic for ascii, since it is the same as isdecimal
-  AddUnaryString<IsLowerAscii>("string_islower_ascii", registry);
+  AddUnaryString<IsLowerAscii>("ascii_islower", registry);
   // no isnumeric for ascii, since it is the same as isdecimal
-  AddUnaryString<IsPrintableAscii>("string_isprintable_ascii", registry);
-  AddUnaryString<IsSpaceAscii>("string_isspace_ascii", registry);
-  AddUnaryString<IsTitleAscii>("string_istitle_ascii", registry);
-  AddUnaryString<IsUpperAscii>("string_isupper_ascii", registry);
+  AddUnaryString<IsPrintableAscii>("ascii_isprintable", registry);
+  AddUnaryString<IsSpaceAscii>("ascii_isspace", registry);
+  AddUnaryString<IsTitleAscii>("ascii_istitle", registry);
+  AddUnaryString<IsUpperAscii>("ascii_isupper", registry);
 #ifdef ARROW_WITH_UTF8PROC
   MakeUnaryStringUTF8TransformKernel<UTF8Upper>("utf8_upper", registry);
   MakeUnaryStringUTF8TransformKernel<UTF8Lower>("utf8_lower", registry);
-  AddUnaryString<IsAlphaNumericUnicode>("string_isalnum_unicode", registry);
-  AddUnaryString<IsAlphaUnicode>("string_isalpha_unicode", registry);
-  AddUnaryString<IsDecimalUnicode>("string_isdecimal_unicode", registry);
-  AddUnaryString<IsDigitUnicode>("string_isdigit_unicode", registry);
-  AddUnaryString<IsLowerUnicode>("string_islower_unicode", registry);
-  AddUnaryString<IsNumericUnicode>("string_isnumeric_unicode", registry);
-  AddUnaryString<IsPrintableUnicode>("string_isprintable_unicode", registry);
-  AddUnaryString<IsSpaceUnicode>("string_isspace_unicode", registry);
-  AddUnaryString<IsTitleUnicode>("string_istitle_unicode", registry);
-  AddUnaryString<IsUpperUnicode>("string_isupper_unicode", registry);
+  AddUnaryString<IsAlphaNumericUnicode>("utf8_isalnum", registry);
+  AddUnaryString<IsAlphaUnicode>("utf8_isalpha", registry);
+  AddUnaryString<IsDecimalUnicode>("utf8_isdecimal", registry);
+  AddUnaryString<IsDigitUnicode>("utf8_isdigit", registry);
+  AddUnaryString<IsLowerUnicode>("utf8_islower", registry);
+  AddUnaryString<IsNumericUnicode>("utf8_isnumeric", registry);
+  AddUnaryString<IsPrintableUnicode>("utf8_isprintable", registry);
+  AddUnaryString<IsSpaceUnicode>("utf8_isspace", registry);
+  AddUnaryString<IsTitleUnicode>("utf8_istitle", registry);
+  AddUnaryString<IsUpperUnicode>("utf8_isupper", registry);
 
 #endif
 

@@ -58,7 +58,7 @@ static void AsciiUpper(benchmark::State& state) {
 }
 
 static void IsAlphaAscii(benchmark::State& state) {
-  UnaryStringBenchmark(state, "string_isalpha_ascii");
+  UnaryStringBenchmark(state, "ascii_isalpha");
 }
 
 static void BinaryContainsExact(benchmark::State& state) {
@@ -76,7 +76,7 @@ static void Utf8Lower(benchmark::State& state) {
 }
 
 static void IsAlphaUnicode(benchmark::State& state) {
-  UnaryStringBenchmark(state, "string_isalpha_unicode");
+  UnaryStringBenchmark(state, "utf8_isalpha");
 }
 #endif
 

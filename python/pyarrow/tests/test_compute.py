@@ -101,12 +101,12 @@ def test_binary_contains_exact():
 # implementation.
 def _find_new_unicode_codepoints():
     new = set()
-    for i in range(0x11000):
+    for i in range(0x80, 0x11000):
         c = chr(i)
         if i in range(0xD800, 0xE000):
             continue  # bug? pyarrow doesn't allow utf16 surrogates
         ar = pa.array([c])
-        if pc.string_isprintable_unicode(ar)[0].as_py() != c.isprintable():
+        if pc.utf8_isprintable(ar)[0].as_py() != c.isprintable():
             new.add(i)
     return new
 
@@ -194,17 +194,21 @@ codepoints_ignore = {
 }
 
 
-@pytest.mark.parametrize('function_name', ['isalnum', 'isalpha', 'isascii', 'isdecimal', 'isdigit', 'islower', 'isnumeric', 'isprintable', 'isspace', 'isupper', ])
-@pytest.mark.parametrize('ascii', [False, True])
-def test_string_py_compat_boolean(function_name, ascii):
-    variant = 'ascii' if ascii else 'unicode'
-    arrow_name = 'string_%s_%s' % (function_name, variant)
+@pytest.mark.parametrize('function_name', ['isalnum', 'isalpha', 'isascii',
+                                           'isdecimal', 'isdigit', 'islower',
+                                           'isnumeric', 'isprintable',
+                                           'isspace', 'isupper', ])
+@pytest.mark.parametrize('variant', ['ascii', 'utf8'])
+def test_string_py_compat_boolean(function_name, variant):
+    arrow_name = variant + "_" + function_name
     py_name = function_name
+    ignore = codepoints_ignore.get(function_name, set()) |\
+        new_unicode_codepoints
     for i in range(128 if ascii else 0x11000):
         if i in range(0xD800, 0xE000):
             continue  # bug? pyarrow doesn't allow utf16 surrogates
         # the issues we know of, we skip
-        if i in codepoints_ignore.get(function_name, []) or i in new_unicode_codepoints:
+        if i in ignore:
             continue
         c = chr(i)
         if hasattr(pc, arrow_name):
