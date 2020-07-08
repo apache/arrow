@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/tensor/converter.h"
+#include "arrow/tensor/converter_internal.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -139,89 +139,23 @@ void ConvertStridedTensor(const Tensor& tensor, c_index_type* indices,
   }
 }
 
-#define CONVERT_ROW_MAJOR_TENSOR(index_type, indices, value_type, values, size) \
+#define CONVERT_ROW_MAJOR_TENSOR(index_type, value_type, indices, values, size) \
   ConvertRowMajorTensor<index_type, value_type>(                                \
       tensor_, reinterpret_cast<index_type*>(indices),                          \
       reinterpret_cast<value_type*>(values), size)
 
-#define CONVERT_COLUMN_MAJOR_TENSOR(index_type, indices, value_type, values, size) \
+#define CONVERT_COLUMN_MAJOR_TENSOR(index_type, value_type, indices, values, size) \
   ConvertColumnMajorTensor<index_type, value_type>(                                \
       tensor_, reinterpret_cast<index_type*>(indices),                             \
       reinterpret_cast<value_type*>(values), size)
 
-#define CONVERT_STRIDED_TENSOR(index_type, indices, value_type, values, size) \
+#define CONVERT_STRIDED_TENSOR(index_type, value_type, indices, values, size) \
   ConvertStridedTensor<index_type, value_type>(                               \
       tensor_, reinterpret_cast<index_type*>(indices),                        \
       reinterpret_cast<value_type*>(values), size)
 
-#define DISPATCH_CONVERT_TENSOR_INLINE(kind, indices, index_elsize, values,   \
-                                       value_elsize, size)                    \
-  switch (index_elsize) {                                                     \
-    case 1:                                                                   \
-      switch (value_elsize) {                                                 \
-        case 1:                                                               \
-          CONVERT_##kind##_TENSOR(uint8_t, indices, uint8_t, values, size);   \
-          break;                                                              \
-        case 2:                                                               \
-          CONVERT_##kind##_TENSOR(uint8_t, indices, uint16_t, values, size);  \
-          break;                                                              \
-        case 4:                                                               \
-          CONVERT_##kind##_TENSOR(uint8_t, indices, uint32_t, values, size);  \
-          break;                                                              \
-        case 8:                                                               \
-          CONVERT_##kind##_TENSOR(uint8_t, indices, int64_t, values, size);   \
-          break;                                                              \
-      }                                                                       \
-      break;                                                                  \
-    case 2:                                                                   \
-      switch (value_elsize) {                                                 \
-        case 1:                                                               \
-          CONVERT_##kind##_TENSOR(uint16_t, indices, uint8_t, values, size);  \
-          break;                                                              \
-        case 2:                                                               \
-          CONVERT_##kind##_TENSOR(uint16_t, indices, uint16_t, values, size); \
-          break;                                                              \
-        case 4:                                                               \
-          CONVERT_##kind##_TENSOR(uint16_t, indices, uint32_t, values, size); \
-          break;                                                              \
-        case 8:                                                               \
-          CONVERT_##kind##_TENSOR(uint16_t, indices, int64_t, values, size);  \
-          break;                                                              \
-      }                                                                       \
-      break;                                                                  \
-    case 4:                                                                   \
-      switch (value_elsize) {                                                 \
-        case 1:                                                               \
-          CONVERT_##kind##_TENSOR(uint32_t, indices, uint8_t, values, size);  \
-          break;                                                              \
-        case 2:                                                               \
-          CONVERT_##kind##_TENSOR(uint32_t, indices, uint16_t, values, size); \
-          break;                                                              \
-        case 4:                                                               \
-          CONVERT_##kind##_TENSOR(uint32_t, indices, uint32_t, values, size); \
-          break;                                                              \
-        case 8:                                                               \
-          CONVERT_##kind##_TENSOR(uint32_t, indices, int64_t, values, size);  \
-          break;                                                              \
-      }                                                                       \
-      break;                                                                  \
-    case 8:                                                                   \
-      switch (value_elsize) {                                                 \
-        case 1:                                                               \
-          CONVERT_##kind##_TENSOR(int64_t, indices, uint8_t, values, size);   \
-          break;                                                              \
-        case 2:                                                               \
-          CONVERT_##kind##_TENSOR(int64_t, indices, uint16_t, values, size);  \
-          break;                                                              \
-        case 4:                                                               \
-          CONVERT_##kind##_TENSOR(int64_t, indices, uint32_t, values, size);  \
-          break;                                                              \
-        case 8:                                                               \
-          CONVERT_##kind##_TENSOR(int64_t, indices, int64_t, values, size);   \
-          break;                                                              \
-      }                                                                       \
-      break;                                                                  \
-  }
+#define CONVERT_TENSOR(index_type, value_type, KIND, ...) \
+  CONVERT_##KIND##_TENSOR(index_type, value_type, __VA_ARGS__)
 
 // ----------------------------------------------------------------------
 // SparseTensorConverter for SparseCOOIndex
@@ -268,14 +202,11 @@ class SparseCOOTensorConverter : private SparseTensorConverterMixin {
         tensor_data += value_elsize;
       }
     } else if (tensor_.is_row_major()) {
-      DISPATCH_CONVERT_TENSOR_INLINE(ROW_MAJOR, indices, index_elsize, values,
-                                     value_elsize, nonzero_count);
+      DISPATCH(CONVERT_TENSOR, index_elsize, value_elsize, ROW_MAJOR, indices, values, nonzero_count);
     } else if (tensor_.is_column_major()) {
-      DISPATCH_CONVERT_TENSOR_INLINE(COLUMN_MAJOR, indices, index_elsize, values,
-                                     value_elsize, nonzero_count);
+      DISPATCH(CONVERT_TENSOR, index_elsize, value_elsize, COLUMN_MAJOR, indices, values, nonzero_count);
     } else {
-      DISPATCH_CONVERT_TENSOR_INLINE(STRIDED, indices, index_elsize, values, value_elsize,
-                                     nonzero_count);
+      DISPATCH(CONVERT_TENSOR, index_elsize, value_elsize, STRIDED, indices, values, nonzero_count);
     }
 
     // make results
