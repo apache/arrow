@@ -61,6 +61,7 @@ class TestBase : public ::testing::Test {
   MemoryPool* pool_;
 };
 
+// replace TestBase::MakeRandomArray with RandomArrayGenerator below
 template <typename ArrayType>
 std::shared_ptr<Array> TestBase::MakeRandomArray(int64_t length, int64_t null_count) {
   const int64_t data_nbytes = length * sizeof(typename ArrayType::value_type);
@@ -73,12 +74,14 @@ std::shared_ptr<Array> TestBase::MakeRandomArray(int64_t length, int64_t null_co
   return std::make_shared<ArrayType>(length, std::move(data), null_bitmap, null_count);
 }
 
+// replace TestBase::MakeRandomArray with RandomArrayGenerator below 
 template <>
 inline std::shared_ptr<Array> TestBase::MakeRandomArray<NullArray>(int64_t length,
                                                                    int64_t null_count) {
   return std::make_shared<NullArray>(length);
 }
 
+// replace TestBase::MakeRandomArray with RandomArrayGenerator below 
 template <>
 inline std::shared_ptr<Array> TestBase::MakeRandomArray<FixedSizeBinaryArray>(
     int64_t length, int64_t null_count) {
@@ -91,6 +94,7 @@ inline std::shared_ptr<Array> TestBase::MakeRandomArray<FixedSizeBinaryArray>(
                                                 std::move(data), null_bitmap, null_count);
 }
 
+// replace TestBase::MakeRandomArray with RandomArrayGenerator below 
 template <>
 inline std::shared_ptr<Array> TestBase::MakeRandomArray<BinaryArray>(int64_t length,
                                                                      int64_t null_count) {
