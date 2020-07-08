@@ -476,10 +476,12 @@ TEST_P(TestIpcRoundTrip, RoundTrip) {
 }
 
 TEST_F(TestIpcRoundTrip, DefaultMetadataVersion) {
-  TestMetadataVersion(MetadataVersion::V4);
+  TestMetadataVersion(MetadataVersion::V5);
 }
 
 TEST_F(TestIpcRoundTrip, SpecificMetadataVersion) {
+  options_.metadata_version = MetadataVersion::V4;
+  TestMetadataVersion(MetadataVersion::V4);
   options_.metadata_version = MetadataVersion::V5;
   TestMetadataVersion(MetadataVersion::V5);
 }

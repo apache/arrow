@@ -59,7 +59,7 @@ using KVVector = flatbuffers::Vector<KeyValueOffset>;
 constexpr int32_t kIpcContinuationToken = -1;
 
 static constexpr flatbuf::MetadataVersion kCurrentMetadataVersion =
-    flatbuf::MetadataVersion::V4;
+    flatbuf::MetadataVersion::V5;
 
 static constexpr flatbuf::MetadataVersion kLatestMetadataVersion =
     flatbuf::MetadataVersion::V5;

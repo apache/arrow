@@ -67,9 +67,11 @@ struct ARROW_EXPORT IpcWriteOptions {
   /// like compression
   bool use_threads = true;
 
-  /// \brief Format version to use for IPC messages and their
-  /// metadata. Presently using V4 version (readable by v0.8.0 and later).
-  MetadataVersion metadata_version = MetadataVersion::V4;
+  /// \brief Format version to use for IPC messages and their metadata.
+  ///
+  /// Presently using V5 version (readable by 1.0.0 and later).
+  /// V4 is also available (readable by 0.8.0 and later).
+  MetadataVersion metadata_version = MetadataVersion::V5;
 
   static IpcWriteOptions Defaults();
 };
