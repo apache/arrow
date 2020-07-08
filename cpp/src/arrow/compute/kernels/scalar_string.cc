@@ -71,6 +71,7 @@ constexpr uint32_t kMaxCodepointLookup =
     0xffff;  // up to this codepoint is in a lookup table
 std::vector<uint32_t> lut_upper_codepoint;
 std::vector<uint32_t> lut_lower_codepoint;
+std::vector<utf8proc_category_t> lut_category;
 std::once_flag flag_case_luts;
 
 void EnsureLookupTablesFilled() {
@@ -80,6 +81,7 @@ void EnsureLookupTablesFilled() {
     for (uint32_t i = 0; i <= kMaxCodepointLookup; i++) {
       lut_upper_codepoint.push_back(utf8proc_toupper(i));
       lut_lower_codepoint.push_back(utf8proc_tolower(i));
+      lut_category.push_back(utf8proc_category(i));
     }
   });
 }
@@ -464,10 +466,14 @@ void AddBinaryContainsExact(FunctionRegistry* registry) {
 #ifdef ARROW_WITH_UTF8PROC
 
 static inline bool HasAnyUnicodeGeneralCategory(uint32_t codepoint, uint32_t mask) {
-  uint32_t general_category = 1 << utf8proc_category(codepoint);
+  utf8proc_category_t general_category = codepoint <= kMaxCodepointLookup
+                                             ? lut_category[codepoint]
+                                             : utf8proc_category(codepoint);
+  uint32_t general_category_bit = 1 << utf8proc_category(codepoint);
   // for e.g. undefined (but valid) codepoints, general_category == 0 ==
   // UTF8PROC_CATEGORY_CN
-  return (general_category != UTF8PROC_CATEGORY_CN) && ((general_category & mask) != 0);
+  return (general_category != UTF8PROC_CATEGORY_CN) &&
+         ((general_category_bit & mask) != 0);
 }
 
 template <typename... Categories>
