@@ -517,53 +517,52 @@ Status CastImpl(const ScalarType& from, StringScalar* to) {
   });
 }
 
+struct CastImplVisitor {
+  Status NotImplemented() {
+    return Status::NotImplemented("cast to ", *to_type_, " from ", *from_.type);
+  }
+
+  const Scalar& from_;
+  const std::shared_ptr<DataType>& to_type_;
+  Scalar* out_;
+};
+
 template <typename ToType>
-struct FromTypeVisitor {
+struct FromTypeVisitor : CastImplVisitor {
   using ToScalar = typename TypeTraits<ToType>::ScalarType;
+
+  FromTypeVisitor(const Scalar& from, const std::shared_ptr<DataType>& to_type,
+                  Scalar* out)
+      : CastImplVisitor{from, to_type, out} {}
 
   template <typename FromType>
   Status Visit(const FromType&) {
     return CastImpl(checked_cast<const typename TypeTraits<FromType>::ScalarType&>(from_),
-                    out_);
+                    checked_cast<ToScalar*>(out_));
   }
 
   // identity cast only for parameter free types
   template <typename T1 = ToType>
   typename std::enable_if<TypeTraits<T1>::is_parameter_free, Status>::type Visit(
       const ToType&) {
-    out_->value = checked_cast<const ToScalar&>(from_).value;
+    checked_cast<ToScalar*>(out_)->value = checked_cast<const ToScalar&>(from_).value;
     return Status::OK();
   }
 
-  // null to any
-  Status Visit(const NullType&) {
-    return Status::Invalid("attempting to cast scalar of type null to ", *to_type_);
-  }
-
-  Status Visit(const SparseUnionType&) {
-    return Status::NotImplemented("cast to ", *to_type_);
-  }
-  Status Visit(const DenseUnionType&) {
-    return Status::NotImplemented("cast to ", *to_type_);
-  }
-  Status Visit(const DictionaryType&) {
-    return Status::NotImplemented("cast to ", *to_type_);
-  }
-  Status Visit(const ExtensionType&) {
-    return Status::NotImplemented("cast to ", *to_type_);
-  }
-
-  const Scalar& from_;
-  const std::shared_ptr<DataType>& to_type_;
-  ToScalar* out_;
+  Status Visit(const NullType&) { return NotImplemented(); }
+  Status Visit(const SparseUnionType&) { return NotImplemented(); }
+  Status Visit(const DenseUnionType&) { return NotImplemented(); }
+  Status Visit(const DictionaryType&) { return NotImplemented(); }
+  Status Visit(const ExtensionType&) { return NotImplemented(); }
 };
 
-struct ToTypeVisitor {
+struct ToTypeVisitor : CastImplVisitor {
+  ToTypeVisitor(const Scalar& from, const std::shared_ptr<DataType>& to_type, Scalar* out)
+      : CastImplVisitor{from, to_type, out} {}
+
   template <typename ToType>
   Status Visit(const ToType&) {
-    using ToScalar = typename TypeTraits<ToType>::ScalarType;
-    FromTypeVisitor<ToType> unpack_from_type{from_, to_type_,
-                                             checked_cast<ToScalar*>(out_)};
+    FromTypeVisitor<ToType> unpack_from_type{from_, to_type_, out_};
     return VisitTypeInline(*from_.type, &unpack_from_type);
   }
 
@@ -574,22 +573,16 @@ struct ToTypeVisitor {
     return Status::OK();
   }
 
-  Status Visit(const SparseUnionType&) {
-    return Status::NotImplemented("cast from ", *from_.type);
-  }
-  Status Visit(const DenseUnionType&) {
-    return Status::NotImplemented("cast from ", *from_.type);
-  }
-  Status Visit(const DictionaryType&) {
-    return Status::NotImplemented("cast from ", *from_.type);
-  }
-  Status Visit(const ExtensionType&) {
-    return Status::NotImplemented("cast from ", *from_.type);
+  Status Visit(const DictionaryType& dict_type) {
+    auto& out = checked_cast<DictionaryScalar*>(out_)->value;
+    ARROW_ASSIGN_OR_RAISE(auto cast_value, from_.CastTo(dict_type.value_type()));
+    ARROW_ASSIGN_OR_RAISE(out.dictionary, MakeArrayFromScalar(*cast_value, 1));
+    return Int32Scalar(0).CastTo(dict_type.index_type()).Value(&out.index);
   }
 
-  const Scalar& from_;
-  const std::shared_ptr<DataType>& to_type_;
-  Scalar* out_;
+  Status Visit(const SparseUnionType&) { return NotImplemented(); }
+  Status Visit(const DenseUnionType&) { return NotImplemented(); }
+  Status Visit(const ExtensionType&) { return NotImplemented(); }
 };
 
 }  // namespace

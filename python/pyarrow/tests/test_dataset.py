@@ -1068,6 +1068,12 @@ def test_partitioning_factory_dictionary(mockfs):
         expected = pa.array(['xxx'] * 5 + ['yyy'] * 5).dictionary_encode()
         assert actual.equals(expected)
 
+        # ARROW-9345 ensure filtering on the partition field works
+        table = factory.finish().to_table(filter=ds.field('key') == 'xxx')
+        actual = table.column('key').chunk(0)
+        expected = expected.slice(0, 5)
+        assert actual.equals(expected)
+
 
 def test_partitioning_function():
     schema = pa.schema([("year", pa.int16()), ("month", pa.int8())])
