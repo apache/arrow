@@ -31,7 +31,7 @@ mkdir -p ${build_dir}
 pushd ${build_dir}
 
 cmake -DCMAKE_INSTALL_PREFIX=${ARROW_HOME} \
-      -DCMAKE_CXX_FLAGS=${CXXFLAGS} \
+      -DCMAKE_CXX_FLAGS="${CXXFLAGS} -Wno-deprecated-declarations -Wno-sign-compare" \
       -DPYTHON_EXECUTABLE=$(which python) \
       -GNinja \
       ${source_dir}
@@ -42,6 +42,6 @@ export LD_LIBRARY_PATH="${ARROW_HOME}/lib:${LD_LIBRARY_PATH}"
 export ODBCSYSINI="${source_dir}/travis/odbc/"
 
 service postgresql start
-ctest --output-on-failure
+ctest --verbose --output-on-failure
 
 popd
