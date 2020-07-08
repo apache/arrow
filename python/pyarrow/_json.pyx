@@ -94,11 +94,13 @@ cdef class ParseOptions:
         pretty printed). If false, input must end with an empty line.
     unexpected_field_behavior: str, default "infer"
         How JSON fields outside of explicit_schema (if given) are treated.
+
         Possible behaviors:
+
          - "ignore": unexpected JSON fields are ignored
          - "error": error out on unexpected JSON fields
          - "infer": unexpected JSON fields are type-inferred and included in
-                    the output
+           the output
     """
 
     cdef:
@@ -149,10 +151,11 @@ cdef class ParseOptions:
         How JSON fields outside of explicit_schema (if given) are treated.
 
         Possible behaviors:
+
          - "ignore": unexpected JSON fields are ignored
          - "error": error out on unexpected JSON fields
          - "infer": unexpected JSON fields are type-inferred and included in
-                    the output
+           the output
 
         Set to "infer" by default.
         """
