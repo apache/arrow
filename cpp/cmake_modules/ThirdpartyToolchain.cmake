@@ -2069,7 +2069,7 @@ macro(build_utf8proc)
       "-DCMAKE_INSTALL_PREFIX=${UTF8PROC_PREFIX}"
       -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
       -DCMAKE_INSTALL_LIBDIR=lib
-      -DDBUILD_SHARED_LIBS=OFF)
+      -DBUILD_SHARED_LIBS=OFF)
 
   externalproject_add(utf8proc_ep
                       ${EP_LOG_OPTIONS}
