@@ -35,6 +35,16 @@ namespace parquet {
 
 namespace schema {
 
+namespace {
+
+void ThrowInvalidLogicalType(const LogicalType& logical_type) {
+  std::stringstream ss;
+  ss << "Invalid logical type: " << logical_type.ToString();
+  throw ParquetException(ss.str());
+}
+
+}  // namespace
+
 // ----------------------------------------------------------------------
 // ColumnPath
 
@@ -206,8 +216,10 @@ PrimitiveNode::PrimitiveNode(const std::string& name, Repetition::type repetitio
   }
   // For forward compatibility, create an equivalent logical type
   logical_type_ = LogicalType::FromConvertedType(converted_type_, decimal_metadata_);
-  DCHECK(logical_type_ && !logical_type_->is_nested() &&
-         logical_type_->is_compatible(converted_type_, decimal_metadata_));
+  if (!(logical_type_ && !logical_type_->is_nested() &&
+        logical_type_->is_compatible(converted_type_, decimal_metadata_))) {
+    ThrowInvalidLogicalType(*logical_type_);
+  }
 
   if (type == Type::FIXED_LEN_BYTE_ARRAY) {
     if (length <= 0) {
@@ -249,8 +261,10 @@ PrimitiveNode::PrimitiveNode(const std::string& name, Repetition::type repetitio
     logical_type_ = NoLogicalType::Make();
     converted_type_ = logical_type_->ToConvertedType(&decimal_metadata_);
   }
-  DCHECK(logical_type_ && !logical_type_->is_nested() &&
-         logical_type_->is_compatible(converted_type_, decimal_metadata_));
+  if (!(logical_type_ && !logical_type_->is_nested() &&
+        logical_type_->is_compatible(converted_type_, decimal_metadata_))) {
+    ThrowInvalidLogicalType(*logical_type_);
+  }
 
   if (physical_type == Type::FIXED_LEN_BYTE_ARRAY) {
     if (physical_length <= 0) {
@@ -296,8 +310,10 @@ GroupNode::GroupNode(const std::string& name, Repetition::type repetition,
     : Node(Node::GROUP, name, repetition, converted_type, id), fields_(fields) {
   // For forward compatibility, create an equivalent logical type
   logical_type_ = LogicalType::FromConvertedType(converted_type_);
-  DCHECK(logical_type_ && (logical_type_->is_nested() || logical_type_->is_none()) &&
-         logical_type_->is_compatible(converted_type_));
+  if (!(logical_type_ && (logical_type_->is_nested() || logical_type_->is_none()) &&
+        logical_type_->is_compatible(converted_type_))) {
+    ThrowInvalidLogicalType(*logical_type_);
+  }
 
   field_name_to_idx_.clear();
   auto field_idx = 0;
@@ -327,8 +343,10 @@ GroupNode::GroupNode(const std::string& name, Repetition::type repetition,
     logical_type_ = NoLogicalType::Make();
     converted_type_ = logical_type_->ToConvertedType(nullptr);
   }
-  DCHECK(logical_type_ && (logical_type_->is_nested() || logical_type_->is_none()) &&
-         logical_type_->is_compatible(converted_type_));
+  if (!(logical_type_ && (logical_type_->is_nested() || logical_type_->is_none()) &&
+        logical_type_->is_compatible(converted_type_))) {
+    ThrowInvalidLogicalType(*logical_type_);
+  }
 
   field_name_to_idx_.clear();
   auto field_idx = 0;
