@@ -170,7 +170,7 @@ class FSSpecHandler(FileSystemHandler):
         self.fs.rm(path)
 
     def move(self, src, dest):
-        self.fs.mv(src, dest)
+        self.fs.mv(src, dest, recursive=True)
 
     def copy_file(self, src, dest):
         # fs.copy correctly raises IsADirectoryError when `src` is a directory
