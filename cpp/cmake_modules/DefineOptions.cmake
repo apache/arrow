@@ -398,11 +398,12 @@ macro(validate_config)
       set(possible_values ${${name}_OPTION_POSSIBLE_VALUES})
       set(value "${${name}}")
       if(possible_values)
-        if(NOT CMAKE_VERSION VERSION_LESS "3.3"
-           AND NOT ("${value}" IN_LIST possible_values))
-          message(
-            FATAL_ERROR "Configuration option ${name} got invalid value '${value}'. "
-                        "Allowed values: ${${name}_OPTION_ENUM}.")
+        if(NOT CMAKE_VERSION VERSION_LESS "3.3")
+          if(NOT "${value}" IN_LIST possible_values)
+            message(
+              FATAL_ERROR "Configuration option ${name} got invalid value '${value}'. "
+                          "Allowed values: ${${name}_OPTION_ENUM}.")
+          endif()
         endif()
       endif()
     endforeach()
