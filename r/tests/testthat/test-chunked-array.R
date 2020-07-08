@@ -94,14 +94,10 @@ test_that("ChunkedArray", {
 
 test_that("print ChunkedArray", {
   verify_output(test_path("test-chunked-array.txt"), {
-    x1 <- chunked_array(c(1,2,3), c(4,5,6))
-    print(x1)
-
-    x2 <- chunked_array(1:30, c(4,5,6))
-    print(x2)
-
-    x3 <- chunked_array(1:30)
-    print(x3)
+    chunked_array(c(1,2,3), c(4,5,6))
+    chunked_array(1:30, c(4,5,6))
+    chunked_array(1:30)
+    chunked_array(factor(c("a", "b")), factor(c("c", "d")))
   })
 })
 

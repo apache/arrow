@@ -1,5 +1,4 @@
-> x1 <- chunked_array(c(1, 2, 3), c(4, 5, 6))
-> print(x1)
+> chunked_array(c(1, 2, 3), c(4, 5, 6))
 ChunkedArray
 [
   [
@@ -14,8 +13,7 @@ ChunkedArray
   ]
 ]
 
-> x2 <- chunked_array(1:30, c(4, 5, 6))
-> print(x2)
+> chunked_array(1:30, c(4, 5, 6))
 ChunkedArray
 [
   [
@@ -48,8 +46,7 @@ ChunkedArray
   ]
 ]
 
-> x3 <- chunked_array(1:30)
-> print(x3)
+> chunked_array(1:30)
 ChunkedArray
 [
   [
@@ -75,5 +72,32 @@ ChunkedArray
     29,
     30
   ]
+]
+
+> chunked_array(factor(c("a", "b")), factor(c("c", "d")))
+ChunkedArray
+[
+
+  -- dictionary:
+    [
+      "a",
+      "b"
+    ]
+  -- indices:
+    [
+      0,
+      1
+    ],
+
+  -- dictionary:
+    [
+      "c",
+      "d"
+    ]
+  -- indices:
+    [
+      0,
+      1
+    ]
 ]
 
