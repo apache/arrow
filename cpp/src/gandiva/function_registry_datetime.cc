@@ -64,6 +64,9 @@ std::vector<NativeFunction> GetDateTimeFunctionRegistry() {
       NativeFunction("castTIMESTAMP", {}, DataTypeVector{date64()}, timestamp(),
                      kResultNullIfNull, "castTIMESTAMP_date64"),
 
+      NativeFunction("castDATE", {"to_date"}, DataTypeVector{timestamp()}, date64(),
+                     kResultNullIfNull, "castDATE_timestamp"),
+
       NativeFunction("castBIGINT", {}, DataTypeVector{day_time_interval()}, int64(),
                      kResultNullIfNull, "castBIGINT_daytimeinterval"),
 

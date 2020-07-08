@@ -657,4 +657,10 @@ TEST(TestTime, castVarcharTimestamp) {
   EXPECT_EQ(std::string(out, out_len), "0002-05-01 00:00:04.000");
 }
 
+TEST(TestTime, TestCastTimestampToDate) {
+  gdv_timestamp ts = StringToTimestamp("2000-05-01 10:20:34");
+  auto out = castDATE_timestamp(ts);
+  EXPECT_EQ(StringToTimestamp("2000-05-01 00:00:00"), out);
+}
+
 }  // namespace gandiva
