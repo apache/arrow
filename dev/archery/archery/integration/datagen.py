@@ -1567,11 +1567,10 @@ def get_generated_json_files(tempdir=None, flight=False):
         .skip_category('Go')
         .skip_category('Rust'),
 
-        # TODO: Dictionary unsigned indices
         generate_dictionary_unsigned_case()
-        .skip_category('Go')
-        .skip_category('Java')
-        .skip_category('Rust'),
+        .skip_category('Go')     # TODO(ARROW-9378)
+        .skip_category('Java')   # TODO(ARROW-9377)
+        .skip_category('Rust'),  # TODO(ARROW-9379)
 
         generate_nested_dictionary_case()
         .skip_category('Go')

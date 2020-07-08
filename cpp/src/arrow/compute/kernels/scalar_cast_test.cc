@@ -1745,9 +1745,9 @@ TYPED_TEST_SUITE(TestDictionaryCast, TestTypes);
 
 TYPED_TEST(TestDictionaryCast, Basic) {
   std::shared_ptr<Array> dict =
-      TestBase::MakeRandomArray<typename TypeTraits<TypeParam>::ArrayType>(5, 0);
-  for (auto index_ty : test::dictionary_index_types()) {
-    auto indices = ArrayFromJSON(index_ty, "[4, 0, 1, 2, 0, 4, 2, 2]");
+      TestBase::MakeRandomArray<typename TypeTraits<TypeParam>::ArrayType>(5, 1);
+  for (auto index_ty : all_dictionary_index_types()) {
+    auto indices = ArrayFromJSON(index_ty, "[4, 0, 1, 2, 0, 4, null, 2]");
     auto dict_ty = dictionary(index_ty, dict->type());
     auto dict_arr = *DictionaryArray::FromArrays(dict_ty, indices, dict);
     std::shared_ptr<Array> expected = *Take(*dict, *indices);

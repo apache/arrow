@@ -380,7 +380,7 @@ std::string GetIndexFormat(Type::type type_id) {
 }
 
 TEST_F(TestSchemaExport, Dictionary) {
-  for (auto index_ty : test::dictionary_index_types()) {
+  for (auto index_ty : all_dictionary_index_types()) {
     std::string index_fmt = GetIndexFormat(index_ty->id());
     TestNested(dictionary(index_ty, utf8()), {index_fmt, "u"}, {"", ""});
     TestNested(dictionary(index_ty, list(utf8()), /*ordered=*/true),
@@ -2410,7 +2410,7 @@ TEST_F(TestSchemaRoundtrip, Union) {
 }
 
 TEST_F(TestSchemaRoundtrip, Dictionary) {
-  for (auto index_ty : test::dictionary_index_types()) {
+  for (auto index_ty : all_dictionary_index_types()) {
     TestWithTypeFactory([&]() { return dictionary(index_ty, utf8()); });
     TestWithTypeFactory([&]() { return dictionary(index_ty, utf8(), /*ordered=*/true); });
     TestWithTypeFactory([&]() { return dictionary(index_ty, list(utf8())); });

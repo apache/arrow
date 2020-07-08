@@ -541,7 +541,7 @@ Status MakeDictionary(std::shared_ptr<RecordBatch>* out) {
 
   // Ensure all dictionary index types are represented
   int field_index = 5;
-  for (auto index_ty : ::arrow::test::dictionary_index_types()) {
+  for (auto index_ty : all_dictionary_index_types()) {
     std::stringstream ss;
     ss << "dict" << field_index++;
     auto ty = arrow::dictionary(index_ty, dict_ty);

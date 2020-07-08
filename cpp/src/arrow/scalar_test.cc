@@ -623,7 +623,7 @@ TEST(TestDictionaryScalar, Basics) {
     ASSERT_TRUE(last->Equals(scalar_null));
   };
 
-  for (auto ty : test::dictionary_index_types()) {
+  for (auto ty : all_dictionary_index_types()) {
     CheckIndexType(ty);
   }
 }

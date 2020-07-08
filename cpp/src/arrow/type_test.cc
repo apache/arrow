@@ -1603,7 +1603,7 @@ TEST(TestDictionaryType, UnifyNumeric) {
   ASSERT_TRUE(out_type->Equals(*expected));
   ASSERT_TRUE(out_dict->Equals(*expected_dict));
 
-  std::shared_ptr<Buffer> b1, b2, b3, b4;
+  std::shared_ptr<Buffer> b1, b2, b3;
 
   ASSERT_OK(unifier->Unify(*d1, &b1));
   ASSERT_OK(unifier->Unify(*d2, &b2));

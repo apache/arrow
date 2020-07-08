@@ -913,7 +913,7 @@ TEST(DictEncodingAdHoc, PutDictionaryPutIndices) {
     arrow::AssertArraysEqual(*expected, *result);
   };
 
-  for (auto ty : ::arrow::test::dictionary_index_types()) {
+  for (auto ty : ::arrow::all_dictionary_index_types()) {
     CheckIndexType(ty);
   }
 }

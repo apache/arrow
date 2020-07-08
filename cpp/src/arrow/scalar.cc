@@ -199,25 +199,39 @@ Result<std::shared_ptr<Scalar>> DictionaryScalar::GetEncodedValue() const {
     return MakeNullScalar(dict_type.value_type());
   }
 
-  const void* index =
-      checked_cast<const internal::PrimitiveScalarBase&>(*value.index).data();
   int64_t index_value = 0;
   switch (dict_type.index_type()->id()) {
     case Type::UINT8:
+      index_value =
+          static_cast<int64_t>(checked_cast<const UInt8Scalar&>(*value.index).value);
+      break;
     case Type::INT8:
-      index_value = static_cast<int64_t>(*reinterpret_cast<const uint8_t*>(index));
+      index_value =
+          static_cast<int64_t>(checked_cast<const Int8Scalar&>(*value.index).value);
       break;
     case Type::UINT16:
+      index_value =
+          static_cast<int64_t>(checked_cast<const UInt16Scalar&>(*value.index).value);
+      break;
     case Type::INT16:
-      index_value = static_cast<int64_t>(*reinterpret_cast<const uint16_t*>(index));
+      index_value =
+          static_cast<int64_t>(checked_cast<const Int16Scalar&>(*value.index).value);
       break;
     case Type::UINT32:
+      index_value =
+          static_cast<int64_t>(checked_cast<const UInt32Scalar&>(*value.index).value);
+      break;
     case Type::INT32:
-      index_value = static_cast<int64_t>(*reinterpret_cast<const uint32_t*>(index));
+      index_value =
+          static_cast<int64_t>(checked_cast<const Int32Scalar&>(*value.index).value);
       break;
     case Type::UINT64:
+      index_value =
+          static_cast<int64_t>(checked_cast<const UInt64Scalar&>(*value.index).value);
+      break;
     case Type::INT64:
-      index_value = static_cast<int64_t>(*reinterpret_cast<const uint64_t*>(index));
+      index_value =
+          static_cast<int64_t>(checked_cast<const Int64Scalar&>(*value.index).value);
       break;
     default:
       return Status::TypeError("Not implemented dictionary index type");
