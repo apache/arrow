@@ -88,3 +88,32 @@ test_that("logic ops with ChunkedArray", {
     "ChunkedArray"
   )
 })
+
+test_that("call_function validation", {
+  expect_error(
+    call_function("filter", 4),
+    'Argument 1 is of class numeric but it must be one of "Array", "ChunkedArray", "RecordBatch", "Table", or "Scalar"'
+  )
+  expect_error(
+    call_function("filter", Array$create(1:4), 3),
+    'Argument 2 is of class numeric'
+  )
+  expect_error(
+    call_function("filter",
+      Array$create(1:4),
+      Array$create(c(TRUE, FALSE, TRUE)),
+      options = list(keep_na = TRUE)
+    ),
+    "Array arguments must all be the same length"
+  )
+  expect_error(
+    call_function("filter",
+      record_batch(a = 1:3),
+      Array$create(c(TRUE, FALSE, TRUE)),
+      options = list(keep_na = TRUE)
+    ),
+    NA
+  )
+  # https://issues.apache.org/jira/browse/ARROW-9380
+  # expect_error(call_function("filter", options = list(keep_na = TRUE)), NA)
+})

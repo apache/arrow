@@ -87,10 +87,25 @@ Ops.array_expression <- function(e1, e2) {
 #' @export
 is.na.array_expression <- function(x) array_expression("is.na", x)
 
+eval_array_expression <- function(x, ...)  {
+  x$args <- lapply(x$args, function (a) {
+    if (inherits(a, "array_expression")) {
+      eval_array_expression(a)
+    } else {
+      a
+    }
+  })
+  do.call(x$fun, x$args)
+}
+
 #' @export
 as.vector.array_expression <- function(x, ...) {
-  x$args <- lapply(x$args, as.vector)
-  do.call(x$fun, x$args)
+  out <- try(as.vector(eval_array_expression(x)), silent = TRUE)
+  if (inherits(out, "try-error")) {
+    x$args <- lapply(x$args, as.vector)
+    out <- do.call(x$fun, x$args)
+  }
+  out
 }
 
 #' @export
