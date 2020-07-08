@@ -465,8 +465,9 @@ void AddBinaryContainsExact(FunctionRegistry* registry) {
 
 static inline bool HasAnyUnicodeGeneralCategory(uint32_t codepoint, uint32_t mask) {
   uint32_t general_category = 1 << utf8proc_category(codepoint);
-  // for e.g. undefined (but valid) codepoints, general_category == 0
-  return (general_category != 0) && ((general_category & mask) != 0);
+  // for e.g. undefined (but valid) codepoints, general_category == 0 ==
+  // UTF8PROC_CATEGORY_CN
+  return (general_category != UTF8PROC_CATEGORY_CN) && ((general_category & mask) != 0);
 }
 
 template <typename... Categories>
@@ -549,7 +550,7 @@ static inline bool IsSpaceCharacterUnicode(uint32_t codepoint) {
 
 static inline bool IsPrintableCharacterUnicode(uint32_t codepoint) {
   uint32_t general_category = utf8proc_category(codepoint);
-  return (general_category != 0) &&
+  return (general_category != UTF8PROC_CATEGORY_CN) &&
          !HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_CC,
                                        UTF8PROC_CATEGORY_CF, UTF8PROC_CATEGORY_CS,
                                        UTF8PROC_CATEGORY_CO, UTF8PROC_CATEGORY_ZS,
