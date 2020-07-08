@@ -402,12 +402,12 @@ test_that("Binary", {
 })
 
 test_that("FixedSizeBinary", {
-  expect_is(binary(4), "FixedSizeBinary")
-  expect_equal(binary(4)$ToString(), "fixed_size_binary[4]")
+  expect_is(fixed_size_binary(4), "FixedSizeBinary")
+  expect_equal(fixed_size_binary(4)$ToString(), "fixed_size_binary[4]")
 
   # input validation
-  expect_error(binary(NA), "'byte_width' cannot be NA")
-  expect_error(binary(-1), "'byte_width' must be > 0")
-  expect_error(binary("four"), class = "Rcpp::not_compatible")
-  expect_error(binary(c(2, 4)), class = "Rcpp::not_compatible")
+  expect_error(fixed_size_binary(NA), "'byte_width' cannot be NA")
+  expect_error(fixed_size_binary(-1), "'byte_width' must be > 0")
+  expect_error(fixed_size_binary("four"), class = "Rcpp::not_compatible")
+  expect_error(fixed_size_binary(c(2, 4)), class = "Rcpp::not_compatible")
 })

@@ -73,8 +73,14 @@ SEXP get_empty_raw() {
 
 SEXP data::classes_POSIXct = precious(strings({"POSIXct", "POSIXt"}));
 SEXP data::classes_metadata_r = precious(strings({"arrow_r_metadata"}));
-SEXP data::classes_vctrs_list_of = precious(strings({"vctrs_list_of", "vctrs_vctr", "list"}));
-SEXP data::classes_fixed_size_binary = precious(strings({"arrow_fixed_size_binary", "vctrs_list_of", "vctrs_vctr", "list"}));
+SEXP data::classes_vctrs_list_of =
+    precious(strings({"vctrs_list_of", "vctrs_vctr", "list"}));
+SEXP data::classes_binary =
+    precious(strings({"arrow_binary", "vctrs_list_of", "vctrs_vctr", "list"}));
+SEXP data::classes_large_binary =
+    precious(strings({"arrow_large_binary", "vctrs_list_of", "vctrs_vctr", "list"}));
+SEXP data::classes_fixed_size_binary =
+    precious(strings({"arrow_fixed_size_binary", "vctrs_list_of", "vctrs_vctr", "list"}));
 
 SEXP data::names_metadata = precious(strings({"attributes", "columns"}));
 SEXP data::empty_raw = precious(raws({}));
@@ -86,7 +92,6 @@ void inspect(SEXP obj) {
   Rcpp::Shield<SEXP> call_internal(Rf_lang2(symbols::dot_Internal, call_inspect));
   Rf_eval(call_internal, R_GlobalEnv);
 }
-
 
 }  // namespace r
 }  // namespace arrow

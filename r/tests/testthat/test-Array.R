@@ -50,12 +50,20 @@ test_that("Integer Array", {
 })
 
 test_that("binary Array", {
-  bin <- vctrs::list_of(as.raw(1:10), as.raw(0:255), .ptype = raw())
+  bin <- vctrs::new_list_of(
+    list(as.raw(1:10), as.raw(0:255)),
+    ptype = raw(),
+    class = "arrow_binary"
+  )
   expect_array_roundtrip(bin, binary())
   expect_array_roundtrip(bin, large_binary(), as = large_binary())
 
   # degenerate
-  bin <- structure(list(1L), ptype = raw())
+  bin <- vctrs::new_list_of(
+    list(1:10),
+    ptype = raw(),
+    class = "arrow_binary"
+  )
   expect_error(Array$create(bin))
 })
 
