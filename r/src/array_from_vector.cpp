@@ -1249,6 +1249,7 @@ std::shared_ptr<arrow::DataType> InferArrowTypeFromVector<VECSXP>(SEXP x) {
   if (Rf_inherits(x, "data.frame") || Rf_inherits(x, "POSIXlt")) {
     return InferArrowTypeFromDataFrame(x);
   } else {
+    // some known special cases
     if (Rf_inherits(x, "arrow_fixed_size_binary")) {
       SEXP byte_width = Rf_getAttrib(x, symbols::byte_width);
       if (Rf_isNull(byte_width) || TYPEOF(byte_width) != INTSXP ||
@@ -1256,6 +1257,14 @@ std::shared_ptr<arrow::DataType> InferArrowTypeFromVector<VECSXP>(SEXP x) {
         Rcpp::stop("malformed arrow_fixed_size_binary object");
       }
       return arrow::fixed_size_binary(INTEGER(byte_width)[0]);
+    }
+
+    if (Rf_inherits(x, "arrow_binary")) {
+      return arrow::binary();
+    }
+
+    if (Rf_inherits(x, "arrow_large_binary")) {
+      return arrow::large_binary();
     }
 
     SEXP ptype = Rf_getAttrib(x, symbols::ptype);
@@ -1266,11 +1275,6 @@ std::shared_ptr<arrow::DataType> InferArrowTypeFromVector<VECSXP>(SEXP x) {
       }
 
       ptype = VECTOR_ELT(x, 0);
-    }
-
-    // special case list(raw()) -> BinaryArray
-    if (TYPEOF(ptype) == RAWSXP) {
-      return arrow::binary();
     }
 
     return arrow::list(InferArrowType(ptype));
