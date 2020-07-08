@@ -47,7 +47,7 @@ ARG turbodbc=latest
 COPY ci/scripts/install_turbodbc.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_turbodbc.sh ${turbodbc} /turbodbc
 
-COPY ci/etc/turbodbc.patch /arrow/ci/etc/
-RUN cd /turbodbc && git apply /arrow/ci/etc/turbodbc.patch
+# COPY ci/etc/turbodbc.patch /arrow/ci/etc/
+# RUN cd /turbodbc && git apply /arrow/ci/etc/turbodbc.patch
 
 ENV TURBODBC_TEST_CONFIGURATION_FILES "query_fixtures_postgresql.json"
