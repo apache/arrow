@@ -26,15 +26,13 @@ use crate::execution::physical_plan::{
     Accumulator, AggregateExpr, ExecutionPlan, Partition, PhysicalExpr,
 };
 
-use arrow::array::{
-    ArrayRef, Float32Array, Float64Array, Int16Array, Int32Array, Int64Array, Int8Array,
-    UInt16Array, UInt32Array, UInt64Array, UInt8Array,
-};
+use arrow::array::ArrayRef;
 use arrow::array::{Float32Builder, Float64Builder, Int64Builder, UInt64Builder};
 use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
 use arrow::error::Result as ArrowResult;
 use arrow::record_batch::{RecordBatch, RecordBatchReader};
 
+use crate::execution::physical_plan::common::get_scalar_value;
 use crate::execution::physical_plan::expressions::col;
 use crate::execution::physical_plan::hash::{
     create_key, create_key_array, AccumulatorSet, KeyScalar,
@@ -239,22 +237,6 @@ impl GroupedHashAggregateIterator {
     }
 }
 
-macro_rules! update_accumulators {
-    ($ARRAY:ident, $ARRAY_TY:ident, $SCALAR_TY:expr, $COL:expr, $ACCUM:expr) => {{
-        let primitive_array = $ARRAY.as_any().downcast_ref::<$ARRAY_TY>().unwrap();
-
-        for row in 0..$ARRAY.len() {
-            if $ARRAY.is_valid(row) {
-                let value = Some($SCALAR_TY(primitive_array.value(row)));
-                let mut accum = $ACCUM[row][$COL].borrow_mut();
-                accum
-                    .accumulate_scalar(value)
-                    .map_err(ExecutionError::into_arrow_external_error)?;
-            }
-        }
-    }};
-}
-
 impl RecordBatchReader for GroupedHashAggregateIterator {
     fn schema(&self) -> SchemaRef {
         self.schema.clone()
@@ -296,123 +278,49 @@ impl RecordBatchReader for GroupedHashAggregateIterator {
                 })
                 .collect::<ArrowResult<Vec<_>>>()?;
 
-            // create vector large enough to hold the grouping key
+            // create vector to hold the grouping key
             let mut key = Vec::with_capacity(group_values.len());
             for _ in 0..group_values.len() {
                 key.push(KeyScalar::UInt32(0));
             }
 
             // iterate over each row in the batch and create the accumulators for each grouping key
-            let mut accumulators: Vec<Rc<AccumulatorSet>> =
-                Vec::with_capacity(batch.num_rows());
-
             for row in 0..batch.num_rows() {
-                // create grouping key for this row
+                // create and assign the grouping key of this row
                 for i in 0..group_values.len() {
-                    let col = &group_values[i];
-                    key[i] = create_key(col, row)
+                    key[i] = create_key(&group_values[i], row)
                         .map_err(ExecutionError::into_arrow_external_error)?;
                 }
 
-                if let Some(accumulator_set) = map.get(&key) {
-                    accumulators.push(accumulator_set.clone());
-                } else {
-                    let accumulator_set: AccumulatorSet = self
-                        .aggr_expr
-                        .iter()
-                        .map(|expr| expr.create_accumulator())
-                        .collect();
-
-                    let accumulator_set = Rc::new(accumulator_set);
-
-                    map.insert(key.clone(), accumulator_set.clone());
-                    accumulators.push(accumulator_set);
-                }
-            }
-
-            // iterate over each non-grouping column in the batch and update the accumulator
-            // for each row
-            for col in 0..aggr_input_values.len() {
-                let array = &aggr_input_values[col];
-
-                match array.data_type() {
-                    DataType::Int8 => update_accumulators!(
-                        array,
-                        Int8Array,
-                        ScalarValue::Int8,
-                        col,
-                        accumulators
-                    ),
-                    DataType::Int16 => update_accumulators!(
-                        array,
-                        Int16Array,
-                        ScalarValue::Int16,
-                        col,
-                        accumulators
-                    ),
-                    DataType::Int32 => update_accumulators!(
-                        array,
-                        Int32Array,
-                        ScalarValue::Int32,
-                        col,
-                        accumulators
-                    ),
-                    DataType::Int64 => update_accumulators!(
-                        array,
-                        Int64Array,
-                        ScalarValue::Int64,
-                        col,
-                        accumulators
-                    ),
-                    DataType::UInt8 => update_accumulators!(
-                        array,
-                        UInt8Array,
-                        ScalarValue::UInt8,
-                        col,
-                        accumulators
-                    ),
-                    DataType::UInt16 => update_accumulators!(
-                        array,
-                        UInt16Array,
-                        ScalarValue::UInt16,
-                        col,
-                        accumulators
-                    ),
-                    DataType::UInt32 => update_accumulators!(
-                        array,
-                        UInt32Array,
-                        ScalarValue::UInt32,
-                        col,
-                        accumulators
-                    ),
-                    DataType::UInt64 => update_accumulators!(
-                        array,
-                        UInt64Array,
-                        ScalarValue::UInt64,
-                        col,
-                        accumulators
-                    ),
-                    DataType::Float32 => update_accumulators!(
-                        array,
-                        Float32Array,
-                        ScalarValue::Float32,
-                        col,
-                        accumulators
-                    ),
-                    DataType::Float64 => update_accumulators!(
-                        array,
-                        Float64Array,
-                        ScalarValue::Float64,
-                        col,
-                        accumulators
-                    ),
-                    other => {
-                        return Err(ExecutionError::ExecutionError(format!(
-                            "Unsupported data type {:?} for result of aggregate expression",
-                            other
-                        )).into_arrow_external_error());
+                // for each new key on the map, add an accumulatorSet to the map
+                match map.get(&key) {
+                    None => {
+                        let accumulator_set: AccumulatorSet = self
+                            .aggr_expr
+                            .iter()
+                            .map(|expr| expr.create_accumulator())
+                            .collect();
+                        map.insert(key.clone(), Rc::new(accumulator_set));
                     }
+                    _ => (),
                 };
+
+                // iterate over each non-grouping column in the batch and update the accumulator
+                // for each row
+                for col in 0..aggr_input_values.len() {
+                    let value = get_scalar_value(&aggr_input_values[col], row)
+                        .map_err(ExecutionError::into_arrow_external_error)?;
+
+                    match map.get(&key) {
+                        None => panic!("This code cannot be reached."),
+                        Some(accumulator_set) => {
+                            let mut accum = accumulator_set[col].borrow_mut();
+                            accum
+                                .accumulate_scalar(value)
+                                .map_err(ExecutionError::into_arrow_external_error)?;
+                        }
+                    }
+                }
             }
         }
 
@@ -615,6 +523,7 @@ mod tests {
     use crate::execution::physical_plan::expressions::{col, sum};
     use crate::execution::physical_plan::merge::MergeExec;
     use crate::test;
+    use arrow::array::{Int64Array, UInt32Array};
 
     #[test]
     fn aggregate() -> Result<()> {
