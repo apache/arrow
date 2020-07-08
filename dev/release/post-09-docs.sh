@@ -29,11 +29,6 @@ if [ "$#" -ne 1 ]; then
   exit 1
 fi
 
-if ! type nvidia-smi > /dev/null; then
-  echo "Use a CUDA capable machine to update the apidocs"
-  exit 1
-fi
-
 version=$1
 release_tag="apache-arrow-${version}"
 branch_name=release-docs-${version}
@@ -50,7 +45,7 @@ git checkout "${release_tag}"
 archery docker run \
   -v "${ARROW_SITE_DIR}/docs:/build/docs" \
   -e ARROW_DOCS_VERSION="${version}" \
-  ubuntu-cuda-docs
+  ubuntu-docs
 
 : ${PUSH:=1}
 
