@@ -307,7 +307,6 @@ class KeyValuePartitioningInspectImpl {
   }
 
   std::vector<std::string> FieldNames() {
-    // only gives sensible result after Finish has been called
     std::vector<std::string> names;
     names.reserve(name_to_index_.size());
 
