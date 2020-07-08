@@ -334,6 +334,25 @@ def nulls(size, type=None, MemoryPool memory_pool=None):
     return pyarrow_wrap_array(arr)
 
 
+def repeat(value, size, MemoryPool memory_pool=None):
+    cdef:
+        CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
+        int64_t length = size
+        shared_ptr[CArray] c_array
+        shared_ptr[CScalar] c_scalar
+
+    if not isinstance(value, Scalar):
+        value = scalar(value, memory_pool=memory_pool)
+
+    c_scalar = (<Scalar> value).unwrap()
+    with nogil:
+        c_array = GetResultValue(
+            MakeArrayFromScalar(deref(c_scalar), length, pool)
+        )
+
+    return pyarrow_wrap_array(c_array)
+
+
 def infer_type(values, mask=None, from_pandas=False):
     """
     Attempt to infer Arrow data type that can hold the passed Python

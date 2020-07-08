@@ -297,6 +297,24 @@ def test_nulls(ty):
         assert arr.type == ty
 
 
+@pytest.mark.parametrize(('value', 'size', 'expected'), [
+    (None, 1, pa.array([None])),
+    (None, 10, pa.nulls(10)),
+    (-1, 3, pa.array([-1, -1, -1], type=pa.int64())),
+    (2.71, 2, pa.array([2.71, 2.71], type=pa.float64())),
+    ("string", 4, pa.array(["string"] * 4)),
+    (pa.scalar(8, type=pa.uint8()), 17, pa.array([8] * 17, type=pa.uint8())),
+    (pa.scalar(None), 3, pa.array([None, None, None])),
+    (pa.scalar(True), 11, pa.array([True] * 11)),
+    (False, 9, pa.array([False] * 9)),
+    # ([1, 2], 2, pa.array([[1, 2], [1, 2]]))
+])
+def test_array_from_scalar(value, size, expected):
+    arr = pa.repeat(value, size)
+    assert len(arr) == size
+    assert arr.equals(expected)
+
+
 def test_array_getitem():
     arr = pa.array(range(10, 15))
     lst = arr.to_pylist()
