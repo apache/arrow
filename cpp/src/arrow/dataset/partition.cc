@@ -657,9 +657,8 @@ class HivePartitioningFactory : public PartitioningFactory {
       }
     }
 
-    auto schema_result = impl.Finish(&dictionaries_);
     field_names_ = impl.FieldNames();
-    return schema_result;
+    return impl.Finish(&dictionaries_);
   }
 
   Result<std::shared_ptr<Partitioning>> Finish(
