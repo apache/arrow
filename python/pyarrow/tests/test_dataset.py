@@ -1776,6 +1776,7 @@ def test_parquet_dataset_factory_partitioned(tempdir):
 
 
 @pytest.mark.parquet
+@pytest.mark.pandas
 def test_parquet_dataset_factory_metadata(tempdir):
     # ensure ParquetDatasetFactory preserves metadata (ARROW-9363)
     root_path = tempdir / "test_parquet_dataset_factory_metadata"
