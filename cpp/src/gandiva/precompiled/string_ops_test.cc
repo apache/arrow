@@ -577,32 +577,32 @@ TEST(TestArithmeticOps, TestCastINT) {
 
   castINT_utf8(ctx_ptr, "2147483648", 10);
   EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr("Failed parsing the string to required format"));
+              ::testing::HasSubstr("Failed to cast the string 2147483648 to int32"));
   ctx.Reset();
 
   castINT_utf8(ctx_ptr, "-2147483649", 11);
   EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr("Failed parsing the string to required format"));
+              ::testing::HasSubstr("Failed to cast the string -2147483649 to int32"));
   ctx.Reset();
 
   castINT_utf8(ctx_ptr, "12.34", 5);
   EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr("Failed parsing the string to required format"));
+              ::testing::HasSubstr("Failed to cast the string 12.34 to int32"));
   ctx.Reset();
 
   castINT_utf8(ctx_ptr, "abc", 3);
   EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr("Failed parsing the string to required format"));
+              ::testing::HasSubstr("Failed to cast the string abc to int32"));
   ctx.Reset();
 
   castINT_utf8(ctx_ptr, "", 0);
   EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr("Failed parsing the string to required format"));
+              ::testing::HasSubstr("Failed to cast the string  to int32"));
   ctx.Reset();
 
   castINT_utf8(ctx_ptr, "-", 1);
   EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr("Failed parsing the string to required format"));
+              ::testing::HasSubstr("Failed to cast the string - to int32"));
   ctx.Reset();
 }
 
@@ -622,33 +622,35 @@ TEST(TestArithmeticOps, TestCastBIGINT) {
   EXPECT_EQ(castBIGINT_utf8(ctx_ptr, " 12 ", 4), 12);
 
   castBIGINT_utf8(ctx_ptr, "9223372036854775808", 19);
-  EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr("Failed parsing the string to required format"));
+  EXPECT_THAT(
+      ctx.get_error(),
+      ::testing::HasSubstr("Failed to cast the string 9223372036854775808 to int64"));
   ctx.Reset();
 
   castBIGINT_utf8(ctx_ptr, "-9223372036854775809", 20);
-  EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr("Failed parsing the string to required format"));
+  EXPECT_THAT(
+      ctx.get_error(),
+      ::testing::HasSubstr("Failed to cast the string -9223372036854775809 to int64"));
   ctx.Reset();
 
   castBIGINT_utf8(ctx_ptr, "12.34", 5);
   EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr("Failed parsing the string to required format"));
+              ::testing::HasSubstr("Failed to cast the string 12.34 to int64"));
   ctx.Reset();
 
   castBIGINT_utf8(ctx_ptr, "abc", 3);
   EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr("Failed parsing the string to required format"));
+              ::testing::HasSubstr("Failed to cast the string abc to int64"));
   ctx.Reset();
 
   castBIGINT_utf8(ctx_ptr, "", 0);
   EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr("Failed parsing the string to required format"));
+              ::testing::HasSubstr("Failed to cast the string  to int64"));
   ctx.Reset();
 
   castBIGINT_utf8(ctx_ptr, "-", 1);
   EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr("Failed parsing the string to required format"));
+              ::testing::HasSubstr("Failed to cast the string - to int64"));
   ctx.Reset();
 }
 
@@ -664,12 +666,12 @@ TEST(TestArithmeticOps, TestCastFloat4) {
 
   castFLOAT4_utf8(ctx_ptr, "", 0);
   EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr("Failed parsing the string to required format"));
+              ::testing::HasSubstr("Failed to cast the string  to float32"));
   ctx.Reset();
 
   castFLOAT4_utf8(ctx_ptr, "e", 1);
   EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr("Failed parsing the string to required format"));
+              ::testing::HasSubstr("Failed to cast the string e to float32"));
   ctx.Reset();
 }
 
@@ -685,12 +687,12 @@ TEST(TestParseStringHolder, TestCastFloat8) {
 
   castFLOAT8_utf8(ctx_ptr, "", 0);
   EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr("Failed parsing the string to required format"));
+              ::testing::HasSubstr("Failed to cast the string  to float64"));
   ctx.Reset();
 
   castFLOAT8_utf8(ctx_ptr, "e", 1);
   EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr("Failed parsing the string to required format"));
+              ::testing::HasSubstr("Failed to cast the string e to float64"));
   ctx.Reset();
 }
 

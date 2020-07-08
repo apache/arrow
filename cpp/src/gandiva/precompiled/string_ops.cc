@@ -674,19 +674,20 @@ const char* replace_utf8_utf8_utf8(gdv_int64 context, const char* text,
                                              out_len);
 }
 
-#define CAST_NUMERIC_FROM_STRING(OUT_TYPE, ARROW_TYPE, TYPE_NAME)                   \
-  FORCE_INLINE                                                                      \
-  gdv_##OUT_TYPE cast##TYPE_NAME##_utf8(int64_t context, const char* data,          \
-                                        int32_t len) {                              \
-    gdv_##OUT_TYPE val = 0;                                                         \
-    int32_t trimmed_len;                                                            \
-    data = trim_utf8(context, data, len, &trimmed_len);                             \
-    if (!arrow::internal::StringConverter<ARROW_TYPE>::Convert(data, trimmed_len,   \
-                                                               &val)) {             \
-      gdv_fn_context_set_error_msg(context,                                         \
-                                   "Failed parsing the string to required format"); \
-    }                                                                               \
-    return val;                                                                     \
+#define CAST_NUMERIC_FROM_STRING(OUT_TYPE, ARROW_TYPE, TYPE_NAME)                       \
+  FORCE_INLINE                                                                          \
+  gdv_##OUT_TYPE cast##TYPE_NAME##_utf8(int64_t context, const char* data,              \
+                                        int32_t len) {                                  \
+    gdv_##OUT_TYPE val = 0;                                                             \
+    int32_t trimmed_len;                                                                \
+    data = trim_utf8(context, data, len, &trimmed_len);                                 \
+    if (!arrow::internal::StringConverter<ARROW_TYPE>::Convert(data, trimmed_len,       \
+                                                               &val)) {                 \
+      std::string err = "Failed to cast the string " + std::string(data, trimmed_len) + \
+                        " to " #OUT_TYPE;                                               \
+      gdv_fn_context_set_error_msg(context, err.c_str());                               \
+    }                                                                                   \
+    return val;                                                                         \
   }
 
 CAST_NUMERIC_FROM_STRING(int32, arrow::Int32Type, INT)
