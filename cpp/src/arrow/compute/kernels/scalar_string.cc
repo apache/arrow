@@ -137,7 +137,7 @@ struct UTF8Transform {
       for (int64_t i = 0; i < input_nstrings; i++) {
         offset_type input_string_ncodeunits;
         const uint8_t* input_string = input_boxed.GetValue(i, &input_string_ncodeunits);
-        offset_type encoded_nbytes;
+        offset_type encoded_nbytes = 0;
         if (ARROW_PREDICT_FALSE(!Derived::Transform(input_string, input_string_ncodeunits,
                                                     output_str + output_ncodeunits,
                                                     &encoded_nbytes))) {
@@ -168,7 +168,7 @@ struct UTF8Transform {
         KERNEL_ASSIGN_OR_RAISE(auto value_buffer, ctx,
                                ctx->Allocate(output_ncodeunits_max));
         result->value = value_buffer;
-        offset_type encoded_nbytes;
+        offset_type encoded_nbytes = 0;
         if (ARROW_PREDICT_FALSE(!Derived::Transform(input.value->data(), data_nbytes,
                                                     value_buffer->mutable_data(),
                                                     &encoded_nbytes))) {

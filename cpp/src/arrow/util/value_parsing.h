@@ -376,8 +376,9 @@ static inline ts_type ConvertTimePoint(TimePoint tp, TimeUnit::type unit) {
 
 static inline bool ParseYYYY_MM_DD(const char* s,
                                    arrow_vendored::date::year_month_day* out) {
-  uint16_t year;
-  uint8_t month, day;
+  uint16_t year = 0;
+  uint8_t month = 0;
+  uint8_t day = 0;
   if (ARROW_PREDICT_FALSE(s[4] != '-') || ARROW_PREDICT_FALSE(s[7] != '-')) {
     return false;
   }
@@ -396,7 +397,7 @@ static inline bool ParseYYYY_MM_DD(const char* s,
 }
 
 static inline bool ParseHH(const char* s, std::chrono::duration<ts_type>* out) {
-  uint8_t hours;
+  uint8_t hours = 0;
   if (ARROW_PREDICT_FALSE(!ParseUnsigned(s + 0, 2, &hours))) {
     return false;
   }
@@ -408,7 +409,8 @@ static inline bool ParseHH(const char* s, std::chrono::duration<ts_type>* out) {
 }
 
 static inline bool ParseHH_MM(const char* s, std::chrono::duration<ts_type>* out) {
-  uint8_t hours, minutes;
+  uint8_t hours = 0;
+  uint8_t minutes = 0;
   if (ARROW_PREDICT_FALSE(s[2] != ':')) {
     return false;
   }
@@ -429,7 +431,9 @@ static inline bool ParseHH_MM(const char* s, std::chrono::duration<ts_type>* out
 }
 
 static inline bool ParseHH_MM_SS(const char* s, std::chrono::duration<ts_type>* out) {
-  uint8_t hours, minutes, seconds;
+  uint8_t hours = 0;
+  uint8_t minutes = 0;
+  uint8_t seconds = 0;
   if (ARROW_PREDICT_FALSE(s[2] != ':') || ARROW_PREDICT_FALSE(s[5] != ':')) {
     return false;
   }

@@ -46,23 +46,16 @@ namespace compute {
 // KernelContext
 
 Result<std::shared_ptr<ResizableBuffer>> KernelContext::Allocate(int64_t nbytes) {
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ResizableBuffer> result,
-                        AllocateResizableBuffer(nbytes, exec_ctx_->memory_pool()));
-  result->ZeroPadding();
-  return result;
+  return AllocateResizableBuffer(nbytes, exec_ctx_->memory_pool());
 }
 
 Result<std::shared_ptr<ResizableBuffer>> KernelContext::AllocateBitmap(int64_t num_bits) {
   const int64_t nbytes = BitUtil::BytesForBits(num_bits);
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ResizableBuffer> result,
                         AllocateResizableBuffer(nbytes, exec_ctx_->memory_pool()));
-  // Some utility methods access the last byte before it might be
-  // initialized this makes valgrind/asan unhappy, so we proactively
-  // zero it.
-  if (nbytes > 0) {
-    internal::ZeroByte(result.get(), result->size() - 1);
-    result->ZeroPadding();
-  }
+  // Since bitmaps are typically written bit by bit, we could leak uninitialized bits.
+  // Make sure all memory is initialized (this also appeases Valgrind).
+  internal::ZeroMemory(result.get());
   return result;
 }
 
