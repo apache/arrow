@@ -37,6 +37,7 @@ import org.apache.arrow.vector.ipc.message.IpcOption;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.DictionaryUtility;
+import org.apache.arrow.vector.validate.MetadataV4UnionChecker;
 
 /**
  * Utilities to work with dictionaries in Flight.
@@ -57,6 +58,7 @@ final class DictionaryUtils {
                                        final Consumer<ArrowMessage> messageCallback) throws Exception {
     final Set<Long> dictionaryIds = new HashSet<>();
     final Schema schema = generateSchema(originalSchema, provider, dictionaryIds);
+    MetadataV4UnionChecker.checkForUnion(schema.getFields().iterator(), option);
     // Send the schema message
     final Flight.FlightDescriptor protoDescriptor = descriptor == null ? null : descriptor.toProtocol();
     try (final ArrowMessage message = new ArrowMessage(protoDescriptor, schema, option)) {

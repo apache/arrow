@@ -33,6 +33,7 @@ import org.apache.arrow.vector.ipc.WriteChannel;
 import org.apache.arrow.vector.ipc.message.IpcOption;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
 import org.apache.arrow.vector.types.pojo.Schema;
+import org.apache.arrow.vector.validate.MetadataV4UnionChecker;
 
 import com.fasterxml.jackson.databind.util.ByteBufferBackedInputStream;
 import com.google.common.collect.ImmutableList;
@@ -78,6 +79,7 @@ public class FlightInfo {
     Objects.requireNonNull(schema);
     Objects.requireNonNull(descriptor);
     Objects.requireNonNull(endpoints);
+    MetadataV4UnionChecker.checkForUnion(schema.getFields().iterator(), option);
     this.schema = schema;
     this.descriptor = descriptor;
     this.endpoints = endpoints;

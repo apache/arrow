@@ -54,6 +54,9 @@ abstract class OutboundStreamListenerImpl implements OutboundStreamListener {
     try {
       DictionaryUtils.generateSchemaMessages(root.getSchema(), descriptor, dictionaries, option,
           responseObserver::onNext);
+    } catch (RuntimeException e) {
+      // Propagate runtime exceptions, like those raised when trying to write unions with V4 metadata
+      throw e;
     } catch (Exception e) {
       // Only happens if closing buffers somehow fails - indicates application is an unknown state so propagate
       // the exception

@@ -23,6 +23,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -173,7 +174,33 @@ public class TestRoundTrip extends BaseFileTest {
   }
 
   @Test
-  public void testUnion() throws Exception {
+  public void testUnionV4() throws Exception {
+    Assume.assumeTrue(writeOption.metadataVersion == MetadataVersion.V4);
+    final File temp = File.createTempFile("arrow-test-" + name + "-", ".arrow");
+    temp.deleteOnExit();
+    final ByteArrayOutputStream memoryStream = new ByteArrayOutputStream();
+
+    try (final BufferAllocator originalVectorAllocator =
+             allocator.newChildAllocator("original vectors", 0, allocator.getLimit());
+         final StructVector parent = StructVector.empty("parent", originalVectorAllocator)) {
+      writeUnionData(COUNT, parent);
+      final VectorSchemaRoot root = new VectorSchemaRoot(parent.getChild("root"));
+      IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> {
+        try (final FileOutputStream fileStream = new FileOutputStream(temp)) {
+          new ArrowFileWriter(root, null, fileStream.getChannel(), writeOption);
+          new ArrowStreamWriter(root, null, Channels.newChannel(memoryStream), writeOption);
+        }
+      });
+      assertTrue(e.getMessage(), e.getMessage().contains("Cannot write union with V4 metadata"));
+      e = assertThrows(IllegalArgumentException.class, () -> {
+        new ArrowStreamWriter(root, null, Channels.newChannel(memoryStream), writeOption);
+      });
+      assertTrue(e.getMessage(), e.getMessage().contains("Cannot write union with V4 metadata"));
+    }
+  }
+
+  @Test
+  public void testUnionV5() throws Exception {
     Assume.assumeTrue(writeOption.metadataVersion == MetadataVersion.V5);
     try (final BufferAllocator originalVectorAllocator =
              allocator.newChildAllocator("original vectors", 0, allocator.getLimit());

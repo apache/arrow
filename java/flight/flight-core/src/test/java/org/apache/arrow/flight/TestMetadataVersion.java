@@ -20,7 +20,10 @@ package org.apache.arrow.flight;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.Collections;
 
 import org.apache.arrow.memory.BufferAllocator;
@@ -29,6 +32,7 @@ import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.ipc.message.IpcOption;
 import org.apache.arrow.vector.types.MetadataVersion;
+import org.apache.arrow.vector.types.UnionMode;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
@@ -44,11 +48,14 @@ public class TestMetadataVersion {
   private static Schema schema;
   private static IpcOption optionV4;
   private static IpcOption optionV5;
+  private static Schema unionSchema;
 
   @BeforeClass
   public static void setUpClass() {
     allocator = new RootAllocator(Integer.MAX_VALUE);
     schema = new Schema(Collections.singletonList(Field.nullable("foo", new ArrowType.Int(32, true))));
+    unionSchema = new Schema(
+        Collections.singletonList(Field.nullable("union", new ArrowType.Union(UnionMode.Dense, new int[]{0}))));
     optionV4 = new IpcOption();
     optionV4.metadataVersion = MetadataVersion.V4;
     optionV5 = new IpcOption();
@@ -74,6 +81,30 @@ public class TestMetadataVersion {
          final FlightClient client = connect(server)) {
       final SchemaResult result = client.getSchema(FlightDescriptor.command(new byte[0]));
       assertEquals(schema, result.getSchema());
+    }
+  }
+
+  @Test
+  public void testUnionCheck() throws Exception {
+    assertThrows(IllegalArgumentException.class, () -> new SchemaResult(unionSchema, optionV4));
+    assertThrows(IllegalArgumentException.class, () ->
+        new FlightInfo(unionSchema, FlightDescriptor.command(new byte[0]), Collections.emptyList(), -1, -1, optionV4));
+    try (final FlightServer server = startServer(optionV4);
+         final FlightClient client = connect(server);
+         final FlightStream stream = client.getStream(new Ticket("union".getBytes(StandardCharsets.UTF_8)))) {
+      final FlightRuntimeException err = assertThrows(FlightRuntimeException.class, stream::next);
+      assertTrue(err.getMessage(), err.getMessage().contains("Cannot write union with V4 metadata"));
+    }
+
+    try (final FlightServer server = startServer(optionV4);
+         final FlightClient client = connect(server);
+         final VectorSchemaRoot root = VectorSchemaRoot.create(unionSchema, allocator)) {
+      final FlightDescriptor descriptor = FlightDescriptor.command(new byte[0]);
+      final SyncPutListener reader = new SyncPutListener();
+      final FlightClient.ClientStreamListener listener = client.startPut(descriptor, reader);
+      final IllegalArgumentException err = assertThrows(IllegalArgumentException.class,
+          () -> listener.start(root, null, optionV4));
+      assertTrue(err.getMessage(), err.getMessage().contains("Cannot write union with V4 metadata"));
     }
   }
 
@@ -208,6 +239,16 @@ public class TestMetadataVersion {
 
     @Override
     public void getStream(CallContext context, Ticket ticket, ServerStreamListener listener) {
+      if (Arrays.equals("union".getBytes(StandardCharsets.UTF_8), ticket.getBytes())) {
+        try (final VectorSchemaRoot root = VectorSchemaRoot.create(unionSchema, allocator)) {
+          listener.start(root, null, option);
+        } catch (IllegalArgumentException e) {
+          listener.error(CallStatus.INTERNAL.withCause(e).withDescription(e.getMessage()).toRuntimeException());
+          return;
+        }
+        listener.error(CallStatus.INTERNAL.withDescription("Expected exception not raised").toRuntimeException());
+        return;
+      }
       try (final VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator)) {
         listener.start(root, null, option);
         generateData(root);
