@@ -478,11 +478,14 @@ def test_compose_push(arrow_compose_path):
     expected_env = PartialEnv(PYTHON="3.8")
     expected_calls = [
         mock.call(["docker", "login", "-u", "user", "-p", "pass"], check=True),
-        mock.call(["docker-compose", "--file", str(compose.config_path),
-                   "push", "conda-python"], check=True, env=expected_env)
     ]
+    for image in ["conda-cpp", "conda-python", "conda-python-pandas"]:
+        expected_calls.append(
+            mock.call(["docker-compose", "--file", str(compose.config_path),
+                       "push", image], check=True, env=expected_env)
+        )
     with assert_subprocess_calls(expected_calls):
-        compose.push('conda-python', user='user', password='pass')
+        compose.push('conda-python-pandas', user='user', password='pass')
 
 
 def test_compose_error(arrow_compose_path):
