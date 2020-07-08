@@ -648,9 +648,12 @@ Result<std::vector<std::string>> ParquetDatasetFactory::CollectPaths(
   }
 }
 
-Result<std::shared_ptr<Schema>> GetSchema(const parquet::FileMetaData& metadata) {
+Result<std::shared_ptr<Schema>> GetSchema(
+    const parquet::FileMetaData& metadata,
+    const parquet::ArrowReaderProperties& properties) {
   std::shared_ptr<Schema> schema;
-  RETURN_NOT_OK(parquet::arrow::FromParquetSchema(metadata.schema(), &schema));
+  RETURN_NOT_OK(parquet::arrow::FromParquetSchema(
+      metadata.schema(), properties, metadata.key_value_metadata(), &schema));
   return schema;
 }
 
@@ -688,7 +691,7 @@ ParquetDatasetFactory::CollectParquetFragments(
       }
     }
 
-    ARROW_ASSIGN_OR_RAISE(auto physical_schema, GetSchema(metadata));
+    ARROW_ASSIGN_OR_RAISE(auto physical_schema, GetSchema(metadata, properties));
     std::vector<std::shared_ptr<FileFragment>> fragments;
     fragments.reserve(path_to_row_group_infos.size());
     for (auto&& elem : path_to_row_group_infos) {
@@ -711,14 +714,14 @@ ParquetDatasetFactory::CollectParquetFragments(
 Result<std::vector<std::shared_ptr<Schema>>> ParquetDatasetFactory::InspectSchemas(
     InspectOptions options) {
   std::vector<std::shared_ptr<Schema>> schemas;
+  auto properties = MakeArrowReaderProperties(*format_, *metadata_);
 
   // The physical_schema from the _metadata file is always yielded
-  ARROW_ASSIGN_OR_RAISE(auto physical_schema, GetSchema(*metadata_));
+  ARROW_ASSIGN_OR_RAISE(auto physical_schema, GetSchema(*metadata_, properties));
   schemas.push_back(std::move(physical_schema));
 
   if (options_.partitioning.factory() != nullptr) {
     // Gather paths found in RowGroups' ColumnChunks.
-    auto properties = MakeArrowReaderProperties(*format_, *metadata_);
     ARROW_ASSIGN_OR_RAISE(auto paths, CollectPaths(*metadata_, properties));
 
     ARROW_ASSIGN_OR_RAISE(auto partition_schema,

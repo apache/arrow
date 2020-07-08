@@ -1750,6 +1750,7 @@ def _create_parquet_dataset_partitioned(root_path):
         pa.array(np.repeat(['a', 'b'], 10))],
         names=["f1", "f2", "part"]
     )
+    table = table.replace_schema_metadata({"key": "value"})
     pq.write_to_dataset(table, str(root_path), partition_cols=['part'])
     return _create_metadata_file(root_path), table
 
@@ -1772,6 +1773,21 @@ def test_parquet_dataset_factory_partitioned(tempdir):
     result = result.to_pandas().sort_values("f1").reset_index(drop=True)
     expected = table.to_pandas()
     pd.testing.assert_frame_equal(result, expected)
+
+
+@pytest.mark.parquet
+@pytest.mark.pandas
+def test_parquet_dataset_factory_metadata(tempdir):
+    # ensure ParquetDatasetFactory preserves metadata (ARROW-9363)
+    root_path = tempdir / "test_parquet_dataset_factory_metadata"
+    metadata_path, table = _create_parquet_dataset_partitioned(root_path)
+
+    dataset = ds.parquet_dataset(metadata_path, partitioning="hive")
+    assert dataset.schema.equals(table.schema)
+    assert b"key" in dataset.schema.metadata
+
+    fragments = list(dataset.get_fragments())
+    assert b"key" in fragments[0].physical_schema.metadata
 
 
 @pytest.mark.parquet
