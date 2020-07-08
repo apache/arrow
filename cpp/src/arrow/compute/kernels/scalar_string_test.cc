@@ -171,11 +171,22 @@ TYPED_TEST(TestStringKernels, IsDecimalUnicode) {
                    "[true, null, true, false, false, false]");
 }
 
+TYPED_TEST(TestStringKernels, IsDigitUnicode) {
+  // These are digits according to Python, but we don't have the information in
+  // utf8proc for this
+  // this->CheckUnary("string_isdigit_unicode", "[\"²\", \"①\"]", boolean(), "[true,
+  // true]");
+}
+
 TYPED_TEST(TestStringKernels, IsNumericUnicode) {
   // ٣ is arabic 3 (decimal), Ⅳ roman (non-decimal)
   this->CheckUnary("string_isnumeric_unicode",
                    "[\"12\", null, \"٣\", \"Ⅳ\", \"1a\", \"\"]", boolean(),
                    "[true, null, true, true, false, false]");
+  // These are numerical according to Python, but we don't have the information in
+  // utf8proc for this
+  // this->CheckUnary("string_isnumeric_unicode", "[\"㐅\", \"卌\"]", boolean(),
+  //                  "[true, null, true, true, false, false]");
 }
 
 TYPED_TEST(TestStringKernels, IsLowerUnicode) {
