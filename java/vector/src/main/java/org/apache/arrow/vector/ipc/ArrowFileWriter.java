@@ -63,6 +63,12 @@ public class ArrowFileWriter extends ArrowWriter {
     super(root, provider, out, option);
   }
 
+  public ArrowFileWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out,
+                         Map<String, String> metaData, IpcOption option) {
+    super(root, provider, out, option);
+    this.metaData = metaData;
+  }
+
   @Override
   protected void startInternal(WriteChannel out) throws IOException {
     ArrowMagic.writeMagic(out, true);
