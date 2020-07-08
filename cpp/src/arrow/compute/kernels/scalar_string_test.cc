@@ -189,8 +189,11 @@ TYPED_TEST(TestStringKernels, IsNumericUnicode) {
 
 TYPED_TEST(TestStringKernels, IsLowerUnicode) {
   // ٣ is arabic 3 (decimal), Φ capital
-  this->CheckUnary("utf8_islower", "[\"12\", null, \"٣a\", \"٣A\", \"1a\", \"Φ\", \"\"]",
-                   boolean(), "[false, null, true, false, true, false, false]");
+  this->CheckUnary("utf8_islower",
+                   "[\"12\", null, \"٣a\", \"٣A\", \"1a\", \"Φ\", \"\", \"with space\", "
+                   "\"With space\"]",
+                   boolean(),
+                   "[false, null, true, false, true, false, false, true, false]");
   // lower case character utf8proc does not know about
   // this->CheckUnary("utf8_islower", "[\"ª\", \"ₕ\"]", boolean(), "[true,
   // true]");
@@ -244,8 +247,9 @@ TYPED_TEST(TestStringKernels, IsUpperUnicode) {
 #endif  // ARROW_WITH_UTF8PROC
 
 TYPED_TEST(TestStringKernels, IsAlphaNumericAscii) {
-  this->CheckUnary("ascii_isalnum", "[\"ⱭɽⱤoW123\", null, \"Ɑ2\", \"!\", \"\"]",
-                   boolean(), "[false, null, false, false, false]");
+  this->CheckUnary("ascii_isalnum",
+                   "[\"ⱭɽⱤoW123\", null, \"Ɑ2\", \"!\", \"\", \"a space\", \"1 space\"]",
+                   boolean(), "[false, null, false, false, false, false, false]");
   this->CheckUnary("ascii_isalnum", "[\"aRoW123\", null, \"a2\", \"a\", \"2\", \"\"]",
                    boolean(), "[true, null, true, true, true, false]");
 }
