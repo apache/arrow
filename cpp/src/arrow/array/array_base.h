@@ -176,7 +176,7 @@ class ARROW_EXPORT Array {
   Status ValidateFull() const;
 
  protected:
-  Array() : null_bitmap_data_(NULLPTR) {}
+  Array() : data_(NULLPTR), null_bitmap_data_(NULLPTR) {}
 
   std::shared_ptr<ArrayData> data_;
   const uint8_t* null_bitmap_data_;
