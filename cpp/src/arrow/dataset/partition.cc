@@ -663,15 +663,19 @@ class HivePartitioningFactory : public PartitioningFactory {
 
   Result<std::shared_ptr<Partitioning>> Finish(
       const std::shared_ptr<Schema>& schema) const override {
-    for (FieldRef ref : field_names_) {
-      // ensure all of field_names_ are present in schema
-      RETURN_NOT_OK(ref.FindOne(*schema).status());
+    if (dictionaries_.empty()) {
+      return std::make_shared<HivePartitioning>(schema, dictionaries_);
+    } else {
+      for (FieldRef ref : field_names_) {
+        // ensure all of field_names_ are present in schema
+        RETURN_NOT_OK(ref.FindOne(*schema).status());
+      }
+
+      // drop fields which aren't in field_names_
+      auto out_schema = SchemaFromColumnNames(schema, field_names_);
+
+      return std::make_shared<HivePartitioning>(std::move(out_schema), dictionaries_);
     }
-
-    // drop fields which aren't in field_names_
-    auto out_schema = SchemaFromColumnNames(schema, field_names_);
-
-    return std::make_shared<HivePartitioning>(std::move(out_schema), dictionaries_);
   }
 
  private:
