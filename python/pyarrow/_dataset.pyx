@@ -925,7 +925,7 @@ cdef class ParquetFileFragment(FileFragment):
             return None
         return [RowGroupInfo.wrap(row_group) for row_group in c_row_groups]
 
-    def split_by_row_group(self, Expression predicate=None,
+    def split_by_row_group(self, Expression filter=None,
                            Schema schema=None):
         """
         Split the fragment into multiple fragments.
@@ -936,7 +936,7 @@ cdef class ParquetFileFragment(FileFragment):
 
         Parameters
         ----------
-        predicate : Expression, default None
+        filter : Expression, default None
             Exclude RowGroups whose statistics contradicts the predicate.
         schema : Schema, default None
             Schema to use when filtering row groups. Defaults to the
@@ -948,14 +948,14 @@ cdef class ParquetFileFragment(FileFragment):
         """
         cdef:
             vector[shared_ptr[CFragment]] c_fragments
-            shared_ptr[CExpression] c_predicate
+            shared_ptr[CExpression] c_filter
             shared_ptr[CFragment] c_fragment
 
         schema = schema or self.physical_schema
-        c_predicate = _insert_implicit_casts(predicate, schema)
+        c_filter = _insert_implicit_casts(filter, schema)
         with nogil:
             c_fragments = move(GetResultValue(
-                self.parquet_file_fragment.SplitByRowGroup(move(c_predicate))))
+                self.parquet_file_fragment.SplitByRowGroup(move(c_filter))))
 
         return [Fragment.wrap(c_fragment) for c_fragment in c_fragments]
 
