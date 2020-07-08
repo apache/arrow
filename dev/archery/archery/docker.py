@@ -271,6 +271,8 @@ class DockerCompose(Command):
                    .format(image))
             raise RuntimeError(msg) from None
         else:
+            for ancestor in self.nodes[image]:
+                self._execute_compose('push', ancestor)
             self._execute_compose('push', image)
 
     def images(self):
