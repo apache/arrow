@@ -28,18 +28,17 @@ use crate::execution::physical_plan::{
 
 use arrow::array::{
     ArrayRef, Float32Array, Float64Array, Int16Array, Int32Array, Int64Array, Int8Array,
-    StringArray, UInt16Array, UInt32Array, UInt64Array, UInt8Array,
+    UInt16Array, UInt32Array, UInt64Array, UInt8Array,
 };
-use arrow::array::{
-    Float32Builder, Float64Builder, Int16Builder, Int32Builder, Int64Builder,
-    Int8Builder, StringBuilder, UInt16Builder, UInt32Builder, UInt64Builder,
-    UInt8Builder,
-};
+use arrow::array::{Float32Builder, Float64Builder, Int64Builder, UInt64Builder};
 use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
 use arrow::error::Result as ArrowResult;
 use arrow::record_batch::{RecordBatch, RecordBatchReader};
 
 use crate::execution::physical_plan::expressions::col;
+use crate::execution::physical_plan::hash::{
+    create_key, create_key_array, AccumulatorSet, KeyScalar,
+};
 use crate::logicalplan::ScalarValue;
 use fnv::FnvHashMap;
 
@@ -164,28 +163,6 @@ impl Partition for HashAggregatePartition {
     }
 }
 
-/// Create array from `key` attribute in map entry (representing a grouping scalar value)
-macro_rules! group_array_from_map_entries {
-    ($BUILDER:ident, $TY:ident, $MAP:expr, $COL_INDEX:expr) => {{
-        let mut builder = $BUILDER::new($MAP.len());
-        let mut err = false;
-        for k in $MAP.keys() {
-            match k[$COL_INDEX] {
-                GroupByScalar::$TY(n) => builder.append_value(n).unwrap(),
-                _ => err = true,
-            }
-        }
-        if err {
-            Err(ExecutionError::ExecutionError(
-                "unexpected type when creating grouping array from aggregate map"
-                    .to_string(),
-            ))
-        } else {
-            Ok(Arc::new(builder.finish()) as ArrayRef)
-        }
-    }};
-}
-
 /// Create array from `value` attribute in map entry (representing an aggregate scalar
 /// value)
 macro_rules! aggr_array_from_map_entries {
@@ -238,7 +215,7 @@ macro_rules! aggr_array_from_accumulator {
 
 #[derive(Debug)]
 struct MapEntry {
-    k: Vec<GroupByScalar>,
+    k: Vec<KeyScalar>,
     v: Vec<Option<ScalarValue>>,
 }
 
@@ -267,8 +244,6 @@ impl GroupedHashAggregateIterator {
         }
     }
 }
-
-type AccumulatorSet = Vec<Rc<RefCell<dyn Accumulator>>>;
 
 macro_rules! update_accumulators {
     ($ARRAY:ident, $ARRAY_TY:ident, $SCALAR_TY:expr, $COL:expr, $ACCUM:expr) => {{
@@ -299,7 +274,7 @@ impl RecordBatchReader for GroupedHashAggregateIterator {
         self.finished = true;
 
         // create map to store accumulators for each unique grouping key
-        let mut map: FnvHashMap<Vec<GroupByScalar>, Rc<AccumulatorSet>> =
+        let mut map: FnvHashMap<Vec<KeyScalar>, Rc<AccumulatorSet>> =
             FnvHashMap::default();
 
         // iterate over all input batches and update the accumulators
@@ -330,7 +305,7 @@ impl RecordBatchReader for GroupedHashAggregateIterator {
             // create vector large enough to hold the grouping key
             let mut key = Vec::with_capacity(group_values.len());
             for _ in 0..group_values.len() {
-                key.push(GroupByScalar::UInt32(0));
+                key.push(KeyScalar::UInt32(0));
             }
 
             // iterate over each row in the batch and create the accumulators for each grouping key
@@ -339,8 +314,11 @@ impl RecordBatchReader for GroupedHashAggregateIterator {
 
             for row in 0..batch.num_rows() {
                 // create grouping key for this row
-                create_key(&group_values, row, &mut key)
-                    .map_err(ExecutionError::into_arrow_external_error)?;
+                for i in 0..group_values.len() {
+                    let col = &group_values[i];
+                    key[i] = create_key(col, row)
+                        .map_err(ExecutionError::into_arrow_external_error)?;
+                }
 
                 if let Some(accumulator_set) = map.get(&key) {
                     accumulators.push(accumulator_set.clone());
@@ -452,54 +430,12 @@ impl RecordBatchReader for GroupedHashAggregateIterator {
 
         // grouping values
         for i in 0..self.group_expr.len() {
-            let array: Result<ArrayRef> = match self.group_expr[i]
+            let data_type = self.group_expr[i]
                 .data_type(&input_schema)
-                .map_err(ExecutionError::into_arrow_external_error)?
-            {
-                DataType::UInt8 => {
-                    group_array_from_map_entries!(UInt8Builder, UInt8, map, i)
-                }
-                DataType::UInt16 => {
-                    group_array_from_map_entries!(UInt16Builder, UInt16, map, i)
-                }
-                DataType::UInt32 => {
-                    group_array_from_map_entries!(UInt32Builder, UInt32, map, i)
-                }
-                DataType::UInt64 => {
-                    group_array_from_map_entries!(UInt64Builder, UInt64, map, i)
-                }
-                DataType::Int8 => {
-                    group_array_from_map_entries!(Int8Builder, Int8, map, i)
-                }
-                DataType::Int16 => {
-                    group_array_from_map_entries!(Int16Builder, Int16, map, i)
-                }
-                DataType::Int32 => {
-                    group_array_from_map_entries!(Int32Builder, Int32, map, i)
-                }
-                DataType::Int64 => {
-                    group_array_from_map_entries!(Int64Builder, Int64, map, i)
-                }
-                DataType::Utf8 => {
-                    let mut builder = StringBuilder::new(1);
-                    for k in map.keys() {
-                        match &k[i] {
-                            GroupByScalar::Utf8(s) => builder.append_value(&s).unwrap(),
-                            _ => {
-                                return Err(ExecutionError::ExecutionError(
-                                    "Unexpected value for Utf8 group column".to_string(),
-                                )
-                                .into_arrow_external_error())
-                            }
-                        }
-                    }
-                    Ok(Arc::new(builder.finish()) as ArrayRef)
-                }
-                _ => Err(ExecutionError::ExecutionError(
-                    "Unsupported group by expr".to_string(),
-                )),
-            };
-            result_arrays.push(array.map_err(ExecutionError::into_arrow_external_error)?);
+                .map_err(ExecutionError::into_arrow_external_error)?;
+            let array = create_key_array(i, data_type, &map)
+                .map_err(ExecutionError::into_arrow_external_error)?;
+            result_arrays.push(array);
 
             // aggregate values
             for i in 0..self.aggr_expr.len() {
@@ -675,76 +611,6 @@ impl RecordBatchReader for HashAggregateIterator {
         let batch = RecordBatch::try_new(self.schema.clone(), result_arrays)?;
         Ok(Some(batch))
     }
-}
-
-/// Enumeration of types that can be used in a GROUP BY expression (all primitives except
-/// for floating point numerics)
-#[derive(Debug, PartialEq, Eq, Hash, Clone)]
-enum GroupByScalar {
-    UInt8(u8),
-    UInt16(u16),
-    UInt32(u32),
-    UInt64(u64),
-    Int8(i8),
-    Int16(i16),
-    Int32(i32),
-    Int64(i64),
-    Utf8(String),
-}
-
-/// Create a Vec<GroupByScalar> that can be used as a map key
-fn create_key(
-    group_by_keys: &[ArrayRef],
-    row: usize,
-    vec: &mut Vec<GroupByScalar>,
-) -> Result<()> {
-    for i in 0..group_by_keys.len() {
-        let col = &group_by_keys[i];
-        match col.data_type() {
-            DataType::UInt8 => {
-                let array = col.as_any().downcast_ref::<UInt8Array>().unwrap();
-                vec[i] = GroupByScalar::UInt8(array.value(row))
-            }
-            DataType::UInt16 => {
-                let array = col.as_any().downcast_ref::<UInt16Array>().unwrap();
-                vec[i] = GroupByScalar::UInt16(array.value(row))
-            }
-            DataType::UInt32 => {
-                let array = col.as_any().downcast_ref::<UInt32Array>().unwrap();
-                vec[i] = GroupByScalar::UInt32(array.value(row))
-            }
-            DataType::UInt64 => {
-                let array = col.as_any().downcast_ref::<UInt64Array>().unwrap();
-                vec[i] = GroupByScalar::UInt64(array.value(row))
-            }
-            DataType::Int8 => {
-                let array = col.as_any().downcast_ref::<Int8Array>().unwrap();
-                vec[i] = GroupByScalar::Int8(array.value(row))
-            }
-            DataType::Int16 => {
-                let array = col.as_any().downcast_ref::<Int16Array>().unwrap();
-                vec[i] = GroupByScalar::Int16(array.value(row))
-            }
-            DataType::Int32 => {
-                let array = col.as_any().downcast_ref::<Int32Array>().unwrap();
-                vec[i] = GroupByScalar::Int32(array.value(row))
-            }
-            DataType::Int64 => {
-                let array = col.as_any().downcast_ref::<Int64Array>().unwrap();
-                vec[i] = GroupByScalar::Int64(array.value(row))
-            }
-            DataType::Utf8 => {
-                let array = col.as_any().downcast_ref::<StringArray>().unwrap();
-                vec[i] = GroupByScalar::Utf8(String::from(array.value(row)))
-            }
-            _ => {
-                return Err(ExecutionError::ExecutionError(
-                    "Unsupported GROUP BY data type".to_string(),
-                ))
-            }
-        }
-    }
-    Ok(())
 }
 
 #[cfg(test)]

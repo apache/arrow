@@ -80,6 +80,7 @@ pub mod common;
 pub mod csv;
 pub mod datasource;
 pub mod expressions;
+pub mod hash;
 pub mod hash_aggregate;
 pub mod limit;
 pub mod math_expressions;
