@@ -696,7 +696,6 @@ struct IsDigitUnicode
     return IsDigitCharacterUnicode(codepoint);
   }
 };
-#endif
 
 template <typename StringType>
 struct IsNumericUnicode
@@ -705,6 +704,7 @@ struct IsNumericUnicode
     return IsNumericCharacterUnicode(codepoint);
   }
 };
+#endif
 
 template <typename StringType>
 struct IsAscii : BinaryToBoolean<StringType, IsAscii<StringType>> {
@@ -953,6 +953,8 @@ void MakeUnaryStringUTF8TransformKernel(std::string name, FunctionRegistry* regi
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
+#endif
+
 template <template <typename> class Transformer>
 void AddUnaryString(std::string name, FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>(name, Arity::Unary());
@@ -962,8 +964,6 @@ void AddUnaryString(std::string name, FunctionRegistry* registry) {
   DCHECK_OK(func->AddKernel({large_utf8()}, boolean(), exec_64));
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
-
-#endif
 
 }  // namespace
 
