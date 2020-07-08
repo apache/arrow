@@ -832,13 +832,13 @@ def test_fragments_parquet_row_groups_predicate(tempdir):
 
     # filter matches partition_expression: all row groups
     row_group_fragments = list(
-        fragment.split_by_row_group(ds.field('part') == 'a',
+        fragment.split_by_row_group(filter=ds.field('part') == 'a',
                                     schema=dataset.schema))
     assert len(row_group_fragments) == 2
 
     # filter contradicts partition_expression: no row groups
     row_group_fragments = list(
-        fragment.split_by_row_group(ds.field('part') == 'b',
+        fragment.split_by_row_group(filter=ds.field('part') == 'b',
                                     schema=dataset.schema))
     assert len(row_group_fragments) == 0
 
