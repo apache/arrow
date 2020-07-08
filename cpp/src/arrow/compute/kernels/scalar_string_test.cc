@@ -183,6 +183,9 @@ TYPED_TEST(TestStringKernels, IsLowerUnicode) {
   this->CheckUnary("string_islower_unicode",
                    "[\"12\", null, \"٣a\", \"٣A\", \"1a\", \"Φ\", \"\"]", boolean(),
                    "[false, null, true, false, true, false, false]");
+  // lower case character utf8proc does not know about
+  // this->CheckUnary("string_islower_unicode", "[\"ª\", \"ₕ\"]", boolean(), "[true,
+  // true]");
 }
 
 TYPED_TEST(TestStringKernels, IsPrintableUnicode) {
@@ -216,11 +219,20 @@ TYPED_TEST(TestStringKernels, IsTitleUnicode) {
 
 TYPED_TEST(TestStringKernels, IsUpperUnicode) {
   // ٣ is arabic 3 (decimal), Φ capital
-  // Ⅰ to Ⅿ is a special case (roman capital), as well as Ⓐ to Ⓩ
-  this->CheckUnary(
-      "string_isupper_unicode",
-      "[\"12\", null, \"٣a\", \"٣A\", \"1A\", \"Φ\", \"\", \"Ⅰ\", \"Ⅿ\", \"Ⓐ\", \"Ⓩ\"]",
-      boolean(), "[false, null, false, true, true, true, false, true, true, true, true]");
+  this->CheckUnary("string_isupper_unicode",
+                   "[\"12\", null, \"٣a\", \"٣A\", \"1A\", \"Φ\", \"\", \"Ⅰ\", \"Ⅿ\"]",
+                   boolean(),
+                   "[false, null, false, true, true, true, false, true, true]");
+  // * Ⅰ to Ⅿ is a special case (roman capital), as well as Ⓐ to Ⓩ
+  // * ϒ - \xCF\x92 - Greek Upsilon with Hook Symbol - upper case, but has no direct lower
+  // case
+  // * U+1F88 - ᾈ - \E1\xBE\x88 - Greek Capital Letter Alpha with Psili and Prosgegrammeni
+  // - title case
+  // * U+A7BA - Ꞻ - \xEA\x9E\xBA - Latin Capital Letter Glottal A -  new in unicode 13
+  // * U+A7BB - ꞻ - \xEA\x9E\xBB - Latin Small Letter Glottal A - new in unicode 13
+  this->CheckUnary("string_isupper_unicode",
+                   "[\"Ⓐ\", \"Ⓩ\", \"ϒ\", \"ᾈ\", \"Ꞻ\", \"ꞻ\"]", boolean(),
+                   "[true, true, true, false, true, false]");
 }
 
 #endif  // ARROW_WITH_UTF8PROC

@@ -485,34 +485,30 @@ static inline bool HasAnyUnicodeGeneralCategory(uint32_t codepoint,
                                       categories...);
 }
 
-static inline bool IsUpperCaseCharacterRoman(uint32_t codepoint) {
-  // Roman letter Ⅰ to Ⅿ are seen as capital (see 4.2 of Unicode spec)
-  // DerivedCoreProperties.txt should have this information, but it is not stored in
-  // the utf8proc library.
-  return (codepoint >= 0x2160) && (codepoint <= 0x216f);
-}
-
-static inline bool IsUpperCaseCharacterCircled(uint32_t codepoint) {
-  // Circled letters Ⓐ-Ⓩ are seen as capital (see 4.2 of Unicode spec)
-  // DerivedCoreProperties.txt should have this information, but it is not stored in
-  // the utf8proc library.
-  return (codepoint >= 0x24b6) && (codepoint <= 0x24cf);
-}
-
 static inline bool IsCasedCharacterUnicode(uint32_t codepoint) {
   return HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_LU,
                                       UTF8PROC_CATEGORY_LL, UTF8PROC_CATEGORY_LT) ||
-         IsUpperCaseCharacterRoman(codepoint) || IsUpperCaseCharacterCircled(codepoint);
-  ;
+         ((static_cast<uint32_t>(utf8proc_toupper(codepoint)) != codepoint) ||
+          (static_cast<uint32_t>(utf8proc_tolower(codepoint)) != codepoint));
 }
 
 static inline bool IsLowerCaseCharacterUnicode(uint32_t codepoint) {
-  return HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_LL);
+  // although this trick seems to work for upper case, this is not enough for lower case
+  // testing, see https://github.com/JuliaStrings/utf8proc/issues/195 . But currently the
+  // best we can do
+  return (HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_LL) ||
+          ((static_cast<uint32_t>(utf8proc_toupper(codepoint)) != codepoint) &&
+           (static_cast<uint32_t>(utf8proc_tolower(codepoint)) == codepoint))) &&
+         !HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_LT);
 }
 
 static inline bool IsUpperCaseCharacterUnicode(uint32_t codepoint) {
-  return HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_LU) ||
-         IsUpperCaseCharacterRoman(codepoint) || IsUpperCaseCharacterCircled(codepoint);
+  // this seems to be a good workaround for utf8proc not having case information
+  // https://github.com/JuliaStrings/utf8proc/issues/195
+  return (HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_LU) ||
+          ((static_cast<uint32_t>(utf8proc_toupper(codepoint)) == codepoint) &&
+           (static_cast<uint32_t>(utf8proc_tolower(codepoint)) != codepoint))) &&
+         !HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_LT);
 }
 
 static inline bool IsAlphaCharacterUnicode(uint32_t codepoint) {
