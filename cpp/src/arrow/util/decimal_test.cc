@@ -19,6 +19,7 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include <ostream>
 #include <sstream>
 #include <string>
 #include <tuple>
@@ -370,6 +371,13 @@ struct FromRealTestParam {
   int32_t precision;
   int32_t scale;
   std::string expected;
+
+  // Weird, but we need to define this to avoid Valgrind issues
+  // with the default GTest print routine.
+  friend std::ostream& operator<<(std::ostream& os,
+                                  const FromRealTestParam<Real>& param) {
+    return os << "<real: " << param.real << ">";
+  }
 };
 
 using FromFloatTestParam = FromRealTestParam<float>;

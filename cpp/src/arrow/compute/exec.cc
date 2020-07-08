@@ -498,13 +498,6 @@ class FunctionExecutorImpl : public FunctionExecutor {
 
     if (validity_preallocated_) {
       ARROW_ASSIGN_OR_RAISE(out->buffers[0], kernel_ctx_.AllocateBitmap(length));
-#ifdef ARROW_VALGRIND
-      // ARROW-8976: When writing kernel results chunkwise into larger
-      // preallocations, if the exec_chunksize is not a multiple of 8, then
-      // functions in NullPropagator will access bits that have not yet been
-      // intialized, triggering benign valgrind warnings.
-      internal::ZeroMemory(out->buffers[0].get());
-#endif
     }
     if (data_preallocated_) {
       const auto& fw_type = checked_cast<const FixedWidthType&>(*out->type);
