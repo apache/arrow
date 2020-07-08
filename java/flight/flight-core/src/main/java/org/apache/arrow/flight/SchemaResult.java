@@ -25,6 +25,7 @@ import java.nio.channels.Channels;
 import org.apache.arrow.flight.impl.Flight;
 import org.apache.arrow.vector.ipc.ReadChannel;
 import org.apache.arrow.vector.ipc.WriteChannel;
+import org.apache.arrow.vector.ipc.message.IpcOption;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
 import org.apache.arrow.vector.types.pojo.Schema;
 
@@ -40,11 +41,16 @@ import com.google.protobuf.ByteString;
 public class SchemaResult {
 
   private final Schema schema;
+  private final IpcOption option;
 
   public SchemaResult(Schema schema) {
-    this.schema = schema;
+    this(schema, new IpcOption());
   }
 
+  public SchemaResult(Schema schema, IpcOption option) {
+    this.schema = schema;
+    this.option = option;
+  }
 
   public Schema getSchema() {
     return schema;
@@ -57,7 +63,7 @@ public class SchemaResult {
     // Encode schema in a Message payload
     ByteArrayOutputStream baos = new ByteArrayOutputStream();
     try {
-      MessageSerializer.serialize(new WriteChannel(Channels.newChannel(baos)), schema);
+      MessageSerializer.serialize(new WriteChannel(Channels.newChannel(baos)), schema, option);
     } catch (IOException e) {
       throw new RuntimeException(e);
     }

@@ -201,9 +201,24 @@ public class FlightClient implements AutoCloseable {
    */
   public ClientStreamListener startPut(FlightDescriptor descriptor, VectorSchemaRoot root, DictionaryProvider provider,
       PutListener metadataListener, CallOption... options) {
-    Preconditions.checkNotNull(descriptor, "descriptor must not be null");
     Preconditions.checkNotNull(root, "root must not be null");
     Preconditions.checkNotNull(provider, "provider must not be null");
+    final ClientStreamListener writer = startPut(descriptor, metadataListener, options);
+    writer.start(root, provider);
+    return writer;
+  }
+
+  /**
+   * Create or append a descriptor with another stream.
+   * @param descriptor FlightDescriptor the descriptor for the data
+   * @param metadataListener A handler for metadata messages from the server.
+   * @param options RPC-layer hints for this call.
+   * @return ClientStreamListener an interface to control uploading data.
+   *     {@link ClientStreamListener#start(VectorSchemaRoot, DictionaryProvider)} will NOT already have been called.
+   */
+  public ClientStreamListener startPut(FlightDescriptor descriptor, PutListener metadataListener,
+                                       CallOption... options) {
+    Preconditions.checkNotNull(descriptor, "descriptor must not be null");
     Preconditions.checkNotNull(metadataListener, "metadataListener must not be null");
     final io.grpc.CallOptions callOptions = CallOptions.wrapStub(asyncStub, options).getCallOptions();
 
@@ -212,11 +227,8 @@ public class FlightClient implements AutoCloseable {
       ClientCallStreamObserver<ArrowMessage> observer = (ClientCallStreamObserver<ArrowMessage>)
           ClientCalls.asyncBidiStreamingCall(
               interceptedChannel.newCall(doPutDescriptor, callOptions), resultObserver);
-      final ClientStreamListener writer = new PutObserver(
+      return new PutObserver(
           descriptor, observer, metadataListener::isCancelled, metadataListener::getResult);
-      // Send the schema to start.
-      writer.start(root, provider);
-      return writer;
     } catch (StatusRuntimeException sre) {
       throw StatusUtils.fromGrpcRuntimeException(sre);
     }

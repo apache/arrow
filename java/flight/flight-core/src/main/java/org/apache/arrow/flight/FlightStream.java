@@ -38,6 +38,7 @@ import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.ipc.message.ArrowDictionaryBatch;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
+import org.apache.arrow.vector.types.MetadataVersion;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.DictionaryUtility;
@@ -72,6 +73,8 @@ public class FlightStream implements AutoCloseable {
   private volatile VectorLoader loader;
   private volatile Throwable ex;
   private volatile ArrowBuf applicationMetadata = null;
+  // Visible for testing only.
+  volatile MetadataVersion metadataVersion = null;
 
   /**
    * Constructs a new instance.
@@ -212,6 +215,7 @@ public class FlightStream implements AutoCloseable {
               fulfilledRoot.clear();
             }
           } else if (msg.getMessageType() == HeaderType.RECORD_BATCH) {
+            checkMetadataVersion(msg);
             // Ensure we have the root
             root.get().clear();
             try (ArrowRecordBatch arb = msg.asRecordBatch()) {
@@ -219,6 +223,7 @@ public class FlightStream implements AutoCloseable {
             }
             updateMetadata(msg);
           } else if (msg.getMessageType() == HeaderType.DICTIONARY_BATCH) {
+            checkMetadataVersion(msg);
             // Ensure we have the root
             root.get().clear();
             try (ArrowDictionaryBatch arb = msg.asDictionaryBatch()) {
@@ -253,7 +258,7 @@ public class FlightStream implements AutoCloseable {
     }
   }
 
-  /** Update our metdata reference with a new one from this message. */
+  /** Update our metadata reference with a new one from this message. */
   private void updateMetadata(ArrowMessage msg) {
     if (this.applicationMetadata != null) {
       this.applicationMetadata.close();
@@ -261,6 +266,18 @@ public class FlightStream implements AutoCloseable {
     this.applicationMetadata = msg.getApplicationMetadata();
     if (this.applicationMetadata != null) {
       this.applicationMetadata.getReferenceManager().retain();
+    }
+  }
+
+  /** Ensure the Arrow metadata version doesn't change mid-stream. */
+  private void checkMetadataVersion(ArrowMessage msg) {
+    if (msg.asSchemaMessage() == null) {
+      return;
+    }
+    MetadataVersion receivedVersion = MetadataVersion.fromFlatbufID(msg.asSchemaMessage().getMessage().version());
+    if (this.metadataVersion != receivedVersion) {
+      throw new IllegalStateException("Metadata version mismatch: stream started as " +
+          this.metadataVersion + " but got message with version " + receivedVersion);
     }
   }
 
@@ -349,6 +366,7 @@ public class FlightStream implements AutoCloseable {
             descriptor.set(new FlightDescriptor(msg.getDescriptor()));
           }
           root.set(fulfilledRoot);
+          metadataVersion = MetadataVersion.fromFlatbufID(msg.asSchemaMessage().getMessage().version());
 
           break;
         }

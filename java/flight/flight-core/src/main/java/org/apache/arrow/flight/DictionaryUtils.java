@@ -25,6 +25,7 @@ import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
+import org.apache.arrow.flight.impl.Flight;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
@@ -32,6 +33,7 @@ import org.apache.arrow.vector.VectorUnloader;
 import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.ipc.message.ArrowDictionaryBatch;
+import org.apache.arrow.vector.ipc.message.IpcOption;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.DictionaryUtility;
@@ -51,11 +53,13 @@ final class DictionaryUtils {
    * @throws Exception if there was an error closing {@link ArrowMessage} objects. This is not generally expected.
    */
   static Schema generateSchemaMessages(final Schema originalSchema, final FlightDescriptor descriptor,
-      final DictionaryProvider provider, final Consumer<ArrowMessage> messageCallback) throws Exception {
+                                       final DictionaryProvider provider, final IpcOption option,
+                                       final Consumer<ArrowMessage> messageCallback) throws Exception {
     final Set<Long> dictionaryIds = new HashSet<>();
     final Schema schema = generateSchema(originalSchema, provider, dictionaryIds);
     // Send the schema message
-    try (final ArrowMessage message = new ArrowMessage(descriptor == null ? null : descriptor.toProtocol(), schema)) {
+    final Flight.FlightDescriptor protoDescriptor = descriptor == null ? null : descriptor.toProtocol();
+    try (final ArrowMessage message = new ArrowMessage(protoDescriptor, schema, option)) {
       messageCallback.accept(message);
     }
     // Create and write dictionary batches
@@ -71,7 +75,7 @@ final class DictionaryUtils {
       final VectorUnloader unloader = new VectorUnloader(dictRoot);
       try (final ArrowDictionaryBatch dictionaryBatch = new ArrowDictionaryBatch(
           id, unloader.getRecordBatch());
-          final ArrowMessage message = new ArrowMessage(dictionaryBatch)) {
+          final ArrowMessage message = new ArrowMessage(dictionaryBatch, option)) {
         messageCallback.accept(message);
       }
     }
