@@ -635,6 +635,7 @@ struct CharacterPredicateAscii
   }
 };
 
+#ifdef ARROW_WITH_UTF8PROC
 template <typename StringType>
 struct IsAlphaNumericUnicode
     : CharacterPredicateUnicode<StringType, IsAlphaNumericUnicode<StringType>> {
@@ -643,6 +644,7 @@ struct IsAlphaNumericUnicode
            IsNumericCharacterUnicode(codepoint) || IsDigitCharacterUnicode(codepoint);
   }
 };
+#endif
 
 template <typename StringType>
 struct IsAlphaNumericAscii
@@ -652,6 +654,7 @@ struct IsAlphaNumericAscii
   }
 };
 
+#ifdef ARROW_WITH_UTF8PROC
 template <typename StringType>
 struct IsAlphaUnicode
     : CharacterPredicateUnicode<StringType, IsAlphaUnicode<StringType>> {
@@ -659,6 +662,7 @@ struct IsAlphaUnicode
     return IsAlphaCharacterUnicode(codepoint);
   }
 };
+#endif
 
 template <typename StringType>
 struct IsAlphaAscii : CharacterPredicateAscii<StringType, IsAlphaAscii<StringType>> {
@@ -667,6 +671,7 @@ struct IsAlphaAscii : CharacterPredicateAscii<StringType, IsAlphaAscii<StringTyp
   }
 };
 
+#ifdef ARROW_WITH_UTF8PROC
 template <typename StringType>
 struct IsDecimalUnicode
     : CharacterPredicateUnicode<StringType, IsDecimalUnicode<StringType>> {
@@ -674,6 +679,7 @@ struct IsDecimalUnicode
     return IsDecimalCharacterUnicode(codepoint);
   }
 };
+#endif
 
 template <typename StringType>
 struct IsDecimalAscii : CharacterPredicateAscii<StringType, IsDecimalAscii<StringType>> {
@@ -682,6 +688,7 @@ struct IsDecimalAscii : CharacterPredicateAscii<StringType, IsDecimalAscii<Strin
   }
 };
 
+#ifdef ARROW_WITH_UTF8PROC
 template <typename StringType>
 struct IsDigitUnicode
     : CharacterPredicateUnicode<StringType, IsDigitUnicode<StringType>> {
@@ -689,6 +696,7 @@ struct IsDigitUnicode
     return IsDigitCharacterUnicode(codepoint);
   }
 };
+#endif
 
 template <typename StringType>
 struct IsNumericUnicode
@@ -708,6 +716,7 @@ struct IsAscii : BinaryToBoolean<StringType, IsAscii<StringType>> {
   }
 };
 
+#ifdef ARROW_WITH_UTF8PROC
 template <typename StringType>
 struct IsLowerUnicode
     : CharacterPredicateUnicode<StringType, IsLowerUnicode<StringType>> {
@@ -719,6 +728,7 @@ struct IsLowerUnicode
     return IsCasedCharacterUnicode(codepoint);  // at least 1 cased character
   }
 };
+#endif
 
 template <typename StringType>
 struct IsLowerAscii : CharacterPredicateAscii<StringType, IsLowerAscii<StringType>> {
@@ -732,6 +742,7 @@ struct IsLowerAscii : CharacterPredicateAscii<StringType, IsLowerAscii<StringTyp
   }
 };
 
+#ifdef ARROW_WITH_UTF8PROC
 template <typename StringType>
 struct IsPrintableUnicode
     : CharacterPredicateUnicode<StringType, IsPrintableUnicode<StringType>,
@@ -740,6 +751,7 @@ struct IsPrintableUnicode
     return codepoint == ' ' || IsPrintableCharacterUnicode(codepoint);
   }
 };
+#endif
 
 template <typename StringType>
 struct IsPrintableAscii
@@ -750,6 +762,7 @@ struct IsPrintableAscii
   }
 };
 
+#ifdef ARROW_WITH_UTF8PROC
 template <typename StringType>
 struct IsSpaceUnicode
     : CharacterPredicateUnicode<StringType, IsSpaceUnicode<StringType>> {
@@ -757,6 +770,7 @@ struct IsSpaceUnicode
     return IsSpaceCharacterUnicode(codepoint);
   }
 };
+#endif
 
 template <typename StringType>
 struct IsSpaceAscii : CharacterPredicateAscii<StringType, IsSpaceAscii<StringType>> {
@@ -765,6 +779,7 @@ struct IsSpaceAscii : CharacterPredicateAscii<StringType, IsSpaceAscii<StringTyp
   }
 };
 
+#ifdef ARROW_WITH_UTF8PROC
 template <typename StringType>
 struct IsTitleUnicode : BinaryToBoolean<StringType, IsTitleUnicode<StringType>> {
   using offset_type = typename StringType::offset_type;
@@ -802,6 +817,7 @@ struct IsTitleUnicode : BinaryToBoolean<StringType, IsTitleUnicode<StringType>> 
     return rules_1_and_2 & rule_3;
   }
 };
+#endif
 
 template <typename StringType>
 struct IsTitleAscii : BinaryToBoolean<StringType, IsTitleAscii<StringType>> {
@@ -843,6 +859,7 @@ struct IsTitleAscii : BinaryToBoolean<StringType, IsTitleAscii<StringType>> {
   }
 };
 
+#ifdef ARROW_WITH_UTF8PROC
 template <typename StringType>
 struct IsUpperUnicode
     : CharacterPredicateUnicode<StringType, IsUpperUnicode<StringType>> {
@@ -854,6 +871,7 @@ struct IsUpperUnicode
     return IsCasedCharacterUnicode(codepoint);  // at least 1 cased character
   }
 };
+#endif
 
 template <typename StringType>
 struct IsUpperAscii : CharacterPredicateAscii<StringType, IsUpperAscii<StringType>> {
