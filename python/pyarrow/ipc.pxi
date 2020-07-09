@@ -18,6 +18,32 @@
 import warnings
 
 
+cpdef enum MetadataVersion:
+    V1 = <char> CMetadataVersion_V1
+    V2 = <char> CMetadataVersion_V2
+    V3 = <char> CMetadataVersion_V3
+    V4 = <char> CMetadataVersion_V4
+    V5 = <char> CMetadataVersion_V5
+
+
+cdef object _wrap_metadata_version(CMetadataVersion version):
+    return MetadataVersion(<char> version)
+
+
+cdef CMetadataVersion _unwrap_metadata_version(
+        MetadataVersion version) except *:
+    if version == MetadataVersion.V1:
+        return CMetadataVersion_V1
+    elif version == MetadataVersion.V2:
+        return CMetadataVersion_V2
+    elif version == MetadataVersion.V3:
+        return CMetadataVersion_V3
+    elif version == MetadataVersion.V4:
+        return CMetadataVersion_V4
+    elif version == MetadataVersion.V5:
+        return CMetadataVersion_V5
+
+
 cdef class Message:
     """
     Container for an Arrow IPC message with metadata and optional body
@@ -38,6 +64,10 @@ cdef class Message:
     @property
     def metadata(self):
         return pyarrow_wrap_buffer(self.message.get().metadata())
+
+    @property
+    def metadata_version(self):
+        return _wrap_metadata_version(self.message.get().metadata_version())
 
     @property
     def body(self):

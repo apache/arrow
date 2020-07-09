@@ -36,7 +36,9 @@ enum MetadataVersion:short {
   /// metadata and IPC messages). Implementations are recommended to provide a
   /// V4 compatibility mode with V5 format changes disabled.
   ///
-  /// TODO: Add list of non-forward compatible changes.
+  /// Incompatible changes between V4 and V5:
+  /// - Union buffer layout has changed. In V5, Unions don't have a validity
+  ///   bitmap buffer.
   V5,
 }
 
