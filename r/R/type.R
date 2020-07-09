@@ -214,9 +214,8 @@ NestedType <- R6Class("NestedType", inherit = DataType)
 #' either "s" or "ms", while `time64()` can be "us" or "ns". `timestamp()` can
 #' take any of those four values.
 #' @param timezone For `timestamp()`, an optional time zone string.
-#' @param byte_width For `binary()`, an optional integer width to create a
-#' `FixedSizeBinary` type. The default `NULL` results in a `BinaryType` with
-#' variable width.
+#' @param byte_width byte width for `FixedSizeBinary` type.
+#' @param list_size list size for `FixedSizeList` type.
 #' @param precision For `decimal()`, precision
 #' @param scale For `decimal()`, scale
 #' @param type For `list_of()`, a data type to make a list-of-type
@@ -419,7 +418,14 @@ as_type <- function(type, name = "type") {
 
 
 # vctrs support -----------------------------------------------------------
+str_dup <- function(x, times) {
+  paste0(rep(x, times = times), collapse = "")
+}
 
+indent <- function(x, n) {
+  pad <- str_dup(" ", n)
+  sapply(x, gsub, pattern = "(\n+)", replacement = paste0("\\1", pad))
+}
 
 #' @importFrom vctrs vec_ptype_full vec_ptype_abbr obj_str_footer
 #' @method vec_ptype_full arrow_binary_vctr

@@ -144,6 +144,25 @@ Status SomeNull_Ingest(SEXP data, R_xlen_t start, R_xlen_t n,
   return Status::OK();
 }
 
+template <typename Lambda>
+Status IngestSome(const std::shared_ptr<arrow::Array>& array, R_xlen_t n, Lambda lambda) {
+  if (array->null_count()) {
+    internal::BitmapReader bitmap_reader(array->null_bitmap()->data(), array->offset(),
+                                         n);
+
+    for (R_xlen_t i = 0; i < n; i++, bitmap_reader.Next()) {
+      if (bitmap_reader.IsSet()) RETURN_NOT_OK(lambda(i));
+    }
+
+  } else {
+    for (R_xlen_t i = 0; i < n; i++) {
+      RETURN_NOT_OK(lambda(i));
+    }
+  }
+
+  return Status::OK();
+}
+
 // Allocate + Ingest
 SEXP ArrayVector__as_vector(R_xlen_t n, const std::shared_ptr<DataType>& type,
                             const ArrayVector& arrays) {
@@ -293,25 +312,6 @@ class Converter_Boolean : public Converter {
     return Status::OK();
   }
 };
-
-template <typename Lambda>
-Status IngestSome(const std::shared_ptr<arrow::Array>& array, R_xlen_t n, Lambda lambda) {
-  if (array->null_count()) {
-    internal::BitmapReader bitmap_reader(array->null_bitmap()->data(), array->offset(),
-                                         n);
-
-    for (R_xlen_t i = 0; i < n; i++, bitmap_reader.Next()) {
-      if (bitmap_reader.IsSet()) RETURN_NOT_OK(lambda(i));
-    }
-
-  } else {
-    for (R_xlen_t i = 0; i < n; i++) {
-      RETURN_NOT_OK(lambda(i));
-    }
-  }
-
-  return Status::OK();
-}
 
 template <typename ArrayType>
 class Converter_Binary : public Converter {
@@ -805,23 +805,61 @@ class Converter_List : public Converter {
     auto ingest_one = [&](R_xlen_t i) {
       auto slice = list_array->value_slice(i);
       SET_VECTOR_ELT(data, i + start, Array__as_vector(slice));
+      return Status::OK();
     };
 
-    if (array->null_count()) {
-      internal::BitmapReader bitmap_reader(array->null_bitmap()->data(), array->offset(),
-                                           n);
+    return IngestSome(array, n, ingest_one);
+  }
 
-      for (R_xlen_t i = 0; i < n; i++, bitmap_reader.Next()) {
-        if (bitmap_reader.IsSet()) ingest_one(i);
-      }
+  bool Parallel() const { return false; }
+};
 
-    } else {
-      for (R_xlen_t i = 0; i < n; i++) {
-        ingest_one(i);
-      }
-    }
+class Converter_FixedSizeList : public Converter {
+private:
+  std::shared_ptr<arrow::DataType> value_type_;
+  int list_size_;
 
+public:
+  explicit Converter_FixedSizeList(const ArrayVector& arrays,
+                          const std::shared_ptr<arrow::DataType>& value_type, int list_size)
+    : Converter(arrays), value_type_(value_type), list_size_(list_size) {}
+
+  SEXP Allocate(R_xlen_t n) const {
+    Rcpp::List res(no_init(n));
+    Rf_classgets(res, arrow::r::data::classes_arrow_fixed_size_list);
+    Rf_setAttrib(res, arrow::r::symbols::list_size, Rf_ScalarInteger(list_size_));
+
+    // Build an empty array to match value_type
+    std::unique_ptr<arrow::ArrayBuilder> builder;
+    StopIfNotOk(arrow::MakeBuilder(arrow::default_memory_pool(), value_type_, &builder));
+
+    std::shared_ptr<arrow::Array> array;
+    StopIfNotOk(builder->Finish(&array));
+
+    // convert to an R object to store as the list' ptype
+    SEXP ptype = Array__as_vector(array);
+    Rf_setAttrib(res, arrow::r::symbols::ptype, ptype);
+
+    return res;
+  }
+
+  Status Ingest_all_nulls(SEXP data, R_xlen_t start, R_xlen_t n) const {
+    // nothing to do, list contain NULL by default
     return Status::OK();
+  }
+
+  Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
+                           R_xlen_t start, R_xlen_t n) const {
+    const auto& fixed_size_list_array = checked_cast<const FixedSizeListArray&>(*array);
+    auto values_array = fixed_size_list_array.values();
+
+    auto ingest_one = [&](R_xlen_t i) {
+      auto slice = fixed_size_list_array.value_slice(i);
+      SET_VECTOR_ELT(data, i + start, Array__as_vector(slice));
+      return Status::OK();
+    };
+    return IngestSome(array, n, ingest_one);
+
   }
 
   bool Parallel() const { return false; }
@@ -1029,6 +1067,13 @@ std::shared_ptr<Converter> Converter::Make(const std::shared_ptr<DataType>& type
       return std::make_shared<arrow::r::Converter_List<arrow::LargeListArray>>(
           std::move(arrays),
           checked_cast<const arrow::LargeListType*>(type.get())->value_type());
+
+    case Type::FIXED_SIZE_LIST:
+      return std::make_shared<arrow::r::Converter_FixedSizeList>(
+        std::move(arrays),
+        checked_cast<const arrow::FixedSizeListType&>(*type).value_type(),
+        checked_cast<const arrow::FixedSizeListType&>(*type).list_size()
+      );
 
     case Type::NA:
       return std::make_shared<arrow::r::Converter_Null>(std::move(arrays));

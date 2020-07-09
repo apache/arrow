@@ -29,6 +29,7 @@ SEXP symbols::serialize_arrow_r_metadata = Rf_install(".serialize_arrow_r_metada
 SEXP symbols::as_list = Rf_install("as.list");
 SEXP symbols::ptype = Rf_install("ptype");
 SEXP symbols::byte_width = Rf_install("byte_width");
+SEXP symbols::list_size = Rf_install("list_size");
 
 // persistently protect `x` and return it
 SEXP precious(SEXP x) {

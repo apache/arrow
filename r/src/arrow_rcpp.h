@@ -36,6 +36,7 @@ struct symbols {
   static SEXP as_list;
   static SEXP ptype;
   static SEXP byte_width;
+  static SEXP list_size;
 };
 
 struct data {
