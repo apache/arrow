@@ -215,7 +215,7 @@ def _ensure_format(obj):
         raise ValueError("format '{}' is not supported".format(obj))
 
 
-def _ensure_filesystem(fs_or_uri):
+def _ensure_fs(fs_or_uri):
     from pyarrow.fs import (
         FileSystem, LocalFileSystem, SubTreeFileSystem, FileType,
         _ensure_filesystem
@@ -290,7 +290,7 @@ def _ensure_multiple_sources(paths, filesystem=None):
         filesystem = LocalFileSystem()
 
     # construct a filesystem if it is a valid URI
-    filesystem, is_local = _ensure_filesystem(filesystem)
+    filesystem, is_local = _ensure_fs(filesystem)
 
     # allow normalizing irregular paths such as Windows local paths
     paths = [_normalize_path(filesystem, _stringify_path(p)) for p in paths]
@@ -380,7 +380,7 @@ def _ensure_single_source(path, filesystem=None):
                 file_info = None
 
     # construct a filesystem if it is a valid URI
-    filesystem, _ = _ensure_filesystem(filesystem)
+    filesystem, _ = _ensure_fs(filesystem)
 
     # ensure that the path is normalized before passing to dataset discovery
     path = _normalize_path(filesystem, path)
@@ -499,7 +499,7 @@ def parquet_dataset(metadata_path, schema=None, filesystem=None, format=None,
     if filesystem is None:
         filesystem = LocalFileSystem()
     else:
-        filesystem, _ = _ensure_filesystem(filesystem)
+        filesystem, _ = _ensure_fs(filesystem)
 
     metadata_path = _normalize_path(filesystem, _stringify_path(metadata_path))
     options = ParquetFactoryOptions(
