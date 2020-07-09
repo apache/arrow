@@ -335,91 +335,39 @@ static inline bool RowGroupInfosAreComplete(const std::vector<RowGroupInfo>& inf
                      [](const RowGroupInfo& i) { return i.HasStatistics(); });
 }
 
-static inline std::vector<RowGroupInfo> FilterRowGroups(
-    std::vector<RowGroupInfo> row_groups, const Expression& predicate) {
-  auto filter = [&predicate](const RowGroupInfo& info) {
-    return !info.Satisfy(predicate);
-  };
-  auto end = std::remove_if(row_groups.begin(), row_groups.end(), filter);
-  row_groups.erase(end, row_groups.end());
-  return row_groups;
-}
-
-static inline Result<std::vector<RowGroupInfo>> AugmentRowGroups(
-    std::vector<RowGroupInfo> row_groups, parquet::arrow::FileReader* reader) {
-  auto metadata = reader->parquet_reader()->metadata();
-  auto manifest = reader->manifest();
-  auto num_row_groups = metadata->num_row_groups();
-
-  if (row_groups.empty()) {
-    row_groups = RowGroupInfo::FromCount(num_row_groups);
-  }
-
-  // Augment a RowGroup with statistics if missing.
-  auto augment = [&](RowGroupInfo& info) {
-    if (!info.HasStatistics() && info.id() < num_row_groups) {
-      auto row_group = metadata->RowGroup(info.id());
-      info.set_num_rows(row_group->num_rows());
-      info.set_total_byte_size(row_group->total_byte_size());
-      info.set_statistics(RowGroupStatisticsAsStructScalar(*row_group, manifest));
-    }
-  };
-  std::for_each(row_groups.begin(), row_groups.end(), augment);
-
-  return row_groups;
-}
-
 Result<ScanTaskIterator> ParquetFileFormat::ScanFile(std::shared_ptr<ScanOptions> options,
                                                      std::shared_ptr<ScanContext> context,
                                                      FileFragment* fragment) const {
-  const auto& source = fragment->source();
-  auto row_groups = checked_cast<const ParquetFileFragment*>(fragment)->row_groups();
+  auto& parquet_fragment = checked_cast<ParquetFileFragment&>(*fragment);
+  std::vector<RowGroupInfo> row_groups;
 
-  bool row_groups_are_complete = RowGroupInfosAreComplete(row_groups);
-  // The following block is required to avoid any IO if all RowGroups are
-  // excluded due to prior statistics knowledge.
-  if (row_groups_are_complete) {
-    // physical_schema should be cached at this point
-    ARROW_ASSIGN_OR_RAISE(auto physical_schema, fragment->ReadPhysicalSchema());
-    RETURN_NOT_OK(options->filter->Validate(*physical_schema));
-
-    // Apply a pre-filtering if the user requested an explicit sub-set of
-    // row-groups. In the case where a RowGroup doesn't have statistics
-    // metdata, it will not be excluded.
-    row_groups = FilterRowGroups(std::move(row_groups), *options->filter);
+  // If RowGroup metadata is cached completely we can pre-filter RowGroups before opening
+  // a FileReader, potentially avoiding IO altogether if all RowGroups are excluded due to
+  // prior statistics knowledge. In the case where a RowGroup doesn't have statistics
+  // metdata, it will not be excluded.
+  if (parquet_fragment.HasCompleteMetadata()) {
+    ARROW_ASSIGN_OR_RAISE(row_groups, parquet_fragment.FilterRowGroups(*options->filter));
     if (row_groups.empty()) {
       return MakeEmptyIterator<std::shared_ptr<ScanTask>>();
     }
   }
 
   // Open the reader and pay the real IO cost.
-  ARROW_ASSIGN_OR_RAISE(auto reader, GetReader(source, options.get(), context.get()));
+  ARROW_ASSIGN_OR_RAISE(auto reader,
+                        GetReader(fragment->source(), options.get(), context.get()));
 
-  // Ensure RowGroups are indexing valid RowGroups before augmenting.
-  auto num_row_groups = reader->num_row_groups();
-  for (const auto& row_group : row_groups) {
-    if (row_group.id() >= num_row_groups) {
-      return Status::IndexError("Trying to scan row group ", row_group.id(), " but ",
-                                source.path(), " only has ", num_row_groups,
-                                " row groups");
+  if (!parquet_fragment.HasCompleteMetadata()) {
+    // row groups were not already filtered; do this now
+    RETURN_NOT_OK(parquet_fragment.EnsureCompleteMetadata(reader.get()));
+    ARROW_ASSIGN_OR_RAISE(row_groups, parquet_fragment.FilterRowGroups(*options->filter));
+    if (row_groups.empty()) {
+      return MakeEmptyIterator<std::shared_ptr<ScanTask>>();
     }
   }
 
-  if (!row_groups_are_complete) {
-    ARROW_ASSIGN_OR_RAISE(row_groups,
-                          AugmentRowGroups(std::move(row_groups), reader.get()));
-    std::shared_ptr<Schema> physical_schema;
-    RETURN_NOT_OK(reader->GetSchema(&physical_schema));
-    RETURN_NOT_OK(options->filter->Validate(*physical_schema));
-    row_groups = FilterRowGroups(std::move(row_groups), *options->filter);
-  }
-
-  if (row_groups.empty()) {
-    return MakeEmptyIterator<std::shared_ptr<ScanTask>>();
-  }
-
-  return ParquetScanTaskIterator::Make(std::move(options), std::move(context), source,
-                                       std::move(reader), std::move(row_groups));
+  return ParquetScanTaskIterator::Make(std::move(options), std::move(context),
+                                       fragment->source(), std::move(reader),
+                                       std::move(row_groups));
 }
 
 Result<std::shared_ptr<FileFragment>> ParquetFileFormat::MakeFragment(
@@ -508,34 +456,91 @@ ParquetFileFragment::ParquetFileFragment(FileSource source,
                    std::move(physical_schema)),
       row_groups_(std::move(row_groups)),
       parquet_format_(checked_cast<ParquetFileFormat&>(*format_)),
-      has_complete_metadata_(RowGroupInfosAreComplete(row_groups_)) {}
+      has_complete_metadata_(RowGroupInfosAreComplete(row_groups_) &&
+                             physical_schema_ != nullptr) {}
+
+Status ParquetFileFragment::EnsureCompleteMetadata(parquet::arrow::FileReader* reader) {
+  if (HasCompleteMetadata()) {
+    return Status::OK();
+  }
+
+  if (reader == nullptr) {
+    ARROW_ASSIGN_OR_RAISE(auto reader, parquet_format_.GetReader(source_));
+    return EnsureCompleteMetadata(reader.get());
+  }
+
+  std::shared_ptr<Schema> schema;
+  RETURN_NOT_OK(reader->GetSchema(&schema));
+  if (physical_schema_ && !physical_schema_->Equals(*schema)) {
+    return Status::Invalid("Fragment initialized with physical schema ",
+                           *physical_schema_, " but ", source_.path(), " has schema ",
+                           *schema);
+  }
+  physical_schema_ = std::move(schema);
+
+  auto metadata = reader->parquet_reader()->metadata();
+  auto num_row_groups = metadata->num_row_groups();
+
+  if (row_groups_.empty()) {
+    row_groups_ = RowGroupInfo::FromCount(num_row_groups);
+  }
+
+  for (RowGroupInfo& info : row_groups_) {
+    // Ensure RowGroups are indexing valid RowGroups before augmenting.
+    if (info.id() >= num_row_groups) {
+      return Status::IndexError("Trying to scan row group ", info.id(), " but ",
+                                source_.path(), " only has ", num_row_groups,
+                                " row groups");
+    }
+  }
+
+  for (RowGroupInfo& info : row_groups_) {
+    // Augment a RowGroup with statistics if missing.
+    if (info.HasStatistics()) continue;
+
+    auto row_group = metadata->RowGroup(info.id());
+    auto statistics = RowGroupStatisticsAsStructScalar(*row_group, reader->manifest());
+    info = RowGroupInfo(info.id(), row_group->num_rows(), row_group->total_byte_size(),
+                        std::move(statistics));
+  }
+
+  has_complete_metadata_ = true;
+  return Status::OK();
+}
 
 Result<FragmentVector> ParquetFileFragment::SplitByRowGroup(
     const std::shared_ptr<Expression>& predicate) {
-  auto simplified_predicate = predicate->Assume(partition_expression());
-  if (!simplified_predicate->IsSatisfiable()) {
-    return FragmentVector{};
-  }
+  RETURN_NOT_OK(EnsureCompleteMetadata());
+  ARROW_ASSIGN_OR_RAISE(auto row_groups, FilterRowGroups(*predicate));
 
-  std::vector<RowGroupInfo> row_groups;
-  if (HasCompleteMetadata()) {
-    row_groups = FilterRowGroups(row_groups_, *simplified_predicate);
-  } else {
-    ARROW_ASSIGN_OR_RAISE(auto reader, parquet_format_.GetReader(source_));
-    ARROW_ASSIGN_OR_RAISE(row_groups, AugmentRowGroups(row_groups_, reader.get()));
-    row_groups = FilterRowGroups(std::move(row_groups), *simplified_predicate);
-  }
-
-  FragmentVector fragments;
-  fragments.reserve(row_groups.size());
+  FragmentVector fragments(row_groups.size());
+  auto fragment = fragments.begin();
   for (auto&& row_group : row_groups) {
-    ARROW_ASSIGN_OR_RAISE(auto fragment,
+    ARROW_ASSIGN_OR_RAISE(*fragment++,
                           parquet_format_.MakeFragment(source_, partition_expression(),
                                                        {std::move(row_group)}));
-    fragments.push_back(std::move(fragment));
   }
 
   return fragments;
+}
+
+Result<std::vector<RowGroupInfo>> ParquetFileFragment::FilterRowGroups(
+    const Expression& predicate) {
+  DCHECK(has_complete_metadata_);
+  RETURN_NOT_OK(predicate.Validate(*physical_schema_));
+
+  auto simplified_predicate = predicate.Assume(partition_expression_);
+  if (!simplified_predicate->IsSatisfiable()) {
+    return std::vector<RowGroupInfo>{};
+  }
+
+  auto row_groups = row_groups_;
+  auto end = std::remove_if(row_groups.begin(), row_groups.end(),
+                            [&simplified_predicate](const RowGroupInfo& info) {
+                              return !info.Satisfy(*simplified_predicate);
+                            });
+  row_groups.erase(end, row_groups.end());
+  return row_groups;
 }
 
 ///
