@@ -45,8 +45,10 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/string_view.h"
 #include "arrow/util/ubsan.h"
-
+#include "arrow/visitor_inline.h"
 #include "parquet/arrow/reader.h"
+#include "parquet/arrow/schema.h"
+#include "parquet/arrow/schema_internal.h"
 #include "parquet/column_reader.h"
 #include "parquet/platform.h"
 #include "parquet/properties.h"
@@ -90,17 +92,27 @@ template <typename ArrowType>
 using ArrayType = typename ::arrow::TypeTraits<ArrowType>::ArrayType;
 
 template <typename CType, typename StatisticsType>
-Status MakeMinMaxScalar(const Statistics& statistics,
+Status MakeMinMaxScalar(const StatisticsType& statistics,
                         std::shared_ptr<::arrow::Scalar>* min,
                         std::shared_ptr<::arrow::Scalar>* max) {
-  const auto& typed_statistics = checked_cast<const StatisticsType&>(statistics);
-  *min = ::arrow::MakeScalar(static_cast<CType>(typed_statistics.min()));
-  *max = ::arrow::MakeScalar(static_cast<CType>(typed_statistics.max()));
+  *min = ::arrow::MakeScalar(static_cast<CType>(statistics.min()));
+  *max = ::arrow::MakeScalar(static_cast<CType>(statistics.max()));
+  return Status::OK();
+}
+
+template <typename CType, typename StatisticsType>
+Status MakeMinMaxTypedScalar(const StatisticsType& statistics,
+                             std::shared_ptr<DataType> type,
+                             std::shared_ptr<::arrow::Scalar>* min,
+                             std::shared_ptr<::arrow::Scalar>* max) {
+  ARROW_ASSIGN_OR_RAISE(*min, ::arrow::MakeScalar(type, statistics.min()));
+  ARROW_ASSIGN_OR_RAISE(*max, ::arrow::MakeScalar(type, statistics.max()));
   return Status::OK();
 }
 
 template <typename StatisticsType>
-Status MakeMinMaxIntegralScalar(const Statistics& statistics,
+Status MakeMinMaxIntegralScalar(const StatisticsType& statistics,
+                                const ::arrow::DataType& arrow_type,
                                 std::shared_ptr<::arrow::Scalar>* min,
                                 std::shared_ptr<::arrow::Scalar>* max) {
   const auto column_desc = statistics.descr();
@@ -110,39 +122,77 @@ Status MakeMinMaxIntegralScalar(const Statistics& statistics,
 
   switch (integer->bit_width()) {
     case 8:
-      return is_signed ? MakeMinMaxScalar<int8_t, StatisticsType>(statistics, min, max)
-                       : MakeMinMaxScalar<uint8_t, StatisticsType>(statistics, min, max);
+      return is_signed ? MakeMinMaxScalar<int8_t>(statistics, min, max)
+                       : MakeMinMaxScalar<uint8_t>(statistics, min, max);
     case 16:
-      return is_signed ? MakeMinMaxScalar<int16_t, StatisticsType>(statistics, min, max)
-                       : MakeMinMaxScalar<uint16_t, StatisticsType>(statistics, min, max);
+      return is_signed ? MakeMinMaxScalar<int16_t>(statistics, min, max)
+                       : MakeMinMaxScalar<uint16_t>(statistics, min, max);
     case 32:
-      return is_signed ? MakeMinMaxScalar<int32_t, StatisticsType>(statistics, min, max)
-                       : MakeMinMaxScalar<uint32_t, StatisticsType>(statistics, min, max);
+      return is_signed ? MakeMinMaxScalar<int32_t>(statistics, min, max)
+                       : MakeMinMaxScalar<uint32_t>(statistics, min, max);
     case 64:
-      return is_signed ? MakeMinMaxScalar<int64_t, StatisticsType>(statistics, min, max)
-                       : MakeMinMaxScalar<uint64_t, StatisticsType>(statistics, min, max);
+      return is_signed ? MakeMinMaxScalar<int64_t>(statistics, min, max)
+                       : MakeMinMaxScalar<uint64_t>(statistics, min, max);
   }
 
   return Status::OK();
 }
 
-template <typename StatisticsType>
-Status TypedIntegralStatisticsAsScalars(const Statistics& statistics,
-                                        std::shared_ptr<::arrow::Scalar>* min,
-                                        std::shared_ptr<::arrow::Scalar>* max) {
-  auto column_desc = statistics.descr();
-  auto logical_type = column_desc->logical_type();
+static Status FromInt32Statistics(const Int32Statistics& statistics,
+                                  const LogicalType& logical_type,
+                                  std::shared_ptr<::arrow::Scalar>* min,
+                                  std::shared_ptr<::arrow::Scalar>* max) {
+  ARROW_ASSIGN_OR_RAISE(auto type, FromInt32(logical_type));
 
-  switch (logical_type->type()) {
+  switch (logical_type.type()) {
     case LogicalType::Type::INT:
-      return MakeMinMaxIntegralScalar<StatisticsType>(statistics, min, max);
+      return MakeMinMaxIntegralScalar(statistics, *type, min, max);
+      break;
+    case LogicalType::Type::DATE:
+    case LogicalType::Type::TIME:
     case LogicalType::Type::NONE:
-      // Fallback to the physical type
-      using CType = typename StatisticsType::T;
-      return MakeMinMaxScalar<CType, StatisticsType>(statistics, min, max);
+      return MakeMinMaxTypedScalar<int32_t>(statistics, type, min, max);
+      break;
     default:
-      return Status::NotImplemented("Cannot extract statistics for type ");
+      break;
   }
+
+  return Status::NotImplemented("Cannot extract statistics for type ");
+}
+
+static Status FromInt64Statistics(const Int64Statistics& statistics,
+                                  const LogicalType& logical_type,
+                                  std::shared_ptr<::arrow::Scalar>* min,
+                                  std::shared_ptr<::arrow::Scalar>* max) {
+  ARROW_ASSIGN_OR_RAISE(auto type, FromInt64(logical_type));
+
+  switch (logical_type.type()) {
+    case LogicalType::Type::INT:
+      return MakeMinMaxIntegralScalar(statistics, *type, min, max);
+      break;
+    case LogicalType::Type::TIME:
+    case LogicalType::Type::TIMESTAMP:
+    case LogicalType::Type::NONE:
+      return MakeMinMaxTypedScalar<int64_t>(statistics, type, min, max);
+      break;
+    default:
+      break;
+  }
+
+  return Status::NotImplemented("Cannot extract statistics for type ");
+}
+
+static inline Status ByteArrayStatisticsAsScalars(const Statistics& statistics,
+                                                  std::shared_ptr<::arrow::Scalar>* min,
+                                                  std::shared_ptr<::arrow::Scalar>* max) {
+  auto logical_type = statistics.descr()->logical_type();
+  auto type = logical_type->type() == LogicalType::Type::STRING ? ::arrow::utf8()
+                                                                : ::arrow::binary();
+
+  ARROW_ASSIGN_OR_RAISE(
+      *min, ::arrow::MakeScalar(type, Buffer::FromString(statistics.EncodeMin())));
+  ARROW_ASSIGN_OR_RAISE(
+      *max, ::arrow::MakeScalar(type, Buffer::FromString(statistics.EncodeMax())));
 
   return Status::OK();
 }
@@ -160,18 +210,25 @@ Status StatisticsAsScalars(const Statistics& statistics,
   }
 
   auto physical_type = column_desc->physical_type();
-
+  auto logical_type = column_desc->logical_type();
   switch (physical_type) {
     case Type::BOOLEAN:
-      return MakeMinMaxScalar<bool, BoolStatistics>(statistics, min, max);
+      return MakeMinMaxScalar<bool, BoolStatistics>(
+          checked_cast<const BoolStatistics&>(statistics), min, max);
     case Type::FLOAT:
-      return MakeMinMaxScalar<float, FloatStatistics>(statistics, min, max);
+      return MakeMinMaxScalar<float, FloatStatistics>(
+          checked_cast<const FloatStatistics&>(statistics), min, max);
     case Type::DOUBLE:
-      return MakeMinMaxScalar<double, DoubleStatistics>(statistics, min, max);
+      return MakeMinMaxScalar<double, DoubleStatistics>(
+          checked_cast<const DoubleStatistics&>(statistics), min, max);
     case Type::INT32:
-      return TypedIntegralStatisticsAsScalars<Int32Statistics>(statistics, min, max);
+      return FromInt32Statistics(checked_cast<const Int32Statistics&>(statistics),
+                                 *logical_type, min, max);
     case Type::INT64:
-      return TypedIntegralStatisticsAsScalars<Int64Statistics>(statistics, min, max);
+      return FromInt64Statistics(checked_cast<const Int64Statistics&>(statistics),
+                                 *logical_type, min, max);
+    case Type::BYTE_ARRAY:
+      return ByteArrayStatisticsAsScalars(statistics, min, max);
     default:
       return Status::NotImplemented("Extract statistics unsupported for physical_type ",
                                     physical_type, " unsupported.");

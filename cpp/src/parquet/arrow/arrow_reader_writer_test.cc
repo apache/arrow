@@ -33,6 +33,7 @@
 #include "arrow/compute/api.h"
 #include "arrow/pretty_print.h"
 #include "arrow/record_batch.h"
+#include "arrow/scalar.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
@@ -63,6 +64,7 @@ using arrow::default_memory_pool;
 using arrow::ListArray;
 using arrow::PrimitiveArray;
 using arrow::ResizableBuffer;
+using arrow::Scalar;
 using arrow::Status;
 using arrow::Table;
 using arrow::TimeUnit;
@@ -502,6 +504,23 @@ class TestParquetIO : public ::testing::Test {
     ASSERT_EQ(1, chunked_out->num_chunks());
     *out = chunked_out->chunk(0);
     ASSERT_NE(nullptr, out->get());
+  }
+
+  void ReadSingleColumnFileStatistics(std::unique_ptr<FileReader> file_reader,
+                                      std::shared_ptr<Scalar>* min,
+                                      std::shared_ptr<Scalar>* max) {
+    auto metadata = file_reader->parquet_reader()->metadata();
+    ASSERT_EQ(1, metadata->num_row_groups());
+    ASSERT_EQ(1, metadata->num_columns());
+
+    auto row_group = metadata->RowGroup(0);
+    ASSERT_EQ(1, row_group->num_columns());
+
+    auto column = row_group->ColumnChunk(0);
+    ASSERT_TRUE(column->is_stats_set());
+    auto statistics = column->statistics();
+
+    ASSERT_OK(StatisticsAsScalars(*statistics, min, max));
   }
 
   void ReadAndCheckSingleColumnFile(const Array& values) {
@@ -1273,6 +1292,22 @@ class TestPrimitiveParquetIO : public TestParquetIO<TestType> {
 
     ExpectArrayT<TestType>(values.data(), out.get());
   }
+
+  void CheckSingleColumnStatisticsRequiredRead() {
+    std::vector<T> values(SMALL_SIZE, test_traits<TestType>::value);
+    std::unique_ptr<FileReader> file_reader;
+    ASSERT_NO_FATAL_FAILURE(MakeTestFile(values, 1, &file_reader));
+
+    std::shared_ptr<Scalar> min, max;
+    this->ReadSingleColumnFileStatistics(std::move(file_reader), &min, &max);
+
+    ASSERT_OK_AND_ASSIGN(
+        auto value, ::arrow::MakeScalar(::arrow::TypeTraits<TestType>::type_singleton(),
+                                        test_traits<TestType>::value));
+
+    ASSERT_TRUE(value->Equals(*min));
+    ASSERT_TRUE(value->Equals(*max));
+  }
 };
 
 typedef ::testing::Types<::arrow::BooleanType, ::arrow::UInt8Type, ::arrow::Int8Type,
@@ -1285,6 +1320,10 @@ TYPED_TEST_SUITE(TestPrimitiveParquetIO, PrimitiveTestTypes);
 
 TYPED_TEST(TestPrimitiveParquetIO, SingleColumnRequiredRead) {
   ASSERT_NO_FATAL_FAILURE(this->CheckSingleColumnRequiredRead(1));
+}
+
+TYPED_TEST(TestPrimitiveParquetIO, SingleColumnStatisticsRequiredRead) {
+  ASSERT_NO_FATAL_FAILURE(this->CheckSingleColumnStatisticsRequiredRead());
 }
 
 TYPED_TEST(TestPrimitiveParquetIO, SingleColumnRequiredTableRead) {
