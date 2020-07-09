@@ -25,12 +25,12 @@ use crate::error::{ExecutionError, Result};
 use crate::execution::physical_plan::Accumulator;
 
 use arrow::array::{
-    ArrayRef, Int16Array, Int32Array, Int64Array, Int8Array, StringArray, UInt16Array,
-    UInt32Array, UInt64Array, UInt8Array,
+    ArrayRef, BooleanArray, Int16Array, Int32Array, Int64Array, Int8Array, StringArray,
+    UInt16Array, UInt32Array, UInt64Array, UInt8Array,
 };
 use arrow::array::{
-    Int16Builder, Int32Builder, Int64Builder, Int8Builder, StringBuilder, UInt16Builder,
-    UInt32Builder, UInt64Builder, UInt8Builder,
+    BooleanBuilder, Int16Builder, Int32Builder, Int64Builder, Int8Builder, StringBuilder,
+    UInt16Builder, UInt32Builder, UInt64Builder, UInt8Builder,
 };
 use arrow::datatypes::DataType;
 
@@ -40,6 +40,8 @@ use fnv::FnvHashMap;
 /// for floating point numerics)
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub enum KeyScalar {
+    /// Boolean
+    Boolean(bool),
     /// 8 bits
     UInt8(u8),
     /// 16 bits
@@ -63,6 +65,10 @@ pub enum KeyScalar {
 /// Return an KeyScalar from an ArrayRef of a given row.
 pub fn create_key(col: &ArrayRef, row: usize) -> Result<KeyScalar> {
     match col.data_type() {
+        DataType::Boolean => {
+            let array = col.as_any().downcast_ref::<BooleanArray>().unwrap();
+            return Ok(KeyScalar::Boolean(array.value(row)));
+        }
         DataType::UInt8 => {
             let array = col.as_any().downcast_ref::<UInt8Array>().unwrap();
             return Ok(KeyScalar::UInt8(array.value(row)));
@@ -139,6 +145,7 @@ pub fn create_key_array(
     map: &FnvHashMap<Vec<KeyScalar>, Rc<AccumulatorSet>>,
 ) -> Result<ArrayRef> {
     let array: Result<ArrayRef> = match data_type {
+        DataType::Boolean => key_array_from_map_entries!(BooleanBuilder, Boolean, map, i),
         DataType::UInt8 => key_array_from_map_entries!(UInt8Builder, UInt8, map, i),
         DataType::UInt16 => key_array_from_map_entries!(UInt16Builder, UInt16, map, i),
         DataType::UInt32 => key_array_from_map_entries!(UInt32Builder, UInt32, map, i),
