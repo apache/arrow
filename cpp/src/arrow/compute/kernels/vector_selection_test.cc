@@ -417,6 +417,18 @@ TYPED_TEST(TestFilterKernelWithNumeric, ScalarInRangeAndFilterRandomNumeric) {
   }
 }
 
+TEST(TestFilterKernel, NoValidityBitmapButUnknownNullCount) {
+  auto values = ArrayFromJSON(int32(), "[1, 2, 3, 4]");
+  auto filter = ArrayFromJSON(boolean(), "[true, true, false, true]");
+
+  auto expected = (*Filter(values, filter)).make_array();
+
+  filter->data()->null_count = kUnknownNullCount;
+  auto result = (*Filter(values, filter)).make_array();
+
+  AssertArraysEqual(*expected, *result);
+}
+
 using StringTypes =
     ::testing::Types<BinaryType, StringType, LargeBinaryType, LargeStringType>;
 

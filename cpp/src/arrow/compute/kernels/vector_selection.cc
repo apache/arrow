@@ -61,7 +61,8 @@ namespace internal {
 int64_t GetFilterOutputSize(const ArrayData& filter,
                             FilterOptions::NullSelectionBehavior null_selection) {
   int64_t output_size = 0;
-  if (filter.null_count.load() != 0) {
+
+  if (filter.MayHaveNulls()) {
     const uint8_t* filter_is_valid = filter.buffers[0]->data();
     BinaryBitBlockCounter bit_counter(filter.buffers[1]->data(), filter.offset,
                                       filter_is_valid, filter.offset, filter.length);
@@ -101,7 +102,7 @@ Result<std::shared_ptr<ArrayData>> GetTakeIndicesImpl(
 
   // The current position taking the filter offset into account
   int64_t position_with_offset = filter.offset;
-  if (filter.null_count != 0) {
+  if (filter.MayHaveNulls()) {
     // The filter may have nulls, so we scan the validity bitmap and the filter
     // data bitmap together, branching on the null selection type.
     const uint8_t* filter_is_valid = filter.buffers[0]->data();
@@ -1294,7 +1295,7 @@ struct Selection {
     OptionalBitIndexer indices_is_valid(selection->buffers[0], selection->offset);
     OptionalBitIndexer values_is_valid(values->buffers[0], values->offset);
 
-    const bool values_have_nulls = values->null_count.load() != 0;
+    const bool values_have_nulls = values->MayHaveNulls();
     OptionalBitBlockCounter bit_counter(is_valid, selection->offset, selection->length);
     int64_t position = 0;
     while (position < selection->length) {
