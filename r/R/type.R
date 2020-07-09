@@ -420,52 +420,28 @@ as_type <- function(type, name = "type") {
 
 # vctrs support -----------------------------------------------------------
 
+
 #' @importFrom vctrs vec_ptype_full vec_ptype_abbr obj_str_footer
+#' @method vec_ptype_full arrow_binary_vctr
+#' @export
+vec_ptype_full.arrow_binary_vctr <- function(x, ...) {
+  class(x)[1L]
+}
+
 #' @method vec_ptype_full arrow_fixed_size_binary
 #' @export
 vec_ptype_full.arrow_fixed_size_binary <- function(x, ...) {
   paste0("fixed_size_binary<", attr(x, "byte_width"), ">")
 }
 
-#' @method vec_ptype_full arrow_binary
+#' @method vec_ptype_abbr arrow_binary_vctr
 #' @export
-vec_ptype_full.arrow_binary <- function(x, ...) {
-  "binary"
+vec_ptype_abbr.arrow_binary_vctr <- function(x, ...) {
+  vec_ptype_full(x, ...)
 }
 
-#' @method vec_ptype_full arrow_large_binary
+#' @method obj_str_footer arrow_binary_vctr
 #' @export
-vec_ptype_full.arrow_large_binary <- function(x, ...) {
-  "large_binary"
-}
-
-
-#' @method vec_ptype_abbr arrow_fixed_size_binary
-#' @export
-vec_ptype_abbr.arrow_fixed_size_binary <- vec_ptype_full.arrow_fixed_size_binary
-
-#' @method vec_ptype_abbr arrow_binary
-#' @export
-vec_ptype_abbr.arrow_binary <- vec_ptype_full.arrow_binary
-
-#' @method vec_ptype_abbr arrow_large_binary
-#' @export
-vec_ptype_abbr.arrow_large_binary <- vec_ptype_full.arrow_large_binary
-
-
-
-#' @method obj_str_footer arrow_fixed_size_binary
-#' @export
-obj_str_footer.arrow_fixed_size_binary <- function(x, ..., indent.str = "", nest.lev = 0) {
+obj_str_footer.arrow_binary_vctr <- function(x, ..., indent.str = "", nest.lev = 0) {
   invisible(NULL)
 }
-
-#' @method obj_str_footer arrow_binary
-#' @export
-obj_str_footer.arrow_binary <- obj_str_footer.arrow_fixed_size_binary
-
-#' @method obj_str_footer arrow_large_binary
-#' @export
-obj_str_footer.arrow_large_binary <- obj_str_footer.arrow_fixed_size_binary
-
-
