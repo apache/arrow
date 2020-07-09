@@ -124,6 +124,17 @@ Status KeyValuePartitioning::VisitKeys(
                  checked_cast<const ScalarExpression*>(rhs)->value());
 }
 
+Result<std::unordered_map<std::string, std::shared_ptr<Scalar>>>
+KeyValuePartitioning::GetKeys(const Expression& expr) {
+  std::unordered_map<std::string, std::shared_ptr<Scalar>> keys;
+  RETURN_NOT_OK(
+      VisitKeys(expr, [&](const std::string& name, const std::shared_ptr<Scalar>& value) {
+        keys.emplace(name, value);
+        return Status::OK();
+      }));
+  return keys;
+}
+
 Status KeyValuePartitioning::SetDefaultValuesFromKeys(const Expression& expr,
                                                       RecordBatchProjector* projector) {
   return KeyValuePartitioning::VisitKeys(

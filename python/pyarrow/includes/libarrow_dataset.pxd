@@ -314,6 +314,10 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             const CExpression& partition_expression,
             CRecordBatchProjector* projector)
 
+    cdef CResult[unordered_map[c_string, shared_ptr[CScalar]]] \
+        CGetPartitionKeys "arrow::dataset::KeyValuePartitioning::GetKeys"(
+        const CExpression& partition_expression)
+
     cdef cppclass CFileSystemFactoryOptions \
             "arrow::dataset::FileSystemFactoryOptions":
         CPartitioningOrFactory partitioning

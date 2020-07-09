@@ -1980,3 +1980,26 @@ cdef class Scanner:
         cdef CFragmentIterator c_fragments = self.scanner.GetFragments()
         for maybe_fragment in c_fragments:
             yield Fragment.wrap(GetResultValue(move(maybe_fragment)))
+
+
+def _get_partition_keys(Expression partition_expression):
+    """
+    Extract partition keys (equality constraints between a field and a scalar)
+    from an expression as a dict mapping the field's name to its value.
+
+    NB: All expressions yielded by a HivePartitioning or DirectoryPartitioning
+    will be conjunctions of equality conditions and are accessible through this
+    function. Other subexpressions will be ignored.
+
+    For example, an expression of
+    <pyarrow.dataset.Expression ((part == A:string) and (year == 2016:int32))>
+    is converted to {'part': 'a', 'year': 2016}
+    """
+    cdef:
+        shared_ptr[CExpression] expr = partition_expression.unwrap()
+        pair[c_string, shared_ptr[CScalar]] name_val
+
+    return {
+        frombytes(name_val.first): pyarrow_wrap_scalar(name_val.second).as_py()
+        for name_val in GetResultValue(CGetPartitionKeys(deref(expr.get())))
+    }
