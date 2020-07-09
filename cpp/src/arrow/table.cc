@@ -364,7 +364,7 @@ Result<std::shared_ptr<Table>> Table::RenameColumns(
 
 Result<std::shared_ptr<Table>> Table::SelectColumns(
     const std::vector<int>& indices) const {
-  int n = indices.size();
+  int n = static_cast<int>(indices.size());
 
   std::vector<std::shared_ptr<ChunkedArray>> columns(n);
   std::vector<std::shared_ptr<Field>> fields(n);

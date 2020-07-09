@@ -559,6 +559,18 @@ TEST_F(TestTable, RenameColumns) {
   ASSERT_RAISES(Invalid, table->RenameColumns({"hello", "world"}));
 }
 
+TEST_F(TestTable, SelectColumns) {
+  MakeExample1(10);
+  auto table = Table::Make(schema_, columns_);
+
+  ASSERT_OK_AND_ASSIGN(auto subset, table->SelectColumns({0, 2}));
+
+  auto expexted_schema =
+      ::arrow::schema({schema_->field(0), schema_->field(2)});
+  auto expected = Table::Make(expexted_schema, {table->column(0), table->column(2)});
+  ASSERT_TRUE(subset->Equals(*expected));
+}
+
 TEST_F(TestTable, RemoveColumnEmpty) {
   // ARROW-1865
   const int64_t length = 10;
