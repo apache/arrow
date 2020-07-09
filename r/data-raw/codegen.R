@@ -35,18 +35,12 @@
 # #endif
 
 suppressPackageStartupMessages({
-  # remotes::install_github("romainfrancois/decor")
   library(decor)
-
   library(dplyr)
   library(purrr)
   library(glue)
   library(vctrs)
 })
-
-if (packageVersion("decor") < '0.0.0.9001') {
-  stop("more recent version of `decor` needed, please install with `remotes::install_github('romainfrancois/decor')`")
-}
 
 get_exported_functions <- function(decorations, export_tag) {
   out <- decorations %>%
