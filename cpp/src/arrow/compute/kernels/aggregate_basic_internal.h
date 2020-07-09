@@ -149,7 +149,7 @@ struct SumState {
     }
 
     // The aligned parts scanned with BitBlockCounter
-    int64_t kBatchSize = arrow::internal::BitBlockCounter::kWordBits;
+    constexpr int64_t kBatchSize = arrow::internal::BitBlockCounter::kWordBits;
     arrow::internal::BitBlockCounter data_counter(bitmap, offset, length - leading_bits);
     auto current_block = data_counter.NextWord();
     while (idx < length) {
