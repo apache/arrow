@@ -325,16 +325,30 @@ INSTANTIATE_TEST_SUITE_P(
                       TestParam(kFeatherV2Version, Compression::LZ4_FRAME),
                       TestParam(kFeatherV2Version, Compression::ZSTD)));
 
-#define BATCH_CASES()                                                                    \
-  ::testing::Values(                                                                     \
-      &ipc::test::MakeIntRecordBatch, &ipc::test::MakeBooleanBatch,                      \
-      &ipc::test::MakeFloatBatch, &ipc::test::MakeListRecordBatch,                       \
-      &ipc::test::MakeNonNullRecordBatch, &ipc::test::MakeDeeplyNestedList,              \
-      &ipc::test::MakeStringTypesRecordBatchWithNulls, &ipc::test::MakeStruct,           \
-      &ipc::test::MakeUnion, &ipc::test::MakeDictionary, &ipc::test::MakeDictionaryFlat, \
-      &ipc::test::MakeNestedDictionary, &ipc::test::MakeDates,                           \
-      &ipc::test::MakeTimestamps, &ipc::test::MakeTimes, &ipc::test::MakeFWBinary,       \
-      &ipc::test::MakeNull, &ipc::test::MakeDecimal, &ipc::test::MakeIntervals)
+namespace {
+
+const std::vector<test::MakeRecordBatch*> kBatchCases = {
+    &ipc::test::MakeIntRecordBatch,
+    &ipc::test::MakeBooleanBatch,
+    &ipc::test::MakeFloatBatch,
+    &ipc::test::MakeListRecordBatch,
+    &ipc::test::MakeNonNullRecordBatch,
+    &ipc::test::MakeDeeplyNestedList,
+    &ipc::test::MakeStringTypesRecordBatchWithNulls,
+    &ipc::test::MakeStruct,
+    &ipc::test::MakeUnion,
+    &ipc::test::MakeDictionary,
+    &ipc::test::MakeDictionaryFlat,
+    &ipc::test::MakeNestedDictionary,
+    &ipc::test::MakeDates,
+    &ipc::test::MakeTimestamps,
+    &ipc::test::MakeTimes,
+    &ipc::test::MakeFWBinary,
+    &ipc::test::MakeNull,
+    &ipc::test::MakeDecimal,
+    &ipc::test::MakeIntervals};
+
+}  // namespace
 
 TEST_P(TestFeatherRoundTrip, RoundTrip) {
   std::shared_ptr<RecordBatch> batch;
@@ -343,7 +357,8 @@ TEST_P(TestFeatherRoundTrip, RoundTrip) {
   CheckRoundtrip(batch);
 }
 
-INSTANTIATE_TEST_SUITE_P(FeatherRoundTripTests, TestFeatherRoundTrip, BATCH_CASES());
+INSTANTIATE_TEST_SUITE_P(FeatherRoundTripTests, TestFeatherRoundTrip,
+                         ::testing::ValuesIn(kBatchCases));
 
 }  // namespace feather
 }  // namespace ipc

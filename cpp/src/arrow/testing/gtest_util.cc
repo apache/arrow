@@ -54,9 +54,9 @@ namespace arrow {
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 
-template <typename T, typename... ExtraArgs>
-void AssertTsEqual(const T& expected, const T& actual, ExtraArgs... args) {
-  if (!expected.Equals(actual, args...)) {
+template <typename T, typename CompareFunctor>
+void AssertTsSame(const T& expected, const T& actual, CompareFunctor&& compare) {
+  if (!compare(actual, expected)) {
     std::stringstream pp_expected;
     std::stringstream pp_actual;
     ::arrow::PrettyPrintOptions options(/*indent=*/2);
@@ -65,49 +65,53 @@ void AssertTsEqual(const T& expected, const T& actual, ExtraArgs... args) {
     ARROW_EXPECT_OK(PrettyPrint(actual, options, &pp_actual));
     FAIL() << "Got: \n" << pp_actual.str() << "\nExpected: \n" << pp_expected.str();
   }
+}
+
+template <typename T, typename... ExtraArgs>
+void AssertTsEqual(const T& expected, const T& actual, ExtraArgs... args) {
+  return AssertTsSame(expected, actual, [&](const T& expected, const T& actual) {
+    return expected.Equals(actual, args...);
+  });
 }
 
 template <typename T>
 void AssertTsApproxEqual(const T& expected, const T& actual) {
-  if (!expected.ApproxEquals(actual)) {
-    std::stringstream pp_expected;
-    std::stringstream pp_actual;
-    ::arrow::PrettyPrintOptions options(/*indent=*/2);
-    options.window = 50;
-    ARROW_EXPECT_OK(PrettyPrint(expected, options, &pp_expected));
-    ARROW_EXPECT_OK(PrettyPrint(actual, options, &pp_actual));
-    FAIL() << "Got: \n" << pp_actual.str() << "\nExpected: \n" << pp_expected.str();
+  return AssertTsSame(expected, actual, [](const T& expected, const T& actual) {
+    return expected.ApproxEquals(actual);
+  });
+}
+
+template <typename CompareFunctor>
+void AssertArraysEqualWith(const Array& expected, const Array& actual, bool verbose,
+                           CompareFunctor&& compare) {
+  std::stringstream diff;
+  if (!compare(expected, actual, &diff)) {
+    if (verbose) {
+      ::arrow::PrettyPrintOptions options(/*indent=*/2);
+      options.window = 50;
+      diff << "Expected:\n";
+      ARROW_EXPECT_OK(PrettyPrint(expected, options, &diff));
+      diff << "\nActual:\n";
+      ARROW_EXPECT_OK(PrettyPrint(actual, options, &diff));
+    }
+    FAIL() << diff.str();
   }
 }
 
 void AssertArraysEqual(const Array& expected, const Array& actual, bool verbose) {
-  std::stringstream diff;
-  if (!expected.Equals(actual, EqualOptions().diff_sink(&diff))) {
-    if (verbose) {
-      ::arrow::PrettyPrintOptions options(/*indent=*/2);
-      options.window = 50;
-      diff << "Expected:\n";
-      ARROW_EXPECT_OK(PrettyPrint(expected, options, &diff));
-      diff << "\nActual:\n";
-      ARROW_EXPECT_OK(PrettyPrint(actual, options, &diff));
-    }
-    FAIL() << diff.str();
-  }
+  return AssertArraysEqualWith(
+      expected, actual, verbose,
+      [](const Array& expected, const Array& actual, std::stringstream* diff) {
+        return expected.Equals(actual, EqualOptions().diff_sink(diff));
+      });
 }
 
 void AssertArraysApproxEqual(const Array& expected, const Array& actual, bool verbose) {
-  std::stringstream diff;
-  if (!expected.ApproxEquals(actual, EqualOptions().diff_sink(&diff))) {
-    if (verbose) {
-      ::arrow::PrettyPrintOptions options(/*indent=*/2);
-      options.window = 50;
-      diff << "Expected:\n";
-      ARROW_EXPECT_OK(PrettyPrint(expected, options, &diff));
-      diff << "\nActual:\n";
-      ARROW_EXPECT_OK(PrettyPrint(actual, options, &diff));
-    }
-    FAIL() << diff.str();
-  }
+  return AssertArraysEqualWith(
+      expected, actual, verbose,
+      [](const Array& expected, const Array& actual, std::stringstream* diff) {
+        return expected.ApproxEquals(actual, EqualOptions().diff_sink(diff));
+      });
 }
 
 void AssertScalarsEqual(const Scalar& expected, const Scalar& actual, bool verbose) {
@@ -384,8 +388,9 @@ void AssertTablesEqual(const Table& expected, const Table& actual, bool same_chu
   }
 }
 
-void CompareBatch(const RecordBatch& left, const RecordBatch& right,
-                  bool compare_metadata) {
+template <typename CompareFunctor>
+void CompareBatchWith(const RecordBatch& left, const RecordBatch& right,
+                      bool compare_metadata, CompareFunctor&& compare) {
   if (!left.schema()->Equals(*right.schema(), compare_metadata)) {
     FAIL() << "Left schema: " << left.schema()->ToString(compare_metadata)
            << "\nRight schema: " << right.schema()->ToString(compare_metadata);
@@ -394,7 +399,7 @@ void CompareBatch(const RecordBatch& left, const RecordBatch& right,
       << left.schema()->ToString() << " result: " << right.schema()->ToString();
   ASSERT_EQ(left.num_rows(), right.num_rows());
   for (int i = 0; i < left.num_columns(); ++i) {
-    if (!left.column(i)->Equals(right.column(i))) {
+    if (!compare(*left.column(i), *right.column(i))) {
       std::stringstream ss;
       ss << "Idx: " << i << " Name: " << left.column_name(i);
       ss << std::endl << "Left: ";
@@ -406,26 +411,18 @@ void CompareBatch(const RecordBatch& left, const RecordBatch& right,
   }
 }
 
+void CompareBatch(const RecordBatch& left, const RecordBatch& right,
+                  bool compare_metadata) {
+  return CompareBatchWith(
+      left, right, compare_metadata,
+      [](const Array& left, const Array& right) { return left.Equals(right); });
+}
+
 void ApproxCompareBatch(const RecordBatch& left, const RecordBatch& right,
                         bool compare_metadata) {
-  if (!left.schema()->Equals(*right.schema(), compare_metadata)) {
-    FAIL() << "Left schema: " << left.schema()->ToString(compare_metadata)
-           << "\nRight schema: " << right.schema()->ToString(compare_metadata);
-  }
-  ASSERT_EQ(left.num_columns(), right.num_columns())
-      << left.schema()->ToString() << " result: " << right.schema()->ToString();
-  ASSERT_EQ(left.num_rows(), right.num_rows());
-  for (int i = 0; i < left.num_columns(); ++i) {
-    if (!left.column(i)->ApproxEquals(right.column(i))) {
-      std::stringstream ss;
-      ss << "Idx: " << i << " Name: " << left.column_name(i);
-      ss << std::endl << "Left: ";
-      ASSERT_OK(PrettyPrint(*left.column(i), 0, &ss));
-      ss << std::endl << "Right: ";
-      ASSERT_OK(PrettyPrint(*right.column(i), 0, &ss));
-      FAIL() << ss.str();
-    }
-  }
+  return CompareBatchWith(
+      left, right, compare_metadata,
+      [](const Array& left, const Array& right) { return left.ApproxEquals(right); });
 }
 
 class LocaleGuard::Impl {

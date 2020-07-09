@@ -79,6 +79,8 @@ Status MakeRandomInt32Array(int64_t length, bool include_nulls, MemoryPool* pool
   return Status::OK();
 }
 
+namespace {
+
 template <typename ArrayType>
 Status MakeRandomArray(int64_t length, bool include_nulls, MemoryPool* pool,
                        std::shared_ptr<Array>* out, uint32_t seed) {
@@ -113,9 +115,8 @@ Status MakeRandomArray<UInt8Type>(int64_t length, bool include_nulls, MemoryPool
 }
 
 template <typename TypeClass>
-static Status MakeListArray(const std::shared_ptr<Array>& child_array, int num_lists,
-                            bool include_nulls, MemoryPool* pool,
-                            std::shared_ptr<Array>* out) {
+Status MakeListArray(const std::shared_ptr<Array>& child_array, int num_lists,
+                     bool include_nulls, MemoryPool* pool, std::shared_ptr<Array>* out) {
   using offset_type = typename TypeClass::offset_type;
   using ArrayType = typename TypeTraits<TypeClass>::ArrayType;
 
@@ -161,6 +162,8 @@ static Status MakeListArray(const std::shared_ptr<Array>& child_array, int num_l
                                      kUnknownNullCount);
   return (**out).Validate();
 }
+
+}  // namespace
 
 Status MakeRandomListArray(const std::shared_ptr<Array>& child_array, int num_lists,
                            bool include_nulls, MemoryPool* pool,
