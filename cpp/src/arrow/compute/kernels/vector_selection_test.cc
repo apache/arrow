@@ -798,6 +798,10 @@ TEST_F(TestFilterKernelWithTable, FilterTable) {
                             expected_drop);
 }
 
+TEST(TestFilterMetaFunction, ArityChecking) {
+  ASSERT_RAISES(Invalid, CallFunction("filter", {}));
+}
+
 // ----------------------------------------------------------------------
 // Take tests
 
@@ -1519,6 +1523,10 @@ TEST_F(TestTakeKernelWithTable, TakeTable) {
       "[{\"a\": 4, \"b\": \"eh\"},{\"a\": 1, \"b\": \"\"},{\"a\": null, \"b\": \"yo\"}]"};
   this->AssertTake(schm, table_json, "[3, 1, 0]", expected_310);
   this->AssertChunkedTake(schm, table_json, {"[0, 1]", "[2, 3]"}, table_json);
+}
+
+TEST(TestTakeMetaFunction, ArityChecking) {
+  ASSERT_RAISES(Invalid, CallFunction("take", {}));
 }
 
 // ----------------------------------------------------------------------
