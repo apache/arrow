@@ -772,7 +772,11 @@ class Converter_List : public Converter {
 
   SEXP Allocate(R_xlen_t n) const {
     Rcpp::List res(no_init(n));
-    Rf_setAttrib(res, R_ClassSymbol, arrow::r::data::classes_vctrs_list_of);
+    if (std::is_same<ListArrayType, ListArray>::value) {
+      Rf_setAttrib(res, R_ClassSymbol, arrow::r::data::classes_arrow_list);
+    } else {
+      Rf_setAttrib(res, R_ClassSymbol, arrow::r::data::classes_arrow_large_list);
+    }
 
     // Build an empty array to match value_type
     std::unique_ptr<arrow::ArrayBuilder> builder;

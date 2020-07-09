@@ -63,12 +63,20 @@ SEXP data::classes_POSIXct = precious(strings({"POSIXct", "POSIXt"}));
 SEXP data::classes_metadata_r = precious(strings({"arrow_r_metadata"}));
 SEXP data::classes_vctrs_list_of =
     precious(strings({"vctrs_list_of", "vctrs_vctr", "list"}));
+
 SEXP data::classes_arrow_binary =
     precious(strings({"arrow_binary", "arrow_binary_vctr", "vctrs_vctr", "list"}));
 SEXP data::classes_arrow_large_binary =
     precious(strings({"arrow_large_binary", "arrow_binary_vctr", "vctrs_vctr", "list"}));
 SEXP data::classes_arrow_fixed_size_binary =
     precious(strings({"arrow_fixed_size_binary", "arrow_binary_vctr", "vctrs_vctr", "list"}));
+
+SEXP data::classes_arrow_list =
+  precious(strings({"arrow_list", "arrow_list_of", "vctrs_list_of", "vctrs_vctr", "list"}));
+SEXP data::classes_arrow_large_list =
+  precious(strings({"arrow_large_list", "arrow_list_of", "vctrs_list_of", "vctrs_vctr", "list"}));
+SEXP data::classes_arrow_fixed_size_list =
+  precious(strings({"arrow_fixed_size_list", "arrow_list_of", "vctrs_list_of", "vctrs_vctr", "list"}));
 
 SEXP data::names_metadata = precious(strings({"attributes", "columns"}));
 SEXP data::empty_raw = precious(Rf_allocVector(RAWSXP, 0));

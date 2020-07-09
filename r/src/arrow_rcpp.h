@@ -47,6 +47,10 @@ struct data {
   static SEXP classes_arrow_large_binary;
   static SEXP classes_arrow_fixed_size_binary;
 
+  static SEXP classes_arrow_list;
+  static SEXP classes_arrow_large_list;
+  static SEXP classes_arrow_fixed_size_list;
+
   static SEXP names_metadata;
   static SEXP empty_raw;
 };
