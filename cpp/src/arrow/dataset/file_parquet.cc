@@ -360,6 +360,7 @@ static inline Result<std::vector<RowGroupInfo>> AugmentRowGroups(
     if (!info.HasStatistics() && info.id() < num_row_groups) {
       auto row_group = metadata->RowGroup(info.id());
       info.set_num_rows(row_group->num_rows());
+      info.set_total_byte_size(row_group->total_byte_size());
       info.set_statistics(RowGroupStatisticsAsStructScalar(*row_group, manifest));
     }
   };
@@ -677,17 +678,19 @@ ParquetDatasetFactory::CollectParquetFragments(
                             FileFromRowGroup(filesystem_.get(), base_path_, *row_group));
       auto stats = RowGroupStatisticsAsStructScalar(*row_group, manifest);
       auto num_rows = row_group->num_rows();
+      auto total_byte_size = row_group->total_byte_size();
 
       // Insert the path, or increase the count of row groups. It will be
       // assumed that the RowGroup of a file are ordered exactly like in
       // the metadata file.
       auto elem_and_inserted =
-          path_to_row_group_infos.insert({path, {{0, num_rows, stats}}});
+          path_to_row_group_infos.insert({path, {{0, num_rows, total_byte_size, stats}}});
       if (!elem_and_inserted.second) {
         auto& path_and_count = *elem_and_inserted.first;
         auto& row_groups = path_and_count.second;
         auto row_group_id = static_cast<int>(row_groups.size());
-        path_and_count.second.emplace_back(row_group_id, num_rows, stats);
+        path_and_count.second.emplace_back(row_group_id, num_rows, total_byte_size,
+                                           stats);
       }
     }
 

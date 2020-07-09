@@ -223,6 +223,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         CRowGroupInfo(int id)
         int id() const
         int64_t num_rows() const
+        int64_t total_byte_size() const
         bint Equals(const CRowGroupInfo& other)
         c_bool HasStatistics() const
         shared_ptr[CStructScalar] statistics() const
