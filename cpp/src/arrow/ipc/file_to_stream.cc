@@ -39,11 +39,8 @@ Status ConvertToStream(const char* path) {
 
   ARROW_ASSIGN_OR_RAISE(auto in_file, io::ReadableFile::Open(path));
   ARROW_ASSIGN_OR_RAISE(auto reader, ipc::RecordBatchFileReader::Open(in_file.get()));
-  auto options = IpcWriteOptions::Defaults();
-  // Use V5 to get up-to-date Union buffer layout
-  options.metadata_version = MetadataVersion::V5;
-  ARROW_ASSIGN_OR_RAISE(auto writer,
-                        ipc::NewStreamWriter(&sink, reader->schema(), options));
+  ARROW_ASSIGN_OR_RAISE(auto writer, ipc::NewStreamWriter(&sink, reader->schema(),
+                                                          IpcWriteOptions::Defaults()));
   for (int i = 0; i < reader->num_record_batches(); ++i) {
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<RecordBatch> chunk, reader->ReadRecordBatch(i));
     RETURN_NOT_OK(writer->WriteRecordBatch(*chunk));
