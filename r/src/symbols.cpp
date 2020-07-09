@@ -30,11 +30,14 @@ SEXP symbols::as_list = Rf_install("as.list");
 SEXP symbols::ptype = Rf_install("ptype");
 SEXP symbols::byte_width = Rf_install("byte_width");
 
+// persistently protect `x` and return it
 SEXP precious(SEXP x) {
   R_PreserveObject(x);
   return x;
 }
 
+// return R string vector, e.g.
+// strings({"foo", "bar"}) returns a size 2 STRSXP
 SEXP strings(std::initializer_list<std::string> list) {
   size_t n = list.size();
   SEXP s = PROTECT(Rf_allocVector(STRSXP, n));
@@ -48,27 +51,12 @@ SEXP strings(std::initializer_list<std::string> list) {
   return s;
 }
 
-SEXP raws(std::initializer_list<Rbyte> list) {
-  size_t n = list.size();
-  SEXP s = PROTECT(Rf_allocVector(RAWSXP, n));
-
-  std::copy(list.begin(), list.end(), RAW(s));
-
-  UNPROTECT(1);
-  return s;
-}
-
+// returns the namespace environment for package `name`
 SEXP r_namespace(std::string name) {
   SEXP s_name = PROTECT(strings({name}));
   SEXP ns = R_FindNamespace(s_name);
   UNPROTECT(1);
   return ns;
-}
-
-SEXP get_empty_raw() {
-  SEXP res = Rf_allocVector(RAWSXP, 0);
-  R_PreserveObject(res);
-  return res;
 }
 
 SEXP data::classes_POSIXct = precious(strings({"POSIXct", "POSIXt"}));
@@ -83,7 +71,7 @@ SEXP data::classes_fixed_size_binary =
     precious(strings({"arrow_fixed_size_binary", "vctrs_list_of", "vctrs_vctr", "list"}));
 
 SEXP data::names_metadata = precious(strings({"attributes", "columns"}));
-SEXP data::empty_raw = precious(raws({}));
+SEXP data::empty_raw = precious(Rf_allocVector(RAWSXP, 0));
 
 SEXP ns::arrow = precious(r_namespace("arrow"));
 
