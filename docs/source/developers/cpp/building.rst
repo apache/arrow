@@ -309,6 +309,11 @@ version number from ``cpp/thirdparty/versions.txt`` is used. There is also a
 dependency source downloader script (see below), which can be used to set up
 offline builds.
 
+When using ``BUNDLED`` for dependency resolution (and if you use either the
+jemalloc or mimalloc allocators, which are recommended), statically linking the
+Arrow libraries in a third party project is more complex. See below for
+instructions about how to configure your build system in this case.
+
 Boost-related Options
 ~~~~~~~~~~~~~~~~~~~~~
 
@@ -346,6 +351,50 @@ script.
 You can then invoke CMake to create the build directory and it will use the
 declared environment variable pointing to downloaded archives instead of
 downloading them (one for each build dir!).
+
+Statically Linking
+~~~~~~~~~~~~~~~~~~
+
+Static linking the Arrow libraries can be tricky depending on your build
+configuration. If you are using either ``-DARROW_JEMALLOC=ON`` or
+``-DARROW_MIMALLOC=ON``, or any dependency is set to use the ``BUNDLED`` source,
+then some extra steps are needed to produce a statically linked build.
+
+When ``-DARROW_BUILD_STATIC=ON``, all build dependencies built as static
+libraries by the Arrow build system will be merged together to create a static
+library ``arrow_bundled_dependencies``. In UNIX-like environments (Linux, macOS,
+MinGW), this is called ``libarrow_bundled_dependencies.a`` and on Windows with
+Visual Studio ``arrow_bundled_dependencies.lib``. This "dependency bundle"
+library is installed in the same place as the other Arrow static libraries.
+
+For static linking to work, you must include this dependency bundle in your
+linker setup. For example, in CMake it could be accomplished like so:
+
+.. code-block:: cmake
+
+   find_package(Arrow REQUIRED)
+   get_property(arrow_static_loc TARGET arrow_static PROPERTY LOCATION)
+   get_filename_component(arrow_lib_dir ${arrow_static_loc} DIRECTORY)
+
+   add_library(arrow_dependencies STATIC IMPORTED)
+   set_target_properties(arrow_dependencies
+     PROPERTIES IMPORTED_LOCATION
+     "${arrow_lib_dir}/${CMAKE_STATIC_LIBRARY_PREFIX}arrow_bundled_dependencies${CMAKE_STATIC_LIBRARY_SUFFIX}")
+   target_link_libraries(arrow_example PRIVATE arrow_static arrow_dependencies)
+
+We created an `example CMake-based build configuration
+<https://github.com/apache/arrow/tree/master/cpp/examples/minimal_build>`_ to
+help you with this.
+
+On Linux and macOS, if your application does not link to the ``pthread``
+library already, you must include ``-pthread`` in your linker setup. In CMake
+this can be accomplished with the ``Threads`` built-in package:
+
+.. code-block:: cmake
+
+   set(THREADS_PREFER_PTHREAD_FLAG ON)
+   find_package(Threads REQUIRED)
+   target_link_libraries(my_target PRIVATE Threads::Threads)
 
 Extra debugging help
 ~~~~~~~~~~~~~~~~~~~~
