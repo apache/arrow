@@ -69,7 +69,7 @@ utf8()
 
 large_utf8()
 
-binary(byte_width = NULL)
+binary()
 
 large_binary()
 

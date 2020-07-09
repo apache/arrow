@@ -301,7 +301,7 @@ large_utf8 <- function() shared_ptr(LargeUtf8, LargeUtf8__initialize())
 
 #' @rdname data-type
 #' @export
-binary <- function(byte_width = NULL) {
+binary <- function() {
   shared_ptr(Binary, Binary__initialize())
 }
 
