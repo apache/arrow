@@ -52,12 +52,12 @@ Note that this example mounts two volumes inside the Docker image:
 
 ## Statically-linked builds
 
-Static linking the Arrow libraries can be tricky depending on your build
-configuration. If you are using either `-DARROW_JEMALLOC=ON` or
-`-DARROW_MIMALLOC=ON`, then some extra steps are needed to produce a statically
-linked build. We've provided an example build configuration here with CMake
-that uses the `arrow_bundled_dependencies` static library produced by the Arrow
-build system.
+Static linking the Arrow libraries may require extra steps depending on your
+build configuration. If you are using either `-DARROW_JEMALLOC=ON`,
+`-DARROW_MIMALLOC=ON`, or if any dependency is built in `BUNDLED` mode, then
+some extra steps are needed to produce a statically linked build. We've
+provided an example build configuration here with CMake that uses the
+`arrow_bundled_dependencies` static library produced by the Arrow build system.
 
 To run it on Linux, you can use the above Docker image:
 

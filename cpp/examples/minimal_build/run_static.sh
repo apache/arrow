@@ -32,8 +32,9 @@ echo
 mkdir -p $ARROW_BUILD_DIR
 pushd $ARROW_BUILD_DIR
 
+NPROC=$(nproc)
+
 cmake $ARROW_DIR/cpp \
-    -GNinja \
     -DARROW_DEPENDENCY_SOURCE=BUNDLED \
     -DARROW_BUILD_SHARED=OFF \
     -DARROW_BUILD_STATIC=ON \
@@ -55,11 +56,10 @@ cmake $ARROW_DIR/cpp \
     -DARROW_WITH_ZSTD=ON \
     $ARROW_CMAKE_OPTIONS
 
-ninja install
+make -j$NPROC
+make install
 
 popd
-
-/bin/bash
 
 echo
 echo "=="

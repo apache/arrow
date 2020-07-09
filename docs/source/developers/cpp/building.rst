@@ -355,10 +355,11 @@ downloading them (one for each build dir!).
 Statically Linking
 ~~~~~~~~~~~~~~~~~~
 
-Static linking the Arrow libraries can be tricky depending on your build
-configuration. If you are using either ``-DARROW_JEMALLOC=ON`` or
-``-DARROW_MIMALLOC=ON``, or any dependency is set to use the ``BUNDLED`` source,
-then some extra steps are needed to produce a statically linked build.
+Static linking the Arrow libraries may require extra steps depending on your
+build configuration. If you are using either ``-DARROW_JEMALLOC=ON`` or
+``-DARROW_MIMALLOC=ON``, or any dependency is set to use the ``BUNDLED``
+source, then you must do some extra configuration to include these bundled
+dependencies when linking.
 
 When ``-DARROW_BUILD_STATIC=ON``, all build dependencies built as static
 libraries by the Arrow build system will be merged together to create a static

@@ -641,7 +641,6 @@ endif()
 # Linker and Dependencies
 #
 
-# TODO: Also rework how these libs work
 # Libraries to link statically with libarrow.so
 set(ARROW_LINK_LIBS)
 set(ARROW_STATIC_LINK_LIBS)
