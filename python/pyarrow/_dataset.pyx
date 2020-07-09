@@ -1982,64 +1982,24 @@ cdef class Scanner:
             yield Fragment.wrap(GetResultValue(move(maybe_fragment)))
 
 
-cdef _unwrap_equality(shared_ptr[CExpression] expr):
-    cdef:
-        shared_ptr[CExpression] left_operand, right_operand
-        CCompareOperator comp_op
-        CFieldExpression* field_expr
-        CScalarExpression* scalar_expr
-        c_string field_name
-        Scalar scalar
-
-    comp_expr = <CComparisonExpression*> expr.get()
-    left_operand = comp_expr.left_operand()
-    right_operand = comp_expr.right_operand()
-    assert comp_expr.op() == CCompareOperator_EQUAL
-
-    # get field name
-    assert left_operand.get().type() == CExpressionType_FIELD
-    field_expr = <CFieldExpression*> left_operand.get()
-    field_name = field_expr.name()
-
-    # get scalar
-    assert right_operand.get().type() == CExpressionType_SCALAR
-    scalar_expr = <CScalarExpression*> right_operand.get()
-    scalar = pyarrow_wrap_scalar(scalar_expr.value())
-
-    return (frombytes(field_name), scalar.as_py())
-
-
-cdef _recurse_expressions(shared_ptr[CExpression] expr, list result):
-    cdef:
-        CBinaryExpression* and_expr
-        CComparisonExpression* comp_exp
-        shared_ptr[CExpression] left_operand, right_operand
-
-    typ = expr.get().type()
-
-    if typ == CExpressionType_AND:
-        and_expr = <CBinaryExpression*> expr.get()
-        left_operand = and_expr.left_operand()
-        right_operand = and_expr.right_operand()
-        _recurse_expressions(left_operand, result)
-        _recurse_expressions(right_operand, result)
-    elif typ == CExpressionType_COMPARISON:
-        result.append(_unwrap_equality(expr))
-    else:
-        return
-
-
-def _unwrap_partition_expression(Expression partition_expression):
+def _get_partition_keys(Expression partition_expression):
     """
-    Convert a partition expression to a list of (field_name, value) tuples.
+    Extract partition keys (equality constraints between a field and a scalar)
+    from an expression as a dict mapping the field's name to its value.
+
+    NB: All expressions yielded by a HivePartitioning or DirectoryPartitioning
+    will be conjunctions of equality conditions and are accessible through this
+    function. Other subexpressions will be ignored.
 
     For example, an expression of
     <pyarrow.dataset.Expression ((part == A:string) and (year == 2016:int32))>
-    is converted to [('part', 'a'), ('year', 2016)]
+    is converted to {'part': 'a', 'year': 2016}
     """
     cdef:
         shared_ptr[CExpression] expr = partition_expression.unwrap()
+        pair[c_string, shared_ptr[CScalar]] name_val
 
-    result = []
-    _recurse_expressions(expr, result)
-    return result
+    return {
+        frombytes(name_val.first): pyarrow_wrap_scalar(name_val.second).as_py()
+        for name_val in GetResultValue(CGetPartitionKeys(deref(expr.get())))
+    }

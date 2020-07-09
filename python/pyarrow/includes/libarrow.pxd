@@ -1696,9 +1696,6 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         shared_ptr[CTable] table()
         shared_ptr[CScalar] scalar()
 
-    enum CCompareOperator "arrow::compute::CompareOperator":
-        CCompareOperator_EQUAL "arrow::compute::CompareOperator::EQUAL"
-
 
 cdef extern from "arrow/python/api.h" namespace "arrow::py":
     # Requires GIL

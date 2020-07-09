@@ -471,6 +471,16 @@ def test_expression_construction():
         field != {1}
 
 
+def test_partition_keys():
+    a, b, c = [ds.field(f) == f for f in 'abc']
+    assert ds._get_partition_keys(a) == {'a': 'a'}
+    assert ds._get_partition_keys(a & b & c) == {f: f for f in 'abc'}
+
+    nope = ds.field('d') >= 3
+    assert ds._get_partition_keys(nope) == {}
+    assert ds._get_partition_keys(a & nope) == {'a': 'a'}
+
+
 def test_parquet_read_options():
     opts1 = ds.ParquetReadOptions()
     opts2 = ds.ParquetReadOptions(buffer_size=4096,

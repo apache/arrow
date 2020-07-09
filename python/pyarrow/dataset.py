@@ -47,7 +47,7 @@ from pyarrow._dataset import (  # noqa
     ScanTask,
     UnionDataset,
     UnionDatasetFactory,
-    _unwrap_partition_expression
+    _get_partition_keys
 )
 
 
