@@ -83,7 +83,7 @@ void RegisterScalarAggregateSumAvx512(FunctionRegistry* registry) {
   aggregate::AddBasicAggKernels(aggregate::SumInitAvx512, FloatingPointTypes(), float64(),
                                 func.get());
   // Register the override AVX512 version
-  DCHECK_OK(registry->AddFunction(std::move(func), true));
+  DCHECK_OK(registry->AddFunction(std::move(func), /*allow_overwrite=*/true));
 
   func = std::make_shared<ScalarAggregateFunction>("mean", Arity::Unary());
   aggregate::AddBasicAggKernels(aggregate::MeanInitAvx512, {boolean()}, float64(),
@@ -91,7 +91,7 @@ void RegisterScalarAggregateSumAvx512(FunctionRegistry* registry) {
   aggregate::AddBasicAggKernels(aggregate::MeanInitAvx512, NumericTypes(), float64(),
                                 func.get());
   // Register the override AVX512 version
-  DCHECK_OK(registry->AddFunction(std::move(func), true));
+  DCHECK_OK(registry->AddFunction(std::move(func), /*allow_overwrite=*/true));
 }
 
 }  // namespace internal

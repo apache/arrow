@@ -61,9 +61,9 @@ struct SumState {
   void Consume(const Array& input) {
     const ArrayType& array = static_cast<const ArrayType&>(input);
     if (input.null_count() == 0) {
-      (*this) += ConsumeDense(array);
+      (*this) += ConsumeNoNulls(array);
     } else {
-      (*this) += ConsumeSparse(array);
+      (*this) += ConsumeWithNulls(array);
     }
   }
 
@@ -71,19 +71,19 @@ struct SumState {
   typename SumType::c_type sum = 0;
 
  private:
-  template <int64_t kDenseRoundSize>
-  ThisType ConsumeDense(const T* values, const int64_t length) const {
+  template <int64_t kNoNullsRoundSize>
+  ThisType ConsumeNoNulls(const T* values, const int64_t length) const {
     ThisType local;
-    const int64_t length_rounded = BitUtil::RoundDown(length, kDenseRoundSize);
-    typename SumType::c_type sum_rounded[kDenseRoundSize] = {0};
+    const int64_t length_rounded = BitUtil::RoundDown(length, kNoNullsRoundSize);
+    typename SumType::c_type sum_rounded[kNoNullsRoundSize] = {0};
 
-    // Unrolled the loop to add the results in parallel
-    for (int64_t i = 0; i < length_rounded; i += kDenseRoundSize) {
-      for (int64_t k = 0; k < kDenseRoundSize; k++) {
+    // Unroll the loop to add the results in parallel
+    for (int64_t i = 0; i < length_rounded; i += kNoNullsRoundSize) {
+      for (int64_t k = 0; k < kNoNullsRoundSize; k++) {
         sum_rounded[k] += values[i + k];
       }
     }
-    for (int64_t k = 0; k < kDenseRoundSize; k++) {
+    for (int64_t k = 0; k < kNoNullsRoundSize; k++) {
       local.sum += sum_rounded[k];
     }
 
@@ -96,15 +96,15 @@ struct SumState {
     return local;
   }
 
-  ThisType ConsumeDense(const ArrayType& array) const {
+  ThisType ConsumeNoNulls(const ArrayType& array) const {
     const auto values = array.raw_values();
     const int64_t length = array.length();
 
-    return ConsumeDense<kRoundSize>(values, length);
+    return ConsumeNoNulls<kRoundSize>(values, length);
   }
 
   // While this is not branchless, gcc needs this to be in a different function
-  // for it to generate cmov which ends to be slightly faster than
+  // for it to generate cmov which tends to be slightly faster than
   // multiplication but safe for handling NaN with doubles.
   inline T MaskedValue(bool valid, T value) const { return valid ? value : 0; }
 
@@ -128,7 +128,7 @@ struct SumState {
     return local;
   }
 
-  ThisType ConsumeSparse(const ArrayType& array) const {
+  ThisType ConsumeWithNulls(const ArrayType& array) const {
     ThisType local;
     const T* values = array.raw_values();
     const int64_t length = array.length();
@@ -149,7 +149,7 @@ struct SumState {
     }
 
     // The aligned parts scanned with BitBlockCounter
-    int64_t kBatchSize = arrow::internal::BitBlockCounterWordSize();
+    int64_t kBatchSize = arrow::internal::BitBlockCounter::kWordBits;
     arrow::internal::BitBlockCounter data_counter(bitmap, offset, length - leading_bits);
     auto current_block = data_counter.NextWord();
     while (idx < length) {
@@ -160,11 +160,11 @@ struct SumState {
           run_length += current_block.length;
           current_block = data_counter.NextWord();
         }
-        // Aggregate the dense parts
+        // Aggregate the no nulls parts
         if (run_length >= kRoundSize * 8) {
-          local += ConsumeDense<kRoundSize>(&values[idx], run_length);
+          local += ConsumeNoNulls<kRoundSize>(&values[idx], run_length);
         } else {
-          local += ConsumeDense<8>(&values[idx], run_length);
+          local += ConsumeNoNulls<8>(&values[idx], run_length);
         }
         idx += run_length;
         offset += run_length;

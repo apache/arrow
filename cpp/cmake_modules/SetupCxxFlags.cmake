@@ -54,7 +54,7 @@ if(ARROW_CPU_FLAG STREQUAL "x86")
   check_cxx_compiler_flag(${ARROW_AVX2_FLAG} CXX_SUPPORTS_AVX2)
   if(MINGW)
     # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=65782
-    message(STATUS "Disbale AVX512 support on MINGW for now")
+    message(STATUS "Disable AVX512 support on MINGW for now")
   else()
     check_cxx_compiler_flag(${ARROW_AVX512_FLAG} CXX_SUPPORTS_AVX512)
   endif()

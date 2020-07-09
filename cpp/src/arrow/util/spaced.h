@@ -105,9 +105,8 @@ inline int SpacedCompress(const T* src, int num_values, const uint8_t* valid_bit
 template <typename T>
 inline int SpacedExpand(T* buffer, int num_values, int null_count,
                         const uint8_t* valid_bits, int64_t valid_bits_offset) {
-  constexpr uint64_t kBatchSize = 64;
-  static_assert(kBatchSize == 64, "Invalid batch size, BitBlockCounter stick to 64");
-  constexpr uint64_t kBatchByteSize = kBatchSize / 8;
+  constexpr int64_t kBatchSize = arrow::internal::BitBlockCounter::kWordBits;
+  constexpr int64_t kBatchByteSize = kBatchSize / 8;
 
   // Point to end as we add the spacing from the back.
   int idx_decode = num_values - null_count - 1;

@@ -29,11 +29,6 @@
 namespace arrow {
 namespace internal {
 
-static constexpr int64_t kWordBits = 64;
-static constexpr int64_t kFourWordsBits = kWordBits * 4;
-
-int64_t BitBlockCounterWordSize() { return kWordBits; }
-
 static inline uint64_t LoadWord(const uint8_t* bytes) {
   return BitUtil::ToLittleEndian(util::SafeLoadAs<uint64_t>(bytes));
 }
@@ -135,6 +130,7 @@ BitBlockCount BinaryBitBlockCounter::NextWord() {
   }
   // When the offset is > 0, we need there to be a word beyond the last aligned
   // word in the bitmap for the bit shifting logic.
+  constexpr int64_t kWordBits = BitBlockCounter::kWordBits;
   const int64_t bits_required_to_use_words =
       std::max(left_offset_ == 0 ? 64 : 64 + (64 - left_offset_),
                right_offset_ == 0 ? 64 : 64 + (64 - right_offset_));
