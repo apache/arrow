@@ -19,10 +19,28 @@ cmake_minimum_required(VERSION 3.0)
 
 project(ArrowMinimalExample)
 
+option(ARROW_LINK_SHARED "Link to the Arrow shared library" ON)
+
 find_package(Arrow REQUIRED)
 
 message(STATUS "Arrow version: ${ARROW_VERSION}")
 message(STATUS "Arrow SO version: ${ARROW_FULL_SO_VERSION}")
 
 add_executable(arrow_example example.cc)
-target_link_libraries(arrow_example PRIVATE arrow_shared)
+
+if (ARROW_LINK_SHARED)
+  target_link_libraries(arrow_example PRIVATE arrow_shared)
+else()
+  set(THREADS_PREFER_PTHREAD_FLAG ON)
+  find_package(Threads REQUIRED)
+
+  # We must also link to libarrow_bundled_dependencies.a
+  get_property(arrow_static_loc TARGET arrow_static PROPERTY LOCATION)
+  get_filename_component(arrow_lib_dir ${arrow_static_loc} DIRECTORY)
+
+  add_library(arrow_dependencies STATIC IMPORTED)
+  set_target_properties(arrow_dependencies
+    PROPERTIES IMPORTED_LOCATION
+    "${arrow_lib_dir}/${CMAKE_STATIC_LIBRARY_PREFIX}arrow_bundled_dependencies${CMAKE_STATIC_LIBRARY_SUFFIX}")
+  target_link_libraries(arrow_example PRIVATE arrow_static arrow_dependencies Threads::Threads)
+endif()

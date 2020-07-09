@@ -202,7 +202,9 @@ function(create_merged_static_lib output_target)
                      COMMENT "Bundling ${output_lib_path}"
                      VERBATIM)
 
-  message(STATUS "Creating bundled static library target ${output_target} at ${output_lib_path}")
+  message(
+    STATUS "Creating bundled static library target ${output_target} at ${output_lib_path}"
+    )
 
   add_custom_target(${output_target} ALL DEPENDS ${output_lib_path})
   add_dependencies(${output_target} ${ARG_ROOT} ${ARG_TO_MERGE})
@@ -432,14 +434,14 @@ function(ADD_ARROW_LIB LIB_NAME)
                                      ${LIB_NAME_STATIC})
 
     if(ARG_STATIC_INSTALL_INTERFACE_LIBS)
-      set(INTERFACE_LIBS ${ARG_STATIC_INSTALL_INTERFACE_LIBS})
-    else()
-      set(INTERFACE_LIBS ${ARG_STATIC_LINK_LIBS})
+      target_link_libraries(${LIB_NAME}_static LINK_PUBLIC
+                            "$<INSTALL_INTERFACE:${ARG_STATIC_INSTALL_INTERFACE_LIBS}>")
     endif()
 
-    target_link_libraries(${LIB_NAME}_static LINK_PUBLIC
-                          "$<BUILD_INTERFACE:${ARG_STATIC_LINK_LIBS}>"
-                          "$<INSTALL_INTERFACE:${INTERFACE_LIBS}>")
+    if(ARG_STATIC_LINK_LIBS)
+      target_link_libraries(${LIB_NAME}_static LINK_PRIVATE
+                            "$<BUILD_INTERFACE:${ARG_STATIC_LINK_LIBS}>")
+    endif()
 
     install(TARGETS ${LIB_NAME}_static ${INSTALL_IS_OPTIONAL}
             EXPORT ${LIB_NAME}_targets
@@ -916,9 +918,9 @@ endfunction()
 
 # Implementations of lisp "car" and "cdr" functions
 macro(ARROW_CAR var)
-  SET(${var} ${ARGV1})
+  set(${var} ${ARGV1})
 endmacro()
 
-MACRO(ARROW_CDR var rest)
-  SET(${var} ${ARGN})
-ENDMACRO()
+macro(ARROW_CDR var rest)
+  set(${var} ${ARGN})
+endmacro()

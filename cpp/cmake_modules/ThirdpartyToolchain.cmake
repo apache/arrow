@@ -692,7 +692,8 @@ macro(build_boost)
   add_dependencies(toolchain boost_ep)
   set(BOOST_VENDORED TRUE)
 
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS boost_system_static boost_filesystem_static boost_regex_static)
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS boost_system_static boost_filesystem_static
+              boost_regex_static)
 endmacro()
 
 if(ARROW_FLIGHT AND ARROW_BUILD_TESTS)
@@ -930,7 +931,8 @@ macro(build_brotli)
                                    INTERFACE_INCLUDE_DIRECTORIES "${BROTLI_INCLUDE_DIR}")
   add_dependencies(Brotli::brotlidec brotli_ep)
 
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS Brotli::brotlicommon Brotli::brotlienc Brotli::brotlidec)
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS Brotli::brotlicommon Brotli::brotlienc
+              Brotli::brotlidec)
 endmacro()
 
 if(ARROW_WITH_BROTLI)
@@ -2408,7 +2410,12 @@ macro(build_grpc)
   add_dependencies(gRPC::grpc_cpp_plugin grpc_ep)
   set(GRPC_VENDORED TRUE)
 
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS gRPC::upb gRPC::gpr gRPC::gprc gRPC::address_sorting gRPC::grpc++)
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS
+              gRPC::upb
+              gRPC::gpr
+              gRPC::gprc
+              gRPC::address_sorting
+              gRPC::grpc++)
 endmacro()
 
 if(ARROW_WITH_GRPC)
