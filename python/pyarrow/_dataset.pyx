@@ -867,6 +867,10 @@ cdef class RowGroupInfo:
         return self.info.num_rows()
 
     @property
+    def total_byte_size(self):
+        return self.info.total_byte_size()
+
+    @property
     def statistics(self):
         if not self.info.HasStatistics():
             return None

@@ -904,7 +904,10 @@ def test_parquet_fragment_statistics(tempdir):
     # list and scan row group fragments
     row_group_fragments = list(fragment.split_by_row_group())
     assert row_group_fragments[0].row_groups is not None
-    assert row_group_fragments[0].row_groups[0].statistics == {
+    row_group = row_group_fragments[0].row_groups[0]
+    assert row_group.num_rows == 3
+    assert row_group.total_byte_size > 1000
+    assert row_group.statistics == {
         'boolean': {'min': False, 'max': True},
         'int8': {'min': 1, 'max': 42},
         'uint8': {'min': 1, 'max': 42},

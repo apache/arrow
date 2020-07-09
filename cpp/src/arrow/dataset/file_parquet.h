@@ -123,11 +123,15 @@ class ARROW_DS_EXPORT RowGroupInfo : public util::EqualityComparable<RowGroupInf
   RowGroupInfo() : RowGroupInfo(-1) {}
 
   /// \brief Construct a RowGroup from an identifier.
-  explicit RowGroupInfo(int id) : RowGroupInfo(id, -1, NULLPTR) {}
+  explicit RowGroupInfo(int id) : RowGroupInfo(id, -1, -1, NULLPTR) {}
 
   /// \brief Construct a RowGroup from an identifier with statistics.
-  RowGroupInfo(int id, int64_t num_rows, std::shared_ptr<StructScalar> statistics)
-      : id_(id), num_rows_(num_rows), statistics_(std::move(statistics)) {
+  RowGroupInfo(int id, int64_t num_rows, int64_t total_byte_size,
+               std::shared_ptr<StructScalar> statistics)
+      : id_(id),
+        num_rows_(num_rows),
+        total_byte_size_(total_byte_size),
+        statistics_(std::move(statistics)) {
     SetStatisticsExpression();
   }
 
@@ -143,6 +147,14 @@ class ARROW_DS_EXPORT RowGroupInfo : public util::EqualityComparable<RowGroupInf
   /// If statistics are not provided, return -1.
   int64_t num_rows() const { return num_rows_; }
   void set_num_rows(int64_t num_rows) { num_rows_ = num_rows; }
+
+  /// \brief Return the RowGroup's total size in bytes.
+  ///
+  /// If statistics are not provided, return -1.
+  int64_t total_byte_size() const { return total_byte_size_; }
+  void set_total_byte_size(int64_t total_byte_size) {
+    total_byte_size_ = total_byte_size;
+  }
 
   /// \brief Return the RowGroup's statistics as a StructScalar with a field for
   /// each column with statistics.
@@ -170,6 +182,7 @@ class ARROW_DS_EXPORT RowGroupInfo : public util::EqualityComparable<RowGroupInf
 
   int id_;
   int64_t num_rows_;
+  int64_t total_byte_size_;
   std::shared_ptr<Expression> statistics_expression_;
   std::shared_ptr<StructScalar> statistics_;
 };
