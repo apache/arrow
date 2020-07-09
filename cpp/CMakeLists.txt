@@ -792,18 +792,23 @@ if(ARROW_BUILD_BENCHMARKS)
   endif()
 endif()
 
-set(ARROW_SYSTEM_LINK_LIBS)
-
 if(ARROW_JEMALLOC)
   add_definitions(-DARROW_JEMALLOC)
   add_definitions(-DARROW_JEMALLOC_INCLUDE_DIR=${JEMALLOC_INCLUDE_DIR})
-  list(APPEND ARROW_SYSTEM_LINK_LIBS jemalloc::jemalloc)
+  list(APPEND ARROW_LINK_LIBS jemalloc::jemalloc)
+  list(APPEND ARROW_STATIC_LINK_LIBS jemalloc::jemalloc)
 endif()
 
 if(ARROW_MIMALLOC)
   add_definitions(-DARROW_MIMALLOC)
-  list(APPEND ARROW_SYSTEM_LINK_LIBS mimalloc::mimalloc)
+  list(APPEND ARROW_LINK_LIBS mimalloc::mimalloc)
+  list(APPEND ARROW_STATIC_LINK_LIBS mimalloc::mimalloc)
 endif()
+
+# ----------------------------------------------------------------------
+# Handle platform-related libraries like -pthread
+
+set(ARROW_SYSTEM_LINK_LIBS)
 
 if(THREADS_FOUND)
   list(APPEND ARROW_SYSTEM_LINK_LIBS Threads::Threads)
