@@ -874,7 +874,6 @@ mod tests {
 
     use flate2::read::GzDecoder;
 
-    use crate::ipc::writer::StreamWriter;
     use crate::util::integration_util::*;
     use std::cell::RefCell;
     use std::env;
@@ -1032,7 +1031,7 @@ mod tests {
     fn test_arrow_single_float_row() {
         use crate::array::{make_array, ArrayData};
         use crate::buffer::Buffer;
-        use crate::datatypes::{DataType, Field, Schema, TimeUnit};
+        use crate::datatypes::{DataType, Field, Schema};
         use crate::ipc::reader::StreamReader;
         use crate::ipc::writer::StreamWriter;
         use crate::memory::{allocate_aligned, memcpy};
