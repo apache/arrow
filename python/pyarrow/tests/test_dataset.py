@@ -1466,8 +1466,13 @@ def test_open_dataset_from_uri_s3_fsspec(s3_example_simple):
             'endpoint_url': 'http://{}:{}'.format(host, port)
         }
     )
-    fs = PyFileSystem(FSSpecHandler(fs))
 
+    # passing as fsspec filesystem
+    dataset = ds.dataset(path, format="parquet", filesystem=fs)
+    assert dataset.to_table().equals(table)
+
+    # directly passing the fsspec-handler
+    fs = PyFileSystem(FSSpecHandler(fs))
     dataset = ds.dataset(path, format="parquet", filesystem=fs)
     assert dataset.to_table().equals(table)
 
@@ -1538,6 +1543,17 @@ def test_open_dataset_from_s3_with_filesystem_uri(s3_connection, s3_server):
     with pytest.raises(ValueError) as exc:
         ds.dataset('data.parquet', filesystem=uri)
     assert str(exc.value) == error.format('File', path, uri)
+
+
+@pytest.mark.parquet
+def test_open_dataset_from_fsspec(tempdir):
+    table, path = _create_single_file(tempdir)
+
+    fsspec = pytest.importorskip("fsspec")
+
+    localfs = fsspec.filesystem("file")
+    dataset = ds.dataset(path, filesystem=localfs)
+    assert dataset.schema.equals(table.schema)
 
 
 @pytest.mark.parquet

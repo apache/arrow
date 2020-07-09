@@ -63,6 +63,31 @@ def __getattr__(name):
     )
 
 
+def _ensure_filesystem(filesystem):
+    if isinstance(filesystem, FileSystem):
+        return filesystem
+
+    # handle fsspec-compatible filesystems
+    try:
+        import fsspec
+        if isinstance(filesystem, fsspec.AbstractFileSystem):
+            if type(filesystem).__name__ == 'LocalFileSystem':
+                # In case its a simple LocalFileSystem, use native arrow one
+                return LocalFileSystem()
+            return PyFileSystem(FSSpecHandler(filesystem))
+    except ImportError:
+        pass
+
+    from pyarrow.filesystem import LocalFileSystem as LegacyLocalFileSystem
+
+    # map old filesystems to new ones
+    if isinstance(filesystem, LegacyLocalFileSystem):
+        return LocalFileSystem()
+    # TODO handle HDFS?
+
+    raise TypeError("Unrecognized fielsystem: {}".format(type(filesystem)))
+
+
 class FSSpecHandler(FileSystemHandler):
     """
     Handler for fsspec-based Python filesystems.

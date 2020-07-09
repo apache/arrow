@@ -217,7 +217,8 @@ def _ensure_format(obj):
 
 def _ensure_filesystem(fs_or_uri):
     from pyarrow.fs import (
-        FileSystem, LocalFileSystem, SubTreeFileSystem, FileType
+        FileSystem, LocalFileSystem, SubTreeFileSystem, FileType,
+        _ensure_filesystem
     )
 
     if isinstance(fs_or_uri, str):
@@ -239,15 +240,18 @@ def _ensure_filesystem(fs_or_uri):
                 )
             filesystem = SubTreeFileSystem(prefix, filesystem)
         return filesystem, is_local
-    elif isinstance(fs_or_uri, (LocalFileSystem, _MockFileSystem)):
-        return fs_or_uri, True
-    elif isinstance(fs_or_uri, FileSystem):
-        return fs_or_uri, False
-    else:
+
+    try:
+        filesystem = _ensure_filesystem(fs_or_uri)
+    except TypeError:
         raise TypeError(
             '`filesystem` argument must be a FileSystem instance or a valid '
             'file system URI'
         )
+    if isinstance(filesystem, (LocalFileSystem, _MockFileSystem)):
+        return filesystem, True
+    else:
+        return filesystem, False
 
 
 def _ensure_multiple_sources(paths, filesystem=None):
