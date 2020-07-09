@@ -23,6 +23,8 @@ option(ARROW_LINK_SHARED "Link to the Arrow shared library" ON)
 
 find_package(Arrow REQUIRED)
 
+set(CMAKE_CXX_STANDARD 11)
+
 message(STATUS "Arrow version: ${ARROW_VERSION}")
 message(STATUS "Arrow SO version: ${ARROW_FULL_SO_VERSION}")
 

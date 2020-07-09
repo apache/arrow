@@ -18,8 +18,6 @@
 
 set -e
 
-cd /io
-
 : ${ARROW_DIR:=/arrow}
 : ${EXAMPLE_DIR:=/io}
 : ${ARROW_BUILD_DIR:=/build/arrow}
