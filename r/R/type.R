@@ -76,7 +76,7 @@ DataType <- R6Class("DataType",
         DICTIONARY = shared_ptr(DictionaryType, self$pointer()),
         MAP = stop("Type MAP not implemented yet"),
         EXTENSION = stop("Type EXTENSION not implemented yet"),
-        FIXED_SIZE_LIST = stop("Type FIXED_SIZE_LIST not implemented yet"),
+        FIXED_SIZE_LIST = shared_ptr(FixedSizeListType, self$pointer()),
         DURATION = stop("Type DURATION not implemented yet"),
         LARGE_STRING = large_utf8(),
         LARGE_BINARY = large_binary(),
@@ -450,7 +450,7 @@ vec_ptype_full.arrow_fixed_size_list <- function(x, ...) {
   if (grepl("\n", param)) {
     param <- paste0(indent(paste0("\n", param), 2), "\n")
   }
-  paste0("fixed_size_list<", param, ", ", attr(x, "byte_width"), ">")
+  paste0("fixed_size_list<", param, ", ", attr(x, "list_size"), ">")
 }
 
 

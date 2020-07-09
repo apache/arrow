@@ -560,6 +560,10 @@ large_list__ <- function(x){
     .Call(`_arrow_large_list__` , x)
 }
 
+fixed_size_list__ <- function(x, list_size){
+    .Call(`_arrow_fixed_size_list__` , x, list_size)
+}
+
 struct_ <- function(fields){
     .Call(`_arrow_struct_` , fields)
 }
@@ -662,6 +666,18 @@ LargeListType__value_field <- function(type){
 
 LargeListType__value_type <- function(type){
     .Call(`_arrow_LargeListType__value_type` , type)
+}
+
+FixedSizeListType__value_field <- function(type){
+    .Call(`_arrow_FixedSizeListType__value_field` , type)
+}
+
+FixedSizeListType__value_type <- function(type){
+    .Call(`_arrow_FixedSizeListType__value_type` , type)
+}
+
+FixedSizeListType__list_size <- function(type){
+    .Call(`_arrow_FixedSizeListType__list_size` , type)
 }
 
 dataset___expr__field_ref <- function(name){

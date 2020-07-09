@@ -32,6 +32,8 @@
 \alias{decimal}
 \alias{list_of}
 \alias{large_list_of}
+\alias{FixedSizeListType}
+\alias{fixed_size_list_of}
 \alias{struct}
 \title{Apache Arrow data types}
 \usage{
@@ -94,6 +96,8 @@ decimal(precision, scale)
 list_of(type)
 
 large_list_of(type)
+
+fixed_size_list_of(type, list_size)
 
 struct(...)
 }
