@@ -28,6 +28,7 @@ API Reference
    api/array
    api/builder
    api/table
+   api/compute
    api/tensor
    api/utilities
    api/io

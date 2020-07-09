@@ -29,6 +29,9 @@ namespace compute {
 
 class ExecContext;
 
+/// \addtogroup compute-concrete-options
+/// @{
+
 struct FilterOptions : public FunctionOptions {
   /// Configure the action taken when a slot of the selection mask is null
   enum NullSelectionBehavior {
@@ -45,6 +48,25 @@ struct FilterOptions : public FunctionOptions {
 
   NullSelectionBehavior null_selection_behavior = DROP;
 };
+
+struct ARROW_EXPORT TakeOptions : public FunctionOptions {
+  explicit TakeOptions(bool boundscheck = true) : boundscheck(boundscheck) {}
+
+  bool boundscheck = true;
+  static TakeOptions BoundsCheck() { return TakeOptions(true); }
+  static TakeOptions NoBoundsCheck() { return TakeOptions(false); }
+  static TakeOptions Defaults() { return BoundsCheck(); }
+};
+
+/// \brief Partitioning options for NthToIndices
+struct PartitionOptions : public FunctionOptions {
+  explicit PartitionOptions(int64_t pivot) : pivot(pivot) {}
+
+  /// The index into the equivalent sorted array of the partition pivot element.
+  int64_t pivot;
+};
+
+/// @}
 
 /// \brief Filter with a boolean selection filter
 ///
@@ -85,15 +107,6 @@ Result<std::shared_ptr<ArrayData>> GetTakeIndices(
 
 }  // namespace internal
 
-struct ARROW_EXPORT TakeOptions : public FunctionOptions {
-  explicit TakeOptions(bool boundscheck = true) : boundscheck(boundscheck) {}
-
-  bool boundscheck = true;
-  static TakeOptions BoundsCheck() { return TakeOptions(true); }
-  static TakeOptions NoBoundsCheck() { return TakeOptions(false); }
-  static TakeOptions Defaults() { return BoundsCheck(); }
-};
-
 /// \brief Take from an array of values at indices in another array
 ///
 /// The output array will be of the same type as the input values
@@ -120,11 +133,6 @@ ARROW_EXPORT
 Result<std::shared_ptr<Array>> Take(const Array& values, const Array& indices,
                                     const TakeOptions& options = TakeOptions::Defaults(),
                                     ExecContext* ctx = NULLPTR);
-
-struct PartitionOptions : public FunctionOptions {
-  explicit PartitionOptions(int64_t pivot) : pivot(pivot) {}
-  int64_t pivot;
-};
 
 /// \brief Returns indices that partition an array around n-th
 /// sorted element.
@@ -178,6 +186,7 @@ ARROW_EXPORT extern const char kValuesFieldName[];
 ARROW_EXPORT extern const char kCountsFieldName[];
 ARROW_EXPORT extern const int32_t kValuesFieldIndex;
 ARROW_EXPORT extern const int32_t kCountsFieldIndex;
+
 /// \brief Return counts of unique elements from an array-like object.
 ///
 /// Note that the counts do not include counts for nulls in the array.  These can be

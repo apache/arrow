@@ -33,12 +33,63 @@
 namespace arrow {
 namespace compute {
 
-// ----------------------------------------------------------------------
+/// \addtogroup compute-concrete-options
+///
+/// @{
 
 struct ArithmeticOptions : public FunctionOptions {
   ArithmeticOptions() : check_overflow(false) {}
   bool check_overflow;
 };
+
+struct ARROW_EXPORT BinaryContainsExactOptions : public FunctionOptions {
+  explicit BinaryContainsExactOptions(std::string pattern)
+      : pattern(std::move(pattern)) {}
+
+  /// The exact pattern to look for inside input values.
+  std::string pattern;
+};
+
+/// Options for IsIn and Match functions
+struct ARROW_EXPORT SetLookupOptions : public FunctionOptions {
+  explicit SetLookupOptions(Datum value_set, bool skip_nulls)
+      : value_set(std::move(value_set)), skip_nulls(skip_nulls) {}
+
+  /// The set of values to look up input values into.
+  Datum value_set;
+  /// Whether nulls in `value_set` count for lookup.
+  ///
+  /// If true, any null in `value_set` is ignored and nulls in the input
+  /// produce null (Match) or false (IsIn) values in the output.
+  /// If false, any null in `value_set` is successfully matched in
+  /// the input.
+  bool skip_nulls;
+};
+
+struct ARROW_EXPORT StrptimeOptions : public FunctionOptions {
+  explicit StrptimeOptions(std::string format, TimeUnit::type unit)
+      : format(format), unit(unit) {}
+
+  std::string format;
+  TimeUnit::type unit;
+};
+
+enum CompareOperator : int8_t {
+  EQUAL,
+  NOT_EQUAL,
+  GREATER,
+  GREATER_EQUAL,
+  LESS,
+  LESS_EQUAL,
+};
+
+struct CompareOptions : public FunctionOptions {
+  explicit CompareOptions(CompareOperator op) : op(op) {}
+
+  enum CompareOperator op;
+};
+
+/// @}
 
 /// \brief Add two values together. Array values must be the same length. If
 /// either addend is null the result will be null.
@@ -78,21 +129,6 @@ ARROW_EXPORT
 Result<Datum> Multiply(const Datum& left, const Datum& right,
                        ArithmeticOptions options = ArithmeticOptions(),
                        ExecContext* ctx = NULLPTR);
-
-enum CompareOperator {
-  EQUAL,
-  NOT_EQUAL,
-  GREATER,
-  GREATER_EQUAL,
-  LESS,
-  LESS_EQUAL,
-};
-
-struct CompareOptions : public FunctionOptions {
-  explicit CompareOptions(CompareOperator op) : op(op) {}
-
-  enum CompareOperator op;
-};
 
 /// \brief Compare a numeric array with a scalar.
 ///
@@ -185,15 +221,6 @@ Result<Datum> KleeneOr(const Datum& left, const Datum& right, ExecContext* ctx =
 ARROW_EXPORT
 Result<Datum> Xor(const Datum& left, const Datum& right, ExecContext* ctx = NULLPTR);
 
-/// For set lookup operations like IsIn, Match
-struct ARROW_EXPORT SetLookupOptions : public FunctionOptions {
-  explicit SetLookupOptions(Datum value_set, bool skip_nulls)
-      : value_set(std::move(value_set)), skip_nulls(skip_nulls) {}
-
-  Datum value_set;
-  bool skip_nulls;
-};
-
 /// \brief IsIn returns true for each element of `values` that is contained in
 /// `value_set`
 ///
@@ -273,26 +300,6 @@ Result<Datum> IsNull(const Datum& values, ExecContext* ctx = NULLPTR);
 ARROW_EXPORT
 Result<Datum> FillNull(const Datum& values, const Datum& fill_value,
                        ExecContext* ctx = NULLPTR);
-
-// ----------------------------------------------------------------------
-// String functions
-
-struct ARROW_EXPORT BinaryContainsExactOptions : public FunctionOptions {
-  explicit BinaryContainsExactOptions(std::string pattern) : pattern(pattern) {}
-
-  std::string pattern;
-};
-
-// ----------------------------------------------------------------------
-// Temporal functions
-
-struct ARROW_EXPORT StrptimeOptions : public FunctionOptions {
-  explicit StrptimeOptions(std::string format, TimeUnit::type unit)
-      : format(format), unit(unit) {}
-
-  std::string format;
-  TimeUnit::type unit;
-};
 
 }  // namespace compute
 }  // namespace arrow

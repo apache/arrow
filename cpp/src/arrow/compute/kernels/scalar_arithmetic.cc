@@ -17,6 +17,7 @@
 
 #include "arrow/compute/kernels/common.h"
 #include "arrow/util/int_util.h"
+#include "arrow/util/macros.h"
 
 #ifndef __has_builtin
 #define __has_builtin(x) 0
@@ -66,7 +67,7 @@ struct Add {
 
   template <typename T>
   static constexpr enable_if_signed_integer<T> Call(KernelContext*, T left, T right) {
-    return to_unsigned(left) + to_unsigned(right);
+    return arrow::internal::SafeSignedAdd(left, right);
   }
 };
 
@@ -75,7 +76,7 @@ struct AddChecked {
   template <typename T>
   static enable_if_integer<T> Call(KernelContext* ctx, T left, T right) {
     T result;
-    if (__builtin_add_overflow(left, right, &result)) {
+    if (ARROW_PREDICT_FALSE(__builtin_add_overflow(left, right, &result))) {
       ctx->SetStatus(Status::Invalid("overflow"));
     }
     return result;
@@ -83,7 +84,7 @@ struct AddChecked {
 #else
   template <typename T>
   static enable_if_unsigned_integer<T> Call(KernelContext* ctx, T left, T right) {
-    if (arrow::internal::HasAdditionOverflow(left, right)) {
+    if (ARROW_PREDICT_FALSE(arrow::internal::HasPositiveAdditionOverflow(left, right))) {
       ctx->SetStatus(Status::Invalid("overflow"));
     }
     return left + right;
@@ -91,12 +92,10 @@ struct AddChecked {
 
   template <typename T>
   static enable_if_signed_integer<T> Call(KernelContext* ctx, T left, T right) {
-    auto unsigned_left = to_unsigned(left);
-    auto unsigned_right = to_unsigned(right);
-    if (arrow::internal::HasAdditionOverflow(unsigned_left, unsigned_right)) {
+    if (ARROW_PREDICT_FALSE(arrow::internal::HasSignedAdditionOverflow(left, right))) {
       ctx->SetStatus(Status::Invalid("overflow"));
     }
-    return unsigned_left + unsigned_right;
+    return left + right;
   }
 #endif
 
@@ -119,7 +118,7 @@ struct Subtract {
 
   template <typename T>
   static constexpr enable_if_signed_integer<T> Call(KernelContext*, T left, T right) {
-    return to_unsigned(left) - to_unsigned(right);
+    return arrow::internal::SafeSignedSubtract(left, right);
   }
 };
 
@@ -128,7 +127,7 @@ struct SubtractChecked {
   template <typename T>
   static enable_if_integer<T> Call(KernelContext* ctx, T left, T right) {
     T result;
-    if (__builtin_sub_overflow(left, right, &result)) {
+    if (ARROW_PREDICT_FALSE(__builtin_sub_overflow(left, right, &result))) {
       ctx->SetStatus(Status::Invalid("overflow"));
     }
     return result;
@@ -136,7 +135,8 @@ struct SubtractChecked {
 #else
   template <typename T>
   static enable_if_unsigned_integer<T> Call(KernelContext* ctx, T left, T right) {
-    if (arrow::internal::HasSubtractionOverflow(left, right)) {
+    if (ARROW_PREDICT_FALSE(
+            arrow::internal::HasPositiveSubtractionOverflow(left, right))) {
       ctx->SetStatus(Status::Invalid("overflow"));
     }
     return left - right;
@@ -144,10 +144,10 @@ struct SubtractChecked {
 
   template <typename T>
   static enable_if_signed_integer<T> Call(KernelContext* ctx, T left, T right) {
-    if (arrow::internal::HasSubtractionOverflow(left, right)) {
+    if (ARROW_PREDICT_FALSE(arrow::internal::HasSignedSubtractionOverflow(left, right))) {
       ctx->SetStatus(Status::Invalid("overflow"));
     }
-    return to_unsigned(left) - to_unsigned(right);
+    return left - right;
   }
 #endif
 
@@ -201,12 +201,12 @@ struct MultiplyChecked {
   static enable_if_integer<T> Call(KernelContext* ctx, T left, T right) {
     T result;
 #if __has_builtin(__builtin_mul_overflow)
-    if (__builtin_mul_overflow(left, right, &result)) {
+    if (ARROW_PREDICT_FALSE(__builtin_mul_overflow(left, right, &result))) {
       ctx->SetStatus(Status::Invalid("overflow"));
     }
 #else
     result = Multiply::Call(ctx, left, right);
-    if (left != 0 && result / left != right) {
+    if (left != 0 && ARROW_PREDICT_FALSE(result / left != right)) {
       ctx->SetStatus(Status::Invalid("overflow"));
     }
 #endif

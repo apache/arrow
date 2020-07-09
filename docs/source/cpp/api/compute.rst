@@ -15,24 +15,42 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-.. default-domain:: cpp
-.. highlight:: cpp
+Compute Functions
+=================
 
-User Guide
-==========
+Datum class
+-----------
 
-.. toctree::
+.. doxygenclass:: arrow::Datum
+   :members:
 
-   overview
-   conventions
-   cmake
-   memory
-   arrays
-   datatypes
-   tables
-   compute
-   io
-   parquet
-   csv
-   json
-   flight
+Abstract Function classes
+-------------------------
+
+.. doxygengroup:: compute-functions
+   :content-only:
+   :members:
+
+Function registry
+-----------------
+
+.. doxygenclass:: arrow::compute::FunctionRegistry
+   :members:
+
+.. doxygenfunction:: arrow::compute::GetFunctionRegistry
+
+Convenience functions
+---------------------
+
+.. doxygengroup:: compute-call-function
+   :content-only:
+
+Concrete options classes
+------------------------
+
+.. doxygengroup:: compute-concrete-options
+   :content-only:
+   :members:
+   :undoc-members:
+
+.. TODO: List concrete function invocation shortcuts?
