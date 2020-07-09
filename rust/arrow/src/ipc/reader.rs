@@ -874,12 +874,12 @@ mod tests {
 
     use flate2::read::GzDecoder;
 
+    use crate::ipc::writer::StreamWriter;
     use crate::util::integration_util::*;
+    use std::cell::RefCell;
     use std::env;
     use std::fs::File;
     use std::rc::Rc;
-    use std::cell::RefCell;
-    use crate::ipc::writer::StreamWriter;
 
     #[test]
     fn read_generated_files() {
@@ -1018,28 +1018,28 @@ mod tests {
             Ok(())
         }
     }
-/*
-    impl parquet::file::reader::TryClone for ParquetBufWriter {
-        fn try_clone(&self) -> Result<Self, parquet::errors::ParquetError> {
-            Ok(Self {
-                buf: self.buf.clone(),
-                pos: self.pos,
-            })
+    /*
+        impl parquet::file::reader::TryClone for ParquetBufWriter {
+            fn try_clone(&self) -> Result<Self, parquet::errors::ParquetError> {
+                Ok(Self {
+                    buf: self.buf.clone(),
+                    pos: self.pos,
+                })
+            }
         }
-    }
-*/
+    */
     #[test]
     fn test_arrow_single_float_row() {
-        use crate::datatypes::{DataType, Schema, Field, TimeUnit};
+        use crate::array::{make_array, ArrayData};
         use crate::buffer::Buffer;
-        use crate::array::{ArrayData, make_array};
-        use crate::record_batch::RecordBatch;
-        use crate::memory::{allocate_aligned, memcpy};
-        use crate::ipc::writer::StreamWriter;
+        use crate::datatypes::{DataType, Field, Schema, TimeUnit};
         use crate::ipc::reader::StreamReader;
+        use crate::ipc::writer::StreamWriter;
+        use crate::memory::{allocate_aligned, memcpy};
+        use crate::record_batch::RecordBatch;
         use std::cell::RefCell;
-        use std::sync::Arc;
         use std::rc::Rc;
+        use std::sync::Arc;
 
         let bytes: Vec<Vec<u8>> = vec![
             vec![0x96, 0x89, 0xc3, 0xc2],
@@ -1054,26 +1054,35 @@ mod tests {
             DataType::Int32,
         ];
 
-        let names = vec![
-            "a",
-            "b",
-            "c",
-            "d",
-        ];
+        let names = vec!["a", "b", "c", "d"];
 
-        let buffers = bytes.iter().enumerate().map(|(i, b)| {
-            let len = b.len();
-            let mem = allocate_aligned(len);
-            unsafe {
-                memcpy(mem, b[..].as_ptr(), len);
-                let buffers = vec![Buffer::from_raw_parts(mem, len, len)];
-                make_array(Arc::new(ArrayData::new(tys[i].clone(), 1, None, None, 0, buffers, Vec::new())))
-            }
-        }).collect::<Vec<_>>();
+        let buffers = bytes
+            .iter()
+            .enumerate()
+            .map(|(i, b)| {
+                let len = b.len();
+                let mem = allocate_aligned(len);
+                unsafe {
+                    memcpy(mem, b[..].as_ptr(), len);
+                    let buffers = vec![Buffer::from_raw_parts(mem, len, len)];
+                    make_array(Arc::new(ArrayData::new(
+                        tys[i].clone(),
+                        1,
+                        None,
+                        None,
+                        0,
+                        buffers,
+                        Vec::new(),
+                    )))
+                }
+            })
+            .collect::<Vec<_>>();
 
-        let schema_fields = tys.iter().zip(names.iter()).map(|(ty, name)| {
-            Field::new(name.to_owned(), ty.clone(), false)
-        }).collect::<Vec<_>>();
+        let schema_fields = tys
+            .iter()
+            .zip(names.iter())
+            .map(|(ty, name)| Field::new(name.to_owned(), ty.clone(), false))
+            .collect::<Vec<_>>();
         let schema = Arc::new(Schema::new(schema_fields));
         let record_batch = RecordBatch::try_new(schema.clone(), buffers).unwrap();
 
@@ -1088,8 +1097,24 @@ mod tests {
 
         let mut reader = StreamReader::try_new(&bytes[..]).unwrap();
         while let Some(batch) = reader.next().unwrap() {
-            assert!(batch.column(0).as_any().downcast_ref::<Float32Array>().unwrap().value(0) != 0.0);
-            assert!(batch.column(1).as_any().downcast_ref::<Float32Array>().unwrap().value(0) != 0.0);
+            assert!(
+                batch
+                    .column(0)
+                    .as_any()
+                    .downcast_ref::<Float32Array>()
+                    .unwrap()
+                    .value(0)
+                    != 0.0
+            );
+            assert!(
+                batch
+                    .column(1)
+                    .as_any()
+                    .downcast_ref::<Float32Array>()
+                    .unwrap()
+                    .value(0)
+                    != 0.0
+            );
         }
     }
 
