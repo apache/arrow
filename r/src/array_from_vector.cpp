@@ -220,6 +220,43 @@ struct VectorToArrayConverter {
     return Status::OK();
   }
 
+  Status Visit(const FixedSizeListType& type) {
+    ARROW_RETURN_IF(TYPEOF(x) != VECSXP, Status::RError("Expecting a list vector"));
+
+    auto* fixed_size_list_builder = checked_cast<FixedSizeListBuilder*>(builder);
+    auto* value_builder = fixed_size_list_builder->value_builder();
+    auto value_type = type.value_type();
+    int list_size = type.list_size();
+
+    R_xlen_t n = XLENGTH(x);
+    RETURN_NOT_OK(builder->Reserve(n));
+    for (R_xlen_t i = 0; i < n; i++) {
+      SEXP vector = VECTOR_ELT(x, i);
+      if (Rf_isNull(vector)) {
+        RETURN_NOT_OK(fixed_size_list_builder->AppendNull());
+        continue;
+      }
+      RETURN_NOT_OK(fixed_size_list_builder->Append());
+
+      auto vect_type = arrow::r::InferArrowType(vector);
+      if (!value_type->Equals(vect_type)) {
+        return Status::RError("FixedSizeList vector expecting elements vector of type ",
+                              value_type->ToString(), " but got ", vect_type->ToString());
+      }
+      int vector_size = vctrs::short_vec_size(vector);
+      if (vector_size != list_size) {
+        return Status::RError("FixedSizeList vector expecting elements vector of size ",
+                              list_size, ", not ", vector_size);
+      }
+
+      // Recurse.
+      VectorToArrayConverter converter{vector, value_builder};
+      RETURN_NOT_OK(arrow::VisitTypeInline(*value_type, &converter));
+    }
+
+    return Status::OK();
+  }
+
   template <typename T>
   arrow::enable_if_t<is_struct_type<T>::value, Status> Visit(const T& type) {
     using BuilderType = typename TypeTraits<T>::BuilderType;
@@ -1454,7 +1491,8 @@ std::shared_ptr<arrow::Array> Array__from_vector(
     Rcpp::stop("Object incompatible with dictionary type");
   }
 
-  if (type->id() == Type::LIST || type->id() == Type::LARGE_LIST) {
+  if (type->id() == Type::LIST || type->id() == Type::LARGE_LIST ||
+      type->id() == Type::FIXED_SIZE_LIST) {
     return VectorToArrayConverter::Visit(x, type);
   }
 
