@@ -338,15 +338,16 @@ static inline bool RowGroupInfosAreComplete(const std::vector<RowGroupInfo>& inf
 Result<ScanTaskIterator> ParquetFileFormat::ScanFile(std::shared_ptr<ScanOptions> options,
                                                      std::shared_ptr<ScanContext> context,
                                                      FileFragment* fragment) const {
-  auto& parquet_fragment = checked_cast<ParquetFileFragment&>(*fragment);
+  auto* parquet_fragment = checked_cast<ParquetFileFragment*>(fragment);
   std::vector<RowGroupInfo> row_groups;
 
   // If RowGroup metadata is cached completely we can pre-filter RowGroups before opening
   // a FileReader, potentially avoiding IO altogether if all RowGroups are excluded due to
   // prior statistics knowledge. In the case where a RowGroup doesn't have statistics
   // metdata, it will not be excluded.
-  if (parquet_fragment.HasCompleteMetadata()) {
-    ARROW_ASSIGN_OR_RAISE(row_groups, parquet_fragment.FilterRowGroups(*options->filter));
+  if (parquet_fragment->HasCompleteMetadata()) {
+    ARROW_ASSIGN_OR_RAISE(row_groups,
+                          parquet_fragment->FilterRowGroups(*options->filter));
     if (row_groups.empty()) {
       return MakeEmptyIterator<std::shared_ptr<ScanTask>>();
     }
@@ -356,10 +357,11 @@ Result<ScanTaskIterator> ParquetFileFormat::ScanFile(std::shared_ptr<ScanOptions
   ARROW_ASSIGN_OR_RAISE(auto reader,
                         GetReader(fragment->source(), options.get(), context.get()));
 
-  if (!parquet_fragment.HasCompleteMetadata()) {
+  if (!parquet_fragment->HasCompleteMetadata()) {
     // row groups were not already filtered; do this now
-    RETURN_NOT_OK(parquet_fragment.EnsureCompleteMetadata(reader.get()));
-    ARROW_ASSIGN_OR_RAISE(row_groups, parquet_fragment.FilterRowGroups(*options->filter));
+    RETURN_NOT_OK(parquet_fragment->EnsureCompleteMetadata(reader.get()));
+    ARROW_ASSIGN_OR_RAISE(row_groups,
+                          parquet_fragment->FilterRowGroups(*options->filter));
     if (row_groups.empty()) {
       return MakeEmptyIterator<std::shared_ptr<ScanTask>>();
     }
@@ -469,6 +471,11 @@ Status ParquetFileFragment::EnsureCompleteMetadata(parquet::arrow::FileReader* r
     return EnsureCompleteMetadata(reader.get());
   }
 
+  auto lock = physical_schema_mutex_.Lock();
+  if (HasCompleteMetadata()) {
+    return Status::OK();
+  }
+
   std::shared_ptr<Schema> schema;
   RETURN_NOT_OK(reader->GetSchema(&schema));
   if (physical_schema_ && !physical_schema_->Equals(*schema)) {
@@ -485,7 +492,7 @@ Status ParquetFileFragment::EnsureCompleteMetadata(parquet::arrow::FileReader* r
     row_groups_ = RowGroupInfo::FromCount(num_row_groups);
   }
 
-  for (RowGroupInfo& info : row_groups_) {
+  for (const RowGroupInfo& info : row_groups_) {
     // Ensure RowGroups are indexing valid RowGroups before augmenting.
     if (info.id() >= num_row_groups) {
       return Status::IndexError("Trying to scan row group ", info.id(), " but ",
