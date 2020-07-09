@@ -1494,6 +1494,7 @@ if(ARROW_MIMALLOC)
       -DMI_OVERRIDE=OFF
       -DMI_LOCAL_DYNAMIC_TLS=ON
       -DMI_BUILD_OBJECT=OFF
+      -DMI_BUILD_SHARED=OFF
       -DMI_BUILD_TESTS=OFF)
 
   externalproject_add(mimalloc_ep
