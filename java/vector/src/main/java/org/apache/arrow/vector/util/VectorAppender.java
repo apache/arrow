@@ -136,9 +136,53 @@ class VectorAppender implements VectorVisitor<ValueVector, Void> {
   }
 
   @Override
-  public ValueVector visit(BaseLargeVariableWidthVector left, Void value) {
-    // TODO: support vector appending for BaseLargeVariableWidthVector
-    throw new UnsupportedOperationException();
+  public ValueVector visit(BaseLargeVariableWidthVector deltaVector, Void value) {
+    Preconditions.checkArgument(targetVector.getField().getType().equals(deltaVector.getField().getType()),
+            "The targetVector to append must have the same type as the targetVector being appended");
+
+    int newValueCount = targetVector.getValueCount() + deltaVector.getValueCount();
+
+    long targetDataSize = targetVector.getOffsetBuffer().getLong(
+            (long) targetVector.getValueCount() * BaseLargeVariableWidthVector.OFFSET_WIDTH);
+    long deltaDataSize = deltaVector.getOffsetBuffer().getLong(
+            (long) deltaVector.getValueCount() * BaseLargeVariableWidthVector.OFFSET_WIDTH);
+    long newValueCapacity = targetDataSize + deltaDataSize;
+
+    // make sure there is enough capacity
+    while (targetVector.getValueCapacity() < newValueCount) {
+      targetVector.reAlloc();
+    }
+    while (targetVector.getDataBuffer().capacity() < newValueCapacity) {
+      ((BaseLargeVariableWidthVector) targetVector).reallocDataBuffer();
+    }
+
+    // append validity buffer
+    BitVectorHelper.concatBits(
+            targetVector.getValidityBuffer(), targetVector.getValueCount(),
+            deltaVector.getValidityBuffer(), deltaVector.getValueCount(), targetVector.getValidityBuffer());
+
+    // append data buffer
+    PlatformDependent.copyMemory(deltaVector.getDataBuffer().memoryAddress(),
+            targetVector.getDataBuffer().memoryAddress() + targetDataSize, deltaDataSize);
+
+    // copy offset buffer
+    PlatformDependent.copyMemory(
+            deltaVector.getOffsetBuffer().memoryAddress() + BaseLargeVariableWidthVector.OFFSET_WIDTH,
+            targetVector.getOffsetBuffer().memoryAddress() + (targetVector.getValueCount() + 1) *
+                    BaseLargeVariableWidthVector.OFFSET_WIDTH,
+            deltaVector.getValueCount() * BaseLargeVariableWidthVector.OFFSET_WIDTH);
+
+    // increase each offset from the second buffer
+    for (int i = 0; i < deltaVector.getValueCount(); i++) {
+      long oldOffset = targetVector.getOffsetBuffer().getLong((long) (targetVector.getValueCount() + 1 + i) *
+              BaseLargeVariableWidthVector.OFFSET_WIDTH);
+      targetVector.getOffsetBuffer().setLong(
+              (long) (targetVector.getValueCount() + 1 + i) *
+                      BaseLargeVariableWidthVector.OFFSET_WIDTH, oldOffset + targetDataSize);
+    }
+    ((BaseLargeVariableWidthVector) targetVector).setLastSet(newValueCount - 1);
+    targetVector.setValueCount(newValueCount);
+    return targetVector;
   }
 
   @Override
