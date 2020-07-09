@@ -39,12 +39,27 @@ class ARROW_EXPORT CpuInfo {
   static constexpr int64_t SSE4_2 = (1 << 3);
   static constexpr int64_t POPCNT = (1 << 4);
   static constexpr int64_t ASIMD = (1 << 5);
+  static constexpr int64_t AVX = (1 << 6);
+  static constexpr int64_t AVX2 = (1 << 7);
+  static constexpr int64_t AVX512 = (1 << 8);
+  static constexpr int64_t BMI1 = (1 << 9);
+  static constexpr int64_t BMI2 = (1 << 10);
 
   /// Cache enums for L1 (data), L2 and L3
   enum CacheLevel {
     L1_CACHE = 0,
     L2_CACHE = 1,
     L3_CACHE = 2,
+  };
+
+  /// The SIMD level set by user
+  enum UserSimdLevel {
+    USER_SIMD_NONE = 0,
+    USER_SIMD_SSE4_2,
+    USER_SIMD_AVX,
+    USER_SIMD_AVX2,
+    USER_SIMD_AVX512,
+    USER_SIMD_MAX,
   };
 
   static CpuInfo* GetInstance();
@@ -86,6 +101,9 @@ class ARROW_EXPORT CpuInfo {
 
   /// Inits CPU cache size variables with default values
   void SetDefaultCacheSize();
+
+  /// Parse the SIMD level by ARROW_USER_SIMD_LEVEL env
+  void ParseUserSimdLevel();
 
   int64_t hardware_flags_;
   int64_t original_hardware_flags_;
