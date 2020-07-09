@@ -1526,6 +1526,15 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
 
 cdef extern from "arrow/json/options.h" nogil:
 
+    ctypedef enum CUnexpectedFieldBehavior \
+            "arrow::json::UnexpectedFieldBehavior":
+        CUnexpectedFieldBehavior_Ignore \
+            "arrow::json::UnexpectedFieldBehavior::Ignore"
+        CUnexpectedFieldBehavior_Error \
+            "arrow::json::UnexpectedFieldBehavior::Error"
+        CUnexpectedFieldBehavior_InferType \
+            "arrow::json::UnexpectedFieldBehavior::InferType"
+
     cdef cppclass CJSONReadOptions" arrow::json::ReadOptions":
         c_bool use_threads
         int32_t block_size
@@ -1536,6 +1545,7 @@ cdef extern from "arrow/json/options.h" nogil:
     cdef cppclass CJSONParseOptions" arrow::json::ParseOptions":
         shared_ptr[CSchema] explicit_schema
         c_bool newlines_in_values
+        CUnexpectedFieldBehavior unexpected_field_behavior
 
         @staticmethod
         CJSONParseOptions Defaults()
