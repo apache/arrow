@@ -94,18 +94,4 @@ if [ $? -ne 0 ]; then
   fi
 fi
 
-if [ -d "${DEST_DIR}/lib" ]; then
-  # If the build failed and the CMAKE_INSTALL_LIBDIR doesn't exist, don't try
-  # to do this stuff because the errors will be misleading
-
-  # Copy the bundled static libs from the build to the install dir
-  # See https://issues.apache.org/jira/browse/ARROW-7499 for moving this to CMake
-  find . -regex .*/.*/lib/.*\\.a\$ | xargs -I{} cp -u {} ${DEST_DIR}/lib
-  # jemalloc makes both libjemalloc.a and libjemalloc_pic.a; we can't use the former, only the latter
-  rm ${DEST_DIR}/lib/libjemalloc.a || true
-  # -lbrotlicommon-static needs to come after the other brotli libs, so rename it so alpha sort works
-  if [ -f "${DEST_DIR}/lib/libbrotlicommon-static.a" ]; then
-    mv "${DEST_DIR}/lib/libbrotlicommon-static.a" "${DEST_DIR}/lib/libbrotlizzz-static.a"
-  fi
-fi
 popd
