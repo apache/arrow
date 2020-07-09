@@ -322,11 +322,10 @@ class Converter_Binary : public Converter {
   SEXP Allocate(R_xlen_t n) const {
     SEXP res = PROTECT(Rf_allocVector(VECSXP, n));
     if (std::is_same<ArrayType, BinaryArray>::value) {
-      Rf_setAttrib(res, R_ClassSymbol, data::classes_binary);
+      Rf_classgets(res, data::classes_arrow_binary);
     } else {
-      Rf_setAttrib(res, R_ClassSymbol, data::classes_large_binary);
+      Rf_classgets(res, data::classes_arrow_large_binary);
     }
-
     Rf_setAttrib(res, symbols::ptype, data::empty_raw);
     UNPROTECT(1);
     return res;
@@ -366,7 +365,7 @@ class Converter_FixedSizeBinary : public Converter {
 
   SEXP Allocate(R_xlen_t n) const {
     SEXP res = PROTECT(Rf_allocVector(VECSXP, n));
-    Rf_setAttrib(res, R_ClassSymbol, data::classes_fixed_size_binary);
+    Rf_classgets(res, data::classes_arrow_fixed_size_binary);
     Rf_setAttrib(res, symbols::ptype, data::empty_raw);
     Rf_setAttrib(res, symbols::byte_width, Rf_ScalarInteger(byte_width_));
     UNPROTECT(1);

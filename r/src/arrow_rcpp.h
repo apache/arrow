@@ -42,9 +42,10 @@ struct data {
   static SEXP classes_POSIXct;
   static SEXP classes_metadata_r;
   static SEXP classes_vctrs_list_of;
-  static SEXP classes_binary;
-  static SEXP classes_large_binary;
-  static SEXP classes_fixed_size_binary;
+
+  static SEXP classes_arrow_binary;
+  static SEXP classes_arrow_large_binary;
+  static SEXP classes_arrow_fixed_size_binary;
 
   static SEXP names_metadata;
   static SEXP empty_raw;

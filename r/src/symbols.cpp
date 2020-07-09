@@ -63,11 +63,11 @@ SEXP data::classes_POSIXct = precious(strings({"POSIXct", "POSIXt"}));
 SEXP data::classes_metadata_r = precious(strings({"arrow_r_metadata"}));
 SEXP data::classes_vctrs_list_of =
     precious(strings({"vctrs_list_of", "vctrs_vctr", "list"}));
-SEXP data::classes_binary =
+SEXP data::classes_arrow_binary =
     precious(strings({"arrow_binary", "arrow_binary_vctr", "vctrs_vctr", "list"}));
-SEXP data::classes_large_binary =
+SEXP data::classes_arrow_large_binary =
     precious(strings({"arrow_large_binary", "arrow_binary_vctr", "vctrs_vctr", "list"}));
-SEXP data::classes_fixed_size_binary =
+SEXP data::classes_arrow_fixed_size_binary =
     precious(strings({"arrow_fixed_size_binary", "arrow_binary_vctr", "vctrs_vctr", "list"}));
 
 SEXP data::names_metadata = precious(strings({"attributes", "columns"}));
