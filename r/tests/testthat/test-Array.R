@@ -50,19 +50,66 @@ test_that("Integer Array", {
 })
 
 test_that("binary Array", {
-  bin <- vctrs::new_list_of(
-    list(as.raw(1:10), as.raw(0:255)),
-    ptype = raw(),
+  # if the type is given, we just need a list of raw vectors
+  bin <- list(as.raw(1:10), as.raw(1:10))
+  expect_array_roundtrip(bin, binary(), as = binary())
+  expect_array_roundtrip(bin, large_binary(), as = large_binary())
+  expect_array_roundtrip(bin, fixed_size_binary(10), as = fixed_size_binary(10))
+
+  bin[[1L]] <- as.raw(1:20)
+  expect_error(Array$create(bin, fixed_size_binary(10)))
+
+  # otherwise the arrow type is deduced from the R classes
+  bin <- vctrs::new_vctr(
+    list(as.raw(1:10), as.raw(11:20)),
     class = "arrow_binary"
   )
   expect_array_roundtrip(bin, binary())
-  expect_array_roundtrip(bin, large_binary(), as = large_binary())
 
-  # degenerate
-  bin <- vctrs::new_list_of(
+  bin <- vctrs::new_vctr(
+    list(as.raw(1:10), as.raw(11:20)),
+    class = "arrow_large_binary"
+  )
+  expect_array_roundtrip(bin, large_binary())
+
+  bin <- vctrs::new_vctr(
+    list(as.raw(1:10), as.raw(11:20)),
+    class = "arrow_fixed_size_binary",
+    byte_width = 10L
+  )
+  expect_array_roundtrip(bin, fixed_size_binary(byte_width = 10))
+
+  # degenerate cases
+  bin <- vctrs::new_vctr(
+    list(1:10),
+    class = "arrow_binary"
+  )
+  expect_error(Array$create(bin))
+
+  bin <- vctrs::new_vctr(
     list(1:10),
     ptype = raw(),
-    class = "arrow_binary"
+    class = "arrow_large_binary"
+  )
+  expect_error(Array$create(bin))
+
+  bin <- vctrs::new_vctr(
+    list(1:10),
+    class = "arrow_fixed_size_binary",
+    byte_width = 10
+  )
+  expect_error(Array$create(bin))
+
+  bin <- vctrs::new_vctr(
+    list(as.raw(1:5)),
+    class = "arrow_fixed_size_binary",
+    byte_width = 10
+  )
+  expect_error(Array$create(bin))
+
+  bin <- vctrs::new_vctr(
+    list(as.raw(1:5)),
+    class = "arrow_fixed_size_binary"
   )
   expect_error(Array$create(bin))
 })

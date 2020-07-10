@@ -427,29 +427,30 @@ indent <- function(x, n) {
   sapply(x, gsub, pattern = "(\n+)", replacement = paste0("\\1", pad))
 }
 
-#' @importFrom vctrs vec_ptype_full vec_ptype_abbr obj_str_footer
-#' @method vec_ptype_full arrow_binary_vctr
-#' @export
-vec_ptype_full.arrow_binary_vctr <- function(x, ...) {
-  class(x)[1L]
-}
-#' @method vec_ptype_full arrow_list_of
-#' @export
-vec_ptype_full.arrow_list_of <- function(x, ...) {
-  param <- vec_ptype_full(attr(x, "ptype"))
-  if (grepl("\n", param)) {
-    param <- paste0(indent(paste0("\n", param), 2), "\n")
-  }
-  paste0(class(x)[1L], "<", param, ">")
-}
-
-
-#' @method vec_ptype_full arrow_fixed_size_binary
+#' @importFrom vctrs vec_ptype_full vec_ptype_abbr
 #' @export
 vec_ptype_full.arrow_fixed_size_binary <- function(x, ...) {
   paste0("fixed_size_binary<", attr(x, "byte_width"), ">")
 }
-#' @method vec_ptype_full arrow_fixed_size_list
+
+#' @export
+vec_ptype_full.arrow_list <- function(x, ...) {
+  param <- vec_ptype_full(attr(x, "ptype"))
+  if (grepl("\n", param)) {
+    param <- paste0(indent(paste0("\n", param), 2), "\n")
+  }
+  paste0("list<", param, ">")
+}
+
+#' @export
+vec_ptype_full.arrow_large_list <- function(x, ...) {
+  param <- vec_ptype_full(attr(x, "ptype"))
+  if (grepl("\n", param)) {
+    param <- paste0(indent(paste0("\n", param), 2), "\n")
+  }
+  paste0("large_list<", param, ">")
+}
+
 #' @export
 vec_ptype_full.arrow_fixed_size_list <- function(x, ...) {
   param <- vec_ptype_full(attr(x, "ptype"))
@@ -459,21 +460,19 @@ vec_ptype_full.arrow_fixed_size_list <- function(x, ...) {
   paste0("fixed_size_list<", param, ", ", attr(x, "list_size"), ">")
 }
 
-
-#' @method vec_ptype_abbr arrow_binary_vctr
 #' @export
-vec_ptype_abbr.arrow_binary_vctr <- function(x, ...) {
+vec_ptype_abbr.arrow_fixed_size_binary <- function(x, ...) {
   vec_ptype_full(x, ...)
 }
-#' @method vec_ptype_abbr arrow_list_of
 #' @export
-vec_ptype_abbr.arrow_list_of <- function(x, ...) {
+vec_ptype_abbr.arrow_list <- function(x, ...) {
   vec_ptype_full(x, ...)
 }
-
-
-#' @method obj_str_footer arrow_binary_vctr
 #' @export
-obj_str_footer.arrow_binary_vctr <- function(x, ..., indent.str = "", nest.lev = 0) {
-  invisible(NULL)
+vec_ptype_abbr.arrow_large_list <- function(x, ...) {
+  vec_ptype_full(x, ...)
+}
+#' @export
+vec_ptype_abbr.arrow_fixed_size_list <- function(x, ...) {
+  vec_ptype_full(x, ...)
 }
