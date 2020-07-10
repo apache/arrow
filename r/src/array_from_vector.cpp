@@ -206,15 +206,14 @@ struct VectorToArrayConverter {
 
       RETURN_NOT_OK(list_builder->Append());
 
-      auto vect_type = arrow::r::InferArrowType(vector);
-      if (!value_type->Equals(vect_type)) {
-        return Status::RError("List vector expecting elements vector of type ",
-                              value_type->ToString(), " but got ", vect_type->ToString());
-      }
-
       // Recurse.
       VectorToArrayConverter converter{vector, value_builder};
-      RETURN_NOT_OK(arrow::VisitTypeInline(*value_type, &converter));
+      Status status = arrow::VisitTypeInline(*value_type, &converter);
+      if (!status.ok()) {
+        return Status::RError("Cannot convert list element ", (i + 1),
+                              " to an Array of type `", value_type->ToString(),
+                              "` : ", status.message());
+      }
     }
 
     return Status::OK();

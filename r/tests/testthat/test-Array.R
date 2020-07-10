@@ -643,37 +643,21 @@ test_that("Array$create() handles vector -> fixed size list arrays", {
   )
 })
 
-test_that("Array$create() should have helpful error on lists with type hint", {
-  expect_error(Array$create(list(numeric(0)), list_of(bool())),
-               regexp = "List vector expecting elements vector of type")
-  expect_error(Array$create(list(numeric(0)), list_of(int32())),
-               regexp = "List vector expecting elements vector of type")
-  expect_error(Array$create(list(integer(0)), list_of(float64())),
-               regexp = "List vector expecting elements vector of type")
-})
+test_that("Array$create() should have helpful error", {
+  verify_output(test_path("test-Array-errors.txt"), {
+    Array$create(list(numeric(0)), list_of(bool()))
+    Array$create(list(numeric(0)), list_of(int32()))
+    Array$create(list(integer(0)), list_of(float64()))
 
-test_that("Array$create() should refuse heterogeneous lists", {
-  lgl <- logical(0)
-  int <- integer(0)
-  num <- numeric(0)
-  char <- character(0)
-
-  expect_error(
-    Array$create(list()),
-    regexp = "Requires at least one element to infer the values'"
-  )
-  expect_error(
-    Array$create(list(lgl, lgl, int)),
-    regexp = "List vector expecting elements vector of type"
-  )
-  expect_error(
-    Array$create(list(char, num, char)),
-    regexp = "List vector expecting elements vector of type"
-  )
-  expect_error(
-    Array$create(list(int, int, num)),
-    regexp = "List vector expecting elements vector of type"
-  )
+    lgl <- logical(0)
+    int <- integer(0)
+    num <- numeric(0)
+    char <- character(0)
+    Array$create(list())
+    Array$create(list(lgl, lgl, int))
+    Array$create(list(char, num, char))
+    Array$create(list(int, int, num))
+  })
 })
 
 test_that("Array$View() (ARROW-6542)", {
