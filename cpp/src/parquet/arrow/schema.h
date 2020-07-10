@@ -22,17 +22,12 @@
 #include <unordered_set>
 #include <vector>
 
+#include "arrow/status.h"
 #include "arrow/type.h"
+#include "arrow/type_fwd.h"
 
 #include "parquet/platform.h"
 #include "parquet/schema.h"
-
-namespace arrow {
-
-class Schema;
-class Status;
-
-}  // namespace arrow
 
 namespace parquet {
 
@@ -74,7 +69,7 @@ PARQUET_EXPORT
 PARQUET_EXPORT
 ::arrow::Status FromParquetSchema(
     const SchemaDescriptor* parquet_schema, const ArrowReaderProperties& properties,
-    const std::shared_ptr<const ::arrow::KeyValueMetadata>& key_value_metadata,
+    std::shared_ptr<const ::arrow::KeyValueMetadata> key_value_metadata,
     std::shared_ptr<::arrow::Schema>* out);
 
 PARQUET_EXPORT
@@ -85,6 +80,13 @@ PARQUET_EXPORT
 PARQUET_EXPORT
 ::arrow::Status FromParquetSchema(const SchemaDescriptor* parquet_schema,
                                   std::shared_ptr<::arrow::Schema>* out);
+
+/// Produce a schema containing the roots of all physical columns in column_indices
+PARQUET_EXPORT
+::arrow::Status FromParquetSchema(
+    const SchemaDescriptor* parquet_schema, const ArrowReaderProperties& properties,
+    std::shared_ptr<const ::arrow::KeyValueMetadata> key_value_metadata,
+    const std::vector<int>& column_indices, std::shared_ptr<::arrow::Schema>* out);
 
 /// @}
 
@@ -163,24 +165,28 @@ struct PARQUET_EXPORT SchemaManifest {
     return it->second;
   }
 
-  bool GetFieldIndices(const std::vector<int>& column_indices, std::vector<int>* out) {
+  ::arrow::Result<std::vector<int>> GetFieldIndices(
+      const std::vector<int>& column_indices) {
     // Coalesce a list of schema field indices which are the roots of the
     // columns referred to by a list of column indices
     const schema::GroupNode* group = descr->group_node();
     std::unordered_set<int> already_added;
-    out->clear();
-    for (auto& column_idx : column_indices) {
+
+    std::vector<int> out;
+    for (int column_idx : column_indices) {
+      if (column_idx < 0 || column_idx >= descr->num_columns()) {
+        return ::arrow::Status::IndexError("Column index ", column_idx, " is not valid");
+      }
       auto field_node = descr->GetColumnRoot(column_idx);
       auto field_idx = group->FieldIndex(*field_node);
       if (field_idx < 0) {
-        return false;
+        return ::arrow::Status::IndexError("Column index ", column_idx, " is not valid");
       }
-      auto insertion = already_added.insert(field_idx);
-      if (insertion.second) {
-        out->push_back(field_idx);
+      if (already_added.insert(field_idx).second) {
+        out.push_back(field_idx);
       }
     }
-    return true;
+    return out;
   }
 };
 

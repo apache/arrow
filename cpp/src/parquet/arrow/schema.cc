@@ -27,6 +27,7 @@
 #include "arrow/util/base64.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/key_value_metadata.h"
+#include "arrow/util/range.h"
 #include "parquet/arrow/schema_internal.h"
 #include "parquet/exception.h"
 #include "parquet/properties.h"
@@ -752,26 +753,54 @@ Status ToParquetSchema(const ::arrow::Schema* arrow_schema,
                          out);
 }
 
-Status FromParquetSchema(
-    const SchemaDescriptor* schema, const ArrowReaderProperties& properties,
-    const std::shared_ptr<const KeyValueMetadata>& key_value_metadata,
-    std::shared_ptr<::arrow::Schema>* out) {
+Status FromParquetSchemaImpl(
+    const SchemaDescriptor* parquet_schema, const ArrowReaderProperties& properties,
+    std::shared_ptr<const ::arrow::KeyValueMetadata> key_value_metadata,
+    const std::vector<int>* column_indices, std::shared_ptr<::arrow::Schema>* out) {
   SchemaManifest manifest;
-  RETURN_NOT_OK(SchemaManifest::Make(schema, key_value_metadata, properties, &manifest));
-  std::vector<std::shared_ptr<Field>> fields(manifest.schema_fields.size());
+  RETURN_NOT_OK(
+      SchemaManifest::Make(parquet_schema, key_value_metadata, properties, &manifest));
 
-  for (int i = 0; i < static_cast<int>(fields.size()); i++) {
-    const auto& schema_field = manifest.schema_fields[i];
-    fields[i] = schema_field.field;
+  ::arrow::FieldVector fields;
+  if (column_indices != nullptr) {
+    ARROW_ASSIGN_OR_RAISE(auto field_indices, manifest.GetFieldIndices(*column_indices));
+    fields.reserve(field_indices.size());
+
+    for (int i : field_indices) {
+      fields.push_back(manifest.schema_fields[i].field);
+    }
+  } else {
+    fields.resize(manifest.schema_fields.size());
+
+    for (int i = 0; i < static_cast<int>(fields.size()); ++i) {
+      fields[i] = manifest.schema_fields[i].field;
+    }
   }
+
   if (manifest.origin_schema) {
     // ARROW-8980: If the ARROW:schema was in the input metadata, then
     // manifest.origin_schema will have it scrubbed out
-    *out = ::arrow::schema(fields, manifest.origin_schema->metadata());
-  } else {
-    *out = ::arrow::schema(fields, key_value_metadata);
+    key_value_metadata = manifest.origin_schema->metadata();
   }
+
+  *out = ::arrow::schema(std::move(fields), std::move(key_value_metadata));
   return Status::OK();
+}
+
+Status FromParquetSchema(
+    const SchemaDescriptor* parquet_schema, const ArrowReaderProperties& properties,
+    std::shared_ptr<const ::arrow::KeyValueMetadata> key_value_metadata,
+    const std::vector<int>& column_indices, std::shared_ptr<::arrow::Schema>* out) {
+  return FromParquetSchemaImpl(parquet_schema, properties, std::move(key_value_metadata),
+                               &column_indices, out);
+}
+
+Status FromParquetSchema(
+    const SchemaDescriptor* parquet_schema, const ArrowReaderProperties& properties,
+    std::shared_ptr<const ::arrow::KeyValueMetadata> key_value_metadata,
+    std::shared_ptr<::arrow::Schema>* out) {
+  return FromParquetSchemaImpl(parquet_schema, properties, std::move(key_value_metadata),
+                               /*column_indices=*/nullptr, out);
 }
 
 Status FromParquetSchema(const SchemaDescriptor* parquet_schema,

@@ -29,6 +29,7 @@
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
+#include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/range.h"
 #include "arrow/util/thread_pool.h"
@@ -301,62 +302,50 @@ class FileReaderImpl : public FileReader {
 
 class RowGroupRecordBatchReader : public ::arrow::RecordBatchReader {
  public:
-  RowGroupRecordBatchReader(std::vector<std::unique_ptr<ColumnReaderImpl>> field_readers,
-                            std::shared_ptr<::arrow::Schema> schema, int64_t batch_size)
-      : field_readers_(std::move(field_readers)),
-        schema_(std::move(schema)),
-        batch_size_(batch_size) {}
-
   ~RowGroupRecordBatchReader() override {}
 
   std::shared_ptr<::arrow::Schema> schema() const override { return schema_; }
 
-  static Status Make(const std::vector<int>& row_groups,
-                     const std::vector<int>& column_indices, FileReaderImpl* reader,
-                     int64_t batch_size,
-                     std::unique_ptr<::arrow::RecordBatchReader>* out) {
-    std::vector<int> field_indices;
-    if (!reader->manifest_.GetFieldIndices(column_indices, &field_indices)) {
-      return Status::Invalid("Invalid column index");
-    }
+  static ::arrow::Result<std::unique_ptr<RowGroupRecordBatchReader>> Make(
+      const std::vector<int>& row_group_indices, const std::vector<int>& column_indices,
+      int64_t batch_size, FileReaderImpl* reader) {
+    std::unique_ptr<RowGroupRecordBatchReader> out(new RowGroupRecordBatchReader);
 
-    std::vector<std::unique_ptr<ColumnReaderImpl>> field_readers(field_indices.size());
-    std::vector<std::shared_ptr<Field>> fields;
+    RETURN_NOT_OK(FromParquetSchema(
+        reader->parquet_reader()->metadata()->schema(), default_arrow_reader_properties(),
+        /*key_value_metadata=*/nullptr, column_indices, &out->schema_));
 
-    auto included_leaves = VectorToSharedSet(column_indices);
-    for (size_t i = 0; i < field_indices.size(); ++i) {
-      RETURN_NOT_OK(reader->GetFieldReader(field_indices[i], included_leaves, row_groups,
-                                           &field_readers[i]));
-      fields.push_back(field_readers[i]->field());
-    }
-    out->reset(new RowGroupRecordBatchReader(std::move(field_readers),
-                                             ::arrow::schema(fields), batch_size));
-    return Status::OK();
+    using ::arrow::RecordBatchIterator;
+
+    auto row_group_index_to_batch_iterator =
+        [=](const int* i) -> ::arrow::Result<RecordBatchIterator> {
+      std::shared_ptr<::arrow::Table> table;
+      RETURN_NOT_OK(reader->RowGroup(*i)->ReadTable(column_indices, &table));
+
+      auto table_reader = std::make_shared<::arrow::TableBatchReader>(*table);
+      table_reader->set_chunksize(batch_size);
+
+      // NB: explicitly preserve table so that table_reader doesn't outlive it
+      return ::arrow::MakeFunctionIterator(
+          [table, table_reader] { return table_reader->Next(); });
+    };
+
+    ::arrow::Iterator<RecordBatchIterator> row_group_batches =
+        ::arrow::MakeMaybeMapIterator(
+            std::move(row_group_index_to_batch_iterator),
+            ::arrow::MakeVectorPointingIterator(row_group_indices));
+
+    out->batches_ = ::arrow::MakeFlattenIterator(std::move(row_group_batches));
+    return std::move(out);
   }
 
   Status ReadNext(std::shared_ptr<::arrow::RecordBatch>* out) override {
-    // TODO (hatemhelal): Consider refactoring this to share logic with ReadTable as this
-    // does not currently honor the use_threads option.
-    std::vector<std::shared_ptr<ChunkedArray>> columns(field_readers_.size());
-    for (size_t i = 0; i < field_readers_.size(); ++i) {
-      RETURN_NOT_OK(field_readers_[i]->NextBatch(batch_size_, &columns[i]));
-      if (columns[i]->num_chunks() > 1) {
-        return Status::NotImplemented("This class cannot yet iterate chunked arrays");
-      }
-    }
-
-    // Create an intermediate table and use TableBatchReader as an adaptor to a
-    // RecordBatch
-    std::shared_ptr<Table> table = Table::Make(schema_, columns);
-    RETURN_NOT_OK(table->Validate());
-    ::arrow::TableBatchReader table_batch_reader(*table);
-    return table_batch_reader.ReadNext(out);
+    return batches_.Next().Value(out);
   }
 
  private:
-  std::vector<std::unique_ptr<ColumnReaderImpl>> field_readers_;
   std::shared_ptr<::arrow::Schema> schema_;
-  int64_t batch_size_;
+  ::arrow::Iterator<std::shared_ptr<::arrow::RecordBatch>> batches_;
 };
 
 class ColumnChunkReaderImpl : public ColumnChunkReader {
@@ -781,6 +770,9 @@ Status FileReaderImpl::GetRecordBatchReader(const std::vector<int>& row_group_in
                                             const std::vector<int>& column_indices,
                                             std::unique_ptr<RecordBatchReader>* out) {
   // column indices check
+  ARROW_ASSIGN_OR_RAISE(std::ignore, manifest_.GetFieldIndices(column_indices));
+
+  // row group indices check
   for (auto row_group_index : row_group_indices) {
     RETURN_NOT_OK(BoundsCheckRowGroup(row_group_index));
   }
@@ -794,8 +786,9 @@ Status FileReaderImpl::GetRecordBatchReader(const std::vector<int>& row_group_in
     END_PARQUET_CATCH_EXCEPTIONS
   }
 
-  return RowGroupRecordBatchReader::Make(row_group_indices, column_indices, this,
-                                         reader_properties_.batch_size(), out);
+  return RowGroupRecordBatchReader::Make(row_group_indices, column_indices,
+                                         reader_properties_.batch_size(), this)
+      .Value(out);
 }
 
 Status FileReaderImpl::GetColumn(int i, FileColumnIteratorFactory iterator_factory,
@@ -819,10 +812,7 @@ Status FileReaderImpl::ReadRowGroups(const std::vector<int>& row_groups,
 
   // We only need to read schema fields which have columns indicated
   // in the indices vector
-  std::vector<int> field_indices;
-  if (!manifest_.GetFieldIndices(indices, &field_indices)) {
-    return Status::Invalid("Invalid column index");
-  }
+  ARROW_ASSIGN_OR_RAISE(auto field_indices, manifest_.GetFieldIndices(indices));
 
   // PARQUET-1698/PARQUET-1820: pre-buffer row groups/column chunks if enabled
   if (reader_properties_.pre_buffer()) {

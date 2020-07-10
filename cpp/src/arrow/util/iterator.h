@@ -247,18 +247,18 @@ Iterator<T> MakeVectorIterator(std::vector<T> v) {
   return Iterator<T>(VectorIterator<T>(std::move(v)));
 }
 
-/// \brief Simple iterator which yields the elements of a std::vector<T> as optional<T>.
+/// \brief Simple iterator which yields *pointers* to the elements of a std::vector<T>.
 /// This is provided to support T where IterationTraits<T>::End is not specialized
 template <typename T>
-class VectorOptionalIterator {
+class VectorPointingIterator {
  public:
-  explicit VectorOptionalIterator(std::vector<T> v) : elements_(std::move(v)) {}
+  explicit VectorPointingIterator(std::vector<T> v) : elements_(std::move(v)) {}
 
-  Result<util::optional<T>> Next() {
+  Result<T*> Next() {
     if (i_ == elements_.size()) {
-      return util::nullopt;
+      return NULLPTR;
     }
-    return std::move(elements_[i_++]);
+    return &elements_[i_++];
   }
 
  private:
@@ -267,8 +267,8 @@ class VectorOptionalIterator {
 };
 
 template <typename T>
-Iterator<util::optional<T>> MakeVectorOptionalIterator(std::vector<T> v) {
-  return Iterator<util::optional<T>>(VectorOptionalIterator<T>(std::move(v)));
+Iterator<T*> MakeVectorPointingIterator(std::vector<T> v) {
+  return Iterator<T*>(VectorPointingIterator<T>(std::move(v)));
 }
 
 /// \brief MapIterator takes ownership of an iterator and a function to apply
