@@ -32,7 +32,6 @@ if(ARROW_TEST_LINKAGE STREQUAL "static")
                                   ${ARROW_TEST_LINK_LIBS})
 else()
   set(ARROW_FLIGHT_TEST_LINK_LIBS arrow_flight_shared arrow_flight_testing_shared
-                                  ${ARROW_FLIGHT_STATIC_LINK_LIBS}
                                   ${ARROW_TEST_LINK_LIBS})
 endif()
 
@@ -92,6 +91,7 @@ add_arrow_lib(arrow_flight
               ${ARROW_VERSION_SCRIPT_FLAGS} # Defined in cpp/arrow/CMakeLists.txt
               SHARED_LINK_LIBS
               arrow_shared
+              SHARED_PRIVATE_LINK_LIBS
               ${ARROW_FLIGHT_STATIC_LINK_LIBS}
               STATIC_LINK_LIBS
               arrow_static

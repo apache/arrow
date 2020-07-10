@@ -2412,12 +2412,33 @@ macro(build_grpc)
   add_dependencies(gRPC::grpc_cpp_plugin grpc_ep)
   set(GRPC_VENDORED TRUE)
 
+  # ar -M rejects with the "libgrpc++.a" filename because "+" is a line
+  # continuation character in these scripts, so we have to create a copy of the
+  # static lib that we will bundle later
+
+  set(GRPC_STATIC_LIBRARY_GRPCPP_FOR_AR
+    "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}grpcpp${CMAKE_STATIC_LIBRARY_SUFFIX}")
+  add_custom_command(OUTPUT ${GRPC_STATIC_LIBRARY_GRPCPP_FOR_AR}
+    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:gRPC::grpc++>
+    ${GRPC_STATIC_LIBRARY_GRPCPP_FOR_AR}
+    DEPENDS grpc_ep)
+  add_library(gRPC::grpcpp_for_bundling STATIC IMPORTED)
+  set_target_properties(
+    gRPC::grpcpp_for_bundling
+    PROPERTIES IMPORTED_LOCATION
+               "${GRPC_STATIC_LIBRARY_GRPCPP_FOR_AR}")
+
+  set_source_files_properties("${GRPC_STATIC_LIBRARY_GRPCPP_FOR_AR}" PROPERTIES GENERATED TRUE)
+  add_custom_target(grpc_copy_grpc++ ALL DEPENDS "${GRPC_STATIC_LIBRARY_GRPCPP_FOR_AR}")
+  add_dependencies(gRPC::grpcpp_for_bundling grpc_copy_grpc++)
+
   list(APPEND ARROW_BUNDLED_STATIC_LIBS
-              gRPC::upb
-              gRPC::gpr
-              gRPC::gprc
-              gRPC::address_sorting
-              gRPC::grpc++)
+    ${ABSL_LIBRARIES}
+    gRPC::upb
+    gRPC::gpr
+    gRPC::grpc
+    gRPC::address_sorting
+    gRPC::grpcpp_for_bundling)
 endmacro()
 
 if(ARROW_WITH_GRPC)
