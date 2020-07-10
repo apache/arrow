@@ -599,6 +599,50 @@ test_that("Array$create() handles vector -> large list arrays", {
   )
 })
 
+test_that("Array$create() handles vector -> fixed size list arrays", {
+  # Should be able to create an empty list with a type hint.
+  expect_is(Array$create(list(), type = fixed_size_list_of(bool(), 20)), "FixedSizeListArray")
+
+  # logical
+  expect_array_roundtrip(list(NA), fixed_size_list_of(bool(), 1L), as = fixed_size_list_of(bool(), 1L))
+  expect_array_roundtrip(list(c(TRUE, FALSE), c(FALSE, TRUE)), fixed_size_list_of(bool(), 2L), as = fixed_size_list_of(bool(), 2L))
+  expect_array_roundtrip(list(c(TRUE), c(FALSE), NA), fixed_size_list_of(bool(), 1L), as = fixed_size_list_of(bool(), 1L))
+
+  # integer
+  expect_array_roundtrip(list(NA_integer_), fixed_size_list_of(int32(), 1L), as = fixed_size_list_of(int32(), 1L))
+  expect_array_roundtrip(list(1:2, 3:4, 11:12), fixed_size_list_of(int32(), 2L), as = fixed_size_list_of(int32(), 2L))
+  expect_array_roundtrip(list(c(1:2), c(NA_integer_, 3L)), fixed_size_list_of(int32(), 2L), as = fixed_size_list_of(int32(), 2L))
+
+  # numeric
+  expect_array_roundtrip(list(NA_real_), fixed_size_list_of(float64(), 1L), as = fixed_size_list_of(float64(), 1L))
+  expect_array_roundtrip(list(c(1,2), c(2, 3)), fixed_size_list_of(float64(), 2L), as = fixed_size_list_of(float64(), 2L))
+  expect_array_roundtrip(list(c(1,2), c(NA_real_, 4)), fixed_size_list_of(float64(), 2L), as = fixed_size_list_of(float64(), 2L))
+
+  # character
+  expect_array_roundtrip(list(NA_character_), fixed_size_list_of(utf8(), 1L), as = fixed_size_list_of(utf8(), 1L))
+  expect_array_roundtrip(list(c("itsy", "bitsy"), c("spider", "is"), c(NA_character_, NA_character_), c("", "")), fixed_size_list_of(utf8(), 2L), as = fixed_size_list_of(utf8(), 2L))
+
+  # factor
+  expect_array_roundtrip(list(factor(c("b", "a"), levels = c("a", "b"))), fixed_size_list_of(dictionary(int8(), utf8()), 2L), as = fixed_size_list_of(dictionary(int8(), utf8()), 2L))
+
+  # struct
+  expect_array_roundtrip(
+    list(tibble::tibble(a = 1L, b = 1L, c = "", d = TRUE)),
+    fixed_size_list_of(struct(a = int32(), b = int32(), c = utf8(), d = bool()), 1L),
+    as = fixed_size_list_of(struct(a = int32(), b = int32(), c = utf8(), d = bool()), 1L)
+  )
+  expect_array_roundtrip(
+    list(tibble::tibble(a = list(1L))),
+    fixed_size_list_of(struct(a = list_of(int32())), 1L),
+    as = fixed_size_list_of(struct(a = list_of(int32())), 1L)
+  )
+  expect_array_roundtrip(
+    list(tibble::tibble(a = list(1L))),
+    list_of(struct(a = fixed_size_list_of(int32(), 1L))),
+    as = list_of(struct(a = fixed_size_list_of(int32(), 1L)))
+  )
+})
+
 test_that("Array$create() should have helpful error on lists with type hint", {
   expect_error(Array$create(list(numeric(0)), list_of(bool())),
                regexp = "List vector expecting elements vector of type")
