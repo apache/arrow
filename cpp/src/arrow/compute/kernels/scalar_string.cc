@@ -517,6 +517,13 @@ static inline bool IsUpperCaseCharacterUnicode(uint32_t codepoint) {
          !HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_LT);
 }
 
+static inline bool IsAlphaNumericCharacterUnicode(uint32_t codepoint) {
+  return HasAnyUnicodeGeneralCategory(
+      codepoint, UTF8PROC_CATEGORY_LU, UTF8PROC_CATEGORY_LL, UTF8PROC_CATEGORY_LT,
+      UTF8PROC_CATEGORY_LM, UTF8PROC_CATEGORY_LO, UTF8PROC_CATEGORY_ND,
+      UTF8PROC_CATEGORY_NL, UTF8PROC_CATEGORY_NO);
+}
+
 static inline bool IsAlphaCharacterUnicode(uint32_t codepoint) {
   return HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_LU,
                                       UTF8PROC_CATEGORY_LL, UTF8PROC_CATEGORY_LT,
@@ -578,6 +585,12 @@ static inline bool IsAlphaCharacterAscii(uint8_t ascii_character) {
   return IsCasedCharacterAscii(ascii_character);  // same
 }
 
+static inline bool IsAlphaNumericCharacterAscii(uint8_t ascii_character) {
+  return ((ascii_character >= '0') && (ascii_character <= '9')) ||
+         ((ascii_character >= 'a') && (ascii_character <= 'z')) ||
+         ((ascii_character >= 'A') && (ascii_character <= 'Z'));
+}
+
 static inline bool IsDecimalCharacterAscii(uint8_t ascii_character) {
   return ((ascii_character >= '0') && (ascii_character <= '9'));
 }
@@ -629,6 +642,8 @@ struct CharacterPredicateAscii
       return true;
     }
     bool any = false;
+    // MB: A simple for loops seems 8% faster on gcc 9.3, running the IsAlphaNumericAscii
+    // benchmark. I don't consider that worth it.
     bool all = std::all_of(input, input + input_string_ncodeunits,
                            [&any](uint8_t ascii_character) {
                              any |= Derived::PredicateCharacterAny(ascii_character);
@@ -646,8 +661,7 @@ template <typename StringType>
 struct IsAlphaNumericUnicode
     : CharacterPredicateUnicode<StringType, IsAlphaNumericUnicode<StringType>> {
   static inline bool PredicateCharacterAll(uint32_t codepoint) {
-    return IsAlphaCharacterUnicode(codepoint) || IsDecimalCharacterUnicode(codepoint) ||
-           IsNumericCharacterUnicode(codepoint) || IsDigitCharacterUnicode(codepoint);
+    return IsAlphaNumericCharacterUnicode(codepoint);
   }
 };
 #endif
@@ -655,8 +669,8 @@ struct IsAlphaNumericUnicode
 template <typename StringType>
 struct IsAlphaNumericAscii
     : CharacterPredicateAscii<StringType, IsAlphaNumericAscii<StringType>> {
-  static inline bool PredicateCharacterAll(uint32_t codepoint) {
-    return IsAlphaCharacterAscii(codepoint) || IsDecimalCharacterAscii(codepoint);
+  static inline bool PredicateCharacterAll(uint8_t ascii_character) {
+    return IsAlphaNumericCharacterAscii(ascii_character);
   }
 };
 
