@@ -815,14 +815,15 @@ class Converter_List : public Converter {
 };
 
 class Converter_FixedSizeList : public Converter {
-private:
+ private:
   std::shared_ptr<arrow::DataType> value_type_;
   int list_size_;
 
-public:
+ public:
   explicit Converter_FixedSizeList(const ArrayVector& arrays,
-                          const std::shared_ptr<arrow::DataType>& value_type, int list_size)
-    : Converter(arrays), value_type_(value_type), list_size_(list_size) {}
+                                   const std::shared_ptr<arrow::DataType>& value_type,
+                                   int list_size)
+      : Converter(arrays), value_type_(value_type), list_size_(list_size) {}
 
   SEXP Allocate(R_xlen_t n) const {
     Rcpp::List res(no_init(n));
@@ -859,7 +860,6 @@ public:
       return Status::OK();
     };
     return IngestSome(array, n, ingest_one);
-
   }
 
   bool Parallel() const { return false; }
@@ -1070,10 +1070,9 @@ std::shared_ptr<Converter> Converter::Make(const std::shared_ptr<DataType>& type
 
     case Type::FIXED_SIZE_LIST:
       return std::make_shared<arrow::r::Converter_FixedSizeList>(
-        std::move(arrays),
-        checked_cast<const arrow::FixedSizeListType&>(*type).value_type(),
-        checked_cast<const arrow::FixedSizeListType&>(*type).list_size()
-      );
+          std::move(arrays),
+          checked_cast<const arrow::FixedSizeListType&>(*type).value_type(),
+          checked_cast<const arrow::FixedSizeListType&>(*type).list_size());
 
     case Type::NA:
       return std::make_shared<arrow::r::Converter_Null>(std::move(arrays));
