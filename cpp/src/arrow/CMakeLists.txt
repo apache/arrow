@@ -500,6 +500,18 @@ if(ARROW_WITH_BACKTRACE)
   endforeach()
 endif()
 
+if(ARROW_BUILD_STATIC AND ARROW_BUNDLED_STATIC_LIBS)
+  arrow_car(_FIRST_LIB ${ARROW_BUNDLED_STATIC_LIBS})
+  arrow_cdr(_OTHER_LIBS ${ARROW_BUNDLED_STATIC_LIBS})
+  create_merged_static_lib(arrow_bundled_dependencies
+                           NAME
+                           arrow_bundled_dependencies
+                           ROOT
+                           ${_FIRST_LIB}
+                           TO_MERGE
+                           ${_OTHER_LIBS})
+endif()
+
 if(ARROW_BUILD_TESTS
    OR ARROW_BUILD_BENCHMARKS
    OR ARROW_BUILD_INTEGRATION

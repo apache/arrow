@@ -641,11 +641,6 @@ endif()
 # Linker and Dependencies
 #
 
-# TODO: Also rework how these libs work
-set(ARROW_LINK_LIBS)
-set(ARROW_SHARED_INSTALL_INTERFACE_LIBS)
-set(ARROW_STATIC_INSTALL_INTERFACE_LIBS)
-
 # Libraries to link statically with libarrow.so
 set(ARROW_LINK_LIBS)
 set(ARROW_STATIC_LINK_LIBS)
@@ -655,7 +650,6 @@ if(ARROW_USE_OPENSSL)
   set(ARROW_OPENSSL_LIBS OpenSSL::Crypto OpenSSL::SSL)
   list(APPEND ARROW_LINK_LIBS ${ARROW_OPENSSL_LIBS})
   list(APPEND ARROW_STATIC_LINK_LIBS ${ARROW_OPENSSL_LIBS})
-  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${ARROW_OPENSSL_LIBS})
 endif()
 
 if(ARROW_WITH_BROTLI)
@@ -663,45 +657,36 @@ if(ARROW_WITH_BROTLI)
   set(ARROW_BROTLI_LIBS Brotli::brotlienc Brotli::brotlidec Brotli::brotlicommon)
   list(APPEND ARROW_LINK_LIBS ${ARROW_BROTLI_LIBS})
   list(APPEND ARROW_STATIC_LINK_LIBS ${ARROW_BROTLI_LIBS})
-  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${ARROW_BROTLI_LIBS})
 endif()
 
 if(ARROW_WITH_BZ2)
   list(APPEND ARROW_STATIC_LINK_LIBS BZip2::BZip2)
-  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS BZip2::BZip2)
 endif()
 
 if(ARROW_WITH_LZ4)
   list(APPEND ARROW_STATIC_LINK_LIBS LZ4::lz4)
-  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS LZ4::lz4)
 endif()
 
 if(ARROW_WITH_SNAPPY)
   list(APPEND ARROW_STATIC_LINK_LIBS Snappy::snappy)
-  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS Snappy::snappy)
 endif()
 
 if(ARROW_WITH_ZLIB)
   list(APPEND ARROW_STATIC_LINK_LIBS ZLIB::ZLIB)
-  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ZLIB::ZLIB)
 endif()
 
 if(ARROW_WITH_ZSTD)
   list(APPEND ARROW_STATIC_LINK_LIBS ${ARROW_ZSTD_LIBZSTD})
-  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${ARROW_ZSTD_LIBZSTD})
 endif()
 
 if(ARROW_ORC)
   list(APPEND ARROW_LINK_LIBS orc::liborc ${ARROW_PROTOBUF_LIBPROTOBUF})
   list(APPEND ARROW_STATIC_LINK_LIBS orc::liborc ${ARROW_PROTOBUF_LIBPROTOBUF})
-  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS orc::liborc
-              ${ARROW_PROTOBUF_LIBPROTOBUF})
 endif()
 
 if(ARROW_USE_GLOG)
   list(APPEND ARROW_LINK_LIBS glog::glog)
   list(APPEND ARROW_STATIC_LINK_LIBS glog::glog)
-  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS glog::glog)
   add_definitions("-DARROW_USE_GLOG")
 endif()
 
@@ -712,7 +697,6 @@ endif()
 if(ARROW_WITH_UTF8PROC)
   list(APPEND ARROW_LINK_LIBS utf8proc::utf8proc)
   list(APPEND ARROW_STATIC_LINK_LIBS utf8proc::utf8proc)
-  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS utf8proc::utf8proc)
 endif()
 
 add_custom_target(arrow_dependencies)
@@ -807,18 +791,23 @@ if(ARROW_BUILD_BENCHMARKS)
   endif()
 endif()
 
-set(ARROW_SYSTEM_LINK_LIBS)
-
 if(ARROW_JEMALLOC)
   add_definitions(-DARROW_JEMALLOC)
   add_definitions(-DARROW_JEMALLOC_INCLUDE_DIR=${JEMALLOC_INCLUDE_DIR})
-  list(APPEND ARROW_SYSTEM_LINK_LIBS jemalloc::jemalloc)
+  list(APPEND ARROW_LINK_LIBS jemalloc::jemalloc)
+  list(APPEND ARROW_STATIC_LINK_LIBS jemalloc::jemalloc)
 endif()
 
 if(ARROW_MIMALLOC)
   add_definitions(-DARROW_MIMALLOC)
-  list(APPEND ARROW_SYSTEM_LINK_LIBS mimalloc::mimalloc)
+  list(APPEND ARROW_LINK_LIBS mimalloc::mimalloc)
+  list(APPEND ARROW_STATIC_LINK_LIBS mimalloc::mimalloc)
 endif()
+
+# ----------------------------------------------------------------------
+# Handle platform-related libraries like -pthread
+
+set(ARROW_SYSTEM_LINK_LIBS)
 
 if(THREADS_FOUND)
   list(APPEND ARROW_SYSTEM_LINK_LIBS Threads::Threads)
@@ -836,7 +825,6 @@ endif()
 
 list(APPEND ARROW_LINK_LIBS ${ARROW_SYSTEM_LINK_LIBS})
 list(APPEND ARROW_STATIC_LINK_LIBS ${ARROW_SYSTEM_LINK_LIBS})
-list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${ARROW_SYSTEM_LINK_LIBS})
 
 #
 # Subdirectories

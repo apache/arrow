@@ -114,7 +114,7 @@ else
         fi
       fi
       PKG_CFLAGS="-I$BREWDIR/opt/$PKG_BREW_NAME/include"
-      PKG_LIBS="-L$BREWDIR/opt/$PKG_BREW_NAME/lib $PKG_LIBS"
+      PKG_LIBS="-L$BREWDIR/opt/$PKG_BREW_NAME/lib $PKG_LIBS -larrow_bundled_dependencies"
     elif [ "$UNAME" = "Linux" ]; then
       # Set some default values/backwards compatibility
       if [ "${LIBARROW_DOWNLOAD}" = "" ] && [ "${NOT_CRAN}" != "" ]; then
