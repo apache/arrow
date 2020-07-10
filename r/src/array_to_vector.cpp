@@ -440,23 +440,24 @@ class Converter_Dictionary : public Converter {
                                 R_xlen_t start, R_xlen_t n, size_t array_index) const {
     using value_type = typename arrow::TypeTraits<Type>::ArrayType::value_type;
 
-    const auto& dictionary_array = checked_cast<const DictionaryArray&>(*array);
-    auto indices = dictionary_array.indices();
-    auto values = indices->data()->GetValues<value_type>(1);
+    using index_type = typename arrow::TypeTraits<Type>::ArrayType::value_type;
+    auto indices = checked_cast<const DictionaryArray&>(*array).indices();
+    auto raw_indices = indices->data()->GetValues<index_type>(1);
 
+    // convert the 0-based indices from the arrow Array
+    // to 1-based indices used in R factors
     if (need_unification_) {
-      auto transpose =
+      // transpose the indices before converting
+      auto transposed =
           reinterpret_cast<const int32_t*>(arrays_transpose_[array_index]->data());
-      auto transpose_convert = [=](value_type value) { return transpose[value] + 1; };
+      auto transpose_convert = [=](index_type i) { return transposed[i] + 1; };
 
-      return SomeNull_Ingest<INTSXP, value_type>(data, start, n, values, indices,
+      return SomeNull_Ingest<INTSXP>(data, start, n, raw_indices, indices,
                                                  transpose_convert);
     } else {
-      // convert the 0-based indices from the arrow Array
-      // to 1-based indices used in R factors
-      auto convert = [](value_type value) { return static_cast<int>(value) + 1; };
+      auto convert = [](index_type i) { return static_cast<int>(i) + 1; };
 
-      return SomeNull_Ingest<INTSXP, value_type>(data, start, n, values, indices,
+      return SomeNull_Ingest<INTSXP>(data, start, n, raw_indices, indices,
                                                  convert);
     }
   }
