@@ -38,13 +38,13 @@ flate2 = { version = "1.0", optional = true }
 lz4 = { version = "1.23", optional = true }
 zstd = { version = "0.5", optional = true }
 chrono = "0.4"
-num-bigint = "0.2"
+num-bigint = "0.3"
 arrow = { path = "../arrow", version = "1.0.0-SNAPSHOT", optional = true }
 serde_json = { version = "1.0", features = ["preserve_order"] }
 
 [dev-dependencies]
 lazy_static = "1"
-rand = "0.6"
+rand = "0.7"
 snap = "1.0"
 brotli = "3.3"
 flate2 = "1.0"
