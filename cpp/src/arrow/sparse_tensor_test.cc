@@ -746,6 +746,23 @@ class TestSparseCSRMatrixBase : public TestSparseTensorBase<Int64Type> {
 
 class TestSparseCSRMatrix : public TestSparseCSRMatrixBase<Int64Type> {};
 
+TEST_F(TestSparseCSRMatrix, CreationFromZeroTensor) {
+  const auto dense_size =
+      std::accumulate(this->shape_.begin(), this->shape_.end(), int64_t(1),
+                      [](int64_t a, int64_t x) { return a * x; });
+  std::vector<int64_t> dense_values(dense_size, 0);
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Tensor> t_zero,
+                       Tensor::Make(int64(), Buffer::Wrap(dense_values), this->shape_));
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<SparseCSRMatrix> st_zero,
+                       SparseCSRMatrix::Make(*t_zero, int64()));
+
+  ASSERT_EQ(0, st_zero->non_zero_length());
+  ASSERT_EQ(dense_size, st_zero->size());
+
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Tensor> t, st_zero->ToTensor());
+  ASSERT_TRUE(t->Equals(*t_zero));
+}
+
 TEST_F(TestSparseCSRMatrix, CreationFromNumericTensor2D) {
   std::shared_ptr<Buffer> buffer = Buffer::Wrap(this->dense_values_);
   NumericTensor<Int64Type> tensor(buffer, this->shape_);
@@ -1063,6 +1080,23 @@ class TestSparseCSCMatrixBase : public TestSparseTensorBase<Int64Type> {
 };
 
 class TestSparseCSCMatrix : public TestSparseCSCMatrixBase<Int64Type> {};
+
+TEST_F(TestSparseCSCMatrix, CreationFromZeroTensor) {
+  const auto dense_size =
+      std::accumulate(this->shape_.begin(), this->shape_.end(), int64_t(1),
+                      [](int64_t a, int64_t x) { return a * x; });
+  std::vector<int64_t> dense_values(dense_size, 0);
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Tensor> t_zero,
+                       Tensor::Make(int64(), Buffer::Wrap(dense_values), this->shape_));
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<SparseCSCMatrix> st_zero,
+                       SparseCSCMatrix::Make(*t_zero, int64()));
+
+  ASSERT_EQ(0, st_zero->non_zero_length());
+  ASSERT_EQ(dense_size, st_zero->size());
+
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Tensor> t, st_zero->ToTensor());
+  ASSERT_TRUE(t->Equals(*t_zero));
+}
 
 TEST_F(TestSparseCSCMatrix, CreationFromNumericTensor2D) {
   std::shared_ptr<Buffer> buffer = Buffer::Wrap(this->dense_values_);
@@ -1424,6 +1458,25 @@ class TestSparseCSFTensorBase : public TestSparseTensorBase<Int16Type> {
   int16_t dense_values_[2][3][4][5] = {};
   std::shared_ptr<SparseCSFTensor> sparse_tensor_from_dense_;
 };
+
+class TestSparseCSFTensor : public TestSparseCSFTensorBase<Int64Type> {};
+
+TEST_F(TestSparseCSFTensor, CreationFromZeroTensor) {
+  const auto dense_size =
+      std::accumulate(this->shape_.begin(), this->shape_.end(), int64_t(1),
+                      [](int64_t a, int64_t x) { return a * x; });
+  std::vector<int64_t> dense_values(dense_size, 0);
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Tensor> t_zero,
+                       Tensor::Make(int64(), Buffer::Wrap(dense_values), this->shape_));
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<SparseCSFTensor> st_zero,
+                       SparseCSFTensor::Make(*t_zero, int64()));
+
+  ASSERT_EQ(0, st_zero->non_zero_length());
+  ASSERT_EQ(dense_size, st_zero->size());
+
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Tensor> t, st_zero->ToTensor());
+  ASSERT_TRUE(t->Equals(*t_zero));
+}
 
 template <typename IndexValueType>
 class TestSparseCSFTensorForIndexValueType
