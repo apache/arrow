@@ -677,7 +677,7 @@ def test_make_parquet_fragment_from_buffer():
         assert pickled.to_table().equals(table)
 
 
-def _create_dataset_for_fragments(tempdir, chunk_size=None):
+def _create_dataset_for_fragments(tempdir, chunk_size=None, filesystem=None):
     import pyarrow.parquet as pq
 
     table = pa.table(
@@ -690,8 +690,11 @@ def _create_dataset_for_fragments(tempdir, chunk_size=None):
     # write_to_dataset currently requires pandas
     pq.write_to_dataset(table, path,
                         partition_cols=["part"], chunk_size=chunk_size)
+    dataset = ds.dataset(
+        path, format="parquet", partitioning="hive", filesystem=filesystem
+    )
 
-    return table, ds.dataset(path, format="parquet", partitioning="hive")
+    return table, dataset
 
 
 @pytest.mark.pandas
@@ -827,6 +830,53 @@ def test_fragments_parquet_row_groups(tempdir):
     assert len(row_group_fragments) == 1
     result = row_group_fragments[0].to_table(filter=ds.field('f1') < 1)
     assert len(result) == 1
+
+
+@pytest.mark.pandas
+@pytest.mark.parquet
+def test_fragments_parquet_ensure_metadata(tempdir, open_logging_fs):
+    fs, assert_opens = open_logging_fs
+    _, dataset = _create_dataset_for_fragments(
+        tempdir, chunk_size=2, filesystem=fs
+    )
+    fragment = list(dataset.get_fragments())[0]
+
+    # with default discovery, no metadata loaded
+    assert fragment.row_groups is None
+    with assert_opens([fragment.path]):
+        fragment.ensure_complete_metadata()
+    assert fragment.row_groups is not None
+
+    # second time -> use cached / no file IO
+    with assert_opens([]):
+        fragment.ensure_complete_metadata()
+
+    # recreate fragment with row group ids
+    new_fragment = fragment.format.make_fragment(
+        fragment.path, fragment.filesystem, row_groups=[0, 1]
+    )
+    assert new_fragment.row_groups is not None
+    assert len(new_fragment.row_groups) == 2
+    row_group = new_fragment.row_groups[0]
+    assert row_group.id == 0
+    # no initialized statistics
+    assert row_group.num_rows == -1
+    assert row_group.statistics is None
+
+    # collect metadata
+    new_fragment.ensure_complete_metadata()
+    row_group = new_fragment.row_groups[0]
+    assert row_group.id == 0
+    assert row_group.num_rows == 2
+    assert row_group.statistics is not None
+
+    # pickling preserves row group ids but not statistics
+    pickled_fragment = pickle.loads(pickle.dumps(new_fragment))
+    assert pickled_fragment.row_groups is not None
+    row_group = pickled_fragment.row_groups[0]
+    assert row_group.id == 0
+    assert row_group.num_rows == -1
+    assert row_group.statistics is None
 
 
 def _create_dataset_all_types(tempdir, chunk_size=None):
