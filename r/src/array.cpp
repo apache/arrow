@@ -237,6 +237,12 @@ int64_t LargeListArray__value_length(const std::shared_ptr<arrow::LargeListArray
 }
 
 // [[arrow::export]]
+int64_t FixedSizeListArray__value_length(
+    const std::shared_ptr<arrow::FixedSizeListArray>& array, int64_t i) {
+  return array->value_length(i);
+}
+
+// [[arrow::export]]
 int32_t ListArray__value_offset(const std::shared_ptr<arrow::ListArray>& array,
                                 int64_t i) {
   return array->value_offset(i);
@@ -245,6 +251,12 @@ int32_t ListArray__value_offset(const std::shared_ptr<arrow::ListArray>& array,
 // [[arrow::export]]
 int64_t LargeListArray__value_offset(const std::shared_ptr<arrow::LargeListArray>& array,
                                      int64_t i) {
+  return array->value_offset(i);
+}
+
+// [[arrow::export]]
+int64_t FixedSizeListArray__value_offset(
+    const std::shared_ptr<arrow::FixedSizeListArray>& array, int64_t i) {
   return array->value_offset(i);
 }
 

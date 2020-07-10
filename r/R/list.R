@@ -40,3 +40,18 @@ LargeListType <- R6Class("LargeListType",
 #' @rdname data-type
 #' @export
 large_list_of <- function(type) shared_ptr(LargeListType, large_list__(type))
+
+#' @rdname data-type
+#' @export
+FixedSizeListType <- R6Class("FixedSizeListType",
+  inherit = NestedType,
+  active = list(
+    value_field = function() shared_ptr(Field, FixedSizeListType__value_field(self)),
+    value_type = function() DataType$create(FixedSizeListType__value_type(self)),
+    list_size = function() FixedSizeListType__list_size(self)
+  )
+)
+
+#' @rdname data-type
+#' @export
+fixed_size_list_of <- function(type, list_size) shared_ptr(LargeListType, fixed_size_list__(type, list_size))

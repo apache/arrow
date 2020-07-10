@@ -443,6 +443,22 @@ RcppExport SEXP _arrow_LargeListArray__value_length(SEXP array_sexp, SEXP i_sexp
 
 // array.cpp
 #if defined(ARROW_R_WITH_ARROW)
+int64_t FixedSizeListArray__value_length(const std::shared_ptr<arrow::FixedSizeListArray>& array, int64_t i);
+RcppExport SEXP _arrow_FixedSizeListArray__value_length(SEXP array_sexp, SEXP i_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::FixedSizeListArray>&>::type array(array_sexp);
+	Rcpp::traits::input_parameter<int64_t>::type i(i_sexp);
+	return Rcpp::wrap(FixedSizeListArray__value_length(array, i));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_FixedSizeListArray__value_length(SEXP array_sexp, SEXP i_sexp){
+	Rf_error("Cannot call FixedSizeListArray__value_length(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// array.cpp
+#if defined(ARROW_R_WITH_ARROW)
 int32_t ListArray__value_offset(const std::shared_ptr<arrow::ListArray>& array, int64_t i);
 RcppExport SEXP _arrow_ListArray__value_offset(SEXP array_sexp, SEXP i_sexp){
 BEGIN_RCPP
@@ -470,6 +486,22 @@ END_RCPP
 #else
 RcppExport SEXP _arrow_LargeListArray__value_offset(SEXP array_sexp, SEXP i_sexp){
 	Rf_error("Cannot call LargeListArray__value_offset(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// array.cpp
+#if defined(ARROW_R_WITH_ARROW)
+int64_t FixedSizeListArray__value_offset(const std::shared_ptr<arrow::FixedSizeListArray>& array, int64_t i);
+RcppExport SEXP _arrow_FixedSizeListArray__value_offset(SEXP array_sexp, SEXP i_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::FixedSizeListArray>&>::type array(array_sexp);
+	Rcpp::traits::input_parameter<int64_t>::type i(i_sexp);
+	return Rcpp::wrap(FixedSizeListArray__value_offset(array, i));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_FixedSizeListArray__value_offset(SEXP array_sexp, SEXP i_sexp){
+	Rf_error("Cannot call FixedSizeListArray__value_offset(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2162,6 +2194,22 @@ RcppExport SEXP _arrow_large_list__(SEXP x_sexp){
 
 // datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
+SEXP fixed_size_list__(SEXP x, int list_size);
+RcppExport SEXP _arrow_fixed_size_list__(SEXP x_sexp, SEXP list_size_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<SEXP>::type x(x_sexp);
+	Rcpp::traits::input_parameter<int>::type list_size(list_size_sexp);
+	return Rcpp::wrap(fixed_size_list__(x, list_size));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_fixed_size_list__(SEXP x_sexp, SEXP list_size_sexp){
+	Rf_error("Cannot call fixed_size_list__(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// datatype.cpp
+#if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> struct_(List fields);
 RcppExport SEXP _arrow_struct_(SEXP fields_sexp){
 BEGIN_RCPP
@@ -2552,6 +2600,51 @@ END_RCPP
 #else
 RcppExport SEXP _arrow_LargeListType__value_type(SEXP type_sexp){
 	Rf_error("Cannot call LargeListType__value_type(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// datatype.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Field> FixedSizeListType__value_field(const std::shared_ptr<arrow::FixedSizeListType>& type);
+RcppExport SEXP _arrow_FixedSizeListType__value_field(SEXP type_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::FixedSizeListType>&>::type type(type_sexp);
+	return Rcpp::wrap(FixedSizeListType__value_field(type));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_FixedSizeListType__value_field(SEXP type_sexp){
+	Rf_error("Cannot call FixedSizeListType__value_field(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// datatype.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::DataType> FixedSizeListType__value_type(const std::shared_ptr<arrow::FixedSizeListType>& type);
+RcppExport SEXP _arrow_FixedSizeListType__value_type(SEXP type_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::FixedSizeListType>&>::type type(type_sexp);
+	return Rcpp::wrap(FixedSizeListType__value_type(type));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_FixedSizeListType__value_type(SEXP type_sexp){
+	Rf_error("Cannot call FixedSizeListType__value_type(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// datatype.cpp
+#if defined(ARROW_R_WITH_ARROW)
+int FixedSizeListType__list_size(const std::shared_ptr<arrow::FixedSizeListType>& type);
+RcppExport SEXP _arrow_FixedSizeListType__list_size(SEXP type_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::FixedSizeListType>&>::type type(type_sexp);
+	return Rcpp::wrap(FixedSizeListType__list_size(type));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_FixedSizeListType__list_size(SEXP type_sexp){
+	Rf_error("Cannot call FixedSizeListType__list_size(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -5858,8 +5951,10 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_LargeListArray__values", (DL_FUNC) &_arrow_LargeListArray__values, 1}, 
 		{ "_arrow_ListArray__value_length", (DL_FUNC) &_arrow_ListArray__value_length, 2}, 
 		{ "_arrow_LargeListArray__value_length", (DL_FUNC) &_arrow_LargeListArray__value_length, 2}, 
+		{ "_arrow_FixedSizeListArray__value_length", (DL_FUNC) &_arrow_FixedSizeListArray__value_length, 2}, 
 		{ "_arrow_ListArray__value_offset", (DL_FUNC) &_arrow_ListArray__value_offset, 2}, 
 		{ "_arrow_LargeListArray__value_offset", (DL_FUNC) &_arrow_LargeListArray__value_offset, 2}, 
+		{ "_arrow_FixedSizeListArray__value_offset", (DL_FUNC) &_arrow_FixedSizeListArray__value_offset, 2}, 
 		{ "_arrow_ListArray__raw_value_offsets", (DL_FUNC) &_arrow_ListArray__raw_value_offsets, 1}, 
 		{ "_arrow_LargeListArray__raw_value_offsets", (DL_FUNC) &_arrow_LargeListArray__raw_value_offsets, 1}, 
 		{ "_arrow_Array__infer_type", (DL_FUNC) &_arrow_Array__infer_type, 1}, 
@@ -5970,6 +6065,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_Time64__initialize", (DL_FUNC) &_arrow_Time64__initialize, 1}, 
 		{ "_arrow_list__", (DL_FUNC) &_arrow_list__, 1}, 
 		{ "_arrow_large_list__", (DL_FUNC) &_arrow_large_list__, 1}, 
+		{ "_arrow_fixed_size_list__", (DL_FUNC) &_arrow_fixed_size_list__, 2}, 
 		{ "_arrow_struct_", (DL_FUNC) &_arrow_struct_, 1}, 
 		{ "_arrow_DataType__ToString", (DL_FUNC) &_arrow_DataType__ToString, 1}, 
 		{ "_arrow_DataType__name", (DL_FUNC) &_arrow_DataType__name, 1}, 
@@ -5996,6 +6092,9 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ListType__value_type", (DL_FUNC) &_arrow_ListType__value_type, 1}, 
 		{ "_arrow_LargeListType__value_field", (DL_FUNC) &_arrow_LargeListType__value_field, 1}, 
 		{ "_arrow_LargeListType__value_type", (DL_FUNC) &_arrow_LargeListType__value_type, 1}, 
+		{ "_arrow_FixedSizeListType__value_field", (DL_FUNC) &_arrow_FixedSizeListType__value_field, 1}, 
+		{ "_arrow_FixedSizeListType__value_type", (DL_FUNC) &_arrow_FixedSizeListType__value_type, 1}, 
+		{ "_arrow_FixedSizeListType__list_size", (DL_FUNC) &_arrow_FixedSizeListType__list_size, 1}, 
 		{ "_arrow_dataset___expr__field_ref", (DL_FUNC) &_arrow_dataset___expr__field_ref, 1}, 
 		{ "_arrow_dataset___expr__equal", (DL_FUNC) &_arrow_dataset___expr__equal, 2}, 
 		{ "_arrow_dataset___expr__not_equal", (DL_FUNC) &_arrow_dataset___expr__not_equal, 2}, 

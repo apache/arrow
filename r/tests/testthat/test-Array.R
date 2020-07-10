@@ -50,12 +50,67 @@ test_that("Integer Array", {
 })
 
 test_that("binary Array", {
-  bin <- vctrs::list_of(as.raw(1:10), as.raw(0:255), .ptype = raw())
-  expect_array_roundtrip(bin, binary())
+  # if the type is given, we just need a list of raw vectors
+  bin <- list(as.raw(1:10), as.raw(1:10))
+  expect_array_roundtrip(bin, binary(), as = binary())
   expect_array_roundtrip(bin, large_binary(), as = large_binary())
+  expect_array_roundtrip(bin, fixed_size_binary(10), as = fixed_size_binary(10))
 
-  # degenerate
-  bin <- structure(list(1L), ptype = raw())
+  bin[[1L]] <- as.raw(1:20)
+  expect_error(Array$create(bin, fixed_size_binary(10)))
+
+  # otherwise the arrow type is deduced from the R classes
+  bin <- vctrs::new_vctr(
+    list(as.raw(1:10), as.raw(11:20)),
+    class = "arrow_binary"
+  )
+  expect_array_roundtrip(bin, binary())
+
+  bin <- vctrs::new_vctr(
+    list(as.raw(1:10), as.raw(11:20)),
+    class = "arrow_large_binary"
+  )
+  expect_array_roundtrip(bin, large_binary())
+
+  bin <- vctrs::new_vctr(
+    list(as.raw(1:10), as.raw(11:20)),
+    class = "arrow_fixed_size_binary",
+    byte_width = 10L
+  )
+  expect_array_roundtrip(bin, fixed_size_binary(byte_width = 10))
+
+  # degenerate cases
+  bin <- vctrs::new_vctr(
+    list(1:10),
+    class = "arrow_binary"
+  )
+  expect_error(Array$create(bin))
+
+  bin <- vctrs::new_vctr(
+    list(1:10),
+    ptype = raw(),
+    class = "arrow_large_binary"
+  )
+  expect_error(Array$create(bin))
+
+  bin <- vctrs::new_vctr(
+    list(1:10),
+    class = "arrow_fixed_size_binary",
+    byte_width = 10
+  )
+  expect_error(Array$create(bin))
+
+  bin <- vctrs::new_vctr(
+    list(as.raw(1:5)),
+    class = "arrow_fixed_size_binary",
+    byte_width = 10
+  )
+  expect_error(Array$create(bin))
+
+  bin <- vctrs::new_vctr(
+    list(as.raw(1:5)),
+    class = "arrow_fixed_size_binary"
+  )
   expect_error(Array$create(bin))
 })
 
@@ -544,37 +599,65 @@ test_that("Array$create() handles vector -> large list arrays", {
   )
 })
 
-test_that("Array$create() should have helpful error on lists with type hint", {
-  expect_error(Array$create(list(numeric(0)), list_of(bool())),
-               regexp = "List vector expecting elements vector of type")
-  expect_error(Array$create(list(numeric(0)), list_of(int32())),
-               regexp = "List vector expecting elements vector of type")
-  expect_error(Array$create(list(integer(0)), list_of(float64())),
-               regexp = "List vector expecting elements vector of type")
+test_that("Array$create() handles vector -> fixed size list arrays", {
+  # Should be able to create an empty list with a type hint.
+  expect_is(Array$create(list(), type = fixed_size_list_of(bool(), 20)), "FixedSizeListArray")
+
+  # logical
+  expect_array_roundtrip(list(NA), fixed_size_list_of(bool(), 1L), as = fixed_size_list_of(bool(), 1L))
+  expect_array_roundtrip(list(c(TRUE, FALSE), c(FALSE, TRUE)), fixed_size_list_of(bool(), 2L), as = fixed_size_list_of(bool(), 2L))
+  expect_array_roundtrip(list(c(TRUE), c(FALSE), NA), fixed_size_list_of(bool(), 1L), as = fixed_size_list_of(bool(), 1L))
+
+  # integer
+  expect_array_roundtrip(list(NA_integer_), fixed_size_list_of(int32(), 1L), as = fixed_size_list_of(int32(), 1L))
+  expect_array_roundtrip(list(1:2, 3:4, 11:12), fixed_size_list_of(int32(), 2L), as = fixed_size_list_of(int32(), 2L))
+  expect_array_roundtrip(list(c(1:2), c(NA_integer_, 3L)), fixed_size_list_of(int32(), 2L), as = fixed_size_list_of(int32(), 2L))
+
+  # numeric
+  expect_array_roundtrip(list(NA_real_), fixed_size_list_of(float64(), 1L), as = fixed_size_list_of(float64(), 1L))
+  expect_array_roundtrip(list(c(1,2), c(2, 3)), fixed_size_list_of(float64(), 2L), as = fixed_size_list_of(float64(), 2L))
+  expect_array_roundtrip(list(c(1,2), c(NA_real_, 4)), fixed_size_list_of(float64(), 2L), as = fixed_size_list_of(float64(), 2L))
+
+  # character
+  expect_array_roundtrip(list(NA_character_), fixed_size_list_of(utf8(), 1L), as = fixed_size_list_of(utf8(), 1L))
+  expect_array_roundtrip(list(c("itsy", "bitsy"), c("spider", "is"), c(NA_character_, NA_character_), c("", "")), fixed_size_list_of(utf8(), 2L), as = fixed_size_list_of(utf8(), 2L))
+
+  # factor
+  expect_array_roundtrip(list(factor(c("b", "a"), levels = c("a", "b"))), fixed_size_list_of(dictionary(int8(), utf8()), 2L), as = fixed_size_list_of(dictionary(int8(), utf8()), 2L))
+
+  # struct
+  expect_array_roundtrip(
+    list(tibble::tibble(a = 1L, b = 1L, c = "", d = TRUE)),
+    fixed_size_list_of(struct(a = int32(), b = int32(), c = utf8(), d = bool()), 1L),
+    as = fixed_size_list_of(struct(a = int32(), b = int32(), c = utf8(), d = bool()), 1L)
+  )
+  expect_array_roundtrip(
+    list(tibble::tibble(a = list(1L))),
+    fixed_size_list_of(struct(a = list_of(int32())), 1L),
+    as = fixed_size_list_of(struct(a = list_of(int32())), 1L)
+  )
+  expect_array_roundtrip(
+    list(tibble::tibble(a = list(1L))),
+    list_of(struct(a = fixed_size_list_of(int32(), 1L))),
+    as = list_of(struct(a = fixed_size_list_of(int32(), 1L)))
+  )
 })
 
-test_that("Array$create() should refuse heterogeneous lists", {
-  lgl <- logical(0)
-  int <- integer(0)
-  num <- numeric(0)
-  char <- character(0)
+test_that("Array$create() should have helpful error", {
+  verify_output(test_path("test-Array-errors.txt"), {
+    Array$create(list(numeric(0)), list_of(bool()))
+    Array$create(list(numeric(0)), list_of(int32()))
+    Array$create(list(integer(0)), list_of(float64()))
 
-  expect_error(
-    Array$create(list()),
-    regexp = "Requires at least one element to infer the values'"
-  )
-  expect_error(
-    Array$create(list(lgl, lgl, int)),
-    regexp = "List vector expecting elements vector of type"
-  )
-  expect_error(
-    Array$create(list(char, num, char)),
-    regexp = "List vector expecting elements vector of type"
-  )
-  expect_error(
-    Array$create(list(int, int, num)),
-    regexp = "List vector expecting elements vector of type"
-  )
+    lgl <- logical(0)
+    int <- integer(0)
+    num <- numeric(0)
+    char <- character(0)
+    Array$create(list())
+    Array$create(list(lgl, lgl, int))
+    Array$create(list(char, num, char))
+    Array$create(list(int, int, num))
+  })
 })
 
 test_that("Array$View() (ARROW-6542)", {

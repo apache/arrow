@@ -95,6 +95,8 @@ Array <- R6Class("Array",
         shared_ptr(ListArray, self$pointer())
       } else if (type_id == Type$LARGE_LIST){
         shared_ptr(LargeListArray, self$pointer())
+      } else if (type_id == Type$FIXED_SIZE_LIST){
+        shared_ptr(FixedSizeListArray, self$pointer())
       } else {
         self
       }
@@ -245,6 +247,22 @@ LargeListArray <- R6Class("LargeListArray", inherit = Array,
   ),
   active = list(
     value_type = function() DataType$create(LargeListArray__value_type(self))
+  )
+)
+
+#' @rdname array
+#' @usage NULL
+#' @format NULL
+#' @export
+FixedSizeListArray <- R6Class("FixedSizeListArray", inherit = Array,
+  public = list(
+    values = function() Array$create(FixedSizeListArray__values(self)),
+    value_length = function(i) FixedSizeListArray__value_length(self, i),
+    value_offset = function(i) FixedSizeListArray__value_offset(self, i)
+  ),
+  active = list(
+    value_type = function() DataType$create(FixedSizeListArray__value_type(self)),
+    list_size = function() self$type$list_size
   )
 )
 

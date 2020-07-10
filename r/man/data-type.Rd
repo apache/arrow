@@ -21,6 +21,7 @@
 \alias{large_utf8}
 \alias{binary}
 \alias{large_binary}
+\alias{fixed_size_binary}
 \alias{string}
 \alias{date32}
 \alias{date64}
@@ -31,6 +32,8 @@
 \alias{decimal}
 \alias{list_of}
 \alias{large_list_of}
+\alias{FixedSizeListType}
+\alias{fixed_size_list_of}
 \alias{struct}
 \title{Apache Arrow data types}
 \usage{
@@ -68,9 +71,11 @@ utf8()
 
 large_utf8()
 
-binary(byte_width = NULL)
+binary()
 
 large_binary()
+
+fixed_size_binary(byte_width)
 
 string()
 
@@ -92,12 +97,12 @@ list_of(type)
 
 large_list_of(type)
 
+fixed_size_list_of(type, list_size)
+
 struct(...)
 }
 \arguments{
-\item{byte_width}{For \code{binary()}, an optional integer width to create a
-\code{FixedSizeBinary} type. The default \code{NULL} results in a \code{BinaryType} with
-variable width.}
+\item{byte_width}{byte width for \code{FixedSizeBinary} type.}
 
 \item{unit}{For time/timestamp types, the time unit. \code{time32()} can take
 either "s" or "ms", while \code{time64()} can be "us" or "ns". \code{timestamp()} can
@@ -110,6 +115,8 @@ take any of those four values.}
 \item{scale}{For \code{decimal()}, scale}
 
 \item{type}{For \code{list_of()}, a data type to make a list-of-type}
+
+\item{list_size}{list size for \code{FixedSizeList} type.}
 
 \item{...}{For \code{struct()}, a named list of types to define the struct columns}
 }
