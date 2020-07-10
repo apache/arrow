@@ -237,10 +237,12 @@ TYPED_TEST(TestStringKernels, IsUpperUnicode) {
   // case
   // * U+1F88 - ᾈ - \E1\xBE\x88 - Greek Capital Letter Alpha with Psili and Prosgegrammeni
   // - title case
+  // U+10400 - 𐐀 - \xF0x90x90x80 - Deseret Capital Letter Long - upper case
   // * U+A7BA - Ꞻ - \xEA\x9E\xBA - Latin Capital Letter Glottal A -  new in unicode 13
+  // (not tested since it depends on the version of libutf8proc)
   // * U+A7BB - ꞻ - \xEA\x9E\xBB - Latin Small Letter Glottal A - new in unicode 13
   this->CheckUnary("utf8_isupper",
-                   "[\"Ⓐ\", \"Ⓩ\", \"ϒ\", \"ᾈ\", \"\xEA\x9E\xBA\", \"\xEA\x9E\xBB\"]",
+                   "[\"Ⓐ\", \"Ⓩ\", \"ϒ\", \"ᾈ\", \"\xEA\x9E\xBA\", \"xF0x90x90x80\"]",
                    boolean(), "[true, true, true, false, true, false]");
 }
 
