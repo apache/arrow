@@ -29,6 +29,15 @@ COPY ci/etc/rprofile /arrow/ci/etc/
 RUN cat /arrow/ci/etc/rprofile >> $(R RHOME)/etc/Rprofile.site
 # Also ensure parallel compilation of C/C++ code
 RUN echo "MAKEFLAGS=-j$(R -s -e 'cat(parallel::detectCores())')" >> $(R RHOME)/etc/Makeconf
+
+# Special hacking to try to reproduce quirks on fedora-clang-devel on CRAN
+# which uses a bespoke clang compiled to use libc++
+# https://www.stats.ox.ac.uk/pub/bdr/Rconfig/r-devel-linux-x86_64-fedora-clang
+RUN [ "$RHUB_PLATFORM" = "linux-x86_64-fedora-clang" ] && \
+    dnf install -y libcxx-devel && \
+    sed -i.bak -E -e 's/(CXX1?1? =.*)/\1 -stdlib=libc++/g' $(R RHOME)/etc/Makeconf && \
+    rm -rf $(R RHOME)/etc/Makeconf.bak
+
 # Workaround for html help install failure; see https://github.com/r-lib/devtools/issues/2084#issuecomment-530912786
 RUN Rscript -e 'x <- file.path(R.home("doc"), "html"); if (!file.exists(x)) {dir.create(x, recursive=TRUE); file.copy(system.file("html/R.css", package="stats"), x)}'
 
