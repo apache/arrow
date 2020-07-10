@@ -469,7 +469,7 @@ static inline bool HasAnyUnicodeGeneralCategory(uint32_t codepoint, uint32_t mas
   utf8proc_category_t general_category = codepoint <= kMaxCodepointLookup
                                              ? lut_category[codepoint]
                                              : utf8proc_category(codepoint);
-  uint32_t general_category_bit = 1 << utf8proc_category(codepoint);
+  uint32_t general_category_bit = 1 << general_category;
   // for e.g. undefined (but valid) codepoints, general_category == 0 ==
   // UTF8PROC_CATEGORY_CN
   return (general_category != UTF8PROC_CATEGORY_CN) &&
