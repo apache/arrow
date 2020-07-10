@@ -63,3 +63,8 @@ example_with_times <- tibble::tibble(
   posixlt = as.POSIXlt(lubridate::ymd_hms("2018-10-07 19:04:05") + 1:10),
   posixlt_tz = as.POSIXlt(lubridate::ymd_hms("2018-10-07 19:04:05", tz = "US/Eastern") + 1:10)
 )
+
+make_big_string <- function() {
+  # This creates a character vector that would exceed the capacity of BinaryArray
+  rep(purrr::map_chr(2047:2050, ~paste(sample(letters, ., replace = TRUE), collapse = "")), 2^18)
+}

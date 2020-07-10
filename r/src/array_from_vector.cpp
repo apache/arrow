@@ -1155,6 +1155,25 @@ std::shared_ptr<arrow::DataType> InferArrowTypeFromVector<REALSXP>(SEXP x) {
   return float64();
 }
 
+template <>
+std::shared_ptr<arrow::DataType> InferArrowTypeFromVector<STRSXP>(SEXP x) {
+  // See how big the character vector is
+  R_xlen_t n = XLENGTH(x);
+  int64_t size = 0;
+  for (R_xlen_t i = 0; i < n; i++) {
+    SEXP string_i = STRING_ELT(x, i);
+    if (string_i != NA_STRING) {
+      size += XLENGTH(Rf_mkCharCE(Rf_translateCharUTF8(string_i), CE_UTF8));
+    }
+    if (size > arrow::kBinaryMemoryLimit) {
+      // Exceeds 2GB capacity of utf8 type, so use large
+      return large_utf8();
+    }
+  }
+
+  return utf8();
+}
+
 static inline std::shared_ptr<arrow::DataType> InferArrowTypeFromDataFrame(SEXP x) {
   R_xlen_t n = XLENGTH(x);
   SEXP names = Rf_getAttrib(x, R_NamesSymbol);
@@ -1205,7 +1224,7 @@ std::shared_ptr<arrow::DataType> InferArrowType(SEXP x) {
     case RAWSXP:
       return int8();
     case STRSXP:
-      return utf8();
+      return InferArrowTypeFromVector<STRSXP>(x);
     case VECSXP:
       return InferArrowTypeFromVector<VECSXP>(x);
     default:

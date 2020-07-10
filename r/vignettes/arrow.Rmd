@@ -87,19 +87,21 @@ In the tables, entries with a `-` are not currently implemented.
 | logical                  | boolean    |
 | integer                  | int32      |
 | double ("numeric")       | float64    |
-| character                | utf8       |
+| character                | utf8^1^    |
 | factor                   | dictionary |
 | raw                      | uint8      |
 | Date                     | date32     |
 | POSIXct                  | timestamp  |
 | POSIXlt                  | struct     |
 | data.frame               | struct     |
-| list^+^                  | list       |
+| list^2^                  | list       |
 | bit64::integer64         | int64      |
 | difftime                 | time32     |
 | vctrs::vctrs_unspecified | null       |
 
-^+^: Only lists where all elements are the same type are able to be translated to Arrow list type (which is a "list of" some type).
+^1^: If the character vector exceeds 2GB of strings, it will be converted to a `large_utf8` Arrow type
+
+^2^: Only lists where all elements are the same type are able to be translated to Arrow list type (which is a "list of" some type).
 
 ### Arrow to R
 
@@ -109,11 +111,11 @@ In the tables, entries with a `-` are not currently implemented.
 | int8              | integer                   |
 | int16             | integer                   |
 | int32             | integer                   |
-| int64             | integer^++^               |
+| int64             | integer^3^                |
 | uint8             | integer                   |
 | uint16            | integer                   |
-| uint32            | integer^++^               |
-| uint64            | integer^++^               |
+| uint32            | integer^3^                |
+| uint64            | integer^3^                |
 | float16           | -                         |
 | float32           | double                    |
 | float64           | double                    |
@@ -127,7 +129,7 @@ In the tables, entries with a `-` are not currently implemented.
 | timestamp         | POSIXct                   |
 | duration          | -                         |
 | decimal           | double                    |
-| dictionary        | factor^+++^               |
+| dictionary        | factor^4^                 |
 | list              | vctrs::vctrs_list_of      |
 | fixed_size_list   | -                         |
 | struct            | data.frame                |
@@ -138,9 +140,9 @@ In the tables, entries with a `-` are not currently implemented.
 | large_binary      | vctrs::vctrs_list_of(raw) |
 | large_list        | vctrs::vctrs_list_of      |
 
-^++^: These integer types may contain values that exceed the range of R's `integer` type (32-bit signed integer). When they do, `uint32` and `uint64` are converted to `double` ("numeric") and `int64` is converted to `bit64::integer64`.
+^3^: These integer types may contain values that exceed the range of R's `integer` type (32-bit signed integer). When they do, `uint32` and `uint64` are converted to `double` ("numeric") and `int64` is converted to `bit64::integer64`.
 
-^+++^: Due to the limitation of R `factor`s, Arrow `dictionary` values are coerced to string when translated to R if they are not already strings.
+^4^: Due to the limitation of R `factor`s, Arrow `dictionary` values are coerced to string when translated to R if they are not already strings.
 
 ### R object attributes
 

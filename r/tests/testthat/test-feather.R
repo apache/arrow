@@ -185,4 +185,14 @@ test_that("read_feather closes connection to file", {
   expect_false(file.exists(tf))
 })
 
+test_that("Character vectors > 2GB can write to feather", {
+  skip_on_cran()
+  skip_if_not_running_large_memory_tests()
+  df <- tibble::tibble(big = make_big_string())
+  tf <- tempfile()
+  on.exit(unlink(tf))
+  write_feather(df, tf)
+  expect_identical(read_feather(tf), df)
+})
+
 unlink(feather_file)

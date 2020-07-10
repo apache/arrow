@@ -167,6 +167,13 @@ test_that("Array supports character vectors (ARROW-3339)", {
   expect_array_roundtrip(c("itsy", NA, "spider"), large_utf8(), as = large_utf8())
 })
 
+test_that("Character vectors > 2GB become large_utf8", {
+  skip_on_cran()
+  skip_if_not_running_large_memory_tests()
+  big <- make_big_string()
+  expect_array_roundtrip(big, large_utf8())
+})
+
 test_that("empty arrays are supported", {
   expect_array_roundtrip(character(), utf8())
   expect_array_roundtrip(character(), large_utf8(), as = large_utf8())
@@ -374,12 +381,7 @@ test_that("Array$create() does not convert doubles to integer", {
   for (type in c(int_types, uint_types)) {
     a <- Array$create(10, type = type)
     expect_type_equal(a$type, type)
-
-    # exception for now because we cannot handle
-    # unsigned 64 bit integers yet
-    if (type != uint64()) {
-      expect_true(as.vector(a) == 10L)
-    }
+    expect_true(as.vector(a) == 10L)
   }
 })
 
@@ -388,13 +390,15 @@ test_that("Array$create() converts raw vectors to uint8 arrays (ARROW-3794)", {
 })
 
 test_that("Array<int8>$as_vector() converts to integer (ARROW-3794)", {
-  a <- Array$create((-128):127)$cast(int8())
-  expect_equal(a$type, int8())
-  expect_equal(a$as_vector(), (-128):127)
+  i8 <- (-128):127
+  a <- Array$create(i8)$cast(int8())
+  expect_type_equal(a, int8())
+  expect_equal(as.vector(a), i8)
 
-  a <- Array$create(0:255)$cast(uint8())
-  expect_equal(a$type, uint8())
-  expect_equal(a$as_vector(), 0:255)
+  u8 <- 0:255
+  a <- Array$create(u8)$cast(uint8())
+  expect_type_equal(a, uint8())
+  expect_equal(as.vector(a), u8)
 })
 
 test_that("Arrays of {,u}int{32,64} convert to integer if they can fit", {
