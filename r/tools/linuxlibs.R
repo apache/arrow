@@ -288,8 +288,7 @@ build_libarrow <- function(src_dir, dst_dir) {
 
 ensure_cmake <- function() {
   cmake <- Sys.which("cmake")
-  # TODO: should check that cmake is of sufficient version
-  if (!nzchar(cmake)) {
+  if (!nzchar(cmake) || cmake_version() < 3.2) {
     # If not found, download it
     cat("**** cmake\n")
     CMAKE_VERSION <- Sys.getenv("CMAKE_VERSION", "3.16.2")
@@ -310,6 +309,18 @@ ensure_cmake <- function() {
     )
   }
   cmake
+}
+
+cmake_version <- function() {
+  tryCatch(
+    {
+      raw_version <- system("cmake --version", intern = TRUE, ignore.stderr = TRUE)
+      pat <- ".*?([0-9]+\\.[0-9]+\\.[0-9]+).*"
+      which_line <- grep(pat, raw_version)
+      package_version(sub(pat, "\\1", raw_version[which_line]))
+    },
+    error = function(e) return(0)
+  )
 }
 
 #####
