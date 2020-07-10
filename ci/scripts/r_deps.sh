@@ -29,9 +29,3 @@ ${R_BIN} -e "install.packages('remotes'); remotes::install_cran(c('glue', 'rcmdc
 ${R_BIN} -e "remotes::install_deps(dependencies = TRUE)"
 
 popd
-
-if [ "`which curl`" ]; then
-  # We need this on R >= 4.0
-  curl -L https://sourceforge.net/projects/checkbaskisms/files/2.0.0.2/checkbashisms/download > /usr/local/bin/checkbashisms
-  chmod 755 /usr/local/bin/checkbashisms
-fi

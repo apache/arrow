@@ -275,9 +275,25 @@ build_libarrow <- function(src_dir, dst_dir) {
 
   build_dir <- tempfile()
   options(.arrow.cleanup = c(getOption(".arrow.cleanup"), build_dir))
-  env_vars <- sprintf(
-    "SOURCE_DIR=%s BUILD_DIR=%s DEST_DIR=%s CMAKE=%s",
-    src_dir,       build_dir,   dst_dir,    cmake
+
+  R_CMD_config <- function(var) {
+    # cf. tools::Rcmd, introduced R 3.3
+    system2(file.path(R.home("bin"), "R"), c("CMD", "config", var), stdout = TRUE)
+  }
+  env_var_list <- c(
+    SOURCE_DIR = src_dir,
+    BUILD_DIR = build_dir,
+    DEST_DIR = dst_dir,
+    CMAKE = cmake,
+    # Make sure we build with the same compiler settings that R is using
+    CC = R_CMD_config("CC"),
+    CXX = paste(R_CMD_config("CXX11"), R_CMD_config("CXX11STD")),
+    CXXFLAGS = R_CMD_config("CXX11FLAGS"),
+    LDFLAGS = R_CMD_config("LDFLAGS")
+  )
+  env_vars <- paste(
+    names(env_var_list), dQuote(env_var_list, FALSE),
+    sep = "=", collapse = " "
   )
   cat("**** arrow", ifelse(quietly, "", paste("with", env_vars)), "\n")
   system(
