@@ -276,7 +276,10 @@ build_libarrow <- function(src_dir, dst_dir) {
   build_dir <- tempfile()
   options(.arrow.cleanup = c(getOption(".arrow.cleanup"), build_dir))
 
-  R_CMD_config <- function(var) system(paste("R CMD config", var), intern =TRUE)
+  R_CMD_config <- function(var) {
+    # cf. tools::Rcmd, introduced R 3.3
+    system2(file.path(R.home("bin"), "R"), c("CMD", "config", var), stdout = TRUE)
+  }
   env_var_list <- c(
     SOURCE_DIR = src_dir,
     BUILD_DIR = build_dir,
