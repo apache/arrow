@@ -155,6 +155,7 @@ struct Datum;
 
 #define ASSERT_ARRAYS_EQUAL(lhs, rhs) AssertArraysEqual((lhs), (rhs))
 #define ASSERT_BATCHES_EQUAL(lhs, rhs) AssertBatchesEqual((lhs), (rhs))
+#define ASSERT_BATCHES_APPROX_EQUAL(lhs, rhs) AssertBatchesApproxEqual((lhs), (rhs))
 #define ASSERT_TABLES_EQUAL(lhs, rhs) AssertTablesEqual((lhs), (rhs))
 
 // If verbose is true, then the arrays will be pretty printed
@@ -169,6 +170,8 @@ ARROW_TESTING_EXPORT void AssertScalarsEqual(const Scalar& expected, const Scala
 ARROW_TESTING_EXPORT void AssertBatchesEqual(const RecordBatch& expected,
                                              const RecordBatch& actual,
                                              bool check_metadata = false);
+ARROW_TESTING_EXPORT void AssertBatchesApproxEqual(const RecordBatch& expected,
+                                                   const RecordBatch& actual);
 ARROW_TESTING_EXPORT void AssertChunkedEqual(const ChunkedArray& expected,
                                              const ChunkedArray& actual);
 ARROW_TESTING_EXPORT void AssertChunkedEqual(const ChunkedArray& actual,
@@ -232,6 +235,10 @@ void AssertNumericDataEqual(const C_TYPE* raw_data,
 
 ARROW_TESTING_EXPORT void CompareBatch(const RecordBatch& left, const RecordBatch& right,
                                        bool compare_metadata = true);
+
+ARROW_TESTING_EXPORT void ApproxCompareBatch(const RecordBatch& left,
+                                             const RecordBatch& right,
+                                             bool compare_metadata = true);
 
 // Check if the padding of the buffers of the array is zero.
 // Also cause valgrind warnings if the padding bytes are uninitialized.

@@ -1019,8 +1019,9 @@ TEST(TestJsonFileReadWrite, JsonExample4) {
       &MakeIntRecordBatch, &MakeListRecordBatch, &MakeFixedSizeListRecordBatch,   \
       &MakeNonNullRecordBatch, &MakeZeroLengthRecordBatch, &MakeDeeplyNestedList, \
       &MakeStringTypesRecordBatchWithNulls, &MakeStruct, &MakeUnion, &MakeDates,  \
-      &MakeTimestamps, &MakeTimes, &MakeFWBinary, &MakeDecimal, &MakeDictionary,  \
-      &MakeNestedDictionary, &MakeIntervals, &MakeUuid, &MakeDictExtension)
+      &MakeTimestamps, &MakeTimes, &MakeFWBinary, &MakeDecimal, &MakeFloatBatch,  \
+      &MakeDictionary, &MakeNestedDictionary, &MakeIntervals, &MakeUuid,          \
+      &MakeDictExtension)
 
 class TestJsonRoundTrip : public ::testing::TestWithParam<MakeRecordBatch*> {
  public:
@@ -1049,7 +1050,8 @@ void CheckRoundtrip(const RecordBatch& batch) {
   std::shared_ptr<RecordBatch> result_batch;
   ASSERT_OK(reader->ReadRecordBatch(0, &result_batch));
 
-  CompareBatch(batch, *result_batch);
+  // take care of float rounding error in the text representation
+  ApproxCompareBatch(batch, *result_batch);
 }
 
 TEST_P(TestJsonRoundTrip, RoundTrip) {

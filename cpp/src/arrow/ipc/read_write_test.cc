@@ -311,13 +311,28 @@ TEST_F(TestSchemaMetadata, KeyValueMetadata) {
   CheckSchemaRoundtrip(schema);
 }
 
-#define BATCH_CASES()                                                                    \
-  ::testing::Values(&MakeIntRecordBatch, &MakeListRecordBatch, &MakeNonNullRecordBatch,  \
-                    &MakeZeroLengthRecordBatch, &MakeDeeplyNestedList,                   \
-                    &MakeStringTypesRecordBatchWithNulls, &MakeStruct, &MakeUnion,       \
-                    &MakeDictionary, &MakeNestedDictionary, &MakeDates, &MakeTimestamps, \
-                    &MakeTimes, &MakeFWBinary, &MakeNull, &MakeDecimal,                  \
-                    &MakeBooleanBatch, &MakeIntervals, &MakeUuid, &MakeDictExtension)
+const std::vector<test::MakeRecordBatch*> kBatchCases = {
+    &MakeIntRecordBatch,
+    &MakeListRecordBatch,
+    &MakeNonNullRecordBatch,
+    &MakeZeroLengthRecordBatch,
+    &MakeDeeplyNestedList,
+    &MakeStringTypesRecordBatchWithNulls,
+    &MakeStruct,
+    &MakeUnion,
+    &MakeDictionary,
+    &MakeNestedDictionary,
+    &MakeDates,
+    &MakeTimestamps,
+    &MakeTimes,
+    &MakeFWBinary,
+    &MakeNull,
+    &MakeDecimal,
+    &MakeBooleanBatch,
+    &MakeFloatBatch,
+    &MakeIntervals,
+    &MakeUuid,
+    &MakeDictExtension};
 
 static int g_file_number = 0;
 
@@ -1460,17 +1475,20 @@ TEST_P(TestStreamDecoderLargeChunks, RoundTrip) {
   TestZeroLengthRoundTrip(*GetParam(), options);
 }
 
-INSTANTIATE_TEST_SUITE_P(GenericIpcRoundTripTests, TestIpcRoundTrip, BATCH_CASES());
-INSTANTIATE_TEST_SUITE_P(FileRoundTripTests, TestFileFormat, BATCH_CASES());
-INSTANTIATE_TEST_SUITE_P(StreamRoundTripTests, TestStreamFormat, BATCH_CASES());
+INSTANTIATE_TEST_SUITE_P(GenericIpcRoundTripTests, TestIpcRoundTrip,
+                         ::testing::ValuesIn(kBatchCases));
+INSTANTIATE_TEST_SUITE_P(FileRoundTripTests, TestFileFormat,
+                         ::testing::ValuesIn(kBatchCases));
+INSTANTIATE_TEST_SUITE_P(StreamRoundTripTests, TestStreamFormat,
+                         ::testing::ValuesIn(kBatchCases));
 INSTANTIATE_TEST_SUITE_P(StreamDecoderDataRoundTripTests, TestStreamDecoderData,
-                         BATCH_CASES());
+                         ::testing::ValuesIn(kBatchCases));
 INSTANTIATE_TEST_SUITE_P(StreamDecoderBufferRoundTripTests, TestStreamDecoderBuffer,
-                         BATCH_CASES());
+                         ::testing::ValuesIn(kBatchCases));
 INSTANTIATE_TEST_SUITE_P(StreamDecoderSmallChunksRoundTripTests,
-                         TestStreamDecoderSmallChunks, BATCH_CASES());
+                         TestStreamDecoderSmallChunks, ::testing::ValuesIn(kBatchCases));
 INSTANTIATE_TEST_SUITE_P(StreamDecoderLargeChunksRoundTripTests,
-                         TestStreamDecoderLargeChunks, BATCH_CASES());
+                         TestStreamDecoderLargeChunks, ::testing::ValuesIn(kBatchCases));
 
 TEST(TestIpcFileFormat, FooterMetaData) {
   // ARROW-6837
