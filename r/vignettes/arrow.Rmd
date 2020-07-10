@@ -120,8 +120,8 @@ In the tables, entries with a `-` are not currently implemented.
 | float32           | double                    |
 | float64           | double                    |
 | utf8              | character                 |
-| binary            | vctrs::vctrs_list_of(raw) |
-| fixed_size_binary | -                         |
+| binary            | arrow_binary              |
+| fixed_size_binary | arrow_fixed_size_binary   |
 | date32            | Date                      |
 | date64            | POSIXct                   |
 | time32            | hms::difftime             |
@@ -130,15 +130,15 @@ In the tables, entries with a `-` are not currently implemented.
 | duration          | -                         |
 | decimal           | double                    |
 | dictionary        | factor^4^                 |
-| list              | vctrs::vctrs_list_of      |
-| fixed_size_list   | -                         |
+| list              | arrow_list                |
+| fixed_size_list   | arrow_fixed_size_list     |
 | struct            | data.frame                |
 | null              | vctrs::vctrs_unspecified  |
 | map               | -                         |
 | union             | -                         |
 | large_utf8        | character                 |
-| large_binary      | vctrs::vctrs_list_of(raw) |
-| large_list        | vctrs::vctrs_list_of      |
+| large_binary      | arrow_large_binary        |
+| large_list        | arrow_large_list          |
 
 ^3^: These integer types may contain values that exceed the range of R's `integer` type (32-bit signed integer). When they do, `uint32` and `uint64` are converted to `double` ("numeric") and `int64` is converted to `bit64::integer64`.
 
