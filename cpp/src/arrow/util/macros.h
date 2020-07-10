@@ -113,6 +113,7 @@
 #  define ARROW_DEPRECATED_USING(...)
 # endif
 #endif
+// clang-format on
 
 // ----------------------------------------------------------------------
 

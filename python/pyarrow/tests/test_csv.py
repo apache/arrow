@@ -563,11 +563,12 @@ class BaseTestCSVRead:
         opts.auto_dict_max_cardinality = 50
         opts.check_utf8 = False
         rows = b"a,b\nab,1\ncd\xff,2\nab,3"
-        table = self.read_bytes(rows, convert_options=opts)
+        table = self.read_bytes(rows, convert_options=opts,
+                                validate_full=False)
         assert table.schema == schema
         dict_values = table['a'].chunk(0).dictionary
         assert len(dict_values) == 2
-        assert dict_values[0] == "ab"
+        assert dict_values[0].as_py() == "ab"
         assert dict_values[1].as_buffer() == b"cd\xff"
 
         # With invalid UTF8, checked
@@ -809,21 +810,21 @@ class BaseTestCSVRead:
 
 class TestSerialCSVRead(BaseTestCSVRead, unittest.TestCase):
 
-    def read_csv(self, *args, **kwargs):
+    def read_csv(self, *args, validate_full=True, **kwargs):
         read_options = kwargs.setdefault('read_options', ReadOptions())
         read_options.use_threads = False
         table = read_csv(*args, **kwargs)
-        table.validate(full=True)
+        table.validate(full=validate_full)
         return table
 
 
 class TestParallelCSVRead(BaseTestCSVRead, unittest.TestCase):
 
-    def read_csv(self, *args, **kwargs):
+    def read_csv(self, *args, validate_full=True, **kwargs):
         read_options = kwargs.setdefault('read_options', ReadOptions())
         read_options.use_threads = True
         table = read_csv(*args, **kwargs)
-        table.validate(full=True)
+        table.validate(full=validate_full)
         return table
 
 

@@ -216,22 +216,18 @@ cdef class Expression:
     @staticmethod
     def _scalar(value):
         cdef:
-            shared_ptr[CScalar] scalar
+            Scalar scalar
 
-        if value is None:
-            scalar.reset(new CNullScalar())
-        elif isinstance(value, bool):
-            scalar = MakeScalar(<c_bool>value)
-        elif isinstance(value, float):
-            scalar = MakeScalar(<double>value)
-        elif isinstance(value, int):
-            scalar = MakeScalar(<int64_t>value)
-        elif isinstance(value, (bytes, str)):
-            scalar = MakeStringScalar(tobytes(value))
+        if isinstance(value, Scalar):
+            scalar = value
         else:
-            raise TypeError('Not yet supported scalar value: {}'.format(value))
+            scalar = pa.scalar(value)
 
-        return Expression.wrap(CMakeScalarExpression(move(scalar)))
+        return Expression.wrap(
+            shared_ptr[CExpression](
+                new CScalarExpression(move(scalar.unwrap()))
+            )
+        )
 
 
 _deserialize = Expression._deserialize
@@ -441,6 +437,14 @@ cdef class UnionDataset(Dataset):
         Dataset.init(self, sp)
         self.union_dataset = <CUnionDataset*> sp.get()
 
+    def __reduce__(self):
+        return UnionDataset, (self.schema, self.children)
+
+    @property
+    def children(self):
+        cdef CDatasetVector children = self.union_dataset.children()
+        return [Dataset.wrap(children[i]) for i in range(children.size())]
+
 
 cdef class FileSystemDataset(Dataset):
     """A Dataset of file fragments.
@@ -493,6 +497,14 @@ cdef class FileSystemDataset(Dataset):
     cdef void init(self, const shared_ptr[CDataset]& sp):
         Dataset.init(self, sp)
         self.filesystem_dataset = <CFileSystemDataset*> sp.get()
+
+    def __reduce__(self):
+        return FileSystemDataset, (
+            list(self.get_fragments()),
+            self.schema,
+            self.format,
+            self.partition_expression
+        )
 
     @classmethod
     def from_paths(cls, paths, schema=None, format=None,
@@ -773,6 +785,14 @@ cdef class FileFragment(Fragment):
         Fragment.init(self, sp)
         self.file_fragment = <CFileFragment*> sp.get()
 
+    def __reduce__(self):
+        buffer = self.buffer
+        return self.format.make_fragment, (
+            self.path if buffer is None else buffer,
+            self.filesystem,
+            self.partition_expression
+        )
+
     @property
     def path(self):
         """
@@ -887,6 +907,15 @@ cdef class ParquetFileFragment(FileFragment):
         FileFragment.init(self, sp)
         self.parquet_file_fragment = <CParquetFileFragment*> sp.get()
 
+    def __reduce__(self):
+        buffer = self.buffer
+        return self.format.make_fragment, (
+            self.path if buffer is None else buffer,
+            self.filesystem,
+            self.partition_expression,
+            self.row_groups
+        )
+
     @property
     def row_groups(self):
         cdef:
@@ -929,6 +958,7 @@ cdef class ParquetFileFragment(FileFragment):
                 self.parquet_file_fragment.SplitByRowGroup(move(c_predicate))))
 
         return [Fragment.wrap(c_fragment) for c_fragment in c_fragments]
+
 
 cdef class ParquetReadOptions:
     """

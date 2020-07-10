@@ -67,11 +67,11 @@ macro(define_option_string name description default)
   set("${name}_OPTION_DESCRIPTION" ${description})
   set("${name}_OPTION_DEFAULT" "\"${default}\"")
   set("${name}_OPTION_TYPE" "string")
-  set("${name}_OPTION_ENUM" ${ARGN})
+  set("${name}_OPTION_POSSIBLE_VALUES" ${ARGN})
 
-  list_join("${name}_OPTION_ENUM" "|" "${name}_OPTION_ENUM")
+  list_join("${name}_OPTION_POSSIBLE_VALUES" "|" "${name}_OPTION_ENUM")
   if(NOT ("${${name}_OPTION_ENUM}" STREQUAL ""))
-    set_property(CACHE ${name} PROPERTY STRINGS ${ARGN})
+    set_property(CACHE ${name} PROPERTY STRINGS "${name}_OPTION_POSSIBLE_VALUES")
   endif()
 endmacro()
 
@@ -389,6 +389,26 @@ that have not been built" OFF)
   option(ARROW_BUILD_CONFIG_SUMMARY_JSON "Summarize build configuration in a JSON file"
          ON)
 endif()
+
+macro(validate_config)
+  foreach(category ${ARROW_OPTION_CATEGORIES})
+    set(option_names ${ARROW_${category}_OPTION_NAMES})
+
+    foreach(name ${option_names})
+      set(possible_values ${${name}_OPTION_POSSIBLE_VALUES})
+      set(value "${${name}}")
+      if(possible_values)
+        if(NOT CMAKE_VERSION VERSION_LESS "3.3"
+           AND NOT ("${value}" IN_LIST possible_values))
+          message(
+            FATAL_ERROR "Configuration option ${name} got invalid value '${value}'. "
+                        "Allowed values: ${${name}_OPTION_ENUM}.")
+        endif()
+      endif()
+    endforeach()
+
+  endforeach()
+endmacro()
 
 macro(config_summary_message)
   message(STATUS "---------------------------------------------------------------------")

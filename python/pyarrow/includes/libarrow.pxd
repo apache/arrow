@@ -44,6 +44,11 @@ cdef extern from "arrow/util/key_value_metadata.h" namespace "arrow" nogil:
         c_bool Contains(const c_string& key) const
 
 
+cdef extern from "arrow/util/decimal.h" namespace "arrow" nogil:
+    cdef cppclass CDecimal128" arrow::Decimal128":
+        c_string ToString(int32_t scale) const
+
+
 cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     enum Type" arrow::Type::type":
@@ -164,6 +169,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         Type type_id()
 
         int num_fields()
+
+        CResult[shared_ptr[CScalar]] GetScalar(int64_t i) const
 
         c_string Diff(const CArray& other)
         c_bool Equals(const CArray& arr)
@@ -361,6 +368,11 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CField] WithName(const c_string& name)
         shared_ptr[CField] WithNullable(c_bool nullable)
         vector[shared_ptr[CField]] Flatten()
+
+    cdef cppclass CFieldRef" arrow::FieldRef":
+        CFieldRef()
+        CFieldRef(c_string name)
+        CFieldRef(int index)
 
     cdef cppclass CStructType" arrow::StructType"(CDataType):
         CStructType(const vector[shared_ptr[CField]]& fields)
@@ -777,7 +789,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CSparseCOOTensor" arrow::SparseCOOTensor":
         shared_ptr[CDataType] type()
         shared_ptr[CBuffer] data()
-        CStatus ToTensor(shared_ptr[CTensor]*)
+        CResult[shared_ptr[CTensor]] ToTensor()
 
         const vector[int64_t]& shape()
         int64_t size()
@@ -794,7 +806,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CSparseCSRMatrix" arrow::SparseCSRMatrix":
         shared_ptr[CDataType] type()
         shared_ptr[CBuffer] data()
-        CStatus ToTensor(shared_ptr[CTensor]*)
+        CResult[shared_ptr[CTensor]] ToTensor()
 
         const vector[int64_t]& shape()
         int64_t size()
@@ -811,7 +823,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CSparseCSCMatrix" arrow::SparseCSCMatrix":
         shared_ptr[CDataType] type()
         shared_ptr[CBuffer] data()
-        CStatus ToTensor(shared_ptr[CTensor]*)
+        CResult[shared_ptr[CTensor]] ToTensor()
 
         const vector[int64_t]& shape()
         int64_t size()
@@ -828,7 +840,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CSparseCSFTensor" arrow::SparseCSFTensor":
         shared_ptr[CDataType] type()
         shared_ptr[CBuffer] data()
-        CStatus ToTensor(shared_ptr[CTensor]*)
+        CResult[shared_ptr[CTensor]] ToTensor()
 
         const vector[int64_t]& shape()
         int64_t size()
@@ -846,6 +858,10 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CDataType] type
         c_bool is_valid
         c_string ToString() const
+        c_bool Equals(const CScalar& other) const
+
+    cdef cppclass CScalarHash" arrow::Scalar::Hash":
+        size_t operator()(const shared_ptr[CScalar]& scalar) const
 
     cdef cppclass CNullScalar" arrow::NullScalar"(CScalar):
         CNullScalar()
@@ -877,20 +893,64 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CUInt64Scalar" arrow::UInt64Scalar"(CScalar):
         uint64_t value
 
+    cdef cppclass CHalfFloatScalar" arrow::HalfFloatScalar"(CScalar):
+        npy_half value
+
     cdef cppclass CFloatScalar" arrow::FloatScalar"(CScalar):
         float value
 
     cdef cppclass CDoubleScalar" arrow::DoubleScalar"(CScalar):
         double value
 
-    cdef cppclass CStringScalar" arrow::StringScalar"(CScalar):
+    cdef cppclass CDecimal128Scalar" arrow::Decimal128Scalar"(CScalar):
+        CDecimal128 value
+
+    cdef cppclass CDate32Scalar" arrow::Date32Scalar"(CScalar):
+        int32_t value
+
+    cdef cppclass CDate64Scalar" arrow::Date64Scalar"(CScalar):
+        int64_t value
+
+    cdef cppclass CTime32Scalar" arrow::Time32Scalar"(CScalar):
+        int32_t value
+
+    cdef cppclass CTime64Scalar" arrow::Time64Scalar"(CScalar):
+        int64_t value
+
+    cdef cppclass CTimestampScalar" arrow::TimestampScalar"(CScalar):
+        int64_t value
+
+    cdef cppclass CDurationScalar" arrow::DurationScalar"(CScalar):
+        int64_t value
+
+    cdef cppclass CBaseBinaryScalar" arrow::BaseBinaryScalar"(CScalar):
         shared_ptr[CBuffer] value
+
+    cdef cppclass CBaseListScalar" arrow::BaseListScalar"(CScalar):
+        shared_ptr[CArray] value
+
+    cdef cppclass CListScalar" arrow::ListScalar"(CBaseListScalar):
+        pass
+
+    cdef cppclass CMapScalar" arrow::MapScalar"(CListScalar):
+        pass
 
     cdef cppclass CStructScalar" arrow::StructScalar"(CScalar):
         vector[shared_ptr[CScalar]] value
+        CResult[shared_ptr[CScalar]] field(CFieldRef ref) const
+
+    cdef cppclass CDictionaryScalar" arrow::DictionaryScalar"(CScalar):
+        cppclass CDictionaryValue "arrow::DictionaryScalar::ValueType":
+            shared_ptr[CScalar] index
+            shared_ptr[CArray] dictionary
+
+        CDictionaryValue value
+        CResult[shared_ptr[CScalar]] GetEncodedValue()
+
+    cdef cppclass CUnionScalar" arrow::UnionScalar"(CScalar):
+        shared_ptr[CScalar] value
 
     shared_ptr[CScalar] MakeScalar[Value](Value value)
-    shared_ptr[CScalar] MakeStringScalar" arrow::MakeScalar"(c_string value)
 
     cdef cppclass CConcatenateTablesOptions" arrow::ConcatenateTablesOptions":
         c_bool unify_schemas
@@ -1485,14 +1545,11 @@ cdef extern from "arrow/json/reader.h" namespace "arrow::json" nogil:
 
     cdef cppclass CJSONReader" arrow::json::TableReader":
         @staticmethod
-        CStatus Make(CMemoryPool*, shared_ptr[CInputStream],
-                     CJSONReadOptions, CJSONParseOptions,
-                     shared_ptr[CJSONReader]* out)
+        CResult[shared_ptr[CJSONReader]] Make(
+            CMemoryPool*, shared_ptr[CInputStream],
+            CJSONReadOptions, CJSONParseOptions)
 
-        CStatus Read(shared_ptr[CTable]* out)
-
-    cdef CStatus ParseOne(CJSONParseOptions options, shared_ptr[CBuffer] json,
-                          shared_ptr[CRecordBatch]* out)
+        CResult[shared_ptr[CTable]] Read()
 
 
 cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:

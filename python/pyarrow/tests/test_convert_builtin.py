@@ -781,7 +781,7 @@ def test_sequence_explicit_types(input):
         assert x.type == t
         assert x.null_count == 1
         assert x[0].as_py() == datetime.date(2000, 1, 1)
-        assert x[1] is pa.NA
+        assert x[1].as_py() is None
 
 
 def test_date32_overflow():
@@ -968,25 +968,33 @@ def test_sequence_timestamp_from_int_with_unit():
     arr_s = pa.array(data, type=s)
     assert len(arr_s) == 1
     assert arr_s.type == s
-    assert repr(arr_s[0]) == "datetime.datetime(1970, 1, 1, 0, 0, 1)"
+    assert repr(arr_s[0]) == (
+        "<pyarrow.TimestampScalar: datetime.datetime(1970, 1, 1, 0, 0, 1)>"
+    )
     assert str(arr_s[0]) == "1970-01-01 00:00:01"
 
     arr_ms = pa.array(data, type=ms)
     assert len(arr_ms) == 1
     assert arr_ms.type == ms
-    assert repr(arr_ms[0]) == "datetime.datetime(1970, 1, 1, 0, 0, 0, 1000)"
+    assert repr(arr_ms[0].as_py()) == (
+        "datetime.datetime(1970, 1, 1, 0, 0, 0, 1000)"
+    )
     assert str(arr_ms[0]) == "1970-01-01 00:00:00.001000"
 
     arr_us = pa.array(data, type=us)
     assert len(arr_us) == 1
     assert arr_us.type == us
-    assert repr(arr_us[0]) == "datetime.datetime(1970, 1, 1, 0, 0, 0, 1)"
+    assert repr(arr_us[0].as_py()) == (
+        "datetime.datetime(1970, 1, 1, 0, 0, 0, 1)"
+    )
     assert str(arr_us[0]) == "1970-01-01 00:00:00.000001"
 
     arr_ns = pa.array(data, type=ns)
     assert len(arr_ns) == 1
     assert arr_ns.type == ns
-    assert repr(arr_ns[0]) == "Timestamp('1970-01-01 00:00:00.000000001')"
+    assert repr(arr_ns[0].as_py()) == (
+        "Timestamp('1970-01-01 00:00:00.000000001')"
+    )
     assert str(arr_ns[0]) == "1970-01-01 00:00:00.000000001"
 
     expected_exc = TypeError

@@ -46,18 +46,14 @@ std::shared_ptr<arrow::json::TableReader> json___TableReader__Make(
     const std::shared_ptr<arrow::io::InputStream>& input,
     const std::shared_ptr<arrow::json::ReadOptions>& read_options,
     const std::shared_ptr<arrow::json::ParseOptions>& parse_options) {
-  std::shared_ptr<arrow::json::TableReader> table_reader;
-  StopIfNotOk(arrow::json::TableReader::Make(
-      arrow::default_memory_pool(), input, *read_options, *parse_options, &table_reader));
-  return table_reader;
+  return ValueOrStop(arrow::json::TableReader::Make(arrow::default_memory_pool(), input,
+                                                    *read_options, *parse_options));
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Table> json___TableReader__Read(
     const std::shared_ptr<arrow::json::TableReader>& table_reader) {
-  std::shared_ptr<arrow::Table> table;
-  StopIfNotOk(table_reader->Read(&table));
-  return table;
+  return ValueOrStop(table_reader->Read());
 }
 
 #endif

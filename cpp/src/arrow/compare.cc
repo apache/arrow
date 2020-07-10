@@ -939,7 +939,17 @@ class ScalarEqualsVisitor {
     return Status::OK();
   }
 
-  Status Visit(const UnionScalar& left) { return Status::NotImplemented("union"); }
+  Status Visit(const UnionScalar& left) {
+    const auto& right = checked_cast<const UnionScalar&>(right_);
+    if (left.is_valid && right.is_valid) {
+      result_ = left.value->Equals(*right.value);
+    } else if (!left.is_valid && !right.is_valid) {
+      result_ = true;
+    } else {
+      result_ = false;
+    }
+    return Status::OK();
+  }
 
   Status Visit(const DictionaryScalar& left) {
     const auto& right = checked_cast<const DictionaryScalar&>(right_);

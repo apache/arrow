@@ -64,7 +64,7 @@ class TableReaderImpl : public TableReader,
         .Value(&block_iterator_);
   }
 
-  Status Read(std::shared_ptr<Table>* out) override {
+  Result<std::shared_ptr<Table>> Read() override {
     RETURN_NOT_OK(MakeBuilder());
 
     ARROW_ASSIGN_OR_RAISE(auto block, block_iterator_.Next());
@@ -108,7 +108,7 @@ class TableReaderImpl : public TableReader,
 
     std::shared_ptr<ChunkedArray> array;
     RETURN_NOT_OK(builder_->Finish(&array));
-    return Table::FromChunkedStructArray(array).Value(out);
+    return Table::FromChunkedStructArray(array);
   }
 
  private:
@@ -165,10 +165,11 @@ class TableReaderImpl : public TableReader,
   std::shared_ptr<ChunkedArrayBuilder> builder_;
 };
 
-Status TableReader::Make(MemoryPool* pool, std::shared_ptr<io::InputStream> input,
-                         const ReadOptions& read_options,
-                         const ParseOptions& parse_options,
-                         std::shared_ptr<TableReader>* out) {
+Status TableReader::Read(std::shared_ptr<Table>* out) { return Read().Value(out); }
+
+Result<std::shared_ptr<TableReader>> TableReader::Make(
+    MemoryPool* pool, std::shared_ptr<io::InputStream> input,
+    const ReadOptions& read_options, const ParseOptions& parse_options) {
   std::shared_ptr<TableReaderImpl> ptr;
   if (read_options.use_threads) {
     ptr = std::make_shared<TableReaderImpl>(pool, read_options, parse_options,
@@ -178,12 +179,18 @@ Status TableReader::Make(MemoryPool* pool, std::shared_ptr<io::InputStream> inpu
                                             TaskGroup::MakeSerial());
   }
   RETURN_NOT_OK(ptr->Init(input));
-  *out = std::move(ptr);
-  return Status::OK();
+  return ptr;
 }
 
-Status ParseOne(ParseOptions options, std::shared_ptr<Buffer> json,
-                std::shared_ptr<RecordBatch>* out) {
+Status TableReader::Make(MemoryPool* pool, std::shared_ptr<io::InputStream> input,
+                         const ReadOptions& read_options,
+                         const ParseOptions& parse_options,
+                         std::shared_ptr<TableReader>* out) {
+  return TableReader::Make(pool, input, read_options, parse_options).Value(out);
+}
+
+Result<std::shared_ptr<RecordBatch>> ParseOne(ParseOptions options,
+                                              std::shared_ptr<Buffer> json) {
   std::unique_ptr<BlockParser> parser;
   RETURN_NOT_OK(BlockParser::Make(options, &parser));
   RETURN_NOT_OK(parser->Parse(json));
@@ -210,9 +217,8 @@ Status ParseOne(ParseOptions options, std::shared_ptr<Buffer> json,
   for (int i = 0; i < converted->num_fields(); ++i) {
     columns[i] = converted->field(i);
   }
-  *out = RecordBatch::Make(schema(converted->type()->fields()), converted->length(),
+  return RecordBatch::Make(schema(converted->type()->fields()), converted->length(),
                            std::move(columns));
-  return Status::OK();
 }
 
 }  // namespace json
