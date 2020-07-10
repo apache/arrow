@@ -417,6 +417,18 @@ TYPED_TEST(TestFilterKernelWithNumeric, ScalarInRangeAndFilterRandomNumeric) {
   }
 }
 
+TEST(TestFilterKernel, NoValidityBitmapButUnknownNullCount) {
+  auto values = ArrayFromJSON(int32(), "[1, 2, 3, 4]");
+  auto filter = ArrayFromJSON(boolean(), "[true, true, false, true]");
+
+  auto expected = (*Filter(values, filter)).make_array();
+
+  filter->data()->null_count = kUnknownNullCount;
+  auto result = (*Filter(values, filter)).make_array();
+
+  AssertArraysEqual(*expected, *result);
+}
+
 using StringTypes =
     ::testing::Types<BinaryType, StringType, LargeBinaryType, LargeStringType>;
 
@@ -796,6 +808,10 @@ TEST_F(TestFilterKernelWithTable, FilterTable) {
   this->AssertFilter(schm, table_json, "[0, 1, 1, null]", this->drop_, expected_drop);
   this->AssertChunkedFilter(schm, table_json, {"[0, 1, 1]", "[null]"}, this->drop_,
                             expected_drop);
+}
+
+TEST(TestFilterMetaFunction, ArityChecking) {
+  ASSERT_RAISES(Invalid, CallFunction("filter", {}));
 }
 
 // ----------------------------------------------------------------------
@@ -1519,6 +1535,10 @@ TEST_F(TestTakeKernelWithTable, TakeTable) {
       "[{\"a\": 4, \"b\": \"eh\"},{\"a\": 1, \"b\": \"\"},{\"a\": null, \"b\": \"yo\"}]"};
   this->AssertTake(schm, table_json, "[3, 1, 0]", expected_310);
   this->AssertChunkedTake(schm, table_json, {"[0, 1]", "[2, 3]"}, table_json);
+}
+
+TEST(TestTakeMetaFunction, ArityChecking) {
+  ASSERT_RAISES(Invalid, CallFunction("take", {}));
 }
 
 // ----------------------------------------------------------------------

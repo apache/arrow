@@ -203,6 +203,12 @@ struct ARROW_EXPORT ArrayData {
   /// \brief Return null count, or compute and set it if it's not known
   int64_t GetNullCount() const;
 
+  bool MayHaveNulls() const {
+    // If an ArrayData is slightly malformed it may have kUnknownNullCount set
+    // but no buffer
+    return null_count.load() != 0 && buffers[0] != NULLPTR;
+  }
+
   std::shared_ptr<DataType> type;
   int64_t length;
   mutable std::atomic<int64_t> null_count;
