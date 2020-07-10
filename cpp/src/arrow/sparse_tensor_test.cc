@@ -137,6 +137,21 @@ TEST(TestSparseCOOIndex, MakeColumnMajorNonCanonical) {
   ASSERT_FALSE(si->is_canonical());
 }
 
+TEST(TestSparseCOOIndex, MakeEmptyIndex) {
+  std::vector<int32_t> values = {};
+  auto data = Buffer::Wrap(values);
+  std::vector<int64_t> shape = {0, 3};
+  std::vector<int64_t> strides = {sizeof(int32_t), sizeof(int32_t)};  // Empty strides
+
+  // OK
+  std::shared_ptr<SparseCOOIndex> si;
+  ASSERT_OK_AND_ASSIGN(si, SparseCOOIndex::Make(int32(), shape, strides, data));
+  ASSERT_EQ(shape, si->indices()->shape());
+  ASSERT_EQ(strides, si->indices()->strides());
+  ASSERT_EQ(data->data(), si->indices()->raw_data());
+  ASSERT_TRUE(si->is_canonical());
+}
+
 TEST(TestSparseCSRIndex, Make) {
   std::vector<int32_t> indptr_values = {0, 2, 4, 6, 8, 10, 12};
   std::vector<int32_t> indices_values = {0, 2, 1, 3, 0, 2, 1, 3, 0, 2, 1, 3};
@@ -269,6 +284,23 @@ TEST_F(TestSparseCOOTensor, CreationEmptyTensor) {
   ASSERT_EQ("", st1.dim_name(0));
   ASSERT_EQ("", st1.dim_name(1));
   ASSERT_EQ("", st1.dim_name(2));
+}
+
+TEST_F(TestSparseCOOTensor, CreationFromZeroTensor) {
+  const auto dense_size =
+      std::accumulate(this->shape_.begin(), this->shape_.end(), int64_t(1),
+                      [](int64_t a, int64_t x) { return a * x; });
+  std::vector<int64_t> dense_values(dense_size, 0);
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Tensor> t_zero,
+                       Tensor::Make(int64(), Buffer::Wrap(dense_values), this->shape_));
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<SparseCOOTensor> st_zero,
+                       SparseCOOTensor::Make(*t_zero, int64()));
+
+  ASSERT_EQ(0, st_zero->non_zero_length());
+  ASSERT_EQ(dense_size, st_zero->size());
+
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Tensor> t, st_zero->ToTensor());
+  ASSERT_TRUE(t->Equals(*t_zero));
 }
 
 TEST_F(TestSparseCOOTensor, CreationFromNumericTensor) {
