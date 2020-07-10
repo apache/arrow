@@ -55,6 +55,9 @@ class Converter {
   virtual Status Ingest_all_nulls(SEXP data, R_xlen_t start, R_xlen_t n) const = 0;
 
   // ingest the values from the array into data[ start : (start + n)]
+  //
+  // chunk_index indicates which of the chunk is being ingested into data. This is
+  //             ignored by most implementations and currently only used with Dictionary arrays.
   virtual Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
                                    R_xlen_t start, R_xlen_t n,
                                    size_t chunk_index) const = 0;
