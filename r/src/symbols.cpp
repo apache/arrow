@@ -59,7 +59,6 @@ SEXP r_namespace(std::string name) {
   UNPROTECT(1);
   return ns;
 }
-
 SEXP data::classes_POSIXct = precious(strings({"POSIXct", "POSIXt"}));
 SEXP data::classes_metadata_r = precious(strings({"arrow_r_metadata"}));
 SEXP data::classes_vctrs_list_of =
@@ -71,6 +70,8 @@ SEXP data::classes_arrow_large_binary =
     precious(strings({"arrow_large_binary", "vctrs_vctr", "list"}));
 SEXP data::classes_arrow_fixed_size_binary =
     precious(strings({"arrow_fixed_size_binary", "vctrs_vctr", "list"}));
+SEXP data::classes_factor = precious(strings({"factor"}));
+SEXP data::classes_ordered = precious(strings({"ordered", "factor"}));
 
 SEXP data::classes_arrow_list =
     precious(strings({"arrow_list", "vctrs_list_of", "vctrs_vctr", "list"}));

@@ -375,7 +375,7 @@ class Converter_FixedSizeBinary : public Converter {
   }
 
   Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
-                           R_xlen_t start, R_xlen_t n) const {
+                           R_xlen_t start, R_xlen_t n, size_t chunk_index) const {
     const FixedSizeBinaryArray* binary_array =
         checked_cast<const FixedSizeBinaryArray*>(array.get());
 
@@ -848,7 +848,7 @@ class Converter_FixedSizeList : public Converter {
   }
 
   Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
-                           R_xlen_t start, R_xlen_t n) const {
+                           R_xlen_t start, R_xlen_t n, size_t chunk_index) const {
     const auto& fixed_size_list_array = checked_cast<const FixedSizeListArray&>(*array);
     auto values_array = fixed_size_list_array.values();
 
