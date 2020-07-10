@@ -20,70 +20,69 @@
 #include "arrow/tensor/converter.h"
 
 #define DISPATCH(ACTION, index_elsize, value_elsize, ...) \
-  switch (index_elsize) { \
-    case 1: \
-      switch (value_elsize) { \
-        case 1: \
-          ACTION(uint8_t, uint8_t, __VA_ARGS__); \
-          break; \
-        case 2: \
-          ACTION(uint8_t, uint16_t, __VA_ARGS__); \
-          break; \
-        case 4: \
-          ACTION(uint8_t, uint32_t, __VA_ARGS__); \
-          break; \
-        case 8: \
-          ACTION(uint8_t, uint64_t, __VA_ARGS__); \
-          break; \
-      } \
-      break; \
-    case 2: \
-      switch (value_elsize) { \
-        case 1: \
-          ACTION(uint16_t, uint8_t, __VA_ARGS__); \
-          break; \
-        case 2: \
-          ACTION(uint16_t, uint16_t, __VA_ARGS__); \
-          break; \
-        case 4: \
-          ACTION(uint16_t, uint32_t, __VA_ARGS__); \
-          break; \
-        case 8: \
-          ACTION(uint16_t, uint64_t, __VA_ARGS__); \
-          break; \
-      } \
-      break; \
-    case 4: \
-      switch (value_elsize) { \
-        case 1: \
-          ACTION(uint32_t, uint8_t, __VA_ARGS__); \
-          break; \
-        case 2: \
-          ACTION(uint32_t, uint16_t, __VA_ARGS__); \
-          break; \
-        case 4: \
-          ACTION(uint32_t, uint32_t, __VA_ARGS__); \
-          break; \
-        case 8: \
-          ACTION(uint32_t, uint64_t, __VA_ARGS__); \
-          break; \
-      } \
-      break; \
-    case 8: \
-      switch (value_elsize) { \
-        case 1: \
-          ACTION(int64_t, uint8_t, __VA_ARGS__); \
-          break; \
-        case 2: \
-          ACTION(int64_t, uint16_t, __VA_ARGS__); \
-          break; \
-        case 4: \
-          ACTION(int64_t, uint32_t, __VA_ARGS__); \
-          break; \
-        case 8: \
-          ACTION(int64_t, uint64_t, __VA_ARGS__); \
-          break; \
-      } \
-      break; \
+  switch (index_elsize) {                                 \
+    case 1:                                               \
+      switch (value_elsize) {                             \
+        case 1:                                           \
+          ACTION(uint8_t, uint8_t, __VA_ARGS__);          \
+          break;                                          \
+        case 2:                                           \
+          ACTION(uint8_t, uint16_t, __VA_ARGS__);         \
+          break;                                          \
+        case 4:                                           \
+          ACTION(uint8_t, uint32_t, __VA_ARGS__);         \
+          break;                                          \
+        case 8:                                           \
+          ACTION(uint8_t, uint64_t, __VA_ARGS__);         \
+          break;                                          \
+      }                                                   \
+      break;                                              \
+    case 2:                                               \
+      switch (value_elsize) {                             \
+        case 1:                                           \
+          ACTION(uint16_t, uint8_t, __VA_ARGS__);         \
+          break;                                          \
+        case 2:                                           \
+          ACTION(uint16_t, uint16_t, __VA_ARGS__);        \
+          break;                                          \
+        case 4:                                           \
+          ACTION(uint16_t, uint32_t, __VA_ARGS__);        \
+          break;                                          \
+        case 8:                                           \
+          ACTION(uint16_t, uint64_t, __VA_ARGS__);        \
+          break;                                          \
+      }                                                   \
+      break;                                              \
+    case 4:                                               \
+      switch (value_elsize) {                             \
+        case 1:                                           \
+          ACTION(uint32_t, uint8_t, __VA_ARGS__);         \
+          break;                                          \
+        case 2:                                           \
+          ACTION(uint32_t, uint16_t, __VA_ARGS__);        \
+          break;                                          \
+        case 4:                                           \
+          ACTION(uint32_t, uint32_t, __VA_ARGS__);        \
+          break;                                          \
+        case 8:                                           \
+          ACTION(uint32_t, uint64_t, __VA_ARGS__);        \
+          break;                                          \
+      }                                                   \
+      break;                                              \
+    case 8:                                               \
+      switch (value_elsize) {                             \
+        case 1:                                           \
+          ACTION(int64_t, uint8_t, __VA_ARGS__);          \
+          break;                                          \
+        case 2:                                           \
+          ACTION(int64_t, uint16_t, __VA_ARGS__);         \
+          break;                                          \
+        case 4:                                           \
+          ACTION(int64_t, uint32_t, __VA_ARGS__);         \
+          break;                                          \
+        case 8:                                           \
+          ACTION(int64_t, uint64_t, __VA_ARGS__);         \
+          break;                                          \
+      }                                                   \
+      break;                                              \
   }
-

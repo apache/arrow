@@ -202,11 +202,14 @@ class SparseCOOTensorConverter : private SparseTensorConverterMixin {
         tensor_data += value_elsize;
       }
     } else if (tensor_.is_row_major()) {
-      DISPATCH(CONVERT_TENSOR, index_elsize, value_elsize, ROW_MAJOR, indices, values, nonzero_count);
+      DISPATCH(CONVERT_TENSOR, index_elsize, value_elsize, ROW_MAJOR, indices, values,
+               nonzero_count);
     } else if (tensor_.is_column_major()) {
-      DISPATCH(CONVERT_TENSOR, index_elsize, value_elsize, COLUMN_MAJOR, indices, values, nonzero_count);
+      DISPATCH(CONVERT_TENSOR, index_elsize, value_elsize, COLUMN_MAJOR, indices, values,
+               nonzero_count);
     } else {
-      DISPATCH(CONVERT_TENSOR, index_elsize, value_elsize, STRIDED, indices, values, nonzero_count);
+      DISPATCH(CONVERT_TENSOR, index_elsize, value_elsize, STRIDED, indices, values,
+               nonzero_count);
     }
 
     // make results
