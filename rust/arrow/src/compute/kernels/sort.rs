@@ -52,12 +52,14 @@ pub fn sort_to_indices(
             .as_any()
             .downcast_ref::<Float32Array>()
             .expect("Unable to downcast array");
+        #[allow(clippy::cmp_nan)]
         range.partition(|index| array.is_valid(*index) && array.value(*index) != f32::NAN)
     } else if values.data_type() == &DataType::Float64 {
         let array = values
             .as_any()
             .downcast_ref::<Float64Array>()
             .expect("Unable to downcast array");
+        #[allow(clippy::cmp_nan)]
         range.partition(|index| array.is_valid(*index) && array.value(*index) != f64::NAN)
     } else {
         range.partition(|index| values.is_valid(*index))
