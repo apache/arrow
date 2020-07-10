@@ -91,7 +91,6 @@ add_arrow_lib(arrow_flight
               ${ARROW_VERSION_SCRIPT_FLAGS} # Defined in cpp/arrow/CMakeLists.txt
               SHARED_LINK_LIBS
               arrow_shared
-              SHARED_PRIVATE_LINK_LIBS
               ${ARROW_FLIGHT_STATIC_LINK_LIBS}
               STATIC_LINK_LIBS
               arrow_static
