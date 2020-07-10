@@ -25,8 +25,8 @@ r-rcpp >=1.0.1
 r-rlang
 r-tidyselect
 r-vctrs
-# Test dependencies
-r-fs
+# Test/"Suggests" dependencies
+r-decor
 pandoc
 r-covr
 r-hms
