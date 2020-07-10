@@ -35,7 +35,7 @@ from pyarrow.lib cimport *
 from pyarrow.lib import ArrowException, ArrowInvalid
 from pyarrow.lib import as_buffer, frombytes, tobytes
 from pyarrow.includes.libarrow_flight cimport *
-from pyarrow.ipc import _ReadPandasOption
+from pyarrow.ipc import _ReadPandasOption, _get_legacy_format_default
 import pyarrow.lib as lib
 
 
@@ -96,24 +96,36 @@ def _munge_grpc_python_error(message):
         return message
 
 
+cdef IpcWriteOptions _get_options(options):
+    cdef IpcWriteOptions write_options = \
+        <IpcWriteOptions> _get_legacy_format_default(
+            use_legacy_format=None, options=options)
+    return write_options
+
+
 cdef class FlightCallOptions:
     """RPC-layer options for a Flight call."""
 
     cdef:
         CFlightCallOptions options
 
-    def __init__(self, timeout=None):
+    def __init__(self, timeout=None, write_options=None):
         """Create call options.
 
         Parameters
         ----------
-        timeout : float or None
+        timeout : float, None
             A timeout for the call, in seconds. None means that the
             timeout defaults to an implementation-specific value.
+        write_options : pyarrow.ipc.IpcWriteOptions, optional
+            IPC write options. The default options can be controlled
+            by environment variables (see pyarrow.ipc).
 
         """
+        cdef IpcWriteOptions options = _get_options(write_options)
         if timeout is not None:
             self.options.timeout = CTimeoutDuration(timeout)
+        self.options.write_options = options.c_options
 
     @staticmethod
     cdef CFlightCallOptions* unwrap(obj):
@@ -882,11 +894,13 @@ cdef class MetadataRecordBatchWriter(_CRecordBatchWriter):
     cdef CMetadataRecordBatchWriter* _writer(self) nogil:
         return <CMetadataRecordBatchWriter*> self.writer.get()
 
-    def begin(self, schema: Schema):
+    def begin(self, schema: Schema, options=None):
         """Prepare to write data to this stream with the given schema."""
-        cdef shared_ptr[CSchema] c_schema = pyarrow_unwrap_schema(schema)
+        cdef:
+            shared_ptr[CSchema] c_schema = pyarrow_unwrap_schema(schema)
+            CIpcWriteOptions c_options = _get_options(options).c_options
         with nogil:
-            check_flight_status(self._writer().Begin(c_schema))
+            check_flight_status(self._writer().Begin(c_schema, c_options))
 
     def write_metadata(self, buf):
         """Write Flight metadata by itself."""
@@ -1343,19 +1357,22 @@ cdef class RecordBatchStream(FlightDataStream):
     """A Flight data stream backed by RecordBatches."""
     cdef:
         object data_source
+        CIpcWriteOptions write_options
 
-    def __init__(self, data_source):
+    def __init__(self, data_source, options=None):
         """Create a RecordBatchStream from a data source.
 
         Parameters
         ----------
         data_source : RecordBatchReader or Table
+        options : pyarrow.ipc.IpcWriteOptions, optional
         """
         if (not isinstance(data_source, _CRecordBatchReader) and
                 not isinstance(data_source, lib.Table)):
             raise TypeError("Expected RecordBatchReader or Table, "
                             "but got: {}".format(type(data_source)))
         self.data_source = data_source
+        self.write_options = _get_options(options).c_options
 
     cdef CFlightDataStream* to_stream(self) except *:
         cdef:
@@ -1368,7 +1385,7 @@ cdef class RecordBatchStream(FlightDataStream):
         else:
             raise RuntimeError("Can't construct RecordBatchStream "
                                "from type {}".format(type(self.data_source)))
-        return new CRecordBatchStream(reader)
+        return new CRecordBatchStream(reader, self.write_options)
 
 
 cdef class GeneratorStream(FlightDataStream):
@@ -1379,8 +1396,9 @@ cdef class GeneratorStream(FlightDataStream):
         # A substream currently being consumed by the client, if
         # present. Produced by the generator.
         unique_ptr[CFlightDataStream] current_stream
+        CIpcWriteOptions c_options
 
-    def __init__(self, schema, generator):
+    def __init__(self, schema, generator, options=None):
         """Create a GeneratorStream from a Python generator.
 
         Parameters
@@ -1391,14 +1409,18 @@ cdef class GeneratorStream(FlightDataStream):
         generator : iterator or iterable
             The generator should yield other FlightDataStream objects,
             Tables, RecordBatches, or RecordBatchReaders.
+
+        options : pyarrow.ipc.IpcWriteOptions, optional
         """
         self.schema = pyarrow_unwrap_schema(schema)
         self.generator = iter(generator)
+        self.c_options = _get_options(options).c_options
 
     cdef CFlightDataStream* to_stream(self) except *:
         cdef:
             function[cb_data_stream_next] callback = &_data_stream_next
-        return new CPyGeneratorFlightDataStream(self, self.schema, callback)
+        return new CPyGeneratorFlightDataStream(self, self.schema, callback,
+                                                self.c_options)
 
 
 cdef class ServerCallContext:
@@ -1569,8 +1591,6 @@ cdef CStatus _data_stream_next(void* self, CFlightPayload* payload) except *:
     """Callback for implementing FlightDataStream in Python."""
     cdef:
         unique_ptr[CFlightDataStream] data_stream
-        # TODO make it possible to pass IPC options around?
-        cdef CIpcWriteOptions c_ipc_options = CIpcWriteOptions.Defaults()
 
     py_stream = <object> self
     if not isinstance(py_stream, GeneratorStream):
@@ -1631,7 +1651,7 @@ cdef CStatus _data_stream_next(void* self, CFlightPayload* payload) except *:
                                                             stream_schema))
         check_flight_status(GetRecordBatchPayload(
             deref(batch.batch),
-            c_ipc_options,
+            stream.c_options,
             &payload.ipc_message))
         if metadata:
             payload.app_metadata = pyarrow_unwrap_buffer(as_buffer(metadata))

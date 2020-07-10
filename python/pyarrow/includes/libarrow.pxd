@@ -1303,6 +1303,7 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         int32_t alignment
         c_bool write_legacy_ipc_format
         CMemoryPool* memory_pool
+        CMetadataVersion metadata_version
 
         @staticmethod
         CIpcWriteOptions Defaults()
