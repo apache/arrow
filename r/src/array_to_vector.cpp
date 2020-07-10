@@ -57,15 +57,15 @@ class Converter {
   // ingest the values from the array into data[ start : (start + n)]
   virtual Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
                                    R_xlen_t start, R_xlen_t n,
-                                   size_t array_index) const = 0;
+                                   size_t chunk_index) const = 0;
 
   // ingest one array
   Status IngestOne(SEXP data, const std::shared_ptr<arrow::Array>& array, R_xlen_t start,
-                   R_xlen_t n, size_t array_index) const {
+                   R_xlen_t n, size_t chunk_index) const {
     if (array->null_count() == n) {
       return Ingest_all_nulls(data, start, n);
     } else {
-      return Ingest_some_nulls(data, array, start, n, array_index);
+      return Ingest_some_nulls(data, array, start, n, chunk_index);
     }
   }
 
@@ -164,7 +164,7 @@ class Converter_SimpleArray : public Converter {
   }
 
   Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
-                           R_xlen_t start, R_xlen_t n, size_t array_index) const {
+                           R_xlen_t start, R_xlen_t n, size_t chunk_index) const {
     auto p_values = array->data()->GetValues<value_type>(1);
     auto echo = [](value_type value) { return value; };
     return SomeNull_Ingest<RTYPE, value_type>(data, start, n, p_values, array, echo);
@@ -183,7 +183,7 @@ class Converter_Date32 : public Converter_SimpleArray<REALSXP> {
   }
 
   Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
-                           R_xlen_t start, R_xlen_t n, size_t array_index) const {
+                           R_xlen_t start, R_xlen_t n, size_t chunk_index) const {
     auto convert = [](int days) { return static_cast<double>(days); };
     return SomeNull_Ingest<REALSXP, int>(data, start, n, array->data()->GetValues<int>(1),
                                          array, convert);
@@ -202,7 +202,7 @@ struct Converter_String : public Converter {
   }
 
   Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
-                           R_xlen_t start, R_xlen_t n, size_t array_index) const {
+                           R_xlen_t start, R_xlen_t n, size_t chunk_index) const {
     auto p_offset = array->data()->GetValues<int32_t>(1);
     if (!p_offset) {
       return Status::Invalid("Invalid offset buffer");
@@ -265,7 +265,7 @@ class Converter_Boolean : public Converter {
   }
 
   Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
-                           R_xlen_t start, R_xlen_t n, size_t array_index) const {
+                           R_xlen_t start, R_xlen_t n, size_t chunk_index) const {
     auto p_data = Rcpp::internal::r_vector_start<LGLSXP>(data) + start;
     auto p_bools = array->data()->GetValues<uint8_t>(1, 0);
     if (!p_bools) {
@@ -309,7 +309,7 @@ class Converter_Binary : public Converter {
   }
 
   Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
-                           R_xlen_t start, R_xlen_t n, size_t array_index) const {
+                           R_xlen_t start, R_xlen_t n, size_t chunk_index) const {
     const ArrayType* binary_array = checked_cast<const ArrayType*>(array.get());
 
     auto ingest_one = [&](R_xlen_t i) {
@@ -408,26 +408,26 @@ class Converter_Dictionary : public Converter {
   }
 
   Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
-                           R_xlen_t start, R_xlen_t n, size_t array_index) const {
+                           R_xlen_t start, R_xlen_t n, size_t chunk_index) const {
     const DictionaryArray& dict_array =
         checked_cast<const DictionaryArray&>(*array.get());
     auto indices = dict_array.indices();
     switch (indices->type_id()) {
       case Type::UINT8:
         return Ingest_some_nulls_Impl<arrow::UInt8Type>(data, array, start, n,
-                                                        array_index);
+                                                        chunk_index);
       case Type::INT8:
         return Ingest_some_nulls_Impl<arrow::Int8Type>(data, array, start, n,
-                                                       array_index);
+                                                       chunk_index);
       case Type::UINT16:
         return Ingest_some_nulls_Impl<arrow::UInt16Type>(data, array, start, n,
-                                                         array_index);
+                                                         chunk_index);
       case Type::INT16:
         return Ingest_some_nulls_Impl<arrow::Int16Type>(data, array, start, n,
-                                                        array_index);
+                                                        chunk_index);
       case Type::INT32:
         return Ingest_some_nulls_Impl<arrow::Int32Type>(data, array, start, n,
-                                                        array_index);
+                                                        chunk_index);
       default:
         break;
     }
@@ -437,9 +437,7 @@ class Converter_Dictionary : public Converter {
  private:
   template <typename Type>
   Status Ingest_some_nulls_Impl(SEXP data, const std::shared_ptr<arrow::Array>& array,
-                                R_xlen_t start, R_xlen_t n, size_t array_index) const {
-    using value_type = typename arrow::TypeTraits<Type>::ArrayType::value_type;
-
+                                R_xlen_t start, R_xlen_t n, size_t chunk_index) const {
     using index_type = typename arrow::TypeTraits<Type>::ArrayType::value_type;
     auto indices = checked_cast<const DictionaryArray&>(*array).indices();
     auto raw_indices = indices->data()->GetValues<index_type>(1);
@@ -449,7 +447,7 @@ class Converter_Dictionary : public Converter {
     if (need_unification_) {
       // transpose the indices before converting
       auto transposed =
-          reinterpret_cast<const int32_t*>(arrays_transpose_[array_index]->data());
+          reinterpret_cast<const int32_t*>(arrays_transpose_[chunk_index]->data());
       auto transpose_convert = [=](index_type i) { return transposed[i] + 1; };
 
       return SomeNull_Ingest<INTSXP>(data, start, n, raw_indices, indices,
@@ -541,14 +539,14 @@ class Converter_Struct : public Converter {
   }
 
   Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
-                           R_xlen_t start, R_xlen_t n, size_t array_index) const {
+                           R_xlen_t start, R_xlen_t n, size_t chunk_index) const {
     auto struct_array = checked_cast<const arrow::StructArray*>(array.get());
     int nf = converters.size();
     // Flatten() deals with merging of nulls
     auto arrays = ValueOrStop(struct_array->Flatten(default_memory_pool()));
     for (int i = 0; i < nf; i++) {
       StopIfNotOk(converters[i]->Ingest_some_nulls(VECTOR_ELT(data, i), arrays[i], start,
-                                                   n, array_index));
+                                                   n, chunk_index));
     }
 
     return Status::OK();
@@ -575,7 +573,7 @@ class Converter_Date64 : public Converter {
   }
 
   Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
-                           R_xlen_t start, R_xlen_t n, size_t array_index) const {
+                           R_xlen_t start, R_xlen_t n, size_t chunk_index) const {
     auto convert = [](int64_t ms) { return static_cast<double>(ms / 1000); };
     return SomeNull_Ingest<REALSXP, int64_t>(
         data, start, n, array->data()->GetValues<int64_t>(1), array, convert);
@@ -599,7 +597,7 @@ class Converter_Promotion : public Converter {
   }
 
   Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
-                           R_xlen_t start, R_xlen_t n, size_t array_index) const {
+                           R_xlen_t start, R_xlen_t n, size_t chunk_index) const {
     auto convert = [](value_type value) { return static_cast<r_stored_type>(value); };
     return SomeNull_Ingest<RTYPE, value_type>(
         data, start, n, array->data()->GetValues<value_type>(1), array, convert);
@@ -629,7 +627,7 @@ class Converter_Time : public Converter {
   }
 
   Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
-                           R_xlen_t start, R_xlen_t n, size_t array_index) const {
+                           R_xlen_t start, R_xlen_t n, size_t chunk_index) const {
     int multiplier = TimeUnit_multiplier(array);
     auto convert = [=](value_type value) {
       return static_cast<double>(value) / multiplier;
@@ -686,7 +684,7 @@ class Converter_Decimal : public Converter {
   }
 
   Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
-                           R_xlen_t start, R_xlen_t n, size_t array_index) const {
+                           R_xlen_t start, R_xlen_t n, size_t chunk_index) const {
     auto p_data = Rcpp::internal::r_vector_start<REALSXP>(data) + start;
     const auto& decimals_arr = checked_cast<const arrow::Decimal128Array&>(*array);
 
@@ -742,7 +740,7 @@ class Converter_List : public Converter {
   }
 
   Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
-                           R_xlen_t start, R_xlen_t n, size_t array_index) const {
+                           R_xlen_t start, R_xlen_t n, size_t chunk_index) const {
     auto list_array = checked_cast<const ListArrayType*>(array.get());
     auto values_array = list_array->values();
 
@@ -788,7 +786,7 @@ class Converter_Int64 : public Converter {
   }
 
   Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
-                           R_xlen_t start, R_xlen_t n, size_t array_index) const {
+                           R_xlen_t start, R_xlen_t n, size_t chunk_index) const {
     auto p_values = array->data()->GetValues<int64_t>(1);
     if (!p_values) {
       return Status::Invalid("Invalid data buffer");
@@ -825,7 +823,7 @@ class Converter_Null : public Converter {
   }
 
   Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
-                           R_xlen_t start, R_xlen_t n, size_t array_index) const {
+                           R_xlen_t start, R_xlen_t n, size_t chunk_index) const {
     return Status::OK();
   }
 };
