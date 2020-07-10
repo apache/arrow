@@ -34,7 +34,15 @@ struct ScalarAggregator : public KernelState {
 
 void AddBasicAggKernels(KernelInit init,
                         const std::vector<std::shared_ptr<DataType>>& types,
-                        std::shared_ptr<DataType> out_ty, ScalarAggregateFunction* func);
+                        std::shared_ptr<DataType> out_ty, ScalarAggregateFunction* func,
+                        SimdLevel::type simd_level = SimdLevel::NONE);
+
+// SIMD variants for kernels
+void AddSumAvx2AggKernels(ScalarAggregateFunction* func);
+void AddMeanAvx2AggKernels(ScalarAggregateFunction* func);
+
+void AddSumAvx512AggKernels(ScalarAggregateFunction* func);
+void AddMeanAvx512AggKernels(ScalarAggregateFunction* func);
 
 // ----------------------------------------------------------------------
 // Sum implementation
