@@ -3,6 +3,7 @@ class ApacheArrow < Formula
   homepage "https://arrow.apache.org/"
   url "https://www.apache.org/dyn/closer.lua?path=arrow/arrow-1.0.0-SNAPSHOT/apache-arrow-1.0.0-SNAPSHOT.tar.gz"
   sha256 "9948ddb6d4798b51552d0dca3252dd6e3a7d0f9702714fc6f5a1b59397ce1d28"
+  license "Apache-2.0"
   head "https://github.com/apache/arrow.git"
 
   depends_on "boost" => :build
