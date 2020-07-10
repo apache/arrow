@@ -26,7 +26,6 @@ r-rlang
 r-tidyselect
 r-vctrs
 # Test/"Suggests" dependencies
-r-decor
 pandoc
 r-covr
 r-hms
