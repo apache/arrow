@@ -29,35 +29,17 @@ SEXP symbols::serialize_arrow_r_metadata = Rf_install(".serialize_arrow_r_metada
 SEXP symbols::as_list = Rf_install("as.list");
 SEXP symbols::ptype = Rf_install("ptype");
 
-SEXP get_classes_POSIXct() {
-  SEXP classes = Rf_allocVector(STRSXP, 2);
-  R_PreserveObject(classes);
-  SET_STRING_ELT(classes, 0, Rf_mkChar("POSIXct"));
-  SET_STRING_ELT(classes, 1, Rf_mkChar("POSIXt"));
-  return classes;
-}
+SEXP preserved_strings(std::initializer_list<std::string> list) {
+  size_t n = list.size();
+  SEXP s = Rf_allocVector(STRSXP, n);
+  R_PreserveObject(s);
 
-SEXP get_classes_metadata_r() {
-  SEXP classes = Rf_mkString("arrow_r_metadata");
-  R_PreserveObject(classes);
-  return classes;
-}
+  auto it = list.begin();
+  for (size_t i = 0; i < n; i++, ++it) {
+    SET_STRING_ELT(s, i, Rf_mkCharLen(it->c_str(), it->size()));
+  }
 
-SEXP get_names_metadata() {
-  SEXP names = Rf_allocVector(STRSXP, 2);
-  R_PreserveObject(names);
-  SET_STRING_ELT(names, 0, Rf_mkChar("attributes"));
-  SET_STRING_ELT(names, 1, Rf_mkChar("columns"));
-  return names;
-}
-
-SEXP get_classes_vctrs_list_of() {
-  SEXP classes = Rf_allocVector(STRSXP, 3);
-  R_PreserveObject(classes);
-  SET_STRING_ELT(classes, 0, Rf_mkChar("vctrs_list_of"));
-  SET_STRING_ELT(classes, 1, Rf_mkChar("vctrs_vctr"));
-  SET_STRING_ELT(classes, 2, Rf_mkChar("list"));
-  return classes;
+  return s;
 }
 
 SEXP get_empty_raw() {
@@ -66,10 +48,14 @@ SEXP get_empty_raw() {
   return res;
 }
 
-SEXP data::classes_POSIXct = get_classes_POSIXct();
-SEXP data::classes_metadata_r = get_classes_metadata_r();
-SEXP data::names_metadata = get_names_metadata();
-SEXP data::classes_vctrs_list_of = get_classes_vctrs_list_of();
+SEXP data::classes_POSIXct = preserved_strings({"POSIXct", "POSIXt"});
+SEXP data::classes_metadata_r = preserved_strings({"arrow_r_metadata"});
+SEXP data::classes_factor = preserved_strings({"factor"});
+SEXP data::classes_ordered = preserved_strings({"ordered", "factor"});
+
+SEXP data::names_metadata = preserved_strings({"attributes", "columns"});
+SEXP data::classes_vctrs_list_of =
+    preserved_strings({"vctrs_list_of", "vctrs_vctr", "list"});
 SEXP data::empty_raw = get_empty_raw();
 
 void inspect(SEXP obj) {

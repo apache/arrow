@@ -55,16 +55,21 @@ class Converter {
   virtual Status Ingest_all_nulls(SEXP data, R_xlen_t start, R_xlen_t n) const = 0;
 
   // ingest the values from the array into data[ start : (start + n)]
+  //
+  // chunk_index indicates which of the chunk is being ingested into data. This is
+  //             ignored by most implementations and currently only used with Dictionary
+  //             arrays.
   virtual Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
-                                   R_xlen_t start, R_xlen_t n) const = 0;
+                                   R_xlen_t start, R_xlen_t n,
+                                   size_t chunk_index) const = 0;
 
   // ingest one array
   Status IngestOne(SEXP data, const std::shared_ptr<arrow::Array>& array, R_xlen_t start,
-                   R_xlen_t n) const {
+                   R_xlen_t n, size_t chunk_index) const {
     if (array->null_count() == n) {
       return Ingest_all_nulls(data, start, n);
     } else {
-      return Ingest_some_nulls(data, array, start, n);
+      return Ingest_some_nulls(data, array, start, n, chunk_index);
     }
   }
 
@@ -73,11 +78,12 @@ class Converter {
 
   // Ingest all the arrays serially
   Status IngestSerial(SEXP data) {
-    R_xlen_t k = 0;
+    R_xlen_t k = 0, i = 0;
     for (const auto& array : arrays_) {
       auto n_chunk = array->length();
-      RETURN_NOT_OK(IngestOne(data, array, k, n_chunk));
+      RETURN_NOT_OK(IngestOne(data, array, k, n_chunk, i));
       k += n_chunk;
+      i++;
     }
     return Status::OK();
   }
@@ -88,11 +94,12 @@ class Converter {
   //
   // The task group is Finish() iun the caller
   void IngestParallel(SEXP data, const std::shared_ptr<arrow::internal::TaskGroup>& tg) {
-    R_xlen_t k = 0;
+    R_xlen_t k = 0, i = 0;
     for (const auto& array : arrays_) {
       auto n_chunk = array->length();
-      tg->Append([=] { return IngestOne(data, array, k, n_chunk); });
+      tg->Append([=] { return IngestOne(data, array, k, n_chunk, i); });
       k += n_chunk;
+      i++;
     }
   }
 
@@ -161,7 +168,7 @@ class Converter_SimpleArray : public Converter {
   }
 
   Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
-                           R_xlen_t start, R_xlen_t n) const {
+                           R_xlen_t start, R_xlen_t n, size_t chunk_index) const {
     auto p_values = array->data()->GetValues<value_type>(1);
     auto echo = [](value_type value) { return value; };
     return SomeNull_Ingest<RTYPE, value_type>(data, start, n, p_values, array, echo);
@@ -180,7 +187,7 @@ class Converter_Date32 : public Converter_SimpleArray<REALSXP> {
   }
 
   Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
-                           R_xlen_t start, R_xlen_t n) const {
+                           R_xlen_t start, R_xlen_t n, size_t chunk_index) const {
     auto convert = [](int days) { return static_cast<double>(days); };
     return SomeNull_Ingest<REALSXP, int>(data, start, n, array->data()->GetValues<int>(1),
                                          array, convert);
@@ -199,7 +206,7 @@ struct Converter_String : public Converter {
   }
 
   Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
-                           R_xlen_t start, R_xlen_t n) const {
+                           R_xlen_t start, R_xlen_t n, size_t chunk_index) const {
     auto p_offset = array->data()->GetValues<int32_t>(1);
     if (!p_offset) {
       return Status::Invalid("Invalid offset buffer");
@@ -262,7 +269,7 @@ class Converter_Boolean : public Converter {
   }
 
   Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
-                           R_xlen_t start, R_xlen_t n) const {
+                           R_xlen_t start, R_xlen_t n, size_t chunk_index) const {
     auto p_data = Rcpp::internal::r_vector_start<LGLSXP>(data) + start;
     auto p_bools = array->data()->GetValues<uint8_t>(1, 0);
     if (!p_bools) {
@@ -306,7 +313,7 @@ class Converter_Binary : public Converter {
   }
 
   Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
-                           R_xlen_t start, R_xlen_t n) const {
+                           R_xlen_t start, R_xlen_t n, size_t chunk_index) const {
     const ArrayType* binary_array = checked_cast<const ArrayType*>(array.get());
 
     auto ingest_one = [&](R_xlen_t i) {
@@ -343,44 +350,59 @@ class Converter_Binary : public Converter {
 };
 
 class Converter_Dictionary : public Converter {
+ private:
+  bool need_unification_;
+  std::unique_ptr<arrow::DictionaryUnifier> unifier_;
+  std::vector<std::shared_ptr<Buffer>> arrays_transpose_;
+  std::shared_ptr<DataType> out_type_;
+  std::shared_ptr<Array> dictionary_;
+
  public:
-  explicit Converter_Dictionary(const ArrayVector& arrays) : Converter(arrays) {}
+  explicit Converter_Dictionary(const ArrayVector& arrays)
+      : Converter(arrays), need_unification_(NeedUnification()) {
+    if (need_unification_) {
+      const auto& arr_first = checked_cast<const DictionaryArray&>(*arrays[0]);
+      const auto& arr_type = checked_cast<const DictionaryType&>(*arr_first.type());
+      unifier_ = ValueOrStop(DictionaryUnifier::Make(arr_type.value_type()));
+
+      size_t n_arrays = arrays.size();
+      arrays_transpose_.resize(n_arrays);
+
+      for (size_t i = 0; i < n_arrays; i++) {
+        const auto& dict_i =
+            *checked_cast<const DictionaryArray&>(*arrays[i]).dictionary();
+        StopIfNotOk(unifier_->Unify(dict_i, &arrays_transpose_[i]));
+      }
+
+      StopIfNotOk(unifier_->GetResult(&out_type_, &dictionary_));
+    } else {
+      const auto& dict_array = checked_cast<const DictionaryArray&>(*arrays_[0]);
+
+      auto indices = dict_array.indices();
+      switch (indices->type_id()) {
+        case Type::UINT8:
+        case Type::INT8:
+        case Type::UINT16:
+        case Type::INT16:
+        case Type::INT32:
+          // TODO: also add int64, uint32, uint64 downcasts, if possible
+          break;
+        default:
+          Rcpp::stop("Cannot convert Dictionary Array of type `%s` to R",
+                     dict_array.type()->ToString());
+      }
+
+      dictionary_ = dict_array.dictionary();
+    }
+  }
 
   SEXP Allocate(R_xlen_t n) const {
     IntegerVector data(no_init(n));
-    auto dict_array = static_cast<DictionaryArray*>(this->arrays_[0].get());
-    auto dict = dict_array->dictionary();
-    auto indices = dict_array->indices();
-    switch (indices->type_id()) {
-      case Type::UINT8:
-      case Type::INT8:
-      case Type::UINT16:
-      case Type::INT16:
-      case Type::INT32:
-        // TODO: also add int64, uint32, uint64 downcasts, if possible
-        break;
-      default:
-        Rcpp::stop("Cannot convert Dictionary Array of type `%s` to R",
-                   dict_array->type()->ToString());
-    }
-
-    if (dict->type_id() != Type::STRING) {
-      Rcpp::warning(
-          "Coercing dictionary values from type %s to R character factor levels",
-          dict->type()->ToString());
-    }
-    bool ordered = dict_array->dict_type()->ordered();
-
-    // R factor levels must be type "character" so coerce `dict` to STRSXP
-    // TODO (npr): this coercion should be optional, "dictionariesAsFactors" ;)
-    // Alternative: preserve the logical type of the dictionary values
-    // (e.g. if dict is timestamp, return a POSIXt R vector, not factor)
-    data.attr("levels") = Rf_coerceVector(
-        ArrayVector__as_vector(dict->length(), dict->type(), {dict}), STRSXP);
-    if (ordered) {
-      data.attr("class") = Rcpp::CharacterVector::create("ordered", "factor");
+    data.attr("levels") = GetLevels();
+    if (GetOrdered()) {
+      Rf_classgets(data, arrow::r::data::classes_ordered);
     } else {
-      data.attr("class") = "factor";
+      Rf_classgets(data, arrow::r::data::classes_factor);
     }
     return data;
   }
@@ -390,20 +412,26 @@ class Converter_Dictionary : public Converter {
   }
 
   Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
-                           R_xlen_t start, R_xlen_t n) const {
-    DictionaryArray* dict_array = static_cast<DictionaryArray*>(array.get());
-    auto indices = dict_array->indices();
+                           R_xlen_t start, R_xlen_t n, size_t chunk_index) const {
+    const DictionaryArray& dict_array =
+        checked_cast<const DictionaryArray&>(*array.get());
+    auto indices = dict_array.indices();
     switch (indices->type_id()) {
       case Type::UINT8:
-        return Ingest_some_nulls_Impl<arrow::UInt8Type>(data, array, start, n);
+        return Ingest_some_nulls_Impl<arrow::UInt8Type>(data, array, start, n,
+                                                        chunk_index);
       case Type::INT8:
-        return Ingest_some_nulls_Impl<arrow::Int8Type>(data, array, start, n);
+        return Ingest_some_nulls_Impl<arrow::Int8Type>(data, array, start, n,
+                                                       chunk_index);
       case Type::UINT16:
-        return Ingest_some_nulls_Impl<arrow::UInt16Type>(data, array, start, n);
+        return Ingest_some_nulls_Impl<arrow::UInt16Type>(data, array, start, n,
+                                                         chunk_index);
       case Type::INT16:
-        return Ingest_some_nulls_Impl<arrow::Int16Type>(data, array, start, n);
+        return Ingest_some_nulls_Impl<arrow::Int16Type>(data, array, start, n,
+                                                        chunk_index);
       case Type::INT32:
-        return Ingest_some_nulls_Impl<arrow::Int32Type>(data, array, start, n);
+        return Ingest_some_nulls_Impl<arrow::Int32Type>(data, array, start, n,
+                                                        chunk_index);
       default:
         break;
     }
@@ -413,18 +441,62 @@ class Converter_Dictionary : public Converter {
  private:
   template <typename Type>
   Status Ingest_some_nulls_Impl(SEXP data, const std::shared_ptr<arrow::Array>& array,
-                                R_xlen_t start, R_xlen_t n) const {
-    using value_type = typename arrow::TypeTraits<Type>::ArrayType::value_type;
-
-    std::shared_ptr<Array> indices =
-        static_cast<DictionaryArray*>(array.get())->indices();
+                                R_xlen_t start, R_xlen_t n, size_t chunk_index) const {
+    using index_type = typename arrow::TypeTraits<Type>::ArrayType::value_type;
+    auto indices = checked_cast<const DictionaryArray&>(*array).indices();
+    auto raw_indices = indices->data()->GetValues<index_type>(1);
 
     // convert the 0-based indices from the arrow Array
     // to 1-based indices used in R factors
-    auto to_r_index = [](value_type value) { return static_cast<int>(value) + 1; };
+    if (need_unification_) {
+      // transpose the indices before converting
+      auto transposed =
+          reinterpret_cast<const int32_t*>(arrays_transpose_[chunk_index]->data());
+      auto transpose_convert = [=](index_type i) { return transposed[i] + 1; };
 
-    return SomeNull_Ingest<INTSXP, value_type>(
-        data, start, n, indices->data()->GetValues<value_type>(1), indices, to_r_index);
+      return SomeNull_Ingest<INTSXP>(data, start, n, raw_indices, indices,
+                                     transpose_convert);
+    } else {
+      auto convert = [](index_type i) { return static_cast<int>(i) + 1; };
+
+      return SomeNull_Ingest<INTSXP>(data, start, n, raw_indices, indices, convert);
+    }
+  }
+
+  bool NeedUnification() {
+    int n = arrays_.size();
+    if (n < 2) {
+      return false;
+    }
+    const auto& arr_first = checked_cast<const DictionaryArray&>(*arrays_[0]);
+    for (int i = 1; i < n; i++) {
+      const auto& arr = checked_cast<const DictionaryArray&>(*arrays_[i]);
+      if (!(arr_first.dictionary()->Equals(arr.dictionary()))) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  bool GetOrdered() const {
+    return checked_cast<const DictionaryArray&>(*arrays_[0]).dict_type()->ordered();
+  }
+
+  SEXP GetLevels() const {
+    // R factor levels must be type "character" so coerce `dict` to STRSXP
+    // TODO (npr): this coercion should be optional, "dictionariesAsFactors" ;)
+    // Alternative: preserve the logical type of the dictionary values
+    // (e.g. if dict is timestamp, return a POSIXt R vector, not factor)
+    if (dictionary_->type_id() != Type::STRING) {
+      Rcpp::warning(
+          "Coercing dictionary values from type %s to R character factor levels",
+          dictionary_->type()->ToString());
+    }
+    SEXP vec = PROTECT(ArrayVector__as_vector(dictionary_->length(), dictionary_->type(),
+                                              {dictionary_}));
+    SEXP strings_vec = PROTECT(Rf_coerceVector(vec, STRSXP));
+    UNPROTECT(2);
+    return strings_vec;
   }
 };
 
@@ -470,14 +542,14 @@ class Converter_Struct : public Converter {
   }
 
   Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
-                           R_xlen_t start, R_xlen_t n) const {
+                           R_xlen_t start, R_xlen_t n, size_t chunk_index) const {
     auto struct_array = checked_cast<const arrow::StructArray*>(array.get());
     int nf = converters.size();
     // Flatten() deals with merging of nulls
     auto arrays = ValueOrStop(struct_array->Flatten(default_memory_pool()));
     for (int i = 0; i < nf; i++) {
-      StopIfNotOk(
-          converters[i]->Ingest_some_nulls(VECTOR_ELT(data, i), arrays[i], start, n));
+      StopIfNotOk(converters[i]->Ingest_some_nulls(VECTOR_ELT(data, i), arrays[i], start,
+                                                   n, chunk_index));
     }
 
     return Status::OK();
@@ -504,7 +576,7 @@ class Converter_Date64 : public Converter {
   }
 
   Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
-                           R_xlen_t start, R_xlen_t n) const {
+                           R_xlen_t start, R_xlen_t n, size_t chunk_index) const {
     auto convert = [](int64_t ms) { return static_cast<double>(ms / 1000); };
     return SomeNull_Ingest<REALSXP, int64_t>(
         data, start, n, array->data()->GetValues<int64_t>(1), array, convert);
@@ -528,7 +600,7 @@ class Converter_Promotion : public Converter {
   }
 
   Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
-                           R_xlen_t start, R_xlen_t n) const {
+                           R_xlen_t start, R_xlen_t n, size_t chunk_index) const {
     auto convert = [](value_type value) { return static_cast<r_stored_type>(value); };
     return SomeNull_Ingest<RTYPE, value_type>(
         data, start, n, array->data()->GetValues<value_type>(1), array, convert);
@@ -558,7 +630,7 @@ class Converter_Time : public Converter {
   }
 
   Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
-                           R_xlen_t start, R_xlen_t n) const {
+                           R_xlen_t start, R_xlen_t n, size_t chunk_index) const {
     int multiplier = TimeUnit_multiplier(array);
     auto convert = [=](value_type value) {
       return static_cast<double>(value) / multiplier;
@@ -615,7 +687,7 @@ class Converter_Decimal : public Converter {
   }
 
   Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
-                           R_xlen_t start, R_xlen_t n) const {
+                           R_xlen_t start, R_xlen_t n, size_t chunk_index) const {
     auto p_data = Rcpp::internal::r_vector_start<REALSXP>(data) + start;
     const auto& decimals_arr = checked_cast<const arrow::Decimal128Array&>(*array);
 
@@ -671,7 +743,7 @@ class Converter_List : public Converter {
   }
 
   Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
-                           R_xlen_t start, R_xlen_t n) const {
+                           R_xlen_t start, R_xlen_t n, size_t chunk_index) const {
     auto list_array = checked_cast<const ListArrayType*>(array.get());
     auto values_array = list_array->values();
 
@@ -717,7 +789,7 @@ class Converter_Int64 : public Converter {
   }
 
   Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
-                           R_xlen_t start, R_xlen_t n) const {
+                           R_xlen_t start, R_xlen_t n, size_t chunk_index) const {
     auto p_values = array->data()->GetValues<int64_t>(1);
     if (!p_values) {
       return Status::Invalid("Invalid data buffer");
@@ -754,7 +826,7 @@ class Converter_Null : public Converter {
   }
 
   Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
-                           R_xlen_t start, R_xlen_t n) const {
+                           R_xlen_t start, R_xlen_t n, size_t chunk_index) const {
     return Status::OK();
   }
 };

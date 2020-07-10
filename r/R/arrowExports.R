@@ -252,6 +252,10 @@ ChunkedArray__Equals <- function(x, y){
     .Call(`_arrow_ChunkedArray__Equals` , x, y)
 }
 
+ChunkedArray__ToString <- function(x){
+    .Call(`_arrow_ChunkedArray__ToString` , x)
+}
+
 util___Codec__Create <- function(codec, compression_level){
     .Call(`_arrow_util___Codec__Create` , codec, compression_level)
 }
