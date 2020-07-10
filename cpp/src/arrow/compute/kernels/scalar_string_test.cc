@@ -240,8 +240,8 @@ TYPED_TEST(TestStringKernels, IsUpperUnicode) {
   // * U+A7BA - Ꞻ - \xEA\x9E\xBA - Latin Capital Letter Glottal A -  new in unicode 13
   // * U+A7BB - ꞻ - \xEA\x9E\xBB - Latin Small Letter Glottal A - new in unicode 13
   this->CheckUnary("utf8_isupper",
-                   "[\"Ⓐ\", \"Ⓩ\", \"ϒ\", \"ᾈ\", \"Ꞻ\", \"ꞻ\"]", boolean(),
-                   "[true, true, true, false, true, false]");
+                   "[\"Ⓐ\", \"Ⓩ\", \"ϒ\", \"ᾈ\", \"\xEA\x9E\xBA\", \"\xEA\x9E\xBB\"]",
+                   boolean(), "[true, true, true, false, true, false]");
 }
 
 #endif  // ARROW_WITH_UTF8PROC
