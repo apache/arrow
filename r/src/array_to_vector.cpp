@@ -57,7 +57,8 @@ class Converter {
   // ingest the values from the array into data[ start : (start + n)]
   //
   // chunk_index indicates which of the chunk is being ingested into data. This is
-  //             ignored by most implementations and currently only used with Dictionary arrays.
+  //             ignored by most implementations and currently only used with Dictionary
+  //             arrays.
   virtual Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
                                    R_xlen_t start, R_xlen_t n,
                                    size_t chunk_index) const = 0;
@@ -454,12 +455,11 @@ class Converter_Dictionary : public Converter {
       auto transpose_convert = [=](index_type i) { return transposed[i] + 1; };
 
       return SomeNull_Ingest<INTSXP>(data, start, n, raw_indices, indices,
-                                                 transpose_convert);
+                                     transpose_convert);
     } else {
       auto convert = [](index_type i) { return static_cast<int>(i) + 1; };
 
-      return SomeNull_Ingest<INTSXP>(data, start, n, raw_indices, indices,
-                                                 convert);
+      return SomeNull_Ingest<INTSXP>(data, start, n, raw_indices, indices, convert);
     }
   }
 
