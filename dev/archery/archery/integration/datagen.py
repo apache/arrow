@@ -181,7 +181,7 @@ class IntegerField(PrimitiveField):
 
     def generate_range(self, size, lower, upper, name=None,
                        include_extremes=False):
-        values = np.random.randint(lower, upper, size=size)
+        values = np.random.randint(lower, upper, size=size, dtype=np.int64)
         if include_extremes and size >= 2:
             values[:2] = [lower, upper]
         values = list(map(int if self.bit_width < 64 else str, values))
