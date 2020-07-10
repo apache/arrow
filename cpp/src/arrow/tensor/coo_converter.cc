@@ -27,6 +27,7 @@
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/macros.h"
 #include "arrow/visitor_inline.h"
 
 namespace arrow {
@@ -139,23 +140,20 @@ void ConvertStridedTensor(const Tensor& tensor, c_index_type* indices,
   }
 }
 
-#define CONVERT_ROW_MAJOR_TENSOR(index_type, value_type, indices, values, size) \
-  ConvertRowMajorTensor<index_type, value_type>(                                \
-      tensor_, reinterpret_cast<index_type*>(indices),                          \
-      reinterpret_cast<value_type*>(values), size)
+#define CONVERT_TENSOR(func, index_type, value_type, indices, values, size)     \
+  func<index_type, value_type>(tensor_, reinterpret_cast<index_type*>(indices), \
+                               reinterpret_cast<value_type*>(values), size)
 
-#define CONVERT_COLUMN_MAJOR_TENSOR(index_type, value_type, indices, values, size) \
-  ConvertColumnMajorTensor<index_type, value_type>(                                \
-      tensor_, reinterpret_cast<index_type*>(indices),                             \
-      reinterpret_cast<value_type*>(values), size)
+// Using ARROW_EXPAND is necessary to expand __VA_ARGS__ correctly on VC++.
+#define CONVERT_ROW_MAJOR_TENSOR(index_type, value_type, ...) \
+  ARROW_EXPAND(CONVERT_TENSOR(ConvertRowMajorTensor, index_type, value_type, __VA_ARGS__))
 
-#define CONVERT_STRIDED_TENSOR(index_type, value_type, indices, values, size) \
-  ConvertStridedTensor<index_type, value_type>(                               \
-      tensor_, reinterpret_cast<index_type*>(indices),                        \
-      reinterpret_cast<value_type*>(values), size)
+#define CONVERT_COLUMN_MAJOR_TENSOR(index_type, value_type, ...) \
+  ARROW_EXPAND(                                                  \
+      CONVERT_TENSOR(ConvertColumnMajorTensor, index_type, value_type, __VA_ARGS__))
 
-#define CONVERT_TENSOR(index_type, value_type, KIND, ...) \
-  CONVERT_##KIND##_TENSOR(index_type, value_type, __VA_ARGS__)
+#define CONVERT_STRIDED_TENSOR(index_type, value_type, ...) \
+  ARROW_EXPAND(CONVERT_TENSOR(ConvertStridedTensor, index_type, value_type, __VA_ARGS__))
 
 // ----------------------------------------------------------------------
 // SparseTensorConverter for SparseCOOIndex
@@ -202,13 +200,13 @@ class SparseCOOTensorConverter : private SparseTensorConverterMixin {
         tensor_data += value_elsize;
       }
     } else if (tensor_.is_row_major()) {
-      DISPATCH(CONVERT_TENSOR, index_elsize, value_elsize, ROW_MAJOR, indices, values,
+      DISPATCH(CONVERT_ROW_MAJOR_TENSOR, index_elsize, value_elsize, indices, values,
                nonzero_count);
     } else if (tensor_.is_column_major()) {
-      DISPATCH(CONVERT_TENSOR, index_elsize, value_elsize, COLUMN_MAJOR, indices, values,
+      DISPATCH(CONVERT_COLUMN_MAJOR_TENSOR, index_elsize, value_elsize, indices, values,
                nonzero_count);
     } else {
-      DISPATCH(CONVERT_TENSOR, index_elsize, value_elsize, STRIDED, indices, values,
+      DISPATCH(CONVERT_STRIDED_TENSOR, index_elsize, value_elsize, indices, values,
                nonzero_count);
     }
 
