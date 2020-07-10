@@ -195,18 +195,15 @@ namespace Apache.Arrow.Tests
             }
 
             [Fact]
-            public void NegativeLengthResizesToZero()
+            public void NegativeLengthThrows()
             {
                 // Arrange
                 var builder = new ArrowBuffer.BitmapBuilder();
                 builder.Append(false);
                 builder.Append(true);
 
-                // Act
-                builder.Resize(-1);
-
-                // Assert
-                Assert.Equal(0, builder.Length);
+                // Act/Assert
+                Assert.Throws<ArgumentOutOfRangeException>(() => builder.Resize(-1));
             }
         }
 
