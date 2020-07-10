@@ -81,4 +81,6 @@ echo "== Running example project"
 echo "=="
 echo
 
+cd $EXAMPLE_DIR
+
 ${EXAMPLE_BUILD_DIR}/arrow_example

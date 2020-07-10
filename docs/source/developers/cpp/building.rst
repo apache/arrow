@@ -355,12 +355,6 @@ downloading them (one for each build dir!).
 Statically Linking
 ~~~~~~~~~~~~~~~~~~
 
-Static linking the Arrow libraries may require extra steps depending on your
-build configuration. If you are using either ``-DARROW_JEMALLOC=ON`` or
-``-DARROW_MIMALLOC=ON``, or any dependency is set to use the ``BUNDLED``
-source, then you must do some extra configuration to include these bundled
-dependencies when linking.
-
 When ``-DARROW_BUILD_STATIC=ON``, all build dependencies built as static
 libraries by the Arrow build system will be merged together to create a static
 library ``arrow_bundled_dependencies``. In UNIX-like environments (Linux, macOS,
@@ -368,24 +362,12 @@ MinGW), this is called ``libarrow_bundled_dependencies.a`` and on Windows with
 Visual Studio ``arrow_bundled_dependencies.lib``. This "dependency bundle"
 library is installed in the same place as the other Arrow static libraries.
 
-For static linking to work, you must include this dependency bundle in your
-linker setup. For example, in CMake it could be accomplished like so:
-
-.. code-block:: cmake
-
-   find_package(Arrow REQUIRED)
-   get_property(arrow_static_loc TARGET arrow_static PROPERTY LOCATION)
-   get_filename_component(arrow_lib_dir ${arrow_static_loc} DIRECTORY)
-
-   add_library(arrow_dependencies STATIC IMPORTED)
-   set_target_properties(arrow_dependencies
-     PROPERTIES IMPORTED_LOCATION
-     "${arrow_lib_dir}/${CMAKE_STATIC_LIBRARY_PREFIX}arrow_bundled_dependencies${CMAKE_STATIC_LIBRARY_SUFFIX}")
-   target_link_libraries(arrow_example PRIVATE arrow_static arrow_dependencies)
-
-We created an `example CMake-based build configuration
+If you are using CMake, the bundled dependencies will automatically be included
+when linking if you use the ``arrow_static`` CMake target. In other build
+systems, you may need to explicitly link to the dependency bundle. We created
+an `example CMake-based build configuration
 <https://github.com/apache/arrow/tree/master/cpp/examples/minimal_build>`_ to
-help you with this.
+show you a working example.
 
 On Linux and macOS, if your application does not link to the ``pthread``
 library already, you must include ``-pthread`` in your linker setup. In CMake
