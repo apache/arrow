@@ -22,19 +22,19 @@ use std::sync::{Arc, Mutex};
 use crate::error::Result;
 use crate::execution::physical_plan::{ExecutionPlan, Partition};
 use arrow::datatypes::Schema;
-use arrow::record_batch::SendableRecordBatchReader;
+use arrow::record_batch::RecordBatchReader;
 
 /// Datasource execution plan
 pub struct DatasourceExec {
     schema: Arc<Schema>,
-    partitions: Vec<Arc<Mutex<dyn SendableRecordBatchReader>>>,
+    partitions: Vec<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>>,
 }
 
 impl DatasourceExec {
     /// Create a new data source execution plan
     pub fn new(
         schema: Arc<Schema>,
-        partitions: Vec<Arc<Mutex<dyn SendableRecordBatchReader>>>,
+        partitions: Vec<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>>,
     ) -> Self {
         Self { schema, partitions }
     }
@@ -58,17 +58,17 @@ impl ExecutionPlan for DatasourceExec {
 
 /// Wrapper to convert a `SendableRecordBatchReader` into a `Partition`.
 pub struct DatasourcePartition {
-    batch_iter: Arc<Mutex<dyn SendableRecordBatchReader>>,
+    batch_iter: Arc<Mutex<dyn RecordBatchReader + Send + Sync>>,
 }
 
 impl DatasourcePartition {
-    fn new(batch_iter: Arc<Mutex<dyn SendableRecordBatchReader>>) -> Self {
+    fn new(batch_iter: Arc<Mutex<dyn RecordBatchReader + Send + Sync>>) -> Self {
         Self { batch_iter }
     }
 }
 
 impl Partition for DatasourcePartition {
-    fn execute(&self) -> Result<Arc<Mutex<dyn SendableRecordBatchReader>>> {
+    fn execute(&self) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
         Ok(self.batch_iter.clone())
     }
 }

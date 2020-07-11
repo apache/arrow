@@ -700,7 +700,7 @@ impl<R: Read + Seek> FileReader<R> {
 }
 
 impl<R: Read + Seek> RecordBatchReader for FileReader<R> {
-    fn schema(&mut self) -> SchemaRef {
+    fn schema(&self) -> SchemaRef {
         self.schema.clone()
     }
 
@@ -857,7 +857,7 @@ impl<R: Read> StreamReader<R> {
 }
 
 impl<R: Read> RecordBatchReader for StreamReader<R> {
-    fn schema(&mut self) -> SchemaRef {
+    fn schema(&self) -> SchemaRef {
         self.schema.clone()
     }
 

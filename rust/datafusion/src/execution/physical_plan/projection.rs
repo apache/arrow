@@ -26,7 +26,7 @@ use crate::error::{ExecutionError, Result};
 use crate::execution::physical_plan::{ExecutionPlan, Partition, PhysicalExpr};
 use arrow::datatypes::Schema;
 use arrow::error::Result as ArrowResult;
-use arrow::record_batch::{RecordBatch, SendableRecordBatchReader};
+use arrow::record_batch::{RecordBatch, RecordBatchReader};
 
 /// Execution plan for a projection
 pub struct ProjectionExec {
@@ -97,7 +97,7 @@ struct ProjectionPartition {
 
 impl Partition for ProjectionPartition {
     /// Execute the projection
-    fn execute(&self) -> Result<Arc<Mutex<dyn SendableRecordBatchReader>>> {
+    fn execute(&self) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
         Ok(Arc::new(Mutex::new(ProjectionIterator {
             schema: self.schema.clone(),
             expr: self.expr.clone(),
@@ -110,10 +110,10 @@ impl Partition for ProjectionPartition {
 struct ProjectionIterator {
     schema: Arc<Schema>,
     expr: Vec<Arc<dyn PhysicalExpr>>,
-    input: Arc<Mutex<dyn SendableRecordBatchReader>>,
+    input: Arc<Mutex<dyn RecordBatchReader + Send + Sync>>,
 }
 
-impl SendableRecordBatchReader for ProjectionIterator {
+impl RecordBatchReader for ProjectionIterator {
     /// Get the schema
     fn schema(&self) -> Arc<Schema> {
         self.schema.clone()

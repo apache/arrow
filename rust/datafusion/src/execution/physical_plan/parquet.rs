@@ -27,7 +27,7 @@ use crate::execution::physical_plan::common;
 use crate::execution::physical_plan::{ExecutionPlan, Partition};
 use arrow::datatypes::Schema;
 use arrow::error::{ArrowError, Result as ArrowResult};
-use arrow::record_batch::{RecordBatch, RecordBatchReader, SendableRecordBatchReader};
+use arrow::record_batch::{RecordBatch, RecordBatchReader};
 use parquet::file::reader::SerializedFileReader;
 
 use crossbeam::channel::{unbounded, Receiver, RecvError, SendError, Sender};
@@ -107,7 +107,7 @@ impl ExecutionPlan for ParquetExec {
 }
 
 struct ParquetPartition {
-    iterator: Arc<Mutex<dyn SendableRecordBatchReader>>,
+    iterator: Arc<Mutex<dyn RecordBatchReader + Send + Sync>>,
 }
 
 impl ParquetPartition {
@@ -192,7 +192,7 @@ impl ParquetPartition {
 }
 
 impl Partition for ParquetPartition {
-    fn execute(&self) -> Result<Arc<Mutex<dyn SendableRecordBatchReader>>> {
+    fn execute(&self) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
         Ok(self.iterator.clone())
     }
 }
@@ -203,7 +203,7 @@ struct ParquetIterator {
     response_rx: Receiver<ArrowResult<Option<RecordBatch>>>,
 }
 
-impl SendableRecordBatchReader for ParquetIterator {
+impl RecordBatchReader for ParquetIterator {
     fn schema(&self) -> Arc<Schema> {
         self.schema.clone()
     }

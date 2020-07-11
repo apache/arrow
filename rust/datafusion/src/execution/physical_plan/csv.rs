@@ -26,7 +26,7 @@ use crate::execution::physical_plan::{ExecutionPlan, Partition};
 use arrow::csv;
 use arrow::datatypes::Schema;
 use arrow::error::Result as ArrowResult;
-use arrow::record_batch::{RecordBatch, SendableRecordBatchReader};
+use arrow::record_batch::{RecordBatch, RecordBatchReader};
 
 /// CSV file read option
 #[derive(Copy, Clone)]
@@ -221,7 +221,7 @@ impl CsvPartition {
 
 impl Partition for CsvPartition {
     /// Execute this partition and return an iterator over RecordBatch
-    fn execute(&self) -> Result<Arc<Mutex<dyn SendableRecordBatchReader>>> {
+    fn execute(&self) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
         Ok(Arc::new(Mutex::new(CsvIterator::try_new(
             &self.path,
             self.schema.clone(),
@@ -263,7 +263,7 @@ impl CsvIterator {
     }
 }
 
-impl SendableRecordBatchReader for CsvIterator {
+impl RecordBatchReader for CsvIterator {
     /// Get the schema
     fn schema(&self) -> Arc<Schema> {
         self.reader.schema()

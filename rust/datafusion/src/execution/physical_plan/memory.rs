@@ -23,7 +23,7 @@ use crate::error::Result;
 use crate::execution::physical_plan::{ExecutionPlan, Partition};
 use arrow::datatypes::Schema;
 use arrow::error::Result as ArrowResult;
-use arrow::record_batch::{RecordBatch, SendableRecordBatchReader};
+use arrow::record_batch::{RecordBatch, RecordBatchReader};
 
 /// Execution plan for reading in-memory batches of data
 pub struct MemoryExec {
@@ -100,7 +100,7 @@ impl MemoryPartition {
 
 impl Partition for MemoryPartition {
     /// Execute this partition and return an iterator over RecordBatch
-    fn execute(&self) -> Result<Arc<Mutex<dyn SendableRecordBatchReader>>> {
+    fn execute(&self) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
         Ok(Arc::new(Mutex::new(MemoryIterator::try_new(
             self.data.clone(),
             self.schema.clone(),
@@ -137,7 +137,7 @@ impl MemoryIterator {
     }
 }
 
-impl SendableRecordBatchReader for MemoryIterator {
+impl RecordBatchReader for MemoryIterator {
     /// Get the schema
     fn schema(&self) -> Arc<Schema> {
         self.schema.clone()

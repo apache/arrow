@@ -25,7 +25,7 @@ use arrow::array::ArrayRef;
 pub use arrow::compute::SortOptions;
 use arrow::compute::{concat, lexsort_to_indices, take, SortColumn, TakeOptions};
 use arrow::datatypes::Schema;
-use arrow::record_batch::{RecordBatch, SendableRecordBatchReader};
+use arrow::record_batch::{RecordBatch, RecordBatchReader};
 
 use crate::error::Result;
 use crate::execution::physical_plan::common::RecordBatchIterator;
@@ -74,7 +74,7 @@ struct SortPartition {
 
 impl Partition for SortPartition {
     /// Execute the sort
-    fn execute(&self) -> Result<Arc<Mutex<dyn SendableRecordBatchReader>>> {
+    fn execute(&self) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
         let threads: Vec<JoinHandle<Result<Vec<RecordBatch>>>> = self
             .input
             .iter()

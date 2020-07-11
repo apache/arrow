@@ -25,7 +25,7 @@ use arrow::array::BooleanArray;
 use arrow::compute::filter;
 use arrow::datatypes::Schema;
 use arrow::error::Result as ArrowResult;
-use arrow::record_batch::{RecordBatch, SendableRecordBatchReader};
+use arrow::record_batch::{RecordBatch, RecordBatchReader};
 
 /// Execution plan for a Selection
 pub struct SelectionExec {
@@ -86,7 +86,7 @@ struct SelectionPartition {
 
 impl Partition for SelectionPartition {
     /// Execute the Selection
-    fn execute(&self) -> Result<Arc<Mutex<dyn SendableRecordBatchReader>>> {
+    fn execute(&self) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
         Ok(Arc::new(Mutex::new(SelectionIterator {
             schema: self.schema.clone(),
             expr: self.expr.clone(),
@@ -99,10 +99,10 @@ impl Partition for SelectionPartition {
 struct SelectionIterator {
     schema: Arc<Schema>,
     expr: Arc<dyn PhysicalExpr>,
-    input: Arc<Mutex<dyn SendableRecordBatchReader>>,
+    input: Arc<Mutex<dyn RecordBatchReader + Send + Sync>>,
 }
 
-impl SendableRecordBatchReader for SelectionIterator {
+impl RecordBatchReader for SelectionIterator {
     /// Get the schema
     fn schema(&self) -> Arc<Schema> {
         self.schema.clone()

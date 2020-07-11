@@ -144,7 +144,7 @@ pub struct ParquetRecordBatchReader {
 }
 
 impl RecordBatchReader for ParquetRecordBatchReader {
-    fn schema(&mut self) -> SchemaRef {
+    fn schema(&self) -> SchemaRef {
         self.schema.clone()
     }
 
