@@ -726,7 +726,8 @@ struct IsNumericUnicode
 
 template <typename ArrowType>
 struct IsAscii : BinaryToBoolean<ArrowType, IsAscii<ArrowType>> {
-  using offset_type = typename ArrowType::offset_type;
+  using offset_type =
+      typename BinaryToBoolean<StringType, IsAscii<StringType>>::offset_type;
   static bool Predicate(KernelContext* ctx, const uint8_t* input,
                         offset_type input_string_nascii_characters) {
     return std::all_of(input, input + input_string_nascii_characters,
@@ -797,7 +798,8 @@ struct IsSpaceAscii : CharacterPredicateAscii<ArrowType, IsSpaceAscii<ArrowType>
 #ifdef ARROW_WITH_UTF8PROC
 template <typename ArrowType>
 struct IsTitleUnicode : BinaryToBoolean<ArrowType, IsTitleUnicode<ArrowType>> {
-  using offset_type = typename ArrowType::offset_type;
+  using offset_type =
+      typename BinaryToBoolean<ArrowType, IsTitleUnicode<StringType>>::offset_type;
   static bool Predicate(KernelContext* ctx, const uint8_t* input,
                         offset_type input_string_ncodeunits) {
     // rules:
