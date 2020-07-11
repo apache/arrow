@@ -33,6 +33,7 @@ void RegisterScalarNested(FunctionRegistry* registry);
 void RegisterScalarSetLookup(FunctionRegistry* registry);
 void RegisterScalarStringAscii(FunctionRegistry* registry);
 void RegisterScalarValidity(FunctionRegistry* registry);
+void RegisterScalarFillNull(FunctionRegistry* registry);
 
 // Vector functions
 void RegisterVectorHash(FunctionRegistry* registry);
