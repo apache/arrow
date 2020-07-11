@@ -82,6 +82,7 @@ pub mod datasource;
 pub mod expressions;
 pub mod hash;
 pub mod hash_aggregate;
+pub mod hash_partition;
 pub mod limit;
 pub mod math_expressions;
 pub mod memory;
