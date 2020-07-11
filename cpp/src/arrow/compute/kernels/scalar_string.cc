@@ -605,9 +605,7 @@ static inline bool IsPrintableCharacterAscii(uint8_t ascii_character) {
 }
 
 template <typename ArrowType, typename Derived, bool allow_empty = false>
-struct CharacterPredicateUnicode
-    : BinaryToBoolean<ArrowType,
-                      CharacterPredicateUnicode<ArrowType, Derived, allow_empty>> {
+struct CharacterPredicateUnicode : BinaryToBoolean<ArrowType, Derived> {
   using offset_type = typename ArrowType::offset_type;
   static inline bool Predicate(KernelContext* ctx, const uint8_t* input,
                                offset_type input_string_ncodeunits) {
@@ -632,9 +630,7 @@ struct CharacterPredicateUnicode
 };
 
 template <typename ArrowType, typename Derived, bool allow_empty = false>
-struct CharacterPredicateAscii
-    : BinaryToBoolean<ArrowType,
-                      CharacterPredicateAscii<ArrowType, Derived, allow_empty>> {
+struct CharacterPredicateAscii : BinaryToBoolean<ArrowType, Derived> {
   using offset_type = typename ArrowType::offset_type;
   static inline bool Predicate(KernelContext* ctx, const uint8_t* input,
                                offset_type input_string_ncodeunits) {
