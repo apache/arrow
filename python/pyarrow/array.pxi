@@ -1036,6 +1036,12 @@ cdef class Array(_PandasConvertible):
         """
         return [x.as_py() for x in self]
 
+    def tolist(self):
+        """
+        Alias of to_pylist for compatibility with NumPy.
+        """
+        return self.to_pylist()
+
     def validate(self, *, full=False):
         """
         Perform validation checks.  An exception is raised if validation fails.
