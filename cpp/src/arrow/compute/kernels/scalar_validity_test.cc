@@ -76,6 +76,12 @@ TEST_F(TestValidityKernels, ArrayIsNull) {
                    "[true, false, false, true]");
 }
 
+TEST_F(TestValidityKernels, IsNullSetsZeroNullCount) {
+  auto arr = ArrayFromJSON(int32(), "[1, 2, 3, 4]");
+  std::shared_ptr<ArrayData> result = (*IsNull(arr)).array();
+  ASSERT_EQ(result->null_count, 0);
+}
+
 TEST_F(TestValidityKernels, ScalarIsNull) {
   CheckScalarUnary("is_null", MakeScalar(19.7), MakeScalar(false));
   CheckScalarUnary("is_null", MakeNullScalar(float64()), MakeScalar(true));

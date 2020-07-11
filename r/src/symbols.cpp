@@ -28,65 +28,68 @@ SEXP symbols::row_names = Rf_install("row.names");
 SEXP symbols::serialize_arrow_r_metadata = Rf_install(".serialize_arrow_r_metadata");
 SEXP symbols::as_list = Rf_install("as.list");
 SEXP symbols::ptype = Rf_install("ptype");
+SEXP symbols::byte_width = Rf_install("byte_width");
+SEXP symbols::list_size = Rf_install("list_size");
 
-SEXP get_classes_POSIXct() {
-  SEXP classes = Rf_allocVector(STRSXP, 2);
-  R_PreserveObject(classes);
-  SET_STRING_ELT(classes, 0, Rf_mkChar("POSIXct"));
-  SET_STRING_ELT(classes, 1, Rf_mkChar("POSIXt"));
-  return classes;
+// persistently protect `x` and return it
+SEXP precious(SEXP x) {
+  R_PreserveObject(x);
+  return x;
 }
 
-SEXP get_classes_metadata_r() {
-  SEXP classes = Rf_mkString("arrow_r_metadata");
-  R_PreserveObject(classes);
-  return classes;
+// return R string vector, e.g.
+// strings({"foo", "bar"}) returns a size 2 STRSXP
+SEXP strings(std::initializer_list<std::string> list) {
+  size_t n = list.size();
+  SEXP s = PROTECT(Rf_allocVector(STRSXP, n));
+
+  auto it = list.begin();
+  for (size_t i = 0; i < n; i++, ++it) {
+    SET_STRING_ELT(s, i, Rf_mkCharLen(it->c_str(), it->size()));
+  }
+
+  UNPROTECT(1);
+  return s;
 }
 
-SEXP get_names_metadata() {
-  SEXP names = Rf_allocVector(STRSXP, 2);
-  R_PreserveObject(names);
-  SET_STRING_ELT(names, 0, Rf_mkChar("attributes"));
-  SET_STRING_ELT(names, 1, Rf_mkChar("columns"));
-  return names;
+// returns the namespace environment for package `name`
+SEXP r_namespace(std::string name) {
+  SEXP s_name = PROTECT(strings({name}));
+  SEXP ns = R_FindNamespace(s_name);
+  UNPROTECT(1);
+  return ns;
 }
+SEXP data::classes_POSIXct = precious(strings({"POSIXct", "POSIXt"}));
+SEXP data::classes_metadata_r = precious(strings({"arrow_r_metadata"}));
+SEXP data::classes_vctrs_list_of =
+    precious(strings({"vctrs_list_of", "vctrs_vctr", "list"}));
 
-SEXP get_classes_vctrs_list_of() {
-  SEXP classes = Rf_allocVector(STRSXP, 3);
-  R_PreserveObject(classes);
-  SET_STRING_ELT(classes, 0, Rf_mkChar("vctrs_list_of"));
-  SET_STRING_ELT(classes, 1, Rf_mkChar("vctrs_vctr"));
-  SET_STRING_ELT(classes, 2, Rf_mkChar("list"));
-  return classes;
-}
+SEXP data::classes_arrow_binary =
+    precious(strings({"arrow_binary", "vctrs_vctr", "list"}));
+SEXP data::classes_arrow_large_binary =
+    precious(strings({"arrow_large_binary", "vctrs_vctr", "list"}));
+SEXP data::classes_arrow_fixed_size_binary =
+    precious(strings({"arrow_fixed_size_binary", "vctrs_vctr", "list"}));
+SEXP data::classes_factor = precious(strings({"factor"}));
+SEXP data::classes_ordered = precious(strings({"ordered", "factor"}));
 
-SEXP get_empty_raw() {
-  SEXP res = Rf_allocVector(RAWSXP, 0);
-  R_PreserveObject(res);
-  return res;
-}
+SEXP data::classes_arrow_list =
+    precious(strings({"arrow_list", "vctrs_list_of", "vctrs_vctr", "list"}));
+SEXP data::classes_arrow_large_list =
+    precious(strings({"arrow_large_list", "vctrs_list_of", "vctrs_vctr", "list"}));
+SEXP data::classes_arrow_fixed_size_list =
+    precious(strings({"arrow_fixed_size_list", "vctrs_list_of", "vctrs_vctr", "list"}));
 
-SEXP data::classes_POSIXct = get_classes_POSIXct();
-SEXP data::classes_metadata_r = get_classes_metadata_r();
-SEXP data::names_metadata = get_names_metadata();
-SEXP data::classes_vctrs_list_of = get_classes_vctrs_list_of();
-SEXP data::empty_raw = get_empty_raw();
+SEXP data::names_metadata = precious(strings({"attributes", "columns"}));
+SEXP data::empty_raw = precious(Rf_allocVector(RAWSXP, 0));
+
+SEXP ns::arrow = precious(r_namespace("arrow"));
 
 void inspect(SEXP obj) {
   Rcpp::Shield<SEXP> call_inspect(Rf_lang2(symbols::inspect, obj));
   Rcpp::Shield<SEXP> call_internal(Rf_lang2(symbols::dot_Internal, call_inspect));
   Rf_eval(call_internal, R_GlobalEnv);
 }
-
-SEXP get_arrow_ns() {
-  SEXP name = PROTECT(Rf_ScalarString(Rf_mkChar("arrow")));
-  SEXP ns = R_FindNamespace(name);
-  R_PreserveObject(ns);
-  UNPROTECT(1);
-  return ns;
-}
-
-SEXP ns::arrow = get_arrow_ns();
 
 }  // namespace r
 }  // namespace arrow

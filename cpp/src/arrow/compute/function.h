@@ -141,6 +141,8 @@ class ARROW_EXPORT Function {
         arity_(arity),
         default_options_(default_options) {}
 
+  Status CheckArity(int passed_num_args) const;
+
   std::string name_;
   Function::Kind kind_;
   Arity arity_;

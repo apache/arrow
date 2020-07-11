@@ -28,6 +28,7 @@ import java.util.Map;
 import org.apache.arrow.flatbuf.Block;
 import org.apache.arrow.flatbuf.Footer;
 import org.apache.arrow.flatbuf.KeyValue;
+import org.apache.arrow.vector.types.MetadataVersion;
 import org.apache.arrow.vector.types.pojo.Schema;
 
 import com.google.flatbuffers.FlatBufferBuilder;
@@ -42,6 +43,8 @@ public class ArrowFooter implements FBSerializable {
   private final List<ArrowBlock> recordBatches;
 
   private final Map<String, String> metaData;
+
+  private final MetadataVersion metadataVersion;
 
   public ArrowFooter(Schema schema, List<ArrowBlock> dictionaries, List<ArrowBlock> recordBatches) {
     this(schema, dictionaries, recordBatches, null);
@@ -60,11 +63,29 @@ public class ArrowFooter implements FBSerializable {
       List<ArrowBlock> dictionaries,
       List<ArrowBlock> recordBatches,
       Map<String, String> metaData) {
+    this(schema, dictionaries, recordBatches, metaData, MetadataVersion.DEFAULT);
+  }
 
+  /**
+   * Constructs a new instance.
+   *
+   * @param schema The schema for record batches in the file.
+   * @param dictionaries  The dictionaries relevant to the file.
+   * @param recordBatches  The recordBatches written to the file.
+   * @param metaData user-defined k-v meta data.
+   * @param metadataVersion The Arrow metadata version.
+   */
+  public ArrowFooter(
+      Schema schema,
+      List<ArrowBlock> dictionaries,
+      List<ArrowBlock> recordBatches,
+      Map<String, String> metaData,
+      MetadataVersion metadataVersion) {
     this.schema = schema;
     this.dictionaries = dictionaries;
     this.recordBatches = recordBatches;
     this.metaData = metaData;
+    this.metadataVersion = metadataVersion;
   }
 
   /**
@@ -75,7 +96,8 @@ public class ArrowFooter implements FBSerializable {
         Schema.convertSchema(footer.schema()),
         dictionaries(footer),
         recordBatches(footer),
-        metaData(footer)
+        metaData(footer),
+        MetadataVersion.fromFlatbufID(footer.version())
     );
   }
 
@@ -130,6 +152,10 @@ public class ArrowFooter implements FBSerializable {
     return metaData;
   }
 
+  public MetadataVersion getMetadataVersion() {
+    return metadataVersion;
+  }
+
   @Override
   public int writeTo(FlatBufferBuilder builder) {
     int schemaIndex = schema.getSchema(builder);
@@ -148,6 +174,7 @@ public class ArrowFooter implements FBSerializable {
     Footer.addDictionaries(builder, dicsOffset);
     Footer.addRecordBatches(builder, rbsOffset);
     Footer.addCustomMetadata(builder, metaDataOffset);
+    Footer.addVersion(builder, metadataVersion.toFlatbufID());
     return Footer.endFooter(builder);
   }
 

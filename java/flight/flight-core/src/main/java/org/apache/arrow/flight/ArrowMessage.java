@@ -37,8 +37,10 @@ import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.ipc.message.ArrowDictionaryBatch;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
+import org.apache.arrow.vector.ipc.message.IpcOption;
 import org.apache.arrow.vector.ipc.message.MessageMetadataResult;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
+import org.apache.arrow.vector.types.MetadataVersion;
 import org.apache.arrow.vector.types.pojo.Schema;
 
 import com.google.common.collect.ImmutableList;
@@ -50,7 +52,6 @@ import com.google.protobuf.CodedOutputStream;
 import com.google.protobuf.WireFormat;
 
 import io.grpc.Drainable;
-import io.grpc.MethodDescriptor;
 import io.grpc.MethodDescriptor.Marshaller;
 import io.grpc.protobuf.ProtoUtils;
 import io.netty.buffer.ByteBuf;
@@ -75,7 +76,8 @@ class ArrowMessage implements AutoCloseable {
   private static final int APP_METADATA_TAG =
       (FlightData.APP_METADATA_FIELD_NUMBER << 3) | WireFormat.WIRETYPE_LENGTH_DELIMITED;
 
-  private static Marshaller<FlightData> NO_BODY_MARSHALLER = ProtoUtils.marshaller(FlightData.getDefaultInstance());
+  private static final Marshaller<FlightData> NO_BODY_MARSHALLER =
+      ProtoUtils.marshaller(FlightData.getDefaultInstance());
 
   /** Get the application-specific metadata in this message. The ArrowMessage retains ownership of the buffer. */
   public ArrowBuf getApplicationMetadata() {
@@ -106,7 +108,7 @@ class ArrowMessage implements AutoCloseable {
   }
 
   // Pre-allocated buffers for padding serialized ArrowMessages.
-  private static List<ByteBuf> PADDING_BUFFERS = Arrays.asList(
+  private static final List<ByteBuf> PADDING_BUFFERS = Arrays.asList(
       null,
       Unpooled.copiedBuffer(new byte[] { 0 }),
       Unpooled.copiedBuffer(new byte[] { 0, 0 }),
@@ -117,13 +119,15 @@ class ArrowMessage implements AutoCloseable {
       Unpooled.copiedBuffer(new byte[] { 0, 0, 0, 0, 0, 0, 0 })
   );
 
+  private final IpcOption writeOption;
   private final FlightDescriptor descriptor;
   private final MessageMetadataResult message;
   private final ArrowBuf appMetadata;
   private final List<ArrowBuf> bufs;
 
-  public ArrowMessage(FlightDescriptor descriptor, Schema schema) {
-    ByteBuffer serializedMessage = MessageSerializer.serializeMetadata(schema);
+  public ArrowMessage(FlightDescriptor descriptor, Schema schema, IpcOption option) {
+    this.writeOption = option;
+    ByteBuffer serializedMessage = MessageSerializer.serializeMetadata(schema, writeOption);
     this.message = MessageMetadataResult.create(serializedMessage.slice(),
         serializedMessage.remaining());
     bufs = ImmutableList.of();
@@ -136,16 +140,18 @@ class ArrowMessage implements AutoCloseable {
    * @param batch The record batch.
    * @param appMetadata The app metadata. May be null. Takes ownership of the buffer otherwise.
    */
-  public ArrowMessage(ArrowRecordBatch batch, ArrowBuf appMetadata) {
-    ByteBuffer serializedMessage = MessageSerializer.serializeMetadata(batch);
+  public ArrowMessage(ArrowRecordBatch batch, ArrowBuf appMetadata, IpcOption option) {
+    this.writeOption = option;
+    ByteBuffer serializedMessage = MessageSerializer.serializeMetadata(batch, writeOption);
     this.message = MessageMetadataResult.create(serializedMessage.slice(), serializedMessage.remaining());
     this.bufs = ImmutableList.copyOf(batch.getBuffers());
     this.descriptor = null;
     this.appMetadata = appMetadata;
   }
 
-  public ArrowMessage(ArrowDictionaryBatch batch) {
-    ByteBuffer serializedMessage = MessageSerializer.serializeMetadata(batch);
+  public ArrowMessage(ArrowDictionaryBatch batch, IpcOption option) {
+    this.writeOption = new IpcOption();
+    ByteBuffer serializedMessage = MessageSerializer.serializeMetadata(batch, writeOption);
     serializedMessage = serializedMessage.slice();
     this.message = MessageMetadataResult.create(serializedMessage, serializedMessage.remaining());
     // asInputStream will free the buffers implicitly, so increment the reference count
@@ -160,6 +166,8 @@ class ArrowMessage implements AutoCloseable {
    * @param appMetadata The application-provided metadata buffer.
    */
   public ArrowMessage(ArrowBuf appMetadata) {
+    // No need to take IpcOption as it's not used to serialize this kind of message.
+    this.writeOption = new IpcOption();
     this.message = null;
     this.bufs = ImmutableList.of();
     this.descriptor = null;
@@ -167,6 +175,8 @@ class ArrowMessage implements AutoCloseable {
   }
 
   public ArrowMessage(FlightDescriptor descriptor) {
+    // No need to take IpcOption as it's not used to serialize this kind of message.
+    this.writeOption = new IpcOption();
     this.message = null;
     this.bufs = ImmutableList.of();
     this.descriptor = descriptor;
@@ -175,6 +185,11 @@ class ArrowMessage implements AutoCloseable {
 
   private ArrowMessage(FlightDescriptor descriptor, MessageMetadataResult message, ArrowBuf appMetadata,
                        ArrowBuf buf) {
+    // No need to take IpcOption as this is used for deserialized ArrowMessage coming from the wire.
+    this.writeOption = new IpcOption();
+    if (message != null) {
+      this.writeOption.metadataVersion = MetadataVersion.fromFlatbufID(message.getMessage().version());
+    }
     this.message = message;
     this.descriptor = descriptor;
     this.appMetadata = appMetadata;
@@ -404,7 +419,7 @@ class ArrowMessage implements AutoCloseable {
     return new ArrowMessageHolderMarshaller(allocator);
   }
 
-  private static class ArrowMessageHolderMarshaller implements MethodDescriptor.Marshaller<ArrowMessage> {
+  private static class ArrowMessageHolderMarshaller implements Marshaller<ArrowMessage> {
 
     private final BufferAllocator allocator;
 

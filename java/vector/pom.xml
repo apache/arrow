@@ -30,7 +30,7 @@
     </dependency>
     <dependency>
       <groupId>org.apache.arrow</groupId>
-      <artifactId>arrow-memory</artifactId>
+      <artifactId>arrow-memory-core</artifactId>
       <version>${project.version}</version>
     </dependency>
     <dependency>
@@ -51,8 +51,9 @@
       <version>1.10</version>
     </dependency>
     <dependency>
-      <groupId>io.netty</groupId>
-      <artifactId>netty-buffer</artifactId>
+      <groupId>org.apache.arrow</groupId>
+      <artifactId>arrow-memory-netty</artifactId>
+      <version>${project.version}</version>
       <scope>test</scope>
     </dependency>
     <dependency>

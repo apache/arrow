@@ -376,7 +376,20 @@ class TestFlightClient : public ::testing::Test {
     for (int i = 0; i < num_batches; ++i) {
       ASSERT_OK(stream->Next(&chunk));
       ASSERT_NE(nullptr, chunk.data);
+#if !defined(__MINGW32__)
       ASSERT_BATCHES_EQUAL(*expected_batches[i], *chunk.data);
+#else
+      // In MINGW32, the following code does not have the reproducibility at the LSB
+      // even when this is called twice with the same seed.
+      // As a workaround, use approxEqual
+      //   /* from GenerateTypedData in random.cc */
+      //   std::default_random_engine rng(seed);  // seed = 282475250
+      //   std::uniform_real_distribution<double> dist;
+      //   std::generate(data, data + n,          // n = 10
+      //                 [&dist, &rng] { return static_cast<ValueType>(dist(rng)); });
+      //   /* data[1] = 0x40852cdfe23d3976 or 0x40852cdfe23d3975 */
+      ASSERT_BATCHES_APPROX_EQUAL(*expected_batches[i], *chunk.data);
+#endif
     }
 
     // Stream exhausted
@@ -431,6 +444,8 @@ class MetadataTestServer : public FlightServerBase {
     BatchVector batches;
     if (request.ticket == "dicts") {
       RETURN_NOT_OK(ExampleDictBatches(&batches));
+    } else if (request.ticket == "floats") {
+      RETURN_NOT_OK(ExampleFloatBatches(&batches));
     } else {
       RETURN_NOT_OK(ExampleIntBatches(&batches));
     }
@@ -1062,6 +1077,20 @@ TEST_F(TestFlightClient, DoGetInts) {
   CheckDoGet(descr, expected_batches, check_endpoints);
 }
 
+TEST_F(TestFlightClient, DoGetFloats) {
+  auto descr = FlightDescriptor::Path({"examples", "floats"});
+  BatchVector expected_batches;
+  ASSERT_OK(ExampleFloatBatches(&expected_batches));
+
+  auto check_endpoints = [](const std::vector<FlightEndpoint>& endpoints) {
+    // One endpoint in the example FlightInfo
+    ASSERT_EQ(1, endpoints.size());
+    AssertEqual(Ticket{"ticket-floats-1"}, endpoints[0].ticket);
+  };
+
+  CheckDoGet(descr, expected_batches, check_endpoints);
+}
+
 TEST_F(TestFlightClient, DoGetDicts) {
   auto descr = FlightDescriptor::Path({"examples", "dicts"});
   BatchVector expected_batches;
@@ -1428,9 +1457,33 @@ TEST_F(TestFlightClient, NoTimeout) {
 TEST_F(TestDoPut, DoPutInts) {
   auto descr = FlightDescriptor::Path({"ints"});
   BatchVector batches;
-  auto a1 = ArrayFromJSON(int32(), "[4, 5, 6, null]");
-  auto schema = arrow::schema({field("f1", a1->type())});
-  batches.push_back(RecordBatch::Make(schema, a1->length(), {a1}));
+  auto a0 = ArrayFromJSON(int8(), "[0, 1, 127, -128, null]");
+  auto a1 = ArrayFromJSON(uint8(), "[0, 1, 127, 255, null]");
+  auto a2 = ArrayFromJSON(int16(), "[0, 258, 32767, -32768, null]");
+  auto a3 = ArrayFromJSON(uint16(), "[0, 258, 32767, 65535, null]");
+  auto a4 = ArrayFromJSON(int32(), "[0, 65538, 2147483647, -2147483648, null]");
+  auto a5 = ArrayFromJSON(uint32(), "[0, 65538, 2147483647, 4294967295, null]");
+  auto a6 = ArrayFromJSON(
+      int64(), "[0, 4294967298, 9223372036854775807, -9223372036854775808, null]");
+  auto a7 = ArrayFromJSON(
+      uint64(), "[0, 4294967298, 9223372036854775807, 18446744073709551615, null]");
+  auto schema = arrow::schema({field("f0", a0->type()), field("f1", a1->type()),
+                               field("f2", a2->type()), field("f3", a3->type()),
+                               field("f4", a4->type()), field("f5", a5->type()),
+                               field("f6", a6->type()), field("f7", a7->type())});
+  batches.push_back(
+      RecordBatch::Make(schema, a0->length(), {a0, a1, a2, a3, a4, a5, a6, a7}));
+
+  CheckDoPut(descr, schema, batches);
+}
+
+TEST_F(TestDoPut, DoPutFloats) {
+  auto descr = FlightDescriptor::Path({"floats"});
+  BatchVector batches;
+  auto a0 = ArrayFromJSON(float32(), "[0, 1.2, -3.4, 5.6, null]");
+  auto a1 = ArrayFromJSON(float64(), "[0, 1.2, -3.4, 5.6, null]");
+  auto schema = arrow::schema({field("f0", a0->type()), field("f1", a1->type())});
+  batches.push_back(RecordBatch::Make(schema, a0->length(), {a0, a1}));
 
   CheckDoPut(descr, schema, batches);
 }

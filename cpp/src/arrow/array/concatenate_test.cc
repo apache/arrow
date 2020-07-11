@@ -144,6 +144,12 @@ TYPED_TEST(PrimitiveConcatenateTest, Primitives) {
   });
 }
 
+TEST_F(ConcatenateTest, NullType) {
+  Check([](int32_t size, double null_probability, std::shared_ptr<Array>* out) {
+    *out = std::make_shared<NullArray>(size);
+  });
+}
+
 TEST_F(ConcatenateTest, StringType) {
   Check([this](int32_t size, double null_probability, std::shared_ptr<Array>* out) {
     *out = rng_.String(size, /*min_length =*/0, /*max_length =*/15, null_probability);

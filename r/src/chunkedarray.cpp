@@ -90,4 +90,9 @@ bool ChunkedArray__Equals(const std::shared_ptr<arrow::ChunkedArray>& x,
   return x->Equals(y);
 }
 
+// [[arrow::export]]
+std::string ChunkedArray__ToString(const std::shared_ptr<arrow::ChunkedArray>& x) {
+  return x->ToString();
+}
+
 #endif

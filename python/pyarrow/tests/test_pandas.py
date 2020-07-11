@@ -22,7 +22,7 @@ import multiprocessing as mp
 import sys
 
 from collections import OrderedDict
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, time, timedelta, timezone
 from distutils.version import LooseVersion
 
 import hypothesis as h
@@ -1205,16 +1205,20 @@ class TestConvertDateTimeLikeTypes:
         tm.assert_frame_equal(table_pandas_objects,
                               expected_pandas_objects)
 
-    def test_object_null_values(self):
+    def test_pandas_null_values(self):
         # ARROW-842
-        NA = getattr(pd, 'NA', None)
-        values = np.array([datetime(2000, 1, 1), pd.NaT, NA], dtype=object)
+        pd_NA = getattr(pd, 'NA', None)
+        values = np.array([datetime(2000, 1, 1), pd.NaT, pd_NA], dtype=object)
         values_with_none = np.array([datetime(2000, 1, 1), None, None],
                                     dtype=object)
         result = pa.array(values, from_pandas=True)
         expected = pa.array(values_with_none, from_pandas=True)
         assert result.equals(expected)
         assert result.null_count == 2
+
+        # ARROW-9407
+        assert pa.array([pd.NaT], from_pandas=True).type == pa.null()
+        assert pa.array([pd_NA], from_pandas=True).type == pa.null()
 
     def test_dates_from_integers(self):
         t1 = pa.date32()
@@ -3321,13 +3325,20 @@ def test_cast_timestamp_unit():
     assert result.equals(expected)
 
 
-def test_struct_with_timestamp_tz():
+def test_nested_with_timestamp_tz():
     # ARROW-7723
     ts = pd.Timestamp.now()
+    ts_dt = ts.to_pydatetime()
 
     # XXX: Ensure that this data does not get promoted to nanoseconds (and thus
     # integers) to preserve behavior in 0.15.1
     for unit in ['s', 'ms', 'us']:
+        if unit in ['s', 'ms']:
+            # This is used for verifying timezone conversion to micros are not
+            # important
+            def truncate(x): return x.replace(microsecond=0)
+        else:
+            def truncate(x): return x
         arr = pa.array([ts], type=pa.timestamp(unit))
         arr2 = pa.array([ts], type=pa.timestamp(unit, tz='America/New_York'))
 
@@ -3336,20 +3347,30 @@ def test_struct_with_timestamp_tz():
 
         result = arr3.to_pandas()
         assert isinstance(result[0]['start'], datetime)
+        assert result[0]['start'].tzinfo is None
         assert isinstance(result[0]['stop'], datetime)
+        assert result[0]['stop'].tzinfo is None
 
         result = arr4.to_pandas()
         assert isinstance(result[0]['start'], datetime)
+        assert result[0]['start'].tzinfo is not None
+        utc_dt = result[0]['start'].astimezone(timezone.utc)
+        assert truncate(utc_dt).replace(tzinfo=None) == truncate(ts_dt)
         assert isinstance(result[0]['stop'], datetime)
+        assert result[0]['stop'].tzinfo is not None
 
         # same conversion for table
         result = pa.table({'a': arr3}).to_pandas()
         assert isinstance(result['a'][0]['start'], datetime)
+        assert result['a'][0]['start'].tzinfo is None
         assert isinstance(result['a'][0]['stop'], datetime)
+        assert result['a'][0]['stop'].tzinfo is None
 
         result = pa.table({'a': arr4}).to_pandas()
         assert isinstance(result['a'][0]['start'], datetime)
+        assert result['a'][0]['start'].tzinfo is not None
         assert isinstance(result['a'][0]['stop'], datetime)
+        assert result['a'][0]['stop'].tzinfo is not None
 
 
 # ----------------------------------------------------------------------
@@ -4026,19 +4047,25 @@ def test_timestamp_as_object_out_of_range():
 
 
 @pytest.mark.parametrize("resolution", ["s", "ms", "us"])
+@pytest.mark.parametrize("tz", [None, "America/New_York"])
 # One datetime outside nanosecond range, one inside nanosecond range:
 @pytest.mark.parametrize("dt", [datetime(1553, 1, 1), datetime(2020, 1, 1)])
-def test_timestamp_as_object_non_nanosecond(resolution, dt):
+def test_timestamp_as_object_non_nanosecond(resolution, tz, dt):
     # Timestamps can be converted Arrow and reloaded into Pandas with no loss
     # of information if the timestamp_as_object option is True.
-    arr = pa.array([dt], type=pa.timestamp(resolution))
-    result = arr.to_pandas(timestamp_as_object=True)
-    assert result.dtype == object
-    assert isinstance(result[0], datetime)
-    assert result[0] == dt
-
+    arr = pa.array([dt], type=pa.timestamp(resolution, tz=tz))
     table = pa.table({'a': arr})
-    result = table.to_pandas(timestamp_as_object=True)['a']
-    assert result.dtype == object
-    assert isinstance(result[0], datetime)
-    assert result[0] == dt
+
+    for result in [
+        arr.to_pandas(timestamp_as_object=True),
+        table.to_pandas(timestamp_as_object=True)['a']
+    ]:
+        assert result.dtype == object
+        assert isinstance(result[0], datetime)
+        if tz:
+            assert result[0].tzinfo is not None
+            expected = result[0].tzinfo.fromutc(dt)
+        else:
+            assert result[0].tzinfo is None
+            expected = dt
+        assert result[0] == expected

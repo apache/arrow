@@ -1816,9 +1816,6 @@ cdef timeunit_to_string(TimeUnit unit):
         return 'ns'
 
 
-_FIXED_OFFSET_RE = re.compile(r'([+-])(0[0-9]|1[0-9]|2[0-3]):([0-5][0-9])$')
-
-
 def tzinfo_to_string(tz):
     """
     Converts a time zone object into a string indicating the name of a time
@@ -1884,14 +1881,9 @@ def string_to_tzinfo(name):
       tz : datetime.tzinfo
         Time zone object
     """
-    import pytz
-    m = _FIXED_OFFSET_RE.match(name)
-    if m:
-        sign = 1 if m.group(1) == '+' else -1
-        hours, minutes = map(int, m.group(2, 3))
-        return pytz.FixedOffset(sign * (hours * 60 + minutes))
-    else:
-        return pytz.timezone(name)
+    cdef PyObject* tz
+    check_status(libarrow.StringToTzinfo(name.encode('utf-8'), &tz))
+    return PyObject_to_object(tz)
 
 
 def timestamp(unit, tz=None):

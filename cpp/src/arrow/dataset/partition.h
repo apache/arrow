@@ -175,6 +175,9 @@ class ARROW_DS_EXPORT KeyValuePartitioning : public Partitioning {
       const std::function<Status(const std::string& name,
                                  const std::shared_ptr<Scalar>& value)>& visitor);
 
+  static Result<std::unordered_map<std::string, std::shared_ptr<Scalar>>> GetKeys(
+      const Expression& expr);
+
   static Status SetDefaultValuesFromKeys(const Expression& expr,
                                          RecordBatchProjector* projector);
 

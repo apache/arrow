@@ -27,13 +27,5 @@ pushd ${source_dir}
 # Install R package dependencies
 ${R_BIN} -e "install.packages('remotes'); remotes::install_cran(c('glue', 'rcmdcheck'))"
 ${R_BIN} -e "remotes::install_deps(dependencies = TRUE)"
-# This isn't required for testing, only for if you're using this to build your dev environment
-${R_BIN} -e "try(remotes::install_github('nealrichardson/decor'))"
 
 popd
-
-if [ "`which curl`" ]; then
-  # We need this on R >= 4.0
-  curl -L https://sourceforge.net/projects/checkbaskisms/files/2.0.0.2/checkbashisms/download > /usr/local/bin/checkbashisms
-  chmod 755 /usr/local/bin/checkbashisms
-fi

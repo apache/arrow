@@ -17,6 +17,8 @@
 
 package org.apache.arrow.vector.ipc.message;
 
+import org.apache.arrow.vector.types.MetadataVersion;
+
 /**
  * IPC options, now only use for write.
  */
@@ -25,4 +27,7 @@ public class IpcOption {
   // Write the pre-0.15.0 encapsulated IPC message format
   // consisting of a 4-byte prefix instead of 8 byte
   public boolean write_legacy_ipc_format = false;
+
+  // The metadata version. Defaults to V5.
+  public MetadataVersion metadataVersion = MetadataVersion.DEFAULT;
 }

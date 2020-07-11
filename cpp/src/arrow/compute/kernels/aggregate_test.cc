@@ -16,6 +16,7 @@
 // under the License.
 
 #include <algorithm>
+#include <limits>
 #include <memory>
 #include <type_traits>
 #include <utility>
@@ -216,6 +217,29 @@ TYPED_TEST(TestRandomNumericSumKernel, RandomArraySum) {
   }
 }
 
+TYPED_TEST_SUITE(TestRandomNumericSumKernel, NumericArrowTypes);
+TYPED_TEST(TestRandomNumericSumKernel, RandomArraySumOverflow) {
+  using CType = typename TypeParam::c_type;
+  using SumCType = typename FindAccumulatorType<TypeParam>::Type::c_type;
+  if (sizeof(CType) == sizeof(SumCType)) {
+    // Skip if accumulator type is same to original type
+    return;
+  }
+
+  CType max = std::numeric_limits<CType>::max();
+  CType min = std::numeric_limits<CType>::min();
+  int64_t length = 1024;
+
+  auto rand = random::RandomArrayGenerator(0x5487655);
+  for (auto null_probability : {0.0, 0.1, 0.5, 1.0}) {
+    // Test overflow on the original type
+    auto array = rand.Numeric<TypeParam>(length, max - 200, max - 100, null_probability);
+    ValidateSum<TypeParam>(*array);
+    array = rand.Numeric<TypeParam>(length, min + 100, min + 200, null_probability);
+    ValidateSum<TypeParam>(*array);
+  }
+}
+
 TYPED_TEST(TestRandomNumericSumKernel, RandomSliceArraySum) {
   auto arithmetic = ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(),
                                   "[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16]");
@@ -373,6 +397,29 @@ TYPED_TEST(TestRandomNumericMeanKernel, RandomArrayMean) {
         ValidateMean<TypeParam>(*array);
       }
     }
+  }
+}
+
+TYPED_TEST_SUITE(TestRandomNumericMeanKernel, NumericArrowTypes);
+TYPED_TEST(TestRandomNumericMeanKernel, RandomArrayMeanOverflow) {
+  using CType = typename TypeParam::c_type;
+  using SumCType = typename FindAccumulatorType<TypeParam>::Type::c_type;
+  if (sizeof(CType) == sizeof(SumCType)) {
+    // Skip if accumulator type is same to original type
+    return;
+  }
+
+  CType max = std::numeric_limits<CType>::max();
+  CType min = std::numeric_limits<CType>::min();
+  int64_t length = 1024;
+
+  auto rand = random::RandomArrayGenerator(0x8afc055);
+  for (auto null_probability : {0.0, 0.1, 0.5, 1.0}) {
+    // Test overflow on the original type
+    auto array = rand.Numeric<TypeParam>(length, max - 200, max - 100, null_probability);
+    ValidateMean<TypeParam>(*array);
+    array = rand.Numeric<TypeParam>(length, min + 100, min + 200, null_probability);
+    ValidateMean<TypeParam>(*array);
   }
 }
 

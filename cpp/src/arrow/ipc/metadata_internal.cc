@@ -76,12 +76,40 @@ MetadataVersion GetMetadataVersion(flatbuf::MetadataVersion version) {
       // Arrow 0.3 to 0.7.1
       return MetadataVersion::V4;
     case flatbuf::MetadataVersion::V4:
-      // Arrow >= 0.8
+      // Arrow 0.8 to 0.17
       return MetadataVersion::V4;
+    case flatbuf::MetadataVersion::V5:
+      // Arrow >= 1.0
+      return MetadataVersion::V5;
     // Add cases as other versions become available
     default:
-      return MetadataVersion::V4;
+      return MetadataVersion::V5;
   }
+}
+
+flatbuf::MetadataVersion MetadataVersionToFlatbuffer(MetadataVersion version) {
+  switch (version) {
+    case MetadataVersion::V1:
+      return flatbuf::MetadataVersion::V1;
+    case MetadataVersion::V2:
+      return flatbuf::MetadataVersion::V2;
+    case MetadataVersion::V3:
+      return flatbuf::MetadataVersion::V3;
+    case MetadataVersion::V4:
+      return flatbuf::MetadataVersion::V4;
+    case MetadataVersion::V5:
+      return flatbuf::MetadataVersion::V5;
+    // Add cases as other versions become available
+    default:
+      return flatbuf::MetadataVersion::V5;
+  }
+}
+
+bool HasValidityBitmap(Type::type type_id, MetadataVersion version) {
+  // In V4, null types have no validity bitmap
+  // In V5 and later, null and union types have no validity bitmap
+  return (version < MetadataVersion::V5) ? (type_id != Type::NA)
+                                         : ::arrow::internal::HasValidityBitmap(type_id);
 }
 
 namespace {
@@ -835,11 +863,11 @@ Status SchemaToFlatbuffer(FBB& fbb, const Schema& schema, DictionaryMemo* dictio
 
 Result<std::shared_ptr<Buffer>> WriteFBMessage(
     FBB& fbb, flatbuf::MessageHeader header_type, flatbuffers::Offset<void> header,
-    int64_t body_length,
+    int64_t body_length, MetadataVersion version,
     const std::shared_ptr<const KeyValueMetadata>& custom_metadata = nullptr) {
-  auto message =
-      flatbuf::CreateMessage(fbb, kCurrentMetadataVersion, header_type, header,
-                             body_length, SerializeCustomMetadata(fbb, custom_metadata));
+  auto message = flatbuf::CreateMessage(fbb, MetadataVersionToFlatbuffer(version),
+                                        header_type, header, body_length,
+                                        SerializeCustomMetadata(fbb, custom_metadata));
   fbb.Finish(message);
   return WriteFlatbufferBuilder(fbb);
 }
@@ -1142,12 +1170,12 @@ Status GetKeyValueMetadata(const KVVector* fb_metadata,
 }
 
 Status WriteSchemaMessage(const Schema& schema, DictionaryMemo* dictionary_memo,
-                          std::shared_ptr<Buffer>* out) {
+                          const IpcWriteOptions& options, std::shared_ptr<Buffer>* out) {
   FBB fbb;
   flatbuffers::Offset<flatbuf::Schema> fb_schema;
   RETURN_NOT_OK(SchemaToFlatbuffer(fbb, schema, dictionary_memo, &fb_schema));
   return WriteFBMessage(fbb, flatbuf::MessageHeader::Schema, fb_schema.Union(),
-                        /*body_length=*/0)
+                        /*body_length=*/0, options.metadata_version)
       .Value(out);
 }
 
@@ -1161,12 +1189,13 @@ Status WriteRecordBatchMessage(
   RETURN_NOT_OK(
       MakeRecordBatch(fbb, length, body_length, nodes, buffers, options, &record_batch));
   return WriteFBMessage(fbb, flatbuf::MessageHeader::RecordBatch, record_batch.Union(),
-                        body_length, custom_metadata)
+                        body_length, options.metadata_version, custom_metadata)
       .Value(out);
 }
 
 Result<std::shared_ptr<Buffer>> WriteTensorMessage(const Tensor& tensor,
-                                                   int64_t buffer_start_offset) {
+                                                   int64_t buffer_start_offset,
+                                                   const IpcWriteOptions& options) {
   using TensorDimOffset = flatbuffers::Offset<flatbuf::TensorDim>;
   using TensorOffset = flatbuffers::Offset<flatbuf::Tensor>;
 
@@ -1194,18 +1223,18 @@ Result<std::shared_ptr<Buffer>> WriteTensorMessage(const Tensor& tensor,
       flatbuf::CreateTensor(fbb, fb_type_type, fb_type, fb_shape, fb_strides, &buffer);
 
   return WriteFBMessage(fbb, flatbuf::MessageHeader::Tensor, fb_tensor.Union(),
-                        body_length);
+                        body_length, options.metadata_version);
 }
 
 Result<std::shared_ptr<Buffer>> WriteSparseTensorMessage(
     const SparseTensor& sparse_tensor, int64_t body_length,
-    const std::vector<BufferMetadata>& buffers) {
+    const std::vector<BufferMetadata>& buffers, const IpcWriteOptions& options) {
   FBB fbb;
   SparseTensorOffset fb_sparse_tensor;
   RETURN_NOT_OK(
       MakeSparseTensor(fbb, sparse_tensor, body_length, buffers, &fb_sparse_tensor));
   return WriteFBMessage(fbb, flatbuf::MessageHeader::SparseTensor,
-                        fb_sparse_tensor.Union(), body_length);
+                        fb_sparse_tensor.Union(), body_length, options.metadata_version);
 }
 
 Status WriteDictionaryMessage(
@@ -1220,7 +1249,7 @@ Status WriteDictionaryMessage(
   auto dictionary_batch =
       flatbuf::CreateDictionaryBatch(fbb, id, record_batch, is_delta).Union();
   return WriteFBMessage(fbb, flatbuf::MessageHeader::DictionaryBatch, dictionary_batch,
-                        body_length, custom_metadata)
+                        body_length, options.metadata_version, custom_metadata)
       .Value(out);
 }
 

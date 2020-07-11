@@ -374,11 +374,13 @@ def test_message_reader(example_messages):
     assert messages[0].type == 'schema'
     assert isinstance(messages[0].metadata, pa.Buffer)
     assert isinstance(messages[0].body, pa.Buffer)
+    assert messages[0].metadata_version == pa.MetadataVersion.V5
 
     for msg in messages[1:]:
         assert msg.type == 'record batch'
         assert isinstance(msg.metadata, pa.Buffer)
         assert isinstance(msg.body, pa.Buffer)
+        assert msg.metadata_version == pa.MetadataVersion.V5
 
 
 def test_message_serialize_read_message(example_messages):

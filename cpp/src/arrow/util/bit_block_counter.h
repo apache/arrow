@@ -86,6 +86,12 @@ class ARROW_EXPORT BitBlockCounter {
         bits_remaining_(length),
         offset_(start_offset % 8) {}
 
+  /// \brief The bit size of each word run
+  static constexpr int64_t kWordBits = 64;
+
+  /// \brief The bit size of four words run
+  static constexpr int64_t kFourWordsBits = kWordBits * 4;
+
   /// \brief Return the next run of available bits, usually 256. The returned
   /// pair contains the size of run and the number of true values. The last
   /// block will have a length less than 256 if the bitmap length is not a

@@ -471,6 +471,16 @@ def test_expression_construction():
         field != {1}
 
 
+def test_partition_keys():
+    a, b, c = [ds.field(f) == f for f in 'abc']
+    assert ds._get_partition_keys(a) == {'a': 'a'}
+    assert ds._get_partition_keys(a & b & c) == {f: f for f in 'abc'}
+
+    nope = ds.field('d') >= 3
+    assert ds._get_partition_keys(nope) == {}
+    assert ds._get_partition_keys(a & nope) == {'a': 'a'}
+
+
 def test_parquet_read_options():
     opts1 = ds.ParquetReadOptions()
     opts2 = ds.ParquetReadOptions(buffer_size=4096,
@@ -894,7 +904,10 @@ def test_parquet_fragment_statistics(tempdir):
     # list and scan row group fragments
     row_group_fragments = list(fragment.split_by_row_group())
     assert row_group_fragments[0].row_groups is not None
-    assert row_group_fragments[0].row_groups[0].statistics == {
+    row_group = row_group_fragments[0].row_groups[0]
+    assert row_group.num_rows == 3
+    assert row_group.total_byte_size > 1000
+    assert row_group.statistics == {
         'boolean': {'min': False, 'max': True},
         'int8': {'min': 1, 'max': 42},
         'uint8': {'min': 1, 'max': 42},
@@ -1053,6 +1066,12 @@ def test_partitioning_factory_dictionary(mockfs):
         table = factory.finish().to_table().combine_chunks()
         actual = table.column('key').chunk(0)
         expected = pa.array(['xxx'] * 5 + ['yyy'] * 5).dictionary_encode()
+        assert actual.equals(expected)
+
+        # ARROW-9345 ensure filtering on the partition field works
+        table = factory.finish().to_table(filter=ds.field('key') == 'xxx')
+        actual = table.column('key').chunk(0)
+        expected = expected.slice(0, 5)
         assert actual.equals(expected)
 
 

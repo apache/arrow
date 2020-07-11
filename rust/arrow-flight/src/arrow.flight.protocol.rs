@@ -484,6 +484,11 @@ pub mod flight_service_client {
             }
         }
     }
+    impl<T> std::fmt::Debug for FlightServiceClient<T> {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(f, "FlightServiceClient {{ ... }}")
+        }
+    }
 }
 #[doc = r" Generated server implementations."]
 pub mod flight_service_server {
@@ -627,7 +632,6 @@ pub mod flight_service_server {
     #[doc = " accessed using the Arrow Flight Protocol. Additionally, a flight service"]
     #[doc = " can expose a set of actions that are available."]
     #[derive(Debug)]
-    #[doc(hidden)]
     pub struct FlightServiceServer<T: FlightService> {
         inner: _Inner<T>,
     }
@@ -647,17 +651,23 @@ pub mod flight_service_server {
             Self { inner }
         }
     }
-    impl<T: FlightService> Service<http::Request<HyperBody>> for FlightServiceServer<T> {
+    impl<T, B> Service<http::Request<B>> for FlightServiceServer<T>
+    where
+        T: FlightService,
+        B: HttpBody + Send + Sync + 'static,
+        B::Error: Into<StdError> + Send + 'static,
+    {
         type Response = http::Response<tonic::body::BoxBody>;
         type Error = Never;
         type Future = BoxFuture<Self::Response, Self::Error>;
         fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
             Poll::Ready(Ok(()))
         }
-        fn call(&mut self, req: http::Request<HyperBody>) -> Self::Future {
+        fn call(&mut self, req: http::Request<B>) -> Self::Future {
             let inner = self.inner.clone();
             match req.uri().path() {
                 "/arrow.flight.protocol.FlightService/Handshake" => {
+                    #[allow(non_camel_case_types)]
                     struct HandshakeSvc<T: FlightService>(pub Arc<T>);
                     impl<T: FlightService>
                         tonic::server::StreamingService<super::HandshakeRequest>
@@ -676,7 +686,7 @@ pub mod flight_service_server {
                             >,
                         ) -> Self::Future {
                             let inner = self.0.clone();
-                            let fut = async move { inner.handshake(request).await };
+                            let fut = async move { (*inner).handshake(request).await };
                             Box::pin(fut)
                         }
                     }
@@ -697,6 +707,7 @@ pub mod flight_service_server {
                     Box::pin(fut)
                 }
                 "/arrow.flight.protocol.FlightService/ListFlights" => {
+                    #[allow(non_camel_case_types)]
                     struct ListFlightsSvc<T: FlightService>(pub Arc<T>);
                     impl<T: FlightService>
                         tonic::server::ServerStreamingService<super::Criteria>
@@ -713,7 +724,7 @@ pub mod flight_service_server {
                             request: tonic::Request<super::Criteria>,
                         ) -> Self::Future {
                             let inner = self.0.clone();
-                            let fut = async move { inner.list_flights(request).await };
+                            let fut = async move { (*inner).list_flights(request).await };
                             Box::pin(fut)
                         }
                     }
@@ -734,6 +745,7 @@ pub mod flight_service_server {
                     Box::pin(fut)
                 }
                 "/arrow.flight.protocol.FlightService/GetFlightInfo" => {
+                    #[allow(non_camel_case_types)]
                     struct GetFlightInfoSvc<T: FlightService>(pub Arc<T>);
                     impl<T: FlightService>
                         tonic::server::UnaryService<super::FlightDescriptor>
@@ -747,7 +759,8 @@ pub mod flight_service_server {
                             request: tonic::Request<super::FlightDescriptor>,
                         ) -> Self::Future {
                             let inner = self.0.clone();
-                            let fut = async move { inner.get_flight_info(request).await };
+                            let fut =
+                                async move { (*inner).get_flight_info(request).await };
                             Box::pin(fut)
                         }
                     }
@@ -768,6 +781,7 @@ pub mod flight_service_server {
                     Box::pin(fut)
                 }
                 "/arrow.flight.protocol.FlightService/GetSchema" => {
+                    #[allow(non_camel_case_types)]
                     struct GetSchemaSvc<T: FlightService>(pub Arc<T>);
                     impl<T: FlightService>
                         tonic::server::UnaryService<super::FlightDescriptor>
@@ -781,7 +795,7 @@ pub mod flight_service_server {
                             request: tonic::Request<super::FlightDescriptor>,
                         ) -> Self::Future {
                             let inner = self.0.clone();
-                            let fut = async move { inner.get_schema(request).await };
+                            let fut = async move { (*inner).get_schema(request).await };
                             Box::pin(fut)
                         }
                     }
@@ -802,6 +816,7 @@ pub mod flight_service_server {
                     Box::pin(fut)
                 }
                 "/arrow.flight.protocol.FlightService/DoGet" => {
+                    #[allow(non_camel_case_types)]
                     struct DoGetSvc<T: FlightService>(pub Arc<T>);
                     impl<T: FlightService>
                         tonic::server::ServerStreamingService<super::Ticket>
@@ -818,7 +833,7 @@ pub mod flight_service_server {
                             request: tonic::Request<super::Ticket>,
                         ) -> Self::Future {
                             let inner = self.0.clone();
-                            let fut = async move { inner.do_get(request).await };
+                            let fut = async move { (*inner).do_get(request).await };
                             Box::pin(fut)
                         }
                     }
@@ -839,6 +854,7 @@ pub mod flight_service_server {
                     Box::pin(fut)
                 }
                 "/arrow.flight.protocol.FlightService/DoPut" => {
+                    #[allow(non_camel_case_types)]
                     struct DoPutSvc<T: FlightService>(pub Arc<T>);
                     impl<T: FlightService>
                         tonic::server::StreamingService<super::FlightData>
@@ -855,7 +871,7 @@ pub mod flight_service_server {
                             request: tonic::Request<tonic::Streaming<super::FlightData>>,
                         ) -> Self::Future {
                             let inner = self.0.clone();
-                            let fut = async move { inner.do_put(request).await };
+                            let fut = async move { (*inner).do_put(request).await };
                             Box::pin(fut)
                         }
                     }
@@ -876,6 +892,7 @@ pub mod flight_service_server {
                     Box::pin(fut)
                 }
                 "/arrow.flight.protocol.FlightService/DoExchange" => {
+                    #[allow(non_camel_case_types)]
                     struct DoExchangeSvc<T: FlightService>(pub Arc<T>);
                     impl<T: FlightService>
                         tonic::server::StreamingService<super::FlightData>
@@ -892,7 +909,7 @@ pub mod flight_service_server {
                             request: tonic::Request<tonic::Streaming<super::FlightData>>,
                         ) -> Self::Future {
                             let inner = self.0.clone();
-                            let fut = async move { inner.do_exchange(request).await };
+                            let fut = async move { (*inner).do_exchange(request).await };
                             Box::pin(fut)
                         }
                     }
@@ -913,6 +930,7 @@ pub mod flight_service_server {
                     Box::pin(fut)
                 }
                 "/arrow.flight.protocol.FlightService/DoAction" => {
+                    #[allow(non_camel_case_types)]
                     struct DoActionSvc<T: FlightService>(pub Arc<T>);
                     impl<T: FlightService>
                         tonic::server::ServerStreamingService<super::Action>
@@ -929,7 +947,7 @@ pub mod flight_service_server {
                             request: tonic::Request<super::Action>,
                         ) -> Self::Future {
                             let inner = self.0.clone();
-                            let fut = async move { inner.do_action(request).await };
+                            let fut = async move { (*inner).do_action(request).await };
                             Box::pin(fut)
                         }
                     }
@@ -950,6 +968,7 @@ pub mod flight_service_server {
                     Box::pin(fut)
                 }
                 "/arrow.flight.protocol.FlightService/ListActions" => {
+                    #[allow(non_camel_case_types)]
                     struct ListActionsSvc<T: FlightService>(pub Arc<T>);
                     impl<T: FlightService>
                         tonic::server::ServerStreamingService<super::Empty>
@@ -966,7 +985,7 @@ pub mod flight_service_server {
                             request: tonic::Request<super::Empty>,
                         ) -> Self::Future {
                             let inner = self.0.clone();
-                            let fut = async move { inner.list_actions(request).await };
+                            let fut = async move { (*inner).list_actions(request).await };
                             Box::pin(fut)
                         }
                     }

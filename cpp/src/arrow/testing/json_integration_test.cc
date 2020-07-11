@@ -57,12 +57,12 @@ DEFINE_bool(verbose, true, "Verbose output");
 
 namespace arrow {
 
-class Buffer;
 using internal::TemporaryDir;
+using ipc::DictionaryMemo;
+using ipc::IpcWriteOptions;
+using ipc::MetadataVersion;
 
 namespace testing {
-
-using ::arrow::ipc::DictionaryMemo;
 
 using namespace ::arrow::ipc::test;  // NOLINT
 
@@ -83,8 +83,8 @@ static Status ConvertJsonToArrow(const std::string& json_path,
               << reader->schema()->ToString(/* show_metadata = */ true) << std::endl;
   }
 
-  ARROW_ASSIGN_OR_RAISE(auto writer,
-                        ipc::NewFileWriter(out_file.get(), reader->schema()));
+  ARROW_ASSIGN_OR_RAISE(auto writer, ipc::NewFileWriter(out_file.get(), reader->schema(),
+                                                        IpcWriteOptions::Defaults()));
   for (int i = 0; i < reader->num_record_batches(); ++i) {
     std::shared_ptr<RecordBatch> batch;
     RETURN_NOT_OK(reader->ReadRecordBatch(i, &batch));
@@ -1019,8 +1019,9 @@ TEST(TestJsonFileReadWrite, JsonExample4) {
       &MakeIntRecordBatch, &MakeListRecordBatch, &MakeFixedSizeListRecordBatch,   \
       &MakeNonNullRecordBatch, &MakeZeroLengthRecordBatch, &MakeDeeplyNestedList, \
       &MakeStringTypesRecordBatchWithNulls, &MakeStruct, &MakeUnion, &MakeDates,  \
-      &MakeTimestamps, &MakeTimes, &MakeFWBinary, &MakeDecimal, &MakeDictionary,  \
-      &MakeNestedDictionary, &MakeIntervals, &MakeUuid, &MakeDictExtension)
+      &MakeTimestamps, &MakeTimes, &MakeFWBinary, &MakeDecimal, &MakeFloatBatch,  \
+      &MakeDictionary, &MakeNestedDictionary, &MakeIntervals, &MakeUuid,          \
+      &MakeDictExtension)
 
 class TestJsonRoundTrip : public ::testing::TestWithParam<MakeRecordBatch*> {
  public:
@@ -1049,7 +1050,8 @@ void CheckRoundtrip(const RecordBatch& batch) {
   std::shared_ptr<RecordBatch> result_batch;
   ASSERT_OK(reader->ReadRecordBatch(0, &result_batch));
 
-  CompareBatch(batch, *result_batch);
+  // take care of float rounding error in the text representation
+  ApproxCompareBatch(batch, *result_batch);
 }
 
 TEST_P(TestJsonRoundTrip, RoundTrip) {

@@ -1,0 +1,25 @@
+> Array$create(list(numeric(0)), list_of(bool()))
+Error in Array__from_vector(x, type): Unknown: Cannot convert list element 1 to an Array of type `bool` : Expecting a logical vector
+
+> Array$create(list(numeric(0)), list_of(int32()))
+Error in Array__from_vector(x, type): Unknown: Cannot convert list element 1 to an Array of type `int32` : Expecting an integer vector
+
+> Array$create(list(integer(0)), list_of(float64()))
+Error in Array__from_vector(x, type): Unknown: Cannot convert list element 1 to an Array of type `double` : Expecting a numeric vector
+
+> lgl <- logical(0)
+> int <- integer(0)
+> num <- numeric(0)
+> char <- character(0)
+> Array$create(list())
+Error in Array__from_vector(x, type): Requires at least one element to infer the values' type of a list vector
+
+> Array$create(list(lgl, lgl, int))
+Error in Array__from_vector(x, type): Unknown: Cannot convert list element 3 to an Array of type `bool` : Expecting a logical vector
+
+> Array$create(list(char, num, char))
+Error in Array__from_vector(x, type): Unknown: Cannot convert list element 2 to an Array of type `string` : Expecting a character vector
+
+> Array$create(list(int, int, num))
+Error in Array__from_vector(x, type): Unknown: Cannot convert list element 3 to an Array of type `int32` : Expecting an integer vector
+

@@ -1287,11 +1287,15 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         MessageType_DICTIONARY_BATCH\
             " arrow::ipc::MessageType::DICTIONARY_BATCH"
 
-    enum MetadataVersion" arrow::ipc::MetadataVersion":
-        MessageType_V1" arrow::ipc::MetadataVersion::V1"
-        MessageType_V2" arrow::ipc::MetadataVersion::V2"
-        MessageType_V3" arrow::ipc::MetadataVersion::V3"
-        MessageType_V4" arrow::ipc::MetadataVersion::V4"
+    # TODO: use "cpdef enum class" to automatically get a Python wrapper?
+    # See
+    # https://github.com/cython/cython/commit/2c7c22f51405299a4e247f78edf52957d30cf71d#diff-61c1365c0f761a8137754bb3a73bfbf7
+    ctypedef enum CMetadataVersion" arrow::ipc::MetadataVersion":
+        CMetadataVersion_V1" arrow::ipc::MetadataVersion::V1"
+        CMetadataVersion_V2" arrow::ipc::MetadataVersion::V2"
+        CMetadataVersion_V3" arrow::ipc::MetadataVersion::V3"
+        CMetadataVersion_V4" arrow::ipc::MetadataVersion::V4"
+        CMetadataVersion_V5" arrow::ipc::MetadataVersion::V5"
 
     cdef cppclass CIpcWriteOptions" arrow::ipc::IpcWriteOptions":
         c_bool allow_64bit
@@ -1329,7 +1333,7 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         c_bool Equals(const CMessage& other)
 
         shared_ptr[CBuffer] metadata()
-        MetadataVersion metadata_version()
+        CMetadataVersion metadata_version()
         MessageType type()
 
         CStatus SerializeTo(COutputStream* stream,
@@ -1889,6 +1893,7 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py::internal" nogil:
     int64_t TimePoint_to_ns(CTimePoint val)
     CTimePoint TimePoint_from_s(double val)
     CTimePoint TimePoint_from_ns(int64_t val)
+    CStatus StringToTzinfo(c_string, PyObject** tzinfo)
 
 
 cdef extern from 'arrow/python/init.h':

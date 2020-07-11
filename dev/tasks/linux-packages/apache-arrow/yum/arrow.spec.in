@@ -268,6 +268,7 @@ Libraries and header files for Apache Arrow C++.
 %{_libdir}/cmake/arrow/arrow-config.cmake
 %{_libdir}/libarrow.a
 %{_libdir}/libarrow.so
+%{_libdir}/libarrow_bundled_dependencies.a
 %{_libdir}/pkgconfig/arrow-compute.pc
 %{_libdir}/pkgconfig/arrow-csv.pc
 %{_libdir}/pkgconfig/arrow-filesystem.pc

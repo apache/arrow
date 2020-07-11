@@ -63,6 +63,12 @@ public class ArrowFileWriter extends ArrowWriter {
     super(root, provider, out, option);
   }
 
+  public ArrowFileWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out,
+                         Map<String, String> metaData, IpcOption option) {
+    super(root, provider, out, option);
+    this.metaData = metaData;
+  }
+
   @Override
   protected void startInternal(WriteChannel out) throws IOException {
     ArrowMagic.writeMagic(out, true);
@@ -90,7 +96,7 @@ public class ArrowFileWriter extends ArrowWriter {
     out.writeIntLittleEndian(0);
 
     long footerStart = out.getCurrentPosition();
-    out.write(new ArrowFooter(schema, dictionaryBlocks, recordBlocks, metaData), false);
+    out.write(new ArrowFooter(schema, dictionaryBlocks, recordBlocks, metaData, option.metadataVersion), false);
     int footerLength = (int) (out.getCurrentPosition() - footerStart);
     if (footerLength <= 0) {
       throw new InvalidArrowFileException("invalid footer");

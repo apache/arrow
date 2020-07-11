@@ -3,6 +3,7 @@ class ApacheArrow < Formula
   homepage "https://arrow.apache.org/"
   url "https://www.apache.org/dyn/closer.lua?path=arrow/arrow-1.0.0-SNAPSHOT/apache-arrow-1.0.0-SNAPSHOT.tar.gz"
   sha256 "9948ddb6d4798b51552d0dca3252dd6e3a7d0f9702714fc6f5a1b59397ce1d28"
+  license "Apache-2.0"
   head "https://github.com/apache/arrow.git"
 
   depends_on "boost" => :build
@@ -15,7 +16,7 @@ class ApacheArrow < Formula
   depends_on "numpy"
   depends_on "openssl@1.1"
   depends_on "protobuf"
-  depends_on "python"
+  depends_on "python@3.8"
   depends_on "rapidjson"
   depends_on "snappy"
   depends_on "thrift"
@@ -26,6 +27,7 @@ class ApacheArrow < Formula
     args = %W[
       -DARROW_FLIGHT=ON
       -DARROW_GANDIVA=ON
+      -DARROW_JEMALLOC=ON
       -DARROW_ORC=ON
       -DARROW_PARQUET=ON
       -DARROW_PLASMA=ON
@@ -38,7 +40,7 @@ class ApacheArrow < Formula
       -DARROW_WITH_SNAPPY=ON
       -DARROW_WITH_BROTLI=ON
       -DARROW_INSTALL_NAME_RPATH=OFF
-      -DPYTHON_EXECUTABLE=#{Formula["python"].bin/"python3"}
+      -DPYTHON_EXECUTABLE=#{Formula["python@3.8"].bin/"python3"}
     ]
     # Re-enable -DARROW_S3=ON and add back aws-sdk-cpp to depends_on in ARROW-6437
 
