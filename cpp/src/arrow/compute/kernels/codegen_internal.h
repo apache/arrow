@@ -852,6 +852,46 @@ ArrayKernelExec GenerateSignedInteger(detail::GetTypeId get_id) {
   }
 }
 
+// Generate a kernel given a templated functor. Only a single template is
+// instantiated for each bit width, and the functor is expected to treat types
+// of the same bit width the same without utilizing any type-specific behavior
+// (e.g. int64 should be handled equivalent to uint64 or double -- all 64
+// bits).
+//
+// See "Numeric" above for description of the generator functor
+template <template <typename...> class Generator>
+ArrayKernelExec GenerateTypeAgnosticPrimitive(detail::GetTypeId get_id) {
+  switch (get_id.id) {
+    case Type::NA:
+      return Generator<NullType>::Exec;
+    case Type::BOOL:
+      return Generator<BooleanType>::Exec;
+    case Type::UINT8:
+    case Type::INT8:
+      return Generator<UInt8Type>::Exec;
+    case Type::UINT16:
+    case Type::INT16:
+      return Generator<UInt16Type>::Exec;
+    case Type::UINT32:
+    case Type::INT32:
+    case Type::FLOAT:
+    case Type::DATE32:
+    case Type::TIME32:
+      return Generator<UInt32Type>::Exec;
+    case Type::UINT64:
+    case Type::INT64:
+    case Type::DOUBLE:
+    case Type::DATE64:
+    case Type::TIMESTAMP:
+    case Type::TIME64:
+    case Type::DURATION:
+      return Generator<UInt64Type>::Exec;
+    default:
+      DCHECK(false);
+      return ExecFail;
+  }
+}
+
 // Generate a kernel given a templated functor for base binary types. Generates
 // a single kernel for binary/string and large binary / large string. If your
 // kernel implementation needs access to the specific type at compile time,

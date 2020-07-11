@@ -15,12 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/array/builder_primitive.h"
-#include "arrow/compute/api_scalar.h"
+#include <algorithm>
+#include <cstring>
+
 #include "arrow/compute/kernels/common.h"
+#include "arrow/scalar.h"
+#include "arrow/util/bit_block_counter.h"
 #include "arrow/util/bit_util.h"
-#include "arrow/util/bitmap_writer.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/util/bitmap_ops.h"
 
 namespace arrow {
 
@@ -32,195 +34,117 @@ namespace internal {
 
 namespace {
 
-template <typename OutType, typename InType, typename Enable = void>
+template <typename Type, typename Enable = void>
 struct FillNullFunctor {};
 
-template <typename OutType, typename InType>
-struct FillNullFunctor<OutType, InType, enable_if_t<is_number_type<InType>::value>> {
-  using value_type = typename TypeTraits<InType>::CType;
-  using BuilderType = typename TypeTraits<OutType>::BuilderType;
+template <typename Type>
+struct FillNullFunctor<Type, enable_if_t<is_number_type<Type>::value>> {
+  using T = typename TypeTraits<Type>::CType;
 
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    const Datum& in_arr = batch[0];
-    const Datum& fill_value = batch[1];
-
-    if (!in_arr.is_arraylike()) {
-      ctx->SetStatus(Status::Invalid("Values must be Array or ChunkedArray"));
-    }
-    if (!fill_value.is_scalar()) {
-      ctx->SetStatus(Status::Invalid("fill value must be a scalar"));
-    }
-
-    ctx->SetStatus(Fill(ctx, *in_arr.array(), *fill_value.scalar(), out));
-  }
-
-  static Status Fill(KernelContext* ctx, const ArrayData& data, const Scalar& fill_value,
-                     Datum* out) {
-    value_type value = UnboxScalar<InType>::Unbox(fill_value);
+    const ArrayData& data = *batch[0].array();
+    const Scalar& fill_value = *batch[1].scalar();
     ArrayData* output = out->mutable_array();
 
-    if (data.null_count != 0 && fill_value.is_valid) {
-      BuilderType builder(data.type, ctx->memory_pool());
-      RETURN_NOT_OK(builder.Reserve(data.length));
+    // Ensure the kernel is configured properly to have no validity bitmap /
+    // null count 0 unless we explicitly propagate it below.
+    DCHECK(output->buffers[0] == nullptr);
 
-      RETURN_NOT_OK(VisitArrayDataInline<InType>(
-          data, [&](value_type v) { return builder.Append(v); },
-          [&]() { return builder.Append(value); }));
+    T value = UnboxScalar<Type>::Unbox(fill_value);
+    if (data.MayHaveNulls() != 0 && fill_value.is_valid) {
+      KERNEL_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> out_buf, ctx,
+                             ctx->Allocate(data.length * sizeof(T)));
 
-      std::shared_ptr<Array> output_array;
-      RETURN_NOT_OK(builder.Finish(&output_array));
-      *output = std::move(*output_array->data());
-
-    } else {
-      *output = data;
-    }
-    return Status::OK();
-  }
-};
-
-template <typename OutType, typename InType>
-struct FillNullFunctor<OutType, InType, enable_if_t<is_boolean_type<InType>::value>> {
-  using value_type = typename TypeTraits<InType>::CType;
-
-  static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    const Datum& in_arr = batch[0];
-    const Datum& fill_value = batch[1];
-
-    if (!in_arr.is_arraylike()) {
-      ctx->SetStatus(Status::Invalid("Values must be Array or ChunkedArray"));
-    }
-    if (!fill_value.is_scalar()) {
-      ctx->SetStatus(Status::Invalid("fill value must be a scalar"));
-    }
-
-    ctx->SetStatus(Fill(ctx, *in_arr.array(), *fill_value.scalar(), out));
-  }
-
-  static Status Fill(KernelContext* ctx, const ArrayData& data, const Scalar& fill_value,
-                     Datum* out) {
-    value_type value = UnboxScalar<InType>::Unbox(fill_value);
-    ArrayData* output = out->mutable_array();
-
-    if (data.null_count != 0 && fill_value.is_valid) {
-      int64_t position = 0;
-      const uint8_t* bitmap = data.buffers[1]->data();
-      const uint8_t* bitmap_validity = output->buffers[0]->data();
-      auto length = data.length;
-      auto offset = data.offset;
-
-      BooleanBuilder builder(data.type, ctx->memory_pool());
-      RETURN_NOT_OK(builder.Reserve(length));
-      BitBlockCounter bit_counter(bitmap_validity, offset, length);
-      while (position < length) {
+      const uint8_t* is_valid = data.buffers[0]->data();
+      const T* in_values = data.GetValues<T>(1);
+      T* out_values = reinterpret_cast<T*>(out_buf->mutable_data());
+      int64_t offset = data.offset;
+      BitBlockCounter bit_counter(is_valid, data.offset, data.length);
+      while (offset < data.offset + data.length) {
         BitBlockCount block = bit_counter.NextWord();
         if (block.AllSet()) {
-          for (int64_t i = 0; i < block.length; ++i, ++position) {
-            if (BitUtil::GetBit(bitmap, offset + position)) {
-              RETURN_NOT_OK(builder.Append(true));
-            } else {
-              RETURN_NOT_OK(builder.Append(false));
-            }
-          }
+          // Block all not null
+          std::memcpy(out_values, in_values, block.length * sizeof(T));
         } else if (block.NoneSet()) {
-          for (int64_t i = 0; i < block.length; ++i, ++position) {
-            RETURN_NOT_OK(builder.Append(value));
-          }
+          // Block all null
+          std::fill(out_values, out_values + block.length, value);
         } else {
-          for (int64_t i = 0; i < block.length; ++i, ++position) {
-            if (BitUtil::GetBit(bitmap_validity, offset + position)) {
-              if (BitUtil::GetBit(bitmap, offset + position)) {
-                RETURN_NOT_OK(builder.Append(true));
-              } else {
-                RETURN_NOT_OK(builder.Append(false));
-              }
-            } else {
-              RETURN_NOT_OK(builder.Append(value));
-            }
+          for (int64_t i = 0; i < block.length; ++i) {
+            out_values[i] = BitUtil::GetBit(is_valid, offset + i) ? in_values[i] : value;
           }
         }
+        offset += block.length;
+        out_values += block.length;
+        in_values += block.length;
       }
-      std::shared_ptr<Array> output_array;
-      RETURN_NOT_OK(builder.Finish(&output_array));
-      *output = std::move(*output_array->data());
+      output->buffers[1] = out_buf;
     } else {
       *output = data;
     }
-    return Status::OK();
   }
 };
 
-template <typename OutType, typename InType>
-struct FillNullFunctor<OutType, InType, enable_if_t<is_null_type<InType>::value>> {
+template <typename Type>
+struct FillNullFunctor<Type, enable_if_t<is_boolean_type<Type>::value>> {
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    const Datum& in_arr = batch[0];
-    const Datum& fill_value = batch[1];
-
-    if (!in_arr.is_arraylike()) {
-      ctx->SetStatus(Status::Invalid("Values must be Array or ChunkedArray"));
-    }
-    if (!fill_value.is_scalar()) {
-      ctx->SetStatus(Status::Invalid("fill value must be a scalar"));
-    }
-
-    ctx->SetStatus(Fill(ctx, *in_arr.array(), *fill_value.scalar(), out));
-  }
-
-  static Status Fill(KernelContext* ctx, const ArrayData& data, const Scalar& fill_value,
-                     Datum* out) {
+    const ArrayData& data = *batch[0].array();
+    const Scalar& fill_value = *batch[1].scalar();
     ArrayData* output = out->mutable_array();
-    *output = data;
-    return Status::OK();
+
+    bool value = UnboxScalar<BooleanType>::Unbox(fill_value);
+    if (data.MayHaveNulls() != 0 && fill_value.is_valid) {
+      KERNEL_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> out_buf, ctx,
+                             ctx->AllocateBitmap(data.length));
+
+      const uint8_t* is_valid = data.buffers[0]->data();
+      const uint8_t* data_bitmap = data.buffers[1]->data();
+      uint8_t* out_bitmap = out_buf->mutable_data();
+
+      int64_t offset = data.offset;
+      BitBlockCounter bit_counter(is_valid, data.offset, data.length);
+      while (offset < data.offset + data.length) {
+        BitBlockCount block = bit_counter.NextWord();
+        if (block.AllSet()) {
+          // Block all not null
+          ::arrow::internal::CopyBitmap(data_bitmap, data.offset, block.length,
+                                        out_bitmap, offset);
+        } else if (block.NoneSet()) {
+          // Block all null
+          BitUtil::SetBitsTo(out_bitmap, offset, block.length, value);
+        } else {
+          for (int64_t i = 0; i < block.length; ++i) {
+            BitUtil::SetBitTo(out_bitmap, offset + i,
+                              BitUtil::GetBit(is_valid, offset + i)
+                                  ? BitUtil::GetBit(data_bitmap, offset + i)
+                                  : value);
+          }
+        }
+        offset += block.length;
+      }
+      output->buffers[1] = out_buf;
+    } else {
+      *output = data;
+    }
   }
 };
 
-template <template <typename...> class Generator>
-ArrayKernelExec GeneratePhysicalIntegerSameType(detail::GetTypeId get_id) {
-  switch (get_id.id) {
-    case Type::INT8:
-      return Generator<Int8Type, Int8Type>::Exec;
-    case Type::INT16:
-      return Generator<Int16Type, Int16Type>::Exec;
-    case Type::INT32:
-    case Type::DATE32:
-    case Type::TIME32:
-      return Generator<Int32Type, Int32Type>::Exec;
-    case Type::INT64:
-    case Type::DATE64:
-    case Type::TIMESTAMP:
-    case Type::TIME64:
-    case Type::DURATION:
-      return Generator<Int64Type, Int64Type>::Exec;
-    case Type::UINT8:
-      return Generator<UInt8Type, UInt8Type>::Exec;
-    case Type::UINT16:
-      return Generator<UInt16Type, UInt16Type>::Exec;
-    case Type::UINT32:
-      return Generator<UInt32Type, UInt32Type>::Exec;
-    case Type::UINT64:
-      return Generator<UInt64Type, UInt64Type>::Exec;
-    case Type::BOOL:
-      return Generator<BooleanType, BooleanType>::Exec;
-    case Type::DOUBLE:
-      return Generator<DoubleType, DoubleType>::Exec;
-    case Type::FLOAT:
-      return Generator<FloatType, FloatType>::Exec;
-    case Type::NA:
-      return Generator<NullType, NullType>::Exec;
-    default:
-      DCHECK(false);
-      return ExecFail;
+template <typename Type>
+struct FillNullFunctor<Type, enable_if_t<is_null_type<Type>::value>> {
+  static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    // Nothing preallocated, so we assign into the output
+    *out->mutable_array() = *batch[0].array();
   }
-}
+};
 
 void AddBasicFillNullKernels(ScalarKernel kernel, ScalarFunction* func) {
   auto AddKernels = [&](const std::vector<std::shared_ptr<DataType>>& types) {
     for (const std::shared_ptr<DataType>& ty : types) {
-      auto exec = GeneratePhysicalIntegerSameType<FillNullFunctor>(*ty);
-      DCHECK_OK(func->AddKernel({InputType::Array(ty), InputType::Scalar(ty)}, ty,
-                                std::move(exec)));
+      kernel.signature =
+          KernelSignature::Make({InputType::Array(ty), InputType::Scalar(ty)}, ty);
+      kernel.exec = GenerateTypeAgnosticPrimitive<FillNullFunctor>(*ty);
+      DCHECK_OK(func->AddKernel(kernel));
     }
   };
-
   AddKernels(NumericTypes());
   AddKernels(TemporalTypes());
   AddKernels({boolean(), null()});
