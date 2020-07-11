@@ -395,6 +395,34 @@ void AddBasicSetLookupKernels(ScalarKernel kernel,
   }
 }
 
+// A metafunction that behaves like a binary function even though the
+// implementation is IsIn is unary. Enables calling isin_
+class IsInMetaBinary : public MetaFunction {
+ public:
+  IsInMetaBinary() : MetaFunction("isin_meta_binary", Arity::Binary()) {}
+
+  Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
+                            const FunctionOptions* options,
+                            ExecContext* ctx) const override {
+    DCHECK_EQ(options, nullptr);
+    return IsIn(args[0], args[1], ctx);
+  }
+};
+
+// A metafunction that behaves like a binary function even though "match" is
+// unary. Enables calling isin_
+class MatchMetaBinary : public MetaFunction {
+ public:
+  MatchMetaBinary() : MetaFunction("match_meta_binary", Arity::Binary()) {}
+
+  Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
+                            const FunctionOptions* options,
+                            ExecContext* ctx) const override {
+    DCHECK_EQ(options, nullptr);
+    return Match(args[0], args[1], ctx);
+  }
+};
+
 }  // namespace
 
 void RegisterScalarSetLookup(FunctionRegistry* registry) {
@@ -411,6 +439,8 @@ void RegisterScalarSetLookup(FunctionRegistry* registry) {
     isin_base.null_handling = NullHandling::COMPUTED_PREALLOCATE;
     DCHECK_OK(isin->AddKernel(isin_base));
     DCHECK_OK(registry->AddFunction(isin));
+
+    DCHECK_OK(registry->AddFunction(std::make_shared<IsInMetaBinary>()));
   }
 
   // Match uses Int32Builder and so is responsible for all its own allocation
@@ -426,6 +456,8 @@ void RegisterScalarSetLookup(FunctionRegistry* registry) {
     match_base.signature = KernelSignature::Make({null()}, int32());
     DCHECK_OK(match->AddKernel(match_base));
     DCHECK_OK(registry->AddFunction(match));
+
+    DCHECK_OK(registry->AddFunction(std::make_shared<MatchMetaBinary>()));
   }
 }
 

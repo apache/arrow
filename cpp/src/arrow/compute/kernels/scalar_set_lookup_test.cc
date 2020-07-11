@@ -70,10 +70,15 @@ void CheckIsIn(const std::shared_ptr<DataType>& type, const std::vector<T>& in_v
 
 class TestIsInKernel : public ::testing::Test {};
 
-TEST_F(TestIsInKernel, IsInDoesNotProvideDefaultOptions) {
-  auto haystack = ArrayFromJSON(int8(), "[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]");
+TEST_F(TestIsInKernel, CallBinary) {
+  auto haystack = ArrayFromJSON(int8(), "[0, 1, 2, 3, 4, 5, 6, 7, 8]");
   auto needles = ArrayFromJSON(int8(), "[2, 3, 5, 7]");
   ASSERT_RAISES(Invalid, CallFunction("isin", {haystack, needles}));
+
+  ASSERT_OK_AND_ASSIGN(Datum out, CallFunction("isin_meta_binary", {haystack, needles}));
+  auto expected = ArrayFromJSON(boolean(), ("[false, false, true, true, false,"
+                                            "true, false, true, false]"));
+  AssertArraysEqual(*expected, *out.make_array());
 }
 
 template <typename Type>
@@ -422,10 +427,15 @@ class TestMatchKernel : public ::testing::Test {
   }
 };
 
-TEST_F(TestMatchKernel, MatchDoesNotProvideDefaultOptions) {
+TEST_F(TestMatchKernel, CallBinary) {
   auto haystack = ArrayFromJSON(int8(), "[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]");
   auto needles = ArrayFromJSON(int8(), "[2, 3, 5, 7]");
   ASSERT_RAISES(Invalid, CallFunction("match", {haystack, needles}));
+
+  ASSERT_OK_AND_ASSIGN(Datum out, CallFunction("match_meta_binary", {haystack, needles}));
+  auto expected = ArrayFromJSON(int32(), ("[null, null, 0, 1, null, 2, null, 3, null,"
+                                          " null, null]"));
+  AssertArraysEqual(*expected, *out.make_array());
 }
 
 template <typename Type>
