@@ -395,8 +395,7 @@ void AddBasicSetLookupKernels(ScalarKernel kernel,
   }
 }
 
-// A metafunction that behaves like a binary function even though the
-// implementation is IsIn is unary. Enables calling isin_
+// Enables calling isin with CallFunction as though it were binary.
 class IsInMetaBinary : public MetaFunction {
  public:
   IsInMetaBinary() : MetaFunction("isin_meta_binary", Arity::Binary()) {}
@@ -409,8 +408,7 @@ class IsInMetaBinary : public MetaFunction {
   }
 };
 
-// A metafunction that behaves like a binary function even though "match" is
-// unary. Enables calling isin_
+// Enables calling match with CallFunction as though it were binary.
 class MatchMetaBinary : public MetaFunction {
  public:
   MatchMetaBinary() : MetaFunction("match_meta_binary", Arity::Binary()) {}
