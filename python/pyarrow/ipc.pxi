@@ -42,6 +42,36 @@ cdef CMetadataVersion _unwrap_metadata_version(
         return CMetadataVersion_V4
     elif version == MetadataVersion.V5:
         return CMetadataVersion_V5
+    raise ValueError("Not a metadata version: " + repr(version))
+
+
+cdef class IpcWriteOptions:
+    """Serialization options for the IPC format.
+
+    Parameters
+    ----------
+    use_legacy_format : bool, default False
+        Whether to use the pre-Arrow 0.15 IPC format.
+    metadata_version : MetadataVersion, default MetadataVersion.V5
+        The metadata version to write.
+    """
+
+    # cdef block is in lib.pxd
+
+    def __init__(self, use_legacy_format=False,
+                 metadata_version=MetadataVersion.V5):
+        self.c_options = CIpcWriteOptions.Defaults()
+        self.c_options.write_legacy_ipc_format = use_legacy_format
+        self.c_options.metadata_version = \
+            _unwrap_metadata_version(metadata_version)
+
+    @property
+    def use_legacy_format(self):
+        return self.c_options.write_legacy_ipc_format
+
+    @property
+    def metadata_version(self):
+        return _wrap_metadata_version(self.c_options.metadata_version)
 
 
 cdef class Message:
@@ -299,10 +329,17 @@ cdef class _RecordBatchStreamWriter(_CRecordBatchWriter):
 
     @property
     def _use_legacy_format(self):
+        # For testing (see test_ipc.py)
         return self.options.write_legacy_ipc_format
 
-    def _open(self, sink, Schema schema, use_legacy_format=False):
-        self.options.write_legacy_ipc_format = use_legacy_format
+    @property
+    def _metadata_version(self):
+        # For testing (see test_ipc.py)
+        return _wrap_metadata_version(self.options.metadata_version)
+
+    def _open(self, sink, Schema schema,
+              IpcWriteOptions options=IpcWriteOptions()):
+        self.options = options.c_options
         get_writer(sink, &self.sink)
         with nogil:
             self.writer = GetResultValue(
@@ -396,8 +433,9 @@ cdef class _RecordBatchStreamReader(_CRecordBatchReader):
 
 cdef class _RecordBatchFileWriter(_RecordBatchStreamWriter):
 
-    def _open(self, sink, Schema schema, use_legacy_format=False):
-        self.options.write_legacy_ipc_format = use_legacy_format
+    def _open(self, sink, Schema schema,
+              IpcWriteOptions options=IpcWriteOptions()):
+        self.options = options.c_options
         get_writer(sink, &self.sink)
         with nogil:
             self.writer = GetResultValue(

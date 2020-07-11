@@ -103,12 +103,15 @@ class StreamFormatFixture(IpcFixture):
 
     # ARROW-6474, for testing writing old IPC protocol with 4-byte prefix
     use_legacy_ipc_format = False
+    # ARROW-9395, for testing writing old metadata version
+    options = None
 
     def _get_writer(self, sink, schema):
         return pa.ipc.new_stream(
             sink,
             schema,
-            use_legacy_format=self.use_legacy_ipc_format
+            use_legacy_format=self.use_legacy_ipc_format,
+            options=self.options,
         )
 
 
@@ -312,22 +315,86 @@ def test_stream_simple_roundtrip(stream_fixture, use_legacy_ipc_format):
         reader.read_next_batch()
 
 
+def test_options_legacy_exclusive(stream_fixture):
+    with pytest.raises(
+            ValueError,
+            match="provide at most one of options and use_legacy_format"):
+        stream_fixture.use_legacy_ipc_format = True
+        stream_fixture.options = pa.ipc.IpcWriteOptions()
+        stream_fixture.write_batches()
+
+
+@pytest.mark.parametrize('options', [
+    pa.ipc.IpcWriteOptions(),
+    pa.ipc.IpcWriteOptions(use_legacy_format=True),
+    pa.ipc.IpcWriteOptions(metadata_version=pa.ipc.MetadataVersion.V4),
+    pa.ipc.IpcWriteOptions(use_legacy_format=True,
+                           metadata_version=pa.ipc.MetadataVersion.V4),
+])
+def test_stream_options_roundtrip(stream_fixture, options):
+    stream_fixture.use_legacy_ipc_format = None
+    stream_fixture.options = options
+    _, batches = stream_fixture.write_batches()
+    file_contents = pa.BufferReader(stream_fixture.get_source())
+
+    message = pa.ipc.read_message(stream_fixture.get_source())
+    assert message.metadata_version == options.metadata_version
+
+    reader = pa.ipc.open_stream(file_contents)
+
+    assert reader.schema.equals(batches[0].schema)
+
+    total = 0
+    for i, next_batch in enumerate(reader):
+        assert next_batch.equals(batches[i])
+        total += 1
+
+    assert total == len(batches)
+
+    with pytest.raises(StopIteration):
+        reader.read_next_batch()
+
+
 def test_envvar_set_legacy_ipc_format():
     schema = pa.schema([pa.field('foo', pa.int32())])
 
     writer = pa.ipc.new_stream(pa.BufferOutputStream(), schema)
     assert not writer._use_legacy_format
+    assert writer._metadata_version == pa.ipc.MetadataVersion.V5
     writer = pa.ipc.new_file(pa.BufferOutputStream(), schema)
     assert not writer._use_legacy_format
+    assert writer._metadata_version == pa.ipc.MetadataVersion.V5
 
     import os
+
     os.environ['ARROW_PRE_0_15_IPC_FORMAT'] = '1'
     writer = pa.ipc.new_stream(pa.BufferOutputStream(), schema)
     assert writer._use_legacy_format
+    assert writer._metadata_version == pa.ipc.MetadataVersion.V5
     writer = pa.ipc.new_file(pa.BufferOutputStream(), schema)
     assert writer._use_legacy_format
-
+    assert writer._metadata_version == pa.ipc.MetadataVersion.V5
     del os.environ['ARROW_PRE_0_15_IPC_FORMAT']
+
+    os.environ['ARROW_PRE_1_0_METADATA_VERSION'] = '1'
+    writer = pa.ipc.new_stream(pa.BufferOutputStream(), schema)
+    assert not writer._use_legacy_format
+    assert writer._metadata_version == pa.ipc.MetadataVersion.V4
+    writer = pa.ipc.new_file(pa.BufferOutputStream(), schema)
+    assert not writer._use_legacy_format
+    assert writer._metadata_version == pa.ipc.MetadataVersion.V4
+    del os.environ['ARROW_PRE_1_0_METADATA_VERSION']
+
+    os.environ['ARROW_PRE_0_15_IPC_FORMAT'] = '1'
+    os.environ['ARROW_PRE_1_0_METADATA_VERSION'] = '1'
+    writer = pa.ipc.new_stream(pa.BufferOutputStream(), schema)
+    assert writer._use_legacy_format
+    assert writer._metadata_version == pa.ipc.MetadataVersion.V4
+    writer = pa.ipc.new_file(pa.BufferOutputStream(), schema)
+    assert writer._use_legacy_format
+    assert writer._metadata_version == pa.ipc.MetadataVersion.V4
+    del os.environ['ARROW_PRE_0_15_IPC_FORMAT']
+    del os.environ['ARROW_PRE_1_0_METADATA_VERSION']
 
 
 def test_stream_read_all(stream_fixture):
