@@ -203,18 +203,11 @@ impl ProjectionPushDown {
                     projected_schema: Box::new(projected_schema),
                 })
             }
-            LogicalPlan::Limit { expr, input, .. } => {
-                // Note that limit expressions are scalar values so there is no need to
-                // rewrite them but we do need to optimize the input to the limit plan
-                LogicalPlanBuilder::from(&self.optimize_plan(
-                    &input,
-                    accum,
-                    mapping,
-                    has_projection,
-                )?)
-                .limit(expr.clone())?
-                .build()
-            }
+            LogicalPlan::Limit { n, input, .. } => LogicalPlanBuilder::from(
+                &self.optimize_plan(&input, accum, mapping, has_projection)?,
+            )
+            .limit(*n)?
+            .build(),
             LogicalPlan::CreateExternalTable {
                 schema,
                 name,
@@ -477,12 +470,12 @@ mod tests {
 
         let plan = LogicalPlanBuilder::from(&table_scan)
             .project(vec![Column(2), Column(0)])?
-            .limit(Expr::Literal(ScalarValue::UInt32(5)))?
+            .limit(5)?
             .build()?;
 
         assert_fields_eq(&plan, vec!["c", "a"]);
 
-        let expected = "Limit: UInt32(5)\
+        let expected = "Limit: 5\
         \n  Projection: #1, #0\
         \n    TableScan: test projection=Some([0, 2])";
 

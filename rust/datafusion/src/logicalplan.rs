@@ -586,8 +586,8 @@ pub enum LogicalPlan {
     },
     /// Represents the maximum number of records to return
     Limit {
-        /// The expression
-        expr: Expr,
+        /// The limit
+        n: usize,
         /// The logical plan
         input: Box<LogicalPlan>,
         /// The schema description
@@ -713,11 +713,9 @@ impl LogicalPlan {
                 input.fmt_with_indent(f, indent + 1)
             }
             LogicalPlan::Limit {
-                ref input,
-                ref expr,
-                ..
+                ref input, ref n, ..
             } => {
-                write!(f, "Limit: {:?}", expr)?;
+                write!(f, "Limit: {}", n)?;
                 input.fmt_with_indent(f, indent + 1)
             }
             LogicalPlan::CreateExternalTable { ref name, .. } => {
@@ -916,9 +914,9 @@ impl LogicalPlanBuilder {
     }
 
     /// Apply a limit
-    pub fn limit(&self, expr: Expr) -> Result<Self> {
+    pub fn limit(&self, n: usize) -> Result<Self> {
         Ok(Self::from(&LogicalPlan::Limit {
-            expr,
+            n,
             input: Box::new(self.plan.clone()),
             schema: self.plan.schema().clone(),
         }))
