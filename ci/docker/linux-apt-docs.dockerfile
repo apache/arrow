@@ -43,6 +43,7 @@ RUN apt-get update -y && \
         libtool \
         libxml2-dev \
         ninja-build \
+        nvidia-cuda-toolkit \
         openjdk-${jdk}-jdk-headless \
         pandoc \
         r-base=${r}* \
