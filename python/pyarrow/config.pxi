@@ -44,7 +44,6 @@ cdef _build_info():
                      package_kind=frombytes(c_info.package_kind))
 
 
-build_info = _build_info()
-
-version_info = build_info.version_info
-version = build_info.version
+cpp_build_info = _build_info()
+cpp_version = cpp_build_info.version
+cpp_version_info = cpp_build_info.version_info
