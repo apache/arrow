@@ -55,8 +55,13 @@ if [ ${PUSH} -gt 0 ]; then
   git commit -m "[Website] Update documentations for ${version}"
   git push -u origin ${branch_name}
   popd
-fi
 
-echo "Success!"
-echo "Create a pull request:"
-echo "  ${github_url}/pull/new/${branch_name}"
+  github_url=$(git remote get-url origin | \
+                 sed \
+                   -e 's,^git@github.com:,https://github.com/,' \
+                   -e 's,\.git$,,')
+
+  echo "Success!"
+  echo "Create a pull request:"
+  echo "  ${github_url}/pull/new/${branch_name}"
+fi
