@@ -24,13 +24,13 @@ use std::sync::{Arc, Mutex};
 use crate::error::Result;
 use crate::logicalplan::ScalarValue;
 use arrow::array::ArrayRef;
-use arrow::datatypes::{DataType, Field, Schema};
+use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
 use arrow::record_batch::{RecordBatch, RecordBatchReader};
 
 /// Partition-aware execution plan for a relation
 pub trait ExecutionPlan {
     /// Get the schema for this execution plan
-    fn schema(&self) -> Arc<Schema>;
+    fn schema(&self) -> SchemaRef;
     /// Get the partitions for this execution plan. Each partition can be executed in parallel.
     fn partitions(&self) -> Result<Vec<Arc<dyn Partition>>>;
 }

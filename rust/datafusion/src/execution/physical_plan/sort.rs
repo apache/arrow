@@ -24,7 +24,7 @@ use std::thread::JoinHandle;
 use arrow::array::ArrayRef;
 pub use arrow::compute::SortOptions;
 use arrow::compute::{concat, lexsort_to_indices, take, SortColumn, TakeOptions};
-use arrow::datatypes::Schema;
+use arrow::datatypes::SchemaRef;
 use arrow::record_batch::{RecordBatch, RecordBatchReader};
 
 use crate::error::Result;
@@ -50,7 +50,7 @@ impl SortExec {
 }
 
 impl ExecutionPlan for SortExec {
-    fn schema(&self) -> Arc<Schema> {
+    fn schema(&self) -> SchemaRef {
         self.input.schema().clone()
     }
 
@@ -67,7 +67,7 @@ impl ExecutionPlan for SortExec {
 
 /// Represents a single partition of a Sort execution plan
 struct SortPartition {
-    schema: Arc<Schema>,
+    schema: SchemaRef,
     expr: Vec<PhysicalSortExpr>,
     input: Vec<Arc<dyn Partition>>,
 }

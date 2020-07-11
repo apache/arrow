@@ -24,7 +24,7 @@ use crate::error::{ExecutionError, Result};
 use crate::execution::physical_plan::common;
 use crate::execution::physical_plan::{ExecutionPlan, Partition};
 use arrow::csv;
-use arrow::datatypes::Schema;
+use arrow::datatypes::{Schema, SchemaRef};
 use arrow::error::Result as ArrowResult;
 use arrow::record_batch::{RecordBatch, RecordBatchReader};
 
@@ -97,7 +97,7 @@ pub struct CsvExec {
     /// Path to directory containing partitioned CSV files with the same schema
     path: String,
     /// Schema representing the CSV file
-    schema: Arc<Schema>,
+    schema: SchemaRef,
     /// Does the CSV file have a header?
     has_header: bool,
     /// An optional column delimiter. Defaults to `b','`
@@ -105,7 +105,7 @@ pub struct CsvExec {
     /// Optional projection for which columns to load
     projection: Option<Vec<usize>>,
     /// Schema after the projection has been applied
-    projected_schema: Arc<Schema>,
+    projected_schema: SchemaRef,
     /// Batch size
     batch_size: usize,
 }
@@ -158,7 +158,7 @@ impl CsvExec {
 
 impl ExecutionPlan for CsvExec {
     /// Get the schema for this execution plan
-    fn schema(&self) -> Arc<Schema> {
+    fn schema(&self) -> SchemaRef {
         self.projected_schema.clone()
     }
 
@@ -188,7 +188,7 @@ struct CsvPartition {
     /// Path to the CSV File
     path: String,
     /// Schema representing the CSV file
-    schema: Arc<Schema>,
+    schema: SchemaRef,
     /// Does the CSV file have a header?
     has_header: bool,
     /// An optional column delimiter. Defaults to `b','`
@@ -202,7 +202,7 @@ struct CsvPartition {
 impl CsvPartition {
     fn new(
         path: &str,
-        schema: Arc<Schema>,
+        schema: SchemaRef,
         has_header: bool,
         delimiter: Option<u8>,
         projection: Option<Vec<usize>>,
@@ -243,7 +243,7 @@ impl CsvIterator {
     /// Create an iterator for a CSV file
     pub fn try_new(
         filename: &str,
-        schema: Arc<Schema>,
+        schema: SchemaRef,
         has_header: bool,
         delimiter: Option<u8>,
         projection: &Option<Vec<usize>>,
@@ -265,7 +265,7 @@ impl CsvIterator {
 
 impl RecordBatchReader for CsvIterator {
     /// Get the schema
-    fn schema(&self) -> Arc<Schema> {
+    fn schema(&self) -> SchemaRef {
         self.reader.schema()
     }
 

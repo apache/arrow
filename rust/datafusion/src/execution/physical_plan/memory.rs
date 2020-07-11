@@ -21,7 +21,7 @@ use std::sync::{Arc, Mutex};
 
 use crate::error::Result;
 use crate::execution::physical_plan::{ExecutionPlan, Partition};
-use arrow::datatypes::Schema;
+use arrow::datatypes::SchemaRef;
 use arrow::error::Result as ArrowResult;
 use arrow::record_batch::{RecordBatch, RecordBatchReader};
 
@@ -30,14 +30,14 @@ pub struct MemoryExec {
     /// The partitions to query
     partitions: Vec<Vec<RecordBatch>>,
     /// Schema representing the data after the optional projection is applied
-    schema: Arc<Schema>,
+    schema: SchemaRef,
     /// Optional projection
     projection: Option<Vec<usize>>,
 }
 
 impl ExecutionPlan for MemoryExec {
     /// Get the schema for this execution plan
-    fn schema(&self) -> Arc<Schema> {
+    fn schema(&self) -> SchemaRef {
         self.schema.clone()
     }
 
@@ -62,7 +62,7 @@ impl MemoryExec {
     /// Create a new execution plan for reading in-memory record batches
     pub fn try_new(
         partitions: &Vec<Vec<RecordBatch>>,
-        schema: Arc<Schema>,
+        schema: SchemaRef,
         projection: Option<Vec<usize>>,
     ) -> Result<Self> {
         Ok(Self {
@@ -78,7 +78,7 @@ struct MemoryPartition {
     /// Vector of record batches
     data: Vec<RecordBatch>,
     /// Schema representing the data
-    schema: Arc<Schema>,
+    schema: SchemaRef,
     /// Optional projection
     projection: Option<Vec<usize>>,
 }
@@ -87,7 +87,7 @@ impl MemoryPartition {
     /// Create a new in-memory partition
     fn new(
         data: Vec<RecordBatch>,
-        schema: Arc<Schema>,
+        schema: SchemaRef,
         projection: Option<Vec<usize>>,
     ) -> Self {
         Self {
@@ -114,7 +114,7 @@ struct MemoryIterator {
     /// Vector of record batches
     data: Vec<RecordBatch>,
     /// Schema representing the data
-    schema: Arc<Schema>,
+    schema: SchemaRef,
     /// Optional projection for which columns to load
     projection: Option<Vec<usize>>,
     /// Index into the data
@@ -125,7 +125,7 @@ impl MemoryIterator {
     /// Create an iterator for a vector of record batches
     pub fn try_new(
         data: Vec<RecordBatch>,
-        schema: Arc<Schema>,
+        schema: SchemaRef,
         projection: Option<Vec<usize>>,
     ) -> Result<Self> {
         Ok(Self {
@@ -139,7 +139,7 @@ impl MemoryIterator {
 
 impl RecordBatchReader for MemoryIterator {
     /// Get the schema
-    fn schema(&self) -> Arc<Schema> {
+    fn schema(&self) -> SchemaRef {
         self.schema.clone()
     }
 

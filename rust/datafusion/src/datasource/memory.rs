@@ -21,7 +21,7 @@
 
 use std::sync::Arc;
 
-use arrow::datatypes::{Field, Schema};
+use arrow::datatypes::{Field, Schema, SchemaRef};
 use arrow::record_batch::RecordBatch;
 
 use crate::datasource::{ScanResult, TableProvider};
@@ -31,13 +31,13 @@ use crate::execution::physical_plan::ExecutionPlan;
 
 /// In-memory table
 pub struct MemTable {
-    schema: Arc<Schema>,
+    schema: SchemaRef,
     batches: Vec<Vec<RecordBatch>>,
 }
 
 impl MemTable {
     /// Create a new in-memory table from the provided schema and record batches
-    pub fn new(schema: Arc<Schema>, partitions: Vec<Vec<RecordBatch>>) -> Result<Self> {
+    pub fn new(schema: SchemaRef, partitions: Vec<Vec<RecordBatch>>) -> Result<Self> {
         if partitions.iter().all(|partition| {
             partition
                 .iter()
@@ -73,7 +73,7 @@ impl MemTable {
 }
 
 impl TableProvider for MemTable {
-    fn schema(&self) -> Arc<Schema> {
+    fn schema(&self) -> SchemaRef {
         self.schema.clone()
     }
 

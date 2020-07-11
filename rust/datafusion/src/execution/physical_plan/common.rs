@@ -25,20 +25,20 @@ use crate::error::{ExecutionError, Result};
 
 use crate::logicalplan::ScalarValue;
 use arrow::array::{self, ArrayRef};
-use arrow::datatypes::{DataType, Schema};
+use arrow::datatypes::{DataType, SchemaRef};
 use arrow::error::Result as ArrowResult;
 use arrow::record_batch::{RecordBatch, RecordBatchReader};
 
 /// Iterator over a vector of record batches
 pub struct RecordBatchIterator {
-    schema: Arc<Schema>,
+    schema: SchemaRef,
     batches: Vec<Arc<RecordBatch>>,
     index: usize,
 }
 
 impl RecordBatchIterator {
     /// Create a new RecordBatchIterator
-    pub fn new(schema: Arc<Schema>, batches: Vec<Arc<RecordBatch>>) -> Self {
+    pub fn new(schema: SchemaRef, batches: Vec<Arc<RecordBatch>>) -> Self {
         RecordBatchIterator {
             schema,
             index: 0,
@@ -48,7 +48,7 @@ impl RecordBatchIterator {
 }
 
 impl RecordBatchReader for RecordBatchIterator {
-    fn schema(&self) -> Arc<Schema> {
+    fn schema(&self) -> SchemaRef {
         self.schema.clone()
     }
 

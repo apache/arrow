@@ -18,7 +18,6 @@
 //! Parquet data source
 
 use std::string::String;
-use std::sync::Arc;
 
 use arrow::datatypes::*;
 
@@ -27,14 +26,14 @@ use crate::error::Result;
 use crate::execution::physical_plan::parquet::ParquetExec;
 use crate::execution::physical_plan::ExecutionPlan;
 
-/// Table-based representation of a `ParquetFile`
+/// Table-based representation of a `ParquetFile`.
 pub struct ParquetTable {
     path: String,
-    schema: Arc<Schema>,
+    schema: SchemaRef,
 }
 
 impl ParquetTable {
-    /// Attempt to initialize a new `ParquetTable` from a file path
+    /// Attempt to initialize a new `ParquetTable` from a file path.
     pub fn try_new(path: &str) -> Result<Self> {
         let parquet_exec = ParquetExec::try_new(path, None, 0)?;
         let schema = parquet_exec.schema();
@@ -46,13 +45,13 @@ impl ParquetTable {
 }
 
 impl TableProvider for ParquetTable {
-    /// Get the schema for this parquet file
-    fn schema(&self) -> Arc<Schema> {
+    /// Get the schema for this parquet file.
+    fn schema(&self) -> SchemaRef {
         self.schema.clone()
     }
 
     /// Scan the file(s), using the provided projection, and return one BatchIterator per
-    /// partition
+    /// partition.
     fn scan(
         &self,
         projection: &Option<Vec<usize>>,

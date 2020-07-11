@@ -23,7 +23,7 @@ use crate::execution::physical_plan::ExecutionPlan;
 use crate::execution::physical_plan::Partition;
 use arrow::array::ArrayRef;
 use arrow::compute::limit;
-use arrow::datatypes::Schema;
+use arrow::datatypes::SchemaRef;
 use arrow::record_batch::{RecordBatch, RecordBatchReader};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -32,7 +32,7 @@ use std::thread::JoinHandle;
 /// Limit execution plan
 pub struct LimitExec {
     /// Input schema
-    schema: Arc<Schema>,
+    schema: SchemaRef,
     /// Input partitions
     partitions: Vec<Arc<dyn Partition>>,
     /// Maximum number of rows to return
@@ -42,7 +42,7 @@ pub struct LimitExec {
 impl LimitExec {
     /// Create a new MergeExec
     pub fn new(
-        schema: Arc<Schema>,
+        schema: SchemaRef,
         partitions: Vec<Arc<dyn Partition>>,
         limit: usize,
     ) -> Self {
@@ -55,7 +55,7 @@ impl LimitExec {
 }
 
 impl ExecutionPlan for LimitExec {
-    fn schema(&self) -> Arc<Schema> {
+    fn schema(&self) -> SchemaRef {
         self.schema.clone()
     }
 
@@ -70,7 +70,7 @@ impl ExecutionPlan for LimitExec {
 
 struct LimitPartition {
     /// Input schema
-    schema: Arc<Schema>,
+    schema: SchemaRef,
     /// Input partitions
     partitions: Vec<Arc<dyn Partition>>,
     /// Maximum number of rows to return

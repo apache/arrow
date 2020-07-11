@@ -38,7 +38,7 @@ use crate::error::{ArrowError, Result};
 /// [JSON reader](crate::json::Reader).
 #[derive(Clone, Debug)]
 pub struct RecordBatch {
-    schema: Arc<Schema>,
+    schema: SchemaRef,
     columns: Vec<Arc<Array>>,
 }
 
@@ -74,7 +74,7 @@ impl RecordBatch {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn try_new(schema: Arc<Schema>, columns: Vec<ArrayRef>) -> Result<Self> {
+    pub fn try_new(schema: SchemaRef, columns: Vec<ArrayRef>) -> Result<Self> {
         // check that there are some columns
         if columns.is_empty() {
             return Err(ArrowError::InvalidArgumentError(
@@ -111,8 +111,8 @@ impl RecordBatch {
     }
 
     /// Returns the [`Schema`](crate::datatypes::Schema) of the record batch.
-    pub fn schema(&self) -> &Arc<Schema> {
-        &self.schema
+    pub fn schema(&self) -> SchemaRef {
+        self.schema.clone()
     }
 
     /// Returns the number of columns in the record batch.

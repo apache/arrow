@@ -412,7 +412,7 @@ fn create_dictionary_array(
 pub(crate) fn read_record_batch(
     buf: &[u8],
     batch: ipc::RecordBatch,
-    schema: Arc<Schema>,
+    schema: SchemaRef,
     dictionaries: &[Option<ArrayRef>],
 ) -> Result<Option<RecordBatch>> {
     let buffers = batch.buffers().ok_or_else(|| {
@@ -465,7 +465,7 @@ pub struct FileReader<R: Read + Seek> {
     reader: BufReader<R>,
 
     /// The schema that is read from the file header
-    schema: Arc<Schema>,
+    schema: SchemaRef,
 
     /// The blocks in the file
     ///
@@ -714,7 +714,7 @@ pub struct StreamReader<R: Read> {
     /// Buffered stream reader
     reader: BufReader<R>,
     /// The schema that is read from the stream's first message
-    schema: Arc<Schema>,
+    schema: SchemaRef,
     /// An indicator of whether the strewam is complete.
     ///
     /// This value is set to `true` the first time the reader's `next()` returns `None`.

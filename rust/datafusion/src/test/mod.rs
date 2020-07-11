@@ -87,7 +87,7 @@ pub fn create_partitioned_csv(filename: &str, partitions: usize) -> Result<Strin
 }
 
 /// Get the schema for the aggregate_test_* csv files
-pub fn aggr_test_schema() -> Arc<Schema> {
+pub fn aggr_test_schema() -> SchemaRef {
     Arc::new(Schema::new(vec![
         Field::new("c1", DataType::Utf8, false),
         Field::new("c2", DataType::UInt32, false),

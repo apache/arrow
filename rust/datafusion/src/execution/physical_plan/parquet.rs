@@ -25,7 +25,7 @@ use std::thread;
 use crate::error::{ExecutionError, Result};
 use crate::execution::physical_plan::common;
 use crate::execution::physical_plan::{ExecutionPlan, Partition};
-use arrow::datatypes::Schema;
+use arrow::datatypes::{Schema, SchemaRef};
 use arrow::error::{ArrowError, Result as ArrowResult};
 use arrow::record_batch::{RecordBatch, RecordBatchReader};
 use parquet::file::reader::SerializedFileReader;
@@ -38,7 +38,7 @@ pub struct ParquetExec {
     /// Path to directory containing partitioned Parquet files with the same schema
     filenames: Vec<String>,
     /// Schema after projection is applied
-    schema: Arc<Schema>,
+    schema: SchemaRef,
     /// Projection for which columns to load
     projection: Vec<usize>,
     /// Batch size
@@ -85,7 +85,7 @@ impl ParquetExec {
 }
 
 impl ExecutionPlan for ParquetExec {
-    fn schema(&self) -> Arc<Schema> {
+    fn schema(&self) -> SchemaRef {
         self.schema.clone()
     }
 
@@ -115,7 +115,7 @@ impl ParquetPartition {
     pub fn new(
         filename: &str,
         projection: Vec<usize>,
-        schema: Arc<Schema>,
+        schema: SchemaRef,
         batch_size: usize,
     ) -> Self {
         // because the parquet implementation is not thread-safe, it is necessary to execute
@@ -198,13 +198,13 @@ impl Partition for ParquetPartition {
 }
 
 struct ParquetIterator {
-    schema: Arc<Schema>,
+    schema: SchemaRef,
     request_tx: Sender<()>,
     response_rx: Receiver<ArrowResult<Option<RecordBatch>>>,
 }
 
 impl RecordBatchReader for ParquetIterator {
-    fn schema(&self) -> Arc<Schema> {
+    fn schema(&self) -> SchemaRef {
         self.schema.clone()
     }
 

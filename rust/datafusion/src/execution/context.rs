@@ -648,7 +648,7 @@ struct ExecutionContextSchemaProvider<'a> {
 }
 
 impl SchemaProvider for ExecutionContextSchemaProvider<'_> {
-    fn get_table_meta(&self, name: &str) -> Option<Arc<Schema>> {
+    fn get_table_meta(&self, name: &str) -> Option<SchemaRef> {
         self.datasources.get(name).map(|ds| ds.schema().clone())
     }
 

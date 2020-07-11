@@ -36,7 +36,7 @@
 use std::fs::File;
 
 use arrow::csv;
-use arrow::datatypes::{Field, Schema};
+use arrow::datatypes::{Field, Schema, SchemaRef};
 use arrow::error::Result as ArrowResult;
 use arrow::record_batch::{RecordBatch, RecordBatchReader};
 use std::string::String;
@@ -51,7 +51,7 @@ use crate::execution::physical_plan::ExecutionPlan;
 /// Represents a CSV file with a provided schema
 pub struct CsvFile {
     filename: String,
-    schema: Arc<Schema>,
+    schema: SchemaRef,
     has_header: bool,
     delimiter: u8,
 }
@@ -74,7 +74,7 @@ impl CsvFile {
 }
 
 impl TableProvider for CsvFile {
-    fn schema(&self) -> Arc<Schema> {
+    fn schema(&self) -> SchemaRef {
         self.schema.clone()
     }
 
@@ -104,7 +104,7 @@ impl TableProvider for CsvFile {
 /// Iterator over CSV batches
 // TODO: usage example (rather than documenting `new()`)
 pub struct CsvBatchIterator {
-    schema: Arc<Schema>,
+    schema: SchemaRef,
     reader: csv::Reader<File>,
 }
 
@@ -112,7 +112,7 @@ impl CsvBatchIterator {
     #[allow(missing_docs)]
     pub fn try_new(
         filename: &str,
-        schema: Arc<Schema>,
+        schema: SchemaRef,
         has_header: bool,
         delimiter: Option<u8>,
         projection: &Option<Vec<usize>>,
@@ -146,7 +146,7 @@ impl CsvBatchIterator {
 }
 
 impl RecordBatchReader for CsvBatchIterator {
-    fn schema(&self) -> Arc<Schema> {
+    fn schema(&self) -> SchemaRef {
         self.schema.clone()
     }
 

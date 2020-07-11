@@ -19,7 +19,7 @@
 
 use std::sync::{Arc, Mutex};
 
-use arrow::datatypes::Schema;
+use arrow::datatypes::SchemaRef;
 use arrow::record_batch::RecordBatchReader;
 
 use crate::error::Result;
@@ -31,7 +31,7 @@ pub type ScanResult = Arc<Mutex<dyn RecordBatchReader + Send + Sync>>;
 /// Source table
 pub trait TableProvider {
     /// Get a reference to the schema for this table
-    fn schema(&self) -> Arc<Schema>;
+    fn schema(&self) -> SchemaRef;
 
     /// Perform a scan of a table and return a sequence of iterators over the data (one
     /// iterator per partition)

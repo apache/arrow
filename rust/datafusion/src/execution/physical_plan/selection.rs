@@ -23,7 +23,7 @@ use crate::error::{ExecutionError, Result};
 use crate::execution::physical_plan::{ExecutionPlan, Partition, PhysicalExpr};
 use arrow::array::BooleanArray;
 use arrow::compute::filter;
-use arrow::datatypes::Schema;
+use arrow::datatypes::SchemaRef;
 use arrow::error::Result as ArrowResult;
 use arrow::record_batch::{RecordBatch, RecordBatchReader};
 
@@ -50,7 +50,7 @@ impl SelectionExec {
 
 impl ExecutionPlan for SelectionExec {
     /// Get the schema for this execution plan
-    fn schema(&self) -> Arc<Schema> {
+    fn schema(&self) -> SchemaRef {
         // The selection operator does not make any changes to the schema of its input
         self.input.schema()
     }
@@ -79,7 +79,7 @@ impl ExecutionPlan for SelectionExec {
 
 /// Represents a single partition of a Selection execution plan
 struct SelectionPartition {
-    schema: Arc<Schema>,
+    schema: SchemaRef,
     expr: Arc<dyn PhysicalExpr>,
     input: Arc<dyn Partition>,
 }
@@ -97,14 +97,14 @@ impl Partition for SelectionPartition {
 
 /// Selection iterator
 struct SelectionIterator {
-    schema: Arc<Schema>,
+    schema: SchemaRef,
     expr: Arc<dyn PhysicalExpr>,
     input: Arc<Mutex<dyn RecordBatchReader + Send + Sync>>,
 }
 
 impl RecordBatchReader for SelectionIterator {
     /// Get the schema
-    fn schema(&self) -> Arc<Schema> {
+    fn schema(&self) -> SchemaRef {
         self.schema.clone()
     }
 

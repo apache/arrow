@@ -35,7 +35,7 @@ use arrow::array::{
     Int8Builder, StringBuilder, UInt16Builder, UInt32Builder, UInt64Builder,
     UInt8Builder,
 };
-use arrow::datatypes::{DataType, Field, Schema};
+use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
 use arrow::error::Result as ArrowResult;
 use arrow::record_batch::{RecordBatch, RecordBatchReader};
 
@@ -48,7 +48,7 @@ pub struct HashAggregateExec {
     group_expr: Vec<Arc<dyn PhysicalExpr>>,
     aggr_expr: Vec<Arc<dyn AggregateExpr>>,
     input: Arc<dyn ExecutionPlan>,
-    schema: Arc<Schema>,
+    schema: SchemaRef,
 }
 
 impl HashAggregateExec {
@@ -103,7 +103,7 @@ impl HashAggregateExec {
 }
 
 impl ExecutionPlan for HashAggregateExec {
-    fn schema(&self) -> Arc<Schema> {
+    fn schema(&self) -> SchemaRef {
         self.schema.clone()
     }
 
@@ -131,7 +131,7 @@ struct HashAggregatePartition {
     group_expr: Vec<Arc<dyn PhysicalExpr>>,
     aggr_expr: Vec<Arc<dyn AggregateExpr>>,
     input: Arc<dyn Partition>,
-    schema: Arc<Schema>,
+    schema: SchemaRef,
 }
 
 impl HashAggregatePartition {
@@ -140,7 +140,7 @@ impl HashAggregatePartition {
         group_expr: Vec<Arc<dyn PhysicalExpr>>,
         aggr_expr: Vec<Arc<dyn AggregateExpr>>,
         input: Arc<dyn Partition>,
-        schema: Arc<Schema>,
+        schema: SchemaRef,
     ) -> Self {
         HashAggregatePartition {
             group_expr,
@@ -249,7 +249,7 @@ struct MapEntry {
 }
 
 struct GroupedHashAggregateIterator {
-    schema: Arc<Schema>,
+    schema: SchemaRef,
     group_expr: Vec<Arc<dyn PhysicalExpr>>,
     aggr_expr: Vec<Arc<dyn AggregateExpr>>,
     input: Arc<Mutex<dyn RecordBatchReader + Send + Sync>>,
@@ -259,7 +259,7 @@ struct GroupedHashAggregateIterator {
 impl GroupedHashAggregateIterator {
     /// Create a new HashAggregateIterator
     pub fn new(
-        schema: Arc<Schema>,
+        schema: SchemaRef,
         group_expr: Vec<Arc<dyn PhysicalExpr>>,
         aggr_expr: Vec<Arc<dyn AggregateExpr>>,
         input: Arc<Mutex<dyn RecordBatchReader + Send + Sync>>,
@@ -293,7 +293,7 @@ macro_rules! update_accumulators {
 }
 
 impl RecordBatchReader for GroupedHashAggregateIterator {
-    fn schema(&self) -> Arc<Schema> {
+    fn schema(&self) -> SchemaRef {
         self.schema.clone()
     }
 
@@ -558,7 +558,7 @@ impl RecordBatchReader for GroupedHashAggregateIterator {
 }
 
 struct HashAggregateIterator {
-    schema: Arc<Schema>,
+    schema: SchemaRef,
     aggr_expr: Vec<Arc<dyn AggregateExpr>>,
     input: Arc<Mutex<dyn RecordBatchReader + Send + Sync>>,
     finished: bool,
@@ -567,7 +567,7 @@ struct HashAggregateIterator {
 impl HashAggregateIterator {
     /// Create a new HashAggregateIterator
     pub fn new(
-        schema: Arc<Schema>,
+        schema: SchemaRef,
         aggr_expr: Vec<Arc<dyn AggregateExpr>>,
         input: Arc<Mutex<dyn RecordBatchReader + Send + Sync>>,
     ) -> Self {
@@ -581,7 +581,7 @@ impl HashAggregateIterator {
 }
 
 impl RecordBatchReader for HashAggregateIterator {
-    fn schema(&self) -> Arc<Schema> {
+    fn schema(&self) -> SchemaRef {
         self.schema.clone()
     }
 
