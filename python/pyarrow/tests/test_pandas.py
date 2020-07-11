@@ -1205,16 +1205,20 @@ class TestConvertDateTimeLikeTypes:
         tm.assert_frame_equal(table_pandas_objects,
                               expected_pandas_objects)
 
-    def test_object_null_values(self):
+    def test_pandas_null_values(self):
         # ARROW-842
-        NA = getattr(pd, 'NA', None)
-        values = np.array([datetime(2000, 1, 1), pd.NaT, NA], dtype=object)
+        pd_NA = getattr(pd, 'NA', None)
+        values = np.array([datetime(2000, 1, 1), pd.NaT, pd_NA], dtype=object)
         values_with_none = np.array([datetime(2000, 1, 1), None, None],
                                     dtype=object)
         result = pa.array(values, from_pandas=True)
         expected = pa.array(values_with_none, from_pandas=True)
         assert result.equals(expected)
         assert result.null_count == 2
+
+        # ARROW-9407
+        assert pa.array([pd.NaT], from_pandas=True).type == pa.null()
+        assert pa.array([pd_NA], from_pandas=True).type == pa.null()
 
     def test_dates_from_integers(self):
         t1 = pa.date32()
