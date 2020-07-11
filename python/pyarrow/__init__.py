@@ -63,7 +63,26 @@ import pyarrow.lib as _lib
 if _gc_enabled:
     _gc.enable()
 
-from pyarrow.lib import cpu_count, set_cpu_count
+from pyarrow.lib import (BuildInfo, VersionInfo,
+                         cpp_build_info, cpp_version, cpp_version_info,
+                         cpu_count, set_cpu_count)
+
+
+def show_versions():
+    """
+    Print various version information, to help with error reporting.
+    """
+    # TODO: CPU information and flags
+    print("pyarrow version info\n--------------------")
+    print("Package kind: {}".format(cpp_build_info.package_kind
+                                    if len(cpp_build_info.package_kind) > 0
+                                    else "not indicated"))
+    print("Arrow C++ library version: {}".format(cpp_build_info.version))
+    print("Arrow C++ git revision: {}".format(cpp_build_info.git_id))
+    print("Arrow C++ git description: {}"
+          .format(cpp_build_info.git_description))
+
+
 from pyarrow.lib import (null, bool_,
                          int8, int16, int32, int64,
                          uint8, uint16, uint32, uint64,

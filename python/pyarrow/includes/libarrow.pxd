@@ -51,6 +51,20 @@ cdef extern from "arrow/util/decimal.h" namespace "arrow" nogil:
 
 cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
+    cdef cppclass CBuildInfo "arrow::BuildInfo":
+        int version
+        int version_major
+        int version_minor
+        int version_patch
+        c_string version_string
+        c_string so_version
+        c_string full_so_version
+        c_string git_id
+        c_string git_description
+        c_string package_kind
+
+    const CBuildInfo& GetBuildInfo()
+
     enum Type" arrow::Type::type":
         _Type_NA" arrow::Type::NA"
 
