@@ -320,7 +320,7 @@ class TypeInferrer {
   Status Visit(PyObject* obj, bool* keep_going) {
     ++total_count_;
 
-    if (obj == Py_None || (pandas_null_sentinels_ && internal::PyFloat_IsNaN(obj))) {
+    if (obj == Py_None || (pandas_null_sentinels_ && internal::PandasObjectIsNull(obj))) {
       ++none_count_;
     } else if (PyBool_Check(obj)) {
       ++bool_count_;
@@ -626,6 +626,12 @@ class TypeInferrer {
 // Non-exhaustive type inference
 Status InferArrowType(PyObject* obj, PyObject* mask, bool pandas_null_sentinels,
                       std::shared_ptr<DataType>* out_type) {
+  if (pandas_null_sentinels) {
+    // ARROW-842: If pandas is not installed then null checks will be less
+    // comprehensive, but that is okay.
+    internal::InitPandasStaticData();
+  }
+
   TypeInferrer inferrer(pandas_null_sentinels);
   RETURN_NOT_OK(inferrer.VisitSequence(obj, mask));
   RETURN_NOT_OK(inferrer.GetType(out_type));
