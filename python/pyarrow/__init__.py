@@ -74,6 +74,9 @@ def show_versions():
     """
     # TODO: CPU information and flags
     print("pyarrow version info\n--------------------")
+    print("Package kind: {}".format(cpp_build_info.package_kind
+                                    if len(cpp_build_info.package_kind) > 0
+                                    else "not indicated"))
     print("Arrow C++ library version: {}".format(cpp_build_info.version))
     print("Arrow C++ git revision: {}".format(cpp_build_info.git_id))
     print("Arrow C++ git description: {}"
