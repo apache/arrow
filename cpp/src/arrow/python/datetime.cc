@@ -14,21 +14,64 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
+#include "arrow/python/datetime.h"
 
 #include <algorithm>
 #include <chrono>
 #include <iostream>
 
 #include "arrow/python/common.h"
-#include "arrow/python/datetime.h"
+#include "arrow/python/helpers.h"
 #include "arrow/python/platform.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/value_parsing.h"
 
 namespace arrow {
 namespace py {
 namespace internal {
+
+namespace {
+
+// Same as Regex '([+-])(0[0-9]|1[0-9]|2[0-3]):([0-5][0-9])$'.
+// GCC 4.9 doesn't support regex, so handcode until support for it
+// is dropped.
+bool MatchFixedOffset(const std::string& tz, util::string_view* sign,
+                      util::string_view* hour, util::string_view* minute) {
+  if (tz.size() < 5) {
+    return false;
+  }
+  const char* iter = tz.data();
+  if (*iter == '+' || *iter == '-') {
+    *sign = util::string_view(iter, 1);
+    iter++;
+    if (tz.size() < 6) {
+      return false;
+    }
+  }
+  if ((((*iter == '0' || *iter == '1') && *(iter + 1) >= '0' && *(iter + 1) <= '9') ||
+       (*iter == '2' && *(iter + 1) >= '0' && *(iter + 1) <= '3'))) {
+    *hour = util::string_view(iter, 2);
+    iter += 2;
+  } else {
+    return false;
+  }
+  if (*iter != ':') {
+    return false;
+  }
+  iter++;
+
+  if (*iter >= '0' && *iter <= '5' && *(iter + 1) >= '0' && *(iter + 1) <= '9') {
+    *minute = util::string_view(iter, 2);
+    iter += 2;
+  } else {
+    return false;
+  }
+  return iter == (tz.data() + tz.size());
+}
+
+}  // namespace
 
 PyDateTime_CAPI* datetime_api = nullptr;
 
@@ -260,6 +303,44 @@ Status PyDateTime_from_int(int64_t val, const TimeUnit::type unit, PyObject** ou
 int64_t PyDate_to_days(PyDateTime_Date* pydate) {
   return get_days_from_date(PyDateTime_GET_YEAR(pydate), PyDateTime_GET_MONTH(pydate),
                             PyDateTime_GET_DAY(pydate));
+}
+
+// GIL must be held when calling this function.
+// Converted from python.  See https://github.com/apache/arrow/pull/7604
+// for details.
+Status StringToTzinfo(const std::string& tz, PyObject** tzinfo) {
+  util::string_view sign_str, hour_str, minute_str;
+  OwnedRef pytz;
+  RETURN_NOT_OK(internal::ImportModule("pytz", &pytz));
+
+  if (MatchFixedOffset(tz, &sign_str, &hour_str, &minute_str)) {
+    int sign = -1;
+    if (sign_str == "+") {
+      sign = 1;
+    }
+    OwnedRef fixed_offset;
+    RETURN_NOT_OK(internal::ImportFromModule(pytz.obj(), "FixedOffset", &fixed_offset));
+    uint32_t minutes, hours;
+    if (!::arrow::internal::ParseUnsigned(hour_str.data(), hour_str.size(), &hours) ||
+        !::arrow::internal::ParseUnsigned(minute_str.data(), minute_str.size(),
+                                          &minutes)) {
+      return Status::Invalid("Invalid timezone: ", tz);
+    }
+    OwnedRef total_minutes(PyLong_FromLong(
+        sign * ((static_cast<int>(hours) * 60) + static_cast<int>(minutes))));
+    RETURN_IF_PYERROR();
+    *tzinfo = PyObject_CallFunctionObjArgs(fixed_offset.obj(), total_minutes.obj(), NULL);
+    RETURN_IF_PYERROR();
+    return Status::OK();
+  }
+
+  OwnedRef timezone;
+  RETURN_NOT_OK(internal::ImportFromModule(pytz.obj(), "timezone", &timezone));
+  OwnedRef py_tz_string(
+      PyUnicode_FromStringAndSize(tz.c_str(), static_cast<Py_ssize_t>(tz.size())));
+  *tzinfo = PyObject_CallFunctionObjArgs(timezone.obj(), py_tz_string.obj(), NULL);
+  RETURN_IF_PYERROR();
+  return Status::OK();
 }
 
 }  // namespace internal
