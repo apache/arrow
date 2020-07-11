@@ -940,161 +940,30 @@ mod tests {
         });
     }
 
-    /// The ParquetBufWriter is a helper for writing Parquet data to a buffer.
-    pub struct ParquetBufWriter {
-        buf: Rc<RefCell<Vec<u8>>>,
-        pos: Option<u64>,
-    }
-
-    impl ParquetBufWriter {
-        pub fn new(buf: Rc<RefCell<Vec<u8>>>) -> Self {
-            ParquetBufWriter { buf, pos: None }
-        }
-    }
-
-    impl std::io::Seek for ParquetBufWriter {
-        fn seek(&mut self, pos: SeekFrom) -> std::result::Result<u64, std::io::Error> {
-            let mut self_buf = self.buf.borrow_mut();
-
-            let end_i64 = self_buf.len() as i64;
-            let new_pos: i64 = match pos {
-                SeekFrom::Start(offset) => offset as i64,
-                SeekFrom::End(offset) => end_i64 + offset,
-                SeekFrom::Current(offset) => {
-                    if let Some(pos) = self.pos {
-                        (pos as i64) + offset
-                    } else {
-                        end_i64 + offset
-                    }
-                }
-            };
-
-            let (new_pos, end) = if new_pos < 0 {
-                panic!()
-            } else {
-                (new_pos as u64, end_i64 as u64)
-            };
-
-            let end = if new_pos > end {
-                self_buf.resize(new_pos as usize, 0);
-                self_buf.len() as u64
-            } else {
-                end
-            };
-
-            self.pos = if new_pos != end { Some(new_pos) } else { None };
-            Ok(new_pos)
-        }
-    }
-
-    impl std::io::Write for ParquetBufWriter {
-        fn write(&mut self, buf: &[u8]) -> std::result::Result<usize, std::io::Error> {
-            let mut self_buf = self.buf.borrow_mut();
-            if let Some(pos) = self.pos {
-                let pos = pos as usize;
-                let write_end = pos + buf.len();
-                let new_pos = if write_end > self_buf.len() {
-                    let len = self_buf.len();
-                    self_buf.resize(write_end - len, 0);
-                    None
-                } else {
-                    Some(write_end as u64)
-                };
-
-                for i in 0..buf.len() {
-                    self_buf[pos + i] = buf[i]
-                }
-
-                self.pos = new_pos;
-            } else {
-                self_buf.extend_from_slice(buf)
-            }
-
-            Ok(buf.len())
-        }
-
-        fn flush(&mut self) -> std::result::Result<(), std::io::Error> {
-            Ok(())
-        }
-    }
-    /*
-        impl parquet::file::reader::TryClone for ParquetBufWriter {
-            fn try_clone(&self) -> Result<Self, parquet::errors::ParquetError> {
-                Ok(Self {
-                    buf: self.buf.clone(),
-                    pos: self.pos,
-                })
-            }
-        }
-    */
     #[test]
     fn test_arrow_single_float_row() {
-        use crate::array::{make_array, ArrayData};
-        use crate::buffer::Buffer;
-        use crate::datatypes::{DataType, Field, Schema};
-        use crate::ipc::reader::StreamReader;
-        use crate::ipc::writer::StreamWriter;
-        use crate::memory::{allocate_aligned, memcpy};
-        use crate::record_batch::RecordBatch;
-        use std::cell::RefCell;
-        use std::rc::Rc;
-        use std::sync::Arc;
-
-        let bytes: Vec<Vec<u8>> = vec![
-            vec![0x96, 0x89, 0xc3, 0xc2],
-            vec![0x08, 0x38, 0xf2, 0x41],
-            vec![0x02, 0x00, 0x00, 0x00],
-            vec![0x01, 0x00, 0x00, 0x00],
+        let schema = Schema::new(vec![
+            Field::new("a", DataType::Float32, false),
+            Field::new("b", DataType::Float32, false),
+            Field::new("c", DataType::Int32, false),
+            Field::new("d", DataType::Int32, false),
+        ]);
+        let arrays = vec![
+            Arc::new(Float32Array::from(vec![1.23])) as ArrayRef,
+            Arc::new(Float32Array::from(vec![-6.50])) as ArrayRef,
+            Arc::new(Int32Array::from(vec![2])) as ArrayRef,
+            Arc::new(Int32Array::from(vec![1])) as ArrayRef,
         ];
-        let tys = vec![
-            DataType::Float32,
-            DataType::Float32,
-            DataType::Int32,
-            DataType::Int32,
-        ];
+        let batch = RecordBatch::try_new(Arc::new(schema.clone()), arrays).unwrap();
+        // create stream writer
+        let file = File::create("target/debug/testdata/float.stream").unwrap();
+        let mut stream_writer = StreamWriter::try_new(file, &schema).unwrap();
+        stream_writer.write(&batch).unwrap();
+        stream_writer.finish().unwrap();
 
-        let names = vec!["a", "b", "c", "d"];
-
-        let buffers = bytes
-            .iter()
-            .enumerate()
-            .map(|(i, b)| {
-                let len = b.len();
-                let mem = allocate_aligned(len);
-                unsafe {
-                    memcpy(mem, b[..].as_ptr(), len);
-                    let buffers = vec![Buffer::from_raw_parts(mem, len, len)];
-                    make_array(Arc::new(ArrayData::new(
-                        tys[i].clone(),
-                        1,
-                        None,
-                        None,
-                        0,
-                        buffers,
-                        Vec::new(),
-                    )))
-                }
-            })
-            .collect::<Vec<_>>();
-
-        let schema_fields = tys
-            .iter()
-            .zip(names.iter())
-            .map(|(ty, name)| Field::new(name.to_owned(), ty.clone(), false))
-            .collect::<Vec<_>>();
-        let schema = Arc::new(Schema::new(schema_fields));
-        let record_batch = RecordBatch::try_new(schema.clone(), buffers).unwrap();
-
-        let buf = Rc::new(RefCell::new(Vec::new()));
-        {
-            let buf_writer = ParquetBufWriter::new(buf.clone());
-            let mut writer = StreamWriter::try_new(buf_writer, &schema).unwrap();
-            writer.write(&record_batch).unwrap();
-        }
-
-        let bytes = Rc::try_unwrap(buf).unwrap().into_inner();
-
-        let mut reader = StreamReader::try_new(&bytes[..]).unwrap();
+        // read stream back
+        let file = File::open("target/debug/testdata/float.stream").unwrap();
+        let mut reader = StreamReader::try_new(file).unwrap();
         while let Some(batch) = reader.next().unwrap() {
             assert!(
                 batch
