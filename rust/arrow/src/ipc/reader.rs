@@ -875,10 +875,8 @@ mod tests {
     use flate2::read::GzDecoder;
 
     use crate::util::integration_util::*;
-    use std::cell::RefCell;
     use std::env;
     use std::fs::File;
-    use std::rc::Rc;
 
     #[test]
     fn read_generated_files() {
@@ -957,7 +955,8 @@ mod tests {
         let batch = RecordBatch::try_new(Arc::new(schema.clone()), arrays).unwrap();
         // create stream writer
         let file = File::create("target/debug/testdata/float.stream").unwrap();
-        let mut stream_writer = StreamWriter::try_new(file, &schema).unwrap();
+        let mut stream_writer =
+            crate::ipc::writer::StreamWriter::try_new(file, &schema).unwrap();
         stream_writer.write(&batch).unwrap();
         stream_writer.finish().unwrap();
 
