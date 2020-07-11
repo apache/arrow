@@ -126,6 +126,7 @@
 #if XXH_VECTOR == XXH_VSX
 #  include <altivec.h>
 #  undef vector
+#  undef bool
 typedef __vector unsigned long long U64x2;
 typedef __vector unsigned U32x4;
 /* Adapted from https://github.com/google/highwayhash/blob/master/highwayhash/hh_vsx.h. */
