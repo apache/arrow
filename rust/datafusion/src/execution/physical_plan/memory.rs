@@ -144,7 +144,7 @@ impl RecordBatchReader for MemoryIterator {
     }
 
     /// Get the next RecordBatch
-    fn next(&mut self) -> ArrowResult<Option<RecordBatch>> {
+    fn next_batch(&mut self) -> ArrowResult<Option<RecordBatch>> {
         if self.index < self.data.len() {
             self.index += 1;
             let batch = &self.data[self.index - 1];

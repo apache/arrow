@@ -88,7 +88,7 @@ mod tests {
         let mut it = scan[0].lock().unwrap();
 
         let mut count = 0;
-        while let Some(batch) = it.next().unwrap() {
+        while let Some(batch) = it.next_batch().unwrap() {
             assert_eq!(11, batch.num_columns());
             assert_eq!(2, batch.num_rows());
             count += 1;
@@ -127,7 +127,7 @@ mod tests {
         let projection = None;
         let scan = table.scan(&projection, 1024).unwrap();
         let mut it = scan[0].lock().unwrap();
-        let batch = it.next().unwrap().unwrap();
+        let batch = it.next_batch().unwrap().unwrap();
 
         assert_eq!(11, batch.num_columns());
         assert_eq!(8, batch.num_rows());
@@ -140,7 +140,7 @@ mod tests {
         let projection = Some(vec![1]);
         let scan = table.scan(&projection, 1024).unwrap();
         let mut it = scan[0].lock().unwrap();
-        let batch = it.next().unwrap().unwrap();
+        let batch = it.next_batch().unwrap().unwrap();
 
         assert_eq!(1, batch.num_columns());
         assert_eq!(8, batch.num_rows());
@@ -168,7 +168,7 @@ mod tests {
         let projection = Some(vec![0]);
         let scan = table.scan(&projection, 1024).unwrap();
         let mut it = scan[0].lock().unwrap();
-        let batch = it.next().unwrap().unwrap();
+        let batch = it.next_batch().unwrap().unwrap();
 
         assert_eq!(1, batch.num_columns());
         assert_eq!(8, batch.num_rows());
@@ -193,7 +193,7 @@ mod tests {
         let projection = Some(vec![10]);
         let scan = table.scan(&projection, 1024).unwrap();
         let mut it = scan[0].lock().unwrap();
-        let batch = it.next().unwrap().unwrap();
+        let batch = it.next_batch().unwrap().unwrap();
 
         assert_eq!(1, batch.num_columns());
         assert_eq!(8, batch.num_rows());
@@ -218,8 +218,7 @@ mod tests {
         let projection = Some(vec![6]);
         let scan = table.scan(&projection, 1024).unwrap();
         let mut it = scan[0].lock().unwrap();
-        let batch = it.next().unwrap().unwrap();
-
+        let batch = it.next_batch().unwrap().unwrap();
         assert_eq!(1, batch.num_columns());
         assert_eq!(8, batch.num_rows());
 
@@ -246,7 +245,7 @@ mod tests {
         let projection = Some(vec![7]);
         let scan = table.scan(&projection, 1024).unwrap();
         let mut it = scan[0].lock().unwrap();
-        let batch = it.next().unwrap().unwrap();
+        let batch = it.next_batch().unwrap().unwrap();
 
         assert_eq!(1, batch.num_columns());
         assert_eq!(8, batch.num_rows());
@@ -274,7 +273,7 @@ mod tests {
         let projection = Some(vec![9]);
         let scan = table.scan(&projection, 1024).unwrap();
         let mut it = scan[0].lock().unwrap();
-        let batch = it.next().unwrap().unwrap();
+        let batch = it.next_batch().unwrap().unwrap();
 
         assert_eq!(1, batch.num_columns());
         assert_eq!(8, batch.num_rows());

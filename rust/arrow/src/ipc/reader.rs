@@ -630,8 +630,28 @@ impl<R: Read + Seek> FileReader<R> {
         self.schema.clone()
     }
 
-    /// Read the next record batch
-    pub fn next_batch(&mut self) -> Result<Option<RecordBatch>> {
+    /// Read a specific record batch
+    ///
+    /// Sets the current block to the index, allowing random reads
+    pub fn set_index(&mut self, index: usize) -> Result<()> {
+        if index >= self.total_blocks {
+            Err(ArrowError::IoError(format!(
+                "Cannot set batch to index {} from {} total batches",
+                index, self.total_blocks
+            )))
+        } else {
+            self.current_block = index;
+            Ok(())
+        }
+    }
+}
+
+impl<R: Read + Seek> RecordBatchReader for FileReader<R> {
+    fn schema(&self) -> SchemaRef {
+        self.schema.clone()
+    }
+
+    fn next_batch(&mut self) -> Result<Option<RecordBatch>> {
         // get current block
         if self.current_block < self.total_blocks {
             let block = self.blocks[self.current_block];
@@ -681,31 +701,6 @@ impl<R: Read + Seek> FileReader<R> {
         } else {
             Ok(None)
         }
-    }
-
-    /// Read a specific record batch
-    ///
-    /// Sets the current block to the index, allowing random reads
-    pub fn set_index(&mut self, index: usize) -> Result<()> {
-        if index >= self.total_blocks {
-            Err(ArrowError::IoError(format!(
-                "Cannot set batch to index {} from {} total batches",
-                index, self.total_blocks
-            )))
-        } else {
-            self.current_block = index;
-            Ok(())
-        }
-    }
-}
-
-impl<R: Read + Seek> RecordBatchReader for FileReader<R> {
-    fn schema(&self) -> SchemaRef {
-        self.schema.clone()
-    }
-
-    fn next(&mut self) -> Result<Option<RecordBatch>> {
-        self.next_batch()
     }
 }
 
@@ -777,8 +772,18 @@ impl<R: Read> StreamReader<R> {
         self.schema.clone()
     }
 
-    /// Read the next record batch
-    pub fn next_batch(&mut self) -> Result<Option<RecordBatch>> {
+    /// Check if the stream is finished
+    pub fn is_finished(&self) -> bool {
+        self.finished
+    }
+}
+
+impl<R: Read> RecordBatchReader for StreamReader<R> {
+    fn schema(&self) -> SchemaRef {
+        self.schema.clone()
+    }
+
+    fn next_batch(&mut self) -> Result<Option<RecordBatch>> {
         if self.finished {
             return Ok(None);
         }
@@ -849,21 +854,6 @@ impl<R: Read> StreamReader<R> {
             )),
         }
     }
-
-    /// Check if the stream is finished
-    pub fn is_finished(&self) -> bool {
-        self.finished
-    }
-}
-
-impl<R: Read> RecordBatchReader for StreamReader<R> {
-    fn schema(&self) -> SchemaRef {
-        self.schema.clone()
-    }
-
-    fn next(&mut self) -> Result<Option<RecordBatch>> {
-        self.next_batch()
-    }
 }
 
 #[cfg(test)]
@@ -930,7 +920,7 @@ mod tests {
             let arrow_json = read_gzip_json(path);
             assert!(arrow_json.equals_reader(&mut reader));
             // the next batch must be empty
-            assert!(reader.next().unwrap().is_none());
+            assert!(reader.next_batch().unwrap().is_none());
             // the stream must indicate that it's finished
             assert!(reader.is_finished());
         });

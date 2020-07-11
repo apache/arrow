@@ -225,7 +225,7 @@ pub trait RecordBatchReader {
     fn schema(&self) -> SchemaRef;
 
     /// Reads the next `RecordBatch`.
-    fn next(&mut self) -> Result<Option<RecordBatch>>;
+    fn next_batch(&mut self) -> Result<Option<RecordBatch>>;
 }
 
 #[cfg(test)]

@@ -62,7 +62,7 @@ impl MemTable {
         let mut data: Vec<Vec<RecordBatch>> = Vec::with_capacity(partitions.len());
         for it in &partitions {
             let mut partition = vec![];
-            while let Ok(Some(batch)) = it.lock().unwrap().next() {
+            while let Ok(Some(batch)) = it.lock().unwrap().next_batch() {
                 partition.push(batch);
             }
             data.push(partition);
@@ -151,7 +151,7 @@ mod tests {
 
         // scan with projection
         let partitions = provider.scan(&Some(vec![2, 1]), 1024).unwrap();
-        let batch2 = partitions[0].lock().unwrap().next().unwrap().unwrap();
+        let batch2 = partitions[0].lock().unwrap().next_batch().unwrap().unwrap();
         assert_eq!(2, batch2.schema().fields().len());
         assert_eq!("c", batch2.schema().field(0).name());
         assert_eq!("b", batch2.schema().field(1).name());
@@ -179,7 +179,7 @@ mod tests {
         let provider = MemTable::new(schema, vec![vec![batch]]).unwrap();
 
         let partitions = provider.scan(&None, 1024).unwrap();
-        let batch1 = partitions[0].lock().unwrap().next().unwrap().unwrap();
+        let batch1 = partitions[0].lock().unwrap().next_batch().unwrap().unwrap();
         assert_eq!(3, batch1.schema().fields().len());
         assert_eq!(3, batch1.num_columns());
     }

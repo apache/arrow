@@ -78,7 +78,7 @@ impl ArrowJson {
             return false;
         }
         self.batches.iter().all(|col| {
-            let batch = reader.next();
+            let batch = reader.next_batch();
             match batch {
                 Ok(Some(batch)) => col.equals_batch(&batch),
                 _ => false,

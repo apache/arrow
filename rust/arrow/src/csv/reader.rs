@@ -695,7 +695,7 @@ mod tests {
         let batch = csv.next().unwrap().unwrap();
         let batch_schema = batch.schema();
 
-        assert_eq!(&schema, batch_schema);
+        assert_eq!(schema, batch_schema);
         assert_eq!(37, batch.num_rows());
         assert_eq!(3, batch.num_columns());
 
@@ -735,7 +735,7 @@ mod tests {
         ]));
         assert_eq!(projected_schema.clone(), csv.schema());
         let batch = csv.next().unwrap().unwrap();
-        assert_eq!(&projected_schema, batch.schema());
+        assert_eq!(projected_schema, batch.schema());
         assert_eq!(37, batch.num_rows());
         assert_eq!(2, batch.num_columns());
     }

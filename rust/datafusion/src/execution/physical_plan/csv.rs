@@ -270,7 +270,7 @@ impl RecordBatchReader for CsvIterator {
     }
 
     /// Get the next RecordBatch
-    fn next(&mut self) -> ArrowResult<Option<RecordBatch>> {
+    fn next_batch(&mut self) -> ArrowResult<Option<RecordBatch>> {
         Ok(self.reader.next()?)
     }
 }
@@ -298,7 +298,7 @@ mod tests {
         let partitions = csv.partitions()?;
         let results = partitions[0].execute()?;
         let mut it = results.lock().unwrap();
-        let batch = it.next()?.unwrap();
+        let batch = it.next_batch()?.unwrap();
         assert_eq!(3, batch.num_columns());
         let batch_schema = batch.schema();
         assert_eq!(3, batch_schema.fields().len());
@@ -322,7 +322,7 @@ mod tests {
         let partitions = csv.partitions()?;
         let results = partitions[0].execute()?;
         let mut it = results.lock().unwrap();
-        let batch = it.next()?.unwrap();
+        let batch = it.next_batch()?.unwrap();
         assert_eq!(13, batch.num_columns());
         let batch_schema = batch.schema();
         assert_eq!(13, batch_schema.fields().len());

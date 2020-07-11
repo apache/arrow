@@ -136,14 +136,14 @@ pub fn truncate_batch(batch: &RecordBatch, n: usize) -> Result<RecordBatch> {
 
 /// Create a vector of record batches from an iterator
 fn collect_with_limit(
-    it: Arc<Mutex<dyn RecordBatchReader + Send + Sync>>,
+    reader: Arc<Mutex<dyn RecordBatchReader + Send + Sync>>,
     limit: usize,
 ) -> Result<Vec<RecordBatch>> {
     let mut count = 0;
-    let mut it = it.lock().unwrap();
+    let mut reader = reader.lock().unwrap();
     let mut results: Vec<RecordBatch> = vec![];
     loop {
-        match it.next() {
+        match reader.next_batch() {
             Ok(Some(batch)) => {
                 let capacity = limit - count;
                 if batch.num_rows() <= capacity {

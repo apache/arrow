@@ -38,7 +38,7 @@ fn main() -> Result<()> {
 
     let mut writer = StreamWriter::try_new(io::stdout(), &schema)?;
 
-    while let Some(batch) = reader.next()? {
+    while let Some(batch) = reader.next_batch()? {
         writer.write(&batch)?;
     }
     writer.finish()?;

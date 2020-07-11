@@ -22,7 +22,7 @@ extern crate arrow;
 extern crate datafusion;
 
 use arrow::array::*;
-use arrow::datatypes::{DataType, Field, Schema};
+use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
 use arrow::record_batch::RecordBatch;
 
 use datafusion::datasource::csv::CsvReadOptions;

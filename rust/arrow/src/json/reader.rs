@@ -853,7 +853,7 @@ mod tests {
 
         let schema = reader.schema();
         let batch_schema = batch.schema();
-        assert_eq!(&schema, batch_schema);
+        assert_eq!(schema, batch_schema);
 
         let a = schema.column_with_name("a").unwrap();
         assert_eq!(0, a.0);
@@ -911,7 +911,7 @@ mod tests {
 
         let schema = reader.schema();
         let batch_schema = batch.schema();
-        assert_eq!(&schema, batch_schema);
+        assert_eq!(schema, batch_schema);
 
         let a = schema.column_with_name("a").unwrap();
         assert_eq!(&DataType::Int64, a.1.data_type());
@@ -1038,7 +1038,7 @@ mod tests {
         assert_eq!(12, batch.num_rows());
 
         let schema = batch.schema();
-        assert_eq!(&reader_schema, schema);
+        assert_eq!(reader_schema, schema);
 
         let a = schema.column_with_name("a").unwrap();
         assert_eq!(0, a.0);
@@ -1239,7 +1239,7 @@ mod tests {
 
         let schema = reader.schema();
         let batch_schema = batch.schema();
-        assert_eq!(&schema, batch_schema);
+        assert_eq!(schema, batch_schema);
 
         let d = schema.column_with_name("d").unwrap();
         assert_eq!(
@@ -1297,7 +1297,7 @@ mod tests {
 
         let schema = reader.schema();
         let batch_schema = batch.schema();
-        assert_eq!(&schema, batch_schema);
+        assert_eq!(schema, batch_schema);
 
         let d = schema.column_with_name("d").unwrap();
         assert_eq!(
@@ -1326,7 +1326,7 @@ mod tests {
 
         let schema = reader.schema();
         let batch_schema = batch.schema();
-        assert_eq!(&schema, batch_schema);
+        assert_eq!(schema, batch_schema);
 
         let d = schema.column_with_name("d").unwrap();
         assert_eq!(
@@ -1355,7 +1355,7 @@ mod tests {
 
         let schema = reader.schema();
         let batch_schema = batch.schema();
-        assert_eq!(&schema, batch_schema);
+        assert_eq!(schema, batch_schema);
 
         let d = schema.column_with_name("d").unwrap();
         assert_eq!(

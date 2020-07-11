@@ -297,7 +297,7 @@ impl RecordBatchReader for GroupedHashAggregateIterator {
         self.schema.clone()
     }
 
-    fn next(&mut self) -> ArrowResult<Option<RecordBatch>> {
+    fn next_batch(&mut self) -> ArrowResult<Option<RecordBatch>> {
         if self.finished {
             return Ok(None);
         }
@@ -312,7 +312,7 @@ impl RecordBatchReader for GroupedHashAggregateIterator {
         let mut input = self.input.lock().unwrap();
 
         // iterate over input and perform aggregation
-        while let Some(batch) = input.next()? {
+        while let Some(batch) = input.next_batch()? {
             // evaluate the grouping expressions for this batch
             let group_values = self
                 .group_expr
@@ -585,7 +585,7 @@ impl RecordBatchReader for HashAggregateIterator {
         self.schema.clone()
     }
 
-    fn next(&mut self) -> ArrowResult<Option<RecordBatch>> {
+    fn next_batch(&mut self) -> ArrowResult<Option<RecordBatch>> {
         if self.finished {
             return Ok(None);
         }
@@ -602,7 +602,7 @@ impl RecordBatchReader for HashAggregateIterator {
         let mut input = self.input.lock().unwrap();
 
         // iterate over input and perform aggregation
-        while let Some(batch) = input.next()? {
+        while let Some(batch) = input.next_batch()? {
             // evaluate the inputs to the aggregate expressions for this batch
             let aggr_input_values = self
                 .aggr_expr

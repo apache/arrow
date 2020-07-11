@@ -144,7 +144,7 @@ impl ParquetPartition {
                     {
                         Ok(mut batch_reader) => {
                             while let Ok(_) = request_rx.recv() {
-                                match batch_reader.next() {
+                                match batch_reader.next_batch() {
                                     Ok(Some(batch)) => {
                                         response_tx.send(Ok(Some(batch))).unwrap();
                                     }
@@ -208,7 +208,7 @@ impl RecordBatchReader for ParquetIterator {
         self.schema.clone()
     }
 
-    fn next(&mut self) -> ArrowResult<Option<RecordBatch>> {
+    fn next_batch(&mut self) -> ArrowResult<Option<RecordBatch>> {
         match self.request_tx.send(()) {
             Ok(_) => match self.response_rx.recv() {
                 Ok(batch) => batch,
@@ -237,26 +237,23 @@ mod tests {
 
         let results = partitions[0].execute()?;
         let mut results = results.lock().unwrap();
-        let batch = results.next()?.unwrap();
+        let batch = results.next_batch()?.unwrap();
 
         assert_eq!(8, batch.num_rows());
         assert_eq!(3, batch.num_columns());
 
-        let field_names: Vec<&str> = batch
-            .schema()
-            .fields()
-            .iter()
-            .map(|f| f.name().as_str())
-            .collect();
+        let schema = batch.schema();
+        let field_names: Vec<&str> =
+            schema.fields().iter().map(|f| f.name().as_str()).collect();
         assert_eq!(vec!["id", "bool_col", "tinyint_col"], field_names);
 
-        let batch = results.next()?;
+        let batch = results.next_batch()?;
         assert!(batch.is_none());
 
-        let batch = results.next()?;
+        let batch = results.next_batch()?;
         assert!(batch.is_none());
 
-        let batch = results.next()?;
+        let batch = results.next_batch()?;
         assert!(batch.is_none());
 
         Ok(())

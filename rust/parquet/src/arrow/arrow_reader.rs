@@ -148,7 +148,7 @@ impl RecordBatchReader for ParquetRecordBatchReader {
         self.schema.clone()
     }
 
-    fn next(&mut self) -> ArrowResult<Option<RecordBatch>> {
+    fn next_batch(&mut self) -> ArrowResult<Option<RecordBatch>> {
         self.array_reader
             .next_batch(self.batch_size)
             .map_err(|err| err.into())
@@ -399,7 +399,7 @@ mod tests {
         for i in 0..num_iterations {
             let start = i * record_batch_size;
 
-            let batch = record_reader.next().unwrap();
+            let batch = record_reader.next_batch().unwrap();
             if start < expected_data.len() {
                 let end = min(start + record_batch_size, expected_data.len());
                 assert!(batch.is_some());
@@ -481,7 +481,7 @@ mod tests {
     ) {
         for i in 0..20 {
             let array: Option<StructArray> = record_batch_reader
-                .next()
+                .next_batch()
                 .expect("Failed to read record batch!")
                 .map(|r| r.into());
 

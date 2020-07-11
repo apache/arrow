@@ -150,7 +150,7 @@ impl RecordBatchReader for CsvBatchIterator {
         self.schema.clone()
     }
 
-    fn next(&mut self) -> ArrowResult<Option<RecordBatch>> {
+    fn next_batch(&mut self) -> ArrowResult<Option<RecordBatch>> {
         self.reader.next()
     }
 }

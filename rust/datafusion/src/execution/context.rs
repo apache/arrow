@@ -616,10 +616,10 @@ impl ExecutionContext {
                     let path = Path::new(&path).join(&filename);
                     let file = fs::File::create(path)?;
                     let mut writer = csv::Writer::new(file);
-                    let it = p.execute()?;
-                    let mut it = it.lock().unwrap();
+                    let reader = p.execute()?;
+                    let mut reader = reader.lock().unwrap();
                     loop {
-                        match it.next() {
+                        match reader.next_batch() {
                             Ok(Some(batch)) => {
                                 writer.write(&batch)?;
                             }

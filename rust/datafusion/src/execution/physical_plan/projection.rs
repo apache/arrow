@@ -120,9 +120,9 @@ impl RecordBatchReader for ProjectionIterator {
     }
 
     /// Get the next batch
-    fn next(&mut self) -> ArrowResult<Option<RecordBatch>> {
+    fn next_batch(&mut self) -> ArrowResult<Option<RecordBatch>> {
         let mut input = self.input.lock().unwrap();
-        match input.next()? {
+        match input.next_batch()? {
             Some(batch) => {
                 let arrays: Result<Vec<_>> =
                     self.expr.iter().map(|expr| expr.evaluate(&batch)).collect();
@@ -167,7 +167,7 @@ mod tests {
             partition_count += 1;
             let iterator = partition.execute()?;
             let mut iterator = iterator.lock().unwrap();
-            while let Some(batch) = iterator.next()? {
+            while let Some(batch) = iterator.next_batch()? {
                 assert_eq!(1, batch.num_columns());
                 row_count += batch.num_rows();
             }

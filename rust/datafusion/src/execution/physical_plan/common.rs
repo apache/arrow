@@ -52,7 +52,7 @@ impl RecordBatchReader for RecordBatchIterator {
         self.schema.clone()
     }
 
-    fn next(&mut self) -> ArrowResult<Option<RecordBatch>> {
+    fn next_batch(&mut self) -> ArrowResult<Option<RecordBatch>> {
         if self.index < self.batches.len() {
             self.index += 1;
             Ok(Some(self.batches[self.index - 1].as_ref().clone()))
@@ -66,10 +66,10 @@ impl RecordBatchReader for RecordBatchIterator {
 pub fn collect(
     it: Arc<Mutex<dyn RecordBatchReader + Send + Sync>>,
 ) -> Result<Vec<RecordBatch>> {
-    let mut it = it.lock().unwrap();
+    let mut reader = it.lock().unwrap();
     let mut results: Vec<RecordBatch> = vec![];
     loop {
-        match it.next() {
+        match reader.next_batch() {
             Ok(Some(batch)) => {
                 results.push(batch);
             }

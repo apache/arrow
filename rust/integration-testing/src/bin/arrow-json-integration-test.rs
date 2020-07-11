@@ -432,7 +432,7 @@ fn arrow_to_json(arrow_name: &str, json_name: &str, verbose: bool) -> Result<()>
     let schema = ArrowJsonSchema { fields };
 
     let mut batches = vec![];
-    while let Ok(Some(batch)) = reader.next() {
+    while let Ok(Some(batch)) = reader.next_batch() {
         batches.push(ArrowJsonBatch::from_batch(&batch));
     }
 
@@ -483,7 +483,7 @@ fn validate(arrow_name: &str, json_name: &str, verbose: bool) -> Result<()> {
     }
 
     for json_batch in &json_batches {
-        if let Some(arrow_batch) = arrow_reader.next()? {
+        if let Some(arrow_batch) = arrow_reader.next_batch()? {
             // compare batches
             assert!(arrow_batch.num_columns() == json_batch.num_columns());
             assert!(arrow_batch.num_rows() == json_batch.num_rows());
@@ -500,7 +500,7 @@ fn validate(arrow_name: &str, json_name: &str, verbose: bool) -> Result<()> {
         }
     }
 
-    if let Some(_) = arrow_reader.next()? {
+    if let Some(_) = arrow_reader.next_batch()? {
         return Err(ArrowError::ComputeError(
             "no more json batches left".to_owned(),
         ));

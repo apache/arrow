@@ -109,9 +109,9 @@ impl RecordBatchReader for SelectionIterator {
     }
 
     /// Get the next batch
-    fn next(&mut self) -> ArrowResult<Option<RecordBatch>> {
+    fn next_batch(&mut self) -> ArrowResult<Option<RecordBatch>> {
         let mut input = self.input.lock().unwrap();
-        match input.next()? {
+        match input.next_batch()? {
             Some(batch) => {
                 // evaluate the selection predicate to get a boolean array
                 let predicate_result = self

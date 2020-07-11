@@ -32,7 +32,7 @@ fn main() -> Result<()> {
 
     let mut writer = FileWriter::try_new(io::stdout(), &schema)?;
 
-    while let Some(batch) = arrow_stream_reader.next()? {
+    while let Some(batch) = arrow_stream_reader.next_batch()? {
         writer.write(&batch)?;
     }
     writer.finish()?;
