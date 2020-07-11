@@ -374,18 +374,18 @@ class VectorAppender implements VectorVisitor<ValueVector, Void> {
     }
 
     // append type buffers
-    PlatformDependent.copyMemory(deltaVector.getValidityBufferAddress(),
-            targetUnionVector.getValidityBufferAddress() + targetVector.getValueCount(),
+    PlatformDependent.copyMemory(deltaVector.getTypeBufferAddress(),
+            targetUnionVector.getTypeBufferAddress() + targetVector.getValueCount(),
             deltaVector.getValueCount());
 
     // build the hash set for all types
     HashSet<Integer> targetTypes = new HashSet<>();
     for (int i = 0; i < targetUnionVector.getValueCount(); i++) {
-      targetTypes.add((int) targetUnionVector.getValidityBuffer().getByte(i));
+      targetTypes.add(targetUnionVector.getTypeValue(i));
     }
     HashSet<Integer> deltaTypes = new HashSet<>();
     for (int i = 0; i < deltaVector.getValueCount(); i++) {
-      deltaTypes.add((int) deltaVector.getValidityBuffer().getByte(i));
+      deltaTypes.add(deltaVector.getTypeValue(i));
     }
 
     // append child vectors
@@ -431,11 +431,6 @@ class VectorAppender implements VectorVisitor<ValueVector, Void> {
     while (targetDenseUnionVector.getValueCapacity() < newValueCount) {
       targetDenseUnionVector.reAlloc();
     }
-
-    // append validity buffers
-    BitVectorHelper.concatBits(
-        targetVector.getValidityBuffer(), targetVector.getValueCount(),
-        deltaVector.getValidityBuffer(), deltaVector.getValueCount(), targetVector.getValidityBuffer());
 
     // append type buffers
     PlatformDependent.copyMemory(deltaVector.getTypeBuffer().memoryAddress(),

@@ -822,7 +822,14 @@ public class Types {
 
       @Override
       public MinorType visit(Union type) {
-        return MinorType.UNION;
+        switch (type.getMode()) {
+          case Sparse:
+            return MinorType.UNION;
+          case Dense:
+            return MinorType.DENSEUNION;
+          default:
+            throw new IllegalArgumentException("only Dense or Sparse unions supported: " + type);
+        }
       }
 
       @Override

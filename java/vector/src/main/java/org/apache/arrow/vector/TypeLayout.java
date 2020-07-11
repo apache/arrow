@@ -71,8 +71,6 @@ public class TypeLayout {
         switch (type.getMode()) {
           case Dense:
             vectors = asList(
-                // TODO: validate this
-                BufferLayout.validityVector(),
                 BufferLayout.typeBuffer(),
                 BufferLayout.offsetBuffer() // offset to find the vector
             );
@@ -278,7 +276,7 @@ public class TypeLayout {
         switch (type.getMode()) {
           case Dense:
             // TODO: validate this
-            return 3;
+            return 2;
           case Sparse:
             // type buffer
             return 1;
