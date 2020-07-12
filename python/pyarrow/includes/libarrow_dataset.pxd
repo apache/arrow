@@ -236,6 +236,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         const vector[CRowGroupInfo]& row_groups() const
         CResult[vector[shared_ptr[CFragment]]] SplitByRowGroup(
             shared_ptr[CExpression] predicate)
+        CStatus EnsureCompleteMetadata()
 
     cdef cppclass CFileSystemDataset \
             "arrow::dataset::FileSystemDataset"(CDataset):

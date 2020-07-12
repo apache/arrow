@@ -913,12 +913,23 @@ cdef class ParquetFileFragment(FileFragment):
 
     def __reduce__(self):
         buffer = self.buffer
+        if self.row_groups is not None:
+            row_groups = [row_group.id for row_group in self.row_groups]
+        else:
+            row_groups = None
         return self.format.make_fragment, (
             self.path if buffer is None else buffer,
             self.filesystem,
             self.partition_expression,
-            self.row_groups
+            row_groups
         )
+
+    def ensure_complete_metadata(self):
+        """
+        Ensure that all metadata (statistics, physical schema, ...) have
+        been read and cached in this fragment.
+        """
+        check_status(self.parquet_file_fragment.EnsureCompleteMetadata())
 
     @property
     def row_groups(self):
