@@ -77,16 +77,11 @@ class TestConvertParquetSchema : public ::testing::Test {
 
   ::arrow::Status ConvertSchema(
       const std::vector<NodePtr>& nodes,
-      const std::shared_ptr<const KeyValueMetadata>& key_value_metadata = nullptr,
-      const std::vector<int>* column_indices = nullptr) {
+      const std::shared_ptr<const KeyValueMetadata>& key_value_metadata = nullptr) {
     NodePtr schema = GroupNode::Make("schema", Repetition::REPEATED, nodes);
     descr_.Init(schema);
     ArrowReaderProperties props;
-    if (column_indices == nullptr) {
-      return FromParquetSchema(&descr_, props, key_value_metadata, &result_schema_);
-    }
-    return FromParquetSchema(&descr_, props, key_value_metadata, *column_indices,
-                             &result_schema_);
+    return FromParquetSchema(&descr_, props, key_value_metadata, &result_schema_);
   }
 
  protected:
@@ -647,84 +642,6 @@ TEST_F(TestConvertParquetSchema, ParquetRepeatedNestedSchema) {
   ASSERT_OK(ConvertSchema(parquet_fields));
 
   ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(arrow_schema));
-}
-
-TEST_F(TestConvertParquetSchema, ColumnSubselection) {
-  std::vector<NodePtr> parquet_fields;
-  std::vector<std::shared_ptr<Field>> arrow_fields;
-  {
-    //   optional int32 leaf1;
-    //   repeated group outerGroup {
-    //     optional int32 leaf2;
-    //     repeated group innerGroup {
-    //       optional int32 leaf3;
-    //     }
-    //   }
-    parquet_fields.push_back(
-        PrimitiveNode::Make("leaf1", Repetition::OPTIONAL, ParquetType::INT32));
-    parquet_fields.push_back(GroupNode::Make(
-        "outerGroup", Repetition::REPEATED,
-        {PrimitiveNode::Make("leaf2", Repetition::OPTIONAL, ParquetType::INT32),
-         GroupNode::Make(
-             "innerGroup", Repetition::REPEATED,
-             {PrimitiveNode::Make("leaf3", Repetition::OPTIONAL, ParquetType::INT32)})}));
-
-    auto inner_group_fields = {::arrow::field("leaf3", INT32, true)};
-    auto inner_group_type = ::arrow::struct_(inner_group_fields);
-    auto outer_group_fields = {
-        ::arrow::field("leaf2", INT32, true),
-        ::arrow::field(
-            "innerGroup",
-            ::arrow::list(::arrow::field("innerGroup", inner_group_type, false)), false)};
-    auto outer_group_type = ::arrow::struct_(outer_group_fields);
-
-    arrow_fields.push_back(::arrow::field("leaf1", INT32, true));
-    arrow_fields.push_back(::arrow::field(
-        "outerGroup",
-        ::arrow::list(::arrow::field("outerGroup", outer_group_type, false)), false));
-  }
-  std::shared_ptr<::arrow::Schema> arrow_schema;
-  std::vector<int> column_indices;
-
-  column_indices = {};
-  ASSERT_OK(
-      ConvertSchema(parquet_fields, /*key_value_metadata=*/nullptr, &column_indices));
-  arrow_schema = ::arrow::schema({});
-  ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(arrow_schema));
-
-  column_indices = {0, 1, 2};
-  ASSERT_OK(
-      ConvertSchema(parquet_fields, /*key_value_metadata=*/nullptr, &column_indices));
-  arrow_schema = ::arrow::schema(arrow_fields);
-  ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(arrow_schema));
-
-  column_indices = {0};
-  ASSERT_OK(
-      ConvertSchema(parquet_fields, /*key_value_metadata=*/nullptr, &column_indices));
-  arrow_schema = ::arrow::schema({arrow_fields[0]});
-  ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(arrow_schema));
-
-  column_indices = {1};
-  ASSERT_OK(
-      ConvertSchema(parquet_fields, /*key_value_metadata=*/nullptr, &column_indices));
-  arrow_schema = ::arrow::schema({arrow_fields[1]});
-  ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(arrow_schema));
-
-  column_indices = {2};
-  ASSERT_OK(
-      ConvertSchema(parquet_fields, /*key_value_metadata=*/nullptr, &column_indices));
-  arrow_schema = ::arrow::schema({arrow_fields[1]});
-  ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(arrow_schema));
-
-  column_indices = {1, 2};
-  ASSERT_OK(
-      ConvertSchema(parquet_fields, /*key_value_metadata=*/nullptr, &column_indices));
-  arrow_schema = ::arrow::schema({arrow_fields[1]});
-  ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(arrow_schema));
-
-  column_indices = {3};
-  ASSERT_RAISES(IndexError, ConvertSchema(parquet_fields, /*key_value_metadata=*/nullptr,
-                                          &column_indices));
 }
 
 class TestConvertArrowSchema : public ::testing::Test {

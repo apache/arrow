@@ -70,7 +70,7 @@ PARQUET_EXPORT
 PARQUET_EXPORT
 ::arrow::Status FromParquetSchema(
     const SchemaDescriptor* parquet_schema, const ArrowReaderProperties& properties,
-    std::shared_ptr<const ::arrow::KeyValueMetadata> key_value_metadata,
+    const std::shared_ptr<const ::arrow::KeyValueMetadata>& key_value_metadata,
     std::shared_ptr<::arrow::Schema>* out);
 
 PARQUET_EXPORT
@@ -81,13 +81,6 @@ PARQUET_EXPORT
 PARQUET_EXPORT
 ::arrow::Status FromParquetSchema(const SchemaDescriptor* parquet_schema,
                                   std::shared_ptr<::arrow::Schema>* out);
-
-/// Produce a schema containing the roots of all physical columns in column_indices
-PARQUET_EXPORT
-::arrow::Status FromParquetSchema(
-    const SchemaDescriptor* parquet_schema, const ArrowReaderProperties& properties,
-    std::shared_ptr<const ::arrow::KeyValueMetadata> key_value_metadata,
-    const std::vector<int>& column_indices, std::shared_ptr<::arrow::Schema>* out);
 
 /// @}
 
@@ -186,7 +179,7 @@ struct PARQUET_EXPORT SchemaManifest {
   /// -- -- j  |
   /// -- -- -- k
   ::arrow::Result<std::vector<int>> GetFieldIndices(
-      const std::vector<int>& column_indices) {
+      const std::vector<int>& column_indices) const {
     const schema::GroupNode* group = descr->group_node();
     std::unordered_set<int> already_added;
 

@@ -312,9 +312,21 @@ class RowGroupRecordBatchReader : public ::arrow::RecordBatchReader {
       FileReaderImpl* reader) {
     auto out = ::arrow::internal::make_unique<RowGroupRecordBatchReader>();
 
-    RETURN_NOT_OK(FromParquetSchema(
-        reader->parquet_reader()->metadata()->schema(), reader->properties(),
-        /*key_value_metadata=*/nullptr, column_indices, &out->schema_));
+    RETURN_NOT_OK(FromParquetSchema(reader->parquet_reader()->metadata()->schema(),
+                                    reader->properties(),
+                                    /*key_value_metadata=*/nullptr, &out->schema_));
+
+    // filter to only arrow::Fields which contain the selected physical columns
+    {
+      ARROW_ASSIGN_OR_RAISE(auto field_indices,
+                            reader->manifest().GetFieldIndices(column_indices));
+
+      ::arrow::FieldVector fields;
+      for (int field_idx : field_indices) {
+        fields.push_back(out->schema_->field(field_idx));
+      }
+      out->schema_ = ::arrow::schema(std::move(fields));
+    }
 
     using ::arrow::RecordBatchIterator;
 
