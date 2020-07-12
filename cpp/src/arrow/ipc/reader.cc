@@ -979,7 +979,8 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
       return Status::Invalid("Not an Arrow file");
     }
 
-    int32_t footer_length = *reinterpret_cast<const int32_t*>(buffer->data());
+    int32_t footer_length =
+        BitUtil::FromLittleEndian(*reinterpret_cast<const int32_t*>(buffer->data()));
 
     if (footer_length <= 0 || footer_length > footer_offset_ - magic_size * 2 - 4) {
       return Status::Invalid("File is smaller than indicated metadata size");
