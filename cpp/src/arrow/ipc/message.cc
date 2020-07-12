@@ -424,8 +424,9 @@ Status WriteMessage(const Buffer& message, const IpcWriteOptions& options,
     RETURN_NOT_OK(file->Write(&internal::kIpcContinuationToken, sizeof(int32_t)));
   }
 
-  // Write the flatbuffer size prefix including padding
-  int32_t padded_flatbuffer_size = padded_message_length - prefix_size;
+  // Write the flatbuffer size prefix including padding in little endian
+  int32_t padded_flatbuffer_size =
+      BitUtil::ToLittleEndian(padded_message_length - prefix_size);
   RETURN_NOT_OK(file->Write(&padded_flatbuffer_size, sizeof(int32_t)));
 
   // Write the flatbuffer
@@ -577,18 +578,18 @@ class MessageDecoder::MessageDecoderImpl {
   }
 
   Status ConsumeInitialData(const uint8_t* data, int64_t size) {
-    return ConsumeInitial(util::SafeLoadAs<int32_t>(data));
+    return ConsumeInitial(BitUtil::FromLittleEndian(util::SafeLoadAs<int32_t>(data)));
   }
 
   Status ConsumeInitialBuffer(const std::shared_ptr<Buffer>& buffer) {
     ARROW_ASSIGN_OR_RAISE(auto continuation, ConsumeDataBufferInt32(buffer));
-    return ConsumeInitial(continuation);
+    return ConsumeInitial(BitUtil::FromLittleEndian(continuation));
   }
 
   Status ConsumeInitialChunks() {
     int32_t continuation = 0;
     RETURN_NOT_OK(ConsumeDataChunks(sizeof(int32_t), &continuation));
-    return ConsumeInitial(continuation);
+    return ConsumeInitial(BitUtil::FromLittleEndian(continuation));
   }
 
   Status ConsumeInitial(int32_t continuation) {
@@ -616,18 +617,19 @@ class MessageDecoder::MessageDecoderImpl {
   }
 
   Status ConsumeMetadataLengthData(const uint8_t* data, int64_t size) {
-    return ConsumeMetadataLength(util::SafeLoadAs<int32_t>(data));
+    return ConsumeMetadataLength(
+        BitUtil::FromLittleEndian(util::SafeLoadAs<int32_t>(data)));
   }
 
   Status ConsumeMetadataLengthBuffer(const std::shared_ptr<Buffer>& buffer) {
     ARROW_ASSIGN_OR_RAISE(auto metadata_length, ConsumeDataBufferInt32(buffer));
-    return ConsumeMetadataLength(metadata_length);
+    return ConsumeMetadataLength(BitUtil::FromLittleEndian(metadata_length));
   }
 
   Status ConsumeMetadataLengthChunks() {
     int32_t metadata_length = 0;
     RETURN_NOT_OK(ConsumeDataChunks(sizeof(int32_t), &metadata_length));
-    return ConsumeMetadataLength(metadata_length);
+    return ConsumeMetadataLength(BitUtil::FromLittleEndian(metadata_length));
   }
 
   Status ConsumeMetadataLength(int32_t metadata_length) {

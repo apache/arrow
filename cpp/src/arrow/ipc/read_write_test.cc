@@ -131,6 +131,11 @@ TEST_P(TestMessage, SerializeTo) {
     ASSERT_EQ(BitUtil::RoundUp(metadata->size() + prefix_size, alignment) + body_length,
               output_length);
     ASSERT_OK_AND_EQ(output_length, stream->Tell());
+    ASSERT_OK_AND_ASSIGN(auto buffer, stream->Finish());
+    // chech whether length is written in little endian
+    auto buffer_ptr = buffer.get()->data();
+    ASSERT_EQ(output_length - body_length - prefix_size,
+              BitUtil::FromLittleEndian(*(uint32_t*)(buffer_ptr + 4)));
   };
 
   CheckWithAlignment(8);

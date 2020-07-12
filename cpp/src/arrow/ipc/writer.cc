@@ -1184,6 +1184,8 @@ class PayloadFileWriter : public internal::IpcPayloadWriter, protected StreamBoo
       return Status::Invalid("Invalid file footer");
     }
 
+    // write footer length in little endian
+    footer_length = BitUtil::ToLittleEndian(footer_length);
     RETURN_NOT_OK(Write(&footer_length, sizeof(int32_t)));
 
     // Write magic bytes to end file
