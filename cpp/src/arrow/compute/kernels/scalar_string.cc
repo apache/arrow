@@ -190,52 +190,50 @@ struct UTF8Transform {
   }
 };
 
-template <typename ArrowType, typename Derived>
-struct BinaryToBoolean {
-  using offset_type = typename ArrowType::offset_type;
-  using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
+template <typename Type, typename Predicate>
+void BinaryToBoolean(KernelContext* ctx, const ExecBatch& batch, Predicate&& predicate,
+                     Datum* out) {
+  using offset_type = typename Type::offset_type;
+  using ArrayType = typename TypeTraits<Type>::ArrayType;
 
-  static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    if (batch[0].kind() == Datum::ARRAY) {
-      EnsureLookupTablesFilled();
-      const ArrayData& input = *batch[0].array();
-      ArrayType input_boxed(batch[0].array());
-      ArrayData* out_arr = out->mutable_array();
+  if (batch[0].kind() == Datum::ARRAY) {
+    EnsureLookupTablesFilled();
+    const ArrayData& input = *batch[0].array();
+    ArrayType input_boxed(batch[0].array());
+    ArrayData* out_arr = out->mutable_array();
 
-      // offset_type input_ncodeunits = input_boxed.total_values_length();
-      offset_type input_nstrings = static_cast<offset_type>(input.length);
+    // offset_type input_ncodeunits = input_boxed.total_values_length();
+    offset_type input_nstrings = static_cast<offset_type>(input.length);
 
-      FirstTimeBitmapWriter bitmap_writer(out_arr->buffers[1]->mutable_data(),
-                                          out_arr->offset, input.length);
-      for (int64_t i = 0; i < input_nstrings; i++) {
-        offset_type input_string_ncodeunits;
-        const uint8_t* input_string = input_boxed.GetValue(i, &input_string_ncodeunits);
-        bool boolean_result =
-            Derived::Predicate(ctx, input_string, input_string_ncodeunits);
-        if (!ctx->status().ok()) {
-          // UTF decoding can lead to issues
-          return;
-        }
-        if (boolean_result) {
-          bitmap_writer.Set();
-        }
-        bitmap_writer.Next();
+    FirstTimeBitmapWriter bitmap_writer(out_arr->buffers[1]->mutable_data(),
+                                        out_arr->offset, input.length);
+    for (int64_t i = 0; i < input_nstrings; i++) {
+      offset_type input_string_ncodeunits;
+      const uint8_t* input_string = input_boxed.GetValue(i, &input_string_ncodeunits);
+      bool boolean_result = predicate(ctx, input_string, input_string_ncodeunits);
+      if (!ctx->status().ok()) {
+        // UTF decoding can lead to issues
+        return;
       }
-      bitmap_writer.Finish();
-    } else {
-      const auto& input = checked_cast<const BaseBinaryScalar&>(*batch[0].scalar());
-      if (input.is_valid) {
-        offset_type data_nbytes = static_cast<offset_type>(input.value->size());
-        bool boolean_result = Derived::Predicate(ctx, input.value->data(), data_nbytes);
-        if (!ctx->status().ok()) {
-          // UTF decoding can lead to issues
-          return;
-        }
-        out->value = std::make_shared<BooleanScalar>(boolean_result);
+      if (boolean_result) {
+        bitmap_writer.Set();
       }
+      bitmap_writer.Next();
+    }
+    bitmap_writer.Finish();
+  } else {
+    const auto& input = checked_cast<const BaseBinaryScalar&>(*batch[0].scalar());
+    if (input.is_valid) {
+      offset_type data_nbytes = static_cast<offset_type>(input.value->size());
+      bool boolean_result = predicate(ctx, input.value->data(), data_nbytes);
+      if (!ctx->status().ok()) {
+        // UTF decoding can lead to issues
+        return;
+      }
+      out->value = std::make_shared<BooleanScalar>(boolean_result);
     }
   }
-};
+}
 
 template <typename Type>
 struct UTF8Upper : UTF8Transform<Type, UTF8Upper<Type>> {
@@ -604,136 +602,146 @@ static inline bool IsPrintableCharacterAscii(uint8_t ascii_character) {
   return ((ascii_character >= ' ') && (ascii_character <= '~'));
 }
 
-template <typename ArrowType, typename Derived, bool allow_empty = false>
-struct CharacterPredicateUnicode : BinaryToBoolean<ArrowType, Derived> {
-  using offset_type = typename ArrowType::offset_type;
-  static inline bool Predicate(KernelContext* ctx, const uint8_t* input,
-                               offset_type input_string_ncodeunits) {
-    if (allow_empty && input_string_ncodeunits == 0) {
-      return true;
-    }
-    bool all;
-    bool any = false;
-    if (!ARROW_PREDICT_TRUE(arrow::util::UTF8AllOf(
-            input, input + input_string_ncodeunits, &all, [&any](uint32_t codepoint) {
-              any |= Derived::PredicateCharacterAny(codepoint);
-              return Derived::PredicateCharacterAll(codepoint);
-            }))) {
-      ctx->SetStatus(Status::Invalid("Invalid UTF8 sequence in input"));
-      return false;
-    }
-    return all & any;
+template <typename Type, typename Derived, bool allow_empty = false>
+struct CharacterPredicateUnicode {
+  using offset_type = typename Type::offset_type;
+  static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    auto predicate = [](KernelContext* ctx, const uint8_t* input,
+                        offset_type input_string_ncodeunits) -> bool {
+      if (allow_empty && input_string_ncodeunits == 0) {
+        return true;
+      }
+      bool all;
+      bool any = false;
+      if (!ARROW_PREDICT_TRUE(arrow::util::UTF8AllOf(
+              input, input + input_string_ncodeunits, &all, [&any](uint32_t codepoint) {
+                any |= Derived::PredicateCharacterAny(codepoint);
+                return Derived::PredicateCharacterAll(codepoint);
+              }))) {
+        ctx->SetStatus(Status::Invalid("Invalid UTF8 sequence in input"));
+        return false;
+      }
+      return all & any;
+    };
+    return BinaryToBoolean<Type>(ctx, batch, std::move(predicate), out);
   }
+
   static inline bool PredicateCharacterAny(uint32_t) {
     return true;  // default condition make sure there is at least 1 charachter
   }
 };
 
-template <typename ArrowType, typename Derived, bool allow_empty = false>
-struct CharacterPredicateAscii : BinaryToBoolean<ArrowType, Derived> {
-  using offset_type = typename ArrowType::offset_type;
-  static inline bool Predicate(KernelContext* ctx, const uint8_t* input,
-                               offset_type input_string_ncodeunits) {
-    if (allow_empty && input_string_ncodeunits == 0) {
-      return true;
-    }
-    bool any = false;
-    // MB: A simple for loops seems 8% faster on gcc 9.3, running the IsAlphaNumericAscii
-    // benchmark. I don't consider that worth it.
-    bool all = std::all_of(input, input + input_string_ncodeunits,
-                           [&any](uint8_t ascii_character) {
-                             any |= Derived::PredicateCharacterAny(ascii_character);
-                             return Derived::PredicateCharacterAll(ascii_character);
-                           });
-    return all & any;
+template <typename Type, typename Derived, bool allow_empty = false>
+struct CharacterPredicateAscii {
+  using offset_type = typename Type::offset_type;
+  static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    auto predicate = [](KernelContext* ctx, const uint8_t* input,
+                        offset_type input_string_ncodeunits) -> bool {
+      if (allow_empty && input_string_ncodeunits == 0) {
+        return true;
+      }
+      bool any = false;
+      // MB: A simple for loops seems 8% faster on gcc 9.3, running the IsAlphaNumericAscii
+      // benchmark. I don't consider that worth it.
+      bool all = std::all_of(input, input + input_string_ncodeunits,
+                             [&any](uint8_t ascii_character) {
+                               any |= Derived::PredicateCharacterAny(ascii_character);
+                               return Derived::PredicateCharacterAll(ascii_character);
+                             });
+      return all & any;
+    };
+    return BinaryToBoolean<Type>(ctx, batch, std::move(predicate), out);
   }
+
   static inline bool PredicateCharacterAny(uint8_t) {
     return true;  // default condition make sure there is at least 1 charachter
   }
 };
 
 #ifdef ARROW_WITH_UTF8PROC
-template <typename ArrowType>
+template <typename Type>
 struct IsAlphaNumericUnicode
-    : CharacterPredicateUnicode<ArrowType, IsAlphaNumericUnicode<ArrowType>> {
+    : CharacterPredicateUnicode<Type, IsAlphaNumericUnicode<Type>> {
   static inline bool PredicateCharacterAll(uint32_t codepoint) {
     return IsAlphaNumericCharacterUnicode(codepoint);
   }
 };
 #endif
 
-template <typename ArrowType>
+template <typename Type>
 struct IsAlphaNumericAscii
-    : CharacterPredicateAscii<ArrowType, IsAlphaNumericAscii<ArrowType>> {
+    : CharacterPredicateAscii<Type, IsAlphaNumericAscii<Type>> {
   static inline bool PredicateCharacterAll(uint8_t ascii_character) {
     return IsAlphaNumericCharacterAscii(ascii_character);
   }
 };
 
 #ifdef ARROW_WITH_UTF8PROC
-template <typename ArrowType>
-struct IsAlphaUnicode : CharacterPredicateUnicode<ArrowType, IsAlphaUnicode<ArrowType>> {
+template <typename Type>
+struct IsAlphaUnicode : CharacterPredicateUnicode<Type, IsAlphaUnicode<Type>> {
   static inline bool PredicateCharacterAll(uint32_t codepoint) {
     return IsAlphaCharacterUnicode(codepoint);
   }
 };
 #endif
 
-template <typename ArrowType>
-struct IsAlphaAscii : CharacterPredicateAscii<ArrowType, IsAlphaAscii<ArrowType>> {
+template <typename Type>
+struct IsAlphaAscii : CharacterPredicateAscii<Type, IsAlphaAscii<Type>> {
   static inline bool PredicateCharacterAll(uint8_t ascii_character) {
     return IsAlphaCharacterAscii(ascii_character);
   }
 };
 
 #ifdef ARROW_WITH_UTF8PROC
-template <typename ArrowType>
+template <typename Type>
 struct IsDecimalUnicode
-    : CharacterPredicateUnicode<ArrowType, IsDecimalUnicode<ArrowType>> {
+    : CharacterPredicateUnicode<Type, IsDecimalUnicode<Type>> {
   static inline bool PredicateCharacterAll(uint32_t codepoint) {
     return IsDecimalCharacterUnicode(codepoint);
   }
 };
 #endif
 
-template <typename ArrowType>
-struct IsDecimalAscii : CharacterPredicateAscii<ArrowType, IsDecimalAscii<ArrowType>> {
+template <typename Type>
+struct IsDecimalAscii : CharacterPredicateAscii<Type, IsDecimalAscii<Type>> {
   static inline bool PredicateCharacterAll(uint8_t ascii_character) {
     return IsDecimalCharacterAscii(ascii_character);
   }
 };
 
 #ifdef ARROW_WITH_UTF8PROC
-template <typename ArrowType>
-struct IsDigitUnicode : CharacterPredicateUnicode<ArrowType, IsDigitUnicode<ArrowType>> {
+template <typename Type>
+struct IsDigitUnicode : CharacterPredicateUnicode<Type, IsDigitUnicode<Type>> {
   static inline bool PredicateCharacterAll(uint32_t codepoint) {
     return IsDigitCharacterUnicode(codepoint);
   }
 };
 
-template <typename ArrowType>
+template <typename Type>
 struct IsNumericUnicode
-    : CharacterPredicateUnicode<ArrowType, IsNumericUnicode<ArrowType>> {
+    : CharacterPredicateUnicode<Type, IsNumericUnicode<Type>> {
   static inline bool PredicateCharacterAll(uint32_t codepoint) {
     return IsNumericCharacterUnicode(codepoint);
   }
 };
 #endif
 
-template <typename ArrowType>
-struct IsAscii : BinaryToBoolean<ArrowType, IsAscii<ArrowType>> {
-  using offset_type =
-      typename BinaryToBoolean<ArrowType, IsAscii<ArrowType>>::offset_type;
-  static bool Predicate(KernelContext* ctx, const uint8_t* input,
-                        offset_type input_string_nascii_characters) {
-    return std::all_of(input, input + input_string_nascii_characters,
-                       IsAsciiCharacter<uint8_t>);
+template <typename Type>
+struct IsAscii {
+  using offset_type = typename Type::offset_type;
+  static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    auto predicate = [](KernelContext* ctx, const uint8_t* input,
+                        offset_type input_string_nascii_characters) -> bool {
+      return std::all_of(input, input + input_string_nascii_characters,
+                         IsAsciiCharacter<uint8_t>);
+    };
+    return BinaryToBoolean<Type>(ctx, batch, std::move(predicate), out);
   }
 };
 
 #ifdef ARROW_WITH_UTF8PROC
-template <typename ArrowType>
-struct IsLowerUnicode : CharacterPredicateUnicode<ArrowType, IsLowerUnicode<ArrowType>> {
+template <typename Type>
+struct IsLowerUnicode : CharacterPredicateUnicode<Type, IsLowerUnicode<Type>> {
   static inline bool PredicateCharacterAll(uint32_t codepoint) {
     // Only for cased character it needs to be lower case
     return !IsCasedCharacterUnicode(codepoint) || IsLowerCaseCharacterUnicode(codepoint);
@@ -744,8 +752,8 @@ struct IsLowerUnicode : CharacterPredicateUnicode<ArrowType, IsLowerUnicode<Arro
 };
 #endif
 
-template <typename ArrowType>
-struct IsLowerAscii : CharacterPredicateAscii<ArrowType, IsLowerAscii<ArrowType>> {
+template <typename Type>
+struct IsLowerAscii : CharacterPredicateAscii<Type, IsLowerAscii<Type>> {
   static inline bool PredicateCharacterAll(uint8_t ascii_character) {
     // Only for cased character it needs to be lower case
     return !IsCasedCharacterAscii(ascii_character) ||
@@ -757,9 +765,9 @@ struct IsLowerAscii : CharacterPredicateAscii<ArrowType, IsLowerAscii<ArrowType>
 };
 
 #ifdef ARROW_WITH_UTF8PROC
-template <typename ArrowType>
+template <typename Type>
 struct IsPrintableUnicode
-    : CharacterPredicateUnicode<ArrowType, IsPrintableUnicode<ArrowType>,
+    : CharacterPredicateUnicode<Type, IsPrintableUnicode<Type>,
                                 /*allow_empty=*/true> {
   static inline bool PredicateCharacterAll(uint32_t codepoint) {
     return codepoint == ' ' || IsPrintableCharacterUnicode(codepoint);
@@ -767,8 +775,8 @@ struct IsPrintableUnicode
 };
 #endif
 
-template <typename ArrowType>
-struct IsPrintableAscii : CharacterPredicateAscii<ArrowType, IsPrintableAscii<ArrowType>,
+template <typename Type>
+struct IsPrintableAscii : CharacterPredicateAscii<Type, IsPrintableAscii<Type>,
                                                   /*allow_empty=*/true> {
   static inline bool PredicateCharacterAll(uint8_t ascii_character) {
     return IsPrintableCharacterAscii(ascii_character);
@@ -776,105 +784,112 @@ struct IsPrintableAscii : CharacterPredicateAscii<ArrowType, IsPrintableAscii<Ar
 };
 
 #ifdef ARROW_WITH_UTF8PROC
-template <typename ArrowType>
-struct IsSpaceUnicode : CharacterPredicateUnicode<ArrowType, IsSpaceUnicode<ArrowType>> {
+template <typename Type>
+struct IsSpaceUnicode : CharacterPredicateUnicode<Type, IsSpaceUnicode<Type>> {
   static inline bool PredicateCharacterAll(uint32_t codepoint) {
     return IsSpaceCharacterUnicode(codepoint);
   }
 };
 #endif
 
-template <typename ArrowType>
-struct IsSpaceAscii : CharacterPredicateAscii<ArrowType, IsSpaceAscii<ArrowType>> {
+template <typename Type>
+struct IsSpaceAscii : CharacterPredicateAscii<Type, IsSpaceAscii<Type>> {
   static inline bool PredicateCharacterAll(uint8_t ascii_character) {
     return IsSpaceCharacterAscii(ascii_character);
   }
 };
 
 #ifdef ARROW_WITH_UTF8PROC
-template <typename ArrowType>
-struct IsTitleUnicode : BinaryToBoolean<ArrowType, IsTitleUnicode<ArrowType>> {
-  using offset_type =
-      typename BinaryToBoolean<ArrowType, IsTitleUnicode<ArrowType>>::offset_type;
-  static bool Predicate(KernelContext* ctx, const uint8_t* input,
-                        offset_type input_string_ncodeunits) {
-    // rules:
-    // * 1: lower case follows cased
-    // * 2: upper case follows uncased
-    // * 3: at least 1 cased character (which logically should be upper/title)
-    bool rules_1_and_2;
-    bool previous_cased = false;  // in LL, LU or LT
-    bool rule_3 = false;
-    bool status =
-        arrow::util::UTF8AllOf(input, input + input_string_ncodeunits, &rules_1_and_2,
-                               [&previous_cased, &rule_3](uint32_t codepoint) {
-                                 if (IsLowerCaseCharacterUnicode(codepoint)) {
-                                   if (!previous_cased) return false;  // rule 1 broken
-                                   previous_cased = true;
-                                 } else if (IsCasedCharacterUnicode(codepoint)) {
-                                   if (previous_cased) return false;  // rule 2 broken
-                                   // next should be a lower case or uncased
-                                   previous_cased = true;
-                                   rule_3 = true;  // rule 3 obeyed
-                                 } else {
-                                   // a non-cased char, like _ or 1
-                                   // next should be upper case or more uncased
-                                   previous_cased = false;
-                                 }
-                                 return true;
-                               });
-    if (!ARROW_PREDICT_TRUE(status)) {
-      ctx->SetStatus(Status::Invalid("Invalid UTF8 sequence in input"));
-      return false;
-    }
-    return rules_1_and_2 & rule_3;
+template <typename Type>
+struct IsTitleUnicode {
+  using offset_type = typename Type::offset_type;
+
+  static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    auto predicate = [](KernelContext* ctx, const uint8_t* input,
+                        offset_type input_string_ncodeunits) -> bool {
+      // rules:
+      // * 1: lower case follows cased
+      // * 2: upper case follows uncased
+      // * 3: at least 1 cased character (which logically should be upper/title)
+      bool rules_1_and_2;
+      bool previous_cased = false;  // in LL, LU or LT
+      bool rule_3 = false;
+      bool status =
+      arrow::util::UTF8AllOf(input, input + input_string_ncodeunits, &rules_1_and_2,
+                             [&previous_cased, &rule_3](uint32_t codepoint) {
+                               if (IsLowerCaseCharacterUnicode(codepoint)) {
+                                 if (!previous_cased) return false;  // rule 1 broken
+                                 previous_cased = true;
+                               } else if (IsCasedCharacterUnicode(codepoint)) {
+                                 if (previous_cased) return false;  // rule 2 broken
+                                 // next should be a lower case or uncased
+                                 previous_cased = true;
+                                 rule_3 = true;  // rule 3 obeyed
+                               } else {
+                                 // a non-cased char, like _ or 1
+                                 // next should be upper case or more uncased
+                                 previous_cased = false;
+                               }
+                               return true;
+                             });
+      if (!ARROW_PREDICT_TRUE(status)) {
+        ctx->SetStatus(Status::Invalid("Invalid UTF8 sequence in input"));
+        return false;
+      }
+      return rules_1_and_2 & rule_3;
+    };
+    return BinaryToBoolean<Type>(ctx, batch, std::move(predicate), out);
   }
 };
 #endif
 
-template <typename ArrowType>
-struct IsTitleAscii : BinaryToBoolean<ArrowType, IsTitleAscii<ArrowType>> {
-  using offset_type = typename ArrowType::offset_type;
-  static bool Predicate(KernelContext* ctx, const uint8_t* input,
-                        offset_type input_string_ncodeunits) {
-    // rules:
-    // * 1: lower case follows cased
-    // * 2: upper case follows uncased
-    // * 3: at least 1 cased character (which logically should be upper/title)
-    bool rules_1_and_2 = true;
-    bool previous_cased = false;  // in LL, LU or LT
-    bool rule_3 = false;
-    // we cannot rely on std::all_of because we need guaranteed order
-    for (const uint8_t* c = input; c < input + input_string_ncodeunits; ++c) {
-      if (IsLowerCaseCharacterAscii(*c)) {
-        if (!previous_cased) {
-          // rule 1 broken
-          rules_1_and_2 = false;
-          break;
+template <typename Type>
+struct IsTitleAscii {
+  using offset_type = typename Type::offset_type;
+
+  static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    auto predicate = [](KernelContext* ctx, const uint8_t* input,
+                        offset_type input_string_ncodeunits) -> bool {
+      // rules:
+      // * 1: lower case follows cased
+      // * 2: upper case follows uncased
+      // * 3: at least 1 cased character (which logically should be upper/title)
+      bool rules_1_and_2 = true;
+      bool previous_cased = false;  // in LL, LU or LT
+      bool rule_3 = false;
+      // we cannot rely on std::all_of because we need guaranteed order
+      for (const uint8_t* c = input; c < input + input_string_ncodeunits; ++c) {
+        if (IsLowerCaseCharacterAscii(*c)) {
+          if (!previous_cased) {
+            // rule 1 broken
+            rules_1_and_2 = false;
+            break;
+          }
+          previous_cased = true;
+        } else if (IsCasedCharacterAscii(*c)) {
+          if (previous_cased) {
+            // rule 2 broken
+            rules_1_and_2 = false;
+            break;
+          }
+          // next should be a lower case or uncased
+          previous_cased = true;
+          rule_3 = true;  // rule 3 obeyed
+        } else {
+          // a non-cased char, like _ or 1
+          // next should be upper case or more uncased
+          previous_cased = false;
         }
-        previous_cased = true;
-      } else if (IsCasedCharacterAscii(*c)) {
-        if (previous_cased) {
-          // rule 2 broken
-          rules_1_and_2 = false;
-          break;
-        }
-        // next should be a lower case or uncased
-        previous_cased = true;
-        rule_3 = true;  // rule 3 obeyed
-      } else {
-        // a non-cased char, like _ or 1
-        // next should be upper case or more uncased
-        previous_cased = false;
       }
-    }
-    return rules_1_and_2 & rule_3;
+      return rules_1_and_2 & rule_3;
+    };
+    return BinaryToBoolean<Type>(ctx, batch, std::move(predicate), out);
   }
 };
 
 #ifdef ARROW_WITH_UTF8PROC
-template <typename ArrowType>
-struct IsUpperUnicode : CharacterPredicateUnicode<ArrowType, IsUpperUnicode<ArrowType>> {
+template <typename Type>
+struct IsUpperUnicode : CharacterPredicateUnicode<Type, IsUpperUnicode<Type>> {
   static inline bool PredicateCharacterAll(uint32_t codepoint) {
     // Only for cased character it needs to be lower case
     return !IsCasedCharacterUnicode(codepoint) || IsUpperCaseCharacterUnicode(codepoint);
@@ -885,8 +900,8 @@ struct IsUpperUnicode : CharacterPredicateUnicode<ArrowType, IsUpperUnicode<Arro
 };
 #endif
 
-template <typename ArrowType>
-struct IsUpperAscii : CharacterPredicateAscii<ArrowType, IsUpperAscii<ArrowType>> {
+template <typename Type>
+struct IsUpperAscii : CharacterPredicateAscii<Type, IsUpperAscii<Type>> {
   static inline bool PredicateCharacterAll(uint8_t ascii_character) {
     // Only for cased character it needs to be lower case
     return !IsCasedCharacterAscii(ascii_character) ||
