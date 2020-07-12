@@ -286,10 +286,9 @@ ParquetFileFormat::ParquetFileFormat(const parquet::ReaderProperties& reader_pro
 Result<bool> ParquetFileFormat::IsSupported(const FileSource& source) const {
   try {
     ARROW_ASSIGN_OR_RAISE(auto input, source.Open());
-    auto properties = MakeReaderProperties(*this);
     auto reader =
-        parquet::ParquetFileReader::Open(std::move(input), std::move(properties));
-    auto metadata = reader->metadata();
+        parquet::ParquetFileReader::Open(std::move(input), MakeReaderProperties(*this));
+    std::shared_ptr<parquet::FileMetaData> metadata = reader->metadata();
     return metadata != nullptr && metadata->can_decompress();
   } catch (const ::parquet::ParquetInvalidOrCorruptedFileException& e) {
     ARROW_UNUSED(e);
@@ -316,7 +315,7 @@ Result<std::unique_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader
   auto properties = MakeReaderProperties(*this, pool);
   ARROW_ASSIGN_OR_RAISE(auto reader, OpenReader(source, std::move(properties)));
 
-  auto metadata = reader->metadata();
+  std::shared_ptr<parquet::FileMetaData> metadata = reader->metadata();
   auto arrow_properties = MakeArrowReaderProperties(*this, *metadata);
 
   if (options) {
@@ -485,8 +484,8 @@ Status ParquetFileFragment::EnsureCompleteMetadata(parquet::arrow::FileReader* r
   }
   physical_schema_ = std::move(schema);
 
-  auto metadata = reader->parquet_reader()->metadata();
-  auto num_row_groups = metadata->num_row_groups();
+  std::shared_ptr<parquet::FileMetaData> metadata = reader->parquet_reader()->metadata();
+  int num_row_groups = metadata->num_row_groups();
 
   if (row_groups_.empty()) {
     row_groups_ = RowGroupInfo::FromCount(num_row_groups);
@@ -589,7 +588,7 @@ Result<std::shared_ptr<DatasetFactory>> ParquetDatasetFactory::Make(
   }
 
   ARROW_ASSIGN_OR_RAISE(auto reader, format->GetReader(metadata_source));
-  auto metadata = reader->parquet_reader()->metadata();
+  std::shared_ptr<parquet::FileMetaData> metadata = reader->parquet_reader()->metadata();
 
   return std::shared_ptr<DatasetFactory>(
       new ParquetDatasetFactory(std::move(filesystem), std::move(format),
@@ -645,7 +644,7 @@ Result<std::vector<std::string>> ParquetDatasetFactory::CollectPaths(
     ARROW_ASSIGN_OR_RAISE(auto manifest, GetSchemaManifest(metadata, properties));
 
     for (int i = 0; i < metadata.num_row_groups(); i++) {
-      auto row_group = metadata.RowGroup(i);
+      std::shared_ptr<parquet::RowGroupMetaData> row_group = metadata.RowGroup(i);
       ARROW_ASSIGN_OR_RAISE(auto path,
                             FileFromRowGroup(filesystem_.get(), base_path_, *row_group));
       unique_paths.emplace(std::move(path));
@@ -685,25 +684,22 @@ ParquetDatasetFactory::CollectParquetFragments(
     ARROW_ASSIGN_OR_RAISE(auto manifest, GetSchemaManifest(metadata, properties));
 
     for (int i = 0; i < metadata.num_row_groups(); i++) {
-      auto row_group = metadata.RowGroup(i);
+      std::shared_ptr<parquet::RowGroupMetaData> row_group = metadata.RowGroup(i);
       ARROW_ASSIGN_OR_RAISE(auto path,
                             FileFromRowGroup(filesystem_.get(), base_path_, *row_group));
-      auto stats = RowGroupStatisticsAsStructScalar(*row_group, manifest);
-      auto num_rows = row_group->num_rows();
-      auto total_byte_size = row_group->total_byte_size();
+      std::shared_ptr<StructScalar> stats =
+          RowGroupStatisticsAsStructScalar(*row_group, manifest);
 
-      // Insert the path, or increase the count of row groups. It will be
-      // assumed that the RowGroup of a file are ordered exactly like in
-      // the metadata file.
-      auto elem_and_inserted =
-          path_to_row_group_infos.insert({path, {{0, num_rows, total_byte_size, stats}}});
-      if (!elem_and_inserted.second) {
-        auto& path_and_count = *elem_and_inserted.first;
-        auto& row_groups = path_and_count.second;
-        auto row_group_id = static_cast<int>(row_groups.size());
-        path_and_count.second.emplace_back(row_group_id, num_rows, total_byte_size,
-                                           stats);
-      }
+      int64_t num_rows = row_group->num_rows();
+      int64_t total_byte_size = row_group->total_byte_size();
+
+      // Insert the path, or increase the count of row groups. It will be assumed that the
+      // RowGroup of a file are ordered exactly as in the metadata file.
+      auto path_and_row_groups =
+          path_to_row_group_infos.emplace(path, std::vector<RowGroupInfo>{}).first;
+      auto row_group_id = static_cast<int>(path_and_row_groups->second.size());
+      path_and_row_groups->second.emplace_back(row_group_id, num_rows, total_byte_size,
+                                               stats);
     }
 
     ARROW_ASSIGN_OR_RAISE(auto physical_schema, GetSchema(metadata, properties));
