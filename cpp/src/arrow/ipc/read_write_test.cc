@@ -135,7 +135,7 @@ TEST_P(TestMessage, SerializeTo) {
     // chech whether length is written in little endian
     auto buffer_ptr = buffer.get()->data();
     ASSERT_EQ(output_length - body_length - prefix_size,
-              BitUtil::FromLittleEndian(*(uint32_t *)(buffer_ptr + 4)));
+              BitUtil::FromLittleEndian(*(uint32_t*)(buffer_ptr + 4)));
   };
 
   CheckWithAlignment(8);
