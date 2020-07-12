@@ -303,66 +303,21 @@ class FileReaderImpl : public FileReader {
 
 class RowGroupRecordBatchReader : public ::arrow::RecordBatchReader {
  public:
+  RowGroupRecordBatchReader(::arrow::RecordBatchIterator batches,
+                            std::shared_ptr<::arrow::Schema> schema)
+      : batches_(std::move(batches)), schema_(std::move(schema)) {}
+
   ~RowGroupRecordBatchReader() override {}
-
-  std::shared_ptr<::arrow::Schema> schema() const override { return schema_; }
-
-  static ::arrow::Result<std::unique_ptr<RowGroupRecordBatchReader>> Make(
-      const std::vector<int>& row_group_indices, const std::vector<int>& column_indices,
-      FileReaderImpl* reader) {
-    auto out = ::arrow::internal::make_unique<RowGroupRecordBatchReader>();
-
-    RETURN_NOT_OK(FromParquetSchema(reader->parquet_reader()->metadata()->schema(),
-                                    reader->properties(),
-                                    /*key_value_metadata=*/nullptr, &out->schema_));
-
-    // filter to only arrow::Fields which contain the selected physical columns
-    {
-      ARROW_ASSIGN_OR_RAISE(auto field_indices,
-                            reader->manifest().GetFieldIndices(column_indices));
-
-      ::arrow::FieldVector fields;
-      for (int field_idx : field_indices) {
-        fields.push_back(out->schema_->field(field_idx));
-      }
-      out->schema_ = ::arrow::schema(std::move(fields));
-    }
-
-    using ::arrow::RecordBatchIterator;
-
-    // NB: This lambda will be invoked lazily whenever a new row group must be
-    // scanned, so it must capture `column_indices` and `reader` by value (they will not
-    // otherwise outlive the scope of `Make()`). `reader` is a non-owning pointer so we
-    // are relying on the parent FileReader outliving this RecordBatchReader.
-    auto row_group_index_to_batch_iterator =
-        [column_indices, reader](const int* i) -> ::arrow::Result<RecordBatchIterator> {
-      std::shared_ptr<::arrow::Table> table;
-      RETURN_NOT_OK(reader->RowGroup(*i)->ReadTable(column_indices, &table));
-
-      auto table_reader = std::make_shared<::arrow::TableBatchReader>(*table);
-      table_reader->set_chunksize(reader->properties().batch_size());
-
-      // NB: explicitly preserve table so that table_reader doesn't outlive it
-      return ::arrow::MakeFunctionIterator(
-          [table, table_reader] { return table_reader->Next(); });
-    };
-
-    ::arrow::Iterator<RecordBatchIterator> row_group_batches =
-        ::arrow::MakeMaybeMapIterator(
-            std::move(row_group_index_to_batch_iterator),
-            ::arrow::MakeVectorPointingIterator(row_group_indices));
-
-    out->batches_ = ::arrow::MakeFlattenIterator(std::move(row_group_batches));
-    return std::move(out);
-  }
 
   Status ReadNext(std::shared_ptr<::arrow::RecordBatch>* out) override {
     return batches_.Next().Value(out);
   }
 
+  std::shared_ptr<::arrow::Schema> schema() const override { return schema_; }
+
  private:
-  std::shared_ptr<::arrow::Schema> schema_;
   ::arrow::Iterator<std::shared_ptr<::arrow::RecordBatch>> batches_;
+  std::shared_ptr<::arrow::Schema> schema_;
 };
 
 class ColumnChunkReaderImpl : public ColumnChunkReader {
@@ -786,12 +741,27 @@ Status GetReader(const SchemaField& field, const std::shared_ptr<ReaderContext>&
 Status FileReaderImpl::GetRecordBatchReader(const std::vector<int>& row_group_indices,
                                             const std::vector<int>& column_indices,
                                             std::unique_ptr<RecordBatchReader>* out) {
-  // column indices check
-  RETURN_NOT_OK(manifest_.GetFieldIndices(column_indices).status());
-
   // row group indices check
   for (int row_group_index : row_group_indices) {
     RETURN_NOT_OK(BoundsCheckRowGroup(row_group_index));
+  }
+
+  // column indices check
+  ARROW_ASSIGN_OR_RAISE(std::vector<int> field_indices,
+                        manifest_.GetFieldIndices(column_indices));
+
+  std::shared_ptr<::arrow::Schema> batch_schema;
+  RETURN_NOT_OK(GetSchema(&batch_schema));
+
+  // filter to only arrow::Fields which contain the selected physical columns
+  {
+    ::arrow::FieldVector selected_fields;
+
+    for (int field_idx : field_indices) {
+      selected_fields.push_back(batch_schema->field(field_idx));
+    }
+
+    batch_schema = ::arrow::schema(std::move(selected_fields));
   }
 
   if (reader_properties_.pre_buffer()) {
@@ -803,8 +773,35 @@ Status FileReaderImpl::GetRecordBatchReader(const std::vector<int>& row_group_in
     END_PARQUET_CATCH_EXCEPTIONS
   }
 
-  return RowGroupRecordBatchReader::Make(row_group_indices, column_indices, this)
-      .Value(out);
+  using ::arrow::RecordBatchIterator;
+
+  // NB: This lambda will be invoked lazily whenever a new row group must be
+  // scanned, so it must capture `column_indices` by value (it will not
+  // otherwise outlive the scope of `GetRecordBatchReader()`). `this` is a non-owning
+  // pointer so we are relying on the parent FileReader outliving this RecordBatchReader.
+  auto row_group_index_to_batch_iterator =
+      [column_indices, this](const int* i) -> ::arrow::Result<RecordBatchIterator> {
+    std::shared_ptr<::arrow::Table> table;
+    RETURN_NOT_OK(RowGroup(*i)->ReadTable(column_indices, &table));
+
+    auto table_reader = std::make_shared<::arrow::TableBatchReader>(*table);
+    table_reader->set_chunksize(properties().batch_size());
+
+    // NB: explicitly preserve table so that table_reader doesn't outlive it
+    return ::arrow::MakeFunctionIterator(
+        [table, table_reader] { return table_reader->Next(); });
+  };
+
+  ::arrow::Iterator<RecordBatchIterator> row_group_batches =
+      ::arrow::MakeMaybeMapIterator(
+          std::move(row_group_index_to_batch_iterator),
+          ::arrow::MakeVectorPointingIterator(row_group_indices));
+
+  *out = ::arrow::internal::make_unique<RowGroupRecordBatchReader>(
+      ::arrow::MakeFlattenIterator(std::move(row_group_batches)),
+      std::move(batch_schema));
+
+  return Status::OK();
 }
 
 Status FileReaderImpl::GetColumn(int i, FileColumnIteratorFactory iterator_factory,

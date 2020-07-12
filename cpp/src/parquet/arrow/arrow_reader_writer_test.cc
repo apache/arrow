@@ -2886,7 +2886,8 @@ TEST(TestArrowReaderAdHoc, LARGE_MEMORY_TEST(LargeStringColumn)) {
   reader = ParquetFileReader::Open(std::make_shared<BufferReader>(tables_buffer));
   ASSERT_OK(FileReader::Make(default_memory_pool(), std::move(reader), &arrow_reader));
   std::shared_ptr<::arrow::RecordBatchReader> batch_reader;
-  auto all_row_groups = ::arrow::internal::Iota(reader->metadata()->num_row_groups());
+  std::vector<int> all_row_groups =
+      ::arrow::internal::Iota(reader->metadata()->num_row_groups());
   ASSERT_OK_NO_THROW(arrow_reader->GetRecordBatchReader(all_row_groups, &batch_reader));
   ASSERT_OK_AND_ASSIGN(auto batched_table,
                        ::arrow::Table::FromRecordBatchReader(batch_reader.get()));
