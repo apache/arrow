@@ -331,6 +331,14 @@ class TestBufferedInputStream : public FileTestFixture<BufferedInputStream> {
   std::shared_ptr<InputStream> raw_;
 };
 
+TEST_F(TestBufferedInputStream, InvalidReads) {
+  const int64_t kBufferSize = 10;
+  MakeExample1(kBufferSize);
+  ASSERT_EQ(kBufferSize, buffered_->buffer_size());
+  std::vector<char> buf(test_data_.size());
+  ASSERT_RAISES(Invalid, buffered_->Read(-1, buf.data()));
+}
+
 TEST_F(TestBufferedInputStream, BasicOperation) {
   const int64_t kBufferSize = 10;
   MakeExample1(kBufferSize);
@@ -342,6 +350,7 @@ TEST_F(TestBufferedInputStream, BasicOperation) {
   ASSERT_EQ(0, buffered_->bytes_buffered());
 
   std::vector<char> buf(test_data_.size());
+  ASSERT_OK_AND_EQ(0, buffered_->Read(0, buf.data()));
   ASSERT_OK_AND_EQ(4, buffered_->Read(4, buf.data()));
   ASSERT_EQ(0, memcmp(buf.data(), test_data_.data(), 4));
 

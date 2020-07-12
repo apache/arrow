@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "arrow/testing/gtest_compat.h"
@@ -32,6 +33,7 @@ namespace parquet {
 using schema::GroupNode;
 using schema::NodePtr;
 using schema::PrimitiveNode;
+using ::testing::ElementsAre;
 
 namespace test {
 
@@ -396,6 +398,48 @@ TEST(TestBufferedRowGroupWriter, MultiPageDisabledDictionary) {
     ASSERT_EQ(kValueCount, total_values_read);
     ASSERT_EQ(values_in, values_out);
   }
+}
+
+TEST(Roundtrip, AllNulls) {
+  auto primitiveNode =
+      PrimitiveNode::Make("nulls", Repetition::OPTIONAL, nullptr, Type::INT32);
+  schema::NodeVector columns({primitiveNode});
+
+  auto rootNode = GroupNode::Make("root", Repetition::REQUIRED, columns, nullptr);
+
+  auto sink = CreateOutputStream();
+
+  auto fileWriter =
+      ParquetFileWriter::Open(sink, std::static_pointer_cast<GroupNode>(rootNode));
+  auto rowGroupWriter = fileWriter->AppendRowGroup();
+  auto columnWriter = static_cast<Int32Writer*>(rowGroupWriter->NextColumn());
+
+  int32_t values[3];
+  int16_t defLevels[] = {0, 0, 0};
+
+  columnWriter->WriteBatch(3, defLevels, nullptr, values);
+
+  columnWriter->Close();
+  rowGroupWriter->Close();
+  fileWriter->Close();
+
+  ReaderProperties props = default_reader_properties();
+  props.enable_buffered_stream();
+  PARQUET_ASSIGN_OR_THROW(auto buffer, sink->Finish());
+
+  auto source = std::make_shared<::arrow::io::BufferReader>(buffer);
+  auto file_reader = ParquetFileReader::Open(source);
+
+  auto fileReader = ParquetFileReader::Open(source, props);
+  auto rowGroupReader = fileReader->RowGroup(0);
+  auto columnReader = std::static_pointer_cast<Int32Reader>(rowGroupReader->Column(0));
+
+  int64_t valuesRead;
+  defLevels[0] = -1;
+  defLevels[1] = -1;
+  defLevels[2] = -1;
+  columnReader->ReadBatch(3, defLevels, nullptr, values, &valuesRead);
+  EXPECT_THAT(defLevels, ElementsAre(0, 0, 0));
 }
 
 }  // namespace test
