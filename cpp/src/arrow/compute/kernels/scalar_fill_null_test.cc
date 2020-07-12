@@ -26,21 +26,32 @@
 #include "arrow/scalar.h"
 #include "arrow/testing/gtest_compat.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/random.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 
 namespace arrow {
 namespace compute {
 
+void CheckFillNull(const Array& input, const Datum& fill_value, const Array& expected) {
+  auto Check = [&](const Array& input, const Array& expected) {
+    ASSERT_OK_AND_ASSIGN(Datum datum_out, FillNull(input, fill_value));
+    std::shared_ptr<Array> result = datum_out.make_array();
+    ASSERT_OK(result->ValidateFull());
+    AssertArraysEqual(expected, *result, /*verbose=*/true);
+  };
+
+  Check(input, expected);
+  if (input.length() > 0) {
+    Check(*input.Slice(1), *expected.Slice(1));
+  }
+}
+
 void CheckFillNull(const std::shared_ptr<DataType>& type, const std::string& in_values,
-                   const Datum fill_value, const std::string& out_values) {
+                   const Datum& fill_value, const std::string& out_values) {
   std::shared_ptr<Array> input = ArrayFromJSON(type, in_values);
   std::shared_ptr<Array> expected = ArrayFromJSON(type, out_values);
-
-  ASSERT_OK_AND_ASSIGN(Datum datum_out, FillNull(input, fill_value));
-  std::shared_ptr<Array> result = datum_out.make_array();
-  ASSERT_OK(result->ValidateFull());
-  AssertArraysEqual(*expected, *result, /*verbose=*/true);
+  CheckFillNull(*input, fill_value, *expected);
 }
 
 class TestFillNullKernel : public ::testing::Test {};
@@ -63,6 +74,7 @@ TYPED_TEST_SUITE(TestFillNullPrimitive, PrimitiveTypes);
 
 TYPED_TEST(TestFillNullPrimitive, FillNull) {
   using T = typename TypeParam::c_type;
+  using ArrayType = typename TypeTraits<TypeParam>::ArrayType;
   using ScalarType = typename TypeTraits<TypeParam>::ScalarType;
   auto type = TypeTraits<TypeParam>::type_singleton();
   auto scalar = std::make_shared<ScalarType>(static_cast<T>(5));
@@ -72,6 +84,24 @@ TYPED_TEST(TestFillNullPrimitive, FillNull) {
   CheckFillNull(type, "[null, 4, null, 8]", Datum(scalar), "[5, 4, 5, 8]");
   // Empty Array
   CheckFillNull(type, "[]", Datum(scalar), "[]");
+
+  random::RandomArrayGenerator rand(/*seed=*/0);
+  auto arr = std::static_pointer_cast<ArrayType>(
+      rand.ArrayOf(type, 1000, /*null_probability=*/0.01));
+
+  std::shared_ptr<ArrayData> expected_data = arr->data()->Copy();
+  expected_data->null_count = 0;
+  expected_data->buffers[0] = nullptr;
+  expected_data->buffers[1] = *AllocateBuffer(arr->length() * sizeof(T));
+  T* out_data = expected_data->GetMutableValues<T>(1);
+  for (int64_t i = 0; i < arr->length(); ++i) {
+    if (arr->IsValid(i)) {
+      out_data[i] = arr->Value(i);
+    } else {
+      out_data[i] = scalar->value;
+    }
+  }
+  CheckFillNull(*arr, Datum(scalar), ArrayType(expected_data));
 }
 
 TEST_F(TestFillNullKernel, FillNullNull) {
@@ -90,6 +120,26 @@ TEST_F(TestFillNullKernel, FillNullBoolean) {
                 "[true, false, false, false]");
   CheckFillNull(boolean(), "[true, null, false, null]", Datum(scalar2),
                 "[true, true, false, true]");
+
+  random::RandomArrayGenerator rand(/*seed=*/0);
+  auto arr = std::static_pointer_cast<BooleanArray>(
+      rand.Boolean(1000, /*true_probability=*/0.5, /*null_probability=*/0.01));
+
+  int64_t data_nbytes = arr->data()->buffers[1]->size();
+  auto expected_data = arr->data()->Copy();
+  expected_data->null_count = 0;
+  expected_data->buffers[0] = nullptr;
+  expected_data->buffers[1] = *AllocateBuffer(data_nbytes);
+  uint8_t* out_data = expected_data->buffers[1]->mutable_data();
+  for (int64_t i = 0; i < arr->length(); ++i) {
+    if (arr->IsValid(i)) {
+      BitUtil::SetBitTo(out_data, i, arr->Value(i));
+    } else {
+      BitUtil::SetBitTo(out_data, i, true);
+    }
+  }
+  CheckFillNull(*arr, Datum(std::make_shared<BooleanScalar>(true)),
+                BooleanArray(expected_data));
 }
 
 TEST_F(TestFillNullKernel, FillNullTimeStamp) {
