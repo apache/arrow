@@ -834,38 +834,45 @@ Status FileReaderImpl::ReadRowGroups(const std::vector<int>& row_groups,
                                 reader_properties_.cache_options());
   }
 
-  int num_fields = static_cast<int>(field_indices.size());
-  std::vector<std::shared_ptr<Field>> fields(num_fields);
-  std::vector<std::shared_ptr<ChunkedArray>> columns(num_fields);
+  ::arrow::FieldVector fields(field_indices.size());
+  ::arrow::ChunkedArrayVector columns(fields.size());
 
   auto included_leaves = VectorToSharedSet(indices);
-  auto ReadColumnFunc = [&](int i) {
+  auto ReadColumnFunc = [&](size_t i) {
     return ReadSchemaField(field_indices[i], included_leaves, row_groups, &fields[i],
                            &columns[i]);
   };
 
   if (reader_properties_.use_threads()) {
-    std::vector<Future<Status>> futures(num_fields);
+    std::vector<Future<Status>> futures(fields.size());
     auto pool = ::arrow::internal::GetCpuThreadPool();
-    for (int i = 0; i < num_fields; i++) {
+    for (size_t i = 0; i < fields.size(); ++i) {
       ARROW_ASSIGN_OR_RAISE(futures[i], pool->Submit(ReadColumnFunc, i));
     }
-    Status final_status = Status::OK();
+
+    Status final_status;
     for (auto& fut : futures) {
-      Status st = fut.status();
-      if (!st.ok()) {
-        final_status = std::move(st);
-      }
+      final_status &= fut.status();
     }
     RETURN_NOT_OK(final_status);
   } else {
-    for (int i = 0; i < num_fields; i++) {
+    for (size_t i = 0; i < fields.size(); ++i) {
       RETURN_NOT_OK(ReadColumnFunc(i));
     }
   }
 
-  auto result_schema = ::arrow::schema(fields, manifest_.schema_metadata);
-  *out = Table::Make(result_schema, columns);
+  auto result_schema = ::arrow::schema(std::move(fields), manifest_.schema_metadata);
+
+  int64_t num_rows = 0;
+  if (!columns.empty()) {
+    num_rows = columns[0]->length();
+  } else {
+    for (int i : row_groups) {
+      num_rows += parquet_reader()->metadata()->RowGroup(i)->num_rows();
+    }
+  }
+
+  *out = Table::Make(std::move(result_schema), std::move(columns), num_rows);
   return (*out)->Validate();
   END_PARQUET_CATCH_EXCEPTIONS
 }
