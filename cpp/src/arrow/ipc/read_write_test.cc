@@ -1509,7 +1509,6 @@ TEST(TestIpcFileFormat, FooterMetaData) {
   ASSERT_OK(helper.Finish());
 
   ASSERT_OK_AND_ASSIGN(auto out_metadata, helper.ReadFooterMetadata());
-
   ASSERT_TRUE(out_metadata->Equals(*metadata));
 }
 
