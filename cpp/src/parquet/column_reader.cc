@@ -905,7 +905,7 @@ int64_t TypedColumnReaderImpl<DType>::ReadBatchSpaced(
                                 /*length=*/total_values,
                                 /*bits_are_set=*/true);
     *null_count_out = 0;
-    *value_read = total_values;
+    *values_read = total_values;
     *levels_read = total_values;
   }
 
