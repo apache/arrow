@@ -135,7 +135,7 @@ fn coerce_data_type(dt: Vec<&DataType>) -> Result<DataType> {
 }
 
 /// Generate schema from JSON field names and inferred data types
-fn generate_schema(spec: HashMap<String, HashSet<DataType>>) -> Result<Arc<Schema>> {
+fn generate_schema(spec: HashMap<String, HashSet<DataType>>) -> Result<SchemaRef> {
     let fields: Result<Vec<Field>> = spec
         .iter()
         .map(|(k, hs)| {
@@ -175,7 +175,7 @@ fn generate_schema(spec: HashMap<String, HashSet<DataType>>) -> Result<Arc<Schem
 pub fn infer_json_schema_from_seekable<R: Read + Seek>(
     reader: &mut BufReader<R>,
     max_read_records: Option<usize>,
-) -> Result<Arc<Schema>> {
+) -> Result<SchemaRef> {
     let schema = infer_json_schema(reader, max_read_records);
     // return the reader seek back to the start
     reader.seek(SeekFrom::Start(0))?;
@@ -212,7 +212,7 @@ pub fn infer_json_schema_from_seekable<R: Read + Seek>(
 pub fn infer_json_schema<R: Read>(
     reader: &mut BufReader<R>,
     max_read_records: Option<usize>,
-) -> Result<Arc<Schema>> {
+) -> Result<SchemaRef> {
     let mut values: HashMap<String, HashSet<DataType>> = HashMap::new();
 
     let mut line = String::new();
@@ -362,7 +362,7 @@ pub fn infer_json_schema<R: Read>(
 /// JSON file reader
 pub struct Reader<R: Read> {
     /// Explicit schema for the JSON file
-    schema: Arc<Schema>,
+    schema: SchemaRef,
     /// Optional projection for which columns to load (case-sensitive names)
     projection: Option<Vec<String>>,
     /// File reader
@@ -378,7 +378,7 @@ impl<R: Read> Reader<R> {
     /// inference, use `ReaderBuilder`.
     pub fn new(
         reader: R,
-        schema: Arc<Schema>,
+        schema: SchemaRef,
         batch_size: usize,
         projection: Option<Vec<String>>,
     ) -> Self {
@@ -387,7 +387,7 @@ impl<R: Read> Reader<R> {
 
     /// Returns the schema of the reader, useful for getting the schema without reading
     /// record batches
-    pub fn schema(&self) -> Arc<Schema> {
+    pub fn schema(&self) -> SchemaRef {
         match &self.projection {
             Some(projection) => {
                 let fields = self.schema.fields();
@@ -413,7 +413,7 @@ impl<R: Read> Reader<R> {
     /// To customize the schema, such as to enable schema inference, use `ReaderBuilder`
     pub fn from_buf_reader(
         reader: BufReader<R>,
-        schema: Arc<Schema>,
+        schema: SchemaRef,
         batch_size: usize,
         projection: Option<Vec<String>>,
     ) -> Self {
@@ -735,7 +735,7 @@ pub struct ReaderBuilder {
     ///
     /// If the schema is not supplied, the reader will try to infer the schema
     /// based on the JSON structure.
-    schema: Option<Arc<Schema>>,
+    schema: Option<SchemaRef>,
     /// Optional maximum number of records to read during schema inference
     ///
     /// If a number is not provided, all the records are read.
@@ -788,7 +788,7 @@ impl ReaderBuilder {
     }
 
     /// Set the JSON file's schema
-    pub fn with_schema(mut self, schema: Arc<Schema>) -> Self {
+    pub fn with_schema(mut self, schema: SchemaRef) -> Self {
         self.schema = Some(schema);
         self
     }
@@ -853,7 +853,7 @@ mod tests {
 
         let schema = reader.schema();
         let batch_schema = batch.schema();
-        assert_eq!(&schema, batch_schema);
+        assert_eq!(schema, batch_schema);
 
         let a = schema.column_with_name("a").unwrap();
         assert_eq!(0, a.0);
@@ -911,7 +911,7 @@ mod tests {
 
         let schema = reader.schema();
         let batch_schema = batch.schema();
-        assert_eq!(&schema, batch_schema);
+        assert_eq!(schema, batch_schema);
 
         let a = schema.column_with_name("a").unwrap();
         assert_eq!(&DataType::Int64, a.1.data_type());
@@ -1038,7 +1038,7 @@ mod tests {
         assert_eq!(12, batch.num_rows());
 
         let schema = batch.schema();
-        assert_eq!(&reader_schema, schema);
+        assert_eq!(reader_schema, schema);
 
         let a = schema.column_with_name("a").unwrap();
         assert_eq!(0, a.0);
@@ -1239,7 +1239,7 @@ mod tests {
 
         let schema = reader.schema();
         let batch_schema = batch.schema();
-        assert_eq!(&schema, batch_schema);
+        assert_eq!(schema, batch_schema);
 
         let d = schema.column_with_name("d").unwrap();
         assert_eq!(
@@ -1297,7 +1297,7 @@ mod tests {
 
         let schema = reader.schema();
         let batch_schema = batch.schema();
-        assert_eq!(&schema, batch_schema);
+        assert_eq!(schema, batch_schema);
 
         let d = schema.column_with_name("d").unwrap();
         assert_eq!(
@@ -1326,7 +1326,7 @@ mod tests {
 
         let schema = reader.schema();
         let batch_schema = batch.schema();
-        assert_eq!(&schema, batch_schema);
+        assert_eq!(schema, batch_schema);
 
         let d = schema.column_with_name("d").unwrap();
         assert_eq!(
@@ -1355,7 +1355,7 @@ mod tests {
 
         let schema = reader.schema();
         let batch_schema = batch.schema();
-        assert_eq!(&schema, batch_schema);
+        assert_eq!(schema, batch_schema);
 
         let d = schema.column_with_name("d").unwrap();
         assert_eq!(

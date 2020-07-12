@@ -20,11 +20,11 @@
 use crate::error::{ExecutionError, Result};
 use crate::execution::physical_plan::common::RecordBatchIterator;
 use crate::execution::physical_plan::ExecutionPlan;
-use crate::execution::physical_plan::{BatchIterator, Partition};
+use crate::execution::physical_plan::Partition;
 use arrow::array::ArrayRef;
 use arrow::compute::limit;
-use arrow::datatypes::Schema;
-use arrow::record_batch::RecordBatch;
+use arrow::datatypes::SchemaRef;
+use arrow::record_batch::{RecordBatch, RecordBatchReader};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::thread::JoinHandle;
@@ -32,7 +32,7 @@ use std::thread::JoinHandle;
 /// Limit execution plan
 pub struct LimitExec {
     /// Input schema
-    schema: Arc<Schema>,
+    schema: SchemaRef,
     /// Input partitions
     partitions: Vec<Arc<dyn Partition>>,
     /// Maximum number of rows to return
@@ -42,7 +42,7 @@ pub struct LimitExec {
 impl LimitExec {
     /// Create a new MergeExec
     pub fn new(
-        schema: Arc<Schema>,
+        schema: SchemaRef,
         partitions: Vec<Arc<dyn Partition>>,
         limit: usize,
     ) -> Self {
@@ -55,7 +55,7 @@ impl LimitExec {
 }
 
 impl ExecutionPlan for LimitExec {
-    fn schema(&self) -> Arc<Schema> {
+    fn schema(&self) -> SchemaRef {
         self.schema.clone()
     }
 
@@ -70,7 +70,7 @@ impl ExecutionPlan for LimitExec {
 
 struct LimitPartition {
     /// Input schema
-    schema: Arc<Schema>,
+    schema: SchemaRef,
     /// Input partitions
     partitions: Vec<Arc<dyn Partition>>,
     /// Maximum number of rows to return
@@ -78,7 +78,7 @@ struct LimitPartition {
 }
 
 impl Partition for LimitPartition {
-    fn execute(&self) -> Result<Arc<Mutex<dyn BatchIterator>>> {
+    fn execute(&self) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
         // collect up to "limit" rows on each partition
         let threads: Vec<JoinHandle<Result<Vec<RecordBatch>>>> = self
             .partitions
@@ -136,14 +136,14 @@ pub fn truncate_batch(batch: &RecordBatch, n: usize) -> Result<RecordBatch> {
 
 /// Create a vector of record batches from an iterator
 fn collect_with_limit(
-    it: Arc<Mutex<dyn BatchIterator>>,
+    reader: Arc<Mutex<dyn RecordBatchReader + Send + Sync>>,
     limit: usize,
 ) -> Result<Vec<RecordBatch>> {
     let mut count = 0;
-    let mut it = it.lock().unwrap();
+    let mut reader = reader.lock().unwrap();
     let mut results: Vec<RecordBatch> = vec![];
     loop {
-        match it.next() {
+        match reader.next_batch() {
             Ok(Some(batch)) => {
                 let capacity = limit - count;
                 if batch.num_rows() <= capacity {
@@ -162,7 +162,7 @@ fn collect_with_limit(
                 // end of result set
                 return Ok(results);
             }
-            Err(e) => return Err(e),
+            Err(e) => return Err(ExecutionError::from(e)),
         }
     }
 }

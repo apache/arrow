@@ -218,7 +218,7 @@ pub fn infer_schema_from_files(
 /// CSV file reader
 pub struct Reader<R: Read> {
     /// Explicit schema for the CSV file
-    schema: Arc<Schema>,
+    schema: SchemaRef,
     /// Optional projection for which columns to load (zero-based column indices)
     projection: Option<Vec<usize>>,
     /// File reader
@@ -237,7 +237,7 @@ impl<R: Read> Reader<R> {
     /// `ReaderBuilder`.
     pub fn new(
         reader: R,
-        schema: Arc<Schema>,
+        schema: SchemaRef,
         has_header: bool,
         delimiter: Option<u8>,
         batch_size: usize,
@@ -255,7 +255,7 @@ impl<R: Read> Reader<R> {
 
     /// Returns the schema of the reader, useful for getting the schema without reading
     /// record batches
-    pub fn schema(&self) -> Arc<Schema> {
+    pub fn schema(&self) -> SchemaRef {
         match &self.projection {
             Some(projection) => {
                 let fields = self.schema.fields();
@@ -274,7 +274,7 @@ impl<R: Read> Reader<R> {
     /// csv reader.
     pub fn from_buf_reader(
         buf_reader: BufReader<R>,
-        schema: Arc<Schema>,
+        schema: SchemaRef,
         has_header: bool,
         delimiter: Option<u8>,
         batch_size: usize,
@@ -439,7 +439,7 @@ pub struct ReaderBuilder {
     ///
     /// If the schema is not supplied, the reader will try to infer the schema
     /// based on the CSV structure.
-    schema: Option<Arc<Schema>>,
+    schema: Option<SchemaRef>,
     /// Whether the file has headers or not
     ///
     /// If schema inference is run on a file with no headers, default column names
@@ -501,7 +501,7 @@ impl ReaderBuilder {
     }
 
     /// Set the CSV file's schema
-    pub fn with_schema(mut self, schema: Arc<Schema>) -> Self {
+    pub fn with_schema(mut self, schema: SchemaRef) -> Self {
         self.schema = Some(schema);
         self
     }
@@ -695,7 +695,7 @@ mod tests {
         let batch = csv.next().unwrap().unwrap();
         let batch_schema = batch.schema();
 
-        assert_eq!(&schema, batch_schema);
+        assert_eq!(schema, batch_schema);
         assert_eq!(37, batch.num_rows());
         assert_eq!(3, batch.num_columns());
 
@@ -735,7 +735,7 @@ mod tests {
         ]));
         assert_eq!(projected_schema.clone(), csv.schema());
         let batch = csv.next().unwrap().unwrap();
-        assert_eq!(&projected_schema, batch.schema());
+        assert_eq!(projected_schema, batch.schema());
         assert_eq!(37, batch.num_rows());
         assert_eq!(2, batch.num_columns());
     }

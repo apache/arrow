@@ -21,6 +21,7 @@ use std::io;
 use arrow::error::Result;
 use arrow::ipc::reader::StreamReader;
 use arrow::ipc::writer::FileWriter;
+use arrow::record_batch::RecordBatchReader;
 
 fn main() -> Result<()> {
     let args: Vec<String> = env::args().collect();
@@ -31,7 +32,7 @@ fn main() -> Result<()> {
 
     let mut writer = FileWriter::try_new(io::stdout(), &schema)?;
 
-    while let Some(batch) = arrow_stream_reader.next()? {
+    while let Some(batch) = arrow_stream_reader.next_batch()? {
         writer.write(&batch)?;
     }
     writer.finish()?;

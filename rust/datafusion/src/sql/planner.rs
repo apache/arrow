@@ -33,7 +33,7 @@ use sqlparser::sqlast::*;
 /// functions referenced in SQL statements
 pub trait SchemaProvider {
     /// Getter for a field description
-    fn get_table_meta(&self, name: &str) -> Option<Arc<Schema>>;
+    fn get_table_meta(&self, name: &str) -> Option<SchemaRef>;
     /// Getter for a UDF description
     fn get_function_meta(&self, name: &str) -> Option<Arc<FunctionMeta>>;
 }
@@ -698,7 +698,7 @@ mod tests {
     struct MockSchemaProvider {}
 
     impl SchemaProvider for MockSchemaProvider {
-        fn get_table_meta(&self, name: &str) -> Option<Arc<Schema>> {
+        fn get_table_meta(&self, name: &str) -> Option<SchemaRef> {
             match name {
                 "person" => Some(Arc::new(Schema::new(vec![
                     Field::new("id", DataType::UInt32, false),

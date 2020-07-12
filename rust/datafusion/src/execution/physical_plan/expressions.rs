@@ -2004,7 +2004,7 @@ mod tests {
     }
 
     fn apply_arithmetic<T: ArrowNumericType>(
-        schema: Arc<Schema>,
+        schema: SchemaRef,
         data: Vec<ArrayRef>,
         op: Operator,
         expected: PrimitiveArray<T>,

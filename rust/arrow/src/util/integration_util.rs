@@ -73,7 +73,7 @@ pub struct ArrowJsonColumn {
 
 impl ArrowJson {
     /// Compare the Arrow JSON with a record batch reader
-    pub fn equals_reader(&self, reader: &mut RecordBatchReader) -> bool {
+    pub fn equals_reader(&self, reader: &mut dyn RecordBatchReader) -> bool {
         if !self.schema.equals_schema(&reader.schema()) {
             return false;
         }
