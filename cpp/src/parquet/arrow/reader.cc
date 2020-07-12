@@ -825,7 +825,8 @@ Status FileReaderImpl::ReadRowGroups(const std::vector<int>& row_groups,
 
   // We only need to read schema fields which have columns indicated
   // in the indices vector
-  ARROW_ASSIGN_OR_RAISE(auto field_indices, manifest_.GetFieldIndices(indices));
+  ARROW_ASSIGN_OR_RAISE(std::vector<int> field_indices,
+                        manifest_.GetFieldIndices(indices));
 
   // PARQUET-1698/PARQUET-1820: pre-buffer row groups/column chunks if enabled
   if (reader_properties_.pre_buffer()) {

@@ -23,6 +23,7 @@
 #include <unordered_set>
 #include <vector>
 
+#include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
@@ -188,9 +189,12 @@ struct PARQUET_EXPORT SchemaManifest {
       if (column_idx < 0 || column_idx >= descr->num_columns()) {
         return ::arrow::Status::IndexError("Column index ", column_idx, " is not valid");
       }
+
       auto field_node = descr->GetColumnRoot(column_idx);
       auto field_idx = group->FieldIndex(*field_node);
-      assert(field_idx != -1);
+      if (field_idx == -1) {
+        return ::arrow::Status::IndexError("Column index ", column_idx, " is not valid");
+      }
 
       if (already_added.insert(field_idx).second) {
         out.push_back(field_idx);
