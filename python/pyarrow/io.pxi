@@ -776,9 +776,17 @@ def memory_map(path, mode='r'):
     -------
     mmap : MemoryMappedFile
     """
+    _check_is_file(path)
+
     cdef MemoryMappedFile mmap = MemoryMappedFile()
     mmap._open(path, mode)
     return mmap
+
+
+cdef _check_is_file(path):
+    if os.path.isdir(path):
+        raise IOError("Expected file path, but {0} is a directory"
+                      .format(path))
 
 
 def create_memory_map(path, size):
@@ -807,6 +815,7 @@ cdef class OSFile(NativeFile):
         object path
 
     def __cinit__(self, path, mode='r', MemoryPool memory_pool=None):
+        _check_is_file(path)
         self.path = path
 
         cdef:
