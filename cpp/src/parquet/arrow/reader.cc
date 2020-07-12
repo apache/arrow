@@ -31,6 +31,7 @@
 #include "arrow/type.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/make_unique.h"
 #include "arrow/util/range.h"
 #include "arrow/util/thread_pool.h"
 #include "parquet/arrow/reader_internal.h"
@@ -308,22 +309,26 @@ class RowGroupRecordBatchReader : public ::arrow::RecordBatchReader {
 
   static ::arrow::Result<std::unique_ptr<RowGroupRecordBatchReader>> Make(
       const std::vector<int>& row_group_indices, const std::vector<int>& column_indices,
-      int64_t batch_size, FileReaderImpl* reader) {
-    std::unique_ptr<RowGroupRecordBatchReader> out(new RowGroupRecordBatchReader);
+      FileReaderImpl* reader) {
+    auto out = ::arrow::internal::make_unique<RowGroupRecordBatchReader>();
 
     RETURN_NOT_OK(FromParquetSchema(
-        reader->parquet_reader()->metadata()->schema(), default_arrow_reader_properties(),
+        reader->parquet_reader()->metadata()->schema(), reader->properties(),
         /*key_value_metadata=*/nullptr, column_indices, &out->schema_));
 
     using ::arrow::RecordBatchIterator;
 
+    // NB: This lambda will be invoked lazily whenever a new row group must be
+    // scanned, so it must capture `column_indices` and `reader` by value (they will not
+    // otherwise outlive the scope of `Make()`). `reader` is a non-owning pointer so we
+    // are relying on the parent FileReader outliving this RecordBatchReader.
     auto row_group_index_to_batch_iterator =
-        [=](const int* i) -> ::arrow::Result<RecordBatchIterator> {
+        [column_indices, reader](const int* i) -> ::arrow::Result<RecordBatchIterator> {
       std::shared_ptr<::arrow::Table> table;
       RETURN_NOT_OK(reader->RowGroup(*i)->ReadTable(column_indices, &table));
 
       auto table_reader = std::make_shared<::arrow::TableBatchReader>(*table);
-      table_reader->set_chunksize(batch_size);
+      table_reader->set_chunksize(reader->properties().batch_size());
 
       // NB: explicitly preserve table so that table_reader doesn't outlive it
       return ::arrow::MakeFunctionIterator(
@@ -770,10 +775,10 @@ Status FileReaderImpl::GetRecordBatchReader(const std::vector<int>& row_group_in
                                             const std::vector<int>& column_indices,
                                             std::unique_ptr<RecordBatchReader>* out) {
   // column indices check
-  ARROW_ASSIGN_OR_RAISE(std::ignore, manifest_.GetFieldIndices(column_indices));
+  RETURN_NOT_OK(manifest_.GetFieldIndices(column_indices).status());
 
   // row group indices check
-  for (auto row_group_index : row_group_indices) {
+  for (int row_group_index : row_group_indices) {
     RETURN_NOT_OK(BoundsCheckRowGroup(row_group_index));
   }
 
@@ -786,8 +791,7 @@ Status FileReaderImpl::GetRecordBatchReader(const std::vector<int>& row_group_in
     END_PARQUET_CATCH_EXCEPTIONS
   }
 
-  return RowGroupRecordBatchReader::Make(row_group_indices, column_indices,
-                                         reader_properties_.batch_size(), this)
+  return RowGroupRecordBatchReader::Make(row_group_indices, column_indices, this)
       .Value(out);
 }
 

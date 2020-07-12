@@ -716,6 +716,12 @@ TEST_F(TestConvertParquetSchema, ColumnSubselection) {
   arrow_schema = ::arrow::schema({arrow_fields[1]});
   ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(arrow_schema));
 
+  column_indices = {1, 2};
+  ASSERT_OK(
+      ConvertSchema(parquet_fields, /*key_value_metadata=*/nullptr, &column_indices));
+  arrow_schema = ::arrow::schema({arrow_fields[1]});
+  ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(arrow_schema));
+
   column_indices = {3};
   ASSERT_RAISES(IndexError, ConvertSchema(parquet_fields, /*key_value_metadata=*/nullptr,
                                           &column_indices));
