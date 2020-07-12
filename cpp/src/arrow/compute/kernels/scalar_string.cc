@@ -104,8 +104,8 @@ struct UTF8Transform {
   }
 
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    EnsureLookupTablesFilled();
     if (batch[0].kind() == Datum::ARRAY) {
-      EnsureLookupTablesFilled();
       const ArrayData& input = *batch[0].array();
       ArrayType input_boxed(batch[0].array());
       ArrayData* output = out->mutable_array();
@@ -896,8 +896,8 @@ using StringPredicate = std::function<bool(KernelContext*, const uint8_t*, size_
 template <typename Type>
 void ApplyPredicate(KernelContext* ctx, const ExecBatch& batch, StringPredicate predicate,
                     Datum* out) {
+  EnsureLookupTablesFilled();
   if (batch[0].kind() == Datum::ARRAY) {
-    EnsureLookupTablesFilled();
     const ArrayData& input = *batch[0].array();
     ArrayIterator<Type> input_it(input);
     ArrayData* out_arr = out->mutable_array();
