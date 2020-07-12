@@ -150,10 +150,15 @@ class PARQUET_EXPORT FileReader {
   virtual ::arrow::Status ReadSchemaField(
       int i, std::shared_ptr<::arrow::ChunkedArray>* out) = 0;
 
-  /// \brief Return a RecordBatchReader of row groups selected from row_group_indices, the
-  ///     ordering in row_group_indices matters. Each row group will held in memory until
-  ///     each slice has been yielded as a RecordBatch, at which point the next row group
-  ///     will be loaded. FileReaders must outlive their RecordBatchReaders.
+  /// \brief Return a RecordBatchReader of row groups selected from row_group_indices.
+  ///
+  /// Note that the ordering in row_group_indices matters. Each row group will
+  /// held in memory until each slice has been yielded as a RecordBatch, at
+  /// which point the next row group will be loaded. FileReaders must outlive
+  /// their RecordBatchReaders. NOTE: in the future we would like to avoid
+  /// materializing the entire row group in memory before yielding chunks of it
+  /// in this interface, thus reducing memory use.
+  ///
   /// \returns error Status if row_group_indices contains an invalid index
   virtual ::arrow::Status GetRecordBatchReader(
       const std::vector<int>& row_group_indices,
@@ -163,11 +168,16 @@ class PARQUET_EXPORT FileReader {
                                        std::shared_ptr<::arrow::RecordBatchReader>* out);
 
   /// \brief Return a RecordBatchReader of row groups selected from
-  ///     row_group_indices, whose columns are selected by column_indices. The
-  ///     ordering in row_group_indices and column_indices matter.
-  ///     Each row group will held in memory until each slice has been yielded as a
-  ///     RecordBatch, at which point the next row group will be loaded. FileReaders must
-  ///     outlive their RecordBatchReaders.
+  /// row_group_indices, whose columns are selected by column_indices.
+  ///
+  /// Note that the ordering in row_group_indices and column_indices
+  /// matter. Each row group will held in memory until each slice has been
+  /// yielded as a RecordBatch, at which point the next row group will be
+  /// loaded. FileReaders must outlive their RecordBatchReaders. NOTE: in the
+  /// future we would like to avoid materializing the entire row group in
+  /// memory before yielding chunks of it in this interface, thus reducing
+  /// memory use.
+  ///
   /// \returns error Status if either row_group_indices or column_indices
   ///     contains an invalid index
   virtual ::arrow::Status GetRecordBatchReader(
