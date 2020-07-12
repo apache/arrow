@@ -145,7 +145,171 @@ TYPED_TEST(TestStringKernels, Utf8Lower) {
                                   CallFunction("utf8_lower", {invalid_input}));
 }
 
+TYPED_TEST(TestStringKernels, IsAlphaNumericUnicode) {
+  // U+08BE (utf8: 	\xE0\xA2\xBE) is undefined, but utf8proc things it is
+  // UTF8PROC_CATEGORY_LO
+  this->CheckUnary("utf8_isalnum", "[\"ⱭɽⱤoW123\", null, \"Ɑ2\", \"!\", \"\"]", boolean(),
+                   "[true, null, true, false, false]");
+}
+
+TYPED_TEST(TestStringKernels, IsAlphaUnicode) {
+  // U+08BE (utf8: 	\xE0\xA2\xBE) is undefined, but utf8proc things it is
+  // UTF8PROC_CATEGORY_LO
+  this->CheckUnary("utf8_isalpha", "[\"ⱭɽⱤoW\", null, \"Ɑ2\", \"!\", \"\"]", boolean(),
+                   "[true, null, false, false, false]");
+}
+
+TYPED_TEST(TestStringKernels, IsAscii) {
+  this->CheckUnary("binary_isascii", "[\"azAZ~\", null, \"Ɑ\", \"\"]", boolean(),
+                   "[true, null, false, true]");
+}
+
+TYPED_TEST(TestStringKernels, IsDecimalUnicode) {
+  // ٣ is arabic 3 (decimal), Ⅳ roman (non-decimal)
+  this->CheckUnary("utf8_isdecimal", "[\"12\", null, \"٣\", \"Ⅳ\", \"1a\", \"\"]",
+                   boolean(), "[true, null, true, false, false, false]");
+}
+
+TYPED_TEST(TestStringKernels, IsDigitUnicode) {
+  // These are digits according to Python, but we don't have the information in
+  // utf8proc for this
+  // this->CheckUnary("utf8_isdigit", "[\"²\", \"①\"]", boolean(), "[true,
+  // true]");
+}
+
+TYPED_TEST(TestStringKernels, IsNumericUnicode) {
+  // ٣ is arabic 3 (decimal), Ⅳ roman (non-decimal)
+  this->CheckUnary("utf8_isnumeric", "[\"12\", null, \"٣\", \"Ⅳ\", \"1a\", \"\"]",
+                   boolean(), "[true, null, true, true, false, false]");
+  // These are numerical according to Python, but we don't have the information in
+  // utf8proc for this
+  // this->CheckUnary("utf8_isnumeric", "[\"㐅\", \"卌\"]", boolean(),
+  //                  "[true, null, true, true, false, false]");
+}
+
+TYPED_TEST(TestStringKernels, IsLowerUnicode) {
+  // ٣ is arabic 3 (decimal), Φ capital
+  this->CheckUnary("utf8_islower",
+                   "[\"12\", null, \"٣a\", \"٣A\", \"1a\", \"Φ\", \"\", \"with space\", "
+                   "\"With space\"]",
+                   boolean(),
+                   "[false, null, true, false, true, false, false, true, false]");
+  // lower case character utf8proc does not know about
+  // this->CheckUnary("utf8_islower", "[\"ª\", \"ₕ\"]", boolean(), "[true,
+  // true]");
+}
+
+TYPED_TEST(TestStringKernels, IsPrintableUnicode) {
+  // U+2008 (utf8: \xe2\x80\x88) is punctuaction space, it is NOT printable
+  // U+0378 (utf8: \xCD\xB8) is an undefined char, it has no category
+  this->CheckUnary(
+      "utf8_isprintable",
+      "[\" 123azAZ!~\", null, \"\xe2\x80\x88\", \"\", \"\\r\", \"\xCD\xB8\"]", boolean(),
+      "[true, null, false, true, false, false]");
+}
+
+TYPED_TEST(TestStringKernels, IsSpaceUnicode) {
+  // U+2008 (utf8: \xe2\x80\x88) is punctuaction space
+  this->CheckUnary("utf8_isspace", "[\" \", null, \"  \", \"\\t\\r\"]", boolean(),
+                   "[true, null, true, true]");
+  this->CheckUnary("utf8_isspace", "[\" a\", null, \"a \", \"~\", \"\xe2\x80\x88\"]",
+                   boolean(), "[false, null, false, false, true]");
+}
+
+TYPED_TEST(TestStringKernels, IsTitleUnicode) {
+  // ٣ is arabic 3 (decimal), Φ capital
+  this->CheckUnary("utf8_istitle",
+                   "[\"Is\", null, \"Is Title\", \"Is٣Title\", \"Is_Ǆ\", \"Φ\", \"Ǆ\"]",
+                   boolean(), "[true, null, true, true, true, true, true]");
+  this->CheckUnary(
+      "utf8_istitle",
+      "[\"IsN\", null, \"IsNoTitle\", \"Is No T٣tle\", \"IsǄ\", \"ΦΦ\", \"ǆ\", \"_\"]",
+      boolean(), "[false, null, false, false, false, false, false, false]");
+}
+
+// Older versions of utf8proc fail
+#if !(UTF8PROC_VERSION_MAJOR <= 2 && UTF8PROC_VERSION_MINOR < 5)
+
+TYPED_TEST(TestStringKernels, IsUpperUnicode) {
+  // ٣ is arabic 3 (decimal), Φ capital
+  this->CheckUnary(
+      "utf8_isupper", "[\"12\", null, \"٣a\", \"٣A\", \"1A\", \"Φ\", \"\", \"Ⅰ\", \"Ⅿ\"]",
+      boolean(), "[false, null, false, true, true, true, false, true, true]");
+  // * Ⅰ to Ⅿ is a special case (roman capital), as well as Ⓐ to Ⓩ
+  // * ϒ - \xCF\x92 - Greek Upsilon with Hook Symbol - upper case, but has no direct lower
+  // case
+  // * U+1F88 - ᾈ - \E1\xBE\x88 - Greek Capital Letter Alpha with Psili and Prosgegrammeni
+  // - title case
+  // U+10400 - 𐐀 - \xF0x90x90x80 - Deseret Capital Letter Long - upper case
+  // * U+A7BA - Ꞻ - \xEA\x9E\xBA - Latin Capital Letter Glottal A -  new in unicode 13
+  // (not tested since it depends on the version of libutf8proc)
+  // * U+A7BB - ꞻ - \xEA\x9E\xBB - Latin Small Letter Glottal A - new in unicode 13
+  this->CheckUnary("utf8_isupper",
+                   "[\"Ⓐ\", \"Ⓩ\", \"ϒ\", \"ᾈ\", \"\xEA\x9E\xBA\", \"xF0x90x90x80\"]",
+                   boolean(), "[true, true, true, false, true, false]");
+}
+
+#endif  // UTF8PROC_VERSION_MINOR >= 5
+
 #endif  // ARROW_WITH_UTF8PROC
+
+TYPED_TEST(TestStringKernels, IsAlphaNumericAscii) {
+  this->CheckUnary("ascii_isalnum",
+                   "[\"ⱭɽⱤoW123\", null, \"Ɑ2\", \"!\", \"\", \"a space\", \"1 space\"]",
+                   boolean(), "[false, null, false, false, false, false, false]");
+  this->CheckUnary("ascii_isalnum", "[\"aRoW123\", null, \"a2\", \"a\", \"2\", \"\"]",
+                   boolean(), "[true, null, true, true, true, false]");
+}
+
+TYPED_TEST(TestStringKernels, IsAlphaAscii) {
+  this->CheckUnary("ascii_isalpha", "[\"ⱭɽⱤoW\", \"arrow\", null, \"a2\", \"!\", \"\"]",
+                   boolean(), "[false, true, null, false, false, false]");
+}
+
+TYPED_TEST(TestStringKernels, IsDecimalAscii) {
+  // ٣ is arabic 3
+  this->CheckUnary("ascii_isdecimal", "[\"12\", null, \"٣\", \"Ⅳ\", \"1a\", \"\"]",
+                   boolean(), "[true, null, false, false, false, false]");
+}
+
+TYPED_TEST(TestStringKernels, IsLowerAscii) {
+  // ٣ is arabic 3 (decimal), φ lower greek
+  this->CheckUnary("ascii_islower", "[\"12\", null, \"٣a\", \"٣A\", \"1a\", \"φ\", \"\"]",
+                   boolean(), "[false, null, true, false, true, false, false]");
+}
+TYPED_TEST(TestStringKernels, IsPrintableAscii) {
+  // \xe2\x80\x88 is punctuaction space
+  this->CheckUnary("ascii_isprintable",
+                   "[\" 123azAZ!~\", null, \"\xe2\x80\x88\", \"\", \"\\r\"]", boolean(),
+                   "[true, null, false, true, false]");
+}
+
+TYPED_TEST(TestStringKernels, IsSpaceAscii) {
+  // \xe2\x80\x88 is punctuaction space
+  // Note: for ascii version, the non-ascii chars are seen as non-cased
+  this->CheckUnary("ascii_isspace", "[\" \", null, \"  \", \"\\t\\r\"]", boolean(),
+                   "[true, null, true, true]");
+  this->CheckUnary("ascii_isspace", "[\" a\", null, \"a \", \"~\", \"\xe2\x80\x88\"]",
+                   boolean(), "[false, null, false, false, false]");
+}
+
+TYPED_TEST(TestStringKernels, IsTitleAscii) {
+  // ٣ is arabic 3 (decimal), Φ capital
+  // Note: for ascii version, the non-ascii chars are seen as non-cased
+  this->CheckUnary("ascii_istitle",
+                   "[\"Is\", null, \"Is Title\", \"Is٣Title\", \"Is_Ǆ\", \"Φ\", \"Ǆ\"]",
+                   boolean(), "[true, null, true, true, true, false, false]");
+  this->CheckUnary(
+      "ascii_istitle",
+      "[\"IsN\", null, \"IsNoTitle\", \"Is No T٣tle\", \"IsǄ\", \"ΦΦ\", \"ǆ\", \"_\"]",
+      boolean(), "[false, null, false, false, true, false, false, false]");
+}
+
+TYPED_TEST(TestStringKernels, IsUpperAscii) {
+  // ٣ is arabic 3 (decimal), Φ capital greek
+  this->CheckUnary("ascii_isupper", "[\"12\", null, \"٣a\", \"٣A\", \"1A\", \"Φ\", \"\"]",
+                   boolean(), "[false, null, false, true, true, false, false]");
+}
 
 TYPED_TEST(TestStringKernels, BinaryContainsExact) {
   BinaryContainsExactOptions options{"ab"};

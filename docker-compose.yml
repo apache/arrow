@@ -319,6 +319,8 @@ services:
       ARROW_ORC: "OFF"
       ARROW_USE_ASAN: "ON"
       ARROW_USE_UBSAN: "ON"
+      # utf8proc 2.1.0 in Ubuntu Bionic has test failures
+      utf8proc_SOURCE: "BUNDLED"
     command: *cpp-command
 
   fedora-cpp:

@@ -366,5 +366,24 @@ static inline bool UTF8Transform(const uint8_t* first, const uint8_t* last,
   return true;
 }
 
+template <class UnaryPredicate>
+static inline bool UTF8AllOf(const uint8_t* first, const uint8_t* last, bool* result,
+                             UnaryPredicate&& predicate) {
+  const uint8_t* i = first;
+  while (i < last) {
+    uint32_t codepoint = 0;
+    if (ARROW_PREDICT_FALSE(!UTF8Decode(&i, &codepoint))) {
+      return false;
+    }
+
+    if (!predicate(codepoint)) {
+      *result = false;
+      return true;
+    }
+  }
+  *result = true;
+  return true;
+}
+
 }  // namespace util
 }  // namespace arrow
