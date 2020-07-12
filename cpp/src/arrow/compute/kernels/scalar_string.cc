@@ -190,39 +190,6 @@ struct UTF8Transform {
   }
 };
 
-using StringPredicate = std::function<bool(KernelContext*, const uint8_t*, size_t)>;
-
-template <typename Type>
-void BinaryToBoolean(KernelContext* ctx, const ExecBatch& batch,
-                     StringPredicate predicate, Datum* out) {
-  using offset_type = typename Type::offset_type;
-
-  if (batch[0].kind() == Datum::ARRAY) {
-    EnsureLookupTablesFilled();
-    const ArrayData& input = *batch[0].array();
-    ArrayIterator<Type> input_it(input);
-    ArrayData* out_arr = out->mutable_array();
-    offset_type input_nstrings = static_cast<offset_type>(input.length);
-    ::arrow::internal::GenerateBitsUnrolled(
-        out_arr->buffers[1]->mutable_data(), out_arr->offset, input.length,
-        [&]() -> bool {
-          util::string_view val = input_it();
-          return predicate(ctx, reinterpret_cast<const uint8_t*>(val.data()), val.size());
-        });
-  } else {
-    const auto& input = checked_cast<const BaseBinaryScalar&>(*batch[0].scalar());
-    if (input.is_valid) {
-      bool boolean_result =
-          predicate(ctx, input.value->data(), static_cast<size_t>(input.value->size()));
-      if (!ctx->status().ok()) {
-        // UTF decoding can lead to issues
-        return;
-      }
-      out->value = std::make_shared<BooleanScalar>(boolean_result);
-    }
-  }
-}
-
 template <typename Type>
 struct UTF8Upper : UTF8Transform<Type, UTF8Upper<Type>> {
   inline static uint32_t TransformCodepoint(uint32_t codepoint) {
@@ -924,18 +891,47 @@ void MakeUnaryStringUTF8TransformKernel(std::string name, FunctionRegistry* regi
 
 #endif
 
+using StringPredicate = std::function<bool(KernelContext*, const uint8_t*, size_t)>;
+
+template <typename Type>
+void ApplyPredicate(KernelContext* ctx, const ExecBatch& batch, StringPredicate predicate,
+                    Datum* out) {
+  if (batch[0].kind() == Datum::ARRAY) {
+    EnsureLookupTablesFilled();
+    const ArrayData& input = *batch[0].array();
+    ArrayIterator<Type> input_it(input);
+    ArrayData* out_arr = out->mutable_array();
+    ::arrow::internal::GenerateBitsUnrolled(
+        out_arr->buffers[1]->mutable_data(), out_arr->offset, input.length,
+        [&]() -> bool {
+          util::string_view val = input_it();
+          return predicate(ctx, reinterpret_cast<const uint8_t*>(val.data()), val.size());
+        });
+  } else {
+    const auto& input = checked_cast<const BaseBinaryScalar&>(*batch[0].scalar());
+    if (input.is_valid) {
+      bool boolean_result =
+          predicate(ctx, input.value->data(), static_cast<size_t>(input.value->size()));
+      if (!ctx->status().ok()) {
+        // UTF decoding can lead to issues
+        return;
+      }
+      out->value = std::make_shared<BooleanScalar>(boolean_result);
+    }
+  }
+}
+
 template <typename Predicate>
 void AddUnaryStringPredicate(std::string name, FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>(name, Arity::Unary());
-  DCHECK_OK(func->AddKernel(
-      {utf8()}, boolean(), [](KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-        BinaryToBoolean<BinaryType>(ctx, batch, Predicate::Call, out);
-      }));
-  DCHECK_OK(func->AddKernel({large_utf8()}, boolean(),
-                            [](KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-                              BinaryToBoolean<LargeBinaryType>(ctx, batch,
-                                                               Predicate::Call, out);
-                            }));
+  auto exec_32 = [](KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    ApplyPredicate<StringType>(ctx, batch, Predicate::Call, out);
+  };
+  auto exec_64 = [](KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    ApplyPredicate<LargeStringType>(ctx, batch, Predicate::Call, out);
+  };
+  DCHECK_OK(func->AddKernel({utf8()}, boolean(), std::move(exec_32)));
+  DCHECK_OK(func->AddKernel({large_utf8()}, boolean(), std::move(exec_64)));
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
