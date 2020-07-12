@@ -20,11 +20,10 @@
 
 use crate::error::{ExecutionError, Result};
 use crate::logicalplan::LogicalPlan;
-use crate::logicalplan::{Expr, LogicalPlanBuilder};
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::utils;
 use arrow::datatypes::{Field, Schema};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
 /// Projection Push Down optimizer rule ensures that only referenced columns are
 /// loaded into memory
@@ -34,9 +33,7 @@ impl OptimizerRule for ProjectionPushDown {
     fn optimize(&mut self, plan: &LogicalPlan) -> Result<LogicalPlan> {
         // set of all columns refered from a scan.
         let mut accum: HashSet<String> = HashSet::new();
-        // mapping
-        let mut mapping: HashMap<String, String> = HashMap::new();
-        self.optimize_plan(plan, &mut accum, &mut mapping, false)
+        self.optimize_plan(plan, &mut accum, false)
     }
 }
 
@@ -50,71 +47,69 @@ impl ProjectionPushDown {
         &self,
         plan: &LogicalPlan,
         accum: &mut HashSet<String>,
-        mapping: &mut HashMap<String, String>,
         has_projection: bool,
     ) -> Result<LogicalPlan> {
         match plan {
-            LogicalPlan::Projection { expr, input, .. } => {
+            LogicalPlan::Projection {
+                expr,
+                input,
+                schema,
+            } => {
                 // collect all columns referenced by projection expressions
                 utils::exprlist_to_column_names(&expr, accum)?;
 
-                LogicalPlanBuilder::from(
-                    &self.optimize_plan(&input, accum, mapping, true)?,
-                )
-                .project(self.rewrite_expr_list(expr, mapping)?)?
-                .build()
+                Ok(LogicalPlan::Projection {
+                    expr: expr.clone(),
+                    input: Box::new(self.optimize_plan(&input, accum, true)?),
+                    schema: schema.clone(),
+                })
             }
             LogicalPlan::Selection { expr, input } => {
                 // collect all columns referenced by filter expression
                 utils::expr_to_column_names(expr, accum)?;
 
-                LogicalPlanBuilder::from(&self.optimize_plan(
-                    &input,
-                    accum,
-                    mapping,
-                    has_projection,
-                )?)
-                .filter(self.rewrite_expr(expr, mapping)?)?
-                .build()
+                Ok(LogicalPlan::Selection {
+                    expr: expr.clone(),
+                    input: Box::new(self.optimize_plan(&input, accum, has_projection)?),
+                })
             }
             LogicalPlan::Aggregate {
                 input,
                 group_expr,
                 aggr_expr,
-                ..
+                schema,
             } => {
                 // collect all columns referenced by grouping and aggregate expressions
                 utils::exprlist_to_column_names(&group_expr, accum)?;
                 utils::exprlist_to_column_names(&aggr_expr, accum)?;
 
-                LogicalPlanBuilder::from(&self.optimize_plan(
-                    &input,
-                    accum,
-                    mapping,
-                    has_projection,
-                )?)
-                .aggregate(
-                    self.rewrite_expr_list(group_expr, mapping)?,
-                    self.rewrite_expr_list(aggr_expr, mapping)?,
-                )?
-                .build()
+                Ok(LogicalPlan::Aggregate {
+                    input: Box::new(self.optimize_plan(&input, accum, has_projection)?),
+                    group_expr: group_expr.clone(),
+                    aggr_expr: aggr_expr.clone(),
+                    schema: schema.clone(),
+                })
             }
-            LogicalPlan::Sort { expr, input, .. } => {
+            LogicalPlan::Sort {
+                expr,
+                input,
+                schema,
+            } => {
                 // collect all columns referenced by sort expressions
                 utils::exprlist_to_column_names(&expr, accum)?;
 
-                LogicalPlanBuilder::from(&self.optimize_plan(
-                    &input,
-                    accum,
-                    mapping,
-                    has_projection,
-                )?)
-                .sort(self.rewrite_expr_list(expr, mapping)?)?
-                .build()
+                Ok(LogicalPlan::Sort {
+                    expr: expr.clone(),
+                    input: Box::new(self.optimize_plan(&input, accum, has_projection)?),
+                    schema: schema.clone(),
+                })
             }
-            LogicalPlan::EmptyRelation { schema } => Ok(LogicalPlan::EmptyRelation {
+            LogicalPlan::Limit { n, input, schema } => Ok(LogicalPlan::Limit {
+                n: n.clone(),
+                input: Box::new(self.optimize_plan(&input, accum, has_projection)?),
                 schema: schema.clone(),
             }),
+            LogicalPlan::EmptyRelation { .. } => Ok(plan.clone()),
             LogicalPlan::TableScan {
                 schema_name,
                 table_name,
@@ -134,8 +129,8 @@ impl ProjectionPushDown {
                     schema_name: schema_name.to_string(),
                     table_name: table_name.to_string(),
                     table_schema: table_schema.clone(),
-                    projected_schema: Box::new(projected_schema),
                     projection: Some(projection),
+                    projected_schema: Box::new(projected_schema),
                 })
             }
             LogicalPlan::InMemoryScan {
@@ -189,94 +184,7 @@ impl ProjectionPushDown {
                     projected_schema: Box::new(projected_schema),
                 })
             }
-            LogicalPlan::Limit { n, input, .. } => LogicalPlanBuilder::from(
-                &self.optimize_plan(&input, accum, mapping, has_projection)?,
-            )
-            .limit(*n)?
-            .build(),
-            LogicalPlan::CreateExternalTable {
-                schema,
-                name,
-                location,
-                file_type,
-                has_header,
-            } => Ok(LogicalPlan::CreateExternalTable {
-                schema: schema.clone(),
-                name: name.to_string(),
-                location: location.to_string(),
-                file_type: file_type.clone(),
-                has_header: *has_header,
-            }),
-        }
-    }
-
-    fn rewrite_expr_list(
-        &self,
-        expr: &[Expr],
-        mapping: &HashMap<String, String>,
-    ) -> Result<Vec<Expr>> {
-        Ok(expr
-            .iter()
-            .map(|e| self.rewrite_expr(e, mapping))
-            .collect::<Result<Vec<Expr>>>()?)
-    }
-
-    fn rewrite_expr(
-        &self,
-        expr: &Expr,
-        mapping: &HashMap<String, String>,
-    ) -> Result<Expr> {
-        match expr {
-            Expr::Alias(expr, name) => Ok(Expr::Alias(
-                Box::new(self.rewrite_expr(expr, mapping)?),
-                name.clone(),
-            )),
-            Expr::Column(_) => Ok(expr.clone()),
-            Expr::Literal(_) => Ok(expr.clone()),
-            Expr::Not(e) => Ok(Expr::Not(Box::new(self.rewrite_expr(e, mapping)?))),
-            Expr::IsNull(e) => Ok(Expr::IsNull(Box::new(self.rewrite_expr(e, mapping)?))),
-            Expr::IsNotNull(e) => {
-                Ok(Expr::IsNotNull(Box::new(self.rewrite_expr(e, mapping)?)))
-            }
-            Expr::BinaryExpr { left, op, right } => Ok(Expr::BinaryExpr {
-                left: Box::new(self.rewrite_expr(left, mapping)?),
-                op: op.clone(),
-                right: Box::new(self.rewrite_expr(right, mapping)?),
-            }),
-            Expr::Cast { expr, data_type } => Ok(Expr::Cast {
-                expr: Box::new(self.rewrite_expr(expr, mapping)?),
-                data_type: data_type.clone(),
-            }),
-            Expr::Sort {
-                expr,
-                asc,
-                nulls_first,
-            } => Ok(Expr::Sort {
-                expr: Box::new(self.rewrite_expr(expr, mapping)?),
-                asc: *asc,
-                nulls_first: *nulls_first,
-            }),
-            Expr::AggregateFunction {
-                name,
-                args,
-                return_type,
-            } => Ok(Expr::AggregateFunction {
-                name: name.to_string(),
-                args: self.rewrite_expr_list(args, mapping)?,
-                return_type: return_type.clone(),
-            }),
-            Expr::ScalarFunction {
-                name,
-                args,
-                return_type,
-            } => Ok(Expr::ScalarFunction {
-                name: name.to_string(),
-                args: self.rewrite_expr_list(args, mapping)?,
-                return_type: return_type.clone(),
-            }),
-            Expr::Wildcard => Err(ExecutionError::General(
-                "Wildcard expressions are not valid in a logical query plan".to_owned(),
-            )),
+            LogicalPlan::CreateExternalTable { .. } => Ok(plan.clone()),
         }
     }
 }
@@ -332,8 +240,8 @@ fn get_projected_schema(
 mod tests {
 
     use super::*;
-    use crate::logicalplan::Expr::*;
     use crate::logicalplan::{col, lit};
+    use crate::logicalplan::{Expr, LogicalPlanBuilder};
     use crate::test::*;
     use arrow::datatypes::DataType;
 
@@ -392,7 +300,7 @@ mod tests {
         let table_scan = test_table_scan()?;
 
         let projection = LogicalPlanBuilder::from(&table_scan)
-            .project(vec![Cast {
+            .project(vec![Expr::Cast {
                 expr: Box::new(col("c")),
                 data_type: DataType::Float64,
             }])?
