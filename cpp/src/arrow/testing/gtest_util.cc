@@ -86,6 +86,10 @@ void AssertArraysEqualWith(const Array& expected, const Array& actual, bool verb
                            CompareFunctor&& compare) {
   std::stringstream diff;
   if (!compare(expected, actual, &diff)) {
+    if (expected.data()->null_count != actual.data()->null_count) {
+      diff << "Null counts differ. Expected " << expected.data()->null_count
+           << " but was " << actual.data()->null_count << "\n";
+    }
     if (verbose) {
       ::arrow::PrettyPrintOptions options(/*indent=*/2);
       options.window = 50;

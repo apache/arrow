@@ -100,26 +100,29 @@ struct FillNullFunctor<Type, enable_if_t<is_boolean_type<Type>::value>> {
       const uint8_t* data_bitmap = data.buffers[1]->data();
       uint8_t* out_bitmap = out_buf->mutable_data();
 
-      int64_t offset = data.offset;
+      int64_t data_offset = data.offset;
       BitBlockCounter bit_counter(is_valid, data.offset, data.length);
-      while (offset < data.offset + data.length) {
+
+      int64_t out_offset = 0;
+      while (out_offset < data.length) {
         BitBlockCount block = bit_counter.NextWord();
         if (block.AllSet()) {
           // Block all not null
-          ::arrow::internal::CopyBitmap(data_bitmap, data.offset, block.length,
-                                        out_bitmap, offset);
+          ::arrow::internal::CopyBitmap(data_bitmap, data_offset, block.length,
+                                        out_bitmap, out_offset);
         } else if (block.NoneSet()) {
           // Block all null
-          BitUtil::SetBitsTo(out_bitmap, offset, block.length, value);
+          BitUtil::SetBitsTo(out_bitmap, out_offset, block.length, value);
         } else {
           for (int64_t i = 0; i < block.length; ++i) {
-            BitUtil::SetBitTo(out_bitmap, offset + i,
-                              BitUtil::GetBit(is_valid, offset + i)
-                                  ? BitUtil::GetBit(data_bitmap, offset + i)
+            BitUtil::SetBitTo(out_bitmap, out_offset + i,
+                              BitUtil::GetBit(is_valid, data_offset + i)
+                                  ? BitUtil::GetBit(data_bitmap, data_offset + i)
                                   : value);
           }
         }
-        offset += block.length;
+        data_offset += block.length;
+        out_offset += block.length;
       }
       output->buffers[1] = out_buf;
     } else {
