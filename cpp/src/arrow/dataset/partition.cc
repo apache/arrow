@@ -317,6 +317,16 @@ class KeyValuePartitioningInspectImpl {
     return ::arrow::schema(std::move(fields));
   }
 
+  std::vector<std::string> FieldNames() {
+    std::vector<std::string> names;
+    names.reserve(name_to_index_.size());
+
+    for (auto kv : name_to_index_) {
+      names.push_back(kv.first);
+    }
+    return names;
+  }
+
  private:
   std::unordered_map<std::string, int> name_to_index_;
   std::vector<std::set<std::string>> values_;
@@ -657,15 +667,29 @@ class HivePartitioningFactory : public PartitioningFactory {
       }
     }
 
+    field_names_ = impl.FieldNames();
     return impl.Finish(&dictionaries_);
   }
 
   Result<std::shared_ptr<Partitioning>> Finish(
       const std::shared_ptr<Schema>& schema) const override {
-    return std::shared_ptr<Partitioning>(new HivePartitioning(schema, dictionaries_));
+    if (dictionaries_.empty()) {
+      return std::make_shared<HivePartitioning>(schema, dictionaries_);
+    } else {
+      for (FieldRef ref : field_names_) {
+        // ensure all of field_names_ are present in schema
+        RETURN_NOT_OK(ref.FindOne(*schema).status());
+      }
+
+      // drop fields which aren't in field_names_
+      auto out_schema = SchemaFromColumnNames(schema, field_names_);
+
+      return std::make_shared<HivePartitioning>(std::move(out_schema), dictionaries_);
+    }
   }
 
  private:
+  std::vector<std::string> field_names_;
   ArrayVector dictionaries_;
   PartitioningFactoryOptions options_;
 };

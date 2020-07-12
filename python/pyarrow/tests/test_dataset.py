@@ -1484,6 +1484,35 @@ def test_open_dataset_non_existing_file():
         ds.dataset('file:i-am-not-existing.parquet', format='parquet')
 
 
+@pytest.mark.parquet
+@pytest.mark.parametrize('partitioning', ["directory", "hive"])
+def test_open_dataset_partitioned_dictionary_type(tempdir, partitioning):
+    # ARROW-9288
+    import pyarrow.parquet as pq
+    table = pa.table({'a': range(9), 'b': [0.] * 4 + [1.] * 5})
+
+    path = tempdir / "dataset"
+    path.mkdir()
+
+    for part in ["A", "B", "C"]:
+        fmt = "{}" if partitioning == "directory" else "part={}"
+        part = path / fmt.format(part)
+        part.mkdir()
+        pq.write_table(table, part / "test.parquet")
+
+    if partitioning == "directory":
+        part = ds.DirectoryPartitioning.discover(
+            ["part"], max_partition_dictionary_size=-1)
+    else:
+        part = ds.HivePartitioning.discover(max_partition_dictionary_size=-1)
+
+    dataset = ds.dataset(str(path), partitioning=part)
+    expected_schema = table.schema.append(
+        pa.field("part", pa.dictionary(pa.int32(), pa.string()))
+    )
+    assert dataset.schema.equals(expected_schema)
+
+
 @pytest.fixture
 def s3_example_simple(s3_connection, s3_server):
     from pyarrow.fs import FileSystem
