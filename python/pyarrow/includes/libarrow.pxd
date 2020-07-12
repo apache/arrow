@@ -800,10 +800,18 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         Type type_id()
         c_bool Equals(const CTensor& other)
 
+    cdef cppclass CSparseIndex" arrow::SparseIndex":
+        pass
+
+    cdef cppclass CSparseCOOIndex" arrow::SparseCOOIndex":
+        c_bool is_canonical()
+
     cdef cppclass CSparseCOOTensor" arrow::SparseCOOTensor":
         shared_ptr[CDataType] type()
         shared_ptr[CBuffer] data()
         CResult[shared_ptr[CTensor]] ToTensor()
+
+        shared_ptr[CSparseIndex] sparse_index()
 
         const vector[int64_t]& shape()
         int64_t size()

@@ -111,13 +111,29 @@ class ARROW_EXPORT SparseCOOIndex : public internal::SparseIndexBase<SparseCOOIn
  public:
   static constexpr SparseTensorFormat::type format_id = SparseTensorFormat::COO;
 
-  /// \brief Make SparseCOOIndex from raw properties
+  /// \brief Make SparseCOOIndex from a coords tensor and canonicality
+  static Result<std::shared_ptr<SparseCOOIndex>> Make(
+      const std::shared_ptr<Tensor>& coords, bool is_canonical);
+
+  /// \brief Make SparseCOOIndex from a coords tensor with canonicality auto-detection
+  static Result<std::shared_ptr<SparseCOOIndex>> Make(
+      const std::shared_ptr<Tensor>& coords);
+
+  /// \brief Make SparseCOOIndex from raw properties with canonicality auto-detection
   static Result<std::shared_ptr<SparseCOOIndex>> Make(
       const std::shared_ptr<DataType>& indices_type,
       const std::vector<int64_t>& indices_shape,
       const std::vector<int64_t>& indices_strides, std::shared_ptr<Buffer> indices_data);
 
+  /// \brief Make SparseCOOIndex from raw properties
+  static Result<std::shared_ptr<SparseCOOIndex>> Make(
+      const std::shared_ptr<DataType>& indices_type,
+      const std::vector<int64_t>& indices_shape,
+      const std::vector<int64_t>& indices_strides, std::shared_ptr<Buffer> indices_data,
+      bool is_canonical);
+
   /// \brief Make SparseCOOIndex from sparse tensor's shape properties and data
+  /// with canonicality auto-detection
   ///
   /// The indices_data should be in row-major (C-like) order.  If not,
   /// use the raw properties constructor.
@@ -125,8 +141,16 @@ class ARROW_EXPORT SparseCOOIndex : public internal::SparseIndexBase<SparseCOOIn
       const std::shared_ptr<DataType>& indices_type, const std::vector<int64_t>& shape,
       int64_t non_zero_length, std::shared_ptr<Buffer> indices_data);
 
+  /// \brief Make SparseCOOIndex from sparse tensor's shape properties and data
+  ///
+  /// The indices_data should be in row-major (C-like) order.  If not,
+  /// use the raw properties constructor.
+  static Result<std::shared_ptr<SparseCOOIndex>> Make(
+      const std::shared_ptr<DataType>& indices_type, const std::vector<int64_t>& shape,
+      int64_t non_zero_length, std::shared_ptr<Buffer> indices_data, bool is_canonical);
+
   /// \brief Construct SparseCOOIndex from column-major NumericTensor
-  explicit SparseCOOIndex(const std::shared_ptr<Tensor>& coords);
+  explicit SparseCOOIndex(const std::shared_ptr<Tensor>& coords, bool is_canonical);
 
   /// \brief Return a tensor that has the coordinates of the non-zero values
   ///
@@ -139,6 +163,11 @@ class ARROW_EXPORT SparseCOOIndex : public internal::SparseIndexBase<SparseCOOIn
   /// \brief Return the number of non zero values in the sparse tensor related
   /// to this sparse index
   int64_t non_zero_length() const override { return coords_->shape()[0]; }
+
+  /// \brief Return whether a sparse tensor index is canonical, or not.
+  /// If a sparse tensor index is canonical, it is sorted in the lexicographical order,
+  /// and the corresponding sparse tensor doesn't have duplicated entries.
+  bool is_canonical() const { return is_canonical_; }
 
   /// \brief Return a string representation of the sparse index
   std::string ToString() const override;
@@ -161,6 +190,7 @@ class ARROW_EXPORT SparseCOOIndex : public internal::SparseIndexBase<SparseCOOIn
 
  protected:
   std::shared_ptr<Tensor> coords_;
+  bool is_canonical_;
 };
 
 namespace internal {

@@ -50,7 +50,10 @@ static inline void AssertCOOIndex(const std::shared_ptr<Tensor>& sidx, const int
   }
 }
 
-TEST(TestSparseCOOIndex, Make) {
+//-----------------------------------------------------------------------------
+// SparseCOOIndex
+
+TEST(TestSparseCOOIndex, MakeRowMajorCanonical) {
   std::vector<int32_t> values = {0, 0, 0, 0, 0, 2, 0, 1, 1, 0, 1, 3, 0, 2, 0, 0, 2, 2,
                                  1, 0, 1, 1, 0, 3, 1, 1, 0, 1, 1, 2, 1, 2, 1, 1, 2, 3};
   auto data = Buffer::Wrap(values);
@@ -63,6 +66,7 @@ TEST(TestSparseCOOIndex, Make) {
   ASSERT_EQ(shape, si->indices()->shape());
   ASSERT_EQ(strides, si->indices()->strides());
   ASSERT_EQ(data->data(), si->indices()->raw_data());
+  ASSERT_TRUE(si->is_canonical());
 
   // Non-integer type
   auto res = SparseCOOIndex::Make(float32(), shape, strides, data);
@@ -83,6 +87,69 @@ TEST(TestSparseCOOIndex, Make) {
   ASSERT_EQ(shape, si->indices()->shape());
   ASSERT_EQ(strides, si->indices()->strides());
   ASSERT_EQ(data->data(), si->indices()->raw_data());
+}
+
+TEST(TestSparseCOOIndex, MakeRowMajorNonCanonical) {
+  std::vector<int32_t> values = {0, 0, 0, 0, 0, 2, 0, 1, 1, 0, 1, 3, 0, 2, 0, 1, 0, 1,
+                                 0, 2, 2, 1, 0, 3, 1, 1, 0, 1, 1, 2, 1, 2, 1, 1, 2, 3};
+  auto data = Buffer::Wrap(values);
+  std::vector<int64_t> shape = {12, 3};
+  std::vector<int64_t> strides = {3 * sizeof(int32_t), sizeof(int32_t)};  // Row-major
+
+  // OK
+  std::shared_ptr<SparseCOOIndex> si;
+  ASSERT_OK_AND_ASSIGN(si, SparseCOOIndex::Make(int32(), shape, strides, data));
+  ASSERT_EQ(shape, si->indices()->shape());
+  ASSERT_EQ(strides, si->indices()->strides());
+  ASSERT_EQ(data->data(), si->indices()->raw_data());
+  ASSERT_FALSE(si->is_canonical());
+}
+
+TEST(TestSparseCOOIndex, MakeColumnMajorCanonical) {
+  std::vector<int32_t> values = {0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 2, 2,
+                                 0, 0, 1, 1, 2, 2, 0, 2, 1, 3, 0, 2, 1, 3, 0, 2, 1, 3};
+  auto data = Buffer::Wrap(values);
+  std::vector<int64_t> shape = {12, 3};
+  std::vector<int64_t> strides = {sizeof(int32_t), 12 * sizeof(int32_t)};  // Column-major
+
+  // OK
+  std::shared_ptr<SparseCOOIndex> si;
+  ASSERT_OK_AND_ASSIGN(si, SparseCOOIndex::Make(int32(), shape, strides, data));
+  ASSERT_EQ(shape, si->indices()->shape());
+  ASSERT_EQ(strides, si->indices()->strides());
+  ASSERT_EQ(data->data(), si->indices()->raw_data());
+  ASSERT_TRUE(si->is_canonical());
+}
+
+TEST(TestSparseCOOIndex, MakeColumnMajorNonCanonical) {
+  std::vector<int32_t> values = {0, 0, 0, 0, 0, 1, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 2, 0,
+                                 2, 0, 1, 1, 2, 2, 0, 2, 1, 3, 0, 1, 2, 3, 0, 2, 1, 3};
+  auto data = Buffer::Wrap(values);
+  std::vector<int64_t> shape = {12, 3};
+  std::vector<int64_t> strides = {sizeof(int32_t), 12 * sizeof(int32_t)};  // Column-major
+
+  // OK
+  std::shared_ptr<SparseCOOIndex> si;
+  ASSERT_OK_AND_ASSIGN(si, SparseCOOIndex::Make(int32(), shape, strides, data));
+  ASSERT_EQ(shape, si->indices()->shape());
+  ASSERT_EQ(strides, si->indices()->strides());
+  ASSERT_EQ(data->data(), si->indices()->raw_data());
+  ASSERT_FALSE(si->is_canonical());
+}
+
+TEST(TestSparseCOOIndex, MakeEmptyIndex) {
+  std::vector<int32_t> values = {};
+  auto data = Buffer::Wrap(values);
+  std::vector<int64_t> shape = {0, 3};
+  std::vector<int64_t> strides = {sizeof(int32_t), sizeof(int32_t)};  // Empty strides
+
+  // OK
+  std::shared_ptr<SparseCOOIndex> si;
+  ASSERT_OK_AND_ASSIGN(si, SparseCOOIndex::Make(int32(), shape, strides, data));
+  ASSERT_EQ(shape, si->indices()->shape());
+  ASSERT_EQ(strides, si->indices()->strides());
+  ASSERT_EQ(data->data(), si->indices()->raw_data());
+  ASSERT_TRUE(si->is_canonical());
 }
 
 TEST(TestSparseCSRIndex, Make) {
@@ -155,6 +222,9 @@ class TestSparseTensorBase : public ::testing::Test {
   std::vector<std::string> dim_names_;
 };
 
+//-----------------------------------------------------------------------------
+// SparseCOOTensor
+
 template <typename IndexValueType, typename ValueType = Int64Type>
 class TestSparseCOOTensorBase : public TestSparseTensorBase<ValueType> {
  public:
@@ -216,6 +286,23 @@ TEST_F(TestSparseCOOTensor, CreationEmptyTensor) {
   ASSERT_EQ("", st1.dim_name(2));
 }
 
+TEST_F(TestSparseCOOTensor, CreationFromZeroTensor) {
+  const auto dense_size =
+      std::accumulate(this->shape_.begin(), this->shape_.end(), int64_t(1),
+                      [](int64_t a, int64_t x) { return a * x; });
+  std::vector<int64_t> dense_values(dense_size, 0);
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Tensor> t_zero,
+                       Tensor::Make(int64(), Buffer::Wrap(dense_values), this->shape_));
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<SparseCOOTensor> st_zero,
+                       SparseCOOTensor::Make(*t_zero, int64()));
+
+  ASSERT_EQ(0, st_zero->non_zero_length());
+  ASSERT_EQ(dense_size, st_zero->size());
+
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Tensor> t, st_zero->ToTensor());
+  ASSERT_TRUE(t->Equals(*t_zero));
+}
+
 TEST_F(TestSparseCOOTensor, CreationFromNumericTensor) {
   auto st = this->sparse_tensor_from_dense_;
   CheckSparseIndexFormatType(SparseTensorFormat::COO, *st);
@@ -228,6 +315,7 @@ TEST_F(TestSparseCOOTensor, CreationFromNumericTensor) {
 
   auto si = internal::checked_pointer_cast<SparseCOOIndex>(st->sparse_index());
   ASSERT_EQ(std::string("SparseCOOIndex"), si->ToString());
+  ASSERT_TRUE(si->is_canonical());
 
   std::shared_ptr<Tensor> sidx = si->indices();
   ASSERT_EQ(std::vector<int64_t>({12, 3}), sidx->shape());
@@ -255,6 +343,8 @@ TEST_F(TestSparseCOOTensor, CreationFromNumericTensor1D) {
   AssertNumericDataEqual(raw_data, {1, 2, 3, 4, 5, 6, 11, 12, 13, 14, 15, 16});
 
   auto si = internal::checked_pointer_cast<SparseCOOIndex>(st->sparse_index());
+  ASSERT_TRUE(si->is_canonical());
+
   auto sidx = si->indices();
   ASSERT_EQ(std::vector<int64_t>({12, 1}), sidx->shape());
 
@@ -281,6 +371,9 @@ TEST_F(TestSparseCOOTensor, CreationFromTensor) {
   ASSERT_EQ("baz", st->dim_name(2));
 
   ASSERT_TRUE(st->Equals(*this->sparse_tensor_from_dense_));
+
+  auto si = internal::checked_pointer_cast<SparseCOOIndex>(st->sparse_index());
+  ASSERT_TRUE(si->is_canonical());
 }
 
 TEST_F(TestSparseCOOTensor, CreationFromNonContiguousTensor) {
@@ -298,6 +391,9 @@ TEST_F(TestSparseCOOTensor, CreationFromNonContiguousTensor) {
   ASSERT_TRUE(st->is_mutable());
 
   ASSERT_TRUE(st->Equals(*this->sparse_tensor_from_dense_));
+
+  auto si = internal::checked_pointer_cast<SparseCOOIndex>(st->sparse_index());
+  ASSERT_TRUE(si->is_canonical());
 }
 
 TEST_F(TestSparseCOOTensor, TestToTensor) {
@@ -440,28 +536,27 @@ class TestSparseCOOTensorForIndexValueType
                                 0, 0, 1, 1, 2, 2, 0, 2, 1, 3, 0, 2, 1, 3, 0, 2, 1, 3};
   }
 
+  std::shared_ptr<DataType> index_data_type() const {
+    return TypeTraits<IndexValueType>::type_singleton();
+  }
+
  protected:
   std::vector<c_index_value_type> coords_values_row_major_;
   std::vector<c_index_value_type> coords_values_col_major_;
 
-  std::shared_ptr<SparseCOOIndex> MakeSparseCOOIndex(
-      const std::vector<int64_t>& coords_shape,
-      const std::vector<int64_t>& coords_strides,
-      std::vector<c_index_value_type>& coords_values) const {
-    auto coords_data = Buffer::Wrap(coords_values);
-    auto coords = std::make_shared<NumericTensor<IndexValueType>>(
-        coords_data, coords_shape, coords_strides);
-    return std::make_shared<SparseCOOIndex>(coords);
+  Result<std::shared_ptr<SparseCOOIndex>> MakeSparseCOOIndex(
+      const std::vector<int64_t>& shape, const std::vector<int64_t>& strides,
+      const std::vector<c_index_value_type>& values) const {
+    return SparseCOOIndex::Make(index_data_type(), shape, strides, Buffer::Wrap(values));
   }
 
   template <typename CValueType>
-  std::shared_ptr<SparseCOOTensor> MakeSparseTensor(
+  Result<std::shared_ptr<SparseCOOTensor>> MakeSparseTensor(
       const std::shared_ptr<SparseCOOIndex>& si,
       std::vector<CValueType>& sparse_values) const {
     auto data = Buffer::Wrap(sparse_values);
-    return std::make_shared<SparseCOOTensor>(si,
-                                             CTypeTraits<CValueType>::type_singleton(),
-                                             data, this->shape_, this->dim_names_);
+    return SparseCOOTensor::Make(si, CTypeTraits<CValueType>::type_singleton(), data,
+                                 this->shape_, this->dim_names_);
   }
 };
 
@@ -472,9 +567,10 @@ TYPED_TEST_P(TestSparseCOOTensorForIndexValueType, Make) {
   using c_index_value_type = typename IndexValueType::c_type;
 
   constexpr int sizeof_index_value = sizeof(c_index_value_type);
-  auto si =
+  ASSERT_OK_AND_ASSIGN(
+      std::shared_ptr<SparseCOOIndex> si,
       this->MakeSparseCOOIndex({12, 3}, {sizeof_index_value * 3, sizeof_index_value},
-                               this->coords_values_row_major_);
+                               this->coords_values_row_major_));
 
   std::vector<int64_t> sparse_values = {1, 2, 3, 4, 5, 6, 11, 12, 13, 14, 15, 16};
   auto sparse_data = Buffer::Wrap(sparse_values);
@@ -524,12 +620,14 @@ TYPED_TEST_P(TestSparseCOOTensorForIndexValueType, CreationWithRowMajorIndex) {
   using c_index_value_type = typename IndexValueType::c_type;
 
   constexpr int sizeof_index_value = sizeof(c_index_value_type);
-  auto si =
+  ASSERT_OK_AND_ASSIGN(
+      std::shared_ptr<SparseCOOIndex> si,
       this->MakeSparseCOOIndex({12, 3}, {sizeof_index_value * 3, sizeof_index_value},
-                               this->coords_values_row_major_);
+                               this->coords_values_row_major_));
 
   std::vector<int64_t> sparse_values = {1, 2, 3, 4, 5, 6, 11, 12, 13, 14, 15, 16};
-  auto st = this->MakeSparseTensor(si, sparse_values);
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<SparseCOOTensor> st,
+                       this->MakeSparseTensor(si, sparse_values));
 
   ASSERT_EQ(std::vector<std::string>({"foo", "bar", "baz"}), st->dim_names());
   ASSERT_EQ("foo", st->dim_name(0));
@@ -544,12 +642,14 @@ TYPED_TEST_P(TestSparseCOOTensorForIndexValueType, CreationWithColumnMajorIndex)
   using c_index_value_type = typename IndexValueType::c_type;
 
   constexpr int sizeof_index_value = sizeof(c_index_value_type);
-  auto si =
+  ASSERT_OK_AND_ASSIGN(
+      std::shared_ptr<SparseCOOIndex> si,
       this->MakeSparseCOOIndex({12, 3}, {sizeof_index_value, sizeof_index_value * 12},
-                               this->coords_values_col_major_);
+                               this->coords_values_col_major_));
 
   std::vector<int64_t> sparse_values = {1, 2, 3, 4, 5, 6, 11, 12, 13, 14, 15, 16};
-  auto st = this->MakeSparseTensor(si, sparse_values);
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<SparseCOOTensor> st,
+                       this->MakeSparseTensor(si, sparse_values));
 
   ASSERT_EQ(std::vector<std::string>({"foo", "bar", "baz"}), st->dim_names());
   ASSERT_EQ("foo", st->dim_name(0));
@@ -567,20 +667,24 @@ TYPED_TEST_P(TestSparseCOOTensorForIndexValueType,
   // Row-major COO index
   const std::vector<int64_t> coords_shape = {12, 3};
   constexpr int sizeof_index_value = sizeof(c_index_value_type);
-  auto si_row_major =
+  ASSERT_OK_AND_ASSIGN(
+      std::shared_ptr<SparseCOOIndex> si_row_major,
       this->MakeSparseCOOIndex(coords_shape, {sizeof_index_value * 3, sizeof_index_value},
-                               this->coords_values_row_major_);
+                               this->coords_values_row_major_));
 
   // Column-major COO index
-  auto si_col_major = this->MakeSparseCOOIndex(
-      coords_shape, {sizeof_index_value, sizeof_index_value * 12},
-      this->coords_values_col_major_);
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<SparseCOOIndex> si_col_major,
+                       this->MakeSparseCOOIndex(
+                           coords_shape, {sizeof_index_value, sizeof_index_value * 12},
+                           this->coords_values_col_major_));
 
   std::vector<int64_t> sparse_values_1 = {1, 2, 3, 4, 5, 6, 11, 12, 13, 14, 15, 16};
-  auto st1 = this->MakeSparseTensor(si_row_major, sparse_values_1);
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<SparseCOOTensor> st1,
+                       this->MakeSparseTensor(si_row_major, sparse_values_1));
 
   std::vector<int64_t> sparse_values_2 = sparse_values_1;
-  auto st2 = this->MakeSparseTensor(si_row_major, sparse_values_2);
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<SparseCOOTensor> st2,
+                       this->MakeSparseTensor(si_row_major, sparse_values_2));
 
   ASSERT_TRUE(st2->Equals(*st1));
 }
@@ -641,6 +745,23 @@ class TestSparseCSRMatrixBase : public TestSparseTensorBase<Int64Type> {
 };
 
 class TestSparseCSRMatrix : public TestSparseCSRMatrixBase<Int64Type> {};
+
+TEST_F(TestSparseCSRMatrix, CreationFromZeroTensor) {
+  const auto dense_size =
+      std::accumulate(this->shape_.begin(), this->shape_.end(), int64_t(1),
+                      [](int64_t a, int64_t x) { return a * x; });
+  std::vector<int64_t> dense_values(dense_size, 0);
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Tensor> t_zero,
+                       Tensor::Make(int64(), Buffer::Wrap(dense_values), this->shape_));
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<SparseCSRMatrix> st_zero,
+                       SparseCSRMatrix::Make(*t_zero, int64()));
+
+  ASSERT_EQ(0, st_zero->non_zero_length());
+  ASSERT_EQ(dense_size, st_zero->size());
+
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Tensor> t, st_zero->ToTensor());
+  ASSERT_TRUE(t->Equals(*t_zero));
+}
 
 TEST_F(TestSparseCSRMatrix, CreationFromNumericTensor2D) {
   std::shared_ptr<Buffer> buffer = Buffer::Wrap(this->dense_values_);
@@ -959,6 +1080,23 @@ class TestSparseCSCMatrixBase : public TestSparseTensorBase<Int64Type> {
 };
 
 class TestSparseCSCMatrix : public TestSparseCSCMatrixBase<Int64Type> {};
+
+TEST_F(TestSparseCSCMatrix, CreationFromZeroTensor) {
+  const auto dense_size =
+      std::accumulate(this->shape_.begin(), this->shape_.end(), int64_t(1),
+                      [](int64_t a, int64_t x) { return a * x; });
+  std::vector<int64_t> dense_values(dense_size, 0);
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Tensor> t_zero,
+                       Tensor::Make(int64(), Buffer::Wrap(dense_values), this->shape_));
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<SparseCSCMatrix> st_zero,
+                       SparseCSCMatrix::Make(*t_zero, int64()));
+
+  ASSERT_EQ(0, st_zero->non_zero_length());
+  ASSERT_EQ(dense_size, st_zero->size());
+
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Tensor> t, st_zero->ToTensor());
+  ASSERT_TRUE(t->Equals(*t_zero));
+}
 
 TEST_F(TestSparseCSCMatrix, CreationFromNumericTensor2D) {
   std::shared_ptr<Buffer> buffer = Buffer::Wrap(this->dense_values_);
@@ -1320,6 +1458,25 @@ class TestSparseCSFTensorBase : public TestSparseTensorBase<Int16Type> {
   int16_t dense_values_[2][3][4][5] = {};
   std::shared_ptr<SparseCSFTensor> sparse_tensor_from_dense_;
 };
+
+class TestSparseCSFTensor : public TestSparseCSFTensorBase<Int64Type> {};
+
+TEST_F(TestSparseCSFTensor, CreationFromZeroTensor) {
+  const auto dense_size =
+      std::accumulate(this->shape_.begin(), this->shape_.end(), int64_t(1),
+                      [](int64_t a, int64_t x) { return a * x; });
+  std::vector<int64_t> dense_values(dense_size, 0);
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Tensor> t_zero,
+                       Tensor::Make(int64(), Buffer::Wrap(dense_values), this->shape_));
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<SparseCSFTensor> st_zero,
+                       SparseCSFTensor::Make(*t_zero, int64()));
+
+  ASSERT_EQ(0, st_zero->non_zero_length());
+  ASSERT_EQ(dense_size, st_zero->size());
+
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Tensor> t, st_zero->ToTensor());
+  ASSERT_TRUE(t->Equals(*t_zero));
+}
 
 template <typename IndexValueType>
 class TestSparseCSFTensorForIndexValueType

@@ -1768,6 +1768,7 @@ class TestSparseTensorRoundTrip : public ::testing::Test, public IpcTestFixture 
     const auto& resulted_sparse_index =
         checked_cast<const SparseCOOIndex&>(*result->sparse_index());
     ASSERT_EQ(resulted_sparse_index.indices()->data()->size(), indices_length);
+    ASSERT_EQ(resulted_sparse_index.is_canonical(), sparse_index.is_canonical());
     ASSERT_EQ(result->data()->size(), data_length);
     ASSERT_TRUE(result->Equals(sparse_tensor));
   }
@@ -1931,6 +1932,7 @@ TYPED_TEST_P(TestSparseTensorRoundTrip, WithSparseCOOIndexRowMajor) {
   // idx[2] = [0 2 1 3 0 2  1  3  0  2  1  3]
   // data   = [1 2 3 4 5 6 11 12 13 14 15 16]
 
+  // canonical
   std::vector<c_index_value_type> coords_values = {0, 0, 0, 0, 0, 2, 0, 1, 1, 0, 1, 3,
                                                    0, 2, 0, 0, 2, 2, 1, 0, 1, 1, 0, 3,
                                                    1, 1, 0, 1, 1, 2, 1, 2, 1, 1, 2, 3};
@@ -1940,11 +1942,22 @@ TYPED_TEST_P(TestSparseTensorRoundTrip, WithSparseCOOIndexRowMajor) {
       si, SparseCOOIndex::Make(TypeTraits<IndexValueType>::type_singleton(), {12, 3},
                                {sizeof_index_value * 3, sizeof_index_value},
                                Buffer::Wrap(coords_values)));
+  ASSERT_TRUE(si->is_canonical());
 
   std::vector<int64_t> shape = {2, 3, 4};
   std::vector<std::string> dim_names = {"foo", "bar", "baz"};
   std::vector<int64_t> values = {1, 2, 3, 4, 5, 6, 11, 12, 13, 14, 15, 16};
   std::shared_ptr<SparseCOOTensor> st;
+  ASSERT_OK_AND_ASSIGN(st, this->MakeSparseCOOTensor(si, values, shape, dim_names));
+
+  this->CheckSparseCOOTensorRoundTrip(*st);
+
+  // non-canonical
+  ASSERT_OK_AND_ASSIGN(
+      si, SparseCOOIndex::Make(TypeTraits<IndexValueType>::type_singleton(), {12, 3},
+                               {sizeof_index_value * 3, sizeof_index_value},
+                               Buffer::Wrap(coords_values), false));
+  ASSERT_FALSE(si->is_canonical());
   ASSERT_OK_AND_ASSIGN(st, this->MakeSparseCOOTensor(si, values, shape, dim_names));
 
   this->CheckSparseCOOTensorRoundTrip(*st);
@@ -1979,6 +1992,7 @@ TYPED_TEST_P(TestSparseTensorRoundTrip, WithSparseCOOIndexColumnMajor) {
   // idx[2] = [0 2 1 3 0 2  1  3  0  2  1  3]
   // data   = [1 2 3 4 5 6 11 12 13 14 15 16]
 
+  // canonical
   std::vector<c_index_value_type> coords_values = {0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1,
                                                    0, 0, 1, 1, 2, 2, 0, 0, 1, 1, 2, 2,
                                                    0, 2, 1, 3, 0, 2, 1, 3, 0, 2, 1, 3};
@@ -1988,12 +2002,23 @@ TYPED_TEST_P(TestSparseTensorRoundTrip, WithSparseCOOIndexColumnMajor) {
       si, SparseCOOIndex::Make(TypeTraits<IndexValueType>::type_singleton(), {12, 3},
                                {sizeof_index_value, sizeof_index_value * 12},
                                Buffer::Wrap(coords_values)));
+  ASSERT_TRUE(si->is_canonical());
 
   std::vector<int64_t> shape = {2, 3, 4};
   std::vector<std::string> dim_names = {"foo", "bar", "baz"};
   std::vector<int64_t> values = {1, 2, 3, 4, 5, 6, 11, 12, 13, 14, 15, 16};
 
   std::shared_ptr<SparseCOOTensor> st;
+  ASSERT_OK_AND_ASSIGN(st, this->MakeSparseCOOTensor(si, values, shape, dim_names));
+
+  this->CheckSparseCOOTensorRoundTrip(*st);
+
+  // non-canonical
+  ASSERT_OK_AND_ASSIGN(
+      si, SparseCOOIndex::Make(TypeTraits<IndexValueType>::type_singleton(), {12, 3},
+                               {sizeof_index_value, sizeof_index_value * 12},
+                               Buffer::Wrap(coords_values), false));
+  ASSERT_FALSE(si->is_canonical());
   ASSERT_OK_AND_ASSIGN(st, this->MakeSparseCOOTensor(si, values, shape, dim_names));
 
   this->CheckSparseCOOTensorRoundTrip(*st);
