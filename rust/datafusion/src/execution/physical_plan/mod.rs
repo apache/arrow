@@ -74,7 +74,7 @@ pub trait AggregateExpr: Send + Sync {
     /// Create an aggregate expression for combining the results of accumulators from partitions.
     /// For example, to combine the results of a parallel SUM we just need to do another SUM, but
     /// to combine the results of parallel COUNT we would also use SUM.
-    fn create_reducer(&self, column_index: usize) -> Arc<dyn AggregateExpr>;
+    fn create_reducer(&self) -> Arc<dyn AggregateExpr>;
 }
 
 /// Aggregate accumulator

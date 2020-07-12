@@ -459,8 +459,10 @@ impl ExecutionContext {
                 let expr = self.create_physical_expr(expr, input_schema)?;
                 Ok(Arc::new(Alias::new(expr, &name)))
             }
-            Expr::Column(i) => {
-                Ok(Arc::new(Column::new(*i, &input_schema.field(*i).name())))
+            Expr::Column(name) => {
+                // check that name exists
+                input_schema.field_with_name(&name)?;
+                Ok(Arc::new(Column::new(name)))
             }
             Expr::Literal(value) => Ok(Arc::new(Literal::new(value.clone()))),
             Expr::BinaryExpr { left, op, right } => Ok(Arc::new(BinaryExpr::new(
@@ -706,7 +708,7 @@ mod tests {
 
         let table = ctx.table("test")?;
         let logical_plan = LogicalPlanBuilder::from(&table.to_logical_plan())
-            .project(vec![Expr::UnresolvedColumn("c2".to_string())])?
+            .project(vec![col("c2")])?
             .build()?;
 
         let optimized_plan = ctx.optimize(&logical_plan)?;
@@ -725,7 +727,7 @@ mod tests {
             _ => assert!(false, "expect optimized_plan to be projection"),
         }
 
-        let expected = "Projection: #0\
+        let expected = "Projection: #c2\
         \n  TableScan: test projection=Some([1])";
         assert_eq!(format!("{:?}", optimized_plan), expected);
 
@@ -747,19 +749,19 @@ mod tests {
         let tmp_dir = TempDir::new("execute")?;
         let ctx = create_ctx(&tmp_dir, 1)?;
 
-        let schema = Arc::new(Schema::new(vec![Field::new(
-            "state",
-            DataType::Utf8,
-            false,
-        )]));
+        let schema = ctx.datasources.get("test").unwrap().schema();
+        assert_eq!(schema.field_with_name("c1")?.is_nullable(), false);
 
         let plan = LogicalPlanBuilder::scan("default", "test", schema.as_ref(), None)?
-            .project(vec![col("state")])?
+            .project(vec![col("c1")])?
             .build()?;
 
         let plan = ctx.optimize(&plan)?;
         let physical_plan = ctx.create_physical_plan(&Arc::new(plan), 1024)?;
-        assert_eq!(physical_plan.schema().field(0).is_nullable(), false);
+        assert_eq!(
+            physical_plan.schema().field_with_name("c1")?.is_nullable(),
+            false
+        );
         Ok(())
     }
 
@@ -783,7 +785,7 @@ mod tests {
             projection: None,
             projected_schema: Box::new(schema.clone()),
         })
-        .project(vec![Expr::UnresolvedColumn("b".to_string())])?
+        .project(vec![col("b")])?
         .build()?;
         assert_fields_eq(&plan, vec!["b"]);
 
@@ -804,7 +806,7 @@ mod tests {
             _ => assert!(false, "expect optimized_plan to be projection"),
         }
 
-        let expected = "Projection: #0\
+        let expected = "Projection: #b\
         \n  InMemoryScan: projection=Some([1])";
         assert_eq!(format!("{:?}", optimized_plan), expected);
 
@@ -1004,7 +1006,10 @@ mod tests {
                 vec![col("state")],
                 vec![aggregate_expr("SUM", col("salary"), DataType::UInt32)],
             )?
-            .project(vec![col("state"), col_index(1).alias("total_salary")])?
+            .project(vec![
+                col("state"),
+                col("SUM(SUM(salary))").alias("total_salary"),
+            ])?
             .build()?;
 
         let plan = ctx.optimize(&plan)?;

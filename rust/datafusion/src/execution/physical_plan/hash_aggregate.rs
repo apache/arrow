@@ -39,7 +39,7 @@ use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
 use arrow::error::Result as ArrowResult;
 use arrow::record_batch::{RecordBatch, RecordBatchReader};
 
-use crate::execution::physical_plan::expressions::Column;
+use crate::execution::physical_plan::expressions::col;
 use crate::logicalplan::ScalarValue;
 use fnv::FnvHashMap;
 
@@ -85,17 +85,11 @@ impl HashAggregateExec {
         &self,
     ) -> (Vec<Arc<dyn PhysicalExpr>>, Vec<Arc<dyn AggregateExpr>>) {
         let final_group: Vec<Arc<dyn PhysicalExpr>> = (0..self.group_expr.len())
-            .map(|i| {
-                Arc::new(Column::new(i, &self.group_expr[i].name()))
-                    as Arc<dyn PhysicalExpr>
-            })
+            .map(|i| col(&self.group_expr[i].name()) as Arc<dyn PhysicalExpr>)
             .collect();
 
         let final_aggr: Vec<Arc<dyn AggregateExpr>> = (0..self.aggr_expr.len())
-            .map(|i| {
-                let aggr = self.aggr_expr[i].create_reducer(i + self.group_expr.len());
-                aggr as Arc<dyn AggregateExpr>
-            })
+            .map(|i| self.aggr_expr[i].create_reducer())
             .collect();
 
         (final_group, final_aggr)
@@ -772,9 +766,9 @@ mod tests {
         let csv =
             CsvExec::try_new(&path, CsvReadOptions::new().schema(&schema), None, 1024)?;
 
-        let group_expr: Vec<Arc<dyn PhysicalExpr>> = vec![col(1, schema.as_ref())];
+        let group_expr: Vec<Arc<dyn PhysicalExpr>> = vec![col("c2")];
 
-        let aggr_expr: Vec<Arc<dyn AggregateExpr>> = vec![sum(col(3, schema.as_ref()))];
+        let aggr_expr: Vec<Arc<dyn AggregateExpr>> = vec![sum(col("c4"))];
 
         let partition_aggregate = HashAggregateExec::try_new(
             group_expr.clone(),
