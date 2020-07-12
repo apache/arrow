@@ -206,6 +206,10 @@ struct UTF8Lower : UTF8Transform<Type, UTF8Lower<Type>> {
   }
 };
 
+#else
+
+void EnsureLookupTablesFilled() {}
+
 #endif  // ARROW_WITH_UTF8PROC
 
 using TransformFunc = std::function<void(const uint8_t*, int64_t, uint8_t*)>;
