@@ -227,6 +227,9 @@ TYPED_TEST(TestStringKernels, IsTitleUnicode) {
       boolean(), "[false, null, false, false, false, false, false, false]");
 }
 
+// Older versions of utf8proc fail
+#if !(UTF8PROC_VERSION_MAJOR <= 2 && UTF8PROC_VERSION_MINOR < 5)
+
 TYPED_TEST(TestStringKernels, IsUpperUnicode) {
   // ٣ is arabic 3 (decimal), Φ capital
   this->CheckUnary(
@@ -245,6 +248,8 @@ TYPED_TEST(TestStringKernels, IsUpperUnicode) {
                    "[\"Ⓐ\", \"Ⓩ\", \"ϒ\", \"ᾈ\", \"\xEA\x9E\xBA\", \"xF0x90x90x80\"]",
                    boolean(), "[true, true, true, false, true, false]");
 }
+
+#endif  // UTF8PROC_VERSION_MINOR >= 5
 
 #endif  // ARROW_WITH_UTF8PROC
 
