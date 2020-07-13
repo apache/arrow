@@ -507,6 +507,13 @@ def test_fill_null_array(arrow_type):
     expected = pa.array([1, 2, 5, 4], type=arrow_type)
     assert result.equals(expected)
 
+    # Implicit conversions
+    result = arr.fill_null(5)
+    assert result.equals(expected)
+
+    result = arr.fill_null(pa.scalar(5, type='int8'))
+    assert result.equals(expected)
+
 
 @pytest.mark.parametrize('arrow_type', numerical_arrow_types)
 def test_fill_null_chunked_array(arrow_type):
@@ -527,4 +534,11 @@ def test_fill_null_chunked_array(arrow_type):
         pa.array([5, 4], type=arrow_type)
     ])
     result = arr.fill_null(fill_value)
+    assert result.equals(expected)
+
+    # Implicit conversions
+    result = arr.fill_null(5)
+    assert result.equals(expected)
+
+    result = arr.fill_null(pa.scalar(5, type='int8'))
     assert result.equals(expected)

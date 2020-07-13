@@ -193,16 +193,7 @@ cdef class ChunkedArray(_PandasConvertible):
 
     def fill_null(self, fill_value):
         """
-        replace each null element with fill_value
-
-        Parameters
-        ----------
-        fill_value: Scalar
-            Must be the same type as data
-
-        Returns
-        -------
-        result : ChunckedArray
+        See pyarrow.compute.fill_null docstring for usage.
         """
         return _pc().fill_null(self, fill_value)
 
