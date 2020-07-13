@@ -109,7 +109,7 @@ from pyarrow.lib import (null, bool_,
                          schema,
                          unify_schemas,
                          Array, Tensor,
-                         array, chunked_array, record_batch, table, nulls,
+                         array, chunked_array, record_batch, nulls, repeat,
                          SparseCOOTensor, SparseCSRMatrix, SparseCSCMatrix,
                          SparseCSFTensor,
                          infer_type, from_numpy_dtype,
@@ -165,7 +165,7 @@ from pyarrow.lib import (HdfsFile, NativeFile, PythonFile,
                          create_memory_map, have_libhdfs,
                          MockOutputStream, input_stream, output_stream)
 
-from pyarrow.lib import (ChunkedArray, RecordBatch, Table,
+from pyarrow.lib import (ChunkedArray, RecordBatch, Table, table,
                          concat_arrays, concat_tables)
 
 # Exceptions

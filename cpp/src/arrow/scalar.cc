@@ -153,7 +153,7 @@ LargeListScalar::LargeListScalar(std::shared_ptr<Array> value)
 inline std::shared_ptr<DataType> MakeMapType(const std::shared_ptr<DataType>& pair_type) {
   ARROW_CHECK_EQ(pair_type->id(), Type::STRUCT);
   ARROW_CHECK_EQ(pair_type->num_fields(), 2);
-  return map(pair_type->field(0)->type(), pair_type->field(1));
+  return map(pair_type->field(0)->type(), pair_type->field(1)->type());
 }
 
 MapScalar::MapScalar(std::shared_ptr<Array> value)
