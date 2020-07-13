@@ -531,6 +531,8 @@ cdef public object pyarrow_wrap_resizable_buffer(
     const shared_ptr[CResizableBuffer]& buf)
 cdef public object pyarrow_wrap_schema(const shared_ptr[CSchema]& type)
 cdef public object pyarrow_wrap_table(const shared_ptr[CTable]& ctable)
+cdef public object pyarrow_wrap_table_no_validate(
+    const shared_ptr[CTable]& ctable)
 cdef public object pyarrow_wrap_tensor(const shared_ptr[CTensor]& sp_tensor)
 cdef public object pyarrow_wrap_sparse_coo_tensor(
     const shared_ptr[CSparseCOOTensor]& sp_sparse_tensor)

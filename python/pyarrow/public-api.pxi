@@ -390,6 +390,11 @@ cdef api shared_ptr[CTable] pyarrow_unwrap_table(object table):
 cdef api object pyarrow_wrap_table(const shared_ptr[CTable]& ctable):
     # Ensure that wrapped table is Valid
     check_status(ctable.get().Validate())
+    return pyarrow_wrap_table_no_validate(ctable)
+
+
+cdef api object pyarrow_wrap_table_no_validate(
+        const shared_ptr[CTable]& ctable):
     cdef Table table = Table.__new__(Table)
     table.init(ctable)
     return table
