@@ -17,6 +17,7 @@
 
 require "English"
 require "cgi/util"
+require "fileutils"
 require "find"
 require "json"
 require "open-uri"

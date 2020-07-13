@@ -3,11 +3,8 @@ Section: devel
 Priority: optional
 Maintainer: Apache Arrow Developers <dev@arrow.apache.org>
 Build-Depends:
-  bison,
-  clang-7,
   cmake,
   debhelper (>= 12),
-  flex,
   git,
   gobject-introspection,
   gtk-doc-tools,
@@ -23,6 +20,7 @@ Build-Depends:
   libre2-dev,
   libsnappy-dev,
   libssl-dev,
+  libutf8proc-dev,
   libzstd-dev,
   ninja-build,
   nvidia-cuda-toolkit [!arm64],
@@ -72,7 +70,7 @@ Depends:
   libparquet100 (= ${binary:Version})
 Description: Apache Arrow is a data processing library for analysis
  .
- This package provides C++ library files for Datasets module.
+ This package provides C++ library files for Dataset module.
 
 Package: libarrow-flight100
 Section: libs
@@ -150,7 +148,7 @@ Depends:
   libparquet-dev (= ${binary:Version})
 Description: Apache Arrow is a data processing library for analysis
  .
- This package provides C++ header files for Datasets module.
+ This package provides C++ header files for dataset module.
 
 Package: libarrow-flight-dev
 Section: libdevel
@@ -191,7 +189,7 @@ Description: Apache Arrow is a data processing library for analysis
 
 Package: libgandiva100
 Section: libs
-Architecture: any
+Architecture: i386 amd64
 Multi-Arch: same
 Pre-Depends: ${misc:Pre-Depends}
 Depends:
@@ -205,7 +203,7 @@ Description: Gandiva is a toolset for compiling and evaluating expressions
 
 Package: libgandiva-dev
 Section: libdevel
-Architecture: any
+Architecture: i386 amd64
 Multi-Arch: same
 Depends:
   ${misc:Depends},
@@ -366,9 +364,59 @@ Description: Apache Arrow is a data processing library for analysis
  .
  This package provides GLib based header files for CUDA support.
 
-Package: libgandiva-glib100
+Package: libarrow-dataset-glib100
 Section: libs
 Architecture: any
+Multi-Arch: same
+Pre-Depends: ${misc:Pre-Depends}
+Depends:
+  ${misc:Depends},
+  ${shlibs:Depends},
+  libarrow-glib100 (= ${binary:Version}),
+  libarrow-dataset100 (= ${binary:Version})
+Description: Apache Arrow is a data processing library for analysis
+ .
+ This package provides GLib based library files for dataset module.
+
+Package: gir1.2-arrow-dataset-1.0
+Section: introspection
+Architecture: any
+Multi-Arch: same
+Depends:
+  ${gir:Depends},
+  ${misc:Depends}
+Description: Apache Arrow is a data processing library for analysis
+ .
+ This package provides GObject Introspection typelib files for dataset module.
+
+Package: libarrow-dataset-glib-dev
+Section: libdevel
+Architecture: any
+Multi-Arch: same
+Depends:
+  ${misc:Depends},
+  libarrow-dataset-dev (= ${binary:Version}),
+  libarrow-glib-dev (= ${binary:Version}),
+  libarrow-dataset-glib100 (= ${binary:Version}),
+  gir1.2-arrow-dataset-1.0 (= ${binary:Version})
+Description: Apache Arrow is a data processing library for analysis
+ .
+ This package provides GLib based header files for dataset module.
+
+Package: libarrow-dataset-glib-doc
+Section: doc
+Architecture: any
+Multi-Arch: foreign
+Depends:
+  ${misc:Depends}
+Recommends: libarrow-glib-doc
+Description: Apache Arrow is a data processing library for analysis
+ .
+ This package provides documentations for dataset module.
+
+Package: libgandiva-glib100
+Section: libs
+Architecture: i386 amd64
 Multi-Arch: same
 Pre-Depends: ${misc:Pre-Depends}
 Depends:
@@ -383,7 +431,7 @@ Description: Gandiva is a toolset for compiling and evaluating expressions
 
 Package: gir1.2-gandiva-1.0
 Section: introspection
-Architecture: any
+Architecture: i386 amd64
 Multi-Arch: same
 Depends:
   ${gir:Depends},
@@ -395,7 +443,7 @@ Description: Gandiva is a toolset for compiling and evaluating expressions
 
 Package: libgandiva-glib-dev
 Section: libdevel
-Architecture: any
+Architecture: i386 amd64
 Multi-Arch: same
 Depends:
   ${misc:Depends},
@@ -410,7 +458,7 @@ Description: Gandiva is a toolset for compiling and evaluating expressions
 
 Package: libgandiva-glib-doc
 Section: doc
-Architecture: all
+Architecture: i386 amd64
 Multi-Arch: foreign
 Depends:
   ${misc:Depends}

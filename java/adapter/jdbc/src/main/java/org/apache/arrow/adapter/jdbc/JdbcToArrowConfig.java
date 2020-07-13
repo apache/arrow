@@ -20,7 +20,7 @@ package org.apache.arrow.adapter.jdbc;
 import java.util.Calendar;
 import java.util.Map;
 
-import org.apache.arrow.memory.BaseAllocator;
+import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.Preconditions;
 
 /**
@@ -48,7 +48,7 @@ import org.apache.arrow.util.Preconditions;
 public final class JdbcToArrowConfig {
 
   private Calendar calendar;
-  private BaseAllocator allocator;
+  private BufferAllocator allocator;
   private boolean includeMetadata;
   private Map<Integer, JdbcFieldInfo> arraySubTypesByColumnIndex;
   private Map<String, JdbcFieldInfo> arraySubTypesByColumnName;
@@ -76,7 +76,7 @@ public final class JdbcToArrowConfig {
    * @param allocator       The memory allocator to construct the Arrow vectors with.
    * @param calendar        The calendar to use when constructing Timestamp fields and reading time-based results.
    */
-  JdbcToArrowConfig(BaseAllocator allocator, Calendar calendar) {
+  JdbcToArrowConfig(BufferAllocator allocator, Calendar calendar) {
     Preconditions.checkNotNull(allocator, "Memory allocator cannot be null");
 
     this.allocator = allocator;
@@ -98,7 +98,7 @@ public final class JdbcToArrowConfig {
    * @param arraySubTypesByColumnName  The type of the JDBC array at the column name.
    */
   JdbcToArrowConfig(
-      BaseAllocator allocator,
+      BufferAllocator allocator,
       Calendar calendar,
       boolean includeMetadata,
       Map<Integer, JdbcFieldInfo> arraySubTypesByColumnIndex,
@@ -128,7 +128,7 @@ public final class JdbcToArrowConfig {
    * The Arrow memory allocator.
    * @return the allocator.
    */
-  public BaseAllocator getAllocator() {
+  public BufferAllocator getAllocator() {
     return allocator;
   }
 

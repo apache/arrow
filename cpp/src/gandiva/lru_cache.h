@@ -15,14 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef LRU_CACHE_H
-#define LRU_CACHE_H
+#pragma once
 
 #include <list>
 #include <unordered_map>
 #include <utility>
 
-#include <boost/optional.hpp>
+#include "arrow/util/optional.h"
 
 // modified from boost LRU cache -> the boost cache supported only an
 // ordered map.
@@ -71,12 +70,12 @@ class LruCache {
     }
   }
 
-  boost::optional<value_type> get(const key_type& key) {
+  arrow::util::optional<value_type> get(const key_type& key) {
     // lookup value in the cache
     typename map_type::iterator value_for_key = map_.find(key);
     if (value_for_key == map_.end()) {
       // value not in cache
-      return boost::none;
+      return arrow::util::nullopt;
     }
 
     // return the value, but first update its place in the most
@@ -120,4 +119,3 @@ class LruCache {
   size_t cache_capacity_;
 };
 }  // namespace gandiva
-#endif  // LRU_CACHE_H

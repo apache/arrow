@@ -45,7 +45,7 @@ int GetCpuThreadPoolCapacity() { return arrow::GetCpuThreadPoolCapacity(); }
 //' @export
 // [[arrow::export]]
 void SetCpuThreadPoolCapacity(int threads) {
-  STOP_IF_NOT_OK(arrow::SetCpuThreadPoolCapacity(threads));
+  StopIfNotOk(arrow::SetCpuThreadPoolCapacity(threads));
 }
 
 #endif

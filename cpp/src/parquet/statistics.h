@@ -230,10 +230,10 @@ class PARQUET_EXPORT Statistics {
   virtual void Reset() = 0;
 
   /// \brief Plain-encoded minimum value
-  virtual std::string EncodeMin() = 0;
+  virtual std::string EncodeMin() const = 0;
 
   /// \brief Plain-encoded maximum value
-  virtual std::string EncodeMax() = 0;
+  virtual std::string EncodeMax() const = 0;
 
   /// \brief The finalized encoded form of the statistics for transport
   virtual EncodedStatistics Encode() = 0;

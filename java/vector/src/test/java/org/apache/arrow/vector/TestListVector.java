@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.BaseRepeatedValueVector;
 import org.apache.arrow.vector.complex.ListVector;
@@ -40,8 +41,6 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
-
-import io.netty.buffer.ArrowBuf;
 
 public class TestListVector {
 
@@ -575,22 +574,22 @@ public class TestListVector {
 
       listVector.addOrGetVector(FieldType.nullable(listType.getType()));
 
-      ListVector innerList1 = (ListVector)listVector.getDataVector();
+      ListVector innerList1 = (ListVector) listVector.getDataVector();
       innerList1.addOrGetVector(FieldType.nullable(listType.getType()));
 
-      ListVector innerList2 = (ListVector)innerList1.getDataVector();
+      ListVector innerList2 = (ListVector) innerList1.getDataVector();
       innerList2.addOrGetVector(FieldType.nullable(listType.getType()));
 
-      ListVector innerList3 = (ListVector)innerList2.getDataVector();
+      ListVector innerList3 = (ListVector) innerList2.getDataVector();
       innerList3.addOrGetVector(FieldType.nullable(listType.getType()));
 
-      ListVector innerList4 = (ListVector)innerList3.getDataVector();
+      ListVector innerList4 = (ListVector) innerList3.getDataVector();
       innerList4.addOrGetVector(FieldType.nullable(listType.getType()));
 
-      ListVector innerList5 = (ListVector)innerList4.getDataVector();
+      ListVector innerList5 = (ListVector) innerList4.getDataVector();
       innerList5.addOrGetVector(FieldType.nullable(listType.getType()));
 
-      ListVector innerList6 = (ListVector)innerList5.getDataVector();
+      ListVector innerList6 = (ListVector) innerList5.getDataVector();
       innerList6.addOrGetVector(FieldType.nullable(scalarType.getType()));
 
       listVector.setInitialCapacity(128);

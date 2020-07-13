@@ -72,8 +72,7 @@ std::shared_ptr<Buffer> CompressDataOneShot(Codec* codec,
                                             const std::vector<uint8_t>& data) {
   int64_t max_compressed_len, compressed_len;
   max_compressed_len = codec->MaxCompressedLen(data.size(), data.data());
-  std::shared_ptr<ResizableBuffer> compressed;
-  ABORT_NOT_OK(AllocateResizableBuffer(max_compressed_len, &compressed));
+  auto compressed = *AllocateResizableBuffer(max_compressed_len);
   compressed_len = *codec->Compress(data.size(), data.data(), max_compressed_len,
                                     compressed->mutable_data());
   ABORT_NOT_OK(compressed->Resize(compressed_len));
@@ -212,9 +211,7 @@ TEST_P(CompressedInputStreamTest, ConcatenatedStreams) {
   auto compressed1 = CompressDataOneShot(codec.get(), data1);
   auto compressed2 = CompressDataOneShot(codec.get(), data2);
 
-  std::shared_ptr<Buffer> concatenated;
-  ASSERT_OK(ConcatenateBuffers({compressed1, compressed2}, default_memory_pool(),
-                               &concatenated));
+  ASSERT_OK_AND_ASSIGN(auto concatenated, ConcatenateBuffers({compressed1, compressed2}));
   std::vector<uint8_t> decompressed, expected;
   ASSERT_OK(RunCompressedInputStream(codec.get(), concatenated, &decompressed));
   std::copy(data1.begin(), data1.end(), std::back_inserter(expected));
@@ -243,8 +240,7 @@ TEST_P(CompressedOutputStreamTest, RandomData) {
 // NOTES:
 // - Snappy doesn't support streaming decompression
 // - BZ2 doesn't support one-shot compression
-// - LZ4 streaming decompression uses the LZ4 framing format, which must be tested
-//   against a streaming compressor
+// - LZ4 raw format doesn't support streaming decompression
 
 #ifdef ARROW_WITH_SNAPPY
 TEST(TestSnappyInputStream, NotImplemented) {
@@ -263,24 +259,31 @@ TEST(TestSnappyOutputStream, NotImplemented) {
 #endif
 
 #ifdef ARROW_WITH_ZLIB
-INSTANTIATE_TEST_CASE_P(TestGZipInputStream, CompressedInputStreamTest,
-                        ::testing::Values(Compression::GZIP));
-INSTANTIATE_TEST_CASE_P(TestGZipOutputStream, CompressedOutputStreamTest,
-                        ::testing::Values(Compression::GZIP));
+INSTANTIATE_TEST_SUITE_P(TestGZipInputStream, CompressedInputStreamTest,
+                         ::testing::Values(Compression::GZIP));
+INSTANTIATE_TEST_SUITE_P(TestGZipOutputStream, CompressedOutputStreamTest,
+                         ::testing::Values(Compression::GZIP));
 #endif
 
 #ifdef ARROW_WITH_BROTLI
-INSTANTIATE_TEST_CASE_P(TestBrotliInputStream, CompressedInputStreamTest,
-                        ::testing::Values(Compression::BROTLI));
-INSTANTIATE_TEST_CASE_P(TestBrotliOutputStream, CompressedOutputStreamTest,
-                        ::testing::Values(Compression::BROTLI));
+INSTANTIATE_TEST_SUITE_P(TestBrotliInputStream, CompressedInputStreamTest,
+                         ::testing::Values(Compression::BROTLI));
+INSTANTIATE_TEST_SUITE_P(TestBrotliOutputStream, CompressedOutputStreamTest,
+                         ::testing::Values(Compression::BROTLI));
+#endif
+
+#ifdef ARROW_WITH_LZ4
+INSTANTIATE_TEST_SUITE_P(TestLZ4InputStream, CompressedInputStreamTest,
+                         ::testing::Values(Compression::LZ4_FRAME));
+INSTANTIATE_TEST_SUITE_P(TestLZ4OutputStream, CompressedOutputStreamTest,
+                         ::testing::Values(Compression::LZ4_FRAME));
 #endif
 
 #ifdef ARROW_WITH_ZSTD
-INSTANTIATE_TEST_CASE_P(TestZSTDInputStream, CompressedInputStreamTest,
-                        ::testing::Values(Compression::ZSTD));
-INSTANTIATE_TEST_CASE_P(TestZSTDOutputStream, CompressedOutputStreamTest,
-                        ::testing::Values(Compression::ZSTD));
+INSTANTIATE_TEST_SUITE_P(TestZSTDInputStream, CompressedInputStreamTest,
+                         ::testing::Values(Compression::ZSTD));
+INSTANTIATE_TEST_SUITE_P(TestZSTDOutputStream, CompressedOutputStreamTest,
+                         ::testing::Values(Compression::ZSTD));
 #endif
 
 }  // namespace io

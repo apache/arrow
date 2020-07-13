@@ -17,7 +17,19 @@
 
 # flake8: noqa
 
+"""
+PyArrow is the python implementation of Apache Arrow.
 
+Apache Arrow is a cross-language development platform for in-memory data.
+It specifies a standardized language-independent columnar memory format for
+flat and hierarchical data, organized for efficient analytic operations on
+modern hardware. It also provides computational libraries and zero-copy
+streaming messaging and interprocess communication.
+
+For more information see the official page at https://arrow.apache.org
+"""
+
+import gc as _gc
 import os as _os
 import sys as _sys
 
@@ -28,6 +40,7 @@ except ImportError:
     try:
         import setuptools_scm
         # Code duplicated from setup.py to avoid a dependency on each other
+
         def parse_git(root, **kwargs):
             """
             Parse function for setuptools_scm that ignores tags for non-C++
@@ -42,10 +55,34 @@ except ImportError:
     except ImportError:
         __version__ = None
 
+# ARROW-8684: Disable GC while initializing Cython extension module,
+# to workaround Cython bug in https://github.com/cython/cython/issues/3603
+_gc_enabled = _gc.isenabled()
+_gc.disable()
+import pyarrow.lib as _lib
+if _gc_enabled:
+    _gc.enable()
 
-import pyarrow.compat as compat
+from pyarrow.lib import (BuildInfo, VersionInfo,
+                         cpp_build_info, cpp_version, cpp_version_info,
+                         cpu_count, set_cpu_count)
 
-from pyarrow.lib import cpu_count, set_cpu_count
+
+def show_versions():
+    """
+    Print various version information, to help with error reporting.
+    """
+    # TODO: CPU information and flags
+    print("pyarrow version info\n--------------------")
+    print("Package kind: {}".format(cpp_build_info.package_kind
+                                    if len(cpp_build_info.package_kind) > 0
+                                    else "not indicated"))
+    print("Arrow C++ library version: {}".format(cpp_build_info.version))
+    print("Arrow C++ git revision: {}".format(cpp_build_info.git_id))
+    print("Arrow C++ git description: {}"
+          .format(cpp_build_info.git_description))
+
+
 from pyarrow.lib import (null, bool_,
                          int8, int16, int32, int64,
                          uint8, uint16, uint32, uint64,
@@ -66,12 +103,15 @@ from pyarrow.lib import (null, bool_,
                          PyExtensionType, UnknownExtensionType,
                          register_extension_type, unregister_extension_type,
                          DictionaryMemo,
+                         KeyValueMetadata,
                          Field,
                          Schema,
                          schema,
+                         unify_schemas,
                          Array, Tensor,
-                         array, chunked_array, record_batch, table,
-                         SparseCSRMatrix, SparseCOOTensor,
+                         array, chunked_array, record_batch, table, nulls,
+                         SparseCOOTensor, SparseCSRMatrix, SparseCSCMatrix,
+                         SparseCSFTensor,
                          infer_type, from_numpy_dtype,
                          NullArray,
                          NumericArray, IntegerArray, FloatingPointArray,
@@ -89,19 +129,20 @@ from pyarrow.lib import (null, bool_,
                          Date32Array, Date64Array, TimestampArray,
                          Time32Array, Time64Array, DurationArray,
                          Decimal128Array, StructArray, ExtensionArray,
-                         ArrayValue, Scalar, NA, _NULL as NULL,
-                         BooleanValue,
-                         Int8Value, Int16Value, Int32Value, Int64Value,
-                         UInt8Value, UInt16Value, UInt32Value, UInt64Value,
-                         HalfFloatValue, FloatValue, DoubleValue,
-                         ListValue, LargeListValue, MapValue, FixedSizeListValue,
-                         BinaryValue, StringValue,
-                         LargeBinaryValue, LargeStringValue,
-                         FixedSizeBinaryValue,
-                         DecimalValue, UnionValue, StructValue, DictionaryValue,
-                         Date32Value, Date64Value,
-                         Time32Value, Time64Value,
-                         TimestampValue, DurationValue)
+                         scalar, NA, _NULL as NULL, Scalar,
+                         NullScalar, BooleanScalar,
+                         Int8Scalar, Int16Scalar, Int32Scalar, Int64Scalar,
+                         UInt8Scalar, UInt16Scalar, UInt32Scalar, UInt64Scalar,
+                         HalfFloatScalar, FloatScalar, DoubleScalar,
+                         Decimal128Scalar,
+                         ListScalar, LargeListScalar, FixedSizeListScalar,
+                         Date32Scalar, Date64Scalar,
+                         Time32Scalar, Time64Scalar,
+                         BinaryScalar, LargeBinaryScalar,
+                         StringScalar, LargeStringScalar,
+                         FixedSizeBinaryScalar, DictionaryScalar,
+                         MapScalar, UnionScalar, StructScalar,
+                         TimestampScalar, DurationScalar)
 
 # Buffers, allocation
 from pyarrow.lib import (Buffer, ResizableBuffer, foreign_buffer, py_buffer,
@@ -117,6 +158,7 @@ from pyarrow.lib import (MemoryPool, LoggingMemoryPool, ProxyMemoryPool,
 from pyarrow.lib import (HdfsFile, NativeFile, PythonFile,
                          BufferedInputStream, BufferedOutputStream,
                          CompressedInputStream, CompressedOutputStream,
+                         TransformInputStream, transcoding_input_stream,
                          FixedSizeBufferWriter,
                          BufferReader, BufferOutputStream,
                          OSFile, MemoryMappedFile, memory_map,
@@ -149,15 +191,7 @@ from pyarrow.filesystem import FileSystem, LocalFileSystem
 from pyarrow.hdfs import HadoopFileSystem
 import pyarrow.hdfs as hdfs
 
-from pyarrow.ipc import (Message, MessageReader,
-                         RecordBatchFileReader, RecordBatchFileWriter,
-                         RecordBatchStreamReader, RecordBatchStreamWriter,
-                         read_message, read_record_batch, read_schema,
-                         read_tensor, write_tensor,
-                         get_record_batch_size, get_tensor_size,
-                         open_stream,
-                         open_file,
-                         serialize_pandas, deserialize_pandas)
+from pyarrow.ipc import serialize_pandas, deserialize_pandas
 import pyarrow.ipc as ipc
 
 
@@ -170,6 +204,7 @@ from pyarrow.serialization import (default_serialization_context,
 import pyarrow.types as types
 
 # Entry point for starting the plasma store
+
 
 def _plasma_store_entry_point():
     """Entry point for starting the plasma store.
@@ -184,14 +219,93 @@ def _plasma_store_entry_point():
                                             "plasma-store-server")
     _os.execv(plasma_store_executable, _sys.argv)
 
+
 # ----------------------------------------------------------------------
 # Deprecations
 
-from pyarrow.util import _deprecate_api  # noqa
+from pyarrow.util import _deprecate_api, _deprecate_class
+
+read_message = _deprecate_api("read_message", "ipc.read_message",
+                              ipc.read_message, "0.17.0")
+
+read_record_batch = _deprecate_api("read_record_batch",
+                                   "ipc.read_record_batch",
+                                   ipc.read_record_batch, "0.17.0")
+
+read_schema = _deprecate_api("read_schema", "ipc.read_schema",
+                             ipc.read_schema, "0.17.0")
+
+read_tensor = _deprecate_api("read_tensor", "ipc.read_tensor",
+                             ipc.read_tensor, "0.17.0")
+
+write_tensor = _deprecate_api("write_tensor", "ipc.write_tensor",
+                              ipc.write_tensor, "0.17.0")
+
+get_record_batch_size = _deprecate_api("get_record_batch_size",
+                                       "ipc.get_record_batch_size",
+                                       ipc.get_record_batch_size, "0.17.0")
+
+get_tensor_size = _deprecate_api("get_tensor_size",
+                                 "ipc.get_tensor_size",
+                                 ipc.get_tensor_size, "0.17.0")
+
+open_stream = _deprecate_api("open_stream", "ipc.open_stream",
+                             ipc.open_stream, "0.17.0")
+
+open_file = _deprecate_api("open_file", "ipc.open_file", ipc.open_file,
+                           "0.17.0")
+
+
+def _deprecate_scalar(ty, symbol):
+    return _deprecate_class("{}Value".format(ty), symbol, "1.0.0")
+
+
+ArrayValue = _deprecate_class("ArrayValue", Scalar, "1.0.0")
+NullType = _deprecate_class("NullType", NullScalar, "1.0.0")
+
+BooleanValue = _deprecate_scalar("Boolean", BooleanScalar)
+Int8Value = _deprecate_scalar("Int8", Int8Scalar)
+Int16Value = _deprecate_scalar("Int16", Int16Scalar)
+Int32Value = _deprecate_scalar("Int32", Int32Scalar)
+Int64Value = _deprecate_scalar("Int64", Int64Scalar)
+UInt8Value = _deprecate_scalar("UInt8", UInt8Scalar)
+UInt16Value = _deprecate_scalar("UInt16", UInt16Scalar)
+UInt32Value = _deprecate_scalar("UInt32", UInt32Scalar)
+UInt64Value = _deprecate_scalar("UInt64", UInt64Scalar)
+HalfFloatValue = _deprecate_scalar("HalfFloat", HalfFloatScalar)
+FloatValue = _deprecate_scalar("Float", FloatScalar)
+DoubleValue = _deprecate_scalar("Double", DoubleScalar)
+ListValue = _deprecate_scalar("List", ListScalar)
+LargeListValue = _deprecate_scalar("LargeList", LargeListScalar)
+MapValue = _deprecate_scalar("Map", MapScalar)
+FixedSizeListValue = _deprecate_scalar("FixedSizeList", FixedSizeListScalar)
+BinaryValue = _deprecate_scalar("Binary", BinaryScalar)
+StringValue = _deprecate_scalar("String", StringScalar)
+LargeBinaryValue = _deprecate_scalar("LargeBinary", LargeBinaryScalar)
+LargeStringValue = _deprecate_scalar("LargeString", LargeStringScalar)
+FixedSizeBinaryValue = _deprecate_scalar("FixedSizeBinary",
+                                         FixedSizeBinaryScalar)
+Decimal128Value = _deprecate_scalar("Decimal128", Decimal128Scalar)
+UnionValue = _deprecate_scalar("Union", UnionScalar)
+StructValue = _deprecate_scalar("Struct", StructScalar)
+DictionaryValue = _deprecate_scalar("Dictionary", DictionaryScalar)
+Date32Value = _deprecate_scalar("Date32", Date32Scalar)
+Date64Value = _deprecate_scalar("Date64", Date64Scalar)
+Time32Value = _deprecate_scalar("Time32", Time32Scalar)
+Time64Value = _deprecate_scalar("Time64", Time64Scalar)
+TimestampValue = _deprecate_scalar("Timestamp", TimestampScalar)
+DurationValue = _deprecate_scalar("Duration", DurationScalar)
+
+
+# TODO: Deprecate these somehow in the pyarrow namespace
+from pyarrow.ipc import (Message, MessageReader, MetadataVersion,
+                         RecordBatchFileReader, RecordBatchFileWriter,
+                         RecordBatchStreamReader, RecordBatchStreamWriter)
 
 # ----------------------------------------------------------------------
 # Returning absolute path to the pyarrow include directory (if bundled, e.g. in
 # wheels)
+
 
 def get_include():
     """
@@ -231,6 +345,49 @@ def get_libraries():
     or Cython extensions using pyarrow
     """
     return ['arrow', 'arrow_python']
+
+
+def create_library_symlinks():
+    """
+    With Linux and macOS wheels, the bundled shared libraries have an embedded
+    ABI version like libarrow.so.17 or libarrow.17.dylib and so linking to them
+    with -larrow won't work unless we create symlinks at locations like
+    site-packages/pyarrow/libarrow.so. This unfortunate workaround addresses
+    prior problems we had with shipping two copies of the shared libraries to
+    permit third party projects like turbodbc to build their C++ extensions
+    against the pyarrow wheels.
+
+    This function must only be invoked once and only when the shared libraries
+    are bundled with the Python package, which should only apply to wheel-based
+    installs. It requires write access to the site-packages/pyarrow directory
+    and so depending on your system may need to be run with root.
+    """
+    import glob
+    if _sys.platform == 'win32':
+        return
+    package_cwd = _os.path.dirname(__file__)
+
+    if _sys.platform == 'linux':
+        bundled_libs = glob.glob(_os.path.join(package_cwd, '*.so.*'))
+
+        def get_symlink_path(hard_path):
+            return hard_path.rsplit('.', 1)[0]
+    else:
+        bundled_libs = glob.glob(_os.path.join(package_cwd, '*.*.dylib'))
+
+        def get_symlink_path(hard_path):
+            return '.'.join((hard_path.split('.')[0], 'dylib'))
+
+    for lib_hard_path in bundled_libs:
+        symlink_path = get_symlink_path(lib_hard_path)
+        if _os.path.exists(symlink_path):
+            continue
+        try:
+            _os.symlink(lib_hard_path, symlink_path)
+        except PermissionError:
+            print("Tried creating symlink {}. If you need to link to "
+                  "bundled shared libraries, run "
+                  "pyarrow._setup_bundled_symlinks() as root")
 
 
 def get_library_dirs():

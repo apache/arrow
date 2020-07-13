@@ -21,8 +21,7 @@
 
 #include "arrow/util/decimal.h"
 
-#ifndef GANDIVA_GENERATE_DATA_H
-#define GANDIVA_GENERATE_DATA_H
+#pragma once
 
 namespace gandiva {
 
@@ -130,6 +129,28 @@ class FastUtf8DataGenerator : public DataGenerator<std::string> {
   char cur_char_;
 };
 
-}  // namespace gandiva
+class Utf8IntDataGenerator : public DataGenerator<std::string> {
+ public:
+  Utf8IntDataGenerator() {}
 
-#endif  // GANDIVA_GENERATE_DATA_H
+  std::string GenerateData() { return std::to_string(random_.next()); }
+
+ private:
+  Random random_;
+};
+
+class Utf8FloatDataGenerator : public DataGenerator<std::string> {
+ public:
+  Utf8FloatDataGenerator() {}
+
+  std::string GenerateData() {
+    return std::to_string(
+        static_cast<float>(random_.next()) /
+        static_cast<float>(RAND_MAX / 100));  // random float between 0.0 to 100.0
+  }
+
+ private:
+  Random random_;
+};
+
+}  // namespace gandiva

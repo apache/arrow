@@ -204,7 +204,9 @@ Status TStatusToStatus(const hs2::TStatus& tstatus) {
       return Status::IOError(tstatus.errorMessage);
     case hs2::TStatusCode::INVALID_HANDLE_STATUS:
       return Status::Invalid("Invalid handle");
-    default: { return Status::UnknownError("Unknown TStatusCode ", tstatus.statusCode); }
+    default: {
+      return Status::UnknownError("Unknown TStatusCode ", tstatus.statusCode);
+    }
   }
 }
 

@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_ENGINE_H
-#define GANDIVA_ENGINE_H
+#pragma once
 
 #include <memory>
 #include <set>
@@ -25,10 +24,10 @@
 
 #include "arrow/util/macros.h"
 
+#include "arrow/util/logging.h"
 #include "gandiva/configuration.h"
 #include "gandiva/llvm_includes.h"
 #include "gandiva/llvm_types.h"
-#include "gandiva/logging.h"
 #include "gandiva/visibility.h"
 
 namespace gandiva {
@@ -103,5 +102,3 @@ class GANDIVA_EXPORT Engine {
 };
 
 }  // namespace gandiva
-
-#endif  // GANDIVA_ENGINE_H

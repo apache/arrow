@@ -19,6 +19,7 @@ package org.apache.arrow.plasma;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import org.apache.arrow.plasma.exceptions.DuplicateObjectException;
@@ -105,12 +106,42 @@ public class PlasmaClient implements ObjectStoreLink {
     return ret;
   }
 
+  /**
+   * Get an object in Plasma Store with objectId. Will return an off-heap ByteBuffer.
+   *
+   * @param objectId used to identify an object.
+   * @param timeoutMs time in milliseconfs to wait before this request time out.
+   * @param isMetadata get this object's metadata or data.
+   */
+  public ByteBuffer getObjAsByteBuffer(byte[] objectId, int timeoutMs, boolean isMetadata) {
+    byte[][] objectIds = new byte[][]{objectId};
+    ByteBuffer[][] bufs = PlasmaClientJNI.get(conn, objectIds, timeoutMs);
+    return bufs[0][isMetadata ? 1 : 0];
+  }
+
+  @Override
+  public List<byte[]> list() {
+    return Arrays.asList(PlasmaClientJNI.list(conn));
+  }
+
   @Override
   public long evict(long numBytes) {
     return PlasmaClientJNI.evict(conn, numBytes);
   }
 
   // wrapper methods --------------------
+
+  /**
+   * Create an object in Plasma Store with particular size. Will return an off-heap ByteBuffer.
+   *
+   * @param objectId used to identify an object.
+   * @param size size in bytes to be allocated for this object.
+   * @param metadata this object's metadata. It should be null if there is no metadata.
+   */
+  public ByteBuffer create(byte[] objectId, int size, byte[] metadata)
+        throws DuplicateObjectException, PlasmaOutOfMemoryException {
+    return PlasmaClientJNI.create(conn, objectId, size, metadata);
+  }
 
   /**
    * Seal the buffer in the PlasmaStore for a particular object ID.

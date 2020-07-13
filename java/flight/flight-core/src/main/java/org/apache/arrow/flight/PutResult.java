@@ -18,12 +18,11 @@
 package org.apache.arrow.flight;
 
 import org.apache.arrow.flight.impl.Flight;
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.ReferenceManager;
 
 import com.google.protobuf.ByteString;
-
-import io.netty.buffer.ArrowBuf;
 
 /**
  * A message from the server during a DoPut operation.

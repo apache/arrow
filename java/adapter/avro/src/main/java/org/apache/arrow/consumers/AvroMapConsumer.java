@@ -19,7 +19,9 @@ package org.apache.arrow.consumers;
 
 import java.io.IOException;
 
+import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.complex.MapVector;
+import org.apache.arrow.vector.complex.StructVector;
 import org.apache.avro.io.Decoder;
 
 /**
@@ -45,6 +47,7 @@ public class AvroMapConsumer extends BaseAvroConsumer<MapVector> {
     long totalCount = 0;
     for (long count = decoder.readMapStart(); count != 0; count = decoder.mapNext()) {
       totalCount += count;
+      ensureInnerVectorCapacity(totalCount);
       for (int element = 0; element < count; element++) {
         delegate.consume(decoder);
       }
@@ -63,5 +66,14 @@ public class AvroMapConsumer extends BaseAvroConsumer<MapVector> {
   public boolean resetValueVector(MapVector vector) {
     this.delegate.resetValueVector(vector.getDataVector());
     return super.resetValueVector(vector);
+  }
+
+  void ensureInnerVectorCapacity(long targetCapacity) {
+    StructVector innerVector = (StructVector) vector.getDataVector();
+    for (FieldVector v : innerVector.getChildrenFromFields()) {
+      while (v.getValueCapacity() < targetCapacity) {
+        v.reAlloc();
+      }
+    }
   }
 }

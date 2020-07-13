@@ -196,6 +196,15 @@ public class ${mode}StructWriter extends AbstractFieldWriter {
     }
   }
 
+  <#if mode="Nullable">
+  @Override
+  public void writeNull() {
+    container.setNull(idx());
+    setValueCount(idx()+1);
+    super.setPosition(idx()+1);
+  }
+  </#if>
+
   @Override
   public void start() {
     <#if mode == "Single">

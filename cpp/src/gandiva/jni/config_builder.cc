@@ -41,6 +41,19 @@ Java_org_apache_arrow_gandiva_evaluator_ConfigurationBuilder_buildConfigInstance
 
 /*
  * Class:     org_apache_arrow_gandiva_evaluator_ConfigBuilder
+ * Method:    buildConfigInstance
+ * Signature: ()J
+ */
+JNIEXPORT jlong JNICALL
+Java_org_apache_arrow_gandiva_evaluator_ConfigurationBuilder_buildConfigInstance(
+    JNIEnv* env, jobject configuration, jboolean optimize) {
+  ConfigurationBuilder configuration_builder;
+  std::shared_ptr<Configuration> config = configuration_builder.build(optimize);
+  return ConfigHolder::MapInsert(config);
+}
+
+/*
+ * Class:     org_apache_arrow_gandiva_evaluator_ConfigBuilder
  * Method:    releaseConfigInstance
  * Signature: (J)V
  */

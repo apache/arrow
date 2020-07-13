@@ -23,6 +23,7 @@
 
 #include <gtest/gtest.h>
 
+#include "arrow/testing/gtest_util.h"
 #include "arrow/util/key_value_metadata.h"
 
 namespace arrow {
@@ -171,6 +172,40 @@ TEST(KeyValueMetadataTest, SortedPairs) {
   ASSERT_EQ(metadata3.sorted_pairs(), expected);
   expected = {{"bar", "bizz"}, {"foo", "buzz"}};
   ASSERT_EQ(metadata2.sorted_pairs(), expected);
+}
+
+TEST(KeyValueMetadataTest, Delete) {
+  std::vector<std::string> keys = {"aa", "bb", "cc", "dd", "ee", "ff", "gg"};
+  std::vector<std::string> values = {"1", "2", "3", "4", "5", "6", "7"};
+
+  {
+    KeyValueMetadata metadata(keys, values);
+    ASSERT_OK(metadata.Delete("cc"));
+    ASSERT_TRUE(metadata.Equals(KeyValueMetadata({"aa", "bb", "dd", "ee", "ff", "gg"},
+                                                 {"1", "2", "4", "5", "6", "7"})));
+
+    ASSERT_OK(metadata.Delete(3));
+    ASSERT_TRUE(metadata.Equals(
+        KeyValueMetadata({"aa", "bb", "dd", "ff", "gg"}, {"1", "2", "4", "6", "7"})));
+  }
+  {
+    KeyValueMetadata metadata(keys, values);
+    ASSERT_OK(metadata.DeleteMany({2, 5}));
+    ASSERT_TRUE(metadata.Equals(
+        KeyValueMetadata({"aa", "bb", "dd", "ee", "gg"}, {"1", "2", "4", "5", "7"})));
+
+    ASSERT_OK(metadata.DeleteMany({}));
+    ASSERT_TRUE(metadata.Equals(
+        KeyValueMetadata({"aa", "bb", "dd", "ee", "gg"}, {"1", "2", "4", "5", "7"})));
+  }
+  {
+    KeyValueMetadata metadata(keys, values);
+    ASSERT_OK(metadata.DeleteMany({0, 6, 5, 2}));
+    ASSERT_TRUE(metadata.Equals(KeyValueMetadata({"bb", "dd", "ee"}, {"2", "4", "5"})));
+
+    ASSERT_OK(metadata.DeleteMany({}));
+    ASSERT_TRUE(metadata.Equals(KeyValueMetadata({"bb", "dd", "ee"}, {"2", "4", "5"})));
+  }
 }
 
 }  // namespace arrow

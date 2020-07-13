@@ -25,6 +25,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
@@ -75,8 +76,6 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
-
-import io.netty.buffer.ArrowBuf;
 
 public class TestComplexWriter {
 
@@ -267,23 +266,69 @@ public class TestComplexWriter {
   }
 
   @Test
+  public void testListScalarNull() {
+    /* Write to a integer list vector
+     * each list of size 8 and having it's data values alternating between null and a non-null.
+     * Read and verify
+     */
+    try (ListVector listVector = ListVector.empty("list", allocator)) {
+      listVector.allocateNew();
+      UnionListWriter listWriter = new UnionListWriter(listVector);
+      for (int i = 0; i < COUNT; i++) {
+        listWriter.startList();
+        for (int j = 0; j < i % 7; j++) {
+          if (j % 2 == 0) {
+            listWriter.writeNull();
+          } else {
+            IntHolder holder = new IntHolder();
+            holder.value = j;
+            listWriter.write(holder);
+          }
+        }
+        listWriter.endList();
+      }
+      listWriter.setValueCount(COUNT);
+      UnionListReader listReader = new UnionListReader(listVector);
+      for (int i = 0; i < COUNT; i++) {
+        listReader.setPosition(i);
+        for (int j = 0; j < i % 7; j++) {
+          listReader.next();
+          if (j % 2 == 0) {
+            assertFalse("index is set: " + j, listReader.reader().isSet());
+          } else {
+            assertTrue("index is not set: " + j, listReader.reader().isSet());
+            assertEquals(j, listReader.reader().readInteger().intValue());
+          }
+        }
+      }
+    }
+  }
+
+  @Test
   public void listDecimalType() {
     try (ListVector listVector = ListVector.empty("list", allocator)) {
       listVector.allocateNew();
       UnionListWriter listWriter = new UnionListWriter(listVector);
       DecimalHolder holder = new DecimalHolder();
       holder.buffer = allocator.buffer(DecimalUtility.DECIMAL_BYTE_LENGTH);
+      ArrowType arrowType = new ArrowType.Decimal(10, 0);
       for (int i = 0; i < COUNT; i++) {
         listWriter.startList();
         for (int j = 0; j < i % 7; j++) {
-          if (j % 2 == 0) {
+          if (j % 4 == 0) {
             listWriter.writeDecimal(new BigDecimal(j));
-          } else {
+          } else if (j % 4 == 1) {
             DecimalUtility.writeBigDecimalToArrowBuf(new BigDecimal(j), holder.buffer, 0);
             holder.start = 0;
             holder.scale = 0;
             holder.precision = 10;
             listWriter.write(holder);
+          } else if (j % 4 == 2) {
+            DecimalUtility.writeBigDecimalToArrowBuf(new BigDecimal(j), holder.buffer, 0);
+            listWriter.writeDecimal(0, holder.buffer, arrowType);
+          } else {
+            byte[] value = BigDecimal.valueOf(j).unscaledValue().toByteArray();
+            listWriter.writeBigEndianBytesToDecimal(value, arrowType);
           }
         }
         listWriter.endList();
@@ -986,9 +1031,9 @@ public class TestComplexWriter {
         singleStructWriter.start();
 
         intWriter.writeInt(intValue + i);
-        bigIntWriter.writeBigInt(bigIntValue + (long)i);
-        float4Writer.writeFloat4(float4Value + (float)i);
-        float8Writer.writeFloat8(float8Value + (double)i);
+        bigIntWriter.writeBigInt(bigIntValue + (long) i);
+        float4Writer.writeFloat4(float4Value + (float) i);
+        float8Writer.writeFloat8(float8Value + (double) i);
 
         listWriter.setPosition(i);
         listWriter.startList();
@@ -1001,10 +1046,10 @@ public class TestComplexWriter {
         singleStructWriter.end();
       }
 
-      IntVector intVector = (IntVector)parent.getChild("intField");
-      BigIntVector bigIntVector = (BigIntVector)parent.getChild("bigIntField");
-      Float4Vector float4Vector = (Float4Vector)parent.getChild("float4Field");
-      Float8Vector float8Vector = (Float8Vector)parent.getChild("float8Field");
+      IntVector intVector = (IntVector) parent.getChild("intField");
+      BigIntVector bigIntVector = (BigIntVector) parent.getChild("bigIntField");
+      Float4Vector float4Vector = (Float4Vector) parent.getChild("float4Field");
+      Float8Vector float8Vector = (Float8Vector) parent.getChild("float8Field");
 
       int capacity = singleStructWriter.getValueCapacity();
       assertTrue(capacity >= initialCapacity && capacity < initialCapacity * 2);
@@ -1023,7 +1068,7 @@ public class TestComplexWriter {
       BigIntReader bigIntReader = singleStructReader.reader("bigIntField");
       Float4Reader float4Reader = singleStructReader.reader("float4Field");
       Float8Reader float8Reader = singleStructReader.reader("float8Field");
-      UnionListReader listReader = (UnionListReader)singleStructReader.reader("listField");
+      UnionListReader listReader = (UnionListReader) singleStructReader.reader("listField");
 
       for (int i = 0; i < initialCapacity; i++) {
         intReader.setPosition(i);
@@ -1033,9 +1078,9 @@ public class TestComplexWriter {
         listReader.setPosition(i);
 
         assertEquals(intValue + i, intReader.readInteger().intValue());
-        assertEquals(bigIntValue + (long)i, bigIntReader.readLong().longValue());
-        assertEquals(float4Value + (float)i, float4Reader.readFloat().floatValue(), 0);
-        assertEquals(float8Value + (double)i, float8Reader.readDouble().doubleValue(), 0);
+        assertEquals(bigIntValue + (long) i, bigIntReader.readLong().longValue());
+        assertEquals(float4Value + (float) i, float4Reader.readFloat().floatValue(), 0);
+        assertEquals(float8Value + (double) i, float8Reader.readDouble().doubleValue(), 0);
 
         for (int j = 0; j < 4; j++) {
           listReader.next();

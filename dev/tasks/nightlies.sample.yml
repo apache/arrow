@@ -22,7 +22,7 @@
 #    documentation https://docs.travis-ci.com/user/cron-jobs/
 
 branches:
-  # don't attempt to build branches intented for windows builds
+  # don't attempt to build branches intended for windows builds
   except:
     - /.*win.*/
 

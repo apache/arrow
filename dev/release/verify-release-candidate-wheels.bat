@@ -33,6 +33,9 @@ if not exist %_VERIFICATION_DIR% mkdir %_VERIFICATION_DIR%
 
 cd %_VERIFICATION_DIR%
 
+CALL :verify_wheel 3.5 %1 %2 m
+if errorlevel 1 GOTO error
+
 CALL :verify_wheel 3.6 %1 %2 m
 if errorlevel 1 GOTO error
 
@@ -49,7 +52,9 @@ EXIT /B %ERRORLEVEL%
 
 :error
 call deactivate
-goto done
+cd %_CURRENT_DIR%
+
+EXIT /B 1
 
 @rem a batch function to verify a single wheel
 :verify_wheel
@@ -73,10 +78,17 @@ wget --no-check-certificate -O %WHEEL_FILENAME% https://bintray.com/apache/arrow
 
 pip install %WHEEL_FILENAME% || EXIT /B 1
 python -c "import pyarrow" || EXIT /B 1
+python -c "import pyarrow.parquet" || EXIT /B 1
+
+if "%PY_VERSION%"=="3.5" GOTO done
+
+:python36_and_higher_checks
+
 python -c "import pyarrow.flight" || EXIT /B 1
 python -c "import pyarrow.gandiva" || EXIT /B 1
-python -c "import pyarrow.parquet" || EXIT /B 1
 python -c "import pyarrow.dataset" || EXIT /B 1
+
+:done
 
 call deactivate
 

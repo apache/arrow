@@ -22,6 +22,8 @@
 #include <string>
 #include <vector>
 
+#include <gmock/gmock.h>
+
 #include "arrow/memory_pool.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
@@ -31,6 +33,8 @@
 #include "arrow/util/key_value_metadata.h"
 
 namespace arrow {
+
+using testing::ElementsAre;
 
 using internal::checked_cast;
 using internal::checked_pointer_cast;
@@ -78,13 +82,13 @@ TEST(TestField, Equals) {
 
   AssertFieldEqual(f0, f0_other);
   AssertFieldNotEqual(f0, f0_nn);
-  AssertFieldNotEqual(f0, f0_with_meta1);
-  AssertFieldNotEqual(f0_with_meta1, f0_with_meta2);
-  AssertFieldEqual(f0_with_meta1, f0_with_meta3);
+  AssertFieldNotEqual(f0, f0_with_meta1, /*check_metadata=*/true);
+  AssertFieldNotEqual(f0_with_meta1, f0_with_meta2, /*check_metadata=*/true);
+  AssertFieldEqual(f0_with_meta1, f0_with_meta3, /*check_metadata=*/true);
 
-  AssertFieldEqual(f0, f0_with_meta1, false);
-  AssertFieldEqual(f0, f0_with_meta2, false);
-  AssertFieldEqual(f0_with_meta1, f0_with_meta2, false);
+  AssertFieldEqual(f0, f0_with_meta1);
+  AssertFieldEqual(f0, f0_with_meta2);
+  AssertFieldEqual(f0_with_meta1, f0_with_meta2);
 }
 
 #define ASSERT_COMPATIBLE_IMPL(NAME, TYPE, PLURAL)                        \
@@ -158,10 +162,11 @@ TEST(TestField, TestWithMetadata) {
   auto f1 = field("f0", int32(), true, metadata);
   std::shared_ptr<Field> f2 = f0->WithMetadata(metadata);
 
+  AssertFieldEqual(f0, f2);
+  AssertFieldNotEqual(f0, f2, /*check_metadata=*/true);
+
   AssertFieldEqual(f1, f2);
-  AssertFieldNotEqual(f0, f2);
-  AssertFieldEqual(f0, f2, false);
-  AssertFieldEqual(f1, f2, false);
+  AssertFieldEqual(f1, f2, /*check_metadata=*/true);
 
   // Ensure pointer equality for zero-copy
   ASSERT_EQ(metadata.get(), f1->metadata().get());
@@ -201,9 +206,9 @@ TEST(TestField, TestEmptyMetadata) {
   auto f2 = field("f0", int32(), true, metadata2);
 
   AssertFieldEqual(f0, f1);
-  AssertFieldNotEqual(f0, f2);
-  AssertFieldEqual(f0, f1, /*check_metadata =*/false);
-  AssertFieldEqual(f0, f2, /*check_metadata =*/false);
+  AssertFieldEqual(f0, f2);
+  AssertFieldEqual(f0, f1, /*check_metadata =*/true);
+  AssertFieldNotEqual(f0, f2, /*check_metadata =*/true);
 }
 
 TEST(TestField, TestFlatten) {
@@ -311,6 +316,101 @@ TEST(TestField, TestMerge) {
   }
 }
 
+TEST(TestFieldPath, Basics) {
+  auto f0 = field("alpha", int32());
+  auto f1 = field("beta", int32());
+  auto f2 = field("alpha", int32());
+  auto f3 = field("beta", int32());
+  Schema s({f0, f1, f2, f3});
+
+  // retrieving a field with single-element FieldPath is equivalent to Schema::field
+  for (int index = 0; index < s.num_fields(); ++index) {
+    ASSERT_OK_AND_EQ(s.field(index), FieldPath({index}).Get(s));
+  }
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                  testing::HasSubstr("empty indices cannot be traversed"),
+                                  FieldPath().Get(s));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(IndexError, testing::HasSubstr("index out of range"),
+                                  FieldPath({s.num_fields() * 2}).Get(s));
+}
+
+TEST(TestFieldRef, Basics) {
+  auto f0 = field("alpha", int32());
+  auto f1 = field("beta", int32());
+  auto f2 = field("alpha", int32());
+  auto f3 = field("beta", int32());
+  Schema s({f0, f1, f2, f3});
+
+  // lookup by index returns Indices{index}
+  for (int index = 0; index < s.num_fields(); ++index) {
+    EXPECT_THAT(FieldRef(index).FindAll(s), ElementsAre(FieldPath{index}));
+  }
+  // out of range index results in a failure to match
+  EXPECT_THAT(FieldRef(s.num_fields() * 2).FindAll(s), ElementsAre());
+
+  // lookup by name returns the Indices of both matching fields
+  EXPECT_THAT(FieldRef("alpha").FindAll(s), ElementsAre(FieldPath{0}, FieldPath{2}));
+  EXPECT_THAT(FieldRef("beta").FindAll(s), ElementsAre(FieldPath{1}, FieldPath{3}));
+}
+
+TEST(TestFieldRef, FromDotPath) {
+  ASSERT_OK_AND_EQ(FieldRef("alpha"), FieldRef::FromDotPath(R"(.alpha)"));
+
+  ASSERT_OK_AND_EQ(FieldRef("", ""), FieldRef::FromDotPath(R"(..)"));
+
+  ASSERT_OK_AND_EQ(FieldRef(2), FieldRef::FromDotPath(R"([2])"));
+
+  ASSERT_OK_AND_EQ(FieldRef("beta", 3), FieldRef::FromDotPath(R"(.beta[3])"));
+
+  ASSERT_OK_AND_EQ(FieldRef(5, "gamma", "delta", 7),
+                   FieldRef::FromDotPath(R"([5].gamma.delta[7])"));
+
+  ASSERT_OK_AND_EQ(FieldRef("hello world"), FieldRef::FromDotPath(R"(.hello world)"));
+
+  ASSERT_OK_AND_EQ(FieldRef(R"([y]\tho.\)"), FieldRef::FromDotPath(R"(.\[y\]\\tho\.\)"));
+
+  ASSERT_RAISES(Invalid, FieldRef::FromDotPath(R"()"));
+  ASSERT_RAISES(Invalid, FieldRef::FromDotPath(R"(alpha)"));
+  ASSERT_RAISES(Invalid, FieldRef::FromDotPath(R"([134234)"));
+  ASSERT_RAISES(Invalid, FieldRef::FromDotPath(R"([1stuf])"));
+}
+
+TEST(TestFieldPath, Nested) {
+  auto f0 = field("alpha", int32());
+  auto f1_0 = field("alpha", int32());
+  auto f1 = field("beta", struct_({f1_0}));
+  auto f2_0 = field("alpha", int32());
+  auto f2_1_0 = field("alpha", int32());
+  auto f2_1_1 = field("alpha", int32());
+  auto f2_1 = field("gamma", struct_({f2_1_0, f2_1_1}));
+  auto f2 = field("beta", struct_({f2_0, f2_1}));
+  Schema s({f0, f1, f2});
+
+  // retrieving fields with nested indices
+  EXPECT_EQ(FieldPath({0}).Get(s), f0);
+  EXPECT_EQ(FieldPath({1, 0}).Get(s), f1_0);
+  EXPECT_EQ(FieldPath({2, 0}).Get(s), f2_0);
+  EXPECT_EQ(FieldPath({2, 1, 0}).Get(s), f2_1_0);
+  EXPECT_EQ(FieldPath({2, 1, 1}).Get(s), f2_1_1);
+}
+
+TEST(TestFieldRef, Nested) {
+  auto f0 = field("alpha", int32());
+  auto f1_0 = field("alpha", int32());
+  auto f1 = field("beta", struct_({f1_0}));
+  auto f2_0 = field("alpha", int32());
+  auto f2_1_0 = field("alpha", int32());
+  auto f2_1_1 = field("alpha", int32());
+  auto f2_1 = field("gamma", struct_({f2_1_0, f2_1_1}));
+  auto f2 = field("beta", struct_({f2_0, f2_1}));
+  Schema s({f0, f1, f2});
+
+  EXPECT_THAT(FieldRef("beta", "alpha").FindAll(s),
+              ElementsAre(FieldPath{1, 0}, FieldPath{2, 0}));
+  EXPECT_THAT(FieldRef("beta", "gamma", "alpha").FindAll(s),
+              ElementsAre(FieldPath{2, 1, 0}, FieldPath{2, 1, 1}));
+}
+
 using TestSchema = ::testing::Test;
 
 TEST_F(TestSchema, Basics) {
@@ -414,7 +514,7 @@ TEST_F(TestSchema, GetFieldDuplicates) {
   ASSERT_EQ(2, schema->GetFieldIndex(f2->name()));
   ASSERT_EQ(-1, schema->GetFieldIndex("not-found"));
   ASSERT_EQ(std::vector<int>{0}, schema->GetAllFieldIndices(f0->name()));
-  AssertSortedEquals(std::vector<int>{1, 3}, schema->GetAllFieldIndices(f1->name()));
+  ASSERT_EQ(std::vector<int>({1, 3}), schema->GetAllFieldIndices(f1->name()));
 
   ASSERT_TRUE(::arrow::schema({f0, f1, f2})->HasDistinctFieldNames());
   ASSERT_FALSE(schema->HasDistinctFieldNames());
@@ -478,10 +578,16 @@ TEST_F(TestSchema, TestMetadataConstruction) {
   ASSERT_TRUE(metadata1->Equals(*schema1->metadata()));
   ASSERT_TRUE(metadata0->Equals(*schema2->metadata()));
   AssertSchemaEqual(schema0, schema2);
-  AssertSchemaNotEqual(schema0, schema1);
-  AssertSchemaNotEqual(schema2, schema1);
+
+  AssertSchemaEqual(schema0, schema1);
+  AssertSchemaNotEqual(schema0, schema1, /*check_metadata=*/true);
+
+  AssertSchemaEqual(schema2, schema1);
+  AssertSchemaNotEqual(schema2, schema1, /*check_metadata=*/true);
+
   // Field has different metatadata
-  AssertSchemaNotEqual(schema2, schema3);
+  AssertSchemaEqual(schema2, schema3);
+  AssertSchemaNotEqual(schema2, schema3, /*check_metadata=*/true);
 
   ASSERT_EQ(schema0->fingerprint(), schema1->fingerprint());
   ASSERT_EQ(schema0->fingerprint(), schema2->fingerprint());
@@ -489,11 +595,50 @@ TEST_F(TestSchema, TestMetadataConstruction) {
   ASSERT_NE(schema0->metadata_fingerprint(), schema1->metadata_fingerprint());
   ASSERT_EQ(schema0->metadata_fingerprint(), schema2->metadata_fingerprint());
   ASSERT_NE(schema0->metadata_fingerprint(), schema3->metadata_fingerprint());
+}
 
-  // don't check metadata
-  AssertSchemaEqual(schema0, schema1, false);
-  AssertSchemaEqual(schema2, schema1, false);
-  AssertSchemaEqual(schema2, schema3, false);
+TEST_F(TestSchema, TestNestedMetadataComparison) {
+  auto item0 = field("item", int32(), true);
+  auto item1 = field("item", int32(), true, key_value_metadata({{"foo", "baz"}}));
+
+  Schema schema0({field("f", list(item0))});
+  Schema schema1({field("f", list(item1))});
+
+  ASSERT_EQ(schema0.fingerprint(), schema1.fingerprint());
+  ASSERT_NE(schema0.metadata_fingerprint(), schema1.metadata_fingerprint());
+
+  AssertSchemaEqual(schema0, schema1);
+  AssertSchemaNotEqual(schema0, schema1, /* check_metadata = */ true);
+}
+
+TEST_F(TestSchema, TestDeeplyNestedMetadataComparison) {
+  auto item0 = field("item", int32(), true);
+  auto item1 = field("item", int32(), true, key_value_metadata({{"foo", "baz"}}));
+
+  Schema schema0(
+      {field("f", list(list(sparse_union({field("struct", struct_({item0}))}))))});
+  Schema schema1(
+      {field("f", list(list(sparse_union({field("struct", struct_({item1}))}))))});
+
+  ASSERT_EQ(schema0.fingerprint(), schema1.fingerprint());
+  ASSERT_NE(schema0.metadata_fingerprint(), schema1.metadata_fingerprint());
+
+  AssertSchemaEqual(schema0, schema1);
+  AssertSchemaNotEqual(schema0, schema1, /* check_metadata = */ true);
+}
+
+TEST_F(TestSchema, TestFieldsDifferOnlyInMetadata) {
+  auto f0 = field("f", utf8(), true, nullptr);
+  auto f1 = field("f", utf8(), true, key_value_metadata({{"foo", "baz"}}));
+
+  Schema schema0({f0, f1});
+  Schema schema1({f1, f0});
+
+  AssertSchemaEqual(schema0, schema1);
+  AssertSchemaNotEqual(schema0, schema1, /* check_metadata = */ true);
+
+  ASSERT_EQ(schema0.fingerprint(), schema1.fingerprint());
+  ASSERT_NE(schema0.metadata_fingerprint(), schema1.metadata_fingerprint());
 }
 
 TEST_F(TestSchema, TestEmptyMetadata) {
@@ -507,7 +652,7 @@ TEST_F(TestSchema, TestEmptyMetadata) {
   auto schema3 = ::arrow::schema({f1}, metadata2);
 
   AssertSchemaEqual(schema1, schema2);
-  AssertSchemaNotEqual(schema1, schema3);
+  AssertSchemaNotEqual(schema1, schema3, /*check_metadata=*/true);
 
   ASSERT_EQ(schema1->fingerprint(), schema2->fingerprint());
   ASSERT_EQ(schema1->fingerprint(), schema3->fingerprint());
@@ -987,8 +1132,22 @@ TEST(TestMapType, Basics) {
   std::shared_ptr<DataType> mt = std::make_shared<MapType>(it, kt);
   ASSERT_EQ("map<uint8, string>", mt->ToString());
 
-  MapType mt2(kt, mt, true);
+  MapType mt2(kt, mt, /*keys_sorted=*/true);
   ASSERT_EQ("map<string, map<uint8, string>, keys_sorted>", mt2.ToString());
+  AssertTypeNotEqual(map_type, mt2);
+  MapType mt3(kt, mt);
+  ASSERT_EQ("map<string, map<uint8, string>>", mt3.ToString());
+  AssertTypeNotEqual(mt2, mt3);
+  MapType mt4(kt, mt);
+  AssertTypeEqual(mt3, mt4);
+
+  // Field names are indifferent when comparing map types
+  ASSERT_OK_AND_ASSIGN(
+      auto mt5,
+      MapType::Make(field(
+          "some_entries",
+          struct_({field("some_key", kt, false), field("some_value", mt)}), false)));
+  AssertTypeEqual(mt3, *mt5);
 }
 
 TEST(TestFixedSizeListType, Basics) {
@@ -1185,14 +1344,16 @@ TEST(TestListType, Metadata) {
   auto t5 = list(f5);
 
   AssertTypeEqual(*t1, *t2);
-  AssertTypeNotEqual(*t1, *t3);
-  AssertTypeNotEqual(*t1, *t4);
-  AssertTypeNotEqual(*t1, *t5);
-
   AssertTypeEqual(*t1, *t2, /*check_metadata =*/false);
-  AssertTypeEqual(*t1, *t3, /*check_metadata =*/false);
-  AssertTypeEqual(*t1, *t4, /*check_metadata =*/false);
-  AssertTypeNotEqual(*t1, *t5, /*check_metadata =*/false);
+
+  AssertTypeEqual(*t1, *t3);
+  AssertTypeNotEqual(*t1, *t3, /*check_metadata =*/true);
+
+  AssertTypeEqual(*t1, *t4);
+  AssertTypeNotEqual(*t1, *t4, /*check_metadata =*/true);
+
+  AssertTypeNotEqual(*t1, *t5);
+  AssertTypeNotEqual(*t1, *t5, /*check_metadata =*/true);
 }
 
 TEST(TestNestedType, Equals) {
@@ -1209,8 +1370,7 @@ TEST(TestNestedType, Equals) {
     auto f_type = field(inner_name, int32());
     std::vector<std::shared_ptr<Field>> fields = {f_type};
     std::vector<int8_t> codes = {42};
-    auto u_type = std::make_shared<UnionType>(fields, codes, UnionMode::SPARSE);
-    return field(union_name, u_type);
+    return field(union_name, sparse_union(fields, codes));
   };
 
   auto s0 = create_struct("f0", "s0");
@@ -1246,9 +1406,9 @@ TEST(TestStructType, Basics) {
 
   StructType struct_type(fields);
 
-  ASSERT_TRUE(struct_type.child(0)->Equals(f0));
-  ASSERT_TRUE(struct_type.child(1)->Equals(f1));
-  ASSERT_TRUE(struct_type.child(2)->Equals(f2));
+  ASSERT_TRUE(struct_type.field(0)->Equals(f0));
+  ASSERT_TRUE(struct_type.field(1)->Equals(f1));
+  ASSERT_TRUE(struct_type.field(2)->Equals(f2));
 
   ASSERT_EQ(struct_type.ToString(), "struct<f0: int32, f1: string, f2: uint8>");
 
@@ -1298,7 +1458,7 @@ TEST(TestStructType, GetFieldDuplicates) {
   ASSERT_EQ(0, struct_type.GetFieldIndex("f0"));
   ASSERT_EQ(-1, struct_type.GetFieldIndex("f1"));
   ASSERT_EQ(std::vector<int>{0}, struct_type.GetAllFieldIndices(f0->name()));
-  AssertSortedEquals(std::vector<int>{1, 2}, struct_type.GetAllFieldIndices(f1->name()));
+  ASSERT_EQ(std::vector<int>({1, 2}), struct_type.GetAllFieldIndices(f1->name()));
 
   std::vector<std::shared_ptr<Field>> results;
 
@@ -1318,6 +1478,20 @@ TEST(TestStructType, GetFieldDuplicates) {
 
   results = struct_type.GetAllFieldsByName("not-found");
   ASSERT_EQ(results.size(), 0);
+}
+
+TEST(TestStructType, TestFieldsDifferOnlyInMetadata) {
+  auto f0 = field("f", utf8(), true, nullptr);
+  auto f1 = field("f", utf8(), true, key_value_metadata({{"foo", "baz"}}));
+
+  StructType s0({f0, f1});
+  StructType s1({f1, f0});
+
+  AssertTypeEqual(s0, s1);
+  AssertTypeNotEqual(s0, s1, /* check_metadata = */ true);
+
+  ASSERT_EQ(s0.fingerprint(), s1.fingerprint());
+  ASSERT_NE(s0.metadata_fingerprint(), s1.metadata_fingerprint());
 }
 
 TEST(TestUnionType, Basics) {
@@ -1340,16 +1514,12 @@ TEST(TestUnionType, Basics) {
   child_ids2[11] = 1;
   child_ids2[12] = 2;
 
-  auto ty1 = checked_pointer_cast<UnionType>(union_(fields, UnionMode::DENSE));
-  auto ty2 =
-      checked_pointer_cast<UnionType>(union_(fields, type_codes1, UnionMode::DENSE));
-  auto ty3 =
-      checked_pointer_cast<UnionType>(union_(fields, type_codes2, UnionMode::DENSE));
-  auto ty4 = checked_pointer_cast<UnionType>(union_(fields, UnionMode::SPARSE));
-  auto ty5 =
-      checked_pointer_cast<UnionType>(union_(fields, type_codes1, UnionMode::SPARSE));
-  auto ty6 =
-      checked_pointer_cast<UnionType>(union_(fields, type_codes2, UnionMode::SPARSE));
+  auto ty1 = checked_pointer_cast<UnionType>(dense_union(fields));
+  auto ty2 = checked_pointer_cast<UnionType>(dense_union(fields, type_codes1));
+  auto ty3 = checked_pointer_cast<UnionType>(dense_union(fields, type_codes2));
+  auto ty4 = checked_pointer_cast<UnionType>(sparse_union(fields));
+  auto ty5 = checked_pointer_cast<UnionType>(sparse_union(fields, type_codes1));
+  auto ty6 = checked_pointer_cast<UnionType>(sparse_union(fields, type_codes2));
 
   ASSERT_EQ(ty1->type_codes(), type_codes1);
   ASSERT_EQ(ty2->type_codes(), type_codes1);
@@ -1411,20 +1581,14 @@ void CheckTransposeMap(const Buffer& map, std::vector<int32_t> expected) {
 TEST(TestDictionaryType, UnifyNumeric) {
   auto dict_ty = int64();
 
-  auto t1 = dictionary(int8(), dict_ty);
   auto d1 = ArrayFromJSON(dict_ty, "[3, 4, 7]");
-
-  auto t2 = dictionary(int8(), dict_ty);
   auto d2 = ArrayFromJSON(dict_ty, "[1, 7, 4, 8]");
-
-  auto t3 = dictionary(int8(), dict_ty);
   auto d3 = ArrayFromJSON(dict_ty, "[1, -200]");
 
   auto expected = dictionary(int8(), dict_ty);
   auto expected_dict = ArrayFromJSON(dict_ty, "[3, 4, 7, 1, 8, -200]");
 
-  std::unique_ptr<DictionaryUnifier> unifier;
-  ASSERT_OK(DictionaryUnifier::Make(default_memory_pool(), dict_ty, &unifier));
+  ASSERT_OK_AND_ASSIGN(auto unifier, DictionaryUnifier::Make(dict_ty));
 
   std::shared_ptr<DataType> out_type;
   std::shared_ptr<Array> out_dict;
@@ -1465,8 +1629,7 @@ TEST(TestDictionaryType, UnifyString) {
   auto expected = dictionary(int8(), dict_ty);
   auto expected_dict = ArrayFromJSON(dict_ty, "[\"foo\", \"bar\", \"quux\"]");
 
-  std::unique_ptr<DictionaryUnifier> unifier;
-  ASSERT_OK(DictionaryUnifier::Make(default_memory_pool(), dict_ty, &unifier));
+  ASSERT_OK_AND_ASSIGN(auto unifier, DictionaryUnifier::Make(dict_ty));
 
   std::shared_ptr<DataType> out_type;
   std::shared_ptr<Array> out_dict;
@@ -1504,8 +1667,7 @@ TEST(TestDictionaryType, UnifyFixedSizeBinary) {
   auto expected_dict = std::make_shared<FixedSizeBinaryArray>(type, 4, buf);
   auto expected = dictionary(int8(), type);
 
-  std::unique_ptr<DictionaryUnifier> unifier;
-  ASSERT_OK(DictionaryUnifier::Make(default_memory_pool(), type, &unifier));
+  ASSERT_OK_AND_ASSIGN(auto unifier, DictionaryUnifier::Make(type));
   std::shared_ptr<DataType> out_type;
   std::shared_ptr<Array> out_dict;
   ASSERT_OK(unifier->Unify(*dict1));
@@ -1556,8 +1718,7 @@ TEST(TestDictionaryType, UnifyLarge) {
   // int8 would be too narrow to hold all possible index values
   auto expected = dictionary(int16(), int32());
 
-  std::unique_ptr<DictionaryUnifier> unifier;
-  ASSERT_OK(DictionaryUnifier::Make(default_memory_pool(), int32(), &unifier));
+  ASSERT_OK_AND_ASSIGN(auto unifier, DictionaryUnifier::Make(int32()));
   std::shared_ptr<DataType> out_type;
   std::shared_ptr<Array> out_dict;
   ASSERT_OK(unifier->Unify(*dict1));

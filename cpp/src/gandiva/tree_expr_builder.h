@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_EXPR_TREE_BUILDER_H
-#define GANDIVA_EXPR_TREE_BUILDER_H
+#pragma once
 
 #include <memory>
 #include <string>
@@ -126,5 +125,3 @@ class GANDIVA_EXPORT TreeExprBuilder {
 };
 
 }  // namespace gandiva
-
-#endif  // GANDIVA_EXPR_TREE_BUILDER_H

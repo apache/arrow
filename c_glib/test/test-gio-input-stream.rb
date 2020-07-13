@@ -60,4 +60,13 @@ class TestGIOInputStream < Test::Unit::TestCase
     input = Arrow::GIOInputStream.new(input_stream)
     assert_equal(input_stream, input.raw)
   end
+
+  def test_peek
+    input_stream = Gio::MemoryInputStream.new("Hello World")
+    buffered_input_stream = Gio::BufferedInputStream.new(input_stream)
+    input = Arrow::GIOInputStream.new(buffered_input_stream)
+    assert_equal("He", input.peek(2).to_s)
+    assert_equal("Hel", input.read_bytes(3).to_s)
+    assert_equal("lo ", input.peek(3).to_s)
+  end
 end

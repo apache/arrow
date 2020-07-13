@@ -159,7 +159,7 @@ enum TImpalaQueryOptions {
   APPX_COUNT_DISTINCT,
 
   // If true, allows Impala to internally disable spilling for potentially
-  // disastrous query plans. Impala will excercise this option if a query
+  // disastrous query plans. Impala will exercise this option if a query
   // has no plan hints, and at least one table is missing relevant stats.
   DISABLE_UNSAFE_SPILLS,
 

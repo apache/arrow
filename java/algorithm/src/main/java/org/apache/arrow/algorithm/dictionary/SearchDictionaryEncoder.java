@@ -27,7 +27,8 @@ import org.apache.arrow.vector.ValueVector;
  * @param <E> encoded vector type.
  * @param <D> decoded vector type, which is also the dictionary type.
  */
-public class SearchDictionaryEncoder<E extends BaseIntVector, D extends ValueVector> {
+public class SearchDictionaryEncoder<E extends BaseIntVector, D extends ValueVector>
+    implements DictionaryEncoder<E, D> {
 
   /**
    * The dictionary for encoding/decoding.
@@ -79,6 +80,7 @@ public class SearchDictionaryEncoder<E extends BaseIntVector, D extends ValueVec
    * @param output the output vector. Note that it must be in a fresh state. At least,
    *     all its validity bits should be clear.
    */
+  @Override
   public void encode(D input, E output) {
     for (int i = 0; i < input.getValueCount(); i++) {
       if (!encodeNull && input.isNull(i)) {

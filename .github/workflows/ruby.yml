@@ -21,68 +21,91 @@ on:
   push:
     paths:
       - '.github/workflows/ruby.yml'
-      - 'ci/**'
-      - 'cpp/**'
+      - 'ci/docker/**'
+      - 'ci/scripts/c_glib_*'
+      - 'ci/scripts/cpp_*'
+      - 'ci/scripts/msys2_*'
+      - 'ci/scripts/ruby_*'
+      - 'ci/scripts/util_*'
       - 'c_glib/**'
+      - 'cpp/**'
       - 'ruby/**'
   pull_request:
     paths:
       - '.github/workflows/ruby.yml'
-      - 'ci/**'
-      - 'cpp/**'
+      - 'ci/docker/**'
+      - 'ci/scripts/c_glib_*'
+      - 'ci/scripts/cpp_*'
+      - 'ci/scripts/msys2_*'
+      - 'ci/scripts/ruby_*'
+      - 'ci/scripts/util_*'
       - 'c_glib/**'
+      - 'cpp/**'
       - 'ruby/**'
+
+env:
+  DOCKER_BUILDKIT: 0
+  COMPOSE_DOCKER_CLI_BUILD: 1
+  ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
+  ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
 
 jobs:
 
   ubuntu:
     name: AMD64 Ubuntu ${{ matrix.ubuntu }} GLib & Ruby
     runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     strategy:
       fail-fast: false
       matrix:
         ubuntu:
           - 16.04
           - 18.04
+          - 20.04
     env:
       UBUNTU: ${{ matrix.ubuntu }}
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v1
+        uses: actions/checkout@v2
         with:
-          submodules: true
-      - name: Docker Pull
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
         shell: bash
+        run: ci/scripts/util_checkout.sh
+      - name: Free Up Disk Space
+        shell: bash
+        run: ci/scripts/util_cleanup.sh
+      - name: Cache Docker Volumes
+        uses: actions/cache@v1
+        with:
+          path: .docker
+          key: ubuntu-${{ matrix.ubuntu }}-ruby-${{ hashFiles('cpp/**') }}
+          restore-keys: ubuntu-${{ matrix.ubuntu }}-ruby-
+      - name: Setup Python
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.8
+      - name: Setup Archery
+        run: pip install -e dev/archery[docker]
+      - name: Execute Docker Build
         run: |
-          docker-compose pull --ignore-pull-failures ubuntu-cpp
-          docker-compose pull --ignore-pull-failures ubuntu-c-glib
-          docker-compose pull --ignore-pull-failures ubuntu-ruby
-      - name: Docker Build
-        shell: bash
-        run: |
-          docker-compose build ubuntu-cpp
-          docker-compose build ubuntu-c-glib
-          docker-compose build ubuntu-ruby
-      - name: Docker Run
-        shell: bash
-        run: docker-compose run ubuntu-ruby
+          sudo sysctl -w kernel.core_pattern="core.%e.%p"
+          ulimit -c unlimited
+          archery docker run ubuntu-ruby
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         continue-on-error: true
         shell: bash
-        run: |
-          docker login -u ${{ secrets.DOCKERHUB_USER }} \
-                       -p ${{ secrets.DOCKERHUB_TOKEN }}
-          docker-compose push ubuntu-c-glib
-          docker-compose push ubuntu-ruby
+        run: archery docker push ubuntu-ruby
 
   macos:
     name: AMD64 MacOS 10.15 GLib & Ruby
     runs-on: macos-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     strategy:
       fail-fast: false
     env:
-      ARROW_BUILD_TESTS: ON
+      ARROW_BUILD_TESTS: OFF
       ARROW_GANDIVA: ON
       ARROW_GLIB_DEVELOPMENT_MODE: true
       ARROW_GLIB_GTK_DOC: true
@@ -94,18 +117,27 @@ jobs:
       ARROW_WITH_LZ4: ON
       ARROW_WITH_SNAPPY: ON
       ARROW_WITH_ZLIB: ON
+      ARROW_WITH_ZSTD: ON
       XML_CATALOG_FILES: /usr/local/etc/xml/catalog
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v1
+        uses: actions/checkout@v2
         with:
-          submodules: true
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        shell: bash
+        run: ci/scripts/util_checkout.sh
       - name: Install Dependencies
         shell: bash
         run: |
+          brew update
           brew bundle --file=cpp/Brewfile
           brew bundle --file=c_glib/Brewfile
-          bundle install --gemfile ruby/red-arrow/Gemfile
+          bundle install --gemfile c_glib/Gemfile
+          bundle install --gemfile ruby/Gemfile
+          for ruby_package_gemfile in ruby/*/Gemfile; do \
+            bundle install --gemfile ${ruby_package_gemfile}
+          done
       - name: Build
         shell: bash
         run: |
@@ -116,4 +148,110 @@ jobs:
         run: ci/scripts/c_glib_test.sh $(pwd) $(pwd)/build
       - name: Test Ruby
         shell: bash
-        run: ci/scripts/ruby_test.sh $(pwd)
+        run: ci/scripts/ruby_test.sh $(pwd) $(pwd)/build
+
+  windows:
+    name: AMD64 Windows MinGW ${{ matrix.mingw-n-bits }} GLib & Ruby
+    runs-on: windows-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    strategy:
+      fail-fast: false
+      matrix:
+        mingw-n-bits:
+          - 64
+        ruby-version:
+          - 2.6
+    env:
+      ARROW_BUILD_SHARED: ON
+      ARROW_BUILD_STATIC: OFF
+      ARROW_BUILD_TESTS: OFF
+      ARROW_BUILD_TYPE: release
+      ARROW_DATASET: ON
+      ARROW_FLIGHT: ON
+      ARROW_GANDIVA: ON
+      ARROW_HDFS: OFF
+      ARROW_HOME: /mingw${{ matrix.mingw-n-bits }}
+      ARROW_JEMALLOC: OFF
+      ARROW_PARQUET: ON
+      ARROW_PYTHON: OFF
+      ARROW_USE_GLOG: OFF
+      ARROW_WITH_BROTLI: ON
+      ARROW_WITH_BZ2: ON
+      ARROW_WITH_LZ4: ON
+      ARROW_WITH_SNAPPY: ON
+      ARROW_WITH_ZLIB: ON
+      ARROW_WITH_ZSTD: ON
+      # Don't use preinstalled Boost by empty BOOST_ROOT and
+      # -DBoost_NO_BOOST_CMAKE=ON
+      BOOST_ROOT: ""
+      CMAKE_ARGS: >-
+        -DARROW_PACKAGE_PREFIX=/mingw${{ matrix.mingw-n-bits }}
+        -DBoost_NO_BOOST_CMAKE=ON
+      CMAKE_GENERATOR: MSYS Makefiles
+      CMAKE_UNITY_BUILD: ON
+    steps:
+      - name: Disable Crash Dialogs
+        run: |
+          reg add `
+            "HKCU\SOFTWARE\Microsoft\Windows\Windows Error Reporting" `
+            /v DontShowUI `
+            /t REG_DWORD `
+            /d 1 `
+            /f
+      - name: Checkout Arrow
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        shell: bash
+        run: ci/scripts/util_checkout.sh
+      - name: Setup Ruby
+        uses: actions/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby-version }}
+      - name: Setup MSYS2
+        run: |
+          ridk exec bash ci\scripts\msys2_system_upgrade.sh
+          ridk exec bash ci\scripts\msys2_setup.sh ruby
+      - name: Cache ccache
+        uses: actions/cache@v1
+        with:
+          path: ccache
+          key: ruby-ccache-mingw${{ matrix.mingw-n-bits }}-${{ hashFiles('cpp/**') }}
+          restore-keys: ruby-ccache-mingw${{ matrix.mingw-n-bits }}-
+      - name: Build C++
+        run: |
+          $Env:CMAKE_BUILD_PARALLEL_LEVEL = $Env:NUMBER_OF_PROCESSORS
+          $source_dir = "$(ridk exec cygpath --unix "$(Get-Location)")"
+          $build_dir = "$(ridk exec cygpath --unix "$(Get-Location)\build")"
+          $ErrorActionPreference = "Continue"
+          ridk exec bash ci\scripts\cpp_build.sh "${source_dir}" "${build_dir}"
+      - name: Build GLib
+        run: |
+          $Env:CMAKE_BUILD_PARALLEL_LEVEL = $Env:NUMBER_OF_PROCESSORS
+          $source_dir = "$(ridk exec cygpath --unix "$(Get-Location)")"
+          $build_dir = "$(ridk exec cygpath --unix "$(Get-Location)\build")"
+          $ErrorActionPreference = "Continue"
+          ridk exec bash ci\scripts\c_glib_build.sh "${source_dir}" "${build_dir}"
+      - name: Install test dependencies
+        run: |
+          bundle install --gemfile c_glib\Gemfile
+          bundle install --gemfile ruby\Gemfile
+          Get-ChildItem ruby\*\Gemfile | `
+            ForEach-Object {bundle install --gemfile $_}
+      - name: Test GLib
+        run: |
+          $source_dir = "$(ridk exec cygpath --unix "$(Get-Location)")"
+          $build_dir = "$(ridk exec cygpath --unix "$(Get-Location)\build")"
+          $ErrorActionPreference = "Continue"
+          ridk exec bash ci\scripts\c_glib_test.sh "${source_dir}" "${build_dir}"
+      - name: Test Ruby
+        run: |
+          $Env:PKG_CONFIG_PATH = `
+            "$(ridk exec cygpath --absolute --windows "${Env:ARROW_HOME}/lib/pkgconfig")"
+          $Env:GI_TYPELIB_PATH = `
+            "$(ridk exec cygpath --absolute --windows "${Env:ARROW_HOME}/lib/girepository-1.0")"
+          $Env:RUBYOPTS = "-rdevkit"
+          $Env:MAKE = "ridk exec make"
+          $ErrorActionPreference = "Continue"
+          rake -f ruby\Rakefile

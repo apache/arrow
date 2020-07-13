@@ -40,7 +40,7 @@ namespace orc {
 
 using internal::checked_cast;
 
-// The numer of nanoseconds in a second
+// The number of nanoseconds in a second
 constexpr int64_t kOneSecondNanos = 1000000000LL;
 
 Status AppendStructBatch(const liborc::Type* type, liborc::ColumnVectorBatch* cbatch,
@@ -415,10 +415,12 @@ Status GetArrowType(const liborc::Type* type, std::shared_ptr<DataType>* out) {
         fields.push_back(field("_union_" + std::to_string(child), elemtype));
         type_codes.push_back(static_cast<int8_t>(child));
       }
-      *out = union_(fields, type_codes);
+      *out = sparse_union(fields, type_codes);
       break;
     }
-    default: { return Status::Invalid("Unknown Orc type kind: ", kind); }
+    default: {
+      return Status::Invalid("Unknown Orc type kind: ", kind);
+    }
   }
   return Status::OK();
 }

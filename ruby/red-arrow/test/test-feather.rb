@@ -18,17 +18,32 @@
 class FeatherTest < Test::Unit::TestCase
   include Helper::Fixture
 
-  def test_save_load
+  def setup
     columns = {
       "message" => Arrow::StringArray.new(["Start", "Crash", "Shutdown"]),
       "is_critical" => Arrow::BooleanArray.new([false, true, false]),
     }
-    table = Arrow::Table.new(columns)
+    @table = Arrow::Table.new(columns)
 
-    output = Tempfile.new(["red-arrow", ".feather"])
-    table.save(output.path)
-    output.close
+    @output = Tempfile.new(["red-arrow", ".feather"])
+    begin
+      yield(@output)
+    ensure
+      @output.close!
+    end
+  end
 
-    assert_equal(table, Arrow::Table.load(output.path))
+  def test_default
+    @table.save(@output.path)
+    @output.close
+
+    assert_equal(@table, Arrow::Table.load(@output.path))
+  end
+
+  def test_compression
+    @table.save(@output.path, compression: :zstd)
+    @output.close
+
+    assert_equal(@table, Arrow::Table.load(@output.path))
   end
 end

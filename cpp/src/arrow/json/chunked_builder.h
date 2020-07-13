@@ -21,20 +21,11 @@
 #include <vector>
 
 #include "arrow/status.h"
+#include "arrow/type_fwd.h"
+#include "arrow/util/type_fwd.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
-
-namespace internal {
-class TaskGroup;
-}  // namespace internal
-
-class Array;
-class MemoryPool;
-class DataType;
-class Field;
-class ChunkedArray;
-
 namespace json {
 
 class PromotionGraph;

@@ -18,14 +18,8 @@
 #include "arrow/array/builder_dict.h"
 
 #include <cstdint>
-#include <limits>
-#include <type_traits>
-#include <utility>
-#include <vector>
 
-#include "arrow/array.h"
 #include "arrow/array/dict_internal.h"
-#include "arrow/buffer.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"

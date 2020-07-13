@@ -16,8 +16,8 @@
 # under the License.
 
 #' @importFrom R6 R6Class
-#' @importFrom purrr map map_int map_lgl map_chr map2
-#' @importFrom assertthat assert_that
+#' @importFrom purrr as_mapper map map2 map_chr map_dfr map_int map_lgl
+#' @importFrom assertthat assert_that is.string
 #' @importFrom rlang list2 %||% is_false abort dots_n warn enquo quo_is_null enquos is_integerish quos eval_tidy new_data_mask syms env env_bind as_label set_names
 #' @importFrom Rcpp sourceCpp
 #' @importFrom tidyselect vars_select
@@ -39,10 +39,16 @@
       s3_register(m, cl)
     }
   }
+
+  s3_register("dplyr::tbl_vars", "arrow_dplyr_query")
   s3_register("reticulate::py_to_r", "pyarrow.lib.Array")
   s3_register("reticulate::py_to_r", "pyarrow.lib.RecordBatch")
+  s3_register("reticulate::py_to_r", "pyarrow.lib.ChunkedArray")
+  s3_register("reticulate::py_to_r", "pyarrow.lib.Table")
   s3_register("reticulate::r_to_py", "Array")
   s3_register("reticulate::r_to_py", "RecordBatch")
+  s3_register("reticulate::r_to_py", "ChunkedArray")
+  s3_register("reticulate::r_to_py", "Table")
   invisible()
 }
 
@@ -69,7 +75,7 @@ ArrowObject <- R6Class("ArrowObject",
   public = list(
     initialize = function(xp) self$set_pointer(xp),
 
-    pointer = function() self$`.:xp:.`,
+    pointer = function() get(".:xp:.", envir = self),
     `.:xp:.` = NULL,
     set_pointer = function(xp) {
       if (!inherits(xp, "externalptr")) {
@@ -81,8 +87,14 @@ ArrowObject <- R6Class("ArrowObject",
       }
       assign(".:xp:.", xp, envir = self)
     },
-    print = function(...){
-      cat(class(self)[[1]], "\n", sep = "")
+    print = function(...) {
+      if (!is.null(self$.class_title)) {
+        # Allow subclasses to override just printing the class name first
+        class_title <- self$.class_title()
+      } else {
+        class_title <- class(self)[[1]]
+      }
+      cat(class_title, "\n", sep = "")
       if (!is.null(self$ToString)){
         cat(self$ToString(), "\n", sep = "")
       }

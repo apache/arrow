@@ -37,12 +37,7 @@ automatically installed by the build.
 Memory Pools
 ============
 
-We provide a default memory pool with ``arrow::default_memory_pool()``. As a
-matter of convenience, some of the array builder classes have constructors
-which use the default pool without explicitly passing it. One can override the
-default optional memory pool by defining the ``ARROW_MEMORY_POOL_DEFAULT``
-macro to an assignment of a global function,
-e.g. ``= my_default_memory_pool()``.
+We provide a default memory pool with ``arrow::default_memory_pool()``.
 
 Error Handling and Exceptions
 =============================

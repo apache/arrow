@@ -20,29 +20,33 @@
 set -e
 
 export ARROW_TEST_DATA=/arrow/testing/data
+export PYARROW_TEST_CYTHON=OFF
 
 python --version
 # Install built wheel
 pip install -q /arrow/python/$WHEEL_DIR/dist/*.whl
-# Install test dependencies (pip won't work after removing system zlib)
-pip install -q -r /arrow/python/requirements-test.txt
+# Install test dependencies
+pip install -q -r /arrow/python/requirements-wheel-test.txt
 # Run pyarrow tests
 pytest -rs --pyargs pyarrow
 
 if [[ "$1" == "--remove-system-libs" ]]; then
   # Run import tests after removing the bundled dependencies from the system
+  # (be careful not to remove libz.so, required for some Python stdlib modules)
   echo "Removing the following libraries to fail loudly if they are bundled incorrectly:"
-  ldconfig -p | grep "lib\(lz4\|z\|boost\)" | awk -F'> ' '{print $2}' | xargs rm -v -f
+  ldconfig -p | grep "lib\(bz2\|lz4\|z[^.]\|boost\)" | awk -F'> ' '{print $2}' | sort | xargs rm -v -f
 fi
 
 # Test import and optional dependencies
 python -c "
 import pyarrow
-import pyarrow.parquet
-import pyarrow.plasma
-import pyarrow.fs
-import pyarrow._hdfs
+import pyarrow.csv
 import pyarrow.dataset
 import pyarrow.flight
-import pyarrow.gandiva
+import pyarrow.fs
+import pyarrow._hdfs
+import pyarrow.json
+import pyarrow.parquet
+import pyarrow.plasma
+import pyarrow._s3fs
 "

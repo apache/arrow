@@ -28,11 +28,13 @@
 ## How to build .deb packages
 
 ```console
+% rake version:update
 % rake apt
 ```
 
 ## How to build .rpm packages
 
 ```console
+% rake version:update
 % rake yum
 ```

@@ -26,11 +26,10 @@ namespace Apache.Arrow
         /// <returns>ISO 8601 offset string</returns>
         public static string ToTimeZoneOffsetString(this TimeSpan timeSpan)
         {
-            var sign = timeSpan.Hours >= 0 ? "+" : "-";
-            var hours = Math.Abs(timeSpan.Hours);
-            var minutes = Math.Abs(timeSpan.Minutes);
+            string sign = timeSpan.Hours >= 0 ? "+" : "-";
+            int hours = Math.Abs(timeSpan.Hours);
+            int minutes = Math.Abs(timeSpan.Minutes);
             return sign + hours.ToString("00") + ":" + minutes.ToString("00");
         }
-           
     }
 }

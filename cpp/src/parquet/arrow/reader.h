@@ -46,6 +46,7 @@ namespace arrow {
 
 class ColumnChunkReader;
 class ColumnReader;
+struct SchemaManifest;
 class RowGroupReader;
 
 /// \brief Arrow read adapter class for deserializing Parquet files as Arrow row batches.
@@ -149,9 +150,16 @@ class PARQUET_EXPORT FileReader {
   virtual ::arrow::Status ReadSchemaField(
       int i, std::shared_ptr<::arrow::ChunkedArray>* out) = 0;
 
-  /// \brief Return a RecordBatchReader of row groups selected from row_group_indices, the
-  ///    ordering in row_group_indices matters.
-  /// \returns error Status if row_group_indices contains invalid index
+  /// \brief Return a RecordBatchReader of row groups selected from row_group_indices.
+  ///
+  /// Note that the ordering in row_group_indices matters. Each row group will
+  /// held in memory until each slice has been yielded as a RecordBatch, at
+  /// which point the next row group will be loaded. FileReaders must outlive
+  /// their RecordBatchReaders. NOTE: in the future we would like to avoid
+  /// materializing the entire row group in memory before yielding chunks of it
+  /// in this interface, thus reducing memory use.
+  ///
+  /// \returns error Status if row_group_indices contains an invalid index
   virtual ::arrow::Status GetRecordBatchReader(
       const std::vector<int>& row_group_indices,
       std::unique_ptr<::arrow::RecordBatchReader>* out) = 0;
@@ -160,10 +168,18 @@ class PARQUET_EXPORT FileReader {
                                        std::shared_ptr<::arrow::RecordBatchReader>* out);
 
   /// \brief Return a RecordBatchReader of row groups selected from
-  ///     row_group_indices, whose columns are selected by column_indices. The
-  ///     ordering in row_group_indices and column_indices matter.
+  /// row_group_indices, whose columns are selected by column_indices.
+  ///
+  /// Note that the ordering in row_group_indices and column_indices
+  /// matter. Each row group will held in memory until each slice has been
+  /// yielded as a RecordBatch, at which point the next row group will be
+  /// loaded. FileReaders must outlive their RecordBatchReaders. NOTE: in the
+  /// future we would like to avoid materializing the entire row group in
+  /// memory before yielding chunks of it in this interface, thus reducing
+  /// memory use.
+  ///
   /// \returns error Status if either row_group_indices or column_indices
-  ///    contains invalid index
+  ///     contains an invalid index
   virtual ::arrow::Status GetRecordBatchReader(
       const std::vector<int>& row_group_indices, const std::vector<int>& column_indices,
       std::unique_ptr<::arrow::RecordBatchReader>* out) = 0;
@@ -210,6 +226,10 @@ class PARQUET_EXPORT FileReader {
   /// Set whether to use multiple threads during reads of multiple columns.
   /// By default only one thread is used.
   virtual void set_use_threads(bool use_threads) = 0;
+
+  virtual const ArrowReaderProperties& properties() const = 0;
+
+  virtual const SchemaManifest& manifest() const = 0;
 
   virtual ~FileReader() = default;
 };
@@ -291,21 +311,6 @@ class PARQUET_EXPORT FileReaderBuilder {
 PARQUET_EXPORT
 ::arrow::Status OpenFile(std::shared_ptr<::arrow::io::RandomAccessFile>,
                          ::arrow::MemoryPool* allocator,
-                         std::unique_ptr<FileReader>* reader);
-
-ARROW_DEPRECATED("Deprecated since 0.15.0. Use FileReaderBuilder")
-PARQUET_EXPORT
-::arrow::Status OpenFile(std::shared_ptr<::arrow::io::RandomAccessFile> file,
-                         ::arrow::MemoryPool* allocator,
-                         const ReaderProperties& properties,
-                         std::shared_ptr<FileMetaData> metadata,
-                         std::unique_ptr<FileReader>* reader);
-
-ARROW_DEPRECATED("Deprecated since 0.15.0. Use FileReaderBuilder")
-PARQUET_EXPORT
-::arrow::Status OpenFile(std::shared_ptr<::arrow::io::RandomAccessFile> file,
-                         ::arrow::MemoryPool* allocator,
-                         const ArrowReaderProperties& properties,
                          std::unique_ptr<FileReader>* reader);
 
 /// @}

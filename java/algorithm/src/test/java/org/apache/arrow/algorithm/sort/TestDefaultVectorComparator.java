@@ -23,12 +23,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.SmallIntVector;
+import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.UInt1Vector;
 import org.apache.arrow.vector.UInt2Vector;
 import org.apache.arrow.vector.UInt4Vector;
 import org.apache.arrow.vector.UInt8Vector;
 import org.apache.arrow.vector.complex.ListVector;
+import org.apache.arrow.vector.testing.ValueVectorDataPopulator;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.junit.After;
@@ -170,18 +174,12 @@ public class TestDefaultVectorComparator {
   public void testCompareUInt2() {
     try (UInt2Vector vec = new UInt2Vector("", allocator)) {
       vec.allocateNew(10);
-      vec.setValueCount(10);
 
-      vec.setNull(0);
-      vec.set(1, -2);
-      vec.set(2, -1);
-      vec.set(3, 0);
-      vec.set(4, 1);
-      vec.set(5, 2);
-      vec.set(6, -2);
-      vec.setNull(7);
-      vec.set(8, Short.MAX_VALUE);
-      vec.set(9, Short.MIN_VALUE);
+      ValueVectorDataPopulator.setVector(
+          vec, null, (char) -2, (char) -1, (char) 0, (char) 1, (char) 2, (char) -2, null,
+          '\u7FFF', // value for the max 16-byte signed integer
+          '\u8000' // value for the min 16-byte signed integer
+      );
 
       VectorValueComparator<UInt2Vector> comparator =
               DefaultVectorComparators.createDefaultComparator(vec);
@@ -268,6 +266,128 @@ public class TestDefaultVectorComparator {
       assertTrue(comparator.compare(4, 8) < 0);
       assertTrue(comparator.compare(5, 9) < 0);
       assertTrue(comparator.compare(2, 9) > 0);
+    }
+  }
+
+  @Test
+  public void testCompareLong() {
+    try (BigIntVector vec = new BigIntVector("", allocator)) {
+      vec.allocateNew(8);
+      ValueVectorDataPopulator.setVector(
+          vec, -1L, 0L, 1L, null, 1L, 5L, Long.MIN_VALUE + 1L, Long.MAX_VALUE);
+
+      VectorValueComparator<BigIntVector> comparator =
+          DefaultVectorComparators.createDefaultComparator(vec);
+      comparator.attachVector(vec);
+
+      assertTrue(comparator.compare(0, 1) < 0);
+      assertTrue(comparator.compare(0, 2) < 0);
+      assertTrue(comparator.compare(2, 1) > 0);
+
+      // test equality
+      assertTrue(comparator.compare(5, 5) == 0);
+      assertTrue(comparator.compare(2, 4) == 0);
+
+      // null first
+      assertTrue(comparator.compare(3, 4) < 0);
+      assertTrue(comparator.compare(5, 3) > 0);
+
+      // potential overflow
+      assertTrue(comparator.compare(6, 7) < 0);
+      assertTrue(comparator.compare(7, 6) > 0);
+      assertTrue(comparator.compare(7, 7) == 0);
+    }
+  }
+
+  @Test
+  public void testCompareInt() {
+    try (IntVector vec = new IntVector("", allocator)) {
+      vec.allocateNew(8);
+      ValueVectorDataPopulator.setVector(
+          vec, -1, 0, 1, null, 1, 5, Integer.MIN_VALUE + 1, Integer.MAX_VALUE);
+
+      VectorValueComparator<IntVector> comparator =
+          DefaultVectorComparators.createDefaultComparator(vec);
+      comparator.attachVector(vec);
+
+      assertTrue(comparator.compare(0, 1) < 0);
+      assertTrue(comparator.compare(0, 2) < 0);
+      assertTrue(comparator.compare(2, 1) > 0);
+
+      // test equality
+      assertTrue(comparator.compare(5, 5) == 0);
+      assertTrue(comparator.compare(2, 4) == 0);
+
+      // null first
+      assertTrue(comparator.compare(3, 4) < 0);
+      assertTrue(comparator.compare(5, 3) > 0);
+
+      // potential overflow
+      assertTrue(comparator.compare(6, 7) < 0);
+      assertTrue(comparator.compare(7, 6) > 0);
+      assertTrue(comparator.compare(7, 7) == 0);
+    }
+  }
+
+  @Test
+  public void testCompareShort() {
+    try (SmallIntVector vec = new SmallIntVector("", allocator)) {
+      vec.allocateNew(8);
+      ValueVectorDataPopulator.setVector(
+          vec, (short) -1, (short) 0, (short) 1, null, (short) 1, (short) 5,
+          (short) (Short.MIN_VALUE + 1), Short.MAX_VALUE);
+
+      VectorValueComparator<SmallIntVector> comparator =
+          DefaultVectorComparators.createDefaultComparator(vec);
+      comparator.attachVector(vec);
+
+      assertTrue(comparator.compare(0, 1) < 0);
+      assertTrue(comparator.compare(0, 2) < 0);
+      assertTrue(comparator.compare(2, 1) > 0);
+
+      // test equality
+      assertTrue(comparator.compare(5, 5) == 0);
+      assertTrue(comparator.compare(2, 4) == 0);
+
+      // null first
+      assertTrue(comparator.compare(3, 4) < 0);
+      assertTrue(comparator.compare(5, 3) > 0);
+
+      // potential overflow
+      assertTrue(comparator.compare(6, 7) < 0);
+      assertTrue(comparator.compare(7, 6) > 0);
+      assertTrue(comparator.compare(7, 7) == 0);
+    }
+  }
+
+  @Test
+  public void testCompareByte() {
+    try (TinyIntVector vec = new TinyIntVector("", allocator)) {
+      vec.allocateNew(8);
+      ValueVectorDataPopulator.setVector(
+          vec, (byte) -1, (byte) 0, (byte) 1, null, (byte) 1, (byte) 5,
+          (byte) (Byte.MIN_VALUE + 1), Byte.MAX_VALUE);
+
+      VectorValueComparator<TinyIntVector> comparator =
+          DefaultVectorComparators.createDefaultComparator(vec);
+      comparator.attachVector(vec);
+
+      assertTrue(comparator.compare(0, 1) < 0);
+      assertTrue(comparator.compare(0, 2) < 0);
+      assertTrue(comparator.compare(2, 1) > 0);
+
+      // test equality
+      assertTrue(comparator.compare(5, 5) == 0);
+      assertTrue(comparator.compare(2, 4) == 0);
+
+      // null first
+      assertTrue(comparator.compare(3, 4) < 0);
+      assertTrue(comparator.compare(5, 3) > 0);
+
+      // potential overflow
+      assertTrue(comparator.compare(6, 7) < 0);
+      assertTrue(comparator.compare(7, 6) > 0);
+      assertTrue(comparator.compare(7, 7) == 0);
     }
   }
 }

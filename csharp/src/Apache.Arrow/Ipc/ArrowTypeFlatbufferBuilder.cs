@@ -112,7 +112,7 @@ namespace Apache.Arrow.Ipc
             public void Visit(StringType type)
             {
                 Flatbuf.Utf8.StartUtf8(Builder);
-                var offset = Flatbuf.Utf8.EndUtf8(Builder);
+                Offset<Utf8> offset = Flatbuf.Utf8.EndUtf8(Builder);
                 Result = FieldType.Build(
                     Flatbuf.Type.Utf8, offset);
             }

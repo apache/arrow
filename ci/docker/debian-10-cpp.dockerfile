@@ -18,14 +18,27 @@
 ARG arch=amd64
 FROM ${arch}/debian:10
 
-# install build essentials
-RUN export DEBIAN_FRONTEND=noninteractive && \
+ENV DEBIAN_FRONTEND noninteractive
+
+RUN \
+  echo "deb http://deb.debian.org/debian buster-backports main" > \
+    /etc/apt/sources.list.d/backports.list
+
+ARG llvm
+RUN apt-get update -y -q && \
+     apt-get install -y -q --no-install-recommends \
+        apt-transport-https \
+        ca-certificates \
+        gnupg \
+        wget && \
+    wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
+    echo "deb https://apt.llvm.org/buster/ llvm-toolchain-buster-${llvm} main" > \
+        /etc/apt/sources.list.d/llvm.list && \
     apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
         autoconf \
-        ca-certificates \
         ccache \
-        clang-7 \
+        clang-${llvm} \
         cmake \
         g++ \
         gcc \
@@ -45,16 +58,16 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
         libsnappy-dev \
         libssl-dev \
         libthrift-dev \
+        libutf8proc-dev \
         libzstd-dev \
-        llvm-7-dev \
+        llvm-${llvm}-dev \
         make \
         ninja-build \
         pkg-config \
         protobuf-compiler \
         rapidjson-dev \
         tzdata \
-        zlib1g-dev \
-        wget && \
+        zlib1g-dev && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 

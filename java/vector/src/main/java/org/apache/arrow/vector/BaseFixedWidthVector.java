@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.util.ArrowBufPointer;
 import org.apache.arrow.memory.util.ByteFunctionHelpers;
@@ -36,7 +37,6 @@ import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.OversizedAllocationException;
 import org.apache.arrow.vector.util.TransferPair;
 
-import io.netty.buffer.ArrowBuf;
 import io.netty.util.internal.PlatformDependent;
 
 /**
@@ -389,7 +389,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
    *
    * @param clear Whether to clear vector before returning; the buffers will still be refcounted
    *              but the returned array will be the only reference to them
-   * @return The underlying {@link io.netty.buffer.ArrowBuf buffers} that is used by this
+   * @return The underlying {@link ArrowBuf buffers} that is used by this
    *         vector instance.
    */
   @Override
@@ -525,7 +525,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
         /* specialized handling for BitVector */
         valueBuffer.writerIndex(getValidityBufferSizeFromCount(valueCount));
       } else {
-        valueBuffer.writerIndex(valueCount * typeWidth);
+        valueBuffer.writerIndex((long) valueCount * typeWidth);
       }
     }
   }
@@ -584,10 +584,8 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
    */
   public void splitAndTransferTo(int startIndex, int length,
                                  BaseFixedWidthVector target) {
-    Preconditions.checkArgument(startIndex >= 0 && startIndex < valueCount,
-        "Invalid startIndex: %s", startIndex);
-    Preconditions.checkArgument(startIndex + length <= valueCount,
-        "Invalid length: %s", length);
+    Preconditions.checkArgument(startIndex >= 0 && length >= 0 && startIndex + length <= valueCount,
+        "Invalid parameters startIndex: %s, length: %s for valueCount: %s", startIndex, length, valueCount);
     compareTypes(target, "splitAndTransferTo");
     target.clear();
     splitAndTransferValidityBuffer(startIndex, length, target);
@@ -837,8 +835,8 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
       BitVectorHelper.unsetBit(this.getValidityBuffer(), thisIndex);
     } else {
       BitVectorHelper.setBit(this.getValidityBuffer(), thisIndex);
-      PlatformDependent.copyMemory(from.getDataBuffer().memoryAddress() + fromIndex * typeWidth,
-              this.getDataBuffer().memoryAddress() + thisIndex * typeWidth, typeWidth);
+      PlatformDependent.copyMemory(from.getDataBuffer().memoryAddress() + (long) fromIndex * typeWidth,
+              this.getDataBuffer().memoryAddress() + (long) thisIndex * typeWidth, typeWidth);
     }
   }
 
@@ -880,7 +878,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
     if (isNull(index)) {
       reuse.set(null, 0, 0);
     } else {
-      reuse.set(valueBuffer, index * typeWidth, typeWidth);
+      reuse.set(valueBuffer, (long) index * typeWidth, typeWidth);
     }
     return reuse;
   }
@@ -895,8 +893,8 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
     if (isNull(index)) {
       return ArrowBufPointer.NULL_HASH_CODE;
     }
-    int start = typeWidth * index;
-    int end = typeWidth * (index + 1);
+    long start = (long) typeWidth * index;
+    long end = (long) typeWidth * (index + 1);
     return ByteFunctionHelpers.hash(hasher, this.getDataBuffer(), start, end);
   }
 

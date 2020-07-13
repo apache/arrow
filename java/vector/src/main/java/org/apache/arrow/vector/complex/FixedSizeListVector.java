@@ -29,11 +29,12 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 
-import org.apache.arrow.memory.BaseAllocator;
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
 import org.apache.arrow.memory.util.ArrowBufPointer;
 import org.apache.arrow.memory.util.ByteFunctionHelpers;
+import org.apache.arrow.memory.util.CommonUtil;
 import org.apache.arrow.memory.util.hash.ArrowBufHasher;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.AddOrGetResult;
@@ -57,8 +58,6 @@ import org.apache.arrow.vector.util.JsonStringArrayList;
 import org.apache.arrow.vector.util.OversizedAllocationException;
 import org.apache.arrow.vector.util.SchemaChangeRuntimeException;
 import org.apache.arrow.vector.util.TransferPair;
-
-import io.netty.buffer.ArrowBuf;
 
 /** A ListVector where every list value is of the same size. */
 public class FixedSizeListVector extends BaseValueVector implements BaseListVector, PromotableVector {
@@ -249,14 +248,16 @@ public class FixedSizeListVector extends BaseValueVector implements BaseListVect
 
   private void reallocValidityBuffer() {
     final int currentBufferCapacity = checkedCastToInt(validityBuffer.capacity());
-    long baseSize = validityAllocationSizeInBytes;
-
-    if (baseSize < (long) currentBufferCapacity) {
-      baseSize = (long) currentBufferCapacity;
+    long newAllocationSize = currentBufferCapacity * 2;
+    if (newAllocationSize == 0) {
+      if (validityAllocationSizeInBytes > 0) {
+        newAllocationSize = validityAllocationSizeInBytes;
+      } else {
+        newAllocationSize = getValidityBufferSizeFromCount(INITIAL_VALUE_ALLOCATION) * 2;
+      }
     }
 
-    long newAllocationSize = baseSize * 2L;
-    newAllocationSize = BaseAllocator.nextPowerOfTwo(newAllocationSize);
+    newAllocationSize = CommonUtil.nextPowerOfTwo(newAllocationSize);
     assert newAllocationSize >= 1;
 
     if (newAllocationSize > MAX_ALLOCATION_SIZE) {
@@ -590,10 +591,8 @@ public class FixedSizeListVector extends BaseValueVector implements BaseListVect
 
     @Override
     public void splitAndTransfer(int startIndex, int length) {
-      Preconditions.checkArgument(startIndex >= 0 && startIndex < valueCount,
-          "Invalid startIndex: %s", startIndex);
-      Preconditions.checkArgument(startIndex + length <= valueCount,
-          "Invalid length: %s", length);
+      Preconditions.checkArgument(startIndex >= 0 && length >= 0 && startIndex + length <= valueCount,
+          "Invalid parameters startIndex: %s, length: %s for valueCount: %s", startIndex, length, valueCount);
       final int startPoint = listSize * startIndex;
       final int sliceLength = listSize * length;
       to.clear();

@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_PYTHON_HELPERS_H
-#define ARROW_PYTHON_HELPERS_H
+#pragma once
 
 #include "arrow/python/platform.h"
 
@@ -68,6 +67,10 @@ Status ImportFromModule(PyObject* module, const std::string& name, OwnedRef* ref
 
 // \brief Check whether obj is an integer, independent of Python versions.
 inline bool IsPyInteger(PyObject* obj) { return PyLong_Check(obj); }
+
+// \brief Import symbols from pandas that we need for various type-checking,
+// like pandas.NaT or pandas.NA
+void InitPandasStaticData();
 
 // \brief Use pandas missing value semantics to check if a value is null
 ARROW_PYTHON_EXPORT
@@ -140,5 +143,3 @@ void DebugPrint(PyObject* obj);
 }  // namespace internal
 }  // namespace py
 }  // namespace arrow
-
-#endif  // ARROW_PYTHON_HELPERS_H

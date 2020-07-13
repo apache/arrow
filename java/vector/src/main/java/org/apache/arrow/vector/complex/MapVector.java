@@ -112,7 +112,7 @@ public class MapVector extends ListVector {
     if (reader == null) {
       reader = new UnionMapReader(this);
     }
-    return (UnionMapReader)reader;
+    return (UnionMapReader) reader;
   }
 
   @Override

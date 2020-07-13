@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+add_custom_target(arrow_compute)
+
 arrow_install_all_headers("arrow/compute")
 
 # pkg-config support
@@ -24,9 +26,43 @@ arrow_add_pkg_config("arrow-compute")
 # Unit tests
 #
 
-add_arrow_test(compute_test)
-add_arrow_test(expression_test PREFIX "arrow-compute")
-add_arrow_test(operations/operations_test PREFIX "arrow-compute")
-add_arrow_benchmark(compute_benchmark)
+function(ADD_ARROW_COMPUTE_TEST REL_TEST_NAME)
+  set(options)
+  set(one_value_args PREFIX)
+  set(multi_value_args LABELS)
+  cmake_parse_arguments(ARG
+                        "${options}"
+                        "${one_value_args}"
+                        "${multi_value_args}"
+                        ${ARGN})
+
+  if(ARG_PREFIX)
+    set(PREFIX ${ARG_PREFIX})
+  else()
+    set(PREFIX "arrow-compute")
+  endif()
+
+  if(ARG_LABELS)
+    set(LABELS ${ARG_LABELS})
+  else()
+    set(LABELS "arrow_compute")
+  endif()
+
+  add_arrow_test(${REL_TEST_NAME}
+                 EXTRA_LINK_LIBS
+                 ${ARROW_DATASET_TEST_LINK_LIBS}
+                 PREFIX
+                 ${PREFIX}
+                 LABELS
+                 ${LABELS}
+                 ${ARG_UNPARSED_ARGUMENTS})
+endfunction()
+
+add_arrow_compute_test(internals_test
+                       SOURCES
+                       function_test.cc
+                       exec_test.cc
+                       kernel_test.cc
+                       registry_test.cc)
 
 add_subdirectory(kernels)

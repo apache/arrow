@@ -4,18 +4,47 @@
 \alias{write_feather}
 \title{Write data in the Feather format}
 \usage{
-write_feather(x, sink)
+write_feather(
+  x,
+  sink,
+  version = 2,
+  chunk_size = 65536L,
+  compression = c("default", "lz4", "uncompressed", "zstd"),
+  compression_level = NULL
+)
 }
 \arguments{
-\item{x}{\code{data.frame} or RecordBatch}
+\item{x}{\code{data.frame}, \link{RecordBatch}, or \link{Table}}
 
-\item{sink}{A file path or an OutputStream}
+\item{sink}{A string file path or \link{OutputStream}}
+
+\item{version}{integer Feather file version. Version 2 is the current.
+Version 1 is the more limited legacy format.}
+
+\item{chunk_size}{For V2 files, the number of rows that each chunk of data
+should have in the file. Use a smaller \code{chunk_size} when you need faster
+random row access. Default is 64K. This option is not supported for V1.}
+
+\item{compression}{Name of compression codec to use, if any. Default is
+"lz4" if LZ4 is available in your build of the Arrow C++ library, otherwise
+"uncompressed". "zstd" is the other available codec and generally has better
+compression ratios in exchange for slower read and write performance
+See \code{\link[=codec_is_available]{codec_is_available()}}. This option is not supported for V1.}
+
+\item{compression_level}{If \code{compression} is "zstd", you may
+specify an integer compression level. If omitted, the compression codec's
+default compression level is used.}
 }
 \value{
-the input \code{x} invisibly.
+The input \code{x}, invisibly. Note that if \code{sink} is an \link{OutputStream},
+the stream will be left open.
 }
 \description{
-Write data in the Feather format
+Feather provides binary columnar serialization for data frames.
+It is designed to make reading and writing data frames efficient,
+and to make sharing data across data analysis languages easy.
+This function writes both the original, limited specification of the format
+and the version 2 specification, which is the Apache Arrow IPC file format.
 }
 \examples{
 \donttest{
@@ -23,4 +52,7 @@ tf <- tempfile()
 on.exit(unlink(tf))
 write_feather(mtcars, tf)
 }
+}
+\seealso{
+\link{RecordBatchWriter} for lower-level access to writing Arrow IPC data.
 }

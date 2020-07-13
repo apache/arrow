@@ -25,10 +25,12 @@ add_arrow_test(filesystem-test
                SOURCES
                filesystem_test.cc
                localfs_test.cc
-               path_forest_test.cc)
+               path_forest_test.cc
+               EXTRA_LABELS
+               filesystem)
 
 if(ARROW_S3)
-  add_arrow_test(s3fs_test)
+  add_arrow_test(s3fs_test EXTRA_LABELS filesystem)
 
   if(ARROW_BUILD_TESTS)
     add_executable(arrow-s3fs-narrative-test s3fs_narrative_test.cc)
@@ -36,8 +38,17 @@ if(ARROW_S3)
                           ${GFLAGS_LIBRARIES} GTest::gtest)
     add_dependencies(arrow-tests arrow-s3fs-narrative-test)
   endif()
+
+  if(ARROW_BUILD_BENCHMARKS AND ARROW_PARQUET)
+    add_arrow_benchmark(s3fs_benchmark PREFIX "arrow-filesystem")
+    if(ARROW_TEST_LINKAGE STREQUAL "static")
+      target_link_libraries(arrow-filesystem-s3fs-benchmark PRIVATE parquet_static)
+    else()
+      target_link_libraries(arrow-filesystem-s3fs-benchmark PRIVATE parquet_shared)
+    endif()
+  endif()
 endif()
 
 if(ARROW_HDFS)
-  add_arrow_test(hdfs_test)
+  add_arrow_test(hdfs_test EXTRA_LABELS filesystem)
 endif()

@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_UTIL_TYPE_TRAITS_H
-#define ARROW_UTIL_TYPE_TRAITS_H
+#pragma once
 
 #include <type_traits>
 
@@ -44,5 +43,3 @@ struct is_null_pointer : std::is_same<std::nullptr_t, typename std::remove_cv<T>
 
 }  // namespace internal
 }  // namespace arrow
-
-#endif  // ARROW_UTIL_TYPE_TRAITS_H

@@ -16,19 +16,30 @@
 # specific language governing permissions and limitations
 # under the License.
 
+LLVM_VERSION_MAJOR=$1
+
 source /multibuild/manylinux_utils.sh
 
-LLVM_VERSION="7.0.1"
-PREFIX="/usr/local"
+detect_llvm_version() {
+  curl -sL https://api.github.com/repos/llvm/llvm-project/releases | \
+    grep tag_name | \
+    grep -o "llvmorg-${LLVM_VERSION_MAJOR}[^\"]*" | \
+    grep -v rc | \
+    sed -e "s/^llvmorg-//g" | \
+    head -n 1
+}
 
-curl -sL https://releases.llvm.org/${LLVM_VERSION}/llvm-${LLVM_VERSION}.src.tar.xz -o llvm-${LLVM_VERSION}.src.tar.xz
+LLVM_VERSION=$(detect_llvm_version)
+
+curl -sL https://github.com/llvm/llvm-project/releases/download/llvmorg-${LLVM_VERSION}/llvm-${LLVM_VERSION}.src.tar.xz -o llvm-${LLVM_VERSION}.src.tar.xz
 unxz llvm-${LLVM_VERSION}.src.tar.xz
 tar xf llvm-${LLVM_VERSION}.src.tar
 pushd llvm-${LLVM_VERSION}.src
 mkdir build
 pushd build
-cmake -DCMAKE_INSTALL_PREFIX=$PREFIX \
+cmake \
     -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX=/usr \
     -DLLVM_TARGETS_TO_BUILD=host \
     -DLLVM_INCLUDE_DOCS=OFF \
     -DLLVM_INCLUDE_EXAMPLES=OFF \
@@ -39,6 +50,7 @@ cmake -DCMAKE_INSTALL_PREFIX=$PREFIX \
     -DLLVM_ENABLE_RTTI=ON \
     -DLLVM_ENABLE_OCAMLDOC=OFF \
     -DLLVM_USE_INTEL_JITEVENTS=ON \
+    -DLLVM_TEMPORARILY_ALLOW_OLD_TOOLCHAIN=ON \
     -DPYTHON_EXECUTABLE="$(cpython_path 3.6 16)/bin/python" \
     -GNinja \
     ..
@@ -46,3 +58,30 @@ ninja install
 popd
 popd
 rm -rf llvm-${LLVM_VERSION}.src.tar.xz llvm-${LLVM_VERSION}.src.tar llvm-${LLVM_VERSION}.src
+
+
+# clang is only used to precompile Gandiva bitcode
+curl -sL https://github.com/llvm/llvm-project/releases/download/llvmorg-${LLVM_VERSION}/clang-${LLVM_VERSION}.src.tar.xz -o clang-${LLVM_VERSION}.src.tar.xz
+unxz clang-${LLVM_VERSION}.src.tar.xz
+tar xf clang-${LLVM_VERSION}.src.tar
+pushd clang-${LLVM_VERSION}.src
+mkdir build
+pushd build
+cmake \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DCLANG_INCLUDE_TESTS=OFF \
+    -DCLANG_INCLUDE_DOCS=OFF \
+    -DCLANG_ENABLE_ARCMT=OFF \
+    -DCLANG_ENABLE_STATIC_ANALYZER=OFF \
+    -DLLVM_ENABLE_RTTI=ON \
+    -DLLVM_INSTALL_TOOLCHAIN_ONLY=ON \
+    -DLLVM_INCLUDE_TESTS=OFF \
+    -DLLVM_INCLUDE_DOCS=OFF \
+    -DLLVM_TEMPORARILY_ALLOW_OLD_TOOLCHAIN=ON \
+    -GNinja \
+    ..
+ninja -w dupbuild=warn install # both clang and llvm builds generate llvm-config file
+popd
+popd
+rm -rf clang-${LLVM_VERSION}.src.tar.xz clang-${LLVM_VERSION}.src.tar clang-${LLVM_VERSION}.src

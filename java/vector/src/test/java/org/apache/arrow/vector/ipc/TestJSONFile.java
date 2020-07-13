@@ -320,9 +320,9 @@ public class TestJSONFile extends BaseFileTest {
 
   @Test
   public void testSetStructLength() throws IOException {
-    File file = new File("../../integration/data/struct_example.json");
+    File file = new File("../../docs/source/format/integration_json_examples/struct.json");
     if (!file.exists()) {
-      file = new File("../integration/data/struct_example.json");
+      file = new File("../docs/source/format/integration_json_examples/struct.json");
     }
     try (
         BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
@@ -450,7 +450,7 @@ public class TestJSONFile extends BaseFileTest {
       uInt1Vector.setValueCount(3);
       for (int i = 0; i < byteValues.length; i++) {
         uInt1Vector.set(i, byteValues[i]);
-        byte actualValue = (byte) UInt1Vector.getNoOverflow(uInt1Vector.getDataBuffer(),i);
+        byte actualValue = (byte) UInt1Vector.getNoOverflow(uInt1Vector.getDataBuffer(), i);
         assertEquals(byteValues[i], actualValue);
       }
     }

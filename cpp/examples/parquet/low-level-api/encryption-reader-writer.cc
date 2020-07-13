@@ -342,6 +342,7 @@ int main(int argc, char** argv) {
         for (int j = 0; j < 3; j++) {
           assert(value.value[j] == expected_value.value[j]);
         }
+        ARROW_UNUSED(expected_value);  // suppress compiler warning in release builds
         i++;
       }
 
@@ -401,6 +402,7 @@ int main(int argc, char** argv) {
             ba_reader->ReadBatch(1, &definition_level, nullptr, &value, &values_read);
         // Ensure only one value is read
         assert(rows_read == 1);
+        ARROW_UNUSED(rows_read);  // suppress compiler warning in release builds
         // Verify the value written
         char expected_value[FIXED_LENGTH] = "parquet";
         expected_value[7] = static_cast<char>('0' + i / 100);
@@ -417,6 +419,7 @@ int main(int argc, char** argv) {
           assert(values_read == 0);
           assert(definition_level == 0);
         }
+        ARROW_UNUSED(expected_value);  // suppress compiler warning in release builds
         i++;
       }
 

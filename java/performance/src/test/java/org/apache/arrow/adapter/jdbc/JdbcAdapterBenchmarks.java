@@ -29,7 +29,7 @@ import org.apache.arrow.adapter.jdbc.consumer.BitConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.IntConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.JdbcConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.VarCharConsumer;
-import org.apache.arrow.memory.BaseAllocator;
+import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
@@ -77,7 +77,7 @@ public class JdbcAdapterBenchmarks {
 
     private ResultSet resultSet = null;
 
-    private BaseAllocator allocator;
+    private BufferAllocator allocator;
 
     private Statement statement;
 
@@ -140,7 +140,7 @@ public class JdbcAdapterBenchmarks {
 
     private ResultSet resultSet = null;
 
-    private BaseAllocator allocator;
+    private BufferAllocator allocator;
 
     private Statement statement;
 
@@ -242,7 +242,7 @@ public class JdbcAdapterBenchmarks {
 
     private ResultSet resultSet = null;
 
-    private BaseAllocator allocator;
+    private BufferAllocator allocator;
 
     private Statement statement;
 
@@ -255,7 +255,7 @@ public class JdbcAdapterBenchmarks {
     @Setup(Level.Trial)
     public void prepareState() throws Exception {
       allocator = new RootAllocator(Integer.MAX_VALUE);
-      config = new JdbcToArrowConfigBuilder().setAllocator(allocator).setTargetBatchSize(1024).build();
+      config = new JdbcToArrowConfigBuilder().setAllocator(allocator).setTargetBatchSize(VALUE_COUNT).build();
       Class.forName(DRIVER);
       conn = DriverManager.getConnection(URL);
 

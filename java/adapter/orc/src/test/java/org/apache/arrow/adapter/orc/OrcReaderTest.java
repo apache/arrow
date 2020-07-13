@@ -46,7 +46,6 @@ import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
 
-
 public class OrcReaderTest {
 
   @Rule
@@ -89,8 +88,8 @@ public class OrcReaderTest {
     List<FieldVector> fields = schemaRoot.getFieldVectors();
     assertEquals(2, fields.size());
 
-    IntVector intVector = (IntVector)fields.get(0);
-    VarCharVector varCharVector = (VarCharVector)fields.get(1);
+    IntVector intVector = (IntVector) fields.get(0);
+    VarCharVector varCharVector = (VarCharVector) fields.get(1);
     for (int i = 0; i < 1024; ++i) {
       assertEquals(i, intVector.get(i));
       assertEquals("Last-" + (i * 3), new String(varCharVector.get(i), StandardCharsets.UTF_8));

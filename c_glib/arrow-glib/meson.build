@@ -26,6 +26,7 @@ sources = files(
   'codec.cpp',
   'composite-array.cpp',
   'composite-data-type.cpp',
+  'datum.cpp',
   'decimal128.cpp',
   'error.cpp',
   'field.cpp',
@@ -48,6 +49,7 @@ sources += files(
 )
 
 sources += files(
+  'ipc-options.cpp',
   'metadata-version.cpp',
   'reader.cpp',
   'writer.cpp',
@@ -80,6 +82,7 @@ c_headers = files(
   'composite-array.h',
   'composite-data-type.h',
   'data-type.h',
+  'datum.h',
   'decimal128.h',
   'error.h',
   'field.h',
@@ -104,6 +107,7 @@ c_headers += files(
 )
 
 c_headers += files(
+  'ipc-options.h',
   'metadata-version.h',
   'reader.h',
   'writer.h',
@@ -135,6 +139,7 @@ cpp_headers = files(
   'chunked-array.hpp',
   'codec.hpp',
   'data-type.hpp',
+  'datum.hpp',
   'decimal128.hpp',
   'error.hpp',
   'field.hpp',
@@ -157,6 +162,7 @@ cpp_headers += files(
 )
 
 cpp_headers += files(
+  'ipc-options.hpp',
   'metadata-version.hpp',
   'reader.hpp',
   'writer.hpp',
@@ -207,10 +213,20 @@ headers = c_headers + cpp_headers
 install_headers(headers, subdir: meson.project_name())
 
 
+gobject = dependency('gobject-2.0')
+gobject_libdir = gobject.get_variable(pkgconfig: 'libdir')
+# This is for Homebrew. "pkg-config --cflags gio-2.0" includes the
+# "-I$(xcrun --show-sdk-path)/usr/include" flag by zlib.pc. The
+# include path includes the standard C headers such as stdlib.h. It
+# confuses clang++ (/usr/bin/c++).
+gio = cxx.find_library('gio-2.0', dirs: [gobject_libdir], required: false)
+if not gio.found()
+  gio = dependency('gio-2.0')
+endif
 dependencies = [
   arrow,
-  dependency('gobject-2.0'),
-  dependency('gio-2.0'),
+  gobject,
+  gio,
 ]
 libarrow_glib = library('arrow-glib',
                         sources: sources + enums,
@@ -229,7 +245,7 @@ pkgconfig.generate(libarrow_glib,
                    name: 'Apache Arrow GLib',
                    description: 'C API for Apache Arrow based on GLib',
                    version: version,
-                   requires: ['gio-2.0', 'arrow'])
+                   requires: ['gobject-2.0', 'arrow'])
 if have_arrow_orc
   pkgconfig.generate(filebase: 'arrow-orc-glib',
                      name: 'Apache Arrow GLib ORC',

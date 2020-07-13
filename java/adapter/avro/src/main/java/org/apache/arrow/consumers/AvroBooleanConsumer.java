@@ -37,7 +37,7 @@ public class AvroBooleanConsumer extends BaseAvroConsumer<BitVector> {
 
   @Override
   public void consume(Decoder decoder) throws IOException {
-    vector.setSafe(currentIndex, decoder.readBoolean() ? 1 : 0);
+    vector.set(currentIndex, decoder.readBoolean() ? 1 : 0);
     currentIndex++;
   }
 }

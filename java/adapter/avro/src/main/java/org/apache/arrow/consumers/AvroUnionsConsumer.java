@@ -20,6 +20,7 @@ package org.apache.arrow.consumers;
 import java.io.IOException;
 
 import org.apache.arrow.util.AutoCloseables;
+import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.types.Types;
 import org.apache.avro.io.Decoder;
@@ -47,6 +48,7 @@ public class AvroUnionsConsumer extends BaseAvroConsumer<UnionVector> {
   public void consume(Decoder decoder) throws IOException {
     int fieldIndex = decoder.readInt();
 
+    ensureInnerVectorCapacity(currentIndex + 1, fieldIndex);
     Consumer delegate = delegates[fieldIndex];
 
     vector.setType(currentIndex, types[fieldIndex]);
@@ -70,5 +72,15 @@ public class AvroUnionsConsumer extends BaseAvroConsumer<UnionVector> {
       delegates[i].resetValueVector(vector.getChildrenFromFields().get(i));
     }
     return super.resetValueVector(vector);
+  }
+
+  void ensureInnerVectorCapacity(long targetCapacity, int fieldIndex) {
+    ValueVector fieldVector = vector.getChildrenFromFields().get(fieldIndex);
+    if (fieldVector.getMinorType() == Types.MinorType.NULL) {
+      return;
+    }
+    while (fieldVector.getValueCapacity() < targetCapacity) {
+      fieldVector.reAlloc();
+    }
   }
 }

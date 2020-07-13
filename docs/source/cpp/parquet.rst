@@ -150,7 +150,7 @@ StreamWriter
 
 The :class:`StreamWriter` allows for Parquet files to be written using
 standard C++ output operators.  This type-safe approach also ensures
-that rows are written without ommitting fields and allows for new row
+that rows are written without omitting fields and allows for new row
 groups to be created automatically (after certain volume of data) or
 explicitly by using the :type:`EndRowGroup` stream modifier.
 

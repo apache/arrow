@@ -23,6 +23,7 @@
 #include <unordered_set>
 #include <utility>
 
+#include "arrow/io/caching.h"
 #include "arrow/type.h"
 #include "arrow/util/compression.h"
 #include "parquet/encryption.h"
@@ -34,35 +35,56 @@
 
 namespace parquet {
 
+/// Determines use of Parquet Format version >= 2.0.0 logical types. For
+/// example, when writing from Arrow data structures, PARQUET_2_0 will enable
+/// use of INT_* and UINT_* converted types as well as nanosecond timestamps
+/// stored physically as INT64. Since some Parquet implementations do not
+/// support the logical types added in the 2.0.0 format version, if you want to
+/// maximize compatibility of your files you may want to use PARQUET_1_0.
+///
+/// Note that the 2.x format version series also introduced new serialized
+/// data page metadata and on disk data page layout. To enable this, use
+/// ParquetDataPageVersion.
 struct ParquetVersion {
   enum type { PARQUET_1_0, PARQUET_2_0 };
 };
 
-static int64_t DEFAULT_BUFFER_SIZE = 1024;
-static bool DEFAULT_USE_BUFFERED_STREAM = false;
+/// Controls serialization format of data pages.  parquet-format v2.0.0
+/// introduced a new data page metadata type DataPageV2 and serialized page
+/// structure (for example, encoded levels are no longer compressed). Prior to
+/// the completion of PARQUET-457 in 2020, this library did not implement
+/// DataPageV2 correctly, so if you use the V2 data page format, you may have
+/// forward compatibility issues (older versions of the library will be unable
+/// to read the files). Note that some Parquet implementations do not implement
+/// DataPageV2 at all.
+enum class ParquetDataPageVersion { V1, V2 };
+
+/// Align the default buffer size to a small multiple of a page size.
+constexpr int64_t kDefaultBufferSize = 4096 * 4;
 
 class PARQUET_EXPORT ReaderProperties {
  public:
   explicit ReaderProperties(MemoryPool* pool = ::arrow::default_memory_pool())
-      : pool_(pool) {
-    buffered_stream_enabled_ = DEFAULT_USE_BUFFERED_STREAM;
-    buffer_size_ = DEFAULT_BUFFER_SIZE;
-  }
+      : pool_(pool) {}
 
   MemoryPool* memory_pool() const { return pool_; }
 
   std::shared_ptr<ArrowInputStream> GetStream(std::shared_ptr<ArrowInputFile> source,
                                               int64_t start, int64_t num_bytes);
 
+  /// Buffered stream reading allows the user to control the memory usage of
+  /// parquet readers. This ensure that all `RandomAccessFile::ReadAt` calls are
+  /// wrapped in a buffered reader that uses a fix sized buffer (of size
+  /// `buffer_size()`) instead of the full size of the ReadAt.
+  ///
+  /// The primary reason for this control knobs is for resource control and not
+  /// performance.
   bool is_buffered_stream_enabled() const { return buffered_stream_enabled_; }
-
   void enable_buffered_stream() { buffered_stream_enabled_ = true; }
-
   void disable_buffered_stream() { buffered_stream_enabled_ = false; }
 
-  void set_buffer_size(int64_t buf_size) { buffer_size_ = buf_size; }
-
   int64_t buffer_size() const { return buffer_size_; }
+  void set_buffer_size(int64_t size) { buffer_size_ = size; }
 
   void file_decryption_properties(std::shared_ptr<FileDecryptionProperties> decryption) {
     file_decryption_properties_ = std::move(decryption);
@@ -74,8 +96,8 @@ class PARQUET_EXPORT ReaderProperties {
 
  private:
   MemoryPool* pool_;
-  int64_t buffer_size_;
-  bool buffered_stream_enabled_;
+  int64_t buffer_size_ = kDefaultBufferSize;
+  bool buffered_stream_enabled_ = false;
   std::shared_ptr<FileDecryptionProperties> file_decryption_properties_;
 };
 
@@ -89,8 +111,6 @@ static constexpr int64_t DEFAULT_MAX_ROW_GROUP_LENGTH = 64 * 1024 * 1024;
 static constexpr bool DEFAULT_ARE_STATISTICS_ENABLED = true;
 static constexpr int64_t DEFAULT_MAX_STATISTICS_SIZE = 4096;
 static constexpr Encoding::type DEFAULT_ENCODING = Encoding::PLAIN;
-static constexpr ParquetVersion::type DEFAULT_WRITER_VERSION =
-    ParquetVersion::PARQUET_1_0;
 static const char DEFAULT_CREATED_BY[] = CREATED_BY_VERSION;
 static constexpr Compression::type DEFAULT_COMPRESSION_TYPE = Compression::UNCOMPRESSED;
 
@@ -159,7 +179,8 @@ class PARQUET_EXPORT WriterProperties {
           write_batch_size_(DEFAULT_WRITE_BATCH_SIZE),
           max_row_group_length_(DEFAULT_MAX_ROW_GROUP_LENGTH),
           pagesize_(kDefaultDataPageSize),
-          version_(DEFAULT_WRITER_VERSION),
+          version_(ParquetVersion::PARQUET_1_0),
+          data_page_version_(ParquetDataPageVersion::V1),
           created_by_(DEFAULT_CREATED_BY) {}
     virtual ~Builder() {}
 
@@ -213,6 +234,11 @@ class PARQUET_EXPORT WriterProperties {
 
     Builder* data_pagesize(int64_t pg_size) {
       pagesize_ = pg_size;
+      return this;
+    }
+
+    Builder* data_page_version(ParquetDataPageVersion data_page_version) {
+      data_page_version_ = data_page_version;
       return this;
     }
 
@@ -394,7 +420,7 @@ class PARQUET_EXPORT WriterProperties {
       return std::shared_ptr<WriterProperties>(new WriterProperties(
           pool_, dictionary_pagesize_limit_, write_batch_size_, max_row_group_length_,
           pagesize_, version_, created_by_, std::move(file_encryption_properties_),
-          default_column_properties_, column_properties));
+          default_column_properties_, column_properties, data_page_version_));
     }
 
    private:
@@ -404,6 +430,7 @@ class PARQUET_EXPORT WriterProperties {
     int64_t max_row_group_length_;
     int64_t pagesize_;
     ParquetVersion::type version_;
+    ParquetDataPageVersion data_page_version_;
     std::string created_by_;
 
     std::shared_ptr<FileEncryptionProperties> file_encryption_properties_;
@@ -426,6 +453,10 @@ class PARQUET_EXPORT WriterProperties {
   inline int64_t max_row_group_length() const { return max_row_group_length_; }
 
   inline int64_t data_pagesize() const { return pagesize_; }
+
+  inline ParquetDataPageVersion data_page_version() const {
+    return parquet_data_page_version_;
+  }
 
   inline ParquetVersion::type version() const { return parquet_version_; }
 
@@ -498,12 +529,14 @@ class PARQUET_EXPORT WriterProperties {
       const std::string& created_by,
       std::shared_ptr<FileEncryptionProperties> file_encryption_properties,
       const ColumnProperties& default_column_properties,
-      const std::unordered_map<std::string, ColumnProperties>& column_properties)
+      const std::unordered_map<std::string, ColumnProperties>& column_properties,
+      ParquetDataPageVersion data_page_version)
       : pool_(pool),
         dictionary_pagesize_limit_(dictionary_pagesize_limit),
         write_batch_size_(write_batch_size),
         max_row_group_length_(max_row_group_length),
         pagesize_(pagesize),
+        parquet_data_page_version_(data_page_version),
         parquet_version_(version),
         parquet_created_by_(created_by),
         file_encryption_properties_(file_encryption_properties),
@@ -515,6 +548,7 @@ class PARQUET_EXPORT WriterProperties {
   int64_t write_batch_size_;
   int64_t max_row_group_length_;
   int64_t pagesize_;
+  ParquetDataPageVersion parquet_data_page_version_;
   ParquetVersion::type parquet_version_;
   std::string parquet_created_by_;
 
@@ -540,7 +574,9 @@ class PARQUET_EXPORT ArrowReaderProperties {
   explicit ArrowReaderProperties(bool use_threads = kArrowDefaultUseThreads)
       : use_threads_(use_threads),
         read_dict_indices_(),
-        batch_size_(kArrowDefaultBatchSize) {}
+        batch_size_(kArrowDefaultBatchSize),
+        pre_buffer_(false),
+        cache_options_(::arrow::io::CacheOptions::Defaults()) {}
 
   void set_use_threads(bool use_threads) { use_threads_ = use_threads; }
 
@@ -565,10 +601,33 @@ class PARQUET_EXPORT ArrowReaderProperties {
 
   int64_t batch_size() const { return batch_size_; }
 
+  /// Enable read coalescing.
+  ///
+  /// When enabled, the Arrow reader will pre-buffer necessary regions
+  /// of the file in-memory. This is intended to improve performance on
+  /// high-latency filesystems (e.g. Amazon S3).
+  void set_pre_buffer(bool pre_buffer) { pre_buffer_ = pre_buffer; }
+
+  bool pre_buffer() const { return pre_buffer_; }
+
+  /// Set options for read coalescing. This can be used to tune the
+  /// implementation for characteristics of different filesystems.
+  void set_cache_options(::arrow::io::CacheOptions options) { cache_options_ = options; }
+
+  ::arrow::io::CacheOptions cache_options() const { return cache_options_; }
+
+  /// Set execution context for read coalescing.
+  void set_async_context(::arrow::io::AsyncContext ctx) { async_context_ = ctx; }
+
+  ::arrow::io::AsyncContext async_context() const { return async_context_; }
+
  private:
   bool use_threads_;
   std::unordered_set<int> read_dict_indices_;
   int64_t batch_size_;
+  bool pre_buffer_;
+  ::arrow::io::AsyncContext async_context_;
+  ::arrow::io::CacheOptions cache_options_;
 };
 
 /// EXPERIMENTAL: Constructs the default ArrowReaderProperties
@@ -577,6 +636,10 @@ ArrowReaderProperties default_arrow_reader_properties();
 
 class PARQUET_EXPORT ArrowWriterProperties {
  public:
+  enum EngineVersion {
+    V1,  // Supports only nested lists.
+    V2   // Full support for all nesting combinations
+  };
   class Builder {
    public:
     Builder()
@@ -586,8 +649,9 @@ class PARQUET_EXPORT ArrowWriterProperties {
           truncated_timestamps_allowed_(false),
           store_schema_(false),
           // TODO: At some point we should flip this.
-          compliant_nested_types_(false) {}
-    virtual ~Builder() {}
+          compliant_nested_types_(false),
+          engine_version_(V2) {}
+    virtual ~Builder() = default;
 
     Builder* disable_deprecated_int96_timestamps() {
       write_timestamps_as_int96_ = false;
@@ -633,10 +697,16 @@ class PARQUET_EXPORT ArrowWriterProperties {
       return this;
     }
 
+    Builder* set_engine_version(EngineVersion version) {
+      engine_version_ = version;
+      return this;
+    }
+
     std::shared_ptr<ArrowWriterProperties> build() {
       return std::shared_ptr<ArrowWriterProperties>(new ArrowWriterProperties(
           write_timestamps_as_int96_, coerce_timestamps_enabled_, coerce_timestamps_unit_,
-          truncated_timestamps_allowed_, store_schema_, compliant_nested_types_));
+          truncated_timestamps_allowed_, store_schema_, compliant_nested_types_,
+          engine_version_));
     }
 
    private:
@@ -648,6 +718,7 @@ class PARQUET_EXPORT ArrowWriterProperties {
 
     bool store_schema_;
     bool compliant_nested_types_;
+    EngineVersion engine_version_;
   };
 
   bool support_deprecated_int96_timestamps() const { return write_timestamps_as_int96_; }
@@ -668,18 +739,26 @@ class PARQUET_EXPORT ArrowWriterProperties {
   /// "element".
   bool compliant_nested_types() const { return compliant_nested_types_; }
 
+  /// \brief The underlying engine version to use when writing Arrow data.
+  ///
+  /// V2 is currently the latest V1 is considered deprecated but left in
+  /// place in case there are bugs detected in V2.
+  EngineVersion engine_version() const { return engine_version_; }
+
  private:
   explicit ArrowWriterProperties(bool write_nanos_as_int96,
                                  bool coerce_timestamps_enabled,
                                  ::arrow::TimeUnit::type coerce_timestamps_unit,
                                  bool truncated_timestamps_allowed, bool store_schema,
-                                 bool compliant_nested_types)
+                                 bool compliant_nested_types,
+                                 EngineVersion engine_version)
       : write_timestamps_as_int96_(write_nanos_as_int96),
         coerce_timestamps_enabled_(coerce_timestamps_enabled),
         coerce_timestamps_unit_(coerce_timestamps_unit),
         truncated_timestamps_allowed_(truncated_timestamps_allowed),
         store_schema_(store_schema),
-        compliant_nested_types_(compliant_nested_types) {}
+        compliant_nested_types_(compliant_nested_types),
+        engine_version_(engine_version) {}
 
   const bool write_timestamps_as_int96_;
   const bool coerce_timestamps_enabled_;
@@ -687,6 +766,7 @@ class PARQUET_EXPORT ArrowWriterProperties {
   const bool truncated_timestamps_allowed_;
   const bool store_schema_;
   const bool compliant_nested_types_;
+  const EngineVersion engine_version_;
 };
 
 /// \brief State object used for writing Arrow data directly to a Parquet

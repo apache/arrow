@@ -60,6 +60,9 @@ class UTF8Test : public ::testing::Test {
   static std::vector<std::string> invalid_sequences_4;
 
   static std::vector<std::string> all_invalid_sequences;
+
+  static std::vector<std::string> valid_sequences_ascii;
+  static std::vector<std::string> invalid_sequences_ascii;
 };
 
 std::vector<std::string> UTF8Test::valid_sequences_1 = {"a", "\x7f"};
@@ -87,7 +90,13 @@ std::vector<std::string> UTF8Test::invalid_sequences_4 = {
 
 std::vector<std::string> UTF8Test::all_invalid_sequences;
 
+std::vector<std::string> UTF8Test::valid_sequences_ascii = {"a", "\x7f", "B", "&"};
+std::vector<std::string> UTF8Test::invalid_sequences_ascii = {
+    "\x80", "\xa0\x1e", "\xbf\xef\x6a", "\xc1\x9f\xc3\xd9"};
+
 class UTF8ValidationTest : public UTF8Test {};
+
+class ASCIIValidationTest : public UTF8Test {};
 
 ::testing::AssertionResult IsValidUTF8(const std::string& s) {
   if (ValidateUTF8(reinterpret_cast<const uint8_t*>(s.data()), s.size())) {
@@ -110,9 +119,46 @@ class UTF8ValidationTest : public UTF8Test {};
   }
 }
 
+::testing::AssertionResult IsValidASCII(const std::string& s) {
+  if (ValidateAscii(reinterpret_cast<const uint8_t*>(s.data()), s.size())) {
+    return ::testing::AssertionSuccess();
+  } else {
+    std::string h = HexEncode(reinterpret_cast<const uint8_t*>(s.data()),
+                              static_cast<int32_t>(s.size()));
+    return ::testing::AssertionFailure()
+           << "string '" << h << "' didn't validate as ASCII";
+  }
+}
+
+::testing::AssertionResult IsInvalidASCII(const std::string& s) {
+  if (!ValidateAscii(reinterpret_cast<const uint8_t*>(s.data()), s.size())) {
+    return ::testing::AssertionSuccess();
+  } else {
+    std::string h = HexEncode(reinterpret_cast<const uint8_t*>(s.data()),
+                              static_cast<int32_t>(s.size()));
+    return ::testing::AssertionFailure() << "string '" << h << "' validated as ASCII";
+  }
+}
+
 void AssertValidUTF8(const std::string& s) { ASSERT_TRUE(IsValidUTF8(s)); }
 
 void AssertInvalidUTF8(const std::string& s) { ASSERT_TRUE(IsInvalidUTF8(s)); }
+
+void AssertValidASCII(const std::string& s) { ASSERT_TRUE(IsValidASCII(s)); }
+
+void AssertInvalidASCII(const std::string& s) { ASSERT_TRUE(IsInvalidASCII(s)); }
+
+TEST_F(ASCIIValidationTest, AsciiValid) {
+  for (const auto& s : valid_sequences_ascii) {
+    AssertValidASCII(s);
+  }
+}
+
+TEST_F(ASCIIValidationTest, AsciiInvalid) {
+  for (const auto& s : invalid_sequences_ascii) {
+    AssertInvalidASCII(s);
+  }
+}
 
 TEST_F(UTF8ValidationTest, EmptyString) { AssertValidUTF8(""); }
 

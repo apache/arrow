@@ -62,7 +62,7 @@ public class TestArrowStream extends BaseFileTest {
     ByteArrayOutputStream os = new ByteArrayOutputStream();
 
     try (IntVector vector = new IntVector("foo", allocator);) {
-      Schema schema = new Schema(Collections.singletonList(vector.getField()), null);
+      Schema schema = new Schema(Collections.singletonList(vector.getField()));
       try (VectorSchemaRoot root =
              new VectorSchemaRoot(schema, Collections.singletonList(vector), vector.getValueCount());
            ArrowStreamWriter writer = new ArrowStreamWriter(root, null, Channels.newChannel(os));) {
@@ -91,7 +91,7 @@ public class TestArrowStream extends BaseFileTest {
       int numBatches = 1;
 
       root.getFieldVectors().get(0).allocateNew();
-      TinyIntVector vector = (TinyIntVector)root.getFieldVectors().get(0);
+      TinyIntVector vector = (TinyIntVector) root.getFieldVectors().get(0);
       for (int i = 0; i < 16; i++) {
         vector.set(i, i < 8 ? 1 : 0, (byte) (i + 1));
       }
@@ -129,7 +129,7 @@ public class TestArrowStream extends BaseFileTest {
     ByteArrayOutputStream os = new ByteArrayOutputStream();
 
     try (IntVector vector = new IntVector("foo", allocator);) {
-      Schema schema = new Schema(Collections.singletonList(vector.getField()), null);
+      Schema schema = new Schema(Collections.singletonList(vector.getField()));
       try (VectorSchemaRoot root =
              new VectorSchemaRoot(schema, Collections.singletonList(vector), vector.getValueCount());
            ArrowStreamWriter writer = new ArrowStreamWriter(root, null, Channels.newChannel(os));) {

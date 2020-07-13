@@ -22,6 +22,8 @@ namespace Apache.Arrow
 {
     public sealed class ArrayData : IDisposable
     {
+        private const int RecalculateNullCount = -1;
+
         public readonly IArrowType DataType;
         public readonly int Length;
         public readonly int NullCount;
@@ -84,7 +86,7 @@ namespace Apache.Arrow
             length = Math.Min(Length - offset, length);
             offset += Offset;
 
-            return new ArrayData(DataType, length, -1, offset, Buffers, Children);
+            return new ArrayData(DataType, length, RecalculateNullCount, offset, Buffers, Children);
         }
     }
 }

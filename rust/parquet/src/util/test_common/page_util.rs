@@ -28,7 +28,7 @@ use crate::util::memory::ByteBufferPtr;
 use crate::util::memory::MemTracker;
 use crate::util::memory::MemTrackerPtr;
 use crate::util::test_common::random_numbers_range;
-use rand::distributions::range::SampleRange;
+use rand::distributions::uniform::SampleUniform;
 use std::collections::VecDeque;
 use std::mem;
 use std::rc::Rc;
@@ -239,7 +239,7 @@ pub fn make_pages<T: DataType>(
     pages: &mut VecDeque<Page>,
     use_v2: bool,
 ) where
-    T::T: PartialOrd + SampleRange + Copy,
+    T::T: PartialOrd + SampleUniform + Copy,
 {
     let mut num_values = 0;
     let max_def_level = desc.max_def_level();

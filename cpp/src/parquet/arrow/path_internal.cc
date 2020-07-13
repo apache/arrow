@@ -98,9 +98,12 @@
 #include "arrow/memory_pool.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/bitmap_visit.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/make_unique.h"
 #include "arrow/util/variant.h"
 #include "arrow/visitor_inline.h"
 
@@ -135,6 +138,17 @@ enum IterationResult {
       return iteration_result;                             \
     }                                                      \
   } while (false)
+
+int64_t LazyNullCount(const Array& array) { return array.data()->null_count.load(); }
+
+bool LazyNoNulls(const Array& array) {
+  int64_t null_count = LazyNullCount(array);
+  return null_count == 0 ||
+         // kUnkownNullCount comparison is needed to account
+         // for null arrays.
+         (null_count == ::arrow::kUnknownNullCount &&
+          array.null_bitmap_data() == nullptr);
+}
 
 struct PathWriteContext {
   PathWriteContext(::arrow::MemoryPool* pool,
@@ -451,8 +465,8 @@ class NullableNode {
 
   void SetRepLevelIfNull(int16_t rep_level) { rep_level_if_null_ = rep_level; }
 
-  ::arrow::internal::BitmapReader MakeReader(const ElementRange& range) {
-    return ::arrow::internal::BitmapReader(null_bitmap_, entry_offset_ + range.start,
+  ::arrow::internal::BitRunReader MakeReader(const ElementRange& range) {
+    return ::arrow::internal::BitRunReader(null_bitmap_, entry_offset_ + range.start,
                                            range.Size());
   }
 
@@ -465,25 +479,20 @@ class NullableNode {
       valid_bits_reader_ = MakeReader(*range);
     }
     child_range->start = range->start;
-    while (!range->Empty() && !valid_bits_reader_.IsSet()) {
-      ++range->start;
-      valid_bits_reader_.Next();
-    }
-    int64_t null_count = range->start - child_range->start;
-    if (null_count > 0) {
-      RETURN_IF_ERROR(FillRepLevels(null_count, rep_level_if_null_, context));
-      RETURN_IF_ERROR(context->AppendDefLevels(null_count, def_level_if_null_));
+    ::arrow::internal::BitRun run = valid_bits_reader_.NextRun();
+    if (!run.set) {
+      range->start += run.length;
+      RETURN_IF_ERROR(FillRepLevels(run.length, rep_level_if_null_, context));
+      RETURN_IF_ERROR(context->AppendDefLevels(run.length, def_level_if_null_));
+      run = valid_bits_reader_.NextRun();
     }
     if (range->Empty()) {
       new_range_ = true;
       return kDone;
     }
     child_range->end = child_range->start = range->start;
+    child_range->end += run.length;
 
-    while (child_range->end != range->end && valid_bits_reader_.IsSet()) {
-      ++child_range->end;
-      valid_bits_reader_.Next();
-    }
     DCHECK(!child_range->Empty());
     range->start += child_range->Size();
     new_range_ = false;
@@ -492,7 +501,7 @@ class NullableNode {
 
   const uint8_t* null_bitmap_;
   int64_t entry_offset_;
-  ::arrow::internal::BitmapReader valid_bits_reader_;
+  ::arrow::internal::BitRunReader valid_bits_reader_;
   int16_t def_level_if_null_;
   int16_t rep_level_if_null_;
 
@@ -564,35 +573,39 @@ Status WritePath(ElementRange root_range, PathInfo* path_info,
   // |root_range| are processed.
   while (stack_position >= stack_base) {
     PathInfo::Node& node = path_info->path[stack_position - stack_base];
-    IterationResult result = kError;
     struct {
-      void operator()(NullableNode& node) {  // NOLINT google-runtime-references
-        *result = node.Run(stack_position, stack_position + 1, context);
+      IterationResult operator()(
+          NullableNode& node) {  // NOLINT google-runtime-references
+        return node.Run(stack_position, stack_position + 1, context);
       }
-      void operator()(ListNode& node) {  // NOLINT google-runtime-references
-        *result = node.Run(stack_position, stack_position + 1, context);
+      IterationResult operator()(ListNode& node) {  // NOLINT google-runtime-references
+        return node.Run(stack_position, stack_position + 1, context);
       }
-      void operator()(NullableTerminalNode& node) {  // NOLINT google-runtime-references
-        *result = node.Run(*stack_position, context);
+      IterationResult operator()(
+          NullableTerminalNode& node) {  // NOLINT google-runtime-references
+        return node.Run(*stack_position, context);
       }
-      void operator()(FixedSizeListNode& node) {  // NOLINT google-runtime-references
-        *result = node.Run(stack_position, stack_position + 1, context);
+      IterationResult operator()(
+          FixedSizeListNode& node) {  // NOLINT google-runtime-references
+        return node.Run(stack_position, stack_position + 1, context);
       }
-      void operator()(AllPresentTerminalNode& node) {  // NOLINT google-runtime-references
-        *result = node.Run(*stack_position, context);
+      IterationResult operator()(
+          AllPresentTerminalNode& node) {  // NOLINT google-runtime-references
+        return node.Run(*stack_position, context);
       }
-      void operator()(AllNullsTerminalNode& node) {  // NOLINT google-runtime-references
-        *result = node.Run(*stack_position, context);
+      IterationResult operator()(
+          AllNullsTerminalNode& node) {  // NOLINT google-runtime-references
+        return node.Run(*stack_position, context);
       }
-      void operator()(LargeListNode& node) {  // NOLINT google-runtime-references
-        *result = node.Run(stack_position, stack_position + 1, context);
+      IterationResult operator()(
+          LargeListNode& node) {  // NOLINT google-runtime-references
+        return node.Run(stack_position, stack_position + 1, context);
       }
       ElementRange* stack_position;
       PathWriteContext* context;
-      IterationResult* result;
-    } visitor = {stack_position, &context, &result};
+    } visitor = {stack_position, &context};
 
-    ::arrow::util::visit(visitor, node);
+    IterationResult result = ::arrow::util::visit(visitor, node);
 
     if (ARROW_PREDICT_FALSE(result == kError)) {
       DCHECK(!context.last_status.ok());
@@ -701,10 +714,9 @@ class PathBuilder {
     // and the array does in fact contain nulls, we will end up
     // traversing the null bitmap twice (once here and once when calculating
     // rep/def levels).
-    int64_t null_count = array.data()->null_count.load();
-    if (null_count == 0) {
+    if (LazyNoNulls(array)) {
       info_.path.push_back(AllPresentTerminalNode{info_.max_def_level});
-    } else if (null_count == array.length()) {
+    } else if (LazyNullCount(array) == array.length()) {
       info_.path.push_back(AllNullsTerminalNode(info_.max_def_level - 1));
     } else {
       info_.path.push_back(NullableTerminalNode(array.null_bitmap_data(), array.offset(),
@@ -730,9 +742,9 @@ class PathBuilder {
     // Increment necessary due to empty lists.
     info_.max_def_level++;
     info_.max_rep_level++;
+    // raw_value_offsets() accounts for any slice offset.
     ListPathNode<VarRangeSelector<typename T::offset_type>> node(
-        VarRangeSelector<typename T::offset_type>{array.raw_value_offsets() +
-                                                  array.data()->offset},
+        VarRangeSelector<typename T::offset_type>{array.raw_value_offsets()},
         info_.max_rep_level, info_.max_def_level - 1);
     info_.path.push_back(node);
     nullable_in_parent_ = array.list_type()->value_field()->nullable();
@@ -742,7 +754,7 @@ class PathBuilder {
   Status Visit(const ::arrow::DictionaryArray& array) {
     // Only currently handle DictionaryArray where the dictionary is a
     // primitive type
-    if (array.dict_type()->value_type()->num_children() > 0) {
+    if (array.dict_type()->value_type()->num_fields() > 0) {
       return Status::NotImplemented(
           "Writing DictionaryArray with nested dictionary "
           "type not yet supported");
@@ -767,14 +779,13 @@ class PathBuilder {
     // rep/def levels). Because this isn't terminal this might not be
     // the right decision for structs that share the same nullable
     // parents.
-    int64_t null_count = array.data()->null_count.load();
-    if (null_count == 0) {
+    if (LazyNoNulls(array)) {
       // Don't add anything because there won't be any point checking
       // null values for the array.  There will always be at least
       // one more array to handle nullability.
       return;
     }
-    if (null_count == array.length()) {
+    if (LazyNullCount(array) == array.length()) {
       info_.path.push_back(AllNullsTerminalNode(info_.max_def_level - 1));
       return;
     }
@@ -792,7 +803,7 @@ class PathBuilder {
     MaybeAddNullable(array);
     PathInfo info_backup = info_;
     for (int x = 0; x < array.num_fields(); x++) {
-      nullable_in_parent_ = array.type()->child(x)->nullable();
+      nullable_in_parent_ = array.type()->field(x)->nullable();
       RETURN_NOT_OK(VisitInline(*array.field(x)));
       info_ = info_backup;
     }
@@ -841,14 +852,52 @@ Status PathBuilder::VisitInline(const Array& array) {
 #undef RETURN_IF_ERROR
 }  // namespace
 
-Status MultipathLevelBuilder::Write(const Array& array, bool array_nullable,
+class MultipathLevelBuilderImpl : public MultipathLevelBuilder {
+ public:
+  MultipathLevelBuilderImpl(std::shared_ptr<::arrow::ArrayData> data,
+                            std::unique_ptr<PathBuilder> path_builder)
+      : root_range_{0, data->length},
+        data_(std::move(data)),
+        path_builder_(std::move(path_builder)) {}
+
+  int GetLeafCount() const override {
+    return static_cast<int>(path_builder_->paths().size());
+  }
+
+  ::arrow::Status Write(int leaf_index, ArrowWriteContext* context,
+                        CallbackFunction write_leaf_callback) override {
+    DCHECK_GE(leaf_index, 0);
+    DCHECK_LT(leaf_index, GetLeafCount());
+    return WritePath(root_range_, &path_builder_->paths()[leaf_index], context,
+                     std::move(write_leaf_callback));
+  }
+
+ private:
+  ElementRange root_range_;
+  // Reference holder to ensure the data stays valid.
+  std::shared_ptr<::arrow::ArrayData> data_;
+  std::unique_ptr<PathBuilder> path_builder_;
+};
+
+// static
+::arrow::Result<std::unique_ptr<MultipathLevelBuilder>> MultipathLevelBuilder::Make(
+    const ::arrow::Array& array, bool array_field_nullable) {
+  auto constructor = ::arrow::internal::make_unique<PathBuilder>(array_field_nullable);
+  RETURN_NOT_OK(VisitArrayInline(array, constructor.get()));
+  return ::arrow::internal::make_unique<MultipathLevelBuilderImpl>(
+      array.data(), std::move(constructor));
+}
+
+// static
+Status MultipathLevelBuilder::Write(const Array& array, bool array_field_nullable,
                                     ArrowWriteContext* context,
                                     MultipathLevelBuilder::CallbackFunction callback) {
-  PathBuilder constructor(array_nullable);
+  ARROW_ASSIGN_OR_RAISE(std::unique_ptr<MultipathLevelBuilder> builder,
+                        MultipathLevelBuilder::Make(array, array_field_nullable));
+  PathBuilder constructor(array_field_nullable);
   RETURN_NOT_OK(VisitArrayInline(array, &constructor));
-  ElementRange root_range{0, array.length()};
-  for (auto& write_path_info : constructor.paths()) {
-    RETURN_NOT_OK(WritePath(root_range, &write_path_info, context, callback));
+  for (int leaf_idx = 0; leaf_idx < builder->GetLeafCount(); leaf_idx++) {
+    RETURN_NOT_OK(builder->Write(leaf_idx, context, callback));
   }
   return Status::OK();
 }

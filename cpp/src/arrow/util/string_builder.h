@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License. template <typename T>
 
-#ifndef ARROW_UTIL_STRING_BUILDER_H
-#define ARROW_UTIL_STRING_BUILDER_H
+#pragma once
 
 #include <memory>
 #include <ostream>
@@ -83,5 +82,3 @@ class ToStringOstreamable {
 
 }  // namespace util
 }  // namespace arrow
-
-#endif  // ARROW_UTIL_STRING_BUILDER_H

@@ -91,7 +91,8 @@ following checks:
   compiler warnings with ``-DBUILD_WARNING_LEVEL=CHECKIN``. Note that
   there are classes of warnings (such as ``-Wdocumentation``, see more
   on this below) that are not caught by ``gcc``.
-* Passes various C++ (and others) style checks, checked with ``archery lint``
+* Passes various C++ (and others) style checks, checked with the ``lint``
+  subcommand to :ref:`Archery <archery>`.
 * CMake files pass style checks, can be fixed by running
   ``run-cmake-format.py`` from the root of the repository. This requires Python
   3 and `cmake_format <https://github.com/cheshirekow/cmake_format>`_ (note:
@@ -99,7 +100,7 @@ following checks:
 
 In order to account for variations in the behavior of ``clang-format`` between
 major versions of LLVM, we pin the version of ``clang-format`` used (current
-LLVM 7).
+LLVM 8).
 
 Depending on how you installed clang-format, the build system may not be able
 to find it. You can provide an explicit path to your LLVM installation (or the
@@ -112,24 +113,64 @@ target that is executable from the root of the repository:
 
 .. code-block:: shell
 
-   docker-compose run lint
-
-See :ref:`integration` for more information about the project's
-``docker-compose`` configuration.
+   docker-compose run ubuntu-lint
 
 Cleaning includes with include-what-you-use (IWYU)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 We occasionally use Google's `include-what-you-use
 <https://github.com/include-what-you-use/include-what-you-use>`_ tool, also
-known as IWYU, to remove unnecessary imports. Since setting up IWYU can be a
-bit tedious, we provide a ``docker-compose`` target for running it on the C++
-codebase:
+known as IWYU, to remove unnecessary imports.
+
+To begin using IWYU, you must first build it by following the instructions in
+the project's documentation. Once the ``include-what-you-use`` executable is in
+your ``$PATH``, you must run CMake with ``-DCMAKE_EXPORT_COMPILE_COMMANDS=ON``
+in a new out-of-source CMake build directory like so:
 
 .. code-block:: shell
 
-   make -f Makefile.docker build-iwyu
-   docker-compose run lint
+   mkdir -p $ARROW_ROOT/cpp/iwyu
+   cd $ARROW_ROOT/cpp/iwyu
+   cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+     -DARROW_PYTHON=ON \
+     -DARROW_PARQUET=ON \
+     -DARROW_FLIGHT=ON \
+     -DARROW_PLASMA=ON \
+     -DARROW_GANDIVA=ON \
+     -DARROW_BUILD_BENCHMARKS=ON \
+     -DARROW_BUILD_BENCHMARKS_REFERENCE=ON \
+     -DARROW_BUILD_TESTS=ON \
+     -DARROW_BUILD_UTILITIES=ON \
+     -DARROW_S3=ON \
+     -DARROW_WITH_BROTLI=ON \
+     -DARROW_WITH_BZ2=ON \
+     -DARROW_WITH_LZ4=ON \
+     -DARROW_WITH_SNAPPY=ON \
+     -DARROW_WITH_ZLIB=ON \
+     -DARROW_WITH_ZSTD=ON ..
+
+In order for IWYU to run on the desired component in the codebase, it must be
+enabled by the CMake configuration flags. Once this is done, you can run IWYU
+on the whole codebase by running a helper ``iwyu.sh`` script:
+
+.. code-block:: shell
+
+   IWYU_SH=$ARROW_ROOT/cpp/build-support/iwyu/iwyu.sh
+   ./$IWYU_SH
+
+Since this is very time consuming, you can check a subset of files matching
+some string pattern with the special "match" option
+
+.. code-block:: shell
+
+   ./$IWYU_SH match $PATTERN
+
+For example, if you wanted to do IWYU checks on all files in
+``src/arrow/array``, you could run
+
+.. code-block:: shell
+
+   ./$IWYU_SH match arrow/array
 
 Checking for ABI and API stability
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

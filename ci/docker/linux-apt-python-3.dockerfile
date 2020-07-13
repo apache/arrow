@@ -29,14 +29,13 @@ RUN apt-get update -y -q && \
 RUN ln -s /usr/bin/python3 /usr/local/bin/python && \
     ln -s /usr/bin/pip3 /usr/local/bin/pip
 
-COPY python/requirements.txt \
+COPY python/requirements-build.txt \
      python/requirements-test.txt \
      /arrow/python/
 
 RUN pip install \
-    -r arrow/python/requirements.txt \
-    -r arrow/python/requirements-test.txt \
-    setuptools
+    -r arrow/python/requirements-build.txt \
+    -r arrow/python/requirements-test.txt
 
 ENV ARROW_PYTHON=ON \
     ARROW_BUILD_STATIC=OFF \

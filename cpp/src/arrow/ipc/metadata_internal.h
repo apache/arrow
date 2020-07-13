@@ -17,37 +17,34 @@
 
 // Internal metadata serialization matters
 
-#ifndef ARROW_IPC_METADATA_INTERNAL_H
-#define ARROW_IPC_METADATA_INTERNAL_H
+#pragma once
 
 #include <cstdint>
 #include <cstring>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <flatbuffers/flatbuffers.h>
 
 #include "arrow/buffer.h"
-#include "arrow/ipc/dictionary.h"  // IYWU pragma: keep
+#include "arrow/io/type_fwd.h"
 #include "arrow/ipc/message.h"
+#include "arrow/result.h"
 #include "arrow/sparse_tensor.h"
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/visibility.h"
 
 #include "generated/Message_generated.h"
 #include "generated/Schema_generated.h"
+#include "generated/SparseTensor_generated.h"  // IWYU pragma: keep
 
 namespace arrow {
 
 namespace flatbuf = org::apache::arrow::flatbuf;
-
-namespace io {
-
-class OutputStream;
-
-}  // namespace io
 
 namespace ipc {
 
@@ -55,16 +52,29 @@ class DictionaryMemo;
 
 namespace internal {
 
+using KeyValueOffset = flatbuffers::Offset<flatbuf::KeyValue>;
+using KVVector = flatbuffers::Vector<KeyValueOffset>;
+
 // This 0xFFFFFFFF value is the first 4 bytes of a valid IPC message
 constexpr int32_t kIpcContinuationToken = -1;
 
 static constexpr flatbuf::MetadataVersion kCurrentMetadataVersion =
-    flatbuf::MetadataVersion::V4;
+    flatbuf::MetadataVersion::V5;
+
+static constexpr flatbuf::MetadataVersion kLatestMetadataVersion =
+    flatbuf::MetadataVersion::V5;
 
 static constexpr flatbuf::MetadataVersion kMinMetadataVersion =
     flatbuf::MetadataVersion::V4;
 
 MetadataVersion GetMetadataVersion(flatbuf::MetadataVersion version);
+
+// This function is used in a unit test
+ARROW_EXPORT
+flatbuf::MetadataVersion MetadataVersionToFlatbuffer(MetadataVersion version);
+
+// Whether the type has a validity bitmap in the given IPC version
+bool HasValidityBitmap(Type::type type_id, MetadataVersion version);
 
 static constexpr const char* kArrowMagicBytes = "ARROW1";
 
@@ -129,11 +139,21 @@ Status GetSparseCSXIndexMetadata(const flatbuf::SparseMatrixIndexCSX* sparse_ind
                                  std::shared_ptr<DataType>* indptr_type,
                                  std::shared_ptr<DataType>* indices_type);
 
+// EXPERIMENTAL: Extracting metadata of a SparseCSFIndex from the message
+Status GetSparseCSFIndexMetadata(const flatbuf::SparseTensorIndexCSF* sparse_index,
+                                 std::vector<int64_t>* axis_order,
+                                 std::vector<int64_t>* indices_size,
+                                 std::shared_ptr<DataType>* indptr_type,
+                                 std::shared_ptr<DataType>* indices_type);
+
 // EXPERIMENTAL: Extracting metadata of a sparse tensor from the message
 Status GetSparseTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>* type,
                                std::vector<int64_t>* shape,
                                std::vector<std::string>* dim_names, int64_t* length,
                                SparseTensorFormat::type* sparse_tensor_format_id);
+
+Status GetKeyValueMetadata(const KVVector* fb_metadata,
+                           std::shared_ptr<KeyValueMetadata>* out);
 
 static inline Status VerifyMessage(const uint8_t* data, int64_t size,
                                    const flatbuf::Message** out) {
@@ -153,44 +173,47 @@ static inline Status VerifyMessage(const uint8_t* data, int64_t size,
 // \param[out] out the serialized arrow::Buffer
 // \return Status outcome
 Status WriteSchemaMessage(const Schema& schema, DictionaryMemo* dictionary_memo,
-                          std::shared_ptr<Buffer>* out);
+                          const IpcWriteOptions& options, std::shared_ptr<Buffer>* out);
 
-Status WriteRecordBatchMessage(const int64_t length, const int64_t body_length,
-                               const std::vector<FieldMetadata>& nodes,
-                               const std::vector<BufferMetadata>& buffers,
-                               std::shared_ptr<Buffer>* out);
+// This function is used in a unit test
+ARROW_EXPORT
+Status WriteRecordBatchMessage(
+    const int64_t length, const int64_t body_length,
+    const std::shared_ptr<const KeyValueMetadata>& custom_metadata,
+    const std::vector<FieldMetadata>& nodes, const std::vector<BufferMetadata>& buffers,
+    const IpcWriteOptions& options, std::shared_ptr<Buffer>* out);
 
 Result<std::shared_ptr<Buffer>> WriteTensorMessage(const Tensor& tensor,
-                                                   const int64_t buffer_start_offset);
+                                                   const int64_t buffer_start_offset,
+                                                   const IpcWriteOptions& options);
 
 Result<std::shared_ptr<Buffer>> WriteSparseTensorMessage(
     const SparseTensor& sparse_tensor, int64_t body_length,
-    const std::vector<BufferMetadata>& buffers);
+    const std::vector<BufferMetadata>& buffers, const IpcWriteOptions& options);
 
 Status WriteFileFooter(const Schema& schema, const std::vector<FileBlock>& dictionaries,
                        const std::vector<FileBlock>& record_batches,
+                       const std::shared_ptr<const KeyValueMetadata>& metadata,
                        io::OutputStream* out);
 
-Status WriteDictionaryMessage(const int64_t id, const int64_t length,
-                              const int64_t body_length,
-                              const std::vector<FieldMetadata>& nodes,
-                              const std::vector<BufferMetadata>& buffers,
-                              std::shared_ptr<Buffer>* out);
+Status WriteDictionaryMessage(
+    const int64_t id, const bool is_delta, const int64_t length,
+    const int64_t body_length,
+    const std::shared_ptr<const KeyValueMetadata>& custom_metadata,
+    const std::vector<FieldMetadata>& nodes, const std::vector<BufferMetadata>& buffers,
+    const IpcWriteOptions& options, std::shared_ptr<Buffer>* out);
 
 static inline Result<std::shared_ptr<Buffer>> WriteFlatbufferBuilder(
     flatbuffers::FlatBufferBuilder& fbb) {
   int32_t size = fbb.GetSize();
 
-  std::shared_ptr<Buffer> result;
-  RETURN_NOT_OK(AllocateBuffer(default_memory_pool(), size, &result));
+  ARROW_ASSIGN_OR_RAISE(auto result, AllocateBuffer(size));
 
   uint8_t* dst = result->mutable_data();
   memcpy(dst, fbb.GetBufferPointer(), size);
-  return result;
+  return std::move(result);
 }
 
 }  // namespace internal
 }  // namespace ipc
 }  // namespace arrow
-
-#endif  // ARROW_IPC_METADATA_H

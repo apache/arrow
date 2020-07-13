@@ -19,12 +19,11 @@ package org.apache.arrow.adapter.orc;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OwnershipTransferResult;
 import org.apache.arrow.memory.ReferenceManager;
 import org.apache.arrow.util.Preconditions;
-
-import io.netty.buffer.ArrowBuf;
 
 /**
  * A simple reference manager implementation for memory allocated by native code.
@@ -94,8 +93,8 @@ public class OrcReferenceManager implements ReferenceManager {
             this,
             null,
             length, // length (in bytes) in the underlying memory chunk for this new ArrowBuf
-            derivedBufferAddress, // starting byte address in the underlying memory for this new ArrowBuf,
-            false);
+            derivedBufferAddress // starting byte address in the underlying memory for this new ArrowBuf,
+            );
 
     return derivedBuf;
   }

@@ -30,12 +30,11 @@
 #include "arrow/flight/types.h"       // IWYU pragma: keep
 #include "arrow/flight/visibility.h"  // IWYU pragma: keep
 #include "arrow/ipc/dictionary.h"
-#include "arrow/memory_pool.h"
+#include "arrow/ipc/options.h"
 #include "arrow/record_batch.h"
 
 namespace arrow {
 
-class MemoryPool;
 class Schema;
 class Status;
 
@@ -65,9 +64,10 @@ class ARROW_FLIGHT_EXPORT FlightDataStream {
 class ARROW_FLIGHT_EXPORT RecordBatchStream : public FlightDataStream {
  public:
   /// \param[in] reader produces a sequence of record batches
-  /// \param[in,out] pool a MemoryPool to use for allocations
-  explicit RecordBatchStream(const std::shared_ptr<RecordBatchReader>& reader,
-                             MemoryPool* pool = default_memory_pool());
+  /// \param[in] options IPC options for writing
+  explicit RecordBatchStream(
+      const std::shared_ptr<RecordBatchReader>& reader,
+      const ipc::IpcWriteOptions& options = ipc::IpcWriteOptions::Defaults());
   ~RecordBatchStream() override;
 
   std::shared_ptr<Schema> schema() override;
@@ -96,12 +96,25 @@ class ARROW_FLIGHT_EXPORT FlightMetadataWriter {
   virtual Status WriteMetadata(const Buffer& app_metadata) = 0;
 };
 
+/// \brief A writer for IPC payloads to a client. Also allows sending
+/// application-defined metadata via the Flight protocol.
+///
+/// This class offers more control compared to FlightDataStream,
+/// including the option to write metadata without data and the
+/// ability to interleave reading and writing.
+class ARROW_FLIGHT_EXPORT FlightMessageWriter : public MetadataRecordBatchWriter {
+ public:
+  virtual ~FlightMessageWriter() = default;
+};
+
 /// \brief Call state/contextual data.
 class ARROW_FLIGHT_EXPORT ServerCallContext {
  public:
   virtual ~ServerCallContext() = default;
   /// \brief The name of the authenticated peer (may be the empty string)
   virtual const std::string& peer_identity() const = 0;
+  /// \brief The peer address (not validated)
+  virtual const std::string& peer() const = 0;
   /// \brief Look up a middleware by key. Do not maintain a reference
   /// to the object beyond the request body.
   /// \return The middleware, or nullptr if not found.
@@ -121,7 +134,10 @@ class ARROW_FLIGHT_EXPORT FlightServerOptions {
   std::shared_ptr<ServerAuthHandler> auth_handler;
   /// \brief A list of TLS certificate+key pairs to use.
   std::vector<CertKeyPair> tls_certificates;
-
+  /// \brief Enable mTLS and require that the client present a certificate.
+  bool verify_client;
+  /// \brief If using mTLS, the PEM-encoded root certificate to use.
+  std::string root_certificates;
   /// \brief A list of server middleware to apply, along with a key to
   /// identify them by.
   ///
@@ -232,6 +248,15 @@ class ARROW_FLIGHT_EXPORT FlightServerBase {
   virtual Status DoPut(const ServerCallContext& context,
                        std::unique_ptr<FlightMessageReader> reader,
                        std::unique_ptr<FlightMetadataWriter> writer);
+
+  /// \brief Process a bidirectional stream of IPC payloads
+  /// \param[in] context The call context.
+  /// \param[in] reader a sequence of uploaded record batches
+  /// \param[in] writer send data back to the client
+  /// \return Status
+  virtual Status DoExchange(const ServerCallContext& context,
+                            std::unique_ptr<FlightMessageReader> reader,
+                            std::unique_ptr<FlightMessageWriter> writer);
 
   /// \brief Execute an action, return stream of zero or more results
   /// \param[in] context The call context.

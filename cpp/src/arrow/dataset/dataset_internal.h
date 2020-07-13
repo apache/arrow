@@ -34,14 +34,14 @@ namespace dataset {
 
 /// \brief GetFragmentsFromDatasets transforms a vector<Dataset> into a
 /// flattened FragmentIterator.
-static inline FragmentIterator GetFragmentsFromDatasets(
-    const DatasetVector& datasets, std::shared_ptr<ScanOptions> options) {
+inline FragmentIterator GetFragmentsFromDatasets(const DatasetVector& datasets,
+                                                 std::shared_ptr<Expression> predicate) {
   // Iterator<Dataset>
   auto datasets_it = MakeVectorIterator(datasets);
 
   // Dataset -> Iterator<Fragment>
-  auto fn = [options](std::shared_ptr<Dataset> dataset) -> FragmentIterator {
-    return dataset->GetFragments(options);
+  auto fn = [predicate](std::shared_ptr<Dataset> dataset) -> FragmentIterator {
+    return dataset->GetFragments(predicate);
   };
 
   // Iterator<Iterator<Fragment>>
@@ -51,16 +51,21 @@ static inline FragmentIterator GetFragmentsFromDatasets(
   return MakeFlattenIterator(std::move(fragments_it));
 }
 
+inline RecordBatchIterator IteratorFromReader(std::shared_ptr<RecordBatchReader> reader) {
+  return MakeFunctionIterator([reader] { return reader->Next(); });
+}
+
 inline std::shared_ptr<Schema> SchemaFromColumnNames(
     const std::shared_ptr<Schema>& input, const std::vector<std::string>& column_names) {
   std::vector<std::shared_ptr<Field>> columns;
-  for (const auto& name : column_names) {
-    if (auto field = input->GetFieldByName(name)) {
-      columns.push_back(std::move(field));
+  for (FieldRef ref : column_names) {
+    auto maybe_field = ref.GetOne(*input);
+    if (maybe_field.ok()) {
+      columns.push_back(std::move(maybe_field).ValueOrDie());
     }
   }
 
-  return schema(std::move(columns));
+  return schema(std::move(columns))->WithMetadata(input->metadata());
 }
 
 }  // namespace dataset

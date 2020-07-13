@@ -22,8 +22,17 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.complex.FixedSizeListVector;
+import org.apache.arrow.vector.complex.ListVector;
+import org.apache.arrow.vector.complex.StructVector;
+import org.apache.arrow.vector.complex.UnionVector;
+import org.apache.arrow.vector.types.pojo.ArrowType.Struct;
+import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 import org.junit.After;
 import org.junit.Before;
@@ -223,7 +232,7 @@ public class TestSplitAndTransfer {
           IllegalArgumentException.class,
           () -> tp.splitAndTransfer(valueCount, 10));
 
-      assertEquals("Invalid startIndex: 500", e.getMessage());
+      assertEquals("Invalid parameters startIndex: 500, length: 10 for valueCount: 500", e.getMessage());
 
       newVarCharVector.clear();
     }
@@ -244,9 +253,158 @@ public class TestSplitAndTransfer {
           IllegalArgumentException.class,
           () -> tp.splitAndTransfer(0, valueCount * 2));
 
-      assertEquals("Invalid length: 1000", e.getMessage());
+      assertEquals("Invalid parameters startIndex: 0, length: 1000 for valueCount: 500", e.getMessage());
 
       newVarCharVector.clear();
     }
   }
+
+  @Test
+  public void testZeroStartIndexAndLength() {
+    try (final VarCharVector varCharVector = new VarCharVector("myvector", allocator);
+         final VarCharVector newVarCharVector = new VarCharVector("newvector", allocator)) {
+
+      varCharVector.allocateNew(0, 0);
+      final int valueCount = 0;
+      populateVarcharVector(varCharVector, valueCount, null);
+
+      final TransferPair tp = varCharVector.makeTransferPair(newVarCharVector);
+
+      tp.splitAndTransfer(0, 0);
+      assertEquals(valueCount, newVarCharVector.getValueCount());
+
+      newVarCharVector.clear();
+    }
+  }
+
+  @Test
+  public void testZeroLength() {
+    try (final VarCharVector varCharVector = new VarCharVector("myvector", allocator);
+         final VarCharVector newVarCharVector = new VarCharVector("newvector", allocator)) {
+
+      varCharVector.allocateNew(10000, 1000);
+      final int valueCount = 500;
+      populateVarcharVector(varCharVector, valueCount, null);
+
+      final TransferPair tp = varCharVector.makeTransferPair(newVarCharVector);
+
+      tp.splitAndTransfer(500, 0);
+      assertEquals(0, newVarCharVector.getValueCount());
+
+      newVarCharVector.clear();
+    }
+  }
+
+  @Test
+  public void testUnionVectorZeroStartIndexAndLength() {
+    try (final UnionVector unionVector = UnionVector.empty("myvector", allocator);
+         final UnionVector newUnionVector = UnionVector.empty("newvector", allocator)) {
+
+      unionVector.allocateNew();
+      final int valueCount = 0;
+      unionVector.setValueCount(valueCount);
+
+      final TransferPair tp = unionVector.makeTransferPair(newUnionVector);
+
+      tp.splitAndTransfer(0, 0);
+      assertEquals(valueCount, newUnionVector.getValueCount());
+
+      newUnionVector.clear();
+    }
+  }
+
+  @Test
+  public void testFixedWidthVectorZeroStartIndexAndLength() {
+    try (final IntVector intVector = new IntVector("myvector", allocator);
+         final IntVector newIntVector = new IntVector("newvector", allocator)) {
+
+      intVector.allocateNew(0);
+      final int valueCount = 0;
+      intVector.setValueCount(valueCount);
+
+      final TransferPair tp = intVector.makeTransferPair(newIntVector);
+
+      tp.splitAndTransfer(0, 0);
+      assertEquals(valueCount, newIntVector.getValueCount());
+
+      newIntVector.clear();
+    }
+  }
+
+  @Test
+  public void testBitVectorZeroStartIndexAndLength() {
+    try (final BitVector bitVector = new BitVector("myvector", allocator);
+         final BitVector newBitVector = new BitVector("newvector", allocator)) {
+
+      bitVector.allocateNew(0);
+      final int valueCount = 0;
+      bitVector.setValueCount(valueCount);
+
+      final TransferPair tp = bitVector.makeTransferPair(newBitVector);
+
+      tp.splitAndTransfer(0, 0);
+      assertEquals(valueCount, newBitVector.getValueCount());
+
+      newBitVector.clear();
+    }
+  }
+
+  @Test
+  public void testFixedSizeListVectorZeroStartIndexAndLength() {
+    try (final FixedSizeListVector listVector = FixedSizeListVector.empty("list", 4, allocator);
+         final FixedSizeListVector newListVector = FixedSizeListVector.empty("newList", 4, allocator)) {
+
+      listVector.allocateNew();
+      final int valueCount = 0;
+      listVector.setValueCount(valueCount);
+
+      final TransferPair tp = listVector.makeTransferPair(newListVector);
+
+      tp.splitAndTransfer(0, 0);
+      assertEquals(valueCount, newListVector.getValueCount());
+
+      newListVector.clear();
+    }
+  }
+
+  @Test
+  public void testListVectorZeroStartIndexAndLength() {
+    try (final ListVector listVector = ListVector.empty("list", allocator);
+         final ListVector newListVector = ListVector.empty("newList", allocator)) {
+
+      listVector.allocateNew();
+      final int valueCount = 0;
+      listVector.setValueCount(valueCount);
+
+      final TransferPair tp = listVector.makeTransferPair(newListVector);
+
+      tp.splitAndTransfer(0, 0);
+      assertEquals(valueCount, newListVector.getValueCount());
+
+      newListVector.clear();
+    }
+  }
+
+  @Test
+  public void testStructVectorZeroStartIndexAndLength() {
+    Map<String, String> metadata = new HashMap<>();
+    metadata.put("k1", "v1");
+    FieldType type = new FieldType(true, Struct.INSTANCE, null, metadata);
+    try (final StructVector structVector = new StructVector("structvec", allocator, type, null);
+         final StructVector newStructVector = new StructVector("newStructvec", allocator, type, null)) {
+
+      structVector.allocateNew();
+      final int valueCount = 0;
+      structVector.setValueCount(valueCount);
+
+      final TransferPair tp = structVector.makeTransferPair(newStructVector);
+
+      tp.splitAndTransfer(0, 0);
+      assertEquals(valueCount, newStructVector.getValueCount());
+
+      newStructVector.clear();
+    }
+  }
+
+
 }

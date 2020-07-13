@@ -17,6 +17,7 @@
 
 #include "./arrow_types.h"
 #if defined(ARROW_R_WITH_ARROW)
+#include <arrow/memory_pool.h>
 
 // [[arrow::export]]
 std::shared_ptr<arrow::MemoryPool> MemoryPool__default() {

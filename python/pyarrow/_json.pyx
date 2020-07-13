@@ -70,8 +70,9 @@ cdef class ReadOptions:
     def block_size(self):
         """
         How much bytes to process at a time from the input stream.
-        This will determine multi-threading granularity as well as
-        the size of individual chunks in the Table.
+
+        This will determine multi-threading granularity as well as the size of
+        individual chunks in the Table.
         """
         return self.options.block_size
 
@@ -91,6 +92,15 @@ cdef class ParseOptions:
     newlines_in_values: bool, optional (default False)
         Whether objects may be printed across multiple lines (for example
         pretty printed). If false, input must end with an empty line.
+    unexpected_field_behavior: str, default "infer"
+        How JSON fields outside of explicit_schema (if given) are treated.
+
+        Possible behaviors:
+
+         - "ignore": unexpected JSON fields are ignored
+         - "error": error out on unexpected JSON fields
+         - "infer": unexpected JSON fields are type-inferred and included in
+           the output
     """
 
     cdef:
@@ -98,12 +108,15 @@ cdef class ParseOptions:
 
     __slots__ = ()
 
-    def __init__(self, explicit_schema=None, newlines_in_values=None):
+    def __init__(self, explicit_schema=None, newlines_in_values=None,
+                 unexpected_field_behavior=None):
         self.options = CJSONParseOptions.Defaults()
         if explicit_schema is not None:
             self.explicit_schema = explicit_schema
         if newlines_in_values is not None:
             self.newlines_in_values = newlines_in_values
+        if unexpected_field_behavior is not None:
+            self.unexpected_field_behavior = unexpected_field_behavior
 
     @property
     def explicit_schema(self):
@@ -131,6 +144,48 @@ cdef class ParseOptions:
     @newlines_in_values.setter
     def newlines_in_values(self, value):
         self.options.newlines_in_values = value
+
+    @property
+    def unexpected_field_behavior(self):
+        """
+        How JSON fields outside of explicit_schema (if given) are treated.
+
+        Possible behaviors:
+
+         - "ignore": unexpected JSON fields are ignored
+         - "error": error out on unexpected JSON fields
+         - "infer": unexpected JSON fields are type-inferred and included in
+           the output
+
+        Set to "infer" by default.
+        """
+        v = self.options.unexpected_field_behavior
+        if v == CUnexpectedFieldBehavior_Ignore:
+            return "ignore"
+        elif v == CUnexpectedFieldBehavior_Error:
+            return "error"
+        elif v == CUnexpectedFieldBehavior_InferType:
+            return "infer"
+        else:
+            raise ValueError('Unexpected value for unexpected_field_behavior')
+
+    @unexpected_field_behavior.setter
+    def unexpected_field_behavior(self, value):
+        cdef CUnexpectedFieldBehavior v
+
+        if value == "ignore":
+            v = CUnexpectedFieldBehavior_Ignore
+        elif value == "error":
+            v = CUnexpectedFieldBehavior_Error
+        elif value == "infer":
+            v = CUnexpectedFieldBehavior_InferType
+        else:
+            raise ValueError(
+                "Unexpected value `{}` for `unexpected_field_behavior`, pass "
+                "either `ignore`, `error` or `infer`.".format(value)
+            )
+
+        self.options.unexpected_field_behavior = v
 
 
 cdef _get_reader(input_file, shared_ptr[CInputStream]* out):
@@ -183,11 +238,11 @@ def read_json(input_file, read_options=None, parse_options=None,
     _get_read_options(read_options, &c_read_options)
     _get_parse_options(parse_options, &c_parse_options)
 
-    check_status(CJSONReader.Make(maybe_unbox_memory_pool(memory_pool),
-                                  stream, c_read_options, c_parse_options,
-                                  &reader))
+    reader = GetResultValue(
+        CJSONReader.Make(maybe_unbox_memory_pool(memory_pool),
+                         stream, c_read_options, c_parse_options))
 
     with nogil:
-        check_status(reader.get().Read(&table))
+        table = GetResultValue(reader.get().Read())
 
     return pyarrow_wrap_table(table)

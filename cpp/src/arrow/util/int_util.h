@@ -15,16 +15,22 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_UTIL_INT_UTIL_H
-#define ARROW_UTIL_INT_UTIL_H
+#pragma once
 
 #include <cstdint>
 #include <limits>
 #include <type_traits>
 
+#include "arrow/status.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
+
+class DataType;
+struct ArrayData;
+struct Datum;
+struct Scalar;
+
 namespace internal {
 
 ARROW_EXPORT
@@ -97,6 +103,12 @@ bool HasAdditionOverflow(Integer value, Integer addend) {
   return (value > std::numeric_limits<Integer>::max() - addend);
 }
 
+/// Detect addition overflow between integers
+template <typename Integer>
+bool HasSubtractionOverflow(Integer value, Integer minuend) {
+  return (value < minuend);
+}
+
 /// Upcast an integer to the largest possible width (currently 64 bits)
 
 template <typename Integer>
@@ -113,7 +125,24 @@ UpcastInt(Integer v) {
   return v;
 }
 
+/// \brief Do vectorized boundschecking of integer-type array indices. The
+/// indices must be non-nonnegative and strictly less than the passed upper
+/// limit (which is usually the length of an array that is being indexed-into).
+ARROW_EXPORT
+Status CheckIndexBounds(const ArrayData& indices, uint64_t upper_limit);
+
+/// \brief Boundscheck integer values to determine if they are all between the
+/// passed upper and lower limits (inclusive). Upper and lower bounds must be
+/// the same type as the data and are not currently casted.
+ARROW_EXPORT
+Status CheckIntegersInRange(const Datum& datum, const Scalar& bound_lower,
+                            const Scalar& bound_upper);
+
+/// \brief Use CheckIntegersInRange to determine whether the passed integers
+/// can fit safely in the passed integer type. This helps quickly determine if
+/// integer narrowing (e.g. int64->int32) is safe to do.
+ARROW_EXPORT
+Status IntegersCanFit(const Datum& datum, const DataType& target_type);
+
 }  // namespace internal
 }  // namespace arrow
-
-#endif  // ARROW_UTIL_INT_UTIL_H

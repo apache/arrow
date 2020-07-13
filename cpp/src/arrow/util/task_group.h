@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_UTIL_TASK_GROUP_H
-#define ARROW_UTIL_TASK_GROUP_H
+#pragma once
 
 #include <functional>
 #include <memory>
@@ -24,12 +23,11 @@
 
 #include "arrow/status.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/type_fwd.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
 namespace internal {
-
-class ThreadPool;
 
 // TODO Simplify this.  Subgroups don't seem necessary.
 
@@ -74,7 +72,7 @@ class ARROW_EXPORT TaskGroup : public std::enable_shared_from_this<TaskGroup> {
   virtual std::shared_ptr<TaskGroup> MakeSubGroup() = 0;
 
   static std::shared_ptr<TaskGroup> MakeSerial();
-  static std::shared_ptr<TaskGroup> MakeThreaded(internal::ThreadPool*);
+  static std::shared_ptr<TaskGroup> MakeThreaded(internal::Executor*);
 
   virtual ~TaskGroup() = default;
 
@@ -87,5 +85,3 @@ class ARROW_EXPORT TaskGroup : public std::enable_shared_from_this<TaskGroup> {
 
 }  // namespace internal
 }  // namespace arrow
-
-#endif  // ARROW_UTIL_TASK_GROUP_H

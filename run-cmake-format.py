@@ -43,7 +43,7 @@ patterns = [
     'cpp/cmake_modules/FindGLOG.cmake',
     'cpp/cmake_modules/FindGandiva.cmake',
     'cpp/cmake_modules/FindInferTools.cmake',
-    'cpp/cmake_modules/FindLLVM.cmake',
+    'cpp/cmake_modules/FindLLVMAlt.cmake',
     'cpp/cmake_modules/FindLz4.cmake',
     'cpp/cmake_modules/FindParquet.cmake',
     'cpp/cmake_modules/FindPlasma.cmake',

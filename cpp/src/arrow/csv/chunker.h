@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_CSV_CHUNKER_H
-#define ARROW_CSV_CHUNKER_H
+#pragma once
 
 #include <cstdint>
 #include <memory>
@@ -35,5 +34,3 @@ std::unique_ptr<Chunker> MakeChunker(const ParseOptions& options);
 
 }  // namespace csv
 }  // namespace arrow
-
-#endif  // ARROW_CSV_CHUNKER_H

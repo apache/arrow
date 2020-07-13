@@ -32,7 +32,11 @@ python -c "import dask.dataframe"
 # pytest -sv --pyargs dask.bytes.tests.test_hdfs
 # pytest -sv --pyargs dask.bytes.tests.test_local
 
-pytest -v --pyargs dask.dataframe.tests.test_dataframe
+# skip failing pickle test, see https://github.com/dask/dask/issues/6374
+pytest -v --pyargs dask.dataframe.tests.test_dataframe -k "not test_dataframe_picklable"
 pytest -v --pyargs dask.dataframe.io.tests.test_orc
+# skip failing parquet tests, see https://github.com/dask/dask/issues/6243
+# test_illegal_column_name can be removed once next dask release is out
+# (https://github.com/dask/dask/pull/6378)
 pytest -v --pyargs dask.dataframe.io.tests.test_parquet \
-  -k "not test_timestamp_index and not test_roundtrip_from_pandas"
+  -k "not test_to_parquet_pyarrow_w_inconsistent_schema_by_partition_fails_by_default and not test_timeseries_nulls_in_schema and not test_illegal_column_name"

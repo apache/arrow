@@ -16,6 +16,8 @@
 # under the License.
 
 class TestBufferInputStream < Test::Unit::TestCase
+  include Helper::Buildable
+
   def test_read
     buffer = Arrow::Buffer.new("Hello World")
     buffer_input_stream = Arrow::BufferInputStream.new(buffer)
@@ -82,5 +84,28 @@ class TestBufferInputStream < Test::Unit::TestCase
     raw_read_data = gio_input_stream.read(10).data.to_s
     assert_equal(data.encode(convert_encoding),
                  raw_read_data.dup.force_encoding(convert_encoding))
+  end
+
+  def test_read_record_batch
+    fields = [
+      Arrow::Field.new("visible", Arrow::BooleanDataType.new),
+      Arrow::Field.new("valid", Arrow::BooleanDataType.new),
+    ]
+    schema = Arrow::Schema.new(fields)
+    columns = [
+      build_boolean_array([true]),
+      build_boolean_array([false]),
+    ]
+    record_batch = Arrow::RecordBatch.new(schema, 1, columns)
+
+    buffer = Arrow::ResizableBuffer.new(0)
+    output_stream = Arrow::BufferOutputStream.new(buffer)
+    output_stream.write_record_batch(record_batch)
+    output_stream.close
+
+    input_stream = Arrow::BufferInputStream.new(buffer)
+    options = Arrow::ReadOptions.new
+    assert_equal(record_batch,
+                 input_stream.read_record_batch(schema, options))
   end
 end

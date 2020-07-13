@@ -26,41 +26,28 @@ test_that("read_table handles various input streams (ARROW-3450, ARROW-3505)", {
   tab <- Table$create(!!!tbl)
 
   tf <- tempfile()
-  write_arrow(tab, tf)
+  on.exit(unlink(tf))
+  expect_deprecated(
+    write_arrow(tab, tf),
+    "write_feather"
+  )
 
-  bytes <- write_arrow(tab, raw())
-
-  tab1 <- read_table(tf)
-  tab2 <- read_table(normalizePath(tf))
+  tab1 <- read_feather(tf, as_data_frame = FALSE)
+  tab2 <- read_feather(normalizePath(tf), as_data_frame = FALSE)
 
   readable_file <- ReadableFile$create(tf)
-  file_reader1 <- RecordBatchFileReader$create(readable_file)
-  tab3 <- read_table(file_reader1)
+  expect_deprecated(
+    tab3 <- read_arrow(readable_file, as_data_frame = FALSE),
+    "read_feather"
+  )
   readable_file$close()
 
   mmap_file <- mmap_open(tf)
-  file_reader2 <- RecordBatchFileReader$create(mmap_file)
-  tab4 <- read_table(file_reader2)
   mmap_file$close()
-
-  tab5 <- read_table(bytes)
-
-  stream_reader <- RecordBatchStreamReader$create(bytes)
-  tab6 <- read_table(stream_reader)
-
-  file_reader <- RecordBatchFileReader$create(tf)
-  tab7 <- read_table(file_reader)
 
   expect_equal(tab, tab1)
   expect_equal(tab, tab2)
   expect_equal(tab, tab3)
-  expect_equal(tab, tab4)
-  expect_equal(tab, tab5)
-  expect_equal(tab, tab6)
-  expect_equal(tab, tab7)
-
-  unlink(tf)
-
 })
 
 test_that("Table cast (ARROW-3741)", {
@@ -76,10 +63,12 @@ test_that("Table cast (ARROW-3741)", {
   expect_equal(tab2$column(1L)$type, int64())
 })
 
-test_that("Table dim() and nrow() (ARROW-3816)", {
-  tab <- Table$create(x = 1:10, y  = 1:10)
-  expect_equal(dim(tab), c(10L, 2L))
-  expect_equal(nrow(tab), 10L)
+test_that("Table S3 methods", {
+  tab <- Table$create(example_data)
+  for (f in c("dim", "nrow", "ncol", "dimnames", "colnames", "row.names", "as.list")) {
+    fun <- get(f)
+    expect_identical(fun(tab), fun(example_data), info = f)
+  }
 })
 
 test_that("Table $column and $field", {
@@ -139,10 +128,21 @@ test_that("[, [[, $ for Table", {
   expect_vector(tab[[4]], tbl$chr)
   expect_null(tab$qwerty)
   expect_null(tab[["asdf"]])
+  # List-like column slicing
+  expect_data_frame(tab[2:4], tbl[2:4])
+  expect_data_frame(tab[c(1, 0)], tbl[c(1, 0)])
+
   expect_error(tab[[c(4, 3)]], class = "Rcpp::not_compatible")
   expect_error(tab[[NA]], "'i' must be character or numeric, not logical")
   expect_error(tab[[NULL]], "'i' must be character or numeric, not NULL")
   expect_error(tab[[c("asdf", "jkl;")]], 'length(name) not equal to 1', fixed = TRUE)
+  expect_error(tab[-3], "Selections can't have negative value") # From tidyselect
+  expect_error(tab[-3:3], "Selections can't have negative value") # From tidyselect
+  expect_error(tab[1000]) # This is caught in vctrs, assert more specifically when it stabilizes
+  expect_error(tab[1:1000]) # same as ^
+
+  skip("Table with 0 cols doesn't know how many rows it should have")
+  expect_data_frame(tab[0], tbl[0])
 })
 
 test_that("Table$Slice", {
@@ -299,25 +299,53 @@ test_that("==.Table", {
 test_that("Table$Equals(check_metadata)", {
   tab1 <- Table$create(x = 1:2, y = c("a", "b"))
   tab2 <- Table$create(x = 1:2, y = c("a", "b"),
-    schema = tab1$schema$WithMetadata(list(some="metadata")))
+                       schema = tab1$schema$WithMetadata(list(some="metadata")))
 
   expect_is(tab1, "Table")
   expect_is(tab2, "Table")
   expect_false(tab1$schema$HasMetadata)
   expect_true(tab2$schema$HasMetadata)
-  expect_match(tab2$schema$metadata, "some: metadata", fixed = TRUE)
+  expect_identical(tab2$schema$metadata, list(some = "metadata"))
 
-  expect_false(tab1 == tab2)
-  expect_false(tab1$Equals(tab2))
-  expect_true(tab1$Equals(tab2, check_metadata = FALSE))
+  expect_true(tab1 == tab2)
+  expect_true(tab1$Equals(tab2))
+  expect_false(tab1$Equals(tab2, check_metadata = TRUE))
 
-  expect_failure(expect_equal(tab1, tab2)) # expect_equal does check_metadata
-  expect_equivalent(tab1, tab2)            # expect_equivalent does not
+  expect_failure(expect_equal(tab1, tab2))  # expect_equal has check_metadata=TRUE
+  expect_equivalent(tab1, tab2)  # expect_equivalent has check_metadata=FALSE
 
   expect_false(tab1$Equals(24)) # Not a Table
 })
 
 test_that("Table handles null type (ARROW-7064)", {
   tab <- Table$create(a = 1:10, n = vctrs::unspecified(10))
-  expect_equal(tab$schema,  schema(a = int32(), n = null()))
+  expect_equivalent(tab$schema, schema(a = int32(), n = null()))
+})
+
+test_that("Can create table with specific dictionary types", {
+  fact <- example_data[,"fct"]
+  int_types <- c(int8(), int16(), int32(), int64())
+  # TODO: test uint types when format allows
+  # uint_types <- c(uint8(), uint16(), uint32(), uint64())
+  for (i in int_types) {
+    sch <- schema(fct = dictionary(i, utf8()))
+    tab <- Table$create(fact, schema = sch)
+    expect_equal(sch, tab$schema)
+    if (i != int64()) {
+      # TODO: same downcast to int32 as we do for int64() type elsewhere
+      expect_identical(as.data.frame(tab), fact)
+    }
+  }
+})
+
+test_that("Table unifies dictionary on conversion back to R (ARROW-8374)", {
+  b1 <- record_batch(f = factor(c("a"), levels = c("a", "b")))
+  b2 <- record_batch(f = factor(c("c"), levels = c("c", "d")))
+  b3 <- record_batch(f = factor(NA, levels = "a"))
+  b4 <- record_batch(f = factor())
+
+  res <- tibble::tibble(f = factor(c("a", "c", NA), levels = c("a", "b", "c", "d")))
+  tab <- Table$create(b1, b2, b3, b4)
+
+  expect_identical(as.data.frame(tab), res)
 })

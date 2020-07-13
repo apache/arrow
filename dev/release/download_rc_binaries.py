@@ -31,7 +31,7 @@ import urllib.request
 
 BINTRAY_API_ROOT = "https://bintray.com/api/v1"
 BINTRAY_DL_ROOT = "https://dl.bintray.com"
-BINTRAY_REPO = 'apache/arrow'
+BINTRAY_REPO = os.getenv('BINTRAY_REPOSITORY', 'apache/arrow')
 DEFAULT_PARALLEL_DOWNLOADS = 8
 
 
@@ -131,7 +131,7 @@ def parallel_map_terminate_early(f, iterable, num_parallel):
                 raise e
 
 
-ARROW_PACKAGE_TYPES = ['centos', 'debian', 'python', 'ubuntu']
+ARROW_PACKAGE_TYPES = ['centos', 'debian', 'nuget', 'python', 'ubuntu']
 
 
 def download_rc_binaries(version, rc_number, re_match=None, dest=None,

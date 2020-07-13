@@ -22,18 +22,19 @@ import static org.apache.arrow.vector.types.pojo.Field.convertField;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.AbstractMap;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
 import org.apache.arrow.flatbuf.KeyValue;
 import org.apache.arrow.util.Collections2;
 import org.apache.arrow.util.Preconditions;
+import org.apache.arrow.vector.ipc.message.FBSerializables;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -99,21 +100,41 @@ public class Schema {
   private final Map<String, String> metadata;
 
   public Schema(Iterable<Field> fields) {
-    this(fields, null);
+    this(fields, (Map<String, String>) null);
+  }
+
+  /**
+   * Constructor with metadata.
+   */
+  public Schema(Iterable<Field> fields,
+                Map<String, String> metadata) {
+    List<Field> fieldList = new ArrayList<>();
+    for (Field field : fields) {
+      fieldList.add(field);
+    }
+    this.fields = Collections2.immutableListCopy(fieldList);
+    this.metadata = metadata == null ? Collections.emptyMap() : Collections2.immutableMapCopy(metadata);
   }
 
   /**
    * Constructor used for JSON deserialization.
    */
   @JsonCreator
-  public Schema(@JsonProperty("fields") Iterable<Field> fields,
-                @JsonProperty("metadata") Map<String, String> metadata) {
+  private Schema(@JsonProperty("fields") Iterable<Field> fields,
+                @JsonProperty("metadata") List<Map<String, String>> metadata) {
     List<Field> fieldList = new ArrayList<>();
     for (Field field : fields) {
       fieldList.add(field);
     }
     this.fields = Collections2.immutableListCopy(fieldList);
-    this.metadata = metadata == null ? java.util.Collections.emptyMap() : Collections2.immutableMapCopy(metadata);
+    this.metadata = metadata == null ?
+        Collections.emptyMap() : Collections2.immutableMapCopy(convertMetadata(metadata));
+  }
+
+  static Map<String, String> convertMetadata(List<Map<String, String>> metadata) {
+    return (metadata == null) ? null : metadata.stream()
+        .map(e -> new AbstractMap.SimpleImmutableEntry<>(e.get("key"), e.get("value")))
+        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
   public List<Field> getFields() {
@@ -157,18 +178,7 @@ public class Schema {
       fieldOffsets[i] = fields.get(i).getField(builder);
     }
     int fieldsOffset = org.apache.arrow.flatbuf.Schema.createFieldsVector(builder, fieldOffsets);
-    int[] metadataOffsets = new int[metadata.size()];
-    Iterator<Entry<String, String>> metadataIterator = metadata.entrySet().iterator();
-    for (int i = 0; i < metadataOffsets.length; i++) {
-      Entry<String, String> kv = metadataIterator.next();
-      int keyOffset = builder.createString(kv.getKey());
-      int valueOffset = builder.createString(kv.getValue());
-      KeyValue.startKeyValue(builder);
-      KeyValue.addKey(builder, keyOffset);
-      KeyValue.addValue(builder, valueOffset);
-      metadataOffsets[i] = KeyValue.endKeyValue(builder);
-    }
-    int metadataOffset = org.apache.arrow.flatbuf.Field.createCustomMetadataVector(builder, metadataOffsets);
+    int metadataOffset = FBSerializables.writeKeyValues(builder, metadata);
     org.apache.arrow.flatbuf.Schema.startSchema(builder);
     org.apache.arrow.flatbuf.Schema.addFields(builder, fieldsOffset);
     org.apache.arrow.flatbuf.Schema.addCustomMetadata(builder, metadataOffset);

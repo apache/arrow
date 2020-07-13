@@ -15,10 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_CSV_API_H
-#define ARROW_CSV_API_H
+#pragma once
 
 #include "arrow/csv/options.h"
 #include "arrow/csv/reader.h"
-
-#endif  // ARROW_CSV_API_H

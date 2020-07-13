@@ -113,6 +113,19 @@ module Helper
       build_array(Arrow::LargeStringArrayBuilder.new, values)
     end
 
+    def build_decimal128_array(value_data_type, values)
+      values = values.collect do |value|
+        case value
+        when String
+          Arrow::Decimal128.new(value)
+        else
+          value
+        end
+      end
+      build_array(Arrow::Decimal128ArrayBuilder.new(value_data_type),
+                  values)
+    end
+
     def build_list_array(value_data_type, values_list, field_name: "value")
       value_field = Arrow::Field.new(field_name, value_data_type)
       data_type = Arrow::ListDataType.new(value_field)

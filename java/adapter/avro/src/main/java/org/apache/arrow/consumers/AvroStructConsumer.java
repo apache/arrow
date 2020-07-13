@@ -20,6 +20,7 @@ package org.apache.arrow.consumers;
 import java.io.IOException;
 
 import org.apache.arrow.util.AutoCloseables;
+import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.avro.io.Decoder;
 
@@ -42,6 +43,7 @@ public class AvroStructConsumer extends BaseAvroConsumer<StructVector> {
   @Override
   public void consume(Decoder decoder) throws IOException {
 
+    ensureInnerVectorCapacity(currentIndex + 1);
     for (int i = 0; i < delegates.length; i++) {
       delegates[i].consume(decoder);
     }
@@ -62,5 +64,13 @@ public class AvroStructConsumer extends BaseAvroConsumer<StructVector> {
       delegates[i].resetValueVector(vector.getChildrenFromFields().get(i));
     }
     return super.resetValueVector(vector);
+  }
+
+  void ensureInnerVectorCapacity(long targetCapacity) {
+    for (FieldVector v : vector.getChildrenFromFields()) {
+      while (v.getValueCapacity() < targetCapacity) {
+        v.reAlloc();
+      }
+    }
   }
 }

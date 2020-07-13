@@ -17,27 +17,20 @@
 
 #include "arrow/array/builder_decimal.h"
 
-#include <algorithm>
-#include <cstddef>
 #include <cstdint>
-#include <cstring>
 #include <memory>
-#include <numeric>
-#include <string>
-#include <utility>
-#include <vector>
 
-#include "arrow/array.h"
+#include "arrow/array/data.h"
 #include "arrow/buffer.h"
+#include "arrow/buffer_builder.h"
 #include "arrow/status.h"
-#include "arrow/type.h"
-#include "arrow/type_traits.h"
-#include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
-#include "arrow/util/logging.h"
 
 namespace arrow {
+
+class Buffer;
+class MemoryPool;
 
 // ----------------------------------------------------------------------
 // Decimal128Builder

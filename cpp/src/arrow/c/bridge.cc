@@ -37,8 +37,8 @@
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/parsing.h"
 #include "arrow/util/string_view.h"
+#include "arrow/util/value_parsing.h"
 #include "arrow/visitor_inline.h"
 
 namespace arrow {
@@ -171,7 +171,7 @@ struct SchemaExporter {
 
     const DataType& type = *field.type();
     RETURN_NOT_OK(ExportFormat(type));
-    RETURN_NOT_OK(ExportChildren(type.children()));
+    RETURN_NOT_OK(ExportChildren(type.fields()));
     RETURN_NOT_OK(ExportMetadata(field.metadata().get()));
     return Status::OK();
   }
@@ -180,7 +180,7 @@ struct SchemaExporter {
     flags_ = ARROW_FLAG_NULLABLE;
 
     RETURN_NOT_OK(ExportFormat(type));
-    RETURN_NOT_OK(ExportChildren(type.children()));
+    RETURN_NOT_OK(ExportChildren(type.fields()));
     return Status::OK();
   }
 
@@ -503,6 +503,10 @@ void ReleaseExportedArray(struct ArrowArray* array) {
 
 struct ArrayExporter {
   Status Export(const std::shared_ptr<ArrayData>& data) {
+    // Force computing null count.
+    // This is because ARROW-9037 is in version 0.17 and 0.17.1, and they are
+    // not able to import arrays without a null bitmap and null_count == -1.
+    data->GetNullCount();
     // Store buffer pointers
     export_.buffers_.resize(data->buffers.size());
     std::transform(data->buffers.begin(), data->buffers.end(), export_.buffers_.begin(),
@@ -513,7 +517,7 @@ struct ArrayExporter {
     // Export dictionary
     if (data->dictionary != nullptr) {
       dict_exporter_.reset(new ArrayExporter());
-      RETURN_NOT_OK(dict_exporter_->Export(data->dictionary->data()));
+      RETURN_NOT_OK(dict_exporter_->Export(data->dictionary));
     }
 
     // Export children
@@ -590,9 +594,8 @@ Status ExportArray(const Array& array, struct ArrowArray* out,
 
 Status ExportRecordBatch(const RecordBatch& batch, struct ArrowArray* out,
                          struct ArrowSchema* out_schema) {
-  std::shared_ptr<Array> array;
   // XXX perhaps bypass ToStructArray() for speed?
-  RETURN_NOT_OK(batch.ToStructArray(&array));
+  ARROW_ASSIGN_OR_RAISE(auto array, batch.ToStructArray());
 
   SchemaExportGuard guard(out_schema);
   if (out_schema != nullptr) {
@@ -653,9 +656,8 @@ class FormatStringParser {
   template <typename IntType = int32_t>
   Result<IntType> ParseInt(util::string_view v) {
     using ArrowIntType = typename CTypeTraits<IntType>::ArrowType;
-    internal::StringConverter<ArrowIntType> converter;
     IntType value;
-    if (!converter(v.data(), v.size(), &value)) {
+    if (!internal::ParseValue<ArrowIntType>(v.data(), v.size(), &value)) {
       return Invalid();
     }
     return value;
@@ -715,7 +717,7 @@ Result<std::shared_ptr<KeyValueMetadata>> DecodeMetadata(const char* metadata) {
     int32_t v;
     memcpy(&v, metadata, 4);
     metadata += 4;
-    *out = BitUtil::FromLittleEndian(v);
+    *out = v;
     if (*out < 0) {
       return Status::Invalid("Invalid encoded metadata string");
     }
@@ -777,7 +779,7 @@ struct SchemaImporter {
           type_->ToString());
     }
     ARROW_ASSIGN_OR_RAISE(auto metadata, DecodeMetadata(c_struct_->metadata));
-    return schema(type_->children(), std::move(metadata));
+    return schema(type_->fields(), std::move(metadata));
   }
 
   Result<std::shared_ptr<DataType>> MakeType() const { return type_; }
@@ -815,13 +817,9 @@ struct SchemaImporter {
     // Import dictionary type
     if (c_struct_->dictionary != nullptr) {
       // Check this index type
-      bool indices_ok = false;
-      if (is_integer(type_->id())) {
-        indices_ok = checked_cast<const IntegerType&>(*type_).is_signed();
-      }
-      if (!indices_ok) {
+      if (!is_integer(type_->id())) {
         return Status::Invalid(
-            "ArrowSchema struct has a dictionary but is not a signed integer type: ",
+            "ArrowSchema struct has a dictionary but is not an integer type: ",
             type_->ToString());
       }
       SchemaImporter dict_importer;
@@ -1008,13 +1006,13 @@ struct SchemaImporter {
       return Status::Invalid("Imported map array has unexpected child field type: ",
                              field->ToString());
     }
-    if (value_type->num_children() != 2) {
+    if (value_type->num_fields() != 2) {
       return Status::Invalid("Imported map array has unexpected child field type: ",
                              field->ToString());
     }
 
     bool keys_sorted = (c_struct_->flags & ARROW_FLAG_MAP_KEYS_SORTED);
-    type_ = map(value_type->child(0)->type(), value_type->child(1)->type(), keys_sorted);
+    type_ = map(value_type->field(0)->type(), value_type->field(1)->type(), keys_sorted);
     return Status::OK();
   }
 
@@ -1065,7 +1063,11 @@ struct SchemaImporter {
                                c_struct_->format, "'");
       }
     }
-    type_ = union_(std::move(fields), std::move(type_codes), mode);
+    if (mode == UnionMode::SPARSE) {
+      type_ = sparse_union(std::move(fields), std::move(type_codes));
+    } else {
+      type_ = dense_union(std::move(fields), std::move(type_codes));
+    }
     return Status::OK();
   }
 
@@ -1193,9 +1195,14 @@ struct ArrayImporter {
     return ::arrow::MakeArray(data_);
   }
 
+  std::shared_ptr<ArrayData> GetArrayData() {
+    DCHECK_NE(data_, nullptr);
+    return data_;
+  }
+
   Result<std::shared_ptr<RecordBatch>> MakeRecordBatch(std::shared_ptr<Schema> schema) {
     DCHECK_NE(data_, nullptr);
-    if (data_->null_count != 0) {
+    if (data_->GetNullCount() != 0) {
       return Status::Invalid(
           "ArrowArray struct has non-zero null count, "
           "cannot be imported as RecordBatch");
@@ -1233,7 +1240,7 @@ struct ArrayImporter {
 
   Status DoImport() {
     // First import children (required for reconstituting parent array data)
-    const auto& fields = type_->children();
+    const auto& fields = type_->fields();
     if (c_struct_->n_children != static_cast<int64_t>(fields.size())) {
       return Status::Invalid("ArrowArray struct has ", c_struct_->n_children,
                              " children, expected ", fields.size(), " for type ",
@@ -1259,7 +1266,7 @@ struct ArrayImporter {
       // Import dictionary values
       ArrayImporter dict_importer(dict_type.value_type());
       RETURN_NOT_OK(dict_importer.ImportDict(this, c_struct_->dictionary));
-      ARROW_ASSIGN_OR_RAISE(data_->dictionary, dict_importer.MakeArray());
+      data_->dictionary = dict_importer.GetArrayData();
     } else {
       if (is_dict_type) {
         return Status::Invalid("Import type is ", type_->ToString(),
@@ -1315,14 +1322,16 @@ struct ArrayImporter {
 
   Status Visit(const UnionType& type) {
     auto mode = type.mode();
-    RETURN_NOT_OK(CheckNumBuffers(3));
+    if (mode == UnionMode::SPARSE) {
+      RETURN_NOT_OK(CheckNumBuffers(2));
+    } else {
+      RETURN_NOT_OK(CheckNumBuffers(3));
+    }
     RETURN_NOT_OK(AllocateArrayData());
     RETURN_NOT_OK(ImportNullBitmap());
     RETURN_NOT_OK(ImportFixedSizeBuffer(1, sizeof(int8_t)));
     if (mode == UnionMode::DENSE) {
       RETURN_NOT_OK(ImportFixedSizeBuffer(2, sizeof(int32_t)));
-    } else {
-      RETURN_NOT_OK(ImportUnusedBuffer(2));
     }
     return Status::OK();
   }
@@ -1398,7 +1407,7 @@ struct ArrayImporter {
 
   Status ImportNullBitmap(int32_t buffer_id = 0) {
     RETURN_NOT_OK(ImportBitsBuffer(buffer_id));
-    if (data_->null_count != 0 && data_->buffers[buffer_id] == nullptr) {
+    if (data_->null_count > 0 && data_->buffers[buffer_id] == nullptr) {
       return Status::Invalid(
           "ArrowArray struct has null bitmap buffer but non-zero null_count ",
           data_->null_count);
@@ -1411,8 +1420,6 @@ struct ArrayImporter {
     int64_t buffer_size = BitUtil::BytesForBits(c_struct_->length + c_struct_->offset);
     return ImportBuffer(buffer_id, buffer_size);
   }
-
-  Status ImportUnusedBuffer(int32_t buffer_id) { return ImportBuffer(buffer_id, 0); }
 
   Status ImportFixedSizeBuffer(int32_t buffer_id, int64_t byte_width) {
     // Compute visible size of buffer

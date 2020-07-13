@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_SELECTION_VECTOR_IMP_H
-#define GANDIVA_SELECTION_VECTOR_IMP_H
+#pragma once
 
 #include <limits>
 #include <memory>
@@ -24,8 +23,8 @@
 #include "arrow/status.h"
 #include "arrow/util/macros.h"
 
+#include "arrow/util/logging.h"
 #include "gandiva/arrow.h"
-#include "gandiva/logging.h"
 #include "gandiva/selection_vector.h"
 
 namespace gandiva {
@@ -107,5 +106,3 @@ using SelectionVectorInt64 =
     SelectionVectorImpl<uint64_t, arrow::UInt64Type, SelectionVector::MODE_UINT64>;
 
 }  // namespace gandiva
-
-#endif  // GANDIVA_SELECTION_VECTOR_IMPL_H

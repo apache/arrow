@@ -47,7 +47,7 @@ class BenchmarkCodec:
             "name": b.name,
             "unit": b.unit,
             "less_is_better": b.less_is_better,
-            "values": b.values.tolist(),
+            "values": b.values,
         }
 
     @staticmethod
@@ -85,15 +85,7 @@ class BenchmarkRunnerCodec:
 class BenchmarkComparatorCodec:
     @staticmethod
     def encode(bc):
-        comparator = {
-            "benchmark": bc.name,
-            "change": bc.change,
-            "regression": bc.regression,
-            "baseline": bc.baseline.value,
-            "contender": bc.contender.value,
-            "unit": bc.unit,
-            "less_is_better": bc.less_is_better,
-        }
+        comparator = bc.formatted
 
         suite_name = bc.suite_name
         if suite_name:

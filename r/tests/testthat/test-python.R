@@ -17,6 +17,16 @@
 
 context("To/from Python")
 
+test_that("install_pyarrow", {
+  skip_on_cran()
+  skip_if_not_dev_mode()
+  skip_if_not_installed("reticulate")
+  venv <- try(reticulate::virtualenv_create("arrow-test"))
+  # Bail out if virtualenv isn't available
+  skip_if(inherits(venv, "try-error"))
+  expect_error(install_pyarrow("arrow-test", nightly = TRUE), NA)
+})
+
 test_that("Array from Python", {
   skip_if_no_pyarrow()
   pa <- reticulate::import("pyarrow")
@@ -40,4 +50,32 @@ test_that("RecordBatch to/from Python", {
   py <- reticulate::r_to_py(batch)
   expect_is(py, "pyarrow.lib.RecordBatch")
   expect_equal(reticulate::py_to_r(py), batch)
+})
+
+test_that("Table and ChunkedArray from Python", {
+  skip_if_no_pyarrow()
+  pa <- reticulate::import("pyarrow", convert=FALSE)
+  batch <- record_batch(col1=c(1, 2, 3), col2=letters[1:3])
+  tab <- Table$create(batch, batch)
+  pybatch <- reticulate::r_to_py(batch)
+  pytab <- pa$Table$from_batches(list(pybatch, pybatch))
+  expect_is(pytab, "pyarrow.lib.Table")
+  expect_is(pytab[0], "pyarrow.lib.ChunkedArray")
+  expect_equal(reticulate::py_to_r(pytab[0]), tab$col1)
+  expect_equal(reticulate::py_to_r(pytab), tab)
+})
+
+test_that("Table and ChunkedArray to Python", {
+  skip_if_no_pyarrow()
+  pa <- reticulate::import("pyarrow", convert=FALSE)
+  batch <- record_batch(col1=c(1, 2, 3), col2=letters[1:3])
+  tab <- Table$create(batch, batch)
+
+  pychunked <- reticulate::r_to_py(tab$col1)
+  expect_is(pychunked, "pyarrow.lib.ChunkedArray")
+  expect_equal(reticulate::py_to_r(pychunked), tab$col1)
+
+  pytab <- reticulate::r_to_py(tab)
+  expect_is(pytab, "pyarrow.lib.Table")
+  expect_equal(reticulate::py_to_r(pytab), tab)
 })

@@ -45,7 +45,7 @@ ARROW_EXPORT void InvalidValueOrDie(const Status& st);
 
 }  // namespace internal
 
-// A class for representing either a usable value, or an error.
+/// A class for representing either a usable value, or an error.
 ///
 /// A Result object either contains a value of type `T` or a Status object
 /// explaining why such a value is not present. The type `T` must be
@@ -98,7 +98,7 @@ ARROW_EXPORT void InvalidValueOrDie(const Status& st);
 ///   arrow::Result<int> CalculateFoo();
 /// ```
 template <class T>
-class Result : public util::EqualityComparable<Result<T>> {
+class ARROW_MUST_USE_TYPE Result : public util::EqualityComparable<Result<T>> {
   template <typename U>
   friend class Result;
 
@@ -298,7 +298,7 @@ class Result : public util::EqualityComparable<Result<T>> {
   ///
   /// \return The stored non-OK status object, or an OK status if this object
   ///         has a value.
-  Status status() const { return status_; }
+  const Status& status() const { return status_; }
 
   /// Gets the stored `T` value.
   ///
@@ -461,5 +461,10 @@ inline Status GenericToStatus(Result<T>&& res) {
 }
 
 }  // namespace internal
+
+template <typename T>
+Result<T> ToResult(T t) {
+  return Result<T>(std::move(t));
+}
 
 }  // namespace arrow

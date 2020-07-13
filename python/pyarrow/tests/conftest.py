@@ -34,7 +34,8 @@ h.settings.register_profile('debug', max_examples=10,
 
 # load default hypothesis profile, either set HYPOTHESIS_PROFILE environment
 # variable or pass --hypothesis-profile option to pytest, to see the generated
-# examples try: pytest pyarrow -sv --only-hypothesis --hypothesis-profile=debug
+# examples try:
+# pytest pyarrow -sv --enable-hypothesis --hypothesis-profile=debug
 h.settings.load_profile(os.environ.get('HYPOTHESIS_PROFILE', 'dev'))
 
 groups = [
@@ -104,7 +105,7 @@ except ImportError:
     pass
 
 try:
-    import pyarrow.orc # noqa
+    import pyarrow.orc  # noqa
     defaults['orc'] = True
 except ImportError:
     pass
@@ -168,12 +169,13 @@ def pytest_addoption(parser):
                              .format(name.upper(), value))
 
     for group in groups:
-        for flag, envvar in [('--{}', 'PYARROW_TEST_{}'),
-                             ('--enable-{}', 'PYARROW_TEST_ENABLE_{}')]:
-            default = bool_env(envvar.format(group), defaults[group])
-            parser.addoption(flag.format(group),
-                             action='store_true', default=default,
-                             help=('Enable the {} test group'.format(group)))
+        default = bool_env('PYARROW_TEST_{}'.format(group), defaults[group])
+        parser.addoption('--enable-{}'.format(group),
+                         action='store_true', default=default,
+                         help=('Enable the {} test group'.format(group)))
+        parser.addoption('--disable-{}'.format(group),
+                         action='store_true', default=False,
+                         help=('Disable the {} test group'.format(group)))
 
 
 class PyArrowConfig:
@@ -199,11 +201,11 @@ def pytest_configure(config):
             "markers", mark,
         )
 
-        flag = '--{}'.format(mark)
         enable_flag = '--enable-{}'.format(mark)
+        disable_flag = '--disable-{}'.format(mark)
 
-        is_enabled = (config.getoption(flag) or
-                      config.getoption(enable_flag))
+        is_enabled = (config.getoption(enable_flag) and not
+                      config.getoption(disable_flag))
         config.pyarrow.is_enabled[mark] = is_enabled
 
 
@@ -229,7 +231,7 @@ def datadir():
 
 @pytest.mark.hdfs
 @pytest.fixture(scope='session')
-def hdfs_server():
+def hdfs_connection():
     host = os.environ.get('ARROW_HDFS_TEST_HOST', 'default')
     port = int(os.environ.get('ARROW_HDFS_TEST_PORT', 0))
     user = os.environ.get('ARROW_HDFS_TEST_USER', 'hdfs')
@@ -238,9 +240,15 @@ def hdfs_server():
 
 @pytest.mark.s3
 @pytest.fixture(scope='session')
-def minio_server():
+def s3_connection():
     host, port = 'localhost', find_free_port()
     access_key, secret_key = 'arrow', 'apachearrow'
+    return host, port, access_key, secret_key
+
+
+@pytest.fixture(scope='session')
+def s3_server(s3_connection):
+    host, port, access_key, secret_key = s3_connection
 
     address = '{}:{}'.format(host, port)
     env = os.environ.copy()
@@ -258,7 +266,7 @@ def minio_server():
         except OSError:
             pytest.skip('`minio` command cannot be located')
         else:
-            yield address, access_key, secret_key
+            yield proc
         finally:
             if proc is not None:
                 proc.kill()

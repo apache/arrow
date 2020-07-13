@@ -214,6 +214,66 @@ TEST(Uri, ParseUserPass) {
   ASSERT_EQ(uri.password(), "somepass");
 }
 
+TEST(Uri, FileScheme) {
+  // "file" scheme URIs
+  // https://en.wikipedia.org/wiki/File_URI_scheme
+  // https://tools.ietf.org/html/rfc8089
+  Uri uri;
+
+  auto check_no_host = [&](std::string uri_string, std::string path) -> void {
+    ASSERT_OK(uri.Parse(uri_string));
+    ASSERT_EQ(uri.scheme(), "file");
+    ASSERT_EQ(uri.host(), "");
+    ASSERT_EQ(uri.path(), path);
+    ASSERT_EQ(uri.username(), "");
+    ASSERT_EQ(uri.password(), "");
+  };
+
+  auto check_with_host = [&](std::string uri_string, std::string host,
+                             std::string path) -> void {
+    ASSERT_OK(uri.Parse(uri_string));
+    ASSERT_EQ(uri.scheme(), "file");
+    ASSERT_EQ(uri.host(), host);
+    ASSERT_EQ(uri.path(), path);
+    ASSERT_EQ(uri.username(), "");
+    ASSERT_EQ(uri.password(), "");
+  };
+
+  // Relative paths are not accepted in "file" URIs.
+  ASSERT_RAISES(Invalid, uri.Parse("file:"));
+  ASSERT_RAISES(Invalid, uri.Parse("file:foo/bar"));
+
+  // Absolute paths
+  // (no authority)
+  check_no_host("file:/", "/");
+  check_no_host("file:/foo/bar", "/foo/bar");
+  // (empty authority)
+  check_no_host("file:///", "/");
+  check_no_host("file:///foo/bar", "/foo/bar");
+  // (non-empty authority)
+  check_with_host("file://localhost/", "localhost", "/");
+  check_with_host("file://localhost/foo/bar", "localhost", "/foo/bar");
+  check_with_host("file://hostname.com/", "hostname.com", "/");
+  check_with_host("file://hostname.com/foo/bar", "hostname.com", "/foo/bar");
+
+#ifdef _WIN32
+  // Relative paths
+  ASSERT_RAISES(Invalid, uri.Parse("file:/C:foo/bar"));
+  // (NOTE: "file:/C:" is currently parsed as an absolute URI pointing to "C:/")
+
+  // Absolute paths
+  // (no authority)
+  check_no_host("file:/C:/", "C:/");
+  check_no_host("file:/C:/foo/bar", "C:/foo/bar");
+  // (empty authority)
+  check_no_host("file:///C:/", "C:/");
+  check_no_host("file:///C:/foo/bar", "C:/foo/bar");
+  // (non-empty authority)
+  check_with_host("file://server/share/", "server", "/share/");
+  check_with_host("file://server/share/foo/bar", "server", "/share/foo/bar");
+#endif
+}
+
 TEST(Uri, ParseError) {
   Uri uri;
 

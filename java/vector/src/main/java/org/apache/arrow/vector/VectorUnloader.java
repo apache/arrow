@@ -20,10 +20,9 @@ package org.apache.arrow.vector;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
-
-import io.netty.buffer.ArrowBuf;
 
 /**
  * Helper class that handles converting a {@link VectorSchemaRoot}

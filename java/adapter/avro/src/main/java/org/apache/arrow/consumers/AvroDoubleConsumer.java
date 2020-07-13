@@ -37,6 +37,6 @@ public class AvroDoubleConsumer extends BaseAvroConsumer<Float8Vector> {
 
   @Override
   public void consume(Decoder decoder) throws IOException {
-    vector.setSafe(currentIndex++, decoder.readDouble());
+    vector.set(currentIndex++, decoder.readDouble());
   }
 }

@@ -69,14 +69,14 @@ public class FunctionSignature {
       return false;
     }
     final FunctionSignature other = (FunctionSignature) signature;
-    return Objects.equal(this.name, other.name) &&
+    return this.name.equalsIgnoreCase(other.name) &&
         Objects.equal(this.returnType, other.returnType) &&
         Objects.equal(this.paramTypes, other.paramTypes);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(this.name, this.returnType, this.paramTypes);
+    return Objects.hashCode(this.name.toLowerCase(), this.returnType, this.paramTypes);
   }
 
   @Override

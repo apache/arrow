@@ -15,6 +15,8 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
+.. _c-data-interface:
+
 ==========================
 The Arrow C data interface
 ==========================
@@ -440,6 +442,10 @@ It has the following fields:
    represent `length + offset` values encoded according to the
    :ref:`Columnar format specification <format_columnar>`.
 
+   It is recommended, but not required, that the memory addresses of the
+   buffers be aligned at least according to the type of primitive data that
+   they contain. Consumers MAY decide not to support unaligned memory.
+
    The pointer to the null bitmap buffer, if the data type specifies one,
    MAY be NULL only if :c:member:`ArrowArray.null_count` is 0.
 
@@ -559,7 +565,7 @@ required bookkeeping information.
 
 The release callback MUST not assume that the structure will be located
 at the same memory location as when it was originally produced.  The consumer
-is free to move the structure around (see "Movability").
+is free to move the structure around (see "Moving an array").
 
 The release callback MUST walk all children structures (including the optional
 dictionary) and call their own release callbacks.
@@ -616,10 +622,16 @@ the producer.
 As usual, the release callback will be called on the destination structure
 when it is not needed anymore.
 
-It is possible to move a child array, but the parent array MUST be released
-immediately afterwards, as it won't point to a valid child array anymore.
-This satisfies the use case of keeping only a subset of child arrays, while
-releasing the others.
+Moving child arrays
+~~~~~~~~~~~~~~~~~~~
+
+It is also possible to move one or several child arrays, but the parent
+``ArrowArray`` structure MUST be released immediately afterwards, as it
+won't point to valid child arrays anymore.
+
+The main use case for this is to keep alive only a subset of child arrays
+(for example if you are only interested in certain columns of the data),
+while releasing the others.
 
 .. note::
 

@@ -49,19 +49,9 @@ Result<std::shared_ptr<CudaBuffer>> SerializeRecordBatch(const RecordBatch& batc
   return CudaBuffer::FromBuffer(buf);
 }
 
-Status SerializeRecordBatch(const RecordBatch& batch, CudaContext* ctx,
-                            std::shared_ptr<CudaBuffer>* out) {
-  return SerializeRecordBatch(batch, ctx).Value(out);
-}
-
-Status ReadMessage(CudaBufferReader* reader, MemoryPool* pool,
-                   std::unique_ptr<ipc::Message>* out) {
-  return ipc::ReadMessage(reader, pool).Value(out);
-}
-
 Result<std::shared_ptr<RecordBatch>> ReadRecordBatch(
-    const std::shared_ptr<Schema>& schema, const std::shared_ptr<CudaBuffer>& buffer,
-    MemoryPool* pool) {
+    const std::shared_ptr<Schema>& schema, const ipc::DictionaryMemo* dictionary_memo,
+    const std::shared_ptr<CudaBuffer>& buffer, MemoryPool* pool) {
   CudaBufferReader cuda_reader(buffer);
 
   // The pool is only used for metadata allocation
@@ -71,16 +61,8 @@ Result<std::shared_ptr<RecordBatch>> ReadRecordBatch(
   }
 
   // Zero-copy read on device memory
-  ipc::DictionaryMemo unused_memo;
-  std::shared_ptr<RecordBatch> batch;
-  RETURN_NOT_OK(ipc::ReadRecordBatch(*message, schema, &unused_memo, &batch));
-  return batch;
-}
-
-Status ReadRecordBatch(const std::shared_ptr<Schema>& schema,
-                       const std::shared_ptr<CudaBuffer>& buffer, MemoryPool* pool,
-                       std::shared_ptr<RecordBatch>* out) {
-  return ReadRecordBatch(schema, buffer, pool).Value(out);
+  return ipc::ReadRecordBatch(*message, schema, dictionary_memo,
+                              ipc::IpcReadOptions::Defaults());
 }
 
 }  // namespace cuda

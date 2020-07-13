@@ -18,8 +18,7 @@
 // Functions for converting between pandas's NumPy-based data representation
 // and Arrow data structures
 
-#ifndef ARROW_PYTHON_PLATFORM_H
-#define ARROW_PYTHON_PLATFORM_H
+#pragma once
 
 #include <Python.h> // IWYU pragma: export
 #include <datetime.h>
@@ -31,4 +30,3 @@
 #endif
 #endif
 
-#endif  // ARROW_PYTHON_PLATFORM_H

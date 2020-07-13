@@ -38,6 +38,6 @@ public class AvroDateConsumer extends BaseAvroConsumer<DateDayVector> {
 
   @Override
   public void consume(Decoder decoder) throws IOException {
-    vector.setSafe(currentIndex++, decoder.readInt());
+    vector.set(currentIndex++, decoder.readInt());
   }
 }

@@ -23,8 +23,9 @@
 CWD="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 SOURCE_DIR=$CWD/../src
 FORMAT_DIR=$CWD/../../format
+FLATC="flatc -c --cpp-std c++11"
 
-flatc -c -o $SOURCE_DIR/generated \
+$FLATC -o $SOURCE_DIR/generated \
       --scoped-enums \
       $FORMAT_DIR/Message.fbs \
       $FORMAT_DIR/File.fbs \
@@ -33,7 +34,7 @@ flatc -c -o $SOURCE_DIR/generated \
       $FORMAT_DIR/SparseTensor.fbs \
       src/arrow/ipc/feather.fbs
 
-flatc -c -o $SOURCE_DIR/plasma \
+$FLATC -o $SOURCE_DIR/plasma \
       --gen-object-api \
       --scoped-enums \
       $SOURCE_DIR/plasma/common.fbs \

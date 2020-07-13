@@ -16,19 +16,18 @@
 # specific language governing permissions and limitations
 # under the License.
 
-export GLOG_VERSION="0.3.5"
-export CFLAGS="-fPIC"
-export PREFIX="/usr"
+export GLOG_VERSION="0.4.0"
+export PREFIX="/usr/local"
 curl -sL "https://github.com/google/glog/archive/v${GLOG_VERSION}.tar.gz" -o glog-${GLOG_VERSION}.tar.gz
 tar xf glog-${GLOG_VERSION}.tar.gz
 pushd glog-${GLOG_VERSION}
 
 cmake -DCMAKE_BUILD_TYPE=Release \
       -DCMAKE_INSTALL_PREFIX=${PREFIX} \
+      -DCMAKE_POSITION_INDEPENDENT_CODE=1 \
       -DBUILD_SHARED_LIBS=OFF \
       -DBUILD_TESTING=OFF \
       -DWITH_GFLAGS=OFF \
-      -DCMAKE_CXX_FLAGS=${CFLAGS} \
       -GNinja .
 ninja install
 popd

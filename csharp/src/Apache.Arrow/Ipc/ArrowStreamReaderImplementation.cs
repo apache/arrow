@@ -143,7 +143,7 @@ namespace Apache.Arrow.Ipc
                 int bytesRead = await BaseStream.ReadFullBufferAsync(buff).ConfigureAwait(false);
                 EnsureFullRead(buff, bytesRead);
 
-                var schemabb = CreateByteBuffer(buff);
+                FlatBuffers.ByteBuffer schemabb = CreateByteBuffer(buff);
                 Schema = MessageSerializer.GetSchema(ReadMessage<Flatbuf.Schema>(schemabb));
             }).ConfigureAwait(false);
         }
@@ -163,7 +163,7 @@ namespace Apache.Arrow.Ipc
                 int bytesRead = BaseStream.ReadFullBuffer(buff);
                 EnsureFullRead(buff, bytesRead);
 
-                var schemabb = CreateByteBuffer(buff);
+                FlatBuffers.ByteBuffer schemabb = CreateByteBuffer(buff);
                 Schema = MessageSerializer.GetSchema(ReadMessage<Flatbuf.Schema>(schemabb));
             });
         }

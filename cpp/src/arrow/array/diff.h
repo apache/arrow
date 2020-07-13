@@ -17,16 +17,19 @@
 
 #pragma once
 
+#include <cstdint>
 #include <functional>
 #include <iosfwd>
 #include <memory>
 
-#include "arrow/type_fwd.h"
+#include "arrow/array/array_base.h"
+#include "arrow/array/array_nested.h"
+#include "arrow/result.h"
+#include "arrow/status.h"
+#include "arrow/type.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
-
-class MemoryPool;
 
 /// \brief Compare two arrays, returning an edit script which expresses the difference
 /// between them
@@ -36,7 +39,7 @@ class MemoryPool;
 /// or deleted from (false) base. Each insertion or deletion is followed by a run of
 /// elements which are unchanged from base to target; the length of this run is stored
 /// in "run_length". (Note that the edit script begins and ends with a run of shared
-/// elements but both fields of the struct must have the same length. To accomodate this
+/// elements but both fields of the struct must have the same length. To accommodate this
 /// the first element of "insert" should be ignored.)
 ///
 /// For example for base "hlloo" and target "hello", the edit script would be
@@ -54,7 +57,7 @@ class MemoryPool;
 /// \return an edit script array which can be applied to base to produce target
 ARROW_EXPORT
 Result<std::shared_ptr<StructArray>> Diff(const Array& base, const Array& target,
-                                          MemoryPool* pool);
+                                          MemoryPool* pool = default_memory_pool());
 
 /// \brief visitor interface for easy traversal of an edit script
 ///

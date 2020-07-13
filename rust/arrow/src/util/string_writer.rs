@@ -74,6 +74,12 @@ impl StringWriter {
     }
 }
 
+impl Default for StringWriter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ToString for StringWriter {
     fn to_string(&self) -> String {
         self.data.clone()

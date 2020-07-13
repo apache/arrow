@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_ALIASES_H
-#define GANDIVA_ALIASES_H
+#pragma once
 
 #include <memory>
 #include <string>
@@ -61,5 +60,3 @@ using FuncSignaturePtr = std::shared_ptr<FunctionSignature>;
 using FuncSignatureVector = std::vector<FuncSignaturePtr>;
 
 }  // namespace gandiva
-
-#endif  // GANDIVA_ALIASES_H

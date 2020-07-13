@@ -205,8 +205,9 @@ garrow_data_type_equal(GArrowDataType *data_type,
  * garrow_data_type_to_string:
  * @data_type: A #GArrowDataType.
  *
- * Returns: (transfer full): The string representation of the data type.
- *   The caller must free it by g_free() when the caller doesn't need it anymore.
+ * Returns: The string representation of the data type.
+ *
+ *   It should be freed with g_free() when no longer needed.
  */
 gchar *
 garrow_data_type_to_string(GArrowDataType *data_type)
@@ -359,7 +360,7 @@ garrow_integer_data_type_class_init(GArrowIntegerDataTypeClass *klass)
  *
  * Returns: %TRUE if the data type is signed, %FALSE otherwise.
  *
- * Since: 1.0.0
+ * Since: 0.16.0
  */
 gboolean
 garrow_integer_data_type_is_signed(GArrowIntegerDataType *data_type)
@@ -810,7 +811,7 @@ garrow_large_binary_data_type_class_init(GArrowLargeBinaryDataTypeClass *klass)
  *
  * Returns: The newly created #GArrowLargeBinaryDataType.
  *
- * Since: 1.0.0
+ * Since: 0.17.0
  */
 GArrowLargeBinaryDataType *
 garrow_large_binary_data_type_new(void)
@@ -876,7 +877,7 @@ garrow_large_string_data_type_class_init(GArrowLargeStringDataTypeClass *klass)
  *
  * Returns: The newly created #GArrowLargeStringDataType.
  *
- * Since: 1.0.0
+ * Since: 0.17.0
  */
 GArrowLargeStringDataType *
 garrow_large_string_data_type_new(void)
@@ -1376,16 +1377,11 @@ garrow_data_type_new_raw(std::shared_ptr<arrow::DataType> *arrow_data_type)
   case arrow::Type::type::STRUCT:
     type = GARROW_TYPE_STRUCT_DATA_TYPE;
     break;
-  case arrow::Type::type::UNION:
-    {
-      auto arrow_union_data_type =
-        std::static_pointer_cast<arrow::UnionType>(*arrow_data_type);
-      if (arrow_union_data_type->mode() == arrow::UnionMode::SPARSE) {
-        type = GARROW_TYPE_SPARSE_UNION_DATA_TYPE;
-      } else {
-        type = GARROW_TYPE_DENSE_UNION_DATA_TYPE;
-      }
-    }
+  case arrow::Type::type::SPARSE_UNION:
+    type = GARROW_TYPE_SPARSE_UNION_DATA_TYPE;
+    break;
+  case arrow::Type::type::DENSE_UNION:
+    type = GARROW_TYPE_DENSE_UNION_DATA_TYPE;
     break;
   case arrow::Type::type::DICTIONARY:
     type = GARROW_TYPE_DICTIONARY_DATA_TYPE;

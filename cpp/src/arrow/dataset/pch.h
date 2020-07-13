@@ -20,6 +20,8 @@
 // before checking in.  Adding headers which are not used extremely often
 // may incur a slowdown, since it makes the precompiled header heavier to load.
 
+// This API is EXPERIMENTAL.
+
 #include "arrow/dataset/dataset.h"
 #include "arrow/dataset/scanner.h"
 #include "arrow/pch.h"

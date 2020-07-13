@@ -25,9 +25,9 @@ import sys
 import tempfile
 import time
 
-from pyarrow._plasma import (ObjectID, ObjectNotAvailable, # noqa
+from pyarrow._plasma import (ObjectID, ObjectNotAvailable,  # noqa
                              PlasmaBuffer, PlasmaClient, connect,
-                             PlasmaObjectExists, PlasmaObjectNonexistent,
+                             PlasmaObjectExists, PlasmaObjectNotFound,
                              PlasmaStoreFull)
 
 

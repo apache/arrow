@@ -111,7 +111,7 @@ struct _GArrowIntegerDataTypeClass
   GArrowNumericDataTypeClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_16
 gboolean garrow_integer_data_type_is_signed(GArrowIntegerDataType *data_type);
 
 #define GARROW_TYPE_INT8_DATA_TYPE (garrow_int8_data_type_get_type())
@@ -311,7 +311,7 @@ struct _GArrowLargeBinaryDataTypeClass
   GArrowDataTypeClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_17
 GArrowLargeBinaryDataType *garrow_large_binary_data_type_new(void);
 
 
@@ -340,7 +340,7 @@ struct _GArrowLargeStringDataTypeClass
   GArrowLargeBinaryDataTypeClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_17
 GArrowLargeStringDataType *garrow_large_string_data_type_new(void);
 
 

@@ -35,7 +35,7 @@ G_DECLARE_INTERFACE(GArrowReadable,
 GArrowBuffer *garrow_readable_read(GArrowReadable *readable,
                                    gint64 n_bytes,
                                    GError **error);
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_17
 GBytes *garrow_readable_read_bytes(GArrowReadable *readable,
                                    gint64 n_bytes,
                                    GError **error);

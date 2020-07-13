@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_CSV_OPTIONS_H
-#define ARROW_CSV_OPTIONS_H
+#pragma once
 
 #include <cstdint>
 #include <memory>
@@ -29,6 +28,7 @@
 namespace arrow {
 
 class DataType;
+class TimestampParser;
 
 namespace csv {
 
@@ -81,7 +81,7 @@ struct ARROW_EXPORT ConvertOptions {
 
   /// Whether to try to automatically dict-encode string / binary data.
   /// If true, then when type inference detects a string or binary column,
-  /// it it dict-encoded up to `auto_dict_max_cardinality` distinct values
+  /// it is dict-encoded up to `auto_dict_max_cardinality` distinct values
   /// (per chunk), after which it switches to regular encoding.
   ///
   /// This setting is ignored for non-inferred columns (those in `column_types`).
@@ -100,6 +100,13 @@ struct ARROW_EXPORT ConvertOptions {
   /// or null by default)
   /// This option is ignored if `include_columns` is empty.
   bool include_missing_columns = false;
+
+  /// User-defined timestamp parsers, using the virtual parser interface in
+  /// arrow/util/value_parsing.h. More than one parser can be specified, and
+  /// the CSV conversion logic will try parsing values starting from the
+  /// beginning of this vector. If no parsers are specified, we use the default
+  /// built-in ISO-8601 parser.
+  std::vector<std::shared_ptr<TimestampParser>> timestamp_parsers;
 
   /// Create conversion options with default values, including conventional
   /// values for `null_values`, `true_values` and `false_values`
@@ -131,5 +138,3 @@ struct ARROW_EXPORT ReadOptions {
 
 }  // namespace csv
 }  // namespace arrow
-
-#endif  // ARROW_CSV_OPTIONS_H

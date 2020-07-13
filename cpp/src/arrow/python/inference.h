@@ -18,8 +18,7 @@
 // Functions for converting between CPython built-in data structures and Arrow
 // data structures
 
-#ifndef ARROW_PYTHON_INFERENCE_H
-#define ARROW_PYTHON_INFERENCE_H
+#pragma once
 
 #include "arrow/python/platform.h"
 
@@ -69,5 +68,3 @@ bool IsPyFloat(PyObject* obj);
 
 }  // namespace py
 }  // namespace arrow
-
-#endif  // ARROW_PYTHON_INFERENCE_H

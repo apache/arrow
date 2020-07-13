@@ -22,6 +22,13 @@ class TestCompare < Test::Unit::TestCase
     @options = Arrow::CompareOptions.new
   end
 
+  sub_test_case("CompareOptions") do
+    def test_default_operator
+      assert_equal(Arrow::CompareOperator::EQUAL,
+                   @options.operator)
+    end
+  end
+
   sub_test_case("operator") do
     def test_equal
       @options.operator = :equal

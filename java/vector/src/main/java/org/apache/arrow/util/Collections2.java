@@ -50,8 +50,8 @@ public class Collections2 {
   }
 
   /** Copies the elements of <code>map</code> to a new unmodifiable map. */
-  public static <K,V> Map<K, V> immutableMapCopy(Map<K, V> map) {
-    Map<K,V> newMap = new HashMap<>();
+  public static <K, V> Map<K, V> immutableMapCopy(Map<K, V> map) {
+    Map<K, V> newMap = new HashMap<>();
     newMap.putAll(map);
     return java.util.Collections.unmodifiableMap(newMap);
   }

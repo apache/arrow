@@ -15,6 +15,8 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
+.. _flight-rpc:
+
 Arrow Flight RPC
 ================
 

@@ -16,8 +16,8 @@
 // under the License.
 
 use std::cmp::{max, min};
+use std::mem::align_of;
 use std::mem::size_of;
-use std::mem::transmute;
 use std::mem::{replace, swap};
 use std::slice;
 
@@ -28,6 +28,7 @@ use crate::schema::types::ColumnDescPtr;
 use arrow::array::{BooleanBufferBuilder, BufferBuilderTrait};
 use arrow::bitmap::Bitmap;
 use arrow::buffer::{Buffer, MutableBuffer};
+use arrow::memory;
 
 const MIN_BATCH_SIZE: usize = 1024;
 
@@ -53,39 +54,40 @@ pub struct RecordReader<T: DataType> {
 }
 
 #[derive(Debug)]
-struct FatPtr<T> {
-    ptr: *const T,
-    len: usize,
+struct FatPtr<'a, T> {
+    ptr: &'a mut [T],
 }
 
-impl<T> FatPtr<T> {
-    fn new(ptr: *const T, len: usize) -> Self {
-        Self { ptr, len }
+impl<'a, T> FatPtr<'a, T> {
+    fn new(ptr: &'a mut [T]) -> Self {
+        Self { ptr }
     }
 
-    fn with_offset(buf: &MutableBuffer, offset: usize) -> Self {
+    fn with_offset(buf: &'a mut MutableBuffer, offset: usize) -> Self {
         FatPtr::<T>::with_offset_and_size(buf, offset, size_of::<T>())
     }
 
     fn with_offset_and_size(
-        buf: &MutableBuffer,
+        buf: &'a mut MutableBuffer,
         offset: usize,
         type_size: usize,
     ) -> Self {
+        assert!(align_of::<T>() <= memory::ALIGNMENT);
+        // TODO Prevent this from being called with non primitive types (like `Box<A>`)
         unsafe {
-            FatPtr::new(
-                transmute::<*const u8, *mut T>(buf.raw_data()).add(offset),
+            FatPtr::new(slice::from_raw_parts_mut(
+                &mut *(buf.raw_data() as *mut T).add(offset),
                 buf.capacity() / type_size - offset,
-            )
+            ))
         }
     }
 
     fn to_slice(&self) -> &[T] {
-        unsafe { slice::from_raw_parts(self.ptr, self.len) }
+        self.ptr
     }
 
-    fn to_slice_mut(&self) -> &mut [T] {
-        unsafe { slice::from_raw_parts_mut(self.ptr as *mut T, self.len) }
+    fn to_slice_mut(&mut self) -> &mut [T] {
+        self.ptr
     }
 }
 
@@ -121,6 +123,26 @@ impl<T: DataType> RecordReader<T> {
         }
     }
 
+    pub(crate) fn cast<U: DataType>(&mut self) -> &mut RecordReader<U> {
+        trait CastRecordReader<T: DataType, U: DataType> {
+            fn cast(&mut self) -> &mut RecordReader<U>;
+        }
+
+        impl<T: DataType, U: DataType> CastRecordReader<T, U> for RecordReader<T> {
+            default fn cast(&mut self) -> &mut RecordReader<U> {
+                panic!("Attempted to cast RecordReader to the wrong type")
+            }
+        }
+
+        impl<T: DataType> CastRecordReader<T, T> for RecordReader<T> {
+            fn cast(&mut self) -> &mut RecordReader<T> {
+                self
+            }
+        }
+
+        CastRecordReader::<T, U>::cast(self)
+    }
+
     /// Set the current page reader.
     pub fn set_page_reader(&mut self, page_reader: Box<PageReader>) -> Result<()> {
         self.column_reader =
@@ -134,7 +156,10 @@ impl<T: DataType> RecordReader<T> {
     ///
     /// Number of actual records read.
     pub fn read_records(&mut self, num_records: usize) -> Result<usize> {
-        assert!(self.column_reader.is_some());
+        if self.column_reader.is_none() {
+            return Ok(0);
+        }
+
         let mut records_read = 0;
 
         // Used to mark whether we have reached the end of current
@@ -198,10 +223,10 @@ impl<T: DataType> RecordReader<T> {
             );
             new_buffer.resize(num_left_values * size_of::<i16>())?;
 
-            let new_def_levels = FatPtr::<i16>::with_offset(&new_buffer, 0);
+            let mut new_def_levels = FatPtr::<i16>::with_offset(&mut new_buffer, 0);
             let new_def_levels = new_def_levels.to_slice_mut();
             let left_def_levels =
-                FatPtr::<i16>::with_offset(&def_levels_buf, self.num_values);
+                FatPtr::<i16>::with_offset(def_levels_buf, self.num_values);
             let left_def_levels = left_def_levels.to_slice();
 
             new_def_levels[0..num_left_values]
@@ -227,10 +252,10 @@ impl<T: DataType> RecordReader<T> {
             );
             new_buffer.resize(num_left_values * size_of::<i16>())?;
 
-            let new_rep_levels = FatPtr::<i16>::with_offset(&new_buffer, 0);
+            let mut new_rep_levels = FatPtr::<i16>::with_offset(&mut new_buffer, 0);
             let new_rep_levels = new_rep_levels.to_slice_mut();
             let left_rep_levels =
-                FatPtr::<i16>::with_offset(&rep_levels_buf, self.num_values);
+                FatPtr::<i16>::with_offset(rep_levels_buf, self.num_values);
             let left_rep_levels = left_rep_levels.to_slice();
 
             new_rep_levels[0..num_left_values]
@@ -254,11 +279,11 @@ impl<T: DataType> RecordReader<T> {
         let mut new_buffer = MutableBuffer::new(max(MIN_BATCH_SIZE, num_left_values));
         new_buffer.resize(num_left_values * T::get_type_size())?;
 
-        let new_records =
-            FatPtr::<T::T>::with_offset_and_size(&new_buffer, 0, T::get_type_size());
+        let mut new_records =
+            FatPtr::<T::T>::with_offset_and_size(&mut new_buffer, 0, T::get_type_size());
         let new_records = new_records.to_slice_mut();
-        let left_records = FatPtr::<T::T>::with_offset_and_size(
-            &self.records,
+        let mut left_records = FatPtr::<T::T>::with_offset_and_size(
+            &mut self.records,
             self.num_values,
             T::get_type_size(),
         );
@@ -298,7 +323,7 @@ impl<T: DataType> RecordReader<T> {
                     .append(old_bitmap.is_set(i))?;
             }
 
-            Ok(Some(old_bitmap.to_buffer()))
+            Ok(Some(old_bitmap.into_buffer()))
         } else {
             Ok(None)
         }
@@ -336,21 +361,22 @@ impl<T: DataType> RecordReader<T> {
         }
 
         // Convert mutable buffer spaces to mutable slices
-        let values_buf = FatPtr::<T::T>::with_offset_and_size(
-            &self.records,
+        let mut values_buf = FatPtr::<T::T>::with_offset_and_size(
+            &mut self.records,
             self.values_written,
             T::get_type_size(),
         );
 
+        let values_written = self.values_written;
         let mut def_levels_buf = self
             .def_levels
-            .as_ref()
-            .map(|buf| FatPtr::<i16>::with_offset(buf, self.values_written));
+            .as_mut()
+            .map(|buf| FatPtr::<i16>::with_offset(buf, values_written));
 
         let mut rep_levels_buf = self
             .rep_levels
-            .as_ref()
-            .map(|buf| FatPtr::<i16>::with_offset(buf, self.values_written));
+            .as_mut()
+            .map(|buf| FatPtr::<i16>::with_offset(buf, values_written));
 
         let (values_read, levels_read) =
             self.column_reader.as_mut().unwrap().read_batch(
@@ -421,7 +447,7 @@ impl<T: DataType> RecordReader<T> {
     fn split_records(&mut self, records_to_read: usize) -> Result<usize> {
         let rep_levels_buf = self
             .rep_levels
-            .as_ref()
+            .as_mut()
             .map(|buf| FatPtr::<i16>::with_offset(buf, 0));
         let rep_levels_buf = rep_levels_buf.as_ref().map(|x| x.to_slice());
 

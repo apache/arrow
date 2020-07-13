@@ -39,7 +39,7 @@
 #' - `$Take(i)`: return a `ChunkedArray` with values at positions given by
 #'    integers `i`. If `i` is an Arrow `Array` or `ChunkedArray`, it will be
 #'    coerced to an R vector before taking.
-#' - `$Filter(i)`: return a `ChunkedArray` with values at positions where
+#' - `$Filter(i, keep_na = TRUE)`: return a `ChunkedArray` with values at positions where
 #'    logical vector or Arrow boolean-type `(Chunked)Array` `i` is `TRUE`.
 #' - `$cast(target_type, safe = TRUE, options = cast_options(safe))`: Alter the
 #'    data in the array to change its type.
@@ -75,21 +75,13 @@ ChunkedArray <- R6Class("ChunkedArray", inherit = ArrowObject,
       if (is.integer(i)) {
         i <- Array$create(i)
       }
-      if (inherits(i, "ChunkedArray")) {
-        return(shared_ptr(ChunkedArray, ChunkedArray__TakeChunked(self, i)))
-      }
-      assert_is(i, "Array")
-      return(shared_ptr(ChunkedArray, ChunkedArray__Take(self, i)))
+      shared_ptr(ChunkedArray, call_function("take", self, i))
     },
-    Filter = function(i) {
+    Filter = function(i, keep_na = TRUE) {
       if (is.logical(i)) {
         i <- Array$create(i)
       }
-      if (inherits(i, "ChunkedArray")) {
-        return(shared_ptr(ChunkedArray, ChunkedArray__FilterChunked(self, i)))
-      }
-      assert_is(i, "Array")
-      shared_ptr(ChunkedArray, ChunkedArray__Filter(self, i))
+      shared_ptr(ChunkedArray, call_function("filter", self, i, options = list(keep_na = keep_na)))
     },
     cast = function(target_type, safe = TRUE, options = cast_options(safe)) {
       assert_is(options, "CastOptions")
@@ -102,18 +94,7 @@ ChunkedArray <- R6Class("ChunkedArray", inherit = ArrowObject,
       ChunkedArray__Validate(self)
     },
     ToString = function() {
-      out <- self$chunk(0)$ToString()
-      if (self$num_chunks > 1) {
-        # Regardless of whether the first array prints with ellipsis, we need
-        # to ellipsize because there's more data than is contained in this
-        # chunk
-        if (grepl("...\n", out, fixed = TRUE)) {
-          out <- sub("\\.\\.\\..*$", "...\n]", out)
-        } else {
-          out <- sub("\\n\\]$", ",\n  ...\n]", out)
-        }
-      }
-      out
+      ChunkedArray__ToString(self)
     },
     Equals = function(other, ...) {
       inherits(other, "ChunkedArray") && ChunkedArray__Equals(self, other)
@@ -157,3 +138,12 @@ head.ChunkedArray <- head.Array
 
 #' @export
 tail.ChunkedArray <- tail.Array
+
+#' @export
+as.double.ChunkedArray <- as.double.Array
+
+#' @export
+as.integer.ChunkedArray <- as.integer.Array
+
+#' @export
+as.character.ChunkedArray <- as.character.Array

@@ -45,57 +45,181 @@ const MICROSECONDS: i64 = 1_000_000;
 const NANOSECONDS: i64 = 1_000_000_000;
 
 /// Trait for dealing with different types of array at runtime when the type of the
-/// array is not known in advance
+/// array is not known in advance.
 pub trait Array: fmt::Debug + Send + Sync + ArrayEqual + JsonEqual {
-    /// Returns the array as `Any` so that it can be downcast to a specific implementation
+    /// Returns the array as [`Any`](std::any::Any) so that it can be
+    /// downcasted to a specific implementation.
+    ///
+    /// # Example:
+    ///
+    /// ```
+    /// use std::sync::Arc;
+    /// use arrow::array::Int32Array;
+    /// use arrow::datatypes::{Schema, Field, DataType};
+    /// use arrow::record_batch::RecordBatch;
+    ///
+    /// # fn main() -> arrow::error::Result<()> {
+    /// let id = Int32Array::from(vec![1, 2, 3, 4, 5]);
+    /// let batch = RecordBatch::try_new(
+    ///     Arc::new(Schema::new(vec![Field::new("id", DataType::Int32, false)])),
+    ///     vec![Arc::new(id)]
+    /// )?;
+    ///
+    /// let int32array = batch
+    ///     .column(0)
+    ///     .as_any()
+    ///     .downcast_ref::<Int32Array>()
+    ///     .expect("Failed to downcast");
+    /// # Ok(())
+    /// # }
+    /// ```
     fn as_any(&self) -> &Any;
 
-    /// Returns a reference-counted pointer to the data of this array
+    /// Returns a reference-counted pointer to the underlying data of this array.
     fn data(&self) -> ArrayDataRef;
 
-    /// Returns a borrowed & reference-counted pointer to the data of this array
+    /// Returns a borrowed & reference-counted pointer to the underlying data of this array.
     fn data_ref(&self) -> &ArrayDataRef;
 
-    /// Returns a reference to the data type of this array
+    /// Returns a reference to the [`DataType`](crate::datatypes::DataType) of this array.
+    ///
+    /// # Example:
+    ///
+    /// ```
+    /// use arrow::datatypes::DataType;
+    /// use arrow::array::{Array, Int32Array};
+    ///
+    /// let array = Int32Array::from(vec![1, 2, 3, 4, 5]);
+    ///
+    /// assert_eq!(*array.data_type(), DataType::Int32);
+    /// ```
     fn data_type(&self) -> &DataType {
         self.data_ref().data_type()
     }
 
     /// Returns a zero-copy slice of this array with the indicated offset and length.
+    ///
+    /// # Example:
+    ///
+    /// ```
+    /// use arrow::array::{Array, Int32Array};
+    ///
+    /// let array = Int32Array::from(vec![1, 2, 3, 4, 5]);
+    /// // Make slice over the values [2, 3, 4]
+    /// let array_slice = array.slice(1, 3);
+    ///
+    /// assert!(array_slice.equals(&Int32Array::from(vec![2, 3, 4])));
+    /// ```
     fn slice(&self, offset: usize, length: usize) -> ArrayRef {
         make_array(slice_data(self.data(), offset, length))
     }
 
-    /// Returns the length (i.e., number of elements) of this array
+    /// Returns the length (i.e., number of elements) of this array.
+    ///
+    /// # Example:
+    ///
+    /// ```
+    /// use arrow::array::{Array, Int32Array};
+    ///
+    /// let array = Int32Array::from(vec![1, 2, 3, 4, 5]);
+    ///
+    /// assert_eq!(array.len(), 5);
+    /// ```
     fn len(&self) -> usize {
         self.data().len()
     }
 
-    /// Returns the offset of this array
+    /// Returns whether this array is empty.
+    ///
+    /// # Example:
+    ///
+    /// ```
+    /// use arrow::array::{Array, Int32Array};
+    ///
+    /// let array = Int32Array::from(vec![1, 2, 3, 4, 5]);
+    ///
+    /// assert_eq!(array.is_empty(), false);
+    /// ```
+    fn is_empty(&self) -> bool {
+        self.data().is_empty()
+    }
+
+    /// Returns the offset into the underlying data used by this array(-slice).
+    /// Note that the underlying data can be shared by many arrays.
+    /// This defaults to `0`.
+    ///
+    /// # Example:
+    ///
+    /// ```
+    /// use arrow::array::{Array, Int32Array};
+    ///
+    /// let array = Int32Array::from(vec![1, 2, 3, 4, 5]);
+    /// // Make slice over the values [2, 3, 4]
+    /// let array_slice = array.slice(1, 3);
+    ///
+    /// assert_eq!(array.offset(), 0);
+    /// assert_eq!(array_slice.offset(), 1);
+    /// ```
     fn offset(&self) -> usize {
         self.data().offset()
     }
 
-    /// Returns whether the element at index `i` is null
-    fn is_null(&self, i: usize) -> bool {
-        self.data().is_null(self.data().offset() + i)
+    /// Returns whether the element at `index` is null.
+    /// When using this function on a slice, the index is relative to the slice.
+    ///
+    /// # Example:
+    ///
+    /// ```
+    /// use arrow::array::{Array, Int32Array};
+    ///
+    /// let array = Int32Array::from(vec![Some(1), None]);
+    ///
+    /// assert_eq!(array.is_null(0), false);
+    /// assert_eq!(array.is_null(1), true);
+    /// ```
+    fn is_null(&self, index: usize) -> bool {
+        self.data().is_null(self.data().offset() + index)
     }
 
-    /// Returns whether the element at index `i` is not null
-    fn is_valid(&self, i: usize) -> bool {
-        self.data().is_valid(self.data().offset() + i)
+    /// Returns whether the element at `index` is not null.
+    /// When using this function on a slice, the index is relative to the slice.
+    ///
+    /// # Example:
+    ///
+    /// ```
+    /// use arrow::array::{Array, Int32Array};
+    ///
+    /// let array = Int32Array::from(vec![Some(1), None]);
+    ///
+    /// assert_eq!(array.is_valid(0), true);
+    /// assert_eq!(array.is_valid(1), false);
+    /// ```
+    fn is_valid(&self, index: usize) -> bool {
+        self.data().is_valid(self.data().offset() + index)
     }
 
-    /// Returns the total number of nulls in this array
+    /// Returns the total number of null values in this array.
+    ///
+    /// # Example:
+    ///
+    /// ```
+    /// use arrow::array::{Array, Int32Array};
+    ///
+    /// // Construct an array with values [1, NULL, NULL]
+    /// let array = Int32Array::from(vec![Some(1), None, None]);
+    ///
+    /// assert_eq!(array.null_count(), 2);
+    /// ```
     fn null_count(&self) -> usize {
         self.data().null_count()
     }
 }
 
+/// A reference-counted reference to a generic `Array`.
 pub type ArrayRef = Arc<Array>;
 
-/// Constructs an array using the input `data`. Returns a reference-counted `Array`
-/// instance.
+/// Constructs an array using the input `data`.
+/// Returns a reference-counted `Array` instance.
 pub fn make_array(data: ArrayDataRef) -> ArrayRef {
     match data.data_type() {
         DataType::Boolean => Arc::new(BooleanArray::from(data)) as ArrayRef,
@@ -157,12 +281,16 @@ pub fn make_array(data: ArrayDataRef) -> ArrayRef {
             Arc::new(DurationNanosecondArray::from(data)) as ArrayRef
         }
         DataType::Binary => Arc::new(BinaryArray::from(data)) as ArrayRef,
+        DataType::LargeBinary => Arc::new(LargeBinaryArray::from(data)) as ArrayRef,
         DataType::FixedSizeBinary(_) => {
             Arc::new(FixedSizeBinaryArray::from(data)) as ArrayRef
         }
         DataType::Utf8 => Arc::new(StringArray::from(data)) as ArrayRef,
+        DataType::LargeUtf8 => Arc::new(LargeStringArray::from(data)) as ArrayRef,
         DataType::List(_) => Arc::new(ListArray::from(data)) as ArrayRef,
+        DataType::LargeList(_) => Arc::new(LargeListArray::from(data)) as ArrayRef,
         DataType::Struct(_) => Arc::new(StructArray::from(data)) as ArrayRef,
+        DataType::Union(_) => Arc::new(UnionArray::from(data)) as ArrayRef,
         DataType::FixedSizeList(_, _) => {
             Arc::new(FixedSizeListArray::from(data)) as ArrayRef
         }
@@ -193,10 +321,16 @@ pub fn make_array(data: ArrayDataRef) -> ArrayRef {
             }
             dt => panic!("Unexpected dictionary key type {:?}", dt),
         },
+        DataType::Null => Arc::new(NullArray::from(data)) as ArrayRef,
         dt => panic!("Unexpected data type {:?}", dt),
     }
 }
 
+/// Creates a zero-copy slice of the array's data.
+///
+/// # Panics
+///
+/// Panics if `offset + length > data.len()`.
 fn slice_data(data: ArrayDataRef, mut offset: usize, length: usize) -> ArrayDataRef {
     assert!((offset + length) <= data.len());
 
@@ -238,6 +372,14 @@ impl<T> RawPtrBox<T> {
 
 unsafe impl<T> Send for RawPtrBox<T> {}
 unsafe impl<T> Sync for RawPtrBox<T> {}
+
+fn as_aligned_pointer<T>(p: *const u8) -> *const T {
+    assert!(
+        memory::is_aligned(p, mem::align_of::<T>()),
+        "memory is not aligned"
+    );
+    p as *const T
+}
 
 /// Array whose elements are of primitive types.
 pub struct PrimitiveArray<T: ArrowPrimitiveType> {
@@ -316,39 +458,41 @@ impl<T: ArrowNumericType> PrimitiveArray<T> {
         PrimitiveArray::from(array_data)
     }
 
-    /// Returns a `Buffer` holds all the values of this array.
+    /// Returns a `Buffer` holding all the values of this array.
     ///
-    /// Note this doesn't take account into the offset of this array.
+    /// Note this doesn't take the offset of this array into account.
     pub fn values(&self) -> Buffer {
         self.data.buffers()[0].clone()
     }
 
-    /// Returns the length of this array
+    /// Returns the length of this array.
     pub fn len(&self) -> usize {
         self.data.len()
     }
 
+    /// Returns whether this array is empty.
+    pub fn is_empty(&self) -> bool {
+        self.data.is_empty()
+    }
+
     /// Returns a raw pointer to the values of this array.
     pub fn raw_values(&self) -> *const T::Native {
-        unsafe {
-            mem::transmute(self.raw_values.get().offset(self.data.offset() as isize))
-        }
+        unsafe { self.raw_values.get().add(self.data.offset()) }
     }
 
     /// Returns the primitive value at index `i`.
     ///
     /// Note this doesn't do any bound checking, for performance reason.
     pub fn value(&self, i: usize) -> T::Native {
-        unsafe { *(self.raw_values().offset(i as isize)) }
+        unsafe { *(self.raw_values().add(i)) }
     }
 
     /// Returns a slice for the given offset and length
     ///
     /// Note this doesn't do any bound checking, for performance reason.
     pub fn value_slice(&self, offset: usize, len: usize) -> &[T::Native] {
-        let raw = unsafe {
-            std::slice::from_raw_parts(self.raw_values().offset(offset as isize), len)
-        };
+        let raw =
+            unsafe { std::slice::from_raw_parts(self.raw_values().add(offset), len) };
         &raw[..]
     }
 
@@ -597,9 +741,9 @@ macro_rules! def_numeric_from_vec {
                             bit_util::set_bit(null_slice, i);
                             // unwrap() in the following should be safe here since we've
                             // made sure enough space is allocated for the values.
-                            val_buf.write(&n.to_byte_slice()).unwrap();
+                            val_buf.write_all(&n.to_byte_slice()).unwrap();
                         } else {
-                            val_buf.write(&null).unwrap();
+                            val_buf.write_all(&null).unwrap();
                         }
                     }
                 }
@@ -674,6 +818,16 @@ def_numeric_from_vec!(
     i64,
     DataType::Duration(TimeUnit::Nanosecond)
 );
+def_numeric_from_vec!(
+    TimestampMillisecondType,
+    i64,
+    DataType::Timestamp(TimeUnit::Millisecond, None)
+);
+def_numeric_from_vec!(
+    TimestampMicrosecondType,
+    i64,
+    DataType::Timestamp(TimeUnit::Microsecond, None)
+);
 
 impl<T: ArrowTimestampType> PrimitiveArray<T> {
     /// Construct a timestamp array from a vec of i64 values and an optional timezone
@@ -704,9 +858,9 @@ impl<T: ArrowTimestampType> PrimitiveArray<T> {
                     bit_util::set_bit(null_slice, i);
                     // unwrap() in the following should be safe here since we've
                     // made sure enough space is allocated for the values.
-                    val_buf.write(&n.to_byte_slice()).unwrap();
+                    val_buf.write_all(&n.to_byte_slice()).unwrap();
                 } else {
-                    val_buf.write(&null).unwrap();
+                    val_buf.write_all(&null).unwrap();
                 }
             }
         }
@@ -828,12 +982,44 @@ impl ListArrayOps for FixedSizeBinaryArray {
     }
 }
 
+/// Common operations for large List types, currently `LargeListArray`, `LargeBinaryArray`
+///  and `LargeStringArray`
+pub trait LargeListArrayOps {
+    fn value_offset_at(&self, i: usize) -> i64;
+}
+
+impl LargeListArrayOps for LargeBinaryArray {
+    fn value_offset_at(&self, i: usize) -> i64 {
+        self.value_offset_at(i)
+    }
+}
+
+impl LargeListArrayOps for LargeStringArray {
+    fn value_offset_at(&self, i: usize) -> i64 {
+        self.value_offset_at(i)
+    }
+}
+
+impl LargeListArrayOps for LargeListArray {
+    fn value_offset_at(&self, i: usize) -> i64 {
+        self.value_offset_at(i)
+    }
+}
+
 /// A list array where each element is a variable-sized sequence of values with the same
 /// type.
 pub struct ListArray {
     data: ArrayDataRef,
     values: ArrayRef,
     value_offsets: RawPtrBox<i32>,
+}
+
+/// A list array where each element is a variable-sized sequence of values with the same
+/// type.
+pub struct LargeListArray {
+    data: ArrayDataRef,
+    values: ArrayRef,
+    value_offsets: RawPtrBox<i64>,
 }
 
 impl ListArray {
@@ -872,7 +1058,47 @@ impl ListArray {
 
     #[inline]
     fn value_offset_at(&self, i: usize) -> i32 {
-        unsafe { *self.value_offsets.get().offset(i as isize) }
+        unsafe { *self.value_offsets.get().add(i) }
+    }
+}
+
+impl LargeListArray {
+    /// Returns a reference to the values of this list.
+    pub fn values(&self) -> ArrayRef {
+        self.values.clone()
+    }
+
+    /// Returns a clone of the value type of this list.
+    pub fn value_type(&self) -> DataType {
+        self.values.data().data_type().clone()
+    }
+
+    /// Returns ith value of this list array.
+    pub fn value(&self, i: usize) -> ArrayRef {
+        self.values
+            .slice(self.value_offset(i) as usize, self.value_length(i) as usize)
+    }
+
+    /// Returns the offset for value at index `i`.
+    ///
+    /// Note this doesn't do any bound checking, for performance reason.
+    #[inline]
+    pub fn value_offset(&self, i: usize) -> i64 {
+        self.value_offset_at(self.data.offset() + i)
+    }
+
+    /// Returns the length for value at index `i`.
+    ///
+    /// Note this doesn't do any bound checking, for performance reason.
+    #[inline]
+    pub fn value_length(&self, mut i: usize) -> i64 {
+        i += self.data.offset();
+        self.value_offset_at(i + 1) - self.value_offset_at(i)
+    }
+
+    #[inline]
+    fn value_offset_at(&self, i: usize) -> i64 {
+        unsafe { *self.value_offsets.get().add(i) }
     }
 }
 
@@ -891,16 +1117,39 @@ impl From<ArrayDataRef> for ListArray {
         );
         let values = make_array(data.child_data()[0].clone());
         let raw_value_offsets = data.buffers()[0].raw_data();
-        assert!(
-            memory::is_aligned(raw_value_offsets, mem::align_of::<i32>()),
-            "memory is not aligned"
-        );
-        let value_offsets = raw_value_offsets as *const i32;
+        let value_offsets: *const i32 = as_aligned_pointer(raw_value_offsets);
         unsafe {
             assert_eq!(*value_offsets.offset(0), 0, "offsets do not start at zero");
         }
         Self {
-            data: data.clone(),
+            data,
+            values,
+            value_offsets: RawPtrBox::new(value_offsets),
+        }
+    }
+}
+
+/// Constructs a `LargeListArray` from an array data reference.
+impl From<ArrayDataRef> for LargeListArray {
+    fn from(data: ArrayDataRef) -> Self {
+        assert_eq!(
+            data.buffers().len(),
+            1,
+            "LargeListArray data should contain a single buffer only (value offsets)"
+        );
+        assert_eq!(
+            data.child_data().len(),
+            1,
+            "LargeListArray should contain a single child array (values array)"
+        );
+        let values = make_array(data.child_data()[0].clone());
+        let raw_value_offsets = data.buffers()[0].raw_data();
+        let value_offsets: *const i64 = as_aligned_pointer(raw_value_offsets);
+        unsafe {
+            assert_eq!(*value_offsets.offset(0), 0, "offsets do not start at zero");
+        }
+        Self {
+            data,
             values,
             value_offsets: RawPtrBox::new(value_offsets),
         }
@@ -908,6 +1157,20 @@ impl From<ArrayDataRef> for ListArray {
 }
 
 impl Array for ListArray {
+    fn as_any(&self) -> &Any {
+        self
+    }
+
+    fn data(&self) -> ArrayDataRef {
+        self.data.clone()
+    }
+
+    fn data_ref(&self) -> &ArrayDataRef {
+        &self.data
+    }
+}
+
+impl Array for LargeListArray {
     fn as_any(&self) -> &Any {
         self
     }
@@ -929,24 +1192,24 @@ where
 {
     for i in 0..std::cmp::min(10, array.len()) {
         if array.is_null(i) {
-            write!(f, "  null,\n")?;
+            writeln!(f, "  null,")?;
         } else {
             write!(f, "  ")?;
             print_item(&array, i, f)?;
-            write!(f, ",\n")?;
+            writeln!(f, ",")?;
         }
     }
     if array.len() > 10 {
         if array.len() > 20 {
-            write!(f, "  ...{} elements...,\n", array.len() - 20)?;
+            writeln!(f, "  ...{} elements...,", array.len() - 20)?;
         }
         for i in array.len() - 10..array.len() {
             if array.is_null(i) {
-                write!(f, "  null,\n")?;
+                writeln!(f, "  null,")?;
             } else {
                 write!(f, "  ")?;
                 print_item(&array, i, f)?;
-                write!(f, ",\n")?;
+                writeln!(f, ",")?;
             }
         }
     }
@@ -956,6 +1219,16 @@ where
 impl fmt::Debug for ListArray {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "ListArray\n[\n")?;
+        print_long_array(self, f, |array, index, f| {
+            fmt::Debug::fmt(&array.value(index), f)
+        })?;
+        write!(f, "]")
+    }
+}
+
+impl fmt::Debug for LargeListArray {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "LargeListArray\n[\n")?;
         print_long_array(self, f, |array, index, f| {
             fmt::Debug::fmt(&array.value(index), f)
         })?;
@@ -985,7 +1258,7 @@ impl FixedSizeListArray {
     /// Returns ith value of this list array.
     pub fn value(&self, i: usize) -> ArrayRef {
         self.values
-            .slice(i * self.length as usize, self.value_length() as usize)
+            .slice(self.value_offset(i) as usize, self.value_length() as usize)
     }
 
     /// Returns the offset for value at index `i`.
@@ -1040,7 +1313,7 @@ impl From<ArrayDataRef> for FixedSizeListArray {
             }
         };
         Self {
-            data: data.clone(),
+            data,
             values,
             length,
         }
@@ -1071,19 +1344,68 @@ impl fmt::Debug for FixedSizeListArray {
     }
 }
 
-/// A type of `ListArray` whose elements are binaries.
-pub struct BinaryArray {
-    data: ArrayDataRef,
-    value_offsets: RawPtrBox<i32>,
-    value_data: RawPtrBox<u8>,
+macro_rules! make_binary_type {
+    ($name:ident, $offset_ty:ty) => {
+        pub struct $name {
+            data: ArrayDataRef,
+            value_offsets: RawPtrBox<$offset_ty>,
+            value_data: RawPtrBox<u8>,
+        }
+
+        impl $name {
+            /// Returns the offset for the element at index `i`.
+            ///
+            /// Note this doesn't do any bound checking, for performance reason.
+            #[inline]
+            pub fn value_offset(&self, i: usize) -> $offset_ty {
+                self.value_offset_at(self.data.offset() + i)
+            }
+
+            /// Returns the length for the element at index `i`.
+            ///
+            /// Note this doesn't do any bound checking, for performance reason.
+            #[inline]
+            pub fn value_length(&self, mut i: usize) -> $offset_ty {
+                i += self.data.offset();
+                self.value_offset_at(i + 1) - self.value_offset_at(i)
+            }
+
+            /// Returns a clone of the value offset buffer
+            pub fn value_offsets(&self) -> Buffer {
+                self.data.buffers()[0].clone()
+            }
+
+            /// Returns a clone of the value data buffer
+            pub fn value_data(&self) -> Buffer {
+                self.data.buffers()[1].clone()
+            }
+
+            #[inline]
+            fn value_offset_at(&self, i: usize) -> $offset_ty {
+                unsafe { *self.value_offsets.get().add(i) }
+            }
+        }
+
+        impl Array for $name {
+            fn as_any(&self) -> &Any {
+                self
+            }
+
+            fn data(&self) -> ArrayDataRef {
+                self.data.clone()
+            }
+
+            fn data_ref(&self) -> &ArrayDataRef {
+                &self.data
+            }
+        }
+    };
 }
 
-/// A type of `ListArray` whose elements are UTF8 strings.
-pub struct StringArray {
-    data: ArrayDataRef,
-    value_offsets: RawPtrBox<i32>,
-    value_data: RawPtrBox<u8>,
-}
+make_binary_type!(BinaryArray, i32);
+make_binary_type!(LargeBinaryArray, i64);
+make_binary_type!(StringArray, i32);
+make_binary_type!(LargeStringArray, i64);
 
 /// A type of `FixedSizeListArray` whose elements are binaries.
 pub struct FixedSizeBinaryArray {
@@ -1106,36 +1428,29 @@ impl BinaryArray {
         }
     }
 
-    /// Returns the offset for the element at index `i`.
-    ///
-    /// Note this doesn't do any bound checking, for performance reason.
-    #[inline]
-    pub fn value_offset(&self, i: usize) -> i32 {
-        self.value_offset_at(self.data.offset() + i)
+    /// Returns a new binary array builder
+    pub fn builder(capacity: usize) -> BinaryBuilder {
+        BinaryBuilder::new(capacity)
+    }
+}
+
+impl LargeBinaryArray {
+    /// Returns the element at index `i` as a byte slice.
+    pub fn value(&self, i: usize) -> &[u8] {
+        assert!(i < self.data.len(), "LargeBinaryArray out of bounds access");
+        let offset = i.checked_add(self.data.offset()).unwrap();
+        unsafe {
+            let pos = self.value_offset_at(offset);
+            std::slice::from_raw_parts(
+                self.value_data.get().offset(pos as isize),
+                (self.value_offset_at(offset + 1) - pos) as usize,
+            )
+        }
     }
 
-    /// Returns the length for the element at index `i`.
-    ///
-    /// Note this doesn't do any bound checking, for performance reason.
-    #[inline]
-    pub fn value_length(&self, mut i: usize) -> i32 {
-        i += self.data.offset();
-        self.value_offset_at(i + 1) - self.value_offset_at(i)
-    }
-
-    /// Returns a clone of the value offset buffer
-    pub fn value_offsets(&self) -> Buffer {
-        self.data.buffers()[0].clone()
-    }
-
-    /// Returns a clone of the value data buffer
-    pub fn value_data(&self) -> Buffer {
-        self.data.buffers()[1].clone()
-    }
-
-    #[inline]
-    fn value_offset_at(&self, i: usize) -> i32 {
-        unsafe { *self.value_offsets.get().offset(i as isize) }
+    /// Returns a new large binary array builder
+    pub fn builder(capacity: usize) -> LargeBinaryBuilder {
+        LargeBinaryBuilder::new(capacity)
     }
 }
 
@@ -1155,36 +1470,31 @@ impl StringArray {
         }
     }
 
-    /// Returns the offset for the element at index `i`.
-    ///
-    /// Note this doesn't do any bound checking, for performance reason.
-    #[inline]
-    pub fn value_offset(&self, i: usize) -> i32 {
-        self.value_offset_at(self.data.offset() + i)
+    /// Returns a new string array builder
+    pub fn builder(capacity: usize) -> StringBuilder {
+        StringBuilder::new(capacity)
+    }
+}
+
+impl LargeStringArray {
+    /// Returns the element at index `i` as a string slice.
+    pub fn value(&self, i: usize) -> &str {
+        assert!(i < self.data.len(), "LargeStringArray out of bounds access");
+        let offset = i.checked_add(self.data.offset()).unwrap();
+        unsafe {
+            let pos = self.value_offset_at(offset);
+            let slice = std::slice::from_raw_parts(
+                self.value_data.get().offset(pos as isize),
+                (self.value_offset_at(offset + 1) - pos) as usize,
+            );
+
+            std::str::from_utf8_unchecked(slice)
+        }
     }
 
-    /// Returns the length for the element at index `i`.
-    ///
-    /// Note this doesn't do any bound checking, for performance reason.
-    #[inline]
-    pub fn value_length(&self, mut i: usize) -> i32 {
-        i += self.data.offset();
-        self.value_offset_at(i + 1) - self.value_offset_at(i)
-    }
-
-    /// Returns a clone of the value offset buffer
-    pub fn value_offsets(&self) -> Buffer {
-        self.data.buffers()[0].clone()
-    }
-
-    /// Returns a clone of the value data buffer
-    pub fn value_data(&self) -> Buffer {
-        self.data.buffers()[1].clone()
-    }
-
-    #[inline]
-    fn value_offset_at(&self, i: usize) -> i32 {
-        unsafe { *self.value_offsets.get().offset(i as isize) }
+    // Returns a new large string array builder
+    pub fn builder(capacity: usize) -> LargeStringBuilder {
+        LargeStringBuilder::new(capacity)
     }
 }
 
@@ -1240,14 +1550,27 @@ impl From<ArrayDataRef> for BinaryArray {
             "BinaryArray data should contain 2 buffers only (offsets and values)"
         );
         let raw_value_offsets = data.buffers()[0].raw_data();
-        assert!(
-            memory::is_aligned(raw_value_offsets, mem::align_of::<i32>()),
-            "memory is not aligned"
-        );
         let value_data = data.buffers()[1].raw_data();
         Self {
-            data: data.clone(),
-            value_offsets: RawPtrBox::new(raw_value_offsets as *const i32),
+            data,
+            value_offsets: RawPtrBox::new(as_aligned_pointer::<i32>(raw_value_offsets)),
+            value_data: RawPtrBox::new(value_data),
+        }
+    }
+}
+
+impl From<ArrayDataRef> for LargeBinaryArray {
+    fn from(data: ArrayDataRef) -> Self {
+        assert_eq!(
+            data.buffers().len(),
+            2,
+            "LargeBinaryArray data should contain 2 buffers only (offsets and values)"
+        );
+        let raw_value_offsets = data.buffers()[0].raw_data();
+        let value_data = data.buffers()[1].raw_data();
+        Self {
+            data,
+            value_offsets: RawPtrBox::new(as_aligned_pointer::<i64>(raw_value_offsets)),
             value_data: RawPtrBox::new(value_data),
         }
     }
@@ -1261,14 +1584,27 @@ impl From<ArrayDataRef> for StringArray {
             "StringArray data should contain 2 buffers only (offsets and values)"
         );
         let raw_value_offsets = data.buffers()[0].raw_data();
-        assert!(
-            memory::is_aligned(raw_value_offsets, mem::align_of::<i32>()),
-            "memory is not aligned"
-        );
         let value_data = data.buffers()[1].raw_data();
         Self {
-            data: data.clone(),
-            value_offsets: RawPtrBox::new(raw_value_offsets as *const i32),
+            data,
+            value_offsets: RawPtrBox::new(as_aligned_pointer::<i32>(raw_value_offsets)),
+            value_data: RawPtrBox::new(value_data),
+        }
+    }
+}
+
+impl From<ArrayDataRef> for LargeStringArray {
+    fn from(data: ArrayDataRef) -> Self {
+        assert_eq!(
+            data.buffers().len(),
+            2,
+            "LargeStringArray data should contain 2 buffers only (offsets and values)"
+        );
+        let raw_value_offsets = data.buffers()[0].raw_data();
+        let value_data = data.buffers()[1].raw_data();
+        Self {
+            data,
+            value_offsets: RawPtrBox::new(as_aligned_pointer::<i64>(raw_value_offsets)),
             value_data: RawPtrBox::new(value_data),
         }
     }
@@ -1287,7 +1623,7 @@ impl From<ArrayDataRef> for FixedSizeBinaryArray {
             _ => panic!("Expected data type to be FixedSizeBinary"),
         };
         Self {
-            data: data.clone(),
+            data,
             value_data: RawPtrBox::new(value_data),
             length,
         }
@@ -1314,6 +1650,26 @@ impl<'a> From<Vec<&'a str>> for StringArray {
     }
 }
 
+impl<'a> From<Vec<&'a str>> for LargeStringArray {
+    fn from(v: Vec<&'a str>) -> Self {
+        let mut offsets = Vec::with_capacity(v.len() + 1);
+        let mut values = Vec::new();
+        let mut length_so_far = 0;
+        offsets.push(length_so_far);
+        for s in &v {
+            length_so_far += s.len() as i64;
+            offsets.push(length_so_far as i64);
+            values.extend_from_slice(s.as_bytes());
+        }
+        let array_data = ArrayData::builder(DataType::LargeUtf8)
+            .len(v.len())
+            .add_buffer(Buffer::from(offsets.to_byte_slice()))
+            .add_buffer(Buffer::from(&values[..]))
+            .build();
+        LargeStringArray::from(array_data)
+    }
+}
+
 impl From<Vec<&[u8]>> for BinaryArray {
     fn from(v: Vec<&[u8]>) -> Self {
         let mut offsets = Vec::with_capacity(v.len() + 1);
@@ -1334,11 +1690,47 @@ impl From<Vec<&[u8]>> for BinaryArray {
     }
 }
 
+impl From<Vec<&[u8]>> for LargeBinaryArray {
+    fn from(v: Vec<&[u8]>) -> Self {
+        let mut offsets = Vec::with_capacity(v.len() + 1);
+        let mut values = Vec::new();
+        let mut length_so_far = 0;
+        offsets.push(length_so_far);
+        for s in &v {
+            length_so_far += s.len() as i64;
+            offsets.push(length_so_far as i64);
+            values.extend_from_slice(s);
+        }
+        let array_data = ArrayData::builder(DataType::LargeBinary)
+            .len(v.len())
+            .add_buffer(Buffer::from(offsets.to_byte_slice()))
+            .add_buffer(Buffer::from(&values[..]))
+            .build();
+        LargeBinaryArray::from(array_data)
+    }
+}
+
 impl<'a> TryFrom<Vec<Option<&'a str>>> for StringArray {
     type Error = ArrowError;
 
     fn try_from(v: Vec<Option<&'a str>>) -> Result<Self> {
         let mut builder = StringBuilder::new(v.len());
+        for val in v {
+            if let Some(s) = val {
+                builder.append_value(s)?;
+            } else {
+                builder.append(false)?;
+            }
+        }
+        Ok(builder.finish())
+    }
+}
+
+impl<'a> TryFrom<Vec<Option<&'a str>>> for LargeStringArray {
+    type Error = ArrowError;
+
+    fn try_from(v: Vec<Option<&'a str>>) -> Result<Self> {
+        let mut builder = LargeStringBuilder::new(v.len());
         for val in v {
             if let Some(s) = val {
                 builder.append_value(s)?;
@@ -1410,6 +1802,66 @@ impl From<ListArray> for StringArray {
     }
 }
 
+/// Creates a `LargeBinaryArray` from `LargeList<u8>` array
+impl From<LargeListArray> for LargeBinaryArray {
+    fn from(v: LargeListArray) -> Self {
+        assert_eq!(
+            v.data().child_data()[0].child_data().len(),
+            0,
+            "LargeBinaryArray can only be created from list array of u8 values \
+             (i.e. LargeList<PrimitiveArray<u8>>)."
+        );
+        assert_eq!(
+            v.data().child_data()[0].data_type(),
+            &DataType::UInt8,
+            "LargeBinaryArray can only be created from LargeList<u8> arrays, mismatched data types."
+        );
+
+        let mut builder = ArrayData::builder(DataType::LargeBinary)
+            .len(v.len())
+            .add_buffer(v.data().buffers()[0].clone())
+            .add_buffer(v.data().child_data()[0].buffers()[0].clone());
+        if let Some(bitmap) = v.data().null_bitmap() {
+            builder = builder
+                .null_count(v.data().null_count())
+                .null_bit_buffer(bitmap.bits.clone())
+        }
+
+        let data = builder.build();
+        Self::from(data)
+    }
+}
+
+/// Creates a `LargeStringArray` from `LargeList<u8>` array
+impl From<LargeListArray> for LargeStringArray {
+    fn from(v: LargeListArray) -> Self {
+        assert_eq!(
+            v.data().child_data()[0].child_data().len(),
+            0,
+            "LargeStringArray can only be created from list array of u8 values \
+             (i.e. LargeList<PrimitiveArray<u8>>)."
+        );
+        assert_eq!(
+            v.data().child_data()[0].data_type(),
+            &DataType::UInt8,
+            "LargeStringArray can only be created from LargeList<u8> arrays, mismatched data types."
+        );
+
+        let mut builder = ArrayData::builder(DataType::LargeUtf8)
+            .len(v.len())
+            .add_buffer(v.data().buffers()[0].clone())
+            .add_buffer(v.data().child_data()[0].buffers()[0].clone());
+        if let Some(bitmap) = v.data().null_bitmap() {
+            builder = builder
+                .null_count(v.data().null_count())
+                .null_bit_buffer(bitmap.bits.clone())
+        }
+
+        let data = builder.build();
+        Self::from(data)
+    }
+}
+
 /// Creates a `FixedSizeBinaryArray` from `FixedSizeList<u8>` array
 impl From<FixedSizeListArray> for FixedSizeBinaryArray {
     fn from(v: FixedSizeListArray) -> Self {
@@ -1449,9 +1901,29 @@ impl fmt::Debug for BinaryArray {
     }
 }
 
+impl fmt::Debug for LargeBinaryArray {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "LargeBinaryArray\n[\n")?;
+        print_long_array(self, f, |array, index, f| {
+            fmt::Debug::fmt(&array.value(index), f)
+        })?;
+        write!(f, "]")
+    }
+}
+
 impl fmt::Debug for StringArray {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "StringArray\n[\n")?;
+        print_long_array(self, f, |array, index, f| {
+            fmt::Debug::fmt(&array.value(index), f)
+        })?;
+        write!(f, "]")
+    }
+}
+
+impl fmt::Debug for LargeStringArray {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "LargeStringArray\n[\n")?;
         print_long_array(self, f, |array, index, f| {
             fmt::Debug::fmt(&array.value(index), f)
         })?;
@@ -1466,34 +1938,6 @@ impl fmt::Debug for FixedSizeBinaryArray {
             fmt::Debug::fmt(&array.value(index), f)
         })?;
         write!(f, "]")
-    }
-}
-
-impl Array for BinaryArray {
-    fn as_any(&self) -> &Any {
-        self
-    }
-
-    fn data(&self) -> ArrayDataRef {
-        self.data.clone()
-    }
-
-    fn data_ref(&self) -> &ArrayDataRef {
-        &self.data
-    }
-}
-
-impl Array for StringArray {
-    fn as_any(&self) -> &Any {
-        self
-    }
-
-    fn data(&self) -> ArrayDataRef {
-        self.data.clone()
-    }
-
-    fn data_ref(&self) -> &ArrayDataRef {
-        &self.data
     }
 }
 
@@ -1625,15 +2069,15 @@ impl fmt::Debug for StructArray {
         write!(f, "StructArray\n[\n")?;
         for (child_index, name) in self.column_names().iter().enumerate() {
             let column = self.column(child_index);
-            write!(
+            writeln!(
                 f,
-                "-- child {}: \"{}\" ({:?})\n",
+                "-- child {}: \"{}\" ({:?})",
                 child_index,
                 name,
                 column.data_type()
             )?;
             fmt::Debug::fmt(column, f)?;
-            write!(f, "\n")?;
+            writeln!(f)?;
         }
         write!(f, "]")
     }
@@ -1668,38 +2112,37 @@ impl From<(Vec<(Field, ArrayRef)>, Buffer, usize)> for StructArray {
     }
 }
 
-/// A dictonary array where each element is a single value indexed by an integer key.
+/// A dictionary array where each element is a single value indexed by an integer key.
 /// This is mostly used to represent strings or a limited set of primitive types as integers,
 /// for example when doing NLP analysis or representing chromosomes by name.
 ///
-/// Example with nullable data:
+/// Example **with nullable** data:
 ///
 /// ```
-///     use arrow::array::DictionaryArray;
-///     use arrow::datatypes::Int8Type;
-///     let test = vec!["a", "a", "b", "c"];
-///     let array : DictionaryArray<Int8Type> = test.iter().map(|&x| if x == "b" {None} else {Some(x)}).collect();
-///     assert_eq!(array.keys().collect::<Vec<Option<i8>>>(), vec![Some(0), Some(0), None, Some(1)]);
+/// use arrow::array::DictionaryArray;
+/// use arrow::datatypes::Int8Type;
+/// let test = vec!["a", "a", "b", "c"];
+/// let array : DictionaryArray<Int8Type> = test.iter().map(|&x| if x == "b" {None} else {Some(x)}).collect();
+/// assert_eq!(array.keys().collect::<Vec<Option<i8>>>(), vec![Some(0), Some(0), None, Some(1)]);
 /// ```
 ///
-/// Example without nullable data:
+/// Example **without nullable** data:
 ///
 /// ```
-///
-///     use arrow::array::DictionaryArray;
-///     use arrow::datatypes::Int8Type;
-///     let test = vec!["a", "a", "b", "c"];
-///     let array : DictionaryArray<Int8Type> = test.into_iter().collect();
-///     assert_eq!(array.keys().collect::<Vec<Option<i8>>>(), vec![Some(0), Some(0), Some(1), Some(2)]);
+/// use arrow::array::DictionaryArray;
+/// use arrow::datatypes::Int8Type;
+/// let test = vec!["a", "a", "b", "c"];
+/// let array : DictionaryArray<Int8Type> = test.into_iter().collect();
+/// assert_eq!(array.keys().collect::<Vec<Option<i8>>>(), vec![Some(0), Some(0), Some(1), Some(2)]);
 /// ```
 pub struct DictionaryArray<K: ArrowPrimitiveType> {
-    // Array of keys, much like a PrimitiveArray
+    /// Array of keys, much like a PrimitiveArray
     data: ArrayDataRef,
 
-    // Pointer to the key values.
+    /// Pointer to the key values.
     raw_values: RawPtrBox<K::Native>,
 
-    // Array of any values.
+    /// Array of any values.
     values: ArrayRef,
 
     /// Values are ordered.
@@ -1728,7 +2171,7 @@ where
             Some(None)
         } else {
             self.i += 1;
-            unsafe { Some(Some((&*self.ptr.offset(i as isize)).clone())) }
+            unsafe { Some(Some((&*self.ptr.add(i)).clone())) }
         }
     }
 
@@ -1746,20 +2189,31 @@ where
             Some(None)
         } else {
             self.i += n + 1;
-            unsafe { Some(Some((&*self.ptr.offset((i + n) as isize)).clone())) }
+            unsafe { Some(Some((&*self.ptr.add(i + n)).clone())) }
         }
     }
 }
 
 impl<'a, K: ArrowPrimitiveType> DictionaryArray<K> {
     /// Return an iterator to the keys of this dictionary.
-    pub fn keys(&'a self) -> NullableIter<'a, K::Native> {
-        NullableIter::<'a, K::Native> {
+    pub fn keys(&self) -> NullableIter<'_, K::Native> {
+        NullableIter::<'_, K::Native> {
             data: &self.data,
-            ptr: unsafe { self.raw_values.get().offset(self.data.offset() as isize) },
+            ptr: unsafe { self.raw_values.get().add(self.data.offset()) },
             i: 0,
             len: self.data.len(),
         }
+    }
+
+    /// Returns the lookup key by doing reverse dictionary lookup
+    pub fn lookup_key(&self, value: &'static str) -> Option<K::Native> {
+        let rd_buf: &StringArray =
+            self.values.as_any().downcast_ref::<StringArray>().unwrap();
+
+        (0..rd_buf.len())
+            .position(|i| rd_buf.value(i) == value)
+            .map(K::Native::from_usize)
+            .flatten()
     }
 
     /// Returns an `ArrayRef` to the dictionary values.
@@ -1777,6 +2231,12 @@ impl<'a, K: ArrowPrimitiveType> DictionaryArray<K> {
         self.data.len()
     }
 
+    /// Whether this dictionary is empty
+    pub fn is_empty(&self) -> bool {
+        self.data.is_empty()
+    }
+
+    // Currently exists for compatibility purposes with Arrow IPC.
     pub fn is_ordered(&self) -> bool {
         self.is_ordered
     }
@@ -1801,9 +2261,9 @@ impl<T: ArrowPrimitiveType> From<ArrayDataRef> for DictionaryArray<T> {
         let values = make_array(data.child_data()[0].clone());
         if let DataType::Dictionary(_, _) = dtype {
             Self {
-                data: data,
+                data,
                 raw_values: RawPtrBox::new(raw_values as *const T::Native),
-                values: values,
+                values,
                 is_ordered: false,
             }
         } else {
@@ -1817,12 +2277,12 @@ impl<T: ArrowPrimitiveType + ArrowDictionaryKeyType> FromIterator<Option<&'stati
     for DictionaryArray<T>
 {
     fn from_iter<I: IntoIterator<Item = Option<&'static str>>>(iter: I) -> Self {
-        let iter = iter.into_iter();
-        let (lower, _) = iter.size_hint();
+        let it = iter.into_iter();
+        let (lower, _) = it.size_hint();
         let key_builder = PrimitiveBuilder::<T>::new(lower);
         let value_builder = StringBuilder::new(256);
         let mut builder = StringDictionaryBuilder::new(key_builder, value_builder);
-        for i in iter {
+        it.for_each(|i| {
             if let Some(i) = i {
                 // Note: impl ... for Result<DictionaryArray<T>> fails with
                 // error[E0117]: only traits defined in the current crate can be implemented for arbitrary types
@@ -1834,7 +2294,7 @@ impl<T: ArrowPrimitiveType + ArrowDictionaryKeyType> FromIterator<Option<&'stati
                     .append_null()
                     .expect("Unable to append a null value to a dictionary array.");
             }
-        }
+        });
 
         builder.finish()
     }
@@ -1845,16 +2305,16 @@ impl<T: ArrowPrimitiveType + ArrowDictionaryKeyType> FromIterator<&'static str>
     for DictionaryArray<T>
 {
     fn from_iter<I: IntoIterator<Item = &'static str>>(iter: I) -> Self {
-        let iter = iter.into_iter();
-        let (lower, _) = iter.size_hint();
+        let it = iter.into_iter();
+        let (lower, _) = it.size_hint();
         let key_builder = PrimitiveBuilder::<T>::new(lower);
         let value_builder = StringBuilder::new(256);
         let mut builder = StringDictionaryBuilder::new(key_builder, value_builder);
-        for i in iter {
+        it.for_each(|i| {
             builder
                 .append(i)
                 .expect("Unable to append a value to a dictionary array.");
-        }
+        });
 
         builder.finish()
     }
@@ -1883,9 +2343,9 @@ impl<T: ArrowPrimitiveType> fmt::Debug for DictionaryArray<T> {
         } else {
             ""
         };
-        write!(
+        writeln!(
             f,
-            "DictionaryArray {{keys: {:?}{} values: {:?}}}\n",
+            "DictionaryArray {{keys: {:?}{} values: {:?}}}",
             keys, elipsis, self.values
         )
     }
@@ -2351,6 +2811,15 @@ mod tests {
         assert_eq!(0, list_array.null_count());
         assert_eq!(6, list_array.value_offset(2));
         assert_eq!(2, list_array.value_length(2));
+        assert_eq!(
+            0,
+            list_array
+                .value(0)
+                .as_any()
+                .downcast_ref::<Int32Array>()
+                .unwrap()
+                .value(0)
+        );
         for i in 0..3 {
             assert!(list_array.is_valid(i));
             assert!(!list_array.is_null(i));
@@ -2372,6 +2841,84 @@ mod tests {
         assert_eq!(0, list_array.null_count());
         assert_eq!(6, list_array.value_offset(1));
         assert_eq!(2, list_array.value_length(1));
+        assert_eq!(
+            3,
+            list_array
+                .value(0)
+                .as_any()
+                .downcast_ref::<Int32Array>()
+                .unwrap()
+                .value(0)
+        );
+    }
+
+    #[test]
+    fn test_large_list_array() {
+        // Construct a value array
+        let value_data = ArrayData::builder(DataType::Int32)
+            .len(8)
+            .add_buffer(Buffer::from(&[0, 1, 2, 3, 4, 5, 6, 7].to_byte_slice()))
+            .build();
+
+        // Construct a buffer for value offsets, for the nested array:
+        //  [[0, 1, 2], [3, 4, 5], [6, 7]]
+        let value_offsets = Buffer::from(&[0i64, 3, 6, 8].to_byte_slice());
+
+        // Construct a list array from the above two
+        let list_data_type = DataType::LargeList(Box::new(DataType::Int32));
+        let list_data = ArrayData::builder(list_data_type.clone())
+            .len(3)
+            .add_buffer(value_offsets.clone())
+            .add_child_data(value_data.clone())
+            .build();
+        let list_array = LargeListArray::from(list_data);
+
+        let values = list_array.values();
+        assert_eq!(value_data, values.data());
+        assert_eq!(DataType::Int32, list_array.value_type());
+        assert_eq!(3, list_array.len());
+        assert_eq!(0, list_array.null_count());
+        assert_eq!(6, list_array.value_offset(2));
+        assert_eq!(2, list_array.value_length(2));
+        assert_eq!(
+            0,
+            list_array
+                .value(0)
+                .as_any()
+                .downcast_ref::<Int32Array>()
+                .unwrap()
+                .value(0)
+        );
+        for i in 0..3 {
+            assert!(list_array.is_valid(i));
+            assert!(!list_array.is_null(i));
+        }
+
+        // Now test with a non-zero offset
+        let list_data = ArrayData::builder(list_data_type)
+            .len(3)
+            .offset(1)
+            .add_buffer(value_offsets)
+            .add_child_data(value_data.clone())
+            .build();
+        let list_array = LargeListArray::from(list_data);
+
+        let values = list_array.values();
+        assert_eq!(value_data, values.data());
+        assert_eq!(DataType::Int32, list_array.value_type());
+        assert_eq!(3, list_array.len());
+        assert_eq!(0, list_array.null_count());
+        assert_eq!(6, list_array.value_offset(1));
+        assert_eq!(2, list_array.value_length(1));
+        assert_eq!(
+            3,
+            list_array
+                .value(0)
+                .as_any()
+                .downcast_ref::<Int32Array>()
+                .unwrap()
+                .value(0)
+        );
     }
 
     #[test]
@@ -2460,6 +3007,15 @@ mod tests {
         assert_eq!(0, list_array.null_count());
         assert_eq!(6, list_array.value_offset(2));
         assert_eq!(3, list_array.value_length());
+        assert_eq!(
+            0,
+            list_array
+                .value(0)
+                .as_any()
+                .downcast_ref::<Int32Array>()
+                .unwrap()
+                .value(0)
+        );
         for i in 0..3 {
             assert!(list_array.is_valid(i));
             assert!(!list_array.is_null(i));
@@ -2478,6 +3034,15 @@ mod tests {
         assert_eq!(DataType::Int32, list_array.value_type());
         assert_eq!(3, list_array.len());
         assert_eq!(0, list_array.null_count());
+        assert_eq!(
+            3,
+            list_array
+                .value(0)
+                .as_any()
+                .downcast_ref::<Int32Array>()
+                .unwrap()
+                .value(0)
+        );
         assert_eq!(6, list_array.value_offset(1));
         assert_eq!(3, list_array.value_length());
     }
@@ -2558,6 +3123,72 @@ mod tests {
         // Check offset and length for each non-null value.
         let sliced_list_array =
             sliced_array.as_any().downcast_ref::<ListArray>().unwrap();
+        assert_eq!(2, sliced_list_array.value_offset(2));
+        assert_eq!(2, sliced_list_array.value_length(2));
+        assert_eq!(4, sliced_list_array.value_offset(3));
+        assert_eq!(2, sliced_list_array.value_length(3));
+        assert_eq!(6, sliced_list_array.value_offset(5));
+        assert_eq!(3, sliced_list_array.value_length(5));
+    }
+
+    #[test]
+    fn test_large_list_array_slice() {
+        // Construct a value array
+        let value_data = ArrayData::builder(DataType::Int32)
+            .len(10)
+            .add_buffer(Buffer::from(
+                &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].to_byte_slice(),
+            ))
+            .build();
+
+        // Construct a buffer for value offsets, for the nested array:
+        //  [[0, 1], null, null, [2, 3], [4, 5], null, [6, 7, 8], null, [9]]
+        let value_offsets =
+            Buffer::from(&[0i64, 2, 2, 2, 4, 6, 6, 9, 9, 10].to_byte_slice());
+        // 01011001 00000001
+        let mut null_bits: [u8; 2] = [0; 2];
+        bit_util::set_bit(&mut null_bits, 0);
+        bit_util::set_bit(&mut null_bits, 3);
+        bit_util::set_bit(&mut null_bits, 4);
+        bit_util::set_bit(&mut null_bits, 6);
+        bit_util::set_bit(&mut null_bits, 8);
+
+        // Construct a list array from the above two
+        let list_data_type = DataType::LargeList(Box::new(DataType::Int32));
+        let list_data = ArrayData::builder(list_data_type.clone())
+            .len(9)
+            .add_buffer(value_offsets.clone())
+            .add_child_data(value_data.clone())
+            .null_bit_buffer(Buffer::from(null_bits))
+            .build();
+        let list_array = LargeListArray::from(list_data);
+
+        let values = list_array.values();
+        assert_eq!(value_data, values.data());
+        assert_eq!(DataType::Int32, list_array.value_type());
+        assert_eq!(9, list_array.len());
+        assert_eq!(4, list_array.null_count());
+        assert_eq!(2, list_array.value_offset(3));
+        assert_eq!(2, list_array.value_length(3));
+
+        let sliced_array = list_array.slice(1, 6);
+        assert_eq!(6, sliced_array.len());
+        assert_eq!(1, sliced_array.offset());
+        assert_eq!(3, sliced_array.null_count());
+
+        for i in 0..sliced_array.len() {
+            if bit_util::get_bit(&null_bits, sliced_array.offset() + i) {
+                assert!(sliced_array.is_valid(i));
+            } else {
+                assert!(sliced_array.is_null(i));
+            }
+        }
+
+        // Check offset and length for each non-null value.
+        let sliced_list_array = sliced_array
+            .as_any()
+            .downcast_ref::<LargeListArray>()
+            .unwrap();
         assert_eq!(2, sliced_list_array.value_offset(2));
         assert_eq!(2, sliced_list_array.value_length(2));
         assert_eq!(4, sliced_list_array.value_offset(3));
@@ -2722,6 +3353,53 @@ mod tests {
     }
 
     #[test]
+    fn test_large_binary_array() {
+        let values: [u8; 12] = [
+            b'h', b'e', b'l', b'l', b'o', b'p', b'a', b'r', b'q', b'u', b'e', b't',
+        ];
+        let offsets: [i64; 4] = [0, 5, 5, 12];
+
+        // Array data: ["hello", "", "parquet"]
+        let array_data = ArrayData::builder(DataType::Binary)
+            .len(3)
+            .add_buffer(Buffer::from(offsets.to_byte_slice()))
+            .add_buffer(Buffer::from(&values[..]))
+            .build();
+        let binary_array = LargeBinaryArray::from(array_data);
+        assert_eq!(3, binary_array.len());
+        assert_eq!(0, binary_array.null_count());
+        assert_eq!([b'h', b'e', b'l', b'l', b'o'], binary_array.value(0));
+        assert_eq!([] as [u8; 0], binary_array.value(1));
+        assert_eq!(
+            [b'p', b'a', b'r', b'q', b'u', b'e', b't'],
+            binary_array.value(2)
+        );
+        assert_eq!(5, binary_array.value_offset(2));
+        assert_eq!(7, binary_array.value_length(2));
+        for i in 0..3 {
+            assert!(binary_array.is_valid(i));
+            assert!(!binary_array.is_null(i));
+        }
+
+        // Test binary array with offset
+        let array_data = ArrayData::builder(DataType::LargeBinary)
+            .len(4)
+            .offset(1)
+            .add_buffer(Buffer::from(offsets.to_byte_slice()))
+            .add_buffer(Buffer::from(&values[..]))
+            .build();
+        let binary_array = LargeBinaryArray::from(array_data);
+        assert_eq!(
+            [b'p', b'a', b'r', b'q', b'u', b'e', b't'],
+            binary_array.value(1)
+        );
+        assert_eq!(5, binary_array.value_offset(0));
+        assert_eq!(0, binary_array.value_length(0));
+        assert_eq!(5, binary_array.value_offset(1));
+        assert_eq!(7, binary_array.value_length(1));
+    }
+
+    #[test]
     fn test_binary_array_from_list_array() {
         let values: [u8; 12] = [
             b'h', b'e', b'l', b'l', b'o', b'p', b'a', b'r', b'q', b'u', b'e', b't',
@@ -2761,11 +3439,70 @@ mod tests {
     }
 
     #[test]
+    fn test_large_binary_array_from_list_array() {
+        let values: [u8; 12] = [
+            b'h', b'e', b'l', b'l', b'o', b'p', b'a', b'r', b'q', b'u', b'e', b't',
+        ];
+        let values_data = ArrayData::builder(DataType::UInt8)
+            .len(12)
+            .add_buffer(Buffer::from(&values[..]))
+            .build();
+        let offsets: [i64; 4] = [0, 5, 5, 12];
+
+        // Array data: ["hello", "", "parquet"]
+        let array_data1 = ArrayData::builder(DataType::LargeBinary)
+            .len(3)
+            .add_buffer(Buffer::from(offsets.to_byte_slice()))
+            .add_buffer(Buffer::from(&values[..]))
+            .build();
+        let binary_array1 = LargeBinaryArray::from(array_data1);
+
+        let array_data2 = ArrayData::builder(DataType::Binary)
+            .len(3)
+            .add_buffer(Buffer::from(offsets.to_byte_slice()))
+            .add_child_data(values_data)
+            .build();
+        let list_array = LargeListArray::from(array_data2);
+        let binary_array2 = LargeBinaryArray::from(list_array);
+
+        assert_eq!(2, binary_array2.data().buffers().len());
+        assert_eq!(0, binary_array2.data().child_data().len());
+
+        assert_eq!(binary_array1.len(), binary_array2.len());
+        assert_eq!(binary_array1.null_count(), binary_array2.null_count());
+        for i in 0..binary_array1.len() {
+            assert_eq!(binary_array1.value(i), binary_array2.value(i));
+            assert_eq!(binary_array1.value_offset(i), binary_array2.value_offset(i));
+            assert_eq!(binary_array1.value_length(i), binary_array2.value_length(i));
+        }
+    }
+
+    #[test]
     fn test_string_array_from_u8_slice() {
         let values: Vec<&str> = vec!["hello", "", "parquet"];
 
         // Array data: ["hello", "", "parquet"]
         let string_array = StringArray::from(values);
+
+        assert_eq!(3, string_array.len());
+        assert_eq!(0, string_array.null_count());
+        assert_eq!("hello", string_array.value(0));
+        assert_eq!("", string_array.value(1));
+        assert_eq!("parquet", string_array.value(2));
+        assert_eq!(5, string_array.value_offset(2));
+        assert_eq!(7, string_array.value_length(2));
+        for i in 0..3 {
+            assert!(string_array.is_valid(i));
+            assert!(!string_array.is_null(i));
+        }
+    }
+
+    #[test]
+    fn test_large_string_array_from_u8_slice() {
+        let values: Vec<&str> = vec!["hello", "", "parquet"];
+
+        // Array data: ["hello", "", "parquet"]
+        let string_array = LargeStringArray::from(values);
 
         assert_eq!(3, string_array.len());
         assert_eq!(0, string_array.null_count());
@@ -2984,10 +3721,10 @@ mod tests {
     }
 
     #[test]
-    fn test_fixed_size_binary_array_fmt_debug() {
-        let arr: StringArray = vec!["hello", "arrow"].into();
+    fn test_large_string_array_fmt_debug() {
+        let arr: LargeStringArray = vec!["hello", "arrow"].into();
         assert_eq!(
-            "StringArray\n[\n  \"hello\",\n  \"arrow\",\n]",
+            "LargeStringArray\n[\n  \"hello\",\n  \"arrow\",\n]",
             format!("{:?}", arr)
         );
     }
@@ -3264,5 +4001,20 @@ mod tests {
             "DictionaryArray {keys: [Some(0), Some(0), Some(1), Some(2)] values: StringArray\n[\n  \"a\",\n  \"b\",\n  \"c\",\n]}\n",
             format!("{:?}", array)
         );
+    }
+
+    #[test]
+    fn test_dictionary_array_reverse_lookup_key() {
+        let test = vec!["a", "a", "b", "c"];
+        let array: DictionaryArray<Int8Type> = test.into_iter().collect();
+
+        assert_eq!(array.lookup_key("c"), Some(2));
+
+        // Direction of building a dictionary is the iterator direction
+        let test = vec!["t3", "t3", "t2", "t2", "t1", "t3", "t4", "t1", "t0"];
+        let array: DictionaryArray<Int8Type> = test.into_iter().collect();
+
+        assert_eq!(array.lookup_key("t1"), Some(2));
+        assert_eq!(array.lookup_key("non-existent"), None);
     }
 }

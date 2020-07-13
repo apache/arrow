@@ -19,5 +19,6 @@
 breathe
 doxygen
 ipython
-sphinx
+# Pinned per ARROW-8340
+sphinx=2.4.4
 sphinx_rtd_theme

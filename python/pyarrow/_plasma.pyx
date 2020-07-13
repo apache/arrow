@@ -29,18 +29,17 @@ from libc.stdint cimport int64_t, uint8_t, uintptr_t
 from cython.operator cimport dereference as deref, preincrement as inc
 from cpython.pycapsule cimport *
 
+from collections.abc import Sequence
 import random
 import socket
 import warnings
 
 import pyarrow
 from pyarrow.lib cimport Buffer, NativeFile, check_status, pyarrow_wrap_buffer
-from pyarrow.lib import ArrowException
+from pyarrow.lib import ArrowException, frombytes
 from pyarrow.includes.libarrow cimport (CBuffer, CMutableBuffer,
                                         CFixedSizeBufferWriter, CStatus)
 from pyarrow.includes.libplasma cimport *
-
-from pyarrow import compat
 
 PLASMA_WAIT_TIMEOUT = 2 ** 30
 
@@ -261,7 +260,7 @@ cdef class PlasmaBuffer(Buffer):
         self.client._release(self.object_id)
 
 
-class PlasmaObjectNonexistent(ArrowException):
+class PlasmaObjectNotFound(ArrowException):
     pass
 
 
@@ -278,15 +277,20 @@ cdef int plasma_check_status(const CStatus& status) nogil except -1:
         return 0
 
     with gil:
-        message = compat.frombytes(status.message())
+        message = frombytes(status.message())
         if IsPlasmaObjectExists(status):
             raise PlasmaObjectExists(message)
-        elif IsPlasmaObjectNonexistent(status):
-            raise PlasmaObjectNonexistent(message)
+        elif IsPlasmaObjectNotFound(status):
+            raise PlasmaObjectNotFound(message)
         elif IsPlasmaStoreFull(status):
             raise PlasmaStoreFull(message)
 
     return check_status(status)
+
+
+def get_socket_from_fd(fileno, family, type):
+    import socket
+    return socket.socket(fileno=fileno, family=family, type=type)
 
 
 cdef class PlasmaClient:
@@ -561,7 +565,7 @@ cdef class PlasmaClient:
             the object_ids and ObjectNotAvailable if the object was not
             available.
         """
-        if isinstance(object_ids, compat.Sequence):
+        if isinstance(object_ids, Sequence):
             results = []
             buffers = self.get_buffers(object_ids, timeout_ms)
             for i in range(len(object_ids)):
@@ -667,9 +671,9 @@ cdef class PlasmaClient:
         """
         Get the notification socket.
         """
-        return compat.get_socket_from_fd(self.notification_fd,
-                                         family=socket.AF_UNIX,
-                                         type=socket.SOCK_STREAM)
+        return get_socket_from_fd(self.notification_fd,
+                                  family=socket.AF_UNIX,
+                                  type=socket.SOCK_STREAM)
 
     def decode_notifications(self, const uint8_t* buf):
         """

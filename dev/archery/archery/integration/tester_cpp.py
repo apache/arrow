@@ -76,8 +76,10 @@ class CPPTester(Tester):
         self.run_shell_command(cmd)
 
     @contextlib.contextmanager
-    def flight_server(self, port):
-        cmd = self.FLIGHT_SERVER_CMD + ['-port=' + str(port)]
+    def flight_server(self, scenario_name=None):
+        cmd = self.FLIGHT_SERVER_CMD + ['-port=0']
+        if scenario_name:
+            cmd = cmd + ["-scenario", scenario_name]
         if self.debug:
             log(' '.join(cmd))
         server = subprocess.Popen(cmd,
@@ -85,23 +87,30 @@ class CPPTester(Tester):
                                   stderr=subprocess.PIPE)
         try:
             output = server.stdout.readline().decode()
-            if not output.startswith("Server listening on localhost"):
+            if not output.startswith("Server listening on localhost:"):
                 server.kill()
                 out, err = server.communicate()
                 raise RuntimeError(
                     "Flight-C++ server did not start properly, "
                     "stdout:\n{}\n\nstderr:\n{}\n"
                     .format(output + out.decode(), err.decode()))
-            yield
+            port = int(output.split(":")[1])
+            yield port
         finally:
             server.kill()
             server.wait(5)
 
-    def flight_request(self, port, json_path):
+    def flight_request(self, port, json_path=None, scenario_name=None):
         cmd = self.FLIGHT_CLIENT_CMD + [
             '-port=' + str(port),
-            '-path=' + json_path,
         ]
+        if json_path:
+            cmd.extend(('-path', json_path))
+        elif scenario_name:
+            cmd.extend(('-scenario', scenario_name))
+        else:
+            raise TypeError("Must provide one of json_path or scenario_name")
+
         if self.debug:
             log(' '.join(cmd))
         run_cmd(cmd)

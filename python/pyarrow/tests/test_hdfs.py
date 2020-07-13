@@ -28,9 +28,9 @@ import numpy as np
 import pyarrow as pa
 import pyarrow.tests.test_parquet as test_parquet
 
-from pyarrow.compat import guid
 from pyarrow.pandas_compat import _pandas_api
 from pyarrow.tests import util
+from pyarrow.util import guid
 
 
 # ----------------------------------------------------------------------

@@ -43,9 +43,10 @@ if [ "$CMAKE_GENERATOR" = "" ]; then
   fi
 fi
 
-if [ "$ARROW_R_DEV" = "true" ]; then
-  # Print more verbosity
-  EXTRA_CMAKE_FLAGS="${EXTRA_CMAKE_FLAGS} -DARROW_VERBOSE_THIRDPARTY_BUILD=ON"
+if [ "$LIBARROW_MINIMAL" = "false" ]; then
+  ARROW_DEFAULT_PARAM="ON"
+else
+  ARROW_DEFAULT_PARAM="OFF"
 fi
 
 mkdir -p "${BUILD_DIR}"
@@ -59,33 +60,38 @@ ${CMAKE} -DARROW_BOOST_USE_SHARED=OFF \
     -DARROW_DATASET=ON \
     -DARROW_DEPENDENCY_SOURCE=BUNDLED \
     -DARROW_FILESYSTEM=ON \
-    -DARROW_JEMALLOC=ON \
+    -DARROW_JEMALLOC=${ARROW_JEMALLOC:-ON} \
     -DARROW_JSON=ON \
     -DARROW_PARQUET=ON \
-    -DARROW_WITH_BROTLI=ON \
-    -DARROW_WITH_BZ2=ON \
-    -DARROW_WITH_LZ4=ON \
-    -DARROW_WITH_SNAPPY=ON \
-    -DARROW_WITH_ZLIB=ON \
-    -DARROW_WITH_ZSTD=ON \
+    -DARROW_WITH_BROTLI=${ARROW_WITH_BROTLI:-$ARROW_DEFAULT_PARAM} \
+    -DARROW_WITH_BZ2=${ARROW_WITH_BZ2:-$ARROW_DEFAULT_PARAM} \
+    -DARROW_WITH_LZ4=${ARROW_WITH_LZ4:-$ARROW_DEFAULT_PARAM} \
+    -DARROW_WITH_SNAPPY=${ARROW_WITH_SNAPPY:-$ARROW_DEFAULT_PARAM} \
+    -DARROW_WITH_UTF8PROC=OFF \
+    -DARROW_WITH_ZLIB=${ARROW_WITH_ZLIB:-$ARROW_DEFAULT_PARAM} \
+    -DARROW_WITH_ZSTD=${ARROW_WITH_ZSTD:-$ARROW_DEFAULT_PARAM} \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_INSTALL_LIBDIR=lib \
     -DCMAKE_INSTALL_PREFIX=${DEST_DIR} \
     -DCMAKE_EXPORT_NO_PACKAGE_REGISTRY=ON \
     -DCMAKE_FIND_PACKAGE_NO_PACKAGE_REGISTRY=ON \
+    -DCMAKE_UNITY_BUILD=ON \
     -DOPENSSL_USE_STATIC_LIBS=ON \
     ${EXTRA_CMAKE_FLAGS} \
     -G ${CMAKE_GENERATOR:-"Unix Makefiles"} \
     ${SOURCE_DIR}
 ${CMAKE} --build . --target install
 
-if [ $? -ne 0 ] && [ "${DEBUG_DIR}" != "" ]; then
-  # For debugging installation problems, copy the build contents somewhere not tmp
-  mkdir -p ${DEBUG_DIR}
-  cp -r ./* ${DEBUG_DIR}
+if [ $? -ne 0 ]; then
+  if [ "${DEBUG_DIR}" != "" ]; then
+    # For debugging installation problems, copy the build contents somewhere not tmp
+    mkdir -p ${DEBUG_DIR}
+    cp -r ./* ${DEBUG_DIR}
+    echo "**** Error building Arrow C++. See ${DEBUG_DIR} for details."
+  else
+    # Emit a clear message that the C++ build failed
+    echo "**** Error building Arrow C++. Re-run with ARROW_R_DEV=true for debug information."
+  fi
 fi
 
-# Copy the bundled static libs from the build to the install dir
-# See https://issues.apache.org/jira/browse/ARROW-7499 for moving this to CMake
-find . -regex .*/.*/lib/.*\\.a\$ | xargs -I{} cp -u {} ${DEST_DIR}/lib
 popd

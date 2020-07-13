@@ -223,6 +223,7 @@ impl<R: ParquetReader> SerializedFileReader<R> {
             t_file_metadata.version,
             t_file_metadata.num_rows,
             t_file_metadata.created_by,
+            t_file_metadata.key_value_metadata,
             schema,
             schema_descr,
             column_orders,
@@ -897,6 +898,7 @@ mod tests {
             file_metadata.created_by().as_ref().unwrap(),
             "impala version 1.3.0-INTERNAL (build 8a48ddb1eff84592b3fc06bc6f51ec120e1fffc9)"
         );
+        assert!(file_metadata.key_value_metadata().is_none());
         assert_eq!(file_metadata.num_rows(), 8);
         assert_eq!(file_metadata.version(), 1);
         assert_eq!(file_metadata.column_orders(), None);
@@ -986,6 +988,12 @@ mod tests {
             file_metadata.created_by().as_ref().unwrap(),
             "parquet-mr version 1.8.1 (build 4aba4dae7bb0d4edbcf7923ae1339f28fd3f7fcf)"
         );
+        assert!(file_metadata.key_value_metadata().is_some());
+        assert_eq!(
+            file_metadata.key_value_metadata().to_owned().unwrap().len(),
+            1
+        );
+
         assert_eq!(file_metadata.num_rows(), 5);
         assert_eq!(file_metadata.version(), 1);
         assert_eq!(file_metadata.column_orders(), None);
@@ -1089,5 +1097,31 @@ mod tests {
         // reach end of file
         let page = page_iterator.next();
         assert!(page.is_none());
+    }
+
+    #[test]
+    fn test_file_reader_key_value_metadata() {
+        let file = get_test_file("binary.parquet");
+        let file_reader = Rc::new(SerializedFileReader::new(file).unwrap());
+
+        let metadata = file_reader
+            .metadata
+            .file_metadata()
+            .key_value_metadata()
+            .as_ref()
+            .unwrap();
+
+        assert_eq!(metadata.len(), 3);
+
+        assert_eq!(metadata.get(0).unwrap().key, "parquet.proto.descriptor");
+
+        assert_eq!(metadata.get(1).unwrap().key, "writer.model.name");
+        assert_eq!(metadata.get(1).unwrap().value, Some("protobuf".to_owned()));
+
+        assert_eq!(metadata.get(2).unwrap().key, "parquet.proto.class");
+        assert_eq!(
+            metadata.get(2).unwrap().value,
+            Some("foo.baz.Foobaz$Event".to_owned())
+        );
     }
 }

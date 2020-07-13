@@ -16,14 +16,17 @@
 // under the License.
 
 #include "arrow/flight/internal.h"
-#include "arrow/flight/platform.h"
-#include "arrow/flight/protocol_internal.h"
 
 #include <cstddef>
+#include <map>
 #include <memory>
 #include <sstream>
 #include <string>
 #include <utility>
+
+#include "arrow/flight/platform.h"
+#include "arrow/flight/protocol_internal.h"
+#include "arrow/flight/types.h"
 
 #ifdef GRPCPP_PP_INCLUDE
 #include <grpcpp/grpcpp.h>
@@ -45,12 +48,84 @@ namespace flight {
 namespace internal {
 
 const char* kGrpcAuthHeader = "auth-token-bin";
+const char* kGrpcStatusCodeHeader = "x-arrow-status";
+const char* kGrpcStatusMessageHeader = "x-arrow-status-message-bin";
+const char* kGrpcStatusDetailHeader = "x-arrow-status-detail-bin";
+const char* kBinaryErrorDetailsKey = "grpc-status-details-bin";
 
-Status FromGrpcStatus(const grpc::Status& grpc_status) {
-  if (grpc_status.ok()) {
-    return Status::OK();
+static Status StatusCodeFromString(const grpc::string_ref& code_ref, StatusCode* code) {
+  // Bounce through std::string to get a proper null-terminated C string
+  const auto code_int = std::atoi(std::string(code_ref.data(), code_ref.size()).c_str());
+  switch (code_int) {
+    case static_cast<int>(StatusCode::OutOfMemory):
+    case static_cast<int>(StatusCode::KeyError):
+    case static_cast<int>(StatusCode::TypeError):
+    case static_cast<int>(StatusCode::Invalid):
+    case static_cast<int>(StatusCode::IOError):
+    case static_cast<int>(StatusCode::CapacityError):
+    case static_cast<int>(StatusCode::IndexError):
+    case static_cast<int>(StatusCode::UnknownError):
+    case static_cast<int>(StatusCode::NotImplemented):
+    case static_cast<int>(StatusCode::SerializationError):
+    case static_cast<int>(StatusCode::RError):
+    case static_cast<int>(StatusCode::CodeGenError):
+    case static_cast<int>(StatusCode::ExpressionValidationError):
+    case static_cast<int>(StatusCode::ExecutionError):
+    case static_cast<int>(StatusCode::AlreadyExists): {
+      *code = static_cast<StatusCode>(code_int);
+      return Status::OK();
+    }
+    default:
+      // Code is invalid
+      return Status::UnknownError("Unknown Arrow status code", code_ref);
+  }
+}
+
+/// Try to extract a status from gRPC trailers.
+/// Return Status::OK if found, an error otherwise.
+static Status FromGrpcContext(const grpc::ClientContext& ctx, Status* status,
+                              std::shared_ptr<FlightStatusDetail> flightStatusDetail) {
+  const std::multimap<grpc::string_ref, grpc::string_ref>& trailers =
+      ctx.GetServerTrailingMetadata();
+  const auto code_val = trailers.find(kGrpcStatusCodeHeader);
+  if (code_val == trailers.end()) {
+    return Status::IOError("Status code header not found");
   }
 
+  const grpc::string_ref code_ref = code_val->second;
+  StatusCode code = {};
+  RETURN_NOT_OK(StatusCodeFromString(code_ref, &code));
+
+  const auto message_val = trailers.find(kGrpcStatusMessageHeader);
+  if (message_val == trailers.end()) {
+    return Status::IOError("Status message header not found");
+  }
+
+  const grpc::string_ref message_ref = message_val->second;
+  std::string message = std::string(message_ref.data(), message_ref.size());
+  const auto detail_val = trailers.find(kGrpcStatusDetailHeader);
+  if (detail_val != trailers.end()) {
+    const grpc::string_ref detail_ref = detail_val->second;
+    message += ". Detail: ";
+    message += std::string(detail_ref.data(), detail_ref.size());
+  }
+  const auto grpc_detail_val = trailers.find(kBinaryErrorDetailsKey);
+  if (grpc_detail_val != trailers.end()) {
+    const grpc::string_ref detail_ref = grpc_detail_val->second;
+    std::string bin_detail = std::string(detail_ref.data(), detail_ref.size());
+    if (!flightStatusDetail) {
+      flightStatusDetail =
+          std::make_shared<FlightStatusDetail>(FlightStatusCode::Internal);
+    }
+    flightStatusDetail->set_extra_info(bin_detail);
+  }
+  *status = Status(code, message, flightStatusDetail);
+  return Status::OK();
+}
+
+/// Convert a gRPC status to an Arrow status, ignoring any
+/// implementation-defined headers that encode further detail.
+static Status FromGrpcCode(const grpc::Status& grpc_status) {
   switch (grpc_status.error_code()) {
     case grpc::StatusCode::OK:
       return Status::OK();
@@ -123,7 +198,26 @@ Status FromGrpcStatus(const grpc::Status& grpc_status) {
   }
 }
 
-grpc::Status ToGrpcStatus(const Status& arrow_status) {
+Status FromGrpcStatus(const grpc::Status& grpc_status, grpc::ClientContext* ctx) {
+  const Status status = FromGrpcCode(grpc_status);
+
+  if (!status.ok() && ctx) {
+    Status arrow_status;
+
+    if (!FromGrpcContext(*ctx, &arrow_status, FlightStatusDetail::UnwrapStatus(status))
+             .ok()) {
+      // If we fail to decode a more detailed status from the headers,
+      // proceed normally
+      return status;
+    }
+
+    return arrow_status;
+  }
+  return status;
+}
+
+/// Convert an Arrow status to a gRPC status.
+static grpc::Status ToRawGrpcStatus(const Status& arrow_status) {
   if (arrow_status.ok()) {
     return grpc::Status::OK;
   }
@@ -164,8 +258,33 @@ grpc::Status ToGrpcStatus(const Status& arrow_status) {
     grpc_code = grpc::StatusCode::UNIMPLEMENTED;
   } else if (arrow_status.IsInvalid()) {
     grpc_code = grpc::StatusCode::INVALID_ARGUMENT;
+  } else if (arrow_status.IsKeyError()) {
+    grpc_code = grpc::StatusCode::NOT_FOUND;
+  } else if (arrow_status.IsAlreadyExists()) {
+    grpc_code = grpc::StatusCode::ALREADY_EXISTS;
   }
   return grpc::Status(grpc_code, message);
+}
+
+/// Convert an Arrow status to a gRPC status, and add extra headers to
+/// the response to encode the original Arrow status.
+grpc::Status ToGrpcStatus(const Status& arrow_status, grpc::ServerContext* ctx) {
+  grpc::Status status = ToRawGrpcStatus(arrow_status);
+  if (!status.ok() && ctx) {
+    const std::string code = std::to_string(static_cast<int>(arrow_status.code()));
+    ctx->AddTrailingMetadata(internal::kGrpcStatusCodeHeader, code);
+    ctx->AddTrailingMetadata(internal::kGrpcStatusMessageHeader, arrow_status.message());
+    if (arrow_status.detail()) {
+      const std::string detail_string = arrow_status.detail()->ToString();
+      ctx->AddTrailingMetadata(internal::kGrpcStatusDetailHeader, detail_string);
+    }
+    auto fsd = FlightStatusDetail::UnwrapStatus(arrow_status);
+    if (fsd && !fsd->extra_info().empty()) {
+      ctx->AddTrailingMetadata(internal::kBinaryErrorDetailsKey, fsd->extra_info());
+    }
+  }
+
+  return status;
 }
 
 // ActionType
@@ -186,7 +305,8 @@ Status ToProto(const ActionType& type, pb::ActionType* pb_type) {
 
 Status FromProto(const pb::Action& pb_action, Action* action) {
   action->type = pb_action.type();
-  return Buffer::FromString(pb_action.body(), &action->body);
+  action->body = Buffer::FromString(pb_action.body());
+  return Status::OK();
 }
 
 Status ToProto(const Action& action, pb::Action* pb_action) {
@@ -202,7 +322,8 @@ Status ToProto(const Action& action, pb::Action* pb_action) {
 Status FromProto(const pb::Result& pb_result, Result* result) {
   // ARROW-3250; can avoid copy. Can also write custom deserializer if it
   // becomes an issue
-  return Buffer::FromString(pb_result.body(), &result->body);
+  result->body = Buffer::FromString(pb_result.body());
+  return Status::OK();
 }
 
 Status ToProto(const Result& result, pb::Result* pb_result) {
@@ -260,7 +381,7 @@ Status FromProto(const pb::FlightData& pb_data, FlightDescriptor* descriptor,
   if (header_buf == nullptr || body_buf == nullptr) {
     return Status::UnknownError("Could not create buffers from protobuf");
   }
-  return ipc::Message::Open(header_buf, body_buf, message);
+  return ipc::Message::Open(header_buf, body_buf).Value(message);
 }
 
 // FlightEndpoint
@@ -345,10 +466,10 @@ Status FromProto(const pb::SchemaResult& pb_result, std::string* result) {
 
 Status SchemaToString(const Schema& schema, std::string* out) {
   // TODO(wesm): Do we care about better memory efficiency here?
-  std::shared_ptr<Buffer> serialized_schema;
   ipc::DictionaryMemo unused_dict_memo;
-  RETURN_NOT_OK(ipc::SerializeSchema(schema, &unused_dict_memo, default_memory_pool(),
-                                     &serialized_schema));
+  ARROW_ASSIGN_OR_RAISE(
+      std::shared_ptr<Buffer> serialized_schema,
+      ipc::SerializeSchema(schema, &unused_dict_memo, default_memory_pool()));
   *out = std::string(reinterpret_cast<const char*>(serialized_schema->data()),
                      static_cast<size_t>(serialized_schema->size()));
   return Status::OK();
@@ -375,6 +496,18 @@ Status ToProto(const FlightInfo& info, pb::FlightInfo* pb_info) {
 
 Status ToProto(const SchemaResult& result, pb::SchemaResult* pb_result) {
   pb_result->set_schema(result.serialized_schema());
+  return Status::OK();
+}
+
+Status ToPayload(const FlightDescriptor& descr, std::shared_ptr<Buffer>* out) {
+  // TODO(lidavidm): make these use Result<T>
+  std::string str_descr;
+  pb::FlightDescriptor pb_descr;
+  RETURN_NOT_OK(ToProto(descr, &pb_descr));
+  if (!pb_descr.SerializeToString(&str_descr)) {
+    return Status::UnknownError("Failed to serialize Flight descriptor");
+  }
+  *out = Buffer::FromString(std::move(str_descr));
   return Status::OK();
 }
 

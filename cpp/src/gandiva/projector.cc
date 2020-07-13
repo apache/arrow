@@ -18,15 +18,108 @@
 #include "gandiva/projector.h"
 
 #include <memory>
+#include <thread>
 #include <utility>
 #include <vector>
+
+#include "arrow/util/hash_util.h"
+#include "arrow/util/logging.h"
 
 #include "gandiva/cache.h"
 #include "gandiva/expr_validator.h"
 #include "gandiva/llvm_generator.h"
-#include "gandiva/projector_cache_key.h"
 
 namespace gandiva {
+
+class ProjectorCacheKey {
+ public:
+  ProjectorCacheKey(SchemaPtr schema, std::shared_ptr<Configuration> configuration,
+                    ExpressionVector expression_vector, SelectionVector::Mode mode)
+      : schema_(schema), configuration_(configuration), mode_(mode), uniqifier_(0) {
+    static const int kSeedValue = 4;
+    size_t result = kSeedValue;
+    for (auto& expr : expression_vector) {
+      std::string expr_as_string = expr->ToString();
+      expressions_as_strings_.push_back(expr_as_string);
+      arrow::internal::hash_combine(result, expr_as_string);
+      UpdateUniqifier(expr_as_string);
+    }
+    arrow::internal::hash_combine(result, static_cast<size_t>(mode));
+    arrow::internal::hash_combine(result, configuration->Hash());
+    arrow::internal::hash_combine(result, schema_->ToString());
+    arrow::internal::hash_combine(result, uniqifier_);
+    hash_code_ = result;
+  }
+
+  std::size_t Hash() const { return hash_code_; }
+
+  bool operator==(const ProjectorCacheKey& other) const {
+    // arrow schema does not overload equality operators.
+    if (!(schema_->Equals(*other.schema().get(), true))) {
+      return false;
+    }
+
+    if (*configuration_ != *other.configuration_) {
+      return false;
+    }
+
+    if (expressions_as_strings_ != other.expressions_as_strings_) {
+      return false;
+    }
+
+    if (mode_ != other.mode_) {
+      return false;
+    }
+
+    if (uniqifier_ != other.uniqifier_) {
+      return false;
+    }
+    return true;
+  }
+
+  bool operator!=(const ProjectorCacheKey& other) const { return !(*this == other); }
+
+  SchemaPtr schema() const { return schema_; }
+
+  std::string ToString() const {
+    std::stringstream ss;
+    // indent, window, indent_size, null_rep and skip new lines.
+    arrow::PrettyPrintOptions options{0, 10, 2, "null", true};
+    DCHECK_OK(PrettyPrint(*schema_.get(), options, &ss));
+
+    ss << "Expressions: [";
+    bool first = true;
+    for (auto& expr : expressions_as_strings_) {
+      if (first) {
+        first = false;
+      } else {
+        ss << ", ";
+      }
+
+      ss << expr;
+    }
+    ss << "]";
+    return ss.str();
+  }
+
+ private:
+  void UpdateUniqifier(const std::string& expr) {
+    if (uniqifier_ == 0) {
+      // caching of expressions with re2 patterns causes lock contention. So, use
+      // multiple instances to reduce contention.
+      if (expr.find(" like(") != std::string::npos) {
+        uniqifier_ = std::hash<std::thread::id>()(std::this_thread::get_id()) % 16;
+      }
+    }
+  }
+
+  const SchemaPtr schema_;
+  const std::shared_ptr<Configuration> configuration_;
+  SelectionVector::Mode mode_;
+  std::vector<std::string> expressions_as_strings_;
+  size_t hash_code_;
+  uint32_t uniqifier_;
+};
 
 Projector::Projector(std::unique_ptr<LLVMGenerator> llvm_generator, SchemaPtr schema,
                      const FieldVector& output_fields,
@@ -175,24 +268,21 @@ Status Projector::AllocArrayData(const DataTypePtr& type, int64_t num_records,
   std::vector<std::shared_ptr<arrow::Buffer>> buffers;
 
   // The output vector always has a null bitmap.
-  std::shared_ptr<arrow::Buffer> bitmap_buffer;
   int64_t size = arrow::BitUtil::BytesForBits(num_records);
-  ARROW_RETURN_NOT_OK(arrow::AllocateBuffer(pool, size, &bitmap_buffer));
-  buffers.push_back(bitmap_buffer);
+  ARROW_ASSIGN_OR_RAISE(auto bitmap_buffer, arrow::AllocateBuffer(size, pool));
+  buffers.push_back(std::move(bitmap_buffer));
 
   // String/Binary vectors have an offsets array.
   auto type_id = type->id();
   if (arrow::is_binary_like(type_id)) {
-    std::shared_ptr<arrow::Buffer> offsets_buffer;
     auto offsets_len = arrow::BitUtil::BytesForBits((num_records + 1) * 32);
 
-    ARROW_RETURN_NOT_OK(arrow::AllocateBuffer(pool, offsets_len, &offsets_buffer));
-    buffers.push_back(offsets_buffer);
+    ARROW_ASSIGN_OR_RAISE(auto offsets_buffer, arrow::AllocateBuffer(offsets_len, pool));
+    buffers.push_back(std::move(offsets_buffer));
   }
 
   // The output vector always has a data array.
   int64_t data_len;
-  std::shared_ptr<arrow::ResizableBuffer> data_buffer;
   if (arrow::is_primitive(type_id) || type_id == arrow::Type::DECIMAL) {
     const auto& fw_type = dynamic_cast<const arrow::FixedWidthType&>(*type);
     data_len = arrow::BitUtil::BytesForBits(num_records * fw_type.bit_width());
@@ -202,16 +292,16 @@ Status Projector::AllocArrayData(const DataTypePtr& type, int64_t num_records,
   } else {
     return Status::Invalid("Unsupported output data type " + type->ToString());
   }
-  ARROW_RETURN_NOT_OK(arrow::AllocateResizableBuffer(pool, data_len, &data_buffer));
+  ARROW_ASSIGN_OR_RAISE(auto data_buffer, arrow::AllocateResizableBuffer(data_len, pool));
 
   // This is not strictly required but valgrind gets confused and detects this
   // as uninitialized memory access. See arrow::util::SetBitTo().
   if (type->id() == arrow::Type::BOOL) {
     memset(data_buffer->mutable_data(), 0, data_len);
   }
-  buffers.push_back(data_buffer);
+  buffers.push_back(std::move(data_buffer));
 
-  *array_data = arrow::ArrayData::Make(type, num_records, buffers);
+  *array_data = arrow::ArrayData::Make(type, num_records, std::move(buffers));
   return Status::OK();
 }
 

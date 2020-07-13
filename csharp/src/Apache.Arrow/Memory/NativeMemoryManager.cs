@@ -42,7 +42,7 @@ namespace Apache.Arrow.Memory
 
         public override unsafe Span<byte> GetSpan()
         {
-            var ptr = CalculatePointer(0);
+            void* ptr = CalculatePointer(0);
             return new Span<byte>(ptr, _length);
         }
 
@@ -51,7 +51,7 @@ namespace Apache.Arrow.Memory
             // NOTE: Unmanaged memory doesn't require GC pinning because by definition it's not
             // managed by the garbage collector.
 
-            var ptr = CalculatePointer(elementIndex);
+            void* ptr = CalculatePointer(elementIndex);
             return new MemoryHandle(ptr, default, this);
         }
 

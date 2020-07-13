@@ -25,7 +25,7 @@ import pyarrow.flight
 import pyarrow.csv as csv
 
 
-def list_flights(args, client):
+def list_flights(args, client, connection_args={}):
     print('Flights\n=======')
     for flight in client.list_flights():
         descriptor = flight.descriptor
@@ -60,7 +60,7 @@ def list_flights(args, client):
         print('---')
 
 
-def do_action(args, client):
+def do_action(args, client, connection_args={}):
     try:
         buf = pyarrow.allocate_buffer(0)
         action = pyarrow.flight.Action(args.action_type, buf)
@@ -71,19 +71,19 @@ def do_action(args, client):
         print("Error calling action:", e)
 
 
-def push_data(args, client):
+def push_data(args, client, connection_args={}):
     print('File Name:', args.file)
     my_table = csv.read_csv(args.file)
-    print ('Table rows=', str(len(my_table)))
+    print('Table rows=', str(len(my_table)))
     df = my_table.to_pandas()
     print(df.head())
     writer, _ = client.do_put(
-        pyarrow.flight.FlightDescriptor.for_path(args.file), my_table.schema)    
+        pyarrow.flight.FlightDescriptor.for_path(args.file), my_table.schema)
     writer.write_table(my_table)
     writer.close()
 
 
-def get_flight(args, client):
+def get_flight(args, client, connection_args={}):
     if args.path:
         descriptor = pyarrow.flight.FlightDescriptor.for_path(*args.path)
     else:
@@ -94,17 +94,23 @@ def get_flight(args, client):
         print('Ticket:', endpoint.ticket)
         for location in endpoint.locations:
             print(location)
-            get_client = pyarrow.flight.FlightClient(location)
+            get_client = pyarrow.flight.FlightClient(location,
+                                                     **connection_args)
             reader = get_client.do_get(endpoint.ticket)
             df = reader.read_pandas()
             print(df)
 
 
 def _add_common_arguments(parser):
-    parser.add_argument('--tls', action='store_true')
-    parser.add_argument('--tls-roots', default=None)
+    parser.add_argument('--tls', action='store_true',
+                        help='Enable transport-level security')
+    parser.add_argument('--tls-roots', default=None,
+                        help='Path to trusted TLS certificate(s)')
+    parser.add_argument("--mtls", nargs=2, default=None,
+                        metavar=('CERTFILE', 'KEYFILE'),
+                        help="Enable transport-level security")
     parser.add_argument('host', type=str,
-                        help="The host to connect to.")
+                        help="Address or hostname to connect to")
 
 
 def main():
@@ -127,8 +133,8 @@ def main():
     cmd_put.set_defaults(action='put')
     _add_common_arguments(cmd_put)
     cmd_put.add_argument('file', type=str,
-                        help="CSV file to upload.")
-                        
+                         help="CSV file to upload.")
+
     cmd_get = subcommands.add_parser('get')
     cmd_get.set_defaults(action='get')
     _add_common_arguments(cmd_get)
@@ -158,8 +164,15 @@ def main():
         if args.tls_roots:
             with open(args.tls_roots, "rb") as root_certs:
                 connection_args["tls_root_certs"] = root_certs.read()
+    if args.mtls:
+        with open(args.mtls[0], "rb") as cert_file:
+            tls_cert_chain = cert_file.read()
+        with open(args.mtls[1], "rb") as key_file:
+            tls_private_key = key_file.read()
+        connection_args["cert_chain"] = tls_cert_chain
+        connection_args["private_key"] = tls_private_key
     client = pyarrow.flight.FlightClient(f"{scheme}://{host}:{port}",
-                                                 **connection_args)
+                                         **connection_args)
     while True:
         try:
             action = pyarrow.flight.Action("healthcheck", b"")
@@ -169,7 +182,7 @@ def main():
         except pyarrow.ArrowIOError as e:
             if "Deadline" in str(e):
                 print("Server is not ready, waiting...")
-    commands[args.action](args, client)
+    commands[args.action](args, client, connection_args)
 
 
 if __name__ == '__main__':

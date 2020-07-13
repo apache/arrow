@@ -15,12 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_DEX_DEXVISITOR_H
-#define GANDIVA_DEX_DEXVISITOR_H
+#pragma once
 
 #include <string>
 
-#include "gandiva/logging.h"
+#include "arrow/util/logging.h"
 #include "gandiva/visibility.h"
 
 namespace gandiva {
@@ -88,5 +87,3 @@ class GANDIVA_EXPORT DexDefaultVisitor : public DexVisitor {
 };
 
 }  // namespace gandiva
-
-#endif  // GANDIVA_DEX_DEXVISITOR_H

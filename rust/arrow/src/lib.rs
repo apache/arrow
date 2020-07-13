@@ -35,6 +35,11 @@ pub mod datatypes;
 pub mod error;
 #[cfg(feature = "flight")]
 pub mod flight;
+#[allow(clippy::redundant_closure)]
+#[allow(clippy::needless_lifetimes)]
+#[allow(clippy::extra_unused_lifetimes)]
+#[allow(clippy::redundant_static_lifetimes)]
+#[allow(clippy::redundant_field_names)]
 pub mod ipc;
 pub mod json;
 pub mod memory;

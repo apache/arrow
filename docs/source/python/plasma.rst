@@ -264,7 +264,7 @@ to write than simple binary data.
 
 To create the object in Plasma, you still need an ``ObjectID`` and a size to
 pass in. To find out the size of your Arrow object, you can use pyarrow
-API such as ``pyarrow.get_tensor_size``.
+API such as ``pyarrow.ipc.get_tensor_size``.
 
 .. code-block:: python
 
@@ -277,19 +277,19 @@ API such as ``pyarrow.get_tensor_size``.
 
   # Create the object in Plasma
   object_id = plasma.ObjectID(np.random.bytes(20))
-  data_size = pa.get_tensor_size(tensor)
+  data_size = pa.ipc.get_tensor_size(tensor)
   buf = client.create(object_id, data_size)
 
 To write the Arrow ``Tensor`` object into the buffer, you can use Plasma to
 convert the ``memoryview`` buffer into a ``pyarrow.FixedSizeBufferWriter``
 object. A ``pyarrow.FixedSizeBufferWriter`` is a format suitable for Arrow's
-``pyarrow.write_tensor``:
+``pyarrow.ipc.write_tensor``:
 
 .. code-block:: python
 
   # Write the tensor into the Plasma-allocated buffer
   stream = pa.FixedSizeBufferWriter(buf)
-  pa.write_tensor(tensor, stream)  # Writes tensor's 552 bytes to Plasma stream
+  pa.ipc.write_tensor(tensor, stream)  # Writes tensor's 552 bytes to Plasma stream
 
 To finish storing the Arrow object in Plasma, call ``seal``:
 
@@ -310,15 +310,15 @@ To read the object, first retrieve it as a ``PlasmaBuffer`` using its object ID.
 
 To convert the ``PlasmaBuffer`` back into an Arrow ``Tensor``, first create a
 pyarrow ``BufferReader`` object from it. You can then pass the ``BufferReader``
-into ``pyarrow.read_tensor`` to reconstruct the Arrow ``Tensor`` object:
+into ``pyarrow.ipc.read_tensor`` to reconstruct the Arrow ``Tensor`` object:
 
 .. code-block:: python
 
   # Reconstruct the Arrow tensor object.
   reader = pa.BufferReader(buf2)
-  tensor2 = pa.read_tensor(reader)
+  tensor2 = pa.ipc.read_tensor(reader)
 
-Finally, you can use ``pyarrow.read_tensor`` to convert the Arrow object
+Finally, you can use ``pyarrow.ipc.read_tensor`` to convert the Arrow object
 back into numpy data:
 
 .. code-block:: python
@@ -458,10 +458,10 @@ You can test this with the following script:
   tensor = pa.Tensor.from_numpy(data)
 
   object_id = plasma.ObjectID(np.random.bytes(20))
-  buf = client.create(object_id, pa.get_tensor_size(tensor))
+  buf = client.create(object_id, pa.ipc.get_tensor_size(tensor))
 
   stream = pa.FixedSizeBufferWriter(buf)
   stream.set_memcopy_threads(4)
   a = time.time()
-  pa.write_tensor(tensor, stream)
+  pa.ipc.write_tensor(tensor, stream)
   print("Writing took ", time.time() - a)

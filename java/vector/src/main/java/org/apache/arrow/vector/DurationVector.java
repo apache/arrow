@@ -18,9 +18,11 @@
 package org.apache.arrow.vector;
 
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
+import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
 import java.time.Duration;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.impl.DurationReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
@@ -32,8 +34,6 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
-
-import io.netty.buffer.ArrowBuf;
 
 /**
  * DurationVector implements a fixed width vector (8 bytes) of
@@ -68,7 +68,7 @@ public final class DurationVector extends BaseFixedWidthVector {
   public DurationVector(Field field, BufferAllocator allocator) {
     super(field, allocator, TYPE_WIDTH);
     reader = new DurationReaderImpl(DurationVector.this);
-    this.unit = ((ArrowType.Duration)field.getFieldType().getType()).getUnit();
+    this.unit = ((ArrowType.Duration) field.getFieldType().getType()).getUnit();
   }
 
   /**
@@ -110,7 +110,7 @@ public final class DurationVector extends BaseFixedWidthVector {
    * @return value stored at the index.
    */
   public static long get(final ArrowBuf buffer, final int index) {
-    return buffer.getLong(index * TYPE_WIDTH);
+    return buffer.getLong((long) index * TYPE_WIDTH);
   }
 
   /**
@@ -120,10 +120,10 @@ public final class DurationVector extends BaseFixedWidthVector {
    * @return element at given index
    */
   public ArrowBuf get(int index) throws IllegalStateException {
-    if (isSet(index) == 0) {
+    if (NULL_CHECKING_ENABLED && isSet(index) == 0) {
       return null;
     }
-    return valueBuffer.slice(index * TYPE_WIDTH, TYPE_WIDTH);
+    return valueBuffer.slice((long) index * TYPE_WIDTH, TYPE_WIDTH);
   }
 
   /**
@@ -207,7 +207,7 @@ public final class DurationVector extends BaseFixedWidthVector {
    */
   public void set(int index, ArrowBuf value) {
     BitVectorHelper.setBit(validityBuffer, index);
-    valueBuffer.setBytes(index * TYPE_WIDTH, value, 0, TYPE_WIDTH);
+    valueBuffer.setBytes((long) index * TYPE_WIDTH, value, 0, TYPE_WIDTH);
   }
 
   /**
@@ -217,7 +217,7 @@ public final class DurationVector extends BaseFixedWidthVector {
    * @param value   The duration value (in the timeunit associated with this vector)
    */
   public void set(int index, long value) {
-    final int offsetIndex = index * TYPE_WIDTH;
+    final long offsetIndex = (long) index * TYPE_WIDTH;
     BitVectorHelper.setBit(validityBuffer, index);
     valueBuffer.setLong(offsetIndex, value);
   }

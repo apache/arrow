@@ -56,7 +56,7 @@
 { include: ["@<boost/filesystem/.*>", private, "<boost/filesystem.hpp>", public ] },
 { include: ["@<boost/function/.*>", private, "<boost/function.hpp>", public ] },
 #manually delete $ sed '/workarounds*\.hpp/d' -i boost-all.imp
-#also good idea to remove all lines refering to folders above (e.g., sed '/\/format\//d' -i boost-all.imp)
+#also good idea to remove all lines referring to folders above (e.g., sed '/\/format\//d' -i boost-all.imp)
 #programatically include:
     { include: ["<boost/accumulators/numeric/detail/function1.hpp>", private, "<boost/accumulators/numeric/functional.hpp>", public ] },
     { include: ["<boost/accumulators/numeric/detail/function2.hpp>", private, "<boost/accumulators/numeric/functional.hpp>", public ] },

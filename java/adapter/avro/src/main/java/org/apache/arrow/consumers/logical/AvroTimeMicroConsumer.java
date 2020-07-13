@@ -38,6 +38,6 @@ public class AvroTimeMicroConsumer extends BaseAvroConsumer<TimeMicroVector> {
 
   @Override
   public void consume(Decoder decoder) throws IOException {
-    vector.setSafe(currentIndex++, decoder.readLong());
+    vector.set(currentIndex++, decoder.readLong());
   }
 }

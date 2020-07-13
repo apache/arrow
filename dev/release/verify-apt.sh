@@ -51,7 +51,6 @@ fi
 have_flight=yes
 have_gandiva=yes
 have_plasma=yes
-need_llvm_apt=no
 case "${distribution}-${code_name}-$(arch)" in
   debian-stretch-*)
     sed \
@@ -61,7 +60,6 @@ case "${distribution}-${code_name}-$(arch)" in
     cat <<APT_LINE > /etc/apt/sources.list.d/backports.list
 deb http://deb.debian.org/debian ${code_name}-backports main
 APT_LINE
-    need_llvm_apt=yes
     ;;
   debian-buster-*)
     sed \
@@ -70,7 +68,6 @@ APT_LINE
       /etc/apt/sources.list
     ;;
   ubuntu-xenial-x86_64)
-    need_llvm_apt=yes
     have_flight=no
     ;;
   ubuntu-xenial-aarch64)
@@ -100,13 +97,6 @@ else
     -i"" \
     -e "s,^URIs: .*,URIs: ${bintray_base_url}/,g" \
     /etc/apt/sources.list.d/apache-arrow.sources
-fi
-
-if [ "${need_llvm_apt}" = "yes" ]; then
-  curl https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add -
-  cat <<APT_LINE > /etc/apt/sources.list.d/llvm.list
-deb http://apt.llvm.org/${code_name}/ llvm-toolchain-${code_name}-7 main
-APT_LINE
 fi
 
 apt update

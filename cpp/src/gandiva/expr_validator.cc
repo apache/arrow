@@ -124,7 +124,7 @@ Status ExprValidator::Visit(const BooleanNode& node) {
   ARROW_RETURN_IF(
       node.children().size() < 2,
       Status::ExpressionValidationError("Boolean expression has ", node.children().size(),
-                                        " children, expected atleast two"));
+                                        " children, expected at least two"));
 
   for (auto& child : node.children()) {
     const auto bool_type = arrow::boolean();

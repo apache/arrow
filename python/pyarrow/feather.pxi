@@ -16,61 +16,45 @@
 # under the License.
 
 # ---------------------------------------------------------------------
-# Implement legacy Feather file format
+# Implement Feather file format
 
 
 class FeatherError(Exception):
     pass
 
 
-cdef class FeatherWriter:
-    cdef:
-        unique_ptr[CFeatherWriter] writer
+def write_feather(Table table, object dest, compression=None,
+                  compression_level=None, chunksize=None, version=2):
+    cdef shared_ptr[COutputStream] sink
+    get_writer(dest, &sink)
 
-    cdef public:
-        int64_t num_rows
+    cdef CFeatherProperties properties
+    if version == 2:
+        properties.version = kFeatherV2Version
+    else:
+        properties.version = kFeatherV1Version
 
-    def __cinit__(self):
-        self.num_rows = -1
+    if compression == 'zstd':
+        properties.compression = CCompressionType_ZSTD
+    elif compression == 'lz4':
+        properties.compression = CCompressionType_LZ4_FRAME
+    else:
+        properties.compression = CCompressionType_UNCOMPRESSED
 
-    def open(self, object dest):
-        cdef shared_ptr[COutputStream] sink
-        get_writer(dest, &sink)
+    if chunksize is not None:
+        properties.chunksize = chunksize
 
-        with nogil:
-            check_status(CFeatherWriter.Open(sink, &self.writer))
+    if compression_level is not None:
+        properties.compression_level = compression_level
 
-    def close(self):
-        if self.num_rows < 0:
-            self.num_rows = 0
-        self.writer.get().SetNumRows(self.num_rows)
-        with nogil:
-            check_status(self.writer.get().Finalize())
-
-    def write_array(self, object name, object col, object mask=None):
-        cdef Array arr
-
-        if self.num_rows >= 0:
-            if len(col) != self.num_rows:
-                raise ValueError('prior column had a different number of rows')
-        else:
-            self.num_rows = len(col)
-
-        if isinstance(col, Array):
-            arr = col
-        else:
-            arr = Array.from_pandas(col, mask=mask)
-
-        cdef c_string c_name = tobytes(name)
-
-        with nogil:
-            check_status(
-                self.writer.get().Append(c_name, deref(arr.sp_array)))
+    with nogil:
+        check_status(WriteFeather(deref(table.table), sink.get(),
+                                  properties))
 
 
 cdef class FeatherReader:
     cdef:
-        unique_ptr[CFeatherReader] reader
+        shared_ptr[CFeatherReader] reader
 
     def __cinit__(self):
         pass
@@ -80,32 +64,13 @@ cdef class FeatherReader:
         get_reader(source, use_memory_map, &reader)
 
         with nogil:
-            check_status(CFeatherReader.Open(reader, &self.reader))
+            self.reader = GetResultValue(CFeatherReader.Open(reader))
 
     @property
-    def num_rows(self):
-        return self.reader.get().num_rows()
+    def version(self):
+        return self.reader.get().version()
 
-    @property
-    def num_columns(self):
-        return self.reader.get().num_columns()
-
-    def get_column_name(self, int i):
-        cdef c_string name = self.reader.get().GetColumnName(i)
-        return frombytes(name)
-
-    def get_column(self, int i):
-        if i < 0 or i >= self.num_columns:
-            raise IndexError(i)
-
-        cdef shared_ptr[CChunkedArray] sp_chunked_array
-        with nogil:
-            check_status(self.reader.get()
-                         .GetColumn(i, &sp_chunked_array))
-
-        return pyarrow_wrap_chunked_array(sp_chunked_array)
-
-    def _read(self):
+    def read(self):
         cdef shared_ptr[CTable] sp_table
         with nogil:
             check_status(self.reader.get()
@@ -113,7 +78,7 @@ cdef class FeatherReader:
 
         return pyarrow_wrap_table(sp_table)
 
-    def _read_indices(self, indices):
+    def read_indices(self, indices):
         cdef:
             shared_ptr[CTable] sp_table
             vector[int] c_indices
@@ -126,7 +91,7 @@ cdef class FeatherReader:
 
         return pyarrow_wrap_table(sp_table)
 
-    def _read_names(self, names):
+    def read_names(self, names):
         cdef:
             shared_ptr[CTable] sp_table
             vector[c_string] c_names

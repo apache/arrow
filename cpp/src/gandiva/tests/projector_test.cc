@@ -584,7 +584,7 @@ TEST_F(TestProjector, TestZeroCopyNegative) {
   status = projector->Evaluate(*in_batch, {null_array_data});
   EXPECT_EQ(status.code(), StatusCode::Invalid);
 
-  // the output array must have atleast two buffers.
+  // the output array must have at least two buffers.
   auto bad_array_data = arrow::ArrayData::Make(float32(), num_records, {bitmap_buf});
   status = projector->Evaluate(*in_batch, {bad_array_data});
   EXPECT_EQ(status.code(), StatusCode::Invalid);

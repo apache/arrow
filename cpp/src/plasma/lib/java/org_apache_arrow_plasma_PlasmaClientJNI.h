@@ -126,6 +126,15 @@ JNIEXPORT jlong JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_evict(JNIEn
                                                                            jclass, jlong,
                                                                            jlong);
 
+/*
+ * Class:     org_apache_arrow_plasma_PlasmaClientJNI
+ * Method:    list
+ * Signature: (J)[[B
+ */
+JNIEXPORT jobjectArray JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_list(JNIEnv*,
+                                                                                 jclass,
+                                                                                 jlong);
+
 #ifdef __cplusplus
 }
 #endif

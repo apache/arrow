@@ -15,142 +15,41 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_COMPUTE_KERNELS_UTIL_INTERNAL_H
-#define ARROW_COMPUTE_KERNELS_UTIL_INTERNAL_H
+#pragma once
 
-#include <memory>
-#include <vector>
+#include <cstdint>
 
-#include "arrow/array.h"
 #include "arrow/buffer.h"
-#include "arrow/compute/kernel.h"
-#include "arrow/status.h"
-#include "arrow/util/visibility.h"
 
 namespace arrow {
 namespace compute {
+namespace internal {
 
-class FunctionContext;
-
-// \brief Make a copy of the buffers into a destination array without carrying
-// the type.
-static inline void ZeroCopyData(const ArrayData& input, ArrayData* output) {
-  output->length = input.length;
-  output->SetNullCount(input.null_count);
-  output->buffers = input.buffers;
-  output->offset = input.offset;
-  output->child_data = input.child_data;
-}
-
-namespace detail {
-
-/// \brief Invoke the kernel on value using the ctx and store results in outputs.
-///
-/// \param[in,out] ctx The function context to use when invoking the kernel.
-/// \param[in,out] kernel The kernel to execute.
-/// \param[in] value The input value to execute the kernel with.
-/// \param[out] outputs One ArrayData datum for each ArrayData available in value.
-ARROW_EXPORT
-Status InvokeUnaryArrayKernel(FunctionContext* ctx, UnaryKernel* kernel,
-                              const Datum& value, std::vector<Datum>* outputs);
-
-ARROW_EXPORT
-Status InvokeBinaryArrayKernel(FunctionContext* ctx, BinaryKernel* kernel,
-                               const Datum& left, const Datum& right,
-                               std::vector<Datum>* outputs);
-ARROW_EXPORT
-Status InvokeBinaryArrayKernel(FunctionContext* ctx, BinaryKernel* kernel,
-                               const Datum& left, const Datum& right, Datum* output);
-
-/// \brief Assign validity bitmap to output, copying bitmap if necessary, but
-/// zero-copy otherwise, so that the same value slots are valid/not-null in the
-/// output (sliced arrays).
-///
-/// \param[in] ctx the kernel FunctionContext
-/// \param[in] input the input array
-/// \param[out] output the output array.  Must have length set correctly.
-ARROW_EXPORT
-Status PropagateNulls(FunctionContext* ctx, const ArrayData& input, ArrayData* output);
-
-/// \brief Assign validity bitmap to output, copying and computing the
-/// intersection bitmap if necessary, but zero-copy if possible, so that the
-/// same value slots are valid/not-null in the output (sliced arrays).
-///
-/// \param[in] ctx the kernel FunctionContext
-/// \param[in] left the left input array
-/// \param[in] right the right input array
-/// \param[out] output the output array.  Must have length set correctly.
-ARROW_EXPORT
-Status PropagateNulls(FunctionContext* ctx, const ArrayData& left, const ArrayData& right,
-                      ArrayData* output);
-
-/// \brief Set validity bitmap in output with all null values.
-///
-/// \param[in] ctx the kernel FunctionContext
-/// \param[in] input the input array
-/// \param[out] output the output array.  Must have length and buffer set correctly.
-ARROW_EXPORT
-Status SetAllNulls(FunctionContext* ctx, const ArrayData& input, ArrayData* output);
-
-/// \brief Assign validity bitmap to output, taking the intersection of left and right
-/// null bitmaps if necessary, but zero-copy otherwise.
-///
-/// \param[in] ctx the kernel FunctionContext
-/// \param[in] left the left operand
-/// \param[in] right the right operand
-/// \param[out] output the output array. Must have length set correctly.
-ARROW_EXPORT
-Status AssignNullIntersection(FunctionContext* ctx, const ArrayData& left,
-                              const ArrayData& right, ArrayData* output);
-
-ARROW_EXPORT
-Datum WrapArraysLike(const Datum& value,
-                     const std::vector<std::shared_ptr<Array>>& arrays);
-
-ARROW_EXPORT
-Datum WrapDatumsLike(const Datum& value, const std::vector<Datum>& datums);
-
-/// \brief Kernel used to preallocate outputs for primitive types. This
-/// does not include allocations for the validity bitmap (PropagateNulls
-/// should be used for that).
-class ARROW_EXPORT PrimitiveAllocatingUnaryKernel : public UnaryKernel {
- public:
-  // \brief Construct with a delegate that must live longer
-  // then this object.
-  explicit PrimitiveAllocatingUnaryKernel(UnaryKernel* delegate);
-  /// \brief Allocates ArrayData with the necessary data buffers allocated and
-  /// then written into by the delegate kernel
-  Status Call(FunctionContext* ctx, const Datum& input, Datum* out) override;
-
-  std::shared_ptr<DataType> out_type() const override;
-
- private:
-  UnaryKernel* delegate_;
+// An internal data structure for unpacking a primitive argument to pass to a
+// kernel implementation
+struct PrimitiveArg {
+  const uint8_t* is_valid;
+  // If the bit_width is a multiple of 8 (i.e. not boolean), then "data" should
+  // be shifted by offset * (bit_width / 8). For bit-packed data, the offset
+  // must be used when indexing.
+  const uint8_t* data;
+  int bit_width;
+  int64_t length;
+  int64_t offset;
+  // This may be kUnknownNullCount if the null_count has not yet been computed,
+  // so use null_count != 0 to determine "may have nulls".
+  int64_t null_count;
 };
 
-/// \brief Kernel used to preallocate outputs for primitive types.
-class ARROW_EXPORT PrimitiveAllocatingBinaryKernel : public BinaryKernel {
- public:
-  // \brief Construct with a kernel to delegate operations to.
-  //
-  // Ownership is not taken of the delegate kernel, it must outlive
-  // the life time of this object.
-  explicit PrimitiveAllocatingBinaryKernel(BinaryKernel* delegate);
+// Get validity bitmap data or return nullptr if there is no validity buffer
+const uint8_t* GetValidityBitmap(const ArrayData& data);
 
-  /// \brief Sets out to be of type ArrayData with the necessary
-  /// data buffers prepopulated.
-  Status Call(FunctionContext* ctx, const Datum& left, const Datum& right,
-              Datum* out) override;
+int GetBitWidth(const DataType& type);
 
-  std::shared_ptr<DataType> out_type() const override;
+// Reduce code size by dealing with the unboxing of the kernel inputs once
+// rather than duplicating compiled code to do all these in each kernel.
+PrimitiveArg GetPrimitiveArg(const ArrayData& arr);
 
- private:
-  BinaryKernel* delegate_;
-};
-
-}  // namespace detail
-
+}  // namespace internal
 }  // namespace compute
 }  // namespace arrow
-
-#endif  // ARROW_COMPUTE_KERNELS_UTIL_INTERNAL_H

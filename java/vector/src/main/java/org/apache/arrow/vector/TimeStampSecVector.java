@@ -17,6 +17,8 @@
 
 package org.apache.arrow.vector;
 
+import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
+
 import java.time.LocalDateTime;
 
 import org.apache.arrow.memory.BufferAllocator;
@@ -111,12 +113,12 @@ public final class TimeStampSecVector extends TimeStampVector {
    * @param index   position of element
    */
   public void get(int index, NullableTimeStampSecHolder holder) {
-    if (isSet(index) == 0) {
+    if (NULL_CHECKING_ENABLED && isSet(index) == 0) {
       holder.isSet = 0;
       return;
     }
     holder.isSet = 1;
-    holder.value = valueBuffer.getLong(index * TYPE_WIDTH);
+    holder.value = valueBuffer.getLong((long) index * TYPE_WIDTH);
   }
 
   /**
@@ -129,7 +131,7 @@ public final class TimeStampSecVector extends TimeStampVector {
     if (isSet(index) == 0) {
       return null;
     } else {
-      final long secs = valueBuffer.getLong(index * TYPE_WIDTH);
+      final long secs = valueBuffer.getLong((long) index * TYPE_WIDTH);
       final long millis = java.util.concurrent.TimeUnit.SECONDS.toMillis(secs);
       return DateUtility.getLocalDateTimeFromEpochMilli(millis);
     }

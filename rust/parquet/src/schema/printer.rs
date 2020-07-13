@@ -77,6 +77,17 @@ pub fn print_file_metadata(out: &mut io::Write, file_metadata: &FileMetaData) {
     if let Some(created_by) = file_metadata.created_by().as_ref() {
         writeln!(out, "created by: {}", created_by);
     }
+    if let Some(metadata) = file_metadata.key_value_metadata() {
+        writeln!(out, "metadata:");
+        for kv in metadata.iter() {
+            writeln!(
+                out,
+                "  {}: {}",
+                &kv.key,
+                kv.value.as_ref().unwrap_or(&"".to_owned())
+            );
+        }
+    }
     let schema = file_metadata.schema();
     print_schema(out, schema);
 }

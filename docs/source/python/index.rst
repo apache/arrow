@@ -44,8 +44,10 @@ files into Arrow structures.
    pandas
    timestamps
    csv
+   feather
    json
    parquet
+   dataset
    cuda
    extending_types
    extending

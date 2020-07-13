@@ -20,13 +20,59 @@ import collections
 import numpy as np
 
 import pyarrow as pa
-from pyarrow.compat import builtin_pickle, descr_to_dtype
-from pyarrow.lib import SerializationContext, py_buffer
+from pyarrow.lib import SerializationContext, py_buffer, builtin_pickle
 
 try:
     import cloudpickle
 except ImportError:
     cloudpickle = builtin_pickle
+
+
+try:
+    # This function is available after numpy-0.16.0.
+    # See also: https://github.com/numpy/numpy/blob/master/numpy/lib/format.py
+    from numpy.lib.format import descr_to_dtype
+except ImportError:
+    def descr_to_dtype(descr):
+        '''
+        descr may be stored as dtype.descr, which is a list of (name, format,
+        [shape]) tuples where format may be a str or a tuple.  Offsets are not
+        explicitly saved, rather empty fields with name, format == '', '|Vn'
+        are added as padding.  This function reverses the process, eliminating
+        the empty padding fields.
+        '''
+        if isinstance(descr, str):
+            # No padding removal needed
+            return np.dtype(descr)
+        elif isinstance(descr, tuple):
+            # subtype, will always have a shape descr[1]
+            dt = descr_to_dtype(descr[0])
+            return np.dtype((dt, descr[1]))
+        fields = []
+        offset = 0
+        for field in descr:
+            if len(field) == 2:
+                name, descr_str = field
+                dt = descr_to_dtype(descr_str)
+            else:
+                name, descr_str, shape = field
+                dt = np.dtype((descr_to_dtype(descr_str), shape))
+
+            # Ignore padding bytes, which will be void bytes with '' as name
+            # Once support for blank names is removed, only "if name == ''"
+            # needed)
+            is_pad = (name == '' and dt.type is np.void and dt.names is None)
+            if not is_pad:
+                fields.append((name, dt, offset))
+
+            offset += dt.itemsize
+
+        names, formats, offsets = zip(*fields)
+        # names may be (title, names) tuples
+        nametups = (n if isinstance(n, tuple) else (None, n) for n in names)
+        titles, names = zip(*nametups)
+        return np.dtype({'names': names, 'formats': formats, 'titles': titles,
+                         'offsets': offsets, 'itemsize': offset})
 
 
 # ----------------------------------------------------------------------
@@ -150,8 +196,8 @@ def _register_custom_pandas_handlers(context):
     )
 
     def _serialize_pandas_dataframe(obj):
-        if (pdcompat._pandas_api.has_sparse
-                and isinstance(obj, pd.SparseDataFrame)):
+        if (pdcompat._pandas_api.has_sparse and
+                isinstance(obj, pd.SparseDataFrame)):
             raise NotImplementedError(
                 sparse_type_error_msg.format('SparseDataFrame')
             )
@@ -162,8 +208,8 @@ def _register_custom_pandas_handlers(context):
         return pdcompat.serialized_dict_to_dataframe(data)
 
     def _serialize_pandas_series(obj):
-        if (pdcompat._pandas_api.has_sparse
-                and isinstance(obj, pd.SparseSeries)):
+        if (pdcompat._pandas_api.has_sparse and
+                isinstance(obj, pd.SparseSeries)):
             raise NotImplementedError(
                 sparse_type_error_msg.format('SparseSeries')
             )
@@ -301,8 +347,9 @@ def _register_collections_serialization_handlers(serialization_context):
 
 def _register_scipy_handlers(serialization_context):
     try:
-        from scipy.sparse import csr_matrix, coo_matrix, isspmatrix_coo, \
-                                 isspmatrix_csr, isspmatrix
+        from scipy.sparse import (csr_matrix, csc_matrix, coo_matrix,
+                                  isspmatrix_coo, isspmatrix_csr,
+                                  isspmatrix_csc, isspmatrix)
 
         def _serialize_scipy_sparse(obj):
             if isspmatrix_coo(obj):
@@ -311,18 +358,24 @@ def _register_scipy_handlers(serialization_context):
             elif isspmatrix_csr(obj):
                 return 'csr', pa.SparseCSRMatrix.from_scipy(obj)
 
+            elif isspmatrix_csc(obj):
+                return 'csc', pa.SparseCSCMatrix.from_scipy(obj)
+
             elif isspmatrix(obj):
                 return 'csr', pa.SparseCOOTensor.from_scipy(obj.to_coo())
 
             else:
                 raise NotImplementedError(
-                        "Serialization of {} is not supported.".format(obj[0]))
+                    "Serialization of {} is not supported.".format(obj[0]))
 
         def _deserialize_scipy_sparse(data):
             if data[0] == 'coo':
                 return data[1].to_scipy()
 
             elif data[0] == 'csr':
+                return data[1].to_scipy()
+
+            elif data[0] == 'csc':
                 return data[1].to_scipy()
 
             else:
@@ -335,6 +388,11 @@ def _register_scipy_handlers(serialization_context):
 
         serialization_context.register_type(
             csr_matrix, 'scipy.sparse.csr.csr_matrix',
+            custom_serializer=_serialize_scipy_sparse,
+            custom_deserializer=_deserialize_scipy_sparse)
+
+        serialization_context.register_type(
+            csc_matrix, 'scipy.sparse.csc.csc_matrix',
             custom_serializer=_serialize_scipy_sparse,
             custom_deserializer=_deserialize_scipy_sparse)
 

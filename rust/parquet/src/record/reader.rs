@@ -1325,6 +1325,25 @@ mod tests {
     }
 
     #[test]
+    fn test_iter_columns_in_row() {
+        let r = row![
+            ("c".to_string(), Field::Double(1.0)),
+            ("b".to_string(), Field::Int(1))
+        ];
+        let mut result = Vec::new();
+        for (name, record) in r.get_column_iter() {
+            result.push((name, record));
+        }
+        assert_eq!(
+            vec![
+                (&"c".to_string(), &Field::Double(1.0)),
+                (&"b".to_string(), &Field::Int(1))
+            ],
+            result
+        );
+    }
+
+    #[test]
     fn test_file_reader_rows_projection_map() {
         let schema = "
       message spark_schema {

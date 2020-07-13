@@ -54,8 +54,6 @@ namespace flight {
     }                                                  \
   } while (0)
 
-using ArrayVector = std::vector<std::shared_ptr<Array>>;
-
 // Create record batches with a unique "a" column so we can verify on the
 // client side that the results are correct
 class PerfDataStream : public FlightDataStream {
@@ -75,8 +73,8 @@ class PerfDataStream : public FlightDataStream {
   std::shared_ptr<Schema> schema() override { return schema_; }
 
   Status GetSchemaPayload(FlightPayload* payload) override {
-    return ipc::internal::GetSchemaPayload(*schema_, ipc_options_, &dictionary_memo_,
-                                           &payload->ipc_message);
+    return ipc::GetSchemaPayload(*schema_, ipc_options_, &dictionary_memo_,
+                                 &payload->ipc_message);
   }
 
   Status Next(FlightPayload* payload) override {
@@ -104,8 +102,7 @@ class PerfDataStream : public FlightDataStream {
     } else {
       records_sent_ += batch_length_;
     }
-    return ipc::internal::GetRecordBatchPayload(
-        *batch, ipc_options_, default_memory_pool(), &payload->ipc_message);
+    return ipc::GetRecordBatchPayload(*batch, ipc_options_, &payload->ipc_message);
   }
 
  private:
@@ -116,7 +113,7 @@ class PerfDataStream : public FlightDataStream {
   int64_t records_sent_;
   std::shared_ptr<Schema> schema_;
   ipc::DictionaryMemo dictionary_memo_;
-  ipc::IpcOptions ipc_options_;
+  ipc::IpcWriteOptions ipc_options_;
   std::shared_ptr<RecordBatch> batch_;
   ArrayVector arrays_;
 };

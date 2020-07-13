@@ -19,6 +19,16 @@
 
 # Arrow Java
 
+## Getting Started
+
+The following guides explain the fundamental data structures used in the Java implementation of Apache Arrow.
+
+- [ValueVector](https://arrow.apache.org/docs/java/vector.html) is an abstraction that is used to store a sequence of values having the same type in an individual column.
+- [VectorSchemaRoot](https://arrow.apache.org/docs/java/vector_schema_root.html) is a container that can hold multiple vectors based on a schema. 
+- The [Reading/Writing IPC formats](https://arrow.apache.org/docs/java/ipc.html) guide explains how to stream record batches as well as serializing record batches to files.
+
+Generated javadoc documentation is available [here](https://arrow.apache.org/docs/java/).
+
 ## Setup Build Environment
 
 install:
@@ -70,8 +80,12 @@ variable are set, the system property takes precedence.
 
 ## Java Properties
 
-For java 9 or later, should set "-Dio.netty.tryReflectionSetAccessible=true".
+ * For java 9 or later, should set "-Dio.netty.tryReflectionSetAccessible=true".
 This fixes `java.lang.UnsupportedOperationException: sun.misc.Unsafe or java.nio.DirectByteBuffer.(long, int) not available`. thrown by netty.
+ * To support duplicate fields in a `StructVector` enable "-Darrow.struct.conflict.policy=CONFLICT_APPEND".
+Duplicate fields are ignored (`CONFLICT_REPLACE`) by default and overwritten. To support different policies for 
+conflicting or duplicate fields set this JVM flag or use the correct static constructor methods for `StructVector`s.
+
 ## Java Code Style Guide
 
 Arrow Java follows the Google style guide [here][3] with the following
@@ -102,6 +116,19 @@ mvn -Dlogback.configurationFile=file:<path-of-logback-file>
 
 See [Logback Configuration][1] for more details.
 
+## Integration Tests
+
+Integration tests which require more time or more memory can be run by activating 
+the `integration-tests` profile. This activates the [maven failsafe][4] plugin
+and any class prefixed with `IT` will be run during the testing phase. The integration
+tests currently require a larger amount of memory (>4GB) and time to complete. To activate 
+the profile:
+
+```bash
+mvn -Pintegration-tests <rest of mvn arguments>
+```
+
 [1]: https://logback.qos.ch/manual/configuration.html
 [2]: https://github.com/apache/arrow/blob/master/cpp/README.md
 [3]: http://google.github.io/styleguide/javaguide.html
+[4]: https://maven.apache.org/surefire/maven-failsafe-plugin/

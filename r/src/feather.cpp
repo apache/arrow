@@ -18,104 +18,37 @@
 #include "./arrow_types.h"
 
 #if defined(ARROW_R_WITH_ARROW)
+#include <arrow/ipc/feather.h>
+#include <arrow/type.h>
 
-// ---------- TableWriter
-
-// [[arrow::export]]
-void ipc___feather___TableWriter__SetDescription(
-    const std::unique_ptr<arrow::ipc::feather::TableWriter>& writer,
-    const std::string& description) {
-  writer->SetDescription(description);
-}
+// ---------- WriteFeather
 
 // [[arrow::export]]
-void ipc___feather___TableWriter__SetNumRows(
-    const std::unique_ptr<arrow::ipc::feather::TableWriter>& writer, int64_t num_rows) {
-  writer->SetNumRows(num_rows);
-}
-
-// [[arrow::export]]
-void ipc___feather___TableWriter__Append(
-    const std::unique_ptr<arrow::ipc::feather::TableWriter>& writer,
-    const std::string& name, const std::shared_ptr<arrow::Array>& values) {
-  STOP_IF_NOT_OK(writer->Append(name, *values));
-}
-
-// [[arrow::export]]
-void ipc___feather___TableWriter__Finalize(
-    const std::unique_ptr<arrow::ipc::feather::TableWriter>& writer) {
-  STOP_IF_NOT_OK(writer->Finalize());
-}
-
-// [[arrow::export]]
-std::unique_ptr<arrow::ipc::feather::TableWriter> ipc___feather___TableWriter__Open(
-    const std::shared_ptr<arrow::io::OutputStream>& stream) {
-  std::unique_ptr<arrow::ipc::feather::TableWriter> writer;
-  STOP_IF_NOT_OK(arrow::ipc::feather::TableWriter::Open(stream, &writer));
-  return writer;
-}
-
-// [[arrow::export]]
-void ipc___TableWriter__RecordBatch__WriteFeather(
-    const std::unique_ptr<arrow::ipc::feather::TableWriter>& writer,
-    const std::shared_ptr<arrow::RecordBatch>& batch) {
-  writer->SetNumRows(batch->num_rows());
-
-  for (int i = 0; i < batch->num_columns(); i++) {
-    STOP_IF_NOT_OK(writer->Append(batch->column_name(i), *batch->column(i)));
+void ipc___WriteFeather__Table(const std::shared_ptr<arrow::io::OutputStream>& stream,
+                               const std::shared_ptr<arrow::Table>& table, int version,
+                               int chunk_size, arrow::Compression::type compression,
+                               int compression_level) {
+  auto properties = arrow::ipc::feather::WriteProperties::Defaults();
+  properties.version = version;
+  properties.chunksize = chunk_size;
+  properties.compression = compression;
+  if (compression_level != -1) {
+    properties.compression_level = compression_level;
   }
-  STOP_IF_NOT_OK(writer->Finalize());
+  StopIfNotOk(arrow::ipc::feather::WriteTable(*table, stream.get(), properties));
 }
 
-// ----------- TableReader
+// ----------- Reader
 
 // [[arrow::export]]
-std::string ipc___feather___TableReader__GetDescription(
-    const std::unique_ptr<arrow::ipc::feather::TableReader>& reader) {
-  return reader->GetDescription();
-}
-
-// [[arrow::export]]
-bool ipc___feather___TableReader__HasDescription(
-    const std::unique_ptr<arrow::ipc::feather::TableReader>& reader) {
-  return reader->HasDescription();
-}
-
-// [[arrow::export]]
-int ipc___feather___TableReader__version(
-    const std::unique_ptr<arrow::ipc::feather::TableReader>& reader) {
+int ipc___feather___Reader__version(
+    const std::shared_ptr<arrow::ipc::feather::Reader>& reader) {
   return reader->version();
 }
 
 // [[arrow::export]]
-int64_t ipc___feather___TableReader__num_rows(
-    const std::unique_ptr<arrow::ipc::feather::TableReader>& reader) {
-  return reader->num_rows();
-}
-
-// [[arrow::export]]
-int64_t ipc___feather___TableReader__num_columns(
-    const std::unique_ptr<arrow::ipc::feather::TableReader>& reader) {
-  return reader->num_columns();
-}
-
-// [[arrow::export]]
-std::string ipc___feather___TableReader__GetColumnName(
-    const std::unique_ptr<arrow::ipc::feather::TableReader>& reader, int i) {
-  return reader->GetColumnName(i);
-}
-
-// [[arrow::export]]
-std::shared_ptr<arrow::ChunkedArray> ipc___feather___TableReader__GetColumn(
-    const std::unique_ptr<arrow::ipc::feather::TableReader>& reader, int i) {
-  std::shared_ptr<arrow::ChunkedArray> column;
-  STOP_IF_NOT_OK(reader->GetColumn(i, &column));
-  return column;
-}
-
-// [[arrow::export]]
-std::shared_ptr<arrow::Table> ipc___feather___TableReader__Read(
-    const std::unique_ptr<arrow::ipc::feather::TableReader>& reader, SEXP columns) {
+std::shared_ptr<arrow::Table> ipc___feather___Reader__Read(
+    const std::shared_ptr<arrow::ipc::feather::Reader>& reader, SEXP columns) {
   std::shared_ptr<arrow::Table> table;
 
   switch (TYPEOF(columns)) {
@@ -125,11 +58,11 @@ std::shared_ptr<arrow::Table> ipc___feather___TableReader__Read(
       for (R_xlen_t i = 0; i < n; i++) {
         names[i] = CHAR(STRING_ELT(columns, i));
       }
-      STOP_IF_NOT_OK(reader->Read(names, &table));
+      StopIfNotOk(reader->Read(names, &table));
       break;
     }
     case NILSXP:
-      STOP_IF_NOT_OK(reader->Read(&table));
+      StopIfNotOk(reader->Read(&table));
       break;
     default:
       Rcpp::stop("incompatible column specification");
@@ -140,20 +73,19 @@ std::shared_ptr<arrow::Table> ipc___feather___TableReader__Read(
 }
 
 // [[arrow::export]]
-std::unique_ptr<arrow::ipc::feather::TableReader> ipc___feather___TableReader__Open(
+std::shared_ptr<arrow::ipc::feather::Reader> ipc___feather___Reader__Open(
     const std::shared_ptr<arrow::io::RandomAccessFile>& stream) {
-  std::unique_ptr<arrow::ipc::feather::TableReader> reader;
-  STOP_IF_NOT_OK(arrow::ipc::feather::TableReader::Open(stream, &reader));
-  return reader;
+  return ValueOrStop(arrow::ipc::feather::Reader::Open(stream));
 }
 
 // [[arrow::export]]
-Rcpp::CharacterVector ipc___feather___TableReader__column_names(
-    const std::unique_ptr<arrow::ipc::feather::TableReader>& reader) {
-  int64_t n = reader->num_columns();
+Rcpp::CharacterVector ipc___feather___Reader__column_names(
+    const std::shared_ptr<arrow::ipc::feather::Reader>& reader) {
+  auto sch = reader->schema();
+  int64_t n = sch->num_fields();
   Rcpp::CharacterVector out(n);
-  for (int64_t i = 0; i < n; i++) {
-    out[i] = reader->GetColumnName(i);
+  for (int i = 0; i < n; i++) {
+    out[i] = sch->field(i)->name();
   }
   return out;
 }

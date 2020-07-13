@@ -25,3 +25,9 @@
 
 GArrowRecordBatch *garrow_record_batch_new_raw(std::shared_ptr<arrow::RecordBatch> *arrow_record_batch);
 std::shared_ptr<arrow::RecordBatch> garrow_record_batch_get_raw(GArrowRecordBatch *record_batch);
+
+GArrowRecordBatchIterator *
+garrow_record_batch_iterator_new_raw(arrow::RecordBatchIterator *arrow_iterator);
+
+arrow::RecordBatchIterator *
+garrow_record_batch_iterator_get_raw(GArrowRecordBatchIterator *iterator);

@@ -37,6 +37,8 @@ import org.apache.arrow.vector.types.pojo.ArrowType.FixedSizeList;
 import org.apache.arrow.vector.types.pojo.ArrowType.FloatingPoint;
 import org.apache.arrow.vector.types.pojo.ArrowType.Int;
 import org.apache.arrow.vector.types.pojo.ArrowType.Interval;
+import org.apache.arrow.vector.types.pojo.ArrowType.LargeBinary;
+import org.apache.arrow.vector.types.pojo.ArrowType.LargeUtf8;
 import org.apache.arrow.vector.types.pojo.ArrowType.Map;
 import org.apache.arrow.vector.types.pojo.ArrowType.Null;
 import org.apache.arrow.vector.types.pojo.ArrowType.Struct;
@@ -69,8 +71,6 @@ public class TypeLayout {
         switch (type.getMode()) {
           case Dense:
             vectors = asList(
-                // TODO: validate this
-                BufferLayout.validityVector(),
                 BufferLayout.typeBuffer(),
                 BufferLayout.offsetBuffer() // offset to find the vector
             );
@@ -104,6 +104,15 @@ public class TypeLayout {
         List<BufferLayout> vectors = asList(
             BufferLayout.validityVector(),
             BufferLayout.offsetBuffer()
+        );
+        return new TypeLayout(vectors);
+      }
+
+      @Override
+      public TypeLayout visit(ArrowType.LargeList type) {
+        List<BufferLayout> vectors = asList(
+            BufferLayout.validityVector(),
+            BufferLayout.largeOffsetBuffer()
         );
         return new TypeLayout(vectors);
       }
@@ -169,9 +178,24 @@ public class TypeLayout {
         return newVariableWidthTypeLayout();
       }
 
+      @Override
+      public TypeLayout visit(LargeUtf8 type) {
+        return newLargeVariableWidthTypeLayout();
+      }
+
+      @Override
+      public TypeLayout visit(LargeBinary type) {
+        return newLargeVariableWidthTypeLayout();
+      }
+
       private TypeLayout newVariableWidthTypeLayout() {
         return newPrimitiveTypeLayout(BufferLayout.validityVector(), BufferLayout.offsetBuffer(),
           BufferLayout.byteVector());
+      }
+
+      private TypeLayout newLargeVariableWidthTypeLayout() {
+        return newPrimitiveTypeLayout(BufferLayout.validityVector(), BufferLayout.largeOffsetBuffer(),
+            BufferLayout.byteVector());
       }
 
       private TypeLayout newPrimitiveTypeLayout(BufferLayout... vectors) {
@@ -252,7 +276,7 @@ public class TypeLayout {
         switch (type.getMode()) {
           case Dense:
             // TODO: validate this
-            return 3;
+            return 2;
           case Sparse:
             // type buffer
             return 1;
@@ -274,6 +298,12 @@ public class TypeLayout {
 
       @Override
       public Integer visit(org.apache.arrow.vector.types.pojo.ArrowType.List type) {
+        // validity buffer + offset buffer
+        return 2;
+      }
+
+      @Override
+      public Integer visit(ArrowType.LargeList type) {
         // validity buffer + offset buffer
         return 2;
       }
@@ -317,6 +347,16 @@ public class TypeLayout {
 
       @Override
       public Integer visit(Utf8 type) {
+        return VARIABLE_WIDTH_BUFFER_COUNT;
+      }
+
+      @Override
+      public Integer visit(LargeUtf8 type) {
+        return VARIABLE_WIDTH_BUFFER_COUNT;
+      }
+
+      @Override
+      public Integer visit(LargeBinary type) {
         return VARIABLE_WIDTH_BUFFER_COUNT;
       }
 

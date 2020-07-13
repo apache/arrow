@@ -36,7 +36,7 @@ class Symbolizer(object):
   def symbolize(self, addr, binary, offset):
     """Symbolize the given address (pair of binary and offset).
 
-    Overriden in subclasses.
+    Overridden in subclasses.
     Args:
         addr: virtual address of an instruction.
         binary: path to executable/shared object containing this instruction.

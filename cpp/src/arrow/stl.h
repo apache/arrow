@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_STL_H
-#define ARROW_STL_H
+#pragma once
 
 #include <algorithm>
 #include <cstddef>
@@ -28,7 +27,9 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/array.h"
 #include "arrow/builder.h"
+#include "arrow/chunked_array.h"
 #include "arrow/compute/api.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
@@ -340,19 +341,18 @@ struct RowIterator<Tuple, 0> {
 template <typename Tuple, std::size_t N = std::tuple_size<Tuple>::value>
 struct EnsureColumnTypes {
   static Status Cast(const Table& table, std::shared_ptr<Table>* table_owner,
-                     const compute::CastOptions& cast_options,
-                     compute::FunctionContext* ctx,
+                     const compute::CastOptions& cast_options, compute::ExecContext* ctx,
                      std::reference_wrapper<const ::arrow::Table>* result) {
     using Element = BareTupleElement<N - 1, Tuple>;
     std::shared_ptr<DataType> expected_type = ConversionTraits<Element>::type_singleton();
 
     if (!table.schema()->field(N - 1)->type()->Equals(*expected_type)) {
-      compute::Datum casted;
-      ARROW_RETURN_NOT_OK(compute::Cast(ctx, compute::Datum(table.column(N - 1)),
-                                        expected_type, cast_options, &casted));
+      ARROW_ASSIGN_OR_RAISE(
+          Datum casted,
+          compute::Cast(table.column(N - 1), expected_type, cast_options, ctx));
       auto new_field = table.schema()->field(N - 1)->WithType(expected_type);
-      ARROW_RETURN_NOT_OK(
-          table.SetColumn(N - 1, new_field, casted.chunked_array(), table_owner));
+      ARROW_ASSIGN_OR_RAISE(*table_owner,
+                            table.SetColumn(N - 1, new_field, casted.chunked_array()));
       *result = **table_owner;
     }
 
@@ -363,9 +363,8 @@ struct EnsureColumnTypes {
 
 template <typename Tuple>
 struct EnsureColumnTypes<Tuple, 0> {
-  static Status Cast(const Table& table, std::shared_ptr<Table>* table_ownder,
-                     const compute::CastOptions& cast_options,
-                     compute::FunctionContext* ctx,
+  static Status Cast(const Table& table, std::shared_ptr<Table>* table_owner,
+                     const compute::CastOptions& cast_options, compute::ExecContext* ctx,
                      std::reference_wrapper<const ::arrow::Table>* result) {
     return Status::OK();
   }
@@ -430,7 +429,7 @@ Status TableFromTupleRange(MemoryPool* pool, Range&& rows,
 
 template <typename Range>
 Status TupleRangeFromTable(const Table& table, const compute::CastOptions& cast_options,
-                           compute::FunctionContext* ctx, Range* rows) {
+                           compute::ExecContext* ctx, Range* rows) {
   using row_type = typename std::decay<decltype(*std::begin(*rows))>::type;
   constexpr std::size_t n_columns = std::tuple_size<row_type>::value;
 
@@ -463,5 +462,3 @@ Status TupleRangeFromTable(const Table& table, const compute::CastOptions& cast_
 
 }  // namespace stl
 }  // namespace arrow
-
-#endif  // ARROW_STL_H

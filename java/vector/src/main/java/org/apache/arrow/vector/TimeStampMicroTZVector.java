@@ -17,6 +17,8 @@
 
 package org.apache.arrow.vector;
 
+import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
+
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.impl.TimeStampMicroTZReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
@@ -115,12 +117,12 @@ public final class TimeStampMicroTZVector extends TimeStampVector {
    * @param index   position of element
    */
   public void get(int index, NullableTimeStampMicroTZHolder holder) {
-    if (isSet(index) == 0) {
+    if (NULL_CHECKING_ENABLED && isSet(index) == 0) {
       holder.isSet = 0;
       return;
     }
     holder.isSet = 1;
-    holder.value = valueBuffer.getLong(index * TYPE_WIDTH);
+    holder.value = valueBuffer.getLong((long) index * TYPE_WIDTH);
   }
 
   /**
@@ -133,7 +135,7 @@ public final class TimeStampMicroTZVector extends TimeStampVector {
     if (isSet(index) == 0) {
       return null;
     } else {
-      return valueBuffer.getLong(index * TYPE_WIDTH);
+      return valueBuffer.getLong((long) index * TYPE_WIDTH);
     }
   }
 

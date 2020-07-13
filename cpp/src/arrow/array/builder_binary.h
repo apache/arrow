@@ -17,25 +17,29 @@
 
 #pragma once
 
-#include <algorithm>
+#include <array>
+#include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <limits>
 #include <memory>
 #include <numeric>
 #include <string>
 #include <vector>
 
-#include "arrow/array.h"
+#include "arrow/array/array_base.h"
+#include "arrow/array/array_binary.h"
 #include "arrow/array/builder_base.h"
+#include "arrow/array/data.h"
+#include "arrow/buffer.h"
 #include "arrow/buffer_builder.h"
 #include "arrow/status.h"
-#include "arrow/type_traits.h"
+#include "arrow/type.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/string_view.h"  // IWYU pragma: export
+#include "arrow/util/visibility.h"
 
 namespace arrow {
-
-constexpr int64_t kBinaryMemoryLimit = std::numeric_limits<int32_t>::max() - 1;
 
 // ----------------------------------------------------------------------
 // Binary and String
@@ -46,7 +50,7 @@ class BaseBinaryBuilder : public ArrayBuilder {
   using TypeClass = TYPE;
   using offset_type = typename TypeClass::offset_type;
 
-  explicit BaseBinaryBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT)
+  explicit BaseBinaryBuilder(MemoryPool* pool = default_memory_pool())
       : ArrayBuilder(pool), offsets_builder_(pool), value_data_builder_(pool) {}
 
   BaseBinaryBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool)
@@ -235,7 +239,7 @@ class BaseBinaryBuilder : public ArrayBuilder {
       return Status::CapacityError("BinaryBuilder cannot reserve space for more than ",
                                    memory_limit(), " child elements, got ", capacity);
     }
-    ARROW_RETURN_NOT_OK(CheckCapacity(capacity, capacity_));
+    ARROW_RETURN_NOT_OK(CheckCapacity(capacity));
 
     // One more than requested for offsets
     ARROW_RETURN_NOT_OK(offsets_builder_.Resize(capacity + 1));
@@ -400,7 +404,7 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
   using TypeClass = FixedSizeBinaryType;
 
   explicit FixedSizeBinaryBuilder(const std::shared_ptr<DataType>& type,
-                                  MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
+                                  MemoryPool* pool = default_memory_pool());
 
   Status Append(const uint8_t* value) {
     ARROW_RETURN_NOT_OK(Reserve(1));
@@ -515,10 +519,10 @@ namespace internal {
 class ARROW_EXPORT ChunkedBinaryBuilder {
  public:
   explicit ChunkedBinaryBuilder(int32_t max_chunk_value_length,
-                                MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
+                                MemoryPool* pool = default_memory_pool());
 
   ChunkedBinaryBuilder(int32_t max_chunk_value_length, int32_t max_chunk_length,
-                       MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
+                       MemoryPool* pool = default_memory_pool());
 
   virtual ~ChunkedBinaryBuilder() = default;
 

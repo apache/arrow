@@ -113,8 +113,8 @@ Status PlasmaErrorStatus(fb::PlasmaError plasma_error) {
     case fb::PlasmaError::ObjectExists:
       return MakePlasmaError(PlasmaErrorCode::PlasmaObjectExists,
                              "object already exists in the plasma store");
-    case fb::PlasmaError::ObjectNonexistent:
-      return MakePlasmaError(PlasmaErrorCode::PlasmaObjectNonexistent,
+    case fb::PlasmaError::ObjectNotFound:
+      return MakePlasmaError(PlasmaErrorCode::PlasmaObjectNotFound,
                              "object does not exist in the plasma store");
     case fb::PlasmaError::OutOfMemory:
       return MakePlasmaError(PlasmaErrorCode::PlasmaStoreFull,
@@ -508,7 +508,7 @@ Status ReadDeleteReply(const uint8_t* data, size_t size,
     return ObjectID::from_binary(request.object_ids()->Get(i)->str());
   });
   ToVector(*message, errors, [](const PlasmaDeleteReply& request, int i) {
-    return static_cast<PlasmaError>(request.errors()->data()[i]);
+    return static_cast<PlasmaError>(request.errors()->Get(i));
   });
   return Status::OK();
 }

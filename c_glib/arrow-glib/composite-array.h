@@ -60,7 +60,7 @@ struct _GArrowLargeListArrayClass
   GArrowArrayClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_16
 GArrowLargeListArray *garrow_large_list_array_new(GArrowDataType *data_type,
                                                   gint64 length,
                                                   GArrowBuffer *value_offsets,
@@ -68,9 +68,9 @@ GArrowLargeListArray *garrow_large_list_array_new(GArrowDataType *data_type,
                                                   GArrowBuffer *null_bitmap,
                                                   gint64 n_nulls);
 
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_16
 GArrowDataType *garrow_large_list_array_get_value_type(GArrowLargeListArray *array);
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_16
 GArrowArray *garrow_large_list_array_get_value(GArrowLargeListArray *array,
                                                gint64 i);
 
@@ -95,10 +95,7 @@ GArrowStructArray *garrow_struct_array_new(GArrowDataType *data_type,
 GArrowArray *garrow_struct_array_get_field(GArrowStructArray *array,
                                            gint i);
 
-#ifndef GARROW_DISABLE_DEPRECATED
-GARROW_DEPRECATED_IN_0_10_FOR(garrow_struct_array_flatten)
 GList *garrow_struct_array_get_fields(GArrowStructArray *array);
-#endif
 
 GARROW_AVAILABLE_IN_0_10
 GList *garrow_struct_array_flatten(GArrowStructArray *array, GError **error);
@@ -115,16 +112,16 @@ struct _GArrowMapArrayClass
   GArrowListArrayClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_17
 GArrowMapArray *
 garrow_map_array_new(GArrowArray *offsets,
                      GArrowArray *keys,
                      GArrowArray *items,
                      GError **error);
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_17
 GArrowArray *
 garrow_map_array_get_keys(GArrowMapArray *array);
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_17
 GArrowArray *
 garrow_map_array_get_items(GArrowMapArray *array);
 
@@ -210,7 +207,10 @@ GArrowArray *
 garrow_dictionary_array_get_indices(GArrowDictionaryArray *array);
 GArrowArray *
 garrow_dictionary_array_get_dictionary(GArrowDictionaryArray *array);
+#ifndef GARROW_DISABLE_DEPRECATED
+GARROW_DEPRECATED_IN_1_0_FOR(garrow_array_get_value_data_type)
 GArrowDictionaryDataType *
 garrow_dictionary_array_get_dictionary_data_type(GArrowDictionaryArray *array);
+#endif
 
 G_END_DECLS

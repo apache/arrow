@@ -68,6 +68,7 @@ class ORCFile:
         Readable source. For passing Python file objects or byte buffers,
         see pyarrow.io.PythonFileInterface or pyarrow.io.BufferReader.
     """
+
     def __init__(self, source):
         self.reader = _orc.ORCReader()
         self.reader.open(source)

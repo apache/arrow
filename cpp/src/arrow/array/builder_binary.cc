@@ -79,7 +79,7 @@ void FixedSizeBinaryBuilder::Reset() {
 }
 
 Status FixedSizeBinaryBuilder::Resize(int64_t capacity) {
-  RETURN_NOT_OK(CheckCapacity(capacity, capacity_));
+  RETURN_NOT_OK(CheckCapacity(capacity));
   RETURN_NOT_OK(byte_builder_.Resize(capacity * byte_width_));
   return ArrayBuilder::Resize(capacity);
 }

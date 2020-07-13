@@ -30,6 +30,7 @@ use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
 use crate::ipc;
 use crate::record_batch::RecordBatch;
+use crate::util::bit_util;
 
 pub struct FileWriter<W: Write> {
     /// The object to write to
@@ -51,9 +52,9 @@ impl<W: Write> FileWriter<W> {
     pub fn try_new(writer: W, schema: &Schema) -> Result<Self> {
         let mut writer = BufWriter::new(writer);
         // write magic to header
-        writer.write(&super::ARROW_MAGIC[..])?;
-        // create an 8-byte boudnary after the header
-        writer.write(&[0, 0])?;
+        writer.write_all(&super::ARROW_MAGIC[..])?;
+        // create an 8-byte boundary after the header
+        writer.write_all(&[0, 0])?;
         // write the schema, set the written bytes to the schema + header
         let written = write_schema(&mut writer, schema)? + 8;
         Ok(Self {
@@ -94,17 +95,17 @@ impl<W: Write> FileWriter<W> {
             let mut fields = vec![];
             for field in self.schema.fields() {
                 let fb_field_name = fbb.create_string(field.name().as_str());
-                let (ipc_type_type, ipc_type, ipc_children) =
+                let field_type =
                     ipc::convert::get_fb_field_type(field.data_type(), &mut fbb);
                 let mut field_builder = ipc::FieldBuilder::new(&mut fbb);
                 field_builder.add_name(fb_field_name);
-                field_builder.add_type_type(ipc_type_type);
+                field_builder.add_type_type(field_type.type_type);
                 field_builder.add_nullable(field.is_nullable());
-                match ipc_children {
+                match field_type.children {
                     None => {}
                     Some(children) => field_builder.add_children(children),
                 };
-                field_builder.add_type_(ipc_type);
+                field_builder.add_type_(field_type.type_);
                 fields.push(field_builder.finish());
             }
 
@@ -122,13 +123,10 @@ impl<W: Write> FileWriter<W> {
             let fb_field_list = fbb.create_vector(&fields);
             let fb_metadata_list = fbb.create_vector(&custom_metadata);
 
-            let root = {
-                let mut builder = ipc::SchemaBuilder::new(&mut fbb);
-                builder.add_fields(fb_field_list);
-                builder.add_custom_metadata(fb_metadata_list);
-                builder.finish()
-            };
-            root
+            let mut builder = ipc::SchemaBuilder::new(&mut fbb);
+            builder.add_fields(fb_field_list);
+            builder.add_custom_metadata(fb_metadata_list);
+            builder.finish()
         };
         let root = {
             let mut footer_builder = ipc::FooterBuilder::new(&mut fbb);
@@ -140,7 +138,7 @@ impl<W: Write> FileWriter<W> {
         };
         fbb.finish(root, None);
         write_padded_data(&mut self.writer, fbb.finished_data(), WriteDataType::Footer)?;
-        self.writer.write(&super::ARROW_MAGIC)?;
+        self.writer.write_all(&super::ARROW_MAGIC)?;
         self.writer.flush()?;
         self.finished = true;
 
@@ -192,8 +190,10 @@ impl<W: Write> StreamWriter<W> {
 
     /// Write continuation bytes, and mark the stream as done
     pub fn finish(&mut self) -> Result<()> {
-        self.writer.write(&[0u8, 0, 0, 0])?;
-        self.writer.write(&[255u8, 255, 255, 255])?;
+        self.writer.write_all(&[255u8, 255, 255, 255])?;
+        self.writer.write_all(&[0u8, 0, 0, 0])?;
+        self.writer.flush()?;
+
         self.finished = true;
 
         Ok(())
@@ -255,15 +255,15 @@ fn write_padded_data<R: Write>(
     let total_len = len + pad_len;
     // write data length
     if data_type == WriteDataType::Header {
-        writer.write(&total_len.to_le_bytes()[..])?;
+        writer.write_all(&total_len.to_le_bytes()[..])?;
     }
     // write flatbuffer data
-    writer.write(data)?;
+    writer.write_all(data)?;
     if pad_len > 0 {
-        writer.write(&vec![0u8; pad_len as usize][..])?;
+        writer.write_all(&vec![0u8; pad_len as usize][..])?;
     }
     if data_type == WriteDataType::Footer {
-        writer.write(&total_len.to_le_bytes()[..])?;
+        writer.write_all(&total_len.to_le_bytes()[..])?;
     }
     writer.flush()?;
     Ok(total_len as usize)
@@ -326,7 +326,7 @@ fn write_record_batch<R: Write>(
     // write the length of data if writing to stream
     if is_stream {
         let total_len: u32 = meta_data.len() as u32;
-        writer.write(&total_len.to_le_bytes()[..])?;
+        writer.write_all(&total_len.to_le_bytes()[..])?;
     }
     let meta_written = write_padded_data(writer, &meta_data[..], WriteDataType::Body)?;
     let arrow_data_written =
@@ -346,18 +346,22 @@ fn write_array_data(
 ) -> i64 {
     let mut offset = offset;
     nodes.push(ipc::FieldNode::new(num_rows as i64, null_count as i64));
-    // write null buffer if exists
-    let null_buffer = match array_data.null_buffer() {
-        None => {
-            // create a buffer and fill it with valid bits
-            let buffer = MutableBuffer::new(num_rows);
-            let buffer = buffer.with_bitset(num_rows, true);
-            let buffer = buffer.freeze();
-            buffer
-        }
-        Some(buffer) => buffer.clone(),
-    };
-    offset = write_buffer(&null_buffer, &mut buffers, &mut arrow_data, offset);
+    // NullArray does not have any buffers, thus the null buffer is not generated
+    if array_data.data_type() != &DataType::Null {
+        // write null buffer if exists
+        let null_buffer = match array_data.null_buffer() {
+            None => {
+                // create a buffer and fill it with valid bits
+                let num_bytes = bit_util::ceil(num_rows, 8);
+                let buffer = MutableBuffer::new(num_bytes);
+                let buffer = buffer.with_bitset(num_bytes, true);
+                buffer.freeze()
+            }
+            Some(buffer) => buffer.clone(),
+        };
+
+        offset = write_buffer(&null_buffer, &mut buffers, &mut arrow_data, offset);
+    }
 
     array_data.buffers().iter().for_each(|buffer| {
         offset = write_buffer(buffer, &mut buffers, &mut arrow_data, offset);
@@ -413,6 +417,7 @@ mod tests {
     use crate::array::*;
     use crate::datatypes::Field;
     use crate::ipc::reader::*;
+    use crate::record_batch::RecordBatchReader;
     use crate::util::integration_util::*;
     use std::env;
     use std::fs::File;
@@ -452,7 +457,7 @@ mod tests {
                 File::open(format!("target/debug/testdata/{}.arrow_file", "arrow"))
                     .unwrap();
             let mut reader = FileReader::try_new(file).unwrap();
-            while let Ok(Some(read_batch)) = reader.next() {
+            while let Ok(Some(read_batch)) = reader.next_batch() {
                 read_batch
                     .columns()
                     .iter()
@@ -464,7 +469,53 @@ mod tests {
                     });
             }
         }
-        // panic!("intentional failure");
+    }
+
+    #[test]
+    fn test_write_null_file() {
+        let schema = Schema::new(vec![
+            Field::new("nulls", DataType::Null, true),
+            Field::new("int32s", DataType::Int32, false),
+            Field::new("nulls2", DataType::Null, false),
+            Field::new("f64s", DataType::Float64, false),
+        ]);
+        let array1 = NullArray::new(32);
+        let array2 = Int32Array::from(vec![1; 32]);
+        let array3 = NullArray::new(32);
+        let array4 = Float64Array::from(vec![std::f64::NAN; 32]);
+        let batch = RecordBatch::try_new(
+            Arc::new(schema.clone()),
+            vec![
+                Arc::new(array1) as ArrayRef,
+                Arc::new(array2) as ArrayRef,
+                Arc::new(array3) as ArrayRef,
+                Arc::new(array4) as ArrayRef,
+            ],
+        )
+        .unwrap();
+        {
+            let file = File::create("target/debug/testdata/nulls.arrow_file").unwrap();
+            let mut writer = FileWriter::try_new(file, &schema).unwrap();
+
+            writer.write(&batch).unwrap();
+            // this is inside a block to test the implicit finishing of the file on `Drop`
+        }
+
+        {
+            let file = File::open("target/debug/testdata/nulls.arrow_file").unwrap();
+            let mut reader = FileReader::try_new(file).unwrap();
+            while let Ok(Some(read_batch)) = reader.next_batch() {
+                read_batch
+                    .columns()
+                    .iter()
+                    .zip(batch.columns())
+                    .for_each(|(a, b)| {
+                        assert_eq!(a.data_type(), b.data_type());
+                        assert_eq!(a.len(), b.len());
+                        assert_eq!(a.null_count(), b.null_count());
+                    });
+            }
+        }
     }
 
     #[test]
@@ -494,7 +545,7 @@ mod tests {
                     File::create(format!("target/debug/testdata/{}.arrow_file", path))
                         .unwrap();
                 let mut writer = FileWriter::try_new(file, &reader.schema()).unwrap();
-                while let Ok(Some(batch)) = reader.next() {
+                while let Ok(Some(batch)) = reader.next_batch() {
                     writer.write(&batch).unwrap();
                 }
                 writer.finish().unwrap();
@@ -536,7 +587,7 @@ mod tests {
                 let file = File::create(format!("target/debug/testdata/{}.stream", path))
                     .unwrap();
                 let mut writer = StreamWriter::try_new(file, &reader.schema()).unwrap();
-                while let Ok(Some(batch)) = reader.next() {
+                while let Ok(Some(batch)) = reader.next_batch() {
                     writer.write(&batch).unwrap();
                 }
                 writer.finish().unwrap();

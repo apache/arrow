@@ -205,7 +205,7 @@ public class TestBitVector {
       try (final BitVector toVector = new BitVector("toVector", allocator)) {
         final TransferPair transferPair = sourceVector.makeTransferPair(toVector);
 
-        final int[][] transferLengths = {{5,22}, {5,24}, {5,25}, {5,27}, {0,31}, {5,7}, {2,3}};
+        final int[][] transferLengths = {{5, 22}, {5, 24}, {5, 25}, {5, 27}, {0, 31}, {5, 7}, {2, 3}};
 
         for (final int[] transferLength : transferLengths) {
           final int start = transferLength[0];
@@ -285,7 +285,7 @@ public class TestBitVector {
       /* now transfer the vector */
       TransferPair transferPair = vector.getTransferPair(allocator);
       transferPair.transfer();
-      final BitVector toVector = (BitVector)transferPair.getTo();
+      final BitVector toVector = (BitVector) transferPair.getTo();
 
       assertEquals(valueCapacity * 4, toVector.getValueCapacity());
 
@@ -369,7 +369,7 @@ public class TestBitVector {
       /* now transfer the vector */
       TransferPair transferPair = vector.getTransferPair(allocator);
       transferPair.transfer();
-      final BitVector toVector = (BitVector)transferPair.getTo();
+      final BitVector toVector = (BitVector) transferPair.getTo();
 
       assertEquals(valueCapacity * 4, toVector.getValueCapacity());
 

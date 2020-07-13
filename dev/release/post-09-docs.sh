@@ -30,6 +30,7 @@ if [ "$#" -ne 1 ]; then
 fi
 
 version=$1
+release_tag="apache-arrow-${version}"
 branch_name=release-docs-${version}
 
 pushd "${ARROW_SITE_DIR}"
@@ -39,18 +40,28 @@ rm -rf docs/*
 popd
 
 pushd "${ARROW_DIR}"
-docker-compose build ubuntu-cpp
-docker-compose build ubuntu-python
-docker-compose build ubuntu-docs
-docker-compose run --rm -v "${ARROW_SITE_DIR}/docs:/build/docs" ubuntu-docs
-popd
+git checkout "${release_tag}"
 
-pushd "${ARROW_SITE_DIR}"
-git add docs
-git commit -m "[Website] Update documentations for ${version}"
-git push -u origin ${branch_name}
-popd
+archery docker run \
+  -v "${ARROW_SITE_DIR}/docs:/build/docs" \
+  -e ARROW_DOCS_VERSION="${version}" \
+  ubuntu-docs
 
-echo "Success!"
-echo "Create a pull request:"
-echo "  ${github_url}/pull/new/${branch_name}"
+: ${PUSH:=1}
+
+if [ ${PUSH} -gt 0 ]; then
+  pushd "${ARROW_SITE_DIR}"
+  git add docs
+  git commit -m "[Website] Update documentations for ${version}"
+  git push -u origin ${branch_name}
+  popd
+
+  github_url=$(git remote get-url origin | \
+                 sed \
+                   -e 's,^git@github.com:,https://github.com/,' \
+                   -e 's,\.git$,,')
+
+  echo "Success!"
+  echo "Create a pull request:"
+  echo "  ${github_url}/pull/new/${branch_name}"
+fi

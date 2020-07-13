@@ -76,6 +76,7 @@ import org.apache.arrow.adapter.jdbc.JdbcToArrowConfigBuilder;
 import org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper;
 import org.apache.arrow.adapter.jdbc.JdbcToArrowUtils;
 import org.apache.arrow.adapter.jdbc.Table;
+import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
@@ -225,7 +226,7 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
 
   @Test
   public void runLargeNumberOfRows() throws IOException, SQLException {
-    RootAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
+    BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
     int x = 0;
     final int targetRows = 600000;
     ResultSet rs = new FakeResultSet(targetRows);

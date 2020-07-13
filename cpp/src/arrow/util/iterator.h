@@ -110,10 +110,11 @@ class Iterator : public util::EqualityComparable<Iterator<T>> {
 
   class RangeIterator {
    public:
-    RangeIterator() : value_(IterationTraits<T>::End()), iterator_() {}
+    RangeIterator() : value_(IterationTraits<T>::End()) {}
 
     explicit RangeIterator(Iterator i)
-        : value_(IterationTraits<T>::End()), iterator_(std::move(i)) {
+        : value_(IterationTraits<T>::End()),
+          iterator_(std::make_shared<Iterator>(std::move(i))) {
       Next();
     }
 
@@ -138,16 +139,28 @@ class Iterator : public util::EqualityComparable<Iterator<T>> {
         value_ = IterationTraits<T>::End();
         return;
       }
-      value_ = iterator_.Next();
+      value_ = iterator_->Next();
     }
 
     Result<T> value_;
-    Iterator iterator_;
+    std::shared_ptr<Iterator> iterator_;
   };
 
   RangeIterator begin() { return RangeIterator(std::move(*this)); }
 
   RangeIterator end() { return RangeIterator(); }
+
+  /// \brief Move every element of this iterator into a vector.
+  Result<std::vector<T>> ToVector() {
+    std::vector<T> out;
+    for (auto maybe_element : *this) {
+      ARROW_ASSIGN_OR_RAISE(auto element, std::move(maybe_element));
+      out.push_back(std::move(element));
+    }
+    // ARROW-8193: On gcc-4.8 without the explicit move it tries to use the
+    // copy constructor, which may be deleted on the elements of type T
+    return std::move(out);
+  }
 
  private:
   /// Implementation of deleter for ptr_: Casts from void* to the wrapped type and
@@ -234,18 +247,18 @@ Iterator<T> MakeVectorIterator(std::vector<T> v) {
   return Iterator<T>(VectorIterator<T>(std::move(v)));
 }
 
-/// \brief Simple iterator which yields the elements of a std::vector<T> as optional<T>.
+/// \brief Simple iterator which yields *pointers* to the elements of a std::vector<T>.
 /// This is provided to support T where IterationTraits<T>::End is not specialized
 template <typename T>
-class VectorOptionalIterator {
+class VectorPointingIterator {
  public:
-  explicit VectorOptionalIterator(std::vector<T> v) : elements_(std::move(v)) {}
+  explicit VectorPointingIterator(std::vector<T> v) : elements_(std::move(v)) {}
 
-  Result<util::optional<T>> Next() {
+  Result<T*> Next() {
     if (i_ == elements_.size()) {
-      return util::nullopt;
+      return NULLPTR;
     }
-    return std::move(elements_[i_++]);
+    return &elements_[i_++];
   }
 
  private:
@@ -254,8 +267,8 @@ class VectorOptionalIterator {
 };
 
 template <typename T>
-Iterator<util::optional<T>> MakeVectorOptionalIterator(std::vector<T> v) {
-  return Iterator<util::optional<T>>(VectorOptionalIterator<T>(std::move(v)));
+Iterator<T*> MakeVectorPointingIterator(std::vector<T> v) {
+  return Iterator<T*>(VectorPointingIterator<T>(std::move(v)));
 }
 
 /// \brief MapIterator takes ownership of an iterator and a function to apply

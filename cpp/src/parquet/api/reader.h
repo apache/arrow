@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PARQUET_API_READER_H
-#define PARQUET_API_READER_H
+#pragma once
 
 // Column reader API
 #include "parquet/column_reader.h"
@@ -34,5 +33,3 @@
 
 // IO
 #include "parquet/api/io.h"
-
-#endif  // PARQUET_API_READER_H

@@ -22,20 +22,22 @@
 #include <memory>
 #include <string>
 
+#include "arrow/result.h"
 #include "arrow/status.h"
-#include "arrow/type_fwd.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
 
 struct Compression {
   /// \brief Compression algorithm
-  enum type { UNCOMPRESSED, SNAPPY, GZIP, BROTLI, ZSTD, LZ4, LZO, BZ2 };
+  enum type { UNCOMPRESSED, SNAPPY, GZIP, BROTLI, ZSTD, LZ4, LZ4_FRAME, LZO, BZ2 };
+
+  static constexpr int kUseDefaultCompressionLevel = std::numeric_limits<int>::min();
 };
 
 namespace util {
 
-constexpr int kUseDefaultCompressionLevel = std::numeric_limits<int>::min();
+constexpr int kUseDefaultCompressionLevel = Compression::kUseDefaultCompressionLevel;
 
 /// \brief Streaming compressor interface
 ///
@@ -124,6 +126,9 @@ class ARROW_EXPORT Codec {
   /// \brief Return a string name for compression type
   static std::string GetCodecAsString(Compression::type t);
 
+  /// \brief Return compression type for name (all upper case)
+  static Result<Compression::type> GetCompressionType(const std::string& name);
+
   /// \brief Create a codec for the given compression algorithm
   static Result<std::unique_ptr<Codec>> Create(
       Compression::type codec, int compression_level = kUseDefaultCompressionLevel);
@@ -163,35 +168,6 @@ class ARROW_EXPORT Codec {
   virtual Result<std::shared_ptr<Decompressor>> MakeDecompressor() = 0;
 
   virtual const char* name() const = 0;
-
-  // Deprecated APIs
-
-  /// \brief Create a codec for the given compression algorithm
-  ARROW_DEPRECATED("Use Result-returning version")
-  static Status Create(Compression::type codec, std::unique_ptr<Codec>* out);
-
-  /// \brief Create a codec for the given compression algorithm and level
-  ARROW_DEPRECATED("Use Result-returning version")
-  static Status Create(Compression::type codec, int compression_level,
-                       std::unique_ptr<Codec>* out);
-
-  /// \brief One-shot decompression function
-  ARROW_DEPRECATED("Use Result-returning version")
-  Status Decompress(int64_t input_len, const uint8_t* input, int64_t output_buffer_len,
-                    uint8_t* output_buffer, int64_t* output_len);
-
-  /// \brief One-shot compression function
-  ARROW_DEPRECATED("Use Result-returning version")
-  Status Compress(int64_t input_len, const uint8_t* input, int64_t output_buffer_len,
-                  uint8_t* output_buffer, int64_t* output_len);
-
-  /// \brief Create a streaming compressor instance
-  ARROW_DEPRECATED("Use Result-returning version")
-  virtual Status MakeCompressor(std::shared_ptr<Compressor>* out);
-
-  /// \brief Create a streaming decompressor instance
-  ARROW_DEPRECATED("Use Result-returning version")
-  virtual Status MakeDecompressor(std::shared_ptr<Decompressor>* out);
 
  private:
   /// \brief Initializes the codec's resources.

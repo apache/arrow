@@ -21,10 +21,9 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ReadableByteChannel;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import io.netty.buffer.ArrowBuf;
 
 /**
  * Adapter around {@link ReadableByteChannel} that reads into {@linkplain ArrowBuf}s.
@@ -84,7 +83,7 @@ public class ReadChannel implements AutoCloseable {
     boolean fullRead = true;
     long bytesLeft = length;
     while (fullRead && bytesLeft > 0) {
-      int bytesToRead = (int) Math.min(length, Integer.MAX_VALUE);
+      int bytesToRead = (int) Math.min(bytesLeft, Integer.MAX_VALUE);
       int n = readFully(buffer.nioBuffer(buffer.writerIndex(), bytesToRead));
       buffer.writerIndex(buffer.writerIndex() + n);
       fullRead = n == bytesToRead;

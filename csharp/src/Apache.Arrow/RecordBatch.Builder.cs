@@ -88,8 +88,8 @@ namespace Apache.Arrow
 
             public RecordBatch Build()
             {
-                var schema = _schemaBuilder.Build();
-                var length = _arrays.Max(x => x.Length);
+                Schema schema = _schemaBuilder.Build();
+                int length = _arrays.Max(x => x.Length);
 
                 // each array has its own memoryOwner, so the RecordBatch itself doesn't
                 // have a memoryOwner
@@ -108,12 +108,12 @@ namespace Apache.Arrow
 
             public Builder Append(RecordBatch batch)
             {
-                foreach (var field in batch.Schema.Fields)
+                foreach (KeyValuePair<string, Field> field in batch.Schema.Fields)
                 {
                     _schemaBuilder.Field(field.Value);
                 }
 
-                foreach (var array in batch.Arrays)
+                foreach (IArrowArray array in batch.Arrays)
                 {
                     _arrays.Add(array);
                 }
@@ -150,13 +150,12 @@ namespace Apache.Arrow
             {
                 if (action == null) return this;
 
-                var array = action(_arrayBuilder);
+                TArray array = action(_arrayBuilder);
 
                 Append(name, nullable, array);
 
                 return this;
             }
-
         }
     }
 }

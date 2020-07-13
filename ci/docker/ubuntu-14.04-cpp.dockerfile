@@ -15,8 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ARG arch=amd64
-FROM ${arch}/ubuntu:14.04
+ARG base=amd64/ubuntu:14.04
+FROM ${base}
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
@@ -56,8 +56,8 @@ RUN apt-get update -y -q && \
 # - libre2-dev unavailable
 # - liblz4-dev is too old
 ENV ARROW_BUILD_TESTS=ON \
-    ARROW_DEPENDENCY_SOURCE=SYSTEM \
     ARROW_DATASET=ON \
+    ARROW_DEPENDENCY_SOURCE=SYSTEM \
     ARROW_FLIGHT=OFF \
     ARROW_GANDIVA_JAVA=OFF \
     ARROW_GANDIVA=OFF \
@@ -68,7 +68,6 @@ ENV ARROW_BUILD_TESTS=ON \
     ARROW_WITH_BROTLI=ON \
     ARROW_WITH_BZ2=ON \
     ARROW_WITH_LZ4=ON \
-    ARROW_WITH_OPENSSL=OFF \
     ARROW_WITH_SNAPPY=ON \
     ARROW_WITH_ZLIB=ON \
     ARROW_WITH_ZSTD=ON \
@@ -83,11 +82,13 @@ ENV ARROW_BUILD_TESTS=ON \
     GTest_SOURCE=BUNDLED \
     Lz4_SOURCE=BUNDLED \
     ORC_SOURCE=BUNDLED \
-    PARQUET_BUILD_EXECUTABLES=ON \
     PARQUET_BUILD_EXAMPLES=ON \
+    PARQUET_BUILD_EXECUTABLES=ON \
+    PARQUET_REQUIRE_ENCRYPTION=OFF \
     PATH=/usr/lib/ccache/:$PATH \
     Protobuf_SOURCE=BUNDLED \
     RapidJSON_SOURCE=BUNDLED \
     RE2_SOURCE=BUNDLED \
     Thrift_SOURCE=BUNDLED \
+    utf8proc_SOURCE=BUNDLED \
     ZSTD_SOURCE=BUNDLED

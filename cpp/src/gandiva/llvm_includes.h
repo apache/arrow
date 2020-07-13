@@ -32,6 +32,12 @@
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Module.h>
 
+#if LLVM_VERSION_MAJOR >= 10
+#define LLVM_ALIGN(alignment) (llvm::Align((alignment)))
+#else
+#define LLVM_ALIGN(alignment) (alignment)
+#endif
+
 #if defined(_MSC_VER)
 #pragma warning(pop)
 #endif

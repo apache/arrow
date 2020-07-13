@@ -15,13 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_NATIVE_FUNCTION_H
-#define GANDIVA_NATIVE_FUNCTION_H
+#pragma once
 
 #include <memory>
 #include <string>
 #include <vector>
 
+#include "gandiva/arrow.h"
 #include "gandiva/function_signature.h"
 #include "gandiva/visibility.h"
 
@@ -79,5 +79,3 @@ class GANDIVA_EXPORT NativeFunction {
 };
 
 }  // end namespace gandiva
-
-#endif  // GANDIVA_NATIVE_FUNCTION_H

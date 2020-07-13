@@ -1,0 +1,395 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.arrow.flight;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.stream.IntStream;
+
+import org.apache.arrow.memory.ArrowBuf;
+import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.util.AutoCloseables;
+import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.VectorLoader;
+import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.VectorUnloader;
+import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
+import org.apache.arrow.vector.testing.ValueVectorDataPopulator;
+import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.Schema;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+
+public class TestDoExchange {
+  static byte[] EXCHANGE_DO_GET = "do-get".getBytes(StandardCharsets.UTF_8);
+  static byte[] EXCHANGE_DO_PUT = "do-put".getBytes(StandardCharsets.UTF_8);
+  static byte[] EXCHANGE_ECHO = "echo".getBytes(StandardCharsets.UTF_8);
+  static byte[] EXCHANGE_METADATA_ONLY = "only-metadata".getBytes(StandardCharsets.UTF_8);
+  static byte[] EXCHANGE_TRANSFORM = "transform".getBytes(StandardCharsets.UTF_8);
+
+  private BufferAllocator allocator;
+  private FlightServer server;
+  private FlightClient client;
+
+  @Before
+  public void setUp() throws Exception {
+    allocator = new RootAllocator(Integer.MAX_VALUE);
+    final Location serverLocation = Location.forGrpcInsecure(FlightTestUtil.LOCALHOST, 0);
+    server = FlightServer.builder(allocator, serverLocation, new Producer(allocator)).build();
+    server.start();
+    final Location clientLocation = Location.forGrpcInsecure(FlightTestUtil.LOCALHOST, server.getPort());
+    client = FlightClient.builder(allocator, clientLocation).build();
+  }
+
+  @After
+  public void tearDown() throws Exception {
+    AutoCloseables.close(client, server, allocator);
+  }
+
+  /** Test a pure-metadata flow. */
+  @Test
+  public void testDoExchangeOnlyMetadata() throws Exception {
+    // Send a particular descriptor to the server and check for a particular response pattern.
+    try (final FlightClient.ExchangeReaderWriter stream =
+             client.doExchange(FlightDescriptor.command(EXCHANGE_METADATA_ONLY))) {
+      final FlightStream reader = stream.getReader();
+
+      // Server starts by sending a message without data (hence no VectorSchemaRoot should be present)
+      assertTrue(reader.next());
+      assertFalse(reader.hasRoot());
+      assertEquals(42, reader.getLatestMetadata().getInt(0));
+
+      // Write a metadata message to the server (without sending any data)
+      ArrowBuf buf = allocator.buffer(4);
+      buf.writeInt(84);
+      stream.getWriter().putMetadata(buf);
+
+      // Check that the server echoed the metadata back to us
+      assertTrue(reader.next());
+      assertFalse(reader.hasRoot());
+      assertEquals(84, reader.getLatestMetadata().getInt(0));
+
+      // Close our write channel and ensure the server also closes theirs
+      stream.getWriter().completed();
+      assertFalse(reader.next());
+    }
+  }
+
+  /** Emulate a DoGet with a DoExchange. */
+  @Test
+  public void testDoExchangeDoGet() throws Exception {
+    try (final FlightClient.ExchangeReaderWriter stream =
+             client.doExchange(FlightDescriptor.command(EXCHANGE_DO_GET))) {
+      final FlightStream reader = stream.getReader();
+      VectorSchemaRoot root = reader.getRoot();
+      IntVector iv = (IntVector) root.getVector("a");
+      int value = 0;
+      while (reader.next()) {
+        for (int i = 0; i < root.getRowCount(); i++) {
+          assertFalse(String.format("Row %d should not be null", value), iv.isNull(i));
+          assertEquals(value, iv.get(i));
+          value++;
+        }
+      }
+      assertEquals(10, value);
+    }
+  }
+
+  /** Emulate a DoPut with a DoExchange. */
+  @Test
+  public void testDoExchangeDoPut() throws Exception {
+    final Schema schema = new Schema(Collections.singletonList(Field.nullable("a", new ArrowType.Int(32, true))));
+    try (final FlightClient.ExchangeReaderWriter stream =
+             client.doExchange(FlightDescriptor.command(EXCHANGE_DO_PUT));
+         final VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator)) {
+      IntVector iv = (IntVector) root.getVector("a");
+      iv.allocateNew();
+
+      stream.getWriter().start(root);
+      int counter = 0;
+      for (int i = 0; i < 10; i++) {
+        ValueVectorDataPopulator.setVector(iv, IntStream.range(0, i).boxed().toArray(Integer[]::new));
+        root.setRowCount(i);
+        counter += i;
+        stream.getWriter().putNext();
+
+        assertTrue(stream.getReader().next());
+        assertFalse(stream.getReader().hasRoot());
+        // For each write, the server sends back a metadata message containing the index of the last written batch
+        final ArrowBuf metadata = stream.getReader().getLatestMetadata();
+        assertEquals(counter, metadata.getInt(0));
+      }
+      stream.getWriter().completed();
+
+      while (stream.getReader().next()) {
+        // Drain the stream. Otherwise closing the stream sends a CANCEL which seriously screws with the server.
+        // CANCEL -> runs onCancel handler -> closes the FlightStream early
+      }
+    }
+  }
+
+  /** Test a DoExchange that echoes the client message. */
+  @Test
+  public void testDoExchangeEcho() throws Exception {
+    final Schema schema = new Schema(Collections.singletonList(Field.nullable("a", new ArrowType.Int(32, true))));
+    try (final FlightClient.ExchangeReaderWriter stream = client.doExchange(FlightDescriptor.command(EXCHANGE_ECHO));
+         final VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator)) {
+      final FlightStream reader = stream.getReader();
+
+      // First try writing metadata without starting the Arrow data stream
+      ArrowBuf buf = allocator.buffer(4);
+      buf.writeInt(42);
+      stream.getWriter().putMetadata(buf);
+      buf = allocator.buffer(4);
+      buf.writeInt(84);
+      stream.getWriter().putMetadata(buf);
+
+      // Ensure that the server echoes the metadata back, also without starting its data stream
+      assertTrue(reader.next());
+      assertFalse(reader.hasRoot());
+      assertEquals(42, reader.getLatestMetadata().getInt(0));
+      assertTrue(reader.next());
+      assertFalse(reader.hasRoot());
+      assertEquals(84, reader.getLatestMetadata().getInt(0));
+
+      // Write data and check that it gets echoed back.
+      IntVector iv = (IntVector) root.getVector("a");
+      iv.allocateNew();
+      stream.getWriter().start(root);
+      for (int i = 0; i < 10; i++) {
+        iv.setSafe(0, i);
+        root.setRowCount(1);
+        stream.getWriter().putNext();
+
+        assertTrue(reader.next());
+        assertNull(reader.getLatestMetadata());
+        assertEquals(root.getSchema(), reader.getSchema());
+        assertEquals(i, ((IntVector) reader.getRoot().getVector("a")).get(0));
+      }
+
+      // Complete the stream so that the server knows not to expect any more messages from us.
+      stream.getWriter().completed();
+      // The server will end its side of the call, so this shouldn't block or indicate that
+      // there is more data.
+      assertFalse("We should not be waiting for any messages", reader.next());
+    }
+  }
+
+  /** Write some data, have it transformed, then read it back. */
+  @Test
+  public void testTransform() throws Exception {
+    final Schema schema = new Schema(Arrays.asList(
+        Field.nullable("a", new ArrowType.Int(32, true)),
+        Field.nullable("b", new ArrowType.Int(32, true))));
+    try (final FlightClient.ExchangeReaderWriter stream =
+             client.doExchange(FlightDescriptor.command(EXCHANGE_TRANSFORM))) {
+      // Write ten batches of data to the stream, where batch N contains N rows of data (N in [0, 10))
+      final FlightStream reader = stream.getReader();
+      final FlightClient.ClientStreamListener writer = stream.getWriter();
+      try (final VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator)) {
+        writer.start(root);
+        for (int batchIndex = 0; batchIndex < 10; batchIndex++) {
+          for (final FieldVector rawVec : root.getFieldVectors()) {
+            final IntVector vec = (IntVector) rawVec;
+            ValueVectorDataPopulator.setVector(vec, IntStream.range(0, batchIndex).boxed().toArray(Integer[]::new));
+          }
+          root.setRowCount(batchIndex);
+          writer.putNext();
+        }
+      }
+      // Indicate that we're done writing so that the server does not expect more data.
+      writer.completed();
+
+      // Read back data. We expect the server to double each value in each row of each batch.
+      assertEquals(schema, reader.getSchema());
+      final VectorSchemaRoot root = reader.getRoot();
+      for (int batchIndex = 0; batchIndex < 10; batchIndex++) {
+        assertTrue("Didn't receive batch #" + batchIndex, reader.next());
+        assertEquals(batchIndex, root.getRowCount());
+        for (final FieldVector rawVec : root.getFieldVectors()) {
+          final IntVector vec = (IntVector) rawVec;
+          for (int row = 0; row < batchIndex; row++) {
+            assertEquals(2 * row, vec.get(row));
+          }
+        }
+      }
+
+      // The server also sends back a metadata-only message containing the message count
+      assertTrue("There should be one extra message", reader.next());
+      assertEquals(10, reader.getLatestMetadata().getInt(0));
+      assertFalse("There should be no more data", reader.next());
+    }
+  }
+
+  static class Producer extends NoOpFlightProducer {
+    private final BufferAllocator allocator;
+
+    Producer(BufferAllocator allocator) {
+      this.allocator = allocator;
+    }
+
+    @Override
+    public void doExchange(CallContext context, FlightStream reader, ServerStreamListener writer) {
+      if (Arrays.equals(reader.getDescriptor().getCommand(), EXCHANGE_METADATA_ONLY)) {
+        metadataOnly(context, reader, writer);
+      } else if (Arrays.equals(reader.getDescriptor().getCommand(), EXCHANGE_DO_GET)) {
+        doGet(context, reader, writer);
+      } else if (Arrays.equals(reader.getDescriptor().getCommand(), EXCHANGE_DO_PUT)) {
+        doPut(context, reader, writer);
+      } else if (Arrays.equals(reader.getDescriptor().getCommand(), EXCHANGE_ECHO)) {
+        echo(context, reader, writer);
+      } else if (Arrays.equals(reader.getDescriptor().getCommand(), EXCHANGE_TRANSFORM)) {
+        transform(context, reader, writer);
+      } else {
+        writer.error(CallStatus.UNIMPLEMENTED.withDescription("Command not implemented").toRuntimeException());
+      }
+    }
+
+    /** Emulate DoGet. */
+    private void doGet(CallContext context, FlightStream reader, ServerStreamListener writer) {
+      final Schema schema = new Schema(Collections.singletonList(Field.nullable("a", new ArrowType.Int(32, true))));
+      try (VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator)) {
+        writer.start(root);
+        root.allocateNew();
+        IntVector iv = (IntVector) root.getVector("a");
+
+        for (int i = 0; i < 10; i += 2) {
+          iv.set(0, i);
+          iv.set(1, i + 1);
+          root.setRowCount(2);
+          writer.putNext();
+        }
+      }
+      writer.completed();
+    }
+
+    /** Emulate DoPut. */
+    private void doPut(CallContext context, FlightStream reader, ServerStreamListener writer) {
+      int counter = 0;
+      while (reader.next()) {
+        if (!reader.hasRoot()) {
+          writer.error(CallStatus.INVALID_ARGUMENT.withDescription("Message has no data").toRuntimeException());
+          return;
+        }
+        counter += reader.getRoot().getRowCount();
+
+        final ArrowBuf pong = allocator.buffer(4);
+        pong.writeInt(counter);
+        writer.putMetadata(pong);
+      }
+      writer.completed();
+    }
+
+    /** Exchange metadata without ever exchanging data. */
+    private void metadataOnly(CallContext context, FlightStream reader, ServerStreamListener writer) {
+      final ArrowBuf buf = allocator.buffer(4);
+      buf.writeInt(42);
+      writer.putMetadata(buf);
+      assertTrue(reader.next());
+      assertNotNull(reader.getLatestMetadata());
+      reader.getLatestMetadata().getReferenceManager().retain();
+      writer.putMetadata(reader.getLatestMetadata());
+      writer.completed();
+    }
+
+    /** Echo the client's response back to it. */
+    private void echo(CallContext context, FlightStream reader, ServerStreamListener writer) {
+      VectorSchemaRoot root = null;
+      VectorLoader loader = null;
+      while (reader.next()) {
+        if (reader.hasRoot()) {
+          if (root == null) {
+            root = VectorSchemaRoot.create(reader.getSchema(), allocator);
+            loader = new VectorLoader(root);
+            writer.start(root);
+          }
+          VectorUnloader unloader = new VectorUnloader(reader.getRoot());
+          try (final ArrowRecordBatch arb = unloader.getRecordBatch()) {
+            loader.load(arb);
+          }
+          if (reader.getLatestMetadata() != null) {
+            reader.getLatestMetadata().getReferenceManager().retain();
+            writer.putNext(reader.getLatestMetadata());
+          } else {
+            writer.putNext();
+          }
+        } else {
+          // Pure metadata
+          reader.getLatestMetadata().getReferenceManager().retain();
+          writer.putMetadata(reader.getLatestMetadata());
+        }
+      }
+      if (root != null) {
+        root.close();
+      }
+      writer.completed();
+    }
+
+    /** Accept a set of messages, then return some result. */
+    private void transform(CallContext context, FlightStream reader, ServerStreamListener writer) {
+      final Schema schema = reader.getSchema();
+      for (final Field field : schema.getFields()) {
+        if (!(field.getType() instanceof ArrowType.Int)) {
+          writer.error(CallStatus.INVALID_ARGUMENT.withDescription("Invalid type: " + field).toRuntimeException());
+          return;
+        }
+        final ArrowType.Int intType = (ArrowType.Int) field.getType();
+        if (!intType.getIsSigned() || intType.getBitWidth() != 32) {
+          writer.error(CallStatus.INVALID_ARGUMENT.withDescription("Must be i32: " + field).toRuntimeException());
+          return;
+        }
+      }
+      int batches = 0;
+      try (final VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator)) {
+        writer.start(root);
+        final VectorLoader loader = new VectorLoader(root);
+        final VectorUnloader unloader = new VectorUnloader(reader.getRoot());
+        while (reader.next()) {
+          try (final ArrowRecordBatch batch = unloader.getRecordBatch()) {
+            loader.load(batch);
+          }
+          batches++;
+          for (final FieldVector rawVec : root.getFieldVectors()) {
+            final IntVector vec = (IntVector) rawVec;
+            for (int i = 0; i < root.getRowCount(); i++) {
+              if (!vec.isNull(i)) {
+                vec.set(i, vec.get(i) * 2);
+              }
+            }
+          }
+          writer.putNext();
+        }
+      }
+      final ArrowBuf count = allocator.buffer(4);
+      count.writeInt(batches);
+      writer.putMetadata(count);
+      writer.completed();
+    }
+  }
+}

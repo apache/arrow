@@ -20,25 +20,10 @@
 set -ex
 
 source_dir=${1}/ruby
+build_dir=${2}/ruby
 
 export LD_LIBRARY_PATH=${ARROW_HOME}/lib:${LD_LIBRARY_PATH}
 export PKG_CONFIG_PATH=${ARROW_HOME}/lib/pkgconfig
 export GI_TYPELIB_PATH=${ARROW_HOME}/lib/girepository-1.0
 
-# TODO(kszucs): this should be moved into the dockerfile
-bundle install --gemfile ${source_dir}/red-arrow/Gemfile
-
-${source_dir}/red-arrow/test/run-test.rb
-
-if [ ${ARROW_GANDIVA:-OFF} == "ON" ]; then
-    ${source_dir}/red-gandiva/test/run-test.rb
-fi
-if [ ${ARROW_PARQUET:-OFF} == "ON" ]; then
-    ${source_dir}/red-parquet/test/run-test.rb
-fi
-if [ ${ARROW_PLASMA:-OFF} == "ON" ]; then
-    ${source_dir}/red-plasma/test/run-test.rb
-fi
-if [ ${ARROW_CUDA:-OFF} == "ON" ]; then
-    ${source_dir}/red-arrow-cuda/test/run-test.rb
-fi
+rake -f ${source_dir}/Rakefile BUILD_DIR=${build_dir}

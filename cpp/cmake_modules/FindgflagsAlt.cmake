@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+# TODO: Support version detection.
+
 if(gflags_ROOT)
   find_library(gflags_LIB
                NAMES gflags

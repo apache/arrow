@@ -17,7 +17,7 @@
   under the License.
 -->
 
-# Arrow C++ Datasets
+# Arrow C++ Dataset
 
 The `arrow::dataset` subcomponent provides an API to read and write
 semantic datasets stored in different locations and formats. It
@@ -28,4 +28,5 @@ normalization are also addressed.
 
 ## Development Status
 
-Pre-alpha as of June 2019. API subject to change without notice.
+Alpha/beta stage as of April 2020. API subject to change, possibly
+without deprecation notices.

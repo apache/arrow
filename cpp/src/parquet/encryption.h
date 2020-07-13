@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PARQUET_ENCRYPTION_H
-#define PARQUET_ENCRYPTION_H
+#pragma once
 
 #include <map>
 #include <memory>
@@ -308,7 +307,7 @@ class PARQUET_EXPORT FileDecryptionProperties {
     /// By default, reading plaintext (unencrypted) files is not
     /// allowed when using a decryptor
     /// - in order to detect files that were not encrypted by mistake.
-    /// However, the default behavior can be overriden by calling this method.
+    /// However, the default behavior can be overridden by calling this method.
     /// The caller should use then a different method to ensure encryption
     /// of files with sensitive data.
     Builder* plaintext_files_allowed() {
@@ -510,5 +509,3 @@ class PARQUET_EXPORT FileEncryptionProperties {
 };
 
 }  // namespace parquet
-
-#endif  // PARQUET_ENCRYPTION_H

@@ -21,19 +21,32 @@ on:
   push:
     paths:
       - '.github/workflows/java.yml'
-      - 'ci/**'
+      - 'ci/docker/*java*'
+      - 'ci/scripts/java*.sh'
+      - 'ci/scripts/util_*.sh'
+      - 'format/Flight.proto'
       - 'java/**'
   pull_request:
     paths:
       - '.github/workflows/java.yml'
-      - 'ci/**'
+      - 'ci/docker/*java*'
+      - 'ci/scripts/java*.sh'
+      - 'ci/scripts/util_*.sh'
+      - 'format/Flight.proto'
       - 'java/**'
+
+env:
+  DOCKER_BUILDKIT: 0
+  COMPOSE_DOCKER_CLI_BUILD: 1
+  ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
+  ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
 
 jobs:
 
   debian:
     name: AMD64 Debian 9 Java JDK ${{ matrix.jdk }} Maven ${{ matrix.maven }}
     runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     strategy:
       fail-fast: false
       matrix:
@@ -44,23 +57,33 @@ jobs:
       MAVEN: ${{ matrix.maven }}
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v1
+        uses: actions/checkout@v2
         with:
-          submodules: true
-      - name: Docker Pull
-        run: docker-compose pull --ignore-pull-failures debian-java
-      - name: Docker Build
-        run: docker-compose build debian-java
-      - name: Docker Run
-        run: docker-compose run debian-java
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        shell: bash
+        run: ci/scripts/util_checkout.sh
+      - name: Free Up Disk Space
+        shell: bash
+        run: ci/scripts/util_cleanup.sh
+      - name: Cache Docker Volumes
+        uses: actions/cache@v1
+        with:
+          path: .docker
+          key: maven-${{ hashFiles('java/**') }}
+          restore-keys: maven-
+      - name: Setup Python
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.8
+      - name: Setup Archery
+        run: pip install -e dev/archery[docker]
+      - name: Execute Docker Build
+        run: archery docker run debian-java
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         continue-on-error: true
-        shell: bash
-        run: |
-          docker login -u ${{ secrets.DOCKERHUB_USER }} \
-                       -p ${{ secrets.DOCKERHUB_TOKEN }}
-          docker-compose push debian-java
+        run: archery docker push debian-go
 
   macos:
     name: AMD64 MacOS 10.15 Java JDK ${{ matrix.jdk }}
@@ -76,9 +99,12 @@ jobs:
         with:
           java-version: ${{ matrix.jdk }}
       - name: Checkout Arrow
-        uses: actions/checkout@v1
+        uses: actions/checkout@v2
         with:
-          submodules: true
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        shell: bash
+        run: ci/scripts/util_checkout.sh
       - name: Build
         shell: bash
         run: ci/scripts/java_build.sh $(pwd) $(pwd)/build

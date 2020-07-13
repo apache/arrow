@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_PYTHON_DECIMAL_H
-#define ARROW_PYTHON_DECIMAL_H
+#pragma once
 
 #include <string>
 
@@ -109,5 +108,3 @@ class ARROW_PYTHON_EXPORT DecimalMetadata {
 }  // namespace internal
 }  // namespace py
 }  // namespace arrow
-
-#endif  // ARROW_PYTHON_DECIMAL_H

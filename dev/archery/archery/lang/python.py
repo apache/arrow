@@ -26,12 +26,21 @@ except ImportError:
 else:
     have_numpydoc = True
 
-from ..utils.command import Command, default_bin
+from ..utils.command import Command, capture_stdout, default_bin
 
 
 class Flake8(Command):
     def __init__(self, flake8_bin=None):
         self.bin = default_bin(flake8_bin, "flake8")
+
+
+class Autopep8(Command):
+    def __init__(self, autopep8_bin=None):
+        self.bin = default_bin(autopep8_bin, "autopep8")
+
+    @capture_stdout()
+    def run_captured(self, *args, **kwargs):
+        return self.run(*args, **kwargs)
 
 
 def _tokenize_signature(s):
@@ -63,7 +72,6 @@ def _convert_typehint(tokens):
                 # are not supported by _signature_fromstr
                 yield (names[1].type, names[1].string)
             elif len(names) > 2:
-                print(names)
                 raise ValueError('More than two NAME tokens follow each other')
             names = []
             yield (token.type, token.string)
@@ -71,7 +79,7 @@ def _convert_typehint(tokens):
 
 def inspect_signature(obj):
     """
-    Custom signature inspection primarly for cython generated callables.
+    Custom signature inspection primarily for cython generated callables.
 
     Cython puts the signatures to the first line of the docstrings, which we
     can reuse to parse the python signature from, but some gymnastics are
@@ -179,8 +187,8 @@ class NumpyDoc:
             Docstring._load_obj = orig_load_obj
             inspect.signature = orig_signature
 
-    def validate(self, from_package='', rules_blacklist=None,
-                 rules_whitelist=None):
+    def validate(self, from_package='', allow_rules=None,
+                 disallow_rules=None):
         results = []
 
         def callback(obj):
@@ -188,9 +196,9 @@ class NumpyDoc:
 
             errors = []
             for errcode, errmsg in result.get('errors', []):
-                if rules_whitelist and errcode not in rules_whitelist:
+                if allow_rules and errcode not in allow_rules:
                     continue
-                if rules_blacklist and errcode in rules_blacklist:
+                if disallow_rules and errcode in disallow_rules:
                     continue
                 errors.append((errcode, errmsg))
 

@@ -19,7 +19,8 @@ from libcpp.memory cimport shared_ptr
 from pyarrow.includes.libarrow cimport (CArray, CDataType, CField,
                                         CRecordBatch, CSchema,
                                         CTable, CTensor,
-                                        CSparseCSRMatrix, CSparseCOOTensor)
+                                        CSparseCOOTensor, CSparseCSRMatrix,
+                                        CSparseCSCMatrix, CSparseCSFTensor)
 
 # You cannot assign something to a dereferenced pointer in Cython thus these
 # methods don't use Status to indicate a successful operation.
@@ -92,7 +93,9 @@ cdef api object pyarrow_wrap_data_type(
         out = FixedSizeListType.__new__(FixedSizeListType)
     elif type.get().id() == _Type_STRUCT:
         out = StructType.__new__(StructType)
-    elif type.get().id() == _Type_UNION:
+    elif type.get().id() == _Type_SPARSE_UNION:
+        out = UnionType.__new__(UnionType)
+    elif type.get().id() == _Type_DENSE_UNION:
         out = UnionType.__new__(UnionType)
     elif type.get().id() == _Type_TIMESTAMP:
         out = TimestampType.__new__(TimestampType)
@@ -118,28 +121,21 @@ cdef api object pyarrow_wrap_data_type(
 
 cdef object pyarrow_wrap_metadata(
         const shared_ptr[const CKeyValueMetadata]& meta):
-    cdef const CKeyValueMetadata* cmeta = meta.get()
-
-    if cmeta == nullptr:
+    if meta.get() == nullptr:
         return None
-
-    result = ordered_dict()
-    for i in range(cmeta.size()):
-        result[cmeta.key(i)] = cmeta.value(i)
-
-    return result
+    else:
+        return KeyValueMetadata.wrap(meta)
 
 
-cdef shared_ptr[CKeyValueMetadata] pyarrow_unwrap_metadata(object meta) \
-        except *:
-    cdef vector[c_string] keys, values
+cdef api bint pyarrow_is_metadata(object metadata):
+    return isinstance(metadata, KeyValueMetadata)
 
-    if isinstance(meta, dict):
-        keys = map(tobytes, meta.keys())
-        values = map(tobytes, meta.values())
-        return make_shared[CKeyValueMetadata](keys, values)
 
-    return shared_ptr[CKeyValueMetadata]()
+cdef shared_ptr[const CKeyValueMetadata] pyarrow_unwrap_metadata(object meta):
+    cdef shared_ptr[const CKeyValueMetadata] c_meta
+    if pyarrow_is_metadata(meta):
+        c_meta = (<KeyValueMetadata>meta).unwrap()
+    return c_meta
 
 
 cdef api bint pyarrow_is_field(object field):
@@ -199,16 +195,24 @@ cdef api object pyarrow_wrap_array(const shared_ptr[CArray]& sp_array):
     if sp_array.get() == NULL:
         raise ValueError('Array was NULL')
 
-    cdef CDataType* data_type = sp_array.get().type().get()
-
-    if data_type == NULL:
-        raise ValueError('Array data type was NULL')
-
-    klass = _array_classes[data_type.id()]
+    klass = get_array_class_from_type(sp_array.get().type())
 
     cdef Array arr = klass.__new__(klass)
     arr.init(sp_array)
     return arr
+
+
+cdef api bint pyarrow_is_chunked_array(object array):
+    return isinstance(array, ChunkedArray)
+
+
+cdef api shared_ptr[CChunkedArray] pyarrow_unwrap_chunked_array(object array):
+    cdef ChunkedArray arr
+    if pyarrow_is_chunked_array(array):
+        arr = <ChunkedArray>(array)
+        return arr.sp_chunked_array
+
+    return shared_ptr[CChunkedArray]()
 
 
 cdef api object pyarrow_wrap_chunked_array(
@@ -227,15 +231,12 @@ cdef api object pyarrow_wrap_chunked_array(
 
 
 cdef api bint pyarrow_is_scalar(object value):
-    return isinstance(value, ScalarValue)
+    return isinstance(value, Scalar)
 
 
 cdef api shared_ptr[CScalar] pyarrow_unwrap_scalar(object scalar):
-    cdef ScalarValue value
     if pyarrow_is_scalar(scalar):
-        value = <ScalarValue>(scalar)
-        return value.sp_scalar
-
+        return (<Scalar> scalar).unwrap()
     return shared_ptr[CScalar]()
 
 
@@ -248,9 +249,12 @@ cdef api object pyarrow_wrap_scalar(const shared_ptr[CScalar]& sp_scalar):
     if data_type == NULL:
         raise ValueError('Scalar data type was NULL')
 
+    if data_type.id() not in _scalar_classes:
+        raise ValueError('Scalar type not supported')
+
     klass = _scalar_classes[data_type.id()]
 
-    cdef ScalarValue scalar = klass.__new__(klass)
+    cdef Scalar scalar = klass.__new__(klass)
     scalar.init(sp_scalar)
     return scalar
 
@@ -320,6 +324,52 @@ cdef api object pyarrow_wrap_sparse_csr_matrix(
 
     cdef SparseCSRMatrix sparse_tensor = SparseCSRMatrix.__new__(
         SparseCSRMatrix)
+    sparse_tensor.init(sp_sparse_tensor)
+    return sparse_tensor
+
+
+cdef api bint pyarrow_is_sparse_csc_matrix(object sparse_tensor):
+    return isinstance(sparse_tensor, SparseCSCMatrix)
+
+cdef api shared_ptr[CSparseCSCMatrix] pyarrow_unwrap_sparse_csc_matrix(
+        object sparse_tensor):
+    cdef SparseCSCMatrix sten
+    if pyarrow_is_sparse_csc_matrix(sparse_tensor):
+        sten = <SparseCSCMatrix>(sparse_tensor)
+        return sten.sp_sparse_tensor
+
+    return shared_ptr[CSparseCSCMatrix]()
+
+cdef api object pyarrow_wrap_sparse_csc_matrix(
+        const shared_ptr[CSparseCSCMatrix]& sp_sparse_tensor):
+    if sp_sparse_tensor.get() == NULL:
+        raise ValueError('SparseCSCMatrix was NULL')
+
+    cdef SparseCSCMatrix sparse_tensor = SparseCSCMatrix.__new__(
+        SparseCSCMatrix)
+    sparse_tensor.init(sp_sparse_tensor)
+    return sparse_tensor
+
+
+cdef api bint pyarrow_is_sparse_csf_tensor(object sparse_tensor):
+    return isinstance(sparse_tensor, SparseCSFTensor)
+
+cdef api shared_ptr[CSparseCSFTensor] pyarrow_unwrap_sparse_csf_tensor(
+        object sparse_tensor):
+    cdef SparseCSFTensor sten
+    if pyarrow_is_sparse_csf_tensor(sparse_tensor):
+        sten = <SparseCSFTensor>(sparse_tensor)
+        return sten.sp_sparse_tensor
+
+    return shared_ptr[CSparseCSFTensor]()
+
+cdef api object pyarrow_wrap_sparse_csf_tensor(
+        const shared_ptr[CSparseCSFTensor]& sp_sparse_tensor):
+    if sp_sparse_tensor.get() == NULL:
+        raise ValueError('SparseCSFTensor was NULL')
+
+    cdef SparseCSFTensor sparse_tensor = SparseCSFTensor.__new__(
+        SparseCSFTensor)
     sparse_tensor.init(sp_sparse_tensor)
     return sparse_tensor
 

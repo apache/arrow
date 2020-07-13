@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_DEX_DEX_H
-#define GANDIVA_DEX_DEX_H
+#pragma once
 
 #include <memory>
 #include <string>
@@ -334,5 +333,3 @@ class InExprDex<std::string> : public InExprDexBase<std::string> {
 };
 
 }  // namespace gandiva
-
-#endif  // GANDIVA_DEX_DEX_H

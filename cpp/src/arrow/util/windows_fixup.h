@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// This header may be included multiple times, it's ok.
+// This header needs to be included multiple times.
 
 #ifdef _WIN32
 

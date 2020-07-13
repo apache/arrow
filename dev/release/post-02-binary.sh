@@ -53,6 +53,7 @@ fi
 : ${DEPLOY_DEFAULT:=1}
 : ${DEPLOY_CENTOS:=${DEPLOY_DEFAULT}}
 : ${DEPLOY_DEBIAN:=${DEPLOY_DEFAULT}}
+: ${DEPLOY_NUGET:=${DEPLOY_DEFAULT}}
 : ${DEPLOY_PYTHON:=${DEPLOY_DEFAULT}}
 : ${DEPLOY_UBUNTU:=${DEPLOY_DEFAULT}}
 
@@ -70,6 +71,9 @@ fi
 if [ ${DEPLOY_CENTOS} -gt 0 ]; then
   rake_tasks+=(yum:release)
   yum_targets+=(centos)
+fi
+if [ ${DEPLOY_NUGET} -gt 0 ]; then
+  rake_tasks+=(nuget:release)
 fi
 if [ ${DEPLOY_PYTHON} -gt 0 ]; then
   rake_tasks+=(python:release)

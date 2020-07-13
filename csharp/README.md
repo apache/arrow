@@ -171,6 +171,10 @@ Build from the Apache Arrow project root.
 
 All build artifacts are placed in the **artifacts** folder in the project root.
 
+# Coding Style
+
+This project follows the coding style specified in [Coding Style](https://github.com/dotnet/runtime/blob/master/docs/coding-guidelines/coding-style.md).
+
 # Updating FlatBuffers code
 
 See https://google.github.io/flatbuffers/flatbuffers_guide_use_java_c-sharp.html for how to get the `flatc` executable.

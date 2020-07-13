@@ -24,21 +24,35 @@ RUN \
   echo "debconf debconf/frontend select Noninteractive" | \
     debconf-set-selections
 
-ARG DEBUG
+RUN \
+  echo 'APT::Install-Recommends "false";' > \
+    /etc/apt/apt.conf.d/disable-install-recommends
 
 RUN sed -i'' -e 's/main$/main contrib non-free/g' /etc/apt/sources.list
 
 RUN \
+  echo "deb http://deb.debian.org/debian buster-backports main" > \
+    /etc/apt/sources.list.d/backports.list
+
+ARG DEBUG
+ARG LLVM
+RUN \
   quiet=$([ "${DEBUG}" = "yes" ] || echo "-qq") && \
   apt update ${quiet} && \
   apt install -y -V ${quiet} \
-    bison \
+    apt-transport-https \
+    ca-certificates \
+    gnupg \
+    wget && \
+  wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
+  echo "deb https://apt.llvm.org/buster/ llvm-toolchain-buster-${LLVM} main" > \
+    /etc/apt/sources.list.d/llvm.list && \
+  apt update ${quiet} && \
+  apt install -y -V ${quiet} \
     build-essential \
-    clang-7 \
     cmake \
     debhelper \
     devscripts \
-    flex \
     git \
     gtk-doc-tools \
     libboost-filesystem-dev \
@@ -56,6 +70,8 @@ RUN \
     libre2-dev \
     libsnappy-dev \
     libssl-dev \
+    libthrift-dev \
+    libutf8proc-dev \
     libzstd-dev \
     lsb-release \
     ninja-build \
@@ -66,6 +82,11 @@ RUN \
     rapidjson-dev \
     tzdata \
     zlib1g-dev && \
+  if [ "$(dpkg --print-architecture)" != "arm64" ]; then \
+    apt install -y -V ${quiet} \
+      clang-${LLVM} \
+      llvm-${LLVM}-dev; \
+  fi && \
   if apt list | grep '^nvidia-cuda-toolkit/'; then \
     apt install -y -V ${quiet} nvidia-cuda-toolkit; \
   fi && \

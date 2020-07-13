@@ -22,10 +22,10 @@ import java.sql.Clob;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.VarCharVector;
 
-import io.netty.buffer.ArrowBuf;
 import io.netty.util.internal.PlatformDependent;
 
 /**

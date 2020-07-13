@@ -135,7 +135,7 @@ def log_memory_allocations(enable=True):
 
     Parameters
     ----------
-    enable : boolean, default True
+    enable : bool, default True
         Pass False to disable logging
     """
     if enable:

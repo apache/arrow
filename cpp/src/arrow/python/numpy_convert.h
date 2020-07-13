@@ -18,8 +18,7 @@
 // Functions for converting between pandas's NumPy-based data representation
 // and Arrow data structures
 
-#ifndef ARROW_PYTHON_NUMPY_CONVERT_H
-#define ARROW_PYTHON_NUMPY_CONVERT_H
+#pragma once
 
 #include "arrow/python/platform.h"
 
@@ -65,8 +64,20 @@ ARROW_PYTHON_EXPORT Status
 SparseCOOTensorToNdarray(const std::shared_ptr<SparseCOOTensor>& sparse_tensor,
                          PyObject* base, PyObject** out_data, PyObject** out_coords);
 
+Status SparseCSXMatrixToNdarray(const std::shared_ptr<SparseTensor>& sparse_tensor,
+                                PyObject* base, PyObject** out_data,
+                                PyObject** out_indptr, PyObject** out_indices);
+
 ARROW_PYTHON_EXPORT Status SparseCSRMatrixToNdarray(
     const std::shared_ptr<SparseCSRMatrix>& sparse_tensor, PyObject* base,
+    PyObject** out_data, PyObject** out_indptr, PyObject** out_indices);
+
+ARROW_PYTHON_EXPORT Status SparseCSCMatrixToNdarray(
+    const std::shared_ptr<SparseCSCMatrix>& sparse_tensor, PyObject* base,
+    PyObject** out_data, PyObject** out_indptr, PyObject** out_indices);
+
+ARROW_PYTHON_EXPORT Status SparseCSFTensorToNdarray(
+    const std::shared_ptr<SparseCSFTensor>& sparse_tensor, PyObject* base,
     PyObject** out_data, PyObject** out_indptr, PyObject** out_indices);
 
 ARROW_PYTHON_EXPORT Status NdarraysToSparseCOOTensor(
@@ -79,6 +90,16 @@ ARROW_PYTHON_EXPORT Status NdarraysToSparseCSRMatrix(
     const std::vector<int64_t>& shape, const std::vector<std::string>& dim_names,
     std::shared_ptr<SparseCSRMatrix>* out);
 
+ARROW_PYTHON_EXPORT Status NdarraysToSparseCSCMatrix(
+    MemoryPool* pool, PyObject* data_ao, PyObject* indptr_ao, PyObject* indices_ao,
+    const std::vector<int64_t>& shape, const std::vector<std::string>& dim_names,
+    std::shared_ptr<SparseCSCMatrix>* out);
+
+ARROW_PYTHON_EXPORT Status NdarraysToSparseCSFTensor(
+    MemoryPool* pool, PyObject* data_ao, PyObject* indptr_ao, PyObject* indices_ao,
+    const std::vector<int64_t>& shape, const std::vector<int64_t>& axis_order,
+    const std::vector<std::string>& dim_names, std::shared_ptr<SparseCSFTensor>* out);
+
 ARROW_PYTHON_EXPORT Status
 TensorToSparseCOOTensor(const std::shared_ptr<Tensor>& tensor,
                         std::shared_ptr<SparseCOOTensor>* csparse_tensor);
@@ -87,7 +108,13 @@ ARROW_PYTHON_EXPORT Status
 TensorToSparseCSRMatrix(const std::shared_ptr<Tensor>& tensor,
                         std::shared_ptr<SparseCSRMatrix>* csparse_tensor);
 
+ARROW_PYTHON_EXPORT Status
+TensorToSparseCSCMatrix(const std::shared_ptr<Tensor>& tensor,
+                        std::shared_ptr<SparseCSCMatrix>* csparse_tensor);
+
+ARROW_PYTHON_EXPORT Status
+TensorToSparseCSFTensor(const std::shared_ptr<Tensor>& tensor,
+                        std::shared_ptr<SparseCSFTensor>* csparse_tensor);
+
 }  // namespace py
 }  // namespace arrow
-
-#endif  // ARROW_PYTHON_NUMPY_CONVERT_H

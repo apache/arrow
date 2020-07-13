@@ -24,6 +24,7 @@
 
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
+#include "arrow/util/bitmap_ops.h"
 
 #include "gandiva/dex.h"
 

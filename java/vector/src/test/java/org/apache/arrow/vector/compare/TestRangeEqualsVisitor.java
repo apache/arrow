@@ -30,8 +30,11 @@ import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.LargeVarCharVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.ZeroVector;
+import org.apache.arrow.vector.compare.util.ValueEpsilonEqualizers;
+import org.apache.arrow.vector.complex.DenseUnionVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.StructVector;
@@ -39,6 +42,7 @@ import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.complex.impl.NullableStructWriter;
 import org.apache.arrow.vector.complex.impl.UnionFixedSizeListWriter;
 import org.apache.arrow.vector.complex.impl.UnionListWriter;
+import org.apache.arrow.vector.holders.NullableBigIntHolder;
 import org.apache.arrow.vector.holders.NullableFloat4Holder;
 import org.apache.arrow.vector.holders.NullableFloat8Holder;
 import org.apache.arrow.vector.holders.NullableIntHolder;
@@ -211,6 +215,26 @@ public class TestRangeEqualsVisitor {
   }
 
   @Test
+  public void testLargeVariableWidthVectorRangeEquals() {
+    try (final LargeVarCharVector vector1 = new LargeVarCharVector("vector1", allocator);
+         final LargeVarCharVector vector2 = new LargeVarCharVector("vector2", allocator)) {
+      setVector(vector1, "aaa", "bbb", "ccc", null, "ddd");
+      setVector(vector2, "ccc", "aaa", "bbb", null, "ddd");
+
+      RangeEqualsVisitor visitor = new RangeEqualsVisitor(vector1, vector2,
+          (v1, v2) -> new TypeEqualsVisitor(v2, /*check name*/ false, /*check metadata*/ false).equals(v1));
+
+      assertFalse(visitor.rangeEquals(new Range(/*left start*/ 0, /*right start*/ 0, /*length*/ 1)));
+      assertTrue(visitor.rangeEquals(new Range(/*left start*/ 0, /*right start*/ 1, /*length*/ 1)));
+      assertFalse(visitor.rangeEquals(new Range(/*left start*/ 0, /*right start*/ 0, /*length*/ 3)));
+      assertTrue(visitor.rangeEquals(new Range(/*left start*/ 0, /*right start*/ 1, /*length*/ 2)));
+      assertTrue(visitor.rangeEquals(new Range(/*left start*/ 3, /*right start*/ 3, /*length*/ 1)));
+      assertTrue(visitor.rangeEquals(new Range(/*left start*/ 3, /*right start*/ 3, /*length*/ 2)));
+      assertFalse(visitor.rangeEquals(new Range(/*left start*/ 2, /*right start*/ 2, /*length*/ 2)));
+    }
+  }
+
+  @Test
   public void testStructVectorRangeEquals() {
     try (final StructVector vector1 = StructVector.empty("struct", allocator);
          final StructVector vector2 = StructVector.empty("struct", allocator);) {
@@ -330,6 +354,101 @@ public class TestRangeEqualsVisitor {
       RangeEqualsVisitor visitor = new RangeEqualsVisitor(vector1, vector2);
       assertFalse(visitor.rangeEquals(new Range(0, 0, 4)));
       assertTrue(visitor.rangeEquals(new Range(1, 1, 2)));
+    }
+  }
+
+  @Test
+  public void testDenseUnionVectorEquals() {
+    final NullableIntHolder intHolder = new NullableIntHolder();
+    intHolder.isSet = 1;
+    intHolder.value = 100;
+
+    final NullableBigIntHolder bigIntHolder = new NullableBigIntHolder();
+    bigIntHolder.isSet = 1;
+    bigIntHolder.value = 200L;
+
+    final NullableFloat4Holder float4Holder = new NullableFloat4Holder();
+    float4Holder.isSet = 1;
+    float4Holder.value = 400F;
+
+    final NullableFloat8Holder float8Holder = new NullableFloat8Holder();
+    float8Holder.isSet = 1;
+    float8Holder.value = 800D;
+
+    try (DenseUnionVector vector1 = new DenseUnionVector("vector1", allocator, null, null);
+         DenseUnionVector vector2 = new DenseUnionVector("vector2", allocator, null, null)) {
+      vector1.allocateNew();
+      vector2.allocateNew();
+
+      // populate vector1: {100, 200L, null, 400F, 800D}
+      byte intTypeId = vector1.registerNewTypeId(Field.nullable("int", Types.MinorType.INT.getType()));
+      byte longTypeId = vector1.registerNewTypeId(Field.nullable("long", Types.MinorType.BIGINT.getType()));
+      byte floatTypeId = vector1.registerNewTypeId(Field.nullable("float", Types.MinorType.FLOAT4.getType()));
+      byte doubleTypeId = vector1.registerNewTypeId(Field.nullable("double", Types.MinorType.FLOAT8.getType()));
+
+      vector1.setTypeId(0, intTypeId);
+      vector1.setSafe(0, intHolder);
+
+      vector1.setTypeId(1, longTypeId);
+      vector1.setSafe(1, bigIntHolder);
+
+      vector1.setTypeId(3, floatTypeId);
+      vector1.setSafe(3, float4Holder);
+
+      vector1.setTypeId(4, doubleTypeId);
+      vector1.setSafe(4, float8Holder);
+
+      vector1.setValueCount(5);
+
+      // populate vector2: {400F, null, 200L, null, 400F, 800D, 100}
+      intTypeId = vector2.registerNewTypeId(Field.nullable("int", Types.MinorType.INT.getType()));
+      longTypeId = vector2.registerNewTypeId(Field.nullable("long", Types.MinorType.BIGINT.getType()));
+      floatTypeId = vector2.registerNewTypeId(Field.nullable("float", Types.MinorType.FLOAT4.getType()));
+      doubleTypeId = vector2.registerNewTypeId(Field.nullable("double", Types.MinorType.FLOAT8.getType()));
+
+      vector2.setTypeId(0, floatTypeId);
+      vector2.setSafe(0, float4Holder);
+
+      vector2.setTypeId(2, longTypeId);
+      vector2.setSafe(2, bigIntHolder);
+
+      vector2.setTypeId(4, floatTypeId);
+      vector2.setSafe(4, float4Holder);
+
+      vector2.setTypeId(5, doubleTypeId);
+      vector2.setSafe(5, float8Holder);
+
+      vector2.setTypeId(6, intTypeId);
+      vector2.setSafe(6, intHolder);
+
+      vector2.setValueCount(7);
+
+      // compare ranges
+      TypeEqualsVisitor typeVisitor =
+          new TypeEqualsVisitor(vector2, /* check name */ false, /* check meta data */ true);
+      RangeEqualsVisitor equalsVisitor =
+          new RangeEqualsVisitor(vector1, vector2, (left, right) -> typeVisitor.equals(left));
+
+      // different ranges {100, 200L} != {400F, null}
+      assertFalse(equalsVisitor.rangeEquals(new Range(0, 0, 2)));
+
+      // different ranges without null {100, 200L} != {400F, null}
+      assertFalse(equalsVisitor.rangeEquals(new Range(3, 5, 2)));
+
+      // equal ranges {200L, null, 400F, 800D}
+      assertTrue(equalsVisitor.rangeEquals(new Range(1, 2, 4)));
+
+      // equal ranges without null {400F, 800D}
+      assertTrue(equalsVisitor.rangeEquals(new Range(3, 4, 2)));
+
+      // equal ranges with only null {null}
+      assertTrue(equalsVisitor.rangeEquals(new Range(2, 3, 1)));
+
+      // equal ranges with single element {100}
+      assertTrue(equalsVisitor.rangeEquals(new Range(0, 6, 1)));
+
+      // different ranges with single element {100} != {200L}
+      assertFalse(equalsVisitor.rangeEquals(new Range(0, 2, 1)));
     }
   }
 
@@ -469,6 +588,82 @@ public class TestRangeEqualsVisitor {
       Range range = new Range(0, 0, right.getValueCount());
       assertTrue(new ApproxEqualsVisitor(left1, right, epsilon, epsilon).rangeEquals(range));
       assertFalse(new ApproxEqualsVisitor(left2, right, epsilon, epsilon).rangeEquals(range));
+    }
+  }
+
+  @Test
+  public void testDenseUnionVectorApproxEquals() {
+    final NullableFloat4Holder float4Holder = new NullableFloat4Holder();
+    float4Holder.isSet = 1;
+
+    final NullableFloat8Holder float8Holder = new NullableFloat8Holder();
+    float8Holder.isSet = 1;
+
+    final float floatEpsilon = 0.02F;
+    final double doubleEpsilon = 0.02;
+
+    try (final DenseUnionVector vector1 = new DenseUnionVector("vector1", allocator, null, null);
+         final DenseUnionVector vector2 = new DenseUnionVector("vector2", allocator, null, null);
+         final DenseUnionVector vector3 = new DenseUnionVector("vector2", allocator, null, null)) {
+
+      vector1.allocateNew();
+      vector2.allocateNew();
+      vector3.allocateNew();
+
+      // populate vector1: {1.0f, 2.0D}
+      byte floatTypeId = vector1.registerNewTypeId(Field.nullable("float", Types.MinorType.FLOAT4.getType()));
+      byte doubleTypeId = vector1.registerNewTypeId(Field.nullable("double", Types.MinorType.FLOAT8.getType()));
+
+      float4Holder.value = 1.0f;
+      vector1.setTypeId(0, floatTypeId);
+      vector1.setSafe(0, float4Holder);
+      float8Holder.value = 2.0D;
+      vector1.setTypeId(1, doubleTypeId);
+      vector1.setSafe(1, float8Holder);
+      vector1.setValueCount(2);
+
+      // populate vector2: {1.01f, 2.01D}
+      floatTypeId = vector2.registerNewTypeId(Field.nullable("float", Types.MinorType.FLOAT4.getType()));
+      doubleTypeId = vector2.registerNewTypeId(Field.nullable("double", Types.MinorType.FLOAT8.getType()));
+
+      float4Holder.value = 1.01f;
+      vector2.setTypeId(0, floatTypeId);
+      vector2.setSafe(0, float4Holder);
+      float8Holder.value = 2.01D;
+      vector2.setTypeId(1, doubleTypeId);
+      vector2.setSafe(1, float8Holder);
+      vector2.setValueCount(2);
+
+      // populate vector3: {1.05f, 2.05D}
+      floatTypeId = vector3.registerNewTypeId(Field.nullable("float", Types.MinorType.FLOAT4.getType()));
+      doubleTypeId = vector3.registerNewTypeId(Field.nullable("double", Types.MinorType.FLOAT8.getType()));
+
+      float4Holder.value = 1.05f;
+      vector3.setTypeId(0, floatTypeId);
+      vector3.setSafe(0, float4Holder);
+      float8Holder.value = 2.05D;
+      vector3.setTypeId(1, doubleTypeId);
+      vector3.setSafe(1, float8Holder);
+      vector3.setValueCount(2);
+
+      // verify comparison results
+      Range range = new Range(0, 0, 2);
+
+      // compare vector1 and vector2
+      ApproxEqualsVisitor approxEqualsVisitor = new ApproxEqualsVisitor(
+          vector1, vector2,
+          new ValueEpsilonEqualizers.Float4EpsilonEqualizer(floatEpsilon),
+          new ValueEpsilonEqualizers.Float8EpsilonEqualizer(doubleEpsilon),
+          (v1, v2) -> new TypeEqualsVisitor(v2, /* check name */ false, /* check meta */ true).equals(v1));
+      assertTrue(approxEqualsVisitor.rangeEquals(range));
+
+      // compare vector1 and vector3
+      approxEqualsVisitor = new ApproxEqualsVisitor(
+          vector1, vector3,
+          new ValueEpsilonEqualizers.Float4EpsilonEqualizer(floatEpsilon),
+          new ValueEpsilonEqualizers.Float8EpsilonEqualizer(doubleEpsilon),
+          (v1, v2) -> new TypeEqualsVisitor(v2, /* check name */ false, /* check meta */ true).equals(v1));
+      assertFalse(approxEqualsVisitor.rangeEquals(range));
     }
   }
 

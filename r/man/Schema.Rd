@@ -42,7 +42,9 @@ to \code{character}.
 \item \verb{$fields}: returns the list of \code{Field}s in the \code{Schema}, suitable for
 iterating over
 \item \verb{$HasMetadata}: logical: does this \code{Schema} have extra metadata?
-\item \verb{$metadata}: returns the extra metadata, if present, else \code{NULL}
+\item \verb{$metadata}: returns the key-value metadata as a named list.
+Modify or replace by assigning in (\code{sch$metadata <- new_metadata}).
+All list elements are coerced to string.
 }
 }
 

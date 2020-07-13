@@ -1,4 +1,4 @@
-﻿// Licensed to the Apache Software Foundation (ASF) under one
+// Licensed to the Apache Software Foundation (ASF) under one
 // or more contributor license agreements.  See the NOTICE file
 // distributed with this work for additional information
 // regarding copyright ownership.  The ASF licenses this file
@@ -29,7 +29,6 @@
 #include "gandiva/dex.h"
 #include "gandiva/expr_decomposer.h"
 #include "gandiva/expression.h"
-#include "gandiva/function_registry.h"
 #include "gandiva/lvalue.h"
 
 namespace gandiva {
@@ -666,14 +665,6 @@ void LLVMGenerator::Visitor::Visit(const LiteralDex& dex) {
       value = types->i16_constant(arrow::util::get<int16_t>(dex.holder()));
       break;
 
-    case arrow::Type::INT32:
-      value = types->i32_constant(arrow::util::get<int32_t>(dex.holder()));
-      break;
-
-    case arrow::Type::INT64:
-      value = types->i64_constant(arrow::util::get<int64_t>(dex.holder()));
-      break;
-
     case arrow::Type::FLOAT:
       value = types->float_constant(arrow::util::get<float>(dex.holder()));
       break;
@@ -692,19 +683,18 @@ void LLVMGenerator::Visitor::Visit(const LiteralDex& dex) {
       break;
     }
 
-    case arrow::Type::DATE64:
-      value = types->i64_constant(arrow::util::get<int64_t>(dex.holder()));
-      break;
-
+    case arrow::Type::INT32:
+    case arrow::Type::DATE32:
     case arrow::Type::TIME32:
+    case arrow::Type::INTERVAL_MONTHS:
       value = types->i32_constant(arrow::util::get<int32_t>(dex.holder()));
       break;
 
+    case arrow::Type::INT64:
+    case arrow::Type::DATE64:
     case arrow::Type::TIME64:
-      value = types->i64_constant(arrow::util::get<int64_t>(dex.holder()));
-      break;
-
     case arrow::Type::TIMESTAMP:
+    case arrow::Type::INTERVAL_DAY_TIME:
       value = types->i64_constant(arrow::util::get<int64_t>(dex.holder()));
       break;
 
@@ -807,7 +797,7 @@ void LLVMGenerator::Visitor::Visit(const NullableInternalFuncDex& dex) {
   auto params = BuildParams(dex.function_holder().get(), dex.args(), true,
                             native_function->NeedsContext());
 
-  // add an extra arg for validity (alloced on stack).
+  // add an extra arg for validity (allocated on stack).
   llvm::AllocaInst* result_valid_ptr =
       new llvm::AllocaInst(types->i8_type(), 0, "result_valid", entry_block_);
   params.push_back(result_valid_ptr);
@@ -919,7 +909,7 @@ void LLVMGenerator::Visitor::Visit(const BooleanAndDex& dex) {
   }
   builder->CreateBr(non_short_circuit_bb);
 
-  // Short-circuit case (atleast one of the expressions is valid and false).
+  // Short-circuit case (at least one of the expressions is valid and false).
   // No need to set validity bit (valid by default).
   builder->SetInsertPoint(short_circuit_bb);
   ADD_VISITOR_TRACE("BooleanAndExpression result value false");
@@ -985,7 +975,7 @@ void LLVMGenerator::Visitor::Visit(const BooleanOrDex& dex) {
   }
   builder->CreateBr(non_short_circuit_bb);
 
-  // Short-circuit case (atleast one of the expressions is valid and true).
+  // Short-circuit case (at least one of the expressions is valid and true).
   // No need to set validity bit (valid by default).
   builder->SetInsertPoint(short_circuit_bb);
   ADD_VISITOR_TRACE("BooleanOrExpression result value true");
@@ -1160,7 +1150,7 @@ LValuePtr LLVMGenerator::Visitor::BuildFunctionCall(const NativeFunction* func,
         isDecimalFunction = true;
       }
     }
-    // add extra arg for return length for variable len return types (alloced on stack).
+    // add extra arg for return length for variable len return types (allocated on stack).
     llvm::AllocaInst* result_len_ptr = nullptr;
     if (arrow::is_binary_like(arrow_return_type_id)) {
       result_len_ptr = new llvm::AllocaInst(generator_->types()->i32_type(), 0,

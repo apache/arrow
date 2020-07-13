@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_UTIL_UTF8_H
-#define ARROW_UTIL_UTF8_H
+#pragma once
 
 #include <cassert>
 #include <cstdint>
@@ -26,6 +25,7 @@
 
 #include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/simd.h"
 #include "arrow/util/string_view.h"
 #include "arrow/util/visibility.h"
 
@@ -172,11 +172,218 @@ inline bool ValidateUTF8(const util::string_view& str) {
   return ValidateUTF8(data, length);
 }
 
+inline bool ValidateAsciiSw(const uint8_t* data, int64_t len) {
+  uint8_t orall = 0;
+
+  if (len >= 16) {
+    uint64_t or1 = 0, or2 = 0;
+    const uint8_t* data2 = data + 8;
+
+    do {
+      or1 |= *(const uint64_t*)data;
+      or2 |= *(const uint64_t*)data2;
+      data += 16;
+      data2 += 16;
+      len -= 16;
+    } while (len >= 16);
+
+    orall = !((or1 | or2) & 0x8080808080808080ULL) - 1;
+  }
+
+  while (len--) {
+    orall |= *data++;
+  }
+
+  if (orall < 0x80) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
+#ifdef ARROW_HAVE_NEON
+inline bool ValidateAsciiSimd(const uint8_t* data, int64_t len) {
+  if (len >= 32) {
+    const uint8_t* data2 = data + 16;
+    uint8x16_t or1 = vdupq_n_u8(0), or2 = or1;
+
+    while (len >= 32) {
+      const uint8x16_t input1 = vld1q_u8(data);
+      const uint8x16_t input2 = vld1q_u8(data2);
+
+      or1 = vorrq_u8(or1, input1);
+      or2 = vorrq_u8(or2, input2);
+
+      data += 32;
+      data2 += 32;
+      len -= 32;
+    }
+
+    or1 = vorrq_u8(or1, or2);
+    if (vmaxvq_u8(or1) >= 0x80) {
+      return false;
+    }
+  }
+
+  return ValidateAsciiSw(data, len);
+}
+#endif  // ARROW_HAVE_NEON
+
+#if defined(ARROW_HAVE_SSE4_2)
+inline bool ValidateAsciiSimd(const uint8_t* data, int64_t len) {
+  if (len >= 32) {
+    const uint8_t* data2 = data + 16;
+    __m128i or1 = _mm_set1_epi8(0), or2 = or1;
+
+    while (len >= 32) {
+      __m128i input1 = _mm_lddqu_si128((const __m128i*)data);
+      __m128i input2 = _mm_lddqu_si128((const __m128i*)data2);
+
+      or1 = _mm_or_si128(or1, input1);
+      or2 = _mm_or_si128(or2, input2);
+
+      data += 32;
+      data2 += 32;
+      len -= 32;
+    }
+
+    or1 = _mm_or_si128(or1, or2);
+    if (_mm_movemask_epi8(_mm_cmplt_epi8(or1, _mm_set1_epi8(0)))) {
+      return false;
+    }
+  }
+
+  return ValidateAsciiSw(data, len);
+}
+#endif  // ARROW_HAVE_SSE4_2
+
+inline bool ValidateAscii(const uint8_t* data, int64_t len) {
+#if defined(ARROW_HAVE_NEON) || defined(ARROW_HAVE_SSE4_2)
+  return ValidateAsciiSimd(data, len);
+#else
+  return ValidateAsciiSw(data, len);
+#endif
+}
+
+inline bool ValidateAscii(const util::string_view& str) {
+  const uint8_t* data = reinterpret_cast<const uint8_t*>(str.data());
+  const size_t length = str.size();
+
+  return ValidateAscii(data, length);
+}
+
 // Skip UTF8 byte order mark, if any.
 ARROW_EXPORT
 Result<const uint8_t*> SkipUTF8BOM(const uint8_t* data, int64_t size);
 
+static constexpr uint32_t kMaxUnicodeCodepoint = 0x110000;
+
+static inline bool Utf8IsContinuation(const uint8_t codeunit) {
+  return (codeunit & 0xC0) == 0x80;  // upper two bits should be 10
+}
+
+static inline uint8_t* UTF8Encode(uint8_t* str, uint32_t codepoint) {
+  if (codepoint < 0x80) {
+    *str++ = codepoint;
+  } else if (codepoint < 0x800) {
+    *str++ = 0xC0 + (codepoint >> 6);
+    *str++ = 0x80 + (codepoint & 0x3F);
+  } else if (codepoint < 0x10000) {
+    *str++ = 0xE0 + (codepoint >> 12);
+    *str++ = 0x80 + ((codepoint >> 6) & 0x3F);
+    *str++ = 0x80 + (codepoint & 0x3F);
+  } else {
+    // Assume proper codepoints are always passed
+    assert(codepoint < kMaxUnicodeCodepoint);
+    *str++ = 0xF0 + (codepoint >> 18);
+    *str++ = 0x80 + ((codepoint >> 12) & 0x3F);
+    *str++ = 0x80 + ((codepoint >> 6) & 0x3F);
+    *str++ = 0x80 + (codepoint & 0x3F);
+  }
+  return str;
+}
+
+static inline bool UTF8Decode(const uint8_t** data, uint32_t* codepoint) {
+  const uint8_t* str = *data;
+  if (*str < 0x80) {  // ascci
+    *codepoint = *str++;
+  } else if (ARROW_PREDICT_FALSE(*str < 0xC0)) {  // invalid non-ascii char
+    return false;
+  } else if (*str < 0xE0) {
+    uint8_t code_unit_1 = (*str++) & 0x1F;  // take last 5 bits
+    if (ARROW_PREDICT_FALSE(!Utf8IsContinuation(*str))) {
+      return false;
+    }
+    uint8_t code_unit_2 = (*str++) & 0x3F;  // take last 6 bits
+    *codepoint = (code_unit_1 << 6) + code_unit_2;
+  } else if (*str < 0xF0) {
+    uint8_t code_unit_1 = (*str++) & 0x0F;  // take last 4 bits
+    if (ARROW_PREDICT_FALSE(!Utf8IsContinuation(*str))) {
+      return false;
+    }
+    uint8_t code_unit_2 = (*str++) & 0x3F;  // take last 6 bits
+    if (ARROW_PREDICT_FALSE(!Utf8IsContinuation(*str))) {
+      return false;
+    }
+    uint8_t code_unit_3 = (*str++) & 0x3F;  // take last 6 bits
+    *codepoint = (code_unit_1 << 12) + (code_unit_2 << 6) + code_unit_3;
+  } else if (*str < 0xF8) {
+    uint8_t code_unit_1 = (*str++) & 0x07;  // take last 3 bits
+    if (ARROW_PREDICT_FALSE(!Utf8IsContinuation(*str))) {
+      return false;
+    }
+    uint8_t code_unit_2 = (*str++) & 0x3F;  // take last 6 bits
+    if (ARROW_PREDICT_FALSE(!Utf8IsContinuation(*str))) {
+      return false;
+    }
+    uint8_t code_unit_3 = (*str++) & 0x3F;  // take last 6 bits
+    if (ARROW_PREDICT_FALSE(!Utf8IsContinuation(*str))) {
+      return false;
+    }
+    uint8_t code_unit_4 = (*str++) & 0x3F;  // take last 6 bits
+    *codepoint =
+        (code_unit_1 << 18) + (code_unit_2 << 12) + (code_unit_3 << 6) + code_unit_4;
+  } else {  // invalid non-ascii char
+    return false;
+  }
+  *data = str;
+  return true;
+}
+
+template <class UnaryOperation>
+static inline bool UTF8Transform(const uint8_t* first, const uint8_t* last,
+                                 uint8_t** destination, UnaryOperation&& unary_op) {
+  const uint8_t* i = first;
+  uint8_t* out = *destination;
+  while (i < last) {
+    uint32_t codepoint = 0;
+    if (ARROW_PREDICT_FALSE(!UTF8Decode(&i, &codepoint))) {
+      return false;
+    }
+    out = UTF8Encode(out, unary_op(codepoint));
+  }
+  *destination = out;
+  return true;
+}
+
+template <class UnaryPredicate>
+static inline bool UTF8AllOf(const uint8_t* first, const uint8_t* last, bool* result,
+                             UnaryPredicate&& predicate) {
+  const uint8_t* i = first;
+  while (i < last) {
+    uint32_t codepoint = 0;
+    if (ARROW_PREDICT_FALSE(!UTF8Decode(&i, &codepoint))) {
+      return false;
+    }
+
+    if (!predicate(codepoint)) {
+      *result = false;
+      return true;
+    }
+  }
+  *result = true;
+  return true;
+}
+
 }  // namespace util
 }  // namespace arrow
-
-#endif

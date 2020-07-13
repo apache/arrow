@@ -113,12 +113,11 @@ impl ArrayEqual for BooleanArray {
 
         // TODO: we can do this more efficiently if all values are not-null
         for i in 0..self.len() {
-            if self.is_valid(i) {
-                if bit_util::get_bit(values, i + self.offset())
+            if self.is_valid(i)
+                && bit_util::get_bit(values, i + self.offset())
                     != bit_util::get_bit(other_values, i + other.offset())
-                {
-                    return false;
-                }
+            {
+                return false;
             }
         }
 
@@ -139,6 +138,18 @@ impl PartialEq for BooleanArray {
 }
 
 impl PartialEq for StringArray {
+    fn eq(&self, other: &Self) -> bool {
+        self.equals(other)
+    }
+}
+
+impl PartialEq for FixedSizeBinaryArray {
+    fn eq(&self, other: &Self) -> bool {
+        self.equals(other)
+    }
+}
+
+impl PartialEq for BinaryArray {
     fn eq(&self, other: &Self) -> bool {
         self.equals(other)
     }
@@ -177,6 +188,78 @@ impl ArrayEqual for ListArray {
     ) -> bool {
         assert!(other_start_idx + (end_idx - start_idx) <= other.len());
         let other = other.as_any().downcast_ref::<ListArray>().unwrap();
+
+        let mut j = other_start_idx;
+        for i in start_idx..end_idx {
+            let is_null = self.is_null(i);
+            let other_is_null = other.is_null(j);
+
+            if is_null != other_is_null {
+                return false;
+            }
+
+            if is_null {
+                continue;
+            }
+
+            let start_offset = self.value_offset(i) as usize;
+            let end_offset = self.value_offset(i + 1) as usize;
+            let other_start_offset = other.value_offset(j) as usize;
+            let other_end_offset = other.value_offset(j + 1) as usize;
+
+            if end_offset - start_offset != other_end_offset - other_start_offset {
+                return false;
+            }
+
+            if !self.values().range_equals(
+                &*other.values(),
+                start_offset,
+                end_offset,
+                other_start_offset,
+            ) {
+                return false;
+            }
+
+            j += 1;
+        }
+
+        true
+    }
+}
+
+impl ArrayEqual for LargeListArray {
+    fn equals(&self, other: &dyn Array) -> bool {
+        if !base_equal(&self.data(), &other.data()) {
+            return false;
+        }
+
+        let other = other.as_any().downcast_ref::<LargeListArray>().unwrap();
+
+        if !large_value_offset_equal(self, other) {
+            return false;
+        }
+
+        if !self.values().range_equals(
+            &*other.values(),
+            self.value_offset(0) as usize,
+            self.value_offset(self.len()) as usize,
+            other.value_offset(0) as usize,
+        ) {
+            return false;
+        }
+
+        true
+    }
+
+    fn range_equals(
+        &self,
+        other: &dyn Array,
+        start_idx: usize,
+        end_idx: usize,
+        other_start_idx: usize,
+    ) -> bool {
+        assert!(other_start_idx + (end_idx - start_idx) <= other.len());
+        let other = other.as_any().downcast_ref::<LargeListArray>().unwrap();
 
         let mut j = other_start_idx;
         for i in start_idx..end_idx {
@@ -518,6 +601,214 @@ impl ArrayEqual for StringArray {
     }
 }
 
+impl ArrayEqual for LargeBinaryArray {
+    fn equals(&self, other: &dyn Array) -> bool {
+        if !base_equal(&self.data(), &other.data()) {
+            return false;
+        }
+
+        let other = other.as_any().downcast_ref::<LargeBinaryArray>().unwrap();
+
+        if !large_value_offset_equal(self, other) {
+            return false;
+        }
+
+        // TODO: handle null & length == 0 case?
+
+        let value_buf = self.value_data();
+        let other_value_buf = other.value_data();
+        let value_data = value_buf.data();
+        let other_value_data = other_value_buf.data();
+
+        if self.null_count() == 0 {
+            // No offset in both - just do memcmp
+            if self.offset() == 0 && other.offset() == 0 {
+                let len = self.value_offset(self.len()) as usize;
+                return value_data[..len] == other_value_data[..len];
+            } else {
+                let start = self.value_offset(0) as usize;
+                let other_start = other.value_offset(0) as usize;
+                let len = (self.value_offset(self.len()) - self.value_offset(0)) as usize;
+                return value_data[start..(start + len)]
+                    == other_value_data[other_start..(other_start + len)];
+            }
+        } else {
+            for i in 0..self.len() {
+                if self.is_null(i) {
+                    continue;
+                }
+
+                let start = self.value_offset(i) as usize;
+                let other_start = other.value_offset(i) as usize;
+                let len = self.value_length(i) as usize;
+                if value_data[start..(start + len)]
+                    != other_value_data[other_start..(other_start + len)]
+                {
+                    return false;
+                }
+            }
+        }
+
+        true
+    }
+
+    fn range_equals(
+        &self,
+        other: &dyn Array,
+        start_idx: usize,
+        end_idx: usize,
+        other_start_idx: usize,
+    ) -> bool {
+        assert!(other_start_idx + (end_idx - start_idx) <= other.len());
+        let other = other.as_any().downcast_ref::<LargeBinaryArray>().unwrap();
+
+        let mut j = other_start_idx;
+        for i in start_idx..end_idx {
+            let is_null = self.is_null(i);
+            let other_is_null = other.is_null(j);
+
+            if is_null != other_is_null {
+                return false;
+            }
+
+            if is_null {
+                continue;
+            }
+
+            let start_offset = self.value_offset(i) as usize;
+            let end_offset = self.value_offset(i + 1) as usize;
+            let other_start_offset = other.value_offset(j) as usize;
+            let other_end_offset = other.value_offset(j + 1) as usize;
+
+            if end_offset - start_offset != other_end_offset - other_start_offset {
+                return false;
+            }
+
+            let value_buf = self.value_data();
+            let other_value_buf = other.value_data();
+            let value_data = value_buf.data();
+            let other_value_data = other_value_buf.data();
+
+            if end_offset - start_offset > 0 {
+                let len = end_offset - start_offset;
+                if value_data[start_offset..(start_offset + len)]
+                    != other_value_data[other_start_offset..(other_start_offset + len)]
+                {
+                    return false;
+                }
+            }
+
+            j += 1;
+        }
+
+        true
+    }
+}
+
+impl ArrayEqual for LargeStringArray {
+    fn equals(&self, other: &dyn Array) -> bool {
+        if !base_equal(&self.data(), &other.data()) {
+            return false;
+        }
+
+        let other = other.as_any().downcast_ref::<LargeStringArray>().unwrap();
+
+        if !large_value_offset_equal(self, other) {
+            return false;
+        }
+
+        // TODO: handle null & length == 0 case?
+
+        let value_buf = self.value_data();
+        let other_value_buf = other.value_data();
+        let value_data = value_buf.data();
+        let other_value_data = other_value_buf.data();
+
+        if self.null_count() == 0 {
+            // No offset in both - just do memcmp
+            if self.offset() == 0 && other.offset() == 0 {
+                let len = self.value_offset(self.len()) as usize;
+                return value_data[..len] == other_value_data[..len];
+            } else {
+                let start = self.value_offset(0) as usize;
+                let other_start = other.value_offset(0) as usize;
+                let len = (self.value_offset(self.len()) - self.value_offset(0)) as usize;
+                return value_data[start..(start + len)]
+                    == other_value_data[other_start..(other_start + len)];
+            }
+        } else {
+            for i in 0..self.len() {
+                if self.is_null(i) {
+                    continue;
+                }
+
+                let start = self.value_offset(i) as usize;
+                let other_start = other.value_offset(i) as usize;
+                let len = self.value_length(i) as usize;
+                if value_data[start..(start + len)]
+                    != other_value_data[other_start..(other_start + len)]
+                {
+                    return false;
+                }
+            }
+        }
+
+        true
+    }
+
+    fn range_equals(
+        &self,
+        other: &dyn Array,
+        start_idx: usize,
+        end_idx: usize,
+        other_start_idx: usize,
+    ) -> bool {
+        assert!(other_start_idx + (end_idx - start_idx) <= other.len());
+        let other = other.as_any().downcast_ref::<LargeStringArray>().unwrap();
+
+        let mut j = other_start_idx;
+        for i in start_idx..end_idx {
+            let is_null = self.is_null(i);
+            let other_is_null = other.is_null(j);
+
+            if is_null != other_is_null {
+                return false;
+            }
+
+            if is_null {
+                continue;
+            }
+
+            let start_offset = self.value_offset(i) as usize;
+            let end_offset = self.value_offset(i + 1) as usize;
+            let other_start_offset = other.value_offset(j) as usize;
+            let other_end_offset = other.value_offset(j + 1) as usize;
+
+            if end_offset - start_offset != other_end_offset - other_start_offset {
+                return false;
+            }
+
+            let value_buf = self.value_data();
+            let other_value_buf = other.value_data();
+            let value_data = value_buf.data();
+            let other_value_data = other_value_buf.data();
+
+            if end_offset - start_offset > 0 {
+                let len = end_offset - start_offset;
+                if value_data[start_offset..(start_offset + len)]
+                    != other_value_data[other_start_offset..(other_start_offset + len)]
+                {
+                    return false;
+                }
+            }
+
+            j += 1;
+        }
+
+        true
+    }
+}
+
 impl ArrayEqual for FixedSizeBinaryArray {
     fn equals(&self, other: &dyn Array) -> bool {
         if !base_equal(&self.data(), &other.data()) {
@@ -692,6 +983,53 @@ impl ArrayEqual for StructArray {
     }
 }
 
+impl ArrayEqual for UnionArray {
+    fn equals(&self, _other: &dyn Array) -> bool {
+        unimplemented!(
+            "Added to allow UnionArray to implement the Array trait: see ARROW-8576"
+        )
+    }
+
+    fn range_equals(
+        &self,
+        _other: &dyn Array,
+        _start_idx: usize,
+        _end_idx: usize,
+        _other_start_idx: usize,
+    ) -> bool {
+        unimplemented!(
+            "Added to allow UnionArray to implement the Array trait: see ARROW-8576"
+        )
+    }
+}
+
+impl ArrayEqual for NullArray {
+    fn equals(&self, other: &dyn Array) -> bool {
+        if other.data_type() != &DataType::Null {
+            return false;
+        }
+
+        if self.len() != other.len() {
+            return false;
+        }
+        if self.null_count() != other.null_count() {
+            return false;
+        }
+
+        true
+    }
+
+    fn range_equals(
+        &self,
+        _other: &dyn Array,
+        _start_idx: usize,
+        _end_idx: usize,
+        _other_start_idx: usize,
+    ) -> bool {
+        unimplemented!("Range comparison for null array not yet supported")
+    }
+}
+
 // Compare if the common basic fields between the two arrays are equal
 fn base_equal(this: &ArrayDataRef, other: &ArrayDataRef) -> bool {
     if this.data_type() != other.data_type() {
@@ -730,7 +1068,29 @@ fn value_offset_equal<T: Array + ListArrayOps>(this: &T, other: &T) -> bool {
     }
 
     // The expensive case
-    for i in 0..this.len() + 1 {
+    for i in 0..=this.len() {
+        if this.value_offset_at(i) - this.value_offset_at(0)
+            != other.value_offset_at(i) - other.value_offset_at(0)
+        {
+            return false;
+        }
+    }
+
+    true
+}
+
+// Compare if the value offsets are equal between the two list arrays
+fn large_value_offset_equal<T: Array + LargeListArrayOps>(this: &T, other: &T) -> bool {
+    // Check if offsets differ
+    if this.offset() == 0 && other.offset() == 0 {
+        let offset_data = &this.data_ref().buffers()[0];
+        let other_offset_data = &other.data_ref().buffers()[0];
+        return offset_data.data()[0..((this.len() + 1) * 4)]
+            == other_offset_data.data()[0..((other.len() + 1) * 4)];
+    }
+
+    // The expensive case
+    for i in 0..=this.len() {
         if this.value_offset_at(i) - this.value_offset_at(0)
             != other.value_offset_at(i) - other.value_offset_at(0)
         {
@@ -761,12 +1121,10 @@ impl<T: ArrowPrimitiveType> JsonEqual for PrimitiveArray<T> {
             return false;
         }
 
-        let result = (0..self.len()).all(|i| match json[i] {
+        (0..self.len()).all(|i| match json[i] {
             Value::Null => self.is_null(i),
             v => self.is_valid(i) && Some(v) == self.value(i).into_json_value().as_ref(),
-        });
-
-        result
+        })
     }
 }
 
@@ -794,13 +1152,25 @@ impl JsonEqual for ListArray {
             return false;
         }
 
-        let result = (0..self.len()).all(|i| match json[i] {
+        (0..self.len()).all(|i| match json[i] {
             Value::Array(v) => self.is_valid(i) && self.value(i).equals_json_values(v),
             Value::Null => self.is_null(i) || self.value_length(i) == 0,
             _ => false,
-        });
+        })
+    }
+}
 
-        result
+impl JsonEqual for LargeListArray {
+    fn equals_json(&self, json: &[&Value]) -> bool {
+        if self.len() != json.len() {
+            return false;
+        }
+
+        (0..self.len()).all(|i| match json[i] {
+            Value::Array(v) => self.is_valid(i) && self.value(i).equals_json_values(v),
+            Value::Null => self.is_null(i) || self.value_length(i) == 0,
+            _ => false,
+        })
     }
 }
 
@@ -813,8 +1183,26 @@ impl PartialEq<Value> for ListArray {
     }
 }
 
+impl PartialEq<Value> for LargeListArray {
+    fn eq(&self, json: &Value) -> bool {
+        match json {
+            Value::Array(json_array) => self.equals_json_values(json_array),
+            _ => false,
+        }
+    }
+}
+
 impl PartialEq<ListArray> for Value {
     fn eq(&self, arrow: &ListArray) -> bool {
+        match self {
+            Value::Array(json_array) => arrow.equals_json_values(json_array),
+            _ => false,
+        }
+    }
+}
+
+impl PartialEq<LargeListArray> for Value {
+    fn eq(&self, arrow: &LargeListArray) -> bool {
         match self {
             Value::Array(json_array) => arrow.equals_json_values(json_array),
             _ => false,
@@ -858,13 +1246,11 @@ impl JsonEqual for FixedSizeListArray {
             return false;
         }
 
-        let result = (0..self.len()).all(|i| match json[i] {
+        (0..self.len()).all(|i| match json[i] {
             Value::Array(v) => self.is_valid(i) && self.value(i).equals_json_values(v),
             Value::Null => self.is_null(i) || self.value_length() == 0,
             _ => false,
-        });
-
-        result
+        })
     }
 }
 
@@ -916,7 +1302,7 @@ impl JsonEqual for StructArray {
             }
         }
 
-        return true;
+        true
     }
 }
 
@@ -976,6 +1362,44 @@ impl PartialEq<BinaryArray> for Value {
     }
 }
 
+impl JsonEqual for LargeBinaryArray {
+    fn equals_json(&self, json: &[&Value]) -> bool {
+        if self.len() != json.len() {
+            return false;
+        }
+
+        (0..self.len()).all(|i| match json[i] {
+            JString(s) => {
+                // binary data is sometimes hex encoded, this checks if bytes are equal,
+                // and if not converting to hex is attempted
+                self.is_valid(i)
+                    && (s.as_str().as_bytes() == self.value(i)
+                        || Vec::from_hex(s.as_str()) == Ok(self.value(i).to_vec()))
+            }
+            JNull => self.is_null(i),
+            _ => false,
+        })
+    }
+}
+
+impl PartialEq<Value> for LargeBinaryArray {
+    fn eq(&self, json: &Value) -> bool {
+        match json {
+            Value::Array(json_array) => self.equals_json_values(&json_array),
+            _ => false,
+        }
+    }
+}
+
+impl PartialEq<LargeBinaryArray> for Value {
+    fn eq(&self, arrow: &LargeBinaryArray) -> bool {
+        match self {
+            Value::Array(json_array) => arrow.equals_json_values(&json_array),
+            _ => false,
+        }
+    }
+}
+
 impl JsonEqual for StringArray {
     fn equals_json(&self, json: &[&Value]) -> bool {
         if self.len() != json.len() {
@@ -1001,6 +1425,38 @@ impl PartialEq<Value> for StringArray {
 
 impl PartialEq<StringArray> for Value {
     fn eq(&self, arrow: &StringArray) -> bool {
+        match self {
+            Value::Array(json_array) => arrow.equals_json_values(&json_array),
+            _ => false,
+        }
+    }
+}
+
+impl JsonEqual for LargeStringArray {
+    fn equals_json(&self, json: &[&Value]) -> bool {
+        if self.len() != json.len() {
+            return false;
+        }
+
+        (0..self.len()).all(|i| match json[i] {
+            JString(s) => self.is_valid(i) && s.as_str() == self.value(i),
+            JNull => self.is_null(i),
+            _ => false,
+        })
+    }
+}
+
+impl PartialEq<Value> for LargeStringArray {
+    fn eq(&self, json: &Value) -> bool {
+        match json {
+            Value::Array(json_array) => self.equals_json_values(&json_array),
+            _ => false,
+        }
+    }
+}
+
+impl PartialEq<LargeStringArray> for Value {
+    fn eq(&self, arrow: &LargeStringArray) -> bool {
         match self {
             Value::Array(json_array) => arrow.equals_json_values(&json_array),
             _ => false,
@@ -1041,6 +1497,43 @@ impl PartialEq<FixedSizeBinaryArray> for Value {
     fn eq(&self, arrow: &FixedSizeBinaryArray) -> bool {
         match self {
             Value::Array(json_array) => arrow.equals_json_values(&json_array),
+            _ => false,
+        }
+    }
+}
+
+impl JsonEqual for UnionArray {
+    fn equals_json(&self, _json: &[&Value]) -> bool {
+        unimplemented!(
+            "Added to allow UnionArray to implement the Array trait: see ARROW-8547"
+        )
+    }
+}
+
+impl JsonEqual for NullArray {
+    fn equals_json(&self, json: &[&Value]) -> bool {
+        if self.len() != json.len() {
+            return false;
+        }
+
+        // all JSON values must be nulls
+        json.iter().all(|&v| v == &JNull)
+    }
+}
+
+impl PartialEq<NullArray> for Value {
+    fn eq(&self, arrow: &NullArray) -> bool {
+        match self {
+            Value::Array(json_array) => arrow.equals_json_values(&json_array),
+            _ => false,
+        }
+    }
+}
+
+impl PartialEq<Value> for NullArray {
+    fn eq(&self, json: &Value) -> bool {
+        match json {
+            Value::Array(json_array) => self.equals_json_values(&json_array),
             _ => false,
         }
     }
@@ -1367,6 +1860,83 @@ mod tests {
     }
 
     #[test]
+    fn test_large_string_equal() {
+        let a = LargeStringArray::from(vec!["hello", "world"]);
+        let b = LargeStringArray::from(vec!["hello", "world"]);
+        assert!(a.equals(&b));
+        assert!(b.equals(&a));
+
+        let b = LargeStringArray::from(vec!["hello", "arrow"]);
+        assert!(!a.equals(&b));
+        assert!(!b.equals(&a));
+
+        // Test the case where null_count > 0
+
+        let a = LargeStringArray::try_from(vec![
+            Some("hello"),
+            None,
+            None,
+            Some("world"),
+            None,
+            None,
+        ])
+        .unwrap();
+
+        let b = LargeStringArray::try_from(vec![
+            Some("hello"),
+            None,
+            None,
+            Some("world"),
+            None,
+            None,
+        ])
+        .unwrap();
+        assert!(a.equals(&b));
+        assert!(b.equals(&a));
+
+        let b = LargeStringArray::try_from(vec![
+            Some("hello"),
+            Some("foo"),
+            None,
+            Some("world"),
+            None,
+            None,
+        ])
+        .unwrap();
+        assert!(!a.equals(&b));
+        assert!(!b.equals(&a));
+
+        let b = LargeStringArray::try_from(vec![
+            Some("hello"),
+            None,
+            None,
+            Some("arrow"),
+            None,
+            None,
+        ])
+        .unwrap();
+        assert!(!a.equals(&b));
+        assert!(!b.equals(&a));
+
+        // Test the case where offset != 0
+
+        let a_slice = a.slice(0, 3);
+        let b_slice = b.slice(0, 3);
+        assert!(a_slice.equals(&*b_slice));
+        assert!(b_slice.equals(&*a_slice));
+
+        let a_slice = a.slice(0, 5);
+        let b_slice = b.slice(0, 5);
+        assert!(!a_slice.equals(&*b_slice));
+        assert!(!b_slice.equals(&*a_slice));
+
+        let a_slice = a.slice(4, 1);
+        let b_slice = b.slice(4, 1);
+        assert!(a_slice.equals(&*b_slice));
+        assert!(b_slice.equals(&*a_slice));
+    }
+
+    #[test]
     fn test_struct_equal() {
         let string_builder = StringBuilder::new(5);
         let int_builder = Int32Builder::new(5);
@@ -1397,6 +1967,30 @@ mod tests {
 
         assert!(a.equals(&b));
         assert!(b.equals(&a));
+    }
+
+    #[test]
+    fn test_null_equal() {
+        let a = NullArray::new(12);
+        let b = NullArray::new(12);
+        assert!(a.equals(&b));
+        assert!(b.equals(&a));
+
+        let b = NullArray::new(10);
+        assert!(!a.equals(&b));
+        assert!(!b.equals(&a));
+
+        // Test the case where offset != 0
+
+        let a_slice = a.slice(2, 3);
+        let b_slice = b.slice(1, 3);
+        assert!(a_slice.equals(&*b_slice));
+        assert!(b_slice.equals(&*a_slice));
+
+        let a_slice = a.slice(5, 4);
+        let b_slice = b.slice(3, 3);
+        assert!(!a_slice.equals(&*b_slice));
+        assert!(!b_slice.equals(&*a_slice));
     }
 
     fn create_list_array<'a, U: AsRef<[i32]>, T: AsRef<[Option<U>]>>(
@@ -2047,5 +2641,34 @@ mod tests {
         }
 
         Ok(builder.finish())
+    }
+
+    #[test]
+    fn test_null_json_equal() {
+        // Test equaled array
+        let arrow_array = NullArray::new(4);
+        let json_array: Value = serde_json::from_str(
+            r#"
+            [
+                null, null, null, null
+            ]
+        "#,
+        )
+        .unwrap();
+        assert!(arrow_array.eq(&json_array));
+        assert!(json_array.eq(&arrow_array));
+
+        // Test unequaled array
+        let arrow_array = NullArray::new(2);
+        let json_array: Value = serde_json::from_str(
+            r#"
+            [
+                null, null, null
+            ]
+        "#,
+        )
+        .unwrap();
+        assert!(arrow_array.ne(&json_array));
+        assert!(json_array.ne(&arrow_array));
     }
 }

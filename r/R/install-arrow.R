@@ -34,6 +34,9 @@
 #' @param use_system logical: Should we use `pkg-config` to look for Arrow
 #' system packages? Default is `FALSE`. If `TRUE`, source installation may be
 #' faster, but there is a risk of version mismatch.
+#' @param minimal logical: If building from source, should we build without
+#' optional dependencies (compression libraries, for example)? Default is
+#' `FALSE`.
 #' @param repos character vector of base URLs of the repositories to install
 #' from (passed to `install.packages()`)
 #' @param ... Additional arguments passed to `install.packages()`
@@ -45,13 +48,33 @@
 install_arrow <- function(nightly = FALSE,
                           binary = Sys.getenv("LIBARROW_BINARY", TRUE),
                           use_system = Sys.getenv("ARROW_USE_PKG_CONFIG", FALSE),
+                          minimal = Sys.getenv("LIBARROW_MINIMAL", FALSE),
                           repos = getOption("repos"),
                           ...) {
-  if (tolower(Sys.info()[["sysname"]]) %in% c("windows", "darwin", "linux")) {
-    Sys.setenv(LIBARROW_DOWNLOAD = "true")
-    Sys.setenv(LIBARROW_BINARY = binary)
-    Sys.setenv(ARROW_USE_PKG_CONFIG = use_system)
-    install.packages("arrow", repos = arrow_repos(repos, nightly), ...)
+  sysname <- tolower(Sys.info()[["sysname"]])
+  conda <- isTRUE(grepl("conda", R.Version()$platform))
+
+  if (sysname %in% c("windows", "darwin", "linux")) {
+    if (conda && !nightly) {
+      system("conda install -y -c conda-forge --strict-channel-priority r-arrow")
+    } else {
+      Sys.setenv(
+        LIBARROW_DOWNLOAD = "true",
+        LIBARROW_BINARY = binary,
+        LIBARRWOW_MINIMAL = minimal,
+        ARROW_USE_PKG_CONFIG = use_system
+      )
+      if (isTRUE(binary)) {
+        # Unless otherwise directed, don't consider newer source packages when
+        # options(pkgType) == "both" (default on win/mac)
+        opts <- options(
+          install.packages.check.source = "no",
+          install.packages.compile.from.source = "never"
+        )
+        on.exit(options(opts))
+      }
+      install.packages("arrow", repos = arrow_repos(repos, nightly), ...)
+    }
     if ("arrow" %in% loadedNamespaces()) {
       # If you've just sourced this file, "arrow" won't be (re)loaded
       reload_arrow()

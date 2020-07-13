@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#pragma once
+
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -142,7 +144,13 @@ ARROW_FLIGHT_EXPORT
 Status ExampleIntBatches(BatchVector* out);
 
 ARROW_FLIGHT_EXPORT
+Status ExampleFloatBatches(BatchVector* out);
+
+ARROW_FLIGHT_EXPORT
 Status ExampleDictBatches(BatchVector* out);
+
+ARROW_FLIGHT_EXPORT
+Status ExampleNestedBatches(BatchVector* out);
 
 ARROW_FLIGHT_EXPORT
 std::vector<FlightInfo> ExampleFlightInfo();

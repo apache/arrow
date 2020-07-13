@@ -31,6 +31,7 @@ on:
 jobs:
 
   jira-link:
+    if: github.repository == 'apache/arrow'
     name: JIRA link
     runs-on: ubuntu-latest
     steps:
@@ -46,6 +47,7 @@ jobs:
             eval(script);
 
   title-check:
+    if: github.repository == 'apache/arrow'
     name: Title check
     runs-on: ubuntu-latest
     steps:

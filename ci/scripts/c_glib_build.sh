@@ -24,6 +24,8 @@ build_dir=${2}/c_glib
 : ${ARROW_GLIB_GTK_DOC:=false}
 : ${ARROW_GLIB_DEVELOPMENT_MODE:=false}
 
+export PKG_CONFIG_PATH=${ARROW_HOME}/lib/pkgconfig
+
 export CFLAGS="-DARROW_NO_DEPRECATED_API"
 export CXXFLAGS="-DARROW_NO_DEPRECATED_API"
 

@@ -39,6 +39,7 @@ import org.apache.arrow.vector.ipc.message.MessageSerializer;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.DictionaryUtility;
+import org.apache.arrow.vector.validate.MetadataV4UnionChecker;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -83,6 +84,7 @@ public abstract class ArrowWriter implements AutoCloseable {
     List<Field> fields = new ArrayList<>(root.getSchema().getFields().size());
     Set<Long> dictionaryIdsUsed = new HashSet<>();
 
+    MetadataV4UnionChecker.checkForUnion(root.getSchema().getFields().iterator(), option.metadataVersion);
     // Convert fields with dictionaries to have dictionary type
     for (Field field : root.getSchema().getFields()) {
       fields.add(DictionaryUtility.toMessageFormat(field, provider, dictionaryIdsUsed));
@@ -123,15 +125,19 @@ public abstract class ArrowWriter implements AutoCloseable {
 
   protected ArrowBlock writeDictionaryBatch(ArrowDictionaryBatch batch) throws IOException {
     ArrowBlock block = MessageSerializer.serialize(out, batch, option);
-    LOGGER.debug("DictionaryRecordBatch at {}, metadata: {}, body: {}",
-        block.getOffset(), block.getMetadataLength(), block.getBodyLength());
+    if (LOGGER.isDebugEnabled()) {
+      LOGGER.debug("DictionaryRecordBatch at {}, metadata: {}, body: {}",
+          block.getOffset(), block.getMetadataLength(), block.getBodyLength());
+    }
     return block;
   }
 
   protected ArrowBlock writeRecordBatch(ArrowRecordBatch batch) throws IOException {
     ArrowBlock block = MessageSerializer.serialize(out, batch, option);
-    LOGGER.debug("RecordBatch at {}, metadata: {}, body: {}",
-        block.getOffset(), block.getMetadataLength(), block.getBodyLength());
+    if (LOGGER.isDebugEnabled()) {
+      LOGGER.debug("RecordBatch at {}, metadata: {}, body: {}",
+          block.getOffset(), block.getMetadataLength(), block.getBodyLength());
+    }
     return block;
   }
 

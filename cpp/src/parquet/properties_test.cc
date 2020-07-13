@@ -34,8 +34,8 @@ namespace test {
 TEST(TestReaderProperties, Basics) {
   ReaderProperties props;
 
-  ASSERT_EQ(DEFAULT_BUFFER_SIZE, props.buffer_size());
-  ASSERT_EQ(DEFAULT_USE_BUFFERED_STREAM, props.is_buffered_stream_enabled());
+  ASSERT_EQ(props.buffer_size(), kDefaultBufferSize);
+  ASSERT_FALSE(props.is_buffered_stream_enabled());
 }
 
 TEST(TestWriterProperties, Basics) {
@@ -43,7 +43,8 @@ TEST(TestWriterProperties, Basics) {
 
   ASSERT_EQ(kDefaultDataPageSize, props->data_pagesize());
   ASSERT_EQ(DEFAULT_DICTIONARY_PAGE_SIZE_LIMIT, props->dictionary_pagesize_limit());
-  ASSERT_EQ(DEFAULT_WRITER_VERSION, props->version());
+  ASSERT_EQ(ParquetVersion::PARQUET_1_0, props->version());
+  ASSERT_EQ(ParquetDataPageVersion::V1, props->data_page_version());
 }
 
 TEST(TestWriterProperties, AdvancedHandling) {
@@ -53,6 +54,7 @@ TEST(TestWriterProperties, AdvancedHandling) {
   builder.compression(Compression::SNAPPY);
   builder.encoding(Encoding::DELTA_BINARY_PACKED);
   builder.encoding("delta-length", Encoding::DELTA_LENGTH_BYTE_ARRAY);
+  builder.data_page_version(ParquetDataPageVersion::V2);
   std::shared_ptr<WriterProperties> props = builder.build();
 
   ASSERT_EQ(Compression::GZIP, props->compression(ColumnPath::FromDotString("gzip")));
@@ -63,6 +65,7 @@ TEST(TestWriterProperties, AdvancedHandling) {
             props->encoding(ColumnPath::FromDotString("gzip")));
   ASSERT_EQ(Encoding::DELTA_LENGTH_BYTE_ARRAY,
             props->encoding(ColumnPath::FromDotString("delta-length")));
+  ASSERT_EQ(ParquetDataPageVersion::V2, props->data_page_version());
 }
 
 TEST(TestReaderProperties, GetStreamInsufficientData) {

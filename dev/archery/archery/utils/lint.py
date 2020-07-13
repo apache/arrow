@@ -17,6 +17,7 @@
 
 import gzip
 import os
+from pathlib import Path
 
 import click
 
@@ -26,7 +27,7 @@ from .git import git
 from .logger import logger
 from ..lang.cpp import CppCMakeDefinition, CppConfiguration
 from ..lang.rust import Cargo
-from ..lang.python import Flake8, NumpyDoc
+from ..lang.python import Autopep8, Flake8, NumpyDoc
 from .rat import Rat, exclusion_from_globs
 from .tmpdir import tmpdir
 
@@ -99,36 +100,82 @@ def cmake_linter(src, fix=False):
     logger.info("Running cmake-format linters")
 
     if not fix:
-        logger.warn("run-cmake-format modifies files, irregardless of --fix")
+        logger.warn("run-cmake-format modifies files, regardless of --fix")
 
     arrow_cmake_format = os.path.join(src.path, "run-cmake-format.py")
     cmake_format = CMakeFormat(cmake_format_bin=arrow_cmake_format)
     yield LintResult.from_cmd(cmake_format("--check"))
 
 
-def python_linter(src):
-    """Run flake8 linter on python/pyarrow, and dev/. """
-    logger.info("Running python linters")
-    flake8 = Flake8()
+def python_linter(src, fix=False):
+    """Run Python linters on python/pyarrow, python/examples, setup.py
+    and dev/. """
+    setup_py = os.path.join(src.python, "setup.py")
+    setup_cfg = os.path.join(src.python, "setup.cfg")
 
-    if not flake8.available:
-        logger.error("python linter requested but flake8 binary not found.")
+    logger.info("Running Python formatter (autopep8)")
+
+    autopep8 = Autopep8()
+    if not autopep8.available:
+        logger.error(
+            "Python formatter requested but autopep8 binary not found. "
+            "Please run `pip install -r dev/archery/requirements-lint.txt`")
         return
 
-    setup_py = os.path.join(src.python, "setup.py")
-    yield LintResult.from_cmd(flake8(setup_py, src.pyarrow, src.dev,
-                                     check=False))
+    # Gather files for autopep8
+    patterns = ["python/pyarrow/**/*.py",
+                "python/pyarrow/**/*.pyx",
+                "python/pyarrow/**/*.pxd",
+                "python/pyarrow/**/*.pxi",
+                "python/examples/**/*.py",
+                "dev/archery/**/*.py",
+                ]
+    files = [setup_py]
+    for pattern in patterns:
+        files += list(map(str, Path(src.path).glob(pattern)))
+
+    args = ['--global-config', setup_cfg, '--ignore-local-config']
+    if fix:
+        args += ['-j0', '--in-place']
+        args += sorted(files)
+        yield LintResult.from_cmd(autopep8(*args))
+    else:
+        # XXX `-j0` doesn't work well with `--exit-code`, so instead
+        # we capture the diff and check whether it's empty
+        # (https://github.com/hhatto/autopep8/issues/543)
+        args += ['-j0', '--diff']
+        args += sorted(files)
+        diff = autopep8.run_captured(*args)
+        if diff:
+            print(diff.decode('utf8'))
+            yield LintResult(success=False)
+        else:
+            yield LintResult(success=True)
+
+    # Run flake8 after autopep8 (the latter may have modified some files)
+    logger.info("Running Python linter (flake8)")
+
+    flake8 = Flake8()
+    if not flake8.available:
+        logger.error(
+            "Python linter requested but flake8 binary not found. "
+            "Please run `pip install -r dev/archery/requirements-lint.txt`")
+        return
+
+    yield LintResult.from_cmd(flake8(setup_py, src.pyarrow,
+                                     os.path.join(src.python, "examples"),
+                                     src.dev, check=False))
     config = os.path.join(src.python, ".flake8.cython")
     yield LintResult.from_cmd(flake8("--config=" + config, src.pyarrow,
                                      check=False))
 
 
-def python_numpydoc(symbols=None, whitelist=None, blacklist=None):
+def python_numpydoc(symbols=None, allow_rules=None, disallow_rules=None):
     """Run numpydoc linter on python.
 
     Pyarrow must be available for import.
     """
-    logger.info("Running python docstring linters")
+    logger.info("Running Python docstring linters")
     # by default try to run on all pyarrow package
     symbols = symbols or {
         'pyarrow',
@@ -156,8 +203,8 @@ def python_numpydoc(symbols=None, whitelist=None, blacklist=None):
     results = numpydoc.validate(
         # limit the validation scope to the pyarrow package
         from_package='pyarrow',
-        rules_whitelist=whitelist,
-        rules_blacklist=blacklist
+        allow_rules=allow_rules,
+        disallow_rules=disallow_rules
     )
 
     if len(results) == 0:
@@ -216,7 +263,7 @@ def rat_linter(src, root):
     logger.info("Running apache-rat linter")
 
     if src.git_dirty:
-        logger.warn("Due to the usage of git-archive, uncommited files will"
+        logger.warn("Due to the usage of git-archive, uncommitted files will"
                     " not be checked for rat violations. ")
 
     exclusion = exclusion_from_globs(
@@ -230,25 +277,25 @@ def rat_linter(src, root):
 
     violations = list(report.validate(exclusion=exclusion))
     for violation in violations:
-        print(f"apache-rat license violation: {violation}")
+        print("apache-rat license violation: {}".format(violation))
 
     yield LintResult(len(violations) == 0)
 
 
 def r_linter(src):
     """Run R linter."""
-    logger.info("Running r linter")
+    logger.info("Running R linter")
     r_lint_sh = os.path.join(src.r, "lint.sh")
     yield LintResult.from_cmd(Bash().run(r_lint_sh, check=False))
 
 
 def rust_linter(src):
     """Run Rust linter."""
-    logger.info("Running rust linter")
+    logger.info("Running Rust linter")
     cargo = Cargo()
 
     if not cargo.available:
-        logger.error("rust linter requested but cargo executable not found.")
+        logger.error("Rust linter requested but cargo executable not found.")
         return
 
     yield LintResult.from_cmd(cargo.run("+stable", "fmt", "--all", "--",
@@ -273,7 +320,7 @@ def is_docker_image(path):
 
 def docker_linter(src):
     """Run Hadolint docker linter."""
-    logger.info("Running docker linter")
+    logger.info("Running Docker linter")
 
     hadolint = Hadolint()
 
@@ -290,7 +337,7 @@ def docker_linter(src):
 
 def linter(src, fix=False, *, clang_format=False, cpplint=False,
            clang_tidy=False, iwyu=False, iwyu_all=False,
-           flake8=False, numpydoc=False, cmake_format=False, rat=False,
+           python=False, numpydoc=False, cmake_format=False, rat=False,
            r=False, rust=False, docker=False):
     """Run all linters."""
     with tmpdir(prefix="arrow-lint-") as root:
@@ -310,8 +357,8 @@ def linter(src, fix=False, *, clang_format=False, cpplint=False,
                                       iwyu_all=iwyu_all,
                                       fix=fix))
 
-        if flake8:
-            results.extend(python_linter(src))
+        if python:
+            results.extend(python_linter(src, fix=fix))
 
         if numpydoc:
             results.extend(python_numpydoc())

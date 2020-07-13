@@ -190,15 +190,12 @@ impl<T: DataType> ColumnReaderImpl<T> {
                     (self.num_buffered_values - self.num_decoded_values) as usize,
                 );
 
-                // Adjust batch size by taking into account how much space is left in
-                // values slice or levels slices (if available)
-                adjusted_size = min(adjusted_size, values.len() - values_read);
-                if let Some(ref levels) = def_levels {
-                    adjusted_size = min(adjusted_size, levels.len() - levels_read);
-                }
-                if let Some(ref levels) = rep_levels {
-                    adjusted_size = min(adjusted_size, levels.len() - levels_read);
-                }
+                // Adjust batch size by taking into account how much data there
+                // to read. As batch_size is also smaller than value and level
+                // slices (if available), this ensures that available space is not
+                // exceeded.
+                adjusted_size = min(adjusted_size, batch_size - values_read);
+                adjusted_size = min(adjusted_size, batch_size - levels_read);
 
                 adjusted_size
             };
@@ -506,7 +503,7 @@ impl<T: DataType> ColumnReaderImpl<T> {
 mod tests {
     use super::*;
 
-    use rand::distributions::range::SampleRange;
+    use rand::distributions::uniform::SampleUniform;
     use std::{collections::VecDeque, rc::Rc, vec::IntoIter};
 
     use crate::basic::Type as PhysicalType;
@@ -1102,7 +1099,7 @@ mod tests {
 
     struct ColumnReaderTester<T: DataType>
     where
-        T::T: PartialOrd + SampleRange + Copy,
+        T::T: PartialOrd + SampleUniform + Copy,
     {
         rep_levels: Vec<i16>,
         def_levels: Vec<i16>,
@@ -1111,7 +1108,7 @@ mod tests {
 
     impl<T: DataType> ColumnReaderTester<T>
     where
-        T::T: PartialOrd + SampleRange + Copy,
+        T::T: PartialOrd + SampleUniform + Copy,
     {
         pub fn new() -> Self {
             Self {

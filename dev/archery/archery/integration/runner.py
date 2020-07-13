@@ -26,12 +26,14 @@ import sys
 import tempfile
 import traceback
 
+from .scenario import Scenario
 from .tester_cpp import CPPTester
 from .tester_go import GoTester
+from .tester_rust import RustTester
 from .tester_java import JavaTester
 from .tester_js import JSTester
 from .util import (ARROW_ROOT_DEFAULT, guid, SKIP_ARROW, SKIP_FLIGHT,
-                   find_unused_port, printer)
+                   printer)
 from . import datagen
 
 
@@ -49,10 +51,11 @@ class Outcome:
 
 class IntegrationRunner(object):
 
-    def __init__(self, json_files, testers, tempdir=None, debug=False,
-                 stop_on_error=True, gold_dirs=None, serial=False,
-                 match=None, **unused_kwargs):
+    def __init__(self, json_files, flight_scenarios, testers, tempdir=None,
+                 debug=False, stop_on_error=True, gold_dirs=None,
+                 serial=False, match=None, **unused_kwargs):
         self.json_files = json_files
+        self.flight_scenarios = flight_scenarios
         self.testers = testers
         self.temp_dir = tempdir or tempfile.mkdtemp()
         self.debug = debug
@@ -123,7 +126,9 @@ class IntegrationRunner(object):
                             if f.name == name).skip
             except StopIteration:
                 skip = set()
-            yield datagen.JsonFile(name, None, None, skip=skip, path=out_path)
+            if name == 'union' and prefix == '0.17.1':
+                skip.add("Java")
+            yield datagen.File(name, None, None, skip=skip, path=out_path)
 
     def _run_test_cases(self, producer, consumer, case_runner,
                         test_cases):
@@ -251,7 +256,8 @@ class IntegrationRunner(object):
         log('##########################################################')
 
         case_runner = partial(self._run_flight_test_case, producer, consumer)
-        self._run_test_cases(producer, consumer, case_runner, self.json_files)
+        self._run_test_cases(producer, consumer, case_runner,
+                             self.json_files + self.flight_scenarios)
 
     def _run_flight_test_case(self, producer, consumer, test_case):
         """
@@ -259,16 +265,18 @@ class IntegrationRunner(object):
         """
         outcome = Outcome()
 
-        json_path = test_case.path
         log('=' * 58)
-        log('Testing file {0}'.format(json_path))
+        log('Testing file {0}'.format(test_case.name))
         log('=' * 58)
 
-        if ('Java' in (producer.name, consumer.name) and
-           "map" in test_case.name):
-            log('TODO(ARROW-1279): Enable map tests ' +
-                ' for Java and JS once Java supports them and JS\'' +
-                ' are unbroken')
+        if producer.name in test_case.skip:
+            log('-- Skipping test because producer {0} does '
+                'not support'.format(producer.name))
+            outcome.skipped = True
+
+        elif consumer.name in test_case.skip:
+            log('-- Skipping test because consumer {0} does '
+                'not support'.format(consumer.name))
             outcome.skipped = True
 
         elif SKIP_FLIGHT in test_case.skip:
@@ -277,11 +285,17 @@ class IntegrationRunner(object):
 
         else:
             try:
-                port = find_unused_port()
-                with producer.flight_server(port):
+                if isinstance(test_case, Scenario):
+                    server = producer.flight_server(test_case.name)
+                    client_args = {'scenario_name': test_case.name}
+                else:
+                    server = producer.flight_server()
+                    client_args = {'json_path': test_case.path}
+
+                with server as port:
                     # Have the client upload the file, then download and
                     # compare
-                    consumer.flight_request(port, json_path)
+                    consumer.flight_request(port, **client_args)
             except Exception:
                 traceback.print_exc(file=printer.stdout)
                 outcome.failure = Failure(test_case, producer, consumer,
@@ -294,16 +308,16 @@ def get_static_json_files():
     glob_pattern = os.path.join(ARROW_ROOT_DEFAULT,
                                 'integration', 'data', '*.json')
     return [
-        datagen.JsonFile(name=os.path.basename(p), path=p, skip=set(),
-                         schema=None, batches=None)
+        datagen.File(name=os.path.basename(p), path=p, skip=set(),
+                     schema=None, batches=None)
         for p in glob.glob(glob_pattern)
     ]
 
 
 def run_all_tests(with_cpp=True, with_java=True, with_js=True,
-                  with_go=True, run_flight=False,
+                  with_go=True, with_rust=False, run_flight=False,
                   tempdir=None, **kwargs):
-    tempdir = tempdir or tempfile.mkdtemp()
+    tempdir = tempdir or tempfile.mkdtemp(prefix='arrow-integration-')
 
     testers = []
 
@@ -319,6 +333,9 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
     if with_go:
         testers.append(GoTester(**kwargs))
 
+    if with_rust:
+        testers.append(RustTester(**kwargs))
+
     static_json_files = get_static_json_files()
     generated_json_files = datagen.get_generated_json_files(
         tempdir=tempdir,
@@ -326,7 +343,17 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
     )
     json_files = static_json_files + generated_json_files
 
-    runner = IntegrationRunner(json_files, testers, **kwargs)
+    # Additional integration test cases for Arrow Flight.
+    flight_scenarios = [
+        Scenario(
+            "auth:basic_proto",
+            description="Authenticate using the BasicAuth protobuf."),
+        Scenario(
+            "middleware",
+            description="Ensure headers are propagated via middleware."),
+    ]
+
+    runner = IntegrationRunner(json_files, flight_scenarios, testers, **kwargs)
     runner.run()
     if run_flight:
         runner.run_flight()
@@ -363,6 +390,9 @@ def write_js_test_json(directory):
     )
     datagen.generate_dictionary_case().write(
         os.path.join(directory, 'dictionary.json')
+    )
+    datagen.generate_dictionary_unsigned_case().write(
+        os.path.join(directory, 'dictionary_unsigned.json')
     )
     datagen.generate_primitive_case([]).write(
         os.path.join(directory, 'primitive_no_batches.json')

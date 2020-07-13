@@ -26,6 +26,8 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/result.h"
+#include "arrow/status.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/sort.h"
@@ -81,6 +83,69 @@ void KeyValueMetadata::ToUnorderedMap(
 void KeyValueMetadata::Append(const std::string& key, const std::string& value) {
   keys_.push_back(key);
   values_.push_back(value);
+}
+
+Result<std::string> KeyValueMetadata::Get(const std::string& key) const {
+  auto index = FindKey(key);
+  if (index < 0) {
+    return Status::KeyError(key);
+  } else {
+    return value(index);
+  }
+}
+
+Status KeyValueMetadata::Delete(int64_t index) {
+  keys_.erase(keys_.begin() + index);
+  values_.erase(values_.begin() + index);
+  return Status::OK();
+}
+
+Status KeyValueMetadata::DeleteMany(std::vector<int64_t> indices) {
+  std::sort(indices.begin(), indices.end());
+  const int64_t size = static_cast<int64_t>(keys_.size());
+  indices.push_back(size);
+
+  int64_t shift = 0;
+  for (int64_t i = 0; i < static_cast<int64_t>(indices.size() - 1); ++i) {
+    ++shift;
+    const auto start = indices[i] + 1;
+    const auto stop = indices[i + 1];
+    DCHECK_GE(start, 0);
+    DCHECK_LE(start, size);
+    DCHECK_GE(stop, 0);
+    DCHECK_LE(stop, size);
+    for (int64_t index = start; index < stop; ++index) {
+      keys_[index - shift] = std::move(keys_[index]);
+      values_[index - shift] = std::move(values_[index]);
+    }
+  }
+  keys_.resize(size - shift);
+  values_.resize(size - shift);
+  return Status::OK();
+}
+
+Status KeyValueMetadata::Delete(const std::string& key) {
+  auto index = FindKey(key);
+  if (index < 0) {
+    return Status::KeyError(key);
+  } else {
+    return Delete(index);
+  }
+}
+
+Status KeyValueMetadata::Set(const std::string& key, const std::string& value) {
+  auto index = FindKey(key);
+  if (index < 0) {
+    Append(key, value);
+  } else {
+    keys_[index] = key;
+    values_[index] = value;
+  }
+  return Status::OK();
+}
+
+bool KeyValueMetadata::Contains(const std::string& key) const {
+  return FindKey(key) >= 0;
 }
 
 void KeyValueMetadata::reserve(int64_t n) {

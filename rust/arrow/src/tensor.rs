@@ -25,7 +25,7 @@ use crate::buffer::Buffer;
 use crate::datatypes::*;
 
 /// Computes the strides required assuming a row major memory layout
-fn compute_row_major_strides<T: ArrowPrimitiveType>(shape: &Vec<usize>) -> Vec<usize> {
+fn compute_row_major_strides<T: ArrowPrimitiveType>(shape: &[usize]) -> Vec<usize> {
     let mut remaining_bytes = mem::size_of::<T::Native>();
     for i in shape {
         remaining_bytes = remaining_bytes
@@ -42,7 +42,7 @@ fn compute_row_major_strides<T: ArrowPrimitiveType>(shape: &Vec<usize>) -> Vec<u
 }
 
 /// Computes the strides required assuming a column major memory layout
-fn compute_column_major_strides<T: ArrowPrimitiveType>(shape: &Vec<usize>) -> Vec<usize> {
+fn compute_column_major_strides<T: ArrowPrimitiveType>(shape: &[usize]) -> Vec<usize> {
     let mut remaining_bytes = mem::size_of::<T::Native>();
     let mut strides = Vec::<usize>::new();
     for i in shape {
@@ -189,7 +189,7 @@ impl<'a, T: ArrowPrimitiveType> Tensor<'a, T> {
     pub fn size(&self) -> usize {
         match self.shape {
             None => 0,
-            Some(ref s) => s.iter().fold(1, |a, b| a * b),
+            Some(ref s) => s.iter().product(),
         }
     }
 

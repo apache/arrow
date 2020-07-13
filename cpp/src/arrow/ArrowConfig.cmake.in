@@ -40,4 +40,24 @@ include("${CMAKE_CURRENT_LIST_DIR}/ArrowOptions.cmake")
 # already existent target error.
 if(NOT (TARGET arrow_shared OR TARGET arrow_static))
   include("${CMAKE_CURRENT_LIST_DIR}/ArrowTargets.cmake")
+
+  if(TARGET arrow_static)
+    get_property(arrow_static_loc TARGET arrow_static PROPERTY LOCATION)
+    get_filename_component(arrow_lib_dir ${arrow_static_loc} DIRECTORY)
+
+    add_library(arrow_bundled_dependencies STATIC IMPORTED)
+    set_target_properties(
+      arrow_bundled_dependencies
+      PROPERTIES
+        IMPORTED_LOCATION
+        "${arrow_lib_dir}/${CMAKE_STATIC_LIBRARY_PREFIX}arrow_bundled_dependencies${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      )
+
+    get_property(arrow_static_interface_link_libraries
+                 TARGET arrow_static
+                 PROPERTY INTERFACE_LINK_LIBRARIES)
+    set_target_properties(
+      arrow_static PROPERTIES INTERFACE_LINK_LIBRARIES
+      "${arrow_static_interface_link_libraries};arrow_bundled_dependencies")
+  endif()
 endif()

@@ -22,15 +22,17 @@
 #include <utility>
 
 #include "arrow/array.h"
+#include "arrow/array/util.h"
 #include "arrow/buffer.h"
 #include "arrow/compare.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/formatting.h"
+#include "arrow/util/hashing.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/parsing.h"
 #include "arrow/util/time.h"
+#include "arrow/util/value_parsing.h"
 #include "arrow/visitor_inline.h"
 
 namespace arrow {
@@ -40,28 +42,202 @@ using internal::checked_pointer_cast;
 
 bool Scalar::Equals(const Scalar& other) const { return ScalarEquals(*this, other); }
 
+struct ScalarHashImpl {
+  static std::hash<std::string> string_hash;
+
+  Status Visit(const NullScalar& s) { return Status::OK(); }
+
+  template <typename T>
+  Status Visit(const internal::PrimitiveScalar<T>& s) {
+    return ValueHash(s);
+  }
+
+  Status Visit(const BaseBinaryScalar& s) { return BufferHash(*s.value); }
+
+  template <typename T>
+  Status Visit(const TemporalScalar<T>& s) {
+    return ValueHash(s);
+  }
+
+  Status Visit(const DayTimeIntervalScalar& s) {
+    return StdHash(s.value.days) & StdHash(s.value.days);
+  }
+
+  Status Visit(const Decimal128Scalar& s) {
+    return StdHash(s.value.low_bits()) & StdHash(s.value.high_bits());
+  }
+
+  Status Visit(const BaseListScalar& s) { return ArrayHash(*s.value); }
+
+  Status Visit(const StructScalar& s) {
+    for (const auto& child : s.value) {
+      AccumulateHashFrom(*child);
+    }
+    return Status::OK();
+  }
+
+  // TODO(bkietz) implement less wimpy hashing when these have ValueType
+  Status Visit(const UnionScalar& s) { return Status::OK(); }
+  Status Visit(const DictionaryScalar& s) { return Status::OK(); }
+  Status Visit(const ExtensionScalar& s) { return Status::OK(); }
+
+  template <typename T>
+  Status StdHash(const T& t) {
+    static std::hash<T> hash;
+    hash_ ^= hash(t);
+    return Status::OK();
+  }
+
+  template <typename S>
+  Status ValueHash(const S& s) {
+    return StdHash(s.value);
+  }
+
+  Status BufferHash(const Buffer& b) {
+    hash_ ^= internal::ComputeStringHash<1>(b.data(), b.size());
+    return Status::OK();
+  }
+
+  Status ArrayHash(const Array& a) { return ArrayHash(*a.data()); }
+
+  Status ArrayHash(const ArrayData& a) {
+    RETURN_NOT_OK(StdHash(a.length) & StdHash(a.GetNullCount()));
+    if (a.buffers[0] != nullptr) {
+      // We can't visit values without unboxing the whole array, so only hash
+      // the null bitmap for now.
+      RETURN_NOT_OK(BufferHash(*a.buffers[0]));
+    }
+    for (const auto& child : a.child_data) {
+      RETURN_NOT_OK(ArrayHash(*child));
+    }
+    return Status::OK();
+  }
+
+  explicit ScalarHashImpl(const Scalar& scalar) { AccumulateHashFrom(scalar); }
+
+  void AccumulateHashFrom(const Scalar& scalar) {
+    DCHECK_OK(StdHash(scalar.type->fingerprint()));
+    DCHECK_OK(VisitScalarInline(scalar, this));
+  }
+
+  size_t hash_ = 0;
+};
+
+size_t Scalar::Hash::hash(const Scalar& scalar) { return ScalarHashImpl(scalar).hash_; }
+
 StringScalar::StringScalar(std::string s)
     : StringScalar(Buffer::FromString(std::move(s))) {}
 
-FixedSizeBinaryScalar::FixedSizeBinaryScalar(const std::shared_ptr<Buffer>& value,
-                                             const std::shared_ptr<DataType>& type)
-    : BinaryScalar(value, type) {
-  ARROW_CHECK_EQ(checked_cast<const FixedSizeBinaryType&>(*type).byte_width(),
-                 value->size());
+LargeStringScalar::LargeStringScalar(std::string s)
+    : LargeStringScalar(Buffer::FromString(std::move(s))) {}
+
+FixedSizeBinaryScalar::FixedSizeBinaryScalar(std::shared_ptr<Buffer> value,
+                                             std::shared_ptr<DataType> type)
+    : BinaryScalar(std::move(value), std::move(type)) {
+  ARROW_CHECK_EQ(checked_cast<const FixedSizeBinaryType&>(*this->type).byte_width(),
+                 this->value->size());
 }
 
-BaseListScalar::BaseListScalar(const std::shared_ptr<Array>& value,
-                               const std::shared_ptr<DataType>& type)
-    : Scalar{type, true}, value(value) {}
+BaseListScalar::BaseListScalar(std::shared_ptr<Array> value,
+                               std::shared_ptr<DataType> type)
+    : Scalar{std::move(type), true}, value(std::move(value)) {
+  ARROW_CHECK(this->type->field(0)->type()->Equals(this->value->type()));
+}
 
-BaseListScalar::BaseListScalar(const std::shared_ptr<Array>& value)
-    : BaseListScalar(value, value->type()) {}
+ListScalar::ListScalar(std::shared_ptr<Array> value)
+    : BaseListScalar(value, list(value->type())) {}
 
-FixedSizeListScalar::FixedSizeListScalar(const std::shared_ptr<Array>& value,
-                                         const std::shared_ptr<DataType>& type)
-    : BaseListScalar(value, type) {
-  ARROW_CHECK_EQ(value->length(),
-                 checked_cast<const FixedSizeListType*>(type.get())->list_size());
+LargeListScalar::LargeListScalar(std::shared_ptr<Array> value)
+    : BaseListScalar(value, large_list(value->type())) {}
+
+inline std::shared_ptr<DataType> MakeMapType(const std::shared_ptr<DataType>& pair_type) {
+  ARROW_CHECK_EQ(pair_type->id(), Type::STRUCT);
+  ARROW_CHECK_EQ(pair_type->num_fields(), 2);
+  return map(pair_type->field(0)->type(), pair_type->field(1));
+}
+
+MapScalar::MapScalar(std::shared_ptr<Array> value)
+    : BaseListScalar(value, MakeMapType(value->type())) {}
+
+FixedSizeListScalar::FixedSizeListScalar(std::shared_ptr<Array> value,
+                                         std::shared_ptr<DataType> type)
+    : BaseListScalar(value, std::move(type)) {
+  ARROW_CHECK_EQ(this->value->length(),
+                 checked_cast<const FixedSizeListType&>(*this->type).list_size());
+}
+
+FixedSizeListScalar::FixedSizeListScalar(std::shared_ptr<Array> value)
+    : BaseListScalar(
+          value, fixed_size_list(value->type(), static_cast<int32_t>(value->length()))) {}
+
+Result<std::shared_ptr<Scalar>> StructScalar::field(FieldRef ref) const {
+  ARROW_ASSIGN_OR_RAISE(auto path, ref.FindOne(*type));
+  if (path.indices().size() != 1) {
+    return Status::NotImplemented("retrieval of nested fields from StructScalar");
+  }
+  auto index = path.indices()[0];
+  if (is_valid) {
+    return value[index];
+  } else {
+    const auto& struct_type = checked_cast<const StructType&>(*this->type);
+    const auto& field_type = struct_type.field(index)->type();
+    return MakeNullScalar(field_type);
+  }
+}
+
+DictionaryScalar::DictionaryScalar(std::shared_ptr<DataType> type)
+    : Scalar(std::move(type)),
+      value{MakeNullScalar(checked_cast<const DictionaryType&>(*this->type).index_type()),
+            MakeArrayOfNull(checked_cast<const DictionaryType&>(*this->type).value_type(),
+                            0)
+                .ValueOrDie()} {}
+
+Result<std::shared_ptr<Scalar>> DictionaryScalar::GetEncodedValue() const {
+  const auto& dict_type = checked_cast<DictionaryType&>(*type);
+
+  if (!is_valid) {
+    return MakeNullScalar(dict_type.value_type());
+  }
+
+  int64_t index_value = 0;
+  switch (dict_type.index_type()->id()) {
+    case Type::UINT8:
+      index_value =
+          static_cast<int64_t>(checked_cast<const UInt8Scalar&>(*value.index).value);
+      break;
+    case Type::INT8:
+      index_value =
+          static_cast<int64_t>(checked_cast<const Int8Scalar&>(*value.index).value);
+      break;
+    case Type::UINT16:
+      index_value =
+          static_cast<int64_t>(checked_cast<const UInt16Scalar&>(*value.index).value);
+      break;
+    case Type::INT16:
+      index_value =
+          static_cast<int64_t>(checked_cast<const Int16Scalar&>(*value.index).value);
+      break;
+    case Type::UINT32:
+      index_value =
+          static_cast<int64_t>(checked_cast<const UInt32Scalar&>(*value.index).value);
+      break;
+    case Type::INT32:
+      index_value =
+          static_cast<int64_t>(checked_cast<const Int32Scalar&>(*value.index).value);
+      break;
+    case Type::UINT64:
+      index_value =
+          static_cast<int64_t>(checked_cast<const UInt64Scalar&>(*value.index).value);
+      break;
+    case Type::INT64:
+      index_value =
+          static_cast<int64_t>(checked_cast<const Int64Scalar&>(*value.index).value);
+      break;
+    default:
+      return Status::TypeError("Not implemented dictionary index type");
+      break;
+  }
+  return value.dictionary->GetScalar(index_value);
 }
 
 template <typename T>
@@ -89,18 +265,29 @@ struct MakeNullImpl {
     return Status::OK();
   }
 
-  const std::shared_ptr<DataType>& type_;
+  std::shared_ptr<Scalar> Finish() && {
+    // Should not fail.
+    DCHECK_OK(VisitTypeInline(*type_, this));
+    return std::move(out_);
+  }
+
+  std::shared_ptr<DataType> type_;
   std::shared_ptr<Scalar> out_;
 };
 
-std::shared_ptr<Scalar> MakeNullScalar(const std::shared_ptr<DataType>& type) {
-  MakeNullImpl impl = {type, nullptr};
-  // Should not fail.
-  DCHECK_OK(VisitTypeInline(*type, &impl));
-  return std::move(impl.out_);
+std::shared_ptr<Scalar> MakeNullScalar(std::shared_ptr<DataType> type) {
+  return MakeNullImpl{std::move(type), nullptr}.Finish();
 }
 
 std::string Scalar::ToString() const {
+  if (!this->is_valid) {
+    return "null";
+  }
+  if (type->id() == Type::DICTIONARY) {
+    auto dict_scalar = checked_cast<const DictionaryScalar*>(this);
+    return dict_scalar->value.dictionary->ToString() + "[" +
+           dict_scalar->value.index->ToString() + "]";
+  }
   auto maybe_repr = CastTo(utf8());
   if (maybe_repr.ok()) {
     return checked_cast<const StringScalar&>(*maybe_repr.ValueOrDie()).value->ToString();
@@ -109,21 +296,34 @@ std::string Scalar::ToString() const {
 }
 
 struct ScalarParseImpl {
-  template <typename T, typename Converter = internal::StringConverter<T>,
-            typename Value = typename Converter::value_type>
+  template <typename T,
+            typename Value = typename internal::StringConverter<T>::value_type>
   Status Visit(const T& t) {
     Value value;
-    if (!Converter{type_}(s_.data(), s_.size(), &value)) {
+    if (!internal::ParseValue<T>(s_.data(), s_.size(), &value)) {
       return Status::Invalid("error parsing '", s_, "' as scalar of type ", t);
     }
     return Finish(std::move(value));
+  }
+
+  Status Visit(const TimestampType& t) {
+    int64_t value;
+    if (!internal::ParseTimestampISO8601(s_.data(), s_.size(), t.unit(), &value)) {
+      return Status::Invalid("error parsing '", s_, "' as scalar of type ", t);
+    }
+    return Finish(value);
   }
 
   Status Visit(const BinaryType&) { return FinishWithBuffer(); }
 
   Status Visit(const LargeBinaryType&) { return FinishWithBuffer(); }
 
-  Status Visit(const FixedSizeBinaryType& t) { return FinishWithBuffer(); }
+  Status Visit(const FixedSizeBinaryType&) { return FinishWithBuffer(); }
+
+  Status Visit(const DictionaryType& t) {
+    ARROW_ASSIGN_OR_RAISE(auto value, Scalar::Parse(t.value_type(), s_));
+    return Finish(std::move(value));
+  }
 
   Status Visit(const DataType& t) {
     return Status::NotImplemented("parsing scalars of type ", t);
@@ -131,26 +331,27 @@ struct ScalarParseImpl {
 
   template <typename Arg>
   Status Finish(Arg&& arg) {
-    return MakeScalar(type_, std::forward<Arg>(arg)).Value(out_);
+    return MakeScalar(std::move(type_), std::forward<Arg>(arg)).Value(&out_);
   }
 
   Status FinishWithBuffer() { return Finish(Buffer::FromString(s_.to_string())); }
 
-  ScalarParseImpl(const std::shared_ptr<DataType>& type, util::string_view s,
-                  std::shared_ptr<Scalar>* out)
-      : type_(type), s_(s), out_(out) {}
+  Result<std::shared_ptr<Scalar>> Finish() && {
+    RETURN_NOT_OK(VisitTypeInline(*type_, this));
+    return std::move(out_);
+  }
 
-  const std::shared_ptr<DataType>& type_;
+  ScalarParseImpl(std::shared_ptr<DataType> type, util::string_view s)
+      : type_(std::move(type)), s_(s) {}
+
+  std::shared_ptr<DataType> type_;
   util::string_view s_;
-  std::shared_ptr<Scalar>* out_;
+  std::shared_ptr<Scalar> out_;
 };
 
 Result<std::shared_ptr<Scalar>> Scalar::Parse(const std::shared_ptr<DataType>& type,
                                               util::string_view s) {
-  std::shared_ptr<Scalar> out;
-  ScalarParseImpl impl = {type, s, &out};
-  RETURN_NOT_OK(VisitTypeInline(*type, &impl));
-  return out;
+  return ScalarParseImpl{type, s}.Finish();
 }
 
 namespace internal {
@@ -301,7 +502,8 @@ Status CastImpl(const BinaryScalar& from, StringScalar* to) {
 // formattable to string
 template <typename ScalarType, typename T = typename ScalarType::TypeClass,
           typename Formatter = internal::StringFormatter<T>,
-          // note: Value unused but necessary to trigger SFINAE if Formatter is undefined
+          // note: Value unused but necessary to trigger SFINAE if Formatter is
+          // undefined
           typename Value = typename Formatter::value_type>
 Status CastImpl(const ScalarType& from, StringScalar* to) {
   if (!from.is_valid) {
@@ -315,48 +517,52 @@ Status CastImpl(const ScalarType& from, StringScalar* to) {
   });
 }
 
+struct CastImplVisitor {
+  Status NotImplemented() {
+    return Status::NotImplemented("cast to ", *to_type_, " from ", *from_.type);
+  }
+
+  const Scalar& from_;
+  const std::shared_ptr<DataType>& to_type_;
+  Scalar* out_;
+};
+
 template <typename ToType>
-struct FromTypeVisitor {
+struct FromTypeVisitor : CastImplVisitor {
   using ToScalar = typename TypeTraits<ToType>::ScalarType;
+
+  FromTypeVisitor(const Scalar& from, const std::shared_ptr<DataType>& to_type,
+                  Scalar* out)
+      : CastImplVisitor{from, to_type, out} {}
 
   template <typename FromType>
   Status Visit(const FromType&) {
     return CastImpl(checked_cast<const typename TypeTraits<FromType>::ScalarType&>(from_),
-                    out_);
+                    checked_cast<ToScalar*>(out_));
   }
 
   // identity cast only for parameter free types
   template <typename T1 = ToType>
   typename std::enable_if<TypeTraits<T1>::is_parameter_free, Status>::type Visit(
       const ToType&) {
-    out_->value = checked_cast<const ToScalar&>(from_).value;
+    checked_cast<ToScalar*>(out_)->value = checked_cast<const ToScalar&>(from_).value;
     return Status::OK();
   }
 
-  // null to any
-  Status Visit(const NullType&) {
-    return Status::Invalid("attempting to cast scalar of type null to ", *to_type_);
-  }
-
-  Status Visit(const UnionType&) { return Status::NotImplemented("cast to ", *to_type_); }
-  Status Visit(const DictionaryType&) {
-    return Status::NotImplemented("cast to ", *to_type_);
-  }
-  Status Visit(const ExtensionType&) {
-    return Status::NotImplemented("cast to ", *to_type_);
-  }
-
-  const Scalar& from_;
-  const std::shared_ptr<DataType>& to_type_;
-  ToScalar* out_;
+  Status Visit(const NullType&) { return NotImplemented(); }
+  Status Visit(const SparseUnionType&) { return NotImplemented(); }
+  Status Visit(const DenseUnionType&) { return NotImplemented(); }
+  Status Visit(const DictionaryType&) { return NotImplemented(); }
+  Status Visit(const ExtensionType&) { return NotImplemented(); }
 };
 
-struct ToTypeVisitor {
+struct ToTypeVisitor : CastImplVisitor {
+  ToTypeVisitor(const Scalar& from, const std::shared_ptr<DataType>& to_type, Scalar* out)
+      : CastImplVisitor{from, to_type, out} {}
+
   template <typename ToType>
   Status Visit(const ToType&) {
-    using ToScalar = typename TypeTraits<ToType>::ScalarType;
-    FromTypeVisitor<ToType> unpack_from_type{from_, to_type_,
-                                             checked_cast<ToScalar*>(out_)};
+    FromTypeVisitor<ToType> unpack_from_type{from_, to_type_, out_};
     return VisitTypeInline(*from_.type, &unpack_from_type);
   }
 
@@ -367,19 +573,16 @@ struct ToTypeVisitor {
     return Status::OK();
   }
 
-  Status Visit(const UnionType&) {
-    return Status::NotImplemented("cast from ", *from_.type);
-  }
-  Status Visit(const DictionaryType&) {
-    return Status::NotImplemented("cast from ", *from_.type);
-  }
-  Status Visit(const ExtensionType&) {
-    return Status::NotImplemented("cast from ", *from_.type);
+  Status Visit(const DictionaryType& dict_type) {
+    auto& out = checked_cast<DictionaryScalar*>(out_)->value;
+    ARROW_ASSIGN_OR_RAISE(auto cast_value, from_.CastTo(dict_type.value_type()));
+    ARROW_ASSIGN_OR_RAISE(out.dictionary, MakeArrayFromScalar(*cast_value, 1));
+    return Int32Scalar(0).CastTo(dict_type.index_type()).Value(&out.index);
   }
 
-  const Scalar& from_;
-  const std::shared_ptr<DataType>& to_type_;
-  Scalar* out_;
+  Status Visit(const SparseUnionType&) { return NotImplemented(); }
+  Status Visit(const DenseUnionType&) { return NotImplemented(); }
+  Status Visit(const ExtensionType&) { return NotImplemented(); }
 };
 
 }  // namespace

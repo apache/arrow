@@ -37,13 +37,16 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.apache.arrow.flatbuf.FieldNode;
 import org.apache.arrow.flatbuf.Message;
 import org.apache.arrow.flatbuf.RecordBatch;
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
@@ -76,8 +79,6 @@ import org.apache.arrow.vector.util.DictionaryUtility;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-
-import io.netty.buffer.ArrowBuf;
 
 public class TestArrowReaderWriter {
 
@@ -750,6 +751,36 @@ public class TestArrowReaderWriter {
 
       // the first 4 bytes have been read successfully.
       assertEquals(10, arrBuf.getInt(0));
+    }
+  }
+
+  @Test
+  public void testCustomMetaData() throws IOException {
+
+    VarCharVector vector = newVarCharVector("varchar1", allocator);
+
+    List<Field> fields = Arrays.asList(vector.getField());
+    List<FieldVector> vectors = Collections2.asImmutableList(vector);
+    Map<String, String> metadata = new HashMap<>();
+    metadata.put("key1", "value1");
+    metadata.put("key2", "value2");
+    try (VectorSchemaRoot root = new VectorSchemaRoot(fields, vectors, vector.getValueCount());
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ArrowFileWriter writer = new ArrowFileWriter(root, null, newChannel(out), metadata);) {
+
+      writer.start();
+      writer.end();
+
+      try (SeekableReadChannel channel = new SeekableReadChannel(
+          new ByteArrayReadableSeekableByteChannel(out.toByteArray()));
+          ArrowFileReader reader = new ArrowFileReader(channel, allocator)) {
+        reader.getVectorSchemaRoot();
+
+        Map<String, String> readMeta = reader.getMetaData();
+        assertEquals(2, readMeta.size());
+        assertEquals("value1", readMeta.get("key1"));
+        assertEquals("value2", readMeta.get("key2"));
+      }
     }
   }
 }

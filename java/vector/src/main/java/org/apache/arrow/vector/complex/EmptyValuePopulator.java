@@ -41,7 +41,7 @@ public class EmptyValuePopulator {
       throw new IndexOutOfBoundsException("index cannot be negative");
     }
     final int lastSet = Math.max(offsets.getValueCount() - 1, 0);
-    final int previousEnd = offsets.get(lastSet);//0 ? 0 : accessor.get(lastSet);
+    final int previousEnd = offsets.get(lastSet); //0 ? 0 : accessor.get(lastSet);
     for (int i = lastSet; i < lastIndex; i++) {
       offsets.setSafe(i + 1, previousEnd);
     }

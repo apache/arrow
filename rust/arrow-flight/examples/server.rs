@@ -46,6 +46,8 @@ impl FlightService for FlightServiceImpl {
     >;
     type ListActionsStream =
         Pin<Box<dyn Stream<Item = Result<ActionType, Status>> + Send + Sync + 'static>>;
+    type DoExchangeStream =
+        Pin<Box<dyn Stream<Item = Result<FlightData, Status>> + Send + Sync + 'static>>;
 
     async fn handshake(
         &self,
@@ -100,6 +102,13 @@ impl FlightService for FlightServiceImpl {
         &self,
         _request: Request<Empty>,
     ) -> Result<Response<Self::ListActionsStream>, Status> {
+        Err(Status::unimplemented("Not yet implemented"))
+    }
+
+    async fn do_exchange(
+        &self,
+        _request: Request<Streaming<FlightData>>,
+    ) -> Result<Response<Self::DoExchangeStream>, Status> {
         Err(Status::unimplemented("Not yet implemented"))
     }
 }

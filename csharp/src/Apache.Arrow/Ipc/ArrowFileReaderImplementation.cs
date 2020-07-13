@@ -149,7 +149,7 @@ namespace Apache.Arrow.Ipc
                 throw new ArgumentOutOfRangeException(nameof(index));
             }
 
-            var block = _footer.GetRecordBatchBlock(index);
+            Block block = _footer.GetRecordBatchBlock(index);
 
             BaseStream.Position = block.Offset;
 
@@ -165,7 +165,7 @@ namespace Apache.Arrow.Ipc
                 throw new ArgumentOutOfRangeException(nameof(index));
             }
 
-            var block = _footer.GetRecordBatchBlock(index);
+            Block block = _footer.GetRecordBatchBlock(index);
 
             BaseStream.Position = block.Offset;
 
@@ -181,7 +181,7 @@ namespace Apache.Arrow.Ipc
                 return null;
             }
 
-            var result = await ReadRecordBatchAsync(_recordBatchIndex, cancellationToken).ConfigureAwait(false);
+            RecordBatch result = await ReadRecordBatchAsync(_recordBatchIndex, cancellationToken).ConfigureAwait(false);
             _recordBatchIndex++;
 
             return result;
@@ -234,8 +234,8 @@ namespace Apache.Arrow.Ipc
 
         private async ValueTask ValidateMagicAsync()
         {
-            var startingPosition = BaseStream.Position;
-            var magicLength = ArrowFileConstants.Magic.Length;
+            long startingPosition = BaseStream.Position;
+            int magicLength = ArrowFileConstants.Magic.Length;
 
             try
             {
@@ -266,8 +266,8 @@ namespace Apache.Arrow.Ipc
 
         private void ValidateMagic()
         {
-            var startingPosition = BaseStream.Position;
-            var magicLength = ArrowFileConstants.Magic.Length;
+            long startingPosition = BaseStream.Position;
+            int magicLength = ArrowFileConstants.Magic.Length;
 
             try
             {

@@ -18,16 +18,14 @@
 #include "arrow/array/builder_adaptive.h"
 
 #include <algorithm>
-#include <cstddef>
 #include <cstdint>
-#include <utility>
 
-#include "arrow/array.h"
+#include "arrow/array/data.h"
 #include "arrow/buffer.h"
+#include "arrow/buffer_builder.h"
+#include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
-#include "arrow/type_traits.h"
-#include "arrow/util/bit_util.h"
 #include "arrow/util/int_util.h"
 #include "arrow/util/logging.h"
 
@@ -47,12 +45,12 @@ void AdaptiveIntBuilderBase::Reset() {
 }
 
 Status AdaptiveIntBuilderBase::Resize(int64_t capacity) {
-  RETURN_NOT_OK(CheckCapacity(capacity, capacity_));
+  RETURN_NOT_OK(CheckCapacity(capacity));
   capacity = std::max(capacity, kMinBuilderCapacity);
 
   int64_t nbytes = capacity * int_size_;
   if (capacity_ == 0) {
-    RETURN_NOT_OK(AllocateResizableBuffer(pool_, nbytes, &data_));
+    ARROW_ASSIGN_OR_RAISE(data_, AllocateResizableBuffer(nbytes, pool_));
   } else {
     RETURN_NOT_OK(data_->Resize(nbytes));
   }
@@ -75,7 +73,7 @@ AdaptiveIntBuilderBase::ExpandIntSizeInternal() {
 
   const old_type* src = reinterpret_cast<old_type*>(raw_data_);
   new_type* dst = reinterpret_cast<new_type*>(raw_data_);
-  // By doing the backward copy, we ensure that no element is overriden during
+  // By doing the backward copy, we ensure that no element is overridden during
   // the copy process while the copy stays in-place.
   std::copy_backward(src, src + length_, dst + length_);
 

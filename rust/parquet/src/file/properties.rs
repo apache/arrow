@@ -51,6 +51,7 @@
 use std::{collections::HashMap, rc::Rc};
 
 use crate::basic::{Compression, Encoding};
+use crate::file::metadata::KeyValue;
 use crate::schema::types::ColumnPath;
 
 const DEFAULT_PAGE_SIZE: usize = 1024 * 1024;
@@ -98,6 +99,7 @@ pub struct WriterProperties {
     max_row_group_size: usize,
     writer_version: WriterVersion,
     created_by: String,
+    key_value_metadata: Option<Vec<KeyValue>>,
     default_column_properties: ColumnProperties,
     column_properties: HashMap<ColumnPath, ColumnProperties>,
 }
@@ -140,6 +142,11 @@ impl WriterProperties {
     /// Returns `created_by` string.
     pub fn created_by(&self) -> &str {
         &self.created_by
+    }
+
+    /// Returns `key_value_metadata` KeyValue pairs.
+    pub fn key_value_metadata(&self) -> &Option<Vec<KeyValue>> {
+        &self.key_value_metadata
     }
 
     /// Returns encoding for a data page, when dictionary encoding is enabled.
@@ -218,6 +225,7 @@ pub struct WriterPropertiesBuilder {
     max_row_group_size: usize,
     writer_version: WriterVersion,
     created_by: String,
+    key_value_metadata: Option<Vec<KeyValue>>,
     default_column_properties: ColumnProperties,
     column_properties: HashMap<ColumnPath, ColumnProperties>,
 }
@@ -232,6 +240,7 @@ impl WriterPropertiesBuilder {
             max_row_group_size: DEFAULT_MAX_ROW_GROUP_SIZE,
             writer_version: DEFAULT_WRITER_VERSION,
             created_by: DEFAULT_CREATED_BY.to_string(),
+            key_value_metadata: None,
             default_column_properties: ColumnProperties::new(),
             column_properties: HashMap::new(),
         }
@@ -246,6 +255,7 @@ impl WriterPropertiesBuilder {
             max_row_group_size: self.max_row_group_size,
             writer_version: self.writer_version,
             created_by: self.created_by,
+            key_value_metadata: self.key_value_metadata,
             default_column_properties: self.default_column_properties,
             column_properties: self.column_properties,
         }
@@ -287,6 +297,12 @@ impl WriterPropertiesBuilder {
     /// Sets "created by" property.
     pub fn set_created_by(mut self, value: String) -> Self {
         self.created_by = value;
+        self
+    }
+
+    /// Sets "key_value_metadata" property.
+    pub fn set_key_value_metadata(mut self, value: Option<Vec<KeyValue>>) -> Self {
+        self.key_value_metadata = value;
         self
     }
 
@@ -506,6 +522,7 @@ mod tests {
         assert_eq!(props.max_row_group_size(), DEFAULT_MAX_ROW_GROUP_SIZE);
         assert_eq!(props.writer_version(), DEFAULT_WRITER_VERSION);
         assert_eq!(props.created_by(), DEFAULT_CREATED_BY);
+        assert_eq!(props.key_value_metadata(), &None);
         assert_eq!(props.encoding(&ColumnPath::from("col")), None);
         assert_eq!(
             props.compression(&ColumnPath::from("col")),
@@ -587,6 +604,10 @@ mod tests {
             .set_write_batch_size(30)
             .set_max_row_group_size(40)
             .set_created_by("default".to_owned())
+            .set_key_value_metadata(Some(vec![KeyValue::new(
+                "key".to_string(),
+                "value".to_string(),
+            )]))
             // global column settings
             .set_encoding(Encoding::DELTA_BINARY_PACKED)
             .set_compression(Compression::GZIP)
@@ -607,6 +628,10 @@ mod tests {
         assert_eq!(props.write_batch_size(), 30);
         assert_eq!(props.max_row_group_size(), 40);
         assert_eq!(props.created_by(), "default");
+        assert_eq!(
+            props.key_value_metadata(),
+            &Some(vec![KeyValue::new("key".to_string(), "value".to_string(),)])
+        );
 
         assert_eq!(
             props.encoding(&ColumnPath::from("a")),

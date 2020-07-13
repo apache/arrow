@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PARQUET_BLOOM_FILTER_H
-#define PARQUET_BLOOM_FILTER_H
+#pragma once
 
 #include <cmath>
 #include <cstdint>
@@ -245,5 +244,3 @@ class PARQUET_EXPORT BlockSplitBloomFilter : public BloomFilter {
 };
 
 }  // namespace parquet
-
-#endif  // PARQUET_BLOOM_FILTER_H

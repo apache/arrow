@@ -1,6 +1,6 @@
 .pick_cran <- function() {
   # Return a CRAN repo URL, preferring RSPM binaries if available for this OS
-  rspm_template <- "https://demo.rstudiopm.com/all/__linux__/%s/latest"
+  rspm_template <- "https://packagemanager.rstudio.com/cran/__linux__/%s/latest"
   supported_os <- c("xenial", "bionic", "centos7", "opensuse42", "opensuse15")
 
   if (nzchar(Sys.which("lsb_release"))) {

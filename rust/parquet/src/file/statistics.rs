@@ -44,6 +44,7 @@ use parquet_format::Statistics as TStatistics;
 
 use crate::basic::Type;
 use crate::data_type::*;
+use crate::util::bit_util::from_ne_slice;
 
 // Macro to generate methods create Statistics.
 macro_rules! statistics_new_func {
@@ -148,19 +149,11 @@ pub fn from_thrift(
                     // min/max statistics for INT96 columns.
                     let min = min.map(|data| {
                         assert_eq!(data.len(), 12);
-                        unsafe {
-                            let raw =
-                                std::slice::from_raw_parts(data.as_ptr() as *mut u32, 3);
-                            Int96::from(Vec::from(raw))
-                        }
+                        from_ne_slice::<Int96>(&data)
                     });
                     let max = max.map(|data| {
                         assert_eq!(data.len(), 12);
-                        unsafe {
-                            let raw =
-                                std::slice::from_raw_parts(data.as_ptr() as *mut u32, 3);
-                            Int96::from(Vec::from(raw))
-                        }
+                        from_ne_slice::<Int96>(&data)
                     });
                     Statistics::int96(min, max, distinct_count, null_count, old_format)
                 }

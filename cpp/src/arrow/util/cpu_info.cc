@@ -123,8 +123,11 @@ static struct {
   int64_t flag;
 } flag_mappings[] = {
 #if (defined(__i386) || defined(_M_IX86) || defined(__x86_64__) || defined(_M_X64))
-    {"ssse3", CpuInfo::SSSE3},   {"sse4_1", CpuInfo::SSE4_1},
-    {"sse4_2", CpuInfo::SSE4_2}, {"popcnt", CpuInfo::POPCNT},
+    {"ssse3", CpuInfo::SSSE3},    {"sse4_1", CpuInfo::SSE4_1},
+    {"sse4_2", CpuInfo::SSE4_2},  {"popcnt", CpuInfo::POPCNT},
+    {"avx", CpuInfo::AVX},        {"avx2", CpuInfo::AVX2},
+    {"avx512f", CpuInfo::AVX512}, {"bmi1", CpuInfo::BMI1},
+    {"bmi2", CpuInfo::BMI2},
 #endif
 #if defined(__aarch64__)
     {"asimd", CpuInfo::ASIMD},
@@ -198,11 +201,12 @@ bool RetrieveCacheSize(int64_t* cache_sizes) {
   return true;
 }
 
+// Source: https://en.wikipedia.org/wiki/CPUID
 bool RetrieveCPUInfo(int64_t* hardware_flags, std::string* model_name) {
   if (!hardware_flags || !model_name) {
     return false;
   }
-  const int register_ECX_id = 1;
+  int register_EAX_id = 1;
   int highest_valid_id = 0;
   int highest_extended_valid_id = 0;
   std::bitset<32> features_ECX;
@@ -212,9 +216,10 @@ bool RetrieveCPUInfo(int64_t* hardware_flags, std::string* model_name) {
   __cpuid(cpu_info.data(), 0);
   highest_valid_id = cpu_info[0];
 
-  if (highest_valid_id <= register_ECX_id) return false;
+  if (highest_valid_id <= register_EAX_id) return false;
 
-  __cpuidex(cpu_info.data(), register_ECX_id, 0);
+  // EAX=1: Processor Info and Feature Bits
+  __cpuidex(cpu_info.data(), register_EAX_id, 0);
   features_ECX = cpu_info[2];
 
   // Get highest extended id
@@ -235,6 +240,20 @@ bool RetrieveCPUInfo(int64_t* hardware_flags, std::string* model_name) {
   if (features_ECX[19]) *hardware_flags |= CpuInfo::SSE4_1;
   if (features_ECX[20]) *hardware_flags |= CpuInfo::SSE4_2;
   if (features_ECX[23]) *hardware_flags |= CpuInfo::POPCNT;
+  if (features_ECX[23]) *hardware_flags |= CpuInfo::AVX;
+
+  // cpuid with EAX=7, ECX=0: Extended Features
+  register_EAX_id = 7;
+  if (highest_valid_id > register_EAX_id) {
+    __cpuidex(cpu_info.data(), register_EAX_id, 0);
+    std::bitset<32> features_EBX = cpu_info[1];
+
+    if (features_EBX[3]) *hardware_flags |= CpuInfo::BMI1;
+    if (features_EBX[5]) *hardware_flags |= CpuInfo::AVX2;
+    if (features_EBX[8]) *hardware_flags |= CpuInfo::BMI2;
+    if (features_EBX[16]) *hardware_flags |= CpuInfo::AVX512;
+  }
+
   return true;
 }
 #endif
@@ -301,14 +320,14 @@ void CpuInfo::Init() {
 
 #ifdef __APPLE__
   // On Mac OS X use sysctl() to get the cache sizes
-  size_t len = 0;
-  sysctlbyname("hw.cachesize", NULL, &len, NULL, 0);
-  uint64_t* data = static_cast<uint64_t*>(malloc(len));
-  sysctlbyname("hw.cachesize", data, &len, NULL, 0);
-  DCHECK_GE(len / sizeof(uint64_t), 3);
-  for (size_t i = 0; i < 3; ++i) {
-    cache_sizes_[i] = data[i];
-  }
+  size_t len = sizeof(int64_t);
+  int64_t data[1];
+  sysctlbyname("hw.l1dcachesize", data, &len, NULL, 0);
+  cache_sizes_[0] = data[0];
+  sysctlbyname("hw.l2cachesize", data, &len, NULL, 0);
+  cache_sizes_[1] = data[0];
+  sysctlbyname("hw.l3cachesize", data, &len, NULL, 0);
+  cache_sizes_[2] = data[0];
 #elif _WIN32
   if (!RetrieveCacheSize(cache_sizes_)) {
     SetDefaultCacheSize();
@@ -333,6 +352,9 @@ void CpuInfo::Init() {
   } else {
     num_cores_ = 1;
   }
+
+  // Parse the user simd level
+  ParseUserSimdLevel();
 }
 
 void CpuInfo::VerifyCpuRequirements() {
@@ -341,7 +363,7 @@ void CpuInfo::VerifyCpuRequirements() {
     DCHECK(false) << "CPU does not support the Supplemental SSE3 instruction set";
   }
 #endif
-#if defined(__aarch64__)
+#if defined(ARROW_HAVE_NEON)
   if (!IsSupported(CpuInfo::ASIMD)) {
     DCHECK(false) << "CPU does not support the Armv8 Neon instruction set";
   }
@@ -349,7 +371,7 @@ void CpuInfo::VerifyCpuRequirements() {
 }
 
 bool CpuInfo::CanUseSSE4_2() const {
-#if defined(ARROW_HAVE_SSE4_2) && defined(ARROW_USE_SIMD)
+#if defined(ARROW_HAVE_SSE4_2)
   return IsSupported(CpuInfo::SSE4_2);
 #else
   return false;
@@ -377,7 +399,7 @@ int CpuInfo::num_cores() { return num_cores_; }
 std::string CpuInfo::model_name() { return model_name_; }
 
 void CpuInfo::SetDefaultCacheSize() {
-#ifdef _SC_LEVEL1_DCACHE_SIZE
+#if defined(_SC_LEVEL1_DCACHE_SIZE) && !defined(__aarch64__)
   // Call sysconf to query for the cache sizes
   cache_sizes_[0] = sysconf(_SC_LEVEL1_DCACHE_SIZE);
   cache_sizes_[1] = sysconf(_SC_LEVEL2_CACHE_SIZE);
@@ -395,6 +417,42 @@ void CpuInfo::SetDefaultCacheSize() {
   cache_sizes_[1] = kDefaultL2CacheSize;
   cache_sizes_[2] = kDefaultL3CacheSize;
 #endif
+}
+
+void CpuInfo::ParseUserSimdLevel() {
+  const char* user = std::getenv("ARROW_USER_SIMD_LEVEL");
+  if (!user) {
+    // No user settings
+    return;
+  }
+
+  int level = USER_SIMD_MAX;
+  // Parse the level
+  if (0 == strcmp("avx512", user)) {
+    level = USER_SIMD_AVX512;
+  } else if (0 == strcmp("avx2", user)) {
+    level = USER_SIMD_AVX2;
+  } else if (0 == strcmp("avx", user)) {
+    level = USER_SIMD_AVX;
+  } else if (0 == strcmp("sse4_2", user)) {
+    level = USER_SIMD_SSE4_2;
+  } else if (0 == strcmp("none", user)) {
+    level = USER_SIMD_NONE;
+  }
+
+  // Disable feature as the level
+  if (level < USER_SIMD_AVX512) {  // Disable all AVX512 features
+    EnableFeature(AVX512, false);
+  }
+  if (level < USER_SIMD_AVX2) {  // Disable all AVX2 features
+    EnableFeature(AVX2 | BMI2, false);
+  }
+  if (level < USER_SIMD_AVX) {  // Disable all AVX features
+    EnableFeature(AVX, false);
+  }
+  if (level < USER_SIMD_SSE4_2) {  // Disable all SSE4_2 features
+    EnableFeature(SSE4_2 | BMI1, false);
+  }
 }
 
 }  // namespace internal

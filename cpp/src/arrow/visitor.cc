@@ -19,9 +19,9 @@
 
 #include <memory>
 
-#include "arrow/array.h"
+#include "arrow/array.h"  // IWYU pragma: keep
 #include "arrow/extension_type.h"
-#include "arrow/scalar.h"
+#include "arrow/scalar.h"  // IWYU pragma: keep
 #include "arrow/status.h"
 #include "arrow/type.h"
 
@@ -63,7 +63,8 @@ ARRAY_VISITOR_DEFAULT(LargeListArray)
 ARRAY_VISITOR_DEFAULT(MapArray)
 ARRAY_VISITOR_DEFAULT(FixedSizeListArray)
 ARRAY_VISITOR_DEFAULT(StructArray)
-ARRAY_VISITOR_DEFAULT(UnionArray)
+ARRAY_VISITOR_DEFAULT(SparseUnionArray)
+ARRAY_VISITOR_DEFAULT(DenseUnionArray)
 ARRAY_VISITOR_DEFAULT(DictionaryArray)
 ARRAY_VISITOR_DEFAULT(Decimal128Array)
 ARRAY_VISITOR_DEFAULT(ExtensionArray)
@@ -110,7 +111,8 @@ TYPE_VISITOR_DEFAULT(LargeListType)
 TYPE_VISITOR_DEFAULT(MapType)
 TYPE_VISITOR_DEFAULT(FixedSizeListType)
 TYPE_VISITOR_DEFAULT(StructType)
-TYPE_VISITOR_DEFAULT(UnionType)
+TYPE_VISITOR_DEFAULT(SparseUnionType)
+TYPE_VISITOR_DEFAULT(DenseUnionType)
 TYPE_VISITOR_DEFAULT(DictionaryType)
 TYPE_VISITOR_DEFAULT(ExtensionType)
 

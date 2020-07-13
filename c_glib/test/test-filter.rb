@@ -18,11 +18,28 @@
 class TestFilter < Test::Unit::TestCase
   include Helper::Buildable
 
+  sub_test_case("FilterOptions") do
+    def test_default_null_selection_behavior
+      assert_equal(Arrow::FilterNullSelectionBehavior::DROP,
+                   Arrow::FilterOptions.new.null_selection_behavior)
+    end
+  end
+
   sub_test_case("Array") do
+    def setup
+      @filter = build_boolean_array([false, true, true, nil])
+    end
+
     def test_filter
-      filter = build_boolean_array([false, true, true, nil])
+      assert_equal(build_int16_array([1, 0]),
+                   build_int16_array([0, 1, 0, 2]).filter(@filter))
+    end
+
+    def test_filter_emit_null
+      options = Arrow::FilterOptions.new
+      options.null_selection_behavior = :emit_null
       assert_equal(build_int16_array([1, 0, nil]),
-                   build_int16_array([0, 1, 0, 2]).filter(filter))
+                   build_int16_array([0, 1, 0, 2]).filter(@filter, options))
     end
 
     def test_invalid_array_length
@@ -50,15 +67,43 @@ class TestFilter < Test::Unit::TestCase
     def test_filter
       filter = build_boolean_array([false, true, nil])
       arrays = [
-        build_boolean_array([false, nil]),
-        build_boolean_array([true, nil]),
+        build_boolean_array([false]),
+        build_boolean_array([true]),
       ]
       filtered_table = Arrow::Table.new(@schema, arrays)
       assert_equal(filtered_table,
                    @table.filter(filter))
     end
 
+    def test_filter_emit_null
+      filter = build_boolean_array([false, true, nil])
+      arrays = [
+        build_boolean_array([false, nil]),
+        build_boolean_array([true, nil]),
+      ]
+      filtered_table = Arrow::Table.new(@schema, arrays)
+      options = Arrow::FilterOptions.new
+      options.null_selection_behavior = :emit_null
+      assert_equal(filtered_table,
+                   @table.filter(filter, options))
+    end
+
     def test_filter_chunked_array
+      chunks = [
+        build_boolean_array([false]),
+        build_boolean_array([true, nil]),
+      ]
+      filter = Arrow::ChunkedArray.new(chunks)
+      arrays = [
+        build_boolean_array([false]),
+        build_boolean_array([true]),
+      ]
+      filtered_table = Arrow::Table.new(@schema, arrays)
+      assert_equal(filtered_table,
+                   @table.filter_chunked_array(filter))
+    end
+
+    def test_filter_chunked_array_emit_null
       chunks = [
         build_boolean_array([false]),
         build_boolean_array([true, nil]),
@@ -69,8 +114,10 @@ class TestFilter < Test::Unit::TestCase
         build_boolean_array([true, nil]),
       ]
       filtered_table = Arrow::Table.new(@schema, arrays)
+      options = Arrow::FilterOptions.new
+      options.null_selection_behavior = :emit_null
       assert_equal(filtered_table,
-                   @table.filter_chunked_array(filter))
+                   @table.filter_chunked_array(filter, options))
     end
 
     def test_invalid_array_length
@@ -94,11 +141,23 @@ class TestFilter < Test::Unit::TestCase
       filter = build_boolean_array([false, true, nil])
       chunks = [
         build_boolean_array([false]),
-        build_boolean_array([nil]),
       ]
       filtered_chunked_array = Arrow::ChunkedArray.new(chunks)
       assert_equal(filtered_chunked_array,
                    @chunked_array.filter(filter))
+    end
+
+    def test_filter_emit_null
+      filter = build_boolean_array([false, true, nil])
+      chunks = [
+        build_boolean_array([false]),
+        build_boolean_array([nil]),
+      ]
+      filtered_chunked_array = Arrow::ChunkedArray.new(chunks)
+      options = Arrow::FilterOptions.new
+      options.null_selection_behavior = :emit_null
+      assert_equal(filtered_chunked_array,
+                   @chunked_array.filter(filter, options))
     end
 
     def test_filter_chunked_array
@@ -109,11 +168,27 @@ class TestFilter < Test::Unit::TestCase
       filter = Arrow::ChunkedArray.new(chunks)
       filtered_chunks = [
         build_boolean_array([false]),
-        build_boolean_array([nil]),
       ]
       filtered_chunked_array = Arrow::ChunkedArray.new(filtered_chunks)
       assert_equal(filtered_chunked_array,
                    @chunked_array.filter_chunked_array(filter))
+    end
+
+    def test_filter_chunked_array_emit_null
+      chunks = [
+        build_boolean_array([false]),
+        build_boolean_array([true, nil]),
+      ]
+      filter = Arrow::ChunkedArray.new(chunks)
+      filtered_chunks = [
+        build_boolean_array([false]),
+        build_boolean_array([nil]),
+      ]
+      filtered_chunked_array = Arrow::ChunkedArray.new(filtered_chunks)
+      options = Arrow::FilterOptions.new
+      options.null_selection_behavior = :emit_null
+      assert_equal(filtered_chunked_array,
+                   @chunked_array.filter_chunked_array(filter, options))
     end
 
     def test_invalid_array_length
@@ -141,12 +216,25 @@ class TestFilter < Test::Unit::TestCase
     def test_filter
       filter = build_boolean_array([false, true, nil])
       columns = [
+        build_boolean_array([false]),
+        build_boolean_array([true]),
+      ]
+      filtered_record_batch = Arrow::RecordBatch.new(@schema, 1, columns)
+      assert_equal(filtered_record_batch,
+                   @record_batch.filter(filter))
+    end
+
+    def test_filter_emit_null
+      filter = build_boolean_array([false, true, nil])
+      columns = [
         build_boolean_array([false, nil]),
         build_boolean_array([true, nil]),
       ]
       filtered_record_batch = Arrow::RecordBatch.new(@schema, 2, columns)
+      options = Arrow::FilterOptions.new
+      options.null_selection_behavior = :emit_null
       assert_equal(filtered_record_batch,
-                   @record_batch.filter(filter))
+                   @record_batch.filter(filter, options))
     end
 
     def test_invalid_array_length

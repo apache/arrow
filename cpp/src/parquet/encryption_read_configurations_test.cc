@@ -21,6 +21,8 @@
 #include <fstream>
 
 #include "arrow/io/file.h"
+#include "arrow/testing/gtest_compat.h"
+
 #include "parquet/column_reader.h"
 #include "parquet/column_writer.h"
 #include "parquet/file_reader.h"
@@ -348,7 +350,7 @@ class TestDecryptionConfiguration
         parquet::DoubleReader* double_reader =
             static_cast<parquet::DoubleReader*>(column_reader.get());
 
-        // Get the ColumnChunkMetaData for the Dobule column
+        // Get the ColumnChunkMetaData for the Double column
         std::unique_ptr<ColumnChunkMetaData> double_md = rg_metadata->ColumnChunk(5);
 
         // Read all the rows in the column
@@ -521,7 +523,7 @@ TEST_P(TestDecryptionConfiguration, TestDecryption) {
   }
 }
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     DecryptionTests, TestDecryptionConfiguration,
     ::testing::Values(
         std::make_tuple(1, "uniform_encryption.parquet.encrypted"),

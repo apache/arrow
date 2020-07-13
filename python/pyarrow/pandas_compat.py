@@ -17,19 +17,18 @@
 
 
 import ast
+from collections.abc import Sequence
+from copy import deepcopy
 from itertools import zip_longest
 import json
 import operator
 import re
 import warnings
-from copy import deepcopy
 
 import numpy as np
 
 import pyarrow as pa
-from pyarrow.lib import _pandas_api
-from pyarrow.compat import (builtin_pickle,  # noqa
-                            frombytes, Sequence)
+from pyarrow.lib import _pandas_api, builtin_pickle, frombytes  # noqa
 
 
 _logical_type_map = {}
@@ -363,8 +362,8 @@ def _get_columns_to_convert(df, schema, preserve_index, columns):
     index_column_names = []
     for i, index_level in enumerate(index_levels):
         name = _index_level_name(index_level, i, column_names)
-        if (isinstance(index_level, _pandas_api.pd.RangeIndex)
-                and preserve_index is None):
+        if (isinstance(index_level, _pandas_api.pd.RangeIndex) and
+                preserve_index is None):
             descr = _get_range_index_descriptor(index_level)
         else:
             columns_to_convert.append(index_level)
@@ -512,6 +511,8 @@ def dataframe_to_types(df, preserve_index, columns=None):
         values = c.values
         if _pandas_api.is_categorical(values):
             type_ = pa.array(c, from_pandas=True).type
+        elif _pandas_api.is_extension_array_dtype(values):
+            type_ = pa.array(c.head(0), from_pandas=True).type
         else:
             values, type_ = get_datetimetz_type(values, c.dtype, None)
             type_ = pa.lib._ndarray_to_arrow_type(values, type_)
@@ -538,10 +539,10 @@ def dataframe_to_arrays(df, schema, preserve_index, nthreads=1, columns=None,
 
     # NOTE(wesm): If nthreads=None, then we use a heuristic to decide whether
     # using a thread pool is worth it. Currently the heuristic is whether the
-    # nrows > 100 * ncols.
+    # nrows > 100 * ncols and ncols > 1.
     if nthreads is None:
         nrows, ncols = len(df), len(df.columns)
-        if nrows > ncols * 100:
+        if nrows > ncols * 100 and ncols > 1:
             nthreads = pa.cpu_count()
         else:
             nthreads = 1
@@ -568,14 +569,28 @@ def dataframe_to_arrays(df, schema, preserve_index, nthreads=1, columns=None,
                                                          result.null_count))
         return result
 
+    def _can_definitely_zero_copy(arr):
+        return (isinstance(arr, np.ndarray) and
+                arr.flags.contiguous and
+                issubclass(arr.dtype.type, np.integer))
+
     if nthreads == 1:
         arrays = [convert_column(c, f)
                   for c, f in zip(columns_to_convert, convert_fields)]
     else:
         from concurrent import futures
+
+        arrays = []
         with futures.ThreadPoolExecutor(nthreads) as executor:
-            arrays = list(executor.map(convert_column, columns_to_convert,
-                                       convert_fields))
+            for c, f in zip(columns_to_convert, convert_fields):
+                if _can_definitely_zero_copy(c.values):
+                    arrays.append(convert_column(c, f))
+                else:
+                    arrays.append(executor.submit(convert_column, c, f))
+
+        for i, maybe_fut in enumerate(arrays):
+            if isinstance(maybe_fut, futures.Future):
+                arrays[i] = maybe_fut.result()
 
     types = [x.type for x in arrays]
 
@@ -771,8 +786,8 @@ def table_to_blockmanager(options, table, categories=None,
 # dataframe (complex not included since not supported by Arrow)
 _pandas_supported_numpy_types = {
     str(np.dtype(typ))
-    for typ in (np.sctypes['int'] + np.sctypes['uint'] + np.sctypes['float']
-                + ['object', 'bool'])
+    for typ in (np.sctypes['int'] + np.sctypes['uint'] + np.sctypes['float'] +
+                ['object', 'bool'])
 }
 
 

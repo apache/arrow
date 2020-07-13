@@ -16,11 +16,14 @@
 // under the License.
 
 #include <chrono>
+#include <cmath>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <functional>
 #include <memory>
 #include <ostream>
+#include <random>
 #include <string>
 #include <vector>
 
@@ -31,13 +34,16 @@
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
 #include "arrow/io/slow.h"
+#include "arrow/io/transform.h"
 #include "arrow/io/util_internal.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
 #include "arrow/util/iterator.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 
@@ -52,7 +58,7 @@ std::ostream& operator<<(std::ostream& os, const ReadRange& range) {
 class TestBufferOutputStream : public ::testing::Test {
  public:
   void SetUp() {
-    ASSERT_OK(AllocateResizableBuffer(0, &buffer_));
+    ASSERT_OK_AND_ASSIGN(buffer_, AllocateResizableBuffer(0));
     stream_.reset(new BufferOutputStream(buffer_));
   }
 
@@ -115,8 +121,7 @@ TEST_F(TestBufferOutputStream, Reset) {
 }
 
 TEST(TestFixedSizeBufferWriter, Basics) {
-  std::shared_ptr<Buffer> buffer;
-  ASSERT_OK(AllocateBuffer(1024, &buffer));
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> buffer, AllocateBuffer(1024));
 
   FixedSizeBufferWriter writer(buffer);
 
@@ -145,8 +150,7 @@ TEST(TestFixedSizeBufferWriter, Basics) {
 }
 
 TEST(TestFixedSizeBufferWriter, InvalidWrites) {
-  std::shared_ptr<Buffer> buffer;
-  ASSERT_OK(AllocateBuffer(1024, &buffer));
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> buffer, AllocateBuffer(1024));
 
   FixedSizeBufferWriter writer(buffer);
   const uint8_t data[10]{};
@@ -211,8 +215,8 @@ TEST(TestBufferReader, ReadAsync) {
 
   BufferReader reader(std::make_shared<Buffer>(data));
 
-  auto fut1 = reader.ReadAsync(2, 6);
-  auto fut2 = reader.ReadAsync(1, 4);
+  auto fut1 = reader.ReadAsync({}, 2, 6);
+  auto fut2 = reader.ReadAsync({}, 1, 4);
   ASSERT_EQ(fut1.state(), FutureState::SUCCESS);
   ASSERT_EQ(fut2.state(), FutureState::SUCCESS);
   ASSERT_OK_AND_ASSIGN(auto buf, fut1.result());
@@ -231,8 +235,8 @@ TEST(TestBufferReader, InvalidReads) {
   ASSERT_RAISES(Invalid, reader.ReadAt(-1, 1, buffer));
   ASSERT_RAISES(Invalid, reader.ReadAt(1, -1, buffer));
 
-  ASSERT_RAISES(Invalid, reader.ReadAsync(-1, 1).result());
-  ASSERT_RAISES(Invalid, reader.ReadAsync(1, -1).result());
+  ASSERT_RAISES(Invalid, reader.ReadAsync({}, -1, 1).result());
+  ASSERT_RAISES(Invalid, reader.ReadAsync({}, 1, -1).result());
 }
 
 TEST(TestBufferReader, RetainParentReference) {
@@ -242,8 +246,8 @@ TEST(TestBufferReader, RetainParentReference) {
   std::shared_ptr<Buffer> slice1;
   std::shared_ptr<Buffer> slice2;
   {
-    std::shared_ptr<Buffer> buffer;
-    ASSERT_OK(AllocateBuffer(nullptr, static_cast<int64_t>(data.size()), &buffer));
+    ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> buffer,
+                         AllocateBuffer(static_cast<int64_t>(data.size())));
     std::memcpy(buffer->mutable_data(), data.c_str(), data.size());
     BufferReader reader(buffer);
     ASSERT_OK_AND_ASSIGN(slice1, reader.Read(4));
@@ -254,6 +258,26 @@ TEST(TestBufferReader, RetainParentReference) {
 
   ASSERT_EQ(0, std::memcmp(slice1->data(), data.c_str(), 4));
   ASSERT_EQ(0, std::memcmp(slice2->data(), data.c_str() + 4, 6));
+}
+
+TEST(TestBufferReader, WillNeed) {
+  {
+    std::string data = "data123456";
+    BufferReader reader(std::make_shared<Buffer>(data));
+
+    ASSERT_OK(reader.WillNeed({}));
+    ASSERT_OK(reader.WillNeed({{0, 4}, {4, 6}}));
+    ASSERT_OK(reader.WillNeed({{10, 0}}));
+    ASSERT_RAISES(IOError, reader.WillNeed({{11, 1}}));  // Out of bounds
+  }
+  {
+    std::string data = "data123456";
+    BufferReader reader(reinterpret_cast<const uint8_t*>(data.data()),
+                        static_cast<int64_t>(data.size()));
+
+    ASSERT_OK(reader.WillNeed({{0, 4}, {4, 6}}));
+    ASSERT_RAISES(IOError, reader.WillNeed({{11, 1}}));  // Out of bounds
+  }
 }
 
 TEST(TestRandomAccessFile, GetStream) {
@@ -323,10 +347,8 @@ TEST(TestMemcopy, ParallelMemcopy) {
     // randomize size so the memcopy alignment is tested
     int64_t total_size = 3 * THRESHOLD + std::rand() % 100;
 
-    std::shared_ptr<Buffer> buffer1, buffer2;
-
-    ASSERT_OK(AllocateBuffer(total_size, &buffer1));
-    ASSERT_OK(AllocateBuffer(total_size, &buffer2));
+    ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> buffer1, AllocateBuffer(total_size));
+    ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> buffer2, AllocateBuffer(total_size));
 
     random_bytes(total_size, 0, buffer2->mutable_data());
 
@@ -338,6 +360,9 @@ TEST(TestMemcopy, ParallelMemcopy) {
     ASSERT_EQ(0, memcmp(buffer1->data(), buffer2->data(), buffer1->size()));
   }
 }
+
+// -----------------------------------------------------------------------
+// Test slow streams
 
 template <typename SlowStreamType>
 void TestSlowInputStream() {
@@ -374,6 +399,219 @@ void TestSlowInputStream() {
 TEST(TestSlowInputStream, Basics) { TestSlowInputStream<SlowInputStream>(); }
 
 TEST(TestSlowRandomAccessFile, Basics) { TestSlowInputStream<SlowRandomAccessFile>(); }
+
+// -----------------------------------------------------------------------
+// Test transform streams
+
+struct DoublingTransform {
+  // A transform that duplicates every byte
+  Result<std::shared_ptr<Buffer>> operator()(const std::shared_ptr<Buffer>& buf) {
+    ARROW_ASSIGN_OR_RAISE(auto dest, AllocateBuffer(buf->size() * 2));
+    const uint8_t* data = buf->data();
+    uint8_t* out_data = dest->mutable_data();
+    for (int64_t i = 0; i < buf->size(); ++i) {
+      out_data[i * 2] = data[i];
+      out_data[i * 2 + 1] = data[i];
+    }
+    return std::shared_ptr<Buffer>(std::move(dest));
+  }
+};
+
+struct SwappingTransform {
+  // A transform that swaps every pair of bytes
+  Result<std::shared_ptr<Buffer>> operator()(const std::shared_ptr<Buffer>& buf) {
+    int64_t dest_size = BitUtil::RoundDown(buf->size() + has_pending_, 2);
+    ARROW_ASSIGN_OR_RAISE(auto dest, AllocateBuffer(dest_size));
+    const uint8_t* data = buf->data();
+    uint8_t* out_data = dest->mutable_data();
+    if (has_pending_) {
+      *out_data++ = *data++;
+      *out_data++ = pending_byte_;
+      dest_size -= 2;
+    }
+    for (int64_t i = 0; i < dest_size; i += 2) {
+      out_data[i] = data[i + 1];
+      out_data[i + 1] = data[i];
+    }
+    has_pending_ = has_pending_ ^ (buf->size() & 1);
+    if (has_pending_) {
+      pending_byte_ = buf->data()[buf->size() - 1];
+    }
+    return std::shared_ptr<Buffer>(std::move(dest));
+  }
+
+ protected:
+  bool has_pending_ = 0;
+  uint8_t pending_byte_ = 0;
+};
+
+struct BaseShrinkingTransform {
+  // A transform that keeps one byte every N bytes
+  explicit BaseShrinkingTransform(int64_t keep_every) : keep_every_(keep_every) {}
+
+  Result<std::shared_ptr<Buffer>> operator()(const std::shared_ptr<Buffer>& buf) {
+    int64_t dest_size = (buf->size() - skip_bytes_ + keep_every_ - 1) / keep_every_;
+    ARROW_ASSIGN_OR_RAISE(auto dest, AllocateBuffer(dest_size));
+    const uint8_t* data = buf->data() + skip_bytes_;
+    uint8_t* out_data = dest->mutable_data();
+    for (int64_t i = 0; i < dest_size; ++i) {
+      out_data[i] = data[i * keep_every_];
+    }
+    if (dest_size > 0) {
+      skip_bytes_ = skip_bytes_ + dest_size * keep_every_ - buf->size();
+    } else {
+      skip_bytes_ = skip_bytes_ - buf->size();
+    }
+    DCHECK_GE(skip_bytes_, 0);
+    DCHECK_LT(skip_bytes_, keep_every_);
+    return std::shared_ptr<Buffer>(std::move(dest));
+  }
+
+ protected:
+  int64_t skip_bytes_ = 0;
+  const int64_t keep_every_;
+};
+
+template <int N>
+struct ShrinkingTransform : public BaseShrinkingTransform {
+  ShrinkingTransform() : BaseShrinkingTransform(N) {}
+};
+
+template <typename T>
+class TestTransformInputStream : public ::testing::Test {
+ public:
+  TransformInputStream::TransformFunc transform() const { return T(); }
+
+  void TestEmptyStream() {
+    auto wrapped = std::make_shared<BufferReader>(util::string_view());
+    auto stream = std::make_shared<TransformInputStream>(wrapped, transform());
+
+    ASSERT_OK_AND_EQ(0, stream->Tell());
+    ASSERT_OK_AND_ASSIGN(auto buf, stream->Read(123));
+    ASSERT_EQ(buf->size(), 0);
+    ASSERT_OK_AND_ASSIGN(buf, stream->Read(0));
+    ASSERT_EQ(buf->size(), 0);
+    ASSERT_OK_AND_EQ(0, stream->Read(5, out_data_));
+    ASSERT_OK_AND_EQ(0, stream->Tell());
+  }
+
+  void TestBasics() {
+    auto src = Buffer::FromString("1234567890abcdefghi");
+    ASSERT_OK_AND_ASSIGN(auto expected, this->transform()(src));
+
+    auto stream = std::make_shared<TransformInputStream>(
+        std::make_shared<BufferReader>(src), this->transform());
+    std::shared_ptr<Buffer> actual;
+    AccumulateReads(stream, 200, &actual);
+    AssertBufferEqual(*actual, *expected);
+  }
+
+  void TestClose() {
+    auto src = Buffer::FromString("1234567890abcdefghi");
+    auto stream = std::make_shared<TransformInputStream>(
+        std::make_shared<BufferReader>(src), this->transform());
+    ASSERT_FALSE(stream->closed());
+    ASSERT_OK(stream->Close());
+    ASSERT_TRUE(stream->closed());
+    ASSERT_RAISES(Invalid, stream->Read(1));
+    ASSERT_RAISES(Invalid, stream->Read(1, out_data_));
+    ASSERT_RAISES(Invalid, stream->Tell());
+    ASSERT_OK(stream->Close());
+    ASSERT_TRUE(stream->closed());
+  }
+
+  void TestChunked() {
+    auto src = Buffer::FromString("1234567890abcdefghi");
+    ASSERT_OK_AND_ASSIGN(auto expected, this->transform()(src));
+
+    auto stream = std::make_shared<TransformInputStream>(
+        std::make_shared<BufferReader>(src), this->transform());
+    std::shared_ptr<Buffer> actual;
+    AccumulateReads(stream, 5, &actual);
+    AssertBufferEqual(*actual, *expected);
+  }
+
+  void TestStressChunked() {
+    ASSERT_OK_AND_ASSIGN(auto unique_src, AllocateBuffer(1000));
+    auto src = std::shared_ptr<Buffer>(std::move(unique_src));
+    random_bytes(src->size(), /*seed=*/42, src->mutable_data());
+
+    ASSERT_OK_AND_ASSIGN(auto expected, this->transform()(src));
+
+    std::default_random_engine gen(42);
+    std::uniform_int_distribution<int> chunk_sizes(0, 20);
+
+    auto stream = std::make_shared<TransformInputStream>(
+        std::make_shared<BufferReader>(src), this->transform());
+    std::shared_ptr<Buffer> actual;
+    AccumulateReads(
+        stream, [&]() -> int64_t { return chunk_sizes(gen); }, &actual);
+    AssertBufferEqual(*actual, *expected);
+  }
+
+  void AccumulateReads(const std::shared_ptr<InputStream>& stream,
+                       std::function<int64_t()> gen_chunk_sizes,
+                       std::shared_ptr<Buffer>* out) {
+    std::vector<std::shared_ptr<Buffer>> buffers;
+    int64_t total_size = 0;
+    while (true) {
+      const int64_t chunk_size = gen_chunk_sizes();
+      ASSERT_OK_AND_ASSIGN(auto buf, stream->Read(chunk_size));
+      const int64_t buf_size = buf->size();
+      total_size += buf_size;
+      ASSERT_OK_AND_EQ(total_size, stream->Tell());
+      if (chunk_size > 0 && buf_size == 0) {
+        // EOF
+        break;
+      }
+      buffers.push_back(std::move(buf));
+      if (buf_size < chunk_size) {
+        // Short read should imply EOF on next read
+        ASSERT_OK_AND_ASSIGN(auto buf, stream->Read(100));
+        ASSERT_EQ(buf->size(), 0);
+        break;
+      }
+    }
+    ASSERT_OK_AND_ASSIGN(*out, ConcatenateBuffers(buffers));
+  }
+
+  void AccumulateReads(const std::shared_ptr<InputStream>& stream, int64_t chunk_size,
+                       std::shared_ptr<Buffer>* out) {
+    return AccumulateReads(
+        stream, [=]() { return chunk_size; }, out);
+  }
+
+ protected:
+  uint8_t* out_data_[10];
+};
+
+using TransformTypes =
+    ::testing::Types<DoublingTransform, SwappingTransform, ShrinkingTransform<2>,
+                     ShrinkingTransform<3>, ShrinkingTransform<7>>;
+
+TYPED_TEST_SUITE(TestTransformInputStream, TransformTypes);
+
+TYPED_TEST(TestTransformInputStream, EmptyStream) { this->TestEmptyStream(); }
+
+TYPED_TEST(TestTransformInputStream, Basics) { this->TestBasics(); }
+
+TYPED_TEST(TestTransformInputStream, Close) { this->TestClose(); }
+
+TYPED_TEST(TestTransformInputStream, Chunked) { this->TestChunked(); }
+
+TYPED_TEST(TestTransformInputStream, StressChunked) { this->TestStressChunked(); }
+
+static Result<std::shared_ptr<Buffer>> FailingTransform(
+    const std::shared_ptr<Buffer>& buf) {
+  return Status::UnknownError("Failed transform");
+}
+
+TEST(TestTransformInputStream, FailingTransform) {
+  auto src = Buffer::FromString("1234567890abcdefghi");
+  auto stream = std::make_shared<TransformInputStream>(
+      std::make_shared<BufferReader>(src), FailingTransform);
+  ASSERT_RAISES(UnknownError, stream->Read(5));
+}
 
 // -----------------------------------------------------------------------
 // Test various utilities
@@ -421,6 +659,14 @@ TEST(CoalesceReadRanges, Basics) {
   };
 
   check({}, {});
+  // Zero sized range that ends up in empty list
+  check({{110, 0}}, {});
+  // Combination on 1 zero sized range and 1 non-zero sized range
+  check({{110, 10}, {120, 0}}, {{110, 10}});
+  // 1 non-zero sized range
+  check({{110, 10}}, {{110, 10}});
+  // No holes + unordered ranges
+  check({{130, 10}, {110, 10}, {120, 10}}, {{110, 30}});
   // No holes
   check({{110, 10}, {120, 10}, {130, 10}}, {{110, 30}});
   // Small holes only
@@ -450,9 +696,10 @@ TEST(RangeReadCache, Basics) {
   std::string data = "abcdefghijklmnopqrstuvwxyz";
 
   auto file = std::make_shared<BufferReader>(Buffer(data));
-  const int64_t hole_size_limit = 2;
-  const int64_t range_size_limit = 10;
-  internal::ReadRangeCache cache(file, hole_size_limit, range_size_limit);
+  CacheOptions options = CacheOptions::Defaults();
+  options.hole_size_limit = 2;
+  options.range_size_limit = 10;
+  internal::ReadRangeCache cache(file, {}, options);
 
   ASSERT_OK(cache.Cache({{1, 2}, {3, 2}, {8, 2}, {20, 2}, {25, 0}}));
   ASSERT_OK(cache.Cache({{10, 4}, {14, 0}, {15, 4}}));
@@ -480,6 +727,29 @@ TEST(RangeReadCache, Basics) {
   ASSERT_RAISES(Invalid, cache.Read({19, 3}));
   ASSERT_RAISES(Invalid, cache.Read({0, 3}));
   ASSERT_RAISES(Invalid, cache.Read({25, 2}));
+}
+
+TEST(CacheOptions, Basics) {
+  auto check = [](const CacheOptions actual, const double expected_hole_size_limit_MiB,
+                  const double expected_range_size_limit_MiB) -> void {
+    const CacheOptions expected = {
+        static_cast<int64_t>(std::round(expected_hole_size_limit_MiB * 1024 * 1024)),
+        static_cast<int64_t>(std::round(expected_range_size_limit_MiB * 1024 * 1024))};
+    ASSERT_EQ(actual, expected);
+  };
+
+  // Test: normal usage.
+  // TTFB = 5 ms, BW = 500 MiB/s,
+  // we expect hole_size_limit = 2.5 MiB, and range_size_limit = 22.5 MiB
+  check(CacheOptions::MakeFromNetworkMetrics(5, 500), 2.5, 22.5);
+  // Test: custom bandwidth utilization.
+  // TTFB = 5 ms, BW = 500 MiB/s, BW_utilization = 75%,
+  // we expect a change in range_size_limit = 7.5 MiB.
+  check(CacheOptions::MakeFromNetworkMetrics(5, 500, .75), 2.5, 7.5);
+  // Test: custom max_ideal_request_size, range_size_limit gets capped.
+  // TTFB = 5 ms, BW = 500 MiB/s, BW_utilization = 75%, max_ideal_request_size = 5 MiB,
+  // we expect the range_size_limit to be capped at 5 MiB.
+  check(CacheOptions::MakeFromNetworkMetrics(5, 500, .75, 5), 2.5, 5);
 }
 
 }  // namespace io

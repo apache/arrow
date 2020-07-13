@@ -20,7 +20,8 @@ write_parquet(
   use_deprecated_int96_timestamps = FALSE,
   coerce_timestamps = NULL,
   allow_truncated_timestamps = FALSE,
-  arrow_properties = ParquetArrowWriterProperties$create(use_deprecated_int96_timestamps
+ 
+    arrow_properties = ParquetArrowWriterProperties$create(use_deprecated_int96_timestamps
     = use_deprecated_int96_timestamps, coerce_timestamps = coerce_timestamps,
     allow_truncated_timestamps = allow_truncated_timestamps)
 )
@@ -99,8 +100,9 @@ tf1 <- tempfile(fileext = ".parquet")
 write_parquet(data.frame(x = 1:5), tf1)
 
 # using compression
-tf2 <- tempfile(fileext = ".gz.parquet")
-write_parquet(data.frame(x = 1:5), tf2, compression = "gzip", compression_level = 5)
-
+if (codec_is_available("gzip")) {
+  tf2 <- tempfile(fileext = ".gz.parquet")
+  write_parquet(data.frame(x = 1:5), tf2, compression = "gzip", compression_level = 5)
+}
 }
 }

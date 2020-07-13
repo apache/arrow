@@ -652,24 +652,79 @@ five: list<item: int32 not null>
 
 TEST_F(TestPrettyPrint, SchemaWithMetadata) {
   // ARROW-7063
-  auto metadata1 = key_value_metadata({"foo"}, {"bar1"});
-  auto metadata2 = key_value_metadata({"foo"}, {"bar2"});
-  auto metadata3 = key_value_metadata({"foo"}, {"bar3"});
+  auto metadata1 = key_value_metadata({"foo1"}, {"bar1"});
+  auto metadata2 = key_value_metadata({"foo2"}, {"bar2"});
+  auto metadata3 = key_value_metadata(
+      {"foo3", "lorem"},
+      {"bar3",
+       R"(Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla accumsan vel
+          turpis et mollis. Aliquam tincidunt arcu id tortor blandit blandit. Donec
+          eget leo quis lectus scelerisque varius. Class aptent taciti sociosqu ad
+          litora torquent per conubia nostra, per inceptos himenaeos. Praesent
+          faucibus, diam eu volutpat iaculis, tellus est porta ligula, a efficitur
+          turpis nulla facilisis quam. Aliquam vitae lorem erat. Proin a dolor ac libero
+          dignissim mollis vitae eu mauris. Quisque posuere tellus vitae massa
+          pellentesque sagittis. Aenean feugiat, diam ac dignissim fermentum, lorem
+          sapien commodo massa, vel volutpat orci nisi eu justo. Nulla non blandit
+          sapien. Quisque pretium vestibulum urna eu vehicula.)"});
   auto my_schema = schema(
       {field("one", int32(), true, metadata1), field("two", utf8(), false, metadata2)},
       metadata3);
 
-  static const char* expected = R"expected(one: int32
-  -- metadata --
-  foo: bar1
-two: string not null
-  -- metadata --
-  foo: bar2
--- metadata --
-foo: bar3)expected";
   PrettyPrintOptions options;
-  options.show_metadata = true;
+  static const char* expected = R"(one: int32
+  -- field metadata --
+  foo1: 'bar1'
+two: string not null
+  -- field metadata --
+  foo2: 'bar2'
+-- schema metadata --
+foo3: 'bar3'
+lorem: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla ac' + 737)";
   Check(*my_schema, options, expected);
+
+  static const char* expected_verbose = R"(one: int32
+  -- field metadata --
+  foo1: 'bar1'
+two: string not null
+  -- field metadata --
+  foo2: 'bar2'
+-- schema metadata --
+foo3: 'bar3'
+lorem: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla accumsan vel
+          turpis et mollis. Aliquam tincidunt arcu id tortor blandit blandit. Donec
+          eget leo quis lectus scelerisque varius. Class aptent taciti sociosqu ad
+          litora torquent per conubia nostra, per inceptos himenaeos. Praesent
+          faucibus, diam eu volutpat iaculis, tellus est porta ligula, a efficitur
+          turpis nulla facilisis quam. Aliquam vitae lorem erat. Proin a dolor ac libero
+          dignissim mollis vitae eu mauris. Quisque posuere tellus vitae massa
+          pellentesque sagittis. Aenean feugiat, diam ac dignissim fermentum, lorem
+          sapien commodo massa, vel volutpat orci nisi eu justo. Nulla non blandit
+          sapien. Quisque pretium vestibulum urna eu vehicula.')";
+  options.truncate_metadata = false;
+  Check(*my_schema, options, expected_verbose);
+
+  // Metadata that exactly fits
+  auto metadata4 =
+      key_value_metadata({"key"}, {("valuexxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                                    "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")});
+  my_schema = schema({field("f0", int32())}, metadata4);
+  static const char* expected_fits = R"(f0: int32
+-- schema metadata --
+key: 'valuexxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx')";
+  options.truncate_metadata = false;
+  Check(*my_schema, options, expected_fits);
+
+  // A large key
+  auto metadata5 = key_value_metadata({"0123456789012345678901234567890123456789"},
+                                      {("valuexxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                                        "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")});
+  my_schema = schema({field("f0", int32())}, metadata5);
+  static const char* expected_big_key = R"(f0: int32
+-- schema metadata --
+0123456789012345678901234567890123456789: 'valuexxxxxxxxxxxxxxxxxxxxxxxxx' + 40)";
+  options.truncate_metadata = true;
+  Check(*my_schema, options, expected_big_key);
 }
 
 TEST_F(TestPrettyPrint, SchemaIndentation) {

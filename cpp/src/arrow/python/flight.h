@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PYARROW_FLIGHT_H
-#define PYARROW_FLIGHT_H
+#pragma once
 
 #include <memory>
 #include <string>
@@ -25,7 +24,6 @@
 #include "arrow/flight/api.h"
 #include "arrow/ipc/dictionary.h"
 #include "arrow/python/common.h"
-#include "arrow/python/config.h"
 
 #if defined(_WIN32) || defined(__CYGWIN__)  // Windows
 #if defined(_MSC_VER)
@@ -81,6 +79,10 @@ class ARROW_PYFLIGHT_EXPORT PyFlightServerVtable {
                        std::unique_ptr<arrow::flight::FlightMessageReader>,
                        std::unique_ptr<arrow::flight::FlightMetadataWriter>)>
       do_put;
+  std::function<Status(PyObject*, const arrow::flight::ServerCallContext&,
+                       std::unique_ptr<arrow::flight::FlightMessageReader>,
+                       std::unique_ptr<arrow::flight::FlightMessageWriter>)>
+      do_exchange;
   std::function<Status(PyObject*, const arrow::flight::ServerCallContext&,
                        const arrow::flight::Action&,
                        std::unique_ptr<arrow::flight::ResultStream>*)>
@@ -159,6 +161,9 @@ class ARROW_PYFLIGHT_EXPORT PyFlightServer : public arrow::flight::FlightServerB
   Status DoPut(const arrow::flight::ServerCallContext& context,
                std::unique_ptr<arrow::flight::FlightMessageReader> reader,
                std::unique_ptr<arrow::flight::FlightMetadataWriter> writer) override;
+  Status DoExchange(const arrow::flight::ServerCallContext& context,
+                    std::unique_ptr<arrow::flight::FlightMessageReader> reader,
+                    std::unique_ptr<arrow::flight::FlightMessageWriter> writer) override;
   Status DoAction(const arrow::flight::ServerCallContext& context,
                   const arrow::flight::Action& action,
                   std::unique_ptr<arrow::flight::ResultStream>* result) override;
@@ -314,7 +319,8 @@ class ARROW_PYFLIGHT_EXPORT PyGeneratorFlightDataStream
   /// Must only be called while holding the GIL.
   explicit PyGeneratorFlightDataStream(PyObject* generator,
                                        std::shared_ptr<arrow::Schema> schema,
-                                       PyGeneratorFlightDataStreamCallback callback);
+                                       PyGeneratorFlightDataStreamCallback callback,
+                                       const ipc::IpcWriteOptions& options);
   std::shared_ptr<Schema> schema() override;
   Status GetSchemaPayload(arrow::flight::FlightPayload* payload) override;
   Status Next(arrow::flight::FlightPayload* payload) override;
@@ -323,7 +329,7 @@ class ARROW_PYFLIGHT_EXPORT PyGeneratorFlightDataStream
   OwnedRefNoGIL generator_;
   std::shared_ptr<arrow::Schema> schema_;
   ipc::DictionaryMemo dictionary_memo_;
-  ipc::IpcOptions options_;
+  ipc::IpcWriteOptions options_;
   PyGeneratorFlightDataStreamCallback callback_;
 };
 
@@ -349,5 +355,3 @@ Status CreateSchemaResult(const std::shared_ptr<arrow::Schema>& schema,
 }  // namespace flight
 }  // namespace py
 }  // namespace arrow
-
-#endif  // PYARROW_FLIGHT_H

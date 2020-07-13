@@ -15,25 +15,30 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ARG arch=amd64
-FROM ${arch}/ubuntu:16.04
+ARG base=amd64/ubuntu:16.04
+FROM ${base}
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 ENV DEBIAN_FRONTEND noninteractive
+
+# LLVM 10 or later requires C++ 14 but g++-5's C++ 14 support is limited.
+# cpp/src/arrow/vendored/datetime/date.h doesn't work.
+# ARG llvm
+ENV llvm=8
 RUN apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
         apt-transport-https \
         software-properties-common \
         wget && \
     wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
-    apt-add-repository -y "deb https://apt.llvm.org/xenial/ llvm-toolchain-xenial-7 main" && \
+    apt-add-repository -y "deb https://apt.llvm.org/xenial/ llvm-toolchain-xenial-${llvm} main" && \
     apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
         autoconf \
         ca-certificates \
         ccache \
-        clang-7 \
+        clang-${llvm} \
         cmake \
         g++ \
         gcc \
@@ -46,7 +51,9 @@ RUN apt-get update -y -q && \
         liblz4-dev \
         libre2-dev \
         libssl-dev \
-        llvm-7-dev \
+        libutf8proc-dev \
+        libzstd1-dev \
+        llvm-${llvm}-dev \
         make \
         ninja-build \
         pkg-config \
@@ -58,7 +65,6 @@ RUN apt-get update -y -q && \
 
 # Benchmark is deactivated as the external project requires CMake 3.6+
 # Gandiva JNI is deactivated as it requires CMake 3.11+
-# TODO(ARROW-4761): libzstd is too old and external project requires CMake 3.7+
 # - c-ares in Xenial isn't recognized by gRPC build system
 # - libprotobuf-dev / libprotoc-dev in Xenial too old for gRPC
 # - libboost-all-dev does not include Boost.Process, needed for Flight
@@ -77,7 +83,7 @@ ENV ARROW_BUILD_BENCHMARKS=OFF \
     ARROW_WITH_LZ4=ON \
     ARROW_WITH_SNAPPY=ON \
     ARROW_WITH_ZLIB=ON \
-    ARROW_WITH_ZSTD=OFF \
+    ARROW_WITH_ZSTD=ON \
     BOOST_SOURCE=BUNDLED \
     cares_SOURCE=BUNDLED \
     CC=gcc \

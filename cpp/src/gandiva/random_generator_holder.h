@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_RANDOM_GEN_HOLDER_H
-#define GANDIVA_RANDOM_GEN_HOLDER_H
+#pragma once
 
 #include <memory>
 #include <random>
@@ -56,5 +55,3 @@ class GANDIVA_EXPORT RandomGeneratorHolder : public FunctionHolder {
 };
 
 }  // namespace gandiva
-
-#endif /* GANDIVA_RANDOM_GEN_HOLDER_H */

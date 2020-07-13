@@ -6,9 +6,24 @@
 \title{Scan the contents of a dataset}
 \description{
 A \code{Scanner} iterates over a \link{Dataset}'s fragments and returns data
-according to given row filtering and column projection. Use a
-\code{ScannerBuilder}, from a \code{Dataset}'s \verb{$NewScan()} method, to construct one.
+according to given row filtering and column projection. A \code{ScannerBuilder}
+can help create one.
 }
+\section{Factory}{
+
+\code{Scanner$create()} wraps the \code{ScannerBuilder} interface to make a \code{Scanner}.
+It takes the following arguments:
+\itemize{
+\item \code{dataset}: A \code{Dataset} or \code{arrow_dplyr_query} object, as returned by the
+\code{dplyr} methods on \code{Dataset}.
+\item \code{projection}: A character vector of column names to select
+\item \code{filter}: A \code{Expression} to filter the scanned rows by, or \code{TRUE} (default)
+to keep all rows.
+\item \code{use_threads}: logical: should scanning use multithreading? Default \code{TRUE}
+\item \code{...}: Additional arguments, currently ignored
+}
+}
+
 \section{Methods}{
 
 \code{ScannerBuilder} has the following methods:

@@ -21,6 +21,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <vector>
 
 #include "arrow/io/concurrency.h"
 #include "arrow/io/interfaces.h"
@@ -48,10 +49,6 @@ class ARROW_EXPORT BufferOutputStream : public OutputStream {
   static Result<std::shared_ptr<BufferOutputStream>> Create(
       int64_t initial_capacity = 4096, MemoryPool* pool = default_memory_pool());
 
-  ARROW_DEPRECATED("Use Result-returning overload")
-  static Status Create(int64_t initial_capacity, MemoryPool* pool,
-                       std::shared_ptr<BufferOutputStream>* out);
-
   ~BufferOutputStream() override;
 
   // Implement the OutputStream interface
@@ -68,9 +65,6 @@ class ARROW_EXPORT BufferOutputStream : public OutputStream {
 
   /// Close the stream and return the buffer
   Result<std::shared_ptr<Buffer>> Finish();
-
-  ARROW_DEPRECATED("Use Result-returning overload")
-  Status Finish(std::shared_ptr<Buffer>* result);
 
   /// \brief Initialize state of OutputStream with newly allocated memory and
   /// set position to 0
@@ -166,7 +160,9 @@ class ARROW_EXPORT BufferReader
   std::shared_ptr<Buffer> buffer() const { return buffer_; }
 
   // Synchronous ReadAsync override
-  Future<std::shared_ptr<Buffer>> ReadAsync(int64_t position, int64_t nbytes) override;
+  Future<std::shared_ptr<Buffer>> ReadAsync(const AsyncContext&, int64_t position,
+                                            int64_t nbytes) override;
+  Status WillNeed(const std::vector<ReadRange>& ranges) override;
 
  protected:
   friend RandomAccessFileConcurrencyWrapper<BufferReader>;

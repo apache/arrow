@@ -18,10 +18,9 @@
 #pragma once
 
 #include <memory>
-#include <vector>
 
-#include "arrow/array.h"
-#include "arrow/memory_pool.h"
+#include "arrow/type_fwd.h"
+#include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -30,8 +29,12 @@ namespace arrow {
 ///
 /// \param[in] arrays a vector of arrays to be concatenated
 /// \param[in] pool memory to store the result will be allocated from this memory pool
-/// \param[out] out the resulting concatenated array
-/// \return Status
+/// \return the concatenated array
+ARROW_EXPORT
+Result<std::shared_ptr<Array>> Concatenate(const ArrayVector& arrays,
+                                           MemoryPool* pool = default_memory_pool());
+
+ARROW_DEPRECATED("Use Result-returning version")
 ARROW_EXPORT
 Status Concatenate(const ArrayVector& arrays, MemoryPool* pool,
                    std::shared_ptr<Array>* out);

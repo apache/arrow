@@ -38,6 +38,7 @@ _filters = '''
 -readability/alt_tokens
 -build/header_guard
 -build/c++11
+-build/include_what_you_use
 -runtime/references
 -build/include_order
 '''.split()

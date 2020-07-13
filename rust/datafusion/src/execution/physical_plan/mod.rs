@@ -24,13 +24,13 @@ use std::sync::{Arc, Mutex};
 use crate::error::Result;
 use crate::logicalplan::ScalarValue;
 use arrow::array::ArrayRef;
-use arrow::datatypes::{DataType, Schema};
-use arrow::record_batch::RecordBatch;
+use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
+use arrow::record_batch::{RecordBatch, RecordBatchReader};
 
 /// Partition-aware execution plan for a relation
 pub trait ExecutionPlan {
     /// Get the schema for this execution plan
-    fn schema(&self) -> Arc<Schema>;
+    fn schema(&self) -> SchemaRef;
     /// Get the partitions for this execution plan. Each partition can be executed in parallel.
     fn partitions(&self) -> Result<Vec<Arc<dyn Partition>>>;
 }
@@ -38,15 +38,7 @@ pub trait ExecutionPlan {
 /// Represents a partition of an execution plan that can be executed on a thread
 pub trait Partition: Send + Sync {
     /// Execute this partition and return an iterator over RecordBatch
-    fn execute(&self) -> Result<Arc<Mutex<dyn BatchIterator>>>;
-}
-
-/// Iterator over RecordBatch that can be sent between threads
-pub trait BatchIterator: Send + Sync {
-    /// Get the schema for the batches returned by this iterator
-    fn schema(&self) -> Arc<Schema>;
-    /// Get the next RecordBatch
-    fn next(&mut self) -> Result<Option<RecordBatch>>;
+    fn execute(&self) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>>;
 }
 
 /// Expression that can be evaluated against a RecordBatch
@@ -55,11 +47,21 @@ pub trait PhysicalExpr: Send + Sync {
     fn name(&self) -> String;
     /// Get the data type of this expression, given the schema of the input
     fn data_type(&self, input_schema: &Schema) -> Result<DataType>;
+    /// Decide whehter this expression is nullable, given the schema of the input
+    fn nullable(&self, input_schema: &Schema) -> Result<bool>;
     /// Evaluate an expression against a RecordBatch
     fn evaluate(&self, batch: &RecordBatch) -> Result<ArrayRef>;
+    /// Generate schema Field type for this expression
+    fn to_schema_field(&self, input_schema: &Schema) -> Result<Field> {
+        Ok(Field::new(
+            &self.name(),
+            self.data_type(input_schema)?,
+            self.nullable(input_schema)?,
+        ))
+    }
 }
 
-/// Agggregate expression that can be evaluated against a RecordBatch
+/// Aggregate expression that can be evaluated against a RecordBatch
 pub trait AggregateExpr: Send + Sync {
     /// Get the name to use in a schema to represent the result of this expression
     fn name(&self) -> String;
@@ -91,7 +93,11 @@ pub mod datasource;
 pub mod expressions;
 pub mod hash_aggregate;
 pub mod limit;
+pub mod math_expressions;
+pub mod memory;
 pub mod merge;
 pub mod parquet;
 pub mod projection;
 pub mod selection;
+pub mod sort;
+pub mod udf;

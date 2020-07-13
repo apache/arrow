@@ -698,9 +698,15 @@ visible: false
   end
 
   sub_test_case("#filter") do
+    def setup
+      super
+      @options = Arrow::FilterOptions.new
+      @options.null_selection_behavior = :emit_null
+    end
+
     test("Array: boolean") do
       filter = [nil, true, true, false, true, false, true, true]
-      assert_equal(<<-TABLE, @table.filter(filter).to_s)
+      assert_equal(<<-TABLE, @table.filter(filter, @options).to_s)
 	count	visible
 0	     	       
 1	    2	false  
@@ -714,7 +720,7 @@ visible: false
     test("Arrow::BooleanArray") do
       array = [nil, true, true, false, true, false, true, true]
       filter = Arrow::BooleanArray.new(array)
-      assert_equal(<<-TABLE, @table.filter(filter).to_s)
+      assert_equal(<<-TABLE, @table.filter(filter, @options).to_s)
 	count	visible
 0	     	       
 1	    2	false  
@@ -732,7 +738,7 @@ visible: false
         Arrow::BooleanArray.new([true, true]),
       ]
       filter = Arrow::ChunkedArray.new(filter_chunks)
-      assert_equal(<<-TABLE, @table.filter(filter).to_s)
+      assert_equal(<<-TABLE, @table.filter(filter, @options).to_s)
 	count	visible
 0	     	       
 1	    2	false  

@@ -35,6 +35,7 @@ class PrepareTest < Test::Unit::TestCase
         git("checkout", "-b", @release_branch, @current_commit)
         yield
       end
+      FileUtils.rm_rf(@test_git_repository)
     end
   end
 
@@ -150,7 +151,7 @@ class PrepareTest < Test::Unit::TestCase
                      ],
                    },
                    {
-                     path: "ci/PKGBUILD",
+                     path: "ci/scripts/PKGBUILD",
                      hunks: [
                        ["-pkgver=#{@previous_version}.9000",
                         "+pkgver=#{@release_version}"],
@@ -173,15 +174,15 @@ class PrepareTest < Test::Unit::TestCase
                    {
                      path: "dev/tasks/homebrew-formulae/apache-arrow.rb",
                      hunks: [
-                       ["-  url \"https://www.apache.org/dyn/closer.cgi?path=arrow/arrow-#{@snapshot_version}/apache-arrow-#{@snapshot_version}.tar.gz\"",
-                        "+  url \"https://www.apache.org/dyn/closer.cgi?path=arrow/arrow-#{@release_version}/apache-arrow-#{@release_version}.tar.gz\""],
+                       ["-  url \"https://www.apache.org/dyn/closer.lua?path=arrow/arrow-#{@snapshot_version}/apache-arrow-#{@snapshot_version}.tar.gz\"",
+                        "+  url \"https://www.apache.org/dyn/closer.lua?path=arrow/arrow-#{@release_version}/apache-arrow-#{@release_version}.tar.gz\""],
                      ],
                    },
                    {
                      path: "dev/tasks/homebrew-formulae/autobrew/apache-arrow.rb",
                      hunks: [
-                       ["-  url \"https://www.apache.org/dyn/closer.cgi?path=arrow/arrow-#{@previous_version}.9000/apache-arrow-#{@previous_version}.9000.tar.gz\"",
-                        "+  url \"https://www.apache.org/dyn/closer.cgi?path=arrow/arrow-#{@release_version}/apache-arrow-#{@release_version}.tar.gz\""],
+                       ["-  url \"https://www.apache.org/dyn/closer.lua?path=arrow/arrow-#{@previous_version}.9000/apache-arrow-#{@previous_version}.9000.tar.gz\"",
+                        "+  url \"https://www.apache.org/dyn/closer.lua?path=arrow/arrow-#{@release_version}/apache-arrow-#{@release_version}.tar.gz\""],
                      ],
                    },
                    {
@@ -227,6 +228,13 @@ class PrepareTest < Test::Unit::TestCase
                      ],
                    },
                    {
+                     path: "ruby/red-arrow-dataset/lib/arrow-dataset/version.rb",
+                     hunks: [
+                       ["-  VERSION = \"#{@snapshot_version}\"",
+                        "+  VERSION = \"#{@release_version}\""],
+                     ],
+                   },
+                   {
                      path: "ruby/red-arrow/lib/arrow/version.rb",
                      hunks: [
                        ["-  VERSION = \"#{@snapshot_version}\"",
@@ -266,6 +274,15 @@ class PrepareTest < Test::Unit::TestCase
                      hunks: [
                        ["-version = \"#{@snapshot_version}\"",
                         "+version = \"#{@release_version}\""],
+                       ["-arrow-flight = { path = \"../arrow-flight\", optional = true, version = \"#{@snapshot_version}\" }",
+                        "+arrow-flight = { path = \"../arrow-flight\", optional = true, version = \"#{@release_version}\" }"],
+                     ],
+                   },
+                   {
+                     path: "rust/benchmarks/Cargo.toml",
+                     hunks: [
+                       ["-version = \"#{@snapshot_version}\"",
+                        "+version = \"#{@release_version}\""],
                      ],
                    },
                    {
@@ -286,6 +303,13 @@ class PrepareTest < Test::Unit::TestCase
                      hunks: [
                        ["-datafusion = \"#{@snapshot_version}\"",
                         "+datafusion = \"#{@release_version}\""],
+                     ],
+                   },
+                   {
+                     path: "rust/integration-testing/Cargo.toml",
+                     hunks: [
+                       ["-version = \"#{@snapshot_version}\"",
+                        "+version = \"#{@release_version}\""],
                      ],
                    },
                    {
@@ -333,7 +357,7 @@ class PrepareTest < Test::Unit::TestCase
                      ],
                    },
                    {
-                     path: "ci/PKGBUILD",
+                     path: "ci/scripts/PKGBUILD",
                      hunks: [
                        ["-pkgver=#{@release_version}",
                         "+pkgver=#{@release_version}.9000"],
@@ -356,15 +380,15 @@ class PrepareTest < Test::Unit::TestCase
                    {
                      path: "dev/tasks/homebrew-formulae/apache-arrow.rb",
                      hunks: [
-                       ["-  url \"https://www.apache.org/dyn/closer.cgi?path=arrow/arrow-#{@release_version}/apache-arrow-#{@release_version}.tar.gz\"",
-                        "+  url \"https://www.apache.org/dyn/closer.cgi?path=arrow/arrow-#{@next_snapshot_version}/apache-arrow-#{@next_snapshot_version}.tar.gz\""],
+                       ["-  url \"https://www.apache.org/dyn/closer.lua?path=arrow/arrow-#{@release_version}/apache-arrow-#{@release_version}.tar.gz\"",
+                        "+  url \"https://www.apache.org/dyn/closer.lua?path=arrow/arrow-#{@next_snapshot_version}/apache-arrow-#{@next_snapshot_version}.tar.gz\""],
                      ],
                    },
                    {
                      path: "dev/tasks/homebrew-formulae/autobrew/apache-arrow.rb",
                      hunks: [
-                       ["-  url \"https://www.apache.org/dyn/closer.cgi?path=arrow/arrow-#{@release_version}/apache-arrow-#{@release_version}.tar.gz\"",
-                        "+  url \"https://www.apache.org/dyn/closer.cgi?path=arrow/arrow-#{@release_version}.9000/apache-arrow-#{@release_version}.9000.tar.gz\""],
+                       ["-  url \"https://www.apache.org/dyn/closer.lua?path=arrow/arrow-#{@release_version}/apache-arrow-#{@release_version}.tar.gz\"",
+                        "+  url \"https://www.apache.org/dyn/closer.lua?path=arrow/arrow-#{@release_version}.9000/apache-arrow-#{@release_version}.9000.tar.gz\""],
                      ],
                    },
                    {
@@ -411,6 +435,13 @@ class PrepareTest < Test::Unit::TestCase
                      ],
                    },
                    {
+                     path: "ruby/red-arrow-dataset/lib/arrow-dataset/version.rb",
+                     hunks: [
+                       ["-  VERSION = \"#{@release_version}\"",
+                        "+  VERSION = \"#{@next_snapshot_version}\""],
+                     ],
+                   },
+                   {
                      path: "ruby/red-arrow/lib/arrow/version.rb",
                      hunks: [
                        ["-  VERSION = \"#{@release_version}\"",
@@ -450,6 +481,15 @@ class PrepareTest < Test::Unit::TestCase
                      hunks: [
                        ["-version = \"#{@release_version}\"",
                         "+version = \"#{@next_snapshot_version}\""],
+                       ["-arrow-flight = { path = \"../arrow-flight\", optional = true, version = \"#{@release_version}\" }",
+                        "+arrow-flight = { path = \"../arrow-flight\", optional = true, version = \"#{@next_snapshot_version}\" }"],
+                     ],
+                   },
+                   {
+                     path: "rust/benchmarks/Cargo.toml",
+                     hunks: [
+                       ["-version = \"#{@release_version}\"",
+                        "+version = \"#{@next_snapshot_version}\""],
                      ],
                    },
                    {
@@ -470,6 +510,13 @@ class PrepareTest < Test::Unit::TestCase
                      hunks: [
                        ["-datafusion = \"#{@release_version}\"",
                         "+datafusion = \"#{@next_snapshot_version}\""],
+                     ],
+                   },
+                   {
+                     path: "rust/integration-testing/Cargo.toml",
+                     hunks: [
+                       ["-version = \"#{@release_version}\"",
+                        "+version = \"#{@next_snapshot_version}\""],
                      ],
                    },
                    {
@@ -530,8 +577,8 @@ class PrepareTest < Test::Unit::TestCase
       },
       {
         sampled_diff: [
-          "-      - libarrow-glib#{@so_version}-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb",
-          "+      - libarrow-glib#{@next_so_version}-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb",
+          "-      - libarrow-glib#{@so_version}-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb",
+          "+      - libarrow-glib#{@next_so_version}-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb",
         ],
         path: "dev/tasks/tasks.yml",
       },

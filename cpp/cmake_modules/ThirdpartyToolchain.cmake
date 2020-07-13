@@ -23,6 +23,12 @@ add_custom_target(toolchain)
 add_custom_target(toolchain-benchmarks)
 add_custom_target(toolchain-tests)
 
+# Accumulate all bundled targets and we will splice them together later as
+# libarrow_dependencies.a so that third party libraries have something usable
+# to create statically-linked builds with some BUNDLED dependencies, including
+# allocators like jemalloc and mimalloc
+set(ARROW_BUNDLED_STATIC_LIBS)
+
 # ----------------------------------------------------------------------
 # Toolchain linkage options
 
@@ -35,42 +41,6 @@ if(ARROW_PROTOBUF_USE_SHARED)
 else()
   set(Protobuf_USE_STATIC_LIBS ON)
 endif()
-
-# ----------------------------------------------------------------------
-# We should not use the Apache dist server for build dependencies
-
-set(APACHE_MIRROR "")
-
-macro(get_apache_mirror)
-  if(APACHE_MIRROR STREQUAL "")
-    set(APACHE_MIRROR_INFO_URL "https://www.apache.org/dyn/closer.cgi?as_json=1")
-    set(APACHE_MIRROR_INFO_PATH "${CMAKE_CURRENT_BINARY_DIR}/apache-mirror.json")
-    if(EXISTS "${APACHE_MIRROR_INFO_PATH}")
-      set(APACHE_MIRROR_DOWNLOAD_STATUS 0)
-    else()
-      file(DOWNLOAD "${APACHE_MIRROR_INFO_URL}" "${APACHE_MIRROR_INFO_PATH}"
-           STATUS APACHE_MIRROR_DOWNLOAD_STATUS)
-    endif()
-    if(APACHE_MIRROR_DOWNLOAD_STATUS EQUAL 0)
-      file(READ "${APACHE_MIRROR_INFO_PATH}" APACHE_MIRROR_INFO)
-      string(REGEX MATCH "\"preferred\": \"[^\"]+" APACHE_MIRROR_PREFERRED
-                   "${APACHE_MIRROR_INFO}")
-      string(REGEX
-             REPLACE "\"preferred\": \"" "" APACHE_MIRROR "${APACHE_MIRROR_PREFERRED}")
-    else()
-      file(REMOVE "${APACHE_MIRROR_INFO_PATH}")
-      message(
-        WARNING
-          "Failed to download Apache mirror information: ${APACHE_MIRROR_INFO_URL}: ${APACHE_MIRROR_DOWNLOAD_STATUS}"
-        )
-    endif()
-  endif()
-  if(APACHE_MIRROR STREQUAL "")
-    # Well-known mirror, in case the URL above fails loading
-    set(APACHE_MIRROR "https://apache.osuosl.org/")
-  endif()
-  message(STATUS "Apache mirror: ${APACHE_MIRROR}")
-endmacro()
 
 # ----------------------------------------------------------------------
 # Resolve the dependencies
@@ -94,6 +64,7 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     RapidJSON
     Snappy
     Thrift
+    utf8proc
     ZLIB
     ZSTD)
 
@@ -171,6 +142,8 @@ macro(build_dependency DEPENDENCY_NAME)
     build_re2()
   elseif("${DEPENDENCY_NAME}" STREQUAL "Thrift")
     build_thrift()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "utf8proc")
+    build_utf8proc()
   elseif("${DEPENDENCY_NAME}" STREQUAL "ZLIB")
     build_zlib()
   elseif("${DEPENDENCY_NAME}" STREQUAL "ZSTD")
@@ -217,18 +190,25 @@ include_directories(SYSTEM "${THIRDPARTY_DIR}/flatbuffers/include")
 # ----------------------------------------------------------------------
 # Some EP's require other EP's
 
-if(ARROW_THRIFT OR ARROW_WITH_ZLIB)
+if(ARROW_THRIFT)
   set(ARROW_WITH_ZLIB ON)
 endif()
 
 if(ARROW_HIVESERVER2 OR ARROW_PARQUET)
   set(ARROW_WITH_THRIFT ON)
+  if(ARROW_HIVESERVER2)
+    set(ARROW_THRIFT_REQUIRED_COMPONENTS COMPILER)
+  else()
+    set(ARROW_THRIFT_REQUIRED_COMPONENTS)
+  endif()
 else()
   set(ARROW_WITH_THRIFT OFF)
 endif()
 
 if(ARROW_FLIGHT)
   set(ARROW_WITH_GRPC ON)
+  # gRPC requires zlib
+  set(ARROW_WITH_ZLIB ON)
 endif()
 
 if(ARROW_JSON)
@@ -239,9 +219,24 @@ if(ARROW_ORC OR ARROW_FLIGHT OR ARROW_GANDIVA)
   set(ARROW_WITH_PROTOBUF ON)
 endif()
 
+if(NOT ARROW_COMPUTE)
+  # utf8proc is only potentially used in kernels for now
+  set(ARROW_WITH_UTF8PROC OFF)
+endif()
+
 # ----------------------------------------------------------------------
 # Versions and URLs for toolchain builds, which also can be used to configure
 # offline builds
+# Note: We should not use the Apache dist server for build dependencies
+
+macro(set_urls URLS)
+  set(${URLS} ${ARGN})
+  if(CMAKE_VERSION VERSION_LESS 3.7)
+    # ExternalProject doesn't support backup URLs;
+    # Feature only available starting in 3.7
+    list(GET ${URLS} 0 ${URLS})
+  endif()
+endmacro()
 
 # Read toolchain versions from cpp/thirdparty/versions.txt
 file(STRINGS "${THIRDPARTY_DIR}/versions.txt" TOOLCHAIN_VERSIONS_TXT)
@@ -267,11 +262,23 @@ foreach(_VERSION_ENTRY ${TOOLCHAIN_VERSIONS_TXT})
   set(${_VARIABLE_NAME} ${_VARIABLE_VALUE})
 endforeach()
 
+if(DEFINED ENV{ARROW_ABSL_URL})
+  set(ABSL_SOURCE_URL "$ENV{ARROW_ABSL_URL}")
+else()
+  set_urls(
+    ABSL_SOURCE_URL
+    "https://github.com/abseil/abseil-cpp/archive/${ARROW_ABSL_BUILD_VERSION}.tar.gz")
+endif()
+
 if(DEFINED ENV{ARROW_AWSSDK_URL})
   set(AWSSDK_SOURCE_URL "$ENV{ARROW_AWSSDK_URL}")
 else()
-  set(AWSSDK_SOURCE_URL
-      "https://github.com/aws/aws-sdk-cpp/archive/${ARROW_AWSSDK_BUILD_VERSION}.tar.gz")
+  set_urls(
+    AWSSDK_SOURCE_URL
+    "https://github.com/aws/aws-sdk-cpp/archive/${ARROW_AWSSDK_BUILD_VERSION}.tar.gz"
+    "https://github.com/ursa-labs/thirdparty/releases/download/latest/aws-sdk-cpp-${ARROW_AWSSDK_BUILD_VERSION}.tar.gz"
+    "https://dl.bintray.com/ursalabs/arrow-awssdk/aws-sdk-cpp-${ARROW_AWSSDK_BUILD_VERSION}.tar.gz/aws-sdk-cpp-${ARROW_AWSSDK_BUILD_VERSION}.tar.gz"
+    )
 endif()
 
 if(DEFINED ENV{ARROW_BOOST_URL})
@@ -279,98 +286,129 @@ if(DEFINED ENV{ARROW_BOOST_URL})
 else()
   string(REPLACE "." "_" ARROW_BOOST_BUILD_VERSION_UNDERSCORES
                  ${ARROW_BOOST_BUILD_VERSION})
-  set(
+  set_urls(
     BOOST_SOURCE_URL
+    # These are trimmed boost bundles we maintain.
+    # See cpp/build_support/trim-boost.sh
+    "https://dl.bintray.com/ursalabs/arrow-boost/boost_${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}.tar.gz"
     "https://dl.bintray.com/boostorg/release/${ARROW_BOOST_BUILD_VERSION}/source/boost_${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}.tar.gz"
+    "https://github.com/boostorg/boost/archive/boost-${ARROW_BOOST_BUILD_VERSION}.tar.gz"
+    # FIXME(ARROW-6407) automate uploading this archive to ensure it reflects
+    # our currently used packages and doesn't fall out of sync with
+    # ${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}
+    "https://github.com/ursa-labs/thirdparty/releases/download/latest/boost_${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}.tar.gz"
     )
 endif()
 
 if(DEFINED ENV{ARROW_BROTLI_URL})
   set(BROTLI_SOURCE_URL "$ENV{ARROW_BROTLI_URL}")
 else()
-  set(BROTLI_SOURCE_URL
-      "https://github.com/google/brotli/archive/${ARROW_BROTLI_BUILD_VERSION}.tar.gz")
+  set_urls(
+    BROTLI_SOURCE_URL
+    "https://github.com/google/brotli/archive/${ARROW_BROTLI_BUILD_VERSION}.tar.gz"
+    "https://github.com/ursa-labs/thirdparty/releases/download/latest/brotli-${ARROW_BROTLI_BUILD_VERSION}.tar.gz"
+    )
 endif()
 
 if(DEFINED ENV{ARROW_CARES_URL})
   set(CARES_SOURCE_URL "$ENV{ARROW_CARES_URL}")
 else()
-  set(CARES_SOURCE_URL
-      "https://c-ares.haxx.se/download/c-ares-${ARROW_CARES_BUILD_VERSION}.tar.gz")
+  set_urls(
+    CARES_SOURCE_URL
+    "https://c-ares.haxx.se/download/c-ares-${ARROW_CARES_BUILD_VERSION}.tar.gz"
+    "https://github.com/ursa-labs/thirdparty/releases/download/latest/cares-${ARROW_CARES_BUILD_VERSION}.tar.gz"
+    )
 endif()
 
 if(DEFINED ENV{ARROW_GBENCHMARK_URL})
   set(GBENCHMARK_SOURCE_URL "$ENV{ARROW_GBENCHMARK_URL}")
 else()
-  set(
+  set_urls(
     GBENCHMARK_SOURCE_URL
-
     "https://github.com/google/benchmark/archive/${ARROW_GBENCHMARK_BUILD_VERSION}.tar.gz"
+    "https://github.com/ursa-labs/thirdparty/releases/download/latest/gbenchmark-${ARROW_GBENCHMARK_BUILD_VERSION}.tar.gz"
     )
 endif()
 
 if(DEFINED ENV{ARROW_GFLAGS_URL})
   set(GFLAGS_SOURCE_URL "$ENV{ARROW_GFLAGS_URL}")
 else()
-  set(GFLAGS_SOURCE_URL
-      "https://github.com/gflags/gflags/archive/${ARROW_GFLAGS_BUILD_VERSION}.tar.gz")
+  set_urls(
+    GFLAGS_SOURCE_URL
+    "https://github.com/gflags/gflags/archive/${ARROW_GFLAGS_BUILD_VERSION}.tar.gz"
+    "https://github.com/ursa-labs/thirdparty/releases/download/latest/gflags-${ARROW_GFLAGS_BUILD_VERSION}.tar.gz"
+    )
 endif()
 
 if(DEFINED ENV{ARROW_GLOG_URL})
   set(GLOG_SOURCE_URL "$ENV{ARROW_GLOG_URL}")
 else()
-  set(GLOG_SOURCE_URL
-      "https://github.com/google/glog/archive/${ARROW_GLOG_BUILD_VERSION}.tar.gz")
+  set_urls(
+    GLOG_SOURCE_URL
+    "https://github.com/google/glog/archive/${ARROW_GLOG_BUILD_VERSION}.tar.gz"
+    "https://github.com/ursa-labs/thirdparty/releases/download/latest/glog-${ARROW_GLOG_BUILD_VERSION}.tar.gz"
+    )
 endif()
 
 if(DEFINED ENV{ARROW_GRPC_URL})
   set(GRPC_SOURCE_URL "$ENV{ARROW_GRPC_URL}")
 else()
-  set(GRPC_SOURCE_URL
-      "https://github.com/grpc/grpc/archive/${ARROW_GRPC_BUILD_VERSION}.tar.gz")
+  set_urls(
+    GRPC_SOURCE_URL
+    "https://github.com/grpc/grpc/archive/${ARROW_GRPC_BUILD_VERSION}.tar.gz"
+    "https://github.com/ursa-labs/thirdparty/releases/download/latest/grpc-${ARROW_GRPC_BUILD_VERSION}.tar.gz"
+    )
 endif()
 
 if(DEFINED ENV{ARROW_GTEST_URL})
   set(GTEST_SOURCE_URL "$ENV{ARROW_GTEST_URL}")
 else()
-  set(
+  set_urls(
     GTEST_SOURCE_URL
     "https://github.com/google/googletest/archive/release-${ARROW_GTEST_BUILD_VERSION}.tar.gz"
+    "https://chromium.googlesource.com/external/github.com/google/googletest/+archive/release-${ARROW_GTEST_BUILD_VERSION}.tar.gz"
+    "https://github.com/ursa-labs/thirdparty/releases/download/latest/gtest-${ARROW_GTEST_BUILD_VERSION}.tar.gz"
+    "https://dl.bintray.com/ursalabs/arrow-gtest/gtest-${ARROW_GTEST_BUILD_VERSION}.tar.gz"
     )
 endif()
 
 if(DEFINED ENV{ARROW_JEMALLOC_URL})
   set(JEMALLOC_SOURCE_URL "$ENV{ARROW_JEMALLOC_URL}")
 else()
-  set(
+  set_urls(
     JEMALLOC_SOURCE_URL
     "https://github.com/jemalloc/jemalloc/releases/download/${ARROW_JEMALLOC_BUILD_VERSION}/jemalloc-${ARROW_JEMALLOC_BUILD_VERSION}.tar.bz2"
+    "https://github.com/ursa-labs/thirdparty/releases/download/latest/jemalloc-${ARROW_JEMALLOC_BUILD_VERSION}.tar.bz2"
     )
 endif()
 
 if(DEFINED ENV{ARROW_MIMALLOC_URL})
   set(MIMALLOC_SOURCE_URL "$ENV{ARROW_MIMALLOC_URL}")
 else()
-  set(
+  set_urls(
     MIMALLOC_SOURCE_URL
-
     "https://github.com/microsoft/mimalloc/archive/${ARROW_MIMALLOC_BUILD_VERSION}.tar.gz"
+    "https://github.com/ursa-labs/thirdparty/releases/download/latest/mimalloc-${ARROW_MIMALLOC_BUILD_VERSION}.tar.gz"
     )
 endif()
 
 if(DEFINED ENV{ARROW_LZ4_URL})
   set(LZ4_SOURCE_URL "$ENV{ARROW_LZ4_URL}")
 else()
-  set(LZ4_SOURCE_URL
-      "https://github.com/lz4/lz4/archive/${ARROW_LZ4_BUILD_VERSION}.tar.gz")
+  set_urls(
+    LZ4_SOURCE_URL "https://github.com/lz4/lz4/archive/${ARROW_LZ4_BUILD_VERSION}.tar.gz"
+    "https://github.com/ursa-labs/thirdparty/releases/download/latest/lz4-${ARROW_LZ4_BUILD_VERSION}.tar.gz"
+    )
 endif()
 
 if(DEFINED ENV{ARROW_ORC_URL})
   set(ORC_SOURCE_URL "$ENV{ARROW_ORC_URL}")
 else()
-  set(
+  set_urls(
     ORC_SOURCE_URL
-    "https://github.com/apache/orc/archive/rel/release-${ARROW_ORC_BUILD_VERSION}.tar.gz")
+    "https://github.com/apache/orc/archive/rel/release-${ARROW_ORC_BUILD_VERSION}.tar.gz"
+    "https://github.com/ursa-labs/thirdparty/releases/download/latest/orc-${ARROW_ORC_BUILD_VERSION}.tar.gz"
+    )
 endif()
 
 if(DEFINED ENV{ARROW_PROTOBUF_URL})
@@ -379,60 +417,103 @@ else()
   string(SUBSTRING ${ARROW_PROTOBUF_BUILD_VERSION} 1 -1
                    ARROW_PROTOBUF_STRIPPED_BUILD_VERSION)
   # strip the leading `v`
-  set(
+  set_urls(
     PROTOBUF_SOURCE_URL
     "https://github.com/protocolbuffers/protobuf/releases/download/${ARROW_PROTOBUF_BUILD_VERSION}/protobuf-all-${ARROW_PROTOBUF_STRIPPED_BUILD_VERSION}.tar.gz"
+    "https://github.com/ursa-labs/thirdparty/releases/download/latest/protobuf-${ARROW_PROTOBUF_BUILD_VERSION}.tar.gz"
     )
 endif()
 
 if(DEFINED ENV{ARROW_RE2_URL})
   set(RE2_SOURCE_URL "$ENV{ARROW_RE2_URL}")
 else()
-  set(RE2_SOURCE_URL
-      "https://github.com/google/re2/archive/${ARROW_RE2_BUILD_VERSION}.tar.gz")
+  set_urls(
+    RE2_SOURCE_URL
+    "https://github.com/google/re2/archive/${ARROW_RE2_BUILD_VERSION}.tar.gz"
+    "https://github.com/ursa-labs/thirdparty/releases/download/latest/re2-${ARROW_RE2_BUILD_VERSION}.tar.gz"
+    )
 endif()
 
 if(DEFINED ENV{ARROW_RAPIDJSON_URL})
   set(RAPIDJSON_SOURCE_URL "$ENV{ARROW_RAPIDJSON_URL}")
 else()
-  set(
+  set_urls(
     RAPIDJSON_SOURCE_URL
-
     "https://github.com/miloyip/rapidjson/archive/${ARROW_RAPIDJSON_BUILD_VERSION}.tar.gz"
+    "https://github.com/ursa-labs/thirdparty/releases/download/latest/rapidjson-${ARROW_RAPIDJSON_BUILD_VERSION}.tar.gz"
     )
 endif()
 
 if(DEFINED ENV{ARROW_SNAPPY_URL})
   set(SNAPPY_SOURCE_URL "$ENV{ARROW_SNAPPY_URL}")
 else()
-  set(SNAPPY_SOURCE_URL
-      "https://github.com/google/snappy/archive/${ARROW_SNAPPY_BUILD_VERSION}.tar.gz")
+  set_urls(
+    SNAPPY_SOURCE_URL
+    "https://github.com/google/snappy/archive/${ARROW_SNAPPY_BUILD_VERSION}.tar.gz"
+    "https://github.com/ursa-labs/thirdparty/releases/download/latest/snappy-${ARROW_SNAPPY_BUILD_VERSION}.tar.gz"
+    )
 endif()
 
 if(DEFINED ENV{ARROW_THRIFT_URL})
   set(THRIFT_SOURCE_URL "$ENV{ARROW_THRIFT_URL}")
 else()
-  set(THRIFT_SOURCE_URL "FROM-APACHE-MIRROR")
+  set_urls(
+    THRIFT_SOURCE_URL
+    "http://www.apache.org/dyn/closer.cgi?action=download&filename=/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
+    "https://downloads.apache.org/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
+    "https://github.com/apache/thrift/archive/v${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
+    "https://apache.claz.org/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
+    "https://apache.cs.utah.edu/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
+    "https://apache.mirrors.lucidnetworks.net/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
+    "https://apache.osuosl.org/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
+    "https://ftp.wayne.edu/apache/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
+    "https://mirror.olnevhost.net/pub/apache/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
+    "https://mirrors.gigenet.com/apache/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
+    "https://mirrors.koehn.com/apache/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
+    "https://mirrors.ocf.berkeley.edu/apache/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
+    "https://mirrors.sonic.net/apache/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
+    "https://us.mirrors.quenda.co/apache/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
+    "https://github.com/ursa-labs/thirdparty/releases/download/latest/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
+    "https://dl.bintray.com/ursalabs/arrow-thrift/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
+    )
 endif()
 
 if(DEFINED ENV{ARROW_ZLIB_URL})
   set(ZLIB_SOURCE_URL "$ENV{ARROW_ZLIB_URL}")
 else()
-  set(ZLIB_SOURCE_URL "https://zlib.net/fossils/zlib-${ARROW_ZLIB_BUILD_VERSION}.tar.gz")
+  set_urls(
+    ZLIB_SOURCE_URL "https://zlib.net/fossils/zlib-${ARROW_ZLIB_BUILD_VERSION}.tar.gz"
+    "https://github.com/ursa-labs/thirdparty/releases/download/latest/zlib-${ARROW_ZLIB_BUILD_VERSION}.tar.gz"
+    )
 endif()
 
 if(DEFINED ENV{ARROW_ZSTD_URL})
   set(ZSTD_SOURCE_URL "$ENV{ARROW_ZSTD_URL}")
 else()
-  set(ZSTD_SOURCE_URL
-      "https://github.com/facebook/zstd/archive/${ARROW_ZSTD_BUILD_VERSION}.tar.gz")
+  set_urls(
+    ZSTD_SOURCE_URL
+    "https://github.com/facebook/zstd/archive/${ARROW_ZSTD_BUILD_VERSION}.tar.gz"
+    "https://github.com/ursa-labs/thirdparty/releases/download/latest/zstd-${ARROW_ZSTD_BUILD_VERSION}.tar.gz"
+    )
 endif()
 
-if(DEFINED ENV{BZIP2_SOURCE_URL})
-  set(BZIP2_SOURCE_URL "$ENV{BZIP2_SOURCE_URL}")
+if(DEFINED ENV{ARROW_BZIP2_SOURCE_URL})
+  set(ARROW_BZIP2_SOURCE_URL "$ENV{ARROW_BZIP2_SOURCE_URL}")
 else()
-  set(BZIP2_SOURCE_URL
-      "https://sourceware.org/pub/bzip2/bzip2-${ARROW_BZIP2_BUILD_VERSION}.tar.gz")
+  set_urls(
+    ARROW_BZIP2_SOURCE_URL
+    "https://sourceware.org/pub/bzip2/bzip2-${ARROW_BZIP2_BUILD_VERSION}.tar.gz"
+    "https://github.com/ursa-labs/thirdparty/releases/download/latest/bzip2-${ARROW_BZIP2_BUILD_VERSION}.tar.gz"
+    )
+endif()
+
+if(DEFINED ENV{ARROW_UTF8PROC_SOURCE_URL})
+  set(ARROW_UTF8PROC_SOURCE_URL "$ENV{ARROW_UTF8PROC_SOURCE_URL}")
+else()
+  set_urls(
+    ARROW_UTF8PROC_SOURCE_URL
+    "https://github.com/JuliaStrings/utf8proc/archive/${ARROW_UTF8PROC_BUILD_VERSION}.tar.gz"
+    )
 endif()
 
 # ----------------------------------------------------------------------
@@ -487,6 +568,8 @@ if(NOT ARROW_VERBOSE_THIRDPARTY_BUILD)
       LOG_INSTALL
       1
       LOG_DOWNLOAD
+      1
+      LOG_OUTPUT_ON_FAILURE
       1)
   set(Boost_DEBUG FALSE)
 else()
@@ -537,14 +620,22 @@ macro(build_boost)
   else()
     set(BOOST_CONFIGURE_COMMAND "./bootstrap.sh")
   endif()
+
+  set(BOOST_BUILD_WITH_LIBRARIES "filesystem" "regex" "system")
+  string(REPLACE ";" "," BOOST_CONFIGURE_LIBRARIES "${BOOST_BUILD_WITH_LIBRARIES}")
   list(APPEND BOOST_CONFIGURE_COMMAND "--prefix=${BOOST_PREFIX}"
-              "--with-libraries=filesystem,regex,system")
+              "--with-libraries=${BOOST_CONFIGURE_LIBRARIES}")
   set(BOOST_BUILD_COMMAND "./b2" "-j${NPROC}" "link=${BOOST_BUILD_LINK}"
                           "variant=${BOOST_BUILD_VARIANT}")
   if(MSVC)
     string(REGEX
            REPLACE "([0-9])$" ".\\1" BOOST_TOOLSET_MSVC_VERSION ${MSVC_TOOLSET_VERSION})
     list(APPEND BOOST_BUILD_COMMAND "toolset=msvc-${BOOST_TOOLSET_MSVC_VERSION}")
+    set(BOOST_BUILD_WITH_LIBRARIES_MSVC)
+    foreach(_BOOST_LIB ${BOOST_BUILD_WITH_LIBRARIES})
+      list(APPEND BOOST_BUILD_WITH_LIBRARIES_MSVC "--with-${_BOOST_LIB}")
+    endforeach()
+    list(APPEND BOOST_BUILD_COMMAND ${BOOST_BUILD_WITH_LIBRARIES_MSVC})
   else()
     list(APPEND BOOST_BUILD_COMMAND "cxxflags=-fPIC")
   endif()
@@ -600,6 +691,9 @@ macro(build_boost)
   set(Boost_INCLUDE_DIRS "${BOOST_INCLUDE_DIR}")
   add_dependencies(toolchain boost_ep)
   set(BOOST_VENDORED TRUE)
+
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS boost_system_static boost_filesystem_static
+              boost_regex_static)
 endmacro()
 
 if(ARROW_FLIGHT AND ARROW_BUILD_TESTS)
@@ -642,10 +736,41 @@ set(Boost_ADDITIONAL_VERSIONS
     "1.60.0"
     "1.60")
 
-# - Parquet requires boost only with gcc 4.8 (because of missing std::regex).
+# Thrift needs Boost if we're building the bundled version with version < 0.13,
+# so we first need to determine whether we're building it
+if(ARROW_WITH_THRIFT AND Thrift_SOURCE STREQUAL "AUTO")
+  find_package(Thrift 0.11.0 MODULE COMPONENTS ${ARROW_THRIFT_REQUIRED_COMPONENTS})
+  if(NOT Thrift_FOUND AND NOT THRIFT_FOUND)
+    set(Thrift_SOURCE "BUNDLED")
+  endif()
+endif()
+
+# Thrift < 0.13 has a compile-time header dependency on boost
+if(Thrift_SOURCE STREQUAL "BUNDLED" AND ARROW_THRIFT_BUILD_VERSION VERSION_LESS "0.13")
+  set(THRIFT_REQUIRES_BOOST TRUE)
+elseif(THRIFT_VERSION VERSION_LESS "0.13")
+  set(THRIFT_REQUIRES_BOOST TRUE)
+else()
+  set(THRIFT_REQUIRES_BOOST FALSE)
+endif()
+
+# Parquet requires boost only with gcc 4.8 (because of missing std::regex).
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "4.9")
+  set(PARQUET_REQUIRES_BOOST TRUE)
+else()
+  set(PARQUET_REQUIRES_BOOST FALSE)
+endif()
+
 # - Gandiva has a compile-time (header-only) dependency on Boost, not runtime.
-# - Tests needs Boost at runtime.
-if(ARROW_BUILD_INTEGRATION OR ARROW_BUILD_TESTS OR ARROW_GANDIVA OR ARROW_PARQUET)
+# - Tests need Boost at runtime.
+# - S3FS and Flight benchmarks need Boost at runtime.
+if(ARROW_BUILD_INTEGRATION
+   OR ARROW_BUILD_TESTS
+   OR ARROW_GANDIVA
+   OR (ARROW_FLIGHT AND ARROW_BUILD_BENCHMARKS)
+   OR (ARROW_S3 AND ARROW_BUILD_BENCHMARKS)
+   OR (ARROW_WITH_THRIFT AND THRIFT_REQUIRES_BOOST)
+   OR (ARROW_PARQUET AND PARQUET_REQUIRES_BOOST))
   set(ARROW_BOOST_REQUIRED TRUE)
 else()
   set(ARROW_BOOST_REQUIRED FALSE)
@@ -717,6 +842,8 @@ macro(build_snappy)
                                    "${SNAPPY_PREFIX}/include")
   add_dependencies(toolchain snappy_ep)
   add_dependencies(Snappy::snappy snappy_ep)
+
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS Snappy::snappy)
 endmacro()
 
 if(ARROW_WITH_SNAPPY)
@@ -771,7 +898,7 @@ macro(build_brotli)
     "${BROTLI_PREFIX}/${BROTLI_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}brotlicommon-static${CMAKE_STATIC_LIBRARY_SUFFIX}"
     )
   set(BROTLI_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS} "-DCMAKE_INSTALL_PREFIX=${BROTLI_PREFIX}"
-                        -DCMAKE_INSTALL_LIBDIR=${BROTLI_LIB_DIR} -DBUILD_SHARED_LIBS=OFF)
+                        -DCMAKE_INSTALL_LIBDIR=${BROTLI_LIB_DIR})
 
   externalproject_add(brotli_ep
                       URL ${BROTLI_SOURCE_URL}
@@ -803,6 +930,9 @@ macro(build_brotli)
                         PROPERTIES IMPORTED_LOCATION "${BROTLI_STATIC_LIBRARY_DEC}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${BROTLI_INCLUDE_DIR}")
   add_dependencies(Brotli::brotlidec brotli_ep)
+
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS Brotli::brotlicommon Brotli::brotlienc
+              Brotli::brotlidec)
 endmacro()
 
 if(ARROW_WITH_BROTLI)
@@ -876,9 +1006,14 @@ macro(build_glog)
   message(STATUS "Building glog from source")
   set(GLOG_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}/glog_ep-prefix/src/glog_ep")
   set(GLOG_INCLUDE_DIR "${GLOG_BUILD_DIR}/include")
+  if(${UPPERCASE_BUILD_TYPE} STREQUAL "DEBUG")
+    set(GLOG_LIB_SUFFIX "d")
+  else()
+    set(GLOG_LIB_SUFFIX "")
+  endif()
   set(
     GLOG_STATIC_LIB
-    "${GLOG_BUILD_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}glog${CMAKE_STATIC_LIBRARY_SUFFIX}"
+    "${GLOG_BUILD_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}glog${GLOG_LIB_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}"
     )
   set(GLOG_CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
   set(GLOG_CMAKE_C_FLAGS "${EP_C_FLAGS} -fPIC")
@@ -915,6 +1050,8 @@ macro(build_glog)
                         PROPERTIES IMPORTED_LOCATION "${GLOG_STATIC_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${GLOG_INCLUDE_DIR}")
   add_dependencies(glog::glog glog_ep)
+
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS glog::glog)
 endmacro()
 
 if(ARROW_USE_GLOG)
@@ -930,6 +1067,7 @@ endif()
 if(ARROW_BUILD_TESTS
    OR ARROW_BUILD_BENCHMARKS
    OR ARROW_BUILD_INTEGRATION
+   OR ARROW_PLASMA
    OR ARROW_USE_GLOG
    OR ARROW_WITH_GRPC)
   set(ARROW_NEED_GFLAGS 1)
@@ -942,10 +1080,15 @@ macro(build_gflags)
 
   set(GFLAGS_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/gflags_ep-prefix/src/gflags_ep")
   set(GFLAGS_INCLUDE_DIR "${GFLAGS_PREFIX}/include")
-  if(MSVC)
-    set(GFLAGS_STATIC_LIB "${GFLAGS_PREFIX}/lib/gflags_static.lib")
+  if(${UPPERCASE_BUILD_TYPE} STREQUAL "DEBUG")
+    set(GFLAGS_LIB_SUFFIX "_debug")
   else()
-    set(GFLAGS_STATIC_LIB "${GFLAGS_PREFIX}/lib/libgflags.a")
+    set(GFLAGS_LIB_SUFFIX "")
+  endif()
+  if(MSVC)
+    set(GFLAGS_STATIC_LIB "${GFLAGS_PREFIX}/lib/gflags_static${GFLAGS_LIB_SUFFIX}.lib")
+  else()
+    set(GFLAGS_STATIC_LIB "${GFLAGS_PREFIX}/lib/libgflags${GFLAGS_LIB_SUFFIX}.a")
   endif()
   set(GFLAGS_CMAKE_ARGS
       ${EP_COMMON_CMAKE_ARGS}
@@ -978,13 +1121,16 @@ macro(build_gflags)
   set(GFLAGS_LIBRARIES ${GFLAGS_LIBRARY})
 
   set(GFLAGS_VENDORED TRUE)
+
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS gflags_static)
 endmacro()
 
 if(ARROW_NEED_GFLAGS)
+  set(ARROW_GFLAGS_REQUIRED_VERSION "2.1.0")
   if(gflags_SOURCE STREQUAL "AUTO")
-    find_package(gflags QUIET)
+    find_package(gflags ${ARROW_GFLAGS_REQUIRED_VERSION} QUIET)
     if(NOT gflags_FOUND)
-      find_package(gflagsAlt)
+      find_package(gflagsAlt ${ARROW_GFLAGS_REQUIRED_VERSION})
     endif()
     if(NOT gflags_FOUND AND NOT gflagsAlt_FOUND)
       build_gflags()
@@ -994,9 +1140,9 @@ if(ARROW_NEED_GFLAGS)
   elseif(gflags_SOURCE STREQUAL "SYSTEM")
     # gflagsConfig.cmake is not installed on Ubuntu/Debian
     # TODO: Make a bug report upstream
-    find_package(gflags)
+    find_package(gflags ${ARROW_GFLAGS_REQUIRED_VERSION})
     if(NOT gflags_FOUND)
-      find_package(gflagsAlt REQUIRED)
+      find_package(gflagsAlt ${ARROW_GFLAGS_REQUIRED_VERSION} REQUIRED)
     endif()
   endif()
   # TODO: Don't use global includes but rather target_include_directories
@@ -1016,7 +1162,7 @@ endif()
 
 macro(build_thrift)
   message("Building Apache Thrift from source")
-  set(THRIFT_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/thrift_ep/src/thrift_ep-install")
+  set(THRIFT_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/thrift_ep-install")
   set(THRIFT_INCLUDE_DIR "${THRIFT_PREFIX}/include")
   set(THRIFT_CMAKE_ARGS
       ${EP_COMMON_CMAKE_ARGS}
@@ -1068,20 +1214,10 @@ macro(build_thrift)
     set(THRIFT_DEPENDENCIES ${THRIFT_DEPENDENCIES} boost_ep)
   endif()
 
-  if("${THRIFT_SOURCE_URL}" STREQUAL "FROM-APACHE-MIRROR")
-    get_apache_mirror()
-    set(
-      THRIFT_SOURCE_URL
-      "${APACHE_MIRROR}/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
-      )
-  endif()
-
-  message("Downloading Apache Thrift from ${THRIFT_SOURCE_URL}")
-
   externalproject_add(thrift_ep
                       URL ${THRIFT_SOURCE_URL}
                       URL_HASH "MD5=${ARROW_THRIFT_BUILD_MD5_CHECKSUM}"
-                      BUILD_BYPRODUCTS "${THRIFT_STATIC_LIB}" "${THRIFT_COMPILER}"
+                      BUILD_BYPRODUCTS "${THRIFT_STATIC_LIB}"
                       CMAKE_ARGS ${THRIFT_CMAKE_ARGS}
                       DEPENDS ${THRIFT_DEPENDENCIES} ${EP_LOG_OPTIONS})
 
@@ -1094,11 +1230,17 @@ macro(build_thrift)
   add_dependencies(toolchain thrift_ep)
   add_dependencies(thrift::thrift thrift_ep)
   set(THRIFT_VERSION ${ARROW_THRIFT_BUILD_VERSION})
+
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS thrift::thrift)
 endmacro()
 
 if(ARROW_WITH_THRIFT)
-  # Thrift c++ code generated by 0.13 requires 0.11 or greater
-  resolve_dependency_with_version(Thrift 0.11.0)
+  # We already may have looked for Thrift earlier, when considering whether
+  # to build Boost, so don't look again if already found.
+  if(NOT Thrift_FOUND AND NOT THRIFT_FOUND)
+    # Thrift c++ code generated by 0.13 requires 0.11 or greater
+    resolve_dependency_with_version(Thrift 0.11.0)
+  endif()
   # TODO: Don't use global includes but rather target_include_directories
   include_directories(SYSTEM ${THRIFT_INCLUDE_DIR})
 endif()
@@ -1118,29 +1260,51 @@ macro(build_protobuf)
     PROTOC_STATIC_LIB
     "${PROTOBUF_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}protoc${CMAKE_STATIC_LIBRARY_SUFFIX}"
     )
+  set(Protobuf_PROTOC_LIBRARY "${PROTOC_STATIC_LIB}")
   set(PROTOBUF_COMPILER "${PROTOBUF_PREFIX}/bin/protoc")
-  set(PROTOBUF_CONFIGURE_ARGS
-      "AR=${CMAKE_AR}"
-      "RANLIB=${CMAKE_RANLIB}"
-      "CC=${CMAKE_C_COMPILER}"
-      "CXX=${CMAKE_CXX_COMPILER}"
-      "--disable-shared"
-      "--prefix=${PROTOBUF_PREFIX}"
-      "CFLAGS=${EP_C_FLAGS}"
-      "CXXFLAGS=${EP_CXX_FLAGS}")
-  set(PROTOBUF_BUILD_COMMAND ${MAKE} ${MAKE_BUILD_ARGS})
-  if(CMAKE_OSX_SYSROOT)
-    list(APPEND PROTOBUF_CONFIGURE_ARGS "SDKROOT=${CMAKE_OSX_SYSROOT}")
-    list(APPEND PROTOBUF_BUILD_COMMAND "SDKROOT=${CMAKE_OSX_SYSROOT}")
+
+  if(CMAKE_VERSION VERSION_LESS 3.7)
+    set(PROTOBUF_CONFIGURE_ARGS
+        "AR=${CMAKE_AR}"
+        "RANLIB=${CMAKE_RANLIB}"
+        "CC=${CMAKE_C_COMPILER}"
+        "CXX=${CMAKE_CXX_COMPILER}"
+        "--disable-shared"
+        "--prefix=${PROTOBUF_PREFIX}"
+        "CFLAGS=${EP_C_FLAGS}"
+        "CXXFLAGS=${EP_CXX_FLAGS}")
+    set(PROTOBUF_BUILD_COMMAND ${MAKE} ${MAKE_BUILD_ARGS})
+    if(CMAKE_OSX_SYSROOT)
+      list(APPEND PROTOBUF_CONFIGURE_ARGS "SDKROOT=${CMAKE_OSX_SYSROOT}")
+      list(APPEND PROTOBUF_BUILD_COMMAND "SDKROOT=${CMAKE_OSX_SYSROOT}")
+    endif()
+    set(PROTOBUF_EXTERNAL_PROJECT_ADD_ARGS
+        CONFIGURE_COMMAND
+        "./configure"
+        ${PROTOBUF_CONFIGURE_ARGS}
+        BUILD_COMMAND
+        ${PROTOBUF_BUILD_COMMAND})
+  else()
+    set(PROTOBUF_CMAKE_ARGS
+        ${EP_COMMON_CMAKE_ARGS}
+        -DBUILD_SHARED_LIBS=OFF
+        -DCMAKE_INSTALL_LIBDIR=lib
+        "-DCMAKE_INSTALL_PREFIX=${PROTOBUF_PREFIX}"
+        -Dprotobuf_BUILD_TESTS=OFF
+        -Dprotobuf_DEBUG_POSTFIX=)
+    if(ZLIB_ROOT)
+      list(APPEND PROTOBUF_CMAKE_ARGS "-DZLIB_ROOT=${ZLIB_ROOT}")
+    endif()
+    set(PROTOBUF_EXTERNAL_PROJECT_ADD_ARGS CMAKE_ARGS ${PROTOBUF_CMAKE_ARGS} SOURCE_SUBDIR
+                                           "cmake")
   endif()
 
   externalproject_add(protobuf_ep
-                      CONFIGURE_COMMAND "./configure" ${PROTOBUF_CONFIGURE_ARGS}
-                      BUILD_COMMAND ${PROTOBUF_BUILD_COMMAND}
-                      BUILD_IN_SOURCE 1
-                      URL ${PROTOBUF_SOURCE_URL}
+                      ${PROTOBUF_EXTERNAL_PROJECT_ADD_ARGS}
                       BUILD_BYPRODUCTS "${PROTOBUF_STATIC_LIB}" "${PROTOBUF_COMPILER}"
-                                       ${EP_LOG_OPTIONS})
+                                       ${EP_LOG_OPTIONS}
+                      BUILD_IN_SOURCE 1
+                      URL ${PROTOBUF_SOURCE_URL})
 
   file(MAKE_DIRECTORY "${PROTOBUF_INCLUDE_DIR}")
 
@@ -1160,12 +1324,18 @@ macro(build_protobuf)
 
   add_dependencies(toolchain protobuf_ep)
   add_dependencies(arrow::protobuf::libprotobuf protobuf_ep)
+
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS arrow::protobuf::libprotobuf)
 endmacro()
 
 if(ARROW_WITH_PROTOBUF)
   if(ARROW_WITH_GRPC)
     # gRPC 1.21.0 or later require Protobuf 3.7.0 or later.
     set(ARROW_PROTOBUF_REQUIRED_VERSION "3.7.0")
+  elseif(ARROW_GANDIVA_JAVA)
+    # google::protobuf::MessageLite::ByteSize() is deprecated since
+    # Protobuf 3.4.0.
+    set(ARROW_PROTOBUF_REQUIRED_VERSION "3.4.0")
   else()
     set(ARROW_PROTOBUF_REQUIRED_VERSION "2.6.1")
   endif()
@@ -1258,6 +1428,7 @@ if(ARROW_JEMALLOC)
               "--with-jemalloc-prefix=je_arrow_"
               "--with-private-namespace=je_arrow_private_"
               "--without-export"
+              "--disable-shared"
               # Don't override operator new()
               "--disable-cxx" "--disable-libdl"
               # See https://github.com/jemalloc/jemalloc/issues/1237
@@ -1292,6 +1463,8 @@ if(ARROW_JEMALLOC)
                                    INTERFACE_INCLUDE_DIRECTORIES
                                    "${CMAKE_CURRENT_BINARY_DIR}/jemalloc_ep-prefix/src")
   add_dependencies(jemalloc::jemalloc jemalloc_ep)
+
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS jemalloc::jemalloc)
 endif()
 
 # ----------------------------------------------------------------------
@@ -1301,19 +1474,19 @@ if(ARROW_MIMALLOC)
   message(STATUS "Building (vendored) mimalloc from source")
   # We only use a vendored mimalloc as we want to control its build options.
 
-  # XXX Careful: mimalloc library naming varies depend on build type capitalization:
-  # https://github.com/microsoft/mimalloc/issues/144
   set(MIMALLOC_LIB_BASE_NAME "mimalloc")
   if(WIN32)
     set(MIMALLOC_LIB_BASE_NAME "${MIMALLOC_LIB_BASE_NAME}-static")
   endif()
-  set(MIMALLOC_LIB_BASE_NAME "${MIMALLOC_LIB_BASE_NAME}-${LOWERCASE_BUILD_TYPE}")
+  if(${UPPERCASE_BUILD_TYPE} STREQUAL "DEBUG")
+    set(MIMALLOC_LIB_BASE_NAME "${MIMALLOC_LIB_BASE_NAME}-${LOWERCASE_BUILD_TYPE}")
+  endif()
 
   set(MIMALLOC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/mimalloc_ep/src/mimalloc_ep")
-  set(MIMALLOC_INCLUDE_DIR "${MIMALLOC_PREFIX}/lib/mimalloc-1.0/include")
+  set(MIMALLOC_INCLUDE_DIR "${MIMALLOC_PREFIX}/lib/mimalloc-1.6/include")
   set(
     MIMALLOC_STATIC_LIB
-    "${MIMALLOC_PREFIX}/lib/mimalloc-1.0/${CMAKE_STATIC_LIBRARY_PREFIX}${MIMALLOC_LIB_BASE_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX}"
+    "${MIMALLOC_PREFIX}/lib/mimalloc-1.6/${CMAKE_STATIC_LIBRARY_PREFIX}${MIMALLOC_LIB_BASE_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX}"
     )
 
   set(MIMALLOC_CMAKE_ARGS
@@ -1321,6 +1494,8 @@ if(ARROW_MIMALLOC)
       "-DCMAKE_INSTALL_PREFIX=${MIMALLOC_PREFIX}"
       -DMI_OVERRIDE=OFF
       -DMI_LOCAL_DYNAMIC_TLS=ON
+      -DMI_BUILD_OBJECT=OFF
+      -DMI_BUILD_SHARED=OFF
       -DMI_BUILD_TESTS=OFF)
 
   externalproject_add(mimalloc_ep
@@ -1341,6 +1516,8 @@ if(ARROW_MIMALLOC)
                                    "${MIMALLOC_INCLUDE_DIR}")
   add_dependencies(mimalloc::mimalloc mimalloc_ep)
   add_dependencies(toolchain mimalloc_ep)
+
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS mimalloc::mimalloc)
 endif()
 
 # ----------------------------------------------------------------------
@@ -1366,7 +1543,7 @@ macro(build_gtest)
     set(GTEST_CMAKE_CXX_FLAGS "${GTEST_CMAKE_CXX_FLAGS} -DGTEST_CREATE_SHARED_LIBRARY=1")
   endif()
 
-  set(GTEST_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/googletest_ep-prefix/src/googletest_ep")
+  set(GTEST_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/googletest_ep-prefix")
   set(GTEST_INCLUDE_DIR "${GTEST_PREFIX}/include")
 
   set(_GTEST_RUNTIME_DIR ${BUILD_OUTPUT_ROOT_DIRECTORY})
@@ -1611,7 +1788,9 @@ if(ARROW_WITH_RAPIDJSON)
                  QUIET
                  HINTS
                  "${CMAKE_ROOT}")
-    if(NOT RapidJSON_FOUND)
+    if(RapidJSON_FOUND)
+      set(RAPIDJSON_INCLUDE_DIR ${RAPIDJSON_INCLUDE_DIRS})
+    else()
       # Ubuntu / Debian don't package the CMake config
       find_package(RapidJSONAlt ${ARROW_RAPIDJSON_REQUIRED_VERSION})
     endif()
@@ -1624,7 +1803,9 @@ if(ARROW_WITH_RAPIDJSON)
     # Fedora packages place the package information at the wrong location.
     # https://bugzilla.redhat.com/show_bug.cgi?id=1680400
     find_package(RapidJSON ${ARROW_RAPIDJSON_REQUIRED_VERSION} HINTS "${CMAKE_ROOT}")
-    if(NOT RapidJSON_FOUND)
+    if(RapidJSON_FOUND)
+      set(RAPIDJSON_INCLUDE_DIR ${RAPIDJSON_INCLUDE_DIRS})
+    else()
       # Ubuntu / Debian don't package the CMake config
       find_package(RapidJSONAlt ${ARROW_RAPIDJSON_REQUIRED_VERSION} REQUIRED)
     endif()
@@ -1668,6 +1849,8 @@ macro(build_zlib)
 
   add_dependencies(toolchain zlib_ep)
   add_dependencies(ZLIB::ZLIB zlib_ep)
+
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS ZLIB::ZLIB)
 endmacro()
 
 if(ARROW_WITH_ZLIB)
@@ -1730,6 +1913,8 @@ macro(build_lz4)
                                    INTERFACE_INCLUDE_DIRECTORIES "${LZ4_PREFIX}/include")
   add_dependencies(toolchain lz4_ep)
   add_dependencies(LZ4::lz4 lz4_ep)
+
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS LZ4::lz4)
 endmacro()
 
 if(ARROW_WITH_LZ4)
@@ -1785,20 +1970,39 @@ macro(build_zstd)
 
   file(MAKE_DIRECTORY "${ZSTD_PREFIX}/include")
 
-  add_library(ZSTD::zstd STATIC IMPORTED)
-  set_target_properties(ZSTD::zstd
+  add_library(zstd::libzstd STATIC IMPORTED)
+  set_target_properties(zstd::libzstd
                         PROPERTIES IMPORTED_LOCATION "${ZSTD_STATIC_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${ZSTD_PREFIX}/include")
 
   add_dependencies(toolchain zstd_ep)
-  add_dependencies(ZSTD::zstd zstd_ep)
+  add_dependencies(zstd::libzstd zstd_ep)
+
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS zstd::libzstd)
 endmacro()
 
 if(ARROW_WITH_ZSTD)
   resolve_dependency(ZSTD)
 
+  if(TARGET zstd::libzstd)
+    set(ARROW_ZSTD_LIBZSTD zstd::libzstd)
+  else()
+    # "SYSTEM" source will prioritize cmake config, which exports
+    # zstd::libzstd_{static,shared}
+    if(ARROW_ZSTD_USE_SHARED)
+      if(TARGET zstd::libzstd_shared)
+        set(ARROW_ZSTD_LIBZSTD zstd::libzstd_shared)
+      endif()
+    else()
+      if(TARGET zstd::libzstd_static)
+        set(ARROW_ZSTD_LIBZSTD zstd::libzstd_static)
+      endif()
+    endif()
+  endif()
+
   # TODO: Don't use global includes but rather target_include_directories
-  get_target_property(ZSTD_INCLUDE_DIR ZSTD::zstd INTERFACE_INCLUDE_DIRECTORIES)
+  get_target_property(ZSTD_INCLUDE_DIR ${ARROW_ZSTD_LIBZSTD}
+                      INTERFACE_INCLUDE_DIRECTORIES)
   include_directories(SYSTEM ${ZSTD_INCLUDE_DIR})
 endif()
 
@@ -1828,6 +2032,8 @@ macro(build_re2)
 
   add_dependencies(toolchain re2_ep)
   add_dependencies(RE2::re2 re2_ep)
+
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS RE2::re2)
 endmacro()
 
 if(ARROW_GANDIVA)
@@ -1855,7 +2061,7 @@ macro(build_bzip2)
                       INSTALL_COMMAND ${MAKE} install PREFIX=${BZIP2_PREFIX}
                                       ${BZIP2_EXTRA_ARGS}
                       INSTALL_DIR ${BZIP2_PREFIX}
-                      URL ${BZIP2_SOURCE_URL}
+                      URL ${ARROW_BZIP2_SOURCE_URL}
                       BUILD_BYPRODUCTS "${BZIP2_STATIC_LIB}")
 
   file(MAKE_DIRECTORY "${BZIP2_PREFIX}/include")
@@ -1868,6 +2074,8 @@ macro(build_bzip2)
 
   add_dependencies(toolchain bzip2_ep)
   add_dependencies(BZip2::BZip2 bzip2_ep)
+
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS BZip2::BZip2)
 endmacro()
 
 if(ARROW_WITH_BZ2)
@@ -1880,6 +2088,68 @@ if(ARROW_WITH_BZ2)
                                      INTERFACE_INCLUDE_DIRECTORIES "${BZIP2_INCLUDE_DIR}")
   endif()
   include_directories(SYSTEM "${BZIP2_INCLUDE_DIR}")
+endif()
+
+macro(build_utf8proc)
+  message(STATUS "Building utf8proc from source")
+  set(UTF8PROC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/utf8proc_ep-install")
+  if(MSVC)
+    set(UTF8PROC_STATIC_LIB "${UTF8PROC_PREFIX}/lib/utf8proc_static.lib")
+  else()
+    set(
+      UTF8PROC_STATIC_LIB
+      "${UTF8PROC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}utf8proc${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      )
+  endif()
+
+  set(UTF8PROC_CMAKE_ARGS
+      ${EP_COMMON_TOOLCHAIN}
+      "-DCMAKE_INSTALL_PREFIX=${UTF8PROC_PREFIX}"
+      -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+      -DCMAKE_INSTALL_LIBDIR=lib
+      -DBUILD_SHARED_LIBS=OFF)
+
+  externalproject_add(utf8proc_ep
+                      ${EP_LOG_OPTIONS}
+                      CMAKE_ARGS ${UTF8PROC_CMAKE_ARGS}
+                      INSTALL_DIR ${UTF8PROC_PREFIX}
+                      URL ${ARROW_UTF8PROC_SOURCE_URL}
+                      BUILD_BYPRODUCTS "${UTF8PROC_STATIC_LIB}")
+
+  file(MAKE_DIRECTORY "${UTF8PROC_PREFIX}/include")
+  add_library(utf8proc::utf8proc STATIC IMPORTED)
+  set_target_properties(utf8proc::utf8proc
+                        PROPERTIES IMPORTED_LOCATION
+                                   "${UTF8PROC_STATIC_LIB}"
+                                   INTERFACE_COMPILER_DEFINITIONS
+                                   "UTF8PROC_STATIC"
+                                   INTERFACE_INCLUDE_DIRECTORIES
+                                   "${UTF8PROC_PREFIX}/include")
+
+  add_dependencies(toolchain utf8proc_ep)
+  add_dependencies(utf8proc::utf8proc utf8proc_ep)
+
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS utf8proc::utf8proc)
+endmacro()
+
+if(ARROW_WITH_UTF8PROC)
+  resolve_dependency(utf8proc)
+
+  add_definitions(-DARROW_WITH_UTF8PROC)
+
+  # TODO: Don't use global definitions but rather
+  # target_compile_definitions or target_link_libraries
+  get_target_property(UTF8PROC_COMPILER_DEFINITIONS utf8proc::utf8proc
+                      INTERFACE_COMPILER_DEFINITIONS)
+  if(UTF8PROC_COMPILER_DEFINITIONS)
+    add_definitions(-D${UTF8PROC_COMPILER_DEFINITIONS})
+  endif()
+
+  # TODO: Don't use global includes but rather
+  # target_include_directories or target_link_libraries
+  get_target_property(UTF8PROC_INCLUDE_DIR utf8proc::utf8proc
+                      INTERFACE_INCLUDE_DIRECTORIES)
+  include_directories(SYSTEM ${UTF8PROC_INCLUDE_DIR})
 endif()
 
 macro(build_cares)
@@ -1899,6 +2169,7 @@ macro(build_cares)
       -DCARES_STATIC=ON
       -DCARES_SHARED=OFF
       "-DCMAKE_C_FLAGS=${EP_C_FLAGS}"
+      -DCMAKE_INSTALL_LIBDIR=lib
       "-DCMAKE_INSTALL_PREFIX=${CARES_PREFIX}")
 
   externalproject_add(cares_ep
@@ -1916,22 +2187,26 @@ macro(build_cares)
                                    INTERFACE_INCLUDE_DIRECTORIES "${CARES_INCLUDE_DIR}")
 
   set(CARES_VENDORED TRUE)
+
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS c-ares::cares)
 endmacro()
 
 if(ARROW_WITH_GRPC)
   if(c-ares_SOURCE STREQUAL "AUTO")
     find_package(c-ares QUIET CONFIG)
-    if(NOT c-ares_FOUND)
+    if(c-ares_FOUND)
+      set(CARES_INCLUDE_DIR ${c-ares_INCLUDE_DIR})
+    else()
       build_cares()
     endif()
   elseif(c-ares_SOURCE STREQUAL "BUNDLED")
     build_cares()
   elseif(c-ares_SOURCE STREQUAL "SYSTEM")
     find_package(c-ares REQUIRED CONFIG)
+    set(CARES_INCLUDE_DIR ${c-ares_INCLUDE_DIR})
   endif()
 
   # TODO: Don't use global includes but rather target_include_directories
-  get_target_property(CARES_INCLUDE_DIR c-ares::cares INTERFACE_INCLUDE_DIRECTORIES)
   include_directories(SYSTEM ${CARES_INCLUDE_DIR})
 endif()
 
@@ -1940,6 +2215,48 @@ endif()
 
 macro(build_grpc)
   message(STATUS "Building gRPC from source")
+
+  # First need to build Abseil
+  set(ABSL_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/absl_ep-install")
+  set(ABSL_CMAKE_ARGS
+      -DABSL_RUN_TESTS=OFF
+      -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+      -DCMAKE_CXX_STANDARD=11
+      "-DCMAKE_CXX_FLAGS=${EP_CXX_FLAGS}"
+      -DCMAKE_INSTALL_LIBDIR=lib
+      "-DCMAKE_INSTALL_PREFIX=${ABSL_PREFIX}")
+  set(ABSL_BUILD_BYPRODUCTS)
+  set(ABSL_LIBRARIES)
+
+  # Abseil libraries gRPC depends on
+  set(_ABSL_LIBS
+      bad_optional_access
+      int128
+      raw_logging_internal
+      str_format_internal
+      strings
+      throw_delegate
+      time
+      time_zone)
+
+  foreach(_ABSL_LIB ${_ABSL_LIBS})
+    set(
+      _ABSL_STATIC_LIBRARY
+      "${ABSL_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}absl_${_ABSL_LIB}${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      )
+    add_library(absl::${_ABSL_LIB} STATIC IMPORTED)
+    set_target_properties(absl::${_ABSL_LIB}
+                          PROPERTIES IMPORTED_LOCATION ${_ABSL_STATIC_LIBRARY})
+    list(APPEND ABSL_BUILD_BYPRODUCTS ${_ABSL_STATIC_LIBRARY})
+    list(APPEND ABSL_LIBRARIES absl::${_ABSL_LIB})
+  endforeach()
+
+  externalproject_add(absl_ep
+                      ${EP_LOG_OPTIONS}
+                      URL ${ABSL_SOURCE_URL}
+                      CMAKE_ARGS ${ABSL_CMAKE_ARGS}
+                      BUILD_BYPRODUCTS ${ABSL_BUILD_BYPRODUCTS})
+
   set(GRPC_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}/grpc_ep-prefix/src/grpc_ep-build")
   set(GRPC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/grpc_ep-install")
   set(GRPC_HOME "${GRPC_PREFIX}")
@@ -1961,12 +2278,16 @@ macro(build_grpc)
     GRPC_STATIC_LIBRARY_ADDRESS_SORTING
     "${GRPC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}address_sorting${CMAKE_STATIC_LIBRARY_SUFFIX}"
     )
+  set(
+    GRPC_STATIC_LIBRARY_UPB
+    "${GRPC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}upb${CMAKE_STATIC_LIBRARY_SUFFIX}")
   set(GRPC_CPP_PLUGIN "${GRPC_PREFIX}/bin/grpc_cpp_plugin")
 
   set(GRPC_CMAKE_PREFIX)
 
   add_custom_target(grpc_dependencies)
 
+  add_dependencies(grpc_dependencies absl_ep)
   if(CARES_VENDORED)
     add_dependencies(grpc_dependencies cares_ep)
   endif()
@@ -1975,7 +2296,8 @@ macro(build_grpc)
     add_dependencies(grpc_dependencies gflags_ep)
   endif()
 
-  add_dependencies(grpc_dependencies ${ARROW_PROTOBUF_LIBPROTOBUF} c-ares::cares)
+  add_dependencies(grpc_dependencies ${ARROW_PROTOBUF_LIBPROTOBUF} c-ares::cares
+                   ZLIB::ZLIB)
 
   get_target_property(GRPC_PROTOBUF_INCLUDE_DIR ${ARROW_PROTOBUF_LIBPROTOBUF}
                       INTERFACE_INCLUDE_DIRECTORIES)
@@ -1994,6 +2316,7 @@ macro(build_grpc)
 
   # ZLIB is never vendored
   set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${ZLIB_ROOT}")
+  set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${ABSL_PREFIX}")
 
   if(APPLE)
     # gRPC on MacOS will fail to build due to thread local variables.
@@ -2014,6 +2337,8 @@ macro(build_grpc)
   set(GRPC_CMAKE_ARGS
       -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
       -DCMAKE_PREFIX_PATH='${GRPC_PREFIX_PATH_ALT_SEP}'
+      -DgRPC_BUILD_CSHARP_EXT=OFF
+      -DgRPC_ABSL_PROVIDER=package
       -DgRPC_CARES_PROVIDER=package
       -DgRPC_GFLAGS_PROVIDER=package
       -DgRPC_PROTOBUF_PROVIDER=package
@@ -2023,7 +2348,6 @@ macro(build_grpc)
       -DCMAKE_C_FLAGS=${EP_C_FLAGS}
       -DCMAKE_INSTALL_PREFIX=${GRPC_PREFIX}
       -DCMAKE_INSTALL_LIBDIR=lib
-      "-DProtobuf_PROTOC_LIBRARY=${GRPC_Protobuf_PROTOC_LIBRARY}"
       -DBUILD_SHARED_LIBS=OFF)
   if(OPENSSL_ROOT_DIR)
     list(APPEND GRPC_CMAKE_ARGS -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_DIR})
@@ -2039,12 +2363,18 @@ macro(build_grpc)
                                        ${GRPC_STATIC_LIBRARY_GRPC}
                                        ${GRPC_STATIC_LIBRARY_GRPCPP}
                                        ${GRPC_STATIC_LIBRARY_ADDRESS_SORTING}
+                                       ${GRPC_STATIC_LIBRARY_UPB}
                                        ${GRPC_CPP_PLUGIN}
                       CMAKE_ARGS ${GRPC_CMAKE_ARGS} ${EP_LOG_OPTIONS}
                       DEPENDS ${grpc_dependencies})
 
   # Work around https://gitlab.kitware.com/cmake/cmake/issues/15052
   file(MAKE_DIRECTORY ${GRPC_INCLUDE_DIR})
+
+  add_library(gRPC::upb STATIC IMPORTED)
+  set_target_properties(gRPC::upb
+                        PROPERTIES IMPORTED_LOCATION "${GRPC_STATIC_LIBRARY_UPB}"
+                                   INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}")
 
   add_library(gRPC::gpr STATIC IMPORTED)
   set_target_properties(gRPC::gpr
@@ -2056,16 +2386,21 @@ macro(build_grpc)
                         PROPERTIES IMPORTED_LOCATION "${GRPC_STATIC_LIBRARY_GRPC}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}")
 
-  add_library(gRPC::grpc++ STATIC IMPORTED)
-  set_target_properties(gRPC::grpc++
-                        PROPERTIES IMPORTED_LOCATION "${GRPC_STATIC_LIBRARY_GRPCPP}"
-                                   INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}")
-
   add_library(gRPC::address_sorting STATIC IMPORTED)
   set_target_properties(gRPC::address_sorting
                         PROPERTIES IMPORTED_LOCATION
                                    "${GRPC_STATIC_LIBRARY_ADDRESS_SORTING}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}")
+
+  add_library(gRPC::grpc++ STATIC IMPORTED)
+  set_target_properties(
+    gRPC::grpc++
+    PROPERTIES IMPORTED_LOCATION
+               "${GRPC_STATIC_LIBRARY_GRPCPP}"
+               INTERFACE_LINK_LIBRARIES
+               "gRPC::grpc;gRPC::gpr;gRPC::upb;gRPC::address_sorting;${ABSL_LIBRARIES}"
+               INTERFACE_INCLUDE_DIRECTORIES
+               "${GRPC_INCLUDE_DIR}")
 
   add_executable(gRPC::grpc_cpp_plugin IMPORTED)
   set_target_properties(gRPC::grpc_cpp_plugin
@@ -2073,11 +2408,42 @@ macro(build_grpc)
 
   add_dependencies(grpc_ep grpc_dependencies)
   add_dependencies(toolchain grpc_ep)
-  add_dependencies(gRPC::gpr grpc_ep)
-  add_dependencies(gRPC::grpc grpc_ep)
   add_dependencies(gRPC::grpc++ grpc_ep)
-  add_dependencies(gRPC::address_sorting grpc_ep)
+  add_dependencies(gRPC::grpc_cpp_plugin grpc_ep)
   set(GRPC_VENDORED TRUE)
+
+  # ar -M rejects with the "libgrpc++.a" filename because "+" is a line
+  # continuation character in these scripts, so we have to create a copy of the
+  # static lib that we will bundle later
+
+  set(
+    GRPC_STATIC_LIBRARY_GRPCPP_FOR_AR
+    "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}grpcpp${CMAKE_STATIC_LIBRARY_SUFFIX}"
+    )
+  add_custom_command(OUTPUT ${GRPC_STATIC_LIBRARY_GRPCPP_FOR_AR}
+                     COMMAND ${CMAKE_COMMAND}
+                             -E
+                             copy
+                             $<TARGET_FILE:gRPC::grpc++>
+                             ${GRPC_STATIC_LIBRARY_GRPCPP_FOR_AR}
+                     DEPENDS grpc_ep)
+  add_library(gRPC::grpcpp_for_bundling STATIC IMPORTED)
+  set_target_properties(gRPC::grpcpp_for_bundling
+                        PROPERTIES IMPORTED_LOCATION
+                                   "${GRPC_STATIC_LIBRARY_GRPCPP_FOR_AR}")
+
+  set_source_files_properties("${GRPC_STATIC_LIBRARY_GRPCPP_FOR_AR}" PROPERTIES GENERATED
+                              TRUE)
+  add_custom_target(grpc_copy_grpc++ ALL DEPENDS "${GRPC_STATIC_LIBRARY_GRPCPP_FOR_AR}")
+  add_dependencies(gRPC::grpcpp_for_bundling grpc_copy_grpc++)
+
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS
+              ${ABSL_LIBRARIES}
+              gRPC::upb
+              gRPC::gpr
+              gRPC::grpc
+              gRPC::address_sorting
+              gRPC::grpcpp_for_bundling)
 endmacro()
 
 if(ARROW_WITH_GRPC)
@@ -2163,41 +2529,6 @@ macro(build_orc)
   set(ORC_STATIC_LIB
       "${ORC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}orc${CMAKE_STATIC_LIBRARY_SUFFIX}")
 
-  set(ORC_CMAKE_CXX_FLAGS)
-  if((CMAKE_CXX_COMPILER_ID
-      STREQUAL
-      "AppleClang"
-      AND CMAKE_CXX_COMPILER_VERSION VERSION_EQUAL "9")
-     OR (CMAKE_CXX_COMPILER_ID
-         STREQUAL
-         "Clang"
-         AND CMAKE_CXX_COMPILER_VERSION VERSION_EQUAL "4.0"))
-    # conda OSX builds uses clang 4.0.1 and orc_ep fails to build unless
-    # disabling the following errors
-    set(ORC_CMAKE_CXX_FLAGS "${ORC_CMAKE_CXX_FLAGS} -Wno-error=weak-vtables")
-    set(ORC_CMAKE_CXX_FLAGS "${ORC_CMAKE_CXX_FLAGS} -Wno-error=undef")
-  elseif((CMAKE_CXX_COMPILER_ID
-          STREQUAL
-          "AppleClang"
-          AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER "9")
-         OR (CMAKE_CXX_COMPILER_ID
-             STREQUAL
-             "Clang"
-             AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER "4.0"))
-    set(ORC_CMAKE_CXX_FLAGS "${ORC_CMAKE_CXX_FLAGS} -Wno-zero-as-null-pointer-constant")
-    set(ORC_CMAKE_CXX_FLAGS
-        "${ORC_CMAKE_CXX_FLAGS} -Wno-inconsistent-missing-destructor-override")
-    set(ORC_CMAKE_CXX_FLAGS "${ORC_CMAKE_CXX_FLAGS} -Wno-error=undef")
-  endif()
-  if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang"
-     OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-    if(Protobuf_VERSION VERSION_GREATER_EQUAL "3.9.0")
-      set(ORC_CMAKE_CXX_FLAGS "${ORC_CMAKE_CXX_FLAGS} -Wno-comma")
-    endif()
-  endif()
-
-  set(ORC_CMAKE_CXX_FLAGS "${EP_CXX_FLAGS} ${ORC_CMAKE_CXX_FLAGS}")
-
   get_target_property(ORC_PROTOBUF_INCLUDE_DIR ${ARROW_PROTOBUF_LIBPROTOBUF}
                       INTERFACE_INCLUDE_DIRECTORIES)
   get_filename_component(ORC_PB_ROOT "${ORC_PROTOBUF_INCLUDE_DIR}" DIRECTORY)
@@ -2215,7 +2546,8 @@ macro(build_orc)
   set(ORC_CMAKE_ARGS
       ${EP_COMMON_CMAKE_ARGS}
       "-DCMAKE_INSTALL_PREFIX=${ORC_PREFIX}"
-      -DCMAKE_CXX_FLAGS=${ORC_CMAKE_CXX_FLAGS}
+      -DCMAKE_CXX_FLAGS=${EP_CXX_FLAGS}
+      -DSTOP_BUILD_ON_WARNING=OFF
       -DBUILD_LIBHDFSPP=OFF
       -DBUILD_JAVA=OFF
       -DBUILD_TOOLS=OFF
@@ -2227,7 +2559,8 @@ macro(build_orc)
       "-DPROTOBUF_INCLUDE_DIR=${ORC_PROTOBUF_INCLUDE_DIR}"
       "-DPROTOBUF_LIBRARY=${ORC_PROTOBUF_LIBRARY}"
       "-DPROTOC_LIBRARY=${ORC_PROTOBUF_LIBRARY}"
-      "-DLZ4_HOME=${LZ4_HOME}")
+      "-DLZ4_HOME=${LZ4_HOME}"
+      "-DZSTD_HOME=${ZSTD_HOME}")
   if(ZLIB_ROOT)
     set(ORC_CMAKE_ARGS ${ORC_CMAKE_ARGS} "-DZLIB_HOME=${ZLIB_ROOT}")
   endif()
@@ -2255,6 +2588,8 @@ macro(build_orc)
 
   add_dependencies(toolchain orc_ep)
   add_dependencies(orc::liborc orc_ep)
+
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS orc::liborc)
 endmacro()
 
 if(ARROW_ORC)
@@ -2315,6 +2650,8 @@ macro(build_awssdk)
   add_dependencies(toolchain awssdk_ep)
   set(AWSSDK_LINK_LIBRARIES ${AWSSDK_SHARED_LIBS})
   set(AWSSDK_VENDORED TRUE)
+
+  # AWSSDK is shared-only build
 endmacro()
 
 if(ARROW_S3)
@@ -2346,6 +2683,8 @@ if(ARROW_S3)
                                      "-pthread;pthread;-framework CoreFoundation")
   endif()
 endif()
+
+message(STATUS "All bundled static libraries: ${ARROW_BUNDLED_STATIC_LIBS}")
 
 # Write out the package configurations.
 

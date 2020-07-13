@@ -22,6 +22,7 @@ use crate::arrow::record_batch::RecordBatch;
 use crate::error::Result;
 use crate::execution::context::ExecutionContext;
 use crate::logicalplan::{Expr, LogicalPlan};
+use arrow::datatypes::Schema;
 use std::sync::Arc;
 
 /// Table is an abstraction of a logical query plan
@@ -43,10 +44,10 @@ pub trait Table {
     ) -> Result<Arc<dyn Table>>;
 
     /// limit the number of rows
-    fn limit(&self, n: usize) -> Result<Arc<dyn Table>>;
+    fn limit(&self, n: u32) -> Result<Arc<dyn Table>>;
 
     /// Return the logical plan
-    fn to_logical_plan(&self) -> Arc<LogicalPlan>;
+    fn to_logical_plan(&self) -> LogicalPlan;
 
     /// Return an expression representing a column within this table
     fn col(&self, name: &str) -> Result<Expr>;
@@ -66,13 +67,13 @@ pub trait Table {
     /// Create an expression to represent the count() aggregate function
     fn count(&self, expr: &Expr) -> Result<Expr>;
 
-    /// Return the index of a column within this table's schema
-    fn column_index(&self, name: &str) -> Result<usize>;
-
     /// Collects the result as a vector of RecordBatch.
     fn collect(
         &self,
         ctx: &mut ExecutionContext,
         batch_size: usize,
     ) -> Result<Vec<RecordBatch>>;
+
+    /// Returns the schema
+    fn schema(&self) -> &Schema;
 }

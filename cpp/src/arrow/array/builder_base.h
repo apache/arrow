@@ -19,26 +19,21 @@
 
 #include <algorithm>  // IWYU pragma: keep
 #include <cstdint>
-#include <cstring>
 #include <limits>
 #include <memory>
-#include <type_traits>
 #include <utility>
 #include <vector>
 
+#include "arrow/array/array_base.h"
+#include "arrow/array/array_primitive.h"
+#include "arrow/buffer.h"
 #include "arrow/buffer_builder.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
-#include "arrow/type_traits.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/type_traits.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
-
-class Array;
-struct ArrayData;
-class MemoryPool;
 
 constexpr int64_t kMinBuilderCapacity = 1 << 5;
 constexpr int64_t kListMaximumElements = std::numeric_limits<int32_t>::max() - 1;
@@ -63,7 +58,7 @@ class ARROW_EXPORT ArrayBuilder {
 
   int num_children() const { return static_cast<int>(children_.size()); }
 
-  int64_t length() const { return length_; }
+  virtual int64_t length() const { return length_; }
   int64_t null_count() const { return null_count_; }
   int64_t capacity() const { return capacity_; }
 
@@ -190,13 +185,16 @@ class ARROW_EXPORT ArrayBuilder {
     return Status::OK();
   }
 
-  static Status CheckCapacity(int64_t new_capacity, int64_t old_capacity) {
-    if (new_capacity < 0) {
-      return Status::Invalid("Resize capacity must be positive");
+  // Check the requested capacity for validity
+  Status CheckCapacity(int64_t new_capacity) {
+    if (ARROW_PREDICT_FALSE(new_capacity < 0)) {
+      return Status::Invalid(
+          "Resize capacity must be positive (requested: ", new_capacity, ")");
     }
 
-    if (new_capacity < old_capacity) {
-      return Status::Invalid("Resize cannot downsize");
+    if (ARROW_PREDICT_FALSE(new_capacity < length_)) {
+      return Status::Invalid("Resize cannot downsize (requested: ", new_capacity,
+                             ", current length: ", length_, ")");
     }
 
     return Status::OK();

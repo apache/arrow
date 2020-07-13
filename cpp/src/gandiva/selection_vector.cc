@@ -49,7 +49,7 @@ Status SelectionVector::PopulateFromBitMap(const uint8_t* bitmap, int64_t bitmap
   int64_t selection_idx = 0;
   const uint64_t* bitmap_64 = reinterpret_cast<const uint64_t*>(bitmap);
   for (int64_t bitmap_idx = 0; bitmap_idx < bitmap_size / 8; ++bitmap_idx) {
-    uint64_t current_word = bitmap_64[bitmap_idx];
+    uint64_t current_word = arrow::BitUtil::ToLittleEndian(bitmap_64[bitmap_idx]);
 
     while (current_word != 0) {
 #if defined(_MSC_VER)
@@ -67,7 +67,7 @@ Status SelectionVector::PopulateFromBitMap(const uint8_t* bitmap, int64_t bitmap
 
       int64_t pos_in_bitmap = bitmap_idx * 64 + pos_in_word;
       if (pos_in_bitmap > max_bitmap_index) {
-        // the bitmap may be slighly larger for alignment/padding.
+        // the bitmap may be slightly larger for alignment/padding.
         break;
       }
 
@@ -157,7 +157,7 @@ template <typename C_TYPE, typename A_TYPE, SelectionVector::Mode mode>
 Status SelectionVectorImpl<C_TYPE, A_TYPE, mode>::AllocateBuffer(
     int64_t max_slots, arrow::MemoryPool* pool, std::shared_ptr<arrow::Buffer>* buffer) {
   auto buffer_len = max_slots * sizeof(C_TYPE);
-  ARROW_RETURN_NOT_OK(arrow::AllocateBuffer(pool, buffer_len, buffer));
+  ARROW_ASSIGN_OR_RAISE(*buffer, arrow::AllocateBuffer(buffer_len, pool));
 
   return Status::OK();
 }

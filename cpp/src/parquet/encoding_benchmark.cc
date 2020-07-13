@@ -24,6 +24,7 @@
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
+#include "arrow/util/byte_stream_split.h"
 
 #include "parquet/encoding.h"
 #include "parquet/platform.h"
@@ -197,6 +198,259 @@ static void BM_PlainDecodingFloat(benchmark::State& state) {
 }
 
 BENCHMARK(BM_PlainDecodingFloat)->Range(MIN_RANGE, MAX_RANGE);
+
+template <typename ParquetType>
+struct BM_SpacedEncodingTraits {
+  using ArrowType = typename EncodingTraits<ParquetType>::ArrowType;
+  using ArrayType = typename arrow::TypeTraits<ArrowType>::ArrayType;
+  using CType = typename ParquetType::c_type;
+};
+
+template <>
+struct BM_SpacedEncodingTraits<BooleanType> {
+  // Leverage UInt8 vector array data for Boolean, the input src of PutSpaced is bool*
+  using ArrowType = ::arrow::UInt8Type;
+  using ArrayType = ::arrow::UInt8Array;
+  using CType = bool;
+};
+
+static void BM_PlainSpacedArgs(benchmark::internal::Benchmark* bench) {
+  constexpr auto kPlainSpacedSize = 32 * 1024;  // 32k
+
+  bench->Args({/*size*/ kPlainSpacedSize, /*null_in_ten_thousand*/ 1});
+  bench->Args({/*size*/ kPlainSpacedSize, /*null_in_ten_thousand*/ 100});
+  bench->Args({/*size*/ kPlainSpacedSize, /*null_in_ten_thousand*/ 1000});
+  bench->Args({/*size*/ kPlainSpacedSize, /*null_in_ten_thousand*/ 5000});
+  bench->Args({/*size*/ kPlainSpacedSize, /*null_in_ten_thousand*/ 10000});
+}
+
+template <typename ParquetType>
+static void BM_PlainEncodingSpaced(benchmark::State& state) {
+  using ArrowType = typename BM_SpacedEncodingTraits<ParquetType>::ArrowType;
+  using ArrayType = typename BM_SpacedEncodingTraits<ParquetType>::ArrayType;
+  using CType = typename BM_SpacedEncodingTraits<ParquetType>::CType;
+
+  const int num_values = static_cast<int>(state.range(0));
+  const double null_percent = static_cast<double>(state.range(1)) / 10000.0;
+
+  auto rand = ::arrow::random::RandomArrayGenerator(1923);
+  const auto array = rand.Numeric<ArrowType>(num_values, -100, 100, null_percent);
+  const auto valid_bits = array->null_bitmap_data();
+  const auto array_actual = arrow::internal::checked_pointer_cast<ArrayType>(array);
+  const auto raw_values = array_actual->raw_values();
+  // Guarantee the type cast between raw_values and input of PutSpaced.
+  static_assert(sizeof(CType) == sizeof(*raw_values), "Type mismatch");
+  // Cast only happens for BooleanType as it use UInt8 for the array data to match a bool*
+  // input to PutSpaced.
+  const auto src = reinterpret_cast<const CType*>(raw_values);
+
+  auto encoder = MakeTypedEncoder<ParquetType>(Encoding::PLAIN);
+  for (auto _ : state) {
+    encoder->PutSpaced(src, num_values, valid_bits, 0);
+    encoder->FlushValues();
+  }
+  state.counters["null_percent"] = null_percent * 100;
+  state.SetBytesProcessed(state.iterations() * num_values * sizeof(CType));
+}
+
+static void BM_PlainEncodingSpacedBoolean(benchmark::State& state) {
+  BM_PlainEncodingSpaced<BooleanType>(state);
+}
+BENCHMARK(BM_PlainEncodingSpacedBoolean)->Apply(BM_PlainSpacedArgs);
+
+static void BM_PlainEncodingSpacedFloat(benchmark::State& state) {
+  BM_PlainEncodingSpaced<FloatType>(state);
+}
+BENCHMARK(BM_PlainEncodingSpacedFloat)->Apply(BM_PlainSpacedArgs);
+
+static void BM_PlainEncodingSpacedDouble(benchmark::State& state) {
+  BM_PlainEncodingSpaced<DoubleType>(state);
+}
+BENCHMARK(BM_PlainEncodingSpacedDouble)->Apply(BM_PlainSpacedArgs);
+
+template <typename ParquetType>
+static void BM_PlainDecodingSpaced(benchmark::State& state) {
+  using ArrowType = typename BM_SpacedEncodingTraits<ParquetType>::ArrowType;
+  using ArrayType = typename BM_SpacedEncodingTraits<ParquetType>::ArrayType;
+  using CType = typename BM_SpacedEncodingTraits<ParquetType>::CType;
+
+  const int num_values = static_cast<int>(state.range(0));
+  const auto null_percent = static_cast<double>(state.range(1)) / 10000.0;
+
+  auto rand = ::arrow::random::RandomArrayGenerator(1923);
+  const auto array = rand.Numeric<ArrowType>(num_values, -100, 100, null_percent);
+  const auto valid_bits = array->null_bitmap_data();
+  const int null_count = static_cast<int>(array->null_count());
+  const auto array_actual = arrow::internal::checked_pointer_cast<ArrayType>(array);
+  const auto raw_values = array_actual->raw_values();
+  // Guarantee the type cast between raw_values and input of PutSpaced.
+  static_assert(sizeof(CType) == sizeof(*raw_values), "Type mismatch");
+  // Cast only happens for BooleanType as it use UInt8 for the array data to match a bool*
+  // input to PutSpaced.
+  const auto src = reinterpret_cast<const CType*>(raw_values);
+
+  auto encoder = MakeTypedEncoder<ParquetType>(Encoding::PLAIN);
+  encoder->PutSpaced(src, num_values, valid_bits, 0);
+  std::shared_ptr<Buffer> buf = encoder->FlushValues();
+
+  auto decoder = MakeTypedDecoder<ParquetType>(Encoding::PLAIN);
+  std::vector<uint8_t> decode_values(num_values * sizeof(CType));
+  auto decode_buf = reinterpret_cast<CType*>(decode_values.data());
+  for (auto _ : state) {
+    decoder->SetData(num_values - null_count, buf->data(), static_cast<int>(buf->size()));
+    decoder->DecodeSpaced(decode_buf, num_values, null_count, valid_bits, 0);
+  }
+  state.counters["null_percent"] = null_percent * 100;
+  state.SetBytesProcessed(state.iterations() * num_values * sizeof(CType));
+}
+
+static void BM_PlainDecodingSpacedBoolean(benchmark::State& state) {
+  BM_PlainDecodingSpaced<BooleanType>(state);
+}
+BENCHMARK(BM_PlainDecodingSpacedBoolean)->Apply(BM_PlainSpacedArgs);
+
+static void BM_PlainDecodingSpacedFloat(benchmark::State& state) {
+  BM_PlainDecodingSpaced<FloatType>(state);
+}
+BENCHMARK(BM_PlainDecodingSpacedFloat)->Apply(BM_PlainSpacedArgs);
+
+static void BM_PlainDecodingSpacedDouble(benchmark::State& state) {
+  BM_PlainDecodingSpaced<DoubleType>(state);
+}
+BENCHMARK(BM_PlainDecodingSpacedDouble)->Apply(BM_PlainSpacedArgs);
+
+template <typename T, typename DecodeFunc>
+static void BM_ByteStreamSplitDecode(benchmark::State& state, DecodeFunc&& decode_func) {
+  std::vector<T> values(state.range(0), 64.0);
+  const uint8_t* values_raw = reinterpret_cast<const uint8_t*>(values.data());
+  std::vector<T> output(state.range(0), 0);
+
+  for (auto _ : state) {
+    decode_func(values_raw, static_cast<int64_t>(values.size()),
+                static_cast<int64_t>(values.size()), output.data());
+    benchmark::ClobberMemory();
+  }
+  state.SetBytesProcessed(state.iterations() * values.size() * sizeof(T));
+}
+
+template <typename T, typename EncodeFunc>
+static void BM_ByteStreamSplitEncode(benchmark::State& state, EncodeFunc&& encode_func) {
+  std::vector<T> values(state.range(0), 64.0);
+  const uint8_t* values_raw = reinterpret_cast<const uint8_t*>(values.data());
+  std::vector<uint8_t> output(state.range(0) * sizeof(T), 0);
+
+  for (auto _ : state) {
+    encode_func(values_raw, values.size(), output.data());
+    benchmark::ClobberMemory();
+  }
+  state.SetBytesProcessed(state.iterations() * values.size() * sizeof(T));
+}
+
+static void BM_ByteStreamSplitDecode_Float_Scalar(benchmark::State& state) {
+  BM_ByteStreamSplitDecode<float>(
+      state, arrow::util::internal::ByteStreamSplitDecodeScalar<float>);
+}
+
+static void BM_ByteStreamSplitDecode_Double_Scalar(benchmark::State& state) {
+  BM_ByteStreamSplitDecode<double>(
+      state, arrow::util::internal::ByteStreamSplitDecodeScalar<double>);
+}
+
+static void BM_ByteStreamSplitEncode_Float_Scalar(benchmark::State& state) {
+  BM_ByteStreamSplitEncode<float>(
+      state, arrow::util::internal::ByteStreamSplitEncodeScalar<float>);
+}
+
+static void BM_ByteStreamSplitEncode_Double_Scalar(benchmark::State& state) {
+  BM_ByteStreamSplitEncode<double>(
+      state, arrow::util::internal::ByteStreamSplitEncodeScalar<double>);
+}
+
+BENCHMARK(BM_ByteStreamSplitDecode_Float_Scalar)->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK(BM_ByteStreamSplitDecode_Double_Scalar)->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK(BM_ByteStreamSplitEncode_Float_Scalar)->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK(BM_ByteStreamSplitEncode_Double_Scalar)->Range(MIN_RANGE, MAX_RANGE);
+
+#if defined(ARROW_HAVE_SSE4_2)
+static void BM_ByteStreamSplitDecode_Float_Sse2(benchmark::State& state) {
+  BM_ByteStreamSplitDecode<float>(
+      state, arrow::util::internal::ByteStreamSplitDecodeSse2<float>);
+}
+
+static void BM_ByteStreamSplitDecode_Double_Sse2(benchmark::State& state) {
+  BM_ByteStreamSplitDecode<double>(
+      state, arrow::util::internal::ByteStreamSplitDecodeSse2<double>);
+}
+
+static void BM_ByteStreamSplitEncode_Float_Sse2(benchmark::State& state) {
+  BM_ByteStreamSplitEncode<float>(
+      state, arrow::util::internal::ByteStreamSplitEncodeSse2<float>);
+}
+
+static void BM_ByteStreamSplitEncode_Double_Sse2(benchmark::State& state) {
+  BM_ByteStreamSplitEncode<double>(
+      state, arrow::util::internal::ByteStreamSplitEncodeSse2<double>);
+}
+
+BENCHMARK(BM_ByteStreamSplitDecode_Float_Sse2)->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK(BM_ByteStreamSplitDecode_Double_Sse2)->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK(BM_ByteStreamSplitEncode_Float_Sse2)->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK(BM_ByteStreamSplitEncode_Double_Sse2)->Range(MIN_RANGE, MAX_RANGE);
+#endif
+
+#if defined(ARROW_HAVE_AVX2)
+static void BM_ByteStreamSplitDecode_Float_Avx2(benchmark::State& state) {
+  BM_ByteStreamSplitDecode<float>(
+      state, arrow::util::internal::ByteStreamSplitDecodeAvx2<float>);
+}
+
+static void BM_ByteStreamSplitDecode_Double_Avx2(benchmark::State& state) {
+  BM_ByteStreamSplitDecode<double>(
+      state, arrow::util::internal::ByteStreamSplitDecodeAvx2<double>);
+}
+
+static void BM_ByteStreamSplitEncode_Float_Avx2(benchmark::State& state) {
+  BM_ByteStreamSplitEncode<float>(
+      state, arrow::util::internal::ByteStreamSplitEncodeAvx2<float>);
+}
+
+static void BM_ByteStreamSplitEncode_Double_Avx2(benchmark::State& state) {
+  BM_ByteStreamSplitEncode<double>(
+      state, arrow::util::internal::ByteStreamSplitEncodeAvx2<double>);
+}
+
+BENCHMARK(BM_ByteStreamSplitDecode_Float_Avx2)->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK(BM_ByteStreamSplitDecode_Double_Avx2)->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK(BM_ByteStreamSplitEncode_Float_Avx2)->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK(BM_ByteStreamSplitEncode_Double_Avx2)->Range(MIN_RANGE, MAX_RANGE);
+#endif
+
+#if defined(ARROW_HAVE_AVX512)
+static void BM_ByteStreamSplitDecode_Float_Avx512(benchmark::State& state) {
+  BM_ByteStreamSplitDecode<float>(
+      state, arrow::util::internal::ByteStreamSplitDecodeAvx512<float>);
+}
+
+static void BM_ByteStreamSplitDecode_Double_Avx512(benchmark::State& state) {
+  BM_ByteStreamSplitDecode<double>(
+      state, arrow::util::internal::ByteStreamSplitDecodeAvx512<double>);
+}
+
+static void BM_ByteStreamSplitEncode_Float_Avx512(benchmark::State& state) {
+  BM_ByteStreamSplitEncode<float>(
+      state, arrow::util::internal::ByteStreamSplitEncodeAvx512<float>);
+}
+
+static void BM_ByteStreamSplitEncode_Double_Avx512(benchmark::State& state) {
+  BM_ByteStreamSplitEncode<double>(
+      state, arrow::util::internal::ByteStreamSplitEncodeAvx512<double>);
+}
+
+BENCHMARK(BM_ByteStreamSplitDecode_Float_Avx512)->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK(BM_ByteStreamSplitDecode_Double_Avx512)->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK(BM_ByteStreamSplitEncode_Float_Avx512)->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK(BM_ByteStreamSplitEncode_Double_Avx512)->Range(MIN_RANGE, MAX_RANGE);
+#endif
 
 template <typename Type>
 static void DecodeDict(std::vector<typename Type::c_type>& values,

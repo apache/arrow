@@ -16,6 +16,17 @@
 # under the License.
 
 class BufferTest < Test::Unit::TestCase
+  sub_test_case(".new") do
+    test("GC") do
+      data = "Hello"
+      data_id = data.object_id
+      _buffer = Arrow::Buffer.new(data)
+      data = nil
+      GC.start
+      assert_equal("Hello", ObjectSpace._id2ref(data_id))
+    end
+  end
+
   sub_test_case("instance methods") do
     def setup
       @buffer = Arrow::Buffer.new("Hello")

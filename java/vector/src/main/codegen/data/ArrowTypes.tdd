@@ -31,6 +31,11 @@
       complex: true
     },
     {
+      name: "LargeList",
+      fields: [],
+      complex: true
+    },
+    {
       name: "FixedSizeList",
       fields: [{name: "listSize", type: int}],
       complex: true
@@ -61,7 +66,17 @@
       complex: false
     },
     {
+      name: "LargeUtf8",
+      fields: [],
+      complex: false
+    },
+    {
       name: "Binary",
+      fields: [],
+      complex: false
+    },
+    {
+      name: "LargeBinary",
       fields: [],
       complex: false
     },

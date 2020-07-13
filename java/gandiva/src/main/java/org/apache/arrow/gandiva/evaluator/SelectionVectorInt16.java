@@ -18,8 +18,7 @@
 package org.apache.arrow.gandiva.evaluator;
 
 import org.apache.arrow.gandiva.ipc.GandivaTypes.SelectionVectorType;
-
-import io.netty.buffer.ArrowBuf;
+import org.apache.arrow.memory.ArrowBuf;
 
 /**
  * Selection vector with records of arrow type INT16.
@@ -45,6 +44,6 @@ public class SelectionVectorInt16 extends SelectionVector {
     checkReadBounds(index);
 
     char value = getBuffer().getChar(index * getRecordSize());
-    return (int)value;
+    return (int) value;
   }
 }

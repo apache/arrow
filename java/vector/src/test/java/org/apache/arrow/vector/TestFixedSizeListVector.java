@@ -241,6 +241,38 @@ public class TestFixedSizeListVector {
   }
 
   @Test
+  public void testUnionFixedSizeListWriterWithNulls() throws Exception {
+    /* Write to a decimal list vector
+     * each list of size 3 and having its data values alternating between null and a non-null.
+     * Read and verify
+     */
+    try (final FixedSizeListVector vector = FixedSizeListVector.empty("vector", /*listSize=*/3, allocator)) {
+
+      UnionFixedSizeListWriter writer = vector.getWriter();
+      writer.allocate();
+
+      final int valueCount = 100;
+
+      for (int i = 0; i < valueCount; i++) {
+        writer.startList();
+        writer.decimal().writeDecimal(new BigDecimal(i));
+        writer.writeNull();
+        writer.decimal().writeDecimal(new BigDecimal(i * 3));
+        writer.endList();
+      }
+      vector.setValueCount(valueCount);
+
+      for (int i = 0; i < valueCount; i++) {
+        List<BigDecimal> values = (List<BigDecimal>) vector.getObject(i);
+        assertEquals(3, values.size());
+        assertEquals(new BigDecimal(i), values.get(0));
+        assertEquals(null, values.get(1));
+        assertEquals(new BigDecimal(i * 3), values.get(2));
+      }
+    }
+  }
+
+  @Test
   public void testUnionFixedSizeListWriter() throws Exception {
     try (final FixedSizeListVector vector1 = FixedSizeListVector.empty("vector", 3, allocator)) {
 

@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ERROR_HOLDER_H
-#define ERROR_HOLDER_H
+#pragma once
 
 #include <memory>
 #include <string>
@@ -53,4 +52,3 @@ class ExecutionContext {
 };
 
 }  // namespace gandiva
-#endif  // ERROR_HOLDER_H

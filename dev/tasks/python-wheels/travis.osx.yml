@@ -15,7 +15,7 @@
 # limitations under the License.
 
 os: osx
-osx_image: xcode11.2
+osx_image: xcode11.3
 language: generic
 
 # don't build twice
@@ -39,16 +39,11 @@ before_install:
   - git -C arrow checkout FETCH_HEAD
 
   - brew update
-  - brew unlink python@2
   - travis_wait 30 brew bundle --file=arrow/cpp/Brewfile
   # Install tools to build bundled Thrift
   - brew install
       bison
       flex
-
-  # remove shared grpc libraries installed by brew to make sure
-  # we are linked against the static ones.
-  - rm -f /usr/local/opt/grpc/lib/*.dylib
 
   # source utilities required for wheel builds
   - export CONFIG_PATH=`pwd`/arrow/dev/tasks/python-wheels/osx-build.sh
@@ -75,11 +70,20 @@ install:
   - sudo mv $(brew --cellar){.bak,}
   # before_install activates a virtualenv but we need the system python3
   - deactivate
+
   # crossbow dependencies for deployment
   - unset MACOSX_DEPLOYMENT_TARGET
   - pip3 install click ruamel.yaml setuptools_scm github3.py toolz requests[security]
-  - python3 arrow/dev/tasks/crossbow.py --queue-path $(pwd) --queue-remote {{ queue.remote_url }} upload-artifacts --sha {{ task.branch }} --tag {{ task.tag }} --pattern "arrow/python/dist/*.whl"
+  - python3 arrow/dev/tasks/crossbow.py
+      --queue-path $(pwd)
+      --queue-remote {{ queue_remote_url }}
+      upload-artifacts
+      --sha {{ task.branch }}
+      --tag {{ task.tag }}
+      --pattern "arrow/python/dist/*.whl"
 
-notifications:
-  email:
-    - {{ job.email }}
+  {% if arrow.branch == 'master' %}
+  # upload to gemfury pypi repository, there should be a single wheel
+  - path=$(ls arrow/python/dist/*.whl)
+  - curl -F "package=@${path}" https://${CROSSBOW_GEMFURY_TOKEN}@push.fury.io/${CROSSBOW_GEMFURY_ORG}/
+  {% endif %}

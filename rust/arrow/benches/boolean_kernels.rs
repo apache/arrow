@@ -23,7 +23,6 @@ extern crate arrow;
 
 use arrow::array::*;
 use arrow::compute::kernels::boolean as boolean_kernels;
-use arrow::error::{ArrowError, Result};
 
 ///  Helper function to create arrays
 fn create_boolean_array(size: usize) -> BooleanArray {
@@ -38,90 +37,30 @@ fn create_boolean_array(size: usize) -> BooleanArray {
     builder.finish()
 }
 
-/// Helper function to implement `AND` and `OR` without SIMD
-pub fn bin_op_no_simd<F>(
-    left: &BooleanArray,
-    right: &BooleanArray,
-    op: F,
-) -> Result<BooleanArray>
-where
-    F: Fn(bool, bool) -> bool,
-{
-    if left.len() != right.len() {
-        return Err(ArrowError::ComputeError(
-            "Cannot perform boolean operation on arrays of different length".to_string(),
-        ));
-    }
-    let mut b = BooleanArray::builder(left.len());
-    for i in 0..left.len() {
-        if left.is_null(i) || right.is_null(i) {
-            b.append_null()?;
-        } else {
-            b.append_value(op(left.value(i), right.value(i)))?;
-        }
-    }
-    Ok(b.finish())
-}
-
-/// Benchmark for `AND` and `OR` with no SIMD
-fn bench_bin_op_no_simd<F>(size: usize, op: F)
-where
-    F: Fn(bool, bool) -> bool,
-{
-    let array_a = create_boolean_array(size);
-    let array_b = create_boolean_array(size);
-
-    criterion::black_box(bin_op_no_simd(&array_a, &array_b, &op).unwrap());
-}
-
-/// Benchmark for `NOT` with no SIMD
-fn bench_not_no_simd(size: usize) {
-    let array = create_boolean_array(size);
-
-    criterion::black_box({
-        let mut b = BooleanArray::builder(array.len());
-        for i in 0..array.len() {
-            if array.is_null(i) {
-                b.append_null().unwrap();
-            } else {
-                b.append_value(!array.value(i)).unwrap();
-            }
-        }
-        b.finish()
-    });
-}
-
-/// Benchmark for `AND` with SIMD
-fn bench_and_simd(size: usize) {
+/// Benchmark for `AND`
+fn bench_and(size: usize) {
     let buffer_a = create_boolean_array(size);
     let buffer_b = create_boolean_array(size);
     criterion::black_box(boolean_kernels::and(&buffer_a, &buffer_b).unwrap());
 }
 
-/// Benchmark for `OR` with SIMD
-fn bench_or_simd(size: usize) {
+/// Benchmark for `OR`
+fn bench_or(size: usize) {
     let buffer_a = create_boolean_array(size);
     let buffer_b = create_boolean_array(size);
     criterion::black_box(boolean_kernels::or(&buffer_a, &buffer_b).unwrap());
 }
 
-/// Benchmark for `NOT` with SIMD
-fn bench_not_simd(size: usize) {
+/// Benchmark for `NOT`
+fn bench_not(size: usize) {
     let buffer = create_boolean_array(size);
     criterion::black_box(boolean_kernels::not(&buffer).unwrap());
 }
 
 fn add_benchmark(c: &mut Criterion) {
-    c.bench_function("and", |b| {
-        b.iter(|| bench_bin_op_no_simd(512, |a, b| a && b))
-    });
-    c.bench_function("and simd", |b| b.iter(|| bench_and_simd(512)));
-    c.bench_function("or", |b| {
-        b.iter(|| bench_bin_op_no_simd(512, |a, b| a || b))
-    });
-    c.bench_function("or simd", |b| b.iter(|| bench_or_simd(512)));
-    c.bench_function("not", |b| b.iter(|| bench_not_no_simd(512)));
-    c.bench_function("not simd", |b| b.iter(|| bench_not_simd(512)));
+    c.bench_function("and", |b| b.iter(|| bench_and(512)));
+    c.bench_function("or", |b| b.iter(|| bench_or(512)));
+    c.bench_function("not", |b| b.iter(|| bench_not(512)));
 }
 
 criterion_group!(benches, add_benchmark);

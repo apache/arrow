@@ -35,18 +35,18 @@ class TestFileSelector < Test::Unit::TestCase
     end
   end
 
-  sub_test_case("#allow_nonexistent?") do
+  sub_test_case("#allow_not_found?") do
     test("default") do
       assert do
-        not @file_selector.allow_nonexistent?
+        not @file_selector.allow_not_found?
       end
     end
   end
 
-  test("#allow_nonexistent=") do
-    @file_selector.allow_nonexistent = true
+  test("#allow_not_found=") do
+    @file_selector.allow_not_found = true
     assert do
-      @file_selector.allow_nonexistent?
+      @file_selector.allow_not_found?
     end
   end
 

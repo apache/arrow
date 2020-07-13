@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+require "arrow/raw-table-converter"
+
 module Arrow
   class Table
     include ColumnContainable
@@ -81,14 +83,6 @@ module Arrow
     #     `Array`.
     #
     #   @example Create a table from column name and values
-    #     count_chunks = [
-    #       Arrow::UInt32Array.new([0, 2]),
-    #       Arrow::UInt32Array.new([nil, 4]),
-    #     ]
-    #     visible_chunks = [
-    #       Arrow::BooleanArray.new([true]),
-    #       Arrow::BooleanArray.new([nil, nil, false]),
-    #     ]
     #     Arrow::Table.new("count" => [0, 2, nil, 4],
     #                      "visible" => [true, nil, nil, false])
     #
@@ -169,22 +163,9 @@ module Arrow
       n_args = args.size
       case n_args
       when 1
-        if args[0][0].is_a?(Column)
-          columns = args[0]
-          fields = columns.collect(&:field)
-          values = columns.collect(&:data)
-          schema = Schema.new(fields)
-        else
-          raw_table = args[0]
-          fields = []
-          values = []
-          raw_table.each do |name, array|
-            array = ArrayBuilder.build(array) if array.is_a?(::Array)
-            fields << Field.new(name.to_s, array.value_data_type)
-            values << array
-          end
-          schema = Schema.new(fields)
-        end
+        raw_table_converter = RawTableConverter.new(args[0])
+        schema = raw_table_converter.schema
+        values = raw_table_converter.values
       when 2
         schema = args[0]
         schema = Schema.new(schema) unless schema.is_a?(Schema)
@@ -304,6 +285,8 @@ module Arrow
         end
       end
 
+      filter_options = Arrow::FilterOptions.new
+      filter_options.null_selection_behavior = :emit_null
       sliced_tables = []
       slicers.each do |slicer|
         slicer = slicer.evaluate if slicer.respond_to?(:evaluate)
@@ -325,7 +308,7 @@ module Arrow
           to += n_rows if to < 0
           sliced_tables << slice_by_range(from, to)
         when ::Array, BooleanArray, ChunkedArray
-          sliced_tables << filter(slicer)
+          sliced_tables << filter(slicer, filter_options)
         else
           message = "slicer must be Integer, Range, (from, to), " +
             "Arrow::ChunkedArray of Arrow::BooleanArray, " +

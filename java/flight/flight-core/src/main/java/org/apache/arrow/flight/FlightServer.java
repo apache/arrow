@@ -42,6 +42,8 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.util.VisibleForTesting;
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
+
 import io.grpc.Server;
 import io.grpc.ServerInterceptors;
 import io.grpc.netty.NettyServerBuilder;
@@ -243,7 +245,9 @@ public class FlightServer implements AutoCloseable {
         exec = executor;
         grpcExecutor = null;
       } else {
-        exec = Executors.newCachedThreadPool();
+        exec = Executors.newCachedThreadPool(
+            // Name threads for better debuggability
+            new ThreadFactoryBuilder().setNameFormat("flight-server-default-executor-%d").build());
         grpcExecutor = exec;
       }
       final FlightBindingService flightService = new FlightBindingService(allocator, producer, authHandler, exec);

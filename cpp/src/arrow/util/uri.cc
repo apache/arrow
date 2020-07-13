@@ -21,8 +21,8 @@
 #include <sstream>
 #include <vector>
 
-#include "arrow/util/parsing.h"
 #include "arrow/util/string_view.h"
+#include "arrow/util/value_parsing.h"
 #include "arrow/vendored/uriparser/Uri.h"
 
 namespace arrow {
@@ -47,6 +47,13 @@ std::string TextRangeToString(const UriTextRangeStructA& range) {
 // "unix:///tmp/foo", the host is empty but present.
 // This function helps distinguish.
 bool IsTextRangeSet(const UriTextRangeStructA& range) { return range.first != nullptr; }
+
+#ifdef _WIN32
+bool IsDriveSpec(util::string_view s) {
+  return (s.length() >= 2 && s[1] == ':' &&
+          ((s[0] >= 'A' && s[0] <= 'Z') || (s[0] >= 'a' && s[0] <= 'z')));
+}
+#endif
 
 }  // namespace
 
@@ -73,6 +80,8 @@ struct Uri::Impl {
     uriFreeUriMembersA(&uri_);
     memset(&uri_, 0, sizeof(uri_));
     data_.clear();
+    string_rep_.clear();
+    path_segments_.clear();
     port_ = -1;
   }
 
@@ -86,6 +95,9 @@ struct Uri::Impl {
   std::vector<std::string> data_;
   std::string string_rep_;
   int32_t port_;
+  std::vector<util::string_view> path_segments_;
+  bool is_file_uri_;
+  bool is_absolute_path_;
 };
 
 Uri::Uri() : impl_(new Impl) {}
@@ -130,23 +142,21 @@ std::string Uri::password() const {
 }
 
 std::string Uri::path() const {
-  // Gather path segments
-  std::vector<util::string_view> segments;
-  auto path_seg = impl_->uri_.pathHead;
-  while (path_seg != nullptr) {
-    segments.push_back(TextRangeToView(path_seg->text));
-    path_seg = path_seg->next;
+  const auto& segments = impl_->path_segments_;
+
+  bool must_prepend_slash = impl_->is_absolute_path_;
+#ifdef _WIN32
+  // On Windows, "file:///C:/foo" should have path "C:/foo", not "/C:/foo",
+  // despite it being absolute.
+  // (see https://tools.ietf.org/html/rfc8089#page-13)
+  if (impl_->is_absolute_path_ && impl_->is_file_uri_ && segments.size() > 0 &&
+      IsDriveSpec(segments[0])) {
+    must_prepend_slash = false;
   }
+#endif
 
   std::stringstream ss;
-  if (impl_->uri_.absolutePath == URI_TRUE) {
-    ss << "/";
-  } else if (has_host() && segments.size() > 0) {
-    // When there's a host (even empty), uriparser considers the path relative.
-    // Several URI parsers for Python all consider it absolute, though.
-    // For example, the path for "file:///tmp/foo" is "/tmp/foo", not "tmp/foo".
-    // Similarly, the path for "file://localhost/" is "/".
-    // However, the path for "file://localhost" is "".
+  if (must_prepend_slash) {
     ss << "/";
   }
   bool first = true;
@@ -157,7 +167,7 @@ std::string Uri::path() const {
     first = false;
     ss << seg;
   }
-  return ss.str();
+  return std::move(ss).str();
 }
 
 std::string Uri::query_string() const { return TextRangeToString(impl_->uri_.query); }
@@ -203,16 +213,50 @@ Status Uri::Parse(const std::string& uri_string) {
     return Status::Invalid("Cannot parse URI: '", uri_string, "'");
   }
 
-  if (scheme().empty()) {
+  const auto scheme = TextRangeToView(impl_->uri_.scheme);
+  if (scheme.empty()) {
     return Status::Invalid("URI has empty scheme: '", uri_string, "'");
+  }
+  impl_->is_file_uri_ = (scheme == "file");
+
+  // Gather path segments
+  auto path_seg = impl_->uri_.pathHead;
+  while (path_seg != nullptr) {
+    impl_->path_segments_.push_back(TextRangeToView(path_seg->text));
+    path_seg = path_seg->next;
+  }
+
+  // Decide whether URI path is absolute
+  impl_->is_absolute_path_ = false;
+  if (impl_->uri_.absolutePath == URI_TRUE) {
+    impl_->is_absolute_path_ = true;
+  } else if (has_host() && impl_->path_segments_.size() > 0) {
+    // When there's a host (even empty), uriparser considers the path relative.
+    // Several URI parsers for Python all consider it absolute, though.
+    // For example, the path for "file:///tmp/foo" is "/tmp/foo", not "tmp/foo".
+    // Similarly, the path for "file://localhost/" is "/".
+    // However, the path for "file://localhost" is "".
+    impl_->is_absolute_path_ = true;
+  }
+#ifdef _WIN32
+  // There's an exception on Windows: "file:/C:foo/bar" is relative.
+  if (impl_->is_file_uri_ && impl_->path_segments_.size() > 0) {
+    const auto& first_seg = impl_->path_segments_[0];
+    if (IsDriveSpec(first_seg) && (first_seg.length() >= 3 && first_seg[2] != '/')) {
+      impl_->is_absolute_path_ = false;
+    }
+  }
+#endif
+
+  if (impl_->is_file_uri_ && !impl_->is_absolute_path_) {
+    return Status::Invalid("File URI cannot be relative: '", uri_string, "'");
   }
 
   // Parse port number
   auto port_text = TextRangeToView(impl_->uri_.portText);
   if (port_text.size()) {
-    StringConverter<UInt16Type> port_converter;
     uint16_t port_num;
-    if (!port_converter(port_text.data(), port_text.size(), &port_num)) {
+    if (!ParseValue<UInt16Type>(port_text.data(), port_text.size(), &port_num)) {
       return Status::Invalid("Invalid port number '", port_text, "' in URI '", uri_string,
                              "'");
     }

@@ -31,6 +31,7 @@ public enum FlightMethod {
   DO_PUT,
   DO_ACTION,
   LIST_ACTIONS,
+  DO_EXCHANGE,
   ;
 
   /**
@@ -55,6 +56,8 @@ public enum FlightMethod {
       return DO_ACTION;
     } else if (FlightServiceGrpc.getListActionsMethod().getFullMethodName().equals(methodName)) {
       return LIST_ACTIONS;
+    } else if (FlightServiceGrpc.getDoExchangeMethod().getFullMethodName().equals(methodName)) {
+      return DO_EXCHANGE;
     }
     throw new IllegalArgumentException("Not a Flight method name in gRPC: " + methodName);
   }

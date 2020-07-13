@@ -21,6 +21,7 @@ import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
 import java.time.Period;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.impl.IntervalYearReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
@@ -30,8 +31,6 @@ import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
-
-import io.netty.buffer.ArrowBuf;
 
 /**
  * IntervalYearVector implements a fixed width (4 bytes) vector of
@@ -117,7 +116,7 @@ public final class IntervalYearVector extends BaseFixedWidthVector {
    * @return value stored at the index.
    */
   public static int getTotalMonths(final ArrowBuf buffer, final int index) {
-    return buffer.getInt(index * TYPE_WIDTH);
+    return buffer.getInt((long) index * TYPE_WIDTH);
   }
 
   /**
@@ -130,7 +129,7 @@ public final class IntervalYearVector extends BaseFixedWidthVector {
     if (NULL_CHECKING_ENABLED && isSet(index) == 0) {
       throw new IllegalStateException("Value at index is null");
     }
-    return valueBuffer.getInt(index * TYPE_WIDTH);
+    return valueBuffer.getInt((long) index * TYPE_WIDTH);
   }
 
   /**
@@ -146,7 +145,7 @@ public final class IntervalYearVector extends BaseFixedWidthVector {
       return;
     }
     holder.isSet = 1;
-    holder.value = valueBuffer.getInt(index * TYPE_WIDTH);
+    holder.value = valueBuffer.getInt((long) index * TYPE_WIDTH);
   }
 
   /**
@@ -159,7 +158,7 @@ public final class IntervalYearVector extends BaseFixedWidthVector {
     if (isSet(index) == 0) {
       return null;
     } else {
-      final int interval = valueBuffer.getInt(index * TYPE_WIDTH);
+      final int interval = valueBuffer.getInt((long) index * TYPE_WIDTH);
       // TODO: verify interval is in months
       return Period.ofMonths(interval);
     }
@@ -181,7 +180,7 @@ public final class IntervalYearVector extends BaseFixedWidthVector {
   }
 
   private StringBuilder getAsStringBuilderHelper(int index) {
-    int value = valueBuffer.getInt(index * TYPE_WIDTH);
+    int value = valueBuffer.getInt((long) index * TYPE_WIDTH);
 
     final int years = (value / org.apache.arrow.vector.util.DateUtility.yearsToMonths);
     final int months = (value % org.apache.arrow.vector.util.DateUtility.yearsToMonths);
@@ -204,7 +203,7 @@ public final class IntervalYearVector extends BaseFixedWidthVector {
 
 
   private void setValue(int index, int value) {
-    valueBuffer.setInt(index * TYPE_WIDTH, value);
+    valueBuffer.setInt((long) index * TYPE_WIDTH, value);
   }
 
   /**

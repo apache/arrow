@@ -15,7 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
+
+#include "arrow/testing/gtest_compat.h"
 
 #include "parquet/column_reader.h"
 #include "parquet/column_writer.h"
@@ -30,6 +33,7 @@ namespace parquet {
 using schema::GroupNode;
 using schema::NodePtr;
 using schema::PrimitiveNode;
+using ::testing::ElementsAre;
 
 namespace test {
 
@@ -261,7 +265,7 @@ typedef ::testing::Types<Int32Type, Int64Type, Int96Type, FloatType, DoubleType,
                          BooleanType, ByteArrayType, FLBAType>
     TestTypes;
 
-TYPED_TEST_CASE(TestSerialize, TestTypes);
+TYPED_TEST_SUITE(TestSerialize, TestTypes);
 
 TYPED_TEST(TestSerialize, SmallFileUncompressed) {
   ASSERT_NO_FATAL_FAILURE(this->FileSerializeTest(Compression::UNCOMPRESSED));
@@ -341,6 +345,99 @@ TEST(TestBufferedRowGroupWriter, DisabledDictionary) {
   ASSERT_EQ(1, rg_reader->metadata()->num_columns());
   ASSERT_EQ(1, rg_reader->metadata()->num_rows());
   ASSERT_FALSE(rg_reader->metadata()->ColumnChunk(0)->has_dictionary_page());
+}
+
+TEST(TestBufferedRowGroupWriter, MultiPageDisabledDictionary) {
+  constexpr int kValueCount = 10000;
+  constexpr int kPageSize = 16384;
+  auto sink = CreateOutputStream();
+  auto writer_props = parquet::WriterProperties::Builder()
+                          .disable_dictionary()
+                          ->data_pagesize(kPageSize)
+                          ->build();
+  schema::NodeVector fields;
+  fields.push_back(
+      PrimitiveNode::Make("col", parquet::Repetition::REQUIRED, parquet::Type::INT32));
+  auto schema = std::static_pointer_cast<GroupNode>(
+      GroupNode::Make("schema", Repetition::REQUIRED, fields));
+  auto file_writer = parquet::ParquetFileWriter::Open(sink, schema, writer_props);
+  auto rg_writer = file_writer->AppendBufferedRowGroup();
+  auto col_writer = static_cast<Int32Writer*>(rg_writer->column(0));
+  std::vector<int32_t> values_in;
+  for (int i = 0; i < kValueCount; ++i) {
+    values_in.push_back((i % 100) + 1);
+  }
+  col_writer->WriteBatch(kValueCount, nullptr, nullptr, values_in.data());
+  rg_writer->Close();
+  file_writer->Close();
+  PARQUET_ASSIGN_OR_THROW(auto buffer, sink->Finish());
+
+  auto source = std::make_shared<::arrow::io::BufferReader>(buffer);
+  auto file_reader = ParquetFileReader::Open(source);
+  auto file_metadata = file_reader->metadata();
+  ASSERT_EQ(1, file_reader->metadata()->num_row_groups());
+  std::vector<int32_t> values_out(kValueCount);
+  for (int r = 0; r < file_metadata->num_row_groups(); ++r) {
+    auto rg_reader = file_reader->RowGroup(r);
+    ASSERT_EQ(1, rg_reader->metadata()->num_columns());
+    ASSERT_EQ(kValueCount, rg_reader->metadata()->num_rows());
+    int64_t total_values_read = 0;
+    std::shared_ptr<parquet::ColumnReader> col_reader;
+    ASSERT_NO_THROW(col_reader = rg_reader->Column(0));
+    parquet::Int32Reader* int32_reader =
+        static_cast<parquet::Int32Reader*>(col_reader.get());
+    int64_t vn = kValueCount;
+    int32_t* vx = values_out.data();
+    while (int32_reader->HasNext()) {
+      int64_t values_read;
+      int32_reader->ReadBatch(vn, nullptr, nullptr, vx, &values_read);
+      vn -= values_read;
+      vx += values_read;
+      total_values_read += values_read;
+    }
+    ASSERT_EQ(kValueCount, total_values_read);
+    ASSERT_EQ(values_in, values_out);
+  }
+}
+
+TEST(ParquetRoundtrip, AllNulls) {
+  auto primitive_node =
+      PrimitiveNode::Make("nulls", Repetition::OPTIONAL, nullptr, Type::INT32);
+  schema::NodeVector columns({primitive_node});
+
+  auto root_node = GroupNode::Make("root", Repetition::REQUIRED, columns, nullptr);
+
+  auto sink = CreateOutputStream();
+
+  auto file_writer =
+      ParquetFileWriter::Open(sink, std::static_pointer_cast<GroupNode>(root_node));
+  auto row_group_writer = file_writer->AppendRowGroup();
+  auto column_writer = static_cast<Int32Writer*>(row_group_writer->NextColumn());
+
+  int32_t values[3];
+  int16_t def_levels[] = {0, 0, 0};
+
+  column_writer->WriteBatch(3, def_levels, nullptr, values);
+
+  column_writer->Close();
+  row_group_writer->Close();
+  file_writer->Close();
+
+  ReaderProperties props = default_reader_properties();
+  props.enable_buffered_stream();
+  PARQUET_ASSIGN_OR_THROW(auto buffer, sink->Finish());
+
+  auto source = std::make_shared<::arrow::io::BufferReader>(buffer);
+  auto file_reader = ParquetFileReader::Open(source, props);
+  auto row_group_reader = file_reader->RowGroup(0);
+  auto column_reader = std::static_pointer_cast<Int32Reader>(row_group_reader->Column(0));
+
+  int64_t values_read;
+  def_levels[0] = -1;
+  def_levels[1] = -1;
+  def_levels[2] = -1;
+  column_reader->ReadBatch(3, def_levels, nullptr, values, &values_read);
+  EXPECT_THAT(def_levels, ElementsAre(0, 0, 0));
 }
 
 }  // namespace test

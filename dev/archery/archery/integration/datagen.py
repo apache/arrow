@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from collections import OrderedDict
+from collections import namedtuple, OrderedDict
 import binascii
 import json
 import os
@@ -24,28 +24,46 @@ import tempfile
 
 import numpy as np
 
-from .util import (frombytes, rands, tobytes, SKIP_ARROW, SKIP_FLIGHT)
+from .util import frombytes, tobytes, random_bytes, random_utf8
 
 
-class DataType(object):
+def metadata_key_values(pairs):
+    return [{'key': k, 'value': v} for k, v in pairs]
 
-    def __init__(self, name, nullable=True):
+
+class Field(object):
+
+    def __init__(self, name, *, nullable=True, metadata=None):
         self.name = name
         self.nullable = nullable
+        self.metadata = metadata or []
 
     def get_json(self):
-        return OrderedDict([
+        entries = [
             ('name', self.name),
             ('type', self._get_type()),
             ('nullable', self.nullable),
-            ('children', self._get_children())
-        ])
+            ('children', self._get_children()),
+        ]
 
-    def _make_is_valid(self, size):
+        dct = self._get_dictionary()
+        if dct:
+            entries.append(('dictionary', dct))
+
+        if self.metadata is not None and len(self.metadata) > 0:
+            entries.append(('metadata', metadata_key_values(self.metadata)))
+
+        return OrderedDict(entries)
+
+    def _get_dictionary(self):
+        return None
+
+    def _make_is_valid(self, size, null_probability=0.4):
         if self.nullable:
-            return np.random.randint(0, 2, size=size)
+            return (np.random.random_sample(size) > null_probability
+                    ).astype(np.int8)
         else:
-            return np.ones(size)
+            return np.ones(size, dtype=np.int8)
 
 
 class Column(object):
@@ -79,7 +97,7 @@ class Column(object):
         return OrderedDict(entries)
 
 
-class PrimitiveType(DataType):
+class PrimitiveField(Field):
 
     def _get_children(self):
         return []
@@ -88,7 +106,7 @@ class PrimitiveType(DataType):
 class PrimitiveColumn(Column):
 
     def __init__(self, name, count, is_valid, values):
-        super(PrimitiveColumn, self).__init__(name, count)
+        super().__init__(name, count)
         self.is_valid = is_valid
         self.values = values
 
@@ -107,10 +125,11 @@ class NullColumn(Column):
     pass
 
 
-class NullType(PrimitiveType):
+class NullField(PrimitiveField):
 
-    def __init__(self, name):
-        super(NullType, self).__init__(name, nullable=True)
+    def __init__(self, name, metadata=None):
+        super().__init__(name, nullable=True,
+                         metadata=metadata)
 
     def _get_type(self):
         return OrderedDict([('name', 'null')])
@@ -123,12 +142,14 @@ TEST_INT_MAX = 2 ** 31 - 1
 TEST_INT_MIN = ~TEST_INT_MAX
 
 
-class IntegerType(PrimitiveType):
+class IntegerField(PrimitiveField):
 
-    def __init__(self, name, is_signed, bit_width, nullable=True,
+    def __init__(self, name, is_signed, bit_width, *, nullable=True,
+                 metadata=None,
                  min_value=TEST_INT_MIN,
                  max_value=TEST_INT_MAX):
-        super(IntegerType, self).__init__(name, nullable=nullable)
+        super().__init__(name, nullable=nullable,
+                         metadata=metadata)
         self.is_signed = is_signed
         self.bit_width = bit_width
         self.min_value = min_value
@@ -155,11 +176,15 @@ class IntegerType(PrimitiveType):
 
     def generate_column(self, size, name=None):
         lower_bound, upper_bound = self._get_generated_data_bounds()
-        return self.generate_range(size, lower_bound, upper_bound, name=name)
+        return self.generate_range(size, lower_bound, upper_bound,
+                                   name=name, include_extremes=True)
 
-    def generate_range(self, size, lower, upper, name=None):
-        values = [int(x) for x in
-                  np.random.randint(lower, upper, size=size)]
+    def generate_range(self, size, lower, upper, name=None,
+                       include_extremes=False):
+        values = np.random.randint(lower, upper, size=size, dtype=np.int64)
+        if include_extremes and size >= 2:
+            values[:2] = [lower, upper]
+        values = list(map(int if self.bit_width < 64 else str, values))
 
         is_valid = self._make_is_valid(size)
 
@@ -168,7 +193,7 @@ class IntegerType(PrimitiveType):
         return PrimitiveColumn(name, size, is_valid, values)
 
 
-class DateType(IntegerType):
+class DateField(IntegerField):
 
     DAY = 0
     MILLISECOND = 1
@@ -179,12 +204,13 @@ class DateType(IntegerType):
         MILLISECOND: [-62135596800000, 253402214400000]
     }
 
-    def __init__(self, name, unit, nullable=True):
+    def __init__(self, name, unit, *, nullable=True, metadata=None):
         bit_width = 32 if unit == self.DAY else 64
 
         min_value, max_value = self._ranges[unit]
-        super(DateType, self).__init__(
-            name, True, bit_width, nullable=nullable,
+        super().__init__(
+            name, True, bit_width,
+            nullable=nullable, metadata=metadata,
             min_value=min_value, max_value=max_value
         )
         self.unit = unit
@@ -204,7 +230,7 @@ TIMEUNIT_NAMES = {
 }
 
 
-class TimeType(IntegerType):
+class TimeField(IntegerField):
 
     BIT_WIDTHS = {
         's': 32,
@@ -220,12 +246,12 @@ class TimeType(IntegerType):
         'ns': [0, 86400000000000]
     }
 
-    def __init__(self, name, unit='s', nullable=True):
+    def __init__(self, name, unit='s', *, nullable=True,
+                 metadata=None):
         min_val, max_val = self._ranges[unit]
-        super(TimeType, self).__init__(name, True, self.BIT_WIDTHS[unit],
-                                       nullable=nullable,
-                                       min_value=min_val,
-                                       max_value=max_val)
+        super().__init__(name, True, self.BIT_WIDTHS[unit],
+                         nullable=nullable, metadata=metadata,
+                         min_value=min_val, max_value=max_val)
         self.unit = unit
 
     def _get_type(self):
@@ -236,7 +262,7 @@ class TimeType(IntegerType):
         ])
 
 
-class TimestampType(IntegerType):
+class TimestampField(IntegerField):
 
     # 1/1/1 to 12/31/9999
     _ranges = {
@@ -248,11 +274,14 @@ class TimestampType(IntegerType):
         'ns': [np.iinfo('int64').min, np.iinfo('int64').max]
     }
 
-    def __init__(self, name, unit='s', tz=None, nullable=True):
+    def __init__(self, name, unit='s', tz=None, *, nullable=True,
+                 metadata=None):
         min_val, max_val = self._ranges[unit]
-        super(TimestampType, self).__init__(name, True, 64, nullable=nullable,
-                                            min_value=min_val,
-                                            max_value=max_val)
+        super().__init__(name, True, 64,
+                         nullable=nullable,
+                         metadata=metadata,
+                         min_value=min_val,
+                         max_value=max_val)
         self.unit = unit
         self.tz = tz
 
@@ -268,13 +297,15 @@ class TimestampType(IntegerType):
         return OrderedDict(fields)
 
 
-class DurationIntervalType(IntegerType):
-    def __init__(self, name, unit='s', nullable=True):
+class DurationIntervalField(IntegerField):
+
+    def __init__(self, name, unit='s', *, nullable=True,
+                 metadata=None):
         min_val, max_val = np.iinfo('int64').min, np.iinfo('int64').max,
-        super(DurationIntervalType, self).__init__(
-                name, True, 64, nullable=nullable,
-                min_value=min_val,
-                max_value=max_val)
+        super().__init__(
+            name, True, 64,
+            nullable=nullable, metadata=metadata,
+            min_value=min_val, max_value=max_val)
         self.unit = unit
 
     def _get_type(self):
@@ -286,13 +317,13 @@ class DurationIntervalType(IntegerType):
         return OrderedDict(fields)
 
 
-class YearMonthIntervalType(IntegerType):
-    def __init__(self, name, nullable=True):
+class YearMonthIntervalField(IntegerField):
+    def __init__(self, name, *, nullable=True, metadata=None):
         min_val, max_val = [-10000*12, 10000*12]  # +/- 10000 years.
-        super(YearMonthIntervalType, self).__init__(
-                name, True, 32, nullable=nullable,
-                min_value=min_val,
-                max_value=max_val)
+        super().__init__(
+            name, True, 32,
+            nullable=nullable, metadata=metadata,
+            min_value=min_val, max_value=max_val)
 
     def _get_type(self):
         fields = [
@@ -303,9 +334,11 @@ class YearMonthIntervalType(IntegerType):
         return OrderedDict(fields)
 
 
-class DayTimeIntervalType(PrimitiveType):
-    def __init__(self, name, nullable=True):
-        super(DayTimeIntervalType, self).__init__(name, nullable=True)
+class DayTimeIntervalField(PrimitiveField):
+    def __init__(self, name, *, nullable=True, metadata=None):
+        super().__init__(name,
+                         nullable=True,
+                         metadata=metadata)
 
     @property
     def numpy_type(self):
@@ -330,10 +363,13 @@ class DayTimeIntervalType(PrimitiveType):
         return PrimitiveColumn(name, size, is_valid, values)
 
 
-class FloatingPointType(PrimitiveType):
+class FloatingPointField(PrimitiveField):
 
-    def __init__(self, name, bit_width, nullable=True):
-        super(FloatingPointType, self).__init__(name, nullable=nullable)
+    def __init__(self, name, bit_width, *, nullable=True,
+                 metadata=None):
+        super().__init__(name,
+                         nullable=nullable,
+                         metadata=metadata)
 
         self.bit_width = bit_width
         self.precision = {
@@ -380,9 +416,11 @@ def decimal_range_from_precision(precision):
         return ~max_value, max_value
 
 
-class DecimalType(PrimitiveType):
-    def __init__(self, name, precision, scale, bit_width=128, nullable=True):
-        super(DecimalType, self).__init__(name, nullable=True)
+class DecimalField(PrimitiveField):
+    def __init__(self, name, precision, scale, bit_width=128, *,
+                 nullable=True, metadata=None):
+        super().__init__(name, nullable=True,
+                         metadata=metadata)
         self.precision = precision
         self.scale = scale
         self.bit_width = bit_width
@@ -411,14 +449,14 @@ class DecimalType(PrimitiveType):
 class DecimalColumn(PrimitiveColumn):
 
     def __init__(self, name, count, is_valid, values, bit_width=128):
-        super(DecimalColumn, self).__init__(name, count, is_valid, values)
+        super().__init__(name, count, is_valid, values)
         self.bit_width = bit_width
 
     def _encode_value(self, x):
         return str(x)
 
 
-class BooleanType(PrimitiveType):
+class BooleanField(PrimitiveField):
     bit_width = 1
 
     def _get_type(self):
@@ -436,42 +474,12 @@ class BooleanType(PrimitiveType):
         return PrimitiveColumn(name, size, is_valid, values)
 
 
-class BinaryType(PrimitiveType):
+class FixedSizeBinaryField(PrimitiveField):
 
-    @property
-    def numpy_type(self):
-        return object
-
-    @property
-    def column_class(self):
-        return BinaryColumn
-
-    def _get_type(self):
-        return OrderedDict([('name', 'binary')])
-
-    def generate_column(self, size, name=None):
-        K = 7
-        is_valid = self._make_is_valid(size)
-        values = []
-
-        for i in range(size):
-            if is_valid[i]:
-                draw = (np.random.randint(0, 255, size=K)
-                        .astype(np.uint8)
-                        .tostring())
-                values.append(draw)
-            else:
-                values.append(b"")
-
-        if name is None:
-            name = self.name
-        return self.column_class(name, size, is_valid, values)
-
-
-class FixedSizeBinaryType(PrimitiveType):
-
-    def __init__(self, name, byte_width, nullable=True):
-        super(FixedSizeBinaryType, self).__init__(name, nullable=nullable)
+    def __init__(self, name, byte_width, *, nullable=True,
+                 metadata=None):
+        super().__init__(name, nullable=nullable,
+                         metadata=metadata)
         self.byte_width = byte_width
 
     @property
@@ -486,30 +494,52 @@ class FixedSizeBinaryType(PrimitiveType):
         return OrderedDict([('name', 'fixedsizebinary'),
                             ('byteWidth', self.byte_width)])
 
-    def _get_type_layout(self):
-        return OrderedDict([
-            ('vectors',
-             [OrderedDict([('type', 'VALIDITY'),
-                           ('typeBitWidth', 1)]),
-              OrderedDict([('type', 'DATA'),
-                           ('typeBitWidth', self.byte_width)])])])
-
     def generate_column(self, size, name=None):
         is_valid = self._make_is_valid(size)
         values = []
 
         for i in range(size):
-            draw = (np.random.randint(0, 255, size=self.byte_width)
-                    .astype(np.uint8)
-                    .tostring())
-            values.append(draw)
+            values.append(random_bytes(self.byte_width))
 
         if name is None:
             name = self.name
         return self.column_class(name, size, is_valid, values)
 
 
-class StringType(BinaryType):
+class BinaryField(PrimitiveField):
+
+    @property
+    def numpy_type(self):
+        return object
+
+    @property
+    def column_class(self):
+        return BinaryColumn
+
+    def _get_type(self):
+        return OrderedDict([('name', 'binary')])
+
+    def _random_sizes(self, size):
+        return np.random.exponential(scale=4, size=size).astype(np.int32)
+
+    def generate_column(self, size, name=None):
+        is_valid = self._make_is_valid(size)
+        values = []
+
+        sizes = self._random_sizes(size)
+
+        for i, nbytes in enumerate(sizes):
+            if is_valid[i]:
+                values.append(random_bytes(nbytes))
+            else:
+                values.append(b"")
+
+        if name is None:
+            name = self.name
+        return self.column_class(name, size, is_valid, values)
+
+
+class StringField(BinaryField):
 
     @property
     def column_class(self):
@@ -525,7 +555,7 @@ class StringType(BinaryType):
 
         for i in range(size):
             if is_valid[i]:
-                values.append(tobytes(rands(K)))
+                values.append(tobytes(random_utf8(K)))
             else:
                 values.append(b"")
 
@@ -534,18 +564,58 @@ class StringType(BinaryType):
         return self.column_class(name, size, is_valid, values)
 
 
-class JsonSchema(object):
+class LargeBinaryField(BinaryField):
 
-    def __init__(self, fields):
+    @property
+    def column_class(self):
+        return LargeBinaryColumn
+
+    def _get_type(self):
+        return OrderedDict([('name', 'largebinary')])
+
+
+class LargeStringField(StringField):
+
+    @property
+    def column_class(self):
+        return LargeStringColumn
+
+    def _get_type(self):
+        return OrderedDict([('name', 'largeutf8')])
+
+
+class Schema(object):
+
+    def __init__(self, fields, metadata=None):
         self.fields = fields
+        self.metadata = metadata
 
     def get_json(self):
-        return OrderedDict([
+        entries = [
             ('fields', [field.get_json() for field in self.fields])
-        ])
+        ]
+
+        if self.metadata is not None and len(self.metadata) > 0:
+            entries.append(('metadata', metadata_key_values(self.metadata)))
+
+        return OrderedDict(entries)
 
 
-class BinaryColumn(PrimitiveColumn):
+class _NarrowOffsetsMixin:
+
+    def _encode_offsets(self, offsets):
+        return list(map(int, offsets))
+
+
+class _LargeOffsetsMixin:
+
+    def _encode_offsets(self, offsets):
+        # 64-bit offsets have to be represented as strings to roundtrip
+        # through JSON.
+        return list(map(str, offsets))
+
+
+class _BaseBinaryColumn(PrimitiveColumn):
 
     def _encode_value(self, x):
         return frombytes(binascii.hexlify(x).upper())
@@ -566,15 +636,37 @@ class BinaryColumn(PrimitiveColumn):
 
         return [
             ('VALIDITY', [int(x) for x in self.is_valid]),
-            ('OFFSET', offsets),
+            ('OFFSET', self._encode_offsets(offsets)),
             ('DATA', data)
         ]
+
+
+class _BaseStringColumn(_BaseBinaryColumn):
+
+    def _encode_value(self, x):
+        return frombytes(x)
+
+
+class BinaryColumn(_BaseBinaryColumn, _NarrowOffsetsMixin):
+    pass
+
+
+class StringColumn(_BaseStringColumn, _NarrowOffsetsMixin):
+    pass
+
+
+class LargeBinaryColumn(_BaseBinaryColumn, _LargeOffsetsMixin):
+    pass
+
+
+class LargeStringColumn(_BaseStringColumn, _LargeOffsetsMixin):
+    pass
 
 
 class FixedSizeBinaryColumn(PrimitiveColumn):
 
     def _encode_value(self, x):
-        return ''.join('{:02x}'.format(c).upper() for c in x)
+        return frombytes(binascii.hexlify(x).upper())
 
     def _get_buffers(self):
         data = []
@@ -587,17 +679,17 @@ class FixedSizeBinaryColumn(PrimitiveColumn):
         ]
 
 
-class StringColumn(BinaryColumn):
+class ListField(Field):
 
-    def _encode_value(self, x):
-        return frombytes(x)
+    def __init__(self, name, value_field, *, nullable=True,
+                 metadata=None):
+        super().__init__(name, nullable=nullable,
+                         metadata=metadata)
+        self.value_field = value_field
 
-
-class ListType(DataType):
-
-    def __init__(self, name, value_type, nullable=True):
-        super(ListType, self).__init__(name, nullable=nullable)
-        self.value_type = value_type
+    @property
+    def column_class(self):
+        return ListColumn
 
     def _get_type(self):
         return OrderedDict([
@@ -605,7 +697,7 @@ class ListType(DataType):
         ])
 
     def _get_children(self):
-        return [self.value_type.get_json()]
+        return [self.value_field.get_json()]
 
     def generate_column(self, size, name=None):
         MAX_LIST_SIZE = 4
@@ -621,17 +713,29 @@ class ListType(DataType):
             offsets.append(offset)
 
         # The offset now is the total number of elements in the child array
-        values = self.value_type.generate_column(offset)
+        values = self.value_field.generate_column(offset)
 
         if name is None:
             name = self.name
-        return ListColumn(name, size, is_valid, offsets, values)
+        return self.column_class(name, size, is_valid, offsets, values)
 
 
-class ListColumn(Column):
+class LargeListField(ListField):
+
+    @property
+    def column_class(self):
+        return LargeListColumn
+
+    def _get_type(self):
+        return OrderedDict([
+            ('name', 'largelist')
+        ])
+
+
+class _BaseListColumn(Column):
 
     def __init__(self, name, count, is_valid, offsets, values):
-        super(ListColumn, self).__init__(name, count)
+        super().__init__(name, count)
         self.is_valid = is_valid
         self.offsets = offsets
         self.values = values
@@ -639,33 +743,43 @@ class ListColumn(Column):
     def _get_buffers(self):
         return [
             ('VALIDITY', [int(v) for v in self.is_valid]),
-            ('OFFSET', list(self.offsets))
+            ('OFFSET', self._encode_offsets(self.offsets))
         ]
 
     def _get_children(self):
         return [self.values.get_json()]
 
 
-class MapType(DataType):
+class ListColumn(_BaseListColumn, _NarrowOffsetsMixin):
+    pass
 
-    def __init__(self, name, key_type, item_type, nullable=True,
-                 keysSorted=False):
-        super(MapType, self).__init__(name, nullable=nullable)
 
-        assert not key_type.nullable
-        self.key_type = key_type
-        self.item_type = item_type
-        self.pair_type = StructType('entries', [key_type, item_type], False)
-        self.keysSorted = keysSorted
+class LargeListColumn(_BaseListColumn, _LargeOffsetsMixin):
+    pass
+
+
+class MapField(Field):
+
+    def __init__(self, name, key_field, item_field, *, nullable=True,
+                 metadata=None, keys_sorted=False, entries_name='entries'):
+        super().__init__(name, nullable=nullable,
+                         metadata=metadata)
+
+        assert not key_field.nullable
+        self.key_field = key_field
+        self.item_field = item_field
+        self.pair_field = StructField(entries_name, [key_field, item_field],
+                                      nullable=False)
+        self.keys_sorted = keys_sorted
 
     def _get_type(self):
         return OrderedDict([
             ('name', 'map'),
-            ('keysSorted', self.keysSorted)
+            ('keysSorted', self.keys_sorted)
         ])
 
     def _get_children(self):
-        return [self.pair_type.get_json()]
+        return [self.pair_field.get_json()]
 
     def generate_column(self, size, name=None):
         MAX_MAP_SIZE = 4
@@ -681,7 +795,7 @@ class MapType(DataType):
             offsets.append(offset)
 
         # The offset now is the total number of elements in the child array
-        pairs = self.pair_type.generate_column(offset)
+        pairs = self.pair_field.generate_column(offset)
         if name is None:
             name = self.name
 
@@ -691,7 +805,7 @@ class MapType(DataType):
 class MapColumn(Column):
 
     def __init__(self, name, count, is_valid, offsets, pairs):
-        super(MapColumn, self).__init__(name, count)
+        super().__init__(name, count)
         self.is_valid = is_valid
         self.offsets = offsets
         self.pairs = pairs
@@ -706,11 +820,13 @@ class MapColumn(Column):
         return [self.pairs.get_json()]
 
 
-class FixedSizeListType(DataType):
+class FixedSizeListField(Field):
 
-    def __init__(self, name, value_type, list_size, nullable=True):
-        super(FixedSizeListType, self).__init__(name, nullable=nullable)
-        self.value_type = value_type
+    def __init__(self, name, value_field, list_size, *, nullable=True,
+                 metadata=None):
+        super().__init__(name, nullable=nullable,
+                         metadata=metadata)
+        self.value_field = value_field
         self.list_size = list_size
 
     def _get_type(self):
@@ -720,11 +836,11 @@ class FixedSizeListType(DataType):
         ])
 
     def _get_children(self):
-        return [self.value_type.get_json()]
+        return [self.value_field.get_json()]
 
     def generate_column(self, size, name=None):
         is_valid = self._make_is_valid(size)
-        values = self.value_type.generate_column(size * self.list_size)
+        values = self.value_field.generate_column(size * self.list_size)
 
         if name is None:
             name = self.name
@@ -734,7 +850,7 @@ class FixedSizeListType(DataType):
 class FixedSizeListColumn(Column):
 
     def __init__(self, name, count, is_valid, values):
-        super(FixedSizeListColumn, self).__init__(name, count)
+        super().__init__(name, count)
         self.is_valid = is_valid
         self.values = values
 
@@ -747,11 +863,13 @@ class FixedSizeListColumn(Column):
         return [self.values.get_json()]
 
 
-class StructType(DataType):
+class StructField(Field):
 
-    def __init__(self, name, field_types, nullable=True):
-        super(StructType, self).__init__(name, nullable=nullable)
-        self.field_types = field_types
+    def __init__(self, name, fields, *, nullable=True,
+                 metadata=None):
+        super().__init__(name, nullable=nullable,
+                         metadata=metadata)
+        self.fields = fields
 
     def _get_type(self):
         return OrderedDict([
@@ -759,72 +877,170 @@ class StructType(DataType):
         ])
 
     def _get_children(self):
-        return [type_.get_json() for type_ in self.field_types]
+        return [field.get_json() for field in self.fields]
 
     def generate_column(self, size, name=None):
         is_valid = self._make_is_valid(size)
 
-        field_values = [type_.generate_column(size)
-                        for type_ in self.field_types]
+        field_values = [field.generate_column(size) for field in self.fields]
         if name is None:
             name = self.name
         return StructColumn(name, size, is_valid, field_values)
 
 
+class _BaseUnionField(Field):
+
+    def __init__(self, name, fields, type_ids=None, *, nullable=True,
+                 metadata=None):
+        super().__init__(name, nullable=nullable, metadata=metadata)
+        if type_ids is None:
+            type_ids = list(range(fields))
+        else:
+            assert len(fields) == len(type_ids)
+        self.fields = fields
+        self.type_ids = type_ids
+        assert all(x >= 0 for x in self.type_ids)
+
+    def _get_type(self):
+        return OrderedDict([
+            ('name', 'union'),
+            ('mode', self.mode),
+            ('typeIds', self.type_ids),
+        ])
+
+    def _get_children(self):
+        return [field.get_json() for field in self.fields]
+
+    def _make_type_ids(self, size):
+        return np.random.choice(self.type_ids, size)
+
+
+class SparseUnionField(_BaseUnionField):
+    mode = 'SPARSE'
+
+    def generate_column(self, size, name=None):
+        array_type_ids = self._make_type_ids(size)
+        field_values = [field.generate_column(size) for field in self.fields]
+
+        if name is None:
+            name = self.name
+        return SparseUnionColumn(name, size, array_type_ids, field_values)
+
+
+class DenseUnionField(_BaseUnionField):
+    mode = 'DENSE'
+
+    def generate_column(self, size, name=None):
+        # Reverse mapping {logical type id => physical child id}
+        child_ids = [None] * (max(self.type_ids) + 1)
+        for i, type_id in enumerate(self.type_ids):
+            child_ids[type_id] = i
+
+        array_type_ids = self._make_type_ids(size)
+        offsets = []
+        child_sizes = [0] * len(self.fields)
+
+        for i in range(size):
+            child_id = child_ids[array_type_ids[i]]
+            offset = child_sizes[child_id]
+            offsets.append(offset)
+            child_sizes[child_id] = offset + 1
+
+        field_values = [
+            field.generate_column(child_size)
+            for field, child_size in zip(self.fields, child_sizes)]
+
+        if name is None:
+            name = self.name
+        return DenseUnionColumn(name, size, array_type_ids, offsets,
+                                field_values)
+
+
 class Dictionary(object):
 
-    def __init__(self, id_, field, values, ordered=False):
+    def __init__(self, id_, field, size, name=None, ordered=False):
         self.id_ = id_
         self.field = field
-        self.values = values
+        self.values = field.generate_column(size=size, name=name)
         self.ordered = ordered
 
     def __len__(self):
         return len(self.values)
 
     def get_json(self):
-        dummy_batch = JsonRecordBatch(len(self.values), [self.values])
+        dummy_batch = RecordBatch(len(self.values), [self.values])
         return OrderedDict([
             ('id', self.id_),
             ('data', dummy_batch.get_json())
         ])
 
 
-class DictionaryType(DataType):
+class DictionaryField(Field):
 
-    def __init__(self, name, index_type, dictionary, nullable=True):
-        super(DictionaryType, self).__init__(name, nullable=nullable)
-        assert isinstance(index_type, IntegerType)
+    def __init__(self, name, index_field, dictionary, *, nullable=True,
+                 metadata=None):
+        super().__init__(name, nullable=nullable,
+                         metadata=metadata)
+        assert index_field.name == ''
+        assert isinstance(index_field, IntegerField)
         assert isinstance(dictionary, Dictionary)
 
-        self.index_type = index_type
+        self.index_field = index_field
         self.dictionary = dictionary
 
-    def get_json(self):
-        dict_field = self.dictionary.field
+    def _get_type(self):
+        return self.dictionary.field._get_type()
+
+    def _get_children(self):
+        return self.dictionary.field._get_children()
+
+    def _get_dictionary(self):
         return OrderedDict([
-            ('name', self.name),
-            ('type', dict_field._get_type()),
-            ('nullable', self.nullable),
-            ('children', dict_field._get_children()),
-            ('dictionary', OrderedDict([
-                ('id', self.dictionary.id_),
-                ('indexType', self.index_type._get_type()),
-                ('isOrdered', self.dictionary.ordered)
-            ]))
+            ('id', self.dictionary.id_),
+            ('indexType', self.index_field._get_type()),
+            ('isOrdered', self.dictionary.ordered)
         ])
 
     def generate_column(self, size, name=None):
         if name is None:
             name = self.name
-        return self.index_type.generate_range(size, 0, len(self.dictionary),
-                                              name=name)
+        return self.index_field.generate_range(size, 0, len(self.dictionary),
+                                               name=name)
+
+
+ExtensionType = namedtuple(
+    'ExtensionType', ['extension_name', 'serialized', 'storage_field'])
+
+
+class ExtensionField(Field):
+
+    def __init__(self, name, extension_type, *, nullable=True, metadata=None):
+        metadata = (metadata or []) + [
+            ('ARROW:extension:name', extension_type.extension_name),
+            ('ARROW:extension:metadata', extension_type.serialized),
+        ]
+        super().__init__(name, nullable=nullable, metadata=metadata)
+        self.extension_type = extension_type
+
+    def _get_type(self):
+        return self.extension_type.storage_field._get_type()
+
+    def _get_children(self):
+        return self.extension_type.storage_field._get_children()
+
+    def _get_dictionary(self):
+        return self.extension_type.storage_field._get_dictionary()
+
+    def generate_column(self, size, name=None):
+        if name is None:
+            name = self.name
+        return self.extension_type.storage_field.generate_column(size, name)
 
 
 class StructColumn(Column):
 
     def __init__(self, name, count, is_valid, field_values):
-        super(StructColumn, self).__init__(name, count)
+        super().__init__(name, count)
         self.is_valid = is_valid
         self.field_values = field_values
 
@@ -837,7 +1053,41 @@ class StructColumn(Column):
         return [field.get_json() for field in self.field_values]
 
 
-class JsonRecordBatch(object):
+class SparseUnionColumn(Column):
+
+    def __init__(self, name, count, type_ids, field_values):
+        super().__init__(name, count)
+        self.type_ids = type_ids
+        self.field_values = field_values
+
+    def _get_buffers(self):
+        return [
+            ('TYPE_ID', [int(v) for v in self.type_ids])
+        ]
+
+    def _get_children(self):
+        return [field.get_json() for field in self.field_values]
+
+
+class DenseUnionColumn(Column):
+
+    def __init__(self, name, count, type_ids, offsets, field_values):
+        super().__init__(name, count)
+        self.type_ids = type_ids
+        self.offsets = offsets
+        self.field_values = field_values
+
+    def _get_buffers(self):
+        return [
+            ('TYPE_ID', [int(v) for v in self.type_ids]),
+            ('OFFSET', [int(v) for v in self.offsets]),
+        ]
+
+    def _get_children(self):
+        return [field.get_json() for field in self.field_values]
+
+
+class RecordBatch(object):
 
     def __init__(self, count, columns):
         self.count = count
@@ -850,7 +1100,7 @@ class JsonRecordBatch(object):
         ])
 
 
-class JsonFile(object):
+class File(object):
 
     def __init__(self, name, schema, batches, dictionaries=None,
                  skip=None, path=None):
@@ -891,33 +1141,37 @@ class JsonFile(object):
         return self
 
 
-def get_field(name, type_, nullable=True):
+def get_field(name, type_, **kwargs):
     if type_ == 'binary':
-        return BinaryType(name, nullable=nullable)
+        return BinaryField(name, **kwargs)
     elif type_ == 'utf8':
-        return StringType(name, nullable=nullable)
+        return StringField(name, **kwargs)
+    elif type_ == 'largebinary':
+        return LargeBinaryField(name, **kwargs)
+    elif type_ == 'largeutf8':
+        return LargeStringField(name, **kwargs)
     elif type_.startswith('fixedsizebinary_'):
         byte_width = int(type_.split('_')[1])
-        return FixedSizeBinaryType(name,
-                                   byte_width=byte_width,
-                                   nullable=nullable)
+        return FixedSizeBinaryField(name, byte_width=byte_width, **kwargs)
 
     dtype = np.dtype(type_)
 
     if dtype.kind in ('i', 'u'):
-        return IntegerType(name, dtype.kind == 'i', dtype.itemsize * 8,
-                           nullable=nullable)
+        signed = dtype.kind == 'i'
+        bit_width = dtype.itemsize * 8
+        return IntegerField(name, signed, bit_width, **kwargs)
     elif dtype.kind == 'f':
-        return FloatingPointType(name, dtype.itemsize * 8,
-                                 nullable=nullable)
+        bit_width = dtype.itemsize * 8
+        return FloatingPointField(name, bit_width, **kwargs)
     elif dtype.kind == 'b':
-        return BooleanType(name, nullable=nullable)
+        return BooleanField(name, **kwargs)
     else:
         raise TypeError(dtype)
 
 
-def _generate_file(name, fields, batch_sizes, dictionaries=None, skip=None):
-    schema = JsonSchema(fields)
+def _generate_file(name, fields, batch_sizes, dictionaries=None, skip=None,
+                   metadata=None):
+    schema = Schema(fields, metadata=metadata)
     batches = []
     for size in batch_sizes:
         columns = []
@@ -925,9 +1179,49 @@ def _generate_file(name, fields, batch_sizes, dictionaries=None, skip=None):
             col = field.generate_column(size)
             columns.append(col)
 
-        batches.append(JsonRecordBatch(size, columns))
+        batches.append(RecordBatch(size, columns))
 
-    return JsonFile(name, schema, batches, dictionaries, skip=skip)
+    return File(name, schema, batches, dictionaries, skip=skip)
+
+
+def generate_custom_metadata_case():
+    def meta(items):
+        # Generate a simple block of metadata where each value is '{}'.
+        # Keys are delimited by whitespace in `items`.
+        return [(k, '{}') for k in items.split()]
+
+    fields = [
+        get_field('sort_of_pandas', 'int8', metadata=meta('pandas')),
+
+        get_field('lots_of_meta', 'int8', metadata=meta('a b c d .. w x y z')),
+
+        get_field(
+            'unregistered_extension', 'int8',
+            metadata=[
+                ('ARROW:extension:name', '!nonexistent'),
+                ('ARROW:extension:metadata', ''),
+                ('ARROW:integration:allow_unregistered_extension', 'true'),
+            ]),
+
+        ListField('list_with_odd_values',
+                  get_field('item', 'int32', metadata=meta('odd_values'))),
+    ]
+
+    batch_sizes = [1]
+    return _generate_file('custom_metadata', fields, batch_sizes,
+                          metadata=meta('schema_custom_0 schema_custom_1'))
+
+
+def generate_duplicate_fieldnames_case():
+    fields = [
+        get_field('ints', 'int8'),
+        get_field('ints', 'int32'),
+
+        StructField('struct', [get_field('', 'int32'), get_field('', 'utf8')]),
+    ]
+
+    batch_sizes = [1]
+    return _generate_file('duplicate_fieldnames', fields, batch_sizes)
 
 
 def generate_primitive_case(batch_sizes, name='primitive'):
@@ -939,28 +1233,48 @@ def generate_primitive_case(batch_sizes, name='primitive'):
     fields = []
 
     for type_ in types:
-        fields.append(get_field(type_ + "_nullable", type_, True))
-        fields.append(get_field(type_ + "_nonnullable", type_, False))
+        fields.append(get_field(type_ + "_nullable", type_, nullable=True))
+        fields.append(get_field(type_ + "_nonnullable", type_, nullable=False))
 
     return _generate_file(name, fields, batch_sizes)
+
+
+def generate_primitive_large_offsets_case(batch_sizes):
+    types = ['largebinary', 'largeutf8']
+
+    fields = []
+
+    for type_ in types:
+        fields.append(get_field(type_ + "_nullable", type_, nullable=True))
+        fields.append(get_field(type_ + "_nonnullable", type_, nullable=False))
+
+    return _generate_file('primitive_large_offsets', fields, batch_sizes)
 
 
 def generate_null_case(batch_sizes):
     # Interleave null with non-null types to ensure the appropriate number of
     # buffers (0) is read and written
     fields = [
-        NullType(name='f0'),
+        NullField(name='f0'),
         get_field('f1', 'int32'),
-        NullType(name='f2'),
+        NullField(name='f2'),
         get_field('f3', 'float64'),
-        NullType(name='f4')
+        NullField(name='f4')
     ]
     return _generate_file('null', fields, batch_sizes)
 
 
+def generate_null_trivial_case(batch_sizes):
+    # Generate a case with no buffers
+    fields = [
+        NullField(name='f0'),
+    ]
+    return _generate_file('null_trivial', fields, batch_sizes)
+
+
 def generate_decimal_case():
     fields = [
-        DecimalType(name='f{}'.format(i), precision=precision, scale=2)
+        DecimalField(name='f{}'.format(i), precision=precision, scale=2)
         for i, precision in enumerate(range(3, 39))
     ]
 
@@ -971,21 +1285,21 @@ def generate_decimal_case():
 
 def generate_datetime_case():
     fields = [
-        DateType('f0', DateType.DAY),
-        DateType('f1', DateType.MILLISECOND),
-        TimeType('f2', 's'),
-        TimeType('f3', 'ms'),
-        TimeType('f4', 'us'),
-        TimeType('f5', 'ns'),
-        TimestampType('f6', 's'),
-        TimestampType('f7', 'ms'),
-        TimestampType('f8', 'us'),
-        TimestampType('f9', 'ns'),
-        TimestampType('f10', 'ms', tz=None),
-        TimestampType('f11', 's', tz='UTC'),
-        TimestampType('f12', 'ms', tz='US/Eastern'),
-        TimestampType('f13', 'us', tz='Europe/Paris'),
-        TimestampType('f14', 'ns', tz='US/Pacific'),
+        DateField('f0', DateField.DAY),
+        DateField('f1', DateField.MILLISECOND),
+        TimeField('f2', 's'),
+        TimeField('f3', 'ms'),
+        TimeField('f4', 'us'),
+        TimeField('f5', 'ns'),
+        TimestampField('f6', 's'),
+        TimestampField('f7', 'ms'),
+        TimestampField('f8', 'us'),
+        TimestampField('f9', 'ns'),
+        TimestampField('f10', 'ms', tz=None),
+        TimestampField('f11', 's', tz='UTC'),
+        TimestampField('f12', 'ms', tz='US/Eastern'),
+        TimestampField('f13', 'us', tz='Europe/Paris'),
+        TimestampField('f14', 'ns', tz='US/Pacific'),
     ]
 
     batch_sizes = [7, 10]
@@ -994,12 +1308,12 @@ def generate_datetime_case():
 
 def generate_interval_case():
     fields = [
-        DurationIntervalType('f1', 's'),
-        DurationIntervalType('f2', 'ms'),
-        DurationIntervalType('f3', 'us'),
-        DurationIntervalType('f4', 'ns'),
-        YearMonthIntervalType('f5'),
-        DayTimeIntervalType('f6'),
+        DurationIntervalField('f1', 's'),
+        DurationIntervalField('f2', 'ms'),
+        DurationIntervalField('f3', 'us'),
+        DurationIntervalField('f4', 'ns'),
+        YearMonthIntervalField('f5'),
+        DayTimeIntervalField('f6'),
     ]
 
     batch_sizes = [7, 10]
@@ -1007,77 +1321,144 @@ def generate_interval_case():
 
 
 def generate_map_case():
-    # TODO(bkietz): separated from nested_case so it can be
-    # independently skipped, consolidate after JS supports map
     fields = [
-        MapType('map_nullable', get_field('key', 'utf8', False),
-                get_field('value', 'int32')),
+        MapField('map_nullable', get_field('key', 'utf8', nullable=False),
+                 get_field('value', 'int32')),
     ]
 
     batch_sizes = [7, 10]
     return _generate_file("map", fields, batch_sizes)
 
 
+def generate_non_canonical_map_case():
+    fields = [
+        MapField('map_other_names',
+                 get_field('some_key', 'utf8', nullable=False),
+                 get_field('some_value', 'int32'),
+                 entries_name='some_entries'),
+    ]
+
+    batch_sizes = [7]
+    return _generate_file("map_non_canonical", fields, batch_sizes)
+
+
 def generate_nested_case():
     fields = [
-        ListType('list_nullable', get_field('item', 'int32')),
-        FixedSizeListType('fixedsizelist_nullable',
-                          get_field('item', 'int32'), 4),
-        StructType('struct_nullable', [get_field('f1', 'int32'),
-                                       get_field('f2', 'utf8')]),
-
-        # TODO(wesm): this causes segfault
-        # ListType('list_nonnullable', get_field('item', 'int32'), False),
+        ListField('list_nullable', get_field('item', 'int32')),
+        FixedSizeListField('fixedsizelist_nullable',
+                           get_field('item', 'int32'), 4),
+        StructField('struct_nullable', [get_field('f1', 'int32'),
+                                        get_field('f2', 'utf8')]),
+        # Fails on Go (ARROW-8452)
+        # ListField('list_nonnullable', get_field('item', 'int32'),
+        #           nullable=False),
     ]
 
     batch_sizes = [7, 10]
     return _generate_file("nested", fields, batch_sizes)
 
 
-def generate_dictionary_case():
-    dict_type0 = StringType('dictionary1')
-    dict_type1 = StringType('dictionary1')
-    dict_type2 = get_field('dictionary2', 'int64')
+def generate_recursive_nested_case():
+    fields = [
+        ListField('lists_list',
+                  ListField('inner_list', get_field('item', 'int16'))),
+        ListField('structs_list',
+                  StructField('inner_struct',
+                              [get_field('f1', 'int32'),
+                               get_field('f2', 'utf8')])),
+    ]
 
-    dict0 = Dictionary(0, dict_type0,
-                       dict_type0.generate_column(10, name='DICT0'))
-    dict1 = Dictionary(1, dict_type1,
-                       dict_type1.generate_column(5, name='DICT1'))
-    dict2 = Dictionary(2, dict_type2,
-                       dict_type2.generate_column(50, name='DICT2'))
+    batch_sizes = [7, 10]
+    return _generate_file("recursive_nested", fields, batch_sizes)
+
+
+def generate_nested_large_offsets_case():
+    fields = [
+        LargeListField('large_list_nullable', get_field('item', 'int32')),
+        LargeListField('large_list_nonnullable',
+                       get_field('item', 'int32'), nullable=False),
+        LargeListField('large_list_nested',
+                       ListField('inner_list', get_field('item', 'int16'))),
+    ]
+
+    batch_sizes = [0, 13]
+    return _generate_file("nested_large_offsets", fields, batch_sizes)
+
+
+def generate_unions_case():
+    fields = [
+        SparseUnionField('sparse', [get_field('f1', 'int32'),
+                                    get_field('f2', 'utf8')],
+                         type_ids=[5, 7]),
+        DenseUnionField('dense', [get_field('f1', 'int16'),
+                                  get_field('f2', 'binary')],
+                        type_ids=[10, 20]),
+        SparseUnionField('sparse', [get_field('f1', 'float32', nullable=False),
+                                    get_field('f2', 'bool')],
+                         type_ids=[5, 7], nullable=False),
+        DenseUnionField('dense', [get_field('f1', 'uint8', nullable=False),
+                                  get_field('f2', 'uint16'),
+                                  NullField('f3')],
+                        type_ids=[42, 43, 44], nullable=False),
+    ]
+
+    batch_sizes = [0, 11]
+    return _generate_file("union", fields, batch_sizes)
+
+
+def generate_dictionary_case():
+    dict0 = Dictionary(0, StringField('dictionary1'), size=10, name='DICT0')
+    dict1 = Dictionary(1, StringField('dictionary1'), size=5, name='DICT1')
+    dict2 = Dictionary(2, get_field('dictionary2', 'int64'),
+                       size=50, name='DICT2')
 
     fields = [
-        DictionaryType('dict0', get_field('', 'int8'), dict0),
-        DictionaryType('dict1', get_field('', 'int32'), dict1),
-        DictionaryType('dict2', get_field('', 'int16'), dict2)
+        DictionaryField('dict0', get_field('', 'int8'), dict0),
+        DictionaryField('dict1', get_field('', 'int32'), dict1),
+        DictionaryField('dict2', get_field('', 'int16'), dict2)
     ]
     batch_sizes = [7, 10]
     return _generate_file("dictionary", fields, batch_sizes,
                           dictionaries=[dict0, dict1, dict2])
 
 
+def generate_dictionary_unsigned_case():
+    dict0 = Dictionary(0, StringField('dictionary0'), size=5, name='DICT0')
+    dict1 = Dictionary(1, StringField('dictionary1'), size=5, name='DICT1')
+    dict2 = Dictionary(2, StringField('dictionary2'), size=5, name='DICT2')
+
+    # TODO: JavaScript does not support uint64 dictionary indices, so disabled
+    # for now
+
+    # dict3 = Dictionary(3, StringField('dictionary3'), size=5, name='DICT3')
+    fields = [
+        DictionaryField('f0', get_field('', 'uint8'), dict0),
+        DictionaryField('f1', get_field('', 'uint16'), dict1),
+        DictionaryField('f2', get_field('', 'uint32'), dict2),
+        # DictionaryField('f3', get_field('', 'uint64'), dict3)
+    ]
+    batch_sizes = [7, 10]
+    return _generate_file("dictionary_unsigned", fields, batch_sizes,
+                          dictionaries=[dict0, dict1, dict2])
+
+
 def generate_nested_dictionary_case():
-    str_type = StringType('str')
-    dict0 = Dictionary(0, str_type, str_type.generate_column(10, name='DICT0'))
+    dict0 = Dictionary(0, StringField('str'), size=10, name='DICT0')
 
-    list_type = ListType(
+    list_of_dict = ListField(
         'list',
-        DictionaryType('str_dict', get_field('', 'int8'), dict0))
-    dict1 = Dictionary(1,
-                       list_type,
-                       list_type.generate_column(30, name='DICT1'))
+        DictionaryField('str_dict', get_field('', 'int8'), dict0))
+    dict1 = Dictionary(1, list_of_dict, size=30, name='DICT1')
 
-    struct_type = StructType('struct', [
-            DictionaryType('str_dict_a', get_field('', 'int8'), dict0),
-            DictionaryType('str_dict_b', get_field('', 'int8'), dict0)
-        ])
-    dict2 = Dictionary(2,
-                       struct_type,
-                       struct_type.generate_column(30, name='DICT2'))
+    struct_of_dict = StructField('struct', [
+        DictionaryField('str_dict_a', get_field('', 'int8'), dict0),
+        DictionaryField('str_dict_b', get_field('', 'int8'), dict0)
+    ])
+    dict2 = Dictionary(2, struct_of_dict, size=30, name='DICT2')
 
     fields = [
-        DictionaryType('list_dict', get_field('', 'int8'), dict1),
-        DictionaryType('struct_dict', get_field('', 'int8'), dict2)
+        DictionaryField('list_dict', get_field('', 'int8'), dict1),
+        DictionaryField('struct_dict', get_field('', 'int8'), dict2)
     ]
 
     batch_sizes = [10, 13]
@@ -1085,45 +1466,127 @@ def generate_nested_dictionary_case():
                           dictionaries=[dict0, dict1, dict2])
 
 
+def generate_extension_case():
+    dict0 = Dictionary(0, StringField('dictionary0'), size=5, name='DICT0')
+
+    uuid_type = ExtensionType('uuid', 'uuid-serialized',
+                              FixedSizeBinaryField('', 16))
+    dict_ext_type = ExtensionType(
+        'dict-extension', 'dict-extension-serialized',
+        DictionaryField('str_dict', get_field('', 'int8'), dict0))
+
+    fields = [
+        ExtensionField('uuids', uuid_type),
+        ExtensionField('dict_exts', dict_ext_type),
+    ]
+
+    batch_sizes = [0, 13]
+    return _generate_file("extension", fields, batch_sizes,
+                          dictionaries=[dict0])
+
+
 def get_generated_json_files(tempdir=None, flight=False):
-    tempdir = tempdir or tempfile.mkdtemp()
+    tempdir = tempdir or tempfile.mkdtemp(prefix='arrow-integration-')
 
     def _temp_path():
         return
 
     file_objs = [
         generate_primitive_case([], name='primitive_no_batches'),
-        generate_primitive_case([17, 20], name='primitive'),
-        generate_primitive_case([0, 0, 0], name='primitive_zerolength'),
+        generate_primitive_case([17, 20], name='primitive')
+        .skip_category('Rust'),
+        generate_primitive_case([0, 0, 0], name='primitive_zerolength')
+        .skip_category('Rust'),
+
+        generate_primitive_large_offsets_case([17, 20])
+        .skip_category('Go')
+        .skip_category('JS')
+        .skip_category('Rust'),
 
         generate_null_case([10, 0])
+        .skip_category('Rust')
         .skip_category('JS')   # TODO(ARROW-7900)
         .skip_category('Go'),  # TODO(ARROW-7901)
 
-        # TODO(ARROW-7948): Decimal + Go
-        generate_decimal_case().skip_category('Go'),
+        generate_null_trivial_case([0, 0])
+        .skip_category('Rust')
+        .skip_category('JS')   # TODO(ARROW-7900)
+        .skip_category('Go'),  # TODO(ARROW-7901)
 
-        generate_datetime_case(),
+        generate_decimal_case()
+        .skip_category('Go')  # TODO(ARROW-7948): Decimal + Go
+        .skip_category('Rust'),
 
-        # TODO(ARROW-5239): Intervals + JS
-        generate_interval_case().skip_category('JS'),
+        generate_datetime_case()
+        .skip_category('Rust'),
 
-        # TODO(ARROW-5620): Map + Go
-        generate_map_case().skip_category('Go'),
+        generate_interval_case()
+        .skip_category('JS')  # TODO(ARROW-5239): Intervals + JS
+        .skip_category('Rust'),
 
-        generate_nested_case(),
+        generate_map_case()
+        .skip_category('Go')  # TODO(ARROW-5620): Map + Go
+        .skip_category('Rust'),
+
+        generate_non_canonical_map_case()
+        .skip_category('Go')     # TODO(ARROW-5620)
+        .skip_category('Java')   # TODO(ARROW-8715)
+        .skip_category('JS')     # TODO(ARROW-8716)
+        .skip_category('Rust'),
+
+        generate_nested_case()
+        .skip_category('Rust'),
+
+        generate_recursive_nested_case()
+        .skip_category('Go')  # TODO(ARROW-8453)
+        .skip_category('Rust'),
+
+        generate_nested_large_offsets_case()
+        .skip_category('Go')
+        .skip_category('JS')
+        .skip_category('Rust'),
+
+        generate_unions_case()
+        .skip_category('Go')
+        .skip_category('JS')
+        .skip_category('Rust'),
+
+        generate_custom_metadata_case()
+        .skip_category('Go')
+        .skip_category('JS')
+        .skip_category('Rust'),
+
+        generate_duplicate_fieldnames_case()
+        .skip_category('Go')
+        .skip_category('JS')
+        .skip_category('Rust'),
 
         # TODO(ARROW-3039, ARROW-5267): Dictionaries in GO
-        generate_dictionary_case().skip_category('Go'),
+        generate_dictionary_case()
+        .skip_category('Go')
+        .skip_category('Rust'),
 
-        # TODO(ARROW-7902)
-        generate_nested_dictionary_case().skip_category(SKIP_ARROW)
-                                         .skip_category(SKIP_FLIGHT),
+        generate_dictionary_unsigned_case()
+        .skip_category('Go')     # TODO(ARROW-9378)
+        .skip_category('Java')   # TODO(ARROW-9377)
+        .skip_category('Rust'),  # TODO(ARROW-9379)
+
+        generate_nested_dictionary_case()
+        .skip_category('Go')
+        .skip_category('Java')  # TODO(ARROW-7779)
+        .skip_category('JS')
+        .skip_category('Rust'),
+
+        generate_extension_case()
+        .skip_category('Go')
+        .skip_category('JS')
+        .skip_category('Rust'),
     ]
 
     if flight:
         file_objs.append(generate_primitive_case([24 * 1024],
-                                                 name='large_batch'))
+                                                 name='large_batch')
+                         .skip_category('Rust'))
 
     generated_paths = []
     for file_obj in file_objs:

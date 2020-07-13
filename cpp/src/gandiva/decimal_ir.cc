@@ -76,7 +76,7 @@ void DecimalIR::AddGlobals(Engine* engine) {
   auto globalScaleMultipliers = new llvm::GlobalVariable(
       *engine->module(), array_type, true /*constant*/,
       llvm::GlobalValue::LinkOnceAnyLinkage, initializer, kScaleMultipliersName);
-  globalScaleMultipliers->setAlignment(16);
+  globalScaleMultipliers->setAlignment(LLVM_ALIGN(16));
 }
 
 // Lookup intrinsic functions
@@ -308,9 +308,9 @@ Status DecimalIR::BuildAdd() {
       auto ret = AddWithOverflowCheck(x, y, out);
 
       // if there is an overflow, switch to the AddLarge codepath.
-      return BuildIfElse(ret.overflow(), types()->i128_type(),
-                         [&] { return AddLarge(x, y, out); },
-                         [&] { return ret.value(); });
+      return BuildIfElse(
+          ret.overflow(), types()->i128_type(), [&] { return AddLarge(x, y, out); },
+          [&] { return ret.value(); });
     } else {
       return AddLarge(x, y, out);
     }

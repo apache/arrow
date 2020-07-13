@@ -26,16 +26,17 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/ipc/options.h"
 #include "arrow/ipc/reader.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/status.h"
+#include "arrow/util/variant.h"
 
 #include "arrow/flight/types.h"  // IWYU pragma: keep
 #include "arrow/flight/visibility.h"
 
 namespace arrow {
 
-class MemoryPool;
 class RecordBatch;
 class Schema;
 
@@ -58,6 +59,33 @@ class ARROW_FLIGHT_EXPORT FlightCallOptions {
   /// mean an implementation-defined default behavior will be used
   /// instead. This is the default value.
   TimeoutDuration timeout;
+
+  /// \brief IPC reader options, if applicable for the call.
+  ipc::IpcReadOptions read_options;
+
+  /// \brief IPC writer options, if applicable for the call.
+  ipc::IpcWriteOptions write_options;
+};
+
+/// \brief Indicate that the client attempted to write a message
+///     larger than the soft limit set via write_size_limit_bytes.
+class ARROW_FLIGHT_EXPORT FlightWriteSizeStatusDetail : public arrow::StatusDetail {
+ public:
+  explicit FlightWriteSizeStatusDetail(int64_t limit, int64_t actual)
+      : limit_(limit), actual_(actual) {}
+  const char* type_id() const override;
+  std::string ToString() const override;
+  int64_t limit() const { return limit_; }
+  int64_t actual() const { return actual_; }
+
+  /// \brief Extract this status detail from a status, or return
+  ///     nullptr if the status doesn't contain this status detail.
+  static std::shared_ptr<FlightWriteSizeStatusDetail> UnwrapStatus(
+      const arrow::Status& status);
+
+ private:
+  int64_t limit_;
+  int64_t actual_;
 };
 
 class ARROW_FLIGHT_EXPORT FlightClientOptions {
@@ -67,8 +95,25 @@ class ARROW_FLIGHT_EXPORT FlightClientOptions {
   std::string tls_root_certs;
   /// \brief Override the hostname checked by TLS. Use with caution.
   std::string override_hostname;
+  /// \brief The client certificate to use if using Mutual TLS
+  std::string cert_chain;
+  /// \brief The private key associated with the client certificate for Mutual TLS
+  std::string private_key;
   /// \brief A list of client middleware to apply.
   std::vector<std::shared_ptr<ClientMiddlewareFactory>> middleware;
+  /// \brief A soft limit on the number of bytes to write in a single
+  ///     batch when sending Arrow data to a server.
+  ///
+  /// Used to help limit server memory consumption. Only enabled if
+  /// positive. When enabled, FlightStreamWriter.Write* may yield a
+  /// IOError with error detail FlightWriteSizeStatusDetail.
+  int64_t write_size_limit_bytes;
+  /// \brief Generic connection options, passed to the underlying
+  ///     transport; interpretation is implementation-dependent.
+  std::vector<std::pair<std::string, util::variant<int, std::string>>> generic_options;
+
+  /// \brief Get default options.
+  static FlightClientOptions Defaults();
 };
 
 /// \brief A RecordBatchReader exposing Flight metadata and cancel
@@ -88,10 +133,8 @@ class ARROW_FLIGHT_EXPORT FlightStreamReader : public MetadataRecordBatchReader 
 
 /// \brief A RecordBatchWriter that also allows sending
 /// application-defined metadata via the Flight protocol.
-class ARROW_FLIGHT_EXPORT FlightStreamWriter : public ipc::RecordBatchWriter {
+class ARROW_FLIGHT_EXPORT FlightStreamWriter : public MetadataRecordBatchWriter {
  public:
-  virtual Status WriteWithMetadata(const RecordBatch& batch,
-                                   std::shared_ptr<Buffer> app_metadata) = 0;
   /// \brief Indicate that the application is done writing to this stream.
   ///
   /// The application may not write to this stream after calling
@@ -239,6 +282,15 @@ class ARROW_FLIGHT_EXPORT FlightClient {
                std::unique_ptr<FlightStreamWriter>* stream,
                std::unique_ptr<FlightMetadataReader>* reader) {
     return DoPut({}, descriptor, schema, stream, reader);
+  }
+
+  Status DoExchange(const FlightCallOptions& options, const FlightDescriptor& descriptor,
+                    std::unique_ptr<FlightStreamWriter>* writer,
+                    std::unique_ptr<FlightStreamReader>* reader);
+  Status DoExchange(const FlightDescriptor& descriptor,
+                    std::unique_ptr<FlightStreamWriter>* writer,
+                    std::unique_ptr<FlightStreamReader>* reader) {
+    return DoExchange({}, descriptor, writer, reader);
   }
 
  private:

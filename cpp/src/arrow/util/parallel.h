@@ -44,5 +44,21 @@ Status ParallelFor(int num_tasks, FUNCTION&& func) {
   return st;
 }
 
+// A parallelizer that takes a `Status(int)` function and calls it with
+// arguments between 0 and `num_tasks - 1`, in sequence or in parallel,
+// depending on the input boolean.
+
+template <class FUNCTION>
+Status OptionalParallelFor(bool use_threads, int num_tasks, FUNCTION&& func) {
+  if (use_threads) {
+    return ParallelFor(num_tasks, std::forward<FUNCTION>(func));
+  } else {
+    for (int i = 0; i < num_tasks; ++i) {
+      RETURN_NOT_OK(func(i));
+    }
+    return Status::OK();
+  }
+}
+
 }  // namespace internal
 }  // namespace arrow

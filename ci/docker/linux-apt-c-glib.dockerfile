@@ -28,12 +28,32 @@ RUN apt-get update -y -q && \
         luarocks \
         pkg-config \
         ruby-dev && \
+    if [ "$(lsb_release --codename --short)" = "xenial" ]; then \
+      apt-get install -y -q --no-install-recommends -t xenial-backports \
+        ninja-build; \
+    fi && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
 RUN luarocks install lgi
 
-RUN pip3 install meson && \
+# pip on Ubuntu 20.04 may be buggy:
+#
+# Collecting meson
+#  Downloading meson-0.53.2.tar.gz (1.6 MB)
+#  Installing build dependencies: started
+#  Installing build dependencies: finished with status 'done'
+#  Getting requirements to build wheel: started
+#  Getting requirements to build wheel: finished with status 'error'
+#  ERROR: Command errored out with exit status 1:
+#   command: /usr/bin/python3 /usr/share/python-wheels/pep517-0.7.0-py2.py3-none-any.whl/pep517/_in_process.py get_requires_for_build_wheel /tmp/tmpsk4jveay
+#       cwd: /tmp/pip-install-jn79a_kh/meson
+#  Complete output (1 lines):
+#  /usr/bin/python3: can't find '__main__' module in '/usr/share/python-wheels/pep517-0.7.0-py2.py3-none-any.whl/pep517/_in_process.py'
+#  ----------------------------------------
+# ERROR: Command errored out with exit status 1: /usr/bin/python3 /usr/share/python-wheels/pep517-0.7.0-py2.py3-none-any.whl/pep517/_in_process.py get_requires_for_build_wheel /tmp/tmpsk4jveay Check the logs for full command output.
+RUN (python3 -m pip install meson || \
+         python3 -m pip install --no-use-pep517 meson) && \
     gem install bundler
 
 COPY c_glib/Gemfile /arrow/c_glib/

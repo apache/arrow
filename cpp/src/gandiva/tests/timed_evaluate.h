@@ -23,8 +23,7 @@
 #include "gandiva/projector.h"
 #include "gandiva/tests/generate_data.h"
 
-#ifndef GANDIVA_TIMED_EVALUATE_H
-#define GANDIVA_TIMED_EVALUATE_H
+#pragma once
 
 #define THOUSAND (1024)
 #define MILLION (1024 * 1024)
@@ -135,5 +134,3 @@ Status TimedEvaluate(SchemaPtr schema, BaseEvaluator& evaluator,
 }
 
 }  // namespace gandiva
-
-#endif  // GANDIVA_TIMED_EVALUATE_H

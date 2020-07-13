@@ -37,6 +37,8 @@ import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.IntervalDayVector;
 import org.apache.arrow.vector.IntervalYearVector;
+import org.apache.arrow.vector.LargeVarBinaryVector;
+import org.apache.arrow.vector.LargeVarCharVector;
 import org.apache.arrow.vector.NullVector;
 import org.apache.arrow.vector.SmallIntVector;
 import org.apache.arrow.vector.TimeMicroVector;
@@ -61,6 +63,7 @@ import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.complex.DenseUnionVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
+import org.apache.arrow.vector.complex.LargeListVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.StructVector;
@@ -70,6 +73,7 @@ import org.apache.arrow.vector.complex.impl.BitWriterImpl;
 import org.apache.arrow.vector.complex.impl.DateDayWriterImpl;
 import org.apache.arrow.vector.complex.impl.DateMilliWriterImpl;
 import org.apache.arrow.vector.complex.impl.DecimalWriterImpl;
+import org.apache.arrow.vector.complex.impl.DenseUnionWriter;
 import org.apache.arrow.vector.complex.impl.DurationWriterImpl;
 import org.apache.arrow.vector.complex.impl.FixedSizeBinaryWriterImpl;
 import org.apache.arrow.vector.complex.impl.Float4WriterImpl;
@@ -77,6 +81,8 @@ import org.apache.arrow.vector.complex.impl.Float8WriterImpl;
 import org.apache.arrow.vector.complex.impl.IntWriterImpl;
 import org.apache.arrow.vector.complex.impl.IntervalDayWriterImpl;
 import org.apache.arrow.vector.complex.impl.IntervalYearWriterImpl;
+import org.apache.arrow.vector.complex.impl.LargeVarBinaryWriterImpl;
+import org.apache.arrow.vector.complex.impl.LargeVarCharWriterImpl;
 import org.apache.arrow.vector.complex.impl.NullableStructWriter;
 import org.apache.arrow.vector.complex.impl.SmallIntWriterImpl;
 import org.apache.arrow.vector.complex.impl.TimeMicroWriterImpl;
@@ -96,6 +102,7 @@ import org.apache.arrow.vector.complex.impl.UInt1WriterImpl;
 import org.apache.arrow.vector.complex.impl.UInt2WriterImpl;
 import org.apache.arrow.vector.complex.impl.UInt4WriterImpl;
 import org.apache.arrow.vector.complex.impl.UInt8WriterImpl;
+import org.apache.arrow.vector.complex.impl.UnionLargeListWriter;
 import org.apache.arrow.vector.complex.impl.UnionListWriter;
 import org.apache.arrow.vector.complex.impl.UnionWriter;
 import org.apache.arrow.vector.complex.impl.VarBinaryWriterImpl;
@@ -114,6 +121,8 @@ import org.apache.arrow.vector.types.pojo.ArrowType.FixedSizeList;
 import org.apache.arrow.vector.types.pojo.ArrowType.FloatingPoint;
 import org.apache.arrow.vector.types.pojo.ArrowType.Int;
 import org.apache.arrow.vector.types.pojo.ArrowType.Interval;
+import org.apache.arrow.vector.types.pojo.ArrowType.LargeBinary;
+import org.apache.arrow.vector.types.pojo.ArrowType.LargeUtf8;
 import org.apache.arrow.vector.types.pojo.ArrowType.List;
 import org.apache.arrow.vector.types.pojo.ArrowType.Map;
 import org.apache.arrow.vector.types.pojo.ArrowType.Null;
@@ -463,6 +472,34 @@ public class Types {
         return new VarCharWriterImpl((VarCharVector) vector);
       }
     },
+    LARGEVARCHAR(LargeUtf8.INSTANCE) {
+      @Override
+      public FieldVector getNewVector(
+          Field field,
+          BufferAllocator allocator,
+          CallBack schemaChangeCallback) {
+        return new LargeVarCharVector(field, allocator);
+      }
+
+      @Override
+      public FieldWriter getNewFieldWriter(ValueVector vector) {
+        return new LargeVarCharWriterImpl((LargeVarCharVector) vector);
+      }
+    },
+    LARGEVARBINARY(LargeBinary.INSTANCE) {
+      @Override
+      public FieldVector getNewVector(
+          Field field,
+          BufferAllocator allocator,
+          CallBack schemaChangeCallback) {
+        return new LargeVarBinaryVector(field, allocator);
+      }
+
+      @Override
+      public FieldWriter getNewFieldWriter(ValueVector vector) {
+        return new LargeVarBinaryWriterImpl((LargeVarBinaryVector) vector);
+      }
+    },
     VARBINARY(Binary.INSTANCE) {
       @Override
       public FieldVector getNewVector(
@@ -575,6 +612,17 @@ public class Types {
         return new UnionListWriter((ListVector) vector);
       }
     },
+    LARGELIST(ArrowType.LargeList.INSTANCE) {
+      @Override
+      public FieldVector getNewVector(Field field, BufferAllocator allocator, CallBack schemaChangeCallback) {
+        return new LargeListVector(field.getName(), allocator, field.getFieldType(), schemaChangeCallback);
+      }
+
+      @Override
+      public FieldWriter getNewFieldWriter(ValueVector vector) {
+        return new UnionLargeListWriter((LargeListVector) vector);
+      }
+    },
     FIXED_SIZE_LIST(null) {
       @Override
       public FieldVector getNewVector(
@@ -600,19 +648,30 @@ public class Types {
           throw new UnsupportedOperationException("Dictionary encoding not supported for complex " +
               "types");
         }
-        ArrowType.Union unionType = (Union) field.getFieldType().getType();
-        if (unionType.getMode() == Sparse) {
-          return new UnionVector(field.getName(), allocator, field.getFieldType(), schemaChangeCallback);
-        } else if (unionType.getMode() == Dense) {
-          return new DenseUnionVector(field.getName(), allocator, field.getFieldType(), schemaChangeCallback);
-        } else {
-          throw new IllegalArgumentException("Illegal mode: " + unionType.getMode());
-        }
+        return new UnionVector(field.getName(), allocator, field.getFieldType(), schemaChangeCallback);
       }
 
       @Override
       public FieldWriter getNewFieldWriter(ValueVector vector) {
         return new UnionWriter((UnionVector) vector);
+      }
+    },
+    DENSEUNION(new Union(Dense, null)) {
+      @Override
+      public FieldVector getNewVector(
+          Field field,
+          BufferAllocator allocator,
+          CallBack schemaChangeCallback) {
+        if (field.getFieldType().getDictionary() != null) {
+          throw new UnsupportedOperationException("Dictionary encoding not supported for complex " +
+              "types");
+        }
+        return new DenseUnionVector(field.getName(), allocator, field.getFieldType(), schemaChangeCallback);
+      }
+
+      @Override
+      public FieldWriter getNewFieldWriter(ValueVector vector) {
+        return new DenseUnionWriter((DenseUnionVector) vector);
       }
     },
     MAP(null) {
@@ -763,12 +822,24 @@ public class Types {
 
       @Override
       public MinorType visit(Union type) {
-        return MinorType.UNION;
+        switch (type.getMode()) {
+          case Sparse:
+            return MinorType.UNION;
+          case Dense:
+            return MinorType.DENSEUNION;
+          default:
+            throw new IllegalArgumentException("only Dense or Sparse unions supported: " + type);
+        }
       }
 
       @Override
       public MinorType visit(Map type) {
         return MinorType.MAP;
+      }
+
+      @Override
+      public MinorType visit(ArrowType.LargeList type) {
+        return MinorType.LARGELIST;
       }
 
       @Override
@@ -807,8 +878,18 @@ public class Types {
       }
 
       @Override
+      public Types.MinorType visit(LargeUtf8 type) {
+        return MinorType.LARGEVARCHAR;
+      }
+
+      @Override
       public MinorType visit(Binary type) {
         return MinorType.VARBINARY;
+      }
+
+      @Override
+      public MinorType visit(LargeBinary type) {
+        return MinorType.LARGEVARBINARY;
       }
 
       @Override

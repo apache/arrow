@@ -25,6 +25,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.util.ByteFunctionHelpers;
 import org.apache.arrow.memory.util.hash.ArrowBufHasher;
@@ -44,8 +45,6 @@ import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.JsonStringHashMap;
 import org.apache.arrow.vector.util.TransferPair;
 
-import io.netty.buffer.ArrowBuf;
-
 /**
  * A struct vector that has no null values (and no validity buffer).
  * Child Vectors are handled in {@link AbstractStructVector}.
@@ -54,7 +53,12 @@ public class NonNullableStructVector extends AbstractStructVector {
 
   public static NonNullableStructVector empty(String name, BufferAllocator allocator) {
     FieldType fieldType = new FieldType(false, ArrowType.Struct.INSTANCE, null, null);
-    return new NonNullableStructVector(name, allocator, fieldType, null);
+    return new NonNullableStructVector(name, allocator, fieldType, null, ConflictPolicy.CONFLICT_REPLACE, false);
+  }
+
+  public static NonNullableStructVector emptyWithDuplicates(String name, BufferAllocator allocator) {
+    FieldType fieldType = new FieldType(false, ArrowType.Struct.INSTANCE, null, null);
+    return new NonNullableStructVector(name, allocator, fieldType, null, ConflictPolicy.CONFLICT_APPEND, true);
   }
 
   private final SingleStructReaderImpl reader = new SingleStructReaderImpl(this);
@@ -64,11 +68,21 @@ public class NonNullableStructVector extends AbstractStructVector {
   /**
    * Constructs a new instance.
    *
-   * @deprecated Use FieldType or static constructor instead.
+   * @param name The name of the instance.
+   * @param allocator The allocator to use to allocating/reallocating buffers.
+   * @param fieldType The type of this list.
    */
-  @Deprecated
-  public NonNullableStructVector(String name, BufferAllocator allocator, CallBack callBack) {
-    this(name, allocator, new FieldType(false, ArrowType.Struct.INSTANCE, null, null), callBack);
+  public NonNullableStructVector(String name,
+                                 BufferAllocator allocator,
+                                 FieldType fieldType,
+                                 CallBack callBack) {
+    super(name,
+        allocator,
+        callBack,
+        null,
+        true);
+    this.fieldType = checkNotNull(fieldType);
+    this.valueCount = 0;
   }
 
   /**
@@ -78,9 +92,15 @@ public class NonNullableStructVector extends AbstractStructVector {
    * @param allocator The allocator to use to allocating/reallocating buffers.
    * @param fieldType The type of this list.
    * @param callBack A schema change callback.
+   * @param conflictPolicy How to handle duplicate field names in the struct.
    */
-  public NonNullableStructVector(String name, BufferAllocator allocator, FieldType fieldType, CallBack callBack) {
-    super(name, allocator, callBack);
+  public NonNullableStructVector(String name,
+                                 BufferAllocator allocator,
+                                 FieldType fieldType,
+                                 CallBack callBack,
+                                 ConflictPolicy conflictPolicy,
+                                 boolean allowConflictPolicyChanges) {
+    super(name, allocator, callBack, conflictPolicy, allowConflictPolicyChanges);
     this.fieldType = checkNotNull(fieldType);
     this.valueCount = 0;
   }
@@ -130,7 +150,7 @@ public class NonNullableStructVector extends AbstractStructVector {
   public void setInitialCapacity(int valueCount, double density) {
     for (final ValueVector vector : this) {
       if (vector instanceof DensityAwareVector) {
-        ((DensityAwareVector)vector).setInitialCapacity(valueCount, density);
+        ((DensityAwareVector) vector).setInitialCapacity(valueCount, density);
       } else {
         vector.setInitialCapacity(valueCount);
       }
@@ -186,7 +206,12 @@ public class NonNullableStructVector extends AbstractStructVector {
 
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator, CallBack callBack) {
-    return new StructTransferPair(this, new NonNullableStructVector(name, allocator, fieldType, callBack), false);
+    return new StructTransferPair(this, new NonNullableStructVector(name,
+        allocator,
+        fieldType,
+        callBack,
+        getConflictPolicy(),
+        allowConflictPolicyChanges), false);
   }
 
   @Override
@@ -196,7 +221,12 @@ public class NonNullableStructVector extends AbstractStructVector {
 
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator) {
-    return new StructTransferPair(this, new NonNullableStructVector(ref, allocator, fieldType, callBack), false);
+    return new StructTransferPair(this, new NonNullableStructVector(ref,
+        allocator,
+        fieldType,
+        callBack,
+        getConflictPolicy(),
+        allowConflictPolicyChanges), false);
   }
 
   /**

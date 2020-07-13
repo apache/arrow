@@ -16,9 +16,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
-export GRPC_VERSION="1.20.0"
+export GRPC_VERSION="1.29.1"
 export CFLAGS="-fPIC -DGPR_MANYLINUX1=1"
-export PREFIX="/usr"
+export PREFIX="/usr/local"
 
 curl -sL "https://github.com/grpc/grpc/archive/v${GRPC_VERSION}.tar.gz" -o grpc-${GRPC_VERSION}.tar.gz
 tar xf grpc-${GRPC_VERSION}.tar.gz
@@ -29,6 +29,14 @@ cmake -DCMAKE_BUILD_TYPE=Release \
       -DBUILD_SHARED_LIBS=OFF \
       -DCMAKE_C_FLAGS="${CFLAGS}" \
       -DCMAKE_CXX_FLAGS="${CFLAGS}" \
+      -DgRPC_BUILD_CSHARP_EXT=OFF \
+      -DgRPC_BUILD_GRPC_CSHARP_PLUGIN=OFF \
+      -DgRPC_BUILD_GRPC_NODE_PLUGIN=OFF \
+      -DgRPC_BUILD_GRPC_OBJECTIVE_C_PLUGIN=OFF \
+      -DgRPC_BUILD_GRPC_PHP_PLUGIN=OFF \
+      -DgRPC_BUILD_GRPC_PYTHON_PLUGIN=OFF \
+      -DgRPC_BUILD_GRPC_RUBY_PLUGIN=OFF \
+      -DgRPC_ABSL_PROVIDER=package \
       -DgRPC_CARES_PROVIDER=package \
       -DgRPC_GFLAGS_PROVIDER=package \
       -DgRPC_PROTOBUF_PROVIDER=package \

@@ -64,11 +64,13 @@
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/filesystem/path_util.h"
 #include "arrow/filesystem/s3_internal.h"
+#include "arrow/filesystem/util_internal.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
 #include "arrow/io/util_internal.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/windows_fixup.h"
 
@@ -82,15 +84,16 @@ using ::Aws::Client::AWSError;
 using ::Aws::S3::S3Errors;
 namespace S3Model = Aws::S3::Model;
 
-using ::arrow::fs::internal::ConnectRetryStrategy;
-using ::arrow::fs::internal::ErrorToStatus;
-using ::arrow::fs::internal::FromAwsDatetime;
-using ::arrow::fs::internal::FromAwsString;
-using ::arrow::fs::internal::IsAlreadyExists;
-using ::arrow::fs::internal::IsNotFound;
-using ::arrow::fs::internal::OutcomeToStatus;
-using ::arrow::fs::internal::ToAwsString;
-using ::arrow::fs::internal::ToURLEncodedAwsString;
+using internal::ConnectRetryStrategy;
+using internal::ErrorToStatus;
+using internal::FromAwsDatetime;
+using internal::FromAwsString;
+using internal::IsAlreadyExists;
+using internal::IsNotFound;
+using internal::OutcomeToResult;
+using internal::OutcomeToStatus;
+using internal::ToAwsString;
+using internal::ToURLEncodedAwsString;
 
 const char* kS3DefaultRegion = "us-east-1";
 
@@ -162,15 +165,35 @@ void S3Options::ConfigureDefaultCredentials() {
       std::make_shared<Aws::Auth::DefaultAWSCredentialsProviderChain>();
 }
 
+void S3Options::ConfigureAnonymousCredentials() {
+  credentials_provider = std::make_shared<Aws::Auth::AnonymousAWSCredentialsProvider>();
+}
+
 void S3Options::ConfigureAccessKey(const std::string& access_key,
                                    const std::string& secret_key) {
   credentials_provider = std::make_shared<Aws::Auth::SimpleAWSCredentialsProvider>(
       ToAwsString(access_key), ToAwsString(secret_key));
 }
 
+std::string S3Options::GetAccessKey() const {
+  auto credentials = credentials_provider->GetAWSCredentials();
+  return std::string(FromAwsString(credentials.GetAWSAccessKeyId()));
+}
+
+std::string S3Options::GetSecretKey() const {
+  auto credentials = credentials_provider->GetAWSCredentials();
+  return std::string(FromAwsString(credentials.GetAWSSecretKey()));
+}
+
 S3Options S3Options::Defaults() {
   S3Options options;
   options.ConfigureDefaultCredentials();
+  return options;
+}
+
+S3Options S3Options::Anonymous() {
+  S3Options options;
+  options.ConfigureAnonymousCredentials();
   return options;
 }
 
@@ -240,6 +263,13 @@ Result<S3Options> S3Options::FromUri(const std::string& uri_string,
   return FromUri(uri, out_path);
 }
 
+bool S3Options::Equals(const S3Options& other) const {
+  return (region == other.region && endpoint_override == other.endpoint_override &&
+          scheme == other.scheme && background_writes == other.background_writes &&
+          GetAccessKey() == other.GetAccessKey() &&
+          GetSecretKey() == other.GetSecretKey());
+}
+
 namespace {
 
 Status CheckS3Initialized() {
@@ -259,21 +289,31 @@ struct S3Path {
   std::string key;
   std::vector<std::string> key_parts;
 
-  static Status FromString(const std::string& s, S3Path* out) {
+  static Result<S3Path> FromString(const std::string& s) {
     const auto src = internal::RemoveTrailingSlash(s);
     auto first_sep = src.find_first_of(kSep);
     if (first_sep == 0) {
       return Status::Invalid("Path cannot start with a separator ('", s, "')");
     }
     if (first_sep == std::string::npos) {
-      *out = {std::string(src), std::string(src), "", {}};
-      return Status::OK();
+      return S3Path{std::string(src), std::string(src), "", {}};
     }
-    out->full_path = std::string(src);
-    out->bucket = std::string(src.substr(0, first_sep));
-    out->key = std::string(src.substr(first_sep + 1));
-    out->key_parts = internal::SplitAbstractPath(out->key);
-    return internal::ValidateAbstractPathParts(out->key_parts);
+    S3Path path;
+    path.full_path = std::string(src);
+    path.bucket = std::string(src.substr(0, first_sep));
+    path.key = std::string(src.substr(first_sep + 1));
+    path.key_parts = internal::SplitAbstractPath(path.key);
+    RETURN_NOT_OK(Validate(&path));
+    return path;
+  }
+
+  static Status Validate(const S3Path* path) {
+    auto result = internal::ValidateAbstractPathParts(path->key_parts);
+    if (!result.ok()) {
+      return Status::Invalid(result.message(), " in path ", path->full_path);
+    } else {
+      return result;
+    }
   }
 
   Aws::String ToURLEncodedAwsString() const {
@@ -307,15 +347,15 @@ struct S3Path {
 
 // XXX return in OutcomeToStatus instead?
 Status PathNotFound(const S3Path& path) {
-  return Status::IOError("Path does not exist '", path.full_path, "'");
+  return ::arrow::fs::internal::PathNotFound(path.full_path);
 }
 
 Status PathNotFound(const std::string& bucket, const std::string& key) {
-  return Status::IOError("Path does not exist '", bucket, kSep, key, "'");
+  return ::arrow::fs::internal::PathNotFound(bucket + kSep + key);
 }
 
 Status NotAFile(const S3Path& path) {
-  return Status::IOError("Not a regular file: '", path.full_path, "'");
+  return ::arrow::fs::internal::NotAFile(path.full_path);
 }
 
 Status ValidateFilePath(const S3Path& path) {
@@ -332,14 +372,35 @@ std::string FormatRange(int64_t start, int64_t length) {
   return ss.str();
 }
 
-Status GetObjectRange(Aws::S3::S3Client* client, const S3Path& path, int64_t start,
-                      int64_t length, S3Model::GetObjectResult* out) {
+// A non-copying iostream.
+// See https://stackoverflow.com/questions/35322033/aws-c-sdk-uploadpart-times-out
+// https://stackoverflow.com/questions/13059091/creating-an-input-stream-from-constant-memory
+class StringViewStream : Aws::Utils::Stream::PreallocatedStreamBuf, public std::iostream {
+ public:
+  StringViewStream(const void* data, int64_t nbytes)
+      : Aws::Utils::Stream::PreallocatedStreamBuf(
+            reinterpret_cast<unsigned char*>(const_cast<void*>(data)),
+            static_cast<size_t>(nbytes)),
+        std::iostream(this) {}
+};
+
+// By default, the AWS SDK reads object data into an auto-growing StringStream.
+// To avoid copies, read directly into our preallocated buffer instead.
+// See https://github.com/aws/aws-sdk-cpp/issues/64 for an alternative but
+// functionally similar recipe.
+Aws::IOStreamFactory AwsWriteableStreamFactory(void* data, int64_t nbytes) {
+  return [=]() { return new StringViewStream(data, nbytes); };
+}
+
+Result<S3Model::GetObjectResult> GetObjectRange(Aws::S3::S3Client* client,
+                                                const S3Path& path, int64_t start,
+                                                int64_t length, void* out) {
   S3Model::GetObjectRequest req;
   req.SetBucket(ToAwsString(path.bucket));
   req.SetKey(ToAwsString(path.key));
   req.SetRange(ToAwsString(FormatRange(start, length)));
-  ARROW_AWS_ASSIGN_OR_RAISE(*out, client->GetObject(req));
-  return Status::OK();
+  req.SetResponseStreamFactory(AwsWriteableStreamFactory(out, length));
+  return OutcomeToResult(client->GetObject(req));
 }
 
 // A RandomAccessFile that reads from a S3 object
@@ -348,9 +409,17 @@ class ObjectInputFile : public io::RandomAccessFile {
   ObjectInputFile(Aws::S3::S3Client* client, const S3Path& path)
       : client_(client), path_(path) {}
 
+  ObjectInputFile(Aws::S3::S3Client* client, const S3Path& path, int64_t size)
+      : client_(client), path_(path), content_length_(size) {}
+
   Status Init() {
     // Issue a HEAD Object to get the content-length and ensure any
     // errors (e.g. file not found) don't wait until the first Read() call.
+    if (content_length_ != kNoSize) {
+      DCHECK_GE(content_length_, 0);
+      return Status::OK();
+    }
+
     S3Model::HeadObjectRequest req;
     req.SetBucket(ToAwsString(path_.bucket));
     req.SetKey(ToAwsString(path_.key));
@@ -425,11 +494,11 @@ class ObjectInputFile : public io::RandomAccessFile {
     }
 
     // Read the desired range of bytes
-    S3Model::GetObjectResult result;
-    RETURN_NOT_OK(GetObjectRange(client_, path_, position, nbytes, &result));
+    ARROW_ASSIGN_OR_RAISE(S3Model::GetObjectResult result,
+                          GetObjectRange(client_, path_, position, nbytes, out));
 
     auto& stream = result.GetBody();
-    stream.read(reinterpret_cast<char*>(out), nbytes);
+    stream.ignore(nbytes);
     // NOTE: the stream is a stringstream by default, there is no actual error
     // to check for.  However, stream.fail() may return true if EOF is reached.
     return stream.gcount();
@@ -442,15 +511,14 @@ class ObjectInputFile : public io::RandomAccessFile {
     // No need to allocate more than the remaining number of bytes
     nbytes = std::min(nbytes, content_length_ - position);
 
-    std::shared_ptr<ResizableBuffer> buf;
-    RETURN_NOT_OK(AllocateResizableBuffer(nbytes, &buf));
+    ARROW_ASSIGN_OR_RAISE(auto buf, AllocateResizableBuffer(nbytes));
     if (nbytes > 0) {
       ARROW_ASSIGN_OR_RAISE(int64_t bytes_read,
                             ReadAt(position, nbytes, buf->mutable_data()));
       DCHECK_LE(bytes_read, nbytes);
       RETURN_NOT_OK(buf->Resize(bytes_read));
     }
-    return buf;
+    return std::move(buf);
   }
 
   Result<int64_t> Read(int64_t nbytes, void* out) override {
@@ -462,7 +530,7 @@ class ObjectInputFile : public io::RandomAccessFile {
   Result<std::shared_ptr<Buffer>> Read(int64_t nbytes) override {
     ARROW_ASSIGN_OR_RAISE(auto buffer, ReadAt(pos_, nbytes));
     pos_ += buffer->size();
-    return buffer;
+    return std::move(buffer);
   }
 
  protected:
@@ -470,20 +538,7 @@ class ObjectInputFile : public io::RandomAccessFile {
   S3Path path_;
   bool closed_ = false;
   int64_t pos_ = 0;
-  int64_t content_length_ = -1;
-};
-
-// A non-copying istream.
-// See https://stackoverflow.com/questions/35322033/aws-c-sdk-uploadpart-times-out
-// https://stackoverflow.com/questions/13059091/creating-an-input-stream-from-constant-memory
-
-class StringViewStream : Aws::Utils::Stream::PreallocatedStreamBuf, public std::iostream {
- public:
-  StringViewStream(const void* data, int64_t nbytes)
-      : Aws::Utils::Stream::PreallocatedStreamBuf(
-            reinterpret_cast<unsigned char*>(const_cast<void*>(data)),
-            static_cast<size_t>(nbytes)),
-        std::iostream(this) {}
+  int64_t content_length_ = kNoSize;
 };
 
 // Minimum size for each part of a multipart upload, except for the last part.
@@ -617,21 +672,6 @@ class ObjectOutputStream : public io::OutputStream {
       return Status::Invalid("Operation on closed stream");
     }
 
-    // With up to 10000 parts in an upload (S3 limit), a stream writing chunks
-    // of exactly 5MB would be limited to 50GB total.  To avoid that, we bump
-    // the upload threshold every 100 parts.  So the pattern is:
-    // - part 1 to 99: 5MB threshold
-    // - part 100 to 199: 10MB threshold
-    // - part 200 to 299: 15MB threshold
-    // ...
-    // - part 9900 to 9999: 500MB threshold
-    // So the total size limit is 2475000MB or ~2.4TB, while keeping manageable
-    // chunk sizes and avoiding too much buffering in the common case of a small-ish
-    // stream.  If the limit's not enough, we can revisit.
-    if (part_number_ % 100 == 0) {
-      part_upload_threshold_ += kMinimumPartUpload;
-    }
-
     if (!current_part_ && nbytes >= part_upload_threshold_) {
       // No current part and data large enough, upload it directly
       // (without copying if the buffer is owned)
@@ -705,7 +745,7 @@ class ObjectOutputStream : public io::OutputStream {
 
       // If the data isn't owned, make an immutable copy for the lifetime of the closure
       if (owned_buffer == nullptr) {
-        RETURN_NOT_OK(AllocateBuffer(nbytes, &owned_buffer));
+        ARROW_ASSIGN_OR_RAISE(owned_buffer, AllocateBuffer(nbytes));
         memcpy(owned_buffer->mutable_data(), data, nbytes);
       } else {
         DCHECK_EQ(data, owned_buffer->data());
@@ -733,7 +773,23 @@ class ObjectOutputStream : public io::OutputStream {
       ++upload_state_->parts_in_progress;
       client_->UploadPartAsync(req, handler);
     }
+
     ++part_number_;
+    // With up to 10000 parts in an upload (S3 limit), a stream writing chunks
+    // of exactly 5MB would be limited to 50GB total.  To avoid that, we bump
+    // the upload threshold every 100 parts.  So the pattern is:
+    // - part 1 to 99: 5MB threshold
+    // - part 100 to 199: 10MB threshold
+    // - part 200 to 299: 15MB threshold
+    // ...
+    // - part 9900 to 9999: 500MB threshold
+    // So the total size limit is 2475000MB or ~2.4TB, while keeping manageable
+    // chunk sizes and avoiding too much buffering in the common case of a small-ish
+    // stream.  If the limit's not enough, we can revisit.
+    if (part_number_ % 100 == 0) {
+      part_upload_threshold_ += kMinimumPartUpload;
+    }
+
     return Status::OK();
   }
 
@@ -828,6 +884,13 @@ class S3FileSystem::Impl {
       return Status::Invalid("Invalid S3 connection scheme '", options_.scheme, "'");
     }
     client_config_.retryStrategy = std::make_shared<ConnectRetryStrategy>();
+    if (!internal::global_options.tls_ca_file_path.empty()) {
+      client_config_.caFile = ToAwsString(internal::global_options.tls_ca_file_path);
+    }
+    if (!internal::global_options.tls_ca_dir_path.empty()) {
+      client_config_.caPath = ToAwsString(internal::global_options.tls_ca_dir_path);
+    }
+
     bool use_virtual_addressing = options_.endpoint_override.empty();
     client_.reset(
         new Aws::S3::S3Client(credentials_, client_config_,
@@ -835,6 +898,8 @@ class S3FileSystem::Impl {
                               use_virtual_addressing));
     return Status::OK();
   }
+
+  S3Options options() const { return options_; }
 
   // Create a bucket.  Successful if bucket already exists.
   Status CreateBucket(const std::string& bucket) {
@@ -1021,7 +1086,7 @@ class S3FileSystem::Impl {
     };
 
     auto handle_error = [&](const AWSError<S3Errors>& error) -> Status {
-      if (select.allow_non_existent && IsNotFound(error)) {
+      if (select.allow_not_found && IsNotFound(error)) {
         return Status::OK();
       }
       return ErrorToStatus(std::forward_as_tuple("When listing objects under key '", key,
@@ -1040,8 +1105,8 @@ class S3FileSystem::Impl {
     }
 
     // If no contents were found, perhaps it's an empty "directory",
-    // or perhaps it's a non-existent entry.  Check.
-    if (is_empty && !select.allow_non_existent) {
+    // or perhaps it's a nonexistent entry.  Check.
+    if (is_empty && !select.allow_not_found) {
       RETURN_NOT_OK(IsEmptyDirectory(bucket, key, &is_empty));
       if (!is_empty) {
         return PathNotFound(bucket, key);
@@ -1144,7 +1209,9 @@ class S3FileSystem::Impl {
     }
     // First delete all "files", then delete all child "directories"
     RETURN_NOT_OK(DeleteObjects(bucket, file_keys));
-    // XXX This doesn't seem necessary on Minio
+    // Delete directories in reverse lexicographic order, to ensure children
+    // are deleted before their parents (Minio).
+    std::sort(dir_keys.rbegin(), dir_keys.rend());
     return DeleteObjects(bucket, dir_keys);
   }
 
@@ -1188,9 +1255,21 @@ Result<std::shared_ptr<S3FileSystem>> S3FileSystem::Make(const S3Options& option
   return ptr;
 }
 
-Result<FileInfo> S3FileSystem::GetTargetInfo(const std::string& s) {
-  S3Path path;
-  RETURN_NOT_OK(S3Path::FromString(s, &path));
+bool S3FileSystem::Equals(const FileSystem& other) const {
+  if (this == &other) {
+    return true;
+  }
+  if (other.type_name() != type_name()) {
+    return false;
+  }
+  const auto& s3fs = ::arrow::internal::checked_cast<const S3FileSystem&>(other);
+  return options().Equals(s3fs.options());
+}
+
+S3Options S3FileSystem::options() const { return impl_->options(); }
+
+Result<FileInfo> S3FileSystem::GetFileInfo(const std::string& s) {
+  ARROW_ASSIGN_OR_RAISE(auto path, S3Path::FromString(s));
   FileInfo info;
   info.set_path(s);
 
@@ -1211,7 +1290,7 @@ Result<FileInfo> S3FileSystem::GetTargetInfo(const std::string& s) {
                                   "': "),
             outcome.GetError());
       }
-      info.set_type(FileType::NonExistent);
+      info.set_type(FileType::NotFound);
       return info;
     }
     // NOTE: S3 doesn't have a bucket modification time.  Only a creation
@@ -1248,15 +1327,14 @@ Result<FileInfo> S3FileSystem::GetTargetInfo(const std::string& s) {
     if (is_dir) {
       info.set_type(FileType::Directory);
     } else {
-      info.set_type(FileType::NonExistent);
+      info.set_type(FileType::NotFound);
     }
     return info;
   }
 }
 
-Result<std::vector<FileInfo>> S3FileSystem::GetTargetInfos(const FileSelector& select) {
-  S3Path base_path;
-  RETURN_NOT_OK(S3Path::FromString(select.base_dir, &base_path));
+Result<std::vector<FileInfo>> S3FileSystem::GetFileInfo(const FileSelector& select) {
+  ARROW_ASSIGN_OR_RAISE(auto base_path, S3Path::FromString(select.base_dir));
 
   std::vector<FileInfo> results;
 
@@ -1282,8 +1360,7 @@ Result<std::vector<FileInfo>> S3FileSystem::GetTargetInfos(const FileSelector& s
 }
 
 Status S3FileSystem::CreateDir(const std::string& s, bool recursive) {
-  S3Path path;
-  RETURN_NOT_OK(S3Path::FromString(s, &path));
+  ARROW_ASSIGN_OR_RAISE(auto path, S3Path::FromString(s));
 
   if (path.key.empty()) {
     // Create bucket
@@ -1324,8 +1401,7 @@ Status S3FileSystem::CreateDir(const std::string& s, bool recursive) {
 }
 
 Status S3FileSystem::DeleteDir(const std::string& s) {
-  S3Path path;
-  RETURN_NOT_OK(S3Path::FromString(s, &path));
+  ARROW_ASSIGN_OR_RAISE(auto path, S3Path::FromString(s));
 
   if (path.empty()) {
     return Status::NotImplemented("Cannot delete all S3 buckets");
@@ -1347,8 +1423,7 @@ Status S3FileSystem::DeleteDir(const std::string& s) {
 }
 
 Status S3FileSystem::DeleteDirContents(const std::string& s) {
-  S3Path path;
-  RETURN_NOT_OK(S3Path::FromString(s, &path));
+  ARROW_ASSIGN_OR_RAISE(auto path, S3Path::FromString(s));
 
   if (path.empty()) {
     return Status::NotImplemented("Cannot delete all S3 buckets");
@@ -1358,9 +1433,12 @@ Status S3FileSystem::DeleteDirContents(const std::string& s) {
   return impl_->EnsureDirectoryExists(path);
 }
 
+Status S3FileSystem::DeleteRootDirContents() {
+  return Status::NotImplemented("Cannot delete all S3 buckets");
+}
+
 Status S3FileSystem::DeleteFile(const std::string& s) {
-  S3Path path;
-  RETURN_NOT_OK(S3Path::FromString(s, &path));
+  ARROW_ASSIGN_OR_RAISE(auto path, S3Path::FromString(s));
   RETURN_NOT_OK(ValidateFilePath(path));
 
   // Check the object exists
@@ -1390,10 +1468,9 @@ Status S3FileSystem::Move(const std::string& src, const std::string& dest) {
   // one must copy all directory contents one by one (including object data),
   // then delete the original contents.
 
-  S3Path src_path, dest_path;
-  RETURN_NOT_OK(S3Path::FromString(src, &src_path));
+  ARROW_ASSIGN_OR_RAISE(auto src_path, S3Path::FromString(src));
   RETURN_NOT_OK(ValidateFilePath(src_path));
-  RETURN_NOT_OK(S3Path::FromString(dest, &dest_path));
+  ARROW_ASSIGN_OR_RAISE(auto dest_path, S3Path::FromString(dest));
   RETURN_NOT_OK(ValidateFilePath(dest_path));
 
   if (src_path == dest_path) {
@@ -1406,10 +1483,9 @@ Status S3FileSystem::Move(const std::string& src, const std::string& dest) {
 }
 
 Status S3FileSystem::CopyFile(const std::string& src, const std::string& dest) {
-  S3Path src_path, dest_path;
-  RETURN_NOT_OK(S3Path::FromString(src, &src_path));
+  ARROW_ASSIGN_OR_RAISE(auto src_path, S3Path::FromString(src));
   RETURN_NOT_OK(ValidateFilePath(src_path));
-  RETURN_NOT_OK(S3Path::FromString(dest, &dest_path));
+  ARROW_ASSIGN_OR_RAISE(auto dest_path, S3Path::FromString(dest));
   RETURN_NOT_OK(ValidateFilePath(dest_path));
 
   if (src_path == dest_path) {
@@ -1420,8 +1496,34 @@ Status S3FileSystem::CopyFile(const std::string& src, const std::string& dest) {
 
 Result<std::shared_ptr<io::InputStream>> S3FileSystem::OpenInputStream(
     const std::string& s) {
-  S3Path path;
-  RETURN_NOT_OK(S3Path::FromString(s, &path));
+  ARROW_ASSIGN_OR_RAISE(auto path, S3Path::FromString(s));
+  RETURN_NOT_OK(ValidateFilePath(path));
+
+  auto ptr = std::make_shared<ObjectInputFile>(impl_->client_.get(), path);
+  RETURN_NOT_OK(ptr->Init());
+  return ptr;
+}
+
+Result<std::shared_ptr<io::InputStream>> S3FileSystem::OpenInputStream(
+    const FileInfo& info) {
+  if (info.type() == FileType::NotFound) {
+    return ::arrow::fs::internal::PathNotFound(info.path());
+  }
+  if (info.type() != FileType::File && info.type() != FileType::Unknown) {
+    return ::arrow::fs::internal::NotAFile(info.path());
+  }
+
+  ARROW_ASSIGN_OR_RAISE(auto path, S3Path::FromString(info.path()));
+  RETURN_NOT_OK(ValidateFilePath(path));
+
+  auto ptr = std::make_shared<ObjectInputFile>(impl_->client_.get(), path, info.size());
+  RETURN_NOT_OK(ptr->Init());
+  return ptr;
+}
+
+Result<std::shared_ptr<io::RandomAccessFile>> S3FileSystem::OpenInputFile(
+    const std::string& s) {
+  ARROW_ASSIGN_OR_RAISE(auto path, S3Path::FromString(s));
   RETURN_NOT_OK(ValidateFilePath(path));
 
   auto ptr = std::make_shared<ObjectInputFile>(impl_->client_.get(), path);
@@ -1430,20 +1532,25 @@ Result<std::shared_ptr<io::InputStream>> S3FileSystem::OpenInputStream(
 }
 
 Result<std::shared_ptr<io::RandomAccessFile>> S3FileSystem::OpenInputFile(
-    const std::string& s) {
-  S3Path path;
-  RETURN_NOT_OK(S3Path::FromString(s, &path));
+    const FileInfo& info) {
+  if (info.type() == FileType::NotFound) {
+    return ::arrow::fs::internal::PathNotFound(info.path());
+  }
+  if (info.type() != FileType::File && info.type() != FileType::Unknown) {
+    return ::arrow::fs::internal::NotAFile(info.path());
+  }
+
+  ARROW_ASSIGN_OR_RAISE(auto path, S3Path::FromString(info.path()));
   RETURN_NOT_OK(ValidateFilePath(path));
 
-  auto ptr = std::make_shared<ObjectInputFile>(impl_->client_.get(), path);
+  auto ptr = std::make_shared<ObjectInputFile>(impl_->client_.get(), path, info.size());
   RETURN_NOT_OK(ptr->Init());
   return ptr;
 }
 
 Result<std::shared_ptr<io::OutputStream>> S3FileSystem::OpenOutputStream(
     const std::string& s) {
-  S3Path path;
-  RETURN_NOT_OK(S3Path::FromString(s, &path));
+  ARROW_ASSIGN_OR_RAISE(auto path, S3Path::FromString(s));
   RETURN_NOT_OK(ValidateFilePath(path));
 
   auto ptr =

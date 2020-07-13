@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_UTIL_LOGGING_H
-#define ARROW_UTIL_LOGGING_H
+#pragma once
 
 #ifdef GANDIVA_IR
 
@@ -249,5 +248,3 @@ class NullLog {
 }  // namespace arrow
 
 #endif  // GANDIVA_IR
-
-#endif  // ARROW_UTIL_LOGGING_H

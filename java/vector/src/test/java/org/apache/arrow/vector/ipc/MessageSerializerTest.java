@@ -32,12 +32,15 @@ import java.nio.channels.Channels;
 import java.util.Collections;
 import java.util.List;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.ipc.message.ArrowMessage;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
+import org.apache.arrow.vector.ipc.message.IpcOption;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
+import org.apache.arrow.vector.types.MetadataVersion;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -46,8 +49,6 @@ import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
-
-import io.netty.buffer.ArrowBuf;
 
 public class MessageSerializerTest {
 
@@ -149,7 +150,7 @@ public class MessageSerializerTest {
   public ExpectedException expectedEx = ExpectedException.none();
 
   @Test
-  public void testSerializeRecordBatch() throws IOException {
+  public void testSerializeRecordBatchV4() throws IOException {
     byte[] validity = new byte[] {(byte) 255, 0};
     // second half is "undefined"
     byte[] values = new byte[] {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
@@ -161,8 +162,35 @@ public class MessageSerializerTest {
     ArrowRecordBatch batch = new ArrowRecordBatch(
         16, asList(new ArrowFieldNode(16, 8)), asList(validityb, valuesb));
 
+    IpcOption option = new IpcOption();
+    option.metadataVersion = MetadataVersion.V4;
     ByteArrayOutputStream out = new ByteArrayOutputStream();
-    MessageSerializer.serialize(new WriteChannel(Channels.newChannel(out)), batch);
+    MessageSerializer.serialize(new WriteChannel(Channels.newChannel(out)), batch, option);
+
+    ByteArrayInputStream in = new ByteArrayInputStream(out.toByteArray());
+    ReadChannel channel = new ReadChannel(Channels.newChannel(in));
+    ArrowMessage deserialized = MessageSerializer.deserializeMessageBatch(channel, alloc);
+    assertEquals(ArrowRecordBatch.class, deserialized.getClass());
+    verifyBatch((ArrowRecordBatch) deserialized, validity, values);
+  }
+
+  @Test
+  public void testSerializeRecordBatchV5() throws IOException {
+    byte[] validity = new byte[] {(byte) 255, 0};
+    // second half is "undefined"
+    byte[] values = new byte[] {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
+
+    BufferAllocator alloc = new RootAllocator(Long.MAX_VALUE);
+    ArrowBuf validityb = buf(alloc, validity);
+    ArrowBuf valuesb = buf(alloc, values);
+
+    ArrowRecordBatch batch = new ArrowRecordBatch(
+        16, asList(new ArrowFieldNode(16, 8)), asList(validityb, valuesb));
+
+    IpcOption option = new IpcOption();
+    option.metadataVersion = MetadataVersion.V5;
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    MessageSerializer.serialize(new WriteChannel(Channels.newChannel(out)), batch, option);
 
     ByteArrayInputStream in = new ByteArrayInputStream(out.toByteArray());
     ReadChannel channel = new ReadChannel(Channels.newChannel(in));

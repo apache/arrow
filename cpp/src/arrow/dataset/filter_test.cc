@@ -26,8 +26,6 @@
 #include <gtest/gtest.h>
 
 #include "arrow/compute/api.h"
-#include "arrow/compute/context.h"
-#include "arrow/compute/kernels/take.h"
 #include "arrow/dataset/test_util.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
@@ -35,6 +33,7 @@
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 namespace dataset {
@@ -74,8 +73,8 @@ class ExpressionsTest : public ::testing::Test {
   std::shared_ptr<Schema> schema_ =
       schema({field("a", int32()), field("b", int32()), field("f", float64()),
               field("s", utf8()), field("ts", ns)});
-  std::shared_ptr<ScalarExpression> always = scalar(true);
-  std::shared_ptr<ScalarExpression> never = scalar(false);
+  std::shared_ptr<Expression> always = scalar(true);
+  std::shared_ptr<Expression> never = scalar(false);
 };
 
 TEST_F(ExpressionsTest, StringRepresentation) {
@@ -178,15 +177,13 @@ class FilterTest : public ::testing::Test {
   void AssertFilter(const Expression& expr, std::vector<std::shared_ptr<Field>> fields,
                     const std::string& batch_json) {
     std::shared_ptr<BooleanArray> expected_mask;
-    auto mask_res =
-        DoFilter(expr, std::move(fields), std::move(batch_json), &expected_mask);
-    ASSERT_OK(mask_res.status());
 
-    auto mask = std::move(mask_res).ValueOrDie();
+    ASSERT_OK_AND_ASSIGN(Datum mask, DoFilter(expr, std::move(fields),
+                                              std::move(batch_json), &expected_mask));
     ASSERT_TRUE(mask.type()->Equals(null()) || mask.type()->Equals(boolean()));
 
     if (mask.is_array()) {
-      ASSERT_ARRAYS_EQUAL(*expected_mask, *mask.make_array());
+      AssertArraysEqual(*expected_mask, *mask.make_array(), /*verbose=*/true);
       return;
     }
 
@@ -358,6 +355,27 @@ TEST_F(ExpressionsTest, ImplicitCast) {
                                   InsertImplicitCasts("nope"_ == 0.0, *schema_));
 }
 
+TEST_F(ExpressionsTest, ImplicitCastToDict) {
+  auto dict_type = dictionary(int8(), float64());
+  ASSERT_OK_AND_ASSIGN(auto filter,
+                       InsertImplicitCasts("a"_ == 1.5, Schema({field("a", dict_type)})));
+
+  auto encoded_scalar = std::make_shared<DictionaryScalar>(
+      DictionaryScalar::ValueType{MakeScalar<int8_t>(0),
+                                  ArrayFromJSON(float64(), "[1.5]")},
+      dict_type);
+
+  ASSERT_EQ(E{filter}, E{"a"_ == encoded_scalar});
+
+  for (int8_t i = 0; i < 5; ++i) {
+    auto partition_scalar = std::make_shared<DictionaryScalar>(
+        DictionaryScalar::ValueType{
+            MakeScalar(i), ArrayFromJSON(float64(), "[0.0, 0.5, 1.0, 1.5, 2.0]")},
+        dict_type);
+    ASSERT_EQ(E{filter->Assume("a"_ == partition_scalar)}, E{scalar(i == 3)});
+  }
+}
+
 TEST_F(FilterTest, ImplicitCast) {
   ASSERT_OK_AND_ASSIGN(auto filter,
                        InsertImplicitCasts("a"_ >= "1", Schema({field("a", int32())})));
@@ -443,8 +461,8 @@ class TakeExpression : public CustomExpression {
 
     using TreeEvaluator::Evaluate;
 
-    Result<compute::Datum> Evaluate(const Expression& expr, const RecordBatch& batch,
-                                    MemoryPool* pool) const override {
+    Result<Datum> Evaluate(const Expression& expr, const RecordBatch& batch,
+                           MemoryPool* pool) const override {
       if (expr.type() == ExpressionType::CUSTOM) {
         const auto& take_expr = checked_cast<const TakeExpression&>(expr);
         return EvaluateTake(take_expr, batch, pool);
@@ -452,23 +470,22 @@ class TakeExpression : public CustomExpression {
       return TreeEvaluator::Evaluate(expr, batch, pool);
     }
 
-    Result<compute::Datum> EvaluateTake(const TakeExpression& take_expr,
-                                        const RecordBatch& batch,
-                                        MemoryPool* pool) const {
+    Result<Datum> EvaluateTake(const TakeExpression& take_expr, const RecordBatch& batch,
+                               MemoryPool* pool) const {
       ARROW_ASSIGN_OR_RAISE(auto indices, Evaluate(*take_expr.operand_, batch, pool));
 
       if (indices.kind() == Datum::SCALAR) {
-        std::shared_ptr<Array> indices_array;
-        RETURN_NOT_OK(MakeArrayFromScalar(default_memory_pool(), *indices.scalar(),
-                                          batch.num_rows(), &indices_array));
-        indices = compute::Datum(indices_array->data());
+        ARROW_ASSIGN_OR_RAISE(auto indices_array,
+                              MakeArrayFromScalar(*indices.scalar(), batch.num_rows(),
+                                                  default_memory_pool()));
+        indices = Datum(indices_array->data());
       }
 
       DCHECK_EQ(indices.kind(), Datum::ARRAY);
-      compute::Datum out;
-      compute::FunctionContext ctx{pool};
-      RETURN_NOT_OK(compute::Take(&ctx, compute::Datum(take_expr.dictionary_->data()),
-                                  indices, compute::TakeOptions(), &out));
+      compute::ExecContext ctx(pool);
+      ARROW_ASSIGN_OR_RAISE(Datum out,
+                            compute::Take(take_expr.dictionary_->data(), indices,
+                                          compute::TakeOptions(), &ctx));
       return std::move(out);
     }
   };
@@ -539,6 +556,36 @@ TEST(FieldsInExpressionTest, Basic) {
   AssertFieldsInExpression(("a"_ == 1 || "b"_ == 2).Copy(), {"a", "b"});
   AssertFieldsInExpression((not("a"_ == 1) && ("b"_ == 2 || not("c"_ < 3))).Copy(),
                            {"a", "b", "c"});
+}
+
+TEST(ExpressionSerializationTest, RoundTrips) {
+  std::vector<TestExpression> exprs{
+      scalar(MakeNullScalar(null())),
+      scalar(MakeNullScalar(int32())),
+      scalar(MakeNullScalar(struct_({field("i", int32()), field("s", utf8())}))),
+      scalar(true),
+      scalar(false),
+      scalar(1),
+      scalar(1.125),
+      scalar("stringy strings"),
+      "field"_,
+      "a"_ > 0.25,
+      "a"_ == 1 or "b"_ != "hello" or "b"_ == "foo bar",
+      not"alpha"_,
+      "valid"_ and "a"_.CastLike("b"_) >= "b"_,
+      "version"_.CastTo(float64()).In(ArrayFromJSON(float64(), "[0.5, 1.0, 2.0]")),
+      "validity"_.IsValid(),
+      ("x"_ >= -1.5 and "x"_ < 0.0) and ("y"_ >= 0.0 and "y"_ < 1.5) and
+          ("z"_ > 1.5 and "z"_ <= 3.0),
+      "year"_ == int16_t(1999) and "month"_ == int8_t(12) and "day"_ == int8_t(31) and
+          "hour"_ == int8_t(0) and "alpha"_ == int32_t(0) and "beta"_ == 3.25f,
+  };
+
+  for (const auto& expr : exprs) {
+    ASSERT_OK_AND_ASSIGN(auto serialized, expr.expression->Serialize());
+    ASSERT_OK_AND_ASSIGN(E roundtripped, Expression::Deserialize(*serialized));
+    ASSERT_EQ(expr, roundtripped);
+  }
 }
 
 }  // namespace dataset

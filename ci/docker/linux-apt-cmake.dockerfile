@@ -21,8 +21,9 @@ FROM ${base}
 RUN apt-get update && \
     apt-get install -y -q \
         libidn11 \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+        wget && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 ARG cmake=3.2.3
 RUN wget -nv -O - https://github.com/Kitware/CMake/releases/download/v${cmake}/cmake-${cmake}-Linux-x86_64.tar.gz | tar -xzf - -C /opt

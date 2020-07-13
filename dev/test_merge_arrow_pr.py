@@ -26,22 +26,22 @@ import merge_arrow_pr
 
 FakeIssue = namedtuple('issue', ['fields'])
 FakeFields = namedtuple('fields', ['status', 'summary', 'assignee',
-                                   'components'])
+                                   'components', 'fixVersions'])
 FakeAssignee = namedtuple('assignee', ['displayName'])
 FakeStatus = namedtuple('status', ['name'])
 FakeComponent = namedtuple('component', ['name'])
-FakeProjectVersion = namedtuple('version', ['name', 'raw'])
+FakeVersion = namedtuple('version', ['name', 'raw'])
 
 RAW_VERSION_JSON = [
-    {'version': 'JS-0.4.0', 'released': False},
-    {'version': '0.11.0', 'released': False},
-    {'version': '0.12.0', 'released': False},
-    {'version': '0.10.0', 'released': True},
-    {'version': '0.9.0', 'released': True}
+    {'name': 'JS-0.4.0', 'released': False},
+    {'name': '0.11.0', 'released': False},
+    {'name': '0.12.0', 'released': False},
+    {'name': '0.10.0', 'released': True},
+    {'name': '0.9.0', 'released': True}
 ]
 
 
-SOURCE_VERSIONS = [FakeProjectVersion(raw['version'], raw)
+SOURCE_VERSIONS = [FakeVersion(raw['name'], raw)
                    for raw in RAW_VERSION_JSON]
 
 TRANSITIONS = [{'name': 'Resolve Issue', 'id': 1}]
@@ -49,13 +49,15 @@ TRANSITIONS = [{'name': 'Resolve Issue', 'id': 1}]
 jira_id = 'ARROW-1234'
 status = FakeStatus('In Progress')
 fields = FakeFields(status, 'issue summary', FakeAssignee('groundhog'),
-                    [FakeComponent('C++'), FakeComponent('Format')])
+                    [FakeComponent('C++'), FakeComponent('Format')],
+                    [])
 FAKE_ISSUE_1 = FakeIssue(fields)
 
 
 class FakeJIRA:
 
-    def __init__(self, issue=None, project_versions=None, transitions=None):
+    def __init__(self, issue=None, project_versions=None, transitions=None,
+                 current_fix_versions=None):
         self._issue = issue
         self._project_versions = project_versions
         self._transitions = transitions
@@ -109,12 +111,11 @@ def test_jira_fix_versions():
 
 def test_jira_no_suggest_patch_release():
     versions_json = [
-        {'version': '0.11.1', 'released': False},
-        {'version': '0.12.0', 'released': False},
+        {'name': '0.11.1', 'released': False},
+        {'name': '0.12.0', 'released': False},
     ]
 
-    versions = [FakeProjectVersion(raw['version'], raw)
-                for raw in versions_json]
+    versions = [FakeVersion(raw['name'], raw) for raw in versions_json]
 
     jira = FakeJIRA(project_versions=versions, transitions=TRANSITIONS)
     issue = merge_arrow_pr.JiraIssue(jira, 'ARROW-1234', 'ARROW', FakeCLI())
@@ -126,14 +127,14 @@ def test_jira_no_suggest_patch_release():
 def test_jira_parquet_no_suggest_non_cpp():
     # ARROW-7351
     versions_json = [
-        {'version': 'cpp-1.5.0', 'released': True},
-        {'version': 'cpp-1.6.0', 'released': False},
-        {'version': 'cpp-1.7.0', 'released': False},
-        {'version': '1.11.0', 'released': False},
-        {'version': '1.12.0', 'released': False}
+        {'name': 'cpp-1.5.0', 'released': True},
+        {'name': 'cpp-1.6.0', 'released': False},
+        {'name': 'cpp-1.7.0', 'released': False},
+        {'name': '1.11.0', 'released': False},
+        {'name': '1.12.0', 'released': False}
     ]
 
-    versions = [FakeProjectVersion(raw['version'], raw)
+    versions = [FakeVersion(raw['name'], raw)
                 for raw in versions_json]
 
     jira = FakeJIRA(project_versions=versions, transitions=TRANSITIONS)
@@ -231,7 +232,7 @@ def test_multiple_authors_bad_input():
 def test_jira_already_resolved():
     status = FakeStatus('Resolved')
     fields = FakeFields(status, 'issue summary', FakeAssignee('groundhog'),
-                        [FakeComponent('Java')])
+                        [FakeComponent('Java')], [])
     issue = FakeIssue(fields)
 
     jira = FakeJIRA(issue=issue,
@@ -244,6 +245,49 @@ def test_jira_already_resolved():
     with pytest.raises(Exception,
                        match="ARROW-1234 already has status 'Resolved'"):
         issue.resolve(fix_versions, "")
+
+
+def test_no_unset_point_release_fix_version():
+    # ARROW-6915: We have had the problem of issues marked with a point release
+    # having their fix versions overwritten by the merge tool. This verifies
+    # that existing patch release versions are carried over
+    status = FakeStatus('In Progress')
+
+    versions_json = {
+        '0.14.2': {'name': '0.14.2', 'id': 1},
+        '0.15.1': {'name': '0.15.1', 'id': 2},
+        '0.16.0': {'name': '0.16.0', 'id': 3},
+        '0.17.0': {'name': '0.17.0', 'id': 4}
+    }
+
+    fields = FakeFields(status, 'summary', FakeAssignee('someone'),
+                        [FakeComponent('Java')],
+                        [FakeVersion(v, versions_json[v])
+                         for v in ['0.17.0', '0.15.1', '0.14.2']])
+    issue = FakeIssue(fields)
+
+    jira = FakeJIRA(issue=issue, project_versions=SOURCE_VERSIONS,
+                    transitions=TRANSITIONS)
+
+    issue = merge_arrow_pr.JiraIssue(jira, 'ARROW-1234', 'ARROW', FakeCLI())
+    issue.resolve([versions_json['0.16.0']], "a comment")
+
+    assert jira.captured_transition == {
+        'jira_id': 'ARROW-1234',
+        'transition_id': 1,
+        'comment': 'a comment',
+        'fixVersions': [versions_json[v]
+                        for v in ['0.16.0', '0.15.1', '0.14.2']]
+    }
+
+    issue.resolve([versions_json['0.15.1']], "a comment")
+
+    assert jira.captured_transition == {
+        'jira_id': 'ARROW-1234',
+        'transition_id': 1,
+        'comment': 'a comment',
+        'fixVersions': [versions_json[v] for v in ['0.15.1', '0.14.2']]
+    }
 
 
 def test_jira_output_no_components():

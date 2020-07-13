@@ -8,6 +8,7 @@ install_arrow(
   nightly = FALSE,
   binary = Sys.getenv("LIBARROW_BINARY", TRUE),
   use_system = Sys.getenv("ARROW_USE_PKG_CONFIG", FALSE),
+  minimal = Sys.getenv("LIBARROW_MINIMAL", FALSE),
   repos = getOption("repos"),
   ...
 )
@@ -28,6 +29,10 @@ See \code{vignette("install", package = "arrow")} for further details.}
 \item{use_system}{logical: Should we use \code{pkg-config} to look for Arrow
 system packages? Default is \code{FALSE}. If \code{TRUE}, source installation may be
 faster, but there is a risk of version mismatch.}
+
+\item{minimal}{logical: If building from source, should we build without
+optional dependencies (compression libraries, for example)? Default is
+\code{FALSE}.}
 
 \item{repos}{character vector of base URLs of the repositories to install
 from (passed to \code{install.packages()})}

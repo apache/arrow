@@ -53,7 +53,7 @@ update_versions() {
   git add configure.ac meson.build
   cd -
 
-  cd "${SOURCE_DIR}/../../ci"
+  cd "${SOURCE_DIR}/../../ci/scripts"
   sed -i.bak -E -e \
     "s/^pkgver=.+/pkgver=${r_version}/" \
     PKGBUILD

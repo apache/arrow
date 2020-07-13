@@ -18,6 +18,7 @@
 #include "./arrow_types.h"
 
 #if defined(ARROW_R_WITH_ARROW)
+#include <arrow/type.h>
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Field> Field__initialize(

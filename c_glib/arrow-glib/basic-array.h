@@ -94,7 +94,14 @@ struct _GArrowPrimitiveArrayClass
   GArrowArrayClass parent_class;
 };
 
-GArrowBuffer *garrow_primitive_array_get_buffer(GArrowPrimitiveArray *array);
+#ifndef GARROW_DISABLE_DEPRECATED
+GARROW_DEPRECATED_IN_1_0_FOR(garrow_primitive_array_get_data_buffer)
+GArrowBuffer *
+garrow_primitive_array_get_buffer(GArrowPrimitiveArray *array);
+#endif
+GARROW_AVAILABLE_IN_1_0
+GArrowBuffer *
+garrow_primitive_array_get_data_buffer(GArrowPrimitiveArray *array);
 
 
 #define GARROW_TYPE_BOOLEAN_ARRAY (garrow_boolean_array_get_type())
@@ -363,13 +370,18 @@ struct _GArrowBinaryArrayClass
 
 GArrowBinaryArray *garrow_binary_array_new(gint64 length,
                                            GArrowBuffer *value_offsets,
-                                           GArrowBuffer *data,
+                                           GArrowBuffer *value_data,
                                            GArrowBuffer *null_bitmap,
                                            gint64 n_nulls);
 
 GBytes *garrow_binary_array_get_value(GArrowBinaryArray *array,
                                       gint64 i);
+#ifndef GARROW_DISABLE_DEPRECATED
+GARROW_DEPRECATED_IN_1_0_FOR(garrow_binary_array_get_data_buffer)
 GArrowBuffer *garrow_binary_array_get_buffer(GArrowBinaryArray *array);
+#endif
+GARROW_AVAILABLE_IN_1_0
+GArrowBuffer *garrow_binary_array_get_data_buffer(GArrowBinaryArray *array);
 GArrowBuffer *garrow_binary_array_get_offsets_buffer(GArrowBinaryArray *array);
 
 
@@ -384,19 +396,26 @@ struct _GArrowLargeBinaryArrayClass
   GArrowArrayClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_16
 GArrowLargeBinaryArray *garrow_large_binary_array_new(gint64 length,
                                                       GArrowBuffer *value_offsets,
-                                                      GArrowBuffer *data,
+                                                      GArrowBuffer *value_data,
                                                       GArrowBuffer *null_bitmap,
                                                       gint64 n_nulls);
 
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_16
 GBytes *garrow_large_binary_array_get_value(GArrowLargeBinaryArray *array,
                                             gint64 i);
+#ifndef GARROW_DISABLE_DEPRECATED
+GARROW_DEPRECATED_IN_1_0_FOR(garrow_large_binary_array_get_data_buffer)
+GARROW_AVAILABLE_IN_0_16
+GArrowBuffer *
+garrow_large_binary_array_get_buffer(GArrowLargeBinaryArray *array);
+#endif
 GARROW_AVAILABLE_IN_1_0
-GArrowBuffer *garrow_large_binary_array_get_buffer(GArrowLargeBinaryArray *array);
-GARROW_AVAILABLE_IN_1_0
+GArrowBuffer *
+garrow_large_binary_array_get_data_buffer(GArrowLargeBinaryArray *array);
+GARROW_AVAILABLE_IN_0_16
 GArrowBuffer *garrow_large_binary_array_get_offsets_buffer(GArrowLargeBinaryArray *array);
 
 
@@ -413,7 +432,7 @@ struct _GArrowStringArrayClass
 
 GArrowStringArray *garrow_string_array_new(gint64 length,
                                            GArrowBuffer *value_offsets,
-                                           GArrowBuffer *data,
+                                           GArrowBuffer *value_data,
                                            GArrowBuffer *null_bitmap,
                                            gint64 n_nulls);
 
@@ -432,14 +451,14 @@ struct _GArrowLargeStringArrayClass
   GArrowLargeBinaryArrayClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_16
 GArrowLargeStringArray *garrow_large_string_array_new(gint64 length,
                                                       GArrowBuffer *value_offsets,
-                                                      GArrowBuffer *data,
+                                                      GArrowBuffer *value_data,
                                                       GArrowBuffer *null_bitmap,
                                                       gint64 n_nulls);
 
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_16
 gchar *garrow_large_string_array_get_string(GArrowLargeStringArray *array,
                                             gint64 i);
 

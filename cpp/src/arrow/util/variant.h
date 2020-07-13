@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_UTIL_VARIANT_H
-#define ARROW_UTIL_VARIANT_H
+#pragma once
 
 #include "arrow/vendored/variant.hpp"  // IWYU pragma: export
 
@@ -32,5 +31,3 @@ using ::mpark::visit;
 
 }  // namespace util
 }  // namespace arrow
-
-#endif  // ARROW_UTIL_VARIANT_H

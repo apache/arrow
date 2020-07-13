@@ -203,7 +203,7 @@ garrow_schema_get_field_by_name(GArrowSchema *schema,
  *
  * Returns: The index of the found field, -1 on not found.
  *
- * Since: 1.0.0
+ * Since: 0.15.0
  */
 gint
 garrow_schema_get_field_index(GArrowSchema *schema,
@@ -298,10 +298,9 @@ garrow_schema_add_field(GArrowSchema *schema,
 {
   const auto arrow_schema = garrow_schema_get_raw(schema);
   const auto arrow_field = garrow_field_get_raw(field);
-  std::shared_ptr<arrow::Schema> arrow_new_schema;
-  auto status = arrow_schema->AddField(i, arrow_field, &arrow_new_schema);
-  if (garrow_error_check(error, status, "[schema][add-field]")) {
-    return garrow_schema_new_raw(&arrow_new_schema);
+  auto maybe_new_schema = arrow_schema->AddField(i, arrow_field);
+  if (garrow::check(error, maybe_new_schema, "[schema][add-field]")) {
+    return garrow_schema_new_raw(&(*maybe_new_schema));
   } else {
     return NULL;
   }
@@ -324,10 +323,9 @@ garrow_schema_remove_field(GArrowSchema *schema,
                            GError **error)
 {
   const auto arrow_schema = garrow_schema_get_raw(schema);
-  std::shared_ptr<arrow::Schema> arrow_new_schema;
-  auto status = arrow_schema->RemoveField(i, &arrow_new_schema);
-  if (garrow_error_check(error, status, "[schema][remove-field]")) {
-    return garrow_schema_new_raw(&arrow_new_schema);
+  auto maybe_new_schema = arrow_schema->RemoveField(i);
+  if (garrow::check(error, maybe_new_schema, "[schema][remove-field]")) {
+    return garrow_schema_new_raw(&(*maybe_new_schema));
   } else {
     return NULL;
   }
@@ -353,10 +351,9 @@ garrow_schema_replace_field(GArrowSchema *schema,
 {
   const auto arrow_schema = garrow_schema_get_raw(schema);
   const auto arrow_field = garrow_field_get_raw(field);
-  std::shared_ptr<arrow::Schema> arrow_new_schema;
-  auto status = arrow_schema->SetField(i, arrow_field, &arrow_new_schema);
-  if (garrow_error_check(error, status, "[schema][replace-field]")) {
-    return garrow_schema_new_raw(&arrow_new_schema);
+  auto maybe_new_schema = arrow_schema->SetField(i, arrow_field);
+  if (garrow::check(error, maybe_new_schema, "[schema][replace-field]")) {
+    return garrow_schema_new_raw(&(*maybe_new_schema));
   } else {
     return NULL;
   }

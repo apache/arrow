@@ -83,7 +83,7 @@ pub(super) fn take_value_indices_from_list(
             if start != end {
                 // type annotation needed to guide compiler a bit
                 let mut offsets: Vec<Option<u32>> =
-                    (start..end).map(|v| Some(v)).collect::<Vec<Option<u32>>>();
+                    (start..end).map(Some).collect::<Vec<Option<u32>>>();
                 values.append(&mut offsets);
             }
         } else {
@@ -113,7 +113,7 @@ where
     let mut validity = T::mask_init(true);
 
     // Validity based on `Bitmap`
-    if let &Some(b) = &bitmap {
+    if let Some(b) = bitmap {
         for j in i..min(array_len, simd_upper_bound) {
             if !b.is_set(j) {
                 validity = T::mask_set(validity, j - i, false);
@@ -169,32 +169,35 @@ mod tests {
     #[test]
     fn test_apply_bin_op_to_option_bitmap() {
         assert_eq!(
-            Ok(None),
-            apply_bin_op_to_option_bitmap(&None, &None, |a, b| a & b)
+            None,
+            apply_bin_op_to_option_bitmap(&None, &None, |a, b| a & b).unwrap()
         );
         assert_eq!(
-            Ok(Some(Buffer::from([0b01101010]))),
+            Some(Buffer::from([0b01101010])),
             apply_bin_op_to_option_bitmap(
                 &Some(Bitmap::from(Buffer::from([0b01101010]))),
                 &None,
                 |a, b| a & b,
             )
+            .unwrap()
         );
         assert_eq!(
-            Ok(Some(Buffer::from([0b01001110]))),
+            Some(Buffer::from([0b01001110])),
             apply_bin_op_to_option_bitmap(
                 &None,
                 &Some(Bitmap::from(Buffer::from([0b01001110]))),
                 |a, b| a & b,
             )
+            .unwrap()
         );
         assert_eq!(
-            Ok(Some(Buffer::from([0b01001010]))),
+            Some(Buffer::from([0b01001010])),
             apply_bin_op_to_option_bitmap(
                 &Some(Bitmap::from(Buffer::from([0b01101010]))),
                 &Some(Bitmap::from(Buffer::from([0b01001110]))),
                 |a, b| a & b,
             )
+            .unwrap()
         );
     }
 

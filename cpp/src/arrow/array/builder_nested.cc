@@ -17,19 +17,15 @@
 
 #include "arrow/array/builder_nested.h"
 
-#include <algorithm>
 #include <cstddef>
 #include <cstdint>
-#include <cstring>
 #include <utility>
 #include <vector>
 
 #include "arrow/buffer.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
-#include "arrow/type_traits.h"
-#include "arrow/util/bit_util.h"
-#include "arrow/util/int_util.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
@@ -134,7 +130,7 @@ FixedSizeListBuilder::FixedSizeListBuilder(
     MemoryPool* pool, const std::shared_ptr<ArrayBuilder>& value_builder,
     const std::shared_ptr<DataType>& type)
     : ArrayBuilder(pool),
-      value_field_(type->child(0)),
+      value_field_(type->field(0)),
       list_size_(
           internal::checked_cast<const FixedSizeListType*>(type.get())->list_size()),
       value_builder_(value_builder) {}
@@ -175,7 +171,7 @@ Status FixedSizeListBuilder::AppendNulls(int64_t length) {
 }
 
 Status FixedSizeListBuilder::Resize(int64_t capacity) {
-  RETURN_NOT_OK(CheckCapacity(capacity, capacity_));
+  RETURN_NOT_OK(CheckCapacity(capacity));
   return ArrayBuilder::Resize(capacity);
 }
 
@@ -212,6 +208,9 @@ void StructBuilder::Reset() {
 }
 
 Status StructBuilder::AppendNulls(int64_t length) {
+  for (const auto& field : children_) {
+    RETURN_NOT_OK(field->AppendNulls(length));
+  }
   ARROW_RETURN_NOT_OK(Reserve(length));
   UnsafeAppendToBitmap(length, false);
   return Status::OK();
@@ -238,10 +237,10 @@ Status StructBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
 }
 
 std::shared_ptr<DataType> StructBuilder::type() const {
-  DCHECK_EQ(type_->children().size(), children_.size());
+  DCHECK_EQ(type_->fields().size(), children_.size());
   std::vector<std::shared_ptr<Field>> fields(children_.size());
   for (int i = 0; i < static_cast<int>(fields.size()); ++i) {
-    fields[i] = type_->child(i)->WithType(children_[i]->type());
+    fields[i] = type_->field(i)->WithType(children_[i]->type());
   }
   return struct_(std::move(fields));
 }

@@ -18,15 +18,19 @@
 #include "./arrow_types.h"
 
 #if defined(ARROW_R_WITH_ARROW)
+#include <arrow/io/compressed.h>
+#include <arrow/util/compression.h>
+
+RCPP_EXPOSED_ENUM_NODECL(arrow::Compression::type)
 
 // [[arrow::export]]
-std::unique_ptr<arrow::util::Codec> util___Codec__Create(arrow::Compression::type codec,
+std::shared_ptr<arrow::util::Codec> util___Codec__Create(arrow::Compression::type codec,
                                                          int compression_level) {
-  return VALUE_OR_STOP(arrow::util::Codec::Create(codec, compression_level));
+  return ValueOrStop(arrow::util::Codec::Create(codec, compression_level));
 }
 
 // [[arrow::export]]
-std::string util___Codec__name(const std::unique_ptr<arrow::util::Codec>& codec) {
+std::string util___Codec__name(const std::shared_ptr<arrow::util::Codec>& codec) {
   return codec->name();
 }
 
@@ -37,16 +41,16 @@ bool util___Codec__IsAvailable(arrow::Compression::type codec) {
 
 // [[arrow::export]]
 std::shared_ptr<arrow::io::CompressedOutputStream> io___CompressedOutputStream__Make(
-    const std::unique_ptr<arrow::util::Codec>& codec,
+    const std::shared_ptr<arrow::util::Codec>& codec,
     const std::shared_ptr<arrow::io::OutputStream>& raw) {
-  return VALUE_OR_STOP(arrow::io::CompressedOutputStream::Make(codec.get(), raw));
+  return ValueOrStop(arrow::io::CompressedOutputStream::Make(codec.get(), raw));
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::io::CompressedInputStream> io___CompressedInputStream__Make(
-    const std::unique_ptr<arrow::util::Codec>& codec,
+    const std::shared_ptr<arrow::util::Codec>& codec,
     const std::shared_ptr<arrow::io::InputStream>& raw) {
-  return VALUE_OR_STOP(arrow::io::CompressedInputStream::Make(codec.get(), raw));
+  return ValueOrStop(arrow::io::CompressedInputStream::Make(codec.get(), raw));
 }
 
 #endif

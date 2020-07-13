@@ -30,8 +30,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __AE_H__
-#define __AE_H__
+#pragma once
 
 #include <time.h>
 
@@ -120,4 +119,3 @@ void aeSetBeforeSleepProc(aeEventLoop *eventLoop, aeBeforeSleepProc *beforesleep
 int aeGetSetSize(aeEventLoop *eventLoop);
 int aeResizeSetSize(aeEventLoop *eventLoop, int setsize);
 
-#endif

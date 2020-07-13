@@ -18,9 +18,9 @@
 .. currentmodule:: pyarrow
 .. _python-development:
 
-******************
+==================
 Python Development
-******************
+==================
 
 This page provides general Python development guidelines and source build
 instructions for all platforms.
@@ -29,22 +29,18 @@ Coding Style
 ============
 
 We follow a similar PEP8-like coding style to the `pandas project
-<https://github.com/pandas-dev/pandas>`_.
-
-The code must pass ``flake8`` (available from pip or conda) or it will fail the
-build. Check for style errors before submitting your pull request with:
+<https://github.com/pandas-dev/pandas>`_.  To check style issues, use the
+:ref:`Archery <archery>` subcommand ``lint``:
 
 .. code-block:: shell
 
-   flake8 .
-   flake8 --config=.flake8.cython .
+   archery lint --python
 
-The package ``autopep8`` (also available from pip or conda) can automatically
-fix many of the errors reported by ``flake8``:
+Some of the issues can be automatically fixed by passing the ``--fix`` option:
 
 .. code-block:: shell
 
-   autopep8 --in-place --global-config=.flake8.cython pyarrow/table.pxi
+   archery lint --python --fix
 
 Unit Testing
 ============
@@ -55,9 +51,7 @@ like so:
 
 .. code-block:: shell
 
-   pushd arrow/python
    pytest pyarrow
-   popd
 
 Package requirements to run the unit tests are found in
 ``requirements-test.txt`` and can be installed if needed with ``pip install -r
@@ -252,7 +246,8 @@ folder as the repositories and a target installation folder:
 
    virtualenv pyarrow
    source ./pyarrow/bin/activate
-   pip install six numpy pandas cython pytest hypothesis
+   pip install -r arrow/python/requirements-build.txt \
+        -r arrow/python/requirements-test.txt
 
    # This is the folder where we will install the Arrow libraries during
    # development
@@ -281,9 +276,6 @@ Now build and install the Arrow C++ libraries:
 
    cmake -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
          -DCMAKE_INSTALL_LIBDIR=lib \
-         -DARROW_FLIGHT=ON \
-         -DARROW_GANDIVA=ON \
-         -DARROW_ORC=ON \
          -DARROW_WITH_BZ2=ON \
          -DARROW_WITH_ZLIB=ON \
          -DARROW_WITH_ZSTD=ON \
@@ -292,24 +284,23 @@ Now build and install the Arrow C++ libraries:
          -DARROW_WITH_BROTLI=ON \
          -DARROW_PARQUET=ON \
          -DARROW_PYTHON=ON \
-         -DARROW_PLASMA=ON \
          -DARROW_BUILD_TESTS=ON \
          ..
    make -j4
    make install
    popd
 
-Many of these components are optional, and can be switched off by setting them
-to ``OFF``:
+There are a number of optional components that can can be switched ON by
+adding flags with ``ON``:
 
 * ``ARROW_FLIGHT``: RPC framework
 * ``ARROW_GANDIVA``: LLVM-based expression compiler
 * ``ARROW_ORC``: Support for Apache ORC file format
 * ``ARROW_PARQUET``: Support for Apache Parquet file format
 * ``ARROW_PLASMA``: Shared memory object store
-* ``ARROW_WITH_{BZ2, ZLIB, ZSTD, LZ4, SNAPPY, BROTLI}``: Build support for
-  compression libraries, used for reading and writing Parquet files and other
-  things.
+
+Anything set to ``ON`` above can also be turned off. Note that some compression
+libraries are needed for Parquet support.
 
 If multiple versions of Python are installed in your environment, you may have
 to pass additional parameters to cmake so that it can find the right
@@ -339,9 +330,6 @@ Now, build pyarrow:
 .. code-block:: shell
 
    pushd arrow/python
-   export PYARROW_WITH_FLIGHT=1
-   export PYARROW_WITH_GANDIVA=1
-   export PYARROW_WITH_ORC=1
    export PYARROW_WITH_PARQUET=1
    python setup.py build_ext --inplace
    popd
@@ -360,6 +348,14 @@ libraries), one can set ``--bundle-arrow-cpp``:
    pip install wheel  # if not installed
    python setup.py build_ext --build-type=$ARROW_BUILD_TYPE \
           --bundle-arrow-cpp bdist_wheel
+
+Docker examples
+~~~~~~~~~~~~~~~
+
+If you are having difficulty building the Python library from source, take a
+look at the ``python/examples/minimal_build`` directory which illustrates a
+complete build and test from source both with the conda and pip/virtualenv
+build methods.
 
 Building with CUDA support
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -461,8 +457,12 @@ Let's configure, build and install the Arrow C++ libraries:
    pushd arrow\cpp\build
    cmake -G "%PYARROW_CMAKE_GENERATOR%" ^
        -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
+       -DCMAKE_UNITY_BUILD=ON ^
        -DARROW_CXXFLAGS="/WX /MP" ^
-       -DARROW_GANDIVA=on ^
+       -DARROW_WITH_LZ4=on ^
+       -DARROW_WITH_SNAPPY=on ^
+       -DARROW_WITH_ZLIB=on ^
+       -DARROW_WITH_ZSTD=on ^
        -DARROW_PARQUET=on ^
        -DARROW_PYTHON=on ^
        ..
@@ -474,7 +474,6 @@ Now, we can build pyarrow:
 .. code-block:: shell
 
    pushd arrow\python
-   set PYARROW_WITH_GANDIVA=1
    set PYARROW_WITH_PARQUET=1
    python setup.py build_ext --inplace
    popd
@@ -528,7 +527,6 @@ configuration of the Arrow C++ library build:
    cmake -G "%PYARROW_CMAKE_GENERATOR%" ^
        -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
        -DARROW_CXXFLAGS="/WX /MP" ^
-       -DARROW_GANDIVA=on ^
        -DARROW_PARQUET=on ^
        -DARROW_PYTHON=on ^
        -DARROW_BUILD_TESTS=ON ^
@@ -556,8 +554,6 @@ To run all tests of the Arrow C++ library, you can also run ``ctest``:
    pushd arrow\cpp\build
    ctest
    popd
-
-
 
 Windows Caveats
 ---------------

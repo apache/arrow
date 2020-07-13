@@ -76,20 +76,22 @@ class ArrayTest < Test::Unit::TestCase
     def setup
       values = [true, false, false, true]
       @array = Arrow::BooleanArray.new(values)
+      @options = Arrow::FilterOptions.new
+      @options.null_selection_behavior = :emit_null
     end
 
     test("Array: boolean") do
       filter = [nil, true, true, false]
       filtered_array = Arrow::BooleanArray.new([nil, false, false])
       assert_equal(filtered_array,
-                   @array.filter(filter))
+                   @array.filter(filter, @options))
     end
 
     test("Arrow::BooleanArray") do
       filter = Arrow::BooleanArray.new([nil, true, true, false])
       filtered_array = Arrow::BooleanArray.new([nil, false, false])
       assert_equal(filtered_array,
-                   @array.filter(filter))
+                   @array.filter(filter, @options))
     end
 
     test("Arrow::ChunkedArray") do
@@ -100,7 +102,7 @@ class ArrayTest < Test::Unit::TestCase
       filter = Arrow::ChunkedArray.new(chunks)
       filtered_array = Arrow::BooleanArray.new([nil, false, false])
       assert_equal(filtered_array,
-                   @array.filter(filter))
+                   @array.filter(filter, @options))
     end
   end
 

@@ -15,14 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_NODE_VISITOR_H
-#define GANDIVA_NODE_VISITOR_H
+#pragma once
 
 #include <string>
 
 #include "arrow/status.h"
 
-#include "gandiva/logging.h"
+#include "arrow/util/logging.h"
 #include "gandiva/visibility.h"
 
 namespace gandiva {
@@ -51,5 +50,3 @@ class GANDIVA_EXPORT NodeVisitor {
 };
 
 }  // namespace gandiva
-
-#endif  // GANDIVA_NODE_VISITOR_H

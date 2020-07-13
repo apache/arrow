@@ -144,7 +144,7 @@ ${PYTHON:-python} "${SOURCE_DIR}/changelog.py" ${version} 1 | \
   sed -e 's/^#/##/g' >> "${announce_file}"
 
 cat <<ANNOUNCE >> "${announce_file}"
-[1]: https://www.apache.org/dyn/closer.cgi/arrow/arrow-${version}/
+[1]: https://www.apache.org/dyn/closer.lua/arrow/arrow-${version}/
 [2]: https://bintray.com/apache/arrow/centos/${version}/
 [3]: https://bintray.com/apache/arrow/debian/${version}/
 [4]: https://bintray.com/apache/arrow/python/${version}/
@@ -214,6 +214,8 @@ popd
 # Update versions.yml
 pinned_version=$(echo ${version} | sed -e 's/\.[^.]*$/.*/')
 
+apache_download_url=https://downloads.apache.org
+
 cat <<YAML > "${versions_yml}"
 # Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements.  See the NOTICE file distributed with
@@ -239,13 +241,13 @@ current:
   git-tag: '${git_tag_hash}'
   github-tag-link: 'https://github.com/apache/arrow/releases/tag/${git_tag}'
   release-notes: 'https://arrow.apache.org/release/${version}.html'
-  mirrors: 'https://www.apache.org/dyn/closer.cgi/arrow/arrow-${version}/'
+  mirrors: 'https://www.apache.org/dyn/closer.lua/arrow/arrow-${version}/'
   tarball_name: 'apache-arrow-${version}.tar.gz'
-  mirrors-tar: 'https://www.apache.org/dyn/closer.cgi/arrow/arrow-${version}/apache-arrow-${version}.tar.gz'
+  mirrors-tar: 'https://www.apache.org/dyn/closer.lua/arrow/arrow-${version}/apache-arrow-${version}.tar.gz'
   java-artifacts: 'http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22org.apache.arrow%22%20AND%20v%3A%22${version}%22'
-  asc: 'https://www.apache.org/dist/arrow/arrow-${version}/apache-arrow-${version}.tar.gz.asc'
-  sha256: 'https://www.apache.org/dist/arrow/arrow-${version}/apache-arrow-${version}.tar.gz.sha256'
-  sha512: 'https://www.apache.org/dist/arrow/arrow-${version}/apache-arrow-${version}.tar.gz.sha512'
+  asc: '${apache_download_url}/arrow/arrow-${version}/apache-arrow-${version}.tar.gz.asc'
+  sha256: '${apache_download_url}/arrow/arrow-${version}/apache-arrow-${version}.tar.gz.sha256'
+  sha512: '${apache_download_url}/arrow/arrow-${version}/apache-arrow-${version}.tar.gz.sha512'
 YAML
 git add "${versions_yml}"
 

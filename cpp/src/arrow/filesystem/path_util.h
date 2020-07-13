@@ -114,6 +114,9 @@ std::string ToBackslashes(util::string_view s);
 ARROW_EXPORT
 std::string ToSlashes(util::string_view s);
 
+ARROW_EXPORT
+bool IsEmptyPath(util::string_view s);
+
 }  // namespace internal
 }  // namespace fs
 }  // namespace arrow

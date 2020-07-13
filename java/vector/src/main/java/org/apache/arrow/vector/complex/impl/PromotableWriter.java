@@ -19,11 +19,13 @@ package org.apache.arrow.vector.complex.impl;
 
 import java.math.BigDecimal;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.NullVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.complex.AbstractStructVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
+import org.apache.arrow.vector.complex.LargeListVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.UnionVector;
@@ -34,8 +36,6 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
-
-import io.netty.buffer.ArrowBuf;
 
 /**
  * This FieldWriter implementation delegates all FieldWriter API calls to an inner FieldWriter. This inner field writer
@@ -50,6 +50,7 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
   private final AbstractStructVector parentContainer;
   private final ListVector listVector;
   private final FixedSizeListVector fixedListVector;
+  private final LargeListVector largeListVector;
   private final NullableStructWriterFactory nullableStructWriterFactory;
   private int position;
   private static final int MAX_DECIMAL_PRECISION = 38;
@@ -88,6 +89,7 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
     this.parentContainer = parentContainer;
     this.listVector = null;
     this.fixedListVector = null;
+    this.largeListVector = null;
     this.nullableStructWriterFactory = nullableStructWriterFactory;
     init(v);
   }
@@ -116,6 +118,16 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
    * Constructs a new instance.
    *
    * @param v The vector to initialize the writer with.
+   * @param largeListVector The vector that serves as a parent of v.
+   */
+  public PromotableWriter(ValueVector v, LargeListVector largeListVector) {
+    this(v, largeListVector, NullableStructWriterFactory.getNullableStructWriterFactoryInstance());
+  }
+
+  /**
+   * Constructs a new instance.
+   *
+   * @param v The vector to initialize the writer with.
    * @param listVector The vector that serves as a parent of v.
    * @param nullableStructWriterFactory The factory to create the delegate writer.
    */
@@ -126,6 +138,7 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
     this.listVector = listVector;
     this.parentContainer = null;
     this.fixedListVector = null;
+    this.largeListVector = null;
     this.nullableStructWriterFactory = nullableStructWriterFactory;
     init(v);
   }
@@ -142,6 +155,26 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
       FixedSizeListVector fixedListVector,
       NullableStructWriterFactory nullableStructWriterFactory) {
     this.fixedListVector = fixedListVector;
+    this.parentContainer = null;
+    this.listVector = null;
+    this.largeListVector = null;
+    this.nullableStructWriterFactory = nullableStructWriterFactory;
+    init(v);
+  }
+
+  /**
+   * Constructs a new instance.
+   *
+   * @param v The vector to initialize the writer with.
+   * @param largeListVector The vector that serves as a parent of v.
+   * @param nullableStructWriterFactory The factory to create the delegate writer.
+   */
+  public PromotableWriter(
+      ValueVector v,
+      LargeListVector largeListVector,
+      NullableStructWriterFactory nullableStructWriterFactory) {
+    this.largeListVector = largeListVector;
+    this.fixedListVector = null;
     this.parentContainer = null;
     this.listVector = null;
     this.nullableStructWriterFactory = nullableStructWriterFactory;
@@ -189,6 +222,11 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
   }
 
   @Override
+  public void writeNull() {
+    setPosition(idx() + 1);
+  }
+
+  @Override
   public void setPosition(int index) {
     super.setPosition(index);
     FieldWriter w = getWriter();
@@ -219,8 +257,14 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
         arrowType = type.getType();
       }
       FieldType fieldType = new FieldType(addVectorAsNullable, arrowType, null, null);
-      ValueVector v = listVector != null ? listVector.addOrGetVector(fieldType).getVector() :
-          fixedListVector.addOrGetVector(fieldType).getVector();
+      ValueVector v;
+      if (listVector != null) {
+        v = listVector.addOrGetVector(fieldType).getVector();
+      } else if (fixedListVector != null) {
+        v = fixedListVector.addOrGetVector(fieldType).getVector();
+      } else {
+        v = largeListVector.addOrGetVector(fieldType).getVector();
+      }
       v.allocateNew();
       setWriter(v);
       writer.setPosition(position);
@@ -256,6 +300,8 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
       unionVector = listVector.promoteToUnion();
     } else if (fixedListVector != null) {
       unionVector = fixedListVector.promoteToUnion();
+    } else if (largeListVector != null) {
+      unionVector = largeListVector.promoteToUnion();
     }
     unionVector.addVector((FieldVector) tp.getTo());
     writer = new UnionWriter(unionVector, nullableStructWriterFactory);

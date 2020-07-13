@@ -28,6 +28,7 @@ import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.util.ValueVectorUtility;
 import org.apache.avro.Schema;
 import org.apache.avro.io.Decoder;
 
@@ -104,6 +105,20 @@ public class AvroToArrowVectorIterator implements Iterator<VectorSchemaRoot>, Au
         compositeConsumer.consume(decoder);
         readRowCount++;
       }
+
+      if (targetBatchSize == NO_LIMIT_BATCH_SIZE) {
+        while (true) {
+          ValueVectorUtility.ensureCapacity(root, readRowCount + 1);
+          compositeConsumer.consume(decoder);
+          readRowCount++;
+        }
+      } else {
+        while (readRowCount < targetBatchSize) {
+          compositeConsumer.consume(decoder);
+          readRowCount++;
+        }
+      }
+
       root.setRowCount(readRowCount);
     } catch (EOFException eof) {
       // reach the end of encoder stream.
@@ -116,6 +131,10 @@ public class AvroToArrowVectorIterator implements Iterator<VectorSchemaRoot>, Au
 
   // Loads the next schema root or null if no more rows are available.
   private void load(VectorSchemaRoot root) {
+    final int targetBatchSize = config.getTargetBatchSize();
+    if (targetBatchSize != NO_LIMIT_BATCH_SIZE) {
+      ValueVectorUtility.preAllocate(root, targetBatchSize);
+    }
 
     long validConsumerCount = compositeConsumer.getConsumers().stream().filter(c ->
         !c.skippable()).count();

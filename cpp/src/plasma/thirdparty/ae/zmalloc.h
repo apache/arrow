@@ -27,8 +27,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef _ZMALLOC_H
-#define _ZMALLOC_H
+#pragma once
 
 #ifndef zmalloc
 #define zmalloc malloc
@@ -42,4 +41,3 @@
 #define zrealloc realloc
 #endif
 
-#endif /* _ZMALLOC_H */

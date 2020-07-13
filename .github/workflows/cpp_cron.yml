@@ -30,161 +30,103 @@ on:
         0 */12 * * *
 
 env:
+  DOCKER_BUILDKIT: 0
+  COMPOSE_DOCKER_CLI_BUILD: 1
   ARROW_ENABLE_TIMING_TESTS: OFF
+  ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
+  ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
 
 jobs:
-
-  debian:
-    name: AMD64 Debian ${{ matrix.debian }} C++
+  docker:
+    name: ${{ matrix.title }}
     runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') && github.repository == 'apache/arrow' }}
     strategy:
       fail-fast: false
       matrix:
-        debian: [10]
+        name:
+          - amd64-debian-10-cpp
+          - amd64-fedora-32-cpp
+          - amd64-ubuntu-16.04-cpp
+          - amd64-ubuntu-18.04-cpp
+          - amd64-ubuntu-18.04-cpp-cmake32
+        include:
+          - name: amd64-debian-10-cpp
+            image: debian-cpp
+            title: AMD64 Debian 10 C++
+            debian: 10
+          - name: amd64-fedora-32-cpp
+            image: fedora-cpp
+            title: AMD64 Fedora 32 C++
+            fedora: 32
+          - name: amd64-ubuntu-16.04-cpp
+            image: ubuntu-cpp
+            title: AMD64 Ubuntu 16.04 C++
+            ubuntu: 16.04
+          - name: amd64-ubuntu-18.04-cpp
+            image: ubuntu-cpp
+            title: AMD64 Ubuntu 18.04 C++
+            ubuntu: 18.04
+          - name: amd64-ubuntu-18.04-cpp-cmake32
+            image: ubuntu-cpp-cmake32
+            title: AMD64 Ubuntu 18.04 C++ CMake 3.2
+            ubuntu: 18.04
     env:
-      DEBIAN: ${{ matrix.debian }}
+      # the defaults here should correspond to the values in .env
+      ARCH: 'amd64'
+      DEBIAN: ${{ matrix.debian || 10 }}
+      FEDORA: ${{ matrix.fedora || 32 }}
+      UBUNTU: ${{ matrix.ubuntu || 18.04 }}
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v1
+        uses: actions/checkout@v2
         with:
-          submodules: true
-      - name: Docker Pull
-        shell: bash
-        run: docker-compose pull --ignore-pull-failures debian-cpp
-      - name: Docker Build
-        shell: bash
-        run: docker-compose build debian-cpp
-      - name: Docker Run
-        shell: bash
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        run: ci/scripts/util_checkout.sh
+      - name: Free Up Disk Space
+        run: ci/scripts/util_cleanup.sh
+      - name: Cache Docker Volumes
+        uses: actions/cache@v1
+        with:
+          path: .docker
+          key: ${{ matrix.name }}-${{ hashFiles('cpp/**') }}
+          restore-keys: ${{ matrix.name }}-
+      - name: Setup Python
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.8
+      - name: Setup Archery
+        run: pip install -e dev/archery[docker]
+      - name: Execute Docker Build
         run: |
           sudo sysctl -w kernel.core_pattern="core.%e.%p"
           ulimit -c unlimited
-          docker-compose run debian-cpp
+          archery docker run ${{ matrix.image }}
       - name: Docker Push
-        if: success() && github.repository == 'apache/arrow'
+        if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         continue-on-error: true
-        shell: bash
-        run: |
-          docker login -u ${{ secrets.DOCKERHUB_USER }} \
-                       -p ${{ secrets.DOCKERHUB_TOKEN }}
-          docker-compose push debian-cpp
-
-  fedora:
-    name: AMD64 Fedora ${{ matrix.fedora }} C++
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        fedora: [29]
-    env:
-      FEDORA: ${{ matrix.fedora }}
-    steps:
-      - name: Checkout Arrow
-        uses: actions/checkout@v1
-        with:
-          submodules: true
-      - name: Docker Pull
-        shell: bash
-        run: docker-compose pull --ignore-pull-failures fedora-cpp
-      - name: Docker Build
-        shell: bash
-        run: docker-compose build fedora-cpp
-      - name: Docker Run
-        shell: bash
-        run: |
-          sudo sysctl -w kernel.core_pattern="core.%e.%p"
-          ulimit -c unlimited
-          docker-compose run fedora-cpp
-      - name: Docker Push
-        if: success() && github.repository == 'apache/arrow'
-        continue-on-error: true
-        shell: bash
-        run: |
-          docker login -u ${{ secrets.DOCKERHUB_USER }} \
-                       -p ${{ secrets.DOCKERHUB_TOKEN }}
-          docker-compose push fedora-cpp
-
-  ubuntu:
-    name: AMD64 Ubuntu ${{ matrix.ubuntu }} C++
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        ubuntu: [16.04, 18.04]
-    env:
-      UBUNTU: ${{ matrix.ubuntu }}
-    steps:
-      - name: Checkout Arrow
-        uses: actions/checkout@v1
-        with:
-          submodules: true
-      - name: Docker Pull
-        shell: bash
-        run: docker-compose pull --ignore-pull-failures ubuntu-cpp
-      - name: Docker Build
-        shell: bash
-        run: docker-compose build ubuntu-cpp
-      - name: Docker Run
-        shell: bash
-        run: |
-          sudo sysctl -w kernel.core_pattern="core.%e.%p"
-          ulimit -c unlimited
-          docker-compose run ubuntu-cpp
-      # No push step, it's the same image as ubuntu-cpp-sanitizer
-
-  ubuntu-cmake32:
-    name: AMD64 Ubuntu 18.04 C++ CMake 3.2
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push'
-    strategy:
-      fail-fast: false
-      matrix:
-        ubuntu: [18.04]
-    env:
-      UBUNTU: ${{ matrix.ubuntu }}
-    steps:
-      - name: Checkout Arrow
-        uses: actions/checkout@v1
-        with:
-          submodules: true
-      - name: Docker Pull
-        shell: bash
-        run: |
-          docker-compose pull --ignore-pull-failures ubuntu-cpp
-          docker-compose pull --ignore-pull-failures ubuntu-cpp-cmake32
-      - name: Docker Build
-        shell: bash
-        run: |
-          docker-compose build ubuntu-cpp
-          docker-compose build ubuntu-cpp-cmake32
-      - name: Docker Run
-        shell: bash
-        run: |
-          sudo sysctl -w kernel.core_pattern="core.%e.%p"
-          ulimit -c unlimited
-          docker-compose run ubuntu-cpp-cmake32
-      - name: Docker Push
-        if: success() && github.repository == 'apache/arrow'
-        continue-on-error: true
-        shell: bash
-        run: |
-          docker login -u ${{ secrets.DOCKERHUB_USER }} \
-                       -p ${{ secrets.DOCKERHUB_TOKEN }}
-          docker-compose push ubuntu-cpp-cmake32
+        run: archery docker push ${{ matrix.image }}
 
   oss-fuzz:
     name: OSS-Fuzz build check
     runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') && github.repository == 'apache/arrow' }}
     strategy:
       fail-fast: false
       matrix:
         ubuntu: [18.04]
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v1
+        uses: actions/checkout@v2
         with:
-          path: arrow
-          submodules: true
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        shell: bash
+        run: ci/scripts/util_checkout.sh
+      - name: Free Up Disk Space
+        shell: bash
+        run: ci/scripts/util_cleanup.sh
       - name: Checkout OSS-Fuzz
         uses: actions/checkout@v1
         with:
@@ -192,11 +134,10 @@ jobs:
           repository: google/oss-fuzz
           ref: master
       - name: Install dependencies
-        shell: bash
         working-directory: ../oss-fuzz
         run: |
           python3 -m pip install setuptools
-          python3 -m pip install -r infra/travis/requirements.txt
+          python3 -m pip install -r infra/ci/requirements.txt
       - name: Build image
         shell: bash
         working-directory: ../oss-fuzz

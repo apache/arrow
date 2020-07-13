@@ -963,11 +963,11 @@ func i32ToJSON(arr *array.Int32) []interface{} {
 func i64FromJSON(vs []interface{}) []int64 {
 	o := make([]int64, len(vs))
 	for i, v := range vs {
-		vv, err := v.(json.Number).Int64()
+		vv, err := strconv.ParseInt(v.(string), 10, 64)
 		if err != nil {
 			panic(err)
 		}
-		o[i] = int64(vv)
+		o[i] = vv
 	}
 	return o
 }
@@ -975,7 +975,11 @@ func i64FromJSON(vs []interface{}) []int64 {
 func i64ToJSON(arr *array.Int64) []interface{} {
 	o := make([]interface{}, arr.Len())
 	for i := range o {
-		o[i] = arr.Value(i)
+		if arr.IsValid(i) {
+			o[i] = strconv.FormatInt(arr.Value(i), 10)
+		} else {
+			o[i] = "0"
+		}
 	}
 	return o
 }
@@ -1043,11 +1047,11 @@ func u32ToJSON(arr *array.Uint32) []interface{} {
 func u64FromJSON(vs []interface{}) []uint64 {
 	o := make([]uint64, len(vs))
 	for i, v := range vs {
-		vv, err := strconv.ParseUint(v.(json.Number).String(), 10, 64)
+		vv, err := strconv.ParseUint(v.(string), 10, 64)
 		if err != nil {
 			panic(err)
 		}
-		o[i] = uint64(vv)
+		o[i] = vv
 	}
 	return o
 }
@@ -1055,7 +1059,11 @@ func u64FromJSON(vs []interface{}) []uint64 {
 func u64ToJSON(arr *array.Uint64) []interface{} {
 	o := make([]interface{}, arr.Len())
 	for i := range o {
-		o[i] = arr.Value(i)
+		if arr.IsValid(i) {
+			o[i] = strconv.FormatUint(arr.Value(i), 10)
+		} else {
+			o[i] = "0"
+		}
 	}
 	return o
 }
@@ -1193,7 +1201,7 @@ func date32ToJSON(arr *array.Date32) []interface{} {
 func date64FromJSON(vs []interface{}) []arrow.Date64 {
 	o := make([]arrow.Date64, len(vs))
 	for i, v := range vs {
-		vv, err := v.(json.Number).Int64()
+		vv, err := strconv.ParseInt(v.(string), 10, 64)
 		if err != nil {
 			panic(err)
 		}
@@ -1205,7 +1213,11 @@ func date64FromJSON(vs []interface{}) []arrow.Date64 {
 func date64ToJSON(arr *array.Date64) []interface{} {
 	o := make([]interface{}, arr.Len())
 	for i := range o {
-		o[i] = int64(arr.Value(i))
+		if arr.IsValid(i) {
+			o[i] = strconv.FormatInt(int64(arr.Value(i)), 10)
+		} else {
+			o[i] = "0"
+		}
 	}
 	return o
 }
@@ -1233,7 +1245,7 @@ func time32ToJSON(arr *array.Time32) []interface{} {
 func time64FromJSON(vs []interface{}) []arrow.Time64 {
 	o := make([]arrow.Time64, len(vs))
 	for i, v := range vs {
-		vv, err := v.(json.Number).Int64()
+		vv, err := strconv.ParseInt(v.(string), 10, 64)
 		if err != nil {
 			panic(err)
 		}
@@ -1245,7 +1257,11 @@ func time64FromJSON(vs []interface{}) []arrow.Time64 {
 func time64ToJSON(arr *array.Time64) []interface{} {
 	o := make([]interface{}, arr.Len())
 	for i := range o {
-		o[i] = int64(arr.Value(i))
+		if arr.IsValid(i) {
+			o[i] = strconv.FormatInt(int64(arr.Value(i)), 10)
+		} else {
+			o[i] = "0"
+		}
 	}
 	return o
 }
@@ -1253,7 +1269,7 @@ func time64ToJSON(arr *array.Time64) []interface{} {
 func timestampFromJSON(vs []interface{}) []arrow.Timestamp {
 	o := make([]arrow.Timestamp, len(vs))
 	for i, v := range vs {
-		vv, err := v.(json.Number).Int64()
+		vv, err := strconv.ParseInt(v.(string), 10, 64)
 		if err != nil {
 			panic(err)
 		}
@@ -1265,7 +1281,11 @@ func timestampFromJSON(vs []interface{}) []arrow.Timestamp {
 func timestampToJSON(arr *array.Timestamp) []interface{} {
 	o := make([]interface{}, arr.Len())
 	for i := range o {
-		o[i] = int64(arr.Value(i))
+		if arr.IsValid(i) {
+			o[i] = strconv.FormatInt(int64(arr.Value(i)), 10)
+		} else {
+			o[i] = "0"
+		}
 	}
 	return o
 }
@@ -1318,7 +1338,7 @@ func daytimeintervalToJSON(arr *array.DayTimeInterval) []interface{} {
 func durationFromJSON(vs []interface{}) []arrow.Duration {
 	o := make([]arrow.Duration, len(vs))
 	for i, v := range vs {
-		vv, err := v.(json.Number).Int64()
+		vv, err := strconv.ParseInt(v.(string), 10, 64)
 		if err != nil {
 			panic(err)
 		}
@@ -1330,7 +1350,11 @@ func durationFromJSON(vs []interface{}) []arrow.Duration {
 func durationToJSON(arr *array.Duration) []interface{} {
 	o := make([]interface{}, arr.Len())
 	for i := range o {
-		o[i] = arr.Value(i)
+		if arr.IsValid(i) {
+			o[i] = strconv.FormatInt(int64(arr.Value(i)), 10)
+		} else {
+			o[i] = "0"
+		}
 	}
 	return o
 }

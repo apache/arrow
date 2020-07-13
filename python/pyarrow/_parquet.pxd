@@ -118,6 +118,8 @@ cdef extern from "parquet/api/schema.h" namespace "parquet" nogil:
             " parquet::Encoding::DELTA_LENGTH_BYTE_ARRAY"
         ParquetEncoding_DELTA_BYTE_ARRAY" parquet::Encoding::DELTA_BYTE_ARRAY"
         ParquetEncoding_RLE_DICTIONARY" parquet::Encoding::RLE_DICTIONARY"
+        ParquetEncoding_BYTE_STREAM_SPLIT \
+            " parquet::Encoding::BYTE_STREAM_SPLIT"
 
     enum ParquetCompression" parquet::Compression::type":
         ParquetCompression_UNCOMPRESSED" parquet::Compression::UNCOMPRESSED"
@@ -310,7 +312,7 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         int num_schema_elements()
 
         void set_file_path(const c_string& path)
-        void AppendRowGroups(const CFileMetaData& other)
+        void AppendRowGroups(const CFileMetaData& other) except +
 
         unique_ptr[CRowGroupMetaData] RowGroup(int i)
         const SchemaDescriptor* schema()
@@ -345,6 +347,7 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
 cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
     cdef cppclass WriterProperties:
         cppclass Builder:
+            Builder* data_page_version(ParquetDataPageVersion version)
             Builder* version(ParquetVersion version)
             Builder* compression(ParquetCompression codec)
             Builder* compression(const c_string& path,
@@ -359,6 +362,9 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
             Builder* enable_statistics()
             Builder* enable_statistics(const c_string& path)
             Builder* data_pagesize(int64_t size)
+            Builder* encoding(ParquetEncoding encoding)
+            Builder* encoding(const c_string& path,
+                              ParquetEncoding encoding)
             Builder* write_batch_size(int64_t batch_size)
             shared_ptr[WriterProperties] build()
 
@@ -371,6 +377,7 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
             Builder* allow_truncated_timestamps()
             Builder* disallow_truncated_timestamps()
             Builder* store_schema()
+            Builder* set_engine_version(ArrowWriterEngineVersion version)
             shared_ptr[ArrowWriterProperties] build()
         c_bool support_deprecated_int96_timestamps()
 
@@ -431,6 +438,19 @@ cdef extern from "parquet/arrow/schema.h" namespace "parquet::arrow" nogil:
         const shared_ptr[const CKeyValueMetadata]& key_value_metadata,
         shared_ptr[SchemaDescriptor]* out)
 
+
+cdef extern from "parquet/properties.h" namespace "parquet" nogil:
+    cdef enum ArrowWriterEngineVersion:
+        V1 "parquet::ArrowWriterProperties::V1",
+        V2 "parquet::ArrowWriterProperties::V2"
+
+    cdef cppclass ParquetDataPageVersion:
+        pass
+
+    cdef ParquetDataPageVersion ParquetDataPageVersion_V1 \
+        " parquet::ParquetDataPageVersion::V1"
+    cdef ParquetDataPageVersion ParquetDataPageVersion_V2 \
+        " parquet::ParquetDataPageVersion::V2"
 
 cdef extern from "parquet/arrow/writer.h" namespace "parquet::arrow" nogil:
     cdef cppclass FileWriter:

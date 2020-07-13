@@ -175,7 +175,7 @@ public class ExpressionRegistry {
       case GandivaType.NONE_VALUE:
         return new ArrowType.Null();
       case GandivaType.DECIMAL_VALUE:
-        return new ArrowType.Decimal(0,0);
+        return new ArrowType.Decimal(0, 0);
       case GandivaType.INTERVAL_VALUE:
         return new ArrowType.Interval(mapArrowIntervalUnit(type.getIntervalType()));
       case GandivaType.FIXED_SIZE_BINARY_VALUE:

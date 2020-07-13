@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_MATLAB_MATLAB_TRAITS_H
-#define ARROW_MATLAB_MATLAB_TRAITS_H
+#pragma once
 
 #include <arrow/type.h>
 
@@ -102,4 +101,3 @@ struct MatlabTraits<Int64Type> {
 }  // namespace matlab
 }  // namespace arrow
 
-#endif  // ARROW_MATLAB_MATLAB_TRAITS_H

@@ -15,8 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ARG arch=amd64
-FROM ${arch}/ubuntu:18.04
+ARG base=amd64/ubuntu:18.04
+FROM ${base}
 
 # pipefail is enabled for proper error detection in the `wget | apt-key add`
 # step
@@ -24,29 +24,32 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get update -y -q && \
-    apt-get install -y -q --no-install-recommends \
-        wget \
-        software-properties-common \
-        gpg-agent && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists*
-
-# Installs LLVM toolchain, for gandiva and testing other compilers
+# Installs LLVM toolchain, for Gandiva and testing other compilers
 #
 # Note that this is installed before the base packages to improve iteration
-# while debugging package list with docker build due to slow download speed of
-# llvm compared to ubuntu apt mirrors.
-ARG llvm_version=7
-ARG llvm_apt_url="http://apt.llvm.org/bionic/"
-ARG llvm_apt_arch="llvm-toolchain-bionic-${llvm_version}"
-RUN wget -q -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
-    apt-add-repository -y --update "deb ${llvm_apt_url} ${llvm_apt_arch} main" && \
+# while debugging package list with docker build.
+ARG clang_tools
+ARG llvm
+RUN apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
-        clang-${llvm_version} \
-        clang-format-${llvm_version} \
-        clang-tidy-${llvm_version} \
-        llvm-${llvm_version}-dev && \
+       apt-transport-https \
+       ca-certificates \
+       gnupg \
+       wget && \
+    wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
+    echo "deb https://apt.llvm.org/bionic/ llvm-toolchain-bionic-${llvm} main" > \
+       /etc/apt/sources.list.d/llvm.list && \
+    if [ "${clang_tools}" != "${llvm}" -a "${clang_tools}" -ge 10 ]; then \
+      echo "deb https://apt.llvm.org/bionic/ llvm-toolchain-bionic-${clang_tools} main" > \
+         /etc/apt/sources.list.d/clang-tools.list; \
+    fi && \
+    apt-get update -y -q && \
+    apt-get install -y -q --no-install-recommends \
+        clang-${clang_tools} \
+        clang-${llvm} \
+        clang-format-${clang_tools} \
+        clang-tidy-${clang_tools} \
+        llvm-${llvm}-dev && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists*
 
@@ -75,6 +78,7 @@ RUN apt-get update -y -q && \
         libre2-dev \
         libsnappy-dev \
         libssl-dev \
+        libutf8proc-dev \
         libzstd-dev \
         ninja-build \
         pkg-config \

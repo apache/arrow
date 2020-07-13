@@ -17,14 +17,21 @@
 
 #pragma once
 
+#include <cstdint>
 #include <limits>
 #include <memory>
 #include <utility>
 #include <vector>
 
-#include "arrow/array.h"
+#include "arrow/array/array_nested.h"
 #include "arrow/array/builder_base.h"
+#include "arrow/array/data.h"
+#include "arrow/buffer.h"
 #include "arrow/buffer_builder.h"
+#include "arrow/status.h"
+#include "arrow/type.h"
+#include "arrow/util/macros.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow {
 
@@ -44,7 +51,7 @@ class BaseListBuilder : public ArrayBuilder {
       : ArrayBuilder(pool),
         offsets_builder_(pool),
         value_builder_(value_builder),
-        value_field_(type->child(0)->WithType(NULLPTR)) {}
+        value_field_(type->field(0)->WithType(NULLPTR)) {}
 
   BaseListBuilder(MemoryPool* pool, std::shared_ptr<ArrayBuilder> const& value_builder)
       : BaseListBuilder(pool, value_builder, list(value_builder->type())) {}
@@ -54,9 +61,9 @@ class BaseListBuilder : public ArrayBuilder {
       return Status::CapacityError("List array cannot reserve space for more than ",
                                    maximum_elements(), " got ", capacity);
     }
-    ARROW_RETURN_NOT_OK(CheckCapacity(capacity, capacity_));
+    ARROW_RETURN_NOT_OK(CheckCapacity(capacity));
 
-    // one more then requested for offsets
+    // One more than requested for offsets
     ARROW_RETURN_NOT_OK(offsets_builder_.Resize(capacity + 1));
     return ArrayBuilder::Resize(capacity);
   }
@@ -162,7 +169,7 @@ class BaseListBuilder : public ArrayBuilder {
 /// To use this class, you must append values to the child array builder and use
 /// the Append function to delimit each distinct list value (once the values
 /// have been appended to the child array) or use the bulk API to append
-/// a sequence of offests and null values.
+/// a sequence of offsets and null values.
 ///
 /// A note on types.  Per arrow/type.h all types in the c++ implementation are
 /// logical so even though this class always builds list array, this can
@@ -203,7 +210,7 @@ class ARROW_EXPORT LargeListBuilder : public BaseListBuilder<LargeListType> {
 ///
 /// To use this class, you must append values to the key and item array builders
 /// and use the Append function to delimit each distinct map (once the keys and items
-/// have been appended) or use the bulk API to append a sequence of offests and null
+/// have been appended) or use the bulk API to append a sequence of offsets and null
 /// maps.
 ///
 /// Key uniqueness and ordering are not validated.
@@ -388,8 +395,17 @@ class ARROW_EXPORT StructBuilder : public ArrayBuilder {
     return Status::OK();
   }
 
-  Status AppendNull() final { return Append(false); }
+  /// \brief Append a null value. Automatically appends a null to each child
+  /// builder.
+  Status AppendNull() final {
+    for (const auto& field : children_) {
+      ARROW_RETURN_NOT_OK(field->AppendNull());
+    }
+    return Append(false);
+  }
 
+  /// \brief Append multiple null values. Automatically appends nulls to each
+  /// child builder.
   Status AppendNulls(int64_t length) final;
 
   void Reset() override;

@@ -32,6 +32,8 @@ CSV Files
    ParseOptions
    ConvertOptions
    read_csv
+   open_csv
+   CSVStreamingReader
 
 .. _api.feather:
 
@@ -44,6 +46,7 @@ Feather Files
    :toctree: ../generated/
 
    read_feather
+   read_table
    write_feather
 
 .. _api.json:

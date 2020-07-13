@@ -22,9 +22,11 @@ import java.util.Objects;
 import java.util.function.Function;
 
 import org.apache.arrow.flight.CallStatus;
+import org.apache.arrow.flight.ErrorFlightMetadata;
 import org.apache.arrow.flight.FlightRuntimeException;
 import org.apache.arrow.flight.FlightStatusCode;
 
+import io.grpc.Metadata;
 import io.grpc.Status;
 import io.grpc.Status.Code;
 import io.grpc.StatusException;
@@ -119,9 +121,25 @@ public class StatusUtils {
     }
   }
 
+  /** Convert from a gRPC Status & trailers to a Flight status. */
+  public static CallStatus fromGrpcStatusAndTrailers(Status status, Metadata trailers) {
+    // gRPC may not always have trailers - this happens when the server internally generates an error, which is rare,
+    // but can happen.
+    final ErrorFlightMetadata errorMetadata = trailers == null ? null : parseTrailers(trailers);
+    return new CallStatus(
+              fromGrpcStatusCode(status.getCode()),
+              status.getCause(),
+              status.getDescription(),
+              errorMetadata);
+  }
+
   /** Convert from a gRPC status to a Flight status. */
   public static CallStatus fromGrpcStatus(Status status) {
-    return new CallStatus(fromGrpcStatusCode(status.getCode()), status.getCause(), status.getDescription());
+    return new CallStatus(
+              fromGrpcStatusCode(status.getCode()),
+              status.getCause(),
+              status.getDescription(),
+              null);
   }
 
   /** Convert from a Flight status to a gRPC status. */
@@ -131,7 +149,23 @@ public class StatusUtils {
 
   /** Convert from a gRPC exception to a Flight exception. */
   public static FlightRuntimeException fromGrpcRuntimeException(StatusRuntimeException sre) {
-    return fromGrpcStatus(sre.getStatus()).toRuntimeException();
+    return fromGrpcStatusAndTrailers(sre.getStatus(), sre.getTrailers()).toRuntimeException();
+  }
+
+  /** Convert gRPC trailers into Flight error metadata.  */
+  private static ErrorFlightMetadata parseTrailers(Metadata trailers) {
+    ErrorFlightMetadata metadata = new ErrorFlightMetadata();
+    for (String key : trailers.keys()) {
+      if (key.endsWith(Metadata.BINARY_HEADER_SUFFIX)) {
+        metadata.insert(key, trailers.get(Metadata.Key.of(key, Metadata.BINARY_BYTE_MARSHALLER)));
+      } else {
+        metadata.insert(key,
+                     Objects.requireNonNull(
+                     trailers.get(Metadata.Key.of(key, Metadata.ASCII_STRING_MARSHALLER))).getBytes()
+        );
+      }
+    }
+    return metadata;
   }
 
   /**

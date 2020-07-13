@@ -141,7 +141,7 @@ public class DefaultVectorComparators {
     public int compareNotNull(int index1, int index2) {
       int value1 = vector1.get(index1);
       int value2 = vector2.get(index2);
-      return value1 - value2;
+      return Integer.compare(value1, value2);
     }
 
     @Override
@@ -165,7 +165,7 @@ public class DefaultVectorComparators {
       long value1 = vector1.get(index1);
       long value2 = vector2.get(index2);
 
-      return Long.signum(value1 - value2);
+      return Long.compare(value1, value2);
     }
 
     @Override
@@ -212,7 +212,11 @@ public class DefaultVectorComparators {
     public int compareNotNull(int index1, int index2) {
       char value1 = vector1.get(index1);
       char value2 = vector2.get(index2);
-      return value1 - value2;
+
+      // please note that we should not use the built-in
+      // Character#compare method here, as that method
+      // essentially compares char values as signed integers.
+      return (value1 & 0xffff) - (value2 & 0xffff);
     }
 
     @Override

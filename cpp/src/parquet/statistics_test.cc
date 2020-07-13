@@ -27,6 +27,7 @@
 #include <vector>
 
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/bitmap_ops.h"
 
 #include "parquet/column_reader.h"
 #include "parquet/column_writer.h"
@@ -482,7 +483,7 @@ void TestStatistics<ByteArrayType>::TestMinMaxEncode() {
 using TestTypes = ::testing::Types<Int32Type, Int64Type, FloatType, DoubleType,
                                    ByteArrayType, FLBAType, BooleanType>;
 
-TYPED_TEST_CASE(TestStatistics, TestTypes);
+TYPED_TEST_SUITE(TestStatistics, TestTypes);
 
 TYPED_TEST(TestStatistics, MinMaxEncode) {
   this->SetUpSchema(Repetition::REQUIRED);
@@ -506,7 +507,7 @@ class TestNumericStatistics : public TestStatistics<TestType> {};
 
 using NumericTypes = ::testing::Types<Int32Type, Int64Type, FloatType, DoubleType>;
 
-TYPED_TEST_CASE(TestNumericStatistics, NumericTypes);
+TYPED_TEST_SUITE(TestNumericStatistics, NumericTypes);
 
 TYPED_TEST(TestNumericStatistics, Merge) {
   this->SetUpSchema(Repetition::OPTIONAL);
@@ -823,7 +824,7 @@ void TestStatisticsSortOrder<FLBAType>::SetValues() {
       .set_max(std::string(reinterpret_cast<const char*>(&vals[8][0]), FLBA_LENGTH));
 }
 
-TYPED_TEST_CASE(TestStatisticsSortOrder, CompareTestTypes);
+TYPED_TEST_SUITE(TestStatisticsSortOrder, CompareTestTypes);
 
 TYPED_TEST(TestStatisticsSortOrder, MinMax) {
   this->AddNodes("Column ");

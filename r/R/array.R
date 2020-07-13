@@ -70,7 +70,7 @@
 #'    until the end of the array.
 #' - `$Take(i)`: return an `Array` with values at positions given by integers
 #'    (R vector or Array Array) `i`.
-#' - `$Filter(i)`: return an `Array` with values at positions where logical
+#' - `$Filter(i, keep_na = TRUE)`: return an `Array` with values at positions where logical
 #'    vector (or Arrow boolean Array) `i` is `TRUE`.
 #' - `$RangeEquals(other, start_idx, end_idx, other_start_idx)` :
 #' - `$cast(target_type, safe = TRUE, options = cast_options(safe))`: Alter the
@@ -93,6 +93,10 @@ Array <- R6Class("Array",
         shared_ptr(StructArray, self$pointer())
       } else if (type_id == Type$LIST) {
         shared_ptr(ListArray, self$pointer())
+      } else if (type_id == Type$LARGE_LIST){
+        shared_ptr(LargeListArray, self$pointer())
+      } else if (type_id == Type$FIXED_SIZE_LIST){
+        shared_ptr(FixedSizeListArray, self$pointer())
       } else {
         self
       }
@@ -127,18 +131,20 @@ Array <- R6Class("Array",
       if (is.integer(i)) {
         i <- Array$create(i)
       }
+      # ARROW-9001: autoboxing in call_function
+      result <- call_function("take", self, i)
       if (inherits(i, "ChunkedArray")) {
-        return(shared_ptr(ChunkedArray, Array__TakeChunked(self, i)))
+        return(shared_ptr(ChunkedArray, result))
+      } else {
+        Array$create(result)
       }
-      assert_is(i, "Array")
-      Array$create(Array__Take(self, i))
     },
-    Filter = function(i) {
+    Filter = function(i, keep_na = TRUE) {
       if (is.logical(i)) {
         i <- Array$create(i)
       }
       assert_is(i, "Array")
-      Array$create(Array__Filter(self, i))
+      Array$create(call_function("filter", self, i, options = list(keep_na = keep_na)))
     },
     RangeEquals = function(other, start_idx, end_idx, other_start_idx = 0L) {
       assert_is(other, "Array")
@@ -228,6 +234,38 @@ ListArray <- R6Class("ListArray", inherit = Array,
   )
 )
 
+#' @rdname array
+#' @usage NULL
+#' @format NULL
+#' @export
+LargeListArray <- R6Class("LargeListArray", inherit = Array,
+  public = list(
+    values = function() Array$create(LargeListArray__values(self)),
+    value_length = function(i) LargeListArray__value_length(self, i),
+    value_offset = function(i) LargeListArray__value_offset(self, i),
+    raw_value_offsets = function() LargeListArray__raw_value_offsets(self)
+  ),
+  active = list(
+    value_type = function() DataType$create(LargeListArray__value_type(self))
+  )
+)
+
+#' @rdname array
+#' @usage NULL
+#' @format NULL
+#' @export
+FixedSizeListArray <- R6Class("FixedSizeListArray", inherit = Array,
+  public = list(
+    values = function() Array$create(FixedSizeListArray__values(self)),
+    value_length = function(i) FixedSizeListArray__value_length(self, i),
+    value_offset = function(i) FixedSizeListArray__value_offset(self, i)
+  ),
+  active = list(
+    value_type = function() DataType$create(FixedSizeListArray__value_type(self)),
+    list_size = function() self$type$list_size
+  )
+)
+
 #' @export
 length.Array <- function(x) x$length()
 
@@ -243,7 +281,7 @@ is.na.Array <- function(x) {
 #' @export
 as.vector.Array <- function(x, mode) x$as_vector()
 
-filter_rows <- function(x, i, ...) {
+filter_rows <- function(x, i, keep_na = TRUE, ...) {
   # General purpose function for [ row subsetting with R semantics
   # Based on the input for `i`, calls x$Filter, x$Slice, or x$Take
   nrows <- x$num_rows %||% x$length() # Depends on whether Array or Table-like
@@ -257,7 +295,7 @@ filter_rows <- function(x, i, ...) {
       x
     } else {
       i <- rep_len(i, nrows) # For R recycling behavior; consider vctrs::vec_recycle()
-      x$Filter(i)
+      x$Filter(i, keep_na)
     }
   } else if (is.numeric(i)) {
     if (all(i < 0)) {
@@ -275,7 +313,7 @@ filter_rows <- function(x, i, ...) {
     # NOTE: this doesn't do the - 1 offset
     x$Take(i)
   } else if (is.Array(i, "bool")) {
-    x$Filter(i)
+    x$Filter(i, keep_na)
   } else {
     # Unsupported cases
     if (is.Array(i)) {
@@ -339,3 +377,12 @@ is.Array <- function(x, type = NULL) {
   }
   is_it
 }
+
+#' @export
+as.double.Array <- function(x, ...) as.double(as.vector(x), ...)
+
+#' @export
+as.integer.Array <- function(x, ...) as.integer(as.vector(x), ...)
+
+#' @export
+as.character.Array <- function(x, ...) as.character(as.vector(x), ...)

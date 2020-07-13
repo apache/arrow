@@ -88,6 +88,15 @@ service FlightService {
   rpc DoPut(stream FlightData) returns (stream PutResult) {}
 
   /*
+   * Open a bidirectional data channel for a given descriptor. This
+   * allows clients to send and receive arbitrary Arrow data and
+   * application-specific metadata in a single logical stream. In
+   * contrast to DoGet/DoPut, this is more suited for clients
+   * offloading computation (rather than storage) to a Flight service.
+   */
+  rpc DoExchange(stream FlightData) returns (stream FlightData) {}
+
+  /*
    * Flight services can support an arbitrary number of simple actions in
    * addition to the possible ListFlights, GetFlightInfo, DoGet, DoPut
    * operations that are potentially available. DoAction allows a flight client

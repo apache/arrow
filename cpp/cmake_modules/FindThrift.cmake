@@ -28,25 +28,14 @@
 #  THRIFT_FOUND, If false, do not try to use ant
 
 function(EXTRACT_THRIFT_VERSION)
-  exec_program(${THRIFT_COMPILER}
-               ARGS
-               -version
-               OUTPUT_VARIABLE
-               THRIFT_VERSION
-               RETURN_VALUE
-               THRIFT_RETURN)
-  # We're expecting OUTPUT_VARIABLE to look like one of these:
-  #   0.9.3
-  #   Thrift version 0.11.0
-  if(THRIFT_VERSION MATCHES "Thrift version")
-    string(REGEX MATCH "Thrift version (([0-9]+\\.?)+)" _ "${THRIFT_VERSION}")
-    if(NOT CMAKE_MATCH_1)
-      message(SEND_ERROR "Could not extract Thrift version. "
-                         "Version output: ${THRIFT_VERSION}")
-    endif()
-    set(THRIFT_VERSION "${CMAKE_MATCH_1}" PARENT_SCOPE)
-  else()
+  if(THRIFT_INCLUDE_DIR)
+    file(READ "${THRIFT_INCLUDE_DIR}/thrift/config.h" THRIFT_CONFIG_H_CONTENT)
+    string(REGEX MATCH "#define PACKAGE_VERSION \"[0-9.]+\"" THRIFT_VERSION_DEFINITION
+                 "${THRIFT_CONFIG_H_CONTENT}")
+    string(REGEX MATCH "[0-9.]+" THRIFT_VERSION "${THRIFT_VERSION_DEFINITION}")
     set(THRIFT_VERSION "${THRIFT_VERSION}" PARENT_SCOPE)
+  else()
+    set(THRIFT_VERSION "" PARENT_SCOPE)
   endif()
 endfunction(EXTRACT_THRIFT_VERSION)
 
@@ -62,9 +51,7 @@ if(Thrift_ROOT)
             PATHS ${Thrift_ROOT}
             PATH_SUFFIXES "include")
   find_program(THRIFT_COMPILER thrift PATHS ${Thrift_ROOT} PATH_SUFFIXES "bin")
-  if(THRIFT_COMPILER)
-    extract_thrift_version()
-  endif()
+  extract_thrift_version()
 else()
   # THRIFT-4760: The pkgconfig files are currently only installed when using autotools.
   # Starting with 0.13, they are also installed for the CMake-based installations of Thrift.
@@ -87,19 +74,23 @@ else()
                  PATH_SUFFIXES "lib/${CMAKE_LIBRARY_ARCHITECTURE}" "lib")
     find_path(THRIFT_INCLUDE_DIR thrift/Thrift.h PATH_SUFFIXES "include")
     find_program(THRIFT_COMPILER thrift PATH_SUFFIXES "bin")
-    if(THRIFT_COMPILER)
-      extract_thrift_version()
-    endif()
+    extract_thrift_version()
   endif()
+endif()
+
+if(THRIFT_COMPILER)
+  set(Thrift_COMPILER_FOUND TRUE)
+else()
+  set(Thrift_COMPILER_FOUND FALSE)
 endif()
 
 find_package_handle_standard_args(Thrift
                                   REQUIRED_VARS
                                   THRIFT_STATIC_LIB
                                   THRIFT_INCLUDE_DIR
-                                  THRIFT_COMPILER
                                   VERSION_VAR
-                                  THRIFT_VERSION)
+                                  THRIFT_VERSION
+                                  HANDLE_COMPONENTS)
 
 if(Thrift_FOUND OR THRIFT_FOUND)
   set(Thrift_FOUND TRUE)

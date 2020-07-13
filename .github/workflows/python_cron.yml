@@ -28,141 +28,115 @@ on:
     - cron: |
         0 */12 * * *
 
+env:
+  DOCKER_BUILDKIT: 0
+  COMPOSE_DOCKER_CLI_BUILD: 1
+  ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
+  ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
+
 jobs:
 
-  debian:
-    name: AMD64 Debian ${{ matrix.debian }} Python 3
+  docker:
+    name: ${{ matrix.title }}
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        debian: [10]
-    env:
-      DEBIAN: ${{ matrix.debian }}
-    steps:
-      - name: Checkout Arrow
-        uses: actions/checkout@v1
-        with:
-          submodules: true
-      - name: Docker Pull
-        shell: bash
-        run: |
-          docker-compose pull --ignore-pull-failures debian-cpp
-          docker-compose pull --ignore-pull-failures debian-python
-      - name: Docker Build
-        shell: bash
-        run: |
-          docker-compose build debian-cpp
-          docker-compose build debian-python
-      - name: Docker Run
-        shell: bash
-        run: docker-compose run debian-python
-      - name: Docker Push
-        if: success() && github.repository == 'apache/arrow'
-        continue-on-error: true
-        shell: bash
-        run: |
-          docker login -u ${{ secrets.DOCKERHUB_USER }} \
-                       -p ${{ secrets.DOCKERHUB_TOKEN }}
-          docker-compose push debian-python
-
-  fedora:
-    name: AMD64 Fedora ${{ matrix.fedora }} Python 3
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        fedora: [29]
-    env:
-      FEDORA: ${{ matrix.fedora }}
-    steps:
-      - name: Checkout Arrow
-        uses: actions/checkout@v1
-        with:
-          submodules: true
-      - name: Docker Pull
-        shell: bash
-        run: |
-          docker-compose pull --ignore-pull-failures fedora-cpp
-          docker-compose pull --ignore-pull-failures fedora-python
-      - name: Docker Build
-        shell: bash
-        run: |
-          docker-compose build fedora-cpp
-          docker-compose build fedora-python
-      - name: Docker Run
-        shell: bash
-        run: docker-compose run fedora-python
-      - name: Docker Push
-        if: success() && github.repository == 'apache/arrow'
-        continue-on-error: true
-        shell: bash
-        run: |
-          docker login -u ${{ secrets.DOCKERHUB_USER }} \
-                       -p ${{ secrets.DOCKERHUB_TOKEN }}
-          docker-compose push fedora-python
-
-  downstream:
-    name: AMD64 Conda Python 3.7 ${{ matrix.title }}
-    runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') && github.repository == 'apache/arrow' }}
     strategy:
       fail-fast: false
       matrix:
         name:
-          - dask
-          - hdfs
-          - turbodbc
-          - pandas-master
-          - pandas-0.24
+          - debian-10-python-3
+          - fedora-32-python-3
+          - ubuntu-18.04-python-3
+          - conda-python-3.7-dask-latest
+          - conda-python-3.7-turbodbc-latest
+          - conda-python-3.7-kartothek-latest
+          - conda-python-3.7-pandas-0.24
+          - conda-python-3.7-pandas-master
+          - conda-python-3.7-hdfs-2.9.2
         include:
-          - name: dask
-            library: dask
-            title: Dask
-          - name: turbodbc
-            library: turbodbc
-            title: Turbodbc
-          - name: pandas-0.24
-            library: pandas
-            title: Pandas 0.24
+          - name: debian-10-python-3
+            cache: debian-10-python-3
+            image: debian-python
+            title: AMD64 Debian 10 Python 3
+            debian: 10
+          - name: fedora-32-python-3
+            cache: fedora-32-python-3
+            image: fedora-python
+            title: AMD64 Fedora 32 Python 3
+            fedora: 32
+          - name: ubuntu-18.04-python-3
+            cache: ubuntu-18.04-python-3
+            image: ubuntu-python
+            title: AMD64 Ubuntu 18.04 Python 3
+            ubuntu: 18.04
+          - name: conda-python-3.7-dask-latest
+            cache: conda-python-3.7
+            image: conda-python-dask
+            title: AMD64 Conda Python 3.7 Dask latest
+            dask: latest
+          - name: conda-python-3.7-turbodbc-latest
+            cache: conda-python-3.7
+            image: conda-python-turbodbc
+            title: AMD64 Conda Python 3.7 Turbodbc latest
+            turbodbc: latest
+          - name: conda-python-3.7-kartothek-latest
+            cache: conda-python-3.7
+            image: conda-python-kartothek
+            title: AMD64 Conda Python 3.7 Kartothek latest
+            kartothek: latest
+          - name: conda-python-3.7-pandas-0.24
+            cache: conda-python-3.7
+            image: conda-python-pandas
+            title: AMD64 Conda Python 3.7 Pandas 0.24
             pandas: 0.24
-          - name: pandas-master
-            library: pandas
-            title: Pandas master
+          - name: conda-python-3.7-pandas-master
+            cache: conda-python-3.7
+            image: --no-leaf-cache conda-python-pandas
+            title: AMD64 Conda Python 3.7 Pandas master
             pandas: master
-          - name: hdfs
-            library: hdfs
-            title: HDFS
+          - name: conda-python-3.7-hdfs-2.9.2
+            cache: conda-python-3.7
+            image: conda-python-hdfs
+            title: AMD64 Conda Python 3.7 HDFS 2.9.2
+            hdfs: 2.9.2
     env:
-      PYTHON: 3.7
-      DASK: latest
-      TURBODBC: latest
+      # the defaults here should correspond to the values in .env
+      DEBIAN: ${{ matrix.debian || 10 }}
+      FEDORA: ${{ matrix.fedora || 32 }}
+      UBUNTU: ${{ matrix.ubuntu || 18.04 }}
+      PYTHON: ${{ matrix.python || 3.7 }}
+      HDFS: ${{ matrix.hdfs || '2.9.2' }}
+      DASK: ${{ matrix.dask || 'latest' }}
+      TURBODBC: ${{ matrix.turbodbc || 'latest' }}
       PANDAS: ${{ matrix.pandas || 'latest' }}
+      KARTOTHEK: ${{ matrix.kartothek || 'latest' }}
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v1
+        uses: actions/checkout@v2
         with:
-          submodules: true
-      - name: Docker Pull
-        shell: bash
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        run: ci/scripts/util_checkout.sh
+      - name: Free Up Disk Space
+        run: ci/scripts/util_cleanup.sh
+      - name: Cache Docker Volumes
+        uses: actions/cache@v1
+        with:
+          path: .docker
+          key: ${{ matrix.cache }}-${{ hashFiles('cpp/**') }}
+          restore-keys: ${{ matrix.cache }}-
+      - name: Setup Python
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.8
+      - name: Setup Archery
+        run: pip install -e dev/archery[docker]
+      - name: Execute Docker Build
         run: |
-          docker-compose pull --ignore-pull-failures conda-cpp
-          docker-compose pull --ignore-pull-failures conda-python
-          docker-compose pull --ignore-pull-failures conda-python-${{ matrix.library }}
-      - name: Docker Build
-        shell: bash
-        run: |
-          docker-compose build conda-cpp
-          docker-compose build conda-python
-          docker-compose build conda-python-${{ matrix.library }}
-      - name: Docker Run
-        shell: bash
-        run: |
-          docker-compose run conda-python-${{ matrix.library }}
+          sudo sysctl -w kernel.core_pattern="core.%e.%p"
+          ulimit -c unlimited
+          archery docker run ${{ matrix.image }}
       - name: Docker Push
-        if: success() && github.repository == 'apache/arrow'
+        if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         continue-on-error: true
-        shell: bash
-        run: |
-          docker login -u ${{ secrets.DOCKERHUB_USER }} \
-                       -p ${{ secrets.DOCKERHUB_TOKEN }}
-          docker-compose push conda-python-${{ matrix.library }}
+        run: archery docker push ${{ matrix.image }}

@@ -15,11 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// This API is EXPERIMENTAL.
+
 #pragma once
 
 #include <memory>
-#include <string>
-#include <utility>
 #include <vector>
 
 #include "arrow/dataset/type_fwd.h"
@@ -28,6 +28,8 @@
 
 namespace arrow {
 namespace dataset {
+
+ARROW_DS_EXPORT Status CheckProjectable(const Schema& from, const Schema& to);
 
 /// \brief Project a RecordBatch to a given schema.
 ///
@@ -48,7 +50,7 @@ class ARROW_DS_EXPORT RecordBatchProjector {
 
   /// If the indexed field is absent from a record batch it will be added to the projected
   /// record batch with all its slots equal to the provided scalar (instead of null).
-  Status SetDefaultValue(int index, std::shared_ptr<Scalar> scalar);
+  Status SetDefaultValue(FieldRef ref, std::shared_ptr<Scalar> scalar);
 
   Result<std::shared_ptr<RecordBatch>> Project(const RecordBatch& batch,
                                                MemoryPool* pool = default_memory_pool());
@@ -63,6 +65,7 @@ class ARROW_DS_EXPORT RecordBatchProjector {
 
   std::shared_ptr<Schema> from_, to_;
   int64_t missing_columns_length_ = 0;
+  // these vectors are indexed parallel to to_->fields()
   std::vector<std::shared_ptr<Array>> missing_columns_;
   std::vector<int> column_indices_;
   std::vector<std::shared_ptr<Scalar>> scalars_;

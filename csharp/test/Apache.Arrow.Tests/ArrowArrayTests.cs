@@ -110,6 +110,40 @@ namespace Apache.Arrow.Tests
             TestSlice<StringArray, StringArray.Builder>(x => x.Append("10").Append("20").Append("30"));
         }
 
+        [Fact]
+        public void SlicePrimitiveArrayWithNulls()
+        {
+            TestSlice<Int32Array, Int32Array.Builder>(x => x.Append(10).Append(20).AppendNull().Append(30));
+            TestSlice<Int8Array, Int8Array.Builder>(x => x.Append(10).AppendNull().Append(20).AppendNull().Append(30));
+            TestSlice<Int16Array, Int16Array.Builder>(x => x.Append(10).Append(20).AppendNull().Append(30));
+            TestSlice<Int64Array, Int64Array.Builder>(x => x.Append(10).Append(20).AppendNull().Append(30));
+            TestSlice<UInt8Array, UInt8Array.Builder>(x => x.Append(10).Append(20).Append(30).AppendNull());
+            TestSlice<UInt16Array, UInt16Array.Builder>(x => x.Append(10).Append(20).AppendNull().AppendNull().Append(30));
+            TestSlice<UInt32Array, UInt32Array.Builder>(x => x.Append(10).Append(20).AppendNull().Append(30));
+            TestSlice<UInt64Array, UInt64Array.Builder>(x => x.Append(10).Append(20).AppendNull().Append(30));
+            TestSlice<FloatArray, FloatArray.Builder>(x => x.AppendNull().Append(10).Append(20).AppendNull().Append(30));
+            TestSlice<DoubleArray, DoubleArray.Builder>(x => x.Append(10).Append(20).AppendNull().Append(30));
+            TestSlice<Date32Array, Date32Array.Builder>(x => x.Append(new DateTime(2019, 1, 1)).Append(new DateTime(2019, 1, 2)).AppendNull().Append(new DateTime(2019, 1, 3)));
+            TestSlice<Date64Array, Date64Array.Builder>(x => x.Append(new DateTime(2019, 1, 1)).Append(new DateTime(2019, 1, 2)).AppendNull().Append(new DateTime(2019, 1, 3)));
+        }
+
+        [Fact]
+        public void SliceBooleanArray()
+        {
+            TestSlice<BooleanArray, BooleanArray.Builder>(x => x.Append(true).Append(false).Append(true));
+            TestSlice<BooleanArray, BooleanArray.Builder>(x => x.Append(true).Append(false).AppendNull().Append(true));
+        }
+
+        [Fact]
+        public void SliceStringArrayWithNullsAndEmptyStrings()
+        {
+            TestSlice<StringArray, StringArray.Builder>(x => x.Append("10").AppendNull().Append("30"));
+            TestSlice<StringArray, StringArray.Builder>(x => x.Append("10").Append(string.Empty).Append("30"));
+            TestSlice<StringArray, StringArray.Builder>(x => x.Append("10").Append(string.Empty).AppendNull().Append("30"));
+            TestSlice<StringArray, StringArray.Builder>(x => x.Append("10").AppendNull().Append(string.Empty).Append("30"));
+            TestSlice<StringArray, StringArray.Builder>(x => x.Append("10").AppendNull().Append(string.Empty).AppendNull().Append("30"));
+        }
+
         private static void TestSlice<TArray, TArrayBuilder>(Action<TArrayBuilder> action)
             where TArray : IArrowArray
             where TArrayBuilder : IArrowArrayBuilder<TArray>, new()
@@ -145,6 +179,7 @@ namespace Apache.Arrow.Tests
             IArrowArrayVisitor<Date64Array>,
             IArrowArrayVisitor<FloatArray>,
             IArrowArrayVisitor<DoubleArray>,
+            IArrowArrayVisitor<BooleanArray>,
             IArrowArrayVisitor<StringArray>
         {
             private readonly IArrowArray _baseArray;
@@ -184,6 +219,7 @@ namespace Apache.Arrow.Tests
             public void Visit(FloatArray array) => ValidateArrays(array);
             public void Visit(DoubleArray array) => ValidateArrays(array);
             public void Visit(StringArray array) => ValidateArrays(array);
+            public void Visit(BooleanArray array) => ValidateArrays(array);
 
             public void Visit(IArrowArray array) => throw new NotImplementedException();
 
@@ -199,6 +235,25 @@ namespace Apache.Arrow.Tests
                         .SequenceEqual(slicedArray.Values));
 
                 Assert.Equal(baseArray.GetValue(slicedArray.Offset), slicedArray.GetValue(0));
+            }
+
+            private void ValidateArrays(BooleanArray slicedArray)
+            {
+                Assert.IsAssignableFrom<BooleanArray>(_baseArray);
+                var baseArray = (BooleanArray)_baseArray;
+
+                Assert.True(baseArray.NullBitmapBuffer.Span.SequenceEqual(slicedArray.NullBitmapBuffer.Span));
+                Assert.True(baseArray.Values.SequenceEqual(slicedArray.Values));
+
+                Assert.True(
+                    baseArray.ValueBuffer.Span.Slice(0, (int) Math.Ceiling(slicedArray.Length / 8.0))
+                        .SequenceEqual(slicedArray.Values));
+
+                Assert.Equal(baseArray.GetValue(slicedArray.Offset), slicedArray.GetValue(0));
+
+#pragma warning disable CS0618
+                Assert.Equal(baseArray.GetBoolean(slicedArray.Offset), slicedArray.GetBoolean(0));
+#pragma warning restore CS0618
             }
 
             private void ValidateArrays(BinaryArray slicedArray)

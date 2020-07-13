@@ -61,10 +61,10 @@ Result<std::shared_ptr<RecordBatch>> ExampleBatch1() {
   {
     auto values = gen.Int64(kBatchSize * 10, -10000, 10000, /*null_probability=*/0.2);
     auto offsets = gen.Offsets(kBatchSize + 1, 0, static_cast<int32_t>(values->length()));
-    RETURN_NOT_OK(ListArray::FromArrays(*offsets, *values, default_memory_pool(), &d));
+    ARROW_ASSIGN_OR_RAISE(d, ListArray::FromArrays(*offsets, *values));
   }
   // A column of a repeated constant that will hopefully trigger RLE encoding
-  RETURN_NOT_OK(MakeArrayFromScalar(Int16Scalar(42), kBatchSize, &e));
+  ARROW_ASSIGN_OR_RAISE(e, MakeArrayFromScalar(Int16Scalar(42), kBatchSize));
   // A non-dict-encoded column
   no_dict = gen.String(kBatchSize, 0, 30, /*null_probability=*/0.2);
 
@@ -98,8 +98,7 @@ Status DoMain(const std::string& out_dir) {
 
   for (const auto& batch : batches) {
     RETURN_NOT_OK(batch->ValidateFull());
-    std::shared_ptr<Table> table;
-    RETURN_NOT_OK(Table::FromRecordBatches({batch}, &table));
+    ARROW_ASSIGN_OR_RAISE(auto table, Table::FromRecordBatches({batch}));
 
     ARROW_ASSIGN_OR_RAISE(auto sample_fn, dir_fn.Join(sample_name()));
     std::cerr << sample_fn.ToString() << std::endl;

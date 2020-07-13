@@ -51,12 +51,13 @@ such topics as:
    :maxdepth: 2
    :caption: Arrow Libraries
 
-   cpp/index
-   python/index
-   `Java <https://arrow.apache.org/docs/java/>`_
-   `C GLib <https://arrow.apache.org/docs/c_glib/>`_
-   `JavaScript <https://arrow.apache.org/docs/js/>`_
-   `R <https://arrow.apache.org/docs/r/>`_
+   status
+   C/GLib <https://arrow.apache.org/docs/c_glib/>
+   C++ <cpp/index>
+   Java <java/index>
+   JavaScript <https://arrow.apache.org/docs/js/>
+   Python <python/index>
+   R <https://arrow.apache.org/docs/r/>
 
 .. _toc.development:
 
@@ -67,7 +68,8 @@ such topics as:
    developers/contributing
    developers/cpp/index
    developers/python
-   developers/integration
+   developers/archery
    developers/crossbow
+   developers/docker
    developers/benchmarks
    developers/documentation

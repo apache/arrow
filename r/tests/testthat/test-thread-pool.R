@@ -15,12 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("CpuThreadPoolCapacity")
+context("Global Thread Pool")
 
 test_that("can set/get cpu thread pool capacity", {
-  old <- GetCpuThreadPoolCapacity()
-  SetCpuThreadPoolCapacity(19L)
-  expect_equal(GetCpuThreadPoolCapacity(), 19L)
-  SetCpuThreadPoolCapacity(old)
-  expect_equal(GetCpuThreadPoolCapacity(), old)
+  old <- cpu_count()
+  set_cpu_count(19)
+  expect_equal(cpu_count(), 19L)
+  set_cpu_count(old)
+  expect_equal(cpu_count(), old)
 })

@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "../execution_context.h"
 #include "gandiva/precompiled/types.h"

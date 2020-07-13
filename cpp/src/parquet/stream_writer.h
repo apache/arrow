@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PARQUET_STREAM_WRITER_H
-#define PARQUET_STREAM_WRITER_H
+#pragma once
 
 #include <array>
 #include <chrono>
@@ -242,5 +241,3 @@ PARQUET_EXPORT
 StreamWriter& operator<<(StreamWriter&, EndRowGroupType);
 
 }  // namespace parquet
-
-#endif  // PARQUET_STREAM_WRITER_H

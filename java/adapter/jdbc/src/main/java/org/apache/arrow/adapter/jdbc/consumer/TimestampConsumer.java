@@ -69,7 +69,9 @@ public abstract class TimestampConsumer {
       Timestamp timestamp = calendar == null ? resultSet.getTimestamp(columnIndexInResultSet) :
           resultSet.getTimestamp(columnIndexInResultSet, calendar);
       if (!resultSet.wasNull()) {
-        vector.setSafe(currentIndex, timestamp.getTime());
+        // for fixed width vectors, we have allocated enough memory proactively,
+        // so there is no need to call the setSafe method here.
+        vector.set(currentIndex, timestamp.getTime());
       }
       currentIndex++;
     }
@@ -101,7 +103,9 @@ public abstract class TimestampConsumer {
     public void consume(ResultSet resultSet) throws SQLException {
       Timestamp timestamp = calendar == null ? resultSet.getTimestamp(columnIndexInResultSet) :
           resultSet.getTimestamp(columnIndexInResultSet, calendar);
-      vector.setSafe(currentIndex, timestamp.getTime());
+      // for fixed width vectors, we have allocated enough memory proactively,
+      // so there is no need to call the setSafe method here.
+      vector.set(currentIndex, timestamp.getTime());
       currentIndex++;
     }
   }

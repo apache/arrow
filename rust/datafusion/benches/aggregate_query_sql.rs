@@ -27,7 +27,7 @@ extern crate datafusion;
 
 use arrow::datatypes::{DataType, Field, Schema};
 
-use datafusion::datasource::{CsvFile, MemTable};
+use datafusion::datasource::{CsvFile, CsvReadOptions, MemTable};
 use datafusion::execution::context::ExecutionContext;
 
 fn aggregate_query(ctx: &mut ExecutionContext, sql: &str) {
@@ -59,11 +59,11 @@ fn create_context() -> ExecutionContext {
     let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
 
     // create CSV data source
-    let csv = CsvFile::new(
+    let csv = CsvFile::try_new(
         &format!("{}/csv/aggregate_test_100.csv", testdata),
-        &schema,
-        true,
-    );
+        CsvReadOptions::new().schema(&schema),
+    )
+    .unwrap();
 
     let mem_table = MemTable::load(&csv).unwrap();
 

@@ -19,82 +19,14 @@
 import os
 
 from pyarrow.pandas_compat import _pandas_api  # noqa
-from pyarrow.lib import FeatherError  # noqa
-from pyarrow.lib import Table, concat_tables
+from pyarrow.lib import (Codec, FeatherError, Table,  # noqa
+                         concat_tables, schema)
 import pyarrow.lib as ext
 
 
 def _check_pandas_version():
     if _pandas_api.loose_version < '0.17.0':
         raise ImportError("feather requires pandas >= 0.17.0")
-
-
-class FeatherReader(ext.FeatherReader):
-
-    def __init__(self, source):
-        _check_pandas_version()
-        self.source = source
-        self.open(source)
-
-    def read_table(self, columns=None):
-        if columns is None:
-            return self._read()
-        column_types = [type(column) for column in columns]
-        if all(map(lambda t: t == int, column_types)):
-            return self._read_indices(columns)
-        elif all(map(lambda t: t == str, column_types)):
-            return self._read_names(columns)
-
-        column_type_names = [t.__name__ for t in column_types]
-        raise TypeError("Columns must be indices or names. "
-                        "Got columns {} of types {}"
-                        .format(columns, column_type_names))
-
-    def read_pandas(self, columns=None, use_threads=True):
-        return self.read_table(columns=columns).to_pandas(
-            use_threads=use_threads)
-
-
-def check_chunked_overflow(name, col):
-    if col.num_chunks == 1:
-        return
-
-    if col.type in (ext.binary(), ext.string()):
-        raise ValueError("Column '{}' exceeds 2GB maximum capacity of "
-                         "a Feather binary column. This restriction may be "
-                         "lifted in the future".format(name))
-    else:
-        # TODO(wesm): Not sure when else this might be reached
-        raise ValueError("Column '{}' of type {} was chunked on conversion "
-                         "to Arrow and cannot be currently written to "
-                         "Feather format".format(name, str(col.type)))
-
-
-class FeatherWriter:
-
-    def __init__(self, dest):
-        _check_pandas_version()
-        self.dest = dest
-        self.writer = ext.FeatherWriter()
-        self.writer.open(dest)
-
-    def write(self, df):
-        if (_pandas_api.has_sparse
-                and isinstance(df, _pandas_api.pd.SparseDataFrame)):
-            df = df.to_dense()
-
-        if not df.columns.is_unique:
-            raise ValueError("cannot serialize duplicate column names")
-
-        # TODO(wesm): Remove this length check, see ARROW-1732
-        if len(df.columns) > 0:
-            table = Table.from_pandas(df, preserve_index=False)
-            for i, name in enumerate(table.schema.names):
-                col = table[i]
-                check_chunked_overflow(name, col)
-                self.writer.write_array(name, col.chunk(0))
-
-        self.writer.close()
 
 
 class FeatherDataset:
@@ -105,9 +37,10 @@ class FeatherDataset:
     ----------
     path_or_paths : List[str]
         A list of file names
-    validate_schema : boolean, default True
+    validate_schema : bool, default True
         Check that individual file schemas are all the same / compatible
     """
+
     def __init__(self, path_or_paths, validate_schema=True):
         _check_pandas_version()
         self.paths = path_or_paths
@@ -127,15 +60,15 @@ class FeatherDataset:
         pyarrow.Table
             Content of the file as a table (of columns)
         """
-        _fil = FeatherReader(self.paths[0]).read_table(columns=columns)
+        _fil = read_table(self.paths[0], columns=columns)
         self._tables = [_fil]
         self.schema = _fil.schema
 
-        for fil in self.paths[1:]:
-            fil_table = FeatherReader(fil).read_table(columns=columns)
+        for path in self.paths[1:]:
+            table = read_table(path, columns=columns)
             if self.validate_schema:
-                self.validate_schemas(fil, fil_table)
-            self._tables.append(fil_table)
+                self.validate_schemas(path, table)
+            self._tables.append(table)
         return concat_tables(self._tables)
 
     def validate_schemas(self, piece, table):
@@ -153,7 +86,7 @@ class FeatherDataset:
         ----------
         columns : List[str]
             Names of columns to read from the file
-        use_threads : boolean, default True
+        use_threads : bool, default True
             Use multiple threads when converting to pandas
 
         Returns
@@ -165,24 +98,91 @@ class FeatherDataset:
             use_threads=use_threads)
 
 
-def write_feather(df, dest):
+def check_chunked_overflow(name, col):
+    if col.num_chunks == 1:
+        return
+
+    if col.type in (ext.binary(), ext.string()):
+        raise ValueError("Column '{}' exceeds 2GB maximum capacity of "
+                         "a Feather binary column. This restriction may be "
+                         "lifted in the future".format(name))
+    else:
+        # TODO(wesm): Not sure when else this might be reached
+        raise ValueError("Column '{}' of type {} was chunked on conversion "
+                         "to Arrow and cannot be currently written to "
+                         "Feather format".format(name, str(col.type)))
+
+
+_FEATHER_SUPPORTED_CODECS = {'lz4', 'zstd', 'uncompressed'}
+
+
+def write_feather(df, dest, compression=None, compression_level=None,
+                  chunksize=None, version=2):
     """
-    Write a pandas.DataFrame to Feather format
+    Write a pandas.DataFrame to Feather format.
 
     Parameters
     ----------
-    df : pandas.DataFrame
-    dest : string
-        Local file path
+    df : pandas.DataFrame or pyarrow.Table
+        Data to write out as Feather format.
+    dest : str
+        Local destination path.
+    compression : string, default None
+        Can be one of {"zstd", "lz4", "uncompressed"}. The default of None uses
+        LZ4 for V2 files if it is available, otherwise uncompressed.
+    compression_level : int, default None
+        Use a compression level particular to the chosen compressor. If None
+        use the default compression level
+    chunksize : int, default None
+        For V2 files, the internal maximum size of Arrow RecordBatch chunks
+        when writing the Arrow IPC file format. None means use the default,
+        which is currently 64K
+    version : int, default 2
+        Feather file version. Version 2 is the current. Version 1 is the more
+        limited legacy format
     """
-    writer = FeatherWriter(dest)
+    if _pandas_api.have_pandas:
+        _check_pandas_version()
+        if (_pandas_api.has_sparse and
+                isinstance(df, _pandas_api.pd.SparseDataFrame)):
+            df = df.to_dense()
+
+    if _pandas_api.is_data_frame(df):
+        table = Table.from_pandas(df, preserve_index=False)
+
+        if version == 1:
+            # Version 1 does not chunking
+            for i, name in enumerate(table.schema.names):
+                col = table[i]
+                check_chunked_overflow(name, col)
+    else:
+        table = df
+
+    if version == 1:
+        if len(table.column_names) > len(set(table.column_names)):
+            raise ValueError("cannot serialize duplicate column names")
+
+        if compression is not None:
+            raise ValueError("Feather V1 files do not support compression "
+                             "option")
+
+        if chunksize is not None:
+            raise ValueError("Feather V1 files do not support chunksize "
+                             "option")
+    else:
+        if compression is None and Codec.is_available('lz4_frame'):
+            compression = 'lz4'
+        elif (compression is not None and
+              compression not in _FEATHER_SUPPORTED_CODECS):
+            raise ValueError('compression="{}" not supported, must be '
+                             'one of {}'.format(compression,
+                                                _FEATHER_SUPPORTED_CODECS))
+
     try:
-        writer.write(df)
+        ext.write_feather(table, dest, compression=compression,
+                          compression_level=compression_level,
+                          chunksize=chunksize, version=version)
     except Exception:
-        # Try to make sure the resource is closed
-        import gc
-        writer = None
-        gc.collect()
         if isinstance(dest, str):
             try:
                 os.remove(dest)
@@ -191,41 +191,74 @@ def write_feather(df, dest):
         raise
 
 
-def read_feather(source, columns=None, use_threads=True):
+def read_feather(source, columns=None, use_threads=True, memory_map=True):
     """
-    Read a pandas.DataFrame from Feather format
+    Read a pandas.DataFrame from Feather format. To read as pyarrow.Table use
+    feather.read_table.
 
     Parameters
     ----------
-    source : string file path, or file-like object
+    source : str file path, or file-like object
     columns : sequence, optional
         Only read a specific set of columns. If not provided, all columns are
-        read
+        read.
     use_threads: bool, default True
-        Whether to parallelize reading using multiple threads
+        Whether to parallelize reading using multiple threads.
+    memory_map : boolean, default True
+        Use memory mapping when opening file on disk
 
     Returns
     -------
     df : pandas.DataFrame
     """
-    reader = FeatherReader(source)
-    return reader.read_pandas(columns=columns, use_threads=use_threads)
+    _check_pandas_version()
+    return (read_table(source, columns=columns, memory_map=memory_map)
+            .to_pandas(use_threads=use_threads))
 
 
-def read_table(source, columns=None):
+def read_table(source, columns=None, memory_map=True):
     """
     Read a pyarrow.Table from Feather format
 
     Parameters
     ----------
-    source : string file path, or file-like object
+    source : str file path, or file-like object
     columns : sequence, optional
         Only read a specific set of columns. If not provided, all columns are
-        read
+        read.
+    memory_map : boolean, default True
+        Use memory mapping when opening file on disk
 
     Returns
     -------
     table : pyarrow.Table
     """
-    reader = FeatherReader(source)
-    return reader.read_table(columns=columns)
+    reader = ext.FeatherReader()
+    reader.open(source, use_memory_map=memory_map)
+
+    if columns is None:
+        return reader.read()
+
+    column_types = [type(column) for column in columns]
+    if all(map(lambda t: t == int, column_types)):
+        table = reader.read_indices(columns)
+    elif all(map(lambda t: t == str, column_types)):
+        table = reader.read_names(columns)
+    else:
+        column_type_names = [t.__name__ for t in column_types]
+        raise TypeError("Columns must be indices or names. "
+                        "Got columns {} of types {}"
+                        .format(columns, column_type_names))
+
+    # Feather v1 already respects the column selection
+    if reader.version < 3:
+        return table
+    # Feather v2 reads with sorted / deduplicated selection
+    elif sorted(set(columns)) == columns:
+        return table
+    else:
+        # follow exact order / selection of names
+        new_fields = [table.schema.field(c) for c in columns]
+        new_schema = schema(new_fields, metadata=table.schema.metadata)
+        new_columns = [table.column(c) for c in columns]
+        return Table.from_arrays(new_columns, schema=new_schema)

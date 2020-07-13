@@ -17,6 +17,9 @@
 
 package org.apache.arrow.vector.types.pojo;
 
+import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -153,6 +156,19 @@ public class TestExtensionType {
         }
       }
     }
+  }
+
+  @Test
+  public void testNullCheck() {
+    NullPointerException e = assertThrows(NullPointerException.class,
+        () -> {
+          try (final BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
+               final ExtensionTypeVector vector = new UuidVector("uuid", allocator, null)) {
+            vector.getField();
+            vector.allocateNewSafe();
+          }
+        });
+    assertTrue(e.getMessage().contains("underlyingVector can not be null."));
   }
 
   static class UuidType extends ExtensionType {

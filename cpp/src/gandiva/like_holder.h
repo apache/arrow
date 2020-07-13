@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_LIKE_HOLDER_H
-#define GANDIVA_LIKE_HOLDER_H
+#pragma once
 
 #include <memory>
 #include <string>
@@ -58,5 +57,3 @@ class GANDIVA_EXPORT LikeHolder : public FunctionHolder {
 };
 
 }  // namespace gandiva
-
-#endif  // GANDIVA_LIKE_HOLDER_H

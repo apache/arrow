@@ -138,7 +138,7 @@ Arrow represents the CPU and other devices using the
 specifies how to allocate on a given device.  Each device has a default memory manager, but
 additional instances may be constructed (for example, wrapping a custom
 :class:`arrow::MemoryPool` the CPU).
-:class:`arrow::MemoryManager` instances which specifiy how to allocate
+:class:`arrow::MemoryManager` instances which specify how to allocate
 memory on a given device (for example, using a particular
 :class:`arrow::MemoryPool` on the CPU).
 

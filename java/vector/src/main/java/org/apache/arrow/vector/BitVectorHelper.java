@@ -20,13 +20,14 @@ package org.apache.arrow.vector;
 import static io.netty.util.internal.PlatformDependent.getByte;
 import static io.netty.util.internal.PlatformDependent.getInt;
 import static io.netty.util.internal.PlatformDependent.getLong;
+import static org.apache.arrow.memory.util.LargeMemoryUtil.checkedCastToInt;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BoundsChecking;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.DataSizeRoundingUtil;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 
-import io.netty.buffer.ArrowBuf;
 import io.netty.util.internal.PlatformDependent;
 
 /**
@@ -36,6 +37,20 @@ import io.netty.util.internal.PlatformDependent;
 public class BitVectorHelper {
 
   private BitVectorHelper() {}
+
+  /**
+   * Get the index of byte corresponding to bit index in validity buffer.
+   */
+  public static long byteIndex(long absoluteBitIndex) {
+    return absoluteBitIndex >> 3;
+  }
+
+  /**
+   * Get the relative index of bit within the byte in validity buffer.
+   */
+  public static int bitIndex(long absoluteBitIndex) {
+    return checkedCastToInt(absoluteBitIndex & 7);
+  }
 
   /**
    * Get the index of byte corresponding to bit index in validity buffer.
@@ -57,11 +72,11 @@ public class BitVectorHelper {
    * @param validityBuffer validity buffer of the vector
    * @param index index to be set
    */
-  public static void setBit(ArrowBuf validityBuffer, int index) {
+  public static void setBit(ArrowBuf validityBuffer, long index) {
     // it can be observed that some logic is duplicate of the logic in setValidityBit.
     // this is because JIT cannot always remove the if branch in setValidityBit,
     // so we give a dedicated implementation for setting bits.
-    final int byteIndex = byteIndex(index);
+    final long byteIndex = byteIndex(index);
     final int bitIndex = bitIndex(index);
 
     // the byte is promoted to an int, because according to Java specification,
@@ -76,7 +91,7 @@ public class BitVectorHelper {
   /**
    * Set the bit at provided index to 1.
    *
-   * @deprecated Please use {@link BitVectorHelper#setBit(ArrowBuf, int)} instead..
+   * @deprecated Please use {@link BitVectorHelper#setBit(ArrowBuf, long)} instead..
    */
   @Deprecated
   public static void setValidityBitToOne(ArrowBuf validityBuffer, int index) {

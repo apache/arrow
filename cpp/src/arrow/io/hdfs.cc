@@ -151,8 +151,7 @@ class HdfsReadableFile::HdfsReadableFileImpl : public HdfsAnyFileImpl {
   }
 
   Result<std::shared_ptr<Buffer>> ReadAt(int64_t position, int64_t nbytes) {
-    std::shared_ptr<ResizableBuffer> buffer;
-    RETURN_NOT_OK(AllocateResizableBuffer(pool_, nbytes, &buffer));
+    ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateResizableBuffer(nbytes, pool_));
 
     ARROW_ASSIGN_OR_RAISE(int64_t bytes_read,
                           ReadAt(position, nbytes, buffer->mutable_data()));
@@ -161,7 +160,7 @@ class HdfsReadableFile::HdfsReadableFileImpl : public HdfsAnyFileImpl {
       RETURN_NOT_OK(buffer->Resize(bytes_read));
       buffer->ZeroPadding();
     }
-    return buffer;
+    return std::move(buffer);
   }
 
   Result<int64_t> Read(int64_t nbytes, void* buffer) {
@@ -180,14 +179,13 @@ class HdfsReadableFile::HdfsReadableFileImpl : public HdfsAnyFileImpl {
   }
 
   Result<std::shared_ptr<Buffer>> Read(int64_t nbytes) {
-    std::shared_ptr<ResizableBuffer> buffer;
-    RETURN_NOT_OK(AllocateResizableBuffer(pool_, nbytes, &buffer));
+    ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateResizableBuffer(nbytes, pool_));
 
     ARROW_ASSIGN_OR_RAISE(int64_t bytes_read, Read(nbytes, buffer->mutable_data()));
     if (bytes_read < nbytes) {
       RETURN_NOT_OK(buffer->Resize(bytes_read));
     }
-    return buffer;
+    return std::move(buffer);
   }
 
   Result<int64_t> GetSize() {
@@ -349,7 +347,7 @@ class HadoopFileSystem::HadoopFileSystemImpl {
       driver_->BuilderSetKerbTicketCachePath(builder, config->kerb_ticket.c_str());
     }
 
-    for (auto& kv : config->extra_conf) {
+    for (const auto& kv : config->extra_conf) {
       int ret = driver_->BuilderConfSetStr(builder, kv.first.c_str(), kv.second.c_str());
       CHECK_FAILURE(ret, "confsetstr");
     }
@@ -646,20 +644,6 @@ Status HadoopFileSystem::Chown(const std::string& path, const char* owner,
 
 Status HadoopFileSystem::Rename(const std::string& src, const std::string& dst) {
   return impl_->Rename(src, dst);
-}
-
-// Deprecated in 0.11
-
-Status HadoopFileSystem::OpenWriteable(const std::string& path, bool append,
-                                       int32_t buffer_size, int16_t replication,
-                                       int64_t default_block_size,
-                                       std::shared_ptr<HdfsOutputStream>* file) {
-  return OpenWritable(path, append, buffer_size, replication, default_block_size, file);
-}
-
-Status HadoopFileSystem::OpenWriteable(const std::string& path, bool append,
-                                       std::shared_ptr<HdfsOutputStream>* file) {
-  return OpenWritable(path, append, 0, 0, 0, file);
 }
 
 // ----------------------------------------------------------------------

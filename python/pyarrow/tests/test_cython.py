@@ -116,7 +116,7 @@ def test_cython_api(tmpdir):
             arr = mod.make_null_array(5)
             assert mod.get_array_length(arr) == 5
             assert arr.null_count == 5
-        """.format(mod_path=str(tmpdir), mod_name='pyarrow_cython_example')
+        """.format(mod_name='pyarrow_cython_example')
 
         if sys.platform == 'win32':
             delim, var = ';', 'PATH'

@@ -356,7 +356,7 @@ struct _GGandivaBooleanNodeClass
   GGandivaNodeClass parent_class;
 };
 
-GGANDIVA_AVAILABLE_IN_1_0
+GGANDIVA_AVAILABLE_IN_0_17
 GList *
 ggandiva_boolean_node_get_children(GGandivaBooleanNode *node);
 
@@ -372,7 +372,7 @@ struct _GGandivaAndNodeClass
   GGandivaBooleanNodeClass parent_class;
 };
 
-GGANDIVA_AVAILABLE_IN_1_0
+GGANDIVA_AVAILABLE_IN_0_17
 GGandivaAndNode *
 ggandiva_and_node_new(GList *children);
 
@@ -388,7 +388,7 @@ struct _GGandivaOrNodeClass
   GGandivaBooleanNodeClass parent_class;
 };
 
-GGANDIVA_AVAILABLE_IN_1_0
+GGANDIVA_AVAILABLE_IN_0_17
 GGandivaOrNode *
 ggandiva_or_node_new(GList *children);
 

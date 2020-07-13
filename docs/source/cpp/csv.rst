@@ -38,7 +38,6 @@ A CSV file is read from a :class:`~arrow::io::InputStream`.
 
    {
       // ...
-      arrow::Status st;
       arrow::MemoryPool* pool = default_memory_pool();
       std::shared_ptr<arrow::io::InputStream> input = ...;
 
@@ -47,21 +46,24 @@ A CSV file is read from a :class:`~arrow::io::InputStream`.
       auto convert_options = arrow::csv::ConvertOptions::Defaults();
 
       // Instantiate TableReader from input stream and options
-      std::shared_ptr<arrow::csv::TableReader> reader;
-      st = arrow::csv::TableReader::Make(pool, input, read_options,
-                                         parse_options, convert_options,
-                                         &reader);
-      if (!st.ok()) {
+      auto maybe_reader =
+        arrow::csv::TableReader::Make(pool,
+                                      input,
+                                      read_options,
+                                      parse_options,
+                                      convert_options);
+      if (!maybe_reader.ok()) {
          // Handle TableReader instantiation error...
       }
+      std::shared_ptr<arrow::csv::TableReader> reader = *maybe_reader;
 
-      std::shared_ptr<arrow::Table> table;
       // Read table from CSV file
-      st = reader->Read(&table);
-      if (!st.ok()) {
+      auto maybe_table = reader->Read();
+      if (!maybe_table.ok()) {
          // Handle CSV read error
          // (for example a CSV syntax error or failed type conversion)
       }
+      std::shared_ptr<arrow::Table> table = *maybe_table;
    }
 
 Column names
@@ -107,6 +109,8 @@ column.  Type inference considers the following data types, in order:
 * Boolean
 * Timestamp (with seconds unit)
 * Float64
+* Dictionary<String> (if :member:`ConvertOptions::auto_dict_encode` is true)
+* Dictionary<Binary> (if :member:`ConvertOptions::auto_dict_encode` is true)
 * String
 * Binary
 
@@ -126,6 +130,15 @@ can be chosen from the following list:
 
 Other data types do not support conversion from CSV values and will error out.
 
+Dictionary inference
+--------------------
+
+If type inference is enabled and :member:`ConvertOptions::auto_dict_encode`
+is true, the CSV reader first tries to convert string-like columns to a
+dictionary-encoded string-like array.  It switches to a plain string-like
+array when the threshold in :member:`ConvertOptions::auto_dict_max_cardinality`
+is reached.
+
 Nulls
 -----
 
@@ -133,6 +146,12 @@ Null values are recognized from the spellings stored in
 :member:`ConvertOptions::null_values`.  The :func:`ConvertOptions::Defaults`
 factory method will initialize a number of conventional null spellings such
 as ``N/A``.
+
+Character encoding
+------------------
+
+CSV files are expected to be encoded in UTF8.  However, non-UTF8 data
+is accepted for Binary columns.
 
 Performance
 ===========

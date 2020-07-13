@@ -36,7 +36,7 @@ rm -f ${tar_gz}
 curl \
   --remote-name \
   --fail \
-  https://www-us.apache.org/dist/arrow/arrow-${version}/${tar_gz}
+  https://downloads.apache.org/arrow/arrow-${version}/${tar_gz}
 rm -rf ${archive_name}
 tar xf ${tar_gz}
 modules=()

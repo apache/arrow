@@ -15,32 +15,31 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_IO_TEST_COMMON_H
-#define ARROW_IO_TEST_COMMON_H
+#pragma once
 
 #include <memory>
 #include <string>
 #include <vector>
 
+#include "arrow/testing/visibility.h"
 #include "arrow/type_fwd.h"
-#include "arrow/util/visibility.h"
 
 namespace arrow {
 namespace io {
 
 class MemoryMappedFile;
 
-ARROW_EXPORT
+ARROW_TESTING_EXPORT
 void AssertFileContents(const std::string& path, const std::string& contents);
 
-ARROW_EXPORT bool FileExists(const std::string& path);
+ARROW_TESTING_EXPORT bool FileExists(const std::string& path);
 
-ARROW_EXPORT bool FileIsClosed(int fd);
+ARROW_TESTING_EXPORT bool FileIsClosed(int fd);
 
-ARROW_EXPORT
+ARROW_TESTING_EXPORT
 Status ZeroMemoryMap(MemoryMappedFile* file);
 
-class ARROW_EXPORT MemoryMapFixture {
+class ARROW_TESTING_EXPORT MemoryMapFixture {
  public:
   void TearDown();
 
@@ -57,5 +56,3 @@ class ARROW_EXPORT MemoryMapFixture {
 
 }  // namespace io
 }  // namespace arrow
-
-#endif  // ARROW_IO_TEST_COMMON_H

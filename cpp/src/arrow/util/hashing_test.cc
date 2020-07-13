@@ -380,7 +380,7 @@ TEST(BinaryMemoTable, Basics) {
   F += '\0';
   F += "trailing";
 
-  BinaryMemoTable table(default_memory_pool(), 0);
+  BinaryMemoTable<BinaryBuilder> table(default_memory_pool(), 0);
   ASSERT_EQ(table.size(), 0);
   AssertGet(table, A, kKeyNotFound);
   AssertGetNull(table, kKeyNotFound);
@@ -458,7 +458,7 @@ TEST(BinaryMemoTable, Stress) {
 
   const auto values = MakeDistinctStrings(n_values);
 
-  BinaryMemoTable table(default_memory_pool(), 0);
+  BinaryMemoTable<BinaryBuilder> table(default_memory_pool(), 0);
   std::unordered_map<std::string, int32_t> map;
 
   for (int32_t i = 0; i < n_repeats; ++i) {

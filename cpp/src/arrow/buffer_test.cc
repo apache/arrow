@@ -319,8 +319,7 @@ TEST_F(TestDevice, View) {
 }
 
 TEST(TestAllocate, Basics) {
-  std::shared_ptr<Buffer> new_buffer;
-  ASSERT_OK(AllocateBuffer(1024, &new_buffer));
+  ASSERT_OK_AND_ASSIGN(auto new_buffer, AllocateBuffer(1024));
   auto mm = new_buffer->memory_manager();
   ASSERT_TRUE(mm->is_cpu());
   ASSERT_EQ(mm.get(), default_cpu_memory_manager().get());
@@ -328,7 +327,7 @@ TEST(TestAllocate, Basics) {
   ASSERT_EQ(cpu_mm->pool(), default_memory_pool());
 
   auto pool = std::make_shared<ProxyMemoryPool>(default_memory_pool());
-  ASSERT_OK(AllocateBuffer(pool.get(), 1024, &new_buffer));
+  ASSERT_OK_AND_ASSIGN(new_buffer, AllocateBuffer(1024, pool.get()));
   mm = new_buffer->memory_manager();
   ASSERT_TRUE(mm->is_cpu());
   cpu_mm = checked_pointer_cast<CPUMemoryManager>(mm);
@@ -337,16 +336,14 @@ TEST(TestAllocate, Basics) {
 }
 
 TEST(TestAllocate, Bitmap) {
-  std::shared_ptr<Buffer> new_buffer;
-  ARROW_EXPECT_OK(AllocateBitmap(default_memory_pool(), 100, &new_buffer));
+  ASSERT_OK_AND_ASSIGN(auto new_buffer, AllocateBitmap(100));
   AssertIsCPUBuffer(*new_buffer);
   EXPECT_GE(new_buffer->size(), 13);
   EXPECT_EQ(new_buffer->capacity() % 8, 0);
 }
 
 TEST(TestAllocate, EmptyBitmap) {
-  std::shared_ptr<Buffer> new_buffer;
-  ARROW_EXPECT_OK(AllocateEmptyBitmap(default_memory_pool(), 100, &new_buffer));
+  ASSERT_OK_AND_ASSIGN(auto new_buffer, AllocateEmptyBitmap(100));
   AssertIsCPUBuffer(*new_buffer);
   EXPECT_EQ(new_buffer->size(), 13);
   EXPECT_EQ(new_buffer->capacity() % 8, 0);
@@ -369,7 +366,7 @@ TEST(TestBuffer, FromStdStringWithMemory) {
 
   {
     std::string temp = "hello, world";
-    ASSERT_OK(Buffer::FromString(temp, &buf));
+    buf = Buffer::FromString(temp);
     AssertIsCPUBuffer(*buf);
     ASSERT_EQ(0, memcmp(buf->data(), temp.c_str(), temp.size()));
     ASSERT_EQ(static_cast<int64_t>(temp.size()), buf->size());
@@ -424,16 +421,14 @@ TEST(TestBuffer, EqualsWithSameBuffer) {
   pool->Free(rawBuffer, bufferSize);
 }
 
-TEST(TestBuffer, Copy) {
+TEST(TestBuffer, CopySlice) {
   std::string data_str = "some data to copy";
 
   auto data = reinterpret_cast<const uint8_t*>(data_str.c_str());
 
   Buffer buf(data, data_str.size());
 
-  std::shared_ptr<Buffer> out;
-
-  ASSERT_OK(buf.Copy(5, 4, &out));
+  ASSERT_OK_AND_ASSIGN(auto out, buf.CopySlice(5, 4));
   AssertIsCPUBuffer(*out);
 
   Buffer expected(data + 5, 4);
@@ -441,6 +436,18 @@ TEST(TestBuffer, Copy) {
   // assert the padding is zeroed
   std::vector<uint8_t> zeros(out->capacity() - out->size());
   ASSERT_EQ(0, memcmp(out->data() + out->size(), zeros.data(), zeros.size()));
+}
+
+TEST(TestBuffer, CopySliceEmpty) {
+  auto buf = std::make_shared<Buffer>("");
+  ASSERT_OK_AND_ASSIGN(auto out, buf->CopySlice(0, 0));
+  AssertBufferEqual(*out, "");
+
+  buf = std::make_shared<Buffer>("1234");
+  ASSERT_OK_AND_ASSIGN(out, buf->CopySlice(0, 0));
+  AssertBufferEqual(*out, "");
+  ASSERT_OK_AND_ASSIGN(out, buf->CopySlice(4, 0));
+  AssertBufferEqual(*out, "");
 }
 
 TEST(TestBuffer, ToHexString) {
@@ -499,8 +506,7 @@ TEST(TestBuffer, SliceMutableBuffer) {
   std::string data_str = "some data to slice";
   auto data = reinterpret_cast<const uint8_t*>(data_str.c_str());
 
-  std::shared_ptr<Buffer> buffer;
-  ASSERT_OK(AllocateBuffer(50, &buffer));
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> buffer, AllocateBuffer(50));
 
   memcpy(buffer->mutable_data(), data, data_str.size());
 
@@ -525,8 +531,7 @@ TEST(TestBuffer, GetReader) {
 }
 
 TEST(TestBuffer, GetWriter) {
-  std::shared_ptr<Buffer> buf;
-  ASSERT_OK(AllocateBuffer(9, &buf));
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> buf, AllocateBuffer(9));
   ASSERT_OK_AND_ASSIGN(auto writer, Buffer::GetWriter(buf));
   ASSERT_OK(writer->Write(reinterpret_cast<const uint8_t*>("some data"), 9));
   AssertBufferEqual(*buf, "some data");
@@ -564,7 +569,7 @@ void TestZeroSizeAllocateBuffer(MemoryPool* pool, AllocateFunction&& allocate_fu
 TEST(TestAllocateBuffer, ZeroSize) {
   MemoryPool* pool = default_memory_pool();
   auto allocate_func = [](MemoryPool* pool, int64_t size, std::shared_ptr<Buffer>* out) {
-    return AllocateBuffer(pool, size, out);
+    return AllocateBuffer(size, pool).Value(out);
   };
   TestZeroSizeAllocateBuffer(pool, allocate_func);
 }
@@ -572,9 +577,8 @@ TEST(TestAllocateBuffer, ZeroSize) {
 TEST(TestAllocateResizableBuffer, ZeroSize) {
   MemoryPool* pool = default_memory_pool();
   auto allocate_func = [](MemoryPool* pool, int64_t size, std::shared_ptr<Buffer>* out) {
-    std::shared_ptr<ResizableBuffer> res;
-    RETURN_NOT_OK(AllocateResizableBuffer(pool, size, &res));
-    *out = res;
+    ARROW_ASSIGN_OR_RAISE(auto resizable, AllocateResizableBuffer(size, pool));
+    *out = std::move(resizable);
     return Status::OK();
   };
   TestZeroSizeAllocateBuffer(pool, allocate_func);
@@ -586,7 +590,7 @@ TEST(TestAllocateResizableBuffer, ZeroResize) {
   {
     std::shared_ptr<ResizableBuffer> buffer;
 
-    ASSERT_OK(AllocateResizableBuffer(pool, 1000, &buffer));
+    ASSERT_OK_AND_ASSIGN(buffer, AllocateResizableBuffer(1000, pool));
     ASSERT_EQ(buffer->size(), 1000);
     ASSERT_NE(buffer->data(), nullptr);
     ASSERT_EQ(buffer->mutable_data(), buffer->data());
@@ -633,7 +637,7 @@ class TypedTestBufferBuilder : public ::testing::Test {};
 
 using BufferBuilderElements = ::testing::Types<int16_t, uint32_t, double>;
 
-TYPED_TEST_CASE(TypedTestBufferBuilder, BufferBuilderElements);
+TYPED_TEST_SUITE(TypedTestBufferBuilder, BufferBuilderElements);
 
 TYPED_TEST(TypedTestBufferBuilder, BasicTypedBufferBuilderUsage) {
   TypedBufferBuilder<TypeParam> builder;
@@ -733,7 +737,7 @@ class TypedTestBuffer : public ::testing::Test {};
 using BufferPtrs =
     ::testing::Types<std::shared_ptr<ResizableBuffer>, std::unique_ptr<ResizableBuffer>>;
 
-TYPED_TEST_CASE(TypedTestBuffer, BufferPtrs);
+TYPED_TEST_SUITE(TypedTestBuffer, BufferPtrs);
 
 TYPED_TEST(TypedTestBuffer, IsMutableFlag) {
   Buffer buf(nullptr, 0);
@@ -745,14 +749,14 @@ TYPED_TEST(TypedTestBuffer, IsMutableFlag) {
   AssertIsCPUBuffer(mbuf);
 
   TypeParam pool_buf;
-  ASSERT_OK(AllocateResizableBuffer(0, &pool_buf));
+  ASSERT_OK_AND_ASSIGN(pool_buf, AllocateResizableBuffer(0));
   ASSERT_TRUE(pool_buf->is_mutable());
   AssertIsCPUBuffer(*pool_buf);
 }
 
 TYPED_TEST(TypedTestBuffer, Resize) {
   TypeParam buf;
-  ASSERT_OK(AllocateResizableBuffer(0, &buf));
+  ASSERT_OK_AND_ASSIGN(buf, AllocateResizableBuffer(0));
   AssertIsCPUBuffer(*buf);
 
   ASSERT_EQ(0, buf->size());
@@ -777,7 +781,7 @@ TYPED_TEST(TypedTestBuffer, Resize) {
 
 TYPED_TEST(TypedTestBuffer, TypedResize) {
   TypeParam buf;
-  ASSERT_OK(AllocateResizableBuffer(0, &buf));
+  ASSERT_OK_AND_ASSIGN(buf, AllocateResizableBuffer(0));
 
   ASSERT_EQ(0, buf->size());
   ASSERT_OK(buf->template TypedResize<double>(100));
@@ -800,7 +804,7 @@ TYPED_TEST(TypedTestBuffer, ResizeOOM) {
 #ifndef ADDRESS_SANITIZER
   // realloc fails, even though there may be no explicit limit
   TypeParam buf;
-  ASSERT_OK(AllocateResizableBuffer(0, &buf));
+  ASSERT_OK_AND_ASSIGN(buf, AllocateResizableBuffer(0));
   ASSERT_OK(buf->Resize(100));
   int64_t to_alloc = std::min<uint64_t>(std::numeric_limits<int64_t>::max(),
                                         std::numeric_limits<size_t>::max());

@@ -25,11 +25,13 @@ IWYU_LOG=$(mktemp -t arrow-cpp-iwyu.XXXXXX)
 trap "rm -f $IWYU_LOG" EXIT
 
 IWYU_MAPPINGS_PATH="$ROOT/cpp/build-support/iwyu/mappings"
-IWYU_ARGS="--mapping_file=$IWYU_MAPPINGS_PATH/boost-all.imp \
+IWYU_ARGS="\
+    --mapping_file=$IWYU_MAPPINGS_PATH/boost-all.imp \
     --mapping_file=$IWYU_MAPPINGS_PATH/boost-all-private.imp \
     --mapping_file=$IWYU_MAPPINGS_PATH/boost-extra.imp \
     --mapping_file=$IWYU_MAPPINGS_PATH/gflags.imp \
     --mapping_file=$IWYU_MAPPINGS_PATH/glog.imp \
+    --mapping_file=$IWYU_MAPPINGS_PATH/gmock.imp \
     --mapping_file=$IWYU_MAPPINGS_PATH/gtest.imp \
     --mapping_file=$IWYU_MAPPINGS_PATH/arrow-misc.imp"
 

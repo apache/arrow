@@ -40,7 +40,7 @@ class ApacheArrowReleasePackageTask < PackageTask
     file @archive_name => [repo_path] do
       rm_rf(@archive_base_name)
       mkdir(@archive_base_name)
-      download("https://dist.apache.org/repos/dist/dev/arrow/KEYS",
+      download("https://downloads.apache.org/arrow/KEYS",
                "#{@archive_base_name}/KEYS")
       cp(repo_path, @archive_base_name)
       sh("tar", "czf", @archive_name, @archive_base_name)
@@ -59,14 +59,6 @@ class ApacheArrowReleasePackageTask < PackageTask
 
   def enable_apt?
     false
-  end
-
-  def yum_targets_default
-    [
-      "centos-6",
-      "centos-7",
-      "centos-8",
-    ]
   end
 end
 

@@ -22,6 +22,7 @@ import static org.junit.Assert.assertTrue;
 
 import java.nio.charset.StandardCharsets;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
@@ -36,8 +37,6 @@ import org.apache.arrow.vector.types.pojo.FieldType;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-
-import io.netty.buffer.ArrowBuf;
 
 public class TestVectorReset {
 
@@ -85,6 +84,18 @@ public class TestVectorReset {
   @Test
   public void testVariableTypeReset() {
     try (final VarCharVector vector = new VarCharVector("VarChar", allocator)) {
+      vector.allocateNewSafe();
+      vector.set(0, "a".getBytes(StandardCharsets.UTF_8));
+      vector.setLastSet(0);
+      vector.setValueCount(1);
+      resetVectorAndVerify(vector, vector.getBuffers(false));
+      assertEquals(-1, vector.getLastSet());
+    }
+  }
+
+  @Test
+  public void testLargeVariableTypeReset() {
+    try (final LargeVarCharVector vector = new LargeVarCharVector("LargeVarChar", allocator)) {
       vector.allocateNewSafe();
       vector.set(0, "a".getBytes(StandardCharsets.UTF_8));
       vector.setLastSet(0);

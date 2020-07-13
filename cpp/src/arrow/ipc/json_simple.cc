@@ -21,19 +21,28 @@
 #include <utility>
 #include <vector>
 
-#include "arrow/array.h"
+#include "arrow/array/array_dict.h"
 #include "arrow/builder.h"
-#include "arrow/ipc/json_internal.h"
 #include "arrow/ipc/json_simple.h"
-#include "arrow/memory_pool.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
-#include "arrow/util/logging.h"
-#include "arrow/util/parsing.h"
 #include "arrow/util/string_view.h"
+#include "arrow/util/value_parsing.h"
+
+#include "arrow/json/rapidjson_defs.h"
+
+#include <rapidjson/document.h>
+#include <rapidjson/error/en.h>
+#include <rapidjson/rapidjson.h>
+#include <rapidjson/reader.h>
+
+namespace rj = arrow::rapidjson;
 
 namespace arrow {
+
+using internal::ParseValue;
+
 namespace ipc {
 namespace internal {
 namespace json {
@@ -56,7 +65,7 @@ class Converter {
 
   virtual Status AppendValue(const rj::Value& json_obj) = 0;
 
-  virtual Status AppendNull() = 0;
+  Status AppendNull() { return this->builder()->AppendNull(); }
 
   virtual Status AppendValues(const rj::Value& json_array) = 0;
 
@@ -104,8 +113,6 @@ class NullConverter final : public ConcreteConverter<NullConverter> {
     builder_ = std::make_shared<NullBuilder>();
   }
 
-  Status AppendNull() override { return builder_->AppendNull(); }
-
   Status AppendValue(const rj::Value& json_obj) override {
     if (json_obj.IsNull()) {
       return AppendNull();
@@ -128,8 +135,6 @@ class BooleanConverter final : public ConcreteConverter<BooleanConverter> {
     type_ = type;
     builder_ = std::make_shared<BooleanBuilder>();
   }
-
-  Status AppendNull() override { return builder_->AppendNull(); }
 
   Status AppendValue(const rj::Value& json_obj) override {
     if (json_obj.IsNull()) {
@@ -223,11 +228,9 @@ class IntegerConverter final : public ConcreteConverter<IntegerConverter<Type>> 
     return Status::OK();
   }
 
-  Status AppendNull() override { return builder_->AppendNull(); }
-
   Status AppendValue(const rj::Value& json_obj) override {
     if (json_obj.IsNull()) {
-      return AppendNull();
+      return this->AppendNull();
     }
     c_type value;
     RETURN_NOT_OK(ConvertNumber<Type>(json_obj, *this->type_, &value));
@@ -253,11 +256,9 @@ class FloatConverter final : public ConcreteConverter<FloatConverter<Type>> {
     builder_ = std::make_shared<NumericBuilder<Type>>();
   }
 
-  Status AppendNull() override { return builder_->AppendNull(); }
-
   Status AppendValue(const rj::Value& json_obj) override {
     if (json_obj.IsNull()) {
-      return AppendNull();
+      return this->AppendNull();
     }
     c_type value;
     RETURN_NOT_OK(ConvertNumber<Type>(json_obj, *this->type_, &value));
@@ -281,11 +282,9 @@ class DecimalConverter final : public ConcreteConverter<DecimalConverter> {
     builder_ = std::make_shared<DecimalBuilder>(type);
   }
 
-  Status AppendNull() override { return builder_->AppendNull(); }
-
   Status AppendValue(const rj::Value& json_obj) override {
     if (json_obj.IsNull()) {
-      return AppendNull();
+      return this->AppendNull();
     }
     if (json_obj.IsString()) {
       int32_t precision, scale;
@@ -314,23 +313,21 @@ class DecimalConverter final : public ConcreteConverter<DecimalConverter> {
 class TimestampConverter final : public ConcreteConverter<TimestampConverter> {
  public:
   explicit TimestampConverter(const std::shared_ptr<DataType>& type)
-      : from_string_(type) {
+      : parse_ctx_{checked_cast<const TimestampType&>(*type).unit()} {
     this->type_ = type;
     builder_ = std::make_shared<TimestampBuilder>(type, default_memory_pool());
   }
 
-  Status AppendNull() override { return builder_->AppendNull(); }
-
   Status AppendValue(const rj::Value& json_obj) override {
     if (json_obj.IsNull()) {
-      return AppendNull();
+      return this->AppendNull();
     }
     int64_t value;
     if (json_obj.IsNumber()) {
       RETURN_NOT_OK(ConvertNumber<Int64Type>(json_obj, *this->type_, &value));
     } else if (json_obj.IsString()) {
       auto view = util::string_view(json_obj.GetString(), json_obj.GetStringLength());
-      if (!from_string_(view.data(), view.size(), &value)) {
+      if (!ParseValue<TimestampType>(view.data(), view.size(), &value, &parse_ctx_)) {
         return Status::Invalid("couldn't parse timestamp from ", view);
       }
     } else {
@@ -342,7 +339,7 @@ class TimestampConverter final : public ConcreteConverter<TimestampConverter> {
   std::shared_ptr<ArrayBuilder> builder() override { return builder_; }
 
  private:
-  ::arrow::internal::StringConverter<TimestampType> from_string_;
+  ::arrow::internal::ParseTimestampContext parse_ctx_;
   std::shared_ptr<TimestampBuilder> builder_;
 };
 
@@ -357,11 +354,9 @@ class DayTimeIntervalConverter final
     builder_ = std::make_shared<DayTimeIntervalBuilder>(default_memory_pool());
   }
 
-  Status AppendNull() override { return builder_->AppendNull(); }
-
   Status AppendValue(const rj::Value& json_obj) override {
     if (json_obj.IsNull()) {
-      return AppendNull();
+      return this->AppendNull();
     }
     DayTimeIntervalType::DayMilliseconds value;
     if (!json_obj.IsArray()) {
@@ -396,11 +391,9 @@ class StringConverter final : public ConcreteConverter<StringConverter<TYPE>> {
     builder_ = std::make_shared<BuilderType>(type, default_memory_pool());
   }
 
-  Status AppendNull() override { return builder_->AppendNull(); }
-
   Status AppendValue(const rj::Value& json_obj) override {
     if (json_obj.IsNull()) {
-      return AppendNull();
+      return this->AppendNull();
     }
     if (json_obj.IsString()) {
       auto view = util::string_view(json_obj.GetString(), json_obj.GetStringLength());
@@ -427,11 +420,9 @@ class FixedSizeBinaryConverter final
     builder_ = std::make_shared<FixedSizeBinaryBuilder>(type, default_memory_pool());
   }
 
-  Status AppendNull() override { return builder_->AppendNull(); }
-
   Status AppendValue(const rj::Value& json_obj) override {
     if (json_obj.IsNull()) {
-      return AppendNull();
+      return this->AppendNull();
     }
     if (json_obj.IsString()) {
       auto view = util::string_view(json_obj.GetString(), json_obj.GetStringLength());
@@ -472,11 +463,9 @@ class ListConverter final : public ConcreteConverter<ListConverter<TYPE>> {
     return Status::OK();
   }
 
-  Status AppendNull() override { return builder_->AppendNull(); }
-
   Status AppendValue(const rj::Value& json_obj) override {
     if (json_obj.IsNull()) {
-      return AppendNull();
+      return this->AppendNull();
     }
     RETURN_NOT_OK(builder_->Append());
     // Extend the child converter with this JSON array
@@ -508,11 +497,9 @@ class MapConverter final : public ConcreteConverter<MapConverter> {
     return Status::OK();
   }
 
-  Status AppendNull() override { return builder_->AppendNull(); }
-
   Status AppendValue(const rj::Value& json_obj) override {
     if (json_obj.IsNull()) {
-      return AppendNull();
+      return this->AppendNull();
     }
     RETURN_NOT_OK(builder_->Append());
     if (!json_obj.IsArray()) {
@@ -561,11 +548,9 @@ class FixedSizeListConverter final : public ConcreteConverter<FixedSizeListConve
     return Status::OK();
   }
 
-  Status AppendNull() override { return builder_->AppendNull(); }
-
   Status AppendValue(const rj::Value& json_obj) override {
     if (json_obj.IsNull()) {
-      return AppendNull();
+      return this->AppendNull();
     }
     RETURN_NOT_OK(builder_->Append());
     // Extend the child converter with this JSON array
@@ -593,7 +578,7 @@ class StructConverter final : public ConcreteConverter<StructConverter> {
 
   Status Init() override {
     std::vector<std::shared_ptr<ArrayBuilder>> child_builders;
-    for (const auto& field : type_->children()) {
+    for (const auto& field : type_->fields()) {
       std::shared_ptr<Converter> child_converter;
       RETURN_NOT_OK(GetConverter(field->type(), &child_converter));
       child_converters_.push_back(child_converter);
@@ -604,23 +589,16 @@ class StructConverter final : public ConcreteConverter<StructConverter> {
     return Status::OK();
   }
 
-  Status AppendNull() override {
-    for (auto& converter : child_converters_) {
-      RETURN_NOT_OK(converter->AppendNull());
-    }
-    return builder_->AppendNull();
-  }
-
   // Append a JSON value that is either an array of N elements in order
   // or an object mapping struct names to values (omitted struct members
   // are mapped to null).
   Status AppendValue(const rj::Value& json_obj) override {
     if (json_obj.IsNull()) {
-      return AppendNull();
+      return this->AppendNull();
     }
     if (json_obj.IsArray()) {
       auto size = json_obj.Size();
-      auto expected_size = static_cast<uint32_t>(type_->num_children());
+      auto expected_size = static_cast<uint32_t>(type_->num_fields());
       if (size != expected_size) {
         return Status::Invalid("Expected array of size ", expected_size,
                                ", got array of size ", size);
@@ -632,9 +610,9 @@ class StructConverter final : public ConcreteConverter<StructConverter> {
     }
     if (json_obj.IsObject()) {
       auto remaining = json_obj.MemberCount();
-      auto num_children = type_->num_children();
+      auto num_children = type_->num_fields();
       for (int32_t i = 0; i < num_children; ++i) {
-        const auto& field = type_->child(i);
+        const auto& field = type_->field(i);
         auto it = json_obj.FindMember(field->name());
         if (it != json_obj.MemberEnd()) {
           --remaining;
@@ -660,7 +638,7 @@ class StructConverter final : public ConcreteConverter<StructConverter> {
 };
 
 // ------------------------------------------------------------------------
-// Converter for struct arrays
+// Converter for union arrays
 
 class UnionConverter final : public ConcreteConverter<UnionConverter> {
  public:
@@ -676,7 +654,7 @@ class UnionConverter final : public ConcreteConverter<UnionConverter> {
       type_id_to_child_num_[type_id] = child_i++;
     }
     std::vector<std::shared_ptr<ArrayBuilder>> child_builders;
-    for (const auto& field : type_->children()) {
+    for (const auto& field : type_->fields()) {
       std::shared_ptr<Converter> child_converter;
       RETURN_NOT_OK(GetConverter(field->type(), &child_converter));
       child_converters_.push_back(child_converter);
@@ -692,21 +670,11 @@ class UnionConverter final : public ConcreteConverter<UnionConverter> {
     return Status::OK();
   }
 
-  Status AppendNull() override {
-    if (mode_ == UnionMode::SPARSE) {
-      for (auto& converter : child_converters_) {
-        RETURN_NOT_OK(converter->AppendNull());
-      }
-    }
-    return builder_->AppendNull();
-  }
-
-  // Append a JSON value that is either an array of N elements in order
-  // or an object mapping struct names to values (omitted struct members
-  // are mapped to null).
+  // Append a JSON value that must be a 2-long array, containing the type_id
+  // and value of the UnionArray's slot.
   Status AppendValue(const rj::Value& json_obj) override {
     if (json_obj.IsNull()) {
-      return AppendNull();
+      return this->AppendNull();
     }
     if (!json_obj.IsArray()) {
       return JSONTypeError("array", json_obj.GetType());
@@ -797,20 +765,10 @@ Status GetConverter(const std::shared_ptr<DataType>& type,
     SIMPLE_CONVERTER_CASE(Type::LARGE_BINARY, StringConverter<LargeBinaryType>)
     SIMPLE_CONVERTER_CASE(Type::FIXED_SIZE_BINARY, FixedSizeBinaryConverter)
     SIMPLE_CONVERTER_CASE(Type::DECIMAL, DecimalConverter)
-    SIMPLE_CONVERTER_CASE(Type::UNION, UnionConverter)
-    case Type::INTERVAL: {
-      switch (checked_cast<const IntervalType&>(*type).interval_type()) {
-        case IntervalType::MONTHS:
-          res = std::make_shared<IntegerConverter<MonthIntervalType>>(type);
-          break;
-        case IntervalType::DAY_TIME:
-          res = std::make_shared<DayTimeIntervalConverter>(type);
-          break;
-        default:
-          return not_implemented();
-      }
-      break;
-    }
+    SIMPLE_CONVERTER_CASE(Type::SPARSE_UNION, UnionConverter)
+    SIMPLE_CONVERTER_CASE(Type::DENSE_UNION, UnionConverter)
+    SIMPLE_CONVERTER_CASE(Type::INTERVAL_MONTHS, IntegerConverter<MonthIntervalType>)
+    SIMPLE_CONVERTER_CASE(Type::INTERVAL_DAY_TIME, DayTimeIntervalConverter)
     default:
       return not_implemented();
   }
@@ -822,8 +780,8 @@ Status GetConverter(const std::shared_ptr<DataType>& type,
   return Status::OK();
 }
 
-Status ArrayFromJSON(const std::shared_ptr<DataType>& type,
-                     const util::string_view& json_string, std::shared_ptr<Array>* out) {
+Status ArrayFromJSON(const std::shared_ptr<DataType>& type, util::string_view json_string,
+                     std::shared_ptr<Array>* out) {
   std::shared_ptr<Converter> converter;
   RETURN_NOT_OK(GetConverter(type, &converter));
 
@@ -847,6 +805,24 @@ Status ArrayFromJSON(const std::shared_ptr<DataType>& type,
 Status ArrayFromJSON(const std::shared_ptr<DataType>& type, const char* json_string,
                      std::shared_ptr<Array>* out) {
   return ArrayFromJSON(type, util::string_view(json_string), out);
+}
+
+Status DictArrayFromJSON(const std::shared_ptr<DataType>& type,
+                         util::string_view indices_json,
+                         util::string_view dictionary_json, std::shared_ptr<Array>* out) {
+  if (type->id() != Type::DICTIONARY) {
+    return Status::TypeError("DictArrayFromJSON requires dictionary type, got ", *type);
+  }
+
+  const auto& dictionary_type = checked_cast<const DictionaryType&>(*type);
+
+  std::shared_ptr<Array> indices, dictionary;
+  RETURN_NOT_OK(ArrayFromJSON(dictionary_type.index_type(), indices_json, &indices));
+  RETURN_NOT_OK(
+      ArrayFromJSON(dictionary_type.value_type(), dictionary_json, &dictionary));
+
+  return DictionaryArray::FromArrays(type, std::move(indices), std::move(dictionary))
+      .Value(out);
 }
 
 }  // namespace json

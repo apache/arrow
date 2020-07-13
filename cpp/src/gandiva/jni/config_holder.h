@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef CONFIG_HOLDER_H
-#define CONFIG_HOLDER_H
+#pragma once
 
 #include <memory>
 #include <mutex>
@@ -67,4 +66,3 @@ class ConfigHolder {
   static int64_t config_id_;
 };
 }  // namespace gandiva
-#endif  // CONFIG_HOLDER_H

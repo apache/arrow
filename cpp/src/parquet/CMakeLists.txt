@@ -175,6 +175,7 @@ set(PARQUET_SRCS
     arrow/reader.cc
     arrow/reader_internal.cc
     arrow/schema.cc
+    arrow/schema_internal.cc
     arrow/writer.cc
     bloom_filter.cc
     column_reader.cc
@@ -187,6 +188,7 @@ set(PARQUET_SRCS
     file_writer.cc
     internal_file_decryptor.cc
     internal_file_encryptor.cc
+    level_conversion.cc
     metadata.cc
     murmur3.cc
     "${ARROW_SOURCE_DIR}/src/generated/parquet_constants.cpp"
@@ -336,6 +338,7 @@ set_source_files_properties(public_api_test.cc
 add_parquet_test(reader_test
                  SOURCES
                  column_reader_test.cc
+                 level_conversion_test.cc
                  column_scanner_test.cc
                  reader_test.cc
                  stream_reader_test.cc
@@ -371,6 +374,7 @@ add_parquet_test(schema_test)
 
 add_parquet_benchmark(column_io_benchmark)
 add_parquet_benchmark(encoding_benchmark)
+add_parquet_benchmark(level_conversion_benchmark)
 add_parquet_benchmark(arrow/reader_writer_benchmark PREFIX "parquet-arrow")
 
 if(ARROW_WITH_BROTLI)

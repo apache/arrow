@@ -32,6 +32,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 #include "arrow/util/key_value_metadata.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/string_view.h"
 
@@ -118,18 +119,29 @@ static const std::vector<std::string> kMetadataKeys1{"key1", "key2"};
 static const std::vector<std::string> kMetadataValues1{"", "bar"};
 // clang-format off
 static const std::string kEncodedMetadata1{  // NOLINT: runtime/string
+#if ARROW_LITTLE_ENDIAN
     2, 0, 0, 0,
     4, 0, 0, 0, 'k', 'e', 'y', '1', 0, 0, 0, 0,
     4, 0, 0, 0, 'k', 'e', 'y', '2', 3, 0, 0, 0, 'b', 'a', 'r'};
-// clang-format off
+#else
+    0, 0, 0, 2,
+    0, 0, 0, 4, 'k', 'e', 'y', '1', 0, 0, 0, 0,
+    0, 0, 0, 4, 'k', 'e', 'y', '2', 0, 0, 0, 3, 'b', 'a', 'r'};
+#endif
+// clang-format on
 
 static const std::vector<std::string> kMetadataKeys2{"key"};
 static const std::vector<std::string> kMetadataValues2{"abcde"};
 // clang-format off
 static const std::string kEncodedMetadata2{  // NOLINT: runtime/string
+#if ARROW_LITTLE_ENDIAN
     1, 0, 0, 0,
     3, 0, 0, 0, 'k', 'e', 'y', 5, 0, 0, 0, 'a', 'b', 'c', 'd', 'e'};
-// clang-format off
+#else
+    0, 0, 0, 1,
+    0, 0, 0, 3, 'k', 'e', 'y', 0, 0, 0, 5, 'a', 'b', 'c', 'd', 'e'};
+#endif
+// clang-format on
 
 static constexpr int64_t kDefaultFlags = ARROW_FLAG_NULLABLE;
 
@@ -211,7 +223,8 @@ class TestSchemaExport : public ::testing::Test {
                   std::vector<int64_t> flattened_flags = {},
                   std::vector<std::string> flattened_metadata = {}) {
     SchemaExportChecker checker(std::move(flattened_formats), std::move(flattened_names),
-                          std::move(flattened_flags), std::move(flattened_metadata));
+                                std::move(flattened_flags),
+                                std::move(flattened_metadata));
 
     auto orig_bytes = pool_->bytes_allocated();
 
@@ -230,9 +243,9 @@ class TestSchemaExport : public ::testing::Test {
   }
 
   template <typename T>
-  void TestPrimitive(const std::shared_ptr<T>& schema_like,
-                     const char* format, const std::string& name = "",
-                     int64_t flags = kDefaultFlags, const std::string& metadata = "") {
+  void TestPrimitive(const std::shared_ptr<T>& schema_like, const char* format,
+                     const std::string& name = "", int64_t flags = kDefaultFlags,
+                     const std::string& metadata = "") {
     TestNested(schema_like, {format}, {name}, {flags}, {metadata});
   }
 
@@ -293,13 +306,10 @@ TEST_F(TestSchemaExport, Temporal) {
 
 TEST_F(TestSchemaExport, List) {
   TestNested(list(int8()), {"+l", "c"}, {"", "item"});
-  TestNested(large_list(uint16()), {"+L", "S"},
-             {"", "item"});
-  TestNested(fixed_size_list(int64(), 2), {"+w:2", "l"},
-             {"", "item"});
+  TestNested(large_list(uint16()), {"+L", "S"}, {"", "item"});
+  TestNested(fixed_size_list(int64(), 2), {"+w:2", "l"}, {"", "item"});
 
-  TestNested(list(large_list(int32())), {"+l", "+L", "i"},
-             {"", "item", "item"});
+  TestNested(list(large_list(int32())), {"+l", "+L", "i"}, {"", "item", "item"});
 }
 
 TEST_F(TestSchemaExport, Struct) {
@@ -313,48 +323,73 @@ TEST_F(TestSchemaExport, Struct) {
              {ARROW_FLAG_NULLABLE, 0, ARROW_FLAG_NULLABLE});
 
   // With metadata
-  auto f0 = type->child(0);
-  auto f1 = type->child(1)->WithMetadata(
-      key_value_metadata(kMetadataKeys1, kMetadataValues1));
+  auto f0 = type->field(0);
+  auto f1 =
+      type->field(1)->WithMetadata(key_value_metadata(kMetadataKeys1, kMetadataValues1));
   type = struct_({f0, f1});
   TestNested(type, {"+s", "c", "u"}, {"", "a", "b"},
-             {ARROW_FLAG_NULLABLE, 0, ARROW_FLAG_NULLABLE},
-             {"", "", kEncodedMetadata1});
+             {ARROW_FLAG_NULLABLE, 0, ARROW_FLAG_NULLABLE}, {"", "", kEncodedMetadata1});
 }
 
 TEST_F(TestSchemaExport, Map) {
-  TestNested(map(int8(), utf8()),
-             {"+m", "+s", "c", "u"}, {"", "entries", "key", "value"},
+  TestNested(map(int8(), utf8()), {"+m", "+s", "c", "u"}, {"", "entries", "key", "value"},
              {ARROW_FLAG_NULLABLE, 0, 0, ARROW_FLAG_NULLABLE});
-  TestNested(map(int8(), utf8(), /*keys_sorted=*/ true),
-             {"+m", "+s", "c", "u"}, {"", "entries", "key", "value"},
-             {ARROW_FLAG_NULLABLE | ARROW_FLAG_MAP_KEYS_SORTED, 0, 0,
-              ARROW_FLAG_NULLABLE});
+  TestNested(
+      map(int8(), utf8(), /*keys_sorted=*/true), {"+m", "+s", "c", "u"},
+      {"", "entries", "key", "value"},
+      {ARROW_FLAG_NULLABLE | ARROW_FLAG_MAP_KEYS_SORTED, 0, 0, ARROW_FLAG_NULLABLE});
 }
 
 TEST_F(TestSchemaExport, Union) {
   // Dense
   auto field_a = field("a", int8());
   auto field_b = field("b", boolean(), /*nullable=*/false);
-  auto type = union_({field_a, field_b}, {42, 43}, UnionMode::DENSE);
+  auto type = dense_union({field_a, field_b}, {42, 43});
   TestNested(type, {"+ud:42,43", "c", "b"}, {"", "a", "b"},
              {ARROW_FLAG_NULLABLE, ARROW_FLAG_NULLABLE, 0});
   // Sparse
   field_a = field("a", int8(), /*nullable=*/false);
   field_b = field("b", boolean());
-  type = union_({field_a, field_b}, {42, 43}, UnionMode::SPARSE);
+  type = sparse_union({field_a, field_b}, {42, 43});
   TestNested(type, {"+us:42,43", "c", "b"}, {"", "a", "b"},
              {ARROW_FLAG_NULLABLE, 0, ARROW_FLAG_NULLABLE});
 }
 
+std::string GetIndexFormat(Type::type type_id) {
+  switch (type_id) {
+    case Type::UINT8:
+      return "C";
+    case Type::INT8:
+      return "c";
+    case Type::UINT16:
+      return "S";
+    case Type::INT16:
+      return "s";
+    case Type::UINT32:
+      return "I";
+    case Type::INT32:
+      return "i";
+    case Type::UINT64:
+      return "L";
+    case Type::INT64:
+      return "l";
+    default:
+      DCHECK(false);
+      return "";
+  }
+}
+
 TEST_F(TestSchemaExport, Dictionary) {
-  TestNested(dictionary(int32(), utf8()), {"i", "u"}, {"", ""});
-  TestNested(dictionary(int32(), list(utf8()), /*ordered=*/true),
-             {"i", "+l", "u"}, {"", "", "item"},
-             {ARROW_FLAG_NULLABLE | ARROW_FLAG_DICTIONARY_ORDERED,
-              ARROW_FLAG_NULLABLE, ARROW_FLAG_NULLABLE});
-  TestNested(large_list(dictionary(int32(), list(utf8()))),
-             {"+L", "i", "+l", "u"}, {"", "item", "", "item"});
+  for (auto index_ty : all_dictionary_index_types()) {
+    std::string index_fmt = GetIndexFormat(index_ty->id());
+    TestNested(dictionary(index_ty, utf8()), {index_fmt, "u"}, {"", ""});
+    TestNested(dictionary(index_ty, list(utf8()), /*ordered=*/true),
+               {index_fmt, "+l", "u"}, {"", "", "item"},
+               {ARROW_FLAG_NULLABLE | ARROW_FLAG_DICTIONARY_ORDERED, ARROW_FLAG_NULLABLE,
+                ARROW_FLAG_NULLABLE});
+    TestNested(large_list(dictionary(index_ty, list(utf8()))),
+               {"+L", index_fmt, "+l", "u"}, {"", "item", "", "item"});
+  }
 }
 
 TEST_F(TestSchemaExport, ExportField) {
@@ -411,7 +446,7 @@ struct ArrayExportChecker {
     if (expected_data.dictionary != nullptr) {
       // Recurse into dictionary
       ASSERT_NE(c_export->dictionary, nullptr);
-      operator()(c_export->dictionary, *expected_data.dictionary->data());
+      operator()(c_export->dictionary, *expected_data.dictionary);
     } else {
       ASSERT_EQ(c_export->dictionary, nullptr);
     }
@@ -448,8 +483,7 @@ struct RecordBatchExportChecker {
       // Recurse into children
       for (int i = 0; i < expected_batch.num_columns(); ++i) {
         ASSERT_NE(c_export->children[i], nullptr);
-        array_checker(c_export->children[i],
-                      *expected_batch.column(i)->data());
+        array_checker(c_export->children[i], *expected_batch.column(i)->data());
       }
     } else {
       ASSERT_EQ(c_export->children, nullptr);
@@ -608,6 +642,73 @@ class TestArrayExport : public ::testing::Test {
     TestMoveChild(JSONArrayFactory(type, json), child_id);
   }
 
+  template <typename ArrayFactory, typename ExportCheckFunc>
+  void TestMoveChildrenWithArrayFactory(ArrayFactory&& factory,
+                                        const std::vector<int64_t> children_ids,
+                                        ExportCheckFunc&& check_func) {
+    auto orig_bytes = pool_->bytes_allocated();
+
+    std::shared_ptr<Array> arr;
+    ASSERT_OK(factory(&arr));
+    struct ArrowArray c_export_parent;
+    ASSERT_OK(ExportArray(*arr, &c_export_parent));
+
+    auto bytes_with_parent = pool_->bytes_allocated();
+    ASSERT_GT(bytes_with_parent, orig_bytes);
+
+    // Move the children ArrowArrays to their final locations
+    std::vector<struct ArrowArray> c_export_children(children_ids.size());
+    std::vector<ArrayExportGuard> child_guards;
+    std::vector<const ArrayData*> child_data;
+    {
+      ArrayExportGuard parent_guard(&c_export_parent);
+      for (size_t i = 0; i < children_ids.size(); ++i) {
+        const auto child_id = children_ids[i];
+        ASSERT_LT(child_id, c_export_parent.n_children);
+        ArrowArrayMove(c_export_parent.children[child_id], &c_export_children[i]);
+        child_guards.emplace_back(&c_export_children[i]);
+        // Keep non-owning pointer to the child ArrayData
+        child_data.push_back(arr->data()->child_data[child_id].get());
+      }
+    }
+
+    // Now parent is released
+    ASSERT_TRUE(ArrowArrayIsReleased(&c_export_parent));
+    auto bytes_with_child = pool_->bytes_allocated();
+    ASSERT_LT(bytes_with_child, bytes_with_parent);
+    ASSERT_GT(bytes_with_child, orig_bytes);
+    for (size_t i = 0; i < children_ids.size(); ++i) {
+      check_func(&c_export_children[i], *child_data[i]);
+    }
+
+    // Release the shared_ptr<Array>, the children data should be held alive
+    arr.reset();
+    ASSERT_LT(pool_->bytes_allocated(), bytes_with_child);
+    ASSERT_GT(pool_->bytes_allocated(), orig_bytes);
+    for (size_t i = 0; i < children_ids.size(); ++i) {
+      check_func(&c_export_children[i], *child_data[i]);
+    }
+
+    // Release the ArrowArrays, underlying data should be destroyed
+    for (auto& child_guard : child_guards) {
+      child_guard.Release();
+    }
+    ASSERT_EQ(pool_->bytes_allocated(), orig_bytes);
+  }
+
+  template <typename ArrayFactory>
+  void TestMoveChildren(ArrayFactory&& factory, const std::vector<int64_t> children_ids) {
+    ArrayExportChecker checker;
+
+    TestMoveChildrenWithArrayFactory(std::forward<ArrayFactory>(factory), children_ids,
+                                     checker);
+  }
+
+  void TestMoveChildren(const std::shared_ptr<DataType>& type, const char* json,
+                        const std::vector<int64_t> children_ids) {
+    TestMoveChildren(JSONArrayFactory(type, json), children_ids);
+  }
+
  protected:
   MemoryPool* pool_;
 };
@@ -699,7 +800,7 @@ TEST_F(TestArrayExport, ListSliced) {
     auto factory = [](std::shared_ptr<Array>* out) -> Status {
       auto values = ArrayFromJSON(int16(), "[1, 2, 3, 4, null, 5, 6, 7, 8]")->Slice(1, 6);
       auto offsets = ArrayFromJSON(int32(), "[0, 2, 3, 5, 6]")->Slice(2, 4);
-      return ListArray::FromArrays(*offsets, *values, default_memory_pool(), out);
+      return ListArray::FromArrays(*offsets, *values).Value(out);
     };
     TestNested(factory);
   }
@@ -714,7 +815,7 @@ TEST_F(TestArrayExport, Struct) {
 TEST_F(TestArrayExport, Map) {
   const char* json = R"([[[1, "foo"], [2, null]], [[3, "bar"]]])";
   TestNested(map(int8(), utf8()), json);
-  TestNested(map(int8(), utf8(), /*keys_sorted=*/ true), json);
+  TestNested(map(int8(), utf8(), /*keys_sorted=*/true), json);
 }
 
 TEST_F(TestArrayExport, Union) {
@@ -722,12 +823,12 @@ TEST_F(TestArrayExport, Union) {
   // Dense
   auto field_a = field("a", int8());
   auto field_b = field("b", boolean(), /*nullable=*/false);
-  auto type = union_({field_a, field_b}, {42, 43}, UnionMode::DENSE);
+  auto type = dense_union({field_a, field_b}, {42, 43});
   TestNested(type, data);
   // Sparse
   field_a = field("a", int8(), /*nullable=*/false);
   field_b = field("b", boolean());
-  type = union_({field_a, field_b}, {42, 43}, UnionMode::SPARSE);
+  type = sparse_union({field_a, field_b}, {42, 43});
   TestNested(type, data);
 }
 
@@ -735,9 +836,10 @@ TEST_F(TestArrayExport, Dictionary) {
   {
     auto factory = [](std::shared_ptr<Array>* out) -> Status {
       auto values = ArrayFromJSON(utf8(), R"(["foo", "bar", "quux"])");
-      auto indices = ArrayFromJSON(int32(), "[0, 2, 1, null, 1]");
+      auto indices = ArrayFromJSON(uint16(), "[0, 2, 1, null, 1]");
       return DictionaryArray::FromArrays(dictionary(indices->type(), values->type()),
-                                         indices, values, out);
+                                         indices, values)
+          .Value(out);
     };
     TestNested(factory);
   }
@@ -746,8 +848,9 @@ TEST_F(TestArrayExport, Dictionary) {
       auto values = ArrayFromJSON(list(utf8()), R"([["abc", "def"], ["efg"], []])");
       auto indices = ArrayFromJSON(int32(), "[0, 2, 1, null, 1]");
       return DictionaryArray::FromArrays(
-          dictionary(indices->type(), values->type(), /*ordered=*/true), indices, values,
-          out);
+                 dictionary(indices->type(), values->type(), /*ordered=*/true), indices,
+                 values)
+          .Value(out);
     };
     TestNested(factory);
   }
@@ -755,12 +858,12 @@ TEST_F(TestArrayExport, Dictionary) {
     auto factory = [](std::shared_ptr<Array>* out) -> Status {
       auto values = ArrayFromJSON(list(utf8()), R"([["abc", "def"], ["efg"], []])");
       auto indices = ArrayFromJSON(int32(), "[0, 2, 1, null, 1]");
-      std::shared_ptr<Array> dict_array;
-      RETURN_NOT_OK(DictionaryArray::FromArrays(
-          dictionary(indices->type(), values->type()), indices, values, &dict_array));
+      ARROW_ASSIGN_OR_RAISE(
+          auto dict_array,
+          DictionaryArray::FromArrays(dictionary(indices->type(), values->type()),
+                                      indices, values));
       auto offsets = ArrayFromJSON(int64(), "[0, 2, 5]");
-      RETURN_NOT_OK(
-          LargeListArray::FromArrays(*offsets, *dict_array, default_memory_pool(), out));
+      RETURN_NOT_OK(LargeListArray::FromArrays(*offsets, *dict_array).Value(out));
       return (*out)->ValidateFull();
     };
     TestNested(factory);
@@ -786,7 +889,8 @@ TEST_F(TestArrayExport, MoveDictionary) {
       auto values = ArrayFromJSON(utf8(), R"(["foo", "bar", "quux"])");
       auto indices = ArrayFromJSON(int32(), "[0, 2, 1, null, 1]");
       return DictionaryArray::FromArrays(dictionary(indices->type(), values->type()),
-                                         indices, values, out);
+                                         indices, values)
+          .Value(out);
     };
     TestMoveNested(factory);
   }
@@ -794,12 +898,12 @@ TEST_F(TestArrayExport, MoveDictionary) {
     auto factory = [](std::shared_ptr<Array>* out) -> Status {
       auto values = ArrayFromJSON(list(utf8()), R"([["abc", "def"], ["efg"], []])");
       auto indices = ArrayFromJSON(int32(), "[0, 2, 1, null, 1]");
-      std::shared_ptr<Array> dict_array;
-      RETURN_NOT_OK(DictionaryArray::FromArrays(
-          dictionary(indices->type(), values->type()), indices, values, &dict_array));
+      ARROW_ASSIGN_OR_RAISE(
+          auto dict_array,
+          DictionaryArray::FromArrays(dictionary(indices->type(), values->type()),
+                                      indices, values));
       auto offsets = ArrayFromJSON(int64(), "[0, 2, 5]");
-      RETURN_NOT_OK(
-          LargeListArray::FromArrays(*offsets, *dict_array, default_memory_pool(), out));
+      RETURN_NOT_OK(LargeListArray::FromArrays(*offsets, *dict_array).Value(out));
       return (*out)->ValidateFull();
     };
     TestMoveNested(factory);
@@ -820,21 +924,27 @@ TEST_F(TestArrayExport, MoveChild) {
     auto factory = [](std::shared_ptr<Array>* out) -> Status {
       auto values = ArrayFromJSON(list(utf8()), R"([["abc", "def"], ["efg"], []])");
       auto indices = ArrayFromJSON(int32(), "[0, 2, 1, null, 1]");
-      std::shared_ptr<Array> dict_array;
-      RETURN_NOT_OK(DictionaryArray::FromArrays(
-          dictionary(indices->type(), values->type()), indices, values, &dict_array));
+      ARROW_ASSIGN_OR_RAISE(
+          auto dict_array,
+          DictionaryArray::FromArrays(dictionary(indices->type(), values->type()),
+                                      indices, values));
       auto offsets = ArrayFromJSON(int64(), "[0, 2, 5]");
-      RETURN_NOT_OK(
-          LargeListArray::FromArrays(*offsets, *dict_array, default_memory_pool(), out));
+      RETURN_NOT_OK(LargeListArray::FromArrays(*offsets, *dict_array).Value(out));
       return (*out)->ValidateFull();
     };
     TestMoveChild(factory, /*child_id=*/0);
   }
 }
 
+TEST_F(TestArrayExport, MoveSeveralChildren) {
+  TestMoveChildren(
+      struct_({field("ints", int8()), field("floats", float64()), field("strs", utf8())}),
+      R"([[1, 1.5, "foo"], [2, 0.0, null]])", /*children_ids=*/{0, 2});
+}
+
 TEST_F(TestArrayExport, ExportArrayAndType) {
-  struct ArrowSchema c_schema{};
-  struct ArrowArray c_array{};
+  struct ArrowSchema c_schema {};
+  struct ArrowArray c_array {};
   SchemaExportGuard schema_guard(&c_schema);
   ArrayExportGuard array_guard(&c_array);
 
@@ -851,8 +961,8 @@ TEST_F(TestArrayExport, ExportArrayAndType) {
 }
 
 TEST_F(TestArrayExport, ExportRecordBatch) {
-  struct ArrowSchema c_schema{};
-  struct ArrowArray c_array{};
+  struct ArrowSchema c_schema {};
+  struct ArrowArray c_array {};
 
   auto schema = ::arrow::schema(
       {field("ints", int16()), field("bools", boolean(), /*nullable=*/false)});
@@ -860,9 +970,7 @@ TEST_F(TestArrayExport, ExportRecordBatch) {
   auto arr0 = ArrayFromJSON(int16(), "[1, 2, null]");
   auto arr1 = ArrayFromJSON(boolean(), "[false, true, false]");
 
-  auto batch_factory = [&]() {
-    return RecordBatch::Make(schema, 3, {arr0, arr1});
-  };
+  auto batch_factory = [&]() { return RecordBatch::Make(schema, 3, {arr0, arr1}); };
 
   {
     auto batch = batch_factory();
@@ -900,9 +1008,7 @@ TEST_F(TestArrayExport, ExportRecordBatch) {
 ////////////////////////////////////////////////////////////////////////////
 // Schema import tests
 
-void NoOpSchemaRelease(struct ArrowSchema* schema) {
-  ArrowSchemaMarkReleased(schema);
-}
+void NoOpSchemaRelease(struct ArrowSchema* schema) { ArrowSchemaMarkReleased(schema); }
 
 class SchemaStructBuilder {
  public:
@@ -954,8 +1060,8 @@ class SchemaStructBuilder {
 
   void FillDictionary(struct ArrowSchema* c) { c->dictionary = LastChild(c); }
 
-  void FillListLike(struct ArrowSchema* c, const char* format,
-                    const char* name = nullptr, int64_t flags = kDefaultFlags) {
+  void FillListLike(struct ArrowSchema* c, const char* format, const char* name = nullptr,
+                    int64_t flags = kDefaultFlags) {
     c->flags = flags;
     c->format = format;
     c->name = name;
@@ -964,9 +1070,8 @@ class SchemaStructBuilder {
     c->children[0]->name = "item";
   }
 
-  void FillStructLike(struct ArrowSchema* c, const char* format,
-                      int64_t n_children, const char* name = nullptr,
-                      int64_t flags = kDefaultFlags) {
+  void FillStructLike(struct ArrowSchema* c, const char* format, int64_t n_children,
+                      const char* name = nullptr, int64_t flags = kDefaultFlags) {
     c->flags = flags;
     c->format = format;
     c->name = name;
@@ -986,8 +1091,8 @@ class SchemaStructBuilder {
     FillListLike(&c_struct_, format, name, flags);
   }
 
-  void FillStructLike(const char* format, int64_t n_children,
-                      const char* name = nullptr, int64_t flags = kDefaultFlags) {
+  void FillStructLike(const char* format, int64_t n_children, const char* name = nullptr,
+                      int64_t flags = kDefaultFlags) {
     FillStructLike(&c_struct_, format, n_children, name, flags);
   }
 
@@ -1000,16 +1105,14 @@ class SchemaStructBuilder {
 
 class TestSchemaImport : public ::testing::Test, public SchemaStructBuilder {
  public:
-  void SetUp() override {
-    Reset();
-  }
+  void SetUp() override { Reset(); }
 
   void CheckImport(const std::shared_ptr<DataType>& expected) {
     SchemaReleaseCallback cb(&c_struct_);
 
     ASSERT_OK_AND_ASSIGN(auto type, ImportType(&c_struct_));
     ASSERT_TRUE(ArrowSchemaIsReleased(&c_struct_));
-    Reset();  // for further tests
+    Reset();            // for further tests
     cb.AssertCalled();  // was released
     AssertTypeEqual(*expected, *type);
   }
@@ -1019,7 +1122,7 @@ class TestSchemaImport : public ::testing::Test, public SchemaStructBuilder {
 
     ASSERT_OK_AND_ASSIGN(auto field, ImportField(&c_struct_));
     ASSERT_TRUE(ArrowSchemaIsReleased(&c_struct_));
-    Reset();  // for further tests
+    Reset();            // for further tests
     cb.AssertCalled();  // was released
     AssertFieldEqual(*expected, *field);
   }
@@ -1029,7 +1132,7 @@ class TestSchemaImport : public ::testing::Test, public SchemaStructBuilder {
 
     ASSERT_OK_AND_ASSIGN(auto schema, ImportSchema(&c_struct_));
     ASSERT_TRUE(ArrowSchemaIsReleased(&c_struct_));
-    Reset();  // for further tests
+    Reset();            // for further tests
     cb.AssertCalled();  // was released
     AssertSchemaEqual(*expected, *schema);
   }
@@ -1152,7 +1255,7 @@ TEST_F(TestSchemaImport, List) {
 
   FillPrimitive(AddChild(), "s", "item", 0);
   FillListLike("+l");
-  CheckImport(list(field("item", int16(), /*nullable=*/ false)));
+  CheckImport(list(field("item", int16(), /*nullable=*/false)));
 
   // Large list
   FillPrimitive(AddChild(), "s");
@@ -1187,8 +1290,8 @@ TEST_F(TestSchemaImport, Struct) {
   FillPrimitive(AddChild(), "u", "strs", 0);
   FillPrimitive(AddChild(), "S", "ints", kDefaultFlags);
   FillStructLike("+s", 2);
-  expected = struct_({field("strs", utf8(), /*nullable=*/false),
-                      field("ints", uint16())});
+  expected =
+      struct_({field("strs", utf8(), /*nullable=*/false), field("ints", uint16())});
   CheckImport(expected);
 
   // With metadata
@@ -1197,10 +1300,9 @@ TEST_F(TestSchemaImport, Struct) {
   c->metadata = kEncodedMetadata2.c_str();
   FillPrimitive(AddChild(), "S", "ints", kDefaultFlags);
   FillStructLike("+s", 2);
-  expected = struct_(
-      {field("strs", utf8(), /*nullable=*/false,
-             key_value_metadata(kMetadataKeys2, kMetadataValues2)),
-       field("ints", uint16())});
+  expected = struct_({field("strs", utf8(), /*nullable=*/false,
+                            key_value_metadata(kMetadataKeys2, kMetadataValues2)),
+                      field("ints", uint16())});
   CheckImport(expected);
 }
 
@@ -1209,16 +1311,14 @@ TEST_F(TestSchemaImport, Union) {
   FillPrimitive(AddChild(), "u", "strs");
   FillPrimitive(AddChild(), "c", "ints");
   FillStructLike("+us:43,42", 2);
-  auto expected =
-      union_({field("strs", utf8()), field("ints", int8())}, {43, 42}, UnionMode::SPARSE);
+  auto expected = sparse_union({field("strs", utf8()), field("ints", int8())}, {43, 42});
   CheckImport(expected);
 
   // Dense
   FillPrimitive(AddChild(), "u", "strs");
   FillPrimitive(AddChild(), "c", "ints");
   FillStructLike("+ud:43,42", 2);
-  expected =
-      union_({field("strs", utf8()), field("ints", int8())}, {43, 42}, UnionMode::DENSE);
+  expected = dense_union({field("strs", utf8()), field("ints", int8())}, {43, 42});
   CheckImport(expected);
 }
 
@@ -1234,7 +1334,7 @@ TEST_F(TestSchemaImport, Map) {
   FillPrimitive(AddChild(), "i", "value");
   FillStructLike(AddChild(), "+s", 2, "entries");
   FillListLike("+m", "", ARROW_FLAG_MAP_KEYS_SORTED);
-  expected = map(utf8(), int32(), /*keys_sorted=*/ true);
+  expected = map(utf8(), int32(), /*keys_sorted=*/true);
   CheckImport(expected);
 }
 
@@ -1358,11 +1458,11 @@ TEST_F(TestSchemaImport, ImportField) {
   FillPrimitive("c", "thing", kDefaultFlags);
   CheckImport(field("thing", int8()));
   FillPrimitive("c", "thing", 0);
-  CheckImport(field("thing", int8(), /*nullable=*/ false));
+  CheckImport(field("thing", int8(), /*nullable=*/false));
   // With metadata
   FillPrimitive("c", "thing", kDefaultFlags);
   c_struct_.metadata = kEncodedMetadata1.c_str();
-  CheckImport(field("thing", int8(), /*nullable=*/ true,
+  CheckImport(field("thing", int8(), /*nullable=*/true,
                     key_value_metadata(kMetadataKeys1, kMetadataValues1)));
 }
 
@@ -1411,14 +1511,37 @@ static const void* buffers_nulls_no_data1[1] = {bits_buffer1};
 static const uint8_t data_buffer1[] = {1, 2,  3,  4,  5,  6,  7,  8,
                                        9, 10, 11, 12, 13, 14, 15, 16};
 static const uint8_t data_buffer2[] = "abcdefghijklmnopqrstuvwxyz";
+#if ARROW_LITTLE_ENDIAN
 static const uint64_t data_buffer3[] = {123456789, 0, 987654321, 0};
+#else
+static const uint64_t data_buffer3[] = {0, 123456789, 0, 987654321};
+#endif
 static const uint8_t data_buffer4[] = {1, 2, 0, 1, 3, 0};
 static const float data_buffer5[] = {0.0f, 1.5f, -2.0f, 3.0f, 4.0f, 5.0f};
 static const double data_buffer6[] = {0.0, 1.5, -2.0, 3.0, 4.0, 5.0};
 static const int32_t data_buffer7[] = {1234, 5678, 9012, 3456};
 static const int64_t data_buffer8[] = {123456789, 987654321, -123456789, -987654321};
-static const void* primitive_buffers_no_nulls1[2] = {nullptr, data_buffer1};
-static const void* primitive_buffers_nulls1[2] = {bits_buffer1, data_buffer1};
+#if ARROW_LITTLE_ENDIAN
+static const void* primitive_buffers_no_nulls1_8[2] = {nullptr, data_buffer1};
+static const void* primitive_buffers_no_nulls1_16[2] = {nullptr, data_buffer1};
+static const void* primitive_buffers_no_nulls1_32[2] = {nullptr, data_buffer1};
+static const void* primitive_buffers_no_nulls1_64[2] = {nullptr, data_buffer1};
+static const void* primitive_buffers_nulls1_8[2] = {bits_buffer1, data_buffer1};
+static const void* primitive_buffers_nulls1_16[2] = {bits_buffer1, data_buffer1};
+#else
+static const uint8_t data_buffer1_16[] = {2,  1, 4,  3,  6,  5,  8,  7,
+                                          10, 9, 12, 11, 14, 13, 16, 15};
+static const uint8_t data_buffer1_32[] = {4,  3,  2,  1, 8,  7,  6,  5,
+                                          12, 11, 10, 9, 16, 15, 14, 13};
+static const uint8_t data_buffer1_64[] = {8,  7,  6,  5,  4,  3,  2,  1,
+                                          16, 15, 14, 13, 12, 11, 10, 9};
+static const void* primitive_buffers_no_nulls1_8[2] = {nullptr, data_buffer1};
+static const void* primitive_buffers_no_nulls1_16[2] = {nullptr, data_buffer1_16};
+static const void* primitive_buffers_no_nulls1_32[2] = {nullptr, data_buffer1_32};
+static const void* primitive_buffers_no_nulls1_64[2] = {nullptr, data_buffer1_64};
+static const void* primitive_buffers_nulls1_8[2] = {bits_buffer1, data_buffer1};
+static const void* primitive_buffers_nulls1_16[2] = {bits_buffer1, data_buffer1_16};
+#endif
 static const void* primitive_buffers_no_nulls2[2] = {nullptr, data_buffer2};
 static const void* primitive_buffers_no_nulls3[2] = {nullptr, data_buffer3};
 static const void* primitive_buffers_no_nulls4[2] = {nullptr, data_buffer4};
@@ -1466,15 +1589,11 @@ static const void* sparse_union_buffers_no_nulls1[3] = {nullptr, type_codes_buff
 static const void* dense_union_buffers_no_nulls1[3] = {nullptr, type_codes_buffer1,
                                                        union_offsets_buffer1};
 
-void NoOpArrayRelease(struct ArrowArray* schema) {
-  ArrowArrayMarkReleased(schema);
-}
+void NoOpArrayRelease(struct ArrowArray* schema) { ArrowArrayMarkReleased(schema); }
 
 class TestArrayImport : public ::testing::Test {
  public:
-  void SetUp() override {
-    Reset();
-  }
+  void SetUp() override { Reset(); }
 
   void Reset() {
     memset(&c_struct_, 0, sizeof(c_struct_));
@@ -1513,8 +1632,8 @@ class TestArrayImport : public ::testing::Test {
     return *NLastChildren(1, parent);
   }
 
-  void FillPrimitive(struct ArrowArray* c, int64_t length,
-                     int64_t null_count, int64_t offset, const void** buffers) {
+  void FillPrimitive(struct ArrowArray* c, int64_t length, int64_t null_count,
+                     int64_t offset, const void** buffers) {
     c->length = length;
     c->null_count = null_count;
     c->offset = offset;
@@ -1524,8 +1643,8 @@ class TestArrayImport : public ::testing::Test {
 
   void FillDictionary(struct ArrowArray* c) { c->dictionary = LastChild(c); }
 
-  void FillStringLike(struct ArrowArray* c, int64_t length,
-                      int64_t null_count, int64_t offset, const void** buffers) {
+  void FillStringLike(struct ArrowArray* c, int64_t length, int64_t null_count,
+                      int64_t offset, const void** buffers) {
     c->length = length;
     c->null_count = null_count;
     c->offset = offset;
@@ -1533,8 +1652,8 @@ class TestArrayImport : public ::testing::Test {
     c->buffers = buffers;
   }
 
-  void FillListLike(struct ArrowArray* c, int64_t length,
-                    int64_t null_count, int64_t offset, const void** buffers) {
+  void FillListLike(struct ArrowArray* c, int64_t length, int64_t null_count,
+                    int64_t offset, const void** buffers) {
     c->length = length;
     c->null_count = null_count;
     c->offset = offset;
@@ -1544,8 +1663,8 @@ class TestArrayImport : public ::testing::Test {
     c->children = NLastChildren(1, c);
   }
 
-  void FillFixedSizeListLike(struct ArrowArray* c, int64_t length,
-                             int64_t null_count, int64_t offset, const void** buffers) {
+  void FillFixedSizeListLike(struct ArrowArray* c, int64_t length, int64_t null_count,
+                             int64_t offset, const void** buffers) {
     c->length = length;
     c->null_count = null_count;
     c->offset = offset;
@@ -1555,9 +1674,8 @@ class TestArrayImport : public ::testing::Test {
     c->children = NLastChildren(1, c);
   }
 
-  void FillStructLike(struct ArrowArray* c, int64_t length,
-                      int64_t null_count, int64_t offset,
-                      int64_t n_children, const void** buffers) {
+  void FillStructLike(struct ArrowArray* c, int64_t length, int64_t null_count,
+                      int64_t offset, int64_t n_children, const void** buffers) {
     c->length = length;
     c->null_count = null_count;
     c->offset = offset;
@@ -1567,50 +1685,48 @@ class TestArrayImport : public ::testing::Test {
     c->children = NLastChildren(c->n_children, c);
   }
 
-  void FillUnionLike(struct ArrowArray* c, int64_t length,
-                     int64_t null_count, int64_t offset,
-                     int64_t n_children, const void** buffers) {
+  void FillUnionLike(struct ArrowArray* c, UnionMode::type mode, int64_t length,
+                     int64_t null_count, int64_t offset, int64_t n_children,
+                     const void** buffers) {
     c->length = length;
     c->null_count = null_count;
     c->offset = offset;
-    c->n_buffers = 3;
+    c->n_buffers = mode == UnionMode::SPARSE ? 2 : 3;
     c->buffers = buffers;
     c->n_children = n_children;
     c->children = NLastChildren(c->n_children, c);
   }
 
-  void FillPrimitive(int64_t length, int64_t null_count,
-                     int64_t offset, const void** buffers) {
+  void FillPrimitive(int64_t length, int64_t null_count, int64_t offset,
+                     const void** buffers) {
     FillPrimitive(&c_struct_, length, null_count, offset, buffers);
   }
 
   void FillDictionary() { FillDictionary(&c_struct_); }
 
-  void FillStringLike(int64_t length, int64_t null_count,
-                      int64_t offset, const void** buffers) {
+  void FillStringLike(int64_t length, int64_t null_count, int64_t offset,
+                      const void** buffers) {
     FillStringLike(&c_struct_, length, null_count, offset, buffers);
   }
 
-  void FillListLike(int64_t length, int64_t null_count,
-                    int64_t offset, const void** buffers) {
+  void FillListLike(int64_t length, int64_t null_count, int64_t offset,
+                    const void** buffers) {
     FillListLike(&c_struct_, length, null_count, offset, buffers);
   }
 
-  void FillFixedSizeListLike(int64_t length, int64_t null_count,
-                             int64_t offset, const void** buffers) {
+  void FillFixedSizeListLike(int64_t length, int64_t null_count, int64_t offset,
+                             const void** buffers) {
     FillFixedSizeListLike(&c_struct_, length, null_count, offset, buffers);
   }
 
-  void FillStructLike(int64_t length, int64_t null_count,
-                      int64_t offset, int64_t n_children,
-                      const void** buffers) {
+  void FillStructLike(int64_t length, int64_t null_count, int64_t offset,
+                      int64_t n_children, const void** buffers) {
     FillStructLike(&c_struct_, length, null_count, offset, n_children, buffers);
   }
 
-  void FillUnionLike(int64_t length, int64_t null_count,
-                     int64_t offset, int64_t n_children,
-                     const void** buffers) {
-    FillUnionLike(&c_struct_, length, null_count, offset, n_children, buffers);
+  void FillUnionLike(UnionMode::type mode, int64_t length, int64_t null_count,
+                     int64_t offset, int64_t n_children, const void** buffers) {
+    FillUnionLike(&c_struct_, mode, length, null_count, offset, n_children, buffers);
   }
 
   void CheckImport(const std::shared_ptr<Array>& expected) {
@@ -1619,7 +1735,7 @@ class TestArrayImport : public ::testing::Test {
     auto type = expected->type();
     ASSERT_OK_AND_ASSIGN(auto array, ImportArray(&c_struct_, type));
     ASSERT_TRUE(ArrowArrayIsReleased(&c_struct_));  // was moved
-    Reset();  // for further tests
+    Reset();                                        // for further tests
 
     ASSERT_OK(array->ValidateFull());
     // Special case: Null array doesn't have any data, so it needn't
@@ -1638,7 +1754,7 @@ class TestArrayImport : public ::testing::Test {
     auto schema = expected->schema();
     ASSERT_OK_AND_ASSIGN(auto batch, ImportRecordBatch(&c_struct_, schema));
     ASSERT_TRUE(ArrowArrayIsReleased(&c_struct_));  // was moved
-    Reset();  // for further tests
+    Reset();                                        // for further tests
 
     ASSERT_OK(batch->ValidateFull());
     AssertBatchesEqual(*expected, *batch);
@@ -1652,7 +1768,7 @@ class TestArrayImport : public ::testing::Test {
 
     ASSERT_RAISES(Invalid, ImportArray(&c_struct_, type));
     ASSERT_TRUE(ArrowArrayIsReleased(&c_struct_));
-    Reset();  // for further tests
+    Reset();            // for further tests
     cb.AssertCalled();  // was released
   }
 
@@ -1661,7 +1777,7 @@ class TestArrayImport : public ::testing::Test {
 
     ASSERT_RAISES(Invalid, ImportRecordBatch(&c_struct_, schema));
     ASSERT_TRUE(ArrowArrayIsReleased(&c_struct_));
-    Reset();  // for further tests
+    Reset();            // for further tests
     cb.AssertCalled();  // was released
   }
 
@@ -1674,24 +1790,24 @@ class TestArrayImport : public ::testing::Test {
 };
 
 TEST_F(TestArrayImport, Primitive) {
-  FillPrimitive(3, 0, 0, primitive_buffers_no_nulls1);
+  FillPrimitive(3, 0, 0, primitive_buffers_no_nulls1_8);
   CheckImport(ArrayFromJSON(int8(), "[1, 2, 3]"));
-  FillPrimitive(5, 0, 0, primitive_buffers_no_nulls1);
+  FillPrimitive(5, 0, 0, primitive_buffers_no_nulls1_8);
   CheckImport(ArrayFromJSON(uint8(), "[1, 2, 3, 4, 5]"));
-  FillPrimitive(3, 0, 0, primitive_buffers_no_nulls1);
+  FillPrimitive(3, 0, 0, primitive_buffers_no_nulls1_16);
   CheckImport(ArrayFromJSON(int16(), "[513, 1027, 1541]"));
-  FillPrimitive(3, 0, 0, primitive_buffers_no_nulls1);
+  FillPrimitive(3, 0, 0, primitive_buffers_no_nulls1_16);
   CheckImport(ArrayFromJSON(uint16(), "[513, 1027, 1541]"));
-  FillPrimitive(2, 0, 0, primitive_buffers_no_nulls1);
+  FillPrimitive(2, 0, 0, primitive_buffers_no_nulls1_32);
   CheckImport(ArrayFromJSON(int32(), "[67305985, 134678021]"));
-  FillPrimitive(2, 0, 0, primitive_buffers_no_nulls1);
+  FillPrimitive(2, 0, 0, primitive_buffers_no_nulls1_32);
   CheckImport(ArrayFromJSON(uint32(), "[67305985, 134678021]"));
-  FillPrimitive(2, 0, 0, primitive_buffers_no_nulls1);
+  FillPrimitive(2, 0, 0, primitive_buffers_no_nulls1_64);
   CheckImport(ArrayFromJSON(int64(), "[578437695752307201, 1157159078456920585]"));
-  FillPrimitive(2, 0, 0, primitive_buffers_no_nulls1);
+  FillPrimitive(2, 0, 0, primitive_buffers_no_nulls1_64);
   CheckImport(ArrayFromJSON(uint64(), "[578437695752307201, 1157159078456920585]"));
 
-  FillPrimitive(3, 0, 0, primitive_buffers_no_nulls1);
+  FillPrimitive(3, 0, 0, primitive_buffers_no_nulls1_8);
   CheckImport(ArrayFromJSON(boolean(), "[true, false, false]"));
   FillPrimitive(6, 0, 0, primitive_buffers_no_nulls5);
   CheckImport(ArrayFromJSON(float32(), "[0.0, 1.5, -2.0, 3.0, 4.0, 5.0]"));
@@ -1699,17 +1815,17 @@ TEST_F(TestArrayImport, Primitive) {
   CheckImport(ArrayFromJSON(float64(), "[0.0, 1.5, -2.0, 3.0, 4.0, 5.0]"));
 
   // With nulls
-  FillPrimitive(9, -1, 0, primitive_buffers_nulls1);
+  FillPrimitive(9, -1, 0, primitive_buffers_nulls1_8);
   CheckImport(ArrayFromJSON(int8(), "[1, null, 3, 4, null, 6, 7, 8, 9]"));
-  FillPrimitive(9, 2, 0, primitive_buffers_nulls1);
+  FillPrimitive(9, 2, 0, primitive_buffers_nulls1_8);
   CheckImport(ArrayFromJSON(int8(), "[1, null, 3, 4, null, 6, 7, 8, 9]"));
-  FillPrimitive(3, -1, 0, primitive_buffers_nulls1);
+  FillPrimitive(3, -1, 0, primitive_buffers_nulls1_16);
   CheckImport(ArrayFromJSON(int16(), "[513, null, 1541]"));
-  FillPrimitive(3, 1, 0, primitive_buffers_nulls1);
+  FillPrimitive(3, 1, 0, primitive_buffers_nulls1_16);
   CheckImport(ArrayFromJSON(int16(), "[513, null, 1541]"));
-  FillPrimitive(3, -1, 0, primitive_buffers_nulls1);
+  FillPrimitive(3, -1, 0, primitive_buffers_nulls1_8);
   CheckImport(ArrayFromJSON(boolean(), "[true, null, false]"));
-  FillPrimitive(3, 1, 0, primitive_buffers_nulls1);
+  FillPrimitive(3, 1, 0, primitive_buffers_nulls1_8);
   CheckImport(ArrayFromJSON(boolean(), "[true, null, false]"));
 }
 
@@ -1781,12 +1897,12 @@ TEST_F(TestArrayImport, Null) {
 }
 
 TEST_F(TestArrayImport, PrimitiveWithOffset) {
-  FillPrimitive(3, 0, 2, primitive_buffers_no_nulls1);
+  FillPrimitive(3, 0, 2, primitive_buffers_no_nulls1_8);
   CheckImport(ArrayFromJSON(int8(), "[3, 4, 5]"));
-  FillPrimitive(3, 0, 1, primitive_buffers_no_nulls1);
+  FillPrimitive(3, 0, 1, primitive_buffers_no_nulls1_16);
   CheckImport(ArrayFromJSON(uint16(), "[1027, 1541, 2055]"));
 
-  FillPrimitive(4, 0, 7, primitive_buffers_no_nulls1);
+  FillPrimitive(4, 0, 7, primitive_buffers_no_nulls1_8);
   CheckImport(ArrayFromJSON(boolean(), "[false, false, true, false]"));
 }
 
@@ -1817,34 +1933,34 @@ TEST_F(TestArrayImport, String) {
 }
 
 TEST_F(TestArrayImport, List) {
-  FillPrimitive(AddChild(), 8, 0, 0, primitive_buffers_no_nulls1);
+  FillPrimitive(AddChild(), 8, 0, 0, primitive_buffers_no_nulls1_8);
   FillListLike(5, 0, 0, list_buffers_no_nulls1);
   CheckImport(ArrayFromJSON(list(int8()), "[[1, 2], [], [3, 4, 5], [6], [7, 8]]"));
-  FillPrimitive(AddChild(), 5, 0, 0, primitive_buffers_no_nulls1);
+  FillPrimitive(AddChild(), 5, 0, 0, primitive_buffers_no_nulls1_16);
   FillListLike(3, 1, 0, list_buffers_nulls1);
   CheckImport(ArrayFromJSON(list(int16()), "[[513, 1027], null, [1541, 2055, 2569]]"));
 
   // Large list
-  FillPrimitive(AddChild(), 5, 0, 0, primitive_buffers_no_nulls1);
+  FillPrimitive(AddChild(), 5, 0, 0, primitive_buffers_no_nulls1_16);
   FillListLike(3, 0, 0, large_list_buffers_no_nulls1);
   CheckImport(
       ArrayFromJSON(large_list(int16()), "[[513, 1027], [], [1541, 2055, 2569]]"));
 
   // Fixed-size list
-  FillPrimitive(AddChild(), 9, 0, 0, primitive_buffers_no_nulls1);
+  FillPrimitive(AddChild(), 9, 0, 0, primitive_buffers_no_nulls1_8);
   FillFixedSizeListLike(3, 0, 0, buffers_no_nulls_no_data);
   CheckImport(
       ArrayFromJSON(fixed_size_list(int8(), 3), "[[1, 2, 3], [4, 5, 6], [7, 8, 9]]"));
 }
 
 TEST_F(TestArrayImport, NestedList) {
-  FillPrimitive(AddChild(), 8, 0, 0, primitive_buffers_no_nulls1);
+  FillPrimitive(AddChild(), 8, 0, 0, primitive_buffers_no_nulls1_8);
   FillListLike(AddChild(), 5, 0, 0, list_buffers_no_nulls1);
   FillListLike(3, 0, 0, large_list_buffers_no_nulls1);
   CheckImport(ArrayFromJSON(large_list(list(int8())),
                             "[[[1, 2], []], [], [[3, 4, 5], [6], [7, 8]]]"));
 
-  FillPrimitive(AddChild(), 6, 0, 0, primitive_buffers_no_nulls1);
+  FillPrimitive(AddChild(), 6, 0, 0, primitive_buffers_no_nulls1_8);
   FillFixedSizeListLike(AddChild(), 2, 0, 0, buffers_no_nulls_no_data);
   FillListLike(2, 0, 0, list_buffers_no_nulls1);
   CheckImport(
@@ -1853,31 +1969,31 @@ TEST_F(TestArrayImport, NestedList) {
 
 TEST_F(TestArrayImport, ListWithOffset) {
   // Offset in child
-  FillPrimitive(AddChild(), 8, 0, 1, primitive_buffers_no_nulls1);
+  FillPrimitive(AddChild(), 8, 0, 1, primitive_buffers_no_nulls1_8);
   FillListLike(5, 0, 0, list_buffers_no_nulls1);
   CheckImport(ArrayFromJSON(list(int8()), "[[2, 3], [], [4, 5, 6], [7], [8, 9]]"));
 
-  FillPrimitive(AddChild(), 9, 0, 1, primitive_buffers_no_nulls1);
+  FillPrimitive(AddChild(), 9, 0, 1, primitive_buffers_no_nulls1_8);
   FillFixedSizeListLike(3, 0, 0, buffers_no_nulls_no_data);
   CheckImport(
       ArrayFromJSON(fixed_size_list(int8(), 3), "[[2, 3, 4], [5, 6, 7], [8, 9, 10]]"));
 
   // Offset in parent
-  FillPrimitive(AddChild(), 8, 0, 0, primitive_buffers_no_nulls1);
+  FillPrimitive(AddChild(), 8, 0, 0, primitive_buffers_no_nulls1_8);
   FillListLike(4, 0, 1, list_buffers_no_nulls1);
   CheckImport(ArrayFromJSON(list(int8()), "[[], [3, 4, 5], [6], [7, 8]]"));
 
-  FillPrimitive(AddChild(), 9, 0, 0, primitive_buffers_no_nulls1);
+  FillPrimitive(AddChild(), 9, 0, 0, primitive_buffers_no_nulls1_8);
   FillFixedSizeListLike(3, 0, 1, buffers_no_nulls_no_data);
   CheckImport(
       ArrayFromJSON(fixed_size_list(int8(), 3), "[[4, 5, 6], [7, 8, 9], [10, 11, 12]]"));
 
   // Both
-  FillPrimitive(AddChild(), 8, 0, 2, primitive_buffers_no_nulls1);
+  FillPrimitive(AddChild(), 8, 0, 2, primitive_buffers_no_nulls1_8);
   FillListLike(4, 0, 1, list_buffers_no_nulls1);
   CheckImport(ArrayFromJSON(list(int8()), "[[], [5, 6, 7], [8], [9, 10]]"));
 
-  FillPrimitive(AddChild(), 9, 0, 2, primitive_buffers_no_nulls1);
+  FillPrimitive(AddChild(), 9, 0, 2, primitive_buffers_no_nulls1_8);
   FillFixedSizeListLike(3, 0, 1, buffers_no_nulls_no_data);
   CheckImport(ArrayFromJSON(fixed_size_list(int8(), 3),
                             "[[6, 7, 8], [9, 10, 11], [12, 13, 14]]"));
@@ -1885,21 +2001,21 @@ TEST_F(TestArrayImport, ListWithOffset) {
 
 TEST_F(TestArrayImport, Struct) {
   FillStringLike(AddChild(), 3, 0, 0, string_buffers_no_nulls1);
-  FillPrimitive(AddChild(), 3, -1, 0, primitive_buffers_nulls1);
+  FillPrimitive(AddChild(), 3, -1, 0, primitive_buffers_nulls1_16);
   FillStructLike(3, 0, 0, 2, buffers_no_nulls_no_data);
   auto expected = ArrayFromJSON(struct_({field("strs", utf8()), field("ints", uint16())}),
                                 R"([["foo", 513], ["", null], ["bar", 1541]])");
   CheckImport(expected);
 
   FillStringLike(AddChild(), 3, 0, 0, string_buffers_no_nulls1);
-  FillPrimitive(AddChild(), 3, 0, 0, primitive_buffers_no_nulls1);
+  FillPrimitive(AddChild(), 3, 0, 0, primitive_buffers_no_nulls1_16);
   FillStructLike(3, -1, 0, 2, buffers_nulls_no_data1);
   expected = ArrayFromJSON(struct_({field("strs", utf8()), field("ints", uint16())}),
                            R"([["foo", 513], null, ["bar", 1541]])");
   CheckImport(expected);
 
   FillStringLike(AddChild(), 3, 0, 0, string_buffers_no_nulls1);
-  FillPrimitive(AddChild(), 3, 0, 0, primitive_buffers_no_nulls1);
+  FillPrimitive(AddChild(), 3, 0, 0, primitive_buffers_no_nulls1_16);
   FillStructLike(3, -1, 0, 2, buffers_nulls_no_data1);
   expected = ArrayFromJSON(
       struct_({field("strs", utf8(), /*nullable=*/false), field("ints", uint16())}),
@@ -1910,20 +2026,18 @@ TEST_F(TestArrayImport, Struct) {
 TEST_F(TestArrayImport, Union) {
   // Sparse
   FillStringLike(AddChild(), 4, 0, 0, string_buffers_no_nulls1);
-  FillPrimitive(AddChild(), 4, -1, 0, primitive_buffers_nulls1);
-  FillUnionLike(4, 0, 0, 2, sparse_union_buffers_no_nulls1);
-  auto type =
-      union_({field("strs", utf8()), field("ints", int8())}, {43, 42}, UnionMode::SPARSE);
+  FillPrimitive(AddChild(), 4, -1, 0, primitive_buffers_nulls1_8);
+  FillUnionLike(UnionMode::SPARSE, 4, 0, 0, 2, sparse_union_buffers_no_nulls1);
+  auto type = sparse_union({field("strs", utf8()), field("ints", int8())}, {43, 42});
   auto expected =
       ArrayFromJSON(type, R"([[42, 1], [42, null], [43, "bar"], [43, "quux"]])");
   CheckImport(expected);
 
   // Dense
   FillStringLike(AddChild(), 2, 0, 0, string_buffers_no_nulls1);
-  FillPrimitive(AddChild(), 3, -1, 0, primitive_buffers_nulls1);
-  FillUnionLike(5, 0, 0, 2, dense_union_buffers_no_nulls1);
-  type =
-      union_({field("strs", utf8()), field("ints", int8())}, {43, 42}, UnionMode::DENSE);
+  FillPrimitive(AddChild(), 3, -1, 0, primitive_buffers_nulls1_8);
+  FillUnionLike(UnionMode::DENSE, 5, 0, 0, 2, dense_union_buffers_no_nulls1);
+  type = dense_union({field("strs", utf8()), field("ints", int8())}, {43, 42});
   expected =
       ArrayFromJSON(type, R"([[42, 1], [42, null], [43, "foo"], [43, ""], [42, 3]])");
   CheckImport(expected);
@@ -1932,7 +2046,7 @@ TEST_F(TestArrayImport, Union) {
 TEST_F(TestArrayImport, StructWithOffset) {
   // Child
   FillStringLike(AddChild(), 3, 0, 1, string_buffers_no_nulls1);
-  FillPrimitive(AddChild(), 3, 0, 2, primitive_buffers_no_nulls1);
+  FillPrimitive(AddChild(), 3, 0, 2, primitive_buffers_no_nulls1_8);
   FillStructLike(3, 0, 0, 2, buffers_no_nulls_no_data);
   auto expected = ArrayFromJSON(struct_({field("strs", utf8()), field("ints", int8())}),
                                 R"([["", 3], ["bar", 4], ["quux", 5]])");
@@ -1940,7 +2054,7 @@ TEST_F(TestArrayImport, StructWithOffset) {
 
   // Parent and child
   FillStringLike(AddChild(), 4, 0, 0, string_buffers_no_nulls1);
-  FillPrimitive(AddChild(), 4, 0, 2, primitive_buffers_no_nulls1);
+  FillPrimitive(AddChild(), 4, 0, 2, primitive_buffers_no_nulls1_8);
   FillStructLike(3, 0, 1, 2, buffers_no_nulls_no_data);
   expected = ArrayFromJSON(struct_({field("strs", utf8()), field("ints", int8())}),
                            R"([["", 4], ["bar", 5], ["quux", 6]])");
@@ -1949,7 +2063,7 @@ TEST_F(TestArrayImport, StructWithOffset) {
 
 TEST_F(TestArrayImport, Map) {
   FillStringLike(AddChild(), 5, 0, 0, string_buffers_no_nulls1);
-  FillPrimitive(AddChild(), 5, 0, 0, primitive_buffers_no_nulls1);
+  FillPrimitive(AddChild(), 5, 0, 0, primitive_buffers_no_nulls1_8);
   FillStructLike(AddChild(), 5, 0, 0, 2, buffers_no_nulls_no_data);
   FillListLike(3, 1, 0, list_buffers_nulls1);
   auto expected = ArrayFromJSON(
@@ -1965,31 +2079,32 @@ TEST_F(TestArrayImport, Dictionary) {
 
   auto dict_values = ArrayFromJSON(utf8(), R"(["foo", "", "bar", "quux"])");
   auto indices = ArrayFromJSON(int8(), "[1, 2, 0, 1, 3, 0]");
-  std::shared_ptr<Array> expected;
-  ASSERT_OK(DictionaryArray::FromArrays(dictionary(int8(), utf8()), indices, dict_values,
-                                        &expected));
+  ASSERT_OK_AND_ASSIGN(
+      auto expected,
+      DictionaryArray::FromArrays(dictionary(int8(), utf8()), indices, dict_values));
   CheckImport(expected);
 
   FillStringLike(AddChild(), 4, 0, 0, string_buffers_no_nulls1);
   FillPrimitive(6, 0, 0, primitive_buffers_no_nulls4);
   FillDictionary();
 
-  ASSERT_OK(DictionaryArray::FromArrays(dictionary(int8(), utf8(), /*ordered=*/true),
-                                        indices, dict_values, &expected));
+  ASSERT_OK_AND_ASSIGN(
+      expected, DictionaryArray::FromArrays(dictionary(int8(), utf8(), /*ordered=*/true),
+                                            indices, dict_values));
   CheckImport(expected);
 }
 
 TEST_F(TestArrayImport, NestedDictionary) {
-  FillPrimitive(AddChild(), 6, 0, 0, primitive_buffers_no_nulls1);
+  FillPrimitive(AddChild(), 6, 0, 0, primitive_buffers_no_nulls1_8);
   FillListLike(AddChild(), 4, 0, 0, list_buffers_no_nulls1);
   FillPrimitive(6, 0, 0, primitive_buffers_no_nulls4);
   FillDictionary();
 
   auto dict_values = ArrayFromJSON(list(int8()), "[[1, 2], [], [3, 4, 5], [6]]");
   auto indices = ArrayFromJSON(int8(), "[1, 2, 0, 1, 3, 0]");
-  std::shared_ptr<Array> expected;
-  ASSERT_OK(DictionaryArray::FromArrays(dictionary(int8(), list(int8())),
-                                        indices, dict_values, &expected));
+  ASSERT_OK_AND_ASSIGN(auto expected,
+                       DictionaryArray::FromArrays(dictionary(int8(), list(int8())),
+                                                   indices, dict_values));
   CheckImport(expected);
 
   FillStringLike(AddChild(), 4, 0, 0, string_buffers_no_nulls1);
@@ -1999,12 +2114,11 @@ TEST_F(TestArrayImport, NestedDictionary) {
 
   dict_values = ArrayFromJSON(utf8(), R"(["foo", "", "bar", "quux"])");
   indices = ArrayFromJSON(int8(), "[1, 2, 0, 1, 3, 0]");
-  std::shared_ptr<Array> dict_array;
-  ASSERT_OK(DictionaryArray::FromArrays(dictionary(int8(), utf8()), indices, dict_values,
-                                        &dict_array));
+  ASSERT_OK_AND_ASSIGN(
+      auto dict_array,
+      DictionaryArray::FromArrays(dictionary(int8(), utf8()), indices, dict_values));
   auto offsets = ArrayFromJSON(int32(), "[0, 2, 2, 5]");
-  ASSERT_OK(ListArray::FromArrays(*offsets, *dict_array, default_memory_pool(),
-                                  &expected));
+  ASSERT_OK_AND_ASSIGN(expected, ListArray::FromArrays(*offsets, *dict_array));
   CheckImport(expected);
 }
 
@@ -2015,9 +2129,9 @@ TEST_F(TestArrayImport, DictionaryWithOffset) {
 
   auto dict_values = ArrayFromJSON(utf8(), R"(["", "bar", "quux"])");
   auto indices = ArrayFromJSON(int8(), "[1, 2, 0]");
-  std::shared_ptr<Array> expected;
-  ASSERT_OK(DictionaryArray::FromArrays(dictionary(int8(), utf8()), indices, dict_values,
-                                        &expected));
+  ASSERT_OK_AND_ASSIGN(
+      auto expected,
+      DictionaryArray::FromArrays(dictionary(int8(), utf8()), indices, dict_values));
   CheckImport(expected);
 
   FillStringLike(AddChild(), 4, 0, 0, string_buffers_no_nulls1);
@@ -2026,26 +2140,26 @@ TEST_F(TestArrayImport, DictionaryWithOffset) {
 
   dict_values = ArrayFromJSON(utf8(), R"(["foo", "", "bar", "quux"])");
   indices = ArrayFromJSON(int8(), "[0, 1, 3, 0]");
-  ASSERT_OK(DictionaryArray::FromArrays(dictionary(int8(), utf8()), indices, dict_values,
-                                        &expected));
+  ASSERT_OK_AND_ASSIGN(expected, DictionaryArray::FromArrays(dictionary(int8(), utf8()),
+                                                             indices, dict_values));
   CheckImport(expected);
 }
 
 TEST_F(TestArrayImport, PrimitiveError) {
   // Bad number of buffers
-  FillPrimitive(3, 0, 0, primitive_buffers_no_nulls1);
+  FillPrimitive(3, 0, 0, primitive_buffers_no_nulls1_8);
   c_struct_.n_buffers = 1;
   CheckImportError(int8());
 
   // Zero null bitmap but non-zero null_count
-  FillPrimitive(3, 1, 0, primitive_buffers_no_nulls1);
+  FillPrimitive(3, 1, 0, primitive_buffers_no_nulls1_8);
   CheckImportError(int8());
 }
 
 TEST_F(TestArrayImport, StructError) {
   // Bad number of children
   FillStringLike(AddChild(), 3, 0, 0, string_buffers_no_nulls1);
-  FillPrimitive(AddChild(), 3, -1, 0, primitive_buffers_nulls1);
+  FillPrimitive(AddChild(), 3, -1, 0, primitive_buffers_nulls1_8);
   FillStructLike(3, 0, 0, 2, buffers_no_nulls_no_data);
   CheckImportError(struct_({field("strs", utf8())}));
 }
@@ -2086,7 +2200,7 @@ TEST_F(TestArrayImport, ImportRecordBatch) {
   auto expected_ints = ArrayFromJSON(uint16(), "[513, null, 1541]");
 
   FillStringLike(AddChild(), 3, 0, 1, string_buffers_no_nulls1);
-  FillPrimitive(AddChild(), 3, -1, 0, primitive_buffers_nulls1);
+  FillPrimitive(AddChild(), 3, -1, 0, primitive_buffers_nulls1_16);
   FillStructLike(3, 0, 0, 2, buffers_no_nulls_no_data);
 
   auto expected = RecordBatch::Make(schema, 3, {expected_strs, expected_ints});
@@ -2096,14 +2210,14 @@ TEST_F(TestArrayImport, ImportRecordBatch) {
 TEST_F(TestArrayImport, ImportRecordBatchError) {
   // Struct with non-zero parent offset
   FillStringLike(AddChild(), 4, 0, 0, string_buffers_no_nulls1);
-  FillPrimitive(AddChild(), 4, 0, 0, primitive_buffers_no_nulls1);
+  FillPrimitive(AddChild(), 4, 0, 0, primitive_buffers_no_nulls1_16);
   FillStructLike(3, 0, 1, 2, buffers_no_nulls_no_data);
   auto schema = ::arrow::schema({field("strs", utf8()), field("ints", uint16())});
   CheckImportError(schema);
 
   // Struct with nulls in parent
   FillStringLike(AddChild(), 3, 0, 0, string_buffers_no_nulls1);
-  FillPrimitive(AddChild(), 3, 0, 0, primitive_buffers_no_nulls1);
+  FillPrimitive(AddChild(), 3, 0, 0, primitive_buffers_no_nulls1_8);
   FillStructLike(3, 1, 0, 2, buffers_nulls_no_data1);
   CheckImportError(schema);
 }
@@ -2114,7 +2228,7 @@ TEST_F(TestArrayImport, ImportArrayAndType) {
   schema_builder.FillPrimitive("c");
   SchemaReleaseCallback schema_cb(&schema_builder.c_struct_);
 
-  FillPrimitive(3, 0, 0, primitive_buffers_no_nulls1);
+  FillPrimitive(3, 0, 0, primitive_buffers_no_nulls1_8);
   ArrayReleaseCallback array_cb(&c_struct_);
 
   ASSERT_OK_AND_ASSIGN(auto array, ImportArray(&c_struct_, &schema_builder.c_struct_));
@@ -2132,7 +2246,7 @@ TEST_F(TestArrayImport, ImportArrayAndTypeError) {
   schema_builder.FillPrimitive("cc");
   SchemaReleaseCallback schema_cb(&schema_builder.c_struct_);
 
-  FillPrimitive(3, 0, 0, primitive_buffers_no_nulls1);
+  FillPrimitive(3, 0, 0, primitive_buffers_no_nulls1_8);
   ArrayReleaseCallback array_cb(&c_struct_);
 
   ASSERT_RAISES(Invalid, ImportArray(&c_struct_, &schema_builder.c_struct_));
@@ -2153,7 +2267,7 @@ TEST_F(TestArrayImport, ImportRecordBatchAndSchema) {
   SchemaReleaseCallback schema_cb(&schema_builder.c_struct_);
 
   FillStringLike(AddChild(), 3, 0, 1, string_buffers_no_nulls1);
-  FillPrimitive(AddChild(), 3, -1, 0, primitive_buffers_nulls1);
+  FillPrimitive(AddChild(), 3, -1, 0, primitive_buffers_nulls1_16);
   FillStructLike(3, 0, 0, 2, buffers_no_nulls_no_data);
   ArrayReleaseCallback array_cb(&c_struct_);
 
@@ -2175,7 +2289,7 @@ TEST_F(TestArrayImport, ImportRecordBatchAndSchemaError) {
   SchemaReleaseCallback schema_cb(&schema_builder.c_struct_);
 
   FillStringLike(AddChild(), 3, 0, 1, string_buffers_no_nulls1);
-  FillPrimitive(AddChild(), 3, -1, 0, primitive_buffers_nulls1);
+  FillPrimitive(AddChild(), 3, -1, 0, primitive_buffers_nulls1_8);
   FillStructLike(3, 0, 0, 2, buffers_no_nulls_no_data);
   ArrayReleaseCallback array_cb(&c_struct_);
 
@@ -2194,7 +2308,7 @@ class TestSchemaRoundtrip : public ::testing::Test {
   template <typename TypeFactory>
   void TestWithTypeFactory(TypeFactory&& factory) {
     std::shared_ptr<DataType> type, actual;
-    struct ArrowSchema c_schema{};  // zeroed
+    struct ArrowSchema c_schema {};  // zeroed
     SchemaExportGuard schema_guard(&c_schema);
 
     auto orig_bytes = pool_->bytes_allocated();
@@ -2220,7 +2334,7 @@ class TestSchemaRoundtrip : public ::testing::Test {
   template <typename SchemaFactory>
   void TestWithSchemaFactory(SchemaFactory&& factory) {
     std::shared_ptr<Schema> schema, actual;
-    struct ArrowSchema c_schema{};  // zeroed
+    struct ArrowSchema c_schema {};  // zeroed
     SchemaExportGuard schema_guard(&c_schema);
 
     auto orig_bytes = pool_->bytes_allocated();
@@ -2247,9 +2361,7 @@ class TestSchemaRoundtrip : public ::testing::Test {
   MemoryPool* pool_;
 };
 
-TEST_F(TestSchemaRoundtrip, Null) {
-  TestWithTypeFactory(null);
-}
+TEST_F(TestSchemaRoundtrip, Null) { TestWithTypeFactory(null); }
 
 TEST_F(TestSchemaRoundtrip, Primitive) {
   TestWithTypeFactory(int32);
@@ -2279,7 +2391,7 @@ TEST_F(TestSchemaRoundtrip, List) {
 }
 
 TEST_F(TestSchemaRoundtrip, Struct) {
-  auto f1 = field("f1", utf8(), /*nullable=*/ false);
+  auto f1 = field("f1", utf8(), /*nullable=*/false);
   auto f2 = field("f2", list(decimal(19, 4)));
 
   TestWithTypeFactory([&]() { return struct_({f1, f2}); });
@@ -2288,21 +2400,22 @@ TEST_F(TestSchemaRoundtrip, Struct) {
 }
 
 TEST_F(TestSchemaRoundtrip, Union) {
-  auto f1 = field("f1", utf8(), /*nullable=*/ false);
+  auto f1 = field("f1", utf8(), /*nullable=*/false);
   auto f2 = field("f2", list(decimal(19, 4)));
   auto type_codes = std::vector<int8_t>{42, 43};
 
-  TestWithTypeFactory([&]() { return union_({f1, f2}, type_codes, UnionMode::SPARSE); });
+  TestWithTypeFactory([&]() { return sparse_union({f1, f2}, type_codes); });
   f2 = f2->WithMetadata(key_value_metadata(kMetadataKeys2, kMetadataValues2));
-  TestWithTypeFactory([&]() { return union_({f1, f2}, type_codes, UnionMode::DENSE); });
+  TestWithTypeFactory([&]() { return dense_union({f1, f2}, type_codes); });
 }
 
 TEST_F(TestSchemaRoundtrip, Dictionary) {
-  TestWithTypeFactory([&]() { return dictionary(int32(), utf8()); });
-  TestWithTypeFactory([&]() { return dictionary(int32(), utf8(), /*ordered=*/ true); });
-
-  TestWithTypeFactory([&]() { return dictionary(int32(), list(utf8())); });
-  TestWithTypeFactory([&]() { return list(dictionary(int32(), list(utf8()))); });
+  for (auto index_ty : all_dictionary_index_types()) {
+    TestWithTypeFactory([&]() { return dictionary(index_ty, utf8()); });
+    TestWithTypeFactory([&]() { return dictionary(index_ty, utf8(), /*ordered=*/true); });
+    TestWithTypeFactory([&]() { return dictionary(index_ty, list(utf8())); });
+    TestWithTypeFactory([&]() { return list(dictionary(index_ty, list(utf8()))); });
+  }
 }
 
 TEST_F(TestSchemaRoundtrip, Map) {
@@ -2312,7 +2425,7 @@ TEST_F(TestSchemaRoundtrip, Map) {
 }
 
 TEST_F(TestSchemaRoundtrip, Schema) {
-  auto f1 = field("f1", utf8(), /*nullable=*/ false);
+  auto f1 = field("f1", utf8(), /*nullable=*/false);
   auto f2 = field("f2", list(decimal(19, 4)));
   auto md1 = key_value_metadata(kMetadataKeys1, kMetadataValues1);
   auto md2 = key_value_metadata(kMetadataKeys2, kMetadataValues2);
@@ -2351,8 +2464,8 @@ class TestArrayRoundtrip : public ::testing::Test {
   template <typename ArrayFactory>
   void TestWithArrayFactory(ArrayFactory&& factory) {
     std::shared_ptr<Array> array;
-    struct ArrowArray c_array{};
-    struct ArrowSchema c_schema{};
+    struct ArrowArray c_array {};
+    struct ArrowSchema c_schema {};
     ArrayExportGuard array_guard(&c_array);
     SchemaExportGuard schema_guard(&c_schema);
 
@@ -2396,8 +2509,8 @@ class TestArrayRoundtrip : public ::testing::Test {
   template <typename BatchFactory>
   void TestWithBatchFactory(BatchFactory&& factory) {
     std::shared_ptr<RecordBatch> batch;
-    struct ArrowArray c_array{};
-    struct ArrowSchema c_schema{};
+    struct ArrowArray c_array {};
+    struct ArrowSchema c_schema {};
     ArrayExportGuard array_guard(&c_array);
     SchemaExportGuard schema_guard(&c_schema);
 
@@ -2461,6 +2574,19 @@ TEST_F(TestArrayRoundtrip, Primitive) {
   TestWithJSONSliced(int32(), "[4, 5, 6, null]");
 }
 
+TEST_F(TestArrayRoundtrip, UnknownNullCount) {
+  TestWithArrayFactory([](std::shared_ptr<Array>* arr) -> Status {
+    *arr = ArrayFromJSON(int32(), "[0, 1, 2]");
+    if ((*arr)->null_bitmap()) {
+      return Status::Invalid(
+          "Failed precondition: "
+          "the array shouldn't have a null bitmap.");
+    }
+    (*arr)->data()->SetNullCount(kUnknownNullCount);
+    return Status::OK();
+  });
+}
+
 TEST_F(TestArrayRoundtrip, Nested) {
   TestWithJSON(list(int32()), "[]");
   TestWithJSON(list(int32()), "[[4, 5], [6, null], null]");
@@ -2491,7 +2617,7 @@ TEST_F(TestArrayRoundtrip, Nested) {
   TestWithJSON(type, json);
   TestWithJSONSliced(type, json);
 
-  type = map(utf8(), int32(), /*keys_sorted=*/ true);
+  type = map(utf8(), int32(), /*keys_sorted=*/true);
   TestWithJSON(type, json);
   TestWithJSONSliced(type, json);
 }
@@ -2502,7 +2628,8 @@ TEST_F(TestArrayRoundtrip, Dictionary) {
       auto values = ArrayFromJSON(utf8(), R"(["foo", "bar", "quux"])");
       auto indices = ArrayFromJSON(int32(), "[0, 2, 1, null, 1]");
       return DictionaryArray::FromArrays(dictionary(indices->type(), values->type()),
-                                         indices, values, out);
+                                         indices, values)
+          .Value(out);
     };
     TestWithArrayFactory(factory);
     TestWithArrayFactory(SlicedArrayFactory(factory));
@@ -2512,8 +2639,9 @@ TEST_F(TestArrayRoundtrip, Dictionary) {
       auto values = ArrayFromJSON(list(utf8()), R"([["abc", "def"], ["efg"], []])");
       auto indices = ArrayFromJSON(int32(), "[0, 2, 1, null, 1]");
       return DictionaryArray::FromArrays(
-          dictionary(indices->type(), values->type(), /*ordered=*/true), indices, values,
-          out);
+                 dictionary(indices->type(), values->type(), /*ordered=*/true), indices,
+                 values)
+          .Value(out);
     };
     TestWithArrayFactory(factory);
     TestWithArrayFactory(SlicedArrayFactory(factory));
@@ -2539,8 +2667,8 @@ TEST_F(TestArrayRoundtrip, RecordBatch) {
       auto f0 = schema->field(0);
       auto f1 = schema->field(1);
       f1 = f1->WithMetadata(key_value_metadata(kMetadataKeys1, kMetadataValues1));
-      auto schema_with_md = ::arrow::schema({f0, f1},
-          key_value_metadata(kMetadataKeys2, kMetadataValues2));
+      auto schema_with_md =
+          ::arrow::schema({f0, f1}, key_value_metadata(kMetadataKeys2, kMetadataValues2));
       *out = RecordBatch::Make(schema_with_md, 3, {arr0, arr1});
       return Status::OK();
     };

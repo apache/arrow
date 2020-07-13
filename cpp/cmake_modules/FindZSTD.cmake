@@ -15,19 +15,29 @@
 # specific language governing permissions and limitations
 # under the License.
 
-if(MSVC AND NOT DEFINED ZSTD_MSVC_STATIC_LIB_SUFFIX)
-  set(ZSTD_MSVC_STATIC_LIB_SUFFIX "_static")
+if(ARROW_ZSTD_USE_SHARED)
+  set(ZSTD_LIB_NAMES)
+  if(CMAKE_IMPORT_LIBRARY_SUFFIX)
+    list(APPEND ZSTD_LIB_NAMES
+                "${CMAKE_IMPORT_LIBRARY_PREFIX}zstd${CMAKE_IMPORT_LIBRARY_SUFFIX}")
+  endif()
+  list(APPEND ZSTD_LIB_NAMES
+              "${CMAKE_SHARED_LIBRARY_PREFIX}zstd${CMAKE_SHARED_LIBRARY_SUFFIX}")
+else()
+  if(MSVC AND NOT DEFINED ZSTD_MSVC_STATIC_LIB_SUFFIX)
+    set(ZSTD_MSVC_STATIC_LIB_SUFFIX "_static")
+  endif()
+  set(ZSTD_STATIC_LIB_SUFFIX
+      "${ZSTD_MSVC_STATIC_LIB_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}")
+  set(ZSTD_STATIC_LIB_NAME ${CMAKE_STATIC_LIBRARY_PREFIX}zstd${ZSTD_STATIC_LIB_SUFFIX})
+  set(ZSTD_LIB_NAMES "${ZSTD_STATIC_LIB_NAME}" "lib${ZSTD_STATIC_LIB_NAME}")
 endif()
-
-set(ZSTD_STATIC_LIB_SUFFIX "${ZSTD_MSVC_STATIC_LIB_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}")
-set(ZSTD_STATIC_LIB_NAME ${CMAKE_STATIC_LIBRARY_PREFIX}zstd${ZSTD_STATIC_LIB_SUFFIX})
 
 # First, find via if specified ZTD_ROOT
 if(ZSTD_ROOT)
   message(STATUS "Using ZSTD_ROOT: ${ZSTD_ROOT}")
   find_library(ZSTD_LIB
-               NAMES zstd "${ZSTD_STATIC_LIB_NAME}" "lib${ZSTD_STATIC_LIB_NAME}"
-                     "${CMAKE_SHARED_LIBRARY_PREFIX}zstd${CMAKE_SHARED_LIBRARY_SUFFIX}"
+               NAMES ${ZSTD_LIB_NAMES}
                PATHS ${ZSTD_ROOT}
                PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
                NO_DEFAULT_PATH)
@@ -50,10 +60,7 @@ else()
                  PATH_SUFFIXES ${LIB_PATH_SUFFIXES})
     # Third, check all other CMake paths
   else()
-    find_library(ZSTD_LIB
-                 NAMES zstd "${ZSTD_STATIC_LIB_NAME}" "lib${ZSTD_STATIC_LIB_NAME}"
-                       "${CMAKE_SHARED_LIBRARY_PREFIX}zstd${CMAKE_SHARED_LIBRARY_SUFFIX}"
-                 PATH_SUFFIXES ${LIB_PATH_SUFFIXES})
+    find_library(ZSTD_LIB NAMES ${ZSTD_LIB_NAMES} PATH_SUFFIXES ${LIB_PATH_SUFFIXES})
     find_path(ZSTD_INCLUDE_DIR NAMES zstd.h PATH_SUFFIXES ${INCLUDE_PATH_SUFFIXES})
   endif()
 endif()
@@ -61,8 +68,8 @@ endif()
 find_package_handle_standard_args(ZSTD REQUIRED_VARS ZSTD_LIB ZSTD_INCLUDE_DIR)
 
 if(ZSTD_FOUND)
-  add_library(ZSTD::zstd UNKNOWN IMPORTED)
-  set_target_properties(ZSTD::zstd
+  add_library(zstd::libzstd UNKNOWN IMPORTED)
+  set_target_properties(zstd::libzstd
                         PROPERTIES IMPORTED_LOCATION "${ZSTD_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${ZSTD_INCLUDE_DIR}")
 endif()

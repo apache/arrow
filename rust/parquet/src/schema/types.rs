@@ -587,6 +587,7 @@ impl AsRef<[String]> for ColumnPath {
 /// A descriptor for leaf-level primitive columns.
 /// This encapsulates information such as definition and repetition levels and is used to
 /// re-assemble nested data.
+#[derive(Debug, PartialEq)]
 pub struct ColumnDescriptor {
     // The "leaf" primitive type of this column
     primitive_type: TypePtr,

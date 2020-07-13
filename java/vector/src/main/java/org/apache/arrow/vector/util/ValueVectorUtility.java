@@ -17,8 +17,16 @@
 
 package org.apache.arrow.vector.util;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.util.Preconditions;
+import org.apache.arrow.vector.BaseFixedWidthVector;
+import org.apache.arrow.vector.BufferLayout;
+import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.TypeLayout;
 import org.apache.arrow.vector.ValueVector;
+import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.validate.ValidateVectorVisitor;
 
 /**
  * Utility methods for {@link ValueVector}.
@@ -82,4 +90,69 @@ public class ValueVectorUtility {
 
     return sb.toString();
   }
+
+  /**
+   * Validate field vector.
+   */
+  public static void validate(FieldVector vector) {
+    Preconditions.checkNotNull(vector);
+
+    ArrowType arrowType = vector.getField().getType();
+    int typeBufferCount = TypeLayout.getTypeBufferCount(arrowType);
+    TypeLayout typeLayout = TypeLayout.getTypeLayout(arrowType);
+
+    if (vector.getValueCount() < 0) {
+      throw new IllegalArgumentException("vector valueCount is negative");
+    }
+
+    if (vector.getFieldBuffers().size() != typeBufferCount) {
+      throw new IllegalArgumentException(String.format("Expected %s buffers in vector of type %s, got %s",
+          typeBufferCount, vector.getField().getType().toString(), vector.getBufferSize()));
+    }
+
+    for (int i = 0; i < typeBufferCount; i++) {
+      ArrowBuf buffer = vector.getFieldBuffers().get(i);
+      BufferLayout bufferLayout = typeLayout.getBufferLayouts().get(i);
+      if (buffer == null) {
+        continue;
+      }
+      int minBufferSize = vector.getValueCount() * bufferLayout.getTypeBitWidth();
+
+      if (buffer.capacity() < minBufferSize / 8) {
+        throw new IllegalArgumentException(String.format("Buffer #%s too small in vector of type %s" +
+                "and valueCount %s : expected at least %s byte(s), got %s",
+            i, vector.getField().getType().toString(),
+            vector.getValueCount(), minBufferSize, buffer.capacity()));
+      }
+    }
+
+    ValidateVectorVisitor visitor = new ValidateVectorVisitor();
+    vector.accept(visitor, null);
+  }
+
+
+  /**
+   * Pre allocate memory for BaseFixedWidthVector.
+   */
+  public static void preAllocate(VectorSchemaRoot root, int targetSize) {
+    for (ValueVector vector : root.getFieldVectors()) {
+      if (vector instanceof BaseFixedWidthVector) {
+        ((BaseFixedWidthVector) vector).allocateNew(targetSize);
+      }
+    }
+  }
+
+  /**
+   * Ensure capacity for BaseFixedWidthVector.
+   */
+  public static void ensureCapacity(VectorSchemaRoot root, int targetCapacity) {
+    for (ValueVector vector : root.getFieldVectors()) {
+      if (vector instanceof BaseFixedWidthVector) {
+        while (vector.getValueCapacity() < targetCapacity) {
+          vector.reAlloc();
+        }
+      }
+    }
+  }
+
 }

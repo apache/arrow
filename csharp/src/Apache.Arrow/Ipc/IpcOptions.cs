@@ -17,7 +17,7 @@ namespace Apache.Arrow.Ipc
 {
     public class IpcOptions
     {
-        internal static readonly IpcOptions Default = new IpcOptions();
+        internal static IpcOptions Default { get; } = new IpcOptions();
 
         /// <summary>
         /// Write the pre-0.15.0 encapsulated IPC message format

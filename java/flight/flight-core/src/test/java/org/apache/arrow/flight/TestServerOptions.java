@@ -124,14 +124,15 @@ public class TestServerOptions {
                 (port) -> FlightServer.builder(a, location, producer).build()
             )) {
       try (FlightClient c = FlightClient.builder(a, location).build()) {
-        FlightStream stream = c.getStream(new Ticket(new byte[0]));
-        VectorSchemaRoot root = stream.getRoot();
-        IntVector iv = (IntVector) root.getVector("c1");
-        int value = 0;
-        while (stream.next()) {
-          for (int i = 0; i < root.getRowCount(); i++) {
-            Assert.assertEquals(value, iv.get(i));
-            value++;
+        try (FlightStream stream = c.getStream(new Ticket(new byte[0]))) {
+          VectorSchemaRoot root = stream.getRoot();
+          IntVector iv = (IntVector) root.getVector("c1");
+          int value = 0;
+          while (stream.next()) {
+            for (int i = 0; i < root.getRowCount(); i++) {
+              Assert.assertEquals(value, iv.get(i));
+              value++;
+            }
           }
         }
       }

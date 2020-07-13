@@ -17,21 +17,19 @@
 
 package org.apache.arrow.vector.ipc.message;
 
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
 import org.apache.arrow.flatbuf.RecordBatch;
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.DataSizeRoundingUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.flatbuffers.FlatBufferBuilder;
-
-import io.netty.buffer.ArrowBuf;
 
 /**
  * POJO representation of a RecordBatch IPC message (https://arrow.apache.org/docs/format/IPC.html).
@@ -219,16 +217,7 @@ public class ArrowRecordBatch implements ArrowMessage {
     for (int i = 0; i < buffers.size(); i++) {
       ArrowBuf buffer = buffers.get(i);
       ArrowBuffer layout = buffersLayout.get(i);
-      size += (layout.getOffset() - size);
-
-      long readableBytes = buffer.readableBytes();
-      while (readableBytes > 0) {
-        int nextRead = (int)Math.min(readableBytes, Integer.MAX_VALUE);
-        ByteBuffer nioBuffer =
-            buffer.nioBuffer(buffer.readerIndex(), nextRead);
-        readableBytes -= nextRead;
-        size += nioBuffer.remaining();
-      }
+      size = layout.getOffset() + buffer.readableBytes();
 
       // round up size to the next multiple of 8
       size = DataSizeRoundingUtil.roundUpTo8Multiple(size);

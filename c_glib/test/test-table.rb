@@ -225,5 +225,49 @@ valid:
       assert_equal([[[true, false, true, false, true, false]]],
                    all_values)
     end
+
+    sub_test_case("#write_as_feather") do
+      def setup
+        super
+        @tempfile = Tempfile.open("arrow-table-write-as-feather")
+        begin
+          yield
+        ensure
+          @tempfile.close!
+        end
+      end
+
+      def read_feather
+        input = Arrow::MemoryMappedInputStream.new(@tempfile.path)
+        reader = Arrow::FeatherFileReader.new(input)
+        begin
+          yield(reader.read)
+        ensure
+          input.close
+        end
+      end
+
+      test("default") do
+        output = Arrow::FileOutputStream.new(@tempfile.path, false)
+        @table.write_as_feather(output)
+        output.close
+
+        read_feather do |read_table|
+          assert_equal(@table, read_table)
+        end
+      end
+
+      test("compression") do
+        output = Arrow::FileOutputStream.new(@tempfile.path, false)
+        properties = Arrow::FeatherWriteProperties.new
+        properties.compression = :zstd
+        @table.write_as_feather(output, properties)
+        output.close
+
+        read_feather do |read_table|
+          assert_equal(@table, read_table)
+        end
+      end
+    end
   end
 end

@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_MATLAB_UTIL_HANDLE_STATUS_H
-#define ARROW_MATLAB_UTIL_HANDLE_STATUS_H
+#pragma once
 
 #include <arrow/status.h>
 
@@ -31,4 +30,3 @@ void HandleStatus(const Status& status);
 }  // namespace matlab
 }  // namespace arrow
 
-#endif  // ARROW_MATLAB_UTIL_HANDLE_STATUS_H

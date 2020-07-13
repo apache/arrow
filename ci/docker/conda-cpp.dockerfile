@@ -47,6 +47,7 @@ RUN conda create -n arrow -q \
         --file arrow/ci/conda_env_cpp.yml \
         --file arrow/ci/conda_env_gandiva.yml \
         compilers \
+        doxygen \
         gdb \
         git \
         valgrind && \
@@ -63,8 +64,8 @@ SHELL [ "/bin/bash", "-c", "-l" ]
 ENTRYPOINT [ "/bin/bash", "-c", "-l" ]
 
 ENV ARROW_BUILD_TESTS=ON \
-    ARROW_DEPENDENCY_SOURCE=CONDA \
     ARROW_DATASET=ON \
+    ARROW_DEPENDENCY_SOURCE=CONDA \
     ARROW_FLIGHT=ON \
     ARROW_GANDIVA=ON \
     ARROW_HOME=$CONDA_PREFIX \
@@ -79,6 +80,6 @@ ENV ARROW_BUILD_TESTS=ON \
     ARROW_WITH_SNAPPY=ON \
     ARROW_WITH_ZLIB=ON \
     ARROW_WITH_ZSTD=ON \
-    PARQUET_BUILD_EXECUTABLES=ON \
     PARQUET_BUILD_EXAMPLES=ON \
+    PARQUET_BUILD_EXECUTABLES=ON \
     PARQUET_HOME=$CONDA_PREFIX

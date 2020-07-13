@@ -69,7 +69,7 @@
 #' - `$Take(i)`: return an `Table` with rows at positions given by
 #'    integers `i`. If `i` is an Arrow `Array` or `ChunkedArray`, it will be
 #'    coerced to an R vector before taking.
-#' - `$Filter(i)`: return an `Table` with rows at positions where logical
+#' - `$Filter(i, keep_na = TRUE)`: return an `Table` with rows at positions where logical
 #'    vector or Arrow boolean-type `(Chunked)Array` `i` is `TRUE`.
 #' - `$serialize(output_stream, ...)`: Write the table to the given
 #'    [OutputStream]
@@ -80,7 +80,9 @@
 #' - `$num_columns`
 #' - `$num_rows`
 #' - `$schema`
-#' - `$metadata`: Returns the key-value metadata of the `Schema`
+#' - `$metadata`: Returns the key-value metadata of the `Schema` as a named list.
+#'    Modify or replace by assigning in (`tab$metadata <- new_metadata`).
+#'    All list elements are coerced to string.
 #' - `$columns`: Returns a list of `ChunkedArray`s
 #' @rdname Table
 #' @name Table
@@ -144,25 +146,25 @@ Table <- R6Class("Table", inherit = ArrowObject,
       if (is.integer(i)) {
         i <- Array$create(i)
       }
-      if (inherits(i, "ChunkedArray")) {
-        return(shared_ptr(Table, Table__TakeChunked(self, i)))
-      }
-      assert_is(i, "Array")
-      shared_ptr(Table, Table__Take(self, i))
+      shared_ptr(Table, call_function("take", self, i))
     },
-    Filter = function(i) {
+    Filter = function(i, keep_na = TRUE) {
       if (is.logical(i)) {
         i <- Array$create(i)
       }
-      if (inherits(i, "ChunkedArray")) {
-        return(shared_ptr(Table, Table__FilterChunked(self, i)))
-      }
-      assert_is(i, "Array")
-      shared_ptr(Table, Table__Filter(self, i))
+      shared_ptr(Table, call_function("filter", self, i, options = list(keep_na = keep_na)))
     },
 
-    Equals = function(other, check_metadata = TRUE, ...) {
+    Equals = function(other, check_metadata = FALSE, ...) {
       inherits(other, "Table") && Table__Equals(self, other, isTRUE(check_metadata))
+    },
+
+    Validate = function() {
+      Table__Validate(self)
+    },
+
+    ValidateFull = function() {
+      Table__ValidateFull(self)
     }
   ),
 
@@ -170,12 +172,25 @@ Table <- R6Class("Table", inherit = ArrowObject,
     num_columns = function() Table__num_columns(self),
     num_rows = function() Table__num_rows(self),
     schema = function() shared_ptr(Schema, Table__schema(self)),
-    metadata = function() self$schema$metadata,
+    metadata = function(new) {
+      if (missing(new)) {
+        # Get the metadata (from the schema)
+        self$schema$metadata
+      } else {
+        # Set the metadata
+        new <- prepare_key_value_metadata(new)
+        out <- Table__ReplaceSchemaMetadata(self, new)
+        # ReplaceSchemaMetadata returns a new object but we're modifying in place,
+        # so swap in that new C++ object pointer into our R6 object
+        self$set_pointer(out)
+        self
+      }
+    },
     columns = function() map(Table__columns(self), shared_ptr, class = ChunkedArray)
   )
 )
 
-Table$create <- function(..., schema = NULL){
+Table$create <- function(..., schema = NULL) {
   dots <- list2(...)
   # making sure there are always names
   if (is.null(names(dots))) {
@@ -186,14 +201,25 @@ Table$create <- function(..., schema = NULL){
 }
 
 #' @export
-as.data.frame.Table <- function(x, row.names = NULL, optional = FALSE, use_threads = TRUE, ...){
-  Table__to_dataframe(x, use_threads = option_use_threads())
+as.data.frame.Table <- function(x, row.names = NULL, optional = FALSE, ...) {
+  df <- Table__to_dataframe(x, use_threads = option_use_threads())
+  if (!is.null(r_metadata <- x$metadata$r)) {
+    df <- apply_arrow_r_metadata(df, .unserialize_arrow_r_metadata(r_metadata))
+  }
+  df
 }
 
 #' @export
-dim.Table <- function(x) {
-  c(x$num_rows, x$num_columns)
-}
+as.list.Table <- as.list.RecordBatch
+
+#' @export
+row.names.Table <- row.names.RecordBatch
+
+#' @export
+dimnames.Table <- dimnames.RecordBatch
+
+#' @export
+dim.Table <- function(x) c(x$num_rows, x$num_columns)
 
 #' @export
 names.Table <- function(x) x$ColumnNames()

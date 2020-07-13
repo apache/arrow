@@ -58,14 +58,26 @@ struct ARROW_EXPORT S3Options {
   /// Configure with the default AWS credentials provider chain.
   void ConfigureDefaultCredentials();
 
+  /// Configure with anonymous credentials.  This will only let you access public buckets.
+  void ConfigureAnonymousCredentials();
+
   /// Configure with explicit access and secret key.
   void ConfigureAccessKey(const std::string& access_key, const std::string& secret_key);
+
+  std::string GetAccessKey() const;
+  std::string GetSecretKey() const;
+
+  bool Equals(const S3Options& other) const;
 
   /// \brief Initialize with default credentials provider chain
   ///
   /// This is recommended if you use the standard AWS environment variables
   /// and/or configuration file.
   static S3Options Defaults();
+  /// \brief Initialize with anonymous credentials.
+  ///
+  /// This will only let you access public buckets.
+  static S3Options Anonymous();
   /// \brief Initialize with explicit access and secret key
   static S3Options FromAccessKey(const std::string& access_key,
                                  const std::string& secret_key);
@@ -86,18 +98,21 @@ class ARROW_EXPORT S3FileSystem : public FileSystem {
   ~S3FileSystem() override;
 
   std::string type_name() const override { return "s3"; }
+  S3Options options() const;
+
+  bool Equals(const FileSystem& other) const override;
 
   /// \cond FALSE
-  using FileSystem::GetTargetInfo;
-  using FileSystem::GetTargetInfos;
+  using FileSystem::GetFileInfo;
   /// \endcond
-  Result<FileInfo> GetTargetInfo(const std::string& path) override;
-  Result<std::vector<FileInfo>> GetTargetInfos(const FileSelector& select) override;
+  Result<FileInfo> GetFileInfo(const std::string& path) override;
+  Result<std::vector<FileInfo>> GetFileInfo(const FileSelector& select) override;
 
   Status CreateDir(const std::string& path, bool recursive = true) override;
 
   Status DeleteDir(const std::string& path) override;
   Status DeleteDirContents(const std::string& path) override;
+  Status DeleteRootDirContents() override;
 
   Status DeleteFile(const std::string& path) override;
 
@@ -112,12 +127,23 @@ class ARROW_EXPORT S3FileSystem : public FileSystem {
   /// a custom readahead strategy to avoid idle waits.
   Result<std::shared_ptr<io::InputStream>> OpenInputStream(
       const std::string& path) override;
+  /// Create a sequential input stream for reading from a S3 object.
+  ///
+  /// This override avoids a HEAD request by assuming the FileInfo
+  /// contains correct information.
+  Result<std::shared_ptr<io::InputStream>> OpenInputStream(const FileInfo& info) override;
 
   /// Create a random access file for reading from a S3 object.
   ///
   /// See OpenInputStream for performance notes.
   Result<std::shared_ptr<io::RandomAccessFile>> OpenInputFile(
       const std::string& path) override;
+  /// Create a random access file for reading from a S3 object.
+  ///
+  /// This override avoids a HEAD request by assuming the FileInfo
+  /// contains correct information.
+  Result<std::shared_ptr<io::RandomAccessFile>> OpenInputFile(
+      const FileInfo& info) override;
 
   /// Create a sequential output stream for writing to a S3 object.
   ///

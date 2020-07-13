@@ -17,8 +17,8 @@
 
 # cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
 # cython: language_level = 3
+# cython: embedsignature = True
 
 from libcpp cimport bool as c_bool, nullptr
 from libcpp.memory cimport shared_ptr, unique_ptr, make_shared
@@ -28,10 +28,10 @@ from libcpp.unordered_set cimport unordered_set as c_unordered_set
 from libc.stdint cimport int64_t, int32_t, uint8_t, uintptr_t
 
 from pyarrow.includes.libarrow cimport *
-from pyarrow.compat import frombytes
 from pyarrow.lib cimport (Array, DataType, Field, MemoryPool, RecordBatch,
                           Schema, check_status, pyarrow_wrap_array,
                           pyarrow_wrap_data_type, ensure_type)
+from pyarrow.lib import frombytes
 
 from pyarrow.includes.libgandiva cimport (
     CCondition, CExpression,

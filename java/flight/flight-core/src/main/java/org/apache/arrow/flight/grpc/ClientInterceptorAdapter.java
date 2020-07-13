@@ -110,7 +110,7 @@ public class ClientInterceptorAdapter implements ClientInterceptor {
           final MetadataAdapter adapter = new MetadataAdapter(trailers);
           middleware.forEach(m -> m.onHeadersReceived(adapter));
         }
-        final CallStatus flightStatus = StatusUtils.fromGrpcStatus(status);
+        final CallStatus flightStatus = StatusUtils.fromGrpcStatusAndTrailers(status, trailers);
         middleware.forEach(m -> m.onCallCompleted(flightStatus));
       } finally {
         // Make sure to always call the gRPC callback to avoid interrupting the gRPC request cycle
@@ -141,7 +141,7 @@ public class ClientInterceptorAdapter implements ClientInterceptor {
 
     @Override
     public void cancel(String message, Throwable cause) {
-      final CallStatus flightStatus = new CallStatus(FlightStatusCode.CANCELLED, cause, message);
+      final CallStatus flightStatus = new CallStatus(FlightStatusCode.CANCELLED, cause, message, null);
       middleware.forEach(m -> m.onCallCompleted(flightStatus));
       super.cancel(message, cause);
     }

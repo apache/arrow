@@ -120,7 +120,16 @@ garrow_buffer_get_property(GObject *object,
                            GValue *value,
                            GParamSpec *pspec)
 {
-  G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+  auto priv = GARROW_BUFFER_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_PARENT:
+    g_value_set_object(value, priv->parent);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
 }
 
 static void
@@ -161,7 +170,7 @@ garrow_buffer_class_init(GArrowBufferClass *klass)
                              "Parent",
                              "The parent GArrowBuffer *",
                              GARROW_TYPE_BUFFER,
-                             static_cast<GParamFlags>(G_PARAM_WRITABLE |
+                             static_cast<GParamFlags>(G_PARAM_READWRITE |
                                                       G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_PARENT, spec);
 }
@@ -386,10 +395,9 @@ garrow_buffer_copy(GArrowBuffer *buffer,
                    GError **error)
 {
   auto arrow_buffer = garrow_buffer_get_raw(buffer);
-  std::shared_ptr<arrow::Buffer> arrow_copied_buffer;
-  auto status = arrow_buffer->Copy(start, size, &arrow_copied_buffer);
-  if (garrow_error_check(error, status, "[buffer][copy]")) {
-    return garrow_buffer_new_raw(&arrow_copied_buffer);
+  auto maybe_copied_buffer = arrow_buffer->CopySlice(start, size);
+  if (garrow::check(error, maybe_copied_buffer, "[buffer][copy]")) {
+    return garrow_buffer_new_raw(&(*maybe_copied_buffer));
   } else {
     return NULL;
   }
@@ -567,9 +575,10 @@ GArrowResizableBuffer *
 garrow_resizable_buffer_new(gint64 initial_size,
                             GError **error)
 {
-  std::shared_ptr<arrow::ResizableBuffer> arrow_buffer;
-  auto status = arrow::AllocateResizableBuffer(initial_size, &arrow_buffer);
-  if (garrow_error_check(error, status, "[resizable-buffer][new]")) {
+  auto maybe_buffer = arrow::AllocateResizableBuffer(initial_size);
+  if (garrow::check(error, maybe_buffer, "[resizable-buffer][new]")) {
+    auto arrow_buffer = std::shared_ptr<arrow::ResizableBuffer>(
+      *std::move(maybe_buffer));
     return garrow_resizable_buffer_new_raw(&arrow_buffer);
   } else {
     return NULL;

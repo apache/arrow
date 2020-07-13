@@ -26,6 +26,8 @@ namespace gandiva {
 class TestFunctionSignature : public ::testing::Test {
  protected:
   virtual void SetUp() {
+    // Use make_shared so these are distinct from the static instances returned
+    // by e.g. arrow::int32()
     local_i32_type_ = std::make_shared<arrow::Int32Type>();
     local_i64_type_ = std::make_shared<arrow::Int64Type>();
     local_date32_type_ = std::make_shared<arrow::Date32Type>();
@@ -59,6 +61,13 @@ TEST_F(TestFunctionSignature, TestEqualsName) {
 
   EXPECT_FALSE(FunctionSignature("add", {arrow::int32()}, arrow::int32()) ==
                FunctionSignature("sub", {arrow::int32()}, arrow::int32()));
+
+  EXPECT_EQ(FunctionSignature("extractDay", {arrow::int64()}, arrow::int64()),
+            FunctionSignature("extractday", {arrow::int64()}, arrow::int64()));
+
+  EXPECT_EQ(
+      FunctionSignature("castVARCHAR", {arrow::utf8(), arrow::int64()}, arrow::utf8()),
+      FunctionSignature("castvarchar", {arrow::utf8(), arrow::int64()}, arrow::utf8()));
 }
 
 TEST_F(TestFunctionSignature, TestEqualsParamCount) {
@@ -95,6 +104,10 @@ TEST_F(TestFunctionSignature, TestHash) {
   FunctionSignature f1("add", {arrow::int32(), arrow::int32()}, arrow::int64());
   FunctionSignature f2("add", {local_i32_type_, local_i32_type_}, local_i64_type_);
   EXPECT_EQ(f1.Hash(), f2.Hash());
+
+  FunctionSignature f3("extractDay", {arrow::int64()}, arrow::int64());
+  FunctionSignature f4("extractday", {arrow::int64()}, arrow::int64());
+  EXPECT_EQ(f3.Hash(), f4.Hash());
 }
 
 }  // namespace gandiva

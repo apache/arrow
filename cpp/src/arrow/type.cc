@@ -29,18 +29,171 @@
 #include <vector>
 
 #include "arrow/array.h"
+#include "arrow/chunked_array.h"
 #include "arrow/compare.h"
+#include "arrow/record_batch.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/table.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/hash_util.h"
+#include "arrow/util/hashing.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/make_unique.h"
+#include "arrow/util/range.h"
 #include "arrow/util/vector.h"
 #include "arrow/visitor_inline.h"
 
 namespace arrow {
+
+constexpr Type::type NullType::type_id;
+constexpr Type::type ListType::type_id;
+constexpr Type::type LargeListType::type_id;
+
+constexpr Type::type MapType::type_id;
+
+constexpr Type::type FixedSizeListType::type_id;
+
+constexpr Type::type BinaryType::type_id;
+
+constexpr Type::type LargeBinaryType::type_id;
+
+constexpr Type::type StringType::type_id;
+
+constexpr Type::type LargeStringType::type_id;
+
+constexpr Type::type FixedSizeBinaryType::type_id;
+
+constexpr Type::type StructType::type_id;
+
+constexpr Type::type Decimal128Type::type_id;
+
+constexpr Type::type SparseUnionType::type_id;
+
+constexpr Type::type DenseUnionType::type_id;
+
+constexpr Type::type Date32Type::type_id;
+
+constexpr Type::type Date64Type::type_id;
+
+constexpr Type::type Time32Type::type_id;
+
+constexpr Type::type Time64Type::type_id;
+
+constexpr Type::type TimestampType::type_id;
+
+constexpr Type::type MonthIntervalType::type_id;
+
+constexpr Type::type DayTimeIntervalType::type_id;
+
+constexpr Type::type DurationType::type_id;
+
+constexpr Type::type DictionaryType::type_id;
+
+namespace internal {
+
+std::string ToString(Type::type id) {
+  switch (id) {
+    case Type::NA:
+      return "NA";
+    case Type::BOOL:
+      return "BOOL";
+    case Type::UINT8:
+      return "UINT8";
+    case Type::INT8:
+      return "INT8";
+    case Type::UINT16:
+      return "UINT16";
+    case Type::INT16:
+      return "INT16";
+    case Type::UINT32:
+      return "UINT32";
+    case Type::INT32:
+      return "INT32";
+    case Type::UINT64:
+      return "UINT64";
+    case Type::INT64:
+      return "INT64";
+    case Type::HALF_FLOAT:
+      return "HALF_FLOAT";
+    case Type::FLOAT:
+      return "FLOAT";
+    case Type::DOUBLE:
+      return "DOUBLE";
+    case Type::STRING:
+      return "UTF8";
+    case Type::BINARY:
+      return "BINARY";
+    case Type::FIXED_SIZE_BINARY:
+      return "FIXED_SIZE_BINARY";
+    case Type::DATE64:
+      return "DATE64";
+    case Type::TIMESTAMP:
+      return "TIMESTAMP";
+    case Type::TIME32:
+      return "TIME32";
+    case Type::TIME64:
+      return "TIME64";
+    case Type::INTERVAL_MONTHS:
+      return "INTERVAL_MONTHS";
+    case Type::INTERVAL_DAY_TIME:
+      return "INTERVAL_DAY_TIME";
+    case Type::DECIMAL:
+      return "DECIMAL";
+    case Type::LIST:
+      return "LIST";
+    case Type::STRUCT:
+      return "STRUCT";
+    case Type::SPARSE_UNION:
+      return "SPARSE_UNION";
+    case Type::DENSE_UNION:
+      return "DENSE_UNION";
+    case Type::DICTIONARY:
+      return "DICTIONARY";
+    case Type::MAP:
+      return "MAP";
+    case Type::EXTENSION:
+      return "EXTENSION";
+    case Type::FIXED_SIZE_LIST:
+      return "FIXED_SIZE_LIST";
+    case Type::DURATION:
+      return "DURATION";
+    case Type::LARGE_BINARY:
+      return "LARGE_BINARY";
+    case Type::LARGE_LIST:
+      return "LARGE_LIST";
+    default:
+      DCHECK(false) << "Should not be able to reach here";
+      return "unknown";
+  }
+}
+
+std::string ToString(TimeUnit::type unit) {
+  switch (unit) {
+    case TimeUnit::SECOND:
+      return "s";
+    case TimeUnit::MILLI:
+      return "ms";
+    case TimeUnit::MICRO:
+      return "us";
+    case TimeUnit::NANO:
+      return "ns";
+    default:
+      DCHECK(false);
+      return "";
+  }
+}
+
+int GetByteWidth(const DataType& type) {
+  const auto& fw_type = checked_cast<const FixedWidthType&>(type);
+  return fw_type.bit_width() / CHAR_BIT;
+}
+
+}  // namespace internal
+
 namespace {
+
 using internal::checked_cast;
 
 // Merges `existing` and `other` if one of them is of NullType, otherwise
@@ -131,7 +284,7 @@ Result<std::shared_ptr<Field>> Field::MergeWith(const std::shared_ptr<Field>& ot
 std::vector<std::shared_ptr<Field>> Field::Flatten() const {
   std::vector<std::shared_ptr<Field>> flattened;
   if (type_->id() == Type::STRUCT) {
-    for (const auto& child : type_->children()) {
+    for (const auto& child : type_->fields()) {
       auto flattened_child = child->Copy();
       flattened.push_back(flattened_child);
       flattened_child->name_.insert(0, name() + ".");
@@ -202,6 +355,13 @@ bool DataType::Equals(const std::shared_ptr<DataType>& other) const {
   return Equals(*other.get());
 }
 
+size_t DataType::Hash() const {
+  static constexpr size_t kHashSeed = 0;
+  size_t result = kHashSeed;
+  internal::hash_combine(result, this->ComputeFingerprint());
+  return result;
+}
+
 std::ostream& operator<<(std::ostream& os, const DataType& type) {
   os << type.ToString();
   return os;
@@ -231,25 +391,68 @@ std::string LargeListType::ToString() const {
   return s.str();
 }
 
-MapType::MapType(const std::shared_ptr<DataType>& key_type,
-                 const std::shared_ptr<DataType>& item_type, bool keys_sorted)
-    : MapType(key_type, field("value", item_type), keys_sorted) {}
+MapType::MapType(std::shared_ptr<DataType> key_type, std::shared_ptr<DataType> item_type,
+                 bool keys_sorted)
+    : MapType(::arrow::field("key", std::move(key_type), false),
+              ::arrow::field("value", std::move(item_type)), keys_sorted) {}
 
-MapType::MapType(const std::shared_ptr<DataType>& key_type,
-                 const std::shared_ptr<Field>& item_field, bool keys_sorted)
-    : ListType(field(
-          "entries",
-          struct_({std::make_shared<Field>("key", key_type, false), item_field}), false)),
-      keys_sorted_(keys_sorted) {
+MapType::MapType(std::shared_ptr<DataType> key_type, std::shared_ptr<Field> item_field,
+                 bool keys_sorted)
+    : MapType(::arrow::field("key", std::move(key_type), false), std::move(item_field),
+              keys_sorted) {}
+
+MapType::MapType(std::shared_ptr<Field> key_field, std::shared_ptr<Field> item_field,
+                 bool keys_sorted)
+    : MapType(
+          ::arrow::field("entries",
+                         struct_({std::move(key_field), std::move(item_field)}), false),
+          keys_sorted) {}
+
+MapType::MapType(std::shared_ptr<Field> value_field, bool keys_sorted)
+    : ListType(std::move(value_field)), keys_sorted_(keys_sorted) {
   id_ = type_id;
+}
+
+Result<std::shared_ptr<DataType>> MapType::Make(std::shared_ptr<Field> value_field,
+                                                bool keys_sorted) {
+  const auto& value_type = *value_field->type();
+  if (value_field->nullable() || value_type.id() != Type::STRUCT) {
+    return Status::TypeError("Map entry field should be non-nullable struct");
+  }
+  const auto& struct_type = checked_cast<const StructType&>(value_type);
+  if (struct_type.num_fields() != 2) {
+    return Status::TypeError("Map entry field should have two children (got ",
+                             struct_type.num_fields(), ")");
+  }
+  if (struct_type.field(0)->nullable()) {
+    return Status::TypeError("Map key field should be non-nullable");
+  }
+  return std::make_shared<MapType>(std::move(value_field), keys_sorted);
 }
 
 std::string MapType::ToString() const {
   std::stringstream s;
-  s << "map<" << key_type()->ToString() << ", " << item_type()->ToString();
+
+  const auto print_field_name = [](std::ostream& os, const Field& field,
+                                   const char* std_name) {
+    if (field.name() != std_name) {
+      os << " ('" << field.name() << "')";
+    }
+  };
+  const auto print_field = [&](std::ostream& os, const Field& field,
+                               const char* std_name) {
+    os << field.type()->ToString();
+    print_field_name(os, field, std_name);
+  };
+
+  s << "map<";
+  print_field(s, *key_field(), "key");
+  s << ", ";
+  print_field(s, *item_field(), "value");
   if (keys_sorted_) {
     s << ", keys_sorted";
   }
+  print_field_name(s, *value_field(), "entries");
   s << ">";
   return s.str();
 }
@@ -361,25 +564,21 @@ std::string DurationType::ToString() const {
 constexpr int8_t UnionType::kMaxTypeCode;
 constexpr int UnionType::kInvalidChildId;
 
-UnionType::UnionType(const std::vector<std::shared_ptr<Field>>& fields,
-                     const std::vector<int8_t>& type_codes, UnionMode::type mode)
-    : NestedType(Type::UNION),
-      mode_(mode),
-      type_codes_(type_codes),
+UnionMode::type UnionType::mode() const {
+  return id_ == Type::SPARSE_UNION ? UnionMode::SPARSE : UnionMode::DENSE;
+}
+
+UnionType::UnionType(std::vector<std::shared_ptr<Field>> fields,
+                     std::vector<int8_t> type_codes, Type::type id)
+    : NestedType(id),
+      type_codes_(std::move(type_codes)),
       child_ids_(kMaxTypeCode + 1, kInvalidChildId) {
-  DCHECK_OK(ValidateParameters(fields, type_codes, mode));
-  children_ = fields;
+  children_ = std::move(fields);
+  DCHECK_OK(ValidateParameters(children_, type_codes_, mode()));
   for (int child_id = 0; child_id < static_cast<int>(type_codes_.size()); ++child_id) {
     const auto type_code = type_codes_[child_id];
     child_ids_[type_code] = child_id;
   }
-}
-
-Result<std::shared_ptr<DataType>> UnionType::Make(
-    const std::vector<std::shared_ptr<Field>>& fields,
-    const std::vector<int8_t>& type_codes, UnionMode::type mode) {
-  RETURN_NOT_OK(ValidateParameters(fields, type_codes, mode));
-  return std::make_shared<UnionType>(fields, type_codes, mode);
 }
 
 Status UnionType::ValidateParameters(const std::vector<std::shared_ptr<Field>>& fields,
@@ -397,12 +596,11 @@ Status UnionType::ValidateParameters(const std::vector<std::shared_ptr<Field>>& 
 }
 
 DataTypeLayout UnionType::layout() const {
-  if (mode_ == UnionMode::SPARSE) {
-    return DataTypeLayout({DataTypeLayout::Bitmap(),
-                           DataTypeLayout::FixedWidth(sizeof(uint8_t)),
-                           DataTypeLayout::AlwaysNull()});
+  if (mode() == UnionMode::SPARSE) {
+    return DataTypeLayout(
+        {DataTypeLayout::AlwaysNull(), DataTypeLayout::FixedWidth(sizeof(uint8_t))});
   } else {
-    return DataTypeLayout({DataTypeLayout::Bitmap(),
+    return DataTypeLayout({DataTypeLayout::AlwaysNull(),
                            DataTypeLayout::FixedWidth(sizeof(uint8_t)),
                            DataTypeLayout::FixedWidth(sizeof(int32_t))});
   }
@@ -417,11 +615,7 @@ uint8_t UnionType::max_type_code() const {
 std::string UnionType::ToString() const {
   std::stringstream s;
 
-  if (mode_ == UnionMode::SPARSE) {
-    s << "union[sparse]<";
-  } else {
-    s << "union[dense]<";
-  }
+  s << name() << "<";
 
   for (size_t i = 0; i < children_.size(); ++i) {
     if (i) {
@@ -431,6 +625,26 @@ std::string UnionType::ToString() const {
   }
   s << ">";
   return s.str();
+}
+
+SparseUnionType::SparseUnionType(std::vector<std::shared_ptr<Field>> fields,
+                                 std::vector<int8_t> type_codes)
+    : UnionType(fields, type_codes, Type::SPARSE_UNION) {}
+
+Result<std::shared_ptr<DataType>> SparseUnionType::Make(
+    std::vector<std::shared_ptr<Field>> fields, std::vector<int8_t> type_codes) {
+  RETURN_NOT_OK(ValidateParameters(fields, type_codes, UnionMode::SPARSE));
+  return std::make_shared<SparseUnionType>(fields, type_codes);
+}
+
+DenseUnionType::DenseUnionType(std::vector<std::shared_ptr<Field>> fields,
+                               std::vector<int8_t> type_codes)
+    : UnionType(fields, type_codes, Type::DENSE_UNION) {}
+
+Result<std::shared_ptr<DataType>> DenseUnionType::Make(
+    std::vector<std::shared_ptr<Field>> fields, std::vector<int8_t> type_codes) {
+  RETURN_NOT_OK(ValidateParameters(fields, type_codes, UnionMode::DENSE));
+  return std::make_shared<DenseUnionType>(fields, type_codes);
 }
 
 // ----------------------------------------------------------------------
@@ -484,11 +698,11 @@ StructType::~StructType() {}
 std::string StructType::ToString() const {
   std::stringstream s;
   s << "struct<";
-  for (int i = 0; i < this->num_children(); ++i) {
+  for (int i = 0; i < this->num_fields(); ++i) {
     if (i > 0) {
       s << ", ";
     }
-    std::shared_ptr<Field> field = this->child(i);
+    std::shared_ptr<Field> field = this->field(i);
     s << field->ToString();
   }
   s << ">";
@@ -510,6 +724,9 @@ std::vector<int> StructType::GetAllFieldIndices(const std::string& name) const {
   for (auto it = p.first; it != p.second; ++it) {
     result.push_back(it->second);
   }
+  if (result.size() > 1) {
+    std::sort(result.begin(), result.end());
+  }
   return result;
 }
 
@@ -523,21 +740,6 @@ std::vector<std::shared_ptr<Field>> StructType::GetAllFieldsByName(
   return result;
 }
 
-// Deprecated methods
-
-std::shared_ptr<Field> Field::AddMetadata(
-    const std::shared_ptr<const KeyValueMetadata>& metadata) const {
-  return WithMetadata(metadata);
-}
-
-std::shared_ptr<Field> StructType::GetChildByName(const std::string& name) const {
-  return GetFieldByName(name);
-}
-
-int StructType::GetChildIndex(const std::string& name) const {
-  return GetFieldIndex(name);
-}
-
 // ----------------------------------------------------------------------
 // Decimal128 type
 
@@ -547,13 +749,11 @@ Decimal128Type::Decimal128Type(int32_t precision, int32_t scale)
   ARROW_CHECK_LE(precision, kMaxPrecision);
 }
 
-Status Decimal128Type::Make(int32_t precision, int32_t scale,
-                            std::shared_ptr<DataType>* out) {
+Result<std::shared_ptr<DataType>> Decimal128Type::Make(int32_t precision, int32_t scale) {
   if (precision < kMinPrecision || precision > kMaxPrecision) {
     return Status::Invalid("Decimal precision out of range: ", precision);
   }
-  *out = std::make_shared<Decimal128Type>(precision, scale);
-  return Status::OK();
+  return std::make_shared<Decimal128Type>(precision, scale);
 }
 
 // ----------------------------------------------------------------------
@@ -561,10 +761,8 @@ Status Decimal128Type::Make(int32_t precision, int32_t scale,
 
 Status DictionaryType::ValidateParameters(const DataType& index_type,
                                           const DataType& value_type) {
-  const bool index_type_ok = is_integer(index_type.id()) &&
-                             checked_cast<const IntegerType&>(index_type).is_signed();
-  if (!index_type_ok) {
-    return Status::TypeError("Dictionary index type should be signed integer, got ",
+  if (!is_integer(index_type.id())) {
+    return Status::TypeError("Dictionary index type should be integer, got ",
                              index_type.ToString());
   }
   return Status::OK();
@@ -609,6 +807,434 @@ std::string DictionaryType::ToString() const {
 std::string NullType::ToString() const { return name(); }
 
 // ----------------------------------------------------------------------
+// FieldRef
+
+size_t FieldPath::hash() const {
+  return internal::ComputeStringHash<0>(indices().data(), indices().size() * sizeof(int));
+}
+
+std::string FieldPath::ToString() const {
+  std::string repr = "FieldPath(";
+  for (auto index : this->indices()) {
+    repr += std::to_string(index) + " ";
+  }
+  repr.resize(repr.size() - 1);
+  repr += ")";
+  return repr;
+}
+
+struct FieldPathGetImpl {
+  static const DataType& GetType(const ArrayData& data) { return *data.type; }
+
+  static const DataType& GetType(const ChunkedArray& array) { return *array.type(); }
+
+  static void Summarize(const FieldVector& fields, std::stringstream* ss) {
+    *ss << "{ ";
+    for (const auto& field : fields) {
+      *ss << field->ToString() << ", ";
+    }
+    *ss << "}";
+  }
+
+  template <typename T>
+  static void Summarize(const std::vector<T>& columns, std::stringstream* ss) {
+    *ss << "{ ";
+    for (const auto& column : columns) {
+      *ss << GetType(*column) << ", ";
+    }
+    *ss << "}";
+  }
+
+  template <typename T>
+  static Status IndexError(const FieldPath* path, int out_of_range_depth,
+                           const std::vector<T>& children) {
+    std::stringstream ss;
+    ss << "index out of range. ";
+
+    ss << "indices=[ ";
+    int depth = 0;
+    for (int i : path->indices()) {
+      if (depth != out_of_range_depth) {
+        ss << i << " ";
+        continue;
+      }
+      ss << ">" << i << "< ";
+      ++depth;
+    }
+    ss << "] ";
+
+    if (std::is_same<T, std::shared_ptr<Field>>::value) {
+      ss << "fields were: ";
+    } else {
+      ss << "columns had types: ";
+    }
+    Summarize(children, &ss);
+
+    return Status::IndexError(ss.str());
+  }
+
+  template <typename T, typename GetChildren>
+  static Result<T> Get(const FieldPath* path, const std::vector<T>* children,
+                       GetChildren&& get_children, int* out_of_range_depth) {
+    if (path->indices().empty()) {
+      return Status::Invalid("empty indices cannot be traversed");
+    }
+
+    int depth = 0;
+    const T* out;
+    for (int index : path->indices()) {
+      if (index < 0 || static_cast<size_t>(index) >= children->size()) {
+        *out_of_range_depth = depth;
+        return nullptr;
+      }
+
+      out = &children->at(index);
+      children = get_children(*out);
+      ++depth;
+    }
+
+    return *out;
+  }
+
+  template <typename T, typename GetChildren>
+  static Result<T> Get(const FieldPath* path, const std::vector<T>* children,
+                       GetChildren&& get_children) {
+    int out_of_range_depth = -1;
+    ARROW_ASSIGN_OR_RAISE(auto child,
+                          Get(path, children, std::forward<GetChildren>(get_children),
+                              &out_of_range_depth));
+    if (child != nullptr) {
+      return std::move(child);
+    }
+    return IndexError(path, out_of_range_depth, *children);
+  }
+
+  static Result<std::shared_ptr<Field>> Get(const FieldPath* path,
+                                            const FieldVector& fields) {
+    return FieldPathGetImpl::Get(path, &fields, [](const std::shared_ptr<Field>& field) {
+      return &field->type()->fields();
+    });
+  }
+
+  static Result<std::shared_ptr<ArrayData>> Get(const FieldPath* path,
+                                                const ArrayDataVector& child_data) {
+    return FieldPathGetImpl::Get(
+        path, &child_data,
+        [](const std::shared_ptr<ArrayData>& data) { return &data->child_data; });
+  }
+
+  static Result<std::shared_ptr<ChunkedArray>> Get(
+      const FieldPath* path, const ChunkedArrayVector& columns_arg) {
+    ChunkedArrayVector columns = columns_arg;
+
+    return FieldPathGetImpl::Get(
+        path, &columns, [&](const std::shared_ptr<ChunkedArray>& a) {
+          columns.clear();
+
+          for (int i = 0; i < a->type()->num_fields(); ++i) {
+            ArrayVector child_chunks;
+
+            for (const auto& chunk : a->chunks()) {
+              auto child_chunk = MakeArray(chunk->data()->child_data[i]);
+              child_chunks.push_back(std::move(child_chunk));
+            }
+
+            auto child_column = std::make_shared<ChunkedArray>(
+                std::move(child_chunks), a->type()->field(i)->type());
+
+            columns.emplace_back(std::move(child_column));
+          }
+
+          return &columns;
+        });
+  }
+};
+
+Result<std::shared_ptr<Field>> FieldPath::Get(const Schema& schema) const {
+  return FieldPathGetImpl::Get(this, schema.fields());
+}
+
+Result<std::shared_ptr<Field>> FieldPath::Get(const Field& field) const {
+  return FieldPathGetImpl::Get(this, field.type()->fields());
+}
+
+Result<std::shared_ptr<Field>> FieldPath::Get(const DataType& type) const {
+  return FieldPathGetImpl::Get(this, type.fields());
+}
+
+Result<std::shared_ptr<Field>> FieldPath::Get(const FieldVector& fields) const {
+  return FieldPathGetImpl::Get(this, fields);
+}
+
+Result<std::shared_ptr<Array>> FieldPath::Get(const RecordBatch& batch) const {
+  ARROW_ASSIGN_OR_RAISE(auto data, FieldPathGetImpl::Get(this, batch.column_data()));
+  return MakeArray(data);
+}
+
+Result<std::shared_ptr<ChunkedArray>> FieldPath::Get(const Table& table) const {
+  return FieldPathGetImpl::Get(this, table.columns());
+}
+
+FieldRef::FieldRef(FieldPath indices) : impl_(std::move(indices)) {
+  DCHECK_GT(util::get<FieldPath>(impl_).indices().size(), 0);
+}
+
+void FieldRef::Flatten(std::vector<FieldRef> children) {
+  // flatten children
+  struct Visitor {
+    void operator()(std::string&& name) { *out++ = FieldRef(std::move(name)); }
+
+    void operator()(FieldPath&& indices) { *out++ = FieldRef(std::move(indices)); }
+
+    void operator()(std::vector<FieldRef>&& children) {
+      for (auto& child : children) {
+        util::visit(*this, std::move(child.impl_));
+      }
+    }
+
+    std::back_insert_iterator<std::vector<FieldRef>> out;
+  };
+
+  std::vector<FieldRef> out;
+  Visitor visitor{std::back_inserter(out)};
+  visitor(std::move(children));
+
+  DCHECK(!out.empty());
+  DCHECK(std::none_of(out.begin(), out.end(),
+                      [](const FieldRef& ref) { return ref.IsNested(); }));
+
+  if (out.size() == 1) {
+    impl_ = std::move(out[0].impl_);
+  } else {
+    impl_ = std::move(out);
+  }
+}
+
+Result<FieldRef> FieldRef::FromDotPath(const std::string& dot_path_arg) {
+  if (dot_path_arg.empty()) {
+    return Status::Invalid("Dot path was empty");
+  }
+
+  std::vector<FieldRef> children;
+
+  util::string_view dot_path = dot_path_arg;
+
+  auto parse_name = [&] {
+    std::string name;
+    for (;;) {
+      auto segment_end = dot_path.find_first_of("\\[.");
+      if (segment_end == util::string_view::npos) {
+        // dot_path doesn't contain any other special characters; consume all
+        name.append(dot_path.begin(), dot_path.end());
+        dot_path = "";
+        break;
+      }
+
+      if (dot_path[segment_end] != '\\') {
+        // segment_end points to a subscript for a new FieldRef
+        name.append(dot_path.begin(), segment_end);
+        dot_path = dot_path.substr(segment_end);
+        break;
+      }
+
+      if (dot_path.size() == segment_end + 1) {
+        // dot_path ends with backslash; consume it all
+        name.append(dot_path.begin(), dot_path.end());
+        dot_path = "";
+        break;
+      }
+
+      // append all characters before backslash, then the character which follows it
+      name.append(dot_path.begin(), segment_end);
+      name.push_back(dot_path[segment_end + 1]);
+      dot_path = dot_path.substr(segment_end + 2);
+    }
+    return name;
+  };
+
+  while (!dot_path.empty()) {
+    auto subscript = dot_path[0];
+    dot_path = dot_path.substr(1);
+    switch (subscript) {
+      case '.': {
+        // next element is a name
+        children.emplace_back(parse_name());
+        continue;
+      }
+      case '[': {
+        auto subscript_end = dot_path.find_first_not_of("0123456789");
+        if (subscript_end == util::string_view::npos || dot_path[subscript_end] != ']') {
+          return Status::Invalid("Dot path '", dot_path_arg,
+                                 "' contained an unterminated index");
+        }
+        children.emplace_back(std::atoi(dot_path.data()));
+        dot_path = dot_path.substr(subscript_end + 1);
+        continue;
+      }
+      default:
+        return Status::Invalid("Dot path must begin with '[' or '.', got '", dot_path_arg,
+                               "'");
+    }
+  }
+
+  FieldRef out;
+  out.Flatten(std::move(children));
+  return out;
+}
+
+size_t FieldRef::hash() const {
+  struct Visitor : std::hash<std::string> {
+    using std::hash<std::string>::operator();
+
+    size_t operator()(const FieldPath& path) { return path.hash(); }
+
+    size_t operator()(const std::vector<FieldRef>& children) {
+      size_t hash = 0;
+
+      for (const FieldRef& child : children) {
+        hash ^= child.hash();
+      }
+
+      return hash;
+    }
+  };
+
+  return util::visit(Visitor{}, impl_);
+}
+
+std::string FieldRef::ToString() const {
+  struct Visitor {
+    std::string operator()(const FieldPath& path) { return path.ToString(); }
+
+    std::string operator()(const std::string& name) { return "Name(" + name + ")"; }
+
+    std::string operator()(const std::vector<FieldRef>& children) {
+      std::string repr = "Nested(";
+      for (const auto& child : children) {
+        repr += child.ToString() + " ";
+      }
+      repr.resize(repr.size() - 1);
+      repr += ")";
+      return repr;
+    }
+  };
+
+  return "FieldRef." + util::visit(Visitor{}, impl_);
+}
+
+std::vector<FieldPath> FieldRef::FindAll(const Schema& schema) const {
+  return FindAll(schema.fields());
+}
+
+std::vector<FieldPath> FieldRef::FindAll(const Field& field) const {
+  return FindAll(field.type()->fields());
+}
+
+std::vector<FieldPath> FieldRef::FindAll(const DataType& type) const {
+  return FindAll(type.fields());
+}
+
+std::vector<FieldPath> FieldRef::FindAll(const FieldVector& fields) const {
+  struct Visitor {
+    std::vector<FieldPath> operator()(const FieldPath& path) {
+      // skip long IndexError construction if path is out of range
+      int out_of_range_depth;
+      auto maybe_field = FieldPathGetImpl::Get(
+          &path, &fields_,
+          [](const std::shared_ptr<Field>& field) { return &field->type()->fields(); },
+          &out_of_range_depth);
+
+      DCHECK_OK(maybe_field.status());
+
+      if (maybe_field.ValueOrDie() != nullptr) {
+        return {path};
+      }
+      return {};
+    }
+
+    std::vector<FieldPath> operator()(const std::string& name) {
+      std::vector<FieldPath> out;
+
+      for (int i = 0; i < static_cast<int>(fields_.size()); ++i) {
+        if (fields_[i]->name() == name) {
+          out.push_back({i});
+        }
+      }
+
+      return out;
+    }
+
+    struct Matches {
+      // referents[i] is referenced by prefixes[i]
+      std::vector<FieldPath> prefixes;
+      FieldVector referents;
+
+      Matches(std::vector<FieldPath> matches, const FieldVector& fields) {
+        for (auto& match : matches) {
+          Add({}, std::move(match), fields);
+        }
+      }
+
+      Matches() = default;
+
+      size_t size() const { return referents.size(); }
+
+      void Add(FieldPath prefix, const FieldPath& match, const FieldVector& fields) {
+        auto maybe_field = match.Get(fields);
+        DCHECK_OK(maybe_field.status());
+
+        prefix.indices().resize(prefix.indices().size() + match.indices().size());
+        std::copy(match.indices().begin(), match.indices().end(),
+                  prefix.indices().end() - match.indices().size());
+        prefixes.push_back(std::move(prefix));
+        referents.push_back(std::move(maybe_field).ValueOrDie());
+      }
+    };
+
+    std::vector<FieldPath> operator()(const std::vector<FieldRef>& refs) {
+      DCHECK_GE(refs.size(), 1);
+      Matches matches(refs.front().FindAll(fields_), fields_);
+
+      for (auto ref_it = refs.begin() + 1; ref_it != refs.end(); ++ref_it) {
+        Matches next_matches;
+        for (size_t i = 0; i < matches.size(); ++i) {
+          const auto& referent = *matches.referents[i];
+
+          for (const FieldPath& match : ref_it->FindAll(referent)) {
+            next_matches.Add(matches.prefixes[i], match, referent.type()->fields());
+          }
+        }
+        matches = std::move(next_matches);
+      }
+
+      return matches.prefixes;
+    }
+
+    const FieldVector& fields_;
+  };
+
+  return util::visit(Visitor{fields}, impl_);
+}
+
+std::vector<FieldPath> FieldRef::FindAll(const Array& array) const {
+  return FindAll(*array.type());
+}
+
+std::vector<FieldPath> FieldRef::FindAll(const ChunkedArray& array) const {
+  return FindAll(*array.type());
+}
+
+std::vector<FieldPath> FieldRef::FindAll(const RecordBatch& batch) const {
+  return FindAll(*batch.schema());
+}
+
+std::vector<FieldPath> FieldRef::FindAll(const Table& table) const {
+  return FindAll(*table.schema());
+}
+
+void PrintTo(const FieldRef& ref, std::ostream* os) { *os << ref.ToString(); }
+
+// ----------------------------------------------------------------------
 // Schema implementation
 
 class Schema::Impl {
@@ -636,7 +1262,7 @@ Schema::~Schema() {}
 
 int Schema::num_fields() const { return static_cast<int>(impl_->fields_.size()); }
 
-std::shared_ptr<Field> Schema::field(int i) const {
+const std::shared_ptr<Field>& Schema::field(int i) const {
   DCHECK_GE(i, 0);
   DCHECK_LT(i, num_fields());
   return impl_->fields_[i];
@@ -704,6 +1330,9 @@ std::vector<int> Schema::GetAllFieldIndices(const std::string& name) const {
   for (auto it = p.first; it != p.second; ++it) {
     result.push_back(it->second);
   }
+  if (result.size() > 1) {
+    std::sort(result.begin(), result.end());
+  }
   return result;
 }
 
@@ -728,26 +1357,33 @@ std::vector<std::shared_ptr<Field>> Schema::GetAllFieldsByName(
   return result;
 }
 
-Status Schema::AddField(int i, const std::shared_ptr<Field>& field,
-                        std::shared_ptr<Schema>* out) const {
+Result<std::shared_ptr<Schema>> Schema::AddField(
+    int i, const std::shared_ptr<Field>& field) const {
   if (i < 0 || i > this->num_fields()) {
     return Status::Invalid("Invalid column index to add field.");
   }
 
-  *out = std::make_shared<Schema>(internal::AddVectorElement(impl_->fields_, i, field),
+  return std::make_shared<Schema>(internal::AddVectorElement(impl_->fields_, i, field),
                                   impl_->metadata_);
-  return Status::OK();
 }
 
-Status Schema::SetField(int i, const std::shared_ptr<Field>& field,
-                        std::shared_ptr<Schema>* out) const {
+Result<std::shared_ptr<Schema>> Schema::SetField(
+    int i, const std::shared_ptr<Field>& field) const {
   if (i < 0 || i > this->num_fields()) {
     return Status::Invalid("Invalid column index to add field.");
   }
 
-  *out = std::make_shared<Schema>(
+  return std::make_shared<Schema>(
       internal::ReplaceVectorElement(impl_->fields_, i, field), impl_->metadata_);
-  return Status::OK();
+}
+
+Result<std::shared_ptr<Schema>> Schema::RemoveField(int i) const {
+  if (i < 0 || i >= this->num_fields()) {
+    return Status::Invalid("Invalid column index to remove field.");
+  }
+
+  return std::make_shared<Schema>(internal::DeleteVectorElement(impl_->fields_, i),
+                                  impl_->metadata_);
 }
 
 bool Schema::HasMetadata() const {
@@ -765,28 +1401,12 @@ std::shared_ptr<Schema> Schema::WithMetadata(
   return std::make_shared<Schema>(impl_->fields_, metadata);
 }
 
-// deprecated method
-std::shared_ptr<Schema> Schema::AddMetadata(
-    const std::shared_ptr<const KeyValueMetadata>& metadata) const {
-  return WithMetadata(metadata);
-}
-
 std::shared_ptr<const KeyValueMetadata> Schema::metadata() const {
   return impl_->metadata_;
 }
 
 std::shared_ptr<Schema> Schema::RemoveMetadata() const {
   return std::make_shared<Schema>(impl_->fields_);
-}
-
-Status Schema::RemoveField(int i, std::shared_ptr<Schema>* out) const {
-  if (i < 0 || i >= this->num_fields()) {
-    return Status::Invalid("Invalid column index to remove field.");
-  }
-
-  *out = std::make_shared<Schema>(internal::DeleteVectorElement(impl_->fields_, i),
-                                  impl_->metadata_);
-  return Status::OK();
 }
 
 std::string Schema::ToString(bool show_metadata) const {
@@ -797,7 +1417,7 @@ std::string Schema::ToString(bool show_metadata) const {
     if (i > 0) {
       buffer << std::endl;
     }
-    buffer << field->ToString();
+    buffer << field->ToString(show_metadata);
     ++i;
   }
 
@@ -1098,8 +1718,6 @@ static void AppendMetadataFingerprint(const KeyValueMetadata& metadata,
   }
 }
 
-static void AppendEmptyMetadataFingerprint(std::stringstream* ss) {}
-
 std::string Field::ComputeFingerprint() const {
   const auto& type_fingerprint = type_->fingerprint();
   if (type_fingerprint.empty()) {
@@ -1122,8 +1740,10 @@ std::string Field::ComputeMetadataFingerprint() const {
   std::stringstream ss;
   if (metadata_) {
     AppendMetadataFingerprint(*metadata_, &ss);
-  } else {
-    AppendEmptyMetadataFingerprint(&ss);
+  }
+  const auto& type_fingerprint = type_->metadata_fingerprint();
+  if (!type_fingerprint.empty()) {
+    ss << "+{" << type_->metadata_fingerprint() << "}";
   }
   return ss.str();
 }
@@ -1146,8 +1766,6 @@ std::string Schema::ComputeMetadataFingerprint() const {
   std::stringstream ss;
   if (HasMetadata()) {
     AppendMetadataFingerprint(*metadata(), &ss);
-  } else {
-    AppendEmptyMetadataFingerprint(&ss);
   }
   ss << "S{";
   for (const auto& field : fields()) {
@@ -1170,7 +1788,7 @@ std::string DataType::ComputeMetadataFingerprint() const {
   // Whatever the data type, metadata can only be found on child fields
   std::string s;
   for (const auto& child : children_) {
-    s += child->metadata_fingerprint();
+    s += child->metadata_fingerprint() + ";";
   }
   return s;
 }
@@ -1232,12 +1850,13 @@ std::string LargeListType::ComputeFingerprint() const {
 }
 
 std::string MapType::ComputeFingerprint() const {
-  const auto& child_fingerprint = children_[0]->fingerprint();
-  if (!child_fingerprint.empty()) {
+  const auto& key_fingerprint = key_type()->fingerprint();
+  const auto& item_fingerprint = item_type()->fingerprint();
+  if (!key_fingerprint.empty() && !item_fingerprint.empty()) {
     if (keys_sorted_) {
-      return TypeIdFingerprint(*this) + "s{" + child_fingerprint + "}";
+      return TypeIdFingerprint(*this) + "s{" + key_fingerprint + item_fingerprint + "}";
     } else {
-      return TypeIdFingerprint(*this) + "{" + child_fingerprint + "}";
+      return TypeIdFingerprint(*this) + "{" + key_fingerprint + item_fingerprint + "}";
     }
   }
   return "";
@@ -1284,7 +1903,7 @@ std::string StructType::ComputeFingerprint() const {
 std::string UnionType::ComputeFingerprint() const {
   std::stringstream ss;
   ss << TypeIdFingerprint(*this);
-  switch (mode_) {
+  switch (mode()) {
     case UnionMode::SPARSE:
       ss << "[s";
       break;
@@ -1416,16 +2035,16 @@ std::shared_ptr<DataType> large_list(const std::shared_ptr<Field>& value_field) 
   return std::make_shared<LargeListType>(value_field);
 }
 
-std::shared_ptr<DataType> map(const std::shared_ptr<DataType>& key_type,
-                              const std::shared_ptr<DataType>& item_type,
-                              bool keys_sorted) {
-  return std::make_shared<MapType>(key_type, item_type, keys_sorted);
+std::shared_ptr<DataType> map(std::shared_ptr<DataType> key_type,
+                              std::shared_ptr<DataType> item_type, bool keys_sorted) {
+  return std::make_shared<MapType>(std::move(key_type), std::move(item_type),
+                                   keys_sorted);
 }
 
-std::shared_ptr<DataType> map(const std::shared_ptr<DataType>& key_type,
-                              const std::shared_ptr<Field>& item_field,
-                              bool keys_sorted) {
-  return std::make_shared<MapType>(key_type, item_field, keys_sorted);
+std::shared_ptr<DataType> map(std::shared_ptr<DataType> key_type,
+                              std::shared_ptr<Field> item_field, bool keys_sorted) {
+  return std::make_shared<MapType>(std::move(key_type), std::move(item_field),
+                                   keys_sorted);
 }
 
 std::shared_ptr<DataType> fixed_size_list(const std::shared_ptr<DataType>& value_type,
@@ -1442,45 +2061,59 @@ std::shared_ptr<DataType> struct_(const std::vector<std::shared_ptr<Field>>& fie
   return std::make_shared<StructType>(fields);
 }
 
-std::shared_ptr<DataType> union_(const std::vector<std::shared_ptr<Field>>& child_fields,
-                                 const std::vector<int8_t>& type_codes,
-                                 UnionMode::type mode) {
-  return std::make_shared<UnionType>(child_fields, type_codes, mode);
-}
-
-std::shared_ptr<DataType> union_(const std::vector<std::shared_ptr<Field>>& child_fields,
-                                 UnionMode::type mode) {
-  std::vector<int8_t> type_codes(child_fields.size());
-  for (int i = 0; i < static_cast<int>(child_fields.size()); ++i) {
-    type_codes[i] = static_cast<int8_t>(i);
+std::shared_ptr<DataType> sparse_union(FieldVector child_fields,
+                                       std::vector<int8_t> type_codes) {
+  if (type_codes.empty()) {
+    type_codes = internal::Iota(static_cast<int8_t>(child_fields.size()));
   }
-  return std::make_shared<UnionType>(child_fields, type_codes, mode);
+  return std::make_shared<SparseUnionType>(std::move(child_fields),
+                                           std::move(type_codes));
 }
-
-std::shared_ptr<DataType> union_(UnionMode::type mode) {
-  std::vector<std::shared_ptr<Field>> child_fields;
-  return union_(child_fields, mode);
-}
-
-std::shared_ptr<DataType> union_(const std::vector<std::shared_ptr<Array>>& children,
-                                 const std::vector<std::string>& field_names,
-                                 const std::vector<int8_t>& given_type_codes,
-                                 UnionMode::type mode) {
-  std::vector<std::shared_ptr<Field>> fields;
-  std::vector<int8_t> type_codes(given_type_codes);
-  int8_t counter = 0;
-  for (const auto& child : children) {
-    if (field_names.size() == 0) {
-      fields.push_back(field(std::to_string(counter), child->type()));
-    } else {
-      fields.push_back(field(std::move(field_names[counter]), child->type()));
-    }
-    if (given_type_codes.size() == 0) {
-      type_codes.push_back(counter);
-    }
-    counter++;
+std::shared_ptr<DataType> dense_union(FieldVector child_fields,
+                                      std::vector<int8_t> type_codes) {
+  if (type_codes.empty()) {
+    type_codes = internal::Iota(static_cast<int8_t>(child_fields.size()));
   }
-  return union_(fields, std::move(type_codes), mode);
+  return std::make_shared<DenseUnionType>(std::move(child_fields), std::move(type_codes));
+}
+
+FieldVector FieldsFromArraysAndNames(std::vector<std::string> names,
+                                     const ArrayVector& arrays) {
+  FieldVector fields(arrays.size());
+  int i = 0;
+  if (names.empty()) {
+    for (const auto& array : arrays) {
+      fields[i] = field(std::to_string(i), array->type());
+      ++i;
+    }
+  } else {
+    DCHECK_EQ(names.size(), arrays.size());
+    for (const auto& array : arrays) {
+      fields[i] = field(std::move(names[i]), array->type());
+      ++i;
+    }
+  }
+  return fields;
+}
+
+std::shared_ptr<DataType> sparse_union(const ArrayVector& children,
+                                       std::vector<std::string> field_names,
+                                       std::vector<int8_t> type_codes) {
+  if (type_codes.empty()) {
+    type_codes = internal::Iota(static_cast<int8_t>(children.size()));
+  }
+  auto fields = FieldsFromArraysAndNames(std::move(field_names), children);
+  return sparse_union(std::move(fields), std::move(type_codes));
+}
+
+std::shared_ptr<DataType> dense_union(const ArrayVector& children,
+                                      std::vector<std::string> field_names,
+                                      std::vector<int8_t> type_codes) {
+  if (type_codes.empty()) {
+    type_codes = internal::Iota(static_cast<int8_t>(children.size()));
+  }
+  auto fields = FieldsFromArraysAndNames(std::move(field_names), children);
+  return dense_union(std::move(fields), std::move(type_codes));
 }
 
 std::shared_ptr<DataType> dictionary(const std::shared_ptr<DataType>& index_type,

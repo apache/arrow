@@ -55,3 +55,23 @@ namespace :version do
     end
   end
 end
+
+namespace :docker do
+  desc "Pull built images"
+  task :pull do
+    packages.each do |package|
+      cd(package) do
+        ruby("-S", "rake", "docker:pull")
+      end
+    end
+  end
+
+  desc "Push built images"
+  task :push do
+    packages.each do |package|
+      cd(package) do
+        ruby("-S", "rake", "docker:push")
+      end
+    end
+  end
+end

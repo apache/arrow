@@ -19,7 +19,8 @@ class TestArrowTableReader < Test::Unit::TestCase
   def setup
     @count_field = Arrow::Field.new("count", :uint8)
     @visible_field = Arrow::Field.new("visible", :boolean)
-    schema = Arrow::Schema.new([@count_field, @visible_field])
+    @label_field = Arrow::Field.new("label", :string)
+    schema = Arrow::Schema.new([@count_field, @visible_field, @label_field])
     count_arrays = [
       Arrow::UInt8Array.new([1, 2]),
       Arrow::UInt8Array.new([4, 8, 16]),
@@ -33,16 +34,30 @@ class TestArrowTableReader < Test::Unit::TestCase
       Arrow::BooleanArray.new([nil]),
       Arrow::BooleanArray.new([nil]),
     ]
+    label_arrays = [
+      Arrow::StringArray.new(["a"]),
+      Arrow::StringArray.new(["b", "c"]),
+      Arrow::StringArray.new(["d", nil, nil]),
+      Arrow::StringArray.new(["e", "f"]),
+    ]
     @count_array = Arrow::ChunkedArray.new(count_arrays)
     @visible_array = Arrow::ChunkedArray.new(visible_arrays)
-    @table = Arrow::Table.new(schema, [@count_array, @visible_array])
+    @label_array = Arrow::ChunkedArray.new(label_arrays)
+    @table = Arrow::Table.new(schema,
+                              [@count_array, @visible_array, @label_array])
+
+    @output = Tempfile.open(["red-parquet", ".parquet"])
+    begin
+      yield(@output)
+    ensure
+      @output.close!
+    end
   end
 
   def test_save_load_path
-    tempfile = Tempfile.open(["red-parquet", ".parquet"])
-    @table.save(tempfile.path)
+    @table.save(@output.path)
     assert do
-      @table.equal_metadata(Arrow::Table.load(tempfile.path), false)
+      @table.equal_metadata(Arrow::Table.load(@output.path), false)
     end
   end
 
@@ -51,6 +66,34 @@ class TestArrowTableReader < Test::Unit::TestCase
     @table.save(buffer, format: :parquet)
     assert do
       @table.equal_metadata(Arrow::Table.load(buffer, format: :parquet), false)
+    end
+  end
+
+  def test_save_load_compression
+    @table.save(@output.path, compression: :zstd)
+    assert do
+      @table.equal_metadata(Arrow::Table.load(@output.path), false)
+    end
+  end
+
+  def test_save_load_compression_path
+    @table.save(@output.path, compression: {"count" => :zstd})
+    assert do
+      @table.equal_metadata(Arrow::Table.load(@output.path), false)
+    end
+  end
+
+  def test_save_load_dictionary
+    @table.save(@output.path, dictionary: false)
+    assert do
+      @table.equal_metadata(Arrow::Table.load(@output.path), false)
+    end
+  end
+
+  def test_save_load_dictionary_path
+    @table.save(@output.path, dictionary: [["label", false]])
+    assert do
+      @table.equal_metadata(Arrow::Table.load(@output.path), false)
     end
   end
 end

@@ -18,8 +18,7 @@
 // Functions for converting between CPython built-in data structures and Arrow
 // data structures
 
-#ifndef ARROW_PYTHON_ADAPTERS_BUILTIN_H
-#define ARROW_PYTHON_ADAPTERS_BUILTIN_H
+#pragma once
 
 #include "arrow/python/platform.h"
 
@@ -79,5 +78,3 @@ Status ConvertPySequence(PyObject* obj, const PyConversionOptions& options,
 
 }  // namespace py
 }  // namespace arrow
-
-#endif  // ARROW_PYTHON_ADAPTERS_BUILTIN_H

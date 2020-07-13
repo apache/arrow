@@ -17,6 +17,8 @@
 
 // Include this file before including any RapidJSON headers.
 
+#pragma once
+
 #define RAPIDJSON_HAS_STDSTRING 1
 #define RAPIDJSON_HAS_CXX11_RVALUE_REFS 1
 #define RAPIDJSON_HAS_CXX11_RANGE_FOR 1
@@ -30,15 +32,9 @@
   }                             \
   }
 
-#include "arrow/util/neon_util.h"
-#include "arrow/util/sse_util.h"
-
 // enable SIMD whitespace skipping, if available
-#if defined(ARROW_HAVE_SSE2)
-#define RAPIDJSON_SSE2 1
-#endif
-
 #if defined(ARROW_HAVE_SSE4_2)
+#define RAPIDJSON_SSE2 1
 #define RAPIDJSON_SSE42 1
 #endif
 

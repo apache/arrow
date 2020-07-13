@@ -21,16 +21,10 @@
 #include <vector>
 
 #include "arrow/io/interfaces.h"
+#include "arrow/util/type_fwd.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
-
-namespace internal {
-
-class ThreadPool;
-
-}  // namespace internal
-
 namespace io {
 namespace internal {
 

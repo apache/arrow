@@ -21,17 +21,17 @@ namespace Apache.Arrow
 {
     public class ListArray : Array
     {
-
-
         public class Builder : IArrowArrayBuilder<ListArray, Builder>
         {
-            // TODO: Implement support for null values (null bitmaps)
-
             public IArrowArrayBuilder<IArrowArray, IArrowArrayBuilder<IArrowArray>> ValueBuilder { get; }
 
             public int Length => ValueOffsetsBufferBuilder.Length;
 
             private ArrowBuffer.Builder<int> ValueOffsetsBufferBuilder { get; }
+
+            private ArrowBuffer.BitmapBuilder ValidityBufferBuilder { get; }
+
+            public int NullCount { get; protected set; }
 
             private IArrowType DataType { get; }
 
@@ -47,6 +47,7 @@ namespace Apache.Arrow
             {
                 ValueBuilder = ArrowArrayBuilderFactory.Build(dataType.ValueDataType);
                 ValueOffsetsBufferBuilder = new ArrowBuffer.Builder<int>();
+                ValidityBufferBuilder = new ArrowBuffer.BitmapBuilder();
                 DataType = dataType;
             }
 
@@ -60,6 +61,17 @@ namespace Apache.Arrow
             public Builder Append()
             {
                 ValueOffsetsBufferBuilder.Append(ValueBuilder.Length);
+                ValidityBufferBuilder.Append(true);
+
+                return this;
+            }
+
+            public Builder AppendNull()
+            {
+                ValueOffsetsBufferBuilder.Append(ValueBuilder.Length);
+                ValidityBufferBuilder.Append(false);
+                NullCount++;
+
                 return this;
             }
 
@@ -67,20 +79,26 @@ namespace Apache.Arrow
             {
                 Append();
 
+                ArrowBuffer validityBuffer = NullCount > 0
+                                        ? ValidityBufferBuilder.Build(allocator)
+                                        : ArrowBuffer.Empty;
+
                 return new ListArray(DataType, Length - 1,
                     ValueOffsetsBufferBuilder.Build(allocator), ValueBuilder.Build(allocator),
-                    new ArrowBuffer(), 0, 0);
+                    validityBuffer, NullCount, 0);
             }
 
             public Builder Reserve(int capacity)
             {
                 ValueOffsetsBufferBuilder.Reserve(capacity + 1);
+                ValidityBufferBuilder.Reserve(capacity + 1);
                 return this;
             }
 
             public Builder Resize(int length)
             {
                 ValueOffsetsBufferBuilder.Resize(length + 1);
+                ValidityBufferBuilder.Resize(length + 1);
                 return this;
             }
 
@@ -88,6 +106,7 @@ namespace Apache.Arrow
             {
                 ValueOffsetsBufferBuilder.Clear();
                 ValueBuilder.Clear();
+                ValidityBufferBuilder.Clear();
                 return this;
             }
 
@@ -139,7 +158,13 @@ namespace Apache.Arrow
             {
                 throw new ArgumentOutOfRangeException(nameof(index));
             }
-            var offsets = ValueOffsets;
+
+            if (IsNull(index))
+            {
+                return 0;
+            }
+
+            ReadOnlySpan<int> offsets = ValueOffsets;
             return offsets[index + 1] - offsets[index];
         }
 
@@ -148,6 +173,11 @@ namespace Apache.Arrow
             if (index < 0 || index >= Length)
             {
                 throw new ArgumentOutOfRangeException(nameof(index));
+            }
+
+            if (IsNull(index))
+            {
+                return null;
             }
 
             if (!(Values is Array array))

@@ -15,13 +15,66 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use std::{
-    cmp,
-    mem::{size_of, transmute_copy},
-};
+use std::{cmp, mem::size_of};
 
+use crate::data_type::AsBytes;
 use crate::errors::{ParquetError, Result};
 use crate::util::{bit_packing::unpack32, memory::ByteBufferPtr};
+
+pub fn from_ne_slice<T: FromBytes>(bs: &[u8]) -> T {
+    let mut b = T::Buffer::default();
+    {
+        let b = b.as_mut();
+        let bs = &bs[..b.len()];
+        b.copy_from_slice(bs);
+    }
+    T::from_ne_bytes(b)
+}
+
+pub trait FromBytes: Sized {
+    type Buffer: AsMut<[u8]> + Default;
+    fn from_le_bytes(bs: Self::Buffer) -> Self;
+    fn from_be_bytes(bs: Self::Buffer) -> Self;
+    fn from_ne_bytes(bs: Self::Buffer) -> Self;
+}
+
+macro_rules! from_le_bytes {
+    ($($ty: ty),*) => {
+        $(
+        impl FromBytes for $ty {
+            type Buffer = [u8; size_of::<Self>()];
+            fn from_le_bytes(bs: Self::Buffer) -> Self {
+                <$ty>::from_le_bytes(bs)
+            }
+            fn from_be_bytes(bs: Self::Buffer) -> Self {
+                <$ty>::from_be_bytes(bs)
+            }
+            fn from_ne_bytes(bs: Self::Buffer) -> Self {
+                <$ty>::from_ne_bytes(bs)
+            }
+        }
+        )*
+    };
+}
+
+impl FromBytes for bool {
+    type Buffer = [u8; 1];
+    fn from_le_bytes(bs: Self::Buffer) -> Self {
+        Self::from_ne_bytes(bs)
+    }
+    fn from_be_bytes(bs: Self::Buffer) -> Self {
+        Self::from_ne_bytes(bs)
+    }
+    fn from_ne_bytes(bs: Self::Buffer) -> Self {
+        match bs[0] {
+            0 => false,
+            1 => true,
+            _ => panic!("Invalid byte when reading bool"),
+        }
+    }
+}
+
+from_le_bytes! { u8, u16, u32, u64, i8, i16, i32, i64, f32, f64 }
 
 /// Reads `$size` of bytes from `$src`, and reinterprets them as type `$ty`, in
 /// little-endian order. `$ty` must implement the `Default` trait. Otherwise this won't
@@ -30,50 +83,42 @@ use crate::util::{bit_packing::unpack32, memory::ByteBufferPtr};
 macro_rules! read_num_bytes {
     ($ty:ty, $size:expr, $src:expr) => {{
         assert!($size <= $src.len());
-        let mut data: $ty = Default::default();
-        unsafe {
-            std::ptr::copy_nonoverlapping(
-                $src.as_ptr(),
-                &mut data as *mut $ty as *mut u8,
-                $size,
-            );
-        }
-        data
+        let mut buffer = <$ty as $crate::util::bit_util::FromBytes>::Buffer::default();
+        buffer.as_mut()[..$size].copy_from_slice(&$src[..$size]);
+        <$ty>::from_ne_bytes(buffer)
     }};
 }
 
 /// Converts value `val` of type `T` to a byte vector, by reading `num_bytes` from `val`.
 /// NOTE: if `val` is less than the size of `T` then it can be truncated.
 #[inline]
-pub fn convert_to_bytes<T>(val: &T, num_bytes: usize) -> Vec<u8> {
+pub fn convert_to_bytes<T>(val: &T, num_bytes: usize) -> Vec<u8>
+where
+    T: ?Sized + AsBytes,
+{
     let mut bytes: Vec<u8> = vec![0; num_bytes];
-    memcpy_value(val, num_bytes, &mut bytes);
+    memcpy_value(val.as_bytes(), num_bytes, &mut bytes);
     bytes
 }
 
 #[inline]
 pub fn memcpy(source: &[u8], target: &mut [u8]) {
     assert!(target.len() >= source.len());
-    unsafe {
-        std::ptr::copy_nonoverlapping(source.as_ptr(), target.as_mut_ptr(), source.len())
-    }
+    target[..source.len()].copy_from_slice(source)
 }
 
 #[inline]
-pub fn memcpy_value<T>(source: &T, num_bytes: usize, target: &mut [u8]) {
+pub fn memcpy_value<T>(source: &T, num_bytes: usize, target: &mut [u8])
+where
+    T: ?Sized + AsBytes,
+{
     assert!(
         target.len() >= num_bytes,
         "Not enough space. Only had {} bytes but need to put {} bytes",
         target.len(),
         num_bytes
     );
-    unsafe {
-        std::ptr::copy_nonoverlapping(
-            source as *const T as *const u8,
-            target.as_mut_ptr(),
-            num_bytes,
-        )
-    }
+    memcpy(&source.as_bytes()[..num_bytes], target)
 }
 
 /// Returns the ceil of value/divisor
@@ -276,6 +321,10 @@ impl BitWriter {
         self.max_bytes
     }
 
+    pub fn write_at(&mut self, offset: usize, value: u8) {
+        self.buffer[offset] = value;
+    }
+
     /// Writes the `num_bits` LSB of value `v` to the internal buffer of this writer.
     /// The `num_bits` must not be greater than 64. This is bit packed.
     ///
@@ -316,7 +365,7 @@ impl BitWriter {
     ///
     /// Returns false if there's not enough room left. True otherwise.
     #[inline]
-    pub fn put_aligned<T: Copy>(&mut self, val: T, num_bytes: usize) -> bool {
+    pub fn put_aligned<T: AsBytes>(&mut self, val: T, num_bytes: usize) -> bool {
         let result = self.get_next_byte_ptr(num_bytes);
         if result.is_err() {
             // TODO: should we return `Result` for this func?
@@ -336,7 +385,7 @@ impl BitWriter {
     /// Returns false if there's not enough room left, or the `pos` is not valid.
     /// True otherwise.
     #[inline]
-    pub fn put_aligned_offset<T: Copy>(
+    pub fn put_aligned_offset<T: AsBytes>(
         &mut self,
         val: T,
         num_bytes: usize,
@@ -444,7 +493,7 @@ impl BitReader {
     ///
     /// Returns `None` if there's not enough data available. `Some` otherwise.
     #[inline]
-    pub fn get_value<T: Default>(&mut self, num_bits: usize) -> Option<T> {
+    pub fn get_value<T: FromBytes>(&mut self, num_bits: usize) -> Option<T> {
         assert!(num_bits <= 64);
         assert!(num_bits <= size_of::<T>() * 8);
 
@@ -466,12 +515,11 @@ impl BitReader {
         }
 
         // TODO: better to avoid copying here
-        let result: T = unsafe { transmute_copy::<u64, T>(&v) };
-        Some(result)
+        Some(from_ne_slice(v.as_bytes()))
     }
 
     #[inline]
-    pub fn get_batch<T: Default>(&mut self, batch: &mut [T], num_bits: usize) -> usize {
+    pub fn get_batch<T: FromBytes>(&mut self, batch: &mut [T], num_bits: usize) -> usize {
         assert!(num_bits <= 32);
         assert!(num_bits <= size_of::<T>() * 8);
 
@@ -497,6 +545,7 @@ impl BitReader {
         unsafe {
             let in_buf = &self.buffer.data()[self.byte_offset..];
             let mut in_ptr = in_buf as *const [u8] as *const u8 as *const u32;
+            // FIXME assert!(memory::is_ptr_aligned(in_ptr));
             if size_of::<T>() == 4 {
                 while values_to_read - i >= 32 {
                     let out_ptr = &mut batch[i..] as *mut [T] as *mut T as *mut u32;
@@ -553,7 +602,7 @@ impl BitReader {
     /// Returns `Some` if there's enough bytes left to form a value of `T`.
     /// Otherwise `None`.
     #[inline]
-    pub fn get_aligned<T: Default>(&mut self, num_bytes: usize) -> Option<T> {
+    pub fn get_aligned<T: FromBytes>(&mut self, num_bytes: usize) -> Option<T> {
         let bytes_read = ceil(self.bit_offset as i64, 8) as usize;
         if self.byte_offset + bytes_read + num_bytes > self.total_bytes {
             return None;
@@ -610,7 +659,7 @@ impl BitReader {
     pub fn get_zigzag_vlq_int(&mut self) -> Option<i64> {
         self.get_vlq_int().map(|v| {
             let u = v as u64;
-            ((u >> 1) as i64 ^ -((u & 1) as i64))
+            (u >> 1) as i64 ^ -((u & 1) as i64)
         })
     }
 
@@ -944,7 +993,7 @@ mod tests {
 
     fn test_get_batch_helper<T>(total: usize, num_bits: usize)
     where
-        T: Default + Clone + Debug + Eq,
+        T: FromBytes + Default + Clone + Debug + Eq,
     {
         assert!(num_bits <= 32);
         let num_bytes = ceil(num_bits as i64, 8);
@@ -956,10 +1005,8 @@ mod tests {
             .collect();
 
         // Generic values used to check against actual values read from `get_batch`.
-        let expected_values: Vec<T> = values
-            .iter()
-            .map(|v| unsafe { transmute_copy::<u32, T>(&v) })
-            .collect();
+        let expected_values: Vec<T> =
+            values.iter().map(|v| from_ne_slice(v.as_bytes())).collect();
 
         for i in 0..total {
             assert!(writer.put_value(values[i] as u64, num_bits));
@@ -993,7 +1040,7 @@ mod tests {
 
     fn test_put_aligned_rand_numbers<T>(total: usize, num_bits: usize)
     where
-        T: Copy + Default + Debug + PartialEq,
+        T: Copy + FromBytes + AsBytes + Debug + PartialEq,
         Standard: Distribution<T>,
     {
         assert!(num_bits <= 32);

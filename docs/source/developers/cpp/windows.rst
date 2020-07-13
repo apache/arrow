@@ -307,7 +307,7 @@ tests can be made with there individual make targets).
    SET APPVEYOR_BUILD_WORKER_IMAGE=Visual Studio 2017
    SET USE_CLCACHE=false
    SET ARROW_BUILD_GANDIVA=OFF
-   SET ARROW_LLVM_VERSION=7.0.*
+   SET ARROW_LLVM_VERSION=8.0.*
    SET PYTHON=3.6
    SET ARCH=64
    SET PATH=C:\Users\User\Anaconda3;C:\Users\User\Anaconda3\Scripts;C:\Users\User\Anaconda3\Library\bin;%PATH%

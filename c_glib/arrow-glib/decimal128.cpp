@@ -257,7 +257,7 @@ garrow_decimal128_greater_than_or_equal(GArrowDecimal128 *decimal,
  * @decimal: A #GArrowDecimal128.
  * @scale: The scale of the decimal.
  *
- * Returns: (transfer full): The string representation of the decimal.
+ * Returns: The string representation of the decimal.
  *
  *   It should be freed with g_free() when no longer needed.
  *
@@ -266,16 +266,15 @@ garrow_decimal128_greater_than_or_equal(GArrowDecimal128 *decimal,
 gchar *
 garrow_decimal128_to_string_scale(GArrowDecimal128 *decimal, gint32 scale)
 {
-  auto arrow_decimal = garrow_decimal128_get_raw(decimal);
-  auto string =  arrow_decimal->ToString(scale);
-  return g_strndup(string.data(), string.size());
+  const auto arrow_decimal = garrow_decimal128_get_raw(decimal);
+  return g_strdup(arrow_decimal->ToString(scale).c_str());
 }
 
 /**
  * garrow_decimal128_to_string:
  * @decimal: A #GArrowDecimal128.
  *
- * Returns: (transfer full): The string representation of the decimal.
+ * Returns: The string representation of the decimal.
  *
  *   It should be freed with g_free() when no longer needed.
  *
@@ -284,9 +283,8 @@ garrow_decimal128_to_string_scale(GArrowDecimal128 *decimal, gint32 scale)
 gchar *
 garrow_decimal128_to_string(GArrowDecimal128 *decimal)
 {
-  auto arrow_decimal = garrow_decimal128_get_raw(decimal);
-  auto string =  arrow_decimal->ToIntegerString();
-  return g_strndup(string.data(), string.size());
+  const auto arrow_decimal = garrow_decimal128_get_raw(decimal);
+  return g_strdup(arrow_decimal->ToIntegerString().c_str());
 }
 
 /**

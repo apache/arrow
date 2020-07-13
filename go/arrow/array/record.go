@@ -187,7 +187,7 @@ func (rec *simpleRecord) validate() error {
 				arr.Len(), rec.rows,
 			)
 		}
-		if !arrow.TypeEquals(f.Type, arr.DataType()) {
+		if !arrow.TypeEqual(f.Type, arr.DataType()) {
 			return fmt.Errorf("arrow/array: column %q type mismatch: got=%v, want=%v",
 				f.Name,
 				arr.DataType(), f.Type,
@@ -273,7 +273,7 @@ func NewRecordBuilder(mem memory.Allocator, schema *arrow.Schema) *RecordBuilder
 	}
 
 	for i, f := range schema.Fields() {
-		b.fields[i] = newBuilder(b.mem, f.Type)
+		b.fields[i] = NewBuilder(b.mem, f.Type)
 	}
 
 	return b

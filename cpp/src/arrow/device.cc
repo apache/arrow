@@ -136,9 +136,7 @@ Result<std::shared_ptr<io::OutputStream>> CPUMemoryManager::GetBufferWriter(
 }
 
 Result<std::shared_ptr<Buffer>> CPUMemoryManager::AllocateBuffer(int64_t size) {
-  std::shared_ptr<Buffer> buf;
-  RETURN_NOT_OK(::arrow::AllocateBuffer(pool_, size, &buf));
-  return buf;
+  return ::arrow::AllocateBuffer(size, pool_);
 }
 
 Result<std::shared_ptr<Buffer>> CPUMemoryManager::CopyBufferFrom(
@@ -146,12 +144,11 @@ Result<std::shared_ptr<Buffer>> CPUMemoryManager::CopyBufferFrom(
   if (!from->is_cpu()) {
     return nullptr;
   }
-  std::shared_ptr<Buffer> dest;
-  RETURN_NOT_OK(::arrow::AllocateBuffer(pool_, buf->size(), &dest));
+  ARROW_ASSIGN_OR_RAISE(auto dest, ::arrow::AllocateBuffer(buf->size(), pool_));
   if (buf->size() > 0) {
     memcpy(dest->mutable_data(), buf->data(), static_cast<size_t>(buf->size()));
   }
-  return dest;
+  return std::move(dest);
 }
 
 Result<std::shared_ptr<Buffer>> CPUMemoryManager::ViewBufferFrom(
@@ -167,12 +164,11 @@ Result<std::shared_ptr<Buffer>> CPUMemoryManager::CopyBufferTo(
   if (!to->is_cpu()) {
     return nullptr;
   }
-  std::shared_ptr<Buffer> dest;
-  RETURN_NOT_OK(::arrow::AllocateBuffer(pool_, buf->size(), &dest));
+  ARROW_ASSIGN_OR_RAISE(auto dest, ::arrow::AllocateBuffer(buf->size(), pool_));
   if (buf->size() > 0) {
     memcpy(dest->mutable_data(), buf->data(), static_cast<size_t>(buf->size()));
   }
-  return dest;
+  return std::move(dest);
 }
 
 Result<std::shared_ptr<Buffer>> CPUMemoryManager::ViewBufferTo(

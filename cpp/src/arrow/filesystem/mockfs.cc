@@ -26,6 +26,7 @@
 #include "arrow/buffer.h"
 #include "arrow/filesystem/mockfs.h"
 #include "arrow/filesystem/path_util.h"
+#include "arrow/filesystem/util_internal.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
 #include "arrow/util/logging.h"
@@ -37,18 +38,6 @@ namespace fs {
 namespace internal {
 
 namespace {
-
-Status PathNotFound(const std::string& path) {
-  return Status::IOError("Path does not exist '", path, "'");
-}
-
-Status NotADir(const std::string& path) {
-  return Status::IOError("Not a directory: '", path, "'");
-}
-
-Status NotAFile(const std::string& path) {
-  return Status::IOError("Not a regular file: '", path, "'");
-}
 
 ////////////////////////////////////////////////////////////////////////////
 // Filesystem structure
@@ -371,9 +360,7 @@ class MockFileSystem::Impl {
     if (!entry->is_file()) {
       return NotAFile(path);
     }
-    std::shared_ptr<Buffer> buffer;
-    RETURN_NOT_OK(Buffer::FromString(entry->as_file().data, &buffer));
-    return std::make_shared<io::BufferReader>(buffer);
+    return std::make_shared<io::BufferReader>(Buffer::FromString(entry->as_file().data));
   }
 };
 
@@ -382,6 +369,8 @@ MockFileSystem::~MockFileSystem() {}
 MockFileSystem::MockFileSystem(TimePoint current_time) {
   impl_ = std::unique_ptr<Impl>(new Impl(current_time));
 }
+
+bool MockFileSystem::Equals(const FileSystem& other) const { return this == &other; }
 
 Status MockFileSystem::CreateDir(const std::string& path, bool recursive) {
   auto parts = SplitAbstractPath(path);
@@ -437,8 +426,7 @@ Status MockFileSystem::DeleteDirContents(const std::string& path) {
 
   if (parts.empty()) {
     // Wipe filesystem
-    impl_->RootDir().entries.clear();
-    return Status::OK();
+    return internal::InvalidDeleteDirContents(path);
   }
 
   Entry* entry = impl_->FindEntry(parts);
@@ -449,6 +437,11 @@ Status MockFileSystem::DeleteDirContents(const std::string& path) {
     return NotADir(path);
   }
   entry->as_dir().entries.clear();
+  return Status::OK();
+}
+
+Status MockFileSystem::DeleteRootDirContents() {
+  impl_->RootDir().entries.clear();
   return Status::OK();
 }
 
@@ -473,14 +466,14 @@ Status MockFileSystem::DeleteFile(const std::string& path) {
   return Status::OK();
 }
 
-Result<FileInfo> MockFileSystem::GetTargetInfo(const std::string& path) {
+Result<FileInfo> MockFileSystem::GetFileInfo(const std::string& path) {
   auto parts = SplitAbstractPath(path);
   RETURN_NOT_OK(ValidateAbstractPathParts(parts));
 
   FileInfo info;
   Entry* entry = impl_->FindEntry(parts);
   if (entry == nullptr) {
-    info.set_type(FileType::NonExistent);
+    info.set_type(FileType::NotFound);
   } else {
     info = entry->GetInfo();
   }
@@ -488,8 +481,7 @@ Result<FileInfo> MockFileSystem::GetTargetInfo(const std::string& path) {
   return info;
 }
 
-Result<std::vector<FileInfo>> MockFileSystem::GetTargetInfos(
-    const FileSelector& selector) {
+Result<std::vector<FileInfo>> MockFileSystem::GetFileInfo(const FileSelector& selector) {
   auto parts = SplitAbstractPath(selector.base_dir);
   RETURN_NOT_OK(ValidateAbstractPathParts(parts));
 
@@ -498,7 +490,7 @@ Result<std::vector<FileInfo>> MockFileSystem::GetTargetInfos(
   Entry* base_dir = impl_->FindEntry(parts);
   if (base_dir == nullptr) {
     // Base directory does not exist
-    if (selector.allow_non_existent) {
+    if (selector.allow_not_found) {
       return results;
     } else {
       return PathNotFound(selector.base_dir);

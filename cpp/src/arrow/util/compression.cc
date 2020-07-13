@@ -17,37 +17,13 @@
 
 #include "arrow/util/compression.h"
 
-#include <limits>
 #include <memory>
 #include <string>
 #include <utility>
 
-#ifdef ARROW_WITH_BROTLI
-#include "arrow/util/compression_brotli.h"
-#endif
-
-#ifdef ARROW_WITH_SNAPPY
-#include "arrow/util/compression_snappy.h"
-#endif
-
-#ifdef ARROW_WITH_LZ4
-#include "arrow/util/compression_lz4.h"
-#endif
-
-#ifdef ARROW_WITH_ZLIB
-#include "arrow/util/compression_zlib.h"
-#endif
-
-#ifdef ARROW_WITH_ZSTD
-#include "arrow/util/compression_zstd.h"
-#endif
-
-#ifdef ARROW_WITH_BZ2
-#include "arrow/util/compression_bz2.h"
-#endif
-
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/util/compression_internal.h"
 
 namespace arrow {
 namespace util {
@@ -75,6 +51,8 @@ std::string Codec::GetCodecAsString(Compression::type t) {
     case Compression::BROTLI:
       return "BROTLI";
     case Compression::LZ4:
+      return "LZ4_RAW";
+    case Compression::LZ4_FRAME:
       return "LZ4";
     case Compression::ZSTD:
       return "ZSTD";
@@ -82,6 +60,30 @@ std::string Codec::GetCodecAsString(Compression::type t) {
       return "BZ2";
     default:
       return "UNKNOWN";
+  }
+}
+
+Result<Compression::type> Codec::GetCompressionType(const std::string& name) {
+  if (name == "UNCOMPRESSED") {
+    return Compression::UNCOMPRESSED;
+  } else if (name == "GZIP") {
+    return Compression::GZIP;
+  } else if (name == "SNAPPY") {
+    return Compression::SNAPPY;
+  } else if (name == "LZO") {
+    return Compression::LZO;
+  } else if (name == "BROTLI") {
+    return Compression::BROTLI;
+  } else if (name == "LZ4_RAW") {
+    return Compression::LZ4;
+  } else if (name == "LZ4") {
+    return Compression::LZ4_FRAME;
+  } else if (name == "ZSTD") {
+    return Compression::ZSTD;
+  } else if (name == "BZ2") {
+    return Compression::BZ2;
+  } else {
+    return Status::Invalid("Unrecognized compression type: ", name);
   }
 }
 
@@ -100,14 +102,14 @@ Result<std::unique_ptr<Codec>> Codec::Create(Compression::type codec_type,
       if (compression_level_set) {
         return Status::Invalid("Snappy doesn't support setting a compression level.");
       }
-      codec.reset(new SnappyCodec());
+      codec = internal::MakeSnappyCodec();
       break;
 #else
       return Status::NotImplemented("Snappy codec support not built");
 #endif
     case Compression::GZIP:
 #ifdef ARROW_WITH_ZLIB
-      codec.reset(new GZipCodec(compression_level));
+      codec = internal::MakeGZipCodec(compression_level);
       break;
 #else
       return Status::NotImplemented("Gzip codec support not built");
@@ -119,7 +121,7 @@ Result<std::unique_ptr<Codec>> Codec::Create(Compression::type codec_type,
       return Status::NotImplemented("LZO codec not implemented");
     case Compression::BROTLI:
 #ifdef ARROW_WITH_BROTLI
-      codec.reset(new BrotliCodec(compression_level));
+      codec = internal::MakeBrotliCodec(compression_level);
       break;
 #else
       return Status::NotImplemented("Brotli codec support not built");
@@ -129,21 +131,31 @@ Result<std::unique_ptr<Codec>> Codec::Create(Compression::type codec_type,
       if (compression_level_set) {
         return Status::Invalid("LZ4 doesn't support setting a compression level.");
       }
-      codec.reset(new Lz4Codec());
+      codec = internal::MakeLz4RawCodec();
+      break;
+#else
+      return Status::NotImplemented("LZ4 codec support not built");
+#endif
+    case Compression::LZ4_FRAME:
+#ifdef ARROW_WITH_LZ4
+      if (compression_level_set) {
+        return Status::Invalid("LZ4 doesn't support setting a compression level.");
+      }
+      codec = internal::MakeLz4FrameCodec();
       break;
 #else
       return Status::NotImplemented("LZ4 codec support not built");
 #endif
     case Compression::ZSTD:
 #ifdef ARROW_WITH_ZSTD
-      codec.reset(new ZSTDCodec(compression_level));
+      codec = internal::MakeZSTDCodec(compression_level);
       break;
 #else
       return Status::NotImplemented("ZSTD codec support not built");
 #endif
     case Compression::BZ2:
 #ifdef ARROW_WITH_BZ2
-      codec.reset(new BZ2Codec(compression_level));
+      codec = internal::MakeBZ2Codec(compression_level);
       break;
 #else
       return Status::NotImplemented("BZ2 codec support not built");
@@ -181,6 +193,7 @@ bool Codec::IsAvailable(Compression::type codec_type) {
       return false;
 #endif
     case Compression::LZ4:
+    case Compression::LZ4_FRAME:
 #ifdef ARROW_WITH_LZ4
       return true;
 #else
@@ -201,36 +214,6 @@ bool Codec::IsAvailable(Compression::type codec_type) {
     default:
       return false;
   }
-}
-
-// Deprecated APIs
-
-Status Codec::Create(Compression::type codec_type, std::unique_ptr<Codec>* result) {
-  return Create(codec_type).Value(result);
-}
-
-Status Codec::Create(Compression::type codec_type, int compression_level,
-                     std::unique_ptr<Codec>* result) {
-  return Create(codec_type, compression_level).Value(result);
-}
-
-Status Codec::MakeCompressor(std::shared_ptr<Compressor>* out) {
-  return MakeCompressor().Value(out);
-}
-
-Status Codec::MakeDecompressor(std::shared_ptr<Decompressor>* out) {
-  return MakeDecompressor().Value(out);
-}
-
-Status Codec::Compress(int64_t input_len, const uint8_t* input, int64_t output_buffer_len,
-                       uint8_t* output_buffer, int64_t* output_len) {
-  return Compress(input_len, input, output_buffer_len, output_buffer).Value(output_len);
-}
-
-Status Codec::Decompress(int64_t input_len, const uint8_t* input,
-                         int64_t output_buffer_len, uint8_t* output_buffer,
-                         int64_t* output_len) {
-  return Decompress(input_len, input, output_buffer_len, output_buffer).Value(output_len);
 }
 
 }  // namespace util

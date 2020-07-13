@@ -67,7 +67,7 @@ The resulting Array (which can be casted to the concrete :class:`arrow::Int64Arr
 subclass if you want to access its values) then consists of two
 :class:`arrow::Buffer`\s.
 The first buffer holds the null bitmap, which consists here of a single byte with
-the bits ``0|0|0|0|1|0|0|0``. As we use  `least-significant bit (LSB) numbering`_.
+the bits ``1|1|1|1|0|1|1|1``. As we use  `least-significant bit (LSB) numbering`_.
 this indicates that the fourth entry in the array is null. The second
 buffer is simply an ``int64_t`` array containing all the above values.
 As the fourth entry is null, the value at that position in the buffer is

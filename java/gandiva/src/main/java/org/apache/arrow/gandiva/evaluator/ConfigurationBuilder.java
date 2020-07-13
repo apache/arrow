@@ -22,7 +22,11 @@ package org.apache.arrow.gandiva.evaluator;
  */
 public class ConfigurationBuilder {
 
-  public native long buildConfigInstance();
+  public long buildConfigInstance() {
+    return buildConfigInstance(true);
+  }
+
+  public native long buildConfigInstance(boolean optimize);
 
   public native void releaseConfigInstance(long configId);
 

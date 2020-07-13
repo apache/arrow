@@ -25,7 +25,9 @@
 #include <string>
 #include <utility>
 
+#include "arrow/io/caching.h"
 #include "arrow/io/file.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/ubsan.h"
 #include "parquet/column_reader.h"
@@ -57,9 +59,12 @@ RowGroupReader::RowGroupReader(std::unique_ptr<Contents> contents)
     : contents_(std::move(contents)) {}
 
 std::shared_ptr<ColumnReader> RowGroupReader::Column(int i) {
-  DCHECK(i < metadata()->num_columns())
-      << "The RowGroup only has " << metadata()->num_columns()
-      << "columns, requested column: " << i;
+  if (i >= metadata()->num_columns()) {
+    std::stringstream ss;
+    ss << "Trying to read column index " << i << " but row group metadata has only "
+       << metadata()->num_columns() << " columns";
+    throw ParquetException(ss.str());
+  }
   const ColumnDescriptor* descr = metadata()->schema()->Column(i);
 
   std::unique_ptr<PageReader> page_reader = contents_->GetColumnPageReader(i);
@@ -69,23 +74,58 @@ std::shared_ptr<ColumnReader> RowGroupReader::Column(int i) {
 }
 
 std::unique_ptr<PageReader> RowGroupReader::GetColumnPageReader(int i) {
-  DCHECK(i < metadata()->num_columns())
-      << "The RowGroup only has " << metadata()->num_columns()
-      << "columns, requested column: " << i;
+  if (i >= metadata()->num_columns()) {
+    std::stringstream ss;
+    ss << "Trying to read column index " << i << " but row group metadata has only "
+       << metadata()->num_columns() << " columns";
+    throw ParquetException(ss.str());
+  }
   return contents_->GetColumnPageReader(i);
 }
 
 // Returns the rowgroup metadata
 const RowGroupMetaData* RowGroupReader::metadata() const { return contents_->metadata(); }
 
+/// Compute the section of the file that should be read for the given
+/// row group and column chunk.
+arrow::io::ReadRange ComputeColumnChunkRange(FileMetaData* file_metadata,
+                                             int64_t source_size, int row_group_index,
+                                             int column_index) {
+  auto row_group_metadata = file_metadata->RowGroup(row_group_index);
+  auto column_metadata = row_group_metadata->ColumnChunk(column_index);
+
+  int64_t col_start = column_metadata->data_page_offset();
+  if (column_metadata->has_dictionary_page() &&
+      column_metadata->dictionary_page_offset() > 0 &&
+      col_start > column_metadata->dictionary_page_offset()) {
+    col_start = column_metadata->dictionary_page_offset();
+  }
+
+  int64_t col_length = column_metadata->total_compressed_size();
+  // PARQUET-816 workaround for old files created by older parquet-mr
+  const ApplicationVersion& version = file_metadata->writer_version();
+  if (version.VersionLt(ApplicationVersion::PARQUET_816_FIXED_VERSION())) {
+    // The Parquet MR writer had a bug in 1.2.8 and below where it didn't include the
+    // dictionary page header size in total_compressed_size and total_uncompressed_size
+    // (see IMPALA-694). We add padding to compensate.
+    int64_t bytes_remaining = source_size - (col_start + col_length);
+    int64_t padding = std::min<int64_t>(kMaxDictHeaderSize, bytes_remaining);
+    col_length += padding;
+  }
+
+  return {col_start, col_length};
+}
+
 // RowGroupReader::Contents implementation for the Parquet file specification
 class SerializedRowGroup : public RowGroupReader::Contents {
  public:
-  SerializedRowGroup(std::shared_ptr<ArrowInputFile> source, int64_t source_size,
-                     FileMetaData* file_metadata, int row_group_number,
-                     const ReaderProperties& props,
+  SerializedRowGroup(std::shared_ptr<ArrowInputFile> source,
+                     std::shared_ptr<::arrow::io::internal::ReadRangeCache> cached_source,
+                     int64_t source_size, FileMetaData* file_metadata,
+                     int row_group_number, const ReaderProperties& props,
                      std::shared_ptr<InternalFileDecryptor> file_decryptor = nullptr)
       : source_(std::move(source)),
+        cached_source_(std::move(cached_source)),
         source_size_(source_size),
         file_metadata_(file_metadata),
         properties_(props),
@@ -102,27 +142,17 @@ class SerializedRowGroup : public RowGroupReader::Contents {
     // Read column chunk from the file
     auto col = row_group_metadata_->ColumnChunk(i);
 
-    int64_t col_start = col->data_page_offset();
-    if (col->has_dictionary_page() && col->dictionary_page_offset() > 0 &&
-        col_start > col->dictionary_page_offset()) {
-      col_start = col->dictionary_page_offset();
+    arrow::io::ReadRange col_range =
+        ComputeColumnChunkRange(file_metadata_, source_size_, row_group_ordinal_, i);
+    std::shared_ptr<ArrowInputStream> stream;
+    if (cached_source_) {
+      // PARQUET-1698: if read coalescing is enabled, read from pre-buffered
+      // segments.
+      PARQUET_ASSIGN_OR_THROW(auto buffer, cached_source_->Read(col_range));
+      stream = std::make_shared<::arrow::io::BufferReader>(buffer);
+    } else {
+      stream = properties_.GetStream(source_, col_range.offset, col_range.length);
     }
-
-    int64_t col_length = col->total_compressed_size();
-
-    // PARQUET-816 workaround for old files created by older parquet-mr
-    const ApplicationVersion& version = file_metadata_->writer_version();
-    if (version.VersionLt(ApplicationVersion::PARQUET_816_FIXED_VERSION())) {
-      // The Parquet MR writer had a bug in 1.2.8 and below where it didn't include the
-      // dictionary page header size in total_compressed_size and total_uncompressed_size
-      // (see IMPALA-694). We add padding to compensate.
-      int64_t bytes_remaining = source_size_ - (col_start + col_length);
-      int64_t padding = std::min<int64_t>(kMaxDictHeaderSize, bytes_remaining);
-      col_length += padding;
-    }
-
-    std::shared_ptr<ArrowInputStream> stream =
-        properties_.GetStream(source_, col_start, col_length);
 
     std::unique_ptr<ColumnCryptoMetaData> crypto_metadata = col->crypto_metadata();
 
@@ -134,6 +164,11 @@ class SerializedRowGroup : public RowGroupReader::Contents {
 
     if (file_decryptor_ == nullptr) {
       throw ParquetException("RowGroup is noted as encrypted but no file decryptor");
+    }
+
+    constexpr auto kEncryptedRowGroupsLimit = 32767;
+    if (i > kEncryptedRowGroupsLimit) {
+      throw ParquetException("Encrypted files cannot contain more than 32767 row groups");
     }
 
     // The column is encrypted
@@ -166,11 +201,13 @@ class SerializedRowGroup : public RowGroupReader::Contents {
 
  private:
   std::shared_ptr<ArrowInputFile> source_;
+  // Will be nullptr if PreBuffer() is not called.
+  std::shared_ptr<::arrow::io::internal::ReadRangeCache> cached_source_;
   int64_t source_size_;
   FileMetaData* file_metadata_;
   std::unique_ptr<RowGroupMetaData> row_group_metadata_;
   ReaderProperties properties_;
-  int16_t row_group_ordinal_;
+  int row_group_ordinal_;
   std::shared_ptr<InternalFileDecryptor> file_decryptor_;
 };
 
@@ -201,8 +238,8 @@ class SerializedFile : public ParquetFileReader::Contents {
 
   std::shared_ptr<RowGroupReader> GetRowGroup(int i) override {
     std::unique_ptr<SerializedRowGroup> contents(
-        new SerializedRowGroup(source_, source_size_, file_metadata_.get(),
-                               static_cast<int16_t>(i), properties_, file_decryptor_));
+        new SerializedRowGroup(source_, cached_source_, source_size_,
+                               file_metadata_.get(), i, properties_, file_decryptor_));
     return std::make_shared<RowGroupReader>(std::move(contents));
   }
 
@@ -210,6 +247,22 @@ class SerializedFile : public ParquetFileReader::Contents {
 
   void set_metadata(std::shared_ptr<FileMetaData> metadata) {
     file_metadata_ = std::move(metadata);
+  }
+
+  void PreBuffer(const std::vector<int>& row_groups,
+                 const std::vector<int>& column_indices,
+                 const ::arrow::io::AsyncContext& ctx,
+                 const ::arrow::io::CacheOptions& options) {
+    cached_source_ =
+        std::make_shared<arrow::io::internal::ReadRangeCache>(source_, ctx, options);
+    std::vector<arrow::io::ReadRange> ranges;
+    for (int row : row_groups) {
+      for (int col : column_indices) {
+        ranges.push_back(
+            ComputeColumnChunkRange(file_metadata_.get(), source_size_, row, col));
+      }
+    }
+    PARQUET_THROW_NOT_OK(cached_source_->Cache(ranges));
   }
 
   void ParseMetaData() {
@@ -263,6 +316,7 @@ class SerializedFile : public ParquetFileReader::Contents {
 
  private:
   std::shared_ptr<ArrowInputFile> source_;
+  std::shared_ptr<arrow::io::internal::ReadRangeCache> cached_source_;
   int64_t source_size_;
   std::shared_ptr<FileMetaData> file_metadata_;
   ReaderProperties properties_;
@@ -529,11 +583,23 @@ std::shared_ptr<FileMetaData> ParquetFileReader::metadata() const {
 }
 
 std::shared_ptr<RowGroupReader> ParquetFileReader::RowGroup(int i) {
-  DCHECK(i < metadata()->num_row_groups())
-      << "The file only has " << metadata()->num_row_groups()
-      << "row groups, requested reader for: " << i;
-
+  if (i >= metadata()->num_row_groups()) {
+    std::stringstream ss;
+    ss << "Trying to read row group " << i << " but file only has "
+       << metadata()->num_row_groups() << " row groups";
+    throw ParquetException(ss.str());
+  }
   return contents_->GetRowGroup(i);
+}
+
+void ParquetFileReader::PreBuffer(const std::vector<int>& row_groups,
+                                  const std::vector<int>& column_indices,
+                                  const ::arrow::io::AsyncContext& ctx,
+                                  const ::arrow::io::CacheOptions& options) {
+  // Access private methods here
+  SerializedFile* file =
+      ::arrow::internal::checked_cast<SerializedFile*>(contents_.get());
+  file->PreBuffer(row_groups, column_indices, ctx, options);
 }
 
 // ----------------------------------------------------------------------

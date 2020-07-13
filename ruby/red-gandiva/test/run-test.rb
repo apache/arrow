@@ -34,7 +34,14 @@ test_dir = base_dir + "test"
 arrow_lib_dir = arrow_base_dir + "lib"
 arrow_ext_dir = arrow_base_dir + "ext" + "arrow"
 
-$LOAD_PATH.unshift(arrow_ext_dir.to_s)
+build_dir = ENV["BUILD_DIR"]
+if build_dir
+  arrow_build_dir = Pathname.new(build_dir) + "red-arrow"
+else
+  arrow_build_dir = arrow_ext_dir
+end
+
+$LOAD_PATH.unshift(arrow_build_dir.to_s)
 $LOAD_PATH.unshift(arrow_lib_dir.to_s)
 $LOAD_PATH.unshift(lib_dir.to_s)
 

@@ -21,7 +21,6 @@
 #include "gandiva/annotator.h"
 #include "gandiva/dex.h"
 #include "gandiva/function_registry.h"
-#include "gandiva/function_signature.h"
 #include "gandiva/gandiva_aliases.h"
 #include "gandiva/node.h"
 #include "gandiva/tree_expr_builder.h"

@@ -75,8 +75,8 @@ void AssertUnconvertedStructArraysEqual(const StructArray& expected,
                                         const StructArray& actual) {
   ASSERT_EQ(expected.num_fields(), actual.num_fields());
   for (int i = 0; i < expected.num_fields(); ++i) {
-    auto expected_name = expected.type()->child(i)->name();
-    auto actual_name = actual.type()->child(i)->name();
+    auto expected_name = expected.type()->field(i)->name();
+    auto actual_name = actual.type()->field(i)->name();
     ASSERT_EQ(expected_name, actual_name);
     AssertUnconvertedArraysEqual(*expected.field(i), *actual.field(i));
   }
@@ -173,10 +173,10 @@ TEST_P(BlockParserTypeError, FailOnDuplicateKeys) {
       testing::StartsWith("JSON parse error: Column(/a) was specified twice in row 0"));
 }
 
-INSTANTIATE_TEST_CASE_P(BlockParserTypeError, BlockParserTypeError,
-                        ::testing::Values(UnexpectedFieldBehavior::Ignore,
-                                          UnexpectedFieldBehavior::Error,
-                                          UnexpectedFieldBehavior::InferType));
+INSTANTIATE_TEST_SUITE_P(BlockParserTypeError, BlockParserTypeError,
+                         ::testing::Values(UnexpectedFieldBehavior::Ignore,
+                                           UnexpectedFieldBehavior::Error,
+                                           UnexpectedFieldBehavior::InferType));
 
 TEST(BlockParserWithSchema, Nested) {
   auto options = ParseOptions::Defaults();

@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_PYTHON_ITERATORS_H
-#define ARROW_PYTHON_ITERATORS_H
+#pragma once
 
 #include <utility>
 
@@ -153,5 +152,3 @@ inline Status VisitIterable(PyObject* obj, VisitorFunc&& func) {
 }  // namespace internal
 }  // namespace py
 }  // namespace arrow
-
-#endif  // ARROW_PYTHON_ITERATORS_H

@@ -21,6 +21,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -33,12 +34,11 @@
 namespace arrow {
 
 void AssertCountNonZero(const Tensor& t, int64_t expected) {
-  int64_t count = -1;
-  ASSERT_OK(t.CountNonZero(&count));
+  ASSERT_OK_AND_ASSIGN(int64_t count, t.CountNonZero());
   ASSERT_EQ(count, expected);
 }
 
-TEST(TestTensor, Make) {
+TEST(TestTensor, MakeRowMajor) {
   std::vector<int64_t> shape = {3, 6};
   std::vector<int64_t> strides = {sizeof(double) * 6, sizeof(double)};
   std::vector<double> values = {1, 2, 3, 4, 5, 6, 7, 8, 9, 1, 2, 3, 4, 5, 6, 7, 8, 9};
@@ -52,6 +52,9 @@ TEST(TestTensor, Make) {
   EXPECT_EQ(strides, tensor1->strides());
   EXPECT_EQ(std::vector<std::string>{}, tensor1->dim_names());
   EXPECT_EQ(data->data(), tensor1->raw_data());
+  EXPECT_TRUE(tensor1->is_row_major());
+  EXPECT_FALSE(tensor1->is_column_major());
+  EXPECT_TRUE(tensor1->is_contiguous());
 
   // without dim_names
   std::shared_ptr<Tensor> tensor2;
@@ -62,6 +65,9 @@ TEST(TestTensor, Make) {
   EXPECT_EQ(std::vector<std::string>{}, tensor2->dim_names());
   EXPECT_EQ(data->data(), tensor2->raw_data());
   EXPECT_TRUE(tensor2->Equals(*tensor1));
+  EXPECT_TRUE(tensor2->is_row_major());
+  EXPECT_FALSE(tensor2->is_column_major());
+  EXPECT_TRUE(tensor2->is_contiguous());
 
   // without strides
   std::vector<std::string> dim_names = {"foo", "bar"};
@@ -86,6 +92,33 @@ TEST(TestTensor, Make) {
   EXPECT_TRUE(tensor4->Equals(*tensor1));
   EXPECT_TRUE(tensor4->Equals(*tensor2));
   EXPECT_TRUE(tensor4->Equals(*tensor3));
+}
+
+TEST(TestTensor, MakeColumnMajor) {
+  std::vector<int64_t> shape = {3, 6};
+  std::vector<int64_t> strides = {sizeof(double), sizeof(double) * 3};
+  std::vector<double> values = {1, 2, 3, 4, 5, 6, 7, 8, 9, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+  auto data = Buffer::Wrap(values);
+
+  std::shared_ptr<Tensor> tensor;
+  ASSERT_OK_AND_ASSIGN(tensor, Tensor::Make(float64(), data, shape, strides));
+  EXPECT_FALSE(tensor->is_row_major());
+  EXPECT_TRUE(tensor->is_column_major());
+  EXPECT_TRUE(tensor->is_contiguous());
+}
+
+TEST(TestTensor, MakeStrided) {
+  std::vector<int64_t> shape = {3, 6};
+  std::vector<int64_t> strides = {sizeof(double) * 12, sizeof(double) * 2};
+  std::vector<double> values = {1, 0, 2, 0, 3, 0, 4, 0, 5, 0, 6, 0, 7, 0, 8, 0, 9, 0,
+                                1, 0, 2, 0, 3, 0, 4, 0, 5, 0, 6, 0, 7, 0, 8, 0, 9, 0};
+  auto data = Buffer::Wrap(values);
+
+  std::shared_ptr<Tensor> tensor;
+  ASSERT_OK_AND_ASSIGN(tensor, Tensor::Make(float64(), data, shape, strides));
+  EXPECT_FALSE(tensor->is_row_major());
+  EXPECT_FALSE(tensor->is_column_major());
+  EXPECT_FALSE(tensor->is_contiguous());
 }
 
 TEST(TestTensor, MakeZeroDim) {
@@ -140,8 +173,8 @@ TEST(TestTensor, ZeroDim) {
 
   using T = int64_t;
 
-  std::shared_ptr<Buffer> buffer;
-  ASSERT_OK(AllocateBuffer(values * sizeof(T), &buffer));
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> buffer,
+                       AllocateBuffer(values * sizeof(T)));
 
   Tensor t0(int64(), buffer, shape);
 
@@ -156,8 +189,8 @@ TEST(TestTensor, BasicCtors) {
 
   using T = int64_t;
 
-  std::shared_ptr<Buffer> buffer;
-  ASSERT_OK(AllocateBuffer(values * sizeof(T), &buffer));
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> buffer,
+                       AllocateBuffer(values * sizeof(T)));
 
   Tensor t1(int64(), buffer, shape);
   Tensor t2(int64(), buffer, shape, strides);
@@ -185,8 +218,8 @@ TEST(TestTensor, IsContiguous) {
 
   using T = int64_t;
 
-  std::shared_ptr<Buffer> buffer;
-  ASSERT_OK(AllocateBuffer(values * sizeof(T), &buffer));
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> buffer,
+                       AllocateBuffer(values * sizeof(T)));
 
   std::vector<int64_t> c_strides = {48, 8};
   std::vector<int64_t> f_strides = {8, 32};
@@ -203,8 +236,7 @@ TEST(TestTensor, IsContiguous) {
 TEST(TestTensor, ZeroSizedTensor) {
   std::vector<int64_t> shape = {0};
 
-  std::shared_ptr<Buffer> buffer;
-  ASSERT_OK(AllocateBuffer(0, &buffer));
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> buffer, AllocateBuffer(0));
 
   Tensor t(int64(), buffer, shape);
   ASSERT_EQ(t.strides().size(), 1);
@@ -213,8 +245,7 @@ TEST(TestTensor, ZeroSizedTensor) {
 TEST(TestTensor, CountNonZeroForZeroSizedTensor) {
   std::vector<int64_t> shape = {0};
 
-  std::shared_ptr<Buffer> buffer;
-  ASSERT_OK(AllocateBuffer(0, &buffer));
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> buffer, AllocateBuffer(0));
 
   Tensor t(int64(), buffer, shape);
   AssertCountNonZero(t, 0);
@@ -349,11 +380,10 @@ TEST(TestTensor, EqualsInt64) {
   EXPECT_FALSE(tf3.Equals(tnc));
 
   // zero-size tensor
-  std::shared_ptr<Buffer> empty_buffer1, empty_buffer2;
-  ASSERT_OK(AllocateBuffer(0, &empty_buffer1));
-  ASSERT_OK(AllocateBuffer(0, &empty_buffer2));
-  Tensor empty1(int64(), empty_buffer1, {0});
-  Tensor empty2(int64(), empty_buffer2, {0});
+  ASSERT_OK_AND_ASSIGN(auto empty_buffer1, AllocateBuffer(0));
+  ASSERT_OK_AND_ASSIGN(auto empty_buffer2, AllocateBuffer(0));
+  Tensor empty1(int64(), std::move(empty_buffer1), {0});
+  Tensor empty2(int64(), std::move(empty_buffer2), {0});
   EXPECT_FALSE(empty1.Equals(tc1));
   EXPECT_TRUE(empty1.Equals(empty2));
 }
@@ -361,7 +391,7 @@ TEST(TestTensor, EqualsInt64) {
 template <typename DataType>
 class TestFloatTensor : public ::testing::Test {};
 
-TYPED_TEST_CASE_P(TestFloatTensor);
+TYPED_TEST_SUITE_P(TestFloatTensor);
 
 TYPED_TEST_P(TestFloatTensor, Equals) {
   using DataType = TypeParam;
@@ -449,10 +479,10 @@ TYPED_TEST_P(TestFloatTensor, Equals) {
   EXPECT_TRUE(tc1.Equals(tc2, EqualOptions().nans_equal(true)));  // different memory
 }
 
-REGISTER_TYPED_TEST_CASE_P(TestFloatTensor, Equals);
+REGISTER_TYPED_TEST_SUITE_P(TestFloatTensor, Equals);
 
-INSTANTIATE_TYPED_TEST_CASE_P(Float32, TestFloatTensor, FloatType);
-INSTANTIATE_TYPED_TEST_CASE_P(Float64, TestFloatTensor, DoubleType);
+INSTANTIATE_TYPED_TEST_SUITE_P(Float32, TestFloatTensor, FloatType);
+INSTANTIATE_TYPED_TEST_SUITE_P(Float64, TestFloatTensor, DoubleType);
 
 TEST(TestNumericTensor, Make) {
   std::vector<int64_t> shape = {3, 6};

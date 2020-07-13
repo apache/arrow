@@ -17,14 +17,15 @@
 # specific language governing permissions and limitations
 # under the License.
 
-project_name = 'parquet-glib'
+package_id = 'parquet-glib'
+package_name = 'Apache Parquet GLib'
 entities_conf = configuration_data()
-entities_conf.set('PACKAGE', project_name)
+entities_conf.set('PACKAGE', package_id)
 entities_conf.set('PACKAGE_BUGREPORT',
                   'https://issues.apache.org/jira/browse/PARQUET')
-entities_conf.set('PACKAGE_NAME', project_name)
+entities_conf.set('PACKAGE_NAME', package_name)
 entities_conf.set('PACKAGE_STRING',
-                  ' '.join([project_name, version]))
+                  ' '.join([package_name, version]))
 entities_conf.set('PACKAGE_URL', 'https://arrow.apache.org/')
 entities_conf.set('PACKAGE_VERSION', version)
 configure_file(input: 'entities.xml.in',
@@ -45,24 +46,24 @@ glib_doc_path = join_paths(glib_prefix, 'share', 'gtk-doc', 'html')
 arrow_glib_doc_path = join_paths(data_dir,
                                  'gtk-doc',
                                  'html',
-                                 meson.project_name())
-doc_path = join_paths(data_dir, project_name, 'gtk-doc', 'html')
+                                 'arrow-glib')
+doc_path = join_paths(data_dir, 'gtk-doc', 'html', package_id)
 
 source_directories = [
-  join_paths(meson.source_root(), 'parquet-glib'),
-  join_paths(meson.build_root(), 'parquet-glib'),
+  join_paths(meson.source_root(), package_id),
+  join_paths(meson.build_root(), package_id),
 ]
 dependencies = [
   parquet_glib,
   arrow_glib,
 ]
 ignore_headers = []
-gnome.gtkdoc(project_name,
-             main_xml: project_name + '-docs.xml',
+gnome.gtkdoc(package_id,
+             main_xml: package_id + '-docs.xml',
              src_dir: source_directories,
              dependencies: dependencies,
              ignore_headers: ignore_headers,
-             gobject_typesfile: project_name + '.types',
+             gobject_typesfile: package_id + '.types',
              scan_args: [
                '--rebuild-types',
                '--deprecated-guards=GPARQUET_DISABLE_DEPRECATED',

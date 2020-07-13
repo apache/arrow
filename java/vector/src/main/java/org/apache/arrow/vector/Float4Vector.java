@@ -19,6 +19,7 @@ package org.apache.arrow.vector;
 
 import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.impl.Float4ReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
@@ -28,8 +29,6 @@ import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
-
-import io.netty.buffer.ArrowBuf;
 
 /**
  * Float4Vector implements a fixed width vector (4 bytes) of
@@ -114,7 +113,7 @@ public final class Float4Vector extends BaseFixedWidthVector implements Floating
     if (NULL_CHECKING_ENABLED && isSet(index) == 0) {
       throw new IllegalStateException("Value at index is null");
     }
-    return valueBuffer.getFloat(index * TYPE_WIDTH);
+    return valueBuffer.getFloat((long) index * TYPE_WIDTH);
   }
 
   /**
@@ -130,7 +129,7 @@ public final class Float4Vector extends BaseFixedWidthVector implements Floating
       return;
     }
     holder.isSet = 1;
-    holder.value = valueBuffer.getFloat(index * TYPE_WIDTH);
+    holder.value = valueBuffer.getFloat((long) index * TYPE_WIDTH);
   }
 
   /**
@@ -143,7 +142,7 @@ public final class Float4Vector extends BaseFixedWidthVector implements Floating
     if (isSet(index) == 0) {
       return null;
     } else {
-      return valueBuffer.getFloat(index * TYPE_WIDTH);
+      return valueBuffer.getFloat((long) index * TYPE_WIDTH);
     }
   }
 
@@ -155,7 +154,7 @@ public final class Float4Vector extends BaseFixedWidthVector implements Floating
 
 
   private void setValue(int index, float value) {
-    valueBuffer.setFloat(index * TYPE_WIDTH, value);
+    valueBuffer.setFloat((long) index * TYPE_WIDTH, value);
   }
 
   /**
@@ -279,7 +278,7 @@ public final class Float4Vector extends BaseFixedWidthVector implements Floating
    * @return value stored at the index.
    */
   public static float get(final ArrowBuf buffer, final int index) {
-    return buffer.getFloat(index * TYPE_WIDTH);
+    return buffer.getFloat((long) index * TYPE_WIDTH);
   }
 
   @Override

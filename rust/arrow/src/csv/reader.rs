@@ -36,13 +36,14 @@
 //!
 //! let file = File::open("test/data/uk_cities.csv").unwrap();
 //!
-//! let mut csv = csv::Reader::new(file, Arc::new(schema), false, 1024, None);
+//! let mut csv = csv::Reader::new(file, Arc::new(schema), false, None, 1024, None);
 //! let batch = csv.next().unwrap().unwrap();
 //! ```
 
 use lazy_static::lazy_static;
 use regex::{Regex, RegexBuilder};
 use std::collections::HashSet;
+use std::fs::File;
 use std::io::{BufReader, Read, Seek, SeekFrom};
 use std::sync::Arc;
 
@@ -57,7 +58,7 @@ use self::csv_crate::{StringRecord, StringRecordsIntoIter};
 
 lazy_static! {
     static ref DECIMAL_RE: Regex = Regex::new(r"^-?(\d+\.\d+)$").unwrap();
-    static ref INTEGER_RE: Regex = Regex::new(r"^-?(\d*.)$").unwrap();
+    static ref INTEGER_RE: Regex = Regex::new(r"^-?(\d+)$").unwrap();
     static ref BOOLEAN_RE: Regex = RegexBuilder::new(r"^(true)$|^(false)$")
         .case_insensitive(true)
         .build()
@@ -68,18 +69,18 @@ lazy_static! {
 fn infer_field_schema(string: &str) -> DataType {
     // when quoting is enabled in the reader, these quotes aren't escaped, we default to
     // Utf8 for them
-    if string.starts_with("\"") {
+    if string.starts_with('"') {
         return DataType::Utf8;
     }
     // match regex in a particular order
     if BOOLEAN_RE.is_match(string) {
-        return DataType::Boolean;
+        DataType::Boolean
     } else if DECIMAL_RE.is_match(string) {
-        return DataType::Float64;
+        DataType::Float64
     } else if INTEGER_RE.is_match(string) {
-        return DataType::Int64;
+        DataType::Int64
     } else {
-        return DataType::Utf8;
+        DataType::Utf8
     }
 }
 
@@ -87,26 +88,27 @@ fn infer_field_schema(string: &str) -> DataType {
 /// with `max_read_records` controlling the maximum number of records to read.
 ///
 /// If `max_read_records` is not set, the whole file is read to infer its schema.
+///
+/// Return infered schema and number of records used for inference.
 fn infer_file_schema<R: Read + Seek>(
     reader: &mut BufReader<R>,
     delimiter: u8,
     max_read_records: Option<usize>,
-    has_headers: bool,
-) -> Result<Schema> {
-    let mut csv_reader = csv::ReaderBuilder::new()
+    has_header: bool,
+) -> Result<(Schema, usize)> {
+    let mut csv_reader = csv_crate::ReaderBuilder::new()
         .delimiter(delimiter)
         .from_reader(reader);
 
     // get or create header names
-    // when has_headers is false, creates default column names with column_ prefix
-    let headers: Vec<String> = if has_headers {
+    // when has_header is false, creates default column names with column_ prefix
+    let headers: Vec<String> = if has_header {
         let headers = &csv_reader.headers()?.clone();
         headers.iter().map(|s| s.to_string()).collect()
     } else {
         let first_record_count = &csv_reader.headers()?.len();
         (0..*first_record_count)
             .map(|i| format!("column_{}", i + 1))
-            .into_iter()
             .collect()
     };
 
@@ -122,6 +124,7 @@ fn infer_file_schema<R: Read + Seek>(
     // return csv reader position to after headers
     csv_reader.seek(position)?;
 
+    let mut records_count = 0;
     let mut fields = vec![];
 
     for result in csv_reader
@@ -129,18 +132,15 @@ fn infer_file_schema<R: Read + Seek>(
         .take(max_read_records.unwrap_or(std::usize::MAX))
     {
         let record = result?;
+        records_count += 1;
 
         for i in 0..header_length {
-            let string: Option<&str> = record.get(i);
-            match string {
-                Some(s) => {
-                    if s == "" {
-                        nulls[i] = true;
-                    } else {
-                        column_types[i].insert(infer_field_schema(s));
-                    }
+            if let Some(string) = record.get(i) {
+                if string == "" {
+                    nulls[i] = true;
+                } else {
+                    column_types[i].insert(infer_field_schema(string));
                 }
-                _ => {}
             }
         }
     }
@@ -177,13 +177,48 @@ fn infer_file_schema<R: Read + Seek>(
     // return the reader seek back to the start
     csv_reader.into_inner().seek(SeekFrom::Start(0))?;
 
-    Ok(Schema::new(fields))
+    Ok((Schema::new(fields), records_count))
+}
+
+/// Infer schema from a list of CSV files by reading through first n records
+/// with `max_read_records` controlling the maximum number of records to read.
+///
+/// Files will be read in the given order untill n records have been reached.
+///
+/// If `max_read_records` is not set, all files will be read fully to infer the schema.
+pub fn infer_schema_from_files(
+    files: &[String],
+    delimiter: u8,
+    max_read_records: Option<usize>,
+    has_header: bool,
+) -> Result<Schema> {
+    let mut schemas = vec![];
+    let mut records_to_read = max_read_records.unwrap_or(std::usize::MAX);
+
+    for fname in files.iter() {
+        let (schema, records_read) = infer_file_schema(
+            &mut BufReader::new(File::open(fname)?),
+            delimiter,
+            Some(records_to_read),
+            has_header,
+        )?;
+        if records_read == 0 {
+            continue;
+        }
+        schemas.push(schema.clone());
+        records_to_read -= records_read;
+        if records_to_read == 0 {
+            break;
+        }
+    }
+
+    Schema::try_merge(&schemas)
 }
 
 /// CSV file reader
 pub struct Reader<R: Read> {
     /// Explicit schema for the CSV file
-    schema: Arc<Schema>,
+    schema: SchemaRef,
     /// Optional projection for which columns to load (zero-based column indices)
     projection: Option<Vec<usize>>,
     /// File reader
@@ -202,15 +237,17 @@ impl<R: Read> Reader<R> {
     /// `ReaderBuilder`.
     pub fn new(
         reader: R,
-        schema: Arc<Schema>,
-        has_headers: bool,
+        schema: SchemaRef,
+        has_header: bool,
+        delimiter: Option<u8>,
         batch_size: usize,
         projection: Option<Vec<usize>>,
     ) -> Self {
         Self::from_buf_reader(
             BufReader::new(reader),
             schema,
-            has_headers,
+            has_header,
+            delimiter,
             batch_size,
             projection,
         )
@@ -218,7 +255,7 @@ impl<R: Read> Reader<R> {
 
     /// Returns the schema of the reader, useful for getting the schema without reading
     /// record batches
-    pub fn schema(&self) -> Arc<Schema> {
+    pub fn schema(&self) -> SchemaRef {
         match &self.projection {
             Some(projection) => {
                 let fields = self.schema.fields();
@@ -237,25 +274,32 @@ impl<R: Read> Reader<R> {
     /// csv reader.
     pub fn from_buf_reader(
         buf_reader: BufReader<R>,
-        schema: Arc<Schema>,
-        has_headers: bool,
+        schema: SchemaRef,
+        has_header: bool,
+        delimiter: Option<u8>,
         batch_size: usize,
         projection: Option<Vec<usize>>,
     ) -> Self {
-        let csv_reader = csv::ReaderBuilder::new()
-            .has_headers(has_headers)
-            .from_reader(buf_reader);
+        let mut reader_builder = csv_crate::ReaderBuilder::new();
+        reader_builder.has_headers(has_header);
+
+        if let Some(c) = delimiter {
+            reader_builder.delimiter(c);
+        }
+
+        let csv_reader = reader_builder.from_reader(buf_reader);
         let record_iter = csv_reader.into_records();
         Self {
             schema,
             projection,
             record_iter,
             batch_size,
-            line_number: if has_headers { 1 } else { 0 },
+            line_number: if has_header { 1 } else { 0 },
         }
     }
 
     /// Read the next batch of rows
+    #[allow(clippy::should_implement_trait)]
     pub fn next(&mut self) -> Result<Option<RecordBatch>> {
         // read a batch of rows into memory
         let mut rows: Vec<StringRecord> = Vec::with_capacity(self.batch_size);
@@ -295,7 +339,8 @@ impl<R: Read> Reader<R> {
         let arrays: Result<Vec<ArrayRef>> = projection
             .iter()
             .map(|i| {
-                let field = self.schema.field(*i);
+                let i = *i;
+                let field = self.schema.field(i);
                 match field.data_type() {
                     &DataType::Boolean => {
                         self.build_primitive_array::<BooleanType>(rows, i)
@@ -322,8 +367,8 @@ impl<R: Read> Reader<R> {
                     }
                     &DataType::Utf8 => {
                         let mut builder = StringBuilder::new(rows.len());
-                        for row_index in 0..rows.len() {
-                            match rows[row_index].get(*i) {
+                        for row in rows.iter() {
+                            match row.get(i) {
                                 Some(s) => builder.append_value(s).unwrap(),
                                 _ => builder.append(false).unwrap(),
                             }
@@ -349,22 +394,20 @@ impl<R: Read> Reader<R> {
 
         let projected_schema = Arc::new(Schema::new(projected_fields));
 
-        arrays.and_then(|arr| {
-            RecordBatch::try_new(projected_schema, arr).map(|batch| Some(batch))
-        })
+        arrays.and_then(|arr| RecordBatch::try_new(projected_schema, arr).map(Some))
     }
 
     fn build_primitive_array<T: ArrowPrimitiveType>(
         &self,
         rows: &[StringRecord],
-        col_idx: &usize,
+        col_idx: usize,
     ) -> Result<ArrayRef> {
         let mut builder = PrimitiveBuilder::<T>::new(rows.len());
         let is_boolean_type =
-            *self.schema.field(*col_idx).data_type() == DataType::Boolean;
-        for row_index in 0..rows.len() {
-            match rows[row_index].get(*col_idx) {
-                Some(s) if s.len() > 0 => {
+            *self.schema.field(col_idx).data_type() == DataType::Boolean;
+        for (row_index, row) in rows.iter().enumerate() {
+            match row.get(col_idx) {
+                Some(s) if !s.is_empty() => {
                     let t = if is_boolean_type {
                         s.to_lowercase().parse::<T::Native>()
                     } else {
@@ -375,8 +418,9 @@ impl<R: Read> Reader<R> {
                         Err(_) => {
                             // TODO: we should surface the underlying error here.
                             return Err(ArrowError::ParseError(format!(
-                                "Error while parsing value {} at line {}",
+                                "Error while parsing value {} for column {} at line {}",
                                 s,
+                                col_idx,
                                 self.line_number + row_index
                             )));
                         }
@@ -395,12 +439,12 @@ pub struct ReaderBuilder {
     ///
     /// If the schema is not supplied, the reader will try to infer the schema
     /// based on the CSV structure.
-    schema: Option<Arc<Schema>>,
+    schema: Option<SchemaRef>,
     /// Whether the file has headers or not
     ///
     /// If schema inference is run on a file with no headers, default column names
     /// are created.
-    has_headers: bool,
+    has_header: bool,
     /// An optional column delimiter. Defaults to `b','`
     delimiter: Option<u8>,
     /// Optional maximum number of records to read during schema inference
@@ -416,10 +460,10 @@ pub struct ReaderBuilder {
 }
 
 impl Default for ReaderBuilder {
-    fn default() -> ReaderBuilder {
-        ReaderBuilder {
+    fn default() -> Self {
+        Self {
             schema: None,
-            has_headers: false,
+            has_header: false,
             delimiter: None,
             max_records: None,
             batch_size: 1024,
@@ -457,14 +501,14 @@ impl ReaderBuilder {
     }
 
     /// Set the CSV file's schema
-    pub fn with_schema(mut self, schema: Arc<Schema>) -> Self {
+    pub fn with_schema(mut self, schema: SchemaRef) -> Self {
         self.schema = Some(schema);
         self
     }
 
     /// Set whether the CSV file has headers
-    pub fn has_headers(mut self, has_headers: bool) -> Self {
-        self.has_headers = has_headers;
+    pub fn has_header(mut self, has_header: bool) -> Self {
+        self.has_header = has_header;
         self
     }
 
@@ -498,22 +542,23 @@ impl ReaderBuilder {
     pub fn build<R: Read + Seek>(self, reader: R) -> Result<Reader<R>> {
         // check if schema should be inferred
         let mut buf_reader = BufReader::new(reader);
+        let delimiter = self.delimiter.unwrap_or(b',');
         let schema = match self.schema {
             Some(schema) => schema,
             None => {
-                let inferred_schema = infer_file_schema(
+                let (inferred_schema, _) = infer_file_schema(
                     &mut buf_reader,
-                    self.delimiter.unwrap_or(b','),
+                    delimiter,
                     self.max_records,
-                    self.has_headers,
+                    self.has_header,
                 )?;
 
                 Arc::new(inferred_schema)
             }
         };
-        let csv_reader = csv::ReaderBuilder::new()
-            .delimiter(self.delimiter.unwrap_or(b','))
-            .has_headers(self.has_headers)
+        let csv_reader = csv_crate::ReaderBuilder::new()
+            .delimiter(delimiter)
+            .has_headers(self.has_header)
             .from_reader(buf_reader);
         let record_iter = csv_reader.into_records();
         Ok(Reader {
@@ -521,7 +566,7 @@ impl ReaderBuilder {
             projection: self.projection.clone(),
             record_iter,
             batch_size: self.batch_size,
-            line_number: if self.has_headers { 1 } else { 0 },
+            line_number: if self.has_header { 1 } else { 0 },
         })
     }
 }
@@ -531,7 +576,8 @@ mod tests {
     use super::*;
 
     use std::fs::File;
-    use std::io::Cursor;
+    use std::io::{Cursor, Write};
+    use tempfile::NamedTempFile;
 
     use crate::array::*;
     use crate::datatypes::Field;
@@ -546,7 +592,8 @@ mod tests {
 
         let file = File::open("test/data/uk_cities.csv").unwrap();
 
-        let mut csv = Reader::new(file, Arc::new(schema.clone()), false, 1024, None);
+        let mut csv =
+            Reader::new(file, Arc::new(schema.clone()), false, None, 1024, None);
         assert_eq!(Arc::new(schema), csv.schema());
         let batch = csv.next().unwrap().unwrap();
         assert_eq!(37, batch.num_rows());
@@ -588,6 +635,7 @@ mod tests {
             BufReader::new(both_files),
             Arc::new(schema),
             true,
+            None,
             1024,
             None,
         );
@@ -600,7 +648,7 @@ mod tests {
     fn test_csv_with_schema_inference() {
         let file = File::open("test/data/uk_cities_with_headers.csv").unwrap();
 
-        let builder = ReaderBuilder::new().has_headers(true).infer_schema(None);
+        let builder = ReaderBuilder::new().has_header(true).infer_schema(None);
 
         let mut csv = builder.build(file).unwrap();
         let expected_schema = Schema::new(vec![
@@ -647,7 +695,7 @@ mod tests {
         let batch = csv.next().unwrap().unwrap();
         let batch_schema = batch.schema();
 
-        assert_eq!(&schema, batch_schema);
+        assert_eq!(schema, batch_schema);
         assert_eq!(37, batch.num_rows());
         assert_eq!(3, batch.num_columns());
 
@@ -679,14 +727,15 @@ mod tests {
 
         let file = File::open("test/data/uk_cities.csv").unwrap();
 
-        let mut csv = Reader::new(file, Arc::new(schema), false, 1024, Some(vec![0, 1]));
+        let mut csv =
+            Reader::new(file, Arc::new(schema), false, None, 1024, Some(vec![0, 1]));
         let projected_schema = Arc::new(Schema::new(vec![
             Field::new("city", DataType::Utf8, false),
             Field::new("lat", DataType::Float64, false),
         ]));
         assert_eq!(projected_schema.clone(), csv.schema());
         let batch = csv.next().unwrap().unwrap();
-        assert_eq!(&projected_schema, batch.schema());
+        assert_eq!(projected_schema, batch.schema());
         assert_eq!(37, batch.num_rows());
         assert_eq!(2, batch.num_columns());
     }
@@ -701,7 +750,7 @@ mod tests {
 
         let file = File::open("test/data/null_test.csv").unwrap();
 
-        let mut csv = Reader::new(file, Arc::new(schema), true, 1024, None);
+        let mut csv = Reader::new(file, Arc::new(schema), true, None, 1024, None);
         let batch = csv.next().unwrap().unwrap();
 
         assert_eq!(false, batch.column(1).is_null(0));
@@ -717,7 +766,7 @@ mod tests {
 
         let builder = ReaderBuilder::new()
             .infer_schema(None)
-            .has_headers(true)
+            .has_header(true)
             .with_delimiter(b'|')
             .with_batch_size(512)
             .with_projection(vec![0, 1, 2, 3]);
@@ -760,7 +809,7 @@ mod tests {
 
         let builder = ReaderBuilder::new()
             .with_schema(Arc::new(schema))
-            .has_headers(true)
+            .has_header(true)
             .with_delimiter(b'|')
             .with_batch_size(512)
             .with_projection(vec![0, 1, 2, 3]);
@@ -768,10 +817,62 @@ mod tests {
         let mut csv = builder.build(file).unwrap();
         match csv.next() {
             Err(e) => assert_eq!(
-                "ParseError(\"Error while parsing value 4.x4 at line 4\")",
+                "ParseError(\"Error while parsing value 4.x4 for column 1 at line 4\")",
                 format!("{:?}", e)
             ),
             Ok(_) => panic!("should have failed"),
         }
+    }
+
+    #[test]
+    fn test_infer_field_schema() {
+        assert_eq!(infer_field_schema("A"), DataType::Utf8);
+        assert_eq!(infer_field_schema("\"123\""), DataType::Utf8);
+        assert_eq!(infer_field_schema("10"), DataType::Int64);
+        assert_eq!(infer_field_schema("10.2"), DataType::Float64);
+        assert_eq!(infer_field_schema("true"), DataType::Boolean);
+        assert_eq!(infer_field_schema("false"), DataType::Boolean);
+    }
+
+    #[test]
+    fn test_infer_schema_from_multiple_files() -> Result<()> {
+        let mut csv1 = NamedTempFile::new()?;
+        let mut csv2 = NamedTempFile::new()?;
+        let csv3 = NamedTempFile::new()?; // empty csv file should be skipped
+        let mut csv4 = NamedTempFile::new()?;
+        writeln!(csv1, "c1,c2,c3")?;
+        writeln!(csv1, "1,\"foo\",0.5")?;
+        writeln!(csv1, "3,\"bar\",1")?;
+        // reading csv2 will set c2 to optional
+        writeln!(csv2, "c1,c2,c3,c4")?;
+        writeln!(csv2, "10,,3.14,true")?;
+        // reading csv4 will set c3 to optional
+        writeln!(csv4, "c1,c2,c3")?;
+        writeln!(csv4, "10,\"foo\",")?;
+
+        let schema = infer_schema_from_files(
+            &vec![
+                csv3.path().to_str().unwrap().to_string(),
+                csv1.path().to_str().unwrap().to_string(),
+                csv2.path().to_str().unwrap().to_string(),
+                csv4.path().to_str().unwrap().to_string(),
+            ],
+            b',',
+            Some(3), // only csv1 and csv2 should be read
+            true,
+        )?;
+
+        assert_eq!(schema.fields().len(), 4);
+        assert_eq!(false, schema.field(0).is_nullable());
+        assert_eq!(true, schema.field(1).is_nullable());
+        assert_eq!(false, schema.field(2).is_nullable());
+        assert_eq!(false, schema.field(3).is_nullable());
+
+        assert_eq!(&DataType::Int64, schema.field(0).data_type());
+        assert_eq!(&DataType::Utf8, schema.field(1).data_type());
+        assert_eq!(&DataType::Float64, schema.field(2).data_type());
+        assert_eq!(&DataType::Boolean, schema.field(3).data_type());
+
+        Ok(())
     }
 }

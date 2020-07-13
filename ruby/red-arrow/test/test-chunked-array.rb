@@ -92,6 +92,8 @@ class ChunkedArrayTest < Test::Unit::TestCase
         Arrow::BooleanArray.new([false, true, false]),
       ]
       @chunked_array = Arrow::ChunkedArray.new(arrays)
+      @options = Arrow::FilterOptions.new
+      @options.null_selection_behavior = :emit_null
     end
 
     test("Array: boolean") do
@@ -102,7 +104,7 @@ class ChunkedArrayTest < Test::Unit::TestCase
       ]
       filtered_chunked_array = Arrow::ChunkedArray.new(chunks)
       assert_equal(filtered_chunked_array,
-                   @chunked_array.filter(filter))
+                   @chunked_array.filter(filter, @options))
     end
 
     test("Arrow::BooleanArray") do
@@ -113,7 +115,7 @@ class ChunkedArrayTest < Test::Unit::TestCase
       ]
       filtered_chunked_array = Arrow::ChunkedArray.new(chunks)
       assert_equal(filtered_chunked_array,
-                   @chunked_array.filter(filter))
+                   @chunked_array.filter(filter, @options))
     end
 
     test("Arrow::ChunkedArray") do
@@ -128,7 +130,7 @@ class ChunkedArrayTest < Test::Unit::TestCase
       ]
       filtered_chunked_array = Arrow::ChunkedArray.new(filtered_chunks)
       assert_equal(filtered_chunked_array,
-                   @chunked_array.filter(filter))
+                   @chunked_array.filter(filter, @options))
     end
   end
 

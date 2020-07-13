@@ -57,7 +57,7 @@ namespace Apache.Arrow
 
         public DateTimeOffset? GetDate(int index)
         {
-            var value = GetValue(index);
+            long? value = GetValue(index);
 
             if (!value.HasValue)
             {

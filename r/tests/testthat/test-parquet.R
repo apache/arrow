@@ -30,11 +30,13 @@ test_that("reading a known Parquet file to tibble", {
 test_that("simple int column roundtrip", {
   df <- tibble::tibble(x = 1:5)
   pq_tmp_file <- tempfile() # You can specify the .parquet here but that's probably not necessary
-  on.exit(unlink(pq_tmp_file))
 
   write_parquet(df, pq_tmp_file)
   df_read <- read_parquet(pq_tmp_file)
   expect_equivalent(df, df_read)
+  # Make sure file connection is cleaned up
+  expect_error(file.remove(pq_tmp_file), NA)
+  expect_false(file.exists(pq_tmp_file))
 })
 
 test_that("read_parquet() supports col_select", {
@@ -77,6 +79,15 @@ test_that("write_parquet() handles various use_dictionary= specs", {
   expect_parquet_roundtrip(tab, use_dictionary = TRUE)
   expect_parquet_roundtrip(tab, use_dictionary = c(TRUE, FALSE, TRUE))
   expect_parquet_roundtrip(tab, use_dictionary = c(x1 = TRUE, x2 = TRUE))
+  expect_error(
+    write_parquet(tab, tempfile(), use_dictionary = c(TRUE, FALSE)),
+    "unsupported use_dictionary= specification"
+  )
+  expect_error(
+    write_parquet(tab, tempfile(), use_dictionary = 12),
+    "is.logical(use_dictionary) is not TRUE",
+    fixed = TRUE
+  )
 })
 
 test_that("write_parquet() handles various write_statistics= specs", {
@@ -85,6 +96,19 @@ test_that("write_parquet() handles various write_statistics= specs", {
   expect_parquet_roundtrip(tab, write_statistics = TRUE)
   expect_parquet_roundtrip(tab, write_statistics = c(TRUE, FALSE, TRUE))
   expect_parquet_roundtrip(tab, write_statistics = c(x1 = TRUE, x2 = TRUE))
+})
+
+test_that("write_parquet() can truncate timestamps", {
+  tab <- Table$create(x1 = as.POSIXct("2020/06/03 18:00:00", tz = "UTC"))
+  expect_type_equal(tab$x1, timestamp("us", "UTC"))
+
+  tf <- tempfile()
+  on.exit(unlink(tf))
+
+  write_parquet(tab, tf, coerce_timestamps = "ms", allow_truncated_timestamps = TRUE)
+  new <- read_parquet(tf, as_data_frame = FALSE)
+  expect_type_equal(new$x1, timestamp("ms", "UTC"))
+  expect_equivalent(as.data.frame(tab), as.data.frame(new))
 })
 
 test_that("make_valid_version()", {

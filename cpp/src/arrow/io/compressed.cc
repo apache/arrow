@@ -49,7 +49,7 @@ class CompressedOutputStream::Impl {
 
   Status Init(Codec* codec) {
     ARROW_ASSIGN_OR_RAISE(compressor_, codec->MakeCompressor());
-    RETURN_NOT_OK(AllocateResizableBuffer(pool_, kChunkSize, &compressed_));
+    ARROW_ASSIGN_OR_RAISE(compressed_, AllocateResizableBuffer(kChunkSize, pool_));
     compressed_pos_ = 0;
     is_open_ = true;
     return Status::OK();
@@ -206,18 +206,6 @@ Result<std::shared_ptr<CompressedOutputStream>> CompressedOutputStream::Make(
   return res;
 }
 
-Status CompressedOutputStream::Make(util::Codec* codec,
-                                    const std::shared_ptr<OutputStream>& raw,
-                                    std::shared_ptr<CompressedOutputStream>* out) {
-  return Make(codec, raw).Value(out);
-}
-
-Status CompressedOutputStream::Make(MemoryPool* pool, util::Codec* codec,
-                                    const std::shared_ptr<OutputStream>& raw,
-                                    std::shared_ptr<CompressedOutputStream>* out) {
-  return Make(codec, raw, pool).Value(out);
-}
-
 CompressedOutputStream::~CompressedOutputStream() { internal::CloseFromDestructor(this); }
 
 Status CompressedOutputStream::Close() { return impl_->Close(); }
@@ -294,7 +282,8 @@ class CompressedInputStream::Impl {
     int64_t decompress_size = kDecompressSize;
 
     while (true) {
-      RETURN_NOT_OK(AllocateResizableBuffer(pool_, decompress_size, &decompressed_));
+      ARROW_ASSIGN_OR_RAISE(decompressed_,
+                            AllocateResizableBuffer(decompress_size, pool_));
       decompressed_pos_ = 0;
 
       int64_t input_len = compressed_->size() - compressed_pos_;
@@ -388,11 +377,10 @@ class CompressedInputStream::Impl {
   }
 
   Result<std::shared_ptr<Buffer>> Read(int64_t nbytes) {
-    std::shared_ptr<ResizableBuffer> buf;
-    RETURN_NOT_OK(AllocateResizableBuffer(pool_, nbytes, &buf));
+    ARROW_ASSIGN_OR_RAISE(auto buf, AllocateResizableBuffer(nbytes, pool_));
     ARROW_ASSIGN_OR_RAISE(int64_t bytes_read, Read(nbytes, buf->mutable_data()));
     RETURN_NOT_OK(buf->Resize(bytes_read));
-    return buf;
+    return std::move(buf);
   }
 
   std::shared_ptr<InputStream> raw() const { return raw_; }
@@ -427,17 +415,6 @@ Result<std::shared_ptr<CompressedInputStream>> CompressedInputStream::Make(
   RETURN_NOT_OK(res->impl_->Init(codec));
   return res;
   return Status::OK();
-}
-
-Status CompressedInputStream::Make(Codec* codec, const std::shared_ptr<InputStream>& raw,
-                                   std::shared_ptr<CompressedInputStream>* out) {
-  return Make(codec, raw).Value(out);
-}
-
-Status CompressedInputStream::Make(MemoryPool* pool, Codec* codec,
-                                   const std::shared_ptr<InputStream>& raw,
-                                   std::shared_ptr<CompressedInputStream>* out) {
-  return Make(codec, raw, pool).Value(out);
 }
 
 CompressedInputStream::~CompressedInputStream() { internal::CloseFromDestructor(this); }

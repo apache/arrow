@@ -18,13 +18,15 @@
 // Imported from Apache Impala (incubating) on 2016-01-29 and modified for use
 // in parquet-cpp, Arrow
 
-#ifndef ARROW_UTIL_RLE_ENCODING_H
-#define ARROW_UTIL_RLE_ENCODING_H
+#pragma once
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <vector>
 
+#include "arrow/util/bit_block_counter.h"
+#include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_stream_utils.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/macros.h"
@@ -141,14 +143,19 @@ class RleDecoder {
   /// Number of bits needed to encode the value. Must be between 0 and 64.
   int bit_width_;
   uint64_t current_value_;
-  uint32_t repeat_count_;
-  uint32_t literal_count_;
+  int32_t repeat_count_;
+  int32_t literal_count_;
 
  private:
   /// Fills literal_count_ and repeat_count_ with next values. Returns false if there
   /// are no more.
   template <typename T>
   bool NextCounts();
+
+  /// Utility methods for retrieving spaced values.
+  template <typename T, typename RunType, typename Converter>
+  int GetSpaced(Converter converter, int batch_size, int null_count,
+                const uint8_t* valid_bits, int64_t valid_bits_offset, T* out);
 };
 
 /// Class to incrementally build the rle data.   This class does not allocate any memory.
@@ -301,15 +308,15 @@ inline int RleDecoder::GetBatch(T* values, int batch_size) {
   while (values_read < batch_size) {
     int remaining = batch_size - values_read;
 
-    if (repeat_count_ > 0) {
-      int repeat_batch = std::min(remaining, static_cast<int>(repeat_count_));
+    if (repeat_count_ > 0) {  // Repeated value case.
+      int repeat_batch = std::min(remaining, repeat_count_);
       std::fill(out, out + repeat_batch, static_cast<T>(current_value_));
 
       repeat_count_ -= repeat_batch;
       values_read += repeat_batch;
       out += repeat_batch;
     } else if (literal_count_ > 0) {
-      int literal_batch = std::min(remaining, static_cast<int>(literal_count_));
+      int literal_batch = std::min(remaining, literal_count_);
       int actual_read = bit_reader_.GetBatch(bit_width_, out, literal_batch);
       if (actual_read != literal_batch) {
         return values_read;
@@ -326,92 +333,221 @@ inline int RleDecoder::GetBatch(T* values, int batch_size) {
   return values_read;
 }
 
+template <typename T, typename RunType, typename Converter>
+inline int RleDecoder::GetSpaced(Converter converter, int batch_size, int null_count,
+                                 const uint8_t* valid_bits, int64_t valid_bits_offset,
+                                 T* out) {
+  if (ARROW_PREDICT_FALSE(null_count == batch_size)) {
+    converter.FillZero(out, out + batch_size);
+    return batch_size;
+  }
+
+  DCHECK_GE(bit_width_, 0);
+  int values_read = 0;
+  int values_remaining = batch_size - null_count;
+
+  // Assume no bits to start.
+  arrow::internal::BitRunReader bit_reader(valid_bits, valid_bits_offset,
+                                           /*length=*/batch_size);
+  arrow::internal::BitRun valid_run = bit_reader.NextRun();
+  while (values_read < batch_size) {
+    if (ARROW_PREDICT_FALSE(valid_run.length == 0)) {
+      valid_run = bit_reader.NextRun();
+    }
+
+    DCHECK_GT(batch_size, 0);
+    DCHECK_GT(valid_run.length, 0);
+
+    if (valid_run.set) {
+      if ((repeat_count_ == 0) && (literal_count_ == 0)) {
+        if (!NextCounts<RunType>()) return values_read;
+        DCHECK((repeat_count_ > 0) ^ (literal_count_ > 0));
+      }
+
+      if (repeat_count_ > 0) {
+        int repeat_batch = 0;
+        // Consume the entire repeat counts incrementing repeat_batch to
+        // be the total of nulls + values consumed, we only need to
+        // get the total count because we can fill in the same value for
+        // nulls and non-nulls. This proves to be a big efficiency win.
+        while (repeat_count_ > 0 && (values_read + repeat_batch) < batch_size) {
+          DCHECK_GT(valid_run.length, 0);
+          if (valid_run.set) {
+            int update_size = std::min(static_cast<int>(valid_run.length), repeat_count_);
+            repeat_count_ -= update_size;
+            repeat_batch += update_size;
+            valid_run.length -= update_size;
+            values_remaining -= update_size;
+          } else {
+            // We can consume all nulls here because we would do so on
+            //  the next loop anyways.
+            repeat_batch += static_cast<int>(valid_run.length);
+            valid_run.length = 0;
+          }
+          if (valid_run.length == 0) {
+            valid_run = bit_reader.NextRun();
+          }
+        }
+        RunType current_value = static_cast<RunType>(current_value_);
+        if (ARROW_PREDICT_FALSE(!converter.IsValid(current_value))) {
+          return values_read;
+        }
+        converter.Fill(out, out + repeat_batch, current_value);
+        out += repeat_batch;
+        values_read += repeat_batch;
+      } else if (literal_count_ > 0) {
+        int literal_batch = std::min(values_remaining, literal_count_);
+        DCHECK_GT(literal_batch, 0);
+
+        // Decode the literals
+        constexpr int kBufferSize = 1024;
+        RunType indices[kBufferSize];
+        literal_batch = std::min(literal_batch, kBufferSize);
+        int actual_read = bit_reader_.GetBatch(bit_width_, indices, literal_batch);
+        if (ARROW_PREDICT_FALSE(actual_read != literal_batch)) {
+          return values_read;
+        }
+        if (!converter.IsValid(indices, /*length=*/actual_read)) {
+          return values_read;
+        }
+        int skipped = 0;
+        int literals_read = 0;
+        while (literals_read < literal_batch) {
+          if (valid_run.set) {
+            int update_size = std::min(literal_batch - literals_read,
+                                       static_cast<int>(valid_run.length));
+            converter.Copy(out, indices + literals_read, update_size);
+            literals_read += update_size;
+            out += update_size;
+            valid_run.length -= update_size;
+          } else {
+            converter.FillZero(out, out + valid_run.length);
+            out += valid_run.length;
+            skipped += static_cast<int>(valid_run.length);
+            valid_run.length = 0;
+          }
+          if (valid_run.length == 0) {
+            valid_run = bit_reader.NextRun();
+          }
+        }
+        literal_count_ -= literal_batch;
+        values_remaining -= literal_batch;
+        values_read += literal_batch + skipped;
+      }
+    } else {
+      converter.FillZero(out, out + valid_run.length);
+      out += valid_run.length;
+      values_read += static_cast<int>(valid_run.length);
+      valid_run.length = 0;
+    }
+  }
+  DCHECK_EQ(valid_run.length, 0);
+  DCHECK_EQ(values_remaining, 0);
+  return values_read;
+}
+
+// Converter for GetSpaced that handles runs that get returned
+// directly as output.
+template <typename T>
+struct PlainRleConverter {
+  T kZero = {};
+  inline bool IsValid(const T& values) const { return true; }
+  inline bool IsValid(const T* values, int32_t length) const { return true; }
+  inline void Fill(T* begin, T* end, const T& run_value) const {
+    std::fill(begin, end, run_value);
+  }
+  inline void FillZero(T* begin, T* end) { std::fill(begin, end, kZero); }
+  inline void Copy(T* out, const T* values, int length) const {
+    std::memcpy(out, values, length * sizeof(T));
+  }
+};
+
 template <typename T>
 inline int RleDecoder::GetBatchSpaced(int batch_size, int null_count,
                                       const uint8_t* valid_bits,
                                       int64_t valid_bits_offset, T* out) {
-  DCHECK_GE(bit_width_, 0);
-  int values_read = 0;
-  int remaining_nulls = null_count;
-  T zero = {};
-
-  arrow::internal::BitmapReader bit_reader(valid_bits, valid_bits_offset, batch_size);
-
-  while (values_read < batch_size) {
-    bool is_valid = bit_reader.IsSet();
-    bit_reader.Next();
-
-    if (is_valid) {
-      if ((repeat_count_ == 0) && (literal_count_ == 0)) {
-        if (!NextCounts<T>()) return values_read;
-      }
-      if (repeat_count_ > 0) {
-        // The current index is already valid, we don't need to check that again
-        int repeat_batch = 1;
-        repeat_count_--;
-
-        while (repeat_count_ > 0 && (values_read + repeat_batch) < batch_size) {
-          if (bit_reader.IsSet()) {
-            repeat_count_--;
-          } else {
-            remaining_nulls--;
-          }
-          repeat_batch++;
-
-          bit_reader.Next();
-        }
-        std::fill(out, out + repeat_batch, static_cast<T>(current_value_));
-        out += repeat_batch;
-        values_read += repeat_batch;
-      } else if (literal_count_ > 0) {
-        int literal_batch = std::min(batch_size - values_read - remaining_nulls,
-                                     static_cast<int>(literal_count_));
-
-        // Decode the literals
-        constexpr int kBufferSize = 1024;
-        T indices[kBufferSize];
-        literal_batch = std::min(literal_batch, kBufferSize);
-        int actual_read = bit_reader_.GetBatch(bit_width_, &indices[0], literal_batch);
-        DCHECK_EQ(actual_read, literal_batch);
-
-        int skipped = 0;
-        int literals_read = 1;
-        *out++ = indices[0];
-
-        // Read the first bitset to the end
-        while (literals_read < literal_batch) {
-          if (bit_reader.IsSet()) {
-            *out = indices[literals_read];
-            literals_read++;
-          } else {
-            *out = zero;
-            skipped++;
-          }
-          ++out;
-          bit_reader.Next();
-        }
-        literal_count_ -= literal_batch;
-        values_read += literal_batch + skipped;
-        remaining_nulls -= skipped;
-      }
-    } else {
-      *out = zero;
-      ++out;
-      values_read++;
-      remaining_nulls--;
-    }
+  if (null_count == 0) {
+    return GetBatch<T>(out, batch_size);
   }
 
-  return values_read;
+  PlainRleConverter<T> converter;
+  arrow::internal::BitBlockCounter block_counter(valid_bits, valid_bits_offset,
+                                                 batch_size);
+
+  int total_processed = 0;
+  int processed = 0;
+  arrow::internal::BitBlockCount block;
+
+  do {
+    block = block_counter.NextFourWords();
+    if (block.length == 0) {
+      break;
+    }
+    if (block.AllSet()) {
+      processed = GetBatch<T>(out, block.length);
+    } else if (block.NoneSet()) {
+      converter.FillZero(out, out + block.length);
+      processed = block.length;
+    } else {
+      processed = GetSpaced<T, /*RunType=*/T, PlainRleConverter<T>>(
+          converter, block.length, block.length - block.popcount, valid_bits,
+          valid_bits_offset, out);
+    }
+    total_processed += processed;
+    out += block.length;
+    valid_bits_offset += block.length;
+  } while (processed == block.length);
+  return total_processed;
 }
 
 static inline bool IndexInRange(int32_t idx, int32_t dictionary_length) {
   return idx >= 0 && idx < dictionary_length;
 }
 
+// Converter for GetSpaced that handles runs of returned dictionary
+// indices.
+template <typename T>
+struct DictionaryConverter {
+  T kZero = {};
+  const T* dictionary;
+  int32_t dictionary_length;
+
+  inline bool IsValid(int32_t value) { return IndexInRange(value, dictionary_length); }
+
+  inline bool IsValid(const int32_t* values, int32_t length) const {
+    using IndexType = int32_t;
+    IndexType min_index = std::numeric_limits<IndexType>::max();
+    IndexType max_index = std::numeric_limits<IndexType>::min();
+    for (int x = 0; x < length; x++) {
+      min_index = std::min(values[x], min_index);
+      max_index = std::max(values[x], max_index);
+    }
+
+    return IndexInRange(min_index, dictionary_length) &&
+           IndexInRange(max_index, dictionary_length);
+  }
+  inline void Fill(T* begin, T* end, const int32_t& run_value) const {
+    std::fill(begin, end, dictionary[run_value]);
+  }
+  inline void FillZero(T* begin, T* end) { std::fill(begin, end, kZero); }
+
+  inline void Copy(T* out, const int32_t* values, int length) const {
+    for (int x = 0; x < length; x++) {
+      out[x] = dictionary[values[x]];
+    }
+  }
+};
+
 template <typename T>
 inline int RleDecoder::GetBatchWithDict(const T* dictionary, int32_t dictionary_length,
                                         T* values, int batch_size) {
+  // Per https://github.com/apache/parquet-format/blob/master/Encodings.md,
+  // the maximum dictionary index width in Parquet is 32 bits.
+  using IndexType = int32_t;
+  DictionaryConverter<T> converter;
+  converter.dictionary = dictionary;
+  converter.dictionary_length = dictionary_length;
+
   DCHECK_GE(bit_width_, 0);
   int values_read = 0;
 
@@ -421,13 +557,13 @@ inline int RleDecoder::GetBatchWithDict(const T* dictionary, int32_t dictionary_
     int remaining = batch_size - values_read;
 
     if (repeat_count_ > 0) {
-      auto idx = static_cast<int32_t>(current_value_);
+      auto idx = static_cast<IndexType>(current_value_);
       if (ARROW_PREDICT_FALSE(!IndexInRange(idx, dictionary_length))) {
         return values_read;
       }
       T val = dictionary[idx];
 
-      int repeat_batch = std::min(remaining, static_cast<int>(repeat_count_));
+      int repeat_batch = std::min(remaining, repeat_count_);
       std::fill(out, out + repeat_batch, val);
 
       /* Upkeep counters */
@@ -436,30 +572,26 @@ inline int RleDecoder::GetBatchWithDict(const T* dictionary, int32_t dictionary_
       out += repeat_batch;
     } else if (literal_count_ > 0) {
       constexpr int kBufferSize = 1024;
-      int indices[kBufferSize];
+      IndexType indices[kBufferSize];
 
-      int literal_batch = std::min(remaining, static_cast<int>(literal_count_));
+      int literal_batch = std::min(remaining, literal_count_);
       literal_batch = std::min(literal_batch, kBufferSize);
 
       int actual_read = bit_reader_.GetBatch(bit_width_, indices, literal_batch);
       if (ARROW_PREDICT_FALSE(actual_read != literal_batch)) {
         return values_read;
       }
-
-      for (int i = 0; i < literal_batch; ++i) {
-        int index = indices[i];
-        if (ARROW_PREDICT_FALSE(!IndexInRange(index, dictionary_length))) {
-          return values_read;
-        }
-        out[i] = dictionary[index];
+      if (ARROW_PREDICT_FALSE(!converter.IsValid(indices, /*length=*/literal_batch))) {
+        return values_read;
       }
+      converter.Copy(out, indices, literal_batch);
 
       /* Upkeep counters */
       literal_count_ -= literal_batch;
       values_read += literal_batch;
       out += literal_batch;
     } else {
-      if (!NextCounts<T>()) return values_read;
+      if (!NextCounts<IndexType>()) return values_read;
     }
   }
 
@@ -472,93 +604,39 @@ inline int RleDecoder::GetBatchWithDictSpaced(const T* dictionary,
                                               int batch_size, int null_count,
                                               const uint8_t* valid_bits,
                                               int64_t valid_bits_offset) {
-  DCHECK_GE(bit_width_, 0);
-  int values_read = 0;
-  int remaining_nulls = null_count;
-  T zero = {};
-
-  arrow::internal::BitmapReader bit_reader(valid_bits, valid_bits_offset, batch_size);
-
-  while (values_read < batch_size) {
-    bool is_valid = bit_reader.IsSet();
-    bit_reader.Next();
-
-    if (is_valid) {
-      if ((repeat_count_ == 0) && (literal_count_ == 0)) {
-        if (!NextCounts<T>()) return values_read;
-      }
-      if (repeat_count_ > 0) {
-        auto idx = static_cast<int32_t>(current_value_);
-        if (ARROW_PREDICT_FALSE(!IndexInRange(idx, dictionary_length))) {
-          return values_read;
-        }
-        T value = dictionary[idx];
-        // The current index is already valid, we don't need to check that again
-        int repeat_batch = 1;
-        repeat_count_--;
-
-        while (repeat_count_ > 0 && (values_read + repeat_batch) < batch_size) {
-          if (bit_reader.IsSet()) {
-            repeat_count_--;
-          } else {
-            remaining_nulls--;
-          }
-          repeat_batch++;
-
-          bit_reader.Next();
-        }
-        std::fill(out, out + repeat_batch, value);
-        out += repeat_batch;
-        values_read += repeat_batch;
-      } else if (literal_count_ > 0) {
-        int literal_batch = std::min(batch_size - values_read - remaining_nulls,
-                                     static_cast<int>(literal_count_));
-
-        // Decode the literals
-        constexpr int kBufferSize = 1024;
-        int indices[kBufferSize];
-        literal_batch = std::min(literal_batch, kBufferSize);
-        int actual_read = bit_reader_.GetBatch(bit_width_, &indices[0], literal_batch);
-        if (actual_read != literal_batch) return values_read;
-
-        int skipped = 0;
-        int literals_read = 1;
-
-        int first_idx = indices[0];
-        if (ARROW_PREDICT_FALSE(!IndexInRange(first_idx, dictionary_length))) {
-          return values_read;
-        }
-        *out++ = dictionary[first_idx];
-
-        // Read the first bitset to the end
-        while (literals_read < literal_batch) {
-          if (bit_reader.IsSet()) {
-            int idx = indices[literals_read];
-            if (ARROW_PREDICT_FALSE(!IndexInRange(idx, dictionary_length))) {
-              return values_read;
-            }
-            *out = dictionary[idx];
-            literals_read++;
-          } else {
-            *out = zero;
-            skipped++;
-          }
-          ++out;
-          bit_reader.Next();
-        }
-        literal_count_ -= literal_batch;
-        values_read += literal_batch + skipped;
-        remaining_nulls -= skipped;
-      }
-    } else {
-      *out = zero;
-      ++out;
-      values_read++;
-      remaining_nulls--;
-    }
+  if (null_count == 0) {
+    return GetBatchWithDict<T>(dictionary, dictionary_length, out, batch_size);
   }
+  arrow::internal::BitBlockCounter block_counter(valid_bits, valid_bits_offset,
+                                                 batch_size);
+  using IndexType = int32_t;
+  DictionaryConverter<T> converter;
+  converter.dictionary = dictionary;
+  converter.dictionary_length = dictionary_length;
 
-  return values_read;
+  int total_processed = 0;
+  int processed = 0;
+  arrow::internal::BitBlockCount block;
+  do {
+    block = block_counter.NextFourWords();
+    if (block.length == 0) {
+      break;
+    }
+    if (block.AllSet()) {
+      processed = GetBatchWithDict<T>(dictionary, dictionary_length, out, block.length);
+    } else if (block.NoneSet()) {
+      converter.FillZero(out, out + block.length);
+      processed = block.length;
+    } else {
+      processed = GetSpaced<T, /*RunType=*/IndexType, DictionaryConverter<T>>(
+          converter, block.length, block.length - block.popcount, valid_bits,
+          valid_bits_offset, out);
+    }
+    total_processed += processed;
+    out += block.length;
+    valid_bits_offset += block.length;
+  } while (processed == block.length);
+  return total_processed;
 }
 
 template <typename T>
@@ -572,15 +650,21 @@ bool RleDecoder::NextCounts() {
   bool is_literal = indicator_value & 1;
   uint32_t count = indicator_value >> 1;
   if (is_literal) {
-    if (count > UINT32_MAX / 8) return false;
-    literal_count_ = count * 8;
-  } else {
-    repeat_count_ = count;
-    // XXX (ARROW-4018) this is not big-endian compatible
-    if (!bit_reader_.GetAligned<T>(static_cast<int>(BitUtil::CeilDiv(bit_width_, 8)),
-                                   reinterpret_cast<T*>(&current_value_))) {
+    if (ARROW_PREDICT_FALSE(count == 0 || count > static_cast<uint32_t>(INT32_MAX) / 8)) {
       return false;
     }
+    literal_count_ = count * 8;
+  } else {
+    if (ARROW_PREDICT_FALSE(count == 0 || count > static_cast<uint32_t>(INT32_MAX))) {
+      return false;
+    }
+    repeat_count_ = count;
+    T value = {};
+    if (!bit_reader_.GetAligned<T>(static_cast<int>(BitUtil::CeilDiv(bit_width_, 8)),
+                                   &value)) {
+      return false;
+    }
+    current_value_ = static_cast<uint64_t>(value);
   }
   return true;
 }
@@ -740,5 +824,3 @@ inline void RleEncoder::Clear() {
 
 }  // namespace util
 }  // namespace arrow
-
-#endif  // ARROW_UTIL_RLE_ENCODING_H

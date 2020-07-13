@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-import io.netty.buffer.ArrowBuf;
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.vector.complex.writer.DecimalWriter;
 import org.apache.arrow.vector.holders.DecimalHolder;
 
@@ -181,6 +181,14 @@ public class UnionFixedSizeListWriter extends AbstractFieldWriter {
     writer.setPosition(writer.idx() + 1);
   }
 
+  @Override
+  public void writeNull() {
+    if (writer.idx() >= (idx() + 1) * listSize) {
+      throw new IllegalStateException(String.format("values at index %s is greater than listSize %s", idx(), listSize));
+    }
+    writer.writeNull();
+  }
+
   public void writeDecimal(int start, ArrowBuf buffer, ArrowType arrowType) {
     if (writer.idx() >= (idx() + 1) * listSize) {
       throw new IllegalStateException(String.format("values at index %s is greater than listSize %s", idx(), listSize));
@@ -194,6 +202,14 @@ public class UnionFixedSizeListWriter extends AbstractFieldWriter {
       throw new IllegalStateException(String.format("values at index %s is greater than listSize %s", idx(), listSize));
     }
     writer.writeDecimal(value);
+    writer.setPosition(writer.idx() + 1);
+  }
+
+  public void writeBigEndianBytesToDecimal(byte[] value, ArrowType arrowType) {
+    if (writer.idx() >= (idx() + 1) * listSize) {
+      throw new IllegalStateException(String.format("values at index %s is greater than listSize %s", idx(), listSize));
+    }
+    writer.writeBigEndianBytesToDecimal(value, arrowType);
     writer.setPosition(writer.idx() + 1);
   }
 

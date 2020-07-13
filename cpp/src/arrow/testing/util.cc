@@ -175,10 +175,9 @@ int64_t CountNulls(const std::vector<uint8_t>& valid_bytes) {
 
 Status MakeRandomByteBuffer(int64_t length, MemoryPool* pool,
                             std::shared_ptr<ResizableBuffer>* out, uint32_t seed) {
-  std::shared_ptr<ResizableBuffer> result;
-  RETURN_NOT_OK(AllocateResizableBuffer(pool, length, &result));
+  ARROW_ASSIGN_OR_RAISE(auto result, AllocateResizableBuffer(length, pool));
   random_bytes(length, seed, result->mutable_data());
-  *out = result;
+  *out = std::move(result);
   return Status::OK();
 }
 
@@ -232,6 +231,12 @@ int GetListenPort() {
 #endif
 
   return port;
+}
+
+const std::vector<std::shared_ptr<DataType>>& all_dictionary_index_types() {
+  static std::vector<std::shared_ptr<DataType>> types = {
+      int8(), uint8(), int16(), uint16(), int32(), uint32(), int64(), uint64()};
+  return types;
 }
 
 }  // namespace arrow

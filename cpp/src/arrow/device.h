@@ -137,7 +137,7 @@ class ARROW_EXPORT MemoryManager : public std::enable_shared_from_this<MemoryMan
 
   explicit MemoryManager(const std::shared_ptr<Device>& device) : device_(device) {}
 
-  // Default implementations always return nullptr, should be overriden
+  // Default implementations always return nullptr, should be overridden
   // by subclasses that support data transfer.
   // (returning nullptr means unsupported copy / view)
   // In CopyBufferFrom and ViewBufferFrom, the `from` parameter is guaranteed to

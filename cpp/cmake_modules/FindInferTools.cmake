@@ -25,8 +25,8 @@
 #   to find infer
 #
 # This module defines
-#  INFER_BIN, The  path to the clang tidy binary
-#  INFER_FOUND, Whether clang tidy was found
+#  INFER_BIN, The  path to the infer binary
+#  INFER_FOUND, Whether infer was found
 
 find_program(INFER_BIN
              NAMES infer

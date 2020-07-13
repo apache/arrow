@@ -26,7 +26,7 @@ SOURCE_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 CPP_BUILD_SUPPORT=$SOURCE_DIR/../cpp/build-support
 
 # Run clang-format
-: ${CLANG_FORMAT:=clang-format-7}
+: ${CLANG_FORMAT:=$(. "${SOURCE_DIR}/../.env" && echo clang-format-${CLANG_TOOLS})}
 $CPP_BUILD_SUPPORT/run_clang_format.py \
     --clang_format_binary=$CLANG_FORMAT \
     --exclude_glob=$CPP_BUILD_SUPPORT/lint_exclusions.txt \

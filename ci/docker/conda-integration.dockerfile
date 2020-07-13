@@ -25,12 +25,16 @@ ARG node=11
 ARG jdk=8
 ARG go=1.12
 
+COPY ci/conda_env_archery.yml /arrow/ci/
 RUN conda install -q \
+        --file arrow/ci/conda_env_archery.yml \
         numpy \
         maven=${maven} \
         nodejs=${node} \
         openjdk=${jdk} && \
     conda clean --all
+
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 
 ENV GOROOT=/opt/go \
     GOBIN=/opt/go/bin \

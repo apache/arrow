@@ -29,13 +29,16 @@ RUN \
     createrepo \
     devscripts \
     gpg \
+    locales \
     openssh-server \
+    rake \
     rpm \
     ruby \
-    rake \
     sudo && \
   apt clean && \
   rm -rf /var/lib/apt/lists/*
+
+RUN locale-gen en_US.UTF-8
 
 RUN mkdir -p /run/sshd
 RUN echo "StreamLocalBindUnlink yes" >> /etc/ssh/sshd_config

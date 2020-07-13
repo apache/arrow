@@ -30,6 +30,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.ListVector;
@@ -54,8 +55,6 @@ import org.apache.arrow.vector.util.Text;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-
-import io.netty.buffer.ArrowBuf;
 
 public class TestDictionaryVector {
 
@@ -187,7 +186,7 @@ public class TestDictionaryVector {
         // verify indices
         assertEquals(IntVector.class, encoded.getClass());
 
-        IntVector index = ((IntVector)encoded);
+        IntVector index = ((IntVector) encoded);
         assertEquals(6, index.getValueCount());
         assertEquals(0, index.get(0));
         assertEquals(0, index.get(1));
@@ -246,7 +245,7 @@ public class TestDictionaryVector {
         // verify indices
         assertEquals(IntVector.class, encoded.getClass());
 
-        IntVector index = ((IntVector)encoded);
+        IntVector index = ((IntVector) encoded);
         assertEquals(7, index.getValueCount());
         assertEquals(0, index.get(0));
         assertEquals(0, index.get(1));
@@ -283,7 +282,7 @@ public class TestDictionaryVector {
         // verify indices
         assertEquals(IntVector.class, encoded.getClass());
 
-        IntVector index = ((IntVector)encoded);
+        IntVector index = ((IntVector) encoded);
         assertEquals(5, index.getValueCount());
         assertEquals(0, index.get(0));
         assertEquals(1, index.get(1));
@@ -357,7 +356,7 @@ public class TestDictionaryVector {
         // verify indices
         assertEquals(IntVector.class, encoded.getClass());
 
-        IntVector index = ((IntVector)encoded);
+        IntVector index = ((IntVector) encoded);
         assertEquals(5, index.getValueCount());
         assertEquals(0, index.get(0));
         assertEquals(1, index.get(1));
@@ -654,17 +653,17 @@ public class TestDictionaryVector {
 
         assertEquals(6, encoded.getValueCount());
         int[] realValue1 = convertListToIntArray((JsonStringArrayList) encoded.getObject(0));
-        assertTrue(Arrays.equals(new int[] {0,1}, realValue1));
+        assertTrue(Arrays.equals(new int[] {0, 1}, realValue1));
         int[] realValue2 = convertListToIntArray((JsonStringArrayList) encoded.getObject(1));
-        assertTrue(Arrays.equals(new int[] {0,1}, realValue2));
+        assertTrue(Arrays.equals(new int[] {0, 1}, realValue2));
         int[] realValue3 = convertListToIntArray((JsonStringArrayList) encoded.getObject(2));
-        assertTrue(Arrays.equals(new int[] {0,1}, realValue3));
+        assertTrue(Arrays.equals(new int[] {0, 1}, realValue3));
         int[] realValue4 = convertListToIntArray((JsonStringArrayList) encoded.getObject(3));
-        assertTrue(Arrays.equals(new int[] {2,3,4}, realValue4));
+        assertTrue(Arrays.equals(new int[] {2, 3, 4}, realValue4));
         int[] realValue5 = convertListToIntArray((JsonStringArrayList) encoded.getObject(4));
-        assertTrue(Arrays.equals(new int[] {2,3,4}, realValue5));
+        assertTrue(Arrays.equals(new int[] {2, 3, 4}, realValue5));
         int[] realValue6 = convertListToIntArray((JsonStringArrayList) encoded.getObject(5));
-        assertTrue(Arrays.equals(new int[] {0,1}, realValue6));
+        assertTrue(Arrays.equals(new int[] {0, 1}, realValue6));
 
         // now run through the decoder and verify we get the original back
         try (ValueVector decoded = encoder.decodeListSubField(encoded)) {
@@ -732,13 +731,13 @@ public class TestDictionaryVector {
 
         assertEquals(4, encoded.getValueCount());
         int[] realValue1 = convertListToIntArray((JsonStringArrayList) encoded.getObject(0));
-        assertTrue(Arrays.equals(new int[] {0,1}, realValue1));
+        assertTrue(Arrays.equals(new int[] {0, 1}, realValue1));
         int[] realValue2 = convertListToIntArray((JsonStringArrayList) encoded.getObject(1));
-        assertTrue(Arrays.equals(new int[] {0,1}, realValue2));
+        assertTrue(Arrays.equals(new int[] {0, 1}, realValue2));
         int[] realValue3 = convertListToIntArray((JsonStringArrayList) encoded.getObject(2));
-        assertTrue(Arrays.equals(new int[] {2,3}, realValue3));
+        assertTrue(Arrays.equals(new int[] {2, 3}, realValue3));
         int[] realValue4 = convertListToIntArray((JsonStringArrayList) encoded.getObject(3));
-        assertTrue(Arrays.equals(new int[] {0,1}, realValue4));
+        assertTrue(Arrays.equals(new int[] {0, 1}, realValue4));
 
         // now run through the decoder and verify we get the original back
         try (ValueVector decoded = encoder.decodeListSubField(encoded)) {
@@ -799,15 +798,15 @@ public class TestDictionaryVector {
 
         assertEquals(5, encoded.getValueCount());
         Object[] realValue1 = convertMapValuesToArray((JsonStringHashMap) encoded.getObject(0));
-        assertTrue(Arrays.equals(new Object[] {0,1}, realValue1));
+        assertTrue(Arrays.equals(new Object[] {0, 1}, realValue1));
         Object[] realValue2 = convertMapValuesToArray((JsonStringHashMap) encoded.getObject(1));
-        assertTrue(Arrays.equals(new Object[] {1,2}, realValue2));
+        assertTrue(Arrays.equals(new Object[] {1, 2}, realValue2));
         Object[] realValue3 = convertMapValuesToArray((JsonStringHashMap) encoded.getObject(2));
-        assertTrue(Arrays.equals(new Object[] {2,0}, realValue3));
+        assertTrue(Arrays.equals(new Object[] {2, 0}, realValue3));
         Object[] realValue4 = convertMapValuesToArray((JsonStringHashMap) encoded.getObject(3));
-        assertTrue(Arrays.equals(new Object[] {0,0}, realValue4));
+        assertTrue(Arrays.equals(new Object[] {0, 0}, realValue4));
         Object[] realValue5 = convertMapValuesToArray((JsonStringHashMap) encoded.getObject(4));
-        assertTrue(Arrays.equals(new Object[] {3,0}, realValue5));
+        assertTrue(Arrays.equals(new Object[] {3, 0}, realValue5));
 
         // now run through the decoder and verify we get the original back
         try (ValueVector decoded = encoder.decode(encoded)) {

@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PARQUET_COLUMN_SCANNER_H
-#define PARQUET_COLUMN_SCANNER_H
+#pragma once
 
 #include <stdio.h>
 
@@ -261,5 +260,3 @@ int64_t PARQUET_EXPORT ScanAllValues(int32_t batch_size, int16_t* def_levels,
                                      parquet::ColumnReader* reader);
 
 }  // namespace parquet
-
-#endif  // PARQUET_COLUMN_SCANNER_H

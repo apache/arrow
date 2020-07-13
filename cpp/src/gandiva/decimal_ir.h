@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_DECIMAL_ADD_IR_BUILDER_H
-#define GANDIVA_DECIMAL_ADD_IR_BUILDER_H
+#pragma once
 
 #include <memory>
 #include <string>
@@ -187,5 +186,3 @@ class DecimalIR : public FunctionIRBuilder {
 };
 
 }  // namespace gandiva
-
-#endif  // GANDIVA_FUNCTION_IR_BUILDER_H

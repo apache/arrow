@@ -75,8 +75,8 @@ class SerialTaskGroup : public TaskGroup {
 
 class ThreadedTaskGroup : public TaskGroup {
  public:
-  explicit ThreadedTaskGroup(ThreadPool* thread_pool)
-      : thread_pool_(thread_pool), nremaining_(0), ok_(true) {}
+  explicit ThreadedTaskGroup(Executor* executor)
+      : executor_(executor), nremaining_(0), ok_(true) {}
 
   ~ThreadedTaskGroup() override {
     // Make sure all pending tasks are finished, so that dangling references
@@ -91,7 +91,7 @@ class ThreadedTaskGroup : public TaskGroup {
       nremaining_.fetch_add(1, std::memory_order_acquire);
 
       auto self = checked_pointer_cast<ThreadedTaskGroup>(shared_from_this());
-      Status st = thread_pool_->Spawn([self, task]() {
+      Status st = executor_->Spawn([self, task]() {
         if (self->ok_.load(std::memory_order_acquire)) {
           // XXX what about exceptions?
           Status st = task();
@@ -123,11 +123,11 @@ class ThreadedTaskGroup : public TaskGroup {
     return status_;
   }
 
-  int parallelism() override { return thread_pool_->GetCapacity(); }
+  int parallelism() override { return executor_->GetCapacity(); }
 
   std::shared_ptr<TaskGroup> MakeSubGroup() override {
     std::lock_guard<std::mutex> lock(mutex_);
-    auto child = new ThreadedTaskGroup(thread_pool_);
+    auto child = new ThreadedTaskGroup(executor_);
     child->parent_ = this;
     nremaining_.fetch_add(1, std::memory_order_acquire);
     return std::shared_ptr<TaskGroup>(child);
@@ -156,7 +156,7 @@ class ThreadedTaskGroup : public TaskGroup {
   }
 
   // These members are usable unlocked
-  ThreadPool* thread_pool_;
+  Executor* executor_;
   std::atomic<int32_t> nremaining_;
   std::atomic<bool> ok_;
 
@@ -172,7 +172,7 @@ std::shared_ptr<TaskGroup> TaskGroup::MakeSerial() {
   return std::shared_ptr<TaskGroup>(new SerialTaskGroup);
 }
 
-std::shared_ptr<TaskGroup> TaskGroup::MakeThreaded(ThreadPool* thread_pool) {
+std::shared_ptr<TaskGroup> TaskGroup::MakeThreaded(Executor* thread_pool) {
   return std::shared_ptr<TaskGroup>(new ThreadedTaskGroup(thread_pool));
 }
 

@@ -1,6 +1,0 @@
-Keras-Preprocessing
-cython
-numpy>=1.16
-pandas
-setuptools_scm==3.2.0
-wheel

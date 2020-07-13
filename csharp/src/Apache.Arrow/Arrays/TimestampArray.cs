@@ -22,7 +22,7 @@ namespace Apache.Arrow
 {
     public class TimestampArray: PrimitiveArray<long>
     {
-        private static readonly DateTimeOffset Epoch = new DateTimeOffset(1970, 1, 1, 0, 0, 0, 0, TimeSpan.Zero);
+        private static readonly DateTimeOffset s_epoch = new DateTimeOffset(1970, 1, 1, 0, 0, 0, 0, TimeSpan.Zero);
 
         public class Builder: PrimitiveArrayBuilder<DateTimeOffset, long, TimestampArray, Builder>
         {
@@ -70,8 +70,8 @@ namespace Apache.Arrow
                 // - Compute time span between epoch and specified time
                 // - Compute time divisions per tick
 
-                var timeSpan = value - Epoch;
-                var ticks = timeSpan.Ticks;
+                TimeSpan timeSpan = value - s_epoch;
+                long ticks = timeSpan.Ticks;
 
                 switch (DataType.Unit)
                 {
@@ -109,7 +109,7 @@ namespace Apache.Arrow
         public DateTimeOffset GetTimestampUnchecked(int index)
         {
             var type = (TimestampType) Data.DataType;
-            var value = Values[index];
+            long value = Values[index];
 
             long ticks;
 
@@ -132,7 +132,7 @@ namespace Apache.Arrow
                         $"Unsupported timestamp unit <{type.Unit}>");
             }
 
-            return new DateTimeOffset(Epoch.Ticks + ticks, TimeSpan.Zero);
+            return new DateTimeOffset(s_epoch.Ticks + ticks, TimeSpan.Zero);
         }
 
         public DateTimeOffset? GetTimestamp(int index)

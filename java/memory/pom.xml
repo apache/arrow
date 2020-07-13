@@ -18,32 +18,12 @@
   </parent>
   <artifactId>arrow-memory</artifactId>
   <name>Arrow Memory</name>
-  <description>Core off-heap memory management libraries for Arrow ValueVectors.</description>
+  <packaging>pom</packaging>
 
-  <dependencies>
-    <dependency>
-      <groupId>com.google.code.findbugs</groupId>
-      <artifactId>jsr305</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>io.netty</groupId>
-      <artifactId>netty-buffer</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>io.netty</groupId>
-      <artifactId>netty-common</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-api</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.immutables</groupId>
-      <artifactId>value</artifactId>
-    </dependency>
-  </dependencies>
-
-  <build>
-  </build>
+  <modules>
+    <module>memory-core</module>
+    <module>memory-unsafe</module>
+    <module>memory-netty</module>
+  </modules>
 
 </project>

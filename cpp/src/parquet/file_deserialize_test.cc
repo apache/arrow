@@ -41,13 +41,38 @@ using ::arrow::io::BufferReader;
 
 // Adds page statistics occupying a certain amount of bytes (for testing very
 // large page headers)
-static inline void AddDummyStats(int stat_size, format::DataPageHeader& data_page) {
+template <typename H>
+static inline void AddDummyStats(int stat_size, H& header, bool fill_all_stats = false) {
   std::vector<uint8_t> stat_bytes(stat_size);
   // Some non-zero value
   std::fill(stat_bytes.begin(), stat_bytes.end(), 1);
-  data_page.statistics.__set_max(
+  header.statistics.__set_max(
       std::string(reinterpret_cast<const char*>(stat_bytes.data()), stat_size));
-  data_page.__isset.statistics = true;
+
+  if (fill_all_stats) {
+    header.statistics.__set_min(
+        std::string(reinterpret_cast<const char*>(stat_bytes.data()), stat_size));
+    header.statistics.__set_null_count(42);
+    header.statistics.__set_distinct_count(1);
+  }
+
+  header.__isset.statistics = true;
+}
+
+template <typename H>
+static inline void CheckStatistics(const H& expected, const EncodedStatistics& actual) {
+  if (expected.statistics.__isset.max) {
+    ASSERT_EQ(expected.statistics.max, actual.max());
+  }
+  if (expected.statistics.__isset.min) {
+    ASSERT_EQ(expected.statistics.min, actual.min());
+  }
+  if (expected.statistics.__isset.null_count) {
+    ASSERT_EQ(expected.statistics.null_count, actual.null_count);
+  }
+  if (expected.statistics.__isset.distinct_count) {
+    ASSERT_EQ(expected.statistics.distinct_count, actual.distinct_count);
+  }
 }
 
 class TestPageSerde : public ::testing::Test {
@@ -120,13 +145,7 @@ void CheckDataPageHeader(const format::DataPageHeader expected, const Page* page
   ASSERT_EQ(expected.encoding, data_page->encoding());
   ASSERT_EQ(expected.definition_level_encoding, data_page->definition_level_encoding());
   ASSERT_EQ(expected.repetition_level_encoding, data_page->repetition_level_encoding());
-
-  if (expected.statistics.__isset.max) {
-    ASSERT_EQ(expected.statistics.max, data_page->statistics().max());
-  }
-  if (expected.statistics.__isset.min) {
-    ASSERT_EQ(expected.statistics.min, data_page->statistics().min());
-  }
+  CheckStatistics(expected, data_page->statistics());
 }
 
 // Overload for DataPageV2 tests.
@@ -143,16 +162,13 @@ void CheckDataPageHeader(const format::DataPageHeaderV2 expected, const Page* pa
   ASSERT_EQ(expected.repetition_levels_byte_length,
             data_page->repetition_levels_byte_length());
   ASSERT_EQ(expected.is_compressed, data_page->is_compressed());
-
-  // TODO: Tests for DataPageHeaderV2 statistics.
+  CheckStatistics(expected, data_page->statistics());
 }
 
 TEST_F(TestPageSerde, DataPageV1) {
-  format::PageHeader out_page_header;
-
   int stats_size = 512;
   const int32_t num_rows = 4444;
-  AddDummyStats(stats_size, data_page_header_);
+  AddDummyStats(stats_size, data_page_header_, /* fill_all_stats = */ true);
   data_page_header_.num_values = num_rows;
 
   ASSERT_NO_FATAL_FAILURE(WriteDataPageHeader());
@@ -162,10 +178,10 @@ TEST_F(TestPageSerde, DataPageV1) {
 }
 
 TEST_F(TestPageSerde, DataPageV2) {
-  format::PageHeader out_page_header;
-
+  int stats_size = 512;
   const int32_t num_rows = 4444;
-  data_page_header_.num_values = num_rows;
+  AddDummyStats(stats_size, data_page_header_v2_, /* fill_all_stats = */ true);
+  data_page_header_v2_.num_values = num_rows;
 
   ASSERT_NO_FATAL_FAILURE(WriteDataPageHeaderV2());
   InitSerializedPageReader(num_rows);

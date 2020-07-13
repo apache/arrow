@@ -21,15 +21,16 @@
 Arrays and Scalars
 ==================
 
-Factory Function
-----------------
+Factory Functions
+-----------------
 
-This function is the main entry point to create an Arrow array from Python.
+These functions create new Arrow arrays:
 
 .. autosummary::
    :toctree: ../generated/
 
    array
+   nulls
 
 Array Types
 -----------

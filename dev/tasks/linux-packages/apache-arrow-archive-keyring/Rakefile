@@ -36,7 +36,7 @@ class ApacheArrowArchiveKeyringPackageTask < PackageTask
     file @archive_name do
       rm_rf(@archive_base_name)
       mkdir(@archive_base_name)
-      download("https://dist.apache.org/repos/dist/dev/arrow/KEYS",
+      download("https://downloads.apache.org/arrow/KEYS",
                "#{@archive_base_name}/KEYS")
       sh("tar", "czf", @archive_name, @archive_base_name)
       rm_rf(@archive_base_name)
@@ -44,10 +44,13 @@ class ApacheArrowArchiveKeyringPackageTask < PackageTask
 
     if deb_archive_name != @archive_name
       file deb_archive_name => @archive_name do
-        sh("tar", "xf", @archive_name)
-        deb_archive_base_name = File.basename(deb_archive_name, ".tar.gz")
-        mv(@archive_base_name, deb_archive_base_name)
-        sh("tar", "czf", deb_archive_name, deb_archive_base_name)
+        if @archive_base_name == deb_archive_base_name
+          cp(@archive_name, deb_archive_name)
+        else
+          sh("tar", "xf", @archive_name)
+          mv(@archive_base_name, deb_archive_base_name)
+          sh("tar", "czf", deb_archive_name, deb_archive_base_name)
+        end
       end
     end
   end

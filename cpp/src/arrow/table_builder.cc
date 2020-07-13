@@ -20,7 +20,7 @@
 #include <memory>
 #include <utility>
 
-#include "arrow/array.h"
+#include "arrow/array/array_base.h"
 #include "arrow/builder.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"

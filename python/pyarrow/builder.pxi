@@ -15,14 +15,13 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from pyarrow.compat import tobytes
-
 
 cdef class StringBuilder:
     """
-    Builder class for UTF8 strings. This class exposes facilities for
-    incrementally adding string values and building the null bitmap
-    for a pyarrow.Array (type='string').
+    Builder class for UTF8 strings.
+
+    This class exposes facilities for incrementally adding string values and
+    building the null bitmap for a pyarrow.Array (type='string').
     """
     cdef:
         unique_ptr[CStringBuilder] builder
@@ -33,13 +32,15 @@ cdef class StringBuilder:
 
     def append(self, value):
         """
-        Append a single value to the builder. The value can either be a
-        string/bytes object or a null value (np.nan or None).
+        Append a single value to the builder.
+
+        The value can either be a string/bytes object or a null value
+        (np.nan or None).
 
         Parameters
         ----------
         value : string/bytes or np.nan/None
-            The value to append to the string array builder
+            The value to append to the string array builder.
         """
         if value is None or value is np.nan:
             self.builder.get().AppendNull()
@@ -50,13 +51,12 @@ cdef class StringBuilder:
 
     def append_values(self, values):
         """
-        Append all the values in an iterable to the string array builder
-        object.
+        Append all the values from an iterable.
 
         Parameters
         ----------
         values : iterable of string/bytes or np.nan/None values
-            The values to append to the string array builder
+            The values to append to the string array builder.
         """
         for value in values:
             self.append(value)

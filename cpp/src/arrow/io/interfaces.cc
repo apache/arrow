@@ -40,15 +40,19 @@
 
 namespace arrow {
 
+using internal::Executor;
+using internal::TaskHints;
 using internal::ThreadPool;
 
 namespace io {
 
+AsyncContext::AsyncContext() : AsyncContext(internal::GetIOThreadPool()) {}
+
+AsyncContext::AsyncContext(Executor* executor) : executor(executor) {}
+
 FileInterface::~FileInterface() = default;
 
 Status FileInterface::Abort() { return Close(); }
-
-Status FileInterface::Tell(int64_t* position) const { return Tell().Value(position); }
 
 class InputStreamBlockIterator {
  public:
@@ -83,10 +87,6 @@ Result<util::string_view> InputStream::Peek(int64_t ARROW_ARG_UNUSED(nbytes)) {
   return Status::NotImplemented("Peek not implemented");
 }
 
-Status InputStream::Peek(int64_t nbytes, util::string_view* out) {
-  return Peek(nbytes).Value(out);
-}
-
 bool InputStream::supports_zero_copy() const { return false; }
 
 Result<Iterator<std::shared_ptr<Buffer>>> MakeInputStreamIterator(
@@ -96,14 +96,6 @@ Result<Iterator<std::shared_ptr<Buffer>>> MakeInputStreamIterator(
   }
   DCHECK_GT(block_size, 0);
   return Iterator<std::shared_ptr<Buffer>>(InputStreamBlockIterator(stream, block_size));
-}
-
-Status Readable::Read(int64_t nbytes, int64_t* bytes_read, void* out) {
-  return Read(nbytes, out).Value(bytes_read);
-}
-
-Status Readable::Read(int64_t nbytes, std::shared_ptr<Buffer>* out) {
-  return Read(nbytes).Value(out);
 }
 
 struct RandomAccessFile::RandomAccessFileImpl {
@@ -128,29 +120,26 @@ Result<std::shared_ptr<Buffer>> RandomAccessFile::ReadAt(int64_t position,
   return Read(nbytes);
 }
 
-Status RandomAccessFile::ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
-                                void* out) {
-  return ReadAt(position, nbytes, out).Value(bytes_read);
-}
-
-Status RandomAccessFile::ReadAt(int64_t position, int64_t nbytes,
-                                std::shared_ptr<Buffer>* out) {
-  return ReadAt(position, nbytes).Value(out);
-}
-
-Status RandomAccessFile::GetSize(int64_t* size) { return GetSize().Value(size); }
-
-// Default ReadAsync() implementation: simply issue the read on one of the IO threads
-Future<std::shared_ptr<Buffer>> RandomAccessFile::ReadAsync(int64_t position,
+// Default ReadAsync() implementation: simply issue the read on the context's executor
+Future<std::shared_ptr<Buffer>> RandomAccessFile::ReadAsync(const AsyncContext& ctx,
+                                                            int64_t position,
                                                             int64_t nbytes) {
-  auto pool = internal::GetIOThreadPool();
   auto self = shared_from_this();
-  auto maybe_fut =
-      pool->Submit([self, position, nbytes] { return self->ReadAt(position, nbytes); });
+  TaskHints hints;
+  hints.io_size = nbytes;
+  hints.external_id = ctx.external_id;
+  auto maybe_fut = ctx.executor->Submit(std::move(hints), [self, position, nbytes] {
+    return self->ReadAt(position, nbytes);
+  });
   if (!maybe_fut.ok()) {
     return Future<std::shared_ptr<Buffer>>::MakeFinished(maybe_fut.status());
   }
   return *std::move(maybe_fut);
+}
+
+// Default WillNeed() implementation: no-op
+Status RandomAccessFile::WillNeed(const std::vector<ReadRange>& ranges) {
+  return Status::OK();
 }
 
 Status Writable::Write(const std::string& data) {
@@ -271,7 +260,7 @@ Status ValidateWriteRange(int64_t offset, int64_t size, int64_t file_size) {
 
 Status ValidateRange(int64_t offset, int64_t size) {
   if (offset < 0 || size < 0) {
-    return Status::Invalid("Invalid IO (offset = ", offset, ", size = ", size, ")");
+    return Status::Invalid("Invalid IO range (offset = ", offset, ", size = ", size, ")");
   }
   return Status::OK();
 }
@@ -353,7 +342,7 @@ namespace {
 
 struct ReadRangeCombiner {
   std::vector<ReadRange> Coalesce(std::vector<ReadRange> ranges) {
-    if (ranges.size() == 0) {
+    if (ranges.empty()) {
       return ranges;
     }
 
@@ -364,6 +353,11 @@ struct ReadRangeCombiner {
     // Sort in position order
     std::sort(ranges.begin(), ranges.end(),
               [](const ReadRange& a, const ReadRange& b) { return a.offset < b.offset; });
+
+    // Skip further processing if ranges is empty after removing zero-sized ranges.
+    if (ranges.empty()) {
+      return ranges;
+    }
 
 #ifndef NDEBUG
     for (size_t i = 0; i < ranges.size() - 1; ++i) {
@@ -376,65 +370,47 @@ struct ReadRangeCombiner {
 
     std::vector<ReadRange> coalesced;
 
-    // Find some subsets of ranges that we may want to coalesce
-    auto start = ranges.begin(), prev = start, next = prev;
+    auto itr = ranges.begin();
+    // Ensure ranges is not empty.
+    DCHECK_LE(itr, ranges.end());
+    // Start of the current coalesced range and end (exclusive) of previous range.
+    // Both are initialized with the start of first range which is a placeholder value.
+    int64_t coalesced_start = itr->offset;
+    int64_t prev_range_end = coalesced_start;
 
-    while (++next != ranges.end()) {
-      if (next->offset - prev->offset - prev->length > hole_size_limit_) {
-        // Distance between consecutive ranges is too large, coalesce this subset
-        // and start a new one
-        if (next - start > 1) {
-          CoalesceUntilLargeEnough(start, next, &coalesced);
-        } else {
-          coalesced.push_back(*start);
+    for (; itr < ranges.end(); ++itr) {
+      const int64_t current_range_start = itr->offset;
+      const int64_t current_range_end = current_range_start + itr->length;
+      // We don't expect to have 0 sized ranges.
+      DCHECK_LT(current_range_start, current_range_end);
+
+      // At this point, the coalesced range is [coalesced_start, prev_range_end).
+      // Stop coalescing if:
+      //   - coalesced range is too large, or
+      //   - distance (hole/gap) between consecutive ranges is too large.
+      if (current_range_end - coalesced_start > range_size_limit_ ||
+          current_range_start - prev_range_end > hole_size_limit_) {
+        DCHECK_LE(coalesced_start, prev_range_end);
+        // Append the coalesced range only if coalesced range size > 0.
+        if (prev_range_end > coalesced_start) {
+          coalesced.push_back({coalesced_start, prev_range_end - coalesced_start});
         }
-        start = next;
+        // Start a new coalesced range.
+        coalesced_start = current_range_start;
       }
-      prev = next;
+
+      // Update the prev_range_end with the current range.
+      prev_range_end = current_range_end;
     }
-    // Coalesce last subset
-    if (next - start > 1) {
-      CoalesceUntilLargeEnough(start, next, &coalesced);
-    } else {
-      coalesced.push_back(*start);
+    // Append the coalesced range only if coalesced range size > 0.
+    if (prev_range_end > coalesced_start) {
+      coalesced.push_back({coalesced_start, prev_range_end - coalesced_start});
     }
 
     DCHECK_EQ(coalesced.front().offset, ranges.front().offset);
     DCHECK_EQ(coalesced.back().offset + coalesced.back().length,
               ranges.back().offset + ranges.back().length);
     return coalesced;
-  }
-
-  // Coalesce consecutive pairs of ranges, but only if the resulting range size
-  // would not exceed range_size_limit.
-  template <typename ReadRangeIterator>
-  void CoalesceUntilLargeEnough(ReadRangeIterator begin, ReadRangeIterator end,
-                                std::vector<ReadRange>* out) {
-    std::list<ReadRange> todo;
-    std::copy(begin, end, std::back_inserter(todo));
-
-    // Iterate over consecutive pairs
-    auto prev = todo.begin(), next = prev;
-    while (++next != todo.end()) {
-      DCHECK_GE(next->offset, prev->offset);
-      if (CanCoalesce(*prev, *next)) {
-        next->length = (next->offset - prev->offset) + next->length;
-        next->offset = prev->offset;
-        todo.erase(prev);  // Keep `next` valid
-      }
-      prev = next;
-    }
-
-    const auto out_size = out->size();
-    out->resize(out_size + todo.size());
-    std::copy(todo.begin(), todo.end(), &(*out)[out_size]);
-  }
-
-  bool CanCoalesce(const ReadRange& left, const ReadRange& right) {
-    DCHECK_LE(left.offset, right.offset);
-    // Ensured by the subset-finding in Coalesce()
-    DCHECK_LE(right.offset - left.offset - left.length, hole_size_limit_);
-    return left.length + right.length <= range_size_limit_;
   }
 
   const int64_t hole_size_limit_;

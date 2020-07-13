@@ -188,7 +188,7 @@ TEST_F(TestPlasmaStore, SealErrorsTest) {
   ObjectID object_id = random_object_id();
 
   Status result = client_.Seal(object_id);
-  ASSERT_TRUE(IsPlasmaObjectNonexistent(result));
+  ASSERT_TRUE(IsPlasmaObjectNotFound(result));
 
   // Create object.
   std::vector<uint8_t> data(100, 0);
@@ -496,7 +496,7 @@ TEST_F(TestPlasmaStore, RefreshLRUTest) {
 TEST_F(TestPlasmaStore, DeleteTest) {
   ObjectID object_id = random_object_id();
 
-  // Test for deleting non-existence object.
+  // Test for deleting nonexistent object.
   Status result = client_.Delete(object_id);
   ASSERT_OK(result);
 
@@ -526,7 +526,7 @@ TEST_F(TestPlasmaStore, DeleteObjectsTest) {
   ObjectID object_id1 = random_object_id();
   ObjectID object_id2 = random_object_id();
 
-  // Test for deleting non-existence object.
+  // Test for deleting nonexistent object.
   Status result = client_.Delete(std::vector<ObjectID>{object_id1, object_id2});
   ASSERT_OK(result);
   // Test for the object being in local Plasma store.
@@ -569,7 +569,7 @@ TEST_F(TestPlasmaStore, DeleteObjectsTest) {
 TEST_F(TestPlasmaStore, ContainsTest) {
   ObjectID object_id = random_object_id();
 
-  // Test for object non-existence.
+  // Test for object nonexistence.
   bool has_object;
   ASSERT_OK(client_.Contains(object_id, &has_object));
   ASSERT_FALSE(has_object);
@@ -589,7 +589,7 @@ TEST_F(TestPlasmaStore, GetTest) {
 
   ObjectID object_id = random_object_id();
 
-  // Test for object non-existence.
+  // Test for object nonexistence.
   ASSERT_OK(client_.Get({object_id}, 0, &object_buffers));
   ASSERT_EQ(object_buffers.size(), 1);
   ASSERT_FALSE(object_buffers[0].metadata);
@@ -625,7 +625,7 @@ TEST_F(TestPlasmaStore, LegacyGetTest) {
   {
     ObjectBuffer object_buffer;
 
-    // Test for object non-existence.
+    // Test for object nonexistence.
     ASSERT_OK(client_.Get(&object_id, 1, 0, &object_buffer));
     ASSERT_FALSE(object_buffer.metadata);
     ASSERT_FALSE(object_buffer.data);
@@ -696,7 +696,7 @@ TEST_F(TestPlasmaStore, AbortTest) {
   ObjectID object_id = random_object_id();
   std::vector<ObjectBuffer> object_buffers;
 
-  // Test for object non-existence.
+  // Test for object nonexistence.
   ASSERT_OK(client_.Get({object_id}, 0, &object_buffers));
   ASSERT_FALSE(object_buffers[0].data);
 
@@ -723,7 +723,7 @@ TEST_F(TestPlasmaStore, AbortTest) {
   ASSERT_OK(client_.Abort(object_id));
   EXPECT_FALSE(client_.IsInUse(object_id));
 
-  // Test for object non-existence after the abort.
+  // Test for object nonexistence after the abort.
   ASSERT_OK(client_.Get({object_id}, 0, &object_buffers));
   ASSERT_FALSE(object_buffers[0].data);
 
@@ -741,7 +741,7 @@ TEST_F(TestPlasmaStore, OneIdCreateRepeatedlyTest) {
   ObjectID object_id = random_object_id();
   std::vector<ObjectBuffer> object_buffers;
 
-  // Test for object non-existence.
+  // Test for object nonexistence.
   ASSERT_OK(client_.Get({object_id}, 0, &object_buffers));
   ASSERT_FALSE(object_buffers[0].data);
 
@@ -771,7 +771,7 @@ TEST_F(TestPlasmaStore, MultipleClientTest) {
   ObjectID object_id = random_object_id();
   std::vector<ObjectBuffer> object_buffers;
 
-  // Test for object non-existence on the first client.
+  // Test for object nonexistence on the first client.
   bool has_object;
   ASSERT_OK(client_.Contains(object_id, &has_object));
   ASSERT_FALSE(has_object);
@@ -812,7 +812,7 @@ TEST_F(TestPlasmaStore, ManyObjectTest) {
     ObjectID object_id = random_object_id();
     object_ids.push_back(object_id);
 
-    // Test for object non-existence on the first client.
+    // Test for object nonexistence on the first client.
     bool has_object;
     ASSERT_OK(client_.Contains(object_id, &has_object));
     ASSERT_FALSE(has_object);
@@ -890,7 +890,7 @@ TEST_F(TestPlasmaStore, GetGPUTest) {
   ObjectID object_id = random_object_id();
   std::vector<ObjectBuffer> object_buffers;
 
-  // Test for object non-existence.
+  // Test for object nonexistence.
   ASSERT_OK(client_.Get({object_id}, 0, &object_buffers));
   ASSERT_EQ(object_buffers.size(), 1);
   ASSERT_FALSE(object_buffers[0].data);
@@ -924,7 +924,7 @@ TEST_F(TestPlasmaStore, DeleteObjectsGPUTest) {
   ObjectID object_id1 = random_object_id();
   ObjectID object_id2 = random_object_id();
 
-  // Test for deleting non-existence object.
+  // Test for deleting nonexistent object.
   Status result = client_.Delete(std::vector<ObjectID>{object_id1, object_id2});
   ASSERT_OK(result);
   // Test for the object being in local Plasma store.
@@ -1029,7 +1029,7 @@ TEST_F(TestPlasmaStore, MultipleClientGPUTest) {
   ObjectID object_id = random_object_id();
   std::vector<ObjectBuffer> object_buffers;
 
-  // Test for object non-existence on the first client.
+  // Test for object nonexistence on the first client.
   bool has_object;
   ASSERT_OK(client_.Contains(object_id, &has_object));
   ASSERT_FALSE(has_object);

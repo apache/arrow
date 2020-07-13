@@ -15,17 +15,19 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/dataset/partition.h"
+
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
+
 #include <cstdint>
+#include <map>
 #include <memory>
 #include <regex>
 #include <string>
 #include <vector>
 
-#include <gmock/gmock.h>
-#include <gtest/gtest.h>
-
-#include "arrow/dataset/api.h"
-#include "arrow/dataset/partition.h"
+#include "arrow/dataset/file_base.h"
 #include "arrow/dataset/test_util.h"
 #include "arrow/filesystem/localfs.h"
 #include "arrow/filesystem/path_util.h"
@@ -53,11 +55,15 @@ class TestPartitioning : public ::testing::Test {
     AssertParse(path, expected.Copy());
   }
 
-  void AssertInspect(const std::vector<util::string_view>& paths,
+  void AssertInspect(const std::vector<std::string>& paths,
                      const std::vector<std::shared_ptr<Field>>& expected) {
     ASSERT_OK_AND_ASSIGN(auto actual, factory_->Inspect(paths));
     ASSERT_EQ(*actual, Schema(expected));
-    ASSERT_OK(factory_->Finish(actual).status());
+    ASSERT_OK_AND_ASSIGN(partitioning_, factory_->Finish(actual));
+  }
+
+  void AssertInspectError(const std::vector<std::string>& paths) {
+    ASSERT_RAISES(Invalid, factory_->Inspect(paths));
   }
 
  protected:
@@ -67,6 +73,10 @@ class TestPartitioning : public ::testing::Test {
 
   static std::shared_ptr<Field> Str(std::string name) {
     return field(std::move(name), utf8());
+  }
+
+  static std::shared_ptr<Field> Dict(std::string name) {
+    return field(std::move(name), dictionary(int32(), utf8()));
   }
 
   std::shared_ptr<Partitioning> partitioning_;
@@ -133,11 +143,52 @@ TEST_F(TestPartitioning, DiscoverSchema) {
   AssertInspect({"/0/1", "/hello"}, {Str("alpha"), Int("beta")});
 }
 
+TEST_F(TestPartitioning, DictionaryInference) {
+  PartitioningFactoryOptions options;
+  options.max_partition_dictionary_size = 2;
+  factory_ = DirectoryPartitioning::MakeFactory({"alpha", "beta"}, options);
+
+  // type is still int32 if possible
+  AssertInspect({"/0/1"}, {Int("alpha"), Int("beta")});
+
+  // successful dictionary inference
+  AssertInspect({"/a/0"}, {Dict("alpha"), Int("beta")});
+  AssertInspect({"/a/0", "/a/1"}, {Dict("alpha"), Int("beta")});
+  AssertInspect({"/a/0", "/b/0", "/a/1", "/b/1"}, {Dict("alpha"), Int("beta")});
+
+  // fall back to string if max dictionary size is exceeded
+  AssertInspect({"/a/0", "/b/0", "/c/1", "/d/1"}, {Str("alpha"), Int("beta")});
+}
+
+TEST_F(TestPartitioning, DictionaryHasUniqueValues) {
+  PartitioningFactoryOptions options;
+  options.max_partition_dictionary_size = -1;
+  factory_ = DirectoryPartitioning::MakeFactory({"alpha"}, options);
+
+  auto alpha = Dict("alpha");
+  AssertInspect({"/a", "/b", "/a", "/b", "/c", "/a"}, {alpha});
+  ASSERT_OK_AND_ASSIGN(auto partitioning, factory_->Finish(schema({alpha})));
+
+  auto expected_dictionary = internal::checked_pointer_cast<StringArray>(
+      ArrayFromJSON(utf8(), R"(["a", "b", "c"])"));
+
+  for (int32_t i = 0; i < expected_dictionary->length(); ++i) {
+    DictionaryScalar::ValueType index_and_dictionary{std::make_shared<Int32Scalar>(i),
+                                                     expected_dictionary};
+    auto dictionary_scalar =
+        std::make_shared<DictionaryScalar>(index_and_dictionary, alpha->type());
+
+    auto path = "/" + expected_dictionary->GetString(i);
+    AssertParse(path, "alpha"_ == dictionary_scalar);
+  }
+
+  AssertParseError("/yosemite");  // not in inspected dictionary
+}
+
 TEST_F(TestPartitioning, DiscoverSchemaSegfault) {
   // ARROW-7638
   factory_ = DirectoryPartitioning::MakeFactory({"alpha", "beta"});
-  ASSERT_OK_AND_ASSIGN(auto actual, factory_->Inspect({"oops.txt"}));
-  ASSERT_EQ(*actual, Schema({Str("alpha")}));
+  AssertInspectError({"oops.txt"});
 }
 
 TEST_F(TestPartitioning, HivePartitioning) {
@@ -169,11 +220,62 @@ TEST_F(TestPartitioning, DiscoverHiveSchema) {
 
   // extra segments are ignored
   AssertInspect({"/gamma=0/unexpected/delta=1/dat.parquet"},
-                {Int("delta"), Int("gamma")});
+                {Int("gamma"), Int("delta")});
 
-  // order doesn't matter
+  // schema field names are in order of first occurrence
+  // (...so ensure your partitions are ordered the same for all paths)
+  AssertInspect({"/alpha=0/beta=1", "/beta=2/alpha=3"}, {Int("alpha"), Int("beta")});
+
+  // missing path segments will not cause an error
   AssertInspect({"/alpha=0/beta=1", "/beta=2/alpha=3", "/gamma=what"},
                 {Int("alpha"), Int("beta"), Str("gamma")});
+}
+
+TEST_F(TestPartitioning, HiveDictionaryInference) {
+  PartitioningFactoryOptions options;
+  options.max_partition_dictionary_size = 2;
+  factory_ = HivePartitioning::MakeFactory(options);
+
+  // type is still int32 if possible
+  AssertInspect({"/alpha=0/beta=1"}, {Int("alpha"), Int("beta")});
+
+  // successful dictionary inference
+  AssertInspect({"/alpha=a/beta=0"}, {Dict("alpha"), Int("beta")});
+  AssertInspect({"/alpha=a/beta=0", "/alpha=a/1"}, {Dict("alpha"), Int("beta")});
+  AssertInspect(
+      {"/alpha=a/beta=0", "/alpha=b/beta=0", "/alpha=a/beta=1", "/alpha=b/beta=1"},
+      {Dict("alpha"), Int("beta")});
+
+  // fall back to string if max dictionary size is exceeded
+  AssertInspect(
+      {"/alpha=a/beta=0", "/alpha=b/beta=0", "/alpha=c/beta=1", "/alpha=d/beta=1"},
+      {Str("alpha"), Int("beta")});
+}
+
+TEST_F(TestPartitioning, HiveDictionaryHasUniqueValues) {
+  PartitioningFactoryOptions options;
+  options.max_partition_dictionary_size = -1;
+  factory_ = HivePartitioning::MakeFactory(options);
+
+  auto alpha = Dict("alpha");
+  AssertInspect({"/alpha=a", "/alpha=b", "/alpha=a", "/alpha=b", "/alpha=c", "/alpha=a"},
+                {alpha});
+  ASSERT_OK_AND_ASSIGN(auto partitioning, factory_->Finish(schema({alpha})));
+
+  auto expected_dictionary = internal::checked_pointer_cast<StringArray>(
+      ArrayFromJSON(utf8(), R"(["a", "b", "c"])"));
+
+  for (int32_t i = 0; i < expected_dictionary->length(); ++i) {
+    DictionaryScalar::ValueType index_and_dictionary{std::make_shared<Int32Scalar>(i),
+                                                     expected_dictionary};
+    auto dictionary_scalar =
+        std::make_shared<DictionaryScalar>(index_and_dictionary, alpha->type());
+
+    auto path = "/alpha=" + expected_dictionary->GetString(i);
+    AssertParse(path, "alpha"_ == dictionary_scalar);
+  }
+
+  AssertParseError("/alpha=yosemite");  // not in inspected dictionary
 }
 
 TEST_F(TestPartitioning, EtlThenHive) {
@@ -290,6 +392,194 @@ TEST_F(TestPartitioning, Range) {
               ("x"_ >= -1.5 and "x"_ < 0.0) and ("y"_ >= 0.0 and "y"_ < 1.5) and
                   ("z"_ > 1.5 and "z"_ <= 3.0));
 }
+
+class TestPartitioningWritePlan : public ::testing::Test {
+ protected:
+  FragmentIterator MakeFragments(const ExpressionVector& partition_expressions) {
+    fragments_.clear();
+    for (const auto& expr : partition_expressions) {
+      fragments_.emplace_back(new InMemoryFragment(RecordBatchVector{}, expr));
+    }
+    return MakeVectorIterator(fragments_);
+  }
+
+  std::shared_ptr<Expression> ExpressionPtr(const Expression& e) { return e.Copy(); }
+  std::shared_ptr<Expression> ExpressionPtr(std::shared_ptr<Expression> e) { return e; }
+
+  template <typename... E>
+  FragmentIterator MakeFragments(const E&... partition_expressions) {
+    return MakeFragments(ExpressionVector{ExpressionPtr(partition_expressions)...});
+  }
+
+  template <typename... E>
+  void MakeWritePlan(const E&... partition_expressions) {
+    auto fragments = MakeFragments(partition_expressions...);
+    EXPECT_OK_AND_ASSIGN(plan_,
+                         factory_->MakeWritePlan(schema({}), std::move(fragments)));
+  }
+
+  template <typename... E>
+  Status MakeWritePlanError(const E&... partition_expressions) {
+    auto fragments = MakeFragments(partition_expressions...);
+    return factory_->MakeWritePlan(schema({}), std::move(fragments)).status();
+  }
+
+  template <typename... E>
+  void MakeWritePlanWithSchema(const std::shared_ptr<Schema>& partition_schema,
+                               const E&... partition_expressions) {
+    auto fragments = MakeFragments(partition_expressions...);
+    EXPECT_OK_AND_ASSIGN(plan_, factory_->MakeWritePlan(schema({}), std::move(fragments),
+                                                        partition_schema));
+  }
+
+  template <typename... E>
+  Status MakeWritePlanWithSchemaError(const std::shared_ptr<Schema>& partition_schema,
+                                      const E&... partition_expressions) {
+    auto fragments = MakeFragments(partition_expressions...);
+    return factory_->MakeWritePlan(schema({}), std::move(fragments), partition_schema)
+        .status();
+  }
+
+  struct ExpectedWritePlan {
+    ExpectedWritePlan() = default;
+
+    ExpectedWritePlan(const WritePlan& actual_plan, const FragmentVector& fragments) {
+      int i = 0;
+      for (const auto& op : actual_plan.fragment_or_partition_expressions) {
+        if (op.kind() == WritePlan::FragmentOrPartitionExpression::FRAGMENT) {
+          auto fragment = op.fragment();
+          auto fragment_index =
+              static_cast<int>(std::find(fragments.begin(), fragments.end(), fragment) -
+                               fragments.begin());
+          auto path = fs::internal::GetAbstractPathParent(actual_plan.paths[i]).first;
+          dirs_[path + "/"].fragments.push_back(fragment_index);
+        } else {
+          auto partition_expression = op.partition_expr();
+          dirs_[actual_plan.paths[i]].partition_expression = partition_expression;
+        }
+        ++i;
+      }
+    }
+
+    ExpectedWritePlan Dir(const std::string& path, const Expression& expr,
+                          const std::vector<int>& fragments) && {
+      dirs_.emplace(path, DirectoryWriteOp{expr.Copy(), fragments});
+      return std::move(*this);
+    }
+
+    struct DirectoryWriteOp {
+      std::shared_ptr<Expression> partition_expression;
+      std::vector<int> fragments;
+
+      bool operator==(const DirectoryWriteOp& other) const {
+        return partition_expression->Equals(other.partition_expression) &&
+               fragments == other.fragments;
+      }
+
+      friend void PrintTo(const DirectoryWriteOp& op, std::ostream* os) {
+        *os << op.partition_expression->ToString();
+
+        *os << " { ";
+        for (const auto& fragment : op.fragments) {
+          *os << fragment << " ";
+        }
+        *os << "}\n";
+      }
+    };
+    std::map<std::string, DirectoryWriteOp> dirs_;
+  };
+
+  struct AssertPlanIs : ExpectedWritePlan {};
+
+  void AssertPlanIs(ExpectedWritePlan expected_plan) {
+    ExpectedWritePlan actual_plan(plan_, fragments_);
+    EXPECT_THAT(actual_plan.dirs_, testing::ContainerEq(expected_plan.dirs_));
+  }
+
+  FragmentVector fragments_;
+  std::shared_ptr<ScanOptions> scan_options_ = ScanOptions::Make(schema({}));
+  std::shared_ptr<PartitioningFactory> factory_;
+  WritePlan plan_;
+};
+
+TEST_F(TestPartitioningWritePlan, Empty) {
+  factory_ = DirectoryPartitioning::MakeFactory({"a", "b"});
+
+  // no expressions from which to infer the types of fields a, b
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("No fragments"),
+                                  MakeWritePlanError());
+
+  MakeWritePlanWithSchema(schema({field("a", int32()), field("b", utf8())}));
+  AssertPlanIs({});
+
+  factory_ = HivePartitioning::MakeFactory();
+  EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented, testing::HasSubstr("hive"),
+                                  MakeWritePlanError());
+}
+
+TEST_F(TestPartitioningWritePlan, SingleDirectory) {
+  factory_ = DirectoryPartitioning::MakeFactory({"a"});
+
+  MakeWritePlan("a"_ == 42, "a"_ == 99, "a"_ == 101);
+  AssertPlanIs(ExpectedWritePlan()
+                   .Dir("42/", "a"_ == 42, {0})
+                   .Dir("99/", "a"_ == 99, {1})
+                   .Dir("101/", "a"_ == 101, {2}));
+
+  MakeWritePlan("a"_ == 42, "a"_ == 99, "a"_ == 99, "a"_ == 101, "a"_ == 99);
+  AssertPlanIs(ExpectedWritePlan()
+                   .Dir("42/", "a"_ == 42, {0})
+                   .Dir("99/", "a"_ == 99, {1, 2, 4})
+                   .Dir("101/", "a"_ == 101, {3}));
+}
+
+TEST_F(TestPartitioningWritePlan, NestedDirectories) {
+  factory_ = DirectoryPartitioning::MakeFactory({"a", "b"});
+
+  MakeWritePlan("a"_ == 42 and "b"_ == "hello", "a"_ == 42 and "b"_ == "world",
+                "a"_ == 99 and "b"_ == "hello", "a"_ == 99 and "b"_ == "world");
+
+  AssertPlanIs(ExpectedWritePlan()
+                   .Dir("42/", "a"_ == 42, {})
+                   .Dir("42/hello/", "b"_ == "hello", {0})
+                   .Dir("42/world/", "b"_ == "world", {1})
+                   .Dir("99/", "a"_ == 99, {})
+                   .Dir("99/hello/", "b"_ == "hello", {2})
+                   .Dir("99/world/", "b"_ == "world", {3}));
+}
+
+TEST_F(TestPartitioningWritePlan, Errors) {
+  factory_ = DirectoryPartitioning::MakeFactory({"a"});
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, testing::HasSubstr("no partition expression for field 'a'"),
+      MakeWritePlanError("a"_ == 42, scalar(true), "a"_ == 101));
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(TypeError,
+                                  testing::HasSubstr("expected RHS to have type int32"),
+                                  MakeWritePlanError("a"_ == 42, "a"_ == "hello"));
+
+  factory_ = DirectoryPartitioning::MakeFactory({"a", "b"});
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, testing::HasSubstr("no partition expression for field 'a'"),
+      MakeWritePlanError("a"_ == 42 and "b"_ == "hello", "a"_ == 99 and "b"_ == "world",
+                         "b"_ == "forever alone"));
+}
+
+TEST(TestStripPrefixAndFilename, Basic) {
+  ASSERT_EQ(StripPrefixAndFilename("", ""), "");
+  ASSERT_EQ(StripPrefixAndFilename("a.csv", ""), "");
+  ASSERT_EQ(StripPrefixAndFilename("a/b.csv", ""), "a");
+  ASSERT_EQ(StripPrefixAndFilename("/a/b/c.csv", "/a"), "b");
+  ASSERT_EQ(StripPrefixAndFilename("/a/b/c/d.csv", "/a"), "b/c");
+  ASSERT_EQ(StripPrefixAndFilename("/a/b/c.csv", "/a/b"), "");
+
+  std::vector<std::string> input{"/data/year=2019/file.parquet",
+                                 "/data/year=2019/month=12/file.parquet",
+                                 "/data/year=2019/month=12/day=01/file.parquet"};
+  EXPECT_THAT(StripPrefixAndFilename(input, "/data"),
+              testing::ElementsAre("year=2019", "year=2019/month=12",
+                                   "year=2019/month=12/day=01"));
+}  // namespace dataset
 
 }  // namespace dataset
 }  // namespace arrow

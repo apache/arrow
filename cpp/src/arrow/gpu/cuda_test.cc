@@ -52,8 +52,7 @@ constexpr int kOtherGpuNumber = 1;
 
 template <typename Expected>
 void AssertCudaBufferEquals(const CudaBuffer& buffer, Expected&& expected) {
-  std::shared_ptr<Buffer> result;
-  ASSERT_OK(AllocateBuffer(default_memory_pool(), buffer.size(), &result));
+  ASSERT_OK_AND_ASSIGN(auto result, AllocateBuffer(buffer.size()));
   ASSERT_OK(buffer.CopyToHost(0, buffer.size(), result->mutable_data()));
   AssertBufferEqual(*result, expected);
 }
@@ -326,8 +325,7 @@ TEST_F(TestCudaBuffer, DISABLED_ExportForIpc) {
 
   ASSERT_EQ(kSize, ipc_buffer->size());
 
-  std::shared_ptr<Buffer> ipc_data;
-  ASSERT_OK(AllocateBuffer(default_memory_pool(), kSize, &ipc_data));
+  ASSERT_OK_AND_ASSIGN(auto ipc_data, AllocateBuffer(kSize));
   ASSERT_OK(ipc_buffer->CopyToHost(0, kSize, ipc_data->mutable_data()));
   ASSERT_EQ(0, std::memcmp(ipc_buffer->data(), host_buffer->data(), kSize));
 }
@@ -541,6 +539,17 @@ TEST_F(TestCudaBufferReader, Basics) {
   ASSERT_EQ(0, std::memcmp(stack_buffer, host_data + 980, tmp->size()));
 }
 
+TEST_F(TestCudaBufferReader, WillNeed) {
+  std::shared_ptr<CudaBuffer> device_buffer;
+
+  const int64_t size = 1000;
+  ASSERT_OK_AND_ASSIGN(device_buffer, context_->Allocate(size));
+
+  CudaBufferReader reader(device_buffer);
+
+  ASSERT_OK(reader.WillNeed({{0, size}}));
+}
+
 // ------------------------------------------------------------------------
 // Test Cuda IPC
 
@@ -563,19 +572,50 @@ TEST_F(TestCudaArrowIpc, BasicWriteRead) {
   ASSERT_OK_AND_ASSIGN(device_serialized, SerializeRecordBatch(*batch, context_.get()));
 
   // Test that ReadRecordBatch works properly
+  ipc::DictionaryMemo unused_memo;
   std::shared_ptr<RecordBatch> device_batch;
-  ASSERT_OK_AND_ASSIGN(device_batch, ReadRecordBatch(batch->schema(), device_serialized));
+  ASSERT_OK_AND_ASSIGN(device_batch,
+                       ReadRecordBatch(batch->schema(), &unused_memo, device_serialized));
 
   // Copy data from device, read batch, and compare
-  std::shared_ptr<Buffer> host_buffer;
   int64_t size = device_serialized->size();
-  ASSERT_OK(AllocateBuffer(pool_, size, &host_buffer));
+  ASSERT_OK_AND_ASSIGN(auto host_buffer, AllocateBuffer(size, pool_));
   ASSERT_OK(device_serialized->CopyToHost(0, size, host_buffer->mutable_data()));
 
   std::shared_ptr<RecordBatch> cpu_batch;
-  io::BufferReader cpu_reader(host_buffer);
-  ipc::DictionaryMemo unused_memo;
-  ASSERT_OK(ipc::ReadRecordBatch(batch->schema(), &unused_memo, &cpu_reader, &cpu_batch));
+  io::BufferReader cpu_reader(std::move(host_buffer));
+  ASSERT_OK_AND_ASSIGN(
+      cpu_batch, ipc::ReadRecordBatch(batch->schema(), &unused_memo,
+                                      ipc::IpcReadOptions::Defaults(), &cpu_reader));
+
+  CompareBatch(*batch, *cpu_batch);
+}
+
+TEST_F(TestCudaArrowIpc, DictionaryWriteRead) {
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_OK(ipc::test::MakeDictionary(&batch));
+
+  ipc::DictionaryMemo dictionary_memo;
+  ASSERT_OK(ipc::CollectDictionaries(*batch, &dictionary_memo));
+
+  std::shared_ptr<CudaBuffer> device_serialized;
+  ASSERT_OK_AND_ASSIGN(device_serialized, SerializeRecordBatch(*batch, context_.get()));
+
+  // Test that ReadRecordBatch works properly
+  std::shared_ptr<RecordBatch> device_batch;
+  ASSERT_OK_AND_ASSIGN(device_batch, ReadRecordBatch(batch->schema(), &dictionary_memo,
+                                                     device_serialized));
+
+  // Copy data from device, read batch, and compare
+  int64_t size = device_serialized->size();
+  ASSERT_OK_AND_ASSIGN(auto host_buffer, AllocateBuffer(size, pool_));
+  ASSERT_OK(device_serialized->CopyToHost(0, size, host_buffer->mutable_data()));
+
+  std::shared_ptr<RecordBatch> cpu_batch;
+  io::BufferReader cpu_reader(std::move(host_buffer));
+  ASSERT_OK_AND_ASSIGN(
+      cpu_batch, ipc::ReadRecordBatch(batch->schema(), &dictionary_memo,
+                                      ipc::IpcReadOptions::Defaults(), &cpu_reader));
 
   CompareBatch(*batch, *cpu_batch);
 }

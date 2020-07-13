@@ -334,7 +334,7 @@ class ORCFileReader::Impl {
       opts.range(stripes_[stripe].offset, stripes_[stripe].length);
       RETURN_NOT_OK(ReadBatch(opts, schema, stripes_[stripe].num_rows, &batches[stripe]));
     }
-    return Table::FromRecordBatches(schema, batches, out);
+    return Table::FromRecordBatches(schema, std::move(batches)).Value(out);
   }
 
   Status ReadBatch(const liborc::RowReaderOptions& opts,

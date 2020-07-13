@@ -1,0 +1,58 @@
+BUILD:
+- aarch64-conda_cos7-linux-gnu
+boost_cpp:
+- '1.72'
+bzip2:
+- '1'
+c_compiler:
+- gcc
+c_compiler_version:
+- '7'
+cdt_arch:
+- aarch64
+cdt_name:
+- cos7
+channel_sources:
+- conda-forge
+channel_targets:
+- conda-forge main
+cxx_compiler:
+- gxx
+cxx_compiler_version:
+- '7'
+docker_image:
+- condaforge/linux-anvil-aarch64
+gflags:
+- '2.2'
+glog:
+- 0.4.0
+grpc_cpp:
+- '1.29'
+libprotobuf:
+- '3.12'
+lz4_c:
+- 1.9.2
+pin_run_as_build:
+  boost-cpp:
+    max_pin: x.x.x
+  bzip2:
+    max_pin: x
+  lz4-c:
+    max_pin: x.x.x
+  python:
+    min_pin: x.x
+    max_pin: x.x
+  zlib:
+    max_pin: x.x
+  zstd:
+    max_pin: x.x.x
+python:
+- 3.6.* *_cpython
+re2:
+- 2020.06.01
+snappy:
+- '1'
+zlib:
+- '1.2'
+zstd:
+- 1.4.4

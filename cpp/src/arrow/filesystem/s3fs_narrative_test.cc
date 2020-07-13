@@ -101,25 +101,25 @@ void TestBucket(int argc, char** argv) {
 
   // Check bucket exists and is empty
   select.base_dir = "";
-  select.allow_non_existent = false;
+  select.allow_not_found = false;
   select.recursive = false;
-  ASSERT_OK_AND_ASSIGN(infos, fs->GetTargetInfos(select));
+  ASSERT_OK_AND_ASSIGN(infos, fs->GetFileInfo(select));
   ASSERT_EQ(infos.size(), 0) << "Bucket should be empty, perhaps use --clear?";
 
   // Create directory structure
   ASSERT_OK(fs->CreateDir("EmptyDir", /*recursive=*/false));
   ASSERT_OK(fs->CreateDir("Dir1", /*recursive=*/false));
   ASSERT_OK(fs->CreateDir("Dir1/Subdir", /*recursive=*/false));
-  ASSERT_RAISES_PRINT("CreateDir in non-existing parent", IOError,
+  ASSERT_RAISES_PRINT("CreateDir in nonexistent parent", IOError,
                       fs->CreateDir("Dir2/Subdir", /*recursive=*/false));
   ASSERT_OK(fs->CreateDir("Dir2/Subdir", /*recursive=*/true));
   CreateFile(fs.get(), "File1", "first data");
   CreateFile(fs.get(), "Dir1/File2", "second data");
   CreateFile(fs.get(), "Dir2/Subdir/File3", "third data");
 
-  // GetTargetInfos(Selector)
+  // GetFileInfo(Selector)
   select.base_dir = "";
-  ASSERT_OK_AND_ASSIGN(infos, fs->GetTargetInfos(select));
+  ASSERT_OK_AND_ASSIGN(infos, fs->GetFileInfo(select));
   ASSERT_EQ(infos.size(), 4);
   SortInfos(&infos);
   AssertFileInfo(infos[0], "Dir1", FileType::Directory);
@@ -128,28 +128,28 @@ void TestBucket(int argc, char** argv) {
   AssertFileInfo(infos[3], "File1", FileType::File, 10);
 
   select.base_dir = "zzzz";
-  ASSERT_RAISES_PRINT("GetTargetInfos(Selector) with non-existing base_dir", IOError,
-                      fs->GetTargetInfos(select));
-  select.allow_non_existent = true;
-  ASSERT_OK_AND_ASSIGN(infos, fs->GetTargetInfos(select));
+  ASSERT_RAISES_PRINT("GetFileInfo(Selector) with nonexisting base_dir", IOError,
+                      fs->GetFileInfo(select));
+  select.allow_not_found = true;
+  ASSERT_OK_AND_ASSIGN(infos, fs->GetFileInfo(select));
   ASSERT_EQ(infos.size(), 0);
 
   select.base_dir = "Dir1";
-  select.allow_non_existent = false;
-  ASSERT_OK_AND_ASSIGN(infos, fs->GetTargetInfos(select));
+  select.allow_not_found = false;
+  ASSERT_OK_AND_ASSIGN(infos, fs->GetFileInfo(select));
   ASSERT_EQ(infos.size(), 2);
   AssertFileInfo(infos[0], "Dir1/File2", FileType::File, 11);
   AssertFileInfo(infos[1], "Dir1/Subdir", FileType::Directory);
 
   select.base_dir = "Dir2";
   select.recursive = true;
-  ASSERT_OK_AND_ASSIGN(infos, fs->GetTargetInfos(select));
+  ASSERT_OK_AND_ASSIGN(infos, fs->GetFileInfo(select));
   ASSERT_EQ(infos.size(), 2);
   AssertFileInfo(infos[0], "Dir2/Subdir", FileType::Directory);
   AssertFileInfo(infos[1], "Dir2/Subdir/File3", FileType::File, 10);
 
   // Read a file
-  ASSERT_RAISES_PRINT("OpenInputStream with non-existing file", IOError,
+  ASSERT_RAISES_PRINT("OpenInputStream with nonexistent file", IOError,
                       fs->OpenInputStream("zzz"));
   ASSERT_OK_AND_ASSIGN(is, fs->OpenInputStream("File1"));
   ASSERT_OK_AND_ASSIGN(buf, is->Read(5));
@@ -184,7 +184,7 @@ void TestBucket(int argc, char** argv) {
 
   // Move a file
   ASSERT_OK(fs->Move("Dir2/File4", "File5"));
-  AssertFileInfo(fs.get(), "Dir2/File4", FileType::NonExistent);
+  AssertFileInfo(fs.get(), "Dir2/File4", FileType::NotFound);
   AssertFileInfo(fs.get(), "File5", FileType::File, 10);
   AssertFileContents(fs.get(), "File5", "first data");
 

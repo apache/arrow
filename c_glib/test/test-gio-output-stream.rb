@@ -60,4 +60,20 @@ class TestGIOOutputStream < Test::Unit::TestCase
     output = Arrow::GIOOutputStream.new(output_stream)
     assert_equal(output_stream, output.raw)
   end
+
+  def test_tell
+    unless Gio.const_defined?(:UnixOutputStream)
+      omit("Need Gio::UnixOutputStream")
+    end
+    tempfile = Tempfile.open("arrow-gio-output-stream")
+    begin
+      output_stream = Gio::UnixOutputStream.new(tempfile.to_i, false)
+      output = Arrow::GIOOutputStream.new(output_stream)
+      assert_equal(0, output.tell)
+      output.write("Hello")
+      assert_equal(5, output.tell)
+    ensure
+      tempfile.close!
+    end
+  end
 end

@@ -101,6 +101,14 @@ test_that("RecordBatch", {
   expect_error(batch$RemoveColumn("one"), class = "Rcpp::not_compatible")
 })
 
+test_that("RecordBatch S3 methods", {
+  tab <- RecordBatch$create(example_data)
+  for (f in c("dim", "nrow", "ncol", "dimnames", "colnames", "row.names", "as.list")) {
+    fun <- get(f)
+    expect_identical(fun(tab), fun(example_data), info = f)
+  }
+})
+
 test_that("RecordBatch$Slice", {
   batch3 <- batch$Slice(5)
   expect_data_frame(batch3, tbl[6:10,])
@@ -150,7 +158,7 @@ test_that("[[ and $ on RecordBatch", {
   expect_error(batch[[c(4, 3)]], class = "Rcpp::not_compatible")
   expect_error(batch[[NA]], "'i' must be character or numeric, not logical")
   expect_error(batch[[NULL]], "'i' must be character or numeric, not NULL")
-  expect_error(batch[[c("asdf", "jkl;")]], 'length(name) not equal to 1', fixed = TRUE)
+  expect_error(batch[[c("asdf", "jkl;")]], 'name is not a string', fixed = TRUE)
 })
 
 test_that("head and tail on RecordBatch", {
@@ -254,7 +262,7 @@ test_that("record_batch() handles data frame columns", {
   tib <- tibble::tibble(x = 1:10, y = 1:10)
   # because tib is named here, this becomes a struct array
   batch <- record_batch(a = 1:10, b = tib)
-  expect_equal(
+  expect_equivalent(
     batch$schema,
     schema(
       a = int32(),
@@ -280,7 +288,7 @@ test_that("record_batch() handles data frame columns with schema spec", {
   tib_float$y <- as.numeric(tib_float$y)
   schema <- schema(a = int32(), b = struct(x = int16(), y = float64()))
   batch <- record_batch(a = 1:10, b = tib, schema = schema)
-  expect_equal(batch$schema, schema)
+  expect_equivalent(batch$schema, schema)
   out <- as.data.frame(batch)
   expect_equivalent(out, tibble::tibble(a = 1:10, b = tib_float))
 
@@ -326,7 +334,7 @@ test_that("record_batch() only auto splice data frames", {
 
 test_that("record_batch() handles null type (ARROW-7064)", {
   batch <- record_batch(a = 1:10, n = vctrs::unspecified(10))
-  expect_equal(batch$schema,  schema(a = int32(), n = null()))
+  expect_equivalent(batch$schema,  schema(a = int32(), n = null()))
 })
 
 test_that("RecordBatch$Equals", {
@@ -336,4 +344,25 @@ test_that("RecordBatch$Equals", {
   expect_equal(a, b)
   expect_true(a$Equals(b))
   expect_false(a$Equals(df))
+})
+
+test_that("RecordBatch$Equals(check_metadata)", {
+  df <- tibble::tibble(x = 1:2, y = c("a", "b"))
+  rb1 <- record_batch(df)
+  rb2 <- record_batch(df, schema = rb1$schema$WithMetadata(list(some="metadata")))
+
+  expect_is(rb1, "RecordBatch")
+  expect_is(rb2, "RecordBatch")
+  expect_false(rb1$schema$HasMetadata)
+  expect_true(rb2$schema$HasMetadata)
+  expect_identical(rb2$schema$metadata, list(some = "metadata"))
+
+  expect_true(rb1 == rb2)
+  expect_true(rb1$Equals(rb2))
+  expect_false(rb1$Equals(rb2, check_metadata = TRUE))
+
+  expect_failure(expect_equal(rb1, rb2))  # expect_equal has check_metadata=TRUE
+  expect_equivalent(rb1, rb2)  # expect_equivalent has check_metadata=FALSE
+
+  expect_false(rb1$Equals(24)) # Not a RecordBatch
 })

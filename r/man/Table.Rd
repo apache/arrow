@@ -60,7 +60,7 @@ of the table if \code{NULL}, the default.
 \item \verb{$Take(i)}: return an \code{Table} with rows at positions given by
 integers \code{i}. If \code{i} is an Arrow \code{Array} or \code{ChunkedArray}, it will be
 coerced to an R vector before taking.
-\item \verb{$Filter(i)}: return an \code{Table} with rows at positions where logical
+\item \verb{$Filter(i, keep_na = TRUE)}: return an \code{Table} with rows at positions where logical
 vector or Arrow boolean-type \verb{(Chunked)Array} \code{i} is \code{TRUE}.
 \item \verb{$serialize(output_stream, ...)}: Write the table to the given
 \link{OutputStream}
@@ -73,7 +73,9 @@ There are also some active bindings:
 \item \verb{$num_columns}
 \item \verb{$num_rows}
 \item \verb{$schema}
-\item \verb{$metadata}: Returns the key-value metadata of the \code{Schema}
+\item \verb{$metadata}: Returns the key-value metadata of the \code{Schema} as a named list.
+Modify or replace by assigning in (\code{tab$metadata <- new_metadata}).
+All list elements are coerced to string.
 \item \verb{$columns}: Returns a list of \code{ChunkedArray}s
 }
 }

@@ -59,7 +59,11 @@ read_tsv_arrow(
 )
 }
 \arguments{
-\item{file}{A character file name, raw vector, or an Arrow input stream}
+\item{file}{A character file name, \code{raw} vector, or an Arrow input stream.
+If a file name, a memory-mapped Arrow \link{InputStream} will be opened and
+closed when finished; compression will be detected from the file extension
+and handled automatically. If an input stream is provided, it will be left
+open.}
 
 \item{delim}{Single character used to separate fields within a record.}
 
@@ -105,8 +109,8 @@ parsing options provided in other arguments (e.g. \code{delim}, \code{quote}, et
 
 \item{read_options}{see \link[=CsvReadOptions]{file reader options}}
 
-\item{as_data_frame}{Should the function return a \code{data.frame} or an
-\link[=Table]{arrow::Table}?}
+\item{as_data_frame}{Should the function return a \code{data.frame} (default) or
+an Arrow \link{Table}?}
 }
 \value{
 A \code{data.frame}, or a Table if \code{as_data_frame = FALSE}.
@@ -132,10 +136,10 @@ use \link{CsvTableReader} directly for lower-level access.
 \donttest{
   tf <- tempfile()
   on.exit(unlink(tf))
-  write.csv(iris, file = tf)
+  write.csv(mtcars, file = tf)
   df <- read_csv_arrow(tf)
   dim(df)
   # Can select columns
-  df <- read_csv_arrow(tf, col_select = starts_with("Sepal"))
+  df <- read_csv_arrow(tf, col_select = starts_with("d"))
 }
 }

@@ -16,7 +16,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-export GFLAGS_VERSION="2.2.1"
+export GFLAGS_VERSION="2.2.2"
 export CFLAGS="-fPIC"
 export CXXFLAGS="-fPIC"
 
@@ -24,14 +24,15 @@ curl -sL "https://github.com/gflags/gflags/archive/v${GFLAGS_VERSION}.tar.gz" -o
 tar xf gflags-${GFLAGS_VERSION}.tar.gz
 pushd gflags-${GFLAGS_VERSION}
 
-cmake .  \
+cmake . -GNinja \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_INSTALL_PREFIX=/usr \
-    -DINSTALL_HEADERS=on \
-    -DBUILD_SHARED_LIBS=off \
-    -DBUILD_STATIC_LIBS=on \
-    -DBUILD_TESTING=off \
-    -GNinja
+    -DINSTALL_HEADERS=ON \
+    -DBUILD_SHARED_LIBS=OFF \
+    -DBUILD_STATIC_LIBS=ON \
+    -DBUILD_PACKAGING=OFF \
+    -DBUILD_TESTING=OFF \
+    -DBUILD_CONFIG_TESTS=OFF \
 
 ninja install
 popd

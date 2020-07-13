@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PARQUET_FILE_WRITER_H
-#define PARQUET_FILE_WRITER_H
+#pragma once
 
 #include <cstdint>
 #include <memory>
@@ -70,7 +69,8 @@ class PARQUET_EXPORT RowGroupWriter {
   /// directly written to the sink, once a new column is started, the contents
   /// of the previous one cannot be modified anymore.
   ColumnWriter* NextColumn();
-  /// Index of currently written column
+  /// Index of currently written column. Equal to -1 if NextColumn()
+  /// has not been called yet.
   int current_column();
   void Close();
 
@@ -245,5 +245,3 @@ class PARQUET_EXPORT ParquetFileWriter {
 };
 
 }  // namespace parquet
-
-#endif  // PARQUET_FILE_WRITER_H

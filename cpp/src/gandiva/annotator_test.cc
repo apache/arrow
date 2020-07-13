@@ -18,6 +18,7 @@
 #include "gandiva/annotator.h"
 
 #include <memory>
+#include <utility>
 
 #include <arrow/memory_pool.h>
 #include <gtest/gtest.h>
@@ -33,16 +34,12 @@ class TestAnnotator : public ::testing::Test {
 ArrayPtr TestAnnotator::MakeInt32Array(int length) {
   arrow::Status status;
 
-  std::shared_ptr<arrow::Buffer> validity;
-  status =
-      arrow::AllocateBuffer(arrow::default_memory_pool(), (length + 63) / 8, &validity);
-  DCHECK_EQ(status.ok(), true);
+  auto validity = *arrow::AllocateBuffer((length + 63) / 8);
 
-  std::shared_ptr<arrow::Buffer> value;
-  status = AllocateBuffer(arrow::default_memory_pool(), length * sizeof(int32_t), &value);
-  DCHECK_EQ(status.ok(), true);
+  auto values = *arrow::AllocateBuffer(length * sizeof(int32_t));
 
-  auto array_data = arrow::ArrayData::Make(arrow::int32(), length, {validity, value});
+  auto array_data = arrow::ArrayData::Make(arrow::int32(), length,
+                                           {std::move(validity), std::move(values)});
   return arrow::MakeArray(array_data);
 }
 

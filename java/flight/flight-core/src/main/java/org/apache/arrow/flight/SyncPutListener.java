@@ -23,8 +23,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.arrow.flight.grpc.StatusUtils;
-
-import io.netty.buffer.ArrowBuf;
+import org.apache.arrow.memory.ArrowBuf;
 
 /**
  * A listener for server-sent application metadata messages during a Flight DoPut. This class wraps the messages in a

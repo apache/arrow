@@ -216,7 +216,7 @@ message FunctionSignature {
 }
 
 message InNode {
-  optional FieldNode field = 1;
+  optional TreeNode node = 1;
   optional IntConstants intValues = 2;
   optional LongConstants longValues = 3;
   optional StringConstants stringValues = 4;

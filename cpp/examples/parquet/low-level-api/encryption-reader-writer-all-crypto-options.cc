@@ -487,6 +487,7 @@ void InteropTestReadEncryptedParquetFiles(std::string root_path) {
             assert(value == expected_value);
             i++;
           }
+          ARROW_UNUSED(rows_read); // suppress compiler warning in release builds
 
           // Get the Column Reader for the Int32 column
           column_reader = row_group_reader->Column(1);

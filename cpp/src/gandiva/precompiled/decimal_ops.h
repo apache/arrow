@@ -73,11 +73,12 @@ BasicDecimal128 Convert(const BasicDecimalScalar128& x, int32_t out_precision,
                         int32_t out_scale, bool* overflow);
 
 /// round decimal.
-BasicDecimal128 Round(const BasicDecimalScalar128& x, int32_t out_scale, bool* overflow);
+BasicDecimal128 Round(const BasicDecimalScalar128& x, int32_t out_precision,
+                      int32_t out_scale, int32_t rounding_scale, bool* overflow);
 
 /// truncate decimal.
-BasicDecimal128 Truncate(const BasicDecimalScalar128& x, int32_t out_scale,
-                         bool* overflow);
+BasicDecimal128 Truncate(const BasicDecimalScalar128& x, int32_t out_precision,
+                         int32_t out_scale, int32_t rounding_scale, bool* overflow);
 
 /// ceil decimal
 BasicDecimal128 Ceil(const BasicDecimalScalar128& x, bool* overflow);

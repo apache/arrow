@@ -20,23 +20,37 @@
 #include <climits>
 #include <cstdint>
 #include <cstring>
-#include <functional>
 #include <limits>
 #include <memory>
+#include <ostream>
 #include <string>
+#include <utility>
 #include <vector>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include <boost/utility.hpp>  // IWYU pragma: export
-
+#include "arrow/array/array_base.h"
+#include "arrow/array/data.h"
 #include "arrow/buffer.h"
-#include "arrow/memory_pool.h"
+#include "arrow/result.h"
+#include "arrow/status.h"
 #include "arrow/testing/gtest_common.h"
+#include "arrow/testing/gtest_compat.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/random.h"
+#include "arrow/testing/util.h"
+#include "arrow/type_fwd.h"
+#include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_stream_utils.h"
 #include "arrow/util/bit_util.h"
-#include "arrow/util/cpu_info.h"
+#include "arrow/util/bitmap.h"
+#include "arrow/util/bitmap_generate.h"
+#include "arrow/util/bitmap_ops.h"
+#include "arrow/util/bitmap_reader.h"
+#include "arrow/util/bitmap_visit.h"
+#include "arrow/util/bitmap_writer.h"
+#include "arrow/util/bitset_stack.h"
 
 namespace arrow {
 
@@ -47,6 +61,8 @@ using internal::BitsetStack;
 using internal::CopyBitmap;
 using internal::CountSetBits;
 using internal::InvertBitmap;
+
+using ::testing::ElementsAreArray;
 
 template <class BitmapWriter>
 void WriteVectorToWriter(BitmapWriter& writer, const std::vector<int> values) {
@@ -65,7 +81,7 @@ void BitmapFromVector(const std::vector<int>& values, int64_t bit_offset,
                       std::shared_ptr<Buffer>* out_buffer, int64_t* out_length) {
   const int64_t length = values.size();
   *out_length = length;
-  ASSERT_OK(AllocateEmptyBitmap(length + bit_offset, out_buffer));
+  ASSERT_OK_AND_ASSIGN(*out_buffer, AllocateEmptyBitmap(length + bit_offset));
   auto writer = internal::BitmapWriter((*out_buffer)->mutable_data(), bit_offset, length);
   WriteVectorToWriter(writer, values);
 }
@@ -183,6 +199,204 @@ TEST(BitmapReader, DoesNotReadOutOfBounds) {
 
   // Does not access invalid memory
   internal::BitmapReader r3(nullptr, 0, 0);
+}
+
+namespace internal {
+void PrintTo(const internal::BitRun& run, std::ostream* os) {
+  *os << run.ToString();  // whatever needed to print bar to os
+}
+}  // namespace internal
+
+TEST(BitRunReader, ZeroLength) {
+  internal::BitRunReader reader(nullptr, /*start_offset=*/0, /*length=*/0);
+
+  EXPECT_EQ(reader.NextRun().length, 0);
+}
+
+TEST(BitRunReader, NormalOperation) {
+  std::vector<int> bm_vector = {1, 0, 1};                   // size: 3
+  bm_vector.insert(bm_vector.end(), /*n=*/5, /*val=*/0);    // size: 8
+  bm_vector.insert(bm_vector.end(), /*n=*/7, /*val=*/1);    // size: 15
+  bm_vector.insert(bm_vector.end(), /*n=*/3, /*val=*/0);    // size: 18
+  bm_vector.insert(bm_vector.end(), /*n=*/25, /*val=*/1);   // size: 43
+  bm_vector.insert(bm_vector.end(), /*n=*/21, /*val=*/0);   // size: 64
+  bm_vector.insert(bm_vector.end(), /*n=*/26, /*val=*/1);   // size: 90
+  bm_vector.insert(bm_vector.end(), /*n=*/130, /*val=*/0);  // size: 220
+  bm_vector.insert(bm_vector.end(), /*n=*/65, /*val=*/1);   // size: 285
+  std::shared_ptr<Buffer> bitmap;
+  int64_t length;
+  BitmapFromVector(bm_vector, /*bit_offset=*/0, &bitmap, &length);
+
+  internal::BitRunReader reader(bitmap->data(), /*start_offset=*/0, /*length=*/length);
+  std::vector<internal::BitRun> results;
+  internal::BitRun rl;
+  do {
+    rl = reader.NextRun();
+    results.push_back(rl);
+  } while (rl.length != 0);
+  EXPECT_EQ(results.back().length, 0);
+  results.pop_back();
+  EXPECT_THAT(results, ElementsAreArray(
+                           std::vector<internal::BitRun>{{/*length=*/1, /*set=*/true},
+                                                         {/*length=*/1, /*set=*/false},
+                                                         {/*length=*/1, /*set=*/true},
+                                                         {/*length=*/5, /*set=*/false},
+                                                         {/*length=*/7, /*set=*/true},
+                                                         {/*length=*/3, /*set=*/false},
+                                                         {/*length=*/25, /*set=*/true},
+                                                         {/*length=*/21, /*set=*/false},
+                                                         {/*length=*/26, /*set=*/true},
+                                                         {/*length=*/130, /*set=*/false},
+                                                         {/*length=*/65, /*set=*/true}}));
+}
+
+TEST(BitRunReader, AllFirstByteCombos) {
+  for (int offset = 0; offset < 8; offset++) {
+    for (int64_t x = 0; x < (1 << 8) - 1; x++) {
+      int64_t bits = BitUtil::ToLittleEndian(x);
+      internal::BitRunReader reader(reinterpret_cast<uint8_t*>(&bits),
+                                    /*start_offset=*/offset,
+                                    /*length=*/8 - offset);
+      std::vector<internal::BitRun> results;
+      internal::BitRun rl;
+      do {
+        rl = reader.NextRun();
+        results.push_back(rl);
+      } while (rl.length != 0);
+      EXPECT_EQ(results.back().length, 0);
+      results.pop_back();
+      int64_t sum = 0;
+      for (const auto& result : results) {
+        sum += result.length;
+      }
+      ASSERT_EQ(sum, 8 - offset);
+    }
+  }
+}
+
+TEST(BitRunReader, TruncatedAtWord) {
+  std::vector<int> bm_vector;
+  bm_vector.insert(bm_vector.end(), /*n=*/7, /*val=*/1);
+  bm_vector.insert(bm_vector.end(), /*n=*/58, /*val=*/0);
+
+  std::shared_ptr<Buffer> bitmap;
+  int64_t length;
+  BitmapFromVector(bm_vector, /*bit_offset=*/0, &bitmap, &length);
+
+  internal::BitRunReader reader(bitmap->data(), /*start_offset=*/1,
+                                /*length=*/63);
+  std::vector<internal::BitRun> results;
+  internal::BitRun rl;
+  do {
+    rl = reader.NextRun();
+    results.push_back(rl);
+  } while (rl.length != 0);
+  EXPECT_EQ(results.back().length, 0);
+  results.pop_back();
+  EXPECT_THAT(results,
+              ElementsAreArray(std::vector<internal::BitRun>{
+                  {/*length=*/6, /*set=*/true}, {/*length=*/57, /*set=*/false}}));
+}
+
+TEST(BitRunReader, ScalarComparison) {
+  ::arrow::random::RandomArrayGenerator rag(/*seed=*/23);
+  constexpr int64_t kNumBits = 1000000;
+  std::shared_ptr<Buffer> buffer =
+      rag.Boolean(kNumBits, /*set_probability=*/.4)->data()->buffers[1];
+
+  const uint8_t* bitmap = buffer->data();
+
+  internal::BitRunReader reader(bitmap, 0, kNumBits);
+  internal::BitRunReaderLinear scalar_reader(bitmap, 0, kNumBits);
+  internal::BitRun br, brs;
+  int64_t br_bits = 0;
+  int64_t brs_bits = 0;
+  do {
+    br = reader.NextRun();
+    brs = scalar_reader.NextRun();
+    br_bits += br.length;
+    brs_bits += brs.length;
+    EXPECT_EQ(br.length, brs.length);
+    if (br.length > 0) {
+      EXPECT_EQ(br, brs) << internal::Bitmap(bitmap, 0, kNumBits).ToString() << br_bits
+                         << " " << brs_bits;
+    }
+  } while (brs.length != 0);
+  EXPECT_EQ(br_bits, brs_bits);
+}
+
+TEST(BitRunReader, TruncatedWithinWordMultipleOf8Bits) {
+  std::vector<int> bm_vector;
+  bm_vector.insert(bm_vector.end(), /*n=*/7, /*val=*/1);
+  bm_vector.insert(bm_vector.end(), /*n=*/5, /*val=*/0);
+
+  std::shared_ptr<Buffer> bitmap;
+  int64_t length;
+  BitmapFromVector(bm_vector, /*bit_offset=*/0, &bitmap, &length);
+
+  internal::BitRunReader reader(bitmap->data(), /*start_offset=*/1,
+                                /*length=*/7);
+  std::vector<internal::BitRun> results;
+  internal::BitRun rl;
+  do {
+    rl = reader.NextRun();
+    results.push_back(rl);
+  } while (rl.length != 0);
+  EXPECT_EQ(results.back().length, 0);
+  results.pop_back();
+  EXPECT_THAT(results, ElementsAreArray(std::vector<internal::BitRun>{
+                           {/*length=*/6, /*set=*/true}, {/*length=*/1, /*set=*/false}}));
+}
+
+TEST(BitRunReader, TruncatedWithinWord) {
+  std::vector<int> bm_vector;
+  bm_vector.insert(bm_vector.end(), /*n=*/37 + 40, /*val=*/0);
+  bm_vector.insert(bm_vector.end(), /*n=*/23, /*val=*/1);
+
+  std::shared_ptr<Buffer> bitmap;
+  int64_t length;
+  BitmapFromVector(bm_vector, /*bit_offset=*/0, &bitmap, &length);
+
+  constexpr int64_t kOffset = 37;
+  internal::BitRunReader reader(bitmap->data(), /*start_offset=*/kOffset,
+                                /*length=*/53);
+  std::vector<internal::BitRun> results;
+  internal::BitRun rl;
+  do {
+    rl = reader.NextRun();
+    results.push_back(rl);
+  } while (rl.length != 0);
+  EXPECT_EQ(results.back().length, 0);
+  results.pop_back();
+  EXPECT_THAT(results,
+              ElementsAreArray(std::vector<internal::BitRun>{
+                  {/*length=*/40, /*set=*/false}, {/*length=*/13, /*set=*/true}}));
+}
+
+TEST(BitRunReader, TruncatedMultipleWords) {
+  std::vector<int> bm_vector = {1, 0, 1};                  // size: 3
+  bm_vector.insert(bm_vector.end(), /*n=*/5, /*val=*/0);   // size: 8
+  bm_vector.insert(bm_vector.end(), /*n=*/30, /*val=*/1);  // size: 38
+  bm_vector.insert(bm_vector.end(), /*n=*/95, /*val=*/0);  // size: 133
+  std::shared_ptr<Buffer> bitmap;
+  int64_t length;
+  BitmapFromVector(bm_vector, /*bit_offset=*/0, &bitmap, &length);
+
+  constexpr int64_t kOffset = 5;
+  internal::BitRunReader reader(bitmap->data(), /*start_offset=*/kOffset,
+                                /*length=*/length - (kOffset + 3));
+  std::vector<internal::BitRun> results;
+  internal::BitRun rl;
+  do {
+    rl = reader.NextRun();
+    results.push_back(rl);
+  } while (rl.length != 0);
+  EXPECT_EQ(results.back().length, 0);
+  results.pop_back();
+  EXPECT_THAT(results, ElementsAreArray(std::vector<internal::BitRun>{
+                           {/*length=*/3, /*set=*/false},
+                           {/*length=*/30, /*set=*/true},
+                           {/*length=*/92, /*set=*/false}}));
 }
 
 TEST(BitmapWriter, NormalOperation) {
@@ -317,6 +531,184 @@ TEST(FirstTimeBitmapWriter, NormalOperation) {
   }
 }
 
+std::string BitmapToString(const uint8_t* bitmap, int64_t bit_count) {
+  return arrow::internal::Bitmap(bitmap, /*offset*/ 0, /*length=*/bit_count).ToString();
+}
+
+std::string BitmapToString(const std::vector<uint8_t>& bitmap, int64_t bit_count) {
+  return BitmapToString(bitmap.data(), bit_count);
+}
+
+TEST(FirstTimeBitmapWriter, AppendWordOffsetOverwritesCorrectBitsOnExistingByte) {
+  auto check_append = [](const std::string& expected_bits, int64_t offset) {
+    std::vector<uint8_t> valid_bits = {0x00};
+    constexpr int64_t kBitsAfterAppend = 8;
+    internal::FirstTimeBitmapWriter writer(valid_bits.data(), offset,
+                                           /*length=*/(8 * valid_bits.size()) - offset);
+    writer.AppendWord(/*word=*/0xFF, /*number_of_bits=*/kBitsAfterAppend - offset);
+    writer.Finish();
+    EXPECT_EQ(BitmapToString(valid_bits, kBitsAfterAppend), expected_bits);
+  };
+  check_append("11111111", 0);
+  check_append("01111111", 1);
+  check_append("00111111", 2);
+  check_append("00011111", 3);
+  check_append("00001111", 4);
+  check_append("00000111", 5);
+  check_append("00000011", 6);
+  check_append("00000001", 7);
+
+  auto check_with_set = [](const std::string& expected_bits, int64_t offset) {
+    std::vector<uint8_t> valid_bits = {0x1};
+    constexpr int64_t kBitsAfterAppend = 8;
+    internal::FirstTimeBitmapWriter writer(valid_bits.data(), offset,
+                                           /*length=*/(8 * valid_bits.size()) - offset);
+    writer.AppendWord(/*word=*/0xFF, /*number_of_bits=*/kBitsAfterAppend - offset);
+    writer.Finish();
+    EXPECT_EQ(BitmapToString(valid_bits, kBitsAfterAppend), expected_bits);
+  };
+  // 0ffset zero would not be a valid mask.
+  check_with_set("11111111", 1);
+  check_with_set("10111111", 2);
+  check_with_set("10011111", 3);
+  check_with_set("10001111", 4);
+  check_with_set("10000111", 5);
+  check_with_set("10000011", 6);
+  check_with_set("10000001", 7);
+
+  auto check_with_preceding = [](const std::string& expected_bits, int64_t offset) {
+    std::vector<uint8_t> valid_bits = {0xFF};
+    constexpr int64_t kBitsAfterAppend = 8;
+    internal::FirstTimeBitmapWriter writer(valid_bits.data(), offset,
+                                           /*length=*/(8 * valid_bits.size()) - offset);
+    writer.AppendWord(/*word=*/0xFF, /*number_of_bits=*/kBitsAfterAppend - offset);
+    writer.Finish();
+    EXPECT_EQ(BitmapToString(valid_bits, kBitsAfterAppend), expected_bits);
+  };
+  check_with_preceding("11111111", 0);
+  check_with_preceding("11111111", 1);
+  check_with_preceding("11111111", 2);
+  check_with_preceding("11111111", 3);
+  check_with_preceding("11111111", 4);
+  check_with_preceding("11111111", 5);
+  check_with_preceding("11111111", 6);
+  check_with_preceding("11111111", 7);
+}
+
+TEST(FirstTimeBitmapWriter, AppendZeroBitsHasNoImpact) {
+  std::vector<uint8_t> valid_bits(/*count=*/1, 0);
+  internal::FirstTimeBitmapWriter writer(valid_bits.data(), /*start_offset=*/1,
+                                         /*length=*/valid_bits.size() * 8);
+  writer.AppendWord(/*word=*/0xFF, /*number_of_bits=*/0);
+  writer.AppendWord(/*word=*/0xFF, /*number_of_bits=*/0);
+  writer.AppendWord(/*word=*/0x01, /*number_of_bits=*/1);
+  writer.Finish();
+  EXPECT_EQ(valid_bits[0], 0x2);
+}
+
+TEST(FirstTimeBitmapWriter, AppendLessThanByte) {
+  {
+    std::vector<uint8_t> valid_bits(/*count*/ 8, 0);
+    internal::FirstTimeBitmapWriter writer(valid_bits.data(), /*start_offset=*/1,
+                                           /*length=*/8);
+    writer.AppendWord(0xB, 4);
+    writer.Finish();
+    EXPECT_EQ(BitmapToString(valid_bits, /*bit_count=*/8), "01101000");
+  }
+  {
+    // Test with all bits initially set.
+    std::vector<uint8_t> valid_bits(/*count*/ 8, 0xFF);
+    internal::FirstTimeBitmapWriter writer(valid_bits.data(), /*start_offset=*/1,
+                                           /*length=*/8);
+    writer.AppendWord(0xB, 4);
+    writer.Finish();
+    EXPECT_EQ(BitmapToString(valid_bits, /*bit_count=*/8), "11101000");
+  }
+}
+
+TEST(FirstTimeBitmapWriter, AppendByteThenMore) {
+  {
+    std::vector<uint8_t> valid_bits(/*count*/ 8, 0);
+    internal::FirstTimeBitmapWriter writer(valid_bits.data(), /*start_offset=*/0,
+                                           /*length=*/9);
+    writer.AppendWord(0xC3, 8);
+    writer.AppendWord(0x01, 1);
+    writer.Finish();
+    EXPECT_EQ(BitmapToString(valid_bits, /*bit_count=*/9), "11000011 1");
+  }
+  {
+    std::vector<uint8_t> valid_bits(/*count*/ 8, 0xFF);
+    internal::FirstTimeBitmapWriter writer(valid_bits.data(), /*start_offset=*/0,
+                                           /*length=*/9);
+    writer.AppendWord(0xC3, 8);
+    writer.AppendWord(0x01, 1);
+    writer.Finish();
+    EXPECT_EQ(BitmapToString(valid_bits, /*bit_count=*/9), "11000011 1");
+  }
+}
+
+TEST(FirstTimeBitmapWriter, AppendWordShiftsBitsCorrectly) {
+  constexpr uint64_t kPattern = 0x9A9A9A9A9A9A9A9A;
+  auto check_append = [&](const std::string& leading_bits, const std::string& middle_bits,
+                          const std::string& trailing_bits, int64_t offset,
+                          bool preset_buffer_bits = false) {
+    ASSERT_GE(offset, 8);
+    std::vector<uint8_t> valid_bits(/*count=*/10, preset_buffer_bits ? 0xFF : 0);
+    valid_bits[0] = 0x99;
+    internal::FirstTimeBitmapWriter writer(valid_bits.data(), offset,
+                                           /*length=*/(9 * sizeof(kPattern)) - offset);
+    writer.AppendWord(/*word=*/kPattern, /*number_of_bits=*/64);
+    writer.Finish();
+    EXPECT_EQ(valid_bits[0], 0x99);  // shouldn't get changed.
+    EXPECT_EQ(BitmapToString(valid_bits.data() + 1, /*num_bits=*/8), leading_bits);
+    for (int x = 2; x < 9; x++) {
+      EXPECT_EQ(BitmapToString(valid_bits.data() + x, /*num_bits=*/8), middle_bits)
+          << "x: " << x << " " << offset << " " << BitmapToString(valid_bits.data(), 80);
+    }
+    EXPECT_EQ(BitmapToString(valid_bits.data() + 9, /*num_bits=*/8), trailing_bits);
+  };
+  // Original Pattern = "01011001"
+  check_append(/*leading_bits= */ "01011001", /*middle_bits=*/"01011001",
+               /*trailing_bits=*/"00000000", /*offset=*/8);
+  check_append("00101100", "10101100", "10000000", 9);
+  check_append("00010110", "01010110", "01000000", 10);
+  check_append("00001011", "00101011", "00100000", 11);
+  check_append("00000101", "10010101", "10010000", 12);
+  check_append("00000010", "11001010", "11001000", 13);
+  check_append("00000001", "01100101", "01100100", 14);
+  check_append("00000000", "10110010", "10110010", 15);
+
+  check_append(/*leading_bits= */ "01011001", /*middle_bits=*/"01011001",
+               /*trailing_bits=*/"11111111", /*offset=*/8, /*preset_buffer_bits=*/true);
+  check_append("10101100", "10101100", "10000000", 9, true);
+  check_append("11010110", "01010110", "01000000", 10, true);
+  check_append("11101011", "00101011", "00100000", 11, true);
+  check_append("11110101", "10010101", "10010000", 12, true);
+  check_append("11111010", "11001010", "11001000", 13, true);
+  check_append("11111101", "01100101", "01100100", 14, true);
+  check_append("11111110", "10110010", "10110010", 15, true);
+}
+
+TEST(TestAppendBitmap, AppendWordOnlyApproriateBytesWritten) {
+  std::vector<uint8_t> valid_bits = {0x00, 0x00};
+
+  uint64_t bitmap = 0x1FF;
+  {
+    internal::FirstTimeBitmapWriter writer(valid_bits.data(), /*start_offset=*/1,
+                                           /*length=*/(8 * valid_bits.size()) - 1);
+    writer.AppendWord(bitmap, /*number_of_bits*/ 7);
+    writer.Finish();
+    EXPECT_THAT(valid_bits, ElementsAreArray(std::vector<uint8_t>{0xFE, 0x00}));
+  }
+  {
+    internal::FirstTimeBitmapWriter writer(valid_bits.data(), /*start_offset=*/1,
+                                           /*length=*/(8 * valid_bits.size()) - 1);
+    writer.AppendWord(bitmap, /*number_of_bits*/ 8);
+    writer.Finish();
+    EXPECT_THAT(valid_bits, ElementsAreArray(std::vector<uint8_t>{0xFE, 0x03}));
+  }
+}
+
 // Tests for GenerateBits and GenerateBitsUnrolled
 
 struct GenerateBitsFunctor {
@@ -338,7 +730,7 @@ class TestGenerateBits : public ::testing::Test {};
 
 typedef ::testing::Types<GenerateBitsFunctor, GenerateBitsUnrolledFunctor>
     GenerateBitsTypes;
-TYPED_TEST_CASE(TestGenerateBits, GenerateBitsTypes);
+TYPED_TEST_SUITE(TestGenerateBits, GenerateBitsTypes);
 
 TYPED_TEST(TestGenerateBits, NormalOperation) {
   const int kSourceSize = 256;
@@ -459,7 +851,7 @@ class TestVisitBits : public ::testing::Test {
 };
 
 using VisitBitsTestTypes = ::testing::Types<VisitBitsFunctor, VisitBitsUnrolledFunctor>;
-TYPED_TEST_CASE(TestVisitBits, VisitBitsTestTypes);
+TYPED_TEST_SUITE(TestVisitBits, VisitBitsTestTypes);
 
 /* Test bit-unpacking when reading less than eight bits from the input */
 TYPED_TEST(TestVisitBits, NormalOperation) {
@@ -579,7 +971,7 @@ class BitmapOp : public TestBase {
     std::shared_ptr<Buffer> left, right, out;
     int64_t length;
 
-    for (int64_t left_offset : {0, 1, 3, 5, 7, 8, 13, 21, 38, 75, 120}) {
+    for (int64_t left_offset : {0, 1, 3, 5, 7, 8, 13, 21, 38, 75, 120, 65536}) {
       BitmapFromVector(left_bits, left_offset, &left, &length);
       for (int64_t right_offset : {left_offset, left_offset + 8, left_offset + 40}) {
         BitmapFromVector(right_bits, right_offset, &right, &length);
@@ -606,7 +998,7 @@ class BitmapOp : public TestBase {
                      const std::vector<int>& result_bits) {
     std::shared_ptr<Buffer> left, right, out;
     int64_t length;
-    auto offset_values = {0, 1, 3, 5, 7, 8, 13, 21, 38, 75, 120};
+    auto offset_values = {0, 1, 3, 5, 7, 8, 13, 21, 38, 75, 120, 65536};
 
     for (int64_t left_offset : offset_values) {
       BitmapFromVector(left_bits, left_offset, &left, &length);
@@ -661,6 +1053,33 @@ TEST_F(BitmapOp, Xor) {
 
   TestAligned(op, left, right, result);
   TestUnaligned(op, left, right, result);
+}
+
+TEST_F(BitmapOp, RandomXor) {
+  const int kBitCount = 1000;
+  uint8_t buffer[kBitCount * 2] = {0};
+
+  random_bytes(kBitCount * 2, 0, buffer);
+
+  std::vector<int> left(kBitCount);
+  std::vector<int> right(kBitCount);
+  std::vector<int> result(kBitCount);
+
+  for (int i = 0; i < kBitCount; ++i) {
+    left[i] = buffer[i] & 1;
+    right[i] = buffer[i + kBitCount] & 1;
+    result[i] = left[i] ^ right[i];
+  }
+
+  BitmapXorOp op;
+  for (int i = 0; i < 3; ++i) {
+    TestAligned(op, left, right, result);
+    TestUnaligned(op, left, right, result);
+
+    left.resize(left.size() * 5 / 11);
+    right.resize(left.size());
+    result.resize(left.size());
+  }
 }
 
 static inline int64_t SlowCountBits(const uint8_t* data, int64_t bit_offset,
@@ -736,8 +1155,7 @@ TEST(BitUtilTests, TestSetBitsTo) {
 TEST(BitUtilTests, TestCopyBitmap) {
   const int kBufferSize = 1000;
 
-  std::shared_ptr<Buffer> buffer;
-  ASSERT_OK(AllocateBuffer(kBufferSize, &buffer));
+  ASSERT_OK_AND_ASSIGN(auto buffer, AllocateBuffer(kBufferSize));
   memset(buffer->mutable_data(), 0, kBufferSize);
   random_bytes(kBufferSize, 0, buffer->mutable_data());
 
@@ -765,15 +1183,13 @@ TEST(BitUtilTests, TestCopyBitmapPreAllocated) {
   std::vector<int64_t> lengths = {kBufferSize * 8 - 4, kBufferSize * 8};
   std::vector<int64_t> offsets = {0, 12, 16, 32, 37, 63, 64, 128};
 
-  std::shared_ptr<Buffer> buffer;
-  ASSERT_OK(AllocateBuffer(kBufferSize, &buffer));
+  ASSERT_OK_AND_ASSIGN(auto buffer, AllocateBuffer(kBufferSize));
   memset(buffer->mutable_data(), 0, kBufferSize);
   random_bytes(kBufferSize, 0, buffer->mutable_data());
   const uint8_t* src = buffer->data();
 
-  std::shared_ptr<Buffer> other_buffer;
   // Add 16 byte padding on both sides
-  ASSERT_OK(AllocateBuffer(kBufferSize + 32, &other_buffer));
+  ASSERT_OK_AND_ASSIGN(auto other_buffer, AllocateBuffer(kBufferSize + 32));
   memset(other_buffer->mutable_data(), 0, kBufferSize + 32);
   random_bytes(kBufferSize + 32, 0, other_buffer->mutable_data());
   const uint8_t* other = other_buffer->data();
@@ -783,8 +1199,7 @@ TEST(BitUtilTests, TestCopyBitmapPreAllocated) {
       for (int64_t dest_offset : offsets) {
         const int64_t copy_length = num_bits - offset;
 
-        std::shared_ptr<Buffer> copy;
-        ASSERT_OK(AllocateBuffer(other_buffer->size(), &copy));
+        ASSERT_OK_AND_ASSIGN(auto copy, AllocateBuffer(other_buffer->size()));
         memcpy(copy->mutable_data(), other_buffer->data(), other_buffer->size());
         CopyBitmap(src, offset, copy_length, copy->mutable_data(), dest_offset);
 
@@ -808,15 +1223,13 @@ TEST(BitUtilTests, TestCopyAndInvertBitmapPreAllocated) {
   std::vector<int64_t> lengths = {kBufferSize * 8 - 4, kBufferSize * 8};
   std::vector<int64_t> offsets = {0, 12, 16, 32, 37, 63, 64, 128};
 
-  std::shared_ptr<Buffer> buffer;
-  ASSERT_OK(AllocateBuffer(kBufferSize, &buffer));
+  ASSERT_OK_AND_ASSIGN(auto buffer, AllocateBuffer(kBufferSize));
   memset(buffer->mutable_data(), 0, kBufferSize);
   random_bytes(kBufferSize, 0, buffer->mutable_data());
   const uint8_t* src = buffer->data();
 
-  std::shared_ptr<Buffer> other_buffer;
   // Add 16 byte padding on both sides
-  ASSERT_OK(AllocateBuffer(kBufferSize + 32, &other_buffer));
+  ASSERT_OK_AND_ASSIGN(auto other_buffer, AllocateBuffer(kBufferSize + 32));
   memset(other_buffer->mutable_data(), 0, kBufferSize + 32);
   random_bytes(kBufferSize + 32, 0, other_buffer->mutable_data());
   const uint8_t* other = other_buffer->data();
@@ -826,8 +1239,7 @@ TEST(BitUtilTests, TestCopyAndInvertBitmapPreAllocated) {
       for (int64_t dest_offset : offsets) {
         const int64_t copy_length = num_bits - offset;
 
-        std::shared_ptr<Buffer> copy;
-        ASSERT_OK(AllocateBuffer(other_buffer->size(), &copy));
+        ASSERT_OK_AND_ASSIGN(auto copy, AllocateBuffer(other_buffer->size()));
         memcpy(copy->mutable_data(), other_buffer->data(), other_buffer->size());
         InvertBitmap(src, offset, copy_length, copy->mutable_data(), dest_offset);
 
@@ -840,6 +1252,49 @@ TEST(BitUtilTests, TestCopyAndInvertBitmapPreAllocated) {
         }
         for (int64_t i = dest_offset + copy_length; i < (other_buffer->size() * 8); ++i) {
           ASSERT_EQ(BitUtil::GetBit(other, i), BitUtil::GetBit(copy->data(), i));
+        }
+      }
+    }
+  }
+}
+
+TEST(BitUtilTests, TestBitmapEquals) {
+  const int srcBufferSize = 1000;
+
+  ASSERT_OK_AND_ASSIGN(auto src_buffer, AllocateBuffer(srcBufferSize));
+  memset(src_buffer->mutable_data(), 0, srcBufferSize);
+  random_bytes(srcBufferSize, 0, src_buffer->mutable_data());
+  const uint8_t* src = src_buffer->data();
+
+  std::vector<int64_t> lengths = {srcBufferSize * 8 - 4, srcBufferSize * 8};
+  std::vector<int64_t> offsets = {0, 12, 16, 32, 37, 63, 64, 128};
+
+  const auto dstBufferSize = srcBufferSize + BitUtil::BytesForBits(*std::max_element(
+                                                 offsets.cbegin(), offsets.cend()));
+  ASSERT_OK_AND_ASSIGN(auto dst_buffer, AllocateBuffer(dstBufferSize))
+  uint8_t* dst = dst_buffer->mutable_data();
+
+  for (int64_t num_bits : lengths) {
+    for (int64_t offset_src : offsets) {
+      for (int64_t offset_dst : offsets) {
+        const auto bit_length = num_bits - offset_src;
+
+        internal::CopyBitmap(src, offset_src, bit_length, dst, offset_dst);
+        ASSERT_TRUE(internal::BitmapEquals(src, offset_src, dst, offset_dst, bit_length));
+
+        // test negative cases by flip some bit at head and tail
+        for (int64_t offset_flip : offsets) {
+          const auto offset_flip_head = offset_dst + offset_flip;
+          dst[offset_flip_head / 8] ^= 1 << (offset_flip_head % 8);
+          ASSERT_FALSE(
+              internal::BitmapEquals(src, offset_src, dst, offset_dst, bit_length));
+          dst[offset_flip_head / 8] ^= 1 << (offset_flip_head % 8);
+
+          const auto offset_flip_tail = offset_dst + bit_length - offset_flip - 1;
+          dst[offset_flip_tail / 8] ^= 1 << (offset_flip_tail % 8);
+          ASSERT_FALSE(
+              internal::BitmapEquals(src, offset_src, dst, offset_dst, bit_length));
+          dst[offset_flip_tail / 8] ^= 1 << (offset_flip_tail % 8);
         }
       }
     }
@@ -920,12 +1375,10 @@ TEST(BitUtil, CoveringBytes) {
 }
 
 TEST(BitUtil, TrailingBits) {
-  EXPECT_EQ(BitUtil::TrailingBits(BOOST_BINARY(1 1 1 1 1 1 1 1), 0), 0);
-  EXPECT_EQ(BitUtil::TrailingBits(BOOST_BINARY(1 1 1 1 1 1 1 1), 1), 1);
-  EXPECT_EQ(BitUtil::TrailingBits(BOOST_BINARY(1 1 1 1 1 1 1 1), 64),
-            BOOST_BINARY(1 1 1 1 1 1 1 1));
-  EXPECT_EQ(BitUtil::TrailingBits(BOOST_BINARY(1 1 1 1 1 1 1 1), 100),
-            BOOST_BINARY(1 1 1 1 1 1 1 1));
+  EXPECT_EQ(BitUtil::TrailingBits(0xFF, 0), 0);
+  EXPECT_EQ(BitUtil::TrailingBits(0xFF, 1), 1);
+  EXPECT_EQ(BitUtil::TrailingBits(0xFF, 64), 0xFF);
+  EXPECT_EQ(BitUtil::TrailingBits(0xFF, 100), 0xFF);
   EXPECT_EQ(BitUtil::TrailingBits(0, 1), 0);
   EXPECT_EQ(BitUtil::TrailingBits(0, 64), 0);
   EXPECT_EQ(BitUtil::TrailingBits(1LL << 63, 0), 0);
@@ -1138,15 +1591,16 @@ TEST(Bitmap, ShiftingWordsOptimization) {
 
     for (int seed = 0; seed < 64; ++seed) {
       random_bytes(sizeof(word), seed, bytes);
+      uint64_t native_word = BitUtil::FromLittleEndian(word);
 
       // bits are accessible through simple bit shifting of the word
       for (size_t i = 0; i < kBitWidth; ++i) {
-        ASSERT_EQ(BitUtil::GetBit(bytes, i), bool((word >> i) & 1));
+        ASSERT_EQ(BitUtil::GetBit(bytes, i), bool((native_word >> i) & 1));
       }
 
-      // bit offset can therefore be accomodated by shifting the word
+      // bit offset can therefore be accommodated by shifting the word
       for (size_t offset = 0; offset < (kBitWidth * 3) / 4; ++offset) {
-        uint64_t shifted_word = word >> offset;
+        uint64_t shifted_word = arrow::BitUtil::ToLittleEndian(native_word >> offset);
         auto shifted_bytes = reinterpret_cast<uint8_t*>(&shifted_word);
         ASSERT_TRUE(
             internal::BitmapEquals(bytes, offset, shifted_bytes, 0, kBitWidth - offset));
@@ -1162,20 +1616,23 @@ TEST(Bitmap, ShiftingWordsOptimization) {
 
     for (int seed = 0; seed < 64; ++seed) {
       random_bytes(sizeof(words), seed, bytes);
+      uint64_t native_words0 = BitUtil::FromLittleEndian(words[0]);
+      uint64_t native_words1 = BitUtil::FromLittleEndian(words[1]);
 
       // bits are accessible through simple bit shifting of a word
       for (size_t i = 0; i < kBitWidth; ++i) {
-        ASSERT_EQ(BitUtil::GetBit(bytes, i), bool((words[0] >> i) & 1));
+        ASSERT_EQ(BitUtil::GetBit(bytes, i), bool((native_words0 >> i) & 1));
       }
       for (size_t i = 0; i < kBitWidth; ++i) {
-        ASSERT_EQ(BitUtil::GetBit(bytes, i + kBitWidth), bool((words[1] >> i) & 1));
+        ASSERT_EQ(BitUtil::GetBit(bytes, i + kBitWidth), bool((native_words1 >> i) & 1));
       }
 
-      // bit offset can therefore be accomodated by shifting the word
+      // bit offset can therefore be accommodated by shifting the word
       for (size_t offset = 1; offset < (kBitWidth * 3) / 4; offset += 3) {
         uint64_t shifted_words[2];
-        shifted_words[0] = words[0] >> offset | (words[1] << (kBitWidth - offset));
-        shifted_words[1] = words[1] >> offset;
+        shifted_words[0] = arrow::BitUtil::ToLittleEndian(
+            native_words0 >> offset | (native_words1 << (kBitWidth - offset)));
+        shifted_words[1] = arrow::BitUtil::ToLittleEndian(native_words1 >> offset);
         auto shifted_bytes = reinterpret_cast<uint8_t*>(shifted_words);
 
         // from offset to unshifted word boundary
@@ -1210,7 +1667,7 @@ TEST(Bitmap, VisitWords) {
   constexpr int64_t nbytes = 1 << 10;
   std::shared_ptr<Buffer> buffer, actual_buffer;
   for (std::shared_ptr<Buffer>* b : {&buffer, &actual_buffer}) {
-    ASSERT_OK(AllocateBuffer(nbytes, b));
+    ASSERT_OK_AND_ASSIGN(*b, AllocateBuffer(nbytes));
     memset((*b)->mutable_data(), 0, nbytes);
   }
   random_bytes(nbytes, 0, buffer->mutable_data());
@@ -1239,8 +1696,7 @@ TEST(Bitmap, VisitPartialWords) {
 
   auto buffer = Buffer::Wrap(words, 2);
   Bitmap bitmap(buffer, 0, nbits);
-  std::shared_ptr<Buffer> storage;
-  ASSERT_OK(AllocateBuffer(nbytes, &storage));
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> storage, AllocateBuffer(nbytes));
 
   // words partially outside the buffer are not accessible, but they are loaded bitwise
   auto first_byte_was_missing = Bitmap(SliceBuffer(buffer, 1), 0, nbits - 8);
@@ -1252,12 +1708,22 @@ TEST(Bitmap, VisitPartialWords) {
 
 #endif  // ARROW_VALGRIND
 
+TEST(Bitmap, ToString) {
+  uint8_t bitmap[8] = {0xAC, 0xCA, 0, 0, 0, 0, 0, 0};
+  EXPECT_EQ(Bitmap(bitmap, /*bit_offset*/ 0, /*length=*/34).ToString(),
+            "00110101 01010011 00000000 00000000 00");
+  EXPECT_EQ(Bitmap(bitmap, /*bit_offset*/ 0, /*length=*/16).ToString(),
+            "00110101 01010011");
+  EXPECT_EQ(Bitmap(bitmap, /*bit_offset*/ 0, /*length=*/11).ToString(), "00110101 010");
+  EXPECT_EQ(Bitmap(bitmap, /*bit_offset*/ 3, /*length=*/8).ToString(), "10101010");
+}
+
 // compute bitwise AND of bitmaps using word-wise visit
 TEST(Bitmap, VisitWordsAnd) {
   constexpr int64_t nbytes = 1 << 10;
   std::shared_ptr<Buffer> buffer, actual_buffer, expected_buffer;
   for (std::shared_ptr<Buffer>* b : {&buffer, &actual_buffer, &expected_buffer}) {
-    ASSERT_OK(AllocateBuffer(nbytes, b));
+    ASSERT_OK_AND_ASSIGN(*b, AllocateBuffer(nbytes));
     memset((*b)->mutable_data(), 0, nbytes);
   }
   random_bytes(nbytes, 0, buffer->mutable_data());
@@ -1295,5 +1761,6 @@ TEST(Bitmap, VisitWordsAnd) {
     }
   }
 }
+
 }  // namespace internal
 }  // namespace arrow

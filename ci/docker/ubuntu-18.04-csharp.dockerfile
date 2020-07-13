@@ -18,3 +18,5 @@
 ARG platform=bionic
 ARG dotnet=2.1
 FROM mcr.microsoft.com/dotnet/core/sdk:${dotnet}-${platform}
+
+RUN dotnet tool install --tool-path /usr/local/bin sourcelink

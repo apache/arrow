@@ -79,7 +79,7 @@ def randdecimal(precision, scale):
     Returns
     -------
     decimal_value : decimal.Decimal
-        A random decimal.Decimal object with the specifed precision and scale.
+        A random decimal.Decimal object with the specified precision and scale.
     """
     assert 1 <= precision <= 38, 'precision must be between 1 and 38 inclusive'
     if scale < 0:

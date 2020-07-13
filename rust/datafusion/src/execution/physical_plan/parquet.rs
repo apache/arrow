@@ -24,12 +24,13 @@ use std::thread;
 
 use crate::error::{ExecutionError, Result};
 use crate::execution::physical_plan::common;
-use crate::execution::physical_plan::{BatchIterator, ExecutionPlan, Partition};
-use arrow::datatypes::Schema;
+use crate::execution::physical_plan::{ExecutionPlan, Partition};
+use arrow::datatypes::{Schema, SchemaRef};
+use arrow::error::{ArrowError, Result as ArrowResult};
 use arrow::record_batch::{RecordBatch, RecordBatchReader};
 use parquet::file::reader::SerializedFileReader;
 
-use crossbeam::channel::{unbounded, Receiver, Sender};
+use crossbeam::channel::{unbounded, Receiver, RecvError, SendError, Sender};
 use parquet::arrow::{ArrowReader, ParquetFileArrowReader};
 
 /// Execution plan for scanning a Parquet file
@@ -37,7 +38,7 @@ pub struct ParquetExec {
     /// Path to directory containing partitioned Parquet files with the same schema
     filenames: Vec<String>,
     /// Schema after projection is applied
-    schema: Arc<Schema>,
+    schema: SchemaRef,
     /// Projection for which columns to load
     projection: Vec<usize>,
     /// Batch size
@@ -84,7 +85,7 @@ impl ParquetExec {
 }
 
 impl ExecutionPlan for ParquetExec {
-    fn schema(&self) -> Arc<Schema> {
+    fn schema(&self) -> SchemaRef {
         self.schema.clone()
     }
 
@@ -106,7 +107,7 @@ impl ExecutionPlan for ParquetExec {
 }
 
 struct ParquetPartition {
-    iterator: Arc<Mutex<dyn BatchIterator>>,
+    iterator: Arc<Mutex<dyn RecordBatchReader + Send + Sync>>,
 }
 
 impl ParquetPartition {
@@ -114,15 +115,15 @@ impl ParquetPartition {
     pub fn new(
         filename: &str,
         projection: Vec<usize>,
-        schema: Arc<Schema>,
+        schema: SchemaRef,
         batch_size: usize,
     ) -> Self {
         // because the parquet implementation is not thread-safe, it is necessary to execute
         // on a thread and communicate with channels
         let (request_tx, request_rx): (Sender<()>, Receiver<()>) = unbounded();
         let (response_tx, response_rx): (
-            Sender<Result<Option<RecordBatch>>>,
-            Receiver<Result<Option<RecordBatch>>>,
+            Sender<ArrowResult<Option<RecordBatch>>>,
+            Receiver<ArrowResult<Option<RecordBatch>>>,
         ) = unbounded();
 
         let filename = filename.to_string();
@@ -153,7 +154,7 @@ impl ParquetPartition {
                                     }
                                     Err(e) => {
                                         response_tx
-                                            .send(Err(ExecutionError::General(format!(
+                                            .send(Err(ArrowError::ParquetError(format!(
                                                 "{:?}",
                                                 e
                                             ))))
@@ -166,7 +167,7 @@ impl ParquetPartition {
 
                         Err(e) => {
                             response_tx
-                                .send(Err(ExecutionError::General(format!("{:?}", e))))
+                                .send(Err(ArrowError::ParquetError(format!("{:?}", e))))
                                 .unwrap();
                         }
                     }
@@ -174,7 +175,7 @@ impl ParquetPartition {
 
                 Err(e) => {
                     response_tx
-                        .send(Err(ExecutionError::General(format!("{:?}", e))))
+                        .send(Err(ArrowError::ParquetError(format!("{:?}", e))))
                         .unwrap();
                 }
             }
@@ -191,34 +192,31 @@ impl ParquetPartition {
 }
 
 impl Partition for ParquetPartition {
-    fn execute(&self) -> Result<Arc<Mutex<dyn BatchIterator>>> {
+    fn execute(&self) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
         Ok(self.iterator.clone())
     }
 }
 
 struct ParquetIterator {
-    schema: Arc<Schema>,
+    schema: SchemaRef,
     request_tx: Sender<()>,
-    response_rx: Receiver<Result<Option<RecordBatch>>>,
+    response_rx: Receiver<ArrowResult<Option<RecordBatch>>>,
 }
 
-impl BatchIterator for ParquetIterator {
-    fn schema(&self) -> Arc<Schema> {
+impl RecordBatchReader for ParquetIterator {
+    fn schema(&self) -> SchemaRef {
         self.schema.clone()
     }
 
-    fn next(&mut self) -> Result<Option<RecordBatch>> {
+    fn next_batch(&mut self) -> ArrowResult<Option<RecordBatch>> {
         match self.request_tx.send(()) {
             Ok(_) => match self.response_rx.recv() {
                 Ok(batch) => batch,
-                Err(e) => Err(ExecutionError::General(format!(
-                    "Error receiving batch: {:?}",
-                    e
-                ))),
+                // RecvError means receiver has exited and closed the channel
+                Err(RecvError) => Ok(None),
             },
-            _ => Err(ExecutionError::General(
-                "Error sending request for next batch".to_string(),
-            )),
+            // SendError means receiver has exited and closed the channel
+            Err(SendError(())) => Ok(None),
         }
     }
 }
@@ -239,20 +237,23 @@ mod tests {
 
         let results = partitions[0].execute()?;
         let mut results = results.lock().unwrap();
-        let batch = results.next()?.unwrap();
+        let batch = results.next_batch()?.unwrap();
 
         assert_eq!(8, batch.num_rows());
         assert_eq!(3, batch.num_columns());
 
-        let field_names: Vec<&str> = batch
-            .schema()
-            .fields()
-            .iter()
-            .map(|f| f.name().as_str())
-            .collect();
+        let schema = batch.schema();
+        let field_names: Vec<&str> =
+            schema.fields().iter().map(|f| f.name().as_str()).collect();
         assert_eq!(vec!["id", "bool_col", "tinyint_col"], field_names);
 
-        let batch = results.next()?;
+        let batch = results.next_batch()?;
+        assert!(batch.is_none());
+
+        let batch = results.next_batch()?;
+        assert!(batch.is_none());
+
+        let batch = results.next_batch()?;
         assert!(batch.is_none());
 
         Ok(())

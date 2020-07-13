@@ -38,10 +38,12 @@ class StructArrayBuilderTest < Test::Unit::TestCase
 
     test("Array") do
       @builder.append_value([true, 1])
+      @builder.append_value([])
+      @builder.append_value([false])
       array = @builder.finish
       assert_equal([
-                     [true],
-                     [1],
+                     [true, nil, false],
+                     [1, nil, nil],
                    ],
                    [
                      array.find_field(0).to_a,
@@ -66,10 +68,12 @@ class StructArrayBuilderTest < Test::Unit::TestCase
 
     test("Hash") do
       @builder.append_value(count: 1, visible: true)
+      @builder.append_value(visible: false)
+      @builder.append_value(count: 2)
       array = @builder.finish
       assert_equal([
-                     [true],
-                     [1],
+                     [true, false, nil],
+                     [1, nil, 2],
                    ],
                    [
                      array.find_field(0).to_a,

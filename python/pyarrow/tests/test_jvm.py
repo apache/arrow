@@ -46,9 +46,8 @@ def root_allocator():
         'arrow-tools-{}-jar-with-dependencies.jar'.format(version))
     jar_path = os.getenv("ARROW_TOOLS_JAR", jar_path)
     kwargs = {}
-    if jpype.__version_info__ >= (0, 7):
-        # This will be the default behaviour in jpype 0.8+
-        kwargs['convertStrings'] = False
+    # This will be the default behaviour in jpype 0.8+
+    kwargs['convertStrings'] = False
     jpype.startJVM(jpype.getDefaultJVMPath(), "-Djava.class.path=" + jar_path,
                    **kwargs)
     return jpype.JPackage("org").apache.arrow.memory.RootAllocator(sys.maxsize)
@@ -217,6 +216,15 @@ def test_jvm_array(root_allocator, pa_type, py_data, jvm_type):
     jvm_array = pa_jvm.array(jvm_vector)
 
     assert py_array.equals(jvm_array)
+
+
+def test_jvm_array_empty(root_allocator):
+    cls = "org.apache.arrow.vector.{}".format('IntVector')
+    jvm_vector = jpype.JClass(cls)("vector", root_allocator)
+    jvm_vector.allocateNew()
+    jvm_array = pa_jvm.array(jvm_vector)
+    assert len(jvm_array) == 0
+    assert jvm_array.type == pa.int32()
 
 
 # These test parameters mostly use an integer range as an input as this is

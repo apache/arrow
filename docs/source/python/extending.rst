@@ -121,6 +121,11 @@ C++ objects.
    Return whether *obj* wraps an Arrow C++ :class:`SparseCSRMatrix` pointer;
    in other words, whether *obj* is a :py:class:`pyarrow.SparseCSRMatrix` instance.
 
+.. function:: bool is_sparse_csc_matrix(PyObject* obj)
+
+   Return whether *obj* wraps an Arrow C++ :class:`SparseCSCMatrix` pointer;
+   in other words, whether *obj* is a :py:class:`pyarrow.SparseCSCMatrix` instance.
+
 The following functions expect a pyarrow object, unwrap the underlying
 Arrow C++ API pointer, and put it in the *out* parameter.  The returned
 :class:`Status` object must be inspected first to know whether any error
@@ -166,6 +171,10 @@ occurred.  If successful, *out* is guaranteed to be non-NULL.
 
    Unwrap the Arrow C++ :class:`SparseCSRMatrix` pointer from *obj* and put it in *out*.
 
+.. function:: Status unwrap_sparse_csc_matrix(PyObject* obj, std::shared_ptr<SparseCSCMatrix>* out)
+
+   Unwrap the Arrow C++ :class:`SparseCSCMatrix` pointer from *obj* and put it in *out*.
+
 The following functions take an Arrow C++ API pointer and wrap it in a
 pyarray object of the corresponding type.  A new reference is returned.
 On error, NULL is returned and a Python exception is set.
@@ -209,6 +218,10 @@ On error, NULL is returned and a Python exception is set.
 .. function:: PyObject* wrap_sparse_csr_matrix(const std::shared_ptr<SparseCSRMatrix>& sparse_tensor)
 
    Wrap the Arrow C++ *CSR sparse tensor* in a :py:class:`pyarrow.SparseCSRMatrix` instance.
+
+.. function:: PyObject* wrap_sparse_csc_matrix(const std::shared_ptr<SparseCSCMatrix>& sparse_tensor)
+
+   Wrap the Arrow C++ *CSC sparse tensor* in a :py:class:`pyarrow.SparseCSCMatrix` instance.
 
 
 Cython API
@@ -274,6 +287,10 @@ an exception) if the input is not of the right type.
 
    Unwrap the Arrow C++ :cpp:class:`SparseCSRMatrix` pointer from *obj*.
 
+.. function:: pyarrow_unwrap_sparse_csc_matrix(obj) -> shared_ptr[CSparseCSCMatrix]
+
+   Unwrap the Arrow C++ :cpp:class:`SparseCSCMatrix` pointer from *obj*.
+
 The following functions take a Arrow C++ API pointer and wrap it in a
 pyarray object of the corresponding type.  An exception is raised on error.
 
@@ -320,6 +337,10 @@ pyarray object of the corresponding type.  An exception is raised on error.
 .. function:: pyarrow_wrap_sparse_csr_matrix(sp_array: const shared_ptr[CSparseCSRMatrix]& sparse_tensor) -> object
 
    Wrap the Arrow C++ *CSR sparse tensor* in a Python :class:`pyarrow.SparseCSRMatrix` instance.
+
+.. function:: pyarrow_wrap_sparse_csc_matrix(sp_array: const shared_ptr[CSparseCSCMatrix]& sparse_tensor) -> object
+
+   Wrap the Arrow C++ *CSC sparse tensor* in a Python :class:`pyarrow.SparseCSCMatrix` instance.
 
 Example
 ~~~~~~~
@@ -380,3 +401,20 @@ Compile the extension:
 .. code-block:: bash
 
     python setup.py build_ext --inplace
+
+Building Extensions against PyPI Wheels
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The Python wheels have the Arrow C++ libraries bundled in the top level
+``pyarrow/`` install directory. On Linux and macOS, these libraries have an ABI
+tag like ``libarrow.so.17`` which means that linking with ``-larrow`` using the
+linker path provided by ``pyarrow.get_library_dirs()`` will not work right out
+of the box. To fix this, you must run ``pyarrow.create_library_symlinks()``
+once as a user with write access to the directory where pyarrow is
+installed. This function will attempt to create symlinks like
+``pyarrow/libarrow.so``. For example:
+
+.. code-block:: bash
+
+   pip install pyarrow
+   python -c "import pyarrow; pyarrow.create_library_symlinks()"

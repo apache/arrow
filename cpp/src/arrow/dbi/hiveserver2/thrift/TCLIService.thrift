@@ -678,7 +678,7 @@ struct TExecuteStatementReq {
   // The statement to be executed (DML, DDL, SET, etc)
   2: required string statement
 
-  // Configuration properties that are overlayed on top of the
+  // Configuration properties that are overlaid on top of the
   // the existing session configuration before this statement
   // is executed. These properties apply to this statement
   // only and will not affect the subsequent state of the Session.

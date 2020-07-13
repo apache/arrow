@@ -54,9 +54,9 @@ namespace Apache.Arrow.Ipc
         {
             var schemaBuilder = new Schema.Builder();
 
-            for (var i = 0; i < schema.FieldsLength; i++)
+            for (int i = 0; i < schema.FieldsLength; i++)
             {
-                var field = schema.Fields(i).GetValueOrDefault();
+                Flatbuf.Field field = schema.Fields(i).GetValueOrDefault();
 
                 schemaBuilder.Field(
                     new Field(field.Name, GetFieldArrowType(field), field.Nullable));
@@ -71,10 +71,10 @@ namespace Apache.Arrow.Ipc
             switch (field.TypeType)
             {
                 case Flatbuf.Type.Int:
-                    var intMetaData = field.Type<Flatbuf.Int>().Value;
+                    Flatbuf.Int intMetaData = field.Type<Flatbuf.Int>().Value;
                     return MessageSerializer.GetNumberType(intMetaData.BitWidth, intMetaData.IsSigned);
                 case Flatbuf.Type.FloatingPoint:
-                    var floatingPointTypeMetadata = field.Type<Flatbuf.FloatingPoint>().Value;
+                    Flatbuf.FloatingPoint floatingPointTypeMetadata = field.Type<Flatbuf.FloatingPoint>().Value;
                     switch (floatingPointTypeMetadata.Precision)
                     {
                         case Flatbuf.Precision.SINGLE:
@@ -89,10 +89,10 @@ namespace Apache.Arrow.Ipc
                 case Flatbuf.Type.Bool:
                     return new Types.BooleanType();
                 case Flatbuf.Type.Decimal:
-                    var decMeta = field.Type<Flatbuf.Decimal>().Value;
+                    Flatbuf.Decimal decMeta = field.Type<Flatbuf.Decimal>().Value;
                     return new Types.DecimalType(decMeta.Precision, decMeta.Scale);
                 case Flatbuf.Type.Date:
-                    var dateMeta = field.Type<Flatbuf.Date>().Value;
+                    Flatbuf.Date dateMeta = field.Type<Flatbuf.Date>().Value;
                     switch (dateMeta.Unit)
                     {
                         case Flatbuf.DateUnit.DAY:
@@ -103,7 +103,7 @@ namespace Apache.Arrow.Ipc
                             throw new InvalidDataException("Unsupported date unit");
                     }
                 case Flatbuf.Type.Time:
-                    var timeMeta = field.Type<Flatbuf.Time>().Value;
+                    Flatbuf.Time timeMeta = field.Type<Flatbuf.Time>().Value;
                     switch (timeMeta.BitWidth)
                     {
                         case 32:
@@ -114,12 +114,12 @@ namespace Apache.Arrow.Ipc
                             throw new InvalidDataException("Unsupported time bit width");
                     }
                 case Flatbuf.Type.Timestamp:
-                    var timestampTypeMetadata = field.Type<Flatbuf.Timestamp>().Value;
-                    var unit = timestampTypeMetadata.Unit.ToArrow();
-                    var timezone = timestampTypeMetadata.Timezone;
+                    Flatbuf.Timestamp timestampTypeMetadata = field.Type<Flatbuf.Timestamp>().Value;
+                    Types.TimeUnit unit = timestampTypeMetadata.Unit.ToArrow();
+                    string timezone = timestampTypeMetadata.Timezone;
                     return new Types.TimestampType(unit, timezone);
                 case Flatbuf.Type.Interval:
-                    var intervalMetadata = field.Type<Flatbuf.Interval>().Value;
+                    Flatbuf.Interval intervalMetadata = field.Type<Flatbuf.Interval>().Value;
                     return new Types.IntervalType(intervalMetadata.Unit.ToArrow());
                 case Flatbuf.Type.Utf8:
                     return new Types.StringType();

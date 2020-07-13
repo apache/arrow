@@ -25,6 +25,8 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/testing/gtest_compat.h"
+
 #include "parquet/column_page.h"
 #include "parquet/column_scanner.h"
 #include "parquet/schema.h"
@@ -146,7 +148,7 @@ typedef ::testing::Types<Int32Type, Int64Type, Int96Type, FloatType, DoubleType,
 using TestBooleanFlatScanner = TestFlatScanner<BooleanType>;
 using TestFLBAFlatScanner = TestFlatScanner<FLBAType>;
 
-TYPED_TEST_CASE(TestFlatScanner, TestTypes);
+TYPED_TEST_SUITE(TestFlatScanner, TestTypes);
 
 TYPED_TEST(TestFlatScanner, TestPlainScanner) {
   ASSERT_NO_FATAL_FAILURE(

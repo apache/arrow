@@ -46,7 +46,7 @@ namespace Apache.Arrow
         public TBuilder Append(ReadOnlySpan<TFrom> span)
         {
             ArrayBuilder.Reserve(span.Length);
-            foreach (var value in span)
+            foreach (TFrom value in span)
             {
                 Append(value);
             }
@@ -56,6 +56,12 @@ namespace Apache.Arrow
         public TBuilder AppendRange(IEnumerable<TFrom> values)
         {
             ArrayBuilder.AppendRange(values.Select(ConvertTo));
+            return Instance;
+        }
+
+        public TBuilder AppendNull()
+        {
+            ArrayBuilder.AppendNull();
             return Instance;
         }
 
@@ -99,71 +105,93 @@ namespace Apache.Arrow
     {
         protected TBuilder Instance => this as TBuilder;
         protected ArrowBuffer.Builder<T> ValueBuffer { get; }
+        protected ArrowBuffer.BitmapBuilder ValidityBuffer { get; }
 
         public int Length => ValueBuffer.Length;
-
-        // TODO: Implement support for null values (null bitmaps)
+        protected int NullCount => ValidityBuffer.UnsetBitCount;
 
         internal PrimitiveArrayBuilder()
         {
             ValueBuffer = new ArrowBuffer.Builder<T>();
+            ValidityBuffer = new ArrowBuffer.BitmapBuilder();
         }
 
         public TBuilder Resize(int length)
         {
             ValueBuffer.Resize(length);
+            ValidityBuffer.Resize(length);
             return Instance;
         }
 
         public TBuilder Reserve(int capacity)
         {
             ValueBuffer.Reserve(capacity);
+            ValidityBuffer.Reserve(capacity);
             return Instance;
         }
 
         public TBuilder Append(T value)
         {
             ValueBuffer.Append(value);
+            ValidityBuffer.Append(true);
             return Instance;
         }
 
         public TBuilder Append(ReadOnlySpan<T> span)
         {
+            int len = ValueBuffer.Length;
             ValueBuffer.Append(span);
+            ValidityBuffer.AppendRange(Enumerable.Repeat(true, ValueBuffer.Length - len));
             return Instance;
         }
 
         public TBuilder AppendRange(IEnumerable<T> values)
         {
+            int len = ValueBuffer.Length;
             ValueBuffer.AppendRange(values);
+            ValidityBuffer.AppendRange(Enumerable.Repeat(true, ValueBuffer.Length - len));
+            return Instance;
+        }
+
+        public TBuilder AppendNull()
+        {
+            ValidityBuffer.Append(false);
+            ValueBuffer.Append(default(T));
             return Instance;
         }
 
         public TBuilder Clear()
         {
             ValueBuffer.Clear();
+            ValidityBuffer.Clear();
             return Instance;
         }
 
         public TBuilder Set(int index, T value)
         {
             ValueBuffer.Span[index] = value;
+            ValidityBuffer.Set(index, true);
             return Instance;
         }
 
         public TBuilder Swap(int i, int j)
         {
-            var x = ValueBuffer.Span[i];
+            T x = ValueBuffer.Span[i];
             ValueBuffer.Span[i] = ValueBuffer.Span[j];
             ValueBuffer.Span[j] = x;
+            ValidityBuffer.Swap(i, j);
             return Instance;
         }
 
         public TArray Build(MemoryAllocator allocator = default)
         {
+            ArrowBuffer validityBuffer = NullCount > 0
+                                    ? ValidityBuffer.Build(allocator)
+                                    : ArrowBuffer.Empty;
+
             return Build(
-                ValueBuffer.Build(allocator), ArrowBuffer.Empty,
-                ValueBuffer.Length, 0, 0);
+                ValueBuffer.Build(allocator), validityBuffer,
+                ValueBuffer.Length, NullCount, 0);
         }
 
         protected abstract TArray Build(

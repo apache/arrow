@@ -23,6 +23,7 @@ import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
 
 import org.apache.arrow.flatbuf.MessageHeader;
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ipc.message.ArrowDictionaryBatch;
@@ -30,10 +31,10 @@ import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.ipc.message.MessageChannelReader;
 import org.apache.arrow.vector.ipc.message.MessageResult;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
+import org.apache.arrow.vector.types.MetadataVersion;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.Schema;
-
-import io.netty.buffer.ArrowBuf;
+import org.apache.arrow.vector.validate.MetadataV4UnionChecker;
 
 /**
  * This class reads from an input stream and produces ArrowRecordBatches.
@@ -145,7 +146,7 @@ public class ArrowStreamReader extends ArrowReader {
     for (FieldVector vector : getVectorSchemaRoot().getFieldVectors()) {
       DictionaryEncoding encoding = vector.getField().getDictionary();
       if (encoding != null) {
-        // if the dictionaries it need is not available and the vector is not all null, something was wrong.
+        // if the dictionaries it needs is not available and the vector is not all null, something was wrong.
         if (!dictionaries.containsKey(encoding.getId()) && vector.getNullCount() < vector.getValueCount()) {
           throw new IOException("The dictionary was not available, id was:" + encoding.getId());
         }
@@ -170,7 +171,9 @@ public class ArrowStreamReader extends ArrowReader {
       throw new IOException("Expected schema but header was " + result.getMessage().headerType());
     }
 
-    return MessageSerializer.deserializeSchema(result.getMessage());
+    final Schema schema = MessageSerializer.deserializeSchema(result.getMessage());
+    MetadataV4UnionChecker.checkRead(schema, MetadataVersion.fromFlatbufID(result.getMessage().version()));
+    return schema;
   }
 
 

@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_CONDITION_H
-#define GANDIVA_CONDITION_H
+#pragma once
 
 #include <memory>
 
@@ -36,5 +35,3 @@ class Condition : public Expression {
 };
 
 }  // namespace gandiva
-
-#endif  // GANDIVA_CONDITION_H

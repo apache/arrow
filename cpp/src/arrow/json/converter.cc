@@ -25,8 +25,8 @@
 #include "arrow/json/parser.h"
 #include "arrow/type.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/parsing.h"
 #include "arrow/util/string_view.h"
+#include "arrow/util/value_parsing.h"
 
 namespace arrow {
 namespace json {
@@ -92,7 +92,7 @@ class BooleanConverter : public PrimitiveConverter {
 
   Status Convert(const std::shared_ptr<Array>& in, std::shared_ptr<Array>* out) override {
     if (in->type_id() == Type::NA) {
-      return MakeArrayOfNull(pool_, boolean(), in->length(), out);
+      return MakeArrayOfNull(boolean(), in->length(), pool_).Value(out);
     }
     if (in->type_id() != Type::BOOL) {
       return GenericConversionError(*out_type_, " from ", *in->type());
@@ -103,16 +103,42 @@ class BooleanConverter : public PrimitiveConverter {
 };
 
 template <typename T>
-class NumericConverter : public PrimitiveConverter {
+struct ParserAdapter {
+  using value_type = typename T::c_type;
+
+  void InitParser(const DataType& type) {}
+
+  bool ConvertOne(const char* s, size_t length, value_type* out) {
+    return internal::ParseValue<T>(s, length, out);
+  }
+};
+
+template <>
+struct ParserAdapter<TimestampType> {
+  void InitParser(const DataType& type) {
+    this->unit = internal::checked_cast<const TimestampType&>(type).unit();
+  }
+
+  bool ConvertOne(const char* s, size_t length, int64_t* out) {
+    return internal::ParseTimestampISO8601(s, length, unit, out);
+  }
+
+  TimeUnit::type unit;
+};
+
+template <typename T>
+class NumericConverter : public PrimitiveConverter, public ParserAdapter<T> {
  public:
-  using value_type = typename internal::StringConverter<T>::value_type;
+  using value_type = typename T::c_type;
 
   NumericConverter(MemoryPool* pool, const std::shared_ptr<DataType>& type)
-      : PrimitiveConverter(pool, type), convert_one_(type) {}
+      : PrimitiveConverter(pool, type) {
+    ParserAdapter<T>::InitParser(*type);
+  }
 
   Status Convert(const std::shared_ptr<Array>& in, std::shared_ptr<Array>* out) override {
     if (in->type_id() == Type::NA) {
-      return MakeArrayOfNull(pool_, out_type_, in->length(), out);
+      return MakeArrayOfNull(out_type_, in->length(), pool_).Value(out);
     }
     const auto& dict_array = GetDictionaryArray(in);
 
@@ -122,7 +148,7 @@ class NumericConverter : public PrimitiveConverter {
 
     auto visit_valid = [&](string_view repr) {
       value_type value;
-      if (!convert_one_(repr.data(), repr.size(), &value)) {
+      if (!ParserAdapter<T>::ConvertOne(repr.data(), repr.size(), &value)) {
         return GenericConversionError(*out_type_, ", couldn't parse:", repr);
       }
 
@@ -138,8 +164,6 @@ class NumericConverter : public PrimitiveConverter {
     RETURN_NOT_OK(VisitDictionaryEntries(dict_array, visit_valid, visit_null));
     return builder.Finish(out);
   }
-
-  internal::StringConverter<T> convert_one_;
 };
 
 template <typename DateTimeType>
@@ -150,7 +174,7 @@ class DateTimeConverter : public PrimitiveConverter {
 
   Status Convert(const std::shared_ptr<Array>& in, std::shared_ptr<Array>* out) override {
     if (in->type_id() == Type::NA) {
-      return MakeArrayOfNull(pool_, out_type_, in->length(), out);
+      return MakeArrayOfNull(out_type_, in->length(), pool_).Value(out);
     }
 
     std::shared_ptr<Array> repr;
@@ -178,7 +202,7 @@ class BinaryConverter : public PrimitiveConverter {
 
   Status Convert(const std::shared_ptr<Array>& in, std::shared_ptr<Array>* out) override {
     if (in->type_id() == Type::NA) {
-      return MakeArrayOfNull(pool_, out_type_, in->length(), out);
+      return MakeArrayOfNull(out_type_, in->length(), pool_).Value(out);
     }
     const auto& dict_array = GetDictionaryArray(in);
 
@@ -281,7 +305,7 @@ const PromotionGraph* GetPromotionGraph() {
           return list(value_field->WithType(Infer(value_field)));
         }
         case Kind::kObject: {
-          auto fields = unexpected_field->type()->children();
+          auto fields = unexpected_field->type()->fields();
           for (auto& field : fields) {
             field = field->WithType(Infer(field));
           }

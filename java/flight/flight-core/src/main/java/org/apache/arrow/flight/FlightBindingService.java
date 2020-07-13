@@ -45,7 +45,9 @@ class FlightBindingService implements BindableService {
 
   private static final String DO_GET = MethodDescriptor.generateFullMethodName(FlightConstants.SERVICE, "DoGet");
   private static final String DO_PUT = MethodDescriptor.generateFullMethodName(FlightConstants.SERVICE, "DoPut");
-  private static final Set<String> OVERRIDE_METHODS = ImmutableSet.of(DO_GET, DO_PUT);
+  private static final String DO_EXCHANGE = MethodDescriptor.generateFullMethodName(
+      FlightConstants.SERVICE, "DoExchange");
+  private static final Set<String> OVERRIDE_METHODS = ImmutableSet.of(DO_GET, DO_PUT, DO_EXCHANGE);
 
   private final FlightService delegate;
   private final BufferAllocator allocator;
@@ -78,19 +80,31 @@ class FlightBindingService implements BindableService {
         .build();
   }
 
+  public static MethodDescriptor<ArrowMessage, ArrowMessage> getDoExchangeDescriptor(BufferAllocator allocator) {
+    return MethodDescriptor.<ArrowMessage, ArrowMessage>newBuilder()
+            .setType(MethodType.BIDI_STREAMING)
+            .setFullMethodName(DO_EXCHANGE)
+            .setSampledToLocalTracing(false)
+            .setRequestMarshaller(ArrowMessage.createMarshaller(allocator))
+            .setResponseMarshaller(ArrowMessage.createMarshaller(allocator))
+            .setSchemaDescriptor(FlightServiceGrpc.getDoExchangeMethod().getSchemaDescriptor())
+            .build();
+  }
+
   @Override
   public ServerServiceDefinition bindService() {
     final ServerServiceDefinition baseDefinition = delegate.bindService();
 
     final MethodDescriptor<Flight.Ticket, ArrowMessage> doGetDescriptor = getDoGetDescriptor(allocator);
-
     final MethodDescriptor<ArrowMessage, Flight.PutResult> doPutDescriptor = getDoPutDescriptor(allocator);
+    final MethodDescriptor<ArrowMessage, ArrowMessage> doExchangeDescriptor = getDoExchangeDescriptor(allocator);
 
     // Make sure we preserve SchemaDescriptor fields on methods so that gRPC reflection still works.
     final ServiceDescriptor.Builder serviceDescriptorBuilder = ServiceDescriptor.newBuilder(FlightConstants.SERVICE)
         .setSchemaDescriptor(baseDefinition.getServiceDescriptor().getSchemaDescriptor());
     serviceDescriptorBuilder.addMethod(doGetDescriptor);
     serviceDescriptorBuilder.addMethod(doPutDescriptor);
+    serviceDescriptorBuilder.addMethod(doExchangeDescriptor);
     for (MethodDescriptor<?, ?> definition : baseDefinition.getServiceDescriptor().getMethods()) {
       if (OVERRIDE_METHODS.contains(definition.getFullMethodName())) {
         continue;
@@ -103,6 +117,7 @@ class FlightBindingService implements BindableService {
     ServerServiceDefinition.Builder serviceBuilder = ServerServiceDefinition.builder(serviceDescriptor);
     serviceBuilder.addMethod(doGetDescriptor, ServerCalls.asyncServerStreamingCall(new DoGetMethod(delegate)));
     serviceBuilder.addMethod(doPutDescriptor, ServerCalls.asyncBidiStreamingCall(new DoPutMethod(delegate)));
+    serviceBuilder.addMethod(doExchangeDescriptor, ServerCalls.asyncBidiStreamingCall(new DoExchangeMethod(delegate)));
 
     // copy over not-overridden methods.
     for (ServerMethodDefinition<?, ?> definition : baseDefinition.getMethods()) {
@@ -116,7 +131,7 @@ class FlightBindingService implements BindableService {
     return serviceBuilder.build();
   }
 
-  private class DoGetMethod implements ServerCalls.ServerStreamingMethod<Flight.Ticket, ArrowMessage> {
+  private static class DoGetMethod implements ServerCalls.ServerStreamingMethod<Flight.Ticket, ArrowMessage> {
 
     private final FlightService delegate;
 
@@ -130,7 +145,7 @@ class FlightBindingService implements BindableService {
     }
   }
 
-  private class DoPutMethod implements ServerCalls.BidiStreamingMethod<ArrowMessage, PutResult> {
+  private static class DoPutMethod implements ServerCalls.BidiStreamingMethod<ArrowMessage, PutResult> {
     private final FlightService delegate;
 
     public DoPutMethod(FlightService delegate) {
@@ -141,7 +156,19 @@ class FlightBindingService implements BindableService {
     public StreamObserver<ArrowMessage> invoke(StreamObserver<PutResult> responseObserver) {
       return delegate.doPutCustom(responseObserver);
     }
+  }
 
+  private static class DoExchangeMethod implements ServerCalls.BidiStreamingMethod<ArrowMessage, ArrowMessage> {
+    private final FlightService delegate;
+
+    public DoExchangeMethod(FlightService delegate) {
+      this.delegate = delegate;
+    }
+
+    @Override
+    public StreamObserver<ArrowMessage> invoke(StreamObserver<ArrowMessage> responseObserver) {
+      return delegate.doExchangeCustom(responseObserver);
+    }
   }
 
 }

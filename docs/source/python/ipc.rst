@@ -53,18 +53,19 @@ First, let's create a small record batch:
        pa.array([True, None, False, True])
    ]
 
-   batch = pa.RecordBatch.from_arrays(data, ['f0', 'f1', 'f2'])
+   batch = pa.record_batch(data, names=['f0', 'f1', 'f2'])
    batch.num_rows
    batch.num_columns
 
 Now, we can begin writing a stream containing some number of these batches. For
-this we use :class:`~pyarrow.RecordBatchStreamWriter`, which can write to a writeable
-``NativeFile`` object or a writeable Python object:
+this we use :class:`~pyarrow.RecordBatchStreamWriter`, which can write to a
+writeable ``NativeFile`` object or a writeable Python object. For convenience,
+this one can be created with :func:`~pyarrow.ipc.new_stream`:
 
 .. ipython:: python
 
    sink = pa.BufferOutputStream()
-   writer = pa.RecordBatchStreamWriter(sink, batch.schema)
+   writer = pa.ipc.new_stream(sink, batch.schema)
 
 Here we used an in-memory Arrow buffer stream, but this could have been a
 socket or some other IO sink.
@@ -108,12 +109,13 @@ Writing and Reading Random Access Files
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The :class:`~pyarrow.RecordBatchFileWriter` has the same API as
-:class:`~pyarrow.RecordBatchStreamWriter`:
+:class:`~pyarrow.RecordBatchStreamWriter`. You can create one with
+:func:`~pyarrow.ipc.new_file`:
 
 .. ipython:: python
 
    sink = pa.BufferOutputStream()
-   writer = pa.RecordBatchFileWriter(sink, batch.schema)
+   writer = pa.ipc.new_file(sink, batch.schema)
 
    for i in range(10):
       writer.write_batch(batch)
@@ -125,7 +127,7 @@ The :class:`~pyarrow.RecordBatchFileWriter` has the same API as
 The difference between :class:`~pyarrow.RecordBatchFileReader` and
 :class:`~pyarrow.RecordBatchStreamReader` is that the input source must have a
 ``seek`` method for random access. The stream reader only requires read
-operations. We can also use the ``pyarrow.ipc.open_file`` method to open a file:
+operations. We can also use the :func:`~pyarrow.ipc.open_file` method to open a file:
 
 .. ipython:: python
 
@@ -338,52 +340,3 @@ objects not containing any Python objects:
    df_components = serialized_df.to_components()
    original_df = context.deserialize_components(df_components)
    original_df
-
-Feather Format
---------------
-
-Feather is a lightweight file-format for data frames that uses the Arrow memory
-layout for data representation on disk. It was created early in the Arrow
-project as a proof of concept for fast, language-agnostic data frame storage
-for Python (pandas) and R.
-
-Compared with Arrow streams and files, Feather has some limitations:
-
-* Only non-nested data types and categorical (dictionary-encoded) types are
-  supported
-* Supports only a single batch of rows, where general Arrow streams support an
-  arbitrary number
-* Supports limited scalar value types, adequate only for representing typical
-  data found in R and pandas
-
-We would like to continue to innovate in the Feather format, but we must wait
-for an R implementation for Arrow to mature.
-
-The ``pyarrow.feather`` module contains the read and write functions for the
-format. The input and output are ``pandas.DataFrame`` objects:
-
-.. code-block:: python
-
-   import pyarrow.feather as feather
-
-   feather.write_feather(df, '/path/to/file')
-   read_df = feather.read_feather('/path/to/file')
-
-``read_feather`` supports multithreaded reads, and may yield faster performance
-on some files:
-
-.. code-block:: python
-
-   read_df = feather.read_feather('/path/to/file', nthreads=4)
-
-These functions can read and write with file-like objects. For example:
-
-.. code-block:: python
-
-   with open('/path/to/file', 'wb') as f:
-       feather.write_feather(df, f)
-
-   with open('/path/to/file', 'rb') as f:
-       read_df = feather.read_feather(f)
-
-A file input to ``read_feather`` must support seeking.

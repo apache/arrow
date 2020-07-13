@@ -115,8 +115,9 @@ FORCE_INLINE
 gdv_int64 truncate_int64_int32(gdv_int64 in, gdv_int32 out_scale) {
   bool overflow = false;
   arrow::BasicDecimal128 decimal = gandiva::decimalops::FromInt64(in, 38, 0, &overflow);
-  arrow::BasicDecimal128 decimal_with_outscale = gandiva::decimalops::Truncate(
-      gandiva::BasicDecimalScalar128(decimal, 38, 0), out_scale, &overflow);
+  arrow::BasicDecimal128 decimal_with_outscale =
+      gandiva::decimalops::Truncate(gandiva::BasicDecimalScalar128(decimal, 38, 0), 38,
+                                    out_scale, out_scale, &overflow);
   if (out_scale < 0) {
     out_scale = 0;
   }

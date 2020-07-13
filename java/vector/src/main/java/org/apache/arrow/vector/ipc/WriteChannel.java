@@ -21,14 +21,13 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.WritableByteChannel;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.vector.ipc.message.FBSerializable;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.flatbuffers.FlatBufferBuilder;
-
-import io.netty.buffer.ArrowBuf;
 
 /**
  * Wrapper around a WritableByteChannel that maintains the position as well adding
@@ -130,7 +129,7 @@ public class WriteChannel implements AutoCloseable {
   public void write(ArrowBuf buffer) throws IOException {
     long bytesWritten = 0;
     while (bytesWritten < buffer.readableBytes()) {
-      int bytesToWrite = (int)Math.min(Integer.MAX_VALUE, buffer.readableBytes() - bytesWritten);
+      int bytesToWrite = (int) Math.min(Integer.MAX_VALUE, buffer.readableBytes() - bytesWritten);
       ByteBuffer nioBuffer = buffer.nioBuffer(buffer.readerIndex() + bytesWritten,
            bytesToWrite);
       write(nioBuffer);

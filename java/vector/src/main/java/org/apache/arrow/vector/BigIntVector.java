@@ -19,6 +19,7 @@ package org.apache.arrow.vector;
 
 import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.impl.BigIntReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
@@ -28,8 +29,6 @@ import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
-
-import io.netty.buffer.ArrowBuf;
 
 /**
  * BigIntVector implements a fixed width vector (8 bytes) of
@@ -112,7 +111,7 @@ public final class BigIntVector extends BaseFixedWidthVector implements BaseIntV
     if (NULL_CHECKING_ENABLED && isSet(index) == 0) {
       throw new IllegalStateException("Value at index is null");
     }
-    return valueBuffer.getLong(index * TYPE_WIDTH);
+    return valueBuffer.getLong((long) index * TYPE_WIDTH);
   }
 
   /**
@@ -128,7 +127,7 @@ public final class BigIntVector extends BaseFixedWidthVector implements BaseIntV
       return;
     }
     holder.isSet = 1;
-    holder.value = valueBuffer.getLong(index * TYPE_WIDTH);
+    holder.value = valueBuffer.getLong((long) index * TYPE_WIDTH);
   }
 
   /**
@@ -141,7 +140,7 @@ public final class BigIntVector extends BaseFixedWidthVector implements BaseIntV
     if (isSet(index) == 0) {
       return null;
     } else {
-      return valueBuffer.getLong(index * TYPE_WIDTH);
+      return valueBuffer.getLong((long) index * TYPE_WIDTH);
     }
   }
 
@@ -153,7 +152,7 @@ public final class BigIntVector extends BaseFixedWidthVector implements BaseIntV
 
 
   private void setValue(int index, long value) {
-    valueBuffer.setLong(index * TYPE_WIDTH, value);
+    valueBuffer.setLong((long) index * TYPE_WIDTH, value);
   }
 
   /**
@@ -275,7 +274,7 @@ public final class BigIntVector extends BaseFixedWidthVector implements BaseIntV
    * @return value stored at the index.
    */
   public static long get(final ArrowBuf buffer, final int index) {
-    return buffer.getLong(index * TYPE_WIDTH);
+    return buffer.getLong((long) index * TYPE_WIDTH);
   }
 
 

@@ -20,8 +20,9 @@
 use crate::error::Result;
 use crate::execution::context::ExecutionContext;
 use crate::execution::physical_plan::ExecutionPlan;
+use crate::logicalplan::{Expr, LogicalPlan, LogicalPlanBuilder};
 use arrow::array;
-use arrow::datatypes::{DataType, Field, Schema};
+use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
 use arrow::record_batch::RecordBatch;
 use std::env;
 use std::fs::File;
@@ -86,7 +87,7 @@ pub fn create_partitioned_csv(filename: &str, partitions: usize) -> Result<Strin
 }
 
 /// Get the schema for the aggregate_test_* csv files
-pub fn aggr_test_schema() -> Arc<Schema> {
+pub fn aggr_test_schema() -> SchemaRef {
     Arc::new(Schema::new(vec![
         Field::new("c1", DataType::Utf8, false),
         Field::new("c2", DataType::UInt32, false),
@@ -201,4 +202,32 @@ pub fn format_batch(batch: &RecordBatch) -> Vec<String> {
         rows.push(s);
     }
     rows
+}
+
+/// all tests share a common table
+pub fn test_table_scan() -> Result<LogicalPlan> {
+    let schema = Schema::new(vec![
+        Field::new("a", DataType::UInt32, false),
+        Field::new("b", DataType::UInt32, false),
+        Field::new("c", DataType::UInt32, false),
+    ]);
+    LogicalPlanBuilder::scan("default", "test", &schema, None)?.build()
+}
+
+pub fn assert_fields_eq(plan: &LogicalPlan, expected: Vec<&str>) {
+    let actual: Vec<String> = plan
+        .schema()
+        .fields()
+        .iter()
+        .map(|f| f.name().clone())
+        .collect();
+    assert_eq!(actual, expected);
+}
+
+pub fn max(expr: Expr) -> Expr {
+    Expr::AggregateFunction {
+        name: "MAX".to_owned(),
+        args: vec![expr],
+        return_type: DataType::Float64,
+    }
 }
