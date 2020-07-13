@@ -15,8 +15,19 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
+===================
 Programming Support
 ===================
+
+General information
+-------------------
+
+.. doxygenfunction:: arrow::GetBuildInfo
+   :project: arrow_cpp
+
+.. doxygenstruct:: arrow::BuildInfo
+   :project: arrow_cpp
+   :members:
 
 Error return and reporting
 --------------------------

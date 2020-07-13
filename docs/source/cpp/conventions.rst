@@ -102,3 +102,6 @@ For example::
       // return success at the end
       return Status::OK();
    }
+
+.. seealso::
+   :doc:`API reference for error reporting <api/support>`
