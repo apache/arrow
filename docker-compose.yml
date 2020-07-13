@@ -109,7 +109,7 @@ x-hierarchy:
         - conda-python-turbodbc
         - conda-python-kartothek
         - conda-python-spark
-
+        - conda-python-numpydoc
   - debian-cpp:
     - debian-c-glib:
       - debian-ruby
@@ -913,6 +913,25 @@ services:
         /arrow/ci/scripts/java_jni_manylinux_build.sh /arrow /build /arrow/java-dist"]
 
   ##############################  Integration #################################
+
+  conda-python-numpydoc:
+    # Usage:
+    #   archery docker run conda-python-numpydoc
+    #
+    # Only a single rule is enabled for now to check undocumented arguments.
+    # We should extend the list of enabled rules after adding this build to
+    # the CI pipeline.
+    image: ${REPO}:${ARCH}-conda-python-${PYTHON}
+    environment:
+      <<: *ccache
+      LC_ALL: "C.UTF-8"
+      LANG: "C.UTF-8"
+    volumes: *conda-volumes
+    command:
+      ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        /arrow/ci/scripts/python_build.sh /arrow /build &&
+        pip install -e /arrow/dev/archery[numpydoc] &&
+        archery numpydoc --allow-rule PR01"]
 
   conda-python-pandas:
     # Possible $PANDAS parameters:
