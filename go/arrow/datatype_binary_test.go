@@ -22,17 +22,32 @@ import (
 	"github.com/apache/arrow/go/arrow"
 )
 
-func TestNullType(t *testing.T) {
-	var nt *arrow.NullType
-	if got, want := nt.ID(), arrow.NULL; got != want {
-		t.Fatalf("invalid null type id. got=%v, want=%v", got, want)
+func TestBinaryType(t *testing.T) {
+	var nt *arrow.BinaryType
+	if got, want := nt.ID(), arrow.BINARY; got != want {
+		t.Fatalf("invalid binary type id. got=%v, want=%v", got, want)
 	}
 
-	if got, want := nt.Name(), "null"; got != want {
-		t.Fatalf("invalid null type name. got=%q, want=%q", got, want)
+	if got, want := nt.Name(), "binary"; got != want {
+		t.Fatalf("invalid binary type name. got=%v, want=%v", got, want)
 	}
 
-	if got, want := nt.String(), "null"; got != want {
-		t.Fatalf("invalid null type stringer. got=%q, want=%q", got, want)
+	if got, want := nt.String(), "binary"; got != want {
+		t.Fatalf("invalid binary type stringer. got=%v, want=%v", got, want)
+	}
+}
+
+func TestStringType(t *testing.T) {
+	var nt *arrow.StringType
+	if got, want := nt.ID(), arrow.STRING; got != want {
+		t.Fatalf("invalid string type id. got=%v, want=%v", got, want)
+	}
+
+	if got, want := nt.Name(), "utf8"; got != want {
+		t.Fatalf("invalid string type name. got=%v, want=%v", got, want)
+	}
+
+	if got, want := nt.String(), "utf8"; got != want {
+		t.Fatalf("invalid string type stringer. got=%v, want=%v", got, want)
 	}
 }
