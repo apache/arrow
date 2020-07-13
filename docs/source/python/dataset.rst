@@ -144,7 +144,7 @@ The format name as a string, like::
 
     ds.dataset(..., format="parquet")
 
-is short hand for a default constructed class:`ParquetFileFormat`::
+is short hand for a default constructed :class:`ParquetFileFormat`::
 
     ds.dataset(..., format=ds.ParquetFileForma())
 
