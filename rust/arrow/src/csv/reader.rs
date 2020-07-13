@@ -43,6 +43,7 @@
 use lazy_static::lazy_static;
 use regex::{Regex, RegexBuilder};
 use std::collections::HashSet;
+use std::fmt;
 use std::fs::File;
 use std::io::{BufReader, Read, Seek, SeekFrom};
 use std::sync::Arc;
@@ -227,6 +228,20 @@ pub struct Reader<R: Read> {
     batch_size: usize,
     /// Current line number, used in error reporting
     line_number: usize,
+}
+
+impl<R> fmt::Debug for Reader<R>
+where
+    R: Read,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Reader")
+            .field("schema", &self.schema)
+            .field("projection", &self.projection)
+            .field("batch_size", &self.batch_size)
+            .field("line_number", &self.line_number)
+            .finish()
+    }
 }
 
 impl<R: Read> Reader<R> {
@@ -434,6 +449,7 @@ impl<R: Read> Reader<R> {
 }
 
 /// CSV file reader builder
+#[derive(Debug)]
 pub struct ReaderBuilder {
     /// Optional schema for the CSV file
     ///

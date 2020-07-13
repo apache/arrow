@@ -88,6 +88,7 @@ where
 }
 
 /// A CSV writer
+#[derive(Debug)]
 pub struct Writer<W: Write> {
     /// The object to write to
     writer: csv_crate::Writer<W>,
@@ -275,6 +276,7 @@ impl<W: Write> Writer<W> {
 }
 
 /// A CSV writer builder
+#[derive(Debug)]
 pub struct WriterBuilder {
     /// Optional column delimiter. Defaults to `b','`
     delimiter: Option<u8>,
