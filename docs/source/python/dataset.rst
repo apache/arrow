@@ -329,8 +329,8 @@ Reading from Minio
 ------------------
 
 In addition to cloud storage, pyarrow also supports reading from a
-`MinIO https://github.com/minio/minio`_ object storage instance emulating S3
-APIs. Paired with `toxiproxy https://github.com/shopify/toxiproxy`_, this is
+`MinIO <https://github.com/minio/minio>`_ object storage instance emulating S3
+APIs. Paired with `toxiproxy <https://github.com/shopify/toxiproxy>`_, this is
 useful for testing or benchmarking.
 
 .. code-block:: python

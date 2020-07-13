@@ -235,9 +235,6 @@ TYPED_TEST(TestBinaryArithmeticSigned, OverflowWraps) {
   auto min = std::numeric_limits<CType>::lowest();
   auto max = std::numeric_limits<CType>::max();
 
-  this->AssertBinop(Add, MakeArray(min, max, max), MakeArray(CType(-1), 1, max),
-                    MakeArray(max, min, CType(-2)));
-
   this->AssertBinop(Subtract, MakeArray(min, max, min), MakeArray(1, max, max),
                     MakeArray(max, 0, 1));
   this->AssertBinop(Multiply, MakeArray(min, max, max), MakeArray(max, 2, max),
@@ -261,7 +258,41 @@ TYPED_TEST(TestBinaryArithmeticIntegral, OverflowRaises) {
                           "overflow");
 }
 
-TYPED_TEST(TestBinaryArithmeticSigned, OverflowRaises) {
+TYPED_TEST(TestBinaryArithmeticSigned, AddOverflowRaises) {
+  using CType = typename TestFixture::CType;
+
+  auto min = std::numeric_limits<CType>::lowest();
+  auto max = std::numeric_limits<CType>::max();
+
+  this->SetOverflowCheck(true);
+
+  this->AssertBinop(Add, MakeArray(max), MakeArray(-1), MakeArray(max - 1));
+  this->AssertBinop(Add, MakeArray(min), MakeArray(1), MakeArray(min + 1));
+  this->AssertBinop(Add, MakeArray(-1), MakeArray(2), MakeArray(1));
+  this->AssertBinop(Add, MakeArray(1), MakeArray(-2), MakeArray(-1));
+
+  this->AssertBinopRaises(Add, MakeArray(max), MakeArray(1), "overflow");
+  this->AssertBinopRaises(Add, MakeArray(min), MakeArray(-1), "overflow");
+}
+
+TYPED_TEST(TestBinaryArithmeticSigned, SubOverflowRaises) {
+  using CType = typename TestFixture::CType;
+
+  auto min = std::numeric_limits<CType>::lowest();
+  auto max = std::numeric_limits<CType>::max();
+
+  this->SetOverflowCheck(true);
+
+  this->AssertBinop(Subtract, MakeArray(max), MakeArray(1), MakeArray(max - 1));
+  this->AssertBinop(Subtract, MakeArray(min), MakeArray(-1), MakeArray(min + 1));
+  this->AssertBinop(Subtract, MakeArray(-1), MakeArray(-2), MakeArray(1));
+  this->AssertBinop(Subtract, MakeArray(1), MakeArray(2), MakeArray(-1));
+
+  this->AssertBinopRaises(Subtract, MakeArray(max), MakeArray(-1), "overflow");
+  this->AssertBinopRaises(Subtract, MakeArray(min), MakeArray(1), "overflow");
+}
+
+TYPED_TEST(TestBinaryArithmeticSigned, MulOverflowRaises) {
   using CType = typename TestFixture::CType;
 
   auto min = std::numeric_limits<CType>::lowest();
@@ -270,8 +301,16 @@ TYPED_TEST(TestBinaryArithmeticSigned, OverflowRaises) {
   this->SetOverflowCheck(true);
 
   this->AssertBinop(Multiply, MakeArray(max), MakeArray(-1), MakeArray(min + 1));
+  this->AssertBinop(Multiply, MakeArray(max / 2), MakeArray(-2), MakeArray(min + 2));
+
   this->AssertBinopRaises(Multiply, MakeArray(max), MakeArray(2), "overflow");
+  this->AssertBinopRaises(Multiply, MakeArray(max / 2), MakeArray(3), "overflow");
+  this->AssertBinopRaises(Multiply, MakeArray(max / 2), MakeArray(-3), "overflow");
+
+  this->AssertBinopRaises(Multiply, MakeArray(min), MakeArray(2), "overflow");
+  this->AssertBinopRaises(Multiply, MakeArray(min / 2), MakeArray(3), "overflow");
   this->AssertBinopRaises(Multiply, MakeArray(min), MakeArray(-1), "overflow");
+  this->AssertBinopRaises(Multiply, MakeArray(min / 2), MakeArray(-2), "overflow");
 }
 
 TYPED_TEST(TestBinaryArithmeticUnsigned, OverflowWraps) {

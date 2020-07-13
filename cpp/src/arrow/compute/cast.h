@@ -38,6 +38,9 @@ namespace compute {
 
 class ExecContext;
 
+/// \addtogroup compute-concrete-options
+/// @{
+
 struct ARROW_EXPORT CastOptions : public FunctionOptions {
   CastOptions()
       : allow_int_overflow(false),
@@ -72,6 +75,8 @@ struct ARROW_EXPORT CastOptions : public FunctionOptions {
   // validate the utf8 payload.
   bool allow_invalid_utf8;
 };
+
+/// @}
 
 // Cast functions are _not_ registered in the FunctionRegistry, though they use
 // the same execution machinery

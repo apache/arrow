@@ -98,7 +98,7 @@ struct ValidateArrayVisitor {
     if (value_size < 0) {
       return Status::Invalid("FixedSizeListArray has negative value size ", value_size);
     }
-    if (HasMultiplyOverflow(len, value_size) ||
+    if (HasPositiveMultiplyOverflow(len, value_size) ||
         array.values()->length() != len * value_size) {
       return Status::Invalid("Values Length (", array.values()->length(),
                              ") is not equal to the length (", len,
@@ -329,7 +329,7 @@ Status ValidateArray(const Array& array) {
                            type.ToString(), ", got ", data.buffers.size());
   }
   // This check is required to avoid addition overflow below
-  if (HasAdditionOverflow(array.length(), array.offset())) {
+  if (HasPositiveAdditionOverflow(array.length(), array.offset())) {
     return Status::Invalid("Array of type ", type.ToString(),
                            " has impossibly large length and offset");
   }
@@ -346,7 +346,8 @@ Status ValidateArray(const Array& array) {
         min_buffer_size = BitUtil::BytesForBits(array.length() + array.offset());
         break;
       case DataTypeLayout::FIXED_WIDTH:
-        if (HasMultiplyOverflow(array.length() + array.offset(), spec.byte_width)) {
+        if (HasPositiveMultiplyOverflow(array.length() + array.offset(),
+                                        spec.byte_width)) {
           return Status::Invalid("Array of type ", type.ToString(),
                                  " has impossibly large length and offset");
         }

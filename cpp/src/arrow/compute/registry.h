@@ -72,7 +72,7 @@ class ARROW_EXPORT FunctionRegistry {
   std::unique_ptr<FunctionRegistryImpl> impl_;
 };
 
-// \brief Return the process-global function registry
+/// \brief Return the process-global function registry
 ARROW_EXPORT FunctionRegistry* GetFunctionRegistry();
 
 }  // namespace compute

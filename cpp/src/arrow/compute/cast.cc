@@ -136,7 +136,7 @@ Result<const ScalarKernel*> CastFunction::DispatchExact(
 
   // Validate arity
   if (passed_num_args != 1) {
-    return Status::Invalid("Cast sunctions accept 1 argument but passed ",
+    return Status::Invalid("Cast functions accept 1 argument but passed ",
                            passed_num_args);
   }
   std::vector<const ScalarKernel*> candidate_kernels;
