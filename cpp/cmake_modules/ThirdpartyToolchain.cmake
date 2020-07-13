@@ -2057,7 +2057,8 @@ macro(build_bzip2)
                       ${EP_LOG_OPTIONS}
                       CONFIGURE_COMMAND ""
                       BUILD_IN_SOURCE 1
-                      BUILD_COMMAND ${MAKE} ${MAKE_BUILD_ARGS} ${BZIP2_EXTRA_ARGS}
+                      BUILD_COMMAND ${MAKE} libbz2.a ${MAKE_BUILD_ARGS}
+                                    ${BZIP2_EXTRA_ARGS}
                       INSTALL_COMMAND ${MAKE} install PREFIX=${BZIP2_PREFIX}
                                       ${BZIP2_EXTRA_ARGS}
                       INSTALL_DIR ${BZIP2_PREFIX}

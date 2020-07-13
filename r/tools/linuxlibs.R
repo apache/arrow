@@ -273,7 +273,14 @@ build_libarrow <- function(src_dir, dst_dir) {
   # * cmake
   cmake <- ensure_cmake()
 
-  build_dir <- tempfile()
+  # Optionally build somewhere not in tmp so we can dissect the build if it fails
+  debug_dir <- Sys.getenv("LIBARROW_DEBUG_DIR")
+  if (nzchar(debug_dir)) {
+    build_dir <- debug_dir
+  } else {
+    # But normally we'll just build in a tmp dir
+    build_dir <- tempfile()
+  }
   options(.arrow.cleanup = c(getOption(".arrow.cleanup"), build_dir))
 
   R_CMD_config <- function(var) {
@@ -296,10 +303,15 @@ build_libarrow <- function(src_dir, dst_dir) {
     sep = "=", collapse = " "
   )
   cat("**** arrow", ifelse(quietly, "", paste("with", env_vars)), "\n")
-  system(
+  status <- system(
     paste(env_vars, "inst/build_arrow_static.sh"),
     ignore.stdout = quietly, ignore.stderr = quietly
   )
+  if (status != 0) {
+    # It failed :(
+    cat("**** Error building Arrow C++. Re-run with ARROW_R_DEV=true for debug information.\n")
+  }
+  invisible(status)
 }
 
 ensure_cmake <- function() {
@@ -323,6 +335,9 @@ ensure_cmake <- function() {
       "/cmake-", CMAKE_VERSION, "-Linux-x86_64",
       "/bin/cmake"
     )
+  } else {
+    # Sys.which() returns a named vector, but that plays badly with c() later
+    names(cmake) <- NULL
   }
   cmake
 }

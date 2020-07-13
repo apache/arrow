@@ -67,3 +67,4 @@ jobs:
         run: cd arrow && docker-compose run r
       - name: Dump install logs
         run: cat arrow/r/check/arrow.Rcheck/00install.out
+        if: always()
