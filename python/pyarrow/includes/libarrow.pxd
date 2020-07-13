@@ -1329,6 +1329,8 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         c_bool write_legacy_ipc_format
         CMemoryPool* memory_pool
         CMetadataVersion metadata_version
+        CCompressionType compression
+        c_bool use_threads
 
         @staticmethod
         CIpcWriteOptions Defaults()

@@ -92,7 +92,7 @@ class RecordBatchStreamWriter(lib._RecordBatchStreamWriter):
 
 {}""".format(_ipc_writer_class_doc)
 
-    def __init__(self, sink, schema, use_legacy_format=None, options=None):
+    def __init__(self, sink, schema, *, use_legacy_format=None, options=None):
         options = _get_legacy_format_default(use_legacy_format, options)
         self._open(sink, schema, options=options)
 
@@ -120,7 +120,7 @@ class RecordBatchFileWriter(lib._RecordBatchFileWriter):
 
 {}""".format(_ipc_writer_class_doc)
 
-    def __init__(self, sink, schema, use_legacy_format=None, options=None):
+    def __init__(self, sink, schema, *, use_legacy_format=None, options=None):
         options = _get_legacy_format_default(use_legacy_format, options)
         self._open(sink, schema, options=options)
 
@@ -130,6 +130,9 @@ def _get_legacy_format_default(use_legacy_format, options):
         raise ValueError(
             "Can provide at most one of options and use_legacy_format")
     elif options:
+        if not isinstance(options, IpcWriteOptions):
+            raise TypeError("expected IpcWriteOptions, got {}"
+                            .format(type(options)))
         return options
 
     metadata_version = MetadataVersion.V5
@@ -142,7 +145,7 @@ def _get_legacy_format_default(use_legacy_format, options):
                            metadata_version=metadata_version)
 
 
-def new_stream(sink, schema, use_legacy_format=None, options=None):
+def new_stream(sink, schema, *, use_legacy_format=None, options=None):
     return RecordBatchStreamWriter(sink, schema,
                                    use_legacy_format=use_legacy_format,
                                    options=options)
@@ -170,7 +173,7 @@ def open_stream(source):
     return RecordBatchStreamReader(source)
 
 
-def new_file(sink, schema, use_legacy_format=None, options=None):
+def new_file(sink, schema, *, use_legacy_format=None, options=None):
     return RecordBatchFileWriter(sink, schema,
                                  use_legacy_format=use_legacy_format,
                                  options=options)
@@ -201,7 +204,7 @@ def open_file(source, footer_offset=None):
     return RecordBatchFileReader(source, footer_offset=footer_offset)
 
 
-def serialize_pandas(df, nthreads=None, preserve_index=None):
+def serialize_pandas(df, *, nthreads=None, preserve_index=None):
     """
     Serialize a pandas DataFrame into a buffer protocol compatible object.
 
@@ -229,7 +232,7 @@ def serialize_pandas(df, nthreads=None, preserve_index=None):
     return sink.getvalue()
 
 
-def deserialize_pandas(buf, use_threads=True):
+def deserialize_pandas(buf, *, use_threads=True):
     """Deserialize a buffer protocol compatible object into a pandas DataFrame.
 
     Parameters
