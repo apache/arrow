@@ -101,7 +101,7 @@ namespace Apache.Arrow
                 };
                 var data = new ArrayData(
                     DataType,
-                    length: ValueOffsets.Length - 1,
+                    length: Length,
                     NullCount,
                     offset: 0,
                     bufs);
