@@ -346,7 +346,7 @@ def test_list(ty, klass):
     assert s.type == ty
     assert len(s) == 2
     assert isinstance(s.values, pa.Array)
-    assert s.values == v
+    assert s.values.to_pylist() == v
     assert isinstance(s, klass)
     assert repr(v) in repr(s)
     assert s.as_py() == v
@@ -496,7 +496,7 @@ def test_dictionary():
         assert s.as_py() == v
         assert s.value.as_py() == v
         assert s.index.as_py() == i
-        assert s.dictionary == dictionary
+        assert s.dictionary.to_pylist() == dictionary
 
         with pytest.warns(FutureWarning):
             assert s.index_value.as_py() == i
