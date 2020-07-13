@@ -1391,7 +1391,7 @@ Status GetSparseTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>
                                std::vector<std::string>* dim_names,
                                int64_t* non_zero_length,
                                SparseTensorFormat::type* sparse_tensor_format_id) {
-  const flatbuf::Message* message;
+  const flatbuf::Message* message = nullptr;
   RETURN_NOT_OK(internal::VerifyMessage(metadata.data(), metadata.size(), &message));
   auto sparse_tensor = message->header_as_SparseTensor();
   if (sparse_tensor == nullptr) {

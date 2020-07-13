@@ -125,11 +125,10 @@ TEST_F(TestFillNullKernel, FillNullBoolean) {
   auto arr = std::static_pointer_cast<BooleanArray>(
       rand.Boolean(1000, /*true_probability=*/0.5, /*null_probability=*/0.01));
 
-  int64_t data_nbytes = arr->data()->buffers[1]->size();
   auto expected_data = arr->data()->Copy();
   expected_data->null_count = 0;
   expected_data->buffers[0] = nullptr;
-  expected_data->buffers[1] = *AllocateBuffer(data_nbytes);
+  expected_data->buffers[1] = *AllocateEmptyBitmap(arr->length());
   uint8_t* out_data = expected_data->buffers[1]->mutable_data();
   for (int64_t i = 0; i < arr->length(); ++i) {
     if (arr->IsValid(i)) {

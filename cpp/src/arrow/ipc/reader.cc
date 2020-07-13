@@ -1395,7 +1395,7 @@ Status ReadSparseTensorMetadata(const Buffer& metadata,
   RETURN_NOT_OK(internal::GetSparseTensorMetadata(
       metadata, out_type, out_shape, out_dim_names, out_non_zero_length, out_format_id));
 
-  const flatbuf::Message* message;
+  const flatbuf::Message* message = nullptr;
   RETURN_NOT_OK(internal::VerifyMessage(metadata.data(), metadata.size(), &message));
 
   auto sparse_tensor = message->header_as_SparseTensor();
