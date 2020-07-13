@@ -21,6 +21,9 @@
 Data Types
 ==========
 
+.. seealso::
+   :doc:`Datatype API reference <api/datatype>`.
+
 Data types govern how physical data is interpreted.  Their :ref:`specification
 <format_columnar>` allows binary interoperability between different Arrow
 implementations, including from different programming languages and runtimes

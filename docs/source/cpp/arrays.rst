@@ -22,6 +22,9 @@
 Arrays
 ======
 
+.. seealso::
+   :doc:`Array API reference <api/array>`
+
 The central type in Arrow is the class :class:`arrow::Array`.   An array
 represents a known-length sequence of values all having the same type.
 Internally, those values are represented by one or several buffers, the
