@@ -17,7 +17,7 @@
 
 //! ExecutionContext contains methods for registering data sources and executing queries
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::Path;
 use std::string::String;
@@ -265,6 +265,11 @@ impl ExecutionContext {
                 table_name
             ))),
         }
+    }
+
+    /// The set of available tables. Use `table` to get a specific table.
+    pub fn tables(&self) -> HashSet<String> {
+        self.datasources.keys().cloned().collect()
     }
 
     /// Optimize the logical plan by applying optimizer rules
