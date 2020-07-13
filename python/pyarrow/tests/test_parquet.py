@@ -2066,7 +2066,8 @@ def test_filters_invalid_column(tempdir, use_legacy_dataset):
 
 
 @pytest.mark.pandas
-def test_filters_read_table(tempdir):
+@parametrize_legacy_dataset
+def test_filters_read_table(tempdir, use_legacy_dataset):
     # test that filters keyword is passed through in read_table
     fs = LocalFileSystem.get_instance()
     base_path = tempdir
@@ -2085,15 +2086,18 @@ def test_filters_read_table(tempdir):
     _generate_partition_directories(fs, base_path, partition_spec, df)
 
     table = pq.read_table(
-        base_path, filesystem=fs, filters=[('integers', '<', 3)])
+        base_path, filesystem=fs, filters=[('integers', '<', 3)],
+        use_legacy_dataset=use_legacy_dataset)
     assert table.num_rows == 3
 
     table = pq.read_table(
-        base_path, filesystem=fs, filters=[[('integers', '<', 3)]])
+        base_path, filesystem=fs, filters=[[('integers', '<', 3)]],
+        use_legacy_dataset=use_legacy_dataset)
     assert table.num_rows == 3
 
     table = pq.read_pandas(
-        base_path, filters=[('integers', '<', 3)])
+        base_path, filters=[('integers', '<', 3)],
+        use_legacy_dataset=use_legacy_dataset)
     assert table.num_rows == 3
 
 
