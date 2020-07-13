@@ -58,7 +58,7 @@ jobs:
         include:
           - name: conda-python-numpydoc
             cache: conda-python-3.8
-            image: conda-python
+            image: conda-python-numpydoc
             title: AMD64 Conda Python Numpydoc
             python: 3.8
           - name: conda-python-3.8-nopandas
