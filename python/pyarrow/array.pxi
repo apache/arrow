@@ -1004,6 +1004,21 @@ cdef class Array(_PandasConvertible):
         """
         return _pc().is_valid(self)
 
+    def fill_null(self, Scalar fill_value):
+        """
+        replace each null element with fill_value
+
+        Parameters
+        ----------
+        fill_value: Scalar
+            Must be the same type as data
+
+        Returns
+        -------
+        result : Array
+        """
+        return _pc().fill_null(self, fill_value)
+
     def __getitem__(self, key):
         """
         Slice or return value at given index

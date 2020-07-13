@@ -191,6 +191,21 @@ cdef class ChunkedArray(_PandasConvertible):
         except TypeError:
             return NotImplemented
 
+    def fill_null(self, fill_value):
+        """
+        replace each null element with fill_value
+
+        Parameters
+        ----------
+        fill_value: Scalar
+            Must be the same type as data
+
+        Returns
+        -------
+        result : ChunckedArray
+        """
+        return _pc().fill_null(self, fill_value)
+
     def equals(self, ChunkedArray other):
         """
         Return whether the contents of two chunked arrays are equal.

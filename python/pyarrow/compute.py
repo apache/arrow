@@ -259,3 +259,36 @@ def take(data, indices, boundscheck=True):
     """
     options = TakeOptions(boundscheck)
     return call_function('take', [data, indices], options)
+
+
+def fill_null(values, fill_value):
+    """
+    replace each null element in values with fill_value
+
+    the fill_value must be the same type as values
+
+    Parameters
+    ----------
+    data : Array, ChunkedArray
+    fill_value: Scalar
+        Must be the same type as data
+
+    Returns
+    -------
+    result : depends on inputs
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> arr = pa.array([1, 2, None, 3], type=pa.int8())
+    >>> fill_value = pa.scalar(5, type=pa.int8())
+    >>> arr.fill_null(fill_value)
+    pyarrow.lib.Int8Array object at 0x7f95437f01a0>
+    [
+      1,
+      2,
+      5,
+      3
+    ]
+    """
+    return call_function("fill_null", [values, fill_value])
