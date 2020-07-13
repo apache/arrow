@@ -107,18 +107,7 @@ std::shared_ptr<ArrayData> ArrayData::Slice(int64_t off, int64_t len) const {
 }
 
 Result<std::shared_ptr<ArrayData>> ArrayData::SliceSafe(int64_t off, int64_t len) const {
-  if (off < 0) {
-    return Status::Invalid("Negative array slice offset");
-  }
-  if (len < 0) {
-    return Status::Invalid("Negative array slice length");
-  }
-  if (internal::HasPositiveAdditionOverflow(off, len)) {
-    return Status::Invalid("Array slice would overflow");
-  }
-  if (off + len > length) {
-    return Status::Invalid("Array slice would exceed array length");
-  }
+  RETURN_NOT_OK(internal::CheckSliceParams(length, off, len, "array"));
   return Slice(off, len);
 }
 

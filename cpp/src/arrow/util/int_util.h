@@ -150,6 +150,23 @@ UpcastInt(Integer v) {
   return v;
 }
 
+static inline Status CheckSliceParams(int64_t object_length, int64_t slice_offset,
+                                      int64_t slice_length, const char* object_name) {
+  if (slice_offset < 0) {
+    return Status::Invalid("Negative ", object_name, " slice offset");
+  }
+  if (slice_length < 0) {
+    return Status::Invalid("Negative ", object_name, " slice length");
+  }
+  if (internal::HasPositiveAdditionOverflow(slice_offset, slice_length)) {
+    return Status::Invalid(object_name, " slice would overflow");
+  }
+  if (slice_offset + slice_length > object_length) {
+    return Status::Invalid(object_name, " slice would exceed ", object_name, " length");
+  }
+  return Status::OK();
+}
+
 /// \brief Do vectorized boundschecking of integer-type array indices. The
 /// indices must be non-nonnegative and strictly less than the passed upper
 /// limit (which is usually the length of an array that is being indexed-into).

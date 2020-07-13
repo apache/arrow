@@ -47,17 +47,7 @@ Result<std::shared_ptr<Buffer>> Buffer::CopySlice(const int64_t start,
 namespace {
 
 Status CheckBufferSlice(const Buffer& buffer, int64_t offset, int64_t length) {
-  if (ARROW_PREDICT_FALSE(offset < 0)) {
-    return Status::Invalid("Negative buffer slice offset");
-  }
-  if (ARROW_PREDICT_FALSE(length < 0)) {
-    return Status::Invalid("Negative buffer slice length");
-  }
-  // (`offset + length` would risk signed overflow)
-  if (ARROW_PREDICT_FALSE(length > buffer.size() - offset)) {
-    return Status::Invalid("Buffer slice would exceed buffer length");
-  }
-  return Status::OK();
+  return internal::CheckSliceParams(buffer.size(), offset, length, "buffer");
 }
 
 Status CheckBufferSlice(const Buffer& buffer, int64_t offset) {
