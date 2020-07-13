@@ -192,6 +192,11 @@ namespace Apache.Arrow
             /// <returns>Returns the builder (for fluent-style composition).</returns>
             public TBuilder AppendRange(IEnumerable<byte> values)
             {
+                if (values == null)
+                {
+                    throw new ArgumentNullException(nameof(values));
+                }
+
                 foreach (byte b in values)
                 {
                     Append(b);
@@ -207,9 +212,21 @@ namespace Apache.Arrow
             /// <returns>Returns the builder (for fluent-style composition).</returns>
             public TBuilder AppendRange(IEnumerable<byte[]> values)
             {
+                if (values == null)
+                {
+                    throw new ArgumentNullException(nameof(values));
+                }
+
                 foreach (byte[] arr in values)
                 {
-                    Append((IEnumerable<byte>)arr);
+                    if (arr == null)
+                    {
+                        AppendNull();
+                    }
+                    else
+                    {
+                        Append((ReadOnlySpan<byte>)arr);
+                    }
                 }
 
                 return Instance;
