@@ -215,16 +215,14 @@ impl<S: SchemaProvider> SqlToRel<S> {
     ) -> Result<LogicalPlan> {
         match *limit {
             Some(ref limit_expr) => {
-                let limit_rex = match self.sql_to_rex(&limit_expr, &input.schema())? {
-                    Expr::Literal(ScalarValue::Int64(n)) => {
-                        Ok(Expr::Literal(ScalarValue::UInt32(n as u32)))
-                    }
+                let n = match self.sql_to_rex(&limit_expr, &input.schema())? {
+                    Expr::Literal(ScalarValue::Int64(n)) => Ok(n as usize),
                     _ => Err(ExecutionError::General(
                         "Unexpected expression for LIMIT clause".to_string(),
                     )),
                 }?;
 
-                LogicalPlanBuilder::from(&input).limit(limit_rex)?.build()
+                LogicalPlanBuilder::from(&input).limit(n)?.build()
             }
             _ => Ok(input.clone()),
         }

@@ -44,7 +44,7 @@ pub trait Table {
     ) -> Result<Arc<dyn Table>>;
 
     /// limit the number of rows
-    fn limit(&self, n: u32) -> Result<Arc<dyn Table>>;
+    fn limit(&self, n: usize) -> Result<Arc<dyn Table>>;
 
     /// Return the logical plan
     fn to_logical_plan(&self) -> LogicalPlan;
