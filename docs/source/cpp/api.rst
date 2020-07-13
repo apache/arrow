@@ -26,6 +26,7 @@ API Reference
    api/memory
    api/datatype
    api/array
+   api/scalar
    api/builder
    api/table
    api/compute

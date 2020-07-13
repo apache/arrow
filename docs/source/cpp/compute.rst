@@ -23,10 +23,108 @@
 Compute Functions
 =================
 
+The generic Compute API
+=======================
+
 .. TODO: describe API and how to invoke compute functions
+
+Functions and function registry
+-------------------------------
+
+Functions represent logical compute operations over inputs of possibly
+varying types.  Internally, a function is implemented by one or several
+"kernels", depending on the concrete input types (for example, a function
+adding values from two inputs can have different kernels depending on
+whether the inputs are integral or floating-point).
+
+Functions are stored in a global :class:`FunctionRegistry` where
+they can be looked up by name.
+
+Input shapes
+------------
+
+Computation inputs are represented as a general :class:`Datum` class,
+which is a tagged union of several shapes of data such as :class:`Scalar`,
+:class:`Array` and :class:`ChunkedArray`.  Many compute functions support
+both array (chunked or not) and scalar inputs, however some will mandate
+either.  For example, the ``fill_null`` function requires its second input
+to be a scalar, while ``sort_indices`` requires its first and only input to
+be an array.
+
+Invoking functions
+------------------
+
+Compute functions can be invoked by name using
+:func:`arrow::compute::CallFunction`::
+
+   std::shared_ptr<arrow::Array> numbers_array = ...;
+   std::shared_ptr<arrow::Scalar> increment = ...;
+   arrow::Datum incremented_datum;
+
+   ARROW_ASSIGN_OR_RAISE(incremented_datum,
+                         arrow::compute::CallFunction("add", {numbers_array, increment}));
+   std::shared_ptr<Array> incremented_array = std::move(incremented_datum).array();
+
+(note this example uses implicit conversion from ``std::shared_ptr<Array>``
+to ``Datum``)
+
+Many compute functions are also available directly as concrete APIs, here
+:func:`arrow::compute::Add`::
+
+   std::shared_ptr<arrow::Array> numbers_array = ...;
+   std::shared_ptr<arrow::Scalar> increment = ...;
+   arrow::Datum incremented_datum;
+
+   ARROW_ASSIGN_OR_RAISE(incremented_datum,
+                         arrow::compute::Add(numbers_array, increment));
+   std::shared_ptr<Array> incremented_array = std::move(incremented_datum).array();
+
+Some functions accept or require an options structure that determines the
+exact semantics of the function::
+
+   MinMaxOptions options;
+   options.null_handling = MinMaxOptions::OUTPUT_NULL;
+
+   std::shared_ptr<arrow::Array> array = ...;
+   arrow::Datum minmax_datum;
+
+   ARROW_ASSIGN_OR_RAISE(minmax_datum,
+                         arrow::compute::CallFunction("minmax", {array}, &options));
+
+   // Unpack struct scalar result (a two-field {"min", "max"} scalar)
+   const auto& minmax_scalar = \
+         static_cast<const arrow::StructScalar&>(*minmax_datum.scalar());
+   const auto min_value = minmax_scalar.value[0];
+   const auto max_value = minmax_scalar.value[1];
+
+.. seealso::
+   :doc:`Compute API reference <api/compute>`
+
 
 Available functions
 ===================
+
+Type categories
+---------------
+
+To avoid exhaustively listing supported types, the tables below use a number
+of general type categories:
+
+* "Numeric": Integer types (Int8, etc.) and Floating-point types (Float32,
+  Float64, sometimes Float16).  Some functions also accept Decimal128 input.
+
+* "Temporal": Date types (Date32, Date64), Time types (Time32, Time64),
+  Timestamp, Duration, Interval.
+
+* "Binary-like": Binary, LargeBinary, sometimes also FixedSizeBinary.
+
+* "String-like": String, LargeString.
+
+* "List-like": List, LargeList, sometimes also FixedSizeList.
+
+If you are unsure whether a function supports a concrete input type, we
+recommend you try it out.  Unsupported input types return a ``TypeError``
+:class:`Status`.
 
 Aggregations
 ------------
@@ -53,15 +151,33 @@ Notes:
 Element-wise ("scalar") functions
 ---------------------------------
 
+All element-wise functions accept both arrays and scalars as input.  The
+semantics for unary functions are as follow:
+
+* scalar inputs produce a scalar output
+* array inputs produce an array output
+
+Binary functions have the following semantics (which is sometimes called
+"broadcasting" in other systems such as NumPy):
+
+* ``(scalar, scalar)`` inputs produce a scalar output
+* ``(array, array)`` inputs produce an array output (and both inputs must
+  be of the same length)
+* ``(scalar, array)`` and ``(array, scalar)`` produce an array output.
+  The scalar input is handled as if it were an array of the same length N
+  as the other input, with the same value repeated N times.
+
 Arithmetic functions
 ~~~~~~~~~~~~~~~~~~~~
 
-Those functions expect two inputs of the same type and apply a given binary
-operation to each pair of elements gathered from the inputs.  Each function
-is also available in an overflow-checking variant, suffixed ``_checked``.
+These functions expect two inputs of the same type and apply a given binary
+operation to each pair of elements gathered from the inputs.  If any of the
+input elements in a pair is null, the corresponding output element is null.
 
-If any of the input elements in a pair is null, the corresponding output
-element is null.
+The default variant of these functions does not detect overflow (the result
+then typically wraps around).  Each function is also available in an
+overflow-checking variant, suffixed ``_checked``, which returns
+an ``Invalid`` :class:`Status` when overflow is detected.
 
 +--------------------------+------------+--------------------+---------------------+
 | Function name            | Arity      | Input types        | Output type         |
@@ -99,11 +215,15 @@ Logical functions
 ~~~~~~~~~~~~~~~~~~
 
 The normal behaviour for these functions is to emit a null if any of the
-inputs is null.
+inputs is null (similar to the semantics of ``NaN`` in floating-point
+computations).
 
-Some of them are also available in a "`Kleene logic`_" variant (suffixed
-``_kleene``) where null is taken to mean "undefined".  For those variants
-therefore:
+Some of them are also available in a `Kleene logic`_ variant (suffixed
+``_kleene``) where null is taken to mean "undefined".  This is the
+interpretation of null used in SQL systems as well as R and Julia,
+for example.
+
+For the Kleene logic variants, therefore:
 
 * "true AND null", "null AND true" give "null" (the result is undefined)
 * "true OR null", "null OR true" give "true"
@@ -145,7 +265,8 @@ String functions
 | utf8_upper               | Unary      | String-like        | String-like         | \(3)    |
 +--------------------------+------------+--------------------+---------------------+---------+
 
-* \(1) Output is the physical length in bytes of each input element.
+* \(1) Output is the physical length in bytes of each input element.  Output
+  type is Int32 for String, Int64 for LargeString.
 
 * \(2) Each ASCII character in the input is converted to lowercase or
   uppercase.  Non-ASCII characters are left untouched.
@@ -156,23 +277,17 @@ String functions
 Containment tests
 ~~~~~~~~~~~~~~~~~
 
-+--------------------------+------------+----------------------------------+-----------------------+--------------------------------------------+
-| Function name            | Arity      | Input types                      | Output type           | Options class                              |
-+==========================+============+==================================+=======================+============================================+
-| binary_contains_exact    | Unary      | String-like                      | Boolean (1)           | :struct:`BinaryContainsExactOptions`       |
-+--------------------------+------------+----------------------------------+-----------------------+--------------------------------------------+
-| isin                     | Unary      | Binary- and String-like          | Boolean (2)           | :struct:`SetLookupOptions`                 |
-+--------------------------+------------+----------------------------------+-----------------------+--------------------------------------------+
-| isin                     | Unary      | Null                             | Boolean (2)           | :struct:`SetLookupOptions`                 |
-+--------------------------+------------+----------------------------------+-----------------------+--------------------------------------------+
-| isin                     | Unary      | Boolean,Numeric, Temporal        | Boolean (2)           | :struct:`SetLookupOptions`                 |
-+--------------------------+------------+----------------------------------+-----------------------+--------------------------------------------+
-| match                    | Unary      | Binary- and String-like          | Int32 (3)             | :struct:`SetLookupOptions`                 |
-+--------------------------+------------+----------------------------------+-----------------------+--------------------------------------------+
-| match                    | Unary      | Null                             | Int32 (3)             | :struct:`SetLookupOptions`                 |
-+--------------------------+------------+----------------------------------+-----------------------+--------------------------------------------+
-| match                    | Unary      | Boolean,Numeric, Temporal        | Int32 (3)             | :struct:`SetLookupOptions`                 |
-+--------------------------+------------+----------------------------------+-----------------------+--------------------------------------------+
++--------------------------+------------+------------------------------------+---------------+----------------------------------------+
+| Function name            | Arity      | Input types                        | Output type   | Options class                          |
++==========================+============+====================================+===============+========================================+
+| binary_contains_exact    | Unary      | String-like                        | Boolean (1)   | :struct:`BinaryContainsExactOptions`   |
++--------------------------+------------+------------------------------------+---------------+----------------------------------------+
+| isin                     | Unary      | Boolean, Null, Numeric, Temporal,  | Boolean (2)   | :struct:`SetLookupOptions`             |
+|                          |            | Binary- and String-like            |               |                                        |
++--------------------------+------------+------------------------------------+---------------+----------------------------------------+
+| match                    | Unary      | Boolean, Null, Numeric, Temporal,  | Int32 (3)     | :struct:`SetLookupOptions`             |
+|                          |            | Binary- and String-like            |               |                                        |
++--------------------------+------------+------------------------------------+---------------+----------------------------------------+
 
 * \(1) Output is true iff :member:`BinaryContainsExactOptions::pattern`
   is a substring of the corresponding input element.
@@ -187,29 +302,38 @@ Containment tests
 Structural transforms
 ~~~~~~~~~~~~~~~~~~~~~
 
-+--------------------------+------------+--------------------+---------------------+---------+
-| Function name            | Arity      | Input types        | Output type         | Notes   |
-+==========================+============+====================+=====================+=========+
-| is_null                  | Unary      | Any                | Boolean             | \(1)    |
-+--------------------------+------------+--------------------+---------------------+---------+
-| is_valid                 | Unary      | Any                | Boolean             | \(2)    |
-+--------------------------+------------+--------------------+---------------------+---------+
-| list_value_lengths       | Unary      | List-like          | Int32 or Int64      | \(3)    |
-+--------------------------+------------+--------------------+---------------------+---------+
+.. XXX (this category is a bit of a hodgepodge)
 
-* \(1) Output is true iff the corresponding input element is non-null.
++--------------------------+------------+---------------------------------------+---------------------+---------+
+| Function name            | Arity      | Input types                           | Output type         | Notes   |
++==========================+============+=======================================+=====================+=========+
+| fill_null                | Binary     | Boolean, Null, Numeric, Temporal      | Boolean             | \(1)    |
++--------------------------+------------+---------------------------------------+---------------------+---------+
+| is_null                  | Unary      | Any                                   | Boolean             | \(2)    |
++--------------------------+------------+---------------------------------------+---------------------+---------+
+| is_valid                 | Unary      | Any                                   | Boolean             | \(2)    |
++--------------------------+------------+---------------------------------------+---------------------+---------+
+| list_value_lengths       | Unary      | List-like                             | Int32 or Int64      | \(4)    |
++--------------------------+------------+---------------------------------------+---------------------+---------+
 
-* \(2) Output is true iff the corresponding input element is null.
+* \(1) First input must be an array, second input a scalar of the same type.
+  Output is an array of the same type as the inputs, and with the same values
+  as the first input, except for nulls replaced with the second input value.
 
-* \(3) Each output element is the length of the corresponding input element
-  (null if input is null).
+* \(2) Output is true iff the corresponding input element is non-null.
+
+* \(3) Output is true iff the corresponding input element is null.
+
+* \(4) Each output element is the length of the corresponding input element
+  (null if input is null).  Output type is Int32 for List, Int64 for LargeList.
 
 Conversions
 ~~~~~~~~~~~
 
 A general conversion function named ``cast`` is provided which accepts a large
 number of input and output types.  The type to cast to can be passed in a
-:struct:`CastOptions` instance.
+:struct:`CastOptions` instance.  As an alternative, the same service is
+provided by a concrete function :func:`~arrow::compute::Cast`.
 
 +--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
 | Function name            | Arity      | Input types        | Output type           | Options class                              |
@@ -286,21 +410,23 @@ null input value is converted into a null output value.
 +-----------------------------+------------------------------------+---------+
 | Input type                  | Output type                        | Notes   |
 +=============================+====================================+=========+
-| Dictionary                  | Dictionary value type              |         |
+| Dictionary                  | Dictionary value type              | \(1)    |
 +-----------------------------+------------------------------------+---------+
 | Extension                   | Extension storage type             |         |
 +-----------------------------+------------------------------------+---------+
-| List-like                   | List-like                          | \(1)    |
+| List-like                   | List-like                          | \(2)    |
 +-----------------------------+------------------------------------+---------+
 | Null                        | Any                                |         |
 +-----------------------------+------------------------------------+---------+
 
-* \(1) The list offsets are unchanged, the list values are cast from the
+* \(1) The dictionary indices are unchanged, the dictionary values are
+  cast from the input value type to the output value type (if a conversion
+  is available).
+
+* \(2) The list offsets are unchanged, the list values are cast from the
   input value type to the output value type (if a conversion is
   available).
 
-
-.. TODO: add C++ cast example
 
 Array-wise ("vector") functions
 -------------------------------
@@ -308,27 +434,18 @@ Array-wise ("vector") functions
 Associative transforms
 ~~~~~~~~~~~~~~~~~~~~~~
 
-+--------------------------+------------+----------------------------+----------------------------+
-| Function name            | Arity      | Input types                | Output type                |
-+==========================+============+============================+============================+
-| dictionary_encode        | Unary      | Binary- and String-like    | Dictionary (1)             |
-+--------------------------+------------+----------------------------+----------------------------+
-| dictionary_encode        | Unary      | Boolean, Numeric, Temporal | Dictionary (1)             |
-+--------------------------+------------+----------------------------+----------------------------+
-| dictionary_encode        | Unary      | Null                       | Dictionary (1)             |
-+--------------------------+------------+----------------------------+----------------------------+
-| unique                   | Unary      | Binary- and String-like    | Input type (2)             |
-+--------------------------+------------+----------------------------+----------------------------+
-| unique                   | Unary      | Boolean, Numeric, Temporal | Input type (2)             |
-+--------------------------+------------+----------------------------+----------------------------+
-| unique                   | Unary      | Null                       | Input type (2)             |
-+--------------------------+------------+----------------------------+----------------------------+
-| value_counts             | Unary      | Binary- and String-like    | Struct (3)                 |
-+--------------------------+------------+----------------------------+----------------------------+
-| value_counts             | Unary      | Boolean, Numeric, Temporal | Struct (3)                 |
-+--------------------------+------------+----------------------------+----------------------------+
-| value_counts             | Unary      | Null                       | Struct (3)                 |
-+--------------------------+------------+----------------------------+----------------------------+
++--------------------------+------------+------------------------------------+----------------------------+
+| Function name            | Arity      | Input types                        | Output type                |
++==========================+============+====================================+============================+
+| dictionary_encode        | Unary      | Boolean, Null, Numeric,            | Dictionary (1)             |
+|                          |            | Temporal, Binary- and String-like  |                            |
++--------------------------+------------+------------------------------------+----------------------------+
+| unique                   | Unary      | Boolean, Null, Numeric,            | Input type (2)             |
+|                          |            | Temporal, Binary- and String-like  |                            |
++--------------------------+------------+------------------------------------+----------------------------+
+| value_counts             | Unary      | Boolean, Null, Numeric,            | Input type (3)             |
+|                          |            | Temporal, Binary- and String-like  |                            |
++--------------------------+------------+------------------------------------+----------------------------+
 
 * \(1) Output is ``Dictionary(Int32, input type)``.
 
