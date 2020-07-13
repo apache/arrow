@@ -951,7 +951,7 @@ mod tests {
         // read stream back
         let file = File::open("target/debug/testdata/float.stream").unwrap();
         let mut reader = StreamReader::try_new(file).unwrap();
-        while let Some(batch) = reader.next().unwrap() {
+        while let Some(batch) = reader.next_batch().unwrap() {
             assert!(
                 batch
                     .column(0)
