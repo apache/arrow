@@ -443,7 +443,7 @@ cdef class _CRecordBatchReader:
         cdef shared_ptr[CTable] table
         with nogil:
             check_status(self.reader.get().ReadAll(&table))
-        return pyarrow_wrap_table_no_validate(table)
+        return pyarrow_wrap_table(table)
 
     def __enter__(self):
         return self
@@ -558,7 +558,7 @@ cdef class _RecordBatchFileReader:
             table = GetResultValue(
                 CTable.FromRecordBatches(self.schema.sp_schema, move(batches)))
 
-        return pyarrow_wrap_table_no_validate(table)
+        return pyarrow_wrap_table(table)
 
     def __enter__(self):
         return self
