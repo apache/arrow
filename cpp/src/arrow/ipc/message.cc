@@ -177,7 +177,7 @@ Status MaybeAlignMetadata(std::shared_ptr<Buffer>* metadata) {
 }
 
 Status CheckMetadataAndGetBodyLength(const Buffer& metadata, int64_t* body_length) {
-  const flatbuf::Message* fb_message;
+  const flatbuf::Message* fb_message = nullptr;
   RETURN_NOT_OK(internal::VerifyMessage(metadata.data(), metadata.size(), &fb_message));
   *body_length = fb_message->bodyLength();
   if (*body_length < 0) {

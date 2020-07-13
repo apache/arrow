@@ -30,7 +30,7 @@ namespace internal {
 template <typename T, typename Context = void>
 void AssertConversion(const std::string& s, typename T::c_type expected,
                       const Context* ctx = NULLPTR) {
-  typename T::c_type out;
+  typename T::c_type out{};
   ASSERT_TRUE(ParseValue<T>(s.data(), s.length(), &out, ctx))
       << "Conversion failed for '" << s << "' (expected to return " << expected << ")";
   ASSERT_EQ(out, expected) << "Conversion failed for '" << s << "'";
@@ -38,7 +38,7 @@ void AssertConversion(const std::string& s, typename T::c_type expected,
 
 template <typename T, typename Context = void>
 void AssertConversionFails(const std::string& s, const Context* ctx = NULLPTR) {
-  typename T::c_type out;
+  typename T::c_type out{};
   ASSERT_FALSE(ParseValue<T>(s.data(), s.length(), &out, ctx))
       << "Conversion should have failed for '" << s << "' (returned " << out << ")";
 }
