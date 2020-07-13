@@ -803,10 +803,12 @@ Status FileReaderImpl::GetRecordBatchReader(const std::vector<int>& row_groups,
         std::vector<::arrow::ArrayVector> chunks(readers.size());
         for (size_t i = 0; i < readers.size(); ++i) {
           std::shared_ptr<ChunkedArray> chunk;
-          RETURN_NOT_OK(readers[i]->NextBatch(properties().batch_size(), &chunk));
-          if (chunk == nullptr || chunk->length() == 0) {
-            return ::arrow::IterationTraits<RecordBatchIterator>::End();
-          }
+          do {
+            RETURN_NOT_OK(readers[i]->NextBatch(properties().batch_size(), &chunk));
+            if (chunk == nullptr) {
+              return ::arrow::IterationTraits<RecordBatchIterator>::End();
+            }
+          } while (chunk->length() == 0);
           chunks[i] = chunk->chunks();
         }
 
