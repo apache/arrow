@@ -3448,6 +3448,15 @@ def test_empty_row_groups(tempdir):
         assert reader.read_row_group(i).equals(table)
 
 
+def test_parquet_file_pass_directory_instead_of_file(tempdir):
+    # ARROW-7208
+    path = tempdir / 'directory'
+    os.mkdir(str(path))
+
+    with pytest.raises(IOError, match="Expected file path"):
+        pq.ParquetFile(path)
+
+
 @pytest.mark.pandas
 @parametrize_legacy_dataset
 def test_parquet_writer_with_caller_provided_filesystem(use_legacy_dataset):
