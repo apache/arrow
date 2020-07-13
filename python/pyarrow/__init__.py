@@ -77,9 +77,13 @@ def show_versions():
     print("Package kind: {}".format(cpp_build_info.package_kind
                                     if len(cpp_build_info.package_kind) > 0
                                     else "not indicated"))
-    print("Arrow C++ library version: {}".format(cpp_build_info.version))
-    print("Arrow C++ git revision: {}".format(cpp_build_info.git_id))
-    print("Arrow C++ git description: {}"
+    print("Arrow C++ library version: {0}".format(cpp_build_info.version))
+    print("Arrow C++ compiler: {0} {1}"
+          .format(cpp_build_info.compiler_id, cpp_build_info.compiler_version))
+    print("Arrow C++ compiler flags: {0}"
+          .format(cpp_build_info.compiler_flags))
+    print("Arrow C++ git revision: {0}".format(cpp_build_info.git_id))
+    print("Arrow C++ git description: {0}"
           .format(cpp_build_info.git_description))
 
 

@@ -59,6 +59,9 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         c_string version_string
         c_string so_version
         c_string full_so_version
+        c_string compiler_id
+        c_string compiler_version
+        c_string compiler_flags
         c_string git_id
         c_string git_description
         c_string package_kind
