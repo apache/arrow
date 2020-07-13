@@ -32,7 +32,7 @@ macro_rules! math_unary_function {
             $NAME,
             vec![Field::new("n", DataType::Float64, true)],
             DataType::Float64,
-            |args: &[ArrayRef]| {
+            Arc::new(|args: &[ArrayRef]| {
                 let n = &args[0].as_any().downcast_ref::<Float64Array>();
                 match n {
                     Some(array) => {
@@ -51,7 +51,7 @@ macro_rules! math_unary_function {
                         $NAME
                     ))),
                 }
-            },
+            }),
         )
     };
 }
