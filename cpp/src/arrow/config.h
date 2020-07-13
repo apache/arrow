@@ -37,6 +37,9 @@ struct BuildInfo {
   std::string version_string;
   std::string so_version;
   std::string full_so_version;
+  std::string compiler_id;
+  std::string compiler_version;
+  std::string compiler_flags;
   std::string git_id;
   std::string git_description;
   std::string package_kind;

@@ -25,6 +25,7 @@ VersionInfo = namedtuple('VersionInfo', ('major', 'minor', 'patch'))
 BuildInfo = namedtuple(
     'BuildInfo',
     ('version', 'version_info', 'so_version', 'full_so_version',
+     'compiler_id', 'compiler_version', 'compiler_flags',
      'git_id', 'git_description', 'package_kind'))
 
 cdef _build_info():
@@ -39,6 +40,9 @@ cdef _build_info():
                                               c_info.version_patch),
                      so_version=frombytes(c_info.so_version),
                      full_so_version=frombytes(c_info.full_so_version),
+                     compiler_id=frombytes(c_info.compiler_id),
+                     compiler_version=frombytes(c_info.compiler_version),
+                     compiler_flags=frombytes(c_info.compiler_flags),
                      git_id=frombytes(c_info.git_id),
                      git_description=frombytes(c_info.git_description),
                      package_kind=frombytes(c_info.package_kind))
