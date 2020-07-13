@@ -128,6 +128,8 @@ def test_chunked_array_equals():
             y = pa.chunked_array(yarrs)
         assert x.equals(y)
         assert y.equals(x)
+        assert x == y
+        assert x != str(y)
 
     def ne(xarrs, yarrs):
         if isinstance(xarrs, pa.ChunkedArray):
@@ -140,6 +142,7 @@ def test_chunked_array_equals():
             y = pa.chunked_array(yarrs)
         assert not x.equals(y)
         assert not y.equals(x)
+        assert x != y
 
     eq(pa.chunked_array([], type=pa.int32()),
        pa.chunked_array([], type=pa.int32()))

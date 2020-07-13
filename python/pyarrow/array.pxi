@@ -17,27 +17,6 @@
 
 import warnings
 
-from cpython.object cimport Py_LT, Py_EQ, Py_GT, Py_LE, Py_NE, Py_GE
-
-
-cdef str _op_to_function_name(int op):
-    cdef str function_name
-
-    if op == Py_EQ:
-        function_name = "equal"
-    elif op == Py_NE:
-        function_name = "not_equal"
-    elif op == Py_GT:
-        function_name = "greater"
-    elif op == Py_GE:
-        function_name = "greater_equal"
-    elif op == Py_LT:
-        function_name = "less"
-    elif op == Py_LE:
-        function_name = "less_equal"
-
-    return function_name
-
 
 cdef _sequence_to_array(object sequence, object mask, object size,
                         DataType type, CMemoryPool* pool, c_bool from_pandas):
@@ -773,10 +752,6 @@ cdef class Array(_PandasConvertible):
         with nogil:
             check_status(DebugPrint(deref(self.ap), 0))
 
-    def __richcmp__(self, other, int op):
-        function_name = _op_to_function_name(op)
-        return _pc().call_function(function_name, [self, other])
-
     def diff(self, Array other):
         """
         Compare contents of this array against another one.
@@ -998,6 +973,12 @@ cdef class Array(_PandasConvertible):
 
     def __str__(self):
         return self.to_string()
+
+    def __eq__(self, other):
+        try:
+            return self.equals(other)
+        except TypeError:
+            return NotImplemented
 
     def equals(Array self, Array other):
         return self.ap.Equals(deref(other.ap))

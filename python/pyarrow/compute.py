@@ -135,6 +135,13 @@ add = _simple_binary_function('add')
 subtract = _simple_binary_function('subtract')
 multiply = _simple_binary_function('multiply')
 
+equal = _simple_binary_function('equal')
+not_equal = _simple_binary_function('not_equal')
+greater = _simple_binary_function('greater')
+greater_equal = _simple_binary_function('greater_equal')
+less = _simple_binary_function('less')
+less_equal = _simple_binary_function('less_equal')
+
 
 def binary_contains_exact(array, pattern):
     """

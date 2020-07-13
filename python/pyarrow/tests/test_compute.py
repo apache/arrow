@@ -376,22 +376,22 @@ def test_compare_array(typ):
     arr1 = con([1, 2, 3, 4, None])
     arr2 = con([1, 1, 4, None, 4])
 
-    result = arr1 == arr2
+    result = pc.equal(arr1, arr2)
     assert result.equals(con([True, False, False, None, None]))
 
-    result = arr1 != arr2
+    result = pc.not_equal(arr1, arr2)
     assert result.equals(con([False, True, True, None, None]))
 
-    result = arr1 < arr2
+    result = pc.less(arr1, arr2)
     assert result.equals(con([False, False, True, None, None]))
 
-    result = arr1 <= arr2
+    result = pc.less_equal(arr1, arr2)
     assert result.equals(con([True, False, True, None, None]))
 
-    result = arr1 > arr2
+    result = pc.greater(arr1, arr2)
     assert result.equals(con([False, True, False, None, None]))
 
-    result = arr1 >= arr2
+    result = pc.greater_equal(arr1, arr2)
     assert result.equals(con([True, True, False, None, None]))
 
 
@@ -406,22 +406,22 @@ def test_compare_scalar(typ):
     # TODO this is a hacky way to construct a scalar ..
     scalar = pa.array([2]).sum()
 
-    result = arr == scalar
+    result = pc.equal(arr, scalar)
     assert result.equals(con([False, True, False, None]))
 
-    result = arr != scalar
+    result = pc.not_equal(arr, scalar)
     assert result.equals(con([True, False, True, None]))
 
-    result = arr < scalar
+    result = pc.less(arr, scalar)
     assert result.equals(con([True, False, False, None]))
 
-    result = arr <= scalar
+    result = pc.less_equal(arr, scalar)
     assert result.equals(con([True, True, False, None]))
 
-    result = arr > scalar
+    result = pc.greater(arr, scalar)
     assert result.equals(con([False, False, True, None]))
 
-    result = arr >= scalar
+    result = pc.greater_equal(arr, scalar)
     assert result.equals(con([False, True, True, None]))
 
 
@@ -432,11 +432,12 @@ def test_compare_chunked_array_mixed():
 
     expected = pa.chunked_array([[True, True, True, True, None]])
 
-    for result in [
-        arr == arr_chunked,
-        arr_chunked == arr,
-        arr_chunked == arr_chunked2,
+    for left, right in [
+        (arr, arr_chunked),
+        (arr_chunked, arr),
+        (arr_chunked, arr_chunked2),
     ]:
+        result = pc.equal(left, right)
         assert result.equals(expected)
 
 
