@@ -151,10 +151,6 @@ static Status PutOffsets(const std::shared_ptr<Buffer>& src, Offset first_offset
     return Status::Invalid("offset overflow while concatenating arrays");
   }
 
-  // Concatenate can be called during IPC reads to append delta dictionaries,
-  // on non-validate input.  Be sure to avoid reading out of buffer boundaries.
-  // XXX
-
   // Write offsets into dst, ensuring that the first offset written is
   // first_offset
   auto adjustment = first_offset - src_begin[0];
@@ -292,6 +288,10 @@ class ConcatenateImpl {
   }
 
  private:
+  // NOTE: Concatenate() can be called during IPC reads to append delta dictionaries
+  // on non-validated input.  Therefore, the input-checking SliceBufferSafe and
+  // ArrayData::SliceSafe are used below.
+
   // Gather the index-th buffer of each input into a vector.
   // Bytes are sliced with that input's offset and length.
   // Note that BufferVector will not contain the buffer of in_[i] if it's
