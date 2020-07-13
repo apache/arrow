@@ -152,12 +152,8 @@ class PARQUET_EXPORT FileReader {
 
   /// \brief Return a RecordBatchReader of row groups selected from row_group_indices.
   ///
-  /// Note that the ordering in row_group_indices matters. Each row group will
-  /// held in memory until each slice has been yielded as a RecordBatch, at
-  /// which point the next row group will be loaded. FileReaders must outlive
-  /// their RecordBatchReaders. NOTE: in the future we would like to avoid
-  /// materializing the entire row group in memory before yielding chunks of it
-  /// in this interface, thus reducing memory use.
+  /// Note that the ordering in row_group_indices matters. FileReaders must outlive
+  /// their RecordBatchReaders.
   ///
   /// \returns error Status if row_group_indices contains an invalid index
   virtual ::arrow::Status GetRecordBatchReader(
@@ -171,12 +167,7 @@ class PARQUET_EXPORT FileReader {
   /// row_group_indices, whose columns are selected by column_indices.
   ///
   /// Note that the ordering in row_group_indices and column_indices
-  /// matter. Each row group will held in memory until each slice has been
-  /// yielded as a RecordBatch, at which point the next row group will be
-  /// loaded. FileReaders must outlive their RecordBatchReaders. NOTE: in the
-  /// future we would like to avoid materializing the entire row group in
-  /// memory before yielding chunks of it in this interface, thus reducing
-  /// memory use.
+  /// matter. FileReaders must outlive their RecordBatchReaders.
   ///
   /// \returns error Status if either row_group_indices or column_indices
   ///     contains an invalid index

@@ -782,14 +782,12 @@ Status TransferColumnData(RecordReader* reader, std::shared_ptr<DataType> value_
                                     value_type->ToString());
   }
 
-  DCHECK_NE(result.kind(), Datum::NONE);
-
   if (result.kind() == Datum::ARRAY) {
     *out = std::make_shared<ChunkedArray>(result.make_array());
   } else if (result.kind() == Datum::CHUNKED_ARRAY) {
     *out = result.chunked_array();
   } else {
-    DCHECK(false) << "Should be impossible";
+    DCHECK(false) << "Should be impossible, result was " << result.ToString();
   }
 
   return Status::OK();
