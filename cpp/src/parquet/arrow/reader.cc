@@ -24,7 +24,6 @@
 #include <vector>
 
 #include "arrow/array.h"
-#include "arrow/array/util.h"
 #include "arrow/buffer.h"
 #include "arrow/io/memory.h"
 #include "arrow/record_batch.h"
@@ -798,37 +797,20 @@ Status FileReaderImpl::GetRecordBatchReader(const std::vector<int>& row_groups,
   // this RecordBatchReader.
   ::arrow::Iterator<RecordBatchIterator> batches = ::arrow::MakeFunctionIterator(
       [readers, batch_schema, this]() -> ::arrow::Result<RecordBatchIterator> {
-        // Get the next chunks for each column
-        // (chunks[i] contains the chunks for column i).
-        std::vector<::arrow::ArrayVector> chunks(readers.size());
-        for (size_t i = 0; i < readers.size(); ++i) {
-          std::shared_ptr<ChunkedArray> chunk;
-          do {
-            RETURN_NOT_OK(readers[i]->NextBatch(properties().batch_size(), &chunk));
-            if (chunk == nullptr) {
-              return ::arrow::IterationTraits<RecordBatchIterator>::End();
-            }
-          } while (chunk->length() == 0);
-          chunks[i] = chunk->chunks();
-        }
-
-        // Transpose chunks to record batches.
-        chunks = ::arrow::internal::RechunkArraysConsistently(chunks);
-
-        ::arrow::RecordBatchVector batches(chunks[0].size());
-
-        for (size_t batch_index = 0; batch_index < batches.size(); ++batch_index) {
-          ::arrow::ArrayVector columns(chunks.size());
-          for (size_t i = 0; i < columns.size(); ++i) {
-            columns[i] = std::move(chunks[i][batch_index]);
+        ::arrow::ChunkedArrayVector columns(readers.size());
+        for (size_t i = 0; i < columns.size(); ++i) {
+          RETURN_NOT_OK(readers[i]->NextBatch(properties().batch_size(), &columns[i]));
+          if (columns[i] == nullptr || columns[i]->length() == 0) {
+            return ::arrow::IterationTraits<RecordBatchIterator>::End();
           }
-
-          int64_t num_rows = columns[0]->length();
-          batches[batch_index] =
-              ::arrow::RecordBatch::Make(batch_schema, num_rows, std::move(columns));
         }
 
-        return ::arrow::MakeVectorIterator(std::move(batches));
+        auto table = ::arrow::Table::Make(batch_schema, std::move(columns));
+        auto table_reader = std::make_shared<::arrow::TableBatchReader>(*table);
+
+        // NB: explicitly preserve table so that table_reader doesn't outlive it
+        return ::arrow::MakeFunctionIterator(
+            [table, table_reader] { return table_reader->Next(); });
       });
 
   *out = ::arrow::internal::make_unique<RowGroupRecordBatchReader>(
