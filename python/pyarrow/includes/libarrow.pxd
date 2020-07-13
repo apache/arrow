@@ -51,6 +51,20 @@ cdef extern from "arrow/util/decimal.h" namespace "arrow" nogil:
 
 cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
+    cdef cppclass CBuildInfo "arrow::BuildInfo":
+        int version
+        int version_major
+        int version_minor
+        int version_patch
+        c_string version_string
+        c_string so_version
+        c_string full_so_version
+        c_string git_id
+        c_string git_description
+        c_string package_kind
+
+    const CBuildInfo& GetBuildInfo()
+
     enum Type" arrow::Type::type":
         _Type_NA" arrow::Type::NA"
 
@@ -188,6 +202,9 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     shared_ptr[CArray] MakeArray(const shared_ptr[CArrayData]& data)
     CResult[shared_ptr[CArray]] MakeArrayOfNull(
         const shared_ptr[CDataType]& type, int64_t length, CMemoryPool* pool)
+
+    CResult[shared_ptr[CArray]] MakeArrayFromScalar(
+        const CScalar& scalar, int64_t length, CMemoryPool* pool)
 
     CStatus DebugPrint(const CArray& arr, int indent)
 
@@ -786,10 +803,18 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         Type type_id()
         c_bool Equals(const CTensor& other)
 
+    cdef cppclass CSparseIndex" arrow::SparseIndex":
+        pass
+
+    cdef cppclass CSparseCOOIndex" arrow::SparseCOOIndex":
+        c_bool is_canonical()
+
     cdef cppclass CSparseCOOTensor" arrow::SparseCOOTensor":
         shared_ptr[CDataType] type()
         shared_ptr[CBuffer] data()
         CResult[shared_ptr[CTensor]] ToTensor()
+
+        shared_ptr[CSparseIndex] sparse_index()
 
         const vector[int64_t]& shape()
         int64_t size()
@@ -1303,6 +1328,9 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         int32_t alignment
         c_bool write_legacy_ipc_format
         CMemoryPool* memory_pool
+        CMetadataVersion metadata_version
+        CCompressionType compression
+        c_bool use_threads
 
         @staticmethod
         CIpcWriteOptions Defaults()

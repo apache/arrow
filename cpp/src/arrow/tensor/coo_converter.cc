@@ -15,16 +15,19 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/tensor/converter.h"
+#include "arrow/tensor/converter_internal.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <memory>
+#include <numeric>
 #include <vector>
 
 #include "arrow/buffer.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/macros.h"
 #include "arrow/visitor_inline.h"
 
 namespace arrow {
@@ -34,8 +37,9 @@ class MemoryPool;
 namespace internal {
 namespace {
 
-inline void IncrementIndex(std::vector<int64_t>& coord,
-                           const std::vector<int64_t>& shape) {
+template <typename c_index_type>
+inline void IncrementRowMajorIndex(std::vector<c_index_type>& coord,
+                                   const std::vector<int64_t>& shape) {
   const int64_t ndim = shape.size();
   ++coord[ndim - 1];
   if (coord[ndim - 1] == shape[ndim - 1]) {
@@ -47,6 +51,109 @@ inline void IncrementIndex(std::vector<int64_t>& coord,
     }
   }
 }
+
+template <typename c_index_type, typename c_value_type>
+void ConvertRowMajorTensor(const Tensor& tensor, c_index_type* indices,
+                           c_value_type* values, const int64_t size) {
+  const auto ndim = tensor.ndim();
+  const auto& shape = tensor.shape();
+  const c_value_type* tensor_data =
+      reinterpret_cast<const c_value_type*>(tensor.raw_data());
+
+  constexpr c_value_type zero = 0;
+  std::vector<c_index_type> coord(ndim, 0);
+  for (int64_t n = tensor.size(); n > 0; --n) {
+    const c_value_type x = *tensor_data;
+    if (ARROW_PREDICT_FALSE(x != zero)) {
+      std::copy(coord.begin(), coord.end(), indices);
+      *values++ = x;
+      indices += ndim;
+    }
+
+    IncrementRowMajorIndex(coord, shape);
+    ++tensor_data;
+  }
+}
+
+template <typename c_index_type, typename c_value_type>
+void ConvertColumnMajorTensor(const Tensor& tensor, c_index_type* out_indices,
+                              c_value_type* out_values, const int64_t size) {
+  const auto ndim = tensor.ndim();
+  std::vector<c_index_type> indices(ndim * size);
+  std::vector<c_value_type> values(size);
+  ConvertRowMajorTensor(tensor, indices.data(), values.data(), size);
+
+  // transpose indices
+  for (int64_t i = 0; i < size; ++i) {
+    for (int j = 0; j < ndim / 2; ++j) {
+      std::swap(indices[i * ndim + j], indices[i * ndim + ndim - j - 1]);
+    }
+  }
+
+  // sort indices
+  std::vector<int64_t> order(size);
+  std::iota(order.begin(), order.end(), 0);
+  std::sort(order.begin(), order.end(), [&](const int64_t xi, const int64_t yi) {
+    const int64_t x_offset = xi * ndim;
+    const int64_t y_offset = yi * ndim;
+    for (int j = 0; j < ndim; ++j) {
+      const auto x = indices[x_offset + j];
+      const auto y = indices[y_offset + j];
+      if (x < y) return true;
+      if (x > y) return false;
+    }
+    return false;
+  });
+
+  // transfer result
+  const auto* indices_data = indices.data();
+  for (int64_t i = 0; i < size; ++i) {
+    out_values[i] = values[i];
+
+    std::copy_n(indices_data, ndim, out_indices);
+    indices_data += ndim;
+    out_indices += ndim;
+  }
+}
+
+template <typename c_index_type, typename c_value_type>
+void ConvertStridedTensor(const Tensor& tensor, c_index_type* indices,
+                          c_value_type* values, const int64_t size) {
+  using ValueType = typename CTypeTraits<c_value_type>::ArrowType;
+  const auto& shape = tensor.shape();
+  const auto ndim = tensor.ndim();
+  std::vector<int64_t> coord(ndim, 0);
+
+  constexpr c_value_type zero = 0;
+  c_value_type x;
+  int64_t i;
+  for (int64_t n = tensor.size(); n > 0; --n) {
+    x = tensor.Value<ValueType>(coord);
+    if (ARROW_PREDICT_FALSE(x != zero)) {
+      *values++ = x;
+      for (i = 0; i < ndim; ++i) {
+        *indices++ = static_cast<c_index_type>(coord[i]);
+      }
+    }
+
+    IncrementRowMajorIndex(coord, shape);
+  }
+}
+
+#define CONVERT_TENSOR(func, index_type, value_type, indices, values, size)     \
+  func<index_type, value_type>(tensor_, reinterpret_cast<index_type*>(indices), \
+                               reinterpret_cast<value_type*>(values), size)
+
+// Using ARROW_EXPAND is necessary to expand __VA_ARGS__ correctly on VC++.
+#define CONVERT_ROW_MAJOR_TENSOR(index_type, value_type, ...) \
+  ARROW_EXPAND(CONVERT_TENSOR(ConvertRowMajorTensor, index_type, value_type, __VA_ARGS__))
+
+#define CONVERT_COLUMN_MAJOR_TENSOR(index_type, value_type, ...) \
+  ARROW_EXPAND(                                                  \
+      CONVERT_TENSOR(ConvertColumnMajorTensor, index_type, value_type, __VA_ARGS__))
+
+#define CONVERT_STRIDED_TENSOR(index_type, value_type, ...) \
+  ARROW_EXPAND(CONVERT_TENSOR(ConvertStridedTensor, index_type, value_type, __VA_ARGS__))
 
 // ----------------------------------------------------------------------
 // SparseTensorConverter for SparseCOOIndex
@@ -92,33 +199,26 @@ class SparseCOOTensorConverter : private SparseTensorConverterMixin {
         }
         tensor_data += value_elsize;
       }
+    } else if (tensor_.is_row_major()) {
+      DISPATCH(CONVERT_ROW_MAJOR_TENSOR, index_elsize, value_elsize, indices, values,
+               nonzero_count);
+    } else if (tensor_.is_column_major()) {
+      DISPATCH(CONVERT_COLUMN_MAJOR_TENSOR, index_elsize, value_elsize, indices, values,
+               nonzero_count);
     } else {
-      const std::vector<int64_t>& shape = tensor_.shape();
-      std::vector<int64_t> coord(ndim, 0);  // The current logical coordinates
-
-      for (int64_t n = tensor_.size(); n > 0; n--) {
-        int64_t offset = tensor_.CalculateValueOffset(coord);
-        if (std::any_of(tensor_data + offset, tensor_data + offset + value_elsize,
-                        IsNonZero)) {
-          std::copy_n(tensor_data + offset, value_elsize, values);
-          values += value_elsize;
-
-          // Write indices in row-major order.
-          for (int64_t i = 0; i < ndim; ++i) {
-            AssignIndex(indices, coord[i], index_elsize);
-            indices += index_elsize;
-          }
-        }
-
-        IncrementIndex(coord, shape);
-      }
+      DISPATCH(CONVERT_STRIDED_TENSOR, index_elsize, value_elsize, indices, values,
+               nonzero_count);
     }
 
     // make results
     const std::vector<int64_t> indices_shape = {nonzero_count, ndim};
-    const std::vector<int64_t> indices_strides = {index_elsize * ndim, index_elsize};
-    sparse_index = std::make_shared<SparseCOOIndex>(std::make_shared<Tensor>(
-        index_value_type_, std::move(indices_buffer), indices_shape, indices_strides));
+    std::vector<int64_t> indices_strides;
+    internal::ComputeRowMajorStrides(
+        checked_cast<const FixedWidthType&>(*index_value_type_), indices_shape,
+        &indices_strides);
+    auto coords = std::make_shared<Tensor>(index_value_type_, std::move(indices_buffer),
+                                           indices_shape, indices_strides);
+    ARROW_ASSIGN_OR_RAISE(sparse_index, SparseCOOIndex::Make(coords, true));
     data = std::move(values_buffer);
 
     return Status::OK();

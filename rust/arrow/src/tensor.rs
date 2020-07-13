@@ -55,6 +55,7 @@ fn compute_column_major_strides<T: ArrowPrimitiveType>(shape: &[usize]) -> Vec<u
 }
 
 /// Tensor of primitive types
+#[derive(Debug)]
 pub struct Tensor<'a, T: ArrowPrimitiveType> {
     data_type: DataType,
     buffer: Buffer,

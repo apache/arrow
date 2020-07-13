@@ -28,6 +28,9 @@ Arrow allows reading line-separated JSON files as Arrow tables.  Each
 independent JSON object in the input file is converted to a row in
 the target Arrow table.
 
+.. seealso::
+   :ref:`JSON reader API reference <cpp-api-json>`.
+
 Basic usage
 ===========
 

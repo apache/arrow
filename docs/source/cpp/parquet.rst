@@ -24,6 +24,9 @@
 Reading and writing Parquet files
 =================================
 
+.. seealso::
+   :ref:`Parquet reader and writer API reference <cpp-api-parquet>`.
+
 The Parquet C++ library is part of the Apache Arrow project and benefits
 from tight integration with Arrow C++.
 

@@ -297,6 +297,62 @@ def test_nulls(ty):
         assert arr.type == ty
 
 
+def test_array_from_scalar():
+    today = datetime.date.today()
+    now = datetime.datetime.now()
+    oneday = datetime.timedelta(days=1)
+
+    cases = [
+        (None, 1, pa.array([None])),
+        (None, 10, pa.nulls(10)),
+        (-1, 3, pa.array([-1, -1, -1], type=pa.int64())),
+        (2.71, 2, pa.array([2.71, 2.71], type=pa.float64())),
+        ("string", 4, pa.array(["string"] * 4)),
+        (
+            pa.scalar(8, type=pa.uint8()),
+            17,
+            pa.array([8] * 17, type=pa.uint8())
+        ),
+        (pa.scalar(None), 3, pa.array([None, None, None])),
+        (pa.scalar(True), 11, pa.array([True] * 11)),
+        (today, 2, pa.array([today] * 2)),
+        (now, 10, pa.array([now] * 10)),
+        (now.time(), 9, pa.array([now.time()] * 9)),
+        (oneday, 4, pa.array([oneday] * 4)),
+        (False, 9, pa.array([False] * 9)),
+        ([1, 2], 2, pa.array([[1, 2], [1, 2]])),
+        (
+            pa.scalar([-1, 3], type=pa.large_list(pa.int8())),
+            5,
+            pa.array([[-1, 3]] * 5, type=pa.large_list(pa.int8()))
+        ),
+        ({'a': 1, 'b': 2}, 3, pa.array([{'a': 1, 'b': 2}] * 3))
+    ]
+
+    for value, size, expected in cases:
+        arr = pa.repeat(value, size)
+        assert len(arr) == size
+        assert arr.equals(expected)
+
+        if expected.type == pa.null():
+            assert arr.null_count == size
+        else:
+            assert arr.null_count == 0
+
+
+def test_array_from_dictionary_scalar():
+    dictionary = ['foo', 'bar', 'baz']
+    arr = pa.DictionaryArray.from_arrays([2, 1, 2, 0], dictionary=dictionary)
+
+    result = pa.repeat(arr[0], 5)
+    expected = pa.DictionaryArray.from_arrays([2] * 5, dictionary=dictionary)
+    assert result.equals(expected)
+
+    result = pa.repeat(arr[3], 5)
+    expected = pa.DictionaryArray.from_arrays([0] * 5, dictionary=dictionary)
+    assert result.equals(expected)
+
+
 def test_array_getitem():
     arr = pa.array(range(10, 15))
     lst = arr.to_pylist()

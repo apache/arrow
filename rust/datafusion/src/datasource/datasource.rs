@@ -19,19 +19,19 @@
 
 use std::sync::{Arc, Mutex};
 
-use arrow::datatypes::Schema;
+use arrow::datatypes::SchemaRef;
+use arrow::record_batch::RecordBatchReader;
 
 use crate::error::Result;
-use crate::execution::physical_plan::BatchIterator;
 
-/// Returned by implementors of `Table#scan`, this `BatchIterator` is wrapped with
+/// Returned by implementors of `Table#scan`, this `SendableRecordBatchReader` is wrapped with
 /// an `Arc` and `Mutex` so that it can be shared across threads as it is used.
-pub type ScanResult = Arc<Mutex<dyn BatchIterator>>;
+pub type ScanResult = Arc<Mutex<dyn RecordBatchReader + Send + Sync>>;
 
 /// Source table
 pub trait TableProvider {
     /// Get a reference to the schema for this table
-    fn schema(&self) -> Arc<Schema>;
+    fn schema(&self) -> SchemaRef;
 
     /// Perform a scan of a table and return a sequence of iterators over the data (one
     /// iterator per partition)

@@ -24,13 +24,13 @@ use std::sync::{Arc, Mutex};
 use crate::error::Result;
 use crate::logicalplan::ScalarValue;
 use arrow::array::ArrayRef;
-use arrow::datatypes::{DataType, Field, Schema};
-use arrow::record_batch::RecordBatch;
+use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
+use arrow::record_batch::{RecordBatch, RecordBatchReader};
 
 /// Partition-aware execution plan for a relation
 pub trait ExecutionPlan {
     /// Get the schema for this execution plan
-    fn schema(&self) -> Arc<Schema>;
+    fn schema(&self) -> SchemaRef;
     /// Get the partitions for this execution plan. Each partition can be executed in parallel.
     fn partitions(&self) -> Result<Vec<Arc<dyn Partition>>>;
 }
@@ -38,15 +38,7 @@ pub trait ExecutionPlan {
 /// Represents a partition of an execution plan that can be executed on a thread
 pub trait Partition: Send + Sync {
     /// Execute this partition and return an iterator over RecordBatch
-    fn execute(&self) -> Result<Arc<Mutex<dyn BatchIterator>>>;
-}
-
-/// Iterator over RecordBatch that can be sent between threads
-pub trait BatchIterator: Send + Sync {
-    /// Get the schema for the batches returned by this iterator
-    fn schema(&self) -> Arc<Schema>;
-    /// Get the next RecordBatch
-    fn next(&mut self) -> Result<Option<RecordBatch>>;
+    fn execute(&self) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>>;
 }
 
 /// Expression that can be evaluated against a RecordBatch
@@ -69,7 +61,7 @@ pub trait PhysicalExpr: Send + Sync {
     }
 }
 
-/// Agggregate expression that can be evaluated against a RecordBatch
+/// Aggregate expression that can be evaluated against a RecordBatch
 pub trait AggregateExpr: Send + Sync {
     /// Get the name to use in a schema to represent the result of this expression
     fn name(&self) -> String;

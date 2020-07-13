@@ -277,7 +277,7 @@ static CountPair NaiveCount(const Array& array) {
 }
 
 void ValidateCount(const Array& input, CountPair expected) {
-  CountOptions all = CountOptions(CountOptions::COUNT_ALL);
+  CountOptions all = CountOptions(CountOptions::COUNT_NON_NULL);
   CountOptions nulls = CountOptions(CountOptions::COUNT_NULL);
 
   ASSERT_OK_AND_ASSIGN(Datum result, Count(input, all));

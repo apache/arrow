@@ -65,7 +65,6 @@ x-ccache: &ccache
 x-with-gpus:
   - ubuntu-cuda-cpp
   - ubuntu-cuda-python
-  - ubuntu-cuda-docs
 
 x-hierarchy:
   # This section is used by the archery tool to enable building nested images,
@@ -116,8 +115,7 @@ x-hierarchy:
       - ubuntu-docs
     - ubuntu-r
   - ubuntu-cuda-cpp:
-    - ubuntu-cuda-python:
-      - ubuntu-cuda-docs
+    - ubuntu-cuda-python
   - ubuntu-csharp
   - ubuntu-cpp-sanitizer
   - ubuntu-r-sanitizer
@@ -165,10 +163,10 @@ services:
       core: ${ULIMIT_CORE}
     environment:
       <<: *ccache
+      ARROW_BUILD_BENCHMARKS: "ON"
       ARROW_ENABLE_TIMING_TESTS:  # inherit
       ARROW_USE_LD_GOLD: "ON"
       ARROW_USE_PRECOMPILED_HEADERS: "ON"
-      ARROW_BUILD_BENCHMARKS: "ON"
     volumes: &conda-volumes
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_DIRECTORY:-.docker}/${ARCH}-conda-ccache:/ccache:delegated
@@ -321,6 +319,8 @@ services:
       ARROW_ORC: "OFF"
       ARROW_USE_ASAN: "ON"
       ARROW_USE_UBSAN: "ON"
+      # utf8proc 2.1.0 in Ubuntu Bionic has test failures
+      utf8proc_SOURCE: "BUNDLED"
     command: *cpp-command
 
   fedora-cpp:
@@ -1124,6 +1124,7 @@ services:
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-3
     environment:
       <<: *ccache
+      ARROW_CUDA: "ON"
       ARROW_GLIB_GTK_DOC: "true"
     volumes: *ubuntu-volumes
     command: &docs-command >
@@ -1135,30 +1136,6 @@ services:
         /arrow/ci/scripts/js_build.sh /arrow true &&
         /arrow/ci/scripts/r_build.sh /arrow true &&
         /arrow/ci/scripts/docs_build.sh /arrow /build"
-
-  ubuntu-cuda-docs:
-    # Usage:
-    #   docker-compose build ubuntu-cuda-cpp
-    #   docker-compose build ubuntu-cuda-python
-    #   docker-compose build ubuntu-cuda-docs
-    #   docker-compose run --rm ubuntu-cuda-docs
-    # Notes about --runtime and --gpus and docker-compose incompatibility
-    image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cuda-${CUDA}-python-3-docs
-    build:
-      context: .
-      dockerfile: ci/docker/linux-apt-docs.dockerfile
-      cache_from:
-        - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-docs
-      args:
-        jdk: ${JDK}
-        node: ${NODE}
-        base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cuda-${CUDA}-python-3
-    environment:
-      <<: *ccache
-      ARROW_CUDA: "ON"
-      ARROW_GLIB_GTK_DOC: "true"
-    volumes: *ubuntu-volumes
-    command: *docs-command
 
   ################################# Tools #####################################
 

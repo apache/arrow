@@ -52,12 +52,14 @@ pub fn sort_to_indices(
             .as_any()
             .downcast_ref::<Float32Array>()
             .expect("Unable to downcast array");
+        #[allow(clippy::cmp_nan)]
         range.partition(|index| array.is_valid(*index) && array.value(*index) != f32::NAN)
     } else if values.data_type() == &DataType::Float64 {
         let array = values
             .as_any()
             .downcast_ref::<Float64Array>()
             .expect("Unable to downcast array");
+        #[allow(clippy::cmp_nan)]
         range.partition(|index| array.is_valid(*index) && array.value(*index) != f64::NAN)
     } else {
         range.partition(|index| values.is_valid(*index))
@@ -128,7 +130,7 @@ pub fn sort_to_indices(
 }
 
 /// Options that define how sort kernels should behave
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct SortOptions {
     /// Whether to sort in descending order
     pub descending: bool,
@@ -221,7 +223,7 @@ fn sort_string(
 }
 
 /// One column to be used in lexicographical sort
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct SortColumn {
     pub values: ArrayRef,
     pub options: Option<SortOptions>,

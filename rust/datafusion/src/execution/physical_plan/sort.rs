@@ -24,13 +24,13 @@ use std::thread::JoinHandle;
 use arrow::array::ArrayRef;
 pub use arrow::compute::SortOptions;
 use arrow::compute::{concat, lexsort_to_indices, take, SortColumn, TakeOptions};
-use arrow::datatypes::Schema;
-use arrow::record_batch::RecordBatch;
+use arrow::datatypes::SchemaRef;
+use arrow::record_batch::{RecordBatch, RecordBatchReader};
 
 use crate::error::Result;
 use crate::execution::physical_plan::common::RecordBatchIterator;
 use crate::execution::physical_plan::expressions::PhysicalSortExpr;
-use crate::execution::physical_plan::{common, BatchIterator, ExecutionPlan, Partition};
+use crate::execution::physical_plan::{common, ExecutionPlan, Partition};
 
 /// Sort execution plan
 pub struct SortExec {
@@ -50,7 +50,7 @@ impl SortExec {
 }
 
 impl ExecutionPlan for SortExec {
-    fn schema(&self) -> Arc<Schema> {
+    fn schema(&self) -> SchemaRef {
         self.input.schema().clone()
     }
 
@@ -67,14 +67,14 @@ impl ExecutionPlan for SortExec {
 
 /// Represents a single partition of a Sort execution plan
 struct SortPartition {
-    schema: Arc<Schema>,
+    schema: SchemaRef,
     expr: Vec<PhysicalSortExpr>,
     input: Vec<Arc<dyn Partition>>,
 }
 
 impl Partition for SortPartition {
     /// Execute the sort
-    fn execute(&self) -> Result<Arc<Mutex<dyn BatchIterator>>> {
+    fn execute(&self) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
         let threads: Vec<JoinHandle<Result<Vec<RecordBatch>>>> = self
             .input
             .iter()

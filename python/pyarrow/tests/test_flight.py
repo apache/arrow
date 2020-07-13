@@ -124,13 +124,14 @@ class ConstantFlightServer(FlightServerBase):
 
     CRITERIA = b"the expected criteria"
 
-    def __init__(self, location=None, **kwargs):
+    def __init__(self, location=None, options=None, **kwargs):
         super().__init__(location, **kwargs)
         # Ticket -> Table
         self.table_factories = {
             b'ints': simple_ints_table,
             b'dicts': simple_dicts_table,
         }
+        self.options = options
 
     def list_flights(self, context, criteria):
         if criteria == self.CRITERIA:
@@ -145,11 +146,15 @@ class ConstantFlightServer(FlightServerBase):
         # Return a fresh table, so that Flight is the only one keeping a
         # reference.
         table = self.table_factories[ticket.ticket]()
-        return flight.RecordBatchStream(table)
+        return flight.RecordBatchStream(table, options=self.options)
 
 
 class MetadataFlightServer(FlightServerBase):
     """A Flight server that numbers incoming/outgoing data."""
+
+    def __init__(self, options=None, **kwargs):
+        super().__init__(**kwargs)
+        self.options = options
 
     def do_get(self, context, ticket):
         data = [
@@ -158,7 +163,8 @@ class MetadataFlightServer(FlightServerBase):
         table = pa.Table.from_arrays(data, names=['a'])
         return flight.GeneratorStream(
             table.schema,
-            self.number_batches(table))
+            self.number_batches(table),
+            options=self.options)
 
     def do_put(self, context, descriptor, reader, writer):
         counter = 0
@@ -351,6 +357,10 @@ class ErrorFlightServer(FlightServerBase):
 class ExchangeFlightServer(FlightServerBase):
     """A server for testing DoExchange."""
 
+    def __init__(self, options=None, **kwargs):
+        super().__init__(**kwargs)
+        self.options = options
+
     def do_exchange(self, context, descriptor, reader, writer):
         if descriptor.descriptor_type != flight.DescriptorType.CMD:
             raise pa.ArrowInvalid("Must provide a command descriptor")
@@ -388,7 +398,7 @@ class ExchangeFlightServer(FlightServerBase):
         started = False
         for chunk in reader:
             if not started and chunk.data:
-                writer.begin(chunk.data.schema)
+                writer.begin(chunk.data.schema, options=self.options)
                 started = True
             if chunk.app_metadata and chunk.data:
                 writer.write_with_metadata(chunk.data, chunk.app_metadata)
@@ -688,6 +698,19 @@ def test_flight_do_get_ints():
         client = flight.connect(('localhost', server.port))
         data = client.do_get(flight.Ticket(b'ints')).read_all()
         assert data.equals(table)
+
+    options = pa.ipc.IpcWriteOptions(
+        metadata_version=pa.ipc.MetadataVersion.V4)
+    with ConstantFlightServer(options=options) as server:
+        client = flight.connect(('localhost', server.port))
+        data = client.do_get(flight.Ticket(b'ints')).read_all()
+        assert data.equals(table)
+
+    with pytest.raises(flight.FlightServerError,
+                       match="expected IpcWriteOptions, got <class 'int'>"):
+        with ConstantFlightServer(options=42) as server:
+            client = flight.connect(('localhost', server.port))
+            data = client.do_get(flight.Ticket(b'ints')).read_all()
 
 
 @pytest.mark.pandas
@@ -1052,6 +1075,19 @@ def test_flight_do_get_metadata():
             except StopIteration:
                 break
         data = pa.Table.from_batches(batches)
+        assert data.equals(table)
+
+
+def test_flight_do_get_metadata_v4():
+    """Try a simple do_get call with V4 metadata version."""
+    table = pa.Table.from_arrays(
+        [pa.array([-10, -5, 0, 5, 10])], names=['a'])
+    options = pa.ipc.IpcWriteOptions(
+        metadata_version=pa.ipc.MetadataVersion.V4)
+    with MetadataFlightServer(options=options) as server:
+        client = FlightClient(('localhost', server.port))
+        reader = client.do_get(flight.Ticket(b''))
+        data = reader.read_all()
         assert data.equals(table)
 
 
@@ -1420,6 +1456,30 @@ def test_doexchange_echo():
                 chunk = reader.read_chunk()
                 assert chunk.data == batch
                 assert chunk.app_metadata == buf
+
+
+def test_doexchange_echo_v4():
+    """Try a DoExchange echo server using the V4 metadata version."""
+    data = pa.Table.from_arrays([
+        pa.array(range(0, 10 * 1024))
+    ], names=["a"])
+    batches = data.to_batches(max_chunksize=512)
+
+    options = pa.ipc.IpcWriteOptions(
+        metadata_version=pa.ipc.MetadataVersion.V4)
+    with ExchangeFlightServer(options=options) as server:
+        client = FlightClient(("localhost", server.port))
+        descriptor = flight.FlightDescriptor.for_command(b"echo")
+        writer, reader = client.do_exchange(descriptor)
+        with writer:
+            # Now write data without metadata.
+            writer.begin(data.schema, options=options)
+            for batch in batches:
+                writer.write_batch(batch)
+                assert reader.schema == data.schema
+                chunk = reader.read_chunk()
+                assert chunk.data == batch
+                assert chunk.app_metadata is None
 
 
 def test_doexchange_transform():

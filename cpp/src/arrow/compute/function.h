@@ -35,6 +35,10 @@
 namespace arrow {
 namespace compute {
 
+/// \defgroup compute-functions Abstract compute function API
+///
+/// @{
+
 /// \brief Base class for specifying options configuring a function's behavior,
 /// such as error handling.
 struct ARROW_EXPORT FunctionOptions {};
@@ -276,6 +280,8 @@ class ARROW_EXPORT MetaFunction : public Function {
                const FunctionOptions* default_options = NULLPTR)
       : Function(std::move(name), Function::META, arity, default_options) {}
 };
+
+/// @}
 
 }  // namespace compute
 }  // namespace arrow

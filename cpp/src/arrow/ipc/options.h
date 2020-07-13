@@ -56,10 +56,9 @@ struct ARROW_EXPORT IpcWriteOptions {
   /// \brief The memory pool to use for allocations made during IPC writing
   MemoryPool* memory_pool = default_memory_pool();
 
-  /// \brief EXPERIMENTAL: Codec to use for compressing and decompressing
-  /// record batch body buffers. This is not part of the Arrow IPC protocol and
-  /// only for internal use (e.g. Feather files). May only be LZ4_FRAME and
-  /// ZSTD
+  /// \brief Compression codec to use for record batch body buffers
+  ///
+  /// May only be UNCOMPRESSED, LZ4_FRAME and ZSTD.
   Compression::type compression = Compression::UNCOMPRESSED;
   int compression_level = Compression::kUseDefaultCompressionLevel;
 

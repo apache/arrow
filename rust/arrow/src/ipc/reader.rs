@@ -412,7 +412,7 @@ fn create_dictionary_array(
 pub(crate) fn read_record_batch(
     buf: &[u8],
     batch: ipc::RecordBatch,
-    schema: Arc<Schema>,
+    schema: SchemaRef,
     dictionaries: &[Option<ArrayRef>],
 ) -> Result<Option<RecordBatch>> {
     let buffers = batch.buffers().ok_or_else(|| {
@@ -465,7 +465,7 @@ pub struct FileReader<R: Read + Seek> {
     reader: BufReader<R>,
 
     /// The schema that is read from the file header
-    schema: Arc<Schema>,
+    schema: SchemaRef,
 
     /// The blocks in the file
     ///
@@ -630,9 +630,28 @@ impl<R: Read + Seek> FileReader<R> {
         self.schema.clone()
     }
 
-    /// Read the next record batch
-    #[allow(clippy::should_implement_trait)]
-    pub fn next(&mut self) -> Result<Option<RecordBatch>> {
+    /// Read a specific record batch
+    ///
+    /// Sets the current block to the index, allowing random reads
+    pub fn set_index(&mut self, index: usize) -> Result<()> {
+        if index >= self.total_blocks {
+            Err(ArrowError::IoError(format!(
+                "Cannot set batch to index {} from {} total batches",
+                index, self.total_blocks
+            )))
+        } else {
+            self.current_block = index;
+            Ok(())
+        }
+    }
+}
+
+impl<R: Read + Seek> RecordBatchReader for FileReader<R> {
+    fn schema(&self) -> SchemaRef {
+        self.schema.clone()
+    }
+
+    fn next_batch(&mut self) -> Result<Option<RecordBatch>> {
         // get current block
         if self.current_block < self.total_blocks {
             let block = self.blocks[self.current_block];
@@ -683,31 +702,6 @@ impl<R: Read + Seek> FileReader<R> {
             Ok(None)
         }
     }
-
-    /// Read a specific record batch
-    ///
-    /// Sets the current block to the index, allowing random reads
-    pub fn set_index(&mut self, index: usize) -> Result<()> {
-        if index >= self.total_blocks {
-            Err(ArrowError::IoError(format!(
-                "Cannot set batch to index {} from {} total batches",
-                index, self.total_blocks
-            )))
-        } else {
-            self.current_block = index;
-            Ok(())
-        }
-    }
-}
-
-impl<R: Read + Seek> RecordBatchReader for FileReader<R> {
-    fn schema(&mut self) -> SchemaRef {
-        self.schema.clone()
-    }
-
-    fn next_batch(&mut self) -> Result<Option<RecordBatch>> {
-        self.next()
-    }
 }
 
 /// Arrow Stream reader
@@ -715,7 +709,7 @@ pub struct StreamReader<R: Read> {
     /// Buffered stream reader
     reader: BufReader<R>,
     /// The schema that is read from the stream's first message
-    schema: Arc<Schema>,
+    schema: SchemaRef,
     /// An indicator of whether the strewam is complete.
     ///
     /// This value is set to `true` the first time the reader's `next()` returns `None`.
@@ -778,9 +772,18 @@ impl<R: Read> StreamReader<R> {
         self.schema.clone()
     }
 
-    /// Read the next record batch
-    #[allow(clippy::should_implement_trait)]
-    pub fn next(&mut self) -> Result<Option<RecordBatch>> {
+    /// Check if the stream is finished
+    pub fn is_finished(&self) -> bool {
+        self.finished
+    }
+}
+
+impl<R: Read> RecordBatchReader for StreamReader<R> {
+    fn schema(&self) -> SchemaRef {
+        self.schema.clone()
+    }
+
+    fn next_batch(&mut self) -> Result<Option<RecordBatch>> {
         if self.finished {
             return Ok(None);
         }
@@ -851,21 +854,6 @@ impl<R: Read> StreamReader<R> {
             )),
         }
     }
-
-    /// Check if the stream is finished
-    pub fn is_finished(&self) -> bool {
-        self.finished
-    }
-}
-
-impl<R: Read> RecordBatchReader for StreamReader<R> {
-    fn schema(&mut self) -> SchemaRef {
-        self.schema.clone()
-    }
-
-    fn next_batch(&mut self) -> Result<Option<RecordBatch>> {
-        self.next()
-    }
 }
 
 #[cfg(test)]
@@ -932,7 +920,7 @@ mod tests {
             let arrow_json = read_gzip_json(path);
             assert!(arrow_json.equals_reader(&mut reader));
             // the next batch must be empty
-            assert!(reader.next().unwrap().is_none());
+            assert!(reader.next_batch().unwrap().is_none());
             // the stream must indicate that it's finished
             assert!(reader.is_finished());
         });

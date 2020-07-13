@@ -61,7 +61,7 @@ struct CountImpl : public ScalarAggregator {
   void Finalize(KernelContext* ctx, Datum* out) override {
     const auto& state = checked_cast<const CountImpl&>(*ctx->state());
     switch (state.options.count_mode) {
-      case CountOptions::COUNT_ALL:
+      case CountOptions::COUNT_NON_NULL:
         *out = Datum(state.non_nulls);
         break;
       case CountOptions::COUNT_NULL:

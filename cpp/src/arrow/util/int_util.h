@@ -83,6 +83,14 @@ SignedInt SafeSignedAdd(SignedInt u, SignedInt v) {
                                 static_cast<UnsignedInt>(v));
 }
 
+/// Signed subtraction with well-defined behaviour on overflow (as unsigned)
+template <typename SignedInt>
+SignedInt SafeSignedSubtract(SignedInt u, SignedInt v) {
+  using UnsignedInt = typename std::make_unsigned<SignedInt>::type;
+  return static_cast<SignedInt>(static_cast<UnsignedInt>(u) -
+                                static_cast<UnsignedInt>(v));
+}
+
 /// Signed left shift with well-defined behaviour on negative numbers or overflow
 template <typename SignedInt, typename Shift>
 SignedInt SafeLeftShift(SignedInt u, Shift shift) {
@@ -90,23 +98,40 @@ SignedInt SafeLeftShift(SignedInt u, Shift shift) {
   return static_cast<SignedInt>(static_cast<UnsignedInt>(u) << shift);
 }
 
+// TODO Add portable wrappers for __builtin_add_overflow and friends
+// see http://www.open-std.org/jtc1/sc22/wg14/www/docs/n2428.pdf
+
 /// Detect multiplication overflow between *positive* integers
 template <typename Integer>
-bool HasMultiplyOverflow(Integer value, Integer multiplicand) {
+bool HasPositiveMultiplyOverflow(Integer value, Integer multiplicand) {
   return (multiplicand != 0 &&
           value > std::numeric_limits<Integer>::max() / multiplicand);
 }
 
 /// Detect addition overflow between *positive* integers
 template <typename Integer>
-bool HasAdditionOverflow(Integer value, Integer addend) {
+bool HasPositiveAdditionOverflow(Integer value, Integer addend) {
   return (value > std::numeric_limits<Integer>::max() - addend);
 }
 
-/// Detect addition overflow between integers
+/// Detect addition overflow between signed integers
 template <typename Integer>
-bool HasSubtractionOverflow(Integer value, Integer minuend) {
+bool HasSignedAdditionOverflow(Integer value, Integer addend) {
+  return (addend > 0) ? (value > std::numeric_limits<Integer>::max() - addend)
+                      : (value < std::numeric_limits<Integer>::min() - addend);
+}
+
+/// Detect subtraction overflow between *positive* integers
+template <typename Integer>
+bool HasPositiveSubtractionOverflow(Integer value, Integer minuend) {
   return (value < minuend);
+}
+
+/// Detect subtraction overflow between signed integers
+template <typename Integer>
+bool HasSignedSubtractionOverflow(Integer value, Integer subtrahend) {
+  return (subtrahend > 0) ? (value < std::numeric_limits<Integer>::min() + subtrahend)
+                          : (value > std::numeric_limits<Integer>::max() + subtrahend);
 }
 
 /// Upcast an integer to the largest possible width (currently 64 bits)

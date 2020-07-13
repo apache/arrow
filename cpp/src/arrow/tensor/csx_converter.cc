@@ -181,7 +181,7 @@ Result<std::shared_ptr<Tensor>> MakeTensorFromSparseCSXMatrix(
 
   const auto nc = shape[1];
 
-  int64_t offset;
+  int64_t offset = 0;
   for (int64_t i = 0; i < indptr->size() - 1; ++i) {
     const auto start =
         SparseTensorConverterMixin::GetIndexValue(indptr_data, indptr_elsize);

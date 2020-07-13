@@ -18,11 +18,10 @@
 //! Utilities to assist with reading and writing Arrow data as Flight messages
 
 use std::convert::TryFrom;
-use std::sync::Arc;
 
 use flight::{FlightData, SchemaResult};
 
-use crate::datatypes::Schema;
+use crate::datatypes::{Schema, SchemaRef};
 use crate::error::{ArrowError, Result};
 use crate::ipc::{convert, reader, writer};
 use crate::record_batch::RecordBatch;
@@ -93,7 +92,7 @@ impl TryFrom<&SchemaResult> for Schema {
 /// Convert a FlightData message to a RecordBatch
 pub fn flight_data_to_batch(
     data: &FlightData,
-    schema: Arc<Schema>,
+    schema: SchemaRef,
 ) -> Result<Option<RecordBatch>> {
     // check that the data_header is a record batch message
     let message = crate::ipc::get_root_as_message(&data.data_header[..]);

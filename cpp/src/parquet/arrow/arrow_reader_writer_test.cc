@@ -2849,7 +2849,7 @@ TEST(TestArrowReaderAdHoc, LARGE_MEMORY_TEST(LargeStringColumn)) {
   std::shared_ptr<Array> array;
   ASSERT_OK(builder.Finish(&array));
   auto table =
-      Table::Make(::arrow::schema({::arrow::field("x", array->type())}), {array});
+      Table::Make(::arrow::schema({::arrow::field("x", ::arrow::utf8())}), {array});
   std::shared_ptr<SchemaDescriptor> schm;
   ASSERT_OK_NO_THROW(
       ToParquetSchema(table->schema().get(), *default_writer_properties(), &schm));
@@ -2877,11 +2877,23 @@ TEST(TestArrowReaderAdHoc, LARGE_MEMORY_TEST(LargeStringColumn)) {
   array.reset();
 
   auto reader = ParquetFileReader::Open(std::make_shared<BufferReader>(tables_buffer));
-
   std::unique_ptr<FileReader> arrow_reader;
   ASSERT_OK(FileReader::Make(default_memory_pool(), std::move(reader), &arrow_reader));
   ASSERT_OK_NO_THROW(arrow_reader->ReadTable(&table));
   ASSERT_OK(table->ValidateFull());
+
+  // ARROW-9297: ensure RecordBatchReader also works
+  reader = ParquetFileReader::Open(std::make_shared<BufferReader>(tables_buffer));
+  ASSERT_OK(FileReader::Make(default_memory_pool(), std::move(reader), &arrow_reader));
+  std::shared_ptr<::arrow::RecordBatchReader> batch_reader;
+  std::vector<int> all_row_groups =
+      ::arrow::internal::Iota(reader->metadata()->num_row_groups());
+  ASSERT_OK_NO_THROW(arrow_reader->GetRecordBatchReader(all_row_groups, &batch_reader));
+  ASSERT_OK_AND_ASSIGN(auto batched_table,
+                       ::arrow::Table::FromRecordBatchReader(batch_reader.get()));
+
+  ASSERT_OK(batched_table->ValidateFull());
+  AssertTablesEqual(*table, *batched_table, /*same_chunk_layout=*/false);
 }
 
 TEST(TestArrowReaderAdHoc, HandleDictPageOffsetZero) {

@@ -22,6 +22,7 @@
 
 use std::any::Any;
 use std::collections::HashMap;
+use std::fmt;
 use std::io::Write;
 use std::marker::PhantomData;
 use std::mem;
@@ -85,6 +86,7 @@ pub(crate) fn builder_to_mutable_buffer<T: ArrowPrimitiveType>(
 /// # Ok(())
 /// # }
 /// ```
+#[derive(Debug)]
 pub struct BufferBuilder<T: ArrowPrimitiveType> {
     buffer: MutableBuffer,
     len: usize,
@@ -455,6 +457,7 @@ pub trait ArrayBuilder: Any {
 }
 
 ///  Array builder for fixed-width primitive types
+#[derive(Debug)]
 pub struct PrimitiveBuilder<T: ArrowPrimitiveType> {
     values_builder: BufferBuilder<T>,
     bitmap_builder: BooleanBufferBuilder,
@@ -650,6 +653,7 @@ impl<T: ArrowPrimitiveType> PrimitiveBuilder<T> {
 }
 
 ///  Array builder for `ListArray`
+#[derive(Debug)]
 pub struct ListBuilder<T: ArrayBuilder> {
     offsets_builder: Int32BufferBuilder,
     bitmap_builder: BooleanBufferBuilder,
@@ -854,6 +858,7 @@ where
 }
 
 ///  Array builder for `ListArray`
+#[derive(Debug)]
 pub struct LargeListBuilder<T: ArrayBuilder> {
     offsets_builder: Int64BufferBuilder,
     bitmap_builder: BooleanBufferBuilder,
@@ -1059,6 +1064,7 @@ where
 }
 
 ///  Array builder for `ListArray`
+#[derive(Debug)]
 pub struct FixedSizeListBuilder<T: ArrayBuilder> {
     bitmap_builder: BooleanBufferBuilder,
     values_builder: T,
@@ -1243,22 +1249,27 @@ where
 }
 
 ///  Array builder for `BinaryArray`
+#[derive(Debug)]
 pub struct BinaryBuilder {
     builder: ListBuilder<UInt8Builder>,
 }
 
+#[derive(Debug)]
 pub struct LargeBinaryBuilder {
     builder: LargeListBuilder<UInt8Builder>,
 }
 
+#[derive(Debug)]
 pub struct StringBuilder {
     builder: ListBuilder<UInt8Builder>,
 }
 
+#[derive(Debug)]
 pub struct LargeStringBuilder {
     builder: LargeListBuilder<UInt8Builder>,
 }
 
+#[derive(Debug)]
 pub struct FixedSizeBinaryBuilder {
     builder: FixedSizeListBuilder<UInt8Builder>,
 }
@@ -1873,6 +1884,17 @@ pub struct StructBuilder {
     len: usize,
 }
 
+impl fmt::Debug for StructBuilder {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("StructBuilder")
+            .field("fields", &self.fields)
+            .field("field_anys", &self.field_anys)
+            .field("bitmap_builder", &self.bitmap_builder)
+            .field("len", &self.len)
+            .finish()
+    }
+}
+
 impl ArrayBuilder for StructBuilder {
     /// Returns the number of array slots in the builder.
     ///
@@ -2141,6 +2163,7 @@ impl Drop for StructBuilder {
 /// Array builder for `DictionaryArray`. For example to map a set of byte indices
 /// to f32 values. Note that the use of a `HashMap` here will not scale to very large
 /// arrays or result in an ordered dictionary.
+#[derive(Debug)]
 pub struct PrimitiveDictionaryBuilder<K, V>
 where
     K: ArrowPrimitiveType,
@@ -2259,6 +2282,7 @@ where
 /// Array builder for `DictionaryArray`. For example to map a set of byte indices
 /// to f32 values. Note that the use of a `HashMap` here will not scale to very large
 /// arrays or result in an ordered dictionary.
+#[derive(Debug)]
 pub struct StringDictionaryBuilder<K>
 where
     K: ArrowDictionaryKeyType,
@@ -3498,6 +3522,7 @@ mod tests {
     }
 
     #[test]
+    #[should_panic(expected = "DictionaryKeyOverflowError")]
     fn test_primitive_dictionary_overflow() {
         let key_builder = PrimitiveBuilder::<UInt8Type>::new(257);
         let value_builder = PrimitiveBuilder::<UInt32Type>::new(257);
@@ -3507,10 +3532,7 @@ mod tests {
             builder.append(i + 1000).unwrap();
         }
         // Special error if the key overflows (256th entry)
-        assert_eq!(
-            builder.append(1257),
-            Err(ArrowError::DictionaryKeyOverflowError)
-        );
+        builder.append(1257).unwrap();
     }
 
     #[test]

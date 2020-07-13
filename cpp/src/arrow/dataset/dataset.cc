@@ -40,9 +40,17 @@ Fragment::Fragment(std::shared_ptr<Expression> partition_expression,
 }
 
 Result<std::shared_ptr<Schema>> Fragment::ReadPhysicalSchema() {
+  {
+    auto lock = physical_schema_mutex_.Lock();
+    if (physical_schema_ != nullptr) return physical_schema_;
+  }
+
+  // allow ReadPhysicalSchemaImpl to lock mutex_, if necessary
+  ARROW_ASSIGN_OR_RAISE(auto physical_schema, ReadPhysicalSchemaImpl());
+
   auto lock = physical_schema_mutex_.Lock();
-  if (physical_schema_ == NULLPTR) {
-    ARROW_ASSIGN_OR_RAISE(physical_schema_, ReadPhysicalSchemaImpl());
+  if (physical_schema_ == nullptr) {
+    physical_schema_ = std::move(physical_schema);
   }
   return physical_schema_;
 }

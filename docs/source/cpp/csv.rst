@@ -27,6 +27,9 @@ Reading CSV files
 Arrow provides a fast CSV reader allowing ingestion of external data
 as Arrow tables.
 
+.. seealso::
+   :ref:`CSV reader API reference <cpp-api-csv>`.
+
 Basic usage
 ===========
 

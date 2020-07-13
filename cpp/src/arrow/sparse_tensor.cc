@@ -140,7 +140,109 @@ inline Status CheckSparseCOOIndexValidity(const std::shared_ptr<DataType>& type,
   return Status::OK();
 }
 
+void GetCOOIndexTensorRow(const std::shared_ptr<Tensor>& coords, const int64_t row,
+                          std::vector<int64_t>* out_index) {
+  const auto& fw_index_value_type =
+      internal::checked_cast<const FixedWidthType&>(*coords->type());
+  const size_t indices_elsize = fw_index_value_type.bit_width() / CHAR_BIT;
+
+  const auto& shape = coords->shape();
+  const int64_t non_zero_length = shape[0];
+  DCHECK(0 <= row && row < non_zero_length);
+
+  const int64_t ndim = shape[1];
+  out_index->resize(ndim);
+
+  switch (indices_elsize) {
+    case 1:  // Int8, UInt8
+      for (int64_t i = 0; i < ndim; ++i) {
+        (*out_index)[i] = static_cast<int64_t>(coords->Value<UInt8Type>({row, i}));
+      }
+      break;
+    case 2:  // Int16, UInt16
+      for (int64_t i = 0; i < ndim; ++i) {
+        (*out_index)[i] = static_cast<int64_t>(coords->Value<UInt16Type>({row, i}));
+      }
+      break;
+    case 4:  // Int32, UInt32
+      for (int64_t i = 0; i < ndim; ++i) {
+        (*out_index)[i] = static_cast<int64_t>(coords->Value<UInt32Type>({row, i}));
+      }
+      break;
+    case 8:  // Int64
+      for (int64_t i = 0; i < ndim; ++i) {
+        (*out_index)[i] = coords->Value<Int64Type>({row, i});
+      }
+      break;
+    default:
+      DCHECK(false) << "Must not reach here";
+      break;
+  }
+}
+
+bool DetectSparseCOOIndexCanonicality(const std::shared_ptr<Tensor>& coords) {
+  DCHECK_EQ(coords->ndim(), 2);
+
+  const auto& shape = coords->shape();
+  const int64_t non_zero_length = shape[0];
+  if (non_zero_length <= 1) return true;
+
+  const int64_t ndim = shape[1];
+  std::vector<int64_t> last_index, index;
+  GetCOOIndexTensorRow(coords, 0, &last_index);
+  for (int64_t i = 1; i < non_zero_length; ++i) {
+    GetCOOIndexTensorRow(coords, i, &index);
+    int64_t j = 0;
+    while (j < ndim) {
+      if (last_index[j] > index[j]) {
+        // last_index > index, so we can detect non-canonical here
+        return false;
+      }
+      if (last_index[j] < index[j]) {
+        // last_index < index, so we can skip the remaining dimensions
+        break;
+      }
+      ++j;
+    }
+    if (j == ndim) {
+      // last_index == index, so we can detect non-canonical here
+      return false;
+    }
+    swap(last_index, index);
+  }
+
+  return true;
+}
+
 }  // namespace
+
+Result<std::shared_ptr<SparseCOOIndex>> SparseCOOIndex::Make(
+    const std::shared_ptr<Tensor>& coords, bool is_canonical) {
+  RETURN_NOT_OK(
+      CheckSparseCOOIndexValidity(coords->type(), coords->shape(), coords->strides()));
+  return std::make_shared<SparseCOOIndex>(coords, is_canonical);
+}
+
+Result<std::shared_ptr<SparseCOOIndex>> SparseCOOIndex::Make(
+    const std::shared_ptr<Tensor>& coords) {
+  RETURN_NOT_OK(
+      CheckSparseCOOIndexValidity(coords->type(), coords->shape(), coords->strides()));
+  auto is_canonical = DetectSparseCOOIndexCanonicality(coords);
+  return std::make_shared<SparseCOOIndex>(coords, is_canonical);
+}
+
+Result<std::shared_ptr<SparseCOOIndex>> SparseCOOIndex::Make(
+    const std::shared_ptr<DataType>& indices_type,
+    const std::vector<int64_t>& indices_shape,
+    const std::vector<int64_t>& indices_strides, std::shared_ptr<Buffer> indices_data,
+    bool is_canonical) {
+  RETURN_NOT_OK(
+      CheckSparseCOOIndexValidity(indices_type, indices_shape, indices_strides));
+  return std::make_shared<SparseCOOIndex>(
+      std::make_shared<Tensor>(indices_type, indices_data, indices_shape,
+                               indices_strides),
+      is_canonical);
+}
 
 Result<std::shared_ptr<SparseCOOIndex>> SparseCOOIndex::Make(
     const std::shared_ptr<DataType>& indices_type,
@@ -148,8 +250,24 @@ Result<std::shared_ptr<SparseCOOIndex>> SparseCOOIndex::Make(
     const std::vector<int64_t>& indices_strides, std::shared_ptr<Buffer> indices_data) {
   RETURN_NOT_OK(
       CheckSparseCOOIndexValidity(indices_type, indices_shape, indices_strides));
-  return std::make_shared<SparseCOOIndex>(std::make_shared<Tensor>(
-      indices_type, indices_data, indices_shape, indices_strides));
+  auto coords = std::make_shared<Tensor>(indices_type, indices_data, indices_shape,
+                                         indices_strides);
+  auto is_canonical = DetectSparseCOOIndexCanonicality(coords);
+  return std::make_shared<SparseCOOIndex>(coords, is_canonical);
+}
+
+Result<std::shared_ptr<SparseCOOIndex>> SparseCOOIndex::Make(
+    const std::shared_ptr<DataType>& indices_type, const std::vector<int64_t>& shape,
+    int64_t non_zero_length, std::shared_ptr<Buffer> indices_data, bool is_canonical) {
+  auto ndim = static_cast<int64_t>(shape.size());
+  if (!is_integer(indices_type->id())) {
+    return Status::TypeError("Type of SparseCOOIndex indices must be integer");
+  }
+  const int64_t elsize =
+      internal::checked_cast<const IntegerType&>(*indices_type).bit_width() / 8;
+  std::vector<int64_t> indices_shape({non_zero_length, ndim});
+  std::vector<int64_t> indices_strides({elsize * ndim, elsize});
+  return Make(indices_type, indices_shape, indices_strides, indices_data, is_canonical);
 }
 
 Result<std::shared_ptr<SparseCOOIndex>> SparseCOOIndex::Make(
@@ -166,8 +284,8 @@ Result<std::shared_ptr<SparseCOOIndex>> SparseCOOIndex::Make(
 }
 
 // Constructor with a contiguous NumericTensor
-SparseCOOIndex::SparseCOOIndex(const std::shared_ptr<Tensor>& coords)
-    : SparseIndexBase(), coords_(coords) {
+SparseCOOIndex::SparseCOOIndex(const std::shared_ptr<Tensor>& coords, bool is_canonical)
+    : SparseIndexBase(), coords_(coords), is_canonical_(is_canonical) {
   ARROW_CHECK_OK(
       CheckSparseCOOIndexValidity(coords_->type(), coords_->shape(), coords_->strides()));
 }

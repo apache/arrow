@@ -332,6 +332,7 @@ impl fmt::Debug for UnionArray {
 }
 
 /// `FieldData` is a helper struct to track the state of the fields in the `UnionBuilder`.
+#[derive(Debug)]
 struct FieldData {
     /// The type id for this field
     type_id: i8,
@@ -446,6 +447,7 @@ impl FieldData {
 }
 
 /// Builder type for creating a new `UnionArray`.
+#[derive(Debug)]
 pub struct UnionBuilder {
     /// The current number of slots in the array
     len: usize,

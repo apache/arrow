@@ -676,7 +676,7 @@ garrow_count_options_set_property(GObject *object,
   switch (prop_id) {
   case PROP_MODE:
     priv->options.count_mode =
-      static_cast<arrow::compute::CountOptions::mode>(g_value_get_enum(value));
+      static_cast<arrow::compute::CountOptions::Mode>(g_value_get_enum(value));
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -706,7 +706,8 @@ static void
 garrow_count_options_init(GArrowCountOptions *object)
 {
   auto priv = GARROW_COUNT_OPTIONS_GET_PRIVATE(object);
-  new(&priv->options) arrow::compute::CountOptions(arrow::compute::CountOptions::COUNT_ALL);
+  new(&priv->options) arrow::compute::CountOptions(
+    arrow::compute::CountOptions::COUNT_NON_NULL);
 }
 
 static void

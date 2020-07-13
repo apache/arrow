@@ -22,6 +22,9 @@
 Memory Management
 =================
 
+.. seealso::
+   :doc:`Memory management API reference <api/memory>`
+
 Buffers
 =======
 
@@ -71,11 +74,12 @@ You can allocate a buffer yourself by calling one of the
 :func:`arrow::AllocateBuffer` or :func:`arrow::AllocateResizableBuffer`
 overloads::
 
-   std::shared_ptr<arrow::Buffer> buffer;
-
-   if (!arrow::AllocateBuffer(4096, &buffer).ok()) {
+   arrow::Result<std::unique_ptr<Buffer>> maybe_buffer = arrow::AllocateBuffer(4096);
+   if (!maybe_buffer.ok()) {
       // ... handle allocation error
    }
+
+   std::shared_ptr<arrow::Buffer> buffer = *std::move(maybe_buffer);
    uint8_t* buffer_data = buffer->mutable_data();
    memcpy(buffer_data, "hello world", 11);
 

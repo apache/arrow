@@ -89,12 +89,12 @@ public class TestDenseUnionVector {
       assertEquals(false, unionVector.isNull(0));
       assertEquals(100, unionVector.getObject(0));
 
-      assertEquals(true, unionVector.isNull(1));
+      assertNull(unionVector.getObject(1));
 
       assertEquals(false, unionVector.isNull(2));
       assertEquals(100, unionVector.getObject(2));
 
-      assertEquals(true, unionVector.isNull(3));
+      assertNull(unionVector.getObject(3));
     }
   }
 
@@ -136,12 +136,12 @@ public class TestDenseUnionVector {
         assertFalse(destVector.isNull(1));
         assertEquals(false, destVector.getObject(1));
 
-        assertTrue(destVector.isNull(2));
+        assertNull(destVector.getObject(2));
 
         assertFalse(destVector.isNull(3));
         assertEquals(10, destVector.getObject(3));
 
-        assertTrue(destVector.isNull(4));
+        assertNull(destVector.getObject(4));
 
         assertFalse(destVector.isNull(5));
         assertEquals(false, destVector.getObject(5));
@@ -385,7 +385,6 @@ public class TestDenseUnionVector {
 
       List<ArrowBuf> buffers = vector.getFieldBuffers();
 
-      long bitAddress = vector.getValidityBufferAddress();
       long offsetAddress = vector.getOffsetBufferAddress();
 
       try {
@@ -396,9 +395,8 @@ public class TestDenseUnionVector {
         assertTrue(error);
       }
 
-      assertEquals(3, buffers.size());
-      assertEquals(bitAddress, buffers.get(0).memoryAddress());
-      assertEquals(offsetAddress, buffers.get(2).memoryAddress());
+      assertEquals(2, buffers.size());
+      assertEquals(offsetAddress, buffers.get(1).memoryAddress());
     }
   }
 
@@ -461,15 +459,12 @@ public class TestDenseUnionVector {
 
       unionVector.setTypeId(0, typeId1);
       offsetBuf.setInt(0, 0);
-      BitVectorHelper.setBit(unionVector.getValidityBuffer(), 0);
 
       unionVector.setTypeId(1, typeId2);
       offsetBuf.setInt(DenseUnionVector.OFFSET_WIDTH, 0);
-      BitVectorHelper.setBit(unionVector.getValidityBuffer(), 1);
 
       unionVector.setTypeId(2, typeId1);
       offsetBuf.setInt(DenseUnionVector.OFFSET_WIDTH * 2, 1);
-      BitVectorHelper.setBit(unionVector.getValidityBuffer(), 2);
 
       unionVector.setValueCount(3);
 
@@ -526,25 +521,19 @@ public class TestDenseUnionVector {
       // slot 0 points to child1
       unionVector.setTypeId(0, typeId1);
       offsetBuf.setInt(0, 0);
-      BitVectorHelper.setBit(unionVector.getValidityBuffer(), 0);
 
       // slot 1 points to child2
       unionVector.setTypeId(1, typeId2);
       offsetBuf.setInt(DenseUnionVector.OFFSET_WIDTH, 0);
-      BitVectorHelper.setBit(unionVector.getValidityBuffer(), 1);
 
       // slot 2 points to child2
       unionVector.setTypeId(2, typeId2);
       offsetBuf.setInt(DenseUnionVector.OFFSET_WIDTH * 2, 1);
-      BitVectorHelper.setBit(unionVector.getValidityBuffer(), 2);
 
-      // slot 3 points to null
-      BitVectorHelper.unsetBit(unionVector.getValidityBuffer(), 3);
 
       // slot 4 points to child1
       unionVector.setTypeId(4, typeId1);
       offsetBuf.setInt(DenseUnionVector.OFFSET_WIDTH * 4, 1);
-      BitVectorHelper.setBit(unionVector.getValidityBuffer(), 4);
 
       unionVector.setValueCount(5);
 

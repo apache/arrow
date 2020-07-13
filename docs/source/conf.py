@@ -74,6 +74,10 @@ autodoc_default_options = {
     'inherited-members': None
 }
 
+# Breathe configuration
+breathe_projects = {"arrow_cpp": "../../cpp/apidoc/xml"}
+breathe_default_project = "arrow_cpp"
+
 # Overriden conditionally below
 autodoc_mock_imports = []
 
@@ -85,9 +89,6 @@ napoleon_use_rtype = False
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
-
-breathe_projects = {"arrow_cpp": "../../cpp/apidoc/xml"}
-breathe_default_project = "arrow_cpp"
 
 # The suffix(es) of source filenames.
 # You can specify multiple suffix as a list of string:

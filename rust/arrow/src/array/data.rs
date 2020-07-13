@@ -162,6 +162,7 @@ impl ArrayData {
 }
 
 /// Builder for `ArrayData` type
+#[derive(Debug)]
 pub struct ArrayDataBuilder {
     data_type: DataType,
     len: usize,

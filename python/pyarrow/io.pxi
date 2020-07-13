@@ -776,9 +776,17 @@ def memory_map(path, mode='r'):
     -------
     mmap : MemoryMappedFile
     """
+    _check_is_file(path)
+
     cdef MemoryMappedFile mmap = MemoryMappedFile()
     mmap._open(path, mode)
     return mmap
+
+
+cdef _check_is_file(path):
+    if os.path.isdir(path):
+        raise IOError("Expected file path, but {0} is a directory"
+                      .format(path))
 
 
 def create_memory_map(path, size):
@@ -807,6 +815,7 @@ cdef class OSFile(NativeFile):
         object path
 
     def __cinit__(self, path, mode='r', MemoryPool memory_pool=None):
+        _check_is_file(path)
         self.path = path
 
         cdef:
@@ -1530,22 +1539,41 @@ def _detect_compression(path):
 
 cdef CCompressionType _ensure_compression(str name) except *:
     uppercase = name.upper()
-    if uppercase == 'GZIP':
-        return CCompressionType_GZIP
-    elif uppercase == 'BZ2':
+    if uppercase == 'BZ2':
         return CCompressionType_BZ2
+    elif uppercase == 'GZIP':
+        return CCompressionType_GZIP
     elif uppercase == 'BROTLI':
         return CCompressionType_BROTLI
     elif uppercase == 'LZ4' or uppercase == 'LZ4_FRAME':
         return CCompressionType_LZ4_FRAME
     elif uppercase == 'LZ4_RAW':
         return CCompressionType_LZ4
-    elif uppercase == 'ZSTD':
-        return CCompressionType_ZSTD
     elif uppercase == 'SNAPPY':
         return CCompressionType_SNAPPY
+    elif uppercase == 'ZSTD':
+        return CCompressionType_ZSTD
     else:
         raise ValueError('Invalid value for compression: {!r}'.format(name))
+
+
+cdef str _compression_name(CCompressionType ctype):
+    if ctype == CCompressionType_GZIP:
+        return 'gzip'
+    elif ctype == CCompressionType_BROTLI:
+        return 'brotli'
+    elif ctype == CCompressionType_BZ2:
+        return 'bz2'
+    elif ctype == CCompressionType_LZ4_FRAME:
+        return 'lz4'
+    elif ctype == CCompressionType_LZ4:
+        return 'lz4_raw'
+    elif ctype == CCompressionType_SNAPPY:
+        return 'snappy'
+    elif ctype == CCompressionType_ZSTD:
+        return 'zstd'
+    else:
+        raise RuntimeError('Unexpected CCompressionType value')
 
 
 cdef class Codec:

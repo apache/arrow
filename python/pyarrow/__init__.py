@@ -63,7 +63,26 @@ import pyarrow.lib as _lib
 if _gc_enabled:
     _gc.enable()
 
-from pyarrow.lib import cpu_count, set_cpu_count
+from pyarrow.lib import (BuildInfo, VersionInfo,
+                         cpp_build_info, cpp_version, cpp_version_info,
+                         cpu_count, set_cpu_count)
+
+
+def show_versions():
+    """
+    Print various version information, to help with error reporting.
+    """
+    # TODO: CPU information and flags
+    print("pyarrow version info\n--------------------")
+    print("Package kind: {}".format(cpp_build_info.package_kind
+                                    if len(cpp_build_info.package_kind) > 0
+                                    else "not indicated"))
+    print("Arrow C++ library version: {}".format(cpp_build_info.version))
+    print("Arrow C++ git revision: {}".format(cpp_build_info.git_id))
+    print("Arrow C++ git description: {}"
+          .format(cpp_build_info.git_description))
+
+
 from pyarrow.lib import (null, bool_,
                          int8, int16, int32, int64,
                          uint8, uint16, uint32, uint64,
@@ -90,7 +109,7 @@ from pyarrow.lib import (null, bool_,
                          schema,
                          unify_schemas,
                          Array, Tensor,
-                         array, chunked_array, record_batch, table, nulls,
+                         array, chunked_array, record_batch, nulls, repeat,
                          SparseCOOTensor, SparseCSRMatrix, SparseCSCMatrix,
                          SparseCSFTensor,
                          infer_type, from_numpy_dtype,
@@ -146,7 +165,7 @@ from pyarrow.lib import (HdfsFile, NativeFile, PythonFile,
                          create_memory_map, have_libhdfs,
                          MockOutputStream, input_stream, output_stream)
 
-from pyarrow.lib import (ChunkedArray, RecordBatch, Table,
+from pyarrow.lib import (ChunkedArray, RecordBatch, Table, table,
                          concat_arrays, concat_tables)
 
 # Exceptions

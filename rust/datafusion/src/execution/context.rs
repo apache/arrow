@@ -17,7 +17,7 @@
 
 //! ExecutionContext contains methods for registering data sources and executing queries
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::Path;
 use std::string::String;
@@ -63,7 +63,7 @@ use sqlparser::sqlast::{SQLColumnDef, SQLType};
 
 /// Execution context for registering data sources and executing queries
 pub struct ExecutionContext {
-    datasources: HashMap<String, Box<dyn TableProvider>>,
+    datasources: HashMap<String, Box<dyn TableProvider + Send + Sync>>,
     scalar_functions: HashMap<String, Box<ScalarFunction>>,
 }
 
@@ -236,7 +236,11 @@ impl ExecutionContext {
     }
 
     /// Register a table so that it can be queried from SQL
-    pub fn register_table(&mut self, name: &str, provider: Box<dyn TableProvider>) {
+    pub fn register_table(
+        &mut self,
+        name: &str,
+        provider: Box<dyn TableProvider + Send + Sync>,
+    ) {
         self.datasources.insert(name.to_string(), provider);
     }
 
@@ -261,6 +265,11 @@ impl ExecutionContext {
                 table_name
             ))),
         }
+    }
+
+    /// The set of available tables. Use `table` to get a specific table.
+    pub fn tables(&self) -> HashSet<String> {
+        self.datasources.keys().cloned().collect()
     }
 
     /// Optimize the logical plan by applying optimizer rules
@@ -423,44 +432,15 @@ impl ExecutionContext {
 
                 Ok(Arc::new(SortExec::try_new(sort_expr, input)?))
             }
-            LogicalPlan::Limit { input, expr, .. } => {
+            LogicalPlan::Limit { input, n, .. } => {
                 let input = self.create_physical_plan(input, batch_size)?;
                 let input_schema = input.as_ref().schema().clone();
 
-                match expr {
-                    &Expr::Literal(ref scalar_value) => {
-                        let limit: usize = match scalar_value {
-                            ScalarValue::Int8(limit) if *limit >= 0 => {
-                                Ok(*limit as usize)
-                            }
-                            ScalarValue::Int16(limit) if *limit >= 0 => {
-                                Ok(*limit as usize)
-                            }
-                            ScalarValue::Int32(limit) if *limit >= 0 => {
-                                Ok(*limit as usize)
-                            }
-                            ScalarValue::Int64(limit) if *limit >= 0 => {
-                                Ok(*limit as usize)
-                            }
-                            ScalarValue::UInt8(limit) => Ok(*limit as usize),
-                            ScalarValue::UInt16(limit) => Ok(*limit as usize),
-                            ScalarValue::UInt32(limit) => Ok(*limit as usize),
-                            ScalarValue::UInt64(limit) => Ok(*limit as usize),
-                            _ => Err(ExecutionError::ExecutionError(
-                                "Limit only supports non-negative integer literals"
-                                    .to_string(),
-                            )),
-                        }?;
-                        Ok(Arc::new(LimitExec::new(
-                            input_schema.clone(),
-                            input.partitions()?,
-                            limit,
-                        )))
-                    }
-                    _ => Err(ExecutionError::ExecutionError(
-                        "Limit only supports non-negative integer literals".to_string(),
-                    )),
-                }
+                Ok(Arc::new(LimitExec::new(
+                    input_schema.clone(),
+                    input.partitions()?,
+                    *n,
+                )))
             }
             _ => Err(ExecutionError::General(
                 "Unsupported logical plan variant".to_string(),
@@ -616,15 +596,15 @@ impl ExecutionContext {
                     let path = Path::new(&path).join(&filename);
                     let file = fs::File::create(path)?;
                     let mut writer = csv::Writer::new(file);
-                    let it = p.execute()?;
-                    let mut it = it.lock().unwrap();
+                    let reader = p.execute()?;
+                    let mut reader = reader.lock().unwrap();
                     loop {
-                        match it.next() {
+                        match reader.next_batch() {
                             Ok(Some(batch)) => {
                                 writer.write(&batch)?;
                             }
                             Ok(None) => break,
-                            Err(e) => return Err(e),
+                            Err(e) => return Err(ExecutionError::from(e)),
                         }
                     }
                     Ok(())
@@ -643,12 +623,12 @@ impl ExecutionContext {
 }
 
 struct ExecutionContextSchemaProvider<'a> {
-    datasources: &'a HashMap<String, Box<dyn TableProvider>>,
+    datasources: &'a HashMap<String, Box<dyn TableProvider + Send + Sync>>,
     scalar_functions: &'a HashMap<String, Box<ScalarFunction>>,
 }
 
 impl SchemaProvider for ExecutionContextSchemaProvider<'_> {
-    fn get_table_meta(&self, name: &str) -> Option<Arc<Schema>> {
+    fn get_table_meta(&self, name: &str) -> Option<SchemaRef> {
         self.datasources.get(name).map(|ds| ds.schema().clone())
     }
 

@@ -22,19 +22,18 @@
 
 use std::sync::{Arc, Mutex};
 
-use crate::error::Result;
-use crate::execution::physical_plan::{
-    BatchIterator, ExecutionPlan, Partition, PhysicalExpr,
-};
-use arrow::datatypes::Schema;
-use arrow::record_batch::RecordBatch;
+use crate::error::{ExecutionError, Result};
+use crate::execution::physical_plan::{ExecutionPlan, Partition, PhysicalExpr};
+use arrow::datatypes::{Schema, SchemaRef};
+use arrow::error::Result as ArrowResult;
+use arrow::record_batch::{RecordBatch, RecordBatchReader};
 
 /// Execution plan for a projection
 pub struct ProjectionExec {
     /// The projection expressions
     expr: Vec<Arc<dyn PhysicalExpr>>,
     /// The schema once the projection has been applied to the input
-    schema: Arc<Schema>,
+    schema: SchemaRef,
     /// The input plan
     input: Arc<dyn ExecutionPlan>,
 }
@@ -64,7 +63,7 @@ impl ProjectionExec {
 
 impl ExecutionPlan for ProjectionExec {
     /// Get the schema for this execution plan
-    fn schema(&self) -> Arc<Schema> {
+    fn schema(&self) -> SchemaRef {
         self.schema.clone()
     }
 
@@ -91,14 +90,14 @@ impl ExecutionPlan for ProjectionExec {
 
 /// Represents a single partition of a projection execution plan
 struct ProjectionPartition {
-    schema: Arc<Schema>,
+    schema: SchemaRef,
     expr: Vec<Arc<dyn PhysicalExpr>>,
     input: Arc<dyn Partition>,
 }
 
 impl Partition for ProjectionPartition {
     /// Execute the projection
-    fn execute(&self) -> Result<Arc<Mutex<dyn BatchIterator>>> {
+    fn execute(&self) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
         Ok(Arc::new(Mutex::new(ProjectionIterator {
             schema: self.schema.clone(),
             expr: self.expr.clone(),
@@ -109,25 +108,28 @@ impl Partition for ProjectionPartition {
 
 /// Projection iterator
 struct ProjectionIterator {
-    schema: Arc<Schema>,
+    schema: SchemaRef,
     expr: Vec<Arc<dyn PhysicalExpr>>,
-    input: Arc<Mutex<dyn BatchIterator>>,
+    input: Arc<Mutex<dyn RecordBatchReader + Send + Sync>>,
 }
 
-impl BatchIterator for ProjectionIterator {
+impl RecordBatchReader for ProjectionIterator {
     /// Get the schema
-    fn schema(&self) -> Arc<Schema> {
+    fn schema(&self) -> SchemaRef {
         self.schema.clone()
     }
 
     /// Get the next batch
-    fn next(&mut self) -> Result<Option<RecordBatch>> {
+    fn next_batch(&mut self) -> ArrowResult<Option<RecordBatch>> {
         let mut input = self.input.lock().unwrap();
-        match input.next()? {
+        match input.next_batch()? {
             Some(batch) => {
                 let arrays: Result<Vec<_>> =
                     self.expr.iter().map(|expr| expr.evaluate(&batch)).collect();
-                Ok(Some(RecordBatch::try_new(self.schema.clone(), arrays?)?))
+                Ok(Some(RecordBatch::try_new(
+                    self.schema.clone(),
+                    arrays.map_err(ExecutionError::into_arrow_external_error)?,
+                )?))
             }
             None => Ok(None),
         }
@@ -165,7 +167,7 @@ mod tests {
             partition_count += 1;
             let iterator = partition.execute()?;
             let mut iterator = iterator.lock().unwrap();
-            while let Some(batch) = iterator.next()? {
+            while let Some(batch) = iterator.next_batch()? {
                 assert_eq!(1, batch.num_columns());
                 row_count += batch.num_rows();
             }

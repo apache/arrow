@@ -47,6 +47,8 @@ import pyarrow as pa
      pa.LargeListValue),
     (datetime.date.today(), None, pa.Date32Scalar, pa.Date32Value),
     (datetime.datetime.now(), None, pa.TimestampScalar, pa.TimestampValue),
+    (datetime.datetime.now().time(), None, pa.Time64Scalar, pa.Time64Value),
+    (datetime.timedelta(days=1), None, pa.DurationScalar, pa.DurationValue),
     ({'a': 1, 'b': [1, 2]}, None, pa.StructScalar, pa.StructValue)
 ])
 def test_basics(value, ty, klass, deprecated):
@@ -459,6 +461,15 @@ def test_map():
     assert isinstance(s, pa.MapScalar)
     assert isinstance(s.values, pa.Array)
     assert repr(s) == "<pyarrow.MapScalar: [('a', 1), ('b', 2)]>"
+    assert s.values.to_pylist() == [
+        {'key': 'a', 'value': 1},
+        {'key': 'b', 'value': 2}
+    ]
+
+    # test iteration
+    for i, j in zip(s, v):
+        assert i == j
+
     assert s.as_py() == v
     assert s[1] == (
         pa.scalar('b', type=pa.string()),

@@ -979,7 +979,8 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
       return Status::Invalid("Not an Arrow file");
     }
 
-    int32_t footer_length = *reinterpret_cast<const int32_t*>(buffer->data());
+    int32_t footer_length =
+        BitUtil::FromLittleEndian(*reinterpret_cast<const int32_t*>(buffer->data()));
 
     if (footer_length <= 0 || footer_length > footer_offset_ - magic_size * 2 - 4) {
       return Status::Invalid("File is smaller than indicated metadata size");
@@ -1263,8 +1264,9 @@ Result<std::shared_ptr<SparseIndex>> ReadSparseCOOIndex(
     strides[0] = indices_elsize * ndim;
     strides[1] = indices_elsize;
   }
-  return std::make_shared<SparseCOOIndex>(
-      std::make_shared<Tensor>(indices_type, indices_data, indices_shape, strides));
+  return SparseCOOIndex::Make(
+      std::make_shared<Tensor>(indices_type, indices_data, indices_shape, strides),
+      sparse_index->isCanonical());
 }
 
 Result<std::shared_ptr<SparseIndex>> ReadSparseCSXIndex(
@@ -1393,7 +1395,7 @@ Status ReadSparseTensorMetadata(const Buffer& metadata,
   RETURN_NOT_OK(internal::GetSparseTensorMetadata(
       metadata, out_type, out_shape, out_dim_names, out_non_zero_length, out_format_id));
 
-  const flatbuf::Message* message;
+  const flatbuf::Message* message = nullptr;
   RETURN_NOT_OK(internal::VerifyMessage(metadata.data(), metadata.size(), &message));
 
   auto sparse_tensor = message->header_as_SparseTensor();

@@ -20,16 +20,21 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.ReferenceManager;
 import org.apache.arrow.memory.util.CommonUtil;
 import org.apache.arrow.memory.util.hash.ArrowBufHasher;
+import org.apache.arrow.util.DataSizeRoundingUtil;
 import org.apache.arrow.util.Preconditions;
+import org.apache.arrow.vector.BaseValueVector;
+import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.complex.AbstractStructVector;
 import org.apache.arrow.vector.complex.NonNullableStructVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.compare.VectorVisitor;
+import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.UnionMode;
 import org.apache.arrow.vector.compare.RangeEqualsVisitor;
 import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.CallBack;
 
@@ -50,6 +55,7 @@ import org.apache.arrow.memory.util.CommonUtil;
 import org.apache.arrow.vector.compare.VectorVisitor;
 import org.apache.arrow.vector.complex.impl.ComplexCopier;
 import org.apache.arrow.vector.util.CallBack;
+import org.apache.arrow.util.DataSizeRoundingUtil;
 import org.apache.arrow.vector.util.ValueVectorUtility;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.memory.util.ArrowBufPointer;
@@ -100,6 +106,7 @@ public class UnionVector implements FieldVector {
   private int typeBufferAllocationSizeInBytes;
 
   private final FieldType fieldType;
+  private final Field[] typeIds = new Field[Byte.MAX_VALUE + 1];
 
   private static final byte TYPE_WIDTH = 1;
   private static final FieldType INTERNAL_STRUCT_TYPE = new FieldType(false /*nullable*/,
@@ -143,6 +150,17 @@ public class UnionVector implements FieldVector {
 
   @Override
   public void initializeChildrenFromFields(List<Field> children) {
+    int count = 0;
+    for (Field child: children) {
+      int typeId = Types.getMinorTypeForArrowType(child.getType()).ordinal();
+      if (fieldType != null) {
+        int[] typeIds = ((ArrowType.Union)fieldType.getType()).getTypeIds();
+        if (typeIds != null) {
+          typeId = typeIds[count++];
+        }
+      }
+      typeIds[typeId] = child;
+    }
     internalStruct.initializeChildrenFromFields(children);
   }
 
@@ -154,9 +172,8 @@ public class UnionVector implements FieldVector {
   @Override
   public void loadFieldBuffers(ArrowFieldNode fieldNode, List<ArrowBuf> ownBuffers) {
     if (ownBuffers.size() != 1) {
-      throw new IllegalArgumentException("Illegal buffer count, expected " + 1 + ", got: " + ownBuffers.size());
+      throw new IllegalArgumentException("Illegal buffer count, expected 1, got: " + ownBuffers.size());
     }
-
     ArrowBuf buffer = ownBuffers.get(0);
     typeBuffer.getReferenceManager().release();
     typeBuffer = buffer.getReferenceManager().retain(buffer, allocator);
@@ -192,16 +209,25 @@ public class UnionVector implements FieldVector {
     return FieldType.nullable(type.getType());
   }
 
-  private <T extends FieldVector> T addOrGet(MinorType minorType, Class<T> c) {
-    return internalStruct.addOrGet(fieldName(minorType), fieldType(minorType), c);
+  private <T extends FieldVector> T addOrGet(Types.MinorType minorType, Class<T> c) {
+    return addOrGet(null, minorType, c);
   }
 
-  private <T extends FieldVector> T addOrGet(MinorType minorType, ArrowType arrowType, Class<T> c) {
-    return internalStruct.addOrGet(fieldName(minorType), FieldType.nullable(arrowType), c);
+  private <T extends FieldVector> T addOrGet(String name, Types.MinorType minorType, ArrowType arrowType, Class<T> c) {
+    return internalStruct.addOrGet(name == null ? fieldName(minorType) : name, FieldType.nullable(arrowType), c);
   }
+
+  private <T extends FieldVector> T addOrGet(String name, Types.MinorType minorType, Class<T> c) {
+    return internalStruct.addOrGet(name == null ? fieldName(minorType) : name, fieldType(minorType), c);
+  }
+
 
   @Override
   public long getValidityBufferAddress() {
+    throw new UnsupportedOperationException();
+  }
+
+  public long getTypeBufferAddress() {
     return typeBuffer.memoryAddress();
   }
 
@@ -215,8 +241,12 @@ public class UnionVector implements FieldVector {
     throw new UnsupportedOperationException();
   }
 
+  public ArrowBuf getTypeBuffer() {
+    return typeBuffer;
+  }
+
   @Override
-  public ArrowBuf getValidityBuffer() { return typeBuffer; }
+  public ArrowBuf getValidityBuffer() { throw new UnsupportedOperationException(); }
 
   @Override
   public ArrowBuf getDataBuffer() { throw new UnsupportedOperationException(); }
@@ -247,10 +277,14 @@ public class UnionVector implements FieldVector {
 
   private ${name}Vector ${uncappedName}Vector;
 
-  public ${name}Vector get${name}Vector(<#if minor.class == "Decimal">ArrowType arrowType</#if>) {
+  public ${name}Vector get${name}Vector(<#if minor.class == "Decimal"> ArrowType arrowType</#if>) {
+    return get${name}Vector(null<#if minor.class == "Decimal">, arrowType</#if>);
+  }
+
+  public ${name}Vector get${name}Vector(String name<#if minor.class == "Decimal">, ArrowType arrowType</#if>) {
     if (${uncappedName}Vector == null) {
       int vectorCount = internalStruct.size();
-      ${uncappedName}Vector = addOrGet(MinorType.${name?upper_case},<#if minor.class == "Decimal"> arrowType,</#if> ${name}Vector.class);
+      ${uncappedName}Vector = addOrGet(name, MinorType.${name?upper_case},<#if minor.class == "Decimal"> arrowType,</#if> ${name}Vector.class);
       if (internalStruct.size() > vectorCount) {
         ${uncappedName}Vector.allocateNew();
         if (callBack != null) {
@@ -481,7 +515,7 @@ public class UnionVector implements FieldVector {
     @Override
     public void transfer() {
       to.clear();
-      final ReferenceManager refManager = typeBuffer.getReferenceManager();
+      ReferenceManager refManager = typeBuffer.getReferenceManager();
       to.typeBuffer = refManager.transferOwnership(typeBuffer, to.allocator).getTransferredBuffer();
       internalStructVectorTransferPair.transfer();
       to.valueCount = valueCount;
@@ -493,6 +527,7 @@ public class UnionVector implements FieldVector {
       Preconditions.checkArgument(startIndex >= 0 && length >= 0 && startIndex + length <= valueCount,
           "Invalid parameters startIndex: %s, length: %s for valueCount: %s", startIndex, length, valueCount);
       to.clear();
+
       internalStructVectorTransferPair.splitAndTransfer(startIndex, length);
       final int startPoint = startIndex * TYPE_WIDTH;
       final int sliceLength = length * TYPE_WIDTH;
@@ -586,7 +621,16 @@ public class UnionVector implements FieldVector {
   }
 
     public ValueVector getVectorByType(int typeId, ArrowType arrowType) {
-      switch (MinorType.values()[typeId]) {
+      Field type = typeIds[typeId];
+      Types.MinorType minorType;
+      String name = null;
+      if (type == null) {
+        minorType = Types.MinorType.values()[typeId];
+      } else {
+        minorType = Types.getMinorTypeForArrowType(type.getType());
+        name = type.getName();
+      }
+      switch (minorType) {
         case NULL:
           return null;
       <#list vv.types as type>
@@ -596,7 +640,7 @@ public class UnionVector implements FieldVector {
           <#assign uncappedName = name?uncap_first/>
           <#if !minor.typeParams?? || minor.class == "Decimal" >
         case ${name?upper_case}:
-        return get${name}Vector(<#if minor.class == "Decimal">arrowType</#if>);
+        return get${name}Vector(name<#if minor.class == "Decimal">, arrowType</#if>);
           </#if>
         </#list>
       </#list>
@@ -612,7 +656,7 @@ public class UnionVector implements FieldVector {
     public Object getObject(int index) {
       ValueVector vector = getVector(index);
       if (vector != null) {
-        return vector.getObject(index);
+        return vector.isNull(index) ? null : vector.getObject(index);
       }
       return null;
     }
@@ -634,23 +678,18 @@ public class UnionVector implements FieldVector {
       return valueCount;
     }
 
+    /**
+     * IMPORTANT: Union types always return non null as there is no validity buffer.
+     *
+     * To check validity correctly you must check the underlying vector.
+     */
     public boolean isNull(int index) {
-      ValueVector vec = getVector(index);
-      if (vec == null) {
-        return true;
-      }
-      return vec.isNull(index);
+      return false;
     }
 
     @Override
     public int getNullCount() {
-      int nullCount = 0;
-      for (int i = 0; i < getValueCount(); i++) {
-        if (isNull(i)) {
-          nullCount++;
-        }
-      }
-      return nullCount;
+      return 0;
     }
 
     public int isSet(int index) {
@@ -713,7 +752,7 @@ public class UnionVector implements FieldVector {
         <#if !minor.typeParams?? || minor.class == "Decimal" >
     public void setSafe(int index, Nullable${name}Holder holder<#if minor.class == "Decimal">, ArrowType arrowType</#if>) {
       setType(index, MinorType.${name?upper_case});
-      get${name}Vector(<#if minor.class == "Decimal">arrowType</#if>).setSafe(index, holder);
+      get${name}Vector(null<#if minor.class == "Decimal">, arrowType</#if>).setSafe(index, holder);
     }
 
         </#if>

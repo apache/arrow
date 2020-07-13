@@ -354,25 +354,39 @@ TEST_F(TestArray, TestMakeArrayFromScalar) {
   ASSERT_EQ(null_array->null_count(), 5);
 
   auto hello = Buffer::FromString("hello");
-  ScalarVector scalars{std::make_shared<BooleanScalar>(false),
-                       std::make_shared<Int8Scalar>(3),
-                       std::make_shared<UInt16Scalar>(3),
-                       std::make_shared<Int32Scalar>(3),
-                       std::make_shared<UInt64Scalar>(3),
-                       std::make_shared<DoubleScalar>(3.0),
-                       std::make_shared<BinaryScalar>(hello),
-                       std::make_shared<LargeBinaryScalar>(hello),
-                       std::make_shared<FixedSizeBinaryScalar>(
-                           hello, fixed_size_binary(static_cast<int32_t>(hello->size()))),
-                       std::make_shared<Decimal128Scalar>(Decimal128(10), decimal(16, 4)),
-                       std::make_shared<StringScalar>(hello),
-                       std::make_shared<LargeStringScalar>(hello),
-                       std::make_shared<StructScalar>(
-                           ScalarVector{
-                               std::make_shared<Int32Scalar>(2),
-                               std::make_shared<Int32Scalar>(6),
-                           },
-                           struct_({field("min", int32()), field("max", int32())}))};
+  DayTimeIntervalType::DayMilliseconds daytime{1, 100};
+
+  ScalarVector scalars{
+      std::make_shared<BooleanScalar>(false),
+      std::make_shared<Int8Scalar>(3),
+      std::make_shared<UInt16Scalar>(3),
+      std::make_shared<Int32Scalar>(3),
+      std::make_shared<UInt64Scalar>(3),
+      std::make_shared<DoubleScalar>(3.0),
+      std::make_shared<Date32Scalar>(10),
+      std::make_shared<Date64Scalar>(11),
+      std::make_shared<Time32Scalar>(1000, time32(TimeUnit::SECOND)),
+      std::make_shared<Time64Scalar>(1111, time64(TimeUnit::MICRO)),
+      std::make_shared<TimestampScalar>(1111, timestamp(TimeUnit::MILLI)),
+      std::make_shared<MonthIntervalScalar>(1),
+      std::make_shared<DayTimeIntervalScalar>(daytime),
+      std::make_shared<DurationScalar>(60, duration(TimeUnit::SECOND)),
+      std::make_shared<BinaryScalar>(hello),
+      std::make_shared<LargeBinaryScalar>(hello),
+      std::make_shared<FixedSizeBinaryScalar>(
+          hello, fixed_size_binary(static_cast<int32_t>(hello->size()))),
+      std::make_shared<Decimal128Scalar>(Decimal128(10), decimal(16, 4)),
+      std::make_shared<StringScalar>(hello),
+      std::make_shared<LargeStringScalar>(hello),
+      std::make_shared<ListScalar>(ArrayFromJSON(int8(), "[1, 2, 3]")),
+      std::make_shared<LargeListScalar>(ArrayFromJSON(int8(), "[1, 1, 2, 2, 3, 3]")),
+      std::make_shared<FixedSizeListScalar>(ArrayFromJSON(int8(), "[1, 2, 3, 4]")),
+      std::make_shared<StructScalar>(
+          ScalarVector{
+              std::make_shared<Int32Scalar>(2),
+              std::make_shared<Int32Scalar>(6),
+          },
+          struct_({field("min", int32()), field("max", int32())}))};
 
   for (int64_t length : {16}) {
     for (auto scalar : scalars) {
@@ -381,6 +395,40 @@ TEST_F(TestArray, TestMakeArrayFromScalar) {
       ASSERT_EQ(array->length(), length);
       ASSERT_EQ(array->null_count(), 0);
     }
+  }
+}
+
+TEST_F(TestArray, TestMakeArrayFromDictionaryScalar) {
+  auto dictionary = ArrayFromJSON(utf8(), R"(["foo", "bar", "baz"])");
+  auto type = std::make_shared<DictionaryType>(int8(), utf8());
+  ASSERT_OK_AND_ASSIGN(auto value, MakeScalar(int8(), 1));
+  auto scalar = DictionaryScalar({value, dictionary}, type);
+
+  ASSERT_OK_AND_ASSIGN(auto array, MakeArrayFromScalar(scalar, 4));
+  ASSERT_OK(array->ValidateFull());
+  ASSERT_EQ(array->length(), 4);
+  ASSERT_EQ(array->null_count(), 0);
+
+  for (int i = 0; i < 4; i++) {
+    ASSERT_OK_AND_ASSIGN(auto item, array->GetScalar(i));
+    ASSERT_TRUE(item->Equals(scalar));
+  }
+}
+
+TEST_F(TestArray, TestMakeArrayFromMapScalar) {
+  auto value =
+      ArrayFromJSON(struct_({field("key", utf8(), false), field("value", int8())}),
+                    R"([{"key": "a", "value": 1}, {"key": "b", "value": 2}])");
+  auto scalar = MapScalar(value);
+
+  ASSERT_OK_AND_ASSIGN(auto array, MakeArrayFromScalar(scalar, 11));
+  ASSERT_OK(array->ValidateFull());
+  ASSERT_EQ(array->length(), 11);
+  ASSERT_EQ(array->null_count(), 0);
+
+  for (int i = 0; i < 11; i++) {
+    ASSERT_OK_AND_ASSIGN(auto item, array->GetScalar(i));
+    ASSERT_TRUE(item->Equals(scalar));
   }
 }
 
