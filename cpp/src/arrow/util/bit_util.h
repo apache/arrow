@@ -328,7 +328,7 @@ static inline double ByteSwap(double value) {
   return *reinterpret_cast<double*>(&swapped);
 }
 static inline float ByteSwap(float value) {
-  auto swapped = ARROW_BYTE_SWAP64(*reinterpret_cast<uint32_t*>(&value));
+  auto swapped = ARROW_BYTE_SWAP32(*reinterpret_cast<uint32_t*>(&value));
   return *reinterpret_cast<float*>(&swapped);
 }
 
