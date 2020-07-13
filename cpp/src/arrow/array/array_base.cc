@@ -246,6 +246,19 @@ std::shared_ptr<Array> Array::Slice(int64_t offset) const {
   return Slice(offset, slice_length);
 }
 
+Result<std::shared_ptr<Array>> Array::SliceSafe(int64_t offset, int64_t length) const {
+  ARROW_ASSIGN_OR_RAISE(auto sliced_data, data_->SliceSafe(offset, length));
+  return MakeArray(std::move(sliced_data));
+}
+
+Result<std::shared_ptr<Array>> Array::SliceSafe(int64_t offset) const {
+  if (offset < 0) {
+    // Avoid UBSAN in subtraction below
+    return Status::Invalid("Negative buffer slice offset");
+  }
+  return SliceSafe(offset, data_->length - offset);
+}
+
 std::string Array::ToString() const {
   std::stringstream ss;
   ARROW_CHECK_OK(PrettyPrint(*this, 0, &ss));

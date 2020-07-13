@@ -123,6 +123,12 @@ class ArrayLoader {
     if (skip_io_) {
       return Status::OK();
     }
+    if (offset < 0) {
+      return Status::Invalid("Negative offset for reading buffer ", buffer_index_);
+    }
+    if (length < 0) {
+      return Status::Invalid("Negative length for reading buffer ", buffer_index_);
+    }
     // This construct permits overriding GetBuffer at compile time
     if (!BitUtil::IsMultipleOf8(offset)) {
       return Status::Invalid("Buffer ", buffer_index_,

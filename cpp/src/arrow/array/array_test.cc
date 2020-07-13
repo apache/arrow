@@ -113,6 +113,55 @@ TEST_F(TestArray, TestLength) {
   ASSERT_EQ(arr->length(), 100);
 }
 
+TEST_F(TestArray, TestSliceSafe) {
+  std::vector<int32_t> original_data{1, 2, 3, 4, 5, 6, 7};
+  auto arr = std::make_shared<Int32Array>(7, Buffer::Wrap(original_data));
+
+  auto check_data = [](const Array& arr, const std::vector<int32_t>& expected) {
+    ASSERT_EQ(arr.length(), static_cast<int64_t>(expected.size()));
+    const int32_t* data = arr.data()->GetValues<int32_t>(1);
+    for (int64_t i = 0; i < arr.length(); ++i) {
+      ASSERT_EQ(data[i], expected[i]);
+    }
+  };
+
+  check_data(*arr, {1, 2, 3, 4, 5, 6, 7});
+
+  ASSERT_OK_AND_ASSIGN(auto sliced, arr->SliceSafe(0, 0));
+  check_data(*sliced, {});
+
+  ASSERT_OK_AND_ASSIGN(sliced, arr->SliceSafe(0, 7));
+  check_data(*sliced, original_data);
+
+  ASSERT_OK_AND_ASSIGN(sliced, arr->SliceSafe(3, 4));
+  check_data(*sliced, {4, 5, 6, 7});
+
+  ASSERT_OK_AND_ASSIGN(sliced, arr->SliceSafe(0, 7));
+  check_data(*sliced, {1, 2, 3, 4, 5, 6, 7});
+
+  ASSERT_OK_AND_ASSIGN(sliced, arr->SliceSafe(7, 0));
+  check_data(*sliced, {});
+
+  ASSERT_RAISES(Invalid, arr->SliceSafe(8, 0));
+  ASSERT_RAISES(Invalid, arr->SliceSafe(0, 8));
+  ASSERT_RAISES(Invalid, arr->SliceSafe(-1, 0));
+  ASSERT_RAISES(Invalid, arr->SliceSafe(0, -1));
+  ASSERT_RAISES(Invalid, arr->SliceSafe(6, 2));
+  ASSERT_RAISES(Invalid, arr->SliceSafe(6, std::numeric_limits<int64_t>::max() - 5));
+
+  ASSERT_OK_AND_ASSIGN(sliced, arr->SliceSafe(0));
+  check_data(*sliced, original_data);
+
+  ASSERT_OK_AND_ASSIGN(sliced, arr->SliceSafe(3));
+  check_data(*sliced, {4, 5, 6, 7});
+
+  ASSERT_OK_AND_ASSIGN(sliced, arr->SliceSafe(7));
+  check_data(*sliced, {});
+
+  ASSERT_RAISES(Invalid, arr->SliceSafe(8));
+  ASSERT_RAISES(Invalid, arr->SliceSafe(-1));
+}
+
 Status MakeArrayFromValidBytes(const std::vector<uint8_t>& v, MemoryPool* pool,
                                std::shared_ptr<Array>* out) {
   int64_t null_count = v.size() - std::accumulate(v.begin(), v.end(), 0);

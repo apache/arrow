@@ -29,6 +29,7 @@
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/bitmap_ops.h"
+#include "arrow/util/int_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 
@@ -103,6 +104,22 @@ std::shared_ptr<ArrayData> ArrayData::Slice(int64_t off, int64_t len) const {
     copy->null_count = null_count != 0 ? kUnknownNullCount : 0;
   }
   return copy;
+}
+
+Result<std::shared_ptr<ArrayData>> ArrayData::SliceSafe(int64_t off, int64_t len) const {
+  if (off < 0) {
+    return Status::Invalid("Negative array slice offset");
+  }
+  if (len < 0) {
+    return Status::Invalid("Negative array slice length");
+  }
+  if (internal::HasPositiveAdditionOverflow(off, len)) {
+    return Status::Invalid("Array slice would overflow");
+  }
+  if (off + len > length) {
+    return Status::Invalid("Array slice would exceed array length");
+  }
+  return Slice(off, len);
 }
 
 int64_t ArrayData::GetNullCount() const {
