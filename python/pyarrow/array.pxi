@@ -748,10 +748,6 @@ cdef class Array(_PandasConvertible):
         self.ap = sp_array.get()
         self.type = pyarrow_wrap_data_type(self.sp_array.get().type())
 
-    def __eq__(self, other):
-        raise NotImplementedError('Comparisons with pyarrow.Array are not '
-                                  'implemented')
-
     def _debug_print(self):
         with nogil:
             check_status(DebugPrint(deref(self.ap), 0))
@@ -977,6 +973,12 @@ cdef class Array(_PandasConvertible):
 
     def __str__(self):
         return self.to_string()
+
+    def __eq__(self, other):
+        try:
+            return self.equals(other)
+        except TypeError:
+            return NotImplemented
 
     def equals(Array self, Array other):
         return self.ap.Equals(deref(other.ap))

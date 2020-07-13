@@ -484,14 +484,17 @@ def test_array_ref_to_ndarray_base():
     assert sys.getrefcount(arr) == (refcount + 1)
 
 
-def test_array_eq_raises():
-    # ARROW-2150: we are raising when comparing arrays until we define the
-    # behavior to either be elementwise comparisons or data equality
+def test_array_eq():
+    # ARROW-2150 / ARROW-9445: we define the __eq__ behavior to be
+    # data equality (not element-wise equality)
     arr1 = pa.array([1, 2, 3], type=pa.int32())
     arr2 = pa.array([1, 2, 3], type=pa.int32())
+    arr3 = pa.array([1, 2, 3], type=pa.int64())
 
-    with pytest.raises(NotImplementedError):
-        arr1 == arr2
+    assert (arr1 == arr2) is True
+    assert (arr1 != arr2) is False
+    assert (arr1 == arr3) is False
+    assert (arr1 != arr3) is True
 
 
 def test_array_from_buffers():
