@@ -151,6 +151,11 @@ class ARROW_EXPORT Array {
   /// Slice from offset until end of the array
   std::shared_ptr<Array> Slice(int64_t offset) const;
 
+  /// Input-checking variant of Array::Slice
+  Result<std::shared_ptr<Array>> SliceSafe(int64_t offset, int64_t length) const;
+  /// Input-checking variant of Array::Slice
+  Result<std::shared_ptr<Array>> SliceSafe(int64_t offset) const;
+
   std::shared_ptr<ArrayData> data() const { return data_; }
 
   int num_fields() const { return static_cast<int>(data_->child_data.size()); }
