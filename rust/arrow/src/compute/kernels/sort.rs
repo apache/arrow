@@ -130,7 +130,7 @@ pub fn sort_to_indices(
 }
 
 /// Options that define how sort kernels should behave
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct SortOptions {
     /// Whether to sort in descending order
     pub descending: bool,
@@ -223,7 +223,7 @@ fn sort_string(
 }
 
 /// One column to be used in lexicographical sort
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct SortColumn {
     pub values: ArrayRef,
     pub options: Option<SortOptions>,

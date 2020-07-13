@@ -348,6 +348,7 @@ impl ArrowNativeType for f64 {
 
 macro_rules! make_type {
     ($name:ident, $native_ty:ty, $data_ty:expr, $bit_width:expr, $default_val:expr) => {
+        #[derive(Debug)]
         pub struct $name {}
 
         impl ArrowPrimitiveType for $name {

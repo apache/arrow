@@ -62,6 +62,7 @@
 
 use std::io::{Error, ErrorKind, Result, Write};
 
+#[derive(Debug)]
 pub struct StringWriter {
     data: String,
 }

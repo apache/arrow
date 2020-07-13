@@ -2149,6 +2149,7 @@ pub struct DictionaryArray<K: ArrowPrimitiveType> {
     is_ordered: bool,
 }
 
+#[derive(Debug)]
 pub struct NullableIter<'a, T> {
     data: &'a ArrayDataRef, // TODO: Use a pointer to the null bitmap.
     ptr: *const T,

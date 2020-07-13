@@ -360,6 +360,7 @@ pub fn infer_json_schema<R: Read>(
 }
 
 /// JSON file reader
+#[derive(Debug)]
 pub struct Reader<R: Read> {
     /// Explicit schema for the JSON file
     schema: SchemaRef,
@@ -730,6 +731,7 @@ impl<R: Read> Reader<R> {
 }
 
 /// JSON file reader builder
+#[derive(Debug)]
 pub struct ReaderBuilder {
     /// Optional schema for the JSON file
     ///
