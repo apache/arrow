@@ -356,8 +356,6 @@ TEST_F(TestArray, TestMakeArrayFromScalar) {
   auto hello = Buffer::FromString("hello");
   DayTimeIntervalType::DayMilliseconds daytime{1, 100};
 
-  // TODO(kszucs): test dictionaryscalar, unionscalar
-
   ScalarVector scalars{
       std::make_shared<BooleanScalar>(false),
       std::make_shared<Int8Scalar>(3),

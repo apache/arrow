@@ -403,8 +403,6 @@ class RepeatedArrayFactory {
     return Status::OK();
   }
 
-  // TODO(kszucs): union
-
   template <typename OffsetType>
   Status CreateOffsetsBuffer(OffsetType value_length, std::shared_ptr<Buffer>* out) {
     TypedBufferBuilder<OffsetType> builder(pool_);
