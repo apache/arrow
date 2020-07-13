@@ -767,6 +767,7 @@ Status FileReaderImpl::GetRecordBatchReader(const std::vector<int>& row_groups,
   RETURN_NOT_OK(GetFieldReaders(column_indices, row_groups, &readers, &batch_schema));
 
   if (readers.empty()) {
+    // Just generate all batches right now; they're cheap since they have no columns.
     int64_t batch_size = properties().batch_size();
     auto max_sized_batch =
         ::arrow::RecordBatch::Make(batch_schema, batch_size, ::arrow::ArrayVector{});
@@ -774,7 +775,6 @@ Status FileReaderImpl::GetRecordBatchReader(const std::vector<int>& row_groups,
     ::arrow::RecordBatchVector batches;
 
     for (int row_group : row_groups) {
-      // create a single RecordBatch with no columns covering a whole row group
       int64_t num_rows = parquet_reader()->metadata()->RowGroup(row_group)->num_rows();
 
       batches.insert(batches.end(), num_rows / batch_size, max_sized_batch);
@@ -786,19 +786,20 @@ Status FileReaderImpl::GetRecordBatchReader(const std::vector<int>& row_groups,
 
     *out = ::arrow::internal::make_unique<RowGroupRecordBatchReader>(
         ::arrow::MakeVectorIterator(std::move(batches)), std::move(batch_schema));
+
     return Status::OK();
   }
 
   using ::arrow::RecordBatchIterator;
 
-  // NB: This lambda will be invoked lazily whenever a new row group must be
-  // scanned, so it must capture `column_indices` by value (it will not
-  // otherwise outlive the scope of `GetRecordBatchReader()`). `this` is a non-owning
-  // pointer so we are relying on the parent FileReader outliving this RecordBatchReader.
+  // NB: This lambda will be invoked outside the scope of this call to
+  // `GetRecordBatchReader()`, so it must capture `readers` and `batch_schema` by value.
+  // `this` is a non-owning pointer so we are relying on the parent FileReader outliving
+  // this RecordBatchReader.
   ::arrow::Iterator<RecordBatchIterator> batches = ::arrow::MakeFunctionIterator(
       [readers, batch_schema, this]() -> ::arrow::Result<RecordBatchIterator> {
         // Get the next chunks for each column
-        // (chunks[i] contains the chunks for column i)
+        // (chunks[i] contains the chunks for column i).
         std::vector<::arrow::ArrayVector> chunks(readers.size());
         for (size_t i = 0; i < readers.size(); ++i) {
           std::shared_ptr<ChunkedArray> chunk;
@@ -809,7 +810,7 @@ Status FileReaderImpl::GetRecordBatchReader(const std::vector<int>& row_groups,
           chunks[i] = chunk->chunks();
         }
 
-        // Transpose chunks to record batches
+        // Transpose chunks to record batches.
         chunks = ::arrow::internal::RechunkArraysConsistently(chunks);
 
         ::arrow::RecordBatchVector batches(chunks[0].size());
