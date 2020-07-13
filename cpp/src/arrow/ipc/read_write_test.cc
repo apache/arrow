@@ -454,6 +454,11 @@ class IpcTestFixture : public io::MemoryMapFixture, public ExtensionTypesMixin {
   IpcWriteOptions options_;
 };
 
+TEST(MetadataVersion, ForwardsCompatCheck) {
+  // Verify UBSAN is ok with casting out of range metdata version.
+  EXPECT_LT(flatbuf::MetadataVersion::MAX, static_cast<flatbuf::MetadataVersion>(72));
+}
+
 class TestWriteRecordBatch : public ::testing::Test, public IpcTestFixture {
  public:
   void SetUp() { IpcTestFixture::SetUp(); }
