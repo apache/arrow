@@ -63,7 +63,7 @@ use sqlparser::sqlast::{SQLColumnDef, SQLType};
 
 /// Execution context for registering data sources and executing queries
 pub struct ExecutionContext {
-    datasources: HashMap<String, Box<dyn TableProvider>>,
+    datasources: HashMap<String, Box<dyn TableProvider + Send + Sync>>,
     scalar_functions: HashMap<String, Box<ScalarFunction>>,
 }
 
@@ -236,7 +236,11 @@ impl ExecutionContext {
     }
 
     /// Register a table so that it can be queried from SQL
-    pub fn register_table(&mut self, name: &str, provider: Box<dyn TableProvider>) {
+    pub fn register_table(
+        &mut self,
+        name: &str,
+        provider: Box<dyn TableProvider + Send + Sync>,
+    ) {
         self.datasources.insert(name.to_string(), provider);
     }
 
@@ -614,7 +618,7 @@ impl ExecutionContext {
 }
 
 struct ExecutionContextSchemaProvider<'a> {
-    datasources: &'a HashMap<String, Box<dyn TableProvider>>,
+    datasources: &'a HashMap<String, Box<dyn TableProvider + Send + Sync>>,
     scalar_functions: &'a HashMap<String, Box<ScalarFunction>>,
 }
 
