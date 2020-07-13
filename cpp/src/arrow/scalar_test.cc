@@ -559,6 +559,18 @@ TYPED_TEST(TestNumericScalar, Cast) {
   }
 }
 
+TEST(TestMapScalar, Basics) {
+  auto value =
+      ArrayFromJSON(struct_({field("key", utf8(), false), field("value", int8())}),
+                    R"([{"key": "a", "value": 1}, {"key": "b", "value": 2}])");
+  auto scalar = MapScalar(value);
+
+  auto expected_scalar_type = map(utf8(), field("value", int8()));
+
+  ASSERT_TRUE(scalar.type->Equals(expected_scalar_type));
+  ASSERT_TRUE(value->Equals(scalar.value));
+}
+
 TEST(TestStructScalar, FieldAccess) {
   StructScalar abc({MakeScalar(true), MakeNullScalar(int32()), MakeScalar("hello"),
                     MakeNullScalar(int64())},
