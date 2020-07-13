@@ -3049,7 +3049,7 @@ def test_byte_array_exactly_2gb(use_legacy_dataset):
 
 @pytest.mark.pandas
 @pytest.mark.large_memory
-@parametrize_legacy_dataset_not_supported  # TODO(dataset) ARROW-9297
+@parametrize_legacy_dataset
 def test_binary_array_overflow_to_chunked(use_legacy_dataset):
     # ARROW-3762
 
