@@ -81,17 +81,4 @@ ${CMAKE} -DARROW_BOOST_USE_SHARED=OFF \
     -G ${CMAKE_GENERATOR:-"Unix Makefiles"} \
     ${SOURCE_DIR}
 ${CMAKE} --build . --target install
-
-if [ $? -ne 0 ]; then
-  if [ "${DEBUG_DIR}" != "" ]; then
-    # For debugging installation problems, copy the build contents somewhere not tmp
-    mkdir -p ${DEBUG_DIR}
-    cp -r ./* ${DEBUG_DIR}
-    echo "**** Error building Arrow C++. See ${DEBUG_DIR} for details."
-  else
-    # Emit a clear message that the C++ build failed
-    echo "**** Error building Arrow C++. Re-run with ARROW_R_DEV=true for debug information."
-  fi
-fi
-
 popd
