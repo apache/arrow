@@ -54,3 +54,7 @@ arrow = { path = "../arrow", version = "1.0.0-SNAPSHOT" }
 
 [features]
 default = ["arrow", "snap", "brotli", "flate2", "lz4", "zstd"]
+
+[patch.crates-io]
+# until https://github.com/apache/thrift/commit/e791760098b6a9490e19af2b18a3e002f561973b is released
+thrift = { git = "https://github.com/apache/thrift", branch = "master" }
