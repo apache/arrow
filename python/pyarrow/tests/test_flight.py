@@ -706,6 +706,12 @@ def test_flight_do_get_ints():
         data = client.do_get(flight.Ticket(b'ints')).read_all()
         assert data.equals(table)
 
+    with pytest.raises(flight.FlightServerError,
+                       match="expected IpcWriteOptions, got <class 'int'>"):
+        with ConstantFlightServer(options=42) as server:
+            client = flight.connect(('localhost', server.port))
+            data = client.do_get(flight.Ticket(b'ints')).read_all()
+
 
 @pytest.mark.pandas
 def test_do_get_ints_pandas():
