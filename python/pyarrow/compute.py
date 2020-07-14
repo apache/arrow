@@ -24,6 +24,7 @@ from pyarrow._compute import (  # noqa
     call_function,
     TakeOptions
 )
+
 import pyarrow as pa
 import pyarrow._compute as _pc
 
@@ -86,25 +87,30 @@ def cast(arr, target_type, safe=True):
     return call_function("cast", [arr], options)
 
 
+def _decorate_compute_function(func, name, *, arity):
+    func.__arrow_compute_function__ = dict(name=name, arity=arity)
+    return func
+
+
 def _simple_unary_function(name):
     def func(arg):
         return call_function(name, [arg])
-    return func
+    return _decorate_compute_function(func, name, arity=1)
 
 
 def _simple_binary_function(name):
     def func(left, right):
         return call_function(name, [left, right])
-    return func
+    return _decorate_compute_function(func, name, arity=2)
 
 
-ascii_length = _simple_unary_function('ascii_length')
+binary_length = _simple_unary_function('binary_length')
 ascii_upper = _simple_unary_function('ascii_upper')
 ascii_lower = _simple_unary_function('ascii_lower')
 utf8_upper = _simple_unary_function('utf8_upper')
 utf8_lower = _simple_unary_function('utf8_lower')
 
-binary_isascii = _simple_unary_function('binary_isascii')
+string_isascii = _simple_unary_function('string_isascii')
 
 ascii_isalnum = _simple_unary_function('ascii_isalnum')
 utf8_isalnum = _simple_unary_function('utf8_isalnum')
@@ -130,7 +136,7 @@ is_null = _simple_unary_function('is_null')
 
 list_flatten = _simple_unary_function('list_flatten')
 list_parent_indices = _simple_unary_function('list_parent_indices')
-list_value_lengths = _simple_unary_function('list_value_lengths')
+list_value_length = _simple_unary_function('list_value_length')
 
 add = _simple_binary_function('add')
 subtract = _simple_binary_function('subtract')
@@ -144,9 +150,9 @@ less = _simple_binary_function('less')
 less_equal = _simple_binary_function('less_equal')
 
 
-def binary_contains_exact(array, pattern):
+def match_substring(array, pattern):
     """
-    Test if pattern is contained within a value of a binary array.
+    Test if substring *pattern* is contained within a value of a string array.
 
     Parameters
     ----------
@@ -158,8 +164,8 @@ def binary_contains_exact(array, pattern):
     -------
     result : pyarrow.Array or pyarrow.ChunkedArray
     """
-    return call_function("binary_contains_exact", [array],
-                         _pc.BinaryContainsExactOptions(pattern))
+    return call_function("match_substring", [array],
+                         _pc.MatchSubstringOptions(pattern))
 
 
 def sum(array):

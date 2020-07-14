@@ -168,6 +168,7 @@ class TestFilterKernel : public ::testing::Test {
     expected = out_datum.make_array();
     ASSERT_OK_AND_ASSIGN(out_datum, Filter(values, filter, drop_));
     actual = out_datum.make_array();
+    ASSERT_OK(actual->ValidateFull());
     AssertArraysEqual(*expected, *actual);
   }
 
@@ -429,9 +430,6 @@ TEST(TestFilterKernel, NoValidityBitmapButUnknownNullCount) {
   AssertArraysEqual(*expected, *result);
 }
 
-using StringTypes =
-    ::testing::Types<BinaryType, StringType, LargeBinaryType, LargeStringType>;
-
 template <typename TypeClass>
 class TestFilterKernelWithString : public TestFilterKernel<TypeClass> {
  protected:
@@ -463,7 +461,7 @@ class TestFilterKernelWithString : public TestFilterKernel<TypeClass> {
   }
 };
 
-TYPED_TEST_SUITE(TestFilterKernelWithString, StringTypes);
+TYPED_TEST_SUITE(TestFilterKernelWithString, BinaryTypes);
 
 TYPED_TEST(TestFilterKernelWithString, FilterString) {
   this->AssertFilter(R"(["a", "b", "c"])", "[0, 1, 0]", R"(["b"])");
@@ -1027,7 +1025,7 @@ class TestTakeKernelWithString : public TestTakeKernel<TypeClass> {
   }
 };
 
-TYPED_TEST_SUITE(TestTakeKernelWithString, TestingStringTypes);
+TYPED_TEST_SUITE(TestTakeKernelWithString, BinaryTypes);
 
 TYPED_TEST(TestTakeKernelWithString, TakeString) {
   this->AssertTake(R"(["a", "b", "c"])", "[0, 1, 0]", R"(["a", "b", "a"])");

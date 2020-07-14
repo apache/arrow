@@ -583,11 +583,11 @@ TYPED_TEST(TestFloatingMinMaxKernel, Floats) {
 TYPED_TEST(TestFloatingMinMaxKernel, DefaultOptions) {
   auto values = ArrayFromJSON(this->type_singleton(), "[0, 1, 2, 3, 4]");
 
-  ASSERT_OK_AND_ASSIGN(auto no_options_provided, CallFunction("minmax", {values}));
+  ASSERT_OK_AND_ASSIGN(auto no_options_provided, CallFunction("min_max", {values}));
 
   auto default_options = MinMaxOptions::Defaults();
   ASSERT_OK_AND_ASSIGN(auto explicit_defaults,
-                       CallFunction("minmax", {values}, &default_options));
+                       CallFunction("min_max", {values}, &default_options));
 
   AssertDatumsEqual(explicit_defaults, no_options_provided);
 }

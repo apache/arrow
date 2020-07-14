@@ -86,16 +86,16 @@ exact semantics of the function::
    options.null_handling = MinMaxOptions::OUTPUT_NULL;
 
    std::shared_ptr<arrow::Array> array = ...;
-   arrow::Datum minmax_datum;
+   arrow::Datum min_max_datum;
 
-   ARROW_ASSIGN_OR_RAISE(minmax_datum,
-                         arrow::compute::CallFunction("minmax", {array}, &options));
+   ARROW_ASSIGN_OR_RAISE(min_max_datum,
+                         arrow::compute::CallFunction("min_max", {array}, &options));
 
    // Unpack struct scalar result (a two-field {"min", "max"} scalar)
-   const auto& minmax_scalar = \
-         static_cast<const arrow::StructScalar&>(*minmax_datum.scalar());
-   const auto min_value = minmax_scalar.value[0];
-   const auto max_value = minmax_scalar.value[1];
+   const auto& min_max_scalar = \
+         static_cast<const arrow::StructScalar&>(*min_max_datum.scalar());
+   const auto min_value = min_max_scalar.value[0];
+   const auto max_value = min_max_scalar.value[1];
 
 .. seealso::
    :doc:`Compute API reference <api/compute>`
@@ -136,7 +136,7 @@ Aggregations
 +--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
 | mean                     | Unary      | Numeric            | Scalar Float64        |                                            |
 +--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
-| minmax                   | Unary      | Numeric            | Scalar Struct  (1)    | :struct:`MinMaxOptions`                    |
+| min_max                  | Unary      | Numeric            | Scalar Struct  (1)    | :struct:`MinMaxOptions`                    |
 +--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
 | sum                      | Unary      | Numeric            | Scalar Numeric (2)    |                                            |
 +--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
@@ -248,28 +248,111 @@ For the Kleene logic variants, therefore:
 
 .. _Kleene logic: https://en.wikipedia.org/wiki/Three-valued_logic#Kleene_and_Priest_logics
 
-String functions
-~~~~~~~~~~~~~~~~
+String predicates
+~~~~~~~~~~~~~~~~~
+
+These functions classify the input string elements according to their character
+contents.  An empty string element emits false in the output.  For ASCII
+variants of the functions (prefixed ``ascii_``), a string element with non-ASCII
+characters emits false in the output.
+
+The first set of functions operates on a character-per-character basis,
+and emit true in the output if the input contains only characters of a
+given class:
+
++--------------------------+------------+--------------------+----------------+----------------------------------+
+| Function name            | Arity      | Input types        | Output type    | Matched character class          |
++==========================+============+====================+================+==================================+
+| ascii_isalnum            | Unary      | String-like        | Boolean        | Alphanumeric ASCII               |
++--------------------------+------------+--------------------+----------------+----------------------------------+
+| ascii_isalpha            | Unary      | String-like        | Boolean        | Alphabetic ASCII                 |
++--------------------------+------------+--------------------+----------------+----------------------------------+
+| ascii_isdecimal          | Unary      | String-like        | Boolean        | Decimal ASCII \(1)               |
++--------------------------+------------+--------------------+----------------+----------------------------------+
+| ascii_islower            | Unary      | String-like        | Boolean        | Lowercase ASCII \(2)             |
++--------------------------+------------+--------------------+----------------+----------------------------------+
+| ascii_isprintable        | Unary      | String-like        | Boolean        | Printable ASCII                  |
++--------------------------+------------+--------------------+----------------+----------------------------------+
+| ascii_isspace            | Unary      | String-like        | Boolean        | Whitespace ASCII                 |
++--------------------------+------------+--------------------+----------------+----------------------------------+
+| ascii_isupper            | Unary      | String-like        | Boolean        | Uppercase ASCII \(2)             |
++--------------------------+------------+--------------------+----------------+----------------------------------+
+| utf8_isalnum             | Unary      | String-like        | Boolean        | Alphanumeric Unicode             |
++--------------------------+------------+--------------------+----------------+----------------------------------+
+| utf8_isalpha             | Unary      | String-like        | Boolean        | Alphabetic Unicode               |
++--------------------------+------------+--------------------+----------------+----------------------------------+
+| utf8_isdecimal           | Unary      | String-like        | Boolean        | Decimal Unicode                  |
++--------------------------+------------+--------------------+----------------+----------------------------------+
+| utf8_isdigit             | Unary      | String-like        | Boolean        | Unicode digit \(3)               |
++--------------------------+------------+--------------------+----------------+----------------------------------+
+| utf8_islower             | Unary      | String-like        | Boolean        | Lowercase Unicode \(2)           |
++--------------------------+------------+--------------------+----------------+----------------------------------+
+| utf8_isnumeric           | Unary      | String-like        | Boolean        | Numeric Unicode \(4)             |
++--------------------------+------------+--------------------+----------------+----------------------------------+
+| utf8_isprintable         | Unary      | String-like        | Boolean        | Printable Unicode                |
++--------------------------+------------+--------------------+----------------+----------------------------------+
+| utf8_isspace             | Unary      | String-like        | Boolean        | Whitespace Unicode               |
++--------------------------+------------+--------------------+----------------+----------------------------------+
+| utf8_isupper             | Unary      | String-like        | Boolean        | Uppercase Unicode \(2)           |
++--------------------------+------------+--------------------+----------------+----------------------------------+
+
+* \(1) Also matches all numeric ASCII characters and all ASCII digits.
+
+* \(2) Non-cased characters, such as punctuation, do not match.
+
+* \(3) This is currently the same as ``utf8_isdecimal``.
+
+* \(4) Unlike ``utf8_isdecimal``, non-decimal numeric characters also match.
+
+The second set of functions also consider the character order in a string
+element:
 
 +--------------------------+------------+--------------------+---------------------+---------+
 | Function name            | Arity      | Input types        | Output type         | Notes   |
 +==========================+============+====================+=====================+=========+
-| ascii_length             | Unary      | String-like        | Int32 or Int64      | \(1)    |
+| ascii_istitle            | Unary      | String-like        | Boolean             | \(1)    |
 +--------------------------+------------+--------------------+---------------------+---------+
-| ascii_lower              | Unary      | String-like        | String-like         | \(2)    |
-+--------------------------+------------+--------------------+---------------------+---------+
-| ascii_upper              | Unary      | String-like        | String-like         | \(2)    |
-+--------------------------+------------+--------------------+---------------------+---------+
-| utf8_lower               | Unary      | String-like        | String-like         | \(3)    |
-+--------------------------+------------+--------------------+---------------------+---------+
-| utf8_upper               | Unary      | String-like        | String-like         | \(3)    |
+| utf8_istitle             | Unary      | String-like        | Boolean             | \(1)    |
 +--------------------------+------------+--------------------+---------------------+---------+
 
-* \(1) Output is the physical length in bytes of each input element.  Output
-  type is Int32 for String, Int64 for LargeString.
+* \(1) Output is true iff the input string element is title-cased, i.e. any
+  word starts with an uppercase character, followed by lowercase characters.
+  Word boundaries are defined by non-cased characters.
 
-* \(2) Each ASCII character in the input is converted to lowercase or
+The third set of functions examines string elements on a byte-per-byte basis:
+
++--------------------------+------------+--------------------+---------------------+---------+
+| Function name            | Arity      | Input types        | Output type         | Notes   |
++==========================+============+====================+=====================+=========+
+| string_isascii           | Unary      | String-like        | Boolean             | \(1)    |
++--------------------------+------------+--------------------+---------------------+---------+
+
+* \(1) Output is true iff the input string element contains only ASCII characters,
+  i.e. only bytes in [0, 127].
+
+String transforms
+~~~~~~~~~~~~~~~~~
+
++--------------------------+------------+-------------------------+---------------------+---------+
+| Function name            | Arity      | Input types             | Output type         | Notes   |
++==========================+============+=========================+=====================+=========+
+| ascii_lower              | Unary      | String-like             | String-like         | \(1)    |
++--------------------------+------------+-------------------------+---------------------+---------+
+| ascii_upper              | Unary      | String-like             | String-like         | \(1)    |
++--------------------------+------------+-------------------------+---------------------+---------+
+| binary_length            | Unary      | Binary- or String-like  | Int32 or Int64      | \(2)    |
++--------------------------+------------+-------------------------+---------------------+---------+
+| utf8_lower               | Unary      | String-like             | String-like         | \(3)    |
++--------------------------+------------+-------------------------+---------------------+---------+
+| utf8_upper               | Unary      | String-like             | String-like         | \(3)    |
++--------------------------+------------+-------------------------+---------------------+---------+
+
+
+* \(1) Each ASCII character in the input is converted to lowercase or
   uppercase.  Non-ASCII characters are left untouched.
+
+* \(2) Output is the physical length in bytes of each input element.  Output
+  type is Int32 for Binary / String, Int64 for LargeBinary / LargeString.
 
 * \(3) Each UTF8-encoded character in the input is converted to lowercase or
   uppercase.
@@ -277,27 +360,27 @@ String functions
 Containment tests
 ~~~~~~~~~~~~~~~~~
 
-+--------------------------+------------+------------------------------------+---------------+----------------------------------------+
-| Function name            | Arity      | Input types                        | Output type   | Options class                          |
-+==========================+============+====================================+===============+========================================+
-| binary_contains_exact    | Unary      | String-like                        | Boolean (1)   | :struct:`BinaryContainsExactOptions`   |
-+--------------------------+------------+------------------------------------+---------------+----------------------------------------+
-| isin                     | Unary      | Boolean, Null, Numeric, Temporal,  | Boolean (2)   | :struct:`SetLookupOptions`             |
-|                          |            | Binary- and String-like            |               |                                        |
-+--------------------------+------------+------------------------------------+---------------+----------------------------------------+
-| match                    | Unary      | Boolean, Null, Numeric, Temporal,  | Int32 (3)     | :struct:`SetLookupOptions`             |
-|                          |            | Binary- and String-like            |               |                                        |
-+--------------------------+------------+------------------------------------+---------------+----------------------------------------+
++--------------------+------------+------------------------------------+---------------+----------------------------------------+
+| Function name      | Arity      | Input types                        | Output type   | Options class                          |
++====================+============+====================================+===============+========================================+
+| match_substring    | Unary      | String-like                        | Boolean (1)   | :struct:`MatchSubstringOptions`        |
++--------------------+------------+------------------------------------+---------------+----------------------------------------+
+| index_in           | Unary      | Boolean, Null, Numeric, Temporal,  | Int32 (2)     | :struct:`SetLookupOptions`             |
+|                    |            | Binary- and String-like            |               |                                        |
++--------------------+------------+------------------------------------+---------------+----------------------------------------+
+| is_in              | Unary      | Boolean, Null, Numeric, Temporal,  | Boolean (3)   | :struct:`SetLookupOptions`             |
+|                    |            | Binary- and String-like            |               |                                        |
++--------------------+------------+------------------------------------+---------------+----------------------------------------+
 
-* \(1) Output is true iff :member:`BinaryContainsExactOptions::pattern`
+* \(1) Output is true iff :member:`MatchSubstringOptions::pattern`
   is a substring of the corresponding input element.
 
-* \(2) Output is true iff the corresponding input element is equal to one
-  of the elements in :member:`SetLookupOptions::value_set`.
-
-* \(3) Output is the index of the corresponding input element in
+* \(2) Output is the index of the corresponding input element in
   :member:`SetLookupOptions::value_set`, if found there.  Otherwise,
   output is null.
+
+* \(3) Output is true iff the corresponding input element is equal to one
+  of the elements in :member:`SetLookupOptions::value_set`.
 
 Structural transforms
 ~~~~~~~~~~~~~~~~~~~~~
@@ -313,7 +396,7 @@ Structural transforms
 +--------------------------+------------+---------------------------------------+---------------------+---------+
 | is_valid                 | Unary      | Any                                   | Boolean             | \(2)    |
 +--------------------------+------------+---------------------------------------+---------------------+---------+
-| list_value_lengths       | Unary      | List-like                             | Int32 or Int64      | \(4)    |
+| list_value_length        | Unary      | List-like                             | Int32 or Int64      | \(4)    |
 +--------------------------+------------+---------------------------------------+---------------------+---------+
 
 * \(1) First input must be an array, second input a scalar of the same type.
@@ -486,9 +569,9 @@ In these functions, nulls are considered greater than any other value
 +-----------------------+------------+-------------------------+-------------------+--------------------------------+-------------+
 | Function name         | Arity      | Input types             | Output type       | Options class                  | Notes       |
 +=======================+============+=========================+===================+================================+=============+
-| partition_indices     | Unary      | Binary- and String-like | UInt64            | :struct:`PartitionOptions`     | \(1) \(3)   |
+| partition_nth_indices | Unary      | Binary- and String-like | UInt64            | :struct:`PartitionNthOptions`  | \(1) \(3)   |
 +-----------------------+------------+-------------------------+-------------------+--------------------------------+-------------+
-| partition_indices     | Unary      | Numeric                 | UInt64            | :struct:`PartitionOptions`     | \(1)        |
+| partition_nth_indices | Unary      | Numeric                 | UInt64            | :struct:`PartitionNthOptions`  | \(1)        |
 +-----------------------+------------+-------------------------+-------------------+--------------------------------+-------------+
 | sort_indices          | Unary      | Binary- and String-like | UInt64            |                                | \(2) \(3)   |
 +-----------------------+------------+-------------------------+-------------------+--------------------------------+-------------+
@@ -496,8 +579,11 @@ In these functions, nulls are considered greater than any other value
 +-----------------------+------------+-------------------------+-------------------+--------------------------------+-------------+
 
 * \(1) The output is an array of indices into the input array, that define
-  a partition around the *N*'th input array element in sorted order.  *N* is
-  given in :member:`PartitionOptions::pivot`.
+  a partial sort such that the *N*'th index points to the *N*'th element
+  in sorted order, and all indices before the *N*'th point to elements
+  less or equal to elements at or after the *N*'th (similar to
+  :func:`std::nth_element`).  *N* is given in
+  :member:`PartitionNthOptions::pivot`.
 
 * \(2) The output is an array of indices into the input array, that define
   a non-stable sort of the input array.

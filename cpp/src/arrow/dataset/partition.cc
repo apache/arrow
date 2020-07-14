@@ -178,7 +178,7 @@ Result<std::shared_ptr<Expression>> KeyValuePartitioning::ConvertKey(
 
     // look up the partition value in the dictionary
     ARROW_ASSIGN_OR_RAISE(converted, Scalar::Parse(value.dictionary->type(), key.value));
-    ARROW_ASSIGN_OR_RAISE(auto index, compute::Match(converted, value.dictionary));
+    ARROW_ASSIGN_OR_RAISE(auto index, compute::IndexIn(converted, value.dictionary));
     value.index = index.scalar();
     if (!value.index->is_valid) {
       return Status::Invalid("Dictionary supplied for field ", field->ToString(),

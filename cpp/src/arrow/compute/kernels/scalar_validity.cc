@@ -37,23 +37,22 @@ struct IsValidOperator {
   static void Call(KernelContext* ctx, const ArrayData& arr, ArrayData* out) {
     DCHECK_EQ(out->offset, 0);
     DCHECK_LE(out->length, arr.length);
-    if (arr.buffers[0] != nullptr) {
-      out->buffers[1] = arr.offset == 0
-                            ? arr.buffers[0]
-                            : SliceBuffer(arr.buffers[0], arr.offset / 8, arr.length / 8);
+    if (arr.MayHaveNulls()) {
+      // Input has nulls => output is the null (validity) bitmap.
+      // To avoid copying the null bitmap, slice from the starting byte offset
+      // and set the offset to the remaining bit offset.
       out->offset = arr.offset % 8;
+      out->buffers[1] =
+          arr.offset == 0 ? arr.buffers[0]
+                          : SliceBuffer(arr.buffers[0], arr.offset / 8,
+                                        BitUtil::BytesForBits(out->length + out->offset));
       return;
     }
 
-    KERNEL_RETURN_IF_ERROR(ctx, ctx->AllocateBitmap(out->length).Value(&out->buffers[1]));
-
-    if (arr.null_count == 0 || arr.buffers[0] == nullptr) {
-      BitUtil::SetBitsTo(out->buffers[1]->mutable_data(), out->offset, out->length, true);
-      return;
-    }
-
-    CopyBitmap(arr.buffers[0]->data(), arr.offset, arr.length,
-               out->buffers[1]->mutable_data(), out->offset);
+    // Input has no nulls => output is entirely true.
+    KERNEL_ASSIGN_OR_RAISE(out->buffers[1], ctx,
+                           ctx->AllocateBitmap(out->length + out->offset));
+    BitUtil::SetBitsTo(out->buffers[1]->mutable_data(), out->offset, out->length, true);
   }
 };
 
@@ -63,14 +62,15 @@ struct IsNullOperator {
   }
 
   static void Call(KernelContext* ctx, const ArrayData& arr, ArrayData* out) {
-    if (arr.null_count == 0 || arr.buffers[0] == nullptr) {
-      BitUtil::SetBitsTo(out->buffers[1]->mutable_data(), out->offset, out->length,
-                         false);
+    if (arr.MayHaveNulls()) {
+      // Input has nulls => output is the inverted null (validity) bitmap.
+      InvertBitmap(arr.buffers[0]->data(), arr.offset, arr.length,
+                   out->buffers[1]->mutable_data(), out->offset);
       return;
     }
 
-    InvertBitmap(arr.buffers[0]->data(), arr.offset, arr.length,
-                 out->buffers[1]->mutable_data(), out->offset);
+    // Input has no nulls => output is entirely false.
+    BitUtil::SetBitsTo(out->buffers[1]->mutable_data(), out->offset, out->length, false);
   }
 };
 

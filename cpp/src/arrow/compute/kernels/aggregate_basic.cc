@@ -398,7 +398,7 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
   static auto default_minmax_options = MinMaxOptions::Defaults();
-  func = std::make_shared<ScalarAggregateFunction>("minmax", Arity::Unary(),
+  func = std::make_shared<ScalarAggregateFunction>("min_max", Arity::Unary(),
                                                    &default_minmax_options);
   aggregate::AddMinMaxKernels(aggregate::MinMaxInit, {boolean()}, func.get());
   aggregate::AddMinMaxKernels(aggregate::MinMaxInit, NumericTypes(), func.get());

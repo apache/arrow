@@ -30,8 +30,6 @@
 namespace arrow {
 namespace compute {
 
-using StringTypes = ::testing::Types<StringType, LargeStringType>;
-
 // interesting utf8 characters for testing (lower case / upper case):
 //  * ῦ / Υ͂ (3 to 4 code units) (Note, we don't support this yet, utf8proc does not use
 //  SpecialCasing.txt)
@@ -40,43 +38,48 @@ using StringTypes = ::testing::Types<StringType, LargeStringType>;
 //  * Ⱥ / ⱥ  (2 to 3 code units)
 
 template <typename TestType>
-class TestStringKernels : public ::testing::Test {
+class BaseTestStringKernels : public ::testing::Test {
  protected:
   using OffsetType = typename TypeTraits<TestType>::OffsetType;
 
   void CheckUnary(std::string func_name, std::string json_input,
                   std::shared_ptr<DataType> out_ty, std::string json_expected,
                   const FunctionOptions* options = nullptr) {
-    CheckScalarUnary(func_name, string_type(), json_input, out_ty, json_expected,
-                     options);
+    CheckScalarUnary(func_name, type(), json_input, out_ty, json_expected, options);
   }
 
-  std::shared_ptr<DataType> string_type() {
-    return TypeTraits<TestType>::type_singleton();
-  }
+  std::shared_ptr<DataType> type() { return TypeTraits<TestType>::type_singleton(); }
 
   std::shared_ptr<DataType> offset_type() {
     return TypeTraits<OffsetType>::type_singleton();
   }
 };
 
-TYPED_TEST_SUITE(TestStringKernels, StringTypes);
+template <typename TestType>
+class TestBinaryKernels : public BaseTestStringKernels<TestType> {};
 
-TYPED_TEST(TestStringKernels, AsciiLength) {
-  this->CheckUnary("ascii_length", R"(["aaa", null, "", "b"])", this->offset_type(),
+TYPED_TEST_SUITE(TestBinaryKernels, BinaryTypes);
+
+TYPED_TEST(TestBinaryKernels, BinaryLength) {
+  this->CheckUnary("binary_length", R"(["aaa", null, "", "b"])", this->offset_type(),
                    "[3, null, 0, 1]");
 }
 
+template <typename TestType>
+class TestStringKernels : public BaseTestStringKernels<TestType> {};
+
+TYPED_TEST_SUITE(TestStringKernels, StringTypes);
+
 TYPED_TEST(TestStringKernels, AsciiUpper) {
-  this->CheckUnary("ascii_upper", "[]", this->string_type(), "[]");
-  this->CheckUnary("ascii_upper", "[\"aAazZæÆ&\", null, \"\", \"bbb\"]",
-                   this->string_type(), "[\"AAAZZæÆ&\", null, \"\", \"BBB\"]");
+  this->CheckUnary("ascii_upper", "[]", this->type(), "[]");
+  this->CheckUnary("ascii_upper", "[\"aAazZæÆ&\", null, \"\", \"bbb\"]", this->type(),
+                   "[\"AAAZZæÆ&\", null, \"\", \"BBB\"]");
 }
 
 TYPED_TEST(TestStringKernels, AsciiLower) {
-  this->CheckUnary("ascii_lower", "[]", this->string_type(), "[]");
-  this->CheckUnary("ascii_lower", "[\"aAazZæÆ&\", null, \"\", \"BBB\"]",
-                   this->string_type(), "[\"aaazzæÆ&\", null, \"\", \"bbb\"]");
+  this->CheckUnary("ascii_lower", "[]", this->type(), "[]");
+  this->CheckUnary("ascii_lower", "[\"aAazZæÆ&\", null, \"\", \"BBB\"]", this->type(),
+                   "[\"aaazzæÆ&\", null, \"\", \"bbb\"]");
 }
 
 TEST(TestStringKernels, LARGE_MEMORY_TEST(Utf8Upper32bitGrowth)) {
@@ -101,46 +104,44 @@ TEST(TestStringKernels, LARGE_MEMORY_TEST(Utf8Upper32bitGrowth)) {
 #ifdef ARROW_WITH_UTF8PROC
 
 TYPED_TEST(TestStringKernels, Utf8Upper) {
-  this->CheckUnary("utf8_upper", "[\"aAazZæÆ&\", null, \"\", \"b\"]", this->string_type(),
+  this->CheckUnary("utf8_upper", "[\"aAazZæÆ&\", null, \"\", \"b\"]", this->type(),
                    "[\"AAAZZÆÆ&\", null, \"\", \"B\"]");
 
   // test varying encoding lenghts and thus changing indices/offsets
-  this->CheckUnary("utf8_upper", "[\"ɑɽⱤoW\", null, \"ıI\", \"b\"]", this->string_type(),
+  this->CheckUnary("utf8_upper", "[\"ɑɽⱤoW\", null, \"ıI\", \"b\"]", this->type(),
                    "[\"ⱭⱤⱤOW\", null, \"II\", \"B\"]");
 
   // ῦ to Υ͂ not supported
-  // this->CheckUnary("utf8_upper", "[\"ῦɐɜʞȿ\"]", this->string_type(),
+  // this->CheckUnary("utf8_upper", "[\"ῦɐɜʞȿ\"]", this->type(),
   // "[\"Υ͂ⱯꞫꞰⱾ\"]");
 
   // test maximum buffer growth
-  this->CheckUnary("utf8_upper", "[\"ɑɑɑɑ\"]", this->string_type(), "[\"ⱭⱭⱭⱭ\"]");
+  this->CheckUnary("utf8_upper", "[\"ɑɑɑɑ\"]", this->type(), "[\"ⱭⱭⱭⱭ\"]");
 
   // Test invalid data
-  auto invalid_input =
-      ArrayFromJSON(this->string_type(), "[\"ɑa\xFFɑ\", \"ɽ\xe1\xbdɽaa\"]");
+  auto invalid_input = ArrayFromJSON(this->type(), "[\"ɑa\xFFɑ\", \"ɽ\xe1\xbdɽaa\"]");
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("Invalid UTF8 sequence"),
                                   CallFunction("utf8_upper", {invalid_input}));
 }
 
 TYPED_TEST(TestStringKernels, Utf8Lower) {
-  this->CheckUnary("utf8_lower", "[\"aAazZæÆ&\", null, \"\", \"b\"]", this->string_type(),
+  this->CheckUnary("utf8_lower", "[\"aAazZæÆ&\", null, \"\", \"b\"]", this->type(),
                    "[\"aaazzææ&\", null, \"\", \"b\"]");
 
   // test varying encoding lenghts and thus changing indices/offsets
-  this->CheckUnary("utf8_lower", "[\"ⱭɽⱤoW\", null, \"ıI\", \"B\"]", this->string_type(),
+  this->CheckUnary("utf8_lower", "[\"ⱭɽⱤoW\", null, \"ıI\", \"B\"]", this->type(),
                    "[\"ɑɽɽow\", null, \"ıi\", \"b\"]");
 
   // ῦ to Υ͂ is not supported, but in principle the reverse is, but it would need
   // normalization
-  // this->CheckUnary("utf8_lower", "[\"Υ͂ⱯꞫꞰⱾ\"]", this->string_type(),
+  // this->CheckUnary("utf8_lower", "[\"Υ͂ⱯꞫꞰⱾ\"]", this->type(),
   // "[\"ῦɐɜʞȿ\"]");
 
   // test maximum buffer growth
-  this->CheckUnary("utf8_lower", "[\"ȺȺȺȺ\"]", this->string_type(), "[\"ⱥⱥⱥⱥ\"]");
+  this->CheckUnary("utf8_lower", "[\"ȺȺȺȺ\"]", this->type(), "[\"ⱥⱥⱥⱥ\"]");
 
   // Test invalid data
-  auto invalid_input =
-      ArrayFromJSON(this->string_type(), "[\"Ⱥa\xFFⱭ\", \"Ɽ\xe1\xbdⱤaA\"]");
+  auto invalid_input = ArrayFromJSON(this->type(), "[\"Ⱥa\xFFⱭ\", \"Ɽ\xe1\xbdⱤaA\"]");
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("Invalid UTF8 sequence"),
                                   CallFunction("utf8_lower", {invalid_input}));
 }
@@ -160,7 +161,7 @@ TYPED_TEST(TestStringKernels, IsAlphaUnicode) {
 }
 
 TYPED_TEST(TestStringKernels, IsAscii) {
-  this->CheckUnary("binary_isascii", "[\"azAZ~\", null, \"Ɑ\", \"\"]", boolean(),
+  this->CheckUnary("string_isascii", "[\"azAZ~\", null, \"Ɑ\", \"\"]", boolean(),
                    "[true, null, false, true]");
 }
 
@@ -311,23 +312,23 @@ TYPED_TEST(TestStringKernels, IsUpperAscii) {
                    boolean(), "[false, null, false, true, true, false, false]");
 }
 
-TYPED_TEST(TestStringKernels, BinaryContainsExact) {
-  BinaryContainsExactOptions options{"ab"};
-  this->CheckUnary("binary_contains_exact", "[]", boolean(), "[]", &options);
-  this->CheckUnary("binary_contains_exact", R"(["abc", "acb", "cab", null, "bac"])",
-                   boolean(), "[true, false, true, null, false]", &options);
+TYPED_TEST(TestStringKernels, MatchSubstring) {
+  MatchSubstringOptions options{"ab"};
+  this->CheckUnary("match_substring", "[]", boolean(), "[]", &options);
+  this->CheckUnary("match_substring", R"(["abc", "acb", "cab", null, "bac"])", boolean(),
+                   "[true, false, true, null, false]", &options);
 
-  BinaryContainsExactOptions options_repeated{"abab"};
-  this->CheckUnary("binary_contains_exact", R"(["abab", "ab", "cababc", null, "bac"])",
+  MatchSubstringOptions options_repeated{"abab"};
+  this->CheckUnary("match_substring", R"(["abab", "ab", "cababc", null, "bac"])",
                    boolean(), "[true, false, true, null, false]", &options_repeated);
 
   // ARROW-9460
-  BinaryContainsExactOptions options_double_char{"aab"};
-  this->CheckUnary("binary_contains_exact", R"(["aacb", "aab", "ab", "aaab"])", boolean(),
+  MatchSubstringOptions options_double_char{"aab"};
+  this->CheckUnary("match_substring", R"(["aacb", "aab", "ab", "aaab"])", boolean(),
                    "[false, true, false, true]", &options_double_char);
-  BinaryContainsExactOptions options_double_char_2{"bbcaa"};
-  this->CheckUnary("binary_contains_exact", R"(["abcbaabbbcaabccabaab"])", boolean(),
-                   "[true]", &options_double_char_2);
+  MatchSubstringOptions options_double_char_2{"bbcaa"};
+  this->CheckUnary("match_substring", R"(["abcbaabbbcaabccabaab"])", boolean(), "[true]",
+                   &options_double_char_2);
 }
 
 TYPED_TEST(TestStringKernels, Strptime) {
@@ -338,8 +339,7 @@ TYPED_TEST(TestStringKernels, Strptime) {
 }
 
 TYPED_TEST(TestStringKernels, StrptimeDoesNotProvideDefaultOptions) {
-  auto input =
-      ArrayFromJSON(this->string_type(), R"(["2020-05-01", null, "1900-12-11"])");
+  auto input = ArrayFromJSON(this->type(), R"(["2020-05-01", null, "1900-12-11"])");
   ASSERT_RAISES(Invalid, CallFunction("strptime", {input}));
 }
 

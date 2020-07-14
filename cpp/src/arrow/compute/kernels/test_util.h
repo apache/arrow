@@ -103,8 +103,12 @@ void CheckScalarUnary(std::string func_name, std::shared_ptr<Scalar> input,
                       std::shared_ptr<Scalar> expected,
                       const FunctionOptions* options = nullptr);
 
-using TestingStringTypes =
-    ::testing::Types<StringType, LargeStringType, BinaryType, LargeBinaryType>;
+void CheckVectorUnary(std::string func_name, Datum input, std::shared_ptr<Array> expected,
+                      const FunctionOptions* options = nullptr);
+
+using BinaryTypes =
+    ::testing::Types<BinaryType, LargeBinaryType, StringType, LargeStringType>;
+using StringTypes = ::testing::Types<StringType, LargeStringType>;
 
 static constexpr random::SeedType kRandomSeed = 0x0ff1ce;
 

@@ -359,7 +359,7 @@ class TestHashKernelBinaryTypes : public TestHashKernel {
   }
 };
 
-TYPED_TEST_SUITE(TestHashKernelBinaryTypes, TestingStringTypes);
+TYPED_TEST_SUITE(TestHashKernelBinaryTypes, BinaryTypes);
 
 TYPED_TEST(TestHashKernelBinaryTypes, ZeroChunks) {
   auto type = this->type();
@@ -655,7 +655,6 @@ TEST_F(TestHashKernel, ZeroLengthDictionaryEncode) {
 
   std::shared_ptr<Array> result = datum_result.make_array();
   const auto& dict_result = checked_cast<const DictionaryArray&>(*result);
-  ASSERT_OK(dict_result.Validate());
   ASSERT_OK(dict_result.ValidateFull());
 }
 

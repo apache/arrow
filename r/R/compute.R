@@ -44,12 +44,12 @@ mean.Scalar <- mean.Array
 
 #' @export
 min.Array <- function(..., na.rm = FALSE) {
-  scalar_aggregate("minmax", ..., na.rm = na.rm)$GetFieldByName("min")
+  scalar_aggregate("min_max", ..., na.rm = na.rm)$GetFieldByName("min")
 }
 
 #' @export
 max.Array <- function(..., na.rm = FALSE) {
-  scalar_aggregate("minmax", ..., na.rm = na.rm)$GetFieldByName("max")
+  scalar_aggregate("min_max", ..., na.rm = na.rm)$GetFieldByName("max")
 }
 
 scalar_aggregate <- function(FUN, ..., na.rm = FALSE) {

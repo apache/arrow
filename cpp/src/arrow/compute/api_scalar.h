@@ -42,15 +42,14 @@ struct ArithmeticOptions : public FunctionOptions {
   bool check_overflow;
 };
 
-struct ARROW_EXPORT BinaryContainsExactOptions : public FunctionOptions {
-  explicit BinaryContainsExactOptions(std::string pattern)
-      : pattern(std::move(pattern)) {}
+struct ARROW_EXPORT MatchSubstringOptions : public FunctionOptions {
+  explicit MatchSubstringOptions(std::string pattern) : pattern(std::move(pattern)) {}
 
-  /// The exact pattern to look for inside input values.
+  /// The exact substring to look for inside input values.
   std::string pattern;
 };
 
-/// Options for IsIn and Match functions
+/// Options for IsIn and IndexIn functions
 struct ARROW_EXPORT SetLookupOptions : public FunctionOptions {
   explicit SetLookupOptions(Datum value_set, bool skip_nulls)
       : value_set(std::move(value_set)), skip_nulls(skip_nulls) {}
@@ -60,7 +59,7 @@ struct ARROW_EXPORT SetLookupOptions : public FunctionOptions {
   /// Whether nulls in `value_set` count for lookup.
   ///
   /// If true, any null in `value_set` is ignored and nulls in the input
-  /// produce null (Match) or false (IsIn) values in the output.
+  /// produce null (IndexIn) or false (IsIn) values in the output.
   /// If false, any null in `value_set` is successfully matched in
   /// the input.
   bool skip_nulls;
@@ -238,7 +237,7 @@ ARROW_EXPORT
 Result<Datum> IsIn(const Datum& values, const Datum& value_set,
                    ExecContext* ctx = NULLPTR);
 
-/// \brief Match examines each slot in the values against a value_set array.
+/// \brief IndexIn examines each slot in the values against a value_set array.
 /// If the value is not found in value_set, null will be output.
 /// If found, the index of occurrence within value_set (ignoring duplicates)
 /// will be output.
@@ -259,8 +258,8 @@ Result<Datum> IsIn(const Datum& values, const Datum& value_set,
 /// \since 1.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
-Result<Datum> Match(const Datum& values, const Datum& value_set,
-                    ExecContext* ctx = NULLPTR);
+Result<Datum> IndexIn(const Datum& values, const Datum& value_set,
+                      ExecContext* ctx = NULLPTR);
 
 /// \brief IsValid returns true for each element of `values` that is not null,
 /// false otherwise

@@ -29,8 +29,7 @@ TEST(TestVectorNested, ListFlatten) {
   for (auto ty : {list(int32()), large_list(int32())}) {
     auto input = ArrayFromJSON(ty, "[[0, null, 1], null, [2, 3], []]");
     auto expected = ArrayFromJSON(int32(), "[0, null, 1, 2, 3]");
-    ASSERT_OK_AND_ASSIGN(Datum out, CallFunction("list_flatten", {input}));
-    AssertArraysEqual(*expected, *out.make_array());
+    CheckVectorUnary("list_flatten", input, expected);
   }
 }
 
@@ -40,8 +39,7 @@ TEST(TestVectorNested, ListParentIndices) {
 
     auto out_ty = ty->id() == Type::LIST ? int32() : int64();
     auto expected = ArrayFromJSON(out_ty, "[0, 0, 0, 2, 2, 4, 4]");
-    ASSERT_OK_AND_ASSIGN(Datum out, CallFunction("list_parent_indices", {input}));
-    AssertArraysEqual(*expected, *out.make_array());
+    CheckVectorUnary("list_parent_indices", input, expected);
   }
 
   // Construct a list with non-empty null slots
@@ -50,8 +48,7 @@ TEST(TestVectorNested, ListParentIndices) {
   data->buffers[0] =
       (ArrayFromJSON(boolean(), "[true, false, true, true, true]")->data()->buffers[1]);
   auto expected = ArrayFromJSON(int32(), "[0, 0, 0, 1, 1, 2, 2, 4, 4]");
-  ASSERT_OK_AND_ASSIGN(Datum out, CallFunction("list_parent_indices", {data}));
-  AssertArraysEqual(*expected, *out.make_array());
+  CheckVectorUnary("list_parent_indices", data, expected);
 }
 
 }  // namespace compute

@@ -45,6 +45,11 @@ all_array_types = [
 ]
 
 
+exported_functions = [
+    func for (name, func) in sorted(pc.__dict__.items())
+    if hasattr(func, '__arrow_compute_function__')]
+
+
 numerical_arrow_types = [
     pa.int8(),
     pa.int16(),
@@ -55,6 +60,21 @@ numerical_arrow_types = [
     pa.float32(),
     pa.float64()
 ]
+
+
+def test_exported_functions():
+    # Check that all exported concrete functions can be called with
+    # the right number of arguments.
+    # Note that unregistered functions (e.g. with a mismatching name)
+    # will raise KeyError.
+    functions = exported_functions
+    assert len(functions) >= 10
+    for func in functions:
+        args = [None] * func.__arrow_compute_function__['arity']
+        with pytest.raises(TypeError,
+                           match="Got unexpected argument type "
+                                 "<class 'NoneType'> for compute function"):
+            func(*args)
 
 
 @pytest.mark.parametrize('arrow_type', numerical_arrow_types)
@@ -89,9 +109,9 @@ def test_sum_chunked_array(arrow_type):
     assert pc.sum(arr).as_py() is None  # noqa: E711
 
 
-def test_binary_contains_exact():
+def test_match_substring():
     arr = pa.array(["ab", "abc", "ba", None])
-    result = pc.binary_contains_exact(arr, "ab")
+    result = pc.match_substring(arr, "ab")
     expected = pa.array([True, True, False, None])
     assert expected.equals(result)
 
