@@ -569,6 +569,10 @@ TEST_F(TestTable, SelectColumns) {
   auto expexted_schema = ::arrow::schema({schema_->field(0), schema_->field(2)});
   auto expected = Table::Make(expexted_schema, {table->column(0), table->column(2)});
   ASSERT_TRUE(subset->Equals(*expected));
+
+  // Out of bounds indices
+  ASSERT_RAISES(Invalid, table->SelectColumns({0, 3}));
+  ASSERT_RAISES(Invalid, table->SelectColumns({-1}));
 }
 
 TEST_F(TestTable, RemoveColumnEmpty) {

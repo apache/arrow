@@ -370,6 +370,9 @@ Result<std::shared_ptr<Table>> Table::SelectColumns(
   std::vector<std::shared_ptr<Field>> fields(n);
   for (int i = 0; i < n; i++) {
     int pos = indices[i];
+    if (pos < 0 || pos > num_columns() - 1) {
+      return Status::Invalid("Invalid column index ", pos, " to select columns.");
+    }
     columns[i] = column(pos);
     fields[i] = field(pos);
   }
