@@ -260,7 +260,7 @@ fn create_primitive_array(
         | Time32(_)
         | Date32(_)
         | Interval(IntervalUnit::YearMonth) => {
-            if buffers[1].len() / 8 == length {
+            if buffers[1].len() / 8 == length && length != 1 {
                 // interpret as a signed i64, and cast appropriately
                 let mut builder = ArrayData::builder(DataType::Int64)
                     .len(length)
@@ -289,7 +289,7 @@ fn create_primitive_array(
             }
         }
         Float32 => {
-            if buffers[1].len() / 8 == length {
+            if buffers[1].len() / 8 == length && length != 1 {
                 // interpret as a f64, and cast appropriately
                 let mut builder = ArrayData::builder(DataType::Float64)
                     .len(length)
@@ -924,6 +924,53 @@ mod tests {
             // the stream must indicate that it's finished
             assert!(reader.is_finished());
         });
+    }
+
+    #[test]
+    fn test_arrow_single_float_row() {
+        let schema = Schema::new(vec![
+            Field::new("a", DataType::Float32, false),
+            Field::new("b", DataType::Float32, false),
+            Field::new("c", DataType::Int32, false),
+            Field::new("d", DataType::Int32, false),
+        ]);
+        let arrays = vec![
+            Arc::new(Float32Array::from(vec![1.23])) as ArrayRef,
+            Arc::new(Float32Array::from(vec![-6.50])) as ArrayRef,
+            Arc::new(Int32Array::from(vec![2])) as ArrayRef,
+            Arc::new(Int32Array::from(vec![1])) as ArrayRef,
+        ];
+        let batch = RecordBatch::try_new(Arc::new(schema.clone()), arrays).unwrap();
+        // create stream writer
+        let file = File::create("target/debug/testdata/float.stream").unwrap();
+        let mut stream_writer =
+            crate::ipc::writer::StreamWriter::try_new(file, &schema).unwrap();
+        stream_writer.write(&batch).unwrap();
+        stream_writer.finish().unwrap();
+
+        // read stream back
+        let file = File::open("target/debug/testdata/float.stream").unwrap();
+        let mut reader = StreamReader::try_new(file).unwrap();
+        while let Some(batch) = reader.next_batch().unwrap() {
+            assert!(
+                batch
+                    .column(0)
+                    .as_any()
+                    .downcast_ref::<Float32Array>()
+                    .unwrap()
+                    .value(0)
+                    != 0.0
+            );
+            assert!(
+                batch
+                    .column(1)
+                    .as_any()
+                    .downcast_ref::<Float32Array>()
+                    .unwrap()
+                    .value(0)
+                    != 0.0
+            );
+        }
     }
 
     /// Read gzipped JSON file
