@@ -54,10 +54,15 @@ such topics as:
    status
    C/GLib <https://arrow.apache.org/docs/c_glib/>
    C++ <cpp/index>
+   C# <https://github.com/apache/arrow/blob/master/csharp/README.md>
+   Go <https://godoc.org/github.com/apache/arrow/go/arrow>
    Java <java/index>
    JavaScript <https://arrow.apache.org/docs/js/>
+   MATLAB <https://github.com/apache/arrow/blob/master/matlab/README.md>
    Python <python/index>
    R <https://arrow.apache.org/docs/r/>
+   Ruby <https://github.com/apache/arrow/blob/master/ruby/README.md>
+   Rust <https://docs.rs/crate/arrow/>
 
 .. _toc.development:
 
