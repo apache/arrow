@@ -499,6 +499,14 @@ impl ArrowDictionaryKeyType for Int32Type {}
 
 impl ArrowDictionaryKeyType for Int64Type {}
 
+impl ArrowDictionaryKeyType for UInt8Type {}
+
+impl ArrowDictionaryKeyType for UInt16Type {}
+
+impl ArrowDictionaryKeyType for UInt32Type {}
+
+impl ArrowDictionaryKeyType for UInt64Type {}
+
 /// A subtype of primitive type that represents numeric values.
 ///
 /// SIMD operations are defined in this trait if available on the target system.
