@@ -26,7 +26,6 @@ import java.util.List;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.memory.util.ArrowBufPointer;
 import org.apache.arrow.memory.util.ByteFunctionHelpers;
 import org.apache.arrow.memory.util.hash.ArrowBufHasher;
 import org.apache.arrow.util.Preconditions;
@@ -869,21 +868,6 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
   }
 
   @Override
-  public ArrowBufPointer getDataPointer(int index) {
-    return getDataPointer(index, new ArrowBufPointer());
-  }
-
-  @Override
-  public ArrowBufPointer getDataPointer(int index, ArrowBufPointer reuse) {
-    if (isNull(index)) {
-      reuse.set(null, 0, 0);
-    } else {
-      reuse.set(valueBuffer, (long) index * typeWidth, typeWidth);
-    }
-    return reuse;
-  }
-
-  @Override
   public int hashCode(int index) {
     return hashCode(index, null);
   }
@@ -891,7 +875,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
   @Override
   public int hashCode(int index, ArrowBufHasher hasher) {
     if (isNull(index)) {
-      return ArrowBufPointer.NULL_HASH_CODE;
+      return ArrowBufHasher.NULL_HASH_CODE;
     }
     long start = (long) typeWidth * index;
     long end = (long) typeWidth * (index + 1);

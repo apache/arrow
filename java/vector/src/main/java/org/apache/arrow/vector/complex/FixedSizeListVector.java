@@ -32,7 +32,6 @@ import java.util.Objects;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
-import org.apache.arrow.memory.util.ArrowBufPointer;
 import org.apache.arrow.memory.util.ByteFunctionHelpers;
 import org.apache.arrow.memory.util.CommonUtil;
 import org.apache.arrow.memory.util.hash.ArrowBufHasher;
@@ -541,7 +540,7 @@ public class FixedSizeListVector extends BaseValueVector implements BaseListVect
   @Override
   public int hashCode(int index, ArrowBufHasher hasher) {
     if (isSet(index) == 0) {
-      return ArrowBufPointer.NULL_HASH_CODE;
+      return ArrowBufHasher.NULL_HASH_CODE;
     }
     int hash = 0;
     for (int i = 0; i < listSize; i++) {

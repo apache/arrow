@@ -15,9 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.memory.util;
+package org.apache.arrow.algorithm.pointer;
 
 import org.apache.arrow.memory.ArrowBuf;
+import org.apache.arrow.memory.util.ByteFunctionHelpers;
 import org.apache.arrow.memory.util.hash.ArrowBufHasher;
 import org.apache.arrow.memory.util.hash.SimpleHasher;
 import org.apache.arrow.util.Preconditions;
@@ -29,15 +30,20 @@ import org.apache.arrow.util.Preconditions;
 public final class ArrowBufPointer {
 
   /**
+   * An immutable pointer with buffer set to null.
+   */
+  public static final ArrowBufPointer NULL_POINTER = new ArrowBufPointer();
+
+  /**
    * The hash code when the arrow buffer is null.
    */
   public static final int NULL_HASH_CODE = 0;
 
-  private ArrowBuf buf;
+  ArrowBuf buf;
 
-  private long offset;
+  long offset;
 
-  private long length;
+  long length;
 
   private int hashCode = NULL_HASH_CODE;
 

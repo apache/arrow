@@ -22,7 +22,6 @@ import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.memory.util.ArrowBufPointer;
 import org.apache.arrow.memory.util.hash.ArrowBufHasher;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.complex.impl.BitReaderImpl;
@@ -467,19 +466,9 @@ public final class BitVector extends BaseFixedWidthVector {
   }
 
   @Override
-  public ArrowBufPointer getDataPointer(int index) {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public ArrowBufPointer getDataPointer(int index, ArrowBufPointer reuse) {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
   public int hashCode(int index) {
     if (isNull(index)) {
-      return ArrowBufPointer.NULL_HASH_CODE;
+      return ArrowBufHasher.NULL_HASH_CODE;
     } else {
       if (get(index) == 0) {
         return HASH_CODE_FOR_ZERO;

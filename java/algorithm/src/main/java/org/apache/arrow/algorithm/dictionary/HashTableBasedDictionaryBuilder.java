@@ -19,7 +19,8 @@ package org.apache.arrow.algorithm.dictionary;
 
 import java.util.HashMap;
 
-import org.apache.arrow.memory.util.ArrowBufPointer;
+import org.apache.arrow.algorithm.pointer.ArrowBufPointer;
+import org.apache.arrow.algorithm.pointer.ArrowBufPointerPopulator;
 import org.apache.arrow.memory.util.hash.ArrowBufHasher;
 import org.apache.arrow.memory.util.hash.SimpleHasher;
 import org.apache.arrow.vector.ElementAddressableVector;
@@ -68,6 +69,8 @@ public class HashTableBasedDictionaryBuilder<V extends ElementAddressableVector>
     this(dictionary, false);
   }
 
+  private final ArrowBufPointerPopulator pointerPopulator;
+
   /**
    * Constructs a hash table based dictionary builder.
    *
@@ -90,6 +93,7 @@ public class HashTableBasedDictionaryBuilder<V extends ElementAddressableVector>
     this.encodeNull = encodeNull;
     this.hasher = hasher;
     this.nextPointer = new ArrowBufPointer(hasher);
+    this.pointerPopulator = new ArrowBufPointerPopulator(nextPointer);
   }
 
   /**
@@ -130,7 +134,7 @@ public class HashTableBasedDictionaryBuilder<V extends ElementAddressableVector>
    */
   @Override
   public int addValue(V targetVector, int targetIndex) {
-    targetVector.getDataPointer(targetIndex, nextPointer);
+    targetVector.accept(pointerPopulator, targetIndex);
 
     Integer index = hashMap.get(nextPointer);
     if (index == null) {
@@ -140,11 +144,12 @@ public class HashTableBasedDictionaryBuilder<V extends ElementAddressableVector>
       int dictSize = dictionary.getValueCount();
       dictionary.copyFromSafe(targetIndex, dictSize, targetVector);
       dictionary.setValueCount(dictSize + 1);
-      dictionary.getDataPointer(dictSize, nextPointer);
+      dictionary.accept(pointerPopulator, dictSize);
 
       // insert it to the hash map
       hashMap.put(nextPointer, dictSize);
       nextPointer = new ArrowBufPointer(hasher);
+      pointerPopulator.setPointer(nextPointer);
 
       return dictSize;
     }

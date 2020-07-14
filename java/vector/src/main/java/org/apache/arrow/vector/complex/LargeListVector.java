@@ -30,7 +30,6 @@ import java.util.List;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
-import org.apache.arrow.memory.util.ArrowBufPointer;
 import org.apache.arrow.memory.util.ByteFunctionHelpers;
 import org.apache.arrow.memory.util.CommonUtil;
 import org.apache.arrow.memory.util.hash.ArrowBufHasher;
@@ -514,7 +513,7 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
   @Override
   public int hashCode(int index, ArrowBufHasher hasher) {
     if (isSet(index) == 0) {
-      return ArrowBufPointer.NULL_HASH_CODE;
+      return ArrowBufHasher.NULL_HASH_CODE;
     }
     int hash = 0;
     final long start = offsetBuffer.getLong((long) index * OFFSET_WIDTH);

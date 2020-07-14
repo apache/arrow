@@ -15,10 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.memory.util;
+package org.apache.arrow.util;
 
 import java.util.concurrent.TimeUnit;
 
+import org.apache.arrow.algorithm.pointer.ArrowBufPointer;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;

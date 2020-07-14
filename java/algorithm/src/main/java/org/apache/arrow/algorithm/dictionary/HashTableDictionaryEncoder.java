@@ -19,7 +19,8 @@ package org.apache.arrow.algorithm.dictionary;
 
 import java.util.HashMap;
 
-import org.apache.arrow.memory.util.ArrowBufPointer;
+import org.apache.arrow.algorithm.pointer.ArrowBufPointer;
+import org.apache.arrow.algorithm.pointer.ArrowBufPointerPopulator;
 import org.apache.arrow.memory.util.hash.ArrowBufHasher;
 import org.apache.arrow.memory.util.hash.SimpleHasher;
 import org.apache.arrow.vector.BaseIntVector;
@@ -38,6 +39,8 @@ public class HashTableDictionaryEncoder<E extends BaseIntVector, D extends Eleme
    * It must be sorted.
    */
   private final D dictionary;
+
+  private ArrowBufPointerPopulator pointerPopulator = new ArrowBufPointerPopulator(null);
 
   /**
    * The hasher used to compute the hash code.
@@ -114,7 +117,8 @@ public class HashTableDictionaryEncoder<E extends BaseIntVector, D extends Eleme
   private void buildHashMap() {
     for (int i = 0; i < dictionary.getValueCount(); i++) {
       ArrowBufPointer pointer = new ArrowBufPointer(hasher);
-      dictionary.getDataPointer(i, pointer);
+      pointerPopulator.setPointer(pointer);
+      dictionary.accept(pointerPopulator, i);
       hashMap.put(pointer, i);
     }
   }
@@ -133,7 +137,8 @@ public class HashTableDictionaryEncoder<E extends BaseIntVector, D extends Eleme
         continue;
       }
 
-      input.getDataPointer(i, reusablePointer);
+      pointerPopulator.setPointer(reusablePointer);
+      input.accept(pointerPopulator, i);
       Integer index = hashMap.get(reusablePointer);
 
       if (index == null) {

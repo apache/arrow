@@ -19,7 +19,8 @@ package org.apache.arrow.algorithm.sort;
 
 import static org.apache.arrow.vector.complex.BaseRepeatedValueVector.OFFSET_WIDTH;
 
-import org.apache.arrow.memory.util.ArrowBufPointer;
+import org.apache.arrow.algorithm.pointer.ArrowBufPointer;
+import org.apache.arrow.algorithm.pointer.ArrowBufPointerPopulator;
 import org.apache.arrow.memory.util.ByteFunctionHelpers;
 import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.BaseVariableWidthVector;
@@ -351,21 +352,31 @@ public class DefaultVectorComparators {
    */
   public static class VariableWidthComparator extends VectorValueComparator<BaseVariableWidthVector> {
 
-    private ArrowBufPointer reusablePointer1 = new ArrowBufPointer();
+    private final ArrowBufPointerPopulator pointerPopulator = new ArrowBufPointerPopulator(null);
 
-    private ArrowBufPointer reusablePointer2 = new ArrowBufPointer();
+    private final ArrowBufPointer reusablePointer1 = new ArrowBufPointer();
+
+    private final ArrowBufPointer reusablePointer2 = new ArrowBufPointer();
 
     @Override
     public int compare(int index1, int index2) {
-      vector1.getDataPointer(index1, reusablePointer1);
-      vector2.getDataPointer(index2, reusablePointer2);
+      pointerPopulator.setPointer(reusablePointer1);
+      vector1.accept(pointerPopulator, index1);
+
+      pointerPopulator.setPointer(reusablePointer2);
+      vector2.accept(pointerPopulator, index2);
+
       return reusablePointer1.compareTo(reusablePointer2);
     }
 
     @Override
     public int compareNotNull(int index1, int index2) {
-      vector1.getDataPointer(index1, reusablePointer1);
-      vector2.getDataPointer(index2, reusablePointer2);
+      pointerPopulator.setPointer(reusablePointer1);
+      vector1.accept(pointerPopulator, index1);
+
+      pointerPopulator.setPointer(reusablePointer2);
+      vector2.accept(pointerPopulator, index2);
+
       return reusablePointer1.compareTo(reusablePointer2);
     }
 

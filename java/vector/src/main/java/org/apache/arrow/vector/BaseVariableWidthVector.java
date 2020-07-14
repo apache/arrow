@@ -27,7 +27,6 @@ import java.util.List;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
-import org.apache.arrow.memory.util.ArrowBufPointer;
 import org.apache.arrow.memory.util.ByteFunctionHelpers;
 import org.apache.arrow.memory.util.CommonUtil;
 import org.apache.arrow.memory.util.hash.ArrowBufHasher;
@@ -1357,23 +1356,6 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
   }
 
   @Override
-  public ArrowBufPointer getDataPointer(int index) {
-    return getDataPointer(index, new ArrowBufPointer());
-  }
-
-  @Override
-  public ArrowBufPointer getDataPointer(int index, ArrowBufPointer reuse) {
-    if (isNull(index)) {
-      reuse.set(null, 0, 0);
-    } else {
-      int offset = offsetBuffer.getInt((long) index * OFFSET_WIDTH);
-      int length = offsetBuffer.getInt((long) (index + 1) * OFFSET_WIDTH) - offset;
-      reuse.set(valueBuffer, offset, length);
-    }
-    return reuse;
-  }
-
-  @Override
   public int hashCode(int index) {
     return hashCode(index, null);
   }
@@ -1381,7 +1363,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
   @Override
   public int hashCode(int index, ArrowBufHasher hasher) {
     if (isNull(index)) {
-      return ArrowBufPointer.NULL_HASH_CODE;
+      return ArrowBufHasher.NULL_HASH_CODE;
     }
     final int start = getStartOffset(index);
     final int end = getStartOffset(index + 1);

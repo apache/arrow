@@ -15,14 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.vector.util;
+package org.apache.arrow.algorithm.pointer;
 
 import static junit.framework.TestCase.assertNull;
 import static org.junit.Assert.assertEquals;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-import org.apache.arrow.memory.util.ArrowBufPointer;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.junit.After;

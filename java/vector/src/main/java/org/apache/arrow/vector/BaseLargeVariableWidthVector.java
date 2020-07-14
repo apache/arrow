@@ -27,7 +27,6 @@ import java.util.List;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
-import org.apache.arrow.memory.util.ArrowBufPointer;
 import org.apache.arrow.memory.util.ByteFunctionHelpers;
 import org.apache.arrow.memory.util.CommonUtil;
 import org.apache.arrow.memory.util.hash.ArrowBufHasher;
@@ -611,7 +610,7 @@ public abstract class BaseLargeVariableWidthVector extends BaseValueVector
    *
    * @param clear Whether to clear vector before returning; the buffers will still be refcounted
    *              but the returned array will be the only reference to them
-   * @return The underlying {@link io.netty.buffer.ArrowBuf buffers} that is used by this
+   * @return The underlying {@link ArrowBuf buffers} that is used by this
    *         vector instance.
    */
   @Override
@@ -1322,23 +1321,6 @@ public abstract class BaseLargeVariableWidthVector extends BaseValueVector
   }
 
   @Override
-  public ArrowBufPointer getDataPointer(int index) {
-    return getDataPointer(index, new ArrowBufPointer());
-  }
-
-  @Override
-  public ArrowBufPointer getDataPointer(int index, ArrowBufPointer reuse) {
-    if (isNull(index)) {
-      reuse.set(null, 0, 0);
-    } else {
-      long offset = offsetBuffer.getLong((long) index * OFFSET_WIDTH);
-      int length = (int) (offsetBuffer.getLong((long) (index + 1) * OFFSET_WIDTH) - offset);
-      reuse.set(valueBuffer, offset, length);
-    }
-    return reuse;
-  }
-
-  @Override
   public int hashCode(int index) {
     return hashCode(index, null);
   }
@@ -1346,7 +1328,7 @@ public abstract class BaseLargeVariableWidthVector extends BaseValueVector
   @Override
   public int hashCode(int index, ArrowBufHasher hasher) {
     if (isNull(index)) {
-      return ArrowBufPointer.NULL_HASH_CODE;
+      return ArrowBufHasher.NULL_HASH_CODE;
     }
     final long start = getStartOffset(index);
     final long end = getStartOffset(index + 1);

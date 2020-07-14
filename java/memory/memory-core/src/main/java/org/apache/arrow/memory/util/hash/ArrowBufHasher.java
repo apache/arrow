@@ -29,6 +29,11 @@ import org.apache.arrow.memory.ArrowBuf;
 public interface ArrowBufHasher {
 
   /**
+   * The hash code for null.
+   */
+  int NULL_HASH_CODE = 0;
+
+  /**
    * Calculates the hash code for a memory region.
    * @param address start address of the memory region.
    * @param length length of the memory region.

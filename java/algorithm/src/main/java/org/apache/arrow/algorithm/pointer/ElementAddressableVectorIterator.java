@@ -15,11 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.vector.util;
+package org.apache.arrow.algorithm.pointer;
 
 import java.util.Iterator;
 
-import org.apache.arrow.memory.util.ArrowBufPointer;
 import org.apache.arrow.memory.util.hash.ArrowBufHasher;
 import org.apache.arrow.memory.util.hash.SimpleHasher;
 import org.apache.arrow.vector.ElementAddressableVector;
@@ -38,7 +37,9 @@ public class ElementAddressableVectorIterator<T extends ElementAddressableVector
    */
   private int index = 0;
 
-  private final ArrowBufPointer reusablePointer;
+  private final ArrowBufPointerGenerator pointerGenerator;
+
+  private final ArrowBufPointerPopulator pointerPopulator;
 
   /**
    * Constructs an iterator for the {@link ElementAddressableVector}.
@@ -55,7 +56,8 @@ public class ElementAddressableVectorIterator<T extends ElementAddressableVector
    */
   public ElementAddressableVectorIterator(T vector, ArrowBufHasher hasher) {
     this.vector = vector;
-    reusablePointer = new ArrowBufPointer(hasher);
+    pointerGenerator = new ArrowBufPointerGenerator();
+    pointerPopulator = new ArrowBufPointerPopulator(null);
   }
 
   @Override
@@ -66,13 +68,12 @@ public class ElementAddressableVectorIterator<T extends ElementAddressableVector
   /**
    * Retrieves the next pointer from the vector.
    * @return the pointer pointing to the next element in the vector.
-   *     Note that the returned pointer is only valid before the next call to this method.
    */
   @Override
   public ArrowBufPointer next() {
-    vector.getDataPointer(index, reusablePointer);
+    ArrowBufPointer ret = vector.accept(pointerGenerator, index);
     index += 1;
-    return reusablePointer;
+    return ret;
   }
 
   /**
@@ -80,7 +81,11 @@ public class ElementAddressableVectorIterator<T extends ElementAddressableVector
    * @param outPointer the pointer to populate.
    */
   public void next(ArrowBufPointer outPointer) {
-    vector.getDataPointer(index, outPointer);
+    if (outPointer == null) {
+      throw new NullPointerException();
+    }
+    pointerPopulator.setPointer(outPointer);
+    vector.accept(pointerPopulator, index);
     index += 1;
   }
 }

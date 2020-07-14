@@ -15,18 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.memory.util;
+package org.apache.arrow.algorithm.pointer;
 
 import static junit.framework.TestCase.assertEquals;
 import static junit.framework.TestCase.assertTrue;
-import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.memory.util.hash.ArrowBufHasher;
 import org.apache.arrow.memory.util.hash.SimpleHasher;
+import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.VarCharVector;
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -52,7 +56,7 @@ public class TestArrowBufPointer {
   @Test
   public void testArrowBufPointersEqual() {
     try (ArrowBuf buf1 = allocator.buffer(BUFFER_LENGTH);
-        ArrowBuf buf2 = allocator.buffer(BUFFER_LENGTH)) {
+         ArrowBuf buf2 = allocator.buffer(BUFFER_LENGTH)) {
       for (int i = 0; i < BUFFER_LENGTH / 4; i++) {
         buf1.setInt(i * 4, i * 1234);
         buf2.setInt(i * 4, i * 1234);
@@ -180,6 +184,84 @@ public class TestArrowBufPointer {
       pointer1.set(buf1, 1, 5);
       pointer2.set(buf2, 3, 8);
       assertTrue(pointer1.compareTo(pointer2) < 0);
+    }
+  }
+
+  @Test
+  public void testGetPointerFixedWidth() {
+    final int vectorLength = 100;
+    ArrowBufPointerPopulator pointerPopulator = new ArrowBufPointerPopulator(null);
+    try (IntVector vec1 = new IntVector("vec1", allocator);
+         IntVector vec2 = new IntVector("vec2", allocator)) {
+      vec1.allocateNew(vectorLength);
+      vec2.allocateNew(vectorLength);
+
+      for (int i = 0; i < vectorLength; i++) {
+        if (i % 10 == 0) {
+          vec1.setNull(i);
+          vec2.setNull(i);
+        } else {
+          vec1.set(i, i * 1234);
+          vec2.set(i, i * 1234);
+        }
+      }
+
+      ArrowBufPointer ptr1 = new ArrowBufPointer();
+      ArrowBufPointer ptr2 = new ArrowBufPointer();
+
+      for (int i = 0; i < vectorLength; i++) {
+        pointerPopulator.setPointer(ptr1);
+        vec1.accept(pointerPopulator, i);
+
+        pointerPopulator.setPointer(ptr2);
+        vec2.accept(pointerPopulator, i);
+
+        if (i % 10 == 0) {
+          assertNull(ptr1.getBuf());
+          assertNull(ptr2.getBuf());
+        }
+
+        Assert.assertTrue(ptr1.equals(ptr2));
+        Assert.assertTrue(ptr2.equals(ptr2));
+      }
+    }
+  }
+
+  @Test
+  public void testGetPointerVariableWidth() {
+    ArrowBufPointerPopulator pointerPopulator = new ArrowBufPointerPopulator(null);
+    final String[] sampleData = new String[]{
+        "abc", "123", "def", null, "hello", "aaaaa", "world", "2019", null, "0717"};
+
+    try (VarCharVector vec1 = new VarCharVector("vec1", allocator);
+         VarCharVector vec2 = new VarCharVector("vec2", allocator)) {
+      vec1.allocateNew(sampleData.length * 10, sampleData.length);
+      vec2.allocateNew(sampleData.length * 10, sampleData.length);
+
+      for (int i = 0; i < sampleData.length; i++) {
+        String str = sampleData[i];
+        if (str != null) {
+          vec1.set(i, sampleData[i].getBytes());
+          vec2.set(i, sampleData[i].getBytes());
+        } else {
+          vec1.setNull(i);
+          vec2.setNull(i);
+        }
+      }
+
+      ArrowBufPointer ptr1 = new ArrowBufPointer();
+      ArrowBufPointer ptr2 = new ArrowBufPointer();
+
+      for (int i = 0; i < sampleData.length; i++) {
+        pointerPopulator.setPointer(ptr1);
+        vec1.accept(pointerPopulator, i);
+
+        pointerPopulator.setPointer(ptr2);
+        vec2.accept(pointerPopulator, i);
+
+        Assert.assertTrue(ptr1.equals(ptr2));
+        Assert.assertTrue(ptr2.equals(ptr2));
+      }
     }
   }
 
