@@ -52,3 +52,10 @@ expect_match_arg_error <- function(object, values=c()) {
 }
 
 expect_deprecated <- expect_warning
+
+verify_output <- function(...) {
+  if (isTRUE(grepl("conda", R.Version()$platform))) {
+    skip("On conda")
+  }
+  testthat::verify_output(...)
+}
