@@ -189,7 +189,7 @@ read_schema <- function(stream, ...) {
 #' \dontrun{
 #' a <- schema(b = double(), c = bool())
 #' z <- schema(b = double(), k = utf8())
-#' unify_schemas(a, z),
+#' unify_schemas(a, z)
 #' }
 unify_schemas <- function(..., schemas = list(...)) {
   shared_ptr(Schema, arrow__UnifySchemas(schemas))
