@@ -36,6 +36,11 @@ ARG spark=master
 COPY ci/scripts/install_spark.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_spark.sh ${spark} /spark
 
+# patch spark to build with current Arrow Java
+COPY /arrow/ci/scripts/integration_spark_ARROW-9438.patch /tmp/
+RUN patch -d /spark -p1 -i /tmp/integration_spark_ARROW-9438.patch && \
+    rm /tmp/integration_spark_ARROW-9438.patch
+
 # build cpp with tests
 ENV CC=gcc \
     CXX=g++ \
