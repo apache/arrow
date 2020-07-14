@@ -47,10 +47,10 @@ void AddMeanAvx512AggKernels(ScalarAggregateFunction* func);
 // ----------------------------------------------------------------------
 // Sum implementation
 
-template <int64_t kRoundSize, typename ArrowType>
+template <int64_t kRoundSize, typename ArrowType, SimdLevel::type simd_level>
 struct SumState {
   using SumType = typename FindAccumulatorType<ArrowType>::Type;
-  using ThisType = SumState<kRoundSize, ArrowType>;
+  using ThisType = SumState<kRoundSize, ArrowType, simd_level>;
   using T = typename TypeTraits<ArrowType>::CType;
   using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
 
@@ -211,10 +211,10 @@ struct SumState {
   }
 };
 
-template <int64_t kRoundSize>
-struct SumState<kRoundSize, BooleanType> {
+template <int64_t kRoundSize, SimdLevel::type simd_level>
+struct SumState<kRoundSize, BooleanType, simd_level> {
   using SumType = typename FindAccumulatorType<BooleanType>::Type;
-  using ThisType = SumState<kRoundSize, BooleanType>;
+  using ThisType = SumState<kRoundSize, BooleanType, simd_level>;
 
   ThisType& operator+=(const ThisType& rhs) {
     this->count += rhs.count;
@@ -233,10 +233,10 @@ struct SumState<kRoundSize, BooleanType> {
   typename SumType::c_type sum = 0;
 };
 
-template <uint64_t kRoundSize, typename ArrowType>
+template <uint64_t kRoundSize, typename ArrowType, SimdLevel::type simd_level>
 struct SumImpl : public ScalarAggregator {
   using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
-  using ThisType = SumImpl<kRoundSize, ArrowType>;
+  using ThisType = SumImpl<kRoundSize, ArrowType, simd_level>;
   using SumType = typename FindAccumulatorType<ArrowType>::Type;
   using OutputType = typename TypeTraits<SumType>::ScalarType;
 
@@ -257,11 +257,11 @@ struct SumImpl : public ScalarAggregator {
     }
   }
 
-  SumState<kRoundSize, ArrowType> state;
+  SumState<kRoundSize, ArrowType, simd_level> state;
 };
 
-template <int64_t kRoundSize, typename ArrowType>
-struct MeanImpl : public SumImpl<kRoundSize, ArrowType> {
+template <int64_t kRoundSize, typename ArrowType, SimdLevel::type simd_level>
+struct MeanImpl : public SumImpl<kRoundSize, ArrowType, simd_level> {
   void Finalize(KernelContext*, Datum* out) override {
     const bool is_valid = this->state.count > 0;
     const double divisor = static_cast<double>(is_valid ? this->state.count : 1UL);

@@ -111,12 +111,12 @@ struct RoundSizeDefault<uint32_t> {
 template <typename ArrowType>
 struct SumImplDefault
     : public SumImpl<RoundSizeDefault<typename TypeTraits<ArrowType>::CType>::size,
-                     ArrowType> {};
+                     ArrowType, SimdLevel::NONE> {};
 
 template <typename ArrowType>
 struct MeanImplDefault
     : public MeanImpl<RoundSizeDefault<typename TypeTraits<ArrowType>::CType>::size,
-                      ArrowType> {};
+                      ArrowType, SimdLevel::NONE> {};
 
 std::unique_ptr<KernelState> SumInit(KernelContext* ctx, const KernelInitArgs& args) {
   SumLikeInit<SumImplDefault> visitor(ctx, *args.inputs[0].type);

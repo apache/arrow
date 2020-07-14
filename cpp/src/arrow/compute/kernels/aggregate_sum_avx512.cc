@@ -49,12 +49,12 @@ struct RoundSizeAvx512<uint32_t> {
 template <typename ArrowType>
 struct SumImplAvx512
     : public SumImpl<RoundSizeAvx512<typename TypeTraits<ArrowType>::CType>::size,
-                     ArrowType> {};
+                     ArrowType, SimdLevel::AVX512> {};
 
 template <typename ArrowType>
 struct MeanImplAvx512
     : public MeanImpl<RoundSizeAvx512<typename TypeTraits<ArrowType>::CType>::size,
-                      ArrowType> {};
+                      ArrowType, SimdLevel::AVX512> {};
 
 std::unique_ptr<KernelState> SumInitAvx512(KernelContext* ctx,
                                            const KernelInitArgs& args) {
