@@ -22,6 +22,7 @@
 
 #include "arrow/filesystem/hdfs.h"
 #include "arrow/filesystem/path_util.h"
+#include "arrow/filesystem/util_internal.h"
 #include "arrow/io/hdfs.h"
 #include "arrow/io/hdfs_internal.h"
 #include "arrow/util/checked_cast.h"
@@ -278,6 +279,10 @@ void HdfsOptions::ConfigureBlockSize(int64_t default_block_size) {
   this->default_block_size = default_block_size;
 }
 
+void HdfsOptions::ConfigureExtraConf(std::string key, std::string val) {
+  connection_config.extra_conf.emplace(std::move(key), std::move(val));
+}
+
 bool HdfsOptions::Equals(const HdfsOptions& other) const {
   return (buffer_size == other.buffer_size && replication == other.replication &&
           default_block_size == other.default_block_size &&
@@ -318,6 +323,7 @@ Result<HdfsOptions> HdfsOptions::FromUri(const Uri& uri) {
       return Status::Invalid("Invalid value for option 'replication': '", v, "'");
     }
     options.ConfigureReplication(replication);
+    options_map.erase(it);
   }
 
   // configure buffer_size
@@ -329,6 +335,7 @@ Result<HdfsOptions> HdfsOptions::FromUri(const Uri& uri) {
       return Status::Invalid("Invalid value for option 'buffer_size': '", v, "'");
     }
     options.ConfigureBufferSize(buffer_size);
+    options_map.erase(it);
   }
 
   // configure default_block_size
@@ -340,6 +347,7 @@ Result<HdfsOptions> HdfsOptions::FromUri(const Uri& uri) {
       return Status::Invalid("Invalid value for option 'default_block_size': '", v, "'");
     }
     options.ConfigureBlockSize(default_block_size);
+    options_map.erase(it);
   }
 
   // configure user
@@ -347,6 +355,20 @@ Result<HdfsOptions> HdfsOptions::FromUri(const Uri& uri) {
   if (it != options_map.end()) {
     const auto& user = it->second;
     options.ConfigureUser(user);
+    options_map.erase(it);
+  }
+
+  // configure kerberos
+  it = options_map.find("kerb_ticket");
+  if (it != options_map.end()) {
+    const auto& ticket = it->second;
+    options.ConfigureKerberosTicketCachePath(ticket);
+    options_map.erase(it);
+  }
+
+  // configure other options
+  for (const auto& it : options_map) {
+    options.ConfigureExtraConf(it.first, it.second);
   }
 
   return options;
@@ -400,8 +422,13 @@ Status HadoopFileSystem::DeleteDir(const std::string& path) {
 }
 
 Status HadoopFileSystem::DeleteDirContents(const std::string& path) {
+  if (internal::IsEmptyPath(path)) {
+    return internal::InvalidDeleteDirContents(path);
+  }
   return impl_->DeleteDirContents(path);
 }
+
+Status HadoopFileSystem::DeleteRootDirContents() { return impl_->DeleteDirContents(""); }
 
 Status HadoopFileSystem::DeleteFile(const std::string& path) {
   return impl_->DeleteFile(path);

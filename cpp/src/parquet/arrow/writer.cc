@@ -31,6 +31,7 @@
 #include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/util/base64.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/make_unique.h"
 #include "arrow/visitor_inline.h"
 #include "parquet/arrow/path_internal.h"

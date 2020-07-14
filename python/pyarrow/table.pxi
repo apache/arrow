@@ -41,10 +41,6 @@ cdef class ChunkedArray(_PandasConvertible):
     def __reduce__(self):
         return chunked_array, (self.chunks, self.type)
 
-    def __richcmp__(self, other, int op):
-        function_name = _op_to_function_name(op)
-        return _pc().call_function(function_name, [self, other])
-
     @property
     def data(self):
         import warnings
@@ -176,6 +172,30 @@ cdef class ChunkedArray(_PandasConvertible):
                 return self.chunk(j)[index]
             else:
                 index -= self.chunked_array.chunk(j).get().length()
+
+    def is_null(self):
+        """
+        Return BooleanArray indicating the null values.
+        """
+        return _pc().is_null(self)
+
+    def is_valid(self):
+        """
+        Return BooleanArray indicating the non-null values.
+        """
+        return _pc().is_valid(self)
+
+    def __eq__(self, other):
+        try:
+            return self.equals(other)
+        except TypeError:
+            return NotImplemented
+
+    def fill_null(self, fill_value):
+        """
+        See pyarrow.compute.fill_null docstring for usage.
+        """
+        return _pc().fill_null(self, fill_value)
 
     def equals(self, ChunkedArray other):
         """
@@ -1914,7 +1934,7 @@ def record_batch(data, names=None, schema=None, metadata=None):
         raise TypeError("Expected pandas DataFrame or list of arrays")
 
 
-def table(data, names=None, schema=None, metadata=None):
+def table(data, names=None, schema=None, metadata=None, nthreads=None):
     """
     Create a pyarrow.Table from a Python data structure or sequence of arrays.
 
@@ -1934,6 +1954,9 @@ def table(data, names=None, schema=None, metadata=None):
         specified in the schema, when data is a dict or DataFrame).
     metadata : dict or Mapping, default None
         Optional metadata for the schema (if schema not passed).
+    nthreads : int, default None (may use up to system CPU count threads)
+        For pandas.DataFrame inputs: if greater than 1, convert columns to
+        Arrow in parallel using indicated number of threads.
 
     Returns
     -------
@@ -1961,7 +1984,7 @@ def table(data, names=None, schema=None, metadata=None):
             raise ValueError(
                 "The 'names' and 'metadata' arguments are not valid when "
                 "passing a pandas DataFrame")
-        return Table.from_pandas(data, schema=schema)
+        return Table.from_pandas(data, schema=schema, nthreads=nthreads)
     else:
         raise TypeError(
             "Expected pandas DataFrame, python dictionary or list of arrays")

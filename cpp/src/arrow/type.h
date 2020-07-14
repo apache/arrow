@@ -21,6 +21,7 @@
 #include <climits>
 #include <cstdint>
 #include <iosfwd>
+#include <limits>
 #include <memory>
 #include <string>
 #include <utility>
@@ -28,6 +29,7 @@
 
 #include "arrow/result.h"
 #include "arrow/type_fwd.h"  // IWYU pragma: export
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/variant.h"
 #include "arrow/util/visibility.h"
@@ -127,8 +129,11 @@ struct Type {
     /// Struct of logical types
     STRUCT,
 
-    /// Unions of logical types
-    UNION,
+    /// Sparse unions of logical types
+    SPARSE_UNION,
+
+    /// Dense unions of logical types
+    DENSE_UNION,
 
     /// Dictionary-encoded type, also called "categorical" or "factor"
     /// in other programming languages. Holds the dictionary value
@@ -482,6 +487,7 @@ class ARROW_EXPORT CTypeImpl : public BASE {
  public:
   static constexpr Type::type type_id = TYPE_ID;
   using c_type = C_TYPE;
+  using PhysicalType = DERIVED;
 
   CTypeImpl() : BASE(TYPE_ID) {}
 
@@ -816,12 +822,15 @@ class ARROW_EXPORT BaseBinaryType : public DataType {
   using DataType::DataType;
 };
 
+constexpr int64_t kBinaryMemoryLimit = std::numeric_limits<int32_t>::max() - 1;
+
 /// \brief Concrete type class for variable-size binary data
 class ARROW_EXPORT BinaryType : public BaseBinaryType {
  public:
   static constexpr Type::type type_id = Type::BINARY;
   static constexpr bool is_utf8 = false;
   using offset_type = int32_t;
+  using PhysicalType = BinaryType;
 
   static constexpr const char* type_name() { return "binary"; }
 
@@ -849,6 +858,7 @@ class ARROW_EXPORT LargeBinaryType : public BaseBinaryType {
   static constexpr Type::type type_id = Type::LARGE_BINARY;
   static constexpr bool is_utf8 = false;
   using offset_type = int64_t;
+  using PhysicalType = LargeBinaryType;
 
   static constexpr const char* type_name() { return "large_binary"; }
 
@@ -875,7 +885,7 @@ class ARROW_EXPORT StringType : public BinaryType {
  public:
   static constexpr Type::type type_id = Type::STRING;
   static constexpr bool is_utf8 = true;
-  using EquivalentBinaryType = BinaryType;
+  using PhysicalType = BinaryType;
 
   static constexpr const char* type_name() { return "utf8"; }
 
@@ -893,7 +903,7 @@ class ARROW_EXPORT LargeStringType : public LargeBinaryType {
  public:
   static constexpr Type::type type_id = Type::LARGE_STRING;
   static constexpr bool is_utf8 = true;
-  using EquivalentBinaryType = LargeBinaryType;
+  using PhysicalType = LargeBinaryType;
 
   static constexpr const char* type_name() { return "large_utf8"; }
 
@@ -1015,25 +1025,22 @@ class ARROW_EXPORT Decimal128Type : public DecimalType {
 /// \brief Concrete type class for union data
 class ARROW_EXPORT UnionType : public NestedType {
  public:
-  static constexpr Type::type type_id = Type::UNION;
   static constexpr int8_t kMaxTypeCode = 127;
   static constexpr int kInvalidChildId = -1;
 
-  static constexpr const char* type_name() { return "union"; }
-
-  UnionType(const std::vector<std::shared_ptr<Field>>& fields,
-            const std::vector<int8_t>& type_codes,
-            UnionMode::type mode = UnionMode::SPARSE);
-
-  // A constructor variant that validates input parameters
   static Result<std::shared_ptr<DataType>> Make(
       const std::vector<std::shared_ptr<Field>>& fields,
-      const std::vector<int8_t>& type_codes, UnionMode::type mode = UnionMode::SPARSE);
+      const std::vector<int8_t>& type_codes, UnionMode::type mode = UnionMode::SPARSE) {
+    if (mode == UnionMode::SPARSE) {
+      return sparse_union(fields, type_codes);
+    } else {
+      return dense_union(fields, type_codes);
+    }
+  }
 
   DataTypeLayout layout() const override;
 
   std::string ToString() const override;
-  std::string name() const override { return "union"; }
 
   /// The array of logical type ids.
   ///
@@ -1046,25 +1053,57 @@ class ARROW_EXPORT UnionType : public NestedType {
 
   uint8_t max_type_code() const;
 
-  UnionMode::type mode() const { return mode_; }
+  UnionMode::type mode() const;
 
- private:
-  std::string ComputeFingerprint() const override;
+ protected:
+  UnionType(std::vector<std::shared_ptr<Field>> fields, std::vector<int8_t> type_codes,
+            Type::type id);
 
   static Status ValidateParameters(const std::vector<std::shared_ptr<Field>>& fields,
                                    const std::vector<int8_t>& type_codes,
                                    UnionMode::type mode);
 
-  UnionMode::type mode_;
+ private:
+  std::string ComputeFingerprint() const override;
 
   std::vector<int8_t> type_codes_;
   std::vector<int> child_ids_;
 };
 
+class ARROW_EXPORT SparseUnionType : public UnionType {
+ public:
+  static constexpr Type::type type_id = Type::SPARSE_UNION;
+
+  static constexpr const char* type_name() { return "sparse_union"; }
+
+  SparseUnionType(std::vector<std::shared_ptr<Field>> fields,
+                  std::vector<int8_t> type_codes);
+
+  // A constructor variant that validates input parameters
+  static Result<std::shared_ptr<DataType>> Make(
+      std::vector<std::shared_ptr<Field>> fields, std::vector<int8_t> type_codes);
+
+  std::string name() const override { return "sparse_union"; }
+};
+
+class ARROW_EXPORT DenseUnionType : public UnionType {
+ public:
+  static constexpr Type::type type_id = Type::DENSE_UNION;
+
+  static constexpr const char* type_name() { return "dense_union"; }
+
+  DenseUnionType(std::vector<std::shared_ptr<Field>> fields,
+                 std::vector<int8_t> type_codes);
+
+  // A constructor variant that validates input parameters
+  static Result<std::shared_ptr<DataType>> Make(
+      std::vector<std::shared_ptr<Field>> fields, std::vector<int8_t> type_codes);
+
+  std::string name() const override { return "dense_union"; }
+};
+
 // ----------------------------------------------------------------------
 // Date and time types
-
-enum class DateUnit : char { DAY = 0, MILLI = 1 };
 
 /// \brief Base type for all date and time types
 class ARROW_EXPORT TemporalType : public FixedWidthType {
@@ -1092,6 +1131,7 @@ class ARROW_EXPORT Date32Type : public DateType {
   static constexpr Type::type type_id = Type::DATE32;
   static constexpr DateUnit UNIT = DateUnit::DAY;
   using c_type = int32_t;
+  using PhysicalType = Int32Type;
 
   static constexpr const char* type_name() { return "date32"; }
 
@@ -1114,6 +1154,7 @@ class ARROW_EXPORT Date64Type : public DateType {
   static constexpr Type::type type_id = Type::DATE64;
   static constexpr DateUnit UNIT = DateUnit::MILLI;
   using c_type = int64_t;
+  using PhysicalType = Int64Type;
 
   static constexpr const char* type_name() { return "date64"; }
 
@@ -1151,6 +1192,7 @@ class ARROW_EXPORT Time32Type : public TimeType {
  public:
   static constexpr Type::type type_id = Type::TIME32;
   using c_type = int32_t;
+  using PhysicalType = Int32Type;
 
   static constexpr const char* type_name() { return "time32"; }
 
@@ -1169,6 +1211,7 @@ class ARROW_EXPORT Time64Type : public TimeType {
  public:
   static constexpr Type::type type_id = Type::TIME64;
   using c_type = int64_t;
+  using PhysicalType = Int64Type;
 
   static constexpr const char* type_name() { return "time64"; }
 
@@ -1219,6 +1262,7 @@ class ARROW_EXPORT TimestampType : public TemporalType, public ParametricType {
 
   static constexpr Type::type type_id = Type::TIMESTAMP;
   using c_type = int64_t;
+  using PhysicalType = Int64Type;
 
   static constexpr const char* type_name() { return "timestamp"; }
 
@@ -1264,6 +1308,7 @@ class ARROW_EXPORT MonthIntervalType : public IntervalType {
  public:
   static constexpr Type::type type_id = Type::INTERVAL_MONTHS;
   using c_type = int32_t;
+  using PhysicalType = Int32Type;
 
   static constexpr const char* type_name() { return "month_interval"; }
 
@@ -1292,6 +1337,8 @@ class ARROW_EXPORT DayTimeIntervalType : public IntervalType {
     }
   };
   using c_type = DayMilliseconds;
+  using PhysicalType = DayTimeIntervalType;
+
   static_assert(sizeof(DayMilliseconds) == 8,
                 "DayMilliseconds struct assumed to be of size 8 bytes");
   static constexpr Type::type type_id = Type::INTERVAL_DAY_TIME;
@@ -1315,6 +1362,7 @@ class ARROW_EXPORT DurationType : public TemporalType, public ParametricType {
 
   static constexpr Type::type type_id = Type::DURATION;
   using c_type = int64_t;
+  using PhysicalType = Int64Type;
 
   static constexpr const char* type_name() { return "duration"; }
 
@@ -1340,7 +1388,7 @@ class ARROW_EXPORT DurationType : public TemporalType, public ParametricType {
 // in memory)
 
 /// \brief Dictionary-encoded value type with data-dependent
-/// dictionary
+/// dictionary. Indices are represented by any integer types.
 class ARROW_EXPORT DictionaryType : public FixedWidthType {
  public:
   static constexpr Type::type type_id = Type::DICTIONARY;
@@ -1513,7 +1561,8 @@ class ARROW_EXPORT FieldRef {
 
   /// Construct a by-name FieldRef. Multiple fields may match a by-name FieldRef:
   /// [f for f in schema.fields where f.name == self.name]
-  FieldRef(std::string name) : impl_(std::move(name)) {}  // NOLINT runtime/explicit
+  FieldRef(std::string name) : impl_(std::move(name)) {}    // NOLINT runtime/explicit
+  FieldRef(const char* name) : impl_(std::string(name)) {}  // NOLINT runtime/explicit
 
   /// Equivalent to a single index string of indices.
   FieldRef(int index) : impl_(FieldPath({index})) {}  // NOLINT runtime/explicit
@@ -1567,6 +1616,12 @@ class ARROW_EXPORT FieldRef {
   std::vector<FieldPath> FindAll(const Field& field) const;
   std::vector<FieldPath> FindAll(const DataType& type) const;
   std::vector<FieldPath> FindAll(const FieldVector& fields) const;
+
+  /// \brief Convenience function which applies FindAll to arg's type or schema.
+  std::vector<FieldPath> FindAll(const Array& array) const;
+  std::vector<FieldPath> FindAll(const ChunkedArray& array) const;
+  std::vector<FieldPath> FindAll(const RecordBatch& batch) const;
+  std::vector<FieldPath> FindAll(const Table& table) const;
 
   /// \brief Convenience function: raise an error if matches is empty.
   template <typename T>
@@ -1867,11 +1922,25 @@ Result<std::shared_ptr<Schema>> UnifySchemas(
 
 namespace internal {
 
+static inline bool HasValidityBitmap(Type::type id) {
+  switch (id) {
+    case Type::NA:
+    case Type::DENSE_UNION:
+    case Type::SPARSE_UNION:
+      return false;
+    default:
+      return true;
+  }
+}
+
 ARROW_EXPORT
 std::string ToString(Type::type id);
 
 ARROW_EXPORT
 std::string ToString(TimeUnit::type unit);
+
+ARROW_EXPORT
+int GetByteWidth(const DataType& type);
 
 }  // namespace internal
 

@@ -26,6 +26,7 @@
 #include "arrow/compute/exec.h"
 #include "arrow/compute/util_internal.h"
 #include "arrow/result.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/hash_util.h"
@@ -44,29 +45,22 @@ namespace compute {
 // ----------------------------------------------------------------------
 // KernelContext
 
-Result<std::shared_ptr<Buffer>> KernelContext::Allocate(int64_t nbytes) {
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> result,
-                        AllocateBuffer(nbytes, exec_ctx_->memory_pool()));
-  result->ZeroPadding();
-  return result;
+Result<std::shared_ptr<ResizableBuffer>> KernelContext::Allocate(int64_t nbytes) {
+  return AllocateResizableBuffer(nbytes, exec_ctx_->memory_pool());
 }
 
-Result<std::shared_ptr<Buffer>> KernelContext::AllocateBitmap(int64_t num_bits) {
+Result<std::shared_ptr<ResizableBuffer>> KernelContext::AllocateBitmap(int64_t num_bits) {
   const int64_t nbytes = BitUtil::BytesForBits(num_bits);
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> result,
-                        AllocateBuffer(nbytes, exec_ctx_->memory_pool()));
-  // Some utility methods access the last byte before it might be
-  // initialized this makes valgrind/asan unhappy, so we proactively
-  // zero it.
-  if (nbytes > 0) {
-    internal::ZeroByte(result.get(), result->size() - 1);
-    result->ZeroPadding();
-  }
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ResizableBuffer> result,
+                        AllocateResizableBuffer(nbytes, exec_ctx_->memory_pool()));
+  // Since bitmaps are typically written bit by bit, we could leak uninitialized bits.
+  // Make sure all memory is initialized (this also appeases Valgrind).
+  internal::ZeroMemory(result.get());
   return result;
 }
 
 void KernelContext::SetStatus(const Status& status) {
-  if (ARROW_PREDICT_FALSE(!status_.ok())) {
+  if (ARROW_PREDICT_TRUE(status.ok())) {
     return;
   }
   status_ = status;
@@ -96,7 +90,6 @@ class SameTypeIdMatcher : public TypeMatcher {
     if (this == &other) {
       return true;
     }
-
     auto casted = dynamic_cast<const SameTypeIdMatcher*>(&other);
     if (casted == nullptr) {
       return false;
@@ -112,24 +105,27 @@ std::shared_ptr<TypeMatcher> SameTypeId(Type::type type_id) {
   return std::make_shared<SameTypeIdMatcher>(type_id);
 }
 
-class TimestampUnitMatcher : public TypeMatcher {
+template <typename ArrowType>
+class TimeUnitMatcher : public TypeMatcher {
+  using ThisType = TimeUnitMatcher<ArrowType>;
+
  public:
-  explicit TimestampUnitMatcher(TimeUnit::type accepted_unit)
+  explicit TimeUnitMatcher(TimeUnit::type accepted_unit)
       : accepted_unit_(accepted_unit) {}
 
   bool Matches(const DataType& type) const override {
-    if (type.id() != Type::TIMESTAMP) {
+    if (type.id() != ArrowType::type_id) {
       return false;
     }
-    const auto& ts_type = checked_cast<const TimestampType&>(type);
-    return ts_type.unit() == accepted_unit_;
+    const auto& time_type = checked_cast<const ArrowType&>(type);
+    return time_type.unit() == accepted_unit_;
   }
 
   bool Equals(const TypeMatcher& other) const override {
     if (this == &other) {
       return true;
     }
-    auto casted = dynamic_cast<const TimestampUnitMatcher*>(&other);
+    auto casted = dynamic_cast<const ThisType*>(&other);
     if (casted == nullptr) {
       return false;
     }
@@ -138,7 +134,8 @@ class TimestampUnitMatcher : public TypeMatcher {
 
   std::string ToString() const override {
     std::stringstream ss;
-    ss << "timestamp(" << ::arrow::internal::ToString(accepted_unit_) << ")";
+    ss << ArrowType::type_name() << "(" << ::arrow::internal::ToString(accepted_unit_)
+       << ")";
     return ss.str();
   }
 
@@ -146,8 +143,105 @@ class TimestampUnitMatcher : public TypeMatcher {
   TimeUnit::type accepted_unit_;
 };
 
-std::shared_ptr<TypeMatcher> TimestampUnit(TimeUnit::type unit) {
-  return std::make_shared<TimestampUnitMatcher>(unit);
+using DurationTypeUnitMatcher = TimeUnitMatcher<DurationType>;
+using Time32TypeUnitMatcher = TimeUnitMatcher<Time32Type>;
+using Time64TypeUnitMatcher = TimeUnitMatcher<Time64Type>;
+using TimestampTypeUnitMatcher = TimeUnitMatcher<TimestampType>;
+
+std::shared_ptr<TypeMatcher> TimestampTypeUnit(TimeUnit::type unit) {
+  return std::make_shared<TimestampTypeUnitMatcher>(unit);
+}
+
+std::shared_ptr<TypeMatcher> Time32TypeUnit(TimeUnit::type unit) {
+  return std::make_shared<Time32TypeUnitMatcher>(unit);
+}
+
+std::shared_ptr<TypeMatcher> Time64TypeUnit(TimeUnit::type unit) {
+  return std::make_shared<Time64TypeUnitMatcher>(unit);
+}
+
+std::shared_ptr<TypeMatcher> DurationTypeUnit(TimeUnit::type unit) {
+  return std::make_shared<DurationTypeUnitMatcher>(unit);
+}
+
+class IntegerMatcher : public TypeMatcher {
+ public:
+  IntegerMatcher() {}
+
+  bool Matches(const DataType& type) const override { return is_integer(type.id()); }
+
+  bool Equals(const TypeMatcher& other) const override {
+    if (this == &other) {
+      return true;
+    }
+    auto casted = dynamic_cast<const IntegerMatcher*>(&other);
+    return casted != nullptr;
+  }
+
+  std::string ToString() const override { return "integer"; }
+};
+
+std::shared_ptr<TypeMatcher> Integer() { return std::make_shared<IntegerMatcher>(); }
+
+class PrimitiveMatcher : public TypeMatcher {
+ public:
+  PrimitiveMatcher() {}
+
+  bool Matches(const DataType& type) const override { return is_primitive(type.id()); }
+
+  bool Equals(const TypeMatcher& other) const override {
+    if (this == &other) {
+      return true;
+    }
+    auto casted = dynamic_cast<const PrimitiveMatcher*>(&other);
+    return casted != nullptr;
+  }
+
+  std::string ToString() const override { return "primitive"; }
+};
+
+std::shared_ptr<TypeMatcher> Primitive() { return std::make_shared<PrimitiveMatcher>(); }
+
+class BinaryLikeMatcher : public TypeMatcher {
+ public:
+  BinaryLikeMatcher() {}
+
+  bool Matches(const DataType& type) const override { return is_binary_like(type.id()); }
+
+  bool Equals(const TypeMatcher& other) const override {
+    if (this == &other) {
+      return true;
+    }
+    auto casted = dynamic_cast<const BinaryLikeMatcher*>(&other);
+    return casted != nullptr;
+  }
+  std::string ToString() const override { return "binary-like"; }
+};
+
+std::shared_ptr<TypeMatcher> BinaryLike() {
+  return std::make_shared<BinaryLikeMatcher>();
+}
+
+class LargeBinaryLikeMatcher : public TypeMatcher {
+ public:
+  LargeBinaryLikeMatcher() {}
+
+  bool Matches(const DataType& type) const override {
+    return is_large_binary_like(type.id());
+  }
+
+  bool Equals(const TypeMatcher& other) const override {
+    if (this == &other) {
+      return true;
+    }
+    auto casted = dynamic_cast<const LargeBinaryLikeMatcher*>(&other);
+    return casted != nullptr;
+  }
+  std::string ToString() const override { return "large-binary-like"; }
+};
+
+std::shared_ptr<TypeMatcher> LargeBinaryLike() {
+  return std::make_shared<LargeBinaryLikeMatcher>();
 }
 
 }  // namespace match

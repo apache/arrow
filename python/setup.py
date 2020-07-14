@@ -546,6 +546,15 @@ def parse_git(root, **kwargs):
     return parse(root, **kwargs)
 
 
+def guess_next_dev_version(version):
+    if version.exact:
+        return version.format_with('{tag}')
+    else:
+        def guess_next_version(tag_version):
+            return default_version.replace('-SNAPSHOT', '')
+        return version.format_next_version(guess_next_version)
+
+
 with open('README.md') as f:
     long_description = f.read()
 
@@ -595,7 +604,8 @@ setup(
         'root': os.path.dirname(setup_dir),
         'parse': parse_git,
         'write_to': os.path.join(scm_version_write_to_prefix,
-                                 'pyarrow/_generated_version.py')
+                                 'pyarrow/_generated_version.py'),
+        'version_scheme': guess_next_dev_version
     },
     setup_requires=['setuptools_scm', 'cython >= 0.29'] + setup_requires,
     install_requires=install_requires,

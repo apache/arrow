@@ -68,20 +68,20 @@ class Message::MessageImpl {
     return Status::OK();
   }
 
-  Message::Type type() const {
+  MessageType type() const {
     switch (message_->header_type()) {
       case flatbuf::MessageHeader::Schema:
-        return Message::SCHEMA;
+        return MessageType::SCHEMA;
       case flatbuf::MessageHeader::DictionaryBatch:
-        return Message::DICTIONARY_BATCH;
+        return MessageType::DICTIONARY_BATCH;
       case flatbuf::MessageHeader::RecordBatch:
-        return Message::RECORD_BATCH;
+        return MessageType::RECORD_BATCH;
       case flatbuf::MessageHeader::Tensor:
-        return Message::TENSOR;
+        return MessageType::TENSOR;
       case flatbuf::MessageHeader::SparseTensor:
-        return Message::SPARSE_TENSOR;
+        return MessageType::SPARSE_TENSOR;
       default:
-        return Message::NONE;
+        return MessageType::NONE;
     }
   }
 
@@ -132,7 +132,7 @@ int64_t Message::body_length() const { return impl_->body_length(); }
 
 std::shared_ptr<Buffer> Message::metadata() const { return impl_->metadata(); }
 
-Message::Type Message::type() const { return impl_->type(); }
+MessageType Message::type() const { return impl_->type(); }
 
 MetadataVersion Message::metadata_version() const { return impl_->version(); }
 
@@ -177,7 +177,7 @@ Status MaybeAlignMetadata(std::shared_ptr<Buffer>* metadata) {
 }
 
 Status CheckMetadataAndGetBodyLength(const Buffer& metadata, int64_t* body_length) {
-  const flatbuf::Message* fb_message;
+  const flatbuf::Message* fb_message = nullptr;
   RETURN_NOT_OK(internal::VerifyMessage(metadata.data(), metadata.size(), &fb_message));
   *body_length = fb_message->bodyLength();
   if (*body_length < 0) {
@@ -254,13 +254,13 @@ bool Message::Verify() const {
   return internal::VerifyMessage(metadata()->data(), metadata()->size(), &unused).ok();
 }
 
-std::string FormatMessageType(Message::Type type) {
+std::string FormatMessageType(MessageType type) {
   switch (type) {
-    case Message::SCHEMA:
+    case MessageType::SCHEMA:
       return "schema";
-    case Message::RECORD_BATCH:
+    case MessageType::RECORD_BATCH:
       return "record batch";
-    case Message::DICTIONARY_BATCH:
+    case MessageType::DICTIONARY_BATCH:
       return "dictionary";
     default:
       break;
@@ -424,8 +424,9 @@ Status WriteMessage(const Buffer& message, const IpcWriteOptions& options,
     RETURN_NOT_OK(file->Write(&internal::kIpcContinuationToken, sizeof(int32_t)));
   }
 
-  // Write the flatbuffer size prefix including padding
-  int32_t padded_flatbuffer_size = padded_message_length - prefix_size;
+  // Write the flatbuffer size prefix including padding in little endian
+  int32_t padded_flatbuffer_size =
+      BitUtil::ToLittleEndian(padded_message_length - prefix_size);
   RETURN_NOT_OK(file->Write(&padded_flatbuffer_size, sizeof(int32_t)));
 
   // Write the flatbuffer
@@ -577,18 +578,18 @@ class MessageDecoder::MessageDecoderImpl {
   }
 
   Status ConsumeInitialData(const uint8_t* data, int64_t size) {
-    return ConsumeInitial(util::SafeLoadAs<int32_t>(data));
+    return ConsumeInitial(BitUtil::FromLittleEndian(util::SafeLoadAs<int32_t>(data)));
   }
 
   Status ConsumeInitialBuffer(const std::shared_ptr<Buffer>& buffer) {
     ARROW_ASSIGN_OR_RAISE(auto continuation, ConsumeDataBufferInt32(buffer));
-    return ConsumeInitial(continuation);
+    return ConsumeInitial(BitUtil::FromLittleEndian(continuation));
   }
 
   Status ConsumeInitialChunks() {
     int32_t continuation = 0;
     RETURN_NOT_OK(ConsumeDataChunks(sizeof(int32_t), &continuation));
-    return ConsumeInitial(continuation);
+    return ConsumeInitial(BitUtil::FromLittleEndian(continuation));
   }
 
   Status ConsumeInitial(int32_t continuation) {
@@ -616,18 +617,19 @@ class MessageDecoder::MessageDecoderImpl {
   }
 
   Status ConsumeMetadataLengthData(const uint8_t* data, int64_t size) {
-    return ConsumeMetadataLength(util::SafeLoadAs<int32_t>(data));
+    return ConsumeMetadataLength(
+        BitUtil::FromLittleEndian(util::SafeLoadAs<int32_t>(data)));
   }
 
   Status ConsumeMetadataLengthBuffer(const std::shared_ptr<Buffer>& buffer) {
     ARROW_ASSIGN_OR_RAISE(auto metadata_length, ConsumeDataBufferInt32(buffer));
-    return ConsumeMetadataLength(metadata_length);
+    return ConsumeMetadataLength(BitUtil::FromLittleEndian(metadata_length));
   }
 
   Status ConsumeMetadataLengthChunks() {
     int32_t metadata_length = 0;
     RETURN_NOT_OK(ConsumeDataChunks(sizeof(int32_t), &metadata_length));
-    return ConsumeMetadataLength(metadata_length);
+    return ConsumeMetadataLength(BitUtil::FromLittleEndian(metadata_length));
   }
 
   Status ConsumeMetadataLength(int32_t metadata_length) {

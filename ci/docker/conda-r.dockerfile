@@ -36,7 +36,7 @@ RUN conda install -q \
     conda clean --all
 
 # Ensure parallel compilation of of C/C++ code
-RUN echo "MAKEFLAGS=-j$(R --slave -e 'cat(parallel::detectCores())')" >> $CONDA_PREFIX/lib/R/etc/Makeconf
+RUN echo "MAKEFLAGS=-j$(R -s -e 'cat(parallel::detectCores())')" >> $CONDA_PREFIX/lib/R/etc/Makeconf
 
 ENV ARROW_BUILD_STATIC=OFF \
     ARROW_BUILD_TESTS=OFF \

@@ -47,6 +47,26 @@ Status CopyStream(const std::shared_ptr<io::InputStream>& src,
   return Status::OK();
 }
 
+Status PathNotFound(const std::string& path) {
+  return Status::IOError("Path does not exist '", path, "'");
+}
+
+Status NotADir(const std::string& path) {
+  return Status::IOError("Not a directory: '", path, "'");
+}
+
+Status NotAFile(const std::string& path) {
+  return Status::IOError("Not a regular file: '", path, "'");
+}
+
+Status InvalidDeleteDirContents(const std::string& path) {
+  return Status::Invalid(
+      "DeleteDirContents called on invalid path '", path, "'. ",
+      "If you wish to delete the root directory's contents, call DeleteRootDirContents.");
+}
+
+FileSystemGlobalOptions global_options;
+
 }  // namespace internal
 }  // namespace fs
 }  // namespace arrow

@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "arrow/filesystem/filesystem.h"
+#include "arrow/testing/visibility.h"
 
 namespace arrow {
 namespace fs {
@@ -30,56 +31,50 @@ namespace fs {
 static constexpr double kTimeSlack = 2.0;  // In seconds
 
 static inline FileInfo File(std::string path) {
-  FileInfo info;
-  info.set_type(FileType::File);
-  info.set_path(path);
-  return info;
+  return FileInfo(std::move(path), FileType::File);
 }
 
 static inline FileInfo Dir(std::string path) {
-  FileInfo info;
-  info.set_type(FileType::Directory);
-  info.set_path(path);
-  return info;
+  return FileInfo(std::move(path), FileType::Directory);
 }
 
-ARROW_EXPORT
+ARROW_TESTING_EXPORT
 void CreateFile(FileSystem* fs, const std::string& path, const std::string& data);
 
 // Sort a vector of FileInfo by lexicographic path order
-ARROW_EXPORT
+ARROW_TESTING_EXPORT
 void SortInfos(std::vector<FileInfo>* infos);
 
-ARROW_EXPORT
+ARROW_TESTING_EXPORT
 void AssertFileInfo(const FileInfo& info, const std::string& path, FileType type);
 
-ARROW_EXPORT
+ARROW_TESTING_EXPORT
 void AssertFileInfo(const FileInfo& info, const std::string& path, FileType type,
                     TimePoint mtime);
 
-ARROW_EXPORT
+ARROW_TESTING_EXPORT
 void AssertFileInfo(const FileInfo& info, const std::string& path, FileType type,
                     TimePoint mtime, int64_t size);
 
-ARROW_EXPORT
+ARROW_TESTING_EXPORT
 void AssertFileInfo(const FileInfo& info, const std::string& path, FileType type,
                     int64_t size);
 
-ARROW_EXPORT
+ARROW_TESTING_EXPORT
 void AssertFileInfo(FileSystem* fs, const std::string& path, FileType type);
 
-ARROW_EXPORT
+ARROW_TESTING_EXPORT
 void AssertFileInfo(FileSystem* fs, const std::string& path, FileType type,
                     TimePoint mtime);
 
-ARROW_EXPORT
+ARROW_TESTING_EXPORT
 void AssertFileInfo(FileSystem* fs, const std::string& path, FileType type,
                     TimePoint mtime, int64_t size);
 
-ARROW_EXPORT
+ARROW_TESTING_EXPORT
 void AssertFileInfo(FileSystem* fs, const std::string& path, FileType type, int64_t size);
 
-ARROW_EXPORT
+ARROW_TESTING_EXPORT
 void AssertFileContents(FileSystem* fs, const std::string& path,
                         const std::string& expected_data);
 
@@ -94,7 +89,7 @@ void AssertDurationBetween(Duration d, double min_secs, double max_secs) {
 // To use this class, subclass both from it and ::testing::Test,
 // implement GetEmptyFileSystem(), and use GENERIC_FS_TEST_FUNCTIONS()
 // to define the various tests.
-class ARROW_EXPORT GenericFileSystemTest {
+class ARROW_TESTING_EXPORT GenericFileSystemTest {
  public:
   virtual ~GenericFileSystemTest();
 
@@ -103,6 +98,7 @@ class ARROW_EXPORT GenericFileSystemTest {
   void TestCreateDir();
   void TestDeleteDir();
   void TestDeleteDirContents();
+  void TestDeleteRootDirContents();
   void TestDeleteFile();
   void TestDeleteFiles();
   void TestMoveFile();
@@ -115,7 +111,9 @@ class ARROW_EXPORT GenericFileSystemTest {
   void TestOpenOutputStream();
   void TestOpenAppendStream();
   void TestOpenInputStream();
+  void TestOpenInputStreamWithFileInfo();
   void TestOpenInputFile();
+  void TestOpenInputFileWithFileInfo();
 
  protected:
   // This function should return the filesystem under test.
@@ -141,6 +139,7 @@ class ARROW_EXPORT GenericFileSystemTest {
   void TestCreateDir(FileSystem* fs);
   void TestDeleteDir(FileSystem* fs);
   void TestDeleteDirContents(FileSystem* fs);
+  void TestDeleteRootDirContents(FileSystem* fs);
   void TestDeleteFile(FileSystem* fs);
   void TestDeleteFiles(FileSystem* fs);
   void TestMoveFile(FileSystem* fs);
@@ -153,7 +152,9 @@ class ARROW_EXPORT GenericFileSystemTest {
   void TestOpenOutputStream(FileSystem* fs);
   void TestOpenAppendStream(FileSystem* fs);
   void TestOpenInputStream(FileSystem* fs);
+  void TestOpenInputStreamWithFileInfo(FileSystem* fs);
   void TestOpenInputFile(FileSystem* fs);
+  void TestOpenInputFileWithFileInfo(FileSystem* fs);
 };
 
 #define GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, NAME) \
@@ -165,6 +166,7 @@ class ARROW_EXPORT GenericFileSystemTest {
   GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, CreateDir)                        \
   GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, DeleteDir)                        \
   GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, DeleteDirContents)                \
+  GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, DeleteRootDirContents)            \
   GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, DeleteFile)                       \
   GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, DeleteFiles)                      \
   GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, MoveFile)                         \
@@ -177,7 +179,9 @@ class ARROW_EXPORT GenericFileSystemTest {
   GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, OpenOutputStream)                 \
   GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, OpenAppendStream)                 \
   GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, OpenInputStream)                  \
-  GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, OpenInputFile)
+  GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, OpenInputStreamWithFileInfo)      \
+  GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, OpenInputFile)                    \
+  GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, OpenInputFileWithFileInfo)
 
 #define GENERIC_FS_TEST_FUNCTIONS(TEST_CLASS) \
   GENERIC_FS_TEST_FUNCTIONS_MACROS(TEST_F, TEST_CLASS)

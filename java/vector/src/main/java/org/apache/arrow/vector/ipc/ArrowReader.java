@@ -168,8 +168,8 @@ public abstract class ArrowReader implements DictionaryProvider, AutoCloseable {
    */
   protected void initialize() throws IOException {
     Schema originalSchema = readSchema();
-    List<Field> fields = new ArrayList<>();
-    List<FieldVector> vectors = new ArrayList<>();
+    List<Field> fields = new ArrayList<>(originalSchema.getFields().size());
+    List<FieldVector> vectors = new ArrayList<>(originalSchema.getFields().size());
     Map<Long, Dictionary> dictionaries = new HashMap<>();
 
     // Convert fields with dictionaries to have the index type
@@ -222,10 +222,10 @@ public abstract class ArrowReader implements DictionaryProvider, AutoCloseable {
     FieldVector vector = dictionary.getVector();
     // if is deltaVector, concat it with non-delta vector with the same ID.
     if (dictionaryBatch.isDelta()) {
-      FieldVector deltaVector = vector.getField().createVector(allocator);
-      load(dictionaryBatch, deltaVector);
-      VectorBatchAppender.batchAppend(vector, deltaVector);
-      deltaVector.close();
+      try (FieldVector deltaVector = vector.getField().createVector(allocator)) {
+        load(dictionaryBatch, deltaVector);
+        VectorBatchAppender.batchAppend(vector, deltaVector);
+      }
       return;
     }
 

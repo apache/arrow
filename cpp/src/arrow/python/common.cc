@@ -152,13 +152,6 @@ Status ConvertPyError(StatusCode code) {
   return Status(code, message, detail);
 }
 
-Status PassPyError() {
-  if (PyErr_Occurred()) {
-    return ConvertPyError();
-  }
-  return Status::OK();
-}
-
 bool IsPyError(const Status& status) {
   if (status.ok()) {
     return false;

@@ -24,12 +24,17 @@
   <packaging>jar</packaging>
 
   <properties>
-    <dep.grpc.version>1.24.0</dep.grpc.version>
+    <dep.grpc.version>1.30.2</dep.grpc.version>
     <dep.protobuf.version>3.7.1</dep.protobuf.version>
     <forkCount>1</forkCount>
   </properties>
 
   <dependencies>
+    <dependency>
+      <groupId>org.apache.arrow</groupId>
+      <artifactId>arrow-format</artifactId>
+      <version>${project.version}</version>
+    </dependency>
     <dependency>
       <groupId>org.apache.arrow</groupId>
       <artifactId>arrow-vector</artifactId>
@@ -38,8 +43,14 @@
     </dependency>
     <dependency>
       <groupId>org.apache.arrow</groupId>
-      <artifactId>arrow-memory</artifactId>
+      <artifactId>arrow-memory-core</artifactId>
       <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.arrow</groupId>
+      <artifactId>arrow-memory-netty</artifactId>
+      <version>${project.version}</version>
+      <scope>runtime</scope>
     </dependency>
     <dependency>
       <groupId>io.grpc</groupId>
@@ -64,7 +75,7 @@
     <dependency>
       <groupId>io.netty</groupId>
       <artifactId>netty-tcnative-boringssl-static</artifactId>
-      <version>2.0.12.Final</version>
+      <version>2.0.31.Final</version>
     </dependency>
     <dependency>
       <groupId>io.netty</groupId>

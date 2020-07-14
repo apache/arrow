@@ -89,43 +89,109 @@ struct Schema;
 struct SchemaBuilder;
 
 enum class MetadataVersion : int16_t {
-  /// 0.1.0
+  /// 0.1.0 (October 2016).
   V1 = 0,
-  /// 0.2.0
+  /// 0.2.0 (February 2017). Non-backwards compatible with V1.
   V2 = 1,
-  /// 0.3.0 -> 0.7.1
+  /// 0.3.0 -> 0.7.1 (May - December 2017). Non-backwards compatible with V2.
   V3 = 2,
-  /// >= 0.8.0
+  /// >= 0.8.0 (December 2017). Non-backwards compatible with V3.
   V4 = 3,
+  /// >= 1.0.0 (July 2020. Backwards compatible with V4 (V5 readers can read V4
+  /// metadata and IPC messages). Implementations are recommended to provide a
+  /// V4 compatibility mode with V5 format changes disabled.
+  ///
+  /// Incompatible changes between V4 and V5:
+  /// - Union buffer layout has changed. In V5, Unions don't have a validity
+  ///   bitmap buffer.
+  V5 = 4,
   MIN = V1,
-  MAX = V4
+  MAX = V5
 };
 
-inline const MetadataVersion (&EnumValuesMetadataVersion())[4] {
+inline const MetadataVersion (&EnumValuesMetadataVersion())[5] {
   static const MetadataVersion values[] = {
     MetadataVersion::V1,
     MetadataVersion::V2,
     MetadataVersion::V3,
-    MetadataVersion::V4
+    MetadataVersion::V4,
+    MetadataVersion::V5
   };
   return values;
 }
 
 inline const char * const *EnumNamesMetadataVersion() {
-  static const char * const names[5] = {
+  static const char * const names[6] = {
     "V1",
     "V2",
     "V3",
     "V4",
+    "V5",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameMetadataVersion(MetadataVersion e) {
-  if (flatbuffers::IsOutRange(e, MetadataVersion::V1, MetadataVersion::V4)) return "";
+  if (flatbuffers::IsOutRange(e, MetadataVersion::V1, MetadataVersion::V5)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesMetadataVersion()[index];
+}
+
+/// Represents Arrow Features that might not have full support
+/// within implementations. This is intended to be used in
+/// two scenarios:
+///  1.  A mechanism for readers of Arrow Streams
+///      and files to understand that the stream or file makes
+///      use of a feature that isn't supported or unknown to
+///      the implementation (and therefore can meet the Arrow
+///      forward compatibility guarantees).
+///  2.  A means of negotiating between a client and server
+///      what features a stream is allowed to use. The enums
+///      values here are intented to represent higher level
+///      features, additional details maybe negotiated
+///      with key-value pairs specific to the protocol.
+///
+/// Enums added to this list should be assigned power-of-two values
+/// to facilitate exchanging and comparing bitmaps for supported
+/// features.
+enum class Feature : int64_t {
+  /// Needed to make flatbuffers happy.
+  UNUSED = 0,
+  /// The stream makes use of multiple full dictionaries with the
+  /// same ID and assumes clients implement dictionary replacement
+  /// correctly.
+  DICTIONARY_REPLACEMENT = 1LL,
+  /// The stream makes use of compressed bodies as described
+  /// in Message.fbs.
+  COMPRESSED_BODY = 2LL,
+  MIN = UNUSED,
+  MAX = COMPRESSED_BODY
+};
+
+inline const Feature (&EnumValuesFeature())[3] {
+  static const Feature values[] = {
+    Feature::UNUSED,
+    Feature::DICTIONARY_REPLACEMENT,
+    Feature::COMPRESSED_BODY
+  };
+  return values;
+}
+
+inline const char * const *EnumNamesFeature() {
+  static const char * const names[4] = {
+    "UNUSED",
+    "DICTIONARY_REPLACEMENT",
+    "COMPRESSED_BODY",
+    nullptr
+  };
+  return names;
+}
+
+inline const char *EnumNameFeature(Feature e) {
+  if (flatbuffers::IsOutRange(e, Feature::UNUSED, Feature::COMPRESSED_BODY)) return "";
+  const size_t index = static_cast<size_t>(e);
+  return EnumNamesFeature()[index];
 }
 
 enum class UnionMode : int16_t {
@@ -1163,11 +1229,16 @@ inline flatbuffers::Offset<Bool> CreateBool(
   return builder_.Finish();
 }
 
+/// Exact decimal value represented as an integer value in two's
+/// complement. Currently only 128-bit (16-byte) integers are used but this may
+/// be expanded in the future. The representation uses the endianness indicated
+/// in the Schema.
 struct Decimal FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef DecimalBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_PRECISION = 4,
-    VT_SCALE = 6
+    VT_SCALE = 6,
+    VT_BITWIDTH = 8
   };
   /// Total number of decimal digits
   int32_t precision() const {
@@ -1177,10 +1248,18 @@ struct Decimal FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   int32_t scale() const {
     return GetField<int32_t>(VT_SCALE, 0);
   }
+  /// Number of bits per value. The only accepted width right now is 128 but
+  /// this field exists for forward compatibility so that other bit widths may
+  /// be supported in future format versions. We use bitWidth for consistency
+  /// with Int::bitWidth.
+  int32_t bitWidth() const {
+    return GetField<int32_t>(VT_BITWIDTH, 128);
+  }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<int32_t>(verifier, VT_PRECISION) &&
            VerifyField<int32_t>(verifier, VT_SCALE) &&
+           VerifyField<int32_t>(verifier, VT_BITWIDTH) &&
            verifier.EndTable();
   }
 };
@@ -1194,6 +1273,9 @@ struct DecimalBuilder {
   }
   void add_scale(int32_t scale) {
     fbb_.AddElement<int32_t>(Decimal::VT_SCALE, scale, 0);
+  }
+  void add_bitWidth(int32_t bitWidth) {
+    fbb_.AddElement<int32_t>(Decimal::VT_BITWIDTH, bitWidth, 128);
   }
   explicit DecimalBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
@@ -1210,8 +1292,10 @@ struct DecimalBuilder {
 inline flatbuffers::Offset<Decimal> CreateDecimal(
     flatbuffers::FlatBufferBuilder &_fbb,
     int32_t precision = 0,
-    int32_t scale = 0) {
+    int32_t scale = 0,
+    int32_t bitWidth = 128) {
   DecimalBuilder builder_(_fbb);
+  builder_.add_bitWidth(bitWidth);
   builder_.add_scale(scale);
   builder_.add_precision(precision);
   return builder_.Finish();
@@ -1577,8 +1661,11 @@ struct DictionaryEncoding FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   int64_t id() const {
     return GetField<int64_t>(VT_ID, 0);
   }
-  /// The dictionary indices are constrained to be positive integers. If this
-  /// field is null, the indices must be signed int32
+  /// The dictionary indices are constrained to be non-negative integers. If
+  /// this field is null, the indices must be signed int32. To maximize
+  /// cross-language compatibility and performance, implementations are
+  /// recommended to prefer signed integer types over unsigned integer types
+  /// and to avoid uint64 indices unless they are required by an application.
   const org::apache::arrow::flatbuf::Int *indexType() const {
     return GetPointer<const org::apache::arrow::flatbuf::Int *>(VT_INDEXTYPE);
   }
@@ -1942,7 +2029,8 @@ struct Schema FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_ENDIANNESS = 4,
     VT_FIELDS = 6,
-    VT_CUSTOM_METADATA = 8
+    VT_CUSTOM_METADATA = 8,
+    VT_FEATURES = 10
   };
   /// endianness of the buffer
   /// it is Little Endian by default
@@ -1956,6 +2044,10 @@ struct Schema FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::KeyValue>> *custom_metadata() const {
     return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::KeyValue>> *>(VT_CUSTOM_METADATA);
   }
+  /// Features used in the stream/file.
+  const flatbuffers::Vector<int64_t> *features() const {
+    return GetPointer<const flatbuffers::Vector<int64_t> *>(VT_FEATURES);
+  }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<int16_t>(verifier, VT_ENDIANNESS) &&
@@ -1965,6 +2057,8 @@ struct Schema FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyOffset(verifier, VT_CUSTOM_METADATA) &&
            verifier.VerifyVector(custom_metadata()) &&
            verifier.VerifyVectorOfTables(custom_metadata()) &&
+           VerifyOffset(verifier, VT_FEATURES) &&
+           verifier.VerifyVector(features()) &&
            verifier.EndTable();
   }
 };
@@ -1982,6 +2076,9 @@ struct SchemaBuilder {
   void add_custom_metadata(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::KeyValue>>> custom_metadata) {
     fbb_.AddOffset(Schema::VT_CUSTOM_METADATA, custom_metadata);
   }
+  void add_features(flatbuffers::Offset<flatbuffers::Vector<int64_t>> features) {
+    fbb_.AddOffset(Schema::VT_FEATURES, features);
+  }
   explicit SchemaBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -1998,8 +2095,10 @@ inline flatbuffers::Offset<Schema> CreateSchema(
     flatbuffers::FlatBufferBuilder &_fbb,
     org::apache::arrow::flatbuf::Endianness endianness = org::apache::arrow::flatbuf::Endianness::Little,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::Field>>> fields = 0,
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::KeyValue>>> custom_metadata = 0) {
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::KeyValue>>> custom_metadata = 0,
+    flatbuffers::Offset<flatbuffers::Vector<int64_t>> features = 0) {
   SchemaBuilder builder_(_fbb);
+  builder_.add_features(features);
   builder_.add_custom_metadata(custom_metadata);
   builder_.add_fields(fields);
   builder_.add_endianness(endianness);
@@ -2010,14 +2109,17 @@ inline flatbuffers::Offset<Schema> CreateSchemaDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     org::apache::arrow::flatbuf::Endianness endianness = org::apache::arrow::flatbuf::Endianness::Little,
     const std::vector<flatbuffers::Offset<org::apache::arrow::flatbuf::Field>> *fields = nullptr,
-    const std::vector<flatbuffers::Offset<org::apache::arrow::flatbuf::KeyValue>> *custom_metadata = nullptr) {
+    const std::vector<flatbuffers::Offset<org::apache::arrow::flatbuf::KeyValue>> *custom_metadata = nullptr,
+    const std::vector<int64_t> *features = nullptr) {
   auto fields__ = fields ? _fbb.CreateVector<flatbuffers::Offset<org::apache::arrow::flatbuf::Field>>(*fields) : 0;
   auto custom_metadata__ = custom_metadata ? _fbb.CreateVector<flatbuffers::Offset<org::apache::arrow::flatbuf::KeyValue>>(*custom_metadata) : 0;
+  auto features__ = features ? _fbb.CreateVector<int64_t>(*features) : 0;
   return org::apache::arrow::flatbuf::CreateSchema(
       _fbb,
       endianness,
       fields__,
-      custom_metadata__);
+      custom_metadata__,
+      features__);
 }
 
 inline bool VerifyType(flatbuffers::Verifier &verifier, const void *obj, Type type) {

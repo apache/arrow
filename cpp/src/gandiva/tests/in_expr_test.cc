@@ -85,6 +85,7 @@ TEST_F(TestIn, TestInString) {
   auto node_f0 = TreeExprBuilder::MakeField(field0);
   std::unordered_set<std::string> in_constants({"test", "me"});
   auto in_expr = TreeExprBuilder::MakeInExpressionString(node_f0, in_constants);
+
   auto condition = TreeExprBuilder::MakeCondition(in_expr);
 
   std::shared_ptr<Filter> filter;

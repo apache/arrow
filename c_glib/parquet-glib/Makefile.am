@@ -36,7 +36,6 @@ lib_LTLIBRARIES =				\
 
 libparquet_glib_la_CXXFLAGS =			\
 	$(GLIB_CFLAGS)				\
-	$(ARROW_CFLAGS)				\
 	$(PARQUET_CFLAGS)			\
 	$(GARROW_CFLAGS)			\
 	$(GPARQUET_CXXFLAGS)
@@ -47,9 +46,8 @@ libparquet_glib_la_LDFLAGS =			\
 
 libparquet_glib_la_LIBADD =			\
 	$(GLIB_LIBS)				\
-	$(ARROW_LIBS)				\
-	$(PARQUET_LIBS)				\
-	../arrow-glib/libarrow-glib.la
+	../arrow-glib/libarrow-glib.la		\
+	$(PARQUET_LIBS)
 
 libparquet_glib_la_headers =			\
 	arrow-file-reader.h			\

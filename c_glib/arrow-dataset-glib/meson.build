@@ -51,8 +51,8 @@ arrow_dataset_glib = declare_dependency(link_with: libarrow_dataset_glib,
 
 pkgconfig.generate(libarrow_dataset_glib,
                    filebase: 'arrow-dataset-glib',
-                   name: 'Apache Arrow Datasets GLib',
-                   description: 'C API for Apache Arrow Datasets based on GLib',
+                   name: 'Apache Arrow Dataset GLib',
+                   description: 'C API for Apache Arrow Dataset based on GLib',
                    version: version,
                    requires: ['arrow-glib', 'arrow-dataset'])
 

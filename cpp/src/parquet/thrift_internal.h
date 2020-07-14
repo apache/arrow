@@ -363,7 +363,9 @@ inline void DeserializeThriftUnencryptedMsg(const uint8_t* buf, uint32_t* len,
   apache::thrift::protocol::TCompactProtocolFactoryT<ThriftBuffer> tproto_factory;
   // Protect against CPU and memory bombs
   tproto_factory.setStringSizeLimit(100 * 1000 * 1000);
-  tproto_factory.setContainerSizeLimit(10 * 1000 * 1000);
+  // Structs in the thrift definition are relatively large (at least 300 bytes).
+  // This limits total memory to the same order of magnitude as stringSize.
+  tproto_factory.setContainerSizeLimit(1000 * 1000);
   shared_ptr<apache::thrift::protocol::TProtocol> tproto =  //
       tproto_factory.getProtocol(tmem_transport);
   try {

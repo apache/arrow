@@ -19,6 +19,7 @@ package org.apache.arrow.vector;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import java.util.ArrayList;
@@ -81,12 +82,12 @@ public class TestUnionVector {
       assertEquals(false, unionVector.isNull(0));
       assertEquals(100, unionVector.getObject(0));
 
-      assertEquals(true, unionVector.isNull(1));
+      assertNull(unionVector.getObject(1));
 
       assertEquals(false, unionVector.isNull(2));
       assertEquals(100, unionVector.getObject(2));
 
-      assertEquals(true, unionVector.isNull(3));
+      assertNull(unionVector.getObject(3));
     }
   }
 
@@ -126,12 +127,12 @@ public class TestUnionVector {
         assertFalse(destVector.isNull(1));
         assertEquals(false, destVector.getObject(1));
 
-        assertTrue(destVector.isNull(2));
+        assertNull(destVector.getObject(2));
 
         assertFalse(destVector.isNull(3));
         assertEquals(10, destVector.getObject(3));
 
-        assertTrue(destVector.isNull(4));
+        assertNull(destVector.getObject(4));
 
         assertFalse(destVector.isNull(5));
         assertEquals(false, destVector.getObject(5));
@@ -365,7 +366,6 @@ public class TestUnionVector {
 
       List<ArrowBuf> buffers = vector.getFieldBuffers();
 
-      long bitAddress = vector.getValidityBufferAddress();
 
       try {
         long offsetAddress = vector.getOffsetBufferAddress();
@@ -385,7 +385,6 @@ public class TestUnionVector {
       }
 
       assertEquals(1, buffers.size());
-      assertEquals(bitAddress, buffers.get(0).memoryAddress());
     }
   }
 
@@ -407,7 +406,7 @@ public class TestUnionVector {
       holder.isSet = 0;
       srcVector.setSafe(0, holder);
 
-      assertTrue(srcVector.isNull(0));
+      assertNull(srcVector.getObject(0));
     }
   }
 

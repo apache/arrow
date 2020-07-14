@@ -83,5 +83,5 @@ Install the development version from an `alternative PyPI
 
 .. code-block:: bash
 
-    pip install --extra-index-url https://repo.fury.io/arrow-nightlies/ \
+    pip install --extra-index-url https://pypi.fury.io/arrow-nightlies/ \
         --pre pyarrow

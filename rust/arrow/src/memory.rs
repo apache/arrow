@@ -149,28 +149,67 @@ pub fn allocate_aligned(size: usize) -> *mut u8 {
     }
 }
 
+/// # Safety
+///
+/// This function is unsafe because undefined behavior can result if the caller does not ensure all
+/// of the following:
+///
+/// * ptr must denote a block of memory currently allocated via this allocator,
+///
+/// * size must be the same size that was used to allocate that block of memory,
 pub unsafe fn free_aligned(ptr: *mut u8, size: usize) {
-    if size != 0x00 && ptr != BYPASS_PTR.as_ptr() {
+    if ptr != BYPASS_PTR.as_ptr() {
         std::alloc::dealloc(ptr, Layout::from_size_align_unchecked(size, ALIGNMENT));
     }
 }
 
+/// # Safety
+///
+/// This function is unsafe because undefined behavior can result if the caller does not ensure all
+/// of the following:
+///
+/// * ptr must be currently allocated via this allocator,
+///
+/// * new_size must be greater than zero.
+///
+/// * new_size, when rounded up to the nearest multiple of [ALIGNMENT], must not overflow (i.e.,
+/// the rounded value must be less than usize::MAX).
 pub unsafe fn reallocate(ptr: *mut u8, old_size: usize, new_size: usize) -> *mut u8 {
     if ptr == BYPASS_PTR.as_ptr() {
-        allocate_aligned(new_size)
-    } else {
-        let new_ptr = std::alloc::realloc(
-            ptr,
-            Layout::from_size_align_unchecked(old_size, ALIGNMENT),
-            new_size,
-        );
-        if !new_ptr.is_null() && new_size > old_size {
-            new_ptr.add(old_size).write_bytes(0, new_size - old_size);
-        }
-        new_ptr
+        return allocate_aligned(new_size);
     }
+
+    if new_size == 0 {
+        free_aligned(ptr, old_size);
+        return BYPASS_PTR.as_ptr();
+    }
+
+    let new_ptr = std::alloc::realloc(
+        ptr,
+        Layout::from_size_align_unchecked(old_size, ALIGNMENT),
+        new_size,
+    );
+
+    if !new_ptr.is_null() && new_size > old_size {
+        new_ptr.add(old_size).write_bytes(0, new_size - old_size);
+    }
+
+    new_ptr
 }
 
+/// # Safety
+///
+/// Behavior is undefined if any of the following conditions are violated:
+///
+/// * `src` must be [valid] for reads of `len * size_of::<T>()` bytes.
+///
+/// * `dst` must be [valid] for writes of `len * size_of::<T>()` bytes.
+///
+/// * Both `src` and `dst` must be properly aligned.
+///
+/// `memcpy` creates a bitwise copy of `T`, regardless of whether `T` is [`Copy`]. If `T` is not
+/// [`Copy`], using both the values in the region beginning at `*src` and the region beginning at
+/// `*dst` can [violate memory safety][read-ownership].
 pub unsafe fn memcpy(dst: *mut u8, src: *const u8, len: usize) {
     if len != 0x00 && src != BYPASS_PTR.as_ptr() {
         std::ptr::copy_nonoverlapping(src, dst, len)

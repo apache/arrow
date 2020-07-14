@@ -25,13 +25,12 @@ use std::io::{BufReader, Read, Seek, SeekFrom};
 use std::sync::Arc;
 
 use crate::array::*;
-use crate::buffer::{Buffer, MutableBuffer};
+use crate::buffer::Buffer;
 use crate::compute::cast;
 use crate::datatypes::{DataType, Field, IntervalUnit, Schema, SchemaRef};
 use crate::error::{ArrowError, Result};
 use crate::ipc;
 use crate::record_batch::{RecordBatch, RecordBatchReader};
-use crate::util::bit_util;
 use DataType::*;
 
 const CONTINUATION_MARKER: u32 = 0xffff_ffff;
@@ -64,7 +63,7 @@ fn create_array(
 ) -> (ArrayRef, usize, usize) {
     use DataType::*;
     let array = match data_type {
-        Utf8 | Binary => {
+        Utf8 | Binary | LargeBinary | LargeUtf8 => {
             let array = create_primitive_array(
                 &nodes[node_index],
                 data_type,
@@ -90,7 +89,7 @@ fn create_array(
             buffer_index += 2;
             array
         }
-        List(ref list_data_type) => {
+        List(ref list_data_type) | LargeList(ref list_data_type) => {
             let list_node = &nodes[node_index];
             let list_buffers: Vec<Buffer> = buffers[buffer_index..buffer_index + 2]
                 .iter()
@@ -193,14 +192,6 @@ fn create_array(
             let length = nodes[node_index].length() as usize;
             let data = ArrayData::builder(data_type.clone())
                 .len(length)
-                .null_count(length)
-                .null_bit_buffer({
-                    // create a buffer and fill it with invalid bits
-                    let num_bytes = bit_util::ceil(length, 8);
-                    let buffer = MutableBuffer::new(num_bytes);
-                    let buffer = buffer.with_bitset(num_bytes, false);
-                    buffer.freeze()
-                })
                 .offset(0)
                 .build();
             node_index += 1;
@@ -234,7 +225,7 @@ fn create_primitive_array(
     let length = field_node.length() as usize;
     let null_count = field_node.null_count() as usize;
     let array_data = match data_type {
-        Utf8 | Binary => {
+        Utf8 | Binary | LargeBinary | LargeUtf8 => {
             // read 3 buffers
             let mut builder = ArrayData::builder(data_type.clone())
                 .len(length)
@@ -421,7 +412,7 @@ fn create_dictionary_array(
 pub(crate) fn read_record_batch(
     buf: &[u8],
     batch: ipc::RecordBatch,
-    schema: Arc<Schema>,
+    schema: SchemaRef,
     dictionaries: &[Option<ArrayRef>],
 ) -> Result<Option<RecordBatch>> {
     let buffers = batch.buffers().ok_or_else(|| {
@@ -474,7 +465,7 @@ pub struct FileReader<R: Read + Seek> {
     reader: BufReader<R>,
 
     /// The schema that is read from the file header
-    schema: Arc<Schema>,
+    schema: SchemaRef,
 
     /// The blocks in the file
     ///
@@ -639,8 +630,28 @@ impl<R: Read + Seek> FileReader<R> {
         self.schema.clone()
     }
 
-    /// Read the next record batch
-    pub fn next(&mut self) -> Result<Option<RecordBatch>> {
+    /// Read a specific record batch
+    ///
+    /// Sets the current block to the index, allowing random reads
+    pub fn set_index(&mut self, index: usize) -> Result<()> {
+        if index >= self.total_blocks {
+            Err(ArrowError::IoError(format!(
+                "Cannot set batch to index {} from {} total batches",
+                index, self.total_blocks
+            )))
+        } else {
+            self.current_block = index;
+            Ok(())
+        }
+    }
+}
+
+impl<R: Read + Seek> RecordBatchReader for FileReader<R> {
+    fn schema(&self) -> SchemaRef {
+        self.schema.clone()
+    }
+
+    fn next_batch(&mut self) -> Result<Option<RecordBatch>> {
         // get current block
         if self.current_block < self.total_blocks {
             let block = self.blocks[self.current_block];
@@ -691,31 +702,6 @@ impl<R: Read + Seek> FileReader<R> {
             Ok(None)
         }
     }
-
-    /// Read a specific record batch
-    ///
-    /// Sets the current block to the index, allowing random reads
-    pub fn set_index(&mut self, index: usize) -> Result<()> {
-        if index >= self.total_blocks {
-            Err(ArrowError::IoError(format!(
-                "Cannot set batch to index {} from {} total batches",
-                index, self.total_blocks
-            )))
-        } else {
-            self.current_block = index;
-            Ok(())
-        }
-    }
-}
-
-impl<R: Read + Seek> RecordBatchReader for FileReader<R> {
-    fn schema(&mut self) -> SchemaRef {
-        self.schema.clone()
-    }
-
-    fn next_batch(&mut self) -> Result<Option<RecordBatch>> {
-        self.next()
-    }
 }
 
 /// Arrow Stream reader
@@ -723,7 +709,7 @@ pub struct StreamReader<R: Read> {
     /// Buffered stream reader
     reader: BufReader<R>,
     /// The schema that is read from the stream's first message
-    schema: Arc<Schema>,
+    schema: SchemaRef,
     /// An indicator of whether the strewam is complete.
     ///
     /// This value is set to `true` the first time the reader's `next()` returns `None`.
@@ -786,14 +772,39 @@ impl<R: Read> StreamReader<R> {
         self.schema.clone()
     }
 
-    /// Read the next record batch
-    pub fn next(&mut self) -> Result<Option<RecordBatch>> {
+    /// Check if the stream is finished
+    pub fn is_finished(&self) -> bool {
+        self.finished
+    }
+}
+
+impl<R: Read> RecordBatchReader for StreamReader<R> {
+    fn schema(&self) -> SchemaRef {
+        self.schema.clone()
+    }
+
+    fn next_batch(&mut self) -> Result<Option<RecordBatch>> {
         if self.finished {
             return Ok(None);
         }
         // determine metadata length
         let mut meta_size: [u8; 4] = [0; 4];
-        self.reader.read_exact(&mut meta_size)?;
+
+        match self.reader.read_exact(&mut meta_size) {
+            Ok(()) => (),
+            Err(e) => {
+                return if e.kind() == std::io::ErrorKind::UnexpectedEof {
+                    // Handle EOF without the "0xFFFFFFFF 0x00000000"
+                    // valid according to:
+                    // https://arrow.apache.org/docs/format/Columnar.html#ipc-streaming-format
+                    self.finished = true;
+                    Ok(None)
+                } else {
+                    Err(ArrowError::from(e))
+                };
+            }
+        }
+
         let meta_len = {
             let meta_len = u32::from_le_bytes(meta_size);
 
@@ -842,21 +853,6 @@ impl<R: Read> StreamReader<R> {
                 format!("Reading types other than record batches not yet supported, unable to read {:?} ", t)
             )),
         }
-    }
-
-    /// Check if the stream is finished
-    pub fn is_finished(&self) -> bool {
-        self.finished
-    }
-}
-
-impl<R: Read> RecordBatchReader for StreamReader<R> {
-    fn schema(&mut self) -> SchemaRef {
-        self.schema.clone()
-    }
-
-    fn next_batch(&mut self) -> Result<Option<RecordBatch>> {
-        self.next()
     }
 }
 
@@ -924,7 +920,7 @@ mod tests {
             let arrow_json = read_gzip_json(path);
             assert!(arrow_json.equals_reader(&mut reader));
             // the next batch must be empty
-            assert!(reader.next().unwrap().is_none());
+            assert!(reader.next_batch().unwrap().is_none());
             // the stream must indicate that it's finished
             assert!(reader.is_finished());
         });

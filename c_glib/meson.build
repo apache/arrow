@@ -70,6 +70,7 @@ if arrow_cpp_build_lib_dir == ''
   dependency('arrow-compute')
   dependency('arrow-csv')
   dependency('arrow-filesystem')
+  dependency('arrow-json')
 
   have_arrow_orc = dependency('arrow-orc', required: false).found()
   arrow_cuda = dependency('arrow-cuda', required: false)

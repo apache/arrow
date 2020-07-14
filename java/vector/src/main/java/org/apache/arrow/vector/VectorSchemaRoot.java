@@ -19,7 +19,7 @@ package org.apache.arrow.vector;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -54,7 +54,7 @@ public class VectorSchemaRoot implements AutoCloseable {
   private Schema schema;
   private int rowCount;
   private final List<FieldVector> fieldVectors;
-  private final Map<String, FieldVector> fieldVectorsMap = new HashMap<>();
+  private final Map<Field, FieldVector> fieldVectorsMap = new LinkedHashMap<>();
 
 
   /**
@@ -113,7 +113,7 @@ public class VectorSchemaRoot implements AutoCloseable {
     for (int i = 0; i < schema.getFields().size(); ++i) {
       Field field = schema.getFields().get(i);
       FieldVector vector = fieldVectors.get(i);
-      fieldVectorsMap.put(field.getName(), vector);
+      fieldVectorsMap.put(field, vector);
     }
   }
 
@@ -163,8 +163,22 @@ public class VectorSchemaRoot implements AutoCloseable {
     return fieldVectors.stream().collect(Collectors.toList());
   }
 
+  /**
+   * gets a vector by name.
+   *
+   * if name occurs multiple times this returns the first inserted entry for name
+   */
   public FieldVector getVector(String name) {
-    return fieldVectorsMap.get(name);
+    for (Map.Entry<Field, FieldVector> entry: fieldVectorsMap.entrySet()) {
+      if (entry.getKey().getName().equals(name)) {
+        return entry.getValue();
+      }
+    }
+    return null;
+  }
+
+  public FieldVector getVector(Field field) {
+    return fieldVectorsMap.get(field);
   }
 
   public FieldVector getVector(int index) {

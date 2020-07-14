@@ -257,7 +257,7 @@ garrow_decimal128_greater_than_or_equal(GArrowDecimal128 *decimal,
  * @decimal: A #GArrowDecimal128.
  * @scale: The scale of the decimal.
  *
- * Returns: (transfer full): The string representation of the decimal.
+ * Returns: The string representation of the decimal.
  *
  *   It should be freed with g_free() when no longer needed.
  *
@@ -274,7 +274,7 @@ garrow_decimal128_to_string_scale(GArrowDecimal128 *decimal, gint32 scale)
  * garrow_decimal128_to_string:
  * @decimal: A #GArrowDecimal128.
  *
- * Returns: (transfer full): The string representation of the decimal.
+ * Returns: The string representation of the decimal.
  *
  *   It should be freed with g_free() when no longer needed.
  *

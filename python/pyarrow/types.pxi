@@ -21,9 +21,6 @@ import re
 import sys
 import warnings
 
-from pyarrow import compat
-from pyarrow.compat import builtin_pickle
-
 
 # These are imprecise because the type (in pandas 0.x) depends on the presence
 # of nulls
@@ -1707,6 +1704,9 @@ def field(name, type, bint nullable=True, metadata=None):
     metadata = ensure_metadata(metadata, allow_none=True)
     c_meta = pyarrow_unwrap_metadata(metadata)
 
+    if _type.type.id() == _Type_NA and not nullable:
+        raise ValueError("A null type field may not be non-nullable")
+
     result.sp_field.reset(
         new CField(tobytes(name), _type.sp_type, nullable, c_meta)
     )
@@ -1816,9 +1816,6 @@ cdef timeunit_to_string(TimeUnit unit):
         return 'ns'
 
 
-_FIXED_OFFSET_RE = re.compile(r'([+-])(0[0-9]|1[0-9]|2[0-3]):([0-5][0-9])$')
-
-
 def tzinfo_to_string(tz):
     """
     Converts a time zone object into a string indicating the name of a time
@@ -1884,14 +1881,9 @@ def string_to_tzinfo(name):
       tz : datetime.tzinfo
         Time zone object
     """
-    import pytz
-    m = _FIXED_OFFSET_RE.match(name)
-    if m:
-        sign = 1 if m.group(1) == '+' else -1
-        hours, minutes = map(int, m.group(2, 3))
-        return pytz.FixedOffset(sign * (hours * 60 + minutes))
-    else:
-        return pytz.timezone(name)
+    cdef PyObject* tz
+    check_status(libarrow.StringToTzinfo(name.encode('utf-8'), &tz))
+    return PyObject_to_object(tz)
 
 
 def timestamp(unit, tz=None):
@@ -2364,7 +2356,7 @@ def struct(fields):
         vector[shared_ptr[CField]] c_fields
         cdef shared_ptr[CDataType] struct_type
 
-    if isinstance(fields, compat.Mapping):
+    if isinstance(fields, Mapping):
         fields = fields.items()
 
     for item in fields:
@@ -2429,11 +2421,9 @@ def union(children_fields, mode, type_codes=None):
         c_type_codes = range(c_fields.size())
 
     if mode == UnionMode_SPARSE:
-        union_type.reset(new CUnionType(c_fields, c_type_codes,
-                                        _UnionMode_SPARSE))
+        union_type = CMakeSparseUnionType(c_fields, c_type_codes)
     else:
-        union_type.reset(new CUnionType(c_fields, c_type_codes,
-                                        _UnionMode_DENSE))
+        union_type = CMakeDenseUnionType(c_fields, c_type_codes)
 
     return pyarrow_wrap_data_type(union_type)
 
@@ -2561,7 +2551,7 @@ def schema(fields, metadata=None):
         Field py_field
         vector[shared_ptr[CField]] c_fields
 
-    if isinstance(fields, compat.Mapping):
+    if isinstance(fields, Mapping):
         fields = fields.items()
 
     for item in fields:

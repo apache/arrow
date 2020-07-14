@@ -146,8 +146,6 @@ Table <- R6Class("Table", inherit = ArrowObject,
       if (is.integer(i)) {
         i <- Array$create(i)
       }
-      # Invalid: Tried executing function with non-value type: Table
-      # so use old methods
       shared_ptr(Table, call_function("take", self, i))
     },
     Filter = function(i, keep_na = TRUE) {
@@ -204,7 +202,11 @@ Table$create <- function(..., schema = NULL) {
 
 #' @export
 as.data.frame.Table <- function(x, row.names = NULL, optional = FALSE, ...) {
-  Table__to_dataframe(x, use_threads = option_use_threads())
+  df <- Table__to_dataframe(x, use_threads = option_use_threads())
+  if (!is.null(r_metadata <- x$metadata$r)) {
+    df <- apply_arrow_r_metadata(df, .unserialize_arrow_r_metadata(r_metadata))
+  }
+  df
 }
 
 #' @export

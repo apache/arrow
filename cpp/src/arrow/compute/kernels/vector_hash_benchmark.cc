@@ -37,7 +37,7 @@ static void BuildDictionary(benchmark::State& state) {  // NOLINT non-const refe
   std::vector<bool> is_valid;
   for (int64_t i = 0; i < iterations; i++) {
     for (int64_t j = 0; j < i; j++) {
-      is_valid.push_back((i + j) % 9 == 0);
+      is_valid.push_back((i + j) % 9 != 0);
       values.push_back(j);
     }
   }
@@ -48,7 +48,10 @@ static void BuildDictionary(benchmark::State& state) {  // NOLINT non-const refe
   while (state.KeepRunning()) {
     ABORT_NOT_OK(DictionaryEncode(arr).status());
   }
+  state.counters["null_percent"] =
+      static_cast<double>(arr->null_count()) / arr->length() * 100;
   state.SetBytesProcessed(state.iterations() * values.size() * sizeof(int64_t));
+  state.SetItemsProcessed(state.iterations() * values.size());
 }
 
 static void BuildStringDictionary(
@@ -72,59 +75,67 @@ static void BuildStringDictionary(
   while (state.KeepRunning()) {
     ABORT_NOT_OK(DictionaryEncode(arr).status());
   }
-  // Assuming a string here needs on average 2 bytes
   state.SetBytesProcessed(state.iterations() * total_bytes);
+  state.SetItemsProcessed(state.iterations() * data.size());
 }
+
+struct HashBenchCase {
+  int64_t length;
+  int64_t num_unique;
+  double null_probability;
+};
 
 template <typename Type>
 struct HashParams {
   using T = typename Type::c_type;
 
-  double null_percent;
+  HashBenchCase params;
 
-  void GenerateTestData(const int64_t length, const int64_t num_unique,
-                        std::shared_ptr<Array>* arr) const {
+  void GenerateTestData(std::shared_ptr<Array>* arr) const {
     std::vector<int64_t> draws;
     std::vector<T> values;
     std::vector<bool> is_valid;
-    randint<int64_t>(length, 0, num_unique, &draws);
+    randint<int64_t>(params.length, 0, params.num_unique, &draws);
     for (int64_t draw : draws) {
       values.push_back(static_cast<T>(draw));
     }
-
-    if (this->null_percent > 0) {
-      random_is_valid(length, this->null_percent, &is_valid);
+    if (params.null_probability > 0) {
+      random_is_valid(params.length, params.null_probability, &is_valid);
       ArrayFromVector<Type, T>(is_valid, values, arr);
     } else {
       ArrayFromVector<Type, T>(values, arr);
     }
   }
 
-  int64_t GetBytesProcessed(int64_t length) const { return length * sizeof(T); }
+  void SetMetadata(benchmark::State& state) const {
+    state.counters["null_percent"] = params.null_probability * 100;
+    state.counters["num_unique"] = static_cast<double>(params.num_unique);
+    state.SetBytesProcessed(state.iterations() * params.length * sizeof(T));
+    state.SetItemsProcessed(state.iterations() * params.length);
+  }
 };
 
 template <>
 struct HashParams<StringType> {
-  double null_percent;
+  HashBenchCase params;
   int32_t byte_width;
-  void GenerateTestData(const int64_t length, const int64_t num_unique,
-                        std::shared_ptr<Array>* arr) const {
+  void GenerateTestData(std::shared_ptr<Array>* arr) const {
     std::vector<int64_t> draws;
-    randint<int64_t>(length, 0, num_unique, &draws);
+    randint<int64_t>(params.length, 0, params.num_unique, &draws);
 
-    const int64_t total_bytes = this->byte_width * num_unique;
+    const int64_t total_bytes = this->byte_width * params.num_unique;
     std::vector<uint8_t> uniques(total_bytes);
     const uint32_t seed = 0;
     random_bytes(total_bytes, seed, uniques.data());
 
     std::vector<bool> is_valid;
-    if (this->null_percent > 0) {
-      random_is_valid(length, this->null_percent, &is_valid);
+    if (params.null_probability > 0) {
+      random_is_valid(params.length, params.null_probability, &is_valid);
     }
 
     StringBuilder builder;
-    for (int64_t i = 0; i < length; ++i) {
-      if (this->null_percent == 0 || is_valid[i]) {
+    for (int64_t i = 0; i < params.length; ++i) {
+      if (params.null_probability == 0 || is_valid[i]) {
         ABORT_NOT_OK(builder.Append(uniques.data() + this->byte_width * draws[i],
                                     this->byte_width));
       } else {
@@ -134,79 +145,106 @@ struct HashParams<StringType> {
     ABORT_NOT_OK(builder.Finish(arr));
   }
 
-  int64_t GetBytesProcessed(int64_t length) const { return length * byte_width; }
+  void SetMetadata(benchmark::State& state) const {
+    state.counters["null_percent"] = params.null_probability * 100;
+    state.counters["num_unique"] = static_cast<double>(params.num_unique);
+    state.SetBytesProcessed(state.iterations() * params.length * byte_width);
+    state.SetItemsProcessed(state.iterations() * params.length);
+  }
 };
 
 template <typename ParamType>
-void BenchUnique(benchmark::State& state, const ParamType& params, int64_t length,
-                 int64_t num_unique) {
+void BenchUnique(benchmark::State& state, const ParamType& params) {
   std::shared_ptr<Array> arr;
-  params.GenerateTestData(length, num_unique, &arr);
+  params.GenerateTestData(&arr);
 
   while (state.KeepRunning()) {
     ABORT_NOT_OK(Unique(arr).status());
   }
-  state.SetBytesProcessed(state.iterations() * params.GetBytesProcessed(length));
+  params.SetMetadata(state);
 }
 
 template <typename ParamType>
-void BenchDictionaryEncode(benchmark::State& state, const ParamType& params,
-                           int64_t length, int64_t num_unique) {
+void BenchDictionaryEncode(benchmark::State& state, const ParamType& params) {
   std::shared_ptr<Array> arr;
-  params.GenerateTestData(length, num_unique, &arr);
-
+  params.GenerateTestData(&arr);
   while (state.KeepRunning()) {
     ABORT_NOT_OK(DictionaryEncode(arr).status());
   }
-  state.SetBytesProcessed(state.iterations() * params.GetBytesProcessed(length));
+  params.SetMetadata(state);
 }
 
-static void UniqueUInt8NoNulls(benchmark::State& state) {
-  BenchUnique(state, HashParams<UInt8Type>{0}, state.range(0), state.range(1));
+constexpr int kHashBenchmarkLength = 1 << 22;
+
+// clang-format off
+std::vector<HashBenchCase> uint8_bench_cases = {
+  {kHashBenchmarkLength, 200, 0},
+  {kHashBenchmarkLength, 200, 0.001},
+  {kHashBenchmarkLength, 200, 0.01},
+  {kHashBenchmarkLength, 200, 0.1},
+  {kHashBenchmarkLength, 200, 0.5},
+  {kHashBenchmarkLength, 200, 0.99},
+  {kHashBenchmarkLength, 200, 1}
+};
+// clang-format on
+
+static void UniqueUInt8(benchmark::State& state) {
+  BenchUnique(state, HashParams<UInt8Type>{uint8_bench_cases[state.range(0)]});
 }
 
-static void UniqueUInt8WithNulls(benchmark::State& state) {
-  BenchUnique(state, HashParams<UInt8Type>{0.05}, state.range(0), state.range(1));
-}
+// clang-format off
+std::vector<HashBenchCase> general_bench_cases = {
+  {kHashBenchmarkLength, 100, 0},
+  {kHashBenchmarkLength, 100, 0.001},
+  {kHashBenchmarkLength, 100, 0.01},
+  {kHashBenchmarkLength, 100, 0.1},
+  {kHashBenchmarkLength, 100, 0.5},
+  {kHashBenchmarkLength, 100, 0.99},
+  {kHashBenchmarkLength, 100, 1},
+  {kHashBenchmarkLength, 100000, 0},
+  {kHashBenchmarkLength, 100000, 0.001},
+  {kHashBenchmarkLength, 100000, 0.01},
+  {kHashBenchmarkLength, 100000, 0.1},
+  {kHashBenchmarkLength, 100000, 0.5},
+  {kHashBenchmarkLength, 100000, 0.99},
+  {kHashBenchmarkLength, 100000, 1},
+};
+// clang-format on
 
-static void UniqueInt64NoNulls(benchmark::State& state) {
-  BenchUnique(state, HashParams<Int64Type>{0}, state.range(0), state.range(1));
-}
-
-static void UniqueInt64WithNulls(benchmark::State& state) {
-  BenchUnique(state, HashParams<Int64Type>{0.05}, state.range(0), state.range(1));
+static void UniqueInt64(benchmark::State& state) {
+  BenchUnique(state, HashParams<Int64Type>{general_bench_cases[state.range(0)]});
 }
 
 static void UniqueString10bytes(benchmark::State& state) {
   // Byte strings with 10 bytes each
-  BenchUnique(state, HashParams<StringType>{0.05, 10}, state.range(0), state.range(1));
+  BenchUnique(state, HashParams<StringType>{general_bench_cases[state.range(0)], 10});
 }
 
 static void UniqueString100bytes(benchmark::State& state) {
   // Byte strings with 100 bytes each
-  BenchUnique(state, HashParams<StringType>{0.05, 100}, state.range(0), state.range(1));
+  BenchUnique(state, HashParams<StringType>{general_bench_cases[state.range(0)], 100});
+}
+
+void HashSetArgs(benchmark::internal::Benchmark* bench) {
+  for (int i = 0; i < static_cast<int>(general_bench_cases.size()); ++i) {
+    bench->Arg(i);
+  }
 }
 
 BENCHMARK(BuildDictionary);
 BENCHMARK(BuildStringDictionary);
 
-constexpr int kHashBenchmarkLength = 1 << 22;
+BENCHMARK(UniqueInt64)->Apply(HashSetArgs);
+BENCHMARK(UniqueString10bytes)->Apply(HashSetArgs);
+BENCHMARK(UniqueString100bytes)->Apply(HashSetArgs);
 
-#define ADD_HASH_ARGS(WHAT) \
-  WHAT->Args({kHashBenchmarkLength, 1 << 10})->Args({kHashBenchmarkLength, 10 * 1 << 10})
+void UInt8SetArgs(benchmark::internal::Benchmark* bench) {
+  for (int i = 0; i < static_cast<int>(uint8_bench_cases.size()); ++i) {
+    bench->Arg(i);
+  }
+}
 
-ADD_HASH_ARGS(BENCHMARK(UniqueInt64NoNulls));
-ADD_HASH_ARGS(BENCHMARK(UniqueInt64WithNulls));
-ADD_HASH_ARGS(BENCHMARK(UniqueString10bytes));
-ADD_HASH_ARGS(BENCHMARK(UniqueString100bytes));
-
-BENCHMARK(UniqueUInt8NoNulls)
-    ->Args({kHashBenchmarkLength, 200})
-    ->Unit(benchmark::kMicrosecond);
-
-BENCHMARK(UniqueUInt8WithNulls)
-    ->Args({kHashBenchmarkLength, 200})
-    ->Unit(benchmark::kMicrosecond);
+BENCHMARK(UniqueUInt8)->Apply(UInt8SetArgs);
 
 }  // namespace compute
 }  // namespace arrow

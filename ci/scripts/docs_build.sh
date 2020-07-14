@@ -40,7 +40,7 @@ rsync -a ${arrow_dir}/r/docs/ ${build_dir}/r
 rsync -a ${ARROW_HOME}/share/gtk-doc/html/ ${build_dir}/c_glib
 
 # Java
-rsync -a ${arrow_dir}/java/target/site/apidocs/ ${build_dir}/java
+rsync -a ${arrow_dir}/java/target/site/apidocs/ ${build_dir}/java/reference
 
 # Javascript
 rsync -a ${arrow_dir}/js/doc/ ${build_dir}/js

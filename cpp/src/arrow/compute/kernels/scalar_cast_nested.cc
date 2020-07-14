@@ -66,22 +66,22 @@ std::vector<std::shared_ptr<CastFunction>> GetNestedCasts() {
   // We use the list<T> from the CastOptions when resolving the output type
 
   auto cast_list = std::make_shared<CastFunction>("cast_list", Type::LIST);
-  AddCommonCasts<ListType>(kOutputTargetType, cast_list.get());
+  AddCommonCasts(Type::LIST, kOutputTargetType, cast_list.get());
   AddListCast<ListType>(cast_list.get());
 
   auto cast_large_list =
       std::make_shared<CastFunction>("cast_large_list", Type::LARGE_LIST);
-  AddCommonCasts<LargeListType>(kOutputTargetType, cast_large_list.get());
+  AddCommonCasts(Type::LARGE_LIST, kOutputTargetType, cast_large_list.get());
   AddListCast<LargeListType>(cast_large_list.get());
 
   // FSL is a bit incomplete at the moment
   auto cast_fsl =
       std::make_shared<CastFunction>("cast_fixed_size_list", Type::FIXED_SIZE_LIST);
-  AddCommonCasts<FixedSizeListType>(kOutputTargetType, cast_fsl.get());
+  AddCommonCasts(Type::FIXED_SIZE_LIST, kOutputTargetType, cast_fsl.get());
 
   // So is struct
   auto cast_struct = std::make_shared<CastFunction>("cast_struct", Type::STRUCT);
-  AddCommonCasts<StructType>(kOutputTargetType, cast_struct.get());
+  AddCommonCasts(Type::STRUCT, kOutputTargetType, cast_struct.get());
 
   return {cast_list, cast_large_list, cast_fsl, cast_struct};
 }

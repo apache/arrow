@@ -21,8 +21,8 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/array/builder_primitive.h"
 #include "arrow/compute/exec.h"
-#include "arrow/compute/kernels/vector_selection_internal.h"
 #include "arrow/datum.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
@@ -64,6 +64,9 @@ Result<std::shared_ptr<Array>> ValueCounts(const Datum& value, ExecContext* ctx)
   ARROW_ASSIGN_OR_RAISE(Datum result, CallFunction("value_counts", {value}, ctx));
   return result.make_array();
 }
+
+// ----------------------------------------------------------------------
+// Filter- and take-related selection functions
 
 Result<Datum> Filter(const Datum& values, const Datum& filter,
                      const FilterOptions& options, ExecContext* ctx) {

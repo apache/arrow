@@ -35,50 +35,57 @@ namespace arrow {
 namespace dataset {
 
 Result<std::shared_ptr<arrow::io::RandomAccessFile>> FileSource::Open() const {
-  if (id() == PATH) {
-    return filesystem()->OpenInputFile(path());
+  if (filesystem_) {
+    return filesystem_->OpenInputFile(file_info_);
   }
 
-  return std::make_shared<::arrow::io::BufferReader>(buffer());
+  if (buffer_) {
+    return std::make_shared<::arrow::io::BufferReader>(buffer_);
+  }
+
+  return custom_open_();
 }
 
-Result<std::shared_ptr<arrow::io::OutputStream>> FileSource::OpenWritable() const {
-  if (!writable_) {
-    return Status::Invalid("file source '", path(), "' is not writable");
+Result<std::shared_ptr<arrow::io::OutputStream>> WritableFileSource::Open() const {
+  if (filesystem_) {
+    return filesystem_->OpenOutputStream(path_);
   }
 
-  if (id() == PATH) {
-    return filesystem()->OpenOutputStream(path());
-  }
-
-  auto b = internal::checked_pointer_cast<ResizableBuffer>(buffer());
-  return std::make_shared<::arrow::io::BufferOutputStream>(b);
+  return std::make_shared<::arrow::io::BufferOutputStream>(buffer_);
 }
 
-Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(FileSource source) {
-  return MakeFragment(std::move(source), scalar(true));
+Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(
+    FileSource source, std::shared_ptr<Schema> physical_schema) {
+  return MakeFragment(std::move(source), scalar(true), std::move(physical_schema));
 }
 
 Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(
     FileSource source, std::shared_ptr<Expression> partition_expression) {
-  return std::shared_ptr<FileFragment>(new FileFragment(
-      std::move(source), shared_from_this(), std::move(partition_expression)));
+  return MakeFragment(std::move(source), std::move(partition_expression), nullptr);
+}
+
+Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(
+    FileSource source, std::shared_ptr<Expression> partition_expression,
+    std::shared_ptr<Schema> physical_schema) {
+  return std::shared_ptr<FileFragment>(
+      new FileFragment(std::move(source), shared_from_this(),
+                       std::move(partition_expression), std::move(physical_schema)));
 }
 
 Result<std::shared_ptr<WriteTask>> FileFormat::WriteFragment(
-    FileSource destination, std::shared_ptr<Fragment> fragment,
+    WritableFileSource destination, std::shared_ptr<Fragment> fragment,
     std::shared_ptr<ScanOptions> scan_options,
     std::shared_ptr<ScanContext> scan_context) {
   return Status::NotImplemented("writing fragment of format ", type_name());
 }
 
-Result<std::shared_ptr<Schema>> FileFragment::ReadPhysicalSchema() {
+Result<std::shared_ptr<Schema>> FileFragment::ReadPhysicalSchemaImpl() {
   return format_->Inspect(source_);
 }
 
 Result<ScanTaskIterator> FileFragment::Scan(std::shared_ptr<ScanOptions> options,
                                             std::shared_ptr<ScanContext> context) {
-  return format_->ScanFile(source_, std::move(options), std::move(context));
+  return format_->ScanFile(std::move(options), std::move(context), this);
 }
 
 FileSystemDataset::FileSystemDataset(std::shared_ptr<Schema> schema,
@@ -162,21 +169,21 @@ Result<std::shared_ptr<FileSystemDataset>> FileSystemDataset::Write(
   std::vector<std::shared_ptr<FileFragment>> fragments;
   for (size_t i = 0; i < plan.paths.size(); ++i) {
     const auto& op = plan.fragment_or_partition_expressions[i];
-    if (util::holds_alternative<std::shared_ptr<Fragment>>(op)) {
+    if (op.kind() == WritePlan::FragmentOrPartitionExpression::FRAGMENT) {
       auto path = partition_base_dir + plan.paths[i] + extension;
 
-      const auto& input_fragment = util::get<std::shared_ptr<Fragment>>(op);
+      const auto& input_fragment = op.fragment();
       FileSource dest(path, filesystem);
 
-      ARROW_ASSIGN_OR_RAISE(
-          auto fragment,
-          plan.format->MakeFragment(dest, input_fragment->partition_expression()));
-      fragments.push_back(std::move(fragment));
+      ARROW_ASSIGN_OR_RAISE(auto write_task,
+                            plan.format->WriteFragment({path, filesystem}, input_fragment,
+                                                       scan_options, scan_context));
+      task_group->Append([write_task] { return write_task->Execute(); });
 
       ARROW_ASSIGN_OR_RAISE(
-          auto write_task,
-          plan.format->WriteFragment(dest, input_fragment, scan_options, scan_context));
-      task_group->Append([write_task] { return write_task->Execute(); });
+          auto fragment, plan.format->MakeFragment(
+                             {path, filesystem}, input_fragment->partition_expression()));
+      fragments.push_back(std::move(fragment));
     }
   }
 

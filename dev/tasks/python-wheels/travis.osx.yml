@@ -45,10 +45,6 @@ before_install:
       bison
       flex
 
-  # remove shared grpc libraries installed by brew to make sure
-  # we are linked against the static ones.
-  - rm -f /usr/local/opt/grpc/lib/*.dylib
-
   # source utilities required for wheel builds
   - export CONFIG_PATH=`pwd`/arrow/dev/tasks/python-wheels/osx-build.sh
   - source multibuild/common_utils.sh

@@ -20,13 +20,12 @@
 use std::sync::{Arc, Mutex};
 
 use crate::error::{ExecutionError, Result};
-use crate::execution::physical_plan::{
-    BatchIterator, ExecutionPlan, Partition, PhysicalExpr,
-};
+use crate::execution::physical_plan::{ExecutionPlan, Partition, PhysicalExpr};
 use arrow::array::BooleanArray;
 use arrow::compute::filter;
-use arrow::datatypes::Schema;
-use arrow::record_batch::RecordBatch;
+use arrow::datatypes::SchemaRef;
+use arrow::error::Result as ArrowResult;
+use arrow::record_batch::{RecordBatch, RecordBatchReader};
 
 /// Execution plan for a Selection
 pub struct SelectionExec {
@@ -51,7 +50,7 @@ impl SelectionExec {
 
 impl ExecutionPlan for SelectionExec {
     /// Get the schema for this execution plan
-    fn schema(&self) -> Arc<Schema> {
+    fn schema(&self) -> SchemaRef {
         // The selection operator does not make any changes to the schema of its input
         self.input.schema()
     }
@@ -80,14 +79,14 @@ impl ExecutionPlan for SelectionExec {
 
 /// Represents a single partition of a Selection execution plan
 struct SelectionPartition {
-    schema: Arc<Schema>,
+    schema: SchemaRef,
     expr: Arc<dyn PhysicalExpr>,
     input: Arc<dyn Partition>,
 }
 
 impl Partition for SelectionPartition {
     /// Execute the Selection
-    fn execute(&self) -> Result<Arc<Mutex<dyn BatchIterator>>> {
+    fn execute(&self) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
         Ok(Arc::new(Mutex::new(SelectionIterator {
             schema: self.schema.clone(),
             expr: self.expr.clone(),
@@ -98,24 +97,27 @@ impl Partition for SelectionPartition {
 
 /// Selection iterator
 struct SelectionIterator {
-    schema: Arc<Schema>,
+    schema: SchemaRef,
     expr: Arc<dyn PhysicalExpr>,
-    input: Arc<Mutex<dyn BatchIterator>>,
+    input: Arc<Mutex<dyn RecordBatchReader + Send + Sync>>,
 }
 
-impl BatchIterator for SelectionIterator {
+impl RecordBatchReader for SelectionIterator {
     /// Get the schema
-    fn schema(&self) -> Arc<Schema> {
+    fn schema(&self) -> SchemaRef {
         self.schema.clone()
     }
 
     /// Get the next batch
-    fn next(&mut self) -> Result<Option<RecordBatch>> {
+    fn next_batch(&mut self) -> ArrowResult<Option<RecordBatch>> {
         let mut input = self.input.lock().unwrap();
-        match input.next()? {
+        match input.next_batch()? {
             Some(batch) => {
                 // evaluate the selection predicate to get a boolean array
-                let predicate_result = self.expr.evaluate(&batch)?;
+                let predicate_result = self
+                    .expr
+                    .evaluate(&batch)
+                    .map_err(ExecutionError::into_arrow_external_error)?;
 
                 if let Some(f) = predicate_result.as_any().downcast_ref::<BooleanArray>()
                 {
@@ -133,7 +135,8 @@ impl BatchIterator for SelectionIterator {
                 } else {
                     Err(ExecutionError::InternalError(
                         "Predicate evaluated to non-boolean value".to_string(),
-                    ))
+                    )
+                    .into_arrow_external_error())
                 }
             }
             None => Ok(None),

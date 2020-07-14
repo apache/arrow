@@ -122,12 +122,12 @@ Result<std::shared_ptr<Schema>> CsvFileFormat::Inspect(const FileSource& source)
   return reader->schema();
 }
 
-Result<ScanTaskIterator> CsvFileFormat::ScanFile(
-    const FileSource& source, std::shared_ptr<ScanOptions> options,
-    std::shared_ptr<ScanContext> context) const {
+Result<ScanTaskIterator> CsvFileFormat::ScanFile(std::shared_ptr<ScanOptions> options,
+                                                 std::shared_ptr<ScanContext> context,
+                                                 FileFragment* fragment) const {
   auto this_ = checked_pointer_cast<const CsvFileFormat>(shared_from_this());
-  auto task = std::make_shared<CsvScanTask>(std::move(this_), source, std::move(options),
-                                            std::move(context));
+  auto task = std::make_shared<CsvScanTask>(std::move(this_), fragment->source(),
+                                            std::move(options), std::move(context));
 
   return MakeVectorIterator<std::shared_ptr<ScanTask>>({std::move(task)});
 }

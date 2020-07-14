@@ -42,8 +42,9 @@ before_install:
 # Put the formula inside r/ so that it's included in the package build
 - cp ../dev/tasks/homebrew-formulae/autobrew/apache-arrow.rb tools/apache-arrow.rb
 # Pin the current commit in the formula to test so that we're not always pulling from master
-- sed -i.bak -E -e 's@https://github.com/apache/arrow.git"$@{{ arrow.remote }}", :revision => "{{ arrow.head }}"@' tools/apache-arrow.rb
-- rm -f tools/apache-arrow.rb.bak
+- sed -i.bak -E -e 's@https://github.com/apache/arrow.git"$@{{ arrow.remote }}.git", :revision => "{{ arrow.head }}"@' tools/apache-arrow.rb && rm -f tools/apache-arrow.rb.bak
+# Sometimes crossbow gives a remote URL with .git and sometimes not. Make sure there's only one
+- sed -i.bak -E -e 's@.git.git@.git@' tools/apache-arrow.rb && rm -f tools/apache-arrow.rb.bak
 script:
 - Rscript -e 'install.packages("rcmdcheck")'
 # Note that this is not --as-cran. CRAN doesn't do macOS checks --as-cran

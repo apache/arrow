@@ -48,7 +48,8 @@ for (year in 2009:2019) {
     dir.create(file.path("nyc-taxi", year, month))
     download.file(
       paste(bucket, year, month, "data.parquet", sep = "/"),
-      file.path("nyc-taxi", year, month, "data.parquet")
+      file.path("nyc-taxi", year, month, "data.parquet"),
+      mode = 'wb'
     )
   }
 }
@@ -279,4 +280,4 @@ In the future, when there is support for cloud storage and other file formats,
 this would mean you could point to an S3 bucked of Parquet data and a directory
 of CSVs on the local file system and query them together as a single dataset.
 To create a multi-source dataset, provide a list of datasets to `open_dataset()`
-instead of a file path, or simply concatenate them like `big_dataset <- c(ds1, ds2)`. 
+instead of a file path, or simply concatenate them like `big_dataset <- c(ds1, ds2)`.

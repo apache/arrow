@@ -57,7 +57,7 @@ DataFusion includes a simple command-line interactive SQL utility. See the [CLI 
 - [x] Common math functions
 - [ ] Common string functions
 - [ ] Common date/time functions
-- [ ] Sorting
+- [x] Sorting
 - [ ] Nested types
 - [ ] Lists
 - [ ] Subqueries
@@ -69,5 +69,15 @@ DataFusion includes a simple command-line interactive SQL utility. See the [CLI 
 - [x] Parquet primitive types
 - [ ] Parquet nested types
 
-# Examples
+# Supported SQL
 
+This library currently supports the following SQL constructs:
+
+* `CREATE EXTERNAL TABLE X STORED AS PARQUET LOCATION '...';` to register a table's locations
+* `SELECT ... FROM ...` together with any expression
+* `ALIAS` to name an expression
+* `CAST` to change types, including e.g. `Timestamp(Nanosecond, None)`
+* most mathematical unary and binary expressions such as `+`, `/`, `sqrt`, `tan`, `>=`.
+* `WHERE` to filter
+* `GROUP BY` together with one of the following aggregations: `MIN`, `MAX`, `COUNT`, `SUM`, `AVG`
+* `ORDER BY` together with an expression and optional `DESC`

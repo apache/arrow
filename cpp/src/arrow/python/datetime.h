@@ -120,6 +120,16 @@ ARROW_PYTHON_EXPORT
 inline int64_t TimePoint_to_ns(TimePoint val) { return val.time_since_epoch().count(); }
 
 ARROW_PYTHON_EXPORT
+inline TimePoint TimePoint_from_s(double val) {
+  return TimePoint(TimePoint::duration(static_cast<int64_t>(1e9 * val)));
+}
+
+ARROW_PYTHON_EXPORT
+inline TimePoint TimePoint_from_ns(int64_t val) {
+  return TimePoint(TimePoint::duration(val));
+}
+
+ARROW_PYTHON_EXPORT
 inline int64_t PyDelta_to_s(PyDateTime_Delta* pytimedelta) {
   int64_t total_seconds = 0;
   total_seconds += PyDateTime_DELTA_GET_SECONDS(pytimedelta);
@@ -146,6 +156,16 @@ ARROW_PYTHON_EXPORT
 inline int64_t PyDelta_to_ns(PyDateTime_Delta* pytimedelta) {
   return PyDelta_to_us(pytimedelta) * 1000;
 }
+
+/// \brief Convert a time zone name into a time zone object.
+///
+/// Supported input strings are:
+///  * As used in the Olson time zone database (the "tz database" or
+///   "tzdata"), such as "America/New_York"
+/// * An absolute time zone offset of the form +XX:XX or -XX:XX, such as +07:30
+/// GIL must be held when calling this method.
+ARROW_PYTHON_EXPORT
+Status StringToTzinfo(const std::string& tz, PyObject** tzinfo);
 
 }  // namespace internal
 }  // namespace py

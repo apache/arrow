@@ -27,10 +27,10 @@ ENV PATH "${RPREFIX}/bin:${PATH}"
 # and use pre-built binaries where possible
 COPY ci/etc/rprofile /arrow/ci/etc/
 RUN cat /arrow/ci/etc/rprofile >> $(R RHOME)/etc/Rprofile.site
-# Also ensure parallel compilation of C/C++ code
-RUN echo "MAKEFLAGS=-j$(R --slave -e 'cat(parallel::detectCores())')" >> $(R RHOME)/etc/Makeconf
-# Workaround for html help install failure; see https://github.com/r-lib/devtools/issues/2084#issuecomment-530912786
-RUN Rscript -e 'x <- file.path(R.home("doc"), "html"); if (!file.exists(x)) {dir.create(x, recursive=TRUE); file.copy(system.file("html/R.css", package="stats"), x)}'
+
+# Patch up some of the docker images
+COPY ci/scripts/r_docker_configure.sh /arrow/ci/scripts/
+RUN /arrow/ci/scripts/r_docker_configure.sh
 
 COPY ci/scripts/r_deps.sh /arrow/ci/scripts/
 COPY r/DESCRIPTION /arrow/r/

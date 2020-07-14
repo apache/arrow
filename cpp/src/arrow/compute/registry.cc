@@ -26,6 +26,7 @@
 #include "arrow/compute/function.h"
 #include "arrow/compute/registry_internal.h"
 #include "arrow/status.h"
+#include "arrow/util/cpu_info.h"
 
 namespace arrow {
 namespace compute {
@@ -102,17 +103,33 @@ static std::unique_ptr<FunctionRegistry> CreateBuiltInRegistry() {
   RegisterScalarBoolean(registry.get());
   RegisterScalarCast(registry.get());
   RegisterScalarComparison(registry.get());
+  RegisterScalarNested(registry.get());
   RegisterScalarSetLookup(registry.get());
   RegisterScalarStringAscii(registry.get());
+  RegisterScalarValidity(registry.get());
+  RegisterScalarFillNull(registry.get());
 
   // Aggregate functions
   RegisterScalarAggregateBasic(registry.get());
 
   // Vector functions
-  RegisterVectorFilter(registry.get());
   RegisterVectorHash(registry.get());
+  RegisterVectorSelection(registry.get());
+  RegisterVectorNested(registry.get());
   RegisterVectorSort(registry.get());
-  RegisterVectorTake(registry.get());
+
+  // SIMD functions
+  auto cpu_info = arrow::internal::CpuInfo::GetInstance();
+#if defined(ARROW_HAVE_RUNTIME_AVX2)
+  if (cpu_info->IsSupported(arrow::internal::CpuInfo::AVX2)) {
+    RegisterScalarAggregateSumAvx2(registry.get());
+  }
+#endif
+#if defined(ARROW_HAVE_RUNTIME_AVX512)
+  if (cpu_info->IsSupported(arrow::internal::CpuInfo::AVX512)) {
+    RegisterScalarAggregateSumAvx512(registry.get());
+  }
+#endif
 
   return registry;
 }

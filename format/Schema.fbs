@@ -20,17 +20,55 @@
 namespace org.apache.arrow.flatbuf;
 
 enum MetadataVersion:short {
-  /// 0.1.0
+  /// 0.1.0 (October 2016).
   V1,
 
-  /// 0.2.0
+  /// 0.2.0 (February 2017). Non-backwards compatible with V1.
   V2,
 
-  /// 0.3.0 -> 0.7.1
+  /// 0.3.0 -> 0.7.1 (May - December 2017). Non-backwards compatible with V2.
   V3,
 
-  /// >= 0.8.0
+  /// >= 0.8.0 (December 2017). Non-backwards compatible with V3.
   V4,
+
+  /// >= 1.0.0 (July 2020. Backwards compatible with V4 (V5 readers can read V4
+  /// metadata and IPC messages). Implementations are recommended to provide a
+  /// V4 compatibility mode with V5 format changes disabled.
+  ///
+  /// Incompatible changes between V4 and V5:
+  /// - Union buffer layout has changed. In V5, Unions don't have a validity
+  ///   bitmap buffer.
+  V5,
+}
+
+/// Represents Arrow Features that might not have full support
+/// within implementations. This is intended to be used in
+/// two scenarios:
+///  1.  A mechanism for readers of Arrow Streams
+///      and files to understand that the stream or file makes
+///      use of a feature that isn't supported or unknown to
+///      the implementation (and therefore can meet the Arrow
+///      forward compatibility guarantees).
+///  2.  A means of negotiating between a client and server
+///      what features a stream is allowed to use. The enums
+///      values here are intented to represent higher level
+///      features, additional details maybe negotiated
+///      with key-value pairs specific to the protocol.
+///
+/// Enums added to this list should be assigned power-of-two values
+/// to facilitate exchanging and comparing bitmaps for supported
+/// features.
+enum Feature : long {
+  /// Needed to make flatbuffers happy.
+  UNUSED = 0,
+  /// The stream makes use of multiple full dictionaries with the
+  /// same ID and assumes clients implement dictionary replacement
+  /// correctly.
+  DICTIONARY_REPLACEMENT = 1,
+  /// The stream makes use of compressed bodies as described
+  /// in Message.fbs.
+  COMPRESSED_BODY = 2
 }
 
 /// These are stored in the flatbuffer in the Type union below
@@ -134,11 +172,22 @@ table FixedSizeBinary {
 table Bool {
 }
 
+/// Exact decimal value represented as an integer value in two's
+/// complement. Currently only 128-bit (16-byte) integers are used but this may
+/// be expanded in the future. The representation uses the endianness indicated
+/// in the Schema.
 table Decimal {
   /// Total number of decimal digits
   precision: int;
+
   /// Number of digits after the decimal point "."
   scale: int;
+
+  /// Number of bits per value. The only accepted width right now is 128 but
+  /// this field exists for forward compatibility so that other bit widths may
+  /// be supported in future format versions. We use bitWidth for consistency
+  /// with Int::bitWidth.
+  bitWidth: int = 128;
 }
 
 enum DateUnit: short {
@@ -277,8 +326,11 @@ table DictionaryEncoding {
   /// DictionaryBatch messages
   id: long;
 
-  /// The dictionary indices are constrained to be positive integers. If this
-  /// field is null, the indices must be signed int32
+  /// The dictionary indices are constrained to be non-negative integers. If
+  /// this field is null, the indices must be signed int32. To maximize
+  /// cross-language compatibility and performance, implementations are
+  /// recommended to prefer signed integer types over unsigned integer types
+  /// and to avoid uint64 indices unless they are required by an application.
   indexType: Int;
 
   /// By default, dictionaries are not ordered, or the order does not have
@@ -348,6 +400,9 @@ table Schema {
   fields: [Field];
   // User-defined metadata
   custom_metadata: [ KeyValue ];
+
+  /// Features used in the stream/file.
+  features : [ Feature ];
 }
 
 root_type Schema;

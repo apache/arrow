@@ -40,6 +40,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/iterator.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/make_unique.h"
 
 namespace arrow {
@@ -202,9 +203,9 @@ class DummyFileFormat : public FileFormat {
   }
 
   /// \brief Open a file for scanning (always returns an empty iterator)
-  Result<ScanTaskIterator> ScanFile(const FileSource& source,
-                                    std::shared_ptr<ScanOptions> options,
-                                    std::shared_ptr<ScanContext> context) const override {
+  Result<ScanTaskIterator> ScanFile(std::shared_ptr<ScanOptions> options,
+                                    std::shared_ptr<ScanContext> context,
+                                    FileFragment* fragment) const override {
     return MakeEmptyIterator<std::shared_ptr<ScanTask>>();
   }
 
@@ -232,16 +233,16 @@ class JSONRecordBatchFileFormat : public FileFormat {
   }
 
   /// \brief Open a file for scanning
-  Result<ScanTaskIterator> ScanFile(const FileSource& source,
-                                    std::shared_ptr<ScanOptions> options,
-                                    std::shared_ptr<ScanContext> context) const override {
-    ARROW_ASSIGN_OR_RAISE(auto file, source.Open());
+  Result<ScanTaskIterator> ScanFile(std::shared_ptr<ScanOptions> options,
+                                    std::shared_ptr<ScanContext> context,
+                                    FileFragment* fragment) const override {
+    ARROW_ASSIGN_OR_RAISE(auto file, fragment->source().Open());
     ARROW_ASSIGN_OR_RAISE(int64_t size, file->GetSize());
     ARROW_ASSIGN_OR_RAISE(auto buffer, file->Read(size));
 
     util::string_view view{*buffer};
 
-    ARROW_ASSIGN_OR_RAISE(auto schema, Inspect(source));
+    ARROW_ASSIGN_OR_RAISE(auto schema, Inspect(fragment->source()));
     std::shared_ptr<RecordBatch> batch = RecordBatchFromJSON(schema, view);
     return ScanTaskIteratorFromRecordBatch({batch}, std::move(options),
                                            std::move(context));
@@ -258,9 +259,11 @@ struct MakeFileSystemDatasetMixin {
     std::stringstream ss(pathlist);
     std::string line;
     while (std::getline(ss, line)) {
-      if (std::all_of(line.begin(), line.end(), [](char c) { return isspace(c); })) {
+      auto start = line.find_first_not_of(" \n\r\t");
+      if (start == std::string::npos) {
         continue;
       }
+      line.erase(0, start);
 
       if (line.front() == '#') {
         continue;
@@ -308,7 +311,7 @@ struct MakeFileSystemDatasetMixin {
       }
 
       ASSERT_OK_AND_ASSIGN(auto fragment,
-                           format->MakeFragment({info.path(), fs_}, partitions[i]));
+                           format->MakeFragment({info, fs_}, partitions[i]));
       fragments.push_back(std::move(fragment));
     }
 

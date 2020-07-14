@@ -126,7 +126,7 @@ pub fn take(
 }
 
 /// Options that define how `take` should behave
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct TakeOptions {
     /// Perform bounds check before taking indices from values.
     /// If enabled, an `ArrowError` is returned if the indices are out of bounds.

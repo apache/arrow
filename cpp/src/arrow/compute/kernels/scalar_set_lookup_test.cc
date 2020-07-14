@@ -31,12 +31,12 @@
 #include "arrow/array/array_base.h"
 #include "arrow/array/builder_binary.h"
 #include "arrow/array/builder_primitive.h"
+#include "arrow/chunked_array.h"
 #include "arrow/compute/api.h"
 #include "arrow/compute/kernels/test_util.h"
 #include "arrow/memory_pool.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
-#include "arrow/table.h"
 #include "arrow/testing/gtest_compat.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
@@ -69,6 +69,17 @@ void CheckIsIn(const std::shared_ptr<DataType>& type, const std::vector<T>& in_v
 }
 
 class TestIsInKernel : public ::testing::Test {};
+
+TEST_F(TestIsInKernel, CallBinary) {
+  auto haystack = ArrayFromJSON(int8(), "[0, 1, 2, 3, 4, 5, 6, 7, 8]");
+  auto needles = ArrayFromJSON(int8(), "[2, 3, 5, 7]");
+  ASSERT_RAISES(Invalid, CallFunction("isin", {haystack, needles}));
+
+  ASSERT_OK_AND_ASSIGN(Datum out, CallFunction("isin_meta_binary", {haystack, needles}));
+  auto expected = ArrayFromJSON(boolean(), ("[false, false, true, true, false,"
+                                            "true, false, true, false]"));
+  AssertArraysEqual(*expected, *out.make_array());
+}
 
 template <typename Type>
 class TestIsInKernelPrimitive : public ::testing::Test {};
@@ -415,6 +426,17 @@ class TestMatchKernel : public ::testing::Test {
     AssertArraysEqual(*expected, *actual, /*verbose=*/true);
   }
 };
+
+TEST_F(TestMatchKernel, CallBinary) {
+  auto haystack = ArrayFromJSON(int8(), "[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]");
+  auto needles = ArrayFromJSON(int8(), "[2, 3, 5, 7]");
+  ASSERT_RAISES(Invalid, CallFunction("match", {haystack, needles}));
+
+  ASSERT_OK_AND_ASSIGN(Datum out, CallFunction("match_meta_binary", {haystack, needles}));
+  auto expected = ArrayFromJSON(int32(), ("[null, null, 0, 1, null, 2, null, 3, null,"
+                                          " null, null]"));
+  AssertArraysEqual(*expected, *out.make_array());
+}
 
 template <typename Type>
 class TestMatchKernelPrimitive : public TestMatchKernel {};

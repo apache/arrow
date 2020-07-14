@@ -17,17 +17,18 @@
 
 VERSION=$(shell grep ^Version DESCRIPTION | sed s/Version:\ //)
 ARROW_R_DEV="TRUE"
+ARROW_LARGE_MEMORY_TESTS=$(ARROW_R_DEV)
 
 doc:
-	R --slave -e 'roxygen2::roxygenize()'
+	R -s -e 'roxygen2::roxygenize()'
 	-git add --all man/*.Rd
 
 test:
 	export ARROW_R_DEV=$(ARROW_R_DEV) && R CMD INSTALL --install-tests --no-test-load --no-docs --no-help --no-byte-compile .
-	export NOT_CRAN=true && export ARROW_R_DEV=$(ARROW_R_DEV) && export AWS_EC2_METADATA_DISABLED=TRUE && R --slave -e 'library(testthat); setwd(file.path(.libPaths()[1], "arrow", "tests")); system.time(test_check("arrow", filter="${file}", reporter=ifelse(nchar("${r}"), "${r}", "summary")))'
+	export NOT_CRAN=true && export ARROW_R_DEV=$(ARROW_R_DEV) && export AWS_EC2_METADATA_DISABLED=TRUE && export ARROW_LARGE_MEMORY_TESTS=$(ARROW_LARGE_MEMORY_TESTS) && R -s -e 'library(testthat); setwd(file.path(.libPaths()[1], "arrow", "tests")); system.time(test_check("arrow", filter="${file}", reporter=ifelse(nchar("${r}"), "${r}", "summary")))'
 
 deps:
-	R --slave -e 'lib <- Sys.getenv("R_LIB", .libPaths()[1]); install.packages("devtools", repo="https://cloud.r-project.org", lib=lib); devtools::install_dev_deps(lib=lib)'
+	R -s -e 'lib <- Sys.getenv("R_LIB", .libPaths()[1]); install.packages("devtools", repo="https://cloud.r-project.org", lib=lib); devtools::install_dev_deps(lib=lib)'
 
 build: doc
 	cp ../NOTICE.txt inst/NOTICE.txt

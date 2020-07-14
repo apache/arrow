@@ -162,7 +162,6 @@ generation.
 The codegen.R script has these additional dependencies:
 
 ``` r
-remotes::install_github("nealrichardson/decor")
 install.packages("glue")
 ```
 

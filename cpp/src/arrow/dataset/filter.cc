@@ -78,6 +78,8 @@ struct Comparison {
   };
 };
 
+Result<Comparison::type> Compare(const Scalar& lhs, const Scalar& rhs);
+
 struct CompareVisitor {
   template <typename T>
   using ScalarType = typename TypeTraits<T>::ScalarType;
@@ -144,7 +146,11 @@ struct CompareVisitor {
   }
 
   Status Visit(const DictionaryType&) {
-    return Status::NotImplemented("comparison of scalars of type ", *lhs_.type);
+    ARROW_ASSIGN_OR_RAISE(auto lhs,
+                          checked_cast<const DictionaryScalar&>(lhs_).GetEncodedValue());
+    ARROW_ASSIGN_OR_RAISE(auto rhs,
+                          checked_cast<const DictionaryScalar&>(rhs_).GetEncodedValue());
+    return Compare(*lhs, *rhs).Value(&result_);
   }
 
   // defer comparison to ScalarType<T>::value
@@ -170,7 +176,7 @@ struct CompareVisitor {
 
 // Compare two scalars
 // if either is null, return is null
-// TODO(bkietz) extract this to scalar.h
+// TODO(bkietz) extract this to the scalar comparison kernels
 Result<Comparison::type> Compare(const Scalar& lhs, const Scalar& rhs) {
   if (!lhs.type->Equals(*rhs.type)) {
     return Status::TypeError("Cannot compare scalars of differing type: ", *lhs.type,
@@ -870,6 +876,10 @@ Result<std::shared_ptr<DataType>> NotExpression::Validate(const Schema& schema) 
 
 Result<std::shared_ptr<DataType>> InExpression::Validate(const Schema& schema) const {
   ARROW_ASSIGN_OR_RAISE(auto operand_type, operand_->Validate(schema));
+  if (operand_type->id() == Type::NA || set_->type()->id() == Type::NA) {
+    return boolean();
+  }
+
   if (!operand_type->Equals(set_->type())) {
     return Status::TypeError("mismatch: set type ", *set_->type(), " vs operand type ",
                              *operand_type);
@@ -1228,7 +1238,8 @@ Result<std::shared_ptr<RecordBatch>> TreeEvaluator::Filter(
     auto selection_array = selection.make_array();
     compute::ExecContext ctx(pool);
     ARROW_ASSIGN_OR_RAISE(Datum filtered,
-                          compute::Filter(batch, selection_array, {}, &ctx));
+                          compute::Filter(batch, selection_array,
+                                          compute::FilterOptions::Defaults(), &ctx));
     return filtered.record_batch();
   }
 

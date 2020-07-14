@@ -43,6 +43,8 @@ jobs:
         run: cd arrow && ci/scripts/util_checkout.sh
       - name: Run verification
         shell: bash
+        env:
+          INSTALL_NODE: 0
         run: |
           set -e
 

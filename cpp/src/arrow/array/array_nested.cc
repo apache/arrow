@@ -31,6 +31,7 @@
 #include "arrow/buffer.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/atomic_shared_ptr.h"
 #include "arrow/util/bit_util.h"
@@ -169,9 +170,7 @@ Result<std::shared_ptr<Array>> FlattenListArray(const ListArrayT& list_array,
     return non_null_fragments[0];
   }
 
-  std::shared_ptr<Array> flattened;
-  RETURN_NOT_OK(Concatenate(non_null_fragments, memory_pool, &flattened));
-  return flattened;
+  return Concatenate(non_null_fragments, memory_pool);
 }
 
 }  // namespace
@@ -258,6 +257,22 @@ Result<std::shared_ptr<Array>> ListArray::Flatten(MemoryPool* memory_pool) const
 Result<std::shared_ptr<Array>> LargeListArray::Flatten(MemoryPool* memory_pool) const {
   return FlattenListArray(*this, memory_pool);
 }
+
+static std::shared_ptr<Array> BoxOffsets(const std::shared_ptr<DataType>& boxed_type,
+                                         const ArrayData& data) {
+  std::vector<std::shared_ptr<Buffer>> buffers = {nullptr, data.buffers[1]};
+  auto offsets_data =
+      std::make_shared<ArrayData>(boxed_type, data.length + 1, std::move(buffers),
+                                  /*null_count=*/0, data.offset);
+  return MakeArray(offsets_data);
+}
+
+std::shared_ptr<Array> ListArray::offsets() const { return BoxOffsets(int32(), *data_); }
+
+std::shared_ptr<Array> LargeListArray::offsets() const {
+  return BoxOffsets(int64(), *data_);
+}
+
 // ----------------------------------------------------------------------
 // MapArray
 
@@ -285,10 +300,10 @@ MapArray::MapArray(const std::shared_ptr<DataType>& type, int64_t length,
   SetData(map_data);
 }
 
-Result<std::shared_ptr<Array>> MapArray::FromArrays(const std::shared_ptr<Array>& offsets,
-                                                    const std::shared_ptr<Array>& keys,
-                                                    const std::shared_ptr<Array>& items,
-                                                    MemoryPool* pool) {
+Result<std::shared_ptr<Array>> MapArray::FromArraysInternal(
+    std::shared_ptr<DataType> type, const std::shared_ptr<Array>& offsets,
+    const std::shared_ptr<Array>& keys, const std::shared_ptr<Array>& items,
+    MemoryPool* pool) {
   using offset_type = typename MapType::offset_type;
   using OffsetArrowType = typename CTypeTraits<offset_type>::ArrowType;
 
@@ -311,10 +326,35 @@ Result<std::shared_ptr<Array>> MapArray::FromArrays(const std::shared_ptr<Array>
   std::shared_ptr<Buffer> offset_buf, validity_buf;
   RETURN_NOT_OK(CleanListOffsets<MapType>(*offsets, pool, &offset_buf, &validity_buf));
 
-  auto map_type = std::make_shared<MapType>(keys->type(), items->type());
-  return std::make_shared<MapArray>(map_type, offsets->length() - 1, offset_buf, keys,
-                                    items, validity_buf, offsets->null_count(),
+  return std::make_shared<MapArray>(type, offsets->length() - 1, offset_buf, keys, items,
+                                    validity_buf, offsets->null_count(),
                                     offsets->offset());
+}
+
+Result<std::shared_ptr<Array>> MapArray::FromArrays(const std::shared_ptr<Array>& offsets,
+                                                    const std::shared_ptr<Array>& keys,
+                                                    const std::shared_ptr<Array>& items,
+                                                    MemoryPool* pool) {
+  return FromArraysInternal(std::make_shared<MapType>(keys->type(), items->type()),
+                            offsets, keys, items, pool);
+}
+
+Result<std::shared_ptr<Array>> MapArray::FromArrays(std::shared_ptr<DataType> type,
+                                                    const std::shared_ptr<Array>& offsets,
+                                                    const std::shared_ptr<Array>& keys,
+                                                    const std::shared_ptr<Array>& items,
+                                                    MemoryPool* pool) {
+  if (type->id() != Type::MAP) {
+    return Status::TypeError("Expected map type, got ", type->ToString());
+  }
+  const auto& map_type = checked_cast<const MapType&>(*type);
+  if (!map_type.key_type()->Equals(keys->type())) {
+    return Status::TypeError("Mismatching map keys type");
+  }
+  if (!map_type.item_type()->Equals(items->type())) {
+    return Status::TypeError("Mismatching map items type");
+  }
+  return FromArraysInternal(std::move(type), offsets, keys, items, pool);
 }
 
 Status MapArray::ValidateChildData(
@@ -486,8 +526,7 @@ std::shared_ptr<Array> StructArray::field(int i) const {
   if (!result) {
     std::shared_ptr<ArrayData> field_data;
     if (data_->offset != 0 || data_->child_data[i]->length != data_->length) {
-      field_data = std::make_shared<ArrayData>(
-          data_->child_data[i]->Slice(data_->offset, data_->length));
+      field_data = data_->child_data[i]->Slice(data_->offset, data_->length);
     } else {
       field_data = data_->child_data[i];
     }
@@ -515,7 +554,7 @@ Result<ArrayVector> StructArray::Flatten(MemoryPool* pool) const {
 
     // Need to adjust for parent offset
     if (data_->offset != 0 || data_->length != child_data->length) {
-      *child_data = child_data->Slice(data_->offset, data_->length);
+      child_data = child_data->Slice(data_->offset, data_->length);
     }
     std::shared_ptr<Buffer> child_null_bitmap = child_data->buffers[0];
     const int64_t child_offset = child_data->offset;
@@ -556,44 +595,79 @@ Result<ArrayVector> StructArray::Flatten(MemoryPool* pool) const {
 // ----------------------------------------------------------------------
 // UnionArray
 
-void UnionArray::SetData(const std::shared_ptr<ArrayData>& data) {
-  this->Array::SetData(data);
+void UnionArray::SetData(std::shared_ptr<ArrayData> data) {
+  this->Array::SetData(std::move(data));
 
-  ARROW_CHECK_EQ(data->type->id(), Type::UNION);
-  ARROW_CHECK_EQ(data->buffers.size(), 3);
   union_type_ = checked_cast<const UnionType*>(data_->type.get());
 
+  ARROW_CHECK_GE(data_->buffers.size(), 2);
   auto type_codes = data_->buffers[1];
-  auto value_offsets = data_->buffers[2];
   raw_type_codes_ = type_codes == nullptr
                         ? nullptr
                         : reinterpret_cast<const int8_t*>(type_codes->data());
+  boxed_fields_.resize(data_->child_data.size());
+}
+
+void SparseUnionArray::SetData(std::shared_ptr<ArrayData> data) {
+  this->UnionArray::SetData(std::move(data));
+  ARROW_CHECK_EQ(data_->type->id(), Type::SPARSE_UNION);
+  ARROW_CHECK_EQ(data_->buffers.size(), 2);
+
+  // No validity bitmap
+  ARROW_CHECK_EQ(data_->buffers[0], nullptr);
+}
+
+void DenseUnionArray::SetData(const std::shared_ptr<ArrayData>& data) {
+  this->UnionArray::SetData(std::move(data));
+
+  ARROW_CHECK_EQ(data_->type->id(), Type::DENSE_UNION);
+  ARROW_CHECK_EQ(data_->buffers.size(), 3);
+
+  // No validity bitmap
+  ARROW_CHECK_EQ(data_->buffers[0], nullptr);
+
+  auto value_offsets = data_->buffers[2];
   raw_value_offsets_ = value_offsets == nullptr
                            ? nullptr
                            : reinterpret_cast<const int32_t*>(value_offsets->data());
-  boxed_fields_.resize(data->child_data.size());
 }
 
-UnionArray::UnionArray(const std::shared_ptr<ArrayData>& data) { SetData(data); }
+SparseUnionArray::SparseUnionArray(std::shared_ptr<ArrayData> data) {
+  SetData(std::move(data));
+}
 
-UnionArray::UnionArray(const std::shared_ptr<DataType>& type, int64_t length,
-                       const std::vector<std::shared_ptr<Array>>& children,
-                       const std::shared_ptr<Buffer>& type_codes,
-                       const std::shared_ptr<Buffer>& value_offsets,
-                       const std::shared_ptr<Buffer>& null_bitmap, int64_t null_count,
-                       int64_t offset) {
+SparseUnionArray::SparseUnionArray(std::shared_ptr<DataType> type, int64_t length,
+                                   ArrayVector children,
+                                   std::shared_ptr<Buffer> type_codes, int64_t offset) {
+  auto internal_data = ArrayData::Make(std::move(type), length,
+                                       BufferVector{nullptr, std::move(type_codes)},
+                                       /*null_count=*/0, offset);
+  for (const auto& child : children) {
+    internal_data->child_data.push_back(child->data());
+  }
+  SetData(std::move(internal_data));
+}
+
+DenseUnionArray::DenseUnionArray(const std::shared_ptr<ArrayData>& data) {
+  SetData(data);
+}
+
+DenseUnionArray::DenseUnionArray(std::shared_ptr<DataType> type, int64_t length,
+                                 ArrayVector children, std::shared_ptr<Buffer> type_ids,
+                                 std::shared_ptr<Buffer> value_offsets, int64_t offset) {
   auto internal_data = ArrayData::Make(
-      type, length, {null_bitmap, type_codes, value_offsets}, null_count, offset);
+      std::move(type), length,
+      BufferVector{nullptr, std::move(type_ids), std::move(value_offsets)},
+      /*null_count=*/0, offset);
   for (const auto& child : children) {
     internal_data->child_data.push_back(child->data());
   }
   SetData(internal_data);
 }
 
-Result<std::shared_ptr<Array>> UnionArray::MakeDense(
-    const Array& type_ids, const Array& value_offsets,
-    const std::vector<std::shared_ptr<Array>>& children,
-    const std::vector<std::string>& field_names, const std::vector<int8_t>& type_codes) {
+Result<std::shared_ptr<Array>> DenseUnionArray::Make(
+    const Array& type_ids, const Array& value_offsets, ArrayVector children,
+    std::vector<std::string> field_names, std::vector<type_code_t> type_codes) {
   if (value_offsets.length() == 0) {
     return Status::Invalid("UnionArray offsets must have non-zero length");
   }
@@ -606,8 +680,12 @@ Result<std::shared_ptr<Array>> UnionArray::MakeDense(
     return Status::TypeError("UnionArray type_ids must be signed int8");
   }
 
+  if (type_ids.null_count() != 0) {
+    return Status::Invalid("Union type ids may not have nulls");
+  }
+
   if (value_offsets.null_count() != 0) {
-    return Status::Invalid("MakeDense does not allow NAs in value_offsets");
+    return Status::Invalid("Make does not allow nulls in value_offsets");
   }
 
   if (field_names.size() > 0 && field_names.size() != children.size()) {
@@ -618,27 +696,30 @@ Result<std::shared_ptr<Array>> UnionArray::MakeDense(
     return Status::Invalid("type_codes must have the same length as children");
   }
 
-  BufferVector buffers = {type_ids.null_bitmap(),
-                          checked_cast<const Int8Array&>(type_ids).values(),
+  BufferVector buffers = {nullptr, checked_cast<const Int8Array&>(type_ids).values(),
                           checked_cast<const Int32Array&>(value_offsets).values()};
 
-  std::shared_ptr<DataType> union_type =
-      union_(children, field_names, type_codes, UnionMode::DENSE);
-  auto internal_data = ArrayData::Make(union_type, type_ids.length(), std::move(buffers),
-                                       type_ids.null_count(), type_ids.offset());
+  auto union_type = dense_union(children, std::move(field_names), std::move(type_codes));
+  auto internal_data =
+      ArrayData::Make(std::move(union_type), type_ids.length(), std::move(buffers),
+                      /*null_count=*/0, type_ids.offset());
   for (const auto& child : children) {
     internal_data->child_data.push_back(child->data());
   }
-  return std::make_shared<UnionArray>(internal_data);
+  return std::make_shared<DenseUnionArray>(std::move(internal_data));
 }
 
-Result<std::shared_ptr<Array>> UnionArray::MakeSparse(
-    const Array& type_ids, const std::vector<std::shared_ptr<Array>>& children,
-    const std::vector<std::string>& field_names, const std::vector<int8_t>& type_codes) {
+Result<std::shared_ptr<Array>> SparseUnionArray::Make(
+    const Array& type_ids, ArrayVector children, std::vector<std::string> field_names,
+    std::vector<int8_t> type_codes) {
   if (type_ids.type_id() != Type::INT8) {
     return Status::TypeError("UnionArray type_ids must be signed int8");
   }
 
+  if (type_ids.null_count() != 0) {
+    return Status::Invalid("Union type ids may not have nulls");
+  }
+
   if (field_names.size() > 0 && field_names.size() != children.size()) {
     return Status::Invalid("field_names must have the same length as children");
   }
@@ -647,12 +728,11 @@ Result<std::shared_ptr<Array>> UnionArray::MakeSparse(
     return Status::Invalid("type_codes must have the same length as children");
   }
 
-  BufferVector buffers = {type_ids.null_bitmap(),
-                          checked_cast<const Int8Array&>(type_ids).values(), nullptr};
-  std::shared_ptr<DataType> union_type =
-      union_(children, field_names, type_codes, UnionMode::SPARSE);
-  auto internal_data = ArrayData::Make(union_type, type_ids.length(), std::move(buffers),
-                                       type_ids.null_count(), type_ids.offset());
+  BufferVector buffers = {nullptr, checked_cast<const Int8Array&>(type_ids).values()};
+  auto union_type = sparse_union(children, std::move(field_names), std::move(type_codes));
+  auto internal_data =
+      ArrayData::Make(std::move(union_type), type_ids.length(), std::move(buffers),
+                      /*null_count=*/0, type_ids.offset());
   for (const auto& child : children) {
     internal_data->child_data.push_back(child->data());
     if (child->length() != type_ids.length()) {
@@ -660,7 +740,7 @@ Result<std::shared_ptr<Array>> UnionArray::MakeSparse(
           "Sparse UnionArray must have len(child) == len(type_ids) for all children");
     }
   }
-  return std::make_shared<UnionArray>(internal_data);
+  return std::make_shared<SparseUnionArray>(std::move(internal_data));
 }
 
 std::shared_ptr<Array> UnionArray::child(int i) const { return field(i); }
@@ -678,7 +758,7 @@ std::shared_ptr<Array> UnionArray::field(int i) const {
       // (for dense unions, the need to lookup through the offsets
       //  makes this unnecessary)
       if (data_->offset != 0 || child_data->length > data_->length) {
-        *child_data = child_data->Slice(data_->offset, data_->length);
+        child_data = child_data->Slice(data_->offset, data_->length);
       }
     }
     result = MakeArray(child_data);

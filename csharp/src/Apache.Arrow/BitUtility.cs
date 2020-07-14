@@ -73,23 +73,64 @@ namespace Apache.Arrow
         /// </summary>
         /// <param name="data">Span to count bits</param>
         /// <param name="offset">Bit offset to start counting from</param>
-        /// <returns>Count of set (one) bits/returns>
-        public static int CountBits(ReadOnlySpan<byte> data, int offset)
-        {
-            int start = (offset / 8);
-            int startBit = offset % 8;
+        /// <returns>Count of set (one) bits</returns>
+        public static int CountBits(ReadOnlySpan<byte> data, int offset) =>
+            CountBits(data, offset, data.Length * 8 - offset);
 
-            if (startBit < 0) return 0;
-            if (startBit == 0) return CountBits(data);
+        /// <summary>
+        /// Counts the number of set bits in a span of bytes starting
+        /// at a specific bit offset, and limiting to a certain number of bits
+        /// in the span.
+        /// </summary>
+        /// <param name="data">Span to count bits.</param>
+        /// <param name="offset">Bit offset to start counting from.</param>
+        /// <param name="length">Maximum of bits in the span to consider.</param>
+        /// <returns>Count of set (one) bits</returns>
+        public static int CountBits(ReadOnlySpan<byte> data, int offset, int length)
+        {
+            int startByteIndex = offset / 8;
+            int startBitOffset = offset % 8;
+            int endByteIndex = (offset + length - 1) / 8;
+            int endBitOffset = (offset + length - 1) % 8;
+            if (startBitOffset < 0)
+                return 0;
 
             int count = 0;
-
-            count += CountBits(data.Slice(start + 1));
-
-            for (int i = startBit; i < 8; i++)
+            if (startByteIndex == endByteIndex)
             {
-                if (GetBit(data.Slice(start, 1), i))
-                    count++;
+                // Range starts and ends within the same byte.
+                var slice = data.Slice(startByteIndex, 1);
+                for (int i = startBitOffset; i <= endBitOffset; i++)
+                    count += GetBit(slice, i) ? 1 : 0;
+
+                return count;
+            }
+
+            // If the starting index and ending index are not byte-aligned,
+            // we'll need to count bits the slow way.  If they are
+            // byte-aligned, and for all other bytes in the 'middle', we
+            // can use a faster byte-aligned count.
+            int fullByteStartIndex = startBitOffset == 0 ? startByteIndex : startByteIndex + 1;
+            int fullByteEndIndex = endBitOffset == 7 ? endByteIndex : endByteIndex - 1;
+
+            if (startBitOffset != 0)
+            {
+                var slice = data.Slice(startByteIndex, 1);
+                for (int i = startBitOffset; i <= 7; i++)
+                    count += GetBit(slice, i) ? 1 : 0;
+            }
+
+            if (fullByteEndIndex >= fullByteStartIndex)
+            {
+                var slice = data.Slice(fullByteStartIndex, fullByteEndIndex - fullByteStartIndex + 1);
+                count += CountBits(slice);
+            }
+
+            if (endBitOffset != 7)
+            {
+                var slice = data.Slice(endByteIndex, 1);
+                for (int i = 0; i <= endBitOffset; i++)
+                    count += GetBit(slice, i) ? 1 : 0;
             }
 
             return count;
@@ -127,7 +168,7 @@ namespace Apache.Arrow
         /// <summary>
         /// Rounds an integer up to the nearest multiple of factor, where
         /// factor must be a power of two.
-        /// 
+        ///
         /// This function does not throw when the factor is not a power of two.
         /// </summary>
         /// <param name="n">Integer to round up.</param>
@@ -152,7 +193,7 @@ namespace Apache.Arrow
             Debug.Assert(n >= 0);
             return n / 8 + (n % 8 != 0 ? 1 : 0); // ceil(n / 8)
         }
-            
+
         internal static int ReadInt32(ReadOnlyMemory<byte> value)
         {
             Debug.Assert(value.Length >= sizeof(int));

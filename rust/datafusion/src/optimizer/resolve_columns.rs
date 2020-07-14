@@ -55,13 +55,16 @@ impl OptimizerRule for ResolveColumnsRule {
                     rewrite_expr_list(aggr_expr, &input.schema())?,
                 )?
                 .build()?),
-            LogicalPlan::Sort { input, expr, .. } => Ok(LogicalPlanBuilder::from(input)
-                .sort(rewrite_expr_list(expr, &input.schema())?)?
-                .build()?),
+            LogicalPlan::Sort { input, expr, .. } => {
+                Ok(LogicalPlanBuilder::from(&self.optimize(input)?)
+                    .sort(rewrite_expr_list(expr, &input.schema())?)?
+                    .build()?)
+            }
             _ => Ok(plan.clone()),
         }
     }
 }
+
 fn rewrite_expr_list(expr: &[Expr], schema: &Schema) -> Result<Vec<Expr>> {
     Ok(expr
         .iter()
@@ -87,9 +90,14 @@ fn rewrite_expr(expr: &Expr, schema: &Schema) -> Result<Expr> {
             expr: Box::new(rewrite_expr(&expr, schema)?),
             data_type: data_type.clone(),
         }),
-        Expr::Sort { expr, asc } => Ok(Expr::Sort {
+        Expr::Sort {
+            expr,
+            asc,
+            nulls_first,
+        } => Ok(Expr::Sort {
             expr: Box::new(rewrite_expr(&expr, schema)?),
             asc: asc.clone(),
+            nulls_first: nulls_first.clone(),
         }),
         Expr::ScalarFunction {
             name,

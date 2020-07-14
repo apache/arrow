@@ -122,8 +122,7 @@ write_feather <- function(x,
 #' This function reads both the original, limited specification of the format
 #' and the version 2 specification, which is the Apache Arrow IPC file format.
 #'
-#' @param file A character file path, a raw vector, or `InputStream`, passed to
-#' `FeatherReader$create()`.
+#' @inheritParams read_ipc_stream
 #' @inheritParams read_delim_arrow
 #' @param ... additional parameters, passed to [FeatherReader$create()][FeatherReader]
 #'
@@ -136,11 +135,11 @@ write_feather <- function(x,
 #' \donttest{
 #' tf <- tempfile()
 #' on.exit(unlink(tf))
-#' write_feather(iris, tf)
+#' write_feather(mtcars, tf)
 #' df <- read_feather(tf)
 #' dim(df)
 #' # Can select columns
-#' df <- read_feather(tf, col_select = starts_with("Sepal"))
+#' df <- read_feather(tf, col_select = starts_with("d"))
 #' }
 read_feather <- function(file, col_select = NULL, as_data_frame = TRUE, ...) {
   if (!inherits(file, "InputStream")) {

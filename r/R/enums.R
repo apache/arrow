@@ -68,9 +68,16 @@ Type <- enum("Type::type",
   DECIMAL = 23L,
   LIST = 24L,
   STRUCT = 25L,
-  UNION = 26L,
-  DICTIONARY = 27L,
-  MAP = 28L
+  SPARSE_UNION = 26L,
+  DENSE_UNION = 27L,
+  DICTIONARY = 28L,
+  MAP = 29L,
+  EXTENSION = 30L,
+  FIXED_SIZE_LIST = 31L,
+  DURATION = 32L,
+  LARGE_STRING = 33L,
+  LARGE_BINARY = 34L,
+  LARGE_LIST = 35L
 )
 
 #' @rdname enums
@@ -92,7 +99,7 @@ FileMode <- enum("FileMode",
 
 #' @rdname enums
 #' @export
-MessageType <- enum("Message::Type",
+MessageType <- enum("MessageType",
   NONE = 0L, SCHEMA = 1L, DICTIONARY_BATCH = 2L, RECORD_BATCH = 3L, TENSOR = 4L
 )
 

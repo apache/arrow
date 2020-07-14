@@ -7,7 +7,6 @@ jobs:
   variables:
     CONFIG: {{ config }}
     ARROW_VERSION: {{ arrow.no_rc_version }}
-    DOCKER_IMAGE: condaforge/linux-anvil-comp7
     UPLOAD_PACKAGES: False
 
   steps:
@@ -26,11 +25,6 @@ jobs:
       git -C arrow submodule update --init --recursive
     displayName: Clone arrow
 
-  - script: |
-      mkdir build_artifacts
-      CI=azure arrow/dev/tasks/conda-recipes/run_docker_build.sh $(pwd)/build_artifacts
-    displayName: Run docker build
-
   # Using github release tries to find a common ancestor between the
   # currently pushed tag and the latest tag of the github repository
   # (don't know why).
@@ -38,9 +32,14 @@ jobs:
   # alternative upload script.
   - task: CondaEnvironment@1
     inputs:
-      packageSpecs: 'click github3.py jinja2 jira pygit2 ruamel.yaml setuptools_scm toolz anaconda-client'
+      packageSpecs: 'click github3.py jinja2 jira pygit2 ruamel.yaml setuptools_scm toolz anaconda-client shyaml'
       installOptions: '-c conda-forge'
       updateConda: false
+
+  - script: |
+      mkdir build_artifacts
+      CI=azure arrow/dev/tasks/conda-recipes/run_docker_build.sh $(pwd)/build_artifacts
+    displayName: Run docker build
 
   # Upload to github releases
   - script: |

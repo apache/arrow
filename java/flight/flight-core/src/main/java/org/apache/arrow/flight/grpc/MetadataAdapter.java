@@ -17,6 +17,7 @@
 
 package org.apache.arrow.flight.grpc;
 
+import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
@@ -78,13 +79,15 @@ class MetadataAdapter implements CallHeaders {
 
   @Override
   public Set<String> keys() {
-    // Remove binary keys - we don't expose those
-    return this.metadata.keys().stream().filter(key -> !key.endsWith(Metadata.BINARY_HEADER_SUFFIX))
-        .collect(Collectors.toSet());
+    return new HashSet<>(this.metadata.keys());
   }
 
   @Override
   public boolean containsKey(String key) {
+    if (key.endsWith("-bin")) {
+      final Key<?> grpcKey = Key.of(key, Metadata.BINARY_BYTE_MARSHALLER);
+      return this.metadata.containsKey(grpcKey);
+    }
     final Key<?> grpcKey = Key.of(key, Metadata.ASCII_STRING_MARSHALLER);
     return this.metadata.containsKey(grpcKey);
   }

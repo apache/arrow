@@ -207,8 +207,20 @@ std::shared_ptr<arrow::DataType> ListArray__value_type(
 }
 
 // [[arrow::export]]
+std::shared_ptr<arrow::DataType> LargeListArray__value_type(
+    const std::shared_ptr<arrow::LargeListArray>& array) {
+  return array->value_type();
+}
+
+// [[arrow::export]]
 std::shared_ptr<arrow::Array> ListArray__values(
     const std::shared_ptr<arrow::ListArray>& array) {
+  return array->values();
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::Array> LargeListArray__values(
+    const std::shared_ptr<arrow::LargeListArray>& array) {
   return array->values();
 }
 
@@ -219,14 +231,45 @@ int32_t ListArray__value_length(const std::shared_ptr<arrow::ListArray>& array,
 }
 
 // [[arrow::export]]
+int64_t LargeListArray__value_length(const std::shared_ptr<arrow::LargeListArray>& array,
+                                     int64_t i) {
+  return array->value_length(i);
+}
+
+// [[arrow::export]]
+int64_t FixedSizeListArray__value_length(
+    const std::shared_ptr<arrow::FixedSizeListArray>& array, int64_t i) {
+  return array->value_length(i);
+}
+
+// [[arrow::export]]
 int32_t ListArray__value_offset(const std::shared_ptr<arrow::ListArray>& array,
                                 int64_t i) {
   return array->value_offset(i);
 }
 
 // [[arrow::export]]
+int64_t LargeListArray__value_offset(const std::shared_ptr<arrow::LargeListArray>& array,
+                                     int64_t i) {
+  return array->value_offset(i);
+}
+
+// [[arrow::export]]
+int64_t FixedSizeListArray__value_offset(
+    const std::shared_ptr<arrow::FixedSizeListArray>& array, int64_t i) {
+  return array->value_offset(i);
+}
+
+// [[arrow::export]]
 Rcpp::IntegerVector ListArray__raw_value_offsets(
     const std::shared_ptr<arrow::ListArray>& array) {
+  auto offsets = array->raw_value_offsets();
+  return Rcpp::IntegerVector(offsets, offsets + array->length());
+}
+
+// [[arrow::export]]
+Rcpp::IntegerVector LargeListArray__raw_value_offsets(
+    const std::shared_ptr<arrow::LargeListArray>& array) {
   auto offsets = array->raw_value_offsets();
   return Rcpp::IntegerVector(offsets, offsets + array->length());
 }

@@ -21,8 +21,10 @@ from pyarrow._compute import (  # noqa
     Function,
     FunctionRegistry,
     function_registry,
-    call_function
+    call_function,
+    TakeOptions
 )
+import pyarrow as pa
 import pyarrow._compute as _pc
 
 
@@ -90,8 +92,74 @@ def _simple_unary_function(name):
     return func
 
 
+def _simple_binary_function(name):
+    def func(left, right):
+        return call_function(name, [left, right])
+    return func
+
+
 ascii_length = _simple_unary_function('ascii_length')
 ascii_upper = _simple_unary_function('ascii_upper')
+ascii_lower = _simple_unary_function('ascii_lower')
+utf8_upper = _simple_unary_function('utf8_upper')
+utf8_lower = _simple_unary_function('utf8_lower')
+
+binary_isascii = _simple_unary_function('binary_isascii')
+
+ascii_isalnum = _simple_unary_function('ascii_isalnum')
+utf8_isalnum = _simple_unary_function('utf8_isalnum')
+ascii_isalpha = _simple_unary_function('ascii_isalpha')
+utf8_isalpha = _simple_unary_function('utf8_isalpha')
+ascii_isdecimal = _simple_unary_function('ascii_isdecimal')
+utf8_isdecimal = _simple_unary_function('utf8_isdecimal')
+ascii_isdigit = ascii_isdecimal  # alias
+utf8_isdigit = _simple_unary_function('utf8_isdigit')
+ascii_islower = _simple_unary_function('ascii_islower')
+utf8_islower = _simple_unary_function('utf8_islower')
+ascii_isnumeric = ascii_isdecimal  # alias
+utf8_isnumeric = _simple_unary_function('utf8_isnumeric')
+ascii_isprintable = _simple_unary_function('ascii_isprintable')
+utf8_isprintable = _simple_unary_function('utf8_isprintable')
+ascii_istitle = _simple_unary_function('ascii_istitle')
+utf8_istitle = _simple_unary_function('utf8_istitle')
+ascii_isupper = _simple_unary_function('ascii_isupper')
+utf8_isupper = _simple_unary_function('utf8_isupper')
+
+is_valid = _simple_unary_function('is_valid')
+is_null = _simple_unary_function('is_null')
+
+list_flatten = _simple_unary_function('list_flatten')
+list_parent_indices = _simple_unary_function('list_parent_indices')
+list_value_lengths = _simple_unary_function('list_value_lengths')
+
+add = _simple_binary_function('add')
+subtract = _simple_binary_function('subtract')
+multiply = _simple_binary_function('multiply')
+
+equal = _simple_binary_function('equal')
+not_equal = _simple_binary_function('not_equal')
+greater = _simple_binary_function('greater')
+greater_equal = _simple_binary_function('greater_equal')
+less = _simple_binary_function('less')
+less_equal = _simple_binary_function('less_equal')
+
+
+def binary_contains_exact(array, pattern):
+    """
+    Test if pattern is contained within a value of a binary array.
+
+    Parameters
+    ----------
+    array : pyarrow.Array or pyarrow.ChunkedArray
+    pattern : str
+        pattern to search for exact matches
+
+    Returns
+    -------
+    result : pyarrow.Array or pyarrow.ChunkedArray
+    """
+    return call_function("binary_contains_exact", [array],
+                         _pc.BinaryContainsExactOptions(pattern))
 
 
 def sum(array):
@@ -153,7 +221,7 @@ def filter(data, mask, null_selection_behavior='drop'):
     return call_function('filter', [data, mask], options)
 
 
-def take(data, indices):
+def take(data, indices, boundscheck=True):
     """
     Select values (or records) from array- or table-like data given integer
     selection indices.
@@ -168,6 +236,9 @@ def take(data, indices):
     data : Array, ChunkedArray, RecordBatch, or Table
     indices : Array, ChunkedArray
         Must be of integer type
+    boundscheck : boolean, default True
+        Whether to boundscheck the indices. If False and there is an out of
+        bounds index, will likely cause the process to crash.
 
     Returns
     -------
@@ -187,4 +258,45 @@ def take(data, indices):
       null
     ]
     """
-    return call_function('take', [data, indices])
+    options = TakeOptions(boundscheck)
+    return call_function('take', [data, indices], options)
+
+
+def fill_null(values, fill_value):
+    """
+    Replace each null element in values with fill_value. The fill_value must be
+    the same type as values or able to be implicitly casted to the array's
+    type.
+
+    Parameters
+    ----------
+    data : Array, ChunkedArray
+        replace each null element with fill_value
+    fill_value: Scalar-like object
+        Either a pyarrow.Scalar or any python object coercible to a
+        Scalar. If not same type as data will attempt to cast.
+
+    Returns
+    -------
+    result : depends on inputs
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> arr = pa.array([1, 2, None, 3], type=pa.int8())
+    >>> fill_value = pa.scalar(5, type=pa.int8())
+    >>> arr.fill_null(fill_value)
+    pyarrow.lib.Int8Array object at 0x7f95437f01a0>
+    [
+      1,
+      2,
+      5,
+      3
+    ]
+    """
+    if not isinstance(fill_value, pa.Scalar):
+        fill_value = pa.scalar(fill_value, type=values.type)
+    elif values.type != fill_value.type:
+        fill_value = pa.scalar(fill_value.as_py(), type=values.type)
+
+    return call_function("fill_null", [values, fill_value])

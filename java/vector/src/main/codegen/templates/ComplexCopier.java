@@ -52,6 +52,7 @@ public class ComplexCopier {
       switch (mt) {
 
       case LIST:
+      case LARGELIST:
       case FIXED_SIZE_LIST:
         if (reader.isSet()) {
           writer.startList();

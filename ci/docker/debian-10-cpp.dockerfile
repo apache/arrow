@@ -37,7 +37,6 @@ RUN apt-get update -y -q && \
     apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
         autoconf \
-        ca-certificates \
         ccache \
         clang-${llvm} \
         cmake \
@@ -59,6 +58,7 @@ RUN apt-get update -y -q && \
         libsnappy-dev \
         libssl-dev \
         libthrift-dev \
+        libutf8proc-dev \
         libzstd-dev \
         llvm-${llvm}-dev \
         make \

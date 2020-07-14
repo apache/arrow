@@ -22,10 +22,11 @@ use std::sync::{Arc, Mutex};
 
 use crate::error::{ExecutionError, Result};
 use crate::execution::physical_plan::common;
-use crate::execution::physical_plan::{BatchIterator, ExecutionPlan, Partition};
+use crate::execution::physical_plan::{ExecutionPlan, Partition};
 use arrow::csv;
-use arrow::datatypes::Schema;
-use arrow::record_batch::RecordBatch;
+use arrow::datatypes::{Schema, SchemaRef};
+use arrow::error::Result as ArrowResult;
+use arrow::record_batch::{RecordBatch, RecordBatchReader};
 
 /// CSV file read option
 #[derive(Copy, Clone)]
@@ -96,7 +97,7 @@ pub struct CsvExec {
     /// Path to directory containing partitioned CSV files with the same schema
     path: String,
     /// Schema representing the CSV file
-    schema: Arc<Schema>,
+    schema: SchemaRef,
     /// Does the CSV file have a header?
     has_header: bool,
     /// An optional column delimiter. Defaults to `b','`
@@ -104,7 +105,7 @@ pub struct CsvExec {
     /// Optional projection for which columns to load
     projection: Option<Vec<usize>>,
     /// Schema after the projection has been applied
-    projected_schema: Arc<Schema>,
+    projected_schema: SchemaRef,
     /// Batch size
     batch_size: usize,
 }
@@ -157,7 +158,7 @@ impl CsvExec {
 
 impl ExecutionPlan for CsvExec {
     /// Get the schema for this execution plan
-    fn schema(&self) -> Arc<Schema> {
+    fn schema(&self) -> SchemaRef {
         self.projected_schema.clone()
     }
 
@@ -187,7 +188,7 @@ struct CsvPartition {
     /// Path to the CSV File
     path: String,
     /// Schema representing the CSV file
-    schema: Arc<Schema>,
+    schema: SchemaRef,
     /// Does the CSV file have a header?
     has_header: bool,
     /// An optional column delimiter. Defaults to `b','`
@@ -201,7 +202,7 @@ struct CsvPartition {
 impl CsvPartition {
     fn new(
         path: &str,
-        schema: Arc<Schema>,
+        schema: SchemaRef,
         has_header: bool,
         delimiter: Option<u8>,
         projection: Option<Vec<usize>>,
@@ -220,7 +221,7 @@ impl CsvPartition {
 
 impl Partition for CsvPartition {
     /// Execute this partition and return an iterator over RecordBatch
-    fn execute(&self) -> Result<Arc<Mutex<dyn BatchIterator>>> {
+    fn execute(&self) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
         Ok(Arc::new(Mutex::new(CsvIterator::try_new(
             &self.path,
             self.schema.clone(),
@@ -242,7 +243,7 @@ impl CsvIterator {
     /// Create an iterator for a CSV file
     pub fn try_new(
         filename: &str,
-        schema: Arc<Schema>,
+        schema: SchemaRef,
         has_header: bool,
         delimiter: Option<u8>,
         projection: &Option<Vec<usize>>,
@@ -262,14 +263,14 @@ impl CsvIterator {
     }
 }
 
-impl BatchIterator for CsvIterator {
+impl RecordBatchReader for CsvIterator {
     /// Get the schema
-    fn schema(&self) -> Arc<Schema> {
+    fn schema(&self) -> SchemaRef {
         self.reader.schema()
     }
 
     /// Get the next RecordBatch
-    fn next(&mut self) -> Result<Option<RecordBatch>> {
+    fn next_batch(&mut self) -> ArrowResult<Option<RecordBatch>> {
         Ok(self.reader.next()?)
     }
 }
@@ -297,7 +298,7 @@ mod tests {
         let partitions = csv.partitions()?;
         let results = partitions[0].execute()?;
         let mut it = results.lock().unwrap();
-        let batch = it.next()?.unwrap();
+        let batch = it.next_batch()?.unwrap();
         assert_eq!(3, batch.num_columns());
         let batch_schema = batch.schema();
         assert_eq!(3, batch_schema.fields().len());
@@ -321,7 +322,7 @@ mod tests {
         let partitions = csv.partitions()?;
         let results = partitions[0].execute()?;
         let mut it = results.lock().unwrap();
-        let batch = it.next()?.unwrap();
+        let batch = it.next_batch()?.unwrap();
         assert_eq!(13, batch.num_columns());
         let batch_schema = batch.schema();
         assert_eq!(13, batch_schema.fields().len());

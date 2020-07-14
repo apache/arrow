@@ -152,15 +152,16 @@ Result<std::shared_ptr<Schema>> IpcFileFormat::Inspect(const FileSource& source)
   return reader->schema();
 }
 
-Result<ScanTaskIterator> IpcFileFormat::ScanFile(
-    const FileSource& source, std::shared_ptr<ScanOptions> options,
-    std::shared_ptr<ScanContext> context) const {
-  return IpcScanTaskIterator::Make(options, context, source);
+Result<ScanTaskIterator> IpcFileFormat::ScanFile(std::shared_ptr<ScanOptions> options,
+                                                 std::shared_ptr<ScanContext> context,
+                                                 FileFragment* fragment) const {
+  return IpcScanTaskIterator::Make(std::move(options), std::move(context),
+                                   fragment->source());
 }
 
 class IpcWriteTask : public WriteTask {
  public:
-  IpcWriteTask(FileSource destination, std::shared_ptr<FileFormat> format,
+  IpcWriteTask(WritableFileSource destination, std::shared_ptr<FileFormat> format,
                std::shared_ptr<Fragment> fragment,
                std::shared_ptr<ScanOptions> scan_options,
                std::shared_ptr<ScanContext> scan_context)
@@ -174,7 +175,7 @@ class IpcWriteTask : public WriteTask {
 
     auto schema = scan_options_->schema();
 
-    ARROW_ASSIGN_OR_RAISE(auto out_stream, destination_.OpenWritable());
+    ARROW_ASSIGN_OR_RAISE(auto out_stream, destination_.Open());
     ARROW_ASSIGN_OR_RAISE(auto writer, ipc::NewFileWriter(out_stream.get(), schema));
     ARROW_ASSIGN_OR_RAISE(auto scan_task_it,
                           fragment_->Scan(scan_options_, scan_context_));
@@ -200,7 +201,7 @@ class IpcWriteTask : public WriteTask {
 };
 
 Result<std::shared_ptr<WriteTask>> IpcFileFormat::WriteFragment(
-    FileSource destination, std::shared_ptr<Fragment> fragment,
+    WritableFileSource destination, std::shared_ptr<Fragment> fragment,
     std::shared_ptr<ScanOptions> scan_options,
     std::shared_ptr<ScanContext> scan_context) {
   return std::make_shared<IpcWriteTask>(std::move(destination), shared_from_this(),

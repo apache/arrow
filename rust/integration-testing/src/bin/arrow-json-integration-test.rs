@@ -20,11 +20,7 @@ use serde_json::Value;
 
 use arrow::util::integration_util::{ArrowJson, ArrowJsonBatch, ArrowJsonSchema};
 
-use arrow::array::{
-    ArrayRef, BinaryBuilder, BooleanBuilder, FixedSizeBinaryBuilder, Float32Builder,
-    Float64Builder, Int16Builder, Int32Builder, Int64Builder, Int8Builder, NullArray,
-    StringBuilder, UInt16Builder, UInt32Builder, UInt64Builder, UInt8Builder,
-};
+use arrow::array::*;
 use arrow::datatypes::{DataType, DateUnit, IntervalUnit, Schema};
 use arrow::error::{ArrowError, Result};
 use arrow::ipc::reader::FileReader;
@@ -192,7 +188,13 @@ fn record_batch_from_json(
                     .zip(json_col.data.unwrap())
                 {
                     match is_valid {
-                        1 => b.append_value(value.as_i64().unwrap()),
+                        1 => b.append_value(
+                            value
+                                .as_str()
+                                .unwrap()
+                                .parse()
+                                .expect("Unable to parse string as i64"),
+                        ),
                         _ => b.append_null(),
                     }
                     .unwrap();
@@ -261,7 +263,13 @@ fn record_batch_from_json(
                     .zip(json_col.data.unwrap())
                 {
                     match is_valid {
-                        1 => b.append_value(value.as_u64().unwrap()),
+                        1 => b.append_value(
+                            value
+                                .as_str()
+                                .unwrap()
+                                .parse()
+                                .expect("Unable to parse string as u64"),
+                        ),
                         _ => b.append_null(),
                     }
                     .unwrap();
@@ -322,8 +330,45 @@ fn record_batch_from_json(
                 }
                 Arc::new(b.finish())
             }
+            DataType::LargeBinary => {
+                let mut b = LargeBinaryBuilder::new(json_col.count);
+                for (is_valid, value) in json_col
+                    .validity
+                    .as_ref()
+                    .unwrap()
+                    .iter()
+                    .zip(json_col.data.unwrap())
+                {
+                    match is_valid {
+                        1 => {
+                            let v = decode(value.as_str().unwrap()).unwrap();
+                            b.append_value(&v)
+                        }
+                        _ => b.append_null(),
+                    }
+                    .unwrap();
+                }
+                Arc::new(b.finish())
+            }
             DataType::Utf8 => {
                 let mut b = StringBuilder::new(json_col.count);
+                for (is_valid, value) in json_col
+                    .validity
+                    .as_ref()
+                    .unwrap()
+                    .iter()
+                    .zip(json_col.data.unwrap())
+                {
+                    match is_valid {
+                        1 => b.append_value(value.as_str().unwrap()),
+                        _ => b.append_null(),
+                    }
+                    .unwrap();
+                }
+                Arc::new(b.finish())
+            }
+            DataType::LargeUtf8 => {
+                let mut b = LargeStringBuilder::new(json_col.count);
                 for (is_valid, value) in json_col
                     .validity
                     .as_ref()
@@ -423,6 +468,12 @@ fn validate(arrow_name: &str, json_name: &str, verbose: bool) -> Result<()> {
             json_schema, arrow_schema
         )));
     }
+
+    // compare number of batches
+    assert!(
+        json_batches.len() == arrow_reader.num_batches(),
+        "JSON batches and Arrow batches are unequal"
+    );
 
     if verbose {
         eprintln!(

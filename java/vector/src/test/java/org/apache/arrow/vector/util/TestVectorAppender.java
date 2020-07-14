@@ -29,6 +29,7 @@ import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.LargeVarCharVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.compare.Range;
@@ -114,6 +115,31 @@ public class TestVectorAppender {
         expected.allocateNew();
         ValueVectorDataPopulator.setVector(expected,
             "a0", "a1", "a2", "a3", null, "a5", "a6", "a7", "a8", "a9", "a10", "a11", "a12", "a13", null);
+        assertVectorsEqual(expected, target);
+      }
+    }
+  }
+
+  @Test
+  public void testAppendLargeVariableWidthVector() {
+    final int length1 = 5;
+    final int length2 = 10;
+    try (LargeVarCharVector target = new LargeVarCharVector("", allocator);
+         LargeVarCharVector delta = new LargeVarCharVector("", allocator)) {
+
+      target.allocateNew(5, length1);
+      delta.allocateNew(5, length2);
+
+      ValueVectorDataPopulator.setVector(target, "a0", null, "a2", "a3", null);
+      ValueVectorDataPopulator.setVector(delta, "a5", "a6", "a7", null, null, "a10", "a11", "a12", "a13", null);
+
+      VectorAppender appender = new VectorAppender(target);
+      delta.accept(appender, null);
+
+      try (LargeVarCharVector expected = new LargeVarCharVector("expected", allocator)) {
+        expected.allocateNew();
+        ValueVectorDataPopulator.setVector(expected,
+                "a0", null, "a2", "a3", null, "a5", "a6", "a7", null, null, "a10", "a11", "a12", "a13", null);
         assertVectorsEqual(expected, target);
       }
     }

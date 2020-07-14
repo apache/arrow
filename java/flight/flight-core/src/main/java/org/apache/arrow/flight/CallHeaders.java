@@ -26,7 +26,6 @@ public interface CallHeaders {
   /**
    * Get the value of a metadata key. If multiple values are present, then get the last one.
    */
-  @Deprecated()
   String get(String key);
 
   /**
@@ -37,7 +36,6 @@ public interface CallHeaders {
   /**
    * Get all values present for the given metadata key.
    */
-  @Deprecated
   Iterable<String> getAll(String key);
 
   /**
@@ -50,7 +48,6 @@ public interface CallHeaders {
    *
    * <p>Duplicate metadata are permitted.
    */
-  @Deprecated
   void insert(String key, String value);
 
   /**

@@ -813,8 +813,7 @@ TEST_F(TestConvertArrowSchema, ArrowFields) {
        -1},
       {"timestamp(nanosecond, CET)", ::arrow::timestamp(::arrow::TimeUnit::NANO, "CET"),
        LogicalType::Timestamp(true, LogicalType::TimeUnit::MICROS), ParquetType::INT64,
-       -1},
-      {"null", ::arrow::null(), LogicalType::Null(), ParquetType::INT32, -1}};
+       -1}};
 
   std::vector<std::shared_ptr<Field>> arrow_fields;
   std::vector<NodePtr> parquet_fields;
@@ -1115,6 +1114,16 @@ TEST(InvalidSchema, ParquetNegativeDecimalScale) {
   std::shared_ptr<SchemaDescriptor> result_schema;
 
   ASSERT_RAISES(IOError,
+                ToParquetSchema(arrow_schema.get(), *properties.get(), &result_schema));
+}
+
+TEST(InvalidSchema, NonNullableNullType) {
+  const auto& field = ::arrow::field("f0", ::arrow::null(), /*nullable=*/false);
+  const auto& arrow_schema = ::arrow::schema({field});
+  std::shared_ptr<::parquet::WriterProperties> properties =
+      ::parquet::default_writer_properties();
+  std::shared_ptr<SchemaDescriptor> result_schema;
+  ASSERT_RAISES(Invalid,
                 ToParquetSchema(arrow_schema.get(), *properties.get(), &result_schema));
 }
 

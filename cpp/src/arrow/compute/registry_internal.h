@@ -29,17 +29,23 @@ void RegisterScalarArithmetic(FunctionRegistry* registry);
 void RegisterScalarBoolean(FunctionRegistry* registry);
 void RegisterScalarCast(FunctionRegistry* registry);
 void RegisterScalarComparison(FunctionRegistry* registry);
+void RegisterScalarNested(FunctionRegistry* registry);
 void RegisterScalarSetLookup(FunctionRegistry* registry);
 void RegisterScalarStringAscii(FunctionRegistry* registry);
+void RegisterScalarValidity(FunctionRegistry* registry);
+void RegisterScalarFillNull(FunctionRegistry* registry);
 
 // Vector functions
-void RegisterVectorFilter(FunctionRegistry* registry);
 void RegisterVectorHash(FunctionRegistry* registry);
+void RegisterVectorSelection(FunctionRegistry* registry);
+void RegisterVectorNested(FunctionRegistry* registry);
 void RegisterVectorSort(FunctionRegistry* registry);
-void RegisterVectorTake(FunctionRegistry* registry);
 
 // Aggregate functions
 void RegisterScalarAggregateBasic(FunctionRegistry* registry);
+// SIMD version
+void RegisterScalarAggregateSumAvx2(FunctionRegistry* registry);
+void RegisterScalarAggregateSumAvx512(FunctionRegistry* registry);
 
 }  // namespace internal
 }  // namespace compute

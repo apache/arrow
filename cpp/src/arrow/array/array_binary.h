@@ -85,13 +85,34 @@ class BaseBinaryArray : public FlatArray {
     return raw_value_offsets_ + data_->offset;
   }
 
-  // Neither of these functions will perform boundschecking
+  const uint8_t* raw_data() const { return raw_data_; }
+
+  /// \brief Return the data buffer absolute offset of the data for the value
+  /// at the passed index.
+  ///
+  /// Does not perform boundschecking
   offset_type value_offset(int64_t i) const {
     return raw_value_offsets_[i + data_->offset];
   }
+
+  /// \brief Return the length of the data for the value at the passed index.
+  ///
+  /// Does not perform boundschecking
   offset_type value_length(int64_t i) const {
     i += data_->offset;
     return raw_value_offsets_[i + 1] - raw_value_offsets_[i];
+  }
+
+  /// \brief Return the total length of the memory in the data buffer
+  /// referenced by this array. If the array has been sliced then this may be
+  /// less than the size of the data buffer (data_->buffers[2]).
+  offset_type total_values_length() const {
+    if (data_->length > 0) {
+      return raw_value_offsets_[data_->length + data_->offset] -
+             raw_value_offsets_[data_->offset];
+    } else {
+      return 0;
+    }
   }
 
  protected:
@@ -140,6 +161,11 @@ class ARROW_EXPORT StringArray : public BinaryArray {
               const std::shared_ptr<Buffer>& data,
               const std::shared_ptr<Buffer>& null_bitmap = NULLPTR,
               int64_t null_count = kUnknownNullCount, int64_t offset = 0);
+
+  /// \brief Validate that this array contains only valid UTF8 entries
+  ///
+  /// This check is also implied by ValidateFull()
+  Status ValidateUTF8() const;
 };
 
 /// Concrete Array class for large variable-size binary data
@@ -168,6 +194,11 @@ class ARROW_EXPORT LargeStringArray : public LargeBinaryArray {
                    const std::shared_ptr<Buffer>& data,
                    const std::shared_ptr<Buffer>& null_bitmap = NULLPTR,
                    int64_t null_count = kUnknownNullCount, int64_t offset = 0);
+
+  /// \brief Validate that this array contains only valid UTF8 entries
+  ///
+  /// This check is also implied by ValidateFull()
+  Status ValidateUTF8() const;
 };
 
 // ----------------------------------------------------------------------

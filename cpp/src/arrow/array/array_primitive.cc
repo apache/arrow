@@ -22,6 +22,8 @@
 
 #include "arrow/array/array_base.h"
 #include "arrow/type.h"
+#include "arrow/util/bit_block_counter.h"
+#include "arrow/util/bitmap_ops.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
@@ -48,6 +50,31 @@ BooleanArray::BooleanArray(int64_t length, const std::shared_ptr<Buffer>& data,
                            const std::shared_ptr<Buffer>& null_bitmap, int64_t null_count,
                            int64_t offset)
     : PrimitiveArray(boolean(), length, data, null_bitmap, null_count, offset) {}
+
+int64_t BooleanArray::false_count() const {
+  return this->length() - this->null_count() - this->true_count();
+}
+
+int64_t BooleanArray::true_count() const {
+  if (data_->null_count.load() != 0) {
+    DCHECK(data_->buffers[0]);
+    internal::BinaryBitBlockCounter bit_counter(data_->buffers[0]->data(), data_->offset,
+                                                data_->buffers[1]->data(), data_->offset,
+                                                data_->length);
+    int64_t count = 0;
+    while (true) {
+      internal::BitBlockCount block = bit_counter.NextAndWord();
+      if (block.length == 0) {
+        break;
+      }
+      count += block.popcount;
+    }
+    return count;
+  } else {
+    return internal::CountSetBits(data_->buffers[1]->data(), data_->offset,
+                                  data_->length);
+  }
+}
 
 // ----------------------------------------------------------------------
 // Day time interval

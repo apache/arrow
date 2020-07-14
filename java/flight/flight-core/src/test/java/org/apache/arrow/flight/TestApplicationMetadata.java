@@ -196,6 +196,36 @@ public class TestApplicationMetadata {
     });
   }
 
+  /**
+   * ARROW-9221: Flight copies metadata from the byte buffer of a Protobuf ByteString,
+   * which is in big-endian by default, thus mangling metadata.
+   */
+  @Test
+  public void testMetadataEndianness() throws Exception {
+    try (final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
+         final BufferAllocator serverAllocator = allocator.newChildAllocator("flight-server", 0, Long.MAX_VALUE);
+         final FlightServer server = FlightTestUtil.getStartedServer(
+             (location) -> FlightServer
+                 .builder(serverAllocator, location, new EndianFlightProducer(serverAllocator))
+                 .build());
+         final FlightClient client = FlightClient.builder(allocator, server.getLocation()).build()) {
+      final Schema schema = new Schema(Collections.emptyList());
+      final FlightDescriptor descriptor = FlightDescriptor.command(new byte[0]);
+      try (final SyncPutListener reader = new SyncPutListener();
+           final VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator)) {
+        final FlightClient.ClientStreamListener writer = client.startPut(descriptor, root, reader);
+        writer.completed();
+        try (final PutResult metadata = reader.read()) {
+          Assert.assertEquals(16, metadata.getApplicationMetadata().readableBytes());
+          byte[] bytes = new byte[16];
+          metadata.getApplicationMetadata().readBytes(bytes);
+          Assert.assertArrayEquals(EndianFlightProducer.EXPECTED_BYTES, bytes);
+        }
+        writer.getResult();
+      }
+    }
+  }
+
   private void test(BiConsumer<BufferAllocator, FlightClient> fun) {
     try (final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
         final FlightServer s =
@@ -269,6 +299,30 @@ public class TestApplicationMetadata {
         } catch (Exception e) {
           throw CallStatus.INTERNAL.withCause(e).withDescription(e.toString()).toRuntimeException();
         }
+      };
+    }
+  }
+
+  private static class EndianFlightProducer extends NoOpFlightProducer {
+    static final byte[] EXPECTED_BYTES = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
+    private final BufferAllocator allocator;
+
+    private EndianFlightProducer(BufferAllocator allocator) {
+      this.allocator = allocator;
+    }
+
+    @Override
+    public Runnable acceptPut(CallContext context, FlightStream flightStream, StreamListener<PutResult> ackStream) {
+      return () -> {
+        while (flightStream.next()) {
+          // Ignore any data
+        }
+
+        try (final ArrowBuf buf = allocator.buffer(16)) {
+          buf.writeBytes(EXPECTED_BYTES);
+          ackStream.onNext(PutResult.metadata(buf));
+        }
+        ackStream.onCompleted();
       };
     }
   }

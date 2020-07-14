@@ -307,6 +307,7 @@ struct TypeTraits<ListType> {
   using OffsetType = Int32Type;
   using OffsetArrayType = Int32Array;
   using OffsetBuilderType = Int32Builder;
+  using OffsetScalarType = Int32Scalar;
   constexpr static bool is_parameter_free = false;
 };
 
@@ -318,6 +319,7 @@ struct TypeTraits<LargeListType> {
   using OffsetType = Int64Type;
   using OffsetArrayType = Int64Array;
   using OffsetBuilderType = Int64Builder;
+  using OffsetScalarType = Int64Scalar;
   constexpr static bool is_parameter_free = false;
 };
 
@@ -358,9 +360,18 @@ struct TypeTraits<StructType> {
 };
 
 template <>
-struct TypeTraits<UnionType> {
-  using ArrayType = UnionArray;
-  using ScalarType = UnionScalar;
+struct TypeTraits<SparseUnionType> {
+  using ArrayType = SparseUnionArray;
+  using BuilderType = SparseUnionBuilder;
+  using ScalarType = SparseUnionScalar;
+  constexpr static bool is_parameter_free = false;
+};
+
+template <>
+struct TypeTraits<DenseUnionType> {
+  using ArrayType = DenseUnionArray;
+  using BuilderType = DenseUnionBuilder;
+  using ScalarType = DenseUnionScalar;
   constexpr static bool is_parameter_free = false;
 };
 
@@ -696,7 +707,6 @@ static inline bool is_floating(Type::type type_id) {
 
 static inline bool is_primitive(Type::type type_id) {
   switch (type_id) {
-    case Type::NA:
     case Type::BOOL:
     case Type::UINT8:
     case Type::INT8:
@@ -785,7 +795,8 @@ static inline bool is_nested(Type::type type_id) {
     case Type::FIXED_SIZE_LIST:
     case Type::MAP:
     case Type::STRUCT:
-    case Type::UNION:
+    case Type::SPARSE_UNION:
+    case Type::DENSE_UNION:
       return true;
     default:
       break;

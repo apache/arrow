@@ -420,26 +420,19 @@ test_glib() {
 test_js() {
   pushd js
 
-  # export NVM_DIR="`pwd`/.nvm"
-  # mkdir -p $NVM_DIR
-  # curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.34.0/install.sh | bash
-  # [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-  #
-  # nvm install node
+  if [ "${INSTALL_NODE}" -gt 0 ]; then
+    export NVM_DIR="`pwd`/.nvm"
+    mkdir -p $NVM_DIR
+    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.35.3/install.sh | bash
+    [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+
+    nvm install node
+  fi
 
   npm install
   # clean, lint, and build JS source
   npx run-s clean:all lint build
   npm run test
-
-  # create initial integration test data
-  # npm run create:testdata
-
-  # run once to write the snapshots
-  # npm test -- -t ts -u --integration
-
-  # run again to test all builds against the snapshots
-  # npm test -- --integration
   popd
 }
 
@@ -727,6 +720,10 @@ test_wheels() {
 # By default test all functionalities.
 # To deactivate one test, deactivate the test and all of its dependents
 # To explicitly select one test, set TEST_DEFAULT=0 TEST_X=1
+
+# Install NodeJS locally for running the JavaScript tests rather than using the
+# system Node installation, which may be too old.
+: ${INSTALL_NODE:=1}
 
 if [ "${ARTIFACT}" == "source" ]; then
   : ${TEST_SOURCE:=1}

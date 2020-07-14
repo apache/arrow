@@ -36,6 +36,20 @@ ARROW_EXPORT
 Status CopyStream(const std::shared_ptr<io::InputStream>& src,
                   const std::shared_ptr<io::OutputStream>& dest, int64_t chunk_size);
 
+ARROW_EXPORT
+Status PathNotFound(const std::string& path);
+
+ARROW_EXPORT
+Status NotADir(const std::string& path);
+
+ARROW_EXPORT
+Status NotAFile(const std::string& path);
+
+ARROW_EXPORT
+Status InvalidDeleteDirContents(const std::string& path);
+
+extern FileSystemGlobalOptions global_options;
+
 }  // namespace internal
 }  // namespace fs
 }  // namespace arrow

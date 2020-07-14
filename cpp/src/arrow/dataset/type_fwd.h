@@ -23,28 +23,23 @@
 #include <vector>
 
 #include "arrow/dataset/visibility.h"
-#include "arrow/type_fwd.h"  // IWYU pragma: export
+#include "arrow/filesystem/type_fwd.h"  // IWYU pragma: export
+#include "arrow/type_fwd.h"             // IWYU pragma: export
 
 namespace arrow {
-
 namespace compute {
 
 class ExecContext;
 
 }  // namespace compute
 
-namespace fs {
-
-class FileSystem;
-
-struct FileInfo;
-
-}  // namespace fs
-
 namespace dataset {
 
 class Dataset;
 using DatasetVector = std::vector<std::shared_ptr<Dataset>>;
+
+class UnionDataset;
+class DatasetFactory;
 
 class Fragment;
 using FragmentIterator = Iterator<std::shared_ptr<Fragment>>;

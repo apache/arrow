@@ -17,7 +17,6 @@
 
 from pyarrow.includes.libarrow cimport CStatus, IsPyError, RestorePyError
 from pyarrow.includes.common cimport c_string
-from pyarrow.compat import frombytes
 
 
 class ArrowException(Exception):

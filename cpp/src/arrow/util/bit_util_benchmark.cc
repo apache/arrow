@@ -17,19 +17,24 @@
 
 #include "benchmark/benchmark.h"
 
-#include <algorithm>
 #include <array>
 #include <bitset>
-#include <vector>
+#include <cstdint>
+#include <cstdlib>
+#include <cstring>
+#include <memory>
+#include <utility>
 
 #include "arrow/array/array_base.h"
+#include "arrow/array/array_primitive.h"
 #include "arrow/buffer.h"
 #include "arrow/builder.h"
 #include "arrow/memory_pool.h"
+#include "arrow/result.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
-#include "arrow/util/bit_block_counter.h"
+#include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap.h"
 #include "arrow/util/bitmap_generate.h"
@@ -39,7 +44,6 @@
 #include "arrow/util/bitmap_writer.h"
 
 namespace arrow {
-
 namespace BitUtil {
 
 #ifdef ARROW_WITH_BENCHMARKS_REFERENCE
@@ -195,6 +199,44 @@ static void BenchmarkBitmapReader(benchmark::State& state, int64_t nbytes) {
   state.SetBytesProcessed(2LL * state.iterations() * nbytes);
 }
 
+template <typename BitRunReaderType>
+static void BenchmarkBitRunReader(benchmark::State& state, int64_t set_percentage) {
+  ::arrow::random::RandomArrayGenerator rag(/*seed=*/23);
+  constexpr int64_t kNumBits = 4096;
+  double set_probability =
+      static_cast<double>(set_percentage == -1 ? 0 : set_percentage) / 100.0;
+  std::shared_ptr<Buffer> buffer =
+      rag.Boolean(kNumBits, set_probability)->data()->buffers[1];
+
+  const uint8_t* bitmap = buffer->data();
+  if (set_percentage == -1) {
+    internal::BitmapWriter writer(buffer->mutable_data(), /*start_offset=*/0,
+                                  /*length=*/kNumBits);
+    for (int x = 0; x < kNumBits; x++) {
+      if (x % 2 == 0) {
+        writer.Set();
+      } else {
+        writer.Clear();
+      }
+      writer.Next();
+    }
+  }
+
+  for (auto _ : state) {
+    {
+      BitRunReaderType reader(bitmap, 0, kNumBits);
+      int64_t set_total = 0;
+      internal::BitRun br;
+      do {
+        br = reader.NextRun();
+        set_total += br.set ? br.length : 0;
+      } while (br.length != 0);
+      benchmark::DoNotOptimize(set_total);
+    }
+  }
+  state.SetBytesProcessed(state.iterations() * (kNumBits / 8));
+}
+
 template <typename VisitBitsFunctorType>
 static void BenchmarkVisitBits(benchmark::State& state, int64_t nbytes) {
   std::shared_ptr<Buffer> buffer = CreateRandomBuffer(nbytes);
@@ -277,6 +319,14 @@ static void BitmapReader(benchmark::State& state) {
   BenchmarkBitmapReader<internal::BitmapReader>(state, state.range(0));
 }
 
+static void BitRunReader(benchmark::State& state) {
+  BenchmarkBitRunReader<internal::BitRunReader>(state, state.range(0));
+}
+
+static void BitRunReaderLinear(benchmark::State& state) {
+  BenchmarkBitRunReader<internal::BitRunReaderLinear>(state, state.range(0));
+}
+
 static void BitmapWriter(benchmark::State& state) {
   BenchmarkBitmapWriter<internal::BitmapWriter>(state, state.range(0));
 }
@@ -355,7 +405,7 @@ static void CopyBitmap(benchmark::State& state) {  // NOLINT non-const reference
   auto copy = *AllocateEmptyBitmap(length);
 
   for (auto _ : state) {
-    internal::CopyBitmap(src, OffsetSrc, length, copy->mutable_data(), OffsetDest, false);
+    internal::CopyBitmap(src, OffsetSrc, length, copy->mutable_data(), OffsetDest);
   }
 
   state.SetBytesProcessed(state.iterations() * buffer_size);
@@ -386,7 +436,7 @@ static void BitmapEquals(benchmark::State& state) {
   const int64_t length = bits_size - offset;
 
   auto copy = *AllocateEmptyBitmap(length + offset);
-  internal::CopyBitmap(src, 0, length, copy->mutable_data(), offset, false);
+  internal::CopyBitmap(src, 0, length, copy->mutable_data(), offset);
 
   for (auto _ : state) {
     auto is_same = internal::BitmapEquals(src, 0, copy->data(), offset, length);
@@ -394,114 +444,6 @@ static void BitmapEquals(benchmark::State& state) {
   }
 
   state.SetBytesProcessed(state.iterations() * buffer_size);
-}
-
-template <int64_t Offset = 0>
-static void BitBlockCounterSumNotNull(benchmark::State& state) {
-  using internal::BitBlockCounter;
-
-  random::RandomArrayGenerator rng(/*seed=*/0);
-
-  const int64_t bitmap_length = 1 << 20;
-
-  // State parameter is the average number of total values for each false
-  // value. So 100 means that 1 out of 100 on average are false.
-  double true_probability = 1. - 1. / state.range(0);
-  auto arr = rng.Int8(bitmap_length, 0, 100, true_probability);
-
-  const uint8_t* bitmap = arr->null_bitmap_data();
-
-  // Compute the expected result
-  int64_t expected = 0;
-  const auto& int8_arr = static_cast<const Int8Array&>(*arr);
-  for (int64_t i = Offset; i < bitmap_length; ++i) {
-    if (int8_arr.IsValid(i)) {
-      expected += int8_arr.Value(i);
-    }
-  }
-  for (auto _ : state) {
-    BitBlockCounter scanner(bitmap, Offset, bitmap_length - Offset);
-    int64_t result = 0;
-    int64_t position = Offset;
-    while (true) {
-      BitBlockCounter::Block block = scanner.NextBlock();
-      if (block.length == 0) {
-        break;
-      }
-      if (block.length == block.popcount) {
-        // All not-null
-        for (int64_t i = 0; i < block.length; ++i) {
-          result += int8_arr.Value(position + i);
-        }
-      } else if (block.popcount > 0) {
-        // Some but not all not-null
-        for (int64_t i = 0; i < block.length; ++i) {
-          if (BitUtil::GetBit(bitmap, position + i)) {
-            result += int8_arr.Value(position + i);
-          }
-        }
-      }
-      position += block.length;
-    }
-    // Sanity check
-    if (result != expected) {
-      std::abort();
-    }
-  }
-  state.SetItemsProcessed(state.iterations() * bitmap_length);
-}
-
-template <int64_t Offset = 0>
-static void BitmapReaderSumNotNull(benchmark::State& state) {
-  random::RandomArrayGenerator rng(/*seed=*/0);
-
-  const int64_t bitmap_length = 1 << 20;
-
-  // State parameter is the average number of total values for each false
-  // value. So 100 means that 1 out of 100 on average are false.
-  double true_probability = 1. - 1. / state.range(0);
-  auto arr = rng.Int8(bitmap_length, 0, 100, true_probability);
-
-  const uint8_t* bitmap = arr->null_bitmap_data();
-  // Compute the expected result
-  int64_t expected = 0;
-  const auto& int8_arr = static_cast<const Int8Array&>(*arr);
-  for (int64_t i = Offset; i < bitmap_length; ++i) {
-    if (int8_arr.IsValid(i)) {
-      expected += int8_arr.Value(i);
-    }
-  }
-  for (auto _ : state) {
-    internal::BitmapReader bit_reader(bitmap, Offset, bitmap_length - Offset);
-    int64_t result = 0;
-    for (int64_t i = Offset; i < bitmap_length; ++i) {
-      if (bit_reader.IsSet()) {
-        result += int8_arr.Value(i);
-      }
-      bit_reader.Next();
-    }
-    // Sanity check
-    if (result != expected) {
-      std::abort();
-    }
-  }
-  state.SetItemsProcessed(state.iterations() * bitmap_length);
-}
-
-static void BitBlockCounterSumNotNull(benchmark::State& state) {
-  BitBlockCounterSumNotNull<0>(state);
-}
-
-static void BitBlockCounterSumNotNullWithOffset(benchmark::State& state) {
-  BitBlockCounterSumNotNull<4>(state);
-}
-
-static void BitmapReaderSumNotNull(benchmark::State& state) {
-  BitmapReaderSumNotNull<0>(state);
-}
-
-static void BitmapReaderSumNotNullWithOffset(benchmark::State& state) {
-  BitmapReaderSumNotNull<4>(state);
 }
 
 static void BitmapEqualsWithoutOffset(benchmark::State& state) { BitmapEquals<0>(state); }
@@ -517,6 +459,24 @@ BENCHMARK(ReferenceNaiveBitmapReader)->Arg(kBufferSize);
 #endif
 
 BENCHMARK(BitmapReader)->Arg(kBufferSize);
+BENCHMARK(BitRunReader)
+    ->Arg(-1)
+    ->Arg(0)
+    ->Arg(10)
+    ->Arg(25)
+    ->Arg(50)
+    ->Arg(60)
+    ->Arg(75)
+    ->Arg(99);
+BENCHMARK(BitRunReaderLinear)
+    ->Arg(-1)
+    ->Arg(0)
+    ->Arg(10)
+    ->Arg(25)
+    ->Arg(50)
+    ->Arg(60)
+    ->Arg(75)
+    ->Arg(99);
 BENCHMARK(VisitBits)->Arg(kBufferSize);
 BENCHMARK(VisitBitsUnrolled)->Arg(kBufferSize);
 BENCHMARK(SetBitsTo)->Arg(2)->Arg(1 << 4)->Arg(1 << 10)->Arg(1 << 17);
@@ -540,12 +500,6 @@ BENCHMARK(CopyBitmapWithOffsetBoth)->Arg(kBufferSize);
 
 BENCHMARK(BitmapEqualsWithoutOffset)->Arg(kBufferSize);
 BENCHMARK(BitmapEqualsWithOffset)->Arg(kBufferSize);
-
-// Range value: average number of total values per null
-BENCHMARK(BitBlockCounterSumNotNull)->Range(8, 1 << 16);
-BENCHMARK(BitBlockCounterSumNotNullWithOffset)->Range(8, 1 << 16);
-BENCHMARK(BitmapReaderSumNotNull)->Range(8, 1 << 16);
-BENCHMARK(BitmapReaderSumNotNullWithOffset)->Range(8, 1 << 16);
 
 #define AND_BENCHMARK_RANGES                      \
   {                                               \

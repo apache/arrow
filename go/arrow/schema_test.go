@@ -28,24 +28,28 @@ func TestMetadata(t *testing.T) {
 		kvs          map[string]string
 		keys, values []string
 		err          string
+		serialize    string
 	}{
 		{
 			md: Metadata{
 				keys:   []string{"k1", "k2"},
 				values: []string{"v1", "v2"},
 			},
-			keys:   []string{"k1", "k2"},
-			values: []string{"v1", "v2"},
+			keys:      []string{"k1", "k2"},
+			values:    []string{"v1", "v2"},
+			serialize: `["k1": "v1", "k2": "v2"]`,
 		},
 		{
-			md: Metadata{},
+			md:        Metadata{},
+			serialize: "[]",
 		},
 		{
 			md: Metadata{
 				keys:   []string{"k1", "k2"},
 				values: []string{"v1", "v2"},
 			},
-			kvs: map[string]string{"k1": "v1", "k2": "v2"},
+			kvs:       map[string]string{"k1": "v1", "k2": "v2"},
+			serialize: `["k1": "v1", "k2": "v2"]`,
 		},
 		{
 			md:     Metadata{},
@@ -89,6 +93,10 @@ func TestMetadata(t *testing.T) {
 			if !reflect.DeepEqual(clone, md) {
 				t.Fatalf("invalid clone: got=%#v, want=%#v", clone, md)
 			}
+
+			if got, want := tc.md.String(), tc.serialize; got != want {
+				t.Fatalf("invalid stringer: got=%q, want=%q", got, want)
+			}
 		})
 	}
 
@@ -123,9 +131,10 @@ func TestMetadata(t *testing.T) {
 
 func TestSchema(t *testing.T) {
 	for _, tc := range []struct {
-		fields []Field
-		md     *Metadata
-		err    error
+		fields    []Field
+		md        *Metadata
+		err       error
+		serialize string
 	}{
 		{
 			fields: []Field{
@@ -136,6 +145,11 @@ func TestSchema(t *testing.T) {
 				md := MetadataFrom(map[string]string{"k1": "v1", "k2": "v2"})
 				return &md
 			}(),
+			serialize: `schema:
+  fields: 2
+    - f1: type=int32
+    - f2: type=int64
+  metadata: ["k1": "v1", "k2": "v2"]`,
 		},
 		{
 			fields: []Field{
@@ -143,6 +157,10 @@ func TestSchema(t *testing.T) {
 				{Name: "f2", Type: PrimitiveTypes.Int64},
 			},
 			md: nil,
+			serialize: `schema:
+  fields: 2
+    - f1: type=int32
+    - f2: type=int64`,
 		},
 		{
 			fields: []Field{
@@ -160,6 +178,12 @@ func TestSchema(t *testing.T) {
 				{Name: "dup", Type: PrimitiveTypes.Int64}, // duplicate
 			},
 			md: nil,
+			serialize: `schema:
+  fields: 4
+    - f1: type=int32
+    - f2: type=int64
+    - dup: type=int32
+    - dup: type=int64`,
 		},
 	} {
 		t.Run("", func(t *testing.T) {
@@ -240,6 +264,10 @@ func TestSchema(t *testing.T) {
 					t.Fatalf("invalid duplicate fields: got=%v, want=%v", got, want)
 				}
 			}
+
+			if got, want := s.String(), tc.serialize; got != want {
+				t.Fatalf("invalid stringer: got=%q, want=%q", got, want)
+			}
 		})
 	}
 }
@@ -262,6 +290,16 @@ func TestSchemaEqual(t *testing.T) {
 			a:    nil,
 			b:    nil,
 			want: true,
+		},
+		{
+			a:    nil,
+			b:    NewSchema(nil, nil),
+			want: false,
+		},
+		{
+			a:    NewSchema(nil, nil),
+			b:    nil,
+			want: false,
 		},
 		{
 			a:    NewSchema(nil, nil),

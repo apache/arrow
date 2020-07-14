@@ -354,7 +354,7 @@ class NumericConverter : public ConcreteConverter {
 
     auto visit = [&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
       // XXX should quoted values be allowed at all?
-      value_type value;
+      value_type value = 0;
       if (IsNull(data, size, quoted)) {
         builder.UnsafeAppendNull();
         return Status::OK();

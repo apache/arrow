@@ -20,13 +20,59 @@ import collections
 import numpy as np
 
 import pyarrow as pa
-from pyarrow.compat import builtin_pickle, descr_to_dtype
-from pyarrow.lib import SerializationContext, py_buffer
+from pyarrow.lib import SerializationContext, py_buffer, builtin_pickle
 
 try:
     import cloudpickle
 except ImportError:
     cloudpickle = builtin_pickle
+
+
+try:
+    # This function is available after numpy-0.16.0.
+    # See also: https://github.com/numpy/numpy/blob/master/numpy/lib/format.py
+    from numpy.lib.format import descr_to_dtype
+except ImportError:
+    def descr_to_dtype(descr):
+        '''
+        descr may be stored as dtype.descr, which is a list of (name, format,
+        [shape]) tuples where format may be a str or a tuple.  Offsets are not
+        explicitly saved, rather empty fields with name, format == '', '|Vn'
+        are added as padding.  This function reverses the process, eliminating
+        the empty padding fields.
+        '''
+        if isinstance(descr, str):
+            # No padding removal needed
+            return np.dtype(descr)
+        elif isinstance(descr, tuple):
+            # subtype, will always have a shape descr[1]
+            dt = descr_to_dtype(descr[0])
+            return np.dtype((dt, descr[1]))
+        fields = []
+        offset = 0
+        for field in descr:
+            if len(field) == 2:
+                name, descr_str = field
+                dt = descr_to_dtype(descr_str)
+            else:
+                name, descr_str, shape = field
+                dt = np.dtype((descr_to_dtype(descr_str), shape))
+
+            # Ignore padding bytes, which will be void bytes with '' as name
+            # Once support for blank names is removed, only "if name == ''"
+            # needed)
+            is_pad = (name == '' and dt.type is np.void and dt.names is None)
+            if not is_pad:
+                fields.append((name, dt, offset))
+
+            offset += dt.itemsize
+
+        names, formats, offsets = zip(*fields)
+        # names may be (title, names) tuples
+        nametups = (n if isinstance(n, tuple) else (None, n) for n in names)
+        titles, names = zip(*nametups)
+        return np.dtype({'names': names, 'formats': formats, 'titles': titles,
+                         'offsets': offsets, 'itemsize': offset})
 
 
 # ----------------------------------------------------------------------

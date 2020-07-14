@@ -25,10 +25,12 @@ User Guide
 
    overview
    conventions
+   cmake
    memory
    arrays
    datatypes
    tables
+   compute
    io
    parquet
    csv

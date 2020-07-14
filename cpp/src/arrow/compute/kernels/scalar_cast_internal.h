@@ -42,6 +42,10 @@ struct CastFunctor<
 
 void CastFromExtension(KernelContext* ctx, const ExecBatch& batch, Datum* out);
 
+// Utility for numeric casts
+void CastNumberToNumberUnsafe(Type::type in_type, Type::type out_type, const Datum& input,
+                              Datum* out);
+
 // ----------------------------------------------------------------------
 // Dictionary to other things
 
@@ -49,16 +53,7 @@ void UnpackDictionary(KernelContext* ctx, const ExecBatch& batch, Datum* out);
 
 void OutputAllNull(KernelContext* ctx, const ExecBatch& batch, Datum* out);
 
-template <typename T>
-struct FromNullCast {
-  static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    ArrayData* output = out->mutable_array();
-    std::shared_ptr<Array> nulls;
-    Status s = MakeArrayOfNull(output->type, batch.length).Value(&nulls);
-    KERNEL_RETURN_IF_ERROR(ctx, s);
-    out->value = nulls->data();
-  }
-};
+void CastFromNull(KernelContext* ctx, const ExecBatch& batch, Datum* out);
 
 // Adds a cast function where the functor is defined and the input and output
 // types have a type_singleton
@@ -80,40 +75,11 @@ Result<ValueDescr> ResolveOutputFromOptions(KernelContext* ctx,
 
 ARROW_EXPORT extern OutputType kOutputTargetType;
 
-template <typename T, typename Enable = void>
-struct MaybeAddFromDictionary {
-  static void Add(const OutputType& out_ty, CastFunction* func) {}
-};
-
-template <typename T>
-struct MaybeAddFromDictionary<
-    T, enable_if_t<!is_boolean_type<T>::value && !is_nested_type<T>::value &&
-                   !is_null_type<T>::value && !std::is_same<DictionaryType, T>::value>> {
-  static void Add(const OutputType& out_ty, CastFunction* func) {
-    // Dictionary unpacking not implemented for boolean or nested types.
-    //
-    // XXX: Uses Take and does its own memory allocation for the moment. We can
-    // fix this later.
-    DCHECK_OK(func->AddKernel(
-        Type::DICTIONARY, {InputType::Array(Type::DICTIONARY)}, out_ty, UnpackDictionary,
-        NullHandling::COMPUTED_NO_PREALLOCATE, MemAllocation::NO_PREALLOCATE));
-  }
-};
-
-template <typename OutType>
-void AddCommonCasts(OutputType out_ty, CastFunction* func) {
-  // From null to this type
-  DCHECK_OK(func->AddKernel(Type::NA, {InputType::Array(null())}, out_ty,
-                            FromNullCast<OutType>::Exec));
-
-  // From dictionary to this type
-  MaybeAddFromDictionary<OutType>::Add(out_ty, func);
-
-  // From extension type to this type
-  DCHECK_OK(func->AddKernel(Type::EXTENSION, {InputType::Array(Type::EXTENSION)}, out_ty,
-                            CastFromExtension, NullHandling::COMPUTED_NO_PREALLOCATE,
-                            MemAllocation::NO_PREALLOCATE));
-}
+// Add generic casts to out_ty from:
+// - the null type
+// - dictionary with out_ty as given value type
+// - extension types with a compatible storage type
+void AddCommonCasts(Type::type out_type_id, OutputType out_ty, CastFunction* func);
 
 }  // namespace internal
 }  // namespace compute

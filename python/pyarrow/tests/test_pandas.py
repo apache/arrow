@@ -22,7 +22,7 @@ import multiprocessing as mp
 import sys
 
 from collections import OrderedDict
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, time, timedelta, timezone
 from distutils.version import LooseVersion
 
 import hypothesis as h
@@ -37,6 +37,10 @@ from pyarrow.pandas_compat import get_logical_type, _pandas_api
 from pyarrow.tests.util import random_ascii, rands
 
 import pyarrow as pa
+try:
+    from pyarrow import parquet as pq
+except ImportError:
+    pass
 
 try:
     import pandas as pd
@@ -384,10 +388,10 @@ class TestConvertMetadata:
             batch = pa.RecordBatch.from_arrays([arr], ['foo'])
             table = pa.Table.from_batches([batch, batch, batch])
 
-            with pytest.raises(pa.ArrowInvalid):
+            with pytest.raises(IndexError):
                 arr.to_pandas()
 
-            with pytest.raises(pa.ArrowInvalid):
+            with pytest.raises(IndexError):
                 table.to_pandas()
 
     def test_unicode_with_unicode_column_and_index(self):
@@ -1201,6 +1205,21 @@ class TestConvertDateTimeLikeTypes:
         tm.assert_frame_equal(table_pandas_objects,
                               expected_pandas_objects)
 
+    def test_pandas_null_values(self):
+        # ARROW-842
+        pd_NA = getattr(pd, 'NA', None)
+        values = np.array([datetime(2000, 1, 1), pd.NaT, pd_NA], dtype=object)
+        values_with_none = np.array([datetime(2000, 1, 1), None, None],
+                                    dtype=object)
+        result = pa.array(values, from_pandas=True)
+        expected = pa.array(values_with_none, from_pandas=True)
+        assert result.equals(expected)
+        assert result.null_count == 2
+
+        # ARROW-9407
+        assert pa.array([pd.NaT], from_pandas=True).type == pa.null()
+        assert pa.array([pd_NA], from_pandas=True).type == pa.null()
+
     def test_dates_from_integers(self):
         t1 = pa.date32()
         t2 = pa.date64()
@@ -1227,7 +1246,7 @@ class TestConvertDateTimeLikeTypes:
         assert parr.type == t1
         assert parr[0].as_py() == pytimes[0]
         assert parr[1].as_py() == pytimes[1]
-        assert parr[2] is pa.NA
+        assert parr[2].as_py() is None
 
         # DataFrame
         df = pd.DataFrame({'times': aobjs})
@@ -3306,13 +3325,20 @@ def test_cast_timestamp_unit():
     assert result.equals(expected)
 
 
-def test_struct_with_timestamp_tz():
+def test_nested_with_timestamp_tz():
     # ARROW-7723
     ts = pd.Timestamp.now()
+    ts_dt = ts.to_pydatetime()
 
     # XXX: Ensure that this data does not get promoted to nanoseconds (and thus
     # integers) to preserve behavior in 0.15.1
     for unit in ['s', 'ms', 'us']:
+        if unit in ['s', 'ms']:
+            # This is used for verifying timezone conversion to micros are not
+            # important
+            def truncate(x): return x.replace(microsecond=0)
+        else:
+            def truncate(x): return x
         arr = pa.array([ts], type=pa.timestamp(unit))
         arr2 = pa.array([ts], type=pa.timestamp(unit, tz='America/New_York'))
 
@@ -3321,20 +3347,30 @@ def test_struct_with_timestamp_tz():
 
         result = arr3.to_pandas()
         assert isinstance(result[0]['start'], datetime)
+        assert result[0]['start'].tzinfo is None
         assert isinstance(result[0]['stop'], datetime)
+        assert result[0]['stop'].tzinfo is None
 
         result = arr4.to_pandas()
         assert isinstance(result[0]['start'], datetime)
+        assert result[0]['start'].tzinfo is not None
+        utc_dt = result[0]['start'].astimezone(timezone.utc)
+        assert truncate(utc_dt).replace(tzinfo=None) == truncate(ts_dt)
         assert isinstance(result[0]['stop'], datetime)
+        assert result[0]['stop'].tzinfo is not None
 
         # same conversion for table
         result = pa.table({'a': arr3}).to_pandas()
         assert isinstance(result['a'][0]['start'], datetime)
+        assert result['a'][0]['start'].tzinfo is None
         assert isinstance(result['a'][0]['stop'], datetime)
+        assert result['a'][0]['stop'].tzinfo is None
 
         result = pa.table({'a': arr4}).to_pandas()
         assert isinstance(result['a'][0]['start'], datetime)
+        assert result['a'][0]['start'].tzinfo is not None
         assert isinstance(result['a'][0]['stop'], datetime)
+        assert result['a'][0]['stop'].tzinfo is not None
 
 
 # ----------------------------------------------------------------------
@@ -3342,23 +3378,39 @@ def test_struct_with_timestamp_tz():
 
 
 def test_dictionary_with_pandas():
-    indices = np.repeat([0, 1, 2], 2)
+    src_indices = np.repeat([0, 1, 2], 2)
     dictionary = np.array(['foo', 'bar', 'baz'], dtype=object)
     mask = np.array([False, False, True, False, False, False])
 
-    d1 = pa.DictionaryArray.from_arrays(indices, dictionary)
-    d2 = pa.DictionaryArray.from_arrays(indices, dictionary, mask=mask)
+    for index_type in ['uint8', 'int8', 'uint16', 'int16', 'uint32', 'int32',
+                       'uint64', 'int64']:
+        indices = src_indices.astype(index_type)
+        d1 = pa.DictionaryArray.from_arrays(indices, dictionary)
+        d2 = pa.DictionaryArray.from_arrays(indices, dictionary, mask=mask)
 
-    pandas1 = d1.to_pandas()
-    ex_pandas1 = pd.Categorical.from_codes(indices, categories=dictionary)
+        if index_type[0] == 'u':
+            # TODO: unsigned dictionary indices to pandas
+            with pytest.raises(TypeError):
+                d1.to_pandas()
+            continue
 
-    tm.assert_series_equal(pd.Series(pandas1), pd.Series(ex_pandas1))
+        pandas1 = d1.to_pandas()
+        ex_pandas1 = pd.Categorical.from_codes(indices, categories=dictionary)
 
-    pandas2 = d2.to_pandas()
-    ex_pandas2 = pd.Categorical.from_codes(np.where(mask, -1, indices),
-                                           categories=dictionary)
+        tm.assert_series_equal(pd.Series(pandas1), pd.Series(ex_pandas1))
 
-    tm.assert_series_equal(pd.Series(pandas2), pd.Series(ex_pandas2))
+        pandas2 = d2.to_pandas()
+        assert pandas2.isnull().sum() == 1
+
+        # Unsigned integers converted to signed
+        signed_indices = indices
+        if index_type[0] == 'u':
+            signed_indices = indices.astype(index_type[1:])
+        ex_pandas2 = pd.Categorical.from_codes(np.where(mask, -1,
+                                                        signed_indices),
+                                               categories=dictionary)
+
+        tm.assert_series_equal(pd.Series(pandas2), pd.Series(ex_pandas2))
 
 
 def random_strings(n, item_size, pct_null=0, dictionary=None):
@@ -3944,3 +3996,76 @@ def test_metadata_compat_missing_field_name():
     result = table.to_pandas()
     # on python 3.5 the column order can differ -> adding check_like=True
     tm.assert_frame_equal(result, expected, check_like=True)
+
+
+def make_df_with_timestamps():
+    # Some of the milliseconds timestamps deliberately don't fit in the range
+    # that is possible with nanosecond timestamps.
+    df = pd.DataFrame({
+        'dateTimeMs': [
+            np.datetime64('0001-01-01 00:00', 'ms'),
+            np.datetime64('2012-05-02 12:35', 'ms'),
+            np.datetime64('2012-05-03 15:42', 'ms'),
+            np.datetime64('3000-05-03 15:42', 'ms'),
+        ],
+        'dateTimeNs': [
+            np.datetime64('1991-01-01 00:00', 'ns'),
+            np.datetime64('2012-05-02 12:35', 'ns'),
+            np.datetime64('2012-05-03 15:42', 'ns'),
+            np.datetime64('2050-05-03 15:42', 'ns'),
+        ],
+    })
+    # Not part of what we're testing, just ensuring that the inputs are what we
+    # expect.
+    assert (df.dateTimeMs.dtype, df.dateTimeNs.dtype) == (
+        # O == object, <M8[ns] == timestamp64[ns]
+        np.dtype("O"), np.dtype("<M8[ns]")
+    )
+    return df
+
+
+@pytest.mark.parquet
+def test_timestamp_as_object_parquet(tempdir):
+    # Timestamps can be stored as Parquet and reloaded into Pandas with no loss
+    # of information if the timestamp_as_object option is True.
+    df = make_df_with_timestamps()
+    table = pa.Table.from_pandas(df)
+    filename = tempdir / "timestamps_from_pandas.parquet"
+    pq.write_table(table, filename, version="2.0")
+    result = pq.read_table(filename)
+    df2 = result.to_pandas(timestamp_as_object=True)
+    tm.assert_frame_equal(df, df2)
+
+
+def test_timestamp_as_object_out_of_range():
+    # Out of range timestamps can be converted Arrow and reloaded into Pandas
+    # with no loss of information if the timestamp_as_object option is True.
+    df = make_df_with_timestamps()
+    table = pa.Table.from_pandas(df)
+    df2 = table.to_pandas(timestamp_as_object=True)
+    tm.assert_frame_equal(df, df2)
+
+
+@pytest.mark.parametrize("resolution", ["s", "ms", "us"])
+@pytest.mark.parametrize("tz", [None, "America/New_York"])
+# One datetime outside nanosecond range, one inside nanosecond range:
+@pytest.mark.parametrize("dt", [datetime(1553, 1, 1), datetime(2020, 1, 1)])
+def test_timestamp_as_object_non_nanosecond(resolution, tz, dt):
+    # Timestamps can be converted Arrow and reloaded into Pandas with no loss
+    # of information if the timestamp_as_object option is True.
+    arr = pa.array([dt], type=pa.timestamp(resolution, tz=tz))
+    table = pa.table({'a': arr})
+
+    for result in [
+        arr.to_pandas(timestamp_as_object=True),
+        table.to_pandas(timestamp_as_object=True)['a']
+    ]:
+        assert result.dtype == object
+        assert isinstance(result[0], datetime)
+        if tz:
+            assert result[0].tzinfo is not None
+            expected = result[0].tzinfo.fromutc(dt)
+        else:
+            assert result[0].tzinfo is None
+            expected = dt
+        assert result[0] == expected

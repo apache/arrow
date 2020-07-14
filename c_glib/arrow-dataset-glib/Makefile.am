@@ -39,8 +39,8 @@ libarrow_dataset_glib_la_LDFLAGS =		\
 
 libarrow_dataset_glib_la_LIBADD =		\
 	$(GLIB_LIBS)				\
-	$(ARROW_DATASET_LIBS)			\
-	../arrow-glib/libarrow-glib.la
+	../arrow-glib/libarrow-glib.la		\
+	$(ARROW_DATASET_LIBS)
 
 libarrow_dataset_glib_la_headers =		\
 	arrow-dataset-glib.h			\

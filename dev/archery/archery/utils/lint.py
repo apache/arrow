@@ -170,7 +170,7 @@ def python_linter(src, fix=False):
                                      check=False))
 
 
-def python_numpydoc(symbols=None, whitelist=None, blacklist=None):
+def python_numpydoc(symbols=None, allow_rules=None, disallow_rules=None):
     """Run numpydoc linter on python.
 
     Pyarrow must be available for import.
@@ -203,8 +203,8 @@ def python_numpydoc(symbols=None, whitelist=None, blacklist=None):
     results = numpydoc.validate(
         # limit the validation scope to the pyarrow package
         from_package='pyarrow',
-        rules_whitelist=whitelist,
-        rules_blacklist=blacklist
+        allow_rules=allow_rules,
+        disallow_rules=disallow_rules
     )
 
     if len(results) == 0:

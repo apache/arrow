@@ -34,7 +34,7 @@ test_that("type() infers from R type", {
   expect_type_equal(type(raw()), int8())
   expect_type_equal(type(""), utf8())
   expect_type_equal(
-    type(iris$Species),
+    type(example_data$fct),
     dictionary(int8(), utf8(), FALSE)
   )
   expect_type_equal(

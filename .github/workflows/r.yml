@@ -84,9 +84,9 @@ jobs:
           sudo sysctl -w kernel.core_pattern="core.%e.%p"
           ulimit -c unlimited
           archery docker run ubuntu-r
-      - name: Dump install logs on failure
-        if: failure()
+      - name: Dump install logs
         run: cat r/check/arrow.Rcheck/00install.out
+        if: always()
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         continue-on-error: true
@@ -133,9 +133,9 @@ jobs:
           sudo sysctl -w kernel.core_pattern="core.%e.%p"
           ulimit -c unlimited
           archery docker run r
-      - name: Dump install logs on failure
-        if: failure()
+      - name: Dump install logs
         run: cat r/check/arrow.Rcheck/00install.out
+        if: always()
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         continue-on-error: true
@@ -212,3 +212,4 @@ jobs:
       - name: Dump install logs
         shell: cmd
         run: cat check/arrow.Rcheck/00install.out
+        if: always()

@@ -33,7 +33,7 @@ public class BufferLayout {
     DATA("DATA"),
     OFFSET("OFFSET"),
     VALIDITY("VALIDITY"),
-    TYPE("TYPE");
+    TYPE("TYPE_ID");
 
     private final String name;
 

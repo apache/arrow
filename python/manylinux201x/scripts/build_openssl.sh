@@ -16,8 +16,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# XXX OpenSSL 1.1.1 needs Perl 5.10 to compile.
-OPENSSL_VERSION="1.1.1c"
+OPENSSL_VERSION="1.1.1g"
 NCORES=$(($(grep -c ^processor /proc/cpuinfo) + 1))
 
 wget --no-check-certificate https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz -O openssl-${OPENSSL_VERSION}.tar.gz

@@ -24,19 +24,22 @@
 namespace arrow {
 namespace internal {
 
+struct SparseTensorConverterMixin {
+  static bool IsNonZero(const uint8_t val) { return val != 0; }
+
+  static void AssignIndex(uint8_t* indices, int64_t val, const int elsize);
+
+  static int64_t GetIndexValue(const uint8_t* value_ptr, const int elsize);
+};
+
 Status MakeSparseCOOTensorFromTensor(const Tensor& tensor,
                                      const std::shared_ptr<DataType>& index_value_type,
                                      MemoryPool* pool,
                                      std::shared_ptr<SparseIndex>* out_sparse_index,
                                      std::shared_ptr<Buffer>* out_data);
 
-Status MakeSparseCSRMatrixFromTensor(const Tensor& tensor,
-                                     const std::shared_ptr<DataType>& index_value_type,
-                                     MemoryPool* pool,
-                                     std::shared_ptr<SparseIndex>* out_sparse_index,
-                                     std::shared_ptr<Buffer>* out_data);
-
-Status MakeSparseCSCMatrixFromTensor(const Tensor& tensor,
+Status MakeSparseCSXMatrixFromTensor(SparseMatrixCompressedAxis axis,
+                                     const Tensor& tensor,
                                      const std::shared_ptr<DataType>& index_value_type,
                                      MemoryPool* pool,
                                      std::shared_ptr<SparseIndex>* out_sparse_index,
@@ -47,6 +50,18 @@ Status MakeSparseCSFTensorFromTensor(const Tensor& tensor,
                                      MemoryPool* pool,
                                      std::shared_ptr<SparseIndex>* out_sparse_index,
                                      std::shared_ptr<Buffer>* out_data);
+
+Result<std::shared_ptr<Tensor>> MakeTensorFromSparseCOOTensor(
+    MemoryPool* pool, const SparseCOOTensor* sparse_tensor);
+
+Result<std::shared_ptr<Tensor>> MakeTensorFromSparseCSRMatrix(
+    MemoryPool* pool, const SparseCSRMatrix* sparse_tensor);
+
+Result<std::shared_ptr<Tensor>> MakeTensorFromSparseCSCMatrix(
+    MemoryPool* pool, const SparseCSCMatrix* sparse_tensor);
+
+Result<std::shared_ptr<Tensor>> MakeTensorFromSparseCSFTensor(
+    MemoryPool* pool, const SparseCSFTensor* sparse_tensor);
 
 }  // namespace internal
 }  // namespace arrow

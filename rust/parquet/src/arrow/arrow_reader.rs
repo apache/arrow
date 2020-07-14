@@ -144,7 +144,7 @@ pub struct ParquetRecordBatchReader {
 }
 
 impl RecordBatchReader for ParquetRecordBatchReader {
-    fn schema(&mut self) -> SchemaRef {
+    fn schema(&self) -> SchemaRef {
         self.schema.clone()
     }
 
@@ -475,7 +475,7 @@ mod tests {
     }
 
     fn compare_batch_json(
-        record_batch_reader: &mut RecordBatchReader,
+        record_batch_reader: &mut dyn RecordBatchReader,
         json_values: Vec<serde_json::Value>,
         max_len: usize,
     ) {

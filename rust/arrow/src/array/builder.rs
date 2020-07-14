@@ -22,10 +22,11 @@
 
 use std::any::Any;
 use std::collections::HashMap;
+use std::fmt;
 use std::io::Write;
 use std::marker::PhantomData;
 use std::mem;
-use std::sync::Arc;
+use std::{convert::TryInto, sync::Arc};
 
 use crate::array::*;
 use crate::buffer::{Buffer, MutableBuffer};
@@ -85,6 +86,7 @@ pub(crate) fn builder_to_mutable_buffer<T: ArrowPrimitiveType>(
 /// # Ok(())
 /// # }
 /// ```
+#[derive(Debug)]
 pub struct BufferBuilder<T: ArrowPrimitiveType> {
     buffer: MutableBuffer,
     len: usize,
@@ -134,6 +136,20 @@ pub trait BufferBuilderTrait<T: ArrowPrimitiveType> {
     /// assert_eq!(builder.len(), 1);
     /// ```
     fn len(&self) -> usize;
+
+    /// Returns whether the internal buffer is empty.
+    ///
+    /// # Example:
+    ///
+    /// ```
+    /// use arrow::array::{UInt8BufferBuilder, BufferBuilderTrait};
+    ///
+    /// let mut builder = UInt8BufferBuilder::new(10);
+    /// builder.append(42);
+    ///
+    /// assert_eq!(builder.is_empty(), false);
+    /// ```
+    fn is_empty(&self) -> bool;
 
     /// Returns the actual capacity (number of elements) of the internal buffer.
     ///
@@ -248,6 +264,10 @@ impl<T: ArrowPrimitiveType> BufferBuilderTrait<T> for BufferBuilder<T> {
 
     fn len(&self) -> usize {
         self.len
+    }
+
+    fn is_empty(&self) -> bool {
+        self.len == 0
     }
 
     fn capacity(&self) -> usize {
@@ -402,6 +422,19 @@ pub trait ArrayBuilder: Any {
     /// Returns the number of array slots in the builder
     fn len(&self) -> usize;
 
+    /// Returns whether number of array slots is zero
+    fn is_empty(&self) -> bool;
+
+    /// Appends data from other arrays into the builder
+    ///
+    /// This is most useful when concatenating arrays of the same type into a builder.
+    fn append_data(&mut self, data: &[ArrayDataRef]) -> Result<()>;
+
+    /// Returns the data type of the builder
+    ///
+    /// This is used for validating array data types in `append_data`
+    fn data_type(&self) -> DataType;
+
     /// Builds the array
     fn finish(&mut self) -> ArrayRef;
 
@@ -424,6 +457,7 @@ pub trait ArrayBuilder: Any {
 }
 
 ///  Array builder for fixed-width primitive types
+#[derive(Debug)]
 pub struct PrimitiveBuilder<T: ArrowPrimitiveType> {
     values_builder: BufferBuilder<T>,
     bitmap_builder: BooleanBufferBuilder,
@@ -448,6 +482,70 @@ impl<T: ArrowPrimitiveType> ArrayBuilder for PrimitiveBuilder<T> {
     /// Returns the number of array slots in the builder
     fn len(&self) -> usize {
         self.values_builder.len
+    }
+
+    /// Returns whether the number of array slots is zero
+    fn is_empty(&self) -> bool {
+        self.values_builder.is_empty()
+    }
+
+    /// Appends data from other arrays into the builder
+    ///
+    /// This is most useful when concatenating arrays of the same type into a builder.
+    fn append_data(&mut self, data: &[ArrayDataRef]) -> Result<()> {
+        // validate arraydata and reserve memory
+        let mut total_len = 0;
+        for array in data {
+            if array.data_type() != &self.data_type() {
+                return Err(ArrowError::InvalidArgumentError(
+                    "Cannot append data to builder if data types are different"
+                        .to_string(),
+                ));
+            }
+            if array.buffers().len() != 1 {
+                return Err(ArrowError::InvalidArgumentError(
+                    "Primitive arrays should have 1 buffer".to_string(),
+                ));
+            }
+            total_len += array.len();
+        }
+        // reserve memory
+        self.values_builder.reserve(total_len)?;
+        self.bitmap_builder.reserve(total_len)?;
+
+        let mul = T::get_bit_width() / 8;
+        for array in data {
+            let len = array.len();
+            if len == 0 {
+                continue;
+            }
+            let offset = array.offset();
+            if array.data_type() == &DataType::Boolean {
+                // booleans are bit-packed, thus we iterate through the array
+                let array = PrimitiveArray::<T>::from(array.clone());
+                for i in 0..len {
+                    self.values_builder.append(array.value(i))?;
+                }
+            } else {
+                let sliced = array.buffers()[0].data();
+                // slice into data by factoring (offset and length) * byte width
+                self.values_builder
+                    .write_bytes(&sliced[(offset * mul)..((len + offset) * mul)], len)?;
+            }
+
+            for i in 0..len {
+                // account for offset as `ArrayData` does not
+                self.bitmap_builder.append(array.is_valid(offset + i))?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Returns the data type of the builder
+    ///
+    /// This is used for validating array data types in `append_data`
+    fn data_type(&self) -> DataType {
+        T::get_data_type()
     }
 
     /// Builds the array and reset this builder.
@@ -500,6 +598,21 @@ impl<T: ArrowPrimitiveType> PrimitiveBuilder<T> {
         Ok(())
     }
 
+    /// Appends values from a slice of type `T` and a validity boolean slice
+    pub fn append_values(
+        &mut self,
+        values: &[T::Native],
+        is_valid: &[bool],
+    ) -> Result<()> {
+        if values.len() != is_valid.len() {
+            return Err(ArrowError::InvalidArgumentError(
+                "Value and validity lengths must be equal".to_string(),
+            ));
+        }
+        self.bitmap_builder.append_slice(is_valid)?;
+        self.values_builder.append_slice(values)
+    }
+
     /// Builds the `PrimitiveArray` and reset this builder.
     pub fn finish(&mut self) -> PrimitiveArray<T> {
         let len = self.len();
@@ -540,6 +653,7 @@ impl<T: ArrowPrimitiveType> PrimitiveBuilder<T> {
 }
 
 ///  Array builder for `ListArray`
+#[derive(Debug)]
 pub struct ListBuilder<T: ArrayBuilder> {
     offsets_builder: Int32BufferBuilder,
     bitmap_builder: BooleanBufferBuilder,
@@ -577,6 +691,97 @@ where
         self
     }
 
+    /// Appends data from other arrays into the builder
+    ///
+    /// This is most useful when concatenating arrays of the same type into a builder.
+    fn append_data(&mut self, data: &[ArrayDataRef]) -> Result<()> {
+        // validate arraydata and reserve memory
+        let mut total_len = 0;
+        for array in data {
+            if array.data_type() != &self.data_type() {
+                return Err(ArrowError::InvalidArgumentError(
+                    "Cannot append data to builder if data types are different"
+                        .to_string(),
+                ));
+            }
+            if array.buffers().len() != 1 {
+                return Err(ArrowError::InvalidArgumentError(
+                    "List arrays should have 1 buffer".to_string(),
+                ));
+            }
+            if array.child_data().len() != 1 {
+                return Err(ArrowError::InvalidArgumentError(
+                    "List arrays should have 1 child_data element".to_string(),
+                ));
+            }
+            total_len += array.len();
+        }
+        // reserve memory
+        self.offsets_builder.reserve(total_len)?;
+        self.bitmap_builder.reserve(total_len)?;
+        // values_builder is allocated by the relevant builder, and is not allocated here
+
+        // determine the latest offset on the builder
+        let mut cum_offset = if self.offsets_builder.len() == 0 {
+            0
+        } else {
+            // peek into buffer to get last appended offset
+            let buffer = self.offsets_builder.buffer.data();
+            let len = self.offsets_builder.len();
+            let (start, end) = ((len - 1) * 4, len * 4);
+            let slice = &buffer[start..end];
+            i32::from_le_bytes(slice.try_into().unwrap())
+        };
+        for array in data {
+            let len = array.len();
+            if len == 0 {
+                continue;
+            }
+            let offset = array.offset();
+
+            // `typed_data` is unsafe, however this call is safe as `ListArray` has i32 offsets
+            let offsets = unsafe {
+                &array.buffers()[0].typed_data::<i32>()[offset..(len + offset) + 1]
+            };
+            // the offsets of the child array determine its length
+            // this could be obtained by getting the concrete ListArray and getting value_offsets
+            let offset_at_len = offsets[offsets.len() - 1] as usize;
+            let first_offset = offsets[0] as usize;
+            // create the child array and offset it
+            let child_data = &array.child_data()[0];
+            let child_array = make_array(child_data.clone());
+            // slice the child array to account for offsets
+            let sliced = child_array.slice(first_offset, offset_at_len - first_offset);
+            self.values().append_data(&[sliced.data()])?;
+            let adjusted_offsets: Vec<i32> = offsets
+                .windows(2)
+                .map(|w| {
+                    let curr_offset = w[1] - w[0] + cum_offset;
+                    cum_offset = curr_offset;
+                    curr_offset
+                })
+                .collect();
+            self.offsets_builder
+                .append_slice(adjusted_offsets.as_slice())?;
+
+            for i in 0..len {
+                // account for offset as `ArrayData` does not
+                self.bitmap_builder.append(array.is_valid(offset + i))?;
+            }
+        }
+
+        // append array length
+        self.len += total_len;
+        Ok(())
+    }
+
+    /// Returns the data type of the builder
+    ///
+    /// This is used for validating array data types in `append_data`
+    fn data_type(&self) -> DataType {
+        DataType::List(Box::new(self.values_builder.data_type()))
+    }
+
     /// Returns the builder as a mutable `Any` reference.
     fn as_any_mut(&mut self) -> &mut Any {
         self
@@ -590,6 +795,11 @@ where
     /// Returns the number of array slots in the builder
     fn len(&self) -> usize {
         self.len
+    }
+
+    /// Returns whether the number of array slots is zero
+    fn is_empty(&self) -> bool {
+        self.len == 0
     }
 
     /// Builds the array and reset this builder.
@@ -648,6 +858,213 @@ where
 }
 
 ///  Array builder for `ListArray`
+#[derive(Debug)]
+pub struct LargeListBuilder<T: ArrayBuilder> {
+    offsets_builder: Int64BufferBuilder,
+    bitmap_builder: BooleanBufferBuilder,
+    values_builder: T,
+    len: usize,
+}
+
+impl<T: ArrayBuilder> LargeListBuilder<T> {
+    /// Creates a new `LargeListArrayBuilder` from a given values array builder
+    pub fn new(values_builder: T) -> Self {
+        let capacity = values_builder.len();
+        Self::with_capacity(values_builder, capacity)
+    }
+
+    /// Creates a new `LargeListArrayBuilder` from a given values array builder
+    /// `capacity` is the number of items to pre-allocate space for in this builder
+    pub fn with_capacity(values_builder: T, capacity: usize) -> Self {
+        let mut offsets_builder = Int64BufferBuilder::new(capacity + 1);
+        offsets_builder.append(0).unwrap();
+        Self {
+            offsets_builder,
+            bitmap_builder: BooleanBufferBuilder::new(capacity),
+            values_builder,
+            len: 0,
+        }
+    }
+}
+
+impl<T: ArrayBuilder> ArrayBuilder for LargeListBuilder<T>
+where
+    T: 'static,
+{
+    /// Returns the builder as a non-mutable `Any` reference.
+    fn as_any(&self) -> &Any {
+        self
+    }
+
+    /// Appends data from other arrays into the builder
+    ///
+    /// This is most useful when concatenating arrays of the same type into a builder.
+    fn append_data(&mut self, data: &[ArrayDataRef]) -> Result<()> {
+        // validate arraydata and reserve memory
+        let mut total_len = 0;
+        for array in data {
+            if array.data_type() != &self.data_type() {
+                return Err(ArrowError::InvalidArgumentError(
+                    "Cannot append data to builder if data types are different"
+                        .to_string(),
+                ));
+            }
+            if array.buffers().len() != 1 {
+                return Err(ArrowError::InvalidArgumentError(
+                    "List arrays should have 1 buffer".to_string(),
+                ));
+            }
+            if array.child_data().len() != 1 {
+                return Err(ArrowError::InvalidArgumentError(
+                    "List arrays should have 1 child_data element".to_string(),
+                ));
+            }
+            total_len += array.len();
+        }
+        // reserve memory
+        self.offsets_builder.reserve(total_len)?;
+        self.bitmap_builder.reserve(total_len)?;
+        // values_builder is allocated by the relevant builder, and is not allocated here
+
+        // determine the latest offset on the builder
+        let mut cum_offset = if self.offsets_builder.len() == 0 {
+            0
+        } else {
+            // peek into buffer to get last appended offset
+            let buffer = self.offsets_builder.buffer.data();
+            let len = self.offsets_builder.len();
+            let (start, end) = ((len - 1) * 8, len * 8);
+            let slice = &buffer[start..end];
+            i64::from_le_bytes(slice.try_into().unwrap())
+        };
+        for array in data {
+            let len = array.len();
+            if len == 0 {
+                continue;
+            }
+            let offset = array.offset();
+
+            // `typed_data` is unsafe, however this call is safe as `LargeListArray` has i64 offsets
+            let offsets = unsafe {
+                &array.buffers()[0].typed_data::<i64>()[offset..(len + offset) + 1]
+            };
+            // the offsets of the child array determine its length
+            // this could be obtained by getting the concrete ListArray and getting value_offsets
+            let offset_at_len = offsets[offsets.len() - 1] as usize;
+            let first_offset = offsets[0] as usize;
+            // create the child array and offset it
+            let child_data = &array.child_data()[0];
+            let child_array = make_array(child_data.clone());
+            // slice the child array to account for offsets
+            let sliced = child_array.slice(first_offset, offset_at_len - first_offset);
+            self.values().append_data(&[sliced.data()])?;
+            let adjusted_offsets: Vec<i64> = offsets
+                .windows(2)
+                .map(|w| {
+                    let curr_offset = w[1] - w[0] + cum_offset;
+                    cum_offset = curr_offset;
+                    curr_offset
+                })
+                .collect();
+            self.offsets_builder
+                .append_slice(adjusted_offsets.as_slice())?;
+
+            for i in 0..len {
+                // account for offset as `ArrayData` does not
+                self.bitmap_builder.append(array.is_valid(offset + i))?;
+            }
+        }
+
+        // append array length
+        self.len += total_len;
+        Ok(())
+    }
+
+    /// Returns the data type of the builder
+    ///
+    /// This is used for validating array data types in `append_data`
+    fn data_type(&self) -> DataType {
+        DataType::LargeList(Box::new(self.values_builder.data_type()))
+    }
+
+    /// Returns the builder as a mutable `Any` reference.
+    fn as_any_mut(&mut self) -> &mut Any {
+        self
+    }
+
+    /// Returns the boxed builder as a box of `Any`.
+    fn into_box_any(self: Box<Self>) -> Box<Any> {
+        self
+    }
+
+    /// Returns the number of array slots in the builder
+    fn len(&self) -> usize {
+        self.len
+    }
+
+    /// Returns whether the number of array slots is zero
+    fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
+    /// Builds the array and reset this builder.
+    fn finish(&mut self) -> ArrayRef {
+        Arc::new(self.finish())
+    }
+}
+
+impl<T: ArrayBuilder> LargeListBuilder<T>
+where
+    T: 'static,
+{
+    /// Returns the child array builder as a mutable reference.
+    ///
+    /// This mutable reference can be used to append values into the child array builder,
+    /// but you must call `append` to delimit each distinct list value.
+    pub fn values(&mut self) -> &mut T {
+        &mut self.values_builder
+    }
+
+    /// Finish the current variable-length list array slot
+    pub fn append(&mut self, is_valid: bool) -> Result<()> {
+        self.offsets_builder
+            .append(self.values_builder.len() as i64)?;
+        self.bitmap_builder.append(is_valid)?;
+        self.len += 1;
+        Ok(())
+    }
+
+    /// Builds the `LargeListArray` and reset this builder.
+    pub fn finish(&mut self) -> LargeListArray {
+        let len = self.len();
+        self.len = 0;
+        let values_arr = self
+            .values_builder
+            .as_any_mut()
+            .downcast_mut::<T>()
+            .unwrap()
+            .finish();
+        let values_data = values_arr.data();
+
+        let offset_buffer = self.offsets_builder.finish();
+        let null_bit_buffer = self.bitmap_builder.finish();
+        self.offsets_builder.append(0).unwrap();
+        let data = ArrayData::builder(DataType::LargeList(Box::new(
+            values_data.data_type().clone(),
+        )))
+        .len(len)
+        .null_count(len - bit_util::count_set_bits(null_bit_buffer.data()))
+        .add_buffer(offset_buffer)
+        .add_child_data(values_data)
+        .null_bit_buffer(null_bit_buffer)
+        .build();
+
+        LargeListArray::from(data)
+    }
+}
+
+///  Array builder for `ListArray`
+#[derive(Debug)]
 pub struct FixedSizeListBuilder<T: ArrayBuilder> {
     bitmap_builder: BooleanBufferBuilder,
     values_builder: T,
@@ -687,6 +1104,64 @@ where
         self
     }
 
+    /// Appends data from other arrays into the builder
+    ///
+    /// This is most useful when concatenating arrays of the same type into a builder.
+    fn append_data(&mut self, data: &[ArrayDataRef]) -> Result<()> {
+        // validate arraydata and reserve memory
+        let mut total_len = 0;
+        for array in data {
+            if array.data_type() != &self.data_type() {
+                return Err(ArrowError::InvalidArgumentError(
+                    "Cannot append data to builder if data types are different"
+                        .to_string(),
+                ));
+            }
+            if array.child_data().len() != 1 {
+                return Err(ArrowError::InvalidArgumentError(
+                    "FixedSizeList arrays should have 1 child_data element".to_string(),
+                ));
+            }
+            total_len += array.len();
+        }
+        // reserve memory
+        self.bitmap_builder.reserve(total_len)?;
+
+        // determine the latest offset on the builder
+        for array in data {
+            let len = array.len();
+            if len == 0 {
+                continue;
+            }
+            let offset = array.offset();
+
+            // the offsets of the child array determine its length
+            let first_offset = self.list_len as usize * offset;
+            let offset_at_len = first_offset + len * self.list_len as usize;
+            // create the child array and offset it
+            let child_data = &array.child_data()[0];
+            let child_array = make_array(child_data.clone());
+            // slice the child array to account for offsets
+            let sliced = child_array.slice(first_offset, offset_at_len - first_offset);
+            self.values().append_data(&[sliced.data()])?;
+            for i in 0..len {
+                // account for offset as `ArrayData` does not
+                self.bitmap_builder.append(array.is_valid(offset + i))?;
+            }
+        }
+
+        // append array length
+        self.len += total_len;
+        Ok(())
+    }
+
+    /// Returns the data type of the builder
+    ///
+    /// This is used for validating array data types in `append_data`
+    fn data_type(&self) -> DataType {
+        DataType::FixedSizeList(Box::new(self.values_builder.data_type()), self.list_len)
+    }
+
     /// Returns the builder as a mutable `Any` reference.
     fn as_any_mut(&mut self) -> &mut Any {
         self
@@ -700,6 +1175,11 @@ where
     /// Returns the number of array slots in the builder
     fn len(&self) -> usize {
         self.len
+    }
+
+    /// Returns whether the number of array slots is zero
+    fn is_empty(&self) -> bool {
+        self.len == 0
     }
 
     /// Builds the array and reset this builder.
@@ -748,8 +1228,8 @@ where
             assert!(
                 values_data.len() / len == self.list_len as usize,
                 "Values of FixedSizeList must have equal lengths, values have length {} and list has {}",
-                values_data.len(),
-                len
+                values_data.len() / len,
+                self.list_len
             );
         }
 
@@ -769,14 +1249,27 @@ where
 }
 
 ///  Array builder for `BinaryArray`
+#[derive(Debug)]
 pub struct BinaryBuilder {
     builder: ListBuilder<UInt8Builder>,
 }
 
+#[derive(Debug)]
+pub struct LargeBinaryBuilder {
+    builder: LargeListBuilder<UInt8Builder>,
+}
+
+#[derive(Debug)]
 pub struct StringBuilder {
     builder: ListBuilder<UInt8Builder>,
 }
 
+#[derive(Debug)]
+pub struct LargeStringBuilder {
+    builder: LargeListBuilder<UInt8Builder>,
+}
+
+#[derive(Debug)]
 pub struct FixedSizeBinaryBuilder {
     builder: FixedSizeListBuilder<UInt8Builder>,
 }
@@ -785,12 +1278,28 @@ pub trait BinaryArrayBuilder: ArrayBuilder {}
 
 impl BinaryArrayBuilder for BinaryBuilder {}
 impl BinaryArrayBuilder for StringBuilder {}
+impl BinaryArrayBuilder for LargeStringBuilder {}
+impl BinaryArrayBuilder for LargeBinaryBuilder {}
 impl BinaryArrayBuilder for FixedSizeBinaryBuilder {}
 
 impl ArrayBuilder for BinaryBuilder {
     /// Returns the builder as a non-mutable `Any` reference.
     fn as_any(&self) -> &Any {
         self
+    }
+
+    /// Appends data from other arrays into the builder
+    ///
+    /// This is most useful when concatenating arrays of the same type into a builder.
+    fn append_data(&mut self, data: &[ArrayDataRef]) -> Result<()> {
+        append_binary_data(&mut self.builder, &DataType::Binary, data)
+    }
+
+    /// Returns the data type of the builder
+    ///
+    /// This is used for validating array data types in `append_data`
+    fn data_type(&self) -> DataType {
+        DataType::Binary
     }
 
     /// Returns the builder as a mutable `Any` reference.
@@ -806,6 +1315,57 @@ impl ArrayBuilder for BinaryBuilder {
     /// Returns the number of array slots in the builder
     fn len(&self) -> usize {
         self.builder.len()
+    }
+
+    /// Returns whether the number of array slots is zero
+    fn is_empty(&self) -> bool {
+        self.builder.is_empty()
+    }
+
+    /// Builds the array and reset this builder.
+    fn finish(&mut self) -> ArrayRef {
+        Arc::new(self.finish())
+    }
+}
+
+impl ArrayBuilder for LargeBinaryBuilder {
+    /// Returns the builder as a non-mutable `Any` reference.
+    fn as_any(&self) -> &Any {
+        self
+    }
+
+    /// Returns the builder as a mutable `Any` reference.
+    fn as_any_mut(&mut self) -> &mut Any {
+        self
+    }
+
+    /// Appends data from other arrays into the builder
+    ///
+    /// This is most useful when concatenating arrays of the same type into a builder.
+    fn append_data(&mut self, data: &[ArrayDataRef]) -> Result<()> {
+        append_large_binary_data(&mut self.builder, &DataType::LargeBinary, data)
+    }
+
+    /// Returns the data type of the builder
+    ///
+    /// This is used for validating array data types in `append_data`
+    fn data_type(&self) -> DataType {
+        DataType::LargeBinary
+    }
+
+    /// Returns the boxed builder as a box of `Any`.
+    fn into_box_any(self: Box<Self>) -> Box<Any> {
+        self
+    }
+
+    /// Returns the number of array slots in the builder
+    fn len(&self) -> usize {
+        self.builder.len()
+    }
+
+    /// Returns whether the number of array slots is zero
+    fn is_empty(&self) -> bool {
+        self.builder.is_empty()
     }
 
     /// Builds the array and reset this builder.
@@ -820,6 +1380,20 @@ impl ArrayBuilder for StringBuilder {
         self
     }
 
+    /// Appends data from other arrays into the builder
+    ///
+    /// This is most useful when concatenating arrays of the same type into a builder.
+    fn append_data(&mut self, data: &[ArrayDataRef]) -> Result<()> {
+        append_binary_data(&mut self.builder, &DataType::Utf8, data)
+    }
+
+    /// Returns the data type of the builder
+    ///
+    /// This is used for validating array data types in `append_data`
+    fn data_type(&self) -> DataType {
+        DataType::Utf8
+    }
+
     /// Returns the builder as a mutable `Any` reference.
     fn as_any_mut(&mut self) -> &mut Any {
         self
@@ -833,6 +1407,161 @@ impl ArrayBuilder for StringBuilder {
     /// Returns the number of array slots in the builder
     fn len(&self) -> usize {
         self.builder.len()
+    }
+
+    /// Returns whether the number of array slots is zero
+    fn is_empty(&self) -> bool {
+        self.builder.is_empty()
+    }
+
+    /// Builds the array and reset this builder.
+    fn finish(&mut self) -> ArrayRef {
+        Arc::new(self.finish())
+    }
+}
+
+// Helper function for appending Binary and Utf8 data
+fn append_binary_data(
+    builder: &mut ListBuilder<UInt8Builder>,
+    data_type: &DataType,
+    data: &[ArrayDataRef],
+) -> Result<()> {
+    // validate arraydata and reserve memory
+    for array in data {
+        if array.data_type() != data_type {
+            return Err(ArrowError::InvalidArgumentError(
+                "Cannot append data to builder if data types are different".to_string(),
+            ));
+        }
+        if array.buffers().len() != 2 {
+            return Err(ArrowError::InvalidArgumentError(
+                "Binary/String arrays should have 2 buffers".to_string(),
+            ));
+        }
+    }
+
+    builder.append_data(
+        &data
+            .iter()
+            .map(|array| {
+                // convert string to List<u8> to reuse list's cast
+                let int_data = &array.buffers()[1];
+                let int_data = Arc::new(ArrayData::new(
+                    DataType::UInt8,
+                    int_data.len(),
+                    None,
+                    None,
+                    0,
+                    vec![int_data.clone()],
+                    vec![],
+                )) as ArrayDataRef;
+
+                Arc::new(ArrayData::new(
+                    DataType::List(Box::new(DataType::UInt8)),
+                    array.len(),
+                    None,
+                    array.null_buffer().cloned(),
+                    array.offset(),
+                    vec![(&array.buffers()[0]).clone()],
+                    vec![int_data],
+                ))
+            })
+            .collect::<Vec<ArrayDataRef>>(),
+    )?;
+
+    Ok(())
+}
+
+// Helper function for appending LargeBinary and LargeUtf8 data
+fn append_large_binary_data(
+    builder: &mut LargeListBuilder<UInt8Builder>,
+    data_type: &DataType,
+    data: &[ArrayDataRef],
+) -> Result<()> {
+    // validate arraydata and reserve memory
+    for array in data {
+        if array.data_type() != data_type {
+            return Err(ArrowError::InvalidArgumentError(
+                "Cannot append data to builder if data types are different".to_string(),
+            ));
+        }
+        if array.buffers().len() != 2 {
+            return Err(ArrowError::InvalidArgumentError(
+                "Binary/String arrays should have 2 buffers".to_string(),
+            ));
+        }
+    }
+
+    builder.append_data(
+        &data
+            .iter()
+            .map(|array| {
+                // convert string to List<u8> to reuse list's cast
+                let int_data = &array.buffers()[1];
+                let int_data = Arc::new(ArrayData::new(
+                    DataType::UInt8,
+                    int_data.len(),
+                    None,
+                    None,
+                    0,
+                    vec![int_data.clone()],
+                    vec![],
+                )) as ArrayDataRef;
+
+                Arc::new(ArrayData::new(
+                    DataType::LargeList(Box::new(DataType::UInt8)),
+                    array.len(),
+                    None,
+                    array.null_buffer().cloned(),
+                    array.offset(),
+                    vec![(&array.buffers()[0]).clone()],
+                    vec![int_data],
+                ))
+            })
+            .collect::<Vec<ArrayDataRef>>(),
+    )?;
+
+    Ok(())
+}
+
+impl ArrayBuilder for LargeStringBuilder {
+    /// Returns the builder as a non-mutable `Any` reference.
+    fn as_any(&self) -> &Any {
+        self
+    }
+
+    /// Returns the builder as a mutable `Any` reference.
+    fn as_any_mut(&mut self) -> &mut Any {
+        self
+    }
+
+    /// Appends data from other arrays into the builder
+    ///
+    /// This is most useful when concatenating arrays of the same type into a builder.
+    fn append_data(&mut self, data: &[ArrayDataRef]) -> Result<()> {
+        append_large_binary_data(&mut self.builder, &DataType::LargeUtf8, data)
+    }
+
+    /// Returns the data type of the builder
+    ///
+    /// This is used for validating array data types in `append_data`
+    fn data_type(&self) -> DataType {
+        DataType::LargeUtf8
+    }
+
+    /// Returns the boxed builder as a box of `Any`.
+    fn into_box_any(self: Box<Self>) -> Box<Any> {
+        self
+    }
+
+    /// Returns the number of array slots in the builder
+    fn len(&self) -> usize {
+        self.builder.len()
+    }
+
+    /// Returns whether the number of array slots is zero
+    fn is_empty(&self) -> bool {
+        self.builder.is_empty()
     }
 
     /// Builds the array and reset this builder.
@@ -847,6 +1576,57 @@ impl ArrayBuilder for FixedSizeBinaryBuilder {
         self
     }
 
+    /// Appends data from other arrays into the builder
+    ///
+    /// This is most useful when concatenating arrays of the same type into a builder.
+    fn append_data(&mut self, data: &[ArrayDataRef]) -> Result<()> {
+        // validate arraydata and reserve memory
+        for array in data {
+            if array.data_type() != &self.data_type() {
+                return Err(ArrowError::InvalidArgumentError(
+                    "Cannot append data to builder if data types are different"
+                        .to_string(),
+                ));
+            }
+            if array.buffers().len() != 1 {
+                return Err(ArrowError::InvalidArgumentError(
+                    "FixedSizeBinary arrays should have 1 buffer".to_string(),
+                ));
+            }
+        }
+        for array in data {
+            // convert string to FixedSizeList<u8> to reuse list's append
+            let int_data = &array.buffers()[0];
+            let int_data = Arc::new(ArrayData::new(
+                DataType::UInt8,
+                int_data.len(),
+                None,
+                None,
+                0,
+                vec![int_data.clone()],
+                vec![],
+            )) as ArrayDataRef;
+            let list_data = Arc::new(ArrayData::new(
+                DataType::FixedSizeList(Box::new(DataType::UInt8), self.builder.list_len),
+                array.len(),
+                None,
+                array.null_buffer().cloned(),
+                array.offset(),
+                vec![],
+                vec![int_data],
+            ));
+            self.builder.append_data(&[list_data])?;
+        }
+        Ok(())
+    }
+
+    /// Returns the data type of the builder
+    ///
+    /// This is used for validating array data types in `append_data`
+    fn data_type(&self) -> DataType {
+        DataType::FixedSizeBinary(self.builder.list_len)
+    }
+
     /// Returns the builder as a mutable `Any` reference.
     fn as_any_mut(&mut self) -> &mut Any {
         self
@@ -860,6 +1640,11 @@ impl ArrayBuilder for FixedSizeBinaryBuilder {
     /// Returns the number of array slots in the builder
     fn len(&self) -> usize {
         self.builder.len()
+    }
+
+    /// Returns whether the number of array slots is zero
+    fn is_empty(&self) -> bool {
+        self.builder.is_empty()
     }
 
     /// Builds the array and reset this builder.
@@ -913,6 +1698,51 @@ impl BinaryBuilder {
     }
 }
 
+impl LargeBinaryBuilder {
+    /// Creates a new `LargeBinaryBuilder`, `capacity` is the number of bytes in the values
+    /// array
+    pub fn new(capacity: usize) -> Self {
+        let values_builder = UInt8Builder::new(capacity);
+        Self {
+            builder: LargeListBuilder::new(values_builder),
+        }
+    }
+
+    /// Appends a single byte value into the builder's values array.
+    ///
+    /// Note, when appending individual byte values you must call `append` to delimit each
+    /// distinct list value.
+    pub fn append_byte(&mut self, value: u8) -> Result<()> {
+        self.builder.values().append_value(value)?;
+        Ok(())
+    }
+
+    /// Appends a byte slice into the builder.
+    ///
+    /// Automatically calls the `append` method to delimit the slice appended in as a
+    /// distinct array element.
+    pub fn append_value(&mut self, value: &[u8]) -> Result<()> {
+        self.builder.values().append_slice(value)?;
+        self.builder.append(true)?;
+        Ok(())
+    }
+
+    /// Finish the current variable-length list array slot.
+    pub fn append(&mut self, is_valid: bool) -> Result<()> {
+        self.builder.append(is_valid)
+    }
+
+    /// Append a null value to the array.
+    pub fn append_null(&mut self) -> Result<()> {
+        self.append(false)
+    }
+
+    /// Builds the `LargeBinaryArray` and reset this builder.
+    pub fn finish(&mut self) -> LargeBinaryArray {
+        LargeBinaryArray::from(self.builder.finish())
+    }
+}
+
 impl StringBuilder {
     /// Creates a new `StringBuilder`,
     /// `capacity` is the number of bytes of string data to pre-allocate space for in this builder
@@ -959,6 +1789,52 @@ impl StringBuilder {
     }
 }
 
+impl LargeStringBuilder {
+    /// Creates a new `StringBuilder`,
+    /// `capacity` is the number of bytes of string data to pre-allocate space for in this builder
+    pub fn new(capacity: usize) -> Self {
+        let values_builder = UInt8Builder::new(capacity);
+        Self {
+            builder: LargeListBuilder::new(values_builder),
+        }
+    }
+
+    /// Creates a new `StringBuilder`,
+    /// `data_capacity` is the number of bytes of string data to pre-allocate space for in this builder
+    /// `item_capacity` is the number of items to pre-allocate space for in this builder
+    pub fn with_capacity(item_capacity: usize, data_capacity: usize) -> Self {
+        let values_builder = UInt8Builder::new(data_capacity);
+        Self {
+            builder: LargeListBuilder::with_capacity(values_builder, item_capacity),
+        }
+    }
+
+    /// Appends a string into the builder.
+    ///
+    /// Automatically calls the `append` method to delimit the string appended in as a
+    /// distinct array element.
+    pub fn append_value(&mut self, value: &str) -> Result<()> {
+        self.builder.values().append_slice(value.as_bytes())?;
+        self.builder.append(true)?;
+        Ok(())
+    }
+
+    /// Finish the current variable-length list array slot.
+    pub fn append(&mut self, is_valid: bool) -> Result<()> {
+        self.builder.append(is_valid)
+    }
+
+    /// Append a null value to the array.
+    pub fn append_null(&mut self) -> Result<()> {
+        self.append(false)
+    }
+
+    /// Builds the `LargeStringArray` and reset this builder.
+    pub fn finish(&mut self) -> LargeStringArray {
+        LargeStringArray::from(self.builder.finish())
+    }
+}
+
 impl FixedSizeBinaryBuilder {
     /// Creates a new `BinaryBuilder`, `capacity` is the number of bytes in the values
     /// array
@@ -974,11 +1850,11 @@ impl FixedSizeBinaryBuilder {
     /// Automatically calls the `append` method to delimit the slice appended in as a
     /// distinct array element.
     pub fn append_value(&mut self, value: &[u8]) -> Result<()> {
-        assert_eq!(
-            self.builder.value_length(),
-            value.len() as i32,
-            "Byte slice does not have the same length as FixedSizeBinaryBuilder value lengths"
-        );
+        if self.builder.value_length() != value.len() as i32 {
+            return Err(ArrowError::InvalidArgumentError(
+                "Byte slice does not have the same length as FixedSizeBinaryBuilder value lengths".to_string()
+            ));
+        }
         self.builder.values().append_slice(value)?;
         self.builder.append(true)
     }
@@ -1008,6 +1884,17 @@ pub struct StructBuilder {
     len: usize,
 }
 
+impl fmt::Debug for StructBuilder {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("StructBuilder")
+            .field("fields", &self.fields)
+            .field("field_anys", &self.field_anys)
+            .field("bitmap_builder", &self.bitmap_builder)
+            .field("len", &self.len)
+            .finish()
+    }
+}
+
 impl ArrayBuilder for StructBuilder {
     /// Returns the number of array slots in the builder.
     ///
@@ -1016,6 +1903,66 @@ impl ArrayBuilder for StructBuilder {
     /// builder should have the equal number of elements.
     fn len(&self) -> usize {
         self.len
+    }
+
+    /// Returns whether the number of array slots is zero
+    fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
+    /// Appends data from other arrays into the builder
+    ///
+    /// This is most useful when concatenating arrays of the same type into a builder.
+    fn append_data(&mut self, data: &[ArrayDataRef]) -> Result<()> {
+        // validate arraydata and reserve memory
+        let mut total_len = 0;
+        for array in data {
+            if array.data_type() != &self.data_type() {
+                return Err(ArrowError::InvalidArgumentError(
+                    "Cannot append data to builder if data types are different"
+                        .to_string(),
+                ));
+            }
+            if array.child_data().len() != self.num_fields() {
+                return Err(ArrowError::InvalidArgumentError(
+                    "Struct should have the same child_data length as fields".to_string(),
+                ));
+            }
+            total_len += array.len();
+        }
+        self.bitmap_builder.reserve(total_len)?;
+
+        for array in data {
+            let len = array.len();
+            if len == 0 {
+                continue;
+            }
+            let offset = array.offset();
+            for (builder, child_data) in self
+                .field_builders
+                .iter_mut()
+                .zip(array.child_data().iter())
+            {
+                // slice child_data to account for offsets
+                let child_array = make_array(child_data.clone());
+                let sliced = child_array.slice(offset, len);
+                builder.append_data(&[sliced.data()])?;
+            }
+            for i in 0..len {
+                // account for offset as `ArrayData` does not
+                self.bitmap_builder.append(array.is_valid(offset + i))?;
+            }
+        }
+
+        self.len += total_len;
+        Ok(())
+    }
+
+    /// Returns the data type of the builder
+    ///
+    /// This is used for validating array data types in `append_data`
+    fn data_type(&self) -> DataType {
+        DataType::Struct(self.fields.clone())
     }
 
     /// Builds the array.
@@ -1216,6 +2163,7 @@ impl Drop for StructBuilder {
 /// Array builder for `DictionaryArray`. For example to map a set of byte indices
 /// to f32 values. Note that the use of a `HashMap` here will not scale to very large
 /// arrays or result in an ordered dictionary.
+#[derive(Debug)]
 pub struct PrimitiveDictionaryBuilder<K, V>
 where
     K: ArrowPrimitiveType,
@@ -1269,6 +2217,26 @@ where
         self.keys_builder.len()
     }
 
+    /// Returns whether the number of array slots is zero
+    fn is_empty(&self) -> bool {
+        self.keys_builder.is_empty()
+    }
+
+    /// Appends data from other arrays into the builder
+    ///
+    /// This is most useful when concatenating arrays of the same type into a builder.
+    fn append_data(&mut self, _data: &[ArrayDataRef]) -> Result<()> {
+        // TODO: This will require an implementation that doesn't just append keys
+        unimplemented!("Appending data for dictionary arrays not yet implemented")
+    }
+
+    /// Returns the data type of the builder
+    ///
+    /// This is used for validating array data types in `append_data`
+    fn data_type(&self) -> DataType {
+        DataType::Dictionary(Box::new(K::get_data_type()), Box::new(V::get_data_type()))
+    }
+
     /// Builds the array and reset this builder.
     fn finish(&mut self) -> ArrayRef {
         Arc::new(self.finish())
@@ -1314,6 +2282,7 @@ where
 /// Array builder for `DictionaryArray`. For example to map a set of byte indices
 /// to f32 values. Note that the use of a `HashMap` here will not scale to very large
 /// arrays or result in an ordered dictionary.
+#[derive(Debug)]
 pub struct StringDictionaryBuilder<K>
 where
     K: ArrowDictionaryKeyType,
@@ -1411,6 +2380,26 @@ where
     /// Returns the number of array slots in the builder
     fn len(&self) -> usize {
         self.keys_builder.len()
+    }
+
+    /// Returns whether the number of array slots is zero
+    fn is_empty(&self) -> bool {
+        self.keys_builder.is_empty()
+    }
+
+    /// Appends data from other arrays into the builder
+    ///
+    /// This is most useful when concatenating arrays of the same type into a builder.
+    fn append_data(&mut self, _data: &[ArrayDataRef]) -> Result<()> {
+        // TODO: This will require an implementation that doesn't just append keys
+        unimplemented!("Appending data for dictionary arrays not yet implemented")
+    }
+
+    /// Returns the data type of the builder
+    ///
+    /// This is used for validating array data types in `append_data`
+    fn data_type(&self) -> DataType {
+        DataType::Dictionary(Box::new(K::get_data_type()), Box::new(DataType::Utf8))
     }
 
     /// Builds the array and reset this builder.
@@ -1552,6 +2541,32 @@ mod tests {
         b.append_slice(&[32, 54]).unwrap();
         let buffer = b.finish();
         assert_eq!(8, buffer.len());
+    }
+
+    #[test]
+    fn test_append_values() -> Result<()> {
+        let mut a = Int8Builder::new(0);
+        a.append_value(1)?;
+        a.append_null()?;
+        a.append_value(-2)?;
+        assert_eq!(a.len(), 3);
+
+        // append values
+        let values = &[1, 2, 3, 4];
+        let is_valid = &[true, true, false, true];
+        a.append_values(values, is_valid)?;
+
+        assert_eq!(a.len(), 7);
+        let array = a.finish();
+        assert_eq!(array.value(0), 1);
+        assert_eq!(array.is_null(1), true);
+        assert_eq!(array.value(2), -2);
+        assert_eq!(array.value(3), 1);
+        assert_eq!(array.value(4), 2);
+        assert_eq!(array.is_null(5), true);
+        assert_eq!(array.value(6), 4);
+
+        Ok(())
     }
 
     #[test]
@@ -1837,9 +2852,75 @@ mod tests {
     }
 
     #[test]
+    fn test_large_list_array_builder() {
+        let values_builder = Int32Builder::new(10);
+        let mut builder = LargeListBuilder::new(values_builder);
+
+        //  [[0, 1, 2], [3, 4, 5], [6, 7]]
+        builder.values().append_value(0).unwrap();
+        builder.values().append_value(1).unwrap();
+        builder.values().append_value(2).unwrap();
+        builder.append(true).unwrap();
+        builder.values().append_value(3).unwrap();
+        builder.values().append_value(4).unwrap();
+        builder.values().append_value(5).unwrap();
+        builder.append(true).unwrap();
+        builder.values().append_value(6).unwrap();
+        builder.values().append_value(7).unwrap();
+        builder.append(true).unwrap();
+        let list_array = builder.finish();
+
+        let values = list_array.values().data().buffers()[0].clone();
+        assert_eq!(
+            Buffer::from(&[0, 1, 2, 3, 4, 5, 6, 7].to_byte_slice()),
+            values
+        );
+        assert_eq!(
+            Buffer::from(&[0i64, 3, 6, 8].to_byte_slice()),
+            list_array.data().buffers()[0].clone()
+        );
+        assert_eq!(DataType::Int32, list_array.value_type());
+        assert_eq!(3, list_array.len());
+        assert_eq!(0, list_array.null_count());
+        assert_eq!(6, list_array.value_offset(2));
+        assert_eq!(2, list_array.value_length(2));
+        for i in 0..3 {
+            assert!(list_array.is_valid(i));
+            assert!(!list_array.is_null(i));
+        }
+    }
+
+    #[test]
     fn test_list_array_builder_nulls() {
         let values_builder = Int32Builder::new(10);
         let mut builder = ListBuilder::new(values_builder);
+
+        //  [[0, 1, 2], null, [3, null, 5], [6, 7]]
+        builder.values().append_value(0).unwrap();
+        builder.values().append_value(1).unwrap();
+        builder.values().append_value(2).unwrap();
+        builder.append(true).unwrap();
+        builder.append(false).unwrap();
+        builder.values().append_value(3).unwrap();
+        builder.values().append_null().unwrap();
+        builder.values().append_value(5).unwrap();
+        builder.append(true).unwrap();
+        builder.values().append_value(6).unwrap();
+        builder.values().append_value(7).unwrap();
+        builder.append(true).unwrap();
+        let list_array = builder.finish();
+
+        assert_eq!(DataType::Int32, list_array.value_type());
+        assert_eq!(4, list_array.len());
+        assert_eq!(1, list_array.null_count());
+        assert_eq!(3, list_array.value_offset(2));
+        assert_eq!(3, list_array.value_length(2));
+    }
+
+    #[test]
+    fn test_large_list_array_builder_nulls() {
+        let values_builder = Int32Builder::new(10);
+        let mut builder = LargeListBuilder::new(values_builder);
 
         //  [[0, 1, 2], null, [3, null, 5], [6, 7]]
         builder.values().append_value(0).unwrap();
@@ -2022,6 +3103,37 @@ mod tests {
         let array = builder.finish();
 
         let binary_array = BinaryArray::from(array);
+
+        assert_eq!(3, binary_array.len());
+        assert_eq!(0, binary_array.null_count());
+        assert_eq!([b'h', b'e', b'l', b'l', b'o'], binary_array.value(0));
+        assert_eq!([] as [u8; 0], binary_array.value(1));
+        assert_eq!([b'w', b'o', b'r', b'l', b'd'], binary_array.value(2));
+        assert_eq!(5, binary_array.value_offset(2));
+        assert_eq!(5, binary_array.value_length(2));
+    }
+
+    #[test]
+    fn test_large_binary_array_builder() {
+        let mut builder = LargeBinaryBuilder::new(20);
+
+        builder.append_byte(b'h').unwrap();
+        builder.append_byte(b'e').unwrap();
+        builder.append_byte(b'l').unwrap();
+        builder.append_byte(b'l').unwrap();
+        builder.append_byte(b'o').unwrap();
+        builder.append(true).unwrap();
+        builder.append(true).unwrap();
+        builder.append_byte(b'w').unwrap();
+        builder.append_byte(b'o').unwrap();
+        builder.append_byte(b'r').unwrap();
+        builder.append_byte(b'l').unwrap();
+        builder.append_byte(b'd').unwrap();
+        builder.append(true).unwrap();
+
+        let array = builder.finish();
+
+        let binary_array = LargeBinaryArray::from(array);
 
         assert_eq!(3, binary_array.len());
         assert_eq!(0, binary_array.null_count());
@@ -2410,6 +3522,7 @@ mod tests {
     }
 
     #[test]
+    #[should_panic(expected = "DictionaryKeyOverflowError")]
     fn test_primitive_dictionary_overflow() {
         let key_builder = PrimitiveBuilder::<UInt8Type>::new(257);
         let value_builder = PrimitiveBuilder::<UInt32Type>::new(257);
@@ -2419,9 +3532,574 @@ mod tests {
             builder.append(i + 1000).unwrap();
         }
         // Special error if the key overflows (256th entry)
-        assert_eq!(
-            builder.append(1257),
-            Err(ArrowError::DictionaryKeyOverflowError)
+        builder.append(1257).unwrap();
+    }
+
+    #[test]
+    fn test_primitive_append() -> Result<()> {
+        let mut builder = Int32Builder::new(2);
+        builder.append_null()?;
+        builder.append_value(1)?;
+        // create an array to append
+        let array = Int32Array::from(vec![None, Some(3), None, None, Some(6), Some(7)]);
+        builder.append_data(&[
+            array.data(),
+            array.slice(1, 4).data(),
+            array.slice(2, 0).data(),
+        ])?;
+        let finished = builder.finish();
+        let expected = Arc::new(Int32Array::from(vec![
+            None,
+            Some(1),
+            None,
+            Some(3),
+            None,
+            None,
+            Some(6),
+            Some(7),
+            Some(3),
+            None,
+            None,
+            Some(6),
+        ])) as ArrayRef;
+        assert_eq!(finished.len(), expected.len());
+        assert_eq!(finished.null_count(), expected.null_count());
+        assert!(finished.equals(&(*expected)));
+
+        let mut builder = Float64Builder::new(64);
+        builder.append_null()?;
+        builder.append_value(1.0)?;
+        // create an array to append
+        let array =
+            Float64Array::from(vec![None, Some(3.0), None, None, Some(6.0), Some(7.0)]);
+        builder.append_data(&[
+            array.data(),
+            array.slice(1, 5).data(),
+            array.slice(2, 1).data(),
+        ])?;
+        let finished = builder.finish();
+        let expected = Arc::new(Float64Array::from(vec![
+            None,
+            Some(1.0),
+            None,
+            Some(3.0),
+            None,
+            None,
+            Some(6.0),
+            Some(7.0),
+            Some(3.0),
+            None,
+            None,
+            Some(6.0),
+            Some(7.0),
+            None,
+        ])) as ArrayRef;
+        assert_eq!(finished.len(), expected.len());
+        assert_eq!(finished.null_count(), expected.null_count());
+        assert!(finished.equals(&(*expected)));
+        Ok(())
+    }
+
+    #[test]
+    fn test_boolean_append() -> Result<()> {
+        let mut builder = BooleanBuilder::new(2);
+        builder.append_null()?;
+        builder.append_value(true)?;
+        // create an array to append
+        let array = BooleanArray::from(vec![
+            None,
+            Some(true),
+            None,
+            None,
+            Some(false),
+            Some(true),
+        ]);
+        builder.append_data(&[
+            array.data(),
+            array.slice(1, 4).data(),
+            array.slice(2, 0).data(),
+        ])?;
+        let finished = builder.finish();
+        let expected = Arc::new(BooleanArray::from(vec![
+            None,
+            Some(true),
+            None,
+            Some(true),
+            None,
+            None,
+            Some(false),
+            Some(true),
+            Some(true),
+            None,
+            None,
+            Some(false),
+        ])) as ArrayRef;
+        assert_eq!(finished.len(), expected.len());
+        assert_eq!(finished.null_count(), expected.null_count());
+        assert!(finished.equals(&(*expected)));
+        Ok(())
+    }
+
+    #[test]
+    fn test_list_append() -> Result<()> {
+        let int_builder = Int64Builder::new(24);
+        let mut builder = ListBuilder::<Int64Builder>::new(int_builder);
+        builder.values().append_slice(&[1, 2, 3])?;
+        builder.append(true)?;
+        builder.values().append_slice(&[4, 5])?;
+        builder.append(true)?;
+        builder.values().append_slice(&[6, 7, 8])?;
+        builder.values().append_slice(&[9, 10, 11])?;
+        builder.append(true)?;
+
+        let a_builder = Int64Builder::new(24);
+        let mut a_builder = ListBuilder::<Int64Builder>::new(a_builder);
+        a_builder.values().append_slice(&[12, 13])?;
+        a_builder.append(true)?;
+        a_builder.append(true)?;
+        a_builder.values().append_slice(&[14, 15])?;
+        a_builder.append(true)?;
+        let a = a_builder.finish();
+
+        // append array
+        builder.append_data(&[a.data(), a.slice(1, 2).data()])?;
+        let finished = builder.finish();
+
+        let expected_int_array = Int64Array::from(vec![
+            Some(1),
+            Some(2),
+            Some(3),
+            Some(4),
+            Some(5),
+            Some(6),
+            Some(7),
+            Some(8),
+            Some(9),
+            Some(10),
+            Some(11),
+            // append first array
+            Some(12),
+            Some(13),
+            Some(14),
+            Some(15),
+            // append second array
+            Some(14),
+            Some(15),
+        ]);
+        let list_value_offsets =
+            Buffer::from(&[0, 3, 5, 11, 13, 13, 15, 15, 17].to_byte_slice());
+        let expected_list_data = ArrayData::new(
+            DataType::List(Box::new(DataType::Int64)),
+            8,
+            None,
+            None,
+            0,
+            vec![list_value_offsets],
+            vec![expected_int_array.data()],
         );
+        let expected_list = ListArray::from(Arc::new(expected_list_data) as ArrayDataRef);
+        assert_eq!(
+            finished.data().buffers()[0].data(),
+            expected_list.data().buffers()[0].data()
+        );
+        assert!(expected_list.values().equals(&*finished.values()));
+        assert_eq!(expected_list.len(), finished.len());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_list_nulls_append() -> Result<()> {
+        let int_builder = Int64Builder::new(32);
+        let mut builder = ListBuilder::<Int64Builder>::new(int_builder);
+        builder.values().append_slice(&[1, 2, 3])?;
+        builder.append(true)?;
+        builder.values().append_slice(&[4, 5])?;
+        builder.append(true)?;
+        builder.append(false)?;
+        builder.values().append_slice(&[6, 7, 8])?;
+        builder.values().append_null()?;
+        builder.values().append_null()?;
+        builder.values().append_slice(&[9, 10, 11])?;
+        builder.append(true)?;
+
+        let a_builder = Int64Builder::new(32);
+        let mut a_builder = ListBuilder::<Int64Builder>::new(a_builder);
+        a_builder.values().append_slice(&[12, 13])?;
+        a_builder.append(true)?;
+        a_builder.append(false)?;
+        a_builder.append(true)?;
+        a_builder.values().append_null()?;
+        a_builder.values().append_null()?;
+        a_builder.values().append_slice(&[14, 15])?;
+        a_builder.append(true)?;
+        let a = a_builder.finish();
+
+        // append array
+        builder.append_data(&[
+            a.data(),
+            a.slice(1, 2).data(),
+            a.slice(2, 2).data(),
+            a.slice(4, 0).data(),
+        ])?;
+        let finished = builder.finish();
+
+        let expected_int_array = Int64Array::from(vec![
+            Some(1),
+            Some(2),
+            Some(3),
+            Some(4),
+            Some(5),
+            Some(6),
+            Some(7),
+            Some(8),
+            None,
+            None,
+            Some(9),
+            Some(10),
+            Some(11),
+            // second array
+            Some(12),
+            Some(13),
+            None,
+            None,
+            Some(14),
+            Some(15),
+            // slice(1, 2) results in no values added
+            None,
+            None,
+            Some(14),
+            Some(15),
+        ]);
+        let list_value_offsets = Buffer::from(
+            &[0, 3, 5, 5, 13, 15, 15, 15, 19, 19, 19, 19, 23].to_byte_slice(),
+        );
+        let expected_list_data = ArrayData::new(
+            DataType::List(Box::new(DataType::Int64)),
+            12,
+            None,
+            None,
+            0,
+            vec![list_value_offsets],
+            vec![expected_int_array.data()],
+        );
+        let expected_list = ListArray::from(Arc::new(expected_list_data) as ArrayDataRef);
+        assert_eq!(
+            finished.data().buffers()[0].data(),
+            expected_list.data().buffers()[0].data()
+        );
+        assert_eq!(
+            finished.data().child_data()[0].buffers()[0].data(),
+            expected_list.data().child_data()[0].buffers()[0].data()
+        );
+        assert!(expected_list.values().equals(&*finished.values()));
+        assert_eq!(expected_list.len(), finished.len());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_list_of_strings_append() -> Result<()> {
+        let string_builder = StringBuilder::new(32);
+        let mut builder = ListBuilder::<StringBuilder>::new(string_builder);
+        builder.values().append_value("Hello")?;
+        builder.values().append_value("Arrow")?;
+        builder.append(true)?;
+        builder.append(false)?;
+
+        let string_array = StringArray::try_from(vec![
+            Some("alpha"),
+            Some("beta"),
+            None,
+            Some("gamma"),
+            Some("delta"),
+            None,
+        ])?;
+        let list_value_offsets = Buffer::from(&[0, 2, 3, 6].to_byte_slice());
+        let list_data = ArrayData::new(
+            DataType::List(Box::new(DataType::Utf8)),
+            3,
+            None,
+            None,
+            0,
+            vec![list_value_offsets],
+            vec![string_array.data()],
+        );
+        let list_array = ListArray::from(Arc::new(list_data) as ArrayDataRef);
+        builder.append_data(&[
+            list_array.data(),
+            list_array.slice(1, 2).data(),
+            list_array.slice(0, 0).data(),
+        ])?;
+        let finished = builder.finish();
+
+        let expected_string_array = StringArray::try_from(vec![
+            Some("Hello"),
+            Some("Arrow"),
+            // list_array
+            Some("alpha"),
+            Some("beta"),
+            None,
+            Some("gamma"),
+            Some("delta"),
+            None,
+            // slice(1, 2)
+            None,
+            Some("gamma"),
+            Some("delta"),
+            None,
+            // slice(0, 0) returns nothing
+        ])?;
+        let list_value_offsets = Buffer::from(&[0, 2, 2, 4, 5, 8, 9, 12].to_byte_slice());
+        let expected_list_data = ArrayData::new(
+            DataType::List(Box::new(DataType::Utf8)),
+            7,
+            None,
+            None, // is this correct?
+            0,
+            vec![list_value_offsets],
+            vec![expected_string_array.data()],
+        );
+        let expected_list = ListArray::from(Arc::new(expected_list_data) as ArrayDataRef);
+        assert_eq!(
+            finished.data().buffers()[0].data(),
+            expected_list.data().buffers()[0].data()
+        );
+        assert_eq!(
+            finished.data().child_data()[0].buffers()[0].data(),
+            expected_list.data().child_data()[0].buffers()[0].data()
+        );
+        assert!(expected_list.values().equals(&*finished.values()));
+        assert_eq!(expected_list.len(), finished.len());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_fixed_size_list_append() -> Result<()> {
+        let int_builder = UInt16Builder::new(64);
+        let mut builder = FixedSizeListBuilder::<UInt16Builder>::new(int_builder, 2);
+        builder.values().append_slice(&[1, 2])?;
+        builder.append(true)?;
+        builder.values().append_slice(&[3, 4])?;
+        builder.append(false)?;
+        builder.values().append_slice(&[5, 6])?;
+        builder.append(true)?;
+
+        let a_builder = UInt16Builder::new(64);
+        let mut a_builder = FixedSizeListBuilder::<UInt16Builder>::new(a_builder, 2);
+        a_builder.values().append_slice(&[7, 8])?;
+        a_builder.append(true)?;
+        a_builder.values().append_slice(&[9, 10])?;
+        a_builder.append(true)?;
+        a_builder.values().append_slice(&[11, 12])?;
+        a_builder.append(false)?;
+        a_builder.values().append_slice(&[13, 14])?;
+        a_builder.append(true)?;
+        a_builder.values().append_null()?;
+        a_builder.values().append_null()?;
+        a_builder.append(true)?;
+        let a = a_builder.finish();
+
+        // append array
+        builder.append_data(&[
+            a.data(),
+            a.slice(1, 3).data(),
+            a.slice(2, 1).data(),
+            a.slice(5, 0).data(),
+        ])?;
+        let finished = builder.finish();
+
+        let expected_int_array = UInt16Array::from(vec![
+            Some(1),
+            Some(2),
+            Some(3),
+            Some(4),
+            Some(5),
+            Some(6),
+            // append first array
+            Some(7),
+            Some(8),
+            Some(9),
+            Some(10),
+            Some(11),
+            Some(12),
+            Some(13),
+            Some(14),
+            None,
+            None,
+            // append slice(1, 3)
+            Some(9),
+            Some(10),
+            Some(11),
+            Some(12),
+            Some(13),
+            Some(14),
+            // append slice(2, 1)
+            Some(11),
+            Some(12),
+        ]);
+        let expected_list_data = ArrayData::new(
+            DataType::FixedSizeList(Box::new(DataType::UInt16), 2),
+            12,
+            None,
+            None,
+            0,
+            vec![],
+            vec![expected_int_array.data()],
+        );
+        let expected_list =
+            FixedSizeListArray::from(Arc::new(expected_list_data) as ArrayDataRef);
+        assert!(expected_list.values().equals(&*finished.values()));
+        assert_eq!(expected_list.len(), finished.len());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_fixed_size_binary_append() -> Result<()> {
+        let mut builder = FixedSizeBinaryBuilder::new(64, 2);
+        builder.append_value(&[1, 2])?;
+        builder.append_value(&[3, 4])?;
+        builder.append_value(&[5, 6])?;
+
+        let mut a_builder = FixedSizeBinaryBuilder::new(64, 2);
+        a_builder.append_value(&[7, 8])?;
+        a_builder.append_value(&[9, 10])?;
+        a_builder.append_null()?;
+        a_builder.append_value(&[13, 14])?;
+        a_builder.append_null()?;
+        let a = a_builder.finish();
+
+        // append array
+        builder.append_data(&[
+            a.data(),
+            a.slice(1, 3).data(),
+            a.slice(2, 1).data(),
+            a.slice(5, 0).data(),
+        ])?;
+        let finished = builder.finish();
+
+        let expected_int_array = UInt8Array::from(vec![
+            Some(1),
+            Some(2),
+            Some(3),
+            Some(4),
+            Some(5),
+            Some(6),
+            // append first array
+            Some(7),
+            Some(8),
+            Some(9),
+            Some(10),
+            None,
+            None,
+            Some(13),
+            Some(14),
+            None,
+            None,
+            // append slice(1, 3)
+            Some(9),
+            Some(10),
+            None,
+            None,
+            Some(13),
+            Some(14),
+            // append slice(2, 1)
+            None,
+            None,
+        ]);
+        let expected_list_data = ArrayData::new(
+            DataType::FixedSizeList(Box::new(DataType::UInt8), 2),
+            12,
+            None,
+            None,
+            0,
+            vec![],
+            vec![expected_int_array.data()],
+        );
+        let expected_list =
+            FixedSizeListArray::from(Arc::new(expected_list_data) as ArrayDataRef);
+        let expected_list = FixedSizeBinaryArray::from(expected_list);
+        // assert!(expected_list.values().equals(&*finished.values()));
+        assert_eq!(expected_list.len(), finished.len());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_struct_append() -> Result<()> {
+        let int_builder = Int32Builder::new(64);
+        let bool_builder = BooleanBuilder::new(64);
+
+        let field1 = Field::new("f1", DataType::Int32, false);
+        let field2 = Field::new("f2", DataType::Boolean, false);
+        let mut fields = Vec::new();
+        let mut field_builders = Vec::new();
+        fields.push(field1.clone());
+        field_builders.push(Box::new(int_builder) as Box<ArrayBuilder>);
+        fields.push(field2.clone());
+        field_builders.push(Box::new(bool_builder) as Box<ArrayBuilder>);
+
+        let mut builder = StructBuilder::new(fields, field_builders);
+        builder
+            .field_builder::<Int32Builder>(0)
+            .unwrap()
+            .append_slice(&[0, 1, 2, 3, 4])?;
+        builder
+            .field_builder::<BooleanBuilder>(1)
+            .unwrap()
+            .append_slice(&[false, true, false, true, false])?;
+
+        // Append slot values - all are valid.
+        for _ in 0..5 {
+            assert!(builder.append(true).is_ok())
+        }
+
+        let arr = builder.finish();
+
+        assert_eq!(5, arr.len());
+        assert_eq!(0, builder.len());
+
+        builder
+            .field_builder::<Int32Builder>(0)
+            .unwrap()
+            .append_slice(&[1, 3, 5, 7, 9])
+            .unwrap();
+        builder
+            .field_builder::<BooleanBuilder>(1)
+            .unwrap()
+            .append_slice(&[true, true, true, false, true])
+            .unwrap();
+
+        // Append slot values - all are valid.
+        for _ in 0..5 {
+            assert!(builder.append(true).is_ok())
+        }
+
+        assert_eq!(5, builder.len());
+
+        // append array to builder
+        builder.append_data(&[
+            arr.data(),
+            arr.slice(1, 4).data(),
+            arr.slice(4, 0).data(),
+        ])?;
+        // finish builder
+        let arr2 = builder.finish();
+
+        let f1 = Arc::new(Int32Array::from(vec![
+            1, 3, 5, 7, 9, 0, 1, 2, 3, 4, 1, 2, 3, 4,
+        ])) as ArrayRef;
+        let f2 = Arc::new(BooleanArray::from(vec![
+            true, true, true, false, true, false, true, false, true, false, true, false,
+            true, false,
+        ])) as ArrayRef;
+        let expected = Arc::new(StructArray::from(vec![(field1, f1), (field2, f2)]));
+        assert_eq!(arr2.data().child_data()[0], expected.data().child_data()[0]);
+        assert_eq!(arr2.data().child_data()[1], expected.data().child_data()[1]);
+        assert!(arr2.equals(&*expected));
+
+        Ok(())
     }
 }

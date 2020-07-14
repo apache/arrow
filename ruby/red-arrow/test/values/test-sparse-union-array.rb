@@ -44,9 +44,7 @@ module ValuesSparseUnionArrayTests
       sub_record_batch.columns[0].data
     end
     values.each do |value|
-      if value.nil?
-        type_ids << nil
-      elsif value.key?("0")
+      if value.key?("0")
         type_ids << type_codes[0]
       elsif value.key?("1")
         type_ids << type_codes[1]
@@ -60,7 +58,6 @@ module ValuesSparseUnionArrayTests
   def test_null
     values = [
       {"0" => nil},
-      nil,
     ]
     target = build(:null, values)
     assert_equal(values, target.values)
@@ -69,7 +66,6 @@ module ValuesSparseUnionArrayTests
   def test_boolean
     values = [
       {"0" => true},
-      nil,
       {"1" => nil},
     ]
     target = build(:boolean, values)
@@ -79,7 +75,6 @@ module ValuesSparseUnionArrayTests
   def test_int8
     values = [
       {"0" => -(2 ** 7)},
-      nil,
       {"1" => nil},
     ]
     target = build(:int8, values)
@@ -89,7 +84,6 @@ module ValuesSparseUnionArrayTests
   def test_uint8
     values = [
       {"0" => (2 ** 8) - 1},
-      nil,
       {"1" => nil},
     ]
     target = build(:uint8, values)
@@ -99,7 +93,6 @@ module ValuesSparseUnionArrayTests
   def test_int16
     values = [
       {"0" => -(2 ** 15)},
-      nil,
       {"1" => nil},
     ]
     target = build(:int16, values)
@@ -109,7 +102,6 @@ module ValuesSparseUnionArrayTests
   def test_uint16
     values = [
       {"0" => (2 ** 16) - 1},
-      nil,
       {"1" => nil},
     ]
     target = build(:uint16, values)
@@ -119,7 +111,6 @@ module ValuesSparseUnionArrayTests
   def test_int32
     values = [
       {"0" => -(2 ** 31)},
-      nil,
       {"1" => nil},
     ]
     target = build(:int32, values)
@@ -129,7 +120,6 @@ module ValuesSparseUnionArrayTests
   def test_uint32
     values = [
       {"0" => (2 ** 32) - 1},
-      nil,
       {"1" => nil},
     ]
     target = build(:uint32, values)
@@ -139,7 +129,6 @@ module ValuesSparseUnionArrayTests
   def test_int64
     values = [
       {"0" => -(2 ** 63)},
-      nil,
       {"1" => nil},
     ]
     target = build(:int64, values)
@@ -149,7 +138,6 @@ module ValuesSparseUnionArrayTests
   def test_uint64
     values = [
       {"0" => (2 ** 64) - 1},
-      nil,
       {"1" => nil},
     ]
     target = build(:uint64, values)
@@ -159,7 +147,6 @@ module ValuesSparseUnionArrayTests
   def test_float
     values = [
       {"0" => -1.0},
-      nil,
       {"1" => nil},
     ]
     target = build(:float, values)
@@ -169,7 +156,6 @@ module ValuesSparseUnionArrayTests
   def test_double
     values = [
       {"0" => -1.0},
-      nil,
       {"1" => nil},
     ]
     target = build(:double, values)
@@ -179,7 +165,6 @@ module ValuesSparseUnionArrayTests
   def test_binary
     values = [
       {"0" => "\xff".b},
-      nil,
       {"1" => nil},
     ]
     target = build(:binary, values)
@@ -189,7 +174,6 @@ module ValuesSparseUnionArrayTests
   def test_string
     values = [
       {"0" => "Ruby"},
-      nil,
       {"1" => nil},
     ]
     target = build(:string, values)
@@ -199,7 +183,6 @@ module ValuesSparseUnionArrayTests
   def test_date32
     values = [
       {"0" => Date.new(1960, 1, 1)},
-      nil,
       {"1" => nil},
     ]
     target = build(:date32, values)
@@ -209,7 +192,6 @@ module ValuesSparseUnionArrayTests
   def test_date64
     values = [
       {"0" => DateTime.new(1960, 1, 1, 2, 9, 30)},
-      nil,
       {"1" => nil},
     ]
     target = build(:date64, values)
@@ -219,7 +201,6 @@ module ValuesSparseUnionArrayTests
   def test_timestamp_second
     values = [
       {"0" => Time.parse("1960-01-01T02:09:30Z")},
-      nil,
       {"1" => nil},
     ]
     target = build({
@@ -233,7 +214,6 @@ module ValuesSparseUnionArrayTests
   def test_timestamp_milli
     values = [
       {"0" => Time.parse("1960-01-01T02:09:30.123Z")},
-      nil,
       {"1" => nil},
     ]
     target = build({
@@ -247,7 +227,6 @@ module ValuesSparseUnionArrayTests
   def test_timestamp_micro
     values = [
       {"0" => Time.parse("1960-01-01T02:09:30.123456Z")},
-      nil,
       {"1" => nil},
     ]
     target = build({
@@ -261,7 +240,6 @@ module ValuesSparseUnionArrayTests
   def test_timestamp_nano
     values = [
       {"0" => Time.parse("1960-01-01T02:09:30.123456789Z")},
-      nil,
       {"1" => nil},
     ]
     target = build({
@@ -277,7 +255,6 @@ module ValuesSparseUnionArrayTests
     values = [
       # 00:10:00
       {"0" => Arrow::Time.new(unit, 60 * 10)},
-      nil,
       {"1" => nil},
     ]
     target = build({
@@ -293,7 +270,6 @@ module ValuesSparseUnionArrayTests
     values = [
       # 00:10:00.123
       {"0" => Arrow::Time.new(unit, (60 * 10) * 1000 + 123)},
-      nil,
       {"1" => nil},
     ]
     target = build({
@@ -309,7 +285,6 @@ module ValuesSparseUnionArrayTests
     values = [
       # 00:10:00.123456
       {"0" => Arrow::Time.new(unit, (60 * 10) * 1_000_000 + 123_456)},
-      nil,
       {"1" => nil},
     ]
     target = build({
@@ -325,7 +300,6 @@ module ValuesSparseUnionArrayTests
     values = [
       # 00:10:00.123456789
       {"0" => Arrow::Time.new(unit, (60 * 10) * 1_000_000_000 + 123_456_789)},
-      nil,
       {"1" => nil},
     ]
     target = build({
@@ -339,7 +313,6 @@ module ValuesSparseUnionArrayTests
   def test_decimal128
     values = [
       {"0" => BigDecimal("92.92")},
-      nil,
       {"1" => nil},
     ]
     target = build({
@@ -354,7 +327,6 @@ module ValuesSparseUnionArrayTests
   def test_list
     values = [
       {"0" => [true, nil, false]},
-      nil,
       {"1" => nil},
     ]
     target = build({
@@ -371,7 +343,6 @@ module ValuesSparseUnionArrayTests
   def test_struct
     values = [
       {"0" => {"sub_field" => true}},
-      nil,
       {"1" => nil},
       {"0" => {"sub_field" => nil}},
     ]
@@ -392,7 +363,6 @@ module ValuesSparseUnionArrayTests
     omit("Need to add support for SparseUnionArrayBuilder")
     values = [
       {"0" => {"field1" => true}},
-      nil,
       {"1" => nil},
       {"0" => {"field2" => nil}},
     ]
@@ -418,7 +388,6 @@ module ValuesSparseUnionArrayTests
     omit("Need to add support for DenseUnionArrayBuilder")
     values = [
       {"0" => {"field1" => true}},
-      nil,
       {"1" => nil},
       {"0" => {"field2" => nil}},
     ]
@@ -444,7 +413,6 @@ module ValuesSparseUnionArrayTests
     omit("Need to add support for DictionaryArrayBuilder")
     values = [
       {"0" => "Ruby"},
-      nil,
       {"1" => nil},
       {"0" => "GLib"},
     ]

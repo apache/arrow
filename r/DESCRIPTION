@@ -37,9 +37,10 @@ Imports:
     utils,
     vctrs
 Roxygen: list(markdown = TRUE, r6 = FALSE, load = "source")
-RoxygenNote: 7.1.0
+RoxygenNote: 7.1.1
 VignetteBuilder: knitr
 Suggests:
+    decor,
     dplyr,
     hms,
     knitr,
@@ -60,12 +61,11 @@ Collate:
     'chunked-array.R'
     'io.R'
     'compression.R'
+    'scalar.R'
     'compute.R'
     'config.R'
     'csv.R'
     'dataset.R'
-    'filesystem.R'
-    'ipc_stream.R'
     'deprecated.R'
     'dictionary.R'
     'record-batch.R'
@@ -74,7 +74,9 @@ Collate:
     'dplyr.R'
     'feather.R'
     'field.R'
+    'filesystem.R'
     'install-arrow.R'
+    'ipc_stream.R'
     'json.R'
     'list.R'
     'memory-pool.R'
@@ -85,7 +87,6 @@ Collate:
     'record-batch-writer.R'
     'reexports-bit64.R'
     'reexports-tidyselect.R'
-    'scalar.R'
     'schema.R'
     'struct.R'
     'util.R'

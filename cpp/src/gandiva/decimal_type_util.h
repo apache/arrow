@@ -62,7 +62,10 @@ class GANDIVA_EXPORT DecimalTypeUtil {
   static Status GetResultType(Op op, const Decimal128TypeVector& in_types,
                               Decimal128TypePtr* out_type);
 
-  static Decimal128TypePtr MakeType(int32_t precision, int32_t scale);
+  static Decimal128TypePtr MakeType(int32_t precision, int32_t scale) {
+    return std::dynamic_pointer_cast<arrow::Decimal128Type>(
+        arrow::decimal(precision, scale));
+  }
 
  private:
   // Reduce the scale if possible so that precision stays <= kMaxPrecision
@@ -76,10 +79,5 @@ class GANDIVA_EXPORT DecimalTypeUtil {
     return MakeType(precision, scale);
   }
 };
-
-inline Decimal128TypePtr DecimalTypeUtil::MakeType(int32_t precision, int32_t scale) {
-  return std::dynamic_pointer_cast<arrow::Decimal128Type>(
-      arrow::decimal(precision, scale));
-}
 
 }  // namespace gandiva

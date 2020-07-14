@@ -34,21 +34,6 @@ void BitMapAccumulator::ComputeResult(uint8_t* dst_bitmap) {
   }
 }
 
-void BitmapAnd(uint8_t* left, int64_t left_offset, uint8_t* right, int64_t right_offset,
-               int64_t length, uint8_t* out) {
-  if (left_offset == 0 && right_offset == 0) {
-    int64_t num_words = (length + 63) / 64;  // aligned to 8-byte.
-    auto left64 = reinterpret_cast<uint64_t*>(left);
-    auto right64 = reinterpret_cast<uint64_t*>(right);
-    auto out64 = reinterpret_cast<uint64_t*>(out);
-    for (int64_t i = 0; i < num_words; ++i) {
-      out64[i] = left64[i] & right64[i];
-    }
-  } else {
-    arrow::internal::BitmapAnd(left, left_offset, right, right_offset, length, 0, out);
-  }
-}
-
 /// Compute the intersection of multiple bitmaps.
 void BitMapAccumulator::IntersectBitMaps(uint8_t* dst_map,
                                          const std::vector<uint8_t*>& src_maps,
@@ -74,10 +59,12 @@ void BitMapAccumulator::IntersectBitMaps(uint8_t* dst_map,
 
     default: {
       // src_maps bitmaps ANDs
-      BitmapAnd(src_maps[0], src_map_offsets[0], src_maps[1], src_map_offsets[1],
-                num_records, dst_map);
+      arrow::internal::BitmapAnd(src_maps[0], src_map_offsets[0], src_maps[1],
+                                 src_map_offsets[1], num_records, /*offset=*/0, dst_map);
       for (int64_t m = 2; m < nmaps; ++m) {
-        BitmapAnd(dst_map, 0, src_maps[m], src_map_offsets[m], num_records, dst_map);
+        arrow::internal::BitmapAnd(dst_map, 0, src_maps[m], src_map_offsets[m],
+                                   num_records,
+                                   /*offset=*/0, dst_map);
       }
 
       break;

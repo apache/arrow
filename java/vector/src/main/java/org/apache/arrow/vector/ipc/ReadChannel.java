@@ -83,7 +83,7 @@ public class ReadChannel implements AutoCloseable {
     boolean fullRead = true;
     long bytesLeft = length;
     while (fullRead && bytesLeft > 0) {
-      int bytesToRead = (int) Math.min(length, Integer.MAX_VALUE);
+      int bytesToRead = (int) Math.min(bytesLeft, Integer.MAX_VALUE);
       int n = readFully(buffer.nioBuffer(buffer.writerIndex(), bytesToRead));
       buffer.writerIndex(buffer.writerIndex() + n);
       fullRead = n == bytesToRead;

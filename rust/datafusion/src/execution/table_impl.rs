@@ -23,9 +23,10 @@ use crate::arrow::datatypes::DataType;
 use crate::arrow::record_batch::RecordBatch;
 use crate::error::{ExecutionError, Result};
 use crate::execution::context::ExecutionContext;
+use crate::logicalplan::LogicalPlanBuilder;
 use crate::logicalplan::{Expr, LogicalPlan};
-use crate::logicalplan::{LogicalPlanBuilder, ScalarValue};
 use crate::table::*;
+use arrow::datatypes::Schema;
 
 /// Implementation of Table API
 pub struct TableImpl {
@@ -82,10 +83,8 @@ impl Table for TableImpl {
     }
 
     /// Limit the number of rows
-    fn limit(&self, n: u32) -> Result<Arc<dyn Table>> {
-        let plan = LogicalPlanBuilder::from(&self.plan)
-            .limit(Expr::Literal(ScalarValue::UInt32(n)))?
-            .build()?;
+    fn limit(&self, n: usize) -> Result<Arc<dyn Table>> {
+        let plan = LogicalPlanBuilder::from(&self.plan).limit(n)?.build()?;
         Ok(Arc::new(TableImpl::new(&plan)))
     }
 
@@ -130,6 +129,11 @@ impl Table for TableImpl {
         batch_size: usize,
     ) -> Result<Vec<RecordBatch>> {
         ctx.collect_plan(&self.plan.clone(), batch_size)
+    }
+
+    /// Returns the schema from the logical plan
+    fn schema(&self) -> &Schema {
+        self.plan.schema().as_ref()
     }
 }
 

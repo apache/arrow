@@ -118,6 +118,28 @@ Some points to note about the steps above:
   no longer used, to avoid resource leak. To make sure of this, it is recommended to place vector related operations
   into a try-with-resources block.
 
+* For fixed width vectors (e.g. IntVector), we can set values at different indices in arbitrary orders.
+  For variable width vectors (e.g. VarCharVector), however, we must set values in non-decreasing order of the
+  indices. Otherwise, the values after the set positiion will become invalid. For example, suppose we use the
+  following statements to populate a variable width vector:
+
+.. code-block:: Java
+
+    VarCharVector vector = new VarCharVector("vector", allocator);
+    vector.allocateNew();
+    vector.setSafe(0, "zero");
+    vector.setSafe(1, "one");
+    ...
+    vector.setSafe(9, "nine");
+
+Then we set the value at position 5 again:
+
+.. code-block:: Java
+
+    vector.setSafe(5, "5");
+
+After that, the values at positions 6, 7, 8, and 9 of the vector will become invalid.
+
 Building ValueVector
 ====================
 

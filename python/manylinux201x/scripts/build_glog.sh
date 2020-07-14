@@ -16,7 +16,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-export GLOG_VERSION="0.3.5"
+export GLOG_VERSION="0.4.0"
 export PREFIX="/usr/local"
 curl -sL "https://github.com/google/glog/archive/v${GLOG_VERSION}.tar.gz" -o glog-${GLOG_VERSION}.tar.gz
 tar xf glog-${GLOG_VERSION}.tar.gz

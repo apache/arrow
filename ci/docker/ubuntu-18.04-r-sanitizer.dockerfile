@@ -60,7 +60,7 @@ RUN printf "\
     >> /usr/local/RDsan/lib/R/etc/Rprofile.site
 
 # Also ensure parallel compilation of C/C++ code
-RUN echo "MAKEFLAGS=-j$(R --slave -e 'cat(parallel::detectCores())')" >> /usr/local/RDsan/lib/R/etc/Makeconf
+RUN echo "MAKEFLAGS=-j$(R -s -e 'cat(parallel::detectCores())')" >> /usr/local/RDsan/lib/R/etc/Makeconf
 
 # Prioritize system packages and local installation
 # The following dependencies will be downloaded due to missing/invalid packages
@@ -84,6 +84,7 @@ ENV ARROW_DEPENDENCY_SOURCE=SYSTEM \
     ARROW_USE_CCACHE=ON \
     ARROW_USE_UBSAN=OFF \
     ARROW_WITH_BZ2=OFF \
+    ARROW_WITH_UTF8PROC=OFF \
     ARROW_WITH_ZSTD=OFF \
     cares_SOURCE=BUNDLED \
     gRPC_SOURCE=BUNDLED \

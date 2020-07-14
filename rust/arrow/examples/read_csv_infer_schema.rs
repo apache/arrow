@@ -19,6 +19,7 @@ extern crate arrow;
 
 use arrow::csv;
 use arrow::error::Result;
+#[cfg(feature = "prettyprint")]
 use arrow::util::pretty::print_batches;
 use std::fs::File;
 
@@ -28,7 +29,10 @@ fn main() -> Result<()> {
         .has_header(true)
         .infer_schema(Some(100));
     let mut csv = builder.build(file).unwrap();
-    let batch = csv.next().unwrap().unwrap();
-
-    print_batches(&vec![batch])
+    let _batch = csv.next().unwrap().unwrap();
+    #[cfg(feature = "prettyprint")]
+    {
+        print_batches(&vec![_batch]).unwrap();
+    }
+    Ok(())
 }

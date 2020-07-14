@@ -16,13 +16,13 @@
 # under the License.
 
 from collections import OrderedDict
+from collections.abc import Iterable
 import pickle
 import sys
 
 import numpy as np
 import pytest
 import pyarrow as pa
-from pyarrow import compat
 
 
 def test_chunked_array_basics():
@@ -111,9 +111,9 @@ def test_chunked_array_iter():
     arr = pa.chunked_array(data)
 
     for i, j in zip(range(10), arr):
-        assert i == j
+        assert i == j.as_py()
 
-    assert isinstance(arr, compat.Iterable)
+    assert isinstance(arr, Iterable)
 
 
 def test_chunked_array_equals():
@@ -128,6 +128,8 @@ def test_chunked_array_equals():
             y = pa.chunked_array(yarrs)
         assert x.equals(y)
         assert y.equals(x)
+        assert x == y
+        assert x != str(y)
 
     def ne(xarrs, yarrs):
         if isinstance(xarrs, pa.ChunkedArray):
@@ -140,6 +142,7 @@ def test_chunked_array_equals():
             y = pa.chunked_array(yarrs)
         assert not x.equals(y)
         assert not y.equals(x)
+        assert x != y
 
     eq(pa.chunked_array([], type=pa.int32()),
        pa.chunked_array([], type=pa.int32()))
@@ -1059,8 +1062,7 @@ def test_table_unsafe_casting():
         pa.field('d', pa.string())
     ])
 
-    with pytest.raises(pa.ArrowInvalid,
-                       match='Floating point value truncated'):
+    with pytest.raises(pa.ArrowInvalid, match='truncated'):
         table.cast(target_schema)
 
     casted_table = table.cast(target_schema, safe=False)

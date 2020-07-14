@@ -36,6 +36,7 @@ from pyarrow._dataset import (  # noqa
     HivePartitioning,
     IpcFileFormat,
     ParquetDatasetFactory,
+    ParquetFactoryOptions,
     ParquetFileFormat,
     ParquetFileFragment,
     ParquetReadOptions,
@@ -45,7 +46,8 @@ from pyarrow._dataset import (  # noqa
     Scanner,
     ScanTask,
     UnionDataset,
-    UnionDatasetFactory
+    UnionDatasetFactory,
+    _get_partition_keys
 )
 
 
@@ -214,9 +216,10 @@ def _ensure_format(obj):
         raise ValueError("format '{}' is not supported".format(obj))
 
 
-def _ensure_filesystem(fs_or_uri):
+def _ensure_fs(fs_or_uri):
     from pyarrow.fs import (
-        FileSystem, LocalFileSystem, SubTreeFileSystem, FileType
+        FileSystem, LocalFileSystem, SubTreeFileSystem, FileType,
+        _ensure_filesystem
     )
 
     if isinstance(fs_or_uri, str):
@@ -238,15 +241,18 @@ def _ensure_filesystem(fs_or_uri):
                 )
             filesystem = SubTreeFileSystem(prefix, filesystem)
         return filesystem, is_local
-    elif isinstance(fs_or_uri, (LocalFileSystem, _MockFileSystem)):
-        return fs_or_uri, True
-    elif isinstance(fs_or_uri, FileSystem):
-        return fs_or_uri, False
-    else:
+
+    try:
+        filesystem = _ensure_filesystem(fs_or_uri)
+    except TypeError:
         raise TypeError(
             '`filesystem` argument must be a FileSystem instance or a valid '
             'file system URI'
         )
+    if isinstance(filesystem, (LocalFileSystem, _MockFileSystem)):
+        return filesystem, True
+    else:
+        return filesystem, False
 
 
 def _ensure_multiple_sources(paths, filesystem=None):
@@ -285,7 +291,7 @@ def _ensure_multiple_sources(paths, filesystem=None):
         filesystem = LocalFileSystem()
 
     # construct a filesystem if it is a valid URI
-    filesystem, is_local = _ensure_filesystem(filesystem)
+    filesystem, is_local = _ensure_fs(filesystem)
 
     # allow normalizing irregular paths such as Windows local paths
     paths = [_normalize_path(filesystem, _stringify_path(p)) for p in paths]
@@ -375,7 +381,7 @@ def _ensure_single_source(path, filesystem=None):
                 file_info = None
 
     # construct a filesystem if it is a valid URI
-    filesystem, _ = _ensure_filesystem(filesystem)
+    filesystem, _ = _ensure_fs(filesystem)
 
     # ensure that the path is normalized before passing to dataset discovery
     path = _normalize_path(filesystem, path)
@@ -445,7 +451,8 @@ def _union_dataset(children, schema=None, **kwargs):
     return UnionDataset(schema, children)
 
 
-def parquet_dataset(metadata_path, schema=None, filesystem=None, format=None):
+def parquet_dataset(metadata_path, schema=None, filesystem=None, format=None,
+                    partitioning=None, partition_base_dir=None):
     """
     Create a FileSystemDataset from a `_metadata` file created via
     `pyarrrow.parquet.write_metadata`.
@@ -468,6 +475,16 @@ def parquet_dataset(metadata_path, schema=None, filesystem=None, format=None):
     format : ParquetFileFormat
         An instance of a ParquetFileFormat if special options needs to be
         passed.
+    partitioning : Partitioning, PartitioningFactory, str, list of str
+        The partitioning scheme specified with the ``partitioning()``
+        function. A flavor string can be used as shortcut, and with a list of
+        field names a DirectionaryPartitioning will be inferred.
+    partition_base_dir : str, optional
+        For the purposes of applying the partitioning, paths will be
+        stripped of the partition_base_dir. Files not matching the
+        partition_base_dir prefix will be skipped for partitioning discovery.
+        The ignored files will still be part of the Dataset, but will not
+        have partition information.
 
     Returns
     -------
@@ -483,11 +500,16 @@ def parquet_dataset(metadata_path, schema=None, filesystem=None, format=None):
     if filesystem is None:
         filesystem = LocalFileSystem()
     else:
-        filesystem, _ = _ensure_filesystem(filesystem)
+        filesystem, _ = _ensure_fs(filesystem)
 
     metadata_path = _normalize_path(filesystem, _stringify_path(metadata_path))
+    options = ParquetFactoryOptions(
+        partition_base_dir=partition_base_dir,
+        partitioning=_ensure_partitioning(partitioning)
+    )
 
-    factory = ParquetDatasetFactory(metadata_path, filesystem, format)
+    factory = ParquetDatasetFactory(
+        metadata_path, filesystem, format, options=options)
     return factory.finish(schema)
 
 

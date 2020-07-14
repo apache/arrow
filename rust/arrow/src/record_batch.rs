@@ -38,7 +38,7 @@ use crate::error::{ArrowError, Result};
 /// [JSON reader](crate::json::Reader).
 #[derive(Clone, Debug)]
 pub struct RecordBatch {
-    schema: Arc<Schema>,
+    schema: SchemaRef,
     columns: Vec<Arc<Array>>,
 }
 
@@ -74,7 +74,7 @@ impl RecordBatch {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn try_new(schema: Arc<Schema>, columns: Vec<ArrayRef>) -> Result<Self> {
+    pub fn try_new(schema: SchemaRef, columns: Vec<ArrayRef>) -> Result<Self> {
         // check that there are some columns
         if columns.is_empty() {
             return Err(ArrowError::InvalidArgumentError(
@@ -84,9 +84,11 @@ impl RecordBatch {
         }
         // check that number of fields in schema match column length
         if schema.fields().len() != columns.len() {
-            return Err(ArrowError::InvalidArgumentError(
-                "number of columns must match number of fields in schema".to_string(),
-            ));
+            return Err(ArrowError::InvalidArgumentError(format!(
+                "number of columns({}) must match number of fields({}) in schema",
+                columns.len(),
+                schema.fields().len(),
+            )));
         }
         // check that all columns have the same row count, and match the schema
         let len = columns[0].data().len();
@@ -109,8 +111,8 @@ impl RecordBatch {
     }
 
     /// Returns the [`Schema`](crate::datatypes::Schema) of the record batch.
-    pub fn schema(&self) -> &Arc<Schema> {
-        &self.schema
+    pub fn schema(&self) -> SchemaRef {
+        self.schema.clone()
     }
 
     /// Returns the number of columns in the record batch.
@@ -214,14 +216,15 @@ impl Into<StructArray> for RecordBatch {
     }
 }
 
-/// Definition of record batch reader.
+/// Trait for types that can read `RecordBatch`'s.
 pub trait RecordBatchReader {
-    /// Returns schemas of this record batch reader.
-    /// Implementation of this trait should guarantee that all record batches returned
-    /// by this reader should have same schema as returned from this method.
-    fn schema(&mut self) -> SchemaRef;
+    /// Returns the schema of this `RecordBatchReader`.
+    ///
+    /// Implementation of this trait should guarantee that all `RecordBatch`'s returned by this
+    /// reader should have the same schema as returned from this method.
+    fn schema(&self) -> SchemaRef;
 
-    /// Returns next record batch.
+    /// Reads the next `RecordBatch`.
     fn next_batch(&mut self) -> Result<Option<RecordBatch>>;
 }
 

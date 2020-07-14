@@ -19,14 +19,13 @@
 
 set -e
 
-if [ "$#" -ne 3 ]; then
-  echo "Usage: $0 <spark version> <target directory> <patches directory>"
+if [ "$#" -ne 2 ]; then
+  echo "Usage: $0 <spark version> <target directory>"
   exit 1
 fi
 
 spark=$1
 target=$2
-patches=${3}
 
-mkdir "${target}"
-wget -q -O - https://github.com/apache/spark/archive/${spark}.tar.gz | tar -xzf - --strip-components=1 -C "${target}"
+git clone https://github.com/apache/spark "${target}"
+git -C "${target}" checkout "${spark}"

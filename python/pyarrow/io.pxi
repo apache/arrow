@@ -20,6 +20,7 @@
 
 from libc.stdlib cimport malloc, free
 
+import codecs
 import re
 import sys
 import threading
@@ -28,8 +29,6 @@ import warnings
 from io import BufferedIOBase, IOBase, TextIOBase, UnsupportedOperation
 
 from pyarrow.util import _is_path_like, _stringify_path
-from pyarrow.compat import (
-    builtin_pickle, frombytes, tobytes, encode_file_path)
 
 
 # 64K
@@ -166,7 +165,7 @@ cdef class NativeFile:
         self._assert_open()
         if not self.is_readable:
             # XXX UnsupportedOperation
-            raise IOError("only valid on readonly files")
+            raise IOError("only valid on readable files")
 
     def _assert_writable(self):
         self._assert_open()
@@ -777,9 +776,17 @@ def memory_map(path, mode='r'):
     -------
     mmap : MemoryMappedFile
     """
+    _check_is_file(path)
+
     cdef MemoryMappedFile mmap = MemoryMappedFile()
     mmap._open(path, mode)
     return mmap
+
+
+cdef _check_is_file(path):
+    if os.path.isdir(path):
+        raise IOError("Expected file path, but {0} is a directory"
+                      .format(path))
 
 
 def create_memory_map(path, size):
@@ -808,6 +815,7 @@ cdef class OSFile(NativeFile):
         object path
 
     def __cinit__(self, path, mode='r', MemoryPool memory_pool=None):
+        _check_is_file(path)
         self.path = path
 
         cdef:
@@ -1333,6 +1341,68 @@ cdef class BufferedOutputStream(NativeFile):
         return raw
 
 
+cdef void _cb_transform(transform_func, const shared_ptr[CBuffer]& src,
+                        shared_ptr[CBuffer]* dest) except *:
+    py_dest = transform_func(pyarrow_wrap_buffer(src))
+    dest[0] = pyarrow_unwrap_buffer(py_buffer(py_dest))
+
+
+cdef class TransformInputStream(NativeFile):
+
+    def __init__(self, NativeFile stream, transform_func):
+        self.set_input_stream(TransformInputStream.make_native(
+            stream.get_input_stream(), transform_func))
+        self.is_readable = True
+
+    @staticmethod
+    cdef shared_ptr[CInputStream] make_native(
+            shared_ptr[CInputStream] stream, transform_func) except *:
+        cdef:
+            shared_ptr[CInputStream] transform_stream
+            CTransformInputStreamVTable vtable
+
+        vtable.transform = _cb_transform
+        return MakeTransformInputStream(stream, move(vtable),
+                                        transform_func)
+
+
+class Transcoder:
+
+    def __init__(self, decoder, encoder):
+        self._decoder = decoder
+        self._encoder = encoder
+
+    def __call__(self, buf):
+        final = len(buf) == 0
+        return self._encoder.encode(self._decoder.decode(buf, final), final)
+
+
+def transcoding_input_stream(stream, src_encoding, dest_encoding):
+    src_codec = codecs.lookup(src_encoding)
+    dest_codec = codecs.lookup(dest_encoding)
+    if src_codec.name == dest_codec.name:
+        # Avoid losing performance on no-op transcoding
+        # (encoding errors won't be detected)
+        return stream
+    return TransformInputStream(stream,
+                                Transcoder(src_codec.incrementaldecoder(),
+                                           dest_codec.incrementalencoder()))
+
+
+cdef shared_ptr[CInputStream] native_transcoding_input_stream(
+        shared_ptr[CInputStream] stream, src_encoding,
+        dest_encoding) except *:
+    src_codec = codecs.lookup(src_encoding)
+    dest_codec = codecs.lookup(dest_encoding)
+    if src_codec.name == dest_codec.name:
+        # Avoid losing performance on no-op transcoding
+        # (encoding errors won't be detected)
+        return stream
+    return TransformInputStream.make_native(
+        stream, Transcoder(src_codec.incrementaldecoder(),
+                           dest_codec.incrementalencoder()))
+
+
 def py_buffer(object obj):
     """
     Construct an Arrow buffer from a Python bytes-like or buffer-like object
@@ -1378,7 +1448,7 @@ cdef shared_ptr[CBuffer] as_c_buffer(object o) except *:
     return buf
 
 
-cdef NativeFile _get_native_file(object source, c_bool use_memory_map):
+cdef NativeFile get_native_file(object source, c_bool use_memory_map):
     try:
         source_path = _stringify_path(source)
     except TypeError:
@@ -1400,7 +1470,7 @@ cdef get_reader(object source, c_bool use_memory_map,
                 shared_ptr[CRandomAccessFile]* reader):
     cdef NativeFile nf
 
-    nf = _get_native_file(source, use_memory_map)
+    nf = get_native_file(source, use_memory_map)
     reader[0] = nf.get_random_access_file()
 
 
@@ -1420,7 +1490,7 @@ cdef get_input_stream(object source, c_bool use_memory_map,
     except TypeError:
         codec = None
 
-    nf = _get_native_file(source, use_memory_map)
+    nf = get_native_file(source, use_memory_map)
     input_stream = nf.get_input_stream()
 
     # codec is None if compression can't be detected
@@ -1469,22 +1539,41 @@ def _detect_compression(path):
 
 cdef CCompressionType _ensure_compression(str name) except *:
     uppercase = name.upper()
-    if uppercase == 'GZIP':
-        return CCompressionType_GZIP
-    elif uppercase == 'BZ2':
+    if uppercase == 'BZ2':
         return CCompressionType_BZ2
+    elif uppercase == 'GZIP':
+        return CCompressionType_GZIP
     elif uppercase == 'BROTLI':
         return CCompressionType_BROTLI
     elif uppercase == 'LZ4' or uppercase == 'LZ4_FRAME':
         return CCompressionType_LZ4_FRAME
     elif uppercase == 'LZ4_RAW':
         return CCompressionType_LZ4
-    elif uppercase == 'ZSTD':
-        return CCompressionType_ZSTD
     elif uppercase == 'SNAPPY':
         return CCompressionType_SNAPPY
+    elif uppercase == 'ZSTD':
+        return CCompressionType_ZSTD
     else:
         raise ValueError('Invalid value for compression: {!r}'.format(name))
+
+
+cdef str _compression_name(CCompressionType ctype):
+    if ctype == CCompressionType_GZIP:
+        return 'gzip'
+    elif ctype == CCompressionType_BROTLI:
+        return 'brotli'
+    elif ctype == CCompressionType_BZ2:
+        return 'bz2'
+    elif ctype == CCompressionType_LZ4_FRAME:
+        return 'lz4'
+    elif ctype == CCompressionType_LZ4:
+        return 'lz4_raw'
+    elif ctype == CCompressionType_SNAPPY:
+        return 'snappy'
+    elif ctype == CCompressionType_ZSTD:
+        return 'zstd'
+    else:
+        raise RuntimeError('Unexpected CCompressionType value')
 
 
 cdef class Codec:

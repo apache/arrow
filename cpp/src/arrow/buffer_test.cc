@@ -463,7 +463,6 @@ TEST(TestBuffer, ToHexString) {
 
 TEST(TestBuffer, SliceBuffer) {
   std::string data_str = "some data to slice";
-
   auto data = reinterpret_cast<const uint8_t*>(data_str.c_str());
 
   auto buf = std::make_shared<Buffer>(data, data_str.size());
@@ -474,6 +473,42 @@ TEST(TestBuffer, SliceBuffer) {
   ASSERT_TRUE(out->Equals(expected));
 
   ASSERT_EQ(2, buf.use_count());
+}
+
+TEST(TestBuffer, SliceBufferSafe) {
+  std::string data_str = "some data to slice";
+  auto data = reinterpret_cast<const uint8_t*>(data_str.c_str());
+
+  auto buf = std::make_shared<Buffer>(data, data_str.size());
+
+  ASSERT_OK_AND_ASSIGN(auto sliced, SliceBufferSafe(buf, 5, 4));
+  AssertBufferEqual(*sliced, "data");
+  ASSERT_OK_AND_ASSIGN(sliced, SliceBufferSafe(buf, 0, 4));
+  AssertBufferEqual(*sliced, "some");
+  ASSERT_OK_AND_ASSIGN(sliced, SliceBufferSafe(buf, 0, 0));
+  AssertBufferEqual(*sliced, "");
+  ASSERT_OK_AND_ASSIGN(sliced, SliceBufferSafe(buf, 4, 0));
+  AssertBufferEqual(*sliced, "");
+  ASSERT_OK_AND_ASSIGN(sliced, SliceBufferSafe(buf, buf->size(), 0));
+  AssertBufferEqual(*sliced, "");
+
+  ASSERT_RAISES(Invalid, SliceBufferSafe(buf, -1, 0));
+  ASSERT_RAISES(Invalid, SliceBufferSafe(buf, 0, -1));
+  ASSERT_RAISES(Invalid, SliceBufferSafe(buf, 0, buf->size() + 1));
+  ASSERT_RAISES(Invalid, SliceBufferSafe(buf, 2, buf->size() - 1));
+  ASSERT_RAISES(Invalid, SliceBufferSafe(buf, buf->size() + 1, 0));
+  ASSERT_RAISES(Invalid,
+                SliceBufferSafe(buf, 3, std::numeric_limits<int64_t>::max() - 2));
+
+  ASSERT_OK_AND_ASSIGN(sliced, SliceBufferSafe(buf, 0));
+  AssertBufferEqual(*sliced, "some data to slice");
+  ASSERT_OK_AND_ASSIGN(sliced, SliceBufferSafe(buf, 5));
+  AssertBufferEqual(*sliced, "data to slice");
+  ASSERT_OK_AND_ASSIGN(sliced, SliceBufferSafe(buf, buf->size()));
+  AssertBufferEqual(*sliced, "");
+
+  ASSERT_RAISES(Invalid, SliceBufferSafe(buf, -1));
+  ASSERT_RAISES(Invalid, SliceBufferSafe(buf, buf->size() + 1));
 }
 
 TEST(TestMutableBuffer, Wrap) {

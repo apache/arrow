@@ -15,8 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ARG arch=amd64
-FROM ${arch}/ubuntu:16.04
+ARG base=amd64/ubuntu:16.04
+FROM ${base}
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
@@ -51,6 +51,7 @@ RUN apt-get update -y -q && \
         liblz4-dev \
         libre2-dev \
         libssl-dev \
+        libutf8proc-dev \
         libzstd1-dev \
         llvm-${llvm}-dev \
         make \

@@ -41,6 +41,7 @@ endif()
 add_arrow_test(utility-test
                SOURCES
                align_util_test.cc
+               bit_block_counter_test.cc
                bit_util_test.cc
                checked_cast_test.cc
                compression_test.cc
@@ -68,6 +69,7 @@ add_arrow_test(threading-utility-test
                task_group_test
                thread_pool_test)
 
+add_arrow_benchmark(bit_block_counter_benchmark)
 add_arrow_benchmark(bit_util_benchmark)
 add_arrow_benchmark(compression_benchmark)
 add_arrow_benchmark(decimal_benchmark)

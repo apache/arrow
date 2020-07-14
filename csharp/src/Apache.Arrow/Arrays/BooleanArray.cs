@@ -24,20 +24,17 @@ namespace Apache.Arrow
     {
         public class Builder : IArrowArrayBuilder<bool, BooleanArray, Builder>
         {
-            private ArrowBuffer.Builder<byte> ValueBuffer { get; }
+            private ArrowBuffer.BitmapBuilder ValueBuffer { get; }
+            private ArrowBuffer.BitmapBuilder ValidityBuffer { get; }
 
-            private ArrowBuffer.Builder<byte> ValidityBuffer { get; }
-
-            public int Length { get; protected set; }
-            public int Capacity => BitUtility.ByteCount(ValueBuffer.Capacity);
-            public int NullCount { get; protected set; }
+            public int Length => ValueBuffer.Length;
+            public int Capacity => ValueBuffer.Capacity;
+            public int NullCount => ValidityBuffer.UnsetBitCount;
 
             public Builder()
             {
-                ValueBuffer = new ArrowBuffer.Builder<byte>();
-                ValidityBuffer = new ArrowBuffer.Builder<byte>();
-                Length = 0;
-                NullCount = 0;
+                ValueBuffer = new ArrowBuffer.BitmapBuilder();
+                ValidityBuffer = new ArrowBuffer.BitmapBuilder();
             }
 
             public Builder Append(bool value)
@@ -45,18 +42,11 @@ namespace Apache.Arrow
                 return NullableAppend(value);
             }
 
-            private Builder NullableAppend(bool? value)
+            public Builder NullableAppend(bool? value)
             {
-                if (Length % 8 == 0)
-                {
-                    // append a new byte to the buffer when needed
-                    ValueBuffer.Append(0);
-                    ValidityBuffer.Append(0);
-                }
-                BitUtility.SetBit(ValueBuffer.Span, Length, value.GetValueOrDefault());
-                BitUtility.SetBit(ValidityBuffer.Span, Length, value.HasValue);
-                NullCount += value.HasValue ? 0 : 1;
-                Length++;
+                // Note that we rely on the fact that null values are false in the value buffer.
+                ValueBuffer.Append(value ?? false);
+                ValidityBuffer.Append(value.HasValue);
                 return this;
             }
 
@@ -97,7 +87,7 @@ namespace Apache.Arrow
             public Builder Clear()
             {
                 ValueBuffer.Clear();
-                Length = 0;
+                ValidityBuffer.Clear();
                 return this;
             }
 
@@ -108,8 +98,8 @@ namespace Apache.Arrow
                     throw new ArgumentOutOfRangeException(nameof(capacity));
                 }
 
-                ValueBuffer.Reserve(BitUtility.ByteCount(capacity));
-                ValidityBuffer.Reserve(BitUtility.ByteCount(capacity));
+                ValueBuffer.Reserve(capacity);
+                ValidityBuffer.Reserve(capacity);
                 return this;
             }
 
@@ -120,33 +110,35 @@ namespace Apache.Arrow
                     throw new ArgumentOutOfRangeException(nameof(length));
                 }
 
-                ValueBuffer.Resize(BitUtility.ByteCount(length));
-                ValidityBuffer.Resize(BitUtility.ByteCount(length));
-                Length = length;
+                ValueBuffer.Resize(length);
+                ValidityBuffer.Resize(length);
                 return this;
             }
 
             public Builder Toggle(int index)
             {
                 CheckIndex(index);
-                BitUtility.ToggleBit(ValueBuffer.Span, index);
-                BitUtility.SetBit(ValidityBuffer.Span, index, true);
+
+                // If there is a null at this index, assume it was set to false in the value buffer, and so becomes
+                // true/non-null after toggling.
+                ValueBuffer.Toggle(index);
+                ValidityBuffer.Set(index);
                 return this;
             }
 
             public Builder Set(int index)
             {
                 CheckIndex(index);
-                BitUtility.SetBit(ValueBuffer.Span, index);
-                BitUtility.SetBit(ValidityBuffer.Span, index, true);
+                ValueBuffer.Set(index);
+                ValidityBuffer.Set(index);
                 return this;
             }
 
             public Builder Set(int index, bool value)
             {
                 CheckIndex(index);
-                BitUtility.SetBit(ValueBuffer.Span, index, value);
-                BitUtility.SetBit(ValidityBuffer.Span, index, true);
+                ValueBuffer.Set(index, value);
+                ValidityBuffer.Set(index);
                 return this;
             }
 
@@ -154,14 +146,8 @@ namespace Apache.Arrow
             {
                 CheckIndex(i);
                 CheckIndex(j);
-                bool bi = BitUtility.GetBit(ValueBuffer.Span, i);
-                bool biValid = BitUtility.GetBit(ValidityBuffer.Span, i);
-                bool bj = BitUtility.GetBit(ValueBuffer.Span, j);
-                bool bjValid = BitUtility.GetBit(ValidityBuffer.Span, j);
-                BitUtility.SetBit(ValueBuffer.Span, i, bj);
-                BitUtility.SetBit(ValidityBuffer.Span, i, bjValid);
-                BitUtility.SetBit(ValueBuffer.Span, j, bi);
-                BitUtility.SetBit(ValidityBuffer.Span, j, biValid);
+                ValueBuffer.Swap(i, j);
+                ValidityBuffer.Swap(i, j);
                 return this;
             }
 

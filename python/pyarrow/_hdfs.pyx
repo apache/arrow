@@ -23,7 +23,7 @@ from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_fs cimport *
 from pyarrow._fs cimport FileSystem
 
-from pyarrow.compat import frombytes, tobytes
+from pyarrow.lib import frombytes, tobytes
 from pyarrow.util import _stringify_path
 
 
@@ -52,9 +52,10 @@ cdef class HadoopFileSystem(FileSystem):
     cdef:
         CHadoopFileSystem* hdfs
 
-    def __init__(self, str host, int port=8020, str user=None,
+    def __init__(self, str host, int port=8020, *, str user=None,
                  int replication=3, int buffer_size=0,
-                 default_block_size=None, kerb_ticket=None):
+                 default_block_size=None, kerb_ticket=None,
+                 extra_conf=None):
         cdef:
             CHdfsOptions options
             shared_ptr[CHadoopFileSystem] wrapped
@@ -74,6 +75,9 @@ cdef class HadoopFileSystem(FileSystem):
         if kerb_ticket is not None:
             options.ConfigureKerberosTicketCachePath(
                 tobytes(_stringify_path(kerb_ticket)))
+        if extra_conf is not None:
+            for k, v in extra_conf.items():
+                options.ConfigureExtraConf(tobytes(k), tobytes(v))
 
         with nogil:
             wrapped = GetResultValue(CHadoopFileSystem.Make(options))
@@ -116,16 +120,22 @@ cdef class HadoopFileSystem(FileSystem):
         self.init(<shared_ptr[CFileSystem]> wrapped)
         return self
 
+    @classmethod
+    def _reconstruct(cls, kwargs):
+        return cls(**kwargs)
+
     def __reduce__(self):
         cdef CHdfsOptions opts = self.hdfs.options()
         return (
-            HadoopFileSystem, (
-                frombytes(opts.connection_config.host),
-                opts.connection_config.port,
-                frombytes(opts.connection_config.user),
-                opts.replication,
-                opts.buffer_size,
-                opts.default_block_size,
-                frombytes(opts.connection_config.kerb_ticket),
-            )
+            HadoopFileSystem._reconstruct, (dict(
+                host=frombytes(opts.connection_config.host),
+                port=opts.connection_config.port,
+                user=frombytes(opts.connection_config.user),
+                replication=opts.replication,
+                buffer_size=opts.buffer_size,
+                default_block_size=opts.default_block_size,
+                kerb_ticket=frombytes(opts.connection_config.kerb_ticket),
+                extra_conf={frombytes(k): frombytes(v)
+                            for k, v in opts.connection_config.extra_conf},
+            ),)
         )

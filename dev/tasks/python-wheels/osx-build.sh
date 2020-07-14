@@ -63,12 +63,14 @@ function build_wheel {
     mkdir build
     pushd build
     cmake -DARROW_BUILD_SHARED=ON \
+          -DARROW_BUILD_STATIC=OFF \
           -DARROW_BUILD_TESTS=OFF \
           -DARROW_DATASET=ON \
           -DARROW_DEPENDENCY_SOURCE=BUNDLED \
           -DARROW_HDFS=ON \
           -DARROW_FLIGHT=ON \
           -DARROW_GANDIVA=${BUILD_ARROW_GANDIVA} \
+          -DARROW_GRPC_USE_SHARED=OFF \
           -DARROW_JEMALLOC=ON \
           -DARROW_ORC=OFF \
           -DARROW_PARQUET=ON \
