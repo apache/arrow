@@ -23,8 +23,9 @@ from pyarrow.includes.libarrow cimport (CChunkedArray, CSchema, CStatus,
                                         CTable, CMemoryPool, CBuffer,
                                         CKeyValueMetadata,
                                         CRandomAccessFile, COutputStream,
-                                        TimeUnit)
+                                        TimeUnit, CRecordBatchReader)
 from pyarrow.lib cimport _Weakrefable
+                                        
 
 
 cdef extern from "parquet/api/schema.h" namespace "parquet::schema" nogil:
@@ -340,7 +341,7 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         ArrowReaderProperties()
         void set_read_dictionary(int column_index, c_bool read_dict)
         c_bool read_dictionary()
-        void set_batch_size()
+        void set_batch_size(int64_t batch_size)
         int64_t batch_size()
 
     ArrowReaderProperties default_arrow_reader_properties()
@@ -407,6 +408,12 @@ cdef extern from "parquet/arrow/reader.h" namespace "parquet::arrow" nogil:
                               const vector[int]& column_indices,
                               shared_ptr[CTable]* out)
 
+        CStatus GetRecordBatchReader(const vector[int]& row_group_indices,
+                                     const vector[int]& column_indices,
+                                     unique_ptr[CRecordBatchReader]* out)
+        CStatus GetRecordBatchReader(const vector[int]& row_group_indices,
+                                     unique_ptr[CRecordBatchReader]* out)
+
         CStatus ReadTable(shared_ptr[CTable]* out)
         CStatus ReadTable(const vector[int]& column_indices,
                           shared_ptr[CTable]* out)
@@ -417,6 +424,8 @@ cdef extern from "parquet/arrow/reader.h" namespace "parquet::arrow" nogil:
         const ParquetFileReader* parquet_reader()
 
         void set_use_threads(c_bool use_threads)
+
+        void set_batch_size(int64_t batch_size)
 
     cdef cppclass FileReaderBuilder:
         FileReaderBuilder()

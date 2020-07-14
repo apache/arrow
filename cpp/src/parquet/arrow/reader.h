@@ -218,6 +218,9 @@ class PARQUET_EXPORT FileReader {
   /// By default only one thread is used.
   virtual void set_use_threads(bool use_threads) = 0;
 
+  /// Set number of records to read per batch for the RecordBatchReader.
+  virtual void set_batch_size(int64_t batch_size) = 0;
+
   virtual const ArrowReaderProperties& properties() const = 0;
 
   virtual const SchemaManifest& manifest() const = 0;
