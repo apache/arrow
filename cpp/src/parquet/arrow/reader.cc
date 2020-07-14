@@ -853,7 +853,7 @@ Status FileReaderImpl::ReadRowGroups(const std::vector<int>& row_groups,
 
   ::arrow::ChunkedArrayVector columns(readers.size());
   auto ReadColumnFunc = [&](size_t i) {
-    return ReadColumn(i, row_groups, readers[i].get(), &columns[i]);
+    return ReadColumn(static_cast<int>(i), row_groups, readers[i].get(), &columns[i]);
   };
 
   if (reader_properties_.use_threads()) {
