@@ -30,10 +30,6 @@
 namespace arrow {
 namespace compute {
 
-using BinaryTypes =
-    ::testing::Types<BinaryType, LargeBinaryType, StringType, LargeStringType>;
-using StringTypes = ::testing::Types<StringType, LargeStringType>;
-
 // interesting utf8 characters for testing (lower case / upper case):
 //  * ῦ / Υ͂ (3 to 4 code units) (Note, we don't support this yet, utf8proc does not use
 //  SpecialCasing.txt)

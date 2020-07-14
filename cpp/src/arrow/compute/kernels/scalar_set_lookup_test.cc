@@ -253,7 +253,6 @@ TEST_F(TestIsInKernel, IsInBoolean) {
                                {});
 }
 
-using BinaryTypes = ::testing::Types<BinaryType, StringType>;
 TYPED_TEST_SUITE(TestIsInKernelBinary, BinaryTypes);
 
 TYPED_TEST(TestIsInKernelBinary, IsInBinary) {
@@ -596,7 +595,6 @@ TEST_F(TestMatchKernel, MatchBoolean) {
 template <typename Type>
 class TestMatchKernelBinary : public TestMatchKernel {};
 
-using BinaryTypes = ::testing::Types<BinaryType, StringType>;
 TYPED_TEST_SUITE(TestMatchKernelBinary, BinaryTypes);
 
 TYPED_TEST(TestMatchKernelBinary, MatchBinary) {
