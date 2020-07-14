@@ -2090,3 +2090,21 @@ def test_filter_mismatching_schema(tempdir):
     fragment = list(dataset.get_fragments())[0]
     with pytest.raises(TypeError):
         fragment.to_table(filter=ds.field("col") > 2, schema=schema)
+
+
+@pytest.mark.parquet
+@pytest.mark.pandas
+def test_dataset_project_only_partition_columns(tempdir):
+    # ARROW-8729
+    import pyarrow.parquet as pq
+
+    table = pa.table({'part': 'a a b b'.split(), 'col': list(range(4))})
+
+    path = str(tempdir / 'test_dataset')
+    pq.write_to_dataset(table, path, partition_cols=['part'])
+    dataset = ds.dataset(path, partitioning='hive')
+
+    all_cols = dataset.to_table(use_threads=False)
+    part_only = dataset.to_table(columns=['part'], use_threads=False)
+
+    assert all_cols.column('part').equals(part_only.column('part'))
