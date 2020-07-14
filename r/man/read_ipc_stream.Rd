@@ -33,8 +33,7 @@ and \code{\link[=read_feather]{read_feather()}} read those formats, respectively
 \code{read_arrow()}, a wrapper around \code{read_ipc_stream()} and \code{read_feather()},
 is deprecated. You should explicitly choose
 the function that will read the desired IPC format (stream or file) since
-a file or \code{InputStream} may contain either. \code{read_table()}, a wrapper around
-\code{read_arrow()}, is also deprecated
+a file or \code{InputStream} may contain either.
 }
 \seealso{
 \code{\link[=read_feather]{read_feather()}} for writing IPC files. \link{RecordBatchReader} for a

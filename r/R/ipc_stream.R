@@ -82,8 +82,7 @@ write_to_raw <- function(x, format = c("stream", "file")) {
 #' `read_arrow()`, a wrapper around `read_ipc_stream()` and `read_feather()`,
 #' is deprecated. You should explicitly choose
 #' the function that will read the desired IPC format (stream or file) since
-#' a file or `InputStream` may contain either. `read_table()`, a wrapper around
-#' `read_arrow()`, is also deprecated
+#' a file or `InputStream` may contain either. 
 #'
 #' @param file A character file name, `raw` vector, or an Arrow input stream.
 #' If a file name, a memory-mapped Arrow [InputStream] will be opened and

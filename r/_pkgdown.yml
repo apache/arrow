@@ -101,6 +101,7 @@ reference:
   - record_batch
   - RecordBatch
   - Table
+  - Scalar
   - read_message
 - title: Arrow data types and schema
   contents:
@@ -130,7 +131,6 @@ reference:
   - default_memory_pool
   - FileSystem
   - FileInfo
-  - FileStats
   - FileSelector
 - title: Configuration
   contents:
