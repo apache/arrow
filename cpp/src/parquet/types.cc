@@ -42,12 +42,8 @@ bool IsCodecSupported(Compression::type codec) {
     case Compression::GZIP:
     case Compression::BROTLI:
     case Compression::ZSTD:
-      return true;
-    case Compression::LZ4_FRAME:
     case Compression::LZ4:
-      // TODO: Re-enable after PARQUET-1878 is complete.
-      // Temporarily disabled because of ARROW-9424.
-      return false;
+      return true;
     default:
       return false;
   }
