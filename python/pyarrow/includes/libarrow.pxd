@@ -766,6 +766,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         vector[c_string] ColumnNames()
         CResult[shared_ptr[CTable]] RenameColumns(const vector[c_string]&)
+        CResult[shared_ptr[CTable]] SelectColumns(const vector[int]&)
 
         CResult[shared_ptr[CTable]] Flatten(CMemoryPool* pool)
 
