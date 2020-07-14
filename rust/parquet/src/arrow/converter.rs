@@ -41,8 +41,8 @@ use crate::data_type::{
     Int32Type as ParquetInt32Type, Int64Type as ParquetInt64Type,
 };
 use arrow::datatypes::{
-    Float32Type, Float64Type, Int16Type, Int32Type, Int64Type, Int8Type,
-    TimestampMicrosecondType, TimestampMillisecondType, UInt16Type, UInt32Type,
+    Date32Type, Float32Type, Float64Type, Int16Type, Int32Type, Int64Type,
+    Int8Type, TimestampMicrosecondType, TimestampMillisecondType, UInt16Type, UInt32Type,
     UInt64Type, UInt8Type,
 };
 
@@ -221,6 +221,7 @@ pub type UInt16Converter = CastConverter<ParquetInt32Type, Int32Type, UInt16Type
 pub type Int32Converter = CastConverter<ParquetInt32Type, Int32Type, Int32Type>;
 pub type UInt32Converter = CastConverter<ParquetInt32Type, UInt32Type, UInt32Type>;
 pub type Int64Converter = CastConverter<ParquetInt64Type, Int64Type, Int64Type>;
+pub type Date32Converter = CastConverter<ParquetInt32Type, Date32Type, Date32Type>;
 pub type TimestampMillisecondConverter =
     CastConverter<ParquetInt64Type, TimestampMillisecondType, TimestampMillisecondType>;
 pub type TimestampMicrosecondConverter =
