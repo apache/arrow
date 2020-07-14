@@ -41,6 +41,10 @@
 #' - `use_legacy_format` logical: write data formatted so that Arrow libraries
 #'   versions 0.14 and lower can read it? Default is `FALSE`. You can also
 #'   enable this by setting the environment variable `ARROW_PRE_0_15_IPC_FORMAT=1`.
+#' - `metadata_version`: A string like "V5" or the equivalent integer indicating
+#'   the Arrow IPC MetadataVersion. Default (NULL) will use the latest version,
+#'   unless the environment variable `ARROW_PRE_1_0_METADATA_VERSION=1`, in
+#'   which case it will be V4.
 #'
 #' @section Methods:
 #'
@@ -115,7 +119,10 @@ RecordBatchWriter <- R6Class("RecordBatchWriter", inherit = ArrowObject,
 #' @rdname RecordBatchWriter
 #' @export
 RecordBatchStreamWriter <- R6Class("RecordBatchStreamWriter", inherit = RecordBatchWriter)
-RecordBatchStreamWriter$create <- function(sink, schema, use_legacy_format = NULL) {
+RecordBatchStreamWriter$create <- function(sink,
+                                           schema,
+                                           use_legacy_format = NULL,
+                                           metadata_version = NULL) {
   if (is.string(sink)) {
     stop(
       "RecordBatchStreamWriter$create() requires an Arrow InputStream. ",
@@ -127,7 +134,14 @@ RecordBatchStreamWriter$create <- function(sink, schema, use_legacy_format = NUL
   assert_is(sink, "OutputStream")
   assert_is(schema, "Schema")
 
-  shared_ptr(RecordBatchStreamWriter, ipc___RecordBatchStreamWriter__Open(sink, schema, use_legacy_format))
+  shared_ptr(RecordBatchStreamWriter,
+    ipc___RecordBatchStreamWriter__Open(
+      sink,
+      schema,
+      isTRUE(use_legacy_format),
+      get_ipc_metadata_version(metadata_version)
+    )
+  )
 }
 
 #' @usage NULL
@@ -135,7 +149,10 @@ RecordBatchStreamWriter$create <- function(sink, schema, use_legacy_format = NUL
 #' @rdname RecordBatchWriter
 #' @export
 RecordBatchFileWriter <- R6Class("RecordBatchFileWriter", inherit = RecordBatchStreamWriter)
-RecordBatchFileWriter$create <- function(sink, schema, use_legacy_format = NULL) {
+RecordBatchFileWriter$create <- function(sink,
+                                         schema,
+                                         use_legacy_format = NULL,
+                                         metadata_version = NULL) {
   if (is.string(sink)) {
     stop(
       "RecordBatchFileWriter$create() requires an Arrow InputStream. ",
@@ -147,5 +164,35 @@ RecordBatchFileWriter$create <- function(sink, schema, use_legacy_format = NULL)
   assert_is(sink, "OutputStream")
   assert_is(schema, "Schema")
 
-  shared_ptr(RecordBatchFileWriter, ipc___RecordBatchFileWriter__Open(sink, schema, use_legacy_format))
+  shared_ptr(RecordBatchFileWriter,
+    ipc___RecordBatchFileWriter__Open(
+      sink,
+      schema,
+      isTRUE(use_legacy_format),
+      get_ipc_metadata_version(metadata_version)
+    )
+  )
+}
+
+get_ipc_metadata_version <- function(x) {
+  input <- x
+  if (is_integerish(x)) {
+    # 4 means "V4", which actually happens to be 3L
+    x <- paste0("V", x)
+  } else if (is.null(x)) {
+    if (identical(Sys.getenv("ARROW_PRE_1_0_METADATA_VERSION"), "1") ||
+        identical(Sys.getenv("ARROW_PRE_0_15_IPC_FORMAT"), "1")) {
+      # PRE_1_0 is specific for this;
+      # if you already set PRE_0_15, PRE_1_0 should be implied
+      x <- "V4"
+    } else {
+      # Take the latest
+      x <- length(MetadataVersion)
+    }
+  }
+  out <- MetadataVersion[[x]]
+  if (is.null(out)) {
+    stop(deparse(input), " is not a valid IPC MetadataVersion", call. = FALSE)
+  }
+  out
 }

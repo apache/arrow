@@ -20,6 +20,8 @@
 #if defined(ARROW_R_WITH_ARROW)
 #include <arrow/ipc/writer.h>
 
+RCPP_EXPOSED_ENUM_NODECL(arrow::ipc::MetadataVersion)
+
 // [[arrow::export]]
 void ipc___RecordBatchWriter__WriteRecordBatch(
     const std::shared_ptr<arrow::ipc::RecordBatchWriter>& batch_writer,
@@ -43,18 +45,22 @@ void ipc___RecordBatchWriter__Close(
 // [[arrow::export]]
 std::shared_ptr<arrow::ipc::RecordBatchWriter> ipc___RecordBatchFileWriter__Open(
     const std::shared_ptr<arrow::io::OutputStream>& stream,
-    const std::shared_ptr<arrow::Schema>& schema, bool use_legacy_format) {
+    const std::shared_ptr<arrow::Schema>& schema, bool use_legacy_format,
+    arrow::ipc::MetadataVersion metadata_version) {
   auto options = arrow::ipc::IpcWriteOptions::Defaults();
   options.write_legacy_ipc_format = use_legacy_format;
+  options.metadata_version = metadata_version;
   return ValueOrStop(arrow::ipc::NewFileWriter(stream.get(), schema, options));
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::ipc::RecordBatchWriter> ipc___RecordBatchStreamWriter__Open(
     const std::shared_ptr<arrow::io::OutputStream>& stream,
-    const std::shared_ptr<arrow::Schema>& schema, bool use_legacy_format) {
+    const std::shared_ptr<arrow::Schema>& schema, bool use_legacy_format,
+    arrow::ipc::MetadataVersion metadata_version) {
   auto options = arrow::ipc::IpcWriteOptions::Defaults();
   options.write_legacy_ipc_format = use_legacy_format;
+  options.metadata_version = metadata_version;
   return ValueOrStop(NewStreamWriter(stream.get(), schema, options));
 }
 
