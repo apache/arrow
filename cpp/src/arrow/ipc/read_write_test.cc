@@ -316,6 +316,21 @@ TEST_F(TestSchemaMetadata, KeyValueMetadata) {
   CheckSchemaRoundtrip(schema);
 }
 
+TEST_F(TestSchemaMetadata, MetadataVersionForwardCompatibility) {
+  // ARROW-9399
+  std::string root;
+  ASSERT_OK(GetTestResourceRoot(&root));
+
+  // schema_v6.arrow with currently non-existent MetadataVersion::V6
+  std::stringstream schema_v6_path;
+  schema_v6_path << root << "/forward-compatibility/schema_v6.arrow";
+
+  ASSERT_OK_AND_ASSIGN(auto schema_v6_file, io::ReadableFile::Open(schema_v6_path.str()));
+
+  DictionaryMemo placeholder_memo;
+  ASSERT_RAISES(Invalid, ReadSchema(schema_v6_file.get(), &placeholder_memo));
+}
+
 const std::vector<test::MakeRecordBatch*> kBatchCases = {
     &MakeIntRecordBatch,
     &MakeListRecordBatch,
@@ -453,6 +468,11 @@ class IpcTestFixture : public io::MemoryMapFixture, public ExtensionTypesMixin {
   std::shared_ptr<io::MemoryMappedFile> mmap_;
   IpcWriteOptions options_;
 };
+
+TEST(MetadataVersion, ForwardsCompatCheck) {
+  // Verify UBSAN is ok with casting out of range metdata version.
+  EXPECT_LT(flatbuf::MetadataVersion::MAX, static_cast<flatbuf::MetadataVersion>(72));
+}
 
 class TestWriteRecordBatch : public ::testing::Test, public IpcTestFixture {
  public:

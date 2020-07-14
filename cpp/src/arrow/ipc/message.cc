@@ -58,6 +58,11 @@ class Message::MessageImpl {
       return Status::Invalid("Old metadata version not supported");
     }
 
+    if (message_->version() > flatbuf::MetadataVersion::MAX) {
+      return Status::Invalid("Unsupported future MetadataVersion: ",
+                             static_cast<int16_t>(message_->version()));
+    }
+
     if (message_->custom_metadata() != nullptr) {
       // Deserialize from Flatbuffers if first time called
       std::shared_ptr<KeyValueMetadata> md;

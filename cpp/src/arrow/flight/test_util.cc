@@ -39,6 +39,7 @@
 
 #include "arrow/ipc/test_common.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/util.h"
 #include "arrow/util/logging.h"
 
 #include "arrow/flight/api.h"
@@ -683,16 +684,6 @@ Status TestClientBasicAuthHandler::Authenticate(ClientAuthSender* outgoing,
 
 Status TestClientBasicAuthHandler::GetToken(std::string* token) {
   *token = token_;
-  return Status::OK();
-}
-
-Status GetTestResourceRoot(std::string* out) {
-  const char* c_root = std::getenv("ARROW_TEST_DATA");
-  if (!c_root) {
-    return Status::IOError(
-        "Test resources not found, set ARROW_TEST_DATA to <repo root>/testing/data");
-  }
-  *out = std::string(c_root);
   return Status::OK();
 }
 
