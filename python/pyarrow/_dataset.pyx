@@ -1814,10 +1814,10 @@ cdef class ScanTask:
         -------
         record_batches : iterator of RecordBatch
         """
-        cdef shared_ptr[CRecordBatch] record_batch;
+        cdef shared_ptr[CRecordBatch] record_batch
         with nogil:
             for maybe_batch in GetResultValue(self.task.Execute()):
-                record_batch = GetResultValue(move(maybe_batch));
+                record_batch = GetResultValue(move(maybe_batch))
                 with gil:
                     yield pyarrow_wrap_batch(record_batch)
 
