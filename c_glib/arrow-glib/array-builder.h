@@ -925,10 +925,13 @@ garrow_string_dictionary_array_builder_append_string_array(GArrowStringDictionar
 GARROW_AVAILABLE_IN_1_0
 gint64
 garrow_string_dictionary_array_builder_get_dictionary_length(GArrowStringDictionaryArrayBuilder *builder);
-
 // TODO: append_indices
 // TODO: finish_delta
-// TODO: insert_memo_values
+GARROW_AVAILABLE_IN_1_0
+gboolean
+garrow_string_dictionary_array_builder_insert_memo_values(GArrowStringDictionaryArrayBuilder *builder,
+                                                          GArrowStringArray *values,
+                                                          GError **error);
 // TODO: reset_full
 
 #define GARROW_TYPE_LIST_ARRAY_BUILDER (garrow_list_array_builder_get_type())

@@ -92,7 +92,6 @@ class TestDictinaryArrayBuilder < Test::Unit::TestCase
 
     sub_test_case("constructed with memo values") do
       def setup
-        omit("TODO: insert_memo_values")
         super
 
         @dictionary = %w(qux foo bar baz)

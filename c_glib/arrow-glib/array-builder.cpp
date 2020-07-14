@@ -4036,6 +4036,33 @@ gint64 garrow_string_dictionary_array_builder_get_dictionary_length(GArrowString
   return arrow_builder->dictionary_length();
 }
 
+/**
+ * garrow_string_dictionary_array_builder_insert_memo_values:
+ * @builder: A #GArrowStringDictionaryArrayBuilder.
+ * @array: A #GArrowStringArray.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 1.0
+ */
+gboolean
+garrow_string_dictionary_array_builder_insert_memo_values(GArrowStringDictionaryArrayBuilder *builder,
+                                                          GArrowStringArray *values,
+                                                          GError **error)
+{
+  auto arrow_builder =
+    static_cast<arrow::StringDictionaryBuilder *>(
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+  auto arrow_array = garrow_array_get_raw<arrow::StringType>(GARROW_ARRAY(values));
+
+  auto status = arrow_builder->InsertMemoValues(*arrow_array);
+
+  return garrow_error_check(error,
+                            status,
+                            "[string-dictionary-array-builder][insert-memo-values]");
+}
+
 
 typedef struct GArrowListArrayBuilderPrivate_ {
   GArrowArrayBuilder *value_builder;
