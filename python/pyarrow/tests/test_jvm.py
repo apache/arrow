@@ -73,6 +73,17 @@ def test_jvm_buffer(root_allocator):
     assert jvm_buffer.refCnt() == orig_refcnt
 
 
+def test_jvm_buffer_released(root_allocator):
+    import jpype.imports  # noqa
+    from java.lang import IllegalArgumentException
+
+    jvm_buffer = root_allocator.buffer(8)
+    jvm_buffer.release()
+
+    with pytest.raises(IllegalArgumentException):
+        pa_jvm.jvm_buffer(jvm_buffer)
+
+
 def _jvm_field(jvm_spec):
     om = jpype.JClass('com.fasterxml.jackson.databind.ObjectMapper')()
     pojo_Field = jpype.JClass('org.apache.arrow.vector.types.pojo.Field')

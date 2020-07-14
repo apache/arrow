@@ -33,13 +33,19 @@ class _JvmBufferNanny:
     An object that keeps a org.apache.arrow.memory.ArrowBuf's underlying
     memory alive.
     """
+    ref_manager = None
 
     def __init__(self, jvm_buf):
-        self.jvm_buf = jvm_buf
-        self.jvm_buf.retain()
+        ref_manager = jvm_buf.getReferenceManager()
+        # Will raise a java.lang.IllegalArgumentException if the buffer
+        # is already freed.  It seems that exception cannot easily be
+        # caught...
+        ref_manager.retain()
+        self.ref_manager = ref_manager
 
     def __del__(self):
-        self.jvm_buf.release()
+        if self.ref_manager is not None:
+            self.ref_manager.release()
 
 
 def jvm_buffer(jvm_buf):
@@ -57,9 +63,10 @@ def jvm_buffer(jvm_buf):
     pyarrow.Buffer
         Python Buffer that references the JVM memory.
     """
+    nanny = _JvmBufferNanny(jvm_buf)
     address = jvm_buf.memoryAddress()
     size = jvm_buf.capacity()
-    return pa.foreign_buffer(address, size, base=_JvmBufferNanny(jvm_buf))
+    return pa.foreign_buffer(address, size, base=nanny)
 
 
 def _from_jvm_int_type(jvm_type):
