@@ -297,6 +297,6 @@ def fill_null(values, fill_value):
     if not isinstance(fill_value, pa.Scalar):
         fill_value = pa.scalar(fill_value, type=values.type)
     elif values.type != fill_value.type:
-        fill_value = fill_value.cast(values.type)
+        fill_value = pa.scalar(fill_value.as_py(), type=values.type)
 
     return call_function("fill_null", [values, fill_value])

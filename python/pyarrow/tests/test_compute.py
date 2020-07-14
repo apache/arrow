@@ -511,6 +511,11 @@ def test_fill_null_array(arrow_type):
     result = arr.fill_null(5)
     assert result.equals(expected)
 
+    # ARROW-9451: Unsigned integers allow this for some reason
+    if not pa.types.is_unsigned_integer(arr.type):
+        with pytest.raises((ValueError, TypeError)):
+            arr.fill_null('5')
+
     result = arr.fill_null(pa.scalar(5, type='int8'))
     assert result.equals(expected)
 
