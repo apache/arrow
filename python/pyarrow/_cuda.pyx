@@ -24,7 +24,7 @@ from pyarrow.util import get_contiguous_span
 cimport cpython as cp
 
 
-cdef class Context:
+cdef class Context(_Weakrefable):
     """
     CUDA driver context.
     """
@@ -327,7 +327,7 @@ cdef class Context:
                              ' `%s` object' % (type(obj)))
 
 
-cdef class IpcMemHandle:
+cdef class IpcMemHandle(_Weakrefable):
     """A serializable container for a CUDA IPC handle.
     """
     cdef void init(self, shared_ptr[CCudaIpcMemHandle]& h):

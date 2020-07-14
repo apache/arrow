@@ -30,7 +30,7 @@ cpdef enum FileType:
     Directory = <int8_t> CFileType_Directory
 
 
-cdef class FileInfo:
+cdef class FileInfo(_Weakrefable):
     cdef:
         CFileInfo info
 
@@ -43,7 +43,7 @@ cdef class FileInfo:
     cdef CFileInfo unwrap_safe(obj)
 
 
-cdef class FileSelector:
+cdef class FileSelector(_Weakrefable):
     cdef:
         CFileSelector selector
 
@@ -53,7 +53,7 @@ cdef class FileSelector:
     cdef inline CFileSelector unwrap(self) nogil
 
 
-cdef class FileSystem:
+cdef class FileSystem(_Weakrefable):
     cdef:
         shared_ptr[CFileSystem] wrapped
         CFileSystem* fs

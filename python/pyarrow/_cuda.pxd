@@ -23,7 +23,7 @@ from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_cuda cimport *
 
 
-cdef class Context:
+cdef class Context(_Weakrefable):
     cdef:
         shared_ptr[CCudaContext] context
         int device_number
@@ -31,7 +31,7 @@ cdef class Context:
     cdef void init(self, const shared_ptr[CCudaContext]& ctx)
 
 
-cdef class IpcMemHandle:
+cdef class IpcMemHandle(_Weakrefable):
     cdef:
         shared_ptr[CCudaIpcMemHandle] handle
 

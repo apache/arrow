@@ -43,7 +43,7 @@ cdef unsigned char _single_char(s) except 0:
     return <unsigned char> val
 
 
-cdef class ReadOptions:
+cdef class ReadOptions(_Weakrefable):
     """
     Options for reading CSV files.
 
@@ -159,7 +159,7 @@ cdef class ReadOptions:
         self.options.autogenerate_column_names = value
 
 
-cdef class ParseOptions:
+cdef class ParseOptions(_Weakrefable):
     """
     Options for parsing CSV files.
 
@@ -318,7 +318,7 @@ cdef class ParseOptions:
          self.ignore_empty_lines) = state
 
 
-cdef class _ISO8601:
+cdef class _ISO8601(_Weakrefable):
     """
     A special object indicating ISO-8601 parsing.
     """
@@ -334,7 +334,7 @@ cdef class _ISO8601:
 ISO8601 = _ISO8601()
 
 
-cdef class ConvertOptions:
+cdef class ConvertOptions(_Weakrefable):
     """
     Options for converting CSV data.
 

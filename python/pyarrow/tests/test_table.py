@@ -19,6 +19,7 @@ from collections import OrderedDict
 from collections.abc import Iterable
 import pickle
 import sys
+import weakref
 
 import numpy as np
 import pytest
@@ -49,6 +50,11 @@ def test_chunked_array_basics():
     assert data.nbytes == sum(c.nbytes for c in data.iterchunks())
     assert sys.getsizeof(data) >= object.__sizeof__(data) + data.nbytes
     data.validate()
+
+    wr = weakref.ref(data)
+    assert wr() is not None
+    del data
+    assert wr() is None
 
 
 def test_chunked_array_mismatch_types():
@@ -337,6 +343,11 @@ c0: int16
 c1: int32
 -- schema metadata --
 foo: 'bar'"""
+
+    wr = weakref.ref(batch)
+    assert wr() is not None
+    del batch
+    assert wr() is None
 
 
 def test_recordbatch_equals():
@@ -643,6 +654,11 @@ def test_table_basics():
     assert table == pa.table(columns, names=table.column_names)
     assert table != pa.table(columns[1:], names=table.column_names[1:])
     assert table != columns
+
+    wr = weakref.ref(table)
+    assert wr() is not None
+    del table
+    assert wr() is None
 
 
 def test_table_from_arrays_preserves_column_metadata():

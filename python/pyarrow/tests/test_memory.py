@@ -16,6 +16,7 @@
 # under the License.
 
 import contextlib
+import weakref
 
 import pyarrow as pa
 
@@ -61,6 +62,10 @@ def test_default_allocated_bytes():
 def test_proxy_memory_pool():
     pool = pa.proxy_memory_pool(pa.default_memory_pool())
     check_allocated_bytes(pool)
+    wr = weakref.ref(pool)
+    assert wr() is not None
+    del pool
+    assert wr() is None
 
 
 def test_logging_memory_pool(capfd):

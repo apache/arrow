@@ -18,6 +18,7 @@
 from collections import OrderedDict
 import pickle
 import sys
+import weakref
 
 from distutils.version import LooseVersion
 
@@ -242,6 +243,19 @@ baz: list<item: int8>
 
     with pytest.raises(TypeError):
         pa.schema([None])
+
+
+def test_schema_weakref():
+    fields = [
+        pa.field('foo', pa.int32()),
+        pa.field('bar', pa.string()),
+        pa.field('baz', pa.list_(pa.int8()))
+    ]
+    schema = pa.schema(fields)
+    wr = weakref.ref(schema)
+    assert wr() is not None
+    del schema
+    assert wr() is None
 
 
 def test_schema_to_string_with_metadata():

@@ -52,7 +52,7 @@ def write_feather(Table table, object dest, compression=None,
                                   properties))
 
 
-cdef class FeatherReader:
+cdef class FeatherReader(_Weakrefable):
     cdef:
         shared_ptr[CFeatherReader] reader
 

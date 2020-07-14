@@ -32,7 +32,7 @@ from pyarrow.lib cimport (check_status,
                           get_reader)
 
 
-cdef class ORCReader:
+cdef class ORCReader(_Weakrefable):
     cdef:
         object source
         CMemoryPool* allocator

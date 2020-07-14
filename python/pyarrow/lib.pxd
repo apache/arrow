@@ -31,17 +31,21 @@ cdef extern from "Python.h":
 cdef int check_status(const CStatus& status) nogil except -1
 
 
-cdef class IpcWriteOptions:
+cdef class _Weakrefable:
+    cdef object __weakref__
+
+
+cdef class IpcWriteOptions(_Weakrefable):
     cdef:
         CIpcWriteOptions c_options
 
 
-cdef class Message:
+cdef class Message(_Weakrefable):
     cdef:
         unique_ptr[CMessage] message
 
 
-cdef class MemoryPool:
+cdef class MemoryPool(_Weakrefable):
     cdef:
         CMemoryPool* pool
 
@@ -51,12 +55,11 @@ cdef class MemoryPool:
 cdef CMemoryPool* maybe_unbox_memory_pool(MemoryPool memory_pool)
 
 
-cdef class DataType:
+cdef class DataType(_Weakrefable):
     cdef:
         shared_ptr[CDataType] sp_type
         CDataType* type
         bytes pep3118_format
-        object __weakref__
 
     cdef void init(self, const shared_ptr[CDataType]& type) except *
     cdef Field field(self, int i)
@@ -89,7 +92,7 @@ cdef class StructType(DataType):
     cdef Field field_by_name(self, name)
 
 
-cdef class DictionaryMemo:
+cdef class DictionaryMemo(_Weakrefable):
     cdef:
         # Even though the CDictionaryMemo instance is private, we allocate
         # it on the heap so as to avoid C++ ABI issues with Python wheels.
@@ -146,7 +149,7 @@ cdef class PyExtensionType(ExtensionType):
     pass
 
 
-cdef class _Metadata:
+cdef class _Metadata(_Weakrefable):
     # required because KeyValueMetadata also extends collections.abc.Mapping
     # and the first parent class must be an extension type
     pass
@@ -164,7 +167,7 @@ cdef class KeyValueMetadata(_Metadata):
     cdef inline shared_ptr[const CKeyValueMetadata] unwrap(self) nogil
 
 
-cdef class Field:
+cdef class Field(_Weakrefable):
     cdef:
         shared_ptr[CField] sp_field
         CField* field
@@ -175,7 +178,7 @@ cdef class Field:
     cdef void init(self, const shared_ptr[CField]& field)
 
 
-cdef class Schema:
+cdef class Schema(_Weakrefable):
     cdef:
         shared_ptr[CSchema] sp_schema
         CSchema* schema
@@ -184,7 +187,7 @@ cdef class Schema:
     cdef void init_schema(self, const shared_ptr[CSchema]& schema)
 
 
-cdef class Scalar:
+cdef class Scalar(_Weakrefable):
     cdef:
         shared_ptr[CScalar] wrapped
 
@@ -196,7 +199,7 @@ cdef class Scalar:
     cdef inline shared_ptr[CScalar] unwrap(self) nogil
 
 
-cdef class _PandasConvertible:
+cdef class _PandasConvertible(_Weakrefable):
     pass
 
 
@@ -204,7 +207,6 @@ cdef class Array(_PandasConvertible):
     cdef:
         shared_ptr[CArray] sp_array
         CArray* ap
-        object __weakref__
 
     cdef readonly:
         DataType type
@@ -216,7 +218,7 @@ cdef class Array(_PandasConvertible):
     cdef int64_t length(self)
 
 
-cdef class Tensor:
+cdef class Tensor(_Weakrefable):
     cdef:
         shared_ptr[CTensor] sp_tensor
         CTensor* tp
@@ -227,7 +229,7 @@ cdef class Tensor:
     cdef void init(self, const shared_ptr[CTensor]& sp_tensor)
 
 
-cdef class SparseCSRMatrix:
+cdef class SparseCSRMatrix(_Weakrefable):
     cdef:
         shared_ptr[CSparseCSRMatrix] sp_sparse_tensor
         CSparseCSRMatrix* stp
@@ -238,7 +240,7 @@ cdef class SparseCSRMatrix:
     cdef void init(self, const shared_ptr[CSparseCSRMatrix]& sp_sparse_tensor)
 
 
-cdef class SparseCSCMatrix:
+cdef class SparseCSCMatrix(_Weakrefable):
     cdef:
         shared_ptr[CSparseCSCMatrix] sp_sparse_tensor
         CSparseCSCMatrix* stp
@@ -249,7 +251,7 @@ cdef class SparseCSCMatrix:
     cdef void init(self, const shared_ptr[CSparseCSCMatrix]& sp_sparse_tensor)
 
 
-cdef class SparseCOOTensor:
+cdef class SparseCOOTensor(_Weakrefable):
     cdef:
         shared_ptr[CSparseCOOTensor] sp_sparse_tensor
         CSparseCOOTensor* stp
@@ -260,7 +262,7 @@ cdef class SparseCOOTensor:
     cdef void init(self, const shared_ptr[CSparseCOOTensor]& sp_sparse_tensor)
 
 
-cdef class SparseCSFTensor:
+cdef class SparseCSFTensor(_Weakrefable):
     cdef:
         shared_ptr[CSparseCSFTensor] sp_sparse_tensor
         CSparseCSFTensor* stp
@@ -422,7 +424,7 @@ cdef class RecordBatch(_PandasConvertible):
     cdef void init(self, const shared_ptr[CRecordBatch]& table)
 
 
-cdef class Buffer:
+cdef class Buffer(_Weakrefable):
     cdef:
         shared_ptr[CBuffer] buffer
         Py_ssize_t shape[1]
@@ -437,7 +439,7 @@ cdef class ResizableBuffer(Buffer):
     cdef void init_rz(self, const shared_ptr[CResizableBuffer]& buffer)
 
 
-cdef class NativeFile:
+cdef class NativeFile(_Weakrefable):
     cdef:
         shared_ptr[CInputStream] input_stream
         shared_ptr[CRandomAccessFile] random_access
@@ -446,7 +448,6 @@ cdef class NativeFile:
         bint is_writable
         bint is_seekable
         bint own_file
-        object __weakref__
 
     # By implementing these "virtual" functions (all functions in Cython
     # extension classes are technically virtual in the C++ sense) we can expose
@@ -477,17 +478,17 @@ cdef class CompressedOutputStream(NativeFile):
     pass
 
 
-cdef class _CRecordBatchWriter:
+cdef class _CRecordBatchWriter(_Weakrefable):
     cdef:
         shared_ptr[CRecordBatchWriter] writer
 
 
-cdef class _CRecordBatchReader:
+cdef class _CRecordBatchReader(_Weakrefable):
     cdef:
         shared_ptr[CRecordBatchReader] reader
 
 
-cdef class Codec:
+cdef class Codec(_Weakrefable):
     cdef:
         unique_ptr[CCodec] wrapped
 

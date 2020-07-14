@@ -22,6 +22,7 @@ import pickle
 import pytest
 import hypothesis as h
 import hypothesis.strategies as st
+import weakref
 
 import numpy as np
 import pyarrow as pa
@@ -499,6 +500,18 @@ def test_types_picklable():
         assert pickle.loads(data) == ty
 
 
+def test_types_weakref():
+    for ty in get_many_types():
+        wr = weakref.ref(ty)
+        assert wr() is not None
+        # Note that ty may be a singleton and therefore outlive this loop
+
+    wr = weakref.ref(pa.int32())
+    assert wr() is not None  # singleton
+    wr = weakref.ref(pa.list_(pa.int32()))
+    assert wr() is None  # not a singleton
+
+
 def test_fields_hashable():
     in_dict = {}
     fields = [pa.field('a', pa.int32()),
@@ -511,6 +524,14 @@ def test_fields_hashable():
     assert len(in_dict) == len(fields)
     for i, field in enumerate(fields):
         assert in_dict[field] == i
+
+
+def test_fields_weakrefable():
+    field = pa.field('a', pa.int32())
+    wr = weakref.ref(field)
+    assert wr() is not None
+    del field
+    assert wr() is None
 
 
 @pytest.mark.parametrize('t,check_func', [

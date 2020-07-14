@@ -16,7 +16,7 @@
 # under the License.
 
 
-cdef class Tensor:
+cdef class Tensor(_Weakrefable):
     """
     A n-dimensional array a.k.a Tensor.
     """
@@ -129,7 +129,7 @@ strides: {0.strides}""".format(self)
 ctypedef CSparseCOOIndex* _CSparseCOOIndexPtr
 
 
-cdef class SparseCOOTensor:
+cdef class SparseCOOTensor(_Weakrefable):
     """
     A sparse COO tensor.
     """
@@ -371,7 +371,7 @@ shape: {0.shape}""".format(self)
             return csi.is_canonical()
         return True
 
-cdef class SparseCSRMatrix:
+cdef class SparseCSRMatrix(_Weakrefable):
     """
     A sparse CSR matrix.
     """
@@ -554,7 +554,7 @@ shape: {0.shape}""".format(self)
     def non_zero_length(self):
         return self.stp.non_zero_length()
 
-cdef class SparseCSCMatrix:
+cdef class SparseCSCMatrix(_Weakrefable):
     """
     A sparse CSC matrix.
     """
@@ -739,7 +739,7 @@ shape: {0.shape}""".format(self)
         return self.stp.non_zero_length()
 
 
-cdef class SparseCSFTensor:
+cdef class SparseCSFTensor(_Weakrefable):
     """
     A sparse CSF tensor.
     """

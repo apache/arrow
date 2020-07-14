@@ -43,7 +43,7 @@ class DeserializationCallbackError(ArrowSerializationError):
         self.type_id = type_id
 
 
-cdef class SerializationContext:
+cdef class SerializationContext(_Weakrefable):
     cdef:
         object type_to_type_id
         object whitelisted_types
@@ -231,7 +231,7 @@ def _get_default_context():
     return _default_serialization_context
 
 
-cdef class SerializedPyObject:
+cdef class SerializedPyObject(_Weakrefable):
     """
     Arrow-serialized representation of Python object.
     """

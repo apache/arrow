@@ -96,7 +96,7 @@ cdef wrap_scalar_aggregate_kernel(const CScalarAggregateKernel* c_kernel):
     return kernel
 
 
-cdef class Kernel:
+cdef class Kernel(_Weakrefable):
 
     def __init__(self):
         raise TypeError("Do not call {}'s constructor directly"
@@ -139,7 +139,7 @@ cdef class ScalarAggregateKernel(Kernel):
                 .format(frombytes(self.kernel.signature.get().ToString())))
 
 
-cdef class Function:
+cdef class Function(_Weakrefable):
     cdef:
         shared_ptr[CFunction] sp_func
         CFunction* base_func
@@ -264,7 +264,7 @@ cdef _pack_compute_args(object values, vector[CDatum]* out):
                             "for compute function".format(type(val)))
 
 
-cdef class FunctionRegistry:
+cdef class FunctionRegistry(_Weakrefable):
     cdef:
         CFunctionRegistry* registry
 
@@ -296,7 +296,7 @@ def call_function(name, args, options=None):
     return func.call(args, options=options)
 
 
-cdef class FunctionOptions:
+cdef class FunctionOptions(_Weakrefable):
 
     cdef const CFunctionOptions* get_options(self) except NULL:
         raise NotImplementedError("Unimplemented base options")
