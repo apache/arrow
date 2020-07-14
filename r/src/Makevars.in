@@ -22,8 +22,3 @@ PKG_CPPFLAGS=@cflags@
 # PKG_CXXFLAGS=$(CXX_VISIBILITY)
 CXX_STD=CXX11
 PKG_LIBS=@libs@
-
-strippedLib: $(SHLIB)
-	if test -e "/usr/bin/strip"; then /usr/bin/strip --strip-debug $(SHLIB); fi
-
-.phony: strippedLib
