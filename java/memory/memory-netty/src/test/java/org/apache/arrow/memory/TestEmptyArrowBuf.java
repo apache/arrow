@@ -44,6 +44,14 @@ public class TestEmptyArrowBuf {
   }
 
   @Test
+  public void testZeroBuf() {
+    // Exercise the historical log inside the empty ArrowBuf. This is initialized statically, and there is a circular
+    // dependency between ArrowBuf and BaseAllocator, so if the initialization happens in the wrong order, the
+    // historical log will be null even though BaseAllocator.DEBUG is true.
+    allocator.getEmpty().print(new StringBuilder(), 0, BaseAllocator.Verbosity.LOG_WITH_STACKTRACE);
+  }
+
+  @Test
   public void testEmptyArrowBuf() {
     ArrowBuf buf = new ArrowBuf(ReferenceManager.NO_OP, null,
         1024, new PooledByteBufAllocatorL().empty.memoryAddress());
