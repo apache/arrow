@@ -44,22 +44,29 @@ void AddBasicAggKernels(KernelInit init,
                         std::shared_ptr<DataType> out_ty, ScalarAggregateFunction* func,
                         SimdLevel::type simd_level = SimdLevel::NONE);
 
+void AddMinMaxKernels(KernelInit init,
+                      const std::vector<std::shared_ptr<DataType>>& types,
+                      ScalarAggregateFunction* func,
+                      SimdLevel::type simd_level = SimdLevel::NONE);
+
 // SIMD variants for kernels
 void AddSumAvx2AggKernels(ScalarAggregateFunction* func);
 void AddMeanAvx2AggKernels(ScalarAggregateFunction* func);
+void AddMinMaxAvx2AggKernels(ScalarAggregateFunction* func);
 
 void AddSumAvx512AggKernels(ScalarAggregateFunction* func);
 void AddMeanAvx512AggKernels(ScalarAggregateFunction* func);
+void AddMinMaxAvx512AggKernels(ScalarAggregateFunction* func);
 
 std::shared_ptr<ScalarAggregateFunction> AddModeAggKernels();
 
 // ----------------------------------------------------------------------
 // Sum implementation
 
-template <int64_t kRoundSize, typename ArrowType, SimdLevel::type simd_level>
+template <int64_t kRoundSize, typename ArrowType, SimdLevel::type SimdLevel>
 struct SumState {
   using SumType = typename FindAccumulatorType<ArrowType>::Type;
-  using ThisType = SumState<kRoundSize, ArrowType, simd_level>;
+  using ThisType = SumState<kRoundSize, ArrowType, SimdLevel>;
   using T = typename TypeTraits<ArrowType>::CType;
   using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
 
@@ -220,10 +227,10 @@ struct SumState {
   }
 };
 
-template <int64_t kRoundSize, SimdLevel::type simd_level>
-struct SumState<kRoundSize, BooleanType, simd_level> {
+template <int64_t kRoundSize, SimdLevel::type SimdLevel>
+struct SumState<kRoundSize, BooleanType, SimdLevel> {
   using SumType = typename FindAccumulatorType<BooleanType>::Type;
-  using ThisType = SumState<kRoundSize, BooleanType, simd_level>;
+  using ThisType = SumState<kRoundSize, BooleanType, SimdLevel>;
 
   ThisType& operator+=(const ThisType& rhs) {
     this->count += rhs.count;
@@ -242,10 +249,10 @@ struct SumState<kRoundSize, BooleanType, simd_level> {
   typename SumType::c_type sum = 0;
 };
 
-template <uint64_t kRoundSize, typename ArrowType, SimdLevel::type simd_level>
+template <uint64_t kRoundSize, typename ArrowType, SimdLevel::type SimdLevel>
 struct SumImpl : public ScalarAggregator {
   using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
-  using ThisType = SumImpl<kRoundSize, ArrowType, simd_level>;
+  using ThisType = SumImpl<kRoundSize, ArrowType, SimdLevel>;
   using SumType = typename FindAccumulatorType<ArrowType>::Type;
   using OutputType = typename TypeTraits<SumType>::ScalarType;
 
@@ -266,11 +273,11 @@ struct SumImpl : public ScalarAggregator {
     }
   }
 
-  SumState<kRoundSize, ArrowType, simd_level> state;
+  SumState<kRoundSize, ArrowType, SimdLevel> state;
 };
 
-template <int64_t kRoundSize, typename ArrowType, SimdLevel::type simd_level>
-struct MeanImpl : public SumImpl<kRoundSize, ArrowType, simd_level> {
+template <int64_t kRoundSize, typename ArrowType, SimdLevel::type SimdLevel>
+struct MeanImpl : public SumImpl<kRoundSize, ArrowType, SimdLevel> {
   void Finalize(KernelContext*, Datum* out) override {
     const bool is_valid = this->state.count > 0;
     const double divisor = static_cast<double>(is_valid ? this->state.count : 1UL);
@@ -318,12 +325,12 @@ struct SumLikeInit {
 // ----------------------------------------------------------------------
 // MinMax implementation
 
-template <typename ArrowType, typename Enable = void>
+template <typename ArrowType, SimdLevel::type SimdLevel, typename Enable = void>
 struct MinMaxState {};
 
-template <typename ArrowType>
-struct MinMaxState<ArrowType, enable_if_boolean<ArrowType>> {
-  using ThisType = MinMaxState<ArrowType>;
+template <typename ArrowType, SimdLevel::type SimdLevel>
+struct MinMaxState<ArrowType, SimdLevel, enable_if_boolean<ArrowType>> {
+  using ThisType = MinMaxState<ArrowType, SimdLevel>;
   using T = typename ArrowType::c_type;
 
   ThisType& operator+=(const ThisType& rhs) {
@@ -345,9 +352,9 @@ struct MinMaxState<ArrowType, enable_if_boolean<ArrowType>> {
   bool has_values = false;
 };
 
-template <typename ArrowType>
-struct MinMaxState<ArrowType, enable_if_integer<ArrowType>> {
-  using ThisType = MinMaxState<ArrowType>;
+template <typename ArrowType, SimdLevel::type SimdLevel>
+struct MinMaxState<ArrowType, SimdLevel, enable_if_integer<ArrowType>> {
+  using ThisType = MinMaxState<ArrowType, SimdLevel>;
   using T = typename ArrowType::c_type;
 
   ThisType& operator+=(const ThisType& rhs) {
@@ -369,9 +376,9 @@ struct MinMaxState<ArrowType, enable_if_integer<ArrowType>> {
   bool has_values = false;
 };
 
-template <typename ArrowType>
-struct MinMaxState<ArrowType, enable_if_floating_point<ArrowType>> {
-  using ThisType = MinMaxState<ArrowType>;
+template <typename ArrowType, SimdLevel::type SimdLevel>
+struct MinMaxState<ArrowType, SimdLevel, enable_if_floating_point<ArrowType>> {
+  using ThisType = MinMaxState<ArrowType, SimdLevel>;
   using T = typename ArrowType::c_type;
 
   ThisType& operator+=(const ThisType& rhs) {
@@ -393,11 +400,11 @@ struct MinMaxState<ArrowType, enable_if_floating_point<ArrowType>> {
   bool has_values = false;
 };
 
-template <typename ArrowType>
+template <typename ArrowType, SimdLevel::type SimdLevel>
 struct MinMaxImpl : public ScalarAggregator {
   using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
-  using ThisType = MinMaxImpl<ArrowType>;
-  using StateType = MinMaxState<ArrowType>;
+  using ThisType = MinMaxImpl<ArrowType, SimdLevel>;
+  using StateType = MinMaxState<ArrowType, SimdLevel>;
 
   MinMaxImpl(const std::shared_ptr<DataType>& out_type, const MinMaxOptions& options)
       : out_type(out_type), options(options) {}
@@ -448,7 +455,7 @@ struct MinMaxImpl : public ScalarAggregator {
 
   std::shared_ptr<DataType> out_type;
   MinMaxOptions options;
-  MinMaxState<ArrowType> state;
+  MinMaxState<ArrowType, SimdLevel> state;
 
  private:
   StateType ConsumeWithNulls(const ArrayType& arr) const {
@@ -509,8 +516,12 @@ struct MinMaxImpl : public ScalarAggregator {
   }
 };
 
-struct BooleanMinMaxImpl : public MinMaxImpl<BooleanType> {
-  using MinMaxImpl::MinMaxImpl;
+template <SimdLevel::type SimdLevel>
+struct BooleanMinMaxImpl : public MinMaxImpl<BooleanType, SimdLevel> {
+  using StateType = MinMaxState<BooleanType, SimdLevel>;
+  using ArrayType = typename TypeTraits<BooleanType>::ArrayType;
+  using MinMaxImpl<BooleanType, SimdLevel>::MinMaxImpl;
+  using MinMaxImpl<BooleanType, SimdLevel>::options;
 
   void Consume(KernelContext*, const ExecBatch& batch) override {
     StateType local;
@@ -536,6 +547,7 @@ struct BooleanMinMaxImpl : public MinMaxImpl<BooleanType> {
   }
 };
 
+template <SimdLevel::type SimdLevel>
 struct MinMaxInitState {
   std::unique_ptr<KernelState> state;
   KernelContext* ctx;
@@ -556,13 +568,13 @@ struct MinMaxInitState {
   }
 
   Status Visit(const BooleanType&) {
-    state.reset(new BooleanMinMaxImpl(out_type, options));
+    state.reset(new BooleanMinMaxImpl<SimdLevel>(out_type, options));
     return Status::OK();
   }
 
   template <typename Type>
   enable_if_number<Type, Status> Visit(const Type&) {
-    state.reset(new MinMaxImpl<Type>(out_type, options));
+    state.reset(new MinMaxImpl<Type, SimdLevel>(out_type, options));
     return Status::OK();
   }
 
