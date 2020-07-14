@@ -54,16 +54,23 @@ def root_allocator():
 
 
 def test_jvm_buffer(root_allocator):
-    # Create a buffer
+    # Create a Java buffer
     jvm_buffer = root_allocator.buffer(8)
     for i in range(8):
         jvm_buffer.setByte(i, 8 - i)
+
+    orig_refcnt = jvm_buffer.refCnt()
 
     # Convert to Python
     buf = pa_jvm.jvm_buffer(jvm_buffer)
 
     # Check its content
     assert buf.to_pybytes() == b'\x08\x07\x06\x05\x04\x03\x02\x01'
+
+    # Check Java buffer lifetime is tied to PyArrow buffer lifetime
+    assert jvm_buffer.refCnt() == orig_refcnt + 1
+    del buf
+    assert jvm_buffer.refCnt() == orig_refcnt
 
 
 def _jvm_field(jvm_spec):

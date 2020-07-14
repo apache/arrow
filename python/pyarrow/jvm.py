@@ -28,14 +28,28 @@ memory addresses reported by them are not reachable in the python process.
 import pyarrow as pa
 
 
-def jvm_buffer(arrowbuf):
+class _JvmBufferNanny:
+    """
+    An object that keeps a org.apache.arrow.memory.ArrowBuf's underlying
+    memory alive.
+    """
+
+    def __init__(self, jvm_buf):
+        self.jvm_buf = jvm_buf
+        self.jvm_buf.retain()
+
+    def __del__(self):
+        self.jvm_buf.release()
+
+
+def jvm_buffer(jvm_buf):
     """
     Construct an Arrow buffer from org.apache.arrow.memory.ArrowBuf
 
     Parameters
     ----------
 
-    arrowbuf: org.apache.arrow.memory.ArrowBuf
+    jvm_buf: org.apache.arrow.memory.ArrowBuf
         Arrow Buffer representation on the JVM.
 
     Returns
@@ -43,9 +57,9 @@ def jvm_buffer(arrowbuf):
     pyarrow.Buffer
         Python Buffer that references the JVM memory.
     """
-    address = arrowbuf.memoryAddress()
-    size = arrowbuf.capacity()
-    return pa.foreign_buffer(address, size, base=arrowbuf)
+    address = jvm_buf.memoryAddress()
+    size = jvm_buf.capacity()
+    return pa.foreign_buffer(address, size, base=_JvmBufferNanny(jvm_buf))
 
 
 def _from_jvm_int_type(jvm_type):
