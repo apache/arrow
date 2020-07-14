@@ -564,6 +564,7 @@ TEST_F(TestTable, SelectColumns) {
   auto table = Table::Make(schema_, columns_);
 
   ASSERT_OK_AND_ASSIGN(auto subset, table->SelectColumns({0, 2}));
+  ASSERT_OK(subset->ValidateFull());
 
   auto expexted_schema = ::arrow::schema({schema_->field(0), schema_->field(2)});
   auto expected = Table::Make(expexted_schema, {table->column(0), table->column(2)});
