@@ -559,6 +559,10 @@ impl<R: Read> Reader<R> {
                                 DataType::Int16 => self.build_dictionary_array::<Int16Type>(rows, field.name()),
                                 DataType::Int32 => self.build_dictionary_array::<Int32Type>(rows, field.name()),
                                 DataType::Int64 => self.build_dictionary_array::<Int64Type>(rows, field.name()),
+                                DataType::UInt8 => self.build_dictionary_array::<UInt8Type>(rows, field.name()),
+                                DataType::UInt16 => self.build_dictionary_array::<UInt16Type>(rows, field.name()),
+                                DataType::UInt32 => self.build_dictionary_array::<UInt32Type>(rows, field.name()),
+                                DataType::UInt64 => self.build_dictionary_array::<UInt64Type>(rows, field.name()),
                                 _ => Err(ArrowError::JsonError("unsupported dictionary key type".to_string()))
                             }
                         } else {
@@ -1366,6 +1370,92 @@ mod tests {
         );
     }
 
+    #[test]
+    fn test_dictionary_from_json_uint8() {
+        let schema = Schema::new(vec![Field::new(
+            "d",
+            Dictionary(Box::new(DataType::UInt8), Box::new(DataType::Utf8)),
+            true,
+        )]);
+        let builder = ReaderBuilder::new()
+            .with_schema(Arc::new(schema))
+            .with_batch_size(64);
+        let mut reader: Reader<File> = builder
+            .build::<File>(File::open("test/data/basic_nulls.json").unwrap())
+            .unwrap();
+        let batch = reader.next().unwrap().unwrap();
+
+        assert_eq!(1, batch.num_columns());
+        assert_eq!(12, batch.num_rows());
+
+        let schema = reader.schema();
+        let batch_schema = batch.schema();
+        assert_eq!(schema, batch_schema);
+
+        let d = schema.column_with_name("d").unwrap();
+        assert_eq!(
+            &Dictionary(Box::new(DataType::UInt8), Box::new(DataType::Utf8)),
+            d.1.data_type()
+        );
+    }
+
+    #[test]
+    fn test_dictionary_from_json_uint32() {
+        let schema = Schema::new(vec![Field::new(
+            "d",
+            Dictionary(Box::new(DataType::UInt32), Box::new(DataType::Utf8)),
+            true,
+        )]);
+        let builder = ReaderBuilder::new()
+            .with_schema(Arc::new(schema))
+            .with_batch_size(64);
+        let mut reader: Reader<File> = builder
+            .build::<File>(File::open("test/data/basic_nulls.json").unwrap())
+            .unwrap();
+        let batch = reader.next().unwrap().unwrap();
+
+        assert_eq!(1, batch.num_columns());
+        assert_eq!(12, batch.num_rows());
+
+        let schema = reader.schema();
+        let batch_schema = batch.schema();
+        assert_eq!(schema, batch_schema);
+
+        let d = schema.column_with_name("d").unwrap();
+        assert_eq!(
+            &Dictionary(Box::new(DataType::UInt32), Box::new(DataType::Utf8)),
+            d.1.data_type()
+        );
+    }
+
+    #[test]
+    fn test_dictionary_from_json_uint64() {
+        let schema = Schema::new(vec![Field::new(
+            "d",
+            Dictionary(Box::new(DataType::UInt64), Box::new(DataType::Utf8)),
+            true,
+        )]);
+        let builder = ReaderBuilder::new()
+            .with_schema(Arc::new(schema))
+            .with_batch_size(64);
+        let mut reader: Reader<File> = builder
+            .build::<File>(File::open("test/data/basic_nulls.json").unwrap())
+            .unwrap();
+        let batch = reader.next().unwrap().unwrap();
+
+        assert_eq!(1, batch.num_columns());
+        assert_eq!(12, batch.num_rows());
+
+        let schema = reader.schema();
+        let batch_schema = batch.schema();
+        assert_eq!(schema, batch_schema);
+
+        let d = schema.column_with_name("d").unwrap();
+        assert_eq!(
+            &Dictionary(Box::new(DataType::UInt64), Box::new(DataType::Utf8)),
+            d.1.data_type()
+        );
+    }
     #[test]
     fn test_with_multiple_batches() {
         let builder = ReaderBuilder::new()
