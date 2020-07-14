@@ -173,7 +173,7 @@ fn create_ctx() -> Result<ExecutionContext> {
         "custom_sqrt",
         vec![Field::new("n", DataType::Float64, true)],
         DataType::Float64,
-        custom_sqrt,
+        Arc::new(custom_sqrt),
     ));
 
     Ok(ctx)

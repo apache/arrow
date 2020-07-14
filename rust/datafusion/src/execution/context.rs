@@ -1085,7 +1085,7 @@ mod tests {
         let provider = MemTable::new(Arc::new(schema), vec![vec![batch]])?;
         ctx.register_table("t", Box::new(provider));
 
-        let myfunc: ScalarUdf = |args: &[ArrayRef]| {
+        let myfunc: ScalarUdf = Arc::new(|args: &[ArrayRef]| {
             let l = &args[0]
                 .as_any()
                 .downcast_ref::<Int32Array>()
@@ -1095,7 +1095,7 @@ mod tests {
                 .downcast_ref::<Int32Array>()
                 .expect("cast failed");
             Ok(Arc::new(add(l, r)?))
-        };
+        });
 
         let my_add = ScalarFunction::new(
             "my_add",
