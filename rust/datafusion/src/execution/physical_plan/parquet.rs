@@ -30,7 +30,7 @@ use arrow::error::{ArrowError, Result as ArrowResult};
 use arrow::record_batch::{RecordBatch, RecordBatchReader};
 use parquet::file::reader::SerializedFileReader;
 
-use crossbeam::channel::{unbounded, Receiver, RecvError, SendError, Sender};
+use crossbeam::channel::{bounded, Receiver, RecvError, Sender};
 use parquet::arrow::{ArrowReader, ParquetFileArrowReader};
 
 /// Execution plan for scanning a Parquet file
@@ -120,11 +120,10 @@ impl ParquetPartition {
     ) -> Self {
         // because the parquet implementation is not thread-safe, it is necessary to execute
         // on a thread and communicate with channels
-        let (request_tx, request_rx): (Sender<()>, Receiver<()>) = unbounded();
         let (response_tx, response_rx): (
             Sender<ArrowResult<Option<RecordBatch>>>,
             Receiver<ArrowResult<Option<RecordBatch>>>,
-        ) = unbounded();
+        ) = bounded(2);
 
         let filename = filename.to_string();
 
@@ -142,28 +141,26 @@ impl ParquetPartition {
                     match arrow_reader
                         .get_record_reader_by_columns(projection, batch_size)
                     {
-                        Ok(mut batch_reader) => {
-                            while let Ok(_) = request_rx.recv() {
-                                match batch_reader.next_batch() {
-                                    Ok(Some(batch)) => {
-                                        response_tx.send(Ok(Some(batch))).unwrap();
-                                    }
-                                    Ok(None) => {
-                                        response_tx.send(Ok(None)).unwrap();
-                                        break;
-                                    }
-                                    Err(e) => {
-                                        response_tx
-                                            .send(Err(ArrowError::ParquetError(format!(
-                                                "{:?}",
-                                                e
-                                            ))))
-                                            .unwrap();
-                                        break;
-                                    }
+                        Ok(mut batch_reader) => loop {
+                            match batch_reader.next_batch() {
+                                Ok(Some(batch)) => {
+                                    response_tx.send(Ok(Some(batch))).unwrap();
+                                }
+                                Ok(None) => {
+                                    response_tx.send(Ok(None)).unwrap();
+                                    break;
+                                }
+                                Err(e) => {
+                                    response_tx
+                                        .send(Err(ArrowError::ParquetError(format!(
+                                            "{:?}",
+                                            e
+                                        ))))
+                                        .unwrap();
+                                    break;
                                 }
                             }
-                        }
+                        },
 
                         Err(e) => {
                             response_tx
@@ -183,7 +180,6 @@ impl ParquetPartition {
 
         let iterator = Arc::new(Mutex::new(ParquetIterator {
             schema,
-            request_tx,
             response_rx,
         }));
 
@@ -199,7 +195,6 @@ impl Partition for ParquetPartition {
 
 struct ParquetIterator {
     schema: SchemaRef,
-    request_tx: Sender<()>,
     response_rx: Receiver<ArrowResult<Option<RecordBatch>>>,
 }
 
@@ -209,14 +204,10 @@ impl RecordBatchReader for ParquetIterator {
     }
 
     fn next_batch(&mut self) -> ArrowResult<Option<RecordBatch>> {
-        match self.request_tx.send(()) {
-            Ok(_) => match self.response_rx.recv() {
-                Ok(batch) => batch,
-                // RecvError means receiver has exited and closed the channel
-                Err(RecvError) => Ok(None),
-            },
-            // SendError means receiver has exited and closed the channel
-            Err(SendError(())) => Ok(None),
+        match self.response_rx.recv() {
+            Ok(batch) => batch,
+            // RecvError means receiver has exited and closed the channel
+            Err(RecvError) => Ok(None),
         }
     }
 }
