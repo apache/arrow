@@ -484,3 +484,66 @@ def test_is_null():
     result = arr.is_valid()
     expected = pa.chunked_array([[True, True], [True, False]])
     assert result.equals(expected)
+
+
+def test_fill_null():
+    arr = pa.array([1, 2, None, 4], type=pa.int8())
+    fill_value = pa.array([5], type=pa.int8())
+    with pytest.raises(TypeError):
+        arr.fill_null(fill_value)
+
+    arr = pa.array([None, None, None, None], type=pa.null())
+    fill_value = pa.scalar(None, type=pa.null())
+    result = arr.fill_null(fill_value)
+    expected = pa.array([None, None, None, None])
+    assert result.equals(expected)
+
+
+@pytest.mark.parametrize('arrow_type', numerical_arrow_types)
+def test_fill_null_array(arrow_type):
+    arr = pa.array([1, 2, None, 4], type=arrow_type)
+    fill_value = pa.scalar(5, type=arrow_type)
+    result = arr.fill_null(fill_value)
+    expected = pa.array([1, 2, 5, 4], type=arrow_type)
+    assert result.equals(expected)
+
+    # Implicit conversions
+    result = arr.fill_null(5)
+    assert result.equals(expected)
+
+    # ARROW-9451: Unsigned integers allow this for some reason
+    if not pa.types.is_unsigned_integer(arr.type):
+        with pytest.raises((ValueError, TypeError)):
+            arr.fill_null('5')
+
+    result = arr.fill_null(pa.scalar(5, type='int8'))
+    assert result.equals(expected)
+
+
+@pytest.mark.parametrize('arrow_type', numerical_arrow_types)
+def test_fill_null_chunked_array(arrow_type):
+    fill_value = pa.scalar(5, type=arrow_type)
+    arr = pa.chunked_array([pa.array([None, 2, 3, 4], type=arrow_type)])
+    result = arr.fill_null(fill_value)
+    expected = pa.chunked_array([pa.array([5, 2, 3, 4], type=arrow_type)])
+    assert result.equals(expected)
+
+    arr = pa.chunked_array([
+        pa.array([1, 2], type=arrow_type),
+        pa.array([], type=arrow_type),
+        pa.array([None, 4], type=arrow_type)
+    ])
+    expected = pa.chunked_array([
+        pa.array([1, 2], type=arrow_type),
+        pa.array([], type=arrow_type),
+        pa.array([5, 4], type=arrow_type)
+    ])
+    result = arr.fill_null(fill_value)
+    assert result.equals(expected)
+
+    # Implicit conversions
+    result = arr.fill_null(5)
+    assert result.equals(expected)
+
+    result = arr.fill_null(pa.scalar(5, type='int8'))
+    assert result.equals(expected)

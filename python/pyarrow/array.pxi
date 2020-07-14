@@ -1004,6 +1004,12 @@ cdef class Array(_PandasConvertible):
         """
         return _pc().is_valid(self)
 
+    def fill_null(self, fill_value):
+        """
+        See pyarrow.compute.fill_null for usage.
+        """
+        return _pc().fill_null(self, fill_value)
+
     def __getitem__(self, key):
         """
         Slice or return value at given index

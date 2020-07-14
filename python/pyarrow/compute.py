@@ -24,6 +24,7 @@ from pyarrow._compute import (  # noqa
     call_function,
     TakeOptions
 )
+import pyarrow as pa
 import pyarrow._compute as _pc
 
 
@@ -259,3 +260,43 @@ def take(data, indices, boundscheck=True):
     """
     options = TakeOptions(boundscheck)
     return call_function('take', [data, indices], options)
+
+
+def fill_null(values, fill_value):
+    """
+    Replace each null element in values with fill_value. The fill_value must be
+    the same type as values or able to be implicitly casted to the array's
+    type.
+
+    Parameters
+    ----------
+    data : Array, ChunkedArray
+        replace each null element with fill_value
+    fill_value: Scalar-like object
+        Either a pyarrow.Scalar or any python object coercible to a
+        Scalar. If not same type as data will attempt to cast.
+
+    Returns
+    -------
+    result : depends on inputs
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> arr = pa.array([1, 2, None, 3], type=pa.int8())
+    >>> fill_value = pa.scalar(5, type=pa.int8())
+    >>> arr.fill_null(fill_value)
+    pyarrow.lib.Int8Array object at 0x7f95437f01a0>
+    [
+      1,
+      2,
+      5,
+      3
+    ]
+    """
+    if not isinstance(fill_value, pa.Scalar):
+        fill_value = pa.scalar(fill_value, type=values.type)
+    elif values.type != fill_value.type:
+        fill_value = pa.scalar(fill_value.as_py(), type=values.type)
+
+    return call_function("fill_null", [values, fill_value])

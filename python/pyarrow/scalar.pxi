@@ -63,6 +63,19 @@ cdef class Scalar:
         """
         return self.wrapped.get().is_valid
 
+    def cast(self, object target_type):
+        """
+        Attempt a safe cast to target data type.
+        """
+        cdef:
+            DataType type = ensure_type(target_type)
+            shared_ptr[CScalar] result
+
+        with nogil:
+            result = GetResultValue(self.wrapped.get().CastTo(type.sp_type))
+
+        return Scalar.wrap(result)
+
     def __repr__(self):
         return '<pyarrow.{}: {!r}>'.format(
             self.__class__.__name__, self.as_py()
