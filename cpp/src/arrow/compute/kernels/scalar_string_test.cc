@@ -320,6 +320,14 @@ TYPED_TEST(TestStringKernels, BinaryContainsExact) {
   BinaryContainsExactOptions options_repeated{"abab"};
   this->CheckUnary("binary_contains_exact", R"(["abab", "ab", "cababc", null, "bac"])",
                    boolean(), "[true, false, true, null, false]", &options_repeated);
+
+  // ARROW-9460
+  BinaryContainsExactOptions options_double_char{"aab"};
+  this->CheckUnary("binary_contains_exact", R"(["aacb", "aab", "ab", "aaab"])", boolean(),
+                   "[false, true, false, true]", &options_double_char);
+  BinaryContainsExactOptions options_double_char_2{"bbcaa"};
+  this->CheckUnary("binary_contains_exact", R"(["abcbaabbbcaabccabaab"])", boolean(),
+                   "[true]", &options_double_char_2);
 }
 
 TYPED_TEST(TestStringKernels, Strptime) {

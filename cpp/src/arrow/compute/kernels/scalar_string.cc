@@ -356,7 +356,7 @@ void TransformBinaryContainsExact(const uint8_t* pattern, int64_t pattern_length
   prefix_table[0] = -1;
   for (offset_type pos = 0; pos < pattern_length; ++pos) {
     // The prefix cannot be expanded, reset.
-    if (prefix_length >= 0 && pattern[pos] != pattern[prefix_length]) {
+    while (prefix_length >= 0 && pattern[pos] != pattern[prefix_length]) {
       prefix_length = prefix_table[prefix_length];
     }
     prefix_length++;
@@ -371,14 +371,13 @@ void TransformBinaryContainsExact(const uint8_t* pattern, int64_t pattern_length
 
     int64_t pattern_pos = 0;
     for (int64_t k = 0; k < current_length; k++) {
-      if (pattern[pattern_pos] == current_data[k]) {
-        pattern_pos++;
-        if (pattern_pos == pattern_length) {
-          bitmap_writer.Set();
-          break;
-        }
-      } else {
-        pattern_pos = std::max<offset_type>(0, prefix_table[pattern_pos]);
+      while ((pattern_pos >= 0) && (pattern[pattern_pos] != current_data[k])) {
+        pattern_pos = prefix_table[pattern_pos];
+      }
+      pattern_pos++;
+      if (pattern_pos == pattern_length) {
+        bitmap_writer.Set();
+        break;
       }
     }
     bitmap_writer.Next();
