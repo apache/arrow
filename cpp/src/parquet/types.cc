@@ -43,6 +43,7 @@ bool IsCodecSupported(Compression::type codec) {
     case Compression::BROTLI:
     case Compression::ZSTD:
       return true;
+    case Compression::LZ4_FRAME:
     case Compression::LZ4:
       // TODO: Re-enable after PARQUET-1878 is complete.
       // Temporarily disabled because of ARROW-9424.
@@ -58,6 +59,14 @@ std::unique_ptr<Codec> GetCodec(Compression::type codec) {
 
 std::unique_ptr<Codec> GetCodec(Compression::type codec, int compression_level) {
   std::unique_ptr<Codec> result;
+  if (codec == Compression::LZ4 || codec == Compression::LZ4_FRAME) {
+    throw ParquetException(
+        "Per ARROW-9424, writing files with LZ4 compression has been "
+        "disabled until implementation issues have been resolved. "
+        "It is recommended to read any existing files and rewrite them "
+        "using a different compression.");
+  }
+
   if (!IsCodecSupported(codec)) {
     std::stringstream ss;
     ss << "Codec type " << Codec::GetCodecAsString(codec)
