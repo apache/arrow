@@ -113,7 +113,7 @@ TYPED_TEST_SUITE(TestNthToIndicesForStrings, testing::Types<StringType>);
 
 TYPED_TEST(TestNthToIndicesForReal, NthToIndicesDoesNotProvideDefaultOptions) {
   auto input = ArrayFromJSON(this->type_singleton(), "[null, 1, 3.3, null, 2, 5.3]");
-  ASSERT_RAISES(Invalid, CallFunction("partition_indices", {input}));
+  ASSERT_RAISES(Invalid, CallFunction("partition_nth_indices", {input}));
 }
 
 TYPED_TEST(TestNthToIndicesForReal, Real) {
@@ -308,6 +308,7 @@ using SortToIndicesableTypes =
 
 template <typename ArrayType>
 void ValidateSorted(const ArrayType& array, UInt64Array& offsets) {
+  ASSERT_OK(array.ValidateFull());
   SortComparator<ArrayType> compare;
   for (int i = 1; i < array.length(); i++) {
     uint64_t lhs = offsets.Value(i - 1);

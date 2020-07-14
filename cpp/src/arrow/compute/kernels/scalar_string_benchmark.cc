@@ -61,9 +61,9 @@ static void IsAlphaNumericAscii(benchmark::State& state) {
   UnaryStringBenchmark(state, "ascii_isalnum");
 }
 
-static void BinaryContainsExact(benchmark::State& state) {
-  BinaryContainsExactOptions options("abac");
-  UnaryStringBenchmark(state, "binary_contains_exact", &options);
+static void MatchSubstring(benchmark::State& state) {
+  MatchSubstringOptions options("abac");
+  UnaryStringBenchmark(state, "match_substring", &options);
 }
 
 #ifdef ARROW_WITH_UTF8PROC
@@ -83,7 +83,7 @@ static void IsAlphaNumericUnicode(benchmark::State& state) {
 BENCHMARK(AsciiLower);
 BENCHMARK(AsciiUpper);
 BENCHMARK(IsAlphaNumericAscii);
-BENCHMARK(BinaryContainsExact);
+BENCHMARK(MatchSubstring);
 #ifdef ARROW_WITH_UTF8PROC
 BENCHMARK(Utf8Lower);
 BENCHMARK(Utf8Upper);

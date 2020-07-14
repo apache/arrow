@@ -73,12 +73,12 @@ static Result<Datum> ExecSetLookup(const std::string& func_name, const Datum& da
 }
 
 Result<Datum> IsIn(const Datum& values, const Datum& value_set, ExecContext* ctx) {
-  return ExecSetLookup("isin", values, value_set,
+  return ExecSetLookup("is_in", values, value_set,
                        /*add_nulls_to_hash_table=*/false, ctx);
 }
 
-Result<Datum> Match(const Datum& values, const Datum& value_set, ExecContext* ctx) {
-  return ExecSetLookup("match", values, value_set,
+Result<Datum> IndexIn(const Datum& values, const Datum& value_set, ExecContext* ctx) {
+  return ExecSetLookup("index_in", values, value_set,
                        /*add_nulls_to_hash_table=*/true, ctx);
 }
 

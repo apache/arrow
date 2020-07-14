@@ -34,7 +34,9 @@ namespace compute {
 void CheckScalarUnary(std::string func_name, std::shared_ptr<Array> input,
                       std::shared_ptr<Array> expected, const FunctionOptions* options) {
   ASSERT_OK_AND_ASSIGN(Datum out, CallFunction(func_name, {input}, options));
-  AssertArraysEqual(*expected, *out.make_array(), /*verbose=*/true);
+  std::shared_ptr<Array> actual = std::move(out).make_array();
+  ASSERT_OK(actual->ValidateFull());
+  AssertArraysEqual(*expected, *actual, /*verbose=*/true);
 
   // Check all the scalars
   for (int64_t i = 0; i < input->length(); ++i) {
@@ -44,6 +46,7 @@ void CheckScalarUnary(std::string func_name, std::shared_ptr<Array> input,
   }
 
   if (auto length = input->length() / 3) {
+    // XXX Is the recursive call intended?
     CheckScalarUnary(func_name, input->Slice(0, length), expected->Slice(0, length),
                      options);
 

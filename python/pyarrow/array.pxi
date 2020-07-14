@@ -1515,7 +1515,7 @@ cdef class BaseListArray(Array):
           1
         ]
         """
-        return _pc().list_value_lengths(self)
+        return _pc().list_value_length(self)
 
 
 cdef class ListArray(BaseListArray):

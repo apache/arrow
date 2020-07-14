@@ -1669,9 +1669,9 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     CFunctionRegistry* GetFunctionRegistry()
 
-    cdef cppclass CBinaryContainsExactOptions \
-            "arrow::compute::BinaryContainsExactOptions"(CFunctionOptions):
-        CBinaryContainsExactOptions(c_string pattern)
+    cdef cppclass CMatchSubstringOptions \
+            "arrow::compute::MatchSubstringOptions"(CFunctionOptions):
+        CMatchSubstringOptions(c_string pattern)
         c_string pattern
 
     cdef cppclass CCastOptions" arrow::compute::CastOptions"(CFunctionOptions):

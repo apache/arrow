@@ -55,9 +55,7 @@ static inline bool IsAsciiCharacter(T character) {
   return character < 128;
 }
 
-// TODO: optional ascii validation
-
-struct AsciiLength {
+struct BinaryLength {
   template <typename OUT, typename ARG0 = util::string_view>
   static OUT Call(KernelContext*, ARG0 val) {
     return static_cast<OUT>(val.size());
@@ -297,17 +295,6 @@ struct AsciiLower {
   }
 };
 
-void AddAsciiLength(FunctionRegistry* registry) {
-  auto func = std::make_shared<ScalarFunction>("ascii_length", Arity::Unary());
-  ArrayKernelExec exec_offset_32 =
-      applicator::ScalarUnaryNotNull<Int32Type, StringType, AsciiLength>::Exec;
-  ArrayKernelExec exec_offset_64 =
-      applicator::ScalarUnaryNotNull<Int64Type, LargeStringType, AsciiLength>::Exec;
-  DCHECK_OK(func->AddKernel({utf8()}, int32(), exec_offset_32));
-  DCHECK_OK(func->AddKernel({large_utf8()}, int64(), exec_offset_64));
-  DCHECK_OK(registry->AddFunction(std::move(func)));
-}
-
 // ----------------------------------------------------------------------
 // exact pattern detection
 
@@ -344,10 +331,9 @@ void StringBoolTransform(KernelContext* ctx, const ExecBatch& batch,
 }
 
 template <typename offset_type>
-void TransformBinaryContainsExact(const uint8_t* pattern, int64_t pattern_length,
-                                  const offset_type* offsets, const uint8_t* data,
-                                  int64_t length, int64_t output_offset,
-                                  uint8_t* output) {
+void TransformMatchSubstring(const uint8_t* pattern, int64_t pattern_length,
+                             const offset_type* offsets, const uint8_t* data,
+                             int64_t length, int64_t output_offset, uint8_t* output) {
   // This is an implementation of the Knuth-Morris-Pratt algorithm
 
   // Phase 1: Build the prefix table
@@ -385,20 +371,20 @@ void TransformBinaryContainsExact(const uint8_t* pattern, int64_t pattern_length
   bitmap_writer.Finish();
 }
 
-using BinaryContainsExactState = OptionsWrapper<BinaryContainsExactOptions>;
+using MatchSubstringState = OptionsWrapper<MatchSubstringOptions>;
 
 template <typename Type>
-struct BinaryContainsExact {
+struct MatchSubstring {
   using offset_type = typename Type::offset_type;
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    BinaryContainsExactOptions arg = BinaryContainsExactState::Get(ctx);
+    MatchSubstringOptions arg = MatchSubstringState::Get(ctx);
     const uint8_t* pat = reinterpret_cast<const uint8_t*>(arg.pattern.c_str());
     const int64_t pat_size = arg.pattern.length();
     StringBoolTransform<Type>(
         ctx, batch,
         [pat, pat_size](const void* offsets, const uint8_t* data, int64_t length,
                         int64_t output_offset, uint8_t* output) {
-          TransformBinaryContainsExact<offset_type>(
+          TransformMatchSubstring<offset_type>(
               pat, pat_size, reinterpret_cast<const offset_type*>(offsets), data, length,
               output_offset, output);
         },
@@ -406,14 +392,13 @@ struct BinaryContainsExact {
   }
 };
 
-void AddBinaryContainsExact(FunctionRegistry* registry) {
-  auto func = std::make_shared<ScalarFunction>("binary_contains_exact", Arity::Unary());
-  auto exec_32 = BinaryContainsExact<StringType>::Exec;
-  auto exec_64 = BinaryContainsExact<LargeStringType>::Exec;
+void AddMatchSubstring(FunctionRegistry* registry) {
+  auto func = std::make_shared<ScalarFunction>("match_substring", Arity::Unary());
+  auto exec_32 = MatchSubstring<StringType>::Exec;
+  auto exec_64 = MatchSubstring<LargeStringType>::Exec;
+  DCHECK_OK(func->AddKernel({utf8()}, boolean(), exec_32, MatchSubstringState::Init));
   DCHECK_OK(
-      func->AddKernel({utf8()}, boolean(), exec_32, BinaryContainsExactState::Init));
-  DCHECK_OK(func->AddKernel({large_utf8()}, boolean(), exec_64,
-                            BinaryContainsExactState::Init));
+      func->AddKernel({large_utf8()}, boolean(), exec_64, MatchSubstringState::Init));
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
@@ -870,6 +855,21 @@ void AddStrptime(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
+void AddBinaryLength(FunctionRegistry* registry) {
+  auto func = std::make_shared<ScalarFunction>("binary_length", Arity::Unary());
+  ArrayKernelExec exec_offset_32 =
+      applicator::ScalarUnaryNotNull<Int32Type, StringType, BinaryLength>::Exec;
+  ArrayKernelExec exec_offset_64 =
+      applicator::ScalarUnaryNotNull<Int64Type, LargeStringType, BinaryLength>::Exec;
+  for (const auto input_type : {binary(), utf8()}) {
+    DCHECK_OK(func->AddKernel({input_type}, int32(), exec_offset_32));
+  }
+  for (const auto input_type : {large_binary(), large_utf8()}) {
+    DCHECK_OK(func->AddKernel({input_type}, int64(), exec_offset_64));
+  }
+  DCHECK_OK(registry->AddFunction(std::move(func)));
+}
+
 template <template <typename> class ExecFunctor>
 void MakeUnaryStringBatchKernel(std::string name, FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>(name, Arity::Unary());
@@ -944,7 +944,7 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
   MakeUnaryStringBatchKernel<AsciiUpper>("ascii_upper", registry);
   MakeUnaryStringBatchKernel<AsciiLower>("ascii_lower", registry);
 
-  AddUnaryStringPredicate<IsAscii>("binary_isascii", registry);
+  AddUnaryStringPredicate<IsAscii>("string_isascii", registry);
 
   AddUnaryStringPredicate<IsAlphaNumericAscii>("ascii_isalnum", registry);
   AddUnaryStringPredicate<IsAlphaAscii>("ascii_isalpha", registry);
@@ -956,9 +956,11 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
   AddUnaryStringPredicate<IsSpaceAscii>("ascii_isspace", registry);
   AddUnaryStringPredicate<IsTitleAscii>("ascii_istitle", registry);
   AddUnaryStringPredicate<IsUpperAscii>("ascii_isupper", registry);
+
 #ifdef ARROW_WITH_UTF8PROC
   MakeUnaryStringUTF8TransformKernel<UTF8Upper>("utf8_upper", registry);
   MakeUnaryStringUTF8TransformKernel<UTF8Lower>("utf8_lower", registry);
+
   AddUnaryStringPredicate<IsAlphaNumericUnicode>("utf8_isalnum", registry);
   AddUnaryStringPredicate<IsAlphaUnicode>("utf8_isalpha", registry);
   AddUnaryStringPredicate<IsDecimalUnicode>("utf8_isdecimal", registry);
@@ -969,11 +971,10 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
   AddUnaryStringPredicate<IsSpaceUnicode>("utf8_isspace", registry);
   AddUnaryStringPredicate<IsTitleUnicode>("utf8_istitle", registry);
   AddUnaryStringPredicate<IsUpperUnicode>("utf8_isupper", registry);
-
 #endif
 
-  AddAsciiLength(registry);
-  AddBinaryContainsExact(registry);
+  AddBinaryLength(registry);
+  AddMatchSubstring(registry);
   AddStrptime(registry);
 }
 

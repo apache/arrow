@@ -29,9 +29,9 @@ static std::shared_ptr<DataType> GetOffsetType(const DataType& type) {
   return type.id() == Type::LIST ? int32() : int64();
 }
 
-TEST(TestScalarNested, ListValueLengths) {
+TEST(TestScalarNested, ListValueLength) {
   for (auto ty : {list(int32()), large_list(int32())}) {
-    CheckScalarUnary("list_value_lengths", ty, "[[0, null, 1], null, [2, 3], []]",
+    CheckScalarUnary("list_value_length", ty, "[[0, null, 1], null, [2, 3], []]",
                      GetOffsetType(*ty), "[3, null, 2, 0]");
   }
 }

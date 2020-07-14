@@ -165,13 +165,13 @@ std::unique_ptr<KernelState> InitSetLookup(KernelContext* ctx,
   return result;
 }
 
-struct MatchVisitor {
+struct IndexInVisitor {
   KernelContext* ctx;
   const ArrayData& data;
   Datum* out;
   Int32Builder builder;
 
-  MatchVisitor(KernelContext* ctx, const ArrayData& data, Datum* out)
+  IndexInVisitor(KernelContext* ctx, const ArrayData& data, Datum* out)
       : ctx(ctx), data(data), out(out), builder(ctx->exec_context()->memory_pool()) {}
 
   Status Visit(const DataType&) {
@@ -190,7 +190,7 @@ struct MatchVisitor {
   }
 
   template <typename Type>
-  Status ProcessMatch() {
+  Status ProcessIndexIn() {
     using T = typename GetViewType<Type>::T;
 
     const auto& state = checked_cast<const SetLookupState<Type>&>(*ctx->state());
@@ -223,23 +223,24 @@ struct MatchVisitor {
 
   template <typename Type>
   enable_if_boolean<Type, Status> Visit(const Type&) {
-    return ProcessMatch<BooleanType>();
+    return ProcessIndexIn<BooleanType>();
   }
 
   template <typename Type>
   enable_if_t<has_c_type<Type>::value && !is_boolean_type<Type>::value, Status> Visit(
       const Type&) {
-    return ProcessMatch<typename UnsignedIntType<sizeof(typename Type::c_type)>::Type>();
+    return ProcessIndexIn<
+        typename UnsignedIntType<sizeof(typename Type::c_type)>::Type>();
   }
 
   template <typename Type>
   enable_if_base_binary<Type, Status> Visit(const Type&) {
-    return ProcessMatch<typename Type::PhysicalType>();
+    return ProcessIndexIn<typename Type::PhysicalType>();
   }
 
   // Handle Decimal128Type, FixedSizeBinaryType
   Status Visit(const FixedSizeBinaryType& type) {
-    return ProcessMatch<FixedSizeBinaryType>();
+    return ProcessIndexIn<FixedSizeBinaryType>();
   }
 
   Status Execute() {
@@ -269,9 +270,9 @@ void ExecArrayOrScalar(KernelContext* ctx, const Datum& in, Datum* out,
   *out = std::move(out_scalar);
 }
 
-void ExecMatch(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+void ExecIndexIn(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   ExecArrayOrScalar(ctx, batch[0], out, [&](const ArrayData& in) {
-    return MatchVisitor(ctx, in, out).Execute();
+    return IndexInVisitor(ctx, in, out).Execute();
   });
 }
 
@@ -395,10 +396,10 @@ void AddBasicSetLookupKernels(ScalarKernel kernel,
   }
 }
 
-// Enables calling isin with CallFunction as though it were binary.
+// Enables calling is_in with CallFunction as though it were binary.
 class IsInMetaBinary : public MetaFunction {
  public:
-  IsInMetaBinary() : MetaFunction("isin_meta_binary", Arity::Binary()) {}
+  IsInMetaBinary() : MetaFunction("is_in_meta_binary", Arity::Binary()) {}
 
   Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
                             const FunctionOptions* options,
@@ -408,16 +409,16 @@ class IsInMetaBinary : public MetaFunction {
   }
 };
 
-// Enables calling match with CallFunction as though it were binary.
-class MatchMetaBinary : public MetaFunction {
+// Enables calling index_in with CallFunction as though it were binary.
+class IndexInMetaBinary : public MetaFunction {
  public:
-  MatchMetaBinary() : MetaFunction("match_meta_binary", Arity::Binary()) {}
+  IndexInMetaBinary() : MetaFunction("index_in_meta_binary", Arity::Binary()) {}
 
   Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
                             const FunctionOptions* options,
                             ExecContext* ctx) const override {
     DCHECK_EQ(options, nullptr);
-    return Match(args[0], args[1], ctx);
+    return IndexIn(args[0], args[1], ctx);
   }
 };
 
@@ -429,33 +430,33 @@ void RegisterScalarSetLookup(FunctionRegistry* registry) {
     ScalarKernel isin_base;
     isin_base.init = InitSetLookup;
     isin_base.exec = ExecIsIn;
-    auto isin = std::make_shared<ScalarFunction>("isin", Arity::Unary());
+    auto is_in = std::make_shared<ScalarFunction>("is_in", Arity::Unary());
 
-    AddBasicSetLookupKernels(isin_base, /*output_type=*/boolean(), isin.get());
+    AddBasicSetLookupKernels(isin_base, /*output_type=*/boolean(), is_in.get());
 
     isin_base.signature = KernelSignature::Make({null()}, boolean());
     isin_base.null_handling = NullHandling::COMPUTED_PREALLOCATE;
-    DCHECK_OK(isin->AddKernel(isin_base));
-    DCHECK_OK(registry->AddFunction(isin));
+    DCHECK_OK(is_in->AddKernel(isin_base));
+    DCHECK_OK(registry->AddFunction(is_in));
 
     DCHECK_OK(registry->AddFunction(std::make_shared<IsInMetaBinary>()));
   }
 
-  // Match uses Int32Builder and so is responsible for all its own allocation
+  // IndexIn uses Int32Builder and so is responsible for all its own allocation
   {
     ScalarKernel match_base;
     match_base.init = InitSetLookup;
-    match_base.exec = ExecMatch;
+    match_base.exec = ExecIndexIn;
     match_base.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
     match_base.mem_allocation = MemAllocation::NO_PREALLOCATE;
-    auto match = std::make_shared<ScalarFunction>("match", Arity::Unary());
+    auto match = std::make_shared<ScalarFunction>("index_in", Arity::Unary());
     AddBasicSetLookupKernels(match_base, /*output_type=*/int32(), match.get());
 
     match_base.signature = KernelSignature::Make({null()}, int32());
     DCHECK_OK(match->AddKernel(match_base));
     DCHECK_OK(registry->AddFunction(match));
 
-    DCHECK_OK(registry->AddFunction(std::make_shared<MatchMetaBinary>()));
+    DCHECK_OK(registry->AddFunction(std::make_shared<IndexInMetaBinary>()));
   }
 }
 

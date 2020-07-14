@@ -30,10 +30,10 @@ namespace compute {
 namespace {
 
 // ----------------------------------------------------------------------
-// partition_indices implementation
+// partition_nth_indices implementation
 
 // We need to preserve the options
-using PartitionIndicesState = internal::OptionsWrapper<PartitionOptions>;
+using PartitionNthToIndicesState = internal::OptionsWrapper<PartitionNthOptions>;
 
 Status GetPhysicalView(const std::shared_ptr<ArrayData>& arr,
                        const std::shared_ptr<DataType>& type,
@@ -47,11 +47,11 @@ Status GetPhysicalView(const std::shared_ptr<ArrayData>& arr,
 }
 
 template <typename OutType, typename InType>
-struct PartitionIndices {
+struct PartitionNthToIndices {
   using ArrayType = typename TypeTraits<InType>::ArrayType;
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     if (ctx->state() == nullptr) {
-      ctx->SetStatus(Status::Invalid("NthToIndices requires PartitionOptions"));
+      ctx->SetStatus(Status::Invalid("NthToIndices requires PartitionNthOptions"));
       return;
     }
 
@@ -61,7 +61,7 @@ struct PartitionIndices {
         GetPhysicalView(batch[0].array(), TypeTraits<InType>::type_singleton(), &arg0));
     ArrayType arr(arg0);
 
-    int64_t pivot = PartitionIndicesState::Get(ctx).pivot;
+    int64_t pivot = PartitionNthToIndicesState::Get(ctx).pivot;
     if (pivot > arr.length()) {
       ctx->SetStatus(Status::IndexError("NthToIndices index out of bound"));
       return;
@@ -312,11 +312,11 @@ void RegisterVectorSort(FunctionRegistry* registry) {
   AddSortingKernels<SortIndices>(base, sort_indices.get());
   DCHECK_OK(registry->AddFunction(std::move(sort_indices)));
 
-  // partition_indices has a parameter so needs its init function
+  // partition_nth_indices has a parameter so needs its init function
   auto part_indices =
-      std::make_shared<VectorFunction>("partition_indices", Arity::Unary());
-  base.init = PartitionIndicesState::Init;
-  AddSortingKernels<PartitionIndices>(base, part_indices.get());
+      std::make_shared<VectorFunction>("partition_nth_indices", Arity::Unary());
+  base.init = PartitionNthToIndicesState::Init;
+  AddSortingKernels<PartitionNthToIndices>(base, part_indices.get());
   DCHECK_OK(registry->AddFunction(std::move(part_indices)));
 }
 

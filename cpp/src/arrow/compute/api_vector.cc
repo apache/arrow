@@ -35,9 +35,9 @@ namespace compute {
 
 Result<std::shared_ptr<Array>> NthToIndices(const Array& values, int64_t n,
                                             ExecContext* ctx) {
-  PartitionOptions options(/*pivot=*/n);
-  ARROW_ASSIGN_OR_RAISE(
-      Datum result, CallFunction("partition_indices", {Datum(values)}, &options, ctx));
+  PartitionNthOptions options(/*pivot=*/n);
+  ARROW_ASSIGN_OR_RAISE(Datum result, CallFunction("partition_nth_indices",
+                                                   {Datum(values)}, &options, ctx));
   return result.make_array();
 }
 

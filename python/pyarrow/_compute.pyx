@@ -260,7 +260,8 @@ cdef _pack_compute_args(object values, vector[CDatum]* out):
         elif isinstance(val, Table):
             out.push_back(CDatum((<Table> val).sp_table))
         else:
-            raise TypeError(type(val))
+            raise TypeError("Got unexpected argument type {} "
+                            "for compute function".format(type(val)))
 
 
 cdef class FunctionRegistry:
@@ -399,16 +400,16 @@ cdef class CastOptions(FunctionOptions):
         self.options.allow_invalid_utf8 = flag
 
 
-cdef class BinaryContainsExactOptions(FunctionOptions):
+cdef class MatchSubstringOptions(FunctionOptions):
     cdef:
-        unique_ptr[CBinaryContainsExactOptions] binary_contains_exact_options
+        unique_ptr[CMatchSubstringOptions] match_substring_options
 
     def __init__(self, pattern):
-        self.binary_contains_exact_options.reset(
-            new CBinaryContainsExactOptions(tobytes(pattern)))
+        self.match_substring_options.reset(
+            new CMatchSubstringOptions(tobytes(pattern)))
 
     cdef const CFunctionOptions* get_options(self) except NULL:
-        return self.binary_contains_exact_options.get()
+        return self.match_substring_options.get()
 
 
 cdef class FilterOptions(FunctionOptions):

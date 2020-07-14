@@ -160,7 +160,7 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     return out;
   }
 
-  if (func_name == "minmax") {
+  if (func_name == "min_max") {
     using Options = arrow::compute::MinMaxOptions;
     auto out = std::make_shared<Options>(Options::Defaults());
     out->null_handling = options["na.rm"] ? Options::SKIP : Options::OUTPUT_NULL;

@@ -28,7 +28,7 @@ namespace internal {
 namespace {
 
 template <typename Type, typename offset_type = typename Type::offset_type>
-void ListValueLengths(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+void ListValueLength(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   using ScalarType = typename TypeTraits<Type>::ScalarType;
   using OffsetScalarType = typename TypeTraits<Type>::OffsetScalarType;
 
@@ -55,13 +55,13 @@ void ListValueLengths(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
 }  // namespace
 
 void RegisterScalarNested(FunctionRegistry* registry) {
-  auto list_value_lengths =
-      std::make_shared<ScalarFunction>("list_value_lengths", Arity::Unary());
-  DCHECK_OK(list_value_lengths->AddKernel({InputType(Type::LIST)}, int32(),
-                                          ListValueLengths<ListType>));
-  DCHECK_OK(list_value_lengths->AddKernel({InputType(Type::LARGE_LIST)}, int64(),
-                                          ListValueLengths<LargeListType>));
-  DCHECK_OK(registry->AddFunction(std::move(list_value_lengths)));
+  auto list_value_length =
+      std::make_shared<ScalarFunction>("list_value_length", Arity::Unary());
+  DCHECK_OK(list_value_length->AddKernel({InputType(Type::LIST)}, int32(),
+                                         ListValueLength<ListType>));
+  DCHECK_OK(list_value_length->AddKernel({InputType(Type::LARGE_LIST)}, int64(),
+                                         ListValueLength<LargeListType>));
+  DCHECK_OK(registry->AddFunction(std::move(list_value_length)));
 }
 
 }  // namespace internal
