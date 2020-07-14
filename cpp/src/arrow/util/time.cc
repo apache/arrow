@@ -44,26 +44,20 @@ std::pair<DivideOrMultiply, int64_t> GetTimestampConversion(TimeUnit::type in_un
   return kTimestampConversionTable[static_cast<int>(in_unit)][static_cast<int>(out_unit)];
 }
 
+struct ApplyConversion {
+  template <typename Conversion>
+  int64_t operator()(Conversion&& conv) {
+    return conv(value);
+  }
+  int64_t value;
+};
+
 Result<int64_t> ConvertTimestampValue(const std::shared_ptr<DataType>& in,
                                       const std::shared_ptr<DataType>& out,
                                       int64_t value) {
   auto from = checked_pointer_cast<TimestampType>(in)->unit();
   auto to = checked_pointer_cast<TimestampType>(out)->unit();
-
-  auto op_factor =
-      kTimestampConversionTable[static_cast<int>(from)][static_cast<int>(to)];
-
-  auto op = op_factor.first;
-  auto factor = op_factor.second;
-  switch (op) {
-    case MULTIPLY:
-      return value * factor;
-    case DIVIDE:
-      return value / factor;
-  }
-
-  // unreachable...
-  return 0;
+  return VisitUnitConversion(to, from, ApplyConversion{value});
 }
 
 }  // namespace util

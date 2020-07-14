@@ -38,35 +38,27 @@ const char digit_pairs[] =
 
 }  // namespace detail
 
-struct FloatToStringFormatter::Impl {
-  Impl()
-      : converter_(DoubleToStringConverter::EMIT_POSITIVE_EXPONENT_SIGN, "inf", "nan",
-                   'e', -6, 10, 6, 0) {}
+static DoubleToStringConverter g_double_converter(
+    DoubleToStringConverter::EMIT_POSITIVE_EXPONENT_SIGN, "inf", "nan", 'e', -6, 10, 6,
+    0);
 
-  DoubleToStringConverter converter_;
-};
-
-FloatToStringFormatter::FloatToStringFormatter() : impl_(new Impl()) {}
-
-FloatToStringFormatter::~FloatToStringFormatter() {}
-
-int FloatToStringFormatter::FormatFloat(float v, char* out_buffer, int out_size) {
-  DCHECK_GE(out_size, kMinBufferSize);
+void FloatToStringFormatter::FormatFloat(float v) {
+  DCHECK_GE(buffer_.size(), kMinBufferSize);
   // StringBuilder checks bounds in debug mode for us
-  util::double_conversion::StringBuilder builder(out_buffer, out_size);
-  bool result = impl_->converter_.ToShortestSingle(v, &builder);
+  util::double_conversion::StringBuilder builder(buffer_.data(), buffer_.size());
+  bool result = g_double_converter.ToShortestSingle(v, &builder);
   DCHECK(result);
   ARROW_UNUSED(result);
-  return builder.position();
+  size_ = builder.position();
 }
 
-int FloatToStringFormatter::FormatFloat(double v, char* out_buffer, int out_size) {
-  DCHECK_GE(out_size, kMinBufferSize);
-  util::double_conversion::StringBuilder builder(out_buffer, out_size);
-  bool result = impl_->converter_.ToShortest(v, &builder);
+void FloatToStringFormatter::FormatFloat(double v) {
+  DCHECK_GE(buffer_.size(), kMinBufferSize);
+  util::double_conversion::StringBuilder builder(buffer_.data(), buffer_.size());
+  bool result = g_double_converter.ToShortest(v, &builder);
   DCHECK(result);
   ARROW_UNUSED(result);
-  return builder.position();
+  size_ = builder.position();
 }
 
 }  // namespace internal

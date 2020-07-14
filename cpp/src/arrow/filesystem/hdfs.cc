@@ -317,10 +317,10 @@ Result<HdfsOptions> HdfsOptions::FromUri(const Uri& uri) {
   // configure replication
   auto it = options_map.find("replication");
   if (it != options_map.end()) {
-    const auto& v = it->second;
     int16_t replication;
-    if (!ParseValue<Int16Type>(v.data(), v.size(), &replication)) {
-      return Status::Invalid("Invalid value for option 'replication': '", v, "'");
+    if (!ParseValue<Int16Type>(it->second, &replication)) {
+      return Status::Invalid("Invalid value for option 'replication': '", it->second,
+                             "'");
     }
     options.ConfigureReplication(replication);
     options_map.erase(it);
@@ -329,10 +329,10 @@ Result<HdfsOptions> HdfsOptions::FromUri(const Uri& uri) {
   // configure buffer_size
   it = options_map.find("buffer_size");
   if (it != options_map.end()) {
-    const auto& v = it->second;
     int32_t buffer_size;
-    if (!ParseValue<Int32Type>(v.data(), v.size(), &buffer_size)) {
-      return Status::Invalid("Invalid value for option 'buffer_size': '", v, "'");
+    if (!ParseValue<Int32Type>(it->second, &buffer_size)) {
+      return Status::Invalid("Invalid value for option 'buffer_size': '", it->second,
+                             "'");
     }
     options.ConfigureBufferSize(buffer_size);
     options_map.erase(it);
@@ -341,10 +341,10 @@ Result<HdfsOptions> HdfsOptions::FromUri(const Uri& uri) {
   // configure default_block_size
   it = options_map.find("default_block_size");
   if (it != options_map.end()) {
-    const auto& v = it->second;
     int64_t default_block_size;
-    if (!ParseValue<Int64Type>(v.data(), v.size(), &default_block_size)) {
-      return Status::Invalid("Invalid value for option 'default_block_size': '", v, "'");
+    if (!ParseValue<Int64Type>(it->second, &default_block_size)) {
+      return Status::Invalid("Invalid value for option 'default_block_size': '",
+                             it->second, "'");
     }
     options.ConfigureBlockSize(default_block_size);
     options_map.erase(it);

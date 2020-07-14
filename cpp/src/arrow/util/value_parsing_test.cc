@@ -27,20 +27,31 @@
 namespace arrow {
 namespace internal {
 
-template <typename T, typename Context = void>
-void AssertConversion(const std::string& s, typename T::c_type expected,
-                      const Context* ctx = NULLPTR) {
+template <typename T>
+void AssertConversion(const T& type, const std::string& s, typename T::c_type expected) {
   typename T::c_type out{};
-  ASSERT_TRUE(ParseValue<T>(s.data(), s.length(), &out, ctx))
+  ASSERT_TRUE(ParseValue(type, s.data(), s.length(), &out))
       << "Conversion failed for '" << s << "' (expected to return " << expected << ")";
   ASSERT_EQ(out, expected) << "Conversion failed for '" << s << "'";
 }
 
-template <typename T, typename Context = void>
-void AssertConversionFails(const std::string& s, const Context* ctx = NULLPTR) {
+template <typename T>
+void AssertConversion(const std::string& s, typename T::c_type expected) {
+  auto type = checked_pointer_cast<T>(TypeTraits<T>::type_singleton());
+  AssertConversion(*type, s, expected);
+}
+
+template <typename T>
+void AssertConversionFails(const T& type, const std::string& s) {
   typename T::c_type out{};
-  ASSERT_FALSE(ParseValue<T>(s.data(), s.length(), &out, ctx))
+  ASSERT_FALSE(ParseValue(type, s.data(), s.length(), &out))
       << "Conversion should have failed for '" << s << "' (returned " << out << ")";
+}
+
+template <typename T>
+void AssertConversionFails(const std::string& s) {
+  auto type = checked_pointer_cast<T>(TypeTraits<T>::type_singleton());
+  AssertConversionFails(*type, s);
 }
 
 TEST(StringConversion, ToBoolean) {
@@ -230,108 +241,130 @@ TEST(StringConversion, ToUInt64) {
 
 TEST(StringConversion, ToTimestampDate_ISO8601) {
   {
-    ParseTimestampContext ctx{TimeUnit::SECOND};
+    TimestampType type{TimeUnit::SECOND};
 
-    AssertConversion<TimestampType>("1970-01-01", 0, &ctx);
-    AssertConversion<TimestampType>("1989-07-14", 616377600, &ctx);
-    AssertConversion<TimestampType>("2000-02-29", 951782400, &ctx);
-    AssertConversion<TimestampType>("3989-07-14", 63730281600LL, &ctx);
-    AssertConversion<TimestampType>("1900-02-28", -2203977600LL, &ctx);
+    AssertConversion(type, "1970-01-01", 0);
+    AssertConversion(type, "1989-07-14", 616377600);
+    AssertConversion(type, "2000-02-29", 951782400);
+    AssertConversion(type, "3989-07-14", 63730281600LL);
+    AssertConversion(type, "1900-02-28", -2203977600LL);
 
-    AssertConversionFails<TimestampType>("", &ctx);
-    AssertConversionFails<TimestampType>("1970", &ctx);
-    AssertConversionFails<TimestampType>("19700101", &ctx);
-    AssertConversionFails<TimestampType>("1970/01/01", &ctx);
-    AssertConversionFails<TimestampType>("1970-01-01 ", &ctx);
-    AssertConversionFails<TimestampType>("1970-01-01Z", &ctx);
+    AssertConversionFails(type, "");
+    AssertConversionFails(type, "1970");
+    AssertConversionFails(type, "19700101");
+    AssertConversionFails(type, "1970/01/01");
+    AssertConversionFails(type, "1970-01-01 ");
+    AssertConversionFails(type, "1970-01-01Z");
 
     // Invalid dates
-    AssertConversionFails<TimestampType>("1970-00-01", &ctx);
-    AssertConversionFails<TimestampType>("1970-13-01", &ctx);
-    AssertConversionFails<TimestampType>("1970-01-32", &ctx);
-    AssertConversionFails<TimestampType>("1970-02-29", &ctx);
-    AssertConversionFails<TimestampType>("2100-02-29", &ctx);
+    AssertConversionFails(type, "1970-00-01");
+    AssertConversionFails(type, "1970-13-01");
+    AssertConversionFails(type, "1970-01-32");
+    AssertConversionFails(type, "1970-02-29");
+    AssertConversionFails(type, "2100-02-29");
   }
   {
-    ParseTimestampContext ctx{TimeUnit::MILLI};
+    TimestampType type{TimeUnit::MILLI};
 
-    AssertConversion<TimestampType>("1970-01-01", 0, &ctx);
-    AssertConversion<TimestampType>("1989-07-14", 616377600000LL, &ctx);
-    AssertConversion<TimestampType>("3989-07-14", 63730281600000LL, &ctx);
-    AssertConversion<TimestampType>("1900-02-28", -2203977600000LL, &ctx);
+    AssertConversion(type, "1970-01-01", 0);
+    AssertConversion(type, "1989-07-14", 616377600000LL);
+    AssertConversion(type, "3989-07-14", 63730281600000LL);
+    AssertConversion(type, "1900-02-28", -2203977600000LL);
   }
   {
-    ParseTimestampContext ctx{TimeUnit::MICRO};
+    TimestampType type{TimeUnit::MICRO};
 
-    AssertConversion<TimestampType>("1970-01-01", 0, &ctx);
-    AssertConversion<TimestampType>("1989-07-14", 616377600000000LL, &ctx);
-    AssertConversion<TimestampType>("3989-07-14", 63730281600000000LL, &ctx);
-    AssertConversion<TimestampType>("1900-02-28", -2203977600000000LL, &ctx);
+    AssertConversion(type, "1970-01-01", 0);
+    AssertConversion(type, "1989-07-14", 616377600000000LL);
+    AssertConversion(type, "3989-07-14", 63730281600000000LL);
+    AssertConversion(type, "1900-02-28", -2203977600000000LL);
   }
   {
-    ParseTimestampContext ctx{TimeUnit::NANO};
+    TimestampType type{TimeUnit::NANO};
 
-    AssertConversion<TimestampType>("1970-01-01", 0, &ctx);
-    AssertConversion<TimestampType>("1989-07-14", 616377600000000000LL, &ctx);
-    AssertConversion<TimestampType>("2018-11-13", 1542067200000000000LL, &ctx);
-    AssertConversion<TimestampType>("1900-02-28", -2203977600000000000LL, &ctx);
+    AssertConversion(type, "1970-01-01", 0);
+    AssertConversion(type, "1989-07-14", 616377600000000000LL);
+    AssertConversion(type, "2018-11-13", 1542067200000000000LL);
+    AssertConversion(type, "1900-02-28", -2203977600000000000LL);
   }
 }
 
 TEST(StringConversion, ToTimestampDateTime_ISO8601) {
   {
-    ParseTimestampContext ctx{TimeUnit::SECOND};
+    TimestampType type{TimeUnit::SECOND};
 
-    AssertConversion<TimestampType>("1970-01-01 00:00:00", 0, &ctx);
-    AssertConversion<TimestampType>("2018-11-13 17", 1542128400, &ctx);
-    AssertConversion<TimestampType>("2018-11-13T17", 1542128400, &ctx);
-    AssertConversion<TimestampType>("2018-11-13 17Z", 1542128400, &ctx);
-    AssertConversion<TimestampType>("2018-11-13T17Z", 1542128400, &ctx);
-    AssertConversion<TimestampType>("2018-11-13 17:11", 1542129060, &ctx);
-    AssertConversion<TimestampType>("2018-11-13T17:11", 1542129060, &ctx);
-    AssertConversion<TimestampType>("2018-11-13 17:11Z", 1542129060, &ctx);
-    AssertConversion<TimestampType>("2018-11-13T17:11Z", 1542129060, &ctx);
-    AssertConversion<TimestampType>("2018-11-13 17:11:10", 1542129070, &ctx);
-    AssertConversion<TimestampType>("2018-11-13T17:11:10", 1542129070, &ctx);
-    AssertConversion<TimestampType>("2018-11-13 17:11:10Z", 1542129070, &ctx);
-    AssertConversion<TimestampType>("2018-11-13T17:11:10Z", 1542129070, &ctx);
-    AssertConversion<TimestampType>("1900-02-28 12:34:56", -2203932304LL, &ctx);
+    AssertConversion(type, "1970-01-01 00:00:00", 0);
+    AssertConversion(type, "2018-11-13 17", 1542128400);
+    AssertConversion(type, "2018-11-13T17", 1542128400);
+    AssertConversion(type, "2018-11-13 17Z", 1542128400);
+    AssertConversion(type, "2018-11-13T17Z", 1542128400);
+    AssertConversion(type, "2018-11-13 17:11", 1542129060);
+    AssertConversion(type, "2018-11-13T17:11", 1542129060);
+    AssertConversion(type, "2018-11-13 17:11Z", 1542129060);
+    AssertConversion(type, "2018-11-13T17:11Z", 1542129060);
+    AssertConversion(type, "2018-11-13 17:11:10", 1542129070);
+    AssertConversion(type, "2018-11-13T17:11:10", 1542129070);
+    AssertConversion(type, "2018-11-13 17:11:10Z", 1542129070);
+    AssertConversion(type, "2018-11-13T17:11:10Z", 1542129070);
+    AssertConversion(type, "1900-02-28 12:34:56", -2203932304LL);
 
+    // No subseconds allowed
+    AssertConversionFails(type, "1900-02-28 12:34:56.001");
     // Invalid dates
-    AssertConversionFails<TimestampType>("1970-02-29 00:00:00", &ctx);
-    AssertConversionFails<TimestampType>("2100-02-29 00:00:00", &ctx);
+    AssertConversionFails(type, "1970-02-29 00:00:00");
+    AssertConversionFails(type, "2100-02-29 00:00:00");
     // Invalid times
-    AssertConversionFails<TimestampType>("1970-01-01 24", &ctx);
-    AssertConversionFails<TimestampType>("1970-01-01 00:60", &ctx);
-    AssertConversionFails<TimestampType>("1970-01-01 00,00", &ctx);
-    AssertConversionFails<TimestampType>("1970-01-01 24:00:00", &ctx);
-    AssertConversionFails<TimestampType>("1970-01-01 00:60:00", &ctx);
-    AssertConversionFails<TimestampType>("1970-01-01 00:00:60", &ctx);
-    AssertConversionFails<TimestampType>("1970-01-01 00:00,00", &ctx);
-    AssertConversionFails<TimestampType>("1970-01-01 00,00:00", &ctx);
+    AssertConversionFails(type, "1970-01-01 24");
+    AssertConversionFails(type, "1970-01-01 00:60");
+    AssertConversionFails(type, "1970-01-01 00,00");
+    AssertConversionFails(type, "1970-01-01 24:00:00");
+    AssertConversionFails(type, "1970-01-01 00:60:00");
+    AssertConversionFails(type, "1970-01-01 00:00:60");
+    AssertConversionFails(type, "1970-01-01 00:00,00");
+    AssertConversionFails(type, "1970-01-01 00,00:00");
   }
   {
-    ParseTimestampContext ctx{TimeUnit::MILLI};
+    TimestampType type{TimeUnit::MILLI};
 
-    AssertConversion<TimestampType>("2018-11-13 17:11:10", 1542129070000LL, &ctx);
-    AssertConversion<TimestampType>("2018-11-13T17:11:10Z", 1542129070000LL, &ctx);
-    AssertConversion<TimestampType>("3989-07-14T11:22:33Z", 63730322553000LL, &ctx);
-    AssertConversion<TimestampType>("1900-02-28 12:34:56", -2203932304000LL, &ctx);
+    AssertConversion(type, "2018-11-13 17:11:10", 1542129070000LL);
+    AssertConversion(type, "2018-11-13T17:11:10Z", 1542129070000LL);
+    AssertConversion(type, "3989-07-14T11:22:33Z", 63730322553000LL);
+    AssertConversion(type, "1900-02-28 12:34:56", -2203932304000LL);
+    AssertConversion(type, "2018-11-13T17:11:10.777Z", 1542129070777LL);
+
+    // Invalid subseconds
+    AssertConversionFails(type, "1900-02-28 12:34:56.1");
+    AssertConversionFails(type, "1900-02-28 12:34:56.123456");
   }
   {
-    ParseTimestampContext ctx{TimeUnit::MICRO};
+    TimestampType type{TimeUnit::MICRO};
 
-    AssertConversion<TimestampType>("2018-11-13 17:11:10", 1542129070000000LL, &ctx);
-    AssertConversion<TimestampType>("2018-11-13T17:11:10Z", 1542129070000000LL, &ctx);
-    AssertConversion<TimestampType>("3989-07-14T11:22:33Z", 63730322553000000LL, &ctx);
-    AssertConversion<TimestampType>("1900-02-28 12:34:56", -2203932304000000LL, &ctx);
+    AssertConversion(type, "2018-11-13 17:11:10", 1542129070000000LL);
+    AssertConversion(type, "2018-11-13T17:11:10Z", 1542129070000000LL);
+    AssertConversion(type, "3989-07-14T11:22:33Z", 63730322553000000LL);
+    AssertConversion(type, "1900-02-28 12:34:56", -2203932304000000LL);
+    AssertConversion(type, "2018-11-13T17:11:10.777000", 1542129070777000LL);
+    AssertConversion(type, "3989-07-14T11:22:33.000777Z", 63730322553000777LL);
+
+    // Invalid subseconds
+    AssertConversionFails(type, "1900-02-28 12:34:56.1");
+    AssertConversionFails(type, "2018-11-13T17:11:10.777");
+    AssertConversionFails(type, "1900-02-28 12:34:56.123456789");
   }
   {
-    ParseTimestampContext ctx{TimeUnit::NANO};
+    TimestampType type{TimeUnit::NANO};
 
-    AssertConversion<TimestampType>("2018-11-13 17:11:10", 1542129070000000000LL, &ctx);
-    AssertConversion<TimestampType>("2018-11-13T17:11:10Z", 1542129070000000000LL, &ctx);
-    AssertConversion<TimestampType>("1900-02-28 12:34:56", -2203932304000000000LL, &ctx);
+    AssertConversion(type, "2018-11-13 17:11:10", 1542129070000000000LL);
+    AssertConversion(type, "2018-11-13T17:11:10Z", 1542129070000000000LL);
+    AssertConversion(type, "1900-02-28 12:34:56", -2203932304000000000LL);
+    AssertConversion(type, "2018-11-13 17:11:10.777000000", 1542129070777000000LL);
+    AssertConversion(type, "2018-11-13T17:11:10.000777000Z", 1542129070000777000LL);
+    AssertConversion(type, "1969-12-31 23:59:59.999999999", -1);
+
+    // Invalid subseconds
+    AssertConversionFails(type, "1900-02-28 12:34:56.1");
+    AssertConversionFails(type, "1900-02-28 12:34:56.123");
+    AssertConversionFails(type, "1900-02-28 12:34:56.123456");
   }
 }
 

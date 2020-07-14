@@ -237,8 +237,7 @@ Status GetPythonTypes(const UnionArray& data, std::vector<int8_t>* result) {
   auto type = data.type();
   for (int i = 0; i < type->num_fields(); ++i) {
     int8_t tag = 0;
-    const std::string& data = type->field(i)->name();
-    if (!ParseValue<Int8Type>(data.c_str(), data.size(), &tag)) {
+    if (!ParseValue<Int8Type>(type->field(i)->name(), &tag)) {
       return Status::SerializationError("Cannot convert string: \"",
                                         type->field(i)->name(), "\" to int8_t");
     }

@@ -17,15 +17,13 @@
 
 #pragma once
 
+#include <chrono>
 #include <memory>
 #include <utility>
 
-#include "arrow/result.h"
+#include "arrow/type_fwd.h"
 
 namespace arrow {
-
-class DataType;
-
 namespace util {
 
 enum DivideOrMultiply {
@@ -49,5 +47,69 @@ std::pair<DivideOrMultiply, int64_t> GetTimestampConversion(TimeUnit::type in_un
 ARROW_EXPORT Result<int64_t> ConvertTimestampValue(const std::shared_ptr<DataType>& in,
                                                    const std::shared_ptr<DataType>& out,
                                                    int64_t value);
+
+template <typename Visitor, typename... Args>
+auto VisitDuration(TimeUnit::type unit, Visitor&& visitor, Args&&... args)
+    -> decltype(visitor(std::chrono::seconds{}, std::forward<Args>(args)...)) {
+  switch (unit) {
+    default:
+    case TimeUnit::SECOND:
+      break;
+    case TimeUnit::MILLI:
+      return visitor(std::chrono::milliseconds{}, std::forward<Args>(args)...);
+    case TimeUnit::MICRO:
+      return visitor(std::chrono::microseconds{}, std::forward<Args>(args)...);
+    case TimeUnit::NANO:
+      return visitor(std::chrono::nanoseconds{}, std::forward<Args>(args)...);
+  }
+  return visitor(std::chrono::seconds{}, std::forward<Args>(args)...);
+}
+
+// Convert a count of seconds to the corresponding count in a different TimeUnit
+struct {
+  template <typename Count>
+  Count operator()(TimeUnit::type unit, Count seconds) {
+    return VisitDuration(unit, *this, seconds);
+  }
+
+  template <typename Duration, typename Count>
+  Count operator()(Duration, Count seconds) {
+    return std::chrono::duration_cast<Duration>(std::chrono::seconds{seconds}).count();
+  }
+
+} CastSecondsToUnit;
+
+// Visit a converter from one TimeUnit to another
+struct {
+  template <typename FromDuration, typename ToDuration>
+  struct UnitConversion {
+    template <typename Count>
+    Count operator()(Count count) {
+      return std::chrono::duration_cast<ToDuration>(FromDuration{count}).count();
+    }
+  };
+
+  template <typename Visitor>
+  using Return =
+      decltype(Visitor{}(UnitConversion<std::chrono::seconds, std::chrono::seconds>{}));
+
+  template <typename Visitor>
+  Return<Visitor> operator()(TimeUnit::type to_unit, TimeUnit::type from_unit,
+                             Visitor&& visitor) {
+    return VisitDuration(to_unit, *this, from_unit, std::forward<Visitor>(visitor));
+  }
+
+  template <typename ToDuration, typename Visitor>
+  Return<Visitor> operator()(ToDuration, TimeUnit::type from_unit, Visitor&& visitor) {
+    return VisitDuration(from_unit, *this, ToDuration{}, std::forward<Visitor>(visitor));
+  }
+
+  template <typename FromDuration, typename ToDuration, typename Visitor>
+  Return<Visitor> operator()(FromDuration, ToDuration, Visitor&& visitor) {
+    return std::forward<Visitor>(visitor)(UnitConversion<FromDuration, ToDuration>{});
+  }
+
+} VisitUnitConversion;
+
 }  // namespace util
 }  // namespace arrow

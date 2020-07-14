@@ -1170,17 +1170,17 @@ UnboxValue(const rj::Value& val) {
   return static_cast<CType>(val.GetInt64());
 }
 
-template <typename T, typename CType = typename T::c_type>
+template <typename T, typename CType = typename T::c_type,
+          typename PhysicalType = typename CTypeTraits<CType>::ArrowType>
 enable_if_t<is_physical_integer_type<T>::value && sizeof(CType) == sizeof(int64_t), CType>
 UnboxValue(const rj::Value& val) {
   DCHECK(val.IsString());
 
-  CType out;
-  bool success = ::arrow::internal::ParseValue<typename CTypeTraits<CType>::ArrowType>(
-      val.GetString(), val.GetStringLength(), &out);
+  util::optional<CType> out =
+      ::arrow::internal::ParseValue<PhysicalType>(val.GetString(), val.GetStringLength());
 
-  DCHECK(success);
-  return out;
+  DCHECK(out);
+  return *out;
 }
 
 template <typename T>
@@ -1391,9 +1391,9 @@ class ArrayReader {
         const rj::Value& val = json_array[i];
         DCHECK(val.IsString());
         if (!ParseValue<ArrowType>(val.GetString(), val.GetStringLength(), &values[i])) {
-          return Status::Invalid("Failed to parse integer: '",
-                                 std::string(val.GetString(), val.GetStringLength()),
-                                 "'");
+          return Status::Invalid(
+              "Failed to parse integer: '",
+              util::string_view(val.GetString(), val.GetStringLength()), "'");
         }
       }
     }

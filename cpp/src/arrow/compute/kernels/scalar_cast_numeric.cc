@@ -280,7 +280,7 @@ struct ParseString {
   template <typename OUT, typename ARG0>
   OUT Call(KernelContext* ctx, ARG0 val) const {
     OUT result = OUT(0);
-    if (ARROW_PREDICT_FALSE(!ParseValue<OutType>(val.data(), val.size(), &result))) {
+    if (ARROW_PREDICT_FALSE(!ParseValue<OutType>(val, &result))) {
       ctx->SetStatus(Status::Invalid("Failed to parse string: ", val));
     }
     return result;
