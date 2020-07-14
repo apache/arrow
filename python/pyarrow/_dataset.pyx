@@ -1814,8 +1814,12 @@ cdef class ScanTask:
         -------
         record_batches : iterator of RecordBatch
         """
-        for maybe_batch in GetResultValue(self.task.Execute()):
-            yield pyarrow_wrap_batch(GetResultValue(move(maybe_batch)))
+        cdef shared_ptr[CRecordBatch] record_batch
+        with nogil:
+            for maybe_batch in GetResultValue(self.task.Execute()):
+                record_batch = GetResultValue(move(maybe_batch))
+                with gil:
+                    yield pyarrow_wrap_batch(record_batch)
 
 
 cdef shared_ptr[CScanContext] _build_scan_context(bint use_threads=True,
