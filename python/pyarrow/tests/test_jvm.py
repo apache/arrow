@@ -146,6 +146,8 @@ def _jvm_schema(jvm_spec, metadata=None):
 ])
 @pytest.mark.parametrize('nullable', [True, False])
 def test_jvm_types(root_allocator, pa_type, jvm_spec, nullable):
+    if pa_type == pa.null() and not nullable:
+        return
     spec = {
         'name': 'field_name',
         'nullable': nullable,
@@ -168,7 +170,7 @@ def test_jvm_types(root_allocator, pa_type, jvm_spec, nullable):
     assert result == pa.schema([expected_field], {'meta': 'data'})
 
     # Schema with custom field metadata
-    spec['metadata'] = {'field meta': 'field data'}
+    spec['metadata'] = [{'key': 'field meta', 'value': 'field data'}]
     jvm_schema = _jvm_schema(json.dumps(spec))
     result = pa_jvm.schema(jvm_schema)
     expected_field = expected_field.with_metadata(
