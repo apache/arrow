@@ -655,7 +655,6 @@ TEST_F(TestHashKernel, ZeroLengthDictionaryEncode) {
 
   std::shared_ptr<Array> result = datum_result.make_array();
   const auto& dict_result = checked_cast<const DictionaryArray&>(*result);
-  ASSERT_OK(dict_result.Validate());
   ASSERT_OK(dict_result.ValidateFull());
 }
 

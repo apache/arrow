@@ -37,7 +37,7 @@ struct IsValidOperator {
   static void Call(KernelContext* ctx, const ArrayData& arr, ArrayData* out) {
     DCHECK_EQ(out->offset, 0);
     DCHECK_LE(out->length, arr.length);
-    if (arr.null_count != 0 && arr.buffers[0] != nullptr) {
+    if (arr.MayHaveNulls()) {
       // Input has nulls => output is the null (validity) bitmap.
       // To avoid copying the null bitmap, slice from the starting byte offset
       // and set the offset to the remaining bit offset.
@@ -62,7 +62,7 @@ struct IsNullOperator {
   }
 
   static void Call(KernelContext* ctx, const ArrayData& arr, ArrayData* out) {
-    if (arr.null_count != 0 && arr.buffers[0] != nullptr) {
+    if (arr.MayHaveNulls()) {
       // Input has nulls => output is the inverted null (validity) bitmap.
       InvertBitmap(arr.buffers[0]->data(), arr.offset, arr.length,
                    out->buffers[1]->mutable_data(), out->offset);
