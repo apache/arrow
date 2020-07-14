@@ -49,6 +49,9 @@ export AWS_EC2_METADATA_DISABLED=TRUE
 export TEXMFCONFIG=/tmp/texmf-config
 export TEXMFVAR=/tmp/texmf-var
 
+# Not all Suggested packages are needed for checking, so in case they aren't installed don't fail
+export _R_CHECK_FORCE_SUGGESTS_=FALSE
+
 # Make sure we aren't writing to the home dir (CRAN _hates_ this but there is no official check)
 BEFORE=$(ls -alh ~/)
 
