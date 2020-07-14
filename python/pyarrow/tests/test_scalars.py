@@ -181,6 +181,15 @@ def test_time():
             assert s.as_py() == t
 
 
+def test_cast():
+    val = pa.scalar(5, type='int8')
+    assert val.cast('int64') == pa.scalar(5, type='int64')
+    assert val.cast('uint32') == pa.scalar(5, type='uint32')
+    assert val.cast('string') == pa.scalar('5', type='string')
+    with pytest.raises(ValueError):
+        pa.scalar('foo').cast('int32')
+
+
 @pytest.mark.pandas
 def test_timestamp():
     import pandas as pd
