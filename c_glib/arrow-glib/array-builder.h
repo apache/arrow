@@ -44,6 +44,8 @@ GArrowType garrow_array_builder_get_value_type(GArrowArrayBuilder *builder);
 GArrowArray        *garrow_array_builder_finish   (GArrowArrayBuilder *builder,
                                                    GError **error);
 
+// TODO: reset
+// TODO: resize
 
 #define GARROW_TYPE_NULL_ARRAY_BUILDER (garrow_null_array_builder_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowNullArrayBuilder,
@@ -886,6 +888,48 @@ gboolean garrow_time64_array_builder_append_nulls(GArrowTime64ArrayBuilder *buil
                                                   gint64 n,
                                                   GError **error);
 
+
+#define GARROW_TYPE_STRING_DICTIONARY_ARRAY_BUILDER (garrow_string_dictionary_array_builder_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowStringDictionaryArrayBuilder,
+                         garrow_string_dictionary_array_builder,
+                         GARROW,
+                         STRING_DICTIONARY_ARRAY_BUILDER,
+                         GArrowArrayBuilder)
+struct _GArrowStringDictionaryArrayBuilderClass
+{
+  GArrowArrayBuilderClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_1_0
+GArrowStringDictionaryArrayBuilder *
+garrow_string_dictionary_array_builder_new(void);
+GARROW_AVAILABLE_IN_1_0
+gboolean
+garrow_string_dictionary_array_builder_append_null(GArrowStringDictionaryArrayBuilder *builder,
+                                             GError **error);
+GARROW_AVAILABLE_IN_1_0
+gboolean
+garrow_string_dictionary_array_builder_append_nulls(GArrowStringDictionaryArrayBuilder *builder,
+                                              gint64 n,
+                                              GError **error);
+GARROW_AVAILABLE_IN_1_0
+gboolean
+garrow_string_dictionary_array_builder_append_string(GArrowStringDictionaryArrayBuilder *builder,
+                                               const gchar *value,
+                                               GError **error);
+GARROW_AVAILABLE_IN_1_0
+gboolean
+garrow_string_dictionary_array_builder_append_string_array(GArrowStringDictionaryArrayBuilder *builder,
+                                                     GArrowStringArray *array,
+                                                     GError **error);
+GARROW_AVAILABLE_IN_1_0
+gint64
+garrow_string_dictionary_array_builder_get_dictionary_length(GArrowStringDictionaryArrayBuilder *builder);
+
+// TODO: append_indices
+// TODO: finish_delta
+// TODO: insert_memo_values
+// TODO: reset_full
 
 #define GARROW_TYPE_LIST_ARRAY_BUILDER (garrow_list_array_builder_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowListArrayBuilder,

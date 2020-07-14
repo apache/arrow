@@ -301,6 +301,9 @@ G_BEGIN_DECLS
  * #GArrowTime64ArrayBuilder is the class to create a new
  * #GArrowTime64Array.
  *
+ * #GArrowStringDictionaryBuilder is the class to create a new
+ * #GArrowDictionaryArray with a dictionary array of #GArrowStringArray.
+ *
  * #GArrowListArrayBuilder is the class to create a new
  * #GArrowListArray.
  *
@@ -3911,6 +3914,126 @@ garrow_time64_array_builder_append_nulls(GArrowTime64ArrayBuilder *builder,
      n,
      error,
      "[time64-array-builder][append-nulls]");
+}
+
+
+G_DEFINE_TYPE(GArrowStringDictionaryArrayBuilder,
+              garrow_string_dictionary_array_builder,
+              GARROW_TYPE_ARRAY_BUILDER)
+
+static void
+garrow_string_dictionary_array_builder_init(GArrowStringDictionaryArrayBuilder *builder)
+{
+}
+
+static void
+garrow_string_dictionary_array_builder_class_init(GArrowStringDictionaryArrayBuilderClass *klass)
+{
+}
+
+
+/**
+ * garrow_string_dictionary_array_builder_new:
+ *
+ * Returns: A newly created #GArrowStringDictionaryArrayBuilder.
+ *
+ * Since: 1.0
+ */
+GArrowStringDictionaryArrayBuilder *
+garrow_string_dictionary_array_builder_new(void)
+{
+  auto memory_pool = arrow::default_memory_pool();
+  auto arrow_builder = new arrow::StringDictionaryBuilder(memory_pool);
+  auto builder = garrow_array_builder_new_raw(arrow_builder, GARROW_TYPE_STRING_DICTIONARY_ARRAY_BUILDER);
+  return GARROW_STRING_DICTIONARY_ARRAY_BUILDER(builder);
+}
+
+/**
+ * garrow_string_dictionary_array_builder_append_null:
+ * @builder: A #GArrowStringDictionaryArrayBuilder.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ */
+gboolean
+garrow_string_dictionary_array_builder_append_null(GArrowStringDictionaryArrayBuilder *builder,
+                                                   GError **error)
+{
+  return garrow_array_builder_append_null<arrow::StringDictionaryBuilder *>
+    (GARROW_ARRAY_BUILDER(builder),
+     error,
+     "[string-dictionary-array-builder][append-null]");
+}
+
+/**
+ * garrow_string_dictionary_array_builder_append_string:
+ * @builder: A #GArrowStringDictionaryArrayBuilder.
+ * @value: A string value.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 1.0
+ */
+gboolean
+garrow_string_dictionary_array_builder_append_string(GArrowStringDictionaryArrayBuilder *builder,
+                                                     const gchar *value,
+                                                     GError **error)
+{
+  auto arrow_builder =
+    static_cast<arrow::StringDictionaryBuilder *>(
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+
+  auto status = arrow_builder->Append(value,
+                                      static_cast<guint32>(strlen(value)));
+
+  return garrow_error_check(error,
+                            status,
+                            "[string-dictionary-array-builder][append-string]");
+}
+
+/**
+ * garrow_string_dictionary_array_builder_append_string_array:
+ * @builder: A #GArrowStringDictionaryArrayBuilder.
+ * @array: A #GArrowStringArray.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 1.0
+ */
+gboolean
+garrow_string_dictionary_array_builder_append_string_array(GArrowStringDictionaryArrayBuilder *builder,
+                                                           GArrowStringArray *array,
+                                                           GError **error)
+{
+  auto arrow_builder =
+    static_cast<arrow::StringDictionaryBuilder *>(
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+  auto arrow_array = garrow_array_get_raw<arrow::StringType>(GARROW_ARRAY(array));
+
+  auto status = arrow_builder->AppendArray(*arrow_array);
+
+  return garrow_error_check(error,
+                            status,
+                            "[string-dictionary-array-builder][append-string-array]");
+}
+
+
+/**
+ * garrow_string_dictionary_array_builder_get_dictionary_length:
+ * @builder: A #GArrowStringDictionaryArrayBuilder.
+ *
+ * Returns: A number of entries in the dicitonary.
+ *
+ * Since: 1.0
+ */
+gint64 garrow_string_dictionary_array_builder_get_dictionary_length(GArrowStringDictionaryArrayBuilder *builder)
+{
+  auto arrow_builder =
+    static_cast<arrow::StringDictionaryBuilder *>(
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+  return arrow_builder->dictionary_length();
 }
 
 
