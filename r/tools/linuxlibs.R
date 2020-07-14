@@ -295,7 +295,7 @@ build_libarrow <- function(src_dir, dst_dir) {
     # Make sure we build with the same compiler settings that R is using
     CC = R_CMD_config("CC"),
     CXX = paste(R_CMD_config("CXX11"), R_CMD_config("CXX11STD")),
-    CXXFLAGS = R_CMD_config("CXX11FLAGS"),
+    # CXXFLAGS = R_CMD_config("CXX11FLAGS"), # We don't want the same debug symbols
     LDFLAGS = R_CMD_config("LDFLAGS")
   )
   env_vars <- paste(
