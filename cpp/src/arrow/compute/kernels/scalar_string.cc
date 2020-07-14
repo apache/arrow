@@ -944,33 +944,33 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
   MakeUnaryStringBatchKernel<AsciiUpper>("ascii_upper", registry);
   MakeUnaryStringBatchKernel<AsciiLower>("ascii_lower", registry);
 
-  AddUnaryStringPredicate<IsAscii>("string_isascii", registry);
+  AddUnaryStringPredicate<IsAscii>("string_is_ascii", registry);
 
-  AddUnaryStringPredicate<IsAlphaNumericAscii>("ascii_isalnum", registry);
-  AddUnaryStringPredicate<IsAlphaAscii>("ascii_isalpha", registry);
-  AddUnaryStringPredicate<IsDecimalAscii>("ascii_isdecimal", registry);
-  // no isdigic for ascii, since it is the same as isdecimal
-  AddUnaryStringPredicate<IsLowerAscii>("ascii_islower", registry);
-  // no isnumeric for ascii, since it is the same as isdecimal
-  AddUnaryStringPredicate<IsPrintableAscii>("ascii_isprintable", registry);
-  AddUnaryStringPredicate<IsSpaceAscii>("ascii_isspace", registry);
-  AddUnaryStringPredicate<IsTitleAscii>("ascii_istitle", registry);
-  AddUnaryStringPredicate<IsUpperAscii>("ascii_isupper", registry);
+  AddUnaryStringPredicate<IsAlphaNumericAscii>("ascii_is_alnum", registry);
+  AddUnaryStringPredicate<IsAlphaAscii>("ascii_is_alpha", registry);
+  AddUnaryStringPredicate<IsDecimalAscii>("ascii_is_decimal", registry);
+  // no is_digit for ascii, since it is the same as is_decimal
+  AddUnaryStringPredicate<IsLowerAscii>("ascii_is_lower", registry);
+  // no is_numeric for ascii, since it is the same as is_decimal
+  AddUnaryStringPredicate<IsPrintableAscii>("ascii_is_printable", registry);
+  AddUnaryStringPredicate<IsSpaceAscii>("ascii_is_space", registry);
+  AddUnaryStringPredicate<IsTitleAscii>("ascii_is_title", registry);
+  AddUnaryStringPredicate<IsUpperAscii>("ascii_is_upper", registry);
 
 #ifdef ARROW_WITH_UTF8PROC
   MakeUnaryStringUTF8TransformKernel<UTF8Upper>("utf8_upper", registry);
   MakeUnaryStringUTF8TransformKernel<UTF8Lower>("utf8_lower", registry);
 
-  AddUnaryStringPredicate<IsAlphaNumericUnicode>("utf8_isalnum", registry);
-  AddUnaryStringPredicate<IsAlphaUnicode>("utf8_isalpha", registry);
-  AddUnaryStringPredicate<IsDecimalUnicode>("utf8_isdecimal", registry);
-  AddUnaryStringPredicate<IsDigitUnicode>("utf8_isdigit", registry);
-  AddUnaryStringPredicate<IsLowerUnicode>("utf8_islower", registry);
-  AddUnaryStringPredicate<IsNumericUnicode>("utf8_isnumeric", registry);
-  AddUnaryStringPredicate<IsPrintableUnicode>("utf8_isprintable", registry);
-  AddUnaryStringPredicate<IsSpaceUnicode>("utf8_isspace", registry);
-  AddUnaryStringPredicate<IsTitleUnicode>("utf8_istitle", registry);
-  AddUnaryStringPredicate<IsUpperUnicode>("utf8_isupper", registry);
+  AddUnaryStringPredicate<IsAlphaNumericUnicode>("utf8_is_alnum", registry);
+  AddUnaryStringPredicate<IsAlphaUnicode>("utf8_is_alpha", registry);
+  AddUnaryStringPredicate<IsDecimalUnicode>("utf8_is_decimal", registry);
+  AddUnaryStringPredicate<IsDigitUnicode>("utf8_is_digit", registry);
+  AddUnaryStringPredicate<IsLowerUnicode>("utf8_is_lower", registry);
+  AddUnaryStringPredicate<IsNumericUnicode>("utf8_is_numeric", registry);
+  AddUnaryStringPredicate<IsPrintableUnicode>("utf8_is_printable", registry);
+  AddUnaryStringPredicate<IsSpaceUnicode>("utf8_is_space", registry);
+  AddUnaryStringPredicate<IsTitleUnicode>("utf8_is_title", registry);
+  AddUnaryStringPredicate<IsUpperUnicode>("utf8_is_upper", registry);
 #endif
 
   AddBinaryLength(registry);

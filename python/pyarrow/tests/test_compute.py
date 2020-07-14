@@ -125,7 +125,7 @@ def find_new_unicode_codepoints():
     new = set()
     characters = [chr(c) for c in range(0x80, 0x11000)
                   if not (0xD800 <= c < 0xE000)]
-    is_printable = pc.utf8_isprintable(pa.array(characters)).to_pylist()
+    is_printable = pc.utf8_is_printable(pa.array(characters)).to_pylist()
     for i, c in enumerate(characters):
         if is_printable[i] != c.isprintable():
             new.add(ord(c))
@@ -134,9 +134,9 @@ def find_new_unicode_codepoints():
 
 # Python claims there are not alpha, not sure why, they are in
 #  gc='Other Letter': https://graphemica.com/%E1%B3%B2
-unknown_issue_isalpha = {0x1cf2, 0x1cf3}
+unknown_issue_is_alpha = {0x1cf2, 0x1cf3}
 # utf8proc does not know if codepoints are lower case
-utf8proc_issue_islower = {
+utf8proc_issue_is_lower = {
     0xaa, 0xba, 0x2b0, 0x2b1, 0x2b2, 0x2b3, 0x2b4,
     0x2b5, 0x2b6, 0x2b7, 0x2b8, 0x2c0, 0x2c1, 0x2e0,
     0x2e1, 0x2e2, 0x2e3, 0x2e4, 0x37a, 0x1d2c, 0x1d2d,
@@ -208,23 +208,24 @@ numeric_info_missing = {
     0xf978, 0xf9b2, 0xf9d1, 0xf9d3, 0xf9fd, }
 
 codepoints_ignore = {
-    'isalnum': numeric_info_missing | digit_info_missing |
-    unknown_issue_isalpha,
-    'isalpha': unknown_issue_isalpha,
-    'isdigit': digit_info_missing,
-    'isnumeric': numeric_info_missing,
-    'islower': utf8proc_issue_islower
+    'is_alnum': numeric_info_missing | digit_info_missing |
+    unknown_issue_is_alpha,
+    'is_alpha': unknown_issue_is_alpha,
+    'is_digit': digit_info_missing,
+    'is_numeric': numeric_info_missing,
+    'is_lower': utf8proc_issue_is_lower
 }
 
 
-@pytest.mark.parametrize('function_name', ['isalnum', 'isalpha', 'isascii',
-                                           'isdecimal', 'isdigit', 'islower',
-                                           'isnumeric', 'isprintable',
-                                           'isspace', 'isupper', ])
+@pytest.mark.parametrize('function_name', ['is_alnum', 'is_alpha',
+                                           'is_ascii', 'is_decimal',
+                                           'is_digit', 'is_lower',
+                                           'is_numeric', 'is_printable',
+                                           'is_space', 'is_upper', ])
 @pytest.mark.parametrize('variant', ['ascii', 'utf8'])
 def test_string_py_compat_boolean(function_name, variant):
     arrow_name = variant + "_" + function_name
-    py_name = function_name
+    py_name = function_name.replace('_', '')
     ignore = codepoints_ignore.get(function_name, set()) |\
         find_new_unicode_codepoints()
     for i in range(128 if ascii else 0x11000):
