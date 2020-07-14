@@ -43,9 +43,14 @@ def jvm_buffer(arrowbuf):
     pyarrow.Buffer
         Python Buffer that references the JVM memory.
     """
+    import jpype
     address = arrowbuf.memoryAddress()
     size = arrowbuf.capacity()
-    return pa.foreign_buffer(address, size, arrowbuf.asNettyBuffer())
+
+    # TODO: why can we not use arrowbuf as the base?
+    clazz = jpype.JClass('io.netty.buffer.NettyArrowBuf')
+    netty_wrapper = clazz.unwrapBuffer(arrowbuf)
+    return pa.foreign_buffer(address, size, base=netty_wrapper)
 
 
 def _from_jvm_int_type(jvm_type):
