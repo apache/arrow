@@ -24,6 +24,8 @@ cpp_build_dir=${2}/cpp/${ARROW_BUILD_TYPE:-debug}
 with_docs=${3:-false}
 
 mvn="mvn -B -DskipTests -Drat.skip=true -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn"
+# Use `2 * ncores` threads
+mvn="${mvn} -T 2C"
 
 pushd ${source_dir}
 
