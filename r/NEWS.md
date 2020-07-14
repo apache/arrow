@@ -30,6 +30,7 @@
 * Arrow types `int64`, `uint32`, and `uint64` now are converted to R `integer` if all values fit in bounds
 * Arrow `date32` is now converted to R `Date` with `double` underlying storage. Even though the data values themselves are integers, this provides more strict round-trip fidelity
 * When converting to R `factor`, `dictionary` ChunkedArrays that do not have identical dictionaries are properly unified
+* In the 1.0 release, the Arrow IPC metadata version is increased from V4 to V5. By default, `RecordBatch{File,Stream}Writer` will write V5, but you can specify an alternate `metadata_version`. For convenience, if you know the consumer you're writing to cannot read V5, you can set the environment variable `ARROW_PRE_1_0_METADATA_VERSION=1` to write V4 without changing any other code.
 
 ## Datasets
 
