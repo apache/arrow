@@ -25,6 +25,10 @@ factory methods instantiate the object and take the following arguments:
 \item \code{use_legacy_format} logical: write data formatted so that Arrow libraries
 versions 0.14 and lower can read it? Default is \code{FALSE}. You can also
 enable this by setting the environment variable \code{ARROW_PRE_0_15_IPC_FORMAT=1}.
+\item \code{metadata_version}: A string like "V5" or the equivalent integer indicating
+the Arrow IPC MetadataVersion. Default (NULL) will use the latest version,
+unless the environment variable \code{ARROW_PRE_1_0_METADATA_VERSION=1}, in
+which case it will be V4.
 }
 }
 
