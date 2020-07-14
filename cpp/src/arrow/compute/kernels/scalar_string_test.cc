@@ -128,7 +128,7 @@ TYPED_TEST(TestStringKernels, Utf8Lower) {
   this->CheckUnary("utf8_lower", "[\"aAazZæÆ&\", null, \"\", \"b\"]", this->type(),
                    "[\"aaazzææ&\", null, \"\", \"b\"]");
 
-  // test varying encoding lenghts and thus changing indices/offsets
+  // test varying encoding lengths and thus changing indices/offsets
   this->CheckUnary("utf8_lower", "[\"ⱭɽⱤoW\", null, \"ıI\", \"B\"]", this->type(),
                    "[\"ɑɽɽow\", null, \"ıi\", \"b\"]");
 
@@ -201,7 +201,7 @@ TYPED_TEST(TestStringKernels, IsLowerUnicode) {
 }
 
 TYPED_TEST(TestStringKernels, IsPrintableUnicode) {
-  // U+2008 (utf8: \xe2\x80\x88) is punctuaction space, it is NOT printable
+  // U+2008 (utf8: \xe2\x80\x88) is punctuation space, it is NOT printable
   // U+0378 (utf8: \xCD\xB8) is an undefined char, it has no category
   this->CheckUnary(
       "utf8_is_printable",
@@ -210,7 +210,7 @@ TYPED_TEST(TestStringKernels, IsPrintableUnicode) {
 }
 
 TYPED_TEST(TestStringKernels, IsSpaceUnicode) {
-  // U+2008 (utf8: \xe2\x80\x88) is punctuaction space
+  // U+2008 (utf8: \xe2\x80\x88) is punctuation space
   this->CheckUnary("utf8_is_space", "[\" \", null, \"  \", \"\\t\\r\"]", boolean(),
                    "[true, null, true, true]");
   this->CheckUnary("utf8_is_space", "[\" a\", null, \"a \", \"~\", \"\xe2\x80\x88\"]",
@@ -281,14 +281,14 @@ TYPED_TEST(TestStringKernels, IsLowerAscii) {
                    "[false, null, true, false, true, false, false]");
 }
 TYPED_TEST(TestStringKernels, IsPrintableAscii) {
-  // \xe2\x80\x88 is punctuaction space
+  // \xe2\x80\x88 is punctuation space
   this->CheckUnary("ascii_is_printable",
                    "[\" 123azAZ!~\", null, \"\xe2\x80\x88\", \"\", \"\\r\"]", boolean(),
                    "[true, null, false, true, false]");
 }
 
 TYPED_TEST(TestStringKernels, IsSpaceAscii) {
-  // \xe2\x80\x88 is punctuaction space
+  // \xe2\x80\x88 is punctuation space
   // Note: for ascii version, the non-ascii chars are seen as non-cased
   this->CheckUnary("ascii_is_space", "[\" \", null, \"  \", \"\\t\\r\"]", boolean(),
                    "[true, null, true, true]");

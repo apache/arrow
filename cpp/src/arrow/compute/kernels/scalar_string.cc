@@ -949,7 +949,7 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
   AddUnaryStringPredicate<IsAlphaNumericAscii>("ascii_is_alnum", registry);
   AddUnaryStringPredicate<IsAlphaAscii>("ascii_is_alpha", registry);
   AddUnaryStringPredicate<IsDecimalAscii>("ascii_is_decimal", registry);
-  // no is_digic for ascii, since it is the same as is_decimal
+  // no is_digit for ascii, since it is the same as is_decimal
   AddUnaryStringPredicate<IsLowerAscii>("ascii_is_lower", registry);
   // no is_numeric for ascii, since it is the same as is_decimal
   AddUnaryStringPredicate<IsPrintableAscii>("ascii_is_printable", registry);
