@@ -984,7 +984,8 @@ public class TestValueVector {
       // because the offset starts at 0 since the first 2 values are empty/null, the allocation only consists in
       // the size needed for the validity buffer
       final long validitySize =
-          DefaultRoundingPolicy.INSTANCE.getRoundedSize(BaseValueVector.getValidityBufferSizeFromCount(2));
+          DefaultRoundingPolicy.DEFAULT_ROUNDING_POLICY.getRoundedSize(
+              BaseValueVector.getValidityBufferSizeFromCount(2));
       assertEquals(allocatedMem + validitySize, allocator.getAllocatedMemory());
       // The validity and offset buffers are sliced from a same buffer.See BaseFixedWidthVector#allocateBytes.
       // Since values up to the startIndex are empty/null, the offset buffer doesn't need to be reallocated and
