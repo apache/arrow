@@ -44,8 +44,20 @@ GArrowType garrow_array_builder_get_value_type(GArrowArrayBuilder *builder);
 GArrowArray        *garrow_array_builder_finish   (GArrowArrayBuilder *builder,
                                                    GError **error);
 
+GARROW_AVAILABLE_IN_1_0
 void garrow_array_builder_reset(GArrowArrayBuilder *builder);
-// TODO: resize
+
+GARROW_AVAILABLE_IN_1_0
+gint64 garrow_array_builder_get_capacity(GArrowArrayBuilder *builder);
+
+GARROW_AVAILABLE_IN_1_0
+gboolean garrow_array_builder_resize(GArrowArrayBuilder *builder,
+                                     gint64 capacity,
+                                     GError **error);
+GARROW_AVAILABLE_IN_1_0
+gboolean garrow_array_builder_reserve(GArrowArrayBuilder *builder,
+                                      gint64 additional_capacity,
+                                      GError **error);
 
 #define GARROW_TYPE_NULL_ARRAY_BUILDER (garrow_null_array_builder_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowNullArrayBuilder,

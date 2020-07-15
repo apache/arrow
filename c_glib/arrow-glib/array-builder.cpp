@@ -504,6 +504,54 @@ garrow_array_builder_reset(GArrowArrayBuilder *builder)
   arrow_builder->Reset();
 }
 
+/**
+ * garrow_array_builder_get_capacity:
+ * @builder: A #GArrowArrayBuilder.
+ *
+ * Returns: The capacity of the building array.
+ */
+gint64
+garrow_array_builder_get_capacity(GArrowArrayBuilder *builder)
+{
+  auto arrow_builder = garrow_array_builder_get_raw(builder);
+  return arrow_builder->capacity();
+}
+
+/**
+ * garrow_array_builder_resize:
+ * @builder: A #GArrowArrayBuilder.
+ * @capacity: A new capacity.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ */
+gboolean
+garrow_array_builder_resize(GArrowArrayBuilder *builder,
+                            gint64 capacity,
+                            GError **error)
+{
+  auto arrow_builder = garrow_array_builder_get_raw(builder);
+  auto status = arrow_builder->Resize(capacity);
+  return garrow_error_check(error, status, "[array-builder][resize]");
+}
+
+/**
+ * garrow_array_builder_reserve:
+ * @builder: A #GArrowArrayBuilder.
+ * @additional_capacity: The additional capacity to be reserved.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ */
+gboolean
+garrow_array_builder_reserve(GArrowArrayBuilder *builder,
+                             gint64 additional_capacity,
+                             GError **error)
+{
+  auto arrow_builder = garrow_array_builder_get_raw(builder);
+  auto status = arrow_builder->Reserve(additional_capacity);
+  return garrow_error_check(error, status, "[array-builder][reserve]");
+}
 
 G_DEFINE_TYPE(GArrowNullArrayBuilder,
               garrow_null_array_builder,

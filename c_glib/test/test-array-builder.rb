@@ -156,6 +156,30 @@ module ArrayBuilderValueTypeTests
   end
 end
 
+module ArrayBuilderCapacityControlTests
+  def test_resize
+    builder = create_builder
+    before_capacity = builder.capacity
+    builder.resize(before_capacity + 100)
+    after_capacity = builder.capacity
+
+    assert do
+      after_capacity >= before_capacity + 100
+    end
+  end
+
+  def test_reserve
+    builder = create_builder
+    before_capacity = builder.capacity
+    builder.reserve(100)
+    after_capacity = builder.capacity
+
+    assert do
+      after_capacity >= before_capacity + 100
+    end
+  end
+end
+
 class TestArrayBuilder < Test::Unit::TestCase
   include Helper::Buildable
   include Helper::Omittable
@@ -199,6 +223,10 @@ class TestArrayBuilder < Test::Unit::TestCase
     sub_test_case("#append_nulls") do
       include ArrayBuilderAppendNullsTests
     end
+
+    sub_test_case("capacity control") do
+      include ArrayBuilderCapacityControlTests
+    end
   end
 
   sub_test_case("BooleanArrayBuilder") do
@@ -228,6 +256,10 @@ class TestArrayBuilder < Test::Unit::TestCase
 
     sub_test_case("#append_nulls") do
       include ArrayBuilderAppendNullsTests
+    end
+
+    sub_test_case("capacity control") do
+      include ArrayBuilderCapacityControlTests
     end
   end
 
@@ -259,6 +291,10 @@ class TestArrayBuilder < Test::Unit::TestCase
     sub_test_case("#append_nulls") do
       include ArrayBuilderAppendNullsTests
     end
+
+    sub_test_case("capacity control") do
+      include ArrayBuilderCapacityControlTests
+    end
   end
 
   sub_test_case("UIntArrayBuilder") do
@@ -288,6 +324,10 @@ class TestArrayBuilder < Test::Unit::TestCase
 
     sub_test_case("#append_nulls") do
       include ArrayBuilderAppendNullsTests
+    end
+
+    sub_test_case("capacity control") do
+      include ArrayBuilderCapacityControlTests
     end
   end
 
@@ -319,6 +359,10 @@ class TestArrayBuilder < Test::Unit::TestCase
     sub_test_case("#append_nulls") do
       include ArrayBuilderAppendNullsTests
     end
+
+    sub_test_case("capacity control") do
+      include ArrayBuilderCapacityControlTests
+    end
   end
 
   sub_test_case("UInt8ArrayBuilder") do
@@ -348,6 +392,10 @@ class TestArrayBuilder < Test::Unit::TestCase
 
     sub_test_case("#append_nulls") do
       include ArrayBuilderAppendNullsTests
+    end
+
+    sub_test_case("capacity control") do
+      include ArrayBuilderCapacityControlTests
     end
   end
 
@@ -379,6 +427,10 @@ class TestArrayBuilder < Test::Unit::TestCase
     sub_test_case("#append_nulls") do
       include ArrayBuilderAppendNullsTests
     end
+
+    sub_test_case("capacity control") do
+      include ArrayBuilderCapacityControlTests
+    end
   end
 
   sub_test_case("UInt16ArrayBuilder") do
@@ -408,6 +460,10 @@ class TestArrayBuilder < Test::Unit::TestCase
 
     sub_test_case("#append_nulls") do
       include ArrayBuilderAppendNullsTests
+    end
+
+    sub_test_case("capacity control") do
+      include ArrayBuilderCapacityControlTests
     end
   end
 
@@ -439,6 +495,10 @@ class TestArrayBuilder < Test::Unit::TestCase
     sub_test_case("#append_nulls") do
       include ArrayBuilderAppendNullsTests
     end
+
+    sub_test_case("capacity control") do
+      include ArrayBuilderCapacityControlTests
+    end
   end
 
   sub_test_case("UInt32ArrayBuilder") do
@@ -468,6 +528,10 @@ class TestArrayBuilder < Test::Unit::TestCase
 
     sub_test_case("#append_nulls") do
       include ArrayBuilderAppendNullsTests
+    end
+
+    sub_test_case("capacity control") do
+      include ArrayBuilderCapacityControlTests
     end
   end
 
@@ -499,6 +563,10 @@ class TestArrayBuilder < Test::Unit::TestCase
     sub_test_case("#append_nulls") do
       include ArrayBuilderAppendNullsTests
     end
+
+    sub_test_case("capacity control") do
+      include ArrayBuilderCapacityControlTests
+    end
   end
 
   sub_test_case("UInt64ArrayBuilder") do
@@ -528,6 +596,10 @@ class TestArrayBuilder < Test::Unit::TestCase
 
     sub_test_case("#append_nulls") do
       include ArrayBuilderAppendNullsTests
+    end
+
+    sub_test_case("capacity control") do
+      include ArrayBuilderCapacityControlTests
     end
   end
 
@@ -559,6 +631,10 @@ class TestArrayBuilder < Test::Unit::TestCase
     sub_test_case("#append_nulls") do
       include ArrayBuilderAppendNullsTests
     end
+
+    sub_test_case("capacity control") do
+      include ArrayBuilderCapacityControlTests
+    end
   end
 
   sub_test_case("DoubleArrayBuilder") do
@@ -588,6 +664,10 @@ class TestArrayBuilder < Test::Unit::TestCase
 
     sub_test_case("#append_nulls") do
       include ArrayBuilderAppendNullsTests
+    end
+
+    sub_test_case("capacity control") do
+      include ArrayBuilderCapacityControlTests
     end
   end
 
@@ -623,6 +703,10 @@ class TestArrayBuilder < Test::Unit::TestCase
     sub_test_case("#append_nulls") do
       include ArrayBuilderAppendNullsTests
     end
+
+    sub_test_case("capacity control") do
+      include ArrayBuilderCapacityControlTests
+    end
   end
 
   sub_test_case("Date64ArrayBuilder") do
@@ -656,6 +740,10 @@ class TestArrayBuilder < Test::Unit::TestCase
 
     sub_test_case("#append_nulls") do
       include ArrayBuilderAppendNullsTests
+    end
+
+    sub_test_case("capacity control") do
+      include ArrayBuilderCapacityControlTests
     end
   end
 
@@ -692,6 +780,10 @@ class TestArrayBuilder < Test::Unit::TestCase
     sub_test_case("#append_nulls") do
       include ArrayBuilderAppendNullsTests
     end
+
+    sub_test_case("capacity control") do
+      include ArrayBuilderCapacityControlTests
+    end
   end
 
   sub_test_case("Time32ArrayBuilder") do
@@ -727,6 +819,10 @@ class TestArrayBuilder < Test::Unit::TestCase
     sub_test_case("#append_nulls") do
       include ArrayBuilderAppendNullsTests
     end
+
+    sub_test_case("capacity control") do
+      include ArrayBuilderCapacityControlTests
+    end
   end
 
   sub_test_case("Time64ArrayBuilder") do
@@ -761,6 +857,10 @@ class TestArrayBuilder < Test::Unit::TestCase
 
     sub_test_case("#append_nulls") do
       include ArrayBuilderAppendNullsTests
+    end
+
+    sub_test_case("capacity control") do
+      include ArrayBuilderCapacityControlTests
     end
   end
 
@@ -804,6 +904,10 @@ class TestArrayBuilder < Test::Unit::TestCase
     sub_test_case("#append_nulls") do
       include ArrayBuilderAppendNullsTests
     end
+
+    sub_test_case("capacity control") do
+      include ArrayBuilderCapacityControlTests
+    end
   end
 
   sub_test_case("LargeBinaryArrayBuilder") do
@@ -845,6 +949,10 @@ class TestArrayBuilder < Test::Unit::TestCase
 
     sub_test_case("#append_nulls") do
       include ArrayBuilderAppendNullsTests
+    end
+
+    sub_test_case("capacity control") do
+      include ArrayBuilderCapacityControlTests
     end
   end
 
@@ -896,6 +1004,10 @@ class TestArrayBuilder < Test::Unit::TestCase
         "binary-array-builder"
       end
     end
+
+    sub_test_case("capacity control") do
+      include ArrayBuilderCapacityControlTests
+    end
   end
 
   sub_test_case("LargeStringArrayBuilder") do
@@ -945,6 +1057,10 @@ class TestArrayBuilder < Test::Unit::TestCase
       def builder_class_name
         "large-binary-array-builder"
       end
+    end
+
+    sub_test_case("capacity control") do
+      include ArrayBuilderCapacityControlTests
     end
   end
 end
