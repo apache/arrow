@@ -1595,7 +1595,10 @@ def read_table(source, columns=None, use_threads=True, metadata=None,
 
 
 read_table.__doc__ = _read_table_docstring.format(
-    'Read a Table from Parquet format',
+    """Read a Table from Parquet format
+
+Note: starting with pyarrow 1.0, the default for `use_legacy_dataset` is
+switched to False.""",
     "\n".join((_read_docstring_common,
                """use_pandas_metadata : bool, default False
     If True and file has custom pandas schema metadata, ensure that

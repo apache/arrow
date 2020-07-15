@@ -516,9 +516,11 @@ option was enabled on write).
      keyword when you want to include them in the result while reading a
      subset of the columns
 
-   In the future, this will be turned on by default. The new implementation
-   does not yet cover all existing ParquetDataset features (e.g. specifying
-   the ``metadata``, or the ``pieces`` property API). Feedback is very welcome.
+   This new implementation is already enabled in ``read_table``, and in the
+   future, this will be turned on by default for ``ParquetDataset``. The new
+   implementation does not yet cover all existing ParquetDataset features (e.g.
+   specifying the ``metadata``, or the ``pieces`` property API). Feedback is
+   very welcome.
 
 
 Using with Spark
