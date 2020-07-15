@@ -263,37 +263,37 @@ given class:
 +--------------------------+------------+--------------------+----------------+----------------------------------+
 | Function name            | Arity      | Input types        | Output type    | Matched character class          |
 +==========================+============+====================+================+==================================+
-| ascii_is_alnum            | Unary      | String-like        | Boolean        | Alphanumeric ASCII               |
+| ascii_is_alnum           | Unary      | String-like        | Boolean        | Alphanumeric ASCII               |
 +--------------------------+------------+--------------------+----------------+----------------------------------+
-| ascii_is_alpha            | Unary      | String-like        | Boolean        | Alphabetic ASCII                 |
+| ascii_is_alpha           | Unary      | String-like        | Boolean        | Alphabetic ASCII                 |
 +--------------------------+------------+--------------------+----------------+----------------------------------+
-| ascii_is_decimal          | Unary      | String-like        | Boolean        | Decimal ASCII \(1)               |
+| ascii_is_decimal         | Unary      | String-like        | Boolean        | Decimal ASCII \(1)               |
 +--------------------------+------------+--------------------+----------------+----------------------------------+
-| ascii_is_lower            | Unary      | String-like        | Boolean        | Lowercase ASCII \(2)             |
+| ascii_is_lower           | Unary      | String-like        | Boolean        | Lowercase ASCII \(2)             |
 +--------------------------+------------+--------------------+----------------+----------------------------------+
-| ascii_is_printable        | Unary      | String-like        | Boolean        | Printable ASCII                  |
+| ascii_is_printable       | Unary      | String-like        | Boolean        | Printable ASCII                  |
 +--------------------------+------------+--------------------+----------------+----------------------------------+
-| ascii_is_space            | Unary      | String-like        | Boolean        | Whitespace ASCII                 |
+| ascii_is_space           | Unary      | String-like        | Boolean        | Whitespace ASCII                 |
 +--------------------------+------------+--------------------+----------------+----------------------------------+
-| ascii_is_upper            | Unary      | String-like        | Boolean        | Uppercase ASCII \(2)             |
+| ascii_is_upper           | Unary      | String-like        | Boolean        | Uppercase ASCII \(2)             |
 +--------------------------+------------+--------------------+----------------+----------------------------------+
-| utf8_is_alnum             | Unary      | String-like        | Boolean        | Alphanumeric Unicode             |
+| utf8_is_alnum            | Unary      | String-like        | Boolean        | Alphanumeric Unicode             |
 +--------------------------+------------+--------------------+----------------+----------------------------------+
-| utf8_is_alpha             | Unary      | String-like        | Boolean        | Alphabetic Unicode               |
+| utf8_is_alpha            | Unary      | String-like        | Boolean        | Alphabetic Unicode               |
 +--------------------------+------------+--------------------+----------------+----------------------------------+
-| utf8_is_decimal           | Unary      | String-like        | Boolean        | Decimal Unicode                  |
+| utf8_is_decimal          | Unary      | String-like        | Boolean        | Decimal Unicode                  |
 +--------------------------+------------+--------------------+----------------+----------------------------------+
-| utf8_isdigit             | Unary      | String-like        | Boolean        | Unicode digit \(3)               |
+| utf8_is_digit            | Unary      | String-like        | Boolean        | Unicode digit \(3)               |
 +--------------------------+------------+--------------------+----------------+----------------------------------+
-| utf8_is_lower             | Unary      | String-like        | Boolean        | Lowercase Unicode \(2)           |
+| utf8_is_lower            | Unary      | String-like        | Boolean        | Lowercase Unicode \(2)           |
 +--------------------------+------------+--------------------+----------------+----------------------------------+
-| utf8_isnumeric           | Unary      | String-like        | Boolean        | Numeric Unicode \(4)             |
+| utf8_is_numeric          | Unary      | String-like        | Boolean        | Numeric Unicode \(4)             |
 +--------------------------+------------+--------------------+----------------+----------------------------------+
-| utf8_is_printable         | Unary      | String-like        | Boolean        | Printable Unicode                |
+| utf8_is_printable        | Unary      | String-like        | Boolean        | Printable Unicode                |
 +--------------------------+------------+--------------------+----------------+----------------------------------+
-| utf8_is_space             | Unary      | String-like        | Boolean        | Whitespace Unicode               |
+| utf8_is_space            | Unary      | String-like        | Boolean        | Whitespace Unicode               |
 +--------------------------+------------+--------------------+----------------+----------------------------------+
-| utf8_is_upper             | Unary      | String-like        | Boolean        | Uppercase Unicode \(2)           |
+| utf8_is_upper            | Unary      | String-like        | Boolean        | Uppercase Unicode \(2)           |
 +--------------------------+------------+--------------------+----------------+----------------------------------+
 
 * \(1) Also matches all numeric ASCII characters and all ASCII digits.
@@ -310,9 +310,9 @@ element:
 +--------------------------+------------+--------------------+---------------------+---------+
 | Function name            | Arity      | Input types        | Output type         | Notes   |
 +==========================+============+====================+=====================+=========+
-| ascii_is_title            | Unary      | String-like        | Boolean             | \(1)    |
+| ascii_is_title           | Unary      | String-like        | Boolean             | \(1)    |
 +--------------------------+------------+--------------------+---------------------+---------+
-| utf8_is_title             | Unary      | String-like        | Boolean             | \(1)    |
+| utf8_is_title            | Unary      | String-like        | Boolean             | \(1)    |
 +--------------------------+------------+--------------------+---------------------+---------+
 
 * \(1) Output is true iff the input string element is title-cased, i.e. any
@@ -324,7 +324,7 @@ The third set of functions examines string elements on a byte-per-byte basis:
 +--------------------------+------------+--------------------+---------------------+---------+
 | Function name            | Arity      | Input types        | Output type         | Notes   |
 +==========================+============+====================+=====================+=========+
-| string_is_ascii           | Unary      | String-like        | Boolean             | \(1)    |
+| string_is_ascii          | Unary      | String-like        | Boolean             | \(1)    |
 +--------------------------+------------+--------------------+---------------------+---------+
 
 * \(1) Output is true iff the input string element contains only ASCII characters,
