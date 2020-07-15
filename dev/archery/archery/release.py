@@ -50,8 +50,14 @@ class JiraIssue:
         self.key = original_jira_issue.key
         self.type = original_jira_issue.fields.issuetype.name
         self.summary = original_jira_issue.fields.summary
-        _, issue_number = self.key.split('-')
-        self.number = int(issue_number)
+
+    @property
+    def project(self):
+        return self.key.split('-')[0]
+
+    @property
+    def number(self):
+        return int(self.key.split('-')[1])
 
 
 class Jira(JIRA):
@@ -359,7 +365,7 @@ class Release:
 
         # sort issues by the issue key in ascending order
         for name, issues in categories.items():
-            issues.sort(key=lambda issue: issue.number)
+            issues.sort(key=lambda issue: (issue.project, issue.number))
 
         return JiraChangelog(release=self, categories=categories)
 
