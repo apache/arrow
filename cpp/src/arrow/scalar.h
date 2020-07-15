@@ -439,16 +439,6 @@ struct ARROW_EXPORT ExtensionScalar : public Scalar {
 
 /// @}
 
-/// \defgroup scalar-factories Scalar factory functions
-///
-/// @{
-
-/// \brief Scalar factory for null scalars
-ARROW_EXPORT
-std::shared_ptr<Scalar> MakeNullScalar(std::shared_ptr<DataType> type);
-
-/// @}
-
 namespace internal {
 
 inline Status CheckBufferLength(...) { return Status::OK(); }
@@ -488,9 +478,13 @@ struct MakeScalarImpl {
   std::shared_ptr<Scalar> out_;
 };
 
-/// \addtogroup scalar-factories
+/// \defgroup scalar-factories Scalar factory functions
 ///
 /// @{
+
+/// \brief Scalar factory for null scalars
+ARROW_EXPORT
+std::shared_ptr<Scalar> MakeNullScalar(std::shared_ptr<DataType> type);
 
 /// \brief Scalar factory for non-null scalars
 template <typename Value>

@@ -26,7 +26,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/int_util.h"
+#include "arrow/util/int_util_internal.h"
 #include "arrow/util/logging.h"
 #include "arrow/visitor_inline.h"
 
@@ -98,8 +98,9 @@ struct ValidateArrayVisitor {
     if (value_size < 0) {
       return Status::Invalid("FixedSizeListArray has negative value size ", value_size);
     }
-    if (HasPositiveMultiplyOverflow(len, value_size) ||
-        array.values()->length() != len * value_size) {
+    int64_t expected_values_length = -1;
+    if (MultiplyWithOverflow(len, value_size, &expected_values_length) ||
+        array.values()->length() != expected_values_length) {
       return Status::Invalid("Values Length (", array.values()->length(),
                              ") is not equal to the length (", len,
                              ") multiplied by the value size (", value_size, ")");
@@ -329,7 +330,8 @@ Status ValidateArray(const Array& array) {
                            type.ToString(), ", got ", data.buffers.size());
   }
   // This check is required to avoid addition overflow below
-  if (HasPositiveAdditionOverflow(array.length(), array.offset())) {
+  int64_t length_plus_offset = -1;
+  if (AddWithOverflow(array.length(), array.offset(), &length_plus_offset)) {
     return Status::Invalid("Array of type ", type.ToString(),
                            " has impossibly large length and offset");
   }
@@ -343,15 +345,13 @@ Status ValidateArray(const Array& array) {
     int64_t min_buffer_size = -1;
     switch (spec.kind) {
       case DataTypeLayout::BITMAP:
-        min_buffer_size = BitUtil::BytesForBits(array.length() + array.offset());
+        min_buffer_size = BitUtil::BytesForBits(length_plus_offset);
         break;
       case DataTypeLayout::FIXED_WIDTH:
-        if (HasPositiveMultiplyOverflow(array.length() + array.offset(),
-                                        spec.byte_width)) {
+        if (MultiplyWithOverflow(length_plus_offset, spec.byte_width, &min_buffer_size)) {
           return Status::Invalid("Array of type ", type.ToString(),
                                  " has impossibly large length and offset");
         }
-        min_buffer_size = spec.byte_width * (array.length() + array.offset());
         break;
       case DataTypeLayout::ALWAYS_NULL:
         // XXX Should we raise on non-null buffer?

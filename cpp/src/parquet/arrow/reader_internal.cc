@@ -41,7 +41,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/base64.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/int_util.h"
+#include "arrow/util/int_util_internal.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/string_view.h"
 #include "arrow/util/ubsan.h"
@@ -55,6 +55,8 @@
 #include "parquet/schema.h"
 #include "parquet/statistics.h"
 #include "parquet/types.h"
+// Required after "arrow/util/int_util_internal.h" (for OPTIONAL)
+#include "parquet/windows_compatibility.h"
 
 using arrow::Array;
 using arrow::BooleanArray;

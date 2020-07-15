@@ -28,7 +28,7 @@
 #include <string>
 
 #include "arrow/util/bit_util.h"
-#include "arrow/util/int_util.h"
+#include "arrow/util/int_util_internal.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 

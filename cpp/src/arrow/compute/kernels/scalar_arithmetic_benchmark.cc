@@ -33,21 +33,45 @@ constexpr auto kSeed = 0x94378165;
 using BinaryOp = Result<Datum>(const Datum&, const Datum&, ArithmeticOptions,
                                ExecContext*);
 
+// Add explicit overflow-checked shortcuts, for easy benchmark parametering.
+static Result<Datum> AddChecked(const Datum& left, const Datum& right,
+                                ArithmeticOptions options = ArithmeticOptions(),
+                                ExecContext* ctx = NULLPTR) {
+  options.check_overflow = true;
+  return Add(left, right, std::move(options), ctx);
+}
+
+static Result<Datum> SubtractChecked(const Datum& left, const Datum& right,
+                                     ArithmeticOptions options = ArithmeticOptions(),
+                                     ExecContext* ctx = NULLPTR) {
+  options.check_overflow = true;
+  return Subtract(left, right, std::move(options), ctx);
+}
+
+static Result<Datum> MultiplyChecked(const Datum& left, const Datum& right,
+                                     ArithmeticOptions options = ArithmeticOptions(),
+                                     ExecContext* ctx = NULLPTR) {
+  options.check_overflow = true;
+  return Multiply(left, right, std::move(options), ctx);
+}
+
 template <BinaryOp& Op, typename ArrowType, typename CType = typename ArrowType::c_type>
 static void ArrayScalarKernel(benchmark::State& state) {
   RegressionArgs args(state);
 
   const int64_t array_size = args.size / sizeof(CType);
-  auto min = std::numeric_limits<CType>::lowest();
-  auto max = std::numeric_limits<CType>::max();
+
+  // Choose values so as to avoid overflow on all ops and types
+  auto min = static_cast<CType>(6);
+  auto max = static_cast<CType>(min + 15);
+  Datum rhs(static_cast<CType>(6));
 
   auto rand = random::RandomArrayGenerator(kSeed);
   auto lhs = std::static_pointer_cast<NumericArray<ArrowType>>(
       rand.Numeric<ArrowType>(array_size, min, max, args.null_proportion));
 
-  Datum fifteen(CType(15));
   for (auto _ : state) {
-    ABORT_NOT_OK(Op(lhs, fifteen, ArithmeticOptions(), nullptr).status());
+    ABORT_NOT_OK(Op(lhs, rhs, ArithmeticOptions(), nullptr).status());
   }
   state.SetItemsProcessed(state.iterations() * array_size);
 }
@@ -56,9 +80,10 @@ template <BinaryOp& Op, typename ArrowType, typename CType = typename ArrowType:
 static void ArrayArrayKernel(benchmark::State& state) {
   RegressionArgs args(state);
 
+  // Choose values so as to avoid overflow on all ops
   const int64_t array_size = args.size / sizeof(CType);
-  auto min = std::numeric_limits<CType>::lowest();
-  auto max = std::numeric_limits<CType>::max();
+  auto min = static_cast<CType>(0);
+  auto max = static_cast<CType>(11);
 
   auto rand = random::RandomArrayGenerator(kSeed);
   auto lhs = std::static_pointer_cast<NumericArray<ArrowType>>(
@@ -92,12 +117,32 @@ void SetArgs(benchmark::internal::Benchmark* bench) {
   BENCHMARK_TEMPLATE(BENCHMARK, OP, FloatType)->Apply(SetArgs);  \
   BENCHMARK_TEMPLATE(BENCHMARK, OP, DoubleType)->Apply(SetArgs)
 
+// Checked floating-point variants of arithmetic operations are identical to
+// non-checked variants, so do not bother measuring them.
+
+#define DECLARE_ARITHMETIC_CHECKED_BENCHMARKS(BENCHMARK, OP)     \
+  BENCHMARK_TEMPLATE(BENCHMARK, OP, Int64Type)->Apply(SetArgs);  \
+  BENCHMARK_TEMPLATE(BENCHMARK, OP, Int32Type)->Apply(SetArgs);  \
+  BENCHMARK_TEMPLATE(BENCHMARK, OP, Int16Type)->Apply(SetArgs);  \
+  BENCHMARK_TEMPLATE(BENCHMARK, OP, Int8Type)->Apply(SetArgs);   \
+  BENCHMARK_TEMPLATE(BENCHMARK, OP, UInt64Type)->Apply(SetArgs); \
+  BENCHMARK_TEMPLATE(BENCHMARK, OP, UInt32Type)->Apply(SetArgs); \
+  BENCHMARK_TEMPLATE(BENCHMARK, OP, UInt16Type)->Apply(SetArgs); \
+  BENCHMARK_TEMPLATE(BENCHMARK, OP, UInt8Type)->Apply(SetArgs);
+
 DECLARE_ARITHMETIC_BENCHMARKS(ArrayArrayKernel, Add);
 DECLARE_ARITHMETIC_BENCHMARKS(ArrayScalarKernel, Add);
 DECLARE_ARITHMETIC_BENCHMARKS(ArrayArrayKernel, Subtract);
 DECLARE_ARITHMETIC_BENCHMARKS(ArrayScalarKernel, Subtract);
 DECLARE_ARITHMETIC_BENCHMARKS(ArrayArrayKernel, Multiply);
 DECLARE_ARITHMETIC_BENCHMARKS(ArrayScalarKernel, Multiply);
+
+DECLARE_ARITHMETIC_CHECKED_BENCHMARKS(ArrayArrayKernel, AddChecked);
+DECLARE_ARITHMETIC_CHECKED_BENCHMARKS(ArrayScalarKernel, AddChecked);
+DECLARE_ARITHMETIC_CHECKED_BENCHMARKS(ArrayArrayKernel, SubtractChecked);
+DECLARE_ARITHMETIC_CHECKED_BENCHMARKS(ArrayScalarKernel, SubtractChecked);
+DECLARE_ARITHMETIC_CHECKED_BENCHMARKS(ArrayArrayKernel, MultiplyChecked);
+DECLARE_ARITHMETIC_CHECKED_BENCHMARKS(ArrayScalarKernel, MultiplyChecked);
 
 }  // namespace compute
 }  // namespace arrow
