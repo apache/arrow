@@ -2217,11 +2217,11 @@ def _partition_test_for_filesystem(fs, base_path, use_legacy_dataset=True):
     expected_df = (df.sort_values(by='index')
                    .reset_index(drop=True)
                    .reindex(columns=result_df.columns))
+
     if use_legacy_dataset:
-        # TODO(dataset) Dataset API does not create categorical columns
-        # for partition keys
+        # integer partition field not dictionary encoded with new API
         expected_df['foo'] = pd.Categorical(df['foo'], categories=foo_keys)
-        expected_df['bar'] = pd.Categorical(df['bar'], categories=bar_keys)
+    expected_df['bar'] = pd.Categorical(df['bar'], categories=bar_keys)
 
     assert (result_df.columns == ['index', 'values', 'foo', 'bar']).all()
 
@@ -2834,10 +2834,9 @@ def _test_write_to_dataset_with_partitions(base_path,
     assert partition_by == input_df_cols[-1 * len(partition_by):]
 
     input_df = input_df[cols]
-    if use_legacy_dataset:
-        # Partitioned columns become 'categorical' dtypes
-        for col in partition_by:
-            output_df[col] = output_df[col].astype('category')
+    # Partitioned columns become 'categorical' dtypes
+    for col in partition_by:
+        output_df[col] = output_df[col].astype('category')
     tm.assert_frame_equal(output_df, input_df)
 
 
@@ -2985,8 +2984,7 @@ def test_write_to_dataset_pandas_preserve_index(tempdir, use_legacy_dataset):
     df.index = pd.Index(['a', 'b', 'c'], name="idx")
     table = pa.table(df)
     df_cat = df[["col", "part"]].copy()
-    if use_legacy_dataset:
-        df_cat["part"] = df_cat["part"].astype("category")
+    df_cat["part"] = df_cat["part"].astype("category")
 
     pq.write_to_dataset(table, str(tempdir / "case1"), partition_cols=['part'])
     result = pq.read_table(
