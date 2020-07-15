@@ -787,7 +787,7 @@ std::shared_ptr<Expression> or_(std::shared_ptr<Expression> lhs,
 std::shared_ptr<Expression> or_(const ExpressionVector& subexpressions) {
   auto acc = scalar(false);
   for (const auto& next : subexpressions) {
-    acc = acc->Equals(false) ? next : and_(std::move(acc), next);
+    acc = acc->Equals(false) ? next : or_(std::move(acc), next);
   }
   return acc;
 }
