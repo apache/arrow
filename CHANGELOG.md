@@ -3,7 +3,6 @@
 
 ## Bug Fixes
 
-* [PARQUET-1857](https://issues.apache.org/jira/browse/PARQUET-1857) - [C++][Parquet] ParquetFileReader unable to read files with more than 32767 row groups
 * [ARROW-8503](https://issues.apache.org/jira/browse/ARROW-8503) - [Packaging][deb] Can't build apache-arrow-archive-keyring for RC
 * [ARROW-8505](https://issues.apache.org/jira/browse/ARROW-8505) - [Release][C\#] "sourcelink test" is failed by Apache.Arrow.AssemblyInfo.cs
 * [ARROW-8584](https://issues.apache.org/jira/browse/ARROW-8584) - [Packaging][C++] Protobuf link error in deb builds
@@ -18,6 +17,7 @@
 * [ARROW-8728](https://issues.apache.org/jira/browse/ARROW-8728) - [C++]  Bitmap operation may cause buffer overflow
 * [ARROW-8741](https://issues.apache.org/jira/browse/ARROW-8741) - [Python][Packaging] Keep VS2015 with for the windows wheels
 * [ARROW-8750](https://issues.apache.org/jira/browse/ARROW-8750) - [Python] pyarrow.feather.write\_feather does not default to lz4 compression if it's available
+* [PARQUET-1857](https://issues.apache.org/jira/browse/PARQUET-1857) - [C++][Parquet] ParquetFileReader unable to read files with more than 32767 row groups
 
 
 ## Improvements
@@ -34,19 +34,6 @@
 
 ## Bug Fixes
 
-* [PARQUET-1780](https://issues.apache.org/jira/browse/PARQUET-1780) - [C++] Set ColumnMetadata.encoding\_stats field
-* [PARQUET-1788](https://issues.apache.org/jira/browse/PARQUET-1788) - [C++] ColumnWriter has undefined behavior when writing arrow chunks
-* [PARQUET-1797](https://issues.apache.org/jira/browse/PARQUET-1797) - [C++] Fix fuzzing errors
-* [PARQUET-1799](https://issues.apache.org/jira/browse/PARQUET-1799) - [C++] Stream API: Relax schema checking when reading
-* [PARQUET-1810](https://issues.apache.org/jira/browse/PARQUET-1810) - [C++] Fix undefined behaviour on invalid enum values (OSS-Fuzz)
-* [PARQUET-1813](https://issues.apache.org/jira/browse/PARQUET-1813) - [C++] Remove logging statement in unit test
-* [PARQUET-1819](https://issues.apache.org/jira/browse/PARQUET-1819) - [C++] Fix crashes on corrupt IPC input (OSS-Fuzz)
-* [PARQUET-1819](https://issues.apache.org/jira/browse/PARQUET-1819) - [C++] Fix crashes on corrupt IPC input (OSS-Fuzz)
-* [PARQUET-1823](https://issues.apache.org/jira/browse/PARQUET-1823) - [C++] Invalid RowGroup returned when reading with parquet::arrow::FileReader-\>RowGroup(i)-\>Column(j)
-* [PARQUET-1824](https://issues.apache.org/jira/browse/PARQUET-1824) - [C++] Fix crashes on invalid input (OSS-Fuzz)
-* [PARQUET-1829](https://issues.apache.org/jira/browse/PARQUET-1829) - [C++] Fix crashes on invalid input (OSS-Fuzz)
-* [PARQUET-1831](https://issues.apache.org/jira/browse/PARQUET-1831) - [C++] Fix crashes on invalid input (OSS-Fuzz)
-* [PARQUET-1835](https://issues.apache.org/jira/browse/PARQUET-1835) - [C++] Fix crashes on invalid input (OSS-Fuzz)
 * [ARROW-1907](https://issues.apache.org/jira/browse/ARROW-1907) - [C++/Python] Feather format cannot accommodate string columns containing more than a total of 2GB of data
 * [ARROW-2255](https://issues.apache.org/jira/browse/ARROW-2255) - [Developer][Integration] Serialize schema- and field-level custom metadata in integration test JSON format
 * [ARROW-2587](https://issues.apache.org/jira/browse/ARROW-2587) - [Python] Unable to write StructArrays with multiple children to parquet
@@ -279,20 +266,25 @@
 * [ARROW-8469](https://issues.apache.org/jira/browse/ARROW-8469) - [Dev] Fix nightly docker tests on azure
 * [ARROW-8478](https://issues.apache.org/jira/browse/ARROW-8478) - [Java] Rollback contrib package changes.
 * [ARROW-8498](https://issues.apache.org/jira/browse/ARROW-8498) - [Python] Schema.from\_pandas fails on extension type, while Table.from\_pandas works
+* [PARQUET-1780](https://issues.apache.org/jira/browse/PARQUET-1780) - [C++] Set ColumnMetadata.encoding\_stats field
+* [PARQUET-1788](https://issues.apache.org/jira/browse/PARQUET-1788) - [C++] ColumnWriter has undefined behavior when writing arrow chunks
+* [PARQUET-1797](https://issues.apache.org/jira/browse/PARQUET-1797) - [C++] Fix fuzzing errors
+* [PARQUET-1799](https://issues.apache.org/jira/browse/PARQUET-1799) - [C++] Stream API: Relax schema checking when reading
+* [PARQUET-1810](https://issues.apache.org/jira/browse/PARQUET-1810) - [C++] Fix undefined behaviour on invalid enum values (OSS-Fuzz)
+* [PARQUET-1813](https://issues.apache.org/jira/browse/PARQUET-1813) - [C++] Remove logging statement in unit test
+* [PARQUET-1819](https://issues.apache.org/jira/browse/PARQUET-1819) - [C++] Fix crashes on corrupt IPC input (OSS-Fuzz)
+* [PARQUET-1819](https://issues.apache.org/jira/browse/PARQUET-1819) - [C++] Fix crashes on corrupt IPC input (OSS-Fuzz)
+* [PARQUET-1823](https://issues.apache.org/jira/browse/PARQUET-1823) - [C++] Invalid RowGroup returned when reading with parquet::arrow::FileReader-\>RowGroup(i)-\>Column(j)
+* [PARQUET-1824](https://issues.apache.org/jira/browse/PARQUET-1824) - [C++] Fix crashes on invalid input (OSS-Fuzz)
+* [PARQUET-1829](https://issues.apache.org/jira/browse/PARQUET-1829) - [C++] Fix crashes on invalid input (OSS-Fuzz)
+* [PARQUET-1831](https://issues.apache.org/jira/browse/PARQUET-1831) - [C++] Fix crashes on invalid input (OSS-Fuzz)
+* [PARQUET-1835](https://issues.apache.org/jira/browse/PARQUET-1835) - [C++] Fix crashes on invalid input (OSS-Fuzz)
 
 
 ## Improvements
 
 * [ARROW-1581](https://issues.apache.org/jira/browse/ARROW-1581) - [Packaging] Tooling to make nightly wheels available for install
 * [ARROW-1582](https://issues.apache.org/jira/browse/ARROW-1582) - [Python] Set up + document nightly conda builds for macOS
-* [PARQUET-1663](https://issues.apache.org/jira/browse/PARQUET-1663) - [C++] Provide API to check the presence of complex data types
-* [PARQUET-1770](https://issues.apache.org/jira/browse/PARQUET-1770) - [C++][CI] Add fuzz target for reading Parquet files
-* [PARQUET-1785](https://issues.apache.org/jira/browse/PARQUET-1785) - [C++] Improve code reusability in encoding-test.cc
-* [PARQUET-1786](https://issues.apache.org/jira/browse/PARQUET-1786) - [C++] Use simd to improve BYTE\_STREAM\_SPLIT decoding performance
-* [PARQUET-1806](https://issues.apache.org/jira/browse/PARQUET-1806) - [C++] [CI] Improve fuzzing seed corpus
-* [PARQUET-1825](https://issues.apache.org/jira/browse/PARQUET-1825) - [C++] Fix compilation error in column\_io\_benchmark.cc
-* [PARQUET-1828](https://issues.apache.org/jira/browse/PARQUET-1828) - [C++] Add a SSE2 path for the ByteStreamSplit encoder implementation
-* [PARQUET-1840](https://issues.apache.org/jira/browse/PARQUET-1840) - [C++] DecodeSpaced copies more values then necessary
 * [ARROW-2447](https://issues.apache.org/jira/browse/ARROW-2447) - [C++] Create a device abstraction
 * [ARROW-3054](https://issues.apache.org/jira/browse/ARROW-3054) - [Packaging] Tooling to enable nightly conda packages to be updated to some anaconda.org channel
 * [ARROW-4120](https://issues.apache.org/jira/browse/ARROW-4120) - [Python] Define process for testing procedures that check for no macro-level memory leaks
@@ -611,17 +603,23 @@
 * [ARROW-8458](https://issues.apache.org/jira/browse/ARROW-8458) - [C++] Prefer the original mirrors for the bundled thirdparty dependencies
 * [ARROW-8461](https://issues.apache.org/jira/browse/ARROW-8461) - [Packaging][deb] Use zstd package for Ubuntu Xenial
 * [ARROW-8463](https://issues.apache.org/jira/browse/ARROW-8463) - [CI] Balance the nightly test builds between CircleCI, Azure and Github
+* [PARQUET-1663](https://issues.apache.org/jira/browse/PARQUET-1663) - [C++] Provide API to check the presence of complex data types
+* [PARQUET-1770](https://issues.apache.org/jira/browse/PARQUET-1770) - [C++][CI] Add fuzz target for reading Parquet files
+* [PARQUET-1785](https://issues.apache.org/jira/browse/PARQUET-1785) - [C++] Improve code reusability in encoding-test.cc
+* [PARQUET-1786](https://issues.apache.org/jira/browse/PARQUET-1786) - [C++] Use simd to improve BYTE\_STREAM\_SPLIT decoding performance
+* [PARQUET-1806](https://issues.apache.org/jira/browse/PARQUET-1806) - [C++] [CI] Improve fuzzing seed corpus
+* [PARQUET-1825](https://issues.apache.org/jira/browse/PARQUET-1825) - [C++] Fix compilation error in column\_io\_benchmark.cc
+* [PARQUET-1828](https://issues.apache.org/jira/browse/PARQUET-1828) - [C++] Add a SSE2 path for the ByteStreamSplit encoder implementation
+* [PARQUET-1840](https://issues.apache.org/jira/browse/PARQUET-1840) - [C++] DecodeSpaced copies more values then necessary
 
 
 ## New Features
 
-* [PARQUET-458](https://issues.apache.org/jira/browse/PARQUET-458) - [C++] Implement support for DataPageV2
 * [ARROW-590](https://issues.apache.org/jira/browse/ARROW-590) - [Integration] Add integration tests for Union types
 * [ARROW-1470](https://issues.apache.org/jira/browse/ARROW-1470) - [C++] Add BufferAllocator abstract interface
 * [ARROW-1560](https://issues.apache.org/jira/browse/ARROW-1560) - [C++] Kernel implementations for "match" function
 * [ARROW-1571](https://issues.apache.org/jira/browse/ARROW-1571) - [C++] Implement argsort kernels (sort indices) for integers using O(n) counting sort
 * [ARROW-1636](https://issues.apache.org/jira/browse/ARROW-1636) - [Format] Integration tests for null type
-* [PARQUET-1716](https://issues.apache.org/jira/browse/PARQUET-1716) - [C++] Add support for BYTE\_STREAM\_SPLIT encoding
 * [ARROW-2882](https://issues.apache.org/jira/browse/ARROW-2882) - [C++][Python] Support AWS Firehose partition\_scheme implementation for Parquet datasets
 * [ARROW-3410](https://issues.apache.org/jira/browse/ARROW-3410) - [C++][Dataset] Streaming CSV reader interface for memory-constrainted environments
 * [ARROW-3750](https://issues.apache.org/jira/browse/ARROW-3750) - [R] Pass various wrapped Arrow objects created in Python into R with zero copy via reticulate
@@ -657,6 +655,8 @@
 * [ARROW-8376](https://issues.apache.org/jira/browse/ARROW-8376) - [R] Add experimental interface to ScanTask/RecordBatch iterators
 * [ARROW-8390](https://issues.apache.org/jira/browse/ARROW-8390) - [R] Expose schema unification features
 * [ARROW-8679](https://issues.apache.org/jira/browse/ARROW-8679) - [Python] supporting pandas sparse series in pyarrow
+* [PARQUET-458](https://issues.apache.org/jira/browse/PARQUET-458) - [C++] Implement support for DataPageV2
+* [PARQUET-1716](https://issues.apache.org/jira/browse/PARQUET-1716) - [C++] Add support for BYTE\_STREAM\_SPLIT encoding
 
 
 
@@ -664,18 +664,6 @@
 
 ## Bug Fixes
 
-* [PARQUET-1692](https://issues.apache.org/jira/browse/PARQUET-1692) - [C++] LogicalType::FromThrift error on Centos 7 RPM
-* [PARQUET-1692](https://issues.apache.org/jira/browse/PARQUET-1692) - [C++] LogicalType::FromThrift error on Centos 7 RPM
-* [PARQUET-1693](https://issues.apache.org/jira/browse/PARQUET-1693) - [C++] Build examples don't account for CMAKE compression feature flags
-* [PARQUET-1702](https://issues.apache.org/jira/browse/PARQUET-1702) - [C++] Make BufferedRowGroupWriter compatible with parquet encryption
-* [PARQUET-1706](https://issues.apache.org/jira/browse/PARQUET-1706) - [C++] Wrong dictionary\_page\_offset when writing only data pages via BufferedPageWriter
-* [PARQUET-1707](https://issues.apache.org/jira/browse/PARQUET-1707) - [C++] parquet-arrow-test fails with undefined behaviour sanitizer
-* [PARQUET-1709](https://issues.apache.org/jira/browse/PARQUET-1709) - [C++] Avoid unnecessary temporary std::shared\_ptr copies
-* [PARQUET-1715](https://issues.apache.org/jira/browse/PARQUET-1715) - [C++] Add the Parquet code samples to CI + Refactor Parquet Encryption Samples
-* [PARQUET-1720](https://issues.apache.org/jira/browse/PARQUET-1720) - [C++] Parquet JSONPrint not showing version correctly
-* [PARQUET-1747](https://issues.apache.org/jira/browse/PARQUET-1747) - [C++] Access to ColumnChunkMetaData fails when encryption is on
-* [PARQUET-1766](https://issues.apache.org/jira/browse/PARQUET-1766) - [C++] parquet NaN/null double statistics can result in endless loop
-* [PARQUET-1772](https://issues.apache.org/jira/browse/PARQUET-1772) - [C++] ParquetFileWriter: Data overwritten when output stream opened in append mode
 * [ARROW-3783](https://issues.apache.org/jira/browse/ARROW-3783) - [R] Incorrect collection of float type
 * [ARROW-3962](https://issues.apache.org/jira/browse/ARROW-3962) - [Go] Support null values while reading a CSV file.
 * [ARROW-4470](https://issues.apache.org/jira/browse/ARROW-4470) - [Python] Pyarrow using considerable more memory when reading partitioned Parquet file
@@ -908,25 +896,25 @@
 * [ARROW-7727](https://issues.apache.org/jira/browse/ARROW-7727) - [Python] Unable to read a ParquetDataset when schema validation is on.
 * [ARROW-8135](https://issues.apache.org/jira/browse/ARROW-8135) - [Python] Problem importing PyArrow on a cluster
 * [ARROW-8638](https://issues.apache.org/jira/browse/ARROW-8638) - Arrow Cython API Usage Gives an error when calling CTable API Endpoints
+* [PARQUET-1692](https://issues.apache.org/jira/browse/PARQUET-1692) - [C++] LogicalType::FromThrift error on Centos 7 RPM
+* [PARQUET-1692](https://issues.apache.org/jira/browse/PARQUET-1692) - [C++] LogicalType::FromThrift error on Centos 7 RPM
+* [PARQUET-1693](https://issues.apache.org/jira/browse/PARQUET-1693) - [C++] Build examples don't account for CMAKE compression feature flags
+* [PARQUET-1702](https://issues.apache.org/jira/browse/PARQUET-1702) - [C++] Make BufferedRowGroupWriter compatible with parquet encryption
+* [PARQUET-1706](https://issues.apache.org/jira/browse/PARQUET-1706) - [C++] Wrong dictionary\_page\_offset when writing only data pages via BufferedPageWriter
+* [PARQUET-1707](https://issues.apache.org/jira/browse/PARQUET-1707) - [C++] parquet-arrow-test fails with undefined behaviour sanitizer
+* [PARQUET-1709](https://issues.apache.org/jira/browse/PARQUET-1709) - [C++] Avoid unnecessary temporary std::shared\_ptr copies
+* [PARQUET-1715](https://issues.apache.org/jira/browse/PARQUET-1715) - [C++] Add the Parquet code samples to CI + Refactor Parquet Encryption Samples
+* [PARQUET-1720](https://issues.apache.org/jira/browse/PARQUET-1720) - [C++] Parquet JSONPrint not showing version correctly
+* [PARQUET-1747](https://issues.apache.org/jira/browse/PARQUET-1747) - [C++] Access to ColumnChunkMetaData fails when encryption is on
+* [PARQUET-1766](https://issues.apache.org/jira/browse/PARQUET-1766) - [C++] parquet NaN/null double statistics can result in endless loop
+* [PARQUET-1772](https://issues.apache.org/jira/browse/PARQUET-1772) - [C++] ParquetFileWriter: Data overwritten when output stream opened in append mode
 
 
 ## Improvements
 
-* [PARQUET-517](https://issues.apache.org/jira/browse/PARQUET-517) - [C++] Use arrow::MemoryPool for all heap allocations
 * [ARROW-1175](https://issues.apache.org/jira/browse/ARROW-1175) - [Java] Implement/test dictionary-encoded subfields
 * [ARROW-1456](https://issues.apache.org/jira/browse/ARROW-1456) - [Python] Run s3fs unit tests in Travis CI
 * [ARROW-1562](https://issues.apache.org/jira/browse/ARROW-1562) - [C++] Numeric kernel implementations for add (+)
-* [PARQUET-1664](https://issues.apache.org/jira/browse/PARQUET-1664) - [C++] Provide API to return metadata string from FileMetadata.
-* [PARQUET-1678](https://issues.apache.org/jira/browse/PARQUET-1678) - [C++] Provide classes for reading/writing using input/output operators
-* [PARQUET-1688](https://issues.apache.org/jira/browse/PARQUET-1688) - [C++] StreamWriter/StreamReader can't be built with g++ 4.8.5 on CentOS 7
-* [PARQUET-1689](https://issues.apache.org/jira/browse/PARQUET-1689) - [C++] Stream API: Allow for columns/rows to be skipped when reading
-* [PARQUET-1701](https://issues.apache.org/jira/browse/PARQUET-1701) - [C++] Stream API: Add support for optional fields
-* [PARQUET-1704](https://issues.apache.org/jira/browse/PARQUET-1704) - [C++] Add re-usable encryption buffer to SerializedPageWriter
-* [PARQUET-1705](https://issues.apache.org/jira/browse/PARQUET-1705) - [C++] Disable shrink-to-fit on the re-usable decryption buffer
-* [PARQUET-1712](https://issues.apache.org/jira/browse/PARQUET-1712) - [C++] Stop using deprecated APIs in examples
-* [PARQUET-1721](https://issues.apache.org/jira/browse/PARQUET-1721) - [C++] Arrow dependency is missing in parquet.pc
-* [PARQUET-1734](https://issues.apache.org/jira/browse/PARQUET-1734) - [C++] Fix typos
-* [PARQUET-1769](https://issues.apache.org/jira/browse/PARQUET-1769) - [C++] Update to parquet-format 2.8.0
 * [ARROW-2428](https://issues.apache.org/jira/browse/ARROW-2428) - [Python] Add API to map Arrow types (including extension types) to pandas ExtensionArray instances for to\_pandas conversions
 * [ARROW-2602](https://issues.apache.org/jira/browse/ARROW-2602) - [Packaging] Automate build of development docker containers
 * [ARROW-2863](https://issues.apache.org/jira/browse/ARROW-2863) - [Python] Add context manager APIs to RecordBatch\*Writer/Reader classes
@@ -1348,6 +1336,18 @@
 * [ARROW-7724](https://issues.apache.org/jira/browse/ARROW-7724) - [Release][Yum] Ignore some arm64 verifications
 * [ARROW-7768](https://issues.apache.org/jira/browse/ARROW-7768) - [Rust] Implement Length and TryClone traits for Cursor<Vec<u8\>\> in reader.rs
 * [ARROW-8015](https://issues.apache.org/jira/browse/ARROW-8015) - [Python] Build 0.16.0 wheel install for Windows + Python 3.5 and publish to PyPI
+* [PARQUET-517](https://issues.apache.org/jira/browse/PARQUET-517) - [C++] Use arrow::MemoryPool for all heap allocations
+* [PARQUET-1664](https://issues.apache.org/jira/browse/PARQUET-1664) - [C++] Provide API to return metadata string from FileMetadata.
+* [PARQUET-1678](https://issues.apache.org/jira/browse/PARQUET-1678) - [C++] Provide classes for reading/writing using input/output operators
+* [PARQUET-1688](https://issues.apache.org/jira/browse/PARQUET-1688) - [C++] StreamWriter/StreamReader can't be built with g++ 4.8.5 on CentOS 7
+* [PARQUET-1689](https://issues.apache.org/jira/browse/PARQUET-1689) - [C++] Stream API: Allow for columns/rows to be skipped when reading
+* [PARQUET-1701](https://issues.apache.org/jira/browse/PARQUET-1701) - [C++] Stream API: Add support for optional fields
+* [PARQUET-1704](https://issues.apache.org/jira/browse/PARQUET-1704) - [C++] Add re-usable encryption buffer to SerializedPageWriter
+* [PARQUET-1705](https://issues.apache.org/jira/browse/PARQUET-1705) - [C++] Disable shrink-to-fit on the re-usable decryption buffer
+* [PARQUET-1712](https://issues.apache.org/jira/browse/PARQUET-1712) - [C++] Stop using deprecated APIs in examples
+* [PARQUET-1721](https://issues.apache.org/jira/browse/PARQUET-1721) - [C++] Arrow dependency is missing in parquet.pc
+* [PARQUET-1734](https://issues.apache.org/jira/browse/PARQUET-1734) - [C++] Fix typos
+* [PARQUET-1769](https://issues.apache.org/jira/browse/PARQUET-1769) - [C++] Update to parquet-format 2.8.0
 
 
 ## New Features
@@ -1359,7 +1359,6 @@
 * [ARROW-976](https://issues.apache.org/jira/browse/ARROW-976) - [C++][Python] Provide API for defining and reading Parquet datasets with more ad hoc partition schemes
 * [ARROW-1036](https://issues.apache.org/jira/browse/ARROW-1036) - [C++] Define abstract API for filtering Arrow streams (e.g. predicate evaluation)
 * [ARROW-1119](https://issues.apache.org/jira/browse/ARROW-1119) - [Python/C++] Implement NativeFile interfaces for Amazon S3
-* [PARQUET-1300](https://issues.apache.org/jira/browse/PARQUET-1300) - [C++] Parquet modular encryption
 * [ARROW-1638](https://issues.apache.org/jira/browse/ARROW-1638) - [Java] IPC roundtrip for null type
 * [ARROW-1900](https://issues.apache.org/jira/browse/ARROW-1900) - [C++] Add kernel functions for determining value range (maximum and minimum) of integer arrays
 * [ARROW-3085](https://issues.apache.org/jira/browse/ARROW-3085) - [Rust] Add an adapter for parquet.
@@ -1439,6 +1438,7 @@
 * [ARROW-7658](https://issues.apache.org/jira/browse/ARROW-7658) - [R] Support dplyr filtering on date/time
 * [ARROW-7670](https://issues.apache.org/jira/browse/ARROW-7670) - [Python][Dataset] Better ergonomics for the filter expressions
 * [ARROW-7743](https://issues.apache.org/jira/browse/ARROW-7743) - [Rust] [Parquet] Support reading timestamp micros
+* [PARQUET-1300](https://issues.apache.org/jira/browse/PARQUET-1300) - [C++] Parquet modular encryption
 
 
 
@@ -1502,7 +1502,6 @@
 ## Improvements
 
 * [ARROW-1324](https://issues.apache.org/jira/browse/ARROW-1324) - [C++] Support ARROW\_BOOST\_VENDORED on Windows / MSVC
-* [PARQUET-1468](https://issues.apache.org/jira/browse/PARQUET-1468) - [C++] Consolidate RecordReader, ColumnReader code paths
 * [ARROW-1786](https://issues.apache.org/jira/browse/ARROW-1786) - [Format] List expected on-wire buffer layouts for each kind of Arrow physical type in specification
 * [ARROW-1789](https://issues.apache.org/jira/browse/ARROW-1789) - [Format] Consolidate specification documents and improve clarity for new implementation authors
 * [ARROW-1875](https://issues.apache.org/jira/browse/ARROW-1875) - [Java] Write 64-bit ints as strings in integration test JSON files
@@ -1875,14 +1874,12 @@
 * [ARROW-6735](https://issues.apache.org/jira/browse/ARROW-6735) - [C++] Suppress sign-compare warning with g++ 9.2.1
 * [ARROW-6755](https://issues.apache.org/jira/browse/ARROW-6755) - [Release] Improvements to Windows release verification script
 * [ARROW-6771](https://issues.apache.org/jira/browse/ARROW-6771) - [Packaging][Python] Missing pytest dependency from conda and wheel builds
+* [PARQUET-1468](https://issues.apache.org/jira/browse/PARQUET-1468) - [C++] Consolidate RecordReader, ColumnReader code paths
 
 
 ## Bug Fixes
 
 * [ARROW-1184](https://issues.apache.org/jira/browse/ARROW-1184) - [Java] Dictionary.equals is not working correctly
-* [PARQUET-1623](https://issues.apache.org/jira/browse/PARQUET-1623) - [C++] Invalid memory access with a magic number of records
-* [PARQUET-1631](https://issues.apache.org/jira/browse/PARQUET-1631) - [C++] ParquetInputWrapper::GetSize always returns 0
-* [PARQUET-1640](https://issues.apache.org/jira/browse/PARQUET-1640) - [C++] parquet-encoding-benchmark crashes
 * [ARROW-2041](https://issues.apache.org/jira/browse/ARROW-2041) - [Python] pyarrow.serialize has high overhead for list of NumPy arrays
 * [ARROW-2248](https://issues.apache.org/jira/browse/ARROW-2248) - [Python] Nightly or on-demand HDFS test builds
 * [ARROW-2317](https://issues.apache.org/jira/browse/ARROW-2317) - [Python] fix C linkage warning
@@ -2159,6 +2156,9 @@
 * [ARROW-6773](https://issues.apache.org/jira/browse/ARROW-6773) - [C++] Filter kernel returns invalid data when filtering with an Array slice
 * [ARROW-6796](https://issues.apache.org/jira/browse/ARROW-6796) - Certain moderately-sized (\~100MB) default-Snappy-compressed Parquet files take enormous memory and long time to load by pyarrow.parquet.read\_table
 * [ARROW-7112](https://issues.apache.org/jira/browse/ARROW-7112) - Wrong contents when initializinga pyarrow.Table from boolean DataFrame 
+* [PARQUET-1623](https://issues.apache.org/jira/browse/PARQUET-1623) - [C++] Invalid memory access with a magic number of records
+* [PARQUET-1631](https://issues.apache.org/jira/browse/PARQUET-1631) - [C++] ParquetInputWrapper::GetSize always returns 0
+* [PARQUET-1640](https://issues.apache.org/jira/browse/PARQUET-1640) - [C++] parquet-encoding-benchmark crashes
 
 
 ## New Features
@@ -2245,7 +2245,6 @@
 
 ## Bug Fixes
 
-* [PARQUET-1623](https://issues.apache.org/jira/browse/PARQUET-1623) - [C++] Invalid memory access with a magic number of records
 * [ARROW-5775](https://issues.apache.org/jira/browse/ARROW-5775) - [C++] StructArray : cached boxed fields not thread-safe
 * [ARROW-5790](https://issues.apache.org/jira/browse/ARROW-5790) - [Python] Passing zero-dim numpy array to pa.array causes segfault
 * [ARROW-5791](https://issues.apache.org/jira/browse/ARROW-5791) - [Python] pyarrow.csv.read\_csv hangs + eats all RAM
@@ -2266,6 +2265,7 @@
 * [ARROW-5889](https://issues.apache.org/jira/browse/ARROW-5889) - [Python][C++] Parquet backwards compat for timestamps without timezone broken
 * [ARROW-5899](https://issues.apache.org/jira/browse/ARROW-5899) - [Python][Packaging] Bundle uriparser.dll in windows wheels 
 * [ARROW-5921](https://issues.apache.org/jira/browse/ARROW-5921) - [C++][Fuzzing] Missing nullptr checks in IPC
+* [PARQUET-1623](https://issues.apache.org/jira/browse/PARQUET-1623) - [C++] Invalid memory access with a magic number of records
 
 
 ## Improvements
@@ -2306,18 +2306,8 @@
 * [ARROW-258](https://issues.apache.org/jira/browse/ARROW-258) - [Format] clarify definition of Buffer in context of RPC, IPC, File
 * [ARROW-767](https://issues.apache.org/jira/browse/ARROW-767) - [C++] Adopt FileSystem abstraction
 * [ARROW-835](https://issues.apache.org/jira/browse/ARROW-835) - [Format] Add Timedelta type to describe time intervals
-* [PARQUET-1243](https://issues.apache.org/jira/browse/PARQUET-1243) - [C++] Improve quality of error message for zero-length files, otherwise corrupted files
-* [PARQUET-1411](https://issues.apache.org/jira/browse/PARQUET-1411) - [C++] Upgrade to use LogicalType annotations instead of ConvertedType
-* [PARQUET-1422](https://issues.apache.org/jira/browse/PARQUET-1422) - [C++] Use Arrow IO interfaces natively rather than current parquet:: wrappers
 * [ARROW-1496](https://issues.apache.org/jira/browse/ARROW-1496) - [JS] Upload coverage data to codecov.io
-* [PARQUET-1517](https://issues.apache.org/jira/browse/PARQUET-1517) - [C++] Update cpp crypto package to match signed-off specification
-* [PARQUET-1523](https://issues.apache.org/jira/browse/PARQUET-1523) - [C++] Vectorize comparator interface
-* [PARQUET-1569](https://issues.apache.org/jira/browse/PARQUET-1569) - [C++] Consolidate testing header files
-* [PARQUET-1582](https://issues.apache.org/jira/browse/PARQUET-1582) - [C++] Add ToString method ColumnDescriptor
-* [PARQUET-1583](https://issues.apache.org/jira/browse/PARQUET-1583) - [C++] Remove parquet::Vector class
-* [PARQUET-1586](https://issues.apache.org/jira/browse/PARQUET-1586) - [C++] Add --dump options to parquet-reader tool to dump def/rep levels
 * [ARROW-1587](https://issues.apache.org/jira/browse/ARROW-1587) - [Format] Add metadata for user-defined logical types
-* [PARQUET-1603](https://issues.apache.org/jira/browse/PARQUET-1603) - [C++] rename parquet::LogicalType to parquet::ConvertedType
 * [ARROW-1833](https://issues.apache.org/jira/browse/ARROW-1833) - [Java] Add accessor methods for data buffers that skip null checking
 * [ARROW-1957](https://issues.apache.org/jira/browse/ARROW-1957) - [Python] Write nanosecond timestamps using new NANO LogicalType Parquet unit
 * [ARROW-1983](https://issues.apache.org/jira/browse/ARROW-1983) - [Python] Add ability to write parquet \`\_metadata\` file
@@ -2667,19 +2657,22 @@
 * [ARROW-5797](https://issues.apache.org/jira/browse/ARROW-5797) - [Release][APT] Update supported distributions
 * [ARROW-5818](https://issues.apache.org/jira/browse/ARROW-5818) - [Java][Gandiva] support varlen output vectors
 * [ARROW-5820](https://issues.apache.org/jira/browse/ARROW-5820) - [Release] Remove undefined variable check from verify script
+* [PARQUET-1243](https://issues.apache.org/jira/browse/PARQUET-1243) - [C++] Improve quality of error message for zero-length files, otherwise corrupted files
+* [PARQUET-1411](https://issues.apache.org/jira/browse/PARQUET-1411) - [C++] Upgrade to use LogicalType annotations instead of ConvertedType
+* [PARQUET-1422](https://issues.apache.org/jira/browse/PARQUET-1422) - [C++] Use Arrow IO interfaces natively rather than current parquet:: wrappers
+* [PARQUET-1517](https://issues.apache.org/jira/browse/PARQUET-1517) - [C++] Update cpp crypto package to match signed-off specification
+* [PARQUET-1523](https://issues.apache.org/jira/browse/PARQUET-1523) - [C++] Vectorize comparator interface
+* [PARQUET-1569](https://issues.apache.org/jira/browse/PARQUET-1569) - [C++] Consolidate testing header files
+* [PARQUET-1582](https://issues.apache.org/jira/browse/PARQUET-1582) - [C++] Add ToString method ColumnDescriptor
+* [PARQUET-1583](https://issues.apache.org/jira/browse/PARQUET-1583) - [C++] Remove parquet::Vector class
+* [PARQUET-1586](https://issues.apache.org/jira/browse/PARQUET-1586) - [C++] Add --dump options to parquet-reader tool to dump def/rep levels
+* [PARQUET-1603](https://issues.apache.org/jira/browse/PARQUET-1603) - [C++] rename parquet::LogicalType to parquet::ConvertedType
 
 
 ## Bug Fixes
 
 * [ARROW-61](https://issues.apache.org/jira/browse/ARROW-61) - [Java] Method can return the value bigger than long MAX\_VALUE
 * [ARROW-352](https://issues.apache.org/jira/browse/ARROW-352) - [Format] Interval(DAY\_TIME) has no unit
-* [PARQUET-1402](https://issues.apache.org/jira/browse/PARQUET-1402) - [C++] incorrect calculation column start offset for files created by parquet-mr 1.8.1
-* [PARQUET-1405](https://issues.apache.org/jira/browse/PARQUET-1405) - [C++] 'Couldn't deserialize thrift' error when reading large binary column
-* [PARQUET-1405](https://issues.apache.org/jira/browse/PARQUET-1405) - [C++] 'Couldn't deserialize thrift' error when reading large binary column
-* [PARQUET-1565](https://issues.apache.org/jira/browse/PARQUET-1565) - [C++] SEGV in FromParquetSchema with corrupt file from PARQUET-1481
-* [PARQUET-1571](https://issues.apache.org/jira/browse/PARQUET-1571) - [C++] Can't read data from parquet file in C++ library
-* [PARQUET-1574](https://issues.apache.org/jira/browse/PARQUET-1574) - [C++] parquet-encoding-test failed with msvc
-* [PARQUET-1581](https://issues.apache.org/jira/browse/PARQUET-1581) - [C++] Fix undefined behavior in encoding.cc when num\_dictionary\_values is 0.
 * [ARROW-1837](https://issues.apache.org/jira/browse/ARROW-1837) - [Java] Unable to read unsigned integers outside signed range for bit width in integration tests
 * [ARROW-2119](https://issues.apache.org/jira/browse/ARROW-2119) - [C++][Java] Handle Arrow stream with zero record batch
 * [ARROW-2136](https://issues.apache.org/jira/browse/ARROW-2136) - [Python] Non-nullable schema fields not checked in conversions from pandas
@@ -2889,6 +2882,13 @@
 * [ARROW-5791](https://issues.apache.org/jira/browse/ARROW-5791) - [Python] pyarrow.csv.read\_csv hangs + eats all RAM
 * [ARROW-5816](https://issues.apache.org/jira/browse/ARROW-5816) - [Release] Parallel curl does not work reliably in verify-release-candidate-sh
 * [ARROW-5922](https://issues.apache.org/jira/browse/ARROW-5922) - [Python] Unable to connect to HDFS from a worker/data node on a Kerberized cluster using pyarrow' hdfs API
+* [PARQUET-1402](https://issues.apache.org/jira/browse/PARQUET-1402) - [C++] incorrect calculation column start offset for files created by parquet-mr 1.8.1
+* [PARQUET-1405](https://issues.apache.org/jira/browse/PARQUET-1405) - [C++] 'Couldn't deserialize thrift' error when reading large binary column
+* [PARQUET-1405](https://issues.apache.org/jira/browse/PARQUET-1405) - [C++] 'Couldn't deserialize thrift' error when reading large binary column
+* [PARQUET-1565](https://issues.apache.org/jira/browse/PARQUET-1565) - [C++] SEGV in FromParquetSchema with corrupt file from PARQUET-1481
+* [PARQUET-1571](https://issues.apache.org/jira/browse/PARQUET-1571) - [C++] Can't read data from parquet file in C++ library
+* [PARQUET-1574](https://issues.apache.org/jira/browse/PARQUET-1574) - [C++] parquet-encoding-test failed with msvc
+* [PARQUET-1581](https://issues.apache.org/jira/browse/PARQUET-1581) - [C++] Fix undefined behavior in encoding.cc when num\_dictionary\_values is 0.
 
 
 ## New Features
@@ -2971,9 +2971,6 @@
 
 * [ARROW-295](https://issues.apache.org/jira/browse/ARROW-295) - Create DOAP File
 * [ARROW-1171](https://issues.apache.org/jira/browse/ARROW-1171) - [C++] Segmentation faults on Fedora 24 with pyarrow-manylinux1 and self-compiled turbodbc
-* [PARQUET-1482](https://issues.apache.org/jira/browse/PARQUET-1482) - [C++] Unable to read data from parquet file generated with parquetjs
-* [PARQUET-1494](https://issues.apache.org/jira/browse/PARQUET-1494) - [C++] Can't access parquet statistics on binary columns
-* [PARQUET-1532](https://issues.apache.org/jira/browse/PARQUET-1532) - [C++] Can't build column reader test with MinGW
 * [ARROW-2392](https://issues.apache.org/jira/browse/ARROW-2392) - [Python] pyarrow RecordBatchStreamWriter allows writing batches with different schemas
 * [ARROW-2399](https://issues.apache.org/jira/browse/ARROW-2399) - [Rust] Builder<T\> should not provide a set() method
 * [ARROW-2598](https://issues.apache.org/jira/browse/ARROW-2598) - [Python]  table.to\_pandas segfault
@@ -3192,6 +3189,9 @@
 * [ARROW-5050](https://issues.apache.org/jira/browse/ARROW-5050) - [C++] cares\_ep should build before grpc\_ep
 * [ARROW-5087](https://issues.apache.org/jira/browse/ARROW-5087) - [Debian] APT repository no longer contains libarrow-dev
 * [ARROW-5658](https://issues.apache.org/jira/browse/ARROW-5658) - [JAVA] Provide ability to resync VectorSchemaRoot if types change
+* [PARQUET-1482](https://issues.apache.org/jira/browse/PARQUET-1482) - [C++] Unable to read data from parquet file generated with parquetjs
+* [PARQUET-1494](https://issues.apache.org/jira/browse/PARQUET-1494) - [C++] Can't access parquet statistics on binary columns
+* [PARQUET-1532](https://issues.apache.org/jira/browse/PARQUET-1532) - [C++] Can't build column reader test with MinGW
 
 
 ## New Features
@@ -3258,11 +3258,6 @@
 * [ARROW-331](https://issues.apache.org/jira/browse/ARROW-331) - [Python] Timeline for dropping Python 2.7 support
 * [ARROW-572](https://issues.apache.org/jira/browse/ARROW-572) - [C++] Apply visitor pattern in IPC metadata
 * [ARROW-1425](https://issues.apache.org/jira/browse/ARROW-1425) - [Python] Document semantic differences between Spark timestamps and Arrow timestamps
-* [PARQUET-1477](https://issues.apache.org/jira/browse/PARQUET-1477) - Thrift crypto updates
-* [PARQUET-1508](https://issues.apache.org/jira/browse/PARQUET-1508) - [C++] Enable reading from ByteArray and FixedLenByteArray decoders directly into arrow::BinaryBuilder or arrow::BinaryDictionaryBuilder
-* [PARQUET-1519](https://issues.apache.org/jira/browse/PARQUET-1519) - [C++] Remove use of "extern template class" from parquet/column\_reader.h
-* [PARQUET-1521](https://issues.apache.org/jira/browse/PARQUET-1521) - [C++] Do not use "extern template class" with parquet::ColumnWriter
-* [PARQUET-1525](https://issues.apache.org/jira/browse/PARQUET-1525) - [C++] remove dependency on getopt in parquet tools
 * [ARROW-1639](https://issues.apache.org/jira/browse/ARROW-1639) - [Python] More efficient serialization for RangeIndex in serialize\_pandas
 * [ARROW-1642](https://issues.apache.org/jira/browse/ARROW-1642) - [GLib] Build GLib using Meson in Appveyor
 * [ARROW-1807](https://issues.apache.org/jira/browse/ARROW-1807) - [JAVA] Reduce Heap Usage (Phase 3): consolidate buffers
@@ -3593,6 +3588,11 @@
 * [ARROW-5032](https://issues.apache.org/jira/browse/ARROW-5032) - [C++] Headers in vendored/datetime directory aren't installed
 * [ARROW-5075](https://issues.apache.org/jira/browse/ARROW-5075) - [Release] Add 0.13.0 release note
 * [ARROW-5084](https://issues.apache.org/jira/browse/ARROW-5084) - [Website] Blog post / release announcement for 0.13.0
+* [PARQUET-1477](https://issues.apache.org/jira/browse/PARQUET-1477) - Thrift crypto updates
+* [PARQUET-1508](https://issues.apache.org/jira/browse/PARQUET-1508) - [C++] Enable reading from ByteArray and FixedLenByteArray decoders directly into arrow::BinaryBuilder or arrow::BinaryDictionaryBuilder
+* [PARQUET-1519](https://issues.apache.org/jira/browse/PARQUET-1519) - [C++] Remove use of "extern template class" from parquet/column\_reader.h
+* [PARQUET-1521](https://issues.apache.org/jira/browse/PARQUET-1521) - [C++] Do not use "extern template class" with parquet::ColumnWriter
+* [PARQUET-1525](https://issues.apache.org/jira/browse/PARQUET-1525) - [C++] remove dependency on getopt in parquet tools
 
 
 
@@ -3630,18 +3630,10 @@
 
 ## Improvements
 
-* [PARQUET-690](https://issues.apache.org/jira/browse/PARQUET-690) - [C++] Investigate / improve performance of Thrift utilities
 * [ARROW-766](https://issues.apache.org/jira/browse/ARROW-766) - [C++] Introduce zero-copy "StringPiece" type
 * [ARROW-912](https://issues.apache.org/jira/browse/ARROW-912) - [Python] Account for multiarch systems in development.rst
 * [ARROW-1262](https://issues.apache.org/jira/browse/ARROW-1262) - [Packaging] Packaging automation in arrow-dist
-* [PARQUET-1271](https://issues.apache.org/jira/browse/PARQUET-1271) - [C++] "parquet\_reader" should be "parquet-reader"
 * [ARROW-1423](https://issues.apache.org/jira/browse/ARROW-1423) - [C++] Create non-owned CudaContext from context handle provided by thirdparty user
-* [PARQUET-1439](https://issues.apache.org/jira/browse/PARQUET-1439) - [C++] Parquet build fails when PARQUET\_ARROW\_LINKAGE is static
-* [PARQUET-1449](https://issues.apache.org/jira/browse/PARQUET-1449) - [C++] Can't build with ARROW\_BOOST\_VENDORED=ON
-* [PARQUET-1463](https://issues.apache.org/jira/browse/PARQUET-1463) - [C++] Utilize revamped common hashing machinery for dictionary encoding
-* [PARQUET-1467](https://issues.apache.org/jira/browse/PARQUET-1467) - [C++] Remove ChunkedAllocator code, now unused
-* [PARQUET-1473](https://issues.apache.org/jira/browse/PARQUET-1473) - [C++] Add helper function that converts ParquetVersion to human-friendly string
-* [PARQUET-1484](https://issues.apache.org/jira/browse/PARQUET-1484) - [C++] Improve memory usage of FileMetaDataBuilder
 * [ARROW-1688](https://issues.apache.org/jira/browse/ARROW-1688) - [Java] Fail build on checkstyle warnings
 * [ARROW-1993](https://issues.apache.org/jira/browse/ARROW-1993) - [Python] Add function for determining implied Arrow schema from pandas.DataFrame
 * [ARROW-1994](https://issues.apache.org/jira/browse/ARROW-1994) - [Python] Test against Pandas master
@@ -4010,15 +4002,18 @@
 * [ARROW-4269](https://issues.apache.org/jira/browse/ARROW-4269) - [Python] AttributeError: module 'pandas.core' has no attribute 'arrays'
 * [ARROW-4270](https://issues.apache.org/jira/browse/ARROW-4270) - [Packaging][Conda] Update xcode version and remove toolchain builds
 * [ARROW-4276](https://issues.apache.org/jira/browse/ARROW-4276) - [Release] Remove needless Bintray authentication from binaries verify script
+* [PARQUET-690](https://issues.apache.org/jira/browse/PARQUET-690) - [C++] Investigate / improve performance of Thrift utilities
+* [PARQUET-1271](https://issues.apache.org/jira/browse/PARQUET-1271) - [C++] "parquet\_reader" should be "parquet-reader"
+* [PARQUET-1439](https://issues.apache.org/jira/browse/PARQUET-1439) - [C++] Parquet build fails when PARQUET\_ARROW\_LINKAGE is static
+* [PARQUET-1449](https://issues.apache.org/jira/browse/PARQUET-1449) - [C++] Can't build with ARROW\_BOOST\_VENDORED=ON
+* [PARQUET-1463](https://issues.apache.org/jira/browse/PARQUET-1463) - [C++] Utilize revamped common hashing machinery for dictionary encoding
+* [PARQUET-1467](https://issues.apache.org/jira/browse/PARQUET-1467) - [C++] Remove ChunkedAllocator code, now unused
+* [PARQUET-1473](https://issues.apache.org/jira/browse/PARQUET-1473) - [C++] Add helper function that converts ParquetVersion to human-friendly string
+* [PARQUET-1484](https://issues.apache.org/jira/browse/PARQUET-1484) - [C++] Improve memory usage of FileMetaDataBuilder
 
 
 ## Bug Fixes
 
-* [PARQUET-1426](https://issues.apache.org/jira/browse/PARQUET-1426) - [C++] parquet-dump-schema has poor usability
-* [PARQUET-1458](https://issues.apache.org/jira/browse/PARQUET-1458) - [C++] parquet::CompressionToString not recognizing brotli compression
-* [PARQUET-1469](https://issues.apache.org/jira/browse/PARQUET-1469) - [C++] DefinitionLevelsToBitmap can overwrite prior decoded data
-* [PARQUET-1471](https://issues.apache.org/jira/browse/PARQUET-1471) - [C++] Out of bounds access in statistics UpdateSpaced when writing optional list with null list slots
-* [PARQUET-1481](https://issues.apache.org/jira/browse/PARQUET-1481) - [C++] SEGV when reading corrupt parquet file
 * [ARROW-1847](https://issues.apache.org/jira/browse/ARROW-1847) - [Doc] Document the difference between RecordBatch and Table in an FAQ fashion
 * [ARROW-2026](https://issues.apache.org/jira/browse/ARROW-2026) - [Python] Cast all timestamp resolutions to INT96 use\_deprecated\_int96\_timestamps=True
 * [ARROW-2038](https://issues.apache.org/jira/browse/ARROW-2038) - [Python] Follow-up bug fixes for s3fs Parquet support
@@ -4188,6 +4183,11 @@
 * [ARROW-4256](https://issues.apache.org/jira/browse/ARROW-4256) - [Release] Update Windows verification script for 0.12 release
 * [ARROW-4258](https://issues.apache.org/jira/browse/ARROW-4258) - [Python] Safe cast fails from numpy float64 array with nans to integer
 * [ARROW-4260](https://issues.apache.org/jira/browse/ARROW-4260) - [Python] test\_serialize\_deserialize\_pandas is failing in multiple build entries
+* [PARQUET-1426](https://issues.apache.org/jira/browse/PARQUET-1426) - [C++] parquet-dump-schema has poor usability
+* [PARQUET-1458](https://issues.apache.org/jira/browse/PARQUET-1458) - [C++] parquet::CompressionToString not recognizing brotli compression
+* [PARQUET-1469](https://issues.apache.org/jira/browse/PARQUET-1469) - [C++] DefinitionLevelsToBitmap can overwrite prior decoded data
+* [PARQUET-1471](https://issues.apache.org/jira/browse/PARQUET-1471) - [C++] Out of bounds access in statistics UpdateSpaced when writing optional list with null list slots
+* [PARQUET-1481](https://issues.apache.org/jira/browse/PARQUET-1481) - [C++] SEGV when reading corrupt parquet file
 
 
 ## New Features
@@ -4301,154 +4301,6 @@
 
 ## Improvements
 
-* [PARQUET-169](https://issues.apache.org/jira/browse/PARQUET-169) - Parquet-cpp: Implement support for bulk reading and writing repetition/definition levels.
-* [PARQUET-267](https://issues.apache.org/jira/browse/PARQUET-267) - Detach thirdparty code from build configuration.
-* [PARQUET-416](https://issues.apache.org/jira/browse/PARQUET-416) - C++11, cpplint cleanup, package target and header installation
-* [PARQUET-418](https://issues.apache.org/jira/browse/PARQUET-418) - Add a utility to print contents of a Parquet file to stdout
-* [PARQUET-428](https://issues.apache.org/jira/browse/PARQUET-428) - Support INT96 and FIXED\_LEN\_BYTE\_ARRAY types
-* [PARQUET-448](https://issues.apache.org/jira/browse/PARQUET-448) - Add cmake option to skip building the unit tests
-* [PARQUET-449](https://issues.apache.org/jira/browse/PARQUET-449) - Update to latest parquet.thrift
-* [PARQUET-463](https://issues.apache.org/jira/browse/PARQUET-463) - Add DCHECK\* macros for assertions in debug builds
-* [PARQUET-468](https://issues.apache.org/jira/browse/PARQUET-468) - Add a cmake option to generate the Parquet thrift headers with the thriftc in the environment
-* [PARQUET-477](https://issues.apache.org/jira/browse/PARQUET-477) - Enable clang-format check during the Travis CI build
-* [PARQUET-482](https://issues.apache.org/jira/browse/PARQUET-482) - Organize src code file structure to have a very clear folder with public headers.
-* [PARQUET-488](https://issues.apache.org/jira/browse/PARQUET-488) - Add SSE-related cmake options to manage compiler flags
-* [PARQUET-496](https://issues.apache.org/jira/browse/PARQUET-496) - Fix cpplint configuration to be more restrictive
-* [PARQUET-497](https://issues.apache.org/jira/browse/PARQUET-497) - Decouple Parquet physical file structure from FileReader class
-* [PARQUET-501](https://issues.apache.org/jira/browse/PARQUET-501) - Add an OutputStream abstraction (capable of memory allocation) for Encoder public API
-* [PARQUET-503](https://issues.apache.org/jira/browse/PARQUET-503) - Re-enable parquet 2.0 encodings
-* [PARQUET-508](https://issues.apache.org/jira/browse/PARQUET-508) - Add ParquetFilePrinter
-* [PARQUET-508](https://issues.apache.org/jira/browse/PARQUET-508) - Add ParquetFilePrinter
-* [PARQUET-515](https://issues.apache.org/jira/browse/PARQUET-515) - Add "Reset" to LevelEncoder and LevelDecoder
-* [PARQUET-518](https://issues.apache.org/jira/browse/PARQUET-518) - Review usages of size\_t and unsigned integers generally per Google style guide
-* [PARQUET-519](https://issues.apache.org/jira/browse/PARQUET-519) - Disable compiler warning supressions and fix all DEBUG build warnings
-* [PARQUET-520](https://issues.apache.org/jira/browse/PARQUET-520) - Add version of LocalFileSource that uses memory-mapping for zero-copy reads
-* [PARQUET-533](https://issues.apache.org/jira/browse/PARQUET-533) - Simplify RandomAccessSource API to combine Seek/Read 
-* [PARQUET-538](https://issues.apache.org/jira/browse/PARQUET-538) - Improve ColumnReader Tests
-* [PARQUET-547](https://issues.apache.org/jira/browse/PARQUET-547) - Refactor most templates to use DataType structs rather than the Type::type enum
-* [PARQUET-551](https://issues.apache.org/jira/browse/PARQUET-551) - Handle compiler warnings due to disabled DCHECKs in release builds
-* [PARQUET-556](https://issues.apache.org/jira/browse/PARQUET-556) - Extend RowGroupStatistics to include "min" "max" statistics
-* [PARQUET-559](https://issues.apache.org/jira/browse/PARQUET-559) - Enable InputStream as a source to the ParquetFileReader
-* [PARQUET-564](https://issues.apache.org/jira/browse/PARQUET-564) - Add option to run unit tests with valgrind --tool=memcheck
-* [PARQUET-568](https://issues.apache.org/jira/browse/PARQUET-568) - Read only specified top-level columns in DebugPrint
-* [PARQUET-572](https://issues.apache.org/jira/browse/PARQUET-572) - Rename parquet\_cpp namespace to parquet
-* [PARQUET-587](https://issues.apache.org/jira/browse/PARQUET-587) - Implement BufferReader::Read(int64\_t,uint8\_t\*)
-* [PARQUET-589](https://issues.apache.org/jira/browse/PARQUET-589) - Implement Chunked InMemoryInputStream for better memory usage
-* [PARQUET-592](https://issues.apache.org/jira/browse/PARQUET-592) - Support compressed writes
-* [PARQUET-593](https://issues.apache.org/jira/browse/PARQUET-593) - Add API for writing Page statistics
-* [PARQUET-595](https://issues.apache.org/jira/browse/PARQUET-595) - Add API for key-value metadata
-* [PARQUET-595](https://issues.apache.org/jira/browse/PARQUET-595) - Add API for key-value metadata
-* [PARQUET-597](https://issues.apache.org/jira/browse/PARQUET-597) - Add data rates to benchmark output
-* [PARQUET-600](https://issues.apache.org/jira/browse/PARQUET-600) - Add benchmarks for RLE-Level encoding
-* [PARQUET-603](https://issues.apache.org/jira/browse/PARQUET-603) - Implement missing information in schema descriptor
-* [PARQUET-607](https://issues.apache.org/jira/browse/PARQUET-607) - Public Writer header
-* [PARQUET-610](https://issues.apache.org/jira/browse/PARQUET-610) - Print ColumnMetaData for each RowGroup
-* [PARQUET-616](https://issues.apache.org/jira/browse/PARQUET-616) - C++: WriteBatch should accept const arrays
-* [PARQUET-625](https://issues.apache.org/jira/browse/PARQUET-625) - Improve RLE read performance
-* [PARQUET-633](https://issues.apache.org/jira/browse/PARQUET-633) - Add version to WriterProperties
-* [PARQUET-634](https://issues.apache.org/jira/browse/PARQUET-634) - Consistent private linking of dependencies
-* [PARQUET-636](https://issues.apache.org/jira/browse/PARQUET-636) - Expose selection for different encodings
-* [PARQUET-641](https://issues.apache.org/jira/browse/PARQUET-641) - Instantiate stringstream only if needed in SerializedPageReader::NextPage
-* [PARQUET-671](https://issues.apache.org/jira/browse/PARQUET-671) - Improve performance of RLE/bit-packed decoding in parquet-cpp
-* [PARQUET-679](https://issues.apache.org/jira/browse/PARQUET-679) - [C++] Build and unit tests support for MSVC on Windows
-* [PARQUET-679](https://issues.apache.org/jira/browse/PARQUET-679) - [C++] Build and unit tests support for MSVC on Windows
-* [PARQUET-679](https://issues.apache.org/jira/browse/PARQUET-679) - [C++] Build and unit tests support for MSVC on Windows
-* [PARQUET-679](https://issues.apache.org/jira/browse/PARQUET-679) - [C++] Build and unit tests support for MSVC on Windows
-* [PARQUET-681](https://issues.apache.org/jira/browse/PARQUET-681) - Add tool to scan a parquet file
-* [PARQUET-681](https://issues.apache.org/jira/browse/PARQUET-681) - Add tool to scan a parquet file
-* [PARQUET-687](https://issues.apache.org/jira/browse/PARQUET-687) - C++: Switch to PLAIN encoding if dictionary grows too large
-* [PARQUET-689](https://issues.apache.org/jira/browse/PARQUET-689) - C++: Compress DataPages eagerly
-* [PARQUET-699](https://issues.apache.org/jira/browse/PARQUET-699) - Update parquet.thrift from https://github.com/apache/parquet-format
-* [PARQUET-721](https://issues.apache.org/jira/browse/PARQUET-721) - Performance benchmarks for reading into Arrow structures
-* [PARQUET-724](https://issues.apache.org/jira/browse/PARQUET-724) - Test more advanced properties setting
-* [PARQUET-731](https://issues.apache.org/jira/browse/PARQUET-731) - [CPP] Add API to return metadata size and Skip reading values
-* [PARQUET-737](https://issues.apache.org/jira/browse/PARQUET-737) - Use absolute namespace in macros
-* [PARQUET-762](https://issues.apache.org/jira/browse/PARQUET-762) - C++: Use optimistic allocation instead of Arrow Builders
-* [PARQUET-763](https://issues.apache.org/jira/browse/PARQUET-763) - C++: Expose ParquetFileReader through Arrow reader
-* [PARQUET-778](https://issues.apache.org/jira/browse/PARQUET-778) - Standardize the schema output to match the parquet-mr format
-* [PARQUET-809](https://issues.apache.org/jira/browse/PARQUET-809) - [C++] Add API to determine if two files' schemas are compatible 
-* [PARQUET-813](https://issues.apache.org/jira/browse/PARQUET-813) - C++: Build dependencies using CMake External project
-* [PARQUET-820](https://issues.apache.org/jira/browse/PARQUET-820) - C++: Decoders should directly emit arrays with spacing for null entries
-* [PARQUET-829](https://issues.apache.org/jira/browse/PARQUET-829) - C++: Make use of ARROW-469
-* [PARQUET-857](https://issues.apache.org/jira/browse/PARQUET-857) - [C++] Flatten parquet/encodings directory
-* [PARQUET-858](https://issues.apache.org/jira/browse/PARQUET-858) - [C++] Flatten parquet/column directory, consolidate related code
-* [PARQUET-859](https://issues.apache.org/jira/browse/PARQUET-859) - [C++] Flatten parquet/file directory
-* [PARQUET-862](https://issues.apache.org/jira/browse/PARQUET-862) - Provide defaut cache size values if CPU info probing is not available
-* [PARQUET-874](https://issues.apache.org/jira/browse/PARQUET-874) - [C++] Use default memory allocator from Arrow
-* [PARQUET-877](https://issues.apache.org/jira/browse/PARQUET-877) - C++: Update Arrow Hash, update Version in metadata.
-* [PARQUET-882](https://issues.apache.org/jira/browse/PARQUET-882) - [CPP] Improve Application Version parsing
-* [PARQUET-894](https://issues.apache.org/jira/browse/PARQUET-894) - Fix compilation warning
-* [PARQUET-894](https://issues.apache.org/jira/browse/PARQUET-894) - Fix compilation warning
-* [PARQUET-897](https://issues.apache.org/jira/browse/PARQUET-897) - [C++] Only use designated public headers from libarrow
-* [PARQUET-909](https://issues.apache.org/jira/browse/PARQUET-909) - [CPP]: Reduce buffer allocations (mallocs) on critical path
-* [PARQUET-909](https://issues.apache.org/jira/browse/PARQUET-909) - [CPP]: Reduce buffer allocations (mallocs) on critical path
-* [PARQUET-911](https://issues.apache.org/jira/browse/PARQUET-911) - C++: Support nested structs in parquet\_arrow
-* [PARQUET-928](https://issues.apache.org/jira/browse/PARQUET-928) - [C++] Support pkg-config
-* [PARQUET-934](https://issues.apache.org/jira/browse/PARQUET-934) - [C++] Support multiarch on Debian
-* [PARQUET-935](https://issues.apache.org/jira/browse/PARQUET-935) - [C++] Set shared library version for .deb packages
-* [PARQUET-953](https://issues.apache.org/jira/browse/PARQUET-953) - [C++] Change arrow::FileWriter API to be initialized from a Schema, and provide for writing multiple tables
-* [PARQUET-967](https://issues.apache.org/jira/browse/PARQUET-967) - [C++] Combine libparquet/libparquet\_arrow libraries
-* [PARQUET-978](https://issues.apache.org/jira/browse/PARQUET-978) - [C++] Minimizing footer reads for small(ish) metadata
-* [PARQUET-984](https://issues.apache.org/jira/browse/PARQUET-984) - C++: Add abi and so version to pkg-config
-* [PARQUET-991](https://issues.apache.org/jira/browse/PARQUET-991) - [C++] Fix compiler warnings on MSVC and build with /WX in Appveyor
-* [PARQUET-991](https://issues.apache.org/jira/browse/PARQUET-991) - [C++] Fix compiler warnings on MSVC and build with /WX in Appveyor
-* [PARQUET-991](https://issues.apache.org/jira/browse/PARQUET-991) - [C++] Fix compiler warnings on MSVC and build with /WX in Appveyor
-* [PARQUET-999](https://issues.apache.org/jira/browse/PARQUET-999) - Improve MSVC build - Enable PARQUET\_BUILD\_BENCHMARKS
-* [PARQUET-1008](https://issues.apache.org/jira/browse/PARQUET-1008) - Update TypedColumnReader::ReadBatch method to accept batch\_size as int64\_t
-* [PARQUET-1037](https://issues.apache.org/jira/browse/PARQUET-1037) - Allow final RowGroup to be unfilled
-* [PARQUET-1041](https://issues.apache.org/jira/browse/PARQUET-1041) - C++: Support Arrow's NullArray
-* [PARQUET-1043](https://issues.apache.org/jira/browse/PARQUET-1043) - [C++] Raise minimum supported CMake version to 3.2
-* [PARQUET-1044](https://issues.apache.org/jira/browse/PARQUET-1044) - [C++] Use compression libraries from Apache Arrow
-* [PARQUET-1045](https://issues.apache.org/jira/browse/PARQUET-1045) - [C++] Refactor to account for computational utility code migration in ARROW-1154
-* [PARQUET-1053](https://issues.apache.org/jira/browse/PARQUET-1053) - Fix unused result warnings due to unchecked Statuses
-* [PARQUET-1053](https://issues.apache.org/jira/browse/PARQUET-1053) - Fix unused result warnings due to unchecked Statuses
-* [PARQUET-1068](https://issues.apache.org/jira/browse/PARQUET-1068) - [C++] Use more vanilla Google C++ code formatting
-* [PARQUET-1068](https://issues.apache.org/jira/browse/PARQUET-1068) - [C++] Use more vanilla Google C++ code formatting
-* [PARQUET-1072](https://issues.apache.org/jira/browse/PARQUET-1072) - [C++] Add ARROW\_NO\_DEPRECATED\_API to CI to check for deprecated API use
-* [PARQUET-1079](https://issues.apache.org/jira/browse/PARQUET-1079) - [C++] Account for Arrow API change in ARROW-1335
-* [PARQUET-1083](https://issues.apache.org/jira/browse/PARQUET-1083) - [C++] Refactor core logic in parquet-scan.cc so that it can be used as a library function for benchmarking
-* [PARQUET-1083](https://issues.apache.org/jira/browse/PARQUET-1083) - [C++] Refactor core logic in parquet-scan.cc so that it can be used as a library function for benchmarking
-* [PARQUET-1086](https://issues.apache.org/jira/browse/PARQUET-1086) - [C++] Remove usage of arrow/util/compiler-util.h after 1.3.0 release
-* [PARQUET-1087](https://issues.apache.org/jira/browse/PARQUET-1087) - [C++] Add wrapper for ScanFileContents in parquet::arrow that catches exceptions
-* [PARQUET-1092](https://issues.apache.org/jira/browse/PARQUET-1092) - [C++] Write Arrow tables with chunked columns
-* [PARQUET-1093](https://issues.apache.org/jira/browse/PARQUET-1093) - C++: Improve Arrow level generation error message
-* [PARQUET-1094](https://issues.apache.org/jira/browse/PARQUET-1094) - C++: Add benchmark for boolean Arrow column I/O
-* [PARQUET-1104](https://issues.apache.org/jira/browse/PARQUET-1104) - [C++] Upgrade to Apache Arrow 0.7.0 RC0
-* [PARQUET-1150](https://issues.apache.org/jira/browse/PARQUET-1150) - C++: Hide statically linked boost symbols
-* [PARQUET-1160](https://issues.apache.org/jira/browse/PARQUET-1160) - [C++] Implement BYTE\_ARRAY-backed Decimal reads
-* [PARQUET-1164](https://issues.apache.org/jira/browse/PARQUET-1164) - [C++] Follow API changes in ARROW-1808
-* [PARQUET-1165](https://issues.apache.org/jira/browse/PARQUET-1165) - [C++] Pin clang-format version to 4.0
-* [PARQUET-1166](https://issues.apache.org/jira/browse/PARQUET-1166) - [API Proposal] Add GetRecordBatchReader in parquet/arrow/reader.h
-* [PARQUET-1177](https://issues.apache.org/jira/browse/PARQUET-1177) - [C++] Add more extensive compiler warnings when using Clang
-* [PARQUET-1177](https://issues.apache.org/jira/browse/PARQUET-1177) - [C++] Add more extensive compiler warnings when using Clang
-* [PARQUET-1196](https://issues.apache.org/jira/browse/PARQUET-1196) - [C++] Provide a parquet\_arrow example project incl. CMake setup
-* [PARQUET-1200](https://issues.apache.org/jira/browse/PARQUET-1200) - [C++] Support reading a single Arrow column from a Parquet file
-* [PARQUET-1218](https://issues.apache.org/jira/browse/PARQUET-1218) - [C++] More informative error message on too short pages
-* [PARQUET-1225](https://issues.apache.org/jira/browse/PARQUET-1225) - NaN values may lead to incorrect filtering under certain circumstances
-* [PARQUET-1227](https://issues.apache.org/jira/browse/PARQUET-1227) - Thrift crypto metadata structures
-* [PARQUET-1256](https://issues.apache.org/jira/browse/PARQUET-1256) - [C++] Add --print-key-value-metadata option to parquet\_reader tool
-* [PARQUET-1256](https://issues.apache.org/jira/browse/PARQUET-1256) - [C++] Add --print-key-value-metadata option to parquet\_reader tool
-* [PARQUET-1267](https://issues.apache.org/jira/browse/PARQUET-1267) - replace "unsafe" std::equal by std::memcmp
-* [PARQUET-1276](https://issues.apache.org/jira/browse/PARQUET-1276) - [C++] Reduce the amount of memory used for writing null decimal values
-* [PARQUET-1279](https://issues.apache.org/jira/browse/PARQUET-1279) - Use ASSERT\_NO\_FATAIL\_FAILURE in C++ unit tests
-* [PARQUET-1301](https://issues.apache.org/jira/browse/PARQUET-1301) - [C++] Crypto package in parquet-cpp
-* [PARQUET-1308](https://issues.apache.org/jira/browse/PARQUET-1308) - [C++] parquet::arrow should use thread pool, not ParallelFor
-* [PARQUET-1323](https://issues.apache.org/jira/browse/PARQUET-1323) - [C++] Fix compiler warnings with clang-6.0
-* [PARQUET-1332](https://issues.apache.org/jira/browse/PARQUET-1332) - [C++] Add bloom filter utility class
-* [PARQUET-1340](https://issues.apache.org/jira/browse/PARQUET-1340) - [C++] Fix Travis Ci valgrind errors related to std::random\_device
-* [PARQUET-1346](https://issues.apache.org/jira/browse/PARQUET-1346) - [C++] Protect against null values data in empty Arrow array
-* [PARQUET-1348](https://issues.apache.org/jira/browse/PARQUET-1348) - [C++] Allow Arrow FileWriter To Write FileMetaData
-* [PARQUET-1350](https://issues.apache.org/jira/browse/PARQUET-1350) - [C++] Use abstract ResizableBuffer instead of concrete PoolBuffer
-* [PARQUET-1360](https://issues.apache.org/jira/browse/PARQUET-1360) - [C++] Minor API + style changes follow up to PARQUET-1348
-* [PARQUET-1366](https://issues.apache.org/jira/browse/PARQUET-1366) - [C++] Streamline use of Arrow bit-util.h
-* [PARQUET-1372](https://issues.apache.org/jira/browse/PARQUET-1372) - [C++] Add an API to allow writing RowGroups based on their size rather than num\_rows
-* [PARQUET-1372](https://issues.apache.org/jira/browse/PARQUET-1372) - [C++] Add an API to allow writing RowGroups based on their size rather than num\_rows
-* [PARQUET-1378](https://issues.apache.org/jira/browse/PARQUET-1378) - [c++] Allow RowGroups with zero rows to be written
-* [PARQUET-1382](https://issues.apache.org/jira/browse/PARQUET-1382) - [C++] Prepare for arrow::test namespace removal
-* [PARQUET-1398](https://issues.apache.org/jira/browse/PARQUET-1398) - Separate iv\_prefix for GCM and CTR modes
-* [PARQUET-1401](https://issues.apache.org/jira/browse/PARQUET-1401) - RowGroup offset and total compressed size fields
-* [PARQUET-1427](https://issues.apache.org/jira/browse/PARQUET-1427) - [C++] Move example executables and CLI tools to Apache Arrow repo
-* [PARQUET-1431](https://issues.apache.org/jira/browse/PARQUET-1431) - [C++] Automaticaly set thrift to use boost for thrift versions before 0.11
 * [ARROW-1521](https://issues.apache.org/jira/browse/ARROW-1521) - [C++] Add Reset method to BufferOutputStream to enable object reuse
 * [ARROW-1949](https://issues.apache.org/jira/browse/ARROW-1949) - [Python/C++] Add option to Array.from\_pandas and pyarrow.array to perform unsafe casts
 * [ARROW-1963](https://issues.apache.org/jira/browse/ARROW-1963) - [C++/Python] Create Array from sequence of numpy.datetime64
@@ -4639,12 +4491,186 @@
 * [ARROW-3417](https://issues.apache.org/jira/browse/ARROW-3417) - [Packaging] dev/release/verify-release-cndidate.sh fails Parquet C++ test
 * [ARROW-3423](https://issues.apache.org/jira/browse/ARROW-3423) - [Packaging] Remove RC information from deb/rpm
 * [ARROW-3443](https://issues.apache.org/jira/browse/ARROW-3443) - [Java] Flight reports memory leaks in TestBasicOperation
+* [PARQUET-169](https://issues.apache.org/jira/browse/PARQUET-169) - Parquet-cpp: Implement support for bulk reading and writing repetition/definition levels.
+* [PARQUET-267](https://issues.apache.org/jira/browse/PARQUET-267) - Detach thirdparty code from build configuration.
+* [PARQUET-416](https://issues.apache.org/jira/browse/PARQUET-416) - C++11, cpplint cleanup, package target and header installation
+* [PARQUET-418](https://issues.apache.org/jira/browse/PARQUET-418) - Add a utility to print contents of a Parquet file to stdout
+* [PARQUET-428](https://issues.apache.org/jira/browse/PARQUET-428) - Support INT96 and FIXED\_LEN\_BYTE\_ARRAY types
+* [PARQUET-448](https://issues.apache.org/jira/browse/PARQUET-448) - Add cmake option to skip building the unit tests
+* [PARQUET-449](https://issues.apache.org/jira/browse/PARQUET-449) - Update to latest parquet.thrift
+* [PARQUET-463](https://issues.apache.org/jira/browse/PARQUET-463) - Add DCHECK\* macros for assertions in debug builds
+* [PARQUET-468](https://issues.apache.org/jira/browse/PARQUET-468) - Add a cmake option to generate the Parquet thrift headers with the thriftc in the environment
+* [PARQUET-477](https://issues.apache.org/jira/browse/PARQUET-477) - Enable clang-format check during the Travis CI build
+* [PARQUET-482](https://issues.apache.org/jira/browse/PARQUET-482) - Organize src code file structure to have a very clear folder with public headers.
+* [PARQUET-488](https://issues.apache.org/jira/browse/PARQUET-488) - Add SSE-related cmake options to manage compiler flags
+* [PARQUET-496](https://issues.apache.org/jira/browse/PARQUET-496) - Fix cpplint configuration to be more restrictive
+* [PARQUET-497](https://issues.apache.org/jira/browse/PARQUET-497) - Decouple Parquet physical file structure from FileReader class
+* [PARQUET-501](https://issues.apache.org/jira/browse/PARQUET-501) - Add an OutputStream abstraction (capable of memory allocation) for Encoder public API
+* [PARQUET-503](https://issues.apache.org/jira/browse/PARQUET-503) - Re-enable parquet 2.0 encodings
+* [PARQUET-508](https://issues.apache.org/jira/browse/PARQUET-508) - Add ParquetFilePrinter
+* [PARQUET-508](https://issues.apache.org/jira/browse/PARQUET-508) - Add ParquetFilePrinter
+* [PARQUET-515](https://issues.apache.org/jira/browse/PARQUET-515) - Add "Reset" to LevelEncoder and LevelDecoder
+* [PARQUET-518](https://issues.apache.org/jira/browse/PARQUET-518) - Review usages of size\_t and unsigned integers generally per Google style guide
+* [PARQUET-519](https://issues.apache.org/jira/browse/PARQUET-519) - Disable compiler warning supressions and fix all DEBUG build warnings
+* [PARQUET-520](https://issues.apache.org/jira/browse/PARQUET-520) - Add version of LocalFileSource that uses memory-mapping for zero-copy reads
+* [PARQUET-533](https://issues.apache.org/jira/browse/PARQUET-533) - Simplify RandomAccessSource API to combine Seek/Read 
+* [PARQUET-538](https://issues.apache.org/jira/browse/PARQUET-538) - Improve ColumnReader Tests
+* [PARQUET-547](https://issues.apache.org/jira/browse/PARQUET-547) - Refactor most templates to use DataType structs rather than the Type::type enum
+* [PARQUET-551](https://issues.apache.org/jira/browse/PARQUET-551) - Handle compiler warnings due to disabled DCHECKs in release builds
+* [PARQUET-556](https://issues.apache.org/jira/browse/PARQUET-556) - Extend RowGroupStatistics to include "min" "max" statistics
+* [PARQUET-559](https://issues.apache.org/jira/browse/PARQUET-559) - Enable InputStream as a source to the ParquetFileReader
+* [PARQUET-564](https://issues.apache.org/jira/browse/PARQUET-564) - Add option to run unit tests with valgrind --tool=memcheck
+* [PARQUET-568](https://issues.apache.org/jira/browse/PARQUET-568) - Read only specified top-level columns in DebugPrint
+* [PARQUET-572](https://issues.apache.org/jira/browse/PARQUET-572) - Rename parquet\_cpp namespace to parquet
+* [PARQUET-587](https://issues.apache.org/jira/browse/PARQUET-587) - Implement BufferReader::Read(int64\_t,uint8\_t\*)
+* [PARQUET-589](https://issues.apache.org/jira/browse/PARQUET-589) - Implement Chunked InMemoryInputStream for better memory usage
+* [PARQUET-592](https://issues.apache.org/jira/browse/PARQUET-592) - Support compressed writes
+* [PARQUET-593](https://issues.apache.org/jira/browse/PARQUET-593) - Add API for writing Page statistics
+* [PARQUET-595](https://issues.apache.org/jira/browse/PARQUET-595) - Add API for key-value metadata
+* [PARQUET-595](https://issues.apache.org/jira/browse/PARQUET-595) - Add API for key-value metadata
+* [PARQUET-597](https://issues.apache.org/jira/browse/PARQUET-597) - Add data rates to benchmark output
+* [PARQUET-600](https://issues.apache.org/jira/browse/PARQUET-600) - Add benchmarks for RLE-Level encoding
+* [PARQUET-603](https://issues.apache.org/jira/browse/PARQUET-603) - Implement missing information in schema descriptor
+* [PARQUET-607](https://issues.apache.org/jira/browse/PARQUET-607) - Public Writer header
+* [PARQUET-610](https://issues.apache.org/jira/browse/PARQUET-610) - Print ColumnMetaData for each RowGroup
+* [PARQUET-616](https://issues.apache.org/jira/browse/PARQUET-616) - C++: WriteBatch should accept const arrays
+* [PARQUET-625](https://issues.apache.org/jira/browse/PARQUET-625) - Improve RLE read performance
+* [PARQUET-633](https://issues.apache.org/jira/browse/PARQUET-633) - Add version to WriterProperties
+* [PARQUET-634](https://issues.apache.org/jira/browse/PARQUET-634) - Consistent private linking of dependencies
+* [PARQUET-636](https://issues.apache.org/jira/browse/PARQUET-636) - Expose selection for different encodings
+* [PARQUET-641](https://issues.apache.org/jira/browse/PARQUET-641) - Instantiate stringstream only if needed in SerializedPageReader::NextPage
+* [PARQUET-671](https://issues.apache.org/jira/browse/PARQUET-671) - Improve performance of RLE/bit-packed decoding in parquet-cpp
+* [PARQUET-679](https://issues.apache.org/jira/browse/PARQUET-679) - [C++] Build and unit tests support for MSVC on Windows
+* [PARQUET-679](https://issues.apache.org/jira/browse/PARQUET-679) - [C++] Build and unit tests support for MSVC on Windows
+* [PARQUET-679](https://issues.apache.org/jira/browse/PARQUET-679) - [C++] Build and unit tests support for MSVC on Windows
+* [PARQUET-679](https://issues.apache.org/jira/browse/PARQUET-679) - [C++] Build and unit tests support for MSVC on Windows
+* [PARQUET-681](https://issues.apache.org/jira/browse/PARQUET-681) - Add tool to scan a parquet file
+* [PARQUET-681](https://issues.apache.org/jira/browse/PARQUET-681) - Add tool to scan a parquet file
+* [PARQUET-687](https://issues.apache.org/jira/browse/PARQUET-687) - C++: Switch to PLAIN encoding if dictionary grows too large
+* [PARQUET-689](https://issues.apache.org/jira/browse/PARQUET-689) - C++: Compress DataPages eagerly
+* [PARQUET-699](https://issues.apache.org/jira/browse/PARQUET-699) - Update parquet.thrift from https://github.com/apache/parquet-format
+* [PARQUET-721](https://issues.apache.org/jira/browse/PARQUET-721) - Performance benchmarks for reading into Arrow structures
+* [PARQUET-724](https://issues.apache.org/jira/browse/PARQUET-724) - Test more advanced properties setting
+* [PARQUET-731](https://issues.apache.org/jira/browse/PARQUET-731) - [CPP] Add API to return metadata size and Skip reading values
+* [PARQUET-737](https://issues.apache.org/jira/browse/PARQUET-737) - Use absolute namespace in macros
+* [PARQUET-762](https://issues.apache.org/jira/browse/PARQUET-762) - C++: Use optimistic allocation instead of Arrow Builders
+* [PARQUET-763](https://issues.apache.org/jira/browse/PARQUET-763) - C++: Expose ParquetFileReader through Arrow reader
+* [PARQUET-778](https://issues.apache.org/jira/browse/PARQUET-778) - Standardize the schema output to match the parquet-mr format
+* [PARQUET-809](https://issues.apache.org/jira/browse/PARQUET-809) - [C++] Add API to determine if two files' schemas are compatible 
+* [PARQUET-813](https://issues.apache.org/jira/browse/PARQUET-813) - C++: Build dependencies using CMake External project
+* [PARQUET-820](https://issues.apache.org/jira/browse/PARQUET-820) - C++: Decoders should directly emit arrays with spacing for null entries
+* [PARQUET-829](https://issues.apache.org/jira/browse/PARQUET-829) - C++: Make use of ARROW-469
+* [PARQUET-857](https://issues.apache.org/jira/browse/PARQUET-857) - [C++] Flatten parquet/encodings directory
+* [PARQUET-858](https://issues.apache.org/jira/browse/PARQUET-858) - [C++] Flatten parquet/column directory, consolidate related code
+* [PARQUET-859](https://issues.apache.org/jira/browse/PARQUET-859) - [C++] Flatten parquet/file directory
+* [PARQUET-862](https://issues.apache.org/jira/browse/PARQUET-862) - Provide defaut cache size values if CPU info probing is not available
+* [PARQUET-874](https://issues.apache.org/jira/browse/PARQUET-874) - [C++] Use default memory allocator from Arrow
+* [PARQUET-877](https://issues.apache.org/jira/browse/PARQUET-877) - C++: Update Arrow Hash, update Version in metadata.
+* [PARQUET-882](https://issues.apache.org/jira/browse/PARQUET-882) - [CPP] Improve Application Version parsing
+* [PARQUET-894](https://issues.apache.org/jira/browse/PARQUET-894) - Fix compilation warning
+* [PARQUET-894](https://issues.apache.org/jira/browse/PARQUET-894) - Fix compilation warning
+* [PARQUET-897](https://issues.apache.org/jira/browse/PARQUET-897) - [C++] Only use designated public headers from libarrow
+* [PARQUET-909](https://issues.apache.org/jira/browse/PARQUET-909) - [CPP]: Reduce buffer allocations (mallocs) on critical path
+* [PARQUET-909](https://issues.apache.org/jira/browse/PARQUET-909) - [CPP]: Reduce buffer allocations (mallocs) on critical path
+* [PARQUET-911](https://issues.apache.org/jira/browse/PARQUET-911) - C++: Support nested structs in parquet\_arrow
+* [PARQUET-928](https://issues.apache.org/jira/browse/PARQUET-928) - [C++] Support pkg-config
+* [PARQUET-934](https://issues.apache.org/jira/browse/PARQUET-934) - [C++] Support multiarch on Debian
+* [PARQUET-935](https://issues.apache.org/jira/browse/PARQUET-935) - [C++] Set shared library version for .deb packages
+* [PARQUET-953](https://issues.apache.org/jira/browse/PARQUET-953) - [C++] Change arrow::FileWriter API to be initialized from a Schema, and provide for writing multiple tables
+* [PARQUET-967](https://issues.apache.org/jira/browse/PARQUET-967) - [C++] Combine libparquet/libparquet\_arrow libraries
+* [PARQUET-978](https://issues.apache.org/jira/browse/PARQUET-978) - [C++] Minimizing footer reads for small(ish) metadata
+* [PARQUET-984](https://issues.apache.org/jira/browse/PARQUET-984) - C++: Add abi and so version to pkg-config
+* [PARQUET-991](https://issues.apache.org/jira/browse/PARQUET-991) - [C++] Fix compiler warnings on MSVC and build with /WX in Appveyor
+* [PARQUET-991](https://issues.apache.org/jira/browse/PARQUET-991) - [C++] Fix compiler warnings on MSVC and build with /WX in Appveyor
+* [PARQUET-991](https://issues.apache.org/jira/browse/PARQUET-991) - [C++] Fix compiler warnings on MSVC and build with /WX in Appveyor
+* [PARQUET-999](https://issues.apache.org/jira/browse/PARQUET-999) - Improve MSVC build - Enable PARQUET\_BUILD\_BENCHMARKS
+* [PARQUET-1008](https://issues.apache.org/jira/browse/PARQUET-1008) - Update TypedColumnReader::ReadBatch method to accept batch\_size as int64\_t
+* [PARQUET-1037](https://issues.apache.org/jira/browse/PARQUET-1037) - Allow final RowGroup to be unfilled
+* [PARQUET-1041](https://issues.apache.org/jira/browse/PARQUET-1041) - C++: Support Arrow's NullArray
+* [PARQUET-1043](https://issues.apache.org/jira/browse/PARQUET-1043) - [C++] Raise minimum supported CMake version to 3.2
+* [PARQUET-1044](https://issues.apache.org/jira/browse/PARQUET-1044) - [C++] Use compression libraries from Apache Arrow
+* [PARQUET-1045](https://issues.apache.org/jira/browse/PARQUET-1045) - [C++] Refactor to account for computational utility code migration in ARROW-1154
+* [PARQUET-1053](https://issues.apache.org/jira/browse/PARQUET-1053) - Fix unused result warnings due to unchecked Statuses
+* [PARQUET-1053](https://issues.apache.org/jira/browse/PARQUET-1053) - Fix unused result warnings due to unchecked Statuses
+* [PARQUET-1068](https://issues.apache.org/jira/browse/PARQUET-1068) - [C++] Use more vanilla Google C++ code formatting
+* [PARQUET-1068](https://issues.apache.org/jira/browse/PARQUET-1068) - [C++] Use more vanilla Google C++ code formatting
+* [PARQUET-1072](https://issues.apache.org/jira/browse/PARQUET-1072) - [C++] Add ARROW\_NO\_DEPRECATED\_API to CI to check for deprecated API use
+* [PARQUET-1079](https://issues.apache.org/jira/browse/PARQUET-1079) - [C++] Account for Arrow API change in ARROW-1335
+* [PARQUET-1083](https://issues.apache.org/jira/browse/PARQUET-1083) - [C++] Refactor core logic in parquet-scan.cc so that it can be used as a library function for benchmarking
+* [PARQUET-1083](https://issues.apache.org/jira/browse/PARQUET-1083) - [C++] Refactor core logic in parquet-scan.cc so that it can be used as a library function for benchmarking
+* [PARQUET-1086](https://issues.apache.org/jira/browse/PARQUET-1086) - [C++] Remove usage of arrow/util/compiler-util.h after 1.3.0 release
+* [PARQUET-1087](https://issues.apache.org/jira/browse/PARQUET-1087) - [C++] Add wrapper for ScanFileContents in parquet::arrow that catches exceptions
+* [PARQUET-1092](https://issues.apache.org/jira/browse/PARQUET-1092) - [C++] Write Arrow tables with chunked columns
+* [PARQUET-1093](https://issues.apache.org/jira/browse/PARQUET-1093) - C++: Improve Arrow level generation error message
+* [PARQUET-1094](https://issues.apache.org/jira/browse/PARQUET-1094) - C++: Add benchmark for boolean Arrow column I/O
+* [PARQUET-1104](https://issues.apache.org/jira/browse/PARQUET-1104) - [C++] Upgrade to Apache Arrow 0.7.0 RC0
+* [PARQUET-1150](https://issues.apache.org/jira/browse/PARQUET-1150) - C++: Hide statically linked boost symbols
+* [PARQUET-1160](https://issues.apache.org/jira/browse/PARQUET-1160) - [C++] Implement BYTE\_ARRAY-backed Decimal reads
+* [PARQUET-1164](https://issues.apache.org/jira/browse/PARQUET-1164) - [C++] Follow API changes in ARROW-1808
+* [PARQUET-1165](https://issues.apache.org/jira/browse/PARQUET-1165) - [C++] Pin clang-format version to 4.0
+* [PARQUET-1166](https://issues.apache.org/jira/browse/PARQUET-1166) - [API Proposal] Add GetRecordBatchReader in parquet/arrow/reader.h
+* [PARQUET-1177](https://issues.apache.org/jira/browse/PARQUET-1177) - [C++] Add more extensive compiler warnings when using Clang
+* [PARQUET-1177](https://issues.apache.org/jira/browse/PARQUET-1177) - [C++] Add more extensive compiler warnings when using Clang
+* [PARQUET-1196](https://issues.apache.org/jira/browse/PARQUET-1196) - [C++] Provide a parquet\_arrow example project incl. CMake setup
+* [PARQUET-1200](https://issues.apache.org/jira/browse/PARQUET-1200) - [C++] Support reading a single Arrow column from a Parquet file
+* [PARQUET-1218](https://issues.apache.org/jira/browse/PARQUET-1218) - [C++] More informative error message on too short pages
+* [PARQUET-1225](https://issues.apache.org/jira/browse/PARQUET-1225) - NaN values may lead to incorrect filtering under certain circumstances
+* [PARQUET-1227](https://issues.apache.org/jira/browse/PARQUET-1227) - Thrift crypto metadata structures
+* [PARQUET-1256](https://issues.apache.org/jira/browse/PARQUET-1256) - [C++] Add --print-key-value-metadata option to parquet\_reader tool
+* [PARQUET-1256](https://issues.apache.org/jira/browse/PARQUET-1256) - [C++] Add --print-key-value-metadata option to parquet\_reader tool
+* [PARQUET-1267](https://issues.apache.org/jira/browse/PARQUET-1267) - replace "unsafe" std::equal by std::memcmp
+* [PARQUET-1276](https://issues.apache.org/jira/browse/PARQUET-1276) - [C++] Reduce the amount of memory used for writing null decimal values
+* [PARQUET-1279](https://issues.apache.org/jira/browse/PARQUET-1279) - Use ASSERT\_NO\_FATAIL\_FAILURE in C++ unit tests
+* [PARQUET-1301](https://issues.apache.org/jira/browse/PARQUET-1301) - [C++] Crypto package in parquet-cpp
+* [PARQUET-1308](https://issues.apache.org/jira/browse/PARQUET-1308) - [C++] parquet::arrow should use thread pool, not ParallelFor
+* [PARQUET-1323](https://issues.apache.org/jira/browse/PARQUET-1323) - [C++] Fix compiler warnings with clang-6.0
+* [PARQUET-1332](https://issues.apache.org/jira/browse/PARQUET-1332) - [C++] Add bloom filter utility class
+* [PARQUET-1340](https://issues.apache.org/jira/browse/PARQUET-1340) - [C++] Fix Travis Ci valgrind errors related to std::random\_device
+* [PARQUET-1346](https://issues.apache.org/jira/browse/PARQUET-1346) - [C++] Protect against null values data in empty Arrow array
+* [PARQUET-1348](https://issues.apache.org/jira/browse/PARQUET-1348) - [C++] Allow Arrow FileWriter To Write FileMetaData
+* [PARQUET-1350](https://issues.apache.org/jira/browse/PARQUET-1350) - [C++] Use abstract ResizableBuffer instead of concrete PoolBuffer
+* [PARQUET-1360](https://issues.apache.org/jira/browse/PARQUET-1360) - [C++] Minor API + style changes follow up to PARQUET-1348
+* [PARQUET-1366](https://issues.apache.org/jira/browse/PARQUET-1366) - [C++] Streamline use of Arrow bit-util.h
+* [PARQUET-1372](https://issues.apache.org/jira/browse/PARQUET-1372) - [C++] Add an API to allow writing RowGroups based on their size rather than num\_rows
+* [PARQUET-1372](https://issues.apache.org/jira/browse/PARQUET-1372) - [C++] Add an API to allow writing RowGroups based on their size rather than num\_rows
+* [PARQUET-1378](https://issues.apache.org/jira/browse/PARQUET-1378) - [c++] Allow RowGroups with zero rows to be written
+* [PARQUET-1382](https://issues.apache.org/jira/browse/PARQUET-1382) - [C++] Prepare for arrow::test namespace removal
+* [PARQUET-1398](https://issues.apache.org/jira/browse/PARQUET-1398) - Separate iv\_prefix for GCM and CTR modes
+* [PARQUET-1401](https://issues.apache.org/jira/browse/PARQUET-1401) - RowGroup offset and total compressed size fields
+* [PARQUET-1427](https://issues.apache.org/jira/browse/PARQUET-1427) - [C++] Move example executables and CLI tools to Apache Arrow repo
+* [PARQUET-1431](https://issues.apache.org/jira/browse/PARQUET-1431) - [C++] Automaticaly set thrift to use boost for thrift versions before 0.11
 
 
 ## New Features
 
 * [ARROW-25](https://issues.apache.org/jira/browse/ARROW-25) - [C++] Implement delimited file scanner / CSV reader
 * [ARROW-249](https://issues.apache.org/jira/browse/ARROW-249) - [Flight] Define GRPC IDL / wire protocol for messaging with Arrow data
+* [ARROW-614](https://issues.apache.org/jira/browse/ARROW-614) - [C++] Use glog (or some other tool) to print stack traces in debug builds on errors
+* [ARROW-1325](https://issues.apache.org/jira/browse/ARROW-1325) - [R] Bootstrap R bindings subproject
+* [ARROW-1424](https://issues.apache.org/jira/browse/ARROW-1424) - [Python] Initial bindings for libarrow\_gpu
+* [ARROW-1491](https://issues.apache.org/jira/browse/ARROW-1491) - [C++] Add casting implementations from strings to numbers or boolean
+* [ARROW-1563](https://issues.apache.org/jira/browse/ARROW-1563) - [C++] Implement logical unary and binary kernels for boolean arrays
+* [ARROW-1563](https://issues.apache.org/jira/browse/ARROW-1563) - [C++] Implement logical unary and binary kernels for boolean arrays
+* [ARROW-1860](https://issues.apache.org/jira/browse/ARROW-1860) - [C++] Add data structure to "stage" a sequence of IPC messages from in-memory data
+* [ARROW-2519](https://issues.apache.org/jira/browse/ARROW-2519) - [Rust] Implement min/max for primitive arrays
+* [ARROW-2750](https://issues.apache.org/jira/browse/ARROW-2750) - [MATLAB] Add MATLAB support for reading numeric types from Feather files
+* [ARROW-2979](https://issues.apache.org/jira/browse/ARROW-2979) - [GLib] Add operator functions in GArrowDecimal128
+* [ARROW-3050](https://issues.apache.org/jira/browse/ARROW-3050) - [C++] Adopt HiveServer2 client C++ codebase
+* [ARROW-3075](https://issues.apache.org/jira/browse/ARROW-3075) - [C++] Incorporate apache/parquet-cpp codebase into Arrow C++ codebase and build system
+* [ARROW-3090](https://issues.apache.org/jira/browse/ARROW-3090) - [Rust] Accompany error messages with assertions
+* [ARROW-3146](https://issues.apache.org/jira/browse/ARROW-3146) - [C++] Barebones Flight RPC server and client implementations
+* [ARROW-3182](https://issues.apache.org/jira/browse/ARROW-3182) - [C++] Merge Gandiva codebase
+* [ARROW-3187](https://issues.apache.org/jira/browse/ARROW-3187) - [Plasma] Make Plasma Log pluggable with glog
+* [ARROW-3196](https://issues.apache.org/jira/browse/ARROW-3196) - Enable merge\_arrow\_py.py script to merge Parquet patches and set fix versions
+* [ARROW-3197](https://issues.apache.org/jira/browse/ARROW-3197) - [C++] Add instructions to cpp/README.md about Parquet-only development and Arrow+Parquet
+* [ARROW-3198](https://issues.apache.org/jira/browse/ARROW-3198) - [Website] Blog post for 0.11 release
+* [ARROW-3250](https://issues.apache.org/jira/browse/ARROW-3250) - [C++] Create Buffer implementation that takes ownership for the memory from a std::string via std::move
+* [ARROW-3282](https://issues.apache.org/jira/browse/ARROW-3282) - [R] initial R functionality
+* [ARROW-3284](https://issues.apache.org/jira/browse/ARROW-3284) - [R] Adding R Error in Status
+* [ARROW-3339](https://issues.apache.org/jira/browse/ARROW-3339) - [R] Support for character vectors
+* [ARROW-3341](https://issues.apache.org/jira/browse/ARROW-3341) - [R] Support for logical vector
+* [ARROW-3360](https://issues.apache.org/jira/browse/ARROW-3360) - [GLib] Import Parquet bindings
+* [ARROW-3418](https://issues.apache.org/jira/browse/ARROW-3418) - [C++] Update Parquet snapshot version for release
 * [PARQUET-434](https://issues.apache.org/jira/browse/PARQUET-434) - Add a ParquetFileReader class to encapsulate some low-level details of interacting with Parquet files
 * [PARQUET-435](https://issues.apache.org/jira/browse/PARQUET-435) - Provide vectorized ColumnReader interface
 * [PARQUET-436](https://issues.apache.org/jira/browse/PARQUET-436) - Implement ParquetFileWriter class entry point for generating new Parquet files
@@ -4667,7 +4693,6 @@
 * [PARQUET-583](https://issues.apache.org/jira/browse/PARQUET-583) - Implement Parquet to Thrift schema conversion
 * [PARQUET-598](https://issues.apache.org/jira/browse/PARQUET-598) - [C++] Test writing all primitive data types
 * [PARQUET-605](https://issues.apache.org/jira/browse/PARQUET-605) - Expose schema node in ColumnDescriptor
-* [ARROW-614](https://issues.apache.org/jira/browse/ARROW-614) - [C++] Use glog (or some other tool) to print stack traces in debug builds on errors
 * [PARQUET-619](https://issues.apache.org/jira/browse/PARQUET-619) - C++: Add OutputStream for local files
 * [PARQUET-646](https://issues.apache.org/jira/browse/PARQUET-646) - [C++] Enable easier 3rd-party toolchain clang builds on Linux
 * [PARQUET-666](https://issues.apache.org/jira/browse/PARQUET-666) - PLAIN\_DICTIONARY write support
@@ -4699,36 +4724,88 @@
 * [PARQUET-1035](https://issues.apache.org/jira/browse/PARQUET-1035) - Write Int96 from Arrow Timestamp(ns)
 * [PARQUET-1078](https://issues.apache.org/jira/browse/PARQUET-1078) - [C++] Add Arrow writer option to coerce timestamps to milliseconds or microseconds
 * [PARQUET-1095](https://issues.apache.org/jira/browse/PARQUET-1095) - [C++] Read and write Arrow decimal values
-* [ARROW-1325](https://issues.apache.org/jira/browse/ARROW-1325) - [R] Bootstrap R bindings subproject
 * [PARQUET-1392](https://issues.apache.org/jira/browse/PARQUET-1392) - [C++] Supply row group indices to parquet::arrow::FileReader::ReadTable
-* [ARROW-1424](https://issues.apache.org/jira/browse/ARROW-1424) - [Python] Initial bindings for libarrow\_gpu
-* [ARROW-1491](https://issues.apache.org/jira/browse/ARROW-1491) - [C++] Add casting implementations from strings to numbers or boolean
-* [ARROW-1563](https://issues.apache.org/jira/browse/ARROW-1563) - [C++] Implement logical unary and binary kernels for boolean arrays
-* [ARROW-1563](https://issues.apache.org/jira/browse/ARROW-1563) - [C++] Implement logical unary and binary kernels for boolean arrays
-* [ARROW-1860](https://issues.apache.org/jira/browse/ARROW-1860) - [C++] Add data structure to "stage" a sequence of IPC messages from in-memory data
-* [ARROW-2519](https://issues.apache.org/jira/browse/ARROW-2519) - [Rust] Implement min/max for primitive arrays
-* [ARROW-2750](https://issues.apache.org/jira/browse/ARROW-2750) - [MATLAB] Add MATLAB support for reading numeric types from Feather files
-* [ARROW-2979](https://issues.apache.org/jira/browse/ARROW-2979) - [GLib] Add operator functions in GArrowDecimal128
-* [ARROW-3050](https://issues.apache.org/jira/browse/ARROW-3050) - [C++] Adopt HiveServer2 client C++ codebase
-* [ARROW-3075](https://issues.apache.org/jira/browse/ARROW-3075) - [C++] Incorporate apache/parquet-cpp codebase into Arrow C++ codebase and build system
-* [ARROW-3090](https://issues.apache.org/jira/browse/ARROW-3090) - [Rust] Accompany error messages with assertions
-* [ARROW-3146](https://issues.apache.org/jira/browse/ARROW-3146) - [C++] Barebones Flight RPC server and client implementations
-* [ARROW-3182](https://issues.apache.org/jira/browse/ARROW-3182) - [C++] Merge Gandiva codebase
-* [ARROW-3187](https://issues.apache.org/jira/browse/ARROW-3187) - [Plasma] Make Plasma Log pluggable with glog
-* [ARROW-3196](https://issues.apache.org/jira/browse/ARROW-3196) - Enable merge\_arrow\_py.py script to merge Parquet patches and set fix versions
-* [ARROW-3197](https://issues.apache.org/jira/browse/ARROW-3197) - [C++] Add instructions to cpp/README.md about Parquet-only development and Arrow+Parquet
-* [ARROW-3198](https://issues.apache.org/jira/browse/ARROW-3198) - [Website] Blog post for 0.11 release
-* [ARROW-3250](https://issues.apache.org/jira/browse/ARROW-3250) - [C++] Create Buffer implementation that takes ownership for the memory from a std::string via std::move
-* [ARROW-3282](https://issues.apache.org/jira/browse/ARROW-3282) - [R] initial R functionality
-* [ARROW-3284](https://issues.apache.org/jira/browse/ARROW-3284) - [R] Adding R Error in Status
-* [ARROW-3339](https://issues.apache.org/jira/browse/ARROW-3339) - [R] Support for character vectors
-* [ARROW-3341](https://issues.apache.org/jira/browse/ARROW-3341) - [R] Support for logical vector
-* [ARROW-3360](https://issues.apache.org/jira/browse/ARROW-3360) - [GLib] Import Parquet bindings
-* [ARROW-3418](https://issues.apache.org/jira/browse/ARROW-3418) - [C++] Update Parquet snapshot version for release
 
 
 ## Bug Fixes
 
+* [ARROW-1380](https://issues.apache.org/jira/browse/ARROW-1380) - [C++] Fix "still reachable" valgrind warnings when PLASMA\_VALGRIND=1
+* [ARROW-1661](https://issues.apache.org/jira/browse/ARROW-1661) - [Python] Python 3.7 support
+* [ARROW-1799](https://issues.apache.org/jira/browse/ARROW-1799) - [Plasma C++] Make unittest does not create plasma store executable
+* [ARROW-1996](https://issues.apache.org/jira/browse/ARROW-1996) - [Python] pyarrow.read\_serialized cannot read concatenated records
+* [ARROW-2027](https://issues.apache.org/jira/browse/ARROW-2027) - [C++] ipc::Message::SerializeTo does not pad the message body
+* [ARROW-2220](https://issues.apache.org/jira/browse/ARROW-2220) - Change default fix version in merge tool to be the next mainline release version
+* [ARROW-2310](https://issues.apache.org/jira/browse/ARROW-2310) - Source release scripts fail with Java8
+* [ARROW-2646](https://issues.apache.org/jira/browse/ARROW-2646) - [C++/Python] Pandas roundtrip for date objects
+* [ARROW-2775](https://issues.apache.org/jira/browse/ARROW-2775) - [Python] ccache error when building manylinux1 wheels
+* [ARROW-2776](https://issues.apache.org/jira/browse/ARROW-2776) - [C++] Do not pass -Wno-noexcept-type for compilers that do not support it
+* [ARROW-2782](https://issues.apache.org/jira/browse/ARROW-2782) - [Python] Ongoing Travis CI failures in Plasma unit tests
+* [ARROW-2785](https://issues.apache.org/jira/browse/ARROW-2785) - [C++] Crash in json-integration-test
+* [ARROW-2814](https://issues.apache.org/jira/browse/ARROW-2814) - [Python] Unify PyObject\* sequence conversion paths for built-in sequences, NumPy arrays
+* [ARROW-2854](https://issues.apache.org/jira/browse/ARROW-2854) - [C++/Python] Casting float NaN to int should raise an error on safe cast
+* [ARROW-2925](https://issues.apache.org/jira/browse/ARROW-2925) - [JS] Documentation failing in docker container
+* [ARROW-2965](https://issues.apache.org/jira/browse/ARROW-2965) - [Python] Possible uint64 overflow issues in python\_to\_arrow.cc
+* [ARROW-2966](https://issues.apache.org/jira/browse/ARROW-2966) - [Python] Data type conversion error
+* [ARROW-2973](https://issues.apache.org/jira/browse/ARROW-2973) - [Python] pitrou/asv.git@customize\_commands does not work with the "new" way of activating conda
+* [ARROW-2974](https://issues.apache.org/jira/browse/ARROW-2974) - [Python] Replace usages of "source activate" with "conda activate" in CI scripts
+* [ARROW-2986](https://issues.apache.org/jira/browse/ARROW-2986) - [C++] /EHsc possibly needed for Visual Studio 2015 builds
+* [ARROW-2992](https://issues.apache.org/jira/browse/ARROW-2992) - [Python] Parquet benchmark failure
+* [ARROW-2992](https://issues.apache.org/jira/browse/ARROW-2992) - [Python] Parquet benchmark failure
+* [ARROW-3006](https://issues.apache.org/jira/browse/ARROW-3006) - [GLib] .gir/.typelib for GPU aren't installed
+* [ARROW-3007](https://issues.apache.org/jira/browse/ARROW-3007) - [Packaging] libarrow-gpu10 deb for Ubuntu 18.04 has broken dependencies
+* [ARROW-3011](https://issues.apache.org/jira/browse/ARROW-3011) - [CI] Remove Slack notification
+* [ARROW-3012](https://issues.apache.org/jira/browse/ARROW-3012) - [Python] Installation crashes with setuptools\_scm error
+* [ARROW-3013](https://issues.apache.org/jira/browse/ARROW-3013) - [Website] Fix download links on website for tarballs, checksums
+* [ARROW-3015](https://issues.apache.org/jira/browse/ARROW-3015) - [Python] Fix documentation typo for pa.uint8
+* [ARROW-3047](https://issues.apache.org/jira/browse/ARROW-3047) - [C++] cmake downloads and builds ORC even though it's installed
+* [ARROW-3049](https://issues.apache.org/jira/browse/ARROW-3049) - [C++/Python] ORC reader fails on empty file
+* [ARROW-3053](https://issues.apache.org/jira/browse/ARROW-3053) - [Python] Pandas decimal conversion segfault
+* [ARROW-3056](https://issues.apache.org/jira/browse/ARROW-3056) - [Python] Indicate in NativeFile docstrings methods that are part of the RawIOBase API but not implemented
+* [ARROW-3061](https://issues.apache.org/jira/browse/ARROW-3061) - [Java] headroom does not take into account reservation
+* [ARROW-3065](https://issues.apache.org/jira/browse/ARROW-3065) - [Python] concat\_tables() failing from bad Pandas Metadata
+* [ARROW-3083](https://issues.apache.org/jira/browse/ARROW-3083) - [Python] Version in manylinux1 wheel builds is wrong
+* [ARROW-3093](https://issues.apache.org/jira/browse/ARROW-3093) - [C++] Linking errors with ORC enabled
+* [ARROW-3095](https://issues.apache.org/jira/browse/ARROW-3095) - [Python] test\_plasma.py fails
+* [ARROW-3098](https://issues.apache.org/jira/browse/ARROW-3098) - [Python] BufferReader doesn't adhere to the seek protocol
+* [ARROW-3100](https://issues.apache.org/jira/browse/ARROW-3100) - [CI] C/glib build broken on OS X
+* [ARROW-3125](https://issues.apache.org/jira/browse/ARROW-3125) - [Python] Update ASV instructions
+* [ARROW-3125](https://issues.apache.org/jira/browse/ARROW-3125) - [Python] Update ASV instructions
+* [ARROW-3132](https://issues.apache.org/jira/browse/ARROW-3132) - Regenerate 0.10.0 changelog
+* [ARROW-3137](https://issues.apache.org/jira/browse/ARROW-3137) - [Python] pyarrow 0.10 requires newer version of numpy than specified in requirements
+* [ARROW-3140](https://issues.apache.org/jira/browse/ARROW-3140) - [Plasma] Plasma fails building with GPU enabled
+* [ARROW-3141](https://issues.apache.org/jira/browse/ARROW-3141) - [Python] Tensorflow support in pyarrow wheels pins numpy\>=1.14
+* [ARROW-3145](https://issues.apache.org/jira/browse/ARROW-3145) - [C++] Thrift compiler reruns in arrow/dbi/hiveserver2/thrift when using Ninja build
+* [ARROW-3173](https://issues.apache.org/jira/browse/ARROW-3173) - [Rust] dynamic\_types example does not run
+* [ARROW-3175](https://issues.apache.org/jira/browse/ARROW-3175) - [Java] Upgrade to official FlatBuffers release (Flatbuffers incompatibility)
+* [ARROW-3183](https://issues.apache.org/jira/browse/ARROW-3183) - [Python] get\_library\_dirs on Windows can give the wrong directory
+* [ARROW-3188](https://issues.apache.org/jira/browse/ARROW-3188) - [Python] Table.from\_arrays segfaults if lists and schema are passed
+* [ARROW-3190](https://issues.apache.org/jira/browse/ARROW-3190) - [C++] "WriteableFile" is misspelled, should be renamed "WritableFile" with deprecation for old name
+* [ARROW-3206](https://issues.apache.org/jira/browse/ARROW-3206) - [C++] Building with ARROW\_HIVESERVER2=ON with unit tests disabled causes error
+* [ARROW-3227](https://issues.apache.org/jira/browse/ARROW-3227) - [Python] NativeFile.write shouldn't accept unicode strings
+* [ARROW-3228](https://issues.apache.org/jira/browse/ARROW-3228) - [Python] Immutability of bytes is ignored
+* [ARROW-3231](https://issues.apache.org/jira/browse/ARROW-3231) - [Python] Sphinx's autodoc\_default\_flags is now deprecated
+* [ARROW-3237](https://issues.apache.org/jira/browse/ARROW-3237) - [CI] Update linux packaging filenames in rat exclusion list
+* [ARROW-3241](https://issues.apache.org/jira/browse/ARROW-3241) - [Plasma] test\_plasma\_list test failure on Ubuntu 14.04
+* [ARROW-3251](https://issues.apache.org/jira/browse/ARROW-3251) - [C++] Conversion warnings in cast.cc
+* [ARROW-3256](https://issues.apache.org/jira/browse/ARROW-3256) - [JS] File footer and message metadata is inconsistent
+* [ARROW-3271](https://issues.apache.org/jira/browse/ARROW-3271) - [Python] Manylinux1 builds timing out in Travis CI
+* [ARROW-3279](https://issues.apache.org/jira/browse/ARROW-3279) - [C++] Allow linking Arrow tests dynamically on Windows
+* [ARROW-3299](https://issues.apache.org/jira/browse/ARROW-3299) - [C++] Appveyor builds failing
+* [ARROW-3322](https://issues.apache.org/jira/browse/ARROW-3322) - [CI] Rust job always runs on AppVeyor
+* [ARROW-3327](https://issues.apache.org/jira/browse/ARROW-3327) - [Python] manylinux container confusing
+* [ARROW-3338](https://issues.apache.org/jira/browse/ARROW-3338) - [Python] Crash when schema and columns do not match
+* [ARROW-3342](https://issues.apache.org/jira/browse/ARROW-3342) - Appveyor builds have stopped triggering on GitHub
+* [ARROW-3348](https://issues.apache.org/jira/browse/ARROW-3348) - Plasma store dies when an object that a dead client is waiting for gets created.
+* [ARROW-3354](https://issues.apache.org/jira/browse/ARROW-3354) - [Python] read\_record\_batch interfaces differ in pyarrow and pyarrow.cuda
+* [ARROW-3369](https://issues.apache.org/jira/browse/ARROW-3369) - [Packaging] Wheel builds are failing due to wheel 0.32 release
+* [ARROW-3370](https://issues.apache.org/jira/browse/ARROW-3370) - [Packaging] Centos 6 build is failing
+* [ARROW-3373](https://issues.apache.org/jira/browse/ARROW-3373) - Fix bug in which plasma store can die when client gets multiple objects and object becomes available.
+* [ARROW-3374](https://issues.apache.org/jira/browse/ARROW-3374) - [Python] Dictionary has out-of-bound index when creating DictionaryArray from Pandas with NaN
+* [ARROW-3390](https://issues.apache.org/jira/browse/ARROW-3390) - [C++] cmake file under windows msys2 system doesn't work
+* [ARROW-3393](https://issues.apache.org/jira/browse/ARROW-3393) - [C++] Fix compiler warning in util/task-group-cc on clang 6
+* [ARROW-3394](https://issues.apache.org/jira/browse/ARROW-3394) - [Java] Remove duplicate dependency entry in Flight
+* [ARROW-3403](https://issues.apache.org/jira/browse/ARROW-3403) - [Website] Source tarball link missing from install page
+* [ARROW-3420](https://issues.apache.org/jira/browse/ARROW-3420) - [C++] Fix outstanding include-what-you-use issues in src/arrow, src/parquet codebases
 * [PARQUET-232](https://issues.apache.org/jira/browse/PARQUET-232) - minor compilation issue
 * [PARQUET-446](https://issues.apache.org/jira/browse/PARQUET-446) - Hide thrift dependency in parquet-cpp
 * [PARQUET-454](https://issues.apache.org/jira/browse/PARQUET-454) - Address inconsistencies in boolean decoding
@@ -4872,84 +4949,7 @@
 * [PARQUET-1357](https://issues.apache.org/jira/browse/PARQUET-1357) - [C++] FormatStatValue truncates binary statistics on zero character
 * [PARQUET-1358](https://issues.apache.org/jira/browse/PARQUET-1358) - [C++] index\_page\_offset should be unset as it is not supported.
 * [PARQUET-1369](https://issues.apache.org/jira/browse/PARQUET-1369) - [Python] Unavailable Parquet column statistics from Spark-generated file
-* [ARROW-1380](https://issues.apache.org/jira/browse/ARROW-1380) - [C++] Fix "still reachable" valgrind warnings when PLASMA\_VALGRIND=1
 * [PARQUET-1384](https://issues.apache.org/jira/browse/PARQUET-1384) - [C++] Clang compiler warnings in bloom\_filter-test.cc
-* [ARROW-1661](https://issues.apache.org/jira/browse/ARROW-1661) - [Python] Python 3.7 support
-* [ARROW-1799](https://issues.apache.org/jira/browse/ARROW-1799) - [Plasma C++] Make unittest does not create plasma store executable
-* [ARROW-1996](https://issues.apache.org/jira/browse/ARROW-1996) - [Python] pyarrow.read\_serialized cannot read concatenated records
-* [ARROW-2027](https://issues.apache.org/jira/browse/ARROW-2027) - [C++] ipc::Message::SerializeTo does not pad the message body
-* [ARROW-2220](https://issues.apache.org/jira/browse/ARROW-2220) - Change default fix version in merge tool to be the next mainline release version
-* [ARROW-2310](https://issues.apache.org/jira/browse/ARROW-2310) - Source release scripts fail with Java8
-* [ARROW-2646](https://issues.apache.org/jira/browse/ARROW-2646) - [C++/Python] Pandas roundtrip for date objects
-* [ARROW-2775](https://issues.apache.org/jira/browse/ARROW-2775) - [Python] ccache error when building manylinux1 wheels
-* [ARROW-2776](https://issues.apache.org/jira/browse/ARROW-2776) - [C++] Do not pass -Wno-noexcept-type for compilers that do not support it
-* [ARROW-2782](https://issues.apache.org/jira/browse/ARROW-2782) - [Python] Ongoing Travis CI failures in Plasma unit tests
-* [ARROW-2785](https://issues.apache.org/jira/browse/ARROW-2785) - [C++] Crash in json-integration-test
-* [ARROW-2814](https://issues.apache.org/jira/browse/ARROW-2814) - [Python] Unify PyObject\* sequence conversion paths for built-in sequences, NumPy arrays
-* [ARROW-2854](https://issues.apache.org/jira/browse/ARROW-2854) - [C++/Python] Casting float NaN to int should raise an error on safe cast
-* [ARROW-2925](https://issues.apache.org/jira/browse/ARROW-2925) - [JS] Documentation failing in docker container
-* [ARROW-2965](https://issues.apache.org/jira/browse/ARROW-2965) - [Python] Possible uint64 overflow issues in python\_to\_arrow.cc
-* [ARROW-2966](https://issues.apache.org/jira/browse/ARROW-2966) - [Python] Data type conversion error
-* [ARROW-2973](https://issues.apache.org/jira/browse/ARROW-2973) - [Python] pitrou/asv.git@customize\_commands does not work with the "new" way of activating conda
-* [ARROW-2974](https://issues.apache.org/jira/browse/ARROW-2974) - [Python] Replace usages of "source activate" with "conda activate" in CI scripts
-* [ARROW-2986](https://issues.apache.org/jira/browse/ARROW-2986) - [C++] /EHsc possibly needed for Visual Studio 2015 builds
-* [ARROW-2992](https://issues.apache.org/jira/browse/ARROW-2992) - [Python] Parquet benchmark failure
-* [ARROW-2992](https://issues.apache.org/jira/browse/ARROW-2992) - [Python] Parquet benchmark failure
-* [ARROW-3006](https://issues.apache.org/jira/browse/ARROW-3006) - [GLib] .gir/.typelib for GPU aren't installed
-* [ARROW-3007](https://issues.apache.org/jira/browse/ARROW-3007) - [Packaging] libarrow-gpu10 deb for Ubuntu 18.04 has broken dependencies
-* [ARROW-3011](https://issues.apache.org/jira/browse/ARROW-3011) - [CI] Remove Slack notification
-* [ARROW-3012](https://issues.apache.org/jira/browse/ARROW-3012) - [Python] Installation crashes with setuptools\_scm error
-* [ARROW-3013](https://issues.apache.org/jira/browse/ARROW-3013) - [Website] Fix download links on website for tarballs, checksums
-* [ARROW-3015](https://issues.apache.org/jira/browse/ARROW-3015) - [Python] Fix documentation typo for pa.uint8
-* [ARROW-3047](https://issues.apache.org/jira/browse/ARROW-3047) - [C++] cmake downloads and builds ORC even though it's installed
-* [ARROW-3049](https://issues.apache.org/jira/browse/ARROW-3049) - [C++/Python] ORC reader fails on empty file
-* [ARROW-3053](https://issues.apache.org/jira/browse/ARROW-3053) - [Python] Pandas decimal conversion segfault
-* [ARROW-3056](https://issues.apache.org/jira/browse/ARROW-3056) - [Python] Indicate in NativeFile docstrings methods that are part of the RawIOBase API but not implemented
-* [ARROW-3061](https://issues.apache.org/jira/browse/ARROW-3061) - [Java] headroom does not take into account reservation
-* [ARROW-3065](https://issues.apache.org/jira/browse/ARROW-3065) - [Python] concat\_tables() failing from bad Pandas Metadata
-* [ARROW-3083](https://issues.apache.org/jira/browse/ARROW-3083) - [Python] Version in manylinux1 wheel builds is wrong
-* [ARROW-3093](https://issues.apache.org/jira/browse/ARROW-3093) - [C++] Linking errors with ORC enabled
-* [ARROW-3095](https://issues.apache.org/jira/browse/ARROW-3095) - [Python] test\_plasma.py fails
-* [ARROW-3098](https://issues.apache.org/jira/browse/ARROW-3098) - [Python] BufferReader doesn't adhere to the seek protocol
-* [ARROW-3100](https://issues.apache.org/jira/browse/ARROW-3100) - [CI] C/glib build broken on OS X
-* [ARROW-3125](https://issues.apache.org/jira/browse/ARROW-3125) - [Python] Update ASV instructions
-* [ARROW-3125](https://issues.apache.org/jira/browse/ARROW-3125) - [Python] Update ASV instructions
-* [ARROW-3132](https://issues.apache.org/jira/browse/ARROW-3132) - Regenerate 0.10.0 changelog
-* [ARROW-3137](https://issues.apache.org/jira/browse/ARROW-3137) - [Python] pyarrow 0.10 requires newer version of numpy than specified in requirements
-* [ARROW-3140](https://issues.apache.org/jira/browse/ARROW-3140) - [Plasma] Plasma fails building with GPU enabled
-* [ARROW-3141](https://issues.apache.org/jira/browse/ARROW-3141) - [Python] Tensorflow support in pyarrow wheels pins numpy\>=1.14
-* [ARROW-3145](https://issues.apache.org/jira/browse/ARROW-3145) - [C++] Thrift compiler reruns in arrow/dbi/hiveserver2/thrift when using Ninja build
-* [ARROW-3173](https://issues.apache.org/jira/browse/ARROW-3173) - [Rust] dynamic\_types example does not run
-* [ARROW-3175](https://issues.apache.org/jira/browse/ARROW-3175) - [Java] Upgrade to official FlatBuffers release (Flatbuffers incompatibility)
-* [ARROW-3183](https://issues.apache.org/jira/browse/ARROW-3183) - [Python] get\_library\_dirs on Windows can give the wrong directory
-* [ARROW-3188](https://issues.apache.org/jira/browse/ARROW-3188) - [Python] Table.from\_arrays segfaults if lists and schema are passed
-* [ARROW-3190](https://issues.apache.org/jira/browse/ARROW-3190) - [C++] "WriteableFile" is misspelled, should be renamed "WritableFile" with deprecation for old name
-* [ARROW-3206](https://issues.apache.org/jira/browse/ARROW-3206) - [C++] Building with ARROW\_HIVESERVER2=ON with unit tests disabled causes error
-* [ARROW-3227](https://issues.apache.org/jira/browse/ARROW-3227) - [Python] NativeFile.write shouldn't accept unicode strings
-* [ARROW-3228](https://issues.apache.org/jira/browse/ARROW-3228) - [Python] Immutability of bytes is ignored
-* [ARROW-3231](https://issues.apache.org/jira/browse/ARROW-3231) - [Python] Sphinx's autodoc\_default\_flags is now deprecated
-* [ARROW-3237](https://issues.apache.org/jira/browse/ARROW-3237) - [CI] Update linux packaging filenames in rat exclusion list
-* [ARROW-3241](https://issues.apache.org/jira/browse/ARROW-3241) - [Plasma] test\_plasma\_list test failure on Ubuntu 14.04
-* [ARROW-3251](https://issues.apache.org/jira/browse/ARROW-3251) - [C++] Conversion warnings in cast.cc
-* [ARROW-3256](https://issues.apache.org/jira/browse/ARROW-3256) - [JS] File footer and message metadata is inconsistent
-* [ARROW-3271](https://issues.apache.org/jira/browse/ARROW-3271) - [Python] Manylinux1 builds timing out in Travis CI
-* [ARROW-3279](https://issues.apache.org/jira/browse/ARROW-3279) - [C++] Allow linking Arrow tests dynamically on Windows
-* [ARROW-3299](https://issues.apache.org/jira/browse/ARROW-3299) - [C++] Appveyor builds failing
-* [ARROW-3322](https://issues.apache.org/jira/browse/ARROW-3322) - [CI] Rust job always runs on AppVeyor
-* [ARROW-3327](https://issues.apache.org/jira/browse/ARROW-3327) - [Python] manylinux container confusing
-* [ARROW-3338](https://issues.apache.org/jira/browse/ARROW-3338) - [Python] Crash when schema and columns do not match
-* [ARROW-3342](https://issues.apache.org/jira/browse/ARROW-3342) - Appveyor builds have stopped triggering on GitHub
-* [ARROW-3348](https://issues.apache.org/jira/browse/ARROW-3348) - Plasma store dies when an object that a dead client is waiting for gets created.
-* [ARROW-3354](https://issues.apache.org/jira/browse/ARROW-3354) - [Python] read\_record\_batch interfaces differ in pyarrow and pyarrow.cuda
-* [ARROW-3369](https://issues.apache.org/jira/browse/ARROW-3369) - [Packaging] Wheel builds are failing due to wheel 0.32 release
-* [ARROW-3370](https://issues.apache.org/jira/browse/ARROW-3370) - [Packaging] Centos 6 build is failing
-* [ARROW-3373](https://issues.apache.org/jira/browse/ARROW-3373) - Fix bug in which plasma store can die when client gets multiple objects and object becomes available.
-* [ARROW-3374](https://issues.apache.org/jira/browse/ARROW-3374) - [Python] Dictionary has out-of-bound index when creating DictionaryArray from Pandas with NaN
-* [ARROW-3390](https://issues.apache.org/jira/browse/ARROW-3390) - [C++] cmake file under windows msys2 system doesn't work
-* [ARROW-3393](https://issues.apache.org/jira/browse/ARROW-3393) - [C++] Fix compiler warning in util/task-group-cc on clang 6
-* [ARROW-3394](https://issues.apache.org/jira/browse/ARROW-3394) - [Java] Remove duplicate dependency entry in Flight
-* [ARROW-3403](https://issues.apache.org/jira/browse/ARROW-3403) - [Website] Source tarball link missing from install page
-* [ARROW-3420](https://issues.apache.org/jira/browse/ARROW-3420) - [C++] Fix outstanding include-what-you-use issues in src/arrow, src/parquet codebases
 
 
 
