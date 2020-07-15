@@ -158,12 +158,6 @@ you will need to set the `ARROW_R_DEV` environment variable to `TRUE`
 sessions) so that the `data-raw/codegen.R` file is used for code
 generation.
 
-The codegen.R script has these additional dependencies:
-
-``` r
-install.packages("glue")
-```
-
 We use Google C++ style in our C++ code. Check for style errors with
 
     ./lint.sh
