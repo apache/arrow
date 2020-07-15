@@ -860,7 +860,7 @@ def release_curate(obj, version):
     """Release curation."""
     from .release import Release
 
-    release = Release.from_jira(version, jira=obj['jira'], repo=obj['src'])
+    release = Release.from_jira(version, jira=obj['jira'], repo=obj['repo'])
     curation = release.curate()
 
     click.echo(curation.render('console'))

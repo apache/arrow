@@ -321,7 +321,7 @@ class Release:
             elif c.project == 'PARQUET':
                 parquet.append((self.jira.issue(c.issue), c))
             else:
-                outside.append(c)
+                outside.append((self.jira.issue(c.issue), c))
 
         # remaining jira tickets
         within_keys = {i.key for i, c in within}
