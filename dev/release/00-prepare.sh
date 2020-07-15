@@ -196,6 +196,8 @@ if [ ${PREPARE_CHANGELOG} -gt 0 ]; then
   echo "Updating changelog for $version"
   # Update changelog
   archery release changelog add $version
+  git add ${SOURCE_DIR}/../../CHANGELOG.md
+  git commit -m "[Release] Update CHANGELOG.md for $version"
 fi
 
 if [ ${PREPARE_LINUX_PACKAGES} -gt 0 ]; then
