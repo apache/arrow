@@ -1487,11 +1487,11 @@ def test_open_dataset_non_existing_file():
 @pytest.mark.parquet
 @pytest.mark.parametrize('partitioning', ["directory", "hive"])
 @pytest.mark.parametrize('partition_keys', [
-        (["A", "B", "C"], [1, 2, 3]),
-        ([1, 2, 3], ["A", "B", "C"]),
-        (["A", "B", "C"], ["D", "E", "F"]),
-        ([1, 2, 3], [4, 5, 6]),
-    ])
+    (["A", "B", "C"], [1, 2, 3]),
+    ([1, 2, 3], ["A", "B", "C"]),
+    (["A", "B", "C"], ["D", "E", "F"]),
+    ([1, 2, 3], [4, 5, 6]),
+])
 def test_open_dataset_partitioned_dictionary_type(tempdir, partitioning,
                                                   partition_keys):
     # ARROW-9288 / ARROW-9476
