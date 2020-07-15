@@ -21,23 +21,28 @@ use crate::array;
 use crate::datatypes::{DataType, TimeUnit};
 use crate::record_batch::RecordBatch;
 
+#[cfg(not(target_arch="wasm32"))]
 use prettytable::format;
+#[cfg(not(target_arch="wasm32"))]
 use prettytable::{Cell, Row, Table};
 
 use crate::error::{ArrowError, Result};
 
 ///! Create a visual representation of record batches
+#[cfg(not(target_arch="wasm32"))]
 pub fn pretty_format_batches(results: &[RecordBatch]) -> Result<String> {
     Ok(create_table(results)?.to_string())
 }
 
 ///! Prints a visual representation of record batches to stdout
+#[cfg(not(target_arch="wasm32"))]
 pub fn print_batches(results: &[RecordBatch]) -> Result<()> {
     create_table(results)?.printstd();
     Ok(())
 }
 
 ///! Convert a series of record batches into a table
+#[cfg(not(target_arch="wasm32"))]
 fn create_table(results: &[RecordBatch]) -> Result<Table> {
     let mut table = Table::new();
     table.set_format(*format::consts::FORMAT_NO_LINESEP_WITH_TITLE);

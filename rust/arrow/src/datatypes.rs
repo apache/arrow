@@ -510,7 +510,7 @@ impl ArrowDictionaryKeyType for UInt64Type {}
 /// A subtype of primitive type that represents numeric values.
 ///
 /// SIMD operations are defined in this trait if available on the target system.
-#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+#[cfg(all(any(target_arch = "x86", target_arch = "x86_64", target_arch="wasm32"), feature = "simd"))]
 pub trait ArrowNumericType: ArrowPrimitiveType
 where
     Self::Simd: Add<Output = Self::Simd>
@@ -584,14 +584,14 @@ where
 }
 
 #[cfg(any(
-    not(any(target_arch = "x86", target_arch = "x86_64")),
+    not(any(target_arch = "x86", target_arch = "x86_64", target_arch="wasm32")),
     not(feature = "simd")
 ))]
 pub trait ArrowNumericType: ArrowPrimitiveType {}
 
 macro_rules! make_numeric_type {
     ($impl_ty:ty, $native_ty:ty, $simd_ty:ident, $simd_mask_ty:ident) => {
-        #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+        #[cfg(all(any(target_arch = "x86", target_arch = "x86_64", target_arch="wasm32"), feature = "simd"))]
         impl ArrowNumericType for $impl_ty {
             type Simd = $simd_ty;
 
@@ -678,7 +678,7 @@ macro_rules! make_numeric_type {
             }
         }
         #[cfg(any(
-            not(any(target_arch = "x86", target_arch = "x86_64")),
+            not(any(target_arch = "x86", target_arch = "x86_64", target_arch="wasm32")),
             not(feature = "simd")
         ))]
         impl ArrowNumericType for $impl_ty {}

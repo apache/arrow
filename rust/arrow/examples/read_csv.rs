@@ -20,12 +20,17 @@ extern crate arrow;
 use std::fs::File;
 use std::sync::Arc;
 
+#[cfg(not(target_arch="wasm32"))]
 use arrow::csv;
 use arrow::datatypes::{DataType, Field, Schema};
 use arrow::error::Result;
-#[cfg(feature = "prettyprint")]
+#[cfg(all(feature="prettyprint"), not(target_arch="wasm32"))]
 use arrow::util::pretty::print_batches;
 
+#[cfg(target_arch="wasm32")]
+fn main() {}
+
+#[cfg(not(target_arch="wasm32"))]
 fn main() -> Result<()> {
     let schema = Schema::new(vec![
         Field::new("city", DataType::Utf8, false),

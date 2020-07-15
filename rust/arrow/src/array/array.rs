@@ -23,6 +23,7 @@ use std::iter::{FromIterator, IntoIterator};
 use std::mem;
 use std::sync::Arc;
 
+#[cfg(not(target_arch="wasm32"))]
 use chrono::prelude::*;
 
 use super::*;
@@ -502,6 +503,7 @@ impl<T: ArrowNumericType> PrimitiveArray<T> {
     }
 }
 
+#[cfg(not(target_arch="wasm32"))]
 impl<T: ArrowTemporalType + ArrowNumericType> PrimitiveArray<T>
 where
     i64: std::convert::From<T::Native>,
@@ -554,6 +556,7 @@ where
     /// Returns value as a chrono `NaiveDate` by using `Self::datetime()`
     ///
     /// If a data type cannot be converted to `NaiveDate`, a `None` is returned
+    #[cfg(not(target_arch="wasm32"))]
     pub fn value_as_date(&self, i: usize) -> Option<NaiveDate> {
         self.value_as_datetime(i).map(|datetime| datetime.date())
     }
@@ -561,6 +564,7 @@ where
     /// Returns a value as a chrono `NaiveTime`
     ///
     /// `Date32` and `Date64` return UTC midnight as they do not have time resolution
+    #[cfg(not(target_arch="wasm32"))]
     pub fn value_as_time(&self, i: usize) -> Option<NaiveTime> {
         match self.data_type() {
             DataType::Time32(unit) => {
@@ -637,6 +641,7 @@ impl<T: ArrowNumericType> fmt::Debug for PrimitiveArray<T> {
     }
 }
 
+#[cfg(not(target_arch="wasm32"))]
 impl<T: ArrowNumericType + ArrowTemporalType> fmt::Debug for PrimitiveArray<T>
 where
     i64: std::convert::From<T::Native>,
@@ -2401,6 +2406,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(target_arch="wasm32"))]
     fn test_date64_array_from_vec_option() {
         // Test building a primitive array with null values
         // we use Int32 and Int64 as a backing array, so all Int32 and Int64 conventions
@@ -2428,6 +2434,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(target_arch="wasm32"))]
     fn test_time32_millisecond_array_from_vec() {
         // 1:        00:00:00.001
         // 37800005: 10:30:00.005
@@ -2448,6 +2455,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(target_arch="wasm32"))]
     fn test_time64_nanosecond_array_from_vec() {
         // Test building a primitive array with null values
         // we use Int32 and Int64 as a backing array, so all Int32 and Int64 conventions

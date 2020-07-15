@@ -169,7 +169,7 @@ pub fn ceil(value: usize, divisor: usize) -> usize {
 /// Note that each slice should be 64 bytes and it is the callers responsibility to ensure
 /// that this is the case.  If passed slices larger than 64 bytes the operation will only
 /// be performed on the first 64 bytes.  Slices less than 64 bytes will panic.
-#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+#[cfg(all(any(target_arch = "x86", target_arch = "x86_64", target_arch="wasm32"), feature = "simd"))]
 pub unsafe fn bitwise_bin_op_simd<F>(left: &[u8], right: &[u8], result: &mut [u8], op: F)
 where
     F: Fn(u8x64, u8x64) -> u8x64,
@@ -182,6 +182,7 @@ where
 
 #[cfg(test)]
 mod tests {
+   #[cfg(not(target_arch="wasm32"))]
     use rand::{thread_rng, Rng};
     use std::collections::HashSet;
 
@@ -225,6 +226,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(target_arch="wasm32"))]
     fn test_get_bit_raw() {
         const NUM_BYTE: usize = 10;
         let mut buf = vec![0; NUM_BYTE];
@@ -258,6 +260,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(target_arch="wasm32"))]
     fn test_set_bit_raw() {
         const NUM_BYTE: usize = 10;
         let mut buf = vec![0; NUM_BYTE];
@@ -282,6 +285,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(target_arch="wasm32"))]
     fn test_set_bits_raw() {
         const NUM_BYTE: usize = 64;
         const NUM_BLOCKS: usize = 12;
@@ -313,6 +317,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(target_arch="wasm32"))]
     fn test_get_set_bit_roundtrip() {
         const NUM_BYTES: usize = 10;
         const NUM_SETS: usize = 10;
@@ -366,13 +371,13 @@ mod tests {
         assert_eq!(ceil(8, 8), 1);
         assert_eq!(ceil(9, 8), 2);
         assert_eq!(ceil(9, 9), 1);
-        assert_eq!(ceil(10000000000, 10), 1000000000);
-        assert_eq!(ceil(10, 10000000000), 1);
-        assert_eq!(ceil(10000000000, 1000000000), 10);
+        assert_eq!(ceil(10000000, 10), 1000000);
+        assert_eq!(ceil(10, 10000000), 1);
+        assert_eq!(ceil(10000000, 1000000), 10);
     }
 
     #[test]
-    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64", target_arch="wasm32"), feature = "simd"))]
     fn test_bitwise_and_simd() {
         let buf1 = [0b00110011u8; 64];
         let buf2 = [0b11110000u8; 64];
@@ -384,7 +389,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64", target_arch="wasm32"), feature = "simd"))]
     fn test_bitwise_or_simd() {
         let buf1 = [0b00110011u8; 64];
         let buf2 = [0b11110000u8; 64];

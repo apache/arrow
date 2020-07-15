@@ -17,12 +17,19 @@
 
 extern crate arrow;
 
+#[cfg(not(target_arch="wasm32"))]
 use arrow::csv;
 use arrow::error::Result;
-#[cfg(feature = "prettyprint")]
+#[cfg(all(feature="prettyprint", not(target_arch="wasm32")))]
 use arrow::util::pretty::print_batches;
 use std::fs::File;
 
+#[cfg(target_arch="wasm32")]
+fn main() {
+}
+
+
+#[cfg(not(target_arch="wasm32"))]
 fn main() -> Result<()> {
     let file = File::open("test/data/uk_cities_with_headers.csv").unwrap();
     let builder = csv::ReaderBuilder::new()

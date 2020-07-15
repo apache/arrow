@@ -257,7 +257,7 @@ pub fn gt_eq_utf8_scalar(left: &StringArray, right: &str) -> Result<BooleanArray
 
 /// Helper function to perform boolean lambda function on values from two arrays using
 /// SIMD.
-#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+#[cfg(all(any(target_arch = "x86", target_arch = "x86_64", target_arch="wasm32"), feature = "simd"))]
 fn simd_compare_op<T, F>(
     left: &PrimitiveArray<T>,
     right: &PrimitiveArray<T>,
@@ -379,11 +379,11 @@ pub fn eq<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<Bool
 where
     T: ArrowNumericType,
 {
-    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64", target_arch="wasm32"), feature = "simd"))]
     return simd_compare_op(left, right, T::eq);
 
     #[cfg(any(
-        not(any(target_arch = "x86", target_arch = "x86_64")),
+        not(any(target_arch = "x86", target_arch = "x86_64", target_arch="wasm32")),
         not(feature = "simd")
     ))]
     compare_op!(left, right, |a, b| a == b)
@@ -409,11 +409,11 @@ pub fn neq<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<Boo
 where
     T: ArrowNumericType,
 {
-    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64", target_arch="wasm32"), feature = "simd"))]
     return simd_compare_op(left, right, T::ne);
 
     #[cfg(any(
-        not(any(target_arch = "x86", target_arch = "x86_64")),
+        not(any(target_arch = "x86", target_arch = "x86_64", target_arch="wasm32")),
         not(feature = "simd")
     ))]
     compare_op!(left, right, |a, b| a != b)
@@ -440,11 +440,11 @@ pub fn lt<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<Bool
 where
     T: ArrowNumericType,
 {
-    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64", target_arch="wasm32"), feature = "simd"))]
     return simd_compare_op(left, right, T::lt);
 
     #[cfg(any(
-        not(any(target_arch = "x86", target_arch = "x86_64")),
+        not(any(target_arch = "x86", target_arch = "x86_64", target_arch="wasm32")),
         not(feature = "simd")
     ))]
     compare_op!(left, right, |a, b| a < b)
@@ -475,11 +475,11 @@ pub fn lt_eq<T>(
 where
     T: ArrowNumericType,
 {
-    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64", target_arch="wasm32"), feature = "simd"))]
     return simd_compare_op(left, right, T::le);
 
     #[cfg(any(
-        not(any(target_arch = "x86", target_arch = "x86_64")),
+        not(any(target_arch = "x86", target_arch = "x86_64", target_arch="wasm32")),
         not(feature = "simd")
     ))]
     compare_op!(left, right, |a, b| a <= b)
@@ -507,11 +507,11 @@ pub fn gt<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<Bool
 where
     T: ArrowNumericType,
 {
-    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64", target_arch="wasm32"), feature = "simd"))]
     return simd_compare_op(left, right, T::gt);
 
     #[cfg(any(
-        not(any(target_arch = "x86", target_arch = "x86_64")),
+        not(any(target_arch = "x86", target_arch = "x86_64", target_arch="wasm32")),
         not(feature = "simd")
     ))]
     compare_op!(left, right, |a, b| a > b)
@@ -542,11 +542,11 @@ pub fn gt_eq<T>(
 where
     T: ArrowNumericType,
 {
-    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64", target_arch="wasm32"), feature = "simd"))]
     return simd_compare_op(left, right, T::ge);
 
     #[cfg(any(
-        not(any(target_arch = "x86", target_arch = "x86_64")),
+        not(any(target_arch = "x86", target_arch = "x86_64", target_arch="wasm32")),
         not(feature = "simd")
     ))]
     compare_op!(left, right, |a, b| a >= b)

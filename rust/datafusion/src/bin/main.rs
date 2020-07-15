@@ -16,10 +16,10 @@
 // under the License.
 
 // Only bring in dependencies for the repl when the cli feature is enabled.
-#[cfg(feature = "cli")]
+#[cfg(all(feature = "cli", not(target_arch="wasm32")))]
 mod repl;
 
 pub fn main() {
-    #[cfg(feature = "cli")]
+    #[cfg(all(feature = "cli", not(target_arch="wasm32")))]
     repl::main()
 }

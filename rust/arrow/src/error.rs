@@ -18,6 +18,7 @@
 //! Defines `ArrowError` for representing failures in various Arrow operations.
 use std::fmt::{Debug, Display, Formatter};
 
+#[cfg(not(target_arch="wasm32"))]
 use csv as csv_crate;
 use std::error::Error;
 
@@ -53,6 +54,7 @@ impl From<::std::io::Error> for ArrowError {
     }
 }
 
+#[cfg(not(target_arch="wasm32"))]
 impl From<csv_crate::Error> for ArrowError {
     fn from(error: csv_crate::Error) -> Self {
         match error.kind() {

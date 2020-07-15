@@ -24,15 +24,19 @@ use std::string::String;
 use std::sync::Arc;
 use std::thread::{self, JoinHandle};
 
+#[cfg(not(target_arch="wasm32"))]
 use arrow::csv;
 use arrow::datatypes::*;
 use arrow::record_batch::RecordBatch;
 
+#[cfg(not(target_arch="wasm32"))]
 use crate::datasource::csv::CsvFile;
+#[cfg(not(target_arch="wasm32"))]
 use crate::datasource::parquet::ParquetTable;
 use crate::datasource::TableProvider;
 use crate::error::{ExecutionError, Result};
 use crate::execution::physical_plan::common;
+#[cfg(not(target_arch="wasm32"))]
 use crate::execution::physical_plan::csv::{CsvExec, CsvReadOptions};
 use crate::execution::physical_plan::datasource::DatasourceExec;
 use crate::execution::physical_plan::expressions::{
@@ -44,6 +48,7 @@ use crate::execution::physical_plan::limit::LimitExec;
 use crate::execution::physical_plan::math_expressions::register_math_functions;
 use crate::execution::physical_plan::memory::MemoryExec;
 use crate::execution::physical_plan::merge::MergeExec;
+#[cfg(not(target_arch="wasm32"))]
 use crate::execution::physical_plan::parquet::ParquetExec;
 use crate::execution::physical_plan::projection::ProjectionExec;
 use crate::execution::physical_plan::selection::SelectionExec;
@@ -60,6 +65,7 @@ use crate::sql::parser::{DFASTNode, DFParser, FileType};
 use crate::sql::planner::{SchemaProvider, SqlToRel};
 use crate::table::Table;
 use sqlparser::sqlast::{SQLColumnDef, SQLType};
+
 
 /// Execution context for registering data sources and executing queries
 pub struct ExecutionContext {
@@ -101,6 +107,7 @@ impl ExecutionContext {
                 ref file_type,
                 ref has_header,
             } => match file_type {
+                #[cfg(not(target_arch="wasm32"))]
                 FileType::CSV => {
                     self.register_csv(
                         name,
@@ -111,6 +118,7 @@ impl ExecutionContext {
                     )?;
                     Ok(vec![])
                 }
+                #[cfg(not(target_arch="wasm32"))]
                 FileType::Parquet => {
                     self.register_parquet(name, location)?;
                     Ok(vec![])
@@ -216,8 +224,10 @@ impl ExecutionContext {
             ))),
         }
     }
-
+            
+    
     /// Register a CSV file as a table so that it can be queried from SQL
+    #[cfg(not(target_arch="wasm32"))]
     pub fn register_csv(
         &mut self,
         name: &str,
@@ -229,6 +239,7 @@ impl ExecutionContext {
     }
 
     /// Register a Parquet file as a table so that it can be queried from SQL
+    #[cfg(not(target_arch="wasm32"))]
     pub fn register_parquet(&mut self, name: &str, filename: &str) -> Result<()> {
         let table = ParquetTable::try_new(&filename)?;
         self.register_table(name, Box::new(table));
@@ -328,6 +339,7 @@ impl ExecutionContext {
                 Arc::new(projected_schema.as_ref().to_owned()),
                 projection.to_owned(),
             )?)),
+            #[cfg(not(target_arch="wasm32"))]
             LogicalPlan::CsvScan {
                 path,
                 schema,
@@ -344,6 +356,7 @@ impl ExecutionContext {
                 projection.to_owned(),
                 batch_size,
             )?)),
+            #[cfg(not(target_arch="wasm32"))]
             LogicalPlan::ParquetScan {
                 path, projection, ..
             } => Ok(Arc::new(ParquetExec::try_new(
@@ -579,6 +592,7 @@ impl ExecutionContext {
     }
 
     /// Execute a query and write the results to a partitioned CSV file
+    #[cfg(not(target_arch="wasm32"))]
     pub fn write_csv(&self, plan: &dyn ExecutionPlan, path: &str) -> Result<()> {
         // create directory to contain the CSV files (one per partition)
         let path = path.to_string();
@@ -1174,6 +1188,7 @@ mod tests {
     }
 
     /// Execute SQL and write results to partitioned csv files
+    #[cfg(not(target_arch="wasm32"))]
     fn write_csv(ctx: &mut ExecutionContext, sql: &str, out_dir: &str) -> Result<()> {
         let logical_plan = ctx.create_logical_plan(sql)?;
         let logical_plan = ctx.optimize(&logical_plan)?;

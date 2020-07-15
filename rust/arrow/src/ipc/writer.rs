@@ -144,6 +144,7 @@ impl<W: Write> FileWriter<W> {
 
         Ok(())
     }
+
 }
 
 /// Finish the file if it is not 'finished' when it goes out of scope
@@ -165,6 +166,7 @@ pub struct StreamWriter<W: Write> {
 }
 
 impl<W: Write> StreamWriter<W> {
+
     /// Try create a new writer, with the schema written as part of the header
     pub fn try_new(writer: W, schema: &Schema) -> Result<Self> {
         let mut writer = BufWriter::new(writer);

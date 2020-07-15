@@ -17,6 +17,7 @@
 
 //! Defines temporal kernels for time and date related functions.
 
+#[cfg(not(target_arch="wasm32"))]
 use chrono::Timelike;
 
 use crate::array::*;
@@ -24,6 +25,7 @@ use crate::datatypes::*;
 use crate::error::Result;
 
 /// Extracts the hours of a given temporal array as an array of integers
+#[cfg(not(target_arch="wasm32"))]
 pub fn hour<T>(array: &PrimitiveArray<T>) -> Result<Int32Array>
 where
     T: ArrowTemporalType + ArrowNumericType,
@@ -57,6 +59,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[cfg(not(target_arch="wasm32"))]
     fn test_temporal_array_date64_hour() {
         let a: PrimitiveArray<Date64Type> =
             vec![Some(1514764800000), None, Some(1550636625000)].into();
@@ -69,6 +72,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(target_arch="wasm32"))]
     fn test_temporal_array_time32_second_hour() {
         let a: PrimitiveArray<Time32SecondType> = vec![37800, 86339].into();
 

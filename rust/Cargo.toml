@@ -24,3 +24,7 @@ members = [
         "integration-testing",
 	"benchmarks",
 ]
+default-members= [
+        "arrow",
+        "datafusion"
+]

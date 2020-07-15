@@ -38,7 +38,7 @@ use crate::buffer::Buffer;
 #[cfg(feature = "simd")]
 use crate::buffer::MutableBuffer;
 use crate::compute::util::apply_bin_op_to_option_bitmap;
-#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+#[cfg(all(any(target_arch = "x86", target_arch = "x86_64", target_arch="wasm32"), feature = "simd"))]
 use crate::compute::util::simd_load_set_invalid;
 use crate::datatypes;
 use crate::datatypes::ToByteSlice;
@@ -99,8 +99,8 @@ where
 }
 
 /// SIMD vectorized version of `math_op` above.
-#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
-fn simd_math_op<T, F>(
+#[cfg(all(any(target_arch = "x86", target_arch = "x86_64", target_arch="wasm32"), feature = "simd"))]
+pub fn simd_math_op<T, F>(
     left: &PrimitiveArray<T>,
     right: &PrimitiveArray<T>,
     op: F,
@@ -158,7 +158,7 @@ where
 /// SIMD vectorized version of `divide`, the divide kernel needs it's own implementation as there
 /// is a need to handle situations where a divide by `0` occurs.  This is complicated by `NULL`
 /// slots and padding.
-#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+#[cfg(all(any(target_arch = "x86", target_arch = "x86_64", target_arch="wasm32"), feature = "simd"))]
 fn simd_divide<T>(
     left: &PrimitiveArray<T>,
     right: &PrimitiveArray<T>,
@@ -234,7 +234,7 @@ where
         + Div<Output = T::Native>
         + Zero,
 {
-    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64", target_arch="wasm32"), feature = "simd"))]
     return simd_math_op(&left, &right, |a, b| a + b);
 
     #[allow(unreachable_code)]
@@ -255,7 +255,7 @@ where
         + Div<Output = T::Native>
         + Zero,
 {
-    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64", target_arch="wasm32"), feature = "simd"))]
     return simd_math_op(&left, &right, |a, b| a - b);
 
     #[allow(unreachable_code)]
@@ -276,7 +276,7 @@ where
         + Div<Output = T::Native>
         + Zero,
 {
-    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64", target_arch="wasm32"), feature = "simd"))]
     return simd_math_op(&left, &right, |a, b| a * b);
 
     #[allow(unreachable_code)]
@@ -299,7 +299,7 @@ where
         + Zero
         + One,
 {
-    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64", target_arch="wasm32"), feature = "simd"))]
     return simd_divide(&left, &right);
 
     #[allow(unreachable_code)]

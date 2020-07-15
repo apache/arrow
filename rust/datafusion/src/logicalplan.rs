@@ -25,7 +25,9 @@ use std::fmt;
 
 use arrow::datatypes::{DataType, Field, Schema};
 
+#[cfg(not(target_arch="wasm32"))]
 use crate::datasource::csv::{CsvFile, CsvReadOptions};
+#[cfg(not(target_arch="wasm32"))]
 use crate::datasource::parquet::ParquetTable;
 use crate::datasource::TableProvider;
 use crate::error::{ExecutionError, Result};
@@ -803,6 +805,7 @@ impl LogicalPlanBuilder {
     }
 
     /// Scan a CSV data source
+    #[cfg(not(target_arch="wasm32"))]
     pub fn scan_csv(
         path: &str,
         options: CsvReadOptions,
@@ -839,6 +842,7 @@ impl LogicalPlanBuilder {
     }
 
     /// Scan a Parquet data source
+    #[cfg(not(target_arch="wasm32"))]
     pub fn scan_parquet(path: &str, projection: Option<Vec<usize>>) -> Result<Self> {
         let p = ParquetTable::try_new(path)?;
         let schema = p.schema().as_ref().to_owned();

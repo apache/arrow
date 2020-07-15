@@ -17,15 +17,29 @@
 
 #![allow(bare_trait_objects)]
 
+#[cfg(not(target_arch="wasm32"))] 
 use arrow::util::pretty;
+#[cfg(not(target_arch="wasm32"))]
 use clap::{crate_version, App, Arg};
+#[cfg(not(target_arch="wasm32"))]
 use datafusion::error::Result;
+#[cfg(not(target_arch="wasm32"))]
 use datafusion::execution::context::ExecutionContext;
+#[cfg(not(target_arch="wasm32"))]
 use rustyline::Editor;
+#[cfg(not(target_arch="wasm32"))]
 use std::env;
+#[cfg(not(target_arch="wasm32"))]
 use std::path::Path;
+#[cfg(not(target_arch="wasm32"))]
 use std::time::Instant;
 
+
+#[cfg(target_arch="wasm32")]
+pub fn main() {
+}
+
+#[cfg(not(target_arch="wasm32"))]
 pub fn main() {
     let matches = App::new("DataFusion")
         .version(crate_version!())
@@ -94,11 +108,13 @@ pub fn main() {
     rl.save_history(".history").ok();
 }
 
+#[cfg(not(target_arch="wasm32"))]
 fn is_exit_command(line: &str) -> bool {
     let line = line.trim_end().to_lowercase();
     line == "quit" || line == "exit"
 }
 
+#[cfg(not(target_arch="wasm32"))]
 fn exec_and_print(
     ctx: &mut ExecutionContext,
     sql: String,

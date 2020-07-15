@@ -269,7 +269,7 @@ impl<T: AsRef<[u8]>> From<T> for Buffer {
 }
 
 ///  Helper function for SIMD `BitAnd` and `BitOr` implementations
-#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+#[cfg(all(any(target_arch = "x86", target_arch = "x86_64", target_arch="wasm32"), feature = "simd"))]
 fn bitwise_bin_op_simd_helper<F>(left: &Buffer, right: &Buffer, op: F) -> Buffer
 where
     F: Fn(u8x64, u8x64) -> u8x64,
@@ -300,7 +300,7 @@ impl<'a, 'b> BitAnd<&'b Buffer> for &'a Buffer {
         }
 
         // SIMD implementation if available
-        #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+        #[cfg(all(any(target_arch = "x86", target_arch = "x86_64", target_arch="wasm32"), feature = "simd"))]
         {
             return Ok(bitwise_bin_op_simd_helper(&self, &rhs, |a, b| a & b));
         }
@@ -334,7 +334,7 @@ impl<'a, 'b> BitOr<&'b Buffer> for &'a Buffer {
         }
 
         // SIMD implementation if available
-        #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+        #[cfg(all(any(target_arch = "x86", target_arch = "x86_64", target_arch="wasm32"), feature = "simd"))]
         {
             return Ok(bitwise_bin_op_simd_helper(&self, &rhs, |a, b| a | b));
         }
@@ -362,7 +362,7 @@ impl Not for &Buffer {
 
     fn not(self) -> Buffer {
         // SIMD implementation if available
-        #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+        #[cfg(all(any(target_arch = "x86", target_arch = "x86_64", target_arch="wasm32"), feature = "simd"))]
         {
             let mut result =
                 MutableBuffer::new(self.len()).with_bitset(self.len(), false);

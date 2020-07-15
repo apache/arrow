@@ -88,6 +88,7 @@ pub trait Accumulator {
 }
 
 pub mod common;
+#[cfg(not(target_arch="wasm32"))]
 pub mod csv;
 pub mod datasource;
 pub mod expressions;
@@ -96,6 +97,7 @@ pub mod limit;
 pub mod math_expressions;
 pub mod memory;
 pub mod merge;
+#[cfg(not(target_arch="wasm32"))]
 pub mod parquet;
 pub mod projection;
 pub mod selection;
