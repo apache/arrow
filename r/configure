@@ -199,15 +199,11 @@ fi
 sed -e "s|@cflags@|$PKG_CFLAGS|" -e "s|@libs@|$PKG_LIBS|" src/Makevars.in > src/Makevars
 
 # Add stripping
-if [ -e "/usr/bin/strip" ]; then
-  if [ "$UNAME" = "Darwin" ]; then
-    STRIP_FLAGS="-S";
-  else
-    STRIP_FLAGS="--strip-debug";
-  fi
+if [ "$R_STRIP_SHARED_LIB" != "" ]; then
+  # R_STRIP_SHARED_LIB is set in the global Renviron and should be available here
   echo "
 strip: \$(SHLIB)
-	/usr/bin/strip $STRIP_FLAGS \$(SHLIB) >/dev/null 2>&1 || true
+	$R_STRIP_SHARED_LIB \$(SHLIB) >/dev/null 2>&1 || true
 
 .phony: strip
 " >> src/Makevars
