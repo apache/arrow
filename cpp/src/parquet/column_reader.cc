@@ -1145,7 +1145,8 @@ class TypedRecordReader : public ColumnReaderImplBase<DType>,
 
     // Count logical records and number of values to read
     while (levels_position_ < levels_written_) {
-      if (*rep_levels++ == 0) {
+      const int16_t rep_level = *rep_levels++;
+      if (rep_level == 0) {
         // If at_record_start_ is true, we are seeing the start of a record
         // for the second time, such as after repeated calls to
         // DelimitRecords. In this case we must continue until we find
@@ -1160,14 +1161,25 @@ class TypedRecordReader : public ColumnReaderImplBase<DType>,
             break;
           }
         }
+      } else if (ARROW_PREDICT_FALSE(rep_level > this->max_rep_level_)) {
+        std::stringstream ss;
+        ss << "Malformed repetition levels, " << rep_level << " exceeded maximum "
+           << this->max_rep_level_ << " indicated by schema";
+        throw ParquetException(ss.str());
       }
 
       // We have decided to consume the level at this position; therefore we
       // must advance until we find another record boundary
       at_record_start_ = false;
 
-      if (*def_levels++ == this->max_def_level_) {
+      const int16_t def_level = *def_levels++;
+      if (def_level == this->max_def_level_) {
         ++values_to_read;
+      } else if (ARROW_PREDICT_FALSE(def_level > this->max_def_level_)) {
+        std::stringstream ss;
+        ss << "Malformed definition levels, " << def_level << " exceeded maximum "
+           << this->max_def_level_ << " indicated by schema";
+        throw ParquetException(ss.str());
       }
       ++levels_position_;
     }
