@@ -318,11 +318,10 @@ class KeyValuePartitioningInspectImpl {
   }
 
   std::vector<std::string> FieldNames() {
-    std::vector<std::string> names;
-    names.reserve(name_to_index_.size());
+    std::vector<std::string> names(name_to_index_.size());
 
     for (auto kv : name_to_index_) {
-      names.push_back(kv.first);
+      names[kv.second] = kv.first;
     }
     return names;
   }
