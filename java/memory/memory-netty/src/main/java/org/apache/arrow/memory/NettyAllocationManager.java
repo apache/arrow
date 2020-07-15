@@ -30,7 +30,7 @@ public class NettyAllocationManager extends AllocationManager {
   public static final AllocationManager.Factory FACTORY = new AllocationManager.Factory() {
 
     @Override
-    public AllocationManager create(BaseAllocator accountingAllocator, long size) {
+    public AllocationManager create(BufferAllocator accountingAllocator, long size) {
       return new NettyAllocationManager(accountingAllocator, size);
     }
 
@@ -65,7 +65,7 @@ public class NettyAllocationManager extends AllocationManager {
    */
   private final int allocationCutOffValue;
 
-  NettyAllocationManager(BaseAllocator accountingAllocator, long requestedSize, int allocationCutOffValue) {
+  NettyAllocationManager(BufferAllocator accountingAllocator, long requestedSize, int allocationCutOffValue) {
     super(accountingAllocator);
     this.allocationCutOffValue = allocationCutOffValue;
 
@@ -80,7 +80,7 @@ public class NettyAllocationManager extends AllocationManager {
     }
   }
 
-  NettyAllocationManager(BaseAllocator accountingAllocator, long requestedSize) {
+  NettyAllocationManager(BufferAllocator accountingAllocator, long requestedSize) {
     this(accountingAllocator, requestedSize, DEFAULT_ALLOCATION_CUTOFF_VALUE);
   }
 
