@@ -66,7 +66,7 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     Thrift
     utf8proc
     ZLIB
-    ZSTD)
+    zstd)
 
 # TODO(wesm): External GTest shared libraries are not currently
 # supported when building with MSVC because of the way that
@@ -146,7 +146,7 @@ macro(build_dependency DEPENDENCY_NAME)
     build_utf8proc()
   elseif("${DEPENDENCY_NAME}" STREQUAL "ZLIB")
     build_zlib()
-  elseif("${DEPENDENCY_NAME}" STREQUAL "ZSTD")
+  elseif("${DEPENDENCY_NAME}" STREQUAL "zstd")
     build_zstd()
   else()
     message(FATAL_ERROR "Unknown thirdparty dependency to build: ${DEPENDENCY_NAME}")
@@ -1982,7 +1982,7 @@ macro(build_zstd)
 endmacro()
 
 if(ARROW_WITH_ZSTD)
-  resolve_dependency(ZSTD)
+  resolve_dependency(zstd)
 
   if(TARGET zstd::libzstd)
     set(ARROW_ZSTD_LIBZSTD zstd::libzstd)
