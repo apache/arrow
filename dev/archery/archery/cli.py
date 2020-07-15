@@ -22,6 +22,7 @@ import errno
 import json
 import logging
 import os
+import pathlib
 import sys
 
 from .benchmark.compare import RunnerComparator, DEFAULT_THRESHOLD
@@ -831,6 +832,107 @@ def docker_compose_images(obj):
     click.echo('Available images:')
     for image in compose.images():
         click.echo(' - {}'.format(image))
+
+
+@archery.group('release')
+@click.option("--src", metavar="<arrow_src>", default=None,
+              callback=validate_arrow_sources,
+              help="Specify Arrow source directory.")
+@click.option("--jira-cache", type=click.Path(), default=None,
+              help="File path to cache queried JIRA issues per version.")
+@click.pass_obj
+def release(obj, src, jira_cache):
+    """Release releated commands."""
+    from .release import Jira, CachedJira
+
+    jira = Jira()
+    if jira_cache is not None:
+        jira = CachedJira(jira_cache, jira=jira)
+
+    obj['jira'] = jira
+    obj['repo'] = src.path
+
+
+@release.command('curate')
+@click.argument('version')
+@click.pass_obj
+def release_curate(obj, version):
+    """Release curation."""
+    from .release import Release
+
+    release = Release.from_jira(version, jira=obj['jira'], repo=obj['repo'])
+    curation = release.curate()
+
+    click.echo(curation.render('console'))
+
+
+@release.group('changelog')
+def release_changelog():
+    """Release changelog."""
+    pass
+
+
+@release_changelog.command('add')
+@click.argument('version')
+@click.pass_obj
+def release_changelog_add(obj, version):
+    """Prepend the changelog with the current release"""
+    from .release import Release
+
+    jira, repo = obj['jira'], obj['repo']
+
+    # just handle the current version
+    release = Release.from_jira(version, jira=jira, repo=repo)
+    if release.is_released:
+        raise ValueError('This version has been already released!')
+
+    changelog = release.changelog()
+    changelog_path = pathlib.Path(repo) / 'CHANGELOG.md'
+
+    current_content = changelog_path.read_text()
+    new_content = changelog.render('markdown') + current_content
+
+    changelog_path.write_text(new_content)
+    click.echo("CHANGELOG.md is updated!")
+
+
+@release_changelog.command('regenerate')
+@click.pass_obj
+def release_changelog_regenerate(obj):
+    """Regeneretate the whole CHANGELOG.md file"""
+    from .release import Release
+
+    jira, repo = obj['jira'], obj['repo']
+    changelogs = []
+
+    for version in jira.arrow_versions():
+        if not version.released:
+            continue
+        release = Release.from_jira(version, jira=jira, repo=repo)
+        click.echo('Querying changelog for version: {}'.format(version))
+        changelogs.append(release.changelog())
+
+    click.echo('Rendering new CHANGELOG.md file...')
+    changelog_path = pathlib.Path(repo) / 'CHANGELOG.md'
+    with changelog_path.open('w') as fp:
+        for cl in changelogs:
+            fp.write(cl.render('markdown'))
+
+
+@release.command('cherry-pick')
+@click.pass_obj
+def release_cherry_pick(obj):
+    """Cherry pick commits."""
+    from .release import PatchRelease
+
+    release = obj['release']
+    if not isinstance(release, PatchRelease):
+        raise click.UsageError('Cherry-pick command only supported for patch '
+                               'releases')
+
+    commands = release.generate_update_branch_commands()
+    for cmd in commands:
+        click.echo(cmd)
 
 
 if __name__ == "__main__":

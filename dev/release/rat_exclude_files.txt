@@ -10,6 +10,7 @@
 .github/ISSUE_TEMPLATE/question.md
 ci/etc/rprofile
 ci/etc/*.patch
+CHANGELOG.md
 cpp/CHANGELOG_PARQUET.md
 cpp/src/arrow/io/mman.h
 cpp/src/arrow/util/random.h
@@ -41,6 +42,7 @@ cpp/src/plasma/thirdparty/dlmalloc.c
 cpp/thirdparty/flatbuffers/include/flatbuffers/base.h
 cpp/thirdparty/flatbuffers/include/flatbuffers/flatbuffers.h
 cpp/thirdparty/flatbuffers/include/flatbuffers/stl_emulation.h
+dev/archery/MANIFEST.in
 dev/archery/requirements*.txt
 dev/archery/archery/tests/fixtures/*
 dev/release/rat_exclude_files.txt
