@@ -195,7 +195,7 @@ tag=apache-arrow-${version}
 if [ ${PREPARE_CHANGELOG} -gt 0 ]; then
   echo "Updating changelog for $version"
   # Update changelog
-  $SOURCE_DIR/update-changelog.sh $version
+  archery release changelog add $version
 fi
 
 if [ ${PREPARE_LINUX_PACKAGES} -gt 0 ]; then
