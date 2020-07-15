@@ -32,15 +32,15 @@ class TestDictinaryArrayBuilder < Test::Unit::TestCase
         super
 
         @dictionary = %w(foo bar baz)
-        dictionary_array = build_string_array(@dictionary)
+        @dictionary_array = build_string_array(@dictionary)
         @indices = @values.map {|x| x ? @dictionary.index(x) : nil }
         indices_array = build_int8_array(@indices)
         @data_type = Arrow::DictionaryDataType.new(indices_array.value_data_type,
-                                                   dictionary_array.value_data_type,
+                                                   @dictionary_array.value_data_type,
                                                    false)
         @expected_array = Arrow::DictionaryArray.new(@data_type,
                                                      indices_array,
-                                                     dictionary_array)
+                                                     @dictionary_array)
         @builder = Arrow::StringDictionaryArrayBuilder.new
         @values.each do |value|
           if value
@@ -87,6 +87,36 @@ class TestDictinaryArrayBuilder < Test::Unit::TestCase
         assert do
           @expected_array == @builder.finish
         end
+      end
+
+      test("reset") do
+        expected_array = Arrow::DictionaryArray.new(@data_type,
+                                                    build_int8_array([]),
+                                                    @dictionary_array)
+        @builder.reset
+        assert_equal({
+                       dictionary_length: @dictionary.length,
+                       array: expected_array,
+                     },
+                     {
+                       dictionary_length: @builder.dictionary_length,
+                       array: @builder.finish,
+                     })
+      end
+
+      test("reset_full") do
+        expected_array = Arrow::DictionaryArray.new(@data_type,
+                                                    build_int8_array([]),
+                                                    build_string_array([]))
+        @builder.reset_full
+        assert_equal({
+                       dictionary_length: 0,
+                       array: expected_array,
+                     },
+                     {
+                       dictionary_length: @builder.dictionary_length,
+                       array: @builder.finish,
+                     })
       end
     end
 

@@ -493,6 +493,17 @@ garrow_array_builder_finish(GArrowArrayBuilder *builder, GError **error)
   }
 }
 
+/**
+ * garrow_array_builder_reset:
+ * @builder: A #GArrowArrayBuilder.
+ */
+void
+garrow_array_builder_reset(GArrowArrayBuilder *builder)
+{
+  auto arrow_builder = garrow_array_builder_get_raw(builder);
+  arrow_builder->Reset();
+}
+
 
 G_DEFINE_TYPE(GArrowNullArrayBuilder,
               garrow_null_array_builder,
@@ -4061,6 +4072,19 @@ garrow_string_dictionary_array_builder_insert_memo_values(GArrowStringDictionary
   return garrow_error_check(error,
                             status,
                             "[string-dictionary-array-builder][insert-memo-values]");
+}
+
+/**
+ * garrow_string_dictionary_array_builder_reset_full:
+ * @builder: A #GArrowStringDictionaryArrayBuilder.
+ */
+void
+garrow_string_dictionary_array_builder_reset_full(GArrowStringDictionaryArrayBuilder *builder)
+{
+  auto arrow_builder =
+    static_cast<arrow::StringDictionaryBuilder *>(
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+  arrow_builder->ResetFull();
 }
 
 

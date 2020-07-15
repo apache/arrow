@@ -44,7 +44,7 @@ GArrowType garrow_array_builder_get_value_type(GArrowArrayBuilder *builder);
 GArrowArray        *garrow_array_builder_finish   (GArrowArrayBuilder *builder,
                                                    GError **error);
 
-// TODO: reset
+void garrow_array_builder_reset(GArrowArrayBuilder *builder);
 // TODO: resize
 
 #define GARROW_TYPE_NULL_ARRAY_BUILDER (garrow_null_array_builder_get_type())
@@ -932,7 +932,9 @@ gboolean
 garrow_string_dictionary_array_builder_insert_memo_values(GArrowStringDictionaryArrayBuilder *builder,
                                                           GArrowStringArray *values,
                                                           GError **error);
-// TODO: reset_full
+GARROW_AVAILABLE_IN_1_0
+void
+garrow_string_dictionary_array_builder_reset_full(GArrowStringDictionaryArrayBuilder *builder);
 
 #define GARROW_TYPE_LIST_ARRAY_BUILDER (garrow_list_array_builder_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowListArrayBuilder,
