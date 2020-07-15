@@ -351,13 +351,13 @@ class Release:
 
         # organize issues into categories
         issue_types = {
-            'New Feature': 'New Features',
-            'Improvement': 'Improvements',
-            'Wish': 'Improvements',
-            'Task': 'Improvements',
-            'Test': 'Bug Fixes',
             'Bug': 'Bug Fixes',
-            'Sub-task': 'Improvements'
+            'Improvement': 'New Features and Improvements',
+            'New Feature': 'New Features and Improvements',
+            'Sub-task': 'New Features and Improvements',
+            'Task': 'New Features and Improvements',
+            'Test': 'Bug Fixes',
+            'Wish': 'New Features and Improvements',
         }
         categories = defaultdict(list)
         for issue in release_issues:
