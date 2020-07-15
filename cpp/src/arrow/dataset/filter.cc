@@ -772,14 +772,11 @@ std::shared_ptr<Expression> and_(std::shared_ptr<Expression> lhs,
 }
 
 std::shared_ptr<Expression> and_(const ExpressionVector& subexpressions) {
-  if (subexpressions.size() == 0) {
-    return scalar(true);
+  auto acc = scalar(true);
+  for (const auto& next : subexpressions) {
+    acc = acc->Equals(true) ? next : and_(std::move(acc), next);
   }
-  return std::accumulate(
-      subexpressions.begin(), subexpressions.end(), std::shared_ptr<Expression>(),
-      [](std::shared_ptr<Expression> acc, const std::shared_ptr<Expression>& next) {
-        return acc == nullptr ? next : and_(std::move(acc), next);
-      });
+  return acc;
 }
 
 std::shared_ptr<Expression> or_(std::shared_ptr<Expression> lhs,
@@ -788,14 +785,11 @@ std::shared_ptr<Expression> or_(std::shared_ptr<Expression> lhs,
 }
 
 std::shared_ptr<Expression> or_(const ExpressionVector& subexpressions) {
-  if (subexpressions.size() == 0) {
-    return scalar(false);
+  auto acc = scalar(false);
+  for (const auto& next : subexpressions) {
+    acc = acc->Equals(false) ? next : or_(std::move(acc), next);
   }
-  return std::accumulate(
-      subexpressions.begin(), subexpressions.end(), std::shared_ptr<Expression>(),
-      [](std::shared_ptr<Expression> acc, const std::shared_ptr<Expression>& next) {
-        return acc == nullptr ? next : or_(std::move(acc), next);
-      });
+  return acc;
 }
 
 std::shared_ptr<Expression> not_(std::shared_ptr<Expression> operand) {

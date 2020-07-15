@@ -1486,30 +1486,45 @@ def test_open_dataset_non_existing_file():
 
 @pytest.mark.parquet
 @pytest.mark.parametrize('partitioning', ["directory", "hive"])
-def test_open_dataset_partitioned_dictionary_type(tempdir, partitioning):
-    # ARROW-9288
+@pytest.mark.parametrize('partition_keys', [
+    (["A", "B", "C"], [1, 2, 3]),
+    ([1, 2, 3], ["A", "B", "C"]),
+    (["A", "B", "C"], ["D", "E", "F"]),
+    ([1, 2, 3], [4, 5, 6]),
+])
+def test_open_dataset_partitioned_dictionary_type(tempdir, partitioning,
+                                                  partition_keys):
+    # ARROW-9288 / ARROW-9476
     import pyarrow.parquet as pq
     table = pa.table({'a': range(9), 'b': [0.] * 4 + [1.] * 5})
 
-    path = tempdir / "dataset"
-    path.mkdir()
+    basepath = tempdir / "dataset"
+    basepath.mkdir()
 
-    for part in ["A", "B", "C"]:
-        fmt = "{}" if partitioning == "directory" else "part={}"
-        part = path / fmt.format(part)
-        part.mkdir()
-        pq.write_table(table, part / "test.parquet")
+    part_keys1, part_keys2 = partition_keys
+    for part1 in part_keys1:
+        for part2 in part_keys2:
+            if partitioning == 'directory':
+                fmt = "{0}/{1}"
+            else:
+                fmt = "part1={0}/part2={1}"
+            path = basepath / fmt.format(part1, part2)
+            path.mkdir(parents=True)
+            pq.write_table(table, path / "test.parquet")
 
     if partitioning == "directory":
         part = ds.DirectoryPartitioning.discover(
-            ["part"], max_partition_dictionary_size=-1)
+            ["part1", "part2"], max_partition_dictionary_size=None)
     else:
-        part = ds.HivePartitioning.discover(max_partition_dictionary_size=-1)
+        part = ds.HivePartitioning.discover(max_partition_dictionary_size=None)
 
-    dataset = ds.dataset(str(path), partitioning=part)
+    dataset = ds.dataset(str(basepath), partitioning=part)
+
+    dict_type = pa.dictionary(pa.int32(), pa.string())
+    part_type1 = dict_type if isinstance(part_keys1[0], str) else pa.int32()
+    part_type2 = dict_type if isinstance(part_keys2[0], str) else pa.int32()
     expected_schema = table.schema.append(
-        pa.field("part", pa.dictionary(pa.int32(), pa.string()))
-    )
+        pa.field("part1", part_type1)).append(pa.field("part2", part_type2))
     assert dataset.schema.equals(expected_schema)
 
 

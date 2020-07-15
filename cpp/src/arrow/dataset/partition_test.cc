@@ -155,6 +155,7 @@ TEST_F(TestPartitioning, DictionaryInference) {
   AssertInspect({"/a/0"}, {Dict("alpha"), Int("beta")});
   AssertInspect({"/a/0", "/a/1"}, {Dict("alpha"), Int("beta")});
   AssertInspect({"/a/0", "/b/0", "/a/1", "/b/1"}, {Dict("alpha"), Int("beta")});
+  AssertInspect({"/a/-", "/b/-", "/a/_", "/b/_"}, {Dict("alpha"), Dict("beta")});
 
   // fall back to string if max dictionary size is exceeded
   AssertInspect({"/a/0", "/b/0", "/c/1", "/d/1"}, {Str("alpha"), Int("beta")});
@@ -245,6 +246,9 @@ TEST_F(TestPartitioning, HiveDictionaryInference) {
   AssertInspect(
       {"/alpha=a/beta=0", "/alpha=b/beta=0", "/alpha=a/beta=1", "/alpha=b/beta=1"},
       {Dict("alpha"), Int("beta")});
+  AssertInspect(
+      {"/alpha=a/beta=-", "/alpha=b/beta=-", "/alpha=a/beta=_", "/alpha=b/beta=_"},
+      {Dict("alpha"), Dict("beta")});
 
   // fall back to string if max dictionary size is exceeded
   AssertInspect(
