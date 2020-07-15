@@ -32,12 +32,6 @@
 
 namespace arrow {
 
-struct Type {
-  enum type {
-    // forward declaration
-  };
-};
-
 namespace compute {
 class CastOptions;
 
