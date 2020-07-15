@@ -356,24 +356,28 @@ TEST_F(ExpressionsTest, ImplicitCast) {
 }
 
 TEST_F(ExpressionsTest, ImplicitCastToDict) {
-  auto dict_type = dictionary(int8(), float64());
+  auto dict_type = dictionary(int32(), float64());
   ASSERT_OK_AND_ASSIGN(auto filter,
                        InsertImplicitCasts("a"_ == 1.5, Schema({field("a", dict_type)})));
 
   auto encoded_scalar = std::make_shared<DictionaryScalar>(
-      DictionaryScalar::ValueType{MakeScalar<int8_t>(0),
+      DictionaryScalar::ValueType{MakeScalar<int32_t>(0),
                                   ArrayFromJSON(float64(), "[1.5]")},
       dict_type);
 
   ASSERT_EQ(E{filter}, E{"a"_ == encoded_scalar});
 
-  for (int8_t i = 0; i < 5; ++i) {
+  for (int32_t i = 0; i < 5; ++i) {
     auto partition_scalar = std::make_shared<DictionaryScalar>(
         DictionaryScalar::ValueType{
             MakeScalar(i), ArrayFromJSON(float64(), "[0.0, 0.5, 1.0, 1.5, 2.0]")},
         dict_type);
     ASSERT_EQ(E{filter->Assume("a"_ == partition_scalar)}, E{scalar(i == 3)});
   }
+
+  auto set_f64 = ArrayFromJSON(float64(), "[0.0, 0.5, 1.0, 1.5, 2.0]");
+  ASSERT_OK_AND_ASSIGN(
+      filter, InsertImplicitCasts("a"_.In(set_f64), Schema({field("a", dict_type)})));
 }
 
 TEST_F(FilterTest, ImplicitCast) {
