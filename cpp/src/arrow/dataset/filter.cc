@@ -925,6 +925,22 @@ Result<std::shared_ptr<DataType>> FieldExpression::Validate(const Schema& schema
   return null();
 }
 
+Result<Datum> CastOrDictionaryEncode(const Datum& arr,
+                                     const std::shared_ptr<DataType>& type,
+                                     const compute::CastOptions opts) {
+  if (type->id() == Type::DICTIONARY) {
+    const auto& dict_type = checked_cast<const DictionaryType&>(*type);
+    if (dict_type.index_type()->id() != Type::INT32) {
+      return Status::TypeError("cannot DictionaryEncode to index type ",
+                               *dict_type.index_type());
+    }
+    ARROW_ASSIGN_OR_RAISE(auto dense, compute::Cast(arr, dict_type.value_type(), opts));
+    return compute::DictionaryEncode(dense);
+  }
+
+  return compute::Cast(arr, type, opts);
+}
+
 struct InsertImplicitCastsImpl {
   struct ValidatedAndCast {
     std::shared_ptr<Expression> expr;
@@ -956,7 +972,8 @@ struct InsertImplicitCastsImpl {
 
     if (!op.type->Equals(set->type())) {
       // cast the set (which we assume to be small) to match op.type
-      ARROW_ASSIGN_OR_RAISE(set, compute::Cast(*set, op.type));
+      ARROW_ASSIGN_OR_RAISE(auto encoded_set, CastOrDictionaryEncode(*set, op.type, {}));
+      set = encoded_set.make_array();
     }
 
     return std::make_shared<InExpression>(std::move(op.expr), std::move(set));
@@ -1191,7 +1208,7 @@ struct TreeEvaluator::Impl {
     }
 
     DCHECK(to_cast.is_array());
-    return compute::Cast(to_cast, to_type, expr.options());
+    return CastOrDictionaryEncode(to_cast, to_type, expr.options());
   }
 
   Result<Datum> operator()(const ComparisonExpression& expr) const {
