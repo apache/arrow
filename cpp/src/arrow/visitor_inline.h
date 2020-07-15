@@ -94,6 +94,25 @@ inline Status VisitTypeInline(const DataType& type, VISITOR* visitor) {
 
 #undef TYPE_VISIT_INLINE
 
+#define TYPE_ID_VISIT_INLINE(TYPE_CLASS)            \
+  case TYPE_CLASS##Type::type_id: {                 \
+    const TYPE_CLASS##Type* concrete_ptr = nullptr; \
+    return visitor->Visit(concrete_ptr);            \
+  }
+
+// Calls `visitor` with a nullptr of the corresponding concrete type class
+template <typename VISITOR>
+inline Status VisitTypeIdInline(Type::type id, VISITOR* visitor) {
+  switch (id) {
+    ARROW_GENERATE_FOR_ALL_TYPES(TYPE_ID_VISIT_INLINE);
+    default:
+      break;
+  }
+  return Status::NotImplemented("Type not implemented");
+}
+
+#undef TYPE_ID_VISIT_INLINE
+
 #define ARRAY_VISIT_INLINE(TYPE_CLASS)                                                   \
   case TYPE_CLASS##Type::type_id:                                                        \
     return visitor->Visit(                                                               \

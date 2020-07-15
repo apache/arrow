@@ -22,6 +22,7 @@
 #include <string>
 #include <vector>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
@@ -1457,14 +1458,40 @@ TEST_F(TestCast, ChunkedArray) {
   ASSERT_TRUE(out.chunked_array()->Equals(*ex_carr));
 }
 
-TEST_F(TestCast, UnsupportedTarget) {
-  std::vector<bool> is_valid = {true, false, true, true, true};
-  std::vector<int32_t> v1 = {0, 1, 2, 3, 4};
+TEST_F(TestCast, UnsupportedInputType) {
+  // Casting to a supported target type, but with an unsupported input type
+  // for the target type.
+  const auto arr = ArrayFromJSON(int32(), "[1, 2, 3]");
 
-  std::shared_ptr<Array> arr;
-  ArrayFromVector<Int32Type>(int32(), is_valid, v1, &arr);
+  const auto to_type = list(utf8());
+  const char* expected_message = "Unsupported cast from int32 to list";
 
-  ASSERT_RAISES(NotImplemented, Cast(*arr, list(utf8())));
+  // Try through concrete API
+  EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented, ::testing::HasSubstr(expected_message),
+                                  Cast(*arr, to_type));
+
+  // Try through general kernel API
+  CastOptions options;
+  options.to_type = to_type;
+  EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented, ::testing::HasSubstr(expected_message),
+                                  CallFunction("cast", {arr}, &options));
+}
+
+TEST_F(TestCast, UnsupportedTargetType) {
+  // Casting to an unsupported target type
+  const auto arr = ArrayFromJSON(int32(), "[1, 2, 3]");
+  const auto to_type = dense_union({field("a", int32())});
+
+  // Try through concrete API
+  const char* expected_message = "Unsupported cast from int32 to dense_union";
+  EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented, ::testing::HasSubstr(expected_message),
+                                  Cast(*arr, to_type));
+
+  // Try through general kernel API
+  CastOptions options;
+  options.to_type = to_type;
+  EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented, ::testing::HasSubstr(expected_message),
+                                  CallFunction("cast", {arr}, &options));
 }
 
 TEST_F(TestCast, DateTimeZeroCopy) {

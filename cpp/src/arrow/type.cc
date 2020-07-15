@@ -93,79 +93,71 @@ constexpr Type::type DictionaryType::type_id;
 
 namespace internal {
 
+struct TypeIdToTypeNameVisitor {
+  std::string out;
+
+  template <typename ArrowType>
+  Status Visit(const ArrowType*) {
+    out = ArrowType::type_name();
+    return Status::OK();
+  }
+};
+
+std::string ToTypeName(Type::type id) {
+  TypeIdToTypeNameVisitor visitor;
+
+  ARROW_CHECK_OK(VisitTypeIdInline(id, &visitor));
+  return std::move(visitor.out);
+}
+
 std::string ToString(Type::type id) {
   switch (id) {
-    case Type::NA:
-      return "NA";
-    case Type::BOOL:
-      return "BOOL";
-    case Type::UINT8:
-      return "UINT8";
-    case Type::INT8:
-      return "INT8";
-    case Type::UINT16:
-      return "UINT16";
-    case Type::INT16:
-      return "INT16";
-    case Type::UINT32:
-      return "UINT32";
-    case Type::INT32:
-      return "INT32";
-    case Type::UINT64:
-      return "UINT64";
-    case Type::INT64:
-      return "INT64";
-    case Type::HALF_FLOAT:
-      return "HALF_FLOAT";
-    case Type::FLOAT:
-      return "FLOAT";
-    case Type::DOUBLE:
-      return "DOUBLE";
-    case Type::STRING:
-      return "UTF8";
-    case Type::BINARY:
-      return "BINARY";
-    case Type::FIXED_SIZE_BINARY:
-      return "FIXED_SIZE_BINARY";
-    case Type::DATE64:
-      return "DATE64";
-    case Type::TIMESTAMP:
-      return "TIMESTAMP";
-    case Type::TIME32:
-      return "TIME32";
-    case Type::TIME64:
-      return "TIME64";
-    case Type::INTERVAL_MONTHS:
-      return "INTERVAL_MONTHS";
-    case Type::INTERVAL_DAY_TIME:
-      return "INTERVAL_DAY_TIME";
-    case Type::DECIMAL:
-      return "DECIMAL";
-    case Type::LIST:
-      return "LIST";
-    case Type::STRUCT:
-      return "STRUCT";
-    case Type::SPARSE_UNION:
-      return "SPARSE_UNION";
-    case Type::DENSE_UNION:
-      return "DENSE_UNION";
-    case Type::DICTIONARY:
-      return "DICTIONARY";
-    case Type::MAP:
-      return "MAP";
-    case Type::EXTENSION:
-      return "EXTENSION";
-    case Type::FIXED_SIZE_LIST:
-      return "FIXED_SIZE_LIST";
-    case Type::DURATION:
-      return "DURATION";
-    case Type::LARGE_BINARY:
-      return "LARGE_BINARY";
-    case Type::LARGE_LIST:
-      return "LARGE_LIST";
+#define TO_STRING_CASE(_id) \
+  case Type::_id:           \
+    return ARROW_STRINGIFY(_id);
+
+    TO_STRING_CASE(NA)
+    TO_STRING_CASE(BOOL)
+    TO_STRING_CASE(INT8)
+    TO_STRING_CASE(INT16)
+    TO_STRING_CASE(INT32)
+    TO_STRING_CASE(INT64)
+    TO_STRING_CASE(UINT8)
+    TO_STRING_CASE(UINT16)
+    TO_STRING_CASE(UINT32)
+    TO_STRING_CASE(UINT64)
+    TO_STRING_CASE(HALF_FLOAT)
+    TO_STRING_CASE(FLOAT)
+    TO_STRING_CASE(DOUBLE)
+    TO_STRING_CASE(DECIMAL)
+    TO_STRING_CASE(DATE32)
+    TO_STRING_CASE(DATE64)
+    TO_STRING_CASE(TIME32)
+    TO_STRING_CASE(TIME64)
+    TO_STRING_CASE(TIMESTAMP)
+    TO_STRING_CASE(INTERVAL_DAY_TIME)
+    TO_STRING_CASE(INTERVAL_MONTHS)
+    TO_STRING_CASE(DURATION)
+    TO_STRING_CASE(STRING)
+    TO_STRING_CASE(BINARY)
+    TO_STRING_CASE(LARGE_STRING)
+    TO_STRING_CASE(LARGE_BINARY)
+    TO_STRING_CASE(FIXED_SIZE_BINARY)
+    TO_STRING_CASE(STRUCT)
+    TO_STRING_CASE(LIST)
+    TO_STRING_CASE(LARGE_LIST)
+    TO_STRING_CASE(FIXED_SIZE_LIST)
+    TO_STRING_CASE(MAP)
+    TO_STRING_CASE(DENSE_UNION)
+    TO_STRING_CASE(SPARSE_UNION)
+    TO_STRING_CASE(DICTIONARY)
+    TO_STRING_CASE(EXTENSION)
+
+#undef TO_STRING_CASE
+
     default:
-      DCHECK(false) << "Should not be able to reach here";
-      return "unknown";
+      ARROW_LOG(FATAL) << "Unhandled type id: " << id;
+      return "";
   }
 }
 

@@ -32,6 +32,9 @@
 #include "arrow/util/logging.h"
 
 namespace arrow {
+
+using internal::ToTypeName;
+
 namespace compute {
 namespace internal {
 
@@ -53,6 +56,29 @@ void InitCastTable() {
 }
 
 void EnsureInitCastTable() { std::call_once(cast_table_initialized, InitCastTable); }
+
+namespace {
+
+// Private version of GetCastFunction with better error reporting
+// if the input type is known.
+Result<std::shared_ptr<CastFunction>> GetCastFunctionInternal(
+    const std::shared_ptr<DataType>& to_type, const DataType* from_type = nullptr) {
+  internal::EnsureInitCastTable();
+  auto it = internal::g_cast_table.find(static_cast<int>(to_type->id()));
+  if (it == internal::g_cast_table.end()) {
+    if (from_type != nullptr) {
+      return Status::NotImplemented("Unsupported cast from ", *from_type, " to ",
+                                    *to_type,
+                                    " (no available cast function for target type)");
+    } else {
+      return Status::NotImplemented("Unsupported cast to ", *to_type,
+                                    " (no available cast function for target type)");
+    }
+  }
+  return it->second;
+}
+
+}  // namespace
 
 // Metafunction for dispatching to appropraite CastFunction. This corresponds
 // to the standard SQL CAST(expr AS target_type)
@@ -79,8 +105,9 @@ class CastMetaFunction : public MetaFunction {
     if (args[0].type()->Equals(*cast_options->to_type)) {
       return args[0];
     }
-    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<CastFunction> cast_func,
-                          GetCastFunction(cast_options->to_type));
+    ARROW_ASSIGN_OR_RAISE(
+        std::shared_ptr<CastFunction> cast_func,
+        GetCastFunctionInternal(cast_options->to_type, args[0].type().get()));
     return cast_func->Execute(args, options, ctx);
   }
 };
@@ -147,9 +174,9 @@ Result<const ScalarKernel*> CastFunction::DispatchExact(
   }
 
   if (candidate_kernels.size() == 0) {
-    return Status::NotImplemented("Function ", this->name(),
-                                  " has no kernel matching input type ",
-                                  values[0].ToString());
+    return Status::NotImplemented("Unsupported cast from ", values[0].type->ToString(),
+                                  " to ", ToTypeName(impl_->out_type), " using function ",
+                                  this->name());
   } else if (candidate_kernels.size() == 1) {
     // One match, return it
     return candidate_kernels[0];
@@ -188,13 +215,7 @@ Result<std::shared_ptr<Array>> Cast(const Array& value, std::shared_ptr<DataType
 
 Result<std::shared_ptr<CastFunction>> GetCastFunction(
     const std::shared_ptr<DataType>& to_type) {
-  internal::EnsureInitCastTable();
-  auto it = internal::g_cast_table.find(static_cast<int>(to_type->id()));
-  if (it == internal::g_cast_table.end()) {
-    return Status::NotImplemented("No cast function available to cast to ",
-                                  to_type->ToString());
-  }
-  return it->second;
+  return internal::GetCastFunctionInternal(to_type);
 }
 
 bool CanCast(const DataType& from_type, const DataType& to_type) {
