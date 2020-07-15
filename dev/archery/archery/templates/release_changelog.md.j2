@@ -22,8 +22,8 @@
 
 ## {{ category }}
 
-    {% for issue in issues -%}
-        * [{{ issue.key }}](https://issues.apache.org/jira/browse/{{ issue.key }}) - {{ issue.summary | md }}
-    {% endfor %}
+{% for issue in issues -%}
+* [{{ issue.key }}](https://issues.apache.org/jira/browse/{{ issue.key }}) - {{ issue.summary | md }}
+{% endfor %}
 
 {% endfor %}
