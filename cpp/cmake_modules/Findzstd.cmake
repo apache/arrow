@@ -53,8 +53,12 @@ else()
   if(ZSTD_PC_FOUND)
     set(ZSTD_INCLUDE_DIR "${ZSTD_PC_INCLUDEDIR}")
 
+    if(NOT ARROW_ZSTD_USE_SHARED)
+      list(APPEND ZSTD_PC_LIBRARY_DIRS "${ZSTD_PC_STATIC_LIBDIR}")
+    endif()
     list(APPEND ZSTD_PC_LIBRARY_DIRS "${ZSTD_PC_LIBDIR}")
-    find_library(ZSTD_LIB zstd
+    find_library(ZSTD_LIB
+                 NAMES ${ZSTD_LIB_NAMES}
                  PATHS ${ZSTD_PC_LIBRARY_DIRS}
                  NO_DEFAULT_PATH
                  PATH_SUFFIXES ${LIB_PATH_SUFFIXES})
@@ -65,9 +69,9 @@ else()
   endif()
 endif()
 
-find_package_handle_standard_args(ZSTD REQUIRED_VARS ZSTD_LIB ZSTD_INCLUDE_DIR)
+find_package_handle_standard_args(zstd REQUIRED_VARS ZSTD_LIB ZSTD_INCLUDE_DIR)
 
-if(ZSTD_FOUND)
+if(zstd_FOUND)
   add_library(zstd::libzstd UNKNOWN IMPORTED)
   set_target_properties(zstd::libzstd
                         PROPERTIES IMPORTED_LOCATION "${ZSTD_LIB}"
