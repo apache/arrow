@@ -49,6 +49,10 @@ void garrow_array_builder_reset(GArrowArrayBuilder *builder);
 
 GARROW_AVAILABLE_IN_1_0
 gint64 garrow_array_builder_get_capacity(GArrowArrayBuilder *builder);
+GARROW_AVAILABLE_IN_1_0
+gint64 garrow_array_builder_get_length(GArrowArrayBuilder *builder);
+GARROW_AVAILABLE_IN_1_0
+gint64 garrow_array_builder_get_n_nulls(GArrowArrayBuilder *builder);
 
 GARROW_AVAILABLE_IN_1_0
 gboolean garrow_array_builder_resize(GArrowArrayBuilder *builder,

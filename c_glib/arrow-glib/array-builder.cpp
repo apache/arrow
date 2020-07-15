@@ -518,6 +518,32 @@ garrow_array_builder_get_capacity(GArrowArrayBuilder *builder)
 }
 
 /**
+ * garrow_array_builder_get_length:
+ * @builder: A #GArrowArrayBuilder.
+ *
+ * Returns: The current length of the building array.
+ */
+gint64
+garrow_array_builder_get_length(GArrowArrayBuilder *builder)
+{
+  auto arrow_builder = garrow_array_builder_get_raw(builder);
+  return arrow_builder->length();
+}
+
+/**
+ * garrow_array_builder_get_n_nulls:
+ * @builder: A #GArrowArrayBuilder.
+ *
+ * Returns: The current number of null elements in the building array.
+ */
+gint64
+garrow_array_builder_get_n_nulls(GArrowArrayBuilder *builder)
+{
+  auto arrow_builder = garrow_array_builder_get_raw(builder);
+  return arrow_builder->null_count();
+}
+
+/**
  * garrow_array_builder_resize:
  * @builder: A #GArrowArrayBuilder.
  * @capacity: A new capacity.
