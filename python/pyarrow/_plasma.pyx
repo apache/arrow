@@ -35,7 +35,8 @@ import socket
 import warnings
 
 import pyarrow
-from pyarrow.lib cimport Buffer, NativeFile, check_status, pyarrow_wrap_buffer
+from pyarrow.lib cimport (Buffer, NativeFile, _Weakrefable,
+                          check_status, pyarrow_wrap_buffer)
 from pyarrow.lib import ArrowException, frombytes
 from pyarrow.includes.libarrow cimport (CBuffer, CMutableBuffer,
                                         CFixedSizeBufferWriter, CStatus)
