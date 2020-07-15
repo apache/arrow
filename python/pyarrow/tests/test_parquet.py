@@ -698,6 +698,10 @@ def test_pandas_parquet_pyfile_roundtrip(tempdir, use_legacy_dataset):
     tm.assert_frame_equal(df, df_read)
 
 
+# ARROW-9424: LZ4 support is currently disabled
+SUPPORTED_COMPRESSIONS = ['NONE', 'SNAPPY', 'GZIP', 'ZSTD']
+
+
 @pytest.mark.pandas
 @parametrize_legacy_dataset
 def test_pandas_parquet_configuration_options(tempdir, use_legacy_dataset):
@@ -735,7 +739,7 @@ def test_pandas_parquet_configuration_options(tempdir, use_legacy_dataset):
         df_read = table_read.to_pandas()
         tm.assert_frame_equal(df, df_read)
 
-    for compression in ['NONE', 'SNAPPY', 'GZIP', 'LZ4', 'ZSTD']:
+    for compression in SUPPORTED_COMPRESSIONS:
         if (compression != 'NONE' and
                 not pa.lib.Codec.is_available(compression)):
             continue
@@ -745,6 +749,13 @@ def test_pandas_parquet_configuration_options(tempdir, use_legacy_dataset):
             filename, use_legacy_dataset=use_legacy_dataset)
         df_read = table_read.to_pandas()
         tm.assert_frame_equal(df, df_read)
+
+
+# ARROW-9424: LZ4 support is currently disabled
+def test_lz4_compression_disabled():
+    table = pa.table([pa.array([1, 2, 3, 4, 5])], names=['f0'])
+    with pytest.raises(IOError):
+        pq.write_table(table, pa.BufferOutputStream(), compression='lz4')
 
 
 def make_sample_file(table_or_df):
@@ -828,8 +839,9 @@ def test_compression_level(use_legacy_dataset):
     # level.
     # GZIP (zlib) allows for specifying a compression level but as of up
     # to version 1.2.11 the valid range is [-1, 9].
-    invalid_combinations = [("snappy", 4), ("lz4", 5), ("gzip", -1337),
+    invalid_combinations = [("snappy", 4), ("gzip", -1337),
                             ("None", 444), ("lzo", 14)]
+    # ARROW-9424: lz4 is disabled for now ("lz4", 5),
     buf = io.BytesIO()
     for (codec, level) in invalid_combinations:
         with pytest.raises((ValueError, OSError)):
