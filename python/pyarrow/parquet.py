@@ -1413,6 +1413,12 @@ class _ParquetDatasetV2:
                 )
                 return
 
+        # check partitioning to enable dictionary encoding
+        if partitioning == "hive":
+            partitioning = ds.HivePartitioning.discover(
+                max_partition_dictionary_size=-1
+            )
+
         # map old filesystems to new one
         if filesystem is not None:
             filesystem = pyarrow.fs._ensure_filesystem(
