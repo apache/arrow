@@ -58,7 +58,7 @@ static void AsciiUpper(benchmark::State& state) {
 }
 
 static void IsAlphaNumericAscii(benchmark::State& state) {
-  UnaryStringBenchmark(state, "ascii_isalnum");
+  UnaryStringBenchmark(state, "ascii_is_alnum");
 }
 
 static void MatchSubstring(benchmark::State& state) {
@@ -76,7 +76,7 @@ static void Utf8Lower(benchmark::State& state) {
 }
 
 static void IsAlphaNumericUnicode(benchmark::State& state) {
-  UnaryStringBenchmark(state, "utf8_isalnum");
+  UnaryStringBenchmark(state, "utf8_is_alnum");
 }
 #endif
 
