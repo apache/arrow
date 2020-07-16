@@ -26,10 +26,6 @@ function build_wheel {
     # ARROW-5670: Python 3.5 can fail with HTTPS error in CMake build
     pip install setuptools_scm requests
 
-    # Include brew installed versions of flex and bison.
-    # We need them to build Thrift. The ones that come with Xcode are too old.
-    export PATH="$(brew --prefix flex)/bin:$(brew --prefix bison)/bin:$PATH"
-
     echo `pwd`
     echo CFLAGS=${CFLAGS}
     echo CXXFLAGS=${CXXFLAGS}
@@ -90,6 +86,7 @@ function build_wheel {
           -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
           -DgRPC_SOURCE=SYSTEM \
           -DLLVM_SOURCE=SYSTEM \
+          -DThrift_SOURCE=SYSTEM \
           -DMAKE=make \
           -DOPENSSL_USE_STATIC_LIBS=ON \
           -DProtobuf_SOURCE=SYSTEM \

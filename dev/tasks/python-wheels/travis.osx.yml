@@ -38,13 +38,8 @@ before_install:
   - git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
   - git -C arrow checkout FETCH_HEAD
 
-  - brew update
-  - brew reinstall mercurial
   - travis_wait 30 brew bundle --file=arrow/cpp/Brewfile
-  # Install tools to build bundled Thrift
-  - brew install
-      bison
-      flex
+  - brew upgrade python@3.8
 
   # source utilities required for wheel builds
   - export CONFIG_PATH=`pwd`/arrow/dev/tasks/python-wheels/osx-build.sh
@@ -53,33 +48,33 @@ before_install:
   - before_install
 
 install:
-  # the following functions are defined in osx-build.sh
-  - build_wheel arrow
+  # # the following functions are defined in osx-build.sh
+  # - build_wheel arrow
 
   # test the built wheels, move Homebrew directory to ensure
   # things are properly statically-linked
   - sudo mv $(brew --cellar){,.bak}
-  # install the built wheel and test dependencies
-  - install_wheel arrow
-  # run unit tests before removing the system libraries
-  - ulimit -S -n 4096 && run_unit_tests arrow
-  # run the import tests
-  - run_import_tests
+  # # install the built wheel and test dependencies
+  # - install_wheel arrow
+  # # run unit tests before removing the system libraries
+  # - ulimit -S -n 4096 && run_unit_tests arrow
+  # # run the import tests
+  # - run_import_tests
 
   - sudo mv $(brew --cellar){.bak,}
   # before_install activates a virtualenv but we need the system python3
   - deactivate
 
   # crossbow dependencies for deployment
-  - unset MACOSX_DEPLOYMENT_TARGET
-  - /usr/local/bin/pip3 install click ruamel.yaml setuptools_scm github3.py toolz requests[security]
-  - /usr/local/bin/python3 arrow/dev/tasks/crossbow.py
+  # - unset MACOSX_DEPLOYMENT_TARGET
+  - /usr/local/opt/python@3.8/libexec/bin/pip install click ruamel.yaml setuptools_scm github3.py toolz requests[security]
+  - /usr/local/opt/python@3.8/libexec/bin/python arrow/dev/tasks/crossbow.py
       --queue-path $(pwd)
       --queue-remote {{ queue_remote_url }}
       upload-artifacts
       --sha {{ task.branch }}
       --tag {{ task.tag }}
-      --pattern "arrow/python/dist/*.whl"
+      --pattern "arrow/*.md"
 
   {% if arrow.branch == 'master' %}
   # upload to gemfury pypi repository, there should be a single wheel
