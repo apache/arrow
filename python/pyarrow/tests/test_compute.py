@@ -284,6 +284,55 @@ def test_take_indices_types():
             arr.take(indices)
 
 
+def test_take_on_chunked_array():
+    # ARROW-9504
+    arr = pa.chunked_array([
+        [
+            "a",
+            "b",
+            "c",
+            "d",
+            "e"
+        ],
+        [
+            "f",
+            "g",
+            "h",
+            "i",
+            "j"
+        ]
+    ])
+
+    indices = np.array([0, 5, 1, 6, 9, 2])
+    result = arr.take(indices)
+    expected = pa.chunked_array([["a", "f", "b", "g", "j", "c"]])
+    assert result.equals(expected)
+
+    indices = pa.chunked_array([[1], [9, 2]])
+    result = arr.take(indices)
+    expected = pa.chunked_array([
+        [
+            "b"
+        ],
+        [
+            "j",
+            "c"
+        ]
+    ])
+    assert result.equals(expected)
+
+
+def test_call_function_with_memory_pool():
+    arr = pa.array(["foo", "bar", "baz"])
+    indices = np.array([2, 2, 1])
+    result1 = arr.take(indices)
+    result2 = pc.call_function('take', [arr, indices],
+                               memory_pool=pa.default_memory_pool())
+    expected = pa.array(["baz", "baz", "bar"])
+    assert result1.equals(expected)
+    assert result2.equals(expected)
+
+
 @pytest.mark.parametrize('ordered', [False, True])
 def test_take_dictionary(ordered):
     arr = pa.DictionaryArray.from_arrays([0, 1, 2, 0, 1, 2], ['a', 'b', 'c'],
