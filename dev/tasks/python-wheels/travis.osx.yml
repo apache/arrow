@@ -45,6 +45,7 @@ addons:
       - zstd
       - bison
       - flex
+    update: true
 
 # don't build twice
 if: tag IS blank
