@@ -76,7 +76,7 @@ before_install:
   - before_install
 
 install:
-  # # the following functions are defined in osx-build.sh
+  # the following functions are defined in osx-build.sh
   - build_wheel arrow
 
   # test the built wheels, move Homebrew directory to ensure
