@@ -1,5 +1,5 @@
 {% set version = ARROW_VERSION %}
-{% set number = "6" %}
+{% set number = "0" %}
 {% set cuda_enabled = cuda_compiler_version is not undefined and cuda_compiler_version == '9.2' %}
 {% set build_ext_version = "1.0.0" %}
 {% set build_ext = "cuda" if cuda_enabled else "cpu" %}
