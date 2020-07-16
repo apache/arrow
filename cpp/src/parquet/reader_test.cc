@@ -98,14 +98,14 @@ TEST(TestHadoopCompatibility, Lz4Codec) {
   std::vector<int64_t> expected_values = {1593604800, 1593604800, 1593604801, 1593604801};
   ASSERT_BATCH_EQUAL(col0, 4, 4, expected_values, 4);
 
-  // col1, c1
+  // column 1, c1
   std::vector<ByteArray> expected_byte_arrays = {ByteArray("abc"), ByteArray("def"),
                                                  ByteArray("abc"), ByteArray("def")};
   std::shared_ptr<ByteArrayReader> col1 =
       std::dynamic_pointer_cast<ByteArrayReader>(group->Column(1));
   ASSERT_BATCH_EQUAL(col1, 4, 4, expected_byte_arrays, 4);
 
-  // col2, v11
+  // column 2, v11
   std::vector<double> expected_double_values = {42.0, 7.7, 42.125, 7.7};
   std::shared_ptr<DoubleReader> col2 =
       std::dynamic_pointer_cast<DoubleReader>(group->Column(2));

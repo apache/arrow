@@ -20,13 +20,13 @@
 #include <cstdint>
 #include <cstring>
 #include <memory>
-#include "arrow/util/bit_util.h"
 
 #include <lz4.h>
 #include <lz4frame.h>
 
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 
@@ -312,7 +312,6 @@ class Lz4Codec : public Codec {
                              int64_t output_buffer_len, uint8_t* output_buffer) override {
     const uint32_t* input_as_uint32 = reinterpret_cast<const uint32_t*>(input);
     uint32_t expected_decompressed_size = ARROW_BYTE_SWAP32(input_as_uint32[0]);
-    uint32_t compressed_size = ARROW_BYTE_SWAP32(input_as_uint32[1]);
 
     int64_t decompressed_size =
         LZ4_decompress_safe(reinterpret_cast<const char*>(input + data_byte_offset),
@@ -362,8 +361,8 @@ class Lz4Codec : public Codec {
   const char* name() const override { return "lz4_raw"; }
 
  protected:
-  static const int64_t data_byte_offset = sizeof(uint32_t) * 2;
   // Offset starting at which page data can be read/written
+  static const int64_t data_byte_offset = sizeof(uint32_t) * 2;
 };
 
 }  // namespace
