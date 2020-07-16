@@ -51,8 +51,6 @@ before_install:
   - source multibuild/common_utils.sh
   - source multibuild/travis_osx_steps.sh
   - before_install
-  # Fix SSL TLS issue for Python 3.5 on macOS
-  - pip install requests[security]
 
 install:
   # the following functions are defined in osx-build.sh
@@ -64,7 +62,7 @@ install:
   # install the built wheel and test dependencies
   - install_wheel arrow
   # run unit tests before removing the system libraries
-  - run_unit_tests arrow
+  - ulimit -S -n 4096 && run_unit_tests arrow
   # run the import tests
   - run_import_tests
 
@@ -74,8 +72,8 @@ install:
 
   # crossbow dependencies for deployment
   - unset MACOSX_DEPLOYMENT_TARGET
-  - pip3 install click ruamel.yaml setuptools_scm github3.py toolz requests[security]
-  - python3 arrow/dev/tasks/crossbow.py
+  - /usr/local/bin/pip3 install click ruamel.yaml setuptools_scm github3.py toolz requests[security]
+  - /usr/local/bin/python3 arrow/dev/tasks/crossbow.py
       --queue-path $(pwd)
       --queue-remote {{ queue_remote_url }}
       upload-artifacts
