@@ -543,6 +543,7 @@ TEST(TestNullBuilder, Basics) {
   ASSERT_OK(builder.Append(nullptr));
   ASSERT_OK(builder.AppendNull());
   ASSERT_OK(builder.AppendNulls(2));
+  ASSERT_EQ(5, builder.null_count());
   ASSERT_OK(builder.Finish(&array));
 
   const auto& null_array = checked_cast<NullArray&>(*array);
@@ -874,6 +875,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendNull) {
   int64_t size = 1000;
   for (int64_t i = 0; i < size; ++i) {
     ASSERT_OK(this->builder_->AppendNull());
+    ASSERT_EQ(i + 1, this->builder_->null_count());
   }
 
   std::shared_ptr<Array> out;
@@ -895,6 +897,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendNull) {
 TYPED_TEST(TestPrimitiveBuilder, TestAppendNulls) {
   const int64_t size = 10;
   ASSERT_OK(this->builder_->AppendNulls(size));
+  ASSERT_EQ(size, this->builder_->null_count());
 
   std::shared_ptr<Array> result;
   FinishAndCheckPadding(this->builder_.get(), &result);
@@ -1883,6 +1886,7 @@ TEST_F(TestAdaptiveIntBuilder, TestInt16Nulls) {
   ASSERT_EQ(builder_->type()->id(), Type::INT16);
   ASSERT_OK(builder_->AppendNull());
   ASSERT_EQ(builder_->type()->id(), Type::INT16);
+  ASSERT_EQ(1, builder_->null_count());
   Done();
 
   std::vector<int16_t> expected_values({0, 128, 0});
@@ -1991,10 +1995,13 @@ TEST_F(TestAdaptiveIntBuilder, TestAssertZeroPadded) {
 TEST_F(TestAdaptiveIntBuilder, TestAppendNull) {
   int64_t size = 1000;
   ASSERT_OK(builder_->Append(127));
+  ASSERT_EQ(0, builder_->null_count());
   for (unsigned index = 1; index < size - 1; ++index) {
     ASSERT_OK(builder_->AppendNull());
+    ASSERT_EQ(index, builder_->null_count());
   }
   ASSERT_OK(builder_->Append(-128));
+  ASSERT_EQ(size - 2, builder_->null_count());
 
   Done();
 
@@ -2011,7 +2018,9 @@ TEST_F(TestAdaptiveIntBuilder, TestAppendNull) {
 
 TEST_F(TestAdaptiveIntBuilder, TestAppendNulls) {
   constexpr int64_t size = 10;
+  ASSERT_EQ(0, builder_->null_count());
   ASSERT_OK(builder_->AppendNulls(size));
+  ASSERT_EQ(size, builder_->null_count());
 
   Done();
 
@@ -2107,6 +2116,7 @@ TEST_F(TestAdaptiveUIntBuilder, TestUInt16Nulls) {
   ASSERT_EQ(builder_->type()->id(), Type::UINT16);
   ASSERT_OK(builder_->AppendNull());
   ASSERT_EQ(builder_->type()->id(), Type::UINT16);
+  ASSERT_EQ(1, builder_->null_count());
   Done();
 
   std::vector<uint16_t> expected_values({0, 256, 0});
@@ -2195,6 +2205,7 @@ TEST_F(TestAdaptiveUIntBuilder, TestAppendNull) {
   ASSERT_OK(builder_->Append(254));
   for (unsigned index = 1; index < size - 1; ++index) {
     ASSERT_OK(builder_->AppendNull());
+    ASSERT_EQ(index, builder_->null_count());
   }
   ASSERT_OK(builder_->Append(255));
 
@@ -2214,6 +2225,7 @@ TEST_F(TestAdaptiveUIntBuilder, TestAppendNull) {
 TEST_F(TestAdaptiveUIntBuilder, TestAppendNulls) {
   constexpr int64_t size = 10;
   ASSERT_OK(builder_->AppendNulls(size));
+  ASSERT_EQ(size, builder_->null_count());
 
   Done();
 
