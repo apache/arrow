@@ -20,6 +20,7 @@
 #include <cstdint>
 #include <cstring>
 #include <memory>
+#include "arrow/util/bit_util.h"
 
 #include <lz4.h>
 #include <lz4frame.h>
@@ -309,10 +310,16 @@ class Lz4Codec : public Codec {
  public:
   Result<int64_t> Decompress(int64_t input_len, const uint8_t* input,
                              int64_t output_buffer_len, uint8_t* output_buffer) override {
+    const uint32_t* input_as_uint32 = reinterpret_cast<const uint32_t*>(input);
+    uint32_t expected_decompressed_size = ARROW_BYTE_SWAP32(input_as_uint32[0]);
+    uint32_t compressed_size = ARROW_BYTE_SWAP32(input_as_uint32[1]);
+
     int64_t decompressed_size = LZ4_decompress_safe(
-        reinterpret_cast<const char*>(input), reinterpret_cast<char*>(output_buffer),
-        static_cast<int>(input_len), static_cast<int>(output_buffer_len));
-    if (decompressed_size < 0) {
+        reinterpret_cast<const char*>(input + data_byte_offset),
+        reinterpret_cast<char*>(output_buffer),
+        static_cast<int>(input_len - data_byte_offset),
+        static_cast<int>(output_buffer_len));
+    if (decompressed_size < 0 || decompressed_size != expected_decompressed_size) {
       return Status::IOError("Corrupt Lz4 compressed data.");
     }
     return decompressed_size;
@@ -320,18 +327,25 @@ class Lz4Codec : public Codec {
 
   int64_t MaxCompressedLen(int64_t input_len,
                            const uint8_t* ARROW_ARG_UNUSED(input)) override {
-    return LZ4_compressBound(static_cast<int>(input_len));
+    return data_byte_offset + LZ4_compressBound(static_cast<int>(input_len));
   }
 
   Result<int64_t> Compress(int64_t input_len, const uint8_t* input,
                            int64_t output_buffer_len, uint8_t* output_buffer) override {
     int64_t output_len = LZ4_compress_default(
-        reinterpret_cast<const char*>(input), reinterpret_cast<char*>(output_buffer),
-        static_cast<int>(input_len), static_cast<int>(output_buffer_len));
-    if (output_len == 0) {
+        reinterpret_cast<const char*>(input),
+        reinterpret_cast<char*>(output_buffer + data_byte_offset),
+        static_cast<int>(input_len),
+        static_cast<int>(output_buffer_len));
+    if (output_len > 0) {
+      // Prepend decompressed size in bytes and compressed size in bytes
+      // to be compatible with Hadoop Lz4Codec
+      ((uint32_t*)output_buffer)[0] = ARROW_BYTE_SWAP32((uint32_t)input_len);
+      ((uint32_t*)output_buffer)[1] = ARROW_BYTE_SWAP32((uint32_t)output_len);
+    } else {
       return Status::IOError("Lz4 compression failure.");
     }
-    return output_len;
+    return data_byte_offset + output_len;
   }
 
   Result<std::shared_ptr<Compressor>> MakeCompressor() override {
@@ -347,6 +361,10 @@ class Lz4Codec : public Codec {
   }
 
   const char* name() const override { return "lz4_raw"; }
+
+ protected:
+  static const int64_t data_byte_offset = sizeof(uint32_t) * 2;
+    // Offset starting at which page data can be read/written
 };
 
 }  // namespace
