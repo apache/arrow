@@ -922,22 +922,22 @@ garrow_string_dictionary_array_builder_new(void);
 GARROW_AVAILABLE_IN_1_0
 gboolean
 garrow_string_dictionary_array_builder_append_null(GArrowStringDictionaryArrayBuilder *builder,
-                                             GError **error);
+                                                   GError **error);
 GARROW_AVAILABLE_IN_1_0
 gboolean
 garrow_string_dictionary_array_builder_append_nulls(GArrowStringDictionaryArrayBuilder *builder,
-                                              gint64 n,
-                                              GError **error);
+                                                    gint64 n,
+                                                    GError **error);
 GARROW_AVAILABLE_IN_1_0
 gboolean
 garrow_string_dictionary_array_builder_append_string(GArrowStringDictionaryArrayBuilder *builder,
-                                               const gchar *value,
-                                               GError **error);
+                                                     const gchar *value,
+                                                     GError **error);
 GARROW_AVAILABLE_IN_1_0
 gboolean
 garrow_string_dictionary_array_builder_append_string_array(GArrowStringDictionaryArrayBuilder *builder,
-                                                     GArrowStringArray *array,
-                                                     GError **error);
+                                                           GArrowStringArray *array,
+                                                           GError **error);
 GARROW_AVAILABLE_IN_1_0
 gint64
 garrow_string_dictionary_array_builder_get_dictionary_length(GArrowStringDictionaryArrayBuilder *builder);
