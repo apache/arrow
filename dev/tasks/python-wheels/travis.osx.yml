@@ -43,6 +43,8 @@ addons:
       - thrift
       - wget
       - zstd
+      - bison
+      - flex
 
 # don't build twice
 if: tag IS blank
@@ -55,6 +57,7 @@ env:
     - PYARROW_BUILD_VERBOSE=1
     - MB_PYTHON_VERSION={{ python_version }}
     - MACOSX_DEPLOYMENT_TARGET="10.9"
+    - HOMEBREW_NO_AUTO_UPDATE=1
 
 before_install:
   - git clone https://github.com/matthew-brett/multibuild
@@ -63,6 +66,7 @@ before_install:
   - git clone --no-checkout {{ arrow.remote }} arrow
   - git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
   - git -C arrow checkout FETCH_HEAD
+  - git -C arrow submodule update --init
 
   # source utilities required for wheel builds
   - export CONFIG_PATH=`pwd`/arrow/dev/tasks/python-wheels/osx-build.sh
@@ -89,7 +93,6 @@ install:
   - deactivate
 
   # crossbow dependencies for deployment
-  # - unset MACOSX_DEPLOYMENT_TARGET
   - /usr/local/opt/python@3.8/libexec/bin/pip install click ruamel.yaml setuptools_scm github3.py toolz requests[security]
   - /usr/local/opt/python@3.8/libexec/bin/python arrow/dev/tasks/crossbow.py
       --queue-path $(pwd)
