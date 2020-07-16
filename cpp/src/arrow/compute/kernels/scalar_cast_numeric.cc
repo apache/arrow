@@ -49,11 +49,6 @@ void CastFloatingToFloating(KernelContext*, const ExecBatch& batch, Datum* out) 
 // ----------------------------------------------------------------------
 // Implement fast safe floating point to integer cast
 
-template <typename T>
-std::string FormatInt(T val) {
-  return std::to_string(val);
-}
-
 // InType is a floating point type we are planning to cast to integer
 template <typename InType, typename OutType, typename InT = typename InType::c_type,
           typename OutT = typename OutType::c_type>
@@ -66,7 +61,7 @@ Status CheckFloatTruncation(const Datum& input, const Datum& output) {
     return is_valid && static_cast<InT>(out_val) != in_val;
   };
   auto GetErrorMessage = [&](InT val) {
-    return Status::Invalid("Float value ", FormatInt(val), " was truncated converting to",
+    return Status::Invalid("Float value ", val, " was truncated converting to",
                            *output.type());
   };
 
