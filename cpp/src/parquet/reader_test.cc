@@ -85,15 +85,15 @@ TEST(TestHadoopCompatibility, Lz4Codec) {
     ParquetFileReader::OpenFile(hadoop_lz4_compressed());
   std::shared_ptr<RowGroupReader> group = reader_->RowGroup(0);
 
-  // This file only has 5 rows
+  // This file only has 4 rows
   ASSERT_EQ(4, reader_->metadata()->num_rows());
   // This file only has 3 columns
   ASSERT_EQ(3, reader_->metadata()->num_columns());
   // This file only has 1 row group
   ASSERT_EQ(1, reader_->metadata()->num_row_groups());
-  // Size of the metadata is 395 bytes
+  // Size of the metadata is 376 bytes
   ASSERT_EQ(376, reader_->metadata()->size());
-  // This row group must have 5 rows
+  // This row group must have 4 rows
   ASSERT_EQ(4, group->metadata()->num_rows());
 
   // column 0, c0
