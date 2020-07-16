@@ -17,6 +17,36 @@
 
 #include "./epoch_time_point.h"
 
+bool is_leap_year(int yy) {
+  if ((yy % 4) != 0) {
+    // not divisible by 4
+    return false;
+  }
+  // yy = 4x
+  if ((yy % 400) == 0) {
+    // yy = 400x
+    return true;
+  }
+  // yy = 4x, return true if yy != 100x
+  return ((yy % 100) != 0);
+}
+
+bool is_last_day_of_month(const EpochTimePoint& tp) {
+  int days_in_month[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+  if (tp.TmMon() != 1) {
+    // not February. Don't worry about leap year
+    return (tp.TmMday() == days_in_month[tp.TmMon()]);
+  } else if (tp.TmMday() < 28) {
+    // this is February, check if the day is 28 or 29
+    return false;
+  } else if (tp.TmMday() == 29) {
+    // Feb 29th
+    return true;
+  }
+  // check if year is non-leap year
+  return !is_leap_year(tp.TmYear());
+}
+
 extern "C" {
 
 #include <time.h>
@@ -66,7 +96,8 @@ extern "C" {
     if (end_tm.TmMday() < start_tm.TmMday()) {                                        \
       /* case b */                                                                    \
       diff = MONTHS_TO_TIMEUNIT(months_diff - 1, N_MONTHS);                           \
-      return SIGN_ADJUST_DIFF(is_positive, diff);                                     \
+      return SIGN_ADJUST_DIFF(is_positive, diff) +                                    \
+             (is_last_day_of_month(end_tm) ? 1 : 0);                                  \
     }                                                                                 \
     gdv_int32 end_day_millis =                                                        \
         static_cast<gdv_int32>(end_tm.TmHour() * MILLIS_IN_HOUR +                     \
