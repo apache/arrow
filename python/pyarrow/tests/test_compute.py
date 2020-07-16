@@ -288,46 +288,35 @@ def test_take_on_chunked_array():
     # ARROW-9504
     arr = pa.chunked_array([
         [
-            "m",
-            "J",
-            "q",
-            "k",
-            "t"
+            "a",
+            "b",
+            "c",
+            "d",
+            "e"
         ],
         [
-            "m",
-            "J",
-            "q",
-            "k",
-            "t"
+            "f",
+            "g",
+            "h",
+            "i",
+            "j"
         ]
     ])
 
-    indices = np.array([0, 5, 1, 6, 2, 7, 3, 8, 4, 9])
+    indices = np.array([0, 5, 1, 6, 9, 2])
     result = arr.take(indices)
-    expected = pa.chunked_array([
-        "m",
-        "m",
-        "J",
-        "J",
-        "q",
-        "q",
-        "k",
-        "k",
-        "t"
-        "t"
-    ])
+    expected = pa.chunked_array([["a", "f", "b", "g", "j", "c"]])
     assert result.equals(expected)
 
-    indices = pa.chunked_array([[1], [1, 2]])
+    indices = pa.chunked_array([[1], [9, 2]])
     result = arr.take(indices)
     expected = pa.chunked_array([
         [
-            "J"
+            "b"
         ],
         [
-            "J",
-            "q"
+            "j",
+            "c"
         ]
     ])
     assert result.equals(expected)
