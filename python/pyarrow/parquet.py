@@ -327,11 +327,12 @@ class ParquetFile:
         Parameters
         ----------
         batch_size: int, default 64K
-            Number of records to yield per batch
+            Maximum number of records to yield per batch. Batches may be
+            smaller if there aren't enough rows in a rowgroup.
         row_groups: list
             Only these row groups will be read from the file.
         columns: list
-            If not None, only these columns will be read from the row group. A
+            If not None, only these columns will be read from the file. A
             column name may be a prefix of a nested field, e.g. 'a' will select
             'a.b', 'a.c', and 'a.d.e'
         use_threads : boolean, default True
