@@ -58,22 +58,18 @@ std::string nation_dict_truncated_data_page() {
   return data_file("nation.dict-malformed.parquet");
 }
 
-std::string hadoop_lz4_compressed() {
-  return data_file("hadoop_lz4_compressed.parquet");
-}
+std::string hadoop_lz4_compressed() { return data_file("hadoop_lz4_compressed.parquet"); }
 
 // TODO: Assert on definition and repetition levels
 template <typename DType, typename ValueType>
-void ASSERT_BATCH_EQUAL(std::shared_ptr<TypedColumnReader<DType>> col,
-                        int64_t batch_size,
+void ASSERT_BATCH_EQUAL(std::shared_ptr<TypedColumnReader<DType>> col, int64_t batch_size,
                         int64_t expected_levels_read,
                         std::vector<ValueType>& expected_values,
                         int64_t expected_values_read) {
   ValueType values[batch_size];
   int64_t values_read;
 
-  auto levels_read =
-    col->ReadBatch(batch_size, nullptr, nullptr, values, &values_read);
+  auto levels_read = col->ReadBatch(batch_size, nullptr, nullptr, values, &values_read);
   ASSERT_EQ(expected_levels_read, levels_read);
 
   ASSERT_EQ(expected_values, std::vector<ValueType>(values, values + batch_size));
@@ -82,7 +78,7 @@ void ASSERT_BATCH_EQUAL(std::shared_ptr<TypedColumnReader<DType>> col,
 
 TEST(TestHadoopCompatibility, Lz4Codec) {
   std::unique_ptr<ParquetFileReader> reader_ =
-    ParquetFileReader::OpenFile(hadoop_lz4_compressed());
+      ParquetFileReader::OpenFile(hadoop_lz4_compressed());
   std::shared_ptr<RowGroupReader> group = reader_->RowGroup(0);
 
   // This file only has 4 rows
@@ -98,26 +94,21 @@ TEST(TestHadoopCompatibility, Lz4Codec) {
 
   // column 0, c0
   std::shared_ptr<Int64Reader> col0 =
-    std::dynamic_pointer_cast<Int64Reader>(group->Column(0));
-  std::vector<int64_t> expected_values =
-    {1593604800, 1593604800, 1593604801, 1593604801};
+      std::dynamic_pointer_cast<Int64Reader>(group->Column(0));
+  std::vector<int64_t> expected_values = {1593604800, 1593604800, 1593604801, 1593604801};
   ASSERT_BATCH_EQUAL(col0, 4, 4, expected_values, 4);
 
   // col1, c1
-  std::vector<ByteArray> expected_byte_arrays = {
-    ByteArray("abc"),
-    ByteArray("def"),
-    ByteArray("abc"),
-    ByteArray("def")
-  };
+  std::vector<ByteArray> expected_byte_arrays = {ByteArray("abc"), ByteArray("def"),
+                                                 ByteArray("abc"), ByteArray("def")};
   std::shared_ptr<ByteArrayReader> col1 =
-    std::dynamic_pointer_cast<ByteArrayReader>(group->Column(1));
+      std::dynamic_pointer_cast<ByteArrayReader>(group->Column(1));
   ASSERT_BATCH_EQUAL(col1, 4, 4, expected_byte_arrays, 4);
 
   // col2, v11
   std::vector<double> expected_double_values = {42.0, 7.7, 42.125, 7.7};
   std::shared_ptr<DoubleReader> col2 =
-    std::dynamic_pointer_cast<DoubleReader>(group->Column(2));
+      std::dynamic_pointer_cast<DoubleReader>(group->Column(2));
   ASSERT_BATCH_EQUAL(col2, 4, 4, expected_double_values, 4);
 }
 

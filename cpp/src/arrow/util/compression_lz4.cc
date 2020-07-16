@@ -314,11 +314,11 @@ class Lz4Codec : public Codec {
     uint32_t expected_decompressed_size = ARROW_BYTE_SWAP32(input_as_uint32[0]);
     uint32_t compressed_size = ARROW_BYTE_SWAP32(input_as_uint32[1]);
 
-    int64_t decompressed_size = LZ4_decompress_safe(
-        reinterpret_cast<const char*>(input + data_byte_offset),
-        reinterpret_cast<char*>(output_buffer),
-        static_cast<int>(input_len - data_byte_offset),
-        static_cast<int>(output_buffer_len));
+    int64_t decompressed_size =
+        LZ4_decompress_safe(reinterpret_cast<const char*>(input + data_byte_offset),
+                            reinterpret_cast<char*>(output_buffer),
+                            static_cast<int>(input_len - data_byte_offset),
+                            static_cast<int>(output_buffer_len));
     if (decompressed_size < 0 || decompressed_size != expected_decompressed_size) {
       return Status::IOError("Corrupt Lz4 compressed data.");
     }
@@ -335,8 +335,7 @@ class Lz4Codec : public Codec {
     int64_t output_len = LZ4_compress_default(
         reinterpret_cast<const char*>(input),
         reinterpret_cast<char*>(output_buffer + data_byte_offset),
-        static_cast<int>(input_len),
-        static_cast<int>(output_buffer_len));
+        static_cast<int>(input_len), static_cast<int>(output_buffer_len));
     if (output_len > 0) {
       // Prepend decompressed size in bytes and compressed size in bytes
       // to be compatible with Hadoop Lz4Codec
@@ -364,7 +363,7 @@ class Lz4Codec : public Codec {
 
  protected:
   static const int64_t data_byte_offset = sizeof(uint32_t) * 2;
-    // Offset starting at which page data can be read/written
+  // Offset starting at which page data can be read/written
 };
 
 }  // namespace
