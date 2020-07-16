@@ -174,10 +174,12 @@ num_kernels: {}
     def num_kernels(self):
         return self.base_func.num_kernels()
 
-    def call(self, args, FunctionOptions options=None):
+    def call(self, args, FunctionOptions options=None,
+             MemoryPool memory_pool=None):
         cdef:
             const CFunctionOptions* c_options = NULL
-            CExecContext* c_exec_ctx = NULL
+            CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
+            CExecContext c_exec_ctx = CExecContext(pool)
             vector[CDatum] c_args
             CDatum result
 
@@ -189,7 +191,7 @@ num_kernels: {}
         with nogil:
             result = GetResultValue(self.base_func.Execute(c_args,
                                                            c_options,
-                                                           c_exec_ctx))
+                                                           &c_exec_ctx))
 
         return wrap_datum(result)
 
@@ -291,9 +293,9 @@ def function_registry():
     return _global_func_registry
 
 
-def call_function(name, args, options=None):
+def call_function(name, args, options=None, memory_pool=None):
     func = _global_func_registry.get_function(name)
-    return func.call(args, options=options)
+    return func.call(args, options=options, memory_pool=memory_pool)
 
 
 cdef class FunctionOptions:
