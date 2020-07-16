@@ -18,6 +18,32 @@ os: osx
 osx_image: xcode11.3
 language: generic
 
+addons:
+  homebrew:
+    packages:
+      - automake
+      - boost
+      - brotli
+      - c-ares
+      - ccache
+      - cmake
+      - flatbuffers
+      - git
+      - glog
+      - grpc
+      - lz4
+      - ninja
+      - numpy
+      - openssl@1.1
+      - protobuf
+      - python@3.8
+      - rapidjson
+      - re2
+      - snappy
+      - thrift
+      - wget
+      - zstd
+
 # don't build twice
 if: tag IS blank
 
@@ -38,9 +64,6 @@ before_install:
   - git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
   - git -C arrow checkout FETCH_HEAD
 
-  - travis_wait 30 brew bundle --file=arrow/cpp/Brewfile
-  - brew upgrade python@3.8
-
   # source utilities required for wheel builds
   - export CONFIG_PATH=`pwd`/arrow/dev/tasks/python-wheels/osx-build.sh
   - source multibuild/common_utils.sh
@@ -49,17 +72,17 @@ before_install:
 
 install:
   # # the following functions are defined in osx-build.sh
-  # - build_wheel arrow
+  - build_wheel arrow
 
   # test the built wheels, move Homebrew directory to ensure
   # things are properly statically-linked
   - sudo mv $(brew --cellar){,.bak}
-  # # install the built wheel and test dependencies
-  # - install_wheel arrow
-  # # run unit tests before removing the system libraries
-  # - ulimit -S -n 4096 && run_unit_tests arrow
-  # # run the import tests
-  # - run_import_tests
+  # install the built wheel and test dependencies
+  - install_wheel arrow
+  # run unit tests before removing the system libraries
+  - ulimit -S -n 4096 && run_unit_tests arrow
+  # run the import tests
+  - run_import_tests
 
   - sudo mv $(brew --cellar){.bak,}
   # before_install activates a virtualenv but we need the system python3
@@ -74,7 +97,7 @@ install:
       upload-artifacts
       --sha {{ task.branch }}
       --tag {{ task.tag }}
-      --pattern "arrow/*.md"
+      --pattern "arrow/python/dist/*.whl"
 
   {% if arrow.branch == 'master' %}
   # upload to gemfury pypi repository, there should be a single wheel
