@@ -378,10 +378,12 @@ class Lz4HadoopCodec : public Lz4Codec {
           Lz4Codec::Decompress(input_len, input, output_buffer_len, output_buffer));
     } else {
       // Parquet file was likely compressed with Hadoop Lz4Codec
-      Result<int64_t> decompressed_size_result = Lz4Codec::Decompress(lz4_compressed_buffer_size, input + data_byte_offset,
+      Result<int64_t> decompressed_size_result =
+          Lz4Codec::Decompress(lz4_compressed_buffer_size, input + data_byte_offset,
                                output_buffer_len, output_buffer);
-      
-      if (!decompressed_size_result.ok() || decompressed_size_result.ValueOrDie() != expected_decompressed_size) {
+
+      if (!decompressed_size_result.ok() ||
+          decompressed_size_result.ValueOrDie() != expected_decompressed_size) {
         // Fall back on regular LZ4-block decompression
         ARROW_ASSIGN_OR_RAISE(
             decompressed_size,
