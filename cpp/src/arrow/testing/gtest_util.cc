@@ -106,13 +106,6 @@ void AssertTsSame(const T& expected, const T& actual, CompareFunctor&& compare) 
   }
 }
 
-template <typename T>
-void AssertTsApproxEqual(const T& expected, const T& actual) {
-  return AssertTsSame(expected, actual, [](const T& expected, const T& actual) {
-    return expected.ApproxEquals(actual);
-  });
-}
-
 template <typename CompareFunctor>
 void AssertArraysEqualWith(const Array& expected, const Array& actual, bool verbose,
                            CompareFunctor&& compare) {
