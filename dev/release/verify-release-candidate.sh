@@ -73,6 +73,7 @@ if [ -z "${ARROW_CUDA:-}" ] && detect_cuda; then
 fi
 : ${ARROW_CUDA:=OFF}
 : ${ARROW_FLIGHT:=ON}
+: ${ARROW_GANDIVA:=ON}
 
 ARROW_DIST_URL='https://dist.apache.org/repos/dist/dev/arrow'
 
@@ -278,7 +279,7 @@ ${ARROW_CMAKE_OPTIONS:-}
 -DARROW_PLASMA=ON
 -DARROW_ORC=ON
 -DARROW_PYTHON=ON
--DARROW_GANDIVA=ON
+-DARROW_GANDIVA=${ARROW_GANDIVA}
 -DARROW_PARQUET=ON
 -DARROW_DATASET=ON
 -DPARQUET_REQUIRE_ENCRYPTION=ON
@@ -372,7 +373,6 @@ test_python() {
   pip install -r requirements-build.txt -r requirements-test.txt
 
   export PYARROW_WITH_DATASET=1
-  export PYARROW_WITH_GANDIVA=1
   export PYARROW_WITH_PARQUET=1
   export PYARROW_WITH_PLASMA=1
   if [ "${ARROW_CUDA}" = "ON" ]; then
@@ -380,6 +380,9 @@ test_python() {
   fi
   if [ "${ARROW_FLIGHT}" = "ON" ]; then
     export PYARROW_WITH_FLIGHT=1
+  fi
+  if [ "${ARROW_GANDIVA}" = "ON" ]; then
+    export PYARROW_WITH_GANDIVA=1
   fi
 
   python setup.py build_ext --inplace
