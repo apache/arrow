@@ -679,18 +679,19 @@ struct StringConverter<TIME_TYPE, enable_if_time<TIME_TYPE>> {
       return false;
     }
 
+    auto seconds_count = static_cast<value_type>(since_midnight.count());
     if (length == 8) {
-      *out = util::CastSecondsToUnit(unit, since_midnight.count());
+      *out = util::CastSecondsToUnit(unit, seconds_count);
       return true;
     }
 
-    uint32_t subseconds = 0;
+    uint32_t subseconds_count = 0;
     if (ARROW_PREDICT_FALSE(
-            !detail::ParseSubSeconds(s + 8, length - 8, unit, &subseconds))) {
+            !detail::ParseSubSeconds(s + 8, length - 8, unit, &subseconds_count))) {
       return false;
     }
 
-    *out = util::CastSecondsToUnit(unit, since_midnight.count()) + subseconds;
+    *out = util::CastSecondsToUnit(unit, seconds_count) + subseconds_count;
     return true;
   }
 };
