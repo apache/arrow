@@ -23,8 +23,7 @@ use crate::arrow::datatypes::DataType;
 use crate::arrow::record_batch::RecordBatch;
 use crate::error::{ExecutionError, Result};
 use crate::execution::context::ExecutionContext;
-use crate::logicalplan::{col, Expr, LogicalPlan};
-use crate::logicalplan::{LogicalPlanBuilder, ScalarValue};
+use crate::logicalplan::{col, Expr, LogicalPlan, LogicalPlanBuilder};
 use crate::table::*;
 use arrow::datatypes::Schema;
 
