@@ -360,9 +360,6 @@ class Lz4HadoopCodec : public Lz4Codec {
     // The following variables only make sense if the parquet file being read was
     // compressed using the Hadoop Lz4Codec.
     //
-    // We use a heuristic to determine if the parquet file being read
-    // was compressed using the Hadoop Lz4Codec.
-    //
     // Parquet files written with the Hadoop Lz4Codec contain at the beginning
     // of the input buffer two uint32_t's representing (in this order) expected
     // decompressed size in bytes and expected compressed size in bytes.
@@ -371,6 +368,8 @@ class Lz4HadoopCodec : public Lz4Codec {
     uint32_t expected_compressed_size = ARROW_BYTE_SWAP32(input_as_uint32[1]);
     int64_t lz4_compressed_buffer_size = input_len - data_byte_offset;
 
+    // We use a heuristic to determine if the parquet file being read
+    // was compressed using the Hadoop Lz4Codec.
     int64_t decompressed_size;
     if (lz4_compressed_buffer_size != expected_compressed_size) {
       // Parquet file was compressed without Hadoop Lz4Codec
@@ -378,14 +377,17 @@ class Lz4HadoopCodec : public Lz4Codec {
           decompressed_size,
           Lz4Codec::Decompress(input_len, input, output_buffer_len, output_buffer));
     } else {
-      // Parquet file was compressed with Hadoop Lz4Codec
-      ARROW_ASSIGN_OR_RAISE(
-          decompressed_size,
-          Lz4Codec::Decompress(lz4_compressed_buffer_size, input + data_byte_offset,
-                               output_buffer_len, output_buffer));
-
-      if (decompressed_size != expected_decompressed_size) {
-        return Status::IOError("Corrupt Lz4 compressed data.");
+      // Parquet file was likely compressed with Hadoop Lz4Codec
+      Result<int64_t> decompressed_size_result = Lz4Codec::Decompress(lz4_compressed_buffer_size, input + data_byte_offset,
+                               output_buffer_len, output_buffer);
+      
+      if (!decompressed_size_result.ok() || decompressed_size_result.ValueOrDie() != expected_decompressed_size) {
+        // Fall back on regular LZ4-block decompression
+        ARROW_ASSIGN_OR_RAISE(
+            decompressed_size,
+            Lz4Codec::Decompress(input_len, input, output_buffer_len, output_buffer));
+      } else {
+        decompressed_size = decompressed_size_result.ValueOrDie();
       }
     }
 
