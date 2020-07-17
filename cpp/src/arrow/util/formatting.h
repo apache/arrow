@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include <array>
 #include <cassert>
 #include <chrono>
 #include <limits>
@@ -38,9 +39,7 @@
 namespace arrow {
 namespace internal {
 
-/////////////////////////////////////////////////////////////////////////
-// Boolean formatting
-
+/// \brief The entry point for conversion to strings.
 template <typename ARROW_TYPE, typename Enable = void>
 class StringFormatter;
 
@@ -60,6 +59,9 @@ using enable_if_formattable = enable_if_t<is_formattable<T>::value, R>;
 
 template <typename Appender>
 using Return = decltype(std::declval<Appender>()(util::string_view{}));
+
+/////////////////////////////////////////////////////////////////////////
+// Boolean formatting
 
 template <>
 class StringFormatter<BooleanType> {

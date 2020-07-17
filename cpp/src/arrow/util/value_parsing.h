@@ -63,6 +63,16 @@ class ARROW_EXPORT TimestampParser {
 
 namespace internal {
 
+/// \brief The entry point for conversion from strings.
+///
+/// Specializations of StringConverter for `ARROW_TYPE` must define:
+/// - A default constructible member type `value_type` which will be yielded on a
+///   successful parse.
+/// - The static member function `Convert`, callable with signature
+///   `(const ARROW_TYPE& t, const char* s, size_t length, value_type* out)`.
+///   `Convert` returns truthy for successful parses and assigns the parsed values to
+///   `*out`. Parameters required for parsing (for example a timestamp's TimeUnit)
+///   are acquired from the type parameter `t`.
 template <typename ARROW_TYPE, typename Enable = void>
 struct StringConverter;
 
