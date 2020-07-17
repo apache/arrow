@@ -85,7 +85,6 @@ if "%PY_VERSION%"=="3.5" GOTO done
 :python36_and_higher_checks
 
 python -c "import pyarrow.flight" || EXIT /B 1
-python -c "import pyarrow.gandiva" || EXIT /B 1
 python -c "import pyarrow.dataset" || EXIT /B 1
 
 :done
