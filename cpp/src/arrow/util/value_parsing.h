@@ -679,9 +679,9 @@ struct StringConverter<TIME_TYPE, enable_if_time<TIME_TYPE>> {
       return false;
     }
 
-    auto seconds_count = static_cast<value_type>(since_midnight.count());
+    *out = static_cast<value_type>(util::CastSecondsToUnit(unit, since_midnight.count()));
+
     if (length == 8) {
-      *out = util::CastSecondsToUnit(unit, seconds_count);
       return true;
     }
 
@@ -691,7 +691,7 @@ struct StringConverter<TIME_TYPE, enable_if_time<TIME_TYPE>> {
       return false;
     }
 
-    *out = util::CastSecondsToUnit(unit, seconds_count) + subseconds_count;
+    *out += subseconds_count;
     return true;
   }
 };
