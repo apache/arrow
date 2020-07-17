@@ -20,7 +20,7 @@ namespace Apache.Arrow.Tests
 {
     public class Date32ArrayTests
     {
-        public class GetDate
+        public class GetDateTime
         {
             [Fact]
             public void SetAndGetNull()
@@ -56,6 +56,49 @@ namespace Apache.Arrow.Tests
 
                 // Act
                 var actual = array.GetDateTime(0);
+
+                // Assert
+                Assert.NotNull(actual);
+                Assert.Equal(expected, actual.Value);
+            }
+        }
+
+        public class GetDateTimeOffset
+        {
+            [Fact]
+            public void SetAndGetNull()
+            {
+                // Arrange
+                var array = new Date32Array.Builder()
+                    .AppendNull()
+                    .Build();
+
+                // Act
+                var actual = array.GetDateTimeOffset(0);
+
+                // Assert
+                Assert.Null(actual);
+            }
+
+            [Theory]
+            [InlineData(1, 1, 1)]
+            [InlineData(1969, 12, 31)]
+            [InlineData(1970, 1, 1)]
+            [InlineData(1970, 1, 2)]
+            [InlineData(2020, 2, 29)]
+            [InlineData(2020, 7, 1)]
+            [InlineData(9999, 12, 31)]
+            public void SetAndGet(int year, int month, int day)
+            {
+                // Arrange
+                var expected = new DateTimeOffset(year, month, day, 0, 0, 0, TimeSpan.Zero);
+                var array = new Date32Array.Builder()
+                    .Resize(1)
+                    .Set(0, expected)
+                    .Build();
+
+                // Act
+                var actual = array.GetDateTimeOffset(0);
 
                 // Assert
                 Assert.NotNull(actual);

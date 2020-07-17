@@ -24,8 +24,6 @@ namespace Apache.Arrow
     /// </summary>
     public class Date64Array: PrimitiveArray<long>
     {
-        private static readonly DateTime _epoch = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Unspecified);
-
         public Date64Array(
             ArrowBuffer valueBuffer, ArrowBuffer nullBitmapBuffer,
             int length, int nullCount, int offset)
@@ -53,12 +51,13 @@ namespace Apache.Arrow
 
             protected override long Convert(DateTime dateTime)
             {
-                return (long)(dateTime - _epoch).TotalMilliseconds;
+                var dateTimeOffset = new DateTimeOffset(dateTime, TimeSpan.Zero);
+                return dateTimeOffset.ToUnixTimeMilliseconds();
             }
 
             protected override long Convert(DateTimeOffset dateTimeOffset)
             {
-                return (long)(dateTimeOffset.Date - _epoch).TotalMilliseconds;
+                return dateTimeOffset.ToUnixTimeMilliseconds();
             }
         }
 
@@ -87,7 +86,7 @@ namespace Apache.Arrow
         {
             long? value = GetValue(index);
             return value.HasValue
-                ? _epoch.AddMilliseconds(value.Value)
+                ? DateTimeOffset.FromUnixTimeMilliseconds(value.Value).Date
                 : default(DateTime?);
         }
 
@@ -101,7 +100,7 @@ namespace Apache.Arrow
         {
             long? value = GetValue(index);
             return value.HasValue
-                ? new DateTimeOffset(_epoch.AddMilliseconds(value.Value), TimeSpan.Zero)
+                ? DateTimeOffset.FromUnixTimeMilliseconds(value.Value)
                 : default(DateTimeOffset?);
         }
     }
