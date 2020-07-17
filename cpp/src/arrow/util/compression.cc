@@ -131,7 +131,7 @@ Result<std::unique_ptr<Codec>> Codec::Create(Compression::type codec_type,
       if (compression_level_set) {
         return Status::Invalid("LZ4 doesn't support setting a compression level.");
       }
-      codec = internal::MakeLz4RawCodec();
+      codec = internal::MakeLz4HadoopRawCodec();
       break;
 #else
       return Status::NotImplemented("LZ4 codec support not built");

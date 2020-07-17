@@ -61,6 +61,9 @@ std::unique_ptr<Codec> MakeSnappyCodec();
 // Lz4 "raw" format codec.
 std::unique_ptr<Codec> MakeLz4RawCodec();
 
+// Lz4 hadoop "raw" format codec.
+std::unique_ptr<Codec> MakeLz4HadoopRawCodec();
+
 // Lz4 frame format codec.
 std::unique_ptr<Codec> MakeLz4FrameCodec();
 
