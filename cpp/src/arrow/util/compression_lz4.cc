@@ -359,7 +359,7 @@ class Lz4HadoopCodec : public Lz4Codec {
                              int64_t output_buffer_len, uint8_t* output_buffer) override {
     // The following variables only make sense if the parquet file being read was
     // compressed using the Hadoop Lz4Codec.
-    // 
+    //
     // We use a heuristic to determine if the parquet file being read
     // was compressed using the Hadoop Lz4Codec.
     //
