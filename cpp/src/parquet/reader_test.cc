@@ -62,7 +62,7 @@ std::string hadoop_lz4_compressed() { return data_file("hadoop_lz4_compressed.pa
 
 // TODO: Assert on definition and repetition levels
 template <typename DType, typename ValueType>
-void ASSERT_BATCH_EQUAL(std::shared_ptr<TypedColumnReader<DType>> col, int64_t batch_size,
+void AssertColumnValues(std::shared_ptr<TypedColumnReader<DType>> col, int64_t batch_size,
                         int64_t expected_levels_read,
                         std::vector<ValueType>& expected_values,
                         int64_t expected_values_read) {
@@ -98,20 +98,20 @@ TEST(TestHadoopCompatibility, Lz4Codec) {
   std::shared_ptr<Int64Reader> col0 =
       std::dynamic_pointer_cast<Int64Reader>(group->Column(0));
   std::vector<int64_t> expected_values = {1593604800, 1593604800, 1593604801, 1593604801};
-  ASSERT_BATCH_EQUAL(col0, 4, 4, expected_values, 4);
+  AssertColumnValues(col0, 4, 4, expected_values, 4);
 
   // column 1, c1
   std::vector<ByteArray> expected_byte_arrays = {ByteArray("abc"), ByteArray("def"),
                                                  ByteArray("abc"), ByteArray("def")};
   std::shared_ptr<ByteArrayReader> col1 =
       std::dynamic_pointer_cast<ByteArrayReader>(group->Column(1));
-  ASSERT_BATCH_EQUAL(col1, 4, 4, expected_byte_arrays, 4);
+  AssertColumnValues(col1, 4, 4, expected_byte_arrays, 4);
 
   // column 2, v11
   std::vector<double> expected_double_values = {42.0, 7.7, 42.125, 7.7};
   std::shared_ptr<DoubleReader> col2 =
       std::dynamic_pointer_cast<DoubleReader>(group->Column(2));
-  ASSERT_BATCH_EQUAL(col2, 4, 4, expected_double_values, 4);
+  AssertColumnValues(col2, 4, 4, expected_double_values, 4);
 }
 #endif
 
