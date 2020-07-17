@@ -45,7 +45,8 @@ static DoubleToStringConverter g_double_converter(
 void FloatToStringFormatter::FormatFloat(float v) {
   DCHECK_GE(buffer_.size(), kMinBufferSize);
   // StringBuilder checks bounds in debug mode for us
-  util::double_conversion::StringBuilder builder(buffer_.data(), buffer_.size());
+  util::double_conversion::StringBuilder builder(buffer_.data(),
+                                                 static_cast<int>(buffer_.size()));
   bool result = g_double_converter.ToShortestSingle(v, &builder);
   DCHECK(result);
   ARROW_UNUSED(result);
@@ -54,7 +55,8 @@ void FloatToStringFormatter::FormatFloat(float v) {
 
 void FloatToStringFormatter::FormatFloat(double v) {
   DCHECK_GE(buffer_.size(), kMinBufferSize);
-  util::double_conversion::StringBuilder builder(buffer_.data(), buffer_.size());
+  util::double_conversion::StringBuilder builder(buffer_.data(),
+                                                 static_cast<int>(buffer_.size()));
   bool result = g_double_converter.ToShortest(v, &builder);
   DCHECK(result);
   ARROW_UNUSED(result);

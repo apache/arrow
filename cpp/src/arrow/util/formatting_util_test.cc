@@ -339,9 +339,9 @@ TEST(Formatting, Time64) {
     AssertFormatting(formatter, 0, "00:00:00.000000");
     AssertFormatting(formatter, 1, "00:00:00.000001");
     AssertFormatting(formatter, 1000000, "00:00:01.000000");
-    AssertFormatting(formatter, (((12) * 60 + 34) * 60 + 56) * 1000000L + 789000,
+    AssertFormatting(formatter, (((12) * 60 + 34) * 60 + 56) * 1000000LL + 789000,
                      "12:34:56.789000");
-    AssertFormatting(formatter, (24 * 60 * 60) * 1000000L - 1, "23:59:59.999999");
+    AssertFormatting(formatter, (24 * 60 * 60) * 1000000LL - 1, "23:59:59.999999");
   }
 
   {
@@ -349,10 +349,10 @@ TEST(Formatting, Time64) {
 
     AssertFormatting(formatter, 0, "00:00:00.000000000");
     AssertFormatting(formatter, 1, "00:00:00.000000001");
-    AssertFormatting(formatter, 1000000000L, "00:00:01.000000000");
-    AssertFormatting(formatter, (((12) * 60 + 34) * 60 + 56) * 1000000000L + 789000000L,
+    AssertFormatting(formatter, 1000000000LL, "00:00:01.000000000");
+    AssertFormatting(formatter, (((12) * 60 + 34) * 60 + 56) * 1000000000LL + 789000000LL,
                      "12:34:56.789000000");
-    AssertFormatting(formatter, (24 * 60 * 60) * 1000000000L - 1, "23:59:59.999999999");
+    AssertFormatting(formatter, (24 * 60 * 60) * 1000000000LL - 1, "23:59:59.999999999");
   }
 }
 
@@ -377,14 +377,14 @@ TEST(Formatting, Timestamp) {
 
     AssertFormatting(formatter, 0, "1970-01-01 00:00:00.000");
     AssertFormatting(formatter, 1000L + 1, "1970-01-01 00:00:01.001");
-    AssertFormatting(formatter, 24 * 60 * 60 * 1000L + 2, "1970-01-02 00:00:00.002");
-    AssertFormatting(formatter, 616377600 * 1000L + 3, "1989-07-14 00:00:00.003");
-    AssertFormatting(formatter, 951782400 * 1000L + 4, "2000-02-29 00:00:00.004");
-    AssertFormatting(formatter, 63730281600LL * 1000L + 5, "3989-07-14 00:00:00.005");
-    AssertFormatting(formatter, -2203977600LL * 1000L + 6, "1900-02-28 00:00:00.006");
+    AssertFormatting(formatter, 24 * 60 * 60 * 1000LL + 2, "1970-01-02 00:00:00.002");
+    AssertFormatting(formatter, 616377600 * 1000LL + 3, "1989-07-14 00:00:00.003");
+    AssertFormatting(formatter, 951782400 * 1000LL + 4, "2000-02-29 00:00:00.004");
+    AssertFormatting(formatter, 63730281600LL * 1000LL + 5, "3989-07-14 00:00:00.005");
+    AssertFormatting(formatter, -2203977600LL * 1000LL + 6, "1900-02-28 00:00:00.006");
 
-    AssertFormatting(formatter, 1542129070 * 1000L + 7, "2018-11-13 17:11:10.007");
-    AssertFormatting(formatter, -2203932304LL * 1000L + 8, "1900-02-28 12:34:56.008");
+    AssertFormatting(formatter, 1542129070LL * 1000LL + 7, "2018-11-13 17:11:10.007");
+    AssertFormatting(formatter, -2203932304LL * 1000LL + 8, "1900-02-28 12:34:56.008");
   }
 
   {
