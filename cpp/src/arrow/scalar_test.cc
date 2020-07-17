@@ -347,7 +347,8 @@ TEST(TestTimeScalars, MakeScalar) {
 
   int64_t tententen = 60 * (60 * (10) + 10) + 10;
   ASSERT_OK_AND_ASSIGN(s, Scalar::Parse(type1, "10:10:10"));
-  AssertScalarsEqual(Time32Scalar(tententen, type1), *s, /*verbose=*/true);
+  AssertScalarsEqual(Time32Scalar(static_cast<int32_t>(tententen), type1), *s,
+                     /*verbose=*/true);
 
   tententen = 1000 * tententen + 123;
   ASSERT_OK_AND_ASSIGN(s, Scalar::Parse(type2, "10:10:10.123"));
