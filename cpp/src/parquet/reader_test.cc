@@ -76,6 +76,7 @@ void ASSERT_BATCH_EQUAL(std::shared_ptr<TypedColumnReader<DType>> col, int64_t b
   ASSERT_EQ(expected_values_read, values_read);
 }
 
+#ifdef ARROW_WITH_LZ4
 TEST(TestHadoopCompatibility, Lz4Codec) {
   std::unique_ptr<ParquetFileReader> reader_ =
       ParquetFileReader::OpenFile(hadoop_lz4_compressed());
@@ -111,6 +112,7 @@ TEST(TestHadoopCompatibility, Lz4Codec) {
       std::dynamic_pointer_cast<DoubleReader>(group->Column(2));
   ASSERT_BATCH_EQUAL(col2, 4, 4, expected_double_values, 4);
 }
+#endif
 
 class TestAllTypesPlain : public ::testing::Test {
  public:
