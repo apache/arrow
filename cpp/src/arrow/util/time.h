@@ -66,20 +66,17 @@ VisitDuration(TimeUnit::type unit, Visitor&& visitor, Args&&... args) {
 }
 
 /// Convert a count of seconds to the corresponding count in a different TimeUnit
-struct {
-  /// \cond FALSE
-  // XXX doxygen emits "error: no uniquely matching class member found for"
-  int64_t operator()(TimeUnit::type unit, int64_t seconds) {
-    return VisitDuration(unit, *this, seconds);
-  }
-
+struct CastSecondsToUnitImpl {
   template <typename Duration>
   int64_t operator()(Duration, int64_t seconds) {
-    return static_cast<int64_t>(
-        std::chrono::duration_cast<Duration>(std::chrono::seconds{seconds}).count());
+    auto duration = std::chrono::duration_cast<Duration>(std::chrono::seconds{seconds});
+    return static_cast<int64_t>(duration.count());
   }
-  /// \endcond
-} CastSecondsToUnit;
+};
+
+inline int64_t CastSecondsToUnit(TimeUnit::type unit, int64_t seconds) {
+  return VisitDuration(unit, CastSecondsToUnitImpl{}, seconds);
+}
 
 }  // namespace util
 }  // namespace arrow
