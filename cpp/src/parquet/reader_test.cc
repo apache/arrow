@@ -69,7 +69,8 @@ void ASSERT_BATCH_EQUAL(std::shared_ptr<TypedColumnReader<DType>> col, int64_t b
   std::vector<ValueType> values(batch_size);
   int64_t values_read;
 
-  auto levels_read = col->ReadBatch(batch_size, nullptr, nullptr, values.data(), &values_read);
+  auto levels_read =
+      col->ReadBatch(batch_size, nullptr, nullptr, values.data(), &values_read);
   ASSERT_EQ(expected_levels_read, levels_read);
 
   ASSERT_EQ(expected_values, values);
