@@ -74,7 +74,7 @@ struct is_parseable {
   template <typename U>
   static std::false_type Test(...);
 
-  static constexpr bool value = decltype(Test<T>(nullptr))::value;
+  static constexpr bool value = decltype(Test<T>(NULLPTR))::value;
 };
 
 template <typename T, typename R = void>
@@ -409,7 +409,7 @@ static inline bool ParseHH(const char* s, Duration* out) {
   if (ARROW_PREDICT_FALSE(hours >= 24)) {
     return false;
   }
-  *out = std::chrono::duration_cast<Duration>(std::chrono::hours{hours});
+  *out = std::chrono::duration_cast<Duration>(std::chrono::hours(hours));
   return true;
 }
 
@@ -432,8 +432,8 @@ static inline bool ParseHH_MM(const char* s, Duration* out) {
   if (ARROW_PREDICT_FALSE(minutes >= 60)) {
     return false;
   }
-  *out = std::chrono::duration_cast<Duration>(std::chrono::hours{hours} +
-                                              std::chrono::minutes{minutes});
+  *out = std::chrono::duration_cast<Duration>(std::chrono::hours(hours) +
+                                              std::chrono::minutes(minutes));
   return true;
 }
 
@@ -463,9 +463,9 @@ static inline bool ParseHH_MM_SS(const char* s, Duration* out) {
   if (ARROW_PREDICT_FALSE(seconds >= 60)) {
     return false;
   }
-  *out = std::chrono::duration_cast<Duration>(std::chrono::hours{hours} +
-                                              std::chrono::minutes{minutes} +
-                                              std::chrono::seconds{seconds});
+  *out = std::chrono::duration_cast<Duration>(std::chrono::hours(hours) +
+                                              std::chrono::minutes(minutes) +
+                                              std::chrono::seconds(seconds));
   return true;
 }
 

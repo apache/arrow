@@ -52,7 +52,7 @@ struct is_formattable {
   template <typename U>
   static std::false_type Test(...);
 
-  static constexpr bool value = decltype(Test<T>(nullptr))::value;
+  static constexpr bool value = decltype(Test<T>(NULLPTR))::value;
 };
 
 template <typename T, typename R = void>

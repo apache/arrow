@@ -76,7 +76,6 @@ struct {
   Count operator()(Duration, Count seconds) {
     return std::chrono::duration_cast<Duration>(std::chrono::seconds{seconds}).count();
   }
-
 } CastSecondsToUnit;
 
 // Visit a converter from one TimeUnit to another
@@ -90,8 +89,8 @@ struct {
   };
 
   template <typename Visitor>
-  using Return =
-      decltype(Visitor{}(UnitConversion<std::chrono::seconds, std::chrono::seconds>{}));
+  using Return = decltype(std::declval<Visitor>()(
+      UnitConversion<std::chrono::seconds, std::chrono::seconds>{}));
 
   template <typename Visitor>
   Return<Visitor> operator()(TimeUnit::type to_unit, TimeUnit::type from_unit,
@@ -108,7 +107,6 @@ struct {
   Return<Visitor> operator()(FromDuration, ToDuration, Visitor&& visitor) {
     return std::forward<Visitor>(visitor)(UnitConversion<FromDuration, ToDuration>{});
   }
-
 } VisitUnitConversion;
 
 }  // namespace util
