@@ -842,8 +842,7 @@ const char* replace_utf8_utf8_utf8(gdv_int64 context, const char* text,
     gdv_##OUT_TYPE val = 0;                                                             \
     int32_t trimmed_len;                                                                \
     data = btrim_utf8(context, data, len, &trimmed_len);                                \
-    if (!arrow::internal::StringConverter<ARROW_TYPE>::Convert(data, trimmed_len,       \
-                                                               &val)) {                 \
+    if (!arrow::internal::ParseValue<ARROW_TYPE>(data, trimmed_len, &val)) {            \
       std::string err = "Failed to cast the string " + std::string(data, trimmed_len) + \
                         " to " #OUT_TYPE;                                               \
       gdv_fn_context_set_error_msg(context, err.c_str());                               \
