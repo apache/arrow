@@ -1521,7 +1521,12 @@ impl Schema {
                 return Ok(i);
             }
         }
-        Err(ArrowError::InvalidArgumentError(name.to_owned()))
+        let valid_fields: Vec<String> =
+            self.fields.iter().map(|f| f.name().clone()).collect();
+        Err(ArrowError::InvalidArgumentError(format!(
+            "Unable to get field named \"{}\". Valid fields: {:?}",
+            name, valid_fields
+        )))
     }
 
     /// Returns an immutable reference to the Map of custom metadata key-value pairs.
@@ -2359,7 +2364,9 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "InvalidArgumentError(\"nickname\")")]
+    #[should_panic(
+        expected = "Unable to get field named \\\"nickname\\\". Valid fields: [\\\"first_name\\\", \\\"last_name\\\", \\\"address\\\"]"
+    )]
     fn schema_index_of() {
         let schema = person_schema();
         assert_eq!(schema.index_of("first_name").unwrap(), 0);
@@ -2368,7 +2375,9 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "InvalidArgumentError(\"nickname\")")]
+    #[should_panic(
+        expected = "Unable to get field named \\\"nickname\\\". Valid fields: [\\\"first_name\\\", \\\"last_name\\\", \\\"address\\\"]"
+    )]
     fn schema_field_with_name() {
         let schema = person_schema();
         assert_eq!(
