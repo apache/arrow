@@ -55,14 +55,12 @@ struct CastFunctor<O, I,
   static Status Convert(KernelContext* ctx, const ArrayData& input, ArrayData* output) {
     FormatterType formatter(input.type);
     BuilderType builder(input.type, ctx->memory_pool());
-    auto convert_value = [&](util::optional<value_type> v) {
-      if (v.has_value()) {
-        return formatter(*v, [&](util::string_view v) { return builder.Append(v); });
-      } else {
-        return builder.AppendNull();
-      }
-    };
-    RETURN_NOT_OK(VisitArrayDataInline<I>(input, std::move(convert_value)));
+    RETURN_NOT_OK(VisitArrayDataInline<I>(
+        input,
+        [&](value_type v) {
+          return formatter(v, [&](util::string_view v) { return builder.Append(v); });
+        },
+        [&]() { return builder.AppendNull(); }));
 
     std::shared_ptr<Array> output_array;
     RETURN_NOT_OK(builder.Finish(&output_array));
@@ -139,26 +137,29 @@ void AddNumberToStringCasts(std::shared_ptr<DataType> out_ty, CastFunction* func
 
   for (const std::shared_ptr<DataType>& in_ty : NumericTypes()) {
     DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty}, out_ty,
-                              codegen::Numeric<CastFunctor, OutType>(*in_ty),
+                              GenerateNumeric<CastFunctor, OutType>(*in_ty),
                               NullHandling::COMPUTED_NO_PREALLOCATE));
   }
 }
 
 std::vector<std::shared_ptr<CastFunction>> GetBinaryLikeCasts() {
   auto cast_binary = std::make_shared<CastFunction>("cast_binary", Type::BINARY);
-  AddCommonCasts<BinaryType>(binary(), cast_binary.get());
+  AddCommonCasts(Type::BINARY, binary(), cast_binary.get());
+  AddZeroCopyCast(Type::STRING, {utf8()}, binary(), cast_binary.get());
 
   auto cast_large_binary =
       std::make_shared<CastFunction>("cast_large_binary", Type::LARGE_BINARY);
-  AddCommonCasts<LargeBinaryType>(large_binary(), cast_large_binary.get());
+  AddCommonCasts(Type::LARGE_BINARY, large_binary(), cast_large_binary.get());
+  AddZeroCopyCast(Type::LARGE_STRING, {large_utf8()}, large_binary(),
+                  cast_large_binary.get());
 
   auto cast_fsb =
       std::make_shared<CastFunction>("cast_fixed_size_binary", Type::FIXED_SIZE_BINARY);
-  AddCommonCasts<FixedSizeBinaryType>(OutputType(ResolveOutputFromOptions),
-                                      cast_fsb.get());
+  AddCommonCasts(Type::FIXED_SIZE_BINARY, OutputType(ResolveOutputFromOptions),
+                 cast_fsb.get());
 
   auto cast_string = std::make_shared<CastFunction>("cast_string", Type::STRING);
-  AddCommonCasts<StringType>(utf8(), cast_string.get());
+  AddCommonCasts(Type::STRING, utf8(), cast_string.get());
   AddNumberToStringCasts<StringType>(utf8(), cast_string.get());
   DCHECK_OK(cast_string->AddKernel(Type::BINARY, {binary()}, utf8(),
                                    CastFunctor<StringType, BinaryType>::Exec,
@@ -166,7 +167,7 @@ std::vector<std::shared_ptr<CastFunction>> GetBinaryLikeCasts() {
 
   auto cast_large_string =
       std::make_shared<CastFunction>("cast_large_string", Type::LARGE_STRING);
-  AddCommonCasts<LargeStringType>(large_utf8(), cast_large_string.get());
+  AddCommonCasts(Type::LARGE_STRING, large_utf8(), cast_large_string.get());
   AddNumberToStringCasts<LargeStringType>(large_utf8(), cast_large_string.get());
   DCHECK_OK(
       cast_large_string->AddKernel(Type::LARGE_BINARY, {large_binary()}, large_utf8(),

@@ -54,9 +54,48 @@ namespace arrow {
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 
-template <typename T, typename... ExtraArgs>
-void AssertTsEqual(const T& expected, const T& actual, ExtraArgs... args) {
-  if (!expected.Equals(actual, args...)) {
+std::vector<Type::type> AllTypeIds() {
+  return {Type::NA,
+          Type::BOOL,
+          Type::INT8,
+          Type::INT16,
+          Type::INT32,
+          Type::INT64,
+          Type::UINT8,
+          Type::UINT16,
+          Type::UINT32,
+          Type::UINT64,
+          Type::HALF_FLOAT,
+          Type::FLOAT,
+          Type::DOUBLE,
+          Type::DECIMAL,
+          Type::DATE32,
+          Type::DATE64,
+          Type::TIME32,
+          Type::TIME64,
+          Type::TIMESTAMP,
+          Type::INTERVAL_DAY_TIME,
+          Type::INTERVAL_MONTHS,
+          Type::DURATION,
+          Type::STRING,
+          Type::BINARY,
+          Type::LARGE_STRING,
+          Type::LARGE_BINARY,
+          Type::FIXED_SIZE_BINARY,
+          Type::STRUCT,
+          Type::LIST,
+          Type::LARGE_LIST,
+          Type::FIXED_SIZE_LIST,
+          Type::MAP,
+          Type::DENSE_UNION,
+          Type::SPARSE_UNION,
+          Type::DICTIONARY,
+          Type::EXTENSION};
+}
+
+template <typename T, typename CompareFunctor>
+void AssertTsSame(const T& expected, const T& actual, CompareFunctor&& compare) {
+  if (!compare(actual, expected)) {
     std::stringstream pp_expected;
     std::stringstream pp_actual;
     ::arrow::PrettyPrintOptions options(/*indent=*/2);
@@ -67,9 +106,29 @@ void AssertTsEqual(const T& expected, const T& actual, ExtraArgs... args) {
   }
 }
 
-void AssertArraysEqual(const Array& expected, const Array& actual, bool verbose) {
+template <typename T, typename... ExtraArgs>
+void AssertTsEqual(const T& expected, const T& actual, ExtraArgs... args) {
+  return AssertTsSame(expected, actual, [&](const T& expected, const T& actual) {
+    return expected.Equals(actual, args...);
+  });
+}
+
+template <typename T>
+void AssertTsApproxEqual(const T& expected, const T& actual) {
+  return AssertTsSame(expected, actual, [](const T& expected, const T& actual) {
+    return expected.ApproxEquals(actual);
+  });
+}
+
+template <typename CompareFunctor>
+void AssertArraysEqualWith(const Array& expected, const Array& actual, bool verbose,
+                           CompareFunctor&& compare) {
   std::stringstream diff;
-  if (!expected.Equals(actual, EqualOptions().diff_sink(&diff))) {
+  if (!compare(expected, actual, &diff)) {
+    if (expected.data()->null_count != actual.data()->null_count) {
+      diff << "Null counts differ. Expected " << expected.data()->null_count
+           << " but was " << actual.data()->null_count << "\n";
+    }
     if (verbose) {
       ::arrow::PrettyPrintOptions options(/*indent=*/2);
       options.window = 50;
@@ -80,6 +139,22 @@ void AssertArraysEqual(const Array& expected, const Array& actual, bool verbose)
     }
     FAIL() << diff.str();
   }
+}
+
+void AssertArraysEqual(const Array& expected, const Array& actual, bool verbose) {
+  return AssertArraysEqualWith(
+      expected, actual, verbose,
+      [](const Array& expected, const Array& actual, std::stringstream* diff) {
+        return expected.Equals(actual, EqualOptions().diff_sink(diff));
+      });
+}
+
+void AssertArraysApproxEqual(const Array& expected, const Array& actual, bool verbose) {
+  return AssertArraysEqualWith(
+      expected, actual, verbose,
+      [](const Array& expected, const Array& actual, std::stringstream* diff) {
+        return expected.ApproxEquals(actual, EqualOptions().diff_sink(diff));
+      });
 }
 
 void AssertScalarsEqual(const Scalar& expected, const Scalar& actual, bool verbose) {
@@ -101,6 +176,10 @@ void AssertScalarsEqual(const Scalar& expected, const Scalar& actual, bool verbo
 void AssertBatchesEqual(const RecordBatch& expected, const RecordBatch& actual,
                         bool check_metadata) {
   AssertTsEqual(expected, actual, check_metadata);
+}
+
+void AssertBatchesApproxEqual(const RecordBatch& expected, const RecordBatch& actual) {
+  AssertTsApproxEqual(expected, actual);
 }
 
 void AssertChunkedEqual(const ChunkedArray& expected, const ChunkedArray& actual) {
@@ -239,9 +318,27 @@ ASSERT_EQUAL_IMPL(Field, Field, "fields")
 ASSERT_EQUAL_IMPL(Schema, Schema, "schemas")
 #undef ASSERT_EQUAL_IMPL
 
-void AssertDatumsEqual(const Datum& expected, const Datum& actual) {
-  // TODO: Implement better print
-  ASSERT_TRUE(actual.Equals(expected));
+void AssertDatumsEqual(const Datum& expected, const Datum& actual, bool verbose) {
+  ASSERT_EQ(expected.kind(), actual.kind())
+      << "expected:" << expected.ToString() << " got:" << actual.ToString();
+
+  switch (expected.kind()) {
+    case Datum::SCALAR:
+      AssertScalarsEqual(*expected.scalar(), *actual.scalar(), verbose);
+      break;
+    case Datum::ARRAY: {
+      auto expected_array = expected.make_array();
+      auto actual_array = actual.make_array();
+      AssertArraysEqual(*expected_array, *actual_array, verbose);
+    } break;
+    case Datum::CHUNKED_ARRAY:
+      AssertChunkedEquivalent(*expected.chunked_array(), *actual.chunked_array());
+      break;
+    default:
+      // TODO: Implement better print
+      ASSERT_TRUE(actual.Equals(expected));
+      break;
+  }
 }
 
 std::shared_ptr<Array> ArrayFromJSON(const std::shared_ptr<DataType>& type,
@@ -334,8 +431,9 @@ void AssertTablesEqual(const Table& expected, const Table& actual, bool same_chu
   }
 }
 
-void CompareBatch(const RecordBatch& left, const RecordBatch& right,
-                  bool compare_metadata) {
+template <typename CompareFunctor>
+void CompareBatchWith(const RecordBatch& left, const RecordBatch& right,
+                      bool compare_metadata, CompareFunctor&& compare) {
   if (!left.schema()->Equals(*right.schema(), compare_metadata)) {
     FAIL() << "Left schema: " << left.schema()->ToString(compare_metadata)
            << "\nRight schema: " << right.schema()->ToString(compare_metadata);
@@ -344,7 +442,7 @@ void CompareBatch(const RecordBatch& left, const RecordBatch& right,
       << left.schema()->ToString() << " result: " << right.schema()->ToString();
   ASSERT_EQ(left.num_rows(), right.num_rows());
   for (int i = 0; i < left.num_columns(); ++i) {
-    if (!left.column(i)->Equals(right.column(i))) {
+    if (!compare(*left.column(i), *right.column(i))) {
       std::stringstream ss;
       ss << "Idx: " << i << " Name: " << left.column_name(i);
       ss << std::endl << "Left: ";
@@ -354,6 +452,20 @@ void CompareBatch(const RecordBatch& left, const RecordBatch& right,
       FAIL() << ss.str();
     }
   }
+}
+
+void CompareBatch(const RecordBatch& left, const RecordBatch& right,
+                  bool compare_metadata) {
+  return CompareBatchWith(
+      left, right, compare_metadata,
+      [](const Array& left, const Array& right) { return left.Equals(right); });
+}
+
+void ApproxCompareBatch(const RecordBatch& left, const RecordBatch& right,
+                        bool compare_metadata) {
+  return CompareBatchWith(
+      left, right, compare_metadata,
+      [](const Array& left, const Array& right) { return left.ApproxEquals(right); });
 }
 
 class LocaleGuard::Impl {

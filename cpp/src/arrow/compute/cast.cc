@@ -27,12 +27,15 @@
 #include "arrow/compute/cast_internal.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/kernel.h"
+#include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/registry.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
-namespace compute {
 
+using internal::ToTypeName;
+
+namespace compute {
 namespace internal {
 
 std::unordered_map<int, std::shared_ptr<CastFunction>> g_cast_table;
@@ -54,26 +57,57 @@ void InitCastTable() {
 
 void EnsureInitCastTable() { std::call_once(cast_table_initialized, InitCastTable); }
 
+namespace {
+
+// Private version of GetCastFunction with better error reporting
+// if the input type is known.
+Result<std::shared_ptr<CastFunction>> GetCastFunctionInternal(
+    const std::shared_ptr<DataType>& to_type, const DataType* from_type = nullptr) {
+  internal::EnsureInitCastTable();
+  auto it = internal::g_cast_table.find(static_cast<int>(to_type->id()));
+  if (it == internal::g_cast_table.end()) {
+    if (from_type != nullptr) {
+      return Status::NotImplemented("Unsupported cast from ", *from_type, " to ",
+                                    *to_type,
+                                    " (no available cast function for target type)");
+    } else {
+      return Status::NotImplemented("Unsupported cast to ", *to_type,
+                                    " (no available cast function for target type)");
+    }
+  }
+  return it->second;
+}
+
+}  // namespace
+
 // Metafunction for dispatching to appropraite CastFunction. This corresponds
 // to the standard SQL CAST(expr AS target_type)
 class CastMetaFunction : public MetaFunction {
  public:
   CastMetaFunction() : MetaFunction("cast", Arity::Unary()) {}
 
-  Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
-                            const FunctionOptions* options,
-                            ExecContext* ctx) const override {
+  Result<const CastOptions*> ValidateOptions(const FunctionOptions* options) const {
     auto cast_options = static_cast<const CastOptions*>(options);
+
     if (cast_options == nullptr || cast_options->to_type == nullptr) {
       return Status::Invalid(
           "Cast requires that options be passed with "
           "the to_type populated");
     }
+
+    return cast_options;
+  }
+
+  Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
+                            const FunctionOptions* options,
+                            ExecContext* ctx) const override {
+    ARROW_ASSIGN_OR_RAISE(auto cast_options, ValidateOptions(options));
     if (args[0].type()->Equals(*cast_options->to_type)) {
       return args[0];
     }
-    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<CastFunction> cast_func,
-                          GetCastFunction(cast_options->to_type));
+    ARROW_ASSIGN_OR_RAISE(
+        std::shared_ptr<CastFunction> cast_func,
+        GetCastFunctionInternal(cast_options->to_type, args[0].type().get()));
     return cast_func->Execute(args, options, ctx);
   }
 };
@@ -99,16 +133,9 @@ CastFunction::~CastFunction() {}
 
 Type::type CastFunction::out_type_id() const { return impl_->out_type; }
 
-std::unique_ptr<KernelState> CastInit(KernelContext* ctx, const KernelInitArgs& args) {
-  auto cast_options = static_cast<const CastOptions*>(args.options);
-  // Ensure that the requested type to cast to was attached to the options
-  DCHECK(cast_options->to_type);
-  return std::unique_ptr<KernelState>(new internal::CastState(*cast_options));
-}
-
 Status CastFunction::AddKernel(Type::type in_type_id, ScalarKernel kernel) {
   // We use the same KernelInit for every cast
-  kernel.init = CastInit;
+  kernel.init = internal::CastState::Init;
   RETURN_NOT_OK(ScalarFunction::AddKernel(kernel));
   impl_->in_types.insert(static_cast<int>(in_type_id));
   return Status::OK();
@@ -136,7 +163,7 @@ Result<const ScalarKernel*> CastFunction::DispatchExact(
 
   // Validate arity
   if (passed_num_args != 1) {
-    return Status::Invalid("Cast sunctions accept 1 argument but passed ",
+    return Status::Invalid("Cast functions accept 1 argument but passed ",
                            passed_num_args);
   }
   std::vector<const ScalarKernel*> candidate_kernels;
@@ -147,9 +174,9 @@ Result<const ScalarKernel*> CastFunction::DispatchExact(
   }
 
   if (candidate_kernels.size() == 0) {
-    return Status::NotImplemented("Function ", this->name(),
-                                  " has no kernel matching input type ",
-                                  values[0].ToString());
+    return Status::NotImplemented("Unsupported cast from ", values[0].type->ToString(),
+                                  " to ", ToTypeName(impl_->out_type), " using function ",
+                                  this->name());
   } else if (candidate_kernels.size() == 1) {
     // One match, return it
     return candidate_kernels[0];
@@ -188,13 +215,7 @@ Result<std::shared_ptr<Array>> Cast(const Array& value, std::shared_ptr<DataType
 
 Result<std::shared_ptr<CastFunction>> GetCastFunction(
     const std::shared_ptr<DataType>& to_type) {
-  internal::EnsureInitCastTable();
-  auto it = internal::g_cast_table.find(static_cast<int>(to_type->id()));
-  if (it == internal::g_cast_table.end()) {
-    return Status::NotImplemented("No cast function available to cast to ",
-                                  to_type->ToString());
-  }
-  return it->second;
+  return internal::GetCastFunctionInternal(to_type);
 }
 
 bool CanCast(const DataType& from_type, const DataType& to_type) {

@@ -19,16 +19,46 @@
 
 # arrow 0.17.1.9000
 
+## Arrow format conversion
+
+* `vignette("arrow", package = "arrow")` includes tables that explain how R types are converted to Arrow types and vice versa.
+* Support added for converting to/from more Arrow types: `uint64`, `binary`, `fixed_size_binary`, `large_binary`, `large_utf8`, `large_list`, `list` of `structs`.
+* `character` vectors that exceed 2GB are converted to Arrow `large_utf8` type
+* `POSIXlt` objects can now be converted to Arrow (`struct`)
+* R `attributes()` are preserved in Arrow metadata when converting to Arrow RecordBatch and table and are restored when converting from Arrow. This means that custom subclasses, such as `haven::labelled`, are preserved in round trip through Arrow.
+* Schema metadata is now exposed as a named list, and it can be modified by assignment like `batch$metadata$new_key <- "new value"`
+* Arrow types `int64`, `uint32`, and `uint64` now are converted to R `integer` if all values fit in bounds
+* Arrow `date32` is now converted to R `Date` with `double` underlying storage. Even though the data values themselves are integers, this provides more strict round-trip fidelity
+* When converting to R `factor`, `dictionary` ChunkedArrays that do not have identical dictionaries are properly unified
+* In the 1.0 release, the Arrow IPC metadata version is increased from V4 to V5. By default, `RecordBatch{File,Stream}Writer` will write V5, but you can specify an alternate `metadata_version`. For convenience, if you know the consumer you're writing to cannot read V5, you can set the environment variable `ARROW_PRE_1_0_METADATA_VERSION=1` to write V4 without changing any other code.
+
 ## Datasets
 
-* Read datasets directly on S3 by passing a URL like `ds <- open_dataset("s3://...")`. Currently requires a special C++ library build with additional dependencies; that is, this is not available in CRAN releases or in nightly packages.
 * CSV and other text-delimited datasets are now supported
+* With a custom C++ build, it is possible to read datasets directly on S3 by passing a URL like `ds <- open_dataset("s3://...")`. Note that this currently requires a special C++ library build with additional dependencies--this is not yet available in CRAN releases or in nightly packages.
+* When reading individual CSV and JSON files, compression is automatically detected from the file extension
 
-## Other
+## Other enhancements
 
-* Schema metadata is now exposed as a named list, and it can be modified by assignment like `batch$metadata$new_key <- "new value"`
+* Initial support for C++ aggregation methods: `sum()` and `mean()` are implemented for `Array` and `ChunkedArray`
 * Tables and RecordBatches have additional data.frame-like methods, including `dimnames()` and `as.list()`
-* Linux installation: some tweaks to OS detection for binaries, some updates to known installation issues in the vignette.
+* Tables and ChunkedArrays can now be moved to/from Python via `reticulate`
+
+## Bug fixes and deprecations
+
+* Non-UTF-8 strings (common on Windows) are correctly coerced to UTF-8 when passing to Arrow memory and appropriately re-localized when converting to R
+* The `coerce_timestamps` option to `write_parquet()` is now correctly implemented.
+* Creating a Dictionary array respects the `type` definition if provided by the user  
+* `read_arrow` and `write_arrow` are now deprecated; use the `read/write_feather()` and `read/write_ipc_stream()` functions depending on whether you're working with the Arrow IPC file or stream format, respectively.
+* Previously deprecated `FileStats`, `read_record_batch`, and `read_table` have been removed.
+
+## Installation and packaging
+
+* For improved performance in memory allocation, macOS and Linux binaries now have `jemalloc` included, and Windows packages use `mimalloc`
+* Linux installation: some tweaks to OS detection for binaries, some updates to known installation issues in the vignette
+* The bundled libarrow is built with the same `CC` and `CXX` values that R uses
+* Failure to build the bundled libarrow yields a clear message
+* Various streamlining efforts to reduce library size and compile time
 
 # arrow 0.17.1
 

@@ -24,10 +24,8 @@ StructType <- R6Class("StructType",
     GetFieldIndex = function(name) StructType__GetFieldIndex(self, name)
   )
 )
+StructType$create <- function(...) shared_ptr(StructType, struct_(.fields(list(...))))
 
 #' @rdname data-type
 #' @export
-struct <- function(...){
-  xp <- struct_(.fields(list(...)))
-  shared_ptr(StructType, xp)
-}
+struct <- StructType$create

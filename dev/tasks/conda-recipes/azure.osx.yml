@@ -61,7 +61,7 @@ jobs:
 
   - script: |
       source activate base
-      conda build arrow-cpp parquet-cpp pyarrow \
+      conda build arrow-cpp parquet-cpp \
         -m ./.ci_support/${CONFIG}.yaml \
         --clobber-file ./.ci_support/clobber_${CONFIG}.yaml \
         --output-folder ./build_artifacts

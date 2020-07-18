@@ -220,18 +220,40 @@ mmap_open <- function(path, mode = c("read", "write", "readwrite")) {
 #' Handle a range of possible input sources
 #' @param file A character file name, `raw` vector, or an Arrow input stream
 #' @param mmap Logical: whether to memory-map the file (default `TRUE`)
+#' @param compression If the file is compressed, created a [CompressedInputStream]
+#' with this compression codec, either a [Codec] or the string name of one.
+#' If `NULL` (default) and `file` is a string file name, the function will try
+#' to infer compression from the file extension.
 #' @return An `InputStream` or a subclass of one.
 #' @keywords internal
-make_readable_file <- function(file, mmap = TRUE) {
+make_readable_file <- function(file, mmap = TRUE, compression = NULL) {
   if (is.string(file)) {
+    if (is.null(compression)) {
+      # Infer compression from the file path
+      compression <- detect_compression(file)
+    }
     if (isTRUE(mmap)) {
       file <- mmap_open(file)
     } else {
       file <- ReadableFile$create(file)
+    }
+    if (!identical(compression, "uncompressed")) {
+      file <- CompressedInputStream$create(file, compression)
     }
   } else if (inherits(file, c("raw", "Buffer"))) {
     file <- BufferReader$create(file)
   }
   assert_is(file, "InputStream")
   file
+}
+
+detect_compression <- function(path) {
+  assert_that(is.string(path))
+  switch(tools::file_ext(path),
+    bz2 = "bz2",
+    gz = "gzip",
+    lz4 = "lz4",
+    zst = "zstd",
+    "uncompressed"
+  )
 }

@@ -21,6 +21,8 @@
 Arrow Columnar Format
 *********************
 
+*Version: 1.0*
+
 The "Arrow Columnar Format" includes a language-agnostic in-memory
 data structure specification, metadata serialization, and a protocol
 for serialization and generic data transport.
@@ -178,11 +180,13 @@ large as the array length.
 Validity bitmaps
 ----------------
 
-Any type can have null value slots, whether primitive or nested type.
+Any value in an array may be semantically null, whether primitive or nested
+type.
 
-An array with nulls must have a contiguous memory buffer, known as the
-validity (or "null") bitmap, large enough to have at least 1 bit for
-each array slot.
+All array types, with the exception of union types (more on these later),
+utilize a dedicated memory buffer, known as the validity (or "null") bitmap, to
+encode the nullness or non-nullness of each value slot. The validity bitmap
+must be large enough to have at least 1 bit for each array slot.
 
 Whether any array slot is valid (non-null) is encoded in the respective bits of
 this bitmap. A 1 (set bit) for index ``j`` indicates that the value is not null,
@@ -206,8 +210,8 @@ bitmap. Implementations may choose to always allocate one anyway as a
 matter of convenience, but this should be noted when memory is being
 shared.
 
-Nested type arrays have their own validity bitmap and null count
-regardless of the null count and valid bits of their child arrays.
+Nested type arrays except for union types have their own validity bitmap and
+null count regardless of the null count and valid bits of their child arrays.
 
 Array slots which are null are not required to have a particular
 value; any "masked" memory can have any value and need not be zeroed,
@@ -533,6 +537,10 @@ A union is defined by an ordered sequence of types; each slot in the
 union can have a value chosen from these types. The types are named
 like a struct's fields, and the names are part of the type metadata.
 
+Unlike other data types, unions do not have their own validity bitmap. Instead,
+the nullness of each slot is determined exclusively by the child arrays which
+are composed to create the union.
+
 We define two distinct union types, "dense" and "sparse", that are
 optimized for different use cases.
 
@@ -563,38 +571,33 @@ having the values: ``[{f=1.2}, null, {f=3.4}, {i=5}]``
 
 ::
 
-    * Length: 4, Null count: 1
-    * Validity bitmap buffer:
-      |Byte 0 (validity bitmap) | Bytes 1-63            |
-      |-------------------------|-----------------------|
-      |00001101                 | 0 (padding)           |
-
+    * Length: 4, Null count: 0
     * Types buffer:
 
       |Byte 0   | Byte 1      | Byte 2   | Byte 3   | Bytes 4-63  |
       |---------|-------------|----------|----------|-------------|
-      | 0       | unspecified | 0        | 1        | unspecified |
+      | 0       | 0           | 0        | 1        | unspecified |
 
     * Offset buffer:
 
       |Bytes 0-3 | Bytes 4-7   | Bytes 8-11 | Bytes 12-15 | Bytes 16-63 |
       |----------|-------------|------------|-------------|-------------|
-      | 0        | unspecified | 1          | 0           | unspecified |
+      | 0        | 1           | 2          | 0           | unspecified |
 
     * Children arrays:
       * Field-0 array (f: float):
-        * Length: 2, nulls: 0
-        * Validity bitmap buffer: Not required
+        * Length: 2, Null count: 1
+        * Validity bitmap buffer: 00000101
 
         * Value Buffer:
 
-          | Bytes 0-7 | Bytes 8-63  |
-          |-----------|-------------|
-          | 1.2, 3.4  | unspecified |
+          | Bytes 0-11     | Bytes 12-63  |
+          |----------------|-------------|
+          | 1.2, null, 3.4 | unspecified |
 
 
       * Field-1 array (i: int32):
-        * Length: 1, nulls: 0
+        * Length: 1, Null count: 0
         * Validity bitmap buffer: Not required
 
         * Value Buffer:
@@ -626,8 +629,6 @@ For the union array: ::
 will have the following layout: ::
 
     * Length: 6, Null count: 0
-    * Validity bitmap buffer: Not required
-
     * Types buffer:
 
      | Byte 0     | Byte 1      | Byte 2      | Byte 3      | Byte 4      | Byte 5       | Bytes  6-63           |
@@ -686,11 +687,9 @@ will have the following layout: ::
             |------------|-----------------------|
             | joemark    | unspecified (padding) |
 
-Similar to structs, a particular child array may have a non-null slot
-even if the validity bitmap of the parent union array indicates the
-slot is null.  Additionally, a child array may have a non-null slot
-even if the types array indicates that a slot contains a different
-type at the index.
+Only the slot in the array corresponding to the type index is considered. All
+"unselected" values are ignored and could be any semantically correct array
+value.
 
 Null Layout
 -----------
@@ -707,13 +706,12 @@ values by integers referencing a **dictionary** usually consisting of
 unique values. It can be effective when you have data with many
 repeated values.
 
-Any array can be dictionary-encoded. The dictionary is stored as an
-optional property of an array. When a field is dictionary encoded, the
-values are represented by an array of signed integers representing the
-index of the value in the dictionary. The memory layout for a
-dictionary-encoded array is the same as that of a primitive signed
-integer layout. The dictionary is handled as a separate columnar array
-with its own respective layout.
+Any array can be dictionary-encoded. The dictionary is stored as an optional
+property of an array. When a field is dictionary encoded, the values are
+represented by an array of non-negative integers representing the index of the
+value in the dictionary. The memory layout for a dictionary-encoded array is
+the same as that of a primitive integer layout. The dictionary is handled as a
+separate columnar array with its own respective layout.
 
 As an example, you could have the following data: ::
 
@@ -749,6 +747,12 @@ nulls:
 The null count of such arrays is dictated only by the validity bitmap
 of its indices, irrespective of any null values in the dictionary.
 
+Since unsigned integers can be more difficult to work with in some cases
+(e.g. in the JVM), we recommend preferring signed integers over unsigned
+integers for representing dictionary indices. Additionally, we recommend
+avoiding using 64-bit unsigned integer indices unless they are required by an
+application.
+
 We discuss dictionary encoding as it relates to serialization further
 below.
 
@@ -767,8 +771,8 @@ of memory buffers for each layout.
    "List",validity,offsets,
    "Fixed-size List",validity,,
    "Struct",validity,,
-   "Sparse Union",validity,type ids,
-   "Dense Union",validity,type ids,offsets
+   "Sparse Union",type ids,,
+   "Dense Union",type ids,offsets,
    "Null",,,
    "Dictionary-encoded",validity,data (indices),
 
@@ -859,7 +863,7 @@ Schema message
 
 The Flatbuffers files `Schema.fbs`_ contains the definitions for all
 built-in logical data types and the ``Schema`` metadata type which
-represents the schema of a given record batch. A schema consists of of
+represents the schema of a given record batch. A schema consists of
 an ordered sequence of fields, each having a name and type. A
 serialized ``Schema`` does not contain any data buffers, only type
 metadata.
@@ -879,7 +883,7 @@ array. This includes:
   to allow matching a subsequent dictionary IPC message with the
   appropriate field.
 
-We additionally provide provide both schema-level and field-level
+We additionally provide both schema-level and field-level
 ``custom_metadata`` attributes allowing for systems to insert their
 own application defined metadata to customize behavior.
 
@@ -1026,7 +1030,7 @@ should be defined in a ``DictionaryBatch`` before they are used in a
 ``RecordBatch``, as long as the keys are defined somewhere in the
 file. Further more, it is invalid to have more then one **non-delta**
 dictionary batch per dictionary ID (i.e. dictionary replacement is not
-supported).  Delta dictionaries are applied in the order they appear in 
+supported).  Delta dictionaries are applied in the order they appear in
 the file footer.
 
 Dictionary Messages

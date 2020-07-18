@@ -144,7 +144,7 @@ The format name as a string, like::
 
     ds.dataset(..., format="parquet")
 
-is short hand for a default constructed class:`ParquetFileFormat`::
+is short hand for a default constructed :class:`ParquetFileFormat`::
 
     ds.dataset(..., format=ds.ParquetFileForma())
 
@@ -325,6 +325,24 @@ The currently available classes are :class:`~pyarrow.fs.S3FileSystem` and
 details.
 
 
+Reading from Minio
+------------------
+
+In addition to cloud storage, pyarrow also supports reading from a
+`MinIO <https://github.com/minio/minio>`_ object storage instance emulating S3
+APIs. Paired with `toxiproxy <https://github.com/shopify/toxiproxy>`_, this is
+useful for testing or benchmarking.
+
+.. code-block:: python
+
+    from pyarrow import fs
+
+    # By default, MinIO will listen for unencrypted HTTP traffic.
+    minio = fs.S3FileSystem(scheme="http", endpoint="localhost:9000")
+    dataset = ds.dataset("ursa-labs-taxi-data/", filesystem=minio,
+                         partitioning=["year", "month"])
+
+
 Manual specification of the Dataset
 -----------------------------------
 
@@ -355,7 +373,7 @@ format, filesystem, and partition expressions manually:
 
     schema = pa.schema([("year", pa.int64()), ("col1", pa.int64()), ("col2", pa.float64())])
 
-    dataset = ds.FileSystemDataset(
+    dataset = ds.FileSystemDataset.from_paths(
         ["data_2018.parquet", "data_2019.parquet"], schema=schema, format=ds.ParquetFileFormat(),
         filesystem=fs.SubTreeFileSystem(str(base / "parquet_dataset_manual"), fs.LocalFileSystem()),
         partitions=[ds.field('year') == 2018, ds.field('year') == 2019])

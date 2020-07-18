@@ -17,6 +17,8 @@
 
 // String functions
 
+#include "arrow/util/value_parsing.h"
+
 extern "C" {
 
 #include <limits.h>
@@ -282,6 +284,42 @@ const char* reverse_utf8(gdv_int64 context, const char* data, gdv_int32 data_len
   }
   *out_len = data_len;
   return ret;
+}
+
+// Trim a utf8 sequence
+FORCE_INLINE
+const char* trim_utf8(gdv_int64 context, const char* data, gdv_int32 data_len,
+                      int32_t* out_len) {
+  if (data_len == 0) {
+    *out_len = 0;
+    return "";
+  }
+
+  gdv_int32 start = 0, end = data_len - 1;
+  // start and end denote the first and last positions of non-space
+  // characters in the input string respectively
+  while (start <= end && data[start] == ' ') {
+    ++start;
+  }
+  while (end >= start && data[end] == ' ') {
+    --end;
+  }
+
+  // string with no leading/trailing spaces, return original string
+  if (start == 0 && end == data_len - 1) {
+    *out_len = data_len;
+    return data;
+  }
+
+  // string with all spaces
+  if (start > end) {
+    *out_len = 0;
+    return "";
+  }
+
+  // string has some leading/trailing spaces and some non-space characters
+  *out_len = end - start + 1;
+  return data + start;
 }
 
 // Truncates the string to given length
@@ -635,5 +673,29 @@ const char* replace_utf8_utf8_utf8(gdv_int64 context, const char* text,
                                              from_str_len, to_str, to_str_len, 65535,
                                              out_len);
 }
+
+#define CAST_NUMERIC_FROM_STRING(OUT_TYPE, ARROW_TYPE, TYPE_NAME)                       \
+  FORCE_INLINE                                                                          \
+  gdv_##OUT_TYPE cast##TYPE_NAME##_utf8(int64_t context, const char* data,              \
+                                        int32_t len) {                                  \
+    gdv_##OUT_TYPE val = 0;                                                             \
+    int32_t trimmed_len;                                                                \
+    data = trim_utf8(context, data, len, &trimmed_len);                                 \
+    if (!arrow::internal::StringConverter<ARROW_TYPE>::Convert(data, trimmed_len,       \
+                                                               &val)) {                 \
+      std::string err = "Failed to cast the string " + std::string(data, trimmed_len) + \
+                        " to " #OUT_TYPE;                                               \
+      gdv_fn_context_set_error_msg(context, err.c_str());                               \
+    }                                                                                   \
+    return val;                                                                         \
+  }
+
+CAST_NUMERIC_FROM_STRING(int32, arrow::Int32Type, INT)
+CAST_NUMERIC_FROM_STRING(int64, arrow::Int64Type, BIGINT)
+CAST_NUMERIC_FROM_STRING(float32, arrow::FloatType, FLOAT4)
+CAST_NUMERIC_FROM_STRING(float64, arrow::DoubleType, FLOAT8)
+
+#undef CAST_INT_FROM_STRING
+#undef CAST_FLOAT_FROM_STRING
 
 }  // extern "C"

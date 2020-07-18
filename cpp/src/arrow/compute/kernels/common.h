@@ -28,6 +28,7 @@
 
 #include "arrow/array/data.h"
 #include "arrow/buffer.h"
+#include "arrow/chunked_array.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/function.h"
 #include "arrow/compute/kernel.h"
@@ -36,7 +37,6 @@
 #include "arrow/datum.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
-#include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"

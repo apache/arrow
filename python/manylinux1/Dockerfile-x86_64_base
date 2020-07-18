@@ -28,7 +28,7 @@ RUN /build_zlib.sh
 ADD scripts/build_openssl.sh /
 RUN /build_openssl.sh
 
-# Install cmake manylinux1 package
+# Install CMake and Ninja manylinux1 packages
 ADD scripts/install_cmake.sh /
 RUN /install_cmake.sh
 
@@ -37,10 +37,13 @@ RUN /build_gflags.sh
 
 ADD scripts/build_protobuf.sh /
 RUN /build_protobuf.sh
-ENV PROTOBUF_HOME /usr
+ENV PROTOBUF_HOME /usr/local
 
 ADD scripts/build_cares.sh /
 RUN /build_cares.sh
+
+ADD scripts/build_absl.sh /
+RUN /build_absl.sh
 
 ADD scripts/build_grpc.sh /
 RUN /build_grpc.sh
@@ -48,53 +51,47 @@ RUN /build_grpc.sh
 ADD scripts/build_boost.sh /
 RUN /build_boost.sh
 
-ADD scripts/build_gtest.sh /
-RUN /build_gtest.sh
-ENV GTEST_HOME /usr
-
-ADD scripts/build_flatbuffers.sh /
-RUN /build_flatbuffers.sh
-ENV FLATBUFFERS_HOME /usr
-
 ADD scripts/build_bison.sh /
 RUN /build_bison.sh
 
 ADD scripts/build_thrift.sh /
 RUN /build_thrift.sh
-ENV THRIFT_HOME /usr
+ENV THRIFT_HOME /usr/local
+
+ADD scripts/build_curl.sh /
+RUN /build_curl.sh
+ENV CURL_HOME /opt/curl
+
+ADD scripts/build_aws_sdk.sh /
+RUN /build_aws_sdk.sh
 
 ADD scripts/build_brotli.sh /
 RUN /build_brotli.sh
-ENV BROTLI_HOME /usr
+ENV BROTLI_HOME /usr/local
 
 ADD scripts/build_snappy.sh /
 RUN /build_snappy.sh
-ENV SNAPPY_HOME /usr
+ENV SNAPPY_HOME /usr/local
 
 ADD scripts/build_lz4.sh /
 RUN /build_lz4.sh
-ENV LZ4_HOME /usr
+ENV LZ4_HOME /usr/local
 
 ADD scripts/build_zstd.sh /
 RUN /build_zstd.sh
-ENV ZSTD_HOME /usr
+ENV ZSTD_HOME /usr/local
 
 ADD scripts/build_ccache.sh /
 RUN /build_ccache.sh
 
 ADD scripts/build_glog.sh /
 RUN /build_glog.sh
-ENV GLOG_HOME /usr
+ENV GLOG_HOME /usr/local
 
 WORKDIR /
 RUN git clone https://github.com/matthew-brett/multibuild.git && cd multibuild && git checkout 68a4af043e2adb0d9353d4a0e1f3d871203237aa
-
-# We can't use LLVM 9 or later for manylinux1 because g++ 4.8.2 is old
-# to build LLVM 9 or later.
-# ARG llvm
-ENV llvm=8
-ADD scripts/build_llvm.sh /
-RUN /build_llvm.sh ${llvm}
+# Remove unneeded Python versions
+RUN rm -rf /opt/_internal/cpython-2.7.*
 
 ADD scripts/build_rapidjson.sh /
 RUN /build_rapidjson.sh
@@ -104,3 +101,6 @@ RUN /build_re2.sh
 
 ADD scripts/build_bz2.sh /
 RUN /build_bz2.sh
+
+ADD scripts/build_utf8proc.sh /
+RUN /build_utf8proc.sh

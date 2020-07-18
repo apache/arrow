@@ -46,25 +46,42 @@ def root_allocator():
         'arrow-tools-{}-jar-with-dependencies.jar'.format(version))
     jar_path = os.getenv("ARROW_TOOLS_JAR", jar_path)
     kwargs = {}
-    if jpype.__version_info__ >= (0, 7):
-        # This will be the default behaviour in jpype 0.8+
-        kwargs['convertStrings'] = False
+    # This will be the default behaviour in jpype 0.8+
+    kwargs['convertStrings'] = False
     jpype.startJVM(jpype.getDefaultJVMPath(), "-Djava.class.path=" + jar_path,
                    **kwargs)
     return jpype.JPackage("org").apache.arrow.memory.RootAllocator(sys.maxsize)
 
 
 def test_jvm_buffer(root_allocator):
-    # Create a buffer
+    # Create a Java buffer
     jvm_buffer = root_allocator.buffer(8)
     for i in range(8):
         jvm_buffer.setByte(i, 8 - i)
+
+    orig_refcnt = jvm_buffer.refCnt()
 
     # Convert to Python
     buf = pa_jvm.jvm_buffer(jvm_buffer)
 
     # Check its content
     assert buf.to_pybytes() == b'\x08\x07\x06\x05\x04\x03\x02\x01'
+
+    # Check Java buffer lifetime is tied to PyArrow buffer lifetime
+    assert jvm_buffer.refCnt() == orig_refcnt + 1
+    del buf
+    assert jvm_buffer.refCnt() == orig_refcnt
+
+
+def test_jvm_buffer_released(root_allocator):
+    import jpype.imports  # noqa
+    from java.lang import IllegalArgumentException
+
+    jvm_buffer = root_allocator.buffer(8)
+    jvm_buffer.release()
+
+    with pytest.raises(IllegalArgumentException):
+        pa_jvm.jvm_buffer(jvm_buffer)
 
 
 def _jvm_field(jvm_spec):
@@ -147,6 +164,8 @@ def _jvm_schema(jvm_spec, metadata=None):
 ])
 @pytest.mark.parametrize('nullable', [True, False])
 def test_jvm_types(root_allocator, pa_type, jvm_spec, nullable):
+    if pa_type == pa.null() and not nullable:
+        return
     spec = {
         'name': 'field_name',
         'nullable': nullable,
@@ -169,7 +188,7 @@ def test_jvm_types(root_allocator, pa_type, jvm_spec, nullable):
     assert result == pa.schema([expected_field], {'meta': 'data'})
 
     # Schema with custom field metadata
-    spec['metadata'] = {'field meta': 'field data'}
+    spec['metadata'] = [{'key': 'field meta', 'value': 'field data'}]
     jvm_schema = _jvm_schema(json.dumps(spec))
     result = pa_jvm.schema(jvm_schema)
     expected_field = expected_field.with_metadata(

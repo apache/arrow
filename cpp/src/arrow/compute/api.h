@@ -20,6 +20,10 @@
 
 #pragma once
 
+/// \defgroup compute-concrete-options Concrete option classes for compute functions
+/// @{
+/// @}
+
 #include "arrow/compute/api_aggregate.h"  // IWYU pragma: export
 #include "arrow/compute/api_scalar.h"     // IWYU pragma: export
 #include "arrow/compute/api_vector.h"     // IWYU pragma: export

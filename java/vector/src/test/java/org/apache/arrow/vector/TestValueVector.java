@@ -38,6 +38,7 @@ import java.util.List;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.memory.rounding.DefaultRoundingPolicy;
 import org.apache.arrow.memory.util.ArrowBufPointer;
 import org.apache.arrow.memory.util.CommonUtil;
 import org.apache.arrow.vector.compare.Range;
@@ -887,6 +888,151 @@ public class TestValueVector {
    *  -- VarCharVector
    *  -- VarBinaryVector
    */
+
+  /**
+   * ARROW-7831: this checks that a slice taken off a buffer is still readable after that buffer's allocator is closed.
+   */
+  @Test /* VarCharVector */
+  public void testSplitAndTransfer1() {
+    try (final VarCharVector targetVector = newVarCharVector("split-target", allocator)) {
+      try (final VarCharVector sourceVector = newVarCharVector(EMPTY_SCHEMA_PATH, allocator)) {
+        sourceVector.allocateNew(1024 * 10, 1024);
+
+        sourceVector.set(0, STR1);
+        sourceVector.set(1, STR2);
+        sourceVector.set(2, STR3);
+        sourceVector.setValueCount(3);
+
+        final long allocatedMem = allocator.getAllocatedMemory();
+        final int validityRefCnt = sourceVector.getValidityBuffer().refCnt();
+        final int offsetRefCnt = sourceVector.getOffsetBuffer().refCnt();
+        final int dataRefCnt = sourceVector.getDataBuffer().refCnt();
+
+        // split and transfer with slice starting at the beginning: this should not allocate anything new
+        sourceVector.splitAndTransferTo(0, 2, targetVector);
+        assertEquals(allocatedMem, allocator.getAllocatedMemory());
+        // The validity and offset buffers are sliced from a same buffer.See BaseFixedWidthVector#allocateBytes.
+        // Therefore, the refcnt of the validity buffer is increased once since the startIndex is 0. The refcnt of the
+        // offset buffer is increased as well for the same reason. This amounts to a total of 2.
+        assertEquals(validityRefCnt + 2, sourceVector.getValidityBuffer().refCnt());
+        assertEquals(offsetRefCnt + 2, sourceVector.getOffsetBuffer().refCnt());
+        assertEquals(dataRefCnt + 1, sourceVector.getDataBuffer().refCnt());
+      }
+      assertArrayEquals(STR1, targetVector.get(0));
+      assertArrayEquals(STR2, targetVector.get(1));
+    }
+  }
+
+  /**
+   * ARROW-7831: this checks that a vector that got sliced is still readable after the slice's allocator got closed.
+   */
+  @Test /* VarCharVector */
+  public void testSplitAndTransfer2() {
+    try (final VarCharVector sourceVector = newVarCharVector(EMPTY_SCHEMA_PATH, allocator)) {
+      try (final VarCharVector targetVector = newVarCharVector("split-target", allocator)) {
+        sourceVector.allocateNew(1024 * 10, 1024);
+
+        sourceVector.set(0, STR1);
+        sourceVector.set(1, STR2);
+        sourceVector.set(2, STR3);
+        sourceVector.setValueCount(3);
+
+        final long allocatedMem = allocator.getAllocatedMemory();
+        final int validityRefCnt = sourceVector.getValidityBuffer().refCnt();
+        final int offsetRefCnt = sourceVector.getOffsetBuffer().refCnt();
+        final int dataRefCnt = sourceVector.getDataBuffer().refCnt();
+
+        // split and transfer with slice starting at the beginning: this should not allocate anything new
+        sourceVector.splitAndTransferTo(0, 2, targetVector);
+        assertEquals(allocatedMem, allocator.getAllocatedMemory());
+        // The validity and offset buffers are sliced from a same buffer.See BaseFixedWidthVector#allocateBytes.
+        // Therefore, the refcnt of the validity buffer is increased once since the startIndex is 0. The refcnt of the
+        // offset buffer is increased as well for the same reason. This amounts to a total of 2.
+        assertEquals(validityRefCnt + 2, sourceVector.getValidityBuffer().refCnt());
+        assertEquals(offsetRefCnt + 2, sourceVector.getOffsetBuffer().refCnt());
+        assertEquals(dataRefCnt + 1, sourceVector.getDataBuffer().refCnt());
+      }
+      assertArrayEquals(STR1, sourceVector.get(0));
+      assertArrayEquals(STR2, sourceVector.get(1));
+      assertArrayEquals(STR3, sourceVector.get(2));
+    }
+  }
+
+  /**
+   * ARROW-7831: this checks an offset splitting optimization, in the case where all the values up to the start of the
+   * slice are null/empty, which avoids allocation for the offset buffer.
+   */
+  @Test /* VarCharVector */
+  public void testSplitAndTransfer3() {
+    try (final VarCharVector targetVector = newVarCharVector("split-target", allocator);
+         final VarCharVector sourceVector = newVarCharVector(EMPTY_SCHEMA_PATH, allocator)) {
+      sourceVector.allocateNew(1024 * 10, 1024);
+
+      sourceVector.set(0, new byte[0]);
+      sourceVector.setNull(1);
+      sourceVector.set(2, STR1);
+      sourceVector.set(3, STR2);
+      sourceVector.set(4, STR3);
+      sourceVector.setValueCount(5);
+
+      final long allocatedMem = allocator.getAllocatedMemory();
+      final int validityRefCnt = sourceVector.getValidityBuffer().refCnt();
+      final int offsetRefCnt = sourceVector.getOffsetBuffer().refCnt();
+      final int dataRefCnt = sourceVector.getDataBuffer().refCnt();
+
+      sourceVector.splitAndTransferTo(2, 2, targetVector);
+      // because the offset starts at 0 since the first 2 values are empty/null, the allocation only consists in
+      // the size needed for the validity buffer
+      final long validitySize =
+          DefaultRoundingPolicy.DEFAULT_ROUNDING_POLICY.getRoundedSize(
+              BaseValueVector.getValidityBufferSizeFromCount(2));
+      assertEquals(allocatedMem + validitySize, allocator.getAllocatedMemory());
+      // The validity and offset buffers are sliced from a same buffer.See BaseFixedWidthVector#allocateBytes.
+      // Since values up to the startIndex are empty/null, the offset buffer doesn't need to be reallocated and
+      // therefore its refcnt is increased by 1.
+      assertEquals(validityRefCnt + 1, sourceVector.getValidityBuffer().refCnt());
+      assertEquals(offsetRefCnt + 1, sourceVector.getOffsetBuffer().refCnt());
+      assertEquals(dataRefCnt + 1, sourceVector.getDataBuffer().refCnt());
+
+      assertArrayEquals(STR1, targetVector.get(0));
+      assertArrayEquals(STR2, targetVector.get(1));
+    }
+  }
+
+  /**
+   * ARROW-7831: ensures that data is transferred from one allocator to another in case of 0-index start special cases.
+   */
+  @Test /* VarCharVector */
+  public void testSplitAndTransfer4() {
+    try (final BufferAllocator targetAllocator = allocator.newChildAllocator("target-alloc", 256, 256);
+         final VarCharVector targetVector = newVarCharVector("split-target", targetAllocator)) {
+      try (final BufferAllocator sourceAllocator = allocator.newChildAllocator("source-alloc", 256, 256);
+           final VarCharVector sourceVector = newVarCharVector(EMPTY_SCHEMA_PATH, sourceAllocator)) {
+        sourceVector.allocateNew(50, 3);
+
+        sourceVector.set(0, STR1);
+        sourceVector.set(1, STR2);
+        sourceVector.set(2, STR3);
+        sourceVector.setValueCount(3);
+
+        final long allocatedMem = allocator.getAllocatedMemory();
+        final int validityRefCnt = sourceVector.getValidityBuffer().refCnt();
+        final int offsetRefCnt = sourceVector.getOffsetBuffer().refCnt();
+        final int dataRefCnt = sourceVector.getDataBuffer().refCnt();
+
+        // split and transfer with slice starting at the beginning: this should not allocate anything new
+        sourceVector.splitAndTransferTo(0, 2, targetVector);
+        assertEquals(allocatedMem, allocator.getAllocatedMemory());
+        // Unlike testSplitAndTransfer1 where the buffers originated from the same allocator, the refcnts of each
+        // buffers for this test should be the same as what the source allocator ended up with.
+        assertEquals(validityRefCnt, sourceVector.getValidityBuffer().refCnt());
+        assertEquals(offsetRefCnt, sourceVector.getOffsetBuffer().refCnt());
+        assertEquals(dataRefCnt, sourceVector.getDataBuffer().refCnt());
+      }
+      assertArrayEquals(STR1, targetVector.get(0));
+      assertArrayEquals(STR2, targetVector.get(1));
+    }
+  }
 
   @Test /* VarCharVector */
   public void testNullableVarType1() {
@@ -2798,36 +2944,36 @@ public class TestValueVector {
     }
 
     try (final UnionVector vector = UnionVector.empty("v", allocator)) {
-      assertEquals(1, vector.getValidityBuffer().refCnt());
-      assertEquals(0, vector.getValidityBuffer().capacity());
+      assertEquals(1, vector.getTypeBuffer().refCnt());
+      assertEquals(0, vector.getTypeBuffer().capacity());
 
       vector.setValueCount(10);
       vector.allocateNewSafe();
-      assertEquals(1, vector.getValidityBuffer().refCnt());
-      assertEquals(4096, vector.getValidityBuffer().capacity());
+      assertEquals(1, vector.getTypeBuffer().refCnt());
+      assertEquals(4096, vector.getTypeBuffer().capacity());
 
       vector.close();
-      assertEquals(1, vector.getValidityBuffer().refCnt());
-      assertEquals(0, vector.getValidityBuffer().capacity());
+      assertEquals(1, vector.getTypeBuffer().refCnt());
+      assertEquals(0, vector.getTypeBuffer().capacity());
     }
 
     try (final DenseUnionVector vector = DenseUnionVector.empty("v", allocator)) {
-      assertEquals(1, vector.getValidityBuffer().refCnt());
+      assertEquals(1, vector.getTypeBuffer().refCnt());
       assertEquals(1, vector.getOffsetBuffer().refCnt());
-      assertEquals(0, vector.getValidityBuffer().capacity());
+      assertEquals(0, vector.getTypeBuffer().capacity());
       assertEquals(0, vector.getOffsetBuffer().capacity());
 
       vector.setValueCount(valueCount);
       vector.allocateNew();
-      assertEquals(1, vector.getValidityBuffer().refCnt());
+      assertEquals(1, vector.getTypeBuffer().refCnt());
       assertEquals(1, vector.getOffsetBuffer().refCnt());
-      assertEquals(0, vector.getValidityBuffer().capacity());
+      assertEquals(4096, vector.getTypeBuffer().capacity());
       assertEquals(16384, vector.getOffsetBuffer().capacity());
 
       vector.close();
-      assertEquals(1, vector.getValidityBuffer().refCnt());
+      assertEquals(1, vector.getTypeBuffer().refCnt());
       assertEquals(1, vector.getOffsetBuffer().refCnt());
-      assertEquals(0, vector.getValidityBuffer().capacity());
+      assertEquals(0, vector.getTypeBuffer().capacity());
       assertEquals(0, vector.getOffsetBuffer().capacity());
     }
   }

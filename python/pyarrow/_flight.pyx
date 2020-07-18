@@ -31,12 +31,11 @@ from cython.operator cimport dereference as deref
 from cython.operator cimport postincrement
 from libcpp cimport bool as c_bool
 
-from pyarrow.compat import frombytes, tobytes
 from pyarrow.lib cimport *
-from pyarrow.lib import ArrowException
-from pyarrow.lib import as_buffer
+from pyarrow.lib import ArrowException, ArrowInvalid
+from pyarrow.lib import as_buffer, frombytes, tobytes
 from pyarrow.includes.libarrow_flight cimport *
-from pyarrow.ipc import _ReadPandasOption
+from pyarrow.ipc import _ReadPandasOption, _get_legacy_format_default
 import pyarrow.lib as lib
 
 
@@ -70,6 +69,14 @@ cdef int check_flight_status(const CStatus& status) nogil except -1:
             elif detail.get().code() == CFlightStatusUnavailable:
                 raise FlightUnavailableError(message, detail_msg)
 
+    size_detail = FlightWriteSizeStatusDetail.UnwrapStatus(status)
+    if size_detail:
+        with gil:
+            message = frombytes(status.message())
+            raise FlightWriteSizeExceededError(
+                message,
+                size_detail.get().limit(), size_detail.get().actual())
+
     return check_status(status)
 
 
@@ -89,24 +96,34 @@ def _munge_grpc_python_error(message):
         return message
 
 
+cdef IpcWriteOptions _get_options(options):
+    return <IpcWriteOptions> _get_legacy_format_default(
+        use_legacy_format=None, options=options)
+
+
 cdef class FlightCallOptions:
     """RPC-layer options for a Flight call."""
 
     cdef:
         CFlightCallOptions options
 
-    def __init__(self, timeout=None):
+    def __init__(self, timeout=None, write_options=None):
         """Create call options.
 
         Parameters
         ----------
-        timeout : float or None
+        timeout : float, None
             A timeout for the call, in seconds. None means that the
             timeout defaults to an implementation-specific value.
+        write_options : pyarrow.ipc.IpcWriteOptions, optional
+            IPC write options. The default options can be controlled
+            by environment variables (see pyarrow.ipc).
 
         """
+        cdef IpcWriteOptions options = _get_options(write_options)
         if timeout is not None:
             self.options.timeout = CTimeoutDuration(timeout)
+        self.options.write_options = options.c_options
 
     @staticmethod
     cdef CFlightCallOptions* unwrap(obj):
@@ -176,6 +193,16 @@ cdef class FlightUnavailableError(FlightError, ArrowException):
     cdef CStatus to_status(self):
         return MakeFlightError(CFlightStatusUnavailable, tobytes(str(self)),
                                self.extra_info)
+
+
+class FlightWriteSizeExceededError(ArrowInvalid):
+    """A write operation exceeded the client-configured limit."""
+
+    def __init__(self, message, limit, actual):
+        super().__init__(message)
+        self.limit = limit
+        self.actual = actual
+
 
 cdef class Action:
     """An action executable on a Flight service."""
@@ -326,6 +353,7 @@ class FlightMethod(enum.Enum):
     DO_PUT = 6
     DO_ACTION = 7
     LIST_ACTIONS = 8
+    DO_EXCHANGE = 9
 
 
 cdef wrap_flight_method(CFlightMethod method):
@@ -345,6 +373,8 @@ cdef wrap_flight_method(CFlightMethod method):
         return FlightMethod.DO_ACTION
     elif method == CFlightMethodListActions:
         return FlightMethod.LIST_ACTIONS
+    elif method == CFlightMethodDoExchange:
+        return FlightMethod.DO_EXCHANGE
     return FlightMethod.INVALID
 
 
@@ -637,7 +667,7 @@ cdef class SchemaResult:
         """
         cdef:
             shared_ptr[CSchema] c_schema = pyarrow_unwrap_schema(schema)
-        check_status(CreateSchemaResult(c_schema, &self.result))
+        check_flight_status(CreateSchemaResult(c_schema, &self.result))
 
     @property
     def schema(self):
@@ -646,7 +676,7 @@ cdef class SchemaResult:
             shared_ptr[CSchema] schema
             CDictionaryMemo dummy_memo
 
-        check_status(self.result.get().GetSchema(&dummy_memo, &schema))
+        check_flight_status(self.result.get().GetSchema(&dummy_memo, &schema))
         return pyarrow_wrap_schema(schema)
 
 
@@ -777,6 +807,10 @@ cdef class FlightStreamChunk:
     def __iter__(self):
         return iter((self.data, self.app_metadata))
 
+    def __repr__(self):
+        return "<FlightStreamChunk with data: {} with metadata: {}>".format(
+            self.chunk.data != NULL, self.chunk.app_metadata != NULL)
+
 
 cdef class _MetadataRecordBatchReader:
     """A reader for Flight streams."""
@@ -787,17 +821,17 @@ cdef class _MetadataRecordBatchReader:
     cdef dict __dict__
     cdef shared_ptr[CMetadataRecordBatchReader] reader
 
-    cdef readonly:
-        Schema schema
-
-
-cdef class MetadataRecordBatchReader(_MetadataRecordBatchReader,
-                                     _ReadPandasOption):
-    """A reader for Flight streams."""
-
     def __iter__(self):
         while True:
             yield self.read_chunk()
+
+    @property
+    def schema(self):
+        """Get the schema for this reader."""
+        cdef shared_ptr[CSchema] c_schema
+        with nogil:
+            c_schema = GetResultValue(self.reader.get().GetSchema())
+        return pyarrow_wrap_schema(c_schema)
 
     def read_all(self):
         """Read the entire contents of the stream as a Table."""
@@ -829,10 +863,15 @@ cdef class MetadataRecordBatchReader(_MetadataRecordBatchReader,
         with nogil:
             check_flight_status(self.reader.get().Next(&chunk.chunk))
 
-        if chunk.chunk.data == NULL:
+        if chunk.chunk.data == NULL and chunk.chunk.app_metadata == NULL:
             raise StopIteration
 
         return chunk
+
+
+cdef class MetadataRecordBatchReader(_MetadataRecordBatchReader,
+                                     _ReadPandasOption):
+    """The virtual base class for readers for Flight streams."""
 
 
 cdef class FlightStreamReader(MetadataRecordBatchReader):
@@ -844,8 +883,46 @@ cdef class FlightStreamReader(MetadataRecordBatchReader):
             (<CFlightStreamReader*> self.reader.get()).Cancel()
 
 
-cdef class FlightStreamWriter(_CRecordBatchWriter):
-    """A RecordBatchWriter that also allows writing application metadata."""
+cdef class MetadataRecordBatchWriter(_CRecordBatchWriter):
+    """A RecordBatchWriter that also allows writing application metadata.
+
+    This class is a context manager; on exit, close() will be called.
+    """
+
+    cdef CMetadataRecordBatchWriter* _writer(self) nogil:
+        return <CMetadataRecordBatchWriter*> self.writer.get()
+
+    def begin(self, schema: Schema, options=None):
+        """Prepare to write data to this stream with the given schema."""
+        cdef:
+            shared_ptr[CSchema] c_schema = pyarrow_unwrap_schema(schema)
+            CIpcWriteOptions c_options = _get_options(options).c_options
+        with nogil:
+            check_flight_status(self._writer().Begin(c_schema, c_options))
+
+    def write_metadata(self, buf):
+        """Write Flight metadata by itself."""
+        cdef shared_ptr[CBuffer] c_buf = pyarrow_unwrap_buffer(as_buffer(buf))
+        with nogil:
+            check_flight_status(
+                self._writer().WriteMetadata(c_buf))
+
+    def write_batch(self, RecordBatch batch):
+        """
+        Write RecordBatch to stream.
+
+        Parameters
+        ----------
+        batch : RecordBatch
+        """
+        # Override superclass method to use check_flight_status so we
+        # can generate FlightWriteSizeExceededError. We don't do this
+        # for write_table as callers who intend to handle the error
+        # and retry with a smaller batch should be working with
+        # individual batches to have control.
+        with nogil:
+            check_flight_status(
+                self.writer.get().WriteRecordBatch(deref(batch.batch)))
 
     def write_with_metadata(self, RecordBatch batch, buf):
         """Write a RecordBatch along with Flight metadata.
@@ -861,15 +938,17 @@ cdef class FlightStreamWriter(_CRecordBatchWriter):
         cdef shared_ptr[CBuffer] c_buf = pyarrow_unwrap_buffer(as_buffer(buf))
         with nogil:
             check_flight_status(
-                (<CFlightStreamWriter*> self.writer.get())
-                .WriteWithMetadata(deref(batch.batch),
-                                   c_buf))
+                self._writer().WriteWithMetadata(deref(batch.batch), c_buf))
+
+
+cdef class FlightStreamWriter(MetadataRecordBatchWriter):
+    """A writer that also allows closing the write side of a stream."""
 
     def done_writing(self):
+        """Indicate that the client is done writing, but not done reading."""
         with nogil:
             check_flight_status(
-                (<CFlightStreamWriter*> self.writer.get())
-                .DoneWriting())
+                (<CFlightStreamWriter*> self.writer.get()).DoneWriting())
 
 
 cdef class FlightMetadataReader:
@@ -927,12 +1006,23 @@ cdef class FlightClient:
         Override the hostname checked by TLS. Insecure, use with caution.
     middleware : list optional, default None
         A list of ClientMiddlewareFactory instances.
+    write_size_limit_bytes : int optional, default None
+        A soft limit on the size of a data payload sent to the
+        server. Enabled if positive. If enabled, writing a record
+        batch that (when serialized) exceeds this limit will raise an
+        exception; the client can retry the write with a smaller
+        batch.
+    generic_options : list optional, default None
+        A list of generic (string, int or string) option tuples passed
+        to the underlying transport. Effect is implementation
+        dependent.
     """
     cdef:
         unique_ptr[CFlightClient] client
 
-    def __init__(self, location, tls_root_certs=None, cert_chain=None,
-                 private_key=None, override_hostname=None, middleware=None):
+    def __init__(self, location, *, tls_root_certs=None, cert_chain=None,
+                 private_key=None, override_hostname=None, middleware=None,
+                 write_size_limit_bytes=None, generic_options=None):
         if isinstance(location, (bytes, str)):
             location = Location(location)
         elif isinstance(location, tuple):
@@ -945,16 +1035,19 @@ cdef class FlightClient:
             raise TypeError('`location` argument must be a string, tuple or a '
                             'Location instance')
         self.init(location, tls_root_certs, cert_chain, private_key,
-                  override_hostname, middleware)
+                  override_hostname, middleware, write_size_limit_bytes,
+                  generic_options)
 
     cdef init(self, Location location, tls_root_certs, cert_chain,
-              private_key, override_hostname, middleware):
+              private_key, override_hostname, middleware,
+              write_size_limit_bytes, generic_options):
         cdef:
             int c_port = 0
             CLocation c_location = Location.unwrap(location)
             CFlightClientOptions c_options
             function[cb_client_middleware_start_call] start_call = \
                 &_client_middleware_start_call
+            CIntStringVariant variant
 
         if tls_root_certs:
             c_options.tls_root_certs = tobytes(tls_root_certs)
@@ -970,6 +1063,18 @@ cdef class FlightClient:
                     <shared_ptr[CClientMiddlewareFactory]>
                     make_shared[CPyClientMiddlewareFactory](
                         <PyObject*> factory, start_call))
+        if write_size_limit_bytes is not None:
+            c_options.write_size_limit_bytes = write_size_limit_bytes
+        else:
+            c_options.write_size_limit_bytes = 0
+        if generic_options:
+            for key, value in generic_options:
+                if isinstance(value, (str, bytes)):
+                    variant = CIntStringVariant(<c_string> tobytes(value))
+                else:
+                    variant = CIntStringVariant(<int> value)
+                c_options.generic_options.push_back(
+                    pair[c_string, CIntStringVariant](tobytes(key), variant))
 
         with nogil:
             check_flight_status(CFlightClient.Connect(c_location, c_options,
@@ -1167,8 +1272,6 @@ cdef class FlightClient:
                     deref(c_options), ticket.ticket, &reader))
         result = FlightStreamReader()
         result.reader.reset(reader.release())
-        schema = GetResultValue(result.reader.get().GetSchema())
-        result.schema = pyarrow_wrap_schema(schema)
         return result
 
     def do_put(self, descriptor: FlightDescriptor, schema: Schema,
@@ -1200,6 +1303,41 @@ cdef class FlightClient:
         result.writer.reset(writer.release())
         return result, reader
 
+    def do_exchange(self, descriptor: FlightDescriptor,
+                    options: FlightCallOptions = None):
+        """Start a bidirectional data exchange with a server.
+
+        Parameters
+        ----------
+        descriptor : FlightDescriptor
+            A descriptor for the flight.
+        options : FlightCallOptions
+            RPC options.
+
+        Returns
+        -------
+        writer : FlightStreamWriter
+        reader : FlightStreamReader
+        """
+        cdef:
+            unique_ptr[CFlightStreamWriter] c_writer
+            unique_ptr[CFlightStreamReader] c_reader
+            CFlightCallOptions* c_options = FlightCallOptions.unwrap(options)
+            CFlightDescriptor c_descriptor = \
+                FlightDescriptor.unwrap(descriptor)
+
+        with nogil:
+            check_flight_status(self.client.get().DoExchange(
+                deref(c_options),
+                c_descriptor,
+                &c_writer,
+                &c_reader))
+        py_writer = FlightStreamWriter()
+        py_writer.writer.reset(c_writer.release())
+        py_reader = FlightStreamReader()
+        py_reader.reader.reset(c_reader.release())
+        return py_writer, py_reader
+
 
 cdef class FlightDataStream:
     """Abstract base class for Flight data streams."""
@@ -1217,19 +1355,22 @@ cdef class RecordBatchStream(FlightDataStream):
     """A Flight data stream backed by RecordBatches."""
     cdef:
         object data_source
+        CIpcWriteOptions write_options
 
-    def __init__(self, data_source):
+    def __init__(self, data_source, options=None):
         """Create a RecordBatchStream from a data source.
 
         Parameters
         ----------
         data_source : RecordBatchReader or Table
+        options : pyarrow.ipc.IpcWriteOptions, optional
         """
         if (not isinstance(data_source, _CRecordBatchReader) and
                 not isinstance(data_source, lib.Table)):
             raise TypeError("Expected RecordBatchReader or Table, "
                             "but got: {}".format(type(data_source)))
         self.data_source = data_source
+        self.write_options = _get_options(options).c_options
 
     cdef CFlightDataStream* to_stream(self) except *:
         cdef:
@@ -1242,7 +1383,7 @@ cdef class RecordBatchStream(FlightDataStream):
         else:
             raise RuntimeError("Can't construct RecordBatchStream "
                                "from type {}".format(type(self.data_source)))
-        return new CRecordBatchStream(reader)
+        return new CRecordBatchStream(reader, self.write_options)
 
 
 cdef class GeneratorStream(FlightDataStream):
@@ -1253,8 +1394,9 @@ cdef class GeneratorStream(FlightDataStream):
         # A substream currently being consumed by the client, if
         # present. Produced by the generator.
         unique_ptr[CFlightDataStream] current_stream
+        CIpcWriteOptions c_options
 
-    def __init__(self, schema, generator):
+    def __init__(self, schema, generator, options=None):
         """Create a GeneratorStream from a Python generator.
 
         Parameters
@@ -1265,14 +1407,18 @@ cdef class GeneratorStream(FlightDataStream):
         generator : iterator or iterable
             The generator should yield other FlightDataStream objects,
             Tables, RecordBatches, or RecordBatchReaders.
+
+        options : pyarrow.ipc.IpcWriteOptions, optional
         """
         self.schema = pyarrow_unwrap_schema(schema)
         self.generator = iter(generator)
+        self.c_options = _get_options(options).c_options
 
     cdef CFlightDataStream* to_stream(self) except *:
         cdef:
             function[cb_data_stream_next] callback = &_data_stream_next
-        return new CPyGeneratorFlightDataStream(self, self.schema, callback)
+        return new CPyGeneratorFlightDataStream(self, self.schema, callback,
+                                                self.c_options)
 
 
 cdef class ServerCallContext:
@@ -1286,6 +1432,10 @@ cdef class ServerCallContext:
         May be the empty string.
         """
         return tobytes(self.context.peer_identity())
+
+    def peer(self):
+        """Get the address of the peer."""
+        return frombytes(self.context.peer())
 
     def get_middleware(self, key):
         """
@@ -1439,8 +1589,6 @@ cdef CStatus _data_stream_next(void* self, CFlightPayload* payload) except *:
     """Callback for implementing FlightDataStream in Python."""
     cdef:
         unique_ptr[CFlightDataStream] data_stream
-        # TODO make it possible to pass IPC options around?
-        cdef CIpcWriteOptions c_ipc_options = CIpcWriteOptions.Defaults()
 
     py_stream = <object> self
     if not isinstance(py_stream, GeneratorStream):
@@ -1501,7 +1649,7 @@ cdef CStatus _data_stream_next(void* self, CFlightPayload* payload) except *:
                                                             stream_schema))
         check_flight_status(GetRecordBatchPayload(
             deref(batch.batch),
-            c_ipc_options,
+            stream.c_options,
             &payload.ipc_message))
         if metadata:
             payload.app_metadata = pyarrow_unwrap_buffer(as_buffer(metadata))
@@ -1585,8 +1733,6 @@ cdef CStatus _do_put(void* self, const CServerCallContext& context,
 
     descriptor.descriptor = reader.get().descriptor()
     py_reader.reader.reset(reader.release())
-    schema = GetResultValue(py_reader.reader.get().GetSchema())
-    py_reader.schema = pyarrow_wrap_schema(schema)
     py_writer.writer.reset(writer.release())
     try:
         (<object> self).do_put(ServerCallContext.wrap(context), descriptor,
@@ -1617,6 +1763,27 @@ cdef CStatus _do_get(void* self, const CServerCallContext& context,
     stream[0] = unique_ptr[CFlightDataStream](
         new CPyFlightDataStream(result, move(data_stream)))
     return CStatus_OK()
+
+
+cdef CStatus _do_exchange(void* self, const CServerCallContext& context,
+                          unique_ptr[CFlightMessageReader] reader,
+                          unique_ptr[CFlightMessageWriter] writer) except *:
+    """Callback for implementing Flight servers in Python."""
+    cdef:
+        MetadataRecordBatchReader py_reader = MetadataRecordBatchReader()
+        MetadataRecordBatchWriter py_writer = MetadataRecordBatchWriter()
+        FlightDescriptor descriptor = \
+            FlightDescriptor.__new__(FlightDescriptor)
+
+    descriptor.descriptor = reader.get().descriptor()
+    py_reader.reader.reset(reader.release())
+    py_writer.writer.reset(writer.release())
+    try:
+        (<object> self).do_exchange(ServerCallContext.wrap(context),
+                                    descriptor, py_reader, py_writer)
+        return CStatus_OK()
+    except FlightError as flight_error:
+        return (<FlightError> flight_error).to_status()
 
 
 cdef CStatus _do_action_result_next(
@@ -1652,7 +1819,9 @@ cdef CStatus _do_action(void* self, const CServerCallContext& context,
                                               py_action)
     except FlightError as flight_error:
         return (<FlightError> flight_error).to_status()
-    result.reset(new CPyFlightResultStream(responses, ptr))
+    # Let the application return an iterator or anything convertible
+    # into one
+    result.reset(new CPyFlightResultStream(iter(responses), ptr))
     return CStatus_OK()
 
 
@@ -1748,6 +1917,7 @@ cdef CStatus _middleware_sending_headers(
             for value in values:
                 if isinstance(value, str):
                     value = value.encode("ascii")
+                # Allow bytes values to pass through.
                 add_headers.AddHeader(header, value)
 
     return CStatus_OK()
@@ -1786,15 +1956,14 @@ cdef dict convert_headers(const CCallHeaders& c_headers):
         CCallHeaders.const_iterator header_iter = c_headers.cbegin()
     headers = {}
     while header_iter != c_headers.cend():
-        # Headers in gRPC (and HTTP/1, HTTP/2) are required to be
-        # valid ASCII.
         header = c_string(deref(header_iter).first).decode("ascii")
+        value = c_string(deref(header_iter).second)
         if not header.endswith("-bin"):
-            # Ignore -bin (gRPC binary) headers
-            value = c_string(deref(header_iter).second).decode("ascii")
-            if header not in headers:
-                headers[header] = []
-            headers[header].append(value)
+            # Text header values in gRPC (and HTTP/1, HTTP/2) are
+            # required to be valid ASCII. Binary header values are
+            # exposed as bytes.
+            value = value.decode("ascii")
+        headers.setdefault(header, []).append(value)
         postincrement(header_iter)
     return headers
 
@@ -1963,8 +2132,11 @@ cdef class ClientMiddleware:
         headers : dict
             A dictionary of header values to add to the request, or
             None if no headers are to be added. The dictionary should
-            have string keys and string or list-of-string values. All
-            values should be ASCII-encodable.
+            have string keys and string or list-of-string values.
+
+            Bytes values are allowed, but the underlying transport may
+            not support them or may restrict them. For gRPC, binary
+            values are only allowed on headers ending in "-bin".
 
         """
 
@@ -1977,7 +2149,8 @@ cdef class ClientMiddleware:
         ----------
         headers : dict
             A dictionary of headers from the server. Keys are strings
-            and values are lists of strings.
+            and values are lists of strings (for text headers) or
+            bytes (for binary headers).
 
         """
 
@@ -2022,10 +2195,10 @@ cdef class ServerMiddlewareFactory:
         ----------
         info : CallInfo
             Information about the call.
-
         headers : dict
             A dictionary of headers from the client. Keys are strings
-            and values are lists of strings.
+            and values are lists of strings (for text headers) or
+            bytes (for binary headers).
 
         Returns
         -------
@@ -2058,8 +2231,11 @@ cdef class ServerMiddleware:
         headers : dict
             A dictionary of header values to add to the response, or
             None if no headers are to be added. The dictionary should
-            have string keys and string or list-of-string values. All
-            headers should be ASCII-encodable.
+            have string keys and string or list-of-string values.
+
+            Bytes values are allowed, but the underlying transport may
+            not support them or may restrict them. For gRPC, binary
+            values are only allowed on headers ending in "-bin".
 
         """
 
@@ -2225,6 +2401,7 @@ cdef class FlightServerBase:
         vtable.get_schema = &_get_schema
         vtable.do_put = &_do_put
         vtable.do_get = &_do_get
+        vtable.do_exchange = &_do_exchange
         vtable.list_actions = &_list_actions
         vtable.do_action = &_do_action
 
@@ -2258,6 +2435,9 @@ cdef class FlightServerBase:
         raise NotImplementedError
 
     def do_get(self, context, ticket):
+        raise NotImplementedError
+
+    def do_exchange(self, context, descriptor, reader, writer):
         raise NotImplementedError
 
     def list_actions(self, context):
@@ -2312,8 +2492,7 @@ cdef class FlightServerBase:
         self.wait()
 
 
-def connect(location, tls_root_certs=None, cert_chain=None, private_key=None,
-            override_hostname=None, middleware=None):
+def connect(location, **kwargs):
     """
     Connect to the Flight server
     Parameters
@@ -2331,11 +2510,17 @@ def connect(location, tls_root_certs=None, cert_chain=None, private_key=None,
         Override the hostname checked by TLS. Insecure, use with caution.
     middleware : list or None
         A list of ClientMiddlewareFactory instances to apply.
+    write_size_limit_bytes : int or None
+        A soft limit on the size of a data payload sent to the
+        server. Enabled if positive. If enabled, writing a record
+        batch that (when serialized) exceeds this limit will raise an
+        exception; the client can retry the write with a smaller
+        batch.
+    generic_options : list or None
+        A list of generic (string, int or string) options to pass to
+        the underlying transport.
     Returns
     -------
     client : FlightClient
     """
-    return FlightClient(location, tls_root_certs=tls_root_certs,
-                        cert_chain=cert_chain, private_key=private_key,
-                        override_hostname=override_hostname,
-                        middleware=middleware)
+    return FlightClient(location, **kwargs)

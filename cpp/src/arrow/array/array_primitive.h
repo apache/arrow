@@ -26,6 +26,7 @@
 #include "arrow/array/array_base.h"
 #include "arrow/array/data.h"
 #include "arrow/type.h"
+#include "arrow/type_fwd.h"  // IWYU pragma: export
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/macros.h"
@@ -82,6 +83,14 @@ class ARROW_EXPORT BooleanArray : public PrimitiveArray {
   }
 
   bool GetView(int64_t i) const { return Value(i); }
+
+  /// \brief Return the number of false (0) values among the valid
+  /// values. Result is not cached.
+  int64_t false_count() const;
+
+  /// \brief Return the number of true (1) values among the valid
+  /// values. Result is not cached.
+  int64_t true_count() const;
 
  protected:
   using PrimitiveArray::PrimitiveArray;

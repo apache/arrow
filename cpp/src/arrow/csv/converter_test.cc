@@ -52,7 +52,8 @@ template <typename DATA_TYPE, typename C_TYPE>
 void AssertConversion(const std::shared_ptr<DataType>& type,
                       const std::vector<std::string>& csv_string,
                       const std::vector<std::vector<C_TYPE>>& expected,
-                      ConvertOptions options = ConvertOptions::Defaults()) {
+                      ConvertOptions options = ConvertOptions::Defaults(),
+                      bool validate_full = true) {
   std::shared_ptr<BlockParser> parser;
   std::shared_ptr<Converter> converter;
   std::shared_ptr<Array> array, expected_array;
@@ -63,7 +64,11 @@ void AssertConversion(const std::shared_ptr<DataType>& type,
   for (int32_t col_index = 0; col_index < static_cast<int32_t>(expected.size());
        ++col_index) {
     ASSERT_OK_AND_ASSIGN(array, converter->Convert(*parser, col_index));
-    ASSERT_OK(array->ValidateFull());
+    if (validate_full) {
+      ASSERT_OK(array->ValidateFull());
+    } else {
+      ASSERT_OK(array->Validate());
+    }
     ArrayFromVector<DATA_TYPE, C_TYPE>(type, expected[col_index], &expected_array);
     AssertArraysEqual(*expected_array, *array);
   }
@@ -115,7 +120,8 @@ void AssertDictConversion(const std::string& csv_string,
                           const std::shared_ptr<Array>& expected_indices,
                           const std::shared_ptr<Array>& expected_dict,
                           int32_t max_cardinality = -1,
-                          ConvertOptions options = ConvertOptions::Defaults()) {
+                          ConvertOptions options = ConvertOptions::Defaults(),
+                          bool validate_full = true) {
   std::shared_ptr<BlockParser> parser;
   std::shared_ptr<DictionaryConverter> converter;
   std::shared_ptr<Array> array, expected_array;
@@ -123,7 +129,11 @@ void AssertDictConversion(const std::string& csv_string,
 
   ASSERT_OK_AND_ASSIGN(
       array, DictConversion(expected_dict->type(), csv_string, max_cardinality, options));
-  ASSERT_OK(array->ValidateFull());
+  if (validate_full) {
+    ASSERT_OK(array->ValidateFull());
+  } else {
+    ASSERT_OK(array->Validate());
+  }
   expected_type = dictionary(expected_indices->type(), expected_dict->type());
   ASSERT_TRUE(array->type()->Equals(*expected_type));
   const auto& dict_array = internal::checked_cast<const DictionaryArray&>(*array);
@@ -193,7 +203,8 @@ static void TestStringConversionBasics() {
   auto options = ConvertOptions::Defaults();
   options.check_utf8 = false;
   AssertConversion<T, std::string>(type, {"ab,cdé\n", ",\xffgh\n"},
-                                   {{"ab", ""}, {"cdé", "\xffgh"}}, options);
+                                   {{"ab", ""}, {"cdé", "\xffgh"}}, options,
+                                   /*validate_full=*/false);
 }
 
 TEST(StringConversion, Basics) { TestStringConversionBasics<StringType>(); }
@@ -360,9 +371,9 @@ TEST(TimestampConversion, Basics) {
 
 TEST(TimestampConversion, Nulls) {
   auto type = timestamp(TimeUnit::MILLI);
-  AssertConversion<TimestampType, int64_t>(type, {"1970-01-01 00:01:00,,N/A\n"},
-                                           {{60000}, {0}, {0}},
-                                           {{true}, {false}, {false}});
+  AssertConversion<TimestampType, int64_t>(
+      type, {"1970-01-01 00:01:00,,N/A\n"}, {{60000}, {0}, {0}},
+      {{true}, {false}, {false}}, ConvertOptions::Defaults());
 }
 
 TEST(TimestampConversion, CustomNulls) {
@@ -485,7 +496,8 @@ TYPED_TEST(TestDictConverter, NonUTF8) {
 
     auto options = ConvertOptions::Defaults();
     options.check_utf8 = false;
-    AssertDictConversion(csv_string, expected_indices, expected_dict, -1, options);
+    AssertDictConversion(csv_string, expected_indices, expected_dict, -1, options,
+                         /*validate_full=*/false);
   } else {
     AssertDictConversion(csv_string, expected_indices, expected_dict);
   }

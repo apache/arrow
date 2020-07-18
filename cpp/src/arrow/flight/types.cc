@@ -176,6 +176,19 @@ Status Ticket::Deserialize(const std::string& serialized, Ticket* out) {
   return internal::FromProto(pb_ticket, out);
 }
 
+arrow::Result<FlightInfo> FlightInfo::Make(const Schema& schema,
+                                           const FlightDescriptor& descriptor,
+                                           const std::vector<FlightEndpoint>& endpoints,
+                                           int64_t total_records, int64_t total_bytes) {
+  FlightInfo::Data data;
+  data.descriptor = descriptor;
+  data.endpoints = endpoints;
+  data.total_records = total_records;
+  data.total_bytes = total_bytes;
+  RETURN_NOT_OK(internal::SchemaToString(schema, &data.schema));
+  return FlightInfo(data);
+}
+
 Status FlightInfo::GetSchema(ipc::DictionaryMemo* dictionary_memo,
                              std::shared_ptr<Schema>* out) const {
   if (reconstructed_schema_) {
@@ -270,6 +283,10 @@ Status MetadataRecordBatchReader::ReadAll(std::shared_ptr<Table>* table) {
   RETURN_NOT_OK(ReadAll(&batches));
   ARROW_ASSIGN_OR_RAISE(auto schema, GetSchema());
   return Table::FromRecordBatches(schema, std::move(batches)).Value(table);
+}
+
+Status MetadataRecordBatchWriter::Begin(const std::shared_ptr<Schema>& schema) {
+  return Begin(schema, ipc::IpcWriteOptions::Defaults());
 }
 
 SimpleFlightListing::SimpleFlightListing(const std::vector<FlightInfo>& flights)

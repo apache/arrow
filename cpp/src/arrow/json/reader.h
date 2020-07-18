@@ -20,6 +20,7 @@
 #include <memory>
 
 #include "arrow/json/options.h"
+#include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
@@ -47,21 +48,25 @@ class ARROW_EXPORT TableReader {
   virtual ~TableReader() = default;
 
   /// Read the entire JSON file and convert it to a Arrow Table
-  virtual Status Read(std::shared_ptr<Table>* out) = 0;
+  virtual Result<std::shared_ptr<Table>> Read() = 0;
+
+  ARROW_DEPRECATED("Use Result-returning version")
+  Status Read(std::shared_ptr<Table>* out);
 
   /// Create a TableReader instance
+  static Result<std::shared_ptr<TableReader>> Make(MemoryPool* pool,
+                                                   std::shared_ptr<io::InputStream> input,
+                                                   const ReadOptions&,
+                                                   const ParseOptions&);
+
+  ARROW_DEPRECATED("Use Result-returning version")
   static Status Make(MemoryPool* pool, std::shared_ptr<io::InputStream> input,
                      const ReadOptions&, const ParseOptions&,
                      std::shared_ptr<TableReader>* out);
 };
 
-ARROW_EXPORT Status ParseOne(ParseOptions options, std::shared_ptr<Buffer> json,
-                             std::shared_ptr<RecordBatch>* out);
-
-/// \brief convert an Array produced by BlockParser into an Array of out_type
-ARROW_EXPORT Status Convert(const std::shared_ptr<DataType>& out_type,
-                            const std::shared_ptr<Array>& in,
-                            std::shared_ptr<Array>* out);
+ARROW_EXPORT Result<std::shared_ptr<RecordBatch>> ParseOne(ParseOptions options,
+                                                           std::shared_ptr<Buffer> json);
 
 }  // namespace json
 }  // namespace arrow

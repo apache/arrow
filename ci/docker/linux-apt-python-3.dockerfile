@@ -35,8 +35,7 @@ COPY python/requirements-build.txt \
 
 RUN pip install \
     -r arrow/python/requirements-build.txt \
-    -r arrow/python/requirements-test.txt \
-    setuptools
+    -r arrow/python/requirements-test.txt
 
 ENV ARROW_PYTHON=ON \
     ARROW_BUILD_STATIC=OFF \

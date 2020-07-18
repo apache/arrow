@@ -146,6 +146,10 @@ impl ArrayData {
         self.len
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
     /// Returns the offset of this array
     pub fn offset(&self) -> usize {
         self.offset
@@ -158,6 +162,7 @@ impl ArrayData {
 }
 
 /// Builder for `ArrayData` type
+#[derive(Debug)]
 pub struct ArrayDataBuilder {
     data_type: DataType,
     len: usize,

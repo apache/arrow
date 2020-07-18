@@ -18,9 +18,6 @@
 //! Contains the `NullArray` type.
 //!
 //! A `NullArray` is a simplified array where all values are null.
-//! Although the [specification](https://arrow.apache.org/docs/format/Columnar.html#null-layout)
-//! allows for not allocating any memory buffers, the Rust implementation allocates null buffers
-//! to ensure consistency of null checks.
 //!
 //! # Example: Create an array
 //!
@@ -41,9 +38,7 @@ use std::any::Any;
 use std::fmt;
 
 use crate::array::{Array, ArrayData, ArrayDataRef};
-use crate::buffer::MutableBuffer;
 use crate::datatypes::*;
-use crate::util::bit_util;
 
 /// An Array where all elements are nulls
 pub struct NullArray {
@@ -53,13 +48,7 @@ pub struct NullArray {
 impl NullArray {
     /// Create a new null array of the specified length
     pub fn new(length: usize) -> Self {
-        let num_bytes = bit_util::ceil(length, 8);
-        let null_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
-        let array_data = ArrayData::builder(DataType::Null)
-            .len(length)
-            .null_count(length)
-            .null_bit_buffer(null_buf.freeze())
-            .build();
+        let array_data = ArrayData::builder(DataType::Null).len(length).build();
         NullArray::from(array_data)
     }
 }
@@ -76,6 +65,24 @@ impl Array for NullArray {
     fn data_ref(&self) -> &ArrayDataRef {
         &self.data
     }
+
+    /// Returns whether the element at `index` is null.
+    /// All elements of a `NullArray` are always null.
+    fn is_null(&self, _index: usize) -> bool {
+        true
+    }
+
+    /// Returns whether the element at `index` is valid.
+    /// All elements of a `NullArray` are always invalid.
+    fn is_valid(&self, _index: usize) -> bool {
+        false
+    }
+
+    /// Returns the total number of null values in this array.
+    /// The null count of a `NullArray` always equals its length.
+    fn null_count(&self) -> usize {
+        self.data().len()
+    }
 }
 
 impl From<ArrayDataRef> for NullArray {
@@ -86,8 +93,8 @@ impl From<ArrayDataRef> for NullArray {
             "NullArray data should contain 0 buffers"
         );
         assert!(
-            data.null_buffer().is_some(),
-            "NullArray data should contain a null buffer"
+            data.null_buffer().is_none(),
+            "NullArray data should not contain a null buffer, as no buffers are required"
         );
         Self { data }
     }

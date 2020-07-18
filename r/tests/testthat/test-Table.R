@@ -27,29 +27,27 @@ test_that("read_table handles various input streams (ARROW-3450, ARROW-3505)", {
 
   tf <- tempfile()
   on.exit(unlink(tf))
-  write_arrow(tab, tf)
+  expect_deprecated(
+    write_arrow(tab, tf),
+    "write_feather"
+  )
 
-  bytes <- write_arrow(tab, raw())
-
-  tab1 <- read_arrow(tf, as_data_frame = FALSE)
+  tab1 <- read_feather(tf, as_data_frame = FALSE)
   tab2 <- read_feather(normalizePath(tf), as_data_frame = FALSE)
 
   readable_file <- ReadableFile$create(tf)
-  tab3 <- read_arrow(readable_file, as_data_frame = FALSE)
+  expect_deprecated(
+    tab3 <- read_arrow(readable_file, as_data_frame = FALSE),
+    "read_feather"
+  )
   readable_file$close()
 
   mmap_file <- mmap_open(tf)
-  # check for deprecation message
-  expect_deprecated(
-    tab4 <- read_table(mmap_file),
-    "read_arrow"
-  )
   mmap_file$close()
 
   expect_equal(tab, tab1)
   expect_equal(tab, tab2)
   expect_equal(tab, tab3)
-  expect_equal(tab, tab4)
 })
 
 test_that("Table cast (ARROW-3741)", {
@@ -66,10 +64,10 @@ test_that("Table cast (ARROW-3741)", {
 })
 
 test_that("Table S3 methods", {
-  tab <- Table$create(iris)
+  tab <- Table$create(example_data)
   for (f in c("dim", "nrow", "ncol", "dimnames", "colnames", "row.names", "as.list")) {
     fun <- get(f)
-    expect_identical(fun(tab), fun(iris), info = f)
+    expect_identical(fun(tab), fun(example_data), info = f)
   }
 })
 
@@ -319,20 +317,35 @@ test_that("Table$Equals(check_metadata)", {
   expect_false(tab1$Equals(24)) # Not a Table
 })
 
-test_that("Table metadata", {
-  tab <- Table$create(x = 1:2, y = c("a", "b"))
-  expect_equivalent(tab$metadata, list())
-  tab$metadata <- list(test = TRUE)
-  expect_identical(tab$metadata, list(test = "TRUE"))
-  tab$metadata$foo <- 42
-  expect_identical(tab$metadata, list(test = "TRUE", foo = "42"))
-  tab$metadata$foo <- NULL
-  expect_identical(tab$metadata, list(test = "TRUE"))
-  tab$metadata <- NULL
-  expect_equivalent(tab$metadata, list())
-})
-
 test_that("Table handles null type (ARROW-7064)", {
   tab <- Table$create(a = 1:10, n = vctrs::unspecified(10))
-  expect_equal(tab$schema,  schema(a = int32(), n = null()))
+  expect_equivalent(tab$schema, schema(a = int32(), n = null()))
+})
+
+test_that("Can create table with specific dictionary types", {
+  fact <- example_data[,"fct"]
+  int_types <- c(int8(), int16(), int32(), int64())
+  # TODO: test uint types when format allows
+  # uint_types <- c(uint8(), uint16(), uint32(), uint64())
+  for (i in int_types) {
+    sch <- schema(fct = dictionary(i, utf8()))
+    tab <- Table$create(fact, schema = sch)
+    expect_equal(sch, tab$schema)
+    if (i != int64()) {
+      # TODO: same downcast to int32 as we do for int64() type elsewhere
+      expect_identical(as.data.frame(tab), fact)
+    }
+  }
+})
+
+test_that("Table unifies dictionary on conversion back to R (ARROW-8374)", {
+  b1 <- record_batch(f = factor(c("a"), levels = c("a", "b")))
+  b2 <- record_batch(f = factor(c("c"), levels = c("c", "d")))
+  b3 <- record_batch(f = factor(NA, levels = "a"))
+  b4 <- record_batch(f = factor())
+
+  res <- tibble::tibble(f = factor(c("a", "c", NA), levels = c("a", "b", "c", "d")))
+  tab <- Table$create(b1, b2, b3, b4)
+
+  expect_identical(as.data.frame(tab), res)
 })

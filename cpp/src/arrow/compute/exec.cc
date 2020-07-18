@@ -29,14 +29,15 @@
 #include "arrow/array/data.h"
 #include "arrow/array/util.h"
 #include "arrow/buffer.h"
+#include "arrow/chunked_array.h"
 #include "arrow/compute/exec_internal.h"
 #include "arrow/compute/function.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/compute/registry.h"
+#include "arrow/compute/util_internal.h"
 #include "arrow/datum.h"
 #include "arrow/scalar.h"
 #include "arrow/status.h"
-#include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
@@ -111,15 +112,15 @@ Result<std::unique_ptr<ExecBatchIterator>> ExecBatchIterator::Make(
   int64_t length = 1;
 
   bool length_set = false;
-  for (size_t i = 0; i < args.size(); ++i) {
-    if (args[i].is_scalar()) {
+  for (auto& arg : args) {
+    if (arg.is_scalar()) {
       continue;
     }
     if (!length_set) {
-      length = args[i].length();
+      length = arg.length();
       length_set = true;
     } else {
-      if (args[i].length() != length) {
+      if (arg.length() != length) {
         return Status::Invalid("Array arguments must all be the same length");
       }
     }
@@ -264,7 +265,7 @@ class NullPropagator {
         }
       } else {
         // Scalar
-        is_all_null = true;
+        is_all_null = !value->scalar()->is_valid;
       }
     }
     if (!is_all_null) {
@@ -497,13 +498,6 @@ class FunctionExecutorImpl : public FunctionExecutor {
 
     if (validity_preallocated_) {
       ARROW_ASSIGN_OR_RAISE(out->buffers[0], kernel_ctx_.AllocateBitmap(length));
-#ifdef ARROW_VALGRIND
-      // ARROW-8976: When writing kernel results chunkwise into larger
-      // preallocations, if the exec_chunksize is not a multiple of 8, then
-      // functions in NullPropagator will access bits that have not yet been
-      // intialized, triggering benign valgrind warnings.
-      internal::ZeroMemory(out->buffers[0].get());
-#endif
     }
     if (data_preallocated_) {
       const auto& fw_type = checked_cast<const FixedWidthType&>(*out->type);
@@ -590,9 +584,22 @@ class ScalarExecutor : public FunctionExecutorImpl<ScalarFunction> {
     Datum out;
     RETURN_NOT_OK(PrepareNextOutput(batch, &out));
 
-    if (kernel_->null_handling == NullHandling::INTERSECTION &&
-        output_descr_.shape == ValueDescr::ARRAY) {
-      RETURN_NOT_OK(PropagateNulls(&kernel_ctx_, batch, out.mutable_array()));
+    if (output_descr_.shape == ValueDescr::ARRAY) {
+      ArrayData* out_arr = out.mutable_array();
+      if (kernel_->null_handling == NullHandling::INTERSECTION) {
+        RETURN_NOT_OK(PropagateNulls(&kernel_ctx_, batch, out_arr));
+      } else if (kernel_->null_handling == NullHandling::OUTPUT_NOT_NULL) {
+        out_arr->null_count = 0;
+      }
+    } else {
+      if (kernel_->null_handling == NullHandling::INTERSECTION) {
+        // set scalar validity
+        out.scalar()->is_valid =
+            std::all_of(batch.values.begin(), batch.values.end(),
+                        [](const Datum& input) { return input.scalar()->is_valid; });
+      } else if (kernel_->null_handling == NullHandling::OUTPUT_NOT_NULL) {
+        out.scalar()->is_valid = true;
+      }
     }
 
     kernel_->exec(&kernel_ctx_, batch, &out);
@@ -642,11 +649,7 @@ class ScalarExecutor : public FunctionExecutorImpl<ScalarFunction> {
         if (batch.length < batch_iterator_->length()) {
           // If this is a partial execution, then we write into a slice of
           // preallocated_
-          //
-          // XXX: ArrayData::Slice not returning std::shared_ptr<ArrayData> is
-          // a nuisance
-          out->value = std::make_shared<ArrayData>(
-              preallocated_->Slice(batch_start_position, batch.length));
+          out->value = preallocated_->Slice(batch_start_position, batch.length);
         } else {
           // Otherwise write directly into preallocated_. The main difference
           // computationally (versus the Slice approach) is that the null_count
@@ -706,11 +709,11 @@ class ScalarExecutor : public FunctionExecutorImpl<ScalarFunction> {
 
 Status PackBatchNoChunks(const std::vector<Datum>& args, ExecBatch* out) {
   int64_t length = 0;
-  for (size_t i = 0; i < args.size(); ++i) {
-    switch (args[i].kind()) {
+  for (const auto& arg : args) {
+    switch (arg.kind()) {
       case Datum::SCALAR:
       case Datum::ARRAY:
-        length = std::max(args[i].length(), length);
+        length = std::max(arg.length(), length);
         break;
       case Datum::CHUNKED_ARRAY:
         return Status::Invalid("Kernel does not support chunked array arguments");
@@ -870,6 +873,12 @@ class ScalarAggExecutor : public FunctionExecutorImpl<ScalarAggregateFunction> {
     auto batch_state = kernel_->init(&kernel_ctx_, init_args);
     ARROW_CTX_RETURN_IF_ERROR(&kernel_ctx_);
 
+    if (batch_state == nullptr) {
+      kernel_ctx_.SetStatus(
+          Status::Invalid("ScalarAggregation requires non-null kernel state"));
+      return kernel_ctx_.status();
+    }
+
     KernelContext batch_ctx(exec_ctx_);
     batch_ctx.SetState(batch_state.get());
 
@@ -943,6 +952,9 @@ Result<Datum> CallFunction(const std::string& func_name, const std::vector<Datum
   }
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<const Function> func,
                         ctx->func_registry()->GetFunction(func_name));
+  if (options == nullptr) {
+    options = func->default_options();
+  }
   return func->Execute(args, options, ctx);
 }
 

@@ -17,6 +17,7 @@
 
 
 import ast
+from collections.abc import Sequence
 from copy import deepcopy
 from itertools import zip_longest
 import json
@@ -27,9 +28,7 @@ import warnings
 import numpy as np
 
 import pyarrow as pa
-from pyarrow.lib import _pandas_api
-from pyarrow.compat import (builtin_pickle,  # noqa
-                            frombytes, Sequence)
+from pyarrow.lib import _pandas_api, builtin_pickle, frombytes  # noqa
 
 
 _logical_type_map = {}
@@ -540,10 +539,10 @@ def dataframe_to_arrays(df, schema, preserve_index, nthreads=1, columns=None,
 
     # NOTE(wesm): If nthreads=None, then we use a heuristic to decide whether
     # using a thread pool is worth it. Currently the heuristic is whether the
-    # nrows > 100 * ncols.
+    # nrows > 100 * ncols and ncols > 1.
     if nthreads is None:
         nrows, ncols = len(df), len(df.columns)
-        if nrows > ncols * 100:
+        if nrows > ncols * 100 and ncols > 1:
             nthreads = pa.cpu_count()
         else:
             nthreads = 1
@@ -570,14 +569,28 @@ def dataframe_to_arrays(df, schema, preserve_index, nthreads=1, columns=None,
                                                          result.null_count))
         return result
 
+    def _can_definitely_zero_copy(arr):
+        return (isinstance(arr, np.ndarray) and
+                arr.flags.contiguous and
+                issubclass(arr.dtype.type, np.integer))
+
     if nthreads == 1:
         arrays = [convert_column(c, f)
                   for c, f in zip(columns_to_convert, convert_fields)]
     else:
         from concurrent import futures
+
+        arrays = []
         with futures.ThreadPoolExecutor(nthreads) as executor:
-            arrays = list(executor.map(convert_column, columns_to_convert,
-                                       convert_fields))
+            for c, f in zip(columns_to_convert, convert_fields):
+                if _can_definitely_zero_copy(c.values):
+                    arrays.append(convert_column(c, f))
+                else:
+                    arrays.append(executor.submit(convert_column, c, f))
+
+        for i, maybe_fut in enumerate(arrays):
+            if isinstance(maybe_fut, futures.Future):
+                arrays[i] = maybe_fut.result()
 
     types = [x.type for x in arrays]
 

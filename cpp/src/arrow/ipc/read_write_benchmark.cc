@@ -52,7 +52,7 @@ static void WriteRecordBatch(benchmark::State& state) {  // NOLINT non-const ref
   constexpr int64_t kTotalSize = 1 << 20;
   auto options = ipc::IpcWriteOptions::Defaults();
 
-  std::shared_ptr<ResizableBuffer> buffer = *AllocateResizableBuffer(kTotalSize & 2);
+  std::shared_ptr<ResizableBuffer> buffer = *AllocateResizableBuffer(1024);
   auto record_batch = MakeRecordBatch(kTotalSize, state.range(0));
 
   while (state.KeepRunning()) {
@@ -70,7 +70,7 @@ static void ReadRecordBatch(benchmark::State& state) {  // NOLINT non-const refe
   constexpr int64_t kTotalSize = 1 << 20;
   auto options = ipc::IpcWriteOptions::Defaults();
 
-  std::shared_ptr<ResizableBuffer> buffer = *AllocateResizableBuffer(kTotalSize & 2);
+  std::shared_ptr<ResizableBuffer> buffer = *AllocateResizableBuffer(1024);
   auto record_batch = MakeRecordBatch(kTotalSize, state.range(0));
 
   io::BufferOutputStream stream(buffer);
@@ -89,21 +89,55 @@ static void ReadRecordBatch(benchmark::State& state) {  // NOLINT non-const refe
   state.SetBytesProcessed(int64_t(state.iterations()) * kTotalSize);
 }
 
+static void ReadFile(benchmark::State& state) {  // NOLINT non-const reference
+  // 1MB
+  constexpr int64_t kTotalSize = 1 << 20;
+  auto options = ipc::IpcWriteOptions::Defaults();
+
+  std::shared_ptr<ResizableBuffer> buffer = *AllocateResizableBuffer(1024);
+  {
+    // Make Arrow IPC file
+    auto record_batch = MakeRecordBatch(kTotalSize, state.range(0));
+
+    io::BufferOutputStream stream(buffer);
+    auto writer = *ipc::NewFileWriter(&stream, record_batch->schema(), options);
+    ABORT_NOT_OK(writer->WriteRecordBatch(*record_batch));
+    ABORT_NOT_OK(writer->Close());
+    ABORT_NOT_OK(stream.Close());
+  }
+
+  ipc::DictionaryMemo empty_memo;
+  while (state.KeepRunning()) {
+    io::BufferReader input(buffer);
+    auto reader =
+        *ipc::RecordBatchFileReader::Open(&input, ipc::IpcReadOptions::Defaults());
+    const int num_batches = reader->num_record_batches();
+    for (int i = 0; i < num_batches; ++i) {
+      auto batch = *reader->ReadRecordBatch(i);
+    }
+  }
+  state.SetBytesProcessed(int64_t(state.iterations()) * kTotalSize);
+}
+
 static void ReadStream(benchmark::State& state) {  // NOLINT non-const reference
   // 1MB
   constexpr int64_t kTotalSize = 1 << 20;
   auto options = ipc::IpcWriteOptions::Defaults();
 
-  std::shared_ptr<ResizableBuffer> buffer = *AllocateResizableBuffer(kTotalSize & 2);
-  auto record_batch = MakeRecordBatch(kTotalSize, state.range(0));
+  std::shared_ptr<ResizableBuffer> buffer = *AllocateResizableBuffer(1024);
+  {
+    // Make Arrow IPC stream
+    auto record_batch = MakeRecordBatch(kTotalSize, state.range(0));
 
-  io::BufferOutputStream stream(buffer);
+    io::BufferOutputStream stream(buffer);
 
-  auto writer_result = ipc::NewStreamWriter(&stream, record_batch->schema(), options);
-  ABORT_NOT_OK(writer_result);
-  auto writer = *writer_result;
-  ABORT_NOT_OK(writer->WriteRecordBatch(*record_batch));
-  ABORT_NOT_OK(writer->Close());
+    auto writer_result = ipc::NewStreamWriter(&stream, record_batch->schema(), options);
+    ABORT_NOT_OK(writer_result);
+    auto writer = *writer_result;
+    ABORT_NOT_OK(writer->WriteRecordBatch(*record_batch));
+    ABORT_NOT_OK(writer->Close());
+    ABORT_NOT_OK(stream.Close());
+  }
 
   ipc::DictionaryMemo empty_memo;
   while (state.KeepRunning()) {
@@ -128,7 +162,7 @@ static void DecodeStream(benchmark::State& state) {  // NOLINT non-const referen
   constexpr int64_t kTotalSize = 1 << 20;
   auto options = ipc::IpcWriteOptions::Defaults();
 
-  std::shared_ptr<ResizableBuffer> buffer = *AllocateResizableBuffer(kTotalSize & 2);
+  std::shared_ptr<ResizableBuffer> buffer = *AllocateResizableBuffer(1024);
   auto record_batch = MakeRecordBatch(kTotalSize, state.range(0));
 
   io::BufferOutputStream stream(buffer);
@@ -155,6 +189,7 @@ static void DecodeStream(benchmark::State& state) {  // NOLINT non-const referen
 
 BENCHMARK(WriteRecordBatch)->RangeMultiplier(4)->Range(1, 1 << 13)->UseRealTime();
 BENCHMARK(ReadRecordBatch)->RangeMultiplier(4)->Range(1, 1 << 13)->UseRealTime();
+BENCHMARK(ReadFile)->RangeMultiplier(4)->Range(1, 1 << 13)->UseRealTime();
 BENCHMARK(ReadStream)->RangeMultiplier(4)->Range(1, 1 << 13)->UseRealTime();
 BENCHMARK(DecodeStream)->RangeMultiplier(4)->Range(1, 1 << 13)->UseRealTime();
 

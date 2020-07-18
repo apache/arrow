@@ -30,9 +30,9 @@
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
+#include "arrow/chunked_array.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
-#include "arrow/table.h"
 #include "arrow/testing/gtest_common.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
@@ -54,7 +54,8 @@ namespace compute {
 // ----------------------------------------------------------------------
 // Dictionary tests
 
-void CheckUnique(const std::shared_ptr<Array>& input,
+template <typename T>
+void CheckUnique(const std::shared_ptr<T>& input,
                  const std::shared_ptr<Array>& expected) {
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> result, Unique(input));
   ASSERT_OK(result->ValidateFull());
@@ -68,7 +69,6 @@ void CheckUnique(const std::shared_ptr<DataType>& type, const std::vector<T>& in
                  const std::vector<bool>& out_is_valid) {
   std::shared_ptr<Array> input = _MakeArray<Type, T>(type, in_values, in_is_valid);
   std::shared_ptr<Array> expected = _MakeArray<Type, T>(type, out_values, out_is_valid);
-
   CheckUnique(input, expected);
 }
 
@@ -91,7 +91,8 @@ void CheckValueCountsNull(const std::shared_ptr<DataType>& type) {
   ASSERT_ARRAYS_EQUAL(*ex_counts, *result_struct->GetFieldByName(kCountsFieldName));
 }
 
-void CheckValueCounts(const std::shared_ptr<Array>& input,
+template <typename T>
+void CheckValueCounts(const std::shared_ptr<T>& input,
                       const std::shared_ptr<Array>& expected_values,
                       const std::shared_ptr<Array>& expected_counts) {
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> result, ValueCounts(input));
@@ -358,7 +359,7 @@ class TestHashKernelBinaryTypes : public TestHashKernel {
   }
 };
 
-TYPED_TEST_SUITE(TestHashKernelBinaryTypes, TestingStringTypes);
+TYPED_TEST_SUITE(TestHashKernelBinaryTypes, BinaryTypes);
 
 TYPED_TEST(TestHashKernelBinaryTypes, ZeroChunks) {
   auto type = this->type();
@@ -558,6 +559,36 @@ TEST_F(TestHashKernel, DictEncodeDecimal) {
                                               {}, {0, 0, 1, 0, 2});
 }
 
+TEST_F(TestHashKernel, DictionaryUniqueAndValueCounts) {
+  for (auto index_ty : {int8(), int16(), int32(), int64()}) {
+    auto indices = ArrayFromJSON(index_ty, "[3, 0, 0, 0, 1, 1, 3, 0, 1, 3, 0, 1]");
+    auto dict = ArrayFromJSON(int64(), "[10, 20, 30, 40]");
+
+    auto dict_ty = dictionary(index_ty, int64());
+
+    auto ex_indices = ArrayFromJSON(index_ty, "[3, 0, 1]");
+
+    auto input = std::make_shared<DictionaryArray>(dict_ty, indices, dict);
+    auto ex_uniques = std::make_shared<DictionaryArray>(dict_ty, ex_indices, dict);
+    CheckUnique(input, ex_uniques);
+
+    auto ex_counts = ArrayFromJSON(int64(), "[3, 5, 4]");
+    CheckValueCounts(input, ex_uniques, ex_counts);
+
+    // Check chunked array
+    auto chunked = *ChunkedArray::Make({input->Slice(0, 2), input->Slice(2)});
+    CheckUnique(chunked, ex_uniques);
+    CheckValueCounts(chunked, ex_uniques, ex_counts);
+
+    // Different dictionaries not supported
+    auto dict2 = ArrayFromJSON(int64(), "[30, 40, 50, 60]");
+    auto input2 = std::make_shared<DictionaryArray>(dict_ty, indices, dict2);
+    auto different_dictionaries = *ChunkedArray::Make({input, input2});
+    ASSERT_RAISES(Invalid, Unique(different_dictionaries));
+    ASSERT_RAISES(Invalid, ValueCounts(different_dictionaries));
+  }
+}
+
 /* TODO(ARROW-4124): Determine if we want to do something that is reproducible with
  * floats.
 TEST_F(TestHashKernel, ValueCountsFloat) {
@@ -624,7 +655,6 @@ TEST_F(TestHashKernel, ZeroLengthDictionaryEncode) {
 
   std::shared_ptr<Array> result = datum_result.make_array();
   const auto& dict_result = checked_cast<const DictionaryArray&>(*result);
-  ASSERT_OK(dict_result.Validate());
   ASSERT_OK(dict_result.ValidateFull());
 }
 

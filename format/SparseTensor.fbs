@@ -52,7 +52,9 @@ namespace org.apache.arrow.flatbuf;
 ///    [2, 2, 3, 1, 2, 0],
 ///    [0, 1, 0, 0, 3, 4]]
 ///
-/// Note that the indices are sorted in lexicographical order.
+/// When isCanonical is true, the indices is sorted in lexicographical order
+/// (row-major order), and it does not have duplicated entries.  Otherwise,
+/// the indices may not be sorted, or may have duplicated entries.
 table SparseTensorIndexCOO {
   /// The type of values in indicesBuffer
   indicesType: Int (required);
@@ -63,6 +65,13 @@ table SparseTensorIndexCOO {
 
   /// The location and size of the indices matrix's data
   indicesBuffer: Buffer (required);
+
+  /// This flag is true if and only if the indices matrix is sorted in
+  /// row-major order, and does not have duplicated entries.
+  /// This sort order is the same as of Tensorflow's SparseTensor,
+  /// but it is inverse order of SciPy's canonical coo_matrix
+  /// (SciPy employs column-major order for its coo_matrix).
+  isCanonical: bool;
 }
 
 enum SparseMatrixCompressedAxis: short { Row, Column }

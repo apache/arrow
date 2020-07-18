@@ -31,12 +31,12 @@
 #include "arrow/array/array_base.h"
 #include "arrow/array/builder_binary.h"
 #include "arrow/array/builder_primitive.h"
+#include "arrow/chunked_array.h"
 #include "arrow/compute/api.h"
 #include "arrow/compute/kernels/test_util.h"
 #include "arrow/memory_pool.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
-#include "arrow/table.h"
 #include "arrow/testing/gtest_compat.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
@@ -69,6 +69,17 @@ void CheckIsIn(const std::shared_ptr<DataType>& type, const std::vector<T>& in_v
 }
 
 class TestIsInKernel : public ::testing::Test {};
+
+TEST_F(TestIsInKernel, CallBinary) {
+  auto haystack = ArrayFromJSON(int8(), "[0, 1, 2, 3, 4, 5, 6, 7, 8]");
+  auto needles = ArrayFromJSON(int8(), "[2, 3, 5, 7]");
+  ASSERT_RAISES(Invalid, CallFunction("is_in", {haystack, needles}));
+
+  ASSERT_OK_AND_ASSIGN(Datum out, CallFunction("is_in_meta_binary", {haystack, needles}));
+  auto expected = ArrayFromJSON(boolean(), ("[false, false, true, true, false,"
+                                            "true, false, true, false]"));
+  AssertArraysEqual(*expected, *out.make_array());
+}
 
 template <typename Type>
 class TestIsInKernelPrimitive : public ::testing::Test {};
@@ -107,6 +118,7 @@ TYPED_TEST(TestIsInKernelPrimitive, IsIn) {
   CheckIsIn<TypeParam, T>(
       type, {2, 1, 2, 3}, {false, false, false, false}, {2, 1, 2, 1, 2, 3, 3},
       {false, false, false, false, false, false, false}, {true, true, true, true}, {});
+
   // No Match
   CheckIsIn<TypeParam, T>(
       type, {2, 1, 7, 3, 8}, {true, false, true, true, true}, {2, 1, 2, 1, 6, 3, 3},
@@ -241,7 +253,6 @@ TEST_F(TestIsInKernel, IsInBoolean) {
                                {});
 }
 
-using BinaryTypes = ::testing::Types<BinaryType, StringType>;
 TYPED_TEST_SUITE(TestIsInKernelBinary, BinaryTypes);
 
 TYPED_TEST(TestIsInKernelBinary, IsInBinary) {
@@ -400,7 +411,7 @@ TEST_F(TestIsInKernel, IsInChunkedArrayInvoke) {
   AssertChunkedEquivalent(*expected_carr, *encoded_out.chunked_array());
 }
 // ----------------------------------------------------------------------
-// Match tests
+// IndexIn tests
 
 class TestMatchKernel : public ::testing::Test {
  public:
@@ -410,11 +421,23 @@ class TestMatchKernel : public ::testing::Test {
     std::shared_ptr<Array> needles = ArrayFromJSON(type, needles_json);
     std::shared_ptr<Array> expected = ArrayFromJSON(int32(), expected_json);
 
-    ASSERT_OK_AND_ASSIGN(Datum actual_datum, Match(haystack, needles));
+    ASSERT_OK_AND_ASSIGN(Datum actual_datum, IndexIn(haystack, needles));
     std::shared_ptr<Array> actual = actual_datum.make_array();
     AssertArraysEqual(*expected, *actual, /*verbose=*/true);
   }
 };
+
+TEST_F(TestMatchKernel, CallBinary) {
+  auto haystack = ArrayFromJSON(int8(), "[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]");
+  auto needles = ArrayFromJSON(int8(), "[2, 3, 5, 7]");
+  ASSERT_RAISES(Invalid, CallFunction("index_in", {haystack, needles}));
+
+  ASSERT_OK_AND_ASSIGN(Datum out,
+                       CallFunction("index_in_meta_binary", {haystack, needles}));
+  auto expected = ArrayFromJSON(int32(), ("[null, null, 0, 1, null, 2, null, 3, null,"
+                                          " null, null]"));
+  AssertArraysEqual(*expected, *out.make_array());
+}
 
 template <typename Type>
 class TestMatchKernelPrimitive : public TestMatchKernel {};
@@ -426,7 +449,7 @@ using PrimitiveDictionaries =
 
 TYPED_TEST_SUITE(TestMatchKernelPrimitive, PrimitiveDictionaries);
 
-TYPED_TEST(TestMatchKernelPrimitive, Match) {
+TYPED_TEST(TestMatchKernelPrimitive, IndexIn) {
   auto type = TypeTraits<TypeParam>::type_singleton();
 
   // No Nulls
@@ -486,7 +509,7 @@ TYPED_TEST(TestMatchKernelPrimitive, PrimitiveResizeTable) {
   needles = haystack;
   ASSERT_OK(expected_builder.Finish(&expected));
 
-  ASSERT_OK_AND_ASSIGN(Datum actual_datum, Match(haystack, needles));
+  ASSERT_OK_AND_ASSIGN(Datum actual_datum, IndexIn(haystack, needles));
   std::shared_ptr<Array> actual = actual_datum.make_array();
   ASSERT_ARRAYS_EQUAL(*expected, *actual);
 }
@@ -572,7 +595,6 @@ TEST_F(TestMatchKernel, MatchBoolean) {
 template <typename Type>
 class TestMatchKernelBinary : public TestMatchKernel {};
 
-using BinaryTypes = ::testing::Types<BinaryType, StringType>;
 TYPED_TEST_SUITE(TestMatchKernelBinary, BinaryTypes);
 
 TYPED_TEST(TestMatchKernelBinary, MatchBinary) {
@@ -645,7 +667,7 @@ TEST_F(TestMatchKernel, BinaryResizeTable) {
   needles = haystack;
   ASSERT_OK(expected_builder.Finish(&expected));
 
-  ASSERT_OK_AND_ASSIGN(Datum actual_datum, Match(haystack, needles));
+  ASSERT_OK_AND_ASSIGN(Datum actual_datum, IndexIn(haystack, needles));
   std::shared_ptr<Array> actual = actual_datum.make_array();
   ASSERT_ARRAYS_EQUAL(*expected, *actual);
 }
@@ -727,7 +749,7 @@ TEST_F(TestMatchKernel, MatchChunkedArrayInvoke) {
   ArrayVector expected = {i1, i2};
   auto expected_carr = std::make_shared<ChunkedArray>(expected);
 
-  ASSERT_OK_AND_ASSIGN(Datum encoded_out, Match(carr, Datum(member_set)));
+  ASSERT_OK_AND_ASSIGN(Datum encoded_out, IndexIn(carr, Datum(member_set)));
   ASSERT_EQ(Datum::CHUNKED_ARRAY, encoded_out.kind());
 
   AssertChunkedEquivalent(*expected_carr, *encoded_out.chunked_array());

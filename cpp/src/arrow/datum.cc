@@ -24,6 +24,7 @@
 
 #include "arrow/array/array_base.h"
 #include "arrow/array/util.h"
+#include "arrow/chunked_array.h"
 #include "arrow/record_batch.h"
 #include "arrow/scalar.h"
 #include "arrow/table.h"

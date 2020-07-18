@@ -17,6 +17,9 @@
 
 os: Visual Studio 2015
 
+# Do not build on Git tags
+skip_tags: true
+
 environment:
   ARCH: "64"
   GENERATOR: Visual Studio 14 2015 Win64

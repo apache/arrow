@@ -16,7 +16,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-export THRIFT_VERSION=0.12.0
+export THRIFT_VERSION=0.13.0
 wget https://archive.apache.org/dist/thrift/${THRIFT_VERSION}/thrift-${THRIFT_VERSION}.tar.gz
 tar xf thrift-${THRIFT_VERSION}.tar.gz
 pushd thrift-${THRIFT_VERSION}
@@ -30,13 +30,17 @@ cmake -DCMAKE_BUILD_TYPE=release \
     -DBUILD_EXAMPLES=OFF \
     -DBUILD_TESTING=OFF \
     -DWITH_QT4=OFF \
+    -DWITH_AS3=OFF \
     -DWITH_C_GLIB=OFF \
-    -DWITH_JAVA=OFF \
-    -DWITH_PYTHON=OFF \
-    -DWITH_HASKELL=OFF \
     -DWITH_CPP=ON \
+    -DWITH_HASKELL=OFF \
+    -DWITH_JAVA=OFF \
+    -DWITH_JAVASCRIPT=OFF \
+    -DWITH_NODEJS=OFF \
+    -DWITH_PYTHON=OFF \
     -DWITH_STATIC_LIB=ON \
     -DWITH_SHARED_LIB=OFF \
+    -DWITH_OPENSSL=OFF \
     -DBoost_NAMESPACE=arrow_boost \
     -DBOOST_ROOT=/arrow_boost_dist \
     -GNinja ..

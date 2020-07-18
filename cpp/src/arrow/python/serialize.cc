@@ -71,7 +71,9 @@ class SequenceBuilder {
         types_(::arrow::int8(), pool),
         offsets_(::arrow::int32(), pool),
         type_map_(PythonType::NUM_PYTHON_TYPES, -1) {
-    builder_.reset(new DenseUnionBuilder(pool));
+    auto null_builder = std::make_shared<NullBuilder>(pool);
+    auto initial_ty = dense_union({field("0", null())});
+    builder_.reset(new DenseUnionBuilder(pool, {null_builder}, initial_ty));
   }
 
   // Appending a none to the sequence
@@ -301,8 +303,8 @@ class SequenceBuilder {
 class DictBuilder {
  public:
   explicit DictBuilder(MemoryPool* pool = nullptr) : keys_(pool), vals_(pool) {
-    builder_.reset(new StructBuilder(struct_({field("keys", union_(UnionMode::DENSE)),
-                                              field("vals", union_(UnionMode::DENSE))}),
+    builder_.reset(new StructBuilder(struct_({field("keys", dense_union(FieldVector{})),
+                                              field("vals", dense_union(FieldVector{}))}),
                                      pool, {keys_.builder(), vals_.builder()}));
   }
 
@@ -371,7 +373,7 @@ Status CallCustomCallback(PyObject* context, PyObject* method_name, PyObject* el
                                       ": handler not registered");
   } else {
     *result = PyObject_CallMethodObjArgs(context, method_name, elem, NULL);
-    return PassPyError();
+    return CheckPyError();
   }
 }
 
@@ -767,9 +769,8 @@ Status SerializedPyObject::GetComponents(MemoryPool* memory_pool, PyObject** out
 
   // For each sparse tensor, get a metadata buffer and buffers containing index and data
   for (const auto& sparse_tensor : this->sparse_tensors) {
-    ipc::internal::IpcPayload payload;
-    RETURN_NOT_OK(
-        ipc::internal::GetSparseTensorPayload(*sparse_tensor, memory_pool, &payload));
+    ipc::IpcPayload payload;
+    RETURN_NOT_OK(ipc::GetSparseTensorPayload(*sparse_tensor, memory_pool, &payload));
     RETURN_NOT_OK(PushBuffer(payload.metadata));
     for (const auto& body : payload.body_buffers) {
       RETURN_NOT_OK(PushBuffer(body));

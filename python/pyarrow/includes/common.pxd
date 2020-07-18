@@ -19,6 +19,7 @@
 
 from libc.stdint cimport *
 from libcpp cimport bool as c_bool, nullptr
+from libcpp.functional cimport function
 from libcpp.memory cimport shared_ptr, unique_ptr, make_shared
 from libcpp.string cimport string as c_string
 from libcpp.utility cimport pair
@@ -116,12 +117,17 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
 cdef extern from "arrow/result.h" namespace "arrow" nogil:
     cdef cppclass CResult "arrow::Result"[T]:
+        CResult()
+        CResult(CStatus)
+        CResult(T)
         c_bool ok()
         CStatus status()
         T operator*()
 
+
 cdef extern from "arrow/python/common.h" namespace "arrow::py" nogil:
     T GetResultValue[T](CResult[T]) except *
+
 
 cdef inline object PyObject_to_object(PyObject* o):
     # Cast to "object" increments reference count

@@ -38,16 +38,18 @@ namespace arrow {
 
 using internal::checked_cast;
 
-static void ComputeRowMajorStrides(const FixedWidthType& type,
-                                   const std::vector<int64_t>& shape,
-                                   std::vector<int64_t>* strides) {
-  int64_t remaining = type.bit_width() / 8;
+namespace internal {
+
+void ComputeRowMajorStrides(const FixedWidthType& type, const std::vector<int64_t>& shape,
+                            std::vector<int64_t>* strides) {
+  const int byte_width = GetByteWidth(type);
+  int64_t remaining = byte_width;
   for (int64_t dimsize : shape) {
     remaining *= dimsize;
   }
 
   if (remaining == 0) {
-    strides->assign(shape.size(), type.bit_width() / 8);
+    strides->assign(shape.size(), byte_width);
     return;
   }
 
@@ -57,13 +59,16 @@ static void ComputeRowMajorStrides(const FixedWidthType& type,
   }
 }
 
+}  // namespace internal
+
 static void ComputeColumnMajorStrides(const FixedWidthType& type,
                                       const std::vector<int64_t>& shape,
                                       std::vector<int64_t>* strides) {
-  int64_t total = type.bit_width() / 8;
+  const int byte_width = internal::GetByteWidth(type);
+  int64_t total = byte_width;
   for (int64_t dimsize : shape) {
     if (dimsize == 0) {
-      strides->assign(shape.size(), type.bit_width() / 8);
+      strides->assign(shape.size(), byte_width);
       return;
     }
   }
@@ -80,7 +85,7 @@ inline bool IsTensorStridesRowMajor(const std::shared_ptr<DataType>& type,
                                     const std::vector<int64_t>& strides) {
   std::vector<int64_t> c_strides;
   const auto& fw_type = checked_cast<const FixedWidthType&>(*type);
-  ComputeRowMajorStrides(fw_type, shape, &c_strides);
+  internal::ComputeRowMajorStrides(fw_type, shape, &c_strides);
   return strides == c_strides;
 }
 
@@ -113,7 +118,8 @@ inline Status CheckTensorValidity(const std::shared_ptr<DataType>& type,
 
 Status CheckTensorStridesValidity(const std::shared_ptr<Buffer>& data,
                                   const std::vector<int64_t>& shape,
-                                  const std::vector<int64_t>& strides) {
+                                  const std::vector<int64_t>& strides,
+                                  const std::shared_ptr<DataType>& type) {
   if (strides.size() != shape.size()) {
     return Status::Invalid("strides must have the same length as shape");
   }
@@ -127,7 +133,8 @@ Status CheckTensorStridesValidity(const std::shared_ptr<Buffer>& data,
     --last_index[i];
   }
   int64_t last_offset = Tensor::CalculateValueOffset(strides, last_index);
-  if (last_offset >= data->size()) {
+  const int byte_width = internal::GetByteWidth(*type);
+  if (last_offset + byte_width > data->size()) {
     return Status::Invalid("strides must not involve buffer over run");
   }
   return Status::OK();
@@ -151,7 +158,7 @@ Status ValidateTensorParameters(const std::shared_ptr<DataType>& type,
                                 const std::vector<std::string>& dim_names) {
   RETURN_NOT_OK(CheckTensorValidity(type, data, shape));
   if (!strides.empty()) {
-    RETURN_NOT_OK(CheckTensorStridesValidity(data, shape, strides));
+    RETURN_NOT_OK(CheckTensorStridesValidity(data, shape, strides, type));
   }
   if (dim_names.size() > shape.size()) {
     return Status::Invalid("too many dim_names are supplied");
@@ -168,7 +175,8 @@ Tensor::Tensor(const std::shared_ptr<DataType>& type, const std::shared_ptr<Buff
     : type_(type), data_(data), shape_(shape), strides_(strides), dim_names_(dim_names) {
   ARROW_CHECK(is_tensor_supported(type->id()));
   if (shape.size() > 0 && strides.size() == 0) {
-    ComputeRowMajorStrides(checked_cast<const FixedWidthType&>(*type_), shape, &strides_);
+    internal::ComputeRowMajorStrides(checked_cast<const FixedWidthType&>(*type_), shape,
+                                     &strides_);
   }
 }
 
@@ -252,12 +260,11 @@ inline int64_t TensorCountNonZero(const Tensor& tensor) {
 }
 
 struct NonZeroCounter {
-  NonZeroCounter(const Tensor& tensor, int64_t* result)
-      : tensor_(tensor), result_(result) {}
+  explicit NonZeroCounter(const Tensor& tensor) : tensor_(tensor) {}
 
   template <typename TYPE>
   enable_if_number<TYPE, Status> Visit(const TYPE& type) {
-    *result_ = TensorCountNonZero<TYPE>(tensor_);
+    result = TensorCountNonZero<TYPE>(tensor_);
     return Status::OK();
   }
 
@@ -267,14 +274,15 @@ struct NonZeroCounter {
   }
 
   const Tensor& tensor_;
-  int64_t* result_;
+  int64_t result;
 };
 
 }  // namespace
 
-Status Tensor::CountNonZero(int64_t* result) const {
-  NonZeroCounter counter(*this, result);
-  return VisitTypeInline(*type(), &counter);
+Result<int64_t> Tensor::CountNonZero() const {
+  NonZeroCounter counter(*this);
+  RETURN_NOT_OK(VisitTypeInline(*type(), &counter));
+  return counter.result;
 }
 
 }  // namespace arrow

@@ -21,7 +21,6 @@ from pyarrow.includes.libarrow cimport (CArray, CBuffer, CDataType,
                                         CTable, CTensor, CSparseCOOTensor,
                                         CSparseCSRMatrix, CSparseCSCMatrix,
                                         CSparseCSFTensor)
-from pyarrow.compat import frombytes
 
 cdef extern from "arrow/python/pyarrow.h" namespace "arrow::py":
     cdef int import_pyarrow() except -1

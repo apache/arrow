@@ -15,8 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ARG arch=amd64
-FROM ${arch}/ubuntu:18.04
+ARG base=amd64/ubuntu:18.04
+FROM ${base}
 
 # pipefail is enabled for proper error detection in the `wget | apt-key add`
 # step
@@ -78,6 +78,7 @@ RUN apt-get update -y -q && \
         libre2-dev \
         libsnappy-dev \
         libssl-dev \
+        libutf8proc-dev \
         libzstd-dev \
         ninja-build \
         pkg-config \

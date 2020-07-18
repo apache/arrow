@@ -19,6 +19,8 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include <ostream>
+#include <sstream>
 #include <string>
 #include <tuple>
 #include <vector>
@@ -348,6 +350,351 @@ TEST(Decimal128ParseTest, WithExponentAndNullptrScale) {
   const Decimal128 expected_value(123);
   ASSERT_OK_AND_EQ(expected_value, Decimal128::FromString("1.23E-8"));
 }
+
+template <typename Real>
+void CheckDecimalFromReal(Real real, int32_t precision, int32_t scale,
+                          const std::string& expected) {
+  ASSERT_OK_AND_ASSIGN(auto dec, Decimal128::FromReal(real, precision, scale));
+  ASSERT_EQ(dec.ToString(scale), expected);
+}
+
+template <typename Real>
+void CheckDecimalFromRealIntegerString(Real real, int32_t precision, int32_t scale,
+                                       const std::string& expected) {
+  ASSERT_OK_AND_ASSIGN(auto dec, Decimal128::FromReal(real, precision, scale));
+  ASSERT_EQ(dec.ToIntegerString(), expected);
+}
+
+template <typename Real>
+struct FromRealTestParam {
+  Real real;
+  int32_t precision;
+  int32_t scale;
+  std::string expected;
+
+  // Weird, but we need to define this to avoid Valgrind issues
+  // with the default GTest print routine.
+  friend std::ostream& operator<<(std::ostream& os,
+                                  const FromRealTestParam<Real>& param) {
+    return os << "<real: " << param.real << ">";
+  }
+};
+
+using FromFloatTestParam = FromRealTestParam<float>;
+using FromDoubleTestParam = FromRealTestParam<double>;
+
+// Common tests for Decimal128::FromReal(T, ...)
+template <typename T>
+class TestDecimalFromReal : public ::testing::Test {
+ public:
+  using ParamType = FromRealTestParam<T>;
+
+  void TestSuccess() {
+    const std::vector<ParamType> params{
+        // clang-format off
+        {0.0f, 1, 0, "0"},
+        {-0.0f, 1, 0, "0"},
+        {0.0f, 19, 4, "0.0000"},
+        {-0.0f, 19, 4, "0.0000"},
+        {123.0f, 7, 4, "123.0000"},
+        {-123.0f, 7, 4, "-123.0000"},
+        {456.78f, 7, 4, "456.7800"},
+        {-456.78f, 7, 4, "-456.7800"},
+        {456.784f, 5, 2, "456.78"},
+        {-456.784f, 5, 2, "-456.78"},
+        {456.786f, 5, 2, "456.79"},
+        {-456.786f, 5, 2, "-456.79"},
+        {999.99f, 5, 2, "999.99"},
+        {-999.99f, 5, 2, "-999.99"},
+        {123.0f, 19, 0, "123"},
+        {-123.0f, 19, 0, "-123"},
+        {123.4f, 19, 0, "123"},
+        {-123.4f, 19, 0, "-123"},
+        {123.6f, 19, 0, "124"},
+        {-123.6f, 19, 0, "-124"},
+        // 2**62
+        {4.611686e+18f, 19, 0, "4611686018427387904"},
+        {-4.611686e+18f, 19, 0, "-4611686018427387904"},
+        // 2**63
+        {9.223372e+18f, 19, 0, "9223372036854775808"},
+        {-9.223372e+18f, 19, 0, "-9223372036854775808"},
+        // 2**64
+        {1.8446744e+19f, 20, 0, "18446744073709551616"},
+        {-1.8446744e+19f, 20, 0, "-18446744073709551616"}
+        // clang-format on
+    };
+    for (const ParamType& param : params) {
+      CheckDecimalFromReal(param.real, param.precision, param.scale, param.expected);
+    }
+  }
+
+  void TestErrors() {
+    ASSERT_RAISES(Invalid, Decimal128::FromReal(INFINITY, 19, 4));
+    ASSERT_RAISES(Invalid, Decimal128::FromReal(-INFINITY, 19, 4));
+    ASSERT_RAISES(Invalid, Decimal128::FromReal(NAN, 19, 4));
+    // Overflows
+    ASSERT_RAISES(Invalid, Decimal128::FromReal(1000.0, 3, 0));
+    ASSERT_RAISES(Invalid, Decimal128::FromReal(-1000.0, 3, 0));
+    ASSERT_RAISES(Invalid, Decimal128::FromReal(1000.0, 5, 2));
+    ASSERT_RAISES(Invalid, Decimal128::FromReal(-1000.0, 5, 2));
+    ASSERT_RAISES(Invalid, Decimal128::FromReal(999.996, 5, 2));
+    ASSERT_RAISES(Invalid, Decimal128::FromReal(-999.996, 5, 2));
+    ASSERT_RAISES(Invalid, Decimal128::FromReal(1e+38, 38, 0));
+    ASSERT_RAISES(Invalid, Decimal128::FromReal(-1e+38, 38, 0));
+  }
+};
+
+using RealTypes = ::testing::Types<float, double>;
+TYPED_TEST_SUITE(TestDecimalFromReal, RealTypes);
+
+TYPED_TEST(TestDecimalFromReal, TestSuccess) { this->TestSuccess(); }
+
+TYPED_TEST(TestDecimalFromReal, TestErrors) { this->TestErrors(); }
+
+// Custom test for Decimal128::FromReal(float, ...)
+class TestDecimalFromRealFloat : public ::testing::TestWithParam<FromFloatTestParam> {};
+
+TEST_P(TestDecimalFromRealFloat, SuccessConversion) {
+  const auto param = GetParam();
+  CheckDecimalFromReal(param.real, param.precision, param.scale, param.expected);
+}
+
+// clang-format off
+INSTANTIATE_TEST_SUITE_P(
+    TestDecimalFromRealFloat, TestDecimalFromRealFloat,
+    ::testing::Values(
+        // 2**63 + 2**40 (exactly representable in a float's 24 bits of precision)
+        FromFloatTestParam{9.223373e+18f, 19, 0, "9223373136366403584"},
+        FromFloatTestParam{-9.223373e+18f, 19, 0, "-9223373136366403584"},
+        FromFloatTestParam{9.223373e+14f, 19, 4, "922337313636640.3584"},
+        FromFloatTestParam{-9.223373e+14f, 19, 4, "-922337313636640.3584"},
+        // 2**64 - 2**40 (exactly representable in a float)
+        FromFloatTestParam{1.8446743e+19f, 20, 0, "18446742974197923840"},
+        FromFloatTestParam{-1.8446743e+19f, 20, 0, "-18446742974197923840"},
+        // 2**64 + 2**41 (exactly representable in a float)
+        FromFloatTestParam{1.8446746e+19f, 20, 0, "18446746272732807168"},
+        FromFloatTestParam{-1.8446746e+19f, 20, 0, "-18446746272732807168"},
+        FromFloatTestParam{1.8446746e+15f, 20, 4, "1844674627273280.7168"},
+        FromFloatTestParam{-1.8446746e+15f, 20, 4, "-1844674627273280.7168"},
+        // Almost 10**38 (minus 2**103)
+        FromFloatTestParam{9.999999e+37f, 38, 0,
+                           "99999986661652122824821048795547566080"},
+        FromFloatTestParam{-9.999999e+37f, 38, 0,
+                           "-99999986661652122824821048795547566080"}
+));
+// clang-format on
+
+TEST(TestDecimalFromRealFloat, LargeValues) {
+  // Test the entire float range
+  for (int32_t scale = -38; scale <= 38; ++scale) {
+    float real = std::pow(10.0f, static_cast<float>(scale));
+    CheckDecimalFromRealIntegerString(real, 1, -scale, "1");
+  }
+  for (int32_t scale = -37; scale <= 36; ++scale) {
+    float real = 123.f * std::pow(10.f, static_cast<float>(scale));
+    CheckDecimalFromRealIntegerString(real, 2, -scale - 1, "12");
+    CheckDecimalFromRealIntegerString(real, 3, -scale, "123");
+    CheckDecimalFromRealIntegerString(real, 4, -scale + 1, "1230");
+  }
+}
+
+// Custom test for Decimal128::FromReal(double, ...)
+class TestDecimalFromRealDouble : public ::testing::TestWithParam<FromDoubleTestParam> {};
+
+TEST_P(TestDecimalFromRealDouble, SuccessConversion) {
+  const auto param = GetParam();
+  CheckDecimalFromReal(param.real, param.precision, param.scale, param.expected);
+}
+
+// clang-format off
+INSTANTIATE_TEST_SUITE_P(
+    TestDecimalFromRealDouble, TestDecimalFromRealDouble,
+    ::testing::Values(
+        // 2**63 + 2**11 (exactly representable in a double's 53 bits of precision)
+        FromDoubleTestParam{9.223372036854778e+18, 19, 0, "9223372036854777856"},
+        FromDoubleTestParam{-9.223372036854778e+18, 19, 0, "-9223372036854777856"},
+        FromDoubleTestParam{9.223372036854778e+10, 19, 8, "92233720368.54777856"},
+        FromDoubleTestParam{-9.223372036854778e+10, 19, 8, "-92233720368.54777856"},
+        // 2**64 - 2**11 (exactly representable in a double)
+        FromDoubleTestParam{1.844674407370955e+19, 20, 0, "18446744073709549568"},
+        FromDoubleTestParam{-1.844674407370955e+19, 20, 0, "-18446744073709549568"},
+        // 2**64 + 2**11 (exactly representable in a double)
+        FromDoubleTestParam{1.8446744073709556e+19, 20, 0, "18446744073709555712"},
+        FromDoubleTestParam{-1.8446744073709556e+19, 20, 0, "-18446744073709555712"},
+        FromDoubleTestParam{1.8446744073709556e+15, 20, 4, "1844674407370955.5712"},
+        FromDoubleTestParam{-1.8446744073709556e+15, 20, 4, "-1844674407370955.5712"},
+        // Almost 10**38 (minus 2**73)
+        FromDoubleTestParam{9.999999999999998e+37, 38, 0,
+                            "99999999999999978859343891977453174784"},
+        FromDoubleTestParam{-9.999999999999998e+37, 38, 0,
+                            "-99999999999999978859343891977453174784"},
+        FromDoubleTestParam{9.999999999999998e+27, 38, 10,
+                            "9999999999999997885934389197.7453174784"},
+        FromDoubleTestParam{-9.999999999999998e+27, 38, 10,
+                            "-9999999999999997885934389197.7453174784"}
+));
+// clang-format on
+
+TEST(TestDecimalFromRealDouble, LargeValues) {
+  // Test the entire double range
+  for (int32_t scale = -308; scale <= 308; ++scale) {
+    double real = std::pow(10.0, static_cast<double>(scale));
+    CheckDecimalFromRealIntegerString(real, 1, -scale, "1");
+  }
+  for (int32_t scale = -307; scale <= 306; ++scale) {
+    double real = 123. * std::pow(10.0, static_cast<double>(scale));
+    CheckDecimalFromRealIntegerString(real, 2, -scale - 1, "12");
+    CheckDecimalFromRealIntegerString(real, 3, -scale, "123");
+    CheckDecimalFromRealIntegerString(real, 4, -scale + 1, "1230");
+  }
+}
+
+template <typename Real>
+struct ToRealTestParam {
+  std::string decimal_value;
+  int32_t scale;
+  Real expected;
+};
+
+using ToFloatTestParam = ToRealTestParam<float>;
+using ToDoubleTestParam = ToRealTestParam<double>;
+
+template <typename Real>
+void CheckDecimalToReal(const std::string& decimal_value, int32_t scale, Real expected) {
+  Decimal128 dec(decimal_value);
+  ASSERT_EQ(dec.ToReal<Real>(scale), expected);
+}
+
+void CheckFloatToRealApprox(const std::string& decimal_value, int32_t scale,
+                            float expected) {
+  Decimal128 dec(decimal_value);
+  ASSERT_FLOAT_EQ(dec.ToReal<float>(scale), expected);
+}
+
+void CheckDoubleToRealApprox(const std::string& decimal_value, int32_t scale,
+                             double expected) {
+  Decimal128 dec(decimal_value);
+  ASSERT_DOUBLE_EQ(dec.ToReal<double>(scale), expected);
+}
+
+// Common tests for Decimal128::ToReal<T>
+template <typename T>
+class TestDecimalToReal : public ::testing::Test {
+ public:
+  using Real = T;
+  using ParamType = ToRealTestParam<T>;
+
+  Real Pow2(int exp) { return std::pow(static_cast<Real>(2), static_cast<Real>(exp)); }
+
+  Real Pow10(int exp) { return std::pow(static_cast<Real>(10), static_cast<Real>(exp)); }
+
+  void TestSuccess() {
+    const std::vector<ParamType> params{
+        // clang-format off
+        {"0", 0, 0.0f},
+        {"0", 10, 0.0f},
+        {"0", -10, 0.0f},
+        {"1", 0, 1.0f},
+        {"12345", 0, 12345.f},
+#ifndef __MINGW32__  // MinGW has precision issues
+        {"12345", 1, 1234.5f},
+#endif
+        {"12345", -3, 12345000.f},
+        // 2**62
+        {"4611686018427387904", 0, Pow2(62)},
+        // 2**63 + 2**62
+        {"13835058055282163712", 0, Pow2(63) + Pow2(62)},
+        // 2**64 + 2**62
+        {"23058430092136939520", 0, Pow2(64) + Pow2(62)},
+        // 10**38 - 2**103
+#ifndef __MINGW32__  // MinGW has precision issues
+        {"99999989858795198174164788026374356992", 0, Pow10(38) - Pow2(103)},
+#endif
+        // clang-format on
+    };
+    for (const ParamType& param : params) {
+      CheckDecimalToReal<Real>(param.decimal_value, param.scale, param.expected);
+      if (param.decimal_value != "0") {
+        CheckDecimalToReal<Real>("-" + param.decimal_value, param.scale, -param.expected);
+      }
+    }
+  }
+};
+
+TYPED_TEST_SUITE(TestDecimalToReal, RealTypes);
+
+TYPED_TEST(TestDecimalToReal, TestSuccess) { this->TestSuccess(); }
+
+// Custom test for Decimal128::ToReal<float>
+class TestDecimalToRealFloat : public TestDecimalToReal<float> {};
+
+TEST_F(TestDecimalToRealFloat, LargeValues) {
+  // Note that exact comparisons would succeed on some platforms (Linux, macOS).
+  // Nevertheless, power-of-ten factors are not all exactly representable
+  // in binary floating point.
+  for (int32_t scale = -38; scale <= 38; scale++) {
+    CheckFloatToRealApprox("1", scale, Pow10(-scale));
+  }
+  for (int32_t scale = -38; scale <= 36; scale++) {
+    const Real factor = static_cast<Real>(123);
+    CheckFloatToRealApprox("123", scale, factor * Pow10(-scale));
+  }
+}
+
+TEST_F(TestDecimalToRealFloat, Precision) {
+  // 2**63 + 2**40 (exactly representable in a float's 24 bits of precision)
+  CheckDecimalToReal<float>("9223373136366403584", 0, 9.223373e+18f);
+  CheckDecimalToReal<float>("-9223373136366403584", 0, -9.223373e+18f);
+  // 2**64 + 2**41 (exactly representable in a float)
+  CheckDecimalToReal<float>("18446746272732807168", 0, 1.8446746e+19f);
+  CheckDecimalToReal<float>("-18446746272732807168", 0, -1.8446746e+19f);
+}
+
+// ToReal<double> tests are disabled on MinGW because of precision issues in results
+#ifndef __MINGW32__
+
+// Custom test for Decimal128::ToReal<double>
+class TestDecimalToRealDouble : public TestDecimalToReal<double> {};
+
+TEST_F(TestDecimalToRealDouble, LargeValues) {
+  // Note that exact comparisons would succeed on some platforms (Linux, macOS).
+  // Nevertheless, power-of-ten factors are not all exactly representable
+  // in binary floating point.
+  for (int32_t scale = -308; scale <= 308; scale++) {
+    CheckDoubleToRealApprox("1", scale, Pow10(-scale));
+  }
+  for (int32_t scale = -308; scale <= 306; scale++) {
+    const Real factor = static_cast<Real>(123);
+    CheckDoubleToRealApprox("123", scale, factor * Pow10(-scale));
+  }
+}
+
+TEST_F(TestDecimalToRealDouble, Precision) {
+  // 2**63 + 2**11 (exactly representable in a double's 53 bits of precision)
+  CheckDecimalToReal<double>("9223372036854777856", 0, 9.223372036854778e+18);
+  CheckDecimalToReal<double>("-9223372036854777856", 0, -9.223372036854778e+18);
+  // 2**64 - 2**11 (exactly representable in a double)
+  CheckDecimalToReal<double>("18446744073709549568", 0, 1.844674407370955e+19);
+  CheckDecimalToReal<double>("-18446744073709549568", 0, -1.844674407370955e+19);
+  // 2**64 + 2**11 (exactly representable in a double)
+  CheckDecimalToReal<double>("18446744073709555712", 0, 1.8446744073709556e+19);
+  CheckDecimalToReal<double>("-18446744073709555712", 0, -1.8446744073709556e+19);
+  // Almost 10**38 (minus 2**73)
+  CheckDecimalToReal<double>("99999999999999978859343891977453174784", 0,
+                             9.999999999999998e+37);
+  CheckDecimalToReal<double>("-99999999999999978859343891977453174784", 0,
+                             -9.999999999999998e+37);
+  CheckDecimalToReal<double>("99999999999999978859343891977453174784", 10,
+                             9.999999999999998e+27);
+  CheckDecimalToReal<double>("-99999999999999978859343891977453174784", 10,
+                             -9.999999999999998e+27);
+  CheckDecimalToReal<double>("99999999999999978859343891977453174784", -10,
+                             9.999999999999998e+47);
+  CheckDecimalToReal<double>("-99999999999999978859343891977453174784", -10,
+                             -9.999999999999998e+47);
+}
+
+#endif  // __MINGW32__
 
 TEST(Decimal128Test, TestSmallNumberFormat) {
   Decimal128 value("0.2");

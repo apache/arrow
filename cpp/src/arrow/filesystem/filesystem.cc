@@ -137,6 +137,28 @@ Status FileSystem::DeleteFiles(const std::vector<std::string>& paths) {
   return st;
 }
 
+Result<std::shared_ptr<io::InputStream>> FileSystem::OpenInputStream(
+    const FileInfo& info) {
+  if (info.type() == FileType::NotFound) {
+    return internal::PathNotFound(info.path());
+  }
+  if (info.type() != FileType::File && info.type() != FileType::Unknown) {
+    return internal::NotAFile(info.path());
+  }
+  return OpenInputStream(info.path());
+}
+
+Result<std::shared_ptr<io::RandomAccessFile>> FileSystem::OpenInputFile(
+    const FileInfo& info) {
+  if (info.type() == FileType::NotFound) {
+    return internal::PathNotFound(info.path());
+  }
+  if (info.type() != FileType::File && info.type() != FileType::Unknown) {
+    return internal::NotAFile(info.path());
+  }
+  return OpenInputFile(info.path());
+}
+
 //////////////////////////////////////////////////////////////////////////
 // SubTreeFileSystem implementation
 
@@ -231,8 +253,19 @@ Status SubTreeFileSystem::DeleteDir(const std::string& path) {
 }
 
 Status SubTreeFileSystem::DeleteDirContents(const std::string& path) {
+  if (internal::IsEmptyPath(path)) {
+    return internal::InvalidDeleteDirContents(path);
+  }
   auto s = PrependBase(path);
   return base_fs_->DeleteDirContents(s);
+}
+
+Status SubTreeFileSystem::DeleteRootDirContents() {
+  if (base_path_.empty()) {
+    return base_fs_->DeleteRootDirContents();
+  } else {
+    return base_fs_->DeleteDirContents(base_path_);
+  }
 }
 
 Status SubTreeFileSystem::DeleteFile(const std::string& path) {
@@ -264,11 +297,29 @@ Result<std::shared_ptr<io::InputStream>> SubTreeFileSystem::OpenInputStream(
   return base_fs_->OpenInputStream(s);
 }
 
+Result<std::shared_ptr<io::InputStream>> SubTreeFileSystem::OpenInputStream(
+    const FileInfo& info) {
+  auto s = info.path();
+  RETURN_NOT_OK(PrependBaseNonEmpty(&s));
+  FileInfo new_info(info);
+  new_info.set_path(std::move(s));
+  return base_fs_->OpenInputStream(new_info);
+}
+
 Result<std::shared_ptr<io::RandomAccessFile>> SubTreeFileSystem::OpenInputFile(
     const std::string& path) {
   auto s = path;
   RETURN_NOT_OK(PrependBaseNonEmpty(&s));
   return base_fs_->OpenInputFile(s);
+}
+
+Result<std::shared_ptr<io::RandomAccessFile>> SubTreeFileSystem::OpenInputFile(
+    const FileInfo& info) {
+  auto s = info.path();
+  RETURN_NOT_OK(PrependBaseNonEmpty(&s));
+  FileInfo new_info(info);
+  new_info.set_path(std::move(s));
+  return base_fs_->OpenInputFile(new_info);
 }
 
 Result<std::shared_ptr<io::OutputStream>> SubTreeFileSystem::OpenOutputStream(
@@ -327,6 +378,11 @@ Status SlowFileSystem::DeleteDirContents(const std::string& path) {
   return base_fs_->DeleteDirContents(path);
 }
 
+Status SlowFileSystem::DeleteRootDirContents() {
+  latencies_->Sleep();
+  return base_fs_->DeleteRootDirContents();
+}
+
 Status SlowFileSystem::DeleteFile(const std::string& path) {
   latencies_->Sleep();
   return base_fs_->DeleteFile(path);
@@ -349,10 +405,24 @@ Result<std::shared_ptr<io::InputStream>> SlowFileSystem::OpenInputStream(
   return std::make_shared<io::SlowInputStream>(stream, latencies_);
 }
 
+Result<std::shared_ptr<io::InputStream>> SlowFileSystem::OpenInputStream(
+    const FileInfo& info) {
+  latencies_->Sleep();
+  ARROW_ASSIGN_OR_RAISE(auto stream, base_fs_->OpenInputStream(info));
+  return std::make_shared<io::SlowInputStream>(stream, latencies_);
+}
+
 Result<std::shared_ptr<io::RandomAccessFile>> SlowFileSystem::OpenInputFile(
     const std::string& path) {
   latencies_->Sleep();
   ARROW_ASSIGN_OR_RAISE(auto file, base_fs_->OpenInputFile(path));
+  return std::make_shared<io::SlowRandomAccessFile>(file, latencies_);
+}
+
+Result<std::shared_ptr<io::RandomAccessFile>> SlowFileSystem::OpenInputFile(
+    const FileInfo& info) {
+  latencies_->Sleep();
+  ARROW_ASSIGN_OR_RAISE(auto file, base_fs_->OpenInputFile(info));
   return std::make_shared<io::SlowRandomAccessFile>(file, latencies_);
 }
 
@@ -459,6 +529,11 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUriOrPath(const std::string& u
 Status FileSystemFromUri(const std::string& uri, std::shared_ptr<FileSystem>* out_fs,
                          std::string* out_path) {
   return FileSystemFromUri(uri, out_path).Value(out_fs);
+}
+
+Status Initialize(const FileSystemGlobalOptions& options) {
+  internal::global_options = options;
+  return Status::OK();
 }
 
 }  // namespace fs

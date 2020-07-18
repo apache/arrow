@@ -18,8 +18,8 @@
 Format Versioning and Stability
 ===============================
 
-Starting with version 1.0.0 (not yet released), Apache Arrow utilizes
-**two versions** to describe each release of the project. These are
+Starting with version 1.0.0, Apache Arrow utilizes
+**two versions** to describe each release of the project:
 the **Format Version** and the **Library Version**. Each Library
 Version has a corresponding Format Version, and multiple versions of
 the library may have the same format version. For example, library
@@ -56,15 +56,15 @@ Long-Term Stability
 
 A change in the format major version (e.g. from 1.0.0 to 2.0.0)
 indicates a disruption to these compatibility guarantees in some way.
-We **do not expect** this to be a frequent occurrence starting with
-the 1.0.0 library and format release. This would be an exceptional
+We **do not expect** this to be a frequent occurrence.
+This would be an exceptional
 event and, should this come to pass, we would exercise caution in
 ensuring that production applications are not harmed.
 
 Pre-1.0.0 Versions
 ------------------
 
-We have made no forward or backward compatibility guarantees for
-versions prior to 1.0.0. However, we are making every effort to ensure
+We made no forward or backward compatibility guarantees for
+versions prior to 1.0.0. However, we made every effort to ensure
 that new clients can read serialized data produced by library version
 0.8.0 and onward.

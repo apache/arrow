@@ -16,7 +16,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-export CARES_VERSION="1.15.0"
+export CARES_VERSION="1.16.1"
 export CFLAGS="-fPIC"
 export PREFIX="/usr/local"
 curl -sL "https://c-ares.haxx.se/download/c-ares-$CARES_VERSION.tar.gz" -o c-ares-${CARES_VERSION}.tar.gz

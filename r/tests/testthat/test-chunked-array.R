@@ -93,52 +93,12 @@ test_that("ChunkedArray", {
 })
 
 test_that("print ChunkedArray", {
-  x1 <- chunked_array(c(1,2,3), c(4,5,6))
-  expect_output(
-    print(x1),
-    paste(
-      "ChunkedArray",
-      "<double>",
-      "[",
-      "  1,",
-      "  2,",
-      "  3,",
-      "  ...",
-      "]",
-      sep = "\n"
-    ),
-    fixed = TRUE
-  )
-  x2 <- chunked_array(1:30, c(4,5,6))
-  expect_output(
-    print(x2),
-    paste(
-      "ChunkedArray",
-      "<int32>",
-      "[",
-      "  1,",
-      "  2,",
-      "  3,",
-      "  4,",
-      "  5,",
-      "  6,",
-      "  7,",
-      "  8,",
-      "  9,",
-      "  10,",
-      "  ...",
-      "]",
-      sep = "\n"
-    ),
-    fixed = TRUE
-  )
-  # If there's only one chunk, it should look like a regular Array
-  x3 <- chunked_array(1:30)
-  expect_output(
-    print(x3),
-    paste0("Chunked", paste(capture.output(print(Array$create(1:30))), collapse = "\n")),
-    fixed = TRUE
-  )
+  verify_output(test_path("test-chunked-array.txt"), {
+    chunked_array(c(1,2,3), c(4,5,6))
+    chunked_array(1:30, c(4,5,6))
+    chunked_array(1:30)
+    chunked_array(factor(c("a", "b")), factor(c("c", "d")))
+  })
 })
 
 test_that("ChunkedArray handles !!! splicing", {
@@ -198,7 +158,7 @@ test_that("ChunkedArray supports POSIXct (ARROW-3716)", {
 })
 
 test_that("ChunkedArray supports integer64 (ARROW-3716)", {
-  x <- bit64::as.integer64(1:10)
+  x <- bit64::as.integer64(1:10) + MAX_INT
   expect_chunked_roundtrip(list(x, x), int64())
 })
 
@@ -391,4 +351,16 @@ test_that("ChunkedArray$Equals", {
   expect_equal(a, b)
   expect_true(a$Equals(b))
   expect_false(a$Equals(vec))
+})
+
+test_that("Converting a chunked array unifies factors (ARROW-8374)", {
+  f1 <- factor(c("a"), levels = c("a", "b"))
+  f2 <- factor(c("c"), levels = c("c", "d"))
+  f3 <- factor(NA, levels = "a")
+  f4 <- factor()
+
+  res <- factor(c("a", "c", NA), levels = c("a", "b", "c", "d"))
+  ca <- ChunkedArray$create(f1, f2, f3, f4)
+
+  expect_identical(ca$as_vector(), res)
 })

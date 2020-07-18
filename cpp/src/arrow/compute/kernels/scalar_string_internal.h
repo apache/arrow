@@ -31,9 +31,9 @@ template <typename Op>
 void MakeUnaryStringToString(std::string name, FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>(name, Arity::Unary());
   ArrayKernelExec exec_offset_32 =
-      codegen::ScalarUnaryNotNull<StringType, StringType, Op>::Exec;
+      applicator::ScalarUnaryNotNull<StringType, StringType, Op>::Exec;
   ArrayKernelExec exec_offset_64 =
-      codegen::ScalarUnaryNotNull<LargeStringType, LargeStringType, Op>::Exec;
+      applicator::ScalarUnaryNotNull<LargeStringType, LargeStringType, Op>::Exec;
   DCHECK_OK(func->AddKernel({utf8()}, utf8(), exec_offset_32));
   DCHECK_OK(func->AddKernel({large_utf8()}, large_utf8(), exec_offset_64));
   DCHECK_OK(registry->AddFunction(std::move(func)));

@@ -29,6 +29,7 @@ on:
       - 'cpp/**'
       - 'java/**'
       - 'format/**'
+      - 'rust/**'
   pull_request:
     paths:
       - '.github/workflows/integration.yml'
@@ -40,6 +41,7 @@ on:
       - 'cpp/**'
       - 'java/**'
       - 'format/**'
+      - 'rust/**'
 
 env:
   DOCKER_BUILDKIT: 0

@@ -22,23 +22,23 @@ use std::fs::metadata;
 use std::sync::{Arc, Mutex};
 
 use crate::error::{ExecutionError, Result};
-use crate::execution::physical_plan::BatchIterator;
 
 use crate::logicalplan::ScalarValue;
 use arrow::array::{self, ArrayRef};
-use arrow::datatypes::{DataType, Schema};
-use arrow::record_batch::RecordBatch;
+use arrow::datatypes::{DataType, SchemaRef};
+use arrow::error::Result as ArrowResult;
+use arrow::record_batch::{RecordBatch, RecordBatchReader};
 
 /// Iterator over a vector of record batches
 pub struct RecordBatchIterator {
-    schema: Arc<Schema>,
+    schema: SchemaRef,
     batches: Vec<Arc<RecordBatch>>,
     index: usize,
 }
 
 impl RecordBatchIterator {
     /// Create a new RecordBatchIterator
-    pub fn new(schema: Arc<Schema>, batches: Vec<Arc<RecordBatch>>) -> Self {
+    pub fn new(schema: SchemaRef, batches: Vec<Arc<RecordBatch>>) -> Self {
         RecordBatchIterator {
             schema,
             index: 0,
@@ -47,12 +47,12 @@ impl RecordBatchIterator {
     }
 }
 
-impl BatchIterator for RecordBatchIterator {
-    fn schema(&self) -> Arc<Schema> {
+impl RecordBatchReader for RecordBatchIterator {
+    fn schema(&self) -> SchemaRef {
         self.schema.clone()
     }
 
-    fn next(&mut self) -> Result<Option<RecordBatch>> {
+    fn next_batch(&mut self) -> ArrowResult<Option<RecordBatch>> {
         if self.index < self.batches.len() {
             self.index += 1;
             Ok(Some(self.batches[self.index - 1].as_ref().clone()))
@@ -63,11 +63,13 @@ impl BatchIterator for RecordBatchIterator {
 }
 
 /// Create a vector of record batches from an iterator
-pub fn collect(it: Arc<Mutex<dyn BatchIterator>>) -> Result<Vec<RecordBatch>> {
-    let mut it = it.lock().unwrap();
+pub fn collect(
+    it: Arc<Mutex<dyn RecordBatchReader + Send + Sync>>,
+) -> Result<Vec<RecordBatch>> {
+    let mut reader = it.lock().unwrap();
     let mut results: Vec<RecordBatch> = vec![];
     loop {
-        match it.next() {
+        match reader.next_batch() {
             Ok(Some(batch)) => {
                 results.push(batch);
             }
@@ -75,7 +77,7 @@ pub fn collect(it: Arc<Mutex<dyn BatchIterator>>) -> Result<Vec<RecordBatch>> {
                 // end of result set
                 return Ok(results);
             }
-            Err(e) => return Err(e),
+            Err(e) => return Err(ExecutionError::from(e)),
         }
     }
 }

@@ -141,7 +141,9 @@ set(ARROW_SRCS
     array/validate.cc
     builder.cc
     buffer.cc
+    chunked_array.cc
     compare.cc
+    config.cc
     datum.cc
     device.cc
     extension_type.cc
@@ -156,9 +158,8 @@ set(ARROW_SRCS
     table_builder.cc
     tensor.cc
     tensor/coo_converter.cc
-    tensor/csc_converter.cc
     tensor/csf_converter.cc
-    tensor/csr_converter.cc
+    tensor/csx_converter.cc
     type.cc
     visitor.cc
     c/bridge.cc
@@ -171,9 +172,10 @@ set(ARROW_SRCS
     io/interfaces.cc
     io/memory.cc
     io/slow.cc
-    testing/util.cc
+    io/transform.cc
     util/basic_decimal.cc
     util/bit_block_counter.cc
+    util/bit_run_reader.cc
     util/bit_util.cc
     util/bitmap.cc
     util/bitmap_builders.cc
@@ -190,6 +192,7 @@ set(ARROW_SRCS
     util/logging.cc
     util/key_value_metadata.cc
     util/memory.cc
+    util/mutex.cc
     util/string.cc
     util/string_builder.cc
     util/task_group.cc
@@ -275,9 +278,12 @@ endif()
 set(ARROW_TESTING_SRCS
     io/test_common.cc
     ipc/test_common.cc
+    testing/json_integration.cc
+    testing/json_internal.cc
     testing/gtest_util.cc
     testing/random.cc
-    testing/generator.cc)
+    testing/generator.cc
+    testing/util.cc)
 
 # Add dependencies for third-party allocators.
 # If possible we only want memory_pool.cc to wait for allocators to finish building,
@@ -353,12 +359,31 @@ if(ARROW_COMPUTE)
               compute/kernels/scalar_cast_string.cc
               compute/kernels/scalar_cast_temporal.cc
               compute/kernels/scalar_compare.cc
+              compute/kernels/scalar_nested.cc
               compute/kernels/scalar_set_lookup.cc
               compute/kernels/scalar_string.cc
-              compute/kernels/vector_filter.cc
+              compute/kernels/scalar_validity.cc
+              compute/kernels/scalar_fill_null.cc
+              compute/kernels/util_internal.cc
               compute/kernels/vector_hash.cc
-              compute/kernels/vector_sort.cc
-              compute/kernels/vector_take.cc)
+              compute/kernels/vector_nested.cc
+              compute/kernels/vector_selection.cc
+              compute/kernels/vector_sort.cc)
+
+  if(CXX_SUPPORTS_AVX2)
+    list(APPEND ARROW_SRCS compute/kernels/aggregate_sum_avx2.cc)
+    set_source_files_properties(compute/kernels/aggregate_sum_avx2.cc PROPERTIES
+                                SKIP_PRECOMPILE_HEADERS ON)
+    set_source_files_properties(compute/kernels/aggregate_sum_avx2.cc PROPERTIES
+                                COMPILE_FLAGS ${ARROW_AVX2_FLAG})
+  endif()
+  if(CXX_SUPPORTS_AVX512)
+    list(APPEND ARROW_SRCS compute/kernels/aggregate_sum_avx512.cc)
+    set_source_files_properties(compute/kernels/aggregate_sum_avx512.cc PROPERTIES
+                                SKIP_PRECOMPILE_HEADERS ON)
+    set_source_files_properties(compute/kernels/aggregate_sum_avx512.cc PROPERTIES
+                                COMPILE_FLAGS ${ARROW_AVX512_FLAG})
+  endif()
 endif()
 
 if(ARROW_FILESYSTEM)
@@ -404,8 +429,7 @@ if(ARROW_IPC)
               ipc/writer.cc)
 
   if(ARROW_JSON)
-    list(
-      APPEND ARROW_SRCS ipc/json_integration.cc ipc/json_internal.cc ipc/json_simple.cc)
+    list(APPEND ARROW_SRCS ipc/json_simple.cc)
   endif()
 endif()
 
@@ -466,6 +490,29 @@ if(ARROW_BUILD_STATIC AND WIN32)
   target_compile_definitions(arrow_static PUBLIC ARROW_STATIC)
 endif()
 
+if(ARROW_WITH_BACKTRACE)
+  find_package(Backtrace)
+
+  foreach(LIB_TARGET ${ARROW_LIBRARIES})
+    target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_EXPORTING)
+    if(Backtrace_FOUND AND ARROW_WITH_BACKTRACE)
+      target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_WITH_BACKTRACE)
+    endif()
+  endforeach()
+endif()
+
+if(ARROW_BUILD_STATIC AND ARROW_BUNDLED_STATIC_LIBS)
+  arrow_car(_FIRST_LIB ${ARROW_BUNDLED_STATIC_LIBS})
+  arrow_cdr(_OTHER_LIBS ${ARROW_BUNDLED_STATIC_LIBS})
+  create_merged_static_lib(arrow_bundled_dependencies
+                           NAME
+                           arrow_bundled_dependencies
+                           ROOT
+                           ${_FIRST_LIB}
+                           TO_MERGE
+                           ${_OTHER_LIBS})
+endif()
+
 if(ARROW_BUILD_TESTS
    OR ARROW_BUILD_BENCHMARKS
    OR ARROW_BUILD_INTEGRATION
@@ -495,20 +542,11 @@ if(ARROW_BUILD_TESTS
   add_dependencies(arrow_testing ${ARROW_TESTING_LIBRARIES})
 
   if(ARROW_BUILD_STATIC AND WIN32)
-    target_compile_definitions(arrow_testing_static PUBLIC ARROW_STATIC)
+    target_compile_definitions(arrow_testing_static PUBLIC ARROW_TESTING_STATIC)
   endif()
 
-  set(ARROW_LIBRARIES ${ARROW_LIBRARIES} ${ARROW_TESTING_LIBRARIES})
-endif()
-
-if(ARROW_WITH_BACKTRACE)
-  find_package(Backtrace)
-
-  foreach(LIB_TARGET ${ARROW_LIBRARIES})
-    target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_EXPORTING)
-    if(Backtrace_FOUND AND ARROW_WITH_BACKTRACE)
-      target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_WITH_BACKTRACE)
-    endif()
+  foreach(LIB_TARGET ${ARROW_TESTING_LIBRARIES})
+    target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_TESTING_EXPORTING)
   endforeach()
 endif()
 
@@ -564,7 +602,12 @@ set_source_files_properties(public_api_test.cc
 add_arrow_test(scalar_test)
 add_arrow_test(type_test)
 
-add_arrow_test(table_test SOURCES table_test.cc table_builder_test.cc)
+add_arrow_test(table_test
+               SOURCES
+               chunked_array_test.cc
+               record_batch_test.cc
+               table_test.cc
+               table_builder_test.cc)
 
 add_arrow_test(tensor_test)
 add_arrow_test(sparse_tensor_test)
@@ -588,6 +631,7 @@ add_subdirectory(testing)
 add_subdirectory(array)
 add_subdirectory(c)
 add_subdirectory(io)
+add_subdirectory(tensor)
 add_subdirectory(util)
 add_subdirectory(vendored)
 

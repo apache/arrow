@@ -30,7 +30,7 @@
 
 #include "arrow/array.h"
 #include "arrow/builder.h"
-#include "arrow/table.h"
+#include "arrow/chunked_array.h"
 #include "arrow/type.h"
 #include "arrow/util/bit_stream_utils.h"
 #include "arrow/util/checked_cast.h"
@@ -182,7 +182,7 @@ class SerializedPageReader : public PageReader {
       InitDecryption();
     }
     max_page_header_size_ = kDefaultMaxPageHeaderSize;
-    decompressor_ = GetCodec(codec);
+    decompressor_ = internal::GetReadCodec(codec);
   }
 
   // Implement the PageReader interface
@@ -905,6 +905,7 @@ int64_t TypedColumnReaderImpl<DType>::ReadBatchSpaced(
                                 /*length=*/total_values,
                                 /*bits_are_set=*/true);
     *null_count_out = 0;
+    *values_read = total_values;
     *levels_read = total_values;
   }
 
@@ -1027,7 +1028,7 @@ class TypedRecordReader : public ColumnReaderImplBase<DType>,
   // Compute the values capacity in bytes for the given number of elements
   int64_t bytes_for_values(int64_t nitems) const {
     int64_t type_size = GetTypeByteSize(this->descr_->physical_type());
-    if (::arrow::internal::HasMultiplyOverflow(nitems, type_size)) {
+    if (::arrow::internal::HasPositiveMultiplyOverflow(nitems, type_size)) {
       throw ParquetException("Total size of items too large");
     }
     return nitems * type_size;
@@ -1144,7 +1145,8 @@ class TypedRecordReader : public ColumnReaderImplBase<DType>,
 
     // Count logical records and number of values to read
     while (levels_position_ < levels_written_) {
-      if (*rep_levels++ == 0) {
+      const int16_t rep_level = *rep_levels++;
+      if (rep_level == 0) {
         // If at_record_start_ is true, we are seeing the start of a record
         // for the second time, such as after repeated calls to
         // DelimitRecords. In this case we must continue until we find
@@ -1159,14 +1161,25 @@ class TypedRecordReader : public ColumnReaderImplBase<DType>,
             break;
           }
         }
+      } else if (ARROW_PREDICT_FALSE(rep_level > this->max_rep_level_)) {
+        std::stringstream ss;
+        ss << "Malformed repetition levels, " << rep_level << " exceeded maximum "
+           << this->max_rep_level_ << " indicated by schema";
+        throw ParquetException(ss.str());
       }
 
       // We have decided to consume the level at this position; therefore we
       // must advance until we find another record boundary
       at_record_start_ = false;
 
-      if (*def_levels++ == this->max_def_level_) {
+      const int16_t def_level = *def_levels++;
+      if (def_level == this->max_def_level_) {
         ++values_to_read;
+      } else if (ARROW_PREDICT_FALSE(def_level > this->max_def_level_)) {
+        std::stringstream ss;
+        ss << "Malformed definition levels, " << def_level << " exceeded maximum "
+           << this->max_def_level_ << " indicated by schema";
+        throw ParquetException(ss.str());
       }
       ++levels_position_;
     }
@@ -1183,7 +1196,7 @@ class TypedRecordReader : public ColumnReaderImplBase<DType>,
     if (extra_size < 0) {
       throw ParquetException("Negative size (corrupt file?)");
     }
-    if (::arrow::internal::HasAdditionOverflow(size, extra_size)) {
+    if (::arrow::internal::HasPositiveAdditionOverflow(size, extra_size)) {
       throw ParquetException("Allocation size too large (corrupt file?)");
     }
     const int64_t target_size = size + extra_size;
@@ -1202,7 +1215,8 @@ class TypedRecordReader : public ColumnReaderImplBase<DType>,
           UpdateCapacity(levels_capacity_, levels_written_, extra_levels);
       if (new_levels_capacity > levels_capacity_) {
         constexpr auto kItemSize = static_cast<int64_t>(sizeof(int16_t));
-        if (::arrow::internal::HasMultiplyOverflow(new_levels_capacity, kItemSize)) {
+        if (::arrow::internal::HasPositiveMultiplyOverflow(new_levels_capacity,
+                                                           kItemSize)) {
           throw ParquetException("Allocation size too large (corrupt file?)");
         }
         PARQUET_THROW_NOT_OK(def_levels_->Resize(new_levels_capacity * kItemSize, false));

@@ -23,5 +23,15 @@
 
 #include <arrow-glib/basic-array.h>
 
-GArrowArray *garrow_array_new_raw(std::shared_ptr<arrow::Array> *arrow_array);
-std::shared_ptr<arrow::Array> garrow_array_get_raw(GArrowArray *array);
+GArrowArray *
+garrow_array_new_raw(std::shared_ptr<arrow::Array> *arrow_array);
+GArrowArray *
+garrow_array_new_raw(std::shared_ptr<arrow::Array> *arrow_array,
+                     const gchar *first_property_name,
+                     ...);
+GArrowArray *
+garrow_array_new_raw_valist(std::shared_ptr<arrow::Array> *arrow_array,
+                            const gchar *first_property_name,
+                            va_list args);
+std::shared_ptr<arrow::Array>
+garrow_array_get_raw(GArrowArray *array);

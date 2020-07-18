@@ -15,43 +15,21 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' Read a [RecordBatch] from an encapsulated IPC message
-#'
-#' Deprecated in 0.17. Use [record_batch()] instead.
-#'
-#' @param obj a [Message], a [InputStream], a [Buffer], or a `raw` vector
-#' @param schema a [schema]
-#'
-#' @return a [RecordBatch]
-#'
-#' @keywords internal
-#' @export
-read_record_batch <- function(obj, schema) {
-  .Deprecated("record_batch")
-  RecordBatch$create(obj, schema = schema)
-}
-
 #' @rdname read_ipc_stream
 #' @export
-#' @include ipc_stream.R
-read_table <- function(x, ...) {
-  .Deprecated("read_arrow")
-  read_arrow(x, ..., as_data_frame = FALSE)
-}
-
-#' @rdname read_ipc_stream
-#' @export
-read_arrow <- function(x, ...) {
-  if (inherits(x, "raw")) {
-    read_ipc_stream(x, ...)
+read_arrow <- function(file, ...) {
+  .Deprecated(msg = "Use 'read_ipc_stream' or 'read_feather' instead.")
+  if (inherits(file, "raw")) {
+    read_ipc_stream(file, ...)
   } else {
-    read_feather(x, ...)
+    read_feather(file, ...)
   }
 }
 
 #' @rdname write_ipc_stream
 #' @export
 write_arrow <- function(x, sink, ...) {
+  .Deprecated(msg = "Use 'write_ipc_stream' or 'write_feather' instead.")
   if (inherits(sink, "raw")) {
     # HACK for sparklyr
     # Note that this returns a new R raw vector, not the one passed as `sink`
@@ -60,8 +38,3 @@ write_arrow <- function(x, sink, ...) {
     write_feather(x, sink, ...)
   }
 }
-
-#' @rdname FileInfo
-#' @export
-#' @include filesystem.R
-FileStats <- FileInfo

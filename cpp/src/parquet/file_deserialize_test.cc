@@ -249,9 +249,8 @@ TEST_F(TestPageSerde, Compression) {
   codec_types.push_back(Compression::GZIP);
 #endif
 
-#ifdef ARROW_WITH_LZ4
-  codec_types.push_back(Compression::LZ4);
-#endif
+  // TODO: Add LZ4 compression type after PARQUET-1878 is complete.
+  // Testing for deserializing LZ4 is hard without writing enabled, so it is not included.
 
 #ifdef ARROW_WITH_ZSTD
   codec_types.push_back(Compression::ZSTD);

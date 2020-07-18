@@ -19,16 +19,12 @@
 
 #include <memory>
 #include <string>
-#include "arrow/util/value_parsing.h"
 #include "gandiva/simple_arena.h"
 
 namespace gandiva {
 
 /// Execution context during llvm evaluation
 class ExecutionContext {
-  using FloatConverter = arrow::internal::StringConverter<arrow::FloatType>;
-  using DoubleConverter = arrow::internal::StringConverter<arrow::DoubleType>;
-
  public:
   explicit ExecutionContext(arrow::MemoryPool* pool = arrow::default_memory_pool())
       : arena_(pool) {}
@@ -48,14 +44,6 @@ class ExecutionContext {
   void Reset() {
     error_msg_.clear();
     arena_.Reset();
-  }
-
-  bool parse_float(const char* data, int32_t len, float* val) {
-    return FloatConverter::Convert(data, len, val);
-  }
-
-  bool parse_double(const char* data, int32_t len, double* val) {
-    return DoubleConverter::Convert(data, len, val);
   }
 
  private:

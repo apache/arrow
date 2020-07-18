@@ -19,6 +19,7 @@
 #include <limits>
 #include <numeric>
 
+#include "arrow/array/data.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/kernels/common.h"
 #include "arrow/util/optional.h"
@@ -29,21 +30,38 @@ namespace compute {
 namespace {
 
 // ----------------------------------------------------------------------
-// partition_indices implementation
+// partition_nth_indices implementation
 
 // We need to preserve the options
-struct PartitionIndicesState : public KernelState {
-  explicit PartitionIndicesState(int64_t pivot) : pivot(pivot) {}
-  int64_t pivot;
-};
+using PartitionNthToIndicesState = internal::OptionsWrapper<PartitionNthOptions>;
+
+Status GetPhysicalView(const std::shared_ptr<ArrayData>& arr,
+                       const std::shared_ptr<DataType>& type,
+                       std::shared_ptr<ArrayData>* out) {
+  if (!arr->type->Equals(*type)) {
+    return ::arrow::internal::GetArrayView(arr, type).Value(out);
+  } else {
+    *out = arr;
+    return Status::OK();
+  }
+}
 
 template <typename OutType, typename InType>
-struct PartitionIndices {
+struct PartitionNthToIndices {
   using ArrayType = typename TypeTraits<InType>::ArrayType;
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    ArrayType arr(batch[0].array());
+    if (ctx->state() == nullptr) {
+      ctx->SetStatus(Status::Invalid("NthToIndices requires PartitionNthOptions"));
+      return;
+    }
 
-    int64_t pivot = checked_cast<const PartitionIndicesState&>(*ctx->state()).pivot;
+    std::shared_ptr<ArrayData> arg0;
+    KERNEL_RETURN_IF_ERROR(
+        ctx,
+        GetPhysicalView(batch[0].array(), TypeTraits<InType>::type_singleton(), &arg0));
+    ArrayType arr(arg0);
+
+    int64_t pivot = PartitionNthToIndicesState::Get(ctx).pivot;
     if (pivot > arr.length()) {
       ctx->SetStatus(Status::IndexError("NthToIndices index out of bound"));
       return;
@@ -69,6 +87,28 @@ struct PartitionIndices {
     }
   }
 };
+
+template <typename ArrayType, typename VisitorNotNull, typename VisitorNull>
+inline void VisitRawValuesInline(const ArrayType& values,
+                                 VisitorNotNull&& visitor_not_null,
+                                 VisitorNull&& visitor_null) {
+  const auto data = values.raw_values();
+  if (values.null_count() > 0) {
+    BitmapReader reader(values.null_bitmap_data(), values.offset(), values.length());
+    for (int64_t i = 0; i < values.length(); ++i) {
+      if (reader.IsSet()) {
+        visitor_not_null(data[i]);
+      } else {
+        visitor_null();
+      }
+      reader.Next();
+    }
+  } else {
+    for (int64_t i = 0; i < values.length(); ++i) {
+      visitor_not_null(data[i]);
+    }
+  }
+}
 
 }  // namespace
 
@@ -127,31 +167,20 @@ class CountSorter {
                     const ArrayType& values) {
     const uint32_t value_range = value_range_;
 
-    // first slot reserved for prefix sum, last slot for null value
-    std::vector<CounterType> counts(1 + value_range + 1);
+    // first slot reserved for prefix sum
+    std::vector<CounterType> counts(1 + value_range);
 
-    auto update_counts = [&](util::optional<c_type> v) {
-      if (v.has_value()) {
-        ++counts[*v - min_ + 1];
-      } else {
-        ++counts[value_range + 1];
-      }
-    };
-    VisitArrayDataInline<ArrowType>(*values.data(), std::move(update_counts));
+    VisitRawValuesInline(
+        values, [&](c_type v) { ++counts[v - min_ + 1]; }, []() {});
 
     for (uint32_t i = 1; i <= value_range; ++i) {
       counts[i] += counts[i - 1];
     }
 
     int64_t index = 0;
-    auto write_index = [&](util::optional<c_type> v) {
-      if (v.has_value()) {
-        indices_begin[counts[*v - min_]++] = index++;
-      } else {
-        indices_begin[counts[value_range]++] = index++;
-      }
-    };
-    VisitArrayDataInline<ArrowType>(*values.data(), std::move(write_index));
+    VisitRawValuesInline(
+        values, [&](c_type v) { indices_begin[counts[v - min_]++] = index++; },
+        [&]() { indices_begin[counts[value_range]++] = index++; });
   }
 };
 
@@ -169,13 +198,14 @@ class CountOrCompareSorter {
       c_type min{std::numeric_limits<c_type>::max()};
       c_type max{std::numeric_limits<c_type>::min()};
 
-      auto update_minmax = [&min, &max](util::optional<c_type> v) {
-        if (v.has_value()) {
-          min = std::min(min, *v);
-          max = std::max(max, *v);
-        }
-      };
-      VisitArrayDataInline<ArrowType>(*values.data(), std::move(update_minmax));
+      VisitRawValuesInline(
+          values,
+          [&](c_type v) {
+            min = std::min(min, v);
+            max = std::max(max, v);
+          },
+          []() {});
+
       // For signed int32/64, (max - min) may overflow and trigger UBSAN.
       // Cast to largest unsigned type(uint64_t) before subtraction.
       if (static_cast<uint64_t>(max) - static_cast<uint64_t>(min) <=
@@ -237,7 +267,11 @@ template <typename OutType, typename InType>
 struct SortIndices {
   using ArrayType = typename TypeTraits<InType>::ArrayType;
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    ArrayType arr(batch[0].array());
+    std::shared_ptr<ArrayData> arg0;
+    KERNEL_RETURN_IF_ERROR(
+        ctx,
+        GetPhysicalView(batch[0].array(), TypeTraits<InType>::type_singleton(), &arg0));
+    ArrayType arr(arg0);
     ArrayData* out_arr = out->mutable_array();
     uint64_t* out_begin = out_arr->GetMutableValues<uint64_t>(1);
     uint64_t* out_end = out_begin + arr.length();
@@ -254,22 +288,16 @@ namespace internal {
 // * Number types
 // * Base binary types
 
-std::unique_ptr<KernelState> InitPartitionIndices(KernelContext*,
-                                                  const KernelInitArgs& args) {
-  int64_t pivot = static_cast<const PartitionOptions*>(args.options)->pivot;
-  return std::unique_ptr<KernelState>(new PartitionIndicesState(pivot));
-}
-
 template <template <typename...> class ExecTemplate>
 void AddSortingKernels(VectorKernel base, VectorFunction* func) {
   for (const auto& ty : NumericTypes()) {
     base.signature = KernelSignature::Make({InputType::Array(ty)}, uint64());
-    base.exec = codegen::Numeric<ExecTemplate, UInt64Type>(*ty);
+    base.exec = GenerateNumeric<ExecTemplate, UInt64Type>(*ty);
     DCHECK_OK(func->AddKernel(base));
   }
   for (const auto& ty : BaseBinaryTypes()) {
     base.signature = KernelSignature::Make({InputType::Array(ty)}, uint64());
-    base.exec = codegen::BaseBinary<ExecTemplate, UInt64Type>(*ty);
+    base.exec = GenerateVarBinaryBase<ExecTemplate, UInt64Type>(*ty);
     DCHECK_OK(func->AddKernel(base));
   }
 }
@@ -284,11 +312,11 @@ void RegisterVectorSort(FunctionRegistry* registry) {
   AddSortingKernels<SortIndices>(base, sort_indices.get());
   DCHECK_OK(registry->AddFunction(std::move(sort_indices)));
 
-  // partition_indices has a parameter so needs its init function
+  // partition_nth_indices has a parameter so needs its init function
   auto part_indices =
-      std::make_shared<VectorFunction>("partition_indices", Arity::Unary());
-  base.init = InitPartitionIndices;
-  AddSortingKernels<PartitionIndices>(base, part_indices.get());
+      std::make_shared<VectorFunction>("partition_nth_indices", Arity::Unary());
+  base.init = PartitionNthToIndicesState::Init;
+  AddSortingKernels<PartitionNthToIndices>(base, part_indices.get());
   DCHECK_OK(registry->AddFunction(std::move(part_indices)));
 }
 

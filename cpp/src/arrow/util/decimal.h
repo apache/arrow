@@ -32,6 +32,8 @@ namespace arrow {
 
 /// Represents a signed 128-bit integer in two's complement.
 /// Calculations wrap around and overflow is ignored.
+/// The max decimal precision that can be safely represented is
+/// 38 significant digits.
 ///
 /// For a discussion of the algorithms, look at Knuth's volume 2,
 /// Semi-numerical Algorithms section 4.3.1.
@@ -101,6 +103,9 @@ class ARROW_EXPORT Decimal128 : public BasicDecimal128 {
   static Result<Decimal128> FromString(const std::string& s);
   static Result<Decimal128> FromString(const char* s);
 
+  static Result<Decimal128> FromReal(double real, int32_t precision, int32_t scale);
+  static Result<Decimal128> FromReal(float real, int32_t precision, int32_t scale);
+
   /// \brief Convert from a big-endian byte representation. The length must be
   ///        between 1 and 16.
   /// \return error status if the length is an invalid value
@@ -133,12 +138,38 @@ class ARROW_EXPORT Decimal128 : public BasicDecimal128 {
     return ToInteger<T>().Value(out);
   }
 
+  /// \brief Convert to a floating-point number (scaled)
+  float ToFloat(int32_t scale) const;
+  /// \brief Convert to a floating-point number (scaled)
+  double ToDouble(int32_t scale) const;
+
+  /// \brief Convert to a floating-point number (scaled)
+  template <typename T>
+  T ToReal(int32_t scale) const {
+    return ToRealConversion<T>::ToReal(*this, scale);
+  }
+
   friend ARROW_EXPORT std::ostream& operator<<(std::ostream& os,
                                                const Decimal128& decimal);
 
  private:
   /// Converts internal error code to Status
   Status ToArrowStatus(DecimalStatus dstatus) const;
+
+  template <typename T>
+  struct ToRealConversion {};
+};
+
+template <>
+struct Decimal128::ToRealConversion<float> {
+  static float ToReal(const Decimal128& dec, int32_t scale) { return dec.ToFloat(scale); }
+};
+
+template <>
+struct Decimal128::ToRealConversion<double> {
+  static double ToReal(const Decimal128& dec, int32_t scale) {
+    return dec.ToDouble(scale);
+  }
 };
 
 }  // namespace arrow

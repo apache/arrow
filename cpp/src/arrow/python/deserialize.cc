@@ -120,6 +120,10 @@ Status DeserializeArray(int32_t index, PyObject* base, const SerializedPyObject&
 Status GetValue(PyObject* context, const Array& arr, int64_t index, int8_t type,
                 PyObject* base, const SerializedPyObject& blobs, PyObject** result) {
   switch (type) {
+    case PythonType::NONE:
+      Py_INCREF(Py_None);
+      *result = Py_None;
+      return Status::OK();
     case PythonType::BOOL:
       *result = PyBool_FromLong(checked_cast<const BooleanArray&>(arr).Value(index));
       return Status::OK();
@@ -249,7 +253,7 @@ Status DeserializeSequence(PyObject* context, const Array& array, int64_t start_
                            const SerializedPyObject& blobs,
                            CreateSequenceFn&& create_sequence, SetItemFn&& set_item,
                            PyObject** out) {
-  const auto& data = checked_cast<const UnionArray&>(array);
+  const auto& data = checked_cast<const DenseUnionArray&>(array);
   OwnedRef result(create_sequence(stop_idx - start_idx));
   RETURN_IF_PYERROR();
   const int8_t* type_codes = data.raw_type_codes();
@@ -257,17 +261,12 @@ Status DeserializeSequence(PyObject* context, const Array& array, int64_t start_
   std::vector<int8_t> python_types;
   RETURN_NOT_OK(GetPythonTypes(data, &python_types));
   for (int64_t i = start_idx; i < stop_idx; ++i) {
-    if (data.IsNull(i)) {
-      Py_INCREF(Py_None);
-      RETURN_NOT_OK(set_item(result.obj(), i - start_idx, Py_None));
-    } else {
-      const int64_t offset = value_offsets[i];
-      const uint8_t type = type_codes[i];
-      PyObject* value;
-      RETURN_NOT_OK(GetValue(context, *data.field(type), offset, python_types[type], base,
-                             blobs, &value));
-      RETURN_NOT_OK(set_item(result.obj(), i - start_idx, value));
-    }
+    const int64_t offset = value_offsets[i];
+    const uint8_t type = type_codes[i];
+    PyObject* value;
+    RETURN_NOT_OK(GetValue(context, *data.field(type), offset, python_types[type], base,
+                           blobs, &value));
+    RETURN_NOT_OK(set_item(result.obj(), i - start_idx, value));
   }
   *out = result.detach();
   return Status::OK();
@@ -433,7 +432,7 @@ Status GetSerializedFromComponents(int num_tensors,
 
   // Zero-copy reconstruct sparse tensors
   for (int i = 0, n = num_sparse_tensors.num_total_tensors(); i < n; ++i) {
-    ipc::internal::IpcPayload payload;
+    ipc::IpcPayload payload;
     RETURN_NOT_OK(GetBuffer(buffer_index++, &payload.metadata));
 
     ARROW_ASSIGN_OR_RAISE(

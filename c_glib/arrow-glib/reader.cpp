@@ -1683,10 +1683,10 @@ garrow_json_read_options_set_property(GObject *object,
     break;
   case PROP_JSON_READER_SCHEMA:
     {
+      auto schema = g_value_dup_object(value);
       if (priv->schema) {
         g_object_unref(priv->schema);
       }
-      auto schema = g_value_dup_object(value);
       if (schema) {
         priv->schema = GARROW_SCHEMA(schema);
         priv->parse_options.explicit_schema = garrow_schema_get_raw(priv->schema);
@@ -1961,25 +1961,23 @@ garrow_json_reader_new(GArrowInputStream *input,
 {
   auto arrow_input = garrow_input_stream_get_raw(input);
   arrow::Status status;
-  std::shared_ptr<arrow::json::TableReader> arrow_reader;
+
+  arrow::Result<std::shared_ptr<arrow::json::TableReader>> arrow_reader;
   if (options) {
     auto options_priv = GARROW_JSON_READ_OPTIONS_GET_PRIVATE(options);
-    status = arrow::json::TableReader::Make(arrow::default_memory_pool(),
-                                            arrow_input,
-                                            options_priv->read_options,
-                                            options_priv->parse_options,
-                                            &arrow_reader);
+    arrow_reader = arrow::json::TableReader::Make(arrow::default_memory_pool(),
+                                                  arrow_input,
+                                                  options_priv->read_options,
+                                                  options_priv->parse_options);
   } else {
-    status =
-      arrow::json::TableReader::Make(arrow::default_memory_pool(),
-                                     arrow_input,
-                                     arrow::json::ReadOptions::Defaults(),
-                                     arrow::json::ParseOptions::Defaults(),
-                                     &arrow_reader);
+    arrow_reader = arrow::json::TableReader::Make(arrow::default_memory_pool(),
+                                                  arrow_input,
+                                                  arrow::json::ReadOptions::Defaults(),
+                                                  arrow::json::ParseOptions::Defaults());
   }
 
-  if (garrow_error_check(error, status, "[json-reader][new]")) {
-    return garrow_json_reader_new_raw(&arrow_reader);
+  if (garrow::check(error, arrow_reader, "[json-reader][new]")) {
+    return garrow_json_reader_new_raw(&(arrow_reader.ValueOrDie()));
   } else {
     return NULL;
   }
@@ -1999,10 +1997,9 @@ garrow_json_reader_read(GArrowJSONReader *reader,
                         GError **error)
 {
   auto arrow_reader = garrow_json_reader_get_raw(reader);
-  std::shared_ptr<arrow::Table> arrow_table;
-  auto status = arrow_reader->Read(&arrow_table);
-  if (garrow_error_check(error, status, "[json-reader][read]")) {
-    return garrow_table_new_raw(&arrow_table);
+  auto arrow_table = arrow_reader->Read();
+  if (garrow::check(error, arrow_table, "[json-reader][read]")) {
+    return garrow_table_new_raw(&(arrow_table.ValueOrDie()));
   } else {
     return NULL;
   }

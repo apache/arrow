@@ -62,6 +62,10 @@ x-ccache: &ccache
   CCACHE_MAXSIZE: 500M
   CCACHE_DIR: /ccache
 
+x-with-gpus:
+  - ubuntu-cuda-cpp
+  - ubuntu-cuda-python
+
 x-hierarchy:
   # This section is used by the archery tool to enable building nested images,
   # so it is enough to call:
@@ -91,8 +95,6 @@ x-hierarchy:
       - conda-python-kartothek
       - conda-python-spark
     - conda-r
-  - cuda-cpp:
-    - cuda-python
   - debian-cpp:
     - debian-c-glib:
       - debian-ruby
@@ -112,6 +114,8 @@ x-hierarchy:
     - ubuntu-python:
       - ubuntu-docs
     - ubuntu-r
+  - ubuntu-cuda-cpp:
+    - ubuntu-cuda-python
   - ubuntu-csharp
   - ubuntu-cpp-sanitizer
   - ubuntu-r-sanitizer
@@ -138,6 +142,8 @@ services:
   #     ubuntu-cpp
 
   conda-cpp:
+    # C++ build in conda environment, including the doxygen docs.
+    #
     # Usage:
     #   docker-compose build conda-cpp
     #   docker-compose run --rm conda-cpp
@@ -157,15 +163,15 @@ services:
       core: ${ULIMIT_CORE}
     environment:
       <<: *ccache
+      ARROW_BUILD_BENCHMARKS: "ON"
       ARROW_ENABLE_TIMING_TESTS:  # inherit
       ARROW_USE_LD_GOLD: "ON"
       ARROW_USE_PRECOMPILED_HEADERS: "ON"
-      ARROW_BUILD_BENCHMARKS: "ON"
     volumes: &conda-volumes
       - .:/arrow:delegated
-      - .docker/${ARCH}-conda-ccache:/ccache:delegated
+      - ${DOCKER_VOLUME_DIRECTORY:-.docker}/${ARCH}-conda-ccache:/ccache:delegated
     command: &cpp-conda-command
-      ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
+      ["/arrow/ci/scripts/cpp_build.sh /arrow /build true &&
         /arrow/ci/scripts/cpp_test.sh /arrow /build"]
 
   conda-cpp-valgrind:
@@ -198,34 +204,6 @@ services:
     volumes: *conda-volumes
     command: *cpp-conda-command
 
-  cuda-cpp:
-    # Usage:
-    #   docker-compose build cuda-cpp
-    #   docker-compose run --rm cuda-cpp
-    # Also need to edit the host docker configuration as follows:
-    #   https://github.com/docker/compose/issues/6691#issuecomment-561504928
-    # Parameters:
-    #   ARCH: amd64
-    #   CUDA: 9.1, 10.0, 10.1
-    image: ${REPO}:${ARCH}-cuda-${CUDA}-cpp
-    build:
-      context: .
-      dockerfile: ci/docker/cuda-${CUDA}-cpp.dockerfile
-      cache_from:
-        - ${REPO}:${ARCH}-cuda-${CUDA}-cpp
-    shm_size: *shm-size
-    ulimits: *ulimits
-    environment:
-      <<: *ccache
-      ARROW_ENABLE_TIMING_TESTS:  # inherit
-    volumes: &cuda-volumes
-      - .:/arrow:delegated
-      - .docker/${ARCH}-cuda-${CUDA}-ccache:/ccache:delegated
-    command: &cpp-command >
-      /bin/bash -c "
-        /arrow/ci/scripts/cpp_build.sh /arrow /build &&
-        /arrow/ci/scripts/cpp_test.sh /arrow /build"
-
   debian-cpp:
     # Usage:
     #   docker-compose build debian-cpp
@@ -249,8 +227,11 @@ services:
       ARROW_ENABLE_TIMING_TESTS:  # inherit
     volumes: &debian-volumes
       - .:/arrow:delegated
-      - .docker/${ARCH}-debian-${DEBIAN}-ccache:/ccache:delegated
-    command: *cpp-command
+      - ${DOCKER_VOLUME_DIRECTORY:-.docker}/${ARCH}-debian-${DEBIAN}-ccache:/ccache:delegated
+    command: &cpp-command >
+      /bin/bash -c "
+        /arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        /arrow/ci/scripts/cpp_test.sh /arrow /build"
 
   ubuntu-cpp:
     # Usage:
@@ -266,7 +247,7 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
       args:
-        arch: ${ARCH}
+        base: "${ARCH}/ubuntu:${UBUNTU}"
         clang_tools: ${CLANG_TOOLS}
         llvm: ${LLVM}
     shm_size: *shm-size
@@ -276,7 +257,34 @@ services:
       ARROW_ENABLE_TIMING_TESTS:  # inherit
     volumes: &ubuntu-volumes
       - .:/arrow:delegated
-      - .docker/${ARCH}-ubuntu-${UBUNTU}-ccache:/ccache:delegated
+      - ${DOCKER_VOLUME_DIRECTORY:-.docker}/${ARCH}-ubuntu-${UBUNTU}-ccache:/ccache:delegated
+    command: *cpp-command
+
+  ubuntu-cuda-cpp:
+    # Usage:
+    #   docker-compose build cuda-cpp
+    #   docker-compose run --rm cuda-cpp
+    # Also need to edit the host docker configuration as follows:
+    #   https://github.com/docker/compose/issues/6691#issuecomment-561504928
+    # Parameters:
+    #   ARCH: amd64
+    #   CUDA: 9.1, 10.0, 10.1
+    image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cuda-${CUDA}-cpp
+    build:
+      context: .
+      dockerfile: ci/docker/ubuntu-${UBUNTU}-cpp.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cuda-${CUDA}-cpp
+      args:
+        base: nvidia/cuda:10.0-devel-ubuntu${UBUNTU}
+        clang_tools: ${CLANG_TOOLS}
+        llvm: ${LLVM}
+    shm_size: *shm-size
+    ulimits: *ulimits
+    environment:
+      <<: *ccache
+      ARROW_CUDA: "ON"
+    volumes: *ubuntu-volumes
     command: *cpp-command
 
   ubuntu-cpp-sanitizer:
@@ -311,6 +319,8 @@ services:
       ARROW_ORC: "OFF"
       ARROW_USE_ASAN: "ON"
       ARROW_USE_UBSAN: "ON"
+      # utf8proc 2.1.0 in Ubuntu Bionic has test failures
+      utf8proc_SOURCE: "BUNDLED"
     command: *cpp-command
 
   fedora-cpp:
@@ -336,7 +346,7 @@ services:
       ARROW_ENABLE_TIMING_TESTS:  # inherit
     volumes: &fedora-volumes
       - .:/arrow:delegated
-      - .docker/${ARCH}-fedora-${FEDORA}-ccache:/ccache:delegated
+      - ${DOCKER_VOLUME_DIRECTORY:-.docker}/${ARCH}-fedora-${FEDORA}-ccache:/ccache:delegated
     command: *cpp-command
 
   ############################### C GLib ######################################
@@ -481,7 +491,7 @@ services:
         /arrow/ci/scripts/python_build.sh /arrow /build &&
         /arrow/ci/scripts/python_test.sh /arrow"]
 
-  cuda-python:
+  ubuntu-cuda-python:
     # Usage:
     #   docker-compose build cuda-cpp
     #   docker-compose build cuda-python
@@ -489,18 +499,19 @@ services:
     # Parameters:
     #   ARCH: amd64
     #   CUDA: 8.0, 10.0, ...
-    image: ${REPO}:${ARCH}-cuda-${CUDA}-python-3
+    image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cuda-${CUDA}-python-3
     build:
       context: .
       dockerfile: ci/docker/linux-apt-python-3.dockerfile
       cache_from:
-        - ${REPO}:${ARCH}-cuda-${CUDA}-python-3
+        - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cuda-${CUDA}-python-3
       args:
-        base: ${REPO}:${ARCH}-cuda-${CUDA}-cpp
+        base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cuda-${CUDA}-cpp
     shm_size: *shm-size
     environment:
       <<: *ccache
-    volumes: *cuda-volumes
+      ARROW_CUDA: "ON"
+    volumes: *ubuntu-volumes
     command: &python-command >
       /bin/bash -c "
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
@@ -760,13 +771,12 @@ services:
     shm_size: *shm-size
     environment:
       <<: *ccache
-      PYARROW_PARALLEL: 3
       PYTHON_VERSION: ${PYTHON_VERSION:-3.6}
       UNICODE_WIDTH: ${UNICODE_WIDTH:-16}
     volumes:
       - .:/arrow:delegated
       - ./python/manylinux1:/io:delegated
-      - .docker/centos-python-manylinux1-ccache:/ccache:delegated
+      - ${DOCKER_VOLUME_DIRECTORY:-.docker}/centos-python-manylinux1-ccache:/ccache:delegated
     command: &manylinux-command /io/build_arrow.sh
 
   centos-python-manylinux2010:
@@ -781,13 +791,12 @@ services:
     shm_size: *shm-size
     environment:
       <<: *ccache
-      PYARROW_PARALLEL: 3
       PYTHON_VERSION: ${PYTHON_VERSION:-3.6}
       UNICODE_WIDTH: ${UNICODE_WIDTH:-16}
     volumes:
       - .:/arrow:delegated
       - ./python/manylinux201x:/io:delegated
-      - .docker/centos-python-manylinux2010-ccache:/ccache:delegated
+      - ${DOCKER_VOLUME_DIRECTORY:-.docker}/centos-python-manylinux2010-ccache:/ccache:delegated
     command: *manylinux-command
 
   centos-python-manylinux2014:
@@ -802,13 +811,12 @@ services:
     shm_size: *shm-size
     environment:
       <<: *ccache
-      PYARROW_PARALLEL: 3
       PYTHON_VERSION: ${PYTHON_VERSION:-3.6}
       UNICODE_WIDTH: ${UNICODE_WIDTH:-16}
     volumes:
       - .:/arrow:delegated
       - ./python/manylinux201x:/io:delegated
-      - .docker/centos-python-manylinux2014-ccache:/ccache:delegated
+      - ${DOCKER_VOLUME_DIRECTORY:-.docker}/centos-python-manylinux2014-ccache:/ccache:delegated
     command: *manylinux-command
 
   ################################## R ########################################
@@ -1026,7 +1034,7 @@ services:
     shm_size: *shm-size
     volumes: &java-volumes
       - .:/arrow:delegated
-      - .docker/maven-cache:/root/.m2:delegated
+      - ${DOCKER_VOLUME_DIRECTORY:-.docker}/maven-cache:/root/.m2:delegated
     command: &java-command >
       /bin/bash -c "
         /arrow/ci/scripts/java_build.sh /arrow /build &&
@@ -1052,8 +1060,8 @@ services:
       <<: *ccache
     volumes:
       - .:/arrow:delegated
-      - .docker/maven-cache:/root/.m2:delegated
-      - .docker/${ARCH}-debian-9-ccache:/ccache:delegated
+      - ${DOCKER_VOLUME_DIRECTORY:-.docker}/maven-cache:/root/.m2:delegated
+      - ${DOCKER_VOLUME_DIRECTORY:-.docker}/${ARCH}-debian-9-ccache:/ccache:delegated
     command:
       /bin/bash -c "
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
@@ -1089,12 +1097,12 @@ services:
       ARROW_CPP_EXE_PATH: /build/cpp/debug
     # Running integration tests serially until ARROW-8176 resolved
     command:
-      ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
+      ["/arrow/ci/scripts/rust_build.sh /arrow /build &&
+        /arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/go_build.sh /arrow &&
         /arrow/ci/scripts/java_build.sh /arrow /build &&
         /arrow/ci/scripts/js_build.sh /arrow /build &&
-        pip install -e /arrow/dev/archery &&
-        archery integration --with-all --run-flight"]
+        /arrow/ci/scripts/integration_arrow.sh /arrow /build"]
 
   ################################ Docs #######################################
 
@@ -1116,9 +1124,10 @@ services:
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-3
     environment:
       <<: *ccache
+      ARROW_CUDA: "ON"
       ARROW_GLIB_GTK_DOC: "true"
     volumes: *ubuntu-volumes
-    command:
+    command: &docs-command >
       /bin/bash -c "
         /arrow/ci/scripts/cpp_build.sh /arrow /build true &&
         /arrow/ci/scripts/c_glib_build.sh /arrow /build &&
@@ -1240,8 +1249,8 @@ services:
     shm_size: *shm-size
     volumes: &conda-maven-volumes
       - .:/arrow:delegated
-      - .docker/maven-cache:/root/.m2:delegated
-      - .docker/${ARCH}-conda-ccache:/ccache:delegated
+      - ${DOCKER_VOLUME_DIRECTORY:-.docker}/maven-cache:/root/.m2:delegated
+      - ${DOCKER_VOLUME_DIRECTORY:-.docker}/${ARCH}-conda-ccache:/ccache:delegated
     command:
       ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/python_build.sh /arrow /build &&

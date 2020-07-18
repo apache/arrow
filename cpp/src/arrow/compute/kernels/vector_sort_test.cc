@@ -91,8 +91,11 @@ class TestNthToIndices : public TestBase {
   }
 
   void AssertNthToIndicesJson(const std::string& values, int n) {
-    auto type = TypeTraits<ArrowType>::type_singleton();
-    AssertNthToIndicesArray(ArrayFromJSON(type, values), n);
+    AssertNthToIndicesArray(ArrayFromJSON(type_singleton(), values), n);
+  }
+
+  std::shared_ptr<DataType> type_singleton() {
+    return TypeTraits<ArrowType>::type_singleton();
   }
 };
 
@@ -107,6 +110,11 @@ TYPED_TEST_SUITE(TestNthToIndicesForIntegral, IntegralArrowTypes);
 template <typename ArrowType>
 class TestNthToIndicesForStrings : public TestNthToIndices<ArrowType> {};
 TYPED_TEST_SUITE(TestNthToIndicesForStrings, testing::Types<StringType>);
+
+TYPED_TEST(TestNthToIndicesForReal, NthToIndicesDoesNotProvideDefaultOptions) {
+  auto input = ArrayFromJSON(this->type_singleton(), "[null, 1, 3.3, null, 2, 5.3]");
+  ASSERT_RAISES(Invalid, CallFunction("partition_nth_indices", {input}));
+}
 
 TYPED_TEST(TestNthToIndicesForReal, Real) {
   this->AssertNthToIndicesJson("[null, 1, 3.3, null, 2, 5.3]", 0);
@@ -300,6 +308,7 @@ using SortToIndicesableTypes =
 
 template <typename ArrayType>
 void ValidateSorted(const ArrayType& array, UInt64Array& offsets) {
+  ASSERT_OK(array.ValidateFull());
   SortComparator<ArrayType> compare;
   for (int i = 1; i < array.length(); i++) {
     uint64_t lhs = offsets.Value(i - 1);

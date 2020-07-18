@@ -33,7 +33,7 @@ use sqlparser::sqlast::*;
 /// functions referenced in SQL statements
 pub trait SchemaProvider {
     /// Getter for a field description
-    fn get_table_meta(&self, name: &str) -> Option<Arc<Schema>>;
+    fn get_table_meta(&self, name: &str) -> Option<SchemaRef>;
     /// Getter for a UDF description
     fn get_function_meta(&self, name: &str) -> Option<Arc<FunctionMeta>>;
 }
@@ -215,16 +215,14 @@ impl<S: SchemaProvider> SqlToRel<S> {
     ) -> Result<LogicalPlan> {
         match *limit {
             Some(ref limit_expr) => {
-                let limit_rex = match self.sql_to_rex(&limit_expr, &input.schema())? {
-                    Expr::Literal(ScalarValue::Int64(n)) => {
-                        Ok(Expr::Literal(ScalarValue::UInt32(n as u32)))
-                    }
+                let n = match self.sql_to_rex(&limit_expr, &input.schema())? {
+                    Expr::Literal(ScalarValue::Int64(n)) => Ok(n as usize),
                     _ => Err(ExecutionError::General(
                         "Unexpected expression for LIMIT clause".to_string(),
                     )),
                 }?;
 
-                LogicalPlanBuilder::from(&input).limit(limit_rex)?.build()
+                LogicalPlanBuilder::from(&input).limit(n)?.build()
             }
             _ => Ok(input.clone()),
         }
@@ -247,6 +245,8 @@ impl<S: SchemaProvider> SqlToRel<S> {
                                 self.sql_to_rex(&e.expr, &input_schema).unwrap(),
                             ),
                             asc: e.asc,
+                            // by default nulls first to be consistent with spark
+                            nulls_first: e.nulls_first.unwrap_or(true),
                         })
                     })
                     .collect();
@@ -618,7 +618,7 @@ mod tests {
     #[test]
     fn select_order_by() {
         let sql = "SELECT id FROM person ORDER BY id";
-        let expected = "Sort: #0 ASC\
+        let expected = "Sort: #0 ASC NULLS FIRST\
                         \n  Projection: #0\
                         \n    TableScan: person projection=None";
         quick_test(sql, expected);
@@ -627,10 +627,27 @@ mod tests {
     #[test]
     fn select_order_by_desc() {
         let sql = "SELECT id FROM person ORDER BY id DESC";
-        let expected = "Sort: #0 DESC\
+        let expected = "Sort: #0 DESC NULLS FIRST\
                         \n  Projection: #0\
                         \n    TableScan: person projection=None";
         quick_test(sql, expected);
+    }
+
+    #[test]
+    fn select_order_by_nulls_last() {
+        quick_test(
+            "SELECT id FROM person ORDER BY id DESC NULLS LAST",
+            "Sort: #0 DESC NULLS LAST\
+            \n  Projection: #0\
+            \n    TableScan: person projection=None",
+        );
+
+        quick_test(
+            "SELECT id FROM person ORDER BY id NULLS LAST",
+            "Sort: #0 ASC NULLS LAST\
+            \n  Projection: #0\
+            \n    TableScan: person projection=None",
+        );
     }
 
     #[test]
@@ -679,7 +696,7 @@ mod tests {
     struct MockSchemaProvider {}
 
     impl SchemaProvider for MockSchemaProvider {
-        fn get_table_meta(&self, name: &str) -> Option<Arc<Schema>> {
+        fn get_table_meta(&self, name: &str) -> Option<SchemaRef> {
             match name {
                 "person" => Some(Arc::new(Schema::new(vec![
                     Field::new("id", DataType::UInt32, false),

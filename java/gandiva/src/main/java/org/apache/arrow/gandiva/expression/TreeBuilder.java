@@ -192,23 +192,23 @@ public class TreeBuilder {
     return makeCondition(root);
   }
 
-  public static TreeNode makeInExpressionInt32(Field resultField,
+  public static TreeNode makeInExpressionInt32(TreeNode resultNode,
                                                Set<Integer> intValues) {
-    return InNode.makeIntInExpr(resultField, intValues);
+    return InNode.makeIntInExpr(resultNode, intValues);
   }
 
-  public static TreeNode makeInExpressionBigInt(Field resultField,
+  public static TreeNode makeInExpressionBigInt(TreeNode resultNode,
                                                Set<Long> longValues) {
-    return InNode.makeLongInExpr(resultField, longValues);
+    return InNode.makeLongInExpr(resultNode, longValues);
   }
 
-  public static TreeNode makeInExpressionString(Field resultField,
+  public static TreeNode makeInExpressionString(TreeNode resultNode,
                                                 Set<String> stringValues) {
-    return InNode.makeStringInExpr(resultField, stringValues);
+    return InNode.makeStringInExpr(resultNode, stringValues);
   }
 
-  public static TreeNode makeInExpressionBinary(Field resultField,
+  public static TreeNode makeInExpressionBinary(TreeNode resultNode,
                                                 Set<byte[]> binaryValues) {
-    return InNode.makeBinaryInExpr(resultField, binaryValues);
+    return InNode.makeBinaryInExpr(resultNode, binaryValues);
   }
 }

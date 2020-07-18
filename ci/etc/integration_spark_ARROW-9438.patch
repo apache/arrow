@@ -1,0 +1,72 @@
+From 0b5388a945a7e5c5706cf00d0754540a6c68254d Mon Sep 17 00:00:00 2001
+From: Bryan Cutler <cutlerb@gmail.com>
+Date: Mon, 13 Jul 2020 23:12:25 -0700
+Subject: [PATCH] Update Arrow Java for 1.0.0
+
+---
+ pom.xml              | 17 ++++++++++++++---
+ sql/catalyst/pom.xml |  4 ++++
+ 2 files changed, 18 insertions(+), 3 deletions(-)
+
+diff --git a/pom.xml b/pom.xml
+index 08ca13bfe9..6619fca200 100644
+--- a/pom.xml
++++ b/pom.xml
+@@ -199,7 +199,7 @@
+     If you are changing Arrow version specification, please check ./python/pyspark/sql/utils.py,
+     and ./python/setup.py too.
+     -->
+-    <arrow.version>0.15.1</arrow.version>
++    <arrow.version>1.0.0-SNAPSHOT</arrow.version>
+     <!-- org.fusesource.leveldbjni will be used except on arm64 platform. -->
+     <leveldbjni.group>org.fusesource.leveldbjni</leveldbjni.group>
+ 
+@@ -2288,7 +2288,7 @@
+           </exclusion>
+           <exclusion>
+             <groupId>com.fasterxml.jackson.core</groupId>
+-            <artifactId>jackson-databind</artifactId>
++            <artifactId>jackson-core</artifactId>
+           </exclusion>
+           <exclusion>
+             <groupId>io.netty</groupId>
+@@ -2298,9 +2298,20 @@
+             <groupId>io.netty</groupId>
+             <artifactId>netty-common</artifactId>
+           </exclusion>
++        </exclusions>
++      </dependency>
++      <dependency>
++        <groupId>org.apache.arrow</groupId>
++        <artifactId>arrow-memory-netty</artifactId>
++        <version>${arrow.version}</version>
++        <exclusions>
+           <exclusion>
+             <groupId>io.netty</groupId>
+-            <artifactId>netty-handler</artifactId>
++            <artifactId>netty-buffer</artifactId>
++          </exclusion>
++          <exclusion>
++            <groupId>io.netty</groupId>
++            <artifactId>netty-common</artifactId>
+           </exclusion>
+         </exclusions>
+       </dependency>
+diff --git a/sql/catalyst/pom.xml b/sql/catalyst/pom.xml
+index 9edbb7fec9..6b79eb722f 100644
+--- a/sql/catalyst/pom.xml
++++ b/sql/catalyst/pom.xml
+@@ -117,6 +117,10 @@
+       <groupId>org.apache.arrow</groupId>
+       <artifactId>arrow-vector</artifactId>
+     </dependency>
++    <dependency>
++      <groupId>org.apache.arrow</groupId>
++      <artifactId>arrow-memory-netty</artifactId>
++    </dependency>
+   </dependencies>
+   <build>
+     <outputDirectory>target/scala-${scala.binary.version}/classes</outputDirectory>
+-- 
+2.17.1
+

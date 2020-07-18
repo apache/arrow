@@ -48,7 +48,7 @@ are in the file.
 tf <- tempfile()
 on.exit(unlink(tf))
 
-batch <- record_batch(iris)
+batch <- record_batch(chickwts)
 
 # This opens a connection to the file in Arrow
 file_obj <- FileOutputStream$create(tf)
@@ -74,7 +74,7 @@ tab <- reader$read_table()
 # Call as.data.frame to turn that Table into an R data.frame
 df <- as.data.frame(tab)
 # This should be the same data we sent
-all.equal(df, iris, check.attributes = FALSE)
+all.equal(df, chickwts, check.attributes = FALSE)
 # Unlike the Writers, we don't have to close RecordBatchReaders,
 # but we do still need to close the file connection
 read_file_obj$close()

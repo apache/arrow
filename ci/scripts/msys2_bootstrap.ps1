@@ -17,12 +17,6 @@
 
 Param([Parameter(Mandatory=$true)][int32]$n_bits)
 
-git clone `
-  --depth 1 `
-  --quiet `
-  https://github.com/msys2/msys2-ci-base.git `
-  ..\msys64
-
 echo "" > env.ps1
 
 If (${n_bits} -eq 32) {
@@ -45,7 +39,7 @@ echo "`$Env:MSYSTEM_PREFIX = `"/mingw${n_bits}`"" `
 echo "`$Env:MSYSTEM = `"MINGW${n_bits}`"" `
   >> ../env.ps1
 
-$MSYS_ROOT_WINDOWS = "$(Get-Location)\..\msys64"
+$MSYS_ROOT_WINDOWS = "C:\msys64"
 echo "`$Env:MSYS_ROOT_WINDOWS = `"${MSYS_ROOT_WINDOWS}`"" `
   >> ../env.ps1
 

@@ -277,7 +277,7 @@ Status TensorToNdarray(const std::shared_ptr<Tensor>& tensor, PyObject* base,
   PyObject* result =
       PyArray_NewFromDescr(&PyArray_Type, dtype, ndim, npy_shape.data(),
                            npy_strides.data(), mutable_data, array_flags, nullptr);
-  RETURN_IF_PYERROR()
+  RETURN_IF_PYERROR();
 
   if (base == Py_None || base == nullptr) {
     base = py::wrap_tensor(tensor);
@@ -309,7 +309,7 @@ static Status SparseTensorDataToNdarray(const SparseTensor& sparse_tensor,
   *out_data = PyArray_NewFromDescr(&PyArray_Type, dtype_data,
                                    static_cast<int>(data_shape.size()), data_shape.data(),
                                    nullptr, mutable_data, array_flags, nullptr);
-  RETURN_IF_PYERROR()
+  RETURN_IF_PYERROR();
   Py_XINCREF(base);
   PyArray_SetBaseObject(reinterpret_cast<PyArrayObject*>(*out_data), base);
   return Status::OK();
@@ -442,8 +442,8 @@ Status NdarraysToSparseCOOTensor(MemoryPool* pool, PyObject* data_ao, PyObject* 
   RETURN_NOT_OK(NdarrayToTensor(pool, coords_ao, {}, &coords));
   ARROW_CHECK_EQ(coords->type_id(), Type::INT64);  // Should be ensured by caller
 
-  std::shared_ptr<SparseCOOIndex> sparse_index = std::make_shared<SparseCOOIndex>(
-      std::static_pointer_cast<NumericTensor<Int64Type>>(coords));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<SparseCOOIndex> sparse_index,
+                        SparseCOOIndex::Make(coords));
   *out = std::make_shared<SparseTensorImpl<SparseCOOIndex>>(sparse_index, type_data, data,
                                                             shape, dim_names);
   return Status::OK();

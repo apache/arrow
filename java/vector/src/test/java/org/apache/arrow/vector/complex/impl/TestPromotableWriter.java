@@ -19,7 +19,7 @@ package org.apache.arrow.vector.complex.impl;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertNull;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.DirtyRootAllocator;
@@ -93,7 +93,7 @@ public class TestPromotableWriter {
       assertFalse("2 shouldn't be null", uv.isNull(2));
       assertEquals(10, uv.getObject(2));
 
-      assertTrue("3 should be null", uv.isNull(3));
+      assertNull("3 should be null", uv.getObject(3));
 
       assertFalse("4 shouldn't be null", uv.isNull(4));
       assertEquals(100, uv.getObject(4));

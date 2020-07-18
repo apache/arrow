@@ -19,251 +19,239 @@
 
 #include "arrow/compute/kernels/common.h"
 #include "arrow/compute/kernels/scalar_cast_internal.h"
+#include "arrow/util/bit_block_counter.h"
+#include "arrow/util/int_util.h"
 #include "arrow/util/value_parsing.h"
 
 namespace arrow {
 
+using internal::BitBlockCount;
+using internal::CheckIntegersInRange;
+using internal::IntegersCanFit;
+using internal::OptionalBitBlockCounter;
 using internal::ParseValue;
 
 namespace compute {
 namespace internal {
 
-// ----------------------------------------------------------------------
-// Integers and Floating Point
-
-// Conversions pairs (<O, I>) are partitioned in 4 type traits:
-// - is_number_downcast
-// - is_integral_signed_to_unsigned
-// - is_integral_unsigned_to_signed
-// - is_float_truncate
-//
-// Each class has a different way of validation if the conversion is safe
-// (either with bounded intervals or with explicit C casts)
-
-template <typename O, typename I, typename Enable = void>
-struct is_number_downcast {
-  static constexpr bool value = false;
-};
-
-template <typename O, typename I>
-struct is_number_downcast<
-    O, I, enable_if_t<is_number_type<O>::value && is_number_type<I>::value>> {
-  using O_T = typename O::c_type;
-  using I_T = typename I::c_type;
-
-  static constexpr bool value =
-      ((!std::is_same<O, I>::value) &&
-       // Both types are of the same sign-ness.
-       ((std::is_signed<O_T>::value == std::is_signed<I_T>::value) &&
-        // Both types are of the same integral-ness.
-        (std::is_floating_point<O_T>::value == std::is_floating_point<I_T>::value)) &&
-       // Smaller output size
-       (sizeof(O_T) < sizeof(I_T)));
-};
-
-template <typename O, typename I, typename Enable = void>
-struct is_integral_signed_to_unsigned {
-  static constexpr bool value = false;
-};
-
-template <typename O, typename I>
-struct is_integral_signed_to_unsigned<
-    O, I, enable_if_t<is_integer_type<O>::value && is_integer_type<I>::value>> {
-  using O_T = typename O::c_type;
-  using I_T = typename I::c_type;
-
-  static constexpr bool value =
-      ((!std::is_same<O, I>::value) &&
-       ((std::is_unsigned<O_T>::value && std::is_signed<I_T>::value)));
-};
-
-template <typename O, typename I, typename Enable = void>
-struct is_integral_unsigned_to_signed {
-  static constexpr bool value = false;
-};
-
-template <typename O, typename I>
-struct is_integral_unsigned_to_signed<
-    O, I, enable_if_t<is_integer_type<O>::value && is_integer_type<I>::value>> {
-  using O_T = typename O::c_type;
-  using I_T = typename I::c_type;
-
-  static constexpr bool value =
-      ((!std::is_same<O, I>::value) &&
-       ((std::is_signed<O_T>::value && std::is_unsigned<I_T>::value)));
-};
-
-// This set of functions SafeMinimum/SafeMaximum would be simplified with
-// C++17 and `if constexpr`.
-
-// clang-format doesn't handle this construct properly. Thus the macro, but it
-// also improves readability.
-//
-// The effective return type of the function is always `I::c_type`, this is
-// just how enable_if works with functions.
-#define RET_TYPE(TRAIT) enable_if_t<TRAIT<O, I>::value, typename I::c_type>
-
-template <typename O, typename I>
-constexpr RET_TYPE(is_number_downcast) SafeMinimum() {
-  using out_type = typename O::c_type;
-
-  return std::numeric_limits<out_type>::lowest();
+void CastIntegerToInteger(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  const auto& options = checked_cast<const CastState*>(ctx->state())->options;
+  if (!options.allow_int_overflow) {
+    KERNEL_RETURN_IF_ERROR(ctx, IntegersCanFit(batch[0], *out->type()));
+  }
+  CastNumberToNumberUnsafe(batch[0].type()->id(), out->type()->id(), batch[0], out);
 }
 
-template <typename O, typename I>
-constexpr RET_TYPE(is_number_downcast) SafeMaximum() {
-  using out_type = typename O::c_type;
-
-  return std::numeric_limits<out_type>::max();
+void CastFloatingToFloating(KernelContext*, const ExecBatch& batch, Datum* out) {
+  CastNumberToNumberUnsafe(batch[0].type()->id(), out->type()->id(), batch[0], out);
 }
-
-template <typename O, typename I>
-constexpr RET_TYPE(is_integral_unsigned_to_signed) SafeMinimum() {
-  return 0;
-}
-
-template <typename O, typename I>
-constexpr RET_TYPE(is_integral_unsigned_to_signed) SafeMaximum() {
-  using in_type = typename I::c_type;
-  using out_type = typename O::c_type;
-
-  // Equality is missing because in_type::max() > out_type::max() when types
-  // are of the same width.
-  return static_cast<in_type>(sizeof(in_type) < sizeof(out_type)
-                                  ? std::numeric_limits<in_type>::max()
-                                  : std::numeric_limits<out_type>::max());
-}
-
-template <typename O, typename I>
-constexpr RET_TYPE(is_integral_signed_to_unsigned) SafeMinimum() {
-  return 0;
-}
-
-template <typename O, typename I>
-constexpr RET_TYPE(is_integral_signed_to_unsigned) SafeMaximum() {
-  using in_type = typename I::c_type;
-  using out_type = typename O::c_type;
-
-  return static_cast<in_type>(sizeof(in_type) <= sizeof(out_type)
-                                  ? std::numeric_limits<in_type>::max()
-                                  : std::numeric_limits<out_type>::max());
-}
-
-#undef RET_TYPE
-
-// Float to Integer or Integer to Float
-template <typename O, typename I, typename Enable = void>
-struct is_float_truncate {
-  static constexpr bool value = false;
-};
-
-template <typename O, typename I>
-struct is_float_truncate<
-    O, I,
-    enable_if_t<(is_integer_type<O>::value && is_floating_type<I>::value) ||
-                (is_integer_type<I>::value && is_floating_type<O>::value)>> {
-  static constexpr bool value = true;
-};
-
-// Leftover of Number combinations that are safe to cast.
-template <typename O, typename I, typename Enable = void>
-struct is_safe_numeric_cast {
-  static constexpr bool value = false;
-};
-
-template <typename O, typename I>
-struct is_safe_numeric_cast<
-    O, I, enable_if_t<is_number_type<O>::value && is_number_type<I>::value>> {
-  using O_T = typename O::c_type;
-  using I_T = typename I::c_type;
-
-  static constexpr bool value =
-      (std::is_signed<O_T>::value == std::is_signed<I_T>::value) &&
-      (std::is_integral<O_T>::value == std::is_integral<I_T>::value) &&
-      (sizeof(O_T) >= sizeof(I_T)) && (!std::is_same<O, I>::value);
-};
 
 // ----------------------------------------------------------------------
-// Integer to other number types
+// Implement fast safe floating point to integer cast
 
-template <typename O, typename I>
-struct IntegerDowncastNoOverflow {
-  using InT = typename I::c_type;
-  static constexpr InT kMax = SafeMaximum<O, I>();
-  static constexpr InT kMin = SafeMinimum<O, I>();
+// InType is a floating point type we are planning to cast to integer
+template <typename InType, typename OutType, typename InT = typename InType::c_type,
+          typename OutT = typename OutType::c_type>
+ARROW_DISABLE_UBSAN("float-cast-overflow")
+Status CheckFloatTruncation(const Datum& input, const Datum& output) {
+  auto WasTruncated = [&](OutT out_val, InT in_val) -> bool {
+    return static_cast<InT>(out_val) != in_val;
+  };
+  auto WasTruncatedMaybeNull = [&](OutT out_val, InT in_val, bool is_valid) -> bool {
+    return is_valid && static_cast<InT>(out_val) != in_val;
+  };
+  auto GetErrorMessage = [&](InT val) {
+    return Status::Invalid("Float value ", val, " was truncated converting to",
+                           *output.type());
+  };
 
-  template <typename OutT, typename InT>
-  OutT Call(KernelContext* ctx, InT val) const {
-    if (ARROW_PREDICT_FALSE(val > kMax || val < kMin)) {
-      ctx->SetStatus(Status::Invalid("Integer value out of bounds"));
+  if (input.kind() == Datum::SCALAR) {
+    DCHECK_EQ(output.kind(), Datum::SCALAR);
+    const auto& in_scalar = input.scalar_as<typename TypeTraits<InType>::ScalarType>();
+    const auto& out_scalar = output.scalar_as<typename TypeTraits<OutType>::ScalarType>();
+    if (WasTruncatedMaybeNull(out_scalar.value, in_scalar.value, out_scalar.is_valid)) {
+      return GetErrorMessage(in_scalar.value);
     }
-    return static_cast<OutT>(val);
+    return Status::OK();
   }
-};
 
-struct StaticCast {
-  template <typename OutT, typename InT>
-  ARROW_DISABLE_UBSAN("float-cast-overflow")
-  static OutT Call(KernelContext*, InT val) {
-    return static_cast<OutT>(val);
+  const ArrayData& in_array = *input.array();
+  const ArrayData& out_array = *output.array();
+
+  const InT* in_data = in_array.GetValues<InT>(1);
+  const OutT* out_data = out_array.GetValues<OutT>(1);
+
+  const uint8_t* bitmap = nullptr;
+  if (in_array.buffers[0]) {
+    bitmap = in_array.buffers[0]->data();
   }
-};
-
-template <typename O, typename I>
-struct CastFunctor<O, I,
-                   enable_if_t<is_number_downcast<O, I>::value ||
-                               is_integral_signed_to_unsigned<O, I>::value ||
-                               is_integral_unsigned_to_signed<O, I>::value>> {
-  static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    const auto& options = checked_cast<const CastState*>(ctx->state())->options;
-    if (!options.allow_int_overflow) {
-      codegen::ScalarUnaryNotNull<O, I, IntegerDowncastNoOverflow<O, I>>::Exec(ctx, batch,
-                                                                               out);
-    } else {
-      codegen::ScalarUnary<O, I, StaticCast>::Exec(ctx, batch, out);
+  OptionalBitBlockCounter bit_counter(bitmap, in_array.offset, in_array.length);
+  int64_t position = 0;
+  int64_t offset_position = in_array.offset;
+  while (position < in_array.length) {
+    BitBlockCount block = bit_counter.NextBlock();
+    bool block_out_of_bounds = false;
+    if (block.popcount == block.length) {
+      // Fast path: branchless
+      for (int64_t i = 0; i < block.length; ++i) {
+        block_out_of_bounds |= WasTruncated(out_data[i], in_data[i]);
+      }
+    } else if (block.popcount > 0) {
+      // Indices have nulls, must only boundscheck non-null values
+      for (int64_t i = 0; i < block.length; ++i) {
+        block_out_of_bounds |= WasTruncatedMaybeNull(
+            out_data[i], in_data[i], BitUtil::GetBit(bitmap, offset_position + i));
+      }
     }
+    if (ARROW_PREDICT_FALSE(block_out_of_bounds)) {
+      if (in_array.GetNullCount() > 0) {
+        for (int64_t i = 0; i < block.length; ++i) {
+          if (WasTruncatedMaybeNull(out_data[i], in_data[i],
+                                    BitUtil::GetBit(bitmap, offset_position + i))) {
+            return GetErrorMessage(in_data[i]);
+          }
+        }
+      } else {
+        for (int64_t i = 0; i < block.length; ++i) {
+          if (WasTruncated(out_data[i], in_data[i])) {
+            return GetErrorMessage(in_data[i]);
+          }
+        }
+      }
+    }
+    in_data += block.length;
+    out_data += block.length;
+    position += block.length;
+    offset_position += block.length;
   }
-};
+  return Status::OK();
+}
+
+template <typename InType>
+Status CheckFloatToIntTruncationImpl(const Datum& input, const Datum& output) {
+  switch (output.type()->id()) {
+    case Type::INT8:
+      return CheckFloatTruncation<InType, Int8Type>(input, output);
+    case Type::INT16:
+      return CheckFloatTruncation<InType, Int16Type>(input, output);
+    case Type::INT32:
+      return CheckFloatTruncation<InType, Int32Type>(input, output);
+    case Type::INT64:
+      return CheckFloatTruncation<InType, Int64Type>(input, output);
+    case Type::UINT8:
+      return CheckFloatTruncation<InType, UInt8Type>(input, output);
+    case Type::UINT16:
+      return CheckFloatTruncation<InType, UInt16Type>(input, output);
+    case Type::UINT32:
+      return CheckFloatTruncation<InType, UInt32Type>(input, output);
+    case Type::UINT64:
+      return CheckFloatTruncation<InType, UInt64Type>(input, output);
+    default:
+      break;
+  }
+  DCHECK(false);
+  return Status::OK();
+}
+
+Status CheckFloatToIntTruncation(const Datum& input, const Datum& output) {
+  switch (input.type()->id()) {
+    case Type::FLOAT:
+      return CheckFloatToIntTruncationImpl<FloatType>(input, output);
+    case Type::DOUBLE:
+      return CheckFloatToIntTruncationImpl<DoubleType>(input, output);
+    default:
+      break;
+  }
+  DCHECK(false);
+  return Status::OK();
+}
+
+void CastFloatingToInteger(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  const auto& options = checked_cast<const CastState*>(ctx->state())->options;
+  CastNumberToNumberUnsafe(batch[0].type()->id(), out->type()->id(), batch[0], out);
+  if (!options.allow_float_truncate) {
+    KERNEL_RETURN_IF_ERROR(ctx, CheckFloatToIntTruncation(batch[0], *out));
+  }
+}
 
 // ----------------------------------------------------------------------
-// Float to other number types
+// Implement fast integer to floating point cast
 
-struct FloatToIntegerNoTruncate {
-  template <typename OutT, typename InT>
-  ARROW_DISABLE_UBSAN("float-cast-overflow")
-  OutT Call(KernelContext* ctx, InT val) const {
-    auto out_value = static_cast<OutT>(val);
-    if (ARROW_PREDICT_FALSE(static_cast<InT>(out_value) != val)) {
-      ctx->SetStatus(Status::Invalid("Floating point value truncated"));
+// These are the limits for exact representation of whole numbers in floating
+// point numbers
+template <typename T>
+struct FloatingIntegerBound {};
+
+template <>
+struct FloatingIntegerBound<float> {
+  static const int64_t value = 1LL << 24;
+};
+
+template <>
+struct FloatingIntegerBound<double> {
+  static const int64_t value = 1LL << 53;
+};
+
+template <typename InType, typename OutType, typename InT = typename InType::c_type,
+          typename OutT = typename OutType::c_type,
+          bool IsSigned = is_signed_integer_type<InType>::value>
+Status CheckIntegerFloatTruncateImpl(const Datum& input) {
+  using InScalarType = typename TypeTraits<InType>::ScalarType;
+  const int64_t limit = FloatingIntegerBound<OutT>::value;
+  InScalarType bound_lower(IsSigned ? -limit : 0);
+  InScalarType bound_upper(limit);
+  return CheckIntegersInRange(input, bound_lower, bound_upper);
+}
+
+Status CheckForIntegerToFloatingTruncation(const Datum& input, Type::type out_type) {
+  switch (input.type()->id()) {
+    // Small integers are all exactly representable as whole numbers
+    case Type::INT8:
+    case Type::INT16:
+    case Type::UINT8:
+    case Type::UINT16:
+      return Status::OK();
+    case Type::INT32: {
+      if (out_type == Type::DOUBLE) {
+        return Status::OK();
+      }
+      return CheckIntegerFloatTruncateImpl<Int32Type, FloatType>(input);
     }
-    return out_value;
-  }
-};
-
-template <typename O, typename I>
-struct CastFunctor<O, I, enable_if_t<is_float_truncate<O, I>::value>> {
-  ARROW_DISABLE_UBSAN("float-cast-overflow")
-  static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    const auto& options = checked_cast<const CastState*>(ctx->state())->options;
-    if (options.allow_float_truncate) {
-      codegen::ScalarUnary<O, I, StaticCast>::Exec(ctx, batch, out);
-    } else {
-      codegen::ScalarUnaryNotNull<O, I, FloatToIntegerNoTruncate>::Exec(ctx, batch, out);
+    case Type::UINT32: {
+      if (out_type == Type::DOUBLE) {
+        return Status::OK();
+      }
+      return CheckIntegerFloatTruncateImpl<UInt32Type, FloatType>(input);
     }
+    case Type::INT64: {
+      if (out_type == Type::FLOAT) {
+        return CheckIntegerFloatTruncateImpl<Int64Type, FloatType>(input);
+      } else {
+        return CheckIntegerFloatTruncateImpl<Int64Type, DoubleType>(input);
+      }
+    }
+    case Type::UINT64: {
+      if (out_type == Type::FLOAT) {
+        return CheckIntegerFloatTruncateImpl<UInt64Type, FloatType>(input);
+      } else {
+        return CheckIntegerFloatTruncateImpl<UInt64Type, DoubleType>(input);
+      }
+    }
+    default:
+      break;
   }
-};
+  DCHECK(false);
+  return Status::OK();
+}
 
-template <typename O, typename I>
-struct CastFunctor<
-    O, I,
-    enable_if_t<is_safe_numeric_cast<O, I>::value && !is_float_truncate<O, I>::value &&
-                !is_number_downcast<O, I>::value>> {
-  static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    // Due to various checks done via type-trait, the cast is safe and bear
-    // no truncation.
-    codegen::ScalarUnary<O, I, StaticCast>::Exec(ctx, batch, out);
+void CastIntegerToFloating(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  const auto& options = checked_cast<const CastState*>(ctx->state())->options;
+  Type::type out_type = out->type()->id();
+  if (!options.allow_float_truncate) {
+    KERNEL_RETURN_IF_ERROR(ctx, CheckForIntegerToFloatingTruncation(batch[0], out_type));
   }
-};
+  CastNumberToNumberUnsafe(batch[0].type()->id(), out_type, batch[0], out);
+}
 
 // ----------------------------------------------------------------------
 // Boolean to number
@@ -280,7 +268,7 @@ struct BooleanToNumber {
 template <typename O>
 struct CastFunctor<O, BooleanType, enable_if_number<O>> {
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    codegen::ScalarUnary<O, BooleanType, BooleanToNumber>::Exec(ctx, batch, out);
+    applicator::ScalarUnary<O, BooleanType, BooleanToNumber>::Exec(ctx, batch, out);
   }
 };
 
@@ -302,7 +290,7 @@ struct ParseString {
 template <typename O, typename I>
 struct CastFunctor<O, I, enable_if_base_binary<I>> {
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    codegen::ScalarUnaryNotNull<O, I, ParseString<O>>::Exec(ctx, batch, out);
+    applicator::ScalarUnaryNotNull<O, I, ParseString<O>>::Exec(ctx, batch, out);
   }
 };
 
@@ -377,20 +365,21 @@ struct CastFunctor<O, Decimal128Type, enable_if_t<is_integer_type<O>::value>> {
     if (options.allow_decimal_truncate) {
       if (in_scale < 0) {
         // Unsafe upscale
-        codegen::ScalarUnaryNotNullStateful<O, Decimal128Type,
-                                            UnsafeUpscaleDecimalToInteger>
+        applicator::ScalarUnaryNotNullStateful<O, Decimal128Type,
+                                               UnsafeUpscaleDecimalToInteger>
             kernel(UnsafeUpscaleDecimalToInteger{in_scale, options.allow_int_overflow});
         return kernel.Exec(ctx, batch, out);
       } else {
         // Unsafe downscale
-        codegen::ScalarUnaryNotNullStateful<O, Decimal128Type,
-                                            UnsafeDownscaleDecimalToInteger>
+        applicator::ScalarUnaryNotNullStateful<O, Decimal128Type,
+                                               UnsafeDownscaleDecimalToInteger>
             kernel(UnsafeDownscaleDecimalToInteger{in_scale, options.allow_int_overflow});
         return kernel.Exec(ctx, batch, out);
       }
     } else {
       // Safe rescale
-      codegen::ScalarUnaryNotNullStateful<O, Decimal128Type, SafeRescaleDecimalToInteger>
+      applicator::ScalarUnaryNotNullStateful<O, Decimal128Type,
+                                             SafeRescaleDecimalToInteger>
           kernel(SafeRescaleDecimalToInteger{in_scale, options.allow_int_overflow});
       return kernel.Exec(ctx, batch, out);
     }
@@ -452,45 +441,104 @@ struct CastFunctor<Decimal128Type, Decimal128Type> {
     if (options.allow_decimal_truncate) {
       if (in_scale < out_scale) {
         // Unsafe upscale
-        codegen::ScalarUnaryNotNullStateful<Decimal128Type, Decimal128Type,
-                                            UnsafeUpscaleDecimal>
+        applicator::ScalarUnaryNotNullStateful<Decimal128Type, Decimal128Type,
+                                               UnsafeUpscaleDecimal>
             kernel(UnsafeUpscaleDecimal{out_scale, in_scale});
         return kernel.Exec(ctx, batch, out);
       } else {
         // Unsafe downscale
-        codegen::ScalarUnaryNotNullStateful<Decimal128Type, Decimal128Type,
-                                            UnsafeDownscaleDecimal>
+        applicator::ScalarUnaryNotNullStateful<Decimal128Type, Decimal128Type,
+                                               UnsafeDownscaleDecimal>
             kernel(UnsafeDownscaleDecimal{out_scale, in_scale});
         return kernel.Exec(ctx, batch, out);
       }
     } else {
       // Safe rescale
-      codegen::ScalarUnaryNotNullStateful<Decimal128Type, Decimal128Type,
-                                          SafeRescaleDecimal>
+      applicator::ScalarUnaryNotNullStateful<Decimal128Type, Decimal128Type,
+                                             SafeRescaleDecimal>
           kernel(SafeRescaleDecimal{out_scale, out_precision, in_scale});
       return kernel.Exec(ctx, batch, out);
     }
   }
 };
 
+// ----------------------------------------------------------------------
+// Real to decimal
+
+struct RealToDecimal {
+  template <typename OUT, typename RealType>
+  Decimal128 Call(KernelContext* ctx, RealType val) const {
+    auto result = Decimal128::FromReal(val, out_precision_, out_scale_);
+    if (ARROW_PREDICT_FALSE(!result.ok())) {
+      if (!allow_truncate_) {
+        ctx->SetStatus(result.status());
+      }
+      return Decimal128();  // Zero
+    } else {
+      return *std::move(result);
+    }
+  }
+
+  int32_t out_scale_, out_precision_;
+  bool allow_truncate_;
+};
+
+template <typename I>
+struct CastFunctor<Decimal128Type, I, enable_if_t<is_floating_type<I>::value>> {
+  static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    const auto& options = checked_cast<const CastState*>(ctx->state())->options;
+    ArrayData* output = out->mutable_array();
+    const auto& out_type_inst = checked_cast<const Decimal128Type&>(*output->type);
+    const auto out_scale = out_type_inst.scale();
+    const auto out_precision = out_type_inst.precision();
+
+    applicator::ScalarUnaryNotNullStateful<Decimal128Type, I, RealToDecimal> kernel(
+        RealToDecimal{out_scale, out_precision, options.allow_decimal_truncate});
+    return kernel.Exec(ctx, batch, out);
+  }
+};
+
+// ----------------------------------------------------------------------
+// Decimal to real
+
+struct DecimalToReal {
+  template <typename RealType, typename ARG0>
+  RealType Call(KernelContext* ctx, const Decimal128& val) const {
+    return val.ToReal<RealType>(in_scale_);
+  }
+
+  int32_t in_scale_;
+};
+
+template <typename O>
+struct CastFunctor<O, Decimal128Type, enable_if_t<is_floating_type<O>::value>> {
+  static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    const auto& in_type_inst =
+        checked_cast<const Decimal128Type&>(*batch[0].array()->type);
+    const auto in_scale = in_type_inst.scale();
+
+    applicator::ScalarUnaryNotNullStateful<O, Decimal128Type, DecimalToReal> kernel(
+        DecimalToReal{in_scale});
+    return kernel.Exec(ctx, batch, out);
+  }
+};
+
+// ----------------------------------------------------------------------
+// Top-level kernel instantiation
+
+namespace {
+
 template <typename OutType>
-void AddPrimitiveNumberCasts(const std::shared_ptr<DataType>& out_ty,
-                             CastFunction* func) {
-  AddCommonCasts<OutType>(out_ty, func);
+void AddCommonNumberCasts(const std::shared_ptr<DataType>& out_ty, CastFunction* func) {
+  AddCommonCasts(out_ty->id(), out_ty, func);
 
   // Cast from boolean to number
   DCHECK_OK(func->AddKernel(Type::BOOL, {boolean()}, out_ty,
                             CastFunctor<OutType, BooleanType>::Exec));
 
-  // Cast from other numbers
-  for (const std::shared_ptr<DataType>& in_ty : NumericTypes()) {
-    auto exec = codegen::Numeric<CastFunctor, OutType>(*in_ty);
-    DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty}, out_ty, exec));
-  }
-
   // Cast from other strings
   for (const std::shared_ptr<DataType>& in_ty : BaseBinaryTypes()) {
-    auto exec = codegen::BaseBinary<CastFunctor, OutType>(*in_ty);
+    auto exec = GenerateVarBinaryBase<CastFunctor, OutType>(*in_ty);
     DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty}, out_ty, exec));
   }
 }
@@ -500,8 +548,17 @@ std::shared_ptr<CastFunction> GetCastToInteger(std::string name) {
   auto func = std::make_shared<CastFunction>(std::move(name), OutType::type_id);
   auto out_ty = TypeTraits<OutType>::type_singleton();
 
+  for (const std::shared_ptr<DataType>& in_ty : IntTypes()) {
+    DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty}, out_ty, CastIntegerToInteger));
+  }
+
+  // Cast from floating point
+  for (const std::shared_ptr<DataType>& in_ty : FloatingPointTypes()) {
+    DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty}, out_ty, CastFloatingToInteger));
+  }
+
   // From other numbers to integer
-  AddPrimitiveNumberCasts<OutType>(out_ty, func.get());
+  AddCommonNumberCasts<OutType>(out_ty, func.get());
 
   // From decimal to integer
   DCHECK_OK(func->AddKernel(Type::DECIMAL, {InputType::Array(Type::DECIMAL)}, out_ty,
@@ -514,24 +571,46 @@ std::shared_ptr<CastFunction> GetCastToFloating(std::string name) {
   auto func = std::make_shared<CastFunction>(std::move(name), OutType::type_id);
   auto out_ty = TypeTraits<OutType>::type_singleton();
 
-  // From other numbers to integer
-  AddPrimitiveNumberCasts<OutType>(out_ty, func.get());
+  // Casts from integer to floating point
+  for (const std::shared_ptr<DataType>& in_ty : IntTypes()) {
+    DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty}, out_ty, CastIntegerToFloating));
+  }
+
+  // Cast from floating point
+  for (const std::shared_ptr<DataType>& in_ty : FloatingPointTypes()) {
+    DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty}, out_ty, CastFloatingToFloating));
+  }
+
+  // From other numbers to floating point
+  AddCommonNumberCasts<OutType>(out_ty, func.get());
+
+  // From decimal to floating point
+  DCHECK_OK(func->AddKernel(Type::DECIMAL, {InputType::Array(Type::DECIMAL)}, out_ty,
+                            CastFunctor<OutType, Decimal128Type>::Exec));
   return func;
 }
 
 std::shared_ptr<CastFunction> GetCastToDecimal() {
   OutputType sig_out_ty(ResolveOutputFromOptions);
 
-  // Cast to decimal
   auto func = std::make_shared<CastFunction>("cast_decimal", Type::DECIMAL);
-  AddCommonCasts<Decimal128Type>(sig_out_ty, func.get());
+  AddCommonCasts(Type::DECIMAL, sig_out_ty, func.get());
 
+  // Cast from floating point
+  DCHECK_OK(func->AddKernel(Type::FLOAT, {float32()}, sig_out_ty,
+                            CastFunctor<Decimal128Type, FloatType>::Exec));
+  DCHECK_OK(func->AddKernel(Type::DOUBLE, {float64()}, sig_out_ty,
+                            CastFunctor<Decimal128Type, DoubleType>::Exec));
+
+  // Cast from other decimal
   auto exec = CastFunctor<Decimal128Type, Decimal128Type>::Exec;
   // We resolve the output type of this kernel from the CastOptions
   DCHECK_OK(func->AddKernel(Type::DECIMAL, {InputType::Array(Type::DECIMAL)}, sig_out_ty,
                             exec));
   return func;
 }
+
+}  // namespace
 
 std::vector<std::shared_ptr<CastFunction>> GetNumericCasts() {
   std::vector<std::shared_ptr<CastFunction>> functions;
@@ -568,7 +647,7 @@ std::vector<std::shared_ptr<CastFunction>> GetNumericCasts() {
   // HalfFloat is a bit brain-damaged for now
   auto cast_half_float =
       std::make_shared<CastFunction>("cast_half_float", Type::HALF_FLOAT);
-  AddCommonCasts<HalfFloatType>(float16(), cast_half_float.get());
+  AddCommonCasts(Type::HALF_FLOAT, float16(), cast_half_float.get());
   functions.push_back(cast_half_float);
 
   functions.push_back(GetCastToFloating<FloatType>("cast_float"));

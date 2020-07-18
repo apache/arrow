@@ -93,6 +93,10 @@ Array <- R6Class("Array",
         shared_ptr(StructArray, self$pointer())
       } else if (type_id == Type$LIST) {
         shared_ptr(ListArray, self$pointer())
+      } else if (type_id == Type$LARGE_LIST){
+        shared_ptr(LargeListArray, self$pointer())
+      } else if (type_id == Type$FIXED_SIZE_LIST){
+        shared_ptr(FixedSizeListArray, self$pointer())
       } else {
         self
       }
@@ -230,6 +234,38 @@ ListArray <- R6Class("ListArray", inherit = Array,
   )
 )
 
+#' @rdname array
+#' @usage NULL
+#' @format NULL
+#' @export
+LargeListArray <- R6Class("LargeListArray", inherit = Array,
+  public = list(
+    values = function() Array$create(LargeListArray__values(self)),
+    value_length = function(i) LargeListArray__value_length(self, i),
+    value_offset = function(i) LargeListArray__value_offset(self, i),
+    raw_value_offsets = function() LargeListArray__raw_value_offsets(self)
+  ),
+  active = list(
+    value_type = function() DataType$create(LargeListArray__value_type(self))
+  )
+)
+
+#' @rdname array
+#' @usage NULL
+#' @format NULL
+#' @export
+FixedSizeListArray <- R6Class("FixedSizeListArray", inherit = Array,
+  public = list(
+    values = function() Array$create(FixedSizeListArray__values(self)),
+    value_length = function(i) FixedSizeListArray__value_length(self, i),
+    value_offset = function(i) FixedSizeListArray__value_offset(self, i)
+  ),
+  active = list(
+    value_type = function() DataType$create(FixedSizeListArray__value_type(self)),
+    list_size = function() self$type$list_size
+  )
+)
+
 #' @export
 length.Array <- function(x) x$length()
 
@@ -341,3 +377,12 @@ is.Array <- function(x, type = NULL) {
   }
   is_it
 }
+
+#' @export
+as.double.Array <- function(x, ...) as.double(as.vector(x), ...)
+
+#' @export
+as.integer.Array <- function(x, ...) as.integer(as.vector(x), ...)
+
+#' @export
+as.character.Array <- function(x, ...) as.character(as.vector(x), ...)

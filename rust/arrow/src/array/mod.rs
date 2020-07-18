@@ -81,6 +81,7 @@
 //! )
 //! ```
 
+#[allow(clippy::module_inception)]
 mod array;
 mod builder;
 mod cast;
@@ -104,6 +105,9 @@ pub use self::array::BinaryArray;
 pub use self::array::DictionaryArray;
 pub use self::array::FixedSizeBinaryArray;
 pub use self::array::FixedSizeListArray;
+pub use self::array::LargeBinaryArray;
+pub use self::array::LargeListArray;
+pub use self::array::LargeStringArray;
 pub use self::array::ListArray;
 pub use self::array::PrimitiveArray;
 pub use self::array::StringArray;
@@ -151,6 +155,7 @@ pub type DurationMillisecondArray = PrimitiveArray<DurationMillisecondType>;
 pub type DurationMicrosecondArray = PrimitiveArray<DurationMicrosecondType>;
 pub type DurationNanosecondArray = PrimitiveArray<DurationNanosecondType>;
 
+pub use self::array::LargeListArrayOps;
 pub use self::array::ListArrayOps;
 pub use self::array::PrimitiveArrayOps;
 
@@ -192,6 +197,9 @@ pub use self::builder::ArrayBuilder;
 pub use self::builder::BinaryBuilder;
 pub use self::builder::FixedSizeBinaryBuilder;
 pub use self::builder::FixedSizeListBuilder;
+pub use self::builder::LargeBinaryBuilder;
+pub use self::builder::LargeListBuilder;
+pub use self::builder::LargeStringBuilder;
 pub use self::builder::ListBuilder;
 pub use self::builder::PrimitiveBuilder;
 pub use self::builder::PrimitiveDictionaryBuilder;

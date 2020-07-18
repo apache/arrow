@@ -176,6 +176,7 @@ gdv_date32 castDATE_int32(gdv_int32 date);
 gdv_timestamp castTIMESTAMP_utf8(int64_t execution_context, const char* input,
                                  gdv_int32 length);
 gdv_timestamp castTIMESTAMP_date64(gdv_date64);
+gdv_date64 castDATE_timestamp(gdv_timestamp);
 const char* castVARCHAR_timestamp_int64(int64_t, gdv_timestamp, gdv_int64, gdv_int32*);
 
 gdv_int64 truncate_int64_int32(gdv_int64 in, gdv_int32 out_scale);
@@ -198,6 +199,9 @@ const char* lower_utf8(gdv_int64 context, const char* data, gdv_int32 data_len,
 
 const char* reverse_utf8(gdv_int64 context, const char* data, gdv_int32 data_len,
                          int32_t* out_len);
+
+const char* trim_utf8(gdv_int64 context, const char* data, gdv_int32 data_len,
+                      int32_t* out_len);
 
 gdv_int32 locate_utf8_utf8(gdv_int64 context, const char* sub_str, gdv_int32 sub_str_len,
                            const char* str, gdv_int32 str_len);

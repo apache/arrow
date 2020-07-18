@@ -22,11 +22,12 @@
 
 #include "arrow/extension_type.h"
 #include "arrow/ipc/api.h"
+#include "arrow/result_internal.h"
 #include "arrow/type.h"
 #include "arrow/util/base64.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/key_value_metadata.h"
-
+#include "parquet/arrow/schema_internal.h"
 #include "parquet/exception.h"
 #include "parquet/properties.h"
 #include "parquet/types.h"
@@ -226,10 +227,13 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
   int scale = -1;
 
   switch (field->type()->id()) {
-    case ArrowTypeId::NA:
+    case ArrowTypeId::NA: {
       type = ParquetType::INT32;
       logical_type = LogicalType::Null();
-      break;
+      if (repetition != Repetition::OPTIONAL) {
+        return Status::Invalid("NullType Arrow field must be nullable");
+      }
+    } break;
     case ArrowTypeId::BOOL:
       type = ParquetType::BOOLEAN;
       break;
@@ -373,6 +377,349 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
   return Status::OK();
 }
 
+struct SchemaTreeContext {
+  SchemaManifest* manifest;
+  ArrowReaderProperties properties;
+  const SchemaDescriptor* schema;
+
+  void LinkParent(const SchemaField* child, const SchemaField* parent) {
+    manifest->child_to_parent[child] = parent;
+  }
+
+  void RecordLeaf(const SchemaField* leaf) {
+    manifest->column_index_to_field[leaf->column_index] = leaf;
+  }
+};
+
+bool IsDictionaryReadSupported(const ArrowType& type) {
+  // Only supported currently for BYTE_ARRAY types
+  return type.id() == ::arrow::Type::BINARY || type.id() == ::arrow::Type::STRING;
+}
+
+// ----------------------------------------------------------------------
+// Schema logic
+
+::arrow::Result<std::shared_ptr<ArrowType>> GetTypeForNode(
+    int column_index, const schema::PrimitiveNode& primitive_node,
+    SchemaTreeContext* ctx) {
+  ASSIGN_OR_RAISE(std::shared_ptr<ArrowType> storage_type, GetArrowType(primitive_node));
+  if (ctx->properties.read_dictionary(column_index) &&
+      IsDictionaryReadSupported(*storage_type)) {
+    return ::arrow::dictionary(::arrow::int32(), storage_type);
+  }
+  return storage_type;
+}
+
+Status NodeToSchemaField(const Node& node, int16_t max_def_level, int16_t max_rep_level,
+                         SchemaTreeContext* ctx, const SchemaField* parent,
+                         SchemaField* out);
+
+Status GroupToSchemaField(const GroupNode& node, int16_t max_def_level,
+                          int16_t max_rep_level, SchemaTreeContext* ctx,
+                          const SchemaField* parent, SchemaField* out);
+
+Status PopulateLeaf(int column_index, const std::shared_ptr<Field>& field,
+                    int16_t max_def_level, int16_t max_rep_level, SchemaTreeContext* ctx,
+                    const SchemaField* parent, SchemaField* out) {
+  out->field = field;
+  out->column_index = column_index;
+  out->definition_level = max_def_level;
+  out->repetition_level = max_rep_level;
+  ctx->RecordLeaf(out);
+  ctx->LinkParent(out, parent);
+  return Status::OK();
+}
+
+// Special case mentioned in the format spec:
+//   If the name is array or ends in _tuple, this should be a list of struct
+//   even for single child elements.
+bool HasStructListName(const GroupNode& node) {
+  ::arrow::util::string_view name{node.name()};
+  return name == "array" || name.ends_with("_tuple");
+}
+
+std::shared_ptr<::arrow::KeyValueMetadata> FieldIdMetadata(int field_id) {
+  return ::arrow::key_value_metadata({"PARQUET:field_id"}, {std::to_string(field_id)});
+}
+
+Status GroupToStruct(const GroupNode& node, int16_t current_def_level,
+                     int16_t current_rep_level, SchemaTreeContext* ctx,
+                     const SchemaField* parent, SchemaField* out) {
+  std::vector<std::shared_ptr<Field>> arrow_fields;
+  out->children.resize(node.field_count());
+  for (int i = 0; i < node.field_count(); i++) {
+    RETURN_NOT_OK(NodeToSchemaField(*node.field(i), current_def_level, current_rep_level,
+                                    ctx, out, &out->children[i]));
+    arrow_fields.push_back(out->children[i].field);
+  }
+  auto struct_type = ::arrow::struct_(arrow_fields);
+  out->field = ::arrow::field(node.name(), struct_type, node.is_optional(),
+                              FieldIdMetadata(node.field_id()));
+  out->definition_level = current_def_level;
+  out->repetition_level = current_rep_level;
+  return Status::OK();
+}
+
+Status ListToSchemaField(const GroupNode& group, int16_t current_def_level,
+                         int16_t current_rep_level, SchemaTreeContext* ctx,
+                         const SchemaField* parent, SchemaField* out) {
+  if (group.field_count() != 1) {
+    return Status::NotImplemented(
+        "Only LIST-annotated groups with a single child can be handled.");
+  }
+
+  out->children.resize(group.field_count());
+  SchemaField* child_field = &out->children[0];
+
+  ctx->LinkParent(out, parent);
+  ctx->LinkParent(child_field, out);
+
+  const Node& list_node = *group.field(0);
+
+  if (!list_node.is_repeated()) {
+    return Status::NotImplemented(
+        "Non-repeated nodes in a LIST-annotated group are not supported.");
+  }
+
+  ++current_def_level;
+  ++current_rep_level;
+  if (list_node.is_group()) {
+    // Resolve 3-level encoding
+    //
+    // required/optional group name=whatever {
+    //   repeated group name=list {
+    //     required/optional TYPE item;
+    //   }
+    // }
+    //
+    // yields list<item: TYPE ?nullable> ?nullable
+    //
+    // We distinguish the special base that we have
+    //
+    // required/optional group name=whatever {
+    //   repeated group name=array or $SOMETHING_tuple {
+    //     required/optional TYPE item;
+    //   }
+    // }
+    //
+    // In this latter case, the inner type of the list should be a struct
+    // rather than a primitive value
+    //
+    // yields list<item: struct<item: TYPE ?nullable> not null> ?nullable
+    const auto& list_group = static_cast<const GroupNode&>(list_node);
+    // Special case mentioned in the format spec:
+    //   If the name is array or ends in _tuple, this should be a list of struct
+    //   even for single child elements.
+    if (list_group.field_count() == 1 && !HasStructListName(list_group)) {
+      // List of primitive type
+      RETURN_NOT_OK(NodeToSchemaField(*list_group.field(0), current_def_level,
+                                      current_rep_level, ctx, out, child_field));
+    } else {
+      RETURN_NOT_OK(GroupToStruct(list_group, current_def_level, current_rep_level, ctx,
+                                  out, child_field));
+    }
+  } else {
+    // Two-level list encoding
+    //
+    // required/optional group LIST {
+    //   repeated TYPE;
+    // }
+    const auto& primitive_node = static_cast<const PrimitiveNode&>(list_node);
+    int column_index = ctx->schema->GetColumnIndex(primitive_node);
+    ASSIGN_OR_RAISE(std::shared_ptr<ArrowType> type,
+                    GetTypeForNode(column_index, primitive_node, ctx));
+    auto item_field = ::arrow::field(list_node.name(), type, /*nullable=*/false,
+                                     FieldIdMetadata(list_node.field_id()));
+    RETURN_NOT_OK(PopulateLeaf(column_index, item_field, current_def_level,
+                               current_rep_level, ctx, out, child_field));
+  }
+  out->field = ::arrow::field(group.name(), ::arrow::list(child_field->field),
+                              group.is_optional(), FieldIdMetadata(group.field_id()));
+  out->definition_level = current_def_level;
+  out->repetition_level = current_rep_level;
+  return Status::OK();
+}
+
+Status GroupToSchemaField(const GroupNode& node, int16_t current_def_level,
+                          int16_t current_rep_level, SchemaTreeContext* ctx,
+                          const SchemaField* parent, SchemaField* out) {
+  if (node.logical_type()->is_list()) {
+    return ListToSchemaField(node, current_def_level, current_rep_level, ctx, parent,
+                             out);
+  }
+  std::shared_ptr<ArrowType> type;
+  if (node.is_repeated()) {
+    // Simple repeated struct
+    //
+    // repeated group $NAME {
+    //   r/o TYPE[0] f0
+    //   r/o TYPE[1] f1
+    // }
+    out->children.resize(1);
+    RETURN_NOT_OK(GroupToStruct(node, current_def_level, current_rep_level, ctx, out,
+                                &out->children[0]));
+    out->field = ::arrow::field(node.name(), ::arrow::list(out->children[0].field),
+                                node.is_optional(), FieldIdMetadata(node.field_id()));
+    out->definition_level = current_def_level;
+    out->repetition_level = current_rep_level;
+    return Status::OK();
+  } else {
+    return GroupToStruct(node, current_def_level, current_rep_level, ctx, parent, out);
+  }
+}
+
+Status NodeToSchemaField(const Node& node, int16_t current_def_level,
+                         int16_t current_rep_level, SchemaTreeContext* ctx,
+                         const SchemaField* parent, SchemaField* out) {
+  /// Workhorse function for converting a Parquet schema node to an Arrow
+  /// type. Handles different conventions for nested data
+  if (node.is_optional()) {
+    ++current_def_level;
+  } else if (node.is_repeated()) {
+    // Repeated fields add both a repetition and definition level. This is used
+    // to distinguish between an empty list and a list with an item in it.
+    ++current_rep_level;
+    ++current_def_level;
+  }
+
+  ctx->LinkParent(out, parent);
+
+  // Now, walk the schema and create a ColumnDescriptor for each leaf node
+  if (node.is_group()) {
+    // A nested field, but we don't know what kind yet
+    return GroupToSchemaField(static_cast<const GroupNode&>(node), current_def_level,
+                              current_rep_level, ctx, parent, out);
+  } else {
+    // Either a normal flat primitive type, or a list type encoded with 1-level
+    // list encoding. Note that the 3-level encoding is the form recommended by
+    // the parquet specification, but technically we can have either
+    //
+    // required/optional $TYPE $FIELD_NAME
+    //
+    // or
+    //
+    // repeated $TYPE $FIELD_NAME
+    const auto& primitive_node = static_cast<const PrimitiveNode&>(node);
+    int column_index = ctx->schema->GetColumnIndex(primitive_node);
+    ASSIGN_OR_RAISE(std::shared_ptr<ArrowType> type,
+                    GetTypeForNode(column_index, primitive_node, ctx));
+    if (node.is_repeated()) {
+      // One-level list encoding, e.g.
+      // a: repeated int32;
+      out->children.resize(1);
+      auto child_field = ::arrow::field(node.name(), type, /*nullable=*/false);
+      RETURN_NOT_OK(PopulateLeaf(column_index, child_field, current_def_level,
+                                 current_rep_level, ctx, out, &out->children[0]));
+
+      out->field = ::arrow::field(node.name(), ::arrow::list(child_field),
+                                  /*nullable=*/false, FieldIdMetadata(node.field_id()));
+      // Is this right?
+      out->definition_level = current_def_level;
+      out->repetition_level = current_rep_level;
+      return Status::OK();
+    } else {
+      // A normal (required/optional) primitive node
+      return PopulateLeaf(column_index,
+                          ::arrow::field(node.name(), type, node.is_optional(),
+                                         FieldIdMetadata(node.field_id())),
+                          current_def_level, current_rep_level, ctx, parent, out);
+    }
+  }
+}
+
+// Get the original Arrow schema, as serialized in the Parquet metadata
+Status GetOriginSchema(const std::shared_ptr<const KeyValueMetadata>& metadata,
+                       std::shared_ptr<const KeyValueMetadata>* clean_metadata,
+                       std::shared_ptr<::arrow::Schema>* out) {
+  if (metadata == nullptr) {
+    *out = nullptr;
+    *clean_metadata = nullptr;
+    return Status::OK();
+  }
+
+  static const std::string kArrowSchemaKey = "ARROW:schema";
+  int schema_index = metadata->FindKey(kArrowSchemaKey);
+  if (schema_index == -1) {
+    *out = nullptr;
+    *clean_metadata = metadata;
+    return Status::OK();
+  }
+
+  // The original Arrow schema was serialized using the store_schema option.
+  // We deserialize it here and use it to inform read options such as
+  // dictionary-encoded fields.
+  auto decoded = ::arrow::util::base64_decode(metadata->value(schema_index));
+  auto schema_buf = std::make_shared<Buffer>(decoded);
+
+  ::arrow::ipc::DictionaryMemo dict_memo;
+  ::arrow::io::BufferReader input(schema_buf);
+
+  ARROW_ASSIGN_OR_RAISE(*out, ::arrow::ipc::ReadSchema(&input, &dict_memo));
+
+  if (metadata->size() > 1) {
+    // Copy the metadata without the schema key
+    auto new_metadata = ::arrow::key_value_metadata({}, {});
+    new_metadata->reserve(metadata->size() - 1);
+    for (int64_t i = 0; i < metadata->size(); ++i) {
+      if (i == schema_index) continue;
+      new_metadata->Append(metadata->key(i), metadata->value(i));
+    }
+    *clean_metadata = new_metadata;
+  } else {
+    // No other keys, let metadata be null
+    *clean_metadata = nullptr;
+  }
+  return Status::OK();
+}
+
+// Restore original Arrow field information that was serialized as Parquet metadata
+// but that is not necessarily present in the field reconstitued from Parquet data
+// (for example, Parquet timestamp types doesn't carry timezone information).
+Status ApplyOriginalMetadata(std::shared_ptr<Field> field, const Field& origin_field,
+                             std::shared_ptr<Field>* out) {
+  auto origin_type = origin_field.type();
+  if (field->type()->id() == ::arrow::Type::TIMESTAMP) {
+    // Restore time zone, if any
+    const auto& ts_type = static_cast<const ::arrow::TimestampType&>(*field->type());
+    const auto& ts_origin_type = static_cast<const ::arrow::TimestampType&>(*origin_type);
+
+    // If the unit is the same and the data is tz-aware, then set the original
+    // time zone, since Parquet has no native storage for timezones
+    if (ts_type.unit() == ts_origin_type.unit() && ts_type.timezone() == "UTC" &&
+        ts_origin_type.timezone() != "") {
+      field = field->WithType(origin_type);
+    }
+  }
+  if (origin_type->id() == ::arrow::Type::DICTIONARY &&
+      field->type()->id() != ::arrow::Type::DICTIONARY &&
+      IsDictionaryReadSupported(*field->type())) {
+    const auto& dict_origin_type =
+        static_cast<const ::arrow::DictionaryType&>(*origin_type);
+    field = field->WithType(
+        ::arrow::dictionary(::arrow::int32(), field->type(), dict_origin_type.ordered()));
+  }
+
+  if (origin_type->id() == ::arrow::Type::EXTENSION) {
+    // Restore extension type, if the storage type is as read from Parquet
+    const auto& ex_type = checked_cast<const ::arrow::ExtensionType&>(*origin_type);
+    if (ex_type.storage_type()->Equals(*field->type())) {
+      field = field->WithType(origin_type);
+    }
+  }
+
+  // Restore field metadata
+  std::shared_ptr<const KeyValueMetadata> field_metadata = origin_field.metadata();
+  if (field_metadata != nullptr) {
+    if (field->metadata()) {
+      // Prefer the metadata keys (like field_id) from the current metadata
+      field_metadata = field_metadata->Merge(*field->metadata());
+    }
+    field = field->WithMetadata(field_metadata);
+  }
+  *out = field;
+  return Status::OK();
+}
+
 }  // namespace
 
 Status FieldToNode(const std::shared_ptr<Field>& field,
@@ -417,7 +764,13 @@ Status FromParquetSchema(
     const auto& schema_field = manifest.schema_fields[i];
     fields[i] = schema_field.field;
   }
-  *out = ::arrow::schema(fields, key_value_metadata);
+  if (manifest.origin_schema) {
+    // ARROW-8980: If the ARROW:schema was in the input metadata, then
+    // manifest.origin_schema will have it scrubbed out
+    *out = ::arrow::schema(fields, manifest.origin_schema->metadata());
+  } else {
+    *out = ::arrow::schema(fields, key_value_metadata);
+  }
   return Status::OK();
 }
 
@@ -431,6 +784,39 @@ Status FromParquetSchema(const SchemaDescriptor* parquet_schema,
                          std::shared_ptr<::arrow::Schema>* out) {
   ArrowReaderProperties properties;
   return FromParquetSchema(parquet_schema, properties, nullptr, out);
+}
+
+Status SchemaManifest::Make(const SchemaDescriptor* schema,
+                            const std::shared_ptr<const KeyValueMetadata>& metadata,
+                            const ArrowReaderProperties& properties,
+                            SchemaManifest* manifest) {
+  RETURN_NOT_OK(
+      GetOriginSchema(metadata, &manifest->schema_metadata, &manifest->origin_schema));
+
+  SchemaTreeContext ctx;
+  ctx.manifest = manifest;
+  ctx.properties = properties;
+  ctx.schema = schema;
+  const GroupNode& schema_node = *schema->group_node();
+  manifest->descr = schema;
+  manifest->schema_fields.resize(schema_node.field_count());
+  for (int i = 0; i < static_cast<int>(schema_node.field_count()); ++i) {
+    SchemaField* out_field = &manifest->schema_fields[i];
+    RETURN_NOT_OK(NodeToSchemaField(*schema_node.field(i), 0, 0, &ctx,
+                                    /*parent=*/nullptr, out_field));
+
+    // TODO(wesm): as follow up to ARROW-3246, we should really pass the origin
+    // schema (if any) through all functions in the schema reconstruction, but
+    // I'm being lazy and just setting dictionary fields at the top level for
+    // now
+    if (manifest->origin_schema == nullptr) {
+      continue;
+    }
+    auto origin_field = manifest->origin_schema->field(i);
+    RETURN_NOT_OK(
+        ApplyOriginalMetadata(out_field->field, *origin_field, &out_field->field));
+  }
+  return Status::OK();
 }
 
 }  // namespace arrow

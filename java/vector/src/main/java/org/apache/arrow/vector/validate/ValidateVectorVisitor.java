@@ -29,6 +29,7 @@ import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.compare.VectorVisitor;
 import org.apache.arrow.vector.complex.DenseUnionVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
+import org.apache.arrow.vector.complex.LargeListVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.NonNullableStructVector;
 import org.apache.arrow.vector.complex.UnionVector;
@@ -121,6 +122,45 @@ public class ValidateVectorVisitor implements VectorVisitor<Void, Void> {
       }
 
       int dataExtent = lastOffset - firstOffset;
+
+      if (dataExtent > 0 && (dataVector.getDataBuffer() == null || dataVector.getDataBuffer().capacity() == 0)) {
+        throw new IllegalArgumentException("valueBuffer is null or capacity is 0");
+      }
+
+      if (dataExtent > dataVector.getValueCount()) {
+        throw new IllegalArgumentException(String.format("Length spanned by list offsets (%s) larger than" +
+            " data vector valueCount (length %s)", dataExtent, dataVector.getValueCount()));
+      }
+    }
+
+    return dataVector.accept(this, null);
+  }
+
+  @Override
+  public Void visit(LargeListVector vector, Void value) {
+
+    FieldVector dataVector = vector.getDataVector();
+
+    if (vector.getValueCount() > 0) {
+
+      ArrowBuf offsetBuf = vector.getOffsetBuffer();
+      long minBufferSize = (vector.getValueCount() + 1) * LargeListVector.OFFSET_WIDTH;
+
+      if (offsetBuf.capacity() < minBufferSize) {
+        throw new IllegalArgumentException(String.format("offsetBuffer too small in vector of type %s" +
+                " and valueCount %s : expected at least %s byte(s), got %s",
+            vector.getField().getType().toString(),
+            vector.getValueCount(), minBufferSize, offsetBuf.capacity()));
+      }
+
+      long firstOffset = vector.getOffsetBuffer().getLong(0);
+      long lastOffset = vector.getOffsetBuffer().getLong(vector.getValueCount() * LargeListVector.OFFSET_WIDTH);
+
+      if (firstOffset < 0 || lastOffset < 0) {
+        throw new IllegalArgumentException("Negative offsets in list vector");
+      }
+
+      long dataExtent = lastOffset - firstOffset;
 
       if (dataExtent > 0 && (dataVector.getDataBuffer() == null || dataVector.getDataBuffer().capacity() == 0)) {
         throw new IllegalArgumentException("valueBuffer is null or capacity is 0");

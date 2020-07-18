@@ -116,12 +116,18 @@ pub enum DataType {
     /// Opaque binary data of fixed size.
     /// Enum parameter specifies the number of bytes per value.
     FixedSizeBinary(i32),
+    /// Opaque binary data of variable length and 64-bit offsets.
+    LargeBinary,
     /// A variable-length string in Unicode with UTF-8 encoding.
     Utf8,
+    /// A variable-length string in Unicode with UFT-8 encoding and 64-bit offsets.
+    LargeUtf8,
     /// A list of some logical data type with variable length.
     List(Box<DataType>),
     /// A list of some logical data type with fixed length.
     FixedSizeList(Box<DataType>, i32),
+    /// A list of some logical data type with variable length and 64-bit offsets.
+    LargeList(Box<DataType>),
     /// A nested datatype that contains a number of sub-fields.
     Struct(Vec<Field>),
     /// A nested datatype that can represent slots of differing types.
@@ -342,6 +348,7 @@ impl ArrowNativeType for f64 {
 
 macro_rules! make_type {
     ($name:ident, $native_ty:ty, $data_ty:expr, $bit_width:expr, $default_val:expr) => {
+        #[derive(Debug)]
         pub struct $name {}
 
         impl ArrowPrimitiveType for $name {
@@ -491,6 +498,14 @@ impl ArrowDictionaryKeyType for Int16Type {}
 impl ArrowDictionaryKeyType for Int32Type {}
 
 impl ArrowDictionaryKeyType for Int64Type {}
+
+impl ArrowDictionaryKeyType for UInt8Type {}
+
+impl ArrowDictionaryKeyType for UInt16Type {}
+
+impl ArrowDictionaryKeyType for UInt32Type {}
+
+impl ArrowDictionaryKeyType for UInt64Type {}
 
 /// A subtype of primitive type that represents numeric values.
 ///
@@ -769,7 +784,9 @@ impl DataType {
                 Some(s) if s == "null" => Ok(DataType::Null),
                 Some(s) if s == "bool" => Ok(DataType::Boolean),
                 Some(s) if s == "binary" => Ok(DataType::Binary),
+                Some(s) if s == "largebinary" => Ok(DataType::LargeBinary),
                 Some(s) if s == "utf8" => Ok(DataType::Utf8),
+                Some(s) if s == "largeutf8" => Ok(DataType::LargeUtf8),
                 Some(s) if s == "fixedsizebinary" => {
                     // return a list with any type as its child isn't defined in the map
                     if let Some(Value::Number(size)) = map.get("byteWidth") {
@@ -897,6 +914,10 @@ impl DataType {
                     // return a list with any type as its child isn't defined in the map
                     Ok(DataType::List(Box::new(DataType::Boolean)))
                 }
+                Some(s) if s == "largelist" => {
+                    // return a largelist with any type as its child isn't defined in the map
+                    Ok(DataType::LargeList(Box::new(DataType::Boolean)))
+                }
                 Some(s) if s == "fixedsizelist" => {
                     // return a list with any type as its child isn't defined in the map
                     if let Some(Value::Number(size)) = map.get("listSize") {
@@ -943,13 +964,16 @@ impl DataType {
             DataType::Float32 => json!({"name": "floatingpoint", "precision": "SINGLE"}),
             DataType::Float64 => json!({"name": "floatingpoint", "precision": "DOUBLE"}),
             DataType::Utf8 => json!({"name": "utf8"}),
+            DataType::LargeUtf8 => json!({"name": "largeutf8"}),
             DataType::Binary => json!({"name": "binary"}),
+            DataType::LargeBinary => json!({"name": "largebinary"}),
             DataType::FixedSizeBinary(byte_width) => {
                 json!({"name": "fixedsizebinary", "byteWidth": byte_width})
             }
             DataType::Struct(_) => json!({"name": "struct"}),
             DataType::Union(_) => json!({"name": "union"}),
             DataType::List(_) => json!({ "name": "list"}),
+            DataType::LargeList(_) => json!({ "name": "largelist"}),
             DataType::FixedSizeList(_, length) => {
                 json!({"name":"fixedsizelist", "listSize": length})
             }
@@ -1080,16 +1104,20 @@ impl Field {
                 };
                 // if data_type is a struct or list, get its children
                 let data_type = match data_type {
-                    DataType::List(_) | DataType::FixedSizeList(_, _) => {
-                        match map.get("children") {
-                            Some(Value::Array(values)) => {
-                                if values.len() != 1 {
-                                    return Err(ArrowError::ParseError(
+                    DataType::List(_)
+                    | DataType::LargeList(_)
+                    | DataType::FixedSizeList(_, _) => match map.get("children") {
+                        Some(Value::Array(values)) => {
+                            if values.len() != 1 {
+                                return Err(ArrowError::ParseError(
                                     "Field 'children' must have one element for a list data type".to_string(),
                                 ));
-                                }
-                                match data_type {
+                            }
+                            match data_type {
                                     DataType::List(_) => DataType::List(Box::new(
+                                        Self::from(&values[0])?.data_type,
+                                    )),
+                                    DataType::LargeList(_) => DataType::LargeList(Box::new(
                                         Self::from(&values[0])?.data_type,
                                     )),
                                     DataType::FixedSizeList(_, int) => {
@@ -1099,22 +1127,21 @@ impl Field {
                                         )
                                     }
                                     _ => unreachable!(
-                                        "Data type should be a list or fixedsizelist"
+                                        "Data type should be a list, largelist or fixedsizelist"
                                     ),
                                 }
-                            }
-                            Some(_) => {
-                                return Err(ArrowError::ParseError(
-                                    "Field 'children' must be an array".to_string(),
-                                ))
-                            }
-                            None => {
-                                return Err(ArrowError::ParseError(
-                                    "Field missing 'children' attribute".to_string(),
-                                ));
-                            }
                         }
-                    }
+                        Some(_) => {
+                            return Err(ArrowError::ParseError(
+                                "Field 'children' must be an array".to_string(),
+                            ))
+                        }
+                        None => {
+                            return Err(ArrowError::ParseError(
+                                "Field missing 'children' attribute".to_string(),
+                            ));
+                        }
+                    },
                     DataType::Struct(mut fields) => match map.get("children") {
                         Some(Value::Array(values)) => {
                             let struct_fields: Result<Vec<Field>> =
@@ -1191,6 +1218,10 @@ impl Field {
                 let item = Field::new("item", *dtype.clone(), self.nullable);
                 vec![item.to_json()]
             }
+            DataType::LargeList(dtype) => {
+                let item = Field::new("item", *dtype.clone(), self.nullable);
+                vec![item.to_json()]
+            }
             DataType::FixedSizeList(dtype, _) => {
                 let item = Field::new("item", *dtype.clone(), self.nullable);
                 vec![item.to_json()]
@@ -1216,11 +1247,6 @@ impl Field {
                 "children": children
             }),
         }
-    }
-
-    /// Converts to a `String` representation of the `Field`
-    pub fn to_string(&self) -> String {
-        format!("{}: {:?}", self.name, self.data_type)
     }
 
     /// Merge field into self if it is compatible. Struct will be merged recursively.
@@ -1251,7 +1277,7 @@ impl Field {
                 DataType::Struct(from_nested_fields) => {
                     for from_field in from_nested_fields {
                         let mut is_new_field = true;
-                        for self_field in nested_fields.into_iter() {
+                        for self_field in nested_fields.iter_mut() {
                             if self_field.name != from_field.name {
                                 continue;
                             }
@@ -1274,7 +1300,7 @@ impl Field {
                 DataType::Union(from_nested_fields) => {
                     for from_field in from_nested_fields {
                         let mut is_new_field = true;
-                        for self_field in nested_fields.into_iter() {
+                        for self_field in nested_fields.iter_mut() {
                             if from_field == self_field {
                                 is_new_field = false;
                                 break;
@@ -1312,12 +1338,15 @@ impl Field {
             | DataType::Time64(_)
             | DataType::Duration(_)
             | DataType::Binary
+            | DataType::LargeBinary
             | DataType::Interval(_)
+            | DataType::LargeList(_)
             | DataType::List(_)
             | DataType::Dictionary(_, _)
             | DataType::FixedSizeList(_, _)
             | DataType::FixedSizeBinary(_)
-            | DataType::Utf8 => {
+            | DataType::Utf8
+            | DataType::LargeUtf8 => {
                 if self.data_type != from.data_type {
                     return Err(ArrowError::SchemaError(
                         "Fail to merge schema Field due to conflicting datatype"
@@ -1336,7 +1365,7 @@ impl Field {
 
 impl fmt::Display for Field {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.to_string())
+        write!(f, "{}: {:?}", self.name, self.data_type)
     }
 }
 
@@ -1429,7 +1458,7 @@ impl Schema {
     ///     ]),
     /// );
     /// ```
-    pub fn try_merge(schemas: &Vec<Self>) -> Result<Self> {
+    pub fn try_merge(schemas: &[Self]) -> Result<Self> {
         let mut merged = Self::empty();
 
         for schema in schemas {
@@ -1851,6 +1880,15 @@ mod tests {
                     123,
                     true,
                 ),
+                Field::new("c32", DataType::LargeBinary, true),
+                Field::new("c33", DataType::LargeUtf8, true),
+                Field::new(
+                    "c34",
+                    DataType::LargeList(Box::new(DataType::LargeList(Box::new(
+                        DataType::Struct(vec![]),
+                    )))),
+                    true,
+                ),
             ],
             metadata,
         );
@@ -2198,11 +2236,53 @@ mod tests {
                           "id": 123,
                           "indexType": {
                             "name": "int",
-                            "isSigned": true,
-                            "bitWidth": 32
+                            "bitWidth": 32,
+                            "isSigned": true
                           },
                           "isOrdered": true
                         }
+                    },
+                    {
+                        "name": "c32",
+                        "nullable": true,
+                        "type": {
+                          "name": "largebinary"
+                        },
+                        "children": []
+                    },
+                    {
+                        "name": "c33",
+                        "nullable": true,
+                        "type": {
+                          "name": "largeutf8"
+                        },
+                        "children": []
+                    },
+                    {
+                        "name": "c34",
+                        "nullable": true,
+                        "type": {
+                          "name": "largelist"
+                        },
+                        "children": [
+                            {
+                                "name": "item",
+                                "nullable": true,
+                                "type": {
+                                    "name": "largelist"
+                                },
+                                "children": [
+                                    {
+                                        "name": "item",
+                                        "nullable": true,
+                                        "type": {
+                                            "name": "struct"
+                                        },
+                                        "children": []
+                                    }
+                                ]
+                            }
+                        ]
                     }
                 ],
                 "metadata" : {
@@ -2279,26 +2359,27 @@ mod tests {
     }
 
     #[test]
+    #[should_panic(expected = "InvalidArgumentError(\"nickname\")")]
     fn schema_index_of() {
         let schema = person_schema();
-        assert_eq!(schema.index_of("first_name"), Ok(0));
-        assert_eq!(schema.index_of("last_name"), Ok(1));
-        assert_eq!(
-            schema.index_of("nickname"),
-            Err(ArrowError::InvalidArgumentError("nickname".to_owned()))
-        );
+        assert_eq!(schema.index_of("first_name").unwrap(), 0);
+        assert_eq!(schema.index_of("last_name").unwrap(), 1);
+        schema.index_of("nickname").unwrap();
     }
 
     #[test]
-    fn schema_field_with_name() -> Result<()> {
+    #[should_panic(expected = "InvalidArgumentError(\"nickname\")")]
+    fn schema_field_with_name() {
         let schema = person_schema();
-        assert_eq!(schema.field_with_name("first_name")?.name(), "first_name");
-        assert_eq!(schema.field_with_name("last_name")?.name(), "last_name");
         assert_eq!(
-            schema.field_with_name("nickname"),
-            Err(ArrowError::InvalidArgumentError("nickname".to_owned()))
+            schema.field_with_name("first_name").unwrap().name(),
+            "first_name"
         );
-        Ok(())
+        assert_eq!(
+            schema.field_with_name("last_name").unwrap().name(),
+            "last_name"
+        );
+        schema.field_with_name("nickname").unwrap();
     }
 
     #[test]
@@ -2306,10 +2387,12 @@ mod tests {
         let schema1 = Schema::new(vec![
             Field::new("c1", DataType::Utf8, false),
             Field::new("c2", DataType::Float64, true),
+            Field::new("c3", DataType::LargeBinary, true),
         ]);
         let schema2 = Schema::new(vec![
             Field::new("c1", DataType::Utf8, false),
             Field::new("c2", DataType::Float64, true),
+            Field::new("c3", DataType::LargeBinary, true),
         ]);
 
         assert_eq!(schema1, schema2);

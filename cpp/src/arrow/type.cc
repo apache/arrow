@@ -29,6 +29,7 @@
 #include <vector>
 
 #include "arrow/array.h"
+#include "arrow/chunked_array.h"
 #include "arrow/compare.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
@@ -40,6 +41,7 @@
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/make_unique.h"
+#include "arrow/util/range.h"
 #include "arrow/util/vector.h"
 #include "arrow/visitor_inline.h"
 
@@ -67,7 +69,9 @@ constexpr Type::type StructType::type_id;
 
 constexpr Type::type Decimal128Type::type_id;
 
-constexpr Type::type UnionType::type_id;
+constexpr Type::type SparseUnionType::type_id;
+
+constexpr Type::type DenseUnionType::type_id;
 
 constexpr Type::type Date32Type::type_id;
 
@@ -89,77 +93,71 @@ constexpr Type::type DictionaryType::type_id;
 
 namespace internal {
 
+struct TypeIdToTypeNameVisitor {
+  std::string out;
+
+  template <typename ArrowType>
+  Status Visit(const ArrowType*) {
+    out = ArrowType::type_name();
+    return Status::OK();
+  }
+};
+
+std::string ToTypeName(Type::type id) {
+  TypeIdToTypeNameVisitor visitor;
+
+  ARROW_CHECK_OK(VisitTypeIdInline(id, &visitor));
+  return std::move(visitor.out);
+}
+
 std::string ToString(Type::type id) {
   switch (id) {
-    case Type::NA:
-      return "NA";
-    case Type::BOOL:
-      return "BOOL";
-    case Type::UINT8:
-      return "UINT8";
-    case Type::INT8:
-      return "INT8";
-    case Type::UINT16:
-      return "UINT16";
-    case Type::INT16:
-      return "INT16";
-    case Type::UINT32:
-      return "UINT32";
-    case Type::INT32:
-      return "INT32";
-    case Type::UINT64:
-      return "UINT64";
-    case Type::INT64:
-      return "INT64";
-    case Type::HALF_FLOAT:
-      return "HALF_FLOAT";
-    case Type::FLOAT:
-      return "FLOAT";
-    case Type::DOUBLE:
-      return "DOUBLE";
-    case Type::STRING:
-      return "UTF8";
-    case Type::BINARY:
-      return "BINARY";
-    case Type::FIXED_SIZE_BINARY:
-      return "FIXED_SIZE_BINARY";
-    case Type::DATE64:
-      return "DATE64";
-    case Type::TIMESTAMP:
-      return "TIMESTAMP";
-    case Type::TIME32:
-      return "TIME32";
-    case Type::TIME64:
-      return "TIME64";
-    case Type::INTERVAL_MONTHS:
-      return "INTERVAL_MONTHS";
-    case Type::INTERVAL_DAY_TIME:
-      return "INTERVAL_DAY_TIME";
-    case Type::DECIMAL:
-      return "DECIMAL";
-    case Type::LIST:
-      return "LIST";
-    case Type::STRUCT:
-      return "STRUCT";
-    case Type::UNION:
-      return "UNION";
-    case Type::DICTIONARY:
-      return "DICTIONARY";
-    case Type::MAP:
-      return "MAP";
-    case Type::EXTENSION:
-      return "EXTENSION";
-    case Type::FIXED_SIZE_LIST:
-      return "FIXED_SIZE_LIST";
-    case Type::DURATION:
-      return "DURATION";
-    case Type::LARGE_BINARY:
-      return "LARGE_BINARY";
-    case Type::LARGE_LIST:
-      return "LARGE_LIST";
+#define TO_STRING_CASE(_id) \
+  case Type::_id:           \
+    return ARROW_STRINGIFY(_id);
+
+    TO_STRING_CASE(NA)
+    TO_STRING_CASE(BOOL)
+    TO_STRING_CASE(INT8)
+    TO_STRING_CASE(INT16)
+    TO_STRING_CASE(INT32)
+    TO_STRING_CASE(INT64)
+    TO_STRING_CASE(UINT8)
+    TO_STRING_CASE(UINT16)
+    TO_STRING_CASE(UINT32)
+    TO_STRING_CASE(UINT64)
+    TO_STRING_CASE(HALF_FLOAT)
+    TO_STRING_CASE(FLOAT)
+    TO_STRING_CASE(DOUBLE)
+    TO_STRING_CASE(DECIMAL)
+    TO_STRING_CASE(DATE32)
+    TO_STRING_CASE(DATE64)
+    TO_STRING_CASE(TIME32)
+    TO_STRING_CASE(TIME64)
+    TO_STRING_CASE(TIMESTAMP)
+    TO_STRING_CASE(INTERVAL_DAY_TIME)
+    TO_STRING_CASE(INTERVAL_MONTHS)
+    TO_STRING_CASE(DURATION)
+    TO_STRING_CASE(STRING)
+    TO_STRING_CASE(BINARY)
+    TO_STRING_CASE(LARGE_STRING)
+    TO_STRING_CASE(LARGE_BINARY)
+    TO_STRING_CASE(FIXED_SIZE_BINARY)
+    TO_STRING_CASE(STRUCT)
+    TO_STRING_CASE(LIST)
+    TO_STRING_CASE(LARGE_LIST)
+    TO_STRING_CASE(FIXED_SIZE_LIST)
+    TO_STRING_CASE(MAP)
+    TO_STRING_CASE(DENSE_UNION)
+    TO_STRING_CASE(SPARSE_UNION)
+    TO_STRING_CASE(DICTIONARY)
+    TO_STRING_CASE(EXTENSION)
+
+#undef TO_STRING_CASE
+
     default:
-      DCHECK(false) << "Should not be able to reach here";
-      return "unknown";
+      ARROW_LOG(FATAL) << "Unhandled type id: " << id;
+      return "";
   }
 }
 
@@ -177,6 +175,11 @@ std::string ToString(TimeUnit::type unit) {
       DCHECK(false);
       return "";
   }
+}
+
+int GetByteWidth(const DataType& type) {
+  const auto& fw_type = checked_cast<const FixedWidthType&>(type);
+  return fw_type.bit_width() / CHAR_BIT;
 }
 
 }  // namespace internal
@@ -553,25 +556,21 @@ std::string DurationType::ToString() const {
 constexpr int8_t UnionType::kMaxTypeCode;
 constexpr int UnionType::kInvalidChildId;
 
-UnionType::UnionType(const std::vector<std::shared_ptr<Field>>& fields,
-                     const std::vector<int8_t>& type_codes, UnionMode::type mode)
-    : NestedType(Type::UNION),
-      mode_(mode),
-      type_codes_(type_codes),
+UnionMode::type UnionType::mode() const {
+  return id_ == Type::SPARSE_UNION ? UnionMode::SPARSE : UnionMode::DENSE;
+}
+
+UnionType::UnionType(std::vector<std::shared_ptr<Field>> fields,
+                     std::vector<int8_t> type_codes, Type::type id)
+    : NestedType(id),
+      type_codes_(std::move(type_codes)),
       child_ids_(kMaxTypeCode + 1, kInvalidChildId) {
-  DCHECK_OK(ValidateParameters(fields, type_codes, mode));
-  children_ = fields;
+  children_ = std::move(fields);
+  DCHECK_OK(ValidateParameters(children_, type_codes_, mode()));
   for (int child_id = 0; child_id < static_cast<int>(type_codes_.size()); ++child_id) {
     const auto type_code = type_codes_[child_id];
     child_ids_[type_code] = child_id;
   }
-}
-
-Result<std::shared_ptr<DataType>> UnionType::Make(
-    const std::vector<std::shared_ptr<Field>>& fields,
-    const std::vector<int8_t>& type_codes, UnionMode::type mode) {
-  RETURN_NOT_OK(ValidateParameters(fields, type_codes, mode));
-  return std::make_shared<UnionType>(fields, type_codes, mode);
 }
 
 Status UnionType::ValidateParameters(const std::vector<std::shared_ptr<Field>>& fields,
@@ -589,12 +588,11 @@ Status UnionType::ValidateParameters(const std::vector<std::shared_ptr<Field>>& 
 }
 
 DataTypeLayout UnionType::layout() const {
-  if (mode_ == UnionMode::SPARSE) {
-    return DataTypeLayout({DataTypeLayout::Bitmap(),
-                           DataTypeLayout::FixedWidth(sizeof(uint8_t)),
-                           DataTypeLayout::AlwaysNull()});
+  if (mode() == UnionMode::SPARSE) {
+    return DataTypeLayout(
+        {DataTypeLayout::AlwaysNull(), DataTypeLayout::FixedWidth(sizeof(uint8_t))});
   } else {
-    return DataTypeLayout({DataTypeLayout::Bitmap(),
+    return DataTypeLayout({DataTypeLayout::AlwaysNull(),
                            DataTypeLayout::FixedWidth(sizeof(uint8_t)),
                            DataTypeLayout::FixedWidth(sizeof(int32_t))});
   }
@@ -609,11 +607,7 @@ uint8_t UnionType::max_type_code() const {
 std::string UnionType::ToString() const {
   std::stringstream s;
 
-  if (mode_ == UnionMode::SPARSE) {
-    s << "union[sparse]<";
-  } else {
-    s << "union[dense]<";
-  }
+  s << name() << "<";
 
   for (size_t i = 0; i < children_.size(); ++i) {
     if (i) {
@@ -623,6 +617,26 @@ std::string UnionType::ToString() const {
   }
   s << ">";
   return s.str();
+}
+
+SparseUnionType::SparseUnionType(std::vector<std::shared_ptr<Field>> fields,
+                                 std::vector<int8_t> type_codes)
+    : UnionType(fields, type_codes, Type::SPARSE_UNION) {}
+
+Result<std::shared_ptr<DataType>> SparseUnionType::Make(
+    std::vector<std::shared_ptr<Field>> fields, std::vector<int8_t> type_codes) {
+  RETURN_NOT_OK(ValidateParameters(fields, type_codes, UnionMode::SPARSE));
+  return std::make_shared<SparseUnionType>(fields, type_codes);
+}
+
+DenseUnionType::DenseUnionType(std::vector<std::shared_ptr<Field>> fields,
+                               std::vector<int8_t> type_codes)
+    : UnionType(fields, type_codes, Type::DENSE_UNION) {}
+
+Result<std::shared_ptr<DataType>> DenseUnionType::Make(
+    std::vector<std::shared_ptr<Field>> fields, std::vector<int8_t> type_codes) {
+  RETURN_NOT_OK(ValidateParameters(fields, type_codes, UnionMode::DENSE));
+  return std::make_shared<DenseUnionType>(fields, type_codes);
 }
 
 // ----------------------------------------------------------------------
@@ -739,10 +753,8 @@ Result<std::shared_ptr<DataType>> Decimal128Type::Make(int32_t precision, int32_
 
 Status DictionaryType::ValidateParameters(const DataType& index_type,
                                           const DataType& value_type) {
-  const bool index_type_ok = is_integer(index_type.id()) &&
-                             checked_cast<const IntegerType&>(index_type).is_signed();
-  if (!index_type_ok) {
-    return Status::TypeError("Dictionary index type should be signed integer, got ",
+  if (!is_integer(index_type.id())) {
+    return Status::TypeError("Dictionary index type should be integer, got ",
                              index_type.ToString());
   }
   return Status::OK();
@@ -1194,6 +1206,22 @@ std::vector<FieldPath> FieldRef::FindAll(const FieldVector& fields) const {
   };
 
   return util::visit(Visitor{fields}, impl_);
+}
+
+std::vector<FieldPath> FieldRef::FindAll(const Array& array) const {
+  return FindAll(*array.type());
+}
+
+std::vector<FieldPath> FieldRef::FindAll(const ChunkedArray& array) const {
+  return FindAll(*array.type());
+}
+
+std::vector<FieldPath> FieldRef::FindAll(const RecordBatch& batch) const {
+  return FindAll(*batch.schema());
+}
+
+std::vector<FieldPath> FieldRef::FindAll(const Table& table) const {
+  return FindAll(*table.schema());
 }
 
 void PrintTo(const FieldRef& ref, std::ostream* os) { *os << ref.ToString(); }
@@ -1867,7 +1895,7 @@ std::string StructType::ComputeFingerprint() const {
 std::string UnionType::ComputeFingerprint() const {
   std::stringstream ss;
   ss << TypeIdFingerprint(*this);
-  switch (mode_) {
+  switch (mode()) {
     case UnionMode::SPARSE:
       ss << "[s";
       break;
@@ -2025,45 +2053,59 @@ std::shared_ptr<DataType> struct_(const std::vector<std::shared_ptr<Field>>& fie
   return std::make_shared<StructType>(fields);
 }
 
-std::shared_ptr<DataType> union_(const std::vector<std::shared_ptr<Field>>& child_fields,
-                                 const std::vector<int8_t>& type_codes,
-                                 UnionMode::type mode) {
-  return std::make_shared<UnionType>(child_fields, type_codes, mode);
-}
-
-std::shared_ptr<DataType> union_(const std::vector<std::shared_ptr<Field>>& child_fields,
-                                 UnionMode::type mode) {
-  std::vector<int8_t> type_codes(child_fields.size());
-  for (int i = 0; i < static_cast<int>(child_fields.size()); ++i) {
-    type_codes[i] = static_cast<int8_t>(i);
+std::shared_ptr<DataType> sparse_union(FieldVector child_fields,
+                                       std::vector<int8_t> type_codes) {
+  if (type_codes.empty()) {
+    type_codes = internal::Iota(static_cast<int8_t>(child_fields.size()));
   }
-  return std::make_shared<UnionType>(child_fields, type_codes, mode);
+  return std::make_shared<SparseUnionType>(std::move(child_fields),
+                                           std::move(type_codes));
 }
-
-std::shared_ptr<DataType> union_(UnionMode::type mode) {
-  std::vector<std::shared_ptr<Field>> child_fields;
-  return union_(child_fields, mode);
-}
-
-std::shared_ptr<DataType> union_(const std::vector<std::shared_ptr<Array>>& children,
-                                 const std::vector<std::string>& field_names,
-                                 const std::vector<int8_t>& given_type_codes,
-                                 UnionMode::type mode) {
-  std::vector<std::shared_ptr<Field>> fields;
-  std::vector<int8_t> type_codes(given_type_codes);
-  int8_t counter = 0;
-  for (const auto& child : children) {
-    if (field_names.size() == 0) {
-      fields.push_back(field(std::to_string(counter), child->type()));
-    } else {
-      fields.push_back(field(std::move(field_names[counter]), child->type()));
-    }
-    if (given_type_codes.size() == 0) {
-      type_codes.push_back(counter);
-    }
-    counter++;
+std::shared_ptr<DataType> dense_union(FieldVector child_fields,
+                                      std::vector<int8_t> type_codes) {
+  if (type_codes.empty()) {
+    type_codes = internal::Iota(static_cast<int8_t>(child_fields.size()));
   }
-  return union_(fields, std::move(type_codes), mode);
+  return std::make_shared<DenseUnionType>(std::move(child_fields), std::move(type_codes));
+}
+
+FieldVector FieldsFromArraysAndNames(std::vector<std::string> names,
+                                     const ArrayVector& arrays) {
+  FieldVector fields(arrays.size());
+  int i = 0;
+  if (names.empty()) {
+    for (const auto& array : arrays) {
+      fields[i] = field(std::to_string(i), array->type());
+      ++i;
+    }
+  } else {
+    DCHECK_EQ(names.size(), arrays.size());
+    for (const auto& array : arrays) {
+      fields[i] = field(std::move(names[i]), array->type());
+      ++i;
+    }
+  }
+  return fields;
+}
+
+std::shared_ptr<DataType> sparse_union(const ArrayVector& children,
+                                       std::vector<std::string> field_names,
+                                       std::vector<int8_t> type_codes) {
+  if (type_codes.empty()) {
+    type_codes = internal::Iota(static_cast<int8_t>(children.size()));
+  }
+  auto fields = FieldsFromArraysAndNames(std::move(field_names), children);
+  return sparse_union(std::move(fields), std::move(type_codes));
+}
+
+std::shared_ptr<DataType> dense_union(const ArrayVector& children,
+                                      std::vector<std::string> field_names,
+                                      std::vector<int8_t> type_codes) {
+  if (type_codes.empty()) {
+    type_codes = internal::Iota(static_cast<int8_t>(children.size()));
+  }
+  auto fields = FieldsFromArraysAndNames(std::move(field_names), children);
+  return dense_union(std::move(fields), std::move(type_codes));
 }
 
 std::shared_ptr<DataType> dictionary(const std::shared_ptr<DataType>& index_type,

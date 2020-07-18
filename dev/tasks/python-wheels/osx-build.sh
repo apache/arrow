@@ -52,10 +52,6 @@ function build_wheel {
 
     pip install $(pip_opts) -r python/requirements-wheel-build.txt
 
-    export PYARROW_INSTALL_TESTS=1
-    export PYARROW_WITH_GANDIVA=0
-    export BUILD_ARROW_GANDIVA=OFF
-
     git submodule update --init
     export ARROW_TEST_DATA=`pwd`/testing/data
 
@@ -63,12 +59,14 @@ function build_wheel {
     mkdir build
     pushd build
     cmake -DARROW_BUILD_SHARED=ON \
+          -DARROW_BUILD_STATIC=OFF \
           -DARROW_BUILD_TESTS=OFF \
           -DARROW_DATASET=ON \
           -DARROW_DEPENDENCY_SOURCE=BUNDLED \
           -DARROW_HDFS=ON \
           -DARROW_FLIGHT=ON \
-          -DARROW_GANDIVA=${BUILD_ARROW_GANDIVA} \
+          -DARROW_GANDIVA=OFF \
+          -DARROW_GRPC_USE_SHARED=OFF \
           -DARROW_JEMALLOC=ON \
           -DARROW_ORC=OFF \
           -DARROW_PARQUET=ON \
@@ -112,8 +110,10 @@ function build_wheel {
     export PYARROW_WITH_ORC=0
     export PYARROW_WITH_JEMALLOC=1
     export PYARROW_WITH_PLASMA=1
+    export PYARROW_WITH_GANDIVA=0
     export PYARROW_BUNDLE_ARROW_CPP=1
     export PYARROW_BUILD_TYPE='release'
+    export PYARROW_INSTALL_TESTS=1
     export SETUPTOOLS_SCM_PRETEND_VERSION=$PYARROW_VERSION
     pushd python
     python setup.py build_ext bdist_wheel

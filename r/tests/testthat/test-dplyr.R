@@ -32,7 +32,7 @@ expect_dplyr_equal <- function(expr, # A dplyr pipeline with `input` as its star
       expr,
       rlang::new_data_mask(rlang::env(input = record_batch(tbl)))
     )
-    expect_equal(via_batch, expected, ...)
+    expect_equivalent(via_batch, expected, ...)
   } else {
     skip(skip_record_batch)
   }
@@ -42,7 +42,7 @@ expect_dplyr_equal <- function(expr, # A dplyr pipeline with `input` as its star
       expr,
       rlang::new_data_mask(rlang::env(input = Table$create(tbl)))
     )
-    expect_equal(via_table, expected, ...)
+    expect_equivalent(via_table, expected, ...)
   } else {
     skip(skip_table)
   }
@@ -76,14 +76,7 @@ expect_dplyr_error <- function(expr, # A dplyr pipeline with `input` as its star
   )
 }
 
-tbl <- tibble::tibble(
-  int = 1:10,
-  dbl = as.numeric(1:10),
-  lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
-  false = logical(10),
-  chr = letters[1:10],
-  fct = factor(letters[1:10])
-)
+tbl <- example_data
 
 test_that("basic select/filter/collect", {
   batch <- record_batch(tbl)
@@ -94,7 +87,7 @@ test_that("basic select/filter/collect", {
 
   expect_is(b2, "arrow_dplyr_query")
   t2 <- collect(b2)
-  expect_equal(t2, tbl[tbl$int > 5, c("int", "chr")])
+  expect_equal(t2, tbl[tbl$int > 5 & !is.na(tbl$int), c("int", "chr")])
   # Test that the original object is not affected
   expect_identical(collect(batch), tbl)
 })
@@ -176,9 +169,10 @@ test_that("filter environment scope", {
   # 'could not find function "isEqualTo"'
   expect_dplyr_error(filter(batch, isEqualTo(int, 4)))
 
-  isEqualTo <- function(x, y) x == y
+  isEqualTo <- function(x, y) x == y & !is.na(x)
   expect_dplyr_equal(
     input %>%
+      select(-fct) %>% # factor levels aren't identical
       filter(isEqualTo(int, 4)) %>%
       collect(),
     tbl

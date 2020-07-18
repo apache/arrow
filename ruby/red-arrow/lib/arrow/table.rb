@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+require "arrow/raw-table-converter"
+
 module Arrow
   class Table
     include ColumnContainable
@@ -161,22 +163,9 @@ module Arrow
       n_args = args.size
       case n_args
       when 1
-        if args[0][0].is_a?(Column)
-          columns = args[0]
-          fields = columns.collect(&:field)
-          values = columns.collect(&:data)
-          schema = Schema.new(fields)
-        else
-          raw_table = args[0]
-          fields = []
-          values = []
-          raw_table.each do |name, array|
-            array = ArrayBuilder.build(array) if array.is_a?(::Array)
-            fields << Field.new(name.to_s, array.value_data_type)
-            values << array
-          end
-          schema = Schema.new(fields)
-        end
+        raw_table_converter = RawTableConverter.new(args[0])
+        schema = raw_table_converter.schema
+        values = raw_table_converter.values
       when 2
         schema = args[0]
         schema = Schema.new(schema) unless schema.is_a?(Schema)

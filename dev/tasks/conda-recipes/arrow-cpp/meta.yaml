@@ -1,124 +1,238 @@
+{% set version = ARROW_VERSION %}
+{% set number = "6" %}
+{% set cuda_enabled = cuda_compiler_version is not undefined and cuda_compiler_version == '9.2' %}
+{% set build_ext_version = "1.0.0" %}
+{% set build_ext = "cuda" if cuda_enabled else "cpu" %}
+{% set build_string = "py{}h{}_{}_{}".format(CONDA_PY, PKG_HASH, number, build_ext) %}
+{% set proc_build_number = "1" %}
+
 package:
-  name: arrow-cpp
-  version: {{ ARROW_VERSION }}
+  name: arrow-cpp-ext
+  version: {{ version }}
 
 source:
   path: ../../../../
 
 build:
-  build:
-  number: 0
-  skip: true  # [win and vc<14]
+  number: {{ number }}
+  skip: true  # [cuda_compiler_version not in (undefined, "None", "9.2")]
   run_exports:
-    - {{ pin_subpackage("arrow-cpp", max_pin="x.x") }}
+    - {{ pin_subpackage("arrow-cpp", max_pin="x.x.x") }}
 
-requirements:
-  build:
-    - cmake 3.16.*
-    - autoconf  # [unix]
-    - ninja
-    - {{ compiler('c') }}
-    - {{ compiler('cxx') }}
-  host:
-    - aws-sdk-cpp
-    - boost-cpp
-    - brotli
-    - bzip2
-    - c-ares
-    - gflags
-    - glog
-    - grpc-cpp
-    - libprotobuf
-    - clangdev 10.* # [not win]
-    - llvmdev 10.* # [not win]
-    # llvmdev 9.* or later require Visual Studio 2017
-    - clangdev 8.* # [win]
-    - llvmdev 8.* # [win]
-    - lz4-c
-    - numpy 1.16.*
-    - orc  # [unix]
-    - python
-    - rapidjson
-    - re2
-    - snappy
-    - thrift-cpp >=0.11
-    - zlib
-    - zstd
+outputs:
+  - name: arrow-cpp-proc
+    version: {{ build_ext_version }}
+    build:
+      number: {{ proc_build_number }}
+      string: "{{ build_ext }}"
+    test:
+      commands:
+        - exit 0
+    about:
+      home: http://github.com/apache/arrow
+      license: Apache-2.0
+      license_file:
+        - LICENSE.txt
+      summary: 'A meta-package to select Arrow build variant'
 
-  run:
-    - {{ pin_compatible('numpy', lower_bound='1.16') }}
-    - aws-sdk-cpp
-    - boost-cpp
-    - brotli
-    - c-ares
-    - gflags
-    - glog
-    - grpc-cpp
-    - lz4-c
-    - python
-    - re2
-    - snappy
-    - zlib
-    - zstd
+  - name: arrow-cpp
+    script: build-arrow.sh  # [not win]
+    script: bld-arrow.bat   # [win]
+    version: {{ version }}
+    build:
+      number: {{ number }}
+      string: "{{ build_string }}"
+      skip: true  # [cuda_compiler_version not in (undefined, "None", "9.2")]
+      run_exports:
+        - {{ pin_subpackage("arrow-cpp", max_pin="x.x.x") }}
+      ignore_run_exports:
+        - cudatoolkit
+      track_features:
+        {{ "- arrow-cuda" if cuda_enabled else "" }}
+    requirements:
+      build:
+        - cmake 3.16.*
+        - autoconf  # [unix]
+        - ninja
+        - make  # [unix]
+        - {{ compiler('c') }}
+        - {{ compiler('cxx') }}
+        - {{ compiler("cuda") }}  # [cuda_compiler_version not in (undefined, "None")]
+      host:
+        - aws-sdk-cpp
+        - boost-cpp
+        - brotli
+        - bzip2
+        - c-ares
+        - gflags
+        - glog
+        - grpc-cpp
+        - libprotobuf
+        - libutf8proc
+        - clangdev 10.* # [not win]
+        - llvmdev 10.* # [not win]
+        # llvmdev 9.* or later require Visual Studio 2017
+        - clangdev 8.* # [win]
+        - llvmdev 8.* # [win]
+        - lz4-c
+        - numpy 1.16.*
+        - orc  # [unix]
+        - python
+        - rapidjson
+        - re2
+        - snappy
+        - thrift-cpp >=0.11
+        - zlib
+        - zstd
+      run:
+        - {{ pin_compatible('numpy', lower_bound='1.16') }}
+        - aws-sdk-cpp
+        - boost-cpp
+        - brotli
+        - c-ares
+        - gflags
+        - glog
+        - grpc-cpp
+        - lz4-c
+        - python
+        - re2
+        - zlib
+        - zstd
+      run_constrained:
+        - arrow-cpp-proc * {{ build_ext }}
+        - cudatoolkit >=9.2  # [cuda_compiler_version not in (undefined, "None")]
 
-test:
-  commands:
-    # headers
-    - test -f $PREFIX/include/arrow/api.h              # [unix]
-    - test -f $PREFIX/include/arrow/flight/types.h     # [unix]
-    - test -f $PREFIX/include/plasma/client.h          # [unix]
-    - test -f $PREFIX/include/gandiva/engine.h         # [unix]
-    - test -f $PREFIX/include/parquet/api/reader.h     # [unix]
-    - if not exist %LIBRARY_INC%\\arrow\\api.h exit 1            # [win]
-    - if not exist %LIBRARY_INC%\\gandiva\\engine.h exit 1       # [win]
-    - if not exist %LIBRARY_INC%\\parquet\\api\\reader.h exit 1  # [win]
+    about:
+      home: http://github.com/apache/arrow
+      license: Apache-2.0
+      license_file:
+        - LICENSE.txt
+      summary: C++ libraries for Apache Arrow
 
-    # shared
-    - test -f $PREFIX/lib/libarrow.so            # [linux]
-    - test -f $PREFIX/lib/libarrow_dataset.so    # [linux]
-    - test -f $PREFIX/lib/libarrow_flight.so     # [linux]
-    - test -f $PREFIX/lib/libarrow_python.so     # [linux]
-    - test -f $PREFIX/lib/libparquet.so          # [linux]
-    - test -f $PREFIX/lib/libgandiva.so          # [linux]
-    - test -f $PREFIX/lib/libplasma.so           # [linux]
-    - test -f $PREFIX/lib/libarrow.dylib         # [osx]
-    - test -f $PREFIX/lib/libarrow_dataset.dylib # [osx]
-    - test -f $PREFIX/lib/libarrow_python.dylib  # [osx]
-    - test -f $PREFIX/lib/libgandiva.dylib       # [osx]
-    - test -f $PREFIX/lib/libparquet.dylib       # [osx]
-    - test -f $PREFIX/lib/libplasma.dylib        # [osx]
-    - if not exist %PREFIX%\\Library\\bin\\arrow.dll exit 1         # [win]
-    - if not exist %PREFIX%\\Library\\bin\\arrow_dataset.dll exit 1 # [win]
-    - if not exist %PREFIX%\\Library\\bin\\arrow_flight.dll exit 1  # [win]
-    - if not exist %PREFIX%\\Library\\bin\\arrow_python.dll exit 1  # [win]
-    - if not exist %PREFIX%\\Library\\bin\\parquet.dll exit 1       # [win]
-    - if not exist %PREFIX%\\Library\\bin\\gandiva.dll exit 1       # [win]
+    test:
+      commands:
+        # headers
+        - test -f $PREFIX/include/arrow/api.h              # [unix]
+        - test -f $PREFIX/include/arrow/flight/types.h     # [unix]
+        - test -f $PREFIX/include/plasma/client.h          # [unix]
+        - test -f $PREFIX/include/gandiva/engine.h         # [unix and not (aarch64 or ppc64le)]
+        - test -f $PREFIX/include/parquet/api/reader.h     # [unix]
+        - if not exist %LIBRARY_INC%\\arrow\\api.h exit 1            # [win]
+        - if not exist %LIBRARY_INC%\\gandiva\\engine.h exit 1       # [win]
+        - if not exist %LIBRARY_INC%\\parquet\\api\\reader.h exit 1  # [win]
 
-    # absence of static libraries
-    - test ! -f $PREFIX/lib/libarrow.a         # [unix]
-    - test ! -f $PREFIX/lib/libarrow_dataset.a # [unix]
-    - test ! -f $PREFIX/lib/libarrow_flight.a  # [unix]
-    - test ! -f $PREFIX/lib/libarrow_python.a  # [unix]
-    - test ! -f $PREFIX/lib/libplasma.a        # [unix]
-    - test ! -f $PREFIX/lib/libparquet.a       # [unix]
-    - test ! -f $PREFIX/lib/libgandiva.a       # [unix]
-    - if exist %PREFIX%\\Library\\lib\\arrow_static.lib exit 1         # [win]
-    - if exist %PREFIX%\\Library\\lib\\arrow_dataset_static.lib exit 1 # [win]
-    - if exist %PREFIX%\\Library\\lib\\arrow_flight_static.lib exit 1  # [win]
-    - if exist %PREFIX%\\Library\\lib\\arrow_python_static.lib exit 1  # [win]
-    - if exist %PREFIX%\\Library\\lib\\parquet_static.lib exit 1       # [win]
-    - if exist %PREFIX%\\Library\\lib\\gandiva_static.lib exit 1       # [win]
+        # shared
+        - test -f $PREFIX/lib/libarrow.so            # [linux]
+        - test -f $PREFIX/lib/libarrow_dataset.so    # [linux]
+        - test -f $PREFIX/lib/libarrow_flight.so     # [linux]
+        - test -f $PREFIX/lib/libarrow_python.so     # [linux]
+        - test -f $PREFIX/lib/libparquet.so          # [linux]
+        - test -f $PREFIX/lib/libgandiva.so          # [linux and not (aarch64 or ppc64le)]
+        - test -f $PREFIX/lib/libplasma.so           # [linux]
+        {{ "- test %s -f $PREFIX/lib/libarrow_cuda.so" % (['!', ''][cuda_enabled]) }}                         # [linux]
+        {{ "- test %s -f $PREFIX/lib/libarrow_cuda.dylib" % (['!', ''][cuda_enabled]) }}                      # [osx]
+        {{ "- if %s exist %%PREFIX%%\\Library\\bin\\arrow_cuda.dll exit 1" % (['', 'not'][cuda_enabled]) }}   # [win]
+        - test -f $PREFIX/lib/libarrow.dylib          # [osx]
+        - test -f $PREFIX/lib/libarrow_dataset.dylib  # [osx]
+        - test -f $PREFIX/lib/libarrow_python.dylib   # [osx]
+        - test -f $PREFIX/lib/libgandiva.dylib        # [osx]
+        - test -f $PREFIX/lib/libparquet.dylib        # [osx]
+        - test -f $PREFIX/lib/libplasma.dylib         # [osx]
+        - if not exist %PREFIX%\\Library\\bin\\arrow.dll exit 1          # [win]
+        - if not exist %PREFIX%\\Library\\bin\\arrow_dataset.dll exit 1  # [win]
+        - if not exist %PREFIX%\\Library\\bin\\arrow_flight.dll exit 1   # [win]
+        - if not exist %PREFIX%\\Library\\bin\\arrow_python.dll exit 1   # [win]
+        - if not exist %PREFIX%\\Library\\bin\\parquet.dll exit 1        # [win]
+        - if not exist %PREFIX%\\Library\\bin\\gandiva.dll exit 1        # [win]
 
-    # conda tools
-    - conda inspect linkages -p $PREFIX $PKG_NAME  # [not win]
-    - conda inspect objects -p $PREFIX $PKG_NAME   # [osx]
+        # absence of static libraries
+        - test ! -f $PREFIX/lib/libarrow.a          # [unix]
+        - test ! -f $PREFIX/lib/libarrow_dataset.a  # [unix]
+        - test ! -f $PREFIX/lib/libarrow_flight.a   # [unix]
+        - test ! -f $PREFIX/lib/libarrow_python.a   # [unix]
+        - test ! -f $PREFIX/lib/libplasma.a         # [unix]
+        - test ! -f $PREFIX/lib/libparquet.a        # [unix]
+        - test ! -f $PREFIX/lib/libgandiva.a        # [unix]
+        - if exist %PREFIX%\\Library\\lib\\arrow_static.lib exit 1          # [win]
+        - if exist %PREFIX%\\Library\\lib\\arrow_dataset_static.lib exit 1  # [win]
+        - if exist %PREFIX%\\Library\\lib\\arrow_flight_static.lib exit 1   # [win]
+        - if exist %PREFIX%\\Library\\lib\\arrow_python_static.lib exit 1   # [win]
+        - if exist %PREFIX%\\Library\\lib\\parquet_static.lib exit 1        # [win]
+        - if exist %PREFIX%\\Library\\lib\\gandiva_static.lib exit 1        # [win]
+
+  - name: pyarrow
+    script: build-pyarrow.sh  # [not win]
+    script: bld-pyarrow.bat   # [win]
+    version: {{ version }}
+    build:
+      number: {{ number }}
+      string: "{{ build_string }}"
+      skip: true  # [cuda_compiler_version not in (undefined, "None", "9.2")]
+      ignore_run_exports:
+        - cudatoolkit
+      track_features:
+        {{ "- arrow-cuda" if cuda_enabled else "" }}
+    requirements:
+      build:
+        - cmake 3.16.*
+        - ninja
+        - make  # [unix]
+        - {{ compiler('c') }}
+        - {{ compiler('cxx') }}
+        # pyarrow does not require nvcc but it needs to link against libraries in arrow-cpp=*=*cuda
+        - {{ compiler("cuda") }}  # [cuda_compiler_version not in (undefined, "None")]
+      host:
+        - {{ pin_subpackage('arrow-cpp', exact=True) }}
+        - boost-cpp
+        - cython
+        - numpy 1.16.*
+        - python
+        - setuptools
+        - setuptools_scm
+        - six
+      run:
+        - {{ pin_subpackage('arrow-cpp', exact=True) }}
+        - {{ pin_compatible('numpy', lower_bound='1.16') }}
+        - boost-cpp
+        - glog
+        - pandas
+        # empty parquet-cpp metapackage, force old versions to be uninstalled
+        - parquet-cpp 1.5.1.*
+        - python
+        - six
+      run_constrained:
+        - arrow-cpp-proc * {{ build_ext }}
+        - cudatoolkit >=9.2  # [cuda_compiler_version not in (undefined, "None")]
+
+    about:
+      home: http://github.com/apache/arrow
+      license: Apache-2.0
+      license_file:
+        - LICENSE.txt
+      summary: Python libraries for Apache Arrow
+
+    test:
+      imports:
+        - pyarrow
+        - pyarrow.dataset
+        - pyarrow.flight
+        - pyarrow.gandiva
+        - pyarrow.orc      # [unix]
+        - pyarrow.parquet
+        - pyarrow.plasma   # [unix]
+        - pyarrow.fs
+        - pyarrow._s3fs
+        - pyarrow._hdfs
+        # We can only test importing cuda package but cannot run when a
+        # CUDA device is not available, for instance, when building from CI.
+        - pyarrow.cuda     # [cuda_compiler_version not in (undefined, "None")]
 
 about:
   home: http://github.com/apache/arrow
-  license: Apache 2.0
+  license: Apache-2.0
   license_file:
     - LICENSE.txt
-  summary: 'C++ libraries for Apache Arrow'
+  summary: C++ and Python libraries for Apache Arrow
 
 extra:
   recipe-maintainers:
@@ -133,3 +247,6 @@ extra:
     - kou
     - kszucs
     - pitrou
+    - pearu
+    - nealrichardson
+    - jakirkham

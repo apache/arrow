@@ -69,6 +69,10 @@ struct ScalarFromArraySlotImpl {
     return Finish(a.Value(index_));
   }
 
+  Status Visit(const Decimal128Array& a) {
+    return Finish(Decimal128(a.GetValue(index_)));
+  }
+
   template <typename T>
   Status Visit(const BaseBinaryArray<T>& a) {
     return Finish(a.GetString(index_));
@@ -94,13 +98,47 @@ struct ScalarFromArraySlotImpl {
     return Finish(std::move(children));
   }
 
-  Status Visit(const UnionArray& a) {
-    return Status::NotImplemented("Non-null UnionScalar");
+  Status Visit(const SparseUnionArray& a) {
+    // child array which stores the actual value
+    auto arr = a.field(a.child_id(index_));
+    // no need to adjust the index
+    ARROW_ASSIGN_OR_RAISE(auto value, arr->GetScalar(index_));
+    if (value->is_valid) {
+      out_ = std::shared_ptr<Scalar>(new SparseUnionScalar(value, a.type()));
+    } else {
+      out_ = MakeNullScalar(a.type());
+    }
+    return Status::OK();
+  }
+
+  Status Visit(const DenseUnionArray& a) {
+    // child array which stores the actual value
+    auto arr = a.field(a.child_id(index_));
+    // need to look up the value based on offsets
+    auto offset = a.value_offset(index_);
+    ARROW_ASSIGN_OR_RAISE(auto value, arr->GetScalar(offset));
+    if (value->is_valid) {
+      out_ = std::shared_ptr<Scalar>(new DenseUnionScalar(value, a.type()));
+    } else {
+      out_ = MakeNullScalar(a.type());
+    }
+    return Status::OK();
   }
 
   Status Visit(const DictionaryArray& a) {
-    ARROW_ASSIGN_OR_RAISE(auto value, a.dictionary()->GetScalar(a.GetValueIndex(index_)));
-    return Finish(std::move(value));
+    auto ty = a.type();
+
+    ARROW_ASSIGN_OR_RAISE(auto index,
+                          MakeScalar(checked_cast<DictionaryType&>(*ty).index_type(),
+                                     a.GetValueIndex(index_)));
+
+    auto scalar = DictionaryScalar(ty);
+    scalar.is_valid = a.IsValid(index_);
+    scalar.value.index = index;
+    scalar.value.dictionary = a.dictionary();
+
+    out_ = std::make_shared<DictionaryScalar>(std::move(scalar));
+    return Status::OK();
   }
 
   Status Visit(const ExtensionArray& a) {
@@ -200,12 +238,25 @@ bool Array::RangeEquals(int64_t start_idx, int64_t end_idx, int64_t other_start_
 }
 
 std::shared_ptr<Array> Array::Slice(int64_t offset, int64_t length) const {
-  return MakeArray(std::make_shared<ArrayData>(data_->Slice(offset, length)));
+  return MakeArray(data_->Slice(offset, length));
 }
 
 std::shared_ptr<Array> Array::Slice(int64_t offset) const {
   int64_t slice_length = data_->length - offset;
   return Slice(offset, slice_length);
+}
+
+Result<std::shared_ptr<Array>> Array::SliceSafe(int64_t offset, int64_t length) const {
+  ARROW_ASSIGN_OR_RAISE(auto sliced_data, data_->SliceSafe(offset, length));
+  return MakeArray(std::move(sliced_data));
+}
+
+Result<std::shared_ptr<Array>> Array::SliceSafe(int64_t offset) const {
+  if (offset < 0) {
+    // Avoid UBSAN in subtraction below
+    return Status::Invalid("Negative buffer slice offset");
+  }
+  return SliceSafe(offset, data_->length - offset);
 }
 
 std::string Array::ToString() const {

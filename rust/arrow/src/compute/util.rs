@@ -169,32 +169,35 @@ mod tests {
     #[test]
     fn test_apply_bin_op_to_option_bitmap() {
         assert_eq!(
-            Ok(None),
-            apply_bin_op_to_option_bitmap(&None, &None, |a, b| a & b)
+            None,
+            apply_bin_op_to_option_bitmap(&None, &None, |a, b| a & b).unwrap()
         );
         assert_eq!(
-            Ok(Some(Buffer::from([0b01101010]))),
+            Some(Buffer::from([0b01101010])),
             apply_bin_op_to_option_bitmap(
                 &Some(Bitmap::from(Buffer::from([0b01101010]))),
                 &None,
                 |a, b| a & b,
             )
+            .unwrap()
         );
         assert_eq!(
-            Ok(Some(Buffer::from([0b01001110]))),
+            Some(Buffer::from([0b01001110])),
             apply_bin_op_to_option_bitmap(
                 &None,
                 &Some(Bitmap::from(Buffer::from([0b01001110]))),
                 |a, b| a & b,
             )
+            .unwrap()
         );
         assert_eq!(
-            Ok(Some(Buffer::from([0b01001010]))),
+            Some(Buffer::from([0b01001010])),
             apply_bin_op_to_option_bitmap(
                 &Some(Bitmap::from(Buffer::from([0b01101010]))),
                 &Some(Bitmap::from(Buffer::from([0b01001110]))),
                 |a, b| a & b,
             )
+            .unwrap()
         );
     }
 

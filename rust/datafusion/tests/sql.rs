@@ -22,7 +22,7 @@ extern crate arrow;
 extern crate datafusion;
 
 use arrow::array::*;
-use arrow::datatypes::{DataType, Field, Schema};
+use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
 use arrow::record_batch::RecordBatch;
 
 use datafusion::datasource::csv::CsvReadOptions;
@@ -173,7 +173,7 @@ fn create_ctx() -> Result<ExecutionContext> {
         "custom_sqrt",
         vec![Field::new("n", DataType::Float64, true)],
         DataType::Float64,
-        custom_sqrt,
+        Arc::new(custom_sqrt),
     ));
 
     Ok(ctx)
@@ -394,7 +394,7 @@ fn csv_query_count_one() {
     assert_eq!(expected, actual);
 }
 
-fn aggr_test_schema() -> Arc<Schema> {
+fn aggr_test_schema() -> SchemaRef {
     Arc::new(Schema::new(vec![
         Field::new("c1", DataType::Utf8, false),
         Field::new("c2", DataType::UInt32, false),

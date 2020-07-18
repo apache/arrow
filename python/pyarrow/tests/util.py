@@ -194,3 +194,19 @@ def invoke_script(script_name, *args):
     cmd.extend(args)
 
     subprocess.check_call(cmd, env=subprocess_env)
+
+
+@contextlib.contextmanager
+def changed_environ(name, value):
+    """
+    Temporarily set environment variable *name* to *value*.
+    """
+    orig_value = os.environ.get(name)
+    os.environ[name] = value
+    try:
+        yield
+    finally:
+        if orig_value is None:
+            del os.environ[name]
+        else:
+            os.environ[name] = orig_value

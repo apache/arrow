@@ -19,7 +19,8 @@
 
 #if defined(ARROW_R_WITH_ARROW)
 
-#include <arrow/array.h>
+#include <arrow/array/array_base.h>
+#include <arrow/array/util.h>
 #include <arrow/scalar.h>
 
 // [[arrow::export]]
@@ -37,6 +38,18 @@ std::string Scalar__ToString(const std::shared_ptr<arrow::Scalar>& s) {
 std::shared_ptr<arrow::Scalar> Scalar__CastTo(const std::shared_ptr<arrow::Scalar>& s,
                                               const std::shared_ptr<arrow::DataType>& t) {
   return ValueOrStop(s->CastTo(t));
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::Scalar> StructScalar__field(
+    const std::shared_ptr<arrow::StructScalar>& s, int i) {
+  return ValueOrStop(s->field(i));
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::Scalar> StructScalar__GetFieldByName(
+    const std::shared_ptr<arrow::StructScalar>& s, const std::string& name) {
+  return ValueOrStop(s->field(name));
 }
 
 // [[arrow::export]]

@@ -56,10 +56,12 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
     ctypedef vector[shared_ptr[CExpression]] CExpressionVector \
         "arrow::dataset::ExpressionVector"
 
+    cdef cppclass CScalarExpression \
+            "arrow::dataset::ScalarExpression"(CExpression):
+        CScalarExpression(const shared_ptr[CScalar]& value)
+
     cdef shared_ptr[CExpression] CMakeFieldExpression \
         "arrow::dataset::field_ref"(c_string name)
-    cdef shared_ptr[CExpression] CMakeScalarExpression \
-        "arrow::dataset::scalar"(shared_ptr[CScalar] value)
     cdef shared_ptr[CExpression] CMakeNotExpression \
         "arrow::dataset::not_"(shared_ptr[CExpression] operand)
     cdef shared_ptr[CExpression] CMakeAndExpression \
@@ -169,6 +171,8 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         CResult[shared_ptr[CUnionDataset]] Make(shared_ptr[CSchema] schema,
                                                 CDatasetVector children)
 
+        const CDatasetVector& children() const
+
     cdef cppclass CInspectOptions "arrow::dataset::InspectOptions":
         int fragments
 
@@ -195,14 +199,19 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         const c_string& path() const
         const shared_ptr[CFileSystem]& filesystem() const
         const shared_ptr[CBuffer]& buffer() const
-        CFileSource(c_string path, shared_ptr[CFileSystem] filesystem)
+        # HACK: Cython can't handle all the overloads so don't declare them.
+        # This means invalid construction of CFileSource won't be caught in
+        # the C++ generation phase (though it will still be caught when
+        # the generated C++ is compiled).
+        CFileSource(...)
 
     cdef cppclass CFileFormat "arrow::dataset::FileFormat":
         c_string type_name() const
         CResult[shared_ptr[CSchema]] Inspect(const CFileSource&) const
         CResult[shared_ptr[CFileFragment]] MakeFragment(
             CFileSource source,
-            shared_ptr[CExpression] partition_expression)
+            shared_ptr[CExpression] partition_expression,
+            shared_ptr[CSchema] physical_schema)
 
     cdef cppclass CFileFragment "arrow::dataset::FileFragment"(
             CFragment):
@@ -212,17 +221,22 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
     cdef cppclass CRowGroupInfo "arrow::dataset::RowGroupInfo":
         CRowGroupInfo()
         CRowGroupInfo(int id)
-        CRowGroupInfo(
-            int id, int64_t n_rows, shared_ptr[CExpression] statistics)
         int id() const
         int64_t num_rows() const
+        int64_t total_byte_size() const
         bint Equals(const CRowGroupInfo& other)
+        c_bool HasStatistics() const
+        shared_ptr[CStructScalar] statistics() const
+
+        @staticmethod
+        vector[CRowGroupInfo] FromIdentifiers(vector[int])
 
     cdef cppclass CParquetFileFragment "arrow::dataset::ParquetFileFragment"(
             CFileFragment):
         const vector[CRowGroupInfo]& row_groups() const
         CResult[vector[shared_ptr[CFragment]]] SplitByRowGroup(
             shared_ptr[CExpression] predicate)
+        CStatus EnsureCompleteMetadata()
 
     cdef cppclass CFileSystemDataset \
             "arrow::dataset::FileSystemDataset"(CDataset):
@@ -248,7 +262,8 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         CResult[shared_ptr[CFileFragment]] MakeFragment(
             CFileSource source,
             shared_ptr[CExpression] partition_expression,
-            vector[int] row_groups)
+            vector[CRowGroupInfo] row_groups,
+            shared_ptr[CSchema] physical_schema)
 
     cdef cppclass CIpcFileFormat "arrow::dataset::IpcFileFormat"(
             CFileFormat):
@@ -263,6 +278,10 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         CResult[shared_ptr[CExpression]] Parse(const c_string & path) const
         const shared_ptr[CSchema] & schema()
 
+    cdef cppclass CPartitioningFactoryOptions \
+            "arrow::dataset::PartitioningFactoryOptions":
+        int max_partition_dictionary_size
+
     cdef cppclass CPartitioningFactory "arrow::dataset::PartitioningFactory":
         pass
 
@@ -272,14 +291,15 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
         @staticmethod
         shared_ptr[CPartitioningFactory] MakeFactory(
-            vector[c_string] field_names)
+            vector[c_string] field_names, CPartitioningFactoryOptions)
 
     cdef cppclass CHivePartitioning \
             "arrow::dataset::HivePartitioning"(CPartitioning):
         CHivePartitioning(shared_ptr[CSchema] schema)
 
         @staticmethod
-        shared_ptr[CPartitioningFactory] MakeFactory()
+        shared_ptr[CPartitioningFactory] MakeFactory(
+            CPartitioningFactoryOptions)
 
     cdef cppclass CPartitioningOrFactory \
             "arrow::dataset::PartitioningOrFactory":
@@ -295,6 +315,10 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         "arrow::dataset::KeyValuePartitioning::SetDefaultValuesFromKeys"(
             const CExpression& partition_expression,
             CRecordBatchProjector* projector)
+
+    cdef CResult[unordered_map[c_string, shared_ptr[CScalar]]] \
+        CGetPartitionKeys "arrow::dataset::KeyValuePartitioning::GetKeys"(
+        const CExpression& partition_expression)
 
     cdef cppclass CFileSystemFactoryOptions \
             "arrow::dataset::FileSystemFactoryOptions":
@@ -322,13 +346,19 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             CFileSystemFactoryOptions options
         )
 
+    cdef cppclass CParquetFactoryOptions \
+            "arrow::dataset::ParquetFactoryOptions":
+        CPartitioningOrFactory partitioning
+        c_string partition_base_dir
+
     cdef cppclass CParquetDatasetFactory \
             "arrow::dataset::ParquetDatasetFactory"(CDatasetFactory):
         @staticmethod
         CResult[shared_ptr[CDatasetFactory]] MakeFromMetaDataPath "Make"(
             const c_string& metadata_path,
             shared_ptr[CFileSystem] filesystem,
-            shared_ptr[CParquetFileFormat] format
+            shared_ptr[CParquetFileFormat] format,
+            CParquetFactoryOptions options
         )
 
         @staticmethod
@@ -336,5 +366,6 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             const CFileSource& metadata_path,
             const c_string& base_path,
             shared_ptr[CFileSystem] filesystem,
-            shared_ptr[CParquetFileFormat] format
+            shared_ptr[CParquetFileFormat] format,
+            CParquetFactoryOptions options
         )

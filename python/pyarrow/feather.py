@@ -258,7 +258,4 @@ def read_table(source, columns=None, memory_map=True):
         return table
     else:
         # follow exact order / selection of names
-        new_fields = [table.schema.field(c) for c in columns]
-        new_schema = schema(new_fields, metadata=table.schema.metadata)
-        new_columns = [table.column(c) for c in columns]
-        return Table.from_arrays(new_columns, schema=new_schema)
+        return table.select(columns)

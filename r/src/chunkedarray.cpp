@@ -22,8 +22,7 @@ using Rcpp::wrap;
 
 #if defined(ARROW_R_WITH_ARROW)
 
-#include <arrow/array.h>
-#include <arrow/table.h>
+#include <arrow/chunked_array.h>
 
 // [[arrow::export]]
 int ChunkedArray__length(const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {
@@ -89,6 +88,11 @@ void ChunkedArray__Validate(const std::shared_ptr<arrow::ChunkedArray>& chunked_
 bool ChunkedArray__Equals(const std::shared_ptr<arrow::ChunkedArray>& x,
                           const std::shared_ptr<arrow::ChunkedArray>& y) {
   return x->Equals(y);
+}
+
+// [[arrow::export]]
+std::string ChunkedArray__ToString(const std::shared_ptr<arrow::ChunkedArray>& x) {
+  return x->ToString();
 }
 
 #endif

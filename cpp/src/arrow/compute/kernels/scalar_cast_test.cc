@@ -22,14 +22,15 @@
 #include <string>
 #include <vector>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
+#include "arrow/chunked_array.h"
 #include "arrow/extension_type.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
-#include "arrow/table.h"
 #include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_common.h"
 #include "arrow/testing/gtest_util.h"
@@ -46,9 +47,27 @@
 #include "arrow/compute/kernels/test_util.h"
 
 namespace arrow {
-namespace compute {
 
 using internal::checked_cast;
+
+namespace compute {
+
+// Use std::string and Decimal128 for supplying test values for base binary types
+
+template <typename T, typename Enable = void>
+struct TestCType {
+  using type = typename T::c_type;
+};
+
+template <typename T>
+struct TestCType<T, enable_if_base_binary<T>> {
+  using type = std::string;
+};
+
+template <typename T>
+struct TestCType<T, enable_if_decimal<T>> {
+  using type = Decimal128;
+};
 
 static constexpr const char* kInvalidUtf8 = "\xa0\xa1";
 
@@ -64,23 +83,71 @@ static void AssertBufferSame(const Array& left, const Array& right, int buffer_i
 class TestCast : public TestBase {
  public:
   void CheckPass(const Array& input, const Array& expected,
-                 const std::shared_ptr<DataType>& out_type, const CastOptions& options) {
+                 const std::shared_ptr<DataType>& out_type, const CastOptions& options,
+                 bool check_scalar = true, bool validate_full = true) {
     ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> result, Cast(input, out_type, options));
-    ASSERT_OK(result->ValidateFull());
+    if (validate_full) {
+      ASSERT_OK(result->ValidateFull());
+    } else {
+      ASSERT_OK(result->Validate());
+    }
     AssertArraysEqual(expected, *result, /*verbose=*/true);
+
+    if (input.type_id() == Type::DECIMAL || out_type->id() == Type::DECIMAL) {
+      // ARROW-9194
+      check_scalar = false;
+    }
+
+    if (check_scalar) {
+      for (int64_t i = 0; i < input.length(); ++i) {
+        ASSERT_OK_AND_ASSIGN(Datum out, Cast(*input.GetScalar(i), out_type, options));
+        AssertScalarsEqual(**expected.GetScalar(i), *out.scalar(), /*verbose=*/true);
+      }
+    }
   }
 
-  template <typename InType, typename I_TYPE>
+  void CheckFails(const Array& input, const std::shared_ptr<DataType>& out_type,
+                  const CastOptions& options, bool check_scalar = true) {
+    ASSERT_RAISES(Invalid, Cast(input, out_type, options));
+
+    if (input.type_id() == Type::DECIMAL || out_type->id() == Type::DECIMAL) {
+      // ARROW-9194
+      check_scalar = false;
+    }
+
+    // For the scalars, check that at least one of the input fails (since many
+    // of the tests contains a mix of passing and failing values). In some
+    // cases we will want to check more precisely
+    if (check_scalar) {
+      int64_t num_failing = 0;
+      for (int64_t i = 0; i < input.length(); ++i) {
+        auto maybe_out = Cast(*input.GetScalar(i), out_type, options);
+        num_failing += static_cast<int>(maybe_out.status().IsInvalid());
+      }
+      ASSERT_GT(num_failing, 0);
+    }
+  }
+
+  template <typename InType, typename I_TYPE = typename TestCType<InType>::type>
   void CheckFails(const std::shared_ptr<DataType>& in_type,
                   const std::vector<I_TYPE>& in_values, const std::vector<bool>& is_valid,
-                  const std::shared_ptr<DataType>& out_type, const CastOptions& options) {
+                  const std::shared_ptr<DataType>& out_type, const CastOptions& options,
+                  bool check_scalar = true) {
     std::shared_ptr<Array> input;
     if (is_valid.size() > 0) {
       ArrayFromVector<InType, I_TYPE>(in_type, is_valid, in_values, &input);
     } else {
       ArrayFromVector<InType, I_TYPE>(in_type, in_values, &input);
     }
-    ASSERT_RAISES(Invalid, Cast(*input, out_type, options));
+    CheckFails(*input, out_type, options, check_scalar);
+  }
+
+  template <typename InType, typename I_TYPE = typename TestCType<InType>::type>
+  void CheckFails(const std::vector<I_TYPE>& in_values, const std::vector<bool>& is_valid,
+                  const std::shared_ptr<DataType>& out_type, const CastOptions& options,
+                  bool check_scalar = true) {
+    CheckFails<InType, I_TYPE>(TypeTraits<InType>::type_singleton(), in_values, is_valid,
+                               out_type, options, check_scalar);
   }
 
   void CheckZeroCopy(const Array& input, const std::shared_ptr<DataType>& out_type) {
@@ -92,11 +159,14 @@ class TestCast : public TestBase {
     }
   }
 
-  template <typename InType, typename I_TYPE, typename OutType, typename O_TYPE>
+  template <typename InType, typename OutType,
+            typename I_TYPE = typename TestCType<InType>::type,
+            typename O_TYPE = typename TestCType<OutType>::type>
   void CheckCase(const std::shared_ptr<DataType>& in_type,
                  const std::vector<I_TYPE>& in_values, const std::vector<bool>& is_valid,
                  const std::shared_ptr<DataType>& out_type,
-                 const std::vector<O_TYPE>& out_values, const CastOptions& options) {
+                 const std::vector<O_TYPE>& out_values, const CastOptions& options,
+                 bool check_scalar = true, bool validate_full = true) {
     ASSERT_EQ(in_values.size(), out_values.size());
     std::shared_ptr<Array> input, expected;
     if (is_valid.size() > 0) {
@@ -107,27 +177,49 @@ class TestCast : public TestBase {
       ArrayFromVector<InType, I_TYPE>(in_type, in_values, &input);
       ArrayFromVector<OutType, O_TYPE>(out_type, out_values, &expected);
     }
-    CheckPass(*input, *expected, out_type, options);
+    CheckPass(*input, *expected, out_type, options, check_scalar, validate_full);
 
     // Check a sliced variant
     if (input->length() > 1) {
-      CheckPass(*input->Slice(1), *expected->Slice(1), out_type, options);
+      CheckPass(*input->Slice(1), *expected->Slice(1), out_type, options, check_scalar,
+                validate_full);
     }
+  }
+
+  template <typename InType, typename OutType, typename I_TYPE = typename InType::c_type,
+            typename O_TYPE = typename OutType::c_type>
+  void CheckCase(const std::vector<I_TYPE>& in_values, const std::vector<bool>& is_valid,
+                 const std::vector<O_TYPE>& out_values, const CastOptions& options,
+                 bool check_scalar = true, bool validate_full = true) {
+    CheckCase<InType, OutType, I_TYPE, O_TYPE>(
+        TypeTraits<InType>::type_singleton(), in_values, is_valid,
+        TypeTraits<OutType>::type_singleton(), out_values, options, check_scalar,
+        validate_full);
   }
 
   void CheckCaseJSON(const std::shared_ptr<DataType>& in_type,
                      const std::shared_ptr<DataType>& out_type,
                      const std::string& in_json, const std::string& expected_json,
+                     bool check_scalar = true,
                      const CastOptions& options = CastOptions()) {
     std::shared_ptr<Array> input = ArrayFromJSON(in_type, in_json);
     std::shared_ptr<Array> expected = ArrayFromJSON(out_type, expected_json);
     ASSERT_EQ(input->length(), expected->length());
-    CheckPass(*input, *expected, out_type, options);
+    CheckPass(*input, *expected, out_type, options, check_scalar);
 
     // Check a sliced variant
     if (input->length() > 1) {
-      CheckPass(*input->Slice(1), *expected->Slice(1), out_type, options);
+      CheckPass(*input->Slice(1), *expected->Slice(1), out_type, options,
+                /*check_scalar=*/false);
     }
+  }
+
+  void CheckFailsJSON(const std::shared_ptr<DataType>& in_type,
+                      const std::shared_ptr<DataType>& out_type,
+                      const std::string& in_json, bool check_scalar = true,
+                      const CastOptions& options = CastOptions()) {
+    std::shared_ptr<Array> input = ArrayFromJSON(in_type, in_json);
+    CheckFails(*input, out_type, options, check_scalar);
   }
 
   template <typename SourceType, typename DestType>
@@ -148,12 +240,34 @@ class TestCast : public TestBase {
     CheckZeroCopy(*array, dest_type);
 
     // Should refuse due to invalid utf8 payload
-    CheckFails<SourceType, std::string>(src_type, strings, all, dest_type, options);
+    CheckFails<SourceType>(strings, all, dest_type, options,
+                           /*check_scalar=*/false);
 
     // Should accept due to option override
     options.allow_invalid_utf8 = true;
-    CheckCase<SourceType, std::string, DestType, std::string>(
-        src_type, strings, all, dest_type, strings, options);
+    CheckCase<SourceType, DestType>(strings, all, strings, options,
+                                    /*check_scalar=*/false, /*validate_full=*/false);
+  }
+
+  template <typename SourceType, typename DestType>
+  void TestCastStringToBinary() {
+    CastOptions options;
+    auto src_type = TypeTraits<SourceType>::type_singleton();
+    auto dest_type = TypeTraits<DestType>::type_singleton();
+
+    // All valid except the last one
+    std::vector<bool> all = {1, 1, 1, 1, 1};
+    std::vector<bool> valid = {1, 1, 1, 1, 0};
+    std::vector<std::string> strings = {"Hi", "olá mundo", "你好世界", "", kInvalidUtf8};
+
+    std::shared_ptr<Array> array;
+
+    // Should accept when invalid but null.
+    ArrayFromVector<SourceType, std::string>(src_type, valid, strings, &array);
+    CheckZeroCopy(*array, dest_type);
+
+    CheckCase<SourceType, DestType>(src_type, strings, all, dest_type, strings, options,
+                                    /*check_scalar=*/false);
   }
 
   template <typename DestType>
@@ -161,26 +275,31 @@ class TestCast : public TestBase {
     auto dest_type = TypeTraits<DestType>::type_singleton();
 
     CheckCaseJSON(int8(), dest_type, "[0, 1, 127, -128, null]",
-                  R"(["0", "1", "127", "-128", null])");
-    CheckCaseJSON(uint8(), dest_type, "[0, 1, 255, null]", R"(["0", "1", "255", null])");
+                  R"(["0", "1", "127", "-128", null])", /*check_scalar=*/false);
+    CheckCaseJSON(uint8(), dest_type, "[0, 1, 255, null]", R"(["0", "1", "255", null])",
+                  /*check_scalar=*/false);
     CheckCaseJSON(int16(), dest_type, "[0, 1, 32767, -32768, null]",
-                  R"(["0", "1", "32767", "-32768", null])");
+                  R"(["0", "1", "32767", "-32768", null])", /*check_scalar=*/false);
     CheckCaseJSON(uint16(), dest_type, "[0, 1, 65535, null]",
-                  R"(["0", "1", "65535", null])");
+                  R"(["0", "1", "65535", null])", /*check_scalar=*/false);
     CheckCaseJSON(int32(), dest_type, "[0, 1, 2147483647, -2147483648, null]",
-                  R"(["0", "1", "2147483647", "-2147483648", null])");
+                  R"(["0", "1", "2147483647", "-2147483648", null])",
+                  /*check_scalar=*/false);
     CheckCaseJSON(uint32(), dest_type, "[0, 1, 4294967295, null]",
-                  R"(["0", "1", "4294967295", null])");
+                  R"(["0", "1", "4294967295", null])", /*check_scalar=*/false);
     CheckCaseJSON(int64(), dest_type,
                   "[0, 1, 9223372036854775807, -9223372036854775808, null]",
-                  R"(["0", "1", "9223372036854775807", "-9223372036854775808", null])");
+                  R"(["0", "1", "9223372036854775807", "-9223372036854775808", null])",
+                  /*check_scalar=*/false);
     CheckCaseJSON(uint64(), dest_type, "[0, 1, 18446744073709551615, null]",
-                  R"(["0", "1", "18446744073709551615", null])");
+                  R"(["0", "1", "18446744073709551615", null])", /*check_scalar=*/false);
 
     CheckCaseJSON(float32(), dest_type, "[0.0, -0.0, 1.5, -Inf, Inf, NaN, null]",
-                  R"(["0", "-0", "1.5", "-inf", "inf", "nan", null])");
+                  R"(["0", "-0", "1.5", "-inf", "inf", "nan", null])",
+                  /*check_scalar=*/false);
     CheckCaseJSON(float64(), dest_type, "[0.0, -0.0, 1.5, -Inf, Inf, NaN, null]",
-                  R"(["0", "-0", "1.5", "-inf", "inf", "nan", null])");
+                  R"(["0", "-0", "1.5", "-inf", "inf", "nan", null])",
+                  /*check_scalar=*/false);
   }
 
   template <typename DestType>
@@ -188,7 +307,7 @@ class TestCast : public TestBase {
     auto dest_type = TypeTraits<DestType>::type_singleton();
 
     CheckCaseJSON(boolean(), dest_type, "[true, true, false, null]",
-                  R"(["true", "true", "false", null])");
+                  R"(["true", "true", "false", null])", /*check_scalar=*/false);
   }
 
   template <typename SourceType>
@@ -204,23 +323,17 @@ class TestCast : public TestBase {
     std::vector<int16_t> e_int16 = {0, 1, 127, -1, 0};
     std::vector<int32_t> e_int32 = {0, 1, 127, -1, 0};
     std::vector<int64_t> e_int64 = {0, 1, 127, -1, 0};
-    CheckCase<SourceType, std::string, Int8Type, int8_t>(src_type, v_int, is_valid,
-                                                         int8(), e_int8, options);
-    CheckCase<SourceType, std::string, Int16Type, int16_t>(src_type, v_int, is_valid,
-                                                           int16(), e_int16, options);
-    CheckCase<SourceType, std::string, Int32Type, int32_t>(src_type, v_int, is_valid,
-                                                           int32(), e_int32, options);
-    CheckCase<SourceType, std::string, Int64Type, int64_t>(src_type, v_int, is_valid,
-                                                           int64(), e_int64, options);
+    CheckCase<SourceType, Int8Type>(v_int, is_valid, e_int8, options);
+    CheckCase<SourceType, Int16Type>(v_int, is_valid, e_int16, options);
+    CheckCase<SourceType, Int32Type>(v_int, is_valid, e_int32, options);
+    CheckCase<SourceType, Int64Type>(v_int, is_valid, e_int64, options);
 
     v_int = {"2147483647", "0", "-2147483648", "0", "0"};
     e_int32 = {2147483647, 0, -2147483648LL, 0, 0};
-    CheckCase<SourceType, std::string, Int32Type, int32_t>(src_type, v_int, is_valid,
-                                                           int32(), e_int32, options);
+    CheckCase<SourceType, Int32Type>(v_int, is_valid, e_int32, options);
     v_int = {"9223372036854775807", "0", "-9223372036854775808", "0", "0"};
     e_int64 = {9223372036854775807LL, 0, (-9223372036854775807LL - 1), 0, 0};
-    CheckCase<SourceType, std::string, Int64Type, int64_t>(src_type, v_int, is_valid,
-                                                           int64(), e_int64, options);
+    CheckCase<SourceType, Int64Type>(v_int, is_valid, e_int64, options);
 
     // string to uint
     std::vector<std::string> v_uint = {"0", "1", "127", "255", "0"};
@@ -228,42 +341,32 @@ class TestCast : public TestBase {
     std::vector<uint16_t> e_uint16 = {0, 1, 127, 255, 0};
     std::vector<uint32_t> e_uint32 = {0, 1, 127, 255, 0};
     std::vector<uint64_t> e_uint64 = {0, 1, 127, 255, 0};
-    CheckCase<SourceType, std::string, UInt8Type, uint8_t>(src_type, v_uint, is_valid,
-                                                           uint8(), e_uint8, options);
-    CheckCase<SourceType, std::string, UInt16Type, uint16_t>(src_type, v_uint, is_valid,
-                                                             uint16(), e_uint16, options);
-    CheckCase<SourceType, std::string, UInt32Type, uint32_t>(src_type, v_uint, is_valid,
-                                                             uint32(), e_uint32, options);
-    CheckCase<SourceType, std::string, UInt64Type, uint64_t>(src_type, v_uint, is_valid,
-                                                             uint64(), e_uint64, options);
+    CheckCase<SourceType, UInt8Type>(v_uint, is_valid, e_uint8, options);
+    CheckCase<SourceType, UInt16Type>(v_uint, is_valid, e_uint16, options);
+    CheckCase<SourceType, UInt32Type>(v_uint, is_valid, e_uint32, options);
+    CheckCase<SourceType, UInt64Type>(v_uint, is_valid, e_uint64, options);
 
     v_uint = {"4294967295", "0", "0", "0", "0"};
     e_uint32 = {4294967295, 0, 0, 0, 0};
-    CheckCase<SourceType, std::string, UInt32Type, uint32_t>(src_type, v_uint, is_valid,
-                                                             uint32(), e_uint32, options);
+    CheckCase<SourceType, UInt32Type>(v_uint, is_valid, e_uint32, options);
     v_uint = {"18446744073709551615", "0", "0", "0", "0"};
     e_uint64 = {18446744073709551615ULL, 0, 0, 0, 0};
-    CheckCase<SourceType, std::string, UInt64Type, uint64_t>(src_type, v_uint, is_valid,
-                                                             uint64(), e_uint64, options);
+    CheckCase<SourceType, UInt64Type>(v_uint, is_valid, e_uint64, options);
 
     // string to float
     std::vector<std::string> v_float = {"0.1", "1.2", "127.3", "200.4", "0.5"};
     std::vector<float> e_float = {0.1f, 1.2f, 127.3f, 200.4f, 0.5f};
     std::vector<double> e_double = {0.1, 1.2, 127.3, 200.4, 0.5};
-    CheckCase<SourceType, std::string, FloatType, float>(src_type, v_float, is_valid,
-                                                         float32(), e_float, options);
-    CheckCase<SourceType, std::string, DoubleType, double>(src_type, v_float, is_valid,
-                                                           float64(), e_double, options);
+    CheckCase<SourceType, FloatType>(v_float, is_valid, e_float, options);
+    CheckCase<SourceType, DoubleType>(v_float, is_valid, e_double, options);
 
 #if !defined(_WIN32) || defined(NDEBUG)
     // Test that casting is locale-independent
     {
       // French locale uses the comma as decimal point
       LocaleGuard locale_guard("fr_FR.UTF-8");
-      CheckCase<SourceType, std::string, FloatType, float>(src_type, v_float, is_valid,
-                                                           float32(), e_float, options);
-      CheckCase<SourceType, std::string, DoubleType, double>(
-          src_type, v_float, is_valid, float64(), e_double, options);
+      CheckCase<SourceType, FloatType>(v_float, is_valid, e_float, options);
+      CheckCase<SourceType, DoubleType>(v_float, is_valid, e_double, options);
     }
 #endif
   }
@@ -278,15 +381,38 @@ class TestCast : public TestBase {
 
     auto type = timestamp(TimeUnit::SECOND);
     std::vector<int64_t> e = {0, 0, 951782400};
-    CheckCase<SourceType, std::string, TimestampType, int64_t>(
-        src_type, strings, is_valid, type, e, options);
+    CheckCase<SourceType, TimestampType>(src_type, strings, is_valid, type, e, options);
 
     type = timestamp(TimeUnit::MICRO);
     e = {0, 0, 951782400000000LL};
-    CheckCase<SourceType, std::string, TimestampType, int64_t>(
-        src_type, strings, is_valid, type, e, options);
+    CheckCase<SourceType, TimestampType>(src_type, strings, is_valid, type, e, options);
 
     // NOTE: timestamp parsing is tested comprehensively in parsing-util-test.cc
+  }
+
+  void TestCastFloatingToDecimal(const std::shared_ptr<DataType>& in_type) {
+    auto out_type = decimal(5, 2);
+
+    CheckCaseJSON(in_type, out_type, "[0.0, null, 123.45, 123.456, 999.994]",
+                  R"(["0.00", null, "123.45", "123.46", "999.99"])");
+
+    // Overflow
+    CastOptions options{};
+    out_type = decimal(5, 2);
+    CheckFailsJSON(in_type, out_type, "[999.996]", /*check_scalar=*/true, options);
+
+    options.allow_decimal_truncate = true;
+    CheckCaseJSON(in_type, out_type, "[0.0, null, 999.996, 123.45, 999.994]",
+                  R"(["0.00", null, "0.00", "123.45", "999.99"])", /*check_scalar=*/true,
+                  options);
+  }
+
+  void TestCastDecimalToFloating(const std::shared_ptr<DataType>& out_type) {
+    auto in_type = decimal(5, 2);
+
+    CheckCaseJSON(in_type, out_type, R"(["0.00", null, "123.45", "999.99"])",
+                  "[0.0, null, 123.45, 999.99]");
+    // Edge cases are tested in Decimal128::ToReal()
   }
 };
 
@@ -306,6 +432,11 @@ TEST_F(TestCast, ZeroChunks) {
   AssertChunkedEqual(*result.chunked_array(), ChunkedArray({}, utf8()));
 }
 
+TEST_F(TestCast, CastDoesNotProvideDefaultOptions) {
+  std::shared_ptr<Array> arr = ArrayFromJSON(int32(), "[0, null, 2, 3, 4]");
+  ASSERT_RAISES(Invalid, CallFunction("cast", {arr}));
+}
+
 TEST_F(TestCast, FromBoolean) {
   CastOptions options;
 
@@ -321,8 +452,7 @@ TEST_F(TestCast, FromBoolean) {
     }
   }
 
-  CheckCase<BooleanType, bool, Int32Type, int32_t>(boolean(), v1, is_valid, int32(), e1,
-                                                   options);
+  CheckCase<BooleanType, Int32Type>(v1, is_valid, e1, options);
 }
 
 TEST_F(TestCast, ToBoolean) {
@@ -348,20 +478,17 @@ TEST_F(TestCast, ToIntUpcast) {
   // int8 to int32
   std::vector<int8_t> v1 = {0, 1, 127, -1, 0};
   std::vector<int32_t> e1 = {0, 1, 127, -1, 0};
-  CheckCase<Int8Type, int8_t, Int32Type, int32_t>(int8(), v1, is_valid, int32(), e1,
-                                                  options);
+  CheckCase<Int8Type, Int32Type>(v1, is_valid, e1, options);
 
   // bool to int8
   std::vector<bool> v2 = {false, true, false, true, true};
   std::vector<int8_t> e2 = {0, 1, 0, 1, 1};
-  CheckCase<BooleanType, bool, Int8Type, int8_t>(boolean(), v2, is_valid, int8(), e2,
-                                                 options);
+  CheckCase<BooleanType, Int8Type>(v2, is_valid, e2, options);
 
   // uint8 to int16, no overflow/underrun
   std::vector<uint8_t> v3 = {0, 100, 200, 255, 0};
   std::vector<int16_t> e3 = {0, 100, 200, 255, 0};
-  CheckCase<UInt8Type, uint8_t, Int16Type, int16_t>(uint8(), v3, is_valid, int16(), e3,
-                                                    options);
+  CheckCase<UInt8Type, Int16Type>(v3, is_valid, e3, options);
 }
 
 TEST_F(TestCast, OverflowInNullSlot) {
@@ -374,7 +501,7 @@ TEST_F(TestCast, OverflowInNullSlot) {
   std::vector<int16_t> e11 = {0, 0, 2000, 1000, 0};
 
   std::shared_ptr<Array> expected;
-  ArrayFromVector<Int16Type, int16_t>(int16(), is_valid, e11, &expected);
+  ArrayFromVector<Int16Type>(int16(), is_valid, e11, &expected);
 
   auto buf = Buffer::Wrap(v11.data(), v11.size());
   Int32Array tmp11(5, buf, expected->null_bitmap(), -1);
@@ -391,33 +518,31 @@ TEST_F(TestCast, ToIntDowncastSafe) {
   // int16 to uint8, no overflow/underrun
   std::vector<int16_t> v1 = {0, 100, 200, 1, 2};
   std::vector<uint8_t> e1 = {0, 100, 200, 1, 2};
-  CheckCase<Int16Type, int16_t, UInt8Type, uint8_t>(int16(), v1, is_valid, uint8(), e1,
-                                                    options);
+  CheckCase<Int16Type, UInt8Type>(v1, is_valid, e1, options);
 
   // int16 to uint8, with overflow
   std::vector<int16_t> v2 = {0, 100, 256, 0, 0};
-  CheckFails<Int16Type>(int16(), v2, is_valid, uint8(), options);
+  CheckFails<Int16Type>(v2, is_valid, uint8(), options);
 
   // underflow
   std::vector<int16_t> v3 = {0, 100, -1, 0, 0};
-  CheckFails<Int16Type>(int16(), v3, is_valid, uint8(), options);
+  CheckFails<Int16Type>(v3, is_valid, uint8(), options);
 
   // int32 to int16, no overflow
   std::vector<int32_t> v4 = {0, 1000, 2000, 1, 2};
   std::vector<int16_t> e4 = {0, 1000, 2000, 1, 2};
-  CheckCase<Int32Type, int32_t, Int16Type, int16_t>(int32(), v4, is_valid, int16(), e4,
-                                                    options);
+  CheckCase<Int32Type, Int16Type>(v4, is_valid, e4, options);
 
   // int32 to int16, overflow
   std::vector<int32_t> v5 = {0, 1000, 2000, 70000, 0};
-  CheckFails<Int32Type>(int32(), v5, is_valid, int16(), options);
+  CheckFails<Int32Type>(v5, is_valid, int16(), options);
 
   // underflow
   std::vector<int32_t> v6 = {0, 1000, 2000, -70000, 0};
-  CheckFails<Int32Type>(int32(), v6, is_valid, int16(), options);
+  CheckFails<Int32Type>(v6, is_valid, int16(), options);
 
   std::vector<int32_t> v7 = {0, 1000, 2000, -70000, 0};
-  CheckFails<Int32Type>(int32(), v7, is_valid, uint8(), options);
+  CheckFails<Int32Type>(v7, is_valid, uint8(), options);
 }
 
 template <typename O, typename I>
@@ -439,26 +564,25 @@ TEST_F(TestCast, IntegerSignedToUnsigned) {
   std::vector<int32_t> v1 = {INT32_MIN, 100, -1, UINT16_MAX, INT32_MAX};
 
   // Same width
-  CheckFails<Int32Type>(int32(), v1, is_valid, uint32(), options);
+  CheckFails<Int32Type>(v1, is_valid, uint32(), options);
   // Wider
-  CheckFails<Int32Type>(int32(), v1, is_valid, uint64(), options);
+  CheckFails<Int32Type>(v1, is_valid, uint64(), options);
   // Narrower
-  CheckFails<Int32Type>(int32(), v1, is_valid, uint16(), options);
+  CheckFails<Int32Type>(v1, is_valid, uint16(), options);
   // Fail because of overflow (instead of underflow).
   std::vector<int32_t> over = {0, -11, 0, UINT16_MAX + 1, INT32_MAX};
-  CheckFails<Int32Type>(int32(), over, is_valid, uint16(), options);
+  CheckFails<Int32Type>(over, is_valid, uint16(), options);
 
   options.allow_int_overflow = true;
 
-  CheckCase<Int32Type, int32_t, UInt32Type, uint32_t>(
-      int32(), v1, is_valid, uint32(), UnsafeVectorCast<uint32_t, int32_t>(v1), options);
-  CheckCase<Int32Type, int32_t, UInt64Type, uint64_t>(
-      int32(), v1, is_valid, uint64(), UnsafeVectorCast<uint64_t, int32_t>(v1), options);
-  CheckCase<Int32Type, int32_t, UInt16Type, uint16_t>(
-      int32(), v1, is_valid, uint16(), UnsafeVectorCast<uint16_t, int32_t>(v1), options);
-  CheckCase<Int32Type, int32_t, UInt16Type, uint16_t>(
-      int32(), over, is_valid, uint16(), UnsafeVectorCast<uint16_t, int32_t>(over),
-      options);
+  CheckCase<Int32Type, UInt32Type>(v1, is_valid, UnsafeVectorCast<uint32_t, int32_t>(v1),
+                                   options);
+  CheckCase<Int32Type, UInt64Type>(v1, is_valid, UnsafeVectorCast<uint64_t, int32_t>(v1),
+                                   options);
+  CheckCase<Int32Type, UInt16Type>(v1, is_valid, UnsafeVectorCast<uint16_t, int32_t>(v1),
+                                   options);
+  CheckCase<Int32Type, UInt16Type>(over, is_valid,
+                                   UnsafeVectorCast<uint16_t, int32_t>(over), options);
 }
 
 TEST_F(TestCast, IntegerUnsignedToSigned) {
@@ -470,21 +594,21 @@ TEST_F(TestCast, IntegerUnsignedToSigned) {
   std::vector<uint32_t> v1 = {0, INT16_MAX + 1, UINT32_MAX};
   std::vector<uint32_t> v2 = {0, INT16_MAX + 1, 2};
   // Same width
-  CheckFails<UInt32Type>(uint32(), v1, is_valid, int32(), options);
+  CheckFails<UInt32Type>(v1, is_valid, int32(), options);
   // Narrower
-  CheckFails<UInt32Type>(uint32(), v1, is_valid, int16(), options);
-  CheckFails<UInt32Type>(uint32(), v2, is_valid, int16(), options);
+  CheckFails<UInt32Type>(v1, is_valid, int16(), options);
+  CheckFails<UInt32Type>(v2, is_valid, int16(), options);
 
   options.allow_int_overflow = true;
 
-  CheckCase<UInt32Type, uint32_t, Int32Type, int32_t>(
-      uint32(), v1, is_valid, int32(), UnsafeVectorCast<int32_t, uint32_t>(v1), options);
-  CheckCase<UInt32Type, uint32_t, Int64Type, int64_t>(
-      uint32(), v1, is_valid, int64(), UnsafeVectorCast<int64_t, uint32_t>(v1), options);
-  CheckCase<UInt32Type, uint32_t, Int16Type, int16_t>(
-      uint32(), v1, is_valid, int16(), UnsafeVectorCast<int16_t, uint32_t>(v1), options);
-  CheckCase<UInt32Type, uint32_t, Int16Type, int16_t>(
-      uint32(), v2, is_valid, int16(), UnsafeVectorCast<int16_t, uint32_t>(v2), options);
+  CheckCase<UInt32Type, Int32Type>(v1, is_valid, UnsafeVectorCast<int32_t, uint32_t>(v1),
+                                   options);
+  CheckCase<UInt32Type, Int64Type>(v1, is_valid, UnsafeVectorCast<int64_t, uint32_t>(v1),
+                                   options);
+  CheckCase<UInt32Type, Int16Type>(v1, is_valid, UnsafeVectorCast<int16_t, uint32_t>(v1),
+                                   options);
+  CheckCase<UInt32Type, Int16Type>(v2, is_valid, UnsafeVectorCast<int16_t, uint32_t>(v2),
+                                   options);
 }
 
 TEST_F(TestCast, ToIntDowncastUnsafe) {
@@ -496,40 +620,34 @@ TEST_F(TestCast, ToIntDowncastUnsafe) {
   // int16 to uint8, no overflow/underrun
   std::vector<int16_t> v1 = {0, 100, 200, 1, 2};
   std::vector<uint8_t> e1 = {0, 100, 200, 1, 2};
-  CheckCase<Int16Type, int16_t, UInt8Type, uint8_t>(int16(), v1, is_valid, uint8(), e1,
-                                                    options);
+  CheckCase<Int16Type, UInt8Type>(v1, is_valid, e1, options);
 
   // int16 to uint8, with overflow
   std::vector<int16_t> v2 = {0, 100, 256, 0, 0};
   std::vector<uint8_t> e2 = {0, 100, 0, 0, 0};
-  CheckCase<Int16Type, int16_t, UInt8Type, uint8_t>(int16(), v2, is_valid, uint8(), e2,
-                                                    options);
+  CheckCase<Int16Type, UInt8Type>(v2, is_valid, e2, options);
 
   // underflow
   std::vector<int16_t> v3 = {0, 100, -1, 0, 0};
   std::vector<uint8_t> e3 = {0, 100, 255, 0, 0};
-  CheckCase<Int16Type, int16_t, UInt8Type, uint8_t>(int16(), v3, is_valid, uint8(), e3,
-                                                    options);
+  CheckCase<Int16Type, UInt8Type>(v3, is_valid, e3, options);
 
   // int32 to int16, no overflow
   std::vector<int32_t> v4 = {0, 1000, 2000, 1, 2};
   std::vector<int16_t> e4 = {0, 1000, 2000, 1, 2};
-  CheckCase<Int32Type, int32_t, Int16Type, int16_t>(int32(), v4, is_valid, int16(), e4,
-                                                    options);
+  CheckCase<Int32Type, Int16Type>(v4, is_valid, e4, options);
 
   // int32 to int16, overflow
   // TODO(wesm): do we want to allow this? we could set to null
   std::vector<int32_t> v5 = {0, 1000, 2000, 70000, 0};
   std::vector<int16_t> e5 = {0, 1000, 2000, 4464, 0};
-  CheckCase<Int32Type, int32_t, Int16Type, int16_t>(int32(), v5, is_valid, int16(), e5,
-                                                    options);
+  CheckCase<Int32Type, Int16Type>(v5, is_valid, e5, options);
 
   // underflow
   // TODO(wesm): do we want to allow this? we could set overflow to null
   std::vector<int32_t> v6 = {0, 1000, 2000, -70000, 0};
   std::vector<int16_t> e6 = {0, 1000, 2000, -4464, 0};
-  CheckCase<Int32Type, int32_t, Int16Type, int16_t>(int32(), v6, is_valid, int16(), e6,
-                                                    options);
+  CheckCase<Int32Type, Int16Type>(v6, is_valid, e6, options);
 }
 
 TEST_F(TestCast, FloatingPointToInt) {
@@ -542,72 +660,74 @@ TEST_F(TestCast, FloatingPointToInt) {
   // float32 to int32 no truncation
   std::vector<float> v1 = {1.0, 0, 0.0, -1.0, 5.0};
   std::vector<int32_t> e1 = {1, 0, 0, -1, 5};
-  CheckCase<FloatType, float, Int32Type, int32_t>(float32(), v1, is_valid, int32(), e1,
-                                                  options);
-  CheckCase<FloatType, float, Int32Type, int32_t>(float32(), v1, all_valid, int32(), e1,
-                                                  options);
+  CheckCase<FloatType, Int32Type>(v1, is_valid, e1, options);
+  CheckCase<FloatType, Int32Type>(v1, all_valid, e1, options);
 
   // float64 to int32 no truncation
   std::vector<double> v2 = {1.0, 0, 0.0, -1.0, 5.0};
   std::vector<int32_t> e2 = {1, 0, 0, -1, 5};
-  CheckCase<DoubleType, double, Int32Type, int32_t>(float64(), v2, is_valid, int32(), e2,
-                                                    options);
-  CheckCase<DoubleType, double, Int32Type, int32_t>(float64(), v2, all_valid, int32(), e2,
-                                                    options);
+  CheckCase<DoubleType, Int32Type>(v2, is_valid, e2, options);
+  CheckCase<DoubleType, Int32Type>(v2, all_valid, e2, options);
 
   // float64 to int64 no truncation
   std::vector<double> v3 = {1.0, 0, 0.0, -1.0, 5.0};
   std::vector<int64_t> e3 = {1, 0, 0, -1, 5};
-  CheckCase<DoubleType, double, Int64Type, int64_t>(float64(), v3, is_valid, int64(), e3,
-                                                    options);
-  CheckCase<DoubleType, double, Int64Type, int64_t>(float64(), v3, all_valid, int64(), e3,
-                                                    options);
+  CheckCase<DoubleType, Int64Type>(v3, is_valid, e3, options);
+  CheckCase<DoubleType, Int64Type>(v3, all_valid, e3, options);
 
   // float64 to int32 truncate
   std::vector<double> v4 = {1.5, 0, 0.5, -1.5, 5.5};
   std::vector<int32_t> e4 = {1, 0, 0, -1, 5};
 
   options.allow_float_truncate = false;
-  CheckFails<DoubleType>(float64(), v4, is_valid, int32(), options);
-  CheckFails<DoubleType>(float64(), v4, all_valid, int32(), options);
+  CheckFails<DoubleType>(v4, is_valid, int32(), options);
+  CheckFails<DoubleType>(v4, all_valid, int32(), options);
 
   options.allow_float_truncate = true;
-  CheckCase<DoubleType, double, Int32Type, int32_t>(float64(), v4, is_valid, int32(), e4,
-                                                    options);
-  CheckCase<DoubleType, double, Int32Type, int32_t>(float64(), v4, all_valid, int32(), e4,
-                                                    options);
+  CheckCase<DoubleType, Int32Type>(v4, is_valid, e4, options);
+  CheckCase<DoubleType, Int32Type>(v4, all_valid, e4, options);
 
   // float64 to int64 truncate
   std::vector<double> v5 = {1.5, 0, 0.5, -1.5, 5.5};
   std::vector<int64_t> e5 = {1, 0, 0, -1, 5};
 
   options.allow_float_truncate = false;
-  CheckFails<DoubleType>(float64(), v5, is_valid, int64(), options);
-  CheckFails<DoubleType>(float64(), v5, all_valid, int64(), options);
+  CheckFails<DoubleType>(v5, is_valid, int64(), options);
+  CheckFails<DoubleType>(v5, all_valid, int64(), options);
 
   options.allow_float_truncate = true;
-  CheckCase<DoubleType, double, Int64Type, int64_t>(float64(), v5, is_valid, int64(), e5,
-                                                    options);
-  CheckCase<DoubleType, double, Int64Type, int64_t>(float64(), v5, all_valid, int64(), e5,
-                                                    options);
+  CheckCase<DoubleType, Int64Type>(v5, is_valid, e5, options);
+  CheckCase<DoubleType, Int64Type>(v5, all_valid, e5, options);
 }
 
-#if ARROW_BITNESS >= 64
 TEST_F(TestCast, IntToFloatingPoint) {
   auto options = CastOptions::Safe();
 
   std::vector<bool> all_valid = {true, true, true, true, true};
   std::vector<bool> all_invalid = {false, false, false, false, false};
 
+  std::vector<uint32_t> u32_v1 = {1LL << 24, (1LL << 24) + 1};
+  CheckFails<UInt32Type>(u32_v1, {true, true}, float32(), options);
+
+  std::vector<uint32_t> u32_v2 = {1LL << 24, 1LL << 24};
+  CheckCase<UInt32Type, FloatType>(u32_v2, {true, true},
+                                   UnsafeVectorCast<float, uint32_t>(u32_v2), options);
+
+  std::vector<int32_t> i32_v1 = {1LL << 24, (1LL << 24) + 1};
+  std::vector<int32_t> i32_v2 = {1LL << 24, 1LL << 24};
+  CheckFails<Int32Type>(i32_v1, {true, true}, float32(), options);
+  CheckCase<Int32Type, FloatType>(i32_v2, {true, true},
+                                  UnsafeVectorCast<float, int32_t>(i32_v2), options);
+
   std::vector<int64_t> v1 = {INT64_MIN, INT64_MIN + 1, 0, INT64_MAX - 1, INT64_MAX};
-  CheckFails<Int64Type>(int64(), v1, all_valid, float32(), options);
+  CheckFails<Int64Type>(v1, all_valid, float64(), options);
 
   // While it's not safe to convert, all values are null.
-  CheckCase<Int64Type, int64_t, DoubleType, double>(int64(), v1, all_invalid, float64(),
-                                                    UnsafeVectorCast<double, int64_t>(v1),
-                                                    options);
+  CheckCase<Int64Type, DoubleType>(v1, all_invalid, UnsafeVectorCast<double, int64_t>(v1),
+                                   options);
+
+  CheckFails<UInt64Type>({1LL << 53, (1LL << 53) + 1}, {true, true}, float64(), options);
 }
-#endif
 
 TEST_F(TestCast, DecimalToInt) {
   CastOptions options;
@@ -627,10 +747,10 @@ TEST_F(TestCast, DecimalToInt) {
     for (bool allow_decimal_truncate : {false, true}) {
       options.allow_int_overflow = allow_int_overflow;
       options.allow_decimal_truncate = allow_decimal_truncate;
-      CheckCase<Decimal128Type, Decimal128, Int64Type, int64_t>(
-          decimal(38, 10), v12, is_valid2, int64(), e12, options);
-      CheckCase<Decimal128Type, Decimal128, Int64Type, int64_t>(
-          decimal(38, 10), v13, is_valid3, int64(), e13, options);
+      CheckCase<Decimal128Type, Int64Type>(decimal(38, 10), v12, is_valid2, int64(), e12,
+                                           options);
+      CheckCase<Decimal128Type, Int64Type>(decimal(38, 10), v13, is_valid3, int64(), e13,
+                                           options);
     }
   }
 
@@ -646,10 +766,10 @@ TEST_F(TestCast, DecimalToInt) {
   for (bool allow_int_overflow : {false, true}) {
     options.allow_int_overflow = allow_int_overflow;
     options.allow_decimal_truncate = true;
-    CheckCase<Decimal128Type, Decimal128, Int64Type, int64_t>(
-        decimal(38, 10), v22, is_valid2, int64(), e22, options);
-    CheckCase<Decimal128Type, Decimal128, Int64Type, int64_t>(
-        decimal(38, 10), v23, is_valid3, int64(), e23, options);
+    CheckCase<Decimal128Type, Int64Type>(decimal(38, 10), v22, is_valid2, int64(), e22,
+                                         options);
+    CheckCase<Decimal128Type, Int64Type>(decimal(38, 10), v23, is_valid3, int64(), e23,
+                                         options);
     options.allow_decimal_truncate = false;
     CheckFails<Decimal128Type>(decimal(38, 10), v22, is_valid2, int64(), options);
     CheckFails<Decimal128Type>(decimal(38, 10), v23, is_valid3, int64(), options);
@@ -668,10 +788,10 @@ TEST_F(TestCast, DecimalToInt) {
   for (bool allow_decimal_truncate : {false, true}) {
     options.allow_decimal_truncate = allow_decimal_truncate;
     options.allow_int_overflow = true;
-    CheckCase<Decimal128Type, Decimal128, Int64Type, int64_t>(
-        decimal(38, 10), v32, is_valid2, int64(), e32, options);
-    CheckCase<Decimal128Type, Decimal128, Int64Type, int64_t>(
-        decimal(38, 10), v33, is_valid3, int64(), e33, options);
+    CheckCase<Decimal128Type, Int64Type>(decimal(38, 10), v32, is_valid2, int64(), e32,
+                                         options);
+    CheckCase<Decimal128Type, Int64Type>(decimal(38, 10), v33, is_valid3, int64(), e33,
+                                         options);
     options.allow_int_overflow = false;
     CheckFails<Decimal128Type>(decimal(38, 10), v32, is_valid2, int64(), options);
     CheckFails<Decimal128Type>(decimal(38, 10), v33, is_valid3, int64(), options);
@@ -692,10 +812,10 @@ TEST_F(TestCast, DecimalToInt) {
       options.allow_int_overflow = allow_int_overflow;
       options.allow_decimal_truncate = allow_decimal_truncate;
       if (options.allow_int_overflow && options.allow_decimal_truncate) {
-        CheckCase<Decimal128Type, Decimal128, Int64Type, int64_t>(
-            decimal(38, 10), v42, is_valid2, int64(), e42, options);
-        CheckCase<Decimal128Type, Decimal128, Int64Type, int64_t>(
-            decimal(38, 10), v43, is_valid3, int64(), e43, options);
+        CheckCase<Decimal128Type, Int64Type>(decimal(38, 10), v42, is_valid2, int64(),
+                                             e42, options);
+        CheckCase<Decimal128Type, Int64Type>(decimal(38, 10), v43, is_valid3, int64(),
+                                             e43, options);
       } else {
         CheckFails<Decimal128Type>(decimal(38, 10), v42, is_valid2, int64(), options);
         CheckFails<Decimal128Type>(decimal(38, 10), v43, is_valid3, int64(), options);
@@ -707,8 +827,8 @@ TEST_F(TestCast, DecimalToInt) {
   std::vector<Decimal128> v5 = {Decimal128("1234567890000."), Decimal128("-120000.")};
   for (int i = 0; i < 2; i++) v5[i] = v5[i].Rescale(0, -4).ValueOrDie();
   std::vector<int64_t> e5 = {1234567890000, -120000};
-  CheckCase<Decimal128Type, Decimal128, Int64Type, int64_t>(
-      decimal(38, -4), v5, is_valid2, int64(), e5, options);
+  CheckCase<Decimal128Type, Int64Type>(decimal(38, -4), v5, is_valid2, int64(), e5,
+                                       options);
 }
 
 TEST_F(TestCast, DecimalToDecimal) {
@@ -729,26 +849,26 @@ TEST_F(TestCast, DecimalToDecimal) {
 
   for (bool allow_decimal_truncate : {false, true}) {
     options.allow_decimal_truncate = allow_decimal_truncate;
-    CheckCase<Decimal128Type, Decimal128, Decimal128Type, Decimal128>(
-        decimal(38, 10), v12, is_valid2, decimal(28, 0), e12, options);
-    CheckCase<Decimal128Type, Decimal128, Decimal128Type, Decimal128>(
-        decimal(38, 10), v13, is_valid3, decimal(28, 0), e13, options);
+    CheckCase<Decimal128Type, Decimal128Type>(decimal(38, 10), v12, is_valid2,
+                                              decimal(28, 0), e12, options);
+    CheckCase<Decimal128Type, Decimal128Type>(decimal(38, 10), v13, is_valid3,
+                                              decimal(28, 0), e13, options);
     // and back
-    CheckCase<Decimal128Type, Decimal128, Decimal128Type, Decimal128>(
-        decimal(28, 0), e12, is_valid2, decimal(38, 10), v12, options);
-    CheckCase<Decimal128Type, Decimal128, Decimal128Type, Decimal128>(
-        decimal(28, 0), e13, is_valid3, decimal(38, 10), v13, options);
+    CheckCase<Decimal128Type, Decimal128Type>(decimal(28, 0), e12, is_valid2,
+                                              decimal(38, 10), v12, options);
+    CheckCase<Decimal128Type, Decimal128Type>(decimal(28, 0), e13, is_valid3,
+                                              decimal(38, 10), v13, options);
   }
 
   // Same scale, different precision
   std::vector<Decimal128> v14 = {Decimal128("12.34"), Decimal128("0.56")};
   for (bool allow_decimal_truncate : {false, true}) {
     options.allow_decimal_truncate = allow_decimal_truncate;
-    CheckCase<Decimal128Type, Decimal128, Decimal128Type, Decimal128>(
-        decimal(5, 2), v14, is_valid2, decimal(4, 2), v14, options);
+    CheckCase<Decimal128Type, Decimal128Type>(decimal(5, 2), v14, is_valid2,
+                                              decimal(4, 2), v14, options);
     // and back
-    CheckCase<Decimal128Type, Decimal128, Decimal128Type, Decimal128>(
-        decimal(4, 2), v14, is_valid2, decimal(5, 2), v14, options);
+    CheckCase<Decimal128Type, Decimal128Type>(decimal(4, 2), v14, is_valid2,
+                                              decimal(5, 2), v14, options);
   }
 
   auto check_truncate = [this](const std::shared_ptr<DataType>& input_type,
@@ -759,8 +879,8 @@ TEST_F(TestCast, DecimalToDecimal) {
     CastOptions options;
 
     options.allow_decimal_truncate = true;
-    CheckCase<Decimal128Type, Decimal128, Decimal128Type, Decimal128>(
-        input_type, input, is_valid, output_type, expected_output, options);
+    CheckCase<Decimal128Type, Decimal128Type>(input_type, input, is_valid, output_type,
+                                              expected_output, options);
     options.allow_decimal_truncate = false;
     CheckFails<Decimal128Type>(input_type, input, is_valid, output_type, options);
   };
@@ -774,19 +894,19 @@ TEST_F(TestCast, DecimalToDecimal) {
         CastOptions options;
 
         options.allow_decimal_truncate = true;
-        CheckCase<Decimal128Type, Decimal128, Decimal128Type, Decimal128>(
-            input_type, input, is_valid, output_type, expected_output, options);
+        CheckCase<Decimal128Type, Decimal128Type>(input_type, input, is_valid,
+                                                  output_type, expected_output, options);
         // and back
-        CheckCase<Decimal128Type, Decimal128, Decimal128Type, Decimal128>(
-            output_type, expected_output, is_valid, input_type, expected_back_convert,
-            options);
+        CheckCase<Decimal128Type, Decimal128Type>(output_type, expected_output, is_valid,
+                                                  input_type, expected_back_convert,
+                                                  options);
 
         options.allow_decimal_truncate = false;
         CheckFails<Decimal128Type>(input_type, input, is_valid, output_type, options);
         // back case is valid
-        CheckCase<Decimal128Type, Decimal128, Decimal128Type, Decimal128>(
-            output_type, expected_output, is_valid, input_type, expected_back_convert,
-            options);
+        CheckCase<Decimal128Type, Decimal128Type>(output_type, expected_output, is_valid,
+                                                  input_type, expected_back_convert,
+                                                  options);
       };
 
   // Rescale leads to truncation
@@ -826,17 +946,61 @@ TEST_F(TestCast, DecimalToDecimal) {
   check_truncate(decimal(4, 2), v5, is_valid1, decimal(2, 1), e5);
 }
 
+TEST_F(TestCast, FloatToDecimal) {
+  auto in_type = float32();
+
+  TestCastFloatingToDecimal(in_type);
+
+  // 2**64 + 2**41 (exactly representable as a float)
+  auto out_type = decimal(20, 0);
+  CheckCaseJSON(in_type, out_type, "[1.8446746e+19, -1.8446746e+19]",
+                R"(["18446746272732807168", "-18446746272732807168"])");
+  out_type = decimal(20, 4);
+  CheckCaseJSON(in_type, out_type, "[1.8446746e+15, -1.8446746e+15]",
+                R"(["1844674627273280.7168", "-1844674627273280.7168"])");
+
+  // More edge cases tested in Decimal128::FromReal
+}
+
+TEST_F(TestCast, DoubleToDecimal) {
+  auto in_type = float64();
+
+  TestCastFloatingToDecimal(in_type);
+
+  // 2**64 + 2**11 (exactly representable as a double)
+  auto out_type = decimal(20, 0);
+  CheckCaseJSON(in_type, out_type, "[1.8446744073709556e+19, -1.8446744073709556e+19]",
+                R"(["18446744073709555712", "-18446744073709555712"])");
+  out_type = decimal(20, 4);
+  CheckCaseJSON(in_type, out_type, "[1.8446744073709556e+15, -1.8446744073709556e+15]",
+                R"(["1844674407370955.5712", "-1844674407370955.5712"])");
+
+  // More edge cases tested in Decimal128::FromReal
+}
+
+TEST_F(TestCast, DecimalToFloat) {
+  auto out_type = float32();
+  TestCastDecimalToFloating(out_type);
+}
+
+TEST_F(TestCast, DecimalToDouble) {
+  auto out_type = float64();
+  TestCastDecimalToFloating(out_type);
+}
+
 TEST_F(TestCast, TimestampToTimestamp) {
   CastOptions options;
 
-  auto CheckTimestampCast =
-      [this](const CastOptions& options, TimeUnit::type from_unit, TimeUnit::type to_unit,
-             const std::vector<int64_t>& from_values,
-             const std::vector<int64_t>& to_values, const std::vector<bool>& is_valid) {
-        CheckCase<TimestampType, int64_t, TimestampType, int64_t>(
-            timestamp(from_unit), from_values, is_valid, timestamp(to_unit), to_values,
-            options);
-      };
+  auto CheckTimestampCast = [this](const CastOptions& options, TimeUnit::type from_unit,
+                                   TimeUnit::type to_unit,
+                                   const std::vector<int64_t>& from_values,
+                                   const std::vector<int64_t>& to_values,
+                                   const std::vector<bool>& is_valid) {
+    // ARROW-9196: make temporal casts work with scalars
+    CheckCase<TimestampType, TimestampType>(timestamp(from_unit), from_values, is_valid,
+                                            timestamp(to_unit), to_values, options,
+                                            /*check_scalar=*/false);
+  };
 
   std::vector<bool> is_valid = {true, false, true, true, true};
 
@@ -868,8 +1032,7 @@ TEST_F(TestCast, TimestampToTimestamp) {
   // Zero copy
   std::vector<int64_t> v7 = {0, 70000, 2000, 1000, 0};
   std::shared_ptr<Array> arr;
-  ArrayFromVector<TimestampType, int64_t>(timestamp(TimeUnit::SECOND), is_valid, v7,
-                                          &arr);
+  ArrayFromVector<TimestampType>(timestamp(TimeUnit::SECOND), is_valid, v7, &arr);
   CheckZeroCopy(*arr, timestamp(TimeUnit::SECOND));
 
   // ARROW-1773, cast to integer
@@ -896,17 +1059,23 @@ TEST_F(TestCast, TimestampToTimestamp) {
   // Disallow truncate, failures
   options.allow_time_truncate = false;
   CheckFails<TimestampType>(timestamp(TimeUnit::MILLI), v8, is_valid,
-                            timestamp(TimeUnit::SECOND), options);
+                            timestamp(TimeUnit::SECOND), options,
+                            /*check_scalar=*/false);
   CheckFails<TimestampType>(timestamp(TimeUnit::MICRO), v8, is_valid,
-                            timestamp(TimeUnit::MILLI), options);
+                            timestamp(TimeUnit::MILLI), options,
+                            /*check_scalar=*/false);
   CheckFails<TimestampType>(timestamp(TimeUnit::NANO), v8, is_valid,
-                            timestamp(TimeUnit::MICRO), options);
+                            timestamp(TimeUnit::MICRO), options,
+                            /*check_scalar=*/false);
   CheckFails<TimestampType>(timestamp(TimeUnit::MICRO), v9, is_valid,
-                            timestamp(TimeUnit::SECOND), options);
+                            timestamp(TimeUnit::SECOND), options,
+                            /*check_scalar=*/false);
   CheckFails<TimestampType>(timestamp(TimeUnit::NANO), v9, is_valid,
-                            timestamp(TimeUnit::MILLI), options);
+                            timestamp(TimeUnit::MILLI), options,
+                            /*check_scalar=*/false);
   CheckFails<TimestampType>(timestamp(TimeUnit::NANO), v10, is_valid,
-                            timestamp(TimeUnit::SECOND), options);
+                            timestamp(TimeUnit::SECOND), options,
+                            /*check_scalar=*/false);
 
   // Multiply overflow
 
@@ -916,7 +1085,8 @@ TEST_F(TestCast, TimestampToTimestamp) {
 
   options.allow_time_overflow = false;
   CheckFails<TimestampType>(timestamp(TimeUnit::SECOND), v11, is_valid,
-                            timestamp(TimeUnit::NANO), options);
+                            timestamp(TimeUnit::NANO), options,
+                            /*check_scalar=*/false);
 }
 
 TEST_F(TestCast, TimestampToDate32_Date64) {
@@ -932,23 +1102,31 @@ TEST_F(TestCast, TimestampToDate32_Date64) {
   std::vector<int32_t> v_day = {10957, 10958, 0};
 
   // Simple conversions
-  CheckCase<TimestampType, int64_t, Date64Type, int64_t>(
-      timestamp(TimeUnit::NANO), v_nano, is_valid, date64(), v_milli, options);
-  CheckCase<TimestampType, int64_t, Date64Type, int64_t>(
-      timestamp(TimeUnit::MICRO), v_micro, is_valid, date64(), v_milli, options);
-  CheckCase<TimestampType, int64_t, Date64Type, int64_t>(
-      timestamp(TimeUnit::MILLI), v_milli, is_valid, date64(), v_milli, options);
-  CheckCase<TimestampType, int64_t, Date64Type, int64_t>(
-      timestamp(TimeUnit::SECOND), v_second, is_valid, date64(), v_milli, options);
+  CheckCase<TimestampType, Date64Type>(timestamp(TimeUnit::NANO), v_nano, is_valid,
+                                       date64(), v_milli, options,
+                                       /*check_scalar=*/false);
+  CheckCase<TimestampType, Date64Type>(timestamp(TimeUnit::MICRO), v_micro, is_valid,
+                                       date64(), v_milli, options,
+                                       /*check_scalar=*/false);
+  CheckCase<TimestampType, Date64Type>(timestamp(TimeUnit::MILLI), v_milli, is_valid,
+                                       date64(), v_milli, options,
+                                       /*check_scalar=*/false);
+  CheckCase<TimestampType, Date64Type>(timestamp(TimeUnit::SECOND), v_second, is_valid,
+                                       date64(), v_milli, options,
+                                       /*check_scalar=*/false);
 
-  CheckCase<TimestampType, int64_t, Date32Type, int32_t>(
-      timestamp(TimeUnit::NANO), v_nano, is_valid, date32(), v_day, options);
-  CheckCase<TimestampType, int64_t, Date32Type, int32_t>(
-      timestamp(TimeUnit::MICRO), v_micro, is_valid, date32(), v_day, options);
-  CheckCase<TimestampType, int64_t, Date32Type, int32_t>(
-      timestamp(TimeUnit::MILLI), v_milli, is_valid, date32(), v_day, options);
-  CheckCase<TimestampType, int64_t, Date32Type, int32_t>(
-      timestamp(TimeUnit::SECOND), v_second, is_valid, date32(), v_day, options);
+  CheckCase<TimestampType, Date32Type>(timestamp(TimeUnit::NANO), v_nano, is_valid,
+                                       date32(), v_day, options,
+                                       /*check_scalar=*/false);
+  CheckCase<TimestampType, Date32Type>(timestamp(TimeUnit::MICRO), v_micro, is_valid,
+                                       date32(), v_day, options,
+                                       /*check_scalar=*/false);
+  CheckCase<TimestampType, Date32Type>(timestamp(TimeUnit::MILLI), v_milli, is_valid,
+                                       date32(), v_day, options,
+                                       /*check_scalar=*/false);
+  CheckCase<TimestampType, Date32Type>(timestamp(TimeUnit::SECOND), v_second, is_valid,
+                                       date32(), v_day, options,
+                                       /*check_scalar=*/false);
 
   // Disallow truncate, failures
   std::vector<int64_t> v_nano_fail = {946684800000000001, 946771200000000001, 0};
@@ -958,29 +1136,39 @@ TEST_F(TestCast, TimestampToDate32_Date64) {
 
   options.allow_time_truncate = false;
   CheckFails<TimestampType>(timestamp(TimeUnit::NANO), v_nano_fail, is_valid, date64(),
-                            options);
+                            options,
+                            /*check_scalar=*/false);
   CheckFails<TimestampType>(timestamp(TimeUnit::MICRO), v_micro_fail, is_valid, date64(),
-                            options);
+                            options,
+                            /*check_scalar=*/false);
   CheckFails<TimestampType>(timestamp(TimeUnit::MILLI), v_milli_fail, is_valid, date64(),
-                            options);
+                            options,
+                            /*check_scalar=*/false);
   CheckFails<TimestampType>(timestamp(TimeUnit::SECOND), v_second_fail, is_valid,
-                            date64(), options);
+                            date64(), options,
+                            /*check_scalar=*/false);
 
   CheckFails<TimestampType>(timestamp(TimeUnit::NANO), v_nano_fail, is_valid, date32(),
-                            options);
+                            options,
+                            /*check_scalar=*/false);
   CheckFails<TimestampType>(timestamp(TimeUnit::MICRO), v_micro_fail, is_valid, date32(),
-                            options);
+                            options,
+                            /*check_scalar=*/false);
   CheckFails<TimestampType>(timestamp(TimeUnit::MILLI), v_milli_fail, is_valid, date32(),
-                            options);
+                            options,
+                            /*check_scalar=*/false);
   CheckFails<TimestampType>(timestamp(TimeUnit::SECOND), v_second_fail, is_valid,
-                            date32(), options);
+                            date32(), options,
+                            /*check_scalar=*/false);
 
   // Make sure that nulls are excluded from the truncation checks
   std::vector<int64_t> v_second_nofail = {946684800, 946771200, 1};
-  CheckCase<TimestampType, int64_t, Date64Type, int64_t>(
-      timestamp(TimeUnit::SECOND), v_second_nofail, is_valid, date64(), v_milli, options);
-  CheckCase<TimestampType, int64_t, Date32Type, int32_t>(
-      timestamp(TimeUnit::SECOND), v_second_nofail, is_valid, date32(), v_day, options);
+  CheckCase<TimestampType, Date64Type>(timestamp(TimeUnit::SECOND), v_second_nofail,
+                                       is_valid, date64(), v_milli, options,
+                                       /*check_scalar=*/false);
+  CheckCase<TimestampType, Date32Type>(timestamp(TimeUnit::SECOND), v_second_nofail,
+                                       is_valid, date32(), v_day, options,
+                                       /*check_scalar=*/false);
 }
 
 TEST_F(TestCast, TimeToCompatible) {
@@ -991,45 +1179,51 @@ TEST_F(TestCast, TimeToCompatible) {
   // Multiply promotions
   std::vector<int32_t> v1 = {0, 100, 200, 1, 2};
   std::vector<int32_t> e1 = {0, 100000, 200000, 1000, 2000};
-  CheckCase<Time32Type, int32_t, Time32Type, int32_t>(
-      time32(TimeUnit::SECOND), v1, is_valid, time32(TimeUnit::MILLI), e1, options);
+  CheckCase<Time32Type, Time32Type>(time32(TimeUnit::SECOND), v1, is_valid,
+                                    time32(TimeUnit::MILLI), e1, options,
+                                    /*check_scalar=*/false);
 
   std::vector<int32_t> v2 = {0, 100, 200, 1, 2};
   std::vector<int64_t> e2 = {0, 100000000L, 200000000L, 1000000, 2000000};
-  CheckCase<Time32Type, int32_t, Time64Type, int64_t>(
-      time32(TimeUnit::SECOND), v2, is_valid, time64(TimeUnit::MICRO), e2, options);
+  CheckCase<Time32Type, Time64Type>(time32(TimeUnit::SECOND), v2, is_valid,
+                                    time64(TimeUnit::MICRO), e2, options,
+                                    /*check_scalar=*/false);
 
   std::vector<int32_t> v3 = {0, 100, 200, 1, 2};
   std::vector<int64_t> e3 = {0, 100000000000L, 200000000000L, 1000000000L, 2000000000L};
-  CheckCase<Time32Type, int32_t, Time64Type, int64_t>(
-      time32(TimeUnit::SECOND), v3, is_valid, time64(TimeUnit::NANO), e3, options);
+  CheckCase<Time32Type, Time64Type>(time32(TimeUnit::SECOND), v3, is_valid,
+                                    time64(TimeUnit::NANO), e3, options,
+                                    /*check_scalar=*/false);
 
   std::vector<int32_t> v4 = {0, 100, 200, 1, 2};
   std::vector<int64_t> e4 = {0, 100000, 200000, 1000, 2000};
-  CheckCase<Time32Type, int32_t, Time64Type, int64_t>(
-      time32(TimeUnit::MILLI), v4, is_valid, time64(TimeUnit::MICRO), e4, options);
+  CheckCase<Time32Type, Time64Type>(time32(TimeUnit::MILLI), v4, is_valid,
+                                    time64(TimeUnit::MICRO), e4, options,
+                                    /*check_scalar=*/false);
 
   std::vector<int32_t> v5 = {0, 100, 200, 1, 2};
   std::vector<int64_t> e5 = {0, 100000000L, 200000000L, 1000000, 2000000};
-  CheckCase<Time32Type, int32_t, Time64Type, int64_t>(
-      time32(TimeUnit::MILLI), v5, is_valid, time64(TimeUnit::NANO), e5, options);
+  CheckCase<Time32Type, Time64Type>(time32(TimeUnit::MILLI), v5, is_valid,
+                                    time64(TimeUnit::NANO), e5, options,
+                                    /*check_scalar=*/false);
 
   std::vector<int64_t> v6 = {0, 100, 200, 1, 2};
   std::vector<int64_t> e6 = {0, 100000, 200000, 1000, 2000};
-  CheckCase<Time64Type, int64_t, Time64Type, int64_t>(
-      time64(TimeUnit::MICRO), v6, is_valid, time64(TimeUnit::NANO), e6, options);
+  CheckCase<Time64Type, Time64Type>(time64(TimeUnit::MICRO), v6, is_valid,
+                                    time64(TimeUnit::NANO), e6, options,
+                                    /*check_scalar=*/false);
 
   // Zero copy
   std::vector<int64_t> v7 = {0, 70000, 2000, 1000, 0};
   std::shared_ptr<Array> arr;
-  ArrayFromVector<Time64Type, int64_t>(time64(TimeUnit::MICRO), is_valid, v7, &arr);
+  ArrayFromVector<Time64Type>(time64(TimeUnit::MICRO), is_valid, v7, &arr);
   CheckZeroCopy(*arr, time64(TimeUnit::MICRO));
 
   // ARROW-1773: cast to int64
   CheckZeroCopy(*arr, int64());
 
   std::vector<int32_t> v7_2 = {0, 70000, 2000, 1000, 0};
-  ArrayFromVector<Time32Type, int32_t>(time32(TimeUnit::SECOND), is_valid, v7_2, &arr);
+  ArrayFromVector<Time32Type>(time32(TimeUnit::SECOND), is_valid, v7_2, &arr);
   CheckZeroCopy(*arr, time32(TimeUnit::SECOND));
 
   // ARROW-1773: cast to int64
@@ -1040,40 +1234,46 @@ TEST_F(TestCast, TimeToCompatible) {
   std::vector<int32_t> e8 = {0, 100, 200, 1, 2};
 
   options.allow_time_truncate = true;
-  CheckCase<Time32Type, int32_t, Time32Type, int32_t>(
-      time32(TimeUnit::MILLI), v8, is_valid, time32(TimeUnit::SECOND), e8, options);
-  CheckCase<Time64Type, int32_t, Time32Type, int32_t>(
-      time64(TimeUnit::MICRO), v8, is_valid, time32(TimeUnit::MILLI), e8, options);
-  CheckCase<Time64Type, int32_t, Time64Type, int32_t>(
-      time64(TimeUnit::NANO), v8, is_valid, time64(TimeUnit::MICRO), e8, options);
+  CheckCase<Time32Type, Time32Type>(time32(TimeUnit::MILLI), v8, is_valid,
+                                    time32(TimeUnit::SECOND), e8, options,
+                                    /*check_scalar=*/false);
+  CheckCase<Time64Type, Time32Type>(time64(TimeUnit::MICRO), v8, is_valid,
+                                    time32(TimeUnit::MILLI), e8, options,
+                                    /*check_scalar=*/false);
+  CheckCase<Time64Type, Time64Type>(time64(TimeUnit::NANO), v8, is_valid,
+                                    time64(TimeUnit::MICRO), e8, options,
+                                    /*check_scalar=*/false);
 
   std::vector<int64_t> v9 = {0, 100123000, 200456000, 1123000, 2456000};
   std::vector<int32_t> e9 = {0, 100, 200, 1, 2};
-  CheckCase<Time64Type, int64_t, Time32Type, int32_t>(
-      time64(TimeUnit::MICRO), v9, is_valid, time32(TimeUnit::SECOND), e9, options);
-  CheckCase<Time64Type, int64_t, Time32Type, int32_t>(
-      time64(TimeUnit::NANO), v9, is_valid, time32(TimeUnit::MILLI), e9, options);
+  CheckCase<Time64Type, Time32Type>(time64(TimeUnit::MICRO), v9, is_valid,
+                                    time32(TimeUnit::SECOND), e9, options,
+                                    /*check_scalar=*/false);
+  CheckCase<Time64Type, Time32Type>(time64(TimeUnit::NANO), v9, is_valid,
+                                    time32(TimeUnit::MILLI), e9, options,
+                                    /*check_scalar=*/false);
 
   std::vector<int64_t> v10 = {0, 100123000000L, 200456000000L, 1123000000L, 2456000000};
   std::vector<int32_t> e10 = {0, 100, 200, 1, 2};
-  CheckCase<Time64Type, int64_t, Time32Type, int32_t>(
-      time64(TimeUnit::NANO), v10, is_valid, time32(TimeUnit::SECOND), e10, options);
+  CheckCase<Time64Type, Time32Type>(time64(TimeUnit::NANO), v10, is_valid,
+                                    time32(TimeUnit::SECOND), e10, options,
+                                    /*check_scalar=*/false);
 
   // Disallow truncate, failures
 
   options.allow_time_truncate = false;
   CheckFails<Time32Type>(time32(TimeUnit::MILLI), v8, is_valid, time32(TimeUnit::SECOND),
-                         options);
+                         options, /*check_scalar=*/false);
   CheckFails<Time64Type>(time64(TimeUnit::MICRO), v8, is_valid, time32(TimeUnit::MILLI),
-                         options);
+                         options, /*check_scalar=*/false);
   CheckFails<Time64Type>(time64(TimeUnit::NANO), v8, is_valid, time64(TimeUnit::MICRO),
-                         options);
+                         options, /*check_scalar=*/false);
   CheckFails<Time64Type>(time64(TimeUnit::MICRO), v9, is_valid, time32(TimeUnit::SECOND),
-                         options);
+                         options, /*check_scalar=*/false);
   CheckFails<Time64Type>(time64(TimeUnit::NANO), v9, is_valid, time32(TimeUnit::MILLI),
-                         options);
+                         options, /*check_scalar=*/false);
   CheckFails<Time64Type>(time64(TimeUnit::NANO), v10, is_valid, time32(TimeUnit::SECOND),
-                         options);
+                         options, /*check_scalar=*/false);
 }
 
 TEST_F(TestCast, DateToCompatible) {
@@ -1086,20 +1286,20 @@ TEST_F(TestCast, DateToCompatible) {
   // Multiply promotion
   std::vector<int32_t> v1 = {0, 100, 200, 1, 2};
   std::vector<int64_t> e1 = {0, 100 * F, 200 * F, F, 2 * F};
-  CheckCase<Date32Type, int32_t, Date64Type, int64_t>(date32(), v1, is_valid, date64(),
-                                                      e1, options);
+  CheckCase<Date32Type, Date64Type>(date32(), v1, is_valid, date64(), e1, options,
+                                    /*check_scalar=*/false);
 
   // Zero copy
   std::vector<int32_t> v2 = {0, 70000, 2000, 1000, 0};
   std::vector<int64_t> v3 = {0, 70000, 2000, 1000, 0};
   std::shared_ptr<Array> arr;
-  ArrayFromVector<Date32Type, int32_t>(date32(), is_valid, v2, &arr);
+  ArrayFromVector<Date32Type>(date32(), is_valid, v2, &arr);
   CheckZeroCopy(*arr, date32());
 
   // ARROW-1773: zero copy cast to integer
   CheckZeroCopy(*arr, int32());
 
-  ArrayFromVector<Date64Type, int64_t>(date64(), is_valid, v3, &arr);
+  ArrayFromVector<Date64Type>(date64(), is_valid, v3, &arr);
   CheckZeroCopy(*arr, date64());
 
   // ARROW-1773: zero copy cast to integer
@@ -1110,12 +1310,12 @@ TEST_F(TestCast, DateToCompatible) {
   std::vector<int32_t> e8 = {0, 100, 200, 1, 2};
 
   options.allow_time_truncate = true;
-  CheckCase<Date64Type, int64_t, Date32Type, int32_t>(date64(), v8, is_valid, date32(),
-                                                      e8, options);
+  CheckCase<Date64Type, Date32Type>(date64(), v8, is_valid, date32(), e8, options,
+                                    /*check_scalar=*/false);
 
   // Disallow truncate, failures
   options.allow_time_truncate = false;
-  CheckFails<Date64Type>(date64(), v8, is_valid, date32(), options);
+  CheckFails<Date64Type>(v8, is_valid, date32(), options, /*check_scalar=*/false);
 }
 
 TEST_F(TestCast, DurationToCompatible) {
@@ -1125,9 +1325,9 @@ TEST_F(TestCast, DurationToCompatible) {
       [this](const CastOptions& options, TimeUnit::type from_unit, TimeUnit::type to_unit,
              const std::vector<int64_t>& from_values,
              const std::vector<int64_t>& to_values, const std::vector<bool>& is_valid) {
-        CheckCase<DurationType, int64_t, DurationType, int64_t>(
-            duration(from_unit), from_values, is_valid, duration(to_unit), to_values,
-            options);
+        CheckCase<DurationType, DurationType>(duration(from_unit), from_values, is_valid,
+                                              duration(to_unit), to_values, options,
+                                              /*check_scalar=*/false);
       };
 
   std::vector<bool> is_valid = {true, false, true, true, true};
@@ -1160,7 +1360,7 @@ TEST_F(TestCast, DurationToCompatible) {
   // Zero copy
   std::vector<int64_t> v7 = {0, 70000, 2000, 1000, 0};
   std::shared_ptr<Array> arr;
-  ArrayFromVector<DurationType, int64_t>(duration(TimeUnit::SECOND), is_valid, v7, &arr);
+  ArrayFromVector<DurationType>(duration(TimeUnit::SECOND), is_valid, v7, &arr);
   CheckZeroCopy(*arr, duration(TimeUnit::SECOND));
   CheckZeroCopy(*arr, int64());
 
@@ -1185,17 +1385,17 @@ TEST_F(TestCast, DurationToCompatible) {
   // Disallow truncate, failures
   options.allow_time_truncate = false;
   CheckFails<DurationType>(duration(TimeUnit::MILLI), v8, is_valid,
-                           duration(TimeUnit::SECOND), options);
+                           duration(TimeUnit::SECOND), options, /*check_scalar=*/false);
   CheckFails<DurationType>(duration(TimeUnit::MICRO), v8, is_valid,
-                           duration(TimeUnit::MILLI), options);
+                           duration(TimeUnit::MILLI), options, /*check_scalar=*/false);
   CheckFails<DurationType>(duration(TimeUnit::NANO), v8, is_valid,
-                           duration(TimeUnit::MICRO), options);
+                           duration(TimeUnit::MICRO), options, /*check_scalar=*/false);
   CheckFails<DurationType>(duration(TimeUnit::MICRO), v9, is_valid,
-                           duration(TimeUnit::SECOND), options);
+                           duration(TimeUnit::SECOND), options, /*check_scalar=*/false);
   CheckFails<DurationType>(duration(TimeUnit::NANO), v9, is_valid,
-                           duration(TimeUnit::MILLI), options);
+                           duration(TimeUnit::MILLI), options, /*check_scalar=*/false);
   CheckFails<DurationType>(duration(TimeUnit::NANO), v10, is_valid,
-                           duration(TimeUnit::SECOND), options);
+                           duration(TimeUnit::SECOND), options, /*check_scalar=*/false);
 
   // Multiply overflow
 
@@ -1204,7 +1404,7 @@ TEST_F(TestCast, DurationToCompatible) {
 
   options.allow_time_overflow = false;
   CheckFails<DurationType>(duration(TimeUnit::SECOND), v11, is_valid,
-                           duration(TimeUnit::NANO), options);
+                           duration(TimeUnit::NANO), options, /*check_scalar=*/false);
 }
 
 TEST_F(TestCast, ToDouble) {
@@ -1214,20 +1414,17 @@ TEST_F(TestCast, ToDouble) {
   // int16 to double
   std::vector<int16_t> v1 = {0, 100, 200, 1, 2};
   std::vector<double> e1 = {0, 100, 200, 1, 2};
-  CheckCase<Int16Type, int16_t, DoubleType, double>(int16(), v1, is_valid, float64(), e1,
-                                                    options);
+  CheckCase<Int16Type, DoubleType>(v1, is_valid, e1, options);
 
   // float to double
   std::vector<float> v2 = {0, 100, 200, 1, 2};
   std::vector<double> e2 = {0, 100, 200, 1, 2};
-  CheckCase<FloatType, float, DoubleType, double>(float32(), v2, is_valid, float64(), e2,
-                                                  options);
+  CheckCase<FloatType, DoubleType>(v2, is_valid, e2, options);
 
   // bool to double
   std::vector<bool> v3 = {true, true, false, false, true};
   std::vector<double> e3 = {1, 1, 0, 0, 1};
-  CheckCase<BooleanType, bool, DoubleType, double>(boolean(), v3, is_valid, float64(), e3,
-                                                   options);
+  CheckCase<BooleanType, DoubleType>(v3, is_valid, e3, options);
 }
 
 TEST_F(TestCast, ChunkedArray) {
@@ -1261,14 +1458,40 @@ TEST_F(TestCast, ChunkedArray) {
   ASSERT_TRUE(out.chunked_array()->Equals(*ex_carr));
 }
 
-TEST_F(TestCast, UnsupportedTarget) {
-  std::vector<bool> is_valid = {true, false, true, true, true};
-  std::vector<int32_t> v1 = {0, 1, 2, 3, 4};
+TEST_F(TestCast, UnsupportedInputType) {
+  // Casting to a supported target type, but with an unsupported input type
+  // for the target type.
+  const auto arr = ArrayFromJSON(int32(), "[1, 2, 3]");
 
-  std::shared_ptr<Array> arr;
-  ArrayFromVector<Int32Type, int32_t>(int32(), is_valid, v1, &arr);
+  const auto to_type = list(utf8());
+  const char* expected_message = "Unsupported cast from int32 to list";
 
-  ASSERT_RAISES(NotImplemented, Cast(*arr, list(utf8())));
+  // Try through concrete API
+  EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented, ::testing::HasSubstr(expected_message),
+                                  Cast(*arr, to_type));
+
+  // Try through general kernel API
+  CastOptions options;
+  options.to_type = to_type;
+  EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented, ::testing::HasSubstr(expected_message),
+                                  CallFunction("cast", {arr}, &options));
+}
+
+TEST_F(TestCast, UnsupportedTargetType) {
+  // Casting to an unsupported target type
+  const auto arr = ArrayFromJSON(int32(), "[1, 2, 3]");
+  const auto to_type = dense_union({field("a", int32())});
+
+  // Try through concrete API
+  const char* expected_message = "Unsupported cast from int32 to dense_union";
+  EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented, ::testing::HasSubstr(expected_message),
+                                  Cast(*arr, to_type));
+
+  // Try through general kernel API
+  CastOptions options;
+  options.to_type = to_type;
+  EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented, ::testing::HasSubstr(expected_message),
+                                  CallFunction("cast", {arr}, &options));
 }
 
 TEST_F(TestCast, DateTimeZeroCopy) {
@@ -1276,13 +1499,13 @@ TEST_F(TestCast, DateTimeZeroCopy) {
 
   std::vector<int32_t> v1 = {0, 70000, 2000, 1000, 0};
   std::shared_ptr<Array> arr;
-  ArrayFromVector<Int32Type, int32_t>(int32(), is_valid, v1, &arr);
+  ArrayFromVector<Int32Type>(int32(), is_valid, v1, &arr);
 
   CheckZeroCopy(*arr, time32(TimeUnit::SECOND));
   CheckZeroCopy(*arr, date32());
 
   std::vector<int64_t> v2 = {0, 70000, 2000, 1000, 0};
-  ArrayFromVector<Int64Type, int64_t>(int64(), is_valid, v2, &arr);
+  ArrayFromVector<Int64Type>(int64(), is_valid, v2, &arr);
 
   CheckZeroCopy(*arr, time64(TimeUnit::MICRO));
   CheckZeroCopy(*arr, date64());
@@ -1298,14 +1521,13 @@ TEST_F(TestCast, StringToBoolean) {
   std::vector<std::string> v1 = {"False", "true", "true", "True", "false"};
   std::vector<std::string> v2 = {"0", "1", "1", "1", "0"};
   std::vector<bool> e = {false, true, true, true, false};
-  CheckCase<StringType, std::string, BooleanType, bool>(utf8(), v1, is_valid, boolean(),
-                                                        e, options);
-  CheckCase<StringType, std::string, BooleanType, bool>(utf8(), v2, is_valid, boolean(),
-                                                        e, options);
+  CheckCase<StringType, BooleanType, std::string>(utf8(), v1, is_valid, boolean(), e,
+                                                  options);
+  CheckCase<StringType, BooleanType, std::string>(utf8(), v2, is_valid, boolean(), e,
+                                                  options);
 
   // Same with LargeStringType
-  CheckCase<LargeStringType, std::string, BooleanType, bool>(large_utf8(), v1, is_valid,
-                                                             boolean(), e, options);
+  CheckCase<LargeStringType, BooleanType, std::string>(v1, is_valid, e, options);
 }
 
 TEST_F(TestCast, StringToBooleanErrors) {
@@ -1313,10 +1535,9 @@ TEST_F(TestCast, StringToBooleanErrors) {
 
   std::vector<bool> is_valid = {true};
 
-  CheckFails<StringType, std::string>(utf8(), {"false "}, is_valid, boolean(), options);
-  CheckFails<StringType, std::string>(utf8(), {"T"}, is_valid, boolean(), options);
-  CheckFails<LargeStringType, std::string>(large_utf8(), {"T"}, is_valid, boolean(),
-                                           options);
+  CheckFails<StringType>({"false "}, is_valid, boolean(), options);
+  CheckFails<StringType>({"T"}, is_valid, boolean(), options);
+  CheckFails<LargeStringType>({"T"}, is_valid, boolean(), options);
 }
 
 TEST_F(TestCast, StringToNumber) { TestCastStringToNumber<StringType>(); }
@@ -1328,16 +1549,16 @@ TEST_F(TestCast, StringToNumberErrors) {
 
   std::vector<bool> is_valid = {true};
 
-  CheckFails<StringType, std::string>(utf8(), {"z"}, is_valid, int8(), options);
-  CheckFails<StringType, std::string>(utf8(), {"12 z"}, is_valid, int8(), options);
-  CheckFails<StringType, std::string>(utf8(), {"128"}, is_valid, int8(), options);
-  CheckFails<StringType, std::string>(utf8(), {"-129"}, is_valid, int8(), options);
-  CheckFails<StringType, std::string>(utf8(), {"0.5"}, is_valid, int8(), options);
+  CheckFails<StringType>({"z"}, is_valid, int8(), options);
+  CheckFails<StringType>({"12 z"}, is_valid, int8(), options);
+  CheckFails<StringType>({"128"}, is_valid, int8(), options);
+  CheckFails<StringType>({"-129"}, is_valid, int8(), options);
+  CheckFails<StringType>({"0.5"}, is_valid, int8(), options);
 
-  CheckFails<StringType, std::string>(utf8(), {"256"}, is_valid, uint8(), options);
-  CheckFails<StringType, std::string>(utf8(), {"-1"}, is_valid, uint8(), options);
+  CheckFails<StringType>({"256"}, is_valid, uint8(), options);
+  CheckFails<StringType>({"-1"}, is_valid, uint8(), options);
 
-  CheckFails<StringType, std::string>(utf8(), {"z"}, is_valid, float32(), options);
+  CheckFails<StringType>({"z"}, is_valid, float32(), options);
 }
 
 TEST_F(TestCast, StringToTimestamp) { TestCastStringToTimestamp<StringType>(); }
@@ -1351,8 +1572,8 @@ TEST_F(TestCast, StringToTimestampErrors) {
 
   for (auto unit : {TimeUnit::SECOND, TimeUnit::MILLI, TimeUnit::MICRO, TimeUnit::NANO}) {
     auto type = timestamp(unit);
-    CheckFails<StringType, std::string>(utf8(), {""}, is_valid, type, options);
-    CheckFails<StringType, std::string>(utf8(), {"xxx"}, is_valid, type, options);
+    CheckFails<StringType>({""}, is_valid, type, options);
+    CheckFails<StringType>({"xxx"}, is_valid, type, options);
   }
 }
 
@@ -1360,6 +1581,12 @@ TEST_F(TestCast, BinaryToString) { TestCastBinaryToString<BinaryType, StringType
 
 TEST_F(TestCast, LargeBinaryToLargeString) {
   TestCastBinaryToString<LargeBinaryType, LargeStringType>();
+}
+
+TEST_F(TestCast, StringToBinary) { TestCastStringToBinary<StringType, BinaryType>(); }
+
+TEST_F(TestCast, LargeStringToLargeBinary) {
+  TestCastStringToBinary<LargeStringType, LargeBinaryType>();
 }
 
 TEST_F(TestCast, NumberToString) { TestCastNumberToString<StringType>(); }
@@ -1384,7 +1611,7 @@ TEST_F(TestCast, ListToList) {
 
   std::vector<int32_t> offsets_values = {0, 1, 2, 5, 7, 7, 8, 10};
   std::vector<bool> offsets_is_valid = {true, true, true, true, false, true, true, true};
-  ArrayFromVector<Int32Type, int32_t>(offsets_is_valid, offsets_values, &offsets);
+  ArrayFromVector<Int32Type>(offsets_is_valid, offsets_values, &offsets);
 
   std::shared_ptr<Array> int32_plain_array =
       TestBase::MakeRandomArray<typename TypeTraits<Int32Type>::ArrayType>(10, 2);
@@ -1401,14 +1628,20 @@ TEST_F(TestCast, ListToList) {
   ASSERT_OK_AND_ASSIGN(auto float64_list_array,
                        ListArray::FromArrays(*offsets, *float64_plain_array, pool_));
 
-  CheckPass(*int32_list_array, *int64_list_array, int64_list_array->type(), options);
-  CheckPass(*int32_list_array, *float64_list_array, float64_list_array->type(), options);
-  CheckPass(*int64_list_array, *int32_list_array, int32_list_array->type(), options);
-  CheckPass(*int64_list_array, *float64_list_array, float64_list_array->type(), options);
+  CheckPass(*int32_list_array, *int64_list_array, int64_list_array->type(), options,
+            /*check_scalar=*/false);
+  CheckPass(*int32_list_array, *float64_list_array, float64_list_array->type(), options,
+            /*check_scalar=*/false);
+  CheckPass(*int64_list_array, *int32_list_array, int32_list_array->type(), options,
+            /*check_scalar=*/false);
+  CheckPass(*int64_list_array, *float64_list_array, float64_list_array->type(), options,
+            /*check_scalar=*/false);
 
   options.allow_float_truncate = true;
-  CheckPass(*float64_list_array, *int32_list_array, int32_list_array->type(), options);
-  CheckPass(*float64_list_array, *int64_list_array, int64_list_array->type(), options);
+  CheckPass(*float64_list_array, *int32_list_array, int32_list_array->type(), options,
+            /*check_scalar=*/false);
+  CheckPass(*float64_list_array, *int64_list_array, int64_list_array->type(), options,
+            /*check_scalar=*/false);
 }
 
 TEST_F(TestCast, LargeListToLargeList) {
@@ -1418,7 +1651,7 @@ TEST_F(TestCast, LargeListToLargeList) {
 
   std::vector<int64_t> offsets_values = {0, 1, 2, 5, 7, 7, 8, 10};
   std::vector<bool> offsets_is_valid = {true, true, true, true, false, true, true, true};
-  ArrayFromVector<Int64Type, int64_t>(offsets_is_valid, offsets_values, &offsets);
+  ArrayFromVector<Int64Type>(offsets_is_valid, offsets_values, &offsets);
 
   std::shared_ptr<Array> int32_plain_array =
       TestBase::MakeRandomArray<typename TypeTraits<Int32Type>::ArrayType>(10, 2);
@@ -1430,10 +1663,12 @@ TEST_F(TestCast, LargeListToLargeList) {
   ASSERT_OK_AND_ASSIGN(auto float64_list_array,
                        LargeListArray::FromArrays(*offsets, *float64_plain_array, pool_));
 
-  CheckPass(*int32_list_array, *float64_list_array, float64_list_array->type(), options);
+  CheckPass(*int32_list_array, *float64_list_array, float64_list_array->type(), options,
+            /*check_scalar=*/false);
 
   options.allow_float_truncate = true;
-  CheckPass(*float64_list_array, *int32_list_array, int32_list_array->type(), options);
+  CheckPass(*float64_list_array, *int32_list_array, int32_list_array->type(), options,
+            /*check_scalar=*/false);
 }
 
 TEST_F(TestCast, IdentityCasts) {
@@ -1536,15 +1771,18 @@ typedef ::testing::Types<NullType, UInt8Type, Int8Type, UInt16Type, Int16Type, I
 TYPED_TEST_SUITE(TestDictionaryCast, TestTypes);
 
 TYPED_TEST(TestDictionaryCast, Basic) {
-  CastOptions options;
-  std::shared_ptr<Array> plain_array =
-      TestBase::MakeRandomArray<typename TypeTraits<TypeParam>::ArrayType>(10, 2);
+  std::shared_ptr<Array> dict =
+      TestBase::MakeRandomArray<typename TypeTraits<TypeParam>::ArrayType>(5, 1);
+  for (auto index_ty : all_dictionary_index_types()) {
+    auto indices = ArrayFromJSON(index_ty, "[4, 0, 1, 2, 0, 4, null, 2]");
+    auto dict_ty = dictionary(index_ty, dict->type());
+    auto dict_arr = *DictionaryArray::FromArrays(dict_ty, indices, dict);
+    std::shared_ptr<Array> expected = *Take(*dict, *indices);
 
-  ASSERT_OK_AND_ASSIGN(Datum encoded, DictionaryEncode(plain_array->data()));
-  ASSERT_EQ(encoded.array()->type->id(), Type::DICTIONARY);
-
-  this->CheckPass(*MakeArray(encoded.array()), *plain_array, plain_array->type(),
-                  options);
+    // TODO: Should casting dictionary scalars work?
+    this->CheckPass(*dict_arr, *expected, expected->type(), CastOptions::Safe(),
+                    /*check_scalar=*/false);
+  }
 }
 
 TYPED_TEST(TestDictionaryCast, NoNulls) {
@@ -1569,7 +1807,8 @@ TYPED_TEST(TestDictionaryCast, NoNulls) {
   std::shared_ptr<Array> dict_array = std::make_shared<DictionaryArray>(data);
   ASSERT_OK(dict_array->ValidateFull());
 
-  this->CheckPass(*dict_array, *plain_array, plain_array->type(), options);
+  this->CheckPass(*dict_array, *plain_array, plain_array->type(), options,
+                  /*check_scalar=*/false);
 }
 
 // TODO: See how this might cause problems post-refactor
@@ -1609,14 +1848,14 @@ TEST_F(TestCast, ExtensionTypeToIntDowncast) {
   // Smallint(int16) to uint8, no overflow/underrun
   auto v1 = SmallintArrayFromJSON("[0, 100, 200, 1, 2]");
   auto e1 = ArrayFromJSON(uint8(), "[0, 100, 200, 1, 2]");
-  CheckPass(*v1, *e1, uint8(), options);
+  CheckPass(*v1, *e1, uint8(), options, /*check_scalar=*/false);
 
   // Smallint(int16) to uint8, with overflow
   auto v2 = SmallintArrayFromJSON("[0, null, 256, 1, 3]");
   auto e2 = ArrayFromJSON(uint8(), "[0, null, 0, 1, 3]");
   // allow overflow
   options.allow_int_overflow = true;
-  CheckPass(*v2, *e2, uint8(), options);
+  CheckPass(*v2, *e2, uint8(), options, /*check_scalar=*/false);
   // disallow overflow
   options.allow_int_overflow = false;
   ASSERT_RAISES(Invalid, Cast(*v2, uint8(), options));
@@ -1626,7 +1865,7 @@ TEST_F(TestCast, ExtensionTypeToIntDowncast) {
   auto e3 = ArrayFromJSON(uint8(), "[0, null, 255, 1, 0]");
   // allow overflow
   options.allow_int_overflow = true;
-  CheckPass(*v3, *e3, uint8(), options);
+  CheckPass(*v3, *e3, uint8(), options, /*check_scalar=*/false);
   // disallow overflow
   options.allow_int_overflow = false;
   ASSERT_RAISES(Invalid, Cast(*v3, uint8(), options));

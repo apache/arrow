@@ -72,8 +72,8 @@ Status ToDateHolder::Make(const std::string& sql_pattern, int32_t suppress_error
   return Status::OK();
 }
 
-int64_t ToDateHolder::operator()(ExecutionContext* context, const std::string& data,
-                                 bool in_valid, bool* out_valid) {
+int64_t ToDateHolder::operator()(ExecutionContext* context, const char* data,
+                                 int data_len, bool in_valid, bool* out_valid) {
   *out_valid = false;
   if (!in_valid) {
     return 0;
@@ -84,10 +84,10 @@ int64_t ToDateHolder::operator()(ExecutionContext* context, const std::string& d
   // 2. does not process time in format +08:00 (or) id.
   int64_t seconds_since_epoch = 0;
   if (!::arrow::internal::ParseTimestampStrptime(
-          data.c_str(), data.length(), pattern_.c_str(),
+          data, data_len, pattern_.c_str(),
           /*ignore_time_in_day=*/true, /*allow_trailing_chars=*/true,
           ::arrow::TimeUnit::SECOND, &seconds_since_epoch)) {
-    return_error(context, data);
+    return_error(context, data, data_len);
     return 0;
   }
 
@@ -95,12 +95,14 @@ int64_t ToDateHolder::operator()(ExecutionContext* context, const std::string& d
   return seconds_since_epoch * 1000;
 }
 
-void ToDateHolder::return_error(ExecutionContext* context, const std::string& data) {
+void ToDateHolder::return_error(ExecutionContext* context, const char* data,
+                                int data_len) {
   if (suppress_errors_ == 1) {
     return;
   }
 
-  std::string err_msg = "Error parsing value " + data + " for given format.";
+  std::string err_msg =
+      "Error parsing value " + std::string(data, data_len) + " for given format.";
   context->set_error_msg(err_msg.c_str());
 }
 

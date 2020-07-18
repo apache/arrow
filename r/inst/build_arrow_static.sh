@@ -58,7 +58,7 @@ ${CMAKE} -DARROW_BOOST_USE_SHARED=OFF \
     -DARROW_COMPUTE=ON \
     -DARROW_CSV=ON \
     -DARROW_DATASET=ON \
-    -DARROW_DEPENDENCY_SOURCE=${ARROW_DEPENDENCY_SOURCE:-AUTO} \
+    -DARROW_DEPENDENCY_SOURCE=BUNDLED \
     -DARROW_FILESYSTEM=ON \
     -DARROW_JEMALLOC=${ARROW_JEMALLOC:-ON} \
     -DARROW_JSON=ON \
@@ -67,6 +67,7 @@ ${CMAKE} -DARROW_BOOST_USE_SHARED=OFF \
     -DARROW_WITH_BZ2=${ARROW_WITH_BZ2:-$ARROW_DEFAULT_PARAM} \
     -DARROW_WITH_LZ4=${ARROW_WITH_LZ4:-$ARROW_DEFAULT_PARAM} \
     -DARROW_WITH_SNAPPY=${ARROW_WITH_SNAPPY:-$ARROW_DEFAULT_PARAM} \
+    -DARROW_WITH_UTF8PROC=OFF \
     -DARROW_WITH_ZLIB=${ARROW_WITH_ZLIB:-$ARROW_DEFAULT_PARAM} \
     -DARROW_WITH_ZSTD=${ARROW_WITH_ZSTD:-$ARROW_DEFAULT_PARAM} \
     -DCMAKE_BUILD_TYPE=Release \
@@ -80,20 +81,4 @@ ${CMAKE} -DARROW_BOOST_USE_SHARED=OFF \
     -G ${CMAKE_GENERATOR:-"Unix Makefiles"} \
     ${SOURCE_DIR}
 ${CMAKE} --build . --target install
-
-if [ $? -ne 0 ] && [ "${DEBUG_DIR}" != "" ]; then
-  # For debugging installation problems, copy the build contents somewhere not tmp
-  mkdir -p ${DEBUG_DIR}
-  cp -r ./* ${DEBUG_DIR}
-fi
-
-# Copy the bundled static libs from the build to the install dir
-# See https://issues.apache.org/jira/browse/ARROW-7499 for moving this to CMake
-find . -regex .*/.*/lib/.*\\.a\$ | xargs -I{} cp -u {} ${DEST_DIR}/lib
-# jemalloc makes both libjemalloc.a and libjemalloc_pic.a; we can't use the former, only the latter
-rm ${DEST_DIR}/lib/libjemalloc.a || true
-# -lbrotlicommon-static needs to come after the other brotli libs, so rename it so alpha sort works
-if [ -f "${DEST_DIR}/lib/libbrotlicommon-static.a" ]; then
-  mv "${DEST_DIR}/lib/libbrotlicommon-static.a" "${DEST_DIR}/lib/libbrotlizzz-static.a"
-fi
 popd

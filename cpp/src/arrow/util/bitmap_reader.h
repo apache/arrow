@@ -20,6 +20,7 @@
 #include <cstdint>
 #include <cstring>
 
+#include "arrow/buffer.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/macros.h"
 
@@ -56,6 +57,8 @@ class BitmapReader {
 
   int64_t position() const { return position_; }
 
+  int64_t length() const { return length_; }
+
  private:
   const uint8_t* bitmap_;
   int64_t position_;
@@ -64,6 +67,19 @@ class BitmapReader {
   uint8_t current_byte_;
   int64_t byte_offset_;
   int64_t bit_offset_;
+};
+
+/// \brief Index into a possibly non-existent bitmap
+struct OptionalBitIndexer {
+  const uint8_t* bitmap;
+  const int64_t offset;
+
+  explicit OptionalBitIndexer(const std::shared_ptr<Buffer>& buffer, int64_t offset = 0)
+      : bitmap(buffer == NULLPTR ? NULLPTR : buffer->data()), offset(offset) {}
+
+  bool operator[](int64_t i) const {
+    return bitmap == NULLPTR ? true : BitUtil::GetBit(bitmap, offset + i);
+  }
 };
 
 }  // namespace internal

@@ -42,6 +42,16 @@ def test_cpu_count():
         pa.set_cpu_count(n)
 
 
+def test_build_info():
+    assert isinstance(pa.cpp_build_info, pa.BuildInfo)
+    assert isinstance(pa.cpp_version_info, pa.VersionInfo)
+    assert isinstance(pa.cpp_version, str)
+    assert isinstance(pa.__version__, str)
+    assert pa.cpp_build_info.version_info == pa.cpp_version_info
+
+    # assert pa.version == pa.__version__  # XXX currently false
+
+
 @pytest.mark.parametrize('klass', [
     pa.Field,
     pa.Schema,
@@ -93,36 +103,36 @@ def test_cpu_count():
     pa.DurationArray,
     pa.Decimal128Array,
     pa.StructArray,
-    pa.ArrayValue,
-    pa.BooleanValue,
-    pa.Int8Value,
-    pa.Int16Value,
-    pa.Int32Value,
-    pa.Int64Value,
-    pa.UInt8Value,
-    pa.UInt16Value,
-    pa.UInt32Value,
-    pa.UInt64Value,
-    pa.HalfFloatValue,
-    pa.FloatValue,
-    pa.DoubleValue,
-    pa.DecimalValue,
-    pa.Date32Value,
-    pa.Date64Value,
-    pa.Time32Value,
-    pa.Time64Value,
-    pa.TimestampValue,
-    pa.DurationValue,
-    pa.StringValue,
-    pa.BinaryValue,
-    pa.FixedSizeBinaryValue,
-    pa.ListValue,
-    pa.LargeListValue,
-    pa.MapValue,
-    pa.FixedSizeListValue,
-    pa.UnionValue,
-    pa.StructValue,
-    pa.DictionaryValue,
+    pa.Scalar,
+    pa.BooleanScalar,
+    pa.Int8Scalar,
+    pa.Int16Scalar,
+    pa.Int32Scalar,
+    pa.Int64Scalar,
+    pa.UInt8Scalar,
+    pa.UInt16Scalar,
+    pa.UInt32Scalar,
+    pa.UInt64Scalar,
+    pa.HalfFloatScalar,
+    pa.FloatScalar,
+    pa.DoubleScalar,
+    pa.Decimal128Scalar,
+    pa.Date32Scalar,
+    pa.Date64Scalar,
+    pa.Time32Scalar,
+    pa.Time64Scalar,
+    pa.TimestampScalar,
+    pa.DurationScalar,
+    pa.StringScalar,
+    pa.BinaryScalar,
+    pa.FixedSizeBinaryScalar,
+    pa.ListScalar,
+    pa.LargeListScalar,
+    pa.MapScalar,
+    pa.FixedSizeListScalar,
+    pa.UnionScalar,
+    pa.StructScalar,
+    pa.DictionaryScalar,
     pa.ipc.Message,
     pa.ipc.MessageReader,
     pa.MemoryPool,

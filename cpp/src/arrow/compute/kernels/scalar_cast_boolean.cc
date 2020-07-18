@@ -48,17 +48,16 @@ struct ParseBooleanString {
 
 std::vector<std::shared_ptr<CastFunction>> GetBooleanCasts() {
   auto func = std::make_shared<CastFunction>("cast_boolean", Type::BOOL);
-  AddCommonCasts<BooleanType>(boolean(), func.get());
+  AddCommonCasts(Type::BOOL, boolean(), func.get());
 
   for (const auto& ty : NumericTypes()) {
     ArrayKernelExec exec =
-        codegen::Numeric<codegen::ScalarUnary, BooleanType, IsNonZero>(*ty);
+        GenerateNumeric<applicator::ScalarUnary, BooleanType, IsNonZero>(*ty);
     DCHECK_OK(func->AddKernel(ty->id(), {ty}, boolean(), exec));
   }
   for (const auto& ty : BaseBinaryTypes()) {
-    ArrayKernelExec exec =
-        codegen::BaseBinary<codegen::ScalarUnaryNotNull, BooleanType, ParseBooleanString>(
-            *ty);
+    ArrayKernelExec exec = GenerateVarBinaryBase<applicator::ScalarUnaryNotNull,
+                                                 BooleanType, ParseBooleanString>(*ty);
     DCHECK_OK(func->AddKernel(ty->id(), {ty}, boolean(), exec));
   }
   return {func};

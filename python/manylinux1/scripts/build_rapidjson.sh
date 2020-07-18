@@ -16,16 +16,16 @@
 # specific language governing permissions and limitations
 # under the License.
 
-export RAPIDJSON_VERSION="1.1.0"
+export RAPIDJSON_VERSION="1a803826f1197b5e30703afe4b9c0e7dd48074f5"
 
-curl -sL "https://github.com/miloyip/rapidjson/archive/v${RAPIDJSON_VERSION}.tar.gz" -o rapidjson-${RAPIDJSON_VERSION}.tar.gz
+curl -sL "https://github.com/Tencent/rapidjson/archive/${RAPIDJSON_VERSION}.tar.gz" -o rapidjson-${RAPIDJSON_VERSION}.tar.gz
 tar xf rapidjson-${RAPIDJSON_VERSION}.tar.gz
 pushd rapidjson-${RAPIDJSON_VERSION}
 mkdir build
 pushd build
 cmake -GNinja \
+      -DCMAKE_INSTALL_PREFIX=/usr/local \
       -DRAPIDJSON_HAS_STDSTRING=ON \
-      -DCMAKE_INSTALL_PREFIX=/usr \
       -DRAPIDJSON_BUILD_TESTS=OFF \
       -DRAPIDJSON_BUILD_EXAMPLES=OFF \
       -DRAPIDJSON_BUILD_DOC=OFF \

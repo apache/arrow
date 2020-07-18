@@ -65,7 +65,7 @@ inline std::shared_ptr<Schema> SchemaFromColumnNames(
     }
   }
 
-  return schema(std::move(columns));
+  return schema(std::move(columns))->WithMetadata(input->metadata());
 }
 
 }  // namespace dataset

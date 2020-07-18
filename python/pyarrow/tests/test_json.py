@@ -81,6 +81,14 @@ def test_parse_options():
     opts.explicit_schema = schema
     assert opts.explicit_schema == schema
 
+    assert opts.unexpected_field_behavior == "infer"
+    for value in ["ignore", "error", "infer"]:
+        opts.unexpected_field_behavior = value
+        assert opts.unexpected_field_behavior == value
+
+    with pytest.raises(ValueError):
+        opts.unexpected_field_behavior = "invalid-value"
+
 
 class BaseTestJSONRead:
 
@@ -183,6 +191,43 @@ class BaseTestJSONRead:
             'd': [None, None, None],
             'e': [None, True, False],
         }
+
+    def test_explicit_schema_with_unexpected_behaviour(self):
+        # infer by default
+        rows = (b'{"foo": "bar", "num": 0}\n'
+                b'{"foo": "baz", "num": 1}\n')
+        schema = pa.schema([
+            ('foo', pa.binary())
+        ])
+
+        opts = ParseOptions(explicit_schema=schema)
+        table = self.read_bytes(rows, parse_options=opts)
+        assert table.schema == pa.schema([
+            ('foo', pa.binary()),
+            ('num', pa.int64())
+        ])
+        assert table.to_pydict() == {
+            'foo': [b'bar', b'baz'],
+            'num': [0, 1],
+        }
+
+        # ignore the unexpected fields
+        opts = ParseOptions(explicit_schema=schema,
+                            unexpected_field_behavior="ignore")
+        table = self.read_bytes(rows, parse_options=opts)
+        assert table.schema == pa.schema([
+            ('foo', pa.binary()),
+        ])
+        assert table.to_pydict() == {
+            'foo': [b'bar', b'baz'],
+        }
+
+        # raise error
+        opts = ParseOptions(explicit_schema=schema,
+                            unexpected_field_behavior="error")
+        with pytest.raises(pa.ArrowInvalid,
+                           match="JSON parse error: unexpected field"):
+            self.read_bytes(rows, parse_options=opts)
 
     def test_small_random_json(self):
         data, expected = make_random_json(num_cols=2, num_rows=10)

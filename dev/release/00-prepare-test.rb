@@ -228,6 +228,13 @@ class PrepareTest < Test::Unit::TestCase
                      ],
                    },
                    {
+                     path: "ruby/red-arrow-dataset/lib/arrow-dataset/version.rb",
+                     hunks: [
+                       ["-  VERSION = \"#{@snapshot_version}\"",
+                        "+  VERSION = \"#{@release_version}\""],
+                     ],
+                   },
+                   {
                      path: "ruby/red-arrow/lib/arrow/version.rb",
                      hunks: [
                        ["-  VERSION = \"#{@snapshot_version}\"",
@@ -267,6 +274,8 @@ class PrepareTest < Test::Unit::TestCase
                      hunks: [
                        ["-version = \"#{@snapshot_version}\"",
                         "+version = \"#{@release_version}\""],
+                       ["-arrow-flight = { path = \"../arrow-flight\", optional = true, version = \"#{@snapshot_version}\" }",
+                        "+arrow-flight = { path = \"../arrow-flight\", optional = true, version = \"#{@release_version}\" }"],
                      ],
                    },
                    {
@@ -426,6 +435,13 @@ class PrepareTest < Test::Unit::TestCase
                      ],
                    },
                    {
+                     path: "ruby/red-arrow-dataset/lib/arrow-dataset/version.rb",
+                     hunks: [
+                       ["-  VERSION = \"#{@release_version}\"",
+                        "+  VERSION = \"#{@next_snapshot_version}\""],
+                     ],
+                   },
+                   {
                      path: "ruby/red-arrow/lib/arrow/version.rb",
                      hunks: [
                        ["-  VERSION = \"#{@release_version}\"",
@@ -465,6 +481,8 @@ class PrepareTest < Test::Unit::TestCase
                      hunks: [
                        ["-version = \"#{@release_version}\"",
                         "+version = \"#{@next_snapshot_version}\""],
+                       ["-arrow-flight = { path = \"../arrow-flight\", optional = true, version = \"#{@release_version}\" }",
+                        "+arrow-flight = { path = \"../arrow-flight\", optional = true, version = \"#{@next_snapshot_version}\" }"],
                      ],
                    },
                    {

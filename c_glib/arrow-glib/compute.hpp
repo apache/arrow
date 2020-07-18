@@ -23,6 +23,26 @@
 
 #include <arrow-glib/compute.h>
 
+
+struct _GArrowFunctionOptionsInterface
+{
+  GTypeInterface parent_iface;
+
+  arrow::compute::FunctionOptions *(*get_raw)(GArrowFunctionOptions *options);
+};
+
+
+arrow::compute::ExecContext *
+garrow_execute_context_get_raw(GArrowExecuteContext *context);
+
+arrow::compute::FunctionOptions *
+garrow_function_options_get_raw(GArrowFunctionOptions *options);
+
+GArrowFunction *
+garrow_function_new_raw(std::shared_ptr<arrow::compute::Function> *arrow_function);
+std::shared_ptr<arrow::compute::Function>
+garrow_function_get_raw(GArrowFunction *function);
+
 GArrowCastOptions *garrow_cast_options_new_raw(arrow::compute::CastOptions *arrow_cast_options);
 arrow::compute::CastOptions *garrow_cast_options_get_raw(GArrowCastOptions *cast_options);
 

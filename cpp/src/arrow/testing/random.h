@@ -25,8 +25,8 @@
 #include <random>
 #include <vector>
 
+#include "arrow/testing/visibility.h"
 #include "arrow/type.h"
-#include "arrow/util/visibility.h"
 
 namespace arrow {
 
@@ -37,7 +37,7 @@ namespace random {
 using SeedType = std::random_device::result_type;
 constexpr SeedType kSeedMax = std::numeric_limits<SeedType>::max();
 
-class ARROW_EXPORT RandomArrayGenerator {
+class ARROW_TESTING_EXPORT RandomArrayGenerator {
  public:
   explicit RandomArrayGenerator(SeedType seed)
       : seed_distribution_(static_cast<SeedType>(1), kSeedMax), seed_rng_(seed) {}
@@ -45,11 +45,11 @@ class ARROW_EXPORT RandomArrayGenerator {
   /// \brief Generates a random BooleanArray
   ///
   /// \param[in] size the size of the array to generate
-  /// \param[in] probability the estimated number of active bits
+  /// \param[in] true_probability the probability of a value being 1 / bit-set
   /// \param[in] null_probability the probability of a row being null
   ///
   /// \return a generated Array
-  std::shared_ptr<Array> Boolean(int64_t size, double probability,
+  std::shared_ptr<Array> Boolean(int64_t size, double true_probability,
                                  double null_probability = 0);
 
   /// \brief Generates a random UInt8Array
@@ -140,6 +140,17 @@ class ARROW_EXPORT RandomArrayGenerator {
   std::shared_ptr<Array> Int64(int64_t size, int64_t min, int64_t max,
                                double null_probability = 0);
 
+  /// \brief Generates a random HalfFloatArray
+  ///
+  /// \param[in] size the size of the array to generate
+  /// \param[in] min the lower bound of the distribution
+  /// \param[in] max the upper bound of the distribution
+  /// \param[in] null_probability the probability of a row being null
+  ///
+  /// \return a generated Array
+  std::shared_ptr<Array> Float16(int64_t size, int16_t min, int16_t max,
+                                 double null_probability = 0);
+
   /// \brief Generates a random FloatArray
   ///
   /// \param[in] size the size of the array to generate
@@ -190,6 +201,9 @@ class ARROW_EXPORT RandomArrayGenerator {
       case Type::INT64:
         return Int64(size, static_cast<int64_t>(min), static_cast<int64_t>(max),
                      null_probability);
+      case Type::HALF_FLOAT:
+        return Float16(size, static_cast<int16_t>(min), static_cast<int16_t>(max),
+                       null_probability);
       case Type::FLOAT:
         return Float32(size, static_cast<float>(min), static_cast<float>(max),
                        null_probability);
@@ -249,6 +263,21 @@ class ARROW_EXPORT RandomArrayGenerator {
   std::shared_ptr<Array> BinaryWithRepeats(int64_t size, int64_t unique,
                                            int32_t min_length, int32_t max_length,
                                            double null_probability = 0);
+
+  /// \brief Randomly generate an Array of the specified type, size, and null_probability.
+  ///
+  /// Generation parameters other than size and null_probability are determined based on
+  /// the type of Array to be generated.
+  /// If boolean the probabilities of true,false values are 0.25,0.75 respectively.
+  /// If numeric min,max will be the least and greatest representable values.
+  /// If string min_length,max_length will be 0,sqrt(size) respectively.
+  ///
+  /// \param[in] type the type of Array to generate
+  /// \param[in] size the size of the Array to generate
+  /// \param[in] null_probability the probability of a slot being null
+  /// \return a generated Array
+  std::shared_ptr<Array> ArrayOf(std::shared_ptr<DataType> type, int64_t size,
+                                 double null_probability);
 
   SeedType seed() { return seed_distribution_(seed_rng_); }
 

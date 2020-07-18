@@ -17,7 +17,7 @@
   under the License.
 -->
 
-# Arrow C++ Datasets
+# Arrow C++ Dataset
 
 The `arrow::dataset` subcomponent provides an API to read and write
 semantic datasets stored in different locations and formats. It

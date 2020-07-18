@@ -49,8 +49,7 @@ namespace arrow {
 ///   indices: [1, 0, 1, 0, 1, 0]
 ///   dictionary: ["bar", "foo"]
 ///
-/// The indices in principle may have any integer type (signed or unsigned),
-/// though presently data in IPC exchanges must be signed int32.
+/// The indices in principle may be any integer type.
 class ARROW_EXPORT DictionaryArray : public Array {
  public:
   using TypeClass = DictionaryType;
@@ -65,23 +64,22 @@ class ARROW_EXPORT DictionaryArray : public Array {
   /// array and validate
   ///
   /// This function does the validation of the indices and input type. It checks if
-  /// all indices are non-negative and smaller than the size of the dictionary
+  /// all indices are non-negative and smaller than the size of the dictionary.
   ///
   /// \param[in] type a dictionary type
   /// \param[in] dictionary the dictionary with same value type as the
   /// type object
-  /// \param[in] indices an array of non-negative signed
-  /// integers smaller than the size of the dictionary
+  /// \param[in] indices an array of non-negative integers smaller than the
+  /// size of the dictionary
   static Result<std::shared_ptr<Array>> FromArrays(
       const std::shared_ptr<DataType>& type, const std::shared_ptr<Array>& indices,
       const std::shared_ptr<Array>& dictionary);
 
   /// \brief Transpose this DictionaryArray
   ///
-  /// This method constructs a new dictionary array with the given dictionary type,
-  /// transposing indices using the transpose map.
-  /// The type and the transpose map are typically computed using
-  /// DictionaryUnifier.
+  /// This method constructs a new dictionary array with the given dictionary
+  /// type, transposing indices using the transpose map.  The type and the
+  /// transpose map are typically computed using DictionaryUnifier.
   ///
   /// \param[in] type the new type object
   /// \param[in] dictionary the new dictionary
@@ -100,7 +98,9 @@ class ARROW_EXPORT DictionaryArray : public Array {
   std::shared_ptr<Array> dictionary() const;
   std::shared_ptr<Array> indices() const;
 
-  /// \brief Return the ith value of indices, cast to int64_t
+  /// \brief Return the ith value of indices, cast to int64_t. Not recommended
+  /// for use in performance-sensitive code. Does not validate whether the
+  /// value is null or out-of-bounds.
   int64_t GetValueIndex(int64_t i) const;
 
   const DictionaryType* dict_type() const { return dict_type_; }

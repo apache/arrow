@@ -62,13 +62,17 @@ build() {
   mkdir -p ${cpp_build_dir}
   pushd ${cpp_build_dir}
 
+  # The Rtools libutf8proc is a static lib, but Findutf8proc.cmake doesn't
+  # set the appropriate compiler definition.
+  export CPPFLAGS="-DUTF8PROC_STATIC"
+
   # This is the difference between rtools-packages and rtools-backports
   # Remove this when submitting to rtools-packages
   if [ "$RTOOLS_VERSION" = "35" ]; then
     export CC="/C/Rtools${MINGW_PREFIX/mingw/mingw_}/bin/gcc"
     export CXX="/C/Rtools${MINGW_PREFIX/mingw/mingw_}/bin/g++"
     export PATH="/C/Rtools${MINGW_PREFIX/mingw/mingw_}/bin:$PATH"
-    export CPPFLAGS="-I${MINGW_PREFIX}/include"
+    export CPPFLAGS="${CPPFLAGS} -I${MINGW_PREFIX}/include"
     export LIBS="-L${MINGW_PREFIX}/libs"
   fi
 
@@ -86,18 +90,22 @@ build() {
     -DARROW_HDFS=OFF \
     -DARROW_JEMALLOC=OFF \
     -DARROW_JSON=ON \
+    -DARROW_MIMALLOC=ON \
     -DARROW_PACKAGE_PREFIX="${MINGW_PREFIX}" \
     -DARROW_PARQUET=ON \
     -DARROW_USE_GLOG=OFF \
     -DARROW_WITH_LZ4=ON \
     -DARROW_WITH_SNAPPY=ON \
+    -DARROW_WITH_UTF8PROC=OFF \
     -DARROW_WITH_ZLIB=ON \
     -DARROW_WITH_ZSTD=ON \
+    -DARROW_CXXFLAGS="${CPPFLAGS}" \
     -DCMAKE_BUILD_TYPE="release" \
     -DCMAKE_INSTALL_PREFIX=${MINGW_PREFIX} \
-    -DCMAKE_UNITY_BUILD=ON
+    -DCMAKE_UNITY_BUILD=ON \
+    -DCMAKE_VERBOSE_MAKEFILE=ON
 
-  make -j2
+  make -j3
   popd
 }
 

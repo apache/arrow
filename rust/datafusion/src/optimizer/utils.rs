@@ -46,7 +46,8 @@ pub fn expr_to_column_indices(expr: &Expr, accum: &mut HashSet<usize>) -> Result
             Ok(())
         }
         Expr::UnresolvedColumn(_) => Err(ExecutionError::ExecutionError(
-            "Columns need to be resolved before this rule can run".to_owned(),
+            "Columns need to be resolved before column indexes resolution rule can run"
+                .to_owned(),
         )),
         Expr::Literal(_) => {
             // not needed

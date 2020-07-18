@@ -824,7 +824,7 @@ mod tests {
 
         for _ in 0..niters {
             values.clear();
-            let mut rng = thread_rng();
+            let rng = thread_rng();
             let seed_vec: Vec<u8> =
                 rng.sample_iter::<u8, _>(&Standard).take(seed_len).collect();
             let mut seed = [0u8; 32];

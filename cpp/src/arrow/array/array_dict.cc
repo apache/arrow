@@ -47,56 +47,31 @@ using internal::CopyBitmap;
 // ----------------------------------------------------------------------
 // DictionaryArray
 
-/// \brief Perform validation check to determine if all dictionary indices
-/// are within valid range (0 <= index < upper_bound)
-///
-/// \param[in] indices array of dictionary indices
-/// \param[in] upper_bound upper bound of valid range for indices
-/// \return Status
-template <typename ArrowType>
-Status ValidateDictionaryIndices(const std::shared_ptr<Array>& indices,
-                                 const int64_t upper_bound) {
-  using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
-  const auto& array = checked_cast<const ArrayType&>(*indices);
-  const typename ArrowType::c_type* data = array.raw_values();
-  const int64_t size = array.length();
-
-  if (array.null_count() == 0) {
-    for (int64_t idx = 0; idx < size; ++idx) {
-      if (data[idx] < 0 || data[idx] >= upper_bound) {
-        return Status::Invalid("Dictionary has out-of-bound index [0, dict.length)");
-      }
-    }
-  } else {
-    for (int64_t idx = 0; idx < size; ++idx) {
-      if (!array.IsNull(idx)) {
-        if (data[idx] < 0 || data[idx] >= upper_bound) {
-          return Status::Invalid("Dictionary has out-of-bound index [0, dict.length)");
-        }
-      }
-    }
-  }
-
-  return Status::OK();
-}
-
 std::shared_ptr<Array> DictionaryArray::indices() const { return indices_; }
 
 int64_t DictionaryArray::GetValueIndex(int64_t i) const {
+  const uint8_t* indices_data = data_->buffers[1]->data();
+  // If the value is non-negative then we can use the unsigned path
   switch (indices_->type_id()) {
+    case Type::UINT8:
     case Type::INT8:
-      return checked_cast<const Int8Array&>(*indices_).Value(i);
+      return static_cast<int64_t>(indices_data[data_->offset + i]);
+    case Type::UINT16:
     case Type::INT16:
-      return checked_cast<const Int16Array&>(*indices_).Value(i);
+      return static_cast<int64_t>(
+          reinterpret_cast<const uint16_t*>(indices_data)[data_->offset + i]);
+    case Type::UINT32:
     case Type::INT32:
-      return checked_cast<const Int32Array&>(*indices_).Value(i);
+      return static_cast<int64_t>(
+          reinterpret_cast<const uint32_t*>(indices_data)[data_->offset + i]);
+    case Type::UINT64:
     case Type::INT64:
-      return checked_cast<const Int64Array&>(*indices_).Value(i);
+      return static_cast<int64_t>(
+          reinterpret_cast<const uint64_t*>(indices_data)[data_->offset + i]);
     default:
-      break;
+      ARROW_CHECK(false) << "unreachable";
+      return -1;
   }
-  ARROW_CHECK(false) << "unreachable";
-  return -1;
 }
 
 DictionaryArray::DictionaryArray(const std::shared_ptr<ArrayData>& data)
@@ -142,29 +117,13 @@ Result<std::shared_ptr<Array>> DictionaryArray::FromArrays(
     return Status::TypeError("Expected a dictionary type");
   }
   const auto& dict = checked_cast<const DictionaryType&>(*type);
-  ARROW_CHECK_EQ(indices->type_id(), dict.index_type()->id());
-
-  int64_t upper_bound = dictionary->length();
-  Status is_valid;
-
-  switch (indices->type_id()) {
-    case Type::INT8:
-      is_valid = ValidateDictionaryIndices<Int8Type>(indices, upper_bound);
-      break;
-    case Type::INT16:
-      is_valid = ValidateDictionaryIndices<Int16Type>(indices, upper_bound);
-      break;
-    case Type::INT32:
-      is_valid = ValidateDictionaryIndices<Int32Type>(indices, upper_bound);
-      break;
-    case Type::INT64:
-      is_valid = ValidateDictionaryIndices<Int64Type>(indices, upper_bound);
-      break;
-    default:
-      return Status::NotImplemented("Dictionary index type not supported: ",
-                                    indices->type()->ToString());
+  if (indices->type_id() != dict.index_type()->id()) {
+    return Status::TypeError(
+        "Dictionary type's index type does not match "
+        "indices array's type");
   }
-  RETURN_NOT_OK(is_valid);
+  RETURN_NOT_OK(internal::CheckIndexBounds(*indices->data(),
+                                           static_cast<uint64_t>(dictionary->length())));
   return std::make_shared<DictionaryArray>(type, indices, dictionary);
 }
 
@@ -297,15 +256,13 @@ inline bool IsTrivialTransposition(const int32_t* transpose_map,
 }
 
 template <typename InType, typename OutType>
-Result<std::shared_ptr<Array>> TransposeDictIndices(
-    MemoryPool* pool, const ArrayData& in_data, const int32_t* transpose_map,
-    const std::shared_ptr<ArrayData>& out_data) {
+void TransposeDictIndices(const ArrayData& in_data, const int32_t* transpose_map,
+                          ArrayData* out_data) {
   using in_c_type = typename InType::c_type;
   using out_c_type = typename OutType::c_type;
   internal::TransposeInts(in_data.GetValues<in_c_type>(1),
                           out_data->GetMutableValues<out_c_type>(1), in_data.length,
                           transpose_map);
-  return MakeArray(out_data);
 }
 
 }  // namespace
@@ -353,32 +310,43 @@ Result<std::shared_ptr<Array>> DictionaryArray::Transpose(
       type, data_->length, {null_bitmap, std::move(out_buffer)}, data_->null_count);
   out_data->dictionary = dictionary->data();
 
-#define TRANSPOSE_IN_OUT_CASE(IN_INDEX_TYPE, OUT_INDEX_TYPE)                 \
-  case OUT_INDEX_TYPE::type_id:                                              \
-    return TransposeDictIndices<IN_INDEX_TYPE, OUT_INDEX_TYPE>(pool, *data_, \
-                                                               transpose_map, out_data);
+#define TRANSPOSE_IN_OUT_CASE(IN_INDEX_TYPE, OUT_INDEX_TYPE)                   \
+  case OUT_INDEX_TYPE::type_id:                                                \
+    TransposeDictIndices<IN_INDEX_TYPE, OUT_INDEX_TYPE>(*data_, transpose_map, \
+                                                        out_data.get());       \
+    break;
 
 #define TRANSPOSE_IN_CASE(IN_INDEX_TYPE)                        \
   case IN_INDEX_TYPE::type_id:                                  \
     switch (out_type_id) {                                      \
+      TRANSPOSE_IN_OUT_CASE(IN_INDEX_TYPE, UInt8Type)           \
       TRANSPOSE_IN_OUT_CASE(IN_INDEX_TYPE, Int8Type)            \
+      TRANSPOSE_IN_OUT_CASE(IN_INDEX_TYPE, UInt16Type)          \
       TRANSPOSE_IN_OUT_CASE(IN_INDEX_TYPE, Int16Type)           \
+      TRANSPOSE_IN_OUT_CASE(IN_INDEX_TYPE, UInt32Type)          \
       TRANSPOSE_IN_OUT_CASE(IN_INDEX_TYPE, Int32Type)           \
+      TRANSPOSE_IN_OUT_CASE(IN_INDEX_TYPE, UInt64Type)          \
       TRANSPOSE_IN_OUT_CASE(IN_INDEX_TYPE, Int64Type)           \
       default:                                                  \
         return Status::NotImplemented("unexpected index type"); \
-    }
+    }                                                           \
+    break;
 
   switch (in_type_id) {
+    TRANSPOSE_IN_CASE(UInt8Type)
     TRANSPOSE_IN_CASE(Int8Type)
+    TRANSPOSE_IN_CASE(UInt16Type)
     TRANSPOSE_IN_CASE(Int16Type)
+    TRANSPOSE_IN_CASE(UInt32Type)
     TRANSPOSE_IN_CASE(Int32Type)
+    TRANSPOSE_IN_CASE(UInt64Type)
     TRANSPOSE_IN_CASE(Int64Type)
     default:
       return Status::NotImplemented("unexpected index type");
   }
 #undef TRANSPOSE_IN_CASE
 #undef TRANSPOSE_IN_OUT_CASE
+  return MakeArray(out_data);
 }
 
 }  // namespace arrow

@@ -3,7 +3,6 @@
 [![cran](https://www.r-pkg.org/badges/version-last-release/arrow)](https://cran.r-project.org/package=arrow)
 [![CI](https://github.com/apache/arrow/workflows/R/badge.svg?event=push)](https://github.com/apache/arrow/actions?query=workflow%3AR+branch%3Amaster+event%3Apush)
 [![conda-forge](https://img.shields.io/conda/vn/conda-forge/r-arrow.svg)](https://anaconda.org/conda-forge/r-arrow)
-[![codecov](https://codecov.io/gh/ursa-labs/arrow-r-nightly/branch/master/graph/badge.svg)](https://codecov.io/gh/ursa-labs/arrow-r-nightly)
 
 [Apache Arrow](https://arrow.apache.org/) is a cross-language
 development platform for in-memory data. It specifies a standardized
@@ -158,13 +157,6 @@ you will need to set the `ARROW_R_DEV` environment variable to `TRUE`
 (optionally, add it to your`~/.Renviron` file to persist across
 sessions) so that the `data-raw/codegen.R` file is used for code
 generation.
-
-The codegen.R script has these additional dependencies:
-
-``` r
-remotes::install_github("nealrichardson/decor")
-install.packages("glue")
-```
 
 We use Google C++ style in our C++ code. Check for style errors with
 

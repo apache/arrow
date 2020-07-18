@@ -181,6 +181,16 @@ Status MakeRandomByteBuffer(int64_t length, MemoryPool* pool,
   return Status::OK();
 }
 
+Status GetTestResourceRoot(std::string* out) {
+  const char* c_root = std::getenv("ARROW_TEST_DATA");
+  if (!c_root) {
+    return Status::IOError(
+        "Test resources not found, set ARROW_TEST_DATA to <repo root>/testing/data");
+  }
+  *out = std::string(c_root);
+  return Status::OK();
+}
+
 int GetListenPort() {
   // Get a new available port number by binding a socket to an ephemeral port
   // and then closing it.  Since ephemeral port allocation tends to avoid
@@ -231,6 +241,12 @@ int GetListenPort() {
 #endif
 
   return port;
+}
+
+const std::vector<std::shared_ptr<DataType>>& all_dictionary_index_types() {
+  static std::vector<std::shared_ptr<DataType>> types = {
+      int8(), uint8(), int16(), uint16(), int32(), uint32(), int64(), uint64()};
+  return types;
 }
 
 }  // namespace arrow

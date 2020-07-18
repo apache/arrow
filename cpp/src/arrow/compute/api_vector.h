@@ -29,6 +29,9 @@ namespace compute {
 
 class ExecContext;
 
+/// \addtogroup compute-concrete-options
+/// @{
+
 struct FilterOptions : public FunctionOptions {
   /// Configure the action taken when a slot of the selection mask is null
   enum NullSelectionBehavior {
@@ -38,10 +41,32 @@ struct FilterOptions : public FunctionOptions {
     EMIT_NULL,
   };
 
-  static FilterOptions Defaults() { return FilterOptions{}; }
+  explicit FilterOptions(NullSelectionBehavior null_selection = DROP)
+      : null_selection_behavior(null_selection) {}
+
+  static FilterOptions Defaults() { return FilterOptions(); }
 
   NullSelectionBehavior null_selection_behavior = DROP;
 };
+
+struct ARROW_EXPORT TakeOptions : public FunctionOptions {
+  explicit TakeOptions(bool boundscheck = true) : boundscheck(boundscheck) {}
+
+  bool boundscheck = true;
+  static TakeOptions BoundsCheck() { return TakeOptions(true); }
+  static TakeOptions NoBoundsCheck() { return TakeOptions(false); }
+  static TakeOptions Defaults() { return BoundsCheck(); }
+};
+
+/// \brief Partitioning options for NthToIndices
+struct PartitionNthOptions : public FunctionOptions {
+  explicit PartitionNthOptions(int64_t pivot) : pivot(pivot) {}
+
+  /// The index into the equivalent sorted array of the partition pivot element.
+  int64_t pivot;
+};
+
+/// @}
 
 /// \brief Filter with a boolean selection filter
 ///
@@ -64,9 +89,23 @@ Result<Datum> Filter(const Datum& values, const Datum& filter,
                      const FilterOptions& options = FilterOptions::Defaults(),
                      ExecContext* ctx = NULLPTR);
 
-struct ARROW_EXPORT TakeOptions : public FunctionOptions {
-  static TakeOptions Defaults() { return TakeOptions{}; }
-};
+namespace internal {
+
+// These internal functions are implemented in kernels/vector_selection.cc
+
+/// \brief Return the number of selected indices in the boolean filter
+ARROW_EXPORT
+int64_t GetFilterOutputSize(const ArrayData& filter,
+                            FilterOptions::NullSelectionBehavior null_selection);
+
+/// \brief Compute uint64 selection indices for use with Take given a boolean
+/// filter
+ARROW_EXPORT
+Result<std::shared_ptr<ArrayData>> GetTakeIndices(
+    const ArrayData& filter, FilterOptions::NullSelectionBehavior null_selection,
+    MemoryPool* memory_pool = default_memory_pool());
+
+}  // namespace internal
 
 /// \brief Take from an array of values at indices in another array
 ///
@@ -94,11 +133,6 @@ ARROW_EXPORT
 Result<std::shared_ptr<Array>> Take(const Array& values, const Array& indices,
                                     const TakeOptions& options = TakeOptions::Defaults(),
                                     ExecContext* ctx = NULLPTR);
-
-struct PartitionOptions : public FunctionOptions {
-  explicit PartitionOptions(int64_t pivot) : pivot(pivot) {}
-  int64_t pivot;
-};
 
 /// \brief Returns indices that partition an array around n-th
 /// sorted element.
@@ -152,6 +186,7 @@ ARROW_EXPORT extern const char kValuesFieldName[];
 ARROW_EXPORT extern const char kCountsFieldName[];
 ARROW_EXPORT extern const int32_t kValuesFieldIndex;
 ARROW_EXPORT extern const int32_t kCountsFieldIndex;
+
 /// \brief Return counts of unique elements from an array-like object.
 ///
 /// Note that the counts do not include counts for nulls in the array.  These can be
@@ -183,34 +218,37 @@ Result<Datum> DictionaryEncode(const Datum& data, ExecContext* ctx = NULLPTR);
 // ----------------------------------------------------------------------
 // Deprecated functions
 
-// TODO: Add deprecation warnings to these functions
-// ARROW_DEPRECATED("Deprecated in 1.0.0. Use Datum-based version")
-
+ARROW_DEPRECATED("Deprecated in 1.0.0. Use Datum-based version")
 ARROW_EXPORT
 Result<std::shared_ptr<ChunkedArray>> Take(
     const ChunkedArray& values, const Array& indices,
     const TakeOptions& options = TakeOptions::Defaults(), ExecContext* context = NULLPTR);
 
+ARROW_DEPRECATED("Deprecated in 1.0.0. Use Datum-based version")
 ARROW_EXPORT
 Result<std::shared_ptr<ChunkedArray>> Take(
     const ChunkedArray& values, const ChunkedArray& indices,
     const TakeOptions& options = TakeOptions::Defaults(), ExecContext* context = NULLPTR);
 
+ARROW_DEPRECATED("Deprecated in 1.0.0. Use Datum-based version")
 ARROW_EXPORT
 Result<std::shared_ptr<ChunkedArray>> Take(
     const Array& values, const ChunkedArray& indices,
     const TakeOptions& options = TakeOptions::Defaults(), ExecContext* context = NULLPTR);
 
+ARROW_DEPRECATED("Deprecated in 1.0.0. Use Datum-based version")
 ARROW_EXPORT
 Result<std::shared_ptr<RecordBatch>> Take(
     const RecordBatch& batch, const Array& indices,
     const TakeOptions& options = TakeOptions::Defaults(), ExecContext* context = NULLPTR);
 
+ARROW_DEPRECATED("Deprecated in 1.0.0. Use Datum-based version")
 ARROW_EXPORT
 Result<std::shared_ptr<Table>> Take(const Table& table, const Array& indices,
                                     const TakeOptions& options = TakeOptions::Defaults(),
                                     ExecContext* context = NULLPTR);
 
+ARROW_DEPRECATED("Deprecated in 1.0.0. Use Datum-based version")
 ARROW_EXPORT
 Result<std::shared_ptr<Table>> Take(const Table& table, const ChunkedArray& indices,
                                     const TakeOptions& options = TakeOptions::Defaults(),

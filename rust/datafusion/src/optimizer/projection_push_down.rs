@@ -34,7 +34,7 @@ impl OptimizerRule for ProjectionPushDown {
     fn optimize(&mut self, plan: &LogicalPlan) -> Result<LogicalPlan> {
         let mut accum: HashSet<usize> = HashSet::new();
         let mut mapping: HashMap<usize, usize> = HashMap::new();
-        self.optimize_plan(plan, &mut accum, &mut mapping)
+        self.optimize_plan(plan, &mut accum, &mut mapping, false)
     }
 }
 
@@ -49,23 +49,31 @@ impl ProjectionPushDown {
         plan: &LogicalPlan,
         accum: &mut HashSet<usize>,
         mapping: &mut HashMap<usize, usize>,
+        has_projection: bool,
     ) -> Result<LogicalPlan> {
         match plan {
             LogicalPlan::Projection { expr, input, .. } => {
                 // collect all columns referenced by projection expressions
                 utils::exprlist_to_column_indices(&expr, accum)?;
 
-                LogicalPlanBuilder::from(&self.optimize_plan(&input, accum, mapping)?)
-                    .project(self.rewrite_expr_list(expr, mapping)?)?
-                    .build()
+                LogicalPlanBuilder::from(
+                    &self.optimize_plan(&input, accum, mapping, true)?,
+                )
+                .project(self.rewrite_expr_list(expr, mapping)?)?
+                .build()
             }
             LogicalPlan::Selection { expr, input } => {
                 // collect all columns referenced by filter expression
                 utils::expr_to_column_indices(expr, accum)?;
 
-                LogicalPlanBuilder::from(&self.optimize_plan(&input, accum, mapping)?)
-                    .filter(self.rewrite_expr(expr, mapping)?)?
-                    .build()
+                LogicalPlanBuilder::from(&self.optimize_plan(
+                    &input,
+                    accum,
+                    mapping,
+                    has_projection,
+                )?)
+                .filter(self.rewrite_expr(expr, mapping)?)?
+                .build()
             }
             LogicalPlan::Aggregate {
                 input,
@@ -77,20 +85,30 @@ impl ProjectionPushDown {
                 utils::exprlist_to_column_indices(&group_expr, accum)?;
                 utils::exprlist_to_column_indices(&aggr_expr, accum)?;
 
-                LogicalPlanBuilder::from(&self.optimize_plan(&input, accum, mapping)?)
-                    .aggregate(
-                        self.rewrite_expr_list(group_expr, mapping)?,
-                        self.rewrite_expr_list(aggr_expr, mapping)?,
-                    )?
-                    .build()
+                LogicalPlanBuilder::from(&self.optimize_plan(
+                    &input,
+                    accum,
+                    mapping,
+                    has_projection,
+                )?)
+                .aggregate(
+                    self.rewrite_expr_list(group_expr, mapping)?,
+                    self.rewrite_expr_list(aggr_expr, mapping)?,
+                )?
+                .build()
             }
             LogicalPlan::Sort { expr, input, .. } => {
                 // collect all columns referenced by sort expressions
                 utils::exprlist_to_column_indices(&expr, accum)?;
 
-                LogicalPlanBuilder::from(&self.optimize_plan(&input, accum, mapping)?)
-                    .sort(self.rewrite_expr_list(expr, mapping)?)?
-                    .build()
+                LogicalPlanBuilder::from(&self.optimize_plan(
+                    &input,
+                    accum,
+                    mapping,
+                    has_projection,
+                )?)
+                .sort(self.rewrite_expr_list(expr, mapping)?)?
+                .build()
             }
             LogicalPlan::EmptyRelation { schema } => Ok(LogicalPlan::EmptyRelation {
                 schema: schema.clone(),
@@ -102,8 +120,13 @@ impl ProjectionPushDown {
                 projection,
                 ..
             } => {
-                let (projection, projected_schema) =
-                    get_projected_schema(&table_schema, projection, accum, mapping)?;
+                let (projection, projected_schema) = get_projected_schema(
+                    &table_schema,
+                    projection,
+                    accum,
+                    mapping,
+                    has_projection,
+                )?;
 
                 // return the table scan with projection
                 Ok(LogicalPlan::TableScan {
@@ -120,9 +143,13 @@ impl ProjectionPushDown {
                 projection,
                 ..
             } => {
-                let (projection, projected_schema) =
-                    get_projected_schema(&schema, projection, accum, mapping)?;
-
+                let (projection, projected_schema) = get_projected_schema(
+                    &schema,
+                    projection,
+                    accum,
+                    mapping,
+                    has_projection,
+                )?;
                 Ok(LogicalPlan::InMemoryScan {
                     data: data.clone(),
                     schema: schema.clone(),
@@ -138,8 +165,13 @@ impl ProjectionPushDown {
                 projection,
                 ..
             } => {
-                let (projection, projected_schema) =
-                    get_projected_schema(&schema, projection, accum, mapping)?;
+                let (projection, projected_schema) = get_projected_schema(
+                    &schema,
+                    projection,
+                    accum,
+                    mapping,
+                    has_projection,
+                )?;
 
                 Ok(LogicalPlan::CsvScan {
                     path: path.to_owned(),
@@ -156,8 +188,13 @@ impl ProjectionPushDown {
                 projection,
                 ..
             } => {
-                let (projection, projected_schema) =
-                    get_projected_schema(&schema, projection, accum, mapping)?;
+                let (projection, projected_schema) = get_projected_schema(
+                    &schema,
+                    projection,
+                    accum,
+                    mapping,
+                    has_projection,
+                )?;
 
                 Ok(LogicalPlan::ParquetScan {
                     path: path.to_owned(),
@@ -166,13 +203,11 @@ impl ProjectionPushDown {
                     projected_schema: Box::new(projected_schema),
                 })
             }
-            LogicalPlan::Limit { expr, input, .. } => {
-                // Note that limit expressions are scalar values so there is no need to
-                // rewrite them but we do need to optimize the input to the limit plan
-                LogicalPlanBuilder::from(&self.optimize_plan(&input, accum, mapping)?)
-                    .limit(expr.clone())?
-                    .build()
-            }
+            LogicalPlan::Limit { n, input, .. } => LogicalPlanBuilder::from(
+                &self.optimize_plan(&input, accum, mapping, has_projection)?,
+            )
+            .limit(*n)?
+            .build(),
             LogicalPlan::CreateExternalTable {
                 schema,
                 name,
@@ -208,7 +243,8 @@ impl ProjectionPushDown {
             )),
             Expr::Column(i) => Ok(Expr::Column(self.new_index(mapping, i)?)),
             Expr::UnresolvedColumn(_) => Err(ExecutionError::ExecutionError(
-                "Columns need to be resolved before this rule can run".to_owned(),
+                "Columns need to be resolved before projection push down rule can run"
+                    .to_owned(),
             )),
             Expr::Literal(_) => Ok(expr.clone()),
             Expr::Not(e) => Ok(Expr::Not(Box::new(self.rewrite_expr(e, mapping)?))),
@@ -225,9 +261,14 @@ impl ProjectionPushDown {
                 expr: Box::new(self.rewrite_expr(expr, mapping)?),
                 data_type: data_type.clone(),
             }),
-            Expr::Sort { expr, asc } => Ok(Expr::Sort {
+            Expr::Sort {
+                expr,
+                asc,
+                nulls_first,
+            } => Ok(Expr::Sort {
                 expr: Box::new(self.rewrite_expr(expr, mapping)?),
                 asc: *asc,
+                nulls_first: *nulls_first,
             }),
             Expr::AggregateFunction {
                 name,
@@ -268,6 +309,7 @@ fn get_projected_schema(
     projection: &Option<Vec<usize>>,
     accum: &HashSet<usize>,
     mapping: &mut HashMap<usize, usize>,
+    has_projection: bool,
 ) -> Result<(Vec<usize>, Schema)> {
     if projection.is_some() {
         return Err(ExecutionError::General(
@@ -277,13 +319,22 @@ fn get_projected_schema(
 
     // once we reach the table scan, we can use the accumulated set of column
     // indexes as the projection in the table scan
-    let mut projection: Vec<usize> = Vec::with_capacity(accum.len());
-    accum.iter().for_each(|i| projection.push(*i));
+    let mut projection = accum.iter().map(|i| *i).collect::<Vec<usize>>();
 
-    // Ensure that we are reading at least one column from the table in case the query
-    // does not reference any columns directly such as "SELECT COUNT(1) FROM table"
     if projection.is_empty() {
-        projection.push(0);
+        if has_projection {
+            // Ensure that we are reading at least one column from the table in case the query
+            // does not reference any columns directly such as "SELECT COUNT(1) FROM table"
+            projection.push(0);
+        } else {
+            // for table scan without projection, we default to return all columns
+            projection = table_schema
+                .fields()
+                .iter()
+                .enumerate()
+                .map(|(i, _)| i)
+                .collect::<Vec<usize>>();
+        }
     }
 
     // sort the projection otherwise we get non-deterministic behavior
@@ -419,17 +470,42 @@ mod tests {
 
         let plan = LogicalPlanBuilder::from(&table_scan)
             .project(vec![Column(2), Column(0)])?
-            .limit(Expr::Literal(ScalarValue::UInt32(5)))?
+            .limit(5)?
             .build()?;
 
         assert_fields_eq(&plan, vec!["c", "a"]);
 
-        let expected = "Limit: UInt32(5)\
+        let expected = "Limit: 5\
         \n  Projection: #1, #0\
         \n    TableScan: test projection=Some([0, 2])";
 
         assert_optimized_plan_eq(&plan, expected);
 
+        Ok(())
+    }
+
+    #[test]
+    fn table_scan_without_projection() -> Result<()> {
+        let table_scan = test_table_scan()?;
+        let plan = LogicalPlanBuilder::from(&table_scan).build()?;
+        // should expand projection to all columns without projection
+        let expected = "TableScan: test projection=Some([0, 1, 2])";
+        assert_optimized_plan_eq(&plan, expected);
+        Ok(())
+    }
+
+    #[test]
+    fn table_scan_with_literal_projection() -> Result<()> {
+        let table_scan = test_table_scan()?;
+        let plan = LogicalPlanBuilder::from(&table_scan)
+            .project(vec![
+                Expr::Literal(ScalarValue::Int64(1)),
+                Expr::Literal(ScalarValue::Int64(2)),
+            ])?
+            .build()?;
+        let expected = "Projection: Int64(1), Int64(2)\
+                      \n  TableScan: test projection=Some([0])";
+        assert_optimized_plan_eq(&plan, expected);
         Ok(())
     }
 

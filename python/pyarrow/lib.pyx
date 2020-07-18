@@ -21,11 +21,9 @@
 
 import datetime
 import decimal as _pydecimal
-import json
 import numpy as np
 import os
-
-from pyarrow.compat import frombytes, tobytes, ordered_dict
+import sys
 
 from cython.operator cimport dereference as deref
 from pyarrow.includes.libarrow cimport *
@@ -38,7 +36,6 @@ arrow_init_numpy()
 # Initialize PyArrow C++ API
 # (used from some of our C++ code, see e.g. ARROW-5260)
 import_pyarrow()
-set_numpy_nan(np.nan)
 
 
 def cpu_count():
@@ -93,7 +90,8 @@ Type_LARGE_LIST = _Type_LARGE_LIST
 Type_MAP = _Type_MAP
 Type_FIXED_SIZE_LIST = _Type_FIXED_SIZE_LIST
 Type_STRUCT = _Type_STRUCT
-Type_UNION = _Type_UNION
+Type_SPARSE_UNION = _Type_SPARSE_UNION
+Type_DENSE_UNION = _Type_DENSE_UNION
 Type_DICTIONARY = _Type_DICTIONARY
 
 UnionMode_SPARSE = _UnionMode_SPARSE
@@ -105,11 +103,17 @@ def _pc():
     return pc
 
 
+# Assorted compatibility helpers
+include "compat.pxi"
+
+# Exception types and Status handling
+include "error.pxi"
+
+# Configuration information
+include "config.pxi"
+
 # pandas API shim
 include "pandas-shim.pxi"
-
-# Exception types
-include "error.pxi"
 
 # Memory pools and allocation
 include "memory.pxi"

@@ -32,7 +32,7 @@ module Arrow
       case index_or_name
       when String, Symbol
         name = index_or_name
-        (@name_to_builder ||= build_name_to_builder)[name.to_s]
+        cached_name_to_builder[name.to_s]
       else
         index = index_or_name
         cached_field_builders[index]
@@ -70,13 +70,18 @@ module Arrow
           append_null
         when ::Array
           append_value_raw
-          value.each_with_index do |sub_value, i|
-            self[i].append(sub_value)
+          cached_field_builders.zip(value) do |builder, sub_value|
+            builder.append(sub_value)
           end
         when Hash
           append_value_raw
+          local_name_to_builder = cached_name_to_builder.dup
           value.each do |name, sub_value|
-            self[name].append(sub_value)
+            builder = local_name_to_builder.delete(name.to_s)
+            builder.append(sub_value)
+          end
+          local_name_to_builder.each do |_, builder|
+            builder.append_null
           end
         else
           message =
@@ -108,9 +113,6 @@ module Arrow
     alias_method :append_null_raw, :append_null
     def append_null
       append_null_raw
-      cached_field_builders.each do |builder|
-        builder.append_null
-      end
     end
 
     # @since 0.12.0
@@ -135,6 +137,10 @@ module Arrow
         name_to_builder[field.name] = builders[i]
       end
       name_to_builder
+    end
+
+    def cached_name_to_builder
+      @name_to_builder ||= build_name_to_builder
     end
   end
 end

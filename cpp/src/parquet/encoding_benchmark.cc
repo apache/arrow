@@ -217,11 +217,11 @@ struct BM_SpacedEncodingTraits<BooleanType> {
 static void BM_PlainSpacedArgs(benchmark::internal::Benchmark* bench) {
   constexpr auto kPlainSpacedSize = 32 * 1024;  // 32k
 
-  bench->Args({/*size*/ kPlainSpacedSize, /*null_percentage=*/1});
-  bench->Args({/*size*/ kPlainSpacedSize, /*null_percentage=*/10});
-  bench->Args({/*size*/ kPlainSpacedSize, /*null_percentage=*/50});
-  bench->Args({/*size*/ kPlainSpacedSize, /*null_percentage=*/90});
-  bench->Args({/*size*/ kPlainSpacedSize, /*null_percentage=*/99});
+  bench->Args({/*size*/ kPlainSpacedSize, /*null_in_ten_thousand*/ 1});
+  bench->Args({/*size*/ kPlainSpacedSize, /*null_in_ten_thousand*/ 100});
+  bench->Args({/*size*/ kPlainSpacedSize, /*null_in_ten_thousand*/ 1000});
+  bench->Args({/*size*/ kPlainSpacedSize, /*null_in_ten_thousand*/ 5000});
+  bench->Args({/*size*/ kPlainSpacedSize, /*null_in_ten_thousand*/ 10000});
 }
 
 template <typename ParquetType>
@@ -231,7 +231,7 @@ static void BM_PlainEncodingSpaced(benchmark::State& state) {
   using CType = typename BM_SpacedEncodingTraits<ParquetType>::CType;
 
   const int num_values = static_cast<int>(state.range(0));
-  const auto null_percent = static_cast<double>(state.range(1)) / 100.0;
+  const double null_percent = static_cast<double>(state.range(1)) / 10000.0;
 
   auto rand = ::arrow::random::RandomArrayGenerator(1923);
   const auto array = rand.Numeric<ArrowType>(num_values, -100, 100, null_percent);
@@ -249,6 +249,7 @@ static void BM_PlainEncodingSpaced(benchmark::State& state) {
     encoder->PutSpaced(src, num_values, valid_bits, 0);
     encoder->FlushValues();
   }
+  state.counters["null_percent"] = null_percent * 100;
   state.SetBytesProcessed(state.iterations() * num_values * sizeof(CType));
 }
 
@@ -274,7 +275,7 @@ static void BM_PlainDecodingSpaced(benchmark::State& state) {
   using CType = typename BM_SpacedEncodingTraits<ParquetType>::CType;
 
   const int num_values = static_cast<int>(state.range(0));
-  const auto null_percent = static_cast<double>(state.range(1)) / 100.0;
+  const auto null_percent = static_cast<double>(state.range(1)) / 10000.0;
 
   auto rand = ::arrow::random::RandomArrayGenerator(1923);
   const auto array = rand.Numeric<ArrowType>(num_values, -100, 100, null_percent);
@@ -299,6 +300,7 @@ static void BM_PlainDecodingSpaced(benchmark::State& state) {
     decoder->SetData(num_values - null_count, buf->data(), static_cast<int>(buf->size()));
     decoder->DecodeSpaced(decode_buf, num_values, null_count, valid_bits, 0);
   }
+  state.counters["null_percent"] = null_percent * 100;
   state.SetBytesProcessed(state.iterations() * num_values * sizeof(CType));
 }
 

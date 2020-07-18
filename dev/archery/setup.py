@@ -25,8 +25,10 @@ if sys.version_info < (3, 5):
     sys.exit('Python < 3.5 is not supported')
 
 extras = {
+    'benchmark': ['pandas'],
     'bot': ['ruamel.yaml', 'pygithub'],
-    'docker': ['ruamel.yaml', 'python-dotenv']
+    'docker': ['ruamel.yaml', 'python-dotenv'],
+    'release': ['jinja2', 'jira', 'semver', 'gitpython']
 }
 extras['all'] = list(set(functools.reduce(operator.add, extras.values())))
 
@@ -44,6 +46,7 @@ setup(
         'archery.lang',
         'archery.utils'
     ],
+    include_package_data=True,
     install_requires=['click>=7'],
     tests_require=['pytest', 'responses'],
     extras_require=extras,

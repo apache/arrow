@@ -41,14 +41,14 @@ class GANDIVA_EXPORT ToDateHolder : public FunctionHolder {
                      std::shared_ptr<ToDateHolder>* holder);
 
   /// Return true if the data matches the pattern.
-  int64_t operator()(ExecutionContext* context, const std::string& data, bool in_valid,
-                     bool* out_valid);
+  int64_t operator()(ExecutionContext* context, const char* data, int data_len,
+                     bool in_valid, bool* out_valid);
 
  private:
   ToDateHolder(const std::string& pattern, int32_t suppress_errors)
       : pattern_(pattern), suppress_errors_(suppress_errors) {}
 
-  void return_error(ExecutionContext* context, const std::string& data);
+  void return_error(ExecutionContext* context, const char* data, int data_len);
 
   std::string pattern_;  // date format string
 

@@ -347,7 +347,7 @@ class HadoopFileSystem::HadoopFileSystemImpl {
       driver_->BuilderSetKerbTicketCachePath(builder, config->kerb_ticket.c_str());
     }
 
-    for (auto& kv : config->extra_conf) {
+    for (const auto& kv : config->extra_conf) {
       int ret = driver_->BuilderConfSetStr(builder, kv.first.c_str(), kv.second.c_str());
       CHECK_FAILURE(ret, "confsetstr");
     }

@@ -73,6 +73,44 @@ r_to_py.RecordBatch <- function(x, convert = FALSE) {
   out
 }
 
+r_to_py.ChunkedArray <- function(x, convert = FALSE) {
+  # Import with convert = FALSE so that `_import_from_c` returns a Python object
+  pa <- reticulate::import("pyarrow", convert = FALSE)
+  out <- pa$chunked_array(x$chunks)
+  # But set the convert attribute on the return object to the requested value
+  assign("convert", convert, out)
+  out
+}
+
+py_to_r.pyarrow.lib.ChunkedArray <- function(x, ...) {
+  ChunkedArray$create(!!!maybe_py_to_r(x$chunks))
+}
+
+r_to_py.Table <- function(x, convert = FALSE) {
+  # Import with convert = FALSE so that `_import_from_c` returns a Python object
+  pa <- reticulate::import("pyarrow", convert = FALSE)
+  out <- pa$Table$from_arrays(x$columns, names = names(x))
+  # But set the convert attribute on the return object to the requested value
+  assign("convert", convert, out)
+  out
+}
+
+py_to_r.pyarrow.lib.Table <- function(x, ...) {
+  colnames <- maybe_py_to_r(x$column_names)
+  r_cols <- maybe_py_to_r(x$columns)
+  names(r_cols) <- colnames
+  Table$create(!!!r_cols)
+}
+
+maybe_py_to_r <- function(x) {
+  if (inherits(x, "python.builtin.object")) {
+    # Depending on some auto-convert behavior, x may already be converted
+    # or it may still be a Python object
+    x <- reticulate::py_to_r(x)
+  }
+  x
+}
+
 #' Install pyarrow for use with reticulate
 #'
 #' `pyarrow` is the Python package for Apache Arrow. This function helps with

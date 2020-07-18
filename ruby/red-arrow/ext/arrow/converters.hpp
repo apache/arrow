@@ -285,7 +285,8 @@ namespace red_arrow {
     // VISIT(Interval)
     VISIT(List)
     VISIT(Struct)
-    VISIT(Union)
+    VISIT(SparseUnion)
+    VISIT(DenseUnion)
     VISIT(Dictionary)
     VISIT(Decimal128)
     // TODO
@@ -388,7 +389,8 @@ namespace red_arrow {
     // VISIT(Interval)
     VISIT(List)
     VISIT(Struct)
-    VISIT(Union)
+    VISIT(SparseUnion)
+    VISIT(DenseUnion)
     VISIT(Dictionary)
     VISIT(Decimal128)
     // TODO
@@ -432,10 +434,10 @@ namespace red_arrow {
       index_ = index;
       switch (array.mode()) {
       case arrow::UnionMode::SPARSE:
-        convert_sparse(array);
+        convert_sparse(static_cast<const arrow::SparseUnionArray&>(array));
         break;
       case arrow::UnionMode::DENSE:
-        convert_dense(array);
+        convert_dense(static_cast<const arrow::DenseUnionArray&>(array));
         break;
       default:
         rb_raise(rb_eArgError, "Invalid union mode");
@@ -479,7 +481,8 @@ namespace red_arrow {
     // VISIT(Interval)
     VISIT(List)
     VISIT(Struct)
-    VISIT(Union)
+    VISIT(SparseUnion)
+    VISIT(DenseUnion)
     VISIT(Dictionary)
     VISIT(Decimal128)
     // TODO
@@ -516,7 +519,7 @@ namespace red_arrow {
       return 0;
     }
 
-    void convert_sparse(const arrow::UnionArray& array) {
+    void convert_sparse(const arrow::SparseUnionArray& array) {
       const auto type =
         std::static_pointer_cast<arrow::UnionType>(array.type()).get();
       const auto tag = "[raw-records][union-sparse-array]";
@@ -530,7 +533,7 @@ namespace red_arrow {
       field_name_ = field_name_keep;
     }
 
-    void convert_dense(const arrow::UnionArray& array) {
+    void convert_dense(const arrow::DenseUnionArray& array) {
       const auto type =
         std::static_pointer_cast<arrow::UnionType>(array.type()).get();
       const auto tag = "[raw-records][union-dense-array]";
@@ -557,30 +560,57 @@ namespace red_arrow {
   public:
     explicit DictionaryArrayValueConverter(ArrayValueConverter* converter)
       : array_value_converter_(converter),
-        index_(0),
+        value_index_(0),
         result_(Qnil) {
     }
 
     VALUE convert(const arrow::DictionaryArray& array,
                   const int64_t index) {
-      index_ = index;
-      auto indices = array.indices().get();
-      check_status(indices->Accept(this),
+      value_index_ = array.GetValueIndex(index);
+      auto dictionary = array.dictionary().get();
+      check_status(dictionary->Accept(this),
                    "[raw-records][dictionary-array]");
       return result_;
     }
 
-    // TODO: Convert to real value.
 #define VISIT(TYPE)                                                     \
     arrow::Status Visit(const arrow::TYPE ## Array& array) override {   \
-      result_ = convert_value(array, index_);                           \
+      result_ = convert_value(array, value_index_);                     \
       return arrow::Status::OK();                                       \
       }
 
+    VISIT(Null)
+    VISIT(Boolean)
     VISIT(Int8)
     VISIT(Int16)
     VISIT(Int32)
     VISIT(Int64)
+    VISIT(UInt8)
+    VISIT(UInt16)
+    VISIT(UInt32)
+    VISIT(UInt64)
+    // TODO
+    // VISIT(HalfFloat)
+    VISIT(Float)
+    VISIT(Double)
+    VISIT(Binary)
+    VISIT(String)
+    VISIT(FixedSizeBinary)
+    VISIT(Date32)
+    VISIT(Date64)
+    VISIT(Time32)
+    VISIT(Time64)
+    VISIT(Timestamp)
+    // TODO
+    // VISIT(Interval)
+    VISIT(List)
+    VISIT(Struct)
+    VISIT(SparseUnion)
+    VISIT(DenseUnion)
+    VISIT(Dictionary)
+    VISIT(Decimal128)
+    // TODO
+    // VISIT(Extension)
 
 #undef VISIT
 
@@ -592,7 +622,7 @@ namespace red_arrow {
     }
 
     ArrayValueConverter* array_value_converter_;
-    int64_t index_;
+    int64_t value_index_;
     VALUE result_;
   };
 

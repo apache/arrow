@@ -21,10 +21,13 @@
 #include <memory>
 
 #include "arrow/result.h"
-#include "arrow/type_fwd.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
+
+class Buffer;
+class MemoryPool;
+
 namespace internal {
 
 // ----------------------------------------------------------------------
@@ -48,12 +51,11 @@ Result<std::shared_ptr<Buffer>> CopyBitmap(MemoryPool* pool, const uint8_t* bitm
 /// \param[in] offset bit offset into the source data
 /// \param[in] length number of bits to copy
 /// \param[in] dest_offset bit offset into the destination
-/// \param[in] restore_trailing_bits don't clobber bits outside the destination range
 /// \param[out] dest the destination buffer, must have at least space for
 /// (offset + length) bits
 ARROW_EXPORT
 void CopyBitmap(const uint8_t* bitmap, int64_t offset, int64_t length, uint8_t* dest,
-                int64_t dest_offset, bool restore_trailing_bits = true);
+                int64_t dest_offset);
 
 /// Invert a bit range of an existing bitmap into an existing bitmap
 ///

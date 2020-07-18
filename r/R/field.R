@@ -57,7 +57,7 @@ Field$create <- function(name, type, metadata) {
   assert_that(inherits(name, "character"), length(name) == 1L)
   type <- as_type(type, name)
   assert_that(missing(metadata), msg = "metadata= is currently ignored")
-  shared_ptr(Field, Field__initialize(name, type, TRUE))
+  shared_ptr(Field, Field__initialize(enc2utf8(name), type, TRUE))
 }
 
 #' @param name field name

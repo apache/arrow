@@ -21,6 +21,7 @@
 #include "arrow/python/helpers.h"
 
 #include <limits>
+#include <mutex>
 #include <sstream>
 #include <type_traits>
 #include <typeinfo>
@@ -254,6 +255,43 @@ bool PyFloat_IsNaN(PyObject* obj) {
   return PyFloat_Check(obj) && std::isnan(PyFloat_AsDouble(obj));
 }
 
+namespace {
+
+static std::once_flag pandas_static_initialized;
+static PyTypeObject* pandas_NaTType = nullptr;
+static PyObject* pandas_NA = nullptr;
+
+void GetPandasStaticSymbols() {
+  OwnedRef pandas;
+  Status s = ImportModule("pandas", &pandas);
+  if (!s.ok()) {
+    return;
+  }
+
+  OwnedRef ref;
+  s = ImportFromModule(pandas.obj(), "NaT", &ref);
+  if (!s.ok()) {
+    return;
+  }
+  PyObject* nat_type = PyObject_Type(ref.obj());
+  pandas_NaTType = reinterpret_cast<PyTypeObject*>(nat_type);
+
+  // PyObject_Type returns a new reference but we trust that pandas.NaT will
+  // outlive our use of this PyObject*
+  Py_DECREF(nat_type);
+
+  if (ImportFromModule(pandas.obj(), "NA", &ref).ok()) {
+    // If pandas.NA exists, retain a reference to it
+    pandas_NA = ref.obj();
+  }
+}
+
+}  // namespace
+
+void InitPandasStaticData() {
+  std::call_once(pandas_static_initialized, GetPandasStaticSymbols);
+}
+
 bool PandasObjectIsNull(PyObject* obj) {
   if (!MayHaveNaN(obj)) {
     return false;
@@ -261,7 +299,8 @@ bool PandasObjectIsNull(PyObject* obj) {
   if (obj == Py_None) {
     return true;
   }
-  if (PyFloat_IsNaN(obj) ||
+  if (PyFloat_IsNaN(obj) || (pandas_NA && obj == pandas_NA) ||
+      (pandas_NaTType && PyObject_TypeCheck(obj, pandas_NaTType)) ||
       (internal::PyDecimal_Check(obj) && internal::PyDecimal_ISNAN(obj))) {
     return true;
   }

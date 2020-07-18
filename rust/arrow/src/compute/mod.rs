@@ -26,6 +26,7 @@ pub use self::kernels::arithmetic::*;
 pub use self::kernels::boolean::*;
 pub use self::kernels::cast::*;
 pub use self::kernels::comparison::*;
+pub use self::kernels::concat::*;
 pub use self::kernels::filter::*;
 pub use self::kernels::limit::*;
 pub use self::kernels::sort::*;

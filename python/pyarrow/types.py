@@ -35,8 +35,9 @@ _DATE_TYPES = {lib.Type_DATE32, lib.Type_DATE64}
 _TIME_TYPES = {lib.Type_TIME32, lib.Type_TIME64}
 _TEMPORAL_TYPES = {lib.Type_TIMESTAMP,
                    lib.Type_DURATION} | _TIME_TYPES | _DATE_TYPES
+_UNION_TYPES = {lib.Type_SPARSE_UNION, lib.Type_DENSE_UNION}
 _NESTED_TYPES = {lib.Type_LIST, lib.Type_LARGE_LIST, lib.Type_STRUCT,
-                 lib.Type_UNION, lib.Type_MAP}
+                 lib.Type_MAP} | _UNION_TYPES
 
 
 def is_null(t):
@@ -190,7 +191,7 @@ def is_union(t):
     """
     Return True if value is an instance of a union type.
     """
-    return t.id == lib.Type_UNION
+    return t.id in _UNION_TYPES
 
 
 def is_nested(t):

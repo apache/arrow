@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <array>
 #include <climits>
+#include <cmath>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
@@ -47,6 +48,152 @@ Decimal128::Decimal128(const std::string& str) : Decimal128() {
 static const Decimal128 kTenTo36(static_cast<int64_t>(0xC097CE7BC90715),
                                  0xB34B9F1000000000);
 static const Decimal128 kTenTo18(0xDE0B6B3A7640000);
+
+static constexpr auto kInt64DecimalDigits =
+    static_cast<size_t>(std::numeric_limits<int64_t>::digits10);
+
+static constexpr int64_t kInt64PowersOfTen[kInt64DecimalDigits + 1] = {
+    // clang-format off
+    1LL,
+    10LL,
+    100LL,
+    1000LL,
+    10000LL,
+    100000LL,
+    1000000LL,
+    10000000LL,
+    100000000LL,
+    1000000000LL,
+    10000000000LL,
+    100000000000LL,
+    1000000000000LL,
+    10000000000000LL,
+    100000000000000LL,
+    1000000000000000LL,
+    10000000000000000LL,
+    100000000000000000LL,
+    1000000000000000000LL
+    // clang-format on
+};
+
+static constexpr float kFloatPowersOfTen[2 * 38 + 1] = {
+    1e-38f, 1e-37f, 1e-36f, 1e-35f, 1e-34f, 1e-33f, 1e-32f, 1e-31f, 1e-30f, 1e-29f,
+    1e-28f, 1e-27f, 1e-26f, 1e-25f, 1e-24f, 1e-23f, 1e-22f, 1e-21f, 1e-20f, 1e-19f,
+    1e-18f, 1e-17f, 1e-16f, 1e-15f, 1e-14f, 1e-13f, 1e-12f, 1e-11f, 1e-10f, 1e-9f,
+    1e-8f,  1e-7f,  1e-6f,  1e-5f,  1e-4f,  1e-3f,  1e-2f,  1e-1f,  1e0f,   1e1f,
+    1e2f,   1e3f,   1e4f,   1e5f,   1e6f,   1e7f,   1e8f,   1e9f,   1e10f,  1e11f,
+    1e12f,  1e13f,  1e14f,  1e15f,  1e16f,  1e17f,  1e18f,  1e19f,  1e20f,  1e21f,
+    1e22f,  1e23f,  1e24f,  1e25f,  1e26f,  1e27f,  1e28f,  1e29f,  1e30f,  1e31f,
+    1e32f,  1e33f,  1e34f,  1e35f,  1e36f,  1e37f,  1e38f};
+
+static constexpr double kDoublePowersOfTen[2 * 38 + 1] = {
+    1e-38, 1e-37, 1e-36, 1e-35, 1e-34, 1e-33, 1e-32, 1e-31, 1e-30, 1e-29, 1e-28,
+    1e-27, 1e-26, 1e-25, 1e-24, 1e-23, 1e-22, 1e-21, 1e-20, 1e-19, 1e-18, 1e-17,
+    1e-16, 1e-15, 1e-14, 1e-13, 1e-12, 1e-11, 1e-10, 1e-9,  1e-8,  1e-7,  1e-6,
+    1e-5,  1e-4,  1e-3,  1e-2,  1e-1,  1e0,   1e1,   1e2,   1e3,   1e4,   1e5,
+    1e6,   1e7,   1e8,   1e9,   1e10,  1e11,  1e12,  1e13,  1e14,  1e15,  1e16,
+    1e17,  1e18,  1e19,  1e20,  1e21,  1e22,  1e23,  1e24,  1e25,  1e26,  1e27,
+    1e28,  1e29,  1e30,  1e31,  1e32,  1e33,  1e34,  1e35,  1e36,  1e37,  1e38};
+
+namespace {
+
+template <typename Real, typename Derived>
+struct DecimalRealConversion {
+  static Result<Decimal128> FromPositiveReal(Real real, int32_t precision,
+                                             int32_t scale) {
+    auto x = real;
+    if (scale >= -38 && scale <= 38) {
+      x *= Derived::powers_of_ten()[scale + 38];
+    } else {
+      x *= std::pow(static_cast<Real>(10), static_cast<Real>(scale));
+    }
+    x = std::nearbyint(x);
+    const auto max_abs = Derived::powers_of_ten()[precision + 38];
+    if (x <= -max_abs || x >= max_abs) {
+      return Status::Invalid("Cannot convert ", real,
+                             " to Decimal128(precision = ", precision,
+                             ", scale = ", scale, "): overflow");
+    }
+    // Extract high and low bits
+    const auto high = std::floor(std::ldexp(x, -64));
+    const auto low = x - std::ldexp(high, 64);
+
+    DCHECK_GE(high, -9.223372036854776e+18);  // -2**63
+    DCHECK_LT(high, 9.223372036854776e+18);   // 2**63
+    DCHECK_GE(low, 0);
+    DCHECK_LT(low, 1.8446744073709552e+19);  // 2**64
+    return Decimal128(static_cast<int64_t>(high), static_cast<uint64_t>(low));
+  }
+
+  static Result<Decimal128> FromReal(Real x, int32_t precision, int32_t scale) {
+    DCHECK_GT(precision, 0);
+    DCHECK_LE(precision, 38);
+
+    if (!std::isfinite(x)) {
+      return Status::Invalid("Cannot convert ", x, " to Decimal128");
+    }
+    if (x < 0) {
+      ARROW_ASSIGN_OR_RAISE(auto dec, FromPositiveReal(-x, precision, scale));
+      return dec.Negate();
+    } else {
+      // Includes negative zero
+      return FromPositiveReal(x, precision, scale);
+    }
+  }
+
+  static Real ToRealPositive(const Decimal128& decimal, int32_t scale) {
+    Real x = static_cast<Real>(decimal.high_bits()) * Derived::two_to_64();
+    x += static_cast<Real>(decimal.low_bits());
+    if (scale >= -38 && scale <= 38) {
+      x *= Derived::powers_of_ten()[-scale + 38];
+    } else {
+      x *= std::pow(static_cast<Real>(10), static_cast<Real>(-scale));
+    }
+    return x;
+  }
+
+  static Real ToReal(Decimal128 decimal, int32_t scale) {
+    if (decimal.high_bits() < 0) {
+      // Convert the absolute value to avoid precision loss
+      decimal.Negate();
+      return -ToRealPositive(decimal, scale);
+    } else {
+      return ToRealPositive(decimal, scale);
+    }
+  }
+};
+
+struct DecimalFloatConversion
+    : public DecimalRealConversion<float, DecimalFloatConversion> {
+  static constexpr const float* powers_of_ten() { return kFloatPowersOfTen; }
+
+  static constexpr float two_to_64() { return 1.8446744e+19f; }
+};
+
+struct DecimalDoubleConversion
+    : public DecimalRealConversion<double, DecimalDoubleConversion> {
+  static constexpr const double* powers_of_ten() { return kDoublePowersOfTen; }
+
+  static constexpr double two_to_64() { return 1.8446744073709552e+19; }
+};
+
+}  // namespace
+
+Result<Decimal128> Decimal128::FromReal(float x, int32_t precision, int32_t scale) {
+  return DecimalFloatConversion::FromReal(x, precision, scale);
+}
+
+Result<Decimal128> Decimal128::FromReal(double x, int32_t precision, int32_t scale) {
+  return DecimalDoubleConversion::FromReal(x, precision, scale);
+}
+
+float Decimal128::ToFloat(int32_t scale) const {
+  return DecimalFloatConversion::ToReal(*this, scale);
+}
+
+double Decimal128::ToDouble(int32_t scale) const {
+  return DecimalDoubleConversion::ToReal(*this, scale);
+}
 
 std::string Decimal128::ToIntegerString() const {
   Decimal128 remainder;
@@ -154,35 +301,13 @@ std::string Decimal128::ToString(int32_t scale) const {
   return "0." + std::string(static_cast<size_t>(scale - len), '0') + str;
 }
 
-static constexpr auto kInt64DecimalDigits =
-    static_cast<size_t>(std::numeric_limits<int64_t>::digits10);
-static constexpr int64_t kPowersOfTen[kInt64DecimalDigits + 1] = {1LL,
-                                                                  10LL,
-                                                                  100LL,
-                                                                  1000LL,
-                                                                  10000LL,
-                                                                  100000LL,
-                                                                  1000000LL,
-                                                                  10000000LL,
-                                                                  100000000LL,
-                                                                  1000000000LL,
-                                                                  10000000000LL,
-                                                                  100000000000LL,
-                                                                  1000000000000LL,
-                                                                  10000000000000LL,
-                                                                  100000000000000LL,
-                                                                  1000000000000000LL,
-                                                                  10000000000000000LL,
-                                                                  100000000000000000LL,
-                                                                  1000000000000000000LL};
-
 // Iterates over data and for each group of kInt64DecimalDigits multiple out by
 // the appropriate power of 10 necessary to add source parsed as uint64 and
 // then adds the parsed value of source.
 static inline void ShiftAndAdd(const char* data, size_t length, Decimal128* out) {
   for (size_t posn = 0; posn < length;) {
     const size_t group_size = std::min(kInt64DecimalDigits, length - posn);
-    const int64_t multiple = kPowersOfTen[group_size];
+    const int64_t multiple = kInt64PowersOfTen[group_size];
     int64_t chunk = 0;
     ARROW_CHECK(internal::ParseValue<Int64Type>(data + posn, group_size, &chunk));
 

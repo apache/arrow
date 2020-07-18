@@ -573,9 +573,8 @@ garrow_sparse_union_data_type_new(GList *fields,
   }
 
   auto arrow_data_type =
-    std::make_shared<arrow::UnionType>(arrow_fields,
-                                       arrow_type_codes,
-                                       arrow::UnionMode::SPARSE);
+    std::make_shared<arrow::SparseUnionType>(arrow_fields,
+                                             arrow_type_codes);
   auto data_type = g_object_new(GARROW_TYPE_SPARSE_UNION_DATA_TYPE,
                                 "data-type", &arrow_data_type,
                                 NULL);
@@ -623,9 +622,8 @@ garrow_dense_union_data_type_new(GList *fields,
   }
 
   auto arrow_data_type =
-    std::make_shared<arrow::UnionType>(arrow_fields,
-                                       arrow_type_codes,
-                                       arrow::UnionMode::DENSE);
+    std::make_shared<arrow::DenseUnionType>(arrow_fields,
+                                            arrow_type_codes);
   auto data_type = g_object_new(GARROW_TYPE_DENSE_UNION_DATA_TYPE,
                                 "data-type", &arrow_data_type,
                                 NULL);

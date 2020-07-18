@@ -21,17 +21,17 @@
 #include <string>
 
 #include "arrow/extension_type.h"
+#include "arrow/testing/visibility.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/visibility.h"
 
 namespace arrow {
 
-class ARROW_EXPORT UuidArray : public ExtensionArray {
+class ARROW_TESTING_EXPORT UuidArray : public ExtensionArray {
  public:
   using ExtensionArray::ExtensionArray;
 };
 
-class ARROW_EXPORT UuidType : public ExtensionType {
+class ARROW_TESTING_EXPORT UuidType : public ExtensionType {
  public:
   UuidType() : ExtensionType(fixed_size_binary(16)) {}
 
@@ -48,12 +48,12 @@ class ARROW_EXPORT UuidType : public ExtensionType {
   std::string Serialize() const override { return "uuid-serialized"; }
 };
 
-class ARROW_EXPORT SmallintArray : public ExtensionArray {
+class ARROW_TESTING_EXPORT SmallintArray : public ExtensionArray {
  public:
   using ExtensionArray::ExtensionArray;
 };
 
-class ARROW_EXPORT SmallintType : public ExtensionType {
+class ARROW_TESTING_EXPORT SmallintType : public ExtensionType {
  public:
   SmallintType() : ExtensionType(int16()) {}
 
@@ -70,7 +70,7 @@ class ARROW_EXPORT SmallintType : public ExtensionType {
   std::string Serialize() const override { return "smallint"; }
 };
 
-class ARROW_EXPORT DictExtensionType : public ExtensionType {
+class ARROW_TESTING_EXPORT DictExtensionType : public ExtensionType {
  public:
   DictExtensionType() : ExtensionType(dictionary(int8(), utf8())) {}
 
@@ -87,24 +87,24 @@ class ARROW_EXPORT DictExtensionType : public ExtensionType {
   std::string Serialize() const override { return "dict-extension-serialized"; }
 };
 
-ARROW_EXPORT
+ARROW_TESTING_EXPORT
 std::shared_ptr<DataType> uuid();
 
-ARROW_EXPORT
+ARROW_TESTING_EXPORT
 std::shared_ptr<DataType> smallint();
 
-ARROW_EXPORT
+ARROW_TESTING_EXPORT
 std::shared_ptr<DataType> dict_extension_type();
 
-ARROW_EXPORT
+ARROW_TESTING_EXPORT
 std::shared_ptr<Array> ExampleUuid();
 
-ARROW_EXPORT
+ARROW_TESTING_EXPORT
 std::shared_ptr<Array> ExampleSmallint();
 
 // A RAII class that registers an extension type on construction
 // and unregisters it on destruction.
-class ARROW_EXPORT ExtensionTypeGuard {
+class ARROW_TESTING_EXPORT ExtensionTypeGuard {
  public:
   explicit ExtensionTypeGuard(const std::shared_ptr<DataType>& type);
   ~ExtensionTypeGuard();

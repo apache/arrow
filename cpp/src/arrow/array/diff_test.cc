@@ -350,7 +350,7 @@ TEST_F(DiffTest, BasicsWithStructs) {
 }
 
 TEST_F(DiffTest, BasicsWithUnions) {
-  auto type = union_({field("foo", utf8()), field("bar", int32())}, {2, 5});
+  auto type = sparse_union({field("foo", utf8()), field("bar", int32())}, {2, 5});
 
   // insert one
   base_ = ArrayFromJSON(type, R"([[2, "!"], [5, 3], [5, 13]])");
@@ -509,8 +509,8 @@ TEST_F(DiffTest, UnifiedDiffFormatter) {
 )");
 
   // unions
-  for (auto mode : {UnionMode::SPARSE, UnionMode::DENSE}) {
-    type = union_({field("foo", utf8()), field("bar", int32())}, {2, 5}, mode);
+  for (auto union_ : UnionTypeFactories()) {
+    type = union_({field("foo", utf8()), field("bar", int32())}, {2, 5});
     base_ = ArrayFromJSON(type, R"([[2, "!"], [5, 3], [5, 13]])");
     target_ = ArrayFromJSON(type, R"([[2, "!"], [2, "3"], [5, 13]])");
     AssertDiffAndFormat(R"(

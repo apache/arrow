@@ -16,11 +16,16 @@
 # specific language governing permissions and limitations
 # under the License.
 
-export SNAPPY_VERSION="1.1.7"
+export SNAPPY_VERSION="1.1.8"
 curl -sL "https://github.com/google/snappy/archive/${SNAPPY_VERSION}.tar.gz" -o snappy-${SNAPPY_VERSION}.tar.gz
 tar xf snappy-${SNAPPY_VERSION}.tar.gz
 pushd snappy-${SNAPPY_VERSION}
-CXXFLAGS='-DNDEBUG -O2' cmake -GNinja -DCMAKE_INSTALL_PREFIX=/usr -DBUILD_SHARED_LIBS=OFF -DCMAKE_POSITION_INDEPENDENT_CODE=1 -DSNAPPY_BUILD_TESTS=OFF .
+CXXFLAGS='-DNDEBUG -O2' cmake -GNinja \
+    -DCMAKE_INSTALL_PREFIX=/usr/local \
+    -DCMAKE_POSITION_INDEPENDENT_CODE=1 \
+    -DBUILD_SHARED_LIBS=OFF \
+    -DSNAPPY_BUILD_TESTS=OFF \
+    .
 ninja install
 popd
 rm -rf snappy-${SNAPPY_VERSION}.tar.gz snappy-${SNAPPY_VERSION}

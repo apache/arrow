@@ -16,11 +16,13 @@
 # under the License.
 
 from collections import namedtuple
+from io import StringIO
 import click
 import errno
 import json
 import logging
 import os
+import pathlib
 import sys
 
 from .benchmark.compare import RunnerComparator, DEFAULT_THRESHOLD
@@ -318,9 +320,11 @@ def lint(ctx, src, fix, iwyu_all, **checks):
 @click.option("--src", metavar="<arrow_src>", default=None,
               callback=validate_arrow_sources,
               help="Specify Arrow source directory")
-@click.option("--whitelist", "-w", help="Allow only these rules")
-@click.option("--blacklist", "-b", help="Disallow these rules")
-def numpydoc(src, symbols, whitelist, blacklist):
+@click.option("--allow-rule", "-a", multiple=True,
+              help="Allow only these rules")
+@click.option("--disallow-rule", "-d", multiple=True,
+              help="Disallow these rules")
+def numpydoc(src, symbols, allow_rule, disallow_rule):
     """
     Pass list of modules or symbols as arguments to restrict the validation.
 
@@ -332,10 +336,10 @@ def numpydoc(src, symbols, whitelist, blacklist):
     archery numpydoc pyarrow.csv pyarrow.json pyarrow.parquet
     archery numpydoc pyarrow.array
     """
-    blacklist = blacklist or {'GL01', 'SA01', 'EX01', 'ES01'}
+    disallow_rule = disallow_rule or {'GL01', 'SA01', 'EX01', 'ES01'}
     try:
-        results = python_numpydoc(symbols, whitelist=whitelist,
-                                  blacklist=blacklist)
+        results = python_numpydoc(symbols, allow_rules=allow_rule,
+                                  disallow_rule=disallow_rule)
         for result in results:
             result.ok()
     except LintValidationException:
@@ -379,7 +383,7 @@ def benchmark_filter_options(cmd):
                      help="Regex filtering benchmark suites."),
         click.option("--benchmark-filter", metavar="<regex>",
                      show_default=True, type=str, default=None,
-                     help="Regex filtering benchmark suites.")
+                     help="Regex filtering benchmarks.")
     ]
     return _apply_options(cmd, options)
 
@@ -465,6 +469,9 @@ def benchmark_run(ctx, rev_or_path, src, preserve, output, cmake_extras,
 @click.option("--threshold", type=float, default=DEFAULT_THRESHOLD,
               show_default=True,
               help="Regression failure threshold in percentage.")
+@click.option("--repetitions", type=int, default=1, show_default=True,
+              help=("Number of repetitions of each benchmark. Increasing "
+                    "may improve result precision."))
 @click.argument("contender", metavar="[<contender>",
                 default=ArrowSources.WORKSPACE, required=False)
 @click.argument("baseline", metavar="[<baseline>]]", default="origin/master",
@@ -472,7 +479,7 @@ def benchmark_run(ctx, rev_or_path, src, preserve, output, cmake_extras,
 @click.pass_context
 def benchmark_diff(ctx, src, preserve, output, cmake_extras,
                    suite_filter, benchmark_filter,
-                   threshold, contender, baseline, **kwargs):
+                   repetitions, threshold, contender, baseline, **kwargs):
     """Compare (diff) benchmark runs.
 
     This command acts like git-diff but for benchmark results.
@@ -552,17 +559,41 @@ def benchmark_diff(ctx, src, preserve, output, cmake_extras,
 
         runner_cont = BenchmarkRunner.from_rev_or_path(
             src, root, contender, conf,
-            suite_filter=suite_filter, benchmark_filter=benchmark_filter)
+            repetitions=repetitions,
+            suite_filter=suite_filter,
+            benchmark_filter=benchmark_filter)
         runner_base = BenchmarkRunner.from_rev_or_path(
             src, root, baseline, conf,
-            suite_filter=suite_filter, benchmark_filter=benchmark_filter)
+            repetitions=repetitions,
+            suite_filter=suite_filter,
+            benchmark_filter=benchmark_filter)
 
         runner_comp = RunnerComparator(runner_cont, runner_base, threshold)
 
         # TODO(kszucs): test that the output is properly formatted jsonlines
-        for comparator in runner_comp.comparisons:
-            json.dump(comparator, output, cls=JsonEncoder)
-            output.write("\n")
+        comparisons_json = _get_comparisons_as_json(runner_comp.comparisons)
+        formatted = _format_comparisons_with_pandas(comparisons_json)
+        output.write(formatted)
+        output.write('\n')
+
+
+def _get_comparisons_as_json(comparisons):
+    buf = StringIO()
+    for comparator in comparisons:
+        json.dump(comparator, buf, cls=JsonEncoder)
+        buf.write("\n")
+
+    return buf.getvalue()
+
+
+def _format_comparisons_with_pandas(comparisons_json):
+    import pandas as pd
+    df = pd.read_json(StringIO(comparisons_json), lines=True)
+    # parse change % so we can sort by it
+    df['change %'] = df.pop('change').str[:-1].map(float)
+    df = df[['benchmark', 'baseline', 'contender', 'change %', 'counters']]
+    df = df.sort_values(by='change %', ascending=False)
+    return df.to_string()
 
 
 # ----------------------------------------------------------------------
@@ -621,7 +652,7 @@ def integration(with_all=False, random_seed=12345, **args):
 
     gen_path = args['write_generated_json']
 
-    languages = ['cpp', 'java', 'js', 'go']
+    languages = ['cpp', 'java', 'js', 'go', 'rust']
 
     enabled_languages = 0
     for lang in languages:
@@ -681,7 +712,6 @@ def docker_compose(obj, src):
     # take the docker-compose parameters like PYTHON, PANDAS, UBUNTU from the
     # environment variables to keep the usage similar to docker-compose
     obj['compose'] = DockerCompose(config_path, params=os.environ)
-    obj['compose'].validate()
 
 
 @docker_compose.command('run')
@@ -689,10 +719,14 @@ def docker_compose(obj, src):
 @click.argument('command', required=False, default=None)
 @click.option('--env', '-e', multiple=True,
               help="Set environment variable within the container")
+@click.option('--user', '-u', default=None,
+              help="Username or UID to run the container with")
 @click.option('--force-pull/--no-pull', default=True,
               help="Whether to force pull the image and its ancestor images")
 @click.option('--force-build/--no-build', default=True,
               help="Whether to force build the image and its ancestor images")
+@click.option('--build-only', default=False, is_flag=True,
+              help="Pull and/or build the image, but do not run it")
 @click.option('--use-cache/--no-cache', default=True,
               help="Whether to use cache when building the image and its "
                    "ancestor images")
@@ -706,11 +740,12 @@ def docker_compose(obj, src):
 @click.option('--volume', '-v', multiple=True,
               help="Set volume within the container")
 @click.pass_obj
-def docker_compose_run(obj, image, command, env, force_pull, force_build,
-                       use_cache, use_leaf_cache, dry_run, volume):
+def docker_compose_run(obj, image, command, *, env, user, force_pull,
+                       force_build, build_only, use_cache, use_leaf_cache,
+                       dry_run, volume):
     """Execute docker-compose builds.
 
-    To see the available builds run `archery docker list`.
+    To see the available builds run `archery docker images`.
 
     Examples:
 
@@ -750,16 +785,18 @@ def docker_compose_run(obj, image, command, env, force_pull, force_build,
             command = ' '.join(params + ['docker-compose'] + list(args))
             click.echo(command)
 
-        compose._execute = MethodType(_print_command, compose)
+        compose._execute_compose = MethodType(_print_command, compose)
 
-    env = dict(kv.split('=') for kv in env)
+    env = dict(kv.split('=', 1) for kv in env)
     try:
         compose.run(
             image,
             command=command,
             env=env,
+            user=user,
             force_pull=force_pull,
             force_build=force_build,
+            build_only=build_only,
             use_cache=use_cache,
             use_leaf_cache=use_leaf_cache,
             volumes=volume
@@ -795,6 +832,107 @@ def docker_compose_images(obj):
     click.echo('Available images:')
     for image in compose.images():
         click.echo(' - {}'.format(image))
+
+
+@archery.group('release')
+@click.option("--src", metavar="<arrow_src>", default=None,
+              callback=validate_arrow_sources,
+              help="Specify Arrow source directory.")
+@click.option("--jira-cache", type=click.Path(), default=None,
+              help="File path to cache queried JIRA issues per version.")
+@click.pass_obj
+def release(obj, src, jira_cache):
+    """Release releated commands."""
+    from .release import Jira, CachedJira
+
+    jira = Jira()
+    if jira_cache is not None:
+        jira = CachedJira(jira_cache, jira=jira)
+
+    obj['jira'] = jira
+    obj['repo'] = src.path
+
+
+@release.command('curate')
+@click.argument('version')
+@click.pass_obj
+def release_curate(obj, version):
+    """Release curation."""
+    from .release import Release
+
+    release = Release.from_jira(version, jira=obj['jira'], repo=obj['repo'])
+    curation = release.curate()
+
+    click.echo(curation.render('console'))
+
+
+@release.group('changelog')
+def release_changelog():
+    """Release changelog."""
+    pass
+
+
+@release_changelog.command('add')
+@click.argument('version')
+@click.pass_obj
+def release_changelog_add(obj, version):
+    """Prepend the changelog with the current release"""
+    from .release import Release
+
+    jira, repo = obj['jira'], obj['repo']
+
+    # just handle the current version
+    release = Release.from_jira(version, jira=jira, repo=repo)
+    if release.is_released:
+        raise ValueError('This version has been already released!')
+
+    changelog = release.changelog()
+    changelog_path = pathlib.Path(repo) / 'CHANGELOG.md'
+
+    current_content = changelog_path.read_text()
+    new_content = changelog.render('markdown') + current_content
+
+    changelog_path.write_text(new_content)
+    click.echo("CHANGELOG.md is updated!")
+
+
+@release_changelog.command('regenerate')
+@click.pass_obj
+def release_changelog_regenerate(obj):
+    """Regeneretate the whole CHANGELOG.md file"""
+    from .release import Release
+
+    jira, repo = obj['jira'], obj['repo']
+    changelogs = []
+
+    for version in jira.arrow_versions():
+        if not version.released:
+            continue
+        release = Release.from_jira(version, jira=jira, repo=repo)
+        click.echo('Querying changelog for version: {}'.format(version))
+        changelogs.append(release.changelog())
+
+    click.echo('Rendering new CHANGELOG.md file...')
+    changelog_path = pathlib.Path(repo) / 'CHANGELOG.md'
+    with changelog_path.open('w') as fp:
+        for cl in changelogs:
+            fp.write(cl.render('markdown'))
+
+
+@release.command('cherry-pick')
+@click.pass_obj
+def release_cherry_pick(obj):
+    """Cherry pick commits."""
+    from .release import PatchRelease
+
+    release = obj['release']
+    if not isinstance(release, PatchRelease):
+        raise click.UsageError('Cherry-pick command only supported for patch '
+                               'releases')
+
+    commands = release.generate_update_branch_commands()
+    for cmd in commands:
+        click.echo(cmd)
 
 
 if __name__ == "__main__":

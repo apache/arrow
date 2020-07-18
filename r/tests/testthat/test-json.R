@@ -133,7 +133,7 @@ test_that("Can read json file with nested columns (ARROW-5503)", {
     c(5, 6)
   )
   list_array <- tab1$column(0)
-  expect_identical(
+  expect_equivalent(
     list_array$as_vector(),
     list_array_r
   )

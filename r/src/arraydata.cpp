@@ -21,7 +21,7 @@ using Rcpp::List;
 using Rcpp::wrap;
 
 #if defined(ARROW_R_WITH_ARROW)
-#include <arrow/array.h>
+#include <arrow/array/data.h>
 
 // [[arrow::export]]
 std::shared_ptr<arrow::DataType> ArrayData__get_type(

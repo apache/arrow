@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <limits>
 #include <memory>
 #include <string>
 #include <vector>
@@ -33,6 +34,10 @@ template <typename T>
 class Result;
 
 class Status;
+
+namespace util {
+class Codec;
+}  // namespace util
 
 class Buffer;
 class Device;
@@ -64,6 +69,7 @@ using ScalarVector = std::vector<std::shared_ptr<Scalar>>;
 
 class ChunkedArray;
 class RecordBatch;
+class RecordBatchReader;
 class Table;
 
 using ChunkedArrayVector = std::vector<std::shared_ptr<ChunkedArray>>;
@@ -78,6 +84,8 @@ class NullType;
 class NullArray;
 class NullBuilder;
 struct NullScalar;
+
+class FixedWidthType;
 
 class BooleanType;
 class BooleanArray;
@@ -135,17 +143,25 @@ class StructBuilder;
 struct StructScalar;
 
 class Decimal128;
+class DecimalType;
 class Decimal128Type;
 class Decimal128Array;
 class Decimal128Builder;
 struct Decimal128Scalar;
 
-class UnionType;
-class UnionArray;
-struct UnionScalar;
 struct UnionMode {
   enum type { SPARSE, DENSE };
 };
+
+class SparseUnionType;
+class SparseUnionArray;
+class SparseUnionBuilder;
+struct SparseUnionScalar;
+
+class DenseUnionType;
+class DenseUnionArray;
+class DenseUnionBuilder;
+struct DenseUnionScalar;
 
 template <typename TypeClass>
 class NumericArray;
@@ -177,6 +193,9 @@ _NUMERIC_TYPE_DECL(Double)
 
 #undef _NUMERIC_TYPE_DECL
 
+enum class DateUnit : char { DAY = 0, MILLI = 1 };
+
+class DateType;
 class Date32Type;
 using Date32Array = NumericArray<Date32Type>;
 using Date32Builder = NumericBuilder<Date32Type>;
@@ -192,6 +211,7 @@ struct TimeUnit {
   enum type { SECOND = 0, MILLI = 1, MICRO = 2, NANO = 3 };
 };
 
+class TimeType;
 class Time32Type;
 using Time32Array = NumericArray<Time32Type>;
 using Time32Builder = NumericBuilder<Time32Type>;
@@ -227,6 +247,133 @@ class ExtensionArray;
 struct ExtensionScalar;
 
 // ----------------------------------------------------------------------
+
+struct Type {
+  /// \brief Main data type enumeration
+  ///
+  /// This enumeration provides a quick way to interrogate the category
+  /// of a DataType instance.
+  enum type {
+    /// A NULL type having no physical storage
+    NA = 0,
+
+    /// Boolean as 1 bit, LSB bit-packed ordering
+    BOOL,
+
+    /// Unsigned 8-bit little-endian integer
+    UINT8,
+
+    /// Signed 8-bit little-endian integer
+    INT8,
+
+    /// Unsigned 16-bit little-endian integer
+    UINT16,
+
+    /// Signed 16-bit little-endian integer
+    INT16,
+
+    /// Unsigned 32-bit little-endian integer
+    UINT32,
+
+    /// Signed 32-bit little-endian integer
+    INT32,
+
+    /// Unsigned 64-bit little-endian integer
+    UINT64,
+
+    /// Signed 64-bit little-endian integer
+    INT64,
+
+    /// 2-byte floating point value
+    HALF_FLOAT,
+
+    /// 4-byte floating point value
+    FLOAT,
+
+    /// 8-byte floating point value
+    DOUBLE,
+
+    /// UTF8 variable-length string as List<Char>
+    STRING,
+
+    /// Variable-length bytes (no guarantee of UTF8-ness)
+    BINARY,
+
+    /// Fixed-size binary. Each value occupies the same number of bytes
+    FIXED_SIZE_BINARY,
+
+    /// int32_t days since the UNIX epoch
+    DATE32,
+
+    /// int64_t milliseconds since the UNIX epoch
+    DATE64,
+
+    /// Exact timestamp encoded with int64 since UNIX epoch
+    /// Default unit millisecond
+    TIMESTAMP,
+
+    /// Time as signed 32-bit integer, representing either seconds or
+    /// milliseconds since midnight
+    TIME32,
+
+    /// Time as signed 64-bit integer, representing either microseconds or
+    /// nanoseconds since midnight
+    TIME64,
+
+    /// YEAR_MONTH interval in SQL style
+    INTERVAL_MONTHS,
+
+    /// DAY_TIME interval in SQL style
+    INTERVAL_DAY_TIME,
+
+    /// Precision- and scale-based decimal type. Storage type depends on the
+    /// parameters.
+    DECIMAL,
+
+    /// A list of some logical data type
+    LIST,
+
+    /// Struct of logical types
+    STRUCT,
+
+    /// Sparse unions of logical types
+    SPARSE_UNION,
+
+    /// Dense unions of logical types
+    DENSE_UNION,
+
+    /// Dictionary-encoded type, also called "categorical" or "factor"
+    /// in other programming languages. Holds the dictionary value
+    /// type but not the dictionary itself, which is part of the
+    /// ArrayData struct
+    DICTIONARY,
+
+    /// Map, a repeated struct logical type
+    MAP,
+
+    /// Custom data type, implemented by user
+    EXTENSION,
+
+    /// Fixed size list of some logical type
+    FIXED_SIZE_LIST,
+
+    /// Measure of elapsed time in either seconds, milliseconds, microseconds
+    /// or nanoseconds.
+    DURATION,
+
+    /// Like STRING, but with 64-bit offsets
+    LARGE_STRING,
+
+    /// Like BINARY, but with 64-bit offsets
+    LARGE_BINARY,
+
+    /// Like LIST, but with 64-bit offsets
+    LARGE_LIST,
+
+    // Leave this at the end
+    MAX_ID
+  };
+};
 
 /// \defgroup type-factories Factory functions for creating data types
 ///
@@ -351,40 +498,83 @@ std::shared_ptr<DataType> ARROW_EXPORT time64(TimeUnit::type unit);
 std::shared_ptr<DataType> ARROW_EXPORT
 struct_(const std::vector<std::shared_ptr<Field>>& fields);
 
-/// \brief Create a UnionType instance
+/// \brief Create a SparseUnionType instance
+std::shared_ptr<DataType> ARROW_EXPORT sparse_union(FieldVector child_fields,
+                                                    std::vector<int8_t> type_codes = {});
+/// \brief Create a DenseUnionType instance
+std::shared_ptr<DataType> ARROW_EXPORT dense_union(FieldVector child_fields,
+                                                   std::vector<int8_t> type_codes = {});
+
+/// \brief Create a SparseUnionType instance
 std::shared_ptr<DataType> ARROW_EXPORT
+sparse_union(const ArrayVector& children, std::vector<std::string> field_names = {},
+             std::vector<int8_t> type_codes = {});
+/// \brief Create a DenseUnionType instance
+std::shared_ptr<DataType> ARROW_EXPORT
+dense_union(const ArrayVector& children, std::vector<std::string> field_names = {},
+            std::vector<int8_t> type_codes = {});
+
+/// \brief Create a UnionType instance
+ARROW_DEPRECATED("Deprecated in 1.0.0")
+inline std::shared_ptr<DataType> ARROW_EXPORT
 union_(const std::vector<std::shared_ptr<Field>>& child_fields,
-       const std::vector<int8_t>& type_codes, UnionMode::type mode = UnionMode::SPARSE);
+       const std::vector<int8_t>& type_codes, UnionMode::type mode = UnionMode::SPARSE) {
+  if (mode == UnionMode::SPARSE) {
+    return sparse_union(child_fields, type_codes);
+  } else {
+    return dense_union(child_fields, type_codes);
+  }
+}
 
 /// \brief Create a UnionType instance
-std::shared_ptr<DataType> ARROW_EXPORT
+ARROW_DEPRECATED("Deprecated in 1.0.0")
+inline std::shared_ptr<DataType> ARROW_EXPORT
 union_(const std::vector<std::shared_ptr<Field>>& child_fields,
-       UnionMode::type mode = UnionMode::SPARSE);
+       UnionMode::type mode = UnionMode::SPARSE) {
+  if (mode == UnionMode::SPARSE) {
+    return sparse_union(child_fields);
+  } else {
+    return dense_union(child_fields);
+  }
+}
 
 /// \brief Create a UnionType instance
-std::shared_ptr<DataType> ARROW_EXPORT union_(UnionMode::type mode = UnionMode::SPARSE);
-
-/// \brief Create a UnionType instance
-std::shared_ptr<DataType> ARROW_EXPORT
+ARROW_DEPRECATED("Deprecated in 1.0.0")
+inline std::shared_ptr<DataType> ARROW_EXPORT
 union_(const std::vector<std::shared_ptr<Array>>& children,
        const std::vector<std::string>& field_names, const std::vector<int8_t>& type_codes,
-       UnionMode::type mode = UnionMode::SPARSE);
+       UnionMode::type mode = UnionMode::SPARSE) {
+  if (mode == UnionMode::SPARSE) {
+    return sparse_union(children, field_names, type_codes);
+  } else {
+    return dense_union(children, field_names, type_codes);
+  }
+}
 
 /// \brief Create a UnionType instance
+ARROW_DEPRECATED("Deprecated in 1.0.0")
 inline std::shared_ptr<DataType> ARROW_EXPORT
 union_(const std::vector<std::shared_ptr<Array>>& children,
        const std::vector<std::string>& field_names,
        UnionMode::type mode = UnionMode::SPARSE) {
-  return union_(children, field_names, {}, mode);
+  if (mode == UnionMode::SPARSE) {
+    return sparse_union(children, field_names);
+  } else {
+    return dense_union(children, field_names);
+  }
 }
 
 /// \brief Create a UnionType instance
+ARROW_DEPRECATED("Deprecated in 1.0.0")
 inline std::shared_ptr<DataType> ARROW_EXPORT
 union_(const std::vector<std::shared_ptr<Array>>& children,
        UnionMode::type mode = UnionMode::SPARSE) {
-  return union_(children, {}, {}, mode);
+  if (mode == UnionMode::SPARSE) {
+    return sparse_union(children);
+  } else {
+    return dense_union(children);
+  }
 }
-
 /// \brief Create a DictionaryType instance
 /// \param[in] index_type the type of the dictionary indices (must be
 /// a signed integer)

@@ -37,7 +37,8 @@ class JavaTester(Tester):
     FLIGHT_SERVER = True
     FLIGHT_CLIENT = True
 
-    JAVA_OPTS = ['-Dio.netty.tryReflectionSetAccessible=true']
+    JAVA_OPTS = ['-Dio.netty.tryReflectionSetAccessible=true',
+                 '-Darrow.struct.conflict.policy=CONFLICT_APPEND']
 
     _arrow_version = load_version_from_pom()
     ARROW_TOOLS_JAR = os.environ.get(

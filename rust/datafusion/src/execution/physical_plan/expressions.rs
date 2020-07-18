@@ -43,6 +43,7 @@ use arrow::compute::kernels::comparison::{eq, gt, gt_eq, lt, lt_eq, neq};
 use arrow::compute::kernels::comparison::{
     eq_utf8, gt_eq_utf8, gt_utf8, like_utf8, lt_eq_utf8, lt_utf8, neq_utf8, nlike_utf8,
 };
+use arrow::compute::kernels::sort::{SortColumn, SortOptions};
 use arrow::datatypes::{DataType, Schema, TimeUnit};
 use arrow::record_batch::RecordBatch;
 
@@ -69,6 +70,10 @@ impl PhysicalExpr for Alias {
 
     fn data_type(&self, input_schema: &Schema) -> Result<DataType> {
         self.expr.data_type(input_schema)
+    }
+
+    fn nullable(&self, input_schema: &Schema) -> Result<bool> {
+        self.expr.nullable(input_schema)
     }
 
     fn evaluate(&self, batch: &RecordBatch) -> Result<ArrayRef> {
@@ -101,6 +106,11 @@ impl PhysicalExpr for Column {
     /// Get the data type of this expression, given the schema of the input
     fn data_type(&self, input_schema: &Schema) -> Result<DataType> {
         Ok(input_schema.field(self.index).data_type().clone())
+    }
+
+    /// Decide whehter this expression is nullable, given the schema of the input
+    fn nullable(&self, input_schema: &Schema) -> Result<bool> {
+        Ok(input_schema.field(self.index).is_nullable())
     }
 
     /// Evaluate the expression
@@ -1022,6 +1032,11 @@ impl PhysicalExpr for BinaryExpr {
         self.left.data_type(input_schema)
     }
 
+    fn nullable(&self, _input_schema: &Schema) -> Result<bool> {
+        // binary operator should always return a boolean value
+        Ok(false)
+    }
+
     fn evaluate(&self, batch: &RecordBatch) -> Result<ArrayRef> {
         let left = self.left.evaluate(batch)?;
         let right = self.right.evaluate(batch)?;
@@ -1105,6 +1120,11 @@ impl PhysicalExpr for NotExpr {
         return Ok(DataType::Boolean);
     }
 
+    fn nullable(&self, _input_schema: &Schema) -> Result<bool> {
+        // !Null == true
+        Ok(false)
+    }
+
     fn evaluate(&self, batch: &RecordBatch) -> Result<ArrayRef> {
         let arg = self.arg.evaluate(batch)?;
         if arg.data_type() != &DataType::Boolean {
@@ -1181,6 +1201,10 @@ impl PhysicalExpr for CastExpr {
         Ok(self.cast_type.clone())
     }
 
+    fn nullable(&self, input_schema: &Schema) -> Result<bool> {
+        self.expr.nullable(input_schema)
+    }
+
     fn evaluate(&self, batch: &RecordBatch) -> Result<ArrayRef> {
         let value = self.expr.evaluate(batch)?;
         Ok(cast(&value, &self.cast_type)?)
@@ -1218,6 +1242,13 @@ impl PhysicalExpr for Literal {
 
     fn data_type(&self, _input_schema: &Schema) -> Result<DataType> {
         Ok(self.value.get_datatype())
+    }
+
+    fn nullable(&self, _input_schema: &Schema) -> Result<bool> {
+        match &self.value {
+            ScalarValue::Null => Ok(true),
+            _ => Ok(false),
+        }
     }
 
     fn evaluate(&self, batch: &RecordBatch) -> Result<ArrayRef> {
@@ -1262,6 +1293,25 @@ impl PhysicalExpr for Literal {
 /// Create a literal expression
 pub fn lit(value: ScalarValue) -> Arc<dyn PhysicalExpr> {
     Arc::new(Literal::new(value))
+}
+
+/// Represents Sort operation for a column in a RecordBatch
+#[derive(Clone)]
+pub struct PhysicalSortExpr {
+    /// Physical expression representing the column to sort
+    pub expr: Arc<dyn PhysicalExpr>,
+    /// Option to specify how the given column should be sorted
+    pub options: SortOptions,
+}
+
+impl PhysicalSortExpr {
+    /// evaluate the sort expression into SortColumn that can be passed into arrow sort kernel
+    pub fn evaluate_to_sort_column(&self, batch: &RecordBatch) -> Result<SortColumn> {
+        Ok(SortColumn {
+            values: self.expr.evaluate(batch)?,
+            options: Some(self.options),
+        })
+    }
 }
 
 #[cfg(test)]
@@ -1954,7 +2004,7 @@ mod tests {
     }
 
     fn apply_arithmetic<T: ArrowNumericType>(
-        schema: Arc<Schema>,
+        schema: SchemaRef,
         data: Vec<ArrayRef>,
         op: Operator,
         expected: PrimitiveArray<T>,

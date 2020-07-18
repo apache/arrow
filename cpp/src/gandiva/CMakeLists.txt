@@ -31,8 +31,14 @@ if(LLVM_VERSION_MAJOR LESS "10")
   set(GANDIVA_CXX_STANDARD ${CMAKE_CXX_STANDARD})
 else()
   # LLVM 10 or later requires C++ 14
-  set(GANDIVA_CXX_STANDARD 14)
+  if(CMAKE_CXX_STANDARD LESS 14)
+    set(GANDIVA_CXX_STANDARD 14)
+  else()
+    set(GANDIVA_CXX_STANDARD ${CMAKE_CXX_STANDARD})
+  endif()
 endif()
+
+add_definitions(-DGANDIVA_LLVM_VERSION=${LLVM_VERSION_MAJOR})
 
 # Set the path where the bitcode file generated, see precompiled/CMakeLists.txt
 set(GANDIVA_PRECOMPILED_BC_PATH "${CMAKE_CURRENT_BINARY_DIR}/irhelpers.bc")

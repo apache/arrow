@@ -205,8 +205,9 @@ garrow_data_type_equal(GArrowDataType *data_type,
  * garrow_data_type_to_string:
  * @data_type: A #GArrowDataType.
  *
- * Returns: (transfer full): The string representation of the data type.
- *   The caller must free it by g_free() when the caller doesn't need it anymore.
+ * Returns: The string representation of the data type.
+ *
+ *   It should be freed with g_free() when no longer needed.
  */
 gchar *
 garrow_data_type_to_string(GArrowDataType *data_type)
@@ -1376,16 +1377,11 @@ garrow_data_type_new_raw(std::shared_ptr<arrow::DataType> *arrow_data_type)
   case arrow::Type::type::STRUCT:
     type = GARROW_TYPE_STRUCT_DATA_TYPE;
     break;
-  case arrow::Type::type::UNION:
-    {
-      auto arrow_union_data_type =
-        std::static_pointer_cast<arrow::UnionType>(*arrow_data_type);
-      if (arrow_union_data_type->mode() == arrow::UnionMode::SPARSE) {
-        type = GARROW_TYPE_SPARSE_UNION_DATA_TYPE;
-      } else {
-        type = GARROW_TYPE_DENSE_UNION_DATA_TYPE;
-      }
-    }
+  case arrow::Type::type::SPARSE_UNION:
+    type = GARROW_TYPE_SPARSE_UNION_DATA_TYPE;
+    break;
+  case arrow::Type::type::DENSE_UNION:
+    type = GARROW_TYPE_DENSE_UNION_DATA_TYPE;
     break;
   case arrow::Type::type::DICTIONARY:
     type = GARROW_TYPE_DICTIONARY_DATA_TYPE;

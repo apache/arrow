@@ -95,10 +95,7 @@ GArrowStructArray *garrow_struct_array_new(GArrowDataType *data_type,
 GArrowArray *garrow_struct_array_get_field(GArrowStructArray *array,
                                            gint i);
 
-#ifndef GARROW_DISABLE_DEPRECATED
-GARROW_DEPRECATED_IN_0_10_FOR(garrow_struct_array_flatten)
 GList *garrow_struct_array_get_fields(GArrowStructArray *array);
-#endif
 
 GARROW_AVAILABLE_IN_0_10
 GList *garrow_struct_array_flatten(GArrowStructArray *array, GError **error);
@@ -210,7 +207,10 @@ GArrowArray *
 garrow_dictionary_array_get_indices(GArrowDictionaryArray *array);
 GArrowArray *
 garrow_dictionary_array_get_dictionary(GArrowDictionaryArray *array);
+#ifndef GARROW_DISABLE_DEPRECATED
+GARROW_DEPRECATED_IN_1_0_FOR(garrow_array_get_value_data_type)
 GArrowDictionaryDataType *
 garrow_dictionary_array_get_dictionary_data_type(GArrowDictionaryArray *array);
+#endif
 
 G_END_DECLS

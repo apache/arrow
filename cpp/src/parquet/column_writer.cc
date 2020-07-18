@@ -172,7 +172,7 @@ class SerializedPageWriter : public PageWriter {
     if (data_encryptor_ != nullptr || meta_encryptor_ != nullptr) {
       InitEncryption();
     }
-    compressor_ = GetCodec(codec, compression_level);
+    compressor_ = internal::GetWriteCodec(codec, compression_level);
     thrift_serializer_.reset(new ThriftSerializer);
   }
 

@@ -78,6 +78,8 @@ struct Comparison {
   };
 };
 
+Result<Comparison::type> Compare(const Scalar& lhs, const Scalar& rhs);
+
 struct CompareVisitor {
   template <typename T>
   using ScalarType = typename TypeTraits<T>::ScalarType;
@@ -144,7 +146,11 @@ struct CompareVisitor {
   }
 
   Status Visit(const DictionaryType&) {
-    return Status::NotImplemented("comparison of scalars of type ", *lhs_.type);
+    ARROW_ASSIGN_OR_RAISE(auto lhs,
+                          checked_cast<const DictionaryScalar&>(lhs_).GetEncodedValue());
+    ARROW_ASSIGN_OR_RAISE(auto rhs,
+                          checked_cast<const DictionaryScalar&>(rhs_).GetEncodedValue());
+    return Compare(*lhs, *rhs).Value(&result_);
   }
 
   // defer comparison to ScalarType<T>::value
@@ -170,7 +176,7 @@ struct CompareVisitor {
 
 // Compare two scalars
 // if either is null, return is null
-// TODO(bkietz) extract this to scalar.h
+// TODO(bkietz) extract this to the scalar comparison kernels
 Result<Comparison::type> Compare(const Scalar& lhs, const Scalar& rhs) {
   if (!lhs.type->Equals(*rhs.type)) {
     return Status::TypeError("Cannot compare scalars of differing type: ", *lhs.type,
@@ -766,14 +772,11 @@ std::shared_ptr<Expression> and_(std::shared_ptr<Expression> lhs,
 }
 
 std::shared_ptr<Expression> and_(const ExpressionVector& subexpressions) {
-  if (subexpressions.size() == 0) {
-    return scalar(true);
+  auto acc = scalar(true);
+  for (const auto& next : subexpressions) {
+    acc = acc->Equals(true) ? next : and_(std::move(acc), next);
   }
-  return std::accumulate(
-      subexpressions.begin(), subexpressions.end(), std::shared_ptr<Expression>(),
-      [](std::shared_ptr<Expression> acc, const std::shared_ptr<Expression>& next) {
-        return acc == nullptr ? next : and_(std::move(acc), next);
-      });
+  return acc;
 }
 
 std::shared_ptr<Expression> or_(std::shared_ptr<Expression> lhs,
@@ -782,14 +785,11 @@ std::shared_ptr<Expression> or_(std::shared_ptr<Expression> lhs,
 }
 
 std::shared_ptr<Expression> or_(const ExpressionVector& subexpressions) {
-  if (subexpressions.size() == 0) {
-    return scalar(false);
+  auto acc = scalar(false);
+  for (const auto& next : subexpressions) {
+    acc = acc->Equals(false) ? next : or_(std::move(acc), next);
   }
-  return std::accumulate(
-      subexpressions.begin(), subexpressions.end(), std::shared_ptr<Expression>(),
-      [](std::shared_ptr<Expression> acc, const std::shared_ptr<Expression>& next) {
-        return acc == nullptr ? next : or_(std::move(acc), next);
-      });
+  return acc;
 }
 
 std::shared_ptr<Expression> not_(std::shared_ptr<Expression> operand) {
@@ -870,6 +870,10 @@ Result<std::shared_ptr<DataType>> NotExpression::Validate(const Schema& schema) 
 
 Result<std::shared_ptr<DataType>> InExpression::Validate(const Schema& schema) const {
   ARROW_ASSIGN_OR_RAISE(auto operand_type, operand_->Validate(schema));
+  if (operand_type->id() == Type::NA || set_->type()->id() == Type::NA) {
+    return boolean();
+  }
+
   if (!operand_type->Equals(set_->type())) {
     return Status::TypeError("mismatch: set type ", *set_->type(), " vs operand type ",
                              *operand_type);
@@ -921,6 +925,22 @@ Result<std::shared_ptr<DataType>> FieldExpression::Validate(const Schema& schema
   return null();
 }
 
+Result<Datum> CastOrDictionaryEncode(const Datum& arr,
+                                     const std::shared_ptr<DataType>& type,
+                                     const compute::CastOptions opts) {
+  if (type->id() == Type::DICTIONARY) {
+    const auto& dict_type = checked_cast<const DictionaryType&>(*type);
+    if (dict_type.index_type()->id() != Type::INT32) {
+      return Status::TypeError("cannot DictionaryEncode to index type ",
+                               *dict_type.index_type());
+    }
+    ARROW_ASSIGN_OR_RAISE(auto dense, compute::Cast(arr, dict_type.value_type(), opts));
+    return compute::DictionaryEncode(dense);
+  }
+
+  return compute::Cast(arr, type, opts);
+}
+
 struct InsertImplicitCastsImpl {
   struct ValidatedAndCast {
     std::shared_ptr<Expression> expr;
@@ -952,7 +972,8 @@ struct InsertImplicitCastsImpl {
 
     if (!op.type->Equals(set->type())) {
       // cast the set (which we assume to be small) to match op.type
-      ARROW_ASSIGN_OR_RAISE(set, compute::Cast(*set, op.type));
+      ARROW_ASSIGN_OR_RAISE(auto encoded_set, CastOrDictionaryEncode(*set, op.type, {}));
+      set = encoded_set.make_array();
     }
 
     return std::make_shared<InExpression>(std::move(op.expr), std::move(set));
@@ -1187,7 +1208,7 @@ struct TreeEvaluator::Impl {
     }
 
     DCHECK(to_cast.is_array());
-    return compute::Cast(to_cast, to_type, expr.options());
+    return CastOrDictionaryEncode(to_cast, to_type, expr.options());
   }
 
   Result<Datum> operator()(const ComparisonExpression& expr) const {
@@ -1228,7 +1249,8 @@ Result<std::shared_ptr<RecordBatch>> TreeEvaluator::Filter(
     auto selection_array = selection.make_array();
     compute::ExecContext ctx(pool);
     ARROW_ASSIGN_OR_RAISE(Datum filtered,
-                          compute::Filter(batch, selection_array, {}, &ctx));
+                          compute::Filter(batch, selection_array,
+                                          compute::FilterOptions::Defaults(), &ctx));
     return filtered.record_batch();
   }
 

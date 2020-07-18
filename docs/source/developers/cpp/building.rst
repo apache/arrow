@@ -15,6 +15,8 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
+.. _building-arrow-cpp:
+
 ==================
 Building Arrow C++
 ==================
@@ -307,6 +309,11 @@ version number from ``cpp/thirdparty/versions.txt`` is used. There is also a
 dependency source downloader script (see below), which can be used to set up
 offline builds.
 
+When using ``BUNDLED`` for dependency resolution (and if you use either the
+jemalloc or mimalloc allocators, which are recommended), statically linking the
+Arrow libraries in a third party project is more complex. See below for
+instructions about how to configure your build system in this case.
+
 Boost-related Options
 ~~~~~~~~~~~~~~~~~~~~~
 
@@ -344,6 +351,33 @@ script.
 You can then invoke CMake to create the build directory and it will use the
 declared environment variable pointing to downloaded archives instead of
 downloading them (one for each build dir!).
+
+Statically Linking
+~~~~~~~~~~~~~~~~~~
+
+When ``-DARROW_BUILD_STATIC=ON``, all build dependencies built as static
+libraries by the Arrow build system will be merged together to create a static
+library ``arrow_bundled_dependencies``. In UNIX-like environments (Linux, macOS,
+MinGW), this is called ``libarrow_bundled_dependencies.a`` and on Windows with
+Visual Studio ``arrow_bundled_dependencies.lib``. This "dependency bundle"
+library is installed in the same place as the other Arrow static libraries.
+
+If you are using CMake, the bundled dependencies will automatically be included
+when linking if you use the ``arrow_static`` CMake target. In other build
+systems, you may need to explicitly link to the dependency bundle. We created
+an `example CMake-based build configuration
+<https://github.com/apache/arrow/tree/master/cpp/examples/minimal_build>`_ to
+show you a working example.
+
+On Linux and macOS, if your application does not link to the ``pthread``
+library already, you must include ``-pthread`` in your linker setup. In CMake
+this can be accomplished with the ``Threads`` built-in package:
+
+.. code-block:: cmake
+
+   set(THREADS_PREFER_PTHREAD_FLAG ON)
+   find_package(Threads REQUIRED)
+   target_link_libraries(my_target PRIVATE Threads::Threads)
 
 Extra debugging help
 ~~~~~~~~~~~~~~~~~~~~

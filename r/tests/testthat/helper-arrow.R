@@ -26,6 +26,11 @@ if (tolower(Sys.info()[["sysname"]]) == "windows") {
 
 set.seed(1)
 
+MAX_INT <- 2147483647L
+
+# Make sure this is unset
+Sys.setenv(ARROW_PRE_0_15_IPC_FORMAT = "")
+
 test_that <- function(what, code) {
   testthat::test_that(what, {
     skip_if(getOption("..skip.tests", TRUE), "arrow C++ library not available")

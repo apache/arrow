@@ -53,6 +53,7 @@ class ARROW_EXPORT AdaptiveIntBuilderBase : public ArrayBuilder {
     pending_has_nulls_ = true;
     ++pending_pos_;
     ++length_;
+    ++null_count_;
 
     if (ARROW_PREDICT_FALSE(pending_pos_ >= pending_size_)) {
       return CommitPendingData();

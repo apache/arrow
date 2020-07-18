@@ -56,3 +56,4 @@ jobs:
         set -ex
         cat arrow/r/check/arrow.Rcheck/00install.out
       displayName: Dump install logs
+      condition: succeededOrFailed()

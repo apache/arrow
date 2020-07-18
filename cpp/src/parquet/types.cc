@@ -49,12 +49,19 @@ bool IsCodecSupported(Compression::type codec) {
   }
 }
 
-std::unique_ptr<Codec> GetCodec(Compression::type codec) {
-  return GetCodec(codec, Codec::UseDefaultCompressionLevel());
-}
+namespace internal {
 
-std::unique_ptr<Codec> GetCodec(Compression::type codec, int compression_level) {
+std::unique_ptr<Codec> GetCodec(Compression::type codec, int compression_level,
+                                bool for_writing) {
   std::unique_ptr<Codec> result;
+  if (for_writing && (codec == Compression::LZ4 || codec == Compression::LZ4_FRAME)) {
+    throw ParquetException(
+        "Per ARROW-9424, writing files with LZ4 compression has been "
+        "disabled until implementation issues have been resolved. "
+        "It is recommended to read any existing files and rewrite them "
+        "using a different compression.");
+  }
+
   if (!IsCodecSupported(codec)) {
     std::stringstream ss;
     ss << "Codec type " << Codec::GetCodecAsString(codec)
@@ -64,6 +71,24 @@ std::unique_ptr<Codec> GetCodec(Compression::type codec, int compression_level) 
 
   PARQUET_ASSIGN_OR_THROW(result, Codec::Create(codec, compression_level));
   return result;
+}
+
+std::unique_ptr<Codec> GetReadCodec(Compression::type codec) {
+  return GetCodec(codec, Codec::UseDefaultCompressionLevel(), /*for_writing=*/false);
+}
+
+std::unique_ptr<Codec> GetWriteCodec(Compression::type codec, int compression_level) {
+  return GetCodec(codec, compression_level, /*for_writing=*/true);
+}
+
+}  // namespace internal
+
+std::unique_ptr<Codec> GetCodec(Compression::type codec, int compression_level) {
+  return internal::GetCodec(codec, compression_level, /*for_writing=*/false);
+}
+
+std::unique_ptr<Codec> GetCodec(Compression::type codec) {
+  return GetCodec(codec, Codec::UseDefaultCompressionLevel());
 }
 
 std::string FormatStatValue(Type::type parquet_type, ::arrow::util::string_view val) {

@@ -32,6 +32,9 @@
 #include "arrow/python/pyarrow.h"
 
 namespace arrow {
+
+using arrow::io::TransformInputStream;
+
 namespace py {
 
 // ----------------------------------------------------------------------
@@ -304,6 +307,39 @@ Status PyForeignBuffer::Make(const uint8_t* data, int64_t size, PyObject* base,
     *out = std::shared_ptr<Buffer>(buf);
     return Status::OK();
   }
+}
+
+// ----------------------------------------------------------------------
+// TransformInputStream::TransformFunc wrapper
+
+struct TransformFunctionWrapper {
+  TransformFunctionWrapper(TransformCallback cb, PyObject* arg)
+      : cb_(std::move(cb)), arg_(std::make_shared<OwnedRefNoGIL>(arg)) {
+    Py_INCREF(arg);
+  }
+
+  Result<std::shared_ptr<Buffer>> operator()(const std::shared_ptr<Buffer>& src) {
+    return SafeCallIntoPython([=]() -> Result<std::shared_ptr<Buffer>> {
+      std::shared_ptr<Buffer> dest;
+      cb_(arg_->obj(), src, &dest);
+      RETURN_NOT_OK(CheckPyError());
+      return dest;
+    });
+  }
+
+ protected:
+  // Need to wrap OwnedRefNoGIL because std::function needs the callable
+  // to be copy-constructible...
+  TransformCallback cb_;
+  std::shared_ptr<OwnedRefNoGIL> arg_;
+};
+
+std::shared_ptr<::arrow::io::InputStream> MakeTransformInputStream(
+    std::shared_ptr<::arrow::io::InputStream> wrapped, TransformInputStreamVTable vtable,
+    PyObject* handler) {
+  TransformInputStream::TransformFunc transform(
+      TransformFunctionWrapper{std::move(vtable.transform), handler});
+  return std::make_shared<TransformInputStream>(std::move(wrapped), std::move(transform));
 }
 
 }  // namespace py

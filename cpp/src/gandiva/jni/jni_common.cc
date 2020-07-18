@@ -350,7 +350,7 @@ NodePtr ProtoTypeToOrNode(const types::OrNode& node) {
 }
 
 NodePtr ProtoTypeToInNode(const types::InNode& node) {
-  NodePtr field = ProtoTypeToFieldNode(node.field());
+  NodePtr field = ProtoTypeToNode(node.node());
 
   if (node.has_intvalues()) {
     std::unordered_set<int32_t> int_values;

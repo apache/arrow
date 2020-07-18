@@ -395,8 +395,17 @@ class ARROW_EXPORT StructBuilder : public ArrayBuilder {
     return Status::OK();
   }
 
-  Status AppendNull() final { return Append(false); }
+  /// \brief Append a null value. Automatically appends a null to each child
+  /// builder.
+  Status AppendNull() final {
+    for (const auto& field : children_) {
+      ARROW_RETURN_NOT_OK(field->AppendNull());
+    }
+    return Append(false);
+  }
 
+  /// \brief Append multiple null values. Automatically appends nulls to each
+  /// child builder.
   Status AppendNulls(int64_t length) final;
 
   void Reset() override;
