@@ -47,40 +47,6 @@ use arrow::compute::kernels::sort::{SortColumn, SortOptions};
 use arrow::datatypes::{DataType, Schema, TimeUnit};
 use arrow::record_batch::RecordBatch;
 
-/// Represents an aliased expression
-pub struct Alias {
-    expr: Arc<dyn PhysicalExpr>,
-    alias: String,
-}
-
-impl Alias {
-    /// Create a new aliased expression
-    pub fn new(expr: Arc<dyn PhysicalExpr>, alias: &str) -> Self {
-        Self {
-            expr: expr.clone(),
-            alias: alias.to_owned(),
-        }
-    }
-}
-
-impl PhysicalExpr for Alias {
-    fn name(&self) -> String {
-        self.alias.clone()
-    }
-
-    fn data_type(&self, input_schema: &Schema) -> Result<DataType> {
-        self.expr.data_type(input_schema)
-    }
-
-    fn nullable(&self, input_schema: &Schema) -> Result<bool> {
-        self.expr.nullable(input_schema)
-    }
-
-    fn evaluate(&self, batch: &RecordBatch) -> Result<ArrayRef> {
-        self.expr.evaluate(batch)
-    }
-}
-
 /// Represents the column at a given index in a RecordBatch
 pub struct Column {
     name: String,
@@ -96,11 +62,6 @@ impl Column {
 }
 
 impl PhysicalExpr for Column {
-    /// Get the name to use in a schema to represent the result of this expression
-    fn name(&self) -> String {
-        self.name.clone()
-    }
-
     /// Get the data type of this expression, given the schema of the input
     fn data_type(&self, input_schema: &Schema) -> Result<DataType> {
         Ok(input_schema
@@ -138,10 +99,6 @@ impl Sum {
 }
 
 impl AggregateExpr for Sum {
-    fn name(&self) -> String {
-        format!("SUM({})", self.expr.name())
-    }
-
     fn data_type(&self, input_schema: &Schema) -> Result<DataType> {
         match self.expr.data_type(input_schema)? {
             DataType::Int8 | DataType::Int16 | DataType::Int32 | DataType::Int64 => {
@@ -167,8 +124,8 @@ impl AggregateExpr for Sum {
         Rc::new(RefCell::new(SumAccumulator { sum: None }))
     }
 
-    fn create_reducer(&self) -> Arc<dyn AggregateExpr> {
-        Arc::new(Sum::new(col(&self.name())))
+    fn create_reducer(&self, column_name: &str) -> Arc<dyn AggregateExpr> {
+        Arc::new(Sum::new(Arc::new(Column::new(column_name))))
     }
 }
 
@@ -334,10 +291,6 @@ impl Avg {
 }
 
 impl AggregateExpr for Avg {
-    fn name(&self) -> String {
-        format!("AVG({})", self.expr.name())
-    }
-
     fn data_type(&self, input_schema: &Schema) -> Result<DataType> {
         match self.expr.data_type(input_schema)? {
             DataType::Int8
@@ -368,8 +321,8 @@ impl AggregateExpr for Avg {
         }))
     }
 
-    fn create_reducer(&self) -> Arc<dyn AggregateExpr> {
-        Arc::new(Avg::new(Arc::new(Column::new(&self.name()))))
+    fn create_reducer(&self, column_name: &str) -> Arc<dyn AggregateExpr> {
+        Arc::new(Avg::new(Arc::new(Column::new(column_name))))
     }
 }
 
@@ -452,10 +405,6 @@ impl Max {
 }
 
 impl AggregateExpr for Max {
-    fn name(&self) -> String {
-        format!("MAX({})", self.expr.name())
-    }
-
     fn data_type(&self, input_schema: &Schema) -> Result<DataType> {
         match self.expr.data_type(input_schema)? {
             DataType::Int8 | DataType::Int16 | DataType::Int32 | DataType::Int64 => {
@@ -481,8 +430,8 @@ impl AggregateExpr for Max {
         Rc::new(RefCell::new(MaxAccumulator { max: None }))
     }
 
-    fn create_reducer(&self) -> Arc<dyn AggregateExpr> {
-        Arc::new(Max::new(Arc::new(Column::new(&self.name()))))
+    fn create_reducer(&self, column_name: &str) -> Arc<dyn AggregateExpr> {
+        Arc::new(Max::new(Arc::new(Column::new(column_name))))
     }
 }
 
@@ -651,10 +600,6 @@ impl Min {
 }
 
 impl AggregateExpr for Min {
-    fn name(&self) -> String {
-        format!("MIN({})", self.expr.name())
-    }
-
     fn data_type(&self, input_schema: &Schema) -> Result<DataType> {
         match self.expr.data_type(input_schema)? {
             DataType::Int8 | DataType::Int16 | DataType::Int32 | DataType::Int64 => {
@@ -680,8 +625,8 @@ impl AggregateExpr for Min {
         Rc::new(RefCell::new(MinAccumulator { min: None }))
     }
 
-    fn create_reducer(&self) -> Arc<dyn AggregateExpr> {
-        Arc::new(Min::new(Arc::new(Column::new(&self.name()))))
+    fn create_reducer(&self, column_name: &str) -> Arc<dyn AggregateExpr> {
+        Arc::new(Min::new(Arc::new(Column::new(column_name))))
     }
 }
 
@@ -851,10 +796,6 @@ impl Count {
 }
 
 impl AggregateExpr for Count {
-    fn name(&self) -> String {
-        format!("COUNT({})", self.expr.name())
-    }
-
     fn data_type(&self, _input_schema: &Schema) -> Result<DataType> {
         Ok(DataType::UInt64)
     }
@@ -867,8 +808,8 @@ impl AggregateExpr for Count {
         Rc::new(RefCell::new(CountAccumulator { count: 0 }))
     }
 
-    fn create_reducer(&self) -> Arc<dyn AggregateExpr> {
-        Arc::new(Sum::new(Arc::new(Column::new(&self.name()))))
+    fn create_reducer(&self, column_name: &str) -> Arc<dyn AggregateExpr> {
+        Arc::new(Sum::new(Arc::new(Column::new(column_name))))
     }
 }
 
@@ -1025,10 +966,6 @@ impl BinaryExpr {
 }
 
 impl PhysicalExpr for BinaryExpr {
-    fn name(&self) -> String {
-        format!("{:?}", self.op)
-    }
-
     fn data_type(&self, input_schema: &Schema) -> Result<DataType> {
         self.left.data_type(input_schema)
     }
@@ -1113,10 +1050,6 @@ impl NotExpr {
 }
 
 impl PhysicalExpr for NotExpr {
-    fn name(&self) -> String {
-        "NOT".to_string()
-    }
-
     fn data_type(&self, _input_schema: &Schema) -> Result<DataType> {
         return Ok(DataType::Boolean);
     }
@@ -1194,10 +1127,6 @@ impl CastExpr {
 }
 
 impl PhysicalExpr for CastExpr {
-    fn name(&self) -> String {
-        "CAST".to_string()
-    }
-
     fn data_type(&self, _input_schema: &Schema) -> Result<DataType> {
         Ok(self.cast_type.clone())
     }
@@ -1237,10 +1166,6 @@ macro_rules! build_literal_array {
 }
 
 impl PhysicalExpr for Literal {
-    fn name(&self) -> String {
-        "lit".to_string()
-    }
-
     fn data_type(&self, _input_schema: &Schema) -> Result<DataType> {
         Ok(self.value.get_datatype())
     }
@@ -1487,17 +1412,15 @@ mod tests {
         let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
 
         let sum = sum(col("a"));
-        assert_eq!("SUM(a)".to_string(), sum.name());
         assert_eq!(DataType::Int64, sum.data_type(&schema)?);
 
         // after the aggr expression is applied, the schema changes to:
         let schema = Schema::new(vec![
             schema.field(0).clone(),
-            Field::new(&sum.name(), sum.data_type(&schema)?, false),
+            Field::new("SUM(a)", sum.data_type(&schema)?, false),
         ]);
 
-        let combiner = sum.create_reducer();
-        assert_eq!("SUM(SUM(a))".to_string(), combiner.name());
+        let combiner = sum.create_reducer("SUM(a)");
         assert_eq!(DataType::Int64, combiner.data_type(&schema)?);
 
         Ok(())
@@ -1508,17 +1431,15 @@ mod tests {
         let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
 
         let max = max(col("a"));
-        assert_eq!("MAX(a)".to_string(), max.name());
         assert_eq!(DataType::Int64, max.data_type(&schema)?);
 
         // after the aggr expression is applied, the schema changes to:
         let schema = Schema::new(vec![
             schema.field(0).clone(),
-            Field::new(&max.name(), max.data_type(&schema)?, false),
+            Field::new("Max(a)", max.data_type(&schema)?, false),
         ]);
 
-        let combiner = max.create_reducer();
-        assert_eq!("MAX(MAX(a))".to_string(), combiner.name());
+        let combiner = max.create_reducer("Max(a)");
         assert_eq!(DataType::Int64, combiner.data_type(&schema)?);
 
         Ok(())
@@ -1529,16 +1450,14 @@ mod tests {
         let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
 
         let min = min(col("a"));
-        assert_eq!("MIN(a)".to_string(), min.name());
         assert_eq!(DataType::Int64, min.data_type(&schema)?);
 
         // after the aggr expression is applied, the schema changes to:
         let schema = Schema::new(vec![
             schema.field(0).clone(),
-            Field::new(&min.name(), min.data_type(&schema)?, false),
+            Field::new("MIN(a)", min.data_type(&schema)?, false),
         ]);
-        let combiner = min.create_reducer();
-        assert_eq!("MIN(MIN(a))".to_string(), combiner.name());
+        let combiner = min.create_reducer("MIN(a)");
         assert_eq!(DataType::Int64, combiner.data_type(&schema)?);
 
         Ok(())
@@ -1548,17 +1467,15 @@ mod tests {
         let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
 
         let avg = avg(col("a"));
-        assert_eq!("AVG(a)".to_string(), avg.name());
         assert_eq!(DataType::Float64, avg.data_type(&schema)?);
 
         // after the aggr expression is applied, the schema changes to:
         let schema = Schema::new(vec![
             schema.field(0).clone(),
-            Field::new(&avg.name(), avg.data_type(&schema)?, false),
+            Field::new("SUM(a)", avg.data_type(&schema)?, false),
         ]);
 
-        let combiner = avg.create_reducer();
-        assert_eq!("AVG(AVG(a))".to_string(), combiner.name());
+        let combiner = avg.create_reducer("SUM(a)");
         assert_eq!(DataType::Float64, combiner.data_type(&schema)?);
 
         Ok(())

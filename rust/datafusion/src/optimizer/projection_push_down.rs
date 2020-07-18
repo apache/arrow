@@ -23,6 +23,7 @@ use crate::logicalplan::LogicalPlan;
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::utils;
 use arrow::datatypes::{Field, Schema};
+use arrow::error::Result as ArrowResult;
 use std::collections::HashSet;
 
 /// Projection Push Down optimizer rule ensures that only referenced columns are
@@ -203,9 +204,13 @@ fn get_projected_schema(
 
     // once we reach the table scan, we can use the accumulated set of column
     // names to construct the set of column indexes in the scan
+    //
+    // we discard non-existing columns because some column names are not part of the schema,
+    // e.g. when the column derives from an aggregation
     let mut projection: Vec<usize> = accum
         .iter()
-        .map(|name| table_schema.index_of(name).unwrap())
+        .map(|name| table_schema.index_of(name))
+        .filter_map(ArrowResult::ok)
         .collect();
 
     if projection.is_empty() {

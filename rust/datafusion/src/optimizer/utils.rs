@@ -19,7 +19,7 @@
 
 use std::collections::HashSet;
 
-use arrow::datatypes::{DataType, Field, Schema};
+use arrow::datatypes::DataType;
 
 use crate::error::{ExecutionError, Result};
 use crate::logicalplan::Expr;
@@ -65,54 +65,6 @@ pub fn expr_to_column_names(expr: &Expr, accum: &mut HashSet<String>) -> Result<
             "Wildcard expressions are not valid in a logical query plan".to_owned(),
         )),
     }
-}
-
-/// Create field meta-data from an expression, for use in a result set schema
-pub fn expr_to_field(e: &Expr, input_schema: &Schema) -> Result<Field> {
-    match e {
-        Expr::Alias(expr, name) => {
-            Ok(Field::new(name, expr.get_type(input_schema)?, true))
-        }
-        Expr::Column(name) => Ok(input_schema.field_with_name(name)?.clone()),
-        Expr::Literal(ref lit) => Ok(Field::new("lit", lit.get_datatype(), true)),
-        Expr::ScalarFunction {
-            ref name,
-            ref return_type,
-            ..
-        } => Ok(Field::new(&name, return_type.clone(), true)),
-        Expr::AggregateFunction {
-            ref name,
-            ref return_type,
-            ..
-        } => Ok(Field::new(&name, return_type.clone(), true)),
-        Expr::Cast { ref data_type, .. } => {
-            Ok(Field::new("cast", data_type.clone(), true))
-        }
-        Expr::BinaryExpr {
-            ref left,
-            ref right,
-            ..
-        } => {
-            let left_type = left.get_type(input_schema)?;
-            let right_type = right.get_type(input_schema)?;
-            Ok(Field::new(
-                "binary_expr",
-                get_supertype(&left_type, &right_type).unwrap(),
-                true,
-            ))
-        }
-        _ => Err(ExecutionError::NotImplemented(format!(
-            "Cannot determine schema type for expression {:?}",
-            e
-        ))),
-    }
-}
-
-/// Create field meta-data from an expression, for use in a result set schema
-pub fn exprlist_to_fields(expr: &[Expr], input_schema: &Schema) -> Result<Vec<Field>> {
-    expr.iter()
-        .map(|e| expr_to_field(e, input_schema))
-        .collect()
 }
 
 /// Given two datatypes, determine the supertype that both types can safely be cast to

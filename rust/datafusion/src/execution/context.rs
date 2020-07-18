@@ -36,8 +36,7 @@ use crate::execution::physical_plan::common;
 use crate::execution::physical_plan::csv::{CsvExec, CsvReadOptions};
 use crate::execution::physical_plan::datasource::DatasourceExec;
 use crate::execution::physical_plan::expressions::{
-    Alias, Avg, BinaryExpr, CastExpr, Column, Count, Literal, Max, Min, PhysicalSortExpr,
-    Sum,
+    Avg, BinaryExpr, CastExpr, Column, Count, Literal, Max, Min, PhysicalSortExpr, Sum,
 };
 use crate::execution::physical_plan::hash_aggregate::HashAggregateExec;
 use crate::execution::physical_plan::limit::LimitExec;
@@ -51,7 +50,9 @@ use crate::execution::physical_plan::sort::{SortExec, SortOptions};
 use crate::execution::physical_plan::udf::{ScalarFunction, ScalarFunctionExpr};
 use crate::execution::physical_plan::{AggregateExpr, ExecutionPlan, PhysicalExpr};
 use crate::execution::table_impl::TableImpl;
-use crate::logicalplan::*;
+use crate::logicalplan::{
+    Expr, FunctionMeta, FunctionType, LogicalPlan, LogicalPlanBuilder,
+};
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::projection_push_down::ProjectionPushDown;
 use crate::optimizer::type_coercion::TypeCoercionRule;
@@ -64,6 +65,15 @@ use sqlparser::sqlast::{SQLColumnDef, SQLType};
 pub struct ExecutionContext {
     datasources: HashMap<String, Box<dyn TableProvider + Send + Sync>>,
     scalar_functions: HashMap<String, Box<ScalarFunction>>,
+}
+
+fn tuple_err<T, R>(value: (Result<T>, Result<R>)) -> Result<(T, R)> {
+    match value {
+        (Ok(e), Ok(e1)) => Ok((e, e1)),
+        (Err(e), Ok(_)) => Err(e),
+        (Ok(_), Err(e1)) => Err(e1),
+        (Err(e), Err(_)) => Err(e),
+    }
 }
 
 impl ExecutionContext {
@@ -354,7 +364,12 @@ impl ExecutionContext {
                 let input_schema = input.as_ref().schema().clone();
                 let runtime_expr = expr
                     .iter()
-                    .map(|e| self.create_physical_expr(e, &input_schema))
+                    .map(|e| {
+                        tuple_err((
+                            self.create_physical_expr(e, &input_schema),
+                            e.name(&input_schema),
+                        ))
+                    })
                     .collect::<Result<Vec<_>>>()?;
                 Ok(Arc::new(ProjectionExec::try_new(runtime_expr, input)?))
             }
@@ -368,17 +383,30 @@ impl ExecutionContext {
                 let input = self.create_physical_plan(input, batch_size)?;
                 let input_schema = input.as_ref().schema().clone();
 
-                let group_expr = group_expr
+                let groups = group_expr
                     .iter()
-                    .map(|e| self.create_physical_expr(e, &input_schema))
+                    .map(|e| {
+                        tuple_err((
+                            self.create_physical_expr(e, &input_schema),
+                            e.name(&input_schema),
+                        ))
+                    })
                     .collect::<Result<Vec<_>>>()?;
-                let aggr_expr = aggr_expr
+                let aggregates = aggr_expr
                     .iter()
-                    .map(|e| self.create_aggregate_expr(e, &input_schema))
+                    .map(|e| {
+                        tuple_err((
+                            self.create_aggregate_expr(e, &input_schema),
+                            e.name(&input_schema),
+                        ))
+                    })
                     .collect::<Result<Vec<_>>>()?;
 
-                let initial_aggr =
-                    HashAggregateExec::try_new(group_expr, aggr_expr, input)?;
+                let initial_aggr = HashAggregateExec::try_new(
+                    groups.clone(),
+                    aggregates.clone(),
+                    input,
+                )?;
 
                 let schema = initial_aggr.schema();
                 let partitions = initial_aggr.partitions()?;
@@ -387,13 +415,27 @@ impl ExecutionContext {
                     return Ok(Arc::new(initial_aggr));
                 }
 
-                let (final_group, final_aggr) = initial_aggr.make_final_expr();
-
                 let merge = Arc::new(MergeExec::new(schema.clone(), partitions));
 
+                // construct the expressions for the final aggregation
+                let (final_group, final_aggr) = initial_aggr.make_final_expr(
+                    groups.iter().map(|x| x.1.clone()).collect(),
+                    aggregates.iter().map(|x| x.1.clone()).collect(),
+                );
+
+                // construct a second aggregation, keeping the final column name equal to the first aggregation
+                // and the expressions corresponding to the respective aggregate
                 Ok(Arc::new(HashAggregateExec::try_new(
-                    final_group,
-                    final_aggr,
+                    final_group
+                        .iter()
+                        .enumerate()
+                        .map(|(i, expr)| (expr.clone(), groups[i].1.clone()))
+                        .collect(),
+                    final_aggr
+                        .iter()
+                        .enumerate()
+                        .map(|(i, expr)| (expr.clone(), aggregates[i].1.clone()))
+                        .collect(),
                     merge,
                 )?))
             }
@@ -453,10 +495,7 @@ impl ExecutionContext {
         input_schema: &Schema,
     ) -> Result<Arc<dyn PhysicalExpr>> {
         match e {
-            Expr::Alias(expr, name) => {
-                let expr = self.create_physical_expr(expr, input_schema)?;
-                Ok(Arc::new(Alias::new(expr, &name)))
-            }
+            Expr::Alias(expr, ..) => Ok(self.create_physical_expr(expr, input_schema)?),
             Expr::Column(name) => {
                 // check that name exists
                 input_schema.field_with_name(&name)?;
@@ -484,7 +523,6 @@ impl ExecutionContext {
                         physical_args.push(self.create_physical_expr(e, input_schema)?);
                     }
                     Ok(Arc::new(ScalarFunctionExpr::new(
-                        name,
                         Box::new(f.fun.clone()),
                         physical_args,
                         return_type,
@@ -650,6 +688,7 @@ mod tests {
     use super::*;
     use crate::datasource::MemTable;
     use crate::execution::physical_plan::udf::ScalarUdf;
+    use crate::logicalplan::{aggregate_expr, col, scalar_function};
     use crate::test;
     use arrow::array::{ArrayRef, Int32Array};
     use arrow::compute::add;
@@ -995,19 +1034,16 @@ mod tests {
         let ctx = create_ctx(&tmp_dir, 1)?;
 
         let schema = Arc::new(Schema::new(vec![
-            Field::new("state", DataType::Utf8, false),
-            Field::new("salary", DataType::UInt32, false),
+            Field::new("c1", DataType::Utf8, false),
+            Field::new("c2", DataType::UInt32, false),
         ]));
 
         let plan = LogicalPlanBuilder::scan("default", "test", schema.as_ref(), None)?
             .aggregate(
-                vec![col("state")],
-                vec![aggregate_expr("SUM", col("salary"), DataType::UInt32)],
+                vec![col("c1")],
+                vec![aggregate_expr("SUM", col("c2"), DataType::UInt32)],
             )?
-            .project(vec![
-                col("state"),
-                col("SUM(SUM(salary))").alias("total_salary"),
-            ])?
+            .project(vec![col("c1"), col("SUM(c2)").alias("total_salary")])?
             .build()?;
 
         let plan = ctx.optimize(&plan)?;

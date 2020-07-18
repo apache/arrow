@@ -179,6 +179,85 @@ impl ScalarValue {
     }
 }
 
+/// Returns a readable name of an expression based on the input schema.
+/// This function recursively transverses the expression for names such as "CAST(a > 2)".
+fn create_name(e: &Expr, input_schema: &Schema) -> Result<String> {
+    match e {
+        Expr::Alias(_, name) => Ok(name.clone()),
+        Expr::Column(name) => Ok(name.clone()),
+        Expr::Literal(value) => Ok(format!("{:?}", value)),
+        Expr::BinaryExpr { left, op, right } => {
+            let left = create_name(left, input_schema)?;
+            let right = create_name(right, input_schema)?;
+            Ok(format!("{} {:?} {}", left, op, right))
+        }
+        Expr::Cast { expr, data_type } => {
+            let expr = create_name(expr, input_schema)?;
+            Ok(format!("CAST({} as {:?})", expr, data_type))
+        }
+        Expr::ScalarFunction { name, args, .. } => {
+            let mut names = Vec::with_capacity(args.len());
+            for e in args {
+                names.push(create_name(e, input_schema)?);
+            }
+            Ok(format!("{}({})", name, names.join(",")))
+        }
+        Expr::AggregateFunction { name, args, .. } => {
+            let mut names = Vec::with_capacity(args.len());
+            for e in args {
+                names.push(create_name(e, input_schema)?);
+            }
+            Ok(format!("{}({})", name, names.join(",")))
+        }
+        other => Err(ExecutionError::NotImplemented(format!(
+            "Physical plan does not support logical expression {:?}",
+            other
+        ))),
+    }
+}
+
+/// Returns the datatype of the expression given the input schema
+// note: the physical plan derived from an expression must match the datatype on this function.
+fn expr_to_field(e: &Expr, input_schema: &Schema) -> Result<Field> {
+    let data_type = match e {
+        Expr::Alias(expr, ..) => expr.get_type(input_schema),
+        Expr::Column(name) => Ok(input_schema.field_with_name(name)?.data_type().clone()),
+        Expr::Literal(ref lit) => Ok(lit.get_datatype()),
+        Expr::ScalarFunction {
+            ref return_type, ..
+        } => Ok(return_type.clone()),
+        Expr::AggregateFunction {
+            ref return_type, ..
+        } => Ok(return_type.clone()),
+        Expr::Cast { ref data_type, .. } => Ok(data_type.clone()),
+        Expr::BinaryExpr {
+            ref left,
+            ref right,
+            ..
+        } => {
+            let left_type = left.get_type(input_schema)?;
+            let right_type = right.get_type(input_schema)?;
+            Ok(utils::get_supertype(&left_type, &right_type).unwrap())
+        }
+        _ => Err(ExecutionError::NotImplemented(format!(
+            "Cannot determine schema type for expression {:?}",
+            e
+        ))),
+    };
+
+    match data_type {
+        Ok(d) => Ok(Field::new(&e.name(input_schema)?, d, true)),
+        Err(e) => Err(e),
+    }
+}
+
+/// Create field meta-data from an expression, for use in a result set schema
+fn exprlist_to_fields(expr: &[Expr], input_schema: &Schema) -> Result<Vec<Field>> {
+    expr.iter()
+        .map(|e| expr_to_field(e, input_schema))
+        .collect()
+}
+
 /// Relation expression
 #[derive(Clone, PartialEq)]
 pub enum Expr {
@@ -276,6 +355,13 @@ impl Expr {
                 "Wildcard expressions are not valid in a logical query plan".to_owned(),
             )),
         }
+    }
+
+    /// Return the name of this expression
+    ///
+    /// This represents how a column with this expression is named when no alias is chosen
+    pub fn name(&self, input_schema: &Schema) -> Result<String> {
+        create_name(self, input_schema)
     }
 
     /// Perform a type cast on the expression value.
@@ -923,10 +1009,8 @@ impl LogicalPlanBuilder {
             expr.clone()
         };
 
-        let schema = Schema::new(utils::exprlist_to_fields(
-            &projected_expr,
-            input_schema.as_ref(),
-        )?);
+        let schema =
+            Schema::new(exprlist_to_fields(&projected_expr, input_schema.as_ref())?);
 
         Ok(Self::from(&LogicalPlan::Projection {
             expr: projected_expr,
@@ -963,11 +1047,10 @@ impl LogicalPlanBuilder {
 
     /// Apply an aggregate
     pub fn aggregate(&self, group_expr: Vec<Expr>, aggr_expr: Vec<Expr>) -> Result<Self> {
-        let mut all_fields: Vec<Expr> = group_expr.clone();
-        aggr_expr.iter().for_each(|x| all_fields.push(x.clone()));
+        let mut all_expr: Vec<Expr> = group_expr.clone();
+        aggr_expr.iter().for_each(|x| all_expr.push(x.clone()));
 
-        let aggr_schema =
-            Schema::new(utils::exprlist_to_fields(&all_fields, self.plan.schema())?);
+        let aggr_schema = Schema::new(exprlist_to_fields(&all_expr, self.plan.schema())?);
 
         Ok(Self::from(&LogicalPlan::Aggregate {
             input: Box::new(self.plan.clone()),
