@@ -40,18 +40,16 @@ garrow_array_builder_append_value(GArrowArrayBuilder *builder,
   return garrow_error_check(error, status, context);
 }
 
-template <typename BUILDER, typename VALUE>
+template <typename VALUE, typename APPEND_FUNCTION>
 gboolean
-garrow_array_builder_append_values(GArrowArrayBuilder *builder,
-                                   VALUE *values,
+garrow_array_builder_append_values(VALUE *values,
                                    gint64 values_length,
                                    const gboolean *is_valids,
                                    gint64 is_valids_length,
                                    GError **error,
-                                   const gchar *context)
+                                   const gchar *context,
+                                   APPEND_FUNCTION& append_function)
 {
-  auto arrow_builder =
-    static_cast<BUILDER>(garrow_array_builder_get_raw(builder));
   arrow::Status status;
   if (is_valids_length > 0) {
     if (values_length != is_valids_length) {
@@ -77,9 +75,9 @@ garrow_array_builder_append_values(GArrowArrayBuilder *builder,
       for (gint64 j = 0; j < chunk_size; ++j) {
         valid_bytes[j] = chunked_is_valids[j];
       }
-      status = arrow_builder->AppendValues(values + offset,
-                                           chunk_size,
-                                           valid_bytes);
+      status = append_function(values + offset,
+                               chunk_size,
+                               valid_bytes);
       if (!garrow_error_check(error, status, context)) {
         return FALSE;
       }
@@ -91,14 +89,37 @@ garrow_array_builder_append_values(GArrowArrayBuilder *builder,
       for (gint64 i = 0; i < n_remains; ++i) {
         valid_bytes[i] = chunked_is_valids[i];
       }
-      status = arrow_builder->AppendValues(values + offset,
-                                           n_remains,
-                                           valid_bytes);
+      status = append_function(values + offset,
+                               n_remains,
+                               valid_bytes);
     }
   } else {
-    status = arrow_builder->AppendValues(values, values_length, nullptr);
+    status = append_function(values, values_length, nullptr);
   }
   return garrow_error_check(error, status, context);
+}
+
+template <typename BUILDER, typename VALUE>
+gboolean
+garrow_array_builder_append_values(GArrowArrayBuilder *builder,
+                                   VALUE *values,
+                                   gint64 values_length,
+                                   const gboolean *is_valids,
+                                   gint64 is_valids_length,
+                                   GError **error,
+                                   const gchar *context)
+{
+  auto arrow_builder =
+    static_cast<BUILDER>(garrow_array_builder_get_raw(builder));
+  auto append_function = [&arrow_builder](
+      VALUE *values,
+      gint64 values_length,
+      const uint8_t *valid_bytes) -> arrow::Status {
+    return arrow_builder->AppendValues(values, values_length, valid_bytes);
+  };
+  return garrow_array_builder_append_values(values, values_length, is_valids,
+                                            is_valids_length, error, context,
+                                            append_function);
 }
 
 template <typename BUILDER>
@@ -4134,50 +4155,15 @@ garrow_string_dictionary_array_builder_append_indices(GArrowStringDictionaryArra
   auto arrow_builder =
     static_cast<arrow::StringDictionaryBuilder *>(
       garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
-  arrow::Status status;
-  if (is_valids_length > 0) {
-    if (values_length != is_valids_length) {
-      g_set_error(error,
-                  GARROW_ERROR,
-                  GARROW_ERROR_INVALID,
-                  "%s: values length and is_valids length must be equal: "
-                  "<%" G_GINT64_FORMAT "> != "
-                  "<%" G_GINT64_FORMAT ">",
-                  context,
-                  values_length,
-                  is_valids_length);
-      return FALSE;
-    }
-
-    const gint64 chunk_size = 4096;
-    const gint64 n_chunks = is_valids_length / chunk_size;
-    const gint64 n_remains = is_valids_length % chunk_size;
-    if (n_chunks > 0) {
-      uint8_t valid_bytes[chunk_size];
-      for (gint64 i = 0; i < n_chunks; ++i) {
-        gint64 offset = chunk_size * i;
-        std::copy_n(is_valids + offset, chunk_size, valid_bytes);
-        status = arrow_builder->AppendIndices(values + offset,
-                                              chunk_size,
-                                              valid_bytes);
-        if (!garrow_error_check(error, status, context)) {
-          return FALSE;
-        }
-      }
-    }
-    if (n_remains > 0) {
-      uint8_t valid_bytes[n_remains];
-      gint64 offset = chunk_size * n_chunks;
-      std::copy_n(is_valids + offset, n_remains, valid_bytes);
-      status = arrow_builder->AppendIndices(values + offset,
-                                            n_remains,
-                                            valid_bytes);
-    }
-  }
-  else {
-    status = arrow_builder->AppendIndices(values, values_length);
-  }
-  return garrow_error_check(error, status, context);
+  auto append_function = [&arrow_builder](
+      const gint64 *values,
+      gint64 values_length,
+      const uint8_t *valid_bytes) -> arrow::Status {
+    return arrow_builder->AppendIndices(values, values_length, valid_bytes);
+  };
+  return garrow_array_builder_append_values(values, values_length, is_valids,
+                                            is_valids_length, error, context,
+                                            append_function);
 }
 
 /**
