@@ -939,9 +939,16 @@ garrow_string_dictionary_array_builder_append_string_array(GArrowStringDictionar
                                                            GArrowStringArray *array,
                                                            GError **error);
 GARROW_AVAILABLE_IN_1_0
+gboolean
+garrow_string_dictionary_array_builder_append_indices(GArrowStringDictionaryArrayBuilder *builder,
+                                                      const gint64 *values,
+                                                      gint64 values_length,
+                                                      const gboolean *is_valids,
+                                                      gint64 is_valids_length,
+                                                      GError **error);
+GARROW_AVAILABLE_IN_1_0
 gint64
 garrow_string_dictionary_array_builder_get_dictionary_length(GArrowStringDictionaryArrayBuilder *builder);
-// TODO: append_indices
 // TODO: finish_delta
 GARROW_AVAILABLE_IN_1_0
 gboolean

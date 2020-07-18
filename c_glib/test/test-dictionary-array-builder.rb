@@ -77,6 +77,22 @@ class TestDictinaryArrayBuilder < Test::Unit::TestCase
         end
       end
 
+      test("append_indices") do
+        @builder.insert_memo_values(build_string_array(["qux"]))
+        dictionary_array = build_string_array([*@dictionary, "qux"])
+        indices_array = build_int8_array([*@indices, 1, 2, nil, 3, 0, 1, 2, 1, 3, 0])
+        expected_array = Arrow::DictionaryArray.new(@data_type,
+                                                    indices_array,
+                                                    dictionary_array)
+
+        @builder.append_indices([1, 2, 1, 3, 0],
+                                [true, true, false, true, true])
+        @builder.append_indices([1, 2, 1, 3, 0])
+        assert do
+          expected_array == @builder.finish
+        end
+      end
+
       test("dictionary_length") do
         assert do
           @dictionary.length == @builder.dictionary_length

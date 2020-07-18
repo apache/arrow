@@ -4104,6 +4104,81 @@ garrow_string_dictionary_array_builder_append_string_array(GArrowStringDictionar
                             "[string-dictionary-array-builder][append-string-array]");
 }
 
+/**
+ * garrow_string_dictionary_array_builder_append_indices:
+ * @builder: A #GArrowStringDictionaryArrayBuilder.
+ * @values: (array length=values_length): The array of indices.
+ * @values_length: The length of `values`.
+ * @is_valids: (nullable) (array length=is_valids_length): The array of
+ *   0 or 1 that shows whether the Nth value is valid or not. If the
+ *   Nth `is_valids` is 1, the Nth `values` is valid value. Otherwise
+ *   the Nth value is null value.
+ * @is_valids_length: The length of `is_valids`.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Append dictionary indices directly without modifying the internal memo.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 1.0
+ */
+gboolean
+garrow_string_dictionary_array_builder_append_indices(GArrowStringDictionaryArrayBuilder *builder,
+                                                      const gint64 *values,
+                                                      gint64 values_length,
+                                                      const gboolean *is_valids,
+                                                      gint64 is_valids_length,
+                                                      GError **error)
+{
+  static const char *context = "[string-dictionary-array-builder][append-indices]";
+  auto arrow_builder =
+    static_cast<arrow::StringDictionaryBuilder *>(
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+  arrow::Status status;
+  if (is_valids_length > 0) {
+    if (values_length != is_valids_length) {
+      g_set_error(error,
+                  GARROW_ERROR,
+                  GARROW_ERROR_INVALID,
+                  "%s: values length and is_valids length must be equal: "
+                  "<%" G_GINT64_FORMAT "> != "
+                  "<%" G_GINT64_FORMAT ">",
+                  context,
+                  values_length,
+                  is_valids_length);
+      return FALSE;
+    }
+
+    const gint64 chunk_size = 4096;
+    const gint64 n_chunks = is_valids_length / chunk_size;
+    const gint64 n_remains = is_valids_length % chunk_size;
+    if (n_chunks > 0) {
+      uint8_t valid_bytes[chunk_size];
+      for (gint64 i = 0; i < n_chunks; ++i) {
+        gint64 offset = chunk_size * i;
+        std::copy_n(is_valids + offset, chunk_size, valid_bytes);
+        status = arrow_builder->AppendIndices(values + offset,
+                                              chunk_size,
+                                              valid_bytes);
+        if (!garrow_error_check(error, status, context)) {
+          return FALSE;
+        }
+      }
+    }
+    if (n_remains > 0) {
+      uint8_t valid_bytes[n_remains];
+      gint64 offset = chunk_size * n_chunks;
+      std::copy_n(is_valids + offset, n_remains, valid_bytes);
+      status = arrow_builder->AppendIndices(values + offset,
+                                            n_remains,
+                                            valid_bytes);
+    }
+  }
+  else {
+    status = arrow_builder->AppendIndices(values, values_length);
+  }
+  return garrow_error_check(error, status, context);
+}
 
 /**
  * garrow_string_dictionary_array_builder_get_dictionary_length:
