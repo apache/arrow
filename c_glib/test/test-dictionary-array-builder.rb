@@ -105,6 +105,12 @@ class TestDictinaryArrayBuilder < Test::Unit::TestCase
         end
       end
 
+      test("finish_delta") do
+        assert do
+          @expected_array == @builder.finish
+        end
+      end
+
       test("reset") do
         expected_array = Arrow::DictionaryArray.new(@data_type,
                                                     build_int8_array([]),
