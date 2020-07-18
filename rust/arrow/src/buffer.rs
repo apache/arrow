@@ -545,10 +545,12 @@ impl MutableBuffer {
     ///
     /// Note that this should be used cautiously, and the returned pointer should not be
     /// stored anywhere, to avoid dangling pointers.
+    #[inline]
     pub fn raw_data(&self) -> *const u8 {
         self.data
     }
 
+    #[inline]
     pub fn raw_data_mut(&mut self) -> *mut u8 {
         self.data
     }
