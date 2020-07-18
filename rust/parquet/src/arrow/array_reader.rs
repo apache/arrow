@@ -33,11 +33,11 @@ use arrow::datatypes::{DataType as ArrowType, DateUnit, Field, IntervalUnit, Tim
 
 use crate::arrow::converter::{
     BinaryArrayConverter, BinaryConverter, BoolConverter, BooleanArrayConverter,
-    Converter, Date32Converter, FixedLenBinaryConverter,
-    FixedSizeArrayConverter, Float32Converter, Float64Converter, Int16Converter,
-    Int32Converter, Int64Converter, Int8Converter, Int96ArrayConverter, Int96Converter,
-    TimestampMicrosecondConverter, TimestampMillisecondConverter, UInt16Converter,
-    UInt32Converter, UInt64Converter, UInt8Converter, Utf8ArrayConverter, Utf8Converter,
+    Converter, Date32Converter, FixedLenBinaryConverter, FixedSizeArrayConverter,
+    Float32Converter, Float64Converter, Int16Converter, Int32Converter, Int64Converter,
+    Int8Converter, Int96ArrayConverter, Int96Converter, TimestampMicrosecondConverter,
+    TimestampMillisecondConverter, UInt16Converter, UInt32Converter, UInt64Converter,
+    UInt8Converter, Utf8ArrayConverter, Utf8Converter,
 };
 use crate::arrow::record_reader::RecordReader;
 use crate::arrow::schema::parquet_to_arrow_field;
