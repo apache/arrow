@@ -705,10 +705,12 @@ mod tests {
         // there should be one batch per partition
         assert_eq!(results.len(), partition_count);
 
-        // each batch should contain 2 columns and 10 rows
+        // each batch should contain 2 columns and 10 rows with correct field names
         for batch in &results {
             assert_eq!(batch.num_columns(), 2);
             assert_eq!(batch.num_rows(), 10);
+
+            assert_eq!(field_names(batch), vec!["c1", "c2"]);
         }
 
         Ok(())
@@ -883,6 +885,9 @@ mod tests {
         assert_eq!(results.len(), 1);
 
         let batch = &results[0];
+
+        assert_eq!(field_names(batch), vec!["SUM(c1)", "SUM(c2)"]);
+
         let expected: Vec<&str> = vec!["60,220"];
         let mut rows = test::format_batch(&batch);
         rows.sort();
@@ -897,6 +902,9 @@ mod tests {
         assert_eq!(results.len(), 1);
 
         let batch = &results[0];
+
+        assert_eq!(field_names(batch), vec!["AVG(c1)", "AVG(c2)"]);
+
         let expected: Vec<&str> = vec!["1.5,5.5"];
         let mut rows = test::format_batch(&batch);
         rows.sort();
@@ -911,6 +919,9 @@ mod tests {
         assert_eq!(results.len(), 1);
 
         let batch = &results[0];
+
+        assert_eq!(field_names(batch), vec!["MAX(c1)", "MAX(c2)"]);
+
         let expected: Vec<&str> = vec!["3,10"];
         let mut rows = test::format_batch(&batch);
         rows.sort();
@@ -925,6 +936,9 @@ mod tests {
         assert_eq!(results.len(), 1);
 
         let batch = &results[0];
+
+        assert_eq!(field_names(batch), vec!["MIN(c1)", "MIN(c2)"]);
+
         let expected: Vec<&str> = vec!["0,1"];
         let mut rows = test::format_batch(&batch);
         rows.sort();
@@ -939,6 +953,9 @@ mod tests {
         assert_eq!(results.len(), 1);
 
         let batch = &results[0];
+
+        assert_eq!(field_names(batch), vec!["c1", "SUM(c2)"]);
+
         let expected: Vec<&str> = vec!["0,55", "1,55", "2,55", "3,55"];
         let mut rows = test::format_batch(&batch);
         rows.sort();
@@ -953,6 +970,9 @@ mod tests {
         assert_eq!(results.len(), 1);
 
         let batch = &results[0];
+
+        assert_eq!(field_names(batch), vec!["c1", "AVG(c2)"]);
+
         let expected: Vec<&str> = vec!["0,5.5", "1,5.5", "2,5.5", "3,5.5"];
         let mut rows = test::format_batch(&batch);
         rows.sort();
@@ -967,6 +987,9 @@ mod tests {
         assert_eq!(results.len(), 1);
 
         let batch = &results[0];
+
+        assert_eq!(field_names(batch), vec!["c1", "MAX(c2)"]);
+
         let expected: Vec<&str> = vec!["0,10", "1,10", "2,10", "3,10"];
         let mut rows = test::format_batch(&batch);
         rows.sort();
@@ -981,6 +1004,9 @@ mod tests {
         assert_eq!(results.len(), 1);
 
         let batch = &results[0];
+
+        assert_eq!(field_names(batch), vec!["c1", "MIN(c2)"]);
+
         let expected: Vec<&str> = vec!["0,1", "1,1", "2,1", "3,1"];
         let mut rows = test::format_batch(&batch);
         rows.sort();
@@ -995,6 +1021,9 @@ mod tests {
         assert_eq!(results.len(), 1);
 
         let batch = &results[0];
+
+        assert_eq!(field_names(batch), vec!["COUNT(c1)", "COUNT(c2)"]);
+
         let expected: Vec<&str> = vec!["10,10"];
         let mut rows = test::format_batch(&batch);
         rows.sort();
@@ -1008,6 +1037,9 @@ mod tests {
         assert_eq!(results.len(), 1);
 
         let batch = &results[0];
+
+        assert_eq!(field_names(batch), vec!["COUNT(c1)", "COUNT(c2)"]);
+
         let expected: Vec<&str> = vec!["40,40"];
         let mut rows = test::format_batch(&batch);
         rows.sort();
@@ -1021,6 +1053,9 @@ mod tests {
         assert_eq!(results.len(), 1);
 
         let batch = &results[0];
+
+        assert_eq!(field_names(batch), vec!["c1", "COUNT(c2)"]);
+
         let expected = vec!["0,10", "1,10", "2,10", "3,10"];
         let mut rows = test::format_batch(&batch);
         rows.sort();
@@ -1170,6 +1205,7 @@ mod tests {
         let batch = &result[0];
         assert_eq!(3, batch.num_columns());
         assert_eq!(4, batch.num_rows());
+        assert_eq!(field_names(batch), vec!["a", "b", "my_add(a,b)"]);
 
         let a = batch
             .column(0)
@@ -1203,6 +1239,15 @@ mod tests {
         let logical_plan = ctx.optimize(&logical_plan)?;
         let physical_plan = ctx.create_physical_plan(&logical_plan, 1024)?;
         ctx.collect(physical_plan.as_ref())
+    }
+
+    fn field_names(result: &RecordBatch) -> Vec<String> {
+        result
+            .schema()
+            .fields()
+            .iter()
+            .map(|x| x.name().clone())
+            .collect::<Vec<String>>()
     }
 
     /// Execute SQL and return results
