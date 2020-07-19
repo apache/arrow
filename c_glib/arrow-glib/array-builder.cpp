@@ -4185,7 +4185,7 @@ gint64 garrow_string_dictionary_array_builder_get_dictionary_length(GArrowString
 /**
  * garrow_string_dictionary_array_builder_finish_delta:
  * @builder: A #GArrowStringDictionaryArrayBuilder.
- * @out_delta: (transfer full): The built #GArrowArray containing dictionary.
+ * @out_delta: (out): The built #GArrowArray containing dictionary.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: (transfer full): The built #GArrowArray containing indices on
@@ -4199,7 +4199,10 @@ garrow_string_dictionary_array_builder_finish_delta(GArrowStringDictionaryArrayB
                                                     GError **error)
 {
   static const char *context = "[string-dictionary-array-builder][finish-delta]";
-  std::shared_ptr<Array> arrow_indices, arrow_delta;
+  auto arrow_builder =
+    static_cast<arrow::StringDictionaryBuilder *>(
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+  std::shared_ptr<arrow::Array> arrow_indices, arrow_delta;
   auto status = arrow_builder->FinishDelta(&arrow_indices, &arrow_delta);
   if (!garrow_error_check(error, status, context)) {
     return NULL;

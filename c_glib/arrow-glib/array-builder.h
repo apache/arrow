@@ -953,9 +953,7 @@ GARROW_AVAILABLE_IN_1_0
 GArrowArray *
 garrow_string_dictionary_array_builder_finish_delta(GArrowStringDictionaryArrayBuilder* builder,
                                                     GArrowArray **out_delta,
-                                                    GError **error)
-{
-}
+                                                    GError **error);
 
 GARROW_AVAILABLE_IN_1_0
 gboolean

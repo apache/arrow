@@ -34,12 +34,12 @@ class TestDictinaryArrayBuilder < Test::Unit::TestCase
         @dictionary = %w(foo bar baz)
         @dictionary_array = build_string_array(@dictionary)
         @indices = @values.map {|x| x ? @dictionary.index(x) : nil }
-        indices_array = build_int8_array(@indices)
-        @data_type = Arrow::DictionaryDataType.new(indices_array.value_data_type,
+        @indices_array = build_int8_array(@indices)
+        @data_type = Arrow::DictionaryDataType.new(@indices_array.value_data_type,
                                                    @dictionary_array.value_data_type,
                                                    false)
         @expected_array = Arrow::DictionaryArray.new(@data_type,
-                                                     indices_array,
+                                                     @indices_array,
                                                      @dictionary_array)
         @builder = Arrow::StringDictionaryArrayBuilder.new
         @values.each do |value|
@@ -100,15 +100,16 @@ class TestDictinaryArrayBuilder < Test::Unit::TestCase
       end
 
       test("finish") do
-        assert do
-          @expected_array == @builder.finish
-        end
+        assert_equal(@expected_array,
+                     @builder.finish)
       end
 
       test("finish_delta") do
-        assert do
-          @expected_array == @builder.finish
-        end
+        assert_equal([
+                       @indices_array,
+                       @dictionary_array,
+                     ],
+                     @builder.finish_delta)
       end
 
       test("reset") do

@@ -675,7 +675,7 @@ garrow_cuda_ipc_memory_handle_serialize(GArrowCUDAIPCMemoryHandle *handle,
   }
 }
 
-GArrowBuffer *
+static GArrowBuffer *
 garrow_cuda_buffer_input_stream_buffer_new_raw_readable_interface(std::shared_ptr<arrow::Buffer> *arrow_buffer)
 {
   auto arrow_cuda_buffer =
