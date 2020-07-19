@@ -27,13 +27,13 @@ if(Snappy_ROOT)
             NO_DEFAULT_PATH
             PATH_SUFFIXES ${INCLUDE_PATH_SUFFIXES})
 else()
-  find_library(Snappy_LIB NAMES snappy)
-  find_path(Snappy_INCLUDE_DIR NAMES snappy.h PATH_SUFFIXES ${INCLUDE_PATH_SUFFIXES})
+  find_library(Snappy_LIB NAMES snappy HINTS "${CMAKE_ROOT}/Modules/")
+  find_path(Snappy_INCLUDE_DIR NAMES snappy.h HINTS "${CMAKE_ROOT}/Modules/" PATH_SUFFIXES ${INCLUDE_PATH_SUFFIXES})
 endif()
 
-find_package_handle_standard_args(SnappyAlt REQUIRED_VARS Snappy_LIB Snappy_INCLUDE_DIR)
+find_package_handle_standard_args(Snappy REQUIRED_VARS Snappy_LIB Snappy_INCLUDE_DIR)
 
-if(SnappyAlt_FOUND)
+if(Snappy_FOUND)
   add_library(Snappy::snappy UNKNOWN IMPORTED)
   set_target_properties(Snappy::snappy
                         PROPERTIES IMPORTED_LOCATION "${Snappy_LIB}"
