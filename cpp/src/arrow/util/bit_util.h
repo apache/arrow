@@ -397,28 +397,32 @@ static inline T ToLittleEndian(T value) {
 #if ARROW_LITTLE_ENDIAN
 template <typename T,
           typename = internal::EnableIfIsOneOf<T, int64_t, uint64_t, int32_t, uint32_t,
-                                               int16_t, uint16_t, uint8_t>>
+                                               int16_t, uint16_t, uint8_t, int8_t,
+                                               float, double>>
 static inline T FromBigEndian(T value) {
   return ByteSwap(value);
 }
 
 template <typename T,
           typename = internal::EnableIfIsOneOf<T, int64_t, uint64_t, int32_t, uint32_t,
-                                               int16_t, uint16_t, uint8_t>>
+                                               int16_t, uint16_t, uint8_t, int8_t,
+                                               float, double>>
 static inline T FromLittleEndian(T value) {
   return value;
 }
 #else
 template <typename T,
           typename = internal::EnableIfIsOneOf<T, int64_t, uint64_t, int32_t, uint32_t,
-                                               int16_t, uint16_t, uint8_t>>
+                                               int16_t, uint16_t, uint8_t, int8_t,
+                                               float, double>>
 static inline T FromBigEndian(T value) {
   return value;
 }
 
 template <typename T,
           typename = internal::EnableIfIsOneOf<T, int64_t, uint64_t, int32_t, uint32_t,
-                                               int16_t, uint16_t, uint8_t>>
+                                               int16_t, uint16_t, uint8_t, int8_t,
+                                               float, double>>
 static inline T FromLittleEndian(T value) {
   return ByteSwap(value);
 }
