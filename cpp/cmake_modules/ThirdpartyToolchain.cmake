@@ -140,6 +140,8 @@ macro(build_dependency DEPENDENCY_NAME)
     build_protobuf()
   elseif("${DEPENDENCY_NAME}" STREQUAL "RE2")
     build_re2()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "Snappy")
+    build_snappy()
   elseif("${DEPENDENCY_NAME}" STREQUAL "Thrift")
     build_thrift()
   elseif("${DEPENDENCY_NAME}" STREQUAL "utf8proc")
@@ -853,31 +855,7 @@ macro(build_snappy)
 endmacro()
 
 if(ARROW_WITH_SNAPPY)
-  if(Snappy_SOURCE STREQUAL "AUTO")
-    # Normally *Config.cmake files reside in /usr/lib/cmake but Snappy
-    # errornously places them in ${CMAKE_ROOT}/Modules/
-    # This is fixed in 1.1.7 but fedora (30) still installs into the wrong
-    # location.
-    # https://bugzilla.redhat.com/show_bug.cgi?id=1679727
-    # https://src.fedoraproject.org/rpms/snappy/pull-request/1
-    find_package(Snappy QUIET HINTS "${CMAKE_ROOT}/Modules/")
-    if(NOT Snappy_FOUND)
-      find_package(SnappyAlt)
-    endif()
-    if(NOT Snappy_FOUND AND NOT SnappyAlt_FOUND)
-      build_snappy()
-    endif()
-  elseif(Snappy_SOURCE STREQUAL "BUNDLED")
-    build_snappy()
-  elseif(Snappy_SOURCE STREQUAL "SYSTEM")
-    # SnappyConfig.cmake is not installed on Ubuntu/Debian
-    # TODO: Make a bug report upstream
-    find_package(Snappy HINTS "${CMAKE_ROOT}/Modules/")
-    if(NOT Snappy_FOUND)
-      find_package(SnappyAlt REQUIRED)
-    endif()
-  endif()
-
+  resolve_dependency(Snappy)
   # TODO: Don't use global includes but rather target_include_directories
   get_target_property(SNAPPY_INCLUDE_DIRS Snappy::snappy INTERFACE_INCLUDE_DIRECTORIES)
   include_directories(SYSTEM ${SNAPPY_INCLUDE_DIRS})
