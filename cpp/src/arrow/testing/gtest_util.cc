@@ -106,20 +106,6 @@ void AssertTsSame(const T& expected, const T& actual, CompareFunctor&& compare) 
   }
 }
 
-template <typename T, typename... ExtraArgs>
-void AssertTsEqual(const T& expected, const T& actual, ExtraArgs... args) {
-  return AssertTsSame(expected, actual, [&](const T& expected, const T& actual) {
-    return expected.Equals(actual, args...);
-  });
-}
-
-template <typename T>
-void AssertTsApproxEqual(const T& expected, const T& actual) {
-  return AssertTsSame(expected, actual, [](const T& expected, const T& actual) {
-    return expected.ApproxEquals(actual);
-  });
-}
-
 template <typename CompareFunctor>
 void AssertArraysEqualWith(const Array& expected, const Array& actual, bool verbose,
                            CompareFunctor&& compare) {
@@ -175,11 +161,17 @@ void AssertScalarsEqual(const Scalar& expected, const Scalar& actual, bool verbo
 
 void AssertBatchesEqual(const RecordBatch& expected, const RecordBatch& actual,
                         bool check_metadata) {
-  AssertTsEqual(expected, actual, check_metadata);
+  AssertTsSame(expected, actual,
+               [&](const RecordBatch& expected, const RecordBatch& actual) {
+                 return expected.Equals(actual, check_metadata);
+               });
 }
 
 void AssertBatchesApproxEqual(const RecordBatch& expected, const RecordBatch& actual) {
-  AssertTsApproxEqual(expected, actual);
+  AssertTsSame(expected, actual,
+               [&](const RecordBatch& expected, const RecordBatch& actual) {
+                 return expected.ApproxEquals(actual);
+               });
 }
 
 void AssertChunkedEqual(const ChunkedArray& expected, const ChunkedArray& actual) {
