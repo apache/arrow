@@ -90,6 +90,8 @@ pub fn unset_bit(data: &mut [u8], i: usize) {
 
 /// Sets bit at position `i` for `data` to 0
 ///
+/// # Safety
+///
 /// Note this doesn't do any bound checking, for performance reason. The caller is
 /// responsible to guarantee that `i` is within bounds.
 #[inline]

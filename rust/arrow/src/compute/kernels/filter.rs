@@ -24,9 +24,9 @@ use crate::record_batch::RecordBatch;
 use crate::{
     bitmap::Bitmap,
     buffer::{Buffer, MutableBuffer},
+    memory,
     util::bit_util,
 };
-use std::io::Write;
 use std::{mem, sync::Arc};
 
 /// trait for copying filtered null bitmap bits
@@ -88,7 +88,7 @@ impl<'a> NullBitSetter<'a> {
 impl<'a> CopyNullBit for NullBitSetter<'a> {
     #[inline]
     fn copy_null_bit(&mut self, source_index: usize) {
-        if bit_util::get_bit(self.source_bytes, source_index) == false {
+        if !bit_util::get_bit(self.source_bytes, source_index) {
             // this is not actually unsafe because of the condition above + target_buffer.len() == source_bytes.len()
             unsafe {
                 bit_util::unset_bit_raw(
@@ -125,52 +125,53 @@ fn get_null_bit_setter<'a>(data_array: &'a impl Array) -> Box<CopyNullBit + 'a> 
 }
 
 // transmute filter array to u64
-// - optimize filtering using highly selective filters by skipping entire batches of 64 filter bits
-// - copy null bit immediately
-// - copy data values in batches
+// - optimize filtering with highly selective filters by skipping entire batches of 64 filter bits
+// - if the data array being filtered doesn't have a null bitmap, no time is wasted to copy a null bitmap
 fn filter_array_impl(
     filter_context: &FilterContext,
     data_array: &impl Array,
     array_type: DataType,
     value_size: usize,
 ) -> Result<ArrayDataBuilder> {
+    if filter_context.filter_len > data_array.len() {
+        return Err(ArrowError::ComputeError(
+            "Filter array cannot be larger than data array".to_string(),
+        ));
+    }
     let filtered_count = filter_context.filtered_count;
     let filter_mask = &filter_context.filter_mask;
     let filter_u64 = &filter_context.filter_u64;
-    let data_bytes = data_array.data_ref().buffers()[0].data();
+    let data_start = data_array.data_ref().buffers()[0].raw_data();
     let mut value_buffer = MutableBuffer::new(filtered_count * value_size);
+    value_buffer.resize(filtered_count * value_size)?;
+    let mut value_position = value_buffer.raw_data_mut();
     let mut null_bit_setter = get_null_bit_setter(data_array);
     let null_bit_setter = null_bit_setter.as_mut();
-    let mut copy_buffer: Vec<u8> = vec![0; 64 * value_size];
 
-    for i in 0..filter_u64.len() {
+    for (i, filter_batch) in filter_u64.iter().enumerate() {
         // foreach u64 batch
-        let filter_batch = filter_u64[i];
+        let filter_batch = *filter_batch;
         if filter_batch == 0 {
             // if batch == 0: skip
             continue;
         }
-
-        let mut copy_count = 0;
-        for j in 0..64 {
+        for (j, filter_mask) in filter_mask.iter().enumerate() {
             // foreach bit in batch:
-            if (filter_batch & filter_mask[j]) != 0 {
+            if (filter_batch & *filter_mask) != 0 {
                 let data_index = (i * 64) + j;
                 null_bit_setter.copy_null_bit(data_index);
                 // if filter bit == 1: copy data value to temp array
-                // let copy_buffer_start = value_size * copy_count;
-                // let data_buffer_start = value_size * data_index;
-                copy_buffer
-                    [(value_size * copy_count)..((value_size * copy_count) + value_size)]
-                    .copy_from_slice(
-                        &data_bytes[(value_size * data_index)
-                            ..((value_size * data_index) + value_size)],
+                unsafe {
+                    // this should be safe because of the data_array.len() check at the beginning of the method
+                    memory::memcpy(
+                        value_position,
+                        data_start.add(value_size * data_index),
+                        value_size,
                     );
-                copy_count += 1;
+                    value_position = value_position.add(value_size);
+                }
             }
         }
-        // copy temp array to output buffer
-        value_buffer.write(&copy_buffer[0..(value_size * copy_count)])?;
     }
 
     let mut array_data_builder = ArrayDataBuilder::new(array_type)
@@ -190,6 +191,7 @@ fn filter_array_impl(
 #[derive(Debug)]
 pub struct FilterContext {
     filter_u64: Vec<u64>,
+    filter_len: usize,
     filtered_count: usize,
     filter_mask: Vec<u64>,
 }
@@ -224,6 +226,7 @@ impl FilterContext {
         let filter_u64 = u64_buffer.typed_data_mut::<u64>().to_owned();
         FilterContext {
             filter_u64,
+            filter_len: filter_array.len(),
             filtered_count,
             filter_mask,
         }
@@ -450,7 +453,7 @@ pub fn filter_record_batch(
         .iter()
         .map(|a| filter_context.filter(a.as_ref()).unwrap())
         .collect();
-    RecordBatch::try_new(record_batch.schema().clone(), filtered_arrays)
+    RecordBatch::try_new(record_batch.schema(), filtered_arrays)
 }
 
 #[cfg(test)]
