@@ -74,6 +74,83 @@ class ArrayDataWrapper {
   std::shared_ptr<Array>* out_;
 };
 
+class ArrayDataEndianSwapper {
+ public:
+  ArrayDataEndianSwapper(std::shared_ptr<ArrayData>& data) : data_(data) {}
+
+  template <typename T>
+  Status Visit(const T&) {
+    using value_type = typename T::c_type;
+    auto buffer = const_cast<value_type *>(
+        reinterpret_cast<const value_type *>(data_->buffers[1]->data()));
+    int64_t length = data_->length;
+    for (int64_t i = 0; i < length; i++) {
+#if ARROW_LITTLE_ENDIAN
+      buffer[i] = BitUtil::FromBigEndian(buffer[i]);
+#else
+      buffer[i] = BitUtil::FromLittleEndian(buffer[i]);
+#endif
+    }
+    return Status::OK();
+  }
+
+  Status Visit(const NullType& type) { return Status::OK(); }
+  Status Visit(const BooleanType& type) { return Status::OK(); }
+  Status Visit(const StringType& type) { return Status::OK(); }
+  Status Visit(const LargeStringType& type) { return Status::OK(); }
+  Status Visit(const BinaryType& type) { return Status::OK(); }
+  Status Visit(const LargeBinaryType& type) { return Status::OK(); }
+  Status Visit(const FixedSizeBinaryType& type) { return Status::OK(); }
+
+  Status Visit(const Decimal128Type& type) {
+    assert(false && "not supported yet");
+    return Status::OK();
+  }
+  Status Visit(const DayTimeIntervalType& type) {
+    assert(false && "not supported yet");
+    return Status::OK();
+  }
+  Status Visit(const ListType& type) {
+    assert(false && "not supported yet");
+    return Status::OK();
+  }
+  Status Visit(const LargeListType& type) {
+    assert(false && "not supported yet");
+    return Status::OK();
+  }
+  Status Visit(const FixedSizeListType& type) {
+    assert(false && "not supported yet");
+    return Status::OK();
+  }
+  Status Visit(const MapType& type) {
+    assert(false && "not supported yet");
+    return Status::OK();
+  }
+  Status Visit(const StructType& type) {
+    assert(false && "not supported yet");
+    return Status::OK();
+  }
+  Status Visit(const SparseUnionType& type) {
+    assert(false && "not supported yet");
+    return Status::OK();
+  }
+  Status Visit(const DenseUnionType& type) {
+    assert(false && "not supported yet");
+    return Status::OK();
+  }
+  Status Visit(const DictionaryType& type) {
+    assert(false && "not supported yet");
+    return Status::OK();
+  }
+
+  Status Visit(const ExtensionType& type) {
+    assert(false && "not supported yet");
+    return Status::OK();
+  }
+
+  std::shared_ptr<ArrayData>& data_;
+};
+
 }  // namespace internal
 
 std::shared_ptr<Array> MakeArray(const std::shared_ptr<ArrayData>& data) {
@@ -82,6 +159,13 @@ std::shared_ptr<Array> MakeArray(const std::shared_ptr<ArrayData>& data) {
   DCHECK_OK(VisitTypeInline(*data->type, &wrapper_visitor));
   DCHECK(out);
   return out;
+}
+
+void SwapEndianArrayData(std::shared_ptr<ArrayData>& data) {
+  if (data->buffers[1] != NULLPTR) {
+    internal::ArrayDataEndianSwapper swapper_visitor(data);
+    DCHECK_OK(VisitTypeInline(*data->type, &swapper_visitor));
+  }
 }
 
 // ----------------------------------------------------------------------

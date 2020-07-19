@@ -441,7 +441,7 @@ Result<std::shared_ptr<RecordBatch>> LoadRecordBatchSubset(
     const flatbuf::RecordBatch* metadata, const std::shared_ptr<Schema>& schema,
     const std::vector<bool>* inclusion_mask, const DictionaryMemo* dictionary_memo,
     const IpcReadOptions& options, MetadataVersion metadata_version,
-    Compression::type compression, io::RandomAccessFile* file) {
+    Compression::type compression, io::RandomAccessFile* file, bool swap_endian = false) {
   ArrayLoader loader(metadata, metadata_version, options, file);
 
   ArrayDataVector columns(schema->num_fields());
@@ -485,6 +485,12 @@ Result<std::shared_ptr<RecordBatch>> LoadRecordBatchSubset(
     RETURN_NOT_OK(DecompressBuffers(compression, options, &filtered_columns));
   }
 
+  // swap endian in a set of ArrayData if necessary (swap_endian == true)
+  if (swap_endian) {
+    for (int i = 0; i < static_cast<int>(filtered_columns.size()); ++i) {
+      SwapEndianArrayData(filtered_columns[i]);
+    }
+  }
   return RecordBatch::Make(filtered_schema, metadata->length(),
                            std::move(filtered_columns));
 }
@@ -493,13 +499,13 @@ Result<std::shared_ptr<RecordBatch>> LoadRecordBatch(
     const flatbuf::RecordBatch* metadata, const std::shared_ptr<Schema>& schema,
     const std::vector<bool>& inclusion_mask, const DictionaryMemo* dictionary_memo,
     const IpcReadOptions& options, MetadataVersion metadata_version,
-    Compression::type compression, io::RandomAccessFile* file) {
+    Compression::type compression, io::RandomAccessFile* file, bool swap_endian = false) {
   if (inclusion_mask.size() > 0) {
     return LoadRecordBatchSubset(metadata, schema, &inclusion_mask, dictionary_memo,
-                                 options, metadata_version, compression, file);
+                                 options, metadata_version, compression, file, swap_endian);
   } else {
     return LoadRecordBatchSubset(metadata, schema, nullptr, dictionary_memo, options,
-                                 metadata_version, compression, file);
+                                 metadata_version, compression, file, swap_endian);
   }
 }
 
@@ -578,7 +584,7 @@ Result<std::shared_ptr<RecordBatch>> ReadRecordBatch(
 Result<std::shared_ptr<RecordBatch>> ReadRecordBatchInternal(
     const Buffer& metadata, const std::shared_ptr<Schema>& schema,
     const std::vector<bool>& inclusion_mask, const DictionaryMemo* dictionary_memo,
-    const IpcReadOptions& options, io::RandomAccessFile* file) {
+    const IpcReadOptions& options, io::RandomAccessFile* file, bool swap_endian = false) {
   const flatbuf::Message* message = nullptr;
   RETURN_NOT_OK(internal::VerifyMessage(metadata.data(), metadata.size(), &message));
   auto batch = message->header_as_RecordBatch();
@@ -597,7 +603,7 @@ Result<std::shared_ptr<RecordBatch>> ReadRecordBatchInternal(
   }
   return LoadRecordBatch(batch, schema, inclusion_mask, dictionary_memo, options,
                          internal::GetMetadataVersion(message->version()), compression,
-                         file);
+                         file, swap_endian);
 }
 
 // If we are selecting only certain fields, populate an inclusion mask for fast lookups.
@@ -755,8 +761,14 @@ class RecordBatchStreamReaderImpl : public RecordBatchStreamReader {
       return Status::Invalid("Tried reading schema message, was null or length 0");
     }
 
-    return UnpackSchemaMessage(*message, options, &dictionary_memo_, &schema_,
-                               &out_schema_, &field_inclusion_mask_);
+    auto status = UnpackSchemaMessage(*message, options, &dictionary_memo_, &schema_,
+                                      &out_schema_, &field_inclusion_mask_);
+    swap_endian_ = out_schema_->endianness() != NATIVE_ENDIANNESS;
+    if (swap_endian_) {
+      // set native endianness to the schemas before actually swapping endian in ArrayData
+      out_schema_->setNativeEndianness();
+    }
+    return status;
   }
 
   Status ReadNext(std::shared_ptr<RecordBatch>* batch) override {
@@ -789,7 +801,8 @@ class RecordBatchStreamReaderImpl : public RecordBatchStreamReader {
     CHECK_HAS_BODY(*message);
     ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message->body()));
     return ReadRecordBatchInternal(*message->metadata(), schema_, field_inclusion_mask_,
-                                   &dictionary_memo_, options_, reader.get())
+                                   &dictionary_memo_, options_, reader.get(),
+                                   swap_endian_)
         .Value(batch);
   }
 
@@ -944,7 +957,8 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
     ARROW_ASSIGN_OR_RAISE(
         auto batch,
         ReadRecordBatchInternal(*message->metadata(), schema_, field_inclusion_mask_,
-                                &dictionary_memo_, options_, reader.get()));
+                                &dictionary_memo_, options_, reader.get(),
+				swap_endian_));
     ++stats_.num_record_batches;
     return batch;
   }
@@ -965,6 +979,11 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
     // Get the schema and record any observed dictionaries
     RETURN_NOT_OK(UnpackSchemaMessage(footer_->schema(), options, &dictionary_memo_,
                                       &schema_, &out_schema_, &field_inclusion_mask_));
+    swap_endian_ = out_schema_->endianness() != NATIVE_ENDIANNESS;
+    if (swap_endian_) {
+      // set native endianness to the schemas before actually swapping endian in ArrayData
+      out_schema_->setNativeEndianness();
+    }
     ++stats_.num_messages;
     return Status::OK();
   }

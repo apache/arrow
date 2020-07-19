@@ -1330,6 +1330,8 @@ Schema::Schema(const Schema& schema)
 
 Schema::~Schema() = default;
 
+void Schema::setNativeEndianness() { impl_->endianness_ = NATIVE_ENDIANNESS; }
+
 Endianness Schema::endianness() const { return impl_->endianness_; }
 
 int Schema::num_fields() const { return static_cast<int>(impl_->fields_.size()); }
@@ -1489,6 +1491,8 @@ std::shared_ptr<Schema> Schema::RemoveMetadata() const {
 std::string Schema::ToString(bool show_metadata) const {
   std::stringstream buffer;
 
+  buffer << "Endianess: " << (impl_->endianness_ == Endianness::LITTLE ? "little" : "big")
+         << std::endl;
   int i = 0;
   for (const auto& field : impl_->fields_) {
     if (i > 0) {

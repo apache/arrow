@@ -37,6 +37,11 @@ namespace arrow {
 ARROW_EXPORT
 std::shared_ptr<Array> MakeArray(const std::shared_ptr<ArrayData>& data);
 
+/// \brief Swap endian of each element in a generic ArrayData
+/// \param[in] data the array contents to be swapped
+ARROW_EXPORT
+void SwapEndianArrayData(std::shared_ptr<ArrayData>& data);
+
 /// \brief Create a strongly-typed Array instance with all elements null
 /// \param[in] type the array type
 /// \param[in] length the array length

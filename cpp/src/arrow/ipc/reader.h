@@ -96,6 +96,9 @@ class ARROW_EXPORT RecordBatchStreamReader : public RecordBatchReader {
 
   /// \brief Return current read statistics
   virtual ReadStats stats() const = 0;
+
+ protected:
+  bool swap_endian_;
 };
 
 /// \brief Reads the record batch file format
@@ -169,6 +172,9 @@ class ARROW_EXPORT RecordBatchFileReader {
 
   /// \brief Return current read statistics
   virtual ReadStats stats() const = 0;
+
+ protected:
+  bool swap_endian_;
 };
 
 /// \brief A general listener class to receive events.

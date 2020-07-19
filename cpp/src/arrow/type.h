@@ -1607,10 +1607,8 @@ class ARROW_EXPORT FieldRef {
 enum class Endianness { LITTLE, BIG };
 #if ARROW_LITTLE_ENDIAN
 #define NATIVE_ENDIANNESS Endianness::LITTLE
-#define NONNATIVE_ENDIANNESS Endianness::BIG
 #else
 #define NATIVE_ENDIANNESS Endianness::BIG
-#define NONNATIVE_ENDIANNESS Endianness::LITTLE
 #endif
 
 /// \class Schema
@@ -1635,7 +1633,10 @@ class ARROW_EXPORT Schema : public detail::Fingerprintable,
   bool Equals(const Schema& other, bool check_metadata = false) const;
   bool Equals(const std::shared_ptr<Schema>& other, bool check_metadata = false) const;
 
-  /// Return endianness in the schema
+  /// \brief Set platform-native endianness in the schema
+  void setNativeEndianness();
+
+  /// \brief Return endianness in the schema
   Endianness endianness() const;
 
   /// \brief Return the number of fields (columns) in the schema
