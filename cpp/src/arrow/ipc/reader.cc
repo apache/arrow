@@ -761,14 +761,14 @@ class RecordBatchStreamReaderImpl : public RecordBatchStreamReader {
       return Status::Invalid("Tried reading schema message, was null or length 0");
     }
 
-    auto status = UnpackSchemaMessage(*message, options, &dictionary_memo_, &schema_,
-                                      &out_schema_, &field_inclusion_mask_);
+    RETURN_NOT_OK(UnpackSchemaMessage(*message, options, &dictionary_memo_, &schema_,
+                                      &out_schema_, &field_inclusion_mask_));
     swap_endian_ = out_schema_->endianness() != NATIVE_ENDIANNESS;
     if (swap_endian_) {
       // set native endianness to the schemas before actually swapping endian in ArrayData
       out_schema_->setNativeEndianness();
     }
-    return status;
+    return Status::OK();
   }
 
   Status ReadNext(std::shared_ptr<RecordBatch>* batch) override {

@@ -487,20 +487,40 @@ TEST_F(TestSchema, ToString) {
   auto schema = ::arrow::schema({f0, f1, f2, f3}, metadata);
 
   std::string result = schema->ToString();
-  std::string expected = R"(f0: int32
+#if ARROW_LITTLE_ENDIAN
+  std::string expected = R"(Endianess: little
+f0: int32
 f1: uint8 not null
 f2: string
 f3: list<item: int16>)";
+#else
+  std::string expected = R"(Endianess: big
+f0: int32
+f1: uint8 not null
+f2: string
+f3: list<item: int16>)";
+#endif
 
   ASSERT_EQ(expected, result);
 
   result = schema->ToString(/*print_metadata=*/true);
-  expected = R"(f0: int32
+#if ARROW_LITTLE_ENDIAN
+  expected = R"(Endianess: little
+f0: int32
 f1: uint8 not null
 f2: string
 f3: list<item: int16>
 -- metadata --
 foo: bar)";
+#else
+  expected = R"(Endianess: big
+f0: int32
+f1: uint8 not null
+f2: string
+f3: list<item: int16>
+-- metadata --
+foo: bar)";
+#endif
 
   ASSERT_EQ(expected, result);
 }

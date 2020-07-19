@@ -29,6 +29,7 @@
 
 #include "arrow/result.h"
 #include "arrow/type_fwd.h"  // IWYU pragma: export
+#include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/variant.h"
