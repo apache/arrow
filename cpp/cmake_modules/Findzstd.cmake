@@ -49,6 +49,7 @@ if(ZSTD_ROOT)
 
 else()
   # Second, find via pkg_check_modules
+  find_package(PkgConfig QUIET)
   pkg_check_modules(ZSTD_PC libzstd)
   if(ZSTD_PC_FOUND)
     set(ZSTD_INCLUDE_DIR "${ZSTD_PC_INCLUDEDIR}")

@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+find_package(PkgConfig QUIET)
 pkg_check_modules(RE2_PC re2)
 if(RE2_PC_FOUND)
   set(RE2_INCLUDE_DIR "${RE2_PC_INCLUDEDIR}")

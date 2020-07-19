@@ -55,6 +55,7 @@ if(Thrift_ROOT)
 else()
   # THRIFT-4760: The pkgconfig files are currently only installed when using autotools.
   # Starting with 0.13, they are also installed for the CMake-based installations of Thrift.
+  find_package(PkgConfig QUIET)
   pkg_check_modules(THRIFT_PC thrift)
   if(THRIFT_PC_FOUND)
     set(THRIFT_INCLUDE_DIR "${THRIFT_PC_INCLUDEDIR}")

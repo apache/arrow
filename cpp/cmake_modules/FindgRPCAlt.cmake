@@ -92,6 +92,7 @@ if(gRPC_ROOT)
             NO_DEFAULT_PATH
             PATH_SUFFIXES ${INCLUDE_PATH_SUFFIXES})
 else()
+  find_package(PkgConfig QUIET)
   pkg_check_modules(GRPC_PC grpc++)
   if(GRPC_PC_FOUND)
     set(GRPC_ALT_VERSION "${GRPC_PC_VERSION}")

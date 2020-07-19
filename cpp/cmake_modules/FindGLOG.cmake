@@ -17,6 +17,7 @@
 #
 #  find_package(GLOG)
 
+find_package(PkgConfig QUIET)
 pkg_check_modules(GLOG_PC libglog)
 if(GLOG_PC_FOUND)
   set(GLOG_INCLUDE_DIR "${GLOG_PC_INCLUDEDIR}")
