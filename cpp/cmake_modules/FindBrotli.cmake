@@ -69,6 +69,7 @@ if(BROTLI_ROOT)
             PATH_SUFFIXES ${INCLUDE_PATH_SUFFIXES}
             NO_DEFAULT_PATH)
 else()
+  find_package(PkgConfig QUIET)
   pkg_check_modules(BROTLI_PC libbrotlicommon libbrotlienc libbrotlidec)
   if(BROTLI_PC_FOUND)
     set(BROTLI_INCLUDE_DIR "${BROTLI_PC_libbrotlicommon_INCLUDEDIR}")

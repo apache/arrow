@@ -38,6 +38,7 @@ if(LZ4_ROOT)
             PATH_SUFFIXES ${INCLUDE_PATH_SUFFIXES})
 
 else()
+  find_package(PkgConfig QUIET)
   pkg_check_modules(LZ4_PC liblz4)
   if(LZ4_PC_FOUND)
     set(LZ4_INCLUDE_DIR "${LZ4_PC_INCLUDEDIR}")
