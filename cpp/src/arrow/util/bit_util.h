@@ -324,12 +324,28 @@ static inline uint16_t ByteSwap(uint16_t value) {
 static inline uint8_t ByteSwap(uint8_t value) { return value; }
 static inline int8_t ByteSwap(int8_t value) { return value; }
 static inline double ByteSwap(double value) {
+#if defined(__GNUC__)
+  // avoid dereferencing type-punned pointer will break strict-aliasing rules
+  int8_t *in_ptr = reinterpret_cast<int8_t*>(&value);
+  auto swapped = ARROW_BYTE_SWAP64(*reinterpret_cast<uint64_t*>(in_ptr));
+  int8_t *out_ptr = reinterpret_cast<int8_t*>(&swapped);
+  return *reinterpret_cast<double*>(out_ptr);
+#else
   auto swapped = ARROW_BYTE_SWAP64(*reinterpret_cast<uint64_t*>(&value));
   return *reinterpret_cast<double*>(&swapped);
+#endif
 }
 static inline float ByteSwap(float value) {
+#if defined(__GNUC__)
+  // avoid dereferencing type-punned pointer will break strict-aliasing rules
+  int8_t *in_ptr = reinterpret_cast<int8_t*>(&value);
+  auto swapped = ARROW_BYTE_SWAP32(*reinterpret_cast<uint32_t*>(in_ptr));
+  int8_t *out_ptr = reinterpret_cast<int8_t*>(&swapped);
+  return *reinterpret_cast<float*>(out_ptr);
+#else
   auto swapped = ARROW_BYTE_SWAP32(*reinterpret_cast<uint32_t*>(&value));
   return *reinterpret_cast<float*>(&swapped);
+#endif
 }
 
 // Write the swapped bytes into dst. Src and dst cannot overlap.
