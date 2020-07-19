@@ -326,9 +326,9 @@ static inline int8_t ByteSwap(int8_t value) { return value; }
 static inline double ByteSwap(double value) {
 #if defined(__GNUC__)
   // avoid dereferencing type-punned pointer will break strict-aliasing rules
-  int8_t *in_ptr = reinterpret_cast<int8_t*>(&value);
+  int8_t* in_ptr = reinterpret_cast<int8_t*>(&value);
   auto swapped = ARROW_BYTE_SWAP64(*reinterpret_cast<uint64_t*>(in_ptr));
-  int8_t *out_ptr = reinterpret_cast<int8_t*>(&swapped);
+  int8_t* out_ptr = reinterpret_cast<int8_t*>(&swapped);
   return *reinterpret_cast<double*>(out_ptr);
 #else
   auto swapped = ARROW_BYTE_SWAP64(*reinterpret_cast<uint64_t*>(&value));
@@ -338,9 +338,9 @@ static inline double ByteSwap(double value) {
 static inline float ByteSwap(float value) {
 #if defined(__GNUC__)
   // avoid dereferencing type-punned pointer will break strict-aliasing rules
-  int8_t *in_ptr = reinterpret_cast<int8_t*>(&value);
+  int8_t* in_ptr = reinterpret_cast<int8_t*>(&value);
   auto swapped = ARROW_BYTE_SWAP32(*reinterpret_cast<uint32_t*>(in_ptr));
-  int8_t *out_ptr = reinterpret_cast<int8_t*>(&swapped);
+  int8_t* out_ptr = reinterpret_cast<int8_t*>(&swapped);
   return *reinterpret_cast<float*>(out_ptr);
 #else
   auto swapped = ARROW_BYTE_SWAP32(*reinterpret_cast<uint32_t*>(&value));
