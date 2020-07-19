@@ -76,7 +76,7 @@ class ArrayDataWrapper {
 
 class ArrayDataEndianSwapper {
  public:
-  ArrayDataEndianSwapper(std::shared_ptr<ArrayData>& data) : data_(data) {}
+  explicit ArrayDataEndianSwapper(std::shared_ptr<ArrayData>& data) : data_(data) {}
 
   template <typename T>
   Status Visit(const T&) {
