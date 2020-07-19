@@ -1489,8 +1489,6 @@ std::shared_ptr<Schema> Schema::RemoveMetadata() const {
 std::string Schema::ToString(bool show_metadata) const {
   std::stringstream buffer;
 
-  buffer << "Endianess: " << (impl_->endianness_ == Endianness::LITTLE ? "little" : "big")
-         << std::endl;
   int i = 0;
   for (const auto& field : impl_->fields_) {
     if (i > 0) {
