@@ -1300,8 +1300,7 @@ void PrintTo(const FieldRef& ref, std::ostream* os) { *os << ref.ToString(); }
 
 class Schema::Impl {
  public:
-  Impl(std::vector<std::shared_ptr<Field>> fields,
-       Endianness endianness,
+  Impl(std::vector<std::shared_ptr<Field>> fields, Endianness endianness,
        std::shared_ptr<const KeyValueMetadata> metadata)
       : fields_(std::move(fields)),
         endianness_(endianness),
@@ -1314,8 +1313,7 @@ class Schema::Impl {
   std::shared_ptr<const KeyValueMetadata> metadata_;
 };
 
-Schema::Schema(std::vector<std::shared_ptr<Field>> fields,
-               Endianness endianness,
+Schema::Schema(std::vector<std::shared_ptr<Field>> fields, Endianness endianness,
                std::shared_ptr<const KeyValueMetadata> metadata)
     : detail::Fingerprintable(),
       impl_(new Impl(std::move(fields), endianness, std::move(metadata))) {}

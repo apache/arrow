@@ -81,8 +81,8 @@ class ArrayDataEndianSwapper {
   template <typename T>
   Status Visit(const T&) {
     using value_type = typename T::c_type;
-    auto buffer = const_cast<value_type *>(
-        reinterpret_cast<const value_type *>(data_->buffers[1]->data()));
+    auto buffer = const_cast<value_type*>(
+        reinterpret_cast<const value_type*>(data_->buffers[1]->data()));
     int64_t length = data_->length;
     for (int64_t i = 0; i < length; i++) {
 #if ARROW_LITTLE_ENDIAN

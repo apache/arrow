@@ -1618,8 +1618,7 @@ class ARROW_EXPORT Schema : public detail::Fingerprintable,
                             public util::EqualityComparable<Schema>,
                             public util::ToStringOstreamable<Schema> {
  public:
-  explicit Schema(std::vector<std::shared_ptr<Field>> fields,
-                  Endianness endianness,
+  explicit Schema(std::vector<std::shared_ptr<Field>> fields, Endianness endianness,
                   std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR);
 
   explicit Schema(std::vector<std::shared_ptr<Field>> fields,
