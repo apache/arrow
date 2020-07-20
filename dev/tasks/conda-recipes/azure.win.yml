@@ -34,11 +34,10 @@ jobs:
 
     - task: CondaEnvironment@1
       inputs:
-        packageSpecs: 'python=3.6 conda-build conda conda-forge::conda-forge-ci-setup=2' # Optional
+        packageSpecs: 'python=3.6 conda-build conda conda-forge::conda-forge-ci-setup=3 pip' # Optional
         installOptions: "-c conda-forge"
         updateConda: true
       displayName: Install conda-build and activate environment
-
     - script: set PYTHONUNBUFFERED=1
 
     - script: |
@@ -55,13 +54,9 @@ jobs:
     # Configure the VM.
     - script: |
         set "CI=azure"
+        call activate base
         run_conda_forge_build_setup
       displayName: conda-forge build setup
-
-    - script: |
-        rmdir C:\strawberry /s /q
-      continueOnError: true
-      displayName: remove strawberryperl
 
     - script: |
         conda.exe build arrow-cpp parquet-cpp -m .ci_support\%CONFIG%.yaml
