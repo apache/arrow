@@ -281,9 +281,8 @@ filter_rows <- function(x, i, keep_na = TRUE, ...) {
   nrows <- x$num_rows %||% x$length() # Depends on whether Array or Table-like
   if (inherits(i, "array_expression")) {
     # Evaluate it
-    # Switch this when https://issues.apache.org/jira/browse/ARROW-9380 is resolved
-    # i <- eval_array_expression(i)
-    i <- as.vector(i)
+    i <- eval_array_expression(i)
+    # i <- as.vector(i)
   }
   if (is.logical(i)) {
     if (isTRUE(i)) {

@@ -19,11 +19,10 @@
 #' @include chunked-array.R
 #' @include scalar.R
 
-call_function <- function(function_name, ..., options = structure(list(), .Names=character(0))) {
+call_function <- function(function_name, ..., args = list(...), options = empty_named_list()) {
   assert_that(is.string(function_name))
   assert_that(is.list(options), !is.null(names(options)))
 
-  args <- list(...)
   datum_classes <- c("Array", "ChunkedArray", "RecordBatch", "Table", "Scalar")
   valid_args <- map_lgl(args, ~inherits(., datum_classes))
   if (!all(valid_args)) {

@@ -114,6 +114,8 @@ test_that("call_function validation", {
     ),
     NA
   )
-  # https://issues.apache.org/jira/browse/ARROW-9380
-  # expect_error(call_function("filter", options = list(keep_na = TRUE)), NA)
+  expect_error(
+    call_function("filter", options = list(keep_na = TRUE)),
+    "accepts 2 arguments"
+  )
 })

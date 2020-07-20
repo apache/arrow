@@ -207,17 +207,16 @@ filter_mask <- function(.data) {
     comp_func <- function(operator) {
       force(operator)
       if (operator == "!") {
-        function(e1) array_expression(operator, e1)
+        function(e1) build_array_expression(operator, e1)
       } else {
-        function(e1, e2) array_expression(operator, e1, e2)
+        function(e1, e2) build_array_expression(operator, e1, e2)
       }
     }
     var_binder <- function(x) .data$.data[[x]]
-    f_env$is.na <- function(x) array_expression("is.na", x)
   }
 
   # First add the functions
-  func_names <- set_names(c(names(.array_function_map), "%in%"))
+  func_names <- set_names(names(.array_function_map))
   env_bind(f_env, !!!lapply(func_names, comp_func))
   # Then add the column references
   # Renaming is handled automatically by the named list
