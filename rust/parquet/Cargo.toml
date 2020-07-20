@@ -17,7 +17,7 @@
 
 [package]
 name = "parquet"
-version = "1.0.0"
+version = "1.1.0-SNAPSHOT"
 license = "Apache-2.0"
 description = "Apache Parquet implementation in Rust"
 homepage = "https://github.com/apache/arrow"
@@ -49,7 +49,7 @@ brotli = "3.3"
 flate2 = "1.0"
 lz4 = "1.23"
 zstd = "0.5"
-arrow = { path = "../arrow", version = "1.0.0" }
+arrow = { path = "../arrow", version = "1.1.0-SNAPSHOT" }
 
 [features]
 default = ["arrow", "snap", "brotli", "flate2", "lz4", "zstd"]
