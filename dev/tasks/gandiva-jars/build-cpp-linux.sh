@@ -32,6 +32,7 @@ mkdir -p "${ARROW_BUILD_DIR}"
 pushd "${ARROW_BUILD_DIR}"
 
 PATH="${CPYTHON_PATH}/bin:${PATH}"
+export ARROW_TEST_DATA="/arrow/testing/data"
 
 cmake -DCMAKE_BUILD_TYPE=Release \
     -DARROW_DEPENDENCY_SOURCE="SYSTEM" \
