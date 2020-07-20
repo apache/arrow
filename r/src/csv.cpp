@@ -31,7 +31,8 @@ std::shared_ptr<arrow::csv::ReadOptions> csv___ReadOptions__initialize(
   res->skip_rows = cpp11::as_cpp<int>(options["skip_rows"]);
   res->column_names = cpp11::as_cpp<std::vector<std::string>>(options["column_names"]);
   res->autogenerate_column_names =
-      cpp11::as_cpp<bool>(options["autogenerate_column_names"]);
+    cpp11::as_cpp<bool>(options["autogenerate_column_names"]);
+
   return res;
 }
 
@@ -65,9 +66,26 @@ std::shared_ptr<arrow::csv::ConvertOptions> csv___ConvertOptions__initialize(
   // TODO: there are more conversion options available:
   // // Optional per-column types (disabling type inference on those columns)
   // std::unordered_map<std::string, std::shared_ptr<DataType>> column_types;
-  // // Recognized spellings for boolean values
+
+    // // Recognized spellings for boolean values
   // std::vector<std::string> true_values;
   // std::vector<std::string> false_values;
+
+  // TODO: there are more conversion options available:
+  // // Optional per-column types (disabling type inference on those columns)
+  // std::unordered_map<std::string, std::shared_ptr<DataType>> column_types;
+  SEXP s_col_types = options["col_types"];
+  if (!Rf_isNull(s_col_types)) {
+    Rcpp::ConstReferenceSmartPtrInputParameter<std::shared_ptr<arrow::Schema>> col_types(
+        s_col_types);
+    const std::shared_ptr<arrow::Schema>& schema(col_types);
+
+    std::unordered_map<std::string, std::shared_ptr<arrow::DataType>> column_types;
+    for (auto field : schema->fields()) {
+      column_types.insert(std::make_pair(field->name(), field->type()));
+    }
+    res->column_types = column_types;
+  }
 
   return res;
 }
