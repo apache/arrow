@@ -60,7 +60,6 @@ default = ["flight", "prettyprint"]
 
 [dev-dependencies]
 criterion = "0.3"
-lazy_static = "1"
 flate2 = "1"
 tempfile = "3"
 
