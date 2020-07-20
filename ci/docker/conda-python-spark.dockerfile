@@ -40,6 +40,10 @@ RUN /arrow/ci/scripts/install_spark.sh ${spark} /spark
 COPY ci/etc/integration_spark_ARROW-9438.patch /arrow/ci/etc/
 RUN patch -d /spark -p1 -i /arrow/ci/etc/integration_spark_ARROW-9438.patch
 
+# patch spark to handle struct timestamps with tzinfo
+COPY ci/etc/integration_spark_ARROW-9223.patch /arrow/ci/etc/
+RUN patch -d /spark -p1 -i /arrow/ci/etc/integration_spark_ARROW-9223.patch
+
 # build cpp with tests
 ENV CC=gcc \
     CXX=g++ \
