@@ -426,6 +426,64 @@ TEST_F(TestProjector, TestTimestampDiff) {
   }
 }
 
+TEST_F(TestProjector, TestTimestampDiffMonth) {
+  auto f0 = field("f0", timestamp(arrow::TimeUnit::MILLI));
+  auto f1 = field("f1", timestamp(arrow::TimeUnit::MILLI));
+  auto schema = arrow::schema({f0, f1});
+
+  // output fields
+  auto diff_seconds = field("ss", int32());
+
+  auto diff_months_expr =
+      TreeExprBuilder::MakeExpression("timestampdiffMonth", {f0, f1}, diff_seconds);
+
+  std::shared_ptr<Projector> projector;
+  auto status =
+      Projector::Make(schema, {diff_months_expr}, TestConfiguration(), &projector);
+  std::cout << status.message();
+  ASSERT_TRUE(status.ok());
+
+  time_t epoch = Epoch();
+
+  // Create a row-batch with some sample data
+  std::vector<int64_t> f0_data = {MillisSince(epoch, 2019, 1, 31, 0, 0, 0, 0),
+                                  MillisSince(epoch, 2020, 1, 31, 0, 0, 0, 0),
+                                  MillisSince(epoch, 2020, 1, 31, 0, 0, 0, 0),
+                                  MillisSince(epoch, 2019, 3, 31, 0, 0, 0, 0),
+                                  MillisSince(epoch, 2020, 3, 30, 0, 0, 0, 0),
+                                  MillisSince(epoch, 2020, 5, 31, 0, 0, 0, 0)};
+  std::vector<int64_t> f1_data = {MillisSince(epoch, 2019, 2, 28, 0, 0, 0, 0),
+                                  MillisSince(epoch, 2020, 2, 28, 0, 0, 0, 0),
+                                  MillisSince(epoch, 2020, 2, 29, 0, 0, 0, 0),
+                                  MillisSince(epoch, 2019, 4, 30, 0, 0, 0, 0),
+                                  MillisSince(epoch, 2020, 2, 29, 0, 0, 0, 0),
+                                  MillisSince(epoch, 2020, 9, 30, 0, 0, 0, 0)};
+  int64_t num_records = f0_data.size();
+  std::vector<bool> validity(num_records, true);
+
+  auto array0 = MakeArrowTypeArray<arrow::TimestampType, int64_t>(
+      arrow::timestamp(arrow::TimeUnit::MILLI), f0_data, validity);
+  auto array1 = MakeArrowTypeArray<arrow::TimestampType, int64_t>(
+      arrow::timestamp(arrow::TimeUnit::MILLI), f1_data, validity);
+
+  // expected output
+  std::vector<ArrayPtr> exp_output;
+  exp_output.push_back(MakeArrowArrayInt32({1, 0, 1, 1, -1, 4}, validity));
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok());
+
+  // Validate results
+  for (uint32_t i = 0; i < exp_output.size(); i++) {
+    EXPECT_ARROW_ARRAY_EQUALS(exp_output.at(i), outputs.at(i));
+  }
+}
+
 TEST_F(TestProjector, TestMonthsBetween) {
   auto f0 = field("f0", arrow::date64());
   auto f1 = field("f1", arrow::date64());
