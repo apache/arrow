@@ -7,7 +7,7 @@ bzip2:
 c_compiler:
 - clang
 c_compiler_version:
-- '9'
+- '10'
 channel_sources:
 - conda-forge,defaults
 channel_targets:
@@ -15,13 +15,13 @@ channel_targets:
 cxx_compiler:
 - clangxx
 cxx_compiler_version:
-- '9'
+- '10'
 gflags:
 - '2.2'
 glog:
 - 0.4.0
 grpc_cpp:
-- '1.29'
+- '1.30'
 libprotobuf:
 - '3.12'
 lz4_c:
@@ -42,15 +42,13 @@ pin_run_as_build:
     max_pin: x.x
   zlib:
     max_pin: x.x
-  zstd:
-    max_pin: x.x.x
 python:
 - 3.7.* *_cpython
 re2:
-- 2020.06.01
+- 2020.07.06
 snappy:
 - '1'
 zlib:
 - '1.2'
 zstd:
-- 1.4.4
+- '1.4'

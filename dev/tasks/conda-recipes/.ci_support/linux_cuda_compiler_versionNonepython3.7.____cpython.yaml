@@ -25,7 +25,7 @@ gflags:
 glog:
 - 0.4.0
 grpc_cpp:
-- '1.29'
+- '1.30'
 libprotobuf:
 - '3.12'
 lz4_c:
@@ -42,12 +42,10 @@ pin_run_as_build:
     max_pin: x.x
   zlib:
     max_pin: x.x
-  zstd:
-    max_pin: x.x.x
 python:
 - 3.7.* *_cpython
 re2:
-- 2020.06.01
+- 2020.07.06
 snappy:
 - '1'
 zip_keys:
@@ -56,4 +54,4 @@ zip_keys:
 zlib:
 - '1.2'
 zstd:
-- 1.4.4
+- '1.4'
