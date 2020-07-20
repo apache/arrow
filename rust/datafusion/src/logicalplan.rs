@@ -383,6 +383,56 @@ pub fn lit_str(str: &str) -> Expr {
     Expr::Literal(ScalarValue::Utf8(str.to_owned()))
 }
 
+/// Create a literal i8 expression
+pub fn lit_i8(n: i8) -> Expr {
+    Expr::Literal(ScalarValue::Int8(n))
+}
+
+/// Create a literal i16 expression
+pub fn lit_i16(n: i16) -> Expr {
+    Expr::Literal(ScalarValue::Int16(n))
+}
+
+/// Create a literal i32 expression
+pub fn lit_i32(n: i32) -> Expr {
+    Expr::Literal(ScalarValue::Int32(n))
+}
+
+/// Create a literal i64 expression
+pub fn lit_i64(n: i64) -> Expr {
+    Expr::Literal(ScalarValue::Int64(n))
+}
+
+/// Create a literal u8 expression
+pub fn lit_u8(n: u8) -> Expr {
+    Expr::Literal(ScalarValue::UInt8(n))
+}
+
+/// Create a literal u16 expression
+pub fn lit_u16(n: u16) -> Expr {
+    Expr::Literal(ScalarValue::UInt16(n))
+}
+
+/// Create a literal u32 expression
+pub fn lit_u32(n: u32) -> Expr {
+    Expr::Literal(ScalarValue::UInt32(n))
+}
+
+/// Create a literal u64 expression
+pub fn lit_u64(n: u64) -> Expr {
+    Expr::Literal(ScalarValue::UInt64(n))
+}
+
+/// Create a literal f32 expression
+pub fn lit_f32(n: f32) -> Expr {
+    Expr::Literal(ScalarValue::Float32(n))
+}
+
+/// Create a literal f64 expression
+pub fn lit_f64(n: f64) -> Expr {
+    Expr::Literal(ScalarValue::Float64(n))
+}
+
 /// Create an convenience function representing a unary scalar function
 macro_rules! unary_math_expr {
     ($NAME:expr, $FUNC:ident) => {
