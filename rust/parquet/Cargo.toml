@@ -43,7 +43,6 @@ arrow = { path = "../arrow", version = "1.0.0-SNAPSHOT", optional = true }
 serde_json = { version = "1.0", features = ["preserve_order"] }
 
 [dev-dependencies]
-lazy_static = "1"
 rand = "0.7"
 snap = "1.0"
 brotli = "3.3"
