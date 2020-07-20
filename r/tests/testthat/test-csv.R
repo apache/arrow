@@ -203,3 +203,15 @@ test_that("read_csv_arrow(col_types=string, col_names)", {
   expect_error(read_csv_arrow(tf, col_types = "i", col_names = c("a", "b")))
   expect_error(read_csv_arrow(tf, col_types = "y", col_names = "a"))
 })
+
+test_that("read_csv_arrow() can read timestamps", {
+  tbl <- tibble::tibble(time = as.POSIXct("2020-07-20 16:20", tz = "UTC"))
+  tf <- tempfile(); on.exit(unlink(tf))
+  write.csv(tbl, tf, row.names = FALSE)
+
+  df <- read_csv_arrow(tf, col_types = schema(time = timestamp()))
+  expect_equal(tbl, df)
+
+  df <- read_csv_arrow(tf, col_types = "t", col_names = "time", skip = 1)
+  expect_equal(tbl, df)
+})
