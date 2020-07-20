@@ -147,13 +147,6 @@ test_apt() {
                 "arm64v8/ubuntu:eoan" \
                 "ubuntu:focal" \
                 "arm64v8/ubuntu:focal"; do \
-    # We can't build some arm64 binaries by Crossbow for now.
-    if [ "${target}" = "arm64v8/debian:stretch" ]; then continue; fi
-    if [ "${target}" = "arm64v8/debian:buster" ]; then continue; fi
-    if [ "${target}" = "arm64v8/ubuntu:xenial" ]; then continue; fi
-    if [ "${target}" = "arm64v8/ubuntu:bionic" ]; then continue; fi
-    if [ "${target}" = "arm64v8/ubuntu:eoan" ]; then continue; fi
-    if [ "${target}" = "arm64v8/ubuntu:focal" ]; then continue; fi
     case "${target}" in
       arm64v8/*)
         if [ "$(arch)" = "aarch64" -o -e /usr/bin/qemu-aarch64-static ]; then
@@ -181,9 +174,6 @@ test_yum() {
                 "arm64v8/centos:7" \
                 "centos:8" \
                 "arm64v8/centos:8"; do
-    # We can't build some arm64 binaries by Crossbow for now.
-    if [ "${target}" = "arm64v8/centos:7" ]; then continue; fi
-    if [ "${target}" = "arm64v8/centos:8" ]; then continue; fi
     case "${target}" in
       arm64v8/*)
         if [ "$(arch)" = "aarch64" -o -e /usr/bin/qemu-aarch64-static ]; then
