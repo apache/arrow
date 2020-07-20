@@ -90,15 +90,14 @@ struct CodecTestParam {
 };
 
 class TestCodec : public ::testing::TestWithParam<CodecTestParam> {
-  protected:
-    const std::string& GetDataFile() { return GetParam().data_file; }
+ protected:
+  const std::string& GetDataFile() { return GetParam().data_file; }
 
-    uint32_t GetExpectedMetadataSize() { return GetParam().expected_metadata_size; }
+  uint32_t GetExpectedMetadataSize() { return GetParam().expected_metadata_size; }
 };
 
 TEST_P(TestCodec, FileMetadataAndValues) {
-  std::unique_ptr<ParquetFileReader> reader_ =
-      ParquetFileReader::OpenFile(GetDataFile());
+  std::unique_ptr<ParquetFileReader> reader_ = ParquetFileReader::OpenFile(GetDataFile());
   std::shared_ptr<RowGroupReader> group = reader_->RowGroup(0);
 
   // This file only has 4 rows
