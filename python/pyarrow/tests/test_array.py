@@ -31,6 +31,7 @@ try:
     import pickle5
 except ImportError:
     pickle5 = None
+import pytz
 
 import pyarrow as pa
 import pyarrow.tests.strategies as past
@@ -300,6 +301,8 @@ def test_nulls(ty):
 def test_array_from_scalar():
     today = datetime.date.today()
     now = datetime.datetime.now()
+    now_utc = now.replace(tzinfo=pytz.utc)
+    now_with_tz = now_utc.astimezone(pytz.timezone('US/Eastern'))
     oneday = datetime.timedelta(days=1)
 
     cases = [
@@ -317,6 +320,7 @@ def test_array_from_scalar():
         (pa.scalar(True), 11, pa.array([True] * 11)),
         (today, 2, pa.array([today] * 2)),
         (now, 10, pa.array([now] * 10)),
+        (now_with_tz, 10, pa.array([now_utc] * 10)),
         (now.time(), 9, pa.array([now.time()] * 9)),
         (oneday, 4, pa.array([oneday] * 4)),
         (False, 9, pa.array([False] * 9)),
@@ -332,6 +336,7 @@ def test_array_from_scalar():
     for value, size, expected in cases:
         arr = pa.repeat(value, size)
         assert len(arr) == size
+        assert arr.type.equals(expected.type)
         assert arr.equals(expected)
 
         if expected.type == pa.null():

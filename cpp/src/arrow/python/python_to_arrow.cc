@@ -558,6 +558,8 @@ template <typename Type, NullCoding null_coding>
 class TemporalConverter : public TimeConverter<Type, null_coding> {
  public:
   using TimeConverter<Type, null_coding>::TimeConverter;
+  TemporalConverter<Type, null_coding>(TimeUnit::type unit, PyObject* utc)
+      : TimeConverter<Type, null_coding>(unit), utc_(utc) {}
 
   Status AppendValue(PyObject* obj) override {
     int64_t value;
@@ -569,11 +571,22 @@ class TemporalConverter : public TimeConverter<Type, null_coding> {
         return this->typed_builder_->AppendNull();
       }
     } else {
-      // convert builtin python objects
-      ARROW_ASSIGN_OR_RAISE(value, ValueConverter<Type>::FromPython(obj, this->unit_));
+      PyObject* target = obj;
+      OwnedRef target_holder;
+      if (PyDateTime_Check(obj)) {
+        OwnedRef tzinfo(PyObject_GetAttrString(obj, "tzinfo"));
+        if (tzinfo.obj() != nullptr && tzinfo.obj() != Py_None) {
+          target_holder.reset(PyObject_CallMethod(obj, "astimezone", "O", utc_.obj()));
+          target = target_holder.obj();
+        }
+      }
+      ARROW_ASSIGN_OR_RAISE(value, ValueConverter<Type>::FromPython(target, this->unit_));
     }
     return this->typed_builder_->Append(value);
   }
+
+ private:
+  OwnedRef utc_;
 };
 
 // ----------------------------------------------------------------------
@@ -1169,9 +1182,11 @@ Status GetConverterFlat(const std::shared_ptr<DataType>& type, bool strict_conve
       break;
     }
     case Type::TIMESTAMP: {
+      PyObject* utc;
+      RETURN_NOT_OK(internal::StringToTzinfo("UTC", &utc));
       *out =
           std::unique_ptr<SeqConverter>(new TemporalConverter<TimestampType, null_coding>(
-              checked_cast<const TimestampType&>(*type).unit()));
+              checked_cast<const TimestampType&>(*type).unit(), utc));
       break;
     }
     case Type::DURATION: {

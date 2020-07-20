@@ -295,10 +295,7 @@ class TypeInferrer {
         int_count_(0),
         date_count_(0),
         time_count_(0),
-        timestamp_second_count_(0),
-        timestamp_milli_count_(0),
         timestamp_micro_count_(0),
-        timestamp_nano_count_(0),
         duration_count_(0),
         float_count_(0),
         binary_count_(0),
@@ -332,6 +329,13 @@ class TypeInferrer {
       ++int_count_;
     } else if (PyDateTime_Check(obj)) {
       ++timestamp_micro_count_;
+      OwnedRef tzinfo(PyObject_GetAttrString(obj, "tzinfo"));
+      if (tzinfo.obj() != nullptr && tzinfo.obj() != Py_None && timezone_.empty()) {
+        // From public docs on array construction
+        // "Localized timestamps will currently be returned as UTC "
+        //     representation). "
+        timezone_ = "UTC";
+      }
       *keep_going = make_unions_;
     } else if (PyDelta_Check(obj)) {
       ++duration_count_;
@@ -458,14 +462,8 @@ class TypeInferrer {
       *out = date32();
     } else if (time_count_) {
       *out = time64(TimeUnit::MICRO);
-    } else if (timestamp_nano_count_) {
-      *out = timestamp(TimeUnit::NANO);
     } else if (timestamp_micro_count_) {
-      *out = timestamp(TimeUnit::MICRO);
-    } else if (timestamp_milli_count_) {
-      *out = timestamp(TimeUnit::MILLI);
-    } else if (timestamp_second_count_) {
-      *out = timestamp(TimeUnit::SECOND);
+      *out = timestamp(TimeUnit::MICRO, timezone_);
     } else if (duration_count_) {
       *out = duration(TimeUnit::MICRO);
     } else if (bool_count_) {
@@ -597,10 +595,8 @@ class TypeInferrer {
   int64_t int_count_;
   int64_t date_count_;
   int64_t time_count_;
-  int64_t timestamp_second_count_;
-  int64_t timestamp_milli_count_;
+  std::string timezone_;
   int64_t timestamp_micro_count_;
-  int64_t timestamp_nano_count_;
   int64_t duration_count_;
   int64_t float_count_;
   int64_t binary_count_;
