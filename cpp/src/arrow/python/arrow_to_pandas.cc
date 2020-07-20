@@ -17,8 +17,9 @@
 
 // Functions for pandas conversion via NumPy
 
-#include "arrow/python/arrow_to_pandas.h"
 #include "arrow/python/numpy_interop.h"  // IWYU pragma: expand
+
+#include "arrow/python/arrow_to_pandas.h"
 
 #include <cmath>
 #include <cstdint>
@@ -641,14 +642,15 @@ inline Status ConvertStruct(const PandasOptions& options, const ChunkedArray& da
   std::vector<OwnedRef> fields_data(num_fields);
   OwnedRef dict_item;
 
-  // In ARROW-7723, we found as a result of ARROW-3789 that second
+  // XXX(wesm): In ARROW-7723, we found as a result of ARROW-3789 that second
   // through microsecond resolution tz-aware timestamps were being promoted to
   // use the DATETIME_NANO_TZ conversion path, yielding a datetime64[ns] NumPy
   // array in this function. PyArray_GETITEM returns datetime.datetime for
   // units second through microsecond but PyLong for nanosecond (because
-  // datetime.datetime does not support nanoseconds).
-  // We force the object conversion to preserve the value of the timezone.
+  // datetime.datetime does not support nanoseconds). We inserted this hack to
+  // preserve the <= 0.15.1 behavior until a better solution can be devised
   PandasOptions modified_options = options;
+  modified_options.ignore_timezone = true;
   modified_options.coerce_temporal_nanoseconds = false;
 
   for (int c = 0; c < data.num_chunks(); c++) {
@@ -656,12 +658,8 @@ inline Status ConvertStruct(const PandasOptions& options, const ChunkedArray& da
     // Convert the struct arrays first
     for (int32_t i = 0; i < num_fields; i++) {
       PyObject* numpy_array;
-      std::shared_ptr<Array> field = arr->field(static_cast<int>(i));
-      // Seen notes above about timstamp conversion.  Don't blindly convert because
-      // timestamps in lists are handled differently.
-      modified_options.timestamp_as_object =
-          field->type()->id() == Type::TIMESTAMP ? true : options.timestamp_as_object;
-      RETURN_NOT_OK(ConvertArrayToPandas(modified_options, field, nullptr, &numpy_array));
+      RETURN_NOT_OK(ConvertArrayToPandas(
+          modified_options, arr->field(static_cast<int>(i)), nullptr, &numpy_array));
       fields_data[i].reset(numpy_array);
     }
 
@@ -953,21 +951,8 @@ struct ObjectWriterVisitor {
   template <typename Type>
   enable_if_timestamp<Type, Status> Visit(const Type& type) {
     const TimeUnit::type unit = type.unit();
-    OwnedRef tzinfo;
-    if (!type.timezone().empty()) {
-      RETURN_NOT_OK(internal::StringToTzinfo(type.timezone(), tzinfo.ref()));
-      RETURN_IF_PYERROR();
-    }
-    auto WrapValue = [&](typename Type::c_type value, PyObject** out) {
+    auto WrapValue = [unit](typename Type::c_type value, PyObject** out) {
       RETURN_NOT_OK(internal::PyDateTime_from_int(value, unit, out));
-      RETURN_IF_PYERROR();
-      if (tzinfo.obj() != nullptr) {
-        PyObject* with_tz = PyObject_CallMethod(tzinfo.obj(), "fromutc", "O", *out);
-        RETURN_IF_PYERROR();
-        Py_DECREF(*out);
-        *out = with_tz;
-      }
-
       RETURN_IF_PYERROR();
       return Status::OK();
     };
@@ -1742,7 +1727,8 @@ static Status GetPandasWriterType(const ChunkedArray& data, const PandasOptions&
         // Nanoseconds are never out of bounds for pandas, so in that case
         // we don't convert to object
         *output_type = PandasWriter::OBJECT;
-      } else if (!ts_type.timezone().empty()) {
+      } else if (ts_type.timezone() != "" && !options.ignore_timezone) {
+        // XXX: ignore_timezone: hack here for ARROW-7723
         *output_type = PandasWriter::DATETIME_NANO_TZ;
       } else if (options.coerce_temporal_nanoseconds) {
         *output_type = PandasWriter::DATETIME_NANO;
