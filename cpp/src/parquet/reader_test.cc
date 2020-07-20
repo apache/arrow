@@ -60,6 +60,10 @@ std::string nation_dict_truncated_data_page() {
 
 std::string hadoop_lz4_compressed() { return data_file("hadoop_lz4_compressed.parquet"); }
 
+std::string non_hadoop_lz4_compressed() {
+  return data_file("non_hadoop_lz4_compressed.parquet");
+}
+
 // TODO: Assert on definition and repetition levels
 template <typename DType, typename ValueType>
 void AssertColumnValues(std::shared_ptr<TypedColumnReader<DType>> col, int64_t batch_size,
@@ -77,10 +81,24 @@ void AssertColumnValues(std::shared_ptr<TypedColumnReader<DType>> col, int64_t b
   ASSERT_EQ(expected_values_read, values_read);
 }
 
-#ifdef ARROW_WITH_LZ4
-TEST(TestHadoopCompatibility, Lz4Codec) {
+struct CodecTestParam {
+  CodecTestParam(std::string data_file, uint32_t expected_metadata_size)
+      : data_file(data_file), expected_metadata_size(expected_metadata_size) {}
+
+  std::string data_file;
+  uint32_t expected_metadata_size;
+};
+
+class TestCodec : public ::testing::TestWithParam<CodecTestParam> {
+  protected:
+    const std::string& GetDataFile() { return GetParam().data_file; }
+
+    uint32_t GetExpectedMetadataSize() { return GetParam().expected_metadata_size; }
+};
+
+TEST_P(TestCodec, FileMetadataAndValues) {
   std::unique_ptr<ParquetFileReader> reader_ =
-      ParquetFileReader::OpenFile(hadoop_lz4_compressed());
+      ParquetFileReader::OpenFile(GetDataFile());
   std::shared_ptr<RowGroupReader> group = reader_->RowGroup(0);
 
   // This file only has 4 rows
@@ -89,8 +107,8 @@ TEST(TestHadoopCompatibility, Lz4Codec) {
   ASSERT_EQ(3, reader_->metadata()->num_columns());
   // This file only has 1 row group
   ASSERT_EQ(1, reader_->metadata()->num_row_groups());
-  // Size of the metadata is 376 bytes
-  ASSERT_EQ(376, reader_->metadata()->size());
+  // Size of the metadata is given by GetExpectedMetadataSize()
+  ASSERT_EQ(GetExpectedMetadataSize(), reader_->metadata()->size());
   // This row group must have 4 rows
   ASSERT_EQ(4, group->metadata()->num_rows());
 
@@ -113,7 +131,6 @@ TEST(TestHadoopCompatibility, Lz4Codec) {
       std::dynamic_pointer_cast<DoubleReader>(group->Column(2));
   AssertColumnValues(col2, 4, 4, expected_double_values, 4);
 }
-#endif
 
 class TestAllTypesPlain : public ::testing::Test {
  public:
@@ -543,5 +560,12 @@ TEST(TestFileReader, BufferedReads) {
         scratch_space[col_index]->Equals(*column_data[col_index]->data()->buffers[1]));
   }
 }
+
+#ifdef ARROW_WITH_LZ4
+INSTANTIATE_TEST_SUITE_P(Lz4CodecTests, TestCodec,
+                         ::testing::Values(CodecTestParam(hadoop_lz4_compressed(), 376),
+                                           CodecTestParam(non_hadoop_lz4_compressed(),
+                                                          2245)));
+#endif
 
 }  // namespace parquet
