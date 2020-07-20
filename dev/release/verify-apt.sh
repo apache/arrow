@@ -51,8 +51,8 @@ fi
 have_flight=yes
 have_gandiva=yes
 have_plasma=yes
-case "${distribution}-${code_name}-$(arch)" in
-  debian-stretch-*)
+case "${distribution}-${code_name}" in
+  debian-stretch)
     sed \
       -i"" \
       -e "s/ main$/ main contrib non-free/g" \
@@ -61,24 +61,20 @@ case "${distribution}-${code_name}-$(arch)" in
 deb http://deb.debian.org/debian ${code_name}-backports main
 APT_LINE
     ;;
-  debian-buster-*)
+  debian-buster)
     sed \
       -i"" \
       -e "s/ main$/ main contrib non-free/g" \
       /etc/apt/sources.list
     ;;
-  ubuntu-xenial-x86_64)
+  ubuntu-xenial)
     have_flight=no
-    ;;
-  ubuntu-xenial-aarch64)
-    have_flight=no
-    have_gandiva=no
-    have_plasma=no
-    ;;
-  ubuntu-bionic-aarch64)
-    have_plasma=no
     ;;
 esac
+if [ "$(arch)" = "aarch64" ]; then
+  have_gandiva=no
+  have_plasma=no
+fi
 
 keyring_archive_base_name="apache-arrow-archive-keyring-latest-${code_name}.deb"
 curl \

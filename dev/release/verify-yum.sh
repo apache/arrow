@@ -50,20 +50,23 @@ have_gandiva=yes
 have_glib=yes
 have_parquet=yes
 install_command="dnf install -y --enablerepo=PowerTools"
-case "${distribution}-${distribution_version}-$(arch)" in
-  centos-6-*)
+case "${distribution}-${distribution_version}" in
+  centos-6)
     have_flight=no
     have_gandiva=no
     have_glib=no
     have_parquet=no
     install_command="yum install -y"
     ;;
-  centos-7-*)
+  centos-7)
     have_flight=no
     have_gandiva=no
     install_command="yum install -y"
     ;;
 esac
+if [ "$(arch)" = "aarch64" ]; then
+  have_gandiva=no
+fi
 
 ${install_command} \
   ${bintray_base_url}/${distribution_version}/apache-arrow-release-latest.rpm
