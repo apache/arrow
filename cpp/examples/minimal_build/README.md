@@ -53,7 +53,7 @@ Note that this example mounts two volumes inside the Docker image:
 ## Statically-linked builds
 
 We've provided an example build configuration here with CMake to show how to
-create a statically-linked executable .
+create a statically-linked executable with bundled dependencies.
 
 To run it on Linux, you can use the above Docker image:
 
@@ -78,4 +78,18 @@ Studio's command line tools enabled and CMake and ninja build in the path:
 
 ```
 call run_static.bat
+```
+
+### Static linking against system libraries
+
+You can also use static libraries of arrows dependencies from the system.
+An example for this configuration can be found in a second Dockerfile.
+
+```bash
+
+# Build the Docker image
+docker build -t arrow_cpp_minimal_static -f Dockerfile_static_system_libs .
+
+# Run the example inside the image
+docker run -it -v $PWD:/io -v $ARROW_ROOT:/arrow arrow_cpp_minimal_static /io/run_static.sh
 ```

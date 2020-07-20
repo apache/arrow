@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -23,6 +23,8 @@ set -e
 : ${ARROW_BUILD_DIR:=/build/arrow}
 : ${EXAMPLE_BUILD_DIR:=/build/example}
 
+: ${ARROW_DEPENDENCY_SOURCE:=BUNDLED}
+
 echo
 echo "=="
 echo "== Building Arrow C++ library"
@@ -30,12 +32,14 @@ echo "=="
 echo
 
 mkdir -p $ARROW_BUILD_DIR
-pushd $ARROW_BUILD_DIR
+OLDPWD="$PWD"
+cd $ARROW_BUILD_DIR
 
 NPROC=$(nproc)
 
 cmake $ARROW_DIR/cpp \
-    -DARROW_DEPENDENCY_SOURCE=BUNDLED \
+    -DARROW_DEPENDENCY_SOURCE=${ARROW_DEPENDENCY_SOURCE} \
+    -DARROW_USE_SHARED_SYSTEM_LIBS=OFF \
     -DARROW_BUILD_SHARED=OFF \
     -DARROW_BUILD_STATIC=ON \
     -DARROW_COMPUTE=ON \
@@ -59,7 +63,7 @@ cmake $ARROW_DIR/cpp \
 make -j$NPROC
 make install
 
-popd
+cd "$OLDPWD"
 
 echo
 echo "=="
@@ -68,12 +72,12 @@ echo "=="
 echo
 
 mkdir -p $EXAMPLE_BUILD_DIR
-pushd $EXAMPLE_BUILD_DIR
+cd $EXAMPLE_BUILD_DIR
 
 cmake $EXAMPLE_DIR -DARROW_LINK_SHARED=OFF
 make
 
-popd
+cd "$OLDPWD"
 
 echo
 echo "=="
