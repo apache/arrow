@@ -72,8 +72,6 @@ std::shared_ptr<arrow::csv::ConvertOptions> csv___ConvertOptions__initialize(
   // std::vector<std::string> false_values;
 
   // TODO: there are more conversion options available:
-  // // Optional per-column types (disabling type inference on those columns)
-  // std::unordered_map<std::string, std::shared_ptr<DataType>> column_types;
   SEXP s_col_types = options["col_types"];
   if (!Rf_isNull(s_col_types)) {
     Rcpp::ConstReferenceSmartPtrInputParameter<std::shared_ptr<arrow::Schema>> col_types(

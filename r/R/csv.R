@@ -118,8 +118,37 @@ read_delim_arrow <- function(file,
   if (is.null(read_options)) {
     read_options <- readr_to_csv_read_options(skip, col_names)
   }
+  if (is.character(col_types)) {
+    if (length(col_types) != 1L) {
+      abort("`col_types` is a character vector that is not of size 1")
+    }
+    n <- nchar(col_types)
+    if (!is.character(col_names) || length(col_names) != n) {
+      abort(paste0("`col_names` must be a character vector of size ", n, " when `col_types` uses the compact representation"))
+    }
+    specs <- substring(col_types, seq_len(n), seq_len(n))
+    types <- set_names(nm = col_names, map2(specs, col_names, ~{
+      switch(.x,
+        "c" = utf8(),
+        "i" = int32(),
+        "n" = float64(),
+        "d" = float64(),
+        "l" = bool(),
+        "f" = dictionary(),
+        "D" = date32(),
+        "T" = time32(),
+        "t" = timestamp(),
+        "?" = NULL,
+        "_" = NULL,
+        "/" = NULL,
+
+        abort("Unsupported compact specification: '", .x,"' for column '", .y, "'")
+      )
+    }))
+    types <- keep(types, ~!is.null(.x))
+    col_types <- schema(!!!types)
+  }
   if (is.null(convert_options)) {
-    # TODO: col_types (needs wiring in CsvConvertOptions)
     convert_options <- readr_to_csv_convert_options(na, quoted_na, col_types = col_types)
   }
 

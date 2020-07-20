@@ -175,17 +175,31 @@ test_that("read_csv_arrow() can detect compression from file name", {
   expect_equivalent(tbl, tab1)
 })
 
-# test_that("read_csv_arrow(col_types=<Schema>/<list>)", {
-#   tbl <- example_data[, "int"]
-#   tf <- tempfile(); on.exit(unlink(tf))
-#   write.csv(tbl, tf, row.names = FALSE)
-#
-#   df <- read_csv_arrow(tf, col_types = schema(int = float64()))
-#   expect_identical(df, tibble::tibble(int = as.numeric(tbl$int)))
-#
-#   df <- read_csv_arrow(tf, col_types = list(int = float64()))
-#   expect_identical(df, tibble::tibble(int = as.numeric(tbl$int)))
-#
-#   expect_error(read_csv_arrow(tf, col_types = list(float64())))
-#   expect_error(read_csv_arrow(tf, col_types = list(int = numeric())))
-# })
+test_that("read_csv_arrow(col_types=<Schema>/<list>)", {
+  tbl <- example_data[, "int"]
+  tf <- tempfile(); on.exit(unlink(tf))
+  write.csv(tbl, tf, row.names = FALSE)
+
+  df <- read_csv_arrow(tf, col_types = schema(int = float64()))
+  expect_identical(df, tibble::tibble(int = as.numeric(tbl$int)))
+
+  df <- read_csv_arrow(tf, col_types = list(int = float64()))
+  expect_identical(df, tibble::tibble(int = as.numeric(tbl$int)))
+
+  expect_error(read_csv_arrow(tf, col_types = list(float64())))
+  expect_error(read_csv_arrow(tf, col_types = list(int = numeric())))
+})
+
+test_that("read_csv_arrow(col_types=string, col_names)", {
+  tbl <- example_data[, "int"]
+  tf <- tempfile(); on.exit(unlink(tf))
+  write.csv(tbl, tf, row.names = FALSE)
+
+  df <- read_csv_arrow(tf, col_names = "int", col_types = "d", skip = 1)
+  expect_identical(df, tibble::tibble(int = as.numeric(tbl$int)))
+
+  expect_error(read_csv_arrow(tf, col_types = c("i", "d")))
+  expect_error(read_csv_arrow(tf, col_types = "d"))
+  expect_error(read_csv_arrow(tf, col_types = "i", col_names = c("a", "b")))
+  expect_error(read_csv_arrow(tf, col_types = "y", col_names = "a"))
+})
