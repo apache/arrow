@@ -15,9 +15,17 @@
 # specific language governing permissions and limitations
 # under the License.
 
+set(SNAPPY_STATIC_LIB_SUFFIX "${SNAPPY_MSVC_STATIC_LIB_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}")
+
+if(ARROW_SNAPPY_USE_SHARED)
+  set(SNAPPY_LIB_NAMES snappy)
+else()
+  set(SNAPPY_LIB_NAMES "${CMAKE_STATIC_LIBRARY_PREFIX}snappy${SNAPPY_STATIC_LIB_SUFFIX}" snappy)
+endif()
+
 if(Snappy_ROOT)
   find_library(Snappy_LIB
-               NAMES snappy
+               NAMES ${SNAPPY_LIB_NAMES}
                PATHS ${Snappy_ROOT}
                PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
                NO_DEFAULT_PATH)
@@ -27,7 +35,7 @@ if(Snappy_ROOT)
             NO_DEFAULT_PATH
             PATH_SUFFIXES ${INCLUDE_PATH_SUFFIXES})
 else()
-  find_library(Snappy_LIB NAMES snappy HINTS "${CMAKE_ROOT}/Modules/")
+  find_library(Snappy_LIB NAMES ${SNAPPY_LIB_NAMES} HINTS "${CMAKE_ROOT}/Modules/")
   find_path(Snappy_INCLUDE_DIR NAMES snappy.h HINTS "${CMAKE_ROOT}/Modules/" PATH_SUFFIXES ${INCLUDE_PATH_SUFFIXES})
 endif()
 

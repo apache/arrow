@@ -284,20 +284,26 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   define_option(ARROW_VERBOSE_THIRDPARTY_BUILD
                 "Show output from ExternalProjects rather than just logging to files" OFF)
 
-  define_option(ARROW_BOOST_USE_SHARED "Rely on boost shared libraries where relevant" ON)
+  define_option(ARROW_USE_SHARED_SYSTEM_LIBS "Link to shared system libraries" ON)
+
+  define_option(ARROW_BOOST_USE_SHARED "Rely on boost shared libraries where relevant" ${ARROW_USE_SHARED_SYSTEM_LIBS})
 
   define_option(ARROW_BROTLI_USE_SHARED "Rely on Brotli shared libraries where relevant"
-                ON)
+      ${ARROW_USE_SHARED_SYSTEM_LIBS})
 
   define_option(ARROW_GFLAGS_USE_SHARED "Rely on GFlags shared libraries where relevant"
-                ON)
+      ${ARROW_USE_SHARED_SYSTEM_LIBS})
 
-  define_option(ARROW_GRPC_USE_SHARED "Rely on gRPC shared libraries where relevant" ON)
+  define_option(ARROW_GRPC_USE_SHARED "Rely on gRPC shared libraries where relevant" ${ARROW_USE_SHARED_SYSTEM_LIBS})
+
+  define_option(ARROW_LZ4_USE_SHARED "Rely on lz4 shared libraries where relevant" ${ARROW_USE_SHARED_SYSTEM_LIBS})
 
   define_option(ARROW_PROTOBUF_USE_SHARED
-                "Rely on Protocol Buffers shared libraries where relevant" ON)
+      "Rely on Protocol Buffers shared libraries where relevant" ${ARROW_USE_SHARED_SYSTEM_LIBS})
 
-  define_option(ARROW_ZSTD_USE_SHARED "Rely on zstd shared libraries where relevant" ON)
+  define_option(ARROW_SNAPPY_USE_SHARED "Rely on snappy shared libraries where relevant" ${ARROW_USE_SHARED_SYSTEM_LIBS})
+
+  define_option(ARROW_ZSTD_USE_SHARED "Rely on zstd shared libraries where relevant" ${ARROW_USE_SHARED_SYSTEM_LIBS})
 
   define_option(ARROW_WITH_BACKTRACE "Build with backtrace support" ON)
 
