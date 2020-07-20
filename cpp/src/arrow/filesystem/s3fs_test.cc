@@ -28,9 +28,9 @@
 //
 // See also:
 // https://github.com/boostorg/process/blob/develop/include/boost/process/detail/windows/handle_workaround.hpp
-#include <boost/process.hpp>
-
 #include <gtest/gtest.h>
+
+#include <boost/process.hpp>
 
 #ifdef _WIN32
 // Undefine preprocessor macros that interfere with AWS function / method names
@@ -51,6 +51,7 @@
 #include <aws/s3/model/CreateBucketRequest.h>
 #include <aws/s3/model/GetObjectRequest.h>
 #include <aws/s3/model/PutObjectRequest.h>
+#include <aws/sts/STSClient.h>
 
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/filesystem/s3_internal.h"
@@ -61,13 +62,16 @@
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
+#include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 
 namespace arrow {
 namespace fs {
 
+using ::arrow::internal::DelEnvVar;
 using ::arrow::internal::PlatformFilename;
+using ::arrow::internal::SetEnvVar;
 using ::arrow::internal::UriEscape;
 
 using ::arrow::fs::internal::ConnectRetryStrategy;
@@ -195,6 +199,44 @@ TEST(S3Options, FromUri) {
 
   // Missing bucket name
   ASSERT_RAISES(Invalid, S3Options::FromUri("s3:///foo/bar/", &path));
+}
+
+TEST(S3Options, FromAccessKey) {
+  S3Options options;
+
+  // session token is optional and should default to empty string
+  options = S3Options::FromAccessKey("access", "secret");
+  ASSERT_EQ(options.GetAccessKey(), "access");
+  ASSERT_EQ(options.GetSecretKey(), "secret");
+  ASSERT_EQ(options.GetSessionToken(), "");
+
+  options = S3Options::FromAccessKey("access", "secret", "token");
+  ASSERT_EQ(options.GetAccessKey(), "access");
+  ASSERT_EQ(options.GetSecretKey(), "secret");
+  ASSERT_EQ(options.GetSessionToken(), "token");
+}
+
+TEST(S3Options, FromAssumeRole) {
+  S3Options options;
+
+  // we set this envvar to speed up tests by ensuring
+  // DefaultAWSCredentialsProviderChain does not query (inaccessible)
+  // EC2 metadata endpoint
+  ASSERT_OK(SetEnvVar("AWS_EC2_METADATA_DISABLED", "true"));
+
+  // arn should be only required argument
+  options = S3Options::FromAssumeRole("my_role_arn");
+  options = S3Options::FromAssumeRole("my_role_arn", "session");
+  options = S3Options::FromAssumeRole("my_role_arn", "session", "id");
+  options = S3Options::FromAssumeRole("my_role_arn", "session", "id", 42);
+
+  ASSERT_OK(DelEnvVar("AWS_EC2_METADATA_DISABLED"));
+
+  // test w/ custom STSClient (will not use DefaultAWSCredentialsProviderChain)
+  Aws::Auth::AWSCredentials test_creds = Aws::Auth::AWSCredentials("access", "secret");
+  std::shared_ptr<Aws::STS::STSClient> sts_client =
+      std::make_shared<Aws::STS::STSClient>(Aws::STS::STSClient(test_creds));
+  options = S3Options::FromAssumeRole("my_role_arn", "session", "id", 42, sts_client);
 }
 
 ////////////////////////////////////////////////////////////////////////////

@@ -48,9 +48,13 @@ def finalize_s3():
 cdef class S3FileSystem(FileSystem):
     """S3-backed FileSystem implementation
 
-    If neither access_key nor secret_key are provided then attempts to
-    initialize from AWS environment variables, otherwise both access_key and
-    secret_key must be provided.
+    If neither access_key nor secret_key are provided, and role_arn is also not
+    provided, then attempts to initialize from AWS environment variables,
+    otherwise both access_key and secret_key must be provided.
+
+    If role_arn is provided instead of access_key and secret_key, temporary
+    credentials will be fetched by issuing a request to STS to assume the
+    specified role.
 
     Note: S3 buckets are special and the operations available on them may be
     limited or more expensive than desired.
@@ -63,10 +67,24 @@ cdef class S3FileSystem(FileSystem):
     secret_key: str, default None
         AWS Secret Access key. Pass None to use the standard AWS environment
         variables and/or configuration file.
+    session_token: str, default None
+        AWS Session Token.  An optional session token, required if access_key
+        and secret_key are temporary credentials from STS.
     anonymous: boolean, default False
         Whether to connect anonymously if access_key and secret_key are None.
         If true, will not attempt to look up credentials using standard AWS
         configuration methods.
+    role_arn: str, default None
+        AWS Role ARN.  If provided instead of access_key and secret_key,
+        temporary credentials will be fetched by assuming this role.
+    session_name: str, default None
+        An optional identifier for the assumed role session.
+    external_id: str, default None
+        An optional unique identifier that might be required when you assume
+        a role in another account.
+    load_frequency: int, default 900
+        The frequency (in seconds) with which temporary credentials from an
+        assumed role session will be refreshed.
     region: str, default 'us-east-1'
         AWS region to connect to.
     scheme: str, default 'https'
@@ -81,9 +99,11 @@ cdef class S3FileSystem(FileSystem):
     cdef:
         CS3FileSystem* s3fs
 
-    def __init__(self, *, access_key=None, secret_key=None, anonymous=False,
-                 region=None, scheme=None, endpoint_override=None,
-                 bint background_writes=True):
+    def __init__(self, *, access_key=None, secret_key=None, session_token=None,
+                 anonymous=False, region=None, scheme=None,
+                 endpoint_override=None, bint background_writes=True,
+                 role_arn=None, session_name=None, external_id=None,
+                 load_frequency=900):
         cdef:
             CS3Options options
             shared_ptr[CS3FileSystem] wrapped
@@ -100,17 +120,42 @@ cdef class S3FileSystem(FileSystem):
                 'access_key and secret_key must be provided, '
                 '`access_key` is not set.'
             )
-        elif access_key is not None or secret_key is not None:
+
+        elif session_token is not None and (access_key is None or
+                                            secret_key is None):
+            raise ValueError(
+                'In order to initialize a session with temporary credentials, '
+                'both secret_key and access_key must be provided in addition '
+                'to session_token.'
+            )
+
+        elif (access_key is not None or secret_key is not None):
             if anonymous:
                 raise ValueError(
                     'Cannot pass anonymous=True together with access_key '
                     'and secret_key.')
+
+            if role_arn:
+                raise ValueError(
+                    'Cannot provide role_arn with access_key and secret_key')
+
+            if session_token is None:
+                session_token = ""
+
             options = CS3Options.FromAccessKey(
                 tobytes(access_key),
-                tobytes(secret_key)
+                tobytes(secret_key),
+                tobytes(session_token)
             )
         elif anonymous:
             options = CS3Options.Anonymous()
+        elif role_arn is not None:
+            options = CS3Options.FromAssumeRole(
+                tobytes(role_arn),
+                tobytes(session_name),
+                tobytes(external_id),
+                load_frequency
+            )
         else:
             options = CS3Options.Defaults()
 
@@ -138,13 +183,32 @@ cdef class S3FileSystem(FileSystem):
 
     def __reduce__(self):
         cdef CS3Options opts = self.s3fs.options()
+
+        role_arn = frombytes(opts.role_arn)
+
+        # if role_arn is set, we should not re-use temporary credentials
+        # but instead recreate a new assume role session
+        if role_arn:
+            access_key = None
+            secret_key = None
+            session_token = None
+        else:
+            access_key = frombytes(opts.GetAccessKey())
+            secret_key = frombytes(opts.GetSecretKey())
+            session_token = frombytes(opts.GetSessionToken())
+
         return (
             S3FileSystem._reconstruct, (dict(
-                access_key=frombytes(opts.GetAccessKey()),
-                secret_key=frombytes(opts.GetSecretKey()),
+                access_key=access_key,
+                secret_key=secret_key,
+                session_token=session_token,
                 region=frombytes(opts.region),
                 scheme=frombytes(opts.scheme),
                 endpoint_override=frombytes(opts.endpoint_override),
+                role_arn=role_arn,
+                session_name=frombytes(opts.session_name),
+                external_id=frombytes(opts.external_id),
+                load_frequency=opts.load_frequency,
                 background_writes=opts.background_writes
             ),)
         )
