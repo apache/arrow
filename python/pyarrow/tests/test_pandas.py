@@ -3327,6 +3327,21 @@ def test_cast_timestamp_unit():
     assert result.equals(expected)
 
 
+def test_nested_with_timestamp_tz_round_trip():
+    ts = pd.Timestamp.now()
+    ts_dt = ts.to_pydatetime()
+    arr = pa.array([ts_dt], type=pa.timestamp('us', tz='America/New_York'))
+    struct = pa.StructArray.from_arrays([arr, arr], ['start', 'stop'])
+
+    result = struct.to_pandas()
+    # N.B. we test with Panaas because the Arrow types are not
+    # actually equal.  All Timezone aware times are currently normalized
+    # to "UTC" as the timesetamp type.but since this conversion results
+    # in object dtypes, and tzinfo is preserrved the comparison should
+    # result in equality.
+    pd.testing.assert_series_equal(pa.array(result).to_pandas(), result)
+
+
 def test_nested_with_timestamp_tz():
     # ARROW-7723
     ts = pd.Timestamp.now()

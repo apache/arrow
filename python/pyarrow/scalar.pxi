@@ -334,7 +334,8 @@ cdef class Date64Scalar(Scalar):
 
     def as_py(self):
         """
-        Return this value as a Python datetime.datetime instance.
+        Return this value as a Pandas Timestamp instance (if available),
+        otherwise as a Python datetime.datetime instance.
         """
         cdef CDate64Scalar* sp = <CDate64Scalar*> self.wrapped.get()
 
