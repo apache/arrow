@@ -368,8 +368,8 @@ fn get_projected_schema(
 mod tests {
 
     use super::*;
+    use crate::logicalplan::lit;
     use crate::logicalplan::Expr::*;
-    use crate::logicalplan::ScalarValue;
     use crate::test::*;
     use arrow::datatypes::DataType;
 
@@ -498,10 +498,7 @@ mod tests {
     fn table_scan_with_literal_projection() -> Result<()> {
         let table_scan = test_table_scan()?;
         let plan = LogicalPlanBuilder::from(&table_scan)
-            .project(vec![
-                Expr::Literal(ScalarValue::Int64(1)),
-                Expr::Literal(ScalarValue::Int64(2)),
-            ])?
+            .project(vec![lit(1_i64), lit(2_i64)])?
             .build()?;
         let expected = "Projection: Int64(1), Int64(2)\
                       \n  TableScan: test projection=Some([0])";

@@ -26,7 +26,7 @@ use arrow::util::pretty;
 use datafusion::datasource::MemTable;
 use datafusion::error::Result;
 use datafusion::execution::context::ExecutionContext;
-use datafusion::logicalplan::{Expr, ScalarValue};
+use datafusion::logicalplan::lit;
 
 /// This example demonstrates basic uses of the Table API on an in-memory table
 fn main() -> Result<()> {
@@ -54,7 +54,7 @@ fn main() -> Result<()> {
     let t = ctx.table("t")?;
 
     // construct an expression corresponding to "SELECT a, b FROM t WHERE b = 10" in SQL
-    let filter = t.col("b")?.eq(&Expr::Literal(ScalarValue::Int32(10)));
+    let filter = t.col("b")?.eq(&lit(10));
 
     let t = t.select_columns(vec!["a", "b"])?.filter(filter)?;
 

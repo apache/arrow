@@ -21,7 +21,7 @@ use std::sync::Arc;
 
 use crate::error::{ExecutionError, Result};
 use crate::logicalplan::{
-    Expr, FunctionMeta, LogicalPlan, LogicalPlanBuilder, Operator, ScalarValue,
+    lit, Expr, FunctionMeta, LogicalPlan, LogicalPlanBuilder, Operator, ScalarValue,
 };
 
 use arrow::datatypes::*;
@@ -262,14 +262,10 @@ impl<S: SchemaProvider> SqlToRel<S> {
     /// Generate a relational expression from a SQL expression
     pub fn sql_to_rex(&self, sql: &ASTNode, schema: &Schema) -> Result<Expr> {
         match *sql {
-            ASTNode::SQLValue(sqlparser::sqlast::Value::Long(n)) => {
-                Ok(Expr::Literal(ScalarValue::Int64(n)))
-            }
-            ASTNode::SQLValue(sqlparser::sqlast::Value::Double(n)) => {
-                Ok(Expr::Literal(ScalarValue::Float64(n)))
-            }
+            ASTNode::SQLValue(sqlparser::sqlast::Value::Long(n)) => Ok(lit(n)),
+            ASTNode::SQLValue(sqlparser::sqlast::Value::Double(n)) => Ok(lit(n)),
             ASTNode::SQLValue(sqlparser::sqlast::Value::SingleQuotedString(ref s)) => {
-                Ok(Expr::Literal(ScalarValue::Utf8(s.clone())))
+                Ok(lit(s.clone()))
             }
 
             ASTNode::SQLAliasedExpr(ref expr, ref alias) => Ok(Alias(
@@ -382,11 +378,9 @@ impl<S: SchemaProvider> SqlToRel<S> {
                             .iter()
                             .map(|a| match a {
                                 ASTNode::SQLValue(sqlparser::sqlast::Value::Long(_)) => {
-                                    Ok(Expr::Literal(ScalarValue::UInt8(1)))
+                                    Ok(lit(1_u8))
                                 }
-                                ASTNode::SQLWildcard => {
-                                    Ok(Expr::Literal(ScalarValue::UInt8(1)))
-                                }
+                                ASTNode::SQLWildcard => Ok(lit(1_u8)),
                                 _ => self.sql_to_rex(a, schema),
                             })
                             .collect::<Result<Vec<Expr>>>()?;
