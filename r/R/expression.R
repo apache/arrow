@@ -20,31 +20,43 @@
 #' @export
 Ops.Array <- function(e1, e2) {
   if (.Generic %in% names(.array_function_map)) {
-    expr <- build_array_expression(.Generic, e1, e2)
-    shared_ptr(Array, eval_array_expression(expr))
+    expr <- build_array_expression(.Generic, e1, e2, result_class = "Array")
+    eval_array_expression(expr)
   } else {
     stop("Unsupported operation on Array: ", .Generic, call. = FALSE)
   }
 }
 
-build_array_expression <- function(.Generic, e1, e2) {
-  if (.Generic == "!") {
-    expr <- array_expression("invert", e1)
+build_array_expression <- function(.Generic, e1, e2, ...) {
+  if (.Generic %in% names(.unary_function_map)) {
+    expr <- array_expression(.unary_function_map[[.Generic]], e1)
   } else {
-    if (!inherits(e1, "ArrowObject")) {
-      # TODO: Array$create if lengths are equal?
-      # TODO: these kernels should autocast like the dataset ones do (e.g. int vs. float)
-      e1 <- Scalar$create(e1, type = e2$type)
-    }
-    if (!inherits(e2, "ArrowObject")) {
-      e2 <- Scalar$create(e2, type = e1$type)
-    }
-    expr <- array_expression(.array_function_map[[.Generic]], e1, e2)
+    e1 <- .wrap_arrow(e1, .Generic, e2$type)
+    e2 <- .wrap_arrow(e2, .Generic, e1$type)
+    expr <- array_expression(.binary_function_map[[.Generic]], e1, e2, ...)
   }
   expr
 }
 
-.array_function_map <- list(
+.wrap_arrow <- function(arg, fun, type) {
+  if (!inherits(arg, c("ArrowObject", "array_expression"))) {
+    # TODO: Array$create if lengths are equal?
+    # TODO: these kernels should autocast like the dataset ones do (e.g. int vs. float)
+    if (fun == "%in%") {
+      arg <- Array$create(arg, type = type)
+    } else {
+      arg <- Scalar$create(arg, type = type)
+    }
+  }
+  arg
+}
+
+.unary_function_map <- list(
+  "!" = "invert",
+  "is.na" = "is_null"
+)
+
+.binary_function_map <- list(
   "==" = "equal",
   "!=" = "not_equal",
   ">" = "greater",
@@ -53,33 +65,39 @@ build_array_expression <- function(.Generic, e1, e2) {
   "<=" = "less_equal",
   "&" = "and_kleene",
   "|" = "or_kleene",
-  "!" = "invert",
-  "%in%" = "isin_meta_binary",
-  "is.na" = "is_null"
+  "%in%" = "is_in_meta_binary"
 )
+
+.array_function_map <- c(.unary_function_map, .binary_function_map)
 
 #' @export
 Ops.ChunkedArray <- function(e1, e2) {
-  # TODO: when call_function can return a properly classed output, Ops.Array
-  # and Ops.ChunkedArray can be the same, not copypasta
   if (.Generic %in% names(.array_function_map)) {
-    expr <- build_array_expression(.Generic, e1, e2)
-    shared_ptr(ChunkedArray, eval_array_expression(expr))
+    expr <- build_array_expression(.Generic, e1, e2, result_class = "ChunkedArray")
+    eval_array_expression(expr)
   } else {
     stop("Unsupported operation on ChunkedArray: ", .Generic, call. = FALSE)
   }
 }
 
-array_expression <- function(FUN, ..., args = list(...), options = empty_named_list()) {
-  structure(list(fun = FUN, args = args, options = options), class = "array_expression")
+array_expression <- function(FUN, ..., args = list(...), options = empty_named_list(), result_class = class(args[[1]])[1]) {
+  structure(
+    list(
+      fun = FUN,
+      args = args,
+      options = options,
+      result_class = result_class
+    ),
+    class = "array_expression"
+  )
 }
 
 #' @export
 Ops.array_expression <- function(e1, e2) {
   if (.Generic == "!") {
-    array_expression(.Generic, e1)
+    build_array_expression(.Generic, e1, result_class = e1$result_class)
   } else {
-    array_expression(.Generic, e1, e2)
+    build_array_expression(.Generic, e1, e2, result_class = e1$result_class)
   }
 }
 
@@ -94,7 +112,8 @@ eval_array_expression <- function(x, ...) {
       a
     }
   })
-  call_function(x$fun, args = x$args, options = x$options %||% empty_named_list())
+  ptr <- call_function(x$fun, args = x$args, options = x$options %||% empty_named_list())
+  shared_ptr(get(x$result_class), ptr)
 }
 
 #' @export

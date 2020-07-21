@@ -206,7 +206,7 @@ filter_mask <- function(.data) {
   } else {
     comp_func <- function(operator) {
       force(operator)
-      if (operator == "!") {
+      if (operator %in% names(.unary_function_map)) {
         function(e1) build_array_expression(operator, e1)
       } else {
         function(e1, e2) build_array_expression(operator, e1, e2)
