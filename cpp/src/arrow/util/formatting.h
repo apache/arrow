@@ -88,69 +88,60 @@ ARROW_EXPORT extern const char digit_pairs[];
 
 // Based on fmtlib's format_int class:
 // Write digits from right to left into a stack allocated buffer
-template <size_t BUFFER_SIZE>
-struct DigitStringWriter {
-  DigitStringWriter() : cursor_(buffer_.data() + BUFFER_SIZE) {}
-
-  void WriteChar(char c) { *--cursor_ = c; }
-
-  template <typename Int>
-  void WriteOne(Int value) {
-    assert(value >= 0 && value <= 9);
-    WriteChar(static_cast<char>('0' + value));
-  }
-
-  template <typename Int>
-  void WriteTwo(Int value) {
-    assert(value >= 0 && value <= 99);
-    WriteChar(digit_pairs[value * 2 + 1]);
-    WriteChar(digit_pairs[value * 2]);
-  }
-
-  template <typename Int>
-  void Write(Int value) {
-    using unsigned_type = typename std::make_unsigned<Int>::type;
-
-    unsigned_type v = value < 0 ? ~static_cast<unsigned_type>(value) + 1
-                                : static_cast<unsigned_type>(value);
-
-    while (v >= 100) {
-      WriteTwo(v % 100);
-      v /= 100;
-    }
-
-    if (v >= 10) {
-      WriteTwo(v);
-    } else {
-      WriteOne(v);
-    }
-  }
-
-  template <typename Int>
-  void WritePadded(Int value, size_t pad, char pad_char) {
-    auto minimum_size = size() + pad;
-    Write(value);
-    for (size_t new_size = size(); new_size < minimum_size; ++new_size) {
-      WriteChar(pad_char);
-    }
-  }
-
-  std::size_t size() const {
-    auto buffer_end = buffer_.data() + buffer_.size();
-    return static_cast<size_t>(buffer_end - cursor_);
-  }
-
-  util::string_view view() const {
-    assert(cursor_ >= buffer_.data());
-    return {cursor_, size()};
-  }
-
-  std::array<char, BUFFER_SIZE> buffer_;
-  char* cursor_;
-};
+inline void FormatOneChar(char c, char** cursor) { *--*cursor = c; }
 
 template <typename Int>
-constexpr size_t Digits10(Int value = std::numeric_limits<Int>::max()) {
+void FormatOneDigit(Int value, char** cursor) {
+  assert(value >= 0 && value <= 9);
+  FormatOneChar(static_cast<char>('0' + value), cursor);
+}
+
+template <typename Int>
+void FormatTwoDigits(Int value, char** cursor) {
+  assert(value >= 0 && value <= 99);
+  auto digit_pair = &digit_pairs[value * 2];
+  FormatOneChar(digit_pair[1], cursor);
+  FormatOneChar(digit_pair[0], cursor);
+}
+
+template <typename Int>
+void FormatAllDigits(Int value, char** cursor) {
+  assert(value >= 0);
+  while (value >= 100) {
+    FormatTwoDigits(value % 100, cursor);
+    value /= 100;
+  }
+
+  if (value >= 10) {
+    FormatTwoDigits(value, cursor);
+  } else {
+    FormatOneDigit(value, cursor);
+  }
+}
+
+template <typename Int>
+void FormatAllDigitsLeftPadded(Int value, size_t pad, char pad_char, char** cursor) {
+  auto end = *cursor - pad;
+  FormatAllDigits(value, cursor);
+  while (*cursor > end) {
+    FormatOneChar(pad_char, cursor);
+  }
+}
+
+template <size_t BUFFER_SIZE>
+util::string_view ViewDigitBuffer(const std::array<char, BUFFER_SIZE>& buffer,
+                                  char* cursor) {
+  auto buffer_end = buffer.data() + BUFFER_SIZE;
+  return {cursor, static_cast<size_t>(buffer_end - cursor)};
+}
+
+template <typename Int, typename UInt = typename std::make_unsigned<Int>::type>
+constexpr UInt Abs(Int value) {
+  return value < 0 ? ~static_cast<UInt>(value) + 1 : static_cast<UInt>(value);
+}
+
+template <typename Int>
+constexpr size_t Digits10(Int value) {
   return value <= 9 ? 1 : Digits10(value / 10) + 1;
 }
 
@@ -165,12 +156,16 @@ class IntToStringFormatterMixin {
 
   template <typename Appender>
   Return<Appender> operator()(value_type value, Appender&& append) {
-    detail::DigitStringWriter<detail::Digits10<value_type>() + 1> writer;
-    writer.Write(value);
+    constexpr size_t buffer_size =
+        detail::Digits10(std::numeric_limits<value_type>::max()) + 1;
+
+    std::array<char, buffer_size> buffer;
+    char* cursor = buffer.data() + buffer_size;
+    detail::FormatAllDigits(detail::Abs(value), &cursor);
     if (value < 0) {
-      writer.WriteChar('-');
+      detail::FormatOneChar('-', &cursor);
     }
-    return append(writer.view());
+    return append(detail::ViewDigitBuffer(buffer, cursor));
   }
 };
 
@@ -259,17 +254,18 @@ namespace detail {
 
 template <typename V>
 constexpr size_t BufferSizeYYYY_MM_DD() {
-  return detail::Digits10<V>() + 1 + detail::Digits10(12) + 1 + detail::Digits10(31);
+  return detail::Digits10(9999) + 1 + detail::Digits10(12) + 1 + detail::Digits10(31);
 }
 
-template <size_t BUFFER_SIZE>
-void FormatYYYY_MM_DD(arrow_vendored::date::year_month_day ymd,
-                      DigitStringWriter<BUFFER_SIZE>* writer) {
-  writer->WriteTwo(static_cast<unsigned>(ymd.day()));
-  writer->WriteChar('-');
-  writer->WriteTwo(static_cast<unsigned>(ymd.month()));
-  writer->WriteChar('-');
-  writer->Write(static_cast<int>(ymd.year()));
+inline void FormatYYYY_MM_DD(arrow_vendored::date::year_month_day ymd, char** cursor) {
+  FormatTwoDigits(static_cast<unsigned>(ymd.day()), cursor);
+  FormatOneChar('-', cursor);
+  FormatTwoDigits(static_cast<unsigned>(ymd.month()), cursor);
+  FormatOneChar('-', cursor);
+  auto year = static_cast<int>(ymd.year());
+  assert(year <= 9999);
+  FormatTwoDigits(year % 100, cursor);
+  FormatTwoDigits(year / 100, cursor);
 }
 
 template <typename Duration>
@@ -278,19 +274,18 @@ constexpr size_t BufferSizeHH_MM_SS() {
          detail::Digits10(Duration::period::den) - 1;
 }
 
-template <typename Duration, size_t BUFFER_SIZE>
-void FormatHH_MM_SS(arrow_vendored::date::hh_mm_ss<Duration> hms,
-                    DigitStringWriter<BUFFER_SIZE>* writer) {
+template <typename Duration>
+void FormatHH_MM_SS(arrow_vendored::date::hh_mm_ss<Duration> hms, char** cursor) {
   constexpr size_t subsecond_digits = Digits10(Duration::period::den) - 1;
   if (subsecond_digits != 0) {
-    writer->WritePadded(hms.subseconds().count(), subsecond_digits, '0');
-    writer->WriteChar('.');
+    FormatAllDigitsLeftPadded(hms.subseconds().count(), subsecond_digits, '0', cursor);
+    FormatOneChar('.', cursor);
   }
-  writer->WriteTwo(hms.seconds().count());
-  writer->WriteChar(':');
-  writer->WriteTwo(hms.minutes().count());
-  writer->WriteChar(':');
-  writer->WriteTwo(hms.hours().count());
+  FormatTwoDigits(hms.seconds().count(), cursor);
+  FormatOneChar(':', cursor);
+  FormatTwoDigits(hms.minutes().count(), cursor);
+  FormatOneChar(':', cursor);
+  FormatTwoDigits(hms.hours().count(), cursor);
 }
 
 }  // namespace detail
@@ -314,12 +309,14 @@ class StringFormatter<T, enable_if_date<T>> {
 
     arrow_vendored::date::sys_days timepoint_days{since_epoch};
 
-    detail::DigitStringWriter<detail::BufferSizeYYYY_MM_DD<value_type>()> writer;
+    constexpr size_t buffer_size = detail::BufferSizeYYYY_MM_DD<value_type>();
 
-    arrow_vendored::date::year_month_day ymd{timepoint_days};
-    detail::FormatYYYY_MM_DD(ymd, &writer);
+    std::array<char, buffer_size> buffer;
+    char* cursor = buffer.data() + buffer_size;
 
-    return append(writer.view());
+    detail::FormatYYYY_MM_DD(arrow_vendored::date::year_month_day{timepoint_days},
+                             &cursor);
+    return append(detail::ViewDigitBuffer(buffer, cursor));
   }
 };
 
@@ -335,13 +332,13 @@ class StringFormatter<T, enable_if_time<T>> {
   Return<Appender> operator()(Duration, value_type count, Appender&& append) {
     Duration since_midnight{count};
 
-    detail::DigitStringWriter<detail::BufferSizeHH_MM_SS<Duration>()> writer;
+    constexpr size_t buffer_size = detail::BufferSizeHH_MM_SS<Duration>();
 
-    arrow_vendored::date::hh_mm_ss<Duration> hms =
-        arrow_vendored::date::make_time(since_midnight);
-    detail::FormatHH_MM_SS(hms, &writer);
+    std::array<char, buffer_size> buffer;
+    char* cursor = buffer.data() + buffer_size;
 
-    return append(writer.view());
+    detail::FormatHH_MM_SS(arrow_vendored::date::make_time(since_midnight), &cursor);
+    return append(detail::ViewDigitBuffer(buffer, cursor));
   }
 
   template <typename Appender>
@@ -370,20 +367,17 @@ class StringFormatter<TimestampType> {
 
     Duration since_midnight = since_epoch - timepoint_days.time_since_epoch();
 
-    detail::DigitStringWriter<detail::BufferSizeYYYY_MM_DD<value_type>() + 1 +
-                              detail::BufferSizeHH_MM_SS<Duration>()>
-        writer;
+    constexpr size_t buffer_size = detail::BufferSizeYYYY_MM_DD<value_type>() + 1 +
+                                   detail::BufferSizeHH_MM_SS<Duration>();
 
-    arrow_vendored::date::hh_mm_ss<Duration> hms =
-        arrow_vendored::date::make_time(since_midnight);
-    detail::FormatHH_MM_SS(hms, &writer);
+    std::array<char, buffer_size> buffer;
+    char* cursor = buffer.data() + buffer_size;
 
-    writer.WriteChar(' ');
-
-    arrow_vendored::date::year_month_day ymd{timepoint_days};
-    detail::FormatYYYY_MM_DD(ymd, &writer);
-
-    return append(writer.view());
+    detail::FormatHH_MM_SS(arrow_vendored::date::make_time(since_midnight), &cursor);
+    detail::FormatOneChar(' ', &cursor);
+    detail::FormatYYYY_MM_DD(arrow_vendored::date::year_month_day{timepoint_days},
+                             &cursor);
+    return append(detail::ViewDigitBuffer(buffer, cursor));
   }
 
   template <typename Appender>
