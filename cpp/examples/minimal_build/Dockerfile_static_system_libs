@@ -19,11 +19,11 @@ FROM alpine:3.12
 
 ENV ARROW_DEPENDENCY_SOURCE=AUTO
 
-RUN apk add --update alpine-sdk && \
-    apk add cmake \
-            boost-dev boost-static \
-            brotli-dev brotli-static \
-            lz4-dev lz4-static \
-            snappy-dev snappy-static \
-            zlib-dev zlib-static \
-            zstd-dev zstd-static
+RUN apk add --no-cache \
+      alpine-sdk cmake \
+      boost-dev boost-static \
+      brotli-dev brotli-static \
+      lz4-dev lz4-static \
+      snappy-dev snappy-static \
+      zlib-dev zlib-static \
+      zstd-dev zstd-static
