@@ -45,6 +45,9 @@ constexpr int8_t kOffsetIndex = 7;
 /// Performs AES encryption operations with GCM or CTR ciphers.
 class AesEncryptor {
  public:
+  /// Can serve one key length only. Possible values: 16, 24, 32 bytes.
+  explicit AesEncryptor(ParquetCipher::type alg_id, int key_len, bool metadata);
+
   static AesEncryptor* Make(ParquetCipher::type alg_id, int key_len, bool metadata,
                             std::vector<AesEncryptor*>* all_encryptors);
 
@@ -66,8 +69,6 @@ class AesEncryptor {
   void WipeOut();
 
  private:
-  /// Can serve one key length only. Possible values: 16, 24, 32 bytes.
-  explicit AesEncryptor(ParquetCipher::type alg_id, int key_len, bool metadata);
   // PIMPL Idiom
   class AesEncryptorImpl;
   std::unique_ptr<AesEncryptorImpl> impl_;
@@ -76,6 +77,9 @@ class AesEncryptor {
 /// Performs AES decryption operations with GCM or CTR ciphers.
 class AesDecryptor {
  public:
+  /// Can serve one key length only. Possible values: 16, 24, 32 bytes.
+  explicit AesDecryptor(ParquetCipher::type alg_id, int key_len, bool metadata);
+
   static AesDecryptor* Make(ParquetCipher::type alg_id, int key_len, bool metadata,
                             std::vector<AesDecryptor*>* all_decryptors);
 
@@ -91,8 +95,6 @@ class AesDecryptor {
               int key_len, const uint8_t* aad, int aad_len, uint8_t* plaintext);
 
  private:
-  /// Can serve one key length only. Possible values: 16, 24, 32 bytes.
-  explicit AesDecryptor(ParquetCipher::type alg_id, int key_len, bool metadata);
   // PIMPL Idiom
   class AesDecryptorImpl;
   std::unique_ptr<AesDecryptorImpl> impl_;
