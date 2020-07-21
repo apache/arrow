@@ -390,6 +390,12 @@ impl Literal for &str {
     }
 }
 
+impl Literal for String {
+    fn lit(&self) -> Expr {
+        Expr::Literal(ScalarValue::Utf8((*self).to_owned()))
+    }
+}
+
 macro_rules! make_literal {
     ($TYPE:ty, $SCALAR:ident) => {
         #[allow(missing_docs)]
