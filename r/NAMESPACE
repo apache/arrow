@@ -291,7 +291,11 @@ importFrom(rlang,enquos)
 importFrom(rlang,env)
 importFrom(rlang,env_bind)
 importFrom(rlang,eval_tidy)
+<<<<<<< HEAD
 importFrom(rlang,exec)
+=======
+importFrom(rlang,is_bare_character)
+>>>>>>> read_csv_arrow(schema=)
 importFrom(rlang,is_false)
 importFrom(rlang,is_integerish)
 importFrom(rlang,list2)

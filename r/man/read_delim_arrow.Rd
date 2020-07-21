@@ -12,6 +12,7 @@ read_delim_arrow(
   quote = "\\"",
   escape_double = TRUE,
   escape_backslash = FALSE,
+  schema = NULL,
   col_names = TRUE,
   col_types = NULL,
   col_select = NULL,
@@ -31,6 +32,7 @@ read_csv_arrow(
   quote = "\\"",
   escape_double = TRUE,
   escape_backslash = FALSE,
+  schema = NULL,
   col_names = TRUE,
   col_types = NULL,
   col_select = NULL,
@@ -49,6 +51,7 @@ read_tsv_arrow(
   quote = "\\"",
   escape_double = TRUE,
   escape_backslash = FALSE,
+  schema = NULL,
   col_names = TRUE,
   col_types = NULL,
   col_select = NULL,
@@ -81,6 +84,8 @@ a single quote, \verb{\\"}.}
 characters? This is more general than \code{escape_double} as backslashes
 can be used to escape the delimiter character, the quote character, or
 to add special characters like \verb{\\\\n}.}
+
+\item{schema}{schema for the table}
 
 \item{col_names}{If \code{TRUE}, the first row of the input will be used as the
 column names and will not be included in the data frame. If \code{FALSE}, column

@@ -312,6 +312,10 @@ csv___ParseOptions__initialize <- function(options){
     .Call(`_arrow_csv___ParseOptions__initialize` , options)
 }
 
+csv___ReadOptions__column_names <- function(options){
+    .Call(`_arrow_csv___ReadOptions__column_names` , options)
+}
+
 csv___ConvertOptions__initialize <- function(options){
     .Call(`_arrow_csv___ConvertOptions__initialize` , options)
 }

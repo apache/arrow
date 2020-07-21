@@ -175,13 +175,19 @@ test_that("read_csv_arrow() can detect compression from file name", {
   expect_equivalent(tbl, tab1)
 })
 
-test_that("read_csv_arrow(col_types=<Schema>/<list>)", {
+test_that("read_csv_arrow(schema=)", {
   tbl <- example_data[, "int"]
   tf <- tempfile(); on.exit(unlink(tf))
   write.csv(tbl, tf, row.names = FALSE)
 
-  df <- read_csv_arrow(tf, col_types = schema(int = float64()))
+  df <- read_csv_arrow(tf, schema = schema(int = float64()), skip = 1)
   expect_identical(df, tibble::tibble(int = as.numeric(tbl$int)))
+})
+
+test_that("read_csv_arrow(col_types=<list>)", {
+  tbl <- example_data[, "int"]
+  tf <- tempfile(); on.exit(unlink(tf))
+  write.csv(tbl, tf, row.names = FALSE)
 
   df <- read_csv_arrow(tf, col_types = list(int = float64()))
   expect_identical(df, tibble::tibble(int = as.numeric(tbl$int)))
@@ -209,7 +215,7 @@ test_that("read_csv_arrow() can read timestamps", {
   tf <- tempfile(); on.exit(unlink(tf))
   write.csv(tbl, tf, row.names = FALSE)
 
-  df <- read_csv_arrow(tf, col_types = schema(time = timestamp()))
+  df <- read_csv_arrow(tf, col_types = list(time = timestamp()))
   expect_equal(tbl, df)
 
   df <- read_csv_arrow(tf, col_types = "t", col_names = "time", skip = 1)
