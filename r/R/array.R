@@ -282,7 +282,6 @@ filter_rows <- function(x, i, keep_na = TRUE, ...) {
   if (inherits(i, "array_expression")) {
     # Evaluate it
     i <- eval_array_expression(i)
-    # i <- as.vector(i)
   }
   if (is.logical(i)) {
     if (isTRUE(i)) {

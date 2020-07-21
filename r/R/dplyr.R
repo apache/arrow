@@ -201,21 +201,13 @@ filter_mask <- function(.data) {
   if (query_on_dataset(.data)) {
     comp_func <- function(operator) {
       force(operator)
-      if (operator == "!") {
-        function(e1) Expression$not(e1)
-      } else {
-        function(e1, e2) make_expression(operator, e1, e2)
-      }
+      function(e1, e2) make_expression(operator, e1, e2)
     }
     var_binder <- function(x) Expression$field_ref(x)
   } else {
     comp_func <- function(operator) {
       force(operator)
-      if (operator %in% names(.unary_function_map)) {
-        function(e1) build_array_expression(operator, e1)
-      } else {
-        function(e1, e2) build_array_expression(operator, e1, e2)
-      }
+      function(e1, e2) build_array_expression(operator, e1, e2)
     }
     var_binder <- function(x) .data$.data[[x]]
   }

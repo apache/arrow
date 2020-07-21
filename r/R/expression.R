@@ -248,9 +248,15 @@ make_expression <- function(operator, e1, e2) {
     # In doesn't take Scalar, it takes Array
     return(Expression$in_(e1, e2))
   }
+  
+  # Handle unary functions before touching e2
   if (operator == "is.na") {
     return(is.na(e1))
   }
+  if (operator == "!") {
+    return(Expression$not(e1))
+  }
+
   # Check for non-expressions and convert to Expressions
   if (!inherits(e1, "Expression")) {
     e1 <- Expression$scalar(e1)
