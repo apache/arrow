@@ -305,6 +305,19 @@ int64_t PyDate_to_days(PyDateTime_Date* pydate) {
                             PyDateTime_GET_DAY(pydate));
 }
 
+Result<int64_t> PyDateTime_utcoffset_s(PyObject* obj) {
+  // calculate offset from UTC timezone in seconds
+  // supports only PyDateTime_DateTime and PyDateTime_Time objects
+  OwnedRef pyoffset(PyObject_CallMethod(obj, "utcoffset", NULL));
+  RETURN_IF_PYERROR();
+  if (pyoffset.obj() != nullptr && pyoffset.obj() != Py_None) {
+    auto delta = reinterpret_cast<PyDateTime_Delta*>(pyoffset.obj());
+    return internal::PyDelta_to_s(delta);
+  } else {
+    return 0;
+  }
+}
+
 // GIL must be held when calling this function.
 // Converted from python.  See https://github.com/apache/arrow/pull/7604
 // for details.

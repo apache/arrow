@@ -157,6 +157,9 @@ inline int64_t PyDelta_to_ns(PyDateTime_Delta* pytimedelta) {
   return PyDelta_to_us(pytimedelta) * 1000;
 }
 
+ARROW_PYTHON_EXPORT
+Result<int64_t> PyDateTime_utcoffset_s(PyObject* pydatetime);
+
 /// \brief Convert a time zone name into a time zone object.
 ///
 /// Supported input strings are:

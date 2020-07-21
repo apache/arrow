@@ -193,9 +193,8 @@ template <>
 struct ValueConverter<Time32Type> {
   static inline Result<int32_t> FromPython(PyObject* obj, TimeUnit::type unit) {
     int32_t value;
-    // TODO(kszucs): handle tzinfo
     if (PyTime_Check(obj)) {
-      // datetime.time stores microsecond resolution
+      // TODO(kszucs): consider to raise if a timezone aware time object is encountered
       switch (unit) {
         case TimeUnit::SECOND:
           value = static_cast<int32_t>(internal::PyTime_to_s(obj));
@@ -207,6 +206,7 @@ struct ValueConverter<Time32Type> {
           return Status::UnknownError("Invalid time unit");
       }
     } else {
+      // TODO(kszucs): validate maximum value?
       RETURN_NOT_OK(internal::CIntFromPython(obj, &value, "Integer too large for int32"));
     }
     return value;
@@ -217,9 +217,8 @@ template <>
 struct ValueConverter<Time64Type> {
   static inline Result<int64_t> FromPython(PyObject* obj, TimeUnit::type unit) {
     int64_t value;
-    // TODO(kszucs): handle tzinfo
     if (PyTime_Check(obj)) {
-      // datetime.time stores microsecond resolution
+      // TODO(kszucs): consider to raise if a timezone aware time object is encountered
       switch (unit) {
         case TimeUnit::MICRO:
           value = internal::PyTime_to_us(obj);
@@ -231,6 +230,7 @@ struct ValueConverter<Time64Type> {
           return Status::UnknownError("Invalid time unit");
       }
     } else {
+      // TODO(kszucs): validate maximum value?
       RETURN_NOT_OK(internal::CIntFromPython(obj, &value, "Integer too large for int64"));
     }
     return value;
@@ -241,19 +241,9 @@ template <>
 struct ValueConverter<TimestampType> {
   static inline Result<int64_t> FromPython(PyObject* obj, TimeUnit::type unit) {
     int64_t value;
-    int64_t offset = 0;  // UTC offset in seconds
-
     if (PyDateTime_Check(obj)) {
+      ARROW_ASSIGN_OR_RAISE(auto offset, internal::PyDateTime_utcoffset_s(obj));
       auto dt = reinterpret_cast<PyDateTime_DateTime*>(obj);
-      if (dt->hastzinfo) {
-        // calculate offset from UTC timezone in seconds
-        OwnedRef pyoffset(PyObject_CallMethod(obj, "utcoffset", NULL));
-        RETURN_IF_PYERROR();
-        if (pyoffset.obj() != nullptr && pyoffset.obj() != Py_None) {
-          auto delta = reinterpret_cast<PyDateTime_Delta*>(pyoffset.obj());
-          offset = internal::PyDelta_to_s(delta);
-        }
-      }
       switch (unit) {
         case TimeUnit::SECOND:
           value = internal::PyDateTime_to_s(dt) - offset;

@@ -791,6 +791,72 @@ def test_date32_overflow():
         pa.array(data3, type=pa.date32())
 
 
+@pytest.mark.parametrize(('time_type', 'unit', 'int_type'), [
+    (pa.time32, 's', 'int32'),
+    (pa.time32, 'ms', 'int32'),
+    (pa.time64, 'us', 'int64'),
+    # (pa.time64, 'ns'),
+])
+def test_sequence_time_with_timezone(time_type, unit, int_type):
+    def expected_integer_value(t):
+        # only use with utc time object because it doesn't adjust with the
+        # offset
+        units = ['s', 'ms', 'us', 'ns']
+        multiplier = 10**(units.index(unit) * 3)
+        if t is None:
+            return None
+        seconds = (
+            t.hour * 3600 +
+            t.minute * 60 +
+            t.second +
+            t.microsecond * 10**-6
+        )
+        return int(seconds * multiplier)
+
+    def expected_time_value(t):
+        # only use with utc time object because it doesn't adjust with the
+        # time objects tzdata
+        if unit == 's':
+            return t.replace(microsecond=0)
+        elif unit == 'ms':
+            return t.replace(microsecond=(t.microsecond // 1000) * 1000)
+        elif unit == 'us':
+            return t
+        else:
+            raise ValueError("use pandas")
+
+    # only timezone naive times are supported in arrow
+    data = [
+        datetime.time(8, 23, 34, 123456),
+        datetime.time(5, 0, 0, 1000),
+        None,
+        datetime.time(1, 11, 56, 432539),
+        datetime.time(23, 10, 0, 437699)
+    ]
+
+    ty = time_type(unit)
+    arr = pa.array(data, type=ty)
+    assert len(arr) == 5
+    assert arr.type == ty
+    assert arr.null_count == 1
+
+    # test that the underlying integers are UTC values
+    values = arr.cast(int_type)
+    expected = list(map(expected_integer_value, data))
+    assert values.to_pylist() == expected
+
+    # test that the scalars are datetime.time objects with UTC timezone
+    assert arr[0].as_py() == expected_time_value(data[0])
+    assert arr[1].as_py() == expected_time_value(data[1])
+    assert arr[2].as_py() is None
+    assert arr[3].as_py() == expected_time_value(data[3])
+    assert arr[4].as_py() == expected_time_value(data[4])
+
+    def tz(hours, minutes=0):
+        offset = datetime.timedelta(hours=hours, minutes=minutes)
+        return datetime.timezone(offset)
+
+
 def test_sequence_timestamp():
     data = [
         datetime.datetime(2007, 7, 13, 1, 23, 34, 123456),
@@ -811,7 +877,6 @@ def test_sequence_timestamp():
                                                46, 57, 437699)
 
 
-# parametrize over unit
 @pytest.mark.parametrize('timezone', [
     None,
     'UTC',
@@ -820,7 +885,8 @@ def test_sequence_timestamp():
 @pytest.mark.parametrize('unit', [
     's',
     'ms',
-    'us'
+    'us',
+    # TODO(kszucs): 'ns'
 ])
 def test_sequence_timestamp_with_timezone(timezone, unit):
     def expected_integer_value(dt):
@@ -901,34 +967,6 @@ def test_sequence_numpy_timestamp():
                                                34, 56, 432539)
     assert arr[3].as_py() == datetime.datetime(2010, 8, 13, 5,
                                                46, 57, 437699)
-
-
-def test_sequence_timestamp_with_unit():
-    data = [
-        datetime.datetime(2007, 7, 13, 1, 23, 34, 123456),
-    ]
-
-    s = pa.timestamp('s')
-    ms = pa.timestamp('ms')
-    us = pa.timestamp('us')
-
-    arr_s = pa.array(data, type=s)
-    assert len(arr_s) == 1
-    assert arr_s.type == s
-    assert arr_s[0].as_py() == datetime.datetime(2007, 7, 13, 1,
-                                                 23, 34, 0)
-
-    arr_ms = pa.array(data, type=ms)
-    assert len(arr_ms) == 1
-    assert arr_ms.type == ms
-    assert arr_ms[0].as_py() == datetime.datetime(2007, 7, 13, 1,
-                                                  23, 34, 123000)
-
-    arr_us = pa.array(data, type=us)
-    assert len(arr_us) == 1
-    assert arr_us.type == us
-    assert arr_us[0].as_py() == datetime.datetime(2007, 7, 13, 1,
-                                                  23, 34, 123456)
 
 
 class MyDate(datetime.date):
