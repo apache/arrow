@@ -955,7 +955,7 @@ struct ObjectWriterVisitor {
     const TimeUnit::type unit = type.unit();
     OwnedRef tzinfo;
     if (!type.timezone().empty()) {
-      RETURN_NOT_OK(internal::StringToTzinfo(type.timezone(), tzinfo.ref()));
+      ARROW_ASSIGN_OR_RAISE(tzinfo, internal::StringToTzinfo(type.timezone()));
       RETURN_IF_PYERROR();
     }
     auto WrapValue = [&](typename Type::c_type value, PyObject** out) {

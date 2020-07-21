@@ -193,6 +193,7 @@ template <>
 struct ValueConverter<Time32Type> {
   static inline Result<int32_t> FromPython(PyObject* obj, TimeUnit::type unit) {
     int32_t value;
+    // TODO(kszucs): handle tzinfo
     if (PyTime_Check(obj)) {
       // datetime.time stores microsecond resolution
       switch (unit) {
@@ -216,6 +217,7 @@ template <>
 struct ValueConverter<Time64Type> {
   static inline Result<int64_t> FromPython(PyObject* obj, TimeUnit::type unit) {
     int64_t value;
+    // TODO(kszucs): handle tzinfo
     if (PyTime_Check(obj)) {
       // datetime.time stores microsecond resolution
       switch (unit) {
@@ -239,20 +241,31 @@ template <>
 struct ValueConverter<TimestampType> {
   static inline Result<int64_t> FromPython(PyObject* obj, TimeUnit::type unit) {
     int64_t value;
+    int64_t offset = 0;  // UTC offset in seconds
+
     if (PyDateTime_Check(obj)) {
       auto dt = reinterpret_cast<PyDateTime_DateTime*>(obj);
+      if (dt->hastzinfo) {
+        // calculate offset from UTC timezone in seconds
+        OwnedRef pyoffset(PyObject_CallMethod(obj, "utcoffset", NULL));
+        RETURN_IF_PYERROR();
+        if (pyoffset.obj() != nullptr && pyoffset.obj() != Py_None) {
+          auto delta = reinterpret_cast<PyDateTime_Delta*>(pyoffset.obj());
+          offset = internal::PyDelta_to_s(delta);
+        }
+      }
       switch (unit) {
         case TimeUnit::SECOND:
-          value = internal::PyDateTime_to_s(dt);
+          value = internal::PyDateTime_to_s(dt) - offset;
           break;
         case TimeUnit::MILLI:
-          value = internal::PyDateTime_to_ms(dt);
+          value = internal::PyDateTime_to_ms(dt) - offset * 1000;
           break;
         case TimeUnit::MICRO:
-          value = internal::PyDateTime_to_us(dt);
+          value = internal::PyDateTime_to_us(dt) - offset * 1000 * 1000;
           break;
         case TimeUnit::NANO:
-          value = internal::PyDateTime_to_ns(dt);
+          value = internal::PyDateTime_to_ns(dt) - offset * 1000 * 1000 * 1000;
           break;
         default:
           return Status::UnknownError("Invalid time unit");
@@ -558,8 +571,6 @@ template <typename Type, NullCoding null_coding>
 class TemporalConverter : public TimeConverter<Type, null_coding> {
  public:
   using TimeConverter<Type, null_coding>::TimeConverter;
-  TemporalConverter<Type, null_coding>(TimeUnit::type unit, PyObject* utc)
-      : TimeConverter<Type, null_coding>(unit), utc_(utc) {}
 
   Status AppendValue(PyObject* obj) override {
     int64_t value;
@@ -571,22 +582,10 @@ class TemporalConverter : public TimeConverter<Type, null_coding> {
         return this->typed_builder_->AppendNull();
       }
     } else {
-      PyObject* target = obj;
-      OwnedRef target_holder;
-      if (PyDateTime_Check(obj)) {
-        OwnedRef tzinfo(PyObject_GetAttrString(obj, "tzinfo"));
-        if (tzinfo.obj() != nullptr && tzinfo.obj() != Py_None) {
-          target_holder.reset(PyObject_CallMethod(obj, "astimezone", "O", utc_.obj()));
-          target = target_holder.obj();
-        }
-      }
-      ARROW_ASSIGN_OR_RAISE(value, ValueConverter<Type>::FromPython(target, this->unit_));
+      ARROW_ASSIGN_OR_RAISE(value, ValueConverter<Type>::FromPython(obj, this->unit_));
     }
     return this->typed_builder_->Append(value);
   }
-
- private:
-  OwnedRef utc_;
 };
 
 // ----------------------------------------------------------------------
@@ -1172,27 +1171,27 @@ Status GetConverterFlat(const std::shared_ptr<DataType>& type, bool strict_conve
       }
       break;
     case Type::TIME32: {
-      *out = std::unique_ptr<SeqConverter>(new TimeConverter<Time32Type, null_coding>(
-          checked_cast<const Time32Type&>(*type).unit()));
+      auto unit = checked_cast<const Time32Type&>(*type).unit();
+      *out =
+          std::unique_ptr<SeqConverter>(new TimeConverter<Time32Type, null_coding>(unit));
       break;
     }
     case Type::TIME64: {
-      *out = std::unique_ptr<SeqConverter>(new TimeConverter<Time64Type, null_coding>(
-          checked_cast<const Time64Type&>(*type).unit()));
+      auto unit = checked_cast<const Time64Type&>(*type).unit();
+      *out =
+          std::unique_ptr<SeqConverter>(new TimeConverter<Time64Type, null_coding>(unit));
       break;
     }
     case Type::TIMESTAMP: {
-      PyObject* utc;
-      RETURN_NOT_OK(internal::StringToTzinfo("UTC", &utc));
-      *out =
-          std::unique_ptr<SeqConverter>(new TemporalConverter<TimestampType, null_coding>(
-              checked_cast<const TimestampType&>(*type).unit(), utc));
+      auto unit = checked_cast<const TimestampType&>(*type).unit();
+      *out = std::unique_ptr<SeqConverter>(
+          new TemporalConverter<TimestampType, null_coding>(unit));
       break;
     }
     case Type::DURATION: {
-      *out =
-          std::unique_ptr<SeqConverter>(new TemporalConverter<DurationType, null_coding>(
-              checked_cast<const DurationType&>(*type).unit()));
+      auto unit = checked_cast<const DurationType&>(*type).unit();
+      *out = std::unique_ptr<SeqConverter>(
+          new TemporalConverter<DurationType, null_coding>(unit));
       break;
     }
     default:

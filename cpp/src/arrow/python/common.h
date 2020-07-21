@@ -137,6 +137,11 @@ class ARROW_PYTHON_EXPORT OwnedRef {
   OwnedRef(OwnedRef&& other) : OwnedRef(other.detach()) {}
   explicit OwnedRef(PyObject* obj) : obj_(obj) {}
 
+  OwnedRef& operator=(PyObject* obj) {
+    obj_ = obj;
+    return *this;
+  }
+
   OwnedRef& operator=(OwnedRef&& other) {
     obj_ = other.detach();
     return *this;

@@ -329,13 +329,6 @@ class TypeInferrer {
       ++int_count_;
     } else if (PyDateTime_Check(obj)) {
       ++timestamp_micro_count_;
-      OwnedRef tzinfo(PyObject_GetAttrString(obj, "tzinfo"));
-      if (tzinfo.obj() != nullptr && tzinfo.obj() != Py_None && timezone_.empty()) {
-        // From public docs on array construction
-        // "Localized timestamps will currently be returned as UTC "
-        //     representation). "
-        timezone_ = "UTC";
-      }
       *keep_going = make_unions_;
     } else if (PyDelta_Check(obj)) {
       ++duration_count_;
@@ -463,7 +456,7 @@ class TypeInferrer {
     } else if (time_count_) {
       *out = time64(TimeUnit::MICRO);
     } else if (timestamp_micro_count_) {
-      *out = timestamp(TimeUnit::MICRO, timezone_);
+      *out = timestamp(TimeUnit::MICRO);
     } else if (duration_count_) {
       *out = duration(TimeUnit::MICRO);
     } else if (bool_count_) {
@@ -595,7 +588,6 @@ class TypeInferrer {
   int64_t int_count_;
   int64_t date_count_;
   int64_t time_count_;
-  std::string timezone_;
   int64_t timestamp_micro_count_;
   int64_t duration_count_;
   int64_t float_count_;

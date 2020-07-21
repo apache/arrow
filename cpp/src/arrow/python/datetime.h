@@ -165,7 +165,7 @@ inline int64_t PyDelta_to_ns(PyDateTime_Delta* pytimedelta) {
 /// * An absolute time zone offset of the form +XX:XX or -XX:XX, such as +07:30
 /// GIL must be held when calling this method.
 ARROW_PYTHON_EXPORT
-Status StringToTzinfo(const std::string& tz, PyObject** tzinfo);
+Result<PyObject*> StringToTzinfo(const std::string& tz);
 
 }  // namespace internal
 }  // namespace py

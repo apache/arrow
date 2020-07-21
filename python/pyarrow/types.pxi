@@ -1881,8 +1881,7 @@ def string_to_tzinfo(name):
       tz : datetime.tzinfo
         Time zone object
     """
-    cdef PyObject* tz
-    check_status(libarrow.StringToTzinfo(name.encode('utf-8'), &tz))
+    cdef PyObject* tz = GetResultValue(StringToTzinfo(name.encode('utf-8')))
     return PyObject_to_object(tz)
 
 

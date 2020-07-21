@@ -308,7 +308,7 @@ int64_t PyDate_to_days(PyDateTime_Date* pydate) {
 // GIL must be held when calling this function.
 // Converted from python.  See https://github.com/apache/arrow/pull/7604
 // for details.
-Status StringToTzinfo(const std::string& tz, PyObject** tzinfo) {
+Result<PyObject*> StringToTzinfo(const std::string& tz) {
   util::string_view sign_str, hour_str, minute_str;
   OwnedRef pytz;
   RETURN_NOT_OK(internal::ImportModule("pytz", &pytz));
@@ -329,18 +329,19 @@ Status StringToTzinfo(const std::string& tz, PyObject** tzinfo) {
     OwnedRef total_minutes(PyLong_FromLong(
         sign * ((static_cast<int>(hours) * 60) + static_cast<int>(minutes))));
     RETURN_IF_PYERROR();
-    *tzinfo = PyObject_CallFunctionObjArgs(fixed_offset.obj(), total_minutes.obj(), NULL);
+    auto tzinfo =
+        PyObject_CallFunctionObjArgs(fixed_offset.obj(), total_minutes.obj(), NULL);
     RETURN_IF_PYERROR();
-    return Status::OK();
+    return tzinfo;
   }
 
   OwnedRef timezone;
   RETURN_NOT_OK(internal::ImportFromModule(pytz.obj(), "timezone", &timezone));
   OwnedRef py_tz_string(
       PyUnicode_FromStringAndSize(tz.c_str(), static_cast<Py_ssize_t>(tz.size())));
-  *tzinfo = PyObject_CallFunctionObjArgs(timezone.obj(), py_tz_string.obj(), NULL);
+  auto tzinfo = PyObject_CallFunctionObjArgs(timezone.obj(), py_tz_string.obj(), NULL);
   RETURN_IF_PYERROR();
-  return Status::OK();
+  return tzinfo;
 }
 
 }  // namespace internal
