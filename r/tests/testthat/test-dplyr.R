@@ -145,6 +145,24 @@ test_that("More complex select/filter", {
   )
 })
 
+test_that("Print method", {
+  expect_output(
+    record_batch(tbl) %>%
+      filter(dbl > 2, chr == "d" | chr == "f") %>%
+      select(chr, int, lgl) %>%
+      filter(int < 5) %>%
+      select(int, chr) %>%
+      print(),
+'RecordBatch (query)
+int: int32
+chr: string
+
+* Filter: and(and(greater(<Array>, 2), or(equal(<Array>, "d"), equal(<Array>, "f"))), less(<Array>, 5L))
+See $.data for the source Arrow object',
+  fixed = TRUE
+  )
+})
+
 test_that("filter() with %in%", {
   expect_dplyr_equal(
     input %>%

@@ -18,17 +18,18 @@
 context("Expressions")
 
 test_that("Can create an expression", {
-  expect_is(array_expression("+", Array$create(1:5), 4), "array_expression")
+  expect_is(build_array_expression(">", Array$create(1:5), 4), "array_expression")
 })
 
 test_that("as.vector(array_expression)", {
-  expect_equal(as.vector(array_expression("+", Array$create(1:5), 4)), 5:9)
+  expect_equal(as.vector(build_array_expression(">", Array$create(1:5), 4)), c(FALSE, FALSE, FALSE, FALSE, TRUE))
 })
 
 test_that("array_expression print method", {
   expect_output(
-    print(array_expression("+", Array$create(1:5), 4)),
-    capture.output(print(5:9)),
+    print(build_array_expression(">", Array$create(1:5), 4)),
+    # Not ideal but it is informative
+    "greater(<Array>, 4L)",
     fixed = TRUE
   )
 })

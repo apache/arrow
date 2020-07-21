@@ -59,7 +59,12 @@ print.arrow_dplyr_query <- function(x, ...) {
   cat(fields, "\n", sep = "")
   cat("\n")
   if (!isTRUE(x$filtered_rows)) {
-    cat("* Filter: ", x$filtered_rows$ToString(), "\n", sep = "")
+    if (query_on_dataset(x)) {
+      filter_string <- x$filtered_rows$ToString()
+    } else {
+      filter_string <- .format_array_expression(x$filtered_rows)
+    }
+    cat("* Filter: ", filter_string, "\n", sep = "")
   }
   if (length(x$group_by_vars)) {
     cat("* Grouped by ", paste(x$group_by_vars, collapse = ", "), "\n", sep = "")

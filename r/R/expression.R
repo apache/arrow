@@ -17,6 +17,22 @@
 
 #' @include arrowExports.R
 
+array_expression <- function(FUN,
+                             ...,
+                             args = list(...),
+                             options = empty_named_list(),
+                             result_class = .guess_result_class(args[[1]])) {
+  structure(
+    list(
+      fun = FUN,
+      args = args,
+      options = options,
+      result_class = result_class
+    ),
+    class = "array_expression"
+  )
+}
+
 #' @export
 Ops.Array <- function(e1, e2) {
   if (.Generic %in% names(.array_function_map)) {
@@ -24,6 +40,25 @@ Ops.Array <- function(e1, e2) {
     eval_array_expression(expr)
   } else {
     stop("Unsupported operation on Array: ", .Generic, call. = FALSE)
+  }
+}
+
+#' @export
+Ops.ChunkedArray <- function(e1, e2) {
+  if (.Generic %in% names(.array_function_map)) {
+    expr <- build_array_expression(.Generic, e1, e2, result_class = "ChunkedArray")
+    eval_array_expression(expr)
+  } else {
+    stop("Unsupported operation on ChunkedArray: ", .Generic, call. = FALSE)
+  }
+}
+
+#' @export
+Ops.array_expression <- function(e1, e2) {
+  if (.Generic == "!") {
+    build_array_expression(.Generic, e1, result_class = e1$result_class)
+  } else {
+    build_array_expression(.Generic, e1, e2, result_class = e1$result_class)
   }
 }
 
@@ -70,32 +105,6 @@ build_array_expression <- function(.Generic, e1, e2, ...) {
 
 .array_function_map <- c(.unary_function_map, .binary_function_map)
 
-#' @export
-Ops.ChunkedArray <- function(e1, e2) {
-  if (.Generic %in% names(.array_function_map)) {
-    expr <- build_array_expression(.Generic, e1, e2, result_class = "ChunkedArray")
-    eval_array_expression(expr)
-  } else {
-    stop("Unsupported operation on ChunkedArray: ", .Generic, call. = FALSE)
-  }
-}
-
-array_expression <- function(FUN,
-                             ...,
-                             args = list(...),
-                             options = empty_named_list(),
-                             result_class = .guess_result_class(args[[1]])) {
-  structure(
-    list(
-      fun = FUN,
-      args = args,
-      options = options,
-      result_class = result_class
-    ),
-    class = "array_expression"
-  )
-}
-
 .guess_result_class <- function(arg) {
   # HACK HACK HACK delete this when call_function returns an ArrowObject itself
   if (inherits(arg, "ArrowObject")) {
@@ -107,19 +116,7 @@ array_expression <- function(FUN,
   }
 }
 
-#' @export
-Ops.array_expression <- function(e1, e2) {
-  if (.Generic == "!") {
-    build_array_expression(.Generic, e1, result_class = e1$result_class)
-  } else {
-    build_array_expression(.Generic, e1, e2, result_class = e1$result_class)
-  }
-}
-
-#' @export
-is.na.array_expression <- function(x) array_expression("is.na", x)
-
-eval_array_expression <- function(x, ...) {
+eval_array_expression <- function(x) {
   x$args <- lapply(x$args, function (a) {
     if (inherits(a, "array_expression")) {
       eval_array_expression(a)
@@ -132,17 +129,36 @@ eval_array_expression <- function(x, ...) {
 }
 
 #' @export
+is.na.array_expression <- function(x) array_expression("is.na", x)
+
+#' @export
 as.vector.array_expression <- function(x, ...) {
-  out <- try(as.vector(eval_array_expression(x)), silent = TRUE)
-  if (inherits(out, "try-error")) {
-    x$args <- lapply(x$args, as.vector)
-    out <- do.call(x$fun, x$args)
-  }
-  out
+  as.vector(eval_array_expression(x))
 }
 
 #' @export
-print.array_expression <- function(x, ...) print(as.vector(x))
+print.array_expression <- function(x, ...) {
+  cat(.format_array_expression(x), "\n", sep = "")
+  invisible(x)
+}
+
+.format_array_expression <- function(x) {
+  printed_args <- map_chr(x$args, function(arg) {
+    if (inherits(arg, "Scalar")) {
+      deparse(as.vector(arg))
+    } else if (inherits(arg, "ArrowObject")) {
+      paste0("<", class(arg)[1], ">")
+    } else if (inherits(arg, "array_expression")) {
+      .format_array_expression(arg)
+    } else {
+      # Should not happen
+      deparse(arg)
+    }
+  })
+  # Prune this for readability
+  function_name <- sub("_kleene", "", x$fun)
+  paste0(function_name, "(", paste(printed_args, collapse = ", "), ")")
+}
 
 ###########
 
