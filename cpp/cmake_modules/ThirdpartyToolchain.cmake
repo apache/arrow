@@ -157,17 +157,15 @@ endmacro()
 
 # Find modules are needed by the consumer in case of a static build, or if the
 # linkage is PUBLIC or INTERFACE.
-macro (provide_find_module DEPENDENCY_NAME)
+macro(provide_find_module DEPENDENCY_NAME)
   set(module_ "${CMAKE_SOURCE_DIR}/cmake_modules/Find${DEPENDENCY_NAME}.cmake")
   if(EXISTS "${module_}")
     message(STATUS "Providing cmake module for ${DEPENDENCY_NAME}")
     configure_file(${module_} ${CMAKE_BINARY_DIR} COPYONLY)
-    install(
-      FILES "${module_}"
-      DESTINATION "${ARROW_CMAKE_INSTALL_DIR}")
+    install(FILES "${module_}" DESTINATION "${ARROW_CMAKE_INSTALL_DIR}")
   endif()
   unset(module_)
-endmacro ()
+endmacro()
 
 macro(resolve_dependency DEPENDENCY_NAME)
   if(${DEPENDENCY_NAME}_SOURCE STREQUAL "AUTO")
@@ -185,8 +183,7 @@ macro(resolve_dependency DEPENDENCY_NAME)
   endif()
   if(${DEPENDENCY_NAME}_SOURCE STREQUAL "SYSTEM")
     provide_find_module(${DEPENDENCY_NAME})
-    string(APPEND ARROW_FIND_DEPENDENCY_LIST
-        "\nfind_dependency(${DEPENDENCY_NAME})")
+    string(APPEND ARROW_FIND_DEPENDENCY_LIST "\nfind_dependency(${DEPENDENCY_NAME})")
   endif()
 endmacro()
 
@@ -206,8 +203,7 @@ macro(resolve_dependency_with_version DEPENDENCY_NAME REQUIRED_VERSION)
   endif()
   if(${DEPENDENCY_NAME}_SOURCE STREQUAL "SYSTEM")
     provide_find_module(${DEPENDENCY_NAME})
-    string(APPEND ARROW_FIND_DEPENDENCY_LIST
-        "\nfind_dependency(${DEPENDENCY_NAME})")
+    string(APPEND ARROW_FIND_DEPENDENCY_LIST "\nfind_dependency(${DEPENDENCY_NAME})")
   endif()
 endmacro()
 

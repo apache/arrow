@@ -27,12 +27,11 @@ else()
   set(LZ4_LIB_NAMES "${CMAKE_STATIC_LIBRARY_PREFIX}lz4${LZ4_STATIC_LIB_SUFFIX}" lz4)
 endif()
 if(LZ4_ROOT)
-  find_library(
-    LZ4_LIB
-    NAMES ${LZ4_LIB_NAMES}
-    PATHS ${LZ4_ROOT}
-    PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
-    NO_DEFAULT_PATH)
+  find_library(LZ4_LIB
+               NAMES ${LZ4_LIB_NAMES}
+               PATHS ${LZ4_ROOT}
+               PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
+               NO_DEFAULT_PATH)
   find_path(LZ4_INCLUDE_DIR
             NAMES lz4.h
             PATHS ${LZ4_ROOT}
@@ -52,10 +51,7 @@ else()
                  NO_DEFAULT_PATH
                  PATH_SUFFIXES ${LIB_PATH_SUFFIXES})
   else()
-    find_library(
-      LZ4_LIB
-      NAMES ${LZ4_LIB_NAMES}
-      PATH_SUFFIXES ${LIB_PATH_SUFFIXES})
+    find_library(LZ4_LIB NAMES ${LZ4_LIB_NAMES} PATH_SUFFIXES ${LIB_PATH_SUFFIXES})
     find_path(LZ4_INCLUDE_DIR NAMES lz4.h PATH_SUFFIXES ${INCLUDE_PATH_SUFFIXES})
   endif()
 endif()
