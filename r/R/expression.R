@@ -80,7 +80,11 @@ Ops.ChunkedArray <- function(e1, e2) {
   }
 }
 
-array_expression <- function(FUN, ..., args = list(...), options = empty_named_list(), result_class = class(args[[1]])[1]) {
+array_expression <- function(FUN,
+                             ...,
+                             args = list(...),
+                             options = empty_named_list(),
+                             result_class = .guess_result_class(args[[1]])) {
   structure(
     list(
       fun = FUN,
@@ -90,6 +94,17 @@ array_expression <- function(FUN, ..., args = list(...), options = empty_named_l
     ),
     class = "array_expression"
   )
+}
+
+.guess_result_class <- function(arg) {
+  # HACK HACK HACK delete this when call_function returns an ArrowObject itself
+  if (inherits(arg, "ArrowObject")) {
+    return(class(arg)[1])
+  } else if (inherits(arg, "array_expression")) {
+    return(arg$result_class)
+  } else {
+    stop("Not implemented")
+  }
 }
 
 #' @export
@@ -216,6 +231,9 @@ make_expression <- function(operator, e1, e2) {
   if (operator == "%in%") {
     # In doesn't take Scalar, it takes Array
     return(Expression$in_(e1, e2))
+  }
+  if (operator == "is.na") {
+    return(is.na(e1))
   }
   # Check for non-expressions and convert to Expressions
   if (!inherits(e1, "Expression")) {
