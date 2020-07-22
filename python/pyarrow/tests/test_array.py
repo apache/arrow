@@ -329,7 +329,14 @@ def test_array_from_scalar():
         (pa.scalar(True), 11, pa.array([True] * 11)),
         (today, 2, pa.array([today] * 2)),
         (now, 10, pa.array([now] * 10)),
-        (now_with_tz, 2, pa.array([now_utc] * 2)),
+        (
+            now_with_tz,
+            2,
+            pa.array(
+                [now_utc] * 2,
+                type=pa.timestamp('us', tz=pytz.timezone('US/Eastern'))
+            )
+        ),
         (now.time(), 9, pa.array([now.time()] * 9)),
         (oneday, 4, pa.array([oneday] * 4)),
         (False, 9, pa.array([False] * 9)),
