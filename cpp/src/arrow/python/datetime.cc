@@ -319,6 +319,41 @@ Result<int64_t> PyDateTime_utcoffset_s(PyObject* obj) {
   }
 }
 
+Result<std::string> PyTZInfo_utcoffset_hhmm(PyObject* pytzinfo, PyObject* pydelta_class) {
+  // attempt to convert timezone offset objects to "+/-{hh}:{mm}" format
+  OwnedRef pydelta_object(PyObject_CallMethod(pytzinfo, "utcoffset", "O", Py_None));
+  RETURN_IF_PYERROR();
+
+  if (!PyObject_IsInstance(pydelta_object.obj(), pydelta_class)) {
+    return Status::Invalid(
+        "Object returned by tzinfo.utcoffset(None) is not an instance of "
+        "datetime.timedelta");
+  }
+  auto pydelta = reinterpret_cast<PyDateTime_Delta*>(pydelta_object.obj());
+
+  // retrieve the offset as seconds
+  auto total_seconds = internal::PyDelta_to_s(pydelta);
+
+  // determine whether the offset is positive or negative
+  auto sign = (total_seconds < 0) ? "-" : "+";
+  total_seconds = abs(total_seconds);
+
+  // calculate offset components
+  int64_t hours, minutes, seconds;
+  seconds = split_time(total_seconds, 60, &minutes);
+  minutes = split_time(minutes, 60, &hours);
+  if (seconds > 0) {
+    // check there are no remaining seconds
+    return Status::Invalid("Offset must represent whole number of minutes");
+  }
+
+  // construct the timezone string
+  std::stringstream stream;
+  stream << sign << std::setfill('0') << std::setw(2) << hours << ":" << std::setfill('0')
+         << std::setw(2) << minutes;
+  return stream.str();
+}
+
 // GIL must be held when calling this function.
 // Converted from python.  See https://github.com/apache/arrow/pull/7604
 // for details.
@@ -362,7 +397,8 @@ Result<std::string> TzinfoToString(PyObject* tzinfo) {
   OwnedRef module_pytz;        // import pytz
   OwnedRef module_datetime;    // import datetime
   OwnedRef class_tzinfo;       // from datetime import tzinfo
-  OwnedRef class_timezone;     // from datetime import tzinfo
+  OwnedRef class_timezone;     // from datetime import timezone
+  OwnedRef class_timedelta;    // from datetime import timedelta
   OwnedRef class_fixedoffset;  // from pytz import _FixedOffset
 
   // import necessary modules
@@ -375,56 +411,32 @@ Result<std::string> TzinfoToString(PyObject* tzinfo) {
       internal::ImportFromModule(module_datetime.obj(), "tzinfo", &class_tzinfo));
   RETURN_NOT_OK(
       internal::ImportFromModule(module_datetime.obj(), "timezone", &class_timezone));
+  RETURN_NOT_OK(
+      internal::ImportFromModule(module_datetime.obj(), "timedelta", &class_timedelta));
 
   // check that it's a valid tzinfo object
   if (!PyObject_IsInstance(tzinfo, class_tzinfo.obj())) {
     return Status::Invalid("Not an instance of datetime.tzinfo");
   }
 
-  // convert offset objects to "+/-{hh}:{mm}" format
+  // if tzinfo is an instance of pytz._FixedOffset or datetime.timedelta return the
+  // HH:MM offset string representation
   if (PyObject_IsInstance(tzinfo, class_timezone.obj()) ||
       PyObject_IsInstance(tzinfo, class_fixedoffset.obj())) {
-    OwnedRef timedelta_object(PyObject_CallMethod(tzinfo, "utcoffset", "O", Py_None));
-    RETURN_IF_PYERROR();
-    if (timedelta_object.obj() != nullptr && timedelta_object.obj() != Py_None) {
-      // retrieve the offset as seconds
-      auto timedelta = reinterpret_cast<PyDateTime_Delta*>(timedelta_object.obj());
-      auto total_seconds = internal::PyDelta_to_s(timedelta);
-
-      // determine whether the offset is positive or negative
-      auto sign = (total_seconds < 0) ? "-" : "+";
-      total_seconds = abs(total_seconds);
-
-      // calculate offset components
-      int64_t hours, minutes, seconds;
-      seconds = split_time(total_seconds, 60, &minutes);
-      minutes = split_time(minutes, 60, &hours);
-      if (seconds > 0) {
-        // check there are no remaining seconds
-        return Status::Invalid("Offset must represent whole number of minutes");
-      }
-
-      // construct the timezone string
-      std::stringstream stream;
-      stream << sign << std::setfill('0') << std::setw(2) << hours << ":"
-             << std::setfill('0') << std::setw(2) << minutes;
-      return stream.str();
-    } else {
-      return Status::Invalid("Unable to convert timezone offset object to string");
-    }
+    return PyTZInfo_utcoffset_hhmm(tzinfo, class_timedelta.obj());
   }
 
-  // pytz.tzinfo.BaseTzInfo objects store the string representation in zone attribute
-  if (PyObject_HasAttrString(tzinfo, "zone")) {
-    OwnedRef zone_object(PyObject_GetAttrString(tzinfo, "zone"));
-    if (zone_object) {
-      std::string zone_string;
-      RETURN_NOT_OK(internal::PyUnicode_AsStdString(zone_object.obj(), &zone_string));
-      return zone_string;
-    }
+  // attempt to call tzinfo.tzname(None)
+  OwnedRef tzname_object(PyObject_CallMethod(tzinfo, "tzname", "O", Py_None));
+  RETURN_IF_PYERROR();
+  if (PyUnicode_Check(tzname_object.obj())) {
+    std::string result;
+    RETURN_NOT_OK(internal::PyUnicode_AsStdString(tzname_object.obj(), &result));
+    return result;
   }
 
-  return Status::Invalid("Unable to convert timezone object to string");
+  // fall back to HH:MM offset string representation based on tzinfo.utcoffset(None)
+  return PyTZInfo_utcoffset_hhmm(tzinfo, class_timedelta.obj());
 }
 
 }  // namespace internal
