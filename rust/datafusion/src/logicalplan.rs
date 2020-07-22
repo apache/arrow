@@ -378,9 +378,50 @@ pub fn col(name: &str) -> Expr {
     Expr::UnresolvedColumn(name.to_owned())
 }
 
-/// Create a literal string expression
-pub fn lit_str(str: &str) -> Expr {
-    Expr::Literal(ScalarValue::Utf8(str.to_owned()))
+/// Whether it can be represented as a literal expression
+pub trait Literal {
+    /// convert the value to a Literal expression
+    fn lit(&self) -> Expr;
+}
+
+impl Literal for &str {
+    fn lit(&self) -> Expr {
+        Expr::Literal(ScalarValue::Utf8((*self).to_owned()))
+    }
+}
+
+impl Literal for String {
+    fn lit(&self) -> Expr {
+        Expr::Literal(ScalarValue::Utf8((*self).to_owned()))
+    }
+}
+
+macro_rules! make_literal {
+    ($TYPE:ty, $SCALAR:ident) => {
+        #[allow(missing_docs)]
+        impl Literal for $TYPE {
+            fn lit(&self) -> Expr {
+                Expr::Literal(ScalarValue::$SCALAR(self.clone()))
+            }
+        }
+    };
+}
+
+make_literal!(bool, Boolean);
+make_literal!(f32, Float32);
+make_literal!(f64, Float64);
+make_literal!(i8, Int8);
+make_literal!(i16, Int16);
+make_literal!(i32, Int32);
+make_literal!(i64, Int64);
+make_literal!(u8, UInt8);
+make_literal!(u16, UInt16);
+make_literal!(u32, UInt32);
+make_literal!(u64, UInt64);
+
+/// Create a literal expression
+pub fn lit<T: Literal>(n: T) -> Expr {
+    n.lit()
 }
 
 /// Create an convenience function representing a unary scalar function
@@ -965,7 +1006,7 @@ mod tests {
             &employee_schema(),
             Some(vec![0, 3]),
         )?
-        .filter(col("state").eq(&lit_str("CO")))?
+        .filter(col("state").eq(&lit("CO")))?
         .project(vec![col("id")])?
         .build()?;
 
@@ -985,7 +1026,7 @@ mod tests {
             CsvReadOptions::new().schema(&employee_schema()),
             Some(vec![0, 3]),
         )?
-        .filter(col("state").eq(&lit_str("CO")))?
+        .filter(col("state").eq(&lit("CO")))?
         .project(vec![col("id")])?
         .build()?;
 
