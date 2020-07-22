@@ -243,21 +243,6 @@ RcppExport SEXP _arrow_Array__View(SEXP array_sexp, SEXP type_sexp){
 
 // array.cpp
 #if defined(ARROW_R_WITH_ARROW)
-LogicalVector Array__Mask(const std::shared_ptr<arrow::Array>& array);
-RcppExport SEXP _arrow_Array__Mask(SEXP array_sexp){
-BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type array(array_sexp);
-	return Rcpp::wrap(Array__Mask(array));
-END_RCPP
-}
-#else
-RcppExport SEXP _arrow_Array__Mask(SEXP array_sexp){
-	Rf_error("Cannot call Array__Mask(). Please use arrow::install_arrow() to install required runtime libraries. ");
-}
-#endif
-
-// array.cpp
-#if defined(ARROW_R_WITH_ARROW)
 void Array__Validate(const std::shared_ptr<arrow::Array>& array);
 RcppExport SEXP _arrow_Array__Validate(SEXP array_sexp){
 BEGIN_RCPP
@@ -5940,7 +5925,6 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_Array__data", (DL_FUNC) &_arrow_Array__data, 1}, 
 		{ "_arrow_Array__RangeEquals", (DL_FUNC) &_arrow_Array__RangeEquals, 5}, 
 		{ "_arrow_Array__View", (DL_FUNC) &_arrow_Array__View, 2}, 
-		{ "_arrow_Array__Mask", (DL_FUNC) &_arrow_Array__Mask, 1}, 
 		{ "_arrow_Array__Validate", (DL_FUNC) &_arrow_Array__Validate, 1}, 
 		{ "_arrow_DictionaryArray__indices", (DL_FUNC) &_arrow_DictionaryArray__indices, 1}, 
 		{ "_arrow_DictionaryArray__dictionary", (DL_FUNC) &_arrow_DictionaryArray__dictionary, 1}, 

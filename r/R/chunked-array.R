@@ -128,7 +128,7 @@ length.ChunkedArray <- function(x) x$length()
 as.vector.ChunkedArray <- function(x, mode) x$as_vector()
 
 #' @export
-is.na.ChunkedArray <- function(x) unlist(lapply(x$chunks, is.na))
+is.na.ChunkedArray <- function(x) shared_ptr(ChunkedArray, call_function("is_null", x))
 
 #' @export
 `[.ChunkedArray` <- filter_rows
