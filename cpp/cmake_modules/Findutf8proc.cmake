@@ -19,6 +19,7 @@ if(utf8proc_ROOT)
   find_library(
     UTF8PROC_LIB
     NAMES utf8proc
+          utf8proc_static
           "${CMAKE_SHARED_LIBRARY_PREFIX}utf8proc${CMAKE_SHARED_LIBRARY_SUFFIX}"
     PATHS ${utf8proc_ROOT}
     PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
@@ -33,6 +34,7 @@ else()
   find_library(
     UTF8PROC_LIB
     NAMES utf8proc
+          utf8proc_static
           "${CMAKE_SHARED_LIBRARY_PREFIX}utf8proc${CMAKE_SHARED_LIBRARY_SUFFIX}"
     PATH_SUFFIXES ${LIB_PATH_SUFFIXES})
   find_path(UTF8PROC_INCLUDE_DIR NAMES utf8proc.h PATH_SUFFIXES ${INCLUDE_PATH_SUFFIXES})
