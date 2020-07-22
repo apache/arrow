@@ -15,11 +15,15 @@
 # specific language governing permissions and limitations
 # under the License.
 
+if(ARROW_UTF8PROC_USE_SHARED)
+  set(utf8proc_LIB_NAMES utf8proc)
+else()
+  set(utf8proc_LIB_NAMES "${CMAKE_STATIC_LIBRARY_PREFIX}utf8proc${CMAKE_STATIC_LIBRARY_SUFFIX}" utf8proc)
+endif()
 if(utf8proc_ROOT)
   find_library(
     UTF8PROC_LIB
-    NAMES utf8proc
-          "${CMAKE_SHARED_LIBRARY_PREFIX}utf8proc${CMAKE_SHARED_LIBRARY_SUFFIX}"
+    NAMES ${utf8proc_LIB_NAMES}
     PATHS ${utf8proc_ROOT}
     PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
     NO_DEFAULT_PATH)
@@ -32,8 +36,7 @@ if(utf8proc_ROOT)
 else()
   find_library(
     UTF8PROC_LIB
-    NAMES utf8proc
-          "${CMAKE_SHARED_LIBRARY_PREFIX}utf8proc${CMAKE_SHARED_LIBRARY_SUFFIX}"
+    NAMES ${utf8proc_LIB_NAMES}
     PATH_SUFFIXES ${LIB_PATH_SUFFIXES})
   find_path(UTF8PROC_INCLUDE_DIR NAMES utf8proc.h PATH_SUFFIXES ${INCLUDE_PATH_SUFFIXES})
 endif()

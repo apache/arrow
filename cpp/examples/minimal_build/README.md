@@ -83,13 +83,9 @@ call run_static.bat
 ### Static linking against system libraries
 
 You can also use static libraries of arrows dependencies from the system.
-An example for this configuration can be found in a second Dockerfile.
+To run this configuration, set ARROW_DEPENDENCY_SOURCE=SYSTEM for `run_static.sh`:
 
 ```bash
-
-# Build the Docker image
-docker build -t arrow_cpp_minimal_static -f Dockerfile_static_system_libs .
-
-# Run the example inside the image
-docker run -it -v $PWD:/io -v $ARROW_ROOT:/arrow arrow_cpp_minimal_static /io/run_static.sh
+docker run -it -v $PWD:/io -v $ARROW_ROOT:/arrow -e "ARROW_DEPENDENCY_SOURCE=SYSTEM" \
+  arrow_cpp_minimal /io/run_static.sh
 ```

@@ -292,6 +292,9 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   define_option(ARROW_BROTLI_USE_SHARED "Rely on Brotli shared libraries where relevant"
                 ${ARROW_USE_SHARED_SYSTEM_LIBS})
 
+  define_option(ARROW_BZ2_USE_SHARED "Rely on Bz2 shared libraries where relevant"
+                ${ARROW_USE_SHARED_SYSTEM_LIBS})
+
   define_option(ARROW_GFLAGS_USE_SHARED "Rely on GFlags shared libraries where relevant"
                 ${ARROW_USE_SHARED_SYSTEM_LIBS})
 
@@ -303,6 +306,13 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 
   define_option(ARROW_PROTOBUF_USE_SHARED
                 "Rely on Protocol Buffers shared libraries where relevant"
+                ${ARROW_USE_SHARED_SYSTEM_LIBS})
+
+  define_option(ARROW_THRIFT_USE_SHARED "Rely on thrift shared libraries where relevant"
+                ${ARROW_USE_SHARED_SYSTEM_LIBS})
+
+  define_option(ARROW_UTF8PROC_USE_SHARED
+                "Rely on utf8proc shared libraries where relevant"
                 ${ARROW_USE_SHARED_SYSTEM_LIBS})
 
   define_option(ARROW_SNAPPY_USE_SHARED "Rely on snappy shared libraries where relevant"

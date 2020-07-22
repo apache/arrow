@@ -45,6 +45,7 @@ else()
     set(LZ4_INCLUDE_DIR "${LZ4_PC_INCLUDEDIR}")
 
     list(APPEND LZ4_PC_LIBRARY_DIRS "${LZ4_PC_LIBDIR}")
+    message(STATUS "LZ4_PC_LIBRARY_DIRS = ${LZ4_PC_LIBRARY_DIRS}")
     find_library(LZ4_LIB
                  NAMES ${LZ4_LIB_NAMES}
                  PATHS ${LZ4_PC_LIBRARY_DIRS}

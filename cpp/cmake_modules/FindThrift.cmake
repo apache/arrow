@@ -43,8 +43,18 @@ if(MSVC AND NOT THRIFT_MSVC_STATIC_LIB_SUFFIX)
   set(THRIFT_MSVC_STATIC_LIB_SUFFIX md)
 endif()
 
+set(THRIFT_STATIC_LIB_SUFFIX
+    "${THRIFT_MSVC_STATIC_LIB_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}")
+
+if(ARROW_THRIFT_SHARED)
+  set(THRIFT_LIB_NAMES thrift)
+else()
+  set(THRIFT_LIB_NAMES "${CMAKE_STATIC_LIBRARY_PREFIX}thrift${THRIFT_STATIC_LIB_SUFFIX}"
+                       thrift)
+endif()
 if(Thrift_ROOT)
-  find_library(THRIFT_STATIC_LIB thrift${THRIFT_MSVC_STATIC_LIB_SUFFIX}
+  find_library(THRIFT_STATIC_LIB
+               NAMES ${THRIFT_LIB_NAMES}
                PATHS ${Thrift_ROOT}
                PATH_SUFFIXES "lib/${CMAKE_LIBRARY_ARCHITECTURE}" "lib")
   find_path(THRIFT_INCLUDE_DIR thrift/Thrift.h
@@ -62,7 +72,8 @@ else()
 
     list(APPEND THRIFT_PC_LIBRARY_DIRS "${THRIFT_PC_LIBDIR}")
 
-    find_library(THRIFT_STATIC_LIB thrift${THRIFT_MSVC_STATIC_LIB_SUFFIX}
+    find_library(THRIFT_STATIC_LIB
+                 NAMES ${THRIFT_LIB_NAMES}
                  PATHS ${THRIFT_PC_LIBRARY_DIRS}
                  NO_DEFAULT_PATH)
     find_program(THRIFT_COMPILER thrift
@@ -71,7 +82,8 @@ else()
                  PATH_SUFFIXES "bin")
     set(THRIFT_VERSION ${THRIFT_PC_VERSION})
   else()
-    find_library(THRIFT_STATIC_LIB thrift${THRIFT_MSVC_STATIC_LIB_SUFFIX}
+    find_library(THRIFT_STATIC_LIB
+                 NAMES ${THRIFT_LIB_NAMES}
                  PATH_SUFFIXES "lib/${CMAKE_LIBRARY_ARCHITECTURE}" "lib")
     find_path(THRIFT_INCLUDE_DIR thrift/Thrift.h PATH_SUFFIXES "include")
     find_program(THRIFT_COMPILER thrift PATH_SUFFIXES "bin")
