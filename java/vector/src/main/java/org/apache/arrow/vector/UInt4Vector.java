@@ -286,7 +286,7 @@ public final class UInt4Vector extends BaseFixedWidthVector implements BaseIntVe
 
   @Override
   public long getValueAsLong(int index) {
-    return this.get(index);
+    return this.get(index) & 0xffffffffL;
   }
 
   private class TransferImpl implements TransferPair {

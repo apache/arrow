@@ -2977,4 +2977,47 @@ public class TestValueVector {
       assertEquals(0, vector.getOffsetBuffer().capacity());
     }
   }
+
+  @Test
+  public void testSetGetUInt1() {
+    try (UInt1Vector vector = new UInt1Vector("vector", allocator)) {
+      vector.allocateNew(2);
+
+      vector.setWithPossibleTruncate(0, 0xffL);
+      vector.setUnsafeWithPossibleTruncate(1, 0xffL);
+      vector.setValueCount(2);
+
+      assertEquals(255, vector.getValueAsLong(0));
+      assertEquals(255, vector.getValueAsLong(1));
+    }
+  }
+
+  @Test
+  public void testSetGetUInt2() {
+    try (UInt2Vector vector = new UInt2Vector("vector", allocator)) {
+      vector.allocateNew(2);
+
+      vector.setWithPossibleTruncate(0, 0xffffL);
+      vector.setUnsafeWithPossibleTruncate(1, 0xffffL);
+      vector.setValueCount(2);
+
+      assertEquals(65535, vector.getValueAsLong(0));
+      assertEquals(65535, vector.getValueAsLong(1));
+    }
+  }
+
+  @Test
+  public void testSetGetUInt4() {
+    try (UInt4Vector vector = new UInt4Vector("vector", allocator)) {
+      vector.allocateNew(2);
+
+      vector.setWithPossibleTruncate(0, 0xffffffffL);
+      vector.setUnsafeWithPossibleTruncate(1, 0xffffffffL);
+      vector.setValueCount(2);
+
+      long expected = (1L << 32) - 1L;
+      assertEquals(expected, vector.getValueAsLong(0));
+      assertEquals(expected, vector.getValueAsLong(1));
+    }
+  }
 }
