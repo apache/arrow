@@ -795,7 +795,7 @@ def test_date32_overflow():
     (pa.time32, 's', 'int32'),
     (pa.time32, 'ms', 'int32'),
     (pa.time64, 'us', 'int64'),
-    # (pa.time64, 'ns'),
+    (pa.time64, 'ns', 'int64'),
 ])
 def test_sequence_time_with_timezone(time_type, unit, int_type):
     def expected_integer_value(t):
@@ -820,10 +820,8 @@ def test_sequence_time_with_timezone(time_type, unit, int_type):
             return t.replace(microsecond=0)
         elif unit == 'ms':
             return t.replace(microsecond=(t.microsecond // 1000) * 1000)
-        elif unit == 'us':
-            return t
         else:
-            raise ValueError("use pandas")
+            return t
 
     # only timezone naive times are supported in arrow
     data = [
@@ -886,16 +884,23 @@ def test_sequence_timestamp():
     's',
     'ms',
     'us',
-    # TODO(kszucs): 'ns'
+    'ns'
 ])
 def test_sequence_timestamp_with_timezone(timezone, unit):
     def expected_integer_value(dt):
         units = ['s', 'ms', 'us', 'ns']
         multiplier = 10**(units.index(unit) * 3)
-        return None if dt is None else int(dt.timestamp() * multiplier)
+        if dt is None:
+            return None
+        else:
+            # avoid float precision issues
+            ts = decimal.Decimal(str(dt.timestamp()))
+            return int(ts * multiplier)
 
     def expected_datetime_value(dt):
-        # truncate microseconds
+        if dt is None:
+            return None
+
         if unit == 's':
             dt = dt.replace(microsecond=0)
         elif unit == 'ms':
@@ -942,11 +947,8 @@ def test_sequence_timestamp_with_timezone(timezone, unit):
     assert values.to_pylist() == expected
 
     # test that the scalars are datetimes with the correct timezone
-    assert arr[0].as_py() == expected_datetime_value(utcdata[0])
-    assert arr[1].as_py() == expected_datetime_value(utcdata[1])
-    assert arr[2].as_py() is None
-    assert arr[3].as_py() == expected_datetime_value(utcdata[3])
-    assert arr[4].as_py() == expected_datetime_value(utcdata[4])
+    for i in range(len(arr)):
+        assert arr[i].as_py() == expected_datetime_value(utcdata[i])
 
 
 def test_sequence_timestamp_with_timezone_inference():
@@ -974,6 +976,22 @@ def test_sequence_timestamp_with_timezone_inference():
         prepended = [dt] + data
         arr = pa.array(prepended)
         assert arr.type == expected_type
+
+
+# @pytest.mark.pandas
+# def test_nanosecond_resolution_timestamp():
+#     import pandas as pd
+
+#     data = [
+#         pd.Timestamp(1184307814123456123, tz=pytz.timezone('US/Eastern'),
+#                      unit='ns'),
+#         datetime.datetime(2007, 7, 13, 8, 23, 34, 123456),  # naive
+#         pytz.utc.localize(
+#             datetime.datetime(2008, 1, 5, 5, 0, 0, 1000)
+#         ),
+#         None,
+#     ]
+#     assert pa.array(data).type == pa.timestamp('ns', tz='US/Eastern')
 
 
 def test_sequence_numpy_timestamp():

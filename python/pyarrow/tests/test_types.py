@@ -258,7 +258,6 @@ def test_is_primitive():
     (pytz.utc, 'UTC'),
     (pytz.timezone('Europe/Paris'), 'Europe/Paris'),
     (pytz.FixedOffset(180), '+03:00'),
-    # (datetime.timezone.utc, 'UTC'),
     (datetime.timezone.utc, '+00:00'),
     (datetime.timezone(datetime.timedelta(hours=1, minutes=30)), '+01:30')
 ])

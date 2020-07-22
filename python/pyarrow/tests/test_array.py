@@ -1808,9 +1808,6 @@ def test_array_from_numpy_datetimeD():
     assert result.equals(expected)
 
 
-# test_array_from_naive_datetimes
-# test_array_from_datetimes_with_timezone
-
 def test_array_from_naive_datetimes():
     arr = pa.array([
         None,
