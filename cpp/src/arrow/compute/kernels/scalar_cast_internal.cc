@@ -19,9 +19,11 @@
 #include "arrow/compute/cast_internal.h"
 #include "arrow/compute/kernels/common.h"
 #include "arrow/extension_type.h"
+#include "arrow/util/value_parsing.h"
 
 namespace arrow {
 
+using internal::ParseValue;
 using internal::PrimitiveScalarBase;
 
 namespace compute {
@@ -269,6 +271,30 @@ void AddCommonCasts(Type::type out_type_id, OutputType out_ty, CastFunction* fun
                             CastFromExtension, NullHandling::COMPUTED_NO_PREALLOCATE,
                             MemAllocation::NO_PREALLOCATE));
 }
+
+// TODO(bkietz): provide a generic from-string parsing cast
+//
+// template <typename OutType>
+// struct ParseString {
+//   template <typename OUT, typename ARG0>
+//   OUT Call(KernelContext* ctx, ARG0 val) const {
+//     OUT result = OUT{};
+//     if (ARROW_PREDICT_FALSE(!ParseValue(out_type_, val, &result))) {
+//       ctx->SetStatus(Status::Invalid("Failed to parse string: ", val));
+//     }
+//     return result;
+//   }
+//
+//   const OutType& out_type_;
+// };
+//
+// template <typename O, typename I>
+// enable_if_base_binary<I> AddCastFromString(CastFunction* func) {
+//   DCHECK_OK(
+//       func->AddKernel(I::type_id, {I::type_id}, O::type_id,
+//                       applicator::ScalarUnaryNotNullStateful<O, I, ParseString<O>>{}));
+// }
+//
 
 }  // namespace internal
 }  // namespace compute

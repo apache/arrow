@@ -32,6 +32,8 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/optional.h"
+#include "arrow/util/string_view.h"
 #include "arrow/util/time.h"
 #include "arrow/util/visibility.h"
 #include "arrow/vendored/datetime.h"
@@ -63,7 +65,7 @@ namespace internal {
 
 /// \brief The entry point for conversion from strings.
 ///
-/// Specializations of StringConverter for `ARROW_TYPE` must define:
+/// Specializations of ParseValueTraits for `ARROW_TYPE` must define:
 /// - A default constructible member type `value_type` which will be yielded on a
 ///   successful parse.
 /// - The static member function `Convert`, callable with signature
@@ -72,11 +74,11 @@ namespace internal {
 ///   `*out`. Parameters required for parsing (for example a timestamp's TimeUnit)
 ///   are acquired from the type parameter `t`.
 template <typename ARROW_TYPE, typename Enable = void>
-struct StringConverter;
+struct ParseValueTraits;
 
 template <typename T>
 struct is_parseable {
-  template <typename U, typename = typename StringConverter<U>::value_type>
+  template <typename U, typename = typename ParseValueTraits<U>::value_type>
   static std::true_type Test(U*);
 
   template <typename U>
@@ -89,7 +91,7 @@ template <typename T, typename R = void>
 using enable_if_parseable = enable_if_t<is_parseable<T>::value, R>;
 
 template <>
-struct StringConverter<BooleanType> {
+struct ParseValueTraits<BooleanType> {
   using value_type = bool;
 
   static bool Convert(const BooleanType&, const char* s, size_t length, value_type* out) {
@@ -134,7 +136,7 @@ ARROW_EXPORT
 bool StringToFloat(const char* s, size_t length, double* out);
 
 template <>
-struct StringConverter<FloatType> {
+struct ParseValueTraits<FloatType> {
   using value_type = float;
 
   static bool Convert(const FloatType&, const char* s, size_t length, value_type* out) {
@@ -143,7 +145,7 @@ struct StringConverter<FloatType> {
 };
 
 template <>
-struct StringConverter<DoubleType> {
+struct ParseValueTraits<DoubleType> {
   using value_type = double;
 
   static bool Convert(const DoubleType&, const char* s, size_t length, value_type* out) {
@@ -291,24 +293,24 @@ struct StringToUnsignedIntConverterMixin {
 };
 
 template <>
-struct StringConverter<UInt8Type> : public StringToUnsignedIntConverterMixin<UInt8Type> {
+struct ParseValueTraits<UInt8Type> : public StringToUnsignedIntConverterMixin<UInt8Type> {
   using StringToUnsignedIntConverterMixin<UInt8Type>::StringToUnsignedIntConverterMixin;
 };
 
 template <>
-struct StringConverter<UInt16Type>
+struct ParseValueTraits<UInt16Type>
     : public StringToUnsignedIntConverterMixin<UInt16Type> {
   using StringToUnsignedIntConverterMixin<UInt16Type>::StringToUnsignedIntConverterMixin;
 };
 
 template <>
-struct StringConverter<UInt32Type>
+struct ParseValueTraits<UInt32Type>
     : public StringToUnsignedIntConverterMixin<UInt32Type> {
   using StringToUnsignedIntConverterMixin<UInt32Type>::StringToUnsignedIntConverterMixin;
 };
 
 template <>
-struct StringConverter<UInt64Type>
+struct ParseValueTraits<UInt64Type>
     : public StringToUnsignedIntConverterMixin<UInt64Type> {
   using StringToUnsignedIntConverterMixin<UInt64Type>::StringToUnsignedIntConverterMixin;
 };
@@ -363,22 +365,22 @@ struct StringToSignedIntConverterMixin {
 };
 
 template <>
-struct StringConverter<Int8Type> : public StringToSignedIntConverterMixin<Int8Type> {
+struct ParseValueTraits<Int8Type> : public StringToSignedIntConverterMixin<Int8Type> {
   using StringToSignedIntConverterMixin<Int8Type>::StringToSignedIntConverterMixin;
 };
 
 template <>
-struct StringConverter<Int16Type> : public StringToSignedIntConverterMixin<Int16Type> {
+struct ParseValueTraits<Int16Type> : public StringToSignedIntConverterMixin<Int16Type> {
   using StringToSignedIntConverterMixin<Int16Type>::StringToSignedIntConverterMixin;
 };
 
 template <>
-struct StringConverter<Int32Type> : public StringToSignedIntConverterMixin<Int32Type> {
+struct ParseValueTraits<Int32Type> : public StringToSignedIntConverterMixin<Int32Type> {
   using StringToSignedIntConverterMixin<Int32Type>::StringToSignedIntConverterMixin;
 };
 
 template <>
-struct StringConverter<Int64Type> : public StringToSignedIntConverterMixin<Int64Type> {
+struct ParseValueTraits<Int64Type> : public StringToSignedIntConverterMixin<Int64Type> {
   using StringToSignedIntConverterMixin<Int64Type>::StringToSignedIntConverterMixin;
 };
 
@@ -632,7 +634,7 @@ static inline bool ParseTimestampStrptime(const char* buf, size_t length,
 }
 
 template <>
-struct StringConverter<TimestampType> {
+struct ParseValueTraits<TimestampType> {
   using value_type = int64_t;
 
   static bool Convert(const TimestampType& type, const char* s, size_t length,
@@ -642,13 +644,13 @@ struct StringConverter<TimestampType> {
 };
 
 template <>
-struct StringConverter<DurationType>
+struct ParseValueTraits<DurationType>
     : public StringToSignedIntConverterMixin<DurationType> {
   using StringToSignedIntConverterMixin<DurationType>::StringToSignedIntConverterMixin;
 };
 
 template <typename DATE_TYPE>
-struct StringConverter<DATE_TYPE, enable_if_date<DATE_TYPE>> {
+struct ParseValueTraits<DATE_TYPE, enable_if_date<DATE_TYPE>> {
   using value_type = typename DATE_TYPE::c_type;
 
   using duration_type =
@@ -671,7 +673,7 @@ struct StringConverter<DATE_TYPE, enable_if_date<DATE_TYPE>> {
 };
 
 template <typename TIME_TYPE>
-struct StringConverter<TIME_TYPE, enable_if_time<TIME_TYPE>> {
+struct ParseValueTraits<TIME_TYPE, enable_if_time<TIME_TYPE>> {
   using value_type = typename TIME_TYPE::c_type;
 
   static bool Convert(const TIME_TYPE& type, const char* s, size_t length,
@@ -701,18 +703,35 @@ struct StringConverter<TIME_TYPE, enable_if_time<TIME_TYPE>> {
   }
 };
 
-/// \brief Convenience wrappers around internal::StringConverter.
+/// \brief Convenience wrappers around ParseValueTraits.
 template <typename T>
-bool ParseValue(const T& type, const char* s, size_t length,
-                typename StringConverter<T>::value_type* out) {
-  return StringConverter<T>::Convert(type, s, length, out);
+bool ParseValue(const T& type, util::string_view s,
+                typename ParseValueTraits<T>::value_type* out) {
+  return ParseValueTraits<T>::Convert(type, s.data(), s.size(), out);
+}
+
+template <typename T>
+util::optional<typename ParseValueTraits<T>::value_type> ParseValue(const T& type,
+                                                                    util::string_view s) {
+  typename ParseValueTraits<T>::value_type out;
+  if (ParseValue(type, s, &out)) {
+    return out;
+  }
+  return util::nullopt;
 }
 
 template <typename T>
 enable_if_parameter_free<T, bool> ParseValue(
-    const char* s, size_t length, typename StringConverter<T>::value_type* out) {
-  static T type;
-  return StringConverter<T>::Convert(type, s, length, out);
+    util::string_view s, typename ParseValueTraits<T>::value_type* out) {
+  static const auto& type = checked_cast<const T&>(*TypeTraits<T>::type_singleton());
+  return ParseValue(type, s, out);
+}
+
+template <typename T>
+enable_if_parameter_free<T, util::optional<typename ParseValueTraits<T>::value_type>>
+ParseValue(util::string_view s) {
+  static const auto& type = checked_cast<const T&>(*TypeTraits<T>::type_singleton());
+  return ParseValue(type, s);
 }
 
 }  // namespace internal

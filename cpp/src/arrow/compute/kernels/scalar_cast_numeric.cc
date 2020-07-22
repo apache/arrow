@@ -280,7 +280,7 @@ struct ParseString {
   template <typename OutValue, typename Arg0Value>
   OutValue Call(KernelContext* ctx, Arg0Value val) const {
     OutValue result = OutValue(0);
-    if (ARROW_PREDICT_FALSE(!ParseValue<OutType>(val.data(), val.size(), &result))) {
+    if (ARROW_PREDICT_FALSE(!ParseValue<OutType>(val, &result))) {
       ctx->SetStatus(Status::Invalid("Failed to parse string: ", val));
     }
     return result;
@@ -413,10 +413,10 @@ struct SafeRescaleDecimal {
     auto result = val.Rescale(in_scale_, out_scale_);
     if (ARROW_PREDICT_FALSE(!result.ok())) {
       ctx->SetStatus(result.status());
-      return Decimal128();  // Zero
+      return {};  // Zero
     } else if (ARROW_PREDICT_FALSE(!(*result).FitsInPrecision(out_precision_))) {
       ctx->SetStatus(Status::Invalid("Decimal value does not fit in precision"));
-      return Decimal128();  // Zero
+      return {};  // Zero
     } else {
       return *std::move(result);
     }

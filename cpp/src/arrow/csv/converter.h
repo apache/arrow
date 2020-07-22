@@ -33,8 +33,9 @@ class BlockParser;
 
 class ARROW_EXPORT Converter {
  public:
-  Converter(const std::shared_ptr<DataType>& type, const ConvertOptions& options,
+  Converter(std::shared_ptr<DataType> type, const ConvertOptions& options,
             MemoryPool* pool);
+
   virtual ~Converter() = default;
 
   virtual Result<std::shared_ptr<Array>> Convert(const BlockParser& parser,

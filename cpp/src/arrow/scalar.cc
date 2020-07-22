@@ -300,11 +300,10 @@ std::string Scalar::ToString() const {
 struct ScalarParseImpl {
   template <typename T, typename = internal::enable_if_parseable<T>>
   Status Visit(const T& t) {
-    typename internal::StringConverter<T>::value_type value;
-    if (!internal::ParseValue(t, s_.data(), s_.size(), &value)) {
-      return Status::Invalid("error parsing '", s_, "' as scalar of type ", t);
+    if (auto value = internal::ParseValue(t, s_)) {
+      return Finish(*value);
     }
-    return Finish(value);
+    return Status::Invalid("error parsing '", s_, "' as scalar of type ", t);
   }
 
   Status Visit(const BinaryType&) { return FinishWithBuffer(); }
@@ -359,17 +358,6 @@ Status CheckBufferLength(const FixedSizeBinaryType* t, const std::shared_ptr<Buf
 namespace {
 // CastImpl(...) assumes `to` points to a non null scalar of the correct type with
 // uninitialized value
-
-// helper for StringFormatter
-template <typename Formatter, typename ScalarType>
-std::shared_ptr<Buffer> FormatToBuffer(Formatter&& formatter, const ScalarType& from) {
-  if (!from.is_valid) {
-    return Buffer::FromString("null");
-  }
-  return formatter(from.value, [&](util::string_view v) {
-    return Buffer::FromString(std::string(v));
-  });
-}
 
 // error fallback
 Status CastImpl(const Scalar& from, Scalar* to) {
@@ -483,12 +471,6 @@ Status CastImpl(const DateScalar<D>& from, TimestampScalar* to) {
       .Value(&to->value);
 }
 
-// timestamp to string
-Status CastImpl(const TimestampScalar& from, StringScalar* to) {
-  to->value = FormatToBuffer(internal::StringFormatter<Int64Type>{}, from);
-  return Status::OK();
-}
-
 // date to string
 template <typename D>
 Status CastImpl(const DateScalar<D>& from, StringScalar* to) {
@@ -513,13 +495,11 @@ Status CastImpl(const BinaryScalar& from, StringScalar* to) {
 }
 
 // formattable to string
-template <typename ScalarType, typename T = typename ScalarType::TypeClass,
-          typename Formatter = internal::StringFormatter<T>,
-          // note: Value unused but necessary to trigger SFINAE if Formatter is
-          // undefined
-          typename Value = typename Formatter::value_type>
-Status CastImpl(const ScalarType& from, StringScalar* to) {
-  to->value = FormatToBuffer(Formatter{from.type}, from);
+template <typename ScalarType, typename T = typename ScalarType::TypeClass>
+internal::enable_if_formattable<T, Status> CastImpl(const ScalarType& from,
+                                                    StringScalar* to) {
+  const auto& from_type = checked_cast<const T&>(*from.type);
+  to->value = Buffer::FromString(internal::FormatValue(from_type, from.value));
   return Status::OK();
 }
 

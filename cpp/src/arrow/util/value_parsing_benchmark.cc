@@ -112,7 +112,7 @@ static void IntegerParsing(benchmark::State& state) {  // NOLINT non-const refer
     C_TYPE total = 0;
     for (const auto& s : strings) {
       C_TYPE value;
-      if (!ParseValue<ARROW_TYPE>(s.data(), s.length(), &value)) {
+      if (!ParseValue<ARROW_TYPE>(s, &value)) {
         std::cerr << "Conversion failed for '" << s << "'";
         std::abort();
       }
@@ -131,7 +131,7 @@ static void FloatParsing(benchmark::State& state) {  // NOLINT non-const referen
     C_TYPE total = 0;
     for (const auto& s : strings) {
       C_TYPE value;
-      if (!ParseValue<ARROW_TYPE>(s.data(), s.length(), &value)) {
+      if (!ParseValue<ARROW_TYPE>(s, &value)) {
         std::cerr << "Conversion failed for '" << s << "'";
         std::abort();
       }
@@ -178,30 +178,16 @@ static void TimestampParsingStrptime(
   BenchTimestampParsing(state, UNIT, *parser);
 }
 
-struct DummyAppender {
-  Status operator()(util::string_view v) {
-    if (pos_ >= static_cast<int32_t>(v.size())) {
-      pos_ = 0;
-    }
-    total_ += v[pos_++];
-    return Status::OK();
-  }
-
-  int64_t total_ = 0;
-  int32_t pos_ = 0;
-};
-
 template <typename ARROW_TYPE, typename C_TYPE = typename ARROW_TYPE::c_type>
 static void IntegerFormatting(benchmark::State& state) {  // NOLINT non-const reference
   std::vector<C_TYPE> values = MakeInts<C_TYPE>(1000);
-  StringFormatter<ARROW_TYPE> formatter;
+  std::vector<char> buffer(FormatValueTraits<ARROW_TYPE>::MaxSize({}));
 
-  while (state.KeepRunning()) {
-    DummyAppender appender;
+  for (auto _ : state) {
     for (const auto value : values) {
-      ABORT_NOT_OK(formatter(value, appender));
+      FormatValue<ARROW_TYPE>(value, buffer.data());
     }
-    benchmark::DoNotOptimize(appender.total_);
+    benchmark::DoNotOptimize(buffer);
   }
   state.SetItemsProcessed(state.iterations() * values.size());
 }
@@ -209,14 +195,13 @@ static void IntegerFormatting(benchmark::State& state) {  // NOLINT non-const re
 template <typename ARROW_TYPE, typename C_TYPE = typename ARROW_TYPE::c_type>
 static void FloatFormatting(benchmark::State& state) {  // NOLINT non-const reference
   std::vector<C_TYPE> values = MakeFloats<C_TYPE>(1000);
-  StringFormatter<ARROW_TYPE> formatter;
+  std::vector<char> buffer(FormatValueTraits<ARROW_TYPE>::MaxSize({}));
 
-  while (state.KeepRunning()) {
-    DummyAppender appender;
+  for (auto _ : state) {
     for (const auto value : values) {
-      ABORT_NOT_OK(formatter(value, appender));
+      FormatValue<ARROW_TYPE>(value, buffer.data());
     }
-    benchmark::DoNotOptimize(appender.total_);
+    benchmark::DoNotOptimize(buffer);
   }
   state.SetItemsProcessed(state.iterations() * values.size());
 }

@@ -28,7 +28,9 @@
 
 namespace arrow {
 
-using internal::StringFormatter;
+using internal::FormatValue;
+using internal::FormatValueTraits;
+using internal::is_formattable;
 using util::InitializeUTF8;
 using util::ValidateUTF8;
 
@@ -36,15 +38,13 @@ namespace compute {
 namespace internal {
 
 // ----------------------------------------------------------------------
-// Number / Boolean to String
+// Formattable to String
 
 template <typename I, typename O>
-struct CastFunctor<O, I,
-                   enable_if_t<is_string_like_type<O>::value &&
-                               (is_number_type<I>::value || is_boolean_type<I>::value)>> {
+struct CastFunctor<
+    O, I, enable_if_t<is_string_like_type<O>::value && is_formattable<I>::value>> {
   using value_type = typename TypeTraits<I>::CType;
   using BuilderType = typename TypeTraits<O>::BuilderType;
-  using FormatterType = StringFormatter<I>;
 
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     const ArrayData& input = *batch[0].array();
@@ -53,14 +53,23 @@ struct CastFunctor<O, I,
   }
 
   static Status Convert(KernelContext* ctx, const ArrayData& input, ArrayData* output) {
-    FormatterType formatter(input.type);
+    const auto& type = checked_cast<const I&>(*input.type);
+    auto max_size = FormatValueTraits<I>::MaxSize(type);
     BuilderType builder(input.type, ctx->memory_pool());
+    RETURN_NOT_OK(builder.Reserve(input.length));
     RETURN_NOT_OK(VisitArrayDataInline<I>(
         input,
         [&](value_type v) {
-          return formatter(v, [&](util::string_view v) { return builder.Append(v); });
+          // TODO(bkietz) only ReserveData at the beginning of each bitblock,
+          // where we can reserve max_size * popcount
+          RETURN_NOT_OK(builder.ReserveData(max_size));
+          builder.UnsafeFormat([&](char* out) { return FormatValue(type, v, out); });
+          return Status::OK();
         },
-        [&]() { return builder.AppendNull(); }));
+        [&]() {
+          builder.UnsafeAppendNull();
+          return Status::OK();
+        }));
 
     std::shared_ptr<Array> output_array;
     RETURN_NOT_OK(builder.Finish(&output_array));
@@ -130,15 +139,20 @@ struct CastFunctor<LargeStringType, LargeBinaryType>
 // * Binary / LargeBinary to String / LargeString with UTF8 validation
 
 template <typename OutType>
-void AddNumberToStringCasts(std::shared_ptr<DataType> out_ty, CastFunction* func) {
-  DCHECK_OK(func->AddKernel(Type::BOOL, {boolean()}, out_ty,
-                            CastFunctor<OutType, BooleanType>::Exec,
-                            NullHandling::COMPUTED_NO_PREALLOCATE));
+void AddFormattingCasts(std::shared_ptr<DataType> out_ty, CastFunction* func) {
+  auto AddOne = [&](std::shared_ptr<DataType> in_ty, ArrayKernelExec exec) {
+    DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty}, out_ty, exec,
+                              NullHandling::COMPUTED_NO_PREALLOCATE));
+  };
+
+  AddOne(boolean(), CastFunctor<OutType, BooleanType>::Exec);
 
   for (const std::shared_ptr<DataType>& in_ty : NumericTypes()) {
-    DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty}, out_ty,
-                              GenerateNumeric<CastFunctor, OutType>(*in_ty),
-                              NullHandling::COMPUTED_NO_PREALLOCATE));
+    AddOne(in_ty, GenerateNumeric<CastFunctor, OutType>(*in_ty));
+  }
+
+  for (const std::shared_ptr<DataType>& in_ty : TemporalTypes()) {
+    AddOne(in_ty, GenerateTemporal<CastFunctor, OutType>(*in_ty));
   }
 }
 
@@ -160,7 +174,7 @@ std::vector<std::shared_ptr<CastFunction>> GetBinaryLikeCasts() {
 
   auto cast_string = std::make_shared<CastFunction>("cast_string", Type::STRING);
   AddCommonCasts(Type::STRING, utf8(), cast_string.get());
-  AddNumberToStringCasts<StringType>(utf8(), cast_string.get());
+  AddFormattingCasts<StringType>(utf8(), cast_string.get());
   DCHECK_OK(cast_string->AddKernel(Type::BINARY, {binary()}, utf8(),
                                    CastFunctor<StringType, BinaryType>::Exec,
                                    NullHandling::COMPUTED_NO_PREALLOCATE));
@@ -168,7 +182,7 @@ std::vector<std::shared_ptr<CastFunction>> GetBinaryLikeCasts() {
   auto cast_large_string =
       std::make_shared<CastFunction>("cast_large_string", Type::LARGE_STRING);
   AddCommonCasts(Type::LARGE_STRING, large_utf8(), cast_large_string.get());
-  AddNumberToStringCasts<LargeStringType>(large_utf8(), cast_large_string.get());
+  AddFormattingCasts<LargeStringType>(large_utf8(), cast_large_string.get());
   DCHECK_OK(
       cast_large_string->AddKernel(Type::LARGE_BINARY, {large_binary()}, large_utf8(),
                                    CastFunctor<LargeStringType, LargeBinaryType>::Exec,

@@ -30,7 +30,7 @@ namespace internal {
 template <typename T>
 void AssertConversion(const T& type, const std::string& s, typename T::c_type expected) {
   typename T::c_type out{};
-  ASSERT_TRUE(ParseValue(type, s.data(), s.length(), &out))
+  ASSERT_TRUE(ParseValue(type, s, &out))
       << "Conversion failed for '" << s << "' (expected to return " << expected << ")";
   ASSERT_EQ(out, expected) << "Conversion failed for '" << s << "'";
 }
@@ -44,7 +44,7 @@ void AssertConversion(const std::string& s, typename T::c_type expected) {
 template <typename T>
 void AssertConversionFails(const T& type, const std::string& s) {
   typename T::c_type out{};
-  ASSERT_FALSE(ParseValue(type, s.data(), s.length(), &out))
+  ASSERT_FALSE(ParseValue(type, s, &out))
       << "Conversion should have failed for '" << s << "' (returned " << out << ")";
 }
 

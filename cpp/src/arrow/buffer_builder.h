@@ -240,6 +240,8 @@ class TypedBufferBuilder<
     std::fill(data, data + num_copies, value);
   }
 
+  void UnsafeAdvance(int64_t length) { bytes_builder_.UnsafeAdvance(sizeof(T) * length); }
+
   Status Resize(const int64_t new_capacity, bool shrink_to_fit = true) {
     return bytes_builder_.Resize(new_capacity * sizeof(T), shrink_to_fit);
   }

@@ -244,19 +244,13 @@ static void AppendLittleEndianArrayToString(const std::array<uint64_t, n>& array
   result->resize(new_size, '0');
   char* output = &result->at(old_size);
   const uint32_t* segment = &segments[num_segments - 1];
-  internal::StringFormatter<UInt32Type> format;
-  // First segment is formatted as-is.
-  format(*segment, [&output](util::string_view formatted) {
-    memcpy(output, formatted.data(), formatted.size());
-    output += formatted.size();
-  });
+  output += internal::FormatValue<UInt32Type>(*segment, output);
   while (segment != segments.data()) {
     --segment;
-    // Right-pad formatted segment such that e.g. 123 is formatted as "000000123".
+    // Left-pad formatted segment such that e.g. 123 is formatted as "000000123".
+    auto size = internal::FormatValue<UInt32Type>(*segment, output);
+    std::rotate(output, output + size, output + 9);
     output += 9;
-    format(*segment, [output](util::string_view formatted) {
-      memcpy(output - formatted.size(), formatted.data(), formatted.size());
-    });
   }
   result->resize(output - result->data());
 }
@@ -313,10 +307,9 @@ static void AdjustIntegerStringWithScale(int32_t scale, std::string* str) {
     if (adjusted_exponent >= 0) {
       str->push_back('+');
     }
-    internal::StringFormatter<Int32Type> format;
-    format(adjusted_exponent, [str](util::string_view formatted) {
-      str->append(formatted.data(), formatted.size());
-    });
+    std::array<char, internal::FormatValueTraits<Int32Type>::max_size> buf;
+    auto size = internal::FormatValue<Int32Type>(adjusted_exponent, buf.data());
+    str->append(buf.data(), size);
     return;
   }
 
@@ -353,14 +346,14 @@ std::string Decimal128::ToString(int32_t scale) const {
 // Iterates over input and for each group of kInt64DecimalDigits multiple out by
 // the appropriate power of 10 necessary to add source parsed as uint64 and
 // then adds the parsed value of source.
-static inline void ShiftAndAdd(const util::string_view& input, uint64_t out[],
+static inline void ShiftAndAdd(const util::string_view& input, uint64_t* out,
                                size_t out_size) {
   for (size_t posn = 0; posn < input.size();) {
     const size_t group_size = std::min(kInt64DecimalDigits, input.size() - posn);
     const uint64_t multiple = kUInt64PowersOfTen[group_size];
     uint64_t chunk = 0;
     ARROW_CHECK(
-        internal::ParseValue<UInt64Type>(input.data() + posn, group_size, &chunk));
+        internal::ParseValue<UInt64Type>({input.data() + posn, group_size}, &chunk));
 
     for (size_t i = 0; i < out_size; ++i) {
       uint128_t tmp = out[i];
@@ -440,7 +433,7 @@ bool ParseDecimalComponents(const char* s, size_t size, DecimalComponents* out) 
       ++pos;
     }
     out->has_exponent = true;
-    return internal::ParseValue<Int32Type>(s + pos, size - pos, &(out->exponent));
+    return internal::ParseValue<Int32Type>({s + pos, size - pos}, &out->exponent);
   }
   return pos == size;
 }

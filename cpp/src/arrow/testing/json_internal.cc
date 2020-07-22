@@ -50,6 +50,7 @@
 namespace arrow {
 
 using internal::checked_cast;
+using internal::FormatValue;
 using internal::ParseValue;
 
 using ipc::DictionaryFieldMapper;
@@ -468,21 +469,17 @@ class ArrayWriter {
   }
 
   template <typename ArrayType, typename TypeClass = typename ArrayType::TypeClass,
-            typename CType = typename TypeClass::c_type>
+            typename CType = typename TypeClass::c_type,
+            typename PhysicalType = typename CTypeTraits<CType>::ArrowType>
   enable_if_t<is_physical_integer_type<TypeClass>::value &&
               sizeof(CType) == sizeof(int64_t)>
   WriteDataValues(const ArrayType& arr) {
-    ::arrow::internal::StringFormatter<typename CTypeTraits<CType>::ArrowType> fmt;
-
-    static const std::string null_string = "0";
     for (int64_t i = 0; i < arr.length(); ++i) {
       if (arr.IsValid(i)) {
-        fmt(arr.Value(i), [&](util::string_view repr) {
-          writer_->String(repr.data(), static_cast<rj::SizeType>(repr.size()));
-        });
+        writer_->String(FormatValue<PhysicalType>(arr.Value(i)));
       } else {
-        writer_->String(null_string.data(),
-                        static_cast<rj::SizeType>(null_string.size()));
+        static const std::string null_string = "0";
+        writer_->String(null_string);
       }
     }
   }
@@ -490,12 +487,12 @@ class ArrayWriter {
   template <typename ArrayType>
   enable_if_physical_floating_point<typename ArrayType::TypeClass> WriteDataValues(
       const ArrayType& arr) {
-    static const char null_string[] = "0.";
     const auto data = arr.raw_values();
     for (int64_t i = 0; i < arr.length(); ++i) {
       if (arr.IsValid(i)) {
         writer_->Double(data[i]);
       } else {
+        static const char null_string[] = "0.";
         writer_->RawNumber(null_string, sizeof(null_string));
       }
     }
@@ -564,7 +561,7 @@ class ArrayWriter {
     writer_->EndArray();
   }
 
-  template <typename T>
+  template <typename T, typename ARROW_TYPE = typename CTypeTraits<T>::ArrowType>
   void WriteIntegerField(const char* name, const T* values, int64_t length) {
     writer_->Key(name);
     writer_->StartArray();
@@ -575,13 +572,8 @@ class ArrayWriter {
     } else {
       // Represent 64-bit integers as strings, as JSON numbers cannot represent
       // them exactly.
-      ::arrow::internal::StringFormatter<typename CTypeTraits<T>::ArrowType> formatter;
-      auto append = [this](util::string_view v) {
-        writer_->String(v.data(), static_cast<rj::SizeType>(v.size()));
-        return Status::OK();
-      };
       for (int i = 0; i < length; ++i) {
-        DCHECK_OK(formatter(values[i], append));
+        writer_->String(FormatValue<ARROW_TYPE>(values[i]));
       }
     }
     writer_->EndArray();
@@ -1113,6 +1105,11 @@ Status GetField(const rj::Value& obj, FieldPosition field_pos,
   return Status::OK();
 }
 
+util::string_view UnboxString(const rj::Value& val) {
+  DCHECK(val.IsString());
+  return {val.GetString(), val.GetStringLength()};
+}
+
 template <typename T>
 enable_if_boolean<T, bool> UnboxValue(const rj::Value& val) {
   DCHECK(val.IsBool());
@@ -1126,17 +1123,15 @@ UnboxValue(const rj::Value& val) {
   return static_cast<CType>(val.GetInt64());
 }
 
-template <typename T, typename CType = typename T::c_type>
+template <typename T, typename CType = typename T::c_type,
+          typename PhysicalType = typename CTypeTraits<CType>::ArrowType>
 enable_if_t<is_physical_integer_type<T>::value && sizeof(CType) == sizeof(int64_t), CType>
 UnboxValue(const rj::Value& val) {
-  DCHECK(val.IsString());
+  util::optional<CType> out =
+      ::arrow::internal::ParseValue<PhysicalType>(UnboxString(val));
 
-  CType out;
-  bool success = ::arrow::internal::ParseValue<typename CTypeTraits<CType>::ArrowType>(
-      val.GetString(), val.GetStringLength(), &out);
-
-  DCHECK(success);
-  return out;
+  DCHECK(out);
+  return *out;
 }
 
 template <typename T>
@@ -1326,12 +1321,9 @@ class ArrayReader {
       // Read 64-bit integers as strings, as JSON numbers cannot represent
       // them exactly.
       for (int i = 0; i < length; ++i) {
-        const rj::Value& val = json_array[i];
-        DCHECK(val.IsString());
-        if (!ParseValue<ArrowType>(val.GetString(), val.GetStringLength(), &values[i])) {
-          return Status::Invalid("Failed to parse integer: '",
-                                 std::string(val.GetString(), val.GetStringLength()),
-                                 "'");
+        util::string_view val = UnboxString(json_array[i]);
+        if (!ParseValue<ArrowType>(val, &values[i])) {
+          return Status::Invalid("Failed to parse integer: '", val, "'");
         }
       }
     }

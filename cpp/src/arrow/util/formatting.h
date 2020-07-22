@@ -40,12 +40,51 @@ namespace arrow {
 namespace internal {
 
 /// \brief The entry point for conversion to strings.
+///
+/// Specializations of FormatValueTraits for `ARROW_TYPE` must define:
+/// - A member type `value_type` which will be formatted.
+/// - A static member function `MaxSize(const ARROW_TYPE& t)` indicating the
+///   maximum number of characters which formatting a `value_type` may yield.
+/// - The static member function `Convert`, callable with signature
+///   `(const ARROW_TYPE& t, const value_type& v, char* out)`. `Convert` returns
+///   the number of characters written into `out`. Parameters required for formatting
+///   (for example a timestamp's TimeUnit) are acquired from the type parameter `t`.
 template <typename ARROW_TYPE, typename Enable = void>
-class StringFormatter;
+struct FormatValueTraits;
+
+/// \brief Convenience wrappers around FormatValueTraits.
+template <typename T>
+size_t FormatValue(const T& type, typename FormatValueTraits<T>::value_type v,
+                   char* out) {
+  return FormatValueTraits<T>::Convert(type, v, out);
+}
 
 template <typename T>
+std::string FormatValue(const T& type, typename FormatValueTraits<T>::value_type v) {
+  std::string out(FormatValueTraits<T>::MaxSize(type), '\0');
+  size_t size = FormatValueTraits<T>::Convert(type, v, &out[0]);
+  out.resize(size);
+  return out;
+}
+
+template <typename T>
+enable_if_parameter_free<T, size_t> FormatValue(
+    typename FormatValueTraits<T>::value_type v, char* out) {
+  static T type;
+  return FormatValue(type, v, out);
+}
+
+template <typename T>
+enable_if_parameter_free<T, std::string> FormatValue(
+    typename FormatValueTraits<T>::value_type v) {
+  static T type;
+  return FormatValue(type, v);
+}
+
+/// \brief Traits for detecting formattability
+template <typename T>
 struct is_formattable {
-  template <typename U, typename = typename StringFormatter<U>::value_type>
+  template <typename U, typename = typename FormatValueTraits<U>::value_type>
   static std::true_type Test(U*);
 
   template <typename U>
@@ -57,28 +96,23 @@ struct is_formattable {
 template <typename T, typename R = void>
 using enable_if_formattable = enable_if_t<is_formattable<T>::value, R>;
 
-template <typename Appender>
-using Return = decltype(std::declval<Appender>()(util::string_view{}));
-
 /////////////////////////////////////////////////////////////////////////
 // Boolean formatting
 
-template <>
-class StringFormatter<BooleanType> {
- public:
-  explicit StringFormatter(const std::shared_ptr<DataType>& = NULLPTR) {}
+namespace detail {
+inline size_t Copy(util::string_view s, char* out) { return s.copy(out, s.size()); }
+}  // namespace detail
 
+template <>
+struct FormatValueTraits<BooleanType> {
   using value_type = bool;
 
-  template <typename Appender>
-  Return<Appender> operator()(bool value, Appender&& append) {
-    if (value) {
-      const char string[] = "true";
-      return append(util::string_view(string));
-    } else {
-      const char string[] = "false";
-      return append(util::string_view(string));
-    }
+  static constexpr size_t MaxSize(const BooleanType&) { return 5; }
+
+  static size_t Convert(const BooleanType&, bool value, char* out) {
+    constexpr util::string_view true_string = "true";
+    constexpr util::string_view false_string = "false";
+    return detail::Copy(value ? true_string : false_string, out);
   }
 };
 
@@ -133,11 +167,17 @@ void FormatAllDigitsLeftPadded(Int value, size_t pad, char pad_char, char** curs
 }
 
 template <size_t BUFFER_SIZE>
-util::string_view ViewDigitBuffer(const std::array<char, BUFFER_SIZE>& buffer,
-                                  char* cursor) {
-  auto buffer_end = buffer.data() + BUFFER_SIZE;
-  return {cursor, static_cast<size_t>(buffer_end - cursor)};
-}
+struct DigitBuffer {
+  DigitBuffer() : cursor(buffer_.data() + BUFFER_SIZE) {}
+
+  util::string_view view() const {
+    auto buffer_end = buffer_.data() + BUFFER_SIZE;
+    return {cursor, static_cast<size_t>(buffer_end - cursor)};
+  }
+
+  std::array<char, BUFFER_SIZE> buffer_;
+  char* cursor;
+};
 
 template <typename Int, typename UInt = typename std::make_unsigned<Int>::type>
 constexpr UInt Abs(Int value) {
@@ -152,111 +192,57 @@ constexpr size_t Digits10(Int value) {
 }  // namespace detail
 
 template <typename ARROW_TYPE>
-class IntToStringFormatterMixin {
- public:
-  explicit IntToStringFormatterMixin(const std::shared_ptr<DataType>& = NULLPTR) {}
-
+struct FormatValueTraits<ARROW_TYPE,
+                         enable_if_t<is_integer_type<ARROW_TYPE>::value ||
+                                     std::is_same<ARROW_TYPE, DurationType>::value>> {
   using value_type = typename ARROW_TYPE::c_type;
 
-  template <typename Appender>
-  Return<Appender> operator()(value_type value, Appender&& append) {
-    constexpr size_t buffer_size =
-        detail::Digits10(std::numeric_limits<value_type>::max()) + 1;
+  static constexpr size_t max_size =
+      detail::Digits10(std::numeric_limits<value_type>::max()) + 1;
 
-    std::array<char, buffer_size> buffer;
-    char* cursor = buffer.data() + buffer_size;
-    detail::FormatAllDigits(detail::Abs(value), &cursor);
-    if (value < 0) {
-      detail::FormatOneChar('-', &cursor);
+  static constexpr size_t MaxSize(const ARROW_TYPE&) { return max_size; }
+
+  static size_t Convert(const ARROW_TYPE&, value_type value, char* out) {
+    detail::DigitBuffer<max_size> buffer;
+    detail::FormatAllDigits(detail::Abs(value), &buffer.cursor);
+    if (std::numeric_limits<value_type>::is_signed && value < 0) {
+      detail::FormatOneChar('-', &buffer.cursor);
     }
-    return append(detail::ViewDigitBuffer(buffer, cursor));
+    return detail::Copy(buffer.view(), out);
   }
-};
-
-template <>
-class StringFormatter<Int8Type> : public IntToStringFormatterMixin<Int8Type> {
-  using IntToStringFormatterMixin::IntToStringFormatterMixin;
-};
-
-template <>
-class StringFormatter<Int16Type> : public IntToStringFormatterMixin<Int16Type> {
-  using IntToStringFormatterMixin::IntToStringFormatterMixin;
-};
-
-template <>
-class StringFormatter<Int32Type> : public IntToStringFormatterMixin<Int32Type> {
-  using IntToStringFormatterMixin::IntToStringFormatterMixin;
-};
-
-template <>
-class StringFormatter<Int64Type> : public IntToStringFormatterMixin<Int64Type> {
-  using IntToStringFormatterMixin::IntToStringFormatterMixin;
-};
-
-template <>
-class StringFormatter<UInt8Type> : public IntToStringFormatterMixin<UInt8Type> {
-  using IntToStringFormatterMixin::IntToStringFormatterMixin;
-};
-
-template <>
-class StringFormatter<UInt16Type> : public IntToStringFormatterMixin<UInt16Type> {
-  using IntToStringFormatterMixin::IntToStringFormatterMixin;
-};
-
-template <>
-class StringFormatter<UInt32Type> : public IntToStringFormatterMixin<UInt32Type> {
-  using IntToStringFormatterMixin::IntToStringFormatterMixin;
-};
-
-template <>
-class StringFormatter<UInt64Type> : public IntToStringFormatterMixin<UInt64Type> {
-  using IntToStringFormatterMixin::IntToStringFormatterMixin;
 };
 
 /////////////////////////////////////////////////////////////////////////
 // Floating-point formatting
 
-class ARROW_EXPORT FloatToStringFormatter {
- public:
-  FloatToStringFormatter();
-  ~FloatToStringFormatter();
+namespace detail {
 
-  // Returns the number of characters written
-  int FormatFloat(float v, char* out_buffer, int out_size);
-  int FormatFloat(double v, char* out_buffer, int out_size);
+ARROW_EXPORT int FormatFloat(float v, size_t buffer_size, char* out);
+ARROW_EXPORT int FormatFloat(double v, size_t buffer_size, char* out);
 
- protected:
-  struct Impl;
-  std::unique_ptr<Impl> impl_;
-};
+}  // namespace detail
 
 template <typename ARROW_TYPE>
-class FloatToStringFormatterMixin : public FloatToStringFormatter {
- public:
+struct FormatValueTraits<ARROW_TYPE,
+                         enable_if_t<is_floating_type<ARROW_TYPE>::value &&
+                                     !is_half_float_type<ARROW_TYPE>::value>> {
   using value_type = typename ARROW_TYPE::c_type;
 
-  static constexpr int buffer_size = 50;
+  static constexpr size_t max_size =
+      1 +                                              // '-' when negative
+      1 +                                              // decimal point
+      std::numeric_limits<value_type>::max_digits10 +  // significand digits
+      2 +                                              // 'e+' or 'e-'
+      detail::Digits10(                                // exponent digits
+          std::numeric_limits<value_type>::max_exponent10);
 
-  explicit FloatToStringFormatterMixin(const std::shared_ptr<DataType>& = NULLPTR) {}
+  static constexpr size_t MaxSize(const ARROW_TYPE&) { return max_size; }
 
-  template <typename Appender>
-  Return<Appender> operator()(value_type value, Appender&& append) {
-    char buffer[buffer_size];
-    int size = FormatFloat(value, buffer, buffer_size);
-    return append(util::string_view(buffer, size));
+  static size_t Convert(const ARROW_TYPE&, value_type value, char* out) {
+    std::array<char, max_size> buffer;
+    int size = detail::FormatFloat(value, max_size, buffer.data());
+    return detail::Copy({buffer.data(), static_cast<size_t>(size)}, out);
   }
-};
-
-template <>
-class StringFormatter<FloatType> : public FloatToStringFormatterMixin<FloatType> {
- public:
-  using FloatToStringFormatterMixin::FloatToStringFormatterMixin;
-};
-
-template <>
-class StringFormatter<DoubleType> : public FloatToStringFormatterMixin<DoubleType> {
- public:
-  using FloatToStringFormatterMixin::FloatToStringFormatterMixin;
 };
 
 /////////////////////////////////////////////////////////////////////////
@@ -264,7 +250,6 @@ class StringFormatter<DoubleType> : public FloatToStringFormatterMixin<DoubleTyp
 
 namespace detail {
 
-template <typename V>
 constexpr size_t BufferSizeYYYY_MM_DD() {
   return detail::Digits10(9999) + 1 + detail::Digits10(12) + 1 + detail::Digits10(31);
 }
@@ -286,6 +271,17 @@ constexpr size_t BufferSizeHH_MM_SS() {
          detail::Digits10(Duration::period::den) - 1;
 }
 
+struct BufferSizeFromTimeUnitImpl {
+  template <typename Duration>
+  constexpr size_t operator()(Duration) const {
+    return detail::BufferSizeHH_MM_SS<Duration>();
+  }
+};
+
+inline size_t BufferSizeHH_MM_SS(TimeUnit::type unit) {
+  return util::VisitDuration(unit, BufferSizeFromTimeUnitImpl{});
+}
+
 template <typename Duration>
 void FormatHH_MM_SS(arrow_vendored::date::hh_mm_ss<Duration> hms, char** cursor) {
   constexpr size_t subsecond_digits = Digits10(Duration::period::den) - 1;
@@ -302,20 +298,15 @@ void FormatHH_MM_SS(arrow_vendored::date::hh_mm_ss<Duration> hms, char** cursor)
 
 }  // namespace detail
 
-template <>
-class StringFormatter<DurationType> : public IntToStringFormatterMixin<DurationType> {
-  using IntToStringFormatterMixin::IntToStringFormatterMixin;
-};
-
 template <typename T>
-class StringFormatter<T, enable_if_date<T>> {
- public:
+struct FormatValueTraits<T, enable_if_date<T>> {
   using value_type = typename T::c_type;
 
-  explicit StringFormatter(const std::shared_ptr<DataType>& = NULLPTR) {}
+  static constexpr size_t max_size = detail::BufferSizeYYYY_MM_DD();
 
-  template <typename Appender>
-  Return<Appender> operator()(value_type value, Appender&& append) {
+  static constexpr size_t MaxSize(const T&) { return max_size; }
+
+  static size_t Convert(const T&, value_type value, char* out) {
     arrow_vendored::date::days since_epoch;
     if (T::type_id == Type::DATE32) {
       since_epoch = arrow_vendored::date::days{value};
@@ -326,84 +317,72 @@ class StringFormatter<T, enable_if_date<T>> {
 
     arrow_vendored::date::sys_days timepoint_days{since_epoch};
 
-    constexpr size_t buffer_size = detail::BufferSizeYYYY_MM_DD<value_type>();
-
-    std::array<char, buffer_size> buffer;
-    char* cursor = buffer.data() + buffer_size;
+    detail::DigitBuffer<max_size> buffer;
 
     detail::FormatYYYY_MM_DD(arrow_vendored::date::year_month_day{timepoint_days},
-                             &cursor);
-    return append(detail::ViewDigitBuffer(buffer, cursor));
+                             &buffer.cursor);
+    return detail::Copy(buffer.view(), out);
   }
 };
 
 template <typename T>
-class StringFormatter<T, enable_if_time<T>> {
- public:
+struct FormatValueTraits<T, enable_if_time<T>> {
   using value_type = typename T::c_type;
 
-  explicit StringFormatter(const std::shared_ptr<DataType>& type)
-      : unit_(checked_cast<const T&>(*type).unit()) {}
+  static size_t MaxSize(const T& type) { return detail::BufferSizeHH_MM_SS(type.unit()); }
 
-  template <typename Duration, typename Appender>
-  Return<Appender> operator()(Duration, value_type count, Appender&& append) {
-    Duration since_midnight{count};
+  struct ConvertImpl {
+    template <typename Duration>
+    size_t operator()(Duration, value_type count, char* out) {
+      Duration since_midnight{count};
 
-    constexpr size_t buffer_size = detail::BufferSizeHH_MM_SS<Duration>();
+      detail::DigitBuffer<detail::BufferSizeHH_MM_SS<Duration>()> buffer;
 
-    std::array<char, buffer_size> buffer;
-    char* cursor = buffer.data() + buffer_size;
+      detail::FormatHH_MM_SS(arrow_vendored::date::make_time(since_midnight),
+                             &buffer.cursor);
+      return detail::Copy(buffer.view(), out);
+    }
+  };
 
-    detail::FormatHH_MM_SS(arrow_vendored::date::make_time(since_midnight), &cursor);
-    return append(detail::ViewDigitBuffer(buffer, cursor));
+  static size_t Convert(const T& type, value_type value, char* out) {
+    return util::VisitDuration(type.unit(), ConvertImpl{}, value, out);
   }
-
-  template <typename Appender>
-  Return<Appender> operator()(value_type value, Appender&& append) {
-    return util::VisitDuration(unit_, *this, value, std::forward<Appender>(append));
-  }
-
- private:
-  TimeUnit::type unit_;
 };
 
 template <>
-class StringFormatter<TimestampType> {
- public:
+struct FormatValueTraits<TimestampType> {
   using value_type = int64_t;
 
-  explicit StringFormatter(const std::shared_ptr<DataType>& type)
-      : unit_(checked_cast<const TimestampType&>(*type).unit()) {}
-
-  template <typename Duration, typename Appender>
-  Return<Appender> operator()(Duration, value_type count, Appender&& append) {
-    Duration since_epoch{count};
-
-    arrow_vendored::date::sys_days timepoint_days{
-        arrow_vendored::date::floor<arrow_vendored::date::days>(since_epoch)};
-
-    Duration since_midnight = since_epoch - timepoint_days.time_since_epoch();
-
-    constexpr size_t buffer_size = detail::BufferSizeYYYY_MM_DD<value_type>() + 1 +
-                                   detail::BufferSizeHH_MM_SS<Duration>();
-
-    std::array<char, buffer_size> buffer;
-    char* cursor = buffer.data() + buffer_size;
-
-    detail::FormatHH_MM_SS(arrow_vendored::date::make_time(since_midnight), &cursor);
-    detail::FormatOneChar(' ', &cursor);
-    detail::FormatYYYY_MM_DD(arrow_vendored::date::year_month_day{timepoint_days},
-                             &cursor);
-    return append(detail::ViewDigitBuffer(buffer, cursor));
+  static size_t MaxSize(const TimestampType& type) {
+    return detail::BufferSizeYYYY_MM_DD() + 1 + detail::BufferSizeHH_MM_SS(type.unit());
   }
 
-  template <typename Appender>
-  Return<Appender> operator()(value_type value, Appender&& append) {
-    return util::VisitDuration(unit_, *this, value, std::forward<Appender>(append));
-  }
+  struct ConvertImpl {
+    template <typename Duration>
+    size_t operator()(Duration, value_type count, char* out) {
+      Duration since_epoch{count};
 
- private:
-  TimeUnit::type unit_;
+      arrow_vendored::date::sys_days timepoint_days{
+          arrow_vendored::date::floor<arrow_vendored::date::days>(since_epoch)};
+
+      Duration since_midnight = since_epoch - timepoint_days.time_since_epoch();
+
+      detail::DigitBuffer<detail::BufferSizeYYYY_MM_DD() + 1 +
+                          detail::BufferSizeHH_MM_SS<Duration>()>
+          buffer;
+
+      detail::FormatHH_MM_SS(arrow_vendored::date::make_time(since_midnight),
+                             &buffer.cursor);
+      detail::FormatOneChar(' ', &buffer.cursor);
+      detail::FormatYYYY_MM_DD(arrow_vendored::date::year_month_day{timepoint_days},
+                               &buffer.cursor);
+      return detail::Copy(buffer.view(), out);
+    }
+  };
+
+  static size_t Convert(const TimestampType& type, value_type value, char* out) {
+    return util::VisitDuration(type.unit(), ConvertImpl{}, value, out);
+  }
 };
 
 }  // namespace internal

@@ -123,13 +123,11 @@ class NumericConverter : public PrimitiveConverter {
     RETURN_NOT_OK(builder.Resize(dict_array.indices()->length()));
 
     auto visit_valid = [&](string_view repr) {
-      value_type value;
-      if (!internal::ParseValue(numeric_type_, repr.data(), repr.size(), &value)) {
-        return GenericConversionError(*out_type_, ", couldn't parse:", repr);
+      if (auto value = internal::ParseValue(numeric_type_, repr)) {
+        builder.UnsafeAppend(*value);
+        return Status::OK();
       }
-
-      builder.UnsafeAppend(value);
-      return Status::OK();
+      return GenericConversionError(*out_type_, ", couldn't parse:", repr);
     };
 
     auto visit_null = [&]() {

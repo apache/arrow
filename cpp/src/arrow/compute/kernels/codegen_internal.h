@@ -643,6 +643,10 @@ struct ScalarUnaryNotNullStateful {
       return Scalar(ctx, *batch[0].scalar(), out);
     }
   }
+
+  void operator()(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    Exec(ctx, batch, out);
+  }
 };
 
 // An alternative to ScalarUnary that Applies a scalar operation on only the

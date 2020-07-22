@@ -97,7 +97,10 @@ struct TypeTraits<NullType> {
 
   static constexpr int64_t bytes_required(int64_t) { return 0; }
   constexpr static bool is_parameter_free = true;
-  static inline std::shared_ptr<DataType> type_singleton() { return null(); }
+  static inline const std::shared_ptr<DataType>& type_singleton() {
+    static auto instance = null();
+    return instance;
+  }
 };
 
 template <>
@@ -111,7 +114,10 @@ struct TypeTraits<BooleanType> {
     return BitUtil::BytesForBits(elements);
   }
   constexpr static bool is_parameter_free = true;
-  static inline std::shared_ptr<DataType> type_singleton() { return boolean(); }
+  static inline const std::shared_ptr<DataType>& type_singleton() {
+    static auto instance = boolean();
+    return instance;
+  }
 };
 
 template <>
@@ -132,7 +138,10 @@ struct CTypeTraits<bool> : public TypeTraits<BooleanType> {
       return elements * static_cast<int64_t>(sizeof(CType));                             \
     }                                                                                    \
     constexpr static bool is_parameter_free = true;                                      \
-    static inline std::shared_ptr<DataType> type_singleton() { return SingletonFn(); }   \
+    static inline const std::shared_ptr<DataType>& type_singleton() {                    \
+      static auto instance = SingletonFn();                                              \
+      return instance;                                                                   \
+    }                                                                                    \
   };                                                                                     \
                                                                                          \
   template <>                                                                            \
@@ -171,7 +180,10 @@ struct TypeTraits<Date64Type> {
     return elements * static_cast<int64_t>(sizeof(int64_t));
   }
   constexpr static bool is_parameter_free = true;
-  static inline std::shared_ptr<DataType> type_singleton() { return date64(); }
+  static inline const std::shared_ptr<DataType>& type_singleton() {
+    static auto instance = date64();
+    return instance;
+  }
 };
 
 template <>
@@ -185,7 +197,10 @@ struct TypeTraits<Date32Type> {
     return elements * static_cast<int64_t>(sizeof(int32_t));
   }
   constexpr static bool is_parameter_free = true;
-  static inline std::shared_ptr<DataType> type_singleton() { return date32(); }
+  static inline const std::shared_ptr<DataType>& type_singleton() {
+    static auto instance = date32();
+    return instance;
+  }
 };
 
 template <>
@@ -224,7 +239,10 @@ struct TypeTraits<DayTimeIntervalType> {
     return elements * static_cast<int64_t>(sizeof(DayTimeIntervalType::DayMilliseconds));
   }
   constexpr static bool is_parameter_free = true;
-  static std::shared_ptr<DataType> type_singleton() { return day_time_interval(); }
+  static inline const std::shared_ptr<DataType>& type_singleton() {
+    static auto instance = day_time_interval();
+    return instance;
+  }
 };
 
 template <>
@@ -237,7 +255,10 @@ struct TypeTraits<MonthIntervalType> {
     return elements * static_cast<int64_t>(sizeof(int32_t));
   }
   constexpr static bool is_parameter_free = true;
-  static std::shared_ptr<DataType> type_singleton() { return month_interval(); }
+  static inline const std::shared_ptr<DataType>& type_singleton() {
+    static auto instance = month_interval();
+    return instance;
+  }
 };
 
 template <>
@@ -277,7 +298,10 @@ struct TypeTraits<HalfFloatType> {
     return elements * static_cast<int64_t>(sizeof(uint16_t));
   }
   constexpr static bool is_parameter_free = true;
-  static inline std::shared_ptr<DataType> type_singleton() { return float16(); }
+  static inline const std::shared_ptr<DataType>& type_singleton() {
+    static auto instance = float16();
+    return instance;
+  }
 };
 
 template <>
@@ -295,7 +319,10 @@ struct TypeTraits<BinaryType> {
   using ScalarType = BinaryScalar;
   using OffsetType = Int32Type;
   constexpr static bool is_parameter_free = true;
-  static inline std::shared_ptr<DataType> type_singleton() { return binary(); }
+  static inline const std::shared_ptr<DataType>& type_singleton() {
+    static auto instance = binary();
+    return instance;
+  }
 };
 
 template <>
@@ -305,7 +332,10 @@ struct TypeTraits<LargeBinaryType> {
   using ScalarType = LargeBinaryScalar;
   using OffsetType = Int64Type;
   constexpr static bool is_parameter_free = true;
-  static inline std::shared_ptr<DataType> type_singleton() { return large_binary(); }
+  static inline const std::shared_ptr<DataType>& type_singleton() {
+    static auto instance = large_binary();
+    return instance;
+  }
 };
 
 template <>
@@ -323,7 +353,10 @@ struct TypeTraits<StringType> {
   using ScalarType = StringScalar;
   using OffsetType = Int32Type;
   constexpr static bool is_parameter_free = true;
-  static inline std::shared_ptr<DataType> type_singleton() { return utf8(); }
+  static inline const std::shared_ptr<DataType>& type_singleton() {
+    static auto instance = utf8();
+    return instance;
+  }
 };
 
 template <>
@@ -333,7 +366,10 @@ struct TypeTraits<LargeStringType> {
   using ScalarType = LargeStringScalar;
   using OffsetType = Int64Type;
   constexpr static bool is_parameter_free = true;
-  static inline std::shared_ptr<DataType> type_singleton() { return large_utf8(); }
+  static inline const std::shared_ptr<DataType>& type_singleton() {
+    static auto instance = large_utf8();
+    return instance;
+  }
 };
 
 template <>

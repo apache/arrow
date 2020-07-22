@@ -39,7 +39,7 @@ struct ParseBooleanString {
   template <typename OutValue, typename Arg0Value>
   static OutValue Call(KernelContext* ctx, Arg0Value val) {
     bool result = false;
-    if (ARROW_PREDICT_FALSE(!ParseValue<BooleanType>(val.data(), val.size(), &result))) {
+    if (ARROW_PREDICT_FALSE(!ParseValue<BooleanType>(val, &result))) {
       ctx->SetStatus(Status::Invalid("Failed to parse value: ", val));
     }
     return result;

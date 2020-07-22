@@ -116,9 +116,22 @@ class BaseBinaryBuilder : public ArrayBuilder {
     UnsafeAppend(value.data(), static_cast<offset_type>(value.size()));
   }
 
+  /// \brief Allow a function to write one string value directly into value_data_builder_
+  ///
+  /// \param[in] formatter a Callable<int64_t(char*)> which will write directly to
+  ///            value_data_builder_, returning the number of characters written.
+  template <typename Formatter>
+  void UnsafeFormat(Formatter&& formatter) {
+    UnsafeAppendNextOffset();
+    auto appended_size =
+        formatter(reinterpret_cast<char*>(value_data_builder_.mutable_data()) +
+                  value_data_builder_.length());
+    value_data_builder_.UnsafeAdvance(static_cast<int64_t>(appended_size));
+    UnsafeAppendToBitmap(true);
+  }
+
   void UnsafeAppendNull() {
-    const int64_t num_bytes = value_data_builder_.length();
-    offsets_builder_.UnsafeAppend(static_cast<offset_type>(num_bytes));
+    UnsafeAppendNextOffset();
     UnsafeAppendToBitmap(false);
   }
 

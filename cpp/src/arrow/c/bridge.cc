@@ -623,7 +623,7 @@ Status InvalidFormatString(util::string_view v) {
 
 class FormatStringParser {
  public:
-  FormatStringParser() {}
+  FormatStringParser() = default;
 
   explicit FormatStringParser(util::string_view v) : view_(v), index_(0) {}
 
@@ -657,11 +657,10 @@ class FormatStringParser {
   template <typename IntType = int32_t>
   Result<IntType> ParseInt(util::string_view v) {
     using ArrowIntType = typename CTypeTraits<IntType>::ArrowType;
-    IntType value;
-    if (!internal::ParseValue<ArrowIntType>(v.data(), v.size(), &value)) {
-      return Invalid();
+    if (util::optional<IntType> value = internal::ParseValue<ArrowIntType>(v)) {
+      return *value;
     }
-    return value;
+    return Invalid();
   }
 
   Result<TimeUnit::type> ParseTimeUnit() {

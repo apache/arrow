@@ -31,8 +31,10 @@
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/range.h"
+#include "parquet/arrow/reader.h"
 #include "parquet/arrow/writer.h"
 #include "parquet/metadata.h"
+#include "parquet/statistics.h"
 
 namespace arrow {
 namespace dataset {
@@ -209,6 +211,20 @@ class TestParquetFileFormat : public ArrowParquetWriterMixin {
   std::shared_ptr<ScanOptions> opts_;
   std::shared_ptr<ScanContext> ctx_ = std::make_shared<ScanContext>();
 };
+
+TEST_F(TestParquetFileFormat, DropReader) {
+  auto reader = GetRecordBatchReader();
+  auto source = GetFileSource(reader.get());
+
+  ASSERT_OK_AND_ASSIGN(auto parquet_reader, format_->GetReader(*source));
+  auto metadata = parquet_reader->parquet_reader()->metadata();
+  parquet_reader.reset();
+  auto stats = metadata->RowGroup(0)->ColumnChunk(0)->statistics();
+  std::cout << stats->distinct_count() << std::endl;
+  std::cout << stats->null_count() << std::endl;
+  std::cout << stats->EncodeMin() << std::endl;
+  std::cout << stats->EncodeMax() << std::endl;
+}
 
 TEST_F(TestParquetFileFormat, ScanRecordBatchReader) {
   auto reader = GetRecordBatchReader();

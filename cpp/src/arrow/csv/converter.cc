@@ -22,6 +22,7 @@
 #include <sstream>
 #include <string>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 #include "arrow/builder.h"
@@ -108,9 +109,8 @@ Status PresizeBuilder(const BlockParser& parser, BaseBinaryBuilder<T>* builder) 
 // Per-type value decoders
 
 struct ValueDecoder {
-  explicit ValueDecoder(const std::shared_ptr<DataType>& type,
-                        const ConvertOptions& options)
-      : type_(type), options_(options) {}
+  explicit ValueDecoder(std::shared_ptr<DataType> type, const ConvertOptions& options)
+      : type_(std::move(type)), options_(options) {}
 
   Status Initialize() {
     // TODO no need to build a separate Trie for each instance
@@ -202,7 +202,7 @@ struct NumericValueDecoder : public ValueDecoder {
     // XXX should quoted values be allowed at all?
     TrimWhiteSpace(&data, &size);
     if (ARROW_PREDICT_FALSE(
-            !internal::ParseValue<T>(reinterpret_cast<const char*>(data), size, out))) {
+            !internal::ParseValue<T>({reinterpret_cast<const char*>(data), size}, out))) {
       return GenericConversionError(type_, data, size);
     }
     return Status::OK();
@@ -530,9 +530,9 @@ std::shared_ptr<Converter> MakeTimestampConverter(const std::shared_ptr<DataType
 /////////////////////////////////////////////////////////////////////////
 // Base Converter class implementation
 
-Converter::Converter(const std::shared_ptr<DataType>& type, const ConvertOptions& options,
+Converter::Converter(std::shared_ptr<DataType> type, const ConvertOptions& options,
                      MemoryPool* pool)
-    : options_(options), pool_(pool), type_(type) {}
+    : options_(options), pool_(pool), type_(std::move(type)) {}
 
 DictionaryConverter::DictionaryConverter(const std::shared_ptr<DataType>& value_type,
                                          const ConvertOptions& options, MemoryPool* pool)

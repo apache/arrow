@@ -31,7 +31,7 @@ namespace compute {
 namespace internal {
 
 template <typename OutType, typename InType, typename Enable = void>
-struct CastFunctor {};
+struct CastFunctor;
 
 // No-op functor for identity casts
 template <typename O, typename I>
