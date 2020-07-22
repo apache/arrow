@@ -18,6 +18,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <iomanip>
 #include <iostream>
 
 #include "arrow/python/common.h"
@@ -355,6 +356,75 @@ Result<PyObject*> StringToTzinfo(const std::string& tz) {
   auto tzinfo = PyObject_CallFunctionObjArgs(timezone.obj(), py_tz_string.obj(), NULL);
   RETURN_IF_PYERROR();
   return tzinfo;
+}
+
+Result<std::string> TzinfoToString(PyObject* tzinfo) {
+  OwnedRef module_pytz;        // import pytz
+  OwnedRef module_datetime;    // import datetime
+  OwnedRef class_tzinfo;       // from datetime import tzinfo
+  OwnedRef class_timezone;     // from datetime import tzinfo
+  OwnedRef class_fixedoffset;  // from pytz import _FixedOffset
+
+  // import necessary modules
+  RETURN_NOT_OK(internal::ImportModule("pytz", &module_pytz));
+  RETURN_NOT_OK(internal::ImportModule("datetime", &module_datetime));
+  // import necessary classes
+  RETURN_NOT_OK(
+      internal::ImportFromModule(module_pytz.obj(), "_FixedOffset", &class_fixedoffset));
+  RETURN_NOT_OK(
+      internal::ImportFromModule(module_datetime.obj(), "tzinfo", &class_tzinfo));
+  RETURN_NOT_OK(
+      internal::ImportFromModule(module_datetime.obj(), "timezone", &class_timezone));
+
+  // check that it's a valid tzinfo object
+  if (!PyObject_IsInstance(tzinfo, class_tzinfo.obj())) {
+    return Status::Invalid("Not an instance of datetime.tzinfo");
+  }
+
+  // convert offset objects to "+/-{hh}:{mm}" format
+  if (PyObject_IsInstance(tzinfo, class_timezone.obj()) ||
+      PyObject_IsInstance(tzinfo, class_fixedoffset.obj())) {
+    OwnedRef timedelta_object(PyObject_CallMethod(tzinfo, "utcoffset", "O", Py_None));
+    RETURN_IF_PYERROR();
+    if (timedelta_object.obj() != nullptr && timedelta_object.obj() != Py_None) {
+      // retrieve the offset as seconds
+      auto timedelta = reinterpret_cast<PyDateTime_Delta*>(timedelta_object.obj());
+      auto total_seconds = internal::PyDelta_to_s(timedelta);
+
+      // determine whether the offset is positive or negative
+      auto sign = (total_seconds < 0) ? "-" : "+";
+      total_seconds = abs(total_seconds);
+
+      // calculate offset components
+      int64_t hours, minutes, seconds;
+      seconds = split_time(total_seconds, 60, &minutes);
+      minutes = split_time(minutes, 60, &hours);
+      if (seconds > 0) {
+        // check there are no remaining seconds
+        return Status::Invalid("Offset must represent whole number of minutes");
+      }
+
+      // construct the timezone string
+      std::stringstream stream;
+      stream << sign << std::setfill('0') << std::setw(2) << hours << ":"
+             << std::setfill('0') << std::setw(2) << minutes;
+      return stream.str();
+    } else {
+      return Status::Invalid("Unable to convert timezone offset object to string");
+    }
+  }
+
+  // pytz.tzinfo.BaseTzInfo objects store the string representation in zone attribute
+  if (PyObject_HasAttrString(tzinfo, "zone")) {
+    OwnedRef zone_object(PyObject_GetAttrString(tzinfo, "zone"));
+    if (zone_object) {
+      std::string zone_string;
+      RETURN_NOT_OK(internal::PyUnicode_AsStdString(zone_object.obj(), &zone_string));
+      return zone_string;
+    }
+  }
+
+  return Status::Invalid("Unable to convert timezone object to string");
 }
 
 }  // namespace internal

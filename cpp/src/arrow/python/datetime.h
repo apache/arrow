@@ -170,6 +170,9 @@ Result<int64_t> PyDateTime_utcoffset_s(PyObject* pydatetime);
 ARROW_PYTHON_EXPORT
 Result<PyObject*> StringToTzinfo(const std::string& tz);
 
+ARROW_PYTHON_EXPORT
+Result<std::string> TzinfoToString(PyObject* pytzinfo);
+
 }  // namespace internal
 }  // namespace py
 }  // namespace arrow

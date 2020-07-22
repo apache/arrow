@@ -17,9 +17,11 @@
 
 from collections import OrderedDict
 from collections.abc import Iterator
+import datetime
 
 import pickle
 import pytest
+import pytz
 import hypothesis as h
 import hypothesis.strategies as st
 import weakref
@@ -250,6 +252,33 @@ def test_is_temporal_date_time_timestamp():
 def test_is_primitive():
     assert types.is_primitive(pa.int32())
     assert not types.is_primitive(pa.list_(pa.int32()))
+
+
+@pytest.mark.parametrize(('tz', 'expected'), [
+    (pytz.utc, 'UTC'),
+    (pytz.timezone('Europe/Paris'), 'Europe/Paris'),
+    (pytz.FixedOffset(180), '+03:00'),
+    # (datetime.timezone.utc, 'UTC'),
+    (datetime.timezone.utc, '+00:00'),
+    (datetime.timezone(datetime.timedelta(hours=1, minutes=30)), '+01:30')
+])
+def test_tzinfo_to_string(tz, expected):
+    result = pa.lib.tzinfo_to_string(tz)
+    assert result == expected
+
+    assert pa.lib.tzinfo_to_str(tz) == expected
+
+
+@pytest.mark.parametrize(('string', 'expected'), [
+    ('UTC', pytz.utc),
+    ('Europe/Paris', pytz.timezone('Europe/Paris')),
+    ('+03:00', pytz.FixedOffset(180)),
+    ('+01:30', pytz.FixedOffset(90)),
+    ('-02:00', pytz.FixedOffset(-120))
+])
+def test_string_to_tzinfo(string, expected):
+    result = pa.lib.string_to_tzinfo(string)
+    assert result == expected
 
 
 def test_timestamp():

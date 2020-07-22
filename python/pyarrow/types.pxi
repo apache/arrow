@@ -1862,6 +1862,10 @@ def tzinfo_to_string(tz):
         raise TypeError('Must be an instance of `datetime.tzinfo`')
 
 
+def tzinfo_to_str(tz):
+    return frombytes(GetResultValue(TzinfoToString(<PyObject*>tz)))
+
+
 def string_to_tzinfo(name):
     """
     Convert a time zone name into a time zone object.
