@@ -905,6 +905,66 @@ gboolean garrow_time64_array_builder_append_nulls(GArrowTime64ArrayBuilder *buil
                                                   GError **error);
 
 
+#define GARROW_TYPE_BINARY_DICTIONARY_ARRAY_BUILDER (garrow_binary_dictionary_array_builder_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowBinaryDictionaryArrayBuilder,
+                         garrow_binary_dictionary_array_builder,
+                         GARROW,
+                         BINARY_DICTIONARY_ARRAY_BUILDER,
+                         GArrowArrayBuilder)
+struct _GArrowBinaryDictionaryArrayBuilderClass
+{
+  GArrowArrayBuilderClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_1_0
+GArrowBinaryDictionaryArrayBuilder *
+garrow_binary_dictionary_array_builder_new(void);
+GARROW_AVAILABLE_IN_1_0
+gboolean
+garrow_binary_dictionary_array_builder_append_null(GArrowBinaryDictionaryArrayBuilder *builder,
+                                                   GError **error);
+GARROW_AVAILABLE_IN_1_0
+gboolean
+garrow_binary_dictionary_array_builder_append_nulls(GArrowBinaryDictionaryArrayBuilder *builder,
+                                                    gint64 n,
+                                                    GError **error);
+GARROW_AVAILABLE_IN_1_0
+gboolean
+garrow_binary_dictionary_array_builder_append_value_bytes(GArrowBinaryDictionaryArrayBuilder *builder,
+                                                          GBytes *value,
+                                                          GError **error);
+GARROW_AVAILABLE_IN_1_0
+gboolean
+garrow_binary_dictionary_array_builder_append_binary_array(GArrowBinaryDictionaryArrayBuilder *builder,
+                                                           GArrowBinaryArray *array,
+                                                           GError **error);
+GARROW_AVAILABLE_IN_1_0
+gboolean
+garrow_binary_dictionary_array_builder_append_indices(GArrowBinaryDictionaryArrayBuilder *builder,
+                                                      const gint64 *values,
+                                                      gint64 values_length,
+                                                      const gboolean *is_valids,
+                                                      gint64 is_valids_length,
+                                                      GError **error);
+GARROW_AVAILABLE_IN_1_0
+gint64
+garrow_binary_dictionary_array_builder_get_dictionary_length(GArrowBinaryDictionaryArrayBuilder *builder);
+GARROW_AVAILABLE_IN_1_0
+GArrowArray *
+garrow_binary_dictionary_array_builder_finish_delta(GArrowBinaryDictionaryArrayBuilder* builder,
+                                                    GArrowArray **out_delta,
+                                                    GError **error);
+
+GARROW_AVAILABLE_IN_1_0
+gboolean
+garrow_binary_dictionary_array_builder_insert_memo_values(GArrowBinaryDictionaryArrayBuilder *builder,
+                                                          GArrowBinaryArray *values,
+                                                          GError **error);
+GARROW_AVAILABLE_IN_1_0
+void
+garrow_binary_dictionary_array_builder_reset_full(GArrowBinaryDictionaryArrayBuilder *builder);
+
+
 #define GARROW_TYPE_STRING_DICTIONARY_ARRAY_BUILDER (garrow_string_dictionary_array_builder_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowStringDictionaryArrayBuilder,
                          garrow_string_dictionary_array_builder,
@@ -963,6 +1023,7 @@ garrow_string_dictionary_array_builder_insert_memo_values(GArrowStringDictionary
 GARROW_AVAILABLE_IN_1_0
 void
 garrow_string_dictionary_array_builder_reset_full(GArrowStringDictionaryArrayBuilder *builder);
+
 
 #define GARROW_TYPE_LIST_ARRAY_BUILDER (garrow_list_array_builder_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowListArrayBuilder,

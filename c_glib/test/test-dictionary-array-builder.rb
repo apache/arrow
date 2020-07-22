@@ -26,6 +26,163 @@ class TestDictinaryArrayBuilder < Test::Unit::TestCase
               ]
   end
 
+  sub_test_case("BinaryDictionaryArrayBuilder") do
+    sub_test_case("constructed from empty") do
+      def setup
+        super
+
+        @dictionary = %w(foo bar baz)
+        @dictionary_array = build_binary_array(@dictionary)
+        @indices = @values.map {|x| x ? @dictionary.index(x) : nil }
+        @indices_array = build_int8_array(@indices)
+        @data_type = Arrow::DictionaryDataType.new(@indices_array.value_data_type,
+                                                   @dictionary_array.value_data_type,
+                                                   false)
+        @expected_array = Arrow::DictionaryArray.new(@data_type,
+                                                     @indices_array,
+                                                     @dictionary_array)
+        @builder = Arrow::BinaryDictionaryArrayBuilder.new
+        @values.each do |value|
+          if value
+            @builder.append_value_bytes(value)
+          else
+            @builder.append_null
+          end
+        end
+      end
+
+      test("append_value_bytes") do
+        dictionary_array = build_binary_array([*@dictionary, "qux"])
+        indices_array = build_int8_array([*@indices, 3])
+        expected_array = Arrow::DictionaryArray.new(@data_type,
+                                                    indices_array,
+                                                    dictionary_array)
+
+        @builder.append_value_bytes("qux")
+        assert do
+          expected_array == @builder.finish
+        end
+      end
+
+      test("append_binary_array") do
+        dictionary_array = build_binary_array([*@dictionary, "qux"])
+        indices_array = build_int8_array([*@indices, 3, 0, nil, 2])
+        expected_array = Arrow::DictionaryArray.new(@data_type,
+                                                    indices_array,
+                                                    dictionary_array)
+
+        @builder.append_binary_array(build_binary_array(["qux", "foo", nil, "baz"]))
+        assert do
+          expected_array == @builder.finish
+        end
+      end
+
+      test("append_indices") do
+        @builder.insert_memo_values(build_binary_array(["qux"]))
+        dictionary_array = build_binary_array([*@dictionary, "qux"])
+        indices_array = build_int8_array([*@indices, 1, 2, nil, 3, 0, 1, 2, 1, 3, 0])
+        expected_array = Arrow::DictionaryArray.new(@data_type,
+                                                    indices_array,
+                                                    dictionary_array)
+
+        @builder.append_indices([1, 2, 1, 3, 0],
+                                [true, true, false, true, true])
+        @builder.append_indices([1, 2, 1, 3, 0])
+        assert do
+          expected_array == @builder.finish
+        end
+      end
+
+      test("dictionary_length") do
+        assert do
+          @dictionary.length == @builder.dictionary_length
+        end
+      end
+
+      test("finish") do
+        assert_equal(@expected_array,
+                     @builder.finish)
+      end
+
+      test("finish_delta") do
+        assert_equal([
+                       @indices_array,
+                       @dictionary_array,
+                     ],
+                     @builder.finish_delta)
+      end
+
+      test("reset") do
+        expected_array = Arrow::DictionaryArray.new(@data_type,
+                                                    build_int8_array([]),
+                                                    @dictionary_array)
+        @builder.reset
+        assert_equal({
+                       dictionary_length: @dictionary.length,
+                       array: expected_array,
+                     },
+                     {
+                       dictionary_length: @builder.dictionary_length,
+                       array: @builder.finish,
+                     })
+      end
+
+      test("reset_full") do
+        expected_array = Arrow::DictionaryArray.new(@data_type,
+                                                    build_int8_array([]),
+                                                    build_binary_array([]))
+        @builder.reset_full
+        assert_equal({
+                       dictionary_length: 0,
+                       array: expected_array,
+                     },
+                     {
+                       dictionary_length: @builder.dictionary_length,
+                       array: @builder.finish,
+                     })
+      end
+    end
+
+    sub_test_case("constructed with memo values") do
+      def setup
+        super
+
+        @dictionary = %w(qux foo bar baz)
+        dictionary_array = build_binary_array(@dictionary)
+        indices = @values.map {|x| x ? @dictionary.index(x) : nil }
+        indices_array = build_int8_array(indices)
+        data_type = Arrow::DictionaryDataType.new(indices_array.value_data_type,
+                                                  dictionary_array.value_data_type,
+                                                  false)
+        @expected_array = Arrow::DictionaryArray.new(data_type,
+                                                     indices_array,
+                                                     dictionary_array)
+
+        @builder = Arrow::BinaryDictionaryArrayBuilder.new
+        @builder.insert_memo_values(dictionary_array)
+        @values.each do |value|
+          if value
+            @builder.append_value_bytes(value)
+          else
+            @builder.append_null
+          end
+        end
+      end
+
+      test("dictionary_length") do
+        assert do
+          @dictionary.length == @builder.dictionary_length
+        end
+      end
+
+      test("finish") do
+        assert do
+          @expected_array == @builder.finish
+        end
+      end
+    end
+  end
+
   sub_test_case("StringDictionaryArrayBuilder") do
     sub_test_case("constructed from empty") do
       def setup
@@ -64,7 +221,7 @@ class TestDictinaryArrayBuilder < Test::Unit::TestCase
         end
       end
 
-      test("append_array") do
+      test("append_string_array") do
         dictionary_array = build_string_array([*@dictionary, "qux"])
         indices_array = build_int8_array([*@indices, 3, 0, nil, 2])
         expected_array = Arrow::DictionaryArray.new(@data_type,
