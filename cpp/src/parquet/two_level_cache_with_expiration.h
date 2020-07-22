@@ -40,8 +40,40 @@ class TwoLevelCacheWithExpiration {
           {access_token, ExpiringCacheEntry<std::map<std::string, V>>(
                              std::map<std::string, V>(), cache_entry_life_time)});
     }
-    return cache_[access_token];
+    return cache_[access_token]->cached_item();
   }
+
+  void RemoveCacheEntriesForToken(const std::string& access_token) {
+    cache_.remove(access_token);
+  }
+
+  void RemoveCacheEntriesForAllTokens() { cache_.clear(); }
+
+  void CheckCacheForExpiredTokens(uint64_t cache_cleanup_period) {
+    TimePoint now = CurrentTimePoint();
+
+    if (now > (last_cache_cleanup_timestamp_ +
+               std::chrono::milliseconds(cache_cleanup_period))) {
+      // TODO: synchronize is needed or not?
+      RemoveExpiredEntriesFromCache();
+      last_cache_cleanup_timestamp_ =
+          now + std::chrono::milliseconds(cache_cleanup_period);
+    }
+  }
+
+  void RemoveExpiredEntriesFromCache() {
+    for (auto it = cache_.begin(); it != cache_.end();) {
+      if (it->second->isExpired()) {
+        it = cache_->remove(it);
+      } else {
+        ++it;
+      }
+    }
+  }
+
+  void Remove(const std::string& access_token) { cache_.remove(access_token); }
+
+  void Clear() { cache_.clear(); }
 
  private:
   template <typename E>
@@ -65,5 +97,5 @@ class TwoLevelCacheWithExpiration {
   };
 
   std::map<std::string, ExpiringCacheEntry<std::map<std::string, V>>> cache_;
-  volatile TimePoint last_cache_cleanup_timestamp_;
+  TimePoint last_cache_cleanup_timestamp_;
 };

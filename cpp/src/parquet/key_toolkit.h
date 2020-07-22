@@ -18,8 +18,12 @@
 #pragma once
 
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <vector>
+
+#include "parquet/kms_client.h"
+#include "parquet/two_level_cache_with_expiration.h"
 
 namespace parquet {
 
@@ -27,6 +31,16 @@ namespace encryption {
 
 class KeyToolkit {
  public:
+  class KmsClientCache {
+   private:
+    KmsClientCache& GetInstance() {
+      static KmsClientCache instance;
+      return instance;
+    }
+    TwoLevelCacheWithExpiration<std::shared_ptr<KmsClient>>& cache() { return cache_; }
+    TwoLevelCacheWithExpiration<std::shared_ptr<KmsClient>> cache_;
+  };
+
   static std::string EncryptKeyLocally(const uint8_t* key_bytes, int key_size,
                                        const uint8_t* master_key_bytes,
                                        int master_key_size, const uint8_t* aad_bytes,
