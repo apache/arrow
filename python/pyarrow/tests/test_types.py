@@ -266,7 +266,7 @@ def test_tzinfo_to_string(tz, expected):
     assert pa.lib.tzinfo_to_string(tz) == expected
 
 
-@pytest.mark.skipif(sys.version_info <= (3, 6), reason=(
+@pytest.mark.skipif(sys.version_info <= (3, 7), reason=(
     "Since python 3.7 the UTC offset for datetime.timezone is not restricted "
     "to a whole number of minutes"
 ))
