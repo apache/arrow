@@ -1834,35 +1834,6 @@ def tzinfo_to_string(tz):
       name : str
         Time zone name
     """
-    import pytz
-    import datetime
-
-    def fixed_offset_to_string(offset):
-        seconds = int(offset.utcoffset(None).total_seconds())
-        sign = '+' if seconds >= 0 else '-'
-        minutes, seconds = divmod(abs(seconds), 60)
-        hours, minutes = divmod(minutes, 60)
-        if seconds > 0:
-            raise ValueError('Offset must represent whole number of minutes')
-        return '{}{:02d}:{:02d}'.format(sign, hours, minutes)
-
-    if tz is pytz.utc:
-        return tz.zone  # ARROW-4055
-    elif isinstance(tz, pytz.tzinfo.BaseTzInfo):
-        return tz.zone
-    elif isinstance(tz, pytz._FixedOffset):
-        return fixed_offset_to_string(tz)
-    elif isinstance(tz, datetime.tzinfo):
-        if isinstance(tz, datetime.timezone):
-            return fixed_offset_to_string(tz)
-        else:
-            raise ValueError('Unable to convert timezone `{}` to string'
-                             .format(tz))
-    else:
-        raise TypeError('Must be an instance of `datetime.tzinfo`')
-
-
-def tzinfo_to_str(tz):
     return frombytes(GetResultValue(TzinfoToString(<PyObject*>tz)))
 
 

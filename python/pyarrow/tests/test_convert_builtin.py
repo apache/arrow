@@ -1525,17 +1525,6 @@ def test_decimal_array_with_none_and_nan():
     assert array.to_pylist() == [decimal.Decimal('1.2340'), None, None, None]
 
 
-@pytest.mark.parametrize('tz,name', [
-    (pytz.FixedOffset(90), '+01:30'),
-    (pytz.FixedOffset(-90), '-01:30'),
-    (pytz.utc, 'UTC'),
-    (pytz.timezone('America/New_York'), 'America/New_York')
-])
-def test_timezone_string(tz, name):
-    assert pa.lib.tzinfo_to_string(tz) == name
-    assert pa.lib.string_to_tzinfo(name) == tz
-
-
 def test_map_from_dicts():
     data = [[{'key': b'a', 'value': 1}, {'key': b'b', 'value': 2}],
             [{'key': b'c', 'value': 3}],
