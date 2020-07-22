@@ -19,9 +19,19 @@
 #' @include chunked-array.R
 #' @include scalar.R
 
-call_function <- function(function_name, ..., options = list()) {
+call_function <- function(function_name, ..., args = list(...), options = empty_named_list()) {
   assert_that(is.string(function_name))
-  compute__CallFunction(function_name, list(...), options)
+  assert_that(is.list(options), !is.null(names(options)))
+
+  datum_classes <- c("Array", "ChunkedArray", "RecordBatch", "Table", "Scalar")
+  valid_args <- map_lgl(args, ~inherits(., datum_classes))
+  if (!all(valid_args)) {
+    # Lame, just pick one to report
+    first_bad <- min(which(!valid_args))
+    stop("Argument ", first_bad, " is of class ", head(class(args[[first_bad]]), 1), " but it must be one of ", oxford_paste(datum_classes, "or"), call. = FALSE)
+  }
+
+  compute__CallFunction(function_name, args, options)
 }
 
 #' @export

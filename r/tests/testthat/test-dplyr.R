@@ -145,6 +145,24 @@ test_that("More complex select/filter", {
   )
 })
 
+test_that("Print method", {
+  expect_output(
+    record_batch(tbl) %>%
+      filter(dbl > 2, chr == "d" | chr == "f") %>%
+      select(chr, int, lgl) %>%
+      filter(int < 5) %>%
+      select(int, chr) %>%
+      print(),
+'RecordBatch (query)
+int: int32
+chr: string
+
+* Filter: and(and(greater(<Array>, 2), or(equal(<Array>, "d"), equal(<Array>, "f"))), less(<Array>, 5L))
+See $.data for the source Arrow object',
+  fixed = TRUE
+  )
+})
+
 test_that("filter() with %in%", {
   expect_dplyr_equal(
     input %>%
@@ -169,6 +187,10 @@ test_that("filter environment scope", {
   # 'could not find function "isEqualTo"'
   expect_dplyr_error(filter(batch, isEqualTo(int, 4)))
 
+  # TODO: fix this: this isEqualTo function is eagerly evaluating; it should
+  # instead yield array_expressions. Probably bc the parent env of the function
+  # has the Ops.Array methods defined; we need to move it so that the parent
+  # env is the data mask we use in the dplyr eval
   isEqualTo <- function(x, y) x == y & !is.na(x)
   expect_dplyr_equal(
     input %>%

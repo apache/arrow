@@ -25,7 +25,7 @@ expect_array_roundtrip <- function(x, type, as = NULL) {
     # TODO: revisit how missingness works with ListArrays
     # R list objects don't handle missingness the same way as other vectors.
     # Is there some vctrs thing we should do on the roundtrip back to R?
-    expect_identical(is.na(a), is.na(x))
+    expect_equal(as.vector(is.na(a)), is.na(x))
   }
   expect_equivalent(as.vector(a), x)
   # Make sure the storage mode is the same on roundtrip (esp. integer vs. numeric)
@@ -37,7 +37,7 @@ expect_array_roundtrip <- function(x, type, as = NULL) {
     expect_type_equal(a_sliced$type, type)
     expect_identical(length(a_sliced), length(x_sliced))
     if (!inherits(type, c("ListType", "LargeListType"))) {
-      expect_identical(is.na(a_sliced), is.na(x_sliced))
+      expect_equal(as.vector(is.na(a_sliced)), is.na(x_sliced))
     }
     expect_equivalent(as.vector(a_sliced), x_sliced)
   }
@@ -182,8 +182,8 @@ test_that("Array supports NA", {
   expect_true(x_int$IsNull(10L))
   expect_true(x_dbl$IsNull(10))
 
-  expect_equal(is.na(x_int), c(rep(FALSE, 10), TRUE))
-  expect_equal(is.na(x_dbl), c(rep(FALSE, 10), TRUE))
+  expect_equal(as.vector(is.na(x_int)), c(rep(FALSE, 10), TRUE))
+  expect_equal(as.vector(is.na(x_dbl)), c(rep(FALSE, 10), TRUE))
 
   # Input validation
   expect_error(x_int$IsValid("ten"), class = "Rcpp::not_compatible")
@@ -354,7 +354,7 @@ test_that("integer types casts (ARROW-3741)", {
   for (type in c(int_types, uint_types)) {
     casted <- a$cast(type)
     expect_equal(casted$type, type)
-    expect_identical(is.na(casted), c(rep(FALSE, 10), TRUE))
+    expect_identical(as.vector(is.na(casted)), c(rep(FALSE, 10), TRUE))
   }
 })
 
@@ -372,7 +372,7 @@ test_that("float types casts (ARROW-3741)", {
   for (type in float_types) {
     casted <- a$cast(type)
     expect_equal(casted$type, type)
-    expect_identical(is.na(casted), c(rep(FALSE, 3), TRUE))
+    expect_identical(as.vector(is.na(casted)), c(rep(FALSE, 3), TRUE))
     expect_identical(as.vector(casted), x)
   }
 })
