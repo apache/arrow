@@ -235,13 +235,15 @@ class FloatToStringFormatterMixin : public FloatToStringFormatter {
  public:
   using value_type = typename ARROW_TYPE::c_type;
 
+  static constexpr int buffer_size = 50;
+
   explicit FloatToStringFormatterMixin(const std::shared_ptr<DataType>& = NULLPTR) {}
 
   template <typename Appender>
   Return<Appender> operator()(value_type value, Appender&& append) {
-    std::array<char, 50> buffer;
-    int size = FormatFloat(value, buffer.data(), buffer.size());
-    return append(util::string_view(buffer.data(), size));
+    char buffer[buffer_size];
+    int size = FormatFloat(value, buffer, buffer_size);
+    return append(util::string_view(buffer, size));
   }
 };
 
