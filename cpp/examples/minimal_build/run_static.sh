@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -32,8 +32,7 @@ echo "=="
 echo
 
 mkdir -p $ARROW_BUILD_DIR
-OLDPWD="$PWD"
-cd $ARROW_BUILD_DIR
+pushd $ARROW_BUILD_DIR
 
 NPROC=$(nproc)
 
@@ -50,6 +49,7 @@ cmake $ARROW_DIR/cpp \
     -DARROW_JEMALLOC=ON \
     -DARROW_JSON=ON \
     -DARROW_ORC=ON \
+    -DORC_SOURCE=BUNDLED \
     -DARROW_PARQUET=ON \
     -DARROW_PLASMA=ON \
     -DARROW_WITH_BROTLI=ON \
@@ -63,7 +63,7 @@ cmake $ARROW_DIR/cpp \
 make -j$NPROC
 make install
 
-cd "$OLDPWD"
+popd
 
 echo
 echo "=="
@@ -72,12 +72,12 @@ echo "=="
 echo
 
 mkdir -p $EXAMPLE_BUILD_DIR
-cd $EXAMPLE_BUILD_DIR
+pushd $EXAMPLE_BUILD_DIR
 
 cmake $EXAMPLE_DIR -DARROW_LINK_SHARED=OFF
 make
 
-cd "$OLDPWD"
+popd
 
 echo
 echo "=="
@@ -85,6 +85,6 @@ echo "== Running example project"
 echo "=="
 echo
 
-cd $EXAMPLE_DIR
+pushd $EXAMPLE_DIR
 
 ${EXAMPLE_BUILD_DIR}/arrow_example

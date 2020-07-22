@@ -39,6 +39,18 @@ include("${CMAKE_CURRENT_LIST_DIR}/ArrowOptions.cmake")
 include(CMakeFindDependencyMacro)
 
 if(ARROW_USE_STATIC)
+  set(LIB_PATH_SUFFIXES
+      "${CMAKE_LIBRARY_ARCHITECTURE}"
+      "lib/${CMAKE_LIBRARY_ARCHITECTURE}"
+      "lib64"
+      "lib32"
+      "lib"
+      "bin"
+      "Library"
+      "Library/lib"
+      "Library/bin")
+  set(INCLUDE_PATH_SUFFIXES "include" "Library" "Library/include")
+
   set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
   set(THREADS_PREFER_PTHREAD_FLAG TRUE)
   find_dependency(Threads)
