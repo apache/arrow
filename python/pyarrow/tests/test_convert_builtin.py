@@ -978,20 +978,32 @@ def test_sequence_timestamp_with_timezone_inference():
         assert arr.type == expected_type
 
 
-# @pytest.mark.pandas
-# def test_nanosecond_resolution_timestamp():
-#     import pandas as pd
+@pytest.mark.pandas
+def test_sequence_timestamp_from_mixed_builtin_and_pandas_datetimes():
+    import pandas as pd
 
-#     data = [
-#         pd.Timestamp(1184307814123456123, tz=pytz.timezone('US/Eastern'),
-#                      unit='ns'),
-#         datetime.datetime(2007, 7, 13, 8, 23, 34, 123456),  # naive
-#         pytz.utc.localize(
-#             datetime.datetime(2008, 1, 5, 5, 0, 0, 1000)
-#         ),
-#         None,
-#     ]
-#     assert pa.array(data).type == pa.timestamp('ns', tz='US/Eastern')
+    data = [
+        pd.Timestamp(1184307814123456123, tz=pytz.timezone('US/Eastern'),
+                     unit='ns'),
+        datetime.datetime(2007, 7, 13, 8, 23, 34, 123456),  # naive
+        pytz.utc.localize(
+            datetime.datetime(2008, 1, 5, 5, 0, 0, 1000)
+        ),
+        None,
+    ]
+    utcdata = [
+        data[0].astimezone(pytz.utc),
+        pytz.utc.localize(data[1]),
+        data[2].astimezone(pytz.utc),
+        None,
+    ]
+
+    arr = pa.array(data)
+    assert arr.type == pa.timestamp('us', tz='US/Eastern')
+
+    values = arr.cast('int64')
+    expected = [int(dt.timestamp() * 10**6) if dt else None for dt in utcdata]
+    assert values.to_pylist() == expected
 
 
 def test_sequence_numpy_timestamp():
