@@ -32,8 +32,6 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/optional.h"
-#include "arrow/util/string_view.h"
 #include "arrow/util/time.h"
 #include "arrow/util/visibility.h"
 #include "arrow/vendored/datetime.h"
@@ -697,7 +695,6 @@ struct StringConverter<TIME_TYPE, enable_if_time<TIME_TYPE>> {
 };
 
 /// \brief Convenience wrappers around internal::StringConverter.
-/// TODO(bkietz) These are fairly redundant; some should be deleted.
 template <typename T>
 bool ParseValue(const T& type, const char* s, size_t length,
                 typename StringConverter<T>::value_type* out) {
@@ -705,55 +702,10 @@ bool ParseValue(const T& type, const char* s, size_t length,
 }
 
 template <typename T>
-bool ParseValue(const T& type, util::string_view s,
-                typename StringConverter<T>::value_type* out) {
-  return ParseValue(type, s.data(), s.size(), out);
-}
-
-template <typename T>
-util::optional<typename StringConverter<T>::value_type> ParseValue(const T& type,
-                                                                   const char* s,
-                                                                   size_t length) {
-  typename StringConverter<T>::value_type out;
-  if (StringConverter<T>::Convert(type, s, length, &out)) {
-    return out;
-  }
-  return util::nullopt;
-}
-
-template <typename T>
-util::optional<typename StringConverter<T>::value_type> ParseValue(const T& type,
-                                                                   util::string_view s) {
-  return ParseValue(type, s.data(), s.size());
-}
-
-template <typename T>
 enable_if_parameter_free<T, bool> ParseValue(
     const char* s, size_t length, typename StringConverter<T>::value_type* out) {
-  static T static_instance;
-  return StringConverter<T>::Convert(static_instance, s, length, out);
-}
-
-template <typename T>
-enable_if_parameter_free<T, bool> ParseValue(
-    util::string_view s, typename StringConverter<T>::value_type* out) {
-  return ParseValue<T>(s.data(), s.size(), out);
-}
-
-template <typename T>
-enable_if_parameter_free<T, util::optional<typename StringConverter<T>::value_type>>
-ParseValue(const char* s, size_t length) {
-  typename StringConverter<T>::value_type value;
-  if (ParseValue<T>(s, length, &value)) {
-    return value;
-  }
-  return util::nullopt;
-}
-
-template <typename T>
-enable_if_parameter_free<T, util::optional<typename StringConverter<T>::value_type>>
-ParseValue(util::string_view s) {
-  return ParseValue<T>(s.data(), s.size());
+  static T type;
+  return StringConverter<T>::Convert(type, s, length, out);
 }
 
 }  // namespace internal

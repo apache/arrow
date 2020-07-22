@@ -350,8 +350,6 @@ class NumericConverter : public ConcreteConverter {
     using BuilderType = typename TypeTraits<T>::BuilderType;
     using value_type = typename T::c_type;
 
-    const T& type = checked_cast<const T&>(*type_);
-
     BuilderType builder(type_, pool_);
 
     auto visit = [&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
@@ -364,8 +362,8 @@ class NumericConverter : public ConcreteConverter {
       if (!std::is_same<BooleanType, T>::value) {
         TrimWhiteSpace(&data, &size);
       }
-      if (ARROW_PREDICT_FALSE(!internal::ParseValue(
-              type, reinterpret_cast<const char*>(data), size, &value))) {
+      if (ARROW_PREDICT_FALSE(!internal::ParseValue<T>(
+              reinterpret_cast<const char*>(data), size, &value))) {
         return GenericConversionError(type_, data, size);
       }
       builder.UnsafeAppend(value);

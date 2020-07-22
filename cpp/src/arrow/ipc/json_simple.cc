@@ -327,7 +327,7 @@ class TimestampConverter final : public ConcreteConverter<TimestampConverter> {
       RETURN_NOT_OK(ConvertNumber<Int64Type>(json_obj, *this->type_, &value));
     } else if (json_obj.IsString()) {
       util::string_view view(json_obj.GetString(), json_obj.GetStringLength());
-      if (!ParseValue(*timestamp_type_, view, &value)) {
+      if (!ParseValue(*timestamp_type_, view.data(), view.size(), &value)) {
         return Status::Invalid("couldn't parse timestamp from ", view);
       }
     } else {

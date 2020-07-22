@@ -298,10 +298,11 @@ std::string Scalar::ToString() const {
 struct ScalarParseImpl {
   template <typename T, typename = internal::enable_if_parseable<T>>
   Status Visit(const T& t) {
-    if (auto value = internal::ParseValue(t, s_)) {
-      return Finish(*value);
+    typename internal::StringConverter<T>::value_type value;
+    if (!internal::ParseValue(t, s_.data(), s_.size(), &value)) {
+      return Status::Invalid("error parsing '", s_, "' as scalar of type ", t);
     }
-    return Status::Invalid("error parsing '", s_, "' as scalar of type ", t);
+    return Finish(value);
   }
 
   Status Visit(const BinaryType&) { return FinishWithBuffer(); }

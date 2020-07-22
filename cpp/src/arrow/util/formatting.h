@@ -72,9 +72,13 @@ class StringFormatter<BooleanType> {
 
   template <typename Appender>
   Return<Appender> operator()(bool value, Appender&& append) {
-    constexpr util::string_view true_string = "true";
-    constexpr util::string_view false_string = "false";
-    return value ? append(true_string) : append(false_string);
+    if (value) {
+      const char string[] = "true";
+      return append(util::string_view(string));
+    } else {
+      const char string[] = "false";
+      return append(util::string_view(string));
+    }
   }
 };
 
@@ -213,12 +217,17 @@ class StringFormatter<UInt64Type> : public IntToStringFormatterMixin<UInt64Type>
 // Floating-point formatting
 
 class ARROW_EXPORT FloatToStringFormatter {
- protected:
-  void FormatFloat(float v);
-  void FormatFloat(double v);
+ public:
+  FloatToStringFormatter();
+  ~FloatToStringFormatter();
 
-  std::array<char, 50> buffer_;
-  size_t size_;
+  // Returns the number of characters written
+  int FormatFloat(float v, char* out_buffer, int out_size);
+  int FormatFloat(double v, char* out_buffer, int out_size);
+
+ protected:
+  struct Impl;
+  std::unique_ptr<Impl> impl_;
 };
 
 template <typename ARROW_TYPE>
@@ -230,8 +239,9 @@ class FloatToStringFormatterMixin : public FloatToStringFormatter {
 
   template <typename Appender>
   Return<Appender> operator()(value_type value, Appender&& append) {
-    FormatFloat(value);
-    return append(util::string_view(buffer_.data(), size_));
+    std::array<char, 50> buffer;
+    int size = FormatFloat(value, buffer.data(), buffer.size());
+    return append(util::string_view(buffer.data(), size));
   }
 };
 
@@ -289,6 +299,11 @@ void FormatHH_MM_SS(arrow_vendored::date::hh_mm_ss<Duration> hms, char** cursor)
 }
 
 }  // namespace detail
+
+template <>
+class StringFormatter<DurationType> : public IntToStringFormatterMixin<DurationType> {
+  using IntToStringFormatterMixin::IntToStringFormatterMixin;
+};
 
 template <typename T>
 class StringFormatter<T, enable_if_date<T>> {
@@ -387,11 +402,6 @@ class StringFormatter<TimestampType> {
 
  private:
   TimeUnit::type unit_;
-};
-
-template <>
-class StringFormatter<DurationType> : public IntToStringFormatterMixin<DurationType> {
-  using IntToStringFormatterMixin::IntToStringFormatterMixin;
 };
 
 }  // namespace internal

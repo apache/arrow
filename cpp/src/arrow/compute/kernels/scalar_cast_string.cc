@@ -28,7 +28,6 @@
 
 namespace arrow {
 
-using internal::is_formattable;
 using internal::StringFormatter;
 using util::InitializeUTF8;
 using util::ValidateUTF8;
@@ -37,11 +36,12 @@ namespace compute {
 namespace internal {
 
 // ----------------------------------------------------------------------
-// Formattable to String
+// Number / Boolean to String
 
 template <typename I, typename O>
-struct CastFunctor<
-    O, I, enable_if_t<is_string_like_type<O>::value && is_formattable<I>::value>> {
+struct CastFunctor<O, I,
+                   enable_if_t<is_string_like_type<O>::value &&
+                               (is_number_type<I>::value || is_boolean_type<I>::value)>> {
   using value_type = typename TypeTraits<I>::CType;
   using BuilderType = typename TypeTraits<O>::BuilderType;
   using FormatterType = StringFormatter<I>;
@@ -130,20 +130,15 @@ struct CastFunctor<LargeStringType, LargeBinaryType>
 // * Binary / LargeBinary to String / LargeString with UTF8 validation
 
 template <typename OutType>
-void AddFormattingCasts(std::shared_ptr<DataType> out_ty, CastFunction* func) {
-  auto AddOne = [&](std::shared_ptr<DataType> in_ty, ArrayKernelExec exec) {
-    DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty}, out_ty, exec,
-                              NullHandling::COMPUTED_NO_PREALLOCATE));
-  };
-
-  AddOne(boolean(), CastFunctor<OutType, BooleanType>::Exec);
+void AddNumberToStringCasts(std::shared_ptr<DataType> out_ty, CastFunction* func) {
+  DCHECK_OK(func->AddKernel(Type::BOOL, {boolean()}, out_ty,
+                            CastFunctor<OutType, BooleanType>::Exec,
+                            NullHandling::COMPUTED_NO_PREALLOCATE));
 
   for (const std::shared_ptr<DataType>& in_ty : NumericTypes()) {
-    AddOne(in_ty, GenerateNumeric<CastFunctor, OutType>(*in_ty));
-  }
-
-  for (const std::shared_ptr<DataType>& in_ty : TemporalTypes()) {
-    AddOne(in_ty, GenerateTemporal<CastFunctor, OutType>(*in_ty));
+    DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty}, out_ty,
+                              GenerateNumeric<CastFunctor, OutType>(*in_ty),
+                              NullHandling::COMPUTED_NO_PREALLOCATE));
   }
 }
 
@@ -165,7 +160,7 @@ std::vector<std::shared_ptr<CastFunction>> GetBinaryLikeCasts() {
 
   auto cast_string = std::make_shared<CastFunction>("cast_string", Type::STRING);
   AddCommonCasts(Type::STRING, utf8(), cast_string.get());
-  AddFormattingCasts<StringType>(utf8(), cast_string.get());
+  AddNumberToStringCasts<StringType>(utf8(), cast_string.get());
   DCHECK_OK(cast_string->AddKernel(Type::BINARY, {binary()}, utf8(),
                                    CastFunctor<StringType, BinaryType>::Exec,
                                    NullHandling::COMPUTED_NO_PREALLOCATE));
@@ -173,7 +168,7 @@ std::vector<std::shared_ptr<CastFunction>> GetBinaryLikeCasts() {
   auto cast_large_string =
       std::make_shared<CastFunction>("cast_large_string", Type::LARGE_STRING);
   AddCommonCasts(Type::LARGE_STRING, large_utf8(), cast_large_string.get());
-  AddFormattingCasts<LargeStringType>(large_utf8(), cast_large_string.get());
+  AddNumberToStringCasts<LargeStringType>(large_utf8(), cast_large_string.get());
   DCHECK_OK(
       cast_large_string->AddKernel(Type::LARGE_BINARY, {large_binary()}, large_utf8(),
                                    CastFunctor<LargeStringType, LargeBinaryType>::Exec,

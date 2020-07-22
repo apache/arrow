@@ -21,7 +21,6 @@
 #include <sstream>
 #include <vector>
 
-#include "arrow/util/optional.h"
 #include "arrow/util/string_view.h"
 #include "arrow/util/value_parsing.h"
 #include "arrow/vendored/uriparser/Uri.h"
@@ -256,12 +255,12 @@ Status Uri::Parse(const std::string& uri_string) {
   // Parse port number
   auto port_text = TextRangeToView(impl_->uri_.portText);
   if (port_text.size()) {
-    if (util::optional<uint16_t> port_num = ParseValue<UInt16Type>(port_text)) {
-      impl_->port_ = *port_num;
-      return Status::OK();
+    uint16_t port_num;
+    if (!ParseValue<UInt16Type>(port_text.data(), port_text.size(), &port_num)) {
+      return Status::Invalid("Invalid port number '", port_text, "' in URI '", uri_string,
+                             "'");
     }
-    return Status::Invalid("Invalid port number '", port_text, "' in URI '", uri_string,
-                           "'");
+    impl_->port_ = port_num;
   }
 
   return Status::OK();
