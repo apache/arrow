@@ -18,6 +18,7 @@
 from collections import OrderedDict
 from collections.abc import Iterator
 import datetime
+import sys
 
 import pickle
 import pytest
@@ -265,6 +266,10 @@ def test_tzinfo_to_string(tz, expected):
     assert pa.lib.tzinfo_to_string(tz) == expected
 
 
+@pytest.mark.skipif(sys.version_info <= (3, 6), reason=(
+    "Since python 3.7 the UTC offset for datetime.timezone is not restricted "
+    "to a whole number of minutes"
+))
 def test_tzinfo_to_string_errors():
     msg = "Offset must represent whole number of minutes"
     with pytest.raises(ValueError, match=msg):
