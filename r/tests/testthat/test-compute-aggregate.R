@@ -100,7 +100,7 @@ test_that("Bad input handling of call_function", {
   )
 })
 
-test_that("min/max.Array", {
+test_that("min.Array", {
   ints <- 1:4
   a <- Array$create(ints)
   expect_is(min(a), "Scalar")
@@ -120,4 +120,97 @@ test_that("min/max.Array", {
   b <- Array$create(bools)
   # R is inconsistent here: typeof(min(NA)) == "integer", not "logical"
   expect_identical(as.vector(min(b)), as.logical(min(bools)))
+})
+
+test_that("max.Array", {
+  ints <- 1:4
+  a <- Array$create(ints)
+  expect_is(max(a), "Scalar")
+  expect_identical(as.vector(max(a)), max(ints))
+
+  floats <- c(1.3, 3, 2.4)
+  f <- Array$create(floats)
+  expect_identical(as.vector(max(f)), max(floats))
+
+  floats <- c(floats, NA)
+  na <- Array$create(floats)
+  expect_identical(as.vector(max(na)), max(floats))
+  expect_is(max(na, na.rm = TRUE), "Scalar")
+  expect_identical(as.vector(max(na, na.rm = TRUE)), max(floats, na.rm = TRUE))
+
+  bools <- c(TRUE, TRUE, FALSE)
+  b <- Array$create(bools)
+  # R is inconsistent here: typeof(max(NA)) == "integer", not "logical"
+  expect_identical(as.vector(max(b)), as.logical(max(bools)))
+})
+
+test_that("min.ChunkedArray", {
+  ints <- 1:4
+  a <- ChunkedArray$create(ints)
+  expect_is(min(a), "Scalar")
+  expect_identical(as.vector(min(a)), min(ints))
+
+  floats <- c(1.3, 3, 2.4)
+  f <- ChunkedArray$create(floats)
+  expect_identical(as.vector(min(f)), min(floats))
+
+  floats <- c(floats, NA)
+  na <- ChunkedArray$create(floats)
+  expect_identical(as.vector(min(na)), min(floats))
+  expect_is(min(na, na.rm = TRUE), "Scalar")
+  expect_identical(as.vector(min(na, na.rm = TRUE)), min(floats, na.rm = TRUE))
+
+  bools <- c(TRUE, TRUE, FALSE)
+  b <- ChunkedArray$create(bools)
+  # R is inconsistent here: typeof(min(NA)) == "integer", not "logical"
+  expect_identical(as.vector(min(b)), as.logical(min(bools)))
+})
+
+test_that("max.ChunkedArray", {
+  ints <- 1:4
+  a <- ChunkedArray$create(ints)
+  expect_is(max(a), "Scalar")
+  expect_identical(as.vector(max(a)), max(ints))
+
+  floats <- c(1.3, 3, 2.4)
+  f <- ChunkedArray$create(floats)
+  expect_identical(as.vector(max(f)), max(floats))
+
+  floats <- c(floats, NA)
+  na <- ChunkedArray$create(floats)
+  expect_identical(as.vector(max(na)), max(floats))
+  expect_is(max(na, na.rm = TRUE), "Scalar")
+  expect_identical(as.vector(max(na, na.rm = TRUE)), max(floats, na.rm = TRUE))
+
+  bools <- c(TRUE, TRUE, FALSE)
+  b <- ChunkedArray$create(bools)
+  # R is inconsistent here: typeof(max(NA)) == "integer", not "logical"
+  expect_identical(as.vector(max(b)), as.logical(max(bools)))
+})
+
+test_that("Edge cases", {
+  skip("ARROW-9054")
+  a <- Array$create(NA)
+  for (type in c(int32(), float64(), bool())) {
+    expect_equal(as.vector(sum(a$cast(type), na.rm = TRUE)), sum(NA, na.rm = TRUE))
+    expect_equal(as.vector(mean(a$cast(type), na.rm = TRUE)), mean(NA, na.rm = TRUE))
+    expect_equal(as.vector(min(a$cast(type), na.rm = TRUE)), min(NA, na.rm = TRUE))
+    expect_equal(as.vector(max(a$cast(type), na.rm = TRUE)), max(NA, na.rm = TRUE))
+  }
+})
+
+test_that("unique.Array", {
+  a <- Array$create(c(1, 4, 3, 1, 1, 3, 4))
+  expect_equal(unique(a), Array$create(c(1, 4, 3)))
+  ca <- ChunkedArray$create(a, a)
+  expect_equal(unique(ca), Array$create(c(1, 4, 3)))
+})
+
+test_that("match_arrow", {
+  a <- Array$create(c(1, 4, 3, 1, 1, 3, 4))
+  tab <- c(4, 3, 2, 1)
+  expect_equal(match_arrow(a, tab), Array$create(c(3L, 0L, 1L, 3L, 3L, 1L, 0L)))
+
+  ca <- ChunkedArray$create(c(1, 4, 3, 1, 1, 3, 4))
+  expect_equal(match_arrow(ca, tab), ChunkedArray$create(c(3L, 0L, 1L, 3L, 3L, 1L, 0L)))
 })
