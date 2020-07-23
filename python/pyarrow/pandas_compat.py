@@ -1109,6 +1109,7 @@ def _reconstruct_columns_from_metadata(columns, column_indexes):
             level = level.astype(numpy_dtype)
 
         new_levels.append(level)
+
     return pd.MultiIndex(new_levels, labels, names=columns.names)
 
 
