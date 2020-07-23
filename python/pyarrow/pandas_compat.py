@@ -891,6 +891,7 @@ def _deserialize_column_index(block_table, all_columns, column_indexes):
 
     # ARROW-1751: flatten a single level column MultiIndex for pandas 0.21.0
     columns = _flatten_single_level_multiindex(columns)
+
     return columns
 
 
@@ -1103,7 +1104,6 @@ def _reconstruct_columns_from_metadata(columns, column_indexes):
             level = level.map(encoder)
         elif level.dtype != dtype:
             level = level.astype(dtype)
-
         # ARROW-9096: if original DataFrame was upcast we keep that
         if level.dtype != numpy_dtype:
             level = level.astype(numpy_dtype)
