@@ -241,14 +241,7 @@ class TestConvertMetadata:
         # object. It does not occur for datetime64[ns]
         df = pd.DataFrame(1, index=pd.Index(list(range(5)), name='index'),
                           columns=pd.Index([datetime(2018, 1, 1)], dtype='O'))
-        assert df.columns.dtype == 'object'
-        reconstructed = pa.table(df).to_pandas()
-
-        # The reconstruction process results in object->datetime64[ns]
-        df_expected = df.copy()
-        df_expected.columns = df.columns.values
-        assert df_expected.columns.dtype == 'datetime64[ns]'
-        tm.assert_frame_equal(df_expected, reconstructed)
+        _check_pandas_roundtrip(df, preserve_index=True)
 
     def test_multiindex_columns_unicode(self):
         columns = pd.MultiIndex.from_arrays([['あ', 'い'], ['X', 'Y']])
@@ -419,9 +412,8 @@ class TestConvertMetadata:
     def test_with_index_of_object_dtype_and_column_labels_int_dtype(self):
         # ARROW-9096
 
-        df = pd.DataFrame([1], columns=pd.Index([1], dtype=object))  
-        expected = pd.DataFrame([1], columns=pd.Index([1], dtype='int64'))
-        _check_pandas_roundtrip(df, expected=expected, preserve_index=True)
+        df = pd.DataFrame([1], columns=pd.Index([1], dtype=object))
+        _check_pandas_roundtrip(df, preserve_index=True)
 
     def test_binary_column_name(self):
         column_data = ['い']
@@ -447,9 +439,7 @@ class TestConvertMetadata:
 
         df = pd.DataFrame({'numbers': numbers}, index=index)
 
-        table = pa.Table.from_pandas(df)
-        result_df = table.to_pandas()
-        tm.assert_frame_equal(result_df, df)
+        _check_pandas_roundtrip(df, preserve_index=True)
 
     def test_metadata_with_mixed_types(self):
         df = pd.DataFrame({'data': [b'some_bytes', 'some_unicode']})
@@ -1212,20 +1202,16 @@ class TestConvertDateTimeLikeTypes:
         tm.assert_frame_equal(table_pandas_objects,
                               expected_pandas_objects)
 
-    def test_pandas_null_values(self):
+    def test_object_null_values(self):
         # ARROW-842
-        pd_NA = getattr(pd, 'NA', None)
-        values = np.array([datetime(2000, 1, 1), pd.NaT, pd_NA], dtype=object)
+        NA = getattr(pd, 'NA', None)
+        values = np.array([datetime(2000, 1, 1), pd.NaT, NA], dtype=object)
         values_with_none = np.array([datetime(2000, 1, 1), None, None],
                                     dtype=object)
         result = pa.array(values, from_pandas=True)
         expected = pa.array(values_with_none, from_pandas=True)
         assert result.equals(expected)
         assert result.null_count == 2
-
-        # ARROW-9407
-        assert pa.array([pd.NaT], from_pandas=True).type == pa.null()
-        assert pa.array([pd_NA], from_pandas=True).type == pa.null()
 
     def test_dates_from_integers(self):
         t1 = pa.date32()
@@ -3368,39 +3354,23 @@ def test_struct_with_timestamp_tz():
 
 
 def test_dictionary_with_pandas():
-    src_indices = np.repeat([0, 1, 2], 2)
+    indices = np.repeat([0, 1, 2], 2)
     dictionary = np.array(['foo', 'bar', 'baz'], dtype=object)
     mask = np.array([False, False, True, False, False, False])
 
-    for index_type in ['uint8', 'int8', 'uint16', 'int16', 'uint32', 'int32',
-                       'uint64', 'int64']:
-        indices = src_indices.astype(index_type)
-        d1 = pa.DictionaryArray.from_arrays(indices, dictionary)
-        d2 = pa.DictionaryArray.from_arrays(indices, dictionary, mask=mask)
+    d1 = pa.DictionaryArray.from_arrays(indices, dictionary)
+    d2 = pa.DictionaryArray.from_arrays(indices, dictionary, mask=mask)
 
-        if index_type[0] == 'u':
-            # TODO: unsigned dictionary indices to pandas
-            with pytest.raises(TypeError):
-                d1.to_pandas()
-            continue
+    pandas1 = d1.to_pandas()
+    ex_pandas1 = pd.Categorical.from_codes(indices, categories=dictionary)
 
-        pandas1 = d1.to_pandas()
-        ex_pandas1 = pd.Categorical.from_codes(indices, categories=dictionary)
+    tm.assert_series_equal(pd.Series(pandas1), pd.Series(ex_pandas1))
 
-        tm.assert_series_equal(pd.Series(pandas1), pd.Series(ex_pandas1))
+    pandas2 = d2.to_pandas()
+    ex_pandas2 = pd.Categorical.from_codes(np.where(mask, -1, indices),
+                                           categories=dictionary)
 
-        pandas2 = d2.to_pandas()
-        assert pandas2.isnull().sum() == 1
-
-        # Unsigned integers converted to signed
-        signed_indices = indices
-        if index_type[0] == 'u':
-            signed_indices = indices.astype(index_type[1:])
-        ex_pandas2 = pd.Categorical.from_codes(np.where(mask, -1,
-                                                        signed_indices),
-                                               categories=dictionary)
-
-        tm.assert_series_equal(pd.Series(pandas2), pd.Series(ex_pandas2))
+    tm.assert_series_equal(pd.Series(pandas2), pd.Series(ex_pandas2))
 
 
 def random_strings(n, item_size, pct_null=0, dictionary=None):
