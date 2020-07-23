@@ -891,8 +891,6 @@ def _deserialize_column_index(block_table, all_columns, column_indexes):
 
     # ARROW-1751: flatten a single level column MultiIndex for pandas 0.21.0
     columns = _flatten_single_level_multiindex(columns)
-    print(columns)
-
     return columns
 
 

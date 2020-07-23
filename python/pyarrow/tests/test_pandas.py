@@ -440,7 +440,7 @@ class TestConvertMetadata:
         df = pd.DataFrame({'numbers': numbers}, index=index)
 
         table = pa.Table.from_pandas(df)
-        result_df = table.to_pandas()	
+        result_df = table.to_pandas()
         tm.assert_frame_equal(result_df, df)
 
     def test_metadata_with_mixed_types(self):
@@ -1204,16 +1204,20 @@ class TestConvertDateTimeLikeTypes:
         tm.assert_frame_equal(table_pandas_objects,
                               expected_pandas_objects)
 
-    def test_object_null_values(self):
+    def test_pandas_null_values(self):
         # ARROW-842
-        NA = getattr(pd, 'NA', None)
-        values = np.array([datetime(2000, 1, 1), pd.NaT, NA], dtype=object)
+        pd_NA = getattr(pd, 'NA', None)
+        values = np.array([datetime(2000, 1, 1), pd.NaT, pd_NA], dtype=object)
         values_with_none = np.array([datetime(2000, 1, 1), None, None],
                                     dtype=object)
         result = pa.array(values, from_pandas=True)
         expected = pa.array(values_with_none, from_pandas=True)
         assert result.equals(expected)
         assert result.null_count == 2
+
+        # ARROW-9407
+        assert pa.array([pd.NaT], from_pandas=True).type == pa.null()
+        assert pa.array([pd_NA], from_pandas=True).type == pa.null()
 
     def test_dates_from_integers(self):
         t1 = pa.date32()
@@ -3356,23 +3360,39 @@ def test_struct_with_timestamp_tz():
 
 
 def test_dictionary_with_pandas():
-    indices = np.repeat([0, 1, 2], 2)
+    src_indices = np.repeat([0, 1, 2], 2)
     dictionary = np.array(['foo', 'bar', 'baz'], dtype=object)
     mask = np.array([False, False, True, False, False, False])
 
-    d1 = pa.DictionaryArray.from_arrays(indices, dictionary)
-    d2 = pa.DictionaryArray.from_arrays(indices, dictionary, mask=mask)
+    for index_type in ['uint8', 'int8', 'uint16', 'int16', 'uint32', 'int32',
+                       'uint64', 'int64']:
+        indices = src_indices.astype(index_type)
+        d1 = pa.DictionaryArray.from_arrays(indices, dictionary)
+        d2 = pa.DictionaryArray.from_arrays(indices, dictionary, mask=mask)
 
-    pandas1 = d1.to_pandas()
-    ex_pandas1 = pd.Categorical.from_codes(indices, categories=dictionary)
+        if index_type[0] == 'u':
+            # TODO: unsigned dictionary indices to pandas
+            with pytest.raises(TypeError):
+                d1.to_pandas()
+            continue
 
-    tm.assert_series_equal(pd.Series(pandas1), pd.Series(ex_pandas1))
+        pandas1 = d1.to_pandas()
+        ex_pandas1 = pd.Categorical.from_codes(indices, categories=dictionary)
 
-    pandas2 = d2.to_pandas()
-    ex_pandas2 = pd.Categorical.from_codes(np.where(mask, -1, indices),
-                                           categories=dictionary)
+        tm.assert_series_equal(pd.Series(pandas1), pd.Series(ex_pandas1))
 
-    tm.assert_series_equal(pd.Series(pandas2), pd.Series(ex_pandas2))
+        pandas2 = d2.to_pandas()
+        assert pandas2.isnull().sum() == 1
+
+        # Unsigned integers converted to signed
+        signed_indices = indices
+        if index_type[0] == 'u':
+            signed_indices = indices.astype(index_type[1:])
+        ex_pandas2 = pd.Categorical.from_codes(np.where(mask, -1,
+                                                        signed_indices),
+                                               categories=dictionary)
+
+        tm.assert_series_equal(pd.Series(pandas2), pd.Series(ex_pandas2))
 
 
 def random_strings(n, item_size, pct_null=0, dictionary=None):
