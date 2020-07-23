@@ -240,12 +240,16 @@ class TestConvertMetadata:
         # ARROW-3651 & ARROW-9096 
         # Bug when dtype of the columns is object.
         
+        # uinderlying dtype: integer
         df = pd.DataFrame([1], columns=pd.Index([1], dtype=object))
         _check_pandas_roundtrip(df, preserve_index=True)
 
-        df = pd.DataFrame([1], columns=pd.Index([1.0], dtype=object))
+        # underlying dtype: floating
+        df = pd.DataFrame([1], columns=pd.Index([1.1], dtype=object))
         _check_pandas_roundtrip(df, preserve_index=True)
-         
+
+        # underlying dtype: datetime
+        # ARROW-9096: a simple roundtrip now works 
         df = pd.DataFrame(1, index=pd.Index(list(range(5)), name='index'),
                           columns=pd.Index([datetime(2018, 1, 1)], dtype='O'))
         _check_pandas_roundtrip(df, preserve_index=True)

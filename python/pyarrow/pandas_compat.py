@@ -1008,7 +1008,7 @@ def _is_generated_index_name(name):
     return re.match(pattern, name) is not None
 
 
-# ARROW-9096 added integer
+# ARROW-9096: added integer and floating
 _pandas_logical_type_map = {
     'date': 'datetime64[D]',
     'datetime': 'datetime64[ns]',
@@ -1016,6 +1016,7 @@ _pandas_logical_type_map = {
     'bytes': np.bytes_,
     'string': np.str_,
     'integer': np.int64,
+    'floating': np.float,
     'empty': np.object_,
 }
 
@@ -1125,9 +1126,9 @@ def _table_to_blocks(options, block_table, categories, extension_columns):
 def _flatten_single_level_multiindex(index):
     pd = _pandas_api.pd
     if isinstance(index, pd.MultiIndex) and index.nlevels == 1:
-        # ARROW-9096 use levels.dtype to match cast with original DataFrame
         levels, = index.levels
         labels, = _get_multiindex_codes(index)
+        # ARROW-9096: use levels.dtype to match cast with original DataFrame
         dtype = levels.dtype
 
         # Cheaply check that we do not somehow have duplicate column names
