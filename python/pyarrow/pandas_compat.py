@@ -756,6 +756,7 @@ def make_datetimetz(tz):
 def table_to_blockmanager(options, table, categories=None,
                           ignore_metadata=False, types_mapper=None):
     from pandas.core.internals import BlockManager
+
     all_columns = []
     column_indexes = []
     pandas_metadata = table.schema.pandas_metadata
@@ -890,6 +891,7 @@ def _deserialize_column_index(block_table, all_columns, column_indexes):
 
     # ARROW-1751: flatten a single level column MultiIndex for pandas 0.21.0
     columns = _flatten_single_level_multiindex(columns)
+    print(columns)
 
     return columns
 
@@ -1008,13 +1010,14 @@ def _is_generated_index_name(name):
     return re.match(pattern, name) is not None
 
 
+# ARROW-9096 added integer
 _pandas_logical_type_map = {
     'date': 'datetime64[D]',
     'datetime': 'datetime64[ns]',
     'unicode': np.unicode_,
     'bytes': np.bytes_,
     'string': np.str_,
-    'integer': np.int64, 
+    'integer': np.int64,
     'empty': np.object_,
 }
 
@@ -1080,8 +1083,10 @@ def _reconstruct_columns_from_metadata(columns, column_indexes):
     ]
 
     # Convert each level to the dtype provided in the metadata
+    # ARROW-9096: need numpy_type to match cast against original DataFrame
     levels_dtypes = [
-        (level, col_index.get('pandas_type', str(level.dtype)))
+        (level, col_index.get('pandas_type', str(level.dtype)),
+         col_index.get('numpy_type', None))
         for level, col_index in zip_longest(
             levels, column_indexes, fillvalue={}
         )
@@ -1090,9 +1095,8 @@ def _reconstruct_columns_from_metadata(columns, column_indexes):
     new_levels = []
     encoder = operator.methodcaller('encode', 'UTF-8')
 
-    for level, pandas_dtype in levels_dtypes:
+    for level, pandas_dtype, numpy_dtype in levels_dtypes:
         dtype = _pandas_type_to_numpy_type(pandas_dtype)
-
         # Since our metadata is UTF-8 encoded, Python turns things that were
         # bytes into unicode strings when json.loads-ing them. We need to
         # convert them back to bytes to preserve metadata.
@@ -1101,9 +1105,13 @@ def _reconstruct_columns_from_metadata(columns, column_indexes):
         elif level.dtype != dtype:
             level = level.astype(dtype)
 
-        new_levels.append(level)
+        # ARROW-9096: if original DataFrame was upcast we keep that
+        if level.dtype != numpy_dtype:
+            level = level.astype(numpy_dtype)
 
+        new_levels.append(level)
     return pd.MultiIndex(new_levels, labels, names=columns.names)
+
 
 def _table_to_blocks(options, block_table, categories, extension_columns):
     # Part of table_to_blockmanager
@@ -1119,16 +1127,20 @@ def _table_to_blocks(options, block_table, categories, extension_columns):
 def _flatten_single_level_multiindex(index):
     pd = _pandas_api.pd
     if isinstance(index, pd.MultiIndex) and index.nlevels == 1:
+        # ARROW-9096 use levels.dtype to match cast with original DataFrame
         levels, = index.levels
         labels, = _get_multiindex_codes(index)
+        dtype = levels.dtype
 
         # Cheaply check that we do not somehow have duplicate column names
         if not index.is_unique:
             raise ValueError('Found non-unique column index')
 
-        return pd.Index([levels[_label] if _label != -1 else None
-                         for _label in labels],
-                        name=index.names[0])
+        return pd.Index(
+            [levels[_label] if _label != -1 else None for _label in labels],
+            dtype=dtype,
+            name=index.names[0]
+        )
     return index
 
 
