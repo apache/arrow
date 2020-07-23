@@ -488,9 +488,10 @@ add_dependencies(arrow ${ARROW_LIBRARIES})
 
 if(ARROW_BUILD_STATIC AND WIN32)
   target_compile_definitions(arrow_static PUBLIC ARROW_STATIC)
-  if(ARROW_WITH_UTF8PROC)
-    target_compile_definitions(arrow_static PUBLIC UTF8PROC_STATIC)
-  endif()
+endif()
+
+if(NOT ARROW_UTF8PROC_USE_SHARED AND WIN32)
+  target_compile_definitions(arrow_static PRIVATE UTF8PROC_STATIC)
 endif()
 
 if(ARROW_WITH_BACKTRACE)
