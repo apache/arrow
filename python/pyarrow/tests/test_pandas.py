@@ -250,8 +250,7 @@ class TestConvertMetadata:
 
         # underlying dtype: datetime
         # ARROW-9096: a simple roundtrip now works 
-        df = pd.DataFrame(1, index=pd.Index(list(range(5)), name='index'),
-                          columns=pd.Index([datetime(2018, 1, 1)], dtype='O'))
+        df = pd.DataFrame([1], columns=pd.Index([datetime(2018, 1, 1)], dtype='object'))
         _check_pandas_roundtrip(df, preserve_index=True)
 
     def test_multiindex_columns_unicode(self):
