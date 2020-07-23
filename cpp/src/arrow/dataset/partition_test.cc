@@ -43,16 +43,27 @@ using E = TestExpression;
 class TestPartitioning : public ::testing::Test {
  public:
   void AssertParseError(const std::string& path) {
-    ASSERT_RAISES(Invalid, partitioning_->Parse(path).status());
+    ASSERT_RAISES(Invalid, partitioning_->Parse(path));
   }
 
-  void AssertParse(const std::string& path, std::shared_ptr<Expression> expected) {
+  void AssertParse(const std::string& path, E expected) {
     ASSERT_OK_AND_ASSIGN(auto parsed, partitioning_->Parse(path));
-    ASSERT_EQ(E{parsed}, E{expected});
+    ASSERT_EQ(E{parsed}, expected);
   }
 
-  void AssertParse(const std::string& path, const Expression& expected) {
-    AssertParse(path, expected.Copy());
+  template <StatusCode code = StatusCode::Invalid>
+  void AssertFormatError(E expr) {
+    ASSERT_EQ(partitioning_->Format(*expr.expression).status().code(), code);
+  }
+
+  void AssertFormat(E expr, const std::string& expected) {
+    ASSERT_OK_AND_ASSIGN(auto formatted, partitioning_->Format(*expr.expression));
+    ASSERT_EQ(formatted, expected);
+
+    // ensure the formatted path round trips the relevant components of the partition
+    // expression: roundtripped should be a subset of expr
+    ASSERT_OK_AND_ASSIGN(auto roundtripped, partitioning_->Parse(formatted));
+    ASSERT_EQ(E{roundtripped->Assume(*expr.expression)}, E{scalar(true)});
   }
 
   void AssertInspect(const std::vector<std::string>& paths,
@@ -83,33 +94,6 @@ class TestPartitioning : public ::testing::Test {
   std::shared_ptr<PartitioningFactory> factory_;
 };
 
-TEST_F(TestPartitioning, SegmentDictionary) {
-  using Dict = std::unordered_map<std::string, std::shared_ptr<Expression>>;
-  Dict alpha_dict, beta_dict;
-  auto add_expr = [](const std::string& segment, const Expression& expr, Dict* dict) {
-    dict->emplace(segment, expr.Copy());
-  };
-
-  add_expr("zero", "alpha"_ == 0, &alpha_dict);
-  add_expr("one", "alpha"_ == 1, &alpha_dict);
-  add_expr("more", "alpha"_ >= 2, &alpha_dict);
-
-  add_expr("...", "beta"_ == "uh", &beta_dict);
-  add_expr("?", "beta"_ == "what", &beta_dict);
-  add_expr("!", "beta"_ == "OH", &beta_dict);
-
-  partitioning_.reset(new SegmentDictionaryPartitioning(
-      schema({field("alpha", int32()), field("beta", utf8())}), {alpha_dict, beta_dict}));
-
-  AssertParse("/one/?", "alpha"_ == int32_t(1) and "beta"_ == "what");
-  AssertParse("/one/?/---", "alpha"_ == int32_t(1) and "beta"_ == "what");
-  AssertParse("/more", "alpha"_ >= int32_t(2));      // missing second segment
-  AssertParse("/---/---", scalar(true));             // unrecognized segments
-  AssertParse("/---/!", "beta"_ == "OH");            // unrecognized first segment
-  AssertParse("/zero/---", "alpha"_ == int32_t(0));  // unrecognized second segment
-  AssertParse("", scalar(true));                     // no segments to parse
-}
-
 TEST_F(TestPartitioning, DirectoryPartitioning) {
   partitioning_ = std::make_shared<DirectoryPartitioning>(
       schema({field("alpha", int32()), field("beta", utf8())}));
@@ -125,6 +109,21 @@ TEST_F(TestPartitioning, DirectoryPartitioning) {
   AssertParse("/0/dat.parquet", "alpha"_ == int32_t(0) and "beta"_ == "dat.parquet");
 
   AssertParse("/0/foo/ignored=2341", "alpha"_ == int32_t(0) and "beta"_ == "foo");
+}
+
+TEST_F(TestPartitioning, DirectoryPartitioningFormat) {
+  partitioning_ = std::make_shared<DirectoryPartitioning>(
+      schema({field("alpha", int32()), field("beta", utf8())}));
+
+  AssertFormat("alpha"_ == int32_t(0) and "beta"_ == "hello", "0/hello");
+  AssertFormat("beta"_ == "hello" and "alpha"_ == int32_t(0), "0/hello");
+  AssertFormat("alpha"_ == int32_t(0), "0");
+  AssertFormatError("beta"_ == "hello");
+  AssertFormat(scalar(true), "");
+
+  AssertFormatError<StatusCode::TypeError>("alpha"_ == 0.0 and "beta"_ == "hello");
+  AssertFormat("gamma"_ == "yo" and "alpha"_ == int32_t(0) and "beta"_ == "hello",
+               "0/hello");
 }
 
 TEST_F(TestPartitioning, DiscoverSchema) {
@@ -213,6 +212,21 @@ TEST_F(TestPartitioning, HivePartitioning) {
   AssertParseError("/alpha=0.0/beta=3.25");  // conversion of "0.0" to int32 fails
 }
 
+TEST_F(TestPartitioning, HivePartitioningFormat) {
+  partitioning_ = std::make_shared<HivePartitioning>(
+      schema({field("alpha", int32()), field("beta", float32())}));
+
+  AssertFormat("alpha"_ == int32_t(0) and "beta"_ == 3.25f, "alpha=0/beta=3.25");
+  AssertFormat("beta"_ == 3.25f and "alpha"_ == int32_t(0), "alpha=0/beta=3.25");
+  AssertFormat("alpha"_ == int32_t(0), "alpha=0");
+  AssertFormat("beta"_ == 3.25f, "alpha/beta=3.25");
+  AssertFormat(scalar(true), "");
+
+  AssertFormatError<StatusCode::TypeError>("alpha"_ == "yo" and "beta"_ == 3.25f);
+  AssertFormat("gamma"_ == "yo" and "alpha"_ == int32_t(0) and "beta"_ == 3.25f,
+               "alpha=0/beta=3.25");
+}
+
 TEST_F(TestPartitioning, DiscoverHiveSchema) {
   factory_ = HivePartitioning::MakeFactory();
 
@@ -283,90 +297,113 @@ TEST_F(TestPartitioning, HiveDictionaryHasUniqueValues) {
 }
 
 TEST_F(TestPartitioning, EtlThenHive) {
-  DirectoryPartitioning etl_part(schema({field("year", int16()), field("month", int8()),
-                                         field("day", int8()), field("hour", int8())}));
-  HivePartitioning alphabeta_part(
-      schema({field("alpha", int32()), field("beta", float32())}));
+  FieldVector etl_fields{field("year", int16()), field("month", int8()),
+                         field("day", int8()), field("hour", int8())};
+  DirectoryPartitioning etl_part(schema(etl_fields));
+
+  FieldVector alphabeta_fields{field("alpha", int32()), field("beta", float32())};
+  HivePartitioning alphabeta_part(schema(alphabeta_fields));
 
   partitioning_ = std::make_shared<FunctionPartitioning>(
       schema({field("year", int16()), field("month", int8()), field("day", int8()),
               field("hour", int8()), field("alpha", int32()), field("beta", float32())}),
-      [&](const std::string& segment, int i) -> Result<std::shared_ptr<Expression>> {
-        if (i < etl_part.schema()->num_fields()) {
-          return etl_part.Parse(segment, i);
+      [&](const std::string& path) -> Result<std::shared_ptr<Expression>> {
+        auto segments = fs::internal::SplitAbstractPath(path);
+        if (segments.size() < etl_fields.size() + alphabeta_fields.size()) {
+          return Status::Invalid("path ", path, " can't be parsed");
         }
 
-        i -= etl_part.schema()->num_fields();
-        return alphabeta_part.Parse(segment, i);
+        auto etl_segments_end = segments.begin() + etl_fields.size();
+        auto etl_path =
+            fs::internal::JoinAbstractPath(segments.begin(), etl_segments_end);
+        ARROW_ASSIGN_OR_RAISE(auto etl_expr, etl_part.Parse(etl_path));
+
+        auto alphabeta_segments_end = etl_segments_end + alphabeta_fields.size();
+        auto alphabeta_path =
+            fs::internal::JoinAbstractPath(etl_segments_end, alphabeta_segments_end);
+        ARROW_ASSIGN_OR_RAISE(auto alphabeta_expr, alphabeta_part.Parse(alphabeta_path));
+
+        return and_(etl_expr, alphabeta_expr);
       });
 
   AssertParse("/1999/12/31/00/alpha=0/beta=3.25",
               "year"_ == int16_t(1999) and "month"_ == int8_t(12) and
                   "day"_ == int8_t(31) and "hour"_ == int8_t(0) and
-                  "alpha"_ == int32_t(0) and "beta"_ == 3.25f);
+                  ("alpha"_ == int32_t(0) and "beta"_ == 3.25f));
 
   AssertParseError("/20X6/03/21/05/alpha=0/beta=3.25");
-}
+}  // namespace dataset
 
 TEST_F(TestPartitioning, Set) {
+  auto ints = [](std::vector<int32_t> ints) {
+    std::shared_ptr<Array> out;
+    ArrayFromVector<Int32Type>(ints, &out);
+    return out;
+  };
+
   // An adhoc partitioning which parses segments like "/x in [1 4 5]"
   // into ("x"_ == 1 or "x"_ == 4 or "x"_ == 5)
   partitioning_ = std::make_shared<FunctionPartitioning>(
       schema({field("x", int32())}),
-      [](const std::string& segment, int) -> Result<std::shared_ptr<Expression>> {
-        std::smatch matches;
-
-        static std::regex re("^x in \\[(.*)\\]$");
-        if (!std::regex_match(segment, matches, re) || matches.size() != 2) {
-          return Status::Invalid("regex failed to parse");
-        }
-
+      [&](const std::string& path) -> Result<std::shared_ptr<Expression>> {
         ExpressionVector subexpressions;
-        std::string element;
-        std::istringstream elements(matches[1]);
-        while (elements >> element) {
-          ARROW_ASSIGN_OR_RAISE(auto s, Scalar::Parse(int32(), element));
-          subexpressions.push_back(equal(field_ref("x"), scalar(s)));
-        }
+        for (auto segment : fs::internal::SplitAbstractPath(path)) {
+          std::smatch matches;
 
-        return or_(std::move(subexpressions));
+          static std::regex re(R"(^(\S+) in \[(.*)\]$)");
+          if (!std::regex_match(segment, matches, re) || matches.size() != 3) {
+            return Status::Invalid("regex failed to parse");
+          }
+
+          std::vector<int32_t> set;
+          std::istringstream elements(matches[2]);
+          for (std::string element; elements >> element;) {
+            ARROW_ASSIGN_OR_RAISE(auto s, Scalar::Parse(int32(), element));
+            set.push_back(checked_cast<const Int32Scalar&>(*s).value);
+          }
+
+          subexpressions.push_back(field_ref(matches[1])->In(ints(set)).Copy());
+        }
+        return and_(std::move(subexpressions));
       });
 
-  AssertParse("/x in [1]", "x"_ == 1);
-  AssertParse("/x in [1 4 5]", "x"_ == 1 or "x"_ == 4 or "x"_ == 5);
-  AssertParse("/x in []", scalar(false));
+  AssertParse("/x in [1]", "x"_.In(ints({1})));
+  AssertParse("/x in [1 4 5]", "x"_.In(ints({1, 4, 5})));
+  AssertParse("/x in []", "x"_.In(ints({})));
 }
 
 // An adhoc partitioning which parses segments like "/x=[-3.25, 0.0)"
 // into ("x"_ >= -3.25 and "x" < 0.0)
-class RangePartitioning : public HivePartitioning {
+class RangePartitioning : public Partitioning {
  public:
-  using HivePartitioning::HivePartitioning;
+  explicit RangePartitioning(std::shared_ptr<Schema> s) : Partitioning(std::move(s)) {}
 
   std::string type_name() const override { return "range"; }
 
-  Result<std::shared_ptr<Expression>> Parse(const std::string& segment,
-                                            int i) const override {
+  Result<std::shared_ptr<Expression>> Parse(const std::string& path) const override {
     ExpressionVector ranges;
-    auto key = ParseKey(segment, i);
-    if (!key) {
-      return Status::Invalid("can't parse '", segment, "' as a range");
+
+    for (auto segment : fs::internal::SplitAbstractPath(path)) {
+      auto key = HivePartitioning::ParseKey(segment);
+      if (!key) {
+        return Status::Invalid("can't parse '", segment, "' as a range");
+      }
+
+      std::smatch matches;
+      RETURN_NOT_OK(DoRegex(key->value, &matches));
+
+      auto& min_cmp = matches[1] == "[" ? greater_equal : greater;
+      std::string min_repr = matches[2];
+      std::string max_repr = matches[3];
+      auto& max_cmp = matches[4] == "]" ? less_equal : less;
+
+      const auto& type = schema_->GetFieldByName(key->name)->type();
+      ARROW_ASSIGN_OR_RAISE(auto min, Scalar::Parse(type, min_repr));
+      ARROW_ASSIGN_OR_RAISE(auto max, Scalar::Parse(type, max_repr));
+
+      ranges.push_back(and_(min_cmp(field_ref(key->name), scalar(min)),
+                            max_cmp(field_ref(key->name), scalar(max))));
     }
-
-    std::smatch matches;
-    RETURN_NOT_OK(DoRegex(key->value, &matches));
-
-    auto& min_cmp = matches[1] == "[" ? greater_equal : greater;
-    std::string min_repr = matches[2];
-    std::string max_repr = matches[3];
-    auto& max_cmp = matches[4] == "]" ? less_equal : less;
-
-    const auto& type = schema_->GetFieldByName(key->name)->type();
-    ARROW_ASSIGN_OR_RAISE(auto min, Scalar::Parse(type, min_repr));
-    ARROW_ASSIGN_OR_RAISE(auto max, Scalar::Parse(type, max_repr));
-
-    ranges.push_back(and_(min_cmp(field_ref(key->name), scalar(min)),
-                          max_cmp(field_ref(key->name), scalar(max))));
     return and_(ranges);
   }
 
@@ -386,6 +423,8 @@ class RangePartitioning : public HivePartitioning {
 
     return Status::OK();
   }
+
+  Result<std::string> Format(const Expression&) const override { return ""; }
 };
 
 TEST_F(TestPartitioning, Range) {
@@ -456,7 +495,7 @@ class TestPartitioningWritePlan : public ::testing::Test {
               static_cast<int>(std::find(fragments.begin(), fragments.end(), fragment) -
                                fragments.begin());
           auto path = fs::internal::GetAbstractPathParent(actual_plan.paths[i]).first;
-          dirs_[path + "/"].fragments.push_back(fragment_index);
+          dirs_[path].fragments.push_back(fragment_index);
         } else {
           auto partition_expression = op.partition_expr();
           dirs_[actual_plan.paths[i]].partition_expression = partition_expression;
@@ -526,15 +565,15 @@ TEST_F(TestPartitioningWritePlan, SingleDirectory) {
 
   MakeWritePlan("a"_ == 42, "a"_ == 99, "a"_ == 101);
   AssertPlanIs(ExpectedWritePlan()
-                   .Dir("42/", "a"_ == 42, {0})
-                   .Dir("99/", "a"_ == 99, {1})
-                   .Dir("101/", "a"_ == 101, {2}));
+                   .Dir("42", "a"_ == 42, {0})
+                   .Dir("99", "a"_ == 99, {1})
+                   .Dir("101", "a"_ == 101, {2}));
 
   MakeWritePlan("a"_ == 42, "a"_ == 99, "a"_ == 99, "a"_ == 101, "a"_ == 99);
   AssertPlanIs(ExpectedWritePlan()
-                   .Dir("42/", "a"_ == 42, {0})
-                   .Dir("99/", "a"_ == 99, {1, 2, 4})
-                   .Dir("101/", "a"_ == 101, {3}));
+                   .Dir("42", "a"_ == 42, {0})
+                   .Dir("99", "a"_ == 99, {1, 2, 4})
+                   .Dir("101", "a"_ == 101, {3}));
 }
 
 TEST_F(TestPartitioningWritePlan, NestedDirectories) {
@@ -544,12 +583,12 @@ TEST_F(TestPartitioningWritePlan, NestedDirectories) {
                 "a"_ == 99 and "b"_ == "hello", "a"_ == 99 and "b"_ == "world");
 
   AssertPlanIs(ExpectedWritePlan()
-                   .Dir("42/", "a"_ == 42, {})
-                   .Dir("42/hello/", "b"_ == "hello", {0})
-                   .Dir("42/world/", "b"_ == "world", {1})
-                   .Dir("99/", "a"_ == 99, {})
-                   .Dir("99/hello/", "b"_ == "hello", {2})
-                   .Dir("99/world/", "b"_ == "world", {3}));
+                   .Dir("42", "a"_ == 42, {})
+                   .Dir("42/hello", "b"_ == "hello", {0})
+                   .Dir("42/world", "b"_ == "world", {1})
+                   .Dir("99", "a"_ == 99, {})
+                   .Dir("99/hello", "b"_ == "hello", {2})
+                   .Dir("99/world", "b"_ == "world", {3}));
 }
 
 TEST_F(TestPartitioningWritePlan, Errors) {
@@ -558,9 +597,9 @@ TEST_F(TestPartitioningWritePlan, Errors) {
       Invalid, testing::HasSubstr("no partition expression for field 'a'"),
       MakeWritePlanError("a"_ == 42, scalar(true), "a"_ == 101));
 
-  EXPECT_RAISES_WITH_MESSAGE_THAT(TypeError,
-                                  testing::HasSubstr("expected RHS to have type int32"),
-                                  MakeWritePlanError("a"_ == 42, "a"_ == "hello"));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      TypeError, testing::HasSubstr("scalar hello (of type string) is invalid"),
+      MakeWritePlanError("a"_ == 42, "a"_ == "hello"));
 
   factory_ = DirectoryPartitioning::MakeFactory({"a", "b"});
   EXPECT_RAISES_WITH_MESSAGE_THAT(

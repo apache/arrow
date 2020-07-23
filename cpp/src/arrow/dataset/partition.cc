@@ -47,23 +47,23 @@ using util::string_view;
 
 using arrow::internal::checked_cast;
 
-Result<std::shared_ptr<Expression>> Partitioning::Parse(const std::string& path) const {
-  ExpressionVector expressions;
-  int i = 0;
+std::shared_ptr<Partitioning> Partitioning::Default() {
+  class DefaultPartitioning : public Partitioning {
+   public:
+    DefaultPartitioning() : Partitioning(::arrow::schema({})) {}
 
-  for (auto segment : fs::internal::SplitAbstractPath(path)) {
-    ARROW_ASSIGN_OR_RAISE(auto expr, Parse(segment, i++));
-    if (expr->Equals(true)) {
-      continue;
+    std::string type_name() const override { return "default"; }
+
+    Result<std::shared_ptr<Expression>> Parse(const std::string& path) const override {
+      return scalar(true);
     }
 
-    expressions.push_back(std::move(expr));
-  }
+    Result<std::string> Format(const Expression& expr) const override {
+      return Status::NotImplemented("formatting paths from ", type_name(),
+                                    " Partitioning");
+    }
+  };
 
-  return and_(std::move(expressions));
-}
-
-std::shared_ptr<Partitioning> Partitioning::Default() {
   return std::make_shared<DefaultPartitioning>();
 }
 
@@ -78,18 +78,6 @@ Result<WritePlan> PartitioningFactory::MakeWritePlan(
     std::shared_ptr<Schema> partition_schema) {
   return Status::NotImplemented("MakeWritePlan from PartitioningFactory of type ",
                                 type_name());
-}
-
-Result<std::shared_ptr<Expression>> SegmentDictionaryPartitioning::Parse(
-    const std::string& segment, int i) const {
-  if (static_cast<size_t>(i) < dictionaries_.size()) {
-    auto it = dictionaries_[i].find(segment);
-    if (it != dictionaries_[i].end()) {
-      return it->second;
-    }
-  }
-
-  return scalar(true);
 }
 
 Status KeyValuePartitioning::VisitKeys(
@@ -141,7 +129,7 @@ Status KeyValuePartitioning::SetDefaultValuesFromKeys(const Expression& expr,
       expr, [projector](const std::string& name, const std::shared_ptr<Scalar>& value) {
         ARROW_ASSIGN_OR_RAISE(auto match,
                               FieldRef(name).FindOneOrNone(*projector->schema()));
-        if (match.indices().empty()) {
+        if (!match) {
           return Status::OK();
         }
         return projector->SetDefaultValue(match, value);
@@ -149,25 +137,25 @@ Status KeyValuePartitioning::SetDefaultValuesFromKeys(const Expression& expr,
 }
 
 Result<std::shared_ptr<Expression>> KeyValuePartitioning::ConvertKey(
-    const Key& key, const Schema& schema, const ArrayVector& dictionaries) {
-  ARROW_ASSIGN_OR_RAISE(auto match, FieldRef(key.name).FindOneOrNone(schema));
-  if (match.indices().empty()) {
+    const Key& key) const {
+  ARROW_ASSIGN_OR_RAISE(auto match, FieldRef(key.name).FindOneOrNone(*schema_));
+  if (!match) {
     return scalar(true);
   }
 
-  auto field_index = match.indices()[0];
-  auto field = schema.field(field_index);
+  auto field_index = match[0];
+  auto field = schema_->field(field_index);
 
   std::shared_ptr<Scalar> converted;
 
   if (field->type()->id() == Type::DICTIONARY) {
-    if (dictionaries.empty() || dictionaries[field_index] == nullptr) {
+    if (dictionaries_.empty() || dictionaries_[field_index] == nullptr) {
       return Status::Invalid("No dictionary provided for dictionary field ",
                              field->ToString());
     }
 
     DictionaryScalar::ValueType value;
-    value.dictionary = dictionaries[field_index];
+    value.dictionary = dictionaries_[field_index];
 
     if (!value.dictionary->type()->Equals(
             checked_cast<const DictionaryType&>(*field->type()).value_type())) {
@@ -189,62 +177,92 @@ Result<std::shared_ptr<Expression>> KeyValuePartitioning::ConvertKey(
     ARROW_ASSIGN_OR_RAISE(converted, Scalar::Parse(field->type(), key.value));
   }
 
-  return equal(field_ref(field->name()), scalar(converted));
+  return equal(field_ref(field->name()), scalar(std::move(converted)));
 }
 
 Result<std::shared_ptr<Expression>> KeyValuePartitioning::Parse(
-    const std::string& segment, int i) const {
-  if (auto key = ParseKey(segment, i)) {
-    return ConvertKey(*key, *schema_, dictionaries_);
+    const std::string& path) const {
+  ExpressionVector expressions;
+
+  for (const Key& key : ParseKeys(path)) {
+    ARROW_ASSIGN_OR_RAISE(auto expr, ConvertKey(key));
+
+    if (expr->Equals(true)) continue;
+
+    expressions.push_back(std::move(expr));
   }
 
-  return scalar(true);
+  return and_(std::move(expressions));
 }
 
-Result<std::string> KeyValuePartitioning::Format(const Expression& expr, int i) const {
-  if (expr.type() != ExpressionType::COMPARISON) {
-    return Status::Invalid(expr.ToString(), " is not a comparison expression");
-  }
+Result<std::string> KeyValuePartitioning::Format(const Expression& expr) const {
+  std::vector<Scalar*> values{static_cast<size_t>(schema_->num_fields()), nullptr};
 
-  const auto& cmp = checked_cast<const ComparisonExpression&>(expr);
-  if (cmp.op() != compute::CompareOperator::EQUAL) {
-    return Status::Invalid(expr.ToString(), " is not an equality comparison expression");
-  }
+  RETURN_NOT_OK(VisitKeys(expr, [&](const std::string& name,
+                                    const std::shared_ptr<Scalar>& value) {
+    ARROW_ASSIGN_OR_RAISE(auto match, FieldRef(name).FindOneOrNone(*schema_));
+    if (match) {
+      const auto& field = schema_->field(match[0]);
+      if (!value->type->Equals(field->type())) {
+        return Status::TypeError("scalar ", value->ToString(), " (of type ", *value->type,
+                                 ") is invalid for ", field->ToString());
+      }
 
-  if (cmp.left_operand()->type() != ExpressionType::FIELD) {
-    return Status::Invalid(expr.ToString(), " LHS is not a field");
-  }
-  const auto& lhs = checked_cast<const FieldExpression&>(*cmp.left_operand());
+      values[match[0]] = value.get();
+    }
+    return Status::OK();
+  }));
 
-  if (cmp.right_operand()->type() != ExpressionType::SCALAR) {
-    return Status::Invalid(expr.ToString(), " RHS is not a scalar");
-  }
-  const auto& rhs = checked_cast<const ScalarExpression&>(*cmp.right_operand());
-
-  auto expected_type = schema_->GetFieldByName(lhs.name())->type();
-  if (!rhs.value()->type->Equals(expected_type)) {
-    return Status::TypeError(expr.ToString(), " expected RHS to have type ",
-                             *expected_type);
-  }
-
-  return FormatKey({lhs.name(), rhs.value()->ToString()}, i);
+  return FormatValues(values);
 }
 
-util::optional<KeyValuePartitioning::Key> DirectoryPartitioning::ParseKey(
-    const std::string& segment, int i) const {
-  if (i >= schema_->num_fields()) {
+std::vector<KeyValuePartitioning::Key> DirectoryPartitioning::ParseKeys(
+    const std::string& path) const {
+  std::vector<Key> keys;
+
+  int i = 0;
+  for (auto&& segment : fs::internal::SplitAbstractPath(path)) {
+    if (i >= schema_->num_fields()) break;
+
+    keys.push_back({schema_->field(i++)->name(), std::move(segment)});
+  }
+
+  return keys;
+}
+
+inline util::optional<int> NextValid(const std::vector<Scalar*>& values, int first_null) {
+  auto it = std::find_if(values.begin() + first_null + 1, values.end(),
+                         [](Scalar* v) { return v != nullptr; });
+
+  if (it == values.end()) {
     return util::nullopt;
   }
 
-  return Key{schema_->field(i)->name(), segment};
+  return static_cast<int>(it - values.begin());
 }
 
-Result<std::string> DirectoryPartitioning::FormatKey(const Key& key, int i) const {
-  if (schema_->GetFieldIndex(key.name) != i) {
-    return Status::Invalid("field ", key.name, " in unexpected position ", i,
-                           " for schema ", *schema_);
+Result<std::string> DirectoryPartitioning::FormatValues(
+    const std::vector<Scalar*>& values) const {
+  std::vector<std::string> segments(static_cast<size_t>(schema_->num_fields()));
+
+  for (int i = 0; i < schema_->num_fields(); ++i) {
+    if (values[i] != nullptr) {
+      segments[i] = values[i]->ToString();
+      continue;
+    }
+
+    if (auto illegal_index = NextValid(values, i)) {
+      // XXX maybe we should just ignore keys provided after the first absent one?
+      return Status::Invalid("No partition key for ", schema_->field(i)->name(),
+                             " but subsequent a key was provided subsequently for ",
+                             schema_->field(*illegal_index)->name(), ".");
+    }
+
+    // if all subsequent keys are absent we'll just print the available keys
+    break;
   }
-  return key.value;
+
+  return fs::internal::JoinAbstractPath(std::move(segments));
 }
 
 class KeyValuePartitioningInspectImpl {
@@ -522,16 +540,16 @@ struct DirectoryPartitioningFactory::MakeWritePlanImpl {
     arrow::internal::Permute(permutation, &source_fragments_);
     arrow::internal::Permute(permutation, &right_hand_sides_);
 
-    // the basename of out.paths[i] is stored in segments[i] (full paths will be assembled
-    // after segments is complete)
-    std::vector<std::string> segments;
-
     // out.paths[parents[i]] is the parent directory of out.paths[i]
     std::vector<int> parents;
 
     // current_right_hand_sides[field_i] is the RHS dictionary code for the current
     // partition expression corresponding to field_i
     Indices current_right_hand_sides(num_fields(), -1);
+
+    // current_partition_expressions[field_i] is the current partition expression
+    // corresponding to field_i
+    ExpressionVector current_partition_expressions(num_fields());
 
     // out.paths[current_parents[field_i]] is the current ancestor directory corresponding
     // to field_i
@@ -552,38 +570,31 @@ struct DirectoryPartitioningFactory::MakeWritePlanImpl {
         current_parents[field_i + 1] = static_cast<int>(parents.size());
         parents.push_back(current_parents[field_i]);
 
-        auto partition_expression = PartitionExpression(fragment_i, field_i);
+        current_partition_expressions.resize(field_i + 1);
+        current_partition_expressions[field_i] = PartitionExpression(fragment_i, field_i);
+        auto partition_expression = and_(current_partition_expressions);
 
         // format segment for partition_expression
-        ARROW_ASSIGN_OR_RAISE(auto segment,
-                              out.partitioning->Format(*partition_expression, field_i));
-        segment.push_back(fs::internal::kSep);
-        segments.push_back(std::move(segment));
+        ARROW_ASSIGN_OR_RAISE(auto path, out.partitioning->Format(*partition_expression));
+        out.paths.push_back(std::move(path));
 
         // store partition_expression for use in the written Dataset
         out.fragment_or_partition_expressions.emplace_back(
-            std::move(partition_expression));
+            current_partition_expressions[field_i]);
 
         current_right_hand_sides[field_i] = right_hand_sides_[fragment_i][field_i];
       }
 
       // push a fragment (not attempting to give files meaningful names)
-      parents.push_back(current_parents[field_i]);
-      segments.emplace_back(Guid() + "_" + std::to_string(fragment_i));
+      std::string basename = Guid() + "_" + std::to_string(fragment_i);
+      int parent_i = current_parents[field_i];
+      parents.push_back(parent_i);
+      out.paths.push_back(fs::internal::JoinAbstractPath(
+          std::vector<std::string>{out.paths[parent_i], std::move(basename)}));
 
       // store a fragment for writing to disk
       out.fragment_or_partition_expressions.emplace_back(
           std::move(source_fragments_[fragment_i]));
-    }
-
-    // render paths from segments
-    for (size_t i = 0; i < segments.size(); ++i) {
-      if (parents[i] == -1) {
-        out.paths.push_back(segments[i]);
-        continue;
-      }
-
-      out.paths.push_back(out.paths[parents[i]] + segments[i]);
     }
 
     return out;
@@ -643,8 +654,38 @@ util::optional<KeyValuePartitioning::Key> HivePartitioning::ParseKey(
   return Key{segment.substr(0, name_end), segment.substr(name_end + 1)};
 }
 
-Result<std::string> HivePartitioning::FormatKey(const Key& key, int i) const {
-  return key.name + "=" + key.value;
+std::vector<KeyValuePartitioning::Key> HivePartitioning::ParseKeys(
+    const std::string& path) const {
+  std::vector<Key> keys;
+
+  for (const auto& segment : fs::internal::SplitAbstractPath(path)) {
+    if (auto key = ParseKey(segment)) {
+      keys.push_back(std::move(*key));
+    }
+  }
+
+  return keys;
+}
+
+Result<std::string> HivePartitioning::FormatValues(
+    const std::vector<Scalar*>& values) const {
+  std::vector<std::string> segments(static_cast<size_t>(schema_->num_fields()));
+
+  for (int i = 0; i < schema_->num_fields(); ++i) {
+    const std::string& name = schema_->field(i)->name();
+
+    if (values[i] == nullptr) {
+      if (!NextValid(values, i)) break;
+
+      // If no key is available just provide a placeholder segment to maintain the
+      // field_index <-> path nesting relation
+      segments[i] = name;
+    } else {
+      segments[i] = name + "=" + values[i]->ToString();
+    }
+  }
+
+  return fs::internal::JoinAbstractPath(std::move(segments));
 }
 
 class HivePartitioningFactory : public PartitioningFactory {

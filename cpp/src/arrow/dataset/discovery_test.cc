@@ -80,19 +80,6 @@ class MockDatasetFactory : public DatasetFactory {
   std::vector<std::shared_ptr<Schema>> schemas_;
 };
 
-class MockPartitioning : public Partitioning {
- public:
-  explicit MockPartitioning(std::shared_ptr<Schema> schema)
-      : Partitioning(std::move(schema)) {}
-
-  Result<std::shared_ptr<Expression>> Parse(const std::string& segment,
-                                            int i) const override {
-    return nullptr;
-  }
-
-  std::string type_name() const override { return "mock_partitioning"; }
-};
-
 class MockDatasetFactoryTest : public DatasetFactoryTest {
  public:
   void MakeFactory(std::vector<std::shared_ptr<Schema>> schemas) {
