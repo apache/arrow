@@ -416,6 +416,13 @@ class TestConvertMetadata:
                 _check_pandas_roundtrip(df, expected=expected,
                                         preserve_index=True)
 
+    def test_with_index_of_object_dtype_and_column_labels_int_dtype(self):
+        # ARROW-9096
+
+        df = pd.DataFrame([1], columns=pd.Index([1], dtype=object))  
+        expected = pd.DataFrame([1], columns=pd.Index([1], dtype='int64'))
+        _check_pandas_roundtrip(df, expected=expected, preserve_index=True)
+
     def test_binary_column_name(self):
         column_data = ['い']
         key = 'あ'.encode()
