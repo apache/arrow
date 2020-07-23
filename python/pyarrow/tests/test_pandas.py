@@ -236,9 +236,16 @@ class TestConvertMetadata:
         df = pd.DataFrame([(1, 'a'), (2, 'b'), (3, 'c')], columns=columns)
         _check_pandas_roundtrip(df, preserve_index=True)
 
-    def test_multiindex_with_datetimes(self):
-        # ARROW-3651. This bug occurred only when the dtype of the columns is
-        # object. It does not occur for datetime64[ns]
+    def test_multiindex_with_column_dtype_object(self):
+        # ARROW-3651 & ARROW-9096 
+        # Bug when dtype of the columns is object.
+        
+        df = pd.DataFrame([1], columns=pd.Index([1], dtype=object))
+        _check_pandas_roundtrip(df, preserve_index=True)
+
+        df = pd.DataFrame([1], columns=pd.Index([1.0], dtype=object))
+        _check_pandas_roundtrip(df, preserve_index=True)
+         
         df = pd.DataFrame(1, index=pd.Index(list(range(5)), name='index'),
                           columns=pd.Index([datetime(2018, 1, 1)], dtype='O'))
         _check_pandas_roundtrip(df, preserve_index=True)
@@ -408,12 +415,6 @@ class TestConvertMetadata:
             with pytest.warns(UserWarning):
                 _check_pandas_roundtrip(df, expected=expected,
                                         preserve_index=True)
-
-    def test_with_index_of_object_dtype_and_column_labels_int_dtype(self):
-        # ARROW-9096
-
-        df = pd.DataFrame([1], columns=pd.Index([1], dtype=object))
-        _check_pandas_roundtrip(df, preserve_index=True)
 
     def test_binary_column_name(self):
         column_data = ['い']
