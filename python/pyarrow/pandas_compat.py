@@ -756,7 +756,6 @@ def make_datetimetz(tz):
 def table_to_blockmanager(options, table, categories=None,
                           ignore_metadata=False, types_mapper=None):
     from pandas.core.internals import BlockManager
-
     all_columns = []
     column_indexes = []
     pandas_metadata = table.schema.pandas_metadata
@@ -1015,6 +1014,7 @@ _pandas_logical_type_map = {
     'unicode': np.unicode_,
     'bytes': np.bytes_,
     'string': np.str_,
+    'integer': np.int64, 
     'empty': np.object_,
 }
 
@@ -1104,7 +1104,6 @@ def _reconstruct_columns_from_metadata(columns, column_indexes):
         new_levels.append(level)
 
     return pd.MultiIndex(new_levels, labels, names=columns.names)
-
 
 def _table_to_blocks(options, block_table, categories, extension_columns):
     # Part of table_to_blockmanager
