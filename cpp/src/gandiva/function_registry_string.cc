@@ -55,7 +55,9 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
       UNARY_UNSAFE_NULL_IF_NULL(length, {}, utf8, int32),
       UNARY_UNSAFE_NULL_IF_NULL(lengthUtf8, {}, binary, int32),
       UNARY_UNSAFE_NULL_IF_NULL(reverse, {}, utf8, utf8),
-      UNARY_UNSAFE_NULL_IF_NULL(trim, {}, utf8, utf8),
+      UNARY_UNSAFE_NULL_IF_NULL(ltrim, {}, utf8, utf8),
+      UNARY_UNSAFE_NULL_IF_NULL(rtrim, {}, utf8, utf8),
+      UNARY_UNSAFE_NULL_IF_NULL(btrim, {}, utf8, utf8),
 
       UNARY_SAFE_NULL_NEVER_BOOL_FN(isnull, {}),
       UNARY_SAFE_NULL_NEVER_BOOL_FN(isnotnull, {}),
@@ -82,6 +84,15 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
       NativeFunction("like", {}, DataTypeVector{utf8(), utf8()}, boolean(),
                      kResultNullIfNull, "gdv_fn_like_utf8_utf8",
                      NativeFunction::kNeedsFunctionHolder),
+
+      NativeFunction("ltrim", {}, DataTypeVector{utf8(), utf8()}, utf8(),
+                     kResultNullIfNull, "ltrim_utf8_utf8", NativeFunction::kNeedsContext),
+
+      NativeFunction("rtrim", {}, DataTypeVector{utf8(), utf8()}, utf8(),
+                     kResultNullIfNull, "rtrim_utf8_utf8", NativeFunction::kNeedsContext),
+
+      NativeFunction("btrim", {}, DataTypeVector{utf8(), utf8()}, utf8(),
+                     kResultNullIfNull, "btrim_utf8_utf8", NativeFunction::kNeedsContext),
 
       NativeFunction("substr", {"substring"},
                      DataTypeVector{utf8(), int64() /*offset*/, int64() /*length*/},

@@ -16,7 +16,6 @@
 // under the License.
 
 // String functions
-
 #include "arrow/util/value_parsing.h"
 
 extern "C" {
@@ -286,10 +285,48 @@ const char* reverse_utf8(gdv_int64 context, const char* data, gdv_int32 data_len
   return ret;
 }
 
-// Trim a utf8 sequence
+// Trims whitespaces from the left end of the input utf8 sequence
 FORCE_INLINE
-const char* trim_utf8(gdv_int64 context, const char* data, gdv_int32 data_len,
-                      int32_t* out_len) {
+const char* ltrim_utf8(gdv_int64 context, const char* data, gdv_int32 data_len,
+                       int32_t* out_len) {
+  if (data_len == 0) {
+    *out_len = 0;
+    return "";
+  }
+
+  gdv_int32 start = 0;
+  // start denotes the first position of non-space characters in the input string
+  while (start < data_len && data[start] == ' ') {
+    ++start;
+  }
+
+  *out_len = data_len - start;
+  return data + start;
+}
+
+// Trims whitespaces from the right end of the input utf8 sequence
+FORCE_INLINE
+const char* rtrim_utf8(gdv_int64 context, const char* data, gdv_int32 data_len,
+                       int32_t* out_len) {
+  if (data_len == 0) {
+    *out_len = 0;
+    return "";
+  }
+
+  gdv_int32 end = data_len - 1;
+  // end denotes the last position of non-space characters in the input string
+  while (end >= 0 && data[end] == ' ') {
+    --end;
+  }
+
+  *out_len = end + 1;
+  return data;
+}
+
+// Trims whitespaces from both the ends of the input utf8 sequence
+FORCE_INLINE
+const char* btrim_utf8(gdv_int64 context, const char* data, gdv_int32 data_len,
+                       int32_t* out_len) {
   if (data_len == 0) {
     *out_len = 0;
     return "";
@@ -305,21 +342,145 @@ const char* trim_utf8(gdv_int64 context, const char* data, gdv_int32 data_len,
     --end;
   }
 
-  // string with no leading/trailing spaces, return original string
-  if (start == 0 && end == data_len - 1) {
-    *out_len = data_len;
-    return data;
+  // string has some leading/trailing spaces and some non-space characters
+  *out_len = end - start + 1;
+  return data + start;
+}
+
+// Trims characters present in the trim text from the left end of the base text
+FORCE_INLINE
+const char* ltrim_utf8_utf8(gdv_int64 context, const char* basetext,
+                            gdv_int32 basetext_len, const char* trimtext,
+                            gdv_int32 trimtext_len, int32_t* out_len) {
+  if (basetext_len == 0) {
+    *out_len = 0;
+    return "";
+  } else if (trimtext_len == 0) {
+    *out_len = basetext_len;
+    return basetext;
   }
 
-  // string with all spaces
-  if (start > end) {
+  gdv_int32 start_ptr, char_len;
+  // scan the base text from left to right and increment the start pointer till
+  // there is a character which is not present in the trim text
+  for (start_ptr = 0; start_ptr < basetext_len; start_ptr += char_len) {
+    char_len = utf8_char_length(basetext[start_ptr]);
+    if (char_len == 0 || start_ptr + char_len > basetext_len) {
+      // invalid byte or incomplete glyph
+      set_error_for_invalid_utf(context, basetext[start_ptr]);
+      *out_len = 0;
+      return "";
+    }
+    if (!is_substr_utf8_utf8(trimtext, trimtext_len, basetext + start_ptr, char_len)) {
+      break;
+    }
+  }
+
+  *out_len = basetext_len - start_ptr;
+  return basetext + start_ptr;
+}
+
+// Trims characters present in the trim text from the right end of the base text
+FORCE_INLINE
+const char* rtrim_utf8_utf8(gdv_int64 context, const char* basetext,
+                            gdv_int32 basetext_len, const char* trimtext,
+                            gdv_int32 trimtext_len, int32_t* out_len) {
+  if (basetext_len == 0) {
+    *out_len = 0;
+    return "";
+  } else if (trimtext_len == 0) {
+    *out_len = basetext_len;
+    return basetext;
+  }
+
+  gdv_int32 char_len, end_ptr, byte_cnt = 1;
+  // scan the base text from right to left and decrement the end pointer till
+  // there is a character which is not present in the trim text
+  for (end_ptr = basetext_len - 1; end_ptr >= 0; --end_ptr) {
+    char_len = utf8_char_length(basetext[end_ptr]);
+    if (char_len == 0) {  // trailing bytes of multibyte character
+      ++byte_cnt;
+      continue;
+    }
+    // this is the first byte of a character, hence check if char_len = char_cnt
+    if (byte_cnt != char_len) {  // invalid byte or incomplete glyph
+      set_error_for_invalid_utf(context, basetext[end_ptr]);
+      *out_len = 0;
+      return "";
+    }
+    byte_cnt = 1;  // reset the counter*/
+    if (!is_substr_utf8_utf8(trimtext, trimtext_len, basetext + end_ptr, char_len)) {
+      break;
+    }
+  }
+
+  // when all characters in the basetext are part of the trimtext
+  if (end_ptr == -1) {
     *out_len = 0;
     return "";
   }
 
-  // string has some leading/trailing spaces and some non-space characters
-  *out_len = end - start + 1;
-  return data + start;
+  end_ptr += utf8_char_length(basetext[end_ptr]);  // point to the next character
+  *out_len = end_ptr;
+  return basetext;
+}
+
+// Trims characters present in the trim text from both ends of the base text
+FORCE_INLINE
+const char* btrim_utf8_utf8(gdv_int64 context, const char* basetext,
+                            gdv_int32 basetext_len, const char* trimtext,
+                            gdv_int32 trimtext_len, int32_t* out_len) {
+  if (basetext_len == 0) {
+    *out_len = 0;
+    return "";
+  } else if (trimtext_len == 0) {
+    *out_len = basetext_len;
+    return basetext;
+  }
+
+  gdv_int32 start_ptr, end_ptr, char_len, byte_cnt = 1;
+  // scan the base text from left to right and increment the start and decrement the
+  // end pointers till there are characters which are not present in the trim text
+  for (start_ptr = 0; start_ptr < basetext_len; start_ptr += char_len) {
+    char_len = utf8_char_length(basetext[start_ptr]);
+    if (char_len == 0 || start_ptr + char_len > basetext_len) {
+      // invalid byte or incomplete glyph
+      set_error_for_invalid_utf(context, basetext[start_ptr]);
+      *out_len = 0;
+      return "";
+    }
+    if (!is_substr_utf8_utf8(trimtext, trimtext_len, basetext + start_ptr, char_len)) {
+      break;
+    }
+  }
+  for (end_ptr = basetext_len - 1; end_ptr >= start_ptr; --end_ptr) {
+    char_len = utf8_char_length(basetext[end_ptr]);
+    if (char_len == 0) {  // trailing byte in multibyte character
+      ++byte_cnt;
+      continue;
+    }
+    // this is the first byte of a character, hence check if char_len = char_cnt
+    if (byte_cnt != char_len) {  // invalid byte or incomplete glyph
+      set_error_for_invalid_utf(context, basetext[end_ptr]);
+      *out_len = 0;
+      return "";
+    }
+    byte_cnt = 1;  // reset the counter*/
+    if (!is_substr_utf8_utf8(trimtext, trimtext_len, basetext + end_ptr, char_len)) {
+      break;
+    }
+  }
+
+  // when all characters are trimmed, start_ptr has been incremented to basetext_len and
+  // end_ptr still points to basetext_len - 1, hence we need to handle this case
+  if (start_ptr > end_ptr) {
+    *out_len = 0;
+    return "";
+  }
+
+  end_ptr += utf8_char_length(basetext[end_ptr]);  // point to the next character
+  *out_len = end_ptr - start_ptr;
+  return basetext + start_ptr;
 }
 
 // Truncates the string to given length
@@ -680,7 +841,7 @@ const char* replace_utf8_utf8_utf8(gdv_int64 context, const char* text,
                                         int32_t len) {                                  \
     gdv_##OUT_TYPE val = 0;                                                             \
     int32_t trimmed_len;                                                                \
-    data = trim_utf8(context, data, len, &trimmed_len);                                 \
+    data = btrim_utf8(context, data, len, &trimmed_len);                                \
     if (!arrow::internal::StringConverter<ARROW_TYPE>::Convert(data, trimmed_len,       \
                                                                &val)) {                 \
       std::string err = "Failed to cast the string " + std::string(data, trimmed_len) + \
