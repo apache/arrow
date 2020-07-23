@@ -24,7 +24,7 @@
 # This module defines
 #  THRIFT_VERSION, version string of ant if found
 #  THRIFT_INCLUDE_DIR, where to find THRIFT headers
-#  THRIFT_STATIC_LIB, THRIFT static library
+#  THRIFT_LIB, THRIFT static library
 #  THRIFT_FOUND, If false, do not try to use ant
 
 function(EXTRACT_THRIFT_VERSION)
@@ -39,21 +39,30 @@ function(EXTRACT_THRIFT_VERSION)
   endif()
 endfunction(EXTRACT_THRIFT_VERSION)
 
-if(MSVC AND NOT THRIFT_MSVC_STATIC_LIB_SUFFIX)
-  set(THRIFT_MSVC_STATIC_LIB_SUFFIX md)
+set(THRIFT_LIB_NAMES thrift)
+if(MSVC)
+  if(ARROW_USE_STATIC_CRT)
+    set(THRIFT_LIB_NAMES thriftmt ${THRIFT_LIB_NAMES})
+  else()
+    set(THRIFT_LIB_NAMES thriftmd ${THRIFT_LIB_NAMES})
+  endif()
 endif()
 
 set(THRIFT_STATIC_LIB_SUFFIX
     "${THRIFT_MSVC_STATIC_LIB_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}")
 
-if(ARROW_THRIFT_USE_SHARED)
-  set(THRIFT_LIB_NAMES thrift)
-else()
-  set(THRIFT_LIB_NAMES "${CMAKE_STATIC_LIBRARY_PREFIX}thrift${THRIFT_STATIC_LIB_SUFFIX}"
-                       thrift)
+if(NOT ARROW_THRIFT_USE_SHARED)
+  foreach(name_ ${THRIFT_LIB_NAMES})
+    list(APPEND static_names_
+                "${CMAKE_STATIC_LIBRARY_PREFIX}${name_}${THRIFT_STATIC_LIB_SUFFIX}")
+  endforeach()
+  set(THRIFT_LIB_NAMES ${static_names_} ${THRIFT_LIB_NAMES})
+  undef(name_)
+  undef(static_names_)
 endif()
+
 if(Thrift_ROOT)
-  find_library(THRIFT_STATIC_LIB
+  find_library(THRIFT_LIB
                NAMES ${THRIFT_LIB_NAMES}
                PATHS ${Thrift_ROOT}
                PATH_SUFFIXES "lib/${CMAKE_LIBRARY_ARCHITECTURE}" "lib")
@@ -72,7 +81,7 @@ else()
 
     list(APPEND THRIFT_PC_LIBRARY_DIRS "${THRIFT_PC_LIBDIR}")
 
-    find_library(THRIFT_STATIC_LIB
+    find_library(THRIFT_LIB
                  NAMES ${THRIFT_LIB_NAMES}
                  PATHS ${THRIFT_PC_LIBRARY_DIRS}
                  NO_DEFAULT_PATH)
@@ -82,7 +91,7 @@ else()
                  PATH_SUFFIXES "bin")
     set(THRIFT_VERSION ${THRIFT_PC_VERSION})
   else()
-    find_library(THRIFT_STATIC_LIB
+    find_library(THRIFT_LIB
                  NAMES ${THRIFT_LIB_NAMES}
                  PATH_SUFFIXES "lib/${CMAKE_LIBRARY_ARCHITECTURE}" "lib")
     find_path(THRIFT_INCLUDE_DIR thrift/Thrift.h PATH_SUFFIXES "include")
@@ -99,7 +108,7 @@ endif()
 
 find_package_handle_standard_args(Thrift
                                   REQUIRED_VARS
-                                  THRIFT_STATIC_LIB
+                                  THRIFT_LIB
                                   THRIFT_INCLUDE_DIR
                                   VERSION_VAR
                                   THRIFT_VERSION
@@ -109,7 +118,7 @@ if(Thrift_FOUND OR THRIFT_FOUND)
   set(Thrift_FOUND TRUE)
   add_library(thrift::thrift STATIC IMPORTED)
   set_target_properties(thrift::thrift
-                        PROPERTIES IMPORTED_LOCATION "${THRIFT_STATIC_LIB}"
+                        PROPERTIES IMPORTED_LOCATION "${THRIFT_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${THRIFT_INCLUDE_DIR}")
   if(WIN32 AND NOT MSVC)
     # We don't need this for Visual C++ because Thrift uses
