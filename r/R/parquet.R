@@ -257,7 +257,7 @@ ParquetWriterProperties <- R6Class("ParquetWriterProperties", inherit = ArrowObj
 ParquetWriterPropertiesBuilder <- R6Class("ParquetWriterPropertiesBuilder", inherit = ArrowObject,
   public = list(
     set_version = function(version) {
-      parquet___ArrowWriterProperties___Builder__version(self, make_valid_version(version))
+      parquet___WriterProperties___Builder__version(self, make_valid_version(version))
     },
     set_compression = function(table, compression) {
       compression <- compression_from_name(compression)

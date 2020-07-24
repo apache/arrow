@@ -177,3 +177,17 @@ test_that("write_parquet() returns its input", {
   df_out <- write_parquet(df, tf)
   expect_equivalent(df, df_out)
 })
+
+test_that("write_parquet() handles version argument", {
+  df <- tibble::tibble(x = 1:5)
+  tf <- tempfile()
+  on.exit(unlink(tf))
+
+  purrr::walk(list("1.0", "2.0", 1.0, 2.0, 1L, 2L), ~ {
+    write_parquet(df, tf, version = .x)
+    expect_identical(read_parquet(tf), df)
+  })
+  purrr::walk(list("3.0", 3.0, 3L, "A"), ~ {
+    expect_error(write_parquet(df, tf, version = .x))
+  })
+})
