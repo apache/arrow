@@ -173,7 +173,28 @@ impl<S: SchemaProvider> SqlToRel<S> {
             .aggregate(group_expr, aggr_expr)?
             .build()?;
 
-        Ok(plan)
+        // optionally wrap in projection to preserve final order of fields
+        let expected_columns: Vec<String> = projection_expr
+            .iter()
+            .map(|e| e.name(input.schema()))
+            .collect::<Result<Vec<_>>>()?;
+        let columns: Vec<String> = plan
+            .schema()
+            .fields()
+            .iter()
+            .map(|f| f.name().clone())
+            .collect::<Vec<_>>();
+        if expected_columns != columns {
+            self.project(
+                &plan,
+                expected_columns
+                    .iter()
+                    .map(|c| Expr::Column(c.clone()))
+                    .collect(),
+            )
+        } else {
+            Ok(plan)
+        }
     }
 
     /// Wrap a plan in a limit
@@ -616,6 +637,17 @@ mod tests {
         let sql = "SELECT state FROM person GROUP BY state";
         let expected = "Aggregate: groupBy=[[#state]], aggr=[[]]\
                         \n  TableScan: person projection=None";
+
+        quick_test(sql, expected);
+    }
+
+    #[test]
+    fn select_group_by_needs_projection() {
+        let sql = "SELECT COUNT(state), state FROM person GROUP BY state";
+        let expected = "\
+        Projection: #COUNT(state), #state\
+        \n  Aggregate: groupBy=[[#state]], aggr=[[COUNT(#state)]]\
+        \n    TableScan: person projection=None";
 
         quick_test(sql, expected);
     }
