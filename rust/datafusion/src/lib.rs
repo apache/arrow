@@ -29,6 +29,7 @@
 extern crate arrow;
 extern crate sqlparser;
 
+pub mod common;
 pub mod datasource;
 pub mod error;
 pub mod execution;
