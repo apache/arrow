@@ -237,9 +237,9 @@ class TestConvertMetadata:
         _check_pandas_roundtrip(df, preserve_index=True)
 
     def test_multiindex_with_column_dtype_object(self):
-        # ARROW-3651 & ARROW-9096 
+        # ARROW-3651 & ARROW-9096
         # Bug when dtype of the columns is object.
-        
+
         # uinderlying dtype: integer
         df = pd.DataFrame([1], columns=pd.Index([1], dtype=object))
         _check_pandas_roundtrip(df, preserve_index=True)
@@ -249,8 +249,9 @@ class TestConvertMetadata:
         _check_pandas_roundtrip(df, preserve_index=True)
 
         # underlying dtype: datetime
-        # ARROW-9096: a simple roundtrip now works 
-        df = pd.DataFrame([1], columns=pd.Index([datetime(2018, 1, 1)], dtype='object'))
+        # ARROW-9096: a simple roundtrip now works
+        df = pd.DataFrame([1], columns=pd.Index(
+            [datetime(2018, 1, 1)], dtype='object'))
         _check_pandas_roundtrip(df, preserve_index=True)
 
     def test_multiindex_columns_unicode(self):
