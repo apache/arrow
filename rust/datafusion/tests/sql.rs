@@ -279,7 +279,7 @@ fn csv_query_group_by_int_count() -> Result<()> {
 fn csv_query_group_by_string_min_max() -> Result<()> {
     let mut ctx = ExecutionContext::new();
     register_aggregate_csv(&mut ctx)?;
-    let sql = "SELECT c2, MIN(c12), MAX(c12) FROM aggregate_test_100 GROUP BY c1";
+    let sql = "SELECT c1, MIN(c12), MAX(c12) FROM aggregate_test_100 GROUP BY c1";
     let mut actual = execute(&mut ctx, sql);
     actual.sort();
     let expected =
