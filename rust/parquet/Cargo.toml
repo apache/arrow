@@ -39,7 +39,7 @@ lz4 = { version = "1.23", optional = true }
 zstd = { version = "0.5", optional = true }
 chrono = "0.4"
 num-bigint = "0.3"
-arrow = { path = "../arrow", version = "1.0.0-SNAPSHOT", optional = true }
+arrow = { path = "../arrow", version = "1.1.0-SNAPSHOT", optional = true }
 serde_json = { version = "1.0", features = ["preserve_order"] }
 
 [dev-dependencies]
