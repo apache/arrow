@@ -91,7 +91,7 @@ brew install apache-arrow --HEAD
 ```
 
 On Windows, you can download a .zip file with the arrow dependencies from the
-[nightly bintray repository](https://dl.bintray.com/ursalabs/arrow-r/libarrow/bin/windows-35/),
+[nightly bintray repository](https://dl.bintray.com/ursalabs/arrow-r/libarrow/bin/windows/),
 and then set the `RWINLIB_LOCAL` environment variable to point to that
 zip file before installing the `arrow` R package. Version numbers in that
 repository correspond to dates, and you will likely want the most recent.
