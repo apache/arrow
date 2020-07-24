@@ -1009,7 +1009,6 @@ def _is_generated_index_name(name):
     return re.match(pattern, name) is not None
 
 
-# ARROW-9096: added integer and floating
 _pandas_logical_type_map = {
     'date': 'datetime64[D]',
     'datetime': 'datetime64[ns]',
@@ -1083,7 +1082,6 @@ def _reconstruct_columns_from_metadata(columns, column_indexes):
     ]
 
     # Convert each level to the dtype provided in the metadata
-    # ARROW-9096: need numpy_type to match cast against original DataFrame
     levels_dtypes = [
         (level, col_index.get('pandas_type', str(level.dtype)),
          col_index.get('numpy_type', None))
