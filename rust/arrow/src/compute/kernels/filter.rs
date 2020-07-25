@@ -451,8 +451,8 @@ pub fn filter_record_batch(
     let filtered_arrays = record_batch
         .columns()
         .iter()
-        .map(|a| filter_context.filter(a.as_ref()).unwrap())
-        .collect();
+        .map(|a| filter_context.filter(a.as_ref()))
+        .collect::<Result<Vec<ArrayRef>>>()?;
     RecordBatch::try_new(record_batch.schema(), filtered_arrays)
 }
 
