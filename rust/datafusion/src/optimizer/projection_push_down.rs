@@ -110,6 +110,25 @@ impl ProjectionPushDown {
                 input: Box::new(self.optimize_plan(&input, accum, has_projection)?),
                 schema: schema.clone(),
             }),
+            LogicalPlan::Join {
+                left,
+                right,
+                on,
+                how,
+                schema,
+            } => {
+                // optimize each of the plans
+                let left = self.optimize_plan(&left, accum, has_projection)?;
+                let right = self.optimize_plan(&right, accum, has_projection)?;
+
+                Ok(LogicalPlan::Join {
+                    left: Box::new(left),
+                    right: Box::new(right),
+                    on: on.clone(),
+                    how: how.clone(),
+                    schema: schema.clone(),
+                })
+            }
             LogicalPlan::EmptyRelation { .. } => Ok(plan.clone()),
             LogicalPlan::TableScan {
                 schema_name,

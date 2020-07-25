@@ -21,10 +21,11 @@
 //! Logical query plans can then be optimized and executed directly, or translated into
 //! physical query plans and executed.
 
-use std::fmt;
+use std::{collections::HashSet, fmt};
 
 use arrow::datatypes::{DataType, Field, Schema};
 
+use crate::common::{build_join_schema, check_join_is_valid, JoinHow};
 use crate::datasource::csv::{CsvFile, CsvReadOptions};
 use crate::datasource::parquet::ParquetTable;
 use crate::datasource::TableProvider;
@@ -636,6 +637,19 @@ pub enum LogicalPlan {
         /// The schema description
         schema: Box<Schema>,
     },
+    /// Represents a join operation
+    Join {
+        /// The left side
+        left: Box<LogicalPlan>,
+        /// The right side
+        right: Box<LogicalPlan>,
+        /// Grouping column names
+        on: HashSet<String>,
+        /// How the join is performed
+        how: JoinHow,
+        /// The schema description
+        schema: Box<Schema>,
+    },
     /// Represents a list of sort expressions to be applied to a relation
     Sort {
         /// The sort expressions
@@ -747,6 +761,7 @@ impl LogicalPlan {
             LogicalPlan::Sort { schema, .. } => &schema,
             LogicalPlan::Limit { schema, .. } => &schema,
             LogicalPlan::CreateExternalTable { schema, .. } => &schema,
+            LogicalPlan::Join { schema, .. } => &schema,
         }
     }
 }
@@ -833,6 +848,18 @@ impl LogicalPlan {
             } => {
                 write!(f, "Limit: {}", n)?;
                 input.fmt_with_indent(f, indent + 1)
+            }
+            LogicalPlan::Join {
+                ref left,
+                ref right,
+                ref on,
+                ref how,
+                ..
+            } => {
+                let on = on.iter().map(|x| x.clone()).collect::<Vec<_>>().join(", #");
+                write!(f, "Join: on=[#{}] how={:?}", on, how)?;
+                left.fmt_with_indent(f, indent + 1)?;
+                right.fmt_with_indent(f, indent + 1)
             }
             LogicalPlan::CreateExternalTable { ref name, .. } => {
                 write!(f, "CreateExternalTable: {:?}", name)
@@ -1042,6 +1069,28 @@ impl LogicalPlanBuilder {
             expr,
             input: Box::new(self.plan.clone()),
             schema: self.plan.schema().clone(),
+        }))
+    }
+
+    /// Apply a join
+    pub fn join(
+        &self,
+        right: &LogicalPlan,
+        on: &Vec<String>,
+        how: &JoinHow,
+    ) -> Result<Self> {
+        let on = on.iter().map(|s| s.clone()).collect::<HashSet<_>>();
+
+        check_join_is_valid(&self.plan.schema(), &right.schema(), &on)?;
+
+        let schema = build_join_schema(&self.plan.schema(), &right.schema(), &on, how)?;
+
+        Ok(Self::from(&LogicalPlan::Join {
+            left: Box::new(self.plan.clone()),
+            right: Box::new(right.clone()),
+            on,
+            how: how.clone(),
+            schema: Box::new(schema),
         }))
     }
 

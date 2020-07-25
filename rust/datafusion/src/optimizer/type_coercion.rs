@@ -165,6 +165,26 @@ impl<'a> OptimizerRule for TypeCoercionRule<'a> {
                     self.rewrite_expr_list(aggr_expr, input.schema())?,
                 )?
                 .build(),
+            LogicalPlan::Join {
+                left,
+                right,
+                on,
+                how,
+                schema,
+            } => {
+                // no optimization to be made on this node, so we just pass the optimization
+                // to its children
+                let left = self.optimize(&left)?;
+                let right = self.optimize(&right)?;
+
+                Ok(LogicalPlan::Join {
+                    left: Box::new(left),
+                    right: Box::new(right),
+                    on: on.clone(),
+                    how: how.clone(),
+                    schema: schema.clone(),
+                })
+            }
             LogicalPlan::TableScan { .. } => Ok(plan.clone()),
             LogicalPlan::InMemoryScan { .. } => Ok(plan.clone()),
             LogicalPlan::ParquetScan { .. } => Ok(plan.clone()),

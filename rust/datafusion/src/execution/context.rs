@@ -28,6 +28,7 @@ use arrow::csv;
 use arrow::datatypes::*;
 use arrow::record_batch::RecordBatch;
 
+use super::physical_plan::hash_join::HashJoinExec;
 use crate::datasource::csv::CsvFile;
 use crate::datasource::parquet::ParquetTable;
 use crate::datasource::TableProvider;
@@ -438,6 +439,17 @@ impl ExecutionContext {
                         .collect(),
                     merge,
                 )?))
+            }
+            LogicalPlan::Join {
+                left,
+                right,
+                on,
+                how,
+                ..
+            } => {
+                let left = self.create_physical_plan(left, batch_size)?;
+                let right = self.create_physical_plan(right, batch_size)?;
+                Ok(Arc::new(HashJoinExec::try_new(left, right, on, how)?))
             }
             LogicalPlan::Selection { input, expr, .. } => {
                 let input = self.create_physical_plan(input, batch_size)?;
