@@ -202,8 +202,8 @@ ARROW_EXPORT extern const int32_t kCountsFieldIndex;
 /// \since 1.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
-Result<std::shared_ptr<Array>> ValueCounts(const Datum& value,
-                                           ExecContext* ctx = NULLPTR);
+Result<std::shared_ptr<StructArray>> ValueCounts(const Datum& value,
+                                                 ExecContext* ctx = NULLPTR);
 
 /// \brief Dictionary-encode values in an array-like object
 /// \param[in] data array-like input

@@ -101,9 +101,8 @@ Status CleanListOffsets(const Array& offsets, MemoryPool* pool,
 }
 
 template <typename TYPE>
-Result<std::shared_ptr<Array>> ListArrayFromArrays(const Array& offsets,
-                                                   const Array& values,
-                                                   MemoryPool* pool) {
+Result<std::shared_ptr<typename TypeTraits<TYPE>::ArrayType>> ListArrayFromArrays(
+    const Array& offsets, const Array& values, MemoryPool* pool) {
   using offset_type = typename TYPE::offset_type;
   using ArrayType = typename TypeTraits<TYPE>::ArrayType;
   using OffsetArrowType = typename CTypeTraits<offset_type>::ArrowType;
@@ -238,15 +237,15 @@ void LargeListArray::SetData(const std::shared_ptr<ArrayData>& data) {
   values_ = MakeArray(data_->child_data[0]);
 }
 
-Result<std::shared_ptr<Array>> ListArray::FromArrays(const Array& offsets,
-                                                     const Array& values,
-                                                     MemoryPool* pool) {
+Result<std::shared_ptr<ListArray>> ListArray::FromArrays(const Array& offsets,
+                                                         const Array& values,
+                                                         MemoryPool* pool) {
   return ListArrayFromArrays<ListType>(offsets, values, pool);
 }
 
-Result<std::shared_ptr<Array>> LargeListArray::FromArrays(const Array& offsets,
-                                                          const Array& values,
-                                                          MemoryPool* pool) {
+Result<std::shared_ptr<LargeListArray>> LargeListArray::FromArrays(const Array& offsets,
+                                                                   const Array& values,
+                                                                   MemoryPool* pool) {
   return ListArrayFromArrays<LargeListType>(offsets, values, pool);
 }
 

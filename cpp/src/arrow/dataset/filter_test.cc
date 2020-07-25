@@ -592,5 +592,67 @@ TEST(ExpressionSerializationTest, RoundTrips) {
   }
 }
 
+void AssertGrouping(const FieldVector& by_fields, const std::string& batch_json,
+                    const std::string& expected_json) {
+  FieldVector fields_with_id = by_fields;
+  fields_with_id.push_back(field("id", int32()));
+
+  auto batch = RecordBatchFromJSON(schema(fields_with_id), batch_json);
+
+  auto just_id = RecordBatch::Make(schema({field("id", int32())}), batch->num_rows(),
+                                   {batch->GetColumnByName("id")});
+
+  ASSERT_OK_AND_ASSIGN(batch, batch->RemoveColumn(batch->num_columns() - 1));
+
+  ASSERT_OK_AND_ASSIGN(auto grouping, Group(*batch));
+
+  auto unique_rows =
+      checked_pointer_cast<StructArray>(grouping->GetFieldByName("values"));
+  auto grouped_sort_indices =
+      checked_pointer_cast<ListArray>(grouping->GetFieldByName("indices"));
+
+  FieldVector fields_with_ids = by_fields;
+  fields_with_ids.push_back(field("ids", list(int32())));
+  auto expected_groups = RecordBatchFromJSON(schema(fields_with_ids), expected_json);
+
+  auto expected_ids =
+      checked_pointer_cast<ListArray>(expected_groups->GetColumnByName("ids"));
+
+  ASSERT_OK_AND_ASSIGN(expected_groups,
+                       expected_groups->RemoveColumn(expected_groups->num_columns() - 1));
+  ASSERT_OK_AND_ASSIGN(auto expected_groups_array, expected_groups->ToStructArray());
+
+  int i = 0;
+  ASSERT_OK(VisitGrouped(
+      *unique_rows, *grouped_sort_indices, just_id,
+      [&](std::shared_ptr<StructScalar> by, std::shared_ptr<RecordBatch> slice) {
+        ARROW_ASSIGN_OR_RAISE(auto expected_by, expected_groups_array->GetScalar(i));
+        AssertScalarsEqual(*expected_by, *by, /*verbose=*/true);
+        AssertArraysEqual(*expected_ids->value_slice(i), *slice->GetColumnByName("id"),
+                          /*verbose=*/true);
+        ++i;
+        return Status::OK();
+      }));
+}
+
+TEST(GroupTest, Basics) {
+  AssertGrouping({field("a", utf8()), field("b", int32())}, R"([
+    {"a": "ex",  "b": 0, "id": 0},
+    {"a": "ex",  "b": 0, "id": 1},
+    {"a": "why", "b": 0, "id": 2},
+    {"a": "ex",  "b": 1, "id": 3},
+    {"a": "why", "b": 0, "id": 4},
+    {"a": "ex",  "b": 1, "id": 5},
+    {"a": "ex",  "b": 0, "id": 6},
+    {"a": "why", "b": 1, "id": 7}
+  ])",
+                 R"([
+    {"a": "ex",  "b": 0, "ids": [0, 1, 6]},
+    {"a": "why", "b": 0, "ids": [2, 4]},
+    {"a": "ex",  "b": 1, "ids": [3, 5]},
+    {"a": "why", "b": 1, "ids": [7]}
+  ])");
+}
+
 }  // namespace dataset
 }  // namespace arrow
