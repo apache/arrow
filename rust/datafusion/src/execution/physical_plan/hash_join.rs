@@ -317,10 +317,7 @@ mod tests {
         assert_eq!(result.len(), expected.len());
 
         // convert to set since row order is irrelevant
-        let result = result
-            .iter()
-            .map(|s| s.clone())
-            .collect::<HashSet<_>>();
+        let result = result.iter().map(|s| s.clone()).collect::<HashSet<_>>();
 
         let expected = expected
             .iter()

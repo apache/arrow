@@ -26,7 +26,7 @@ use crate::logicalplan::{
 
 use arrow::datatypes::*;
 
-use crate::logicalplan::Expr::Alias;
+use crate::{common::JoinHow, logicalplan::Expr::Alias};
 use sqlparser::sqlast::*;
 
 /// The SchemaProvider trait allows the query planner to obtain meta-data about tables and
@@ -60,6 +60,7 @@ impl<S: SchemaProvider> SqlToRel<S> {
                 ref limit,
                 ref group_by,
                 ref having,
+                ref joins,
                 ..
             } => {
                 if having.is_some() {
@@ -74,7 +75,9 @@ impl<S: SchemaProvider> SqlToRel<S> {
                     None => LogicalPlanBuilder::empty().build()?,
                 };
 
-                // selection first
+                // join first, since a filter may include columns from both sides
+                let plan = self.join(&plan, &joins)?;
+
                 let plan = self.filter(&plan, selection)?;
 
                 let projection_expr: Vec<Expr> = projection
@@ -122,6 +125,43 @@ impl<S: SchemaProvider> SqlToRel<S> {
                 "sql_to_rel does not support this relation: {:?}",
                 sql
             ))),
+        }
+    }
+
+    /// Apply a join to the plan
+    pub fn join(&self, plan: &LogicalPlan, joins: &[Join]) -> Result<LogicalPlan> {
+        if joins.len() == 0 {
+            // short-circuit if no join exists
+            return Ok(plan.clone());
+        }
+        if joins.len() > 1 {
+            return Err(ExecutionError::NotImplemented(
+                "statements with more than one join relation are still not supported"
+                    .to_owned(),
+            ));
+        };
+        let join: &Join = &joins[0];
+
+        match &join.join_operator {
+            JoinOperator::Inner(JoinConstraint::On(relation)) => {
+                let expr = self.sql_to_rex(&relation, &plan.schema())?;
+
+                let names = match expr {
+                    Expr::Column(name) => Ok(vec![name]),
+                    _ => Err(ExecutionError::NotImplemented(
+                        "Only joins on single columns are supported".to_owned(),
+                    )),
+                }?;
+
+                let right = self.sql_to_rel(&join.relation)?;
+
+                LogicalPlanBuilder::from(&plan)
+                    .join(&right, &names, &JoinHow::Inner)?
+                    .build()
+            }
+            _ => Err(ExecutionError::NotImplemented(
+                "Only inner joins (ON) are currently supported".to_owned(),
+            )),
         }
     }
 
@@ -557,6 +597,27 @@ mod tests {
     }
 
     #[test]
+    fn one_column_join() {
+        quick_test(
+            "SELECT a FROM simple1 JOIN simple2 ON a",
+            "\
+            Projection: #a\
+            \n  Join: on=[#a] how=Inner\
+            \n    TableScan: simple1 projection=None\
+            \n    TableScan: simple2 projection=None",
+        );
+
+        quick_test(
+            "SELECT a FROM simple1 JOIN simple2 ON b",
+            "\
+            Projection: #a\
+            \n  Join: on=[#b] how=Inner\
+            \n    TableScan: simple1 projection=None\
+            \n    TableScan: simple2 projection=None",
+        );
+    }
+
+    #[test]
     fn test_wildcard() {
         quick_test(
             "SELECT * from person",
@@ -718,6 +779,16 @@ mod tests {
                     Field::new("c11", DataType::Float32, false),
                     Field::new("c12", DataType::Float64, false),
                     Field::new("c13", DataType::Utf8, false),
+                ]))),
+                "simple1" => Some(Arc::new(Schema::new(vec![
+                    Field::new("a", DataType::UInt32, false),
+                    Field::new("b", DataType::UInt32, false),
+                    Field::new("c1", DataType::UInt32, false),
+                ]))),
+                "simple2" => Some(Arc::new(Schema::new(vec![
+                    Field::new("a", DataType::UInt32, false),
+                    Field::new("b", DataType::UInt32, false),
+                    Field::new("c2", DataType::UInt32, false),
                 ]))),
                 _ => None,
             }

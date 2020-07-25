@@ -887,7 +887,7 @@ mod tests {
             ("c2", &vec![13, 14]),
         )?;
         let plan = LogicalPlanBuilder::from(&left)
-            .join(&right, &vec!["a"], &JoinHow::Inner)?
+            .join(&right, &vec!["a".to_string()], &JoinHow::Inner)?
             .build()?;
 
         let ctx = ExecutionContext::new();

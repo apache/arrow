@@ -1073,7 +1073,12 @@ impl LogicalPlanBuilder {
     }
 
     /// Apply a join
-    pub fn join(&self, right: &LogicalPlan, on: &[&str], how: &JoinHow) -> Result<Self> {
+    pub fn join(
+        &self,
+        right: &LogicalPlan,
+        on: &[String],
+        how: &JoinHow,
+    ) -> Result<Self> {
         let on = on.iter().map(|s| s.to_string()).collect::<HashSet<_>>();
 
         check_join_is_valid(&self.plan.schema(), &right.schema(), &on)?;
@@ -1194,7 +1199,7 @@ mod tests {
 
     #[test]
     fn plan_builder_join() -> Result<()> {
-        let on = vec!["a1"];
+        let on = vec!["a1".to_string()];
         let t1 = build_table("a1", "b1", "c1")?;
         let t2 = build_table("a1", "b2", "c2")?;
 
