@@ -50,15 +50,21 @@ fn check_join_set_is_valid(
     right: &HashSet<String>,
     on: &HashSet<String>,
 ) -> Result<()> {
-    let mandatory_columns = on.iter().map(|s| s).collect::<HashSet<_>>();
+    if on.len() == 0 {
+        return Err(ExecutionError::General(
+            "The 'on' clause of a join cannot be empty".to_string(),
+        ));
+    }
+
+    let on_columns = on.iter().map(|s| s).collect::<HashSet<_>>();
     let common_columns = left.intersection(&right).collect::<HashSet<_>>();
-    let missing_columns = mandatory_columns
+    let missing = on_columns
         .difference(&common_columns)
         .collect::<HashSet<_>>();
-    if missing_columns.len() > 0 {
+    if missing.len() > 0 {
         return Err(ExecutionError::General(format!(
                 "The left or right side of the join does not have columns {:?} columns on \"on\": \nLeft: {:?}\nRight: {:?}\nOn: {:?}",
-                missing_columns,
+                missing,
                 left,
                 right,
                 on,
@@ -94,4 +100,46 @@ pub fn build_join_schema(
         }
     };
     Ok(Schema::new(fields))
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    fn check(left: &[&str], right: &[&str], on: &[&str]) -> Result<()> {
+        let left = left.iter().map(|x| x.to_string()).collect::<HashSet<_>>();
+        let right = right.iter().map(|x| x.to_string()).collect::<HashSet<_>>();
+        let on = on.iter().map(|x| x.to_string()).collect::<HashSet<_>>();
+
+        check_join_set_is_valid(&left, &right, &on)
+    }
+
+    #[test]
+    fn check_valid() -> Result<()> {
+        let left = vec!["a", "b1"];
+        let right = vec!["a", "b2"];
+        let on = vec!["a"];
+
+        check(&left, &right, &on)?;
+        Ok(())
+    }
+
+    #[test]
+    fn check_not_in_right() {
+        let left = vec!["a", "b"];
+        let right = vec!["b"];
+        let on = vec!["a"];
+
+        assert!(check(&left, &right, &on).is_err());
+    }
+
+    #[test]
+    fn check_not_in_left() {
+        let left = vec!["b"];
+        let right = vec!["a"];
+        let on = vec!["a"];
+
+        assert!(check(&left, &right, &on).is_err());
+    }
 }
