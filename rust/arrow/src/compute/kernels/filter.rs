@@ -32,6 +32,7 @@ use std::{mem, sync::Arc};
 /// trait for copying filtered null bitmap bits
 trait CopyNullBit {
     fn copy_null_bit(&mut self, source_index: usize);
+    fn advance(&mut self, count: usize);
     fn null_count(&self) -> usize;
     fn null_buffer(&mut self) -> Buffer;
 }
@@ -49,6 +50,11 @@ impl NullBitNoop {
 impl CopyNullBit for NullBitNoop {
     #[inline]
     fn copy_null_bit(&mut self, _source_index: usize) {
+        // do nothing
+    }
+
+    #[inline]
+    fn advance(&mut self, _count: usize) {
         // do nothing
     }
 
@@ -93,6 +99,13 @@ impl<'a> CopyNullBit for NullBitSetter<'a> {
             self.null_count += 1;
         }
         self.target_index += 1;
+    }
+
+    #[inline]
+    fn advance(&mut self, count: usize) {
+        // only increment target_index
+        // no need to set any null bits because target_buffer is initialized with all 1s
+        self.target_index += count;
     }
 
     fn null_count(&self) -> usize {
@@ -141,12 +154,28 @@ fn filter_array_impl(
     let mut value_position = value_buffer.raw_data_mut();
     let mut null_bit_setter = get_null_bit_setter(data_array);
     let null_bit_setter = null_bit_setter.as_mut();
+    let all_ones_batch = !0u64;
 
     for (i, filter_batch) in filter_u64.iter().enumerate() {
         // foreach u64 batch
         let filter_batch = *filter_batch;
         if filter_batch == 0 {
             // if batch == 0: skip
+            continue;
+        } else if filter_batch == all_ones_batch {
+            // if batch == all 1s: copy all 64 values in one go
+            null_bit_setter.advance(64);
+            let data_index = i * 64;
+            let data_len = value_size * 64;
+            unsafe {
+                // this should be safe because of the data_array.len() check at the beginning of the method
+                memory::memcpy(
+                    value_position,
+                    data_start.add(value_size * data_index),
+                    data_len,
+                );
+                value_position = value_position.add(data_len);
+            }
             continue;
         }
         for (j, filter_mask) in filter_mask.iter().enumerate() {
@@ -549,6 +578,53 @@ mod tests {
         assert_eq!(2, d.len());
         assert_eq!(5, d.value(0));
         assert_eq!(8, d.value(1));
+    }
+
+    #[test]
+    fn test_filter_array_low_density() {
+        // this test exercises the all 0's branch of the filter algorithm
+        let mut data_values = (1..=65).into_iter().collect::<Vec<i32>>();
+        let mut filter_values = (1..=65)
+            .into_iter()
+            .map(|i| match i % 65 {
+                0 => true,
+                _ => false,
+            })
+            .collect::<Vec<bool>>();
+        // set up two more values after the batch
+        data_values.extend_from_slice(&[66, 67]);
+        filter_values.extend_from_slice(&[false, true]);
+        let a = Int32Array::from(data_values);
+        let b = BooleanArray::from(filter_values);
+        let c = filter(&a, &b).unwrap();
+        let d = c.as_ref().as_any().downcast_ref::<Int32Array>().unwrap();
+        assert_eq!(2, d.len());
+        assert_eq!(65, d.value(0));
+        assert_eq!(67, d.value(1));
+    }
+
+    #[test]
+    fn test_filter_array_high_density() {
+        // this test exercises the all 1's branch of the filter algorithm
+        let mut data_values = (1..=65).into_iter().collect::<Vec<i32>>();
+        let mut filter_values = (1..=65)
+            .into_iter()
+            .map(|i| match i % 65 {
+                0 => false,
+                _ => true,
+            })
+            .collect::<Vec<bool>>();
+        // set up two more values after the batch
+        data_values.extend_from_slice(&[66, 67]);
+        filter_values.extend_from_slice(&[false, true]);
+        let a = Int32Array::from(data_values);
+        let b = BooleanArray::from(filter_values);
+        let c = filter(&a, &b).unwrap();
+        let d = c.as_ref().as_any().downcast_ref::<Int32Array>().unwrap();
+        assert_eq!(65, d.len());
+        assert_eq!(1, d.value(0));
+        assert_eq!(64, d.value(63));
+        assert_eq!(67, d.value(64));
     }
 
     #[test]
