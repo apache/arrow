@@ -52,13 +52,14 @@ set(THRIFT_STATIC_LIB_SUFFIX
     "${THRIFT_MSVC_STATIC_LIB_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}")
 
 if(NOT ARROW_THRIFT_USE_SHARED)
+  set(static_names_)
   foreach(name_ ${THRIFT_LIB_NAMES})
     list(APPEND static_names_
                 "${CMAKE_STATIC_LIBRARY_PREFIX}${name_}${THRIFT_STATIC_LIB_SUFFIX}")
   endforeach()
   set(THRIFT_LIB_NAMES ${static_names_} ${THRIFT_LIB_NAMES})
-  undef(name_)
-  undef(static_names_)
+  unset(name_)
+  unset(static_names_)
 endif()
 
 if(Thrift_ROOT)

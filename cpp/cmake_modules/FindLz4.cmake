@@ -24,13 +24,14 @@ set(LZ4_STATIC_LIB_SUFFIX "${LZ4_MSVC_STATIC_LIB_SUFFIX}${CMAKE_STATIC_LIBRARY_S
 set(LZ4_LIB_NAMES lz4 liblz4)
 
 if(NOT ARROW_LZ4_USE_SHARED)
+  set(static_names_)
   foreach(name_ ${LZ4_LIB_NAMES})
     list(APPEND static_names_
                 "${CMAKE_STATIC_LIBRARY_PREFIX}${name_}${LZ4_STATIC_LIB_SUFFIX}")
   endforeach()
   set(LZ4_LIB_NAMES ${static_names_} ${LZ4_LIB_NAMES})
-  undef(name_)
-  undef(static_names_)
+  unset(name_)
+  unset(static_names_)
 endif()
 
 if(LZ4_ROOT)
