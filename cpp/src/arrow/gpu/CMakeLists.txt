@@ -69,7 +69,13 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/cuda_version.h"
 
 arrow_install_all_headers("arrow/gpu")
 
-set(ARROW_CUDA_TEST_LINK_LIBS arrow_cuda_shared ${ARROW_TEST_LINK_LIBS})
+if(ARROW_BUILD_SHARED)
+  set(ARROW_CUDA_LIBRARY arrow_cuda_shared)
+else()
+  set(ARROW_CUDA_LIBRARY arrow_cuda_static)
+endif()
+
+set(ARROW_CUDA_TEST_LINK_LIBS ${ARROW_CUDA_LIBRARY} ${ARROW_TEST_LINK_LIBS})
 
 if(ARROW_BUILD_TESTS)
   add_arrow_test(cuda_test STATIC_LINK_LIBS ${ARROW_CUDA_TEST_LINK_LIBS} NO_VALGRIND)
@@ -77,7 +83,7 @@ endif()
 
 if(ARROW_BUILD_BENCHMARKS)
   cuda_add_executable(arrow-cuda-benchmark cuda_benchmark.cc)
-  target_link_libraries(arrow-cuda-benchmark arrow_cuda_shared GTest::gtest
+  target_link_libraries(arrow-cuda-benchmark ${ARROW_CUDA_LIBRARY} GTest::gtest
                         ${ARROW_BENCHMARK_LINK_LIBS})
   add_dependencies(arrow_cuda-benchmarks arrow-cuda-benchmark)
 endif()
