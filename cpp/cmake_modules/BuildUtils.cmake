@@ -213,9 +213,14 @@ endfunction()
 
 # \arg OUTPUTS list to append built targets to
 function(ADD_ARROW_LIB LIB_NAME)
-  set(options BUILD_SHARED BUILD_STATIC)
-  set(one_value_args CMAKE_PACKAGE_NAME PKG_CONFIG_NAME SHARED_LINK_FLAGS
-                     PRECOMPILED_HEADER_LIB)
+  set(options)
+  set(one_value_args
+      BUILD_SHARED
+      BUILD_STATIC
+      CMAKE_PACKAGE_NAME
+      PKG_CONFIG_NAME
+      SHARED_LINK_FLAGS
+      PRECOMPILED_HEADER_LIB)
   set(multi_value_args
       SOURCES
       PRECOMPILED_HEADERS
@@ -243,12 +248,12 @@ function(ADD_ARROW_LIB LIB_NAME)
   endif()
 
   # Allow overriding ARROW_BUILD_SHARED and ARROW_BUILD_STATIC
-  if(ARG_BUILD_SHARED)
+  if(DEFINED ARG_BUILD_SHARED)
     set(BUILD_SHARED ${ARG_BUILD_SHARED})
   else()
     set(BUILD_SHARED ${ARROW_BUILD_SHARED})
   endif()
-  if(ARG_BUILD_STATIC)
+  if(DEFINED ARG_BUILD_STATIC)
     set(BUILD_STATIC ${ARG_BUILD_STATIC})
   else()
     set(BUILD_STATIC ${ARROW_BUILD_STATIC})
