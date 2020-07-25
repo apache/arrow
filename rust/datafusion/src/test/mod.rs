@@ -21,6 +21,7 @@ use crate::error::Result;
 use crate::execution::context::ExecutionContext;
 use crate::execution::physical_plan::ExecutionPlan;
 use crate::logicalplan::{Expr, LogicalPlan, LogicalPlanBuilder};
+use array::Int32Array;
 use arrow::array;
 use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
 use arrow::record_batch::RecordBatch;
@@ -230,4 +231,32 @@ pub fn max(expr: Expr) -> Expr {
         args: vec![expr],
         return_type: DataType::Float64,
     }
+}
+
+/// returns a table with 3 columns of i32 in memory
+pub fn build_table_i32(
+    a: (&str, &Vec<i32>),
+    b: (&str, &Vec<i32>),
+    c: (&str, &Vec<i32>),
+) -> Result<(RecordBatch, Schema)> {
+    let schema = Schema::new(vec![
+        Field::new(a.0, DataType::Int32, false),
+        Field::new(b.0, DataType::Int32, false),
+        Field::new(c.0, DataType::Int32, false),
+    ]);
+
+    let batch = RecordBatch::try_new(
+        Arc::new(schema.clone()),
+        vec![
+            Arc::new(Int32Array::from(a.1.clone())),
+            Arc::new(Int32Array::from(b.1.clone())),
+            Arc::new(Int32Array::from(c.1.clone())),
+        ],
+    )?;
+    Ok((batch, schema))
+}
+
+/// Returns the column names on the schema
+pub fn columns(schema: &Schema) -> Vec<String> {
+    schema.fields().iter().map(|f| f.name().clone()).collect()
 }

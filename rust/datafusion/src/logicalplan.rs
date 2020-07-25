@@ -1073,13 +1073,8 @@ impl LogicalPlanBuilder {
     }
 
     /// Apply a join
-    pub fn join(
-        &self,
-        right: &LogicalPlan,
-        on: &Vec<String>,
-        how: &JoinHow,
-    ) -> Result<Self> {
-        let on = on.iter().map(|s| s.clone()).collect::<HashSet<_>>();
+    pub fn join(&self, right: &LogicalPlan, on: &[&str], how: &JoinHow) -> Result<Self> {
+        let on = on.iter().map(|s| s.to_string()).collect::<HashSet<_>>();
 
         check_join_is_valid(&self.plan.schema(), &right.schema(), &on)?;
 
@@ -1118,6 +1113,7 @@ impl LogicalPlanBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test::{build_table_i32, columns};
 
     #[test]
     fn plan_builder_simple() -> Result<()> {
@@ -1181,6 +1177,39 @@ mod tests {
         \n    TableScan: employee.csv projection=Some([3, 4])";
 
         assert_eq!(expected, format!("{:?}", plan));
+
+        Ok(())
+    }
+
+    fn build_table(a: &str, b: &str, c: &str) -> Result<LogicalPlan> {
+        let (batch, schema) = build_table_i32((a, &vec![]), (b, &vec![]), (c, &vec![]))?;
+
+        Ok(LogicalPlan::InMemoryScan {
+            data: vec![vec![batch]],
+            schema: Box::new(schema.clone()),
+            projection: None,
+            projected_schema: Box::new(schema),
+        })
+    }
+
+    #[test]
+    fn plan_builder_join() -> Result<()> {
+        let on = vec!["a1"];
+        let t1 = build_table("a1", "b1", "c1")?;
+        let t2 = build_table("a1", "b2", "c2")?;
+
+        let plan = LogicalPlanBuilder::from(&t1)
+            .join(&t2, &on, &JoinHow::Inner)?
+            .build()?;
+
+        let expected = "\
+        Join: on=[#a1] how=Inner\
+        \n  InMemoryScan: projection=None\
+        \n  InMemoryScan: projection=None";
+        assert_eq!(expected, format!("{:?}", plan));
+
+        let columns = columns(&plan.schema());
+        assert_eq!(columns, vec!["a1", "b1", "c1", "b2", "c2"]);
 
         Ok(())
     }

@@ -61,7 +61,7 @@ impl HashJoinExec {
         how: &JoinHow,
     ) -> Result<Self> {
         let left_schema = left.schema();
-        let right_schema = left.schema();
+        let right_schema = right.schema();
         check_join_is_valid(&left_schema, &right_schema, &on)?;
 
         let on = on.iter().map(|s| s.clone()).collect::<HashSet<_>>();
@@ -282,67 +282,22 @@ impl Partition for HashJoinPartition {
 mod tests {
 
     use super::*;
-    use crate::execution::physical_plan::{memory::MemoryExec, ExecutionPlan};
-    use arrow::{
-        array::{Array, Int32Array},
-        datatypes::{DataType, Field},
+    use crate::{
+        execution::physical_plan::{common, memory::MemoryExec, ExecutionPlan},
+        test::{build_table_i32, columns, format_batch},
     };
-    use std::collections::{HashMap, HashSet};
+    use std::collections::HashSet;
     use std::sync::Arc;
-
-    fn statistics(
-        partitions: &Vec<Arc<dyn Partition>>,
-    ) -> Result<(usize, usize, HashMap<usize, (usize, HashSet<String>)>)> {
-        // compute some statistics over the partitions
-        let mut partition_count = 0;
-        let mut row_count = 0;
-        let mut on_all = HashMap::new();
-        for partition in partitions {
-            partition_count += 1;
-            let mut hash = HashSet::new();
-            let iterator = partition.execute()?;
-            let mut iterator = iterator.lock().unwrap();
-            let mut batch_row_count = 0;
-            while let Some(batch) = iterator.next_batch()? {
-                row_count += batch.num_rows();
-                batch_row_count += batch.num_rows();
-                let array = batch
-                    .column(0)
-                    .as_any()
-                    .downcast_ref::<Int32Array>()
-                    .unwrap();
-                for i in 0..array.data().len() {
-                    hash.insert(array.value(i).to_string());
-                }
-            }
-            on_all.insert(partition_count, (batch_row_count, hash));
-        }
-        Ok((row_count, partition_count, on_all))
-    }
 
     fn build_table(
         a: (&str, &Vec<i32>),
         b: (&str, &Vec<i32>),
         c: (&str, &Vec<i32>),
     ) -> Result<Arc<dyn ExecutionPlan>> {
-        let schema = Schema::new(vec![
-            Field::new(a.0, DataType::Int32, false),
-            Field::new(b.0, DataType::Int32, false),
-            Field::new(c.0, DataType::Int32, false),
-        ]);
-
-        let batch = RecordBatch::try_new(
-            Arc::new(schema.clone()),
-            vec![
-                Arc::new(Int32Array::from(a.1.clone())),
-                Arc::new(Int32Array::from(b.1.clone())),
-                Arc::new(Int32Array::from(c.1.clone())),
-            ],
-        )?;
-
+        let (batch, schema) = build_table_i32(a, b, c)?;
         Ok(Arc::new(MemoryExec::try_new(
             &vec![vec![batch]],
-            Arc::new(schema.clone()),
+            Arc::new(schema),
             None,
         )?))
     }
@@ -356,111 +311,50 @@ mod tests {
         HashJoinExec::try_new(left, right, &on, &JoinHow::Inner)
     }
 
-    fn get_self_join(
-        on: &[&str],
-        a: &Vec<i32>,
-        b: &Vec<i32>,
-        c: &Vec<i32>,
-    ) -> Result<HashJoinExec> {
-        let table = build_table(("a", a), ("b", b), ("c", c))?;
-        join(table, table.clone(), on)
-    }
+    /// Asserts that the rows are the same, taking into account that their order
+    /// is irrelevant
+    fn assert_same_rows(result: &[String], expected: &[&str]) {
+        assert_eq!(result.len(), expected.len());
 
-    fn columns(join: &HashJoinExec) -> Vec<String> {
-        join.schema()
-            .fields()
+        // convert to set since row order is irrelevant
+        let result = result
             .iter()
-            .map(|f| f.name().clone())
-            .collect()
-    }
+            .map(|s| s.clone())
+            .collect::<HashSet<_>>();
 
-    #[test]
-    fn self_join() -> Result<()> {
-        let on = vec!["a"];
-        let a = vec![1, 2];
-        let b = vec![1, 2];
-        let c = vec![1, 2];
-
-        let (row_count, _, _) =
-            statistics(&get_self_join(&on, &a, &b, &c)?.partitions()?)?;
-
-        // unique keys => no change in row count
-        assert_eq!(a.len(), row_count);
-
-        Ok(())
-    }
-
-    #[test]
-    fn self_join_duplicates() -> Result<()> {
-        let on = vec!["a"];
-        let a = vec![1, 2, 2];
-        let b = vec![1, 2, 2];
-        let c = vec![1, 2, 2];
-
-        let (row_count, _, _) =
-            statistics(&get_self_join(&on, &a, &b, &c)?.partitions()?)?;
-
-        // one 1 + two 2s
-        assert_eq!(1 + 2 * 2, row_count);
-
-        Ok(())
-    }
-
-    #[test]
-    fn self_join_two_columns() -> Result<()> {
-        let on = vec!["a", "b"];
-        let a = vec![1, 2, 2];
-        let b = vec![1, 2, 3];
-        let c = vec![1, 2, 2];
-
-        let (row_count, _, _) =
-            statistics(&get_self_join(&on, &a, &b, &c)?.partitions()?)?;
-
-        // one (1, 1), one (2, 2), one (2, 3)
-        assert_eq!(3, row_count);
-
-        Ok(())
-    }
-
-    #[test]
-    fn self_join_two_columns_duplicates() -> Result<()> {
-        let on = vec!["a", "b"];
-        let a = vec![1, 2, 2];
-        let b = vec![1, 2, 2];
-        let c = vec![1, 2, 2];
-
-        let (row_count, _, _) =
-            statistics(&get_self_join(&on, &a, &b, &c)?.partitions()?)?;
-
-        // one (1, 1), two (2, 2)
-        assert_eq!(1 + 2 * 2, row_count);
-
-        Ok(())
+        let expected = expected
+            .iter()
+            .map(|s| s.to_string())
+            .collect::<HashSet<_>>();
+        assert_eq!(result, expected);
     }
 
     #[test]
     fn join_one() -> Result<()> {
         let t1 = build_table(
-            ("a1", &vec![1, 2, 2]),
-            ("b1", &vec![1, 2, 2]),
-            ("c1", &vec![1, 2, 2]),
+            ("a1", &vec![1, 2, 3]),
+            ("b1", &vec![4, 5, 5]), // this has a repetition
+            ("c1", &vec![7, 8, 9]),
         )?;
         let t2 = build_table(
-            ("a2", &vec![1, 2, 2]),
-            ("b1", &vec![1, 2, 3]),
-            ("c2", &vec![1, 2, 2]),
+            ("a2", &vec![10, 20, 30]),
+            ("b1", &vec![4, 5, 6]),
+            ("c2", &vec![70, 80, 90]),
         )?;
         let on = vec!["b1"];
 
         let join = join(t1, t2, &on)?;
 
-        let columns = columns(&join);
+        let columns = columns(&join.schema());
         assert_eq!(columns, vec!["b1", "a1", "c1", "a2", "c2"]);
 
-        let (row_count, _, _) = statistics(&join.partitions()?)?;
+        let batches = common::collect(join.partitions()?[0].execute()?)?;
+        assert_eq!(batches.len(), 1);
 
-        // one 1, two 2, 3 is only on the right
-        assert_eq!(1 + 2, row_count);
+        let result = format_batch(&batches[0]);
+        let expected = vec!["5,2,8,20,80", "5,3,9,20,80", "4,1,7,10,70"];
+
+        assert_same_rows(&result, &expected);
 
         Ok(())
     }
@@ -470,24 +364,27 @@ mod tests {
         let t1 = build_table(
             ("a1", &vec![1, 2, 2]),
             ("b2", &vec![1, 2, 2]),
-            ("c1", &vec![1, 2, 2]),
+            ("c1", &vec![7, 8, 9]),
         )?;
         let t2 = build_table(
             ("a1", &vec![1, 2, 3]),
             ("b2", &vec![1, 2, 2]),
-            ("c2", &vec![1, 2, 2]),
+            ("c2", &vec![70, 80, 90]),
         )?;
         let on = vec!["a1", "b2"];
 
         let join = join(t1, t2, &on)?;
 
-        let columns = columns(&join);
+        let columns = columns(&join.schema());
         assert_eq!(columns, vec!["a1", "b2", "c1", "c2"]);
 
-        let (row_count, _, _) = statistics(&join.partitions()?)?;
+        let batches = common::collect(join.partitions()?[0].execute()?)?;
+        assert_eq!(batches.len(), 1);
 
-        // one (1, 1), two (2, 2), 3 is only on the right
-        assert_eq!(1 + 2, row_count);
+        let result = format_batch(&batches[0]);
+        let expected = vec!["1,1,7,70", "2,2,8,80", "2,2,9,80"];
+
+        assert_same_rows(&result, &expected);
 
         Ok(())
     }
