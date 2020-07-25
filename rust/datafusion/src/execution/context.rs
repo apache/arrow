@@ -701,7 +701,7 @@ mod tests {
     use crate::datasource::MemTable;
     use crate::execution::physical_plan::udf::ScalarUdf;
     use crate::logicalplan::{aggregate_expr, col, scalar_function};
-    use crate::test;
+    use crate::{common::JoinHow, test};
     use arrow::array::{ArrayRef, Int32Array};
     use arrow::compute::add;
     use std::fs::File;
@@ -874,6 +874,29 @@ mod tests {
         assert_eq!(1, batches[0].num_columns());
         assert_eq!(4, batches[0].num_rows());
 
+        Ok(())
+    }
+
+    #[test]
+    fn join() -> Result<()> {
+        let left =
+            build_table(("a", &vec![1, 1]), ("b", &vec![2, 3]), ("c", &vec![3, 4]))?;
+        let right = build_table(
+            ("a", &vec![1, 1]),
+            ("b2", &vec![12, 13]),
+            ("c2", &vec![13, 14]),
+        )?;
+        let plan = LogicalPlanBuilder::from(&left)
+            .join(&right, &vec!["a"], &JoinHow::Inner)?
+            .build()?;
+
+        let ctx = ExecutionContext::new();
+        let physical_plan = ctx.create_physical_plan(&plan, 1024)?;
+
+        let batches = ctx.collect(physical_plan.as_ref())?;
+        let expected: Vec<&str> =
+            vec!["1,2,3,12,13", "1,2,3,13,14", "1,3,4,12,13", "1,3,4,13,14"];
+        assert_eq!(test::format_batch(&batches[0]), expected);
         Ok(())
     }
 
