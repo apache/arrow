@@ -816,28 +816,31 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn projection_on_memory_scan() -> Result<()> {
-        let schema = Schema::new(vec![
-            Field::new("a", DataType::Int32, false),
-            Field::new("b", DataType::Int32, false),
-            Field::new("c", DataType::Int32, false),
-        ]);
-        let plan = LogicalPlanBuilder::from(&LogicalPlan::InMemoryScan {
-            data: vec![vec![RecordBatch::try_new(
-                Arc::new(schema.clone()),
-                vec![
-                    Arc::new(Int32Array::from(vec![1, 10, 10, 100])),
-                    Arc::new(Int32Array::from(vec![2, 12, 12, 120])),
-                    Arc::new(Int32Array::from(vec![3, 12, 12, 120])),
-                ],
-            )?]],
+    fn build_table(
+        a: (&str, &Vec<i32>),
+        b: (&str, &Vec<i32>),
+        c: (&str, &Vec<i32>),
+    ) -> Result<LogicalPlan> {
+        let (batch, schema) = build_table_i32(a, b, c)?;
+
+        Ok(LogicalPlan::InMemoryScan {
+            data: vec![vec![batch]],
             schema: Box::new(schema.clone()),
             projection: None,
-            projected_schema: Box::new(schema.clone()),
+            projected_schema: Box::new(schema),
         })
-        .project(vec![col("b")])?
-        .build()?;
+    }
+
+    #[test]
+    fn projection_on_memory_scan() -> Result<()> {
+        let plan = build_table(
+            ("a", &vec![1, 10, 10, 100]),
+            ("b", &vec![2, 12, 12, 120]),
+            ("c", &vec![3, 12, 12, 120]),
+        )?;
+        let plan = LogicalPlanBuilder::from(&plan)
+            .project(vec![col("b")])?
+            .build()?;
         assert_fields_eq(&plan, vec!["b"]);
 
         let ctx = ExecutionContext::new();
