@@ -89,13 +89,7 @@ impl<'a> CopyNullBit for NullBitSetter<'a> {
     #[inline]
     fn copy_null_bit(&mut self, source_index: usize) {
         if !bit_util::get_bit(self.source_bytes, source_index) {
-            // this is not actually unsafe because of the condition above + target_buffer.len() == source_bytes.len()
-            unsafe {
-                bit_util::unset_bit_raw(
-                    self.target_buffer.raw_data_mut(),
-                    self.target_index,
-                );
-            }
+            bit_util::unset_bit(self.target_buffer.data_mut(), self.target_index);
             self.null_count += 1;
         }
         self.target_index += 1;
