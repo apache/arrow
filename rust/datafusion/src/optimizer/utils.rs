@@ -19,115 +19,52 @@
 
 use std::collections::HashSet;
 
-use arrow::datatypes::{DataType, Field, Schema};
+use arrow::datatypes::DataType;
 
 use crate::error::{ExecutionError, Result};
 use crate::logicalplan::Expr;
 
 /// Recursively walk a list of expression trees, collecting the unique set of column
-/// indexes referenced in the expression
-pub fn exprlist_to_column_indices(
+/// names referenced in the expression
+pub fn exprlist_to_column_names(
     expr: &[Expr],
-    accum: &mut HashSet<usize>,
+    accum: &mut HashSet<String>,
 ) -> Result<()> {
     for e in expr {
-        expr_to_column_indices(e, accum)?;
+        expr_to_column_names(e, accum)?;
     }
     Ok(())
 }
 
-/// Recursively walk an expression tree, collecting the unique set of column indexes
+/// Recursively walk an expression tree, collecting the unique set of column names
 /// referenced in the expression
-pub fn expr_to_column_indices(expr: &Expr, accum: &mut HashSet<usize>) -> Result<()> {
+pub fn expr_to_column_names(expr: &Expr, accum: &mut HashSet<String>) -> Result<()> {
     match expr {
-        Expr::Alias(expr, _) => expr_to_column_indices(expr, accum),
-        Expr::Column(i) => {
-            accum.insert(*i);
+        Expr::Alias(expr, _) => expr_to_column_names(expr, accum),
+        Expr::Column(name) => {
+            accum.insert(name.clone());
             Ok(())
         }
-        Expr::UnresolvedColumn(_) => Err(ExecutionError::ExecutionError(
-            "Columns need to be resolved before column indexes resolution rule can run"
-                .to_owned(),
-        )),
         Expr::Literal(_) => {
             // not needed
             Ok(())
         }
-        Expr::Not(e) => expr_to_column_indices(e, accum),
-        Expr::IsNull(e) => expr_to_column_indices(e, accum),
-        Expr::IsNotNull(e) => expr_to_column_indices(e, accum),
+        Expr::Not(e) => expr_to_column_names(e, accum),
+        Expr::IsNull(e) => expr_to_column_names(e, accum),
+        Expr::IsNotNull(e) => expr_to_column_names(e, accum),
         Expr::BinaryExpr { left, right, .. } => {
-            expr_to_column_indices(left, accum)?;
-            expr_to_column_indices(right, accum)?;
+            expr_to_column_names(left, accum)?;
+            expr_to_column_names(right, accum)?;
             Ok(())
         }
-        Expr::Cast { expr, .. } => expr_to_column_indices(expr, accum),
-        Expr::Sort { expr, .. } => expr_to_column_indices(expr, accum),
-        Expr::AggregateFunction { args, .. } => exprlist_to_column_indices(args, accum),
-        Expr::ScalarFunction { args, .. } => exprlist_to_column_indices(args, accum),
+        Expr::Cast { expr, .. } => expr_to_column_names(expr, accum),
+        Expr::Sort { expr, .. } => expr_to_column_names(expr, accum),
+        Expr::AggregateFunction { args, .. } => exprlist_to_column_names(args, accum),
+        Expr::ScalarFunction { args, .. } => exprlist_to_column_names(args, accum),
         Expr::Wildcard => Err(ExecutionError::General(
             "Wildcard expressions are not valid in a logical query plan".to_owned(),
         )),
     }
-}
-
-/// Create field meta-data from an expression, for use in a result set schema
-pub fn expr_to_field(e: &Expr, input_schema: &Schema) -> Result<Field> {
-    match e {
-        Expr::Alias(expr, name) => {
-            Ok(Field::new(name, expr.get_type(input_schema)?, true))
-        }
-        Expr::UnresolvedColumn(name) => Ok(input_schema.field_with_name(&name)?.clone()),
-        Expr::Column(i) => {
-            let input_schema_field_count = input_schema.fields().len();
-            if *i < input_schema_field_count {
-                Ok(input_schema.fields()[*i].clone())
-            } else {
-                Err(ExecutionError::General(format!(
-                    "Column index {} out of bounds for input schema with {} field(s)",
-                    *i, input_schema_field_count
-                )))
-            }
-        }
-        Expr::Literal(ref lit) => Ok(Field::new("lit", lit.get_datatype(), true)),
-        Expr::ScalarFunction {
-            ref name,
-            ref return_type,
-            ..
-        } => Ok(Field::new(&name, return_type.clone(), true)),
-        Expr::AggregateFunction {
-            ref name,
-            ref return_type,
-            ..
-        } => Ok(Field::new(&name, return_type.clone(), true)),
-        Expr::Cast { ref data_type, .. } => {
-            Ok(Field::new("cast", data_type.clone(), true))
-        }
-        Expr::BinaryExpr {
-            ref left,
-            ref right,
-            ..
-        } => {
-            let left_type = left.get_type(input_schema)?;
-            let right_type = right.get_type(input_schema)?;
-            Ok(Field::new(
-                "binary_expr",
-                get_supertype(&left_type, &right_type).unwrap(),
-                true,
-            ))
-        }
-        _ => Err(ExecutionError::NotImplemented(format!(
-            "Cannot determine schema type for expression {:?}",
-            e
-        ))),
-    }
-}
-
-/// Create field meta-data from an expression, for use in a result set schema
-pub fn exprlist_to_fields(expr: &[Expr], input_schema: &Schema) -> Result<Vec<Field>> {
-    expr.iter()
-        .map(|e| expr_to_field(e, input_schema))
-        .collect()
 }
 
 /// Given two datatypes, determine the supertype that both types can safely be cast to
@@ -248,29 +185,29 @@ fn _get_supertype(l: &DataType, r: &DataType) -> Option<DataType> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::logicalplan::Expr;
+    use crate::logicalplan::col;
     use arrow::datatypes::DataType;
     use std::collections::HashSet;
 
     #[test]
     fn test_collect_expr() -> Result<()> {
-        let mut accum: HashSet<usize> = HashSet::new();
-        expr_to_column_indices(
+        let mut accum: HashSet<String> = HashSet::new();
+        expr_to_column_names(
             &Expr::Cast {
-                expr: Box::new(Expr::Column(3)),
+                expr: Box::new(col("a")),
                 data_type: DataType::Float64,
             },
             &mut accum,
         )?;
-        expr_to_column_indices(
+        expr_to_column_names(
             &Expr::Cast {
-                expr: Box::new(Expr::Column(3)),
+                expr: Box::new(col("a")),
                 data_type: DataType::Float64,
             },
             &mut accum,
         )?;
         assert_eq!(1, accum.len());
-        assert!(accum.contains(&3));
+        assert!(accum.contains("a"));
         Ok(())
     }
 }

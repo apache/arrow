@@ -47,81 +47,43 @@ use arrow::compute::kernels::sort::{SortColumn, SortOptions};
 use arrow::datatypes::{DataType, Schema, TimeUnit};
 use arrow::record_batch::RecordBatch;
 
-/// Represents an aliased expression
-pub struct Alias {
-    expr: Arc<dyn PhysicalExpr>,
-    alias: String,
-}
-
-impl Alias {
-    /// Create a new aliased expression
-    pub fn new(expr: Arc<dyn PhysicalExpr>, alias: &str) -> Self {
-        Self {
-            expr: expr.clone(),
-            alias: alias.to_owned(),
-        }
-    }
-}
-
-impl PhysicalExpr for Alias {
-    fn name(&self) -> String {
-        self.alias.clone()
-    }
-
-    fn data_type(&self, input_schema: &Schema) -> Result<DataType> {
-        self.expr.data_type(input_schema)
-    }
-
-    fn nullable(&self, input_schema: &Schema) -> Result<bool> {
-        self.expr.nullable(input_schema)
-    }
-
-    fn evaluate(&self, batch: &RecordBatch) -> Result<ArrayRef> {
-        self.expr.evaluate(batch)
-    }
-}
-
 /// Represents the column at a given index in a RecordBatch
 pub struct Column {
-    index: usize,
     name: String,
 }
 
 impl Column {
     /// Create a new column expression
-    pub fn new(index: usize, name: &str) -> Self {
+    pub fn new(name: &str) -> Self {
         Self {
-            index,
             name: name.to_owned(),
         }
     }
 }
 
 impl PhysicalExpr for Column {
-    /// Get the name to use in a schema to represent the result of this expression
-    fn name(&self) -> String {
-        self.name.clone()
-    }
-
     /// Get the data type of this expression, given the schema of the input
     fn data_type(&self, input_schema: &Schema) -> Result<DataType> {
-        Ok(input_schema.field(self.index).data_type().clone())
+        Ok(input_schema
+            .field_with_name(&self.name)?
+            .data_type()
+            .clone())
     }
 
     /// Decide whehter this expression is nullable, given the schema of the input
     fn nullable(&self, input_schema: &Schema) -> Result<bool> {
-        Ok(input_schema.field(self.index).is_nullable())
+        Ok(input_schema.field_with_name(&self.name)?.is_nullable())
     }
 
     /// Evaluate the expression
     fn evaluate(&self, batch: &RecordBatch) -> Result<ArrayRef> {
-        Ok(batch.column(self.index).clone())
+        Ok(batch.column(batch.schema().index_of(&self.name)?).clone())
     }
 }
 
 /// Create a column expression
-pub fn col(i: usize, schema: &Schema) -> Arc<dyn PhysicalExpr> {
-    Arc::new(Column::new(i, &schema.field(i).name()))
+pub fn col(name: &str) -> Arc<dyn PhysicalExpr> {
+    Arc::new(Column::new(name))
 }
 
 /// SUM aggregate expression
@@ -137,10 +99,6 @@ impl Sum {
 }
 
 impl AggregateExpr for Sum {
-    fn name(&self) -> String {
-        "SUM".to_string()
-    }
-
     fn data_type(&self, input_schema: &Schema) -> Result<DataType> {
         match self.expr.data_type(input_schema)? {
             DataType::Int8 | DataType::Int16 | DataType::Int32 | DataType::Int64 => {
@@ -166,8 +124,8 @@ impl AggregateExpr for Sum {
         Rc::new(RefCell::new(SumAccumulator { sum: None }))
     }
 
-    fn create_reducer(&self, column_index: usize) -> Arc<dyn AggregateExpr> {
-        Arc::new(Sum::new(Arc::new(Column::new(column_index, &self.name()))))
+    fn create_reducer(&self, column_name: &str) -> Arc<dyn AggregateExpr> {
+        Arc::new(Sum::new(Arc::new(Column::new(column_name))))
     }
 }
 
@@ -333,10 +291,6 @@ impl Avg {
 }
 
 impl AggregateExpr for Avg {
-    fn name(&self) -> String {
-        "AVG".to_string()
-    }
-
     fn data_type(&self, input_schema: &Schema) -> Result<DataType> {
         match self.expr.data_type(input_schema)? {
             DataType::Int8
@@ -367,8 +321,8 @@ impl AggregateExpr for Avg {
         }))
     }
 
-    fn create_reducer(&self, column_index: usize) -> Arc<dyn AggregateExpr> {
-        Arc::new(Avg::new(Arc::new(Column::new(column_index, &self.name()))))
+    fn create_reducer(&self, column_name: &str) -> Arc<dyn AggregateExpr> {
+        Arc::new(Avg::new(Arc::new(Column::new(column_name))))
     }
 }
 
@@ -451,10 +405,6 @@ impl Max {
 }
 
 impl AggregateExpr for Max {
-    fn name(&self) -> String {
-        "MAX".to_string()
-    }
-
     fn data_type(&self, input_schema: &Schema) -> Result<DataType> {
         match self.expr.data_type(input_schema)? {
             DataType::Int8 | DataType::Int16 | DataType::Int32 | DataType::Int64 => {
@@ -480,8 +430,8 @@ impl AggregateExpr for Max {
         Rc::new(RefCell::new(MaxAccumulator { max: None }))
     }
 
-    fn create_reducer(&self, column_index: usize) -> Arc<dyn AggregateExpr> {
-        Arc::new(Max::new(Arc::new(Column::new(column_index, &self.name()))))
+    fn create_reducer(&self, column_name: &str) -> Arc<dyn AggregateExpr> {
+        Arc::new(Max::new(Arc::new(Column::new(column_name))))
     }
 }
 
@@ -650,10 +600,6 @@ impl Min {
 }
 
 impl AggregateExpr for Min {
-    fn name(&self) -> String {
-        "MIN".to_string()
-    }
-
     fn data_type(&self, input_schema: &Schema) -> Result<DataType> {
         match self.expr.data_type(input_schema)? {
             DataType::Int8 | DataType::Int16 | DataType::Int32 | DataType::Int64 => {
@@ -679,8 +625,8 @@ impl AggregateExpr for Min {
         Rc::new(RefCell::new(MinAccumulator { min: None }))
     }
 
-    fn create_reducer(&self, column_index: usize) -> Arc<dyn AggregateExpr> {
-        Arc::new(Min::new(Arc::new(Column::new(column_index, &self.name()))))
+    fn create_reducer(&self, column_name: &str) -> Arc<dyn AggregateExpr> {
+        Arc::new(Min::new(Arc::new(Column::new(column_name))))
     }
 }
 
@@ -850,10 +796,6 @@ impl Count {
 }
 
 impl AggregateExpr for Count {
-    fn name(&self) -> String {
-        "COUNT".to_string()
-    }
-
     fn data_type(&self, _input_schema: &Schema) -> Result<DataType> {
         Ok(DataType::UInt64)
     }
@@ -866,8 +808,8 @@ impl AggregateExpr for Count {
         Rc::new(RefCell::new(CountAccumulator { count: 0 }))
     }
 
-    fn create_reducer(&self, column_index: usize) -> Arc<dyn AggregateExpr> {
-        Arc::new(Sum::new(Arc::new(Column::new(column_index, &self.name()))))
+    fn create_reducer(&self, column_name: &str) -> Arc<dyn AggregateExpr> {
+        Arc::new(Sum::new(Arc::new(Column::new(column_name))))
     }
 }
 
@@ -1024,10 +966,6 @@ impl BinaryExpr {
 }
 
 impl PhysicalExpr for BinaryExpr {
-    fn name(&self) -> String {
-        format!("{:?}", self.op)
-    }
-
     fn data_type(&self, input_schema: &Schema) -> Result<DataType> {
         self.left.data_type(input_schema)
     }
@@ -1112,10 +1050,6 @@ impl NotExpr {
 }
 
 impl PhysicalExpr for NotExpr {
-    fn name(&self) -> String {
-        "NOT".to_string()
-    }
-
     fn data_type(&self, _input_schema: &Schema) -> Result<DataType> {
         return Ok(DataType::Boolean);
     }
@@ -1193,10 +1127,6 @@ impl CastExpr {
 }
 
 impl PhysicalExpr for CastExpr {
-    fn name(&self) -> String {
-        "CAST".to_string()
-    }
-
     fn data_type(&self, _input_schema: &Schema) -> Result<DataType> {
         Ok(self.cast_type.clone())
     }
@@ -1236,10 +1166,6 @@ macro_rules! build_literal_array {
 }
 
 impl PhysicalExpr for Literal {
-    fn name(&self) -> String {
-        "lit".to_string()
-    }
-
     fn data_type(&self, _input_schema: &Schema) -> Result<DataType> {
         Ok(self.value.get_datatype())
     }
@@ -1336,7 +1262,7 @@ mod tests {
         )?;
 
         // expression: "a < b"
-        let lt = binary(col(0, &schema), Operator::Lt, col(1, &schema));
+        let lt = binary(col("a"), Operator::Lt, col("b"));
         let result = lt.evaluate(&batch)?;
         assert_eq!(result.len(), 5);
 
@@ -1367,9 +1293,9 @@ mod tests {
 
         // expression: "a < b OR a == b"
         let expr = binary(
-            binary(col(0, &schema), Operator::Lt, col(1, &schema)),
+            binary(col("a"), Operator::Lt, col("b")),
             Operator::Or,
-            binary(col(0, &schema), Operator::Eq, col(1, &schema)),
+            binary(col("a"), Operator::Eq, col("b")),
         );
         let result = expr.evaluate(&batch)?;
         assert_eq!(result.len(), 5);
@@ -1414,7 +1340,7 @@ mod tests {
         let a = Int32Array::from(vec![1, 2, 3, 4, 5]);
         let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
 
-        let cast = CastExpr::try_new(col(0, &schema), &schema, DataType::UInt32)?;
+        let cast = CastExpr::try_new(col("a"), &schema, DataType::UInt32)?;
         let result = cast.evaluate(&batch)?;
         assert_eq!(result.len(), 5);
 
@@ -1433,7 +1359,7 @@ mod tests {
         let a = Int32Array::from(vec![1, 2, 3, 4, 5]);
         let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
 
-        let cast = CastExpr::try_new(col(0, &schema), &schema, DataType::Utf8)?;
+        let cast = CastExpr::try_new(col("a"), &schema, DataType::Utf8)?;
         let result = cast.evaluate(&batch)?;
         assert_eq!(result.len(), 5);
 
@@ -1453,7 +1379,7 @@ mod tests {
         let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
 
         let cast = CastExpr::try_new(
-            col(0, &schema),
+            col("a"),
             &schema,
             DataType::Timestamp(TimeUnit::Nanosecond, None),
         )?;
@@ -1472,7 +1398,7 @@ mod tests {
     #[test]
     fn invalid_cast() -> Result<()> {
         let schema = Schema::new(vec![Field::new("a", DataType::Utf8, false)]);
-        match CastExpr::try_new(col(0, &schema), &schema, DataType::Int32) {
+        match CastExpr::try_new(col("a"), &schema, DataType::Int32) {
             Err(ExecutionError::General(ref str)) => {
                 assert_eq!(str, "Invalid CAST from Utf8 to Int32");
                 Ok(())
@@ -1485,12 +1411,16 @@ mod tests {
     fn sum_contract() -> Result<()> {
         let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
 
-        let sum = sum(col(0, &schema));
-        assert_eq!("SUM".to_string(), sum.name());
+        let sum = sum(col("a"));
         assert_eq!(DataType::Int64, sum.data_type(&schema)?);
 
-        let combiner = sum.create_reducer(0);
-        assert_eq!("SUM".to_string(), combiner.name());
+        // after the aggr expression is applied, the schema changes to:
+        let schema = Schema::new(vec![
+            schema.field(0).clone(),
+            Field::new("SUM(a)", sum.data_type(&schema)?, false),
+        ]);
+
+        let combiner = sum.create_reducer("SUM(a)");
         assert_eq!(DataType::Int64, combiner.data_type(&schema)?);
 
         Ok(())
@@ -1500,12 +1430,16 @@ mod tests {
     fn max_contract() -> Result<()> {
         let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
 
-        let max = max(col(0, &schema));
-        assert_eq!("MAX".to_string(), max.name());
+        let max = max(col("a"));
         assert_eq!(DataType::Int64, max.data_type(&schema)?);
 
-        let combiner = max.create_reducer(0);
-        assert_eq!("MAX".to_string(), combiner.name());
+        // after the aggr expression is applied, the schema changes to:
+        let schema = Schema::new(vec![
+            schema.field(0).clone(),
+            Field::new("Max(a)", max.data_type(&schema)?, false),
+        ]);
+
+        let combiner = max.create_reducer("Max(a)");
         assert_eq!(DataType::Int64, combiner.data_type(&schema)?);
 
         Ok(())
@@ -1515,12 +1449,15 @@ mod tests {
     fn min_contract() -> Result<()> {
         let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
 
-        let min = min(col(0, &schema));
-        assert_eq!("MIN".to_string(), min.name());
+        let min = min(col("a"));
         assert_eq!(DataType::Int64, min.data_type(&schema)?);
 
-        let combiner = min.create_reducer(0);
-        assert_eq!("MIN".to_string(), combiner.name());
+        // after the aggr expression is applied, the schema changes to:
+        let schema = Schema::new(vec![
+            schema.field(0).clone(),
+            Field::new("MIN(a)", min.data_type(&schema)?, false),
+        ]);
+        let combiner = min.create_reducer("MIN(a)");
         assert_eq!(DataType::Int64, combiner.data_type(&schema)?);
 
         Ok(())
@@ -1529,12 +1466,16 @@ mod tests {
     fn avg_contract() -> Result<()> {
         let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
 
-        let avg = avg(col(0, &schema));
-        assert_eq!("AVG".to_string(), avg.name());
+        let avg = avg(col("a"));
         assert_eq!(DataType::Float64, avg.data_type(&schema)?);
 
-        let combiner = avg.create_reducer(0);
-        assert_eq!("AVG".to_string(), combiner.name());
+        // after the aggr expression is applied, the schema changes to:
+        let schema = Schema::new(vec![
+            schema.field(0).clone(),
+            Field::new("SUM(a)", avg.data_type(&schema)?, false),
+        ]);
+
+        let combiner = avg.create_reducer("SUM(a)");
         assert_eq!(DataType::Float64, combiner.data_type(&schema)?);
 
         Ok(())
@@ -1865,7 +1806,7 @@ mod tests {
     }
 
     fn do_sum(batch: &RecordBatch) -> Result<Option<ScalarValue>> {
-        let sum = sum(col(0, &batch.schema()));
+        let sum = sum(col("a"));
         let accum = sum.create_accumulator();
         let input = sum.evaluate_input(batch)?;
         let mut accum = accum.borrow_mut();
@@ -1876,7 +1817,7 @@ mod tests {
     }
 
     fn do_max(batch: &RecordBatch) -> Result<Option<ScalarValue>> {
-        let max = max(col(0, &batch.schema()));
+        let max = max(col("a"));
         let accum = max.create_accumulator();
         let input = max.evaluate_input(batch)?;
         let mut accum = accum.borrow_mut();
@@ -1887,7 +1828,7 @@ mod tests {
     }
 
     fn do_min(batch: &RecordBatch) -> Result<Option<ScalarValue>> {
-        let min = min(col(0, &batch.schema()));
+        let min = min(col("a"));
         let accum = min.create_accumulator();
         let input = min.evaluate_input(batch)?;
         let mut accum = accum.borrow_mut();
@@ -1898,7 +1839,7 @@ mod tests {
     }
 
     fn do_count(batch: &RecordBatch) -> Result<Option<ScalarValue>> {
-        let count = count(col(0, &batch.schema()));
+        let count = count(col("a"));
         let accum = count.create_accumulator();
         let input = count.evaluate_input(batch)?;
         let mut accum = accum.borrow_mut();
@@ -1909,7 +1850,7 @@ mod tests {
     }
 
     fn do_avg(batch: &RecordBatch) -> Result<Option<ScalarValue>> {
-        let avg = avg(col(0, &batch.schema()));
+        let avg = avg(col("a"));
         let accum = avg.create_accumulator();
         let input = avg.evaluate_input(batch)?;
         let mut accum = accum.borrow_mut();
@@ -2009,7 +1950,7 @@ mod tests {
         op: Operator,
         expected: PrimitiveArray<T>,
     ) -> Result<()> {
-        let arithmetic_op = binary(col(0, schema.as_ref()), op, col(1, schema.as_ref()));
+        let arithmetic_op = binary(col("a"), op, col("b"));
         let batch = RecordBatch::try_new(schema, data)?;
         let result = arithmetic_op.evaluate(&batch)?;
 
@@ -2039,7 +1980,7 @@ mod tests {
         let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
 
         // expression: "!a"
-        let lt = not(col(0, &schema));
+        let lt = not(col("a"));
         let result = lt.evaluate(&batch)?;
         assert_eq!(result.len(), 2);
 
