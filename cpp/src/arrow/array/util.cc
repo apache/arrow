@@ -97,7 +97,9 @@ class ArrayDataEndianSwapper {
 
   template <typename T>
   Status SwapOffset(const T&, int index) {
-    if (data_->buffers[index] == nullptr) { return Status::OK(); }
+    if (data_->buffers[index] == nullptr) {
+      return Status::OK();
+    }
     using value_type = typename T::c_type;
     auto buffer = const_cast<value_type*>(
         reinterpret_cast<const value_type*>(data_->buffers[index]->data()));
@@ -166,10 +168,9 @@ class ArrayDataEndianSwapper {
         reinterpret_cast<const uint32_t*>(data_->buffers[1]->data()));
     int64_t length = length_;
     for (int64_t i = 0; i < length; i++) {
-      uint32_t tmp;
       auto idx = i * 2;
 #if ARROW_LITTLE_ENDIAN
-      buffer[idx]= BitUtil::FromBigEndian(buffer[idx]);
+      buffer[idx] = BitUtil::FromBigEndian(buffer[idx]);
       buffer[idx + 1] = BitUtil::FromBigEndian(buffer[idx + 1]);
 #else
       buffer[idx] = BitUtil::FromLittleEndian(buffer[idx]);
@@ -186,19 +187,19 @@ class ArrayDataEndianSwapper {
   Status Visit(const FixedSizeBinaryType& type) { return Status::OK(); }
 
   Status Visit(const StringType& type) {
-    SwapSmallOffset();
+    RETURN_NOT_OK(SwapSmallOffset());
     return Status::OK();
   }
   Status Visit(const LargeStringType& type) {
-    SwapLargeOffset();
+    RETURN_NOT_OK(SwapLargeOffset());
     return Status::OK();
   }
   Status Visit(const BinaryType& type) {
-    SwapSmallOffset();
+    RETURN_NOT_OK(SwapSmallOffset());
     return Status::OK();
   }
   Status Visit(const LargeBinaryType& type) {
-    SwapLargeOffset();
+    RETURN_NOT_OK(SwapLargeOffset());
     return Status::OK();
   }
 
