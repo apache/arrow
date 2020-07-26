@@ -680,7 +680,7 @@ Result<std::shared_ptr<RecordBatch>> ReadRecordBatch(
 
 Status ReadDictionary(const Buffer& metadata, DictionaryMemo* dictionary_memo,
                       const IpcReadOptions& options, DictionaryKind* kind,
-                      io::RandomAccessFile* file) {
+                      io::RandomAccessFile* file, bool swap_endian) {
   const flatbuf::Message* message = nullptr;
   RETURN_NOT_OK(internal::VerifyMessage(metadata.data(), metadata.size(), &message));
   const auto dictionary_batch = message->header_as_DictionaryBatch();
@@ -736,13 +736,14 @@ Status ReadDictionary(const Buffer& metadata, DictionaryMemo* dictionary_memo,
 }
 
 Status ReadDictionary(const Message& message, DictionaryMemo* dictionary_memo,
-                      const IpcReadOptions& options, DictionaryKind* kind) {
+                      const IpcReadOptions& options, DictionaryKind* kind,
+                      bool swap_endian) {
   // Only invoke this method if we already know we have a dictionary message
   DCHECK_EQ(message.type(), MessageType::DICTIONARY_BATCH);
   CHECK_HAS_BODY(message);
   ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message.body()));
   return ReadDictionary(*message.metadata(), dictionary_memo, options, kind,
-                        reader.get());
+                        reader.get(), swap_endian);
 }
 
 // ----------------------------------------------------------------------
@@ -833,7 +834,8 @@ class RecordBatchStreamReaderImpl : public RecordBatchStreamReader {
   Status ReadDictionary(const Message& message) {
     DictionaryKind kind;
     RETURN_NOT_OK(
-        ::arrow::ipc::ReadDictionary(message, &dictionary_memo_, options_, &kind));
+        ::arrow::ipc::ReadDictionary(message, &dictionary_memo_, options_, &kind,
+                                     swap_endian_));
     switch (kind) {
       case DictionaryKind::New:
         break;
@@ -1028,7 +1030,7 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
       ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message->body()));
       DictionaryKind kind;
       RETURN_NOT_OK(ReadDictionary(*message->metadata(), &dictionary_memo_, options_,
-                                   &kind, reader.get()));
+                                   &kind, reader.get(), swap_endian_));
       ++stats_.num_dictionary_batches;
       if (kind != DictionaryKind::New) {
         return Status::Invalid(
@@ -1212,6 +1214,11 @@ class StreamDecoder::StreamDecoderImpl : public MessageDecoderListener {
   Status OnSchemaMessageDecoded(std::unique_ptr<Message> message) {
     RETURN_NOT_OK(UnpackSchemaMessage(*message, options_, &dictionary_memo_, &schema_,
                                       &out_schema_, &field_inclusion_mask_));
+    swap_endian_ = out_schema_->endianness() != NATIVE_ENDIANNESS;
+    if (swap_endian_) {
+      // set native endianness to the schemas before actually swapping endian in ArrayData
+      out_schema_->setNativeEndianness();
+    }
 
     n_required_dictionaries_ = dictionary_memo_.fields().num_fields();
     if (n_required_dictionaries_ == 0) {
@@ -1247,7 +1254,8 @@ class StreamDecoder::StreamDecoderImpl : public MessageDecoderListener {
       ARROW_ASSIGN_OR_RAISE(
           auto batch,
           ReadRecordBatchInternal(*message->metadata(), schema_, field_inclusion_mask_,
-                                  &dictionary_memo_, options_, reader.get()));
+                                  &dictionary_memo_, options_, reader.get(),
+                                  swap_endian_));
       ++stats_.num_record_batches;
       return listener_->OnRecordBatchDecoded(std::move(batch));
     }
@@ -1256,8 +1264,8 @@ class StreamDecoder::StreamDecoderImpl : public MessageDecoderListener {
   // Read dictionary from dictionary batch
   Status ReadDictionary(const Message& message) {
     DictionaryKind kind;
-    RETURN_NOT_OK(
-        ::arrow::ipc::ReadDictionary(message, &dictionary_memo_, options_, &kind));
+    RETURN_NOT_OK(::arrow::ipc::ReadDictionary(message, &dictionary_memo_, options_,
+					       &kind, swap_endian_));
     ++stats_.num_dictionary_batches;
     switch (kind) {
       case DictionaryKind::New:
@@ -1281,6 +1289,7 @@ class StreamDecoder::StreamDecoderImpl : public MessageDecoderListener {
   DictionaryMemo dictionary_memo_;
   std::shared_ptr<Schema> schema_, out_schema_;
   ReadStats stats_;
+  bool swap_endian_;
 };
 
 StreamDecoder::StreamDecoder(std::shared_ptr<Listener> listener, IpcReadOptions options) {

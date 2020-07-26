@@ -76,14 +76,33 @@ class ArrayDataWrapper {
 
 class ArrayDataEndianSwapper {
  public:
-  explicit ArrayDataEndianSwapper(std::shared_ptr<ArrayData>& data) : data_(data) {}
+  ArrayDataEndianSwapper(std::shared_ptr<ArrayData>& data, int64_t length)
+      : data_(data), length_(length) {}
+
+  Status SwapType(const DataType& type) { return VisitTypeInline(type, this); }
+
+  Status SwapChildren(std::vector<std::shared_ptr<Field>> child_fields) {
+    int i = 0;
+    for (const auto& child_field : child_fields) {
+      auto orig_data = data_;
+      auto orig_length = length_;
+      data_ = data_->child_data[i++];
+      length_ = data_->length;
+      RETURN_NOT_OK(SwapType(*child_field.get()->type()));
+      length_ = orig_length;
+      data_ = orig_data;
+    }
+    return Status::OK();
+  }
 
   template <typename T>
-  Status Visit(const T&) {
+  Status SwapOffset(const T&, int index) {
+    if (data_->buffers[index] == nullptr) { return Status::OK(); }
     using value_type = typename T::c_type;
     auto buffer = const_cast<value_type*>(
-        reinterpret_cast<const value_type*>(data_->buffers[1]->data()));
-    int64_t length = data_->length;
+        reinterpret_cast<const value_type*>(data_->buffers[index]->data()));
+    // offset has one more element rather than data->length
+    int64_t length = length_ + 1;
     for (int64_t i = 0; i < length; i++) {
 #if ARROW_LITTLE_ENDIAN
       buffer[i] = BitUtil::FromBigEndian(buffer[i]);
@@ -94,61 +113,144 @@ class ArrayDataEndianSwapper {
     return Status::OK();
   }
 
-  Status Visit(const NullType& type) { return Status::OK(); }
-  Status Visit(const BooleanType& type) { return Status::OK(); }
-  Status Visit(const StringType& type) { return Status::OK(); }
-  Status Visit(const LargeStringType& type) { return Status::OK(); }
-  Status Visit(const BinaryType& type) { return Status::OK(); }
-  Status Visit(const LargeBinaryType& type) { return Status::OK(); }
-  Status Visit(const FixedSizeBinaryType& type) { return Status::OK(); }
+  Status SwapSmallOffset(int index = 1) {
+    Int32Type i32;
+    RETURN_NOT_OK(SwapOffset(i32, index));
+    return Status::OK();
+  }
+
+  Status SwapLargeOffset() {
+    Int64Type i64;
+    RETURN_NOT_OK(SwapOffset(i64, 1));
+    return Status::OK();
+  }
+
+  template <typename T>
+  Status Visit(const T&) {
+    using value_type = typename T::c_type;
+    auto buffer = const_cast<value_type*>(
+        reinterpret_cast<const value_type*>(data_->buffers[1]->data()));
+    int64_t length = length_;
+    for (int64_t i = 0; i < length; i++) {
+#if ARROW_LITTLE_ENDIAN
+      buffer[i] = BitUtil::FromBigEndian(buffer[i]);
+#else
+      buffer[i] = BitUtil::FromLittleEndian(buffer[i]);
+#endif
+    }
+    return Status::OK();
+  }
 
   Status Visit(const Decimal128Type& type) {
-    assert(false && "not supported yet");
+    auto buffer = const_cast<uint64_t*>(
+        reinterpret_cast<const uint64_t*>(data_->buffers[1]->data()));
+    int64_t length = length_;
+    for (int64_t i = 0; i < length; i++) {
+      uint64_t tmp;
+      auto idx = i * 2;
+#if ARROW_LITTLE_ENDIAN
+      tmp = BitUtil::FromBigEndian(buffer[idx]);
+      buffer[idx] = BitUtil::FromBigEndian(buffer[idx + 1]);
+      buffer[idx + 1] = tmp;
+#else
+      tmp = BitUtil::FromLittleEndian(buffer[idx]);
+      buffer[idx] = BitUtil::FromLittleEndian(buffer[idx + 1]);
+      buffer[idx + 1] = tmp;
+#endif
+    }
     return Status::OK();
   }
+
   Status Visit(const DayTimeIntervalType& type) {
-    assert(false && "not supported yet");
+    auto buffer = const_cast<uint32_t*>(
+        reinterpret_cast<const uint32_t*>(data_->buffers[1]->data()));
+    int64_t length = length_;
+    for (int64_t i = 0; i < length; i++) {
+      uint32_t tmp;
+      auto idx = i * 2;
+#if ARROW_LITTLE_ENDIAN
+      buffer[idx]= BitUtil::FromBigEndian(buffer[idx]);
+      buffer[idx + 1] = BitUtil::FromBigEndian(buffer[idx + 1]);
+#else
+      buffer[idx] = BitUtil::FromLittleEndian(buffer[idx]);
+      buffer[idx + 1] = BitUtil::FromLittleEndian(buffer[idx + 1]);
+#endif
+    }
     return Status::OK();
   }
+
+  Status Visit(const NullType& type) { return Status::OK(); }
+  Status Visit(const BooleanType& type) { return Status::OK(); }
+  Status Visit(const Int8Type& type) { return Status::OK(); }
+  Status Visit(const UInt8Type& type) { return Status::OK(); }
+  Status Visit(const FixedSizeBinaryType& type) { return Status::OK(); }
+
+  Status Visit(const StringType& type) {
+    SwapSmallOffset();
+    return Status::OK();
+  }
+  Status Visit(const LargeStringType& type) {
+    SwapLargeOffset();
+    return Status::OK();
+  }
+  Status Visit(const BinaryType& type) {
+    SwapSmallOffset();
+    return Status::OK();
+  }
+  Status Visit(const LargeBinaryType& type) {
+    SwapLargeOffset();
+    return Status::OK();
+  }
+
   Status Visit(const ListType& type) {
-    assert(false && "not supported yet");
+    RETURN_NOT_OK(SwapSmallOffset());
+    RETURN_NOT_OK(SwapChildren(type.fields()));
     return Status::OK();
   }
   Status Visit(const LargeListType& type) {
-    assert(false && "not supported yet");
+    RETURN_NOT_OK(SwapLargeOffset());
+    RETURN_NOT_OK(SwapChildren(type.fields()));
     return Status::OK();
   }
   Status Visit(const FixedSizeListType& type) {
-    assert(false && "not supported yet");
+    RETURN_NOT_OK(SwapChildren(type.fields()));
     return Status::OK();
   }
+
   Status Visit(const MapType& type) {
-    assert(false && "not supported yet");
+    RETURN_NOT_OK(SwapSmallOffset());
+    RETURN_NOT_OK(SwapChildren(type.fields()));
     return Status::OK();
   }
+
   Status Visit(const StructType& type) {
-    assert(false && "not supported yet");
+    RETURN_NOT_OK(SwapChildren(type.fields()));
     return Status::OK();
   }
+
   Status Visit(const SparseUnionType& type) {
-    assert(false && "not supported yet");
+    RETURN_NOT_OK(SwapChildren(type.fields()));
     return Status::OK();
   }
+
   Status Visit(const DenseUnionType& type) {
-    assert(false && "not supported yet");
+    RETURN_NOT_OK(SwapSmallOffset(2));
+    RETURN_NOT_OK(SwapChildren(type.fields()));
     return Status::OK();
   }
+
   Status Visit(const DictionaryType& type) {
-    assert(false && "not supported yet");
+    RETURN_NOT_OK(SwapType(*type.index_type()));
     return Status::OK();
   }
 
   Status Visit(const ExtensionType& type) {
-    assert(false && "not supported yet");
+    RETURN_NOT_OK(SwapType(*type.storage_type()));
     return Status::OK();
   }
 
   std::shared_ptr<ArrayData>& data_;
+  int64_t length_;
 };
 
 }  // namespace internal
@@ -162,10 +264,8 @@ std::shared_ptr<Array> MakeArray(const std::shared_ptr<ArrayData>& data) {
 }
 
 void SwapEndianArrayData(std::shared_ptr<ArrayData>& data) {
-  if (data->buffers[1] != NULLPTR) {
-    internal::ArrayDataEndianSwapper swapper_visitor(data);
-    DCHECK_OK(VisitTypeInline(*data->type, &swapper_visitor));
-  }
+  internal::ArrayDataEndianSwapper swapper_visitor(data, data->length);
+  DCHECK_OK(VisitTypeInline(*data->type, &swapper_visitor));
 }
 
 // ----------------------------------------------------------------------
