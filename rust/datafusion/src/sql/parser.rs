@@ -116,18 +116,21 @@ impl DFParser {
 
     /// Parse a new expression
     pub fn parse_statement(&mut self) -> Result<Statement, ParserError> {
-        match self.parser.next_token() {
+        match self.parser.peek_token() {
             Token::Word(w) => match w.keyword {
-                Keyword::CREATE => Ok(self.parse_create()?),
+                Keyword::CREATE => {
+                    // move one token forward
+                    self.parser.next_token();
+                    // use custom parsing
+                    Ok(self.parse_create()?)
+                }
                 _ => {
-                    // roll back and use the native parser
-                    self.parser.prev_token();
+                    // use the native parser
                     Ok(Statement::Statement(self.parser.parse_statement()?))
                 }
             },
             _ => {
-                // roll back and use the native parser
-                self.parser.prev_token();
+                // use the native parser
                 Ok(Statement::Statement(self.parser.parse_statement()?))
             }
         }
