@@ -26,6 +26,10 @@ public class PlasmaOutOfMemoryException extends RuntimeException {
     super("The plasma store ran out of memory." + message);
   }
 
+  public PlasmaOutOfMemoryException(String message, Throwable t) {
+    super("The plasma store ran out of memory." + message, t);
+  }
+
   public PlasmaOutOfMemoryException() {
     super("The plasma store ran out of memory.");
   }
