@@ -2190,6 +2190,7 @@ macro(build_cares)
   set_target_properties(c-ares::cares
                         PROPERTIES IMPORTED_LOCATION "${CARES_STATIC_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${CARES_INCLUDE_DIR}")
+  add_dependencies(c-ares::cares cares_ep)
 
   set(CARES_VENDORED TRUE)
 
