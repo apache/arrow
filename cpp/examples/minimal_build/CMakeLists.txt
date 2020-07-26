@@ -21,9 +21,6 @@ project(ArrowMinimalExample)
 
 option(ARROW_LINK_SHARED "Link to the Arrow shared library" ON)
 
-if(NOT ARROW_LINK_SHARED)
-  set(ARROW_USE_STATIC ON)
-endif()
 find_package(Arrow REQUIRED)
 
 set(CMAKE_CXX_STANDARD 11)
