@@ -218,7 +218,7 @@ fn create_name(e: &Expr, input_schema: &Schema) -> Result<String> {
 
 /// Returns the datatype of the expression given the input schema
 // note: the physical plan derived from an expression must match the datatype on this function.
-fn expr_to_field(e: &Expr, input_schema: &Schema) -> Result<Field> {
+pub fn expr_to_field(e: &Expr, input_schema: &Schema) -> Result<Field> {
     let data_type = match e {
         Expr::Alias(expr, ..) => expr.get_type(input_schema),
         Expr::Column(name) => Ok(input_schema.field_with_name(name)?.data_type().clone()),
@@ -252,7 +252,7 @@ fn expr_to_field(e: &Expr, input_schema: &Schema) -> Result<Field> {
 }
 
 /// Create field meta-data from an expression, for use in a result set schema
-fn exprlist_to_fields(expr: &[Expr], input_schema: &Schema) -> Result<Vec<Field>> {
+pub fn exprlist_to_fields(expr: &[Expr], input_schema: &Schema) -> Result<Vec<Field>> {
     expr.iter()
         .map(|e| expr_to_field(e, input_schema))
         .collect()
