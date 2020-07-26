@@ -144,6 +144,12 @@ impl ExecutionContext {
     pub fn create_logical_plan(&mut self, sql: &str) -> Result<LogicalPlan> {
         let statements = DFParser::parse_sql(sql)?;
 
+        if statements.len() != 1 {
+            return Err(ExecutionError::NotImplemented(format!(
+                "The context currently only supports a single SQL statement",
+            )));
+        }
+
         match &statements[0] {
             Statement::Statement(s) => {
                 let schema_provider = ExecutionContextSchemaProvider {
