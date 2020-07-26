@@ -994,6 +994,7 @@ if(ARROW_USE_OPENSSL)
                                      INTERFACE_INCLUDE_DIRECTORIES
                                      "${OPENSSL_INCLUDE_DIR}")
   endif()
+  string(APPEND ARROW_FIND_DEPENDENCY_LIST "\nfind_dependency(OpenSSL)")
 
   include_directories(SYSTEM ${OPENSSL_INCLUDE_DIR})
 else()
