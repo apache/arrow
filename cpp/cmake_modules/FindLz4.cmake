@@ -38,13 +38,13 @@ if(LZ4_ROOT)
   find_library(LZ4_LIB
                NAMES ${LZ4_LIB_NAMES}
                PATHS ${LZ4_ROOT}
-               PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
+               PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES}
                NO_DEFAULT_PATH)
   find_path(LZ4_INCLUDE_DIR
             NAMES lz4.h
             PATHS ${LZ4_ROOT}
             NO_DEFAULT_PATH
-            PATH_SUFFIXES ${INCLUDE_PATH_SUFFIXES})
+            PATH_SUFFIXES ${ARROW_INCLUDE_PATH_SUFFIXES})
 
 else()
   find_package(PkgConfig QUIET)
@@ -57,10 +57,10 @@ else()
                  NAMES ${LZ4_LIB_NAMES}
                  PATHS ${LZ4_PC_LIBRARY_DIRS}
                  NO_DEFAULT_PATH
-                 PATH_SUFFIXES ${LIB_PATH_SUFFIXES})
+                 PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES})
   else()
-    find_library(LZ4_LIB NAMES ${LZ4_LIB_NAMES} PATH_SUFFIXES ${LIB_PATH_SUFFIXES})
-    find_path(LZ4_INCLUDE_DIR NAMES lz4.h PATH_SUFFIXES ${INCLUDE_PATH_SUFFIXES})
+    find_library(LZ4_LIB NAMES ${LZ4_LIB_NAMES} PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES})
+    find_path(LZ4_INCLUDE_DIR NAMES lz4.h PATH_SUFFIXES ${ARROW_INCLUDE_PATH_SUFFIXES})
   endif()
 endif()
 

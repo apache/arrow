@@ -18,7 +18,7 @@
 # Common path suffixes to be searched by find_library or find_path.
 # Windows artifacts may be found under "<root>/Library", so
 # search there as well.
-set(LIB_PATH_SUFFIXES
+set(ARROW_LIBRARY_PATH_SUFFIXES
     "${CMAKE_LIBRARY_ARCHITECTURE}"
     "lib/${CMAKE_LIBRARY_ARCHITECTURE}"
     "lib64"
@@ -28,7 +28,7 @@ set(LIB_PATH_SUFFIXES
     "Library"
     "Library/lib"
     "Library/bin")
-set(INCLUDE_PATH_SUFFIXES "include" "Library" "Library/include")
+set(ARROW_INCLUDE_PATH_SUFFIXES "include" "Library" "Library/include")
 
 function(ADD_THIRDPARTY_LIB LIB_NAME)
   set(options)

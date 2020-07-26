@@ -39,11 +39,11 @@ endif()
 include(FindPkgConfig)
 include(FindPackageHandleStandardArgs)
 
-set(ARROW_SEARCH_LIB_PATH_SUFFIXES)
+set(ARROW_SEARCH_ARROW_LIBRARY_PATH_SUFFIXES)
 if(CMAKE_LIBRARY_ARCHITECTURE)
-  list(APPEND ARROW_SEARCH_LIB_PATH_SUFFIXES "lib/${CMAKE_LIBRARY_ARCHITECTURE}")
+  list(APPEND ARROW_SEARCH_ARROW_LIBRARY_PATH_SUFFIXES "lib/${CMAKE_LIBRARY_ARCHITECTURE}")
 endif()
-list(APPEND ARROW_SEARCH_LIB_PATH_SUFFIXES
+list(APPEND ARROW_SEARCH_ARROW_LIBRARY_PATH_SUFFIXES
             "lib64"
             "lib32"
             "lib"
@@ -156,7 +156,7 @@ macro(arrow_find_package_home)
   find_library(${prefix}_shared_lib
                NAMES "${shared_lib_name}"
                PATHS "${home}"
-               PATH_SUFFIXES ${ARROW_SEARCH_LIB_PATH_SUFFIXES}
+               PATH_SUFFIXES ${ARROW_SEARCH_ARROW_LIBRARY_PATH_SUFFIXES}
                NO_DEFAULT_PATH)
   if(MSVC)
     set(CMAKE_SHARED_LIBRARY_SUFFIXES ${CMAKE_FIND_LIBRARY_SUFFIXES_ORIGINAL})
@@ -173,7 +173,7 @@ macro(arrow_find_package_home)
     find_library(${prefix}_import_lib
                  NAMES "${import_lib_name}"
                  PATHS "${home}"
-                 PATH_SUFFIXES ${ARROW_SEARCH_LIB_PATH_SUFFIXES}
+                 PATH_SUFFIXES ${ARROW_SEARCH_ARROW_LIBRARY_PATH_SUFFIXES}
                  NO_DEFAULT_PATH)
     set(import_lib "${${prefix}_import_lib}")
     set(${prefix}_IMPORT_LIB "${import_lib}" PARENT_SCOPE)
@@ -185,7 +185,7 @@ macro(arrow_find_package_home)
   find_library(${prefix}_static_lib
                NAMES "${static_lib_name}"
                PATHS "${home}"
-               PATH_SUFFIXES ${ARROW_SEARCH_LIB_PATH_SUFFIXES}
+               PATH_SUFFIXES ${ARROW_SEARCH_ARROW_LIBRARY_PATH_SUFFIXES}
                NO_DEFAULT_PATH)
   set(static_lib "${${prefix}_static_lib}")
   set(${prefix}_STATIC_LIB "${static_lib}" PARENT_SCOPE)
@@ -399,7 +399,7 @@ mark_as_advanced(ARROW_ABI_VERSION
                  ARROW_INCLUDE_DIR
                  ARROW_LIBS
                  ARROW_LIB_DIR
-                 ARROW_SEARCH_LIB_PATH_SUFFIXES
+                 ARROW_SEARCH_ARROW_LIBRARY_PATH_SUFFIXES
                  ARROW_SHARED_IMP_LIB
                  ARROW_SHARED_LIB
                  ARROW_SO_VERSION
