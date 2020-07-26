@@ -290,7 +290,6 @@ public class PlasmaClientTest {
       System.out.println(String.format("Expected PlasmaOutOfMemoryException: %s", e));
       System.out.println("PlasmaOutOfMemoryException test success.");
     }
-    return;
   }
 
   private byte[] getArrayFilledWithValue(int arrayLength, byte val) {

@@ -23,10 +23,14 @@ package org.apache.arrow.plasma.exceptions;
 public class PlasmaOutOfMemoryException extends RuntimeException {
 
   public PlasmaOutOfMemoryException(String message) {
+    super("The plasma store ran out of memory." + message);
+  }
+
+  public PlasmaOutOfMemoryException() {
     super("The plasma store ran out of memory.");
   }
 
-  public PlasmaOutOfMemoryException(String message, Throwable t) {
+  public PlasmaOutOfMemoryException(Throwable t) {
     super("The plasma store ran out of memory.", t);
   }
 }
