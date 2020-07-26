@@ -32,7 +32,7 @@ use std::{mem, sync::Arc};
 /// trait for copying filtered null bitmap bits
 trait CopyNullBit {
     fn copy_null_bit(&mut self, source_index: usize);
-    fn advance(&mut self, count: usize);
+    fn copy_null_bits(&mut self, source_index: usize, count: usize);
     fn null_count(&self) -> usize;
     fn null_buffer(&mut self) -> Buffer;
 }
@@ -54,7 +54,7 @@ impl CopyNullBit for NullBitNoop {
     }
 
     #[inline]
-    fn advance(&mut self, _count: usize) {
+    fn copy_null_bits(&mut self, _source_index: usize, _count: usize) {
         // do nothing
     }
 
@@ -102,10 +102,10 @@ impl<'a> CopyNullBit for NullBitSetter<'a> {
     }
 
     #[inline]
-    fn advance(&mut self, count: usize) {
-        // only increment target_index
-        // no need to set any null bits because target_buffer is initialized with all 1s
-        self.target_index += count;
+    fn copy_null_bits(&mut self, source_index: usize, count: usize) {
+        for i in 0..count {
+            self.copy_null_bit(source_index + i);
+        }
     }
 
     fn null_count(&self) -> usize {
@@ -164,9 +164,9 @@ fn filter_array_impl(
             continue;
         } else if filter_batch == all_ones_batch {
             // if batch == all 1s: copy all 64 values in one go
-            null_bit_setter.advance(64);
             let data_index = i * 64;
             let data_len = value_size * 64;
+            null_bit_setter.copy_null_bits(data_index, 64);
             unsafe {
                 // this should be safe because of the data_array.len() check at the beginning of the method
                 memory::memcpy(
@@ -606,7 +606,7 @@ mod tests {
     #[test]
     fn test_filter_array_high_density() {
         // this test exercises the all 1's branch of the filter algorithm
-        let mut data_values = (1..=65).into_iter().collect::<Vec<i32>>();
+        let mut data_values = (1..=65).into_iter().map(|x| Some(x)).collect::<Vec<_>>();
         let mut filter_values = (1..=65)
             .into_iter()
             .map(|i| match i % 65 {
@@ -614,17 +614,22 @@ mod tests {
                 _ => true,
             })
             .collect::<Vec<bool>>();
+        // set second data value to null
+        data_values[1] = None;
         // set up two more values after the batch
-        data_values.extend_from_slice(&[66, 67]);
-        filter_values.extend_from_slice(&[false, true]);
+        data_values.extend_from_slice(&[Some(66), None, Some(67), None]);
+        filter_values.extend_from_slice(&[false, true, true, true]);
         let a = Int32Array::from(data_values);
         let b = BooleanArray::from(filter_values);
         let c = filter(&a, &b).unwrap();
         let d = c.as_ref().as_any().downcast_ref::<Int32Array>().unwrap();
-        assert_eq!(65, d.len());
+        assert_eq!(67, d.len());
+        assert_eq!(3, d.null_count());
         assert_eq!(1, d.value(0));
+        assert_eq!(true, d.is_null(1));
         assert_eq!(64, d.value(63));
-        assert_eq!(67, d.value(64));
+        assert_eq!(true, d.is_null(64));
+        assert_eq!(67, d.value(65));
     }
 
     #[test]
