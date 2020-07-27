@@ -29,7 +29,7 @@ ARG flatbuffers=1.11.0
 RUN wget -q -O - https://github.com/google/flatbuffers/archive/v${flatbuffers}.tar.gz | tar -xzf - && \
     cd flatbuffers-${flatbuffers} && \
     cmake -G "Unix Makefiles" && \
-    make install && \
+    make install -j4 && \
     cd / && \
     rm -rf flatbuffers-${flatbuffers}
 
@@ -44,40 +44,29 @@ RUN rustup default ${rust} && \
 # We do not compile any of the workspace or we defeat the purpose of caching - we only
 # compile their external dependencies.
 
-# The artifact of the steps below is a "/target" containing compiled dependencies
-# Uses the directory /dependency_build for temporary files
+ENV CARGO_HOME="/rust/cargo" \
+    CARGO_TARGET_DIR="/build/rust" \
+    RUSTFLAGS="-D warnings"
 
-# arrow-flight
-COPY rust/arrow-flight/Cargo.toml /dependency_build/arrow-flight/Cargo.toml
-## Create the directory and place an empty lib.rs (required for steps below)
-RUN mkdir -p /dependency_build/arrow-flight/src && touch dependency_build/arrow-flight/src/lib.rs
+# The artifact of the steps below is a "${CARGO_TARGET_DIR}" containing
+# compiled dependencies. Create the directories and place an empty lib.rs
+# files.
+COPY rust /arrow/rust
+RUN mkdir \
+        /arrow/rust/arrow-flight/src \
+        /arrow/rust/arrow/src \
+        /arrow/rust/benchmarks/src \
+        /arrow/rust/datafusion/src \
+        /arrow/rust/integration-testing/src  \
+        /arrow/rust/parquet/src && \
+    touch \
+        /arrow/rust/arrow-flight/src/lib.rs \
+        /arrow/rust/arrow/src/lib.rs \
+        /arrow/rust/benchmarks/src/lib.rs \
+        /arrow/rust/datafusion/src/lib.rs \
+        /arrow/rust/integration-testing/src/lib.rs  \
+        /arrow/rust/parquet/src/lib.rs
 
-# arrow
-COPY rust/arrow/Cargo.toml /dependency_build/arrow/Cargo.toml
-## this is unfortunately necessary as cargo checks that the benches exist
-COPY rust/arrow/benches /dependency_build/arrow/benches
-RUN mkdir -p /dependency_build/arrow/src && touch /dependency_build/arrow/src/lib.rs
-
-# parquet
-COPY rust/parquet/Cargo.toml /dependency_build/parquet/Cargo.toml
-COPY rust/parquet/build.rs /dependency_build/parquet/build.rs
-RUN mkdir -p /dependency_build/parquet/src && touch /dependency_build/parquet/src/lib.rs
-
-# datafusion
-COPY rust/datafusion/Cargo.toml /dependency_build/datafusion/Cargo.toml
-COPY rust/datafusion/benches /dependency_build/datafusion/benches
-RUN mkdir -p /dependency_build/datafusion/src && touch /dependency_build/datafusion/src/lib.rs
-
-# we can add more workspaces here if they justify the burden vs compile time.
-
-# set configurations valid across builds.
-# Changing them requires re-building dependencies
-ENV CARGO_HOME="/build/cargo"
-ENV RUSTFLAGS="-D warnings"
-
-# Finally, compile parquet's dependencies (will also compile other's dependencies)
-RUN cd /dependency_build/datafusion && cargo build --lib
-
-# move the "target" directory to the root, which is our cache, and remove temp directory
-RUN mv dependency_build/datafusion/target / && \
-    rm -rf /dependency_build
+# Compile dependencies for the whole workspace
+RUN cd /arrow/rust && \
+    CARGO_TARGET_DIR=/rust/dummy-build cargo build --workspace --lib --all-features
