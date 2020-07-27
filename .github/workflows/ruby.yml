@@ -209,9 +209,16 @@ jobs:
         uses: actions/setup-ruby@v1
         with:
           ruby-version: ${{ matrix.ruby-version }}
+      - name: Upgrade MSYS2 (phase1)
+        run: |
+          ridk exec bash ci\scripts\msys2_system_upgrade_phase1.sh
+          taskkill /F /FI "MODULES eq msys-2.0.dll"
+      - name: Upgrade MSYS2 (phase2)
+        run: |
+          ridk exec bash ci\scripts\msys2_system_upgrade_phase2.sh
+          taskkill /F /FI "MODULES eq msys-2.0.dll"
       - name: Setup MSYS2
         run: |
-          ridk exec bash ci\scripts\msys2_system_upgrade.sh
           ridk exec bash ci\scripts\msys2_setup.sh ruby
       - name: Cache ccache
         uses: actions/cache@v1
