@@ -896,6 +896,23 @@ def release_changelog_add(obj, version):
     click.echo("CHANGELOG.md is updated!")
 
 
+@release_changelog.command('generate')
+@click.argument('version')
+@click.argument('output', type=click.File('w', encoding='utf8'), default='-')
+@click.pass_obj
+def release_changelog_generate(obj, version, output):
+    """Generate the changelog of a specific release."""
+    from .release import Release
+
+    jira, repo = obj['jira'], obj['repo']
+
+    # just handle the current version
+    release = Release.from_jira(version, jira=jira, repo=repo)
+
+    changelog = release.changelog()
+    output.write(changelog.render('markdown'))
+
+
 @release_changelog.command('regenerate')
 @click.pass_obj
 def release_changelog_regenerate(obj):

@@ -140,8 +140,7 @@ cat <<ANNOUNCE >> "${announce_file}"
 
 ANNOUNCE
 
-# TODO(kszucs): needs to update for the new changelog generation with archery
-${PYTHON:-python} "${SOURCE_DIR}/changelog.py" ${version} 1 | \
+archery release changelog generate ${version} | \
   sed -e 's/^#/##/g' >> "${announce_file}"
 
 cat <<ANNOUNCE >> "${announce_file}"
