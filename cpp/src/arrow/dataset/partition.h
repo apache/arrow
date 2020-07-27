@@ -110,9 +110,6 @@ class ARROW_DS_EXPORT PartitioningFactory {
   virtual Result<WritePlan> MakeWritePlan(std::shared_ptr<Schema> schema,
                                           FragmentIterator fragments,
                                           std::shared_ptr<Schema> partition_schema);
-  /// Construct a WritePlan for the provided fragments, inferring schema
-  virtual Result<WritePlan> MakeWritePlan(std::shared_ptr<Schema> schema,
-                                          FragmentIterator fragments);
 };
 
 /// \brief Subclass for the common case of a partitioning which yields an equality

@@ -67,12 +67,6 @@ std::shared_ptr<Partitioning> Partitioning::Default() {
   return std::make_shared<DefaultPartitioning>();
 }
 
-Result<WritePlan> PartitioningFactory::MakeWritePlan(std::shared_ptr<Schema> schema,
-                                                     FragmentIterator fragment_it) {
-  return Status::NotImplemented("MakeWritePlan from PartitioningFactory of type ",
-                                type_name());
-}
-
 Result<WritePlan> PartitioningFactory::MakeWritePlan(
     std::shared_ptr<Schema> schema, FragmentIterator fragment_it,
     std::shared_ptr<Schema> partition_schema) {
@@ -394,9 +388,6 @@ class DirectoryPartitioningFactory : public PartitioningFactory {
   struct MakeWritePlanImpl;
 
   Result<WritePlan> MakeWritePlan(std::shared_ptr<Schema> schema,
-                                  FragmentIterator fragments) override;
-
-  Result<WritePlan> MakeWritePlan(std::shared_ptr<Schema> schema,
                                   FragmentIterator fragments,
                                   std::shared_ptr<Schema> partition_schema) override;
 
@@ -471,32 +462,6 @@ struct DirectoryPartitioningFactory::MakeWritePlanImpl {
     return Status::OK();
   }
 
-  // Infer the Partitioning schema from partition expressions.
-  // For example if one partition expression is "omega"_ == 13
-  // we can infer that the field "omega" has type int32
-  Result<std::shared_ptr<Schema>> InferPartitioningSchema() const {
-    if (source_fragments_.empty()) {
-      return Status::Invalid(
-          "No fragments were provided so the Partitioning schema could not be "
-          "inferred.");
-    }
-
-    // NB: under DirectoryPartitioning every fragment has a partition expression for every
-    // field, so we can infer the schema by looking only at the first fragment. This will
-    // be more complicated for HivePartitioning.
-    int fragment_i = 0;
-
-    FieldVector fields(num_fields());
-    for (int field_i = 0; field_i < num_fields(); ++field_i) {
-      const auto& name = this_->field_names_[field_i];
-      const auto& type =
-          scalar_dict_.code_to_scalar[right_hand_sides_[fragment_i][field_i]]->type;
-      fields[field_i] = field(name, type);
-    }
-
-    return schema(std::move(fields));
-  }
-
   // reconstitute fragment_i's partition expression for field_i by reading the right
   // hand side from the scalar dictionary and constructing an equality
   // ComparisonExpression
@@ -517,14 +482,11 @@ struct DirectoryPartitioningFactory::MakeWritePlanImpl {
     return std::to_string(milliseconds_since_epoch);
   }
 
-  Result<WritePlan> Finish(std::shared_ptr<Schema> partitioning_schema = nullptr) && {
+  Result<WritePlan> Finish(std::shared_ptr<Schema> partitioning_schema) && {
     WritePlan out;
 
     RETURN_NOT_OK(DictEncodeRightHandSides());
 
-    if (partitioning_schema == nullptr) {
-      ARROW_ASSIGN_OR_RAISE(partitioning_schema, InferPartitioningSchema());
-    }
     ARROW_ASSIGN_OR_RAISE(out.partitioning,
                           this_->Finish(std::move(partitioning_schema)));
 
@@ -629,13 +591,11 @@ Result<WritePlan> DirectoryPartitioningFactory::MakeWritePlan(
     std::shared_ptr<Schema> schema, FragmentIterator fragment_it,
     std::shared_ptr<Schema> partition_schema) {
   ARROW_ASSIGN_OR_RAISE(auto fragments, fragment_it.ToVector());
-  return MakeWritePlanImpl(this, schema, std::move(fragments)).Finish(partition_schema);
-}
+  // If a partitioning_schema includes fields present in a fragment's schema but absent
+  // from its partition expression, we need to do a GROUP BY. That fragment must be split
+  // into one fragment per group condition.
 
-Result<WritePlan> DirectoryPartitioningFactory::MakeWritePlan(
-    std::shared_ptr<Schema> schema, FragmentIterator fragment_it) {
-  ARROW_ASSIGN_OR_RAISE(auto fragments, fragment_it.ToVector());
-  return MakeWritePlanImpl(this, schema, std::move(fragments)).Finish();
+  return MakeWritePlanImpl(this, schema, std::move(fragments)).Finish(partition_schema);
 }
 
 std::shared_ptr<PartitioningFactory> DirectoryPartitioning::MakeFactory(

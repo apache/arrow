@@ -457,29 +457,14 @@ class TestPartitioningWritePlan : public ::testing::Test {
   template <typename... E>
   void MakeWritePlan(const E&... partition_expressions) {
     auto fragments = MakeFragments(partition_expressions...);
-    EXPECT_OK_AND_ASSIGN(plan_,
-                         factory_->MakeWritePlan(schema({}), std::move(fragments)));
+    EXPECT_OK_AND_ASSIGN(plan_, factory_->MakeWritePlan(schema({}), std::move(fragments),
+                                                        partition_schema_));
   }
 
   template <typename... E>
   Status MakeWritePlanError(const E&... partition_expressions) {
     auto fragments = MakeFragments(partition_expressions...);
-    return factory_->MakeWritePlan(schema({}), std::move(fragments)).status();
-  }
-
-  template <typename... E>
-  void MakeWritePlanWithSchema(const std::shared_ptr<Schema>& partition_schema,
-                               const E&... partition_expressions) {
-    auto fragments = MakeFragments(partition_expressions...);
-    EXPECT_OK_AND_ASSIGN(plan_, factory_->MakeWritePlan(schema({}), std::move(fragments),
-                                                        partition_schema));
-  }
-
-  template <typename... E>
-  Status MakeWritePlanWithSchemaError(const std::shared_ptr<Schema>& partition_schema,
-                                      const E&... partition_expressions) {
-    auto fragments = MakeFragments(partition_expressions...);
-    return factory_->MakeWritePlan(schema({}), std::move(fragments), partition_schema)
+    return factory_->MakeWritePlan(schema({}), std::move(fragments), partition_schema_)
         .status();
   }
 
@@ -540,6 +525,7 @@ class TestPartitioningWritePlan : public ::testing::Test {
   }
 
   FragmentVector fragments_;
+  std::shared_ptr<Schema> partition_schema_;
   std::shared_ptr<ScanOptions> scan_options_ = ScanOptions::Make(schema({}));
   std::shared_ptr<PartitioningFactory> factory_;
   WritePlan plan_;
@@ -547,12 +533,9 @@ class TestPartitioningWritePlan : public ::testing::Test {
 
 TEST_F(TestPartitioningWritePlan, Empty) {
   factory_ = DirectoryPartitioning::MakeFactory({"a", "b"});
+  partition_schema_ = schema({field("a", int32()), field("b", utf8())});
 
-  // no expressions from which to infer the types of fields a, b
-  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("No fragments"),
-                                  MakeWritePlanError());
-
-  MakeWritePlanWithSchema(schema({field("a", int32()), field("b", utf8())}));
+  MakeWritePlan();
   AssertPlanIs({});
 
   factory_ = HivePartitioning::MakeFactory();
@@ -562,6 +545,7 @@ TEST_F(TestPartitioningWritePlan, Empty) {
 
 TEST_F(TestPartitioningWritePlan, SingleDirectory) {
   factory_ = DirectoryPartitioning::MakeFactory({"a"});
+  partition_schema_ = schema({field("a", int32())});
 
   MakeWritePlan("a"_ == 42, "a"_ == 99, "a"_ == 101);
   AssertPlanIs(ExpectedWritePlan()
@@ -578,6 +562,7 @@ TEST_F(TestPartitioningWritePlan, SingleDirectory) {
 
 TEST_F(TestPartitioningWritePlan, NestedDirectories) {
   factory_ = DirectoryPartitioning::MakeFactory({"a", "b"});
+  partition_schema_ = schema({field("a", int32()), field("b", utf8())});
 
   MakeWritePlan("a"_ == 42 and "b"_ == "hello", "a"_ == 42 and "b"_ == "world",
                 "a"_ == 99 and "b"_ == "hello", "a"_ == 99 and "b"_ == "world");
@@ -593,6 +578,8 @@ TEST_F(TestPartitioningWritePlan, NestedDirectories) {
 
 TEST_F(TestPartitioningWritePlan, Errors) {
   factory_ = DirectoryPartitioning::MakeFactory({"a"});
+  partition_schema_ = schema({field("a", int32())});
+
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid, testing::HasSubstr("no partition expression for field 'a'"),
       MakeWritePlanError("a"_ == 42, scalar(true), "a"_ == 101));
