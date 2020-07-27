@@ -24,7 +24,6 @@ use crate::record_batch::RecordBatch;
 use crate::{
     bitmap::Bitmap,
     buffer::{Buffer, MutableBuffer},
-    memory,
     util::bit_util,
 };
 use std::{mem, sync::Arc};
@@ -148,10 +147,11 @@ fn filter_array_impl(
     let filtered_count = filter_context.filtered_count;
     let filter_mask = &filter_context.filter_mask;
     let filter_u64 = &filter_context.filter_u64;
-    let data_start = data_array.data_ref().buffers()[0].raw_data();
-    let mut value_buffer = MutableBuffer::new(filtered_count * value_size);
-    value_buffer.resize(filtered_count * value_size)?;
-    let mut value_position = value_buffer.raw_data_mut();
+    let data_bytes = data_array.data_ref().buffers()[0].data();
+    let mut target_buffer = MutableBuffer::new(filtered_count * value_size);
+    target_buffer.resize(filtered_count * value_size)?;
+    let target_bytes = target_buffer.data_mut();
+    let mut target_byte_index: usize = 0;
     let mut null_bit_setter = get_null_bit_setter(data_array);
     let null_bit_setter = null_bit_setter.as_mut();
     let all_ones_batch = !0u64;
@@ -165,17 +165,14 @@ fn filter_array_impl(
         } else if filter_batch == all_ones_batch {
             // if batch == all 1s: copy all 64 values in one go
             let data_index = i * 64;
-            let data_len = value_size * 64;
             null_bit_setter.copy_null_bits(data_index, 64);
-            unsafe {
-                // this should be safe because of the data_array.len() check at the beginning of the method
-                memory::memcpy(
-                    value_position,
-                    data_start.add(value_size * data_index),
-                    data_len,
+            let data_byte_index = data_index * value_size;
+            let data_len = value_size * 64;
+            target_bytes[target_byte_index..(target_byte_index + data_len)]
+                .copy_from_slice(
+                    &data_bytes[data_byte_index..(data_byte_index + data_len)],
                 );
-                value_position = value_position.add(data_len);
-            }
+            target_byte_index += data_len;
             continue;
         }
         for (j, filter_mask) in filter_mask.iter().enumerate() {
@@ -183,23 +180,20 @@ fn filter_array_impl(
             if (filter_batch & *filter_mask) != 0 {
                 let data_index = (i * 64) + j;
                 null_bit_setter.copy_null_bit(data_index);
-                // if filter bit == 1: copy data value to temp array
-                unsafe {
-                    // this should be safe because of the data_array.len() check at the beginning of the method
-                    memory::memcpy(
-                        value_position,
-                        data_start.add(value_size * data_index),
-                        value_size,
+                // if filter bit == 1: copy data value bytes
+                let data_byte_index = data_index * value_size;
+                target_bytes[target_byte_index..(target_byte_index + value_size)]
+                    .copy_from_slice(
+                        &data_bytes[data_byte_index..(data_byte_index + value_size)],
                     );
-                    value_position = value_position.add(value_size);
-                }
+                target_byte_index += value_size;
             }
         }
     }
 
     let mut array_data_builder = ArrayDataBuilder::new(array_type)
         .len(filtered_count)
-        .add_buffer(value_buffer.freeze());
+        .add_buffer(target_buffer.freeze());
     if null_bit_setter.null_count() > 0 {
         array_data_builder = array_data_builder
             .null_count(null_bit_setter.null_count())
