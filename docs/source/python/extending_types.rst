@@ -167,7 +167,7 @@ more flexible, parametrized extension types are also possible.
 
 The example given here implements an extension type for the `pandas "period"
 data type <https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#time-span-representation>`__,
-represententing time spans (e.g., a frequency of a day, a month, a quarter, etc).
+representing time spans (e.g., a frequency of a day, a month, a quarter, etc).
 It is stored as an int64 array which is interpreted as the number of time spans
 of the given frequency since 1970.
 
@@ -241,7 +241,7 @@ the data as a 2-D Numpy array ``(N, 3)`` without any copy::
 
     class Point3DArray(pa.ExtensionArray):
         def to_numpy_array(self):
-            return arr.storage.flatten().to_numpy().reshape((-1, 3))
+            return self.storage.flatten().to_numpy().reshape((-1, 3))
 
 
     class Point3DType(pa.PyExtensionType):
