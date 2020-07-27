@@ -22,7 +22,9 @@
 #include <string>
 #include <vector>
 
+#include "parquet/key_encryption_key.h"
 #include "parquet/kms_client.h"
+#include "parquet/kms_client_factory.h"
 #include "parquet/two_level_cache_with_expiration.h"
 
 namespace parquet {
@@ -32,14 +34,42 @@ namespace encryption {
 class KeyToolkit {
  public:
   class KmsClientCache {
-   private:
-    KmsClientCache& GetInstance() {
+   public:
+    static KmsClientCache& GetInstance() {
       static KmsClientCache instance;
       return instance;
     }
     TwoLevelCacheWithExpiration<std::shared_ptr<KmsClient>>& cache() { return cache_; }
+
+   private:
     TwoLevelCacheWithExpiration<std::shared_ptr<KmsClient>> cache_;
   };
+
+  class KEKWriteCache {
+   public:
+    static KEKWriteCache& GetInstance() {
+      static KEKWriteCache instance;
+      return instance;
+    }
+    TwoLevelCacheWithExpiration<KeyEncryptionKey>& cache() { return cache_; }
+
+   private:
+    TwoLevelCacheWithExpiration<KeyEncryptionKey> cache_;
+  };
+
+  static TwoLevelCacheWithExpiration<std::shared_ptr<KmsClient>>&
+  kms_client_cache_per_token() {
+    return KmsClientCache::GetInstance().cache();
+  }
+
+  static TwoLevelCacheWithExpiration<KeyEncryptionKey>& kek_write_cache_per_token() {
+    return KEKWriteCache::GetInstance().cache();
+  }
+
+  static std::shared_ptr<KmsClient> GetKmsClient(
+      std::shared_ptr<KmsClientFactory> kms_client_factory,
+      const KmsConnectionConfig& kms_connection_config, bool is_wrap_locally,
+      uint64_t cache_entry_lifetime);
 
   static std::string EncryptKeyLocally(const uint8_t* key_bytes, int key_size,
                                        const uint8_t* master_key_bytes,

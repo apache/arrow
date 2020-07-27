@@ -24,6 +24,25 @@ namespace parquet {
 
 namespace encryption {
 
+std::shared_ptr<KmsClient> KeyToolkit::GetKmsClient(
+    std::shared_ptr<KmsClientFactory> kms_client_factory,
+    const KmsConnectionConfig& kms_connection_config, bool is_wrap_locally,
+    uint64_t cache_entry_lifetime) {
+  std::map<std::string, std::shared_ptr<KmsClient>> kms_client_per_kms_instance_cache =
+      kms_client_cache_per_token().GetOrCreateInternalCache(
+          kms_connection_config.key_access_token, cache_entry_lifetime);
+
+  if (kms_client_per_kms_instance_cache.find(kms_connection_config.kms_instance_id) ==
+      kms_client_per_kms_instance_cache.end()) {
+    std::shared_ptr<KmsClient> kms_client =
+        kms_client_factory->CreateKmsClient(kms_connection_config, is_wrap_locally);
+    kms_client_per_kms_instance_cache.insert(
+        {kms_connection_config.kms_instance_id, kms_client});
+  }
+
+  return kms_client_per_kms_instance_cache[kms_connection_config.kms_instance_id];
+}
+
 std::string KeyToolkit::EncryptKeyLocally(const uint8_t* key_bytes, int key_size,
                                           const uint8_t* master_key_bytes,
                                           int master_key_size, const uint8_t* aad_bytes,
