@@ -56,10 +56,12 @@ use crate::logicalplan::{
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::projection_push_down::ProjectionPushDown;
 use crate::optimizer::type_coercion::TypeCoercionRule;
-use crate::sql::parser::{DFASTNode, DFParser, FileType};
-use crate::sql::planner::{SchemaProvider, SqlToRel};
+use crate::sql::{
+    parser::{DFParser, FileType, Statement},
+    planner::{SchemaProvider, SqlToRel},
+};
 use crate::table::Table;
-use sqlparser::sqlast::{SQLColumnDef, SQLType};
+use sqlparser::ast::{ColumnDef as SQLColumnDef, ColumnOption, DataType as SQLDataType};
 
 /// Execution context for registering data sources and executing queries
 pub struct ExecutionContext {
@@ -140,10 +142,16 @@ impl ExecutionContext {
 
     /// Creates a logical plan
     pub fn create_logical_plan(&mut self, sql: &str) -> Result<LogicalPlan> {
-        let ast = DFParser::parse_sql(sql)?;
+        let statements = DFParser::parse_sql(sql)?;
 
-        match ast {
-            DFASTNode::ANSI(ansi) => {
+        if statements.len() != 1 {
+            return Err(ExecutionError::NotImplemented(format!(
+                "The context currently only supports a single SQL statement",
+            )));
+        }
+
+        match &statements[0] {
+            Statement::Statement(s) => {
                 let schema_provider = ExecutionContextSchemaProvider {
                     datasources: &self.datasources,
                     scalar_functions: &self.scalar_functions,
@@ -153,25 +161,25 @@ impl ExecutionContext {
                 let query_planner = SqlToRel::new(schema_provider);
 
                 // plan the query (create a logical relational plan)
-                let plan = query_planner.sql_to_rel(&ansi)?;
+                let plan = query_planner.statement_to_plan(&s)?;
 
                 Ok(plan)
             }
-            DFASTNode::CreateExternalTable {
+            Statement::CreateExternalTable {
                 name,
                 columns,
                 file_type,
                 has_header,
                 location,
             } => {
-                let schema = Box::new(self.build_schema(columns)?);
+                let schema = Box::new(self.build_schema(&columns)?);
 
                 Ok(LogicalPlan::CreateExternalTable {
                     schema,
-                    name,
-                    location,
-                    file_type,
-                    has_header,
+                    name: name.clone(),
+                    location: location.clone(),
+                    file_type: file_type.clone(),
+                    has_header: has_header.clone(),
                 })
             }
         }
@@ -187,39 +195,37 @@ impl ExecutionContext {
         &self.scalar_functions
     }
 
-    fn build_schema(&self, columns: Vec<SQLColumnDef>) -> Result<Schema> {
+    fn build_schema(&self, columns: &Vec<SQLColumnDef>) -> Result<Schema> {
         let mut fields = Vec::new();
 
         for column in columns {
-            let data_type = self.make_data_type(column.data_type)?;
-            fields.push(Field::new(&column.name, data_type, column.allow_null));
+            let data_type = self.make_data_type(&column.data_type)?;
+            let allow_null = column
+                .options
+                .iter()
+                .any(|x| x.option == ColumnOption::Null);
+            fields.push(Field::new(&column.name.value, data_type, allow_null));
         }
 
         Ok(Schema::new(fields))
     }
 
-    fn make_data_type(&self, sql_type: SQLType) -> Result<DataType> {
+    fn make_data_type(&self, sql_type: &SQLDataType) -> Result<DataType> {
         match sql_type {
-            SQLType::BigInt => Ok(DataType::Int64),
-            SQLType::Int => Ok(DataType::Int32),
-            SQLType::SmallInt => Ok(DataType::Int16),
-            SQLType::Char(_) | SQLType::Varchar(_) | SQLType::Text => Ok(DataType::Utf8),
-            SQLType::Decimal(_, _) => Ok(DataType::Float64),
-            SQLType::Float(_) => Ok(DataType::Float32),
-            SQLType::Real | SQLType::Double => Ok(DataType::Float64),
-            SQLType::Boolean => Ok(DataType::Boolean),
-            SQLType::Date => Ok(DataType::Date64(DateUnit::Day)),
-            SQLType::Time => Ok(DataType::Time64(TimeUnit::Millisecond)),
-            SQLType::Timestamp => Ok(DataType::Date64(DateUnit::Millisecond)),
-            SQLType::Uuid
-            | SQLType::Clob(_)
-            | SQLType::Binary(_)
-            | SQLType::Varbinary(_)
-            | SQLType::Blob(_)
-            | SQLType::Regclass
-            | SQLType::Bytea
-            | SQLType::Custom(_)
-            | SQLType::Array(_) => Err(ExecutionError::General(format!(
+            SQLDataType::BigInt => Ok(DataType::Int64),
+            SQLDataType::Int => Ok(DataType::Int32),
+            SQLDataType::SmallInt => Ok(DataType::Int16),
+            SQLDataType::Char(_) | SQLDataType::Varchar(_) | SQLDataType::Text => {
+                Ok(DataType::Utf8)
+            }
+            SQLDataType::Decimal(_, _) => Ok(DataType::Float64),
+            SQLDataType::Float(_) => Ok(DataType::Float32),
+            SQLDataType::Real | SQLDataType::Double => Ok(DataType::Float64),
+            SQLDataType::Boolean => Ok(DataType::Boolean),
+            SQLDataType::Date => Ok(DataType::Date64(DateUnit::Day)),
+            SQLDataType::Time => Ok(DataType::Time64(TimeUnit::Millisecond)),
+            SQLDataType::Timestamp => Ok(DataType::Date64(DateUnit::Millisecond)),
+            _ => Err(ExecutionError::General(format!(
                 "Unsupported data type: {:?}.",
                 sql_type
             ))),
