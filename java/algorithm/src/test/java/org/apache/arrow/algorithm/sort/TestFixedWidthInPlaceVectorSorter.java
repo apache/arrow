@@ -20,6 +20,9 @@ package org.apache.arrow.algorithm.sort;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.IntVector;
@@ -207,6 +210,31 @@ public class TestFixedWidthInPlaceVectorSorter {
         sorter.choosePivot(low, high);
         assertEquals(22, vec.get(0));
       }
+    }
+  }
+
+  @Test
+  public void testSortInt2() {
+    try (IntVector vector = new IntVector("vector", allocator)) {
+      ValueVectorDataPopulator.setVector(vector,
+          0, 1, 2, 3, 4, 5, 30, 31, 32, 33,
+          34, 35, 60, 61, 62, 63, 64, 65, 6, 7,
+          8, 9, 10, 11, 36, 37, 38, 39, 40, 41,
+          66, 67, 68, 69, 70, 71);
+
+      FixedWidthInPlaceVectorSorter sorter = new FixedWidthInPlaceVectorSorter();
+      VectorValueComparator<IntVector> comparator = DefaultVectorComparators.createDefaultComparator(vector);
+
+      sorter.sortInPlace(vector, comparator);
+
+      String actual = "[" + String.join(
+          ", ", IntStream.range(0, vector.getValueCount()).mapToObj(
+              i -> String.valueOf(vector.get(i))).collect(Collectors.toList())) + "]";
+
+      assertEquals(
+          "[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, " +
+              "11, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, " +
+              "40, 41, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71]", actual);
     }
   }
 }
