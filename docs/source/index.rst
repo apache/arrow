@@ -36,7 +36,7 @@ such topics as:
 
 .. toctree::
    :maxdepth: 2
-   :caption: Arrow Specifications and Protocols
+   :caption: Specifications and Protocols
 
    format/Versioning
    format/Columnar
@@ -49,7 +49,7 @@ such topics as:
 
 .. toctree::
    :maxdepth: 2
-   :caption: Arrow Libraries
+   :caption: Libraries
 
    status
    C/GLib <https://arrow.apache.org/docs/c_glib/>
@@ -68,7 +68,7 @@ such topics as:
 
 .. toctree::
    :maxdepth: 2
-   :caption: Development and Contributing
+   :caption: Development
 
    developers/contributing
    developers/cpp/index
