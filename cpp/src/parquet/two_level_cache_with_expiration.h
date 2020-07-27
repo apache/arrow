@@ -32,15 +32,17 @@ class TwoLevelCacheWithExpiration {
  public:
   TwoLevelCacheWithExpiration() { last_cache_cleanup_timestamp_ = CurrentTimePoint(); }
 
-  std::map<std::string, V> GetOrCreateInternalCache(const std::string& access_token,
-                                                    uint64_t cache_entry_life_time) {
+  std::map<std::string, V>& GetOrCreateInternalCache(const std::string& access_token,
+                                                     uint64_t cache_entry_life_time) {
     auto external_cache_entry = cache_.find(access_token);
-    if (external_cache_entry == cache_.end() || external_cache_entry->isExpired()) {
+    if (external_cache_entry == cache_.end() ||
+        external_cache_entry->second.IsExpired()) {
       cache_.insert(
           {access_token, ExpiringCacheEntry<std::map<std::string, V>>(
                              std::map<std::string, V>(), cache_entry_life_time)});
     }
-    return cache_[access_token]->cached_item();
+
+    return cache_[access_token].cached_item();
   }
 
   void RemoveCacheEntriesForToken(const std::string& access_token) {
@@ -63,8 +65,8 @@ class TwoLevelCacheWithExpiration {
 
   void RemoveExpiredEntriesFromCache() {
     for (auto it = cache_.begin(); it != cache_.end();) {
-      if (it->second->isExpired()) {
-        it = cache_->remove(it);
+      if (it->second.IsExpired()) {
+        it = cache_.erase(it);
       } else {
         ++it;
       }
@@ -78,9 +80,8 @@ class TwoLevelCacheWithExpiration {
  private:
   template <typename E>
   class ExpiringCacheEntry {
-   private:
-    TimePoint expiration_timestamp_;
-    E cached_item_;
+   public:
+    ExpiringCacheEntry() = default;
 
     ExpiringCacheEntry(const E& cached_item, uint64_t expiration_interval_millis)
         : cached_item_(cached_item) {
@@ -88,12 +89,18 @@ class TwoLevelCacheWithExpiration {
           CurrentTimePoint() + std::chrono::milliseconds(expiration_interval_millis);
     }
 
-    bool isExpired() {
+    bool IsExpired() {
       auto now = CurrentTimePoint();
       return (now > expiration_timestamp_);
     }
 
-    const E& cached_item() const { return cached_item_; }
+    // const E& cached_item() const { return cached_item_; }
+
+    E& cached_item() { return cached_item_; }
+
+   private:
+    TimePoint expiration_timestamp_;
+    E cached_item_;
   };
 
   std::map<std::string, ExpiringCacheEntry<std::map<std::string, V>>> cache_;

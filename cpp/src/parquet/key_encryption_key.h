@@ -24,23 +24,22 @@
 
 class KeyEncryptionKey {
  public:
+  KeyEncryptionKey() = default;
+
   KeyEncryptionKey(const std::vector<uint8_t>& kek_bytes,
                    const std::vector<uint8_t>& kek_id,
                    const std::string& encoded_wrapped_kek)
       : kek_bytes_(kek_bytes),
         kek_id_(kek_id),
-        encoded_wrapped_kek_(encoded_wrapped_kek) {}
+        encoded_wrapped_kek_(encoded_wrapped_kek) {
+    encoded_kek_id_ = arrow::util::base64_encode(&kek_id_[0], kek_id_.size());
+  }
 
   const std::vector<uint8_t>& kek_bytes() const { return kek_bytes_; }
 
   const std::vector<uint8_t>& kek_id() const { return kek_id_; }
 
-  const std::string& encoded_kek_id() {
-    if (encoded_kek_id_.empty()) {
-      encoded_kek_id_ = arrow::util::base64_encode(&kek_id_[0], kek_id_.size());
-    }
-    return encoded_kek_id_;
-  }
+  const std::string& encoded_kek_id() const { return encoded_kek_id_; }
 
   const std::string& encoded_wrapped_kek() const { return encoded_wrapped_kek_; }
 
