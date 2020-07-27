@@ -198,6 +198,7 @@ fi
 # Write to Makevars
 sed -e "s|@cflags@|$PKG_CFLAGS|" -e "s|@libs@|$PKG_LIBS|" src/Makevars.in > src/Makevars
 
+# This is removed because a (bad?) CRAN check fails when arrow.so is stripped
 # # Add stripping
 # if [ "$R_STRIP_SHARED_LIB" != "" ]; then
 #   # R_STRIP_SHARED_LIB is set in the global Renviron and should be available here

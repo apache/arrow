@@ -3,7 +3,7 @@
 * Fedora Linux, GCC/clang, R-devel
 * Ubuntu Linux 16.04 LTS, R-release, GCC
 * win-builder (R-devel and R-release)
-* macOS 10.14, R-release
+* macOS 10.14, R-oldrel
 
 ## R CMD check results
 
