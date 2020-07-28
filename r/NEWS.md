@@ -50,7 +50,7 @@
 
 * Non-UTF-8 strings (common on Windows) are correctly coerced to UTF-8 when passing to Arrow memory and appropriately re-localized when converting to R
 * The `coerce_timestamps` option to `write_parquet()` is now correctly implemented.
-* Creating a Dictionary array respects the `type` definition if provided by the user  
+* Creating a Dictionary array respects the `type` definition if provided by the user
 * `read_arrow` and `write_arrow` are now deprecated; use the `read/write_feather()` and `read/write_ipc_stream()` functions depending on whether you're working with the Arrow IPC file or stream format, respectively.
 * Previously deprecated `FileStats`, `read_record_batch`, and `read_table` have been removed.
 
