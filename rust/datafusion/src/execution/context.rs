@@ -529,6 +529,7 @@ impl ExecutionContext {
                         physical_args.push(self.create_physical_expr(e, input_schema)?);
                     }
                     Ok(Arc::new(ScalarFunctionExpr::new(
+                        name,
                         Box::new(f.fun.clone()),
                         physical_args,
                         return_type,

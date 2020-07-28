@@ -18,6 +18,7 @@
 //! Traits for physical query plan, supporting parallel execution for partitioned relations.
 
 use std::cell::RefCell;
+use std::fmt::Display;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
@@ -43,7 +44,7 @@ pub trait Partition: Send + Sync {
 
 /// Expression that can be evaluated against a RecordBatch
 /// A Physical expression knows its type, nullability and how to evaluate itself.
-pub trait PhysicalExpr: Send + Sync {
+pub trait PhysicalExpr: Send + Sync + Display {
     /// Get the data type of this expression, given the schema of the input
     fn data_type(&self, input_schema: &Schema) -> Result<DataType>;
     /// Decide whehter this expression is nullable, given the schema of the input

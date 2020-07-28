@@ -18,6 +18,7 @@
 //! Defines physical expressions that can evaluated at runtime during query execution
 
 use std::cell::RefCell;
+use std::fmt;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -58,6 +59,12 @@ impl Column {
         Self {
             name: name.to_owned(),
         }
+    }
+}
+
+impl fmt::Display for Column {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.name)
     }
 }
 
@@ -965,6 +972,12 @@ impl BinaryExpr {
     }
 }
 
+impl fmt::Display for BinaryExpr {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{} {} {}", self.left, self.op, self.right)
+    }
+}
+
 impl PhysicalExpr for BinaryExpr {
     fn data_type(&self, input_schema: &Schema) -> Result<DataType> {
         self.left.data_type(input_schema)
@@ -1049,6 +1062,11 @@ impl NotExpr {
     }
 }
 
+impl fmt::Display for NotExpr {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "NOT {}", self.arg)
+    }
+}
 impl PhysicalExpr for NotExpr {
     fn data_type(&self, _input_schema: &Schema) -> Result<DataType> {
         return Ok(DataType::Boolean);
@@ -1126,6 +1144,12 @@ impl CastExpr {
     }
 }
 
+impl fmt::Display for CastExpr {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "CAST({} AS {:?})", self.expr, self.cast_type)
+    }
+}
+
 impl PhysicalExpr for CastExpr {
     fn data_type(&self, _input_schema: &Schema) -> Result<DataType> {
         Ok(self.cast_type.clone())
@@ -1163,6 +1187,12 @@ macro_rules! build_literal_array {
         }
         Ok(Arc::new(builder.finish()))
     }};
+}
+
+impl fmt::Display for Literal {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.value)
+    }
 }
 
 impl PhysicalExpr for Literal {
@@ -1297,6 +1327,8 @@ mod tests {
             Operator::Or,
             binary(col("a"), Operator::Eq, col("b")),
         );
+        assert_eq!("a < b OR a = b", format!("{}", expr));
+
         let result = expr.evaluate(&batch)?;
         assert_eq!(result.len(), 5);
 
@@ -1322,6 +1354,8 @@ mod tests {
 
         // create and evaluate a literal expression
         let literal_expr = lit(ScalarValue::Int32(42));
+        assert_eq!("42", format!("{}", literal_expr));
+
         let literal_array = literal_expr.evaluate(&batch)?;
         let literal_array = literal_array.as_any().downcast_ref::<Int32Array>().unwrap();
 
@@ -1341,6 +1375,7 @@ mod tests {
         let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
 
         let cast = CastExpr::try_new(col("a"), &schema, DataType::UInt32)?;
+        assert_eq!("CAST(a AS UInt32)", format!("{}", cast));
         let result = cast.evaluate(&batch)?;
         assert_eq!(result.len(), 5);
 
