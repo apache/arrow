@@ -43,6 +43,44 @@ env:
 
 jobs:
 
+  bench:
+    name: Rust - ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        variant:
+          - no-cache
+          - cached
+          - volume-cached
+        include:
+          - variant: no-cache
+            command: docker-compose run --rm -e CARGO_TARGET_DIR=/tmp/rust debian-rust
+            name: No Cache
+          - variant: cached
+            command: docker-compose run --rm -e CARGO_TARGET_DIR=/rust/dummy-build debian-rust
+            name: Use dependency cache within the image
+          - variant: volume-cached
+            command: docker-compose run --rm debian-rust
+            name: Use dependency cache from a mounted volume
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        shell: bash
+        run: ci/scripts/util_checkout.sh
+      - name: Free Up Disk Space
+        shell: bash
+        run: ci/scripts/util_cleanup.sh
+      - name: Build
+        shell: bash
+        run: docker-compose build debian-rust
+      - name: Run
+        shell: bash
+        run: time ${{ matrix.command }}
+
   debian:
     name: AMD64 Debian 10 Rust ${{ matrix.rust }}
     runs-on: ubuntu-latest
