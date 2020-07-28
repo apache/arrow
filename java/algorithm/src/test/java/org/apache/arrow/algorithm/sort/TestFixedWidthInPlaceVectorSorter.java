@@ -19,8 +19,8 @@ package org.apache.arrow.algorithm.sort;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import org.apache.arrow.memory.BufferAllocator;
@@ -227,14 +227,14 @@ public class TestFixedWidthInPlaceVectorSorter {
 
       sorter.sortInPlace(vector, comparator);
 
-      String actual = "[" + String.join(
-          ", ", IntStream.range(0, vector.getValueCount()).mapToObj(
-              i -> String.valueOf(vector.get(i))).collect(Collectors.toList())) + "]";
+      int[] actual = new int[vector.getValueCount()];
+      IntStream.range(0, vector.getValueCount()).forEach(
+          i -> actual[i] = vector.get(i));
 
-      assertEquals(
-          "[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, " +
-              "11, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, " +
-              "40, 41, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71]", actual);
+      assertArrayEquals(
+          new int[]{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+              11, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39,
+              40, 41, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71}, actual);
     }
   }
 }
