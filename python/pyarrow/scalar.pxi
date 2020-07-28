@@ -97,6 +97,9 @@ cdef class Scalar(_Weakrefable):
         cdef CScalarHash hasher
         return hasher(self.wrapped)
 
+    def __reduce__(self):
+        return scalar, (self.as_py(), self.type)
+
     def as_py(self):
         raise NotImplementedError()
 
