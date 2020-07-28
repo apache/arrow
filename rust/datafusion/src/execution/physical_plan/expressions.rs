@@ -17,8 +17,6 @@
 
 //! Defines physical expressions that can evaluated at runtime during query execution
 
-use std::cell::RefCell;
-use std::rc::Rc;
 use std::sync::Arc;
 
 use crate::error::{ExecutionError, Result};
@@ -120,8 +118,8 @@ impl AggregateExpr for Sum {
         self.expr.evaluate(batch)
     }
 
-    fn create_accumulator(&self) -> Rc<RefCell<dyn Accumulator>> {
-        Rc::new(RefCell::new(SumAccumulator { sum: None }))
+    fn create_accumulator(&self) -> Box<dyn Accumulator> {
+        Box::new(SumAccumulator { sum: None })
     }
 
     fn create_reducer(&self, column_name: &str) -> Arc<dyn AggregateExpr> {
@@ -314,11 +312,11 @@ impl AggregateExpr for Avg {
         self.expr.evaluate(batch)
     }
 
-    fn create_accumulator(&self) -> Rc<RefCell<dyn Accumulator>> {
-        Rc::new(RefCell::new(AvgAccumulator {
+    fn create_accumulator(&self) -> Box<dyn Accumulator> {
+        Box::new(AvgAccumulator {
             sum: None,
             count: None,
-        }))
+        })
     }
 
     fn create_reducer(&self, column_name: &str) -> Arc<dyn AggregateExpr> {
@@ -426,8 +424,8 @@ impl AggregateExpr for Max {
         self.expr.evaluate(batch)
     }
 
-    fn create_accumulator(&self) -> Rc<RefCell<dyn Accumulator>> {
-        Rc::new(RefCell::new(MaxAccumulator { max: None }))
+    fn create_accumulator(&self) -> Box<dyn Accumulator> {
+        Box::new(MaxAccumulator { max: None })
     }
 
     fn create_reducer(&self, column_name: &str) -> Arc<dyn AggregateExpr> {
@@ -621,8 +619,8 @@ impl AggregateExpr for Min {
         self.expr.evaluate(batch)
     }
 
-    fn create_accumulator(&self) -> Rc<RefCell<dyn Accumulator>> {
-        Rc::new(RefCell::new(MinAccumulator { min: None }))
+    fn create_accumulator(&self) -> Box<dyn Accumulator> {
+        Box::new(MinAccumulator { min: None })
     }
 
     fn create_reducer(&self, column_name: &str) -> Arc<dyn AggregateExpr> {
@@ -804,8 +802,8 @@ impl AggregateExpr for Count {
         self.expr.evaluate(batch)
     }
 
-    fn create_accumulator(&self) -> Rc<RefCell<dyn Accumulator>> {
-        Rc::new(RefCell::new(CountAccumulator { count: 0 }))
+    fn create_accumulator(&self) -> Box<dyn Accumulator> {
+        Box::new(CountAccumulator { count: 0 })
     }
 
     fn create_reducer(&self, column_name: &str) -> Arc<dyn AggregateExpr> {
@@ -1809,7 +1807,7 @@ mod tests {
         let sum = sum(col("a"));
         let accum = sum.create_accumulator();
         let input = sum.evaluate_input(batch)?;
-        let mut accum = accum.borrow_mut();
+        let mut accum = accum;
         for i in 0..batch.num_rows() {
             accum.accumulate_scalar(get_scalar_value(&input, i)?)?;
         }
@@ -1820,7 +1818,7 @@ mod tests {
         let max = max(col("a"));
         let accum = max.create_accumulator();
         let input = max.evaluate_input(batch)?;
-        let mut accum = accum.borrow_mut();
+        let mut accum = accum;
         for i in 0..batch.num_rows() {
             accum.accumulate_scalar(get_scalar_value(&input, i)?)?;
         }
@@ -1831,7 +1829,7 @@ mod tests {
         let min = min(col("a"));
         let accum = min.create_accumulator();
         let input = min.evaluate_input(batch)?;
-        let mut accum = accum.borrow_mut();
+        let mut accum = accum;
         for i in 0..batch.num_rows() {
             accum.accumulate_scalar(get_scalar_value(&input, i)?)?;
         }
@@ -1842,7 +1840,7 @@ mod tests {
         let count = count(col("a"));
         let accum = count.create_accumulator();
         let input = count.evaluate_input(batch)?;
-        let mut accum = accum.borrow_mut();
+        let mut accum = accum;
         for i in 0..batch.num_rows() {
             accum.accumulate_scalar(get_scalar_value(&input, i)?)?;
         }
@@ -1853,7 +1851,7 @@ mod tests {
         let avg = avg(col("a"));
         let accum = avg.create_accumulator();
         let input = avg.evaluate_input(batch)?;
-        let mut accum = accum.borrow_mut();
+        let mut accum = accum;
         for i in 0..batch.num_rows() {
             accum.accumulate_scalar(get_scalar_value(&input, i)?)?;
         }

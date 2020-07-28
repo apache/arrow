@@ -17,8 +17,6 @@
 
 //! Traits for physical query plan, supporting parallel execution for partitioned relations.
 
-use std::cell::RefCell;
-use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
 use crate::error::Result;
@@ -59,7 +57,7 @@ pub trait AggregateExpr: Send + Sync {
     /// Evaluate the expression being aggregated
     fn evaluate_input(&self, batch: &RecordBatch) -> Result<ArrayRef>;
     /// Create an accumulator for this aggregate expression
-    fn create_accumulator(&self) -> Rc<RefCell<dyn Accumulator>>;
+    fn create_accumulator(&self) -> Box<dyn Accumulator>;
     /// Create an aggregate expression for combining the results of accumulators from partitions.
     /// For example, to combine the results of a parallel SUM we just need to do another SUM, but
     /// to combine the results of parallel COUNT we would also use SUM.
