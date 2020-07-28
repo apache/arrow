@@ -293,33 +293,31 @@ impl RecordBatchReader for GroupedHashAggregateIterator {
                 }
 
                 // for each new key on the map, add an accumulatorSet to the map
-                match map.get(&key) {
+
+                // get (or create) the accumulator set for this key
+                let accumulator_set = match map.get(&key) {
                     None => {
                         let accumulator_set: AccumulatorSet = self
                             .aggr_expr
                             .iter()
                             .map(|expr| expr.create_accumulator())
                             .collect();
-                        map.insert(key.clone(), Rc::new(accumulator_set));
+                        let accumulator_set = Rc::new(accumulator_set);
+                        map.insert(key.clone(), accumulator_set.clone());
+                        accumulator_set
                     }
-                    _ => (),
+                    Some(accumulator_set) => accumulator_set.clone(),
                 };
 
-                // iterate over each non-grouping column in the batch and update the accumulator
-                // for each row
+                // update each accumulator with the values from the aggregated input
                 for col in 0..aggr_input_values.len() {
                     let value = get_scalar_value(&aggr_input_values[col], row)
                         .map_err(ExecutionError::into_arrow_external_error)?;
 
-                    match map.get(&key) {
-                        None => panic!("This code cannot be reached."),
-                        Some(accumulator_set) => {
-                            let mut accum = accumulator_set[col].borrow_mut();
-                            accum
-                                .accumulate_scalar(value)
-                                .map_err(ExecutionError::into_arrow_external_error)?;
-                        }
-                    }
+                    let mut accum = accumulator_set[col].borrow_mut();
+                    accum
+                        .accumulate_scalar(value)
+                        .map_err(ExecutionError::into_arrow_external_error)?;
                 }
             }
         }

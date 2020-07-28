@@ -62,48 +62,63 @@ pub enum KeyScalar {
     Utf8(String),
 }
 
+macro_rules! safe_cast {
+    ($col:expr, $row:expr, $datatype:expr, $ArrayType:ty, $keyscalar: expr) => {{
+        if let Some(array) = $col.as_any().downcast_ref::<$ArrayType>() {
+            return Ok($keyscalar(array.value($row)));
+        } else {
+            return Err(ExecutionError::General(format!(
+                "Failed to downcast {:?} to {:?}",
+                $col, $datatype
+            )));
+        }
+    }};
+}
+
 /// Return an KeyScalar from an ArrayRef of a given row.
 pub fn create_key(col: &ArrayRef, row: usize) -> Result<KeyScalar> {
     match col.data_type() {
-        DataType::Boolean => {
-            let array = col.as_any().downcast_ref::<BooleanArray>().unwrap();
-            return Ok(KeyScalar::Boolean(array.value(row)));
-        }
+        DataType::Boolean => safe_cast!(
+            col,
+            row,
+            DataType::Boolean,
+            BooleanArray,
+            KeyScalar::Boolean
+        ),
         DataType::UInt8 => {
-            let array = col.as_any().downcast_ref::<UInt8Array>().unwrap();
-            return Ok(KeyScalar::UInt8(array.value(row)));
+            safe_cast!(col, row, DataType::UInt8, UInt8Array, KeyScalar::UInt8)
         }
         DataType::UInt16 => {
-            let array = col.as_any().downcast_ref::<UInt16Array>().unwrap();
-            return Ok(KeyScalar::UInt16(array.value(row)));
+            safe_cast!(col, row, DataType::UInt16, UInt16Array, KeyScalar::UInt16)
         }
         DataType::UInt32 => {
-            let array = col.as_any().downcast_ref::<UInt32Array>().unwrap();
-            return Ok(KeyScalar::UInt32(array.value(row)));
+            safe_cast!(col, row, DataType::UInt32, UInt32Array, KeyScalar::UInt32)
         }
         DataType::UInt64 => {
-            let array = col.as_any().downcast_ref::<UInt64Array>().unwrap();
-            return Ok(KeyScalar::UInt64(array.value(row)));
+            safe_cast!(col, row, DataType::UInt64, UInt64Array, KeyScalar::UInt64)
         }
         DataType::Int8 => {
-            let array = col.as_any().downcast_ref::<Int8Array>().unwrap();
-            return Ok(KeyScalar::Int8(array.value(row)));
+            safe_cast!(col, row, DataType::Int8, Int8Array, KeyScalar::Int8)
         }
         DataType::Int16 => {
-            let array = col.as_any().downcast_ref::<Int16Array>().unwrap();
-            return Ok(KeyScalar::Int16(array.value(row)));
+            safe_cast!(col, row, DataType::Int16, Int16Array, KeyScalar::Int16)
         }
         DataType::Int32 => {
-            let array = col.as_any().downcast_ref::<Int32Array>().unwrap();
-            return Ok(KeyScalar::Int32(array.value(row)));
+            safe_cast!(col, row, DataType::Int32, Int32Array, KeyScalar::Int32)
         }
         DataType::Int64 => {
-            let array = col.as_any().downcast_ref::<Int64Array>().unwrap();
-            return Ok(KeyScalar::Int64(array.value(row)));
+            safe_cast!(col, row, DataType::Int64, Int64Array, KeyScalar::Int64)
         }
         DataType::Utf8 => {
-            let array = col.as_any().downcast_ref::<StringArray>().unwrap();
-            return Ok(KeyScalar::Utf8(String::from(array.value(row))));
+            if let Some(array) = col.as_any().downcast_ref::<StringArray>() {
+                return Ok(KeyScalar::Utf8(String::from(array.value(row))));
+            } else {
+                return Err(ExecutionError::General(format!(
+                    "Failed to downcast {:?} to {:?}",
+                    col,
+                    DataType::Utf8
+                )));
+            }
         }
         _ => {
             return Err(ExecutionError::ExecutionError(
