@@ -125,6 +125,30 @@ pub enum Operator {
     NotLike,
 }
 
+impl fmt::Display for Operator {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let display = match &self {
+            Operator::Eq => "=",
+            Operator::NotEq => "!=",
+            Operator::Lt => "<",
+            Operator::LtEq => "<=",
+            Operator::Gt => ">",
+            Operator::GtEq => ">=",
+            Operator::Plus => "+",
+            Operator::Minus => "-",
+            Operator::Multiply => "*",
+            Operator::Divide => "/",
+            Operator::Modulus => "%",
+            Operator::And => "AND",
+            Operator::Or => "OR",
+            Operator::Not => "NOT",
+            Operator::Like => "LIKE",
+            Operator::NotLike => "NOT LIKE",
+        };
+        write!(f, "{}", display)
+    }
+}
+
 /// ScalarValue enumeration
 #[derive(Debug, Clone, PartialEq)]
 pub enum ScalarValue {
@@ -175,6 +199,27 @@ impl ScalarValue {
             ScalarValue::Float64(_) => DataType::Float64,
             ScalarValue::Utf8(_) => DataType::Utf8,
             _ => panic!("Cannot treat {:?} as scalar value", self),
+        }
+    }
+}
+
+impl fmt::Display for ScalarValue {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            ScalarValue::Boolean(value) => write!(f, "{}", value),
+            ScalarValue::UInt8(value) => write!(f, "{}", value),
+            ScalarValue::UInt16(value) => write!(f, "{}", value),
+            ScalarValue::UInt32(value) => write!(f, "{}", value),
+            ScalarValue::UInt64(value) => write!(f, "{}", value),
+            ScalarValue::Int8(value) => write!(f, "{}", value),
+            ScalarValue::Int16(value) => write!(f, "{}", value),
+            ScalarValue::Int32(value) => write!(f, "{}", value),
+            ScalarValue::Int64(value) => write!(f, "{}", value),
+            ScalarValue::Float32(value) => write!(f, "{}", value),
+            ScalarValue::Float64(value) => write!(f, "{}", value),
+            ScalarValue::Utf8(value) => write!(f, "{}", value),
+            ScalarValue::Null => write!(f, "NULL"),
+            ScalarValue::Struct(_) => write!(f, "STRUCT"),
         }
     }
 }

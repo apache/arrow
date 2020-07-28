@@ -17,6 +17,8 @@
 
 //! UDF support
 
+use std::fmt;
+
 use arrow::array::ArrayRef;
 use arrow::datatypes::{DataType, Field, Schema};
 
@@ -62,6 +64,7 @@ impl ScalarFunction {
 /// Scalar UDF Physical Expression
 pub struct ScalarFunctionExpr {
     fun: Box<ScalarUdf>,
+    name: String,
     args: Vec<Arc<dyn PhysicalExpr>>,
     return_type: DataType,
 }
@@ -69,15 +72,32 @@ pub struct ScalarFunctionExpr {
 impl ScalarFunctionExpr {
     /// Create a new Scalar function
     pub fn new(
+        name: &str,
         fun: Box<ScalarUdf>,
         args: Vec<Arc<dyn PhysicalExpr>>,
         return_type: &DataType,
     ) -> Self {
         Self {
             fun,
+            name: name.to_owned(),
             args,
             return_type: return_type.clone(),
         }
+    }
+}
+
+impl fmt::Display for ScalarFunctionExpr {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{}({})",
+            self.name,
+            self.args
+                .iter()
+                .map(|e| format!("{}", e))
+                .collect::<Vec<String>>()
+                .join(", ")
+        )
     }
 }
 
