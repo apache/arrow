@@ -33,24 +33,24 @@
 namespace arrow {
 
 namespace compute {
-class CastOptions;
+struct CastOptions;
 
 }  // namespace compute
 
 namespace csv {
 
 class TableReader;
-class ConvertOptions;
-class ReadOptions;
-class ParseOptions;
+struct ConvertOptions;
+struct ReadOptions;
+struct ParseOptions;
 
 }  // namespace csv
 
 namespace json {
 
 class TableReader;
-class ReadOptions;
-class ParseOptions;
+struct ReadOptions;
+struct ParseOptions;
 
 }  // namespace json
 
