@@ -945,7 +945,7 @@ services:
     command: &rust-command >
       /bin/bash -c "
         echo ${RUST} > /arrow/rust/rust-toolchain &&
-        if [ ! -d "/build/rust" ]; then mv /rust/dummy-build /build/rust; fi &&
+        if [ ! -d "/build/rust" ]; then mv /rust/target /build/rust; fi &&
         /arrow/ci/scripts/rust_build.sh /arrow /build &&
         /arrow/ci/scripts/rust_test.sh /arrow /build"
 

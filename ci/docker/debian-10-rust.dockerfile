@@ -45,7 +45,7 @@ RUN rustup default ${rust} && \
 # compile their external dependencies.
 
 ENV CARGO_HOME="/rust/cargo" \
-    CARGO_TARGET_DIR="/build/rust" \
+    CARGO_TARGET_DIR="/rust/target" \
     RUSTFLAGS="-D warnings"
 
 # The artifact of the steps below is a "${CARGO_TARGET_DIR}" containing
@@ -68,5 +68,4 @@ RUN mkdir \
         /arrow/rust/parquet/src/lib.rs
 
 # Compile dependencies for the whole workspace
-RUN cd /arrow/rust && \
-    CARGO_TARGET_DIR=/rust/dummy-build cargo build --workspace --lib --all-features
+RUN cd /arrow/rust && cargo build --workspace --lib --all-features

@@ -51,18 +51,22 @@ jobs:
       matrix:
         variant:
           - no-cache
-          - cached
-          - volume-cached
+          - download-cache
+          - download-build-cache
+          - download-build-cache-volume
         include:
           - variant: no-cache
-            command: docker-compose run --rm -e CARGO_TARGET_DIR=/tmp/rust debian-rust
+            command: docker-compose run --rm -e CARGO_HOME=/tmp/cargo -e CARGO_TARGET_DIR=/tmp/target debian-rust
             name: No Cache
-          - variant: cached
-            command: docker-compose run --rm -e CARGO_TARGET_DIR=/rust/dummy-build debian-rust
-            name: Use dependency cache within the image
-          - variant: volume-cached
-            command: docker-compose run --rm debian-rust
-            name: Use dependency cache from a mounted volume
+          - variant: download-cache
+            command: docker-compose run --rm -e CARGO_HOME=/rust/cargo -e CARGO_TARGET_DIR=/tmp/target debian-rust
+            name: Download Cache
+          - variant: download-build-cache
+            command: docker-compose run --rm -e CARGO_HOME=/rust/cargo -e CARGO_TARGET_DIR=/rust/target debian-rust
+            name: Download and Build Cache
+          - variant: download-build-cache-volume
+            command: docker-compose run --rm -e CARGO_HOME=/rust/cargo -e CARGO_TARGET_DIR=/build/rust debian-rust
+            name: Download and Build Cache on a Volume
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v2
