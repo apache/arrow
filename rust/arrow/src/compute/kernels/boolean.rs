@@ -39,9 +39,9 @@ fn binary_boolean_kernel<F>(
 where
     F: Fn(&Buffer, &Buffer) -> Result<Buffer>,
 {
-    if left.offset() != right.offset() {
+    if left.offset() % 8 != right.offset() % 8 {
         return Err(ArrowError::ComputeError(
-            "Cannot apply Bitwise binary op when arrays have different offsets."
+            "Cannot apply Bitwise binary op when arrays have offsets with different alignment."
                 .to_string(),
         ));
     }
@@ -53,13 +53,18 @@ where
         right_data.null_bitmap(),
         |a, b| a & b,
     )?;
-    let values = op(&left_data.buffers()[0], &right_data.buffers()[0])?;
+    let left_buffer = &left_data.buffers()[0];
+    let right_buffer = &right_data.buffers()[0];
+    let values = op(
+        &left_buffer.slice(left_data.offset() / 8),
+        &right_buffer.slice(right_data.offset() / 8),
+    )?;
     let data = ArrayData::new(
         DataType::Boolean,
         left.len(),
         None,
         null_bit_buffer,
-        left.offset(),
+        left.offset() % 8,
         vec![values],
         vec![],
     );
@@ -153,5 +158,91 @@ mod tests {
         assert_eq!(true, c.is_null(1));
         assert_eq!(true, c.is_null(2));
         assert_eq!(false, c.is_null(3));
+    }
+
+    #[test]
+    fn test_bool_array_and_sliced_same_offset() {
+        let a = BooleanArray::from(vec![
+            false, false, false, false, false, false, false, false, false, false, true,
+            true,
+        ]);
+        let b = BooleanArray::from(vec![
+            false, false, false, false, false, false, false, false, false, true, false,
+            true,
+        ]);
+
+        let a = a.slice(8, 4);
+        let a = a.as_any().downcast_ref::<BooleanArray>().unwrap();
+        let b = b.slice(8, 4);
+        let b = b.as_any().downcast_ref::<BooleanArray>().unwrap();
+
+        let c = and(&a, &b).unwrap();
+        assert_eq!(4, c.len());
+        assert_eq!(false, c.value(0));
+        assert_eq!(false, c.value(1));
+        assert_eq!(false, c.value(2));
+        assert_eq!(true, c.value(3));
+    }
+
+    #[test]
+    fn test_bool_array_and_sliced_same_offset_mod8() {
+        let a = BooleanArray::from(vec![
+            false, false, true, true, false, false, false, false, false, false, false,
+            false,
+        ]);
+        let b = BooleanArray::from(vec![
+            false, false, false, false, false, false, false, false, false, true, false,
+            true,
+        ]);
+
+        let a = a.slice(0, 4);
+        let a = a.as_any().downcast_ref::<BooleanArray>().unwrap();
+        let b = b.slice(8, 4);
+        let b = b.as_any().downcast_ref::<BooleanArray>().unwrap();
+
+        let c = and(&a, &b).unwrap();
+        assert_eq!(4, c.len());
+        assert_eq!(false, c.value(0));
+        assert_eq!(false, c.value(1));
+        assert_eq!(false, c.value(2));
+        assert_eq!(true, c.value(3));
+    }
+
+    #[test]
+    fn test_bool_array_and_sliced_offset1() {
+        let a = BooleanArray::from(vec![
+            false, false, false, false, false, false, false, false, false, false, true,
+            true,
+        ]);
+        let b = BooleanArray::from(vec![false, true, false, true]);
+
+        let a = a.slice(8, 4);
+        let a = a.as_any().downcast_ref::<BooleanArray>().unwrap();
+
+        let c = and(&a, &b).unwrap();
+        assert_eq!(4, c.len());
+        assert_eq!(false, c.value(0));
+        assert_eq!(false, c.value(1));
+        assert_eq!(false, c.value(2));
+        assert_eq!(true, c.value(3));
+    }
+
+    #[test]
+    fn test_bool_array_and_sliced_offset2() {
+        let a = BooleanArray::from(vec![false, false, true, true]);
+        let b = BooleanArray::from(vec![
+            false, false, false, false, false, false, false, false, false, true, false,
+            true,
+        ]);
+
+        let b = b.slice(8, 4);
+        let b = b.as_any().downcast_ref::<BooleanArray>().unwrap();
+
+        let c = and(&a, &b).unwrap();
+        assert_eq!(4, c.len());
+        assert_eq!(false, c.value(0));
+        assert_eq!(false, c.value(1));
+        assert_eq!(false, c.value(2));
+        assert_eq!(true, c.value(3));
     }
 }

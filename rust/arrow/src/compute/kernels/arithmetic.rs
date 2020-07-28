@@ -91,7 +91,7 @@ where
         left.len(),
         None,
         null_bit_buffer,
-        left.offset(),
+        0,
         vec![Buffer::from(values.to_byte_slice())],
         vec![],
     );
@@ -148,7 +148,7 @@ where
         left.len(),
         None,
         null_bit_buffer,
-        left.offset(),
+        0,
         vec![result.freeze()],
         vec![],
     );
@@ -213,7 +213,7 @@ where
         left.len(),
         None,
         null_bit_buffer,
-        left.offset(),
+        0,
         vec![result.freeze()],
         vec![],
     );
@@ -330,6 +330,27 @@ mod tests {
     }
 
     #[test]
+    fn test_primitive_array_add_sliced() {
+        let a = Int32Array::from(vec![0, 0, 0, 5, 6, 7, 8, 9, 0]);
+        let b = Int32Array::from(vec![0, 0, 0, 6, 7, 8, 9, 8, 0]);
+        let a = a.slice(3, 5);
+        let b = b.slice(3, 5);
+        let a = a.as_any().downcast_ref::<Int32Array>().unwrap();
+        let b = b.as_any().downcast_ref::<Int32Array>().unwrap();
+
+        assert_eq!(5, a.value(0));
+        assert_eq!(6, b.value(0));
+
+        let c = add(&a, &b).unwrap();
+        assert_eq!(5, c.len());
+        assert_eq!(11, c.value(0));
+        assert_eq!(13, c.value(1));
+        assert_eq!(15, c.value(2));
+        assert_eq!(17, c.value(3));
+        assert_eq!(17, c.value(4));
+    }
+
+    #[test]
     fn test_primitive_array_add_mismatched_length() {
         let a = Int32Array::from(vec![5, 6, 7, 8, 9]);
         let b = Int32Array::from(vec![6, 7, 8]);
@@ -371,6 +392,24 @@ mod tests {
         let a = Int32Array::from(vec![15, 15, 8, 1, 9]);
         let b = Int32Array::from(vec![5, 6, 8, 9, 1]);
         let c = divide(&a, &b).unwrap();
+        assert_eq!(3, c.value(0));
+        assert_eq!(2, c.value(1));
+        assert_eq!(1, c.value(2));
+        assert_eq!(0, c.value(3));
+        assert_eq!(9, c.value(4));
+    }
+
+    #[test]
+    fn test_primitive_array_divide_sliced() {
+        let a = Int32Array::from(vec![0, 0, 0, 15, 15, 8, 1, 9, 0]);
+        let b = Int32Array::from(vec![0, 0, 0, 5, 6, 8, 9, 1, 0]);
+        let a = a.slice(3, 5);
+        let b = b.slice(3, 5);
+        let a = a.as_any().downcast_ref::<Int32Array>().unwrap();
+        let b = b.as_any().downcast_ref::<Int32Array>().unwrap();
+
+        let c = divide(&a, &b).unwrap();
+        assert_eq!(5, c.len());
         assert_eq!(3, c.value(0));
         assert_eq!(2, c.value(1));
         assert_eq!(1, c.value(2));
