@@ -33,7 +33,8 @@ write_parquet(
 
 \item{chunk_size}{chunk size in number of rows. If NULL, the total number of rows is used.}
 
-\item{version}{parquet version, "1.0" or "2.0". Default "1.0"}
+\item{version}{parquet version, "1.0" or "2.0". Default "1.0". Numeric values
+are coerced to character.}
 
 \item{compression}{compression algorithm. Default "snappy". See details.}
 

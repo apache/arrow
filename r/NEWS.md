@@ -19,6 +19,10 @@
 
 # arrow 1.0.0.9000
 
+## Bug fixes
+
+* The `version` option to `write_parquet()` is now correctly implemented.
+
 # arrow 1.0.0
 
 ## Arrow format conversion
