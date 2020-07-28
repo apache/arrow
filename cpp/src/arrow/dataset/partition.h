@@ -60,7 +60,7 @@ class ARROW_DS_EXPORT Partitioning {
   virtual std::string type_name() const = 0;
 
   /// \brief Parse a path into a partition expression
-  virtual Result<std::shared_ptr<Expression>> Parse(const std::string& segment) const = 0;
+  virtual Result<std::shared_ptr<Expression>> Parse(const std::string& path) const = 0;
 
   virtual Result<std::string> Format(const Expression& expr) const = 0;
 
