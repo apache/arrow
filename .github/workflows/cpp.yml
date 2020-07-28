@@ -354,14 +354,14 @@ jobs:
       - name: Fetch Submodules and Tags
         shell: bash
         run: ci/scripts/util_checkout.sh
-      - name: Bootstrap MSYS2
-        run: |
-          ci\scripts\msys2_bootstrap.ps1 ${{ matrix.mingw-n-bits }}
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW${{ matrix.mingw-n-bits }}
+          update: true
       - name: Setup MSYS2
+        shell: msys2 {0}
         run: |
-          . ..\env.ps1
-          bash ci\scripts\msys2_system_upgrade.sh
-          bash ci\scripts\msys2_setup.sh cpp
+          ci/scripts/msys2_setup.sh cpp
       - name: Cache ccache
         uses: actions/cache@v1
         with:
@@ -369,22 +369,17 @@ jobs:
           key: cpp-ccache-mingw${{ matrix.mingw-n-bits }}-${{ hashFiles('cpp/**') }}
           restore-keys: cpp-ccache-mingw${{ matrix.mingw-n-bits }}-
       - name: Build
+        shell: msys2 {0}
         run: |
-          . ..\env.ps1
-          $Env:CMAKE_BUILD_PARALLEL_LEVEL = $Env:NUMBER_OF_PROCESSORS
-          $source_dir = "$(cygpath --unix "$(Get-Location)")"
-          $build_dir = "$(cygpath --unix "$(Get-Location)\build")"
-          $ErrorActionPreference = "Continue"
-          bash ci\scripts\cpp_build.sh "${source_dir}" "${build_dir}"
+          export CMAKE_BUILD_PARALLEL_LEVEL=$NUMBER_OF_PROCESSORS
+          ci/scripts/cpp_build.sh "$(pwd)" "$(pwd)/build"
       - name: Test
+        shell: msys2 {0}
         run: |
-          . ..\env.ps1
-          $python_version = $(python -c "import sys; print('.'.join(map(str, sys.version_info[0:2])))")
-          $Env:PYTHONHOME = "${Env:MINGW_PREFIX_WINDOWS}\lib\python${python_version}"
-          $Env:PYTHONPATH = "${Env:PYTHONHOME}"
-          $Env:PYTHONPATH += ";${Env:PYTHONHOME}\lib-dynload"
-          $Env:PYTHONPATH += ";${Env:PYTHONHOME}\site-packages"
-          $source_dir = "$(cygpath --unix "$(Get-Location)")"
-          $build_dir = "$(cygpath --unix "$(Get-Location)\build")"
-          $ErrorActionPreference = "Continue"
-          bash ci\scripts\cpp_test.sh "${source_dir}" "${build_dir}"
+          python_version=$(python -c "import sys; print('.'.join(map(str, sys.version_info[0:2])))")
+          export PYTHONHOME="$(cygpath --windows ${MINGW_PREFIX})\lib\python${python_version}"
+          PYTHONPATH="${PYTHONHOME}"
+          PYTHONPATH="${PYTHONPATH};${PYTHONHOME}\lib-dynload"
+          PYTHONPATH="${PYTHONPATH};${PYTHONHOME}\site-packages"
+          export PYTHONPATH
+          ci/scripts/cpp_test.sh "$(pwd)" "$(pwd)/build"

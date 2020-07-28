@@ -24,6 +24,7 @@ target=$1
 packages=()
 case "${target}" in
   cpp|c_glib|ruby)
+    packages+=(make)
     packages+=(${MINGW_PACKAGE_PREFIX}-ccache)
     packages+=(${MINGW_PACKAGE_PREFIX}-boost)
     packages+=(${MINGW_PACKAGE_PREFIX}-brotli)
@@ -54,15 +55,6 @@ case "${target}" in
     packages+=(${MINGW_PACKAGE_PREFIX}-meson)
     ;;
 esac
-
-# Ensure removing unused gcc related sub packages
-pacman \
-  --noconfirm \
-  --remove \
-  "${MINGW_PACKAGE_PREFIX}-gcc-ada" \
-  "${MINGW_PACKAGE_PREFIX}-gcc-fortran" \
-  "${MINGW_PACKAGE_PREFIX}-gcc-libgfortran" \
-  "${MINGW_PACKAGE_PREFIX}-gcc-objc" || :
 
 pacman \
   --needed \
