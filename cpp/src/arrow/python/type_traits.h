@@ -105,7 +105,7 @@ struct npy_traits<NPY_FLOAT32> {
   using TypeClass = FloatType;
   using BuilderClass = FloatBuilder;
 
-  static constexpr float na_sentinel = NAN;
+  static constexpr float na_sentinel = std::numeric_limits<float>::quiet_NaN();
 
   static constexpr bool supports_nulls = true;
 
@@ -118,7 +118,7 @@ struct npy_traits<NPY_FLOAT64> {
   using TypeClass = DoubleType;
   using BuilderClass = DoubleBuilder;
 
-  static constexpr double na_sentinel = NAN;
+  static constexpr double na_sentinel = std::numeric_limits<double>::quiet_NaN();
 
   static constexpr bool supports_nulls = true;
 
@@ -183,7 +183,7 @@ struct arrow_traits<Type::BOOL> {
   struct arrow_traits<Type::TYPE> {                        \
     static constexpr int npy_type = NPY_##TYPE;            \
     static constexpr bool supports_nulls = false;          \
-    static constexpr double na_value = NAN;                \
+    static constexpr double na_value = std::numeric_limits<double>::quiet_NaN();        \
     typedef typename npy_traits<NPY_##TYPE>::value_type T; \
   };
 
@@ -208,7 +208,7 @@ template <>
 struct arrow_traits<Type::FLOAT> {
   static constexpr int npy_type = NPY_FLOAT32;
   static constexpr bool supports_nulls = true;
-  static constexpr float na_value = NAN;
+  static constexpr float na_value = std::numeric_limits<float>::quiet_NaN();
   typedef typename npy_traits<NPY_FLOAT32>::value_type T;
 };
 
@@ -216,7 +216,7 @@ template <>
 struct arrow_traits<Type::DOUBLE> {
   static constexpr int npy_type = NPY_FLOAT64;
   static constexpr bool supports_nulls = true;
-  static constexpr double na_value = NAN;
+  static constexpr double na_value = std::numeric_limits<double>::quiet_NaN();
   typedef typename npy_traits<NPY_FLOAT64>::value_type T;
 };
 

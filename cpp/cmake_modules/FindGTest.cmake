@@ -171,7 +171,7 @@ if(NOT DEFINED GTEST_MSVC_SEARCH)
 endif()
 
 set(_gtest_libpath_suffixes lib)
-if(MSVC)
+if(MSVC_TOOLCHAIN)
     if(GTEST_MSVC_SEARCH STREQUAL "MD")
         list(APPEND _gtest_libpath_suffixes
             msvc/gtest-md/Debug
@@ -198,7 +198,7 @@ find_path(GTEST_INCLUDE_DIR gtest/gtest.h
 )
 mark_as_advanced(GTEST_INCLUDE_DIR)
 
-if(MSVC AND GTEST_MSVC_SEARCH STREQUAL "MD")
+if(MSVC_TOOLCHAIN AND GTEST_MSVC_SEARCH STREQUAL "MD")
     # The provided /MD project files for Google Test add -md suffixes to the
     # library names.
     __gtest_find_library(GTEST_LIBRARY            gtest-md  gtest)

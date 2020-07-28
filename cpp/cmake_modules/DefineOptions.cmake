@@ -360,7 +360,7 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
                 "Build with support for Unicode properties using the utf8proc library" ON)
 
   #----------------------------------------------------------------------
-  if(MSVC)
+  if(MSVC_TOOLCHAIN)
     set_option_category("MSVC")
 
     define_option(MSVC_LINK_VERBOSE

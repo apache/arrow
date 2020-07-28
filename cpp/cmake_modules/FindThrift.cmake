@@ -39,7 +39,7 @@ function(EXTRACT_THRIFT_VERSION)
   endif()
 endfunction(EXTRACT_THRIFT_VERSION)
 
-if(MSVC AND NOT DEFINED THRIFT_MSVC_LIB_SUFFIX)
+if(MSVC_TOOLCHAIN AND NOT DEFINED THRIFT_MSVC_LIB_SUFFIX)
   if(NOT ARROW_THRIFT_USE_SHARED)
     if(ARROW_USE_STATIC_CRT)
       set(THRIFT_MSVC_LIB_SUFFIX "mt")
@@ -133,7 +133,7 @@ if(Thrift_FOUND OR THRIFT_FOUND)
   set_target_properties(thrift::thrift
                         PROPERTIES IMPORTED_LOCATION "${THRIFT_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${THRIFT_INCLUDE_DIR}")
-  if(WIN32 AND NOT MSVC)
+  if(WIN32 AND NOT MSVC_TOOLCHAIN)
     # We don't need this for Visual C++ because Thrift uses
     # "#pragma comment(lib, "Ws2_32.lib")" in
     # thrift/windows/config.h for Visual C++.
