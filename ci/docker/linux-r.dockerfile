@@ -23,13 +23,10 @@ FROM ${base}
 
 # Make sure R is on the path for the R-hub devel versions (where RPREFIX is set in its dockerfile)
 ENV PATH "${RPREFIX}/bin:${PATH}"
-# Ensure parallel R package installation, set CRAN repo mirror,
-# and use pre-built binaries where possible
-COPY ci/etc/rprofile /arrow/ci/etc/
-RUN cat /arrow/ci/etc/rprofile >> $(R RHOME)/etc/Rprofile.site
 
 # Patch up some of the docker images
 COPY ci/scripts/r_docker_configure.sh /arrow/ci/scripts/
+COPY ci/etc/rprofile /arrow/ci/etc/
 RUN /arrow/ci/scripts/r_docker_configure.sh
 
 COPY ci/scripts/r_deps.sh /arrow/ci/scripts/

@@ -20,6 +20,13 @@ set -ex
 
 : ${R_BIN:=R}
 
+# The Dockerfile should have put this file here
+if [ -f "/arrow/ci/etc/rprofile" ]; then
+  # Ensure parallel R package installation, set CRAN repo mirror,
+  # and use pre-built binaries where possible
+  cat /arrow/ci/etc/rprofile >> $(R RHOME)/etc/Rprofile.site
+fi
+
 # Ensure parallel compilation of C/C++ code
 echo "MAKEFLAGS=-j$(R -s -e 'cat(parallel::detectCores())')" >> $(R RHOME)/etc/Makeconf
 
