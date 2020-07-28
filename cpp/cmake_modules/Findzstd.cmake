@@ -54,10 +54,11 @@ else()
   if(ZSTD_PC_FOUND)
     set(ZSTD_INCLUDE_DIR "${ZSTD_PC_INCLUDEDIR}")
 
-    if(NOT ARROW_ZSTD_USE_SHARED)
+    if(ARROW_ZSTD_USE_SHARED)
+      list(APPEND ZSTD_PC_LIBRARY_DIRS "${ZSTD_PC_LIBDIR}")
+    else()
       list(APPEND ZSTD_PC_LIBRARY_DIRS "${ZSTD_PC_STATIC_LIBDIR}")
     endif()
-    list(APPEND ZSTD_PC_LIBRARY_DIRS "${ZSTD_PC_LIBDIR}")
     find_library(ZSTD_LIB
                  NAMES ${ZSTD_LIB_NAMES}
                  PATHS ${ZSTD_PC_LIBRARY_DIRS}
