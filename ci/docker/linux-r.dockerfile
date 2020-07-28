@@ -21,6 +21,9 @@
 ARG base
 FROM ${base}
 
+ARG r_bin=R
+ENV R_BIN=${r_bin}
+
 # Make sure R is on the path for the R-hub devel versions (where RPREFIX is set in its dockerfile)
 ENV PATH "${RPREFIX}/bin:${PATH}"
 

@@ -916,10 +916,10 @@ services:
         - ${REPO}:amd64-ubuntu-18.04-r-sanitizer
       args:
         base: wch1/r-debug:latest
+        r_bin: RDsan
     environment:
       <<: *ccache
       LIBARROW_BUILD: 'false'
-      R_BIN: 'RDsan'
     volumes: *ubuntu-volumes
     command: >
       /bin/bash -c "
