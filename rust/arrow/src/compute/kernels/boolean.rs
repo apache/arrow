@@ -25,10 +25,11 @@
 use std::sync::Arc;
 
 use crate::array::{Array, ArrayData, BooleanArray};
-use crate::buffer::Buffer;
-use crate::compute::util::apply_bin_op_to_option_bitmap;
+use crate::buffer::{buffer_bin_and, buffer_bin_or, buffer_unary_not, Buffer};
+use crate::compute::util::combine_option_bitmap;
 use crate::datatypes::DataType;
 use crate::error::{ArrowError, Result};
+use crate::util::bit_util::ceil;
 
 /// Helper function to implement binary kernels
 fn binary_boolean_kernel<F>(
@@ -37,34 +38,40 @@ fn binary_boolean_kernel<F>(
     op: F,
 ) -> Result<BooleanArray>
 where
-    F: Fn(&Buffer, &Buffer) -> Result<Buffer>,
+    F: Fn(&Buffer, usize, &Buffer, usize, usize) -> Buffer,
 {
-    if left.offset() % 8 != right.offset() % 8 {
+    if left.len() != right.len() {
         return Err(ArrowError::ComputeError(
-            "Cannot apply Bitwise binary op when arrays have offsets with different alignment."
+            "Cannot perform bitwise operation on arrays of different length".to_string(),
+        ));
+    }
+
+    if left.offset() % 8 != 0 || right.offset() % 8 != 0 {
+        return Err(ArrowError::ComputeError(
+            "Cannot perform bitwise operation when offsets are not byte-aligned."
                 .to_string(),
         ));
     }
 
-    let left_data = left.data();
-    let right_data = right.data();
-    let null_bit_buffer = apply_bin_op_to_option_bitmap(
-        left_data.null_bitmap(),
-        right_data.null_bitmap(),
-        |a, b| a & b,
-    )?;
+    let left_data = left.data_ref();
+    let right_data = right.data_ref();
+    let null_bit_buffer = combine_option_bitmap(&left_data, &right_data, left.len())?;
+
     let left_buffer = &left_data.buffers()[0];
     let right_buffer = &right_data.buffers()[0];
-    let values = op(
-        &left_buffer.slice(left_data.offset() / 8),
-        &right_buffer.slice(right_data.offset() / 8),
-    )?;
+    let left_offset = &left.offset() / 8;
+    let right_offset = &right.offset() / 8;
+
+    let len = ceil(left.len(), 8);
+
+    let values = op(&left_buffer, left_offset, &right_buffer, right_offset, len);
+
     let data = ArrayData::new(
         DataType::Boolean,
         left.len(),
         None,
         null_bit_buffer,
-        left.offset() % 8,
+        0,
         vec![values],
         vec![],
     );
@@ -74,28 +81,42 @@ where
 /// Performs `AND` operation on two arrays. If either left or right value is null then the
 /// result is also null.
 pub fn and(left: &BooleanArray, right: &BooleanArray) -> Result<BooleanArray> {
-    binary_boolean_kernel(&left, &right, |a, b| a & b)
+    binary_boolean_kernel(&left, &right, buffer_bin_and)
 }
 
 /// Performs `OR` operation on two arrays. If either left or right value is null then the
 /// result is also null.
 pub fn or(left: &BooleanArray, right: &BooleanArray) -> Result<BooleanArray> {
-    binary_boolean_kernel(&left, &right, |a, b| a | b)
+    binary_boolean_kernel(&left, &right, buffer_bin_or)
 }
 
 /// Performs unary `NOT` operation on an arrays. If value is null then the result is also
 /// null.
 pub fn not(left: &BooleanArray) -> Result<BooleanArray> {
-    let data = left.data();
-    let null_bit_buffer = data.null_bitmap().as_ref().map(|b| b.bits.clone());
+    if left.offset() % 8 != 0 {
+        return Err(ArrowError::ComputeError(
+            "Cannot perform bitwise operation when offsets are not byte-aligned."
+                .to_string(),
+        ));
+    }
 
-    let values = !&data.buffers()[0];
+    let left_offset = left.offset() / 8;
+    let len = ceil(left.len(), 8);
+
+    let data = left.data_ref();
+    let null_bit_buffer = data
+        .null_bitmap()
+        .as_ref()
+        .map(|b| b.bits.slice(left_offset));
+
+    let values = buffer_unary_not(&data.buffers()[0], left_offset, len);
+
     let data = ArrayData::new(
         DataType::Boolean,
         left.len(),
         None,
         null_bit_buffer,
-        left.offset(),
+        0,
         vec![values],
         vec![],
     );

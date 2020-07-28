@@ -31,11 +31,12 @@ use std::ptr::NonNull;
 use std::slice::{from_raw_parts, from_raw_parts_mut};
 use std::sync::Arc;
 
-use crate::array::{BufferBuilderTrait, UInt8BufferBuilder};
 use crate::datatypes::ArrowNativeType;
 use crate::error::{ArrowError, Result};
 use crate::memory;
 use crate::util::bit_util;
+#[cfg(feature = "simd")]
+use std::borrow::BorrowMut;
 
 /// Buffer is a contiguous memory region of fixed size and is aligned at a 64-byte
 /// boundary. Buffer is immutable.
@@ -284,25 +285,219 @@ impl<T: AsRef<[u8]>> From<T> for Buffer {
     }
 }
 
-///  Helper function for SIMD `BitAnd` and `BitOr` implementations
+///  Helper function for binary SIMD operations like `BitAnd` and `BitOr`.
 #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
-fn bitwise_bin_op_simd_helper<F>(left: &Buffer, right: &Buffer, op: F) -> Buffer
+fn bitwise_bin_op_simd_helper<F_SIMD, F_SCALAR>(
+    left: &Buffer,
+    left_offset: usize,
+    right: &Buffer,
+    right_offset: usize,
+    len: usize,
+    simd_op: F_SIMD,
+    scalar_op: F_SCALAR,
+) -> Buffer
 where
-    F: Fn(u8x64, u8x64) -> u8x64,
+    F_SIMD: Fn(u8x64, u8x64) -> u8x64,
+    F_SCALAR: Fn(u8, u8) -> u8,
 {
-    let mut result = MutableBuffer::new(left.len()).with_bitset(left.len(), false);
+    let mut result = MutableBuffer::new(len).with_bitset(len, false);
     let lanes = u8x64::lanes();
-    for i in (0..left.len()).step_by(lanes) {
-        let left_data = unsafe { from_raw_parts(left.raw_data().add(i), lanes) };
-        let right_data = unsafe { from_raw_parts(right.raw_data().add(i), lanes) };
-        let result_slice: &mut [u8] = unsafe {
-            from_raw_parts_mut((result.data_mut().as_mut_ptr() as *mut u8).add(i), lanes)
-        };
-        unsafe {
-            bit_util::bitwise_bin_op_simd(&left_data, &right_data, result_slice, &op)
-        };
-    }
+
+    let mut left_chunks = left.data()[left_offset..].chunks_exact(lanes);
+    let mut right_chunks = right.data()[right_offset..].chunks_exact(lanes);
+    let mut result_chunks = result.data_mut().chunks_exact_mut(lanes);
+
+    result_chunks
+        .borrow_mut()
+        .zip(left_chunks.borrow_mut().zip(right_chunks.borrow_mut()))
+        .for_each(|(res, (left, right))| {
+            unsafe { bit_util::bitwise_bin_op_simd(&left, &right, res, &simd_op) };
+        });
+
+    result_chunks
+        .into_remainder()
+        .iter_mut()
+        .zip(
+            left_chunks
+                .remainder()
+                .iter()
+                .zip(right_chunks.remainder().iter()),
+        )
+        .for_each(|(res, (left, right))| {
+            *res = scalar_op(*left, *right);
+        });
+
     result.freeze()
+}
+
+///  Helper function for unary SIMD operations like `BitNot`.
+#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+fn bitwise_unary_op_simd_helper<F_SIMD, F_SCALAR>(
+    left: &Buffer,
+    left_offset: usize,
+    len: usize,
+    simd_op: F_SIMD,
+    scalar_op: F_SCALAR,
+) -> Buffer
+where
+    F_SIMD: Fn(u8x64) -> u8x64,
+    F_SCALAR: Fn(u8) -> u8,
+{
+    let mut result = MutableBuffer::new(len).with_bitset(len, false);
+    let lanes = u8x64::lanes();
+
+    let mut left_chunks = left.data()[left_offset..].chunks_exact(lanes);
+    let mut result_chunks = result.data_mut().chunks_exact_mut(lanes);
+
+    result_chunks
+        .borrow_mut()
+        .zip(left_chunks.borrow_mut())
+        .for_each(|(res, left)| unsafe {
+            let data_simd = u8x64::from_slice_unaligned_unchecked(left);
+            let simd_result = simd_op(data_simd);
+            simd_result.write_to_slice_unaligned_unchecked(res);
+        });
+
+    result_chunks
+        .into_remainder()
+        .iter_mut()
+        .zip(left_chunks.remainder().iter())
+        .for_each(|(res, left)| {
+            *res = scalar_op(*left);
+        });
+
+    result.freeze()
+}
+
+fn bitwise_bin_op_helper<F>(
+    left: &Buffer,
+    left_offset: usize,
+    right: &Buffer,
+    right_offset: usize,
+    len: usize,
+    op: F,
+) -> Buffer
+where
+    F: Fn(u8, u8) -> u8,
+{
+    let mut result = MutableBuffer::new(len).with_bitset(len, false);
+
+    result
+        .data_mut()
+        .iter_mut()
+        .zip(
+            left.data()[left_offset..]
+                .iter()
+                .zip(right.data()[right_offset..].iter()),
+        )
+        .for_each(|(res, (left, right))| {
+            *res = op(*left, *right);
+        });
+
+    result.freeze()
+}
+
+fn bitwise_unary_op_helper<F>(
+    left: &Buffer,
+    left_offset: usize,
+    len: usize,
+    op: F,
+) -> Buffer
+where
+    F: Fn(u8) -> u8,
+{
+    let mut result = MutableBuffer::new(len).with_bitset(len, false);
+
+    result
+        .data_mut()
+        .iter_mut()
+        .zip(left.data()[left_offset..].iter())
+        .for_each(|(res, left)| {
+            *res = op(*left);
+        });
+
+    result.freeze()
+}
+
+pub(super) fn buffer_bin_and(
+    left: &Buffer,
+    left_offset: usize,
+    right: &Buffer,
+    right_offset: usize,
+    len: usize,
+) -> Buffer {
+    // SIMD implementation if available
+    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+    {
+        return bitwise_bin_op_simd_helper(
+            &left,
+            left_offset,
+            &right,
+            right_offset,
+            len,
+            |a, b| a & b,
+            |a, b| a & b,
+        );
+    }
+    // Default implementation
+    #[allow(unreachable_code)]
+    {
+        return bitwise_bin_op_helper(
+            &left,
+            left_offset,
+            right,
+            right_offset,
+            len,
+            |a, b| a & b,
+        );
+    }
+}
+
+pub(super) fn buffer_bin_or(
+    left: &Buffer,
+    left_offset: usize,
+    right: &Buffer,
+    right_offset: usize,
+    len: usize,
+) -> Buffer {
+    // SIMD implementation if available
+    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+    {
+        return bitwise_bin_op_simd_helper(
+            &left,
+            left_offset,
+            &right,
+            right_offset,
+            len,
+            |a, b| a | b,
+            |a, b| a | b,
+        );
+    }
+    // Default implementation
+    #[allow(unreachable_code)]
+    {
+        return bitwise_bin_op_helper(
+            &left,
+            left_offset,
+            right,
+            right_offset,
+            len,
+            |a, b| a | b,
+        );
+    }
+}
+
+pub(super) fn buffer_unary_not(left: &Buffer, left_offset: usize, len: usize) -> Buffer {
+    // SIMD implementation if available
+    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+    {
+        return bitwise_unary_op_simd_helper(&left, left_offset, len, |a| !a, |a| !a);
+    }
+    // Default implementation
+    #[allow(unreachable_code)]
+    {
+        return bitwise_unary_op_helper(&left, left_offset, len, |a| !a);
+    }
 }
 
 impl<'a, 'b> BitAnd<&'b Buffer> for &'a Buffer {
@@ -315,27 +510,7 @@ impl<'a, 'b> BitAnd<&'b Buffer> for &'a Buffer {
             ));
         }
 
-        // SIMD implementation if available
-        #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
-        {
-            return Ok(bitwise_bin_op_simd_helper(&self, &rhs, |a, b| a & b));
-        }
-
-        // Default implementation
-        #[allow(unreachable_code)]
-        {
-            let mut builder = UInt8BufferBuilder::new(self.len());
-            for i in 0..self.len() {
-                unsafe {
-                    builder
-                        .append(
-                            self.data().get_unchecked(i) & rhs.data().get_unchecked(i),
-                        )
-                        .unwrap();
-                }
-            }
-            Ok(builder.finish())
-        }
+        Ok(buffer_bin_and(&self, 0, &rhs, 0, self.len()))
     }
 }
 
@@ -349,27 +524,7 @@ impl<'a, 'b> BitOr<&'b Buffer> for &'a Buffer {
             ));
         }
 
-        // SIMD implementation if available
-        #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
-        {
-            return Ok(bitwise_bin_op_simd_helper(&self, &rhs, |a, b| a | b));
-        }
-
-        // Default implementation
-        #[allow(unreachable_code)]
-        {
-            let mut builder = UInt8BufferBuilder::new(self.len());
-            for i in 0..self.len() {
-                unsafe {
-                    builder
-                        .append(
-                            self.data().get_unchecked(i) | rhs.data().get_unchecked(i),
-                        )
-                        .unwrap();
-                }
-            }
-            Ok(builder.finish())
-        }
+        Ok(buffer_bin_or(&self, 0, &rhs, 0, self.len()))
     }
 }
 
@@ -377,38 +532,7 @@ impl Not for &Buffer {
     type Output = Buffer;
 
     fn not(self) -> Buffer {
-        // SIMD implementation if available
-        #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
-        {
-            let mut result =
-                MutableBuffer::new(self.len()).with_bitset(self.len(), false);
-            let lanes = u8x64::lanes();
-            for i in (0..self.len()).step_by(lanes) {
-                unsafe {
-                    let data = from_raw_parts(self.raw_data().add(i), lanes);
-                    let data_simd = u8x64::from_slice_unaligned_unchecked(data);
-                    let simd_result = !data_simd;
-                    let result_slice: &mut [u8] = from_raw_parts_mut(
-                        (result.data_mut().as_mut_ptr() as *mut u8).add(i),
-                        lanes,
-                    );
-                    simd_result.write_to_slice_unaligned_unchecked(result_slice);
-                }
-            }
-            return result.freeze();
-        }
-
-        // Default implementation
-        #[allow(unreachable_code)]
-        {
-            let mut builder = UInt8BufferBuilder::new(self.len());
-            for i in 0..self.len() {
-                unsafe {
-                    builder.append(!self.data().get_unchecked(i)).unwrap();
-                }
-            }
-            builder.finish()
-        }
+        buffer_unary_not(&self, 0, self.len())
     }
 }
 

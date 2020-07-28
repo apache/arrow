@@ -18,35 +18,55 @@
 //! Common utilities for computation kernels.
 
 use crate::array::*;
+#[cfg(feature = "simd")]
 use crate::bitmap::Bitmap;
-use crate::buffer::Buffer;
+use crate::buffer::{buffer_bin_and, Buffer};
 #[cfg(feature = "simd")]
 use crate::datatypes::*;
-use crate::error::Result;
+use crate::error::{ArrowError, Result};
+use crate::util::bit_util::ceil;
 #[cfg(feature = "simd")]
 use num::One;
 #[cfg(feature = "simd")]
 use std::cmp::min;
 
-/// Applies a given binary operation, `op`, to two references to `Option<Bitmap>`'s.
+/// Combines the null bitmaps of two arrays using a bitwise `and` operation.
 ///
 /// This function is useful when implementing operations on higher level arrays.
-pub(super) fn apply_bin_op_to_option_bitmap<F>(
-    left: &Option<Bitmap>,
-    right: &Option<Bitmap>,
-    op: F,
-) -> Result<Option<Buffer>>
-where
-    F: Fn(&Buffer, &Buffer) -> Result<Buffer>,
-{
-    match *left {
-        None => match *right {
+pub(super) fn combine_option_bitmap(
+    left_data: &ArrayDataRef,
+    right_data: &ArrayDataRef,
+    len_in_bits: usize,
+) -> Result<Option<Buffer>> {
+    let left_offset_in_bits = left_data.offset();
+    let right_offset_in_bits = right_data.offset();
+
+    let left = left_data.null_buffer();
+    let right = right_data.null_buffer();
+
+    if (left.is_some() && left_offset_in_bits % 8 != 0)
+        || (right.is_some() && right_offset_in_bits % 8 != 0)
+    {
+        return Err(ArrowError::ComputeError(
+            "Cannot combine option bitmaps that are not byte-aligned.".to_string(),
+        ));
+    }
+
+    let left_offset = left_offset_in_bits / 8;
+    let right_offset = right_offset_in_bits / 8;
+
+    match left {
+        None => match right {
             None => Ok(None),
-            Some(ref r) => Ok(Some(r.bits.clone())),
+            Some(r) => Ok(Some(r.slice(right_offset))),
         },
-        Some(ref l) => match *right {
-            None => Ok(Some(l.bits.clone())),
-            Some(ref r) => Ok(Some(op(&l.bits, &r.bits)?)),
+        Some(l) => match right {
+            None => Ok(Some(l.slice(left_offset))),
+
+            Some(r) => {
+                let len = ceil(len_in_bits, 8);
+                Ok(Some(buffer_bin_and(&l, left_offset, &r, right_offset, len)))
+            }
         },
     }
 }
@@ -166,38 +186,43 @@ mod tests {
     use crate::array::ArrayData;
     use crate::datatypes::{DataType, ToByteSlice};
 
+    fn make_data_with_null_bit_buffer(
+        len: usize,
+        offset: usize,
+        null_bit_buffer: Option<Buffer>,
+    ) -> Arc<ArrayData> {
+        // empty vec for buffers and children is not really correct, but for these tests we only care about the null bitmap
+        Arc::new(ArrayData::new(
+            DataType::UInt8,
+            len,
+            None,
+            null_bit_buffer,
+            offset,
+            vec![],
+            vec![],
+        ))
+    }
+
     #[test]
-    fn test_apply_bin_op_to_option_bitmap() {
+    fn test_combine_option_bitmap() {
+        let none_bitmap = make_data_with_null_bit_buffer(8, 0, None);
+        let some_bitmap =
+            make_data_with_null_bit_buffer(8, 0, Some(Buffer::from([0b01001010])));
         assert_eq!(
             None,
-            apply_bin_op_to_option_bitmap(&None, &None, |a, b| a & b).unwrap()
-        );
-        assert_eq!(
-            Some(Buffer::from([0b01101010])),
-            apply_bin_op_to_option_bitmap(
-                &Some(Bitmap::from(Buffer::from([0b01101010]))),
-                &None,
-                |a, b| a & b,
-            )
-            .unwrap()
-        );
-        assert_eq!(
-            Some(Buffer::from([0b01001110])),
-            apply_bin_op_to_option_bitmap(
-                &None,
-                &Some(Bitmap::from(Buffer::from([0b01001110]))),
-                |a, b| a & b,
-            )
-            .unwrap()
+            combine_option_bitmap(&none_bitmap, &none_bitmap, 8).unwrap()
         );
         assert_eq!(
             Some(Buffer::from([0b01001010])),
-            apply_bin_op_to_option_bitmap(
-                &Some(Bitmap::from(Buffer::from([0b01101010]))),
-                &Some(Bitmap::from(Buffer::from([0b01001110]))),
-                |a, b| a & b,
-            )
-            .unwrap()
+            combine_option_bitmap(&some_bitmap, &none_bitmap, 8).unwrap()
+        );
+        assert_eq!(
+            Some(Buffer::from([0b01001010])),
+            combine_option_bitmap(&none_bitmap, &some_bitmap, 8,).unwrap()
+        );
+        assert_eq!(
+            Some(Buffer::from([0b01001010])),
+            combine_option_bitmap(&some_bitmap, &some_bitmap, 8,).unwrap()
         );
     }
 
