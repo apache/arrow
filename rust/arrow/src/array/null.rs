@@ -85,7 +85,7 @@ impl Array for NullArray {
     }
 
     fn memory_size(&self) -> usize {
-        unimplemented!()
+        self.data.memory_size()
     }
 }
 

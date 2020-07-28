@@ -298,7 +298,11 @@ impl Array for UnionArray {
     }
 
     fn memory_size(&self) -> usize {
-        unimplemented!()
+        let mut size = self.data.memory_size();
+        for field in &self.boxed_fields {
+            size += field.memory_size();
+        }
+        size
     }
 }
 
