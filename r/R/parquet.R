@@ -62,7 +62,8 @@ read_parquet <- function(file,
 #' @param sink an [arrow::io::OutputStream][OutputStream] or a string which is interpreted as a file path
 #' @param chunk_size chunk size in number of rows. If NULL, the total number of rows is used.
 #'
-#' @param version parquet version, "1.0" or "2.0". Default "1.0"
+#' @param version parquet version, "1.0" or "2.0". Default "1.0". Numeric values
+#'   are coerced to character.
 #' @param compression compression algorithm. Default "snappy". See details.
 #' @param compression_level compression level. Meaning depends on compression algorithm
 #' @param use_dictionary Specify if we should use dictionary encoding. Default `TRUE`
@@ -257,7 +258,7 @@ ParquetWriterProperties <- R6Class("ParquetWriterProperties", inherit = ArrowObj
 ParquetWriterPropertiesBuilder <- R6Class("ParquetWriterPropertiesBuilder", inherit = ArrowObject,
   public = list(
     set_version = function(version) {
-      parquet___ArrowWriterProperties___Builder__version(self, make_valid_version(version))
+      parquet___WriterProperties___Builder__version(self, make_valid_version(version))
     },
     set_compression = function(table, compression) {
       compression <- compression_from_name(compression)
