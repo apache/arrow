@@ -60,8 +60,8 @@ FunctionSignature ExpressionRegistry::FunctionSignatureIterator::operator*() {
   return *func_sig_it_;
 }
 
-ExpressionRegistry::func_sig_iterator_type ExpressionRegistry::FunctionSignatureIterator::
-operator++(int increment) {
+ExpressionRegistry::func_sig_iterator_type
+ExpressionRegistry::FunctionSignatureIterator::operator++(int increment) {
   ++func_sig_it_;
   // point func_sig_it_ to first signature of next nativefunction if func_sig_it_ is
   // pointing to end
@@ -133,6 +133,9 @@ static void AddArrowTypesToVector(arrow::Type::type type, DataTypeVector& vector
       break;
     case arrow::Type::type::BINARY:
       vector.push_back(arrow::binary());
+      break;
+    case arrow::Type::type::MAP:
+      vector.push_back(arrow::map(arrow::utf8(), arrow::utf8()));
       break;
     case arrow::Type::type::DATE32:
       vector.push_back(arrow::date32());

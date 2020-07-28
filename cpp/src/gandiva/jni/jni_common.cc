@@ -545,7 +545,7 @@ Status make_record_batch_with_buf_addrs(SchemaPtr schema, int num_rows,
         new arrow::Buffer(reinterpret_cast<uint8_t*>(value_addr), value_size));
     buffers.push_back(data);
 
-    if (arrow::is_binary_like(field->type()->id())) {
+    if (arrow::is_binary_like(field->type()->id()) || field->type()->id() == arrow::Type::MAP) {
       if (buf_idx >= in_bufs_len) {
         return Status::Invalid("insufficient number of in_buf_addrs");
       }
@@ -811,7 +811,7 @@ Java_org_apache_arrow_gandiva_evaluator_JniWrapper_evaluateProjector(
       jlong bitmap_sz = out_sizes[sz_idx++];
       buffers.push_back(std::make_shared<arrow::MutableBuffer>(validity_buf, bitmap_sz));
 
-      if (arrow::is_binary_like(field->type()->id())) {
+      if (arrow::is_binary_like(field->type()->id()) || field->type()->id() == arrow::Type::MAP) {
         CHECK_OUT_BUFFER_IDX_AND_BREAK(buf_idx, out_bufs_len);
         uint8_t* offsets_buf = reinterpret_cast<uint8_t*>(out_bufs[buf_idx++]);
         jlong offsets_sz = out_sizes[sz_idx++];
@@ -822,7 +822,7 @@ Java_org_apache_arrow_gandiva_evaluator_JniWrapper_evaluateProjector(
       CHECK_OUT_BUFFER_IDX_AND_BREAK(buf_idx, out_bufs_len);
       uint8_t* value_buf = reinterpret_cast<uint8_t*>(out_bufs[buf_idx++]);
       jlong data_sz = out_sizes[sz_idx++];
-      if (arrow::is_binary_like(field->type()->id())) {
+      if (arrow::is_binary_like(field->type()->id()) || field->type()->id() == arrow::Type::MAP) {
         if (jexpander == nullptr) {
           status = Status::Invalid(
               "expression has variable len output columns, but the expander object is "

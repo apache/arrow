@@ -46,7 +46,8 @@ FieldDescriptorPtr Annotator::MakeDesc(FieldPtr field, bool is_output) {
   int data_idx = buffer_count_++;
   int validity_idx = buffer_count_++;
   int offsets_idx = FieldDescriptor::kInvalidIdx;
-  if (arrow::is_binary_like(field->type()->id())) {
+  if (arrow::is_binary_like(field->type()->id()) ||
+      field->type()->id() == arrow::Type::MAP) {
     offsets_idx = buffer_count_++;
   }
   int data_buffer_ptr_idx = FieldDescriptor::kInvalidIdx;
@@ -77,12 +78,23 @@ void Annotator::PrepareBuffersForField(const FieldDescriptor& desc,
     ++buffer_idx;
   }
 
-  uint8_t* data_buf = const_cast<uint8_t*>(array_data.buffers[buffer_idx]->data());
+  uint8_t* data_buf;
+  if (array_data.type->id() != arrow::Type::MAP) {
+    data_buf = const_cast<uint8_t*>(array_data.buffers[buffer_idx]->data());
+  } else {
+    data_buf = const_cast<uint8_t*>(
+        array_data.child_data.at(0)->child_data.at(0)->buffers[buffer_idx]->data());
+  }
   eval_batch->SetBuffer(desc.data_idx(), data_buf, array_data.offset);
   if (is_output) {
     // pass in the Buffer object for output data buffers. Can be used for resizing.
-    uint8_t* data_buf_ptr =
-        reinterpret_cast<uint8_t*>(array_data.buffers[buffer_idx].get());
+    uint8_t* data_buf_ptr;
+    if (array_data.type->id() != arrow::Type::MAP) {
+      data_buf_ptr = reinterpret_cast<uint8_t*>(array_data.buffers[buffer_idx].get());
+    } else {
+      data_buf_ptr = reinterpret_cast<uint8_t*>(
+          array_data.child_data.at(0)->child_data.at(0)->buffers[buffer_idx].get());
+    }
     eval_batch->SetBuffer(desc.data_buffer_ptr_idx(), data_buf_ptr, array_data.offset);
   }
 }

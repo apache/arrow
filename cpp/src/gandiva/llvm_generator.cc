@@ -356,7 +356,8 @@ Status LLVMGenerator::CodeGenExprValue(DexPtr value_expr, int buffer_count,
              output_type_id == arrow::Type::DECIMAL) {
     llvm::Value* slot_offset = builder->CreateGEP(output_ref, loop_var);
     builder->CreateStore(output_value->data(), slot_offset);
-  } else if (arrow::is_binary_like(output_type_id)) {
+  } else if (arrow::is_binary_like(output_type_id) ||
+             output_type_id == arrow::Type::MAP) {
     // Var-len output. Make a function call to populate the data.
     // if there is an error, the fn sets it in the context. And, will be returned at the
     // end of this row batch.
@@ -496,7 +497,11 @@ llvm::Value* LLVMGenerator::AddFunctionCall(const std::string& full_name,
     value = ir_builder()->CreateCall(fn, args);
   } else {
     value = ir_builder()->CreateCall(fn, args, full_name);
-    DCHECK(value->getType() == ret_type);
+    if (ret_type == types()->IRType(arrow::Type::MAP)) {
+      DCHECK(value->getType() == types()->IRType(arrow::Type::STRING));
+    } else {
+      DCHECK(value->getType() == ret_type);
+    }
   }
 
   return value;
@@ -760,7 +765,7 @@ void LLVMGenerator::Visitor::Visit(const NonNullableFuncDex& dex) {
                         " can return errors : not all args valid, return dummy value");
       llvm::Value* else_value = types->NullConstant(result_type);
       llvm::Value* else_value_len = nullptr;
-      if (arrow::is_binary_like(arrow_type_id)) {
+      if (arrow::is_binary_like(arrow_type_id) || arrow_type_id == arrow::Type::MAP) {
         else_value_len = types->i32_constant(0);
       }
       return std::make_shared<LValue>(else_value, else_value_len);
@@ -858,7 +863,8 @@ void LLVMGenerator::Visitor::Visit(const IfDex& dex) {
 
   // build the if-else condition.
   result_ = BuildIfElse(validAndMatched, then_lambda, else_lambda, dex.result_type());
-  if (arrow::is_binary_like(dex.result_type()->id())) {
+  if (arrow::is_binary_like(dex.result_type()->id()) ||
+      dex.result_type()->id() == arrow::Type::MAP) {
     ADD_VISITOR_TRACE("IfElse result length %T", result_->length());
   }
   ADD_VISITOR_TRACE("IfElse result value %T", result_->data());
@@ -1152,7 +1158,8 @@ LValuePtr LLVMGenerator::Visitor::BuildFunctionCall(const NativeFunction* func,
     }
     // add extra arg for return length for variable len return types (allocated on stack).
     llvm::AllocaInst* result_len_ptr = nullptr;
-    if (arrow::is_binary_like(arrow_return_type_id)) {
+    if (arrow::is_binary_like(arrow_return_type_id) ||
+        arrow_return_type_id == arrow::Type::MAP) {
       result_len_ptr = new llvm::AllocaInst(generator_->types()->i32_type(), 0,
                                             "result_len", entry_block_);
       params->push_back(result_len_ptr);

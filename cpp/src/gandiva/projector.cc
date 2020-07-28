@@ -24,10 +24,10 @@
 
 #include "arrow/util/hash_util.h"
 #include "arrow/util/logging.h"
-
 #include "gandiva/cache.h"
 #include "gandiva/expr_validator.h"
 #include "gandiva/llvm_generator.h"
+#include "gandiva/rex_holder.h"
 
 namespace gandiva {
 
@@ -256,7 +256,34 @@ Status Projector::Evaluate(const arrow::RecordBatch& batch,
   // Create and return array arrays.
   output->clear();
   for (auto& array_data : output_data_vecs) {
-    output->push_back(arrow::MakeArray(array_data));
+    if (array_data->type->id() == arrow::Type::MAP) {
+      auto map_string =
+          array_data->child_data.at(0)->child_data.at(0)->buffers.at(2)->ToString();
+      vector<string> keys, values;
+      vector<int32_t> map_offsets;
+      RexHolder::get_keys_values(map_string, keys, values, map_offsets);
+      arrow::StringBuilder keys_builder, values_builder;
+      std::shared_ptr<arrow::Array> keys_array, values_array;
+      auto kvs_count = keys.size();
+      auto status = arrow::Status();
+      for (size_t i = 0; i < kvs_count; i++) {
+        status = keys_builder.Append(keys.at(i));
+        status = values_builder.Append(values.at(i));
+      }
+      status = keys_builder.Finish(&keys_array);
+      status = values_builder.Finish(&values_array);
+      arrow::Int32Builder map_offsets_builder;
+      std::shared_ptr<arrow::Array> map_offsets_array;
+      for (auto i : map_offsets) {
+        status = map_offsets_builder.Append(i);
+      }
+      status = map_offsets_builder.Finish(&map_offsets_array);
+      output->push_back(
+          arrow::MapArray::FromArrays(map_offsets_array, keys_array, values_array, pool)
+              .ValueOrDie());
+    } else {
+      output->push_back(arrow::MakeArray(array_data));
+    }
   }
   return Status::OK();
 }
@@ -274,7 +301,7 @@ Status Projector::AllocArrayData(const DataTypePtr& type, int64_t num_records,
 
   // String/Binary vectors have an offsets array.
   auto type_id = type->id();
-  if (arrow::is_binary_like(type_id)) {
+  if (arrow::is_binary_like(type_id) || type_id == arrow::Type::MAP) {
     auto offsets_len = arrow::BitUtil::BytesForBits((num_records + 1) * 32);
 
     ARROW_ASSIGN_OR_RAISE(auto offsets_buffer, arrow::AllocateBuffer(offsets_len, pool));
@@ -286,7 +313,7 @@ Status Projector::AllocArrayData(const DataTypePtr& type, int64_t num_records,
   if (arrow::is_primitive(type_id) || type_id == arrow::Type::DECIMAL) {
     const auto& fw_type = dynamic_cast<const arrow::FixedWidthType&>(*type);
     data_len = arrow::BitUtil::BytesForBits(num_records * fw_type.bit_width());
-  } else if (arrow::is_binary_like(type_id)) {
+  } else if (arrow::is_binary_like(type_id) || type_id == arrow::Type::MAP) {
     // we don't know the expected size for varlen output vectors.
     data_len = 0;
   } else {
@@ -300,8 +327,16 @@ Status Projector::AllocArrayData(const DataTypePtr& type, int64_t num_records,
     memset(data_buffer->mutable_data(), 0, data_len);
   }
   buffers.push_back(std::move(data_buffer));
-
-  *array_data = arrow::ArrayData::Make(type, num_records, std::move(buffers));
+  if (type->id() == arrow::Type::MAP) {
+    auto map_type = std::make_shared<arrow::MapType>(arrow::utf8(), arrow::utf8());
+    auto child_data = arrow::ArrayData::Make(utf8(), num_records, buffers, 0);
+    auto pair_data = arrow::ArrayData::Make(map_type->field(0)->type(), num_records,
+                                            {nullptr}, {child_data, child_data}, 0);
+    *array_data = arrow::ArrayData::Make(map_type, num_records,
+                                         {buffers.at(0), buffers.at(1)}, {pair_data});
+  } else {
+    *array_data = arrow::ArrayData::Make(type, num_records, std::move(buffers));
+  }
   return Status::OK();
 }
 
@@ -328,7 +363,7 @@ Status Projector::ValidateArrayDataCapacity(const arrow::ArrayData& array_data,
                       min_bitmap_len, " actual size ", bitmap_len));
 
   auto type_id = field.type()->id();
-  if (arrow::is_binary_like(type_id)) {
+  if (arrow::is_binary_like(type_id) || type_id == arrow::Type::MAP) {
     // validate size of offsets buffer.
     int64_t min_offsets_len = arrow::BitUtil::BytesForBits((num_records + 1) * 32);
     int64_t offsets_len = array_data.buffers[1]->capacity();

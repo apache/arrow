@@ -16,9 +16,9 @@
 // under the License.
 
 #include <gtest/gtest.h>
+
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
-
 #include "gandiva/projector.h"
 #include "gandiva/tests/test_util.h"
 #include "gandiva/tree_expr_builder.h"
@@ -178,6 +178,53 @@ TEST_F(TestUtf8, TestNullLiteral) {
 
   // Validate results
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
+}
+
+TEST_F(TestUtf8, TestRex) {
+  // schema for input fields
+  auto field_a = field("a", utf8());
+  auto schema = arrow::schema({field_a});
+
+  // output fields
+  auto res = field("res", arrow::map(arrow::utf8(), arrow::utf8()));
+
+  auto node_a = TreeExprBuilder::MakeField(field_a);
+  std::string pattern =
+      R"j(.+ (?P<url>/[0-9a-zA-Z\./\-\_\~]*) +(?P<version>HTTP/[0-9]+\.[0-9]+).+ [0-9]{3} +(?P<bytes>[0-9\-]+) .+\((?P<os>Macintosh|Windows NT|iPhone|compatible).+)j";
+  auto literal_s = TreeExprBuilder::MakeStringLiteral(pattern);
+  auto rex_ret = TreeExprBuilder::MakeFunction("rex", {node_a, literal_s},
+                                               arrow::map(arrow::utf8(), arrow::utf8()));
+  auto expr = TreeExprBuilder::MakeExpression(rex_ret, res);
+
+  // Build a projector for the expressions.
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Create a row-batch with some sample data
+  int num_records = 3;
+  auto array_a = MakeArrowArrayUtf8(
+      {R"j(107.173.176.148 - - [13/Dec/2015:05:11:56 +0100] "GET /apache-log/access.log HTTP/1.1" 200 97106 "http://www.almhuette-raith.at/" "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Iron/29.0.1600.1 Chrome/29.0.1600.1 Safari/537.36" "-")j",
+       R"j(107.173.176.148 - - [13/Dec/2015:05:11:56 +0100] "GET /apache-log/err.log HTTPs/2.0" 200 6666 "http://www.almhuette-raith.at/" "Mozilla/5.0 (iPhone 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Iron/29.0.1600.1 Chrome/29.0.1600.1 Safari/537.36" "-")j",
+       R"j(107.173.176.148 - - [13/Dec/2015:05:11:56 +0100] "GET /apache-log/err.log HTTP/2.0" 200 6666 "http://www.almhuette-raith.at/" "Mozilla/5.0 (iPhone 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Iron/29.0.1600.1 Chrome/29.0.1600.1 Safari/537.36" "-")j"},
+      {true, true, true});
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array_a});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+
+  auto exp_map_array_string =
+      "[\n  keys:\n  [\n    \"url\",\n    \"version\",\n    \"bytes\",\n    \"os\"\n  "
+      "]\n  values:\n  [\n    \"/apache-log/access.log\",\n    \"HTTP/1.1\",\n    "
+      "\"97106\",\n    \"Windows NT\"\n  ],\n  keys:\n  []\n  values:\n  [],\n  keys:\n  "
+      "[\n    \"url\",\n    \"version\",\n    \"bytes\",\n    \"os\"\n  ]\n  values:\n  "
+      "[\n    \"/apache-log/err.log\",\n    \"HTTP/2.0\",\n    \"6666\",\n    "
+      "\"iPhone\"\n  ]\n]";
+  EXPECT_TRUE(status.ok()) << status.message();
+  EXPECT_TRUE(outputs.at(0)->ToString() == exp_map_array_string);
 }
 
 TEST_F(TestUtf8, TestLike) {

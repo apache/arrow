@@ -761,8 +761,8 @@ TEST_F(TestProjector, TestCapture) {
 
   // Evaluate expression
   arrow::ArrayVector outputs;
-  //  status = projector->Evaluate(*in_batch, pool_, &outputs);
-  //  EXPECT_TRUE(status.ok()) << status.message();
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok()) << status.message();
 
   // Validate results
   //  EXPECT_ARROW_ARRAY_EQUALS(exp_ret, outputs.at(0));
