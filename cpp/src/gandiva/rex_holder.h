@@ -19,7 +19,6 @@
 
 #include <memory>
 #include <string>
-#include <string_view>
 #include <unordered_map>
 #include <vector>
 
@@ -34,7 +33,6 @@
 #include "re2/stringpiece.h"
 
 using std::string;
-using std::string_view;
 using std::vector;
 using map_str_str = std::unordered_map<string, string>;
 
@@ -151,7 +149,7 @@ class GANDIVA_EXPORT RexHolder : public FunctionHolder {
     size_t found = 0;
     while (true) {
       auto curr_find = map_string.find("}", found);
-      if (curr_find == string_view::npos) {
+      if (curr_find == string::npos) {
         break;
       }
       _get_keys_values(map_string.data() + found, ++curr_find - found, keys, values,
@@ -173,7 +171,7 @@ class GANDIVA_EXPORT RexHolder : public FunctionHolder {
     size_t found = 0;
     while (true) {
       auto curr_find = map_string.find("}", found);
-      if (curr_find == string_view::npos) {
+      if (curr_find == string::npos) {
         break;
       }
       _get_keys_values(map_string.data() + found, ++curr_find - found, keys, key_offsets,
