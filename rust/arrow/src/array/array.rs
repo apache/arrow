@@ -213,6 +213,9 @@ pub trait Array: fmt::Debug + Send + Sync + ArrayEqual + JsonEqual {
     fn null_count(&self) -> usize {
         self.data().null_count()
     }
+
+    /// Returns the total number of bytes of memory occupied by the buffers owned by this array.
+    fn memory_size(&self) -> usize;
 }
 
 /// A reference-counted reference to a generic `Array`.
@@ -442,6 +445,10 @@ impl<T: ArrowPrimitiveType> Array for PrimitiveArray<T> {
 
     fn data_ref(&self) -> &ArrayDataRef {
         &self.data
+    }
+
+    fn memory_size(&self) -> usize {
+        self.data.memory_size()
     }
 }
 
@@ -1168,6 +1175,10 @@ impl Array for ListArray {
     fn data_ref(&self) -> &ArrayDataRef {
         &self.data
     }
+
+    fn memory_size(&self) -> usize {
+        self.data.memory_size() + self.values().memory_size()
+    }
 }
 
 impl Array for LargeListArray {
@@ -1181,6 +1192,10 @@ impl Array for LargeListArray {
 
     fn data_ref(&self) -> &ArrayDataRef {
         &self.data
+    }
+
+    fn memory_size(&self) -> usize {
+        self.data.memory_size() + self.values().memory_size()
     }
 }
 
@@ -1332,6 +1347,10 @@ impl Array for FixedSizeListArray {
     fn data_ref(&self) -> &ArrayDataRef {
         &self.data
     }
+
+    fn memory_size(&self) -> usize {
+        self.data.memory_size() + self.values().memory_size()
+    }
 }
 
 impl fmt::Debug for FixedSizeListArray {
@@ -1397,6 +1416,10 @@ macro_rules! make_binary_type {
 
             fn data_ref(&self) -> &ArrayDataRef {
                 &self.data
+            }
+
+            fn memory_size(&self) -> usize {
+                self.data.memory_size()
             }
         }
     };
@@ -1953,6 +1976,10 @@ impl Array for FixedSizeBinaryArray {
     fn data_ref(&self) -> &ArrayDataRef {
         &self.data
     }
+
+    fn memory_size(&self) -> usize {
+        self.data.memory_size()
+    }
 }
 
 /// A nested array type where each child (called *field*) is represented by a separate
@@ -2034,6 +2061,10 @@ impl Array for StructArray {
     /// Returns the length (i.e., number of elements) of this array
     fn len(&self) -> usize {
         self.data().len()
+    }
+
+    fn memory_size(&self) -> usize {
+        self.data.memory_size()
     }
 }
 
@@ -2333,6 +2364,10 @@ impl<T: ArrowPrimitiveType> Array for DictionaryArray<T> {
     fn data_ref(&self) -> &ArrayDataRef {
         &self.data
     }
+
+    fn memory_size(&self) -> usize {
+        self.data.memory_size() + self.values().memory_size()
+    }
 }
 
 impl<T: ArrowPrimitiveType> fmt::Debug for DictionaryArray<T> {
@@ -2379,6 +2414,8 @@ mod tests {
             assert!(arr.is_valid(i));
             assert_eq!(i as i32, arr.value(i));
         }
+
+        assert_eq!(64, arr.memory_size());
     }
 
     #[test]
@@ -2398,6 +2435,8 @@ mod tests {
                 assert!(!arr.is_valid(i));
             }
         }
+
+        assert_eq!(128, arr.memory_size());
     }
 
     #[test]

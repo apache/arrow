@@ -159,6 +159,20 @@ impl ArrayData {
     pub fn null_count(&self) -> usize {
         self.null_count
     }
+
+    pub fn memory_size(&self) -> usize {
+        let mut size = 0;
+        for buffer in &self.buffers {
+            size += buffer.capacity();
+        }
+        if let Some(bitmap) = &self.null_bitmap {
+            size += bitmap.memory_size()
+        }
+        for child in &self.child_data {
+            size += child.memory_size();
+        }
+        size
+    }
 }
 
 /// Builder for `ArrayData` type

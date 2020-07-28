@@ -83,6 +83,10 @@ impl Array for NullArray {
     fn null_count(&self) -> usize {
         self.data().len()
     }
+
+    fn memory_size(&self) -> usize {
+        unimplemented!()
+    }
 }
 
 impl From<ArrayDataRef> for NullArray {

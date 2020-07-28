@@ -296,6 +296,10 @@ impl Array for UnionArray {
     fn data_ref(&self) -> &ArrayDataRef {
         &self.data
     }
+
+    fn memory_size(&self) -> usize {
+        unimplemented!()
+    }
 }
 
 impl fmt::Debug for UnionArray {

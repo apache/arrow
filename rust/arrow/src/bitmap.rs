@@ -67,6 +67,10 @@ impl Bitmap {
     pub fn into_buffer(self) -> Buffer {
         self.bits
     }
+
+    pub fn memory_size(&self) -> usize {
+        self.bits.capacity()
+    }
 }
 
 impl<'a, 'b> BitAnd<&'b Bitmap> for &'a Bitmap {
