@@ -729,45 +729,6 @@ TEST_F(TestProjector, TestConcat) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_concat, outputs.at(0));
 }
 
-TEST_F(TestProjector, TestCapture) {
-  // schema for input fields
-  auto field_source_string = field("source_string", arrow::utf8());
-  auto field_pattern_string = field("pattern_string", arrow::utf8());
-  auto schema = arrow::schema({field_source_string, field_pattern_string});
-
-  auto field_ret = field("ret", arrow::utf8());
-  auto cap_expr = TreeExprBuilder::MakeExpression(
-      "capture", {field_source_string, field_pattern_string}, field_ret);
-  std::shared_ptr<Projector> projector;
-  auto status = Projector::Make(schema, {cap_expr}, TestConfiguration(), &projector);
-  EXPECT_TRUE(status.ok()) << status.message();
-
-  // Create a row-batch with some sample data
-  int num_records = 3;
-  auto array_source_string = MakeArrowArrayUtf8(
-      {"GET /apache-log/access.log HTTP/1.1 200 97106 http://www.test.com/",
-       "GET / HTTP/1.1 200 10479 https://www.example.com/bingbot.htm",
-       "GET HTTP/1.1 304 - http://webdev:2000/~latrina/aug/index.php/articles"},
-      {true, true, true});
-  std::string pattern_string = "(?P<website>http://[0-9a-zA-Z\\./\\-\\_\\~]*)";
-  auto array_pattern_string = MakeArrowArrayUtf8(
-      {pattern_string, pattern_string, pattern_string}, {true, true, false});
-  // expected output
-  auto exp_ret = MakeArrowArrayUtf8({"http://www.test.com/", "", ""}, {true, true, true});
-
-  // prepare input record batch
-  auto in_batch = arrow::RecordBatch::Make(schema, num_records,
-                                           {array_source_string, array_pattern_string});
-
-  // Evaluate expression
-  arrow::ArrayVector outputs;
-  status = projector->Evaluate(*in_batch, pool_, &outputs);
-  EXPECT_TRUE(status.ok()) << status.message();
-
-  // Validate results
-  //  EXPECT_ARROW_ARRAY_EQUALS(exp_ret, outputs.at(0));
-}
-
 TEST_F(TestProjector, TestOffset) {
   // schema for input fields
   auto field0 = field("f0", arrow::int32());

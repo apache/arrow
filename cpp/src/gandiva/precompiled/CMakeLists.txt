@@ -25,7 +25,6 @@ set(PRECOMPILED_SRCS
     extended_math_ops.cc
     hash.cc
     print.cc
-    capture.cc
     string_ops.cc
     time.cc
     timestamp_arithmetic.cc
@@ -125,9 +124,7 @@ if(ARROW_BUILD_TESTS)
                  decimal_ops_test.cc
                  decimal_ops.cc
                  ../decimal_type_util.cc
-                 ../decimal_xlarge.cc
-                 capture.cc
-                 capture_test.cc)
+                 ../decimal_xlarge.cc)
   target_include_directories(gandiva-precompiled-test PRIVATE ${CMAKE_SOURCE_DIR}/src)
   target_link_libraries(gandiva-precompiled-test PRIVATE ${ARROW_TEST_LINK_LIBS} RE2::re2)
   target_compile_definitions(gandiva-precompiled-test

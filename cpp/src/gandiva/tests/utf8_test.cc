@@ -202,12 +202,13 @@ TEST_F(TestUtf8, TestRex) {
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Create a row-batch with some sample data
-  int num_records = 3;
+  int num_records = 4;
   auto array_a = MakeArrowArrayUtf8(
       {R"j(107.173.176.148 - - [13/Dec/2015:05:11:56 +0100] "GET /apache-log/access.log HTTP/1.1" 200 97106 "http://www.almhuette-raith.at/" "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Iron/29.0.1600.1 Chrome/29.0.1600.1 Safari/537.36" "-")j",
        R"j(107.173.176.148 - - [13/Dec/2015:05:11:56 +0100] "GET /apache-log/err.log HTTPs/2.0" 200 6666 "http://www.almhuette-raith.at/" "Mozilla/5.0 (iPhone 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Iron/29.0.1600.1 Chrome/29.0.1600.1 Safari/537.36" "-")j",
+       R"j(107.173.176.148 - - [13/Dec/2015:05:11:56 +0100] "GET /apache-log/err.log HTTP/2.0" 200 6666 "http://www.almhuette-raith.at/" "Mozilla/5.0 (iPhone 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Iron/29.0.1600.1 Chrome/29.0.1600.1 Safari/537.36" "-")j",
        R"j(107.173.176.148 - - [13/Dec/2015:05:11:56 +0100] "GET /apache-log/err.log HTTP/2.0" 200 6666 "http://www.almhuette-raith.at/" "Mozilla/5.0 (iPhone 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Iron/29.0.1600.1 Chrome/29.0.1600.1 Safari/537.36" "-")j"},
-      {true, true, true});
+      {true, true, true, false});
 
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array_a});
@@ -222,7 +223,7 @@ TEST_F(TestUtf8, TestRex) {
       "\"97106\",\n    \"Windows NT\"\n  ],\n  keys:\n  []\n  values:\n  [],\n  keys:\n  "
       "[\n    \"url\",\n    \"version\",\n    \"bytes\",\n    \"os\"\n  ]\n  values:\n  "
       "[\n    \"/apache-log/err.log\",\n    \"HTTP/2.0\",\n    \"6666\",\n    "
-      "\"iPhone\"\n  ]\n]";
+      "\"iPhone\"\n  ],\n  keys:\n  []\n  values:\n  []\n]";
   EXPECT_TRUE(status.ok()) << status.message();
   EXPECT_TRUE(outputs.at(0)->ToString() == exp_map_array_string);
 }
