@@ -15,23 +15,26 @@
 # specific language governing permissions and limitations
 # under the License.
 
-if(MSVC AND NOT DEFINED LZ4_MSVC_STATIC_LIB_SUFFIX)
-  set(LZ4_MSVC_STATIC_LIB_SUFFIX "_static")
-endif()
-
-set(LZ4_STATIC_LIB_SUFFIX "${LZ4_MSVC_STATIC_LIB_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}")
-
-set(LZ4_LIB_NAMES lz4 liblz4)
-
-if(NOT ARROW_LZ4_USE_SHARED)
-  set(static_names_)
-  foreach(name_ ${LZ4_LIB_NAMES})
-    list(APPEND static_names_
-                "${CMAKE_STATIC_LIBRARY_PREFIX}${name_}${LZ4_STATIC_LIB_SUFFIX}")
-  endforeach()
-  set(LZ4_LIB_NAMES ${static_names_} ${LZ4_LIB_NAMES})
-  unset(name_)
-  unset(static_names_)
+if(ARROW_LZ4_USE_SHARED)
+  set(LZ4_LIB_NAMES)
+  if(CMAKE_IMPORTRARY_SUFFIX)
+    list(APPEND LZ4_LIB_NAMES
+                "${CMAKE_IMPORT_LIBRARY_PREFIX}lz4${CMAKE_IMPORT_LIBRARY_SUFFIX}")
+  endif()
+  list(APPEND LZ4_LIB_NAMES
+              "${CMAKE_SHARED_LIBRARY_PREFIX}lz4${CMAKE_SHARED_LIBRARY_SUFFIX}")
+else()
+  if(MSVC)
+    if(NOT DEFINED LZ4_MSVC_STATIC_LIB_PREFIX)
+      set(LZ4_MSVC_STATIC_LIB_PREFIX "lib")
+    endif()
+    if(NOT DEFINED LZ4_MSVC_STATIC_LIB_SUFFIX)
+      set(LZ4_MSVC_STATIC_LIB_SUFFIX "_static")
+    endif()
+  endif()
+  set(LZ4_STATIC_LIB_PREFIX "${LZ4_MSVC_STATIC_LIB_PREFIX}${CMAKE_STATIC_LIBRARY_PREFIX}")
+  set(LZ4_STATIC_LIB_SUFFIX "${LZ4_MSVC_STATIC_LIB_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}")
+  set(LZ4_LIB_NAMES "${LZ4_STATIC_LIB_PREFIX}lz4${LZ4_STATIC_LIB_SUFFIX}")
 endif()
 
 if(LZ4_ROOT)
