@@ -939,6 +939,9 @@ services:
         arch: ${ARCH}
         rust: ${RUST}
     shm_size: *shm-size
+    environment:
+      CARGO_HOME: /rust/cargo
+      CARGO_TARGET_DIR: /build/rust
     volumes: &rust-volumes
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_DIRECTORY:-.docker}/${ARCH}-debian-${DEBIAN}-rust:/build:delegated
