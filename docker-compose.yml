@@ -919,7 +919,6 @@ services:
         r_bin: RDsan
     environment:
       <<: *ccache
-      LIBARROW_BUILD: 'false'
     volumes: *ubuntu-volumes
     command: >
       /bin/bash -c "
