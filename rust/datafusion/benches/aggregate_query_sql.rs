@@ -79,7 +79,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         b.iter(|| {
             aggregate_query(
                 &mut ctx,
-                "SELECT MIN(c12), MAX(c12) \
+                "SELECT MIN(c12), MAX(c11), AVG(10), SUM(9) \
                  FROM aggregate_test_100",
             )
         })
@@ -90,7 +90,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         b.iter(|| {
             aggregate_query(
                 &mut ctx,
-                "SELECT c1, MIN(c12), MAX(c12) \
+                "SELECT c1, MIN(c12), MAX(c11), AVG(10), SUM(9) \
                  FROM aggregate_test_100 GROUP BY c1",
             )
         })
