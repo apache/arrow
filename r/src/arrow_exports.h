@@ -83,15 +83,4 @@ class FileWriter;
 }  // namespace arrow
 }  // namespace parquet
 
-RCPP_EXPOSED_ENUM_NODECL(arrow::Type::type)
-RCPP_EXPOSED_ENUM_NODECL(arrow::DateUnit)
-RCPP_EXPOSED_ENUM_NODECL(arrow::ipc::MetadataVersion)
-RCPP_EXPOSED_ENUM_NODECL(arrow::TimeUnit::type)
-RCPP_EXPOSED_ENUM_NODECL(arrow::StatusCode)
-RCPP_EXPOSED_ENUM_NODECL(arrow::io::FileMode::type)
-RCPP_EXPOSED_ENUM_NODECL(arrow::ipc::MessageType)
-RCPP_EXPOSED_ENUM_NODECL(arrow::Compression::type)
-RCPP_EXPOSED_ENUM_NODECL(arrow::fs::FileType)
-RCPP_EXPOSED_ENUM_NODECL(parquet::ParquetVersion::type)
-
 #endif

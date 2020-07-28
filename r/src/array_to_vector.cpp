@@ -35,13 +35,6 @@ using internal::IntegersCanFit;
 
 namespace r {
 
-using Rcpp::default_value;
-using Rcpp::IntegerVector;
-using Rcpp::LogicalVector_;
-using Rcpp::no_init;
-using Rcpp::Shield;
-using Rcpp::StringVector_;
-
 class Converter {
  public:
   explicit Converter(ArrayVector arrays) : arrays_(std::move(arrays)) {}
@@ -115,7 +108,7 @@ class Converter {
 template <int RTYPE>
 Status AllNull_Ingest(SEXP data, R_xlen_t start, R_xlen_t n) {
   auto p_data = Rcpp::internal::r_vector_start<RTYPE>(data) + start;
-  std::fill_n(p_data, n, Rcpp::default_value<RTYPE>());
+  std::fill_n(p_data, n, arrow::r::default_value<RTYPE>());
   return Status::OK();
 }
 
@@ -135,7 +128,8 @@ Status SomeNull_Ingest(SEXP data, R_xlen_t start, R_xlen_t n,
     arrow::internal::BitmapReader bitmap_reader(array->null_bitmap()->data(),
                                                 array->offset(), n);
     for (R_xlen_t i = 0; i < n; i++, bitmap_reader.Next(), ++p_data, ++p_values) {
-      *p_data = bitmap_reader.IsSet() ? lambda(*p_values) : default_value<RTYPE>();
+      *p_data =
+          bitmap_reader.IsSet() ? lambda(*p_values) : arrow::r::default_value<RTYPE>();
     }
   } else {
     std::transform(p_values, p_values + n, p_data, lambda);
@@ -167,7 +161,7 @@ Status IngestSome(const std::shared_ptr<arrow::Array>& array, R_xlen_t n, Lambda
 SEXP ArrayVector__as_vector(R_xlen_t n, const std::shared_ptr<DataType>& type,
                             const ArrayVector& arrays) {
   auto converter = Converter::Make(type, arrays);
-  Shield<SEXP> data(converter->Allocate(n));
+  Rcpp::Shield<SEXP> data(converter->Allocate(n));
   StopIfNotOk(converter->IngestSerial(data));
   return data;
 }
@@ -180,7 +174,7 @@ class Converter_SimpleArray : public Converter {
  public:
   explicit Converter_SimpleArray(const ArrayVector& arrays) : Converter(arrays) {}
 
-  SEXP Allocate(R_xlen_t n) const { return Vector(no_init(n)); }
+  SEXP Allocate(R_xlen_t n) const { return Vector(Rcpp::no_init(n)); }
 
   Status Ingest_all_nulls(SEXP data, R_xlen_t start, R_xlen_t n) const {
     return AllNull_Ingest<RTYPE>(data, start, n);
@@ -200,7 +194,7 @@ class Converter_Date32 : public Converter_SimpleArray<REALSXP> {
       : Converter_SimpleArray<REALSXP>(arrays) {}
 
   SEXP Allocate(R_xlen_t n) const {
-    Rcpp::NumericVector data(no_init(n));
+    Rcpp::NumericVector data(Rcpp::no_init(n));
     data.attr("class") = "Date";
     return data;
   }
@@ -218,7 +212,7 @@ struct Converter_String : public Converter {
  public:
   explicit Converter_String(const ArrayVector& arrays) : Converter(arrays) {}
 
-  SEXP Allocate(R_xlen_t n) const { return StringVector_(no_init(n)); }
+  SEXP Allocate(R_xlen_t n) const { return Rf_allocVector(STRSXP, n); }
 
   Status Ingest_all_nulls(SEXP data, R_xlen_t start, R_xlen_t n) const {
     return AllNull_Ingest<STRSXP>(data, start, n);
@@ -281,7 +275,7 @@ class Converter_Boolean : public Converter {
  public:
   explicit Converter_Boolean(const ArrayVector& arrays) : Converter(arrays) {}
 
-  SEXP Allocate(R_xlen_t n) const { return LogicalVector_(no_init(n)); }
+  SEXP Allocate(R_xlen_t n) const { return Rf_allocVector(LGLSXP, n); }
 
   Status Ingest_all_nulls(SEXP data, R_xlen_t start, R_xlen_t n) const {
     return AllNull_Ingest<LGLSXP>(data, start, n);
@@ -437,8 +431,8 @@ class Converter_Dictionary : public Converter {
           // TODO: also add int64, uint32, uint64 downcasts, if possible
           break;
         default:
-          Rcpp::stop("Cannot convert Dictionary Array of type `%s` to R",
-                     dict_array.type()->ToString());
+          cpp11::stop("Cannot convert Dictionary Array of type `%s` to R",
+                      dict_array.type()->ToString().c_str());
       }
 
       dictionary_ = dict_array.dictionary();
@@ -446,7 +440,7 @@ class Converter_Dictionary : public Converter {
   }
 
   SEXP Allocate(R_xlen_t n) const {
-    IntegerVector data(no_init(n));
+    Rcpp::IntegerVector data(Rcpp::no_init(n));
     data.attr("levels") = GetLevels();
     if (GetOrdered()) {
       Rf_classgets(data, arrow::r::data::classes_ordered);
@@ -537,9 +531,9 @@ class Converter_Dictionary : public Converter {
     // Alternative: preserve the logical type of the dictionary values
     // (e.g. if dict is timestamp, return a POSIXt R vector, not factor)
     if (dictionary_->type_id() != Type::STRING) {
-      Rcpp::warning(
+      cpp11::warning(
           "Coercing dictionary values from type %s to R character factor levels",
-          dictionary_->type()->ToString());
+          dictionary_->type()->ToString().c_str());
     }
     SEXP vec = PROTECT(ArrayVector__as_vector(dictionary_->length(), dictionary_->type(),
                                               {dictionary_}));
@@ -564,21 +558,17 @@ class Converter_Struct : public Converter {
     // allocate a data frame column to host each array
     auto first_array = checked_cast<const arrow::StructArray*>(this->arrays_[0].get());
     auto type = first_array->struct_type();
-    int nf = first_array->num_fields();
-    Rcpp::List out(nf);
-    Rcpp::CharacterVector colnames(nf);
-    for (int i = 0; i < nf; i++) {
-      out[i] = converters[i]->Allocate(n);
-      colnames[i] = Rcpp::String(type->field(i)->name(), CE_UTF8);
-    }
+    auto out =
+        arrow::r::to_r_list(converters, [n](const std::shared_ptr<Converter>& converter) {
+          return converter->Allocate(n);
+        });
+    auto colnames = arrow::r::to_r_strings(
+        type->fields(),
+        [](const std::shared_ptr<Field>& field) { return field->name(); });
+    out.attr(symbols::row_names) = arrow::r::short_row_names(n);
+    out.attr(R_NamesSymbol) = colnames;
+    out.attr(R_ClassSymbol) = arrow::r::data::classes_tbl_df;
 
-    IntegerVector rn(2);
-    rn[0] = NA_INTEGER;
-    rn[1] = -n;
-    Rf_setAttrib(out, symbols::row_names, rn);
-    Rf_setAttrib(out, R_NamesSymbol, colnames);
-    Rf_setAttrib(out, R_ClassSymbol,
-                 Rcpp::CharacterVector::create("tbl_df", "tbl", "data.frame"));
     return out;
   }
 
@@ -615,7 +605,7 @@ class Converter_Date64 : public Converter {
   explicit Converter_Date64(const ArrayVector& arrays) : Converter(arrays) {}
 
   SEXP Allocate(R_xlen_t n) const {
-    Rcpp::NumericVector data(no_init(n));
+    Rcpp::NumericVector data(Rcpp::no_init(n));
     Rf_classgets(data, arrow::r::data::classes_POSIXct);
     return data;
   }
@@ -641,7 +631,7 @@ class Converter_Promotion : public Converter {
   explicit Converter_Promotion(const ArrayVector& arrays) : Converter(arrays) {}
 
   SEXP Allocate(R_xlen_t n) const {
-    return Rcpp::Vector<RTYPE, Rcpp::NoProtectStorage>(no_init(n));
+    return Rcpp::Vector<RTYPE, Rcpp::NoProtectStorage>(Rcpp::no_init(n));
   }
 
   Status Ingest_all_nulls(SEXP data, R_xlen_t start, R_xlen_t n) const {
@@ -667,7 +657,7 @@ class Converter_Time : public Converter {
   explicit Converter_Time(const ArrayVector& arrays) : Converter(arrays) {}
 
   SEXP Allocate(R_xlen_t n) const {
-    Rcpp::NumericVector data(no_init(n));
+    Rcpp::NumericVector data(Rcpp::no_init(n));
     data.attr("class") = Rcpp::CharacterVector::create("hms", "difftime");
     // hms difftime is always stored as "seconds"
     data.attr("units") = Rcpp::CharacterVector::create("secs");
@@ -713,7 +703,7 @@ class Converter_Timestamp : public Converter_Time<value_type, TimestampType> {
       : Converter_Time<value_type, TimestampType>(arrays) {}
 
   SEXP Allocate(R_xlen_t n) const {
-    Rcpp::NumericVector data(no_init(n));
+    Rcpp::NumericVector data(Rcpp::no_init(n));
     Rf_classgets(data, arrow::r::data::classes_POSIXct);
     auto array = checked_cast<const TimestampArray*>(this->arrays_[0].get());
     auto array_type = checked_cast<const TimestampType*>(array->type().get());
@@ -729,7 +719,7 @@ class Converter_Decimal : public Converter {
  public:
   explicit Converter_Decimal(const ArrayVector& arrays) : Converter(arrays) {}
 
-  SEXP Allocate(R_xlen_t n) const { return Rcpp::NumericVector_(no_init(n)); }
+  SEXP Allocate(R_xlen_t n) const { return Rf_allocVector(REALSXP, n); }
 
   Status Ingest_all_nulls(SEXP data, R_xlen_t start, R_xlen_t n) const {
     return AllNull_Ingest<REALSXP>(data, start, n);
@@ -769,12 +759,10 @@ class Converter_List : public Converter {
       : Converter(arrays), value_type_(value_type) {}
 
   SEXP Allocate(R_xlen_t n) const {
-    Rcpp::List res(no_init(n));
-    if (std::is_same<ListArrayType, ListArray>::value) {
-      Rf_setAttrib(res, R_ClassSymbol, arrow::r::data::classes_arrow_list);
-    } else {
-      Rf_setAttrib(res, R_ClassSymbol, arrow::r::data::classes_arrow_large_list);
-    }
+    cpp11::writable::list res(n);
+    res.attr(R_ClassSymbol) = std::is_same<ListArrayType, ListArray>::value
+                                  ? arrow::r::data::classes_arrow_list
+                                  : arrow::r::data::classes_arrow_large_list;
 
     // Build an empty array to match value_type
     std::unique_ptr<arrow::ArrayBuilder> builder;
@@ -784,8 +772,7 @@ class Converter_List : public Converter {
     StopIfNotOk(builder->Finish(&array));
 
     // convert to an R object to store as the list' ptype
-    SEXP ptype = Array__as_vector(array);
-    Rf_setAttrib(res, arrow::r::symbols::ptype, ptype);
+    res.attr(arrow::r::symbols::ptype) = Array__as_vector(array);
 
     return res;
   }
@@ -824,9 +811,9 @@ class Converter_FixedSizeList : public Converter {
       : Converter(arrays), value_type_(value_type), list_size_(list_size) {}
 
   SEXP Allocate(R_xlen_t n) const {
-    Rcpp::List res(no_init(n));
+    cpp11::writable::list res(n);
     Rf_classgets(res, arrow::r::data::classes_arrow_fixed_size_list);
-    Rf_setAttrib(res, arrow::r::symbols::list_size, Rf_ScalarInteger(list_size_));
+    res.attr(arrow::r::symbols::list_size) = Rf_ScalarInteger(list_size_);
 
     // Build an empty array to match value_type
     std::unique_ptr<arrow::ArrayBuilder> builder;
@@ -836,8 +823,7 @@ class Converter_FixedSizeList : public Converter {
     StopIfNotOk(builder->Finish(&array));
 
     // convert to an R object to store as the list' ptype
-    SEXP ptype = Array__as_vector(array);
-    Rf_setAttrib(res, arrow::r::symbols::ptype, ptype);
+    res.attr(arrow::r::symbols::ptype) = Array__as_vector(array);
 
     return res;
   }
@@ -868,7 +854,7 @@ class Converter_Int64 : public Converter {
   explicit Converter_Int64(const ArrayVector& arrays) : Converter(arrays) {}
 
   SEXP Allocate(R_xlen_t n) const {
-    Rcpp::NumericVector data(no_init(n));
+    Rcpp::NumericVector data(Rcpp::no_init(n));
     data.attr("class") = "integer64";
     return data;
   }
@@ -1079,29 +1065,28 @@ std::shared_ptr<Converter> Converter::Make(const std::shared_ptr<DataType>& type
       break;
   }
 
-  Rcpp::stop(tfm::format("cannot handle Array of type %s", type->name()));
+  cpp11::stop("cannot handle Array of type ", type->name().c_str());
   return nullptr;
 }
 
-Rcpp::List to_dataframe_serial(
+cpp11::writable::list to_dataframe_serial(
     int64_t nr, int64_t nc, const Rcpp::CharacterVector& names,
     const std::vector<std::shared_ptr<Converter>>& converters) {
-  Rcpp::List tbl(nc);
-
+  cpp11::writable::list tbl(nc);
   for (int i = 0; i < nc; i++) {
     SEXP column = tbl[i] = converters[i]->Allocate(nr);
     StopIfNotOk(converters[i]->IngestSerial(column));
   }
-  tbl.attr("names") = names;
-  tbl.attr("class") = Rcpp::CharacterVector::create("tbl_df", "tbl", "data.frame");
-  tbl.attr("row.names") = Rcpp::IntegerVector::create(NA_INTEGER, -nr);
+  tbl.attr(R_NamesSymbol) = names;
+  tbl.attr(R_ClassSymbol) = arrow::r::data::classes_tbl_df;
+  tbl.attr(R_RowNamesSymbol) = arrow::r::short_row_names(nr);
   return tbl;
 }
 
-Rcpp::List to_dataframe_parallel(
+cpp11::writable::list to_dataframe_parallel(
     int64_t nr, int64_t nc, const Rcpp::CharacterVector& names,
     const std::vector<std::shared_ptr<Converter>>& converters) {
-  Rcpp::List tbl(nc);
+  cpp11::writable::list tbl(nc);
 
   // task group to ingest data in parallel
   auto tg = arrow::internal::TaskGroup::MakeThreaded(arrow::internal::GetCpuThreadPool());
@@ -1133,9 +1118,9 @@ Rcpp::List to_dataframe_parallel(
 
   StopIfNotOk(status);
 
-  tbl.attr("names") = names;
-  tbl.attr("class") = Rcpp::CharacterVector::create("tbl_df", "tbl", "data.frame");
-  tbl.attr("row.names") = IntegerVector::create(NA_INTEGER, -nr);
+  tbl.attr(R_NamesSymbol) = names;
+  tbl.attr(R_ClassSymbol) = arrow::r::data::classes_tbl_df;
+  tbl.attr(R_RowNamesSymbol) = arrow::r::short_row_names(nr);
 
   return tbl;
 }
@@ -1155,8 +1140,8 @@ SEXP ChunkedArray__as_vector(const std::shared_ptr<arrow::ChunkedArray>& chunked
 }
 
 // [[arrow::export]]
-Rcpp::List RecordBatch__to_dataframe(const std::shared_ptr<arrow::RecordBatch>& batch,
-                                     bool use_threads) {
+cpp11::writable::list RecordBatch__to_dataframe(
+    const std::shared_ptr<arrow::RecordBatch>& batch, bool use_threads) {
   int64_t nc = batch->num_columns();
   int64_t nr = batch->num_rows();
   Rcpp::CharacterVector names(nc);
@@ -1177,8 +1162,8 @@ Rcpp::List RecordBatch__to_dataframe(const std::shared_ptr<arrow::RecordBatch>& 
 }
 
 // [[arrow::export]]
-Rcpp::List Table__to_dataframe(const std::shared_ptr<arrow::Table>& table,
-                               bool use_threads) {
+cpp11::writable::list Table__to_dataframe(const std::shared_ptr<arrow::Table>& table,
+                                          bool use_threads) {
   int64_t nc = table->num_columns();
   int64_t nr = table->num_rows();
   Rcpp::CharacterVector names(nc);

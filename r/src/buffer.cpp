@@ -51,8 +51,7 @@ std::shared_ptr<arrow::Buffer> r___RBuffer__initialize(SEXP x) {
     case CPLXSXP:
       return std::make_shared<arrow::r::RBuffer<CPLXSXP>>(x);
     default:
-      Rcpp::stop(
-          tfm::format("R object of type %s not supported", Rf_type2char(TYPEOF(x))));
+      cpp11::stop("R object of type <%s> not supported", Rf_type2char(TYPEOF(x)));
   }
   return nullptr;
 }

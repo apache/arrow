@@ -27,9 +27,6 @@
 namespace ds = ::arrow::dataset;
 namespace fs = ::arrow::fs;
 
-using Rcpp::CharacterVector;
-using Rcpp::String;
-
 // Dataset, UnionDataset, FileSystemDataset
 
 // [[arrow::export]]
@@ -163,7 +160,7 @@ std::string dataset___FileFormat__type_name(
 
 // [[arrow::export]]
 std::shared_ptr<ds::ParquetFileFormat> dataset___ParquetFileFormat__Make(
-    bool use_buffered_stream, int64_t buffer_size, CharacterVector dict_columns) {
+    bool use_buffered_stream, int64_t buffer_size, Rcpp::CharacterVector dict_columns) {
   auto fmt = std::make_shared<ds::ParquetFileFormat>();
 
   fmt->reader_options.use_buffered_stream = use_buffered_stream;

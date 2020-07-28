@@ -22,15 +22,6 @@
 #include <arrow/table.h>
 #include <arrow/util/key_value_metadata.h>
 
-using Rcpp::DataFrame;
-
-// [[arrow::export]]
-std::shared_ptr<arrow::Table> Table__from_dataframe(DataFrame tbl) {
-  auto rb = RecordBatch__from_dataframe(tbl);
-
-  return ValueOrStop(arrow::Table::FromRecordBatches({std::move(rb)}));
-}
-
 // [[arrow::export]]
 int Table__num_columns(const std::shared_ptr<arrow::Table>& x) {
   return x->num_columns();
@@ -54,14 +45,14 @@ std::shared_ptr<arrow::Table> Table__ReplaceSchemaMetadata(
 
 // [[arrow::export]]
 std::shared_ptr<arrow::ChunkedArray> Table__column(
-    const std::shared_ptr<arrow::Table>& table, int i) {
+    const std::shared_ptr<arrow::Table>& table, arrow::r::Index i) {
   arrow::r::validate_index(i, table->num_columns());
   return table->column(i);
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Field> Table__field(const std::shared_ptr<arrow::Table>& table,
-                                           int i) {
+                                           arrow::r::Index i) {
   arrow::r::validate_index(i, table->num_columns());
   return table->field(i);
 }
@@ -84,14 +75,15 @@ std::vector<std::string> Table__ColumnNames(const std::shared_ptr<arrow::Table>&
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Table> Table__Slice1(const std::shared_ptr<arrow::Table>& table,
-                                            int offset) {
+                                            arrow::r::Index offset) {
   arrow::r::validate_slice_offset(offset, table->num_rows());
   return table->Slice(offset);
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Table> Table__Slice2(const std::shared_ptr<arrow::Table>& table,
-                                            int offset, int length) {
+                                            arrow::r::Index offset,
+                                            arrow::r::Index length) {
   arrow::r::validate_slice_offset(offset, table->num_rows());
   arrow::r::validate_slice_length(length, table->num_rows() - offset);
   return table->Slice(offset, length);
@@ -139,14 +131,6 @@ std::shared_ptr<arrow::Table> Table__select(const std::shared_ptr<arrow::Table>&
   return arrow::Table::Make(schema, columns);
 }
 
-bool all_record_batches(SEXP lst) {
-  R_xlen_t n = XLENGTH(lst);
-  for (R_xlen_t i = 0; i < n; i++) {
-    if (!Rf_inherits(VECTOR_ELT(lst, i), "RecordBatch")) return false;
-  }
-  return true;
-}
-
 namespace arrow {
 namespace r {
 
@@ -154,7 +138,7 @@ arrow::Status InferSchemaFromDots(SEXP lst, SEXP schema_sxp, int num_fields,
                                   std::shared_ptr<arrow::Schema>& schema) {
   // maybe a schema was given
   if (Rf_inherits(schema_sxp, "Schema")) {
-    schema = arrow::r::extract<arrow::Schema>(schema_sxp);
+    schema = cpp11::as_cpp<std::shared_ptr<arrow::Schema>>(schema_sxp);
     return arrow::Status::OK();
   }
 
@@ -169,10 +153,11 @@ arrow::Status InferSchemaFromDots(SEXP lst, SEXP schema_sxp, int num_fields,
     // Make sure we're ingesting UTF-8
     name = Rf_mkCharCE(Rf_translateCharUTF8(name), CE_UTF8);
     if (Rf_inherits(x, "ChunkedArray")) {
-      fields[j] =
-          arrow::field(CHAR(name), arrow::r::extract<arrow::ChunkedArray>(x)->type());
+      fields[j] = arrow::field(
+          CHAR(name), cpp11::as_cpp<std::shared_ptr<arrow::ChunkedArray>>(x)->type());
     } else if (Rf_inherits(x, "Array")) {
-      fields[j] = arrow::field(CHAR(name), arrow::r::extract<arrow::Array>(x)->type());
+      fields[j] = arrow::field(CHAR(name),
+                               cpp11::as_cpp<std::shared_ptr<arrow::Array>>(x)->type());
     } else {
       // TODO: we just need the type at this point
       fields[j] = arrow::field(CHAR(name), arrow::r::InferArrowType(x));
@@ -326,10 +311,10 @@ arrow::Status CollectTableColumns(
     std::vector<std::shared_ptr<arrow::ChunkedArray>>& columns) {
   auto extract_one_column = [&columns, &schema, inferred](int j, SEXP x, SEXP name) {
     if (Rf_inherits(x, "ChunkedArray")) {
-      columns[j] = arrow::r::extract<arrow::ChunkedArray>(x);
+      columns[j] = cpp11::as_cpp<std::shared_ptr<arrow::ChunkedArray>>(x);
     } else if (Rf_inherits(x, "Array")) {
-      columns[j] =
-          std::make_shared<arrow::ChunkedArray>(arrow::r::extract<arrow::Array>(x));
+      columns[j] = std::make_shared<arrow::ChunkedArray>(
+          cpp11::as_cpp<std::shared_ptr<arrow::Array>>(x));
     } else {
       auto array = arrow::r::Array__from_vector(x, schema->field(j)->type(), inferred);
       columns[j] = std::make_shared<arrow::ChunkedArray>(array);
@@ -343,22 +328,33 @@ arrow::Status CollectTableColumns(
 }  // namespace arrow
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp) {
+bool all_record_batches(SEXP lst) {
+  R_xlen_t n = XLENGTH(lst);
+  for (R_xlen_t i = 0; i < n; i++) {
+    if (!Rf_inherits(VECTOR_ELT(lst, i), "RecordBatch")) return false;
+  }
+  return true;
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::Table> Table__from_record_batches(
+    const std::vector<std::shared_ptr<arrow::RecordBatch>>& batches, SEXP schema_sxp) {
   bool infer_schema = !Rf_inherits(schema_sxp, "Schema");
 
-  if (all_record_batches(lst)) {
-    auto batches = arrow::r::List_to_shared_ptr_vector<arrow::RecordBatch>(lst);
-    std::shared_ptr<arrow::Table> tab;
+  std::shared_ptr<arrow::Table> tab;
 
-    if (infer_schema) {
-      tab = ValueOrStop(arrow::Table::FromRecordBatches(std::move(batches)));
-    } else {
-      auto schema = arrow::r::extract<arrow::Schema>(schema_sxp);
-      tab = ValueOrStop(arrow::Table::FromRecordBatches(schema, std::move(batches)));
-    }
-
-    return tab;
+  if (infer_schema) {
+    tab = ValueOrStop(arrow::Table::FromRecordBatches(std::move(batches)));
+  } else {
+    auto schema = cpp11::as_cpp<std::shared_ptr<arrow::Schema>>(schema_sxp);
+    tab = ValueOrStop(arrow::Table::FromRecordBatches(schema, std::move(batches)));
   }
+
+  return tab;
+}
+// [[arrow::export]]
+std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp) {
+  bool infer_schema = !Rf_inherits(schema_sxp, "Schema");
 
   int num_fields;
   StopIfNotOk(arrow::r::count_fields(lst, &num_fields));

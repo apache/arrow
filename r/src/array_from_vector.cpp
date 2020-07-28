@@ -339,7 +339,7 @@ struct VectorToArrayConverter {
 };
 
 template <typename Type>
-std::shared_ptr<Array> MakeFactorArrayImpl(Rcpp::IntegerVector_ factor,
+std::shared_ptr<Array> MakeFactorArrayImpl(cpp11::integers factor,
                                            const std::shared_ptr<arrow::DataType>& type) {
   using value_type = typename arrow::TypeTraits<Type>::ArrayType::value_type;
   auto n = factor.size();
@@ -393,7 +393,7 @@ std::shared_ptr<Array> MakeFactorArrayImpl(Rcpp::IntegerVector_ factor,
   return ValueOrStop(DictionaryArray::FromArrays(type, array_indices, dict));
 }
 
-std::shared_ptr<Array> MakeFactorArray(Rcpp::IntegerVector_ factor,
+std::shared_ptr<Array> MakeFactorArray(cpp11::integers factor,
                                        const std::shared_ptr<arrow::DataType>& type) {
   const auto& dict_type = checked_cast<const arrow::DictionaryType&>(*type);
   switch (dict_type.index_type()->id()) {
@@ -406,9 +406,12 @@ std::shared_ptr<Array> MakeFactorArray(Rcpp::IntegerVector_ factor,
     case Type::INT64:
       return MakeFactorArrayImpl<arrow::Int64Type>(factor, type);
     default:
-      Rcpp::stop(tfm::format("Cannot convert to dictionary with index_type %s",
-                             dict_type.index_type()->ToString()));
+      break;
   }
+
+  cpp11::stop("Cannot convert to dictionary with index_type '%s'",
+              dict_type.index_type()->ToString().c_str());
+  return nullptr;
 }
 
 std::shared_ptr<Array> MakeStructArray(SEXP df, const std::shared_ptr<DataType>& type) {
@@ -586,9 +589,8 @@ struct Unbox<Type, enable_if_integer<Type>> {
         break;
     }
 
-    return Status::Invalid(
-        tfm::format("Cannot convert R vector of type %s to integer Arrow array",
-                    Rcpp::type2name(obj)));
+    return Status::Invalid("Cannot convert R vector of type <", Rcpp::type2name(obj),
+                           "> to integer Arrow array");
   }
 
   template <typename T>
@@ -1191,17 +1193,17 @@ std::shared_ptr<arrow::DataType> InferArrowTypeFromFactor(SEXP factor) {
 
 template <int VectorType>
 std::shared_ptr<arrow::DataType> InferArrowTypeFromVector(SEXP x) {
-  Rcpp::stop("Unknown vector type: ", VectorType);
+  cpp11::stop("Unknown vector type: ", VectorType);
 }
 
 template <>
 std::shared_ptr<arrow::DataType> InferArrowTypeFromVector<ENVSXP>(SEXP x) {
   if (Rf_inherits(x, "Array")) {
-    Rcpp::ConstReferenceSmartPtrInputParameter<std::shared_ptr<arrow::Array>> array(x);
-    return static_cast<std::shared_ptr<arrow::Array>>(array)->type();
+    return cpp11::as_cpp<std::shared_ptr<arrow::Array>>(x)->type();
   }
 
-  Rcpp::stop("Unrecognized vector instance for type ENVSXP");
+  cpp11::stop("Unrecognized vector instance for type ENVSXP");
+  return nullptr;
 }
 
 template <>
@@ -1290,7 +1292,7 @@ std::shared_ptr<arrow::DataType> InferArrowTypeFromVector<VECSXP>(SEXP x) {
       SEXP byte_width = Rf_getAttrib(x, symbols::byte_width);
       if (Rf_isNull(byte_width) || TYPEOF(byte_width) != INTSXP ||
           XLENGTH(byte_width) != 1) {
-        Rcpp::stop("malformed arrow_fixed_size_binary object");
+        cpp11::stop("malformed arrow_fixed_size_binary object");
       }
       return arrow::fixed_size_binary(INTEGER(byte_width)[0]);
     }
@@ -1306,7 +1308,7 @@ std::shared_ptr<arrow::DataType> InferArrowTypeFromVector<VECSXP>(SEXP x) {
     SEXP ptype = Rf_getAttrib(x, symbols::ptype);
     if (Rf_isNull(ptype)) {
       if (XLENGTH(x) == 0) {
-        Rcpp::stop(
+        cpp11::stop(
             "Requires at least one element to infer the values' type of a list vector");
       }
 
@@ -1337,7 +1339,8 @@ std::shared_ptr<arrow::DataType> InferArrowType(SEXP x) {
       break;
   }
 
-  Rcpp::stop("Cannot infer type from vector");
+  cpp11::stop("Cannot infer type from vector");
+  return nullptr;
 }
 
 // in some situations we can just use the memory of the R object in an RBuffer
@@ -1468,7 +1471,7 @@ std::shared_ptr<arrow::Array> Array__from_vector(
     SEXP x, const std::shared_ptr<arrow::DataType>& type, bool type_inferred) {
   // short circuit if `x` is already an Array
   if (Rf_inherits(x, "Array")) {
-    return Rcpp::ConstReferenceSmartPtrInputParameter<std::shared_ptr<arrow::Array>>(x);
+    return cpp11::as_cpp<std::shared_ptr<arrow::Array>>(x);
   }
 
   // special case when we can just use the data from the R vector
@@ -1487,7 +1490,7 @@ std::shared_ptr<arrow::Array> Array__from_vector(
       return arrow::r::MakeFactorArray(x, type);
     }
 
-    Rcpp::stop("Object incompatible with dictionary type");
+    cpp11::stop("Object incompatible with dictionary type");
   }
 
   if (type->id() == Type::LIST || type->id() == Type::LARGE_LIST ||
@@ -1543,14 +1546,14 @@ std::shared_ptr<arrow::Array> Array__from_vector(SEXP x, SEXP s_type) {
   if (type_inferred) {
     type = arrow::r::InferArrowType(x);
   } else {
-    type = arrow::r::extract<arrow::DataType>(s_type);
+    type = cpp11::as_cpp<std::shared_ptr<arrow::DataType>>(s_type);
   }
 
   return arrow::r::Array__from_vector(x, type, type_inferred);
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::ChunkedArray> ChunkedArray__from_list(Rcpp::List chunks,
+std::shared_ptr<arrow::ChunkedArray> ChunkedArray__from_list(cpp11::list chunks,
                                                              SEXP s_type) {
   std::vector<std::shared_ptr<arrow::Array>> vec;
 
@@ -1562,11 +1565,11 @@ std::shared_ptr<arrow::ChunkedArray> ChunkedArray__from_list(Rcpp::List chunks,
   std::shared_ptr<arrow::DataType> type;
   if (type_inferred) {
     if (n == 0) {
-      Rcpp::stop("type must be specified for empty list");
+      cpp11::stop("type must be specified for empty list");
     }
     type = arrow::r::InferArrowType(VECTOR_ELT(chunks, 0));
   } else {
-    type = arrow::r::extract<arrow::DataType>(s_type);
+    type = cpp11::as_cpp<std::shared_ptr<arrow::DataType>>(s_type);
   }
 
   if (n == 0) {
@@ -1580,11 +1583,10 @@ std::shared_ptr<arrow::ChunkedArray> ChunkedArray__from_list(Rcpp::List chunks,
     // because we might have inferred the type from the first element of the list
     //
     // this only really matters for dictionary arrays
-    vec.push_back(
-        arrow::r::Array__from_vector(VECTOR_ELT(chunks, 0), type, type_inferred));
+    vec.push_back(arrow::r::Array__from_vector(chunks[0], type, type_inferred));
 
     for (R_xlen_t i = 1; i < n; i++) {
-      vec.push_back(arrow::r::Array__from_vector(VECTOR_ELT(chunks, i), type, false));
+      vec.push_back(arrow::r::Array__from_vector(chunks[i], type, false));
     }
   }
 

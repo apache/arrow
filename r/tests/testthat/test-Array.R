@@ -131,14 +131,14 @@ test_that("Slice() and RangeEquals()", {
   expect_true(x$RangeEquals(z, 10, 15, 0))
 
   # Input validation
-  expect_error(x$Slice("ten"), class = "Rcpp::not_compatible")
+  expect_error(x$Slice("ten"))
   expect_error(x$Slice(NA_integer_), "Slice 'offset' cannot be NA")
   expect_error(x$Slice(NA), "Slice 'offset' cannot be NA")
-  expect_error(x$Slice(10, "ten"), class = "Rcpp::not_compatible")
+  expect_error(x$Slice(10, "ten"))
   expect_error(x$Slice(10, NA_integer_), "Slice 'length' cannot be NA")
   expect_error(x$Slice(NA_integer_, NA_integer_), "Slice 'offset' cannot be NA")
-  expect_error(x$Slice(c(10, 10)), class = "Rcpp::not_compatible")
-  expect_error(x$Slice(10, c(10, 10)), class = "Rcpp::not_compatible")
+  expect_error(x$Slice(c(10, 10)))
+  expect_error(x$Slice(10, c(10, 10)))
   expect_error(x$Slice(1000), "Slice 'offset' greater than array length")
   expect_error(x$Slice(-1), "Slice 'offset' cannot be negative")
   expect_error(z$Slice(10, 10), "Slice 'offset' greater than array length")
@@ -157,7 +157,7 @@ test_that("Slice() and RangeEquals()", {
   expect_error(x$RangeEquals(y, NA, 24), "'start_idx' cannot be NA")
   expect_error(x$RangeEquals(y, 10, NA), "'end_idx' cannot be NA")
   expect_error(x$RangeEquals(y, 10, 24, NA), "'other_start_idx' cannot be NA")
-  expect_error(x$RangeEquals(y, "ten", 24), class = "Rcpp::not_compatible")
+  expect_error(x$RangeEquals(y, "ten", 24))
   # TODO (if anyone uses RangeEquals)
   # expect_error(x$RangeEquals(y, 10, 2400, 0)) # does not error
   # expect_error(x$RangeEquals(y, 1000, 24, 0)) # does not error
@@ -186,10 +186,10 @@ test_that("Array supports NA", {
   expect_equal(as.vector(is.na(x_dbl)), c(rep(FALSE, 10), TRUE))
 
   # Input validation
-  expect_error(x_int$IsValid("ten"), class = "Rcpp::not_compatible")
-  expect_error(x_int$IsNull("ten"), class = "Rcpp::not_compatible")
-  expect_error(x_int$IsValid(c(10, 10)), class = "Rcpp::not_compatible")
-  expect_error(x_int$IsNull(c(10, 10)), class = "Rcpp::not_compatible")
+  expect_error(x_int$IsValid("ten"))
+  expect_error(x_int$IsNull("ten"))
+  expect_error(x_int$IsValid(c(10, 10)))
+  expect_error(x_int$IsNull(c(10, 10)))
   expect_error(x_int$IsValid(NA), "'i' cannot be NA")
   expect_error(x_int$IsNull(NA), "'i' cannot be NA")
   expect_error(x_int$IsValid(1000), "subscript out of bounds")

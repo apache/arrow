@@ -17,48 +17,46 @@
 
 #include "./arrow_types.h"
 
-using Rcpp::LogicalVector;
-using Rcpp::no_init;
-
 #if defined(ARROW_R_WITH_ARROW)
 
 #include <arrow/array.h>
 #include <arrow/util/bitmap_reader.h>
 
-void arrow::r::validate_slice_offset(int offset, int len) {
+void arrow::r::validate_slice_offset(arrow::r::Index offset, int64_t len) {
   if (offset == NA_INTEGER) {
-    Rcpp::stop("Slice 'offset' cannot be NA");
+    cpp11::stop("Slice 'offset' cannot be NA");
   }
   if (offset < 0) {
-    Rcpp::stop("Slice 'offset' cannot be negative");
+    cpp11::stop("Slice 'offset' cannot be negative");
   }
   if (offset > len) {
-    Rcpp::stop("Slice 'offset' greater than array length");
+    cpp11::stop("Slice 'offset' greater than array length");
   }
 }
 
-void arrow::r::validate_slice_length(int length, int available) {
+void arrow::r::validate_slice_length(arrow::r::Index length, int64_t available) {
   if (length == NA_INTEGER) {
-    Rcpp::stop("Slice 'length' cannot be NA");
+    cpp11::stop("Slice 'length' cannot be NA");
   }
   if (length < 0) {
-    Rcpp::stop("Slice 'length' cannot be negative");
+    cpp11::stop("Slice 'length' cannot be negative");
   }
   if (length > available) {
-    Rcpp::warning("Slice 'length' greater than available length");
+    cpp11::warning("Slice 'length' greater than available length");
   }
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Array> Array__Slice1(const std::shared_ptr<arrow::Array>& array,
-                                            int offset) {
+                                            arrow::r::Index offset) {
   arrow::r::validate_slice_offset(offset, array->length());
   return array->Slice(offset);
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Array> Array__Slice2(const std::shared_ptr<arrow::Array>& array,
-                                            int offset, int length) {
+                                            arrow::r::Index offset,
+                                            arrow::r::Index length) {
   arrow::r::validate_slice_offset(offset, array->length());
   arrow::r::validate_slice_length(length, array->length() - offset);
   return array->Slice(offset, length);
@@ -66,21 +64,21 @@ std::shared_ptr<arrow::Array> Array__Slice2(const std::shared_ptr<arrow::Array>&
 
 void arrow::r::validate_index(int i, int len) {
   if (i == NA_INTEGER) {
-    Rcpp::stop("'i' cannot be NA");
+    cpp11::stop("'i' cannot be NA");
   }
   if (i < 0 || i >= len) {
-    Rcpp::stop("subscript out of bounds");
+    cpp11::stop("subscript out of bounds");
   }
 }
 
 // [[arrow::export]]
-bool Array__IsNull(const std::shared_ptr<arrow::Array>& x, int i) {
+bool Array__IsNull(const std::shared_ptr<arrow::Array>& x, arrow::r::Index i) {
   arrow::r::validate_index(i, x->length());
   return x->IsNull(i);
 }
 
 // [[arrow::export]]
-bool Array__IsValid(const std::shared_ptr<arrow::Array>& x, int i) {
+bool Array__IsValid(const std::shared_ptr<arrow::Array>& x, arrow::r::Index i) {
   arrow::r::validate_index(i, x->length());
   return x->IsValid(i);
 }
@@ -129,16 +127,17 @@ std::shared_ptr<arrow::ArrayData> Array__data(
 
 // [[arrow::export]]
 bool Array__RangeEquals(const std::shared_ptr<arrow::Array>& self,
-                        const std::shared_ptr<arrow::Array>& other, int start_idx,
-                        int end_idx, int other_start_idx) {
+                        const std::shared_ptr<arrow::Array>& other,
+                        arrow::r::Index start_idx, arrow::r::Index end_idx,
+                        arrow::r::Index other_start_idx) {
   if (start_idx == NA_INTEGER) {
-    Rcpp::stop("'start_idx' cannot be NA");
+    cpp11::stop("'start_idx' cannot be NA");
   }
   if (end_idx == NA_INTEGER) {
-    Rcpp::stop("'end_idx' cannot be NA");
+    cpp11::stop("'end_idx' cannot be NA");
   }
   if (other_start_idx == NA_INTEGER) {
-    Rcpp::stop("'other_start_idx' cannot be NA");
+    cpp11::stop("'other_start_idx' cannot be NA");
   }
   return self->RangeEquals(*other, start_idx, end_idx, other_start_idx);
 }

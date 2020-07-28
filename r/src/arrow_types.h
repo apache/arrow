@@ -17,14 +17,12 @@
 
 #pragma once
 
+#include <cpp11/R.hpp>
+
 #include "./arrow_rcpp.h"
 
-template <typename T>
-struct NoDelete {
-  inline void operator()(T* ptr) {}
-};
-
-namespace Rcpp {
+namespace arrow {
+namespace r {
 
 template <int RTYPE>
 inline constexpr typename Rcpp::Vector<RTYPE>::stored_type default_value() {
@@ -35,7 +33,8 @@ inline constexpr Rbyte default_value<RAWSXP>() {
   return 0;
 }
 
-}  // namespace Rcpp
+}  // namespace r
+}  // namespace arrow
 
 #if defined(ARROW_R_WITH_ARROW)
 
@@ -48,19 +47,16 @@ inline constexpr Rbyte default_value<RAWSXP>() {
 #include <utility>
 #include <vector>
 
-RCPP_EXPOSED_ENUM_NODECL(arrow::StatusCode)
-
 SEXP ChunkedArray__as_vector(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
 SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array);
 std::shared_ptr<arrow::Array> Array__from_vector(SEXP x, SEXP type);
 std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays(SEXP, SEXP);
-std::shared_ptr<arrow::RecordBatch> RecordBatch__from_dataframe(Rcpp::DataFrame tbl);
 
 namespace arrow {
 
 static inline void StopIfNotOk(const Status& status) {
   if (!(status.ok())) {
-    Rcpp::stop(status.ToString());
+    cpp11::stop(status.ToString());
   }
 }
 
@@ -74,26 +70,10 @@ namespace r {
 
 std::shared_ptr<arrow::DataType> InferArrowType(SEXP x);
 
-template <typename T>
-inline std::shared_ptr<T> extract(SEXP x) {
-  return Rcpp::ConstReferenceSmartPtrInputParameter<std::shared_ptr<T>>(x);
-}
-
 Status count_fields(SEXP lst, int* out);
 
 std::shared_ptr<arrow::Array> Array__from_vector(
     SEXP x, const std::shared_ptr<arrow::DataType>& type, bool type_inferred);
-
-template <typename T>
-std::vector<std::shared_ptr<T>> List_to_shared_ptr_vector(SEXP x) {
-  std::vector<std::shared_ptr<T>> vec;
-  R_xlen_t n = Rf_xlength(x);
-  for (R_xlen_t i = 0; i < n; i++) {
-    Rcpp::ConstReferenceSmartPtrInputParameter<std::shared_ptr<T>> ptr(VECTOR_ELT(x, i));
-    vec.push_back(ptr);
-  }
-  return vec;
-}
 
 void inspect(SEXP obj);
 
@@ -115,9 +95,9 @@ class RBuffer : public MutableBuffer {
 
 std::shared_ptr<arrow::DataType> InferArrowTypeFromFactor(SEXP);
 
-void validate_slice_offset(int offset, int len);
+void validate_slice_offset(arrow::r::Index offset, int64_t len);
 
-void validate_slice_length(int length, int available);
+void validate_slice_length(arrow::r::Index length, int64_t available);
 
 void validate_index(int i, int len);
 

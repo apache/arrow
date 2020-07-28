@@ -63,7 +63,7 @@ arrow::ArrayVector RecordBatch__columns(
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Array> RecordBatch__column(
-    const std::shared_ptr<arrow::RecordBatch>& batch, int i) {
+    const std::shared_ptr<arrow::RecordBatch>& batch, arrow::r::Index i) {
   arrow::r::validate_index(i, batch->num_columns());
   return batch->column(i);
 }
@@ -95,24 +95,6 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__select(
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::RecordBatch> RecordBatch__from_dataframe(Rcpp::DataFrame tbl) {
-  Rcpp::CharacterVector names = tbl.names();
-
-  std::vector<std::shared_ptr<arrow::Field>> fields;
-  std::vector<std::shared_ptr<arrow::Array>> arrays;
-
-  for (int i = 0; i < tbl.size(); i++) {
-    SEXP x = tbl[i];
-    arrays.push_back(Array__from_vector(x, R_NilValue));
-    fields.push_back(
-        std::make_shared<arrow::Field>(std::string(names[i]), arrays[i]->type()));
-  }
-  auto schema = std::make_shared<arrow::Schema>(std::move(fields));
-
-  return arrow::RecordBatch::Make(schema, tbl.nrow(), std::move(arrays));
-}
-
-// [[arrow::export]]
 bool RecordBatch__Equals(const std::shared_ptr<arrow::RecordBatch>& self,
                          const std::shared_ptr<arrow::RecordBatch>& other,
                          bool check_metadata) {
@@ -121,14 +103,14 @@ bool RecordBatch__Equals(const std::shared_ptr<arrow::RecordBatch>& self,
 
 // [[arrow::export]]
 std::shared_ptr<arrow::RecordBatch> RecordBatch__RemoveColumn(
-    const std::shared_ptr<arrow::RecordBatch>& batch, int i) {
+    const std::shared_ptr<arrow::RecordBatch>& batch, arrow::r::Index i) {
   arrow::r::validate_index(i, batch->num_columns());
   return ValueOrStop(batch->RemoveColumn(i));
 }
 
 // [[arrow::export]]
 std::string RecordBatch__column_name(const std::shared_ptr<arrow::RecordBatch>& batch,
-                                     int i) {
+                                     arrow::r::Index i) {
   arrow::r::validate_index(i, batch->num_columns());
   return batch->column_name(i);
 }
@@ -146,14 +128,15 @@ Rcpp::CharacterVector RecordBatch__names(
 
 // [[arrow::export]]
 std::shared_ptr<arrow::RecordBatch> RecordBatch__Slice1(
-    const std::shared_ptr<arrow::RecordBatch>& self, int offset) {
+    const std::shared_ptr<arrow::RecordBatch>& self, arrow::r::Index offset) {
   arrow::r::validate_slice_offset(offset, self->num_rows());
   return self->Slice(offset);
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::RecordBatch> RecordBatch__Slice2(
-    const std::shared_ptr<arrow::RecordBatch>& self, int offset, int length) {
+    const std::shared_ptr<arrow::RecordBatch>& self, arrow::r::Index offset,
+    arrow::r::Index length) {
   arrow::r::validate_slice_offset(offset, self->num_rows());
   arrow::r::validate_slice_length(length, self->num_rows() - offset);
   return self->Slice(offset, length);
@@ -237,8 +220,8 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays__known_schema(
   StopIfNotOk(arrow::r::count_fields(lst, &num_fields));
 
   if (schema->num_fields() != num_fields) {
-    Rcpp::stop("incompatible. schema has %d fields, and %d arrays are supplied",
-               schema->num_fields(), num_fields);
+    cpp11::stop("incompatible. schema has %d fields, and %d arrays are supplied",
+                schema->num_fields(), num_fields);
   }
 
   // convert lst to a vector of arrow::Array
@@ -248,8 +231,8 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays__known_schema(
   auto fill_array = [&arrays, &schema](int j, SEXP x, SEXP name) {
     name = Rf_mkCharCE(Rf_translateCharUTF8(name), CE_UTF8);
     if (schema->field(j)->name() != CHAR(name)) {
-      Rcpp::stop("field at index %d has name '%s' != '%s'", j + 1,
-                 schema->field(j)->name(), CHAR(name));
+      cpp11::stop("field at index %d has name '%s' != '%s'", j + 1,
+                  schema->field(j)->name().c_str(), CHAR(name));
     }
     arrays[j] = arrow::r::Array__from_vector(x, schema->field(j)->type(), false);
   };
