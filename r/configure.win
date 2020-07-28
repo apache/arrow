@@ -34,14 +34,21 @@ if [ $? -ne 0 ]; then
 fi
 
 # Set the right flags to point to and enable arrow/parquet
-# It's possible that the version of the libarrow binary is not identical to the
-# R version, e.g. if the R build is a patch release, so find what the dir is
-# actually called:
-RWINLIB="../windows/$(ls windows/ | grep ^arrow-)"
+if [ -d "windows/arrow-$VERSION" ]; then
+  RWINLIB="../windows/arrow-$VERSION"
+else
+  # It's possible that the version of the libarrow binary is not identical to the
+  # R version, e.g. if the R build is a patch release, so find what the dir is
+  # actually called:
+  RWINLIB="../windows/$(ls windows/ | grep ^arrow-)"
+fi
 OPENSSL_LIBS="-lcrypto -lcrypt32"
+MIMALLOC_LIBS="-lbcrypt -lpsapi"
 
+# NOTE: If you make changes to the libraries below, you should also change
+# ci/scripts/r_windows_build.sh and ci/scripts/PKGBUILD
 PKG_CFLAGS="-I${RWINLIB}/include -DARROW_STATIC -DPARQUET_STATIC -DARROW_DS_STATIC -DARROW_R_WITH_ARROW"
-PKG_LIBS="-L${RWINLIB}/lib"'$(subst gcc,,$(COMPILED_BY))$(R_ARCH) '"-L${RWINLIB}/lib"'$(R_ARCH) '"-lparquet -larrow_dataset -larrow -lthrift -lsnappy -lz -lzstd -llz4 ${OPENSSL_LIBS} -lws2_32"
+PKG_LIBS="-L${RWINLIB}/lib"'$(subst gcc,,$(COMPILED_BY))$(R_ARCH) '"-L${RWINLIB}/lib"'$(R_ARCH) '"-lparquet -larrow_dataset -larrow -larrow_bundled_dependencies -lthrift -lsnappy -lz -lzstd -llz4 ${MIMALLOC_LIBS} ${OPENSSL_LIBS} -lws2_32"
 
 # Set any user-defined CXXFLAGS
 if [ "$ARROW_R_CXXFLAGS" ]; then

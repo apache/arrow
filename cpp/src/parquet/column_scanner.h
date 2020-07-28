@@ -167,7 +167,7 @@ class PARQUET_TEMPLATE_CLASS_EXPORT TypedScanner : public Scanner {
   }
 
   virtual void PrintNext(std::ostream& out, int width, bool with_levels = false) {
-    T val;
+    T val{};
     int16_t def_level = -1;
     int16_t rep_level = -1;
     bool is_null = false;

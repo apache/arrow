@@ -179,15 +179,92 @@ impl ScalarValue {
     }
 }
 
+/// Returns a readable name of an expression based on the input schema.
+/// This function recursively transverses the expression for names such as "CAST(a > 2)".
+fn create_name(e: &Expr, input_schema: &Schema) -> Result<String> {
+    match e {
+        Expr::Alias(_, name) => Ok(name.clone()),
+        Expr::Column(name) => Ok(name.clone()),
+        Expr::Literal(value) => Ok(format!("{:?}", value)),
+        Expr::BinaryExpr { left, op, right } => {
+            let left = create_name(left, input_schema)?;
+            let right = create_name(right, input_schema)?;
+            Ok(format!("{} {:?} {}", left, op, right))
+        }
+        Expr::Cast { expr, data_type } => {
+            let expr = create_name(expr, input_schema)?;
+            Ok(format!("CAST({} as {:?})", expr, data_type))
+        }
+        Expr::ScalarFunction { name, args, .. } => {
+            let mut names = Vec::with_capacity(args.len());
+            for e in args {
+                names.push(create_name(e, input_schema)?);
+            }
+            Ok(format!("{}({})", name, names.join(",")))
+        }
+        Expr::AggregateFunction { name, args, .. } => {
+            let mut names = Vec::with_capacity(args.len());
+            for e in args {
+                names.push(create_name(e, input_schema)?);
+            }
+            Ok(format!("{}({})", name, names.join(",")))
+        }
+        other => Err(ExecutionError::NotImplemented(format!(
+            "Physical plan does not support logical expression {:?}",
+            other
+        ))),
+    }
+}
+
+/// Returns the datatype of the expression given the input schema
+// note: the physical plan derived from an expression must match the datatype on this function.
+pub fn expr_to_field(e: &Expr, input_schema: &Schema) -> Result<Field> {
+    let data_type = match e {
+        Expr::Alias(expr, ..) => expr.get_type(input_schema),
+        Expr::Column(name) => Ok(input_schema.field_with_name(name)?.data_type().clone()),
+        Expr::Literal(ref lit) => Ok(lit.get_datatype()),
+        Expr::ScalarFunction {
+            ref return_type, ..
+        } => Ok(return_type.clone()),
+        Expr::AggregateFunction {
+            ref return_type, ..
+        } => Ok(return_type.clone()),
+        Expr::Cast { ref data_type, .. } => Ok(data_type.clone()),
+        Expr::BinaryExpr {
+            ref left,
+            ref right,
+            ..
+        } => {
+            let left_type = left.get_type(input_schema)?;
+            let right_type = right.get_type(input_schema)?;
+            Ok(utils::get_supertype(&left_type, &right_type).unwrap())
+        }
+        _ => Err(ExecutionError::NotImplemented(format!(
+            "Cannot determine schema type for expression {:?}",
+            e
+        ))),
+    };
+
+    match data_type {
+        Ok(d) => Ok(Field::new(&e.name(input_schema)?, d, true)),
+        Err(e) => Err(e),
+    }
+}
+
+/// Create field meta-data from an expression, for use in a result set schema
+pub fn exprlist_to_fields(expr: &[Expr], input_schema: &Schema) -> Result<Vec<Field>> {
+    expr.iter()
+        .map(|e| expr_to_field(e, input_schema))
+        .collect()
+}
+
 /// Relation expression
 #[derive(Clone, PartialEq)]
 pub enum Expr {
     /// An aliased expression
     Alias(Box<Expr>, String),
-    /// index into a value within the row or complex value
-    Column(usize),
-    /// Reference to column by name
-    UnresolvedColumn(String),
+    /// column of a table scan
+    Column(String),
     /// literal value
     Literal(ScalarValue),
     /// binary expression e.g. "age > 21"
@@ -248,10 +325,7 @@ impl Expr {
     pub fn get_type(&self, schema: &Schema) -> Result<DataType> {
         match self {
             Expr::Alias(expr, _) => expr.get_type(schema),
-            Expr::Column(n) => Ok(schema.field(*n).data_type().clone()),
-            Expr::UnresolvedColumn(name) => {
-                Ok(schema.field_with_name(&name)?.data_type().clone())
-            }
+            Expr::Column(name) => Ok(schema.field_with_name(name)?.data_type().clone()),
             Expr::Literal(l) => Ok(l.get_datatype()),
             Expr::Cast { data_type, .. } => Ok(data_type.clone()),
             Expr::ScalarFunction { return_type, .. } => Ok(return_type.clone()),
@@ -281,6 +355,13 @@ impl Expr {
                 "Wildcard expressions are not valid in a logical query plan".to_owned(),
             )),
         }
+    }
+
+    /// Return the name of this expression
+    ///
+    /// This represents how a column with this expression is named when no alias is chosen
+    pub fn name(&self, input_schema: &Schema) -> Result<String> {
+        create_name(self, input_schema)
     }
 
     /// Perform a type cast on the expression value.
@@ -368,19 +449,55 @@ impl Expr {
     }
 }
 
-/// Create a column expression based on a column index
-pub fn col_index(index: usize) -> Expr {
-    Expr::Column(index)
-}
-
 /// Create a column expression based on a column name
 pub fn col(name: &str) -> Expr {
-    Expr::UnresolvedColumn(name.to_owned())
+    Expr::Column(name.to_owned())
 }
 
-/// Create a literal string expression
-pub fn lit_str(str: &str) -> Expr {
-    Expr::Literal(ScalarValue::Utf8(str.to_owned()))
+/// Whether it can be represented as a literal expression
+pub trait Literal {
+    /// convert the value to a Literal expression
+    fn lit(&self) -> Expr;
+}
+
+impl Literal for &str {
+    fn lit(&self) -> Expr {
+        Expr::Literal(ScalarValue::Utf8((*self).to_owned()))
+    }
+}
+
+impl Literal for String {
+    fn lit(&self) -> Expr {
+        Expr::Literal(ScalarValue::Utf8((*self).to_owned()))
+    }
+}
+
+macro_rules! make_literal {
+    ($TYPE:ty, $SCALAR:ident) => {
+        #[allow(missing_docs)]
+        impl Literal for $TYPE {
+            fn lit(&self) -> Expr {
+                Expr::Literal(ScalarValue::$SCALAR(self.clone()))
+            }
+        }
+    };
+}
+
+make_literal!(bool, Boolean);
+make_literal!(f32, Float32);
+make_literal!(f64, Float64);
+make_literal!(i8, Int8);
+make_literal!(i16, Int16);
+make_literal!(i32, Int32);
+make_literal!(i64, Int64);
+make_literal!(u8, UInt8);
+make_literal!(u16, UInt16);
+make_literal!(u32, UInt32);
+make_literal!(u64, UInt64);
+
+/// Create a literal expression
+pub fn lit<T: Literal>(n: T) -> Expr {
+    n.lit()
 }
 
 /// Create an convenience function representing a unary scalar function
@@ -434,8 +551,7 @@ impl fmt::Debug for Expr {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Expr::Alias(expr, alias) => write!(f, "{:?} AS {}", expr, alias),
-            Expr::Column(i) => write!(f, "#{}", i),
-            Expr::UnresolvedColumn(name) => write!(f, "#{}", name),
+            Expr::Column(name) => write!(f, "#{}", name),
             Expr::Literal(v) => write!(f, "{:?}", v),
             Expr::Cast { expr, data_type } => {
                 write!(f, "CAST({:?} AS {:?})", expr, data_type)
@@ -586,8 +702,8 @@ pub enum LogicalPlan {
     },
     /// Represents the maximum number of records to return
     Limit {
-        /// The expression
-        expr: Expr,
+        /// The limit
+        n: usize,
         /// The logical plan
         input: Box<LogicalPlan>,
         /// The schema description
@@ -713,11 +829,9 @@ impl LogicalPlan {
                 input.fmt_with_indent(f, indent + 1)
             }
             LogicalPlan::Limit {
-                ref input,
-                ref expr,
-                ..
+                ref input, ref n, ..
             } => {
-                write!(f, "Limit: {:?}", expr)?;
+                write!(f, "Limit: {}", n)?;
                 input.fmt_with_indent(f, indent + 1)
             }
             LogicalPlan::CreateExternalTable { ref name, .. } => {
@@ -886,7 +1000,7 @@ impl LogicalPlanBuilder {
             (0..expr.len()).for_each(|i| match &expr[i] {
                 Expr::Wildcard => {
                     (0..input_schema.fields().len())
-                        .for_each(|i| expr_vec.push(col_index(i).clone()));
+                        .for_each(|i| expr_vec.push(col(input_schema.field(i).name())));
                 }
                 _ => expr_vec.push(expr[i].clone()),
             });
@@ -895,10 +1009,8 @@ impl LogicalPlanBuilder {
             expr.clone()
         };
 
-        let schema = Schema::new(utils::exprlist_to_fields(
-            &projected_expr,
-            input_schema.as_ref(),
-        )?);
+        let schema =
+            Schema::new(exprlist_to_fields(&projected_expr, input_schema.as_ref())?);
 
         Ok(Self::from(&LogicalPlan::Projection {
             expr: projected_expr,
@@ -916,9 +1028,9 @@ impl LogicalPlanBuilder {
     }
 
     /// Apply a limit
-    pub fn limit(&self, expr: Expr) -> Result<Self> {
+    pub fn limit(&self, n: usize) -> Result<Self> {
         Ok(Self::from(&LogicalPlan::Limit {
-            expr,
+            n,
             input: Box::new(self.plan.clone()),
             schema: self.plan.schema().clone(),
         }))
@@ -935,11 +1047,10 @@ impl LogicalPlanBuilder {
 
     /// Apply an aggregate
     pub fn aggregate(&self, group_expr: Vec<Expr>, aggr_expr: Vec<Expr>) -> Result<Self> {
-        let mut all_fields: Vec<Expr> = group_expr.clone();
-        aggr_expr.iter().for_each(|x| all_fields.push(x.clone()));
+        let mut all_expr: Vec<Expr> = group_expr.clone();
+        aggr_expr.iter().for_each(|x| all_expr.push(x.clone()));
 
-        let aggr_schema =
-            Schema::new(utils::exprlist_to_fields(&all_fields, self.plan.schema())?);
+        let aggr_schema = Schema::new(exprlist_to_fields(&all_expr, self.plan.schema())?);
 
         Ok(Self::from(&LogicalPlan::Aggregate {
             input: Box::new(self.plan.clone()),
@@ -967,7 +1078,7 @@ mod tests {
             &employee_schema(),
             Some(vec![0, 3]),
         )?
-        .filter(col("state").eq(&lit_str("CO")))?
+        .filter(col("state").eq(&lit("CO")))?
         .project(vec![col("id")])?
         .build()?;
 
@@ -987,7 +1098,7 @@ mod tests {
             CsvReadOptions::new().schema(&employee_schema()),
             Some(vec![0, 3]),
         )?
-        .filter(col("state").eq(&lit_str("CO")))?
+        .filter(col("state").eq(&lit("CO")))?
         .project(vec![col("id")])?
         .build()?;
 

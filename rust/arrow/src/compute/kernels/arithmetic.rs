@@ -392,13 +392,11 @@ mod tests {
     }
 
     #[test]
+    #[should_panic(expected = "DivideByZero")]
     fn test_primitive_array_divide_by_zero() {
         let a = Int32Array::from(vec![15]);
         let b = Int32Array::from(vec![0]);
-        assert_eq!(
-            ArrowError::DivideByZero,
-            divide(&a, &b).err().expect("divide by zero should fail")
-        );
+        divide(&a, &b).unwrap();
     }
 
     #[test]

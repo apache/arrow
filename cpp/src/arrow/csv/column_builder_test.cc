@@ -47,7 +47,8 @@ using ChunkData = std::vector<std::vector<std::string>>;
 class ColumnBuilderTest : public ::testing::Test {
  public:
   void AssertBuilding(const std::shared_ptr<ColumnBuilder>& builder,
-                      const ChunkData& chunks, std::shared_ptr<ChunkedArray>* out) {
+                      const ChunkData& chunks, bool validate_full,
+                      std::shared_ptr<ChunkedArray>* out) {
     for (const auto& chunk : chunks) {
       std::shared_ptr<BlockParser> parser;
       MakeColumnParser(chunk, &parser);
@@ -55,24 +56,35 @@ class ColumnBuilderTest : public ::testing::Test {
     }
     ASSERT_OK(builder->task_group()->Finish());
     ASSERT_OK_AND_ASSIGN(*out, builder->Finish());
-    ASSERT_OK((*out)->ValidateFull());
+    if (validate_full) {
+      ASSERT_OK((*out)->ValidateFull());
+    } else {
+      ASSERT_OK((*out)->Validate());
+    }
+  }
+
+  void AssertBuilding(const std::shared_ptr<ColumnBuilder>& builder,
+                      const ChunkData& chunks, std::shared_ptr<ChunkedArray>* out) {
+    AssertBuilding(builder, chunks, /*validate_full=*/true, out);
   }
 
   void CheckInferred(const std::shared_ptr<TaskGroup>& tg, const ChunkData& csv_data,
                      const ConvertOptions& options,
-                     std::shared_ptr<ChunkedArray> expected) {
+                     std::shared_ptr<ChunkedArray> expected, bool validate_full = true) {
     std::shared_ptr<ColumnBuilder> builder;
     std::shared_ptr<ChunkedArray> actual;
     ASSERT_OK_AND_ASSIGN(builder,
                          ColumnBuilder::Make(default_memory_pool(), 0, options, tg));
-    AssertBuilding(builder, csv_data, &actual);
+    AssertBuilding(builder, csv_data, validate_full, &actual);
     AssertChunkedEqual(*actual, *expected);
   }
 
   void CheckInferred(const std::shared_ptr<TaskGroup>& tg, const ChunkData& csv_data,
                      const ConvertOptions& options,
-                     std::vector<std::shared_ptr<Array>> expected_chunks) {
-    CheckInferred(tg, csv_data, options, std::make_shared<ChunkedArray>(expected_chunks));
+                     std::vector<std::shared_ptr<Array>> expected_chunks,
+                     bool validate_full = true) {
+    CheckInferred(tg, csv_data, options, std::make_shared<ChunkedArray>(expected_chunks),
+                  validate_full);
   }
 
   void CheckFixedType(const std::shared_ptr<TaskGroup>& tg,
@@ -279,12 +291,13 @@ class InferringColumnBuilderTest : public ColumnBuilderTest {
   void CheckAutoDictEncoded(const std::shared_ptr<TaskGroup>& tg,
                             const ChunkData& csv_data, const ConvertOptions& options,
                             std::vector<std::shared_ptr<Array>> expected_indices,
-                            std::vector<std::shared_ptr<Array>> expected_dictionaries) {
+                            std::vector<std::shared_ptr<Array>> expected_dictionaries,
+                            bool validate_full = true) {
     std::shared_ptr<ColumnBuilder> builder;
     std::shared_ptr<ChunkedArray> actual;
     ASSERT_OK_AND_ASSIGN(builder,
                          ColumnBuilder::Make(default_memory_pool(), 0, options, tg));
-    AssertBuilding(builder, csv_data, &actual);
+    AssertBuilding(builder, csv_data, validate_full, &actual);
     ASSERT_EQ(actual->num_chunks(), static_cast<int>(csv_data.size()));
     for (int i = 0; i < actual->num_chunks(); ++i) {
       ASSERT_EQ(actual->chunk(i)->type_id(), Type::DICTIONARY);
@@ -405,7 +418,8 @@ TEST_F(InferringColumnBuilderTest, SingleChunkString) {
   tg = TaskGroup::MakeSerial();
   ChunkedArrayFromVector<StringType, std::string>({{true, true, true}},
                                                   {{"", "foo\xff", "baré"}}, &expected);
-  CheckInferred(tg, {{"", "foo\xff", "baré"}}, options, expected);
+  CheckInferred(tg, {{"", "foo\xff", "baré"}}, options, expected,
+                /*validate_full=*/false);
 }
 
 TEST_F(InferringColumnBuilderTest, SingleChunkBinary) {
@@ -473,7 +487,7 @@ TEST_F(InferringColumnBuilderTest, SingleChunkBinaryAutoDict) {
   ArrayFromVector<StringType, std::string>({"ab", "cd\xff"}, &expected_dictionary);
 
   CheckAutoDictEncoded(TaskGroup::MakeSerial(), csv_data, options, {expected_indices},
-                       {expected_dictionary});
+                       {expected_dictionary}, /*validate_full=*/false);
 
   // With invalid UTF8, checking
   options.check_utf8 = true;

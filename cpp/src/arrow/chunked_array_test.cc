@@ -48,6 +48,25 @@ class TestChunkedArray : public TestBase {
   std::shared_ptr<ChunkedArray> another_;
 };
 
+TEST_F(TestChunkedArray, Make) {
+  ASSERT_RAISES(Invalid, ChunkedArray::Make({}));
+
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<ChunkedArray> result,
+                       ChunkedArray::Make({}, int64()));
+  AssertTypeEqual(*int64(), *result->type());
+  ASSERT_EQ(result->num_chunks(), 0);
+
+  auto chunk0 = ArrayFromJSON(int8(), "[0, 1, 2]");
+  auto chunk1 = ArrayFromJSON(int16(), "[3, 4, 5]");
+
+  ASSERT_OK_AND_ASSIGN(result, ChunkedArray::Make({chunk0, chunk0}));
+  ASSERT_OK_AND_ASSIGN(auto result2, ChunkedArray::Make({chunk0, chunk0}, int8()));
+  AssertChunkedEqual(*result, *result2);
+
+  ASSERT_RAISES(Invalid, ChunkedArray::Make({chunk0, chunk1}));
+  ASSERT_RAISES(Invalid, ChunkedArray::Make({chunk0}, int16()));
+}
+
 TEST_F(TestChunkedArray, BasicEquals) {
   std::vector<bool> null_bitmap(100, true);
   std::vector<int32_t> data(100, 1);

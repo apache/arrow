@@ -19,6 +19,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <vector>
 
 #include "arrow/result.h"
 #include "arrow/type_fwd.h"

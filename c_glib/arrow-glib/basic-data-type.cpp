@@ -205,8 +205,9 @@ garrow_data_type_equal(GArrowDataType *data_type,
  * garrow_data_type_to_string:
  * @data_type: A #GArrowDataType.
  *
- * Returns: (transfer full): The string representation of the data type.
- *   The caller must free it by g_free() when the caller doesn't need it anymore.
+ * Returns: The string representation of the data type.
+ *
+ *   It should be freed with g_free() when no longer needed.
  */
 gchar *
 garrow_data_type_to_string(GArrowDataType *data_type)

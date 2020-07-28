@@ -30,6 +30,8 @@ The features currently offered are the following:
 * fetching column names from the first row in the CSV file
 * column-wise type inference and conversion to one of ``null``, ``int64``,
   ``float64``, ``timestamp[s]``, ``string`` or ``binary`` data
+* opportunistic dictionary encoding of ``string`` and ``binary`` columns
+  (disabled by default)
 * detecting various spellings of null values such as ``NaN`` or ``#N/A``
 
 Usage
@@ -85,8 +87,9 @@ parallel reading.
 Character encoding
 ------------------
 
-CSV files are expected to be encoded in UTF8.  However, non-UTF8 data
-is accepted for ``binary`` columns.
+By default, CSV files are expected to be encoded in UTF8.  Non-UTF8 data
+is accepted for ``binary`` columns.  The encoding can be changed using
+the :class:`ReadOptions` class.
 
 Performance
 -----------

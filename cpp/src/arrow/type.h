@@ -29,141 +29,13 @@
 
 #include "arrow/result.h"
 #include "arrow/type_fwd.h"  // IWYU pragma: export
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/variant.h"
 #include "arrow/util/visibility.h"
 #include "arrow/visitor.h"  // IWYU pragma: keep
 
 namespace arrow {
-
-class Array;
-class Field;
-class MemoryPool;
-
-struct Type {
-  /// \brief Main data type enumeration
-  ///
-  /// This enumeration provides a quick way to interrogate the category
-  /// of a DataType instance.
-  enum type {
-    /// A NULL type having no physical storage
-    NA,
-
-    /// Boolean as 1 bit, LSB bit-packed ordering
-    BOOL,
-
-    /// Unsigned 8-bit little-endian integer
-    UINT8,
-
-    /// Signed 8-bit little-endian integer
-    INT8,
-
-    /// Unsigned 16-bit little-endian integer
-    UINT16,
-
-    /// Signed 16-bit little-endian integer
-    INT16,
-
-    /// Unsigned 32-bit little-endian integer
-    UINT32,
-
-    /// Signed 32-bit little-endian integer
-    INT32,
-
-    /// Unsigned 64-bit little-endian integer
-    UINT64,
-
-    /// Signed 64-bit little-endian integer
-    INT64,
-
-    /// 2-byte floating point value
-    HALF_FLOAT,
-
-    /// 4-byte floating point value
-    FLOAT,
-
-    /// 8-byte floating point value
-    DOUBLE,
-
-    /// UTF8 variable-length string as List<Char>
-    STRING,
-
-    /// Variable-length bytes (no guarantee of UTF8-ness)
-    BINARY,
-
-    /// Fixed-size binary. Each value occupies the same number of bytes
-    FIXED_SIZE_BINARY,
-
-    /// int32_t days since the UNIX epoch
-    DATE32,
-
-    /// int64_t milliseconds since the UNIX epoch
-    DATE64,
-
-    /// Exact timestamp encoded with int64 since UNIX epoch
-    /// Default unit millisecond
-    TIMESTAMP,
-
-    /// Time as signed 32-bit integer, representing either seconds or
-    /// milliseconds since midnight
-    TIME32,
-
-    /// Time as signed 64-bit integer, representing either microseconds or
-    /// nanoseconds since midnight
-    TIME64,
-
-    /// YEAR_MONTH interval in SQL style
-    INTERVAL_MONTHS,
-
-    /// DAY_TIME interval in SQL style
-    INTERVAL_DAY_TIME,
-
-    /// Precision- and scale-based decimal type. Storage type depends on the
-    /// parameters.
-    DECIMAL,
-
-    /// A list of some logical data type
-    LIST,
-
-    /// Struct of logical types
-    STRUCT,
-
-    /// Sparse unions of logical types
-    SPARSE_UNION,
-
-    /// Dense unions of logical types
-    DENSE_UNION,
-
-    /// Dictionary-encoded type, also called "categorical" or "factor"
-    /// in other programming languages. Holds the dictionary value
-    /// type but not the dictionary itself, which is part of the
-    /// ArrayData struct
-    DICTIONARY,
-
-    /// Map, a repeated struct logical type
-    MAP,
-
-    /// Custom data type, implemented by user
-    EXTENSION,
-
-    /// Fixed size list of some logical type
-    FIXED_SIZE_LIST,
-
-    /// Measure of elapsed time in either seconds, milliseconds, microseconds
-    /// or nanoseconds.
-    DURATION,
-
-    /// Like STRING, but with 64-bit offsets
-    LARGE_STRING,
-
-    /// Like BINARY, but with 64-bit offsets
-    LARGE_BINARY,
-
-    /// Like LIST, but with 64-bit offsets
-    LARGE_LIST
-  };
-};
-
 namespace detail {
 
 class ARROW_EXPORT Fingerprintable {
@@ -829,6 +701,7 @@ class ARROW_EXPORT BinaryType : public BaseBinaryType {
   static constexpr Type::type type_id = Type::BINARY;
   static constexpr bool is_utf8 = false;
   using offset_type = int32_t;
+  using PhysicalType = BinaryType;
 
   static constexpr const char* type_name() { return "binary"; }
 
@@ -856,6 +729,7 @@ class ARROW_EXPORT LargeBinaryType : public BaseBinaryType {
   static constexpr Type::type type_id = Type::LARGE_BINARY;
   static constexpr bool is_utf8 = false;
   using offset_type = int64_t;
+  using PhysicalType = LargeBinaryType;
 
   static constexpr const char* type_name() { return "large_binary"; }
 
@@ -882,7 +756,7 @@ class ARROW_EXPORT StringType : public BinaryType {
  public:
   static constexpr Type::type type_id = Type::STRING;
   static constexpr bool is_utf8 = true;
-  using EquivalentBinaryType = BinaryType;
+  using PhysicalType = BinaryType;
 
   static constexpr const char* type_name() { return "utf8"; }
 
@@ -900,7 +774,7 @@ class ARROW_EXPORT LargeStringType : public LargeBinaryType {
  public:
   static constexpr Type::type type_id = Type::LARGE_STRING;
   static constexpr bool is_utf8 = true;
-  using EquivalentBinaryType = LargeBinaryType;
+  using PhysicalType = LargeBinaryType;
 
   static constexpr const char* type_name() { return "large_utf8"; }
 
@@ -1385,7 +1259,7 @@ class ARROW_EXPORT DurationType : public TemporalType, public ParametricType {
 // in memory)
 
 /// \brief Dictionary-encoded value type with data-dependent
-/// dictionary
+/// dictionary. Indices are represented by any integer types.
 class ARROW_EXPORT DictionaryType : public FixedWidthType {
  public:
   static constexpr Type::type type_id = Type::DICTIONARY;
@@ -1919,11 +1793,28 @@ Result<std::shared_ptr<Schema>> UnifySchemas(
 
 namespace internal {
 
+static inline bool HasValidityBitmap(Type::type id) {
+  switch (id) {
+    case Type::NA:
+    case Type::DENSE_UNION:
+    case Type::SPARSE_UNION:
+      return false;
+    default:
+      return true;
+  }
+}
+
 ARROW_EXPORT
 std::string ToString(Type::type id);
 
 ARROW_EXPORT
+std::string ToTypeName(Type::type id);
+
+ARROW_EXPORT
 std::string ToString(TimeUnit::type unit);
+
+ARROW_EXPORT
+int GetByteWidth(const DataType& type);
 
 }  // namespace internal
 

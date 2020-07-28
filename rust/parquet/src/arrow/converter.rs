@@ -41,7 +41,7 @@ use crate::data_type::{
     Int32Type as ParquetInt32Type, Int64Type as ParquetInt64Type,
 };
 use arrow::datatypes::{
-    Float32Type, Float64Type, Int16Type, Int32Type, Int64Type, Int8Type,
+    Date32Type, Float32Type, Float64Type, Int16Type, Int32Type, Int64Type, Int8Type,
     TimestampMicrosecondType, TimestampMillisecondType, UInt16Type, UInt32Type,
     UInt64Type, UInt8Type,
 };
@@ -221,6 +221,7 @@ pub type UInt16Converter = CastConverter<ParquetInt32Type, Int32Type, UInt16Type
 pub type Int32Converter = CastConverter<ParquetInt32Type, Int32Type, Int32Type>;
 pub type UInt32Converter = CastConverter<ParquetInt32Type, UInt32Type, UInt32Type>;
 pub type Int64Converter = CastConverter<ParquetInt64Type, Int64Type, Int64Type>;
+pub type Date32Converter = CastConverter<ParquetInt32Type, Date32Type, Date32Type>;
 pub type TimestampMillisecondConverter =
     CastConverter<ParquetInt64Type, TimestampMillisecondType, TimestampMillisecondType>;
 pub type TimestampMicrosecondConverter =
@@ -313,72 +314,58 @@ mod tests {
     use arrow::datatypes::{Int16Type, Int32Type};
     use std::rc::Rc;
 
-    #[test]
-    fn test_converter_arrow_source_target_different() {
-        let raw_data = vec![Some(1i16), None, Some(2i16), Some(3i16)];
+    macro_rules! converter_arrow_source_target {
+        ($raw_data:expr, $physical_type:expr, $result_arrow_type:ty, $converter:ty) => {{
+            // Construct record reader
+            let mut record_reader = {
+                // Construct column schema
+                let message_type = &format!(
+                    "
+                message test_schema {{
+                OPTIONAL {} leaf;
+                }}
+                ",
+                    $physical_type
+                );
 
-        // Construct record reader
-        let mut record_reader = {
-            // Construct column schema
-            let message_type = "
-            message test_schema {
-              OPTIONAL INT32 leaf;
-            }
-            ";
+                let def_levels = [1i16, 0i16, 1i16, 1i16];
+                build_record_reader(
+                    message_type,
+                    &[1, 2, 3],
+                    0i16,
+                    None,
+                    1i16,
+                    Some(&def_levels),
+                    10,
+                )
+            };
 
-            let def_levels = [1i16, 0i16, 1i16, 1i16];
-            build_record_reader(
-                message_type,
-                &[1, 2, 3],
-                0i16,
-                None,
-                1i16,
-                Some(&def_levels),
-                10,
-            )
-        };
+            let array = <$converter>::new().convert(&mut record_reader).unwrap();
+            let array = array
+                .as_any()
+                .downcast_ref::<PrimitiveArray<$result_arrow_type>>()
+                .unwrap();
 
-        let array = Int16Converter::new().convert(&mut record_reader).unwrap();
-        let array = array
-            .as_any()
-            .downcast_ref::<PrimitiveArray<Int16Type>>()
-            .unwrap();
-
-        assert!(array.equals(&PrimitiveArray::<Int16Type>::from(raw_data)));
+            assert!(array.equals(&PrimitiveArray::<$result_arrow_type>::from($raw_data)));
+        }};
     }
 
     #[test]
-    fn test_converter_arrow_source_target_same() {
-        let raw_data = vec![Some(1), None, Some(2), Some(3)];
+    fn test_converter_arrow_source_i16_target_i32() {
+        let raw_data = vec![Some(1i16), None, Some(2i16), Some(3i16)];
+        converter_arrow_source_target!(raw_data, "INT32", Int16Type, Int16Converter)
+    }
 
-        // Construct record reader
-        let mut record_reader = {
-            // Construct column schema
-            let message_type = "
-            message test_schema {
-              OPTIONAL INT32 leaf;
-            }
-            ";
+    #[test]
+    fn test_converter_arrow_source_i32_target_date32() {
+        let raw_data = vec![Some(1i32), None, Some(2i32), Some(3i32)];
+        converter_arrow_source_target!(raw_data, "INT32", Date32Type, Date32Converter)
+    }
 
-            let def_levels = [1i16, 0i16, 1i16, 1i16];
-            build_record_reader(
-                message_type,
-                &[1, 2, 3],
-                0i16,
-                None,
-                1i16,
-                Some(&def_levels),
-                10,
-            )
-        };
-
-        let array = Int32Converter::new().convert(&mut record_reader).unwrap();
-        let array = array
-            .as_any()
-            .downcast_ref::<PrimitiveArray<Int32Type>>()
-            .unwrap();
-
-        assert!(array.equals(&PrimitiveArray::<Int32Type>::from(raw_data)));
+    #[test]
+    fn test_converter_arrow_source_i32_target_i32() {
+        let raw_data = vec![Some(1i32), None, Some(2i32), Some(3i32)];
+        converter_arrow_source_target!(raw_data, "INT32", Int32Type, Int32Converter)
     }
 
     fn build_record_reader<T: DataType>(

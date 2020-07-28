@@ -25,6 +25,7 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/int_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/string.h"
 
@@ -41,6 +42,46 @@ Result<std::shared_ptr<Buffer>> Buffer::CopySlice(const int64_t start,
   ARROW_ASSIGN_OR_RAISE(auto new_buffer, AllocateResizableBuffer(nbytes, pool));
   std::memcpy(new_buffer->mutable_data(), data() + start, static_cast<size_t>(nbytes));
   return std::move(new_buffer);
+}
+
+namespace {
+
+Status CheckBufferSlice(const Buffer& buffer, int64_t offset, int64_t length) {
+  return internal::CheckSliceParams(buffer.size(), offset, length, "buffer");
+}
+
+Status CheckBufferSlice(const Buffer& buffer, int64_t offset) {
+  if (ARROW_PREDICT_FALSE(offset < 0)) {
+    // Avoid UBSAN in subtraction below
+    return Status::Invalid("Negative buffer slice offset");
+  }
+  return CheckBufferSlice(buffer, offset, buffer.size() - offset);
+}
+
+}  // namespace
+
+Result<std::shared_ptr<Buffer>> SliceBufferSafe(const std::shared_ptr<Buffer>& buffer,
+                                                int64_t offset) {
+  RETURN_NOT_OK(CheckBufferSlice(*buffer, offset));
+  return SliceBuffer(buffer, offset);
+}
+
+Result<std::shared_ptr<Buffer>> SliceBufferSafe(const std::shared_ptr<Buffer>& buffer,
+                                                int64_t offset, int64_t length) {
+  RETURN_NOT_OK(CheckBufferSlice(*buffer, offset, length));
+  return SliceBuffer(buffer, offset, length);
+}
+
+Result<std::shared_ptr<Buffer>> SliceMutableBufferSafe(
+    const std::shared_ptr<Buffer>& buffer, int64_t offset) {
+  RETURN_NOT_OK(CheckBufferSlice(*buffer, offset));
+  return SliceMutableBuffer(buffer, offset);
+}
+
+Result<std::shared_ptr<Buffer>> SliceMutableBufferSafe(
+    const std::shared_ptr<Buffer>& buffer, int64_t offset, int64_t length) {
+  RETURN_NOT_OK(CheckBufferSlice(*buffer, offset, length));
+  return SliceMutableBuffer(buffer, offset, length);
 }
 
 std::string Buffer::ToHexString() {

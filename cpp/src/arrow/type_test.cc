@@ -17,9 +17,12 @@
 
 // Unit tests for DataType (and subclasses), Field, and Schema
 
+#include <algorithm>
+#include <cctype>
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 #include <gmock/gmock.h>
@@ -38,6 +41,42 @@ using testing::ElementsAre;
 
 using internal::checked_cast;
 using internal::checked_pointer_cast;
+
+TEST(TestTypeId, AllTypeIds) {
+  const auto all_ids = AllTypeIds();
+  ASSERT_EQ(static_cast<int>(all_ids.size()), Type::MAX_ID);
+}
+
+template <typename ReprFunc>
+void CheckTypeIdReprs(ReprFunc&& repr_func, bool expect_uppercase) {
+  std::unordered_set<std::string> unique_reprs;
+  const auto all_ids = AllTypeIds();
+  for (const auto id : all_ids) {
+    std::string repr = repr_func(id);
+    ASSERT_TRUE(std::all_of(repr.begin(), repr.end(),
+                            [=](const char c) {
+                              return c == '_' || std::isdigit(c) ||
+                                     (expect_uppercase ? std::isupper(c)
+                                                       : std::islower(c));
+                            }))
+        << "Invalid type id repr: '" << repr << "'";
+    unique_reprs.insert(std::move(repr));
+  }
+  // No duplicates
+  ASSERT_EQ(unique_reprs.size(), all_ids.size());
+}
+
+TEST(TestTypeId, ToString) {
+  // Should be all uppercase strings (corresponding to the enum member names)
+  CheckTypeIdReprs([](Type::type id) { return internal::ToString(id); },
+                   /* expect_uppercase=*/true);
+}
+
+TEST(TestTypeId, ToTypeName) {
+  // Should be all lowercase strings (corresponding to TypeClass::type_name())
+  CheckTypeIdReprs([](Type::type id) { return internal::ToTypeName(id); },
+                   /* expect_uppercase=*/false);
+}
 
 TEST(TestField, Basics) {
   Field f0("f0", int32());
@@ -1581,13 +1620,8 @@ void CheckTransposeMap(const Buffer& map, std::vector<int32_t> expected) {
 TEST(TestDictionaryType, UnifyNumeric) {
   auto dict_ty = int64();
 
-  auto t1 = dictionary(int8(), dict_ty);
   auto d1 = ArrayFromJSON(dict_ty, "[3, 4, 7]");
-
-  auto t2 = dictionary(int8(), dict_ty);
   auto d2 = ArrayFromJSON(dict_ty, "[1, 7, 4, 8]");
-
-  auto t3 = dictionary(int8(), dict_ty);
   auto d3 = ArrayFromJSON(dict_ty, "[1, -200]");
 
   auto expected = dictionary(int8(), dict_ty);

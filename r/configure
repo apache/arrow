@@ -114,7 +114,7 @@ else
         fi
       fi
       PKG_CFLAGS="-I$BREWDIR/opt/$PKG_BREW_NAME/include"
-      PKG_LIBS="-L$BREWDIR/opt/$PKG_BREW_NAME/lib $PKG_LIBS"
+      PKG_LIBS="-L$BREWDIR/opt/$PKG_BREW_NAME/lib $PKG_LIBS -larrow_bundled_dependencies"
     elif [ "$UNAME" = "Linux" ]; then
       # Set some default values/backwards compatibility
       if [ "${LIBARROW_DOWNLOAD}" = "" ] && [ "${NOT_CRAN}" != "" ]; then
@@ -131,11 +131,21 @@ else
       fi
       ${R_HOME}/bin/Rscript tools/linuxlibs.R $VERSION
       PKG_CFLAGS="-I$(pwd)/libarrow/arrow-${VERSION}/include $PKG_CFLAGS"
-      # Also enumerate the static libs (technically repeating arrow libs so they're in the right order)
-      # TODO: there must be a better way; also what about non-bundled deps?
-      BUNDLED_LIBS=`cd libarrow/arrow-${VERSION}/lib && ls *.a`
-      BUNDLED_LIBS=`echo $BUNDLED_LIBS | sed -E "s/lib(.*)\.a/-l\1/" | sed -e "s/\\.a lib/ -l/g"`
-      PKG_LIBS="-L$(pwd)/libarrow/arrow-${VERSION}/lib $PKG_LIBS $BUNDLED_LIBS"
+
+      LIB_DIR="libarrow/arrow-${VERSION}/lib"
+      if [ -d "$LIB_DIR" ]; then
+        # Enumerate the static libs and add to PKG_LIBS
+        # (technically repeating arrow libs so they're in the right order)
+        #
+        # If tools/linuxlibs.R fails to produce libs, this dir won't exist
+        # so don't try (the error message from `ls` would be misleading)
+        # Assume linuxlibs.R has handled and messaged about its failure already
+        #
+        # TODO: what about non-bundled deps?
+        BUNDLED_LIBS=`cd $LIB_DIR && ls *.a`
+        BUNDLED_LIBS=`echo $BUNDLED_LIBS | sed -E "s/lib(.*)\.a/-l\1/" | sed -e "s/\\.a lib/ -l/g"`
+        PKG_LIBS="-L$(pwd)/$LIB_DIR $PKG_LIBS $BUNDLED_LIBS"
+      fi
     fi
   fi
 fi
@@ -187,6 +197,18 @@ fi
 
 # Write to Makevars
 sed -e "s|@cflags@|$PKG_CFLAGS|" -e "s|@libs@|$PKG_LIBS|" src/Makevars.in > src/Makevars
+
+# This is removed because a (bad?) CRAN check fails when arrow.so is stripped
+# # Add stripping
+# if [ "$R_STRIP_SHARED_LIB" != "" ]; then
+#   # R_STRIP_SHARED_LIB is set in the global Renviron and should be available here
+#   echo "
+# strip: \$(SHLIB)
+# 	$R_STRIP_SHARED_LIB \$(SHLIB) >/dev/null 2>&1 || true
+#
+# .phony: strip
+# " >> src/Makevars
+# fi
 
 # Success
 exit 0

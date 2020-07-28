@@ -23,13 +23,15 @@ import java.lang.UnsupportedOperationException;
 import java.math.BigDecimal;
 
 <@pp.dropOutputFile />
-<@pp.changeOutputFile name="/org/apache/arrow/vector/complex/impl/UnionListWriter.java" />
+<#list ["List", "LargeList"] as listName>
 
+<@pp.changeOutputFile name="/org/apache/arrow/vector/complex/impl/Union${listName}Writer.java" />
 
 <#include "/@includes/license.ftl" />
 
 package org.apache.arrow.vector.complex.impl;
 
+import static org.apache.arrow.memory.util.LargeMemoryUtil.checkedCastToInt;
 <#include "/@includes/vv_imports.ftl" />
 
 /*
@@ -37,24 +39,28 @@ package org.apache.arrow.vector.complex.impl;
  */
 
 @SuppressWarnings("unused")
-public class UnionListWriter extends AbstractFieldWriter {
+public class Union${listName}Writer extends AbstractFieldWriter {
 
-  protected ListVector vector;
+  protected ${listName}Vector vector;
   protected PromotableWriter writer;
   private boolean inStruct = false;
   private String structName;
+  <#if listName == "LargeList">
+  private static final long OFFSET_WIDTH = 8;
+  <#else>
   private static final int OFFSET_WIDTH = 4;
+  </#if>
 
-  public UnionListWriter(ListVector vector) {
+  public Union${listName}Writer(${listName}Vector vector) {
     this(vector, NullableStructWriterFactory.getNullableStructWriterFactoryInstance());
   }
 
-  public UnionListWriter(ListVector vector, NullableStructWriterFactory nullableStructWriterFactory) {
+  public Union${listName}Writer(${listName}Vector vector, NullableStructWriterFactory nullableStructWriterFactory) {
     this.vector = vector;
     this.writer = new PromotableWriter(vector.getDataVector(), vector, nullableStructWriterFactory);
   }
 
-  public UnionListWriter(ListVector vector, AbstractFieldWriter parent) {
+  public Union${listName}Writer(${listName}Vector vector, AbstractFieldWriter parent) {
     this(vector);
   }
 
@@ -92,6 +98,7 @@ public class UnionListWriter extends AbstractFieldWriter {
   public void setPosition(int index) {
     super.setPosition(index);
   }
+
   <#list vv.types as type><#list type.minor as minor><#assign name = minor.class?cap_first />
   <#assign fields = minor.fields!type.fields />
   <#assign uncappedName = name?uncap_first/>
@@ -149,6 +156,19 @@ public class UnionListWriter extends AbstractFieldWriter {
     return structWriter;
   }
 
+  <#if listName == "LargeList">
+  @Override
+  public void startList() {
+    vector.startNewValue(idx());
+    writer.setPosition(checkedCastToInt(vector.getOffsetBuffer().getLong(((long) idx() + 1L) * OFFSET_WIDTH)));
+  }
+
+  @Override
+  public void endList() {
+    vector.getOffsetBuffer().setLong(((long) idx() + 1L) * OFFSET_WIDTH, writer.idx());
+    setPosition(idx() + 1);
+  }
+  <#else>
   @Override
   public void startList() {
     vector.startNewValue(idx());
@@ -160,6 +180,7 @@ public class UnionListWriter extends AbstractFieldWriter {
     vector.getOffsetBuffer().setInt((idx() + 1) * OFFSET_WIDTH, writer.idx());
     setPosition(idx() + 1);
   }
+  </#if>
 
   @Override
   public void start() {
@@ -224,3 +245,4 @@ public class UnionListWriter extends AbstractFieldWriter {
     </#list>
   </#list>
 }
+</#list>

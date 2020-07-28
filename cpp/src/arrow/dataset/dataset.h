@@ -28,6 +28,7 @@
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/mutex.h"
 
 namespace arrow {
 namespace dataset {
@@ -47,7 +48,8 @@ class ARROW_DS_EXPORT Fragment {
   ///
   /// The physical schema is also called the writer schema.
   /// This method is blocking and may suffer from high latency filesystem.
-  virtual Result<std::shared_ptr<Schema>> ReadPhysicalSchema() = 0;
+  /// The schema is cached after being read once, or may be specified at construction.
+  Result<std::shared_ptr<Schema>> ReadPhysicalSchema();
 
   /// \brief Scan returns an iterator of ScanTasks, each of which yields
   /// RecordBatches from this Fragment.
@@ -77,9 +79,14 @@ class ARROW_DS_EXPORT Fragment {
 
  protected:
   Fragment() = default;
-  explicit Fragment(std::shared_ptr<Expression> partition_expression);
+  explicit Fragment(std::shared_ptr<Expression> partition_expression,
+                    std::shared_ptr<Schema> physical_schema);
 
+  virtual Result<std::shared_ptr<Schema>> ReadPhysicalSchemaImpl() = 0;
+
+  util::Mutex physical_schema_mutex_;
   std::shared_ptr<Expression> partition_expression_ = scalar(true);
+  std::shared_ptr<Schema> physical_schema_;
 };
 
 /// \brief A trivial Fragment that yields ScanTask out of a fixed set of
@@ -91,8 +98,6 @@ class ARROW_DS_EXPORT InMemoryFragment : public Fragment {
   explicit InMemoryFragment(RecordBatchVector record_batches,
                             std::shared_ptr<Expression> = scalar(true));
 
-  Result<std::shared_ptr<Schema>> ReadPhysicalSchema() override;
-
   Result<ScanTaskIterator> Scan(std::shared_ptr<ScanOptions> options,
                                 std::shared_ptr<ScanContext> context) override;
 
@@ -101,7 +106,8 @@ class ARROW_DS_EXPORT InMemoryFragment : public Fragment {
   std::string type_name() const override { return "in-memory"; }
 
  protected:
-  std::shared_ptr<Schema> schema_;
+  Result<std::shared_ptr<Schema>> ReadPhysicalSchemaImpl() override;
+
   RecordBatchVector record_batches_;
 };
 

@@ -31,13 +31,8 @@ using internal::checked_cast;
 using internal::HashTraits;
 
 namespace compute {
+namespace internal {
 namespace {
-
-template <typename T, typename R = void>
-using enable_if_supports_set_lookup =
-    enable_if_t<has_c_type<T>::value || is_base_binary_type<T>::value ||
-                    is_fixed_size_binary_type<T>::value || is_decimal_type<T>::value,
-                R>;
 
 template <typename Type>
 struct SetLookupState : public KernelState {
@@ -46,11 +41,12 @@ struct SetLookupState : public KernelState {
 
   Status Init(const SetLookupOptions& options) {
     using T = typename GetViewType<Type>::T;
-    auto insert_value = [&](util::optional<T> v) {
-      if (v.has_value()) {
-        int32_t unused_memo_index;
-        return lookup_table.GetOrInsert(*v, &unused_memo_index);
-      } else if (!options.skip_nulls) {
+    auto visit_valid = [&](T v) {
+      int32_t unused_memo_index;
+      return lookup_table.GetOrInsert(v, &unused_memo_index);
+    };
+    auto visit_null = [&]() {
+      if (!options.skip_nulls) {
         lookup_table.GetOrInsertNull();
       }
       return Status::OK();
@@ -58,12 +54,14 @@ struct SetLookupState : public KernelState {
     if (options.value_set.kind() == Datum::ARRAY) {
       const std::shared_ptr<ArrayData>& value_set = options.value_set.array();
       this->lookup_null_count += value_set->GetNullCount();
-      return VisitArrayDataInline<Type>(*value_set, insert_value);
+      return VisitArrayDataInline<Type>(*value_set, std::move(visit_valid),
+                                        std::move(visit_null));
     } else {
       const ChunkedArray& value_set = *options.value_set.chunked_array();
       for (const std::shared_ptr<Array>& chunk : value_set.chunks()) {
         this->lookup_null_count += chunk->null_count();
-        RETURN_NOT_OK(VisitArrayDataInline<Type>(*chunk->data(), insert_value));
+        RETURN_NOT_OK(VisitArrayDataInline<Type>(*chunk->data(), std::move(visit_valid),
+                                                 std::move(visit_null)));
       }
       return Status::OK();
     }
@@ -87,6 +85,30 @@ struct SetLookupState<NullType> : public KernelState {
   int64_t lookup_null_count;
 };
 
+// TODO: Put this concept somewhere reusable
+template <int width>
+struct UnsignedIntType;
+
+template <>
+struct UnsignedIntType<1> {
+  using Type = UInt8Type;
+};
+
+template <>
+struct UnsignedIntType<2> {
+  using Type = UInt16Type;
+};
+
+template <>
+struct UnsignedIntType<4> {
+  using Type = UInt32Type;
+};
+
+template <>
+struct UnsignedIntType<8> {
+  using Type = UInt64Type;
+};
+
 // Constructing the type requires a type parameter
 struct InitStateVisitor {
   KernelContext* ctx;
@@ -98,6 +120,10 @@ struct InitStateVisitor {
 
   template <typename Type>
   Status Init() {
+    if (options == nullptr) {
+      return Status::Invalid(
+          "Attempted to call a set lookup function without SetLookupOptions");
+    }
     using StateType = SetLookupState<Type>;
     result.reset(new StateType(ctx->exec_context()->memory_pool()));
     return static_cast<StateType*>(result.get())->Init(*options);
@@ -106,14 +132,23 @@ struct InitStateVisitor {
   Status Visit(const DataType&) { return Init<NullType>(); }
 
   template <typename Type>
-  enable_if_supports_set_lookup<Type, Status> Visit(const Type&) {
-    return Init<Type>();
+  enable_if_boolean<Type, Status> Visit(const Type&) {
+    return Init<BooleanType>();
   }
 
-  // Handle Decimal128 as a physical string, not a number
-  Status Visit(const Decimal128Type& type) {
-    return Visit(checked_cast<const FixedSizeBinaryType&>(type));
+  template <typename Type>
+  enable_if_t<has_c_type<Type>::value && !is_boolean_type<Type>::value, Status> Visit(
+      const Type&) {
+    return Init<typename UnsignedIntType<sizeof(typename Type::c_type)>::Type>();
   }
+
+  template <typename Type>
+  enable_if_base_binary<Type, Status> Visit(const Type&) {
+    return Init<typename Type::PhysicalType>();
+  }
+
+  // Handle Decimal128Type, FixedSizeBinaryType
+  Status Visit(const FixedSizeBinaryType& type) { return Init<FixedSizeBinaryType>(); }
 
   Status GetResult(std::unique_ptr<KernelState>* out) {
     RETURN_NOT_OK(VisitTypeInline(*options->value_set.type(), this));
@@ -130,13 +165,13 @@ std::unique_ptr<KernelState> InitSetLookup(KernelContext* ctx,
   return result;
 }
 
-struct MatchVisitor {
+struct IndexInVisitor {
   KernelContext* ctx;
   const ArrayData& data;
   Datum* out;
   Int32Builder builder;
 
-  MatchVisitor(KernelContext* ctx, const ArrayData& data, Datum* out)
+  IndexInVisitor(KernelContext* ctx, const ArrayData& data, Datum* out)
       : ctx(ctx), data(data), out(out), builder(ctx->exec_context()->memory_pool()) {}
 
   Status Visit(const DataType&) {
@@ -155,40 +190,57 @@ struct MatchVisitor {
   }
 
   template <typename Type>
-  enable_if_supports_set_lookup<Type, Status> Visit(const Type&) {
+  Status ProcessIndexIn() {
     using T = typename GetViewType<Type>::T;
 
     const auto& state = checked_cast<const SetLookupState<Type>&>(*ctx->state());
 
     int32_t null_index = state.lookup_table.GetNull();
     RETURN_NOT_OK(this->builder.Reserve(data.length));
-    auto lookup_value = [&](util::optional<T> v) {
-      if (v.has_value()) {
-        int32_t index = state.lookup_table.Get(*v);
-        if (index != -1) {
-          // matching needle; output index from value_set
-          this->builder.UnsafeAppend(index);
-        } else {
-          // no matching needle; output null
-          this->builder.UnsafeAppendNull();
-        }
-      } else {
-        if (null_index != -1) {
-          // value_set included null
-          this->builder.UnsafeAppend(null_index);
-        } else {
-          // value_set does not include null; output null
-          this->builder.UnsafeAppendNull();
-        }
-      }
-    };
-    VisitArrayDataInline<Type>(data, lookup_value);
+    VisitArrayDataInline<Type>(
+        data,
+        [&](T v) {
+          int32_t index = state.lookup_table.Get(v);
+          if (index != -1) {
+            // matching needle; output index from value_set
+            this->builder.UnsafeAppend(index);
+          } else {
+            // no matching needle; output null
+            this->builder.UnsafeAppendNull();
+          }
+        },
+        [&]() {
+          if (null_index != -1) {
+            // value_set included null
+            this->builder.UnsafeAppend(null_index);
+          } else {
+            // value_set does not include null; output null
+            this->builder.UnsafeAppendNull();
+          }
+        });
     return Status::OK();
   }
 
-  // Handle Decimal128 as a physical string, not a number
-  Status Visit(const Decimal128Type& type) {
-    return Visit(checked_cast<const FixedSizeBinaryType&>(type));
+  template <typename Type>
+  enable_if_boolean<Type, Status> Visit(const Type&) {
+    return ProcessIndexIn<BooleanType>();
+  }
+
+  template <typename Type>
+  enable_if_t<has_c_type<Type>::value && !is_boolean_type<Type>::value, Status> Visit(
+      const Type&) {
+    return ProcessIndexIn<
+        typename UnsignedIntType<sizeof(typename Type::c_type)>::Type>();
+  }
+
+  template <typename Type>
+  enable_if_base_binary<Type, Status> Visit(const Type&) {
+    return ProcessIndexIn<typename Type::PhysicalType>();
+  }
+
+  // Handle Decimal128Type, FixedSizeBinaryType
+  Status Visit(const FixedSizeBinaryType& type) {
+    return ProcessIndexIn<FixedSizeBinaryType>();
   }
 
   Status Execute() {
@@ -203,9 +255,25 @@ struct MatchVisitor {
   }
 };
 
-void ExecMatch(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  MatchVisitor dispatch(ctx, *batch[0].array(), out);
-  ctx->SetStatus(dispatch.Execute());
+void ExecArrayOrScalar(KernelContext* ctx, const Datum& in, Datum* out,
+                       std::function<Status(const ArrayData&)> array_impl) {
+  if (in.is_array()) {
+    KERNEL_RETURN_IF_ERROR(ctx, array_impl(*in.array()));
+    return;
+  }
+
+  std::shared_ptr<Array> in_array;
+  std::shared_ptr<Scalar> out_scalar;
+  KERNEL_RETURN_IF_ERROR(ctx, MakeArrayFromScalar(*in.scalar(), 1).Value(&in_array));
+  KERNEL_RETURN_IF_ERROR(ctx, array_impl(*in_array->data()));
+  KERNEL_RETURN_IF_ERROR(ctx, out->make_array()->GetScalar(0).Value(&out_scalar));
+  *out = std::move(out_scalar);
+}
+
+void ExecIndexIn(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  ExecArrayOrScalar(ctx, batch[0], out, [&](const ArrayData& in) {
+    return IndexInVisitor(ctx, in, out).Execute();
+  });
 }
 
 // ----------------------------------------------------------------------
@@ -235,7 +303,7 @@ struct IsInVisitor {
   }
 
   template <typename Type>
-  enable_if_supports_set_lookup<Type, Status> Visit(const Type&) {
+  Status ProcessIsIn() {
     using T = typename GetViewType<Type>::T;
     const auto& state = checked_cast<const SetLookupState<Type>&>(*ctx->state());
     ArrayData* output = out->mutable_array();
@@ -249,30 +317,52 @@ struct IsInVisitor {
     }
     FirstTimeBitmapWriter writer(output->buffers[1]->mutable_data(), output->offset,
                                  output->length);
-    auto lookup_value = [&](util::optional<T> v) {
-      if (!v.has_value() || state.lookup_table.Get(*v) != -1) {
-        writer.Set();
-      } else {
-        writer.Clear();
-      }
-      writer.Next();
-    };
-    VisitArrayDataInline<Type>(this->data, std::move(lookup_value));
+    VisitArrayDataInline<Type>(
+        this->data,
+        [&](T v) {
+          if (state.lookup_table.Get(v) != -1) {
+            writer.Set();
+          } else {
+            writer.Clear();
+          }
+          writer.Next();
+        },
+        [&]() {
+          writer.Set();
+          writer.Next();
+        });
     writer.Finish();
     return Status::OK();
   }
 
-  // Handle Decimal128 as a physical string, not a number
-  Status Visit(const Decimal128Type& type) {
-    return Visit(checked_cast<const FixedSizeBinaryType&>(type));
+  template <typename Type>
+  enable_if_boolean<Type, Status> Visit(const Type&) {
+    return ProcessIsIn<BooleanType>();
+  }
+
+  template <typename Type>
+  enable_if_t<has_c_type<Type>::value && !is_boolean_type<Type>::value, Status> Visit(
+      const Type&) {
+    return ProcessIsIn<typename UnsignedIntType<sizeof(typename Type::c_type)>::Type>();
+  }
+
+  template <typename Type>
+  enable_if_base_binary<Type, Status> Visit(const Type&) {
+    return ProcessIsIn<typename Type::PhysicalType>();
+  }
+
+  // Handle Decimal128Type, FixedSizeBinaryType
+  Status Visit(const FixedSizeBinaryType& type) {
+    return ProcessIsIn<FixedSizeBinaryType>();
   }
 
   Status Execute() { return VisitTypeInline(*data.type, this); }
 };
 
 void ExecIsIn(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  IsInVisitor dispatch(ctx, *batch[0].array(), out);
-  ctx->SetStatus(dispatch.Execute());
+  ExecArrayOrScalar(ctx, batch[0], out, [&](const ArrayData& in) {
+    return IsInVisitor(ctx, in, out).Execute();
+  });
 }
 
 // Unary set lookup kernels available for the following input types
@@ -289,7 +379,7 @@ void AddBasicSetLookupKernels(ScalarKernel kernel,
                               ScalarFunction* func) {
   auto AddKernels = [&](const std::vector<std::shared_ptr<DataType>>& types) {
     for (const std::shared_ptr<DataType>& ty : types) {
-      kernel.signature = KernelSignature::Make({InputType::Array(ty)}, out_ty);
+      kernel.signature = KernelSignature::Make({ty}, out_ty);
       DCHECK_OK(func->AddKernel(kernel));
     }
   };
@@ -306,9 +396,33 @@ void AddBasicSetLookupKernels(ScalarKernel kernel,
   }
 }
 
-}  // namespace
+// Enables calling is_in with CallFunction as though it were binary.
+class IsInMetaBinary : public MetaFunction {
+ public:
+  IsInMetaBinary() : MetaFunction("is_in_meta_binary", Arity::Binary()) {}
 
-namespace internal {
+  Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
+                            const FunctionOptions* options,
+                            ExecContext* ctx) const override {
+    DCHECK_EQ(options, nullptr);
+    return IsIn(args[0], args[1], ctx);
+  }
+};
+
+// Enables calling index_in with CallFunction as though it were binary.
+class IndexInMetaBinary : public MetaFunction {
+ public:
+  IndexInMetaBinary() : MetaFunction("index_in_meta_binary", Arity::Binary()) {}
+
+  Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
+                            const FunctionOptions* options,
+                            ExecContext* ctx) const override {
+    DCHECK_EQ(options, nullptr);
+    return IndexIn(args[0], args[1], ctx);
+  }
+};
+
+}  // namespace
 
 void RegisterScalarSetLookup(FunctionRegistry* registry) {
   // IsIn always writes into preallocated memory
@@ -316,29 +430,33 @@ void RegisterScalarSetLookup(FunctionRegistry* registry) {
     ScalarKernel isin_base;
     isin_base.init = InitSetLookup;
     isin_base.exec = ExecIsIn;
-    auto isin = std::make_shared<ScalarFunction>("isin", Arity::Unary());
+    auto is_in = std::make_shared<ScalarFunction>("is_in", Arity::Unary());
 
-    AddBasicSetLookupKernels(isin_base, /*output_type=*/boolean(), isin.get());
+    AddBasicSetLookupKernels(isin_base, /*output_type=*/boolean(), is_in.get());
 
-    isin_base.signature = KernelSignature::Make({InputType::Array(null())}, boolean());
+    isin_base.signature = KernelSignature::Make({null()}, boolean());
     isin_base.null_handling = NullHandling::COMPUTED_PREALLOCATE;
-    DCHECK_OK(isin->AddKernel(isin_base));
-    DCHECK_OK(registry->AddFunction(isin));
+    DCHECK_OK(is_in->AddKernel(isin_base));
+    DCHECK_OK(registry->AddFunction(is_in));
+
+    DCHECK_OK(registry->AddFunction(std::make_shared<IsInMetaBinary>()));
   }
 
-  // Match uses Int32Builder and so is responsible for all its own allocation
+  // IndexIn uses Int32Builder and so is responsible for all its own allocation
   {
     ScalarKernel match_base;
     match_base.init = InitSetLookup;
-    match_base.exec = ExecMatch;
+    match_base.exec = ExecIndexIn;
     match_base.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
     match_base.mem_allocation = MemAllocation::NO_PREALLOCATE;
-    auto match = std::make_shared<ScalarFunction>("match", Arity::Unary());
+    auto match = std::make_shared<ScalarFunction>("index_in", Arity::Unary());
     AddBasicSetLookupKernels(match_base, /*output_type=*/int32(), match.get());
 
-    match_base.signature = KernelSignature::Make({InputType::Array(null())}, int32());
+    match_base.signature = KernelSignature::Make({null()}, int32());
     DCHECK_OK(match->AddKernel(match_base));
     DCHECK_OK(registry->AddFunction(match));
+
+    DCHECK_OK(registry->AddFunction(std::make_shared<IndexInMetaBinary>()));
   }
 }
 

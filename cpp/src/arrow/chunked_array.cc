@@ -64,6 +64,24 @@ ChunkedArray::ChunkedArray(ArrayVector chunks, std::shared_ptr<DataType> type)
   }
 }
 
+Result<std::shared_ptr<ChunkedArray>> ChunkedArray::Make(ArrayVector chunks,
+                                                         std::shared_ptr<DataType> type) {
+  if (type == nullptr) {
+    if (chunks.size() == 0) {
+      return Status::Invalid(
+          "cannot construct ChunkedArray from empty vector "
+          "and omitted type");
+    }
+    type = chunks[0]->type();
+  }
+  for (size_t i = 0; i < chunks.size(); ++i) {
+    if (!chunks[i]->type()->Equals(*type)) {
+      return Status::Invalid("Array chunks must all be same type");
+    }
+  }
+  return std::make_shared<ChunkedArray>(std::move(chunks), std::move(type));
+}
+
 bool ChunkedArray::Equals(const ChunkedArray& other) const {
   if (length_ != other.length()) {
     return false;

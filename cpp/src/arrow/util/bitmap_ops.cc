@@ -17,12 +17,10 @@
 
 #include "arrow/util/bitmap_ops.h"
 
-#include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <functional>
 #include <memory>
-#include <type_traits>
 
 #include "arrow/buffer.h"
 #include "arrow/result.h"

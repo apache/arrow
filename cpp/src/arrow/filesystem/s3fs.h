@@ -58,6 +58,9 @@ struct ARROW_EXPORT S3Options {
   /// Configure with the default AWS credentials provider chain.
   void ConfigureDefaultCredentials();
 
+  /// Configure with anonymous credentials.  This will only let you access public buckets.
+  void ConfigureAnonymousCredentials();
+
   /// Configure with explicit access and secret key.
   void ConfigureAccessKey(const std::string& access_key, const std::string& secret_key);
 
@@ -71,6 +74,10 @@ struct ARROW_EXPORT S3Options {
   /// This is recommended if you use the standard AWS environment variables
   /// and/or configuration file.
   static S3Options Defaults();
+  /// \brief Initialize with anonymous credentials.
+  ///
+  /// This will only let you access public buckets.
+  static S3Options Anonymous();
   /// \brief Initialize with explicit access and secret key
   static S3Options FromAccessKey(const std::string& access_key,
                                  const std::string& secret_key);
@@ -105,6 +112,7 @@ class ARROW_EXPORT S3FileSystem : public FileSystem {
 
   Status DeleteDir(const std::string& path) override;
   Status DeleteDirContents(const std::string& path) override;
+  Status DeleteRootDirContents() override;
 
   Status DeleteFile(const std::string& path) override;
 
@@ -119,12 +127,23 @@ class ARROW_EXPORT S3FileSystem : public FileSystem {
   /// a custom readahead strategy to avoid idle waits.
   Result<std::shared_ptr<io::InputStream>> OpenInputStream(
       const std::string& path) override;
+  /// Create a sequential input stream for reading from a S3 object.
+  ///
+  /// This override avoids a HEAD request by assuming the FileInfo
+  /// contains correct information.
+  Result<std::shared_ptr<io::InputStream>> OpenInputStream(const FileInfo& info) override;
 
   /// Create a random access file for reading from a S3 object.
   ///
   /// See OpenInputStream for performance notes.
   Result<std::shared_ptr<io::RandomAccessFile>> OpenInputFile(
       const std::string& path) override;
+  /// Create a random access file for reading from a S3 object.
+  ///
+  /// This override avoids a HEAD request by assuming the FileInfo
+  /// contains correct information.
+  Result<std::shared_ptr<io::RandomAccessFile>> OpenInputFile(
+      const FileInfo& info) override;
 
   /// Create a sequential output stream for writing to a S3 object.
   ///

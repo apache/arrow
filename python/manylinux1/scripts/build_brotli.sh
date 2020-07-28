@@ -26,7 +26,6 @@ cmake -DCMAKE_BUILD_TYPE=release \
     "-DCMAKE_CXX_FLAGS=-fPIC" \
     "-DCMAKE_C_FLAGS=-fPIC" \
     -DCMAKE_INSTALL_PREFIX=/usr/local \
-    -DBUILD_SHARED_LIBS=OFF \
     -GNinja \
     ..
 ninja install

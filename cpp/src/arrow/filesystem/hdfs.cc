@@ -22,6 +22,7 @@
 
 #include "arrow/filesystem/hdfs.h"
 #include "arrow/filesystem/path_util.h"
+#include "arrow/filesystem/util_internal.h"
 #include "arrow/io/hdfs.h"
 #include "arrow/io/hdfs_internal.h"
 #include "arrow/util/checked_cast.h"
@@ -421,8 +422,13 @@ Status HadoopFileSystem::DeleteDir(const std::string& path) {
 }
 
 Status HadoopFileSystem::DeleteDirContents(const std::string& path) {
+  if (internal::IsEmptyPath(path)) {
+    return internal::InvalidDeleteDirContents(path);
+  }
   return impl_->DeleteDirContents(path);
 }
+
+Status HadoopFileSystem::DeleteRootDirContents() { return impl_->DeleteDirContents(""); }
 
 Status HadoopFileSystem::DeleteFile(const std::string& path) {
   return impl_->DeleteFile(path);

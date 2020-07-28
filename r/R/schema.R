@@ -83,16 +83,21 @@ Schema <- R6Class("Schema",
     }
   ),
   active = list(
-    names = function() Schema__field_names(self),
+    names = function() {
+      out <- Schema__field_names(self)
+      # Hack: Rcpp should set the encoding
+      Encoding(out) <- "UTF-8"
+      out
+    },
     num_fields = function() Schema__num_fields(self),
     fields = function() map(Schema__fields(self), shared_ptr, class = Field),
     HasMetadata = function() Schema__HasMetadata(self),
-    metadata = function(new) {
-      if (missing(new)) {
+    metadata = function(new_metadata) {
+      if (missing(new_metadata)) {
         Schema__metadata(self)
       } else {
         # Set the metadata
-        out <- self$WithMetadata(new)
+        out <- self$WithMetadata(new_metadata)
         # $WithMetadata returns a new object but we're modifying in place,
         # so swap in that new C++ object pointer into our R6 object
         self$set_pointer(out$pointer())
@@ -135,6 +140,27 @@ names.Schema <- function(x) x$names
 #' @export
 length.Schema <- function(x) x$num_fields
 
+#' @export
+`[[.Schema` <- function(x, i, ...) {
+  if (is.character(i)) {
+    x$GetFieldByName(i)
+  } else if (is.numeric(i)) {
+    x$field(i - 1)
+  } else {
+    stop("'i' must be character or numeric, not ", class(i), call. = FALSE)
+  }
+}
+
+#' @export
+`$.Schema` <- function(x, name, ...) {
+  assert_that(is.string(name))
+  if (name %in% ls(x)) {
+    get(name, x)
+  } else {
+    x$GetFieldByName(name)
+  }
+}
+
 #' read a Schema from a stream
 #'
 #' @param stream a `Message`, `InputStream`, or `Buffer`
@@ -163,8 +189,15 @@ read_schema <- function(stream, ...) {
 #' \dontrun{
 #' a <- schema(b = double(), c = bool())
 #' z <- schema(b = double(), k = utf8())
-#' unify_schemas(a, z),
+#' unify_schemas(a, z)
 #' }
 unify_schemas <- function(..., schemas = list(...)) {
   shared_ptr(Schema, arrow__UnifySchemas(schemas))
+}
+
+#' @export
+print.arrow_r_metadata <- function(x, ...) {
+  utils::str(x)
+  utils::str(.unserialize_arrow_r_metadata(x))
+  invisible(x)
 }

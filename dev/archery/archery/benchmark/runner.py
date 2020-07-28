@@ -34,10 +34,15 @@ def regex_filter(re_expr):
     return lambda s: re_comp.search(s)
 
 
+DEFAULT_REPETITIONS = 1
+
+
 class BenchmarkRunner:
-    def __init__(self, suite_filter=None, benchmark_filter=None):
+    def __init__(self, suite_filter=None, benchmark_filter=None,
+                 repetitions=DEFAULT_REPETITIONS):
         self.suite_filter = suite_filter
         self.benchmark_filter = benchmark_filter
+        self.repetitions = repetitions
 
     @property
     def suites(self):
@@ -137,8 +142,18 @@ class CppBenchmarkRunner(BenchmarkRunner):
     def default_configuration(**kwargs):
         """ Returns the default benchmark configuration. """
         return CppConfiguration(
-            build_type="release", with_tests=True, with_benchmarks=True,
-            with_compute=True, with_python=False, **kwargs)
+            build_type="release", with_tests=False, with_benchmarks=True,
+            with_compute=True,
+            with_dataset=True,
+            with_parquet=True,
+            with_python=False,
+            with_brotli=True,
+            with_bz2=True,
+            with_lz4=True,
+            with_snappy=True,
+            with_zlib=True,
+            with_zstd=True,
+            **kwargs)
 
     @property
     def suites_binaries(self):
@@ -158,7 +173,7 @@ class CppBenchmarkRunner(BenchmarkRunner):
         if not benchmark_names:
             return None
 
-        results = suite_cmd.results()
+        results = suite_cmd.results(repetitions=self.repetitions)
         benchmarks = GoogleBenchmark.from_json(results.get("benchmarks"))
         return BenchmarkSuite(name, benchmarks)
 

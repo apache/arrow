@@ -30,9 +30,6 @@ def partition(pred, iterable):
     return list(filter(pred, t1)), list(filterfalse(pred, t2))
 
 
-DEFAULT_REPETITIONS = 10
-
-
 class GoogleBenchmarkCommand(Command):
     """ Run a google benchmark binary.
 
@@ -52,7 +49,7 @@ class GoogleBenchmarkCommand(Command):
                           stderr=subprocess.PIPE)
         return str.splitlines(result.stdout.decode("utf-8"))
 
-    def results(self, repetitions=DEFAULT_REPETITIONS):
+    def results(self, repetitions=1):
         with NamedTemporaryFile() as out:
             argv = ["--benchmark_repetitions={}".format(repetitions),
                     "--benchmark_out={}".format(out.name),
@@ -92,7 +89,7 @@ class GoogleBenchmarkObservation:
     """
 
     def __init__(self, name, real_time, cpu_time, time_unit, size=None,
-                 bytes_per_second=None, items_per_second=None, **kwargs):
+                 bytes_per_second=None, items_per_second=None, **counters):
         self._name = name
         self.real_time = real_time
         self.cpu_time = cpu_time
@@ -100,6 +97,7 @@ class GoogleBenchmarkObservation:
         self.size = size
         self.bytes_per_second = bytes_per_second
         self.items_per_second = items_per_second
+        self.counters = counters
 
     @property
     def is_agg(self):
@@ -160,6 +158,8 @@ class GoogleBenchmark(Benchmark):
         unit = self.runs[0].unit
         less_is_better = not unit.endswith("per_second")
         values = [b.value for b in self.runs]
+        # Slight kludge to extract the UserCounters for each benchmark
+        self.counters = self.runs[0].counters
         super().__init__(name, unit, less_is_better, values)
 
     def __repr__(self):

@@ -17,14 +17,16 @@
 
 //! SQL Parser
 //!
-//! Note that most SQL parsing is now delegated to the sqlparser crate, which handles ANSI
-//! SQL but this module contains DataFusion-specific SQL extensions.
+//! Declares a SQL parser based on sqlparser that handles custom formats that we need.
 
-use sqlparser::dialect::*;
-use sqlparser::sqlast::*;
-use sqlparser::sqlparser::*;
-use sqlparser::sqltokenizer::*;
+use sqlparser::{
+    ast::{ColumnDef, Statement as SQLStatement, TableConstraint},
+    dialect::{keywords::Keyword, GenericDialect},
+    parser::{Parser, ParserError},
+    tokenizer::{Token, Tokenizer},
+};
 
+// Use `Parser::expected` instead, if possible
 macro_rules! parser_err {
     ($MSG:expr) => {
         Err(ParserError::ParserError($MSG.to_string()))
@@ -42,19 +44,19 @@ pub enum FileType {
     CSV,
 }
 
-/// DataFrame AST Node representations.
+/// DataFrame Statement's representations.
 ///
 /// Tokens parsed by `DFParser` are converted into these values.
 #[derive(Debug, Clone)]
-pub enum DFASTNode {
+pub enum Statement {
     /// ANSI SQL AST node
-    ANSI(ASTNode),
+    Statement(SQLStatement),
     /// DDL for creating an external table in DataFusion
     CreateExternalTable {
         /// Table name
         name: String,
         /// Optional schema
-        columns: Vec<SQLColumnDef>,
+        columns: Vec<ColumnDef>,
         /// File type (Parquet, NDJSON, CSV)
         file_type: FileType,
         /// CSV Header row?
@@ -72,7 +74,7 @@ pub struct DFParser {
 impl DFParser {
     /// Parse the specified tokens
     pub fn new(sql: &str) -> Result<Self, ParserError> {
-        let dialect = GenericSqlDialect {};
+        let dialect = GenericDialect {};
         let mut tokenizer = Tokenizer::new(&dialect, sql);
         let tokens = tokenizer.tokenize()?;
         Ok(DFParser {
@@ -80,145 +82,180 @@ impl DFParser {
         })
     }
 
-    /// Parse a SQL statement and produce an Abstract Syntax Tree (AST)
-    pub fn parse_sql(sql: &str) -> Result<DFASTNode, ParserError> {
+    /// Parse a SQL statement and produce a set of statements
+    pub fn parse_sql(sql: &str) -> Result<Vec<Statement>, ParserError> {
+        let mut tokenizer = Tokenizer::new(&GenericDialect {}, &sql);
+        tokenizer.tokenize()?;
         let mut parser = DFParser::new(sql)?;
-        parser.parse()
+        let mut stmts = Vec::new();
+        let mut expecting_statement_delimiter = false;
+        loop {
+            // ignore empty statements (between successive statement delimiters)
+            while parser.parser.consume_token(&Token::SemiColon) {
+                expecting_statement_delimiter = false;
+            }
+
+            if parser.parser.peek_token() == Token::EOF {
+                break;
+            }
+            if expecting_statement_delimiter {
+                return parser.expected("end of statement", parser.parser.peek_token());
+            }
+
+            let statement = parser.parse_statement()?;
+            stmts.push(statement);
+            expecting_statement_delimiter = true;
+        }
+        Ok(stmts)
+    }
+
+    /// Report unexpected token
+    fn expected<T>(&self, expected: &str, found: Token) -> Result<T, ParserError> {
+        parser_err!(format!("Expected {}, found: {}", expected, found))
     }
 
     /// Parse a new expression
-    pub fn parse(&mut self) -> Result<DFASTNode, ParserError> {
-        self.parse_expr(0)
-    }
-
-    /// Parse tokens until the precedence changes
-    fn parse_expr(&mut self, precedence: u8) -> Result<DFASTNode, ParserError> {
-        let mut expr = self.parse_prefix()?;
-        loop {
-            let next_precedence = self.parser.get_next_precedence()?;
-            if precedence >= next_precedence {
-                break;
-            }
-
-            if let Some(infix_expr) = self.parse_infix(expr.clone(), next_precedence)? {
-                expr = infix_expr;
-            }
-        }
-        Ok(expr)
-    }
-
-    /// Parse an expression prefix
-    fn parse_prefix(&mut self) -> Result<DFASTNode, ParserError> {
-        if self
-            .parser
-            .parse_keywords(vec!["CREATE", "EXTERNAL", "TABLE"])
-        {
-            match self.parser.next_token() {
-                Some(Token::Identifier(id)) => {
-                    // parse optional column list (schema)
-                    let mut columns = vec![];
-                    if self.parser.consume_token(&Token::LParen) {
-                        loop {
-                            if let Some(Token::Identifier(column_name)) =
-                                self.parser.next_token()
-                            {
-                                if let Ok(data_type) = self.parser.parse_data_type() {
-                                    let allow_null = if self
-                                        .parser
-                                        .parse_keywords(vec!["NOT", "NULL"])
-                                    {
-                                        false
-                                    } else if self.parser.parse_keyword("NULL") {
-                                        true
-                                    } else {
-                                        true
-                                    };
-
-                                    columns.push(SQLColumnDef {
-                                        name: column_name,
-                                        data_type: data_type,
-                                        allow_null,
-                                        default: None,
-                                        is_primary: false,
-                                        is_unique: false,
-                                    });
-                                    match self.parser.next_token() {
-                                        Some(Token::Comma) => continue,
-                                        Some(Token::RParen) => break,
-                                        _ => {
-                                            return parser_err!(
-                                                "Expected ',' or ')' after column definition"
-                                            );
-                                        }
-                                    }
-                                } else {
-                                    return parser_err!(
-                                        "Error parsing data type in column definition"
-                                    );
-                                }
-                            } else {
-                                return parser_err!("Error parsing column name");
-                            }
-                        }
-                    }
-
-                    let mut has_header = true;
-                    let file_type: FileType = if self
-                        .parser
-                        .parse_keywords(vec!["STORED", "AS", "CSV"])
-                    {
-                        if self.parser.parse_keywords(vec!["WITH", "HEADER", "ROW"]) {
-                            has_header = true;
-                        } else if self
-                            .parser
-                            .parse_keywords(vec!["WITHOUT", "HEADER", "ROW"])
-                        {
-                            has_header = false;
-                        }
-                        FileType::CSV
-                    } else if self.parser.parse_keywords(vec!["STORED", "AS", "NDJSON"]) {
-                        FileType::NdJson
-                    } else if self.parser.parse_keywords(vec!["STORED", "AS", "PARQUET"])
-                    {
-                        FileType::Parquet
-                    } else {
-                        return parser_err!(format!(
-                            "Expected 'STORED AS' clause, found {:?}",
-                            self.parser.peek_token()
-                        ));
-                    };
-
-                    let location: String = if self.parser.parse_keywords(vec!["LOCATION"])
-                    {
-                        self.parser.parse_literal_string()?
-                    } else {
-                        return parser_err!("Missing 'LOCATION' clause");
-                    };
-
-                    Ok(DFASTNode::CreateExternalTable {
-                        name: id,
-                        columns,
-                        file_type,
-                        has_header,
-                        location,
-                    })
+    pub fn parse_statement(&mut self) -> Result<Statement, ParserError> {
+        match self.parser.peek_token() {
+            Token::Word(w) => match w.keyword {
+                Keyword::CREATE => {
+                    // move one token forward
+                    self.parser.next_token();
+                    // use custom parsing
+                    Ok(self.parse_create()?)
                 }
-                _ => parser_err!(format!(
-                    "Unexpected token after CREATE EXTERNAL TABLE: {:?}",
-                    self.parser.peek_token()
-                )),
+                _ => {
+                    // use the native parser
+                    Ok(Statement::Statement(self.parser.parse_statement()?))
+                }
+            },
+            _ => {
+                // use the native parser
+                Ok(Statement::Statement(self.parser.parse_statement()?))
             }
-        } else {
-            Ok(DFASTNode::ANSI(self.parser.parse_prefix()?))
         }
     }
 
-    /// Parse an infix operator
-    pub fn parse_infix(
+    /// Parse a SQL CREATE statement
+    pub fn parse_create(&mut self) -> Result<Statement, ParserError> {
+        if self.parser.parse_keyword(Keyword::EXTERNAL) {
+            self.parse_create_external_table()
+        } else {
+            Ok(Statement::Statement(self.parser.parse_create()?))
+        }
+    }
+
+    // This is a copy of the equivalent implementation in sqlparser.
+    fn parse_columns(
         &mut self,
-        _expr: DFASTNode,
-        _precedence: u8,
-    ) -> Result<Option<DFASTNode>, ParserError> {
-        unimplemented!()
+    ) -> Result<(Vec<ColumnDef>, Vec<TableConstraint>), ParserError> {
+        let mut columns = vec![];
+        let mut constraints = vec![];
+        if !self.parser.consume_token(&Token::LParen)
+            || self.parser.consume_token(&Token::RParen)
+        {
+            return Ok((columns, constraints));
+        }
+
+        loop {
+            if let Some(constraint) = self.parser.parse_optional_table_constraint()? {
+                constraints.push(constraint);
+            } else if let Token::Word(_) = self.parser.peek_token() {
+                let column_def = self.parse_column_def()?;
+                columns.push(column_def);
+            } else {
+                return self.expected(
+                    "column name or constraint definition",
+                    self.parser.peek_token(),
+                );
+            }
+            let comma = self.parser.consume_token(&Token::Comma);
+            if self.parser.consume_token(&Token::RParen) {
+                // allow a trailing comma, even though it's not in standard
+                break;
+            } else if !comma {
+                return self.expected(
+                    "',' or ')' after column definition",
+                    self.parser.peek_token(),
+                );
+            }
+        }
+
+        Ok((columns, constraints))
+    }
+
+    fn parse_column_def(&mut self) -> Result<ColumnDef, ParserError> {
+        let name = self.parser.parse_identifier()?;
+        let data_type = self.parser.parse_data_type()?;
+        let collation = if self.parser.parse_keyword(Keyword::COLLATE) {
+            Some(self.parser.parse_object_name()?)
+        } else {
+            None
+        };
+        let mut options = vec![];
+        loop {
+            match self.parser.peek_token() {
+                Token::EOF | Token::Comma | Token::RParen => break,
+                _ => options.push(self.parser.parse_column_option_def()?),
+            }
+        }
+        Ok(ColumnDef {
+            name,
+            data_type,
+            collation,
+            options,
+        })
+    }
+
+    fn parse_create_external_table(&mut self) -> Result<Statement, ParserError> {
+        self.parser.expect_keyword(Keyword::TABLE)?;
+        let table_name = self.parser.parse_object_name()?;
+        let (columns, _) = self.parse_columns()?;
+        self.parser
+            .expect_keywords(&[Keyword::STORED, Keyword::AS])?;
+
+        // THIS is the main difference: we parse a different file format.
+        let file_type = self.parse_file_format()?;
+
+        let has_header = self.parse_csv_has_header();
+
+        self.parser.expect_keyword(Keyword::LOCATION)?;
+        let location = self.parser.parse_literal_string()?;
+
+        Ok(Statement::CreateExternalTable {
+            name: table_name.to_string(),
+            columns,
+            file_type,
+            has_header,
+            location,
+        })
+    }
+
+    /// Parses the set of valid formats
+    fn parse_file_format(&mut self) -> Result<FileType, ParserError> {
+        match self.parser.next_token() {
+            Token::Word(w) => match &*w.value {
+                "PARQUET" => Ok(FileType::Parquet),
+                "NDJSON" => Ok(FileType::NdJson),
+                "CSV" => Ok(FileType::CSV),
+                _ => self.expected("fileformat", Token::Word(w)),
+            },
+            unexpected => self.expected("fileformat", unexpected),
+        }
+    }
+
+    fn consume_token(&mut self, expected: &str) -> bool {
+        if self.parser.peek_token().to_string() == *expected {
+            self.parser.next_token();
+            true
+        } else {
+            false
+        }
+    }
+
+    fn parse_csv_has_header(&mut self) -> bool {
+        self.consume_token("WITH")
+            & self.consume_token("HEADER")
+            & self.consume_token("ROW")
     }
 }

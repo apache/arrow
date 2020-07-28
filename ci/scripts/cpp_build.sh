@@ -97,6 +97,7 @@ cmake -G "${CMAKE_GENERATOR:-Ninja}" \
       -DARROW_WITH_BZ2=${ARROW_WITH_BZ2:-OFF} \
       -DARROW_WITH_LZ4=${ARROW_WITH_LZ4:-OFF} \
       -DARROW_WITH_SNAPPY=${ARROW_WITH_SNAPPY:-OFF} \
+      -DARROW_WITH_UTF8PROC=${ARROW_WITH_UTF8PROC:-ON} \
       -DARROW_WITH_ZLIB=${ARROW_WITH_ZLIB:-OFF} \
       -DARROW_WITH_ZSTD=${ARROW_WITH_ZSTD:-OFF} \
       -Dbenchmark_SOURCE=${benchmark_SOURCE:-} \
@@ -123,6 +124,7 @@ cmake -G "${CMAKE_GENERATOR:-Ninja}" \
       -DRE2_SOURCE=${RE2_SOURCE:-} \
       -DSnappy_SOURCE=${Snappy_SOURCE:-} \
       -DThrift_SOURCE=${Thrift_SOURCE:-} \
+      -Dutf8proc_SOURCE=${utf8proc_SOURCE:-} \
       -DZSTD_SOURCE=${ZSTD_SOURCE:-} \
       ${CMAKE_ARGS} \
       ${source_dir}

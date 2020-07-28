@@ -168,14 +168,15 @@ namespace Apache.Arrow
             /// Note that if the required capacity is smaller than the current length of the populated buffer so far,
             /// the buffer will be truncated and items at the end of the buffer will be lost.
             /// </remarks>
-            /// <remarks>
-            /// Note also that a negative capacity will result in the buffer being resized to zero.
-            /// </remarks>
             /// <param name="capacity">Number of items of required capacity.</param>
             /// <returns>Returns the builder (for fluent-style composition).</returns>
             public Builder<T> Resize(int capacity)
             {
-                capacity = capacity < 0 ? 0 : capacity;
+                if (capacity < 0)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(capacity), "Capacity must be non-negative");
+                }
+
                 EnsureCapacity(capacity);
                 Length = capacity;
 

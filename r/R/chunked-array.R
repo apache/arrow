@@ -94,18 +94,7 @@ ChunkedArray <- R6Class("ChunkedArray", inherit = ArrowObject,
       ChunkedArray__Validate(self)
     },
     ToString = function() {
-      out <- self$chunk(0)$ToString()
-      if (self$num_chunks > 1) {
-        # Regardless of whether the first array prints with ellipsis, we need
-        # to ellipsize because there's more data than is contained in this
-        # chunk
-        if (grepl("...\n", out, fixed = TRUE)) {
-          out <- sub("\\.\\.\\..*$", "...\n]", out)
-        } else {
-          out <- sub("\\n\\]$", ",\n  ...\n]", out)
-        }
-      }
-      out
+      ChunkedArray__ToString(self)
     },
     Equals = function(other, ...) {
       inherits(other, "ChunkedArray") && ChunkedArray__Equals(self, other)
@@ -139,7 +128,7 @@ length.ChunkedArray <- function(x) x$length()
 as.vector.ChunkedArray <- function(x, mode) x$as_vector()
 
 #' @export
-is.na.ChunkedArray <- function(x) unlist(lapply(x$chunks, is.na))
+is.na.ChunkedArray <- function(x) shared_ptr(ChunkedArray, call_function("is_null", x))
 
 #' @export
 `[.ChunkedArray` <- filter_rows

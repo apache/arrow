@@ -21,10 +21,13 @@
 #include <memory>
 
 #include "arrow/result.h"
-#include "arrow/type_fwd.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
+
+class Buffer;
+class MemoryPool;
+
 namespace internal {
 
 // ----------------------------------------------------------------------

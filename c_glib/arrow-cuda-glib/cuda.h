@@ -147,6 +147,7 @@ garrow_cuda_buffer_get_context(GArrowCUDABuffer *buffer);
 GArrowRecordBatch *
 garrow_cuda_buffer_read_record_batch(GArrowCUDABuffer *buffer,
                                      GArrowSchema *schema,
+                                     GArrowReadOptions *options,
                                      GError **error);
 
 

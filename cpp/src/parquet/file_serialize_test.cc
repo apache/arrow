@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "arrow/testing/gtest_compat.h"
@@ -32,6 +33,7 @@ namespace parquet {
 using schema::GroupNode;
 using schema::NodePtr;
 using schema::PrimitiveNode;
+using ::testing::ElementsAre;
 
 namespace test {
 
@@ -307,7 +309,7 @@ TYPED_TEST(TestSerialize, SmallFileGzip) {
 
 #ifdef ARROW_WITH_LZ4
 TYPED_TEST(TestSerialize, SmallFileLz4) {
-  ASSERT_NO_FATAL_FAILURE(this->FileSerializeTest(Compression::LZ4));
+  ASSERT_THROW(this->FileSerializeTest(Compression::LZ4), ParquetException);
 }
 #endif
 
@@ -396,6 +398,46 @@ TEST(TestBufferedRowGroupWriter, MultiPageDisabledDictionary) {
     ASSERT_EQ(kValueCount, total_values_read);
     ASSERT_EQ(values_in, values_out);
   }
+}
+
+TEST(ParquetRoundtrip, AllNulls) {
+  auto primitive_node =
+      PrimitiveNode::Make("nulls", Repetition::OPTIONAL, nullptr, Type::INT32);
+  schema::NodeVector columns({primitive_node});
+
+  auto root_node = GroupNode::Make("root", Repetition::REQUIRED, columns, nullptr);
+
+  auto sink = CreateOutputStream();
+
+  auto file_writer =
+      ParquetFileWriter::Open(sink, std::static_pointer_cast<GroupNode>(root_node));
+  auto row_group_writer = file_writer->AppendRowGroup();
+  auto column_writer = static_cast<Int32Writer*>(row_group_writer->NextColumn());
+
+  int32_t values[3];
+  int16_t def_levels[] = {0, 0, 0};
+
+  column_writer->WriteBatch(3, def_levels, nullptr, values);
+
+  column_writer->Close();
+  row_group_writer->Close();
+  file_writer->Close();
+
+  ReaderProperties props = default_reader_properties();
+  props.enable_buffered_stream();
+  PARQUET_ASSIGN_OR_THROW(auto buffer, sink->Finish());
+
+  auto source = std::make_shared<::arrow::io::BufferReader>(buffer);
+  auto file_reader = ParquetFileReader::Open(source, props);
+  auto row_group_reader = file_reader->RowGroup(0);
+  auto column_reader = std::static_pointer_cast<Int32Reader>(row_group_reader->Column(0));
+
+  int64_t values_read;
+  def_levels[0] = -1;
+  def_levels[1] = -1;
+  def_levels[2] = -1;
+  column_reader->ReadBatch(3, def_levels, nullptr, values, &values_read);
+  EXPECT_THAT(def_levels, ElementsAre(0, 0, 0));
 }
 
 }  // namespace test

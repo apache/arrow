@@ -36,10 +36,6 @@ arrow_init_numpy()
 # Initialize PyArrow C++ API
 # (used from some of our C++ code, see e.g. ARROW-5260)
 import_pyarrow()
-set_numpy_nan(np.nan)
-
-# pandas API shim
-include "compat.pxi"
 
 
 def cpu_count():
@@ -107,11 +103,17 @@ def _pc():
     return pc
 
 
+# Assorted compatibility helpers
+include "compat.pxi"
+
+# Exception types and Status handling
+include "error.pxi"
+
+# Configuration information
+include "config.pxi"
+
 # pandas API shim
 include "pandas-shim.pxi"
-
-# Exception types
-include "error.pxi"
 
 # Memory pools and allocation
 include "memory.pxi"

@@ -20,29 +20,37 @@
 #include <climits>
 #include <cstdint>
 #include <cstring>
-#include <functional>
 #include <limits>
 #include <memory>
+#include <ostream>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "arrow/array/array_base.h"
+#include "arrow/array/data.h"
 #include "arrow/buffer.h"
-#include "arrow/memory_pool.h"
+#include "arrow/result.h"
+#include "arrow/status.h"
 #include "arrow/testing/gtest_common.h"
+#include "arrow/testing/gtest_compat.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/random.h"
+#include "arrow/testing/util.h"
+#include "arrow/type_fwd.h"
+#include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_stream_utils.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap.h"
-#include "arrow/util/bitmap_builders.h"
+#include "arrow/util/bitmap_generate.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/bitmap_reader.h"
 #include "arrow/util/bitmap_visit.h"
 #include "arrow/util/bitmap_writer.h"
 #include "arrow/util/bitset_stack.h"
-#include "arrow/util/cpu_info.h"
 
 namespace arrow {
 
@@ -191,6 +199,204 @@ TEST(BitmapReader, DoesNotReadOutOfBounds) {
 
   // Does not access invalid memory
   internal::BitmapReader r3(nullptr, 0, 0);
+}
+
+namespace internal {
+void PrintTo(const internal::BitRun& run, std::ostream* os) {
+  *os << run.ToString();  // whatever needed to print bar to os
+}
+}  // namespace internal
+
+TEST(BitRunReader, ZeroLength) {
+  internal::BitRunReader reader(nullptr, /*start_offset=*/0, /*length=*/0);
+
+  EXPECT_EQ(reader.NextRun().length, 0);
+}
+
+TEST(BitRunReader, NormalOperation) {
+  std::vector<int> bm_vector = {1, 0, 1};                   // size: 3
+  bm_vector.insert(bm_vector.end(), /*n=*/5, /*val=*/0);    // size: 8
+  bm_vector.insert(bm_vector.end(), /*n=*/7, /*val=*/1);    // size: 15
+  bm_vector.insert(bm_vector.end(), /*n=*/3, /*val=*/0);    // size: 18
+  bm_vector.insert(bm_vector.end(), /*n=*/25, /*val=*/1);   // size: 43
+  bm_vector.insert(bm_vector.end(), /*n=*/21, /*val=*/0);   // size: 64
+  bm_vector.insert(bm_vector.end(), /*n=*/26, /*val=*/1);   // size: 90
+  bm_vector.insert(bm_vector.end(), /*n=*/130, /*val=*/0);  // size: 220
+  bm_vector.insert(bm_vector.end(), /*n=*/65, /*val=*/1);   // size: 285
+  std::shared_ptr<Buffer> bitmap;
+  int64_t length;
+  BitmapFromVector(bm_vector, /*bit_offset=*/0, &bitmap, &length);
+
+  internal::BitRunReader reader(bitmap->data(), /*start_offset=*/0, /*length=*/length);
+  std::vector<internal::BitRun> results;
+  internal::BitRun rl;
+  do {
+    rl = reader.NextRun();
+    results.push_back(rl);
+  } while (rl.length != 0);
+  EXPECT_EQ(results.back().length, 0);
+  results.pop_back();
+  EXPECT_THAT(results, ElementsAreArray(
+                           std::vector<internal::BitRun>{{/*length=*/1, /*set=*/true},
+                                                         {/*length=*/1, /*set=*/false},
+                                                         {/*length=*/1, /*set=*/true},
+                                                         {/*length=*/5, /*set=*/false},
+                                                         {/*length=*/7, /*set=*/true},
+                                                         {/*length=*/3, /*set=*/false},
+                                                         {/*length=*/25, /*set=*/true},
+                                                         {/*length=*/21, /*set=*/false},
+                                                         {/*length=*/26, /*set=*/true},
+                                                         {/*length=*/130, /*set=*/false},
+                                                         {/*length=*/65, /*set=*/true}}));
+}
+
+TEST(BitRunReader, AllFirstByteCombos) {
+  for (int offset = 0; offset < 8; offset++) {
+    for (int64_t x = 0; x < (1 << 8) - 1; x++) {
+      int64_t bits = BitUtil::ToLittleEndian(x);
+      internal::BitRunReader reader(reinterpret_cast<uint8_t*>(&bits),
+                                    /*start_offset=*/offset,
+                                    /*length=*/8 - offset);
+      std::vector<internal::BitRun> results;
+      internal::BitRun rl;
+      do {
+        rl = reader.NextRun();
+        results.push_back(rl);
+      } while (rl.length != 0);
+      EXPECT_EQ(results.back().length, 0);
+      results.pop_back();
+      int64_t sum = 0;
+      for (const auto& result : results) {
+        sum += result.length;
+      }
+      ASSERT_EQ(sum, 8 - offset);
+    }
+  }
+}
+
+TEST(BitRunReader, TruncatedAtWord) {
+  std::vector<int> bm_vector;
+  bm_vector.insert(bm_vector.end(), /*n=*/7, /*val=*/1);
+  bm_vector.insert(bm_vector.end(), /*n=*/58, /*val=*/0);
+
+  std::shared_ptr<Buffer> bitmap;
+  int64_t length;
+  BitmapFromVector(bm_vector, /*bit_offset=*/0, &bitmap, &length);
+
+  internal::BitRunReader reader(bitmap->data(), /*start_offset=*/1,
+                                /*length=*/63);
+  std::vector<internal::BitRun> results;
+  internal::BitRun rl;
+  do {
+    rl = reader.NextRun();
+    results.push_back(rl);
+  } while (rl.length != 0);
+  EXPECT_EQ(results.back().length, 0);
+  results.pop_back();
+  EXPECT_THAT(results,
+              ElementsAreArray(std::vector<internal::BitRun>{
+                  {/*length=*/6, /*set=*/true}, {/*length=*/57, /*set=*/false}}));
+}
+
+TEST(BitRunReader, ScalarComparison) {
+  ::arrow::random::RandomArrayGenerator rag(/*seed=*/23);
+  constexpr int64_t kNumBits = 1000000;
+  std::shared_ptr<Buffer> buffer =
+      rag.Boolean(kNumBits, /*set_probability=*/.4)->data()->buffers[1];
+
+  const uint8_t* bitmap = buffer->data();
+
+  internal::BitRunReader reader(bitmap, 0, kNumBits);
+  internal::BitRunReaderLinear scalar_reader(bitmap, 0, kNumBits);
+  internal::BitRun br, brs;
+  int64_t br_bits = 0;
+  int64_t brs_bits = 0;
+  do {
+    br = reader.NextRun();
+    brs = scalar_reader.NextRun();
+    br_bits += br.length;
+    brs_bits += brs.length;
+    EXPECT_EQ(br.length, brs.length);
+    if (br.length > 0) {
+      EXPECT_EQ(br, brs) << internal::Bitmap(bitmap, 0, kNumBits).ToString() << br_bits
+                         << " " << brs_bits;
+    }
+  } while (brs.length != 0);
+  EXPECT_EQ(br_bits, brs_bits);
+}
+
+TEST(BitRunReader, TruncatedWithinWordMultipleOf8Bits) {
+  std::vector<int> bm_vector;
+  bm_vector.insert(bm_vector.end(), /*n=*/7, /*val=*/1);
+  bm_vector.insert(bm_vector.end(), /*n=*/5, /*val=*/0);
+
+  std::shared_ptr<Buffer> bitmap;
+  int64_t length;
+  BitmapFromVector(bm_vector, /*bit_offset=*/0, &bitmap, &length);
+
+  internal::BitRunReader reader(bitmap->data(), /*start_offset=*/1,
+                                /*length=*/7);
+  std::vector<internal::BitRun> results;
+  internal::BitRun rl;
+  do {
+    rl = reader.NextRun();
+    results.push_back(rl);
+  } while (rl.length != 0);
+  EXPECT_EQ(results.back().length, 0);
+  results.pop_back();
+  EXPECT_THAT(results, ElementsAreArray(std::vector<internal::BitRun>{
+                           {/*length=*/6, /*set=*/true}, {/*length=*/1, /*set=*/false}}));
+}
+
+TEST(BitRunReader, TruncatedWithinWord) {
+  std::vector<int> bm_vector;
+  bm_vector.insert(bm_vector.end(), /*n=*/37 + 40, /*val=*/0);
+  bm_vector.insert(bm_vector.end(), /*n=*/23, /*val=*/1);
+
+  std::shared_ptr<Buffer> bitmap;
+  int64_t length;
+  BitmapFromVector(bm_vector, /*bit_offset=*/0, &bitmap, &length);
+
+  constexpr int64_t kOffset = 37;
+  internal::BitRunReader reader(bitmap->data(), /*start_offset=*/kOffset,
+                                /*length=*/53);
+  std::vector<internal::BitRun> results;
+  internal::BitRun rl;
+  do {
+    rl = reader.NextRun();
+    results.push_back(rl);
+  } while (rl.length != 0);
+  EXPECT_EQ(results.back().length, 0);
+  results.pop_back();
+  EXPECT_THAT(results,
+              ElementsAreArray(std::vector<internal::BitRun>{
+                  {/*length=*/40, /*set=*/false}, {/*length=*/13, /*set=*/true}}));
+}
+
+TEST(BitRunReader, TruncatedMultipleWords) {
+  std::vector<int> bm_vector = {1, 0, 1};                  // size: 3
+  bm_vector.insert(bm_vector.end(), /*n=*/5, /*val=*/0);   // size: 8
+  bm_vector.insert(bm_vector.end(), /*n=*/30, /*val=*/1);  // size: 38
+  bm_vector.insert(bm_vector.end(), /*n=*/95, /*val=*/0);  // size: 133
+  std::shared_ptr<Buffer> bitmap;
+  int64_t length;
+  BitmapFromVector(bm_vector, /*bit_offset=*/0, &bitmap, &length);
+
+  constexpr int64_t kOffset = 5;
+  internal::BitRunReader reader(bitmap->data(), /*start_offset=*/kOffset,
+                                /*length=*/length - (kOffset + 3));
+  std::vector<internal::BitRun> results;
+  internal::BitRun rl;
+  do {
+    rl = reader.NextRun();
+    results.push_back(rl);
+  } while (rl.length != 0);
+  EXPECT_EQ(results.back().length, 0);
+  results.pop_back();
+  EXPECT_THAT(results, ElementsAreArray(std::vector<internal::BitRun>{
+                           {/*length=*/3, /*set=*/false},
+                           {/*length=*/30, /*set=*/true},
+                           {/*length=*/92, /*set=*/false}}));
 }
 
 TEST(BitmapWriter, NormalOperation) {

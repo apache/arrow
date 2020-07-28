@@ -181,7 +181,7 @@ class IntegerField(PrimitiveField):
 
     def generate_range(self, size, lower, upper, name=None,
                        include_extremes=False):
-        values = np.random.randint(lower, upper, size=size)
+        values = np.random.randint(lower, upper, size=size, dtype=np.int64)
         if include_extremes and size >= 2:
             values[:2] = [lower, upper]
         values = list(map(int if self.bit_width < 64 else str, values))
@@ -911,50 +911,40 @@ class _BaseUnionField(Field):
     def _get_children(self):
         return [field.get_json() for field in self.fields]
 
-    def _make_type_ids(self, is_valid):
-        type_ids = np.random.choice(self.type_ids, len(is_valid))
-        # Mark 0 for null entries (mimics C++ UnionBuilder behaviour)
-        return np.choose(is_valid, [0, type_ids])
+    def _make_type_ids(self, size):
+        return np.random.choice(self.type_ids, size)
 
 
 class SparseUnionField(_BaseUnionField):
     mode = 'SPARSE'
 
     def generate_column(self, size, name=None):
-        is_valid = self._make_is_valid(size)
-
-        array_type_ids = self._make_type_ids(is_valid)
+        array_type_ids = self._make_type_ids(size)
         field_values = [field.generate_column(size) for field in self.fields]
 
         if name is None:
             name = self.name
-        return SparseUnionColumn(name, size, is_valid, array_type_ids,
-                                 field_values)
+        return SparseUnionColumn(name, size, array_type_ids, field_values)
 
 
 class DenseUnionField(_BaseUnionField):
     mode = 'DENSE'
 
     def generate_column(self, size, name=None):
-        is_valid = self._make_is_valid(size)
-
         # Reverse mapping {logical type id => physical child id}
         child_ids = [None] * (max(self.type_ids) + 1)
         for i, type_id in enumerate(self.type_ids):
             child_ids[type_id] = i
 
-        array_type_ids = self._make_type_ids(is_valid)
+        array_type_ids = self._make_type_ids(size)
         offsets = []
         child_sizes = [0] * len(self.fields)
 
         for i in range(size):
-            if is_valid[i]:
-                child_id = child_ids[array_type_ids[i]]
-                offset = child_sizes[child_id]
-                offsets.append(offset)
-                child_sizes[child_id] = offset + 1
-            else:
-                offsets.append(0)
+            child_id = child_ids[array_type_ids[i]]
+            offset = child_sizes[child_id]
+            offsets.append(offset)
+            child_sizes[child_id] = offset + 1
 
         field_values = [
             field.generate_column(child_size)
@@ -962,8 +952,8 @@ class DenseUnionField(_BaseUnionField):
 
         if name is None:
             name = self.name
-        return DenseUnionColumn(name, size, is_valid, array_type_ids,
-                                offsets, field_values)
+        return DenseUnionColumn(name, size, array_type_ids, offsets,
+                                field_values)
 
 
 class Dictionary(object):
@@ -1065,16 +1055,14 @@ class StructColumn(Column):
 
 class SparseUnionColumn(Column):
 
-    def __init__(self, name, count, is_valid, type_ids, field_values):
+    def __init__(self, name, count, type_ids, field_values):
         super().__init__(name, count)
-        self.is_valid = is_valid
         self.type_ids = type_ids
         self.field_values = field_values
 
     def _get_buffers(self):
         return [
-            ('VALIDITY', [int(v) for v in self.is_valid]),
-            ('TYPE_ID', [int(v) for v in self.type_ids]),
+            ('TYPE_ID', [int(v) for v in self.type_ids])
         ]
 
     def _get_children(self):
@@ -1083,16 +1071,14 @@ class SparseUnionColumn(Column):
 
 class DenseUnionColumn(Column):
 
-    def __init__(self, name, count, is_valid, type_ids, offsets, field_values):
+    def __init__(self, name, count, type_ids, offsets, field_values):
         super().__init__(name, count)
-        self.is_valid = is_valid
         self.type_ids = type_ids
         self.offsets = offsets
         self.field_values = field_values
 
     def _get_buffers(self):
         return [
-            ('VALIDITY', [int(v) for v in self.is_valid]),
             ('TYPE_ID', [int(v) for v in self.type_ids]),
             ('OFFSET', [int(v) for v in self.offsets]),
         ]
@@ -1436,6 +1422,26 @@ def generate_dictionary_case():
                           dictionaries=[dict0, dict1, dict2])
 
 
+def generate_dictionary_unsigned_case():
+    dict0 = Dictionary(0, StringField('dictionary0'), size=5, name='DICT0')
+    dict1 = Dictionary(1, StringField('dictionary1'), size=5, name='DICT1')
+    dict2 = Dictionary(2, StringField('dictionary2'), size=5, name='DICT2')
+
+    # TODO: JavaScript does not support uint64 dictionary indices, so disabled
+    # for now
+
+    # dict3 = Dictionary(3, StringField('dictionary3'), size=5, name='DICT3')
+    fields = [
+        DictionaryField('f0', get_field('', 'uint8'), dict0),
+        DictionaryField('f1', get_field('', 'uint16'), dict1),
+        DictionaryField('f2', get_field('', 'uint32'), dict2),
+        # DictionaryField('f3', get_field('', 'uint64'), dict3)
+    ]
+    batch_sizes = [7, 10]
+    return _generate_file("dictionary_unsigned", fields, batch_sizes,
+                          dictionaries=[dict0, dict1, dict2])
+
+
 def generate_nested_dictionary_case():
     dict0 = Dictionary(0, StringField('str'), size=10, name='DICT0')
 
@@ -1487,18 +1493,23 @@ def get_generated_json_files(tempdir=None, flight=False):
 
     file_objs = [
         generate_primitive_case([], name='primitive_no_batches'),
-        generate_primitive_case([17, 20], name='primitive'),
-        generate_primitive_case([0, 0, 0], name='primitive_zerolength'),
+        generate_primitive_case([17, 20], name='primitive')
+        .skip_category('Rust'),
+        generate_primitive_case([0, 0, 0], name='primitive_zerolength')
+        .skip_category('Rust'),
 
         generate_primitive_large_offsets_case([17, 20])
         .skip_category('Go')
-        .skip_category('JS'),
+        .skip_category('JS')
+        .skip_category('Rust'),
 
         generate_null_case([10, 0])
+        .skip_category('Rust')
         .skip_category('JS')   # TODO(ARROW-7900)
         .skip_category('Go'),  # TODO(ARROW-7901)
 
         generate_null_trivial_case([0, 0])
+        .skip_category('Rust')
         .skip_category('JS')   # TODO(ARROW-7900)
         .skip_category('Go'),  # TODO(ARROW-7901)
 
@@ -1506,7 +1517,8 @@ def get_generated_json_files(tempdir=None, flight=False):
         .skip_category('Go')  # TODO(ARROW-7948): Decimal + Go
         .skip_category('Rust'),
 
-        generate_datetime_case(),
+        generate_datetime_case()
+        .skip_category('Rust'),
 
         generate_interval_case()
         .skip_category('JS')  # TODO(ARROW-5239): Intervals + JS
@@ -1531,13 +1543,11 @@ def get_generated_json_files(tempdir=None, flight=False):
 
         generate_nested_large_offsets_case()
         .skip_category('Go')
-        .skip_category('Java')  # TODO(ARROW-6111)
         .skip_category('JS')
         .skip_category('Rust'),
 
         generate_unions_case()
         .skip_category('Go')
-        .skip_category('Java')  # TODO(ARROW-1692)
         .skip_category('JS')
         .skip_category('Rust'),
 
@@ -1556,10 +1566,16 @@ def get_generated_json_files(tempdir=None, flight=False):
         .skip_category('Go')
         .skip_category('Rust'),
 
+        generate_dictionary_unsigned_case()
+        .skip_category('Go')     # TODO(ARROW-9378)
+        .skip_category('Java')   # TODO(ARROW-9377)
+        .skip_category('Rust'),  # TODO(ARROW-9379)
+
         generate_nested_dictionary_case()
         .skip_category('Go')
         .skip_category('Java')  # TODO(ARROW-7779)
-        .skip_category('JS'),
+        .skip_category('JS')
+        .skip_category('Rust'),
 
         generate_extension_case()
         .skip_category('Go')
@@ -1569,7 +1585,8 @@ def get_generated_json_files(tempdir=None, flight=False):
 
     if flight:
         file_objs.append(generate_primitive_case([24 * 1024],
-                                                 name='large_batch'))
+                                                 name='large_batch')
+                         .skip_category('Rust'))
 
     generated_paths = []
     for file_obj in file_objs:

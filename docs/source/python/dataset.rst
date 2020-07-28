@@ -144,7 +144,7 @@ The format name as a string, like::
 
     ds.dataset(..., format="parquet")
 
-is short hand for a default constructed class:`ParquetFileFormat`::
+is short hand for a default constructed :class:`ParquetFileFormat`::
 
     ds.dataset(..., format=ds.ParquetFileForma())
 
@@ -323,6 +323,24 @@ a file system object can be created and passed to the ``filesystem`` keyword:
 The currently available classes are :class:`~pyarrow.fs.S3FileSystem` and
 :class:`~pyarrow.fs.HadoopFileSystem`. See the :ref:`filesystem` docs for more
 details.
+
+
+Reading from Minio
+------------------
+
+In addition to cloud storage, pyarrow also supports reading from a
+`MinIO <https://github.com/minio/minio>`_ object storage instance emulating S3
+APIs. Paired with `toxiproxy <https://github.com/shopify/toxiproxy>`_, this is
+useful for testing or benchmarking.
+
+.. code-block:: python
+
+    from pyarrow import fs
+
+    # By default, MinIO will listen for unencrypted HTTP traffic.
+    minio = fs.S3FileSystem(scheme="http", endpoint="localhost:9000")
+    dataset = ds.dataset("ursa-labs-taxi-data/", filesystem=minio,
+                         partitioning=["year", "month"])
 
 
 Manual specification of the Dataset

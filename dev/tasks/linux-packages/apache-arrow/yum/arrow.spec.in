@@ -45,7 +45,7 @@
 %define use_meson (%{_centos_ver} >= 8)
 
 %define have_rapidjson (%{_centos_ver} == 7)
-%define have_zstd (%{_centos_ver} < 8)
+%define have_utf8proc (%{_centos_ver} == 7)
 
 Name:		@PACKAGE@
 Version:	@VERSION@
@@ -71,9 +71,7 @@ BuildRequires:	git
 %if %{_centos_ver} >= 7
 BuildRequires:	glog-devel
 %endif
-%if %{have_zstd}
 BuildRequires:	libzstd-devel
-%endif
 BuildRequires:	lz4-devel
 BuildRequires:	pkgconfig
 BuildRequires:	python%{python_version}-devel
@@ -85,6 +83,9 @@ BuildRequires:	rapidjson-devel
 BuildRequires:	re2-devel
 %endif
 BuildRequires:	snappy-devel
+%if %{have_utf8proc}
+BuildRequires:	utf8proc-devel
+%endif
 BuildRequires:	zlib-devel
 
 %if %{use_flight}
@@ -223,14 +224,15 @@ Requires:	brotli
 Requires:	gflags
 Requires:	glog
 %endif
-%if %{have_zstd}
 Requires:	libzstd
-%endif
 Requires:	lz4
 %if %{_centos_ver} >= 8
 Requires:	re2
 %endif
 Requires:	snappy
+%if %{have_utf8proc}
+Requires:	utf8proc
+%endif
 Requires:	zlib
 
 %description libs
@@ -266,6 +268,7 @@ Libraries and header files for Apache Arrow C++.
 %{_libdir}/cmake/arrow/arrow-config.cmake
 %{_libdir}/libarrow.a
 %{_libdir}/libarrow.so
+%{_libdir}/libarrow_bundled_dependencies.a
 %{_libdir}/pkgconfig/arrow-compute.pc
 %{_libdir}/pkgconfig/arrow-csv.pc
 %{_libdir}/pkgconfig/arrow-filesystem.pc
@@ -279,7 +282,7 @@ License:	Apache-2.0
 Requires:	%{name}-libs = %{version}-%{release}
 
 %description dataset-libs
-This package contains the libraries for Apache Arrow Datasets.
+This package contains the libraries for Apache Arrow dataset.
 
 %files dataset-libs
 %defattr(-,root,root,-)
@@ -287,12 +290,12 @@ This package contains the libraries for Apache Arrow Datasets.
 %{_libdir}/libarrow_dataset.so.*
 
 %package dataset-devel
-Summary:	Libraries and header files for Apache Arrow Datasets.
+Summary:	Libraries and header files for Apache Arrow dataset.
 License:	Apache-2.0
 Requires:	%{name}-dataset-libs = %{version}-%{release}
 
 %description dataset-devel
-Libraries and header files for Apache Arrow Datasets.
+Libraries and header files for Apache Arrow dataset.
 
 %files dataset-devel
 %defattr(-,root,root,-)
@@ -583,13 +586,13 @@ Documentation for Apache Arrow GLib.
 %{_datadir}/gtk-doc/html/arrow-glib/
 
 %package dataset-glib-libs
-Summary:	Runtime libraries for Apache Arrow Datasets GLib
+Summary:	Runtime libraries for Apache Arrow dataset GLib
 License:	Apache-2.0
 Requires:	%{name}-dataset-libs = %{version}-%{release}
 Requires:	%{name}-glib-libs = %{version}-%{release}
 
 %description dataset-glib-libs
-This package contains the libraries for Apache Arrow Datasets GLib.
+This package contains the libraries for Apache Arrow dataset GLib.
 
 %files dataset-glib-libs
 %defattr(-,root,root,-)
@@ -598,13 +601,13 @@ This package contains the libraries for Apache Arrow Datasets GLib.
 %{_datadir}/gir-1.0/ArrowDataset-1.0.gir
 
 %package dataset-glib-devel
-Summary:	Libraries and header files for Apache Arrow Datasets GLib
+Summary:	Libraries and header files for Apache Arrow dataset GLib
 License:	Apache-2.0
 Requires:	%{name}-dataset-devel = %{version}-%{release}
 Requires:	%{name}-glib-devel = %{version}-%{release}
 
 %description dataset-glib-devel
-Libraries and header files for Apache Arrow Datasets GLib.
+Libraries and header files for Apache Arrow dataset GLib.
 
 %files dataset-glib-devel
 %defattr(-,root,root,-)
@@ -616,11 +619,11 @@ Libraries and header files for Apache Arrow Datasets GLib.
 %{_libdir}/girepository-1.0/ArrowDataset-1.0.typelib
 
 %package dataset-glib-doc
-Summary:	Documentation for Apache Arrow Datasets GLib
+Summary:	Documentation for Apache Arrow dataset GLib
 License:	Apache-2.0
 
 %description dataset-glib-doc
-Documentation for Apache Arrow Datasets GLib.
+Documentation for Apache Arrow dataset GLib.
 
 %files dataset-glib-doc
 %defattr(-,root,root,-)
@@ -768,6 +771,9 @@ Documentation for Apache Parquet GLib.
 %endif
 
 %changelog
+* Mon Jul 20 2020 Krisztián Szűcs <szucs.krisztian@gmail.com> - 1.0.0-1
+- New upstream release.
+
 * Thu Apr 16 2020 Krisztián Szűcs <szucs.krisztian@gmail.com> - 0.17.0-1
 - New upstream release.
 

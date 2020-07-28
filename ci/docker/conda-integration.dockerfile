@@ -34,6 +34,8 @@ RUN conda install -q \
         openjdk=${jdk} && \
     conda clean --all
 
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+
 ENV GOROOT=/opt/go \
     GOBIN=/opt/go/bin \
     GOPATH=/go \

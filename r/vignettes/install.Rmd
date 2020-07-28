@@ -264,8 +264,8 @@ See discussion [here](https://issues.apache.org/jira/browse/ARROW-8586).
 
 * If you have multiple versions of `zstd` installed on your system,
 installation by building the C++ from source may fail with an undefined symbols
-error. Workarounds include (1) setting `LIBARROW_BINARY` to use a C++ binary;
-(2) setting `ARROW_WITH_ZSTD=OFF` to build without `zstd`; or (3) uninstalling
+error. Workarounds include (1) setting `LIBARROW_BINARY` to use a C++ binary; (2)
+setting `ARROW_WITH_ZSTD=OFF` to build without `zstd`; or (3) uninstalling
 the conflicting `zstd`.
 See discussion [here](https://issues.apache.org/jira/browse/ARROW-8556).
 
@@ -305,7 +305,7 @@ By default, these are all unset. All boolean variables are case-insensitive.
 * `ARROW_R_DEV`: If set to `true`, more verbose messaging will be printed
   in the build script. This variable also is needed if you're modifying `Rcpp`
   code in the package: see "Editing Rcpp code" in the README.
-* `DEBUG_DIR`: If the C++ library building from source fails (`cmake`),
+* `LIBARROW_DEBUG_DIR`: If the C++ library building from source fails (`cmake`),
   there may be messages telling you to check some log file in the build directory.
   However, when the library is built during R package installation,
   that location is in a temp directory that is already deleted.

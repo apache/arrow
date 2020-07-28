@@ -46,6 +46,8 @@ using internal::checked_cast;
 using StringTypes =
     ::testing::Types<StringType, LargeStringType, BinaryType, LargeBinaryType>;
 
+using UTF8Types = ::testing::Types<StringType, LargeStringType>;
+
 // ----------------------------------------------------------------------
 // String / Binary tests
 
@@ -245,38 +247,69 @@ class TestStringArray : public ::testing::Test {
     ASSERT_EQ(arr->GetString(0), "b");
   }
 
-  Status ValidateOffsets(int64_t length, std::vector<offset_type> offsets,
-                         util::string_view data, int64_t offset = 0) {
+  Status ValidateFull(int64_t length, std::vector<offset_type> offsets,
+                      util::string_view data, int64_t offset = 0) {
     ArrayType arr(length, Buffer::Wrap(offsets), std::make_shared<Buffer>(data),
                   /*null_bitmap=*/nullptr, /*null_count=*/0, offset);
     return arr.ValidateFull();
   }
 
+  Status ValidateFull(const std::string& json) {
+    auto ty = TypeTraits<T>::type_singleton();
+    auto arr = ArrayFromJSON(ty, json);
+    return arr->ValidateFull();
+  }
+
   void TestValidateOffsets() {
-    ASSERT_OK(ValidateOffsets(0, {0}, ""));
-    ASSERT_OK(ValidateOffsets(1, {0, 4}, "data"));
-    ASSERT_OK(ValidateOffsets(2, {0, 4, 4}, "data"));
-    ASSERT_OK(ValidateOffsets(2, {0, 5, 9}, "some data"));
+    ASSERT_OK(ValidateFull(0, {0}, ""));
+    ASSERT_OK(ValidateFull(1, {0, 4}, "data"));
+    ASSERT_OK(ValidateFull(2, {0, 4, 4}, "data"));
+    ASSERT_OK(ValidateFull(2, {0, 5, 9}, "some data"));
 
     // Non-zero array offset
-    ASSERT_OK(ValidateOffsets(0, {0, 4}, "data", 1));
-    ASSERT_OK(ValidateOffsets(1, {0, 5, 9}, "some data", 1));
-    ASSERT_OK(ValidateOffsets(0, {0, 5, 9}, "some data", 2));
+    ASSERT_OK(ValidateFull(0, {0, 4}, "data", 1));
+    ASSERT_OK(ValidateFull(1, {0, 5, 9}, "some data", 1));
+    ASSERT_OK(ValidateFull(0, {0, 5, 9}, "some data", 2));
 
     // Not enough offsets
-    ASSERT_RAISES(Invalid, ValidateOffsets(1, {}, ""));
-    ASSERT_RAISES(Invalid, ValidateOffsets(1, {0}, ""));
-    ASSERT_RAISES(Invalid, ValidateOffsets(2, {0, 4}, "data"));
-    ASSERT_RAISES(Invalid, ValidateOffsets(1, {0, 4}, "data", 1));
+    ASSERT_RAISES(Invalid, ValidateFull(1, {}, ""));
+    ASSERT_RAISES(Invalid, ValidateFull(1, {0}, ""));
+    ASSERT_RAISES(Invalid, ValidateFull(2, {0, 4}, "data"));
+    ASSERT_RAISES(Invalid, ValidateFull(1, {0, 4}, "data", 1));
 
     // Offset out of bounds
-    ASSERT_RAISES(Invalid, ValidateOffsets(1, {0, 5}, "data"));
+    ASSERT_RAISES(Invalid, ValidateFull(1, {0, 5}, "data"));
     // Negative offset
-    ASSERT_RAISES(Invalid, ValidateOffsets(1, {-1, 0}, "data"));
-    ASSERT_RAISES(Invalid, ValidateOffsets(1, {0, -1}, "data"));
-    ASSERT_RAISES(Invalid, ValidateOffsets(1, {0, -1, -1}, "data", 1));
+    ASSERT_RAISES(Invalid, ValidateFull(1, {-1, 0}, "data"));
+    ASSERT_RAISES(Invalid, ValidateFull(1, {0, -1}, "data"));
+    ASSERT_RAISES(Invalid, ValidateFull(1, {0, -1, -1}, "data", 1));
     // Offsets non-monotonic
-    ASSERT_RAISES(Invalid, ValidateOffsets(2, {0, 5, 4}, "some data"));
+    ASSERT_RAISES(Invalid, ValidateFull(2, {0, 5, 4}, "some data"));
+  }
+
+  void TestValidateData() {
+    // Valid UTF8
+    ASSERT_OK(ValidateFull(R"(["Voix", "ambiguë", "d’un", "cœur"])"));
+    ASSERT_OK(ValidateFull(R"(["いろはにほへと", "ちりぬるを", "わかよたれそ"])"));
+    ASSERT_OK(ValidateFull(R"(["😀", "😄"])"));
+    ASSERT_OK(ValidateFull(1, {0, 4}, "\xf4\x8f\xbf\xbf"));  // \U0010ffff
+
+    // Invalid UTF8
+    auto ty = TypeTraits<T>::type_singleton();
+    auto st1 = ValidateFull(3, {0, 4, 6, 9}, "abc \xff def");
+    // Hypothetical \U00110000
+    auto st2 = ValidateFull(1, {0, 4}, "\xf4\x90\x80\x80");
+    // Single UTF8 character straddles two entries
+    auto st3 = ValidateFull(2, {0, 1, 2}, "\xc3\xa9");
+    if (T::is_utf8) {
+      ASSERT_RAISES(Invalid, st1);
+      ASSERT_RAISES(Invalid, st2);
+      ASSERT_RAISES(Invalid, st3);
+    } else {
+      ASSERT_OK(st1);
+      ASSERT_OK(st2);
+      ASSERT_OK(st3);
+    }
   }
 
  protected:
@@ -319,6 +352,43 @@ TYPED_TEST(TestStringArray, CompareNullByteSlots) { this->TestCompareNullByteSlo
 TYPED_TEST(TestStringArray, TestSliceGetString) { this->TestSliceGetString(); }
 
 TYPED_TEST(TestStringArray, TestValidateOffsets) { this->TestValidateOffsets(); }
+
+TYPED_TEST(TestStringArray, TestValidateData) { this->TestValidateData(); }
+
+template <typename T>
+class TestUTF8Array : public ::testing::Test {
+ public:
+  using TypeClass = T;
+  using offset_type = typename TypeClass::offset_type;
+  using ArrayType = typename TypeTraits<TypeClass>::ArrayType;
+
+  Status ValidateUTF8(int64_t length, std::vector<offset_type> offsets,
+                      util::string_view data, int64_t offset = 0) {
+    ArrayType arr(length, Buffer::Wrap(offsets), std::make_shared<Buffer>(data),
+                  /*null_bitmap=*/nullptr, /*null_count=*/0, offset);
+    return arr.ValidateUTF8();
+  }
+
+  Status ValidateUTF8(const std::string& json) {
+    auto ty = TypeTraits<T>::type_singleton();
+    auto arr = ArrayFromJSON(ty, json);
+    return checked_cast<const ArrayType&>(*arr).ValidateUTF8();
+  }
+
+  void TestValidateUTF8() {
+    ASSERT_OK(ValidateUTF8(R"(["Voix", "ambiguë", "d’un", "cœur"])"));
+    ASSERT_OK(ValidateUTF8(1, {0, 4}, "\xf4\x8f\xbf\xbf"));  // \U0010ffff
+
+    ASSERT_RAISES(Invalid, ValidateUTF8(1, {0, 1}, "\xf4"));
+
+    // More tests in TestValidateData() above
+    // (ValidateFull() calls ValidateUTF8() internally)
+  }
+};
+
+TYPED_TEST_SUITE(TestUTF8Array, UTF8Types);
+
+TYPED_TEST(TestUTF8Array, TestValidateUTF8) { this->TestValidateUTF8(); }
 
 // ----------------------------------------------------------------------
 // String builder tests

@@ -38,11 +38,6 @@
 #' "Slice" method function even if there were a column in the table called
 #' "Slice".
 #'
-#' A caveat about the `[` method for row operations: only "slicing" is
-#' currently supported. That is, you can select a continuous range of rows
-#' from the table, but you can't filter with a `logical` vector or take an
-#' arbitrary selection of rows by integer indices.
-#'
 #' @section R6 Methods:
 #' In addition to the more R-friendly S3 methods, a `RecordBatch` object has
 #' the following R6 methods that map onto the underlying C++ methods:
@@ -125,6 +120,7 @@ RecordBatch <- R6Class("RecordBatch", inherit = ArrowObject,
       if (is.logical(i)) {
         i <- Array$create(i)
       }
+      assert_that(is.Array(i, "bool"))
       shared_ptr(RecordBatch, call_function("filter", self, i, options = list(keep_na = keep_na)))
     },
     serialize = function() ipc___SerializeRecordBatch__Raw(self),
@@ -261,7 +257,40 @@ dim.RecordBatch <- function(x) {
 
 #' @export
 as.data.frame.RecordBatch <- function(x, row.names = NULL, optional = FALSE, ...) {
-  RecordBatch__to_dataframe(x, use_threads = option_use_threads())
+  df <- RecordBatch__to_dataframe(x, use_threads = option_use_threads())
+  if (!is.null(r_metadata <- x$metadata$r)) {
+    df <- apply_arrow_r_metadata(df, .unserialize_arrow_r_metadata(r_metadata))
+  }
+  df
+}
+
+.serialize_arrow_r_metadata <- function(x) {
+  rawToChar(serialize(x, NULL, ascii = TRUE))
+}
+
+.unserialize_arrow_r_metadata <- function(x) {
+  tryCatch(unserialize(charToRaw(x)), error = function(e) {
+    warning("Invalid metadata$r", call. = FALSE)
+    NULL
+  })
+}
+
+apply_arrow_r_metadata <- function(x, r_metadata) {
+  tryCatch({
+    if (!is.null(r_metadata$attributes)) {
+      attributes(x) <- r_metadata$attributes
+    }
+
+    columns_metadata <- r_metadata$columns
+    if (length(names(x)) && !is.null(columns_metadata)) {
+      for (name in intersect(names(columns_metadata), names(x))) {
+        x[[name]] <- apply_arrow_r_metadata(x[[name]], columns_metadata[[name]])
+      }
+    }
+  }, error = function(e) {
+    warning("Invalid metadata$r", call. = FALSE)
+  })
+  x
 }
 
 #' @export

@@ -19,6 +19,8 @@
 File Formats
 ============
 
+.. _cpp-api-csv:
+
 CSV
 ===
 
@@ -34,6 +36,8 @@ CSV
 .. doxygenclass:: arrow::csv::TableReader
    :members:
 
+.. _cpp-api-json:
+
 Line-separated JSON
 ===================
 
@@ -47,6 +51,8 @@ Line-separated JSON
 
 .. doxygenclass:: arrow::json::TableReader
    :members:
+
+.. _cpp-api-parquet:
 
 Parquet reader
 ==============

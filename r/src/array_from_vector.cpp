@@ -52,8 +52,6 @@ inline bool is_na<int>(int value) {
   return value == NA_INTEGER;
 }
 
-std::shared_ptr<arrow::DataType> InferArrowType(SEXP x);
-
 struct VectorToArrayConverter {
   Status Visit(const arrow::NullType& type) {
     auto* null_builder = checked_cast<NullBuilder*>(builder);
@@ -144,6 +142,23 @@ struct VectorToArrayConverter {
     return Status::OK();
   }
 
+  Status Visit(const arrow::BinaryType& type) {
+    if (!(Rf_inherits(x, "vctrs_list_of") &&
+          TYPEOF(Rf_getAttrib(x, symbols::ptype)) == RAWSXP)) {
+      return Status::RError("Expecting a list of raw vectors");
+    }
+    return Status::OK();
+  }
+
+  Status Visit(const arrow::FixedSizeBinaryType& type) {
+    if (!(Rf_inherits(x, "vctrs_list_of") &&
+          TYPEOF(Rf_getAttrib(x, symbols::ptype)) == RAWSXP)) {
+      return Status::RError("Expecting a list of raw vectors");
+    }
+
+    return Status::OK();
+  }
+
   template <typename T>
   arrow::enable_if_base_binary<T, Status> Visit(const T& type) {
     using BuilderType = typename TypeTraits<T>::BuilderType;
@@ -159,6 +174,9 @@ struct VectorToArrayConverter {
       if (s == NA_STRING) {
         RETURN_NOT_OK(binary_builder->AppendNull());
         continue;
+      } else {
+        // Make sure we're ingesting UTF-8
+        s = Rf_mkCharCE(Rf_translateCharUTF8(s), CE_UTF8);
       }
 
       RETURN_NOT_OK(binary_builder->Append(CHAR(s), LENGTH(s)));
@@ -181,17 +199,53 @@ struct VectorToArrayConverter {
     RETURN_NOT_OK(builder->Reserve(n));
     for (R_xlen_t i = 0; i < n; i++) {
       SEXP vector = VECTOR_ELT(x, i);
-      if (vector == R_NilValue) {
+      if (Rf_isNull(vector)) {
         RETURN_NOT_OK(list_builder->AppendNull());
         continue;
       }
 
       RETURN_NOT_OK(list_builder->Append());
 
+      // Recurse.
+      VectorToArrayConverter converter{vector, value_builder};
+      Status status = arrow::VisitTypeInline(*value_type, &converter);
+      if (!status.ok()) {
+        return Status::RError("Cannot convert list element ", (i + 1),
+                              " to an Array of type `", value_type->ToString(),
+                              "` : ", status.message());
+      }
+    }
+
+    return Status::OK();
+  }
+
+  Status Visit(const FixedSizeListType& type) {
+    ARROW_RETURN_IF(TYPEOF(x) != VECSXP, Status::RError("Expecting a list vector"));
+
+    auto* fixed_size_list_builder = checked_cast<FixedSizeListBuilder*>(builder);
+    auto* value_builder = fixed_size_list_builder->value_builder();
+    auto value_type = type.value_type();
+    int list_size = type.list_size();
+
+    R_xlen_t n = XLENGTH(x);
+    RETURN_NOT_OK(builder->Reserve(n));
+    for (R_xlen_t i = 0; i < n; i++) {
+      SEXP vector = VECTOR_ELT(x, i);
+      if (Rf_isNull(vector)) {
+        RETURN_NOT_OK(fixed_size_list_builder->AppendNull());
+        continue;
+      }
+      RETURN_NOT_OK(fixed_size_list_builder->Append());
+
       auto vect_type = arrow::r::InferArrowType(vector);
       if (!value_type->Equals(vect_type)) {
-        return Status::RError("List vector expecting elements vector of type ",
+        return Status::RError("FixedSizeList vector expecting elements vector of type ",
                               value_type->ToString(), " but got ", vect_type->ToString());
+      }
+      int vector_size = vctrs::short_vec_size(vector);
+      if (vector_size != list_size) {
+        return Status::RError("FixedSizeList vector expecting elements vector of size ",
+                              list_size, ", not ", vector_size);
       }
 
       // Recurse.
@@ -341,14 +395,19 @@ std::shared_ptr<Array> MakeFactorArrayImpl(Rcpp::IntegerVector_ factor,
 
 std::shared_ptr<Array> MakeFactorArray(Rcpp::IntegerVector_ factor,
                                        const std::shared_ptr<arrow::DataType>& type) {
-  SEXP levels = factor.attr("levels");
-  int n = Rf_length(levels);
-  if (n < 128) {
-    return MakeFactorArrayImpl<arrow::Int8Type>(factor, type);
-  } else if (n < 32768) {
-    return MakeFactorArrayImpl<arrow::Int16Type>(factor, type);
-  } else {
-    return MakeFactorArrayImpl<arrow::Int32Type>(factor, type);
+  const auto& dict_type = checked_cast<const arrow::DictionaryType&>(*type);
+  switch (dict_type.index_type()->id()) {
+    case Type::INT8:
+      return MakeFactorArrayImpl<arrow::Int8Type>(factor, type);
+    case Type::INT16:
+      return MakeFactorArrayImpl<arrow::Int16Type>(factor, type);
+    case Type::INT32:
+      return MakeFactorArrayImpl<arrow::Int32Type>(factor, type);
+    case Type::INT64:
+      return MakeFactorArrayImpl<arrow::Int64Type>(factor, type);
+    default:
+      Rcpp::stop(tfm::format("Cannot convert to dictionary with index_type %s",
+                             dict_type.index_type()->ToString()));
   }
 }
 
@@ -361,10 +420,6 @@ std::shared_ptr<Array> MakeStructArray(SEXP df, const std::shared_ptr<DataType>&
 
   int64_t rows = n ? children[0]->length() : 0;
   return std::make_shared<StructArray>(type, rows, children);
-}
-
-std::shared_ptr<Array> MakeListArray(SEXP x, const std::shared_ptr<DataType>& type) {
-  return VectorToArrayConverter::Visit(x, type);
 }
 
 template <typename T>
@@ -392,7 +447,8 @@ namespace internal {
 template <typename T, typename Target,
           typename std::enable_if<std::is_signed<Target>::value, Target>::type = 0>
 Status int_cast(T x, Target* out) {
-  if (x < std::numeric_limits<Target>::min() || x > std::numeric_limits<Target>::max()) {
+  if (static_cast<int64_t>(x) < std::numeric_limits<Target>::min() ||
+      static_cast<int64_t>(x) > std::numeric_limits<Target>::max()) {
     return Status::Invalid("Value is too large to fit in C integer type");
   }
   *out = static_cast<Target>(x);
@@ -915,6 +971,146 @@ class Time64Converter : public TimeConverter<Time64Type> {
   }
 };
 
+template <typename Builder>
+class BinaryVectorConverter : public VectorConverter {
+ public:
+  ~BinaryVectorConverter() {}
+
+  Status Init(ArrayBuilder* builder) {
+    typed_builder_ = checked_cast<Builder*>(builder);
+    return Status::OK();
+  }
+
+  Status Ingest(SEXP obj) {
+    ARROW_RETURN_IF(TYPEOF(obj) != VECSXP, Status::RError("Expecting a list"));
+    R_xlen_t n = XLENGTH(obj);
+
+    // Reserve enough space before appending
+    int64_t size = 0;
+    for (R_xlen_t i = 0; i < n; i++) {
+      SEXP obj_i = VECTOR_ELT(obj, i);
+      if (!Rf_isNull(obj_i)) {
+        ARROW_RETURN_IF(TYPEOF(obj_i) != RAWSXP,
+                        Status::RError("Expecting a raw vector"));
+        size += XLENGTH(obj_i);
+      }
+    }
+    RETURN_NOT_OK(typed_builder_->Reserve(size));
+
+    // append
+    for (R_xlen_t i = 0; i < n; i++) {
+      SEXP obj_i = VECTOR_ELT(obj, i);
+      if (Rf_isNull(obj_i)) {
+        RETURN_NOT_OK(typed_builder_->AppendNull());
+      } else {
+        RETURN_NOT_OK(typed_builder_->Append(RAW(obj_i), XLENGTH(obj_i)));
+      }
+    }
+    return Status::OK();
+  }
+
+  Status GetResult(std::shared_ptr<arrow::Array>* result) {
+    return typed_builder_->Finish(result);
+  }
+
+ private:
+  Builder* typed_builder_;
+};
+
+class FixedSizeBinaryVectorConverter : public VectorConverter {
+ public:
+  ~FixedSizeBinaryVectorConverter() {}
+
+  Status Init(ArrayBuilder* builder) {
+    typed_builder_ = checked_cast<FixedSizeBinaryBuilder*>(builder);
+    return Status::OK();
+  }
+
+  Status Ingest(SEXP obj) {
+    ARROW_RETURN_IF(TYPEOF(obj) != VECSXP, Status::RError("Expecting a list"));
+    R_xlen_t n = XLENGTH(obj);
+
+    // Reserve enough space before appending
+    int32_t byte_width = typed_builder_->byte_width();
+    for (R_xlen_t i = 0; i < n; i++) {
+      SEXP obj_i = VECTOR_ELT(obj, i);
+      if (!Rf_isNull(obj_i)) {
+        ARROW_RETURN_IF(TYPEOF(obj_i) != RAWSXP,
+                        Status::RError("Expecting a raw vector"));
+        ARROW_RETURN_IF(XLENGTH(obj_i) != byte_width,
+                        Status::RError("Expecting a raw vector of ", byte_width,
+                                       " bytes, not ", XLENGTH(obj_i)));
+      }
+    }
+    RETURN_NOT_OK(typed_builder_->Reserve(n * byte_width));
+
+    // append
+    for (R_xlen_t i = 0; i < n; i++) {
+      SEXP obj_i = VECTOR_ELT(obj, i);
+      if (Rf_isNull(obj_i)) {
+        RETURN_NOT_OK(typed_builder_->AppendNull());
+      } else {
+        RETURN_NOT_OK(typed_builder_->Append(RAW(obj_i)));
+      }
+    }
+    return Status::OK();
+  }
+
+  Status GetResult(std::shared_ptr<arrow::Array>* result) {
+    return typed_builder_->Finish(result);
+  }
+
+ private:
+  FixedSizeBinaryBuilder* typed_builder_;
+};
+
+template <typename Builder>
+class StringVectorConverter : public VectorConverter {
+ public:
+  ~StringVectorConverter() {}
+
+  Status Init(ArrayBuilder* builder) {
+    typed_builder_ = checked_cast<Builder*>(builder);
+    return Status::OK();
+  }
+
+  Status Ingest(SEXP obj) {
+    ARROW_RETURN_IF(TYPEOF(obj) != STRSXP,
+                    Status::RError("Expecting a character vector"));
+    R_xlen_t n = XLENGTH(obj);
+
+    // Reserve enough space before appending
+    int64_t size = 0;
+    for (R_xlen_t i = 0; i < n; i++) {
+      SEXP string_i = STRING_ELT(obj, i);
+      if (string_i != NA_STRING) {
+        size += XLENGTH(Rf_mkCharCE(Rf_translateCharUTF8(string_i), CE_UTF8));
+      }
+    }
+    RETURN_NOT_OK(typed_builder_->Reserve(size));
+
+    // append
+    for (R_xlen_t i = 0; i < n; i++) {
+      SEXP string_i = STRING_ELT(obj, i);
+      if (string_i == NA_STRING) {
+        RETURN_NOT_OK(typed_builder_->AppendNull());
+      } else {
+        // Make sure we're ingesting UTF-8
+        string_i = Rf_mkCharCE(Rf_translateCharUTF8(string_i), CE_UTF8);
+        RETURN_NOT_OK(typed_builder_->Append(CHAR(string_i), XLENGTH(string_i)));
+      }
+    }
+    return Status::OK();
+  }
+
+  Status GetResult(std::shared_ptr<arrow::Array>* result) {
+    return typed_builder_->Finish(result);
+  }
+
+ private:
+  Builder* typed_builder_;
+};
+
 #define NUMERIC_CONVERTER(TYPE_ENUM, TYPE)                                               \
   case Type::TYPE_ENUM:                                                                  \
     *out =                                                                               \
@@ -935,7 +1131,12 @@ class Time64Converter : public TimeConverter<Time64Type> {
 Status GetConverter(const std::shared_ptr<DataType>& type,
                     std::unique_ptr<VectorConverter>* out) {
   switch (type->id()) {
+    SIMPLE_CONVERTER_CASE(BINARY, BinaryVectorConverter<arrow::BinaryBuilder>);
+    SIMPLE_CONVERTER_CASE(LARGE_BINARY, BinaryVectorConverter<arrow::LargeBinaryBuilder>);
+    SIMPLE_CONVERTER_CASE(FIXED_SIZE_BINARY, FixedSizeBinaryVectorConverter);
     SIMPLE_CONVERTER_CASE(BOOL, BooleanVectorConverter);
+    SIMPLE_CONVERTER_CASE(STRING, StringVectorConverter<arrow::StringBuilder>);
+    SIMPLE_CONVERTER_CASE(LARGE_STRING, StringVectorConverter<arrow::LargeStringBuilder>);
     NUMERIC_CONVERTER(INT8, Int8Type);
     NUMERIC_CONVERTER(INT16, Int16Type);
     NUMERIC_CONVERTER(INT32, Int32Type);
@@ -1015,14 +1216,12 @@ std::shared_ptr<arrow::DataType> InferArrowTypeFromVector<INTSXP>(SEXP x) {
   } else if (Rf_inherits(x, "Date")) {
     return date32();
   } else if (Rf_inherits(x, "POSIXct")) {
-    std::string tzone;
     auto tzone_sexp = Rf_getAttrib(x, symbols::tzone);
     if (Rf_isNull(tzone_sexp)) {
-      tzone = "";
+      return timestamp(TimeUnit::MICRO);
     } else {
-      tzone = CHAR(STRING_ELT(tzone_sexp, 0));
+      return timestamp(TimeUnit::MICRO, CHAR(STRING_ELT(tzone_sexp, 0)));
     }
-    return timestamp(TimeUnit::MICRO, tzone);
   }
   return int32();
 }
@@ -1033,14 +1232,12 @@ std::shared_ptr<arrow::DataType> InferArrowTypeFromVector<REALSXP>(SEXP x) {
     return date32();
   }
   if (Rf_inherits(x, "POSIXct")) {
-    std::string tzone;
     auto tzone_sexp = Rf_getAttrib(x, symbols::tzone);
     if (Rf_isNull(tzone_sexp)) {
-      tzone = "";
+      return timestamp(TimeUnit::MICRO);
     } else {
-      tzone = CHAR(STRING_ELT(tzone_sexp, 0));
+      return timestamp(TimeUnit::MICRO, CHAR(STRING_ELT(tzone_sexp, 0)));
     }
-    return timestamp(TimeUnit::MICRO, tzone);
   }
   if (Rf_inherits(x, "integer64")) {
     return int64();
@@ -1051,12 +1248,33 @@ std::shared_ptr<arrow::DataType> InferArrowTypeFromVector<REALSXP>(SEXP x) {
   return float64();
 }
 
+template <>
+std::shared_ptr<arrow::DataType> InferArrowTypeFromVector<STRSXP>(SEXP x) {
+  // See how big the character vector is
+  R_xlen_t n = XLENGTH(x);
+  int64_t size = 0;
+  for (R_xlen_t i = 0; i < n; i++) {
+    SEXP string_i = STRING_ELT(x, i);
+    if (string_i != NA_STRING) {
+      size += XLENGTH(Rf_mkCharCE(Rf_translateCharUTF8(string_i), CE_UTF8));
+    }
+    if (size > arrow::kBinaryMemoryLimit) {
+      // Exceeds 2GB capacity of utf8 type, so use large
+      return large_utf8();
+    }
+  }
+
+  return utf8();
+}
+
 static inline std::shared_ptr<arrow::DataType> InferArrowTypeFromDataFrame(SEXP x) {
   R_xlen_t n = XLENGTH(x);
   SEXP names = Rf_getAttrib(x, R_NamesSymbol);
   std::vector<std::shared_ptr<arrow::Field>> fields(n);
   for (R_xlen_t i = 0; i < n; i++) {
-    const auto* field_name = CHAR(STRING_ELT(names, i));
+    // Make sure we're ingesting UTF-8
+    const auto* field_name =
+        CHAR(Rf_mkCharCE(Rf_translateCharUTF8(STRING_ELT(names, i)), CE_UTF8));
     fields[i] = arrow::field(field_name, InferArrowType(VECTOR_ELT(x, i)));
   }
   return arrow::struct_(std::move(fields));
@@ -1064,15 +1282,38 @@ static inline std::shared_ptr<arrow::DataType> InferArrowTypeFromDataFrame(SEXP 
 
 template <>
 std::shared_ptr<arrow::DataType> InferArrowTypeFromVector<VECSXP>(SEXP x) {
-  if (Rf_inherits(x, "data.frame")) {
+  if (Rf_inherits(x, "data.frame") || Rf_inherits(x, "POSIXlt")) {
     return InferArrowTypeFromDataFrame(x);
   } else {
-    if (XLENGTH(x) == 0) {
-      Rcpp::stop(
-          "Requires at least one element to infer the values' type of a list vector");
+    // some known special cases
+    if (Rf_inherits(x, "arrow_fixed_size_binary")) {
+      SEXP byte_width = Rf_getAttrib(x, symbols::byte_width);
+      if (Rf_isNull(byte_width) || TYPEOF(byte_width) != INTSXP ||
+          XLENGTH(byte_width) != 1) {
+        Rcpp::stop("malformed arrow_fixed_size_binary object");
+      }
+      return arrow::fixed_size_binary(INTEGER(byte_width)[0]);
     }
 
-    return arrow::list(InferArrowType(VECTOR_ELT(x, 0)));
+    if (Rf_inherits(x, "arrow_binary")) {
+      return arrow::binary();
+    }
+
+    if (Rf_inherits(x, "arrow_large_binary")) {
+      return arrow::large_binary();
+    }
+
+    SEXP ptype = Rf_getAttrib(x, symbols::ptype);
+    if (Rf_isNull(ptype)) {
+      if (XLENGTH(x) == 0) {
+        Rcpp::stop(
+            "Requires at least one element to infer the values' type of a list vector");
+      }
+
+      ptype = VECTOR_ELT(x, 0);
+    }
+
+    return arrow::list(InferArrowType(ptype));
   }
 }
 
@@ -1089,7 +1330,7 @@ std::shared_ptr<arrow::DataType> InferArrowType(SEXP x) {
     case RAWSXP:
       return int8();
     case STRSXP:
-      return utf8();
+      return InferArrowTypeFromVector<STRSXP>(x);
     case VECSXP:
       return InferArrowTypeFromVector<VECSXP>(x);
     default:
@@ -1186,8 +1427,8 @@ bool CheckCompatibleFactor(SEXP obj, const std::shared_ptr<arrow::DataType>& typ
     return false;
   }
 
-  auto* dict_type = checked_cast<arrow::DictionaryType*>(type.get());
-  return dict_type->value_type()->Equals(utf8());
+  const auto& dict_type = checked_cast<const arrow::DictionaryType&>(*type);
+  return dict_type.value_type()->Equals(utf8());
 }
 
 arrow::Status CheckCompatibleStruct(SEXP obj,
@@ -1210,11 +1451,13 @@ arrow::Status CheckCompatibleStruct(SEXP obj,
   // types of the fields, because Array__from_vector will error
   // when not compatible.
   SEXP names = Rf_getAttrib(obj, R_NamesSymbol);
+  SEXP name_i;
   for (int i = 0; i < num_fields; i++) {
-    if (type->field(i)->name() != CHAR(STRING_ELT(names, i))) {
+    name_i = Rf_mkCharCE(Rf_translateCharUTF8(STRING_ELT(names, i)), CE_UTF8);
+    if (type->field(i)->name() != CHAR(name_i)) {
       return Status::RError("Field name in position ", i, " (", type->field(i)->name(),
                             ") does not match the name of the column of the data frame (",
-                            CHAR(STRING_ELT(names, i)), ")");
+                            CHAR(name_i), ")");
     }
   }
 
@@ -1234,11 +1477,6 @@ std::shared_ptr<arrow::Array> Array__from_vector(
     return arrow::r::Array__from_vector_reuse_memory(x);
   }
 
-  // treat strings separately for now
-  if (type->id() == Type::STRING) {
-    return VectorToArrayConverter::Visit(x, type);
-  }
-
   // factors only when type has been inferred
   if (type->id() == Type::DICTIONARY) {
     if (type_inferred || arrow::r::CheckCompatibleFactor(x, type)) {
@@ -1252,8 +1490,9 @@ std::shared_ptr<arrow::Array> Array__from_vector(
     Rcpp::stop("Object incompatible with dictionary type");
   }
 
-  if (type->id() == Type::LIST) {
-    return arrow::r::MakeListArray(x, type);
+  if (type->id() == Type::LIST || type->id() == Type::LARGE_LIST ||
+      type->id() == Type::FIXED_SIZE_LIST) {
+    return VectorToArrayConverter::Visit(x, type);
   }
 
   // struct types
@@ -1284,7 +1523,6 @@ std::shared_ptr<arrow::Array> Array__from_vector(
   StopIfNotOk(converter->Ingest(x));
   std::shared_ptr<arrow::Array> result;
   StopIfNotOk(converter->GetResult(&result));
-
   return result;
 }
 

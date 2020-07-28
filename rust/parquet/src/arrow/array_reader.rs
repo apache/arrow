@@ -29,13 +29,13 @@ use arrow::array::{
     Int16BufferBuilder, StructArray,
 };
 use arrow::buffer::{Buffer, MutableBuffer};
-use arrow::datatypes::{DataType as ArrowType, Field, IntervalUnit, TimeUnit};
+use arrow::datatypes::{DataType as ArrowType, DateUnit, Field, IntervalUnit, TimeUnit};
 
 use crate::arrow::converter::{
     BinaryArrayConverter, BinaryConverter, BoolConverter, BooleanArrayConverter,
-    Converter, FixedLenBinaryConverter, FixedSizeArrayConverter, Float32Converter,
-    Float64Converter, Int16Converter, Int32Converter, Int64Converter, Int8Converter,
-    Int96ArrayConverter, Int96Converter, TimestampMicrosecondConverter,
+    Converter, Date32Converter, FixedLenBinaryConverter, FixedSizeArrayConverter,
+    Float32Converter, Float64Converter, Int16Converter, Int32Converter, Int64Converter,
+    Int8Converter, Int96ArrayConverter, Int96Converter, TimestampMicrosecondConverter,
     TimestampMillisecondConverter, UInt16Converter, UInt32Converter, UInt64Converter,
     UInt8Converter, Utf8ArrayConverter, Utf8Converter,
 };
@@ -196,11 +196,10 @@ impl<T: DataType> ArrayReader for PrimitiveArrayReader<T> {
                         .convert(self.record_reader.cast::<Int64Type>()),
                     _ => Err(general_err!("No conversion from parquet type to arrow type for timestamp with unit {:?}", unit)),
                 },
-                (ArrowType::Date32(_), PhysicalType::INT32) => {
-                    UInt32Converter::new().convert(self.record_reader.cast::<Int32Type>())
-                }
-                (ArrowType::Date64(_), PhysicalType::INT64) => {
-                    UInt64Converter::new().convert(self.record_reader.cast::<Int64Type>())
+                (ArrowType::Date32(unit), PhysicalType::INT32) => match unit {
+                    DateUnit::Day => Date32Converter::new()
+                        .convert(self.record_reader.cast::<Int32Type>()),
+                    _ => Err(general_err!("No conversion from parquet type to arrow type for date with unit {:?}", unit)),
                 }
                 (ArrowType::Time32(_), PhysicalType::INT32) => {
                     UInt32Converter::new().convert(self.record_reader.cast::<Int32Type>())
@@ -947,7 +946,7 @@ mod tests {
     use crate::util::test_common::{get_test_file, make_pages};
     use arrow::array::{Array, ArrayRef, PrimitiveArray, StringArray, StructArray};
     use arrow::datatypes::{
-        DataType as ArrowType, Field, Int32Type as ArrowInt32,
+        DataType as ArrowType, Date32Type as ArrowDate32, Field, Int32Type as ArrowInt32,
         TimestampMicrosecondType as ArrowTimestampMicrosecondType,
         TimestampMillisecondType as ArrowTimestampMillisecondType,
         UInt32Type as ArrowUInt32, UInt64Type as ArrowUInt64,
@@ -1160,8 +1159,8 @@ mod tests {
             Int32Type,
             PhysicalType::INT32,
             "DATE",
-            ArrowUInt32,
-            u32
+            ArrowDate32,
+            i32
         );
         test_primitive_array_reader_one_type!(
             Int32Type,

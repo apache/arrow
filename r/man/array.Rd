@@ -7,6 +7,8 @@
 \alias{DictionaryArray}
 \alias{StructArray}
 \alias{ListArray}
+\alias{LargeListArray}
+\alias{FixedSizeListArray}
 \alias{StructScalar}
 \title{Arrow Arrays}
 \description{

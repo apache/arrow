@@ -59,6 +59,7 @@ import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.types.Types;
+import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.DecimalUtility;
@@ -69,7 +70,9 @@ import org.apache.commons.codec.binary.Hex;
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
+import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.MappingJsonFactory;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
  * A reader for JSON files that translates them into vectors. This reader is used for integration tests.
@@ -92,7 +95,10 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
   public JsonFileReader(File inputFile, BufferAllocator allocator) throws JsonParseException, IOException {
     super();
     this.allocator = allocator;
-    MappingJsonFactory jsonFactory = new MappingJsonFactory();
+    MappingJsonFactory jsonFactory = new MappingJsonFactory(new ObjectMapper()
+        //ignore case for enums
+        .configure(MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS, true)
+    );
     this.parser = jsonFactory.createParser(inputFile);
     // Allow reading NaN for floating point values
     this.parser.configure(JsonParser.Feature.ALLOW_NON_NUMERIC_NUMBERS, true);
@@ -173,7 +179,6 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
     if (t == START_OBJECT) {
       {
         int count = readNextField("count", Integer.class);
-        root.setRowCount(count);
         nextFieldIs("columns");
         readToken(START_ARRAY);
         {
@@ -183,6 +188,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
           }
         }
         readToken(END_ARRAY);
+        root.setRowCount(count);
       }
       readToken(END_OBJECT);
       return true;
@@ -562,7 +568,9 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
     if (bufferType.equals(VALIDITY)) {
       reader = helper.BIT;
     } else if (bufferType.equals(OFFSET)) {
-      if (type == Types.MinorType.LARGEVARCHAR || type == Types.MinorType.LARGEVARBINARY) {
+      if (type == Types.MinorType.LARGELIST ||
+          type == Types.MinorType.LARGEVARCHAR ||
+          type == Types.MinorType.LARGEVARBINARY) {
         reader = helper.INT8;
       } else {
         reader = helper.INT4;
@@ -705,7 +713,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
         BufferType bufferType = vectorTypes.get(v);
         nextFieldIs(bufferType.getName());
         int innerBufferValueCount = valueCount;
-        if (bufferType.equals(OFFSET)) {
+        if (bufferType.equals(OFFSET) && !field.getType().getTypeID().equals(ArrowType.ArrowTypeID.Union)) {
           /* offset buffer has 1 additional value capacity */
           innerBufferValueCount = valueCount + 1;
         }
@@ -718,7 +726,10 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
         return;
       }
 
-      final int nullCount = BitVectorHelper.getNullCount(vectorBuffers[0], valueCount);
+      int nullCount = 0;
+      if (!(vector.getField().getFieldType().getType() instanceof ArrowType.Union)) {
+        nullCount = BitVectorHelper.getNullCount(vectorBuffers[0], valueCount);
+      }
       final ArrowFieldNode fieldNode = new ArrowFieldNode(valueCount, nullCount);
       vector.loadFieldBuffers(fieldNode, Arrays.asList(vectorBuffers));
 

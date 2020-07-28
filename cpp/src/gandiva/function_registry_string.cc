@@ -55,9 +55,17 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
       UNARY_UNSAFE_NULL_IF_NULL(length, {}, utf8, int32),
       UNARY_UNSAFE_NULL_IF_NULL(lengthUtf8, {}, binary, int32),
       UNARY_UNSAFE_NULL_IF_NULL(reverse, {}, utf8, utf8),
+      UNARY_UNSAFE_NULL_IF_NULL(ltrim, {}, utf8, utf8),
+      UNARY_UNSAFE_NULL_IF_NULL(rtrim, {}, utf8, utf8),
+      UNARY_UNSAFE_NULL_IF_NULL(btrim, {}, utf8, utf8),
 
       UNARY_SAFE_NULL_NEVER_BOOL_FN(isnull, {}),
       UNARY_SAFE_NULL_NEVER_BOOL_FN(isnotnull, {}),
+
+      UNARY_UNSAFE_NULL_IF_NULL(castINT, {}, utf8, int32),
+      UNARY_UNSAFE_NULL_IF_NULL(castBIGINT, {}, utf8, int64),
+      UNARY_UNSAFE_NULL_IF_NULL(castFLOAT4, {}, utf8, float32),
+      UNARY_UNSAFE_NULL_IF_NULL(castFLOAT8, {}, utf8, float64),
 
       NativeFunction("upper", {}, DataTypeVector{utf8()}, utf8(), kResultNullIfNull,
                      "upper_utf8", NativeFunction::kNeedsContext),
@@ -81,6 +89,15 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
           "rex", {}, DataTypeVector{utf8(), utf8()}, arrow::map(utf8(), utf8()),
           kResultNullIfNull, "gdv_fn_rex_utf8_utf8",
           NativeFunction::kNeedsContext | NativeFunction::kNeedsFunctionHolder),
+
+      NativeFunction("ltrim", {}, DataTypeVector{utf8(), utf8()}, utf8(),
+                     kResultNullIfNull, "ltrim_utf8_utf8", NativeFunction::kNeedsContext),
+
+      NativeFunction("rtrim", {}, DataTypeVector{utf8(), utf8()}, utf8(),
+                     kResultNullIfNull, "rtrim_utf8_utf8", NativeFunction::kNeedsContext),
+
+      NativeFunction("btrim", {}, DataTypeVector{utf8(), utf8()}, utf8(),
+                     kResultNullIfNull, "btrim_utf8_utf8", NativeFunction::kNeedsContext),
 
       NativeFunction("substr", {"substring"},
                      DataTypeVector{utf8(), int64() /*offset*/, int64() /*length*/},

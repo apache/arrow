@@ -102,5 +102,6 @@ cdef extern from "arrow/gpu/cuda_api.h" namespace "arrow::cuda" nogil:
     CResult[shared_ptr[CRecordBatch]] \
         CudaReadRecordBatch" arrow::cuda::ReadRecordBatch"\
         (const shared_ptr[CSchema]& schema,
+         CDictionaryMemo* dictionary_memo,
          const shared_ptr[CCudaBuffer]& buffer,
          CMemoryPool* pool)

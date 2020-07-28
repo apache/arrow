@@ -30,6 +30,7 @@ User Guide
    arrays
    datatypes
    tables
+   compute
    io
    parquet
    csv

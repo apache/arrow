@@ -27,6 +27,9 @@ Reading CSV files
 Arrow provides a fast CSV reader allowing ingestion of external data
 as Arrow tables.
 
+.. seealso::
+   :ref:`CSV reader API reference <cpp-api-csv>`.
+
 Basic usage
 ===========
 
@@ -38,7 +41,6 @@ A CSV file is read from a :class:`~arrow::io::InputStream`.
 
    {
       // ...
-      arrow::Status st;
       arrow::MemoryPool* pool = default_memory_pool();
       std::shared_ptr<arrow::io::InputStream> input = ...;
 
@@ -47,21 +49,24 @@ A CSV file is read from a :class:`~arrow::io::InputStream`.
       auto convert_options = arrow::csv::ConvertOptions::Defaults();
 
       // Instantiate TableReader from input stream and options
-      std::shared_ptr<arrow::csv::TableReader> reader;
-      st = arrow::csv::TableReader::Make(pool, input, read_options,
-                                         parse_options, convert_options,
-                                         &reader);
-      if (!st.ok()) {
+      auto maybe_reader =
+        arrow::csv::TableReader::Make(pool,
+                                      input,
+                                      read_options,
+                                      parse_options,
+                                      convert_options);
+      if (!maybe_reader.ok()) {
          // Handle TableReader instantiation error...
       }
+      std::shared_ptr<arrow::csv::TableReader> reader = *maybe_reader;
 
-      std::shared_ptr<arrow::Table> table;
       // Read table from CSV file
-      st = reader->Read(&table);
-      if (!st.ok()) {
+      auto maybe_table = reader->Read();
+      if (!maybe_table.ok()) {
          // Handle CSV read error
          // (for example a CSV syntax error or failed type conversion)
       }
+      std::shared_ptr<arrow::Table> table = *maybe_table;
    }
 
 Column names

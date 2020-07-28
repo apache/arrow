@@ -20,10 +20,10 @@
 
 use crate::error::Result;
 use crate::execution::physical_plan::common::RecordBatchIterator;
+use crate::execution::physical_plan::Partition;
 use crate::execution::physical_plan::{common, ExecutionPlan};
-use crate::execution::physical_plan::{BatchIterator, Partition};
-use arrow::datatypes::Schema;
-use arrow::record_batch::RecordBatch;
+use arrow::datatypes::SchemaRef;
+use arrow::record_batch::{RecordBatch, RecordBatchReader};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::thread::JoinHandle;
@@ -32,20 +32,20 @@ use std::thread::JoinHandle;
 /// partition. No guarantees are made about the order of the resulting partition.
 pub struct MergeExec {
     /// Input schema
-    schema: Arc<Schema>,
+    schema: SchemaRef,
     /// Input partitions
     partitions: Vec<Arc<dyn Partition>>,
 }
 
 impl MergeExec {
     /// Create a new MergeExec
-    pub fn new(schema: Arc<Schema>, partitions: Vec<Arc<dyn Partition>>) -> Self {
+    pub fn new(schema: SchemaRef, partitions: Vec<Arc<dyn Partition>>) -> Self {
         MergeExec { schema, partitions }
     }
 }
 
 impl ExecutionPlan for MergeExec {
-    fn schema(&self) -> Arc<Schema> {
+    fn schema(&self) -> SchemaRef {
         self.schema.clone()
     }
 
@@ -59,13 +59,13 @@ impl ExecutionPlan for MergeExec {
 
 struct MergePartition {
     /// Input schema
-    schema: Arc<Schema>,
+    schema: SchemaRef,
     /// Input partitions
     partitions: Vec<Arc<dyn Partition>>,
 }
 
 impl Partition for MergePartition {
-    fn execute(&self) -> Result<Arc<Mutex<dyn BatchIterator>>> {
+    fn execute(&self) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
         let threads: Vec<JoinHandle<Result<Vec<RecordBatch>>>> = self
             .partitions
             .iter()

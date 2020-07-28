@@ -20,6 +20,7 @@ package org.apache.arrow.flight;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
+import org.apache.arrow.vector.ipc.message.IpcOption;
 
 /**
  * An interface for writing data to a peer, client or server.
@@ -40,14 +41,25 @@ public interface OutboundStreamListener {
    *
    * <p>This method must be called before all others, except {@link #putMetadata(ArrowBuf)}.
    */
-  void start(VectorSchemaRoot root);
+  default void start(VectorSchemaRoot root) {
+    start(root, null, new IpcOption());
+  }
 
   /**
    * Start sending data, using the schema of the given {@link VectorSchemaRoot}.
    *
-   * <p>This method must be called before all others.
+   * <p>This method must be called before all others, except {@link #putMetadata(ArrowBuf)}.
    */
-  void start(VectorSchemaRoot root, DictionaryProvider dictionaries);
+  default void start(VectorSchemaRoot root, DictionaryProvider dictionaries) {
+    start(root, dictionaries, new IpcOption());
+  }
+
+  /**
+   * Start sending data, using the schema of the given {@link VectorSchemaRoot}.
+   *
+   * <p>This method must be called before all others, except {@link #putMetadata(ArrowBuf)}.
+   */
+  void start(VectorSchemaRoot root, DictionaryProvider dictionaries, IpcOption option);
 
   /**
    * Send the current contents of the associated {@link VectorSchemaRoot}.

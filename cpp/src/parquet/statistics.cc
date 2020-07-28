@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "parquet/statistics.h"
+
 #include <algorithm>
 #include <cmath>
 #include <cstring>
@@ -30,12 +32,10 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/optional.h"
 #include "arrow/util/ubsan.h"
-
 #include "parquet/encoding.h"
 #include "parquet/exception.h"
 #include "parquet/platform.h"
 #include "parquet/schema.h"
-#include "parquet/statistics.h"
 
 using arrow::default_memory_pool;
 using arrow::MemoryPool;
@@ -505,13 +505,13 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
 
   const ColumnDescriptor* descr() const override { return descr_; }
 
-  std::string EncodeMin() override {
+  std::string EncodeMin() const override {
     std::string s;
     if (HasMinMax()) this->PlainEncode(min_, &s);
     return s;
   }
 
-  std::string EncodeMax() override {
+  std::string EncodeMax() const override {
     std::string s;
     if (HasMinMax()) this->PlainEncode(max_, &s);
     return s;
@@ -542,8 +542,8 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   std::shared_ptr<TypedComparator<DType>> comparator_;
   std::shared_ptr<ResizableBuffer> min_buffer_, max_buffer_;
 
-  void PlainEncode(const T& src, std::string* dst);
-  void PlainDecode(const std::string& src, T* dst);
+  void PlainEncode(const T& src, std::string* dst) const;
+  void PlainDecode(const std::string& src, T* dst) const;
 
   void Copy(const T& src, T* dst, ResizableBuffer*) { *dst = src; }
 
@@ -634,7 +634,7 @@ void TypedStatisticsImpl<DType>::UpdateSpaced(const T* values, const uint8_t* va
 }
 
 template <typename DType>
-void TypedStatisticsImpl<DType>::PlainEncode(const T& src, std::string* dst) {
+void TypedStatisticsImpl<DType>::PlainEncode(const T& src, std::string* dst) const {
   auto encoder = MakeTypedEncoder<DType>(Encoding::PLAIN, false, descr_, pool_);
   encoder->Put(&src, 1);
   auto buffer = encoder->FlushValues();
@@ -643,7 +643,7 @@ void TypedStatisticsImpl<DType>::PlainEncode(const T& src, std::string* dst) {
 }
 
 template <typename DType>
-void TypedStatisticsImpl<DType>::PlainDecode(const std::string& src, T* dst) {
+void TypedStatisticsImpl<DType>::PlainDecode(const std::string& src, T* dst) const {
   auto decoder = MakeTypedDecoder<DType>(Encoding::PLAIN, descr_);
   decoder->SetData(1, reinterpret_cast<const uint8_t*>(src.c_str()),
                    static_cast<int>(src.size()));
@@ -651,12 +651,14 @@ void TypedStatisticsImpl<DType>::PlainDecode(const std::string& src, T* dst) {
 }
 
 template <>
-void TypedStatisticsImpl<ByteArrayType>::PlainEncode(const T& src, std::string* dst) {
+void TypedStatisticsImpl<ByteArrayType>::PlainEncode(const T& src,
+                                                     std::string* dst) const {
   dst->assign(reinterpret_cast<const char*>(src.ptr), src.len);
 }
 
 template <>
-void TypedStatisticsImpl<ByteArrayType>::PlainDecode(const std::string& src, T* dst) {
+void TypedStatisticsImpl<ByteArrayType>::PlainDecode(const std::string& src,
+                                                     T* dst) const {
   dst->len = static_cast<uint32_t>(src.size());
   dst->ptr = reinterpret_cast<const uint8_t*>(src.c_str());
 }

@@ -426,6 +426,279 @@ TEST(TestStringOps, TestReverse) {
   ctx.Reset();
 }
 
+TEST(TestStringOps, TestLtrim) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+  gdv_int32 out_len = 0;
+  const char* out_str;
+
+  out_str = ltrim_utf8(ctx_ptr, "TestString  ", 12, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "TestString  ");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = ltrim_utf8(ctx_ptr, "      TestString  ", 18, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "TestString  ");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = ltrim_utf8(ctx_ptr, " Test  çåå†bD", 18, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "Test  çåå†bD");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = ltrim_utf8(ctx_ptr, "", 0, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = ltrim_utf8(ctx_ptr, "      ", 6, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = ltrim_utf8_utf8(ctx_ptr, "", 0, "TestString", 10, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = ltrim_utf8_utf8(ctx_ptr, "TestString", 10, "", 0, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "TestString");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = ltrim_utf8_utf8(ctx_ptr, "abcbbaccabbcdef", 15, "abc", 3, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "def");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = ltrim_utf8_utf8(ctx_ptr, "abcbbaccabbcdef", 15, "ababbac", 7, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "def");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = ltrim_utf8_utf8(ctx_ptr, "ååçåå†eç†Dd", 21, "çåå†", 9, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "eç†Dd");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = ltrim_utf8_utf8(ctx_ptr, "ç†ååçåå†", 18, "çåå†", 9, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+
+  std::string d(
+      "aa\xc3"
+      "bcd");
+  out_str =
+      ltrim_utf8_utf8(ctx_ptr, d.data(), static_cast<int>(d.length()), "a", 1, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len),
+            "\xc3"
+            "bcd");
+  EXPECT_FALSE(ctx.has_error());
+
+  std::string e(
+      "åå\xe0\xa0"
+      "bcd");
+  out_str =
+      ltrim_utf8_utf8(ctx_ptr, e.data(), static_cast<int>(e.length()), "å", 2, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len),
+            "\xE0\xa0"
+            "bcd");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = ltrim_utf8_utf8(ctx_ptr, "TestString", 10, "abcd", 4, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "TestString");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = ltrim_utf8_utf8(ctx_ptr, "acbabbcabb", 10, "abcbd", 5, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+}
+
+TEST(TestStringOps, TestRtrim) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+  gdv_int32 out_len = 0;
+  const char* out_str;
+
+  out_str = rtrim_utf8(ctx_ptr, "  TestString", 12, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "  TestString");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = rtrim_utf8(ctx_ptr, "  TestString      ", 18, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "  TestString");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = rtrim_utf8(ctx_ptr, "Test  çåå†bD   ", 20, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "Test  çåå†bD");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = rtrim_utf8(ctx_ptr, "", 0, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = rtrim_utf8(ctx_ptr, "      ", 6, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = rtrim_utf8_utf8(ctx_ptr, "", 0, "TestString", 10, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = rtrim_utf8_utf8(ctx_ptr, "TestString", 10, "", 0, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "TestString");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = rtrim_utf8_utf8(ctx_ptr, "TestString", 10, "ring", 4, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "TestSt");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = rtrim_utf8_utf8(ctx_ptr, "defabcbbaccabbc", 15, "abc", 3, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "def");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = rtrim_utf8_utf8(ctx_ptr, "defabcbbaccabbc", 15, "ababbac", 7, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "def");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = rtrim_utf8_utf8(ctx_ptr, "eDdç†ååçåå†", 21, "çåå†", 9, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "eDd");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = rtrim_utf8_utf8(ctx_ptr, "ç†ååçåå†", 18, "çåå†", 9, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+
+  std::string d(
+      "\xc3"
+      "aaa");
+  out_str =
+      rtrim_utf8_utf8(ctx_ptr, d.data(), static_cast<int>(d.length()), "a", 1, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_TRUE(ctx.has_error());
+  ctx.Reset();
+
+  std::string e(
+      "\xe0\xa0"
+      "åå");
+  out_str =
+      rtrim_utf8_utf8(ctx_ptr, e.data(), static_cast<int>(e.length()), "å", 2, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_TRUE(ctx.has_error());
+  ctx.Reset();
+
+  out_str = rtrim_utf8_utf8(ctx_ptr, "åeçå", 7, "çå", 4, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "åe");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = rtrim_utf8_utf8(ctx_ptr, "TestString", 10, "abcd", 4, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "TestString");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = rtrim_utf8_utf8(ctx_ptr, "acbabbcabb", 10, "abcbd", 5, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+}
+
+TEST(TestStringOps, TestBtrim) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+  gdv_int32 out_len = 0;
+  const char* out_str;
+
+  out_str = btrim_utf8(ctx_ptr, "TestString", 10, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "TestString");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = btrim_utf8(ctx_ptr, "      TestString  ", 18, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "TestString");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = btrim_utf8(ctx_ptr, " Test  çåå†bD   ", 21, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "Test  çåå†bD");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = btrim_utf8(ctx_ptr, "", 0, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = btrim_utf8(ctx_ptr, "      ", 6, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = btrim_utf8_utf8(ctx_ptr, "", 0, "TestString", 10, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = btrim_utf8_utf8(ctx_ptr, "TestString", 10, "Test", 4, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "String");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = btrim_utf8_utf8(ctx_ptr, "TestString", 10, "String", 6, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "Tes");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = btrim_utf8_utf8(ctx_ptr, "TestString", 10, "", 0, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "TestString");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = btrim_utf8_utf8(ctx_ptr, "abcbbadefccabbc", 15, "abc", 3, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "def");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = btrim_utf8_utf8(ctx_ptr, "abcbbadefccabbc", 15, "ababbac", 7, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "def");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = btrim_utf8_utf8(ctx_ptr, "ååçåå†Ddeç†", 21, "çåå†", 9, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "Dde");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = btrim_utf8_utf8(ctx_ptr, "ç†ååçåå†", 18, "çåå†", 9, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+  ctx.Reset();
+
+  std::string d(
+      "acd\xc3"
+      "aaa");
+  out_str =
+      btrim_utf8_utf8(ctx_ptr, d.data(), static_cast<int>(d.length()), "a", 1, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_TRUE(ctx.has_error());
+  ctx.Reset();
+
+  std::string e(
+      "åbc\xe0\xa0"
+      "åå");
+  out_str =
+      btrim_utf8_utf8(ctx_ptr, e.data(), static_cast<int>(e.length()), "å", 2, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_TRUE(ctx.has_error());
+  ctx.Reset();
+
+  std::string f(
+      "aa\xc3"
+      "bcd");
+  out_str =
+      btrim_utf8_utf8(ctx_ptr, f.data(), static_cast<int>(f.length()), "a", 1, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len),
+            "\xc3"
+            "bcd");
+  EXPECT_FALSE(ctx.has_error());
+
+  std::string g(
+      "åå\xe0\xa0"
+      "bcå");
+  out_str =
+      btrim_utf8_utf8(ctx_ptr, g.data(), static_cast<int>(g.length()), "å", 2, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len),
+            "\xe0\xa0"
+            "bc");
+
+  out_str = btrim_utf8_utf8(ctx_ptr, "åe†çå", 10, "çå", 4, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "e†");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = btrim_utf8_utf8(ctx_ptr, "TestString", 10, "abcd", 4, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "TestString");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = btrim_utf8_utf8(ctx_ptr, "acbabbcabb", 10, "abcbd", 5, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+}
+
 TEST(TestStringOps, TestLocate) {
   gandiva::ExecutionContext ctx;
   uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
@@ -532,6 +805,140 @@ TEST(TestStringOps, TestReplace) {
   out_str = replace_with_max_len_utf8_utf8_utf8(ctx_ptr, "eeee", 4, "e", 1, "aaaa", 4, 14,
                                                 &out_len);
   EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Buffer overflow for output string"));
+  ctx.Reset();
+}
+
+TEST(TestArithmeticOps, TestCastINT) {
+  gandiva::ExecutionContext ctx;
+
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+
+  EXPECT_EQ(castINT_utf8(ctx_ptr, "-45", 3), -45);
+  EXPECT_EQ(castINT_utf8(ctx_ptr, "0", 1), 0);
+  EXPECT_EQ(castINT_utf8(ctx_ptr, "2147483647", 10), 2147483647);
+  EXPECT_EQ(castINT_utf8(ctx_ptr, "02147483647", 11), 2147483647);
+  EXPECT_EQ(castINT_utf8(ctx_ptr, "-2147483648", 11), -2147483648LL);
+  EXPECT_EQ(castINT_utf8(ctx_ptr, "-02147483648", 12), -2147483648LL);
+  EXPECT_EQ(castINT_utf8(ctx_ptr, " 12 ", 4), 12);
+
+  castINT_utf8(ctx_ptr, "2147483648", 10);
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("Failed to cast the string 2147483648 to int32"));
+  ctx.Reset();
+
+  castINT_utf8(ctx_ptr, "-2147483649", 11);
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("Failed to cast the string -2147483649 to int32"));
+  ctx.Reset();
+
+  castINT_utf8(ctx_ptr, "12.34", 5);
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("Failed to cast the string 12.34 to int32"));
+  ctx.Reset();
+
+  castINT_utf8(ctx_ptr, "abc", 3);
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("Failed to cast the string abc to int32"));
+  ctx.Reset();
+
+  castINT_utf8(ctx_ptr, "", 0);
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("Failed to cast the string  to int32"));
+  ctx.Reset();
+
+  castINT_utf8(ctx_ptr, "-", 1);
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("Failed to cast the string - to int32"));
+  ctx.Reset();
+}
+
+TEST(TestArithmeticOps, TestCastBIGINT) {
+  gandiva::ExecutionContext ctx;
+
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+
+  EXPECT_EQ(castBIGINT_utf8(ctx_ptr, "-45", 3), -45);
+  EXPECT_EQ(castBIGINT_utf8(ctx_ptr, "0", 1), 0);
+  EXPECT_EQ(castBIGINT_utf8(ctx_ptr, "9223372036854775807", 19), 9223372036854775807LL);
+  EXPECT_EQ(castBIGINT_utf8(ctx_ptr, "09223372036854775807", 20), 9223372036854775807LL);
+  EXPECT_EQ(castBIGINT_utf8(ctx_ptr, "-9223372036854775808", 20),
+            -9223372036854775807LL - 1);
+  EXPECT_EQ(castBIGINT_utf8(ctx_ptr, "-009223372036854775808", 22),
+            -9223372036854775807LL - 1);
+  EXPECT_EQ(castBIGINT_utf8(ctx_ptr, " 12 ", 4), 12);
+
+  castBIGINT_utf8(ctx_ptr, "9223372036854775808", 19);
+  EXPECT_THAT(
+      ctx.get_error(),
+      ::testing::HasSubstr("Failed to cast the string 9223372036854775808 to int64"));
+  ctx.Reset();
+
+  castBIGINT_utf8(ctx_ptr, "-9223372036854775809", 20);
+  EXPECT_THAT(
+      ctx.get_error(),
+      ::testing::HasSubstr("Failed to cast the string -9223372036854775809 to int64"));
+  ctx.Reset();
+
+  castBIGINT_utf8(ctx_ptr, "12.34", 5);
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("Failed to cast the string 12.34 to int64"));
+  ctx.Reset();
+
+  castBIGINT_utf8(ctx_ptr, "abc", 3);
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("Failed to cast the string abc to int64"));
+  ctx.Reset();
+
+  castBIGINT_utf8(ctx_ptr, "", 0);
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("Failed to cast the string  to int64"));
+  ctx.Reset();
+
+  castBIGINT_utf8(ctx_ptr, "-", 1);
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("Failed to cast the string - to int64"));
+  ctx.Reset();
+}
+
+TEST(TestArithmeticOps, TestCastFloat4) {
+  gandiva::ExecutionContext ctx;
+
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+
+  EXPECT_EQ(castFLOAT4_utf8(ctx_ptr, "-45.34", 6), -45.34f);
+  EXPECT_EQ(castFLOAT4_utf8(ctx_ptr, "0", 1), 0.0f);
+  EXPECT_EQ(castFLOAT4_utf8(ctx_ptr, "5", 1), 5.0f);
+  EXPECT_EQ(castFLOAT4_utf8(ctx_ptr, " 3.4 ", 5), 3.4f);
+
+  castFLOAT4_utf8(ctx_ptr, "", 0);
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("Failed to cast the string  to float32"));
+  ctx.Reset();
+
+  castFLOAT4_utf8(ctx_ptr, "e", 1);
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("Failed to cast the string e to float32"));
+  ctx.Reset();
+}
+
+TEST(TestParseStringHolder, TestCastFloat8) {
+  gandiva::ExecutionContext ctx;
+
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+
+  EXPECT_EQ(castFLOAT8_utf8(ctx_ptr, "-45.34", 6), -45.34);
+  EXPECT_EQ(castFLOAT8_utf8(ctx_ptr, "0", 1), 0.0);
+  EXPECT_EQ(castFLOAT8_utf8(ctx_ptr, "5", 1), 5.0);
+  EXPECT_EQ(castFLOAT8_utf8(ctx_ptr, " 3.4 ", 5), 3.4);
+
+  castFLOAT8_utf8(ctx_ptr, "", 0);
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("Failed to cast the string  to float64"));
+  ctx.Reset();
+
+  castFLOAT8_utf8(ctx_ptr, "e", 1);
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("Failed to cast the string e to float64"));
   ctx.Reset();
 }
 

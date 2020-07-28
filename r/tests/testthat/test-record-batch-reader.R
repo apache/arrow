@@ -74,3 +74,26 @@ test_that("RecordBatchFileReader / Writer", {
 
   expect_equal(reader$num_record_batches, 3)
 })
+
+test_that("MetadataFormat", {
+  expect_identical(get_ipc_metadata_version(5), 4L)
+  expect_identical(get_ipc_metadata_version("V4"), 3L)
+  expect_identical(get_ipc_metadata_version(NULL), 4L)
+  Sys.setenv(ARROW_PRE_0_15_IPC_FORMAT = 1)
+  expect_identical(get_ipc_metadata_version(NULL), 3L)
+  Sys.setenv(ARROW_PRE_0_15_IPC_FORMAT = "")
+  
+  expect_identical(get_ipc_metadata_version(NULL), 4L)
+  Sys.setenv(ARROW_PRE_1_0_METADATA_VERSION = 1)
+  expect_identical(get_ipc_metadata_version(NULL), 3L)
+  Sys.setenv(ARROW_PRE_1_0_METADATA_VERSION = "")
+
+  expect_error(
+    get_ipc_metadata_version(99),
+    "99 is not a valid IPC MetadataVersion"
+  )
+  expect_error(
+    get_ipc_metadata_version("45"),
+    '"45" is not a valid IPC MetadataVersion'
+  )
+})

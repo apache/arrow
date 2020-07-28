@@ -273,23 +273,50 @@ build_libarrow <- function(src_dir, dst_dir) {
   # * cmake
   cmake <- ensure_cmake()
 
-  build_dir <- tempfile()
+  # Optionally build somewhere not in tmp so we can dissect the build if it fails
+  debug_dir <- Sys.getenv("LIBARROW_DEBUG_DIR")
+  if (nzchar(debug_dir)) {
+    build_dir <- debug_dir
+  } else {
+    # But normally we'll just build in a tmp dir
+    build_dir <- tempfile()
+  }
   options(.arrow.cleanup = c(getOption(".arrow.cleanup"), build_dir))
-  env_vars <- sprintf(
-    "SOURCE_DIR=%s BUILD_DIR=%s DEST_DIR=%s CMAKE=%s",
-    src_dir,       build_dir,   dst_dir,    cmake
+
+  R_CMD_config <- function(var) {
+    # cf. tools::Rcmd, introduced R 3.3
+    system2(file.path(R.home("bin"), "R"), c("CMD", "config", var), stdout = TRUE)
+  }
+  env_var_list <- c(
+    SOURCE_DIR = src_dir,
+    BUILD_DIR = build_dir,
+    DEST_DIR = dst_dir,
+    CMAKE = cmake,
+    # Make sure we build with the same compiler settings that R is using
+    CC = R_CMD_config("CC"),
+    CXX = paste(R_CMD_config("CXX11"), R_CMD_config("CXX11STD")),
+    # CXXFLAGS = R_CMD_config("CXX11FLAGS"), # We don't want the same debug symbols
+    LDFLAGS = R_CMD_config("LDFLAGS")
+  )
+  env_vars <- paste(
+    names(env_var_list), dQuote(env_var_list, FALSE),
+    sep = "=", collapse = " "
   )
   cat("**** arrow", ifelse(quietly, "", paste("with", env_vars)), "\n")
-  system(
+  status <- system(
     paste(env_vars, "inst/build_arrow_static.sh"),
     ignore.stdout = quietly, ignore.stderr = quietly
   )
+  if (status != 0) {
+    # It failed :(
+    cat("**** Error building Arrow C++. Re-run with ARROW_R_DEV=true for debug information.\n")
+  }
+  invisible(status)
 }
 
 ensure_cmake <- function() {
   cmake <- Sys.which("cmake")
-  # TODO: should check that cmake is of sufficient version
-  if (!nzchar(cmake)) {
+  if (!nzchar(cmake) || cmake_version() < 3.2) {
     # If not found, download it
     cat("**** cmake\n")
     CMAKE_VERSION <- Sys.getenv("CMAKE_VERSION", "3.16.2")
@@ -308,8 +335,23 @@ ensure_cmake <- function() {
       "/cmake-", CMAKE_VERSION, "-Linux-x86_64",
       "/bin/cmake"
     )
+  } else {
+    # Sys.which() returns a named vector, but that plays badly with c() later
+    names(cmake) <- NULL
   }
   cmake
+}
+
+cmake_version <- function() {
+  tryCatch(
+    {
+      raw_version <- system("cmake --version", intern = TRUE, ignore.stderr = TRUE)
+      pat <- ".*?([0-9]+\\.[0-9]+\\.[0-9]+).*"
+      which_line <- grep(pat, raw_version)
+      package_version(sub(pat, "\\1", raw_version[which_line]))
+    },
+    error = function(e) return(0)
+  )
 }
 
 #####

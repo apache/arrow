@@ -18,6 +18,103 @@
 import warnings
 
 
+cpdef enum MetadataVersion:
+    V1 = <char> CMetadataVersion_V1
+    V2 = <char> CMetadataVersion_V2
+    V3 = <char> CMetadataVersion_V3
+    V4 = <char> CMetadataVersion_V4
+    V5 = <char> CMetadataVersion_V5
+
+
+cdef object _wrap_metadata_version(CMetadataVersion version):
+    return MetadataVersion(<char> version)
+
+
+cdef CMetadataVersion _unwrap_metadata_version(
+        MetadataVersion version) except *:
+    if version == MetadataVersion.V1:
+        return CMetadataVersion_V1
+    elif version == MetadataVersion.V2:
+        return CMetadataVersion_V2
+    elif version == MetadataVersion.V3:
+        return CMetadataVersion_V3
+    elif version == MetadataVersion.V4:
+        return CMetadataVersion_V4
+    elif version == MetadataVersion.V5:
+        return CMetadataVersion_V5
+    raise ValueError("Not a metadata version: " + repr(version))
+
+
+cdef class IpcWriteOptions:
+    """Serialization options for the IPC format.
+
+    Parameters
+    ----------
+    metadata_version : MetadataVersion, default MetadataVersion.V5
+        The metadata version to write.  V5 is the current and latest,
+        V4 is the pre-1.0 metadata version (with incompatible Union layout).
+    use_legacy_format : bool, default False
+        Whether to use the pre-Arrow 0.15 IPC format.
+    compression: str or None
+        If not None, compression codec to use for record batch buffers.
+        May only be "lz4", "zstd" or None.
+    use_threads: bool
+        Whether to use the global CPU thread pool to parallelize any
+        computational tasks like compression.
+    """
+    __slots__ = ()
+
+    # cdef block is in lib.pxd
+
+    def __init__(self, *, metadata_version=MetadataVersion.V5,
+                 use_legacy_format=False, compression=None,
+                 bint use_threads=True):
+        self.c_options = CIpcWriteOptions.Defaults()
+        self.use_legacy_format = use_legacy_format
+        self.metadata_version = metadata_version
+        if compression is not None:
+            self.compression = compression
+        self.use_threads = use_threads
+
+    @property
+    def use_legacy_format(self):
+        return self.c_options.write_legacy_ipc_format
+
+    @use_legacy_format.setter
+    def use_legacy_format(self, bint value):
+        self.c_options.write_legacy_ipc_format = value
+
+    @property
+    def metadata_version(self):
+        return _wrap_metadata_version(self.c_options.metadata_version)
+
+    @metadata_version.setter
+    def metadata_version(self, value):
+        self.c_options.metadata_version = _unwrap_metadata_version(value)
+
+    @property
+    def compression(self):
+        if self.c_options.compression == CCompressionType_UNCOMPRESSED:
+            return None
+        else:
+            return _compression_name(self.c_options.compression)
+
+    @compression.setter
+    def compression(self, value):
+        if value is None:
+            self.c_options.compression = CCompressionType_UNCOMPRESSED
+        else:
+            self.c_options.compression = _ensure_compression(value)
+
+    @property
+    def use_threads(self):
+        return self.c_options.use_threads
+
+    @use_threads.setter
+    def use_threads(self, bint value):
+        self.c_options.use_threads = value
+
+
 cdef class Message:
     """
     Container for an Arrow IPC message with metadata and optional body
@@ -38,6 +135,10 @@ cdef class Message:
     @property
     def metadata(self):
         return pyarrow_wrap_buffer(self.message.get().metadata())
+
+    @property
+    def metadata_version(self):
+        return _wrap_metadata_version(self.message.get().metadata_version())
 
     @property
     def body(self):
@@ -269,10 +370,17 @@ cdef class _RecordBatchStreamWriter(_CRecordBatchWriter):
 
     @property
     def _use_legacy_format(self):
+        # For testing (see test_ipc.py)
         return self.options.write_legacy_ipc_format
 
-    def _open(self, sink, Schema schema, use_legacy_format=False):
-        self.options.write_legacy_ipc_format = use_legacy_format
+    @property
+    def _metadata_version(self):
+        # For testing (see test_ipc.py)
+        return _wrap_metadata_version(self.options.metadata_version)
+
+    def _open(self, sink, Schema schema,
+              IpcWriteOptions options=IpcWriteOptions()):
+        self.options = options.c_options
         get_writer(sink, &self.sink)
         with nogil:
             self.writer = GetResultValue(
@@ -366,8 +474,9 @@ cdef class _RecordBatchStreamReader(_CRecordBatchReader):
 
 cdef class _RecordBatchFileWriter(_RecordBatchStreamWriter):
 
-    def _open(self, sink, Schema schema, use_legacy_format=False):
-        self.options.write_legacy_ipc_format = use_legacy_format
+    def _open(self, sink, Schema schema,
+              IpcWriteOptions options=IpcWriteOptions()):
+        self.options = options.c_options
         get_writer(sink, &self.sink)
         with nogil:
             self.writer = GetResultValue(

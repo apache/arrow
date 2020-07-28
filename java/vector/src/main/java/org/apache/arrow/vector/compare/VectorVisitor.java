@@ -23,6 +23,7 @@ import org.apache.arrow.vector.BaseVariableWidthVector;
 import org.apache.arrow.vector.NullVector;
 import org.apache.arrow.vector.complex.DenseUnionVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
+import org.apache.arrow.vector.complex.LargeListVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.NonNullableStructVector;
 import org.apache.arrow.vector.complex.UnionVector;
@@ -43,6 +44,8 @@ public interface VectorVisitor<OUT, IN> {
   OUT visit(ListVector left, IN value);
 
   OUT visit(FixedSizeListVector left, IN value);
+
+  OUT visit(LargeListVector left, IN value);
 
   OUT visit(NonNullableStructVector left, IN value);
 

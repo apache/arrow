@@ -24,7 +24,6 @@
 #include "arrow/flight/api.h"
 #include "arrow/ipc/dictionary.h"
 #include "arrow/python/common.h"
-#include "arrow/python/config.h"
 
 #if defined(_WIN32) || defined(__CYGWIN__)  // Windows
 #if defined(_MSC_VER)
@@ -320,7 +319,8 @@ class ARROW_PYFLIGHT_EXPORT PyGeneratorFlightDataStream
   /// Must only be called while holding the GIL.
   explicit PyGeneratorFlightDataStream(PyObject* generator,
                                        std::shared_ptr<arrow::Schema> schema,
-                                       PyGeneratorFlightDataStreamCallback callback);
+                                       PyGeneratorFlightDataStreamCallback callback,
+                                       const ipc::IpcWriteOptions& options);
   std::shared_ptr<Schema> schema() override;
   Status GetSchemaPayload(arrow::flight::FlightPayload* payload) override;
   Status Next(arrow::flight::FlightPayload* payload) override;

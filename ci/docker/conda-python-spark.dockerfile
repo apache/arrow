@@ -34,11 +34,16 @@ RUN conda install -q \
 # installing specific version of spark
 ARG spark=master
 COPY ci/scripts/install_spark.sh /arrow/ci/scripts/
-RUN /arrow/ci/scripts/install_spark.sh ${spark} /spark /arrow/ci/etc
+RUN /arrow/ci/scripts/install_spark.sh ${spark} /spark
+
+# patch spark to build with current Arrow Java
+COPY ci/etc/integration_spark_ARROW-9438.patch /arrow/ci/etc/
+RUN patch -d /spark -p1 -i /arrow/ci/etc/integration_spark_ARROW-9438.patch
 
 # build cpp with tests
 ENV CC=gcc \
     CXX=g++ \
     ARROW_PYTHON=ON \
     ARROW_HDFS=ON \
-    ARROW_BUILD_TESTS=OFF
+    ARROW_BUILD_TESTS=OFF \
+    SPARK_VERSION=${spark}

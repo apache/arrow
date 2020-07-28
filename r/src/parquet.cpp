@@ -106,58 +106,24 @@ class ArrowWriterPropertiesBuilder : public ArrowWriterProperties::Builder {
 }  // namespace parquet
 
 // [[arrow::export]]
-std::shared_ptr<parquet::ArrowWriterPropertiesBuilder>
-parquet___ArrowWriterProperties___Builder__create() {
-  return std::make_shared<parquet::ArrowWriterPropertiesBuilder>();
-}
-
-// [[arrow::export]]
-void parquet___ArrowWriterProperties___Builder__store_schema(
-    const std::shared_ptr<parquet::ArrowWriterPropertiesBuilder>& builder) {
+std::shared_ptr<parquet::ArrowWriterProperties> parquet___ArrowWriterProperties___create(
+    bool allow_truncated_timestamps, bool use_deprecated_int96_timestamps,
+    int timestamp_unit) {
+  auto builder = std::make_shared<parquet::ArrowWriterPropertiesBuilder>();
   builder->store_schema();
-}
 
-// [[arrow::export]]
-void parquet___ArrowWriterProperties___Builder__enable_deprecated_int96_timestamps(
-    const std::shared_ptr<parquet::ArrowWriterPropertiesBuilder>& builder) {
-  builder->enable_deprecated_int96_timestamps();
-}
+  if (allow_truncated_timestamps) {
+    builder->allow_truncated_timestamps();
+  }
+  if (use_deprecated_int96_timestamps) {
+    builder->enable_deprecated_int96_timestamps();
+  }
+  if (timestamp_unit > -1) {
+    // -1 is passed in for NULL/default
+    builder->coerce_timestamps(static_cast<arrow::TimeUnit::type>(timestamp_unit));
+  }
 
-// [[arrow::export]]
-void parquet___ArrowWriterProperties___Builder__disable_deprecated_int96_timestamps(
-    const std::shared_ptr<parquet::ArrowWriterPropertiesBuilder>& builder) {
-  builder->disable_deprecated_int96_timestamps();
-}
-
-// [[arrow::export]]
-void parquet___ArrowWriterProperties___Builder__coerce_timestamps(
-    const std::shared_ptr<parquet::ArrowWriterPropertiesBuilder>& builder,
-    arrow::TimeUnit::type unit) {
-  builder->coerce_timestamps(unit);
-}
-
-// [[arrow::export]]
-void parquet___ArrowWriterProperties___Builder__allow_truncated_timestamps(
-    const std::shared_ptr<parquet::ArrowWriterPropertiesBuilder>& builder) {
-  builder->allow_truncated_timestamps();
-}
-
-// [[arrow::export]]
-void parquet___ArrowWriterProperties___Builder__disallow_truncated_timestamps(
-    const std::shared_ptr<parquet::ArrowWriterPropertiesBuilder>& builder) {
-  builder->disallow_truncated_timestamps();
-}
-
-// [[arrow::export]]
-std::shared_ptr<parquet::ArrowWriterProperties>
-parquet___ArrowWriterProperties___Builder__build(
-    const std::shared_ptr<parquet::ArrowWriterPropertiesBuilder>& builder) {
   return builder->build();
-}
-
-// [[arrow::export]]
-std::shared_ptr<parquet::WriterProperties> parquet___default_writer_properties() {
-  return parquet::default_writer_properties();
 }
 
 // [[arrow::export]]
@@ -174,58 +140,30 @@ void parquet___WriterProperties___Builder__version(
 }
 
 // [[arrow::export]]
-void parquet___ArrowWriterProperties___Builder__default_compression(
-    const std::shared_ptr<parquet::WriterPropertiesBuilder>& builder,
-    const arrow::Compression::type& compression) {
-  builder->compression(compression);
-}
-
-// [[arrow::export]]
 void parquet___ArrowWriterProperties___Builder__set_compressions(
     const std::shared_ptr<parquet::WriterPropertiesBuilder>& builder,
     const std::vector<std::string>& paths, const Rcpp::IntegerVector& types) {
-  auto n = paths.size();
-  for (decltype(n) i = 0; i < n; i++) {
-    builder->compression(paths[i], static_cast<arrow::Compression::type>(types[i]));
+  auto n = types.size();
+  if (n == 1) {
+    builder->compression(static_cast<arrow::Compression::type>(types[0]));
+  } else {
+    for (decltype(n) i = 0; i < n; i++) {
+      builder->compression(paths[i], static_cast<arrow::Compression::type>(types[i]));
+    }
   }
-}
-
-// [[arrow::export]]
-void parquet___ArrowWriterProperties___Builder__default_compression_level(
-    const std::shared_ptr<parquet::WriterPropertiesBuilder>& builder,
-    int compression_level) {
-  builder->compression_level(compression_level);
 }
 
 // [[arrow::export]]
 void parquet___ArrowWriterProperties___Builder__set_compression_levels(
     const std::shared_ptr<parquet::WriterPropertiesBuilder>& builder,
     const std::vector<std::string>& paths, const Rcpp::IntegerVector& levels) {
-  auto n = paths.size();
-  for (decltype(n) i = 0; i < n; i++) {
-    builder->compression_level(paths[i], levels[i]);
-  }
-}
-
-// [[arrow::export]]
-void parquet___ArrowWriterProperties___Builder__default_write_statistics(
-    const std::shared_ptr<parquet::WriterPropertiesBuilder>& builder,
-    bool write_statistics) {
-  if (write_statistics) {
-    builder->enable_statistics();
+  auto n = levels.size();
+  if (n == 1) {
+    builder->compression_level(levels[0]);
   } else {
-    builder->disable_statistics();
-  }
-}
-
-// [[arrow::export]]
-void parquet___ArrowWriterProperties___Builder__default_use_dictionary(
-    const std::shared_ptr<parquet::WriterPropertiesBuilder>& builder,
-    bool use_dictionary) {
-  if (use_dictionary) {
-    builder->enable_dictionary();
-  } else {
-    builder->disable_dictionary();
+    for (decltype(n) i = 0; i < n; i++) {
+      builder->compression_level(paths[i], levels[i]);
+    }
   }
 }
 
@@ -233,13 +171,21 @@ void parquet___ArrowWriterProperties___Builder__default_use_dictionary(
 void parquet___ArrowWriterProperties___Builder__set_use_dictionary(
     const std::shared_ptr<parquet::WriterPropertiesBuilder>& builder,
     const std::vector<std::string>& paths, const Rcpp::LogicalVector& use_dictionary) {
-  builder->disable_dictionary();
-  auto n = paths.size();
-  for (decltype(n) i = 0; i < n; i++) {
-    if (use_dictionary[i]) {
-      builder->enable_dictionary(paths[i]);
+  auto n = use_dictionary.size();
+  if (n == 1) {
+    if (use_dictionary[0]) {
+      builder->enable_dictionary();
     } else {
-      builder->disable_dictionary(paths[i]);
+      builder->disable_dictionary();
+    }
+  } else {
+    builder->disable_dictionary();
+    for (decltype(n) i = 0; i < n; i++) {
+      if (use_dictionary[i]) {
+        builder->enable_dictionary(paths[i]);
+      } else {
+        builder->disable_dictionary(paths[i]);
+      }
     }
   }
 }
@@ -248,13 +194,21 @@ void parquet___ArrowWriterProperties___Builder__set_use_dictionary(
 void parquet___ArrowWriterProperties___Builder__set_write_statistics(
     const std::shared_ptr<parquet::WriterPropertiesBuilder>& builder,
     const std::vector<std::string>& paths, const Rcpp::LogicalVector& write_statistics) {
-  builder->disable_statistics();
-  auto n = paths.size();
-  for (decltype(n) i = 0; i < n; i++) {
-    if (write_statistics[i]) {
-      builder->enable_statistics(paths[i]);
+  auto n = write_statistics.size();
+  if (n == 1) {
+    if (write_statistics[0]) {
+      builder->enable_statistics();
     } else {
-      builder->disable_statistics(paths[i]);
+      builder->disable_statistics();
+    }
+  } else {
+    builder->disable_statistics();
+    for (decltype(n) i = 0; i < n; i++) {
+      if (write_statistics[i]) {
+        builder->enable_statistics(paths[i]);
+      } else {
+        builder->disable_statistics(paths[i]);
+      }
     }
   }
 }

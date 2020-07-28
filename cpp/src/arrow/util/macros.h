@@ -19,6 +19,7 @@
 
 #include <cstdint>
 
+#define ARROW_EXPAND(x) x
 #define ARROW_STRINGIFY(x) #x
 #define ARROW_CONCAT(x, y) x##y
 
@@ -113,6 +114,7 @@
 #  define ARROW_DEPRECATED_USING(...)
 # endif
 #endif
+// clang-format on
 
 // ----------------------------------------------------------------------
 

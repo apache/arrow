@@ -182,8 +182,12 @@ TEST(TestVectorIterator, Basic) {
   AssertIteratorNoMatch({1, 2, 3, 1}, VectorIt({1, 2, 3}));
 
   // int does not have specialized IterationTraits
-  AssertIteratorMatch(std::vector<util::optional<int>>{0, 1, 2, 3, 4, 5},
-                      MakeVectorOptionalIterator(std::vector<int>{0, 1, 2, 3, 4, 5}));
+  std::vector<int> elements = {0, 1, 2, 3, 4, 5};
+  std::vector<int*> expected;
+  for (int& element : elements) {
+    expected.push_back(&element);
+  }
+  AssertIteratorMatch(expected, MakeVectorPointingIterator(std::move(elements)));
 }
 
 TEST(TestVectorIterator, RangeForLoop) {

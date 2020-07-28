@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("read_record_batch()")
+context("reading RecordBatches")
 
 test_that("RecordBatchFileWriter / RecordBatchFileReader roundtrips", {
   tab <- Table$create(
@@ -59,16 +59,10 @@ test_that("record_batch() handles (raw|Buffer|InputStream, Schema) (ARROW-3450, 
   batch2 <- record_batch(raw, schema = schema)
   batch3 <- record_batch(buffer(raw), schema = schema)
   stream <- BufferReader$create(raw)
-  # check for deprecation message on the old function
-  expect_deprecated(
-    batch4 <- read_record_batch(stream, schema),
-    "record_batch"
-  )
   stream$close()
 
   expect_equal(batch, batch2)
   expect_equal(batch, batch3)
-  expect_equal(batch, batch4)
 })
 
 test_that("record_batch() can handle (Message, Schema) parameters (ARROW-3499)", {

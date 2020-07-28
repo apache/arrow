@@ -42,21 +42,26 @@ popd
 pushd "${ARROW_DIR}"
 git checkout "${release_tag}"
 
-docker-compose build ubuntu-cpp
-docker-compose build ubuntu-python
-docker-compose build ubuntu-docs
-docker-compose run --rm \
+archery docker run \
   -v "${ARROW_SITE_DIR}/docs:/build/docs" \
   -e ARROW_DOCS_VERSION="${version}" \
   ubuntu-docs
-popd
 
-pushd "${ARROW_SITE_DIR}"
-git add docs
-git commit -m "[Website] Update documentations for ${version}"
-git push -u origin ${branch_name}
-popd
+: ${PUSH:=1}
 
-echo "Success!"
-echo "Create a pull request:"
-echo "  ${github_url}/pull/new/${branch_name}"
+if [ ${PUSH} -gt 0 ]; then
+  pushd "${ARROW_SITE_DIR}"
+  git add docs
+  git commit -m "[Website] Update documentations for ${version}"
+  git push -u origin ${branch_name}
+  popd
+
+  github_url=$(git remote get-url origin | \
+                 sed \
+                   -e 's,^git@github.com:,https://github.com/,' \
+                   -e 's,\.git$,,')
+
+  echo "Success!"
+  echo "Create a pull request:"
+  echo "  ${github_url}/pull/new/${branch_name}"
+fi

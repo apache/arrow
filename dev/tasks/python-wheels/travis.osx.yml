@@ -18,6 +18,35 @@ os: osx
 osx_image: xcode11.3
 language: generic
 
+addons:
+  homebrew:
+    packages:
+      - automake
+      - boost
+      - brotli
+      - c-ares
+      - ccache
+      - cmake
+      - flatbuffers
+      - git
+      - glog
+      - grpc
+      - lz4
+      - ninja
+      - numpy
+      - openssl@1.1
+      - protobuf
+      - python@3.8
+      - rapidjson
+      - re2
+      - snappy
+      - thrift
+      - wget
+      - zstd
+      - bison
+      - flex
+    update: true
+
 # don't build twice
 if: tag IS blank
 
@@ -29,6 +58,7 @@ env:
     - PYARROW_BUILD_VERBOSE=1
     - MB_PYTHON_VERSION={{ python_version }}
     - MACOSX_DEPLOYMENT_TARGET="10.9"
+    - HOMEBREW_NO_AUTO_UPDATE=1
 
 before_install:
   - git clone https://github.com/matthew-brett/multibuild
@@ -37,21 +67,13 @@ before_install:
   - git clone --no-checkout {{ arrow.remote }} arrow
   - git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
   - git -C arrow checkout FETCH_HEAD
-
-  - brew update
-  - travis_wait 30 brew bundle --file=arrow/cpp/Brewfile
-  # Install tools to build bundled Thrift
-  - brew install
-      bison
-      flex
+  - git -C arrow submodule update --init
 
   # source utilities required for wheel builds
   - export CONFIG_PATH=`pwd`/arrow/dev/tasks/python-wheels/osx-build.sh
   - source multibuild/common_utils.sh
   - source multibuild/travis_osx_steps.sh
   - before_install
-  # Fix SSL TLS issue for Python 3.5 on macOS
-  - pip install requests[security]
 
 install:
   # the following functions are defined in osx-build.sh
@@ -63,7 +85,7 @@ install:
   # install the built wheel and test dependencies
   - install_wheel arrow
   # run unit tests before removing the system libraries
-  - run_unit_tests arrow
+  - ulimit -S -n 4096 && run_unit_tests arrow
   # run the import tests
   - run_import_tests
 
@@ -72,9 +94,8 @@ install:
   - deactivate
 
   # crossbow dependencies for deployment
-  - unset MACOSX_DEPLOYMENT_TARGET
-  - pip3 install click ruamel.yaml setuptools_scm github3.py toolz requests[security]
-  - python3 arrow/dev/tasks/crossbow.py
+  - /usr/local/opt/python@3.8/libexec/bin/pip install click ruamel.yaml setuptools_scm github3.py toolz requests[security]
+  - /usr/local/opt/python@3.8/libexec/bin/python arrow/dev/tasks/crossbow.py
       --queue-path $(pwd)
       --queue-remote {{ queue_remote_url }}
       upload-artifacts

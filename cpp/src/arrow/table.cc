@@ -362,6 +362,26 @@ Result<std::shared_ptr<Table>> Table::RenameColumns(
   return Table::Make(::arrow::schema(std::move(fields)), std::move(columns), num_rows());
 }
 
+Result<std::shared_ptr<Table>> Table::SelectColumns(
+    const std::vector<int>& indices) const {
+  int n = static_cast<int>(indices.size());
+
+  std::vector<std::shared_ptr<ChunkedArray>> columns(n);
+  std::vector<std::shared_ptr<Field>> fields(n);
+  for (int i = 0; i < n; i++) {
+    int pos = indices[i];
+    if (pos < 0 || pos > num_columns() - 1) {
+      return Status::Invalid("Invalid column index ", pos, " to select columns.");
+    }
+    columns[i] = column(pos);
+    fields[i] = field(pos);
+  }
+
+  auto new_schema =
+      std::make_shared<arrow::Schema>(std::move(fields), schema()->metadata());
+  return Table::Make(new_schema, std::move(columns), num_rows());
+}
+
 std::string Table::ToString() const {
   std::stringstream ss;
   ARROW_CHECK_OK(PrettyPrint(*this, 0, &ss));

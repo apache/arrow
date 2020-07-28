@@ -36,6 +36,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/int_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/visitor_inline.h"
 
@@ -131,6 +132,14 @@ static Status ConcatenateOffsets(const BufferVector& buffers, MemoryPool* pool,
 template <typename Offset>
 static Status PutOffsets(const std::shared_ptr<Buffer>& src, Offset first_offset,
                          Offset* dst, Range* values_range) {
+  if (src->size() == 0) {
+    // It's allowed to have an empty offsets buffer for a 0-length array
+    // (see Array::Validate)
+    values_range->offset = 0;
+    values_range->length = 0;
+    return Status::OK();
+  }
+
   // Get the range of offsets to transfer from src
   auto src_begin = reinterpret_cast<const Offset*>(src->data());
   auto src_end = reinterpret_cast<const Offset*>(src->data() + src->size());
@@ -145,8 +154,12 @@ static Status PutOffsets(const std::shared_ptr<Buffer>& src, Offset first_offset
   // Write offsets into dst, ensuring that the first offset written is
   // first_offset
   auto adjustment = first_offset - src_begin[0];
-  std::transform(src_begin, src_end, dst,
-                 [adjustment](Offset offset) { return offset + adjustment; });
+  // NOTE: Concatenate can be called during IPC reads to append delta dictionaries.
+  // Avoid UB on non-validated input by doing the addition in the unsigned domain.
+  // (the result can later be validated using Array::ValidateFull)
+  std::transform(src_begin, src_end, dst, [adjustment](Offset offset) {
+    return internal::SafeSignedAdd(offset, adjustment);
+  });
   return Status::OK();
 }
 
@@ -173,7 +186,7 @@ class ConcatenateImpl {
   }
 
   Status Concatenate(std::shared_ptr<ArrayData>* out) && {
-    if (out_->null_count != 0) {
+    if (out_->null_count != 0 && internal::HasValidityBitmap(out_->type->id())) {
       RETURN_NOT_OK(ConcatenateBitmaps(Bitmaps(0), pool_, &out_->buffers[0]));
     }
     RETURN_NOT_OK(VisitTypeInline(*out_->type, this));
@@ -188,48 +201,56 @@ class ConcatenateImpl {
   }
 
   Status Visit(const FixedWidthType& fixed) {
-    // handles numbers, decimal128, fixed_size_binary
-    return ConcatenateBuffers(Buffers(1, fixed), pool_).Value(&out_->buffers[1]);
+    // Handles numbers, decimal128, fixed_size_binary
+    ARROW_ASSIGN_OR_RAISE(auto buffers, Buffers(1, fixed));
+    return ConcatenateBuffers(buffers, pool_).Value(&out_->buffers[1]);
   }
 
   Status Visit(const BinaryType&) {
     std::vector<Range> value_ranges;
-    RETURN_NOT_OK(ConcatenateOffsets<int32_t>(Buffers(1, sizeof(int32_t)), pool_,
-                                              &out_->buffers[1], &value_ranges));
-    return ConcatenateBuffers(Buffers(2, value_ranges), pool_).Value(&out_->buffers[2]);
+    ARROW_ASSIGN_OR_RAISE(auto index_buffers, Buffers(1, sizeof(int32_t)));
+    RETURN_NOT_OK(ConcatenateOffsets<int32_t>(index_buffers, pool_, &out_->buffers[1],
+                                              &value_ranges));
+    ARROW_ASSIGN_OR_RAISE(auto value_buffers, Buffers(2, value_ranges));
+    return ConcatenateBuffers(value_buffers, pool_).Value(&out_->buffers[2]);
   }
 
   Status Visit(const LargeBinaryType&) {
     std::vector<Range> value_ranges;
-    RETURN_NOT_OK(ConcatenateOffsets<int64_t>(Buffers(1, sizeof(int64_t)), pool_,
-                                              &out_->buffers[1], &value_ranges));
-    return ConcatenateBuffers(Buffers(2, value_ranges), pool_).Value(&out_->buffers[2]);
+    ARROW_ASSIGN_OR_RAISE(auto index_buffers, Buffers(1, sizeof(int64_t)));
+    RETURN_NOT_OK(ConcatenateOffsets<int64_t>(index_buffers, pool_, &out_->buffers[1],
+                                              &value_ranges));
+    ARROW_ASSIGN_OR_RAISE(auto value_buffers, Buffers(2, value_ranges));
+    return ConcatenateBuffers(value_buffers, pool_).Value(&out_->buffers[2]);
   }
 
   Status Visit(const ListType&) {
     std::vector<Range> value_ranges;
-    RETURN_NOT_OK(ConcatenateOffsets<int32_t>(Buffers(1, sizeof(int32_t)), pool_,
-                                              &out_->buffers[1], &value_ranges));
-    return ConcatenateImpl(ChildData(0, value_ranges), pool_)
-        .Concatenate(&out_->child_data[0]);
+    ARROW_ASSIGN_OR_RAISE(auto index_buffers, Buffers(1, sizeof(int32_t)));
+    RETURN_NOT_OK(ConcatenateOffsets<int32_t>(index_buffers, pool_, &out_->buffers[1],
+                                              &value_ranges));
+    ARROW_ASSIGN_OR_RAISE(auto child_data, ChildData(0, value_ranges));
+    return ConcatenateImpl(child_data, pool_).Concatenate(&out_->child_data[0]);
   }
 
   Status Visit(const LargeListType&) {
     std::vector<Range> value_ranges;
-    RETURN_NOT_OK(ConcatenateOffsets<int64_t>(Buffers(1, sizeof(int64_t)), pool_,
-                                              &out_->buffers[1], &value_ranges));
-    return ConcatenateImpl(ChildData(0, value_ranges), pool_)
-        .Concatenate(&out_->child_data[0]);
+    ARROW_ASSIGN_OR_RAISE(auto index_buffers, Buffers(1, sizeof(int64_t)));
+    RETURN_NOT_OK(ConcatenateOffsets<int64_t>(index_buffers, pool_, &out_->buffers[1],
+                                              &value_ranges));
+    ARROW_ASSIGN_OR_RAISE(auto child_data, ChildData(0, value_ranges));
+    return ConcatenateImpl(child_data, pool_).Concatenate(&out_->child_data[0]);
   }
 
   Status Visit(const FixedSizeListType&) {
-    return ConcatenateImpl(ChildData(0), pool_).Concatenate(&out_->child_data[0]);
+    ARROW_ASSIGN_OR_RAISE(auto child_data, ChildData(0));
+    return ConcatenateImpl(child_data, pool_).Concatenate(&out_->child_data[0]);
   }
 
   Status Visit(const StructType& s) {
     for (int i = 0; i < s.num_fields(); ++i) {
-      RETURN_NOT_OK(
-          ConcatenateImpl(ChildData(i), pool_).Concatenate(&out_->child_data[i]));
+      ARROW_ASSIGN_OR_RAISE(auto child_data, ChildData(i));
+      RETURN_NOT_OK(ConcatenateImpl(child_data, pool_).Concatenate(&out_->child_data[i]));
     }
     return Status::OK();
   }
@@ -250,7 +271,8 @@ class ConcatenateImpl {
 
     if (dictionaries_same) {
       out_->dictionary = in_[0]->dictionary;
-      return ConcatenateBuffers(Buffers(1, *fixed), pool_).Value(&out_->buffers[1]);
+      ARROW_ASSIGN_OR_RAISE(auto index_buffers, Buffers(1, *fixed));
+      return ConcatenateBuffers(index_buffers, pool_).Value(&out_->buffers[1]);
     } else {
       return Status::NotImplemented("Concat with dictionary unification NYI");
     }
@@ -266,17 +288,24 @@ class ConcatenateImpl {
   }
 
  private:
+  // NOTE: Concatenate() can be called during IPC reads to append delta dictionaries
+  // on non-validated input.  Therefore, the input-checking SliceBufferSafe and
+  // ArrayData::SliceSafe are used below.
+
   // Gather the index-th buffer of each input into a vector.
   // Bytes are sliced with that input's offset and length.
   // Note that BufferVector will not contain the buffer of in_[i] if it's
   // nullptr.
-  BufferVector Buffers(size_t index) {
+  Result<BufferVector> Buffers(size_t index) {
     BufferVector buffers;
     buffers.reserve(in_.size());
     for (const std::shared_ptr<const ArrayData>& array_data : in_) {
       const auto& buffer = array_data->buffers[index];
       if (buffer != nullptr) {
-        buffers.push_back(SliceBuffer(buffer, array_data->offset, array_data->length));
+        ARROW_ASSIGN_OR_RAISE(
+            auto sliced_buffer,
+            SliceBufferSafe(buffer, array_data->offset, array_data->length));
+        buffers.push_back(std::move(sliced_buffer));
       }
     }
     return buffers;
@@ -286,14 +315,17 @@ class ConcatenateImpl {
   // Bytes are sliced with the explicitly passed ranges.
   // Note that BufferVector will not contain the buffer of in_[i] if it's
   // nullptr.
-  BufferVector Buffers(size_t index, const std::vector<Range>& ranges) {
+  Result<BufferVector> Buffers(size_t index, const std::vector<Range>& ranges) {
     DCHECK_EQ(in_.size(), ranges.size());
     BufferVector buffers;
     buffers.reserve(in_.size());
     for (size_t i = 0; i < in_.size(); ++i) {
       const auto& buffer = in_[i]->buffers[index];
       if (buffer != nullptr) {
-        buffers.push_back(SliceBuffer(buffer, ranges[i].offset, ranges[i].length));
+        ARROW_ASSIGN_OR_RAISE(
+            auto sliced_buffer,
+            SliceBufferSafe(buffer, ranges[i].offset, ranges[i].length));
+        buffers.push_back(std::move(sliced_buffer));
       } else {
         DCHECK_EQ(ranges[i].length, 0);
       }
@@ -306,14 +338,16 @@ class ConcatenateImpl {
   // those elements are sliced with that input's offset and length.
   // Note that BufferVector will not contain the buffer of in_[i] if it's
   // nullptr.
-  BufferVector Buffers(size_t index, int byte_width) {
+  Result<BufferVector> Buffers(size_t index, int byte_width) {
     BufferVector buffers;
     buffers.reserve(in_.size());
     for (const std::shared_ptr<const ArrayData>& array_data : in_) {
       const auto& buffer = array_data->buffers[index];
       if (buffer != nullptr) {
-        buffers.push_back(SliceBuffer(buffer, array_data->offset * byte_width,
-                                      array_data->length * byte_width));
+        ARROW_ASSIGN_OR_RAISE(auto sliced_buffer,
+                              SliceBufferSafe(buffer, array_data->offset * byte_width,
+                                              array_data->length * byte_width));
+        buffers.push_back(std::move(sliced_buffer));
       }
     }
     return buffers;
@@ -324,7 +358,7 @@ class ConcatenateImpl {
   // those elements are sliced with that input's offset and length.
   // Note that BufferVector will not contain the buffer of in_[i] if it's
   // nullptr.
-  BufferVector Buffers(size_t index, const FixedWidthType& fixed) {
+  Result<BufferVector> Buffers(size_t index, const FixedWidthType& fixed) {
     DCHECK_EQ(fixed.bit_width() % 8, 0);
     return Buffers(index, fixed.bit_width() / 8);
   }
@@ -342,23 +376,24 @@ class ConcatenateImpl {
 
   // Gather the index-th child_data of each input into a vector.
   // Elements are sliced with that input's offset and length.
-  std::vector<std::shared_ptr<const ArrayData>> ChildData(size_t index) {
+  Result<std::vector<std::shared_ptr<const ArrayData>>> ChildData(size_t index) {
     std::vector<std::shared_ptr<const ArrayData>> child_data(in_.size());
     for (size_t i = 0; i < in_.size(); ++i) {
-      child_data[i] = in_[i]->child_data[index]->Slice(in_[i]->offset, in_[i]->length);
+      ARROW_ASSIGN_OR_RAISE(child_data[i], in_[i]->child_data[index]->SliceSafe(
+                                               in_[i]->offset, in_[i]->length));
     }
     return child_data;
   }
 
   // Gather the index-th child_data of each input into a vector.
   // Elements are sliced with the explicitly passed ranges.
-  std::vector<std::shared_ptr<const ArrayData>> ChildData(
+  Result<std::vector<std::shared_ptr<const ArrayData>>> ChildData(
       size_t index, const std::vector<Range>& ranges) {
     DCHECK_EQ(in_.size(), ranges.size());
     std::vector<std::shared_ptr<const ArrayData>> child_data(in_.size());
     for (size_t i = 0; i < in_.size(); ++i) {
-      child_data[i] =
-          in_[i]->child_data[index]->Slice(ranges[i].offset, ranges[i].length);
+      ARROW_ASSIGN_OR_RAISE(child_data[i], in_[i]->child_data[index]->SliceSafe(
+                                               ranges[i].offset, ranges[i].length));
     }
     return child_data;
   }

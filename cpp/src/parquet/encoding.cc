@@ -105,16 +105,9 @@ class PlainEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
                  int64_t valid_bits_offset) override {
     PARQUET_ASSIGN_OR_THROW(
         auto buffer, arrow::AllocateBuffer(num_values * sizeof(T), this->memory_pool()));
-    int32_t num_valid_values = 0;
-    arrow::internal::BitmapReader valid_bits_reader(valid_bits, valid_bits_offset,
-                                                    num_values);
     T* data = reinterpret_cast<T*>(buffer->mutable_data());
-    for (int32_t i = 0; i < num_values; i++) {
-      if (valid_bits_reader.IsSet()) {
-        data[num_valid_values++] = src[i];
-      }
-      valid_bits_reader.Next();
-    }
+    int num_valid_values = arrow::util::internal::SpacedCompress<T>(
+        src, num_values, valid_bits, valid_bits_offset, data);
     Put(data, num_valid_values);
   }
 
@@ -305,16 +298,9 @@ class PlainEncoder<BooleanType> : public EncoderImpl, virtual public BooleanEnco
                  int64_t valid_bits_offset) override {
     PARQUET_ASSIGN_OR_THROW(
         auto buffer, arrow::AllocateBuffer(num_values * sizeof(T), this->memory_pool()));
-    int32_t num_valid_values = 0;
-    arrow::internal::BitmapReader valid_bits_reader(valid_bits, valid_bits_offset,
-                                                    num_values);
     T* data = reinterpret_cast<T*>(buffer->mutable_data());
-    for (int32_t i = 0; i < num_values; i++) {
-      if (valid_bits_reader.IsSet()) {
-        data[num_valid_values++] = src[i];
-      }
-      valid_bits_reader.Next();
-    }
+    int num_valid_values = arrow::util::internal::SpacedCompress<T>(
+        src, num_values, valid_bits, valid_bits_offset, data);
     Put(data, num_valid_values);
   }
 
@@ -542,26 +528,23 @@ class DictEncoderImpl : public EncoderImpl, virtual public DictEncoder<DType> {
   void Put(const arrow::Array& values) override;
   void PutDictionary(const arrow::Array& values) override;
 
-  template <typename ArrowType>
+  template <typename ArrowType, typename T = typename ArrowType::c_type>
   void PutIndicesTyped(const arrow::Array& data) {
-    using ArrayType = typename arrow::TypeTraits<ArrowType>::ArrayType;
-    const auto& indices = checked_cast<const ArrayType&>(data);
-    auto values = indices.raw_values();
-
+    auto values = data.data()->GetValues<T>(1);
     size_t buffer_position = buffered_indices_.size();
-    buffered_indices_.resize(
-        buffer_position + static_cast<size_t>(indices.length() - indices.null_count()));
-    if (indices.null_count() > 0) {
-      arrow::internal::BitmapReader valid_bits_reader(indices.null_bitmap_data(),
-                                                      indices.offset(), indices.length());
-      for (int64_t i = 0; i < indices.length(); ++i) {
+    buffered_indices_.resize(buffer_position +
+                             static_cast<size_t>(data.length() - data.null_count()));
+    if (data.null_count() > 0) {
+      arrow::internal::BitmapReader valid_bits_reader(data.null_bitmap_data(),
+                                                      data.offset(), data.length());
+      for (int64_t i = 0; i < data.length(); ++i) {
         if (valid_bits_reader.IsSet()) {
           buffered_indices_[buffer_position++] = static_cast<int32_t>(values[i]);
         }
         valid_bits_reader.Next();
       }
     } else {
-      for (int64_t i = 0; i < indices.length(); ++i) {
+      for (int64_t i = 0; i < data.length(); ++i) {
         buffered_indices_[buffer_position++] = static_cast<int32_t>(values[i]);
       }
     }
@@ -569,16 +552,20 @@ class DictEncoderImpl : public EncoderImpl, virtual public DictEncoder<DType> {
 
   void PutIndices(const arrow::Array& data) override {
     switch (data.type()->id()) {
+      case arrow::Type::UINT8:
       case arrow::Type::INT8:
-        return PutIndicesTyped<arrow::Int8Type>(data);
+        return PutIndicesTyped<arrow::UInt8Type>(data);
+      case arrow::Type::UINT16:
       case arrow::Type::INT16:
-        return PutIndicesTyped<arrow::Int16Type>(data);
+        return PutIndicesTyped<arrow::UInt16Type>(data);
+      case arrow::Type::UINT32:
       case arrow::Type::INT32:
-        return PutIndicesTyped<arrow::Int32Type>(data);
+        return PutIndicesTyped<arrow::UInt32Type>(data);
+      case arrow::Type::UINT64:
       case arrow::Type::INT64:
-        return PutIndicesTyped<arrow::Int64Type>(data);
+        return PutIndicesTyped<arrow::UInt64Type>(data);
       default:
-        throw ParquetException("Dictionary indices were not signed integer");
+        throw ParquetException("Passed non-integer array to PutIndices");
     }
   }
 
@@ -897,16 +884,9 @@ void ByteStreamSplitEncoder<DType>::PutSpaced(const T* src, int num_values,
                                               int64_t valid_bits_offset) {
   PARQUET_ASSIGN_OR_THROW(
       auto buffer, arrow::AllocateBuffer(num_values * sizeof(T), this->memory_pool()));
-  int32_t num_valid_values = 0;
-  arrow::internal::BitmapReader valid_bits_reader(valid_bits, valid_bits_offset,
-                                                  num_values);
   T* data = reinterpret_cast<T*>(buffer->mutable_data());
-  for (int32_t i = 0; i < num_values; i++) {
-    if (valid_bits_reader.IsSet()) {
-      data[num_valid_values++] = src[i];
-    }
-    valid_bits_reader.Next();
-  }
+  int num_valid_values = arrow::util::internal::SpacedCompress<T>(
+      src, num_values, valid_bits, valid_bits_offset, data);
   Put(data, num_valid_values);
 }
 
@@ -987,17 +967,13 @@ int PlainDecoder<DType>::DecodeArrow(
 
   PARQUET_THROW_NOT_OK(builder->Reserve(num_values));
 
-  auto decode_value = [&](bool is_valid) {
-    if (is_valid) {
-      builder->UnsafeAppend(arrow::util::SafeLoadAs<value_type>(data_));
-      data_ += sizeof(value_type);
-    } else {
-      builder->UnsafeAppendNull();
-    }
-  };
-
-  VisitNullBitmapInline(valid_bits, valid_bits_offset, num_values, null_count,
-                        std::move(decode_value));
+  VisitNullBitmapInline(
+      valid_bits, valid_bits_offset, num_values, null_count,
+      [&]() {
+        builder->UnsafeAppend(arrow::util::SafeLoadAs<value_type>(data_));
+        data_ += sizeof(value_type);
+      },
+      [&]() { builder->UnsafeAppendNull(); });
 
   num_values_ -= values_decoded;
   len_ -= sizeof(value_type) * values_decoded;
@@ -1018,17 +994,13 @@ int PlainDecoder<DType>::DecodeArrow(
 
   PARQUET_THROW_NOT_OK(builder->Reserve(num_values));
 
-  auto decode_value = [&](bool is_valid) {
-    if (is_valid) {
-      PARQUET_THROW_NOT_OK(builder->Append(arrow::util::SafeLoadAs<value_type>(data_)));
-      data_ += sizeof(value_type);
-    } else {
-      PARQUET_THROW_NOT_OK(builder->AppendNull());
-    }
-  };
-
-  VisitNullBitmapInline(valid_bits, valid_bits_offset, num_values, null_count,
-                        std::move(decode_value));
+  VisitNullBitmapInline(
+      valid_bits, valid_bits_offset, num_values, null_count,
+      [&]() {
+        PARQUET_THROW_NOT_OK(builder->Append(arrow::util::SafeLoadAs<value_type>(data_)));
+        data_ += sizeof(value_type);
+      },
+      [&]() { PARQUET_THROW_NOT_OK(builder->AppendNull()); });
 
   num_values_ -= values_decoded;
   len_ -= sizeof(value_type) * values_decoded;
@@ -1164,18 +1136,14 @@ int PlainBooleanDecoder::DecodeArrow(
 
   PARQUET_THROW_NOT_OK(builder->Reserve(num_values));
 
-  auto decode_value = [&](bool is_valid) {
-    if (is_valid) {
-      bool value;
-      ARROW_IGNORE_EXPR(bit_reader_->GetValue(1, &value));
-      builder->UnsafeAppend(value);
-    } else {
-      builder->UnsafeAppendNull();
-    }
-  };
-
-  VisitNullBitmapInline(valid_bits, valid_bits_offset, num_values, null_count,
-                        std::move(decode_value));
+  VisitNullBitmapInline(
+      valid_bits, valid_bits_offset, num_values, null_count,
+      [&]() {
+        bool value;
+        ARROW_IGNORE_EXPR(bit_reader_->GetValue(1, &value));
+        builder->UnsafeAppend(value);
+      },
+      [&]() { builder->UnsafeAppendNull(); });
 
   num_values_ -= values_decoded;
   return values_decoded;
@@ -1276,17 +1244,13 @@ inline int PlainDecoder<FLBAType>::DecodeArrow(
 
   PARQUET_THROW_NOT_OK(builder->Reserve(num_values));
 
-  auto decode_value = [&](bool is_valid) {
-    if (is_valid) {
-      builder->UnsafeAppend(data_);
-      data_ += descr_->type_length();
-    } else {
-      builder->UnsafeAppendNull();
-    }
-  };
-
-  VisitNullBitmapInline(valid_bits, valid_bits_offset, num_values, null_count,
-                        std::move(decode_value));
+  VisitNullBitmapInline(
+      valid_bits, valid_bits_offset, num_values, null_count,
+      [&]() {
+        builder->UnsafeAppend(data_);
+        data_ += descr_->type_length();
+      },
+      [&]() { builder->UnsafeAppendNull(); });
 
   num_values_ -= values_decoded;
   len_ -= descr_->type_length() * values_decoded;
@@ -1304,17 +1268,13 @@ inline int PlainDecoder<FLBAType>::DecodeArrow(
 
   PARQUET_THROW_NOT_OK(builder->Reserve(num_values));
 
-  auto decode_value = [&](bool is_valid) {
-    if (is_valid) {
-      PARQUET_THROW_NOT_OK(builder->Append(data_));
-      data_ += descr_->type_length();
-    } else {
-      PARQUET_THROW_NOT_OK(builder->AppendNull());
-    }
-  };
-
-  VisitNullBitmapInline(valid_bits, valid_bits_offset, num_values, null_count,
-                        std::move(decode_value));
+  VisitNullBitmapInline(
+      valid_bits, valid_bits_offset, num_values, null_count,
+      [&]() {
+        PARQUET_THROW_NOT_OK(builder->Append(data_));
+        data_ += descr_->type_length();
+      },
+      [&]() { PARQUET_THROW_NOT_OK(builder->AppendNull()); });
 
   num_values_ -= values_decoded;
   len_ -= descr_->type_length() * values_decoded;
@@ -1363,41 +1323,41 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType>,
     RETURN_NOT_OK(helper.builder->Reserve(num_values));
     RETURN_NOT_OK(helper.builder->ReserveData(
         std::min<int64_t>(len_, helper.chunk_space_remaining)));
+
     int i = 0;
-
-    auto decode_value = [&](bool is_valid) {
-      if (is_valid) {
-        if (ARROW_PREDICT_FALSE(len_ < 4)) {
-          ParquetException::EofException();
-        }
-        auto value_len = arrow::util::SafeLoadAs<int32_t>(data_);
-        if (ARROW_PREDICT_FALSE(value_len < 0 || value_len > INT32_MAX - 4)) {
-          return Status::Invalid("Invalid or corrupted value_len '", value_len, "'");
-        }
-        auto increment = value_len + 4;
-        if (ARROW_PREDICT_FALSE(len_ < increment)) {
-          ParquetException::EofException();
-        }
-        if (ARROW_PREDICT_FALSE(!helper.CanFit(value_len))) {
-          // This element would exceed the capacity of a chunk
-          RETURN_NOT_OK(helper.PushChunk());
-          RETURN_NOT_OK(helper.builder->Reserve(num_values - i));
-          RETURN_NOT_OK(helper.builder->ReserveData(
-              std::min<int64_t>(len_, helper.chunk_space_remaining)));
-        }
-        helper.UnsafeAppend(data_ + 4, value_len);
-        data_ += increment;
-        len_ -= increment;
-        ++values_decoded;
-      } else {
-        helper.UnsafeAppendNull();
-      }
-      ++i;
-      return Status::OK();
-    };
-
-    RETURN_NOT_OK(VisitNullBitmapInline(valid_bits, valid_bits_offset, num_values,
-                                        null_count, std::move(decode_value)));
+    RETURN_NOT_OK(VisitNullBitmapInline(
+        valid_bits, valid_bits_offset, num_values, null_count,
+        [&]() {
+          if (ARROW_PREDICT_FALSE(len_ < 4)) {
+            ParquetException::EofException();
+          }
+          auto value_len = arrow::util::SafeLoadAs<int32_t>(data_);
+          if (ARROW_PREDICT_FALSE(value_len < 0 || value_len > INT32_MAX - 4)) {
+            return Status::Invalid("Invalid or corrupted value_len '", value_len, "'");
+          }
+          auto increment = value_len + 4;
+          if (ARROW_PREDICT_FALSE(len_ < increment)) {
+            ParquetException::EofException();
+          }
+          if (ARROW_PREDICT_FALSE(!helper.CanFit(value_len))) {
+            // This element would exceed the capacity of a chunk
+            RETURN_NOT_OK(helper.PushChunk());
+            RETURN_NOT_OK(helper.builder->Reserve(num_values - i));
+            RETURN_NOT_OK(helper.builder->ReserveData(
+                std::min<int64_t>(len_, helper.chunk_space_remaining)));
+          }
+          helper.UnsafeAppend(data_ + 4, value_len);
+          data_ += increment;
+          len_ -= increment;
+          ++values_decoded;
+          ++i;
+          return Status::OK();
+        },
+        [&]() {
+          helper.UnsafeAppendNull();
+          ++i;
+          return Status::OK();
+        }));
 
     num_values_ -= values_decoded;
     *out_values_decoded = values_decoded;
@@ -1411,31 +1371,27 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType>,
     RETURN_NOT_OK(builder->Reserve(num_values));
     int values_decoded = 0;
 
-    auto decode_value = [&](bool is_valid) {
-      if (is_valid) {
-        if (ARROW_PREDICT_FALSE(len_ < 4)) {
-          ParquetException::EofException();
-        }
-        auto value_len = arrow::util::SafeLoadAs<int32_t>(data_);
-        if (ARROW_PREDICT_FALSE(value_len < 0 || value_len > INT32_MAX - 4)) {
-          return Status::Invalid("Invalid or corrupted value_len '", value_len, "'");
-        }
-        auto increment = value_len + 4;
-        if (ARROW_PREDICT_FALSE(len_ < increment)) {
-          ParquetException::EofException();
-        }
-        RETURN_NOT_OK(builder->Append(data_ + 4, value_len));
-        data_ += increment;
-        len_ -= increment;
-        ++values_decoded;
-      } else {
-        RETURN_NOT_OK(builder->AppendNull());
-      }
-      return Status::OK();
-    };
-
-    RETURN_NOT_OK(VisitNullBitmapInline(valid_bits, valid_bits_offset, num_values,
-                                        null_count, std::move(decode_value)));
+    RETURN_NOT_OK(VisitNullBitmapInline(
+        valid_bits, valid_bits_offset, num_values, null_count,
+        [&]() {
+          if (ARROW_PREDICT_FALSE(len_ < 4)) {
+            ParquetException::EofException();
+          }
+          auto value_len = arrow::util::SafeLoadAs<int32_t>(data_);
+          if (ARROW_PREDICT_FALSE(value_len < 0 || value_len > INT32_MAX - 4)) {
+            return Status::Invalid("Invalid or corrupted value_len '", value_len, "'");
+          }
+          auto increment = value_len + 4;
+          if (ARROW_PREDICT_FALSE(len_ < increment)) {
+            ParquetException::EofException();
+          }
+          RETURN_NOT_OK(builder->Append(data_ + 4, value_len));
+          data_ += increment;
+          len_ -= increment;
+          ++values_decoded;
+          return Status::OK();
+        },
+        [&]() { return builder->AppendNull(); }));
 
     num_values_ -= values_decoded;
     *out_values_decoded = values_decoded;
@@ -1706,21 +1662,17 @@ int DictDecoderImpl<DType>::DecodeArrow(
 
   auto dict_values = reinterpret_cast<const typename DType::c_type*>(dictionary_->data());
 
-  auto decode_value = [&](bool is_valid) {
-    if (is_valid) {
-      int32_t index;
-      if (ARROW_PREDICT_FALSE(!idx_decoder_.Get(&index))) {
-        throw ParquetException("");
-      }
-      PARQUET_THROW_NOT_OK(IndexInBounds(index));
-      PARQUET_THROW_NOT_OK(builder->Append(dict_values[index]));
-    } else {
-      PARQUET_THROW_NOT_OK(builder->AppendNull());
-    }
-  };
-
-  VisitNullBitmapInline(valid_bits, valid_bits_offset, num_values, null_count,
-                        std::move(decode_value));
+  VisitNullBitmapInline(
+      valid_bits, valid_bits_offset, num_values, null_count,
+      [&]() {
+        int32_t index;
+        if (ARROW_PREDICT_FALSE(!idx_decoder_.Get(&index))) {
+          throw ParquetException("");
+        }
+        PARQUET_THROW_NOT_OK(IndexInBounds(index));
+        PARQUET_THROW_NOT_OK(builder->Append(dict_values[index]));
+      },
+      [&]() { PARQUET_THROW_NOT_OK(builder->AppendNull()); });
 
   return num_values - null_count;
 }
@@ -1746,21 +1698,17 @@ inline int DictDecoderImpl<FLBAType>::DecodeArrow(
 
   auto dict_values = reinterpret_cast<const FLBA*>(dictionary_->data());
 
-  auto decode_value = [&](bool is_valid) {
-    if (is_valid) {
-      int32_t index;
-      if (ARROW_PREDICT_FALSE(!idx_decoder_.Get(&index))) {
-        throw ParquetException("");
-      }
-      PARQUET_THROW_NOT_OK(IndexInBounds(index));
-      builder->UnsafeAppend(dict_values[index].ptr);
-    } else {
-      builder->UnsafeAppendNull();
-    }
-  };
-
-  VisitNullBitmapInline(valid_bits, valid_bits_offset, num_values, null_count,
-                        std::move(decode_value));
+  VisitNullBitmapInline(
+      valid_bits, valid_bits_offset, num_values, null_count,
+      [&]() {
+        int32_t index;
+        if (ARROW_PREDICT_FALSE(!idx_decoder_.Get(&index))) {
+          throw ParquetException("");
+        }
+        PARQUET_THROW_NOT_OK(IndexInBounds(index));
+        builder->UnsafeAppend(dict_values[index].ptr);
+      },
+      [&]() { builder->UnsafeAppendNull(); });
 
   return num_values - null_count;
 }
@@ -1783,21 +1731,17 @@ int DictDecoderImpl<FLBAType>::DecodeArrow(
 
   auto dict_values = reinterpret_cast<const FLBA*>(dictionary_->data());
 
-  auto decode_value = [&](bool is_valid) {
-    if (is_valid) {
-      int32_t index;
-      if (ARROW_PREDICT_FALSE(!idx_decoder_.Get(&index))) {
-        throw ParquetException("");
-      }
-      PARQUET_THROW_NOT_OK(IndexInBounds(index));
-      PARQUET_THROW_NOT_OK(builder->Append(dict_values[index].ptr));
-    } else {
-      PARQUET_THROW_NOT_OK(builder->AppendNull());
-    }
-  };
-
-  VisitNullBitmapInline(valid_bits, valid_bits_offset, num_values, null_count,
-                        std::move(decode_value));
+  VisitNullBitmapInline(
+      valid_bits, valid_bits_offset, num_values, null_count,
+      [&]() {
+        int32_t index;
+        if (ARROW_PREDICT_FALSE(!idx_decoder_.Get(&index))) {
+          throw ParquetException("");
+        }
+        PARQUET_THROW_NOT_OK(IndexInBounds(index));
+        PARQUET_THROW_NOT_OK(builder->Append(dict_values[index].ptr));
+      },
+      [&]() { PARQUET_THROW_NOT_OK(builder->AppendNull()); });
 
   return num_values - null_count;
 }
@@ -1811,21 +1755,17 @@ int DictDecoderImpl<Type>::DecodeArrow(
   using value_type = typename Type::c_type;
   auto dict_values = reinterpret_cast<const value_type*>(dictionary_->data());
 
-  auto decode_value = [&](bool is_valid) {
-    if (is_valid) {
-      int32_t index;
-      if (ARROW_PREDICT_FALSE(!idx_decoder_.Get(&index))) {
-        throw ParquetException("");
-      }
-      PARQUET_THROW_NOT_OK(IndexInBounds(index));
-      builder->UnsafeAppend(dict_values[index]);
-    } else {
-      builder->UnsafeAppendNull();
-    }
-  };
-
-  VisitNullBitmapInline(valid_bits, valid_bits_offset, num_values, null_count,
-                        std::move(decode_value));
+  VisitNullBitmapInline(
+      valid_bits, valid_bits_offset, num_values, null_count,
+      [&]() {
+        int32_t index;
+        if (ARROW_PREDICT_FALSE(!idx_decoder_.Get(&index))) {
+          throw ParquetException("");
+        }
+        PARQUET_THROW_NOT_OK(IndexInBounds(index));
+        builder->UnsafeAppend(dict_values[index]);
+      },
+      [&]() { builder->UnsafeAppendNull(); });
 
   return num_values - null_count;
 }
@@ -2372,32 +2312,28 @@ int ByteStreamSplitDecoder<DType>::DecodeArrow(
 
   // XXX If null_count is 0, we could even append in bulk or decode directly into
   // builder
-  auto decode_value = [&](bool is_valid) {
-    if (is_valid) {
-      builder->UnsafeAppend(decode_out[offset]);
-      ++offset;
-    } else {
-      builder->UnsafeAppendNull();
-    }
-  };
-#else
-  auto decode_value = [&](bool is_valid) {
-    if (is_valid) {
-      uint8_t gathered_byte_data[kNumStreams];
-      for (size_t b = 0; b < kNumStreams; ++b) {
-        const size_t byte_index = b * num_values_in_buffer_ + offset;
-        gathered_byte_data[b] = data[byte_index];
-      }
-      builder->UnsafeAppend(arrow::util::SafeLoadAs<T>(&gathered_byte_data[0]));
-      ++offset;
-    } else {
-      builder->UnsafeAppendNull();
-    }
-  };
-#endif
+  VisitNullBitmapInline(
+      valid_bits, valid_bits_offset, num_values, null_count,
+      [&]() {
+        builder->UnsafeAppend(decode_out[offset]);
+        ++offset;
+      },
+      [&]() { builder->UnsafeAppendNull(); });
 
-  VisitNullBitmapInline(valid_bits, valid_bits_offset, num_values, null_count,
-                        std::move(decode_value));
+#else
+  VisitNullBitmapInline(
+      valid_bits, valid_bits_offset, num_values, null_count,
+      [&]() {
+        uint8_t gathered_byte_data[kNumStreams];
+        for (size_t b = 0; b < kNumStreams; ++b) {
+          const size_t byte_index = b * num_values_in_buffer_ + offset;
+          gathered_byte_data[b] = data[byte_index];
+        }
+        builder->UnsafeAppend(arrow::util::SafeLoadAs<T>(&gathered_byte_data[0]));
+        ++offset;
+      },
+      [&]() { builder->UnsafeAppendNull(); });
+#endif
 
   num_values_ -= values_decoded;
   len_ -= sizeof(T) * values_decoded;

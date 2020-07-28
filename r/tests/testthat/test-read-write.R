@@ -34,10 +34,10 @@ test_that("table round trip", {
   expect_equal(chunked_array_int$null_count, 0L)
   expect_equal(chunked_array_int$as_vector(), tbl$int)
 
-  # arrow::Array
+  # Array
   chunks_int <- chunked_array_int$chunks
   expect_equal(length(chunks_int), chunked_array_int$num_chunks)
-  for( i in seq_along(chunks_int)){
+  for (i in seq_along(chunks_int)) {
     expect_equal(chunked_array_int$chunk(i-1L), chunks_int[[i]])
   }
 
@@ -47,10 +47,10 @@ test_that("table round trip", {
   expect_equal(chunked_array_dbl$null_count, 0L)
   expect_equal(chunked_array_dbl$as_vector(), tbl$dbl)
 
-  # arrow::Array
+  # Array
   chunks_dbl <- chunked_array_dbl$chunks
   expect_equal(length(chunks_dbl), chunked_array_dbl$num_chunks)
-  for( i in seq_along(chunks_dbl)){
+  for (i in seq_along(chunks_dbl)) {
     expect_equal(chunked_array_dbl$chunk(i-1L), chunks_dbl[[i]])
   }
 
@@ -60,16 +60,16 @@ test_that("table round trip", {
   expect_equal(chunked_array_raw$null_count, 0L)
   expect_equal(chunked_array_raw$as_vector(), as.integer(tbl$raw))
 
-  # arrow::Array
+  # Array
   chunks_raw <- chunked_array_raw$chunks
   expect_equal(length(chunks_raw), chunked_array_raw$num_chunks)
-  for( i in seq_along(chunks_raw)){
+  for (i in seq_along(chunks_raw)) {
     expect_equal(chunked_array_raw$chunk(i-1L), chunks_raw[[i]])
   }
   tf <- tempfile()
-  write_arrow(tbl, tf)
+  write_feather(tbl, tf)
 
-  res <- read_arrow(tf)
+  res <- read_feather(tf)
   expect_identical(tbl$int, res$int)
   expect_identical(tbl$dbl, res$dbl)
   expect_identical(as.integer(tbl$raw), res$raw)
@@ -100,9 +100,9 @@ test_that("table round trip handles NA in integer and numeric", {
   expect_equal(tab$column(2)$type, uint8())
 
   tf <- tempfile()
-  write_arrow(tbl, tf)
+  write_feather(tbl, tf)
 
-  res <- read_arrow(tf)
+  res <- read_feather(tf)
   expect_identical(tbl$int, res$int)
   expect_identical(tbl$dbl, res$dbl)
   expect_identical(as.integer(tbl$raw), res$raw)
@@ -113,33 +113,14 @@ test_that("table round trip handles NA in integer and numeric", {
   unlink(tf)
 })
 
-
-test_that("write_arrow() returns its input", {
-  df <- tibble::tibble(x = 1:5)
-  tf <- tempfile()
-  on.exit(unlink(tf))
-  df_out <- write_arrow(df, tf)
-  expect_identical(df, df_out)
-})
-
 test_that("reading/writing a raw vector (sparklyr integration)", {
   # These are effectively what sparklyr calls to get data to/from Spark
-  write_to_raw_test <- function(x) {
-    write_arrow(record_batch(x), raw())
-  }
   read_from_raw_test <- function(x) {
     as.data.frame(RecordBatchStreamReader$create(x)$read_next_batch())
   }
-  tbl <- tibble::tibble(
-    int = 1:10,
-    dbl = as.numeric(1:10),
-    lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
-    chr = letters[1:10],
-    fct = factor(letters[1:10])
-  )
-  bytes <- write_to_raw_test(tbl)
+  bytes <- write_to_raw(example_data)
   expect_is(bytes, "raw")
-  expect_identical(read_from_raw_test(bytes), tbl)
+  expect_identical(read_from_raw_test(bytes), example_data)
   # this could just be `read_ipc_stream(x)`; propose that
-  expect_identical(read_ipc_stream(bytes), tbl)
+  expect_identical(read_ipc_stream(bytes), example_data)
 })

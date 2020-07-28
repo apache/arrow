@@ -43,5 +43,5 @@ before_script:
 - brew doctor || true
 - brew audit $ARROW_FORMULA
 script:
-- brew install -v --build-from-source --HEAD $ARROW_FORMULA
+- brew install -v --HEAD $ARROW_FORMULA
 - brew test $ARROW_FORMULA

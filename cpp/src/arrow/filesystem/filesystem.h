@@ -56,6 +56,9 @@ struct ARROW_EXPORT FileInfo : public util::EqualityComparable<FileInfo> {
   FileInfo(const FileInfo&) = default;
   FileInfo& operator=(const FileInfo&) = default;
 
+  explicit FileInfo(std::string path, FileType type = FileType::Unknown)
+      : path_(std::move(path)), type_(type) {}
+
   /// The file type
   FileType type() const { return type_; }
   void set_type(FileType type) { type_ = type; }
@@ -107,8 +110,8 @@ struct ARROW_EXPORT FileInfo : public util::EqualityComparable<FileInfo> {
   };
 
  protected:
-  FileType type_ = FileType::Unknown;
   std::string path_;
+  FileType type_ = FileType::Unknown;
   int64_t size_ = kNoSize;
   TimePoint mtime_ = kNoTime;
 };
@@ -178,8 +181,15 @@ class ARROW_EXPORT FileSystem : public std::enable_shared_from_this<FileSystem> 
   /// Delete a directory's contents, recursively.
   ///
   /// Like DeleteDir, but doesn't delete the directory itself.
-  /// Passing an empty path ("") will wipe the entire filesystem tree.
+  /// Passing an empty path ("" or "/") is disallowed, see DeleteRootDirContents.
   virtual Status DeleteDirContents(const std::string& path) = 0;
+
+  /// EXPERIMENTAL: Delete the root directory's contents, recursively.
+  ///
+  /// Implementations may decide to raise an error if this operation is
+  /// too dangerous.
+  // NOTE: may decide to remove this if it's deemed not useful
+  virtual Status DeleteRootDirContents() = 0;
 
   /// Delete a file.
   virtual Status DeleteFile(const std::string& path) = 0;
@@ -205,10 +215,23 @@ class ARROW_EXPORT FileSystem : public std::enable_shared_from_this<FileSystem> 
   /// Open an input stream for sequential reading.
   virtual Result<std::shared_ptr<io::InputStream>> OpenInputStream(
       const std::string& path) = 0;
+  /// Open an input stream for sequential reading.
+  ///
+  /// This override assumes the given FileInfo validly represents the file's
+  /// characteristics, and may optimize access depending on them (for example
+  /// avoid querying the file size or its existence).
+  virtual Result<std::shared_ptr<io::InputStream>> OpenInputStream(const FileInfo& info);
 
   /// Open an input file for random access reading.
   virtual Result<std::shared_ptr<io::RandomAccessFile>> OpenInputFile(
       const std::string& path) = 0;
+  /// Open an input file for random access reading.
+  ///
+  /// This override assumes the given FileInfo validly represents the file's
+  /// characteristics, and may optimize access depending on them (for example
+  /// avoid querying the file size or its existence).
+  virtual Result<std::shared_ptr<io::RandomAccessFile>> OpenInputFile(
+      const FileInfo& info);
 
   /// Open an output stream for sequential writing.
   ///
@@ -257,6 +280,7 @@ class ARROW_EXPORT SubTreeFileSystem : public FileSystem {
 
   Status DeleteDir(const std::string& path) override;
   Status DeleteDirContents(const std::string& path) override;
+  Status DeleteRootDirContents() override;
 
   Status DeleteFile(const std::string& path) override;
 
@@ -266,8 +290,11 @@ class ARROW_EXPORT SubTreeFileSystem : public FileSystem {
 
   Result<std::shared_ptr<io::InputStream>> OpenInputStream(
       const std::string& path) override;
+  Result<std::shared_ptr<io::InputStream>> OpenInputStream(const FileInfo& info) override;
   Result<std::shared_ptr<io::RandomAccessFile>> OpenInputFile(
       const std::string& path) override;
+  Result<std::shared_ptr<io::RandomAccessFile>> OpenInputFile(
+      const FileInfo& info) override;
   Result<std::shared_ptr<io::OutputStream>> OpenOutputStream(
       const std::string& path) override;
   Result<std::shared_ptr<io::OutputStream>> OpenAppendStream(
@@ -309,6 +336,7 @@ class ARROW_EXPORT SlowFileSystem : public FileSystem {
 
   Status DeleteDir(const std::string& path) override;
   Status DeleteDirContents(const std::string& path) override;
+  Status DeleteRootDirContents() override;
 
   Status DeleteFile(const std::string& path) override;
 
@@ -318,8 +346,11 @@ class ARROW_EXPORT SlowFileSystem : public FileSystem {
 
   Result<std::shared_ptr<io::InputStream>> OpenInputStream(
       const std::string& path) override;
+  Result<std::shared_ptr<io::InputStream>> OpenInputStream(const FileInfo& info) override;
   Result<std::shared_ptr<io::RandomAccessFile>> OpenInputFile(
       const std::string& path) override;
+  Result<std::shared_ptr<io::RandomAccessFile>> OpenInputFile(
+      const FileInfo& info) override;
   Result<std::shared_ptr<io::OutputStream>> OpenOutputStream(
       const std::string& path) override;
   Result<std::shared_ptr<io::OutputStream>> OpenAppendStream(
@@ -355,6 +386,26 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUriOrPath(
     const std::string& uri, std::string* out_path = NULLPTR);
 
 /// @}
+
+struct FileSystemGlobalOptions {
+  /// Path to a single PEM file holding all TLS CA certificates
+  ///
+  /// If empty, the underlying TLS library's defaults will be used.
+  std::string tls_ca_file_path;
+
+  /// Path to a directory holding TLS CA certificates in individual PEM files
+  /// named along the OpenSSL "hashed" format.
+  ///
+  /// If empty, the underlying TLS library's defaults will be used.
+  std::string tls_ca_dir_path;
+};
+
+/// Experimental: optional global initialization routine
+///
+/// This is for environments (such as manylinux) where the path
+/// to TLS CA certificates needs to be configured at runtime.
+ARROW_EXPORT
+Status Initialize(const FileSystemGlobalOptions& options);
 
 }  // namespace fs
 }  // namespace arrow

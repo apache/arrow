@@ -23,11 +23,6 @@ namespace arrow {
 namespace compute {
 namespace internal {
 
-/// \brief Set data at byte offset in buffer to 0. To help with valgrind issues
-static inline void ZeroByte(Buffer* buffer, int64_t byte_index) {
-  *(buffer->mutable_data() + byte_index) = 0;
-}
-
 static inline void ZeroMemory(Buffer* buffer) {
   std::memset(buffer->mutable_data(), 0, buffer->size());
 }

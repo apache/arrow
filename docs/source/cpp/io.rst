@@ -17,6 +17,7 @@
 
 .. default-domain:: cpp
 .. highlight:: cpp
+.. cpp:namespace:: arrow::io
 
 ==============================
 Input / output and filesystems
@@ -27,7 +28,8 @@ of input / output operations.  They operate on streams of untyped binary data.
 Those abstractions are used for various purposes such as reading CSV or
 Parquet data, transmitting IPC streams, and more.
 
-.. cpp:namespace:: arrow::io
+.. seealso::
+   :doc:`API reference for input/output facilities <api/io>`.
 
 Reading binary data
 ===================

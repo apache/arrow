@@ -111,7 +111,7 @@ def test_chunked_array_iter():
     arr = pa.chunked_array(data)
 
     for i, j in zip(range(10), arr):
-        assert i == j
+        assert i == j.as_py()
 
     assert isinstance(arr, Iterable)
 
@@ -128,6 +128,8 @@ def test_chunked_array_equals():
             y = pa.chunked_array(yarrs)
         assert x.equals(y)
         assert y.equals(x)
+        assert x == y
+        assert x != str(y)
 
     def ne(xarrs, yarrs):
         if isinstance(xarrs, pa.ChunkedArray):
@@ -140,6 +142,7 @@ def test_chunked_array_equals():
             y = pa.chunked_array(yarrs)
         assert not x.equals(y)
         assert not y.equals(x)
+        assert x != y
 
     eq(pa.chunked_array([], type=pa.int32()),
        pa.chunked_array([], type=pa.int32()))
@@ -1059,8 +1062,7 @@ def test_table_unsafe_casting():
         pa.field('d', pa.string())
     ])
 
-    with pytest.raises(pa.ArrowInvalid,
-                       match='Floating point value truncated'):
+    with pytest.raises(pa.ArrowInvalid, match='truncated'):
         table.cast(target_schema)
 
     casted_table = table.cast(target_schema, safe=False)
@@ -1411,3 +1413,54 @@ def test_table_take_non_consecutive():
         ['f1', 'f2'])
 
     assert table.take(pa.array([1, 3])).equals(result_non_consecutive)
+
+
+def test_table_select():
+    a1 = pa.array([1, 2, 3, None, 5])
+    a2 = pa.array(['a', 'b', 'c', 'd', 'e'])
+    a3 = pa.array([[1, 2], [3, 4], [5, 6], None, [9, 10]])
+    table = pa.table([a1, a2, a3], ['f1', 'f2', 'f3'])
+
+    # selecting with string names
+    result = table.select(['f1'])
+    expected = pa.table([a1], ['f1'])
+    assert result.equals(expected)
+
+    result = table.select(['f3', 'f2'])
+    expected = pa.table([a3, a2], ['f3', 'f2'])
+    assert result.equals(expected)
+
+    # selecting with integer indices
+    result = table.select([0])
+    expected = pa.table([a1], ['f1'])
+    assert result.equals(expected)
+
+    result = table.select([2, 1])
+    expected = pa.table([a3, a2], ['f3', 'f2'])
+    assert result.equals(expected)
+
+    # preserve metadata
+    table2 = table.replace_schema_metadata({"a": "test"})
+    result = table2.select(["f1", "f2"])
+    assert b"a" in result.schema.metadata
+
+    # selecting non-existing column raises
+    with pytest.raises(KeyError, match='Field "f5" does not exist'):
+        table.select(['f5'])
+
+    with pytest.raises(IndexError, match="index out of bounds"):
+        table.select([5])
+
+    # duplicate selection gives duplicated names in resulting table
+    result = table.select(['f2', 'f2'])
+    expected = pa.table([a2, a2], ['f2', 'f2'])
+    assert result.equals(expected)
+
+    # selection duplicated column raises
+    table = pa.table([a1, a2, a3], ['f1', 'f2', 'f1'])
+    with pytest.raises(KeyError, match='Field "f1" exists 2 times'):
+        table.select(['f1'])
+
+    result = table.select(['f2'])
+    expected = pa.table([a2], ['f2'])
+    assert result.equals(expected)

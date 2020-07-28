@@ -127,7 +127,7 @@ jobs:
         with:
           toolchain: ${{ matrix.rust }}
           override: true
-          components: rustfmt
+          components: rustfmt, clippy
       - name: Install Flatbuffers
         shell: bash
         run: brew install flatbuffers
@@ -138,6 +138,9 @@ jobs:
       - name: Fetch Submodules and Tags
         shell: bash
         run: ci/scripts/util_checkout.sh
+      - name: Run Clippy
+        shell: bash
+        run: ci/scripts/rust_lint.sh $(pwd)
       - name: Build
         shell: bash
         run: ci/scripts/rust_build.sh $(pwd) $(pwd)/build

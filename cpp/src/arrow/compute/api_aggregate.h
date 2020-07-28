@@ -37,24 +37,46 @@ class ExecContext;
 // ----------------------------------------------------------------------
 // Aggregate functions
 
-/// \class CountOptions
+/// \addtogroup compute-concrete-options
+/// @{
+
+/// \brief Control Count kernel behavior
 ///
-/// The user control the Count kernel behavior with this class. By default, the
-/// it will count all non-null values.
+/// By default, all non-null values are counted.
 struct ARROW_EXPORT CountOptions : public FunctionOptions {
-  enum mode {
-    // Count all non-null values.
-    COUNT_ALL = 0,
-    // Count all null values.
+  enum Mode {
+    /// Count all non-null values.
+    COUNT_NON_NULL = 0,
+    /// Count all null values.
     COUNT_NULL,
   };
 
-  explicit CountOptions(enum mode count_mode) : count_mode(count_mode) {}
+  explicit CountOptions(enum Mode count_mode) : count_mode(count_mode) {}
 
-  static CountOptions Defaults() { return CountOptions(COUNT_ALL); }
+  static CountOptions Defaults() { return CountOptions(COUNT_NON_NULL); }
 
-  enum mode count_mode = COUNT_ALL;
+  enum Mode count_mode = COUNT_NON_NULL;
 };
+
+/// \brief Control MinMax kernel behavior
+///
+/// By default, null values are ignored
+struct ARROW_EXPORT MinMaxOptions : public FunctionOptions {
+  enum Mode {
+    /// Skip null values
+    SKIP = 0,
+    /// Any nulls will result in null output
+    OUTPUT_NULL
+  };
+
+  explicit MinMaxOptions(enum Mode null_handling = SKIP) : null_handling(null_handling) {}
+
+  static MinMaxOptions Defaults() { return MinMaxOptions{}; }
+
+  enum Mode null_handling = SKIP;
+};
+
+/// @}
 
 /// \brief Count non-null (or null) values in an array.
 ///
@@ -90,25 +112,6 @@ Result<Datum> Mean(const Datum& value, ExecContext* ctx = NULLPTR);
 /// \note API not yet finalized
 ARROW_EXPORT
 Result<Datum> Sum(const Datum& value, ExecContext* ctx = NULLPTR);
-
-/// \class MinMaxOptions
-///
-/// The user can control the MinMax kernel behavior with this class. By default,
-/// it will skip null if there is a null value present.
-struct ARROW_EXPORT MinMaxOptions : public FunctionOptions {
-  enum mode {
-    /// skip null values
-    SKIP = 0,
-    /// any nulls will result in null output
-    OUTPUT_NULL
-  };
-
-  explicit MinMaxOptions(enum mode null_handling = SKIP) : null_handling(null_handling) {}
-
-  static MinMaxOptions Defaults() { return MinMaxOptions{}; }
-
-  enum mode null_handling = SKIP;
-};
 
 /// \brief Calculate the min / max of a numeric array
 ///

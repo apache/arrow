@@ -73,12 +73,12 @@ static Result<Datum> ExecSetLookup(const std::string& func_name, const Datum& da
 }
 
 Result<Datum> IsIn(const Datum& values, const Datum& value_set, ExecContext* ctx) {
-  return ExecSetLookup("isin", values, value_set,
+  return ExecSetLookup("is_in", values, value_set,
                        /*add_nulls_to_hash_table=*/false, ctx);
 }
 
-Result<Datum> Match(const Datum& values, const Datum& value_set, ExecContext* ctx) {
-  return ExecSetLookup("match", values, value_set,
+Result<Datum> IndexIn(const Datum& values, const Datum& value_set, ExecContext* ctx) {
+  return ExecSetLookup("index_in", values, value_set,
                        /*add_nulls_to_hash_table=*/true, ctx);
 }
 
@@ -125,6 +125,10 @@ Result<Datum> Compare(const Datum& left, const Datum& right, CompareOptions opti
 
 SCALAR_EAGER_UNARY(IsValid, "is_valid")
 SCALAR_EAGER_UNARY(IsNull, "is_null")
+
+Result<Datum> FillNull(const Datum& values, const Datum& fill_value, ExecContext* ctx) {
+  return CallFunction("fill_null", {values, fill_value}, ctx);
+}
 
 }  // namespace compute
 }  // namespace arrow

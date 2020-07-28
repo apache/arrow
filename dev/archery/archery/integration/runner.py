@@ -126,6 +126,8 @@ class IntegrationRunner(object):
                             if f.name == name).skip
             except StopIteration:
                 skip = set()
+            if name == 'union' and prefix == '0.17.1':
+                skip.add("Java")
             yield datagen.File(name, None, None, skip=skip, path=out_path)
 
     def _run_test_cases(self, producer, consumer, case_runner,
@@ -388,6 +390,9 @@ def write_js_test_json(directory):
     )
     datagen.generate_dictionary_case().write(
         os.path.join(directory, 'dictionary.json')
+    )
+    datagen.generate_dictionary_unsigned_case().write(
+        os.path.join(directory, 'dictionary_unsigned.json')
     )
     datagen.generate_primitive_case([]).write(
         os.path.join(directory, 'primitive_no_batches.json')

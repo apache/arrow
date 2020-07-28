@@ -35,6 +35,10 @@
 namespace arrow {
 namespace compute {
 
+/// \defgroup compute-functions Abstract compute function API
+///
+/// @{
+
 /// \brief Base class for specifying options configuring a function's behavior,
 /// such as error handling.
 struct ARROW_EXPORT FunctionOptions {};
@@ -120,17 +124,33 @@ class ARROW_EXPORT Function {
   /// kernel dispatch, batch iteration, and memory allocation details taken
   /// care of.
   ///
+  /// Function implementations may assume that options is non-null and valid
+  /// or to forgo options and accept only nullptr for that argument.
+  ///
   /// This function can be overridden in subclasses.
   virtual Result<Datum> Execute(const std::vector<Datum>& args,
-                                const FunctionOptions* options,
-                                ExecContext* ctx = NULLPTR) const;
+                                const FunctionOptions* options, ExecContext* ctx) const;
+
+  /// \brief Returns a the default options for this function.
+  ///
+  /// Whatever option semantics a Function has, implementations must guarantee
+  /// that default_options() is valid to pass to Execute as options.
+  const FunctionOptions* default_options() const { return default_options_; }
 
  protected:
-  Function(std::string name, Function::Kind kind, const Arity& arity)
-      : name_(std::move(name)), kind_(kind), arity_(arity) {}
+  Function(std::string name, Function::Kind kind, const Arity& arity,
+           const FunctionOptions* default_options)
+      : name_(std::move(name)),
+        kind_(kind),
+        arity_(arity),
+        default_options_(default_options) {}
+
+  Status CheckArity(int passed_num_args) const;
+
   std::string name_;
   Function::Kind kind_;
   Arity arity_;
+  const FunctionOptions* default_options_ = NULLPTR;
 };
 
 namespace detail {
@@ -150,8 +170,9 @@ class FunctionImpl : public Function {
   int num_kernels() const override { return static_cast<int>(kernels_.size()); }
 
  protected:
-  FunctionImpl(std::string name, Function::Kind kind, const Arity& arity)
-      : Function(std::move(name), kind, arity) {}
+  FunctionImpl(std::string name, Function::Kind kind, const Arity& arity,
+               const FunctionOptions* default_options)
+      : Function(std::move(name), kind, arity, default_options) {}
 
   std::vector<KernelType> kernels_;
 };
@@ -167,8 +188,10 @@ class ARROW_EXPORT ScalarFunction : public detail::FunctionImpl<ScalarKernel> {
  public:
   using KernelType = ScalarKernel;
 
-  ScalarFunction(std::string name, const Arity& arity)
-      : detail::FunctionImpl<ScalarKernel>(std::move(name), Function::SCALAR, arity) {}
+  ScalarFunction(std::string name, const Arity& arity,
+                 const FunctionOptions* default_options = NULLPTR)
+      : detail::FunctionImpl<ScalarKernel>(std::move(name), Function::SCALAR, arity,
+                                           default_options) {}
 
   /// \brief Add a kernel with given input/output types, no required state
   /// initialization, preallocation for fixed-width types, and default null
@@ -196,8 +219,10 @@ class ARROW_EXPORT VectorFunction : public detail::FunctionImpl<VectorKernel> {
  public:
   using KernelType = VectorKernel;
 
-  VectorFunction(std::string name, const Arity& arity)
-      : detail::FunctionImpl<VectorKernel>(std::move(name), Function::VECTOR, arity) {}
+  VectorFunction(std::string name, const Arity& arity,
+                 const FunctionOptions* default_options = NULLPTR)
+      : detail::FunctionImpl<VectorKernel>(std::move(name), Function::VECTOR, arity,
+                                           default_options) {}
 
   /// \brief Add a simple kernel with given input/output types, no required
   /// state initialization, no data preallocation, and no preallocation of the
@@ -219,9 +244,10 @@ class ARROW_EXPORT ScalarAggregateFunction
  public:
   using KernelType = ScalarAggregateKernel;
 
-  ScalarAggregateFunction(std::string name, const Arity& arity)
-      : detail::FunctionImpl<ScalarAggregateKernel>(std::move(name),
-                                                    Function::SCALAR_AGGREGATE, arity) {}
+  ScalarAggregateFunction(std::string name, const Arity& arity,
+                          const FunctionOptions* default_options = NULLPTR)
+      : detail::FunctionImpl<ScalarAggregateKernel>(
+            std::move(name), Function::SCALAR_AGGREGATE, arity, default_options) {}
 
   /// \brief Add a kernel (function implementation). Returns error if the
   /// kernel's signature does not match the function's arity.
@@ -250,9 +276,12 @@ class ARROW_EXPORT MetaFunction : public Function {
                                     const FunctionOptions* options,
                                     ExecContext* ctx) const = 0;
 
-  MetaFunction(std::string name, const Arity& arity)
-      : Function(std::move(name), Function::META, arity) {}
+  MetaFunction(std::string name, const Arity& arity,
+               const FunctionOptions* default_options = NULLPTR)
+      : Function(std::move(name), Function::META, arity, default_options) {}
 };
+
+/// @}
 
 }  // namespace compute
 }  // namespace arrow

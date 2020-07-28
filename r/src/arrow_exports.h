@@ -32,12 +32,6 @@
 
 namespace arrow {
 
-struct Type {
-  enum type {
-    // forward declaration
-  };
-};
-
 namespace compute {
 class CastOptions;
 
@@ -91,6 +85,7 @@ class FileWriter;
 
 RCPP_EXPOSED_ENUM_NODECL(arrow::Type::type)
 RCPP_EXPOSED_ENUM_NODECL(arrow::DateUnit)
+RCPP_EXPOSED_ENUM_NODECL(arrow::ipc::MetadataVersion)
 RCPP_EXPOSED_ENUM_NODECL(arrow::TimeUnit::type)
 RCPP_EXPOSED_ENUM_NODECL(arrow::StatusCode)
 RCPP_EXPOSED_ENUM_NODECL(arrow::io::FileMode::type)

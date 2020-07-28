@@ -32,9 +32,9 @@
 #include "arrow/builder.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
+#include "arrow/testing/visibility.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/visibility.h"
 #include "arrow/visitor_inline.h"
 
 namespace arrow {
@@ -56,22 +56,24 @@ Status CopyBufferFromVector(const std::vector<T>& values, MemoryPool* pool,
 
 // Sets approximately pct_null of the first n bytes in null_bytes to zero
 // and the rest to non-zero (true) values.
-ARROW_EXPORT void random_null_bytes(int64_t n, double pct_null, uint8_t* null_bytes);
-ARROW_EXPORT void random_is_valid(int64_t n, double pct_null, std::vector<bool>* is_valid,
-                                  int random_seed = 0);
-ARROW_EXPORT void random_bytes(int64_t n, uint32_t seed, uint8_t* out);
-ARROW_EXPORT std::string random_string(int64_t n, uint32_t seed);
-ARROW_EXPORT int32_t DecimalSize(int32_t precision);
-ARROW_EXPORT void random_decimals(int64_t n, uint32_t seed, int32_t precision,
-                                  uint8_t* out);
-ARROW_EXPORT void random_ascii(int64_t n, uint32_t seed, uint8_t* out);
-ARROW_EXPORT int64_t CountNulls(const std::vector<uint8_t>& valid_bytes);
+ARROW_TESTING_EXPORT void random_null_bytes(int64_t n, double pct_null,
+                                            uint8_t* null_bytes);
+ARROW_TESTING_EXPORT void random_is_valid(int64_t n, double pct_null,
+                                          std::vector<bool>* is_valid,
+                                          int random_seed = 0);
+ARROW_TESTING_EXPORT void random_bytes(int64_t n, uint32_t seed, uint8_t* out);
+ARROW_TESTING_EXPORT std::string random_string(int64_t n, uint32_t seed);
+ARROW_TESTING_EXPORT int32_t DecimalSize(int32_t precision);
+ARROW_TESTING_EXPORT void random_decimals(int64_t n, uint32_t seed, int32_t precision,
+                                          uint8_t* out);
+ARROW_TESTING_EXPORT void random_ascii(int64_t n, uint32_t seed, uint8_t* out);
+ARROW_TESTING_EXPORT int64_t CountNulls(const std::vector<uint8_t>& valid_bytes);
 
-ARROW_EXPORT Status MakeRandomByteBuffer(int64_t length, MemoryPool* pool,
-                                         std::shared_ptr<ResizableBuffer>* out,
-                                         uint32_t seed = 0);
+ARROW_TESTING_EXPORT Status MakeRandomByteBuffer(int64_t length, MemoryPool* pool,
+                                                 std::shared_ptr<ResizableBuffer>* out,
+                                                 uint32_t seed = 0);
 
-ARROW_EXPORT uint64_t random_seed();
+ARROW_TESTING_EXPORT uint64_t random_seed();
 
 template <class T, class Builder>
 Status MakeArray(const std::vector<uint8_t>& valid_bytes, const std::vector<T>& values,
@@ -174,9 +176,16 @@ UnionTypeFactories() {
   return {sparse_union, dense_union};
 }
 
+// Return the value of the ARROW_TEST_DATA environment variable or return error
+// Status
+ARROW_TESTING_EXPORT Status GetTestResourceRoot(std::string*);
+
 // Get a TCP port number to listen on.  This is a different number every time,
 // as reusing the same port across tests can produce spurious bind errors on
 // Windows.
-ARROW_EXPORT int GetListenPort();
+ARROW_TESTING_EXPORT int GetListenPort();
+
+ARROW_TESTING_EXPORT
+const std::vector<std::shared_ptr<DataType>>& all_dictionary_index_types();
 
 }  // namespace arrow

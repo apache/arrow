@@ -43,6 +43,7 @@
 use lazy_static::lazy_static;
 use regex::{Regex, RegexBuilder};
 use std::collections::HashSet;
+use std::fmt;
 use std::fs::File;
 use std::io::{BufReader, Read, Seek, SeekFrom};
 use std::sync::Arc;
@@ -187,7 +188,7 @@ fn infer_file_schema<R: Read + Seek>(
 ///
 /// If `max_read_records` is not set, all files will be read fully to infer the schema.
 pub fn infer_schema_from_files(
-    files: &Vec<String>,
+    files: &[String],
     delimiter: u8,
     max_read_records: Option<usize>,
     has_header: bool,
@@ -207,7 +208,7 @@ pub fn infer_schema_from_files(
         }
         schemas.push(schema.clone());
         records_to_read -= records_read;
-        if records_to_read <= 0 {
+        if records_to_read == 0 {
             break;
         }
     }
@@ -218,7 +219,7 @@ pub fn infer_schema_from_files(
 /// CSV file reader
 pub struct Reader<R: Read> {
     /// Explicit schema for the CSV file
-    schema: Arc<Schema>,
+    schema: SchemaRef,
     /// Optional projection for which columns to load (zero-based column indices)
     projection: Option<Vec<usize>>,
     /// File reader
@@ -229,6 +230,20 @@ pub struct Reader<R: Read> {
     line_number: usize,
 }
 
+impl<R> fmt::Debug for Reader<R>
+where
+    R: Read,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Reader")
+            .field("schema", &self.schema)
+            .field("projection", &self.projection)
+            .field("batch_size", &self.batch_size)
+            .field("line_number", &self.line_number)
+            .finish()
+    }
+}
+
 impl<R: Read> Reader<R> {
     /// Create a new CsvReader from any value that implements the `Read` trait.
     ///
@@ -237,7 +252,7 @@ impl<R: Read> Reader<R> {
     /// `ReaderBuilder`.
     pub fn new(
         reader: R,
-        schema: Arc<Schema>,
+        schema: SchemaRef,
         has_header: bool,
         delimiter: Option<u8>,
         batch_size: usize,
@@ -255,7 +270,7 @@ impl<R: Read> Reader<R> {
 
     /// Returns the schema of the reader, useful for getting the schema without reading
     /// record batches
-    pub fn schema(&self) -> Arc<Schema> {
+    pub fn schema(&self) -> SchemaRef {
         match &self.projection {
             Some(projection) => {
                 let fields = self.schema.fields();
@@ -274,7 +289,7 @@ impl<R: Read> Reader<R> {
     /// csv reader.
     pub fn from_buf_reader(
         buf_reader: BufReader<R>,
-        schema: Arc<Schema>,
+        schema: SchemaRef,
         has_header: bool,
         delimiter: Option<u8>,
         batch_size: usize,
@@ -283,11 +298,8 @@ impl<R: Read> Reader<R> {
         let mut reader_builder = csv_crate::ReaderBuilder::new();
         reader_builder.has_headers(has_header);
 
-        match delimiter {
-            Some(c) => {
-                reader_builder.delimiter(c);
-            }
-            _ => (),
+        if let Some(c) = delimiter {
+            reader_builder.delimiter(c);
         }
 
         let csv_reader = reader_builder.from_reader(buf_reader);
@@ -302,6 +314,7 @@ impl<R: Read> Reader<R> {
     }
 
     /// Read the next batch of rows
+    #[allow(clippy::should_implement_trait)]
     pub fn next(&mut self) -> Result<Option<RecordBatch>> {
         // read a batch of rows into memory
         let mut rows: Vec<StringRecord> = Vec::with_capacity(self.batch_size);
@@ -436,12 +449,13 @@ impl<R: Read> Reader<R> {
 }
 
 /// CSV file reader builder
+#[derive(Debug)]
 pub struct ReaderBuilder {
     /// Optional schema for the CSV file
     ///
     /// If the schema is not supplied, the reader will try to infer the schema
     /// based on the CSV structure.
-    schema: Option<Arc<Schema>>,
+    schema: Option<SchemaRef>,
     /// Whether the file has headers or not
     ///
     /// If schema inference is run on a file with no headers, default column names
@@ -503,7 +517,7 @@ impl ReaderBuilder {
     }
 
     /// Set the CSV file's schema
-    pub fn with_schema(mut self, schema: Arc<Schema>) -> Self {
+    pub fn with_schema(mut self, schema: SchemaRef) -> Self {
         self.schema = Some(schema);
         self
     }
@@ -697,7 +711,7 @@ mod tests {
         let batch = csv.next().unwrap().unwrap();
         let batch_schema = batch.schema();
 
-        assert_eq!(&schema, batch_schema);
+        assert_eq!(schema, batch_schema);
         assert_eq!(37, batch.num_rows());
         assert_eq!(3, batch.num_columns());
 
@@ -737,7 +751,7 @@ mod tests {
         ]));
         assert_eq!(projected_schema.clone(), csv.schema());
         let batch = csv.next().unwrap().unwrap();
-        assert_eq!(&projected_schema, batch.schema());
+        assert_eq!(projected_schema, batch.schema());
         assert_eq!(37, batch.num_rows());
         assert_eq!(2, batch.num_columns());
     }

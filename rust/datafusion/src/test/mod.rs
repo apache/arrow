@@ -22,7 +22,7 @@ use crate::execution::context::ExecutionContext;
 use crate::execution::physical_plan::ExecutionPlan;
 use crate::logicalplan::{Expr, LogicalPlan, LogicalPlanBuilder};
 use arrow::array;
-use arrow::datatypes::{DataType, Field, Schema};
+use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
 use arrow::record_batch::RecordBatch;
 use std::env;
 use std::fs::File;
@@ -87,7 +87,7 @@ pub fn create_partitioned_csv(filename: &str, partitions: usize) -> Result<Strin
 }
 
 /// Get the schema for the aggregate_test_* csv files
-pub fn aggr_test_schema() -> Arc<Schema> {
+pub fn aggr_test_schema() -> SchemaRef {
     Arc::new(Schema::new(vec![
         Field::new("c1", DataType::Utf8, false),
         Field::new("c2", DataType::UInt32, false),

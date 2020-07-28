@@ -12,13 +12,14 @@
 \alias{CompressionType}
 \alias{FileType}
 \alias{ParquetVersionType}
+\alias{MetadataVersion}
 \title{Arrow enums}
 \format{
 An object of class \code{TimeUnit::type} (inherits from \code{arrow-enum}) of length 4.
 
 An object of class \code{DateUnit} (inherits from \code{arrow-enum}) of length 2.
 
-An object of class \code{Type::type} (inherits from \code{arrow-enum}) of length 30.
+An object of class \code{Type::type} (inherits from \code{arrow-enum}) of length 36.
 
 An object of class \code{StatusCode} (inherits from \code{arrow-enum}) of length 17.
 
@@ -31,6 +32,8 @@ An object of class \code{Compression::type} (inherits from \code{arrow-enum}) of
 An object of class \code{FileType} (inherits from \code{arrow-enum}) of length 4.
 
 An object of class \code{ParquetVersionType} (inherits from \code{arrow-enum}) of length 2.
+
+An object of class \code{MetadataVersion} (inherits from \code{arrow-enum}) of length 5.
 }
 \usage{
 TimeUnit
@@ -50,6 +53,8 @@ CompressionType
 FileType
 
 ParquetVersionType
+
+MetadataVersion
 }
 \description{
 Arrow enums

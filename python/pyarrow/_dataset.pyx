@@ -44,49 +44,37 @@ def _forbid_instantiation(klass, subclasses_instead=True):
     raise TypeError(msg)
 
 
-cdef class FileSource:
+cdef CFileSource _make_file_source(object file, FileSystem filesystem=None):
 
     cdef:
-        CFileSource wrapped
+        CFileSource c_source
+        shared_ptr[CFileSystem] c_filesystem
+        c_string c_path
+        shared_ptr[CRandomAccessFile] c_file
+        shared_ptr[CBuffer] c_buffer
 
-    def __cinit__(self, file, FileSystem filesystem=None):
-        cdef:
-            shared_ptr[CFileSystem] c_filesystem
-            c_string c_path
-            shared_ptr[CRandomAccessFile] c_file
-            shared_ptr[CBuffer] c_buffer
+    if isinstance(file, Buffer):
+        c_buffer = pyarrow_unwrap_buffer(file)
+        c_source = CFileSource(move(c_buffer))
 
-        if isinstance(file, FileSource):
-            self.wrapped = (<FileSource> file).wrapped
+    elif _is_path_like(file):
+        if filesystem is None:
+            raise ValueError("cannot construct a FileSource from "
+                             "a path without a FileSystem")
+        c_filesystem = filesystem.unwrap()
+        c_path = tobytes(_stringify_path(file))
+        c_source = CFileSource(move(c_path), move(c_filesystem))
 
-        elif isinstance(file, Buffer):
-            c_buffer = pyarrow_unwrap_buffer(file)
-            self.wrapped = CFileSource(move(c_buffer))
+    elif hasattr(file, 'read'):
+        # Optimistically hope this is file-like
+        c_file = get_native_file(file, False).get_random_access_file()
+        c_source = CFileSource(move(c_file))
 
-        elif _is_path_like(file):
-            if filesystem is None:
-                raise ValueError("cannot construct a FileSource from "
-                                 "a path without a FileSystem")
-            c_filesystem = filesystem.unwrap()
-            c_path = tobytes(_stringify_path(file))
-            self.wrapped = CFileSource(move(c_path), move(c_filesystem))
+    else:
+        raise TypeError("cannot construct a FileSource "
+                        "from " + str(file))
 
-        elif hasattr(file, 'read'):
-            # Optimistically hope this is file-like
-            c_file = get_native_file(file, False).get_random_access_file()
-            self.wrapped = CFileSource(move(c_file))
-
-        else:
-            raise TypeError("cannot construct a FileSource "
-                            "from " + str(file))
-
-    @staticmethod
-    def from_uri(uri):
-        filesystem, path = FileSystem.from_uri(uri)
-        return FileSource(path, filesystem)
-
-    cdef CFileSource unwrap(self) nogil:
-        return self.wrapped
+    return c_source
 
 
 cdef class Expression:
@@ -228,22 +216,18 @@ cdef class Expression:
     @staticmethod
     def _scalar(value):
         cdef:
-            shared_ptr[CScalar] scalar
+            Scalar scalar
 
-        if value is None:
-            scalar.reset(new CNullScalar())
-        elif isinstance(value, bool):
-            scalar = MakeScalar(<c_bool>value)
-        elif isinstance(value, float):
-            scalar = MakeScalar(<double>value)
-        elif isinstance(value, int):
-            scalar = MakeScalar(<int64_t>value)
-        elif isinstance(value, (bytes, str)):
-            scalar = MakeStringScalar(tobytes(value))
+        if isinstance(value, Scalar):
+            scalar = value
         else:
-            raise TypeError('Not yet supported scalar value: {}'.format(value))
+            scalar = pa.scalar(value)
 
-        return Expression.wrap(CMakeScalarExpression(move(scalar)))
+        return Expression.wrap(
+            shared_ptr[CExpression](
+                new CScalarExpression(move(scalar.unwrap()))
+            )
+        )
 
 
 _deserialize = Expression._deserialize
@@ -453,6 +437,14 @@ cdef class UnionDataset(Dataset):
         Dataset.init(self, sp)
         self.union_dataset = <CUnionDataset*> sp.get()
 
+    def __reduce__(self):
+        return UnionDataset, (self.schema, self.children)
+
+    @property
+    def children(self):
+        cdef CDatasetVector children = self.union_dataset.children()
+        return [Dataset.wrap(children[i]) for i in range(children.size())]
+
 
 cdef class FileSystemDataset(Dataset):
     """A Dataset of file fragments.
@@ -505,6 +497,14 @@ cdef class FileSystemDataset(Dataset):
     cdef void init(self, const shared_ptr[CDataset]& sp):
         Dataset.init(self, sp)
         self.filesystem_dataset = <CFileSystemDataset*> sp.get()
+
+    def __reduce__(self):
+        return FileSystemDataset, (
+            list(self.get_fragments()),
+            self.schema,
+            self.format,
+            self.partition_expression
+        )
 
     @classmethod
     def from_paths(cls, paths, schema=None, format=None,
@@ -620,7 +620,7 @@ cdef class FileFormat:
 
     def inspect(self, file, filesystem=None):
         """Infer the schema of a file."""
-        c_source = FileSource(file, filesystem).unwrap()
+        c_source = _make_file_source(file, filesystem)
         c_schema = GetResultValue(self.format.Inspect(c_source))
         return pyarrow_wrap_schema(move(c_schema))
 
@@ -633,10 +633,11 @@ cdef class FileFormat:
         """
         partition_expression = partition_expression or _true
 
-        c_source = FileSource(file, filesystem).unwrap()
+        c_source = _make_file_source(file, filesystem)
         c_fragment = <shared_ptr[CFragment]> GetResultValue(
             self.format.MakeFragment(move(c_source),
-                                     partition_expression.unwrap()))
+                                     partition_expression.unwrap(),
+                                     <shared_ptr[CSchema]>nullptr))
         return Fragment.wrap(move(c_fragment))
 
     def __eq__(self, other):
@@ -784,6 +785,14 @@ cdef class FileFragment(Fragment):
         Fragment.init(self, sp)
         self.file_fragment = <CFileFragment*> sp.get()
 
+    def __reduce__(self):
+        buffer = self.buffer
+        return self.format.make_fragment, (
+            self.path if buffer is None else buffer,
+            self.filesystem,
+            self.partition_expression
+        )
+
     @property
     def path(self):
         """
@@ -857,6 +866,32 @@ cdef class RowGroupInfo:
     def num_rows(self):
         return self.info.num_rows()
 
+    @property
+    def total_byte_size(self):
+        return self.info.total_byte_size()
+
+    @property
+    def statistics(self):
+        if not self.info.HasStatistics():
+            return None
+
+        cdef:
+            CStructScalar* c_statistics
+            CStructScalar* c_minmax
+
+        statistics = dict()
+        c_statistics = self.info.statistics().get()
+        for i in range(c_statistics.value.size()):
+            name = frombytes(c_statistics.type.get().field(i).get().name())
+            c_minmax = <CStructScalar*> c_statistics.value[i].get()
+
+            statistics[name] = {
+                'min': pyarrow_wrap_scalar(c_minmax.value[0]).as_py(),
+                'max': pyarrow_wrap_scalar(c_minmax.value[1]).as_py(),
+            }
+
+        return statistics
+
     def __eq__(self, other):
         if not isinstance(other, RowGroupInfo):
             return False
@@ -876,6 +911,26 @@ cdef class ParquetFileFragment(FileFragment):
         FileFragment.init(self, sp)
         self.parquet_file_fragment = <CParquetFileFragment*> sp.get()
 
+    def __reduce__(self):
+        buffer = self.buffer
+        if self.row_groups is not None:
+            row_groups = [row_group.id for row_group in self.row_groups]
+        else:
+            row_groups = None
+        return self.format.make_fragment, (
+            self.path if buffer is None else buffer,
+            self.filesystem,
+            self.partition_expression,
+            row_groups
+        )
+
+    def ensure_complete_metadata(self):
+        """
+        Ensure that all metadata (statistics, physical schema, ...) have
+        been read and cached in this fragment.
+        """
+        check_status(self.parquet_file_fragment.EnsureCompleteMetadata())
+
     @property
     def row_groups(self):
         cdef:
@@ -885,19 +940,20 @@ cdef class ParquetFileFragment(FileFragment):
             return None
         return [RowGroupInfo.wrap(row_group) for row_group in c_row_groups]
 
-    def split_by_row_group(self, Expression predicate=None,
+    def split_by_row_group(self, Expression filter=None,
                            Schema schema=None):
         """
         Split the fragment into multiple fragments.
 
         Yield a Fragment wrapping each row group in this ParquetFileFragment.
         Row groups will be excluded whose metadata contradicts the optional
-        predicate.
+        filter.
 
         Parameters
         ----------
-        predicate : Expression, default None
-            Exclude RowGroups whose statistics contradicts the predicate.
+        filter : Expression, default None
+            Only include the row groups which satisfy this predicate (using
+            the Parquet RowGroup statistics).
         schema : Schema, default None
             Schema to use when filtering row groups. Defaults to the
             Fragment's phsyical schema
@@ -908,16 +964,17 @@ cdef class ParquetFileFragment(FileFragment):
         """
         cdef:
             vector[shared_ptr[CFragment]] c_fragments
-            shared_ptr[CExpression] c_predicate
+            shared_ptr[CExpression] c_filter
             shared_ptr[CFragment] c_fragment
 
         schema = schema or self.physical_schema
-        c_predicate = _insert_implicit_casts(predicate, schema)
+        c_filter = _insert_implicit_casts(filter, schema)
         with nogil:
             c_fragments = move(GetResultValue(
-                self.parquet_file_fragment.SplitByRowGroup(move(c_predicate))))
+                self.parquet_file_fragment.SplitByRowGroup(move(c_filter))))
 
         return [Fragment.wrap(c_fragment) for c_fragment in c_fragments]
+
 
 cdef class ParquetReadOptions:
     """
@@ -1015,7 +1072,8 @@ cdef class ParquetFileFormat(FileFormat):
     def make_fragment(self, file, filesystem=None,
                       Expression partition_expression=None, row_groups=None):
         cdef:
-            vector[int] c_row_groups
+            vector[int] c_row_group_ids
+            vector[CRowGroupInfo] c_row_groups
 
         partition_expression = partition_expression or _true
 
@@ -1023,13 +1081,15 @@ cdef class ParquetFileFormat(FileFormat):
             return super().make_fragment(file, filesystem,
                                          partition_expression)
 
-        c_source = FileSource(file, filesystem).unwrap()
-        c_row_groups = [<int> row_group for row_group in set(row_groups)]
+        c_source = _make_file_source(file, filesystem)
+        c_row_group_ids = [<int> row_group for row_group in set(row_groups)]
+        c_row_groups = CRowGroupInfo.FromIdentifiers(move(c_row_group_ids))
 
         c_fragment = <shared_ptr[CFragment]> GetResultValue(
             self.parquet_format.MakeFragment(move(c_source),
                                              partition_expression.unwrap(),
-                                             move(c_row_groups)))
+                                             move(c_row_groups),
+                                             <shared_ptr[CSchema]>nullptr))
         return Fragment.wrap(move(c_fragment))
 
 
@@ -1184,7 +1244,7 @@ cdef class DirectoryPartitioning(Partitioning):
         self.directory_partitioning = <CDirectoryPartitioning*> sp.get()
 
     @staticmethod
-    def discover(field_names):
+    def discover(field_names, object max_partition_dictionary_size=0):
         """
         Discover a DirectoryPartitioning.
 
@@ -1192,6 +1252,11 @@ cdef class DirectoryPartitioning(Partitioning):
         ----------
         field_names : list of str
             The names to associate with the values from the subdirectory names.
+        max_partition_dictionary_size : int or None, default 0
+            The maximum number of unique values to consider for dictionary
+            encoding. By default no field will be inferred as dictionary
+            encoded. If None is provided dictionary encoding will be used for
+            every string field.
 
         Returns
         -------
@@ -1199,12 +1264,18 @@ cdef class DirectoryPartitioning(Partitioning):
             To be used in the FileSystemFactoryOptions.
         """
         cdef:
-            PartitioningFactory factory
+            CPartitioningFactoryOptions options
             vector[c_string] c_field_names
+
+        if max_partition_dictionary_size is None:
+            max_partition_dictionary_size = -1
+
+        options.max_partition_dictionary_size = \
+            int(max_partition_dictionary_size)
+
         c_field_names = [tobytes(s) for s in field_names]
-        factory = PartitioningFactory.wrap(
-            CDirectoryPartitioning.MakeFactory(c_field_names))
-        return factory
+        return PartitioningFactory.wrap(
+            CDirectoryPartitioning.MakeFactory(c_field_names, options))
 
 
 cdef class HivePartitioning(Partitioning):
@@ -1255,9 +1326,17 @@ cdef class HivePartitioning(Partitioning):
         self.hive_partitioning = <CHivePartitioning*> sp.get()
 
     @staticmethod
-    def discover():
+    def discover(object max_partition_dictionary_size=0):
         """
         Discover a HivePartitioning.
+
+        Params
+        ------
+        max_partition_dictionary_size : int or None, default 0
+            The maximum number of unique values to consider for dictionary
+            encoding. By default no field will be inferred as dictionary
+            encoded. If -1 is provided dictionary encoding will be used for
+            every string field.
 
         Returns
         -------
@@ -1265,10 +1344,16 @@ cdef class HivePartitioning(Partitioning):
             To be used in the FileSystemFactoryOptions.
         """
         cdef:
-            PartitioningFactory factory
-        factory = PartitioningFactory.wrap(
-            CHivePartitioning.MakeFactory())
-        return factory
+            CPartitioningFactoryOptions options
+
+        if max_partition_dictionary_size is None:
+            max_partition_dictionary_size = -1
+
+        options.max_partition_dictionary_size = \
+            int(max_partition_dictionary_size)
+
+        return PartitioningFactory.wrap(
+            CHivePartitioning.MakeFactory(options))
 
 
 cdef class DatasetFactory:
@@ -1729,8 +1814,12 @@ cdef class ScanTask:
         -------
         record_batches : iterator of RecordBatch
         """
-        for maybe_batch in GetResultValue(self.task.Execute()):
-            yield pyarrow_wrap_batch(GetResultValue(move(maybe_batch)))
+        cdef shared_ptr[CRecordBatch] record_batch
+        with nogil:
+            for maybe_batch in GetResultValue(self.task.Execute()):
+                record_batch = GetResultValue(move(maybe_batch))
+                with gil:
+                    yield pyarrow_wrap_batch(record_batch)
 
 
 cdef shared_ptr[CScanContext] _build_scan_context(bint use_threads=True,
@@ -1910,3 +1999,26 @@ cdef class Scanner:
         cdef CFragmentIterator c_fragments = self.scanner.GetFragments()
         for maybe_fragment in c_fragments:
             yield Fragment.wrap(GetResultValue(move(maybe_fragment)))
+
+
+def _get_partition_keys(Expression partition_expression):
+    """
+    Extract partition keys (equality constraints between a field and a scalar)
+    from an expression as a dict mapping the field's name to its value.
+
+    NB: All expressions yielded by a HivePartitioning or DirectoryPartitioning
+    will be conjunctions of equality conditions and are accessible through this
+    function. Other subexpressions will be ignored.
+
+    For example, an expression of
+    <pyarrow.dataset.Expression ((part == A:string) and (year == 2016:int32))>
+    is converted to {'part': 'a', 'year': 2016}
+    """
+    cdef:
+        shared_ptr[CExpression] expr = partition_expression.unwrap()
+        pair[c_string, shared_ptr[CScalar]] name_val
+
+    return {
+        frombytes(name_val.first): pyarrow_wrap_scalar(name_val.second).as_py()
+        for name_val in GetResultValue(CGetPartitionKeys(deref(expr.get())))
+    }

@@ -55,14 +55,12 @@ struct CastFunctor<O, I,
   static Status Convert(KernelContext* ctx, const ArrayData& input, ArrayData* output) {
     FormatterType formatter(input.type);
     BuilderType builder(input.type, ctx->memory_pool());
-    auto convert_value = [&](util::optional<value_type> v) {
-      if (v.has_value()) {
-        return formatter(*v, [&](util::string_view v) { return builder.Append(v); });
-      } else {
-        return builder.AppendNull();
-      }
-    };
-    RETURN_NOT_OK(VisitArrayDataInline<I>(input, std::move(convert_value)));
+    RETURN_NOT_OK(VisitArrayDataInline<I>(
+        input,
+        [&](value_type v) {
+          return formatter(v, [&](util::string_view v) { return builder.Append(v); });
+        },
+        [&]() { return builder.AppendNull(); }));
 
     std::shared_ptr<Array> output_array;
     RETURN_NOT_OK(builder.Finish(&output_array));
@@ -147,10 +145,13 @@ void AddNumberToStringCasts(std::shared_ptr<DataType> out_ty, CastFunction* func
 std::vector<std::shared_ptr<CastFunction>> GetBinaryLikeCasts() {
   auto cast_binary = std::make_shared<CastFunction>("cast_binary", Type::BINARY);
   AddCommonCasts(Type::BINARY, binary(), cast_binary.get());
+  AddZeroCopyCast(Type::STRING, {utf8()}, binary(), cast_binary.get());
 
   auto cast_large_binary =
       std::make_shared<CastFunction>("cast_large_binary", Type::LARGE_BINARY);
   AddCommonCasts(Type::LARGE_BINARY, large_binary(), cast_large_binary.get());
+  AddZeroCopyCast(Type::LARGE_STRING, {large_utf8()}, large_binary(),
+                  cast_large_binary.get());
 
   auto cast_fsb =
       std::make_shared<CastFunction>("cast_fixed_size_binary", Type::FIXED_SIZE_BINARY);

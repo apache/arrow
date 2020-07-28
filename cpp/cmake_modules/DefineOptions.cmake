@@ -67,11 +67,11 @@ macro(define_option_string name description default)
   set("${name}_OPTION_DESCRIPTION" ${description})
   set("${name}_OPTION_DEFAULT" "\"${default}\"")
   set("${name}_OPTION_TYPE" "string")
-  set("${name}_OPTION_ENUM" ${ARGN})
+  set("${name}_OPTION_POSSIBLE_VALUES" ${ARGN})
 
-  list_join("${name}_OPTION_ENUM" "|" "${name}_OPTION_ENUM")
+  list_join("${name}_OPTION_POSSIBLE_VALUES" "|" "${name}_OPTION_ENUM")
   if(NOT ("${${name}_OPTION_ENUM}" STREQUAL ""))
-    set_property(CACHE ${name} PROPERTY STRINGS ${ARGN})
+    set_property(CACHE ${name} PROPERTY STRINGS "${name}_OPTION_POSSIBLE_VALUES")
   endif()
 endmacro()
 
@@ -85,6 +85,15 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   define_option(ARROW_BUILD_STATIC "Build static libraries" ON)
 
   define_option(ARROW_BUILD_SHARED "Build shared libraries" ON)
+
+  define_option_string(ARROW_PACKAGE_KIND
+                       "Arbitrary string that identifies the kind of package;\
+(for informational purposes)" "")
+
+  define_option_string(ARROW_GIT_ID "The Arrow git commit id (if any)" "")
+
+  define_option_string(ARROW_GIT_DESCRIPTION "The Arrow git commit description (if any)"
+                       "")
 
   define_option(ARROW_NO_DEPRECATED_API "Exclude deprecated APIs from build" OFF)
 
@@ -277,6 +286,9 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 
   define_option(ARROW_BOOST_USE_SHARED "Rely on boost shared libraries where relevant" ON)
 
+  define_option(ARROW_BROTLI_USE_SHARED "Rely on Brotli shared libraries where relevant"
+                ON)
+
   define_option(ARROW_GFLAGS_USE_SHARED "Rely on GFlags shared libraries where relevant"
                 ON)
 
@@ -298,6 +310,9 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   define_option(ARROW_WITH_SNAPPY "Build with Snappy compression" OFF)
   define_option(ARROW_WITH_ZLIB "Build with zlib compression" OFF)
   define_option(ARROW_WITH_ZSTD "Build with zstd compression" OFF)
+
+  define_option(ARROW_WITH_UTF8PROC
+                "Build with support for Unicode properties using the utf8proc library" ON)
 
   #----------------------------------------------------------------------
   if(MSVC)
@@ -374,6 +389,27 @@ that have not been built" OFF)
   option(ARROW_BUILD_CONFIG_SUMMARY_JSON "Summarize build configuration in a JSON file"
          ON)
 endif()
+
+macro(validate_config)
+  foreach(category ${ARROW_OPTION_CATEGORIES})
+    set(option_names ${ARROW_${category}_OPTION_NAMES})
+
+    foreach(name ${option_names})
+      set(possible_values ${${name}_OPTION_POSSIBLE_VALUES})
+      set(value "${${name}}")
+      if(possible_values)
+        if(NOT CMAKE_VERSION VERSION_LESS "3.3")
+          if(NOT "${value}" IN_LIST possible_values)
+            message(
+              FATAL_ERROR "Configuration option ${name} got invalid value '${value}'. "
+                          "Allowed values: ${${name}_OPTION_ENUM}.")
+          endif()
+        endif()
+      endif()
+    endforeach()
+
+  endforeach()
+endmacro()
 
 macro(config_summary_message)
   message(STATUS "---------------------------------------------------------------------")
@@ -460,3 +496,20 @@ macro(config_summary_cmake_setters path)
   endforeach()
 
 endmacro()
+
+#----------------------------------------------------------------------
+# Compute default values for omitted variables
+
+if(NOT ARROW_GIT_ID)
+  execute_process(COMMAND "git" "log" "-n1" "--format=%H"
+                  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+                  OUTPUT_VARIABLE ARROW_GIT_ID
+                  OUTPUT_STRIP_TRAILING_WHITESPACE)
+endif()
+if(NOT ARROW_GIT_DESCRIPTION)
+  execute_process(COMMAND "git" "describe" "--tags" "--dirty"
+                  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+                  ERROR_QUIET
+                  OUTPUT_VARIABLE ARROW_GIT_DESCRIPTION
+                  OUTPUT_STRIP_TRAILING_WHITESPACE)
+endif()

@@ -22,6 +22,9 @@
 Tabular Data
 ============
 
+.. seealso::
+   :doc:`Table and RecordBatch API reference <api/table>`.
+
 While arrays and chunked arrays represent a one-dimensional sequence of
 homogeneous values, data often comes in the form of two-dimensional sets of
 heterogeneous data (such as database tables, CSV files...).  Arrow provides

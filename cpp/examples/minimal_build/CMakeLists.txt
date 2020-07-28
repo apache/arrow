@@ -19,10 +19,22 @@ cmake_minimum_required(VERSION 3.0)
 
 project(ArrowMinimalExample)
 
+option(ARROW_LINK_SHARED "Link to the Arrow shared library" ON)
+
 find_package(Arrow REQUIRED)
+
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_BUILD_TYPE Release)
 
 message(STATUS "Arrow version: ${ARROW_VERSION}")
 message(STATUS "Arrow SO version: ${ARROW_FULL_SO_VERSION}")
 
 add_executable(arrow_example example.cc)
-target_link_libraries(arrow_example PRIVATE arrow_shared)
+
+if (ARROW_LINK_SHARED)
+  target_link_libraries(arrow_example PRIVATE arrow_shared)
+else()
+  set(THREADS_PREFER_PTHREAD_FLAG ON)
+  find_package(Threads REQUIRED)
+  target_link_libraries(arrow_example PRIVATE arrow_static Threads::Threads)
+endif()

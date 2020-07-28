@@ -32,7 +32,7 @@ macro_rules! math_unary_function {
             $NAME,
             vec![Field::new("n", DataType::Float64, true)],
             DataType::Float64,
-            |args: &[ArrayRef]| {
+            Arc::new(|args: &[ArrayRef]| {
                 let n = &args[0].as_any().downcast_ref::<Float64Array>();
                 match n {
                     Some(array) => {
@@ -51,7 +51,7 @@ macro_rules! math_unary_function {
                         $NAME
                     ))),
                 }
-            },
+            }),
         )
     };
 }
@@ -81,18 +81,18 @@ pub fn register_math_functions(ctx: &mut ExecutionContext) {
 mod tests {
     use super::*;
     use crate::error::Result;
-    use crate::logicalplan::{sqrt, Expr, LogicalPlanBuilder};
+    use crate::logicalplan::{col, sqrt, LogicalPlanBuilder};
     use arrow::datatypes::Schema;
 
     #[test]
     fn cast_i8_input() -> Result<()> {
         let schema = Schema::new(vec![Field::new("c0", DataType::Int8, true)]);
         let plan = LogicalPlanBuilder::scan("", "", &schema, None)?
-            .project(vec![sqrt(Expr::UnresolvedColumn("c0".to_owned()))])?
+            .project(vec![sqrt(col("c0"))])?
             .build()?;
         let ctx = ExecutionContext::new();
         let plan = ctx.optimize(&plan)?;
-        let expected = "Projection: sqrt(CAST(#0 AS Float64))\
+        let expected = "Projection: sqrt(CAST(#c0 AS Float64))\
         \n  TableScan:  projection=Some([0])";
         assert_eq!(format!("{:?}", plan), expected);
         Ok(())
@@ -102,11 +102,11 @@ mod tests {
     fn no_cast_f64_input() -> Result<()> {
         let schema = Schema::new(vec![Field::new("c0", DataType::Float64, true)]);
         let plan = LogicalPlanBuilder::scan("", "", &schema, None)?
-            .project(vec![sqrt(Expr::UnresolvedColumn("c0".to_owned()))])?
+            .project(vec![sqrt(col("c0"))])?
             .build()?;
         let ctx = ExecutionContext::new();
         let plan = ctx.optimize(&plan)?;
-        let expected = "Projection: sqrt(#0)\
+        let expected = "Projection: sqrt(#c0)\
         \n  TableScan:  projection=Some([0])";
         assert_eq!(format!("{:?}", plan), expected);
         Ok(())

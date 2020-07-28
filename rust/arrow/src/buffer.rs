@@ -27,6 +27,7 @@ use std::fmt::{Debug, Formatter};
 use std::io::{Error as IoError, ErrorKind, Result as IoResult, Write};
 use std::mem;
 use std::ops::{BitAnd, BitOr, Not};
+use std::ptr::NonNull;
 use std::slice::{from_raw_parts, from_raw_parts_mut};
 use std::sync::Arc;
 
@@ -77,7 +78,7 @@ impl PartialEq for BufferData {
 /// Release the underlying memory when the current buffer goes out of scope
 impl Drop for BufferData {
     fn drop(&mut self) {
-        if !self.ptr.is_null() && self.owned {
+        if self.is_allocated() && self.owned {
             unsafe { memory::free_aligned(self.ptr as *mut u8, self.capacity) };
         }
     }
@@ -99,13 +100,28 @@ impl Debug for BufferData {
 
 impl BufferData {
     fn data(&self) -> &[u8] {
-        if self.ptr.is_null() {
+        if !self.is_allocated() {
             &[]
         } else {
             unsafe { std::slice::from_raw_parts(self.ptr, self.len) }
         }
     }
+
+    fn is_zst(&self) -> bool {
+        self.ptr == BUFFER_INIT.as_ptr() as _
+    }
+
+    fn is_allocated(&self) -> bool {
+        !(self.is_zst() || self.ptr.is_null())
+    }
 }
+
+///
+/// SAFETY: (vcq):
+/// As you can see this is global and lives as long as the program lives.
+/// This is used for lazy allocation in the further steps of buffer allocations.
+/// Pointer below is well-aligned, only used for ZSTs and discarded afterwards.
+const BUFFER_INIT: NonNull<u8> = NonNull::dangling();
 
 impl Buffer {
     /// Creates a buffer from an existing memory region (must already be byte-aligned), this
@@ -120,7 +136,7 @@ impl Buffer {
     /// # Safety
     ///
     /// This function is unsafe as there is no guarantee that the given pointer is valid for `len`
-    /// bytes.
+    /// bytes. If the `ptr` and `capacity` come from a `Buffer`, then this is guaranteed.
     pub unsafe fn from_raw_parts(ptr: *const u8, len: usize, capacity: usize) -> Self {
         Buffer::build_with_arguments(ptr, len, capacity, true)
     }
@@ -137,7 +153,7 @@ impl Buffer {
     /// # Safety
     ///
     /// This function is unsafe as there is no guarantee that the given pointer is valid for `len`
-    /// bytes.
+    /// bytes. If the `ptr` and `capacity` come from a `Buffer`, then this is guaranteed.
     pub unsafe fn from_unowned(ptr: *const u8, len: usize, capacity: usize) -> Self {
         Buffer::build_with_arguments(ptr, len, capacity, false)
     }
@@ -155,7 +171,7 @@ impl Buffer {
     /// # Safety
     ///
     /// This function is unsafe as there is no guarantee that the given pointer is valid for `len`
-    /// bytes.
+    /// bytes. If the `ptr` and `capacity` come from a `Buffer`, then this is guaranteed.
     unsafe fn build_with_arguments(
         ptr: *const u8,
         len: usize,
@@ -239,7 +255,7 @@ impl Buffer {
 
     /// Returns an empty buffer.
     pub fn empty() -> Self {
-        unsafe { Self::from_raw_parts(::std::ptr::null(), 0, 0) }
+        unsafe { Self::from_raw_parts(BUFFER_INIT.as_ptr() as _, 0, 0) }
     }
 }
 

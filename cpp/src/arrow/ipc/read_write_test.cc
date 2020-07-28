@@ -56,11 +56,30 @@
 namespace arrow {
 
 using internal::checked_cast;
+using internal::GetByteWidth;
 
 namespace ipc {
 namespace test {
 
 using BatchVector = std::vector<std::shared_ptr<RecordBatch>>;
+
+const std::vector<MetadataVersion> kMetadataVersions = {MetadataVersion::V4,
+                                                        MetadataVersion::V5};
+
+class TestMessage : public ::testing::TestWithParam<MetadataVersion> {
+ public:
+  void SetUp() {
+    version_ = GetParam();
+    fb_version_ = internal::MetadataVersionToFlatbuffer(version_);
+    options_ = IpcWriteOptions::Defaults();
+    options_.metadata_version = version_;
+  }
+
+ protected:
+  MetadataVersion version_;
+  flatbuf::MetadataVersion fb_version_;
+  IpcWriteOptions options_;
+};
 
 TEST(TestMessage, Equals) {
   std::string metadata = "foo";
@@ -88,13 +107,12 @@ TEST(TestMessage, Equals) {
   ASSERT_FALSE(msg5.Equals(msg1));
 }
 
-TEST(TestMessage, SerializeTo) {
+TEST_P(TestMessage, SerializeTo) {
   const int64_t body_length = 64;
 
   flatbuffers::FlatBufferBuilder fbb;
-  fbb.Finish(flatbuf::CreateMessage(fbb, internal::kCurrentMetadataVersion,
-                                    flatbuf::MessageHeader::RecordBatch, 0 /* header */,
-                                    body_length));
+  fbb.Finish(flatbuf::CreateMessage(fbb, fb_version_, flatbuf::MessageHeader::RecordBatch,
+                                    0 /* header */, body_length));
 
   std::shared_ptr<Buffer> metadata;
   ASSERT_OK_AND_ASSIGN(metadata, internal::WriteFlatbufferBuilder(fbb));
@@ -105,30 +123,35 @@ TEST(TestMessage, SerializeTo) {
                        Message::Open(metadata, std::make_shared<Buffer>(body)));
 
   auto CheckWithAlignment = [&](int32_t alignment) {
-    IpcWriteOptions options;
-    options.alignment = alignment;
+    options_.alignment = alignment;
     const int32_t prefix_size = 8;
     int64_t output_length = 0;
     ASSERT_OK_AND_ASSIGN(auto stream, io::BufferOutputStream::Create(1 << 10));
-    ASSERT_OK(message->SerializeTo(stream.get(), options, &output_length));
+    ASSERT_OK(message->SerializeTo(stream.get(), options_, &output_length));
     ASSERT_EQ(BitUtil::RoundUp(metadata->size() + prefix_size, alignment) + body_length,
               output_length);
     ASSERT_OK_AND_EQ(output_length, stream->Tell());
+    ASSERT_OK_AND_ASSIGN(auto buffer, stream->Finish());
+    // chech whether length is written in little endian
+    auto buffer_ptr = buffer.get()->data();
+    ASSERT_EQ(output_length - body_length - prefix_size,
+              BitUtil::FromLittleEndian(*(uint32_t*)(buffer_ptr + 4)));
   };
 
   CheckWithAlignment(8);
   CheckWithAlignment(64);
 }
 
-TEST(TestMessage, SerializeCustomMetadata) {
+TEST_P(TestMessage, SerializeCustomMetadata) {
   std::vector<std::shared_ptr<KeyValueMetadata>> cases = {
       nullptr, key_value_metadata({}, {}),
       key_value_metadata({"foo", "bar"}, {"fizz", "buzz"})};
   for (auto metadata : cases) {
     std::shared_ptr<Buffer> serialized;
-    ASSERT_OK(internal::WriteRecordBatchMessage(/*length=*/0, /*body_length=*/0, metadata,
-                                                /*nodes=*/{},
-                                                /*buffers=*/{}, &serialized));
+    ASSERT_OK(internal::WriteRecordBatchMessage(
+        /*length=*/0, /*body_length=*/0, metadata,
+        /*nodes=*/{},
+        /*buffers=*/{}, options_, &serialized));
     ASSERT_OK_AND_ASSIGN(std::unique_ptr<Message> message,
                          Message::Open(serialized, /*body=*/nullptr));
 
@@ -146,20 +169,19 @@ void BuffersOverlapEquals(const Buffer& left, const Buffer& right) {
   ASSERT_TRUE(left.Equals(right, std::min(left.size(), right.size())));
 }
 
-TEST(TestMessage, LegacyIpcBackwardsCompatibility) {
+TEST_P(TestMessage, LegacyIpcBackwardsCompatibility) {
   std::shared_ptr<RecordBatch> batch;
   ASSERT_OK(MakeIntBatchSized(36, &batch));
 
-  auto RoundtripWithOptions = [&](const IpcWriteOptions& arg_options,
-                                  std::shared_ptr<Buffer>* out_serialized,
+  auto RoundtripWithOptions = [&](std::shared_ptr<Buffer>* out_serialized,
                                   std::unique_ptr<Message>* out) {
     IpcPayload payload;
-    ASSERT_OK(GetRecordBatchPayload(*batch, arg_options, &payload));
+    ASSERT_OK(GetRecordBatchPayload(*batch, options_, &payload));
 
     ASSERT_OK_AND_ASSIGN(auto stream, io::BufferOutputStream::Create(1 << 20));
 
     int32_t metadata_length = -1;
-    ASSERT_OK(WriteIpcPayload(payload, arg_options, stream.get(), &metadata_length));
+    ASSERT_OK(WriteIpcPayload(payload, options_, stream.get(), &metadata_length));
 
     ASSERT_OK_AND_ASSIGN(*out_serialized, stream->Finish());
     io::BufferReader io_reader(*out_serialized);
@@ -169,14 +191,13 @@ TEST(TestMessage, LegacyIpcBackwardsCompatibility) {
   std::shared_ptr<Buffer> serialized, legacy_serialized;
   std::unique_ptr<Message> message, legacy_message;
 
-  IpcWriteOptions options;
-  RoundtripWithOptions(options, &serialized, &message);
+  RoundtripWithOptions(&serialized, &message);
 
   // First 4 bytes 0xFFFFFFFF Continuation marker
   ASSERT_EQ(-1, util::SafeLoadAs<int32_t>(serialized->data()));
 
-  options.write_legacy_ipc_format = true;
-  RoundtripWithOptions(options, &legacy_serialized, &legacy_message);
+  options_.write_legacy_ipc_format = true;
+  RoundtripWithOptions(&legacy_serialized, &legacy_message);
 
   // Check that the continuation marker is not written
   ASSERT_NE(-1, util::SafeLoadAs<int32_t>(legacy_serialized->data()));
@@ -194,11 +215,14 @@ TEST(TestMessage, Verify) {
   ASSERT_FALSE(message.Verify());
 }
 
+INSTANTIATE_TEST_SUITE_P(TestMessage, TestMessage,
+                         ::testing::ValuesIn(kMetadataVersions));
+
 class TestSchemaMetadata : public ::testing::Test {
  public:
   void SetUp() {}
 
-  void CheckRoundtrip(const Schema& schema) {
+  void CheckSchemaRoundtrip(const Schema& schema) {
     DictionaryMemo in_memo, out_memo;
     ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> buffer,
                          SerializeSchema(schema, &out_memo, default_memory_pool()));
@@ -225,7 +249,7 @@ TEST_F(TestSchemaMetadata, PrimitiveFields) {
   auto f10 = field("f10", std::make_shared<BooleanType>());
 
   Schema schema({f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10});
-  CheckRoundtrip(schema);
+  CheckSchemaRoundtrip(schema);
 }
 
 TEST_F(TestSchemaMetadata, NestedFields) {
@@ -237,7 +261,7 @@ TEST_F(TestSchemaMetadata, NestedFields) {
   auto f1 = field("f1", type2);
 
   Schema schema({f0, f1});
-  CheckRoundtrip(schema);
+  CheckSchemaRoundtrip(schema);
 }
 
 TEST_F(TestSchemaMetadata, DictionaryFields) {
@@ -247,14 +271,14 @@ TEST_F(TestSchemaMetadata, DictionaryFields) {
     auto f1 = field("f1", list(dict_type));
 
     Schema schema({f0, f1});
-    CheckRoundtrip(schema);
+    CheckSchemaRoundtrip(schema);
   }
   {
     auto dict_type = dictionary(int8(), list(int32()));
     auto f0 = field("f0", dict_type);
 
     Schema schema({f0});
-    CheckRoundtrip(schema);
+    CheckSchemaRoundtrip(schema);
   }
 }
 
@@ -264,7 +288,7 @@ TEST_F(TestSchemaMetadata, NestedDictionaryFields) {
     auto dict_type = dictionary(int16(), list(inner_dict_type));
 
     Schema schema({field("f0", dict_type)});
-    CheckRoundtrip(schema);
+    CheckSchemaRoundtrip(schema);
   }
   {
     auto dict_type1 = dictionary(int8(), utf8(), /*ordered=*/true);
@@ -277,7 +301,7 @@ TEST_F(TestSchemaMetadata, NestedDictionaryFields) {
 
     Schema schema({field("f1", dictionary(int32(), struct_type1)),
                    field("f2", dictionary(int32(), struct_type2))});
-    CheckRoundtrip(schema);
+    CheckSchemaRoundtrip(schema);
   }
 }
 
@@ -289,16 +313,46 @@ TEST_F(TestSchemaMetadata, KeyValueMetadata) {
   auto f1 = field("f1", std::make_shared<Int16Type>(), false, field_metadata);
 
   Schema schema({f0, f1}, schema_metadata);
-  CheckRoundtrip(schema);
+  CheckSchemaRoundtrip(schema);
 }
 
-#define BATCH_CASES()                                                                    \
-  ::testing::Values(&MakeIntRecordBatch, &MakeListRecordBatch, &MakeNonNullRecordBatch,  \
-                    &MakeZeroLengthRecordBatch, &MakeDeeplyNestedList,                   \
-                    &MakeStringTypesRecordBatchWithNulls, &MakeStruct, &MakeUnion,       \
-                    &MakeDictionary, &MakeNestedDictionary, &MakeDates, &MakeTimestamps, \
-                    &MakeTimes, &MakeFWBinary, &MakeNull, &MakeDecimal,                  \
-                    &MakeBooleanBatch, &MakeIntervals, &MakeUuid, &MakeDictExtension)
+TEST_F(TestSchemaMetadata, MetadataVersionForwardCompatibility) {
+  // ARROW-9399
+  std::string root;
+  ASSERT_OK(GetTestResourceRoot(&root));
+
+  // schema_v6.arrow with currently non-existent MetadataVersion::V6
+  std::stringstream schema_v6_path;
+  schema_v6_path << root << "/forward-compatibility/schema_v6.arrow";
+
+  ASSERT_OK_AND_ASSIGN(auto schema_v6_file, io::ReadableFile::Open(schema_v6_path.str()));
+
+  DictionaryMemo placeholder_memo;
+  ASSERT_RAISES(Invalid, ReadSchema(schema_v6_file.get(), &placeholder_memo));
+}
+
+const std::vector<test::MakeRecordBatch*> kBatchCases = {
+    &MakeIntRecordBatch,
+    &MakeListRecordBatch,
+    &MakeNonNullRecordBatch,
+    &MakeZeroLengthRecordBatch,
+    &MakeDeeplyNestedList,
+    &MakeStringTypesRecordBatchWithNulls,
+    &MakeStruct,
+    &MakeUnion,
+    &MakeDictionary,
+    &MakeNestedDictionary,
+    &MakeDates,
+    &MakeTimestamps,
+    &MakeTimes,
+    &MakeFWBinary,
+    &MakeNull,
+    &MakeDecimal,
+    &MakeBooleanBatch,
+    &MakeFloatBatch,
+    &MakeIntervals,
+    &MakeUuid,
+    &MakeDictExtension};
 
 static int g_file_number = 0;
 
@@ -398,6 +452,7 @@ class IpcTestFixture : public io::MemoryMapFixture, public ExtensionTypesMixin {
     ASSERT_OK_AND_ASSIGN(result, DoLargeRoundTrip(batch, /*zero_data=*/true));
     CheckReadResult(*result, batch);
   }
+
   void CheckRoundtrip(const std::shared_ptr<Array>& array,
                       IpcWriteOptions options = IpcWriteOptions::Defaults(),
                       int64_t buffer_size = 1 << 20) {
@@ -414,6 +469,11 @@ class IpcTestFixture : public io::MemoryMapFixture, public ExtensionTypesMixin {
   IpcWriteOptions options_;
 };
 
+TEST(MetadataVersion, ForwardsCompatCheck) {
+  // Verify UBSAN is ok with casting out of range metdata version.
+  EXPECT_LT(flatbuf::MetadataVersion::MAX, static_cast<flatbuf::MetadataVersion>(72));
+}
+
 class TestWriteRecordBatch : public ::testing::Test, public IpcTestFixture {
  public:
   void SetUp() { IpcTestFixture::SetUp(); }
@@ -425,34 +485,46 @@ class TestIpcRoundTrip : public ::testing::TestWithParam<MakeRecordBatch*>,
  public:
   void SetUp() { IpcTestFixture::SetUp(); }
   void TearDown() { IpcTestFixture::TearDown(); }
+
+  void TestMetadataVersion(MetadataVersion expected_version) {
+    std::shared_ptr<RecordBatch> batch;
+    ASSERT_OK(MakeIntRecordBatch(&batch));
+
+    mmap_.reset();  // Ditch previous mmap view, to avoid errors on Windows
+    ASSERT_OK_AND_ASSIGN(mmap_,
+                         io::MemoryMapFixture::InitMemoryMap(1 << 16, "test-metadata"));
+
+    int32_t metadata_length;
+    int64_t body_length;
+    const int64_t buffer_offset = 0;
+    ASSERT_OK(WriteRecordBatch(*batch, buffer_offset, mmap_.get(), &metadata_length,
+                               &body_length, options_));
+
+    ASSERT_OK_AND_ASSIGN(std::unique_ptr<Message> message,
+                         ReadMessage(0, metadata_length, mmap_.get()));
+    ASSERT_EQ(expected_version, message->metadata_version());
+  }
 };
 
 TEST_P(TestIpcRoundTrip, RoundTrip) {
   std::shared_ptr<RecordBatch> batch;
   ASSERT_OK((*GetParam())(&batch));  // NOLINT clang-tidy gtest issue
 
-  CheckRoundtrip(*batch);
+  for (const auto version : kMetadataVersions) {
+    options_.metadata_version = version;
+    CheckRoundtrip(*batch);
+  }
 }
 
-TEST_F(TestIpcRoundTrip, MetadataVersion) {
-  std::shared_ptr<RecordBatch> batch;
-  ASSERT_OK(MakeIntRecordBatch(&batch));
+TEST_F(TestIpcRoundTrip, DefaultMetadataVersion) {
+  TestMetadataVersion(MetadataVersion::V5);
+}
 
-  ASSERT_OK_AND_ASSIGN(mmap_,
-                       io::MemoryMapFixture::InitMemoryMap(1 << 16, "test-metadata"));
-
-  int32_t metadata_length;
-  int64_t body_length;
-
-  const int64_t buffer_offset = 0;
-
-  ASSERT_OK(WriteRecordBatch(*batch, buffer_offset, mmap_.get(), &metadata_length,
-                             &body_length, options_));
-
-  ASSERT_OK_AND_ASSIGN(std::unique_ptr<Message> message,
-                       ReadMessage(0, metadata_length, mmap_.get()));
-
-  ASSERT_EQ(MetadataVersion::V4, message->metadata_version());
+TEST_F(TestIpcRoundTrip, SpecificMetadataVersion) {
+  options_.metadata_version = MetadataVersion::V4;
+  TestMetadataVersion(MetadataVersion::V4);
+  options_.metadata_version = MetadataVersion::V5;
+  TestMetadataVersion(MetadataVersion::V5);
 }
 
 TEST(TestReadMessage, CorruptedSmallInput) {
@@ -1227,6 +1299,157 @@ TEST_P(TestFileFormat, RoundTrip) {
   TestZeroLengthRoundTrip(*GetParam(), options);
 }
 
+Status MakeDictionaryBatch(std::shared_ptr<RecordBatch>* out) {
+  auto f0_type = arrow::dictionary(int32(), utf8());
+  auto f1_type = arrow::dictionary(int8(), utf8());
+
+  auto dict = ArrayFromJSON(utf8(), "[\"foo\", \"bar\", \"baz\"]");
+
+  auto indices0 = ArrayFromJSON(int32(), "[1, 2, null, 0, 2, 0]");
+  auto indices1 = ArrayFromJSON(int8(), "[0, 0, 2, 2, 1, 1]");
+
+  auto a0 = std::make_shared<DictionaryArray>(f0_type, indices0, dict);
+  auto a1 = std::make_shared<DictionaryArray>(f1_type, indices1, dict);
+
+  // construct batch
+  auto schema = ::arrow::schema({field("dict1", f0_type), field("dict2", f1_type)});
+
+  *out = RecordBatch::Make(schema, 6, {a0, a1});
+  return Status::OK();
+}
+
+// A utility that supports reading/writing record batches,
+// and manually specifying dictionaries.
+class DictionaryBatchHelper {
+ public:
+  explicit DictionaryBatchHelper(const Schema& schema) : schema_(schema) {
+    buffer_ = *AllocateResizableBuffer(0);
+    sink_.reset(new io::BufferOutputStream(buffer_));
+    payload_writer_ = *internal::MakePayloadStreamWriter(sink_.get());
+  }
+
+  Status Start() {
+    RETURN_NOT_OK(payload_writer_->Start());
+
+    // write schema
+    IpcPayload payload;
+    RETURN_NOT_OK(GetSchemaPayload(schema_, IpcWriteOptions::Defaults(),
+                                   &dictionary_memo_, &payload));
+    return payload_writer_->WritePayload(payload);
+  }
+
+  Status WriteDictionary(int64_t dictionary_id, const std::shared_ptr<Array>& dictionary,
+                         bool is_delta) {
+    IpcPayload payload;
+    RETURN_NOT_OK(GetDictionaryPayload(dictionary_id, is_delta, dictionary,
+                                       IpcWriteOptions::Defaults(), &payload));
+    RETURN_NOT_OK(payload_writer_->WritePayload(payload));
+    return Status::OK();
+  }
+
+  Status WriteBatchPayload(const RecordBatch& batch) {
+    // write record batch payload only
+    IpcPayload payload;
+    RETURN_NOT_OK(GetRecordBatchPayload(batch, IpcWriteOptions::Defaults(), &payload));
+    return payload_writer_->WritePayload(payload);
+  }
+
+  Status Close() {
+    RETURN_NOT_OK(payload_writer_->Close());
+    return sink_->Close();
+  }
+
+  Status ReadBatch(std::shared_ptr<RecordBatch>* out_batch) {
+    auto buf_reader = std::make_shared<io::BufferReader>(buffer_);
+    std::shared_ptr<RecordBatchReader> reader;
+    ARROW_ASSIGN_OR_RAISE(
+        reader, RecordBatchStreamReader::Open(buf_reader, IpcReadOptions::Defaults()))
+    return reader->ReadNext(out_batch);
+  }
+
+  std::unique_ptr<internal::IpcPayloadWriter> payload_writer_;
+  const Schema& schema_;
+  DictionaryMemo dictionary_memo_;
+  std::shared_ptr<ResizableBuffer> buffer_;
+  std::unique_ptr<io::BufferOutputStream> sink_;
+};
+
+TEST(TestDictionaryBatch, DictionaryDelta) {
+  std::shared_ptr<RecordBatch> in_batch;
+  std::shared_ptr<RecordBatch> out_batch;
+  ASSERT_OK(MakeDictionaryBatch(&in_batch));
+
+  auto dict1 = ArrayFromJSON(utf8(), "[\"foo\", \"bar\"]");
+  auto dict2 = ArrayFromJSON(utf8(), "[\"baz\"]");
+
+  DictionaryBatchHelper helper(*in_batch->schema());
+  ASSERT_OK(helper.Start());
+
+  ASSERT_OK(helper.WriteDictionary(0L, dict1, /*is_delta=*/false));
+  ASSERT_OK(helper.WriteDictionary(0L, dict2, /*is_delta=*/true));
+
+  ASSERT_OK(helper.WriteDictionary(1L, dict1, /*is_delta=*/false));
+  ASSERT_OK(helper.WriteDictionary(1L, dict2, /*is_delta=*/true));
+
+  ASSERT_OK(helper.WriteBatchPayload(*in_batch));
+  ASSERT_OK(helper.Close());
+
+  ASSERT_OK(helper.ReadBatch(&out_batch));
+
+  ASSERT_BATCHES_EQUAL(*in_batch, *out_batch);
+}
+
+TEST(TestDictionaryBatch, DictionaryDeltaWithUnknownId) {
+  std::shared_ptr<RecordBatch> in_batch;
+  std::shared_ptr<RecordBatch> out_batch;
+  ASSERT_OK(MakeDictionaryBatch(&in_batch));
+
+  auto dict1 = ArrayFromJSON(utf8(), "[\"foo\", \"bar\"]");
+  auto dict2 = ArrayFromJSON(utf8(), "[\"baz\"]");
+
+  DictionaryBatchHelper helper(*in_batch->schema());
+  ASSERT_OK(helper.Start());
+
+  ASSERT_OK(helper.WriteDictionary(0L, dict1, /*is_delta=*/false));
+  ASSERT_OK(helper.WriteDictionary(0L, dict2, /*is_delta=*/true));
+
+  /* This delta dictionary does not have a base dictionary previously in stream */
+  ASSERT_OK(helper.WriteDictionary(1L, dict2, /*is_delta=*/true));
+
+  ASSERT_OK(helper.WriteBatchPayload(*in_batch));
+  ASSERT_OK(helper.Close());
+
+  ASSERT_RAISES(KeyError, helper.ReadBatch(&out_batch));
+}
+
+TEST(TestDictionaryBatch, DictionaryReplacement) {
+  std::shared_ptr<RecordBatch> in_batch;
+  std::shared_ptr<RecordBatch> out_batch;
+  ASSERT_OK(MakeDictionaryBatch(&in_batch));
+
+  auto dict = ArrayFromJSON(utf8(), "[\"foo\", \"bar\", \"baz\"]");
+  auto dict1 = ArrayFromJSON(utf8(), "[\"foo1\", \"bar1\", \"baz1\"]");
+  auto dict2 = ArrayFromJSON(utf8(), "[\"foo2\", \"bar2\", \"baz2\"]");
+
+  DictionaryBatchHelper helper(*in_batch->schema());
+  ASSERT_OK(helper.Start());
+
+  // the old dictionaries will be overwritten by
+  // the new dictionaries with the same ids.
+  ASSERT_OK(helper.WriteDictionary(0L, dict1, /*is_delta=*/false));
+  ASSERT_OK(helper.WriteDictionary(0L, dict, /*is_delta=*/false));
+
+  ASSERT_OK(helper.WriteDictionary(1L, dict2, /*is_delta=*/false));
+  ASSERT_OK(helper.WriteDictionary(1L, dict, /*is_delta=*/false));
+
+  ASSERT_OK(helper.WriteBatchPayload(*in_batch));
+  ASSERT_OK(helper.Close());
+
+  ASSERT_OK(helper.ReadBatch(&out_batch));
+
+  ASSERT_BATCHES_EQUAL(*in_batch, *out_batch);
+}
+
 TEST_P(TestStreamFormat, RoundTrip) {
   TestRoundTrip(*GetParam(), IpcWriteOptions::Defaults());
   TestZeroLengthRoundTrip(*GetParam(), IpcWriteOptions::Defaults());
@@ -1277,17 +1500,20 @@ TEST_P(TestStreamDecoderLargeChunks, RoundTrip) {
   TestZeroLengthRoundTrip(*GetParam(), options);
 }
 
-INSTANTIATE_TEST_SUITE_P(GenericIpcRoundTripTests, TestIpcRoundTrip, BATCH_CASES());
-INSTANTIATE_TEST_SUITE_P(FileRoundTripTests, TestFileFormat, BATCH_CASES());
-INSTANTIATE_TEST_SUITE_P(StreamRoundTripTests, TestStreamFormat, BATCH_CASES());
+INSTANTIATE_TEST_SUITE_P(GenericIpcRoundTripTests, TestIpcRoundTrip,
+                         ::testing::ValuesIn(kBatchCases));
+INSTANTIATE_TEST_SUITE_P(FileRoundTripTests, TestFileFormat,
+                         ::testing::ValuesIn(kBatchCases));
+INSTANTIATE_TEST_SUITE_P(StreamRoundTripTests, TestStreamFormat,
+                         ::testing::ValuesIn(kBatchCases));
 INSTANTIATE_TEST_SUITE_P(StreamDecoderDataRoundTripTests, TestStreamDecoderData,
-                         BATCH_CASES());
+                         ::testing::ValuesIn(kBatchCases));
 INSTANTIATE_TEST_SUITE_P(StreamDecoderBufferRoundTripTests, TestStreamDecoderBuffer,
-                         BATCH_CASES());
+                         ::testing::ValuesIn(kBatchCases));
 INSTANTIATE_TEST_SUITE_P(StreamDecoderSmallChunksRoundTripTests,
-                         TestStreamDecoderSmallChunks, BATCH_CASES());
+                         TestStreamDecoderSmallChunks, ::testing::ValuesIn(kBatchCases));
 INSTANTIATE_TEST_SUITE_P(StreamDecoderLargeChunksRoundTripTests,
-                         TestStreamDecoderLargeChunks, BATCH_CASES());
+                         TestStreamDecoderLargeChunks, ::testing::ValuesIn(kBatchCases));
 
 TEST(TestIpcFileFormat, FooterMetaData) {
   // ARROW-6837
@@ -1459,9 +1685,7 @@ class TestTensorRoundTrip : public ::testing::Test, public IpcTestFixture {
   void CheckTensorRoundTrip(const Tensor& tensor) {
     int32_t metadata_length;
     int64_t body_length;
-
-    const auto& type = checked_cast<const FixedWidthType&>(*tensor.type());
-    const int elem_size = type.bit_width() / 8;
+    const int elem_size = GetByteWidth(*tensor.type());
 
     ASSERT_OK(mmap_->Seek(0));
 
@@ -1535,8 +1759,7 @@ class TestSparseTensorRoundTrip : public ::testing::Test, public IpcTestFixture 
   void TearDown() { IpcTestFixture::TearDown(); }
 
   void CheckSparseCOOTensorRoundTrip(const SparseCOOTensor& sparse_tensor) {
-    const auto& type = checked_cast<const FixedWidthType&>(*sparse_tensor.type());
-    const int elem_size = type.bit_width() / 8;
+    const int elem_size = GetByteWidth(*sparse_tensor.type());
     const int index_elem_size = sizeof(typename IndexValueType::c_type);
 
     int32_t metadata_length;
@@ -1565,6 +1788,7 @@ class TestSparseTensorRoundTrip : public ::testing::Test, public IpcTestFixture 
     const auto& resulted_sparse_index =
         checked_cast<const SparseCOOIndex&>(*result->sparse_index());
     ASSERT_EQ(resulted_sparse_index.indices()->data()->size(), indices_length);
+    ASSERT_EQ(resulted_sparse_index.is_canonical(), sparse_index.is_canonical());
     ASSERT_EQ(result->data()->size(), data_length);
     ASSERT_TRUE(result->Equals(sparse_tensor));
   }
@@ -1576,8 +1800,7 @@ class TestSparseTensorRoundTrip : public ::testing::Test, public IpcTestFixture 
                       std::is_same<SparseIndexType, SparseCSCIndex>::value,
                   "SparseIndexType must be either SparseCSRIndex or SparseCSCIndex");
 
-    const auto& type = checked_cast<const FixedWidthType&>(*sparse_tensor.type());
-    const int elem_size = type.bit_width() / 8;
+    const int elem_size = GetByteWidth(*sparse_tensor.type());
     const int index_elem_size = sizeof(typename IndexValueType::c_type);
 
     int32_t metadata_length;
@@ -1618,8 +1841,7 @@ class TestSparseTensorRoundTrip : public ::testing::Test, public IpcTestFixture 
   }
 
   void CheckSparseCSFTensorRoundTrip(const SparseCSFTensor& sparse_tensor) {
-    const auto& type = checked_cast<const FixedWidthType&>(*sparse_tensor.type());
-    const int elem_size = type.bit_width() / 8;
+    const int elem_size = GetByteWidth(*sparse_tensor.type());
     const int index_elem_size = sizeof(typename IndexValueType::c_type);
 
     int32_t metadata_length;
@@ -1689,13 +1911,13 @@ class TestSparseTensorRoundTrip : public ::testing::Test, public IpcTestFixture 
   }
 
   template <typename ValueType>
-  std::shared_ptr<SparseCOOTensor> MakeSparseCOOTensor(
+  Result<std::shared_ptr<SparseCOOTensor>> MakeSparseCOOTensor(
       const std::shared_ptr<SparseCOOIndex>& si, std::vector<ValueType>& sparse_values,
       const std::vector<int64_t>& shape,
       const std::vector<std::string>& dim_names = {}) const {
     auto data = Buffer::Wrap(sparse_values);
-    return std::make_shared<SparseCOOTensor>(si, CTypeTraits<ValueType>::type_singleton(),
-                                             data, shape, dim_names);
+    return SparseCOOTensor::Make(si, CTypeTraits<ValueType>::type_singleton(), data,
+                                 shape, dim_names);
   }
 };
 
@@ -1730,6 +1952,7 @@ TYPED_TEST_P(TestSparseTensorRoundTrip, WithSparseCOOIndexRowMajor) {
   // idx[2] = [0 2 1 3 0 2  1  3  0  2  1  3]
   // data   = [1 2 3 4 5 6 11 12 13 14 15 16]
 
+  // canonical
   std::vector<c_index_value_type> coords_values = {0, 0, 0, 0, 0, 2, 0, 1, 1, 0, 1, 3,
                                                    0, 2, 0, 0, 2, 2, 1, 0, 1, 1, 0, 3,
                                                    1, 1, 0, 1, 1, 2, 1, 2, 1, 1, 2, 3};
@@ -1739,11 +1962,23 @@ TYPED_TEST_P(TestSparseTensorRoundTrip, WithSparseCOOIndexRowMajor) {
       si, SparseCOOIndex::Make(TypeTraits<IndexValueType>::type_singleton(), {12, 3},
                                {sizeof_index_value * 3, sizeof_index_value},
                                Buffer::Wrap(coords_values)));
+  ASSERT_TRUE(si->is_canonical());
 
   std::vector<int64_t> shape = {2, 3, 4};
   std::vector<std::string> dim_names = {"foo", "bar", "baz"};
   std::vector<int64_t> values = {1, 2, 3, 4, 5, 6, 11, 12, 13, 14, 15, 16};
-  auto st = this->MakeSparseCOOTensor(si, values, shape, dim_names);
+  std::shared_ptr<SparseCOOTensor> st;
+  ASSERT_OK_AND_ASSIGN(st, this->MakeSparseCOOTensor(si, values, shape, dim_names));
+
+  this->CheckSparseCOOTensorRoundTrip(*st);
+
+  // non-canonical
+  ASSERT_OK_AND_ASSIGN(
+      si, SparseCOOIndex::Make(TypeTraits<IndexValueType>::type_singleton(), {12, 3},
+                               {sizeof_index_value * 3, sizeof_index_value},
+                               Buffer::Wrap(coords_values), false));
+  ASSERT_FALSE(si->is_canonical());
+  ASSERT_OK_AND_ASSIGN(st, this->MakeSparseCOOTensor(si, values, shape, dim_names));
 
   this->CheckSparseCOOTensorRoundTrip(*st);
 }
@@ -1777,6 +2012,7 @@ TYPED_TEST_P(TestSparseTensorRoundTrip, WithSparseCOOIndexColumnMajor) {
   // idx[2] = [0 2 1 3 0 2  1  3  0  2  1  3]
   // data   = [1 2 3 4 5 6 11 12 13 14 15 16]
 
+  // canonical
   std::vector<c_index_value_type> coords_values = {0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1,
                                                    0, 0, 1, 1, 2, 2, 0, 0, 1, 1, 2, 2,
                                                    0, 2, 1, 3, 0, 2, 1, 3, 0, 2, 1, 3};
@@ -1786,11 +2022,24 @@ TYPED_TEST_P(TestSparseTensorRoundTrip, WithSparseCOOIndexColumnMajor) {
       si, SparseCOOIndex::Make(TypeTraits<IndexValueType>::type_singleton(), {12, 3},
                                {sizeof_index_value, sizeof_index_value * 12},
                                Buffer::Wrap(coords_values)));
+  ASSERT_TRUE(si->is_canonical());
 
   std::vector<int64_t> shape = {2, 3, 4};
   std::vector<std::string> dim_names = {"foo", "bar", "baz"};
   std::vector<int64_t> values = {1, 2, 3, 4, 5, 6, 11, 12, 13, 14, 15, 16};
-  auto st = this->MakeSparseCOOTensor(si, values, shape, dim_names);
+
+  std::shared_ptr<SparseCOOTensor> st;
+  ASSERT_OK_AND_ASSIGN(st, this->MakeSparseCOOTensor(si, values, shape, dim_names));
+
+  this->CheckSparseCOOTensorRoundTrip(*st);
+
+  // non-canonical
+  ASSERT_OK_AND_ASSIGN(
+      si, SparseCOOIndex::Make(TypeTraits<IndexValueType>::type_singleton(), {12, 3},
+                               {sizeof_index_value, sizeof_index_value * 12},
+                               Buffer::Wrap(coords_values), false));
+  ASSERT_FALSE(si->is_canonical());
+  ASSERT_OK_AND_ASSIGN(st, this->MakeSparseCOOTensor(si, values, shape, dim_names));
 
   this->CheckSparseCOOTensorRoundTrip(*st);
 }
@@ -1871,7 +2120,6 @@ INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt16, TestSparseTensorRoundTrip, UInt16Type
 INSTANTIATE_TYPED_TEST_SUITE_P(TestInt32, TestSparseTensorRoundTrip, Int32Type);
 INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt32, TestSparseTensorRoundTrip, UInt32Type);
 INSTANTIATE_TYPED_TEST_SUITE_P(TestInt64, TestSparseTensorRoundTrip, Int64Type);
-INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt64, TestSparseTensorRoundTrip, UInt64Type);
 
 TEST(TestRecordBatchStreamReader, MalformedInput) {
   const std::string empty_str = "";

@@ -15,6 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// TODO: (vcq): Protobuf codegen is not generating Debug impls.
+#![allow(missing_debug_implementations)]
+
 pub mod convert;
 pub mod reader;
 pub mod writer;

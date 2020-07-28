@@ -39,9 +39,11 @@
 #include "arrow/util/bitmap_generate.h"
 #include "arrow/util/bitmap_reader.h"
 #include "arrow/util/bitmap_writer.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/make_unique.h"
 #include "arrow/util/optional.h"
 #include "arrow/util/string_view.h"
 #include "arrow/visitor_inline.h"
@@ -54,6 +56,7 @@ using internal::FirstTimeBitmapWriter;
 using internal::GenerateBitsUnrolled;
 
 namespace compute {
+namespace internal {
 
 #ifdef ARROW_EXTRA_ERROR_CONTEXT
 
@@ -80,17 +83,43 @@ namespace compute {
 
 #endif  // ARROW_EXTRA_ERROR_CONTEXT
 
+#define KERNEL_ASSIGN_OR_RAISE_IMPL(result_name, lhs, ctx, rexpr) \
+  auto result_name = (rexpr);                                     \
+  KERNEL_RETURN_IF_ERROR(ctx, (result_name).status());            \
+  lhs = std::move(result_name).MoveValueUnsafe();
+
+#define KERNEL_ASSIGN_OR_RAISE_NAME(x, y) ARROW_CONCAT(x, y)
+
+#define KERNEL_ASSIGN_OR_RAISE(lhs, ctx, rexpr)                                          \
+  KERNEL_ASSIGN_OR_RAISE_IMPL(KERNEL_ASSIGN_OR_RAISE_NAME(_error_or_value, __COUNTER__), \
+                              lhs, ctx, rexpr);
+
+/// KernelState adapter for the common case of kernels whose only
+/// state is an instance of a subclass of FunctionOptions.
+/// Default FunctionOptions are *not* handled here.
 template <typename OptionsType>
 struct OptionsWrapper : public KernelState {
-  explicit OptionsWrapper(const OptionsType& options) : options(options) {}
+  explicit OptionsWrapper(OptionsType options) : options(std::move(options)) {}
+
+  static std::unique_ptr<KernelState> Init(KernelContext* ctx,
+                                           const KernelInitArgs& args) {
+    if (auto options = static_cast<const OptionsType*>(args.options)) {
+      return ::arrow::internal::make_unique<OptionsWrapper>(*options);
+    }
+
+    ctx->SetStatus(
+        Status::Invalid("Attempted to initialize KernelState from null FunctionOptions"));
+    return NULLPTR;
+  }
+
+  static const OptionsType& Get(const KernelState& state) {
+    return ::arrow::internal::checked_cast<const OptionsWrapper&>(state).options;
+  }
+
+  static const OptionsType& Get(KernelContext* ctx) { return Get(*ctx->state()); }
+
   OptionsType options;
 };
-
-template <typename OptionsType>
-std::unique_ptr<KernelState> InitWrapOptions(KernelContext*, const KernelInitArgs& args) {
-  return std::unique_ptr<KernelState>(
-      new OptionsWrapper<OptionsType>(*static_cast<const OptionsType*>(args.options)));
-}
 
 // ----------------------------------------------------------------------
 // Iteration / value access utilities
@@ -151,9 +180,10 @@ struct UnboxScalar;
 
 template <typename Type>
 struct UnboxScalar<Type, enable_if_has_c_type<Type>> {
-  using ScalarType = ::arrow::internal::PrimitiveScalar<typename Type::PhysicalType>;
-  static typename Type::c_type Unbox(const Scalar& val) {
-    return checked_cast<const ScalarType&>(val).value;
+  using T = typename Type::c_type;
+  static T Unbox(const Scalar& val) {
+    return *reinterpret_cast<const T*>(
+        checked_cast<const ::arrow::internal::PrimitiveScalarBase&>(val).data());
   }
 };
 
@@ -215,17 +245,15 @@ template <typename Type>
 struct BoxScalar<Type, enable_if_has_c_type<Type>> {
   using T = typename GetOutputType<Type>::T;
   using ScalarType = typename TypeTraits<Type>::ScalarType;
-  static std::shared_ptr<Scalar> Box(T val, const std::shared_ptr<DataType>& type) {
-    return std::make_shared<ScalarType>(val, type);
-  }
+  static void Box(T val, Scalar* out) { checked_cast<ScalarType*>(out)->value = val; }
 };
 
 template <typename Type>
 struct BoxScalar<Type, enable_if_base_binary<Type>> {
   using T = typename GetOutputType<Type>::T;
   using ScalarType = typename TypeTraits<Type>::ScalarType;
-  static std::shared_ptr<Scalar> Box(T val, const std::shared_ptr<DataType>&) {
-    return std::make_shared<ScalarType>(val);
+  static void Box(T val, Scalar* out) {
+    checked_cast<ScalarType*>(out)->value = std::make_shared<Buffer>(val);
   }
 };
 
@@ -233,9 +261,7 @@ template <>
 struct BoxScalar<Decimal128Type> {
   using T = Decimal128;
   using ScalarType = Decimal128Scalar;
-  static std::shared_ptr<Scalar> Box(T val, const std::shared_ptr<DataType>& type) {
-    return std::make_shared<ScalarType>(val, type);
-  }
+  static void Box(T val, Scalar* out) { checked_cast<ScalarType*>(out)->value = val; }
 };
 
 // ----------------------------------------------------------------------
@@ -260,6 +286,9 @@ const std::vector<std::shared_ptr<DataType>>& SignedIntTypes();
 const std::vector<std::shared_ptr<DataType>>& UnsignedIntTypes();
 const std::vector<std::shared_ptr<DataType>>& IntTypes();
 const std::vector<std::shared_ptr<DataType>>& FloatingPointTypes();
+
+ARROW_EXPORT
+const std::vector<TimeUnit::type>& AllTimeUnits();
 
 // Returns a vector of example instances of parametric types such as
 //
@@ -396,8 +425,8 @@ struct ScalarUnary {
   static void Scalar(KernelContext* ctx, const Scalar& arg0, Datum* out) {
     if (arg0.is_valid) {
       ARG0 arg0_val = UnboxScalar<Arg0Type>::Unbox(arg0);
-      out->value = BoxScalar<OutType>::Box(Op::template Call<OUT, ARG0>(ctx, arg0_val),
-                                           out->type());
+      BoxScalar<OutType>::Box(Op::template Call<OUT, ARG0>(ctx, arg0_val),
+                              out->scalar().get());
     } else {
       out->value = MakeNullScalar(arg0.type);
     }
@@ -415,23 +444,25 @@ struct ScalarUnary {
 // A VisitArrayDataInline variant that passes a Decimal128 value,
 // not util::string_view, for decimal128 arrays,
 
-template <typename T, typename VisitFunc>
+template <typename T, typename VisitFunc, typename NullFunc>
 static typename std::enable_if<!std::is_same<T, Decimal128Type>::value, void>::type
-VisitArrayValuesInline(const ArrayData& arr, VisitFunc&& func) {
-  VisitArrayDataInline<T>(arr, std::forward<VisitFunc>(func));
+VisitArrayValuesInline(const ArrayData& arr, VisitFunc&& valid_func,
+                       NullFunc&& null_func) {
+  VisitArrayDataInline<T>(arr, std::forward<VisitFunc>(valid_func),
+                          std::forward<NullFunc>(null_func));
 }
 
-template <typename T, typename VisitFunc>
+template <typename T, typename VisitFunc, typename NullFunc>
 static typename std::enable_if<std::is_same<T, Decimal128Type>::value, void>::type
-VisitArrayValuesInline(const ArrayData& arr, VisitFunc&& func) {
-  VisitArrayDataInline<T>(arr, [&](util::optional<util::string_view> v) {
-    if (v.has_value()) {
-      const auto dec_value = Decimal128(reinterpret_cast<const uint8_t*>(v->data()));
-      func(dec_value);
-    } else {
-      func(util::optional<Decimal128>{});
-    }
-  });
+VisitArrayValuesInline(const ArrayData& arr, VisitFunc&& valid_func,
+                       NullFunc&& null_func) {
+  VisitArrayDataInline<T>(
+      arr,
+      [&](util::string_view v) {
+        const auto dec_value = Decimal128(reinterpret_cast<const uint8_t*>(v.data()));
+        valid_func(dec_value);
+      },
+      std::forward<NullFunc>(null_func));
 }
 
 // An alternative to ScalarUnary that Applies a scalar operation with state on
@@ -463,12 +494,13 @@ struct ScalarUnaryNotNullStateful {
                      Datum* out) {
       ArrayData* out_arr = out->mutable_array();
       auto out_data = out_arr->GetMutableValues<OUT>(1);
-      VisitArrayValuesInline<Arg0Type>(arg0, [&](util::optional<ARG0> v) {
-        if (v.has_value()) {
-          *out_data = functor.op.template Call<OUT, ARG0>(ctx, *v);
-        }
-        ++out_data;
-      });
+      VisitArrayValuesInline<Arg0Type>(
+          arg0,
+          [&](ARG0 v) { *out_data++ = functor.op.template Call<OUT, ARG0>(ctx, v); },
+          [&]() {
+            // null
+            ++out_data;
+          });
     }
   };
 
@@ -481,13 +513,12 @@ struct ScalarUnaryNotNullStateful {
       // that is already computed by the kernel execution layer. Consider
       // writing a lower-level "output adapter" for base binary types.
       typename TypeTraits<Type>::BuilderType builder;
-      VisitArrayValuesInline<Arg0Type>(arg0, [&](util::optional<ARG0> v) {
-        if (v.has_value()) {
-          KERNEL_RETURN_IF_ERROR(ctx, builder.Append(functor.op.Call(ctx, *v)));
-        } else {
-          KERNEL_RETURN_IF_ERROR(ctx, builder.AppendNull());
-        }
-      });
+      VisitArrayValuesInline<Arg0Type>(
+          arg0,
+          [&](ARG0 v) {
+            KERNEL_RETURN_IF_ERROR(ctx, builder.Append(functor.op.Call(ctx, v)));
+          },
+          [&]() { KERNEL_RETURN_IF_ERROR(ctx, builder.AppendNull()); });
       if (!ctx->HasError()) {
         std::shared_ptr<ArrayData> result;
         ctx->SetStatus(builder.FinishInternal(&result));
@@ -503,14 +534,19 @@ struct ScalarUnaryNotNullStateful {
       ArrayData* out_arr = out->mutable_array();
       FirstTimeBitmapWriter out_writer(out_arr->buffers[1]->mutable_data(),
                                        out_arr->offset, out_arr->length);
-      VisitArrayValuesInline<Arg0Type>(arg0, [&](util::optional<ARG0> v) {
-        if (v.has_value()) {
-          if (functor.op.template Call<OUT, ARG0>(ctx, *v)) {
-            out_writer.Set();
-          }
-        }
-        out_writer.Next();
-      });
+      VisitArrayValuesInline<Arg0Type>(
+          arg0,
+          [&](ARG0 v) {
+            if (functor.op.template Call<OUT, ARG0>(ctx, v)) {
+              out_writer.Set();
+            }
+            out_writer.Next();
+          },
+          [&]() {
+            // null
+            out_writer.Clear();
+            out_writer.Next();
+          });
       out_writer.Finish();
     }
   };
@@ -521,20 +557,21 @@ struct ScalarUnaryNotNullStateful {
                      Datum* out) {
       ArrayData* out_arr = out->mutable_array();
       auto out_data = out_arr->GetMutableValues<uint8_t>(1);
-      VisitArrayValuesInline<Arg0Type>(arg0, [&](util::optional<ARG0> v) {
-        if (v.has_value()) {
-          functor.op.template Call<OUT, ARG0>(ctx, *v).ToBytes(out_data);
-        }
-        out_data += 16;
-      });
+      VisitArrayValuesInline<Arg0Type>(
+          arg0,
+          [&](ARG0 v) {
+            functor.op.template Call<OUT, ARG0>(ctx, v).ToBytes(out_data);
+            out_data += 16;
+          },
+          [&]() { out_data += 16; });
     }
   };
 
   void Scalar(KernelContext* ctx, const Scalar& arg0, Datum* out) {
     if (arg0.is_valid) {
       ARG0 arg0_val = UnboxScalar<Arg0Type>::Unbox(arg0);
-      out->value = BoxScalar<OutType>::Box(
-          this->op.template Call<OUT, ARG0>(ctx, arg0_val), out->type());
+      BoxScalar<OutType>::Box(this->op.template Call<OUT, ARG0>(ctx, arg0_val),
+                              out->scalar().get());
     } else {
       out->value = MakeNullScalar(arg0.type);
     }
@@ -615,8 +652,8 @@ struct ScalarBinary {
     if (out->scalar()->is_valid) {
       auto arg0_val = UnboxScalar<Arg0Type>::Unbox(arg0);
       auto arg1_val = UnboxScalar<Arg1Type>::Unbox(arg1);
-      out->value = BoxScalar<OutType>::Box(Op::template Call(ctx, arg0_val, arg1_val),
-                                           out->type());
+      BoxScalar<OutType>::Box(Op::template Call(ctx, arg0_val, arg1_val),
+                              out->scalar().get());
     }
   }
 
@@ -779,6 +816,7 @@ ArrayKernelExec GeneratePhysicalInteger(detail::GetTypeId get_id) {
     case Type::DATE64:
     case Type::TIMESTAMP:
     case Type::TIME64:
+    case Type::DURATION:
       return Generator<Type0, Int64Type, Args...>::Exec;
     case Type::UINT8:
       return Generator<Type0, UInt8Type, Args...>::Exec;
@@ -808,6 +846,46 @@ ArrayKernelExec GenerateSignedInteger(detail::GetTypeId get_id) {
       return Generator<Type0, Int32Type, Args...>::Exec;
     case Type::INT64:
       return Generator<Type0, Int64Type, Args...>::Exec;
+    default:
+      DCHECK(false);
+      return ExecFail;
+  }
+}
+
+// Generate a kernel given a templated functor. Only a single template is
+// instantiated for each bit width, and the functor is expected to treat types
+// of the same bit width the same without utilizing any type-specific behavior
+// (e.g. int64 should be handled equivalent to uint64 or double -- all 64
+// bits).
+//
+// See "Numeric" above for description of the generator functor
+template <template <typename...> class Generator>
+ArrayKernelExec GenerateTypeAgnosticPrimitive(detail::GetTypeId get_id) {
+  switch (get_id.id) {
+    case Type::NA:
+      return Generator<NullType>::Exec;
+    case Type::BOOL:
+      return Generator<BooleanType>::Exec;
+    case Type::UINT8:
+    case Type::INT8:
+      return Generator<UInt8Type>::Exec;
+    case Type::UINT16:
+    case Type::INT16:
+      return Generator<UInt16Type>::Exec;
+    case Type::UINT32:
+    case Type::INT32:
+    case Type::FLOAT:
+    case Type::DATE32:
+    case Type::TIME32:
+      return Generator<UInt32Type>::Exec;
+    case Type::UINT64:
+    case Type::INT64:
+    case Type::DOUBLE:
+    case Type::DATE64:
+    case Type::TIMESTAMP:
+    case Type::TIME64:
+    case Type::DURATION:
+      return Generator<UInt64Type>::Exec;
     default:
       DCHECK(false);
       return ExecFail;
@@ -880,5 +958,6 @@ ArrayKernelExec GenerateTemporal(detail::GetTypeId get_id) {
 // END of kernel generator-dispatchers
 // ----------------------------------------------------------------------
 
+}  // namespace internal
 }  // namespace compute
 }  // namespace arrow

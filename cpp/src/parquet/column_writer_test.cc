@@ -488,13 +488,15 @@ TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithStatsAndGzipCompression) {
 
 #ifdef ARROW_WITH_LZ4
 TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithLz4Compression) {
-  this->TestRequiredWithSettings(Encoding::PLAIN, Compression::LZ4, false, false,
-                                 LARGE_SIZE);
+  ASSERT_THROW(this->TestRequiredWithSettings(Encoding::PLAIN, Compression::LZ4, false,
+                                              false, LARGE_SIZE),
+               ParquetException);
 }
 
 TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithStatsAndLz4Compression) {
-  this->TestRequiredWithSettings(Encoding::PLAIN, Compression::LZ4, false, true,
-                                 LARGE_SIZE);
+  ASSERT_THROW(this->TestRequiredWithSettings(Encoding::PLAIN, Compression::LZ4, false,
+                                              true, LARGE_SIZE),
+               ParquetException);
 }
 #endif
 

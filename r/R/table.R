@@ -47,11 +47,6 @@
 #' "Slice" method function even if there were a column in the table called
 #' "Slice".
 #'
-#' A caveat about the `[` method for row operations: only "slicing" is
-#' currently supported. That is, you can select a continuous range of rows
-#' from the table, but you can't filter with a `logical` vector or take an
-#' arbitrary selection of rows by integer indices.
-#'
 #' @section R6 Methods:
 #' In addition to the more R-friendly S3 methods, a `Table` object has
 #' the following R6 methods that map onto the underlying C++ methods:
@@ -202,7 +197,11 @@ Table$create <- function(..., schema = NULL) {
 
 #' @export
 as.data.frame.Table <- function(x, row.names = NULL, optional = FALSE, ...) {
-  Table__to_dataframe(x, use_threads = option_use_threads())
+  df <- Table__to_dataframe(x, use_threads = option_use_threads())
+  if (!is.null(r_metadata <- x$metadata$r)) {
+    df <- apply_arrow_r_metadata(df, .unserialize_arrow_r_metadata(r_metadata))
+  }
+  df
 }
 
 #' @export

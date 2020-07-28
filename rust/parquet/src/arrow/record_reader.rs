@@ -323,7 +323,7 @@ impl<T: DataType> RecordReader<T> {
                     .append(old_bitmap.is_set(i))?;
             }
 
-            Ok(Some(old_bitmap.to_buffer()))
+            Ok(Some(old_bitmap.into_buffer()))
         } else {
             Ok(None)
         }

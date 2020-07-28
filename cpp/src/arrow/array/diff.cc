@@ -556,13 +556,13 @@ class MakeFormatterImpl {
       void DoFormat(const UnionArray& array, int64_t index, int64_t child_index,
                     std::ostream* os) {
         auto type_code = array.raw_type_codes()[index];
-        const auto& child = *array.field(array.child_id(index));
+        auto child = array.field(array.child_id(index));
 
         *os << "{" << static_cast<int16_t>(type_code) << ": ";
-        if (child.IsNull(child_index)) {
+        if (child->IsNull(child_index)) {
           *os << "null";
         } else {
-          field_formatters_[type_code](child, child_index, os);
+          field_formatters_[type_code](*child, child_index, os);
         }
         *os << "}";
       }

@@ -60,7 +60,8 @@ DataType <- R6Class("DataType",
         FLOAT = float32(),
         DOUBLE = float64(),
         STRING = utf8(),
-        BINARY = stop("Type BINARY not implemented yet"),
+        BINARY = binary(),
+        FIXED_SIZE_BINARY = shared_ptr(FixedSizeBinary, self$pointer()),
         DATE32 = date32(),
         DATE64 = date64(),
         TIMESTAMP = shared_ptr(Timestamp, self$pointer()),
@@ -73,7 +74,13 @@ DataType <- R6Class("DataType",
         SPARSE_UNION = stop("Type SPARSE_UNION not implemented yet"),
         DENSE_UNION = stop("Type DENSE_UNION not implemented yet"),
         DICTIONARY = shared_ptr(DictionaryType, self$pointer()),
-        MAP = stop("Type MAP not implemented yet")
+        MAP = stop("Type MAP not implemented yet"),
+        EXTENSION = stop("Type EXTENSION not implemented yet"),
+        FIXED_SIZE_LIST = shared_ptr(FixedSizeListType, self$pointer()),
+        DURATION = stop("Type DURATION not implemented yet"),
+        LARGE_STRING = large_utf8(),
+        LARGE_BINARY = large_binary(),
+        LARGE_LIST = shared_ptr(LargeListType, self$pointer())
       )
     }
   ),
@@ -141,8 +148,10 @@ Float32 <- R6Class("Float32", inherit = FixedWidthType)
 Float64 <- R6Class("Float64", inherit = FixedWidthType)
 Boolean <- R6Class("Boolean", inherit = FixedWidthType)
 Utf8 <- R6Class("Utf8", inherit = DataType)
+LargeUtf8 <- R6Class("LargeUtf8", inherit = DataType)
 Binary <- R6Class("Binary", inherit = DataType)
 FixedSizeBinary <- R6Class("FixedSizeBinary", inherit = FixedWidthType)
+LargeBinary <- R6Class("LargeBinary", inherit = DataType)
 
 DateType <- R6Class("DateType",
   inherit = FixedWidthType,
@@ -205,9 +214,8 @@ NestedType <- R6Class("NestedType", inherit = DataType)
 #' either "s" or "ms", while `time64()` can be "us" or "ns". `timestamp()` can
 #' take any of those four values.
 #' @param timezone For `timestamp()`, an optional time zone string.
-#' @param byte_width For `binary()`, an optional integer width to create a
-#' `FixedSizeBinary` type. The default `NULL` results in a `BinaryType` with
-#' variable width.
+#' @param byte_width byte width for `FixedSizeBinary` type.
+#' @param list_size list size for `FixedSizeList` type.
 #' @param precision For `decimal()`, precision
 #' @param scale For `decimal()`, scale
 #' @param type For `list_of()`, a data type to make a list-of-type
@@ -288,12 +296,24 @@ utf8 <- function() shared_ptr(Utf8, Utf8__initialize())
 
 #' @rdname data-type
 #' @export
-binary <- function(byte_width = NULL) {
-  if (is.null(byte_width)) {
-    shared_ptr(Binary, Binary__initialize())
-  } else {
-    shared_ptr(FixedSizeBinary, FixedSizeBinary__initialize(byte_width))
-  }
+large_utf8 <- function() shared_ptr(LargeUtf8, LargeUtf8__initialize())
+
+#' @rdname data-type
+#' @export
+binary <- function() {
+  shared_ptr(Binary, Binary__initialize())
+}
+
+#' @rdname data-type
+#' @export
+large_binary <- function() {
+  shared_ptr(LargeBinary, LargeBinary__initialize())
+}
+
+#' @rdname data-type
+#' @export
+fixed_size_binary <- function(byte_width) {
+  shared_ptr(FixedSizeBinary, FixedSizeBinary__initialize(byte_width))
 }
 
 #' @rdname data-type
@@ -394,4 +414,65 @@ as_type <- function(type, name = "type") {
     stop(name, " must be a DataType, not ", class(type), call. = FALSE)
   }
   type
+}
+
+
+# vctrs support -----------------------------------------------------------
+str_dup <- function(x, times) {
+  paste0(rep(x, times = times), collapse = "")
+}
+
+indent <- function(x, n) {
+  pad <- str_dup(" ", n)
+  sapply(x, gsub, pattern = "(\n+)", replacement = paste0("\\1", pad))
+}
+
+#' @importFrom vctrs vec_ptype_full vec_ptype_abbr
+#' @export
+vec_ptype_full.arrow_fixed_size_binary <- function(x, ...) {
+  paste0("fixed_size_binary<", attr(x, "byte_width"), ">")
+}
+
+#' @export
+vec_ptype_full.arrow_list <- function(x, ...) {
+  param <- vec_ptype_full(attr(x, "ptype"))
+  if (grepl("\n", param)) {
+    param <- paste0(indent(paste0("\n", param), 2), "\n")
+  }
+  paste0("list<", param, ">")
+}
+
+#' @export
+vec_ptype_full.arrow_large_list <- function(x, ...) {
+  param <- vec_ptype_full(attr(x, "ptype"))
+  if (grepl("\n", param)) {
+    param <- paste0(indent(paste0("\n", param), 2), "\n")
+  }
+  paste0("large_list<", param, ">")
+}
+
+#' @export
+vec_ptype_full.arrow_fixed_size_list <- function(x, ...) {
+  param <- vec_ptype_full(attr(x, "ptype"))
+  if (grepl("\n", param)) {
+    param <- paste0(indent(paste0("\n", param), 2), "\n")
+  }
+  paste0("fixed_size_list<", param, ", ", attr(x, "list_size"), ">")
+}
+
+#' @export
+vec_ptype_abbr.arrow_fixed_size_binary <- function(x, ...) {
+  vec_ptype_full(x, ...)
+}
+#' @export
+vec_ptype_abbr.arrow_list <- function(x, ...) {
+  vec_ptype_full(x, ...)
+}
+#' @export
+vec_ptype_abbr.arrow_large_list <- function(x, ...) {
+  vec_ptype_full(x, ...)
+}
+#' @export
+vec_ptype_abbr.arrow_fixed_size_list <- function(x, ...) {
+  vec_ptype_full(x, ...)
 }

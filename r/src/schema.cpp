@@ -83,8 +83,12 @@ Rcpp::List Schema__metadata(const std::shared_ptr<arrow::Schema>& schema) {
   std::vector<std::string> names_out(n);
 
   for (int i = 0; i < n; i++) {
+    auto key = meta->key(i);
     out[i] = meta->value(i);
-    names_out[i] = meta->key(i);
+    if (key == "r") {
+      Rf_setAttrib(out[i], R_ClassSymbol, arrow::r::data::classes_metadata_r);
+    }
+    names_out[i] = key;
   }
   out.attr("names") = names_out;
   return out;

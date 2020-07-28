@@ -33,6 +33,7 @@
 #include "arrow/compute/api.h"
 #include "arrow/pretty_print.h"
 #include "arrow/record_batch.h"
+#include "arrow/scalar.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
@@ -63,6 +64,7 @@ using arrow::default_memory_pool;
 using arrow::ListArray;
 using arrow::PrimitiveArray;
 using arrow::ResizableBuffer;
+using arrow::Scalar;
 using arrow::Status;
 using arrow::Table;
 using arrow::TimeUnit;
@@ -502,6 +504,23 @@ class TestParquetIO : public ::testing::Test {
     ASSERT_EQ(1, chunked_out->num_chunks());
     *out = chunked_out->chunk(0);
     ASSERT_NE(nullptr, out->get());
+  }
+
+  void ReadSingleColumnFileStatistics(std::unique_ptr<FileReader> file_reader,
+                                      std::shared_ptr<Scalar>* min,
+                                      std::shared_ptr<Scalar>* max) {
+    auto metadata = file_reader->parquet_reader()->metadata();
+    ASSERT_EQ(1, metadata->num_row_groups());
+    ASSERT_EQ(1, metadata->num_columns());
+
+    auto row_group = metadata->RowGroup(0);
+    ASSERT_EQ(1, row_group->num_columns());
+
+    auto column = row_group->ColumnChunk(0);
+    ASSERT_TRUE(column->is_stats_set());
+    auto statistics = column->statistics();
+
+    ASSERT_OK(StatisticsAsScalars(*statistics, min, max));
   }
 
   void ReadAndCheckSingleColumnFile(const Array& values) {
@@ -1273,6 +1292,22 @@ class TestPrimitiveParquetIO : public TestParquetIO<TestType> {
 
     ExpectArrayT<TestType>(values.data(), out.get());
   }
+
+  void CheckSingleColumnStatisticsRequiredRead() {
+    std::vector<T> values(SMALL_SIZE, test_traits<TestType>::value);
+    std::unique_ptr<FileReader> file_reader;
+    ASSERT_NO_FATAL_FAILURE(MakeTestFile(values, 1, &file_reader));
+
+    std::shared_ptr<Scalar> min, max;
+    this->ReadSingleColumnFileStatistics(std::move(file_reader), &min, &max);
+
+    ASSERT_OK_AND_ASSIGN(
+        auto value, ::arrow::MakeScalar(::arrow::TypeTraits<TestType>::type_singleton(),
+                                        test_traits<TestType>::value));
+
+    ASSERT_TRUE(value->Equals(*min));
+    ASSERT_TRUE(value->Equals(*max));
+  }
 };
 
 typedef ::testing::Types<::arrow::BooleanType, ::arrow::UInt8Type, ::arrow::Int8Type,
@@ -1285,6 +1320,10 @@ TYPED_TEST_SUITE(TestPrimitiveParquetIO, PrimitiveTestTypes);
 
 TYPED_TEST(TestPrimitiveParquetIO, SingleColumnRequiredRead) {
   ASSERT_NO_FATAL_FAILURE(this->CheckSingleColumnRequiredRead(1));
+}
+
+TYPED_TEST(TestPrimitiveParquetIO, SingleColumnStatisticsRequiredRead) {
+  ASSERT_NO_FATAL_FAILURE(this->CheckSingleColumnStatisticsRequiredRead());
 }
 
 TYPED_TEST(TestPrimitiveParquetIO, SingleColumnRequiredTableRead) {
@@ -1819,7 +1858,7 @@ void MakeDoubleTable(int num_columns, int num_rows, int nchunks,
     fields[i] = ::arrow::field(ss.str(), values->type());
   }
   auto schema = std::make_shared<::arrow::Schema>(fields);
-  *out = Table::Make(schema, columns);
+  *out = Table::Make(schema, columns, num_rows);
 }
 
 void MakeSimpleListArray(int num_rows, int max_value_length, const std::string& item_name,
@@ -2015,6 +2054,34 @@ TEST(TestArrowReadWrite, CoalescedReads) {
   ArrowReaderProperties arrow_properties = default_arrow_reader_properties();
   arrow_properties.set_pre_buffer(true);
   TestGetRecordBatchReader(arrow_properties);
+}
+
+TEST(TestArrowReadWrite, GetRecordBatchReaderNoColumns) {
+  ArrowReaderProperties properties = default_arrow_reader_properties();
+  const int num_rows = 10;
+  const int num_columns = 20;
+
+  std::shared_ptr<Table> table;
+  ASSERT_NO_FATAL_FAILURE(MakeDoubleTable(num_columns, num_rows, 1, &table));
+
+  std::shared_ptr<Buffer> buffer;
+  ASSERT_NO_FATAL_FAILURE(
+      WriteTableToBuffer(table, num_rows, default_arrow_writer_properties(), &buffer));
+
+  std::unique_ptr<FileReader> reader;
+  FileReaderBuilder builder;
+  ASSERT_OK(builder.Open(std::make_shared<BufferReader>(buffer)));
+  ASSERT_OK(builder.properties(properties)->Build(&reader));
+
+  std::shared_ptr<::arrow::RecordBatchReader> rb_reader;
+  ASSERT_OK_NO_THROW(reader->GetRecordBatchReader({0}, {}, &rb_reader));
+
+  std::shared_ptr<::arrow::RecordBatch> actual_batch;
+  ASSERT_OK(rb_reader->ReadNext(&actual_batch));
+
+  ASSERT_NE(actual_batch, nullptr);
+  ASSERT_EQ(actual_batch->num_columns(), 0);
+  ASSERT_EQ(actual_batch->num_rows(), num_rows);
 }
 
 TEST(TestArrowReadWrite, ScanContents) {
@@ -2810,7 +2877,7 @@ TEST(TestArrowReaderAdHoc, LARGE_MEMORY_TEST(LargeStringColumn)) {
   std::shared_ptr<Array> array;
   ASSERT_OK(builder.Finish(&array));
   auto table =
-      Table::Make(::arrow::schema({::arrow::field("x", array->type())}), {array});
+      Table::Make(::arrow::schema({::arrow::field("x", ::arrow::utf8())}), {array});
   std::shared_ptr<SchemaDescriptor> schm;
   ASSERT_OK_NO_THROW(
       ToParquetSchema(table->schema().get(), *default_writer_properties(), &schm));
@@ -2838,11 +2905,23 @@ TEST(TestArrowReaderAdHoc, LARGE_MEMORY_TEST(LargeStringColumn)) {
   array.reset();
 
   auto reader = ParquetFileReader::Open(std::make_shared<BufferReader>(tables_buffer));
-
   std::unique_ptr<FileReader> arrow_reader;
   ASSERT_OK(FileReader::Make(default_memory_pool(), std::move(reader), &arrow_reader));
   ASSERT_OK_NO_THROW(arrow_reader->ReadTable(&table));
   ASSERT_OK(table->ValidateFull());
+
+  // ARROW-9297: ensure RecordBatchReader also works
+  reader = ParquetFileReader::Open(std::make_shared<BufferReader>(tables_buffer));
+  ASSERT_OK(FileReader::Make(default_memory_pool(), std::move(reader), &arrow_reader));
+  std::shared_ptr<::arrow::RecordBatchReader> batch_reader;
+  std::vector<int> all_row_groups =
+      ::arrow::internal::Iota(reader->metadata()->num_row_groups());
+  ASSERT_OK_NO_THROW(arrow_reader->GetRecordBatchReader(all_row_groups, &batch_reader));
+  ASSERT_OK_AND_ASSIGN(auto batched_table,
+                       ::arrow::Table::FromRecordBatchReader(batch_reader.get()));
+
+  ASSERT_OK(batched_table->ValidateFull());
+  AssertTablesEqual(*table, *batched_table, /*same_chunk_layout=*/false);
 }
 
 TEST(TestArrowReaderAdHoc, HandleDictPageOffsetZero) {

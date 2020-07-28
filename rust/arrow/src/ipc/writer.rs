@@ -95,17 +95,17 @@ impl<W: Write> FileWriter<W> {
             let mut fields = vec![];
             for field in self.schema.fields() {
                 let fb_field_name = fbb.create_string(field.name().as_str());
-                let (ipc_type_type, ipc_type, ipc_children) =
+                let field_type =
                     ipc::convert::get_fb_field_type(field.data_type(), &mut fbb);
                 let mut field_builder = ipc::FieldBuilder::new(&mut fbb);
                 field_builder.add_name(fb_field_name);
-                field_builder.add_type_type(ipc_type_type);
+                field_builder.add_type_type(field_type.type_type);
                 field_builder.add_nullable(field.is_nullable());
-                match ipc_children {
+                match field_type.children {
                     None => {}
                     Some(children) => field_builder.add_children(children),
                 };
-                field_builder.add_type_(ipc_type);
+                field_builder.add_type_(field_type.type_);
                 fields.push(field_builder.finish());
             }
 
@@ -417,6 +417,7 @@ mod tests {
     use crate::array::*;
     use crate::datatypes::Field;
     use crate::ipc::reader::*;
+    use crate::record_batch::RecordBatchReader;
     use crate::util::integration_util::*;
     use std::env;
     use std::fs::File;
@@ -456,7 +457,7 @@ mod tests {
                 File::open(format!("target/debug/testdata/{}.arrow_file", "arrow"))
                     .unwrap();
             let mut reader = FileReader::try_new(file).unwrap();
-            while let Ok(Some(read_batch)) = reader.next() {
+            while let Ok(Some(read_batch)) = reader.next_batch() {
                 read_batch
                     .columns()
                     .iter()
@@ -503,7 +504,7 @@ mod tests {
         {
             let file = File::open("target/debug/testdata/nulls.arrow_file").unwrap();
             let mut reader = FileReader::try_new(file).unwrap();
-            while let Ok(Some(read_batch)) = reader.next() {
+            while let Ok(Some(read_batch)) = reader.next_batch() {
                 read_batch
                     .columns()
                     .iter()
@@ -544,7 +545,7 @@ mod tests {
                     File::create(format!("target/debug/testdata/{}.arrow_file", path))
                         .unwrap();
                 let mut writer = FileWriter::try_new(file, &reader.schema()).unwrap();
-                while let Ok(Some(batch)) = reader.next() {
+                while let Ok(Some(batch)) = reader.next_batch() {
                     writer.write(&batch).unwrap();
                 }
                 writer.finish().unwrap();
@@ -586,7 +587,7 @@ mod tests {
                 let file = File::create(format!("target/debug/testdata/{}.stream", path))
                     .unwrap();
                 let mut writer = StreamWriter::try_new(file, &reader.schema()).unwrap();
-                while let Ok(Some(batch)) = reader.next() {
+                while let Ok(Some(batch)) = reader.next_batch() {
                     writer.write(&batch).unwrap();
                 }
                 writer.finish().unwrap();

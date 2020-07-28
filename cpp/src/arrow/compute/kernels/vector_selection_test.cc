@@ -168,6 +168,7 @@ class TestFilterKernel : public ::testing::Test {
     expected = out_datum.make_array();
     ASSERT_OK_AND_ASSIGN(out_datum, Filter(values, filter, drop_));
     actual = out_datum.make_array();
+    ASSERT_OK(actual->ValidateFull());
     AssertArraysEqual(*expected, *actual);
   }
 
@@ -243,6 +244,20 @@ TEST_F(TestFilterKernelWithBoolean, FilterBoolean) {
   this->AssertFilter("[true, false, true]", "[0, 1, 0]", "[false]");
   this->AssertFilter("[null, false, true]", "[0, 1, 0]", "[false]");
   this->AssertFilter("[true, false, true]", "[null, 1, 0]", "[null, false]");
+}
+
+TEST_F(TestFilterKernelWithBoolean, DefaultOptions) {
+  auto values = ArrayFromJSON(int8(), "[7, 8, null, 9]");
+  auto filter = ArrayFromJSON(boolean(), "[1, 1, 0, null]");
+
+  ASSERT_OK_AND_ASSIGN(auto no_options_provided,
+                       CallFunction("filter", {values, filter}));
+
+  auto default_options = FilterOptions::Defaults();
+  ASSERT_OK_AND_ASSIGN(auto explicit_defaults,
+                       CallFunction("filter", {values, filter}, &default_options));
+
+  AssertDatumsEqual(explicit_defaults, no_options_provided);
 }
 
 template <typename ArrowType>
@@ -403,8 +418,17 @@ TYPED_TEST(TestFilterKernelWithNumeric, ScalarInRangeAndFilterRandomNumeric) {
   }
 }
 
-using StringTypes =
-    ::testing::Types<BinaryType, StringType, LargeBinaryType, LargeStringType>;
+TEST(TestFilterKernel, NoValidityBitmapButUnknownNullCount) {
+  auto values = ArrayFromJSON(int32(), "[1, 2, 3, 4]");
+  auto filter = ArrayFromJSON(boolean(), "[true, true, false, true]");
+
+  auto expected = (*Filter(values, filter)).make_array();
+
+  filter->data()->null_count = kUnknownNullCount;
+  auto result = (*Filter(values, filter)).make_array();
+
+  AssertArraysEqual(*expected, *result);
+}
 
 template <typename TypeClass>
 class TestFilterKernelWithString : public TestFilterKernel<TypeClass> {
@@ -437,7 +461,7 @@ class TestFilterKernelWithString : public TestFilterKernel<TypeClass> {
   }
 };
 
-TYPED_TEST_SUITE(TestFilterKernelWithString, StringTypes);
+TYPED_TEST_SUITE(TestFilterKernelWithString, BinaryTypes);
 
 TYPED_TEST(TestFilterKernelWithString, FilterString) {
   this->AssertFilter(R"(["a", "b", "c"])", "[0, 1, 0]", R"(["b"])");
@@ -784,6 +808,10 @@ TEST_F(TestFilterKernelWithTable, FilterTable) {
                             expected_drop);
 }
 
+TEST(TestFilterMetaFunction, ArityChecking) {
+  ASSERT_RAISES(Invalid, CallFunction("filter", {}));
+}
+
 // ----------------------------------------------------------------------
 // Take tests
 
@@ -914,6 +942,18 @@ TEST(TestTakeKernel, InvalidIndexType) {
                                          "[0.0, 1.0, 0.1]", &arr));
 }
 
+TEST(TestTakeKernel, DefaultOptions) {
+  auto indices = ArrayFromJSON(int8(), "[null, 2, 0, 3]");
+  auto values = ArrayFromJSON(int8(), "[7, 8, 9, null]");
+  ASSERT_OK_AND_ASSIGN(auto no_options_provided, CallFunction("take", {values, indices}));
+
+  auto default_options = TakeOptions::Defaults();
+  ASSERT_OK_AND_ASSIGN(auto explicit_defaults,
+                       CallFunction("take", {values, indices}, &default_options));
+
+  AssertDatumsEqual(explicit_defaults, no_options_provided);
+}
+
 TEST(TestTakeKernel, TakeBoolean) {
   AssertTakeBoolean("[7, 8, 9]", "[]", "[]");
   AssertTakeBoolean("[true, false, true]", "[0, 1, 0]", "[true, false, true]");
@@ -985,7 +1025,7 @@ class TestTakeKernelWithString : public TestTakeKernel<TypeClass> {
   }
 };
 
-TYPED_TEST_SUITE(TestTakeKernelWithString, TestingStringTypes);
+TYPED_TEST_SUITE(TestTakeKernelWithString, BinaryTypes);
 
 TYPED_TEST(TestTakeKernelWithString, TakeString) {
   this->AssertTake(R"(["a", "b", "c"])", "[0, 1, 0]", R"(["a", "b", "a"])");
@@ -1493,6 +1533,10 @@ TEST_F(TestTakeKernelWithTable, TakeTable) {
       "[{\"a\": 4, \"b\": \"eh\"},{\"a\": 1, \"b\": \"\"},{\"a\": null, \"b\": \"yo\"}]"};
   this->AssertTake(schm, table_json, "[3, 1, 0]", expected_310);
   this->AssertChunkedTake(schm, table_json, {"[0, 1]", "[2, 3]"}, table_json);
+}
+
+TEST(TestTakeMetaFunction, ArityChecking) {
+  ASSERT_RAISES(Invalid, CallFunction("take", {}));
 }
 
 // ----------------------------------------------------------------------

@@ -21,15 +21,16 @@
 Arrays and Scalars
 ==================
 
-Factory Function
-----------------
+Factory Functions
+-----------------
 
-This function is the main entry point to create an Arrow array from Python.
+These functions create new Arrow arrays:
 
 .. autosummary::
    :toctree: ../generated/
 
    array
+   nulls
 
 Array Types
 -----------
@@ -74,43 +75,48 @@ may expose data type-specific methods or properties.
 
 .. _api.scalar:
 
-Array Scalars
--------------
+Scalars
+-------
 
-Indexing an array wraps the represented value in a scalar object whose
-concrete type depends on the array data type.  You shouldn't instantiate
-any of those classes directly.
+This function constructs a new Arrow scalar:
+
+.. autosummary::
+   :toctree: ../generated/
+
+   scalar
+
+A scalar's python class depends on its data type.  Concrete scalar
+classes may expose data type-specific methods or properties.
 
 .. autosummary::
    :toctree: ../generated/
 
    NA
    Scalar
-   ArrayValue
-   BooleanValue
-   Int8Value
-   Int16Value
-   Int32Value
-   Int64Value
-   UInt8Value
-   UInt16Value
-   UInt32Value
-   UInt64Value
-   FloatValue
-   DoubleValue
-   BinaryValue
-   StringValue
-   FixedSizeBinaryValue
-   LargeBinaryValue
-   LargeStringValue
-   Time32Value
-   Time64Value
-   Date32Value
-   Date64Value
-   TimestampValue
-   DecimalValue
-   DictionaryValue
-   ListValue
-   LargeListValue
-   StructValue
-   UnionValue
+   BooleanScalar
+   Int8Scalar
+   Int16Scalar
+   Int32Scalar
+   Int64Scalar
+   UInt8Scalar
+   UInt16Scalar
+   UInt32Scalar
+   UInt64Scalar
+   FloatScalar
+   DoubleScalar
+   BinaryScalar
+   StringScalar
+   FixedSizeBinaryScalar
+   LargeBinaryScalar
+   LargeStringScalar
+   Time32Scalar
+   Time64Scalar
+   Date32Scalar
+   Date64Scalar
+   TimestampScalar
+   Decimal128Scalar
+   DictionaryScalar
+   ListScalar
+   LargeListScalar
+   StructScalar
+   UnionScalar

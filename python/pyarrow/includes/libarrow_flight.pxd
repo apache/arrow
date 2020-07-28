@@ -17,8 +17,6 @@
 
 # distutils: language = c++
 
-from libcpp.functional cimport function
-
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 
@@ -155,7 +153,8 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
 
     cdef cppclass CMetadataRecordBatchWriter \
             " arrow::flight::MetadataRecordBatchWriter"(CRecordBatchWriter):
-        CStatus Begin(shared_ptr[CSchema] schema)
+        CStatus Begin(shared_ptr[CSchema] schema,
+                      const CIpcWriteOptions& options)
         CStatus WriteMetadata(shared_ptr[CBuffer] app_metadata)
         CStatus WriteWithMetadata(const CRecordBatch& batch,
                                   shared_ptr[CBuffer] app_metadata)
@@ -178,7 +177,8 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
 
     cdef cppclass CRecordBatchStream \
             " arrow::flight::RecordBatchStream"(CFlightDataStream):
-        CRecordBatchStream(shared_ptr[CRecordBatchReader]& reader)
+        CRecordBatchStream(shared_ptr[CRecordBatchReader]& reader,
+                           const CIpcWriteOptions& options)
 
     cdef cppclass CFlightMetadataReader" arrow::flight::FlightMetadataReader":
         CStatus ReadMetadata(shared_ptr[CBuffer]* out)
@@ -215,6 +215,7 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
     cdef cppclass CFlightCallOptions" arrow::flight::FlightCallOptions":
         CFlightCallOptions()
         CTimeoutDuration timeout
+        CIpcWriteOptions write_options
 
     cdef cppclass CCertKeyPair" arrow::flight::CertKeyPair":
         CCertKeyPair()
@@ -474,7 +475,8 @@ cdef extern from "arrow/python/flight.h" namespace "arrow::py::flight" nogil:
             (CFlightDataStream):
         CPyGeneratorFlightDataStream(object generator,
                                      shared_ptr[CSchema] schema,
-                                     function[cb_data_stream_next] callback)
+                                     function[cb_data_stream_next] callback,
+                                     const CIpcWriteOptions& options)
 
     cdef cppclass PyServerMiddlewareVtable\
             " arrow::py::flight::PyServerMiddleware::Vtable":

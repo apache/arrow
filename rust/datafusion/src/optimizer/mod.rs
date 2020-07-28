@@ -20,6 +20,5 @@
 
 pub mod optimizer;
 pub mod projection_push_down;
-pub mod resolve_columns;
 pub mod type_coercion;
 pub mod utils;

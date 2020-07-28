@@ -63,6 +63,10 @@ cdef class S3FileSystem(FileSystem):
     secret_key: str, default None
         AWS Secret Access key. Pass None to use the standard AWS environment
         variables and/or configuration file.
+    anonymous: boolean, default False
+        Whether to connect anonymously if access_key and secret_key are None.
+        If true, will not attempt to look up credentials using standard AWS
+        configuration methods.
     region: str, default 'us-east-1'
         AWS region to connect to.
     scheme: str, default 'https'
@@ -77,8 +81,8 @@ cdef class S3FileSystem(FileSystem):
     cdef:
         CS3FileSystem* s3fs
 
-    def __init__(self, access_key=None, secret_key=None, region=None,
-                 scheme=None, endpoint_override=None,
+    def __init__(self, *, access_key=None, secret_key=None, anonymous=False,
+                 region=None, scheme=None, endpoint_override=None,
                  bint background_writes=True):
         cdef:
             CS3Options options
@@ -97,10 +101,16 @@ cdef class S3FileSystem(FileSystem):
                 '`access_key` is not set.'
             )
         elif access_key is not None or secret_key is not None:
+            if anonymous:
+                raise ValueError(
+                    'Cannot pass anonymous=True together with access_key '
+                    'and secret_key.')
             options = CS3Options.FromAccessKey(
                 tobytes(access_key),
                 tobytes(secret_key)
             )
+        elif anonymous:
+            options = CS3Options.Anonymous()
         else:
             options = CS3Options.Defaults()
 
@@ -122,15 +132,19 @@ cdef class S3FileSystem(FileSystem):
         FileSystem.init(self, wrapped)
         self.s3fs = <CS3FileSystem*> wrapped.get()
 
+    @classmethod
+    def _reconstruct(cls, kwargs):
+        return cls(**kwargs)
+
     def __reduce__(self):
         cdef CS3Options opts = self.s3fs.options()
         return (
-            S3FileSystem, (
-                frombytes(opts.GetAccessKey()),
-                frombytes(opts.GetSecretKey()),
-                frombytes(opts.region),
-                frombytes(opts.scheme),
-                frombytes(opts.endpoint_override),
-                opts.background_writes
-            )
+            S3FileSystem._reconstruct, (dict(
+                access_key=frombytes(opts.GetAccessKey()),
+                secret_key=frombytes(opts.GetSecretKey()),
+                region=frombytes(opts.region),
+                scheme=frombytes(opts.scheme),
+                endpoint_override=frombytes(opts.endpoint_override),
+                background_writes=opts.background_writes
+            ),)
         )

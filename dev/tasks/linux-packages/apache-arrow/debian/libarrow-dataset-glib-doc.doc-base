@@ -1,7 +1,7 @@
 Document: arrow-dataset-glib
-Title: Apache Arrow Datasets GLib Reference Manual
+Title: Apache Arrow Dataset GLib Reference Manual
 Author: The Apache Software Foundation
-Abstract: Apache Arrow Datasets GLib provides an API to read and write semantic datasets stored in different locations and formats that uses GLib.
+Abstract: Apache Arrow Dataset GLib provides an API to read and write semantic datasets stored in different locations and formats that uses GLib.
 Section: Programming
 
 Format: HTML

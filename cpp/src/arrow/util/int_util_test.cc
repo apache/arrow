@@ -24,6 +24,7 @@
 
 #include <gtest/gtest.h>
 
+#include "arrow/datum.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/type.h"
@@ -389,16 +390,16 @@ TEST(TransposeInts, Int8ToInt64) {
 void BoundsCheckPasses(const std::shared_ptr<DataType>& type,
                        const std::string& indices_json, uint64_t upper_limit) {
   auto indices = ArrayFromJSON(type, indices_json);
-  ASSERT_OK(IndexBoundsCheck(*indices->data(), upper_limit));
+  ASSERT_OK(CheckIndexBounds(*indices->data(), upper_limit));
 }
 
 void BoundsCheckFails(const std::shared_ptr<DataType>& type,
                       const std::string& indices_json, uint64_t upper_limit) {
   auto indices = ArrayFromJSON(type, indices_json);
-  ASSERT_RAISES(IndexError, IndexBoundsCheck(*indices->data(), upper_limit));
+  ASSERT_RAISES(IndexError, CheckIndexBounds(*indices->data(), upper_limit));
 }
 
-TEST(IndexBoundsCheck, Batching) {
+TEST(CheckIndexBounds, Batching) {
   auto rand = random::RandomArrayGenerator(/*seed=*/0);
 
   const int64_t length = 200;
@@ -411,25 +412,25 @@ TEST(IndexBoundsCheck, Batching) {
   uint8_t* bitmap = index_data->buffers[0]->mutable_data();
   BitUtil::SetBitsTo(bitmap, 0, length, true);
 
-  ASSERT_OK(IndexBoundsCheck(*index_data, 1));
+  ASSERT_OK(CheckIndexBounds(*index_data, 1));
 
   // We'll place out of bounds indices at various locations
   values[99] = 1;
-  ASSERT_RAISES(IndexError, IndexBoundsCheck(*index_data, 1));
+  ASSERT_RAISES(IndexError, CheckIndexBounds(*index_data, 1));
 
   // Make that value null
   BitUtil::ClearBit(bitmap, 99);
-  ASSERT_OK(IndexBoundsCheck(*index_data, 1));
+  ASSERT_OK(CheckIndexBounds(*index_data, 1));
 
   values[199] = 1;
-  ASSERT_RAISES(IndexError, IndexBoundsCheck(*index_data, 1));
+  ASSERT_RAISES(IndexError, CheckIndexBounds(*index_data, 1));
 
   // Make that value null
   BitUtil::ClearBit(bitmap, 199);
-  ASSERT_OK(IndexBoundsCheck(*index_data, 1));
+  ASSERT_OK(CheckIndexBounds(*index_data, 1));
 }
 
-TEST(IndexBoundsCheck, SignedInts) {
+TEST(CheckIndexBounds, SignedInts) {
   auto CheckCommon = [&](const std::shared_ptr<DataType>& ty) {
     BoundsCheckPasses(ty, "[0, 0, 0]", 1);
     BoundsCheckFails(ty, "[0, 0, 0]", 0);
@@ -456,7 +457,7 @@ TEST(IndexBoundsCheck, SignedInts) {
   BoundsCheckFails(int64(), "[0, 10000000000, 10000000000]", 10000000000LL);
 }
 
-TEST(IndexBoundsCheck, UnsignedInts) {
+TEST(CheckIndexBounds, UnsignedInts) {
   auto CheckCommon = [&](const std::shared_ptr<DataType>& ty) {
     BoundsCheckPasses(ty, "[0, 0, 0]", 1);
     BoundsCheckFails(ty, "[0, 0, 0]", 0);
@@ -481,6 +482,114 @@ TEST(IndexBoundsCheck, UnsignedInts) {
   CheckCommon(uint64());
   BoundsCheckPasses(uint64(), "[0, 9999999999, 9999999999]", 10000000000LL);
   BoundsCheckFails(uint64(), "[0, 10000000000, 10000000000]", 10000000000LL);
+}
+
+void CheckInRangePasses(const std::shared_ptr<DataType>& type,
+                        const std::string& values_json, const std::string& limits_json) {
+  auto values = ArrayFromJSON(type, values_json);
+  auto limits = ArrayFromJSON(type, limits_json);
+  ASSERT_OK(CheckIntegersInRange(Datum(values->data()), **limits->GetScalar(0),
+                                 **limits->GetScalar(1)));
+}
+
+void CheckInRangeFails(const std::shared_ptr<DataType>& type,
+                       const std::string& values_json, const std::string& limits_json) {
+  auto values = ArrayFromJSON(type, values_json);
+  auto limits = ArrayFromJSON(type, limits_json);
+  ASSERT_RAISES(Invalid,
+                CheckIntegersInRange(Datum(values->data()), **limits->GetScalar(0),
+                                     **limits->GetScalar(1)));
+}
+
+TEST(CheckIntegersInRange, Batching) {
+  auto rand = random::RandomArrayGenerator(/*seed=*/0);
+
+  const int64_t length = 200;
+
+  auto indices = rand.Int16(length, 0, 0, /*null_probability=*/0);
+  ArrayData* index_data = indices->data().get();
+  index_data->buffers[0] = *AllocateBitmap(length);
+
+  int16_t* values = index_data->GetMutableValues<int16_t>(1);
+  uint8_t* bitmap = index_data->buffers[0]->mutable_data();
+  BitUtil::SetBitsTo(bitmap, 0, length, true);
+
+  auto zero = std::make_shared<Int16Scalar>(0);
+  auto one = std::make_shared<Int16Scalar>(1);
+
+  ASSERT_OK(CheckIntegersInRange(*index_data, *zero, *one));
+
+  // 1 is included
+  values[99] = 1;
+  ASSERT_OK(CheckIntegersInRange(*index_data, *zero, *one));
+
+  // We'll place out of bounds indices at various locations
+  values[99] = 2;
+  ASSERT_RAISES(Invalid, CheckIntegersInRange(*index_data, *zero, *one));
+
+  // Make that value null
+  BitUtil::ClearBit(bitmap, 99);
+  ASSERT_OK(CheckIntegersInRange(*index_data, *zero, *one));
+
+  values[199] = 2;
+  ASSERT_RAISES(Invalid, CheckIntegersInRange(*index_data, *zero, *one));
+
+  // Make that value null
+  BitUtil::ClearBit(bitmap, 199);
+  ASSERT_OK(CheckIntegersInRange(*index_data, *zero, *one));
+}
+
+TEST(CheckIntegersInRange, SignedInts) {
+  auto CheckCommon = [&](const std::shared_ptr<DataType>& ty) {
+    CheckInRangePasses(ty, "[0, 0, 0]", "[0, 0]");
+    CheckInRangeFails(ty, "[0, 1, 0]", "[0, 0]");
+    CheckInRangeFails(ty, "[1, 1, 1]", "[2, 4]");
+    CheckInRangeFails(ty, "[-1]", "[0, 0]");
+    CheckInRangeFails(ty, "[-128]", "[-127, 0]");
+    CheckInRangeFails(ty, "[0, 100, 127]", "[0, 126]");
+    CheckInRangePasses(ty, "[0, 100, 127]", "[0, 127]");
+  };
+
+  CheckCommon(int8());
+
+  CheckCommon(int16());
+  CheckInRangePasses(int16(), "[0, 999, 999]", "[0, 999]");
+  CheckInRangeFails(int16(), "[0, 1000, 1000]", "[0, 999]");
+
+  CheckCommon(int32());
+  CheckInRangePasses(int32(), "[0, 999999, 999999]", "[0, 999999]");
+  CheckInRangeFails(int32(), "[0, 1000000, 1000000]", "[0, 999999]");
+
+  CheckCommon(int64());
+  CheckInRangePasses(int64(), "[0, 9999999999, 9999999999]", "[0, 9999999999]");
+  CheckInRangeFails(int64(), "[0, 10000000000, 10000000000]", "[0, 9999999999]");
+}
+
+TEST(CheckIntegersInRange, UnsignedInts) {
+  auto CheckCommon = [&](const std::shared_ptr<DataType>& ty) {
+    CheckInRangePasses(ty, "[0, 0, 0]", "[0, 0]");
+    CheckInRangeFails(ty, "[0, 1, 0]", "[0, 0]");
+    CheckInRangeFails(ty, "[1, 1, 1]", "[2, 4]");
+    CheckInRangeFails(ty, "[0, 100, 200]", "[0, 199]");
+    CheckInRangePasses(ty, "[0, 100, 200]", "[0, 200]");
+  };
+
+  CheckCommon(uint8());
+  CheckInRangePasses(uint8(), "[255, 255, 255]", "[0, 255]");
+
+  CheckCommon(uint16());
+  CheckInRangePasses(uint16(), "[0, 999, 999]", "[0, 999]");
+  CheckInRangeFails(uint16(), "[0, 1000, 1000]", "[0, 999]");
+  CheckInRangePasses(uint16(), "[0, 65535]", "[0, 65535]");
+
+  CheckCommon(uint32());
+  CheckInRangePasses(uint32(), "[0, 999999, 999999]", "[0, 999999]");
+  CheckInRangeFails(uint32(), "[0, 1000000, 1000000]", "[0, 999999]");
+  CheckInRangePasses(uint32(), "[0, 4294967295]", "[0, 4294967295]");
+
+  CheckCommon(uint64());
+  CheckInRangePasses(uint64(), "[0, 9999999999, 9999999999]", "[0, 9999999999]");
+  CheckInRangeFails(uint64(), "[0, 10000000000, 10000000000]", "[0, 9999999999]");
 }
 
 }  // namespace internal

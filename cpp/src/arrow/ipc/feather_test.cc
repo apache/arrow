@@ -52,26 +52,13 @@ struct TestParam {
   Compression::type compression;
 };
 
-class TestFeather : public ::testing::TestWithParam<TestParam> {
+class TestFeatherBase {
  public:
   void SetUp() { Initialize(); }
 
   void Initialize() { ASSERT_OK_AND_ASSIGN(stream_, io::BufferOutputStream::Create()); }
 
-  WriteProperties GetProperties() {
-    auto param = GetParam();
-
-    auto props = WriteProperties::Defaults();
-    props.version = param.version;
-
-    // Don't fail if the build doesn't have LZ4_FRAME or ZSTD enabled
-    if (util::Codec::IsAvailable(param.compression)) {
-      props.compression = param.compression;
-    } else {
-      props.compression = Compression::UNCOMPRESSED;
-    }
-    return props;
-  }
+  virtual WriteProperties GetProperties() = 0;
 
   void DoWrite(const Table& table) {
     Initialize();
@@ -123,6 +110,43 @@ class TestFeather : public ::testing::TestWithParam<TestParam> {
   std::shared_ptr<Buffer> output_;
 };
 
+class TestFeather : public ::testing::TestWithParam<TestParam>, public TestFeatherBase {
+ public:
+  void SetUp() { TestFeatherBase::SetUp(); }
+
+  WriteProperties GetProperties() {
+    auto param = GetParam();
+
+    auto props = WriteProperties::Defaults();
+    props.version = param.version;
+
+    // Don't fail if the build doesn't have LZ4_FRAME or ZSTD enabled
+    if (util::Codec::IsAvailable(param.compression)) {
+      props.compression = param.compression;
+    } else {
+      props.compression = Compression::UNCOMPRESSED;
+    }
+    return props;
+  }
+};
+
+class TestFeatherRoundTrip : public ::testing::TestWithParam<ipc::test::MakeRecordBatch*>,
+                             public TestFeatherBase {
+ public:
+  void SetUp() { TestFeatherBase::SetUp(); }
+
+  WriteProperties GetProperties() {
+    auto props = WriteProperties::Defaults();
+    props.version = kFeatherV2Version;
+
+    // Don't fail if the build doesn't have LZ4_FRAME or ZSTD enabled
+    if (!util::Codec::IsAvailable(props.compression)) {
+      props.compression = Compression::UNCOMPRESSED;
+    }
+    return props;
+  }
+};
+
 TEST(TestFeatherWriteProperties, Defaults) {
   auto props = WriteProperties::Defaults();
 
@@ -141,15 +165,16 @@ TEST_P(TestFeather, ReadIndicesOrNames) {
 
   DoWrite(*table);
 
-  auto expected = Table::Make(schema({field("f1", int32())}), {batch1->column(1)});
+  // int32 type is at the column f4 of the result of MakeIntRecordBatch
+  auto expected = Table::Make(schema({field("f4", int32())}), {batch1->column(4)});
 
   std::shared_ptr<Table> result1, result2;
 
-  std::vector<int> indices = {1};
+  std::vector<int> indices = {4};
   ASSERT_OK(reader_->Read(indices, &result1));
   AssertTablesEqual(*expected, *result1);
 
-  std::vector<std::string> names = {"f1"};
+  std::vector<std::string> names = {"f4"};
   ASSERT_OK(reader_->Read(names, &result2));
   AssertTablesEqual(*expected, *result2);
 }
@@ -174,17 +199,16 @@ TEST_P(TestFeather, SetNumRows) {
   ASSERT_EQ(1000, result->num_rows());
 }
 
-TEST_P(TestFeather, PrimitiveRoundTrip) {
+TEST_P(TestFeather, PrimitiveIntRoundTrip) {
   std::shared_ptr<RecordBatch> batch;
   ASSERT_OK(ipc::test::MakeIntRecordBatch(&batch));
+  CheckRoundtrip(batch);
+}
 
-  ASSERT_OK_AND_ASSIGN(auto table, Table::FromRecordBatches({batch}));
-
-  DoWrite(*table);
-
-  std::shared_ptr<Table> result;
-  ASSERT_OK(reader_->Read(&result));
-  AssertTablesEqual(*table, *result);
+TEST_P(TestFeather, PrimitiveFloatRoundTrip) {
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_OK(ipc::test::MakeFloat3264Batch(&batch));
+  CheckRoundtrip(batch);
 }
 
 TEST_P(TestFeather, CategoryRoundtrip) {
@@ -270,9 +294,16 @@ TEST_P(TestFeather, PrimitiveNullRoundTrip) {
   }
 }
 
-TEST_P(TestFeather, SliceRoundTrip) {
+TEST_P(TestFeather, SliceIntRoundTrip) {
   std::shared_ptr<RecordBatch> batch;
   ASSERT_OK(ipc::test::MakeIntBatchSized(600, &batch));
+  CheckSlices(batch);
+}
+
+TEST_P(TestFeather, SliceFloatRoundTrip) {
+  std::shared_ptr<RecordBatch> batch;
+  // Float16 is not supported by FeatherV1
+  ASSERT_OK(ipc::test::MakeFloat3264BatchSized(600, &batch));
   CheckSlices(batch);
 }
 
@@ -293,6 +324,41 @@ INSTANTIATE_TEST_SUITE_P(
     ::testing::Values(TestParam(kFeatherV1Version), TestParam(kFeatherV2Version),
                       TestParam(kFeatherV2Version, Compression::LZ4_FRAME),
                       TestParam(kFeatherV2Version, Compression::ZSTD)));
+
+namespace {
+
+const std::vector<test::MakeRecordBatch*> kBatchCases = {
+    &ipc::test::MakeIntRecordBatch,
+    &ipc::test::MakeBooleanBatch,
+    &ipc::test::MakeFloatBatch,
+    &ipc::test::MakeListRecordBatch,
+    &ipc::test::MakeNonNullRecordBatch,
+    &ipc::test::MakeDeeplyNestedList,
+    &ipc::test::MakeStringTypesRecordBatchWithNulls,
+    &ipc::test::MakeStruct,
+    &ipc::test::MakeUnion,
+    &ipc::test::MakeDictionary,
+    &ipc::test::MakeDictionaryFlat,
+    &ipc::test::MakeNestedDictionary,
+    &ipc::test::MakeDates,
+    &ipc::test::MakeTimestamps,
+    &ipc::test::MakeTimes,
+    &ipc::test::MakeFWBinary,
+    &ipc::test::MakeNull,
+    &ipc::test::MakeDecimal,
+    &ipc::test::MakeIntervals};
+
+}  // namespace
+
+TEST_P(TestFeatherRoundTrip, RoundTrip) {
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_OK((*GetParam())(&batch));  // NOLINT clang-tidy gtest issue
+
+  CheckRoundtrip(batch);
+}
+
+INSTANTIATE_TEST_SUITE_P(FeatherRoundTripTests, TestFeatherRoundTrip,
+                         ::testing::ValuesIn(kBatchCases));
 
 }  // namespace feather
 }  // namespace ipc

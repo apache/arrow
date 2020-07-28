@@ -39,8 +39,8 @@ class ReaderTest : public ::testing::TestWithParam<bool> {
  public:
   void SetUpReader() {
     read_options_.use_threads = GetParam();
-    ASSERT_OK(TableReader::Make(default_memory_pool(), input_, read_options_,
-                                parse_options_, &reader_));
+    ASSERT_OK_AND_ASSIGN(reader_, TableReader::Make(default_memory_pool(), input_,
+                                                    read_options_, parse_options_));
   }
 
   void SetUpReader(util::string_view input) {
@@ -68,7 +68,7 @@ INSTANTIATE_TEST_SUITE_P(ReaderTest, ReaderTest, ::testing::Values(false, true))
 
 TEST_P(ReaderTest, Empty) {
   SetUpReader("{}\n{}\n");
-  ASSERT_OK(reader_->Read(&table_));
+  ASSERT_OK_AND_ASSIGN(table_, reader_->Read());
 
   auto expected_table = Table::Make(schema({}), ArrayVector(), 2);
   AssertTablesEqual(*expected_table, *table_);
@@ -76,7 +76,7 @@ TEST_P(ReaderTest, Empty) {
 
 TEST_P(ReaderTest, EmptyNoNewlineAtEnd) {
   SetUpReader("{}\n{}");
-  ASSERT_OK(reader_->Read(&table_));
+  ASSERT_OK_AND_ASSIGN(table_, reader_->Read());
 
   auto expected_table = Table::Make(schema({}), ArrayVector(), 2);
   AssertTablesEqual(*expected_table, *table_);
@@ -84,7 +84,7 @@ TEST_P(ReaderTest, EmptyNoNewlineAtEnd) {
 
 TEST_P(ReaderTest, EmptyManyNewlines) {
   SetUpReader("{}\n\r\n{}\n\r\n");
-  ASSERT_OK(reader_->Read(&table_));
+  ASSERT_OK_AND_ASSIGN(table_, reader_->Read());
 
   auto expected_table = Table::Make(schema({}), ArrayVector(), 2);
   AssertTablesEqual(*expected_table, *table_);
@@ -94,7 +94,7 @@ TEST_P(ReaderTest, Basics) {
   parse_options_.unexpected_field_behavior = UnexpectedFieldBehavior::InferType;
   auto src = scalars_only_src();
   SetUpReader(src);
-  ASSERT_OK(reader_->Read(&table_));
+  ASSERT_OK_AND_ASSIGN(table_, reader_->Read());
 
   auto schema = ::arrow::schema(
       {field("hello", float64()), field("world", boolean()), field("yo", utf8())});
@@ -113,7 +113,7 @@ TEST_P(ReaderTest, Nested) {
   parse_options_.unexpected_field_behavior = UnexpectedFieldBehavior::InferType;
   auto src = nested_src();
   SetUpReader(src);
-  ASSERT_OK(reader_->Read(&table_));
+  ASSERT_OK_AND_ASSIGN(table_, reader_->Read());
 
   auto schema = ::arrow::schema({field("hello", float64()), field("world", boolean()),
                                  field("yo", utf8()), field("arr", list(int64())),
@@ -137,7 +137,7 @@ TEST_P(ReaderTest, PartialSchema) {
               field("arr", list(float32()))});
   auto src = nested_src();
   SetUpReader(src);
-  ASSERT_OK(reader_->Read(&table_));
+  ASSERT_OK_AND_ASSIGN(table_, reader_->Read());
 
   auto schema = ::arrow::schema(
       {field("nuf", struct_({field("absent", date32()), field("ps", int64())})),
@@ -168,7 +168,7 @@ TEST_P(ReaderTest, TypeInference) {
     {"ts":"1970-01-01", "f": 3}
     {"ts":"2018-11-13 17:11:10", "f":3.125}
     )");
-  ASSERT_OK(reader_->Read(&table_));
+  ASSERT_OK_AND_ASSIGN(table_, reader_->Read());
 
   auto schema =
       ::arrow::schema({field("ts", timestamp(TimeUnit::SECOND)), field("f", float64())});
@@ -186,7 +186,7 @@ TEST_P(ReaderTest, MultipleChunks) {
   read_options_.block_size = static_cast<int>(src.length() / 3);
 
   SetUpReader(src);
-  ASSERT_OK(reader_->Read(&table_));
+  ASSERT_OK_AND_ASSIGN(table_, reader_->Read());
 
   auto schema = ::arrow::schema(
       {field("hello", float64()), field("world", boolean()), field("yo", utf8())});
@@ -227,20 +227,19 @@ TEST(ReaderTest, MultipleChunksParallel) {
     json += "{\"a\":" + std::to_string(i) + "}\n";
   }
   std::shared_ptr<io::InputStream> input;
-  std::shared_ptr<Table> serial, threaded;
   std::shared_ptr<TableReader> reader;
 
   read_options.use_threads = true;
   ASSERT_OK(MakeStream(json, &input));
-  ASSERT_OK(TableReader::Make(default_memory_pool(), input, read_options, parse_options,
-                              &reader));
-  ASSERT_OK(reader->Read(&threaded));
+  ASSERT_OK_AND_ASSIGN(reader, TableReader::Make(default_memory_pool(), input,
+                                                 read_options, parse_options));
+  ASSERT_OK_AND_ASSIGN(auto threaded, reader->Read());
 
   read_options.use_threads = false;
   ASSERT_OK(MakeStream(json, &input));
-  ASSERT_OK(TableReader::Make(default_memory_pool(), input, read_options, parse_options,
-                              &reader));
-  ASSERT_OK(reader->Read(&serial));
+  ASSERT_OK_AND_ASSIGN(reader, TableReader::Make(default_memory_pool(), input,
+                                                 read_options, parse_options));
+  ASSERT_OK_AND_ASSIGN(auto serial, reader->Read());
 
   ASSERT_EQ(serial->column(0)->type()->id(), Type::INT64);
   int expected = 0;
@@ -277,13 +276,11 @@ TEST(ReaderTest, ListArrayWithFewValues) {
   std::shared_ptr<io::InputStream> input;
   ASSERT_OK(MakeStream(json, &input));
 
-  std::shared_ptr<TableReader> reader;
   read_options.use_threads = false;
-  ASSERT_OK(TableReader::Make(default_memory_pool(), input, read_options, parse_options,
-                              &reader));
+  ASSERT_OK_AND_ASSIGN(auto reader, TableReader::Make(default_memory_pool(), input,
+                                                      read_options, parse_options));
 
-  std::shared_ptr<Table> actual_table;
-  ASSERT_OK(reader->Read(&actual_table));
+  ASSERT_OK_AND_ASSIGN(auto actual_table, reader->Read());
   AssertTablesEqual(*actual_table, *expected_table);
 }
 

@@ -30,12 +30,12 @@
 #include "arrow/io/file.h"
 #include "arrow/io/test_common.h"
 #include "arrow/ipc/dictionary.h"
-#include "arrow/ipc/json_integration.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
 #include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/json_integration.h"
 #include "arrow/util/logging.h"
 
 #include "arrow/flight/api.h"
@@ -51,7 +51,7 @@ namespace arrow {
 namespace flight {
 
 /// \brief Helper to read all batches from a JsonReader
-Status ReadBatches(std::unique_ptr<ipc::internal::json::JsonReader>& reader,
+Status ReadBatches(std::unique_ptr<testing::IntegrationJsonReader>& reader,
                    std::vector<std::shared_ptr<RecordBatch>>* chunks) {
   std::shared_ptr<RecordBatch> chunk;
   for (int i = 0; i < reader->num_record_batches(); i++) {
@@ -153,11 +153,11 @@ class IntegrationTestScenario : public flight::Scenario {
     FlightDescriptor descr{FlightDescriptor::PATH, "", {FLAGS_path}};
 
     // 1. Put the data to the server.
-    std::unique_ptr<ipc::internal::json::JsonReader> reader;
+    std::unique_ptr<testing::IntegrationJsonReader> reader;
     std::cout << "Opening JSON file '" << FLAGS_path << "'" << std::endl;
     auto in_file = *io::ReadableFile::Open(FLAGS_path);
     ABORT_NOT_OK(
-        ipc::internal::json::JsonReader::Open(default_memory_pool(), in_file, &reader));
+        testing::IntegrationJsonReader::Open(default_memory_pool(), in_file, &reader));
 
     std::shared_ptr<Schema> original_schema = reader->schema();
     std::vector<std::shared_ptr<RecordBatch>> original_data;

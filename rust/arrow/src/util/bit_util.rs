@@ -56,6 +56,8 @@ pub fn get_bit(data: &[u8], i: usize) -> bool {
 
 /// Returns whether bit at position `i` in `data` is set or not.
 ///
+/// # Safety
+///
 /// Note this doesn't do any bound checking, for performance reason. The caller is
 /// responsible to guarantee that `i` is within bounds.
 #[inline]
@@ -71,6 +73,8 @@ pub fn set_bit(data: &mut [u8], i: usize) {
 
 /// Sets bit at position `i` for `data`
 ///
+/// # Safety
+///
 /// Note this doesn't do any bound checking, for performance reason. The caller is
 /// responsible to guarantee that `i` is within bounds.
 #[inline]
@@ -79,6 +83,8 @@ pub unsafe fn set_bit_raw(data: *mut u8, i: usize) {
 }
 
 /// Sets bits in the non-inclusive range `start..end` for `data`
+///
+/// # Safety
 ///
 /// Note this doesn't do any bound checking, for performance reason. The caller is
 /// responsible to guarantee that both `start` and `end` are within bounds.
@@ -157,6 +163,8 @@ pub fn ceil(value: usize, divisor: usize) -> usize {
 }
 
 /// Performs SIMD bitwise binary operations.
+///
+/// # Safety
 ///
 /// Note that each slice should be 64 bytes and it is the callers responsibility to ensure
 /// that this is the case.  If passed slices larger than 64 bytes the operation will only

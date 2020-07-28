@@ -21,6 +21,6 @@ Combine and harmonize schemas
 \dontrun{
 a <- schema(b = double(), c = bool())
 z <- schema(b = double(), k = utf8())
-unify_schemas(a, z),
+unify_schemas(a, z)
 }
 }

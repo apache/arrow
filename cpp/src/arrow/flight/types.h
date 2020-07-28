@@ -27,6 +27,7 @@
 #include <vector>
 
 #include "arrow/flight/visibility.h"
+#include "arrow/ipc/options.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/result.h"
 
@@ -486,7 +487,9 @@ class ARROW_FLIGHT_EXPORT MetadataRecordBatchWriter : public ipc::RecordBatchWri
  public:
   virtual ~MetadataRecordBatchWriter() = default;
   /// \brief Begin writing data with the given schema. Only used with \a DoExchange.
-  virtual Status Begin(const std::shared_ptr<Schema>& schema) = 0;
+  virtual Status Begin(const std::shared_ptr<Schema>& schema,
+                       const ipc::IpcWriteOptions& options) = 0;
+  virtual Status Begin(const std::shared_ptr<Schema>& schema);
   virtual Status WriteMetadata(std::shared_ptr<Buffer> app_metadata) = 0;
   virtual Status WriteWithMetadata(const RecordBatch& batch,
                                    std::shared_ptr<Buffer> app_metadata) = 0;

@@ -23,8 +23,7 @@ use crate::arrow::datatypes::DataType;
 use crate::arrow::record_batch::RecordBatch;
 use crate::error::{ExecutionError, Result};
 use crate::execution::context::ExecutionContext;
-use crate::logicalplan::{Expr, LogicalPlan};
-use crate::logicalplan::{LogicalPlanBuilder, ScalarValue};
+use crate::logicalplan::{col, Expr, LogicalPlan, LogicalPlanBuilder};
 use crate::table::*;
 use arrow::datatypes::Schema;
 
@@ -48,8 +47,9 @@ impl Table for TableImpl {
             .map(|name| {
                 self.plan
                     .schema()
+                    // take the index to ensure that the column exists in the schema
                     .index_of(name.to_owned())
-                    .and_then(|i| Ok(Expr::Column(i)))
+                    .and_then(|_| Ok(col(name)))
                     .map_err(|e| e.into())
             })
             .collect::<Result<Vec<_>>>()?;
@@ -83,16 +83,15 @@ impl Table for TableImpl {
     }
 
     /// Limit the number of rows
-    fn limit(&self, n: u32) -> Result<Arc<dyn Table>> {
-        let plan = LogicalPlanBuilder::from(&self.plan)
-            .limit(Expr::Literal(ScalarValue::UInt32(n)))?
-            .build()?;
+    fn limit(&self, n: usize) -> Result<Arc<dyn Table>> {
+        let plan = LogicalPlanBuilder::from(&self.plan).limit(n)?.build()?;
         Ok(Arc::new(TableImpl::new(&plan)))
     }
 
     /// Return an expression representing a column within this table
     fn col(&self, name: &str) -> Result<Expr> {
-        Ok(Expr::Column(self.plan.schema().index_of(name)?))
+        self.plan.schema().index_of(name)?; // check that the column exists
+        Ok(col(name))
     }
 
     /// Create an expression to represent the min() aggregate function
@@ -143,7 +142,12 @@ impl TableImpl {
     /// Determine the data type for a given expression
     fn get_data_type(&self, expr: &Expr) -> Result<DataType> {
         match expr {
-            Expr::Column(i) => Ok(self.plan.schema().field(*i).data_type().clone()),
+            Expr::Column(name) => Ok(self
+                .plan
+                .schema()
+                .field_with_name(name)?
+                .data_type()
+                .clone()),
             _ => Err(ExecutionError::General(format!(
                 "Could not determine data type for expr {:?}",
                 expr

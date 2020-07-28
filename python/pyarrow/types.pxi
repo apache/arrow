@@ -1704,6 +1704,9 @@ def field(name, type, bint nullable=True, metadata=None):
     metadata = ensure_metadata(metadata, allow_none=True)
     c_meta = pyarrow_unwrap_metadata(metadata)
 
+    if _type.type.id() == _Type_NA and not nullable:
+        raise ValueError("A null type field may not be non-nullable")
+
     result.sp_field.reset(
         new CField(tobytes(name), _type.sp_type, nullable, c_meta)
     )

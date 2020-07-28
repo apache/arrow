@@ -25,7 +25,7 @@ use std::result;
 use arrow::error::ArrowError;
 use parquet::errors::ParquetError;
 
-use sqlparser::sqlparser::ParserError;
+use sqlparser::parser::ParserError;
 
 /// Result type for operations that could result in an `ExecutionError`
 pub type Result<T> = result::Result<T, ExecutionError>;
@@ -52,6 +52,13 @@ pub enum ExecutionError {
     InternalError(String),
     /// Query engine execution error
     ExecutionError(String),
+}
+
+impl ExecutionError {
+    /// Wraps this `ExecutionError` in arrow's `ExternalError` variant.
+    pub fn into_arrow_external_error(self) -> ArrowError {
+        ArrowError::from_external_error(Box::new(self))
+    }
 }
 
 impl From<Error> for ExecutionError {

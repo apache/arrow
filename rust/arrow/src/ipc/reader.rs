@@ -63,7 +63,7 @@ fn create_array(
 ) -> (ArrayRef, usize, usize) {
     use DataType::*;
     let array = match data_type {
-        Utf8 | Binary => {
+        Utf8 | Binary | LargeBinary | LargeUtf8 => {
             let array = create_primitive_array(
                 &nodes[node_index],
                 data_type,
@@ -89,7 +89,7 @@ fn create_array(
             buffer_index += 2;
             array
         }
-        List(ref list_data_type) => {
+        List(ref list_data_type) | LargeList(ref list_data_type) => {
             let list_node = &nodes[node_index];
             let list_buffers: Vec<Buffer> = buffers[buffer_index..buffer_index + 2]
                 .iter()
@@ -225,7 +225,7 @@ fn create_primitive_array(
     let length = field_node.length() as usize;
     let null_count = field_node.null_count() as usize;
     let array_data = match data_type {
-        Utf8 | Binary => {
+        Utf8 | Binary | LargeBinary | LargeUtf8 => {
             // read 3 buffers
             let mut builder = ArrayData::builder(data_type.clone())
                 .len(length)
@@ -260,7 +260,7 @@ fn create_primitive_array(
         | Time32(_)
         | Date32(_)
         | Interval(IntervalUnit::YearMonth) => {
-            if buffers[1].len() / 8 == length {
+            if buffers[1].len() / 8 == length && length != 1 {
                 // interpret as a signed i64, and cast appropriately
                 let mut builder = ArrayData::builder(DataType::Int64)
                     .len(length)
@@ -289,7 +289,7 @@ fn create_primitive_array(
             }
         }
         Float32 => {
-            if buffers[1].len() / 8 == length {
+            if buffers[1].len() / 8 == length && length != 1 {
                 // interpret as a f64, and cast appropriately
                 let mut builder = ArrayData::builder(DataType::Float64)
                     .len(length)
@@ -412,7 +412,7 @@ fn create_dictionary_array(
 pub(crate) fn read_record_batch(
     buf: &[u8],
     batch: ipc::RecordBatch,
-    schema: Arc<Schema>,
+    schema: SchemaRef,
     dictionaries: &[Option<ArrayRef>],
 ) -> Result<Option<RecordBatch>> {
     let buffers = batch.buffers().ok_or_else(|| {
@@ -465,7 +465,7 @@ pub struct FileReader<R: Read + Seek> {
     reader: BufReader<R>,
 
     /// The schema that is read from the file header
-    schema: Arc<Schema>,
+    schema: SchemaRef,
 
     /// The blocks in the file
     ///
@@ -630,8 +630,28 @@ impl<R: Read + Seek> FileReader<R> {
         self.schema.clone()
     }
 
-    /// Read the next record batch
-    pub fn next(&mut self) -> Result<Option<RecordBatch>> {
+    /// Read a specific record batch
+    ///
+    /// Sets the current block to the index, allowing random reads
+    pub fn set_index(&mut self, index: usize) -> Result<()> {
+        if index >= self.total_blocks {
+            Err(ArrowError::IoError(format!(
+                "Cannot set batch to index {} from {} total batches",
+                index, self.total_blocks
+            )))
+        } else {
+            self.current_block = index;
+            Ok(())
+        }
+    }
+}
+
+impl<R: Read + Seek> RecordBatchReader for FileReader<R> {
+    fn schema(&self) -> SchemaRef {
+        self.schema.clone()
+    }
+
+    fn next_batch(&mut self) -> Result<Option<RecordBatch>> {
         // get current block
         if self.current_block < self.total_blocks {
             let block = self.blocks[self.current_block];
@@ -682,31 +702,6 @@ impl<R: Read + Seek> FileReader<R> {
             Ok(None)
         }
     }
-
-    /// Read a specific record batch
-    ///
-    /// Sets the current block to the index, allowing random reads
-    pub fn set_index(&mut self, index: usize) -> Result<()> {
-        if index >= self.total_blocks {
-            Err(ArrowError::IoError(format!(
-                "Cannot set batch to index {} from {} total batches",
-                index, self.total_blocks
-            )))
-        } else {
-            self.current_block = index;
-            Ok(())
-        }
-    }
-}
-
-impl<R: Read + Seek> RecordBatchReader for FileReader<R> {
-    fn schema(&mut self) -> SchemaRef {
-        self.schema.clone()
-    }
-
-    fn next_batch(&mut self) -> Result<Option<RecordBatch>> {
-        self.next()
-    }
 }
 
 /// Arrow Stream reader
@@ -714,7 +709,7 @@ pub struct StreamReader<R: Read> {
     /// Buffered stream reader
     reader: BufReader<R>,
     /// The schema that is read from the stream's first message
-    schema: Arc<Schema>,
+    schema: SchemaRef,
     /// An indicator of whether the strewam is complete.
     ///
     /// This value is set to `true` the first time the reader's `next()` returns `None`.
@@ -777,8 +772,18 @@ impl<R: Read> StreamReader<R> {
         self.schema.clone()
     }
 
-    /// Read the next record batch
-    pub fn next(&mut self) -> Result<Option<RecordBatch>> {
+    /// Check if the stream is finished
+    pub fn is_finished(&self) -> bool {
+        self.finished
+    }
+}
+
+impl<R: Read> RecordBatchReader for StreamReader<R> {
+    fn schema(&self) -> SchemaRef {
+        self.schema.clone()
+    }
+
+    fn next_batch(&mut self) -> Result<Option<RecordBatch>> {
         if self.finished {
             return Ok(None);
         }
@@ -849,21 +854,6 @@ impl<R: Read> StreamReader<R> {
             )),
         }
     }
-
-    /// Check if the stream is finished
-    pub fn is_finished(&self) -> bool {
-        self.finished
-    }
-}
-
-impl<R: Read> RecordBatchReader for StreamReader<R> {
-    fn schema(&mut self) -> SchemaRef {
-        self.schema.clone()
-    }
-
-    fn next_batch(&mut self) -> Result<Option<RecordBatch>> {
-        self.next()
-    }
 }
 
 #[cfg(test)]
@@ -930,10 +920,57 @@ mod tests {
             let arrow_json = read_gzip_json(path);
             assert!(arrow_json.equals_reader(&mut reader));
             // the next batch must be empty
-            assert!(reader.next().unwrap().is_none());
+            assert!(reader.next_batch().unwrap().is_none());
             // the stream must indicate that it's finished
             assert!(reader.is_finished());
         });
+    }
+
+    #[test]
+    fn test_arrow_single_float_row() {
+        let schema = Schema::new(vec![
+            Field::new("a", DataType::Float32, false),
+            Field::new("b", DataType::Float32, false),
+            Field::new("c", DataType::Int32, false),
+            Field::new("d", DataType::Int32, false),
+        ]);
+        let arrays = vec![
+            Arc::new(Float32Array::from(vec![1.23])) as ArrayRef,
+            Arc::new(Float32Array::from(vec![-6.50])) as ArrayRef,
+            Arc::new(Int32Array::from(vec![2])) as ArrayRef,
+            Arc::new(Int32Array::from(vec![1])) as ArrayRef,
+        ];
+        let batch = RecordBatch::try_new(Arc::new(schema.clone()), arrays).unwrap();
+        // create stream writer
+        let file = File::create("target/debug/testdata/float.stream").unwrap();
+        let mut stream_writer =
+            crate::ipc::writer::StreamWriter::try_new(file, &schema).unwrap();
+        stream_writer.write(&batch).unwrap();
+        stream_writer.finish().unwrap();
+
+        // read stream back
+        let file = File::open("target/debug/testdata/float.stream").unwrap();
+        let mut reader = StreamReader::try_new(file).unwrap();
+        while let Some(batch) = reader.next_batch().unwrap() {
+            assert!(
+                batch
+                    .column(0)
+                    .as_any()
+                    .downcast_ref::<Float32Array>()
+                    .unwrap()
+                    .value(0)
+                    != 0.0
+            );
+            assert!(
+                batch
+                    .column(1)
+                    .as_any()
+                    .downcast_ref::<Float32Array>()
+                    .unwrap()
+                    .value(0)
+                    != 0.0
+            );
+        }
     }
 
     /// Read gzipped JSON file

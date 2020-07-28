@@ -64,27 +64,18 @@ The above script will run the `flatc` compiler and perform some adjustments to t
 - Remove `org::apache::arrow::flatbuffers` namespace
 - Add includes to each generated file
 
-## SIMD (Single Instruction Multiple Data)
-
-Arrow uses the [packed_simd](https://crates.io/crates/packed_simd) crate to optimize many of the implementations in the
-[compute](https://github.com/apache/arrow/tree/master/rust/arrow/src/compute) module using SIMD intrinsics. 
-These optimizations are enabled by the `simd` feature flag and are turned on by default, but can be disabled, for example:
-
-```bash
-cargo build --no-default-features
-```
-
-For more features, see the Features heading below.
-
 ## Features
 
 Arrow uses the following features:
 
-* `simd`
+* `simd` - Arrow uses the [packed_simd](https://crates.io/crates/packed_simd) crate to optimize many of the
+ implementations in the [compute](https://github.com/apache/arrow/tree/master/rust/arrow/src/compute) module using SIMD
+ intrinsics. These optimizations are turned *off* by default.
 * `flight` which contains useful functions to convert between the Flight wire format and Arrow data
 * `prettyprint` which is a utility for printing record batches
 
-`simd` is current disabled by default, while the other features are enabled by default. Disabling `prettyprint` might be necessary in order to compile Arrow to the `wasm32-unknown-unknown` WASM target.
+Other than `simd` all the other features are enabled by default. Disabling `prettyprint` might be necessary in order to
+compile Arrow to the `wasm32-unknown-unknown` WASM target.
 
 # Publishing to crates.io
 

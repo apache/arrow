@@ -22,19 +22,18 @@
 
 use std::sync::{Arc, Mutex};
 
-use crate::error::Result;
-use crate::execution::physical_plan::{
-    BatchIterator, ExecutionPlan, Partition, PhysicalExpr,
-};
-use arrow::datatypes::{Field, Schema};
-use arrow::record_batch::RecordBatch;
+use crate::error::{ExecutionError, Result};
+use crate::execution::physical_plan::{ExecutionPlan, Partition, PhysicalExpr};
+use arrow::datatypes::{Field, Schema, SchemaRef};
+use arrow::error::Result as ArrowResult;
+use arrow::record_batch::{RecordBatch, RecordBatchReader};
 
 /// Execution plan for a projection
 pub struct ProjectionExec {
     /// The projection expressions
     expr: Vec<Arc<dyn PhysicalExpr>>,
     /// The schema once the projection has been applied to the input
-    schema: Arc<Schema>,
+    schema: SchemaRef,
     /// The input plan
     input: Arc<dyn ExecutionPlan>,
 }
@@ -42,20 +41,26 @@ pub struct ProjectionExec {
 impl ProjectionExec {
     /// Create a projection on an input
     pub fn try_new(
-        expr: Vec<Arc<dyn PhysicalExpr>>,
+        expr: Vec<(Arc<dyn PhysicalExpr>, String)>,
         input: Arc<dyn ExecutionPlan>,
     ) -> Result<Self> {
         let input_schema = input.schema();
 
         let fields: Result<Vec<_>> = expr
             .iter()
-            .map(|e| Ok(Field::new(&e.name(), e.data_type(&input_schema)?, true)))
+            .map(|(e, name)| {
+                Ok(Field::new(
+                    name,
+                    e.data_type(&input_schema)?,
+                    e.nullable(&input_schema)?,
+                ))
+            })
             .collect();
 
         let schema = Arc::new(Schema::new(fields?));
 
         Ok(Self {
-            expr: expr.clone(),
+            expr: expr.iter().map(|x| x.0.clone()).collect(),
             schema,
             input: input.clone(),
         })
@@ -64,7 +69,7 @@ impl ProjectionExec {
 
 impl ExecutionPlan for ProjectionExec {
     /// Get the schema for this execution plan
-    fn schema(&self) -> Arc<Schema> {
+    fn schema(&self) -> SchemaRef {
         self.schema.clone()
     }
 
@@ -91,14 +96,14 @@ impl ExecutionPlan for ProjectionExec {
 
 /// Represents a single partition of a projection execution plan
 struct ProjectionPartition {
-    schema: Arc<Schema>,
+    schema: SchemaRef,
     expr: Vec<Arc<dyn PhysicalExpr>>,
     input: Arc<dyn Partition>,
 }
 
 impl Partition for ProjectionPartition {
     /// Execute the projection
-    fn execute(&self) -> Result<Arc<Mutex<dyn BatchIterator>>> {
+    fn execute(&self) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
         Ok(Arc::new(Mutex::new(ProjectionIterator {
             schema: self.schema.clone(),
             expr: self.expr.clone(),
@@ -109,25 +114,28 @@ impl Partition for ProjectionPartition {
 
 /// Projection iterator
 struct ProjectionIterator {
-    schema: Arc<Schema>,
+    schema: SchemaRef,
     expr: Vec<Arc<dyn PhysicalExpr>>,
-    input: Arc<Mutex<dyn BatchIterator>>,
+    input: Arc<Mutex<dyn RecordBatchReader + Send + Sync>>,
 }
 
-impl BatchIterator for ProjectionIterator {
+impl RecordBatchReader for ProjectionIterator {
     /// Get the schema
-    fn schema(&self) -> Arc<Schema> {
+    fn schema(&self) -> SchemaRef {
         self.schema.clone()
     }
 
     /// Get the next batch
-    fn next(&mut self) -> Result<Option<RecordBatch>> {
+    fn next_batch(&mut self) -> ArrowResult<Option<RecordBatch>> {
         let mut input = self.input.lock().unwrap();
-        match input.next()? {
+        match input.next_batch()? {
             Some(batch) => {
                 let arrays: Result<Vec<_>> =
                     self.expr.iter().map(|expr| expr.evaluate(&batch)).collect();
-                Ok(Some(RecordBatch::try_new(self.schema.clone(), arrays?)?))
+                Ok(Some(RecordBatch::try_new(
+                    self.schema.clone(),
+                    arrays.map_err(ExecutionError::into_arrow_external_error)?,
+                )?))
             }
             None => Ok(None),
         }
@@ -139,7 +147,7 @@ mod tests {
 
     use super::*;
     use crate::execution::physical_plan::csv::{CsvExec, CsvReadOptions};
-    use crate::execution::physical_plan::expressions::Column;
+    use crate::execution::physical_plan::expressions::col;
     use crate::test;
 
     #[test]
@@ -152,12 +160,9 @@ mod tests {
         let csv =
             CsvExec::try_new(&path, CsvReadOptions::new().schema(&schema), None, 1024)?;
 
-        let projection = ProjectionExec::try_new(
-            vec![Arc::new(Column::new(0, &schema.as_ref().field(0).name()))],
-            Arc::new(csv),
-        )?;
-
-        assert_eq!("c1", projection.schema.field(0).name().as_str());
+        // pick column c1 and name it column c1 in the output schema
+        let projection =
+            ProjectionExec::try_new(vec![(col("c1"), "c1".to_string())], Arc::new(csv))?;
 
         let mut partition_count = 0;
         let mut row_count = 0;
@@ -165,7 +170,7 @@ mod tests {
             partition_count += 1;
             let iterator = partition.execute()?;
             let mut iterator = iterator.lock().unwrap();
-            while let Some(batch) = iterator.next()? {
+            while let Some(batch) = iterator.next_batch()? {
                 assert_eq!(1, batch.num_columns());
                 row_count += batch.num_rows();
             }

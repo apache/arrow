@@ -26,6 +26,7 @@ using internal::CopyBitmap;
 using internal::InvertBitmap;
 
 namespace compute {
+namespace internal {
 namespace {
 
 struct IsValidOperator {
@@ -36,23 +37,22 @@ struct IsValidOperator {
   static void Call(KernelContext* ctx, const ArrayData& arr, ArrayData* out) {
     DCHECK_EQ(out->offset, 0);
     DCHECK_LE(out->length, arr.length);
-    if (arr.buffers[0] != nullptr) {
-      out->buffers[1] = arr.offset == 0
-                            ? arr.buffers[0]
-                            : SliceBuffer(arr.buffers[0], arr.offset / 8, arr.length / 8);
+    if (arr.MayHaveNulls()) {
+      // Input has nulls => output is the null (validity) bitmap.
+      // To avoid copying the null bitmap, slice from the starting byte offset
+      // and set the offset to the remaining bit offset.
       out->offset = arr.offset % 8;
+      out->buffers[1] =
+          arr.offset == 0 ? arr.buffers[0]
+                          : SliceBuffer(arr.buffers[0], arr.offset / 8,
+                                        BitUtil::BytesForBits(out->length + out->offset));
       return;
     }
 
-    KERNEL_RETURN_IF_ERROR(ctx, ctx->AllocateBitmap(out->length).Value(&out->buffers[1]));
-
-    if (arr.null_count == 0 || arr.buffers[0] == nullptr) {
-      BitUtil::SetBitsTo(out->buffers[1]->mutable_data(), out->offset, out->length, true);
-      return;
-    }
-
-    CopyBitmap(arr.buffers[0]->data(), arr.offset, arr.length,
-               out->buffers[1]->mutable_data(), out->offset);
+    // Input has no nulls => output is entirely true.
+    KERNEL_ASSIGN_OR_RAISE(out->buffers[1], ctx,
+                           ctx->AllocateBitmap(out->length + out->offset));
+    BitUtil::SetBitsTo(out->buffers[1]->mutable_data(), out->offset, out->length, true);
   }
 };
 
@@ -62,14 +62,15 @@ struct IsNullOperator {
   }
 
   static void Call(KernelContext* ctx, const ArrayData& arr, ArrayData* out) {
-    if (arr.null_count == 0 || arr.buffers[0] == nullptr) {
-      BitUtil::SetBitsTo(out->buffers[1]->mutable_data(), out->offset, out->length,
-                         false);
+    if (arr.MayHaveNulls()) {
+      // Input has nulls => output is the inverted null (validity) bitmap.
+      InvertBitmap(arr.buffers[0]->data(), arr.offset, arr.length,
+                   out->buffers[1]->mutable_data(), out->offset);
       return;
     }
 
-    InvertBitmap(arr.buffers[0]->data(), arr.offset, arr.length,
-                 out->buffers[1]->mutable_data(), out->offset);
+    // Input has no nulls => output is entirely false.
+    BitUtil::SetBitsTo(out->buffers[1]->mutable_data(), out->offset, out->length, false);
   }
 };
 
@@ -88,17 +89,47 @@ void MakeFunction(std::string name, std::vector<InputType> in_types, OutputType 
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
+void IsValidExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  const Datum& arg0 = batch[0];
+  if (arg0.type()->id() == Type::NA) {
+    auto false_value = std::make_shared<BooleanScalar>(false);
+    if (arg0.kind() == Datum::SCALAR) {
+      out->value = false_value;
+    } else {
+      std::shared_ptr<Array> false_values;
+      KERNEL_RETURN_IF_ERROR(
+          ctx, MakeArrayFromScalar(*false_value, out->length(), ctx->memory_pool())
+                   .Value(&false_values));
+      out->value = false_values->data();
+    }
+  } else {
+    applicator::SimpleUnary<IsValidOperator>(ctx, batch, out);
+  }
+}
+
+void IsNullExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  const Datum& arg0 = batch[0];
+  if (arg0.type()->id() == Type::NA) {
+    if (arg0.kind() == Datum::SCALAR) {
+      out->value = std::make_shared<BooleanScalar>(true);
+    } else {
+      // Data is preallocated
+      ArrayData* out_arr = out->mutable_array();
+      BitUtil::SetBitsTo(out_arr->buffers[1]->mutable_data(), out_arr->offset,
+                         out_arr->length, true);
+    }
+  } else {
+    applicator::SimpleUnary<IsNullOperator>(ctx, batch, out);
+  }
+}
+
 }  // namespace
 
-namespace internal {
-
 void RegisterScalarValidity(FunctionRegistry* registry) {
-  MakeFunction("is_valid", {ValueDescr::ANY}, boolean(),
-               applicator::SimpleUnary<IsValidOperator>, registry,
+  MakeFunction("is_valid", {ValueDescr::ANY}, boolean(), IsValidExec, registry,
                MemAllocation::NO_PREALLOCATE, /*can_write_into_slices=*/false);
 
-  MakeFunction("is_null", {ValueDescr::ANY}, boolean(),
-               applicator::SimpleUnary<IsNullOperator>, registry,
+  MakeFunction("is_null", {ValueDescr::ANY}, boolean(), IsNullExec, registry,
                MemAllocation::PREALLOCATE,
                /*can_write_into_slices=*/true);
 }

@@ -15,15 +15,16 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! Defines `ArrowError` for representing failures in various Arrow operations
-use std::error::Error;
-use std::fmt::{Display, Formatter};
+//! Defines `ArrowError` for representing failures in various Arrow operations.
+use std::fmt::{Debug, Display, Formatter};
 
 use csv as csv_crate;
+use std::error::Error;
 
-/// Many different operations in the `arrow` crate return this error type
-#[derive(Debug, Clone, PartialEq)]
+/// Many different operations in the `arrow` crate return this error type.
+#[derive(Debug)]
 pub enum ArrowError {
+    ExternalError(Box<dyn Error + Send + Sync>),
     MemoryError(String),
     ParseError(String),
     SchemaError(String),
@@ -35,6 +36,15 @@ pub enum ArrowError {
     InvalidArgumentError(String),
     ParquetError(String),
     DictionaryKeyOverflowError,
+}
+
+impl ArrowError {
+    /// Wraps an external error in an `ArrowError`.
+    pub fn from_external_error(
+        error: Box<dyn ::std::error::Error + Send + Sync>,
+    ) -> Self {
+        Self::ExternalError(error)
+    }
 }
 
 impl From<::std::io::Error> for ArrowError {
@@ -71,19 +81,20 @@ impl From<::std::string::FromUtf8Error> for ArrowError {
 
 impl Display for ArrowError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match *self {
-            ArrowError::MemoryError(ref desc) => write!(f, "Memory error: {}", desc),
-            ArrowError::ParseError(ref desc) => write!(f, "Parser error: {}", desc),
-            ArrowError::SchemaError(ref desc) => write!(f, "Schema error: {}", desc),
-            ArrowError::ComputeError(ref desc) => write!(f, "Compute error: {}", desc),
+        match self {
+            ArrowError::ExternalError(source) => write!(f, "External error: {}", &source),
+            ArrowError::MemoryError(desc) => write!(f, "Memory error: {}", desc),
+            ArrowError::ParseError(desc) => write!(f, "Parser error: {}", desc),
+            ArrowError::SchemaError(desc) => write!(f, "Schema error: {}", desc),
+            ArrowError::ComputeError(desc) => write!(f, "Compute error: {}", desc),
             ArrowError::DivideByZero => write!(f, "Divide by zero error"),
-            ArrowError::CsvError(ref desc) => write!(f, "Csv error: {}", desc),
-            ArrowError::JsonError(ref desc) => write!(f, "Json error: {}", desc),
-            ArrowError::IoError(ref desc) => write!(f, "Io error: {}", desc),
-            ArrowError::InvalidArgumentError(ref desc) => {
+            ArrowError::CsvError(desc) => write!(f, "Csv error: {}", desc),
+            ArrowError::JsonError(desc) => write!(f, "Json error: {}", desc),
+            ArrowError::IoError(desc) => write!(f, "Io error: {}", desc),
+            ArrowError::InvalidArgumentError(desc) => {
                 write!(f, "Invalid argument error: {}", desc)
             }
-            ArrowError::ParquetError(ref desc) => {
+            ArrowError::ParquetError(desc) => {
                 write!(f, "Parquet argument error: {}", desc)
             }
             ArrowError::DictionaryKeyOverflowError => {

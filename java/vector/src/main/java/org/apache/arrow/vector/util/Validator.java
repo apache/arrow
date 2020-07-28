@@ -151,6 +151,8 @@ public class Validator {
     } else if (type instanceof ArrowType.Binary || type instanceof ArrowType.LargeBinary ||
         type instanceof ArrowType.FixedSizeBinary) {
       return Arrays.equals((byte[]) o1, (byte[]) o2);
+    } else if (o1 instanceof byte[] && o2 instanceof byte[]) {
+      return Arrays.equals((byte[]) o1, (byte[]) o2);
     }
 
     return Objects.equals(o1, o2);

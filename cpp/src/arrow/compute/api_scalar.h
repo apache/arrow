@@ -33,12 +33,62 @@
 namespace arrow {
 namespace compute {
 
-// ----------------------------------------------------------------------
+/// \addtogroup compute-concrete-options
+///
+/// @{
 
 struct ArithmeticOptions : public FunctionOptions {
   ArithmeticOptions() : check_overflow(false) {}
   bool check_overflow;
 };
+
+struct ARROW_EXPORT MatchSubstringOptions : public FunctionOptions {
+  explicit MatchSubstringOptions(std::string pattern) : pattern(std::move(pattern)) {}
+
+  /// The exact substring to look for inside input values.
+  std::string pattern;
+};
+
+/// Options for IsIn and IndexIn functions
+struct ARROW_EXPORT SetLookupOptions : public FunctionOptions {
+  explicit SetLookupOptions(Datum value_set, bool skip_nulls)
+      : value_set(std::move(value_set)), skip_nulls(skip_nulls) {}
+
+  /// The set of values to look up input values into.
+  Datum value_set;
+  /// Whether nulls in `value_set` count for lookup.
+  ///
+  /// If true, any null in `value_set` is ignored and nulls in the input
+  /// produce null (IndexIn) or false (IsIn) values in the output.
+  /// If false, any null in `value_set` is successfully matched in
+  /// the input.
+  bool skip_nulls;
+};
+
+struct ARROW_EXPORT StrptimeOptions : public FunctionOptions {
+  explicit StrptimeOptions(std::string format, TimeUnit::type unit)
+      : format(format), unit(unit) {}
+
+  std::string format;
+  TimeUnit::type unit;
+};
+
+enum CompareOperator : int8_t {
+  EQUAL,
+  NOT_EQUAL,
+  GREATER,
+  GREATER_EQUAL,
+  LESS,
+  LESS_EQUAL,
+};
+
+struct CompareOptions : public FunctionOptions {
+  explicit CompareOptions(CompareOperator op) : op(op) {}
+
+  enum CompareOperator op;
+};
+
+/// @}
 
 /// \brief Add two values together. Array values must be the same length. If
 /// either addend is null the result will be null.
@@ -78,21 +128,6 @@ ARROW_EXPORT
 Result<Datum> Multiply(const Datum& left, const Datum& right,
                        ArithmeticOptions options = ArithmeticOptions(),
                        ExecContext* ctx = NULLPTR);
-
-enum CompareOperator {
-  EQUAL,
-  NOT_EQUAL,
-  GREATER,
-  GREATER_EQUAL,
-  LESS,
-  LESS_EQUAL,
-};
-
-struct CompareOptions : public FunctionOptions {
-  explicit CompareOptions(CompareOperator op) : op(op) {}
-
-  enum CompareOperator op;
-};
 
 /// \brief Compare a numeric array with a scalar.
 ///
@@ -185,15 +220,6 @@ Result<Datum> KleeneOr(const Datum& left, const Datum& right, ExecContext* ctx =
 ARROW_EXPORT
 Result<Datum> Xor(const Datum& left, const Datum& right, ExecContext* ctx = NULLPTR);
 
-/// For set lookup operations like IsIn, Match
-struct ARROW_EXPORT SetLookupOptions : public FunctionOptions {
-  explicit SetLookupOptions(Datum value_set, bool skip_nulls)
-      : value_set(std::move(value_set)), skip_nulls(skip_nulls) {}
-
-  Datum value_set;
-  bool skip_nulls;
-};
-
 /// \brief IsIn returns true for each element of `values` that is contained in
 /// `value_set`
 ///
@@ -211,7 +237,7 @@ ARROW_EXPORT
 Result<Datum> IsIn(const Datum& values, const Datum& value_set,
                    ExecContext* ctx = NULLPTR);
 
-/// \brief Match examines each slot in the values against a value_set array.
+/// \brief IndexIn examines each slot in the values against a value_set array.
 /// If the value is not found in value_set, null will be output.
 /// If found, the index of occurrence within value_set (ignoring duplicates)
 /// will be output.
@@ -232,8 +258,8 @@ Result<Datum> IsIn(const Datum& values, const Datum& value_set,
 /// \since 1.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
-Result<Datum> Match(const Datum& values, const Datum& value_set,
-                    ExecContext* ctx = NULLPTR);
+Result<Datum> IndexIn(const Datum& values, const Datum& value_set,
+                      ExecContext* ctx = NULLPTR);
 
 /// \brief IsValid returns true for each element of `values` that is not null,
 /// false otherwise
@@ -259,16 +285,20 @@ Result<Datum> IsValid(const Datum& values, ExecContext* ctx = NULLPTR);
 ARROW_EXPORT
 Result<Datum> IsNull(const Datum& values, ExecContext* ctx = NULLPTR);
 
-// ----------------------------------------------------------------------
-// Temporal functions
-
-struct ARROW_EXPORT StrptimeOptions : public FunctionOptions {
-  explicit StrptimeOptions(std::string format, TimeUnit::type unit)
-      : format(format), unit(unit) {}
-
-  std::string format;
-  TimeUnit::type unit;
-};
+/// \brief FillNull replaces each null element in `values`
+/// with `fill_value`
+///
+/// \param[in] values input to examine for nullity
+/// \param[in] fill_value scalar
+/// \param[in] ctx the function execution context, optional
+///
+/// \return the resulting datum
+///
+/// \since 1.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> FillNull(const Datum& values, const Datum& fill_value,
+                       ExecContext* ctx = NULLPTR);
 
 }  // namespace compute
 }  // namespace arrow

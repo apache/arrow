@@ -31,4 +31,8 @@ func TestNullType(t *testing.T) {
 	if got, want := nt.Name(), "null"; got != want {
 		t.Fatalf("invalid null type name. got=%q, want=%q", got, want)
 	}
+
+	if got, want := nt.String(), "null"; got != want {
+		t.Fatalf("invalid null type stringer. got=%q, want=%q", got, want)
+	}
 }

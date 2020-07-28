@@ -73,7 +73,7 @@ pub struct ArrowJsonColumn {
 
 impl ArrowJson {
     /// Compare the Arrow JSON with a record batch reader
-    pub fn equals_reader(&self, reader: &mut RecordBatchReader) -> bool {
+    pub fn equals_reader(&self, reader: &mut dyn RecordBatchReader) -> bool {
         if !self.schema.equals_schema(&reader.schema()) {
             return false;
         }
@@ -380,6 +380,35 @@ fn json_from_col(col: &ArrowJsonColumn, data_type: &DataType) -> Vec<Value> {
             json_from_fixed_size_list_col(col, &**dt, *list_size as usize)
         }
         DataType::Struct(fields) => json_from_struct_col(col, fields),
+        DataType::Int64
+        | DataType::UInt64
+        | DataType::Date64(_)
+        | DataType::Time64(_)
+        | DataType::Timestamp(_, _)
+        | DataType::Duration(_) => {
+            // convert int64 data from strings to numbers
+            let converted_col: Vec<Value> = col
+                .data
+                .clone()
+                .unwrap()
+                .iter()
+                .map(|v| {
+                    Value::Number(match v {
+                        Value::Number(number) => number.clone(),
+                        Value::String(string) => VNumber::from(
+                            string
+                                .parse::<i64>()
+                                .expect("Unable to parse string as i64"),
+                        ),
+                        t => panic!("Cannot convert {} to number", t),
+                    })
+                })
+                .collect();
+            merge_json_array(
+                col.validity.as_ref().unwrap().as_slice(),
+                converted_col.as_slice(),
+            )
+        }
         _ => merge_json_array(
             col.validity.as_ref().unwrap().as_slice(),
             &col.data.clone().unwrap(),

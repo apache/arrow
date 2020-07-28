@@ -17,7 +17,7 @@
 
 AC_PREREQ(2.65)
 
-m4_define([arrow_glib_version], 1.0.0-SNAPSHOT)
+m4_define([arrow_glib_version], 1.1.0-SNAPSHOT)
 AC_INIT([arrow-glib],
         arrow_glib_version,
         [https://issues.apache.org/jira/browse/ARROW],
@@ -289,7 +289,7 @@ AC_SUBST(PLASMA_ARROW_CUDA_PKG_CONFIG_PATH)
 
 AM_CONDITIONAL([HAVE_ARROW_DATASET], [test "$HAVE_ARROW_DATASET" = "yes"])
 if test "$HAVE_ARROW_DATASET" = "yes"; then
-  AC_DEFINE(HAVE_ARROW_DATASET, [1], [Define to 1 if Apache Arrow Datasets exists.])
+  AC_DEFINE(HAVE_ARROW_DATASET, [1], [Define to 1 if Apache Arrow Dataset exists.])
 fi
 
 AM_CONDITIONAL([HAVE_GANDIVA], [test "$HAVE_GANDIVA" = "yes"])

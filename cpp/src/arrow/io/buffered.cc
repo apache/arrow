@@ -367,7 +367,9 @@ class BufferedInputStream::Impl : public BufferedBase {
   }
 
   Result<int64_t> Read(int64_t nbytes, void* out) {
-    ARROW_CHECK_GT(nbytes, 0);
+    if (ARROW_PREDICT_FALSE(nbytes < 0)) {
+      return Status::Invalid("Bytes to read must be positive. Received:", nbytes);
+    }
 
     if (nbytes < buffer_size_) {
       // Pre-buffer for small reads

@@ -28,13 +28,12 @@
 namespace arrow {
 namespace compute {
 
-static Status CheckArity(const std::vector<InputType>& args, const Arity& arity) {
-  const int passed_num_args = static_cast<int>(args.size());
-  if (arity.is_varargs && passed_num_args < arity.num_args) {
-    return Status::Invalid("VarArgs function needs at least ", arity.num_args,
+Status Function::CheckArity(int passed_num_args) const {
+  if (arity_.is_varargs && passed_num_args < arity_.num_args) {
+    return Status::Invalid("VarArgs function needs at least ", arity_.num_args,
                            " arguments but kernel accepts only ", passed_num_args);
-  } else if (!arity.is_varargs && passed_num_args != arity.num_args) {
-    return Status::Invalid("Function accepts ", arity.num_args,
+  } else if (!arity_.is_varargs && passed_num_args != arity_.num_args) {
+    return Status::Invalid("Function accepts ", arity_.num_args,
                            " arguments but kernel accepts ", passed_num_args);
   }
   return Status::OK();
@@ -97,7 +96,7 @@ Result<Datum> Function::Execute(const std::vector<Datum>& args,
 
 Status ScalarFunction::AddKernel(std::vector<InputType> in_types, OutputType out_type,
                                  ArrayKernelExec exec, KernelInit init) {
-  RETURN_NOT_OK(CheckArity(in_types, arity_));
+  RETURN_NOT_OK(CheckArity(static_cast<int>(in_types.size())));
 
   if (arity_.is_varargs && in_types.size() != 1) {
     return Status::Invalid("VarArgs signatures must have exactly one input type");
@@ -109,7 +108,7 @@ Status ScalarFunction::AddKernel(std::vector<InputType> in_types, OutputType out
 }
 
 Status ScalarFunction::AddKernel(ScalarKernel kernel) {
-  RETURN_NOT_OK(CheckArity(kernel.signature->in_types(), arity_));
+  RETURN_NOT_OK(CheckArity(static_cast<int>(kernel.signature->in_types().size())));
   if (arity_.is_varargs && !kernel.signature->is_varargs()) {
     return Status::Invalid("Function accepts varargs but kernel signature does not");
   }
@@ -124,7 +123,7 @@ Result<const ScalarKernel*> ScalarFunction::DispatchExact(
 
 Status VectorFunction::AddKernel(std::vector<InputType> in_types, OutputType out_type,
                                  ArrayKernelExec exec, KernelInit init) {
-  RETURN_NOT_OK(CheckArity(in_types, arity_));
+  RETURN_NOT_OK(CheckArity(static_cast<int>(in_types.size())));
 
   if (arity_.is_varargs && in_types.size() != 1) {
     return Status::Invalid("VarArgs signatures must have exactly one input type");
@@ -136,7 +135,7 @@ Status VectorFunction::AddKernel(std::vector<InputType> in_types, OutputType out
 }
 
 Status VectorFunction::AddKernel(VectorKernel kernel) {
-  RETURN_NOT_OK(CheckArity(kernel.signature->in_types(), arity_));
+  RETURN_NOT_OK(CheckArity(static_cast<int>(kernel.signature->in_types().size())));
   if (arity_.is_varargs && !kernel.signature->is_varargs()) {
     return Status::Invalid("Function accepts varargs but kernel signature does not");
   }
@@ -150,7 +149,7 @@ Result<const VectorKernel*> VectorFunction::DispatchExact(
 }
 
 Status ScalarAggregateFunction::AddKernel(ScalarAggregateKernel kernel) {
-  RETURN_NOT_OK(CheckArity(kernel.signature->in_types(), arity_));
+  RETURN_NOT_OK(CheckArity(static_cast<int>(kernel.signature->in_types().size())));
   if (arity_.is_varargs && !kernel.signature->is_varargs()) {
     return Status::Invalid("Function accepts varargs but kernel signature does not");
   }
@@ -166,6 +165,7 @@ Result<const ScalarAggregateKernel*> ScalarAggregateFunction::DispatchExact(
 Result<Datum> MetaFunction::Execute(const std::vector<Datum>& args,
                                     const FunctionOptions* options,
                                     ExecContext* ctx) const {
+  RETURN_NOT_OK(CheckArity(static_cast<int>(args.size())));
   return ExecuteImpl(args, options, ctx);
 }
 

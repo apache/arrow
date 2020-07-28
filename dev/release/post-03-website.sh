@@ -140,7 +140,7 @@ cat <<ANNOUNCE >> "${announce_file}"
 
 ANNOUNCE
 
-${PYTHON:-python} "${SOURCE_DIR}/changelog.py" ${version} 1 | \
+archery release changelog generate ${version} | \
   sed -e 's/^#/##/g' >> "${announce_file}"
 
 cat <<ANNOUNCE >> "${announce_file}"

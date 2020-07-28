@@ -30,6 +30,7 @@
 #include "arrow/array/array_base.h"
 #include "arrow/array/array_dict.h"
 #include "arrow/array/array_primitive.h"
+#include "arrow/array/concatenate.h"
 #include "arrow/buffer.h"
 #include "arrow/buffer_builder.h"
 #include "arrow/extension_type.h"
@@ -199,7 +200,10 @@ class NullArrayFactory {
     return out_;
   }
 
-  Status Visit(const NullType&) { return Status::OK(); }
+  Status Visit(const NullType&) {
+    out_->buffers.resize(1, nullptr);
+    return Status::OK();
+  }
 
   Status Visit(const FixedWidthType&) {
     out_->buffers.resize(2, buffer_);
@@ -233,10 +237,28 @@ class NullArrayFactory {
   }
 
   Status Visit(const UnionType& type) {
-    auto n_buffers = type.mode() == UnionMode::SPARSE ? 2 : 3;
-    out_->buffers.resize(n_buffers, buffer_);
+    out_->buffers.resize(2);
+
+    // First buffer is always null
+    out_->buffers[0] = nullptr;
+
+    // Type codes are all zero, so we can use buffer_ which has had it's memory
+    // zeroed
+    out_->buffers[1] = buffer_;
+
+    // For sparse unions, we now create children with the same length as the
+    // parent
+    int64_t child_length = length_;
+    if (type.mode() == UnionMode::DENSE) {
+      // For dense unions, we set the offsets to all zero and create children
+      // with length 1
+      out_->buffers.resize(3);
+      out_->buffers[2] = buffer_;
+
+      child_length = 1;
+    }
     for (int i = 0; i < type_->num_fields(); ++i) {
-      ARROW_ASSIGN_OR_RAISE(out_->child_data[i], CreateChild(i, length_));
+      ARROW_ASSIGN_OR_RAISE(out_->child_data[i], CreateChild(i, child_length));
     }
     return Status::OK();
   }
@@ -275,7 +297,9 @@ class RepeatedArrayFactory {
     return out_;
   }
 
-  Status Visit(const NullType&) { return Status::OK(); }
+  Status Visit(const DataType& type) {
+    return Status::NotImplemented("construction from scalar of type ", *scalar_.type);
+  }
 
   Status Visit(const BooleanType&) {
     ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateBitmap(length_, pool_));
@@ -286,9 +310,17 @@ class RepeatedArrayFactory {
   }
 
   template <typename T>
-  enable_if_number<T, Status> Visit(const T&) {
+  enable_if_t<is_number_type<T>::value || is_fixed_size_binary_type<T>::value ||
+                  is_temporal_type<T>::value,
+              Status>
+  Visit(const T&) {
     auto value = checked_cast<const typename TypeTraits<T>::ScalarType&>(scalar_).value;
     return FinishFixedWidth(&value, sizeof(value));
+  }
+
+  Status Visit(const Decimal128Type&) {
+    auto value = checked_cast<const Decimal128Scalar&>(scalar_).value.ToBytes();
+    return FinishFixedWidth(value.data(), value.size());
   }
 
   template <typename T>
@@ -304,26 +336,60 @@ class RepeatedArrayFactory {
     return Status::OK();
   }
 
-  Status Visit(const FixedSizeBinaryType&) {
-    std::shared_ptr<Buffer> value =
-        checked_cast<const FixedSizeBinaryScalar&>(scalar_).value;
-    return FinishFixedWidth(value->data(), value->size());
+  template <typename T>
+  enable_if_var_size_list<T, Status> Visit(const T& type) {
+    using ScalarType = typename TypeTraits<T>::ScalarType;
+    using ArrayType = typename TypeTraits<T>::ArrayType;
+
+    auto value = checked_cast<const ScalarType&>(scalar_).value;
+
+    ArrayVector values(length_, value);
+    ARROW_ASSIGN_OR_RAISE(auto value_array, Concatenate(values, pool_));
+
+    std::shared_ptr<Buffer> offsets_buffer;
+    auto size = static_cast<typename T::offset_type>(value->length());
+    RETURN_NOT_OK(CreateOffsetsBuffer(size, &offsets_buffer));
+
+    out_ =
+        std::make_shared<ArrayType>(scalar_.type, length_, offsets_buffer, value_array);
+    return Status::OK();
   }
 
-  Status Visit(const Decimal128Type&) {
-    auto value = checked_cast<const Decimal128Scalar&>(scalar_).value.ToBytes();
-    return FinishFixedWidth(value.data(), value.size());
+  Status Visit(const FixedSizeListType& type) {
+    auto value = checked_cast<const FixedSizeListScalar&>(scalar_).value;
+
+    ArrayVector values(length_, value);
+    ARROW_ASSIGN_OR_RAISE(auto value_array, Concatenate(values, pool_));
+
+    out_ = std::make_shared<FixedSizeListArray>(scalar_.type, length_, value_array);
+    return Status::OK();
+  }
+
+  Status Visit(const MapType& type) {
+    auto map_scalar = checked_cast<const MapScalar&>(scalar_);
+    auto struct_array = checked_cast<const StructArray*>(map_scalar.value.get());
+
+    ArrayVector keys(length_, struct_array->field(0));
+    ArrayVector values(length_, struct_array->field(1));
+
+    ARROW_ASSIGN_OR_RAISE(auto key_array, Concatenate(keys, pool_));
+    ARROW_ASSIGN_OR_RAISE(auto value_array, Concatenate(values, pool_));
+
+    std::shared_ptr<Buffer> offsets_buffer;
+    auto size = static_cast<typename MapType::offset_type>(struct_array->length());
+    RETURN_NOT_OK(CreateOffsetsBuffer(size, &offsets_buffer));
+
+    out_ = std::make_shared<MapArray>(scalar_.type, length_, std::move(offsets_buffer),
+                                      std::move(key_array), std::move(value_array));
+    return Status::OK();
   }
 
   Status Visit(const DictionaryType& type) {
     const auto& value = checked_cast<const DictionaryScalar&>(scalar_).value;
-    ARROW_ASSIGN_OR_RAISE(auto dictionary, MakeArrayFromScalar(*value, 1, pool_));
-
-    ARROW_ASSIGN_OR_RAISE(auto zero, MakeScalar(type.index_type(), 0));
-    ARROW_ASSIGN_OR_RAISE(auto indices, MakeArrayFromScalar(*zero, length_, pool_));
-
+    ARROW_ASSIGN_OR_RAISE(auto indices,
+                          MakeArrayFromScalar(*value.index, length_, pool_));
     out_ = std::make_shared<DictionaryArray>(scalar_.type, std::move(indices),
-                                             std::move(dictionary));
+                                             value.dictionary);
     return Status::OK();
   }
 
@@ -335,10 +401,6 @@ class RepeatedArrayFactory {
     }
     out_ = std::make_shared<StructArray>(scalar_.type, length_, std::move(fields));
     return Status::OK();
-  }
-
-  Status Visit(const DataType& type) {
-    return Status::NotImplemented("construction from scalar of type ", *scalar_.type);
   }
 
   template <typename OffsetType>

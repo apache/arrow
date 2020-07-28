@@ -20,17 +20,15 @@
 #include <memory>
 #include <vector>
 
-#include "arrow/compute/cast.h"    // IWYU pragma: keep
-#include "arrow/compute/kernel.h"  // IWYU pragma: keep
+#include "arrow/compute/cast.h"                      // IWYU pragma: keep
+#include "arrow/compute/kernel.h"                    // IWYU pragma: keep
+#include "arrow/compute/kernels/codegen_internal.h"  // IWYU pragma: keep
 
 namespace arrow {
 namespace compute {
 namespace internal {
 
-struct CastState : public KernelState {
-  explicit CastState(const CastOptions& options) : options(options) {}
-  CastOptions options;
-};
+using CastState = OptionsWrapper<CastOptions>;
 
 // See kernels/scalar_cast_*.cc for these
 std::vector<std::shared_ptr<CastFunction>> GetBooleanCasts();

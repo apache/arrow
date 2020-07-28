@@ -135,7 +135,7 @@ fn coerce_data_type(dt: Vec<&DataType>) -> Result<DataType> {
 }
 
 /// Generate schema from JSON field names and inferred data types
-fn generate_schema(spec: HashMap<String, HashSet<DataType>>) -> Result<Arc<Schema>> {
+fn generate_schema(spec: HashMap<String, HashSet<DataType>>) -> Result<SchemaRef> {
     let fields: Result<Vec<Field>> = spec
         .iter()
         .map(|(k, hs)| {
@@ -175,7 +175,7 @@ fn generate_schema(spec: HashMap<String, HashSet<DataType>>) -> Result<Arc<Schem
 pub fn infer_json_schema_from_seekable<R: Read + Seek>(
     reader: &mut BufReader<R>,
     max_read_records: Option<usize>,
-) -> Result<Arc<Schema>> {
+) -> Result<SchemaRef> {
     let schema = infer_json_schema(reader, max_read_records);
     // return the reader seek back to the start
     reader.seek(SeekFrom::Start(0))?;
@@ -212,7 +212,7 @@ pub fn infer_json_schema_from_seekable<R: Read + Seek>(
 pub fn infer_json_schema<R: Read>(
     reader: &mut BufReader<R>,
     max_read_records: Option<usize>,
-) -> Result<Arc<Schema>> {
+) -> Result<SchemaRef> {
     let mut values: HashMap<String, HashSet<DataType>> = HashMap::new();
 
     let mut line = String::new();
@@ -360,9 +360,10 @@ pub fn infer_json_schema<R: Read>(
 }
 
 /// JSON file reader
+#[derive(Debug)]
 pub struct Reader<R: Read> {
     /// Explicit schema for the JSON file
-    schema: Arc<Schema>,
+    schema: SchemaRef,
     /// Optional projection for which columns to load (case-sensitive names)
     projection: Option<Vec<String>>,
     /// File reader
@@ -378,7 +379,7 @@ impl<R: Read> Reader<R> {
     /// inference, use `ReaderBuilder`.
     pub fn new(
         reader: R,
-        schema: Arc<Schema>,
+        schema: SchemaRef,
         batch_size: usize,
         projection: Option<Vec<String>>,
     ) -> Self {
@@ -387,7 +388,7 @@ impl<R: Read> Reader<R> {
 
     /// Returns the schema of the reader, useful for getting the schema without reading
     /// record batches
-    pub fn schema(&self) -> Arc<Schema> {
+    pub fn schema(&self) -> SchemaRef {
         match &self.projection {
             Some(projection) => {
                 let fields = self.schema.fields();
@@ -413,7 +414,7 @@ impl<R: Read> Reader<R> {
     /// To customize the schema, such as to enable schema inference, use `ReaderBuilder`
     pub fn from_buf_reader(
         reader: BufReader<R>,
-        schema: Arc<Schema>,
+        schema: SchemaRef,
         batch_size: usize,
         projection: Option<Vec<String>>,
     ) -> Self {
@@ -426,6 +427,7 @@ impl<R: Read> Reader<R> {
     }
 
     /// Read the next batch of records
+    #[allow(clippy::should_implement_trait)]
     pub fn next(&mut self) -> Result<Option<RecordBatch>> {
         let mut rows: Vec<Value> = Vec::with_capacity(self.batch_size);
         let mut line = String::new();
@@ -445,7 +447,7 @@ impl<R: Read> Reader<R> {
         }
 
         let rows = &rows[..];
-        let projection = self.projection.clone().unwrap_or_else(|| vec![]);
+        let projection = self.projection.clone().unwrap_or_else(Vec::new);
         let arrays: Result<Vec<ArrayRef>> = self
             .schema
             .clone()
@@ -557,6 +559,10 @@ impl<R: Read> Reader<R> {
                                 DataType::Int16 => self.build_dictionary_array::<Int16Type>(rows, field.name()),
                                 DataType::Int32 => self.build_dictionary_array::<Int32Type>(rows, field.name()),
                                 DataType::Int64 => self.build_dictionary_array::<Int64Type>(rows, field.name()),
+                                DataType::UInt8 => self.build_dictionary_array::<UInt8Type>(rows, field.name()),
+                                DataType::UInt16 => self.build_dictionary_array::<UInt16Type>(rows, field.name()),
+                                DataType::UInt32 => self.build_dictionary_array::<UInt32Type>(rows, field.name()),
+                                DataType::UInt64 => self.build_dictionary_array::<UInt64Type>(rows, field.name()),
                                 _ => Err(ArrowError::JsonError("unsupported dictionary key type".to_string()))
                             }
                         } else {
@@ -729,12 +735,13 @@ impl<R: Read> Reader<R> {
 }
 
 /// JSON file reader builder
+#[derive(Debug)]
 pub struct ReaderBuilder {
     /// Optional schema for the JSON file
     ///
     /// If the schema is not supplied, the reader will try to infer the schema
     /// based on the JSON structure.
-    schema: Option<Arc<Schema>>,
+    schema: Option<SchemaRef>,
     /// Optional maximum number of records to read during schema inference
     ///
     /// If a number is not provided, all the records are read.
@@ -787,7 +794,7 @@ impl ReaderBuilder {
     }
 
     /// Set the JSON file's schema
-    pub fn with_schema(mut self, schema: Arc<Schema>) -> Self {
+    pub fn with_schema(mut self, schema: SchemaRef) -> Self {
         self.schema = Some(schema);
         self
     }
@@ -852,7 +859,7 @@ mod tests {
 
         let schema = reader.schema();
         let batch_schema = batch.schema();
-        assert_eq!(&schema, batch_schema);
+        assert_eq!(schema, batch_schema);
 
         let a = schema.column_with_name("a").unwrap();
         assert_eq!(0, a.0);
@@ -910,7 +917,7 @@ mod tests {
 
         let schema = reader.schema();
         let batch_schema = batch.schema();
-        assert_eq!(&schema, batch_schema);
+        assert_eq!(schema, batch_schema);
 
         let a = schema.column_with_name("a").unwrap();
         assert_eq!(&DataType::Int64, a.1.data_type());
@@ -1037,7 +1044,7 @@ mod tests {
         assert_eq!(12, batch.num_rows());
 
         let schema = batch.schema();
-        assert_eq!(&reader_schema, schema);
+        assert_eq!(reader_schema, schema);
 
         let a = schema.column_with_name("a").unwrap();
         assert_eq!(0, a.0);
@@ -1238,7 +1245,7 @@ mod tests {
 
         let schema = reader.schema();
         let batch_schema = batch.schema();
-        assert_eq!(&schema, batch_schema);
+        assert_eq!(schema, batch_schema);
 
         let d = schema.column_with_name("d").unwrap();
         assert_eq!(
@@ -1296,7 +1303,7 @@ mod tests {
 
         let schema = reader.schema();
         let batch_schema = batch.schema();
-        assert_eq!(&schema, batch_schema);
+        assert_eq!(schema, batch_schema);
 
         let d = schema.column_with_name("d").unwrap();
         assert_eq!(
@@ -1325,7 +1332,7 @@ mod tests {
 
         let schema = reader.schema();
         let batch_schema = batch.schema();
-        assert_eq!(&schema, batch_schema);
+        assert_eq!(schema, batch_schema);
 
         let d = schema.column_with_name("d").unwrap();
         assert_eq!(
@@ -1354,7 +1361,7 @@ mod tests {
 
         let schema = reader.schema();
         let batch_schema = batch.schema();
-        assert_eq!(&schema, batch_schema);
+        assert_eq!(schema, batch_schema);
 
         let d = schema.column_with_name("d").unwrap();
         assert_eq!(
@@ -1363,6 +1370,92 @@ mod tests {
         );
     }
 
+    #[test]
+    fn test_dictionary_from_json_uint8() {
+        let schema = Schema::new(vec![Field::new(
+            "d",
+            Dictionary(Box::new(DataType::UInt8), Box::new(DataType::Utf8)),
+            true,
+        )]);
+        let builder = ReaderBuilder::new()
+            .with_schema(Arc::new(schema))
+            .with_batch_size(64);
+        let mut reader: Reader<File> = builder
+            .build::<File>(File::open("test/data/basic_nulls.json").unwrap())
+            .unwrap();
+        let batch = reader.next().unwrap().unwrap();
+
+        assert_eq!(1, batch.num_columns());
+        assert_eq!(12, batch.num_rows());
+
+        let schema = reader.schema();
+        let batch_schema = batch.schema();
+        assert_eq!(schema, batch_schema);
+
+        let d = schema.column_with_name("d").unwrap();
+        assert_eq!(
+            &Dictionary(Box::new(DataType::UInt8), Box::new(DataType::Utf8)),
+            d.1.data_type()
+        );
+    }
+
+    #[test]
+    fn test_dictionary_from_json_uint32() {
+        let schema = Schema::new(vec![Field::new(
+            "d",
+            Dictionary(Box::new(DataType::UInt32), Box::new(DataType::Utf8)),
+            true,
+        )]);
+        let builder = ReaderBuilder::new()
+            .with_schema(Arc::new(schema))
+            .with_batch_size(64);
+        let mut reader: Reader<File> = builder
+            .build::<File>(File::open("test/data/basic_nulls.json").unwrap())
+            .unwrap();
+        let batch = reader.next().unwrap().unwrap();
+
+        assert_eq!(1, batch.num_columns());
+        assert_eq!(12, batch.num_rows());
+
+        let schema = reader.schema();
+        let batch_schema = batch.schema();
+        assert_eq!(schema, batch_schema);
+
+        let d = schema.column_with_name("d").unwrap();
+        assert_eq!(
+            &Dictionary(Box::new(DataType::UInt32), Box::new(DataType::Utf8)),
+            d.1.data_type()
+        );
+    }
+
+    #[test]
+    fn test_dictionary_from_json_uint64() {
+        let schema = Schema::new(vec![Field::new(
+            "d",
+            Dictionary(Box::new(DataType::UInt64), Box::new(DataType::Utf8)),
+            true,
+        )]);
+        let builder = ReaderBuilder::new()
+            .with_schema(Arc::new(schema))
+            .with_batch_size(64);
+        let mut reader: Reader<File> = builder
+            .build::<File>(File::open("test/data/basic_nulls.json").unwrap())
+            .unwrap();
+        let batch = reader.next().unwrap().unwrap();
+
+        assert_eq!(1, batch.num_columns());
+        assert_eq!(12, batch.num_rows());
+
+        let schema = reader.schema();
+        let batch_schema = batch.schema();
+        assert_eq!(schema, batch_schema);
+
+        let d = schema.column_with_name("d").unwrap();
+        assert_eq!(
+            &Dictionary(Box::new(DataType::UInt64), Box::new(DataType::Utf8)),
+            d.1.data_type()
+        );
+    }
     #[test]
     fn test_with_multiple_batches() {
         let builder = ReaderBuilder::new()

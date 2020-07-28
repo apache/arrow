@@ -132,7 +132,6 @@ impl<'a> TypeCoercionRule<'a> {
                 alias.to_owned(),
             )),
             Expr::Literal(_) => Ok(expr.clone()),
-            Expr::UnresolvedColumn(_) => Ok(expr.clone()),
             Expr::Not(_) => Ok(expr.clone()),
             Expr::Sort { .. } => Ok(expr.clone()),
             Expr::Wildcard { .. } => Err(ExecutionError::General(
@@ -183,7 +182,6 @@ mod tests {
     use super::*;
     use crate::execution::context::ExecutionContext;
     use crate::execution::physical_plan::csv::CsvReadOptions;
-    use crate::logicalplan::Expr::*;
     use crate::logicalplan::{col, Operator};
     use crate::test::arrow_testdata_path;
     use arrow::datatypes::{DataType, Field, Schema};
@@ -214,12 +212,12 @@ mod tests {
         binary_cast_test(
             DataType::Int32,
             DataType::Int64,
-            "CAST(#0 AS Int64) Plus #1",
+            "CAST(#c0 AS Int64) Plus #c1",
         );
         binary_cast_test(
             DataType::Int64,
             DataType::Int32,
-            "#0 Plus CAST(#1 AS Int64)",
+            "#c0 Plus CAST(#c1 AS Int64)",
         );
     }
 
@@ -228,12 +226,12 @@ mod tests {
         binary_cast_test(
             DataType::Float32,
             DataType::Float64,
-            "CAST(#0 AS Float64) Plus #1",
+            "CAST(#c0 AS Float64) Plus #c1",
         );
         binary_cast_test(
             DataType::Float64,
             DataType::Float32,
-            "#0 Plus CAST(#1 AS Float64)",
+            "#c0 Plus CAST(#c1 AS Float64)",
         );
     }
 
@@ -242,12 +240,12 @@ mod tests {
         binary_cast_test(
             DataType::Int32,
             DataType::Float32,
-            "CAST(#0 AS Float32) Plus #1",
+            "CAST(#c0 AS Float32) Plus #c1",
         );
         binary_cast_test(
             DataType::Float32,
             DataType::Int32,
-            "#0 Plus CAST(#1 AS Float32)",
+            "#c0 Plus CAST(#c1 AS Float32)",
         );
     }
 
@@ -256,12 +254,12 @@ mod tests {
         binary_cast_test(
             DataType::UInt32,
             DataType::Int64,
-            "CAST(#0 AS Int64) Plus #1",
+            "CAST(#c0 AS Int64) Plus #c1",
         );
         binary_cast_test(
             DataType::Int64,
             DataType::UInt32,
-            "#0 Plus CAST(#1 AS Int64)",
+            "#c0 Plus CAST(#c1 AS Int64)",
         );
     }
 
@@ -272,9 +270,9 @@ mod tests {
         ]);
 
         let expr = Expr::BinaryExpr {
-            left: Box::new(Column(0)),
+            left: Box::new(col("c0")),
             op: Operator::Plus,
-            right: Box::new(Column(1)),
+            right: Box::new(col("c1")),
         };
 
         let ctx = ExecutionContext::new();

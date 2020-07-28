@@ -108,7 +108,7 @@ G_DEFINE_TYPE_WITH_CODE(GArrowInputStream,
                         G_IMPLEMENT_INTERFACE(GARROW_TYPE_FILE,
                                               garrow_input_stream_file_interface_init)
                         G_IMPLEMENT_INTERFACE(GARROW_TYPE_READABLE,
-                                              garrow_input_stream_readable_interface_init));
+                                              garrow_input_stream_readable_interface_init))
 
 #define GARROW_INPUT_STREAM_GET_PRIVATE(obj)         \
   static_cast<GArrowInputStreamPrivate *>(           \

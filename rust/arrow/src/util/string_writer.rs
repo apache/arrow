@@ -62,6 +62,7 @@
 
 use std::io::{Error, ErrorKind, Result, Write};
 
+#[derive(Debug)]
 pub struct StringWriter {
     data: String,
 }
@@ -71,6 +72,12 @@ impl StringWriter {
         StringWriter {
             data: String::new(),
         }
+    }
+}
+
+impl Default for StringWriter {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

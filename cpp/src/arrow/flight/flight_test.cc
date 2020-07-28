@@ -36,6 +36,7 @@
 #include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/make_unique.h"
 
 #ifdef GRPCPP_GRPCPP_H
@@ -375,7 +376,20 @@ class TestFlightClient : public ::testing::Test {
     for (int i = 0; i < num_batches; ++i) {
       ASSERT_OK(stream->Next(&chunk));
       ASSERT_NE(nullptr, chunk.data);
+#if !defined(__MINGW32__)
       ASSERT_BATCHES_EQUAL(*expected_batches[i], *chunk.data);
+#else
+      // In MINGW32, the following code does not have the reproducibility at the LSB
+      // even when this is called twice with the same seed.
+      // As a workaround, use approxEqual
+      //   /* from GenerateTypedData in random.cc */
+      //   std::default_random_engine rng(seed);  // seed = 282475250
+      //   std::uniform_real_distribution<double> dist;
+      //   std::generate(data, data + n,          // n = 10
+      //                 [&dist, &rng] { return static_cast<ValueType>(dist(rng)); });
+      //   /* data[1] = 0x40852cdfe23d3976 or 0x40852cdfe23d3975 */
+      ASSERT_BATCHES_APPROX_EQUAL(*expected_batches[i], *chunk.data);
+#endif
     }
 
     // Stream exhausted
@@ -430,6 +444,8 @@ class MetadataTestServer : public FlightServerBase {
     BatchVector batches;
     if (request.ticket == "dicts") {
       RETURN_NOT_OK(ExampleDictBatches(&batches));
+    } else if (request.ticket == "floats") {
+      RETURN_NOT_OK(ExampleFloatBatches(&batches));
     } else {
       RETURN_NOT_OK(ExampleIntBatches(&batches));
     }
@@ -464,10 +480,82 @@ class MetadataTestServer : public FlightServerBase {
   }
 };
 
+// Server for testing custom IPC options support
+class OptionsTestServer : public FlightServerBase {
+  Status DoGet(const ServerCallContext& context, const Ticket& request,
+               std::unique_ptr<FlightDataStream>* data_stream) override {
+    BatchVector batches;
+    RETURN_NOT_OK(ExampleNestedBatches(&batches));
+    auto reader = std::make_shared<BatchIterator>(batches[0]->schema(), batches);
+    *data_stream = std::unique_ptr<FlightDataStream>(new RecordBatchStream(reader));
+    return Status::OK();
+  }
+
+  // Just echo the number of batches written. The client will try to
+  // call this method with different write options set.
+  Status DoPut(const ServerCallContext& context,
+               std::unique_ptr<FlightMessageReader> reader,
+               std::unique_ptr<FlightMetadataWriter> writer) override {
+    FlightStreamChunk chunk;
+    int counter = 0;
+    while (true) {
+      RETURN_NOT_OK(reader->Next(&chunk));
+      if (chunk.data == nullptr) break;
+      counter++;
+    }
+    auto metadata = Buffer::FromString(std::to_string(counter));
+    return writer->WriteMetadata(*metadata);
+  }
+
+  // Echo client data, but with write options set to limit the nesting
+  // level.
+  Status DoExchange(const ServerCallContext& context,
+                    std::unique_ptr<FlightMessageReader> reader,
+                    std::unique_ptr<FlightMessageWriter> writer) override {
+    FlightStreamChunk chunk;
+    auto options = ipc::IpcWriteOptions::Defaults();
+    options.max_recursion_depth = 1;
+    bool begun = false;
+    while (true) {
+      RETURN_NOT_OK(reader->Next(&chunk));
+      if (!chunk.data && !chunk.app_metadata) {
+        break;
+      }
+      if (!begun && chunk.data) {
+        begun = true;
+        RETURN_NOT_OK(writer->Begin(chunk.data->schema(), options));
+      }
+      if (chunk.data && chunk.app_metadata) {
+        RETURN_NOT_OK(writer->WriteWithMetadata(*chunk.data, chunk.app_metadata));
+      } else if (chunk.data) {
+        RETURN_NOT_OK(writer->WriteRecordBatch(*chunk.data));
+      } else if (chunk.app_metadata) {
+        RETURN_NOT_OK(writer->WriteMetadata(chunk.app_metadata));
+      }
+    }
+    return Status::OK();
+  }
+};
+
 class TestMetadata : public ::testing::Test {
  public:
   void SetUp() {
     ASSERT_OK(MakeServer<MetadataTestServer>(
+        &server_, &client_, [](FlightServerOptions* options) { return Status::OK(); },
+        [](FlightClientOptions* options) { return Status::OK(); }));
+  }
+
+  void TearDown() { ASSERT_OK(server_->Shutdown()); }
+
+ protected:
+  std::unique_ptr<FlightClient> client_;
+  std::unique_ptr<FlightServerBase> server_;
+};
+
+class TestOptions : public ::testing::Test {
+ public:
+  void SetUp() {
+    ASSERT_OK(MakeServer<OptionsTestServer>(
         &server_, &client_, [](FlightServerOptions* options) { return Status::OK(); },
         [](FlightClientOptions* options) { return Status::OK(); }));
   }
@@ -989,6 +1077,20 @@ TEST_F(TestFlightClient, DoGetInts) {
   CheckDoGet(descr, expected_batches, check_endpoints);
 }
 
+TEST_F(TestFlightClient, DoGetFloats) {
+  auto descr = FlightDescriptor::Path({"examples", "floats"});
+  BatchVector expected_batches;
+  ASSERT_OK(ExampleFloatBatches(&expected_batches));
+
+  auto check_endpoints = [](const std::vector<FlightEndpoint>& endpoints) {
+    // One endpoint in the example FlightInfo
+    ASSERT_EQ(1, endpoints.size());
+    AssertEqual(Ticket{"ticket-floats-1"}, endpoints[0].ticket);
+  };
+
+  CheckDoGet(descr, expected_batches, check_endpoints);
+}
+
 TEST_F(TestFlightClient, DoGetDicts) {
   auto descr = FlightDescriptor::Path({"examples", "dicts"});
   BatchVector expected_batches;
@@ -1355,9 +1457,33 @@ TEST_F(TestFlightClient, NoTimeout) {
 TEST_F(TestDoPut, DoPutInts) {
   auto descr = FlightDescriptor::Path({"ints"});
   BatchVector batches;
-  auto a1 = ArrayFromJSON(int32(), "[4, 5, 6, null]");
-  auto schema = arrow::schema({field("f1", a1->type())});
-  batches.push_back(RecordBatch::Make(schema, a1->length(), {a1}));
+  auto a0 = ArrayFromJSON(int8(), "[0, 1, 127, -128, null]");
+  auto a1 = ArrayFromJSON(uint8(), "[0, 1, 127, 255, null]");
+  auto a2 = ArrayFromJSON(int16(), "[0, 258, 32767, -32768, null]");
+  auto a3 = ArrayFromJSON(uint16(), "[0, 258, 32767, 65535, null]");
+  auto a4 = ArrayFromJSON(int32(), "[0, 65538, 2147483647, -2147483648, null]");
+  auto a5 = ArrayFromJSON(uint32(), "[0, 65538, 2147483647, 4294967295, null]");
+  auto a6 = ArrayFromJSON(
+      int64(), "[0, 4294967298, 9223372036854775807, -9223372036854775808, null]");
+  auto a7 = ArrayFromJSON(
+      uint64(), "[0, 4294967298, 9223372036854775807, 18446744073709551615, null]");
+  auto schema = arrow::schema({field("f0", a0->type()), field("f1", a1->type()),
+                               field("f2", a2->type()), field("f3", a3->type()),
+                               field("f4", a4->type()), field("f5", a5->type()),
+                               field("f6", a6->type()), field("f7", a7->type())});
+  batches.push_back(
+      RecordBatch::Make(schema, a0->length(), {a0, a1, a2, a3, a4, a5, a6, a7}));
+
+  CheckDoPut(descr, schema, batches);
+}
+
+TEST_F(TestDoPut, DoPutFloats) {
+  auto descr = FlightDescriptor::Path({"floats"});
+  BatchVector batches;
+  auto a0 = ArrayFromJSON(float32(), "[0, 1.2, -3.4, 5.6, null]");
+  auto a1 = ArrayFromJSON(float64(), "[0, 1.2, -3.4, 5.6, null]");
+  auto schema = arrow::schema({field("f0", a0->type()), field("f1", a1->type())});
+  batches.push_back(RecordBatch::Make(schema, a0->length(), {a0, a1}));
 
   CheckDoPut(descr, schema, batches);
 }
@@ -1805,6 +1931,88 @@ TEST_F(TestMetadata, DoPutReadMetadata) {
   // As opposed to DoPutDrainMetadata, now we've read the messages, so
   // make sure this still closes as expected.
   ASSERT_OK(writer->Close());
+}
+
+TEST_F(TestOptions, DoGetReadOptions) {
+  // Call DoGet, but with a very low read nesting depth set to fail the call.
+  Ticket ticket{""};
+  auto options = FlightCallOptions();
+  options.read_options.max_recursion_depth = 1;
+  std::unique_ptr<FlightStreamReader> stream;
+  ASSERT_OK(client_->DoGet(options, ticket, &stream));
+  FlightStreamChunk chunk;
+  ASSERT_RAISES(Invalid, stream->Next(&chunk));
+}
+
+TEST_F(TestOptions, DoPutWriteOptions) {
+  // Call DoPut, but with a very low write nesting depth set to fail the call.
+  std::unique_ptr<FlightStreamWriter> writer;
+  std::unique_ptr<FlightMetadataReader> reader;
+  BatchVector expected_batches;
+  ASSERT_OK(ExampleNestedBatches(&expected_batches));
+
+  auto options = FlightCallOptions();
+  options.write_options.max_recursion_depth = 1;
+  ASSERT_OK(client_->DoPut(options, FlightDescriptor{}, expected_batches[0]->schema(),
+                           &writer, &reader));
+  for (const auto& batch : expected_batches) {
+    ASSERT_RAISES(Invalid, writer->WriteRecordBatch(*batch));
+  }
+}
+
+TEST_F(TestOptions, DoExchangeClientWriteOptions) {
+  // Call DoExchange and write nested data, but with a very low nesting depth set to
+  // fail the call.
+  auto options = FlightCallOptions();
+  options.write_options.max_recursion_depth = 1;
+  auto descr = FlightDescriptor::Command("");
+  std::unique_ptr<FlightStreamReader> reader;
+  std::unique_ptr<FlightStreamWriter> writer;
+  ASSERT_OK(client_->DoExchange(options, descr, &writer, &reader));
+  BatchVector batches;
+  ASSERT_OK(ExampleNestedBatches(&batches));
+  ASSERT_OK(writer->Begin(batches[0]->schema()));
+  for (const auto& batch : batches) {
+    ASSERT_RAISES(Invalid, writer->WriteRecordBatch(*batch));
+  }
+  ASSERT_OK(writer->DoneWriting());
+  ASSERT_OK(writer->Close());
+}
+
+TEST_F(TestOptions, DoExchangeClientWriteOptionsBegin) {
+  // Call DoExchange and write nested data, but with a very low nesting depth set to
+  // fail the call. Here the options are set explicitly when we write data and not in the
+  // call options.
+  auto descr = FlightDescriptor::Command("");
+  std::unique_ptr<FlightStreamReader> reader;
+  std::unique_ptr<FlightStreamWriter> writer;
+  ASSERT_OK(client_->DoExchange(descr, &writer, &reader));
+  BatchVector batches;
+  ASSERT_OK(ExampleNestedBatches(&batches));
+  auto options = ipc::IpcWriteOptions::Defaults();
+  options.max_recursion_depth = 1;
+  ASSERT_OK(writer->Begin(batches[0]->schema(), options));
+  for (const auto& batch : batches) {
+    ASSERT_RAISES(Invalid, writer->WriteRecordBatch(*batch));
+  }
+  ASSERT_OK(writer->DoneWriting());
+  ASSERT_OK(writer->Close());
+}
+
+TEST_F(TestOptions, DoExchangeServerWriteOptions) {
+  // Call DoExchange and write nested data, but with a very low nesting depth set to fail
+  // the call. (The low nesting depth is set on the server side.)
+  auto descr = FlightDescriptor::Command("");
+  std::unique_ptr<FlightStreamReader> reader;
+  std::unique_ptr<FlightStreamWriter> writer;
+  ASSERT_OK(client_->DoExchange(descr, &writer, &reader));
+  BatchVector batches;
+  ASSERT_OK(ExampleNestedBatches(&batches));
+  ASSERT_OK(writer->Begin(batches[0]->schema()));
+  FlightStreamChunk chunk;
+  ASSERT_OK(writer->WriteRecordBatch(*batches[0]));
+  ASSERT_OK(writer->DoneWriting());
+  ASSERT_RAISES(Invalid, writer->Close());
 }
 
 TEST_F(TestRejectServerMiddleware, Rejected) {

@@ -19,9 +19,19 @@
 #' @include chunked-array.R
 #' @include scalar.R
 
-call_function <- function(function_name, ..., options = list()) {
+call_function <- function(function_name, ..., args = list(...), options = empty_named_list()) {
   assert_that(is.string(function_name))
-  compute__CallFunction(function_name, list(...), options)
+  assert_that(is.list(options), !is.null(names(options)))
+
+  datum_classes <- c("Array", "ChunkedArray", "RecordBatch", "Table", "Scalar")
+  valid_args <- map_lgl(args, ~inherits(., datum_classes))
+  if (!all(valid_args)) {
+    # Lame, just pick one to report
+    first_bad <- min(which(!valid_args))
+    stop("Argument ", first_bad, " is of class ", head(class(args[[first_bad]]), 1), " but it must be one of ", oxford_paste(datum_classes, "or"), call. = FALSE)
+  }
+
+  compute__CallFunction(function_name, args, options)
 }
 
 #' @export
@@ -44,12 +54,12 @@ mean.Scalar <- mean.Array
 
 #' @export
 min.Array <- function(..., na.rm = FALSE) {
-  scalar_aggregate("minmax", ..., na.rm = na.rm)$GetFieldByName("min")
+  scalar_aggregate("min_max", ..., na.rm = na.rm)$GetFieldByName("min")
 }
 
 #' @export
 max.Array <- function(..., na.rm = FALSE) {
-  scalar_aggregate("minmax", ..., na.rm = na.rm)$GetFieldByName("max")
+  scalar_aggregate("min_max", ..., na.rm = na.rm)$GetFieldByName("max")
 }
 
 scalar_aggregate <- function(FUN, ..., na.rm = FALSE) {
@@ -58,15 +68,10 @@ scalar_aggregate <- function(FUN, ..., na.rm = FALSE) {
     if (FUN %in% c("mean", "sum")) {
       # Arrow sum/mean function always drops NAs so handle that here
       # https://issues.apache.org/jira/browse/ARROW-9054
-      return(Scalar$create(NA_integer_, type = a$type))
+      return(Scalar$create(NA_real_))
     }
   }
 
-  if (inherits(a$type, "Boolean")) {
-    # Bool sum/mean not implemented so cast to int
-    # https://issues.apache.org/jira/browse/ARROW-9055
-    a <- a$cast(int8())
-  }
   Scalar$create(call_function(FUN, a, options = list(na.rm = na.rm)))
 }
 

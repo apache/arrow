@@ -71,8 +71,6 @@ public class TypeLayout {
         switch (type.getMode()) {
           case Dense:
             vectors = asList(
-                // TODO: validate this
-                BufferLayout.validityVector(),
                 BufferLayout.typeBuffer(),
                 BufferLayout.offsetBuffer() // offset to find the vector
             );
@@ -106,6 +104,15 @@ public class TypeLayout {
         List<BufferLayout> vectors = asList(
             BufferLayout.validityVector(),
             BufferLayout.offsetBuffer()
+        );
+        return new TypeLayout(vectors);
+      }
+
+      @Override
+      public TypeLayout visit(ArrowType.LargeList type) {
+        List<BufferLayout> vectors = asList(
+            BufferLayout.validityVector(),
+            BufferLayout.largeOffsetBuffer()
         );
         return new TypeLayout(vectors);
       }
@@ -269,7 +276,7 @@ public class TypeLayout {
         switch (type.getMode()) {
           case Dense:
             // TODO: validate this
-            return 3;
+            return 2;
           case Sparse:
             // type buffer
             return 1;
@@ -291,6 +298,12 @@ public class TypeLayout {
 
       @Override
       public Integer visit(org.apache.arrow.vector.types.pojo.ArrowType.List type) {
+        // validity buffer + offset buffer
+        return 2;
+      }
+
+      @Override
+      public Integer visit(ArrowType.LargeList type) {
         // validity buffer + offset buffer
         return 2;
       }

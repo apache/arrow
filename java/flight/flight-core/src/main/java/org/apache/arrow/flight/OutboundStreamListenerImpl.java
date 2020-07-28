@@ -23,6 +23,7 @@ import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.VectorUnloader;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
+import org.apache.arrow.vector.ipc.message.IpcOption;
 
 import io.grpc.stub.CallStreamObserver;
 
@@ -33,6 +34,7 @@ abstract class OutboundStreamListenerImpl implements OutboundStreamListener {
   private final FlightDescriptor descriptor; // nullable
   protected final CallStreamObserver<ArrowMessage> responseObserver;
   protected volatile VectorUnloader unloader; // null until stream started
+  protected IpcOption option; // null until stream started
 
   OutboundStreamListenerImpl(FlightDescriptor descriptor, CallStreamObserver<ArrowMessage> responseObserver) {
     Preconditions.checkNotNull(responseObserver, "responseObserver must be provided");
@@ -47,14 +49,14 @@ abstract class OutboundStreamListenerImpl implements OutboundStreamListener {
   }
 
   @Override
-  public void start(VectorSchemaRoot root) {
-    start(root, new DictionaryProvider.MapDictionaryProvider());
-  }
-
-  @Override
-  public void start(VectorSchemaRoot root, DictionaryProvider dictionaries) {
+  public void start(VectorSchemaRoot root, DictionaryProvider dictionaries, IpcOption option) {
+    this.option = option;
     try {
-      DictionaryUtils.generateSchemaMessages(root.getSchema(), descriptor, dictionaries, responseObserver::onNext);
+      DictionaryUtils.generateSchemaMessages(root.getSchema(), descriptor, dictionaries, option,
+          responseObserver::onNext);
+    } catch (RuntimeException e) {
+      // Propagate runtime exceptions, like those raised when trying to write unions with V4 metadata
+      throw e;
     } catch (Exception e) {
       // Only happens if closing buffers somehow fails - indicates application is an unknown state so propagate
       // the exception
@@ -86,7 +88,7 @@ abstract class OutboundStreamListenerImpl implements OutboundStreamListener {
     // close is a no-op if the message has been written to gRPC, otherwise frees the associated buffers
     // in some code paths (e.g. if the call is cancelled), gRPC does not write the message, so we need to clean up
     // ourselves. Normally, writing the ArrowMessage will transfer ownership of the data to gRPC/Netty.
-    try (final ArrowMessage message = new ArrowMessage(unloader.getRecordBatch(), metadata)) {
+    try (final ArrowMessage message = new ArrowMessage(unloader.getRecordBatch(), metadata, option)) {
       responseObserver.onNext(message);
     } catch (Exception e) {
       // This exception comes from ArrowMessage#close, not responseObserver#onNext.

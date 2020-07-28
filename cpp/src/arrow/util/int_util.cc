@@ -22,14 +22,20 @@
 #include <limits>
 
 #include "arrow/array/data.h"
+#include "arrow/datum.h"
 #include "arrow/type.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/bit_block_counter.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/ubsan.h"
 
 namespace arrow {
 namespace internal {
+
+using internal::checked_cast;
 
 static constexpr uint64_t max_uint8 =
     static_cast<uint64_t>(std::numeric_limits<uint8_t>::max());
@@ -429,15 +435,23 @@ void TransposeInts(const InputInt* src, OutputInt* dest, int64_t length,
       const SRC* source, DEST* dest, int64_t length, const int32_t* transpose_map);
 
 #define INSTANTIATE_ALL_DEST(DEST) \
+  INSTANTIATE(uint8_t, DEST)       \
   INSTANTIATE(int8_t, DEST)        \
+  INSTANTIATE(uint16_t, DEST)      \
   INSTANTIATE(int16_t, DEST)       \
+  INSTANTIATE(uint32_t, DEST)      \
   INSTANTIATE(int32_t, DEST)       \
+  INSTANTIATE(uint64_t, DEST)      \
   INSTANTIATE(int64_t, DEST)
 
-#define INSTANTIATE_ALL()       \
-  INSTANTIATE_ALL_DEST(int8_t)  \
-  INSTANTIATE_ALL_DEST(int16_t) \
-  INSTANTIATE_ALL_DEST(int32_t) \
+#define INSTANTIATE_ALL()        \
+  INSTANTIATE_ALL_DEST(uint8_t)  \
+  INSTANTIATE_ALL_DEST(int8_t)   \
+  INSTANTIATE_ALL_DEST(uint16_t) \
+  INSTANTIATE_ALL_DEST(int16_t)  \
+  INSTANTIATE_ALL_DEST(uint32_t) \
+  INSTANTIATE_ALL_DEST(int32_t)  \
+  INSTANTIATE_ALL_DEST(uint64_t) \
   INSTANTIATE_ALL_DEST(int64_t)
 
 INSTANTIATE_ALL()
@@ -446,8 +460,13 @@ INSTANTIATE_ALL()
 #undef INSTANTIATE_ALL
 #undef INSTANTIATE_ALL_DEST
 
+template <typename T>
+std::string FormatInt(T val) {
+  return std::to_string(val);
+}
+
 template <typename IndexCType, bool IsSigned = std::is_signed<IndexCType>::value>
-Status IndexBoundsCheckImpl(const ArrayData& indices, uint64_t upper_limit) {
+Status CheckIndexBoundsImpl(const ArrayData& indices, uint64_t upper_limit) {
   // For unsigned integers, if the values array is larger than the maximum
   // index value (e.g. especially for UINT8 / UINT16), then there is no need to
   // boundscheck.
@@ -461,43 +480,54 @@ Status IndexBoundsCheckImpl(const ArrayData& indices, uint64_t upper_limit) {
   if (indices.buffers[0]) {
     bitmap = indices.buffers[0]->data();
   }
-  auto IsOutOfBounds = [&](int64_t i) -> bool {
-    return (
-        (IsSigned && indices_data[i] < 0) ||
-        (indices_data[i] >= 0 && static_cast<uint64_t>(indices_data[i]) >= upper_limit));
+  auto IsOutOfBounds = [&](IndexCType val) -> bool {
+    return ((IsSigned && val < 0) ||
+            (val >= 0 && static_cast<uint64_t>(val) >= upper_limit));
+  };
+  auto IsOutOfBoundsMaybeNull = [&](IndexCType val, bool is_valid) -> bool {
+    return is_valid && ((IsSigned && val < 0) ||
+                        (val >= 0 && static_cast<uint64_t>(val) >= upper_limit));
   };
   OptionalBitBlockCounter indices_bit_counter(bitmap, indices.offset, indices.length);
   int64_t position = 0;
+  int64_t offset_position = indices.offset;
   while (position < indices.length) {
     BitBlockCount block = indices_bit_counter.NextBlock();
     bool block_out_of_bounds = false;
     if (block.popcount == block.length) {
       // Fast path: branchless
       for (int64_t i = 0; i < block.length; ++i) {
-        block_out_of_bounds |= IsOutOfBounds(i);
+        block_out_of_bounds |= IsOutOfBounds(indices_data[i]);
       }
     } else if (block.popcount > 0) {
       // Indices have nulls, must only boundscheck non-null values
-      for (int64_t i = 0; i < block.length; ++i) {
-        if (BitUtil::GetBit(bitmap, indices.offset + position + i)) {
-          block_out_of_bounds |= IsOutOfBounds(i);
+      int64_t i = 0;
+      for (int64_t chunk = 0; chunk < block.length / 8; ++chunk) {
+        // Let the compiler unroll this
+        for (int j = 0; j < 8; ++j) {
+          block_out_of_bounds |= IsOutOfBoundsMaybeNull(
+              indices_data[i], BitUtil::GetBit(bitmap, offset_position + i));
+          ++i;
         }
+      }
+      for (; i < block.length; ++i) {
+        block_out_of_bounds |= IsOutOfBoundsMaybeNull(
+            indices_data[i], BitUtil::GetBit(bitmap, offset_position + i));
       }
     }
     if (ARROW_PREDICT_FALSE(block_out_of_bounds)) {
       if (indices.GetNullCount() > 0) {
         for (int64_t i = 0; i < block.length; ++i) {
-          if (BitUtil::GetBit(bitmap, indices.offset + position + i)) {
-            if (IsOutOfBounds(i)) {
-              return Status::IndexError("Index ", static_cast<int64_t>(indices_data[i]),
-                                        " out of bounds");
-            }
+          if (IsOutOfBoundsMaybeNull(indices_data[i],
+                                     BitUtil::GetBit(bitmap, offset_position + i))) {
+            return Status::IndexError("Index ", FormatInt(indices_data[i]),
+                                      " out of bounds");
           }
         }
       } else {
         for (int64_t i = 0; i < block.length; ++i) {
-          if (IsOutOfBounds(i)) {
-            return Status::IndexError("Index ", static_cast<int64_t>(indices_data[i]),
+          if (IsOutOfBounds(indices_data[i])) {
+            return Status::IndexError("Index ", FormatInt(indices_data[i]),
                                       " out of bounds");
           }
         }
@@ -505,6 +535,7 @@ Status IndexBoundsCheckImpl(const ArrayData& indices, uint64_t upper_limit) {
     }
     indices_data += block.length;
     position += block.length;
+    offset_position += block.length;
   }
   return Status::OK();
 }
@@ -512,26 +543,373 @@ Status IndexBoundsCheckImpl(const ArrayData& indices, uint64_t upper_limit) {
 /// \brief Branchless boundschecking of the indices. Processes batches of
 /// indices at a time and shortcircuits when encountering an out-of-bounds
 /// index in a batch
-Status IndexBoundsCheck(const ArrayData& indices, uint64_t upper_limit) {
+Status CheckIndexBounds(const ArrayData& indices, uint64_t upper_limit) {
   switch (indices.type->id()) {
     case Type::INT8:
-      return IndexBoundsCheckImpl<int8_t>(indices, upper_limit);
+      return CheckIndexBoundsImpl<int8_t>(indices, upper_limit);
     case Type::INT16:
-      return IndexBoundsCheckImpl<int16_t>(indices, upper_limit);
+      return CheckIndexBoundsImpl<int16_t>(indices, upper_limit);
     case Type::INT32:
-      return IndexBoundsCheckImpl<int32_t>(indices, upper_limit);
+      return CheckIndexBoundsImpl<int32_t>(indices, upper_limit);
     case Type::INT64:
-      return IndexBoundsCheckImpl<int64_t>(indices, upper_limit);
+      return CheckIndexBoundsImpl<int64_t>(indices, upper_limit);
     case Type::UINT8:
-      return IndexBoundsCheckImpl<uint8_t>(indices, upper_limit);
+      return CheckIndexBoundsImpl<uint8_t>(indices, upper_limit);
     case Type::UINT16:
-      return IndexBoundsCheckImpl<uint16_t>(indices, upper_limit);
+      return CheckIndexBoundsImpl<uint16_t>(indices, upper_limit);
     case Type::UINT32:
-      return IndexBoundsCheckImpl<uint32_t>(indices, upper_limit);
+      return CheckIndexBoundsImpl<uint32_t>(indices, upper_limit);
     case Type::UINT64:
-      return IndexBoundsCheckImpl<uint64_t>(indices, upper_limit);
+      return CheckIndexBoundsImpl<uint64_t>(indices, upper_limit);
     default:
       return Status::Invalid("Invalid index type for boundschecking");
+  }
+}
+
+// ----------------------------------------------------------------------
+// Utilities for casting from one integer type to another
+
+template <typename InType, typename CType = typename InType::c_type>
+Status IntegersInRange(const Datum& datum, CType bound_lower, CType bound_upper) {
+  if (std::numeric_limits<CType>::lowest() >= bound_lower &&
+      std::numeric_limits<CType>::max() <= bound_upper) {
+    return Status::OK();
+  }
+
+  auto IsOutOfBounds = [&](CType val) -> bool {
+    return val < bound_lower || val > bound_upper;
+  };
+  auto IsOutOfBoundsMaybeNull = [&](CType val, bool is_valid) -> bool {
+    return is_valid && (val < bound_lower || val > bound_upper);
+  };
+  auto GetErrorMessage = [&](CType val) {
+    return Status::Invalid("Integer value ", FormatInt(val),
+                           " not in range: ", FormatInt(bound_lower), " to ",
+                           FormatInt(bound_upper));
+  };
+
+  if (datum.kind() == Datum::SCALAR) {
+    const auto& scalar = datum.scalar_as<typename TypeTraits<InType>::ScalarType>();
+    if (IsOutOfBoundsMaybeNull(scalar.value, scalar.is_valid)) {
+      return GetErrorMessage(scalar.value);
+    }
+    return Status::OK();
+  }
+
+  const ArrayData& indices = *datum.array();
+  const CType* indices_data = indices.GetValues<CType>(1);
+  const uint8_t* bitmap = nullptr;
+  if (indices.buffers[0]) {
+    bitmap = indices.buffers[0]->data();
+  }
+  OptionalBitBlockCounter indices_bit_counter(bitmap, indices.offset, indices.length);
+  int64_t position = 0;
+  int64_t offset_position = indices.offset;
+  while (position < indices.length) {
+    BitBlockCount block = indices_bit_counter.NextBlock();
+    bool block_out_of_bounds = false;
+    if (block.popcount == block.length) {
+      // Fast path: branchless
+      int64_t i = 0;
+      for (int64_t chunk = 0; chunk < block.length / 8; ++chunk) {
+        // Let the compiler unroll this
+        for (int j = 0; j < 8; ++j) {
+          block_out_of_bounds |= IsOutOfBounds(indices_data[i++]);
+        }
+      }
+      for (; i < block.length; ++i) {
+        block_out_of_bounds |= IsOutOfBounds(indices_data[i]);
+      }
+    } else if (block.popcount > 0) {
+      // Indices have nulls, must only boundscheck non-null values
+      int64_t i = 0;
+      for (int64_t chunk = 0; chunk < block.length / 8; ++chunk) {
+        // Let the compiler unroll this
+        for (int j = 0; j < 8; ++j) {
+          block_out_of_bounds |= IsOutOfBoundsMaybeNull(
+              indices_data[i], BitUtil::GetBit(bitmap, offset_position + i));
+          ++i;
+        }
+      }
+      for (; i < block.length; ++i) {
+        block_out_of_bounds |= IsOutOfBoundsMaybeNull(
+            indices_data[i], BitUtil::GetBit(bitmap, offset_position + i));
+      }
+    }
+    if (ARROW_PREDICT_FALSE(block_out_of_bounds)) {
+      if (indices.GetNullCount() > 0) {
+        for (int64_t i = 0; i < block.length; ++i) {
+          if (IsOutOfBoundsMaybeNull(indices_data[i],
+                                     BitUtil::GetBit(bitmap, offset_position + i))) {
+            return GetErrorMessage(indices_data[i]);
+          }
+        }
+      } else {
+        for (int64_t i = 0; i < block.length; ++i) {
+          if (IsOutOfBounds(indices_data[i])) {
+            return GetErrorMessage(indices_data[i]);
+          }
+        }
+      }
+    }
+    indices_data += block.length;
+    position += block.length;
+    offset_position += block.length;
+  }
+  return Status::OK();
+}
+
+template <typename Type>
+Status CheckIntegersInRangeImpl(const Datum& datum, const Scalar& bound_lower,
+                                const Scalar& bound_upper) {
+  using ScalarType = typename TypeTraits<Type>::ScalarType;
+  return IntegersInRange<Type>(datum, checked_cast<const ScalarType&>(bound_lower).value,
+                               checked_cast<const ScalarType&>(bound_upper).value);
+}
+
+Status CheckIntegersInRange(const Datum& datum, const Scalar& bound_lower,
+                            const Scalar& bound_upper) {
+  Type::type type_id = datum.type()->id();
+
+  if (bound_lower.type->id() != type_id || bound_upper.type->id() != type_id ||
+      !bound_lower.is_valid || !bound_upper.is_valid) {
+    return Status::Invalid("Scalar bound types must be non-null and same type as data");
+  }
+
+  switch (type_id) {
+    case Type::INT8:
+      return CheckIntegersInRangeImpl<Int8Type>(datum, bound_lower, bound_upper);
+    case Type::INT16:
+      return CheckIntegersInRangeImpl<Int16Type>(datum, bound_lower, bound_upper);
+    case Type::INT32:
+      return CheckIntegersInRangeImpl<Int32Type>(datum, bound_lower, bound_upper);
+    case Type::INT64:
+      return CheckIntegersInRangeImpl<Int64Type>(datum, bound_lower, bound_upper);
+    case Type::UINT8:
+      return CheckIntegersInRangeImpl<UInt8Type>(datum, bound_lower, bound_upper);
+    case Type::UINT16:
+      return CheckIntegersInRangeImpl<UInt16Type>(datum, bound_lower, bound_upper);
+    case Type::UINT32:
+      return CheckIntegersInRangeImpl<UInt32Type>(datum, bound_lower, bound_upper);
+    case Type::UINT64:
+      return CheckIntegersInRangeImpl<UInt64Type>(datum, bound_lower, bound_upper);
+    default:
+      return Status::TypeError("Invalid index type for boundschecking");
+  }
+}
+
+template <typename O, typename I, typename Enable = void>
+struct is_number_downcast {
+  static constexpr bool value = false;
+};
+
+template <typename O, typename I>
+struct is_number_downcast<
+    O, I, enable_if_t<is_number_type<O>::value && is_number_type<I>::value>> {
+  using O_T = typename O::c_type;
+  using I_T = typename I::c_type;
+
+  static constexpr bool value =
+      ((!std::is_same<O, I>::value) &&
+       // Both types are of the same sign-ness.
+       ((std::is_signed<O_T>::value == std::is_signed<I_T>::value) &&
+        // Both types are of the same integral-ness.
+        (std::is_floating_point<O_T>::value == std::is_floating_point<I_T>::value)) &&
+       // Smaller output size
+       (sizeof(O_T) < sizeof(I_T)));
+};
+
+template <typename O, typename I, typename Enable = void>
+struct is_number_upcast {
+  static constexpr bool value = false;
+};
+
+template <typename O, typename I>
+struct is_number_upcast<
+    O, I, enable_if_t<is_number_type<O>::value && is_number_type<I>::value>> {
+  using O_T = typename O::c_type;
+  using I_T = typename I::c_type;
+
+  static constexpr bool value =
+      ((!std::is_same<O, I>::value) &&
+       // Both types are of the same sign-ness.
+       ((std::is_signed<O_T>::value == std::is_signed<I_T>::value) &&
+        // Both types are of the same integral-ness.
+        (std::is_floating_point<O_T>::value == std::is_floating_point<I_T>::value)) &&
+       // Larger output size
+       (sizeof(O_T) > sizeof(I_T)));
+};
+
+template <typename O, typename I, typename Enable = void>
+struct is_integral_signed_to_unsigned {
+  static constexpr bool value = false;
+};
+
+template <typename O, typename I>
+struct is_integral_signed_to_unsigned<
+    O, I, enable_if_t<is_integer_type<O>::value && is_integer_type<I>::value>> {
+  using O_T = typename O::c_type;
+  using I_T = typename I::c_type;
+
+  static constexpr bool value =
+      ((!std::is_same<O, I>::value) &&
+       ((std::is_unsigned<O_T>::value && std::is_signed<I_T>::value)));
+};
+
+template <typename O, typename I, typename Enable = void>
+struct is_integral_unsigned_to_signed {
+  static constexpr bool value = false;
+};
+
+template <typename O, typename I>
+struct is_integral_unsigned_to_signed<
+    O, I, enable_if_t<is_integer_type<O>::value && is_integer_type<I>::value>> {
+  using O_T = typename O::c_type;
+  using I_T = typename I::c_type;
+
+  static constexpr bool value =
+      ((!std::is_same<O, I>::value) &&
+       ((std::is_signed<O_T>::value && std::is_unsigned<I_T>::value)));
+};
+
+// This set of functions SafeMinimum/SafeMaximum would be simplified with
+// C++17 and `if constexpr`.
+
+// clang-format doesn't handle this construct properly. Thus the macro, but it
+// also improves readability.
+//
+// The effective return type of the function is always `I::c_type`, this is
+// just how enable_if works with functions.
+#define RET_TYPE(TRAIT) enable_if_t<TRAIT<O, I>::value, typename I::c_type>
+
+template <typename O, typename I>
+constexpr RET_TYPE(std::is_same) SafeMinimum() {
+  using out_type = typename O::c_type;
+
+  return std::numeric_limits<out_type>::lowest();
+}
+
+template <typename O, typename I>
+constexpr RET_TYPE(std::is_same) SafeMaximum() {
+  using out_type = typename O::c_type;
+
+  return std::numeric_limits<out_type>::max();
+}
+
+template <typename O, typename I>
+constexpr RET_TYPE(is_number_downcast) SafeMinimum() {
+  using out_type = typename O::c_type;
+
+  return std::numeric_limits<out_type>::lowest();
+}
+
+template <typename O, typename I>
+constexpr RET_TYPE(is_number_downcast) SafeMaximum() {
+  using out_type = typename O::c_type;
+
+  return std::numeric_limits<out_type>::max();
+}
+
+template <typename O, typename I>
+constexpr RET_TYPE(is_number_upcast) SafeMinimum() {
+  using in_type = typename I::c_type;
+  return std::numeric_limits<in_type>::lowest();
+}
+
+template <typename O, typename I>
+constexpr RET_TYPE(is_number_upcast) SafeMaximum() {
+  using in_type = typename I::c_type;
+  return std::numeric_limits<in_type>::max();
+}
+
+template <typename O, typename I>
+constexpr RET_TYPE(is_integral_unsigned_to_signed) SafeMinimum() {
+  return 0;
+}
+
+template <typename O, typename I>
+constexpr RET_TYPE(is_integral_unsigned_to_signed) SafeMaximum() {
+  using in_type = typename I::c_type;
+  using out_type = typename O::c_type;
+
+  // Equality is missing because in_type::max() > out_type::max() when types
+  // are of the same width.
+  return static_cast<in_type>(sizeof(in_type) < sizeof(out_type)
+                                  ? std::numeric_limits<in_type>::max()
+                                  : std::numeric_limits<out_type>::max());
+}
+
+template <typename O, typename I>
+constexpr RET_TYPE(is_integral_signed_to_unsigned) SafeMinimum() {
+  return 0;
+}
+
+template <typename O, typename I>
+constexpr RET_TYPE(is_integral_signed_to_unsigned) SafeMaximum() {
+  using in_type = typename I::c_type;
+  using out_type = typename O::c_type;
+
+  return static_cast<in_type>(sizeof(in_type) <= sizeof(out_type)
+                                  ? std::numeric_limits<in_type>::max()
+                                  : std::numeric_limits<out_type>::max());
+}
+
+#undef RET_TYPE
+
+#define GET_MIN_MAX_CASE(TYPE, OUT_TYPE)    \
+  case Type::TYPE:                          \
+    *min = SafeMinimum<OUT_TYPE, InType>(); \
+    *max = SafeMaximum<OUT_TYPE, InType>(); \
+    break
+
+template <typename InType, typename T = typename InType::c_type>
+void GetSafeMinMax(Type::type out_type, T* min, T* max) {
+  switch (out_type) {
+    GET_MIN_MAX_CASE(INT8, Int8Type);
+    GET_MIN_MAX_CASE(INT16, Int16Type);
+    GET_MIN_MAX_CASE(INT32, Int32Type);
+    GET_MIN_MAX_CASE(INT64, Int64Type);
+    GET_MIN_MAX_CASE(UINT8, UInt8Type);
+    GET_MIN_MAX_CASE(UINT16, UInt16Type);
+    GET_MIN_MAX_CASE(UINT32, UInt32Type);
+    GET_MIN_MAX_CASE(UINT64, UInt64Type);
+    default:
+      break;
+  }
+}
+
+template <typename Type, typename CType = typename Type::c_type,
+          typename ScalarType = typename TypeTraits<Type>::ScalarType>
+Status IntegersCanFitImpl(const Datum& datum, const DataType& target_type) {
+  CType bound_min{}, bound_max{};
+  GetSafeMinMax<Type>(target_type.id(), &bound_min, &bound_max);
+  return CheckIntegersInRange(datum, ScalarType(bound_min), ScalarType(bound_max));
+}
+
+Status IntegersCanFit(const Datum& datum, const DataType& target_type) {
+  if (!is_integer(target_type.id())) {
+    return Status::Invalid("Target type is not an integer type: ", target_type);
+  }
+
+  switch (datum.type()->id()) {
+    case Type::INT8:
+      return IntegersCanFitImpl<Int8Type>(datum, target_type);
+    case Type::INT16:
+      return IntegersCanFitImpl<Int16Type>(datum, target_type);
+    case Type::INT32:
+      return IntegersCanFitImpl<Int32Type>(datum, target_type);
+    case Type::INT64:
+      return IntegersCanFitImpl<Int64Type>(datum, target_type);
+    case Type::UINT8:
+      return IntegersCanFitImpl<UInt8Type>(datum, target_type);
+    case Type::UINT16:
+      return IntegersCanFitImpl<UInt16Type>(datum, target_type);
+    case Type::UINT32:
+      return IntegersCanFitImpl<UInt32Type>(datum, target_type);
+    case Type::UINT64:
+      return IntegersCanFitImpl<UInt64Type>(datum, target_type);
+    default:
+      return Status::TypeError("Invalid index type for boundschecking");
   }
 }
 

@@ -38,11 +38,8 @@ from pyarrow.lib cimport (Buffer, Array, Schema,
                           pyarrow_wrap_buffer,
                           NativeFile, get_reader, get_writer)
 
-from pyarrow.lib import (ArrowException, NativeFile, _stringify_path,
-                         BufferOutputStream,
-                         _datetime_conversion_functions,
-                         _box_time_milli,
-                         _box_time_micro,
+from pyarrow.lib import (ArrowException, NativeFile, BufferOutputStream,
+                         _stringify_path, _datetime_from_int,
                          tobytes, frombytes)
 
 cimport cpython as cp
@@ -256,28 +253,28 @@ cdef _box_logical_type_value(object value, const ColumnDescriptor* descr):
     elif ltype.type() == ParquetLogicalType_TIME:
         time_unit = (<const CParquetTimeType*> ltype).time_unit()
         if time_unit == ParquetTimeUnit_MILLIS:
-            return _box_time_milli(value)
+            return _datetime_from_int(value, unit=TimeUnit_MILLI).time()
         else:
-            return _box_time_micro(value)
+            return _datetime_from_int(value, unit=TimeUnit_MICRO).time()
     elif ltype.type() == ParquetLogicalType_TIMESTAMP:
         ts_type = <const CParquetTimestampType*> ltype
         time_unit = ts_type.time_unit()
-        if time_unit == ParquetTimeUnit_MILLIS:
-            converter = _datetime_conversion_functions()[TimeUnit_MILLI]
-        elif time_unit == ParquetTimeUnit_MICROS:
-            converter = _datetime_conversion_functions()[TimeUnit_MICRO]
-        elif time_unit == ParquetTimeUnit_NANOS:
-            converter = _datetime_conversion_functions()[TimeUnit_NANO]
-        else:
-            raise ValueError("Unsupported time unit")
-
         if ts_type.is_adjusted_to_utc():
             import pytz
             tzinfo = pytz.utc
         else:
             tzinfo = None
-
-        return converter(value, tzinfo)
+        if time_unit == ParquetTimeUnit_MILLIS:
+            return _datetime_from_int(value, unit=TimeUnit_MILLI,
+                                      tzinfo=tzinfo)
+        elif time_unit == ParquetTimeUnit_MICROS:
+            return _datetime_from_int(value, unit=TimeUnit_MICRO,
+                                      tzinfo=tzinfo)
+        elif time_unit == ParquetTimeUnit_NANOS:
+            return _datetime_from_int(value, unit=TimeUnit_NANO,
+                                      tzinfo=tzinfo)
+        else:
+            raise ValueError("Unsupported time unit")
     elif ltype.type() == ParquetLogicalType_INT:
         itype = <const CParquetIntType*> ltype
         if not itype.is_signed() and itype.bit_width() == 32:

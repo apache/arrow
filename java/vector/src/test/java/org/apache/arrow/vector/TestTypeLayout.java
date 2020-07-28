@@ -34,7 +34,7 @@ public class TestTypeLayout {
     ArrowType type = new ArrowType.Int(8, true);
     assertEquals(TypeLayout.getTypeBufferCount(type), TypeLayout.getTypeLayout(type).getBufferLayouts().size());
 
-    type = new ArrowType.Union(UnionMode.Sparse, new int[3]);
+    type = new ArrowType.Union(UnionMode.Sparse, new int[2]);
     assertEquals(TypeLayout.getTypeBufferCount(type), TypeLayout.getTypeLayout(type).getBufferLayouts().size());
 
     type = new ArrowType.Union(UnionMode.Dense, new int[1]);

@@ -25,6 +25,7 @@
 #![allow(dead_code)]
 #![allow(non_camel_case_types)]
 #![allow(bare_trait_objects)]
+#![warn(missing_debug_implementations)]
 
 pub mod array;
 pub mod bitmap;

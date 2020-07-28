@@ -27,6 +27,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/int_util.h"
+#include "arrow/util/logging.h"
 #include "arrow/visitor_inline.h"
 
 namespace arrow {
@@ -97,7 +98,7 @@ struct ValidateArrayVisitor {
     if (value_size < 0) {
       return Status::Invalid("FixedSizeListArray has negative value size ", value_size);
     }
-    if (HasMultiplyOverflow(len, value_size) ||
+    if (HasPositiveMultiplyOverflow(len, value_size) ||
         array.values()->length() != len * value_size) {
       return Status::Invalid("Values Length (", array.values()->length(),
                              ") is not equal to the length (", len,
@@ -216,7 +217,31 @@ struct ValidateArrayVisitor {
     if (array.value_data() == nullptr) {
       return Status::Invalid("value data buffer is null");
     }
-    return ValidateOffsets(array);
+    RETURN_NOT_OK(ValidateOffsets(array));
+
+    if (array.length() > 0) {
+      const auto first_offset = array.value_offset(0);
+      const auto last_offset = array.value_offset(array.length());
+      // This early test avoids undefined behaviour when computing `data_extent`
+      if (first_offset < 0 || last_offset < 0) {
+        return Status::Invalid("Negative offsets in binary array");
+      }
+      const auto data_extent = last_offset - first_offset;
+      const auto values_length = array.value_data()->size();
+      if (values_length < data_extent) {
+        return Status::Invalid("Length spanned by binary offsets (", data_extent,
+                               ") larger than values array (size ", values_length, ")");
+      }
+      // These tests ensure that array concatenation is safe if Validate() succeeds
+      // (for delta dictionaries)
+      if (first_offset > values_length || last_offset > values_length) {
+        return Status::Invalid("First or last binary offset out of bounds");
+      }
+      if (first_offset > last_offset) {
+        return Status::Invalid("First offset larger than last offset in binary array");
+      }
+    }
+    return Status::OK();
   }
 
   template <typename ListArrayType>
@@ -240,6 +265,14 @@ struct ValidateArrayVisitor {
       if (values_length < data_extent) {
         return Status::Invalid("Length spanned by list offsets (", data_extent,
                                ") larger than values array (length ", values_length, ")");
+      }
+      // These tests ensure that array concatenation is safe if Validate() succeeds
+      // (for delta dictionaries)
+      if (first_offset > values_length || last_offset > values_length) {
+        return Status::Invalid("First or last list offset out of bounds");
+      }
+      if (first_offset > last_offset) {
+        return Status::Invalid("First offset larger than last offset in list array");
       }
     }
 
@@ -296,7 +329,7 @@ Status ValidateArray(const Array& array) {
                            type.ToString(), ", got ", data.buffers.size());
   }
   // This check is required to avoid addition overflow below
-  if (HasAdditionOverflow(array.length(), array.offset())) {
+  if (HasPositiveAdditionOverflow(array.length(), array.offset())) {
     return Status::Invalid("Array of type ", type.ToString(),
                            " has impossibly large length and offset");
   }
@@ -313,7 +346,8 @@ Status ValidateArray(const Array& array) {
         min_buffer_size = BitUtil::BytesForBits(array.length() + array.offset());
         break;
       case DataTypeLayout::FIXED_WIDTH:
-        if (HasMultiplyOverflow(array.length() + array.offset(), spec.byte_width)) {
+        if (HasPositiveMultiplyOverflow(array.length() + array.offset(),
+                                        spec.byte_width)) {
           return Status::Invalid("Array of type ", type.ToString(),
                                  " has impossibly large length and offset");
         }
@@ -397,11 +431,17 @@ struct ValidateArrayDataVisitor {
   // Fallback
   Status Visit(const Array& array) { return Status::OK(); }
 
-  Status Visit(const StringArray& array) { return ValidateBinaryArray(array); }
+  Status Visit(const StringArray& array) {
+    RETURN_NOT_OK(ValidateBinaryArray(array));
+    return array.ValidateUTF8();
+  }
+
+  Status Visit(const LargeStringArray& array) {
+    RETURN_NOT_OK(ValidateBinaryArray(array));
+    return array.ValidateUTF8();
+  }
 
   Status Visit(const BinaryArray& array) { return ValidateBinaryArray(array); }
-
-  Status Visit(const LargeStringArray& array) { return ValidateBinaryArray(array); }
 
   Status Visit(const LargeBinaryArray& array) { return ValidateBinaryArray(array); }
 

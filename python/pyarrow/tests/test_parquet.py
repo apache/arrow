@@ -62,8 +62,6 @@ parametrize_legacy_dataset = pytest.mark.parametrize(
     [True, pytest.param(False, marks=pytest.mark.dataset)])
 parametrize_legacy_dataset_not_supported = pytest.mark.parametrize(
     "use_legacy_dataset", [True, pytest.param(False, marks=pytest.mark.skip)])
-parametrize_legacy_dataset_skip_buffer = pytest.mark.parametrize(
-    "use_legacy_dataset", [True, pytest.param(False, marks=pytest.mark.skip)])
 parametrize_legacy_dataset_fixed = pytest.mark.parametrize(
     "use_legacy_dataset", [pytest.param(True, marks=pytest.mark.xfail),
                            pytest.param(False, marks=pytest.mark.dataset)])
@@ -186,9 +184,6 @@ def test_pandas_parquet_2_0_roundtrip(tempdir, chunk_size, use_legacy_dataset):
     assert table_read.schema.pandas_metadata is not None
 
     read_metadata = table_read.schema.metadata
-    if not use_legacy_dataset:
-        read_metadata.pop(b"ARROW:schema")
-
     assert arrow_table.schema.metadata == read_metadata
 
     df_read = table_read.to_pandas()
@@ -442,9 +437,6 @@ def test_pandas_parquet_2_0_roundtrip_read_pandas_no_index_written(
     assert not js['index_columns']
 
     read_metadata = table_read.schema.metadata
-    if not use_legacy_dataset:
-        read_metadata.pop(b"ARROW:schema")
-
     assert arrow_table.schema.metadata == read_metadata
 
     df_read = table_read.to_pandas()
@@ -579,6 +571,22 @@ def test_pandas_parquet_native_file_roundtrip(tempdir, use_legacy_dataset):
     tm.assert_frame_equal(df, df_read)
 
 
+@parametrize_legacy_dataset
+def test_parquet_read_from_buffer(tempdir, use_legacy_dataset):
+    # reading from a buffer from python's open()
+    table = pa.table({"a": [1, 2, 3]})
+    pq.write_table(table, str(tempdir / "data.parquet"))
+
+    with open(str(tempdir / "data.parquet"), "rb") as f:
+        result = pq.read_table(f, use_legacy_dataset=use_legacy_dataset)
+    assert result.equals(table)
+
+    with open(str(tempdir / "data.parquet"), "rb") as f:
+        result = pq.read_table(pa.PythonFile(f),
+                               use_legacy_dataset=use_legacy_dataset)
+    assert result.equals(table)
+
+
 @pytest.mark.pandas
 @parametrize_legacy_dataset
 def test_parquet_incremental_file_build(tempdir, use_legacy_dataset):
@@ -688,6 +696,10 @@ def test_pandas_parquet_pyfile_roundtrip(tempdir, use_legacy_dataset):
     tm.assert_frame_equal(df, df_read)
 
 
+# ARROW-9424: LZ4 support is currently disabled
+SUPPORTED_COMPRESSIONS = ['NONE', 'SNAPPY', 'GZIP', 'ZSTD']
+
+
 @pytest.mark.pandas
 @parametrize_legacy_dataset
 def test_pandas_parquet_configuration_options(tempdir, use_legacy_dataset):
@@ -725,7 +737,7 @@ def test_pandas_parquet_configuration_options(tempdir, use_legacy_dataset):
         df_read = table_read.to_pandas()
         tm.assert_frame_equal(df, df_read)
 
-    for compression in ['NONE', 'SNAPPY', 'GZIP', 'LZ4', 'ZSTD']:
+    for compression in SUPPORTED_COMPRESSIONS:
         if (compression != 'NONE' and
                 not pa.lib.Codec.is_available(compression)):
             continue
@@ -735,6 +747,13 @@ def test_pandas_parquet_configuration_options(tempdir, use_legacy_dataset):
             filename, use_legacy_dataset=use_legacy_dataset)
         df_read = table_read.to_pandas()
         tm.assert_frame_equal(df, df_read)
+
+
+# ARROW-9424: LZ4 support is currently disabled
+def test_lz4_compression_disabled():
+    table = pa.table([pa.array([1, 2, 3, 4, 5])], names=['f0'])
+    with pytest.raises(IOError):
+        pq.write_table(table, pa.BufferOutputStream(), compression='lz4')
 
 
 def make_sample_file(table_or_df):
@@ -818,8 +837,9 @@ def test_compression_level(use_legacy_dataset):
     # level.
     # GZIP (zlib) allows for specifying a compression level but as of up
     # to version 1.2.11 the valid range is [-1, 9].
-    invalid_combinations = [("snappy", 4), ("lz4", 5), ("gzip", -1337),
+    invalid_combinations = [("snappy", 4), ("gzip", -1337),
                             ("None", 444), ("lzo", 14)]
+    # ARROW-9424: lz4 is disabled for now ("lz4", 5),
     buf = io.BytesIO()
     for (codec, level) in invalid_combinations:
         with pytest.raises((ValueError, OSError)):
@@ -2012,8 +2032,7 @@ def test_filters_invalid_pred_op(tempdir, use_legacy_dataset):
                                     use_legacy_dataset=use_legacy_dataset)
         assert dataset.read().num_rows == 0
 
-    with pytest.raises(ValueError if use_legacy_dataset else TypeError):
-        # dataset API returns TypeError when trying create invalid comparison
+    with pytest.raises(ValueError):
         pq.ParquetDataset(base_path,
                           filesystem=fs,
                           filters=[('integers', '!=', {3})],
@@ -2047,7 +2066,8 @@ def test_filters_invalid_column(tempdir, use_legacy_dataset):
 
 
 @pytest.mark.pandas
-def test_filters_read_table(tempdir):
+@parametrize_legacy_dataset
+def test_filters_read_table(tempdir, use_legacy_dataset):
     # test that filters keyword is passed through in read_table
     fs = LocalFileSystem.get_instance()
     base_path = tempdir
@@ -2066,15 +2086,18 @@ def test_filters_read_table(tempdir):
     _generate_partition_directories(fs, base_path, partition_spec, df)
 
     table = pq.read_table(
-        base_path, filesystem=fs, filters=[('integers', '<', 3)])
+        base_path, filesystem=fs, filters=[('integers', '<', 3)],
+        use_legacy_dataset=use_legacy_dataset)
     assert table.num_rows == 3
 
     table = pq.read_table(
-        base_path, filesystem=fs, filters=[[('integers', '<', 3)]])
+        base_path, filesystem=fs, filters=[[('integers', '<', 3)]],
+        use_legacy_dataset=use_legacy_dataset)
     assert table.num_rows == 3
 
     table = pq.read_pandas(
-        base_path, filters=[('integers', '<', 3)])
+        base_path, filters=[('integers', '<', 3)],
+        use_legacy_dataset=use_legacy_dataset)
     assert table.num_rows == 3
 
 
@@ -2120,7 +2143,11 @@ def s3_bucket(request, s3_connection, s3_server):
         region_name='us-east-1'
     )
     bucket = s3.Bucket('test-s3fs')
-    bucket.create()
+    try:
+        bucket.create()
+    except Exception:
+        # we get BucketAlreadyOwnedByYou error with fsspec handler
+        pass
     return 'test-s3fs'
 
 
@@ -2147,7 +2174,8 @@ def s3_example(s3_connection, s3_server, s3_bucket):
 
 @pytest.mark.pandas
 @pytest.mark.s3
-def test_read_partitioned_directory_s3fs(s3_example):
+@parametrize_legacy_dataset
+def test_read_partitioned_directory_s3fs(s3_example, use_legacy_dataset):
     from pyarrow.filesystem import S3FSWrapper
 
     fs, bucket_uri = s3_example
@@ -2155,7 +2183,9 @@ def test_read_partitioned_directory_s3fs(s3_example):
     _partition_test_for_filesystem(wrapper, bucket_uri)
 
     # Check that we can auto-wrap
-    dataset = pq.ParquetDataset(bucket_uri, filesystem=fs)
+    dataset = pq.ParquetDataset(
+        bucket_uri, filesystem=fs, use_legacy_dataset=use_legacy_dataset
+    )
     dataset.read()
 
 
@@ -2187,11 +2217,11 @@ def _partition_test_for_filesystem(fs, base_path, use_legacy_dataset=True):
     expected_df = (df.sort_values(by='index')
                    .reset_index(drop=True)
                    .reindex(columns=result_df.columns))
+
     if use_legacy_dataset:
-        # TODO(dataset) Dataset API does not create categorical columns
-        # for partition keys
+        # integer partition field not dictionary encoded with new API
         expected_df['foo'] = pd.Categorical(df['foo'], categories=foo_keys)
-        expected_df['bar'] = pd.Categorical(df['bar'], categories=bar_keys)
+    expected_df['bar'] = pd.Categorical(df['bar'], categories=bar_keys)
 
     assert (result_df.columns == ['index', 'values', 'foo', 'bar']).all()
 
@@ -2379,14 +2409,16 @@ def test_read_multiple_files(tempdir, use_legacy_dataset):
 
     # Read with provided metadata
     # TODO(dataset) specifying metadata not yet supported
+    metadata = pq.read_metadata(paths[0])
     if use_legacy_dataset:
-        metadata = pq.read_metadata(paths[0])
-
         result2 = read_multiple_files(paths, metadata=metadata)
         assert result2.equals(expected)
 
         result3 = pa.localfs.read_parquet(dirpath, schema=metadata.schema)
         assert result3.equals(expected)
+    else:
+        with pytest.raises(ValueError, match="no longer supported"):
+            pq.read_table(paths, metadata=metadata, use_legacy_dataset=False)
 
     # Read column subset
     to_read = [0, 2, 6, result.num_columns - 1]
@@ -2802,10 +2834,9 @@ def _test_write_to_dataset_with_partitions(base_path,
     assert partition_by == input_df_cols[-1 * len(partition_by):]
 
     input_df = input_df[cols]
-    if use_legacy_dataset:
-        # Partitioned columns become 'categorical' dtypes
-        for col in partition_by:
-            output_df[col] = output_df[col].astype('category')
+    # Partitioned columns become 'categorical' dtypes
+    for col in partition_by:
+        output_df[col] = output_df[col].astype('category')
     tm.assert_frame_equal(output_df, input_df)
 
 
@@ -2953,8 +2984,7 @@ def test_write_to_dataset_pandas_preserve_index(tempdir, use_legacy_dataset):
     df.index = pd.Index(['a', 'b', 'c'], name="idx")
     table = pa.table(df)
     df_cat = df[["col", "part"]].copy()
-    if use_legacy_dataset:
-        df_cat["part"] = df_cat["part"].astype("category")
+    df_cat["part"] = df_cat["part"].astype("category")
 
     pq.write_to_dataset(table, str(tempdir / "case1"), partition_cols=['part'])
     result = pq.read_table(
@@ -2988,16 +3018,16 @@ def test_large_table_int32_overflow():
     _write_table(table, f)
 
 
-# TODO(ARROW-8074) buffer support
-def _simple_table_roundtrip(table, **write_kwargs):
+def _simple_table_roundtrip(table, use_legacy_dataset=False, **write_kwargs):
     stream = pa.BufferOutputStream()
     _write_table(table, stream, **write_kwargs)
     buf = stream.getvalue()
-    return _read_table(buf)
+    return _read_table(buf, use_legacy_dataset=use_legacy_dataset)
 
 
 @pytest.mark.large_memory
-def test_byte_array_exactly_2gb():
+@parametrize_legacy_dataset
+def test_byte_array_exactly_2gb(use_legacy_dataset):
     # Test edge case reported in ARROW-3762
     val = b'x' * (1 << 10)
 
@@ -3010,13 +3040,15 @@ def test_byte_array_exactly_2gb():
     for case in cases:
         values = pa.chunked_array([base, pa.array(case)])
         t = pa.table([values], names=['f0'])
-        result = _simple_table_roundtrip(t, use_dictionary=False)
+        result = _simple_table_roundtrip(
+            t, use_legacy_dataset=use_legacy_dataset, use_dictionary=False)
         assert t.equals(result)
 
 
 @pytest.mark.pandas
 @pytest.mark.large_memory
-def test_binary_array_overflow_to_chunked():
+@parametrize_legacy_dataset
+def test_binary_array_overflow_to_chunked(use_legacy_dataset):
     # ARROW-3762
 
     # 2^31 + 1 bytes
@@ -3026,7 +3058,8 @@ def test_binary_array_overflow_to_chunked():
     df = pd.DataFrame({'byte_col': values})
 
     tbl = pa.Table.from_pandas(df, preserve_index=False)
-    read_tbl = _simple_table_roundtrip(tbl)
+    read_tbl = _simple_table_roundtrip(
+        tbl, use_legacy_dataset=use_legacy_dataset)
 
     col0_data = read_tbl[0]
     assert isinstance(col0_data, pa.ChunkedArray)
@@ -3039,7 +3072,8 @@ def test_binary_array_overflow_to_chunked():
 
 @pytest.mark.pandas
 @pytest.mark.large_memory
-def test_list_of_binary_large_cell():
+@parametrize_legacy_dataset
+def test_list_of_binary_large_cell(use_legacy_dataset):
     # ARROW-4688
     data = []
 
@@ -3052,7 +3086,8 @@ def test_list_of_binary_large_cell():
 
     arr = pa.array(data)
     table = pa.Table.from_arrays([arr], ['chunky_cells'])
-    read_table = _simple_table_roundtrip(table)
+    read_table = _simple_table_roundtrip(
+        table, use_legacy_dataset=use_legacy_dataset)
     assert table.equals(read_table)
 
 
@@ -3439,6 +3474,15 @@ def test_empty_row_groups(tempdir):
         assert reader.read_row_group(i).equals(table)
 
 
+def test_parquet_file_pass_directory_instead_of_file(tempdir):
+    # ARROW-7208
+    path = tempdir / 'directory'
+    os.mkdir(str(path))
+
+    with pytest.raises(IOError, match="Expected file path"):
+        pq.ParquetFile(path)
+
+
 @pytest.mark.pandas
 @parametrize_legacy_dataset
 def test_parquet_writer_with_caller_provided_filesystem(use_legacy_dataset):
@@ -3602,7 +3646,7 @@ def test_dataset_read_dictionary(tempdir, use_legacy_dataset):
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset_not_supported  # ARROW-8799
+@parametrize_legacy_dataset
 def test_direct_read_dictionary_subfield(use_legacy_dataset):
     repeats = 10
     nunique = 5
@@ -3699,22 +3743,21 @@ def test_write_to_dataset_metadata(tempdir):
     assert d1 == d2
 
 
-# TODO(dataset) better error message for invalid files (certainly if it
-#  is the only one)
-@parametrize_legacy_dataset_not_supported
+@parametrize_legacy_dataset
 def test_parquet_file_too_small(tempdir, use_legacy_dataset):
     path = str(tempdir / "test.parquet")
-    with pytest.raises(pa.ArrowInvalid,
+    # TODO(dataset) with datasets API it raises OSError instead
+    with pytest.raises((pa.ArrowInvalid, OSError),
                        match='size is 0 bytes'):
         with open(path, 'wb') as f:
             pass
-        pq.read_table(path)
+        pq.read_table(path, use_legacy_dataset=use_legacy_dataset)
 
-    with pytest.raises(pa.ArrowInvalid,
+    with pytest.raises((pa.ArrowInvalid, OSError),
                        match='size is 4 bytes'):
         with open(path, 'wb') as f:
             f.write(b'ffff')
-        pq.read_table(path)
+        pq.read_table(path, use_legacy_dataset=use_legacy_dataset)
 
 
 @pytest.mark.pandas
@@ -3752,11 +3795,13 @@ def test_categorical_order_survives_roundtrip(use_legacy_dataset):
     tm.assert_frame_equal(result, df)
 
 
-def _simple_table_write_read(table):
+def _simple_table_write_read(table, use_legacy_dataset):
     bio = pa.BufferOutputStream()
     pq.write_table(table, bio)
     contents = bio.getvalue()
-    return pq.read_table(pa.BufferReader(contents))
+    return pq.read_table(
+        pa.BufferReader(contents), use_legacy_dataset=use_legacy_dataset
+    )
 
 
 @parametrize_legacy_dataset
@@ -3778,7 +3823,7 @@ def test_dictionary_array_automatically_read(use_legacy_dataset):
                                                      dict_values))
 
     table = pa.table([pa.chunked_array(chunks)], names=['f0'])
-    result = _simple_table_write_read(table)
+    result = _simple_table_write_read(table, use_legacy_dataset)
 
     assert result.equals(table)
 
@@ -3915,7 +3960,12 @@ def test_write_metadata(tempdir):
     # write a pyarrow schema
     pq.write_metadata(schema, path)
     parquet_meta = pq.read_metadata(path)
-    assert parquet_meta.schema.to_arrow_schema().equals(schema)
+    schema_as_arrow = parquet_meta.schema.to_arrow_schema()
+    assert schema_as_arrow.equals(schema)
+
+    # ARROW-8980: Check that the ARROW:schema metadata key was removed
+    if schema_as_arrow.metadata:
+        assert b'ARROW:schema' not in schema_as_arrow.metadata
 
     # pass through writer keyword arguments
     for version in ["1.0", "2.0"]:
@@ -4061,7 +4111,7 @@ def test_dataset_unsupported_keywords():
     with pytest.raises(ValueError, match="not yet supported with the new"):
         pq.ParquetDataset("", use_legacy_dataset=False, metadata_nthreads=4)
 
-    with pytest.raises(ValueError, match="not yet supported with the new"):
+    with pytest.raises(ValueError, match="no longer supported"):
         pq.read_table("", use_legacy_dataset=False, metadata=pa.schema([]))
 
 

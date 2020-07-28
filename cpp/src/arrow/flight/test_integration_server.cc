@@ -29,9 +29,9 @@
 #include <gflags/gflags.h>
 
 #include "arrow/io/test_common.h"
-#include "arrow/ipc/json_integration.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
+#include "arrow/testing/json_integration.h"
 #include "arrow/util/logging.h"
 
 #include "arrow/flight/internal.h"

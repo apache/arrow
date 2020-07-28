@@ -19,6 +19,7 @@
 
 from libc.stdint cimport *
 from libcpp cimport bool as c_bool, nullptr
+from libcpp.functional cimport function
 from libcpp.memory cimport shared_ptr, unique_ptr, make_shared
 from libcpp.string cimport string as c_string
 from libcpp.utility cimport pair

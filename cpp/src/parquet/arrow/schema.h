@@ -17,21 +17,19 @@
 
 #pragma once
 
+#include <cassert>
 #include <memory>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
+#include "arrow/result.h"
+#include "arrow/status.h"
+#include "arrow/type.h"
+#include "arrow/type_fwd.h"
+
 #include "parquet/platform.h"
 #include "parquet/schema.h"
-
-namespace arrow {
-
-class Field;
-class Schema;
-class Status;
-
-}  // namespace arrow
 
 namespace parquet {
 
@@ -95,8 +93,32 @@ struct PARQUET_EXPORT SchemaField {
   // Only set for leaf nodes
   int column_index = -1;
 
-  int16_t max_definition_level;
-  int16_t max_repetition_level;
+  // The definition level at which the value for the field
+  // is considered not null (definition levels greater than
+  // or equal to indicate this value indicate a not-null
+  // value for the field).
+  int16_t definition_level;
+  // The repetition level corresponding to this element
+  // or the closest repeated ancestor.  Any repetition
+  // level less than this indicates either a new list OR
+  // an empty list (which is determined in conjunction
+  // definition_level).
+  int16_t repetition_level;
+
+  bool IsStruct() const { return field->type()->id() == ::arrow::Type::STRUCT; }
+  bool IsRepeated() const {
+    // FixedSizeList will require special handling.
+    return field->type()->id() == ::arrow::Type::LIST ||
+           field->type()->id() == ::arrow::Type::LARGE_LIST ||
+           field->type()->id() == ::arrow::Type::MAP;
+  }
+
+  // The definition level indicating the level at which the closest
+  // repeated ancestor was not empty.  This is used to discrimate
+  // between a value less than |definition_level|
+  // being null or excluded entirely.
+  // TODO(ARROW-8493): Populate this value.
+  int16_t repeated_ancestor_definition_level = 0;
 
   bool is_leaf() const { return column_index != -1; }
 };
@@ -138,24 +160,47 @@ struct PARQUET_EXPORT SchemaManifest {
     return it->second;
   }
 
-  bool GetFieldIndices(const std::vector<int>& column_indices, std::vector<int>* out) {
-    // Coalesce a list of schema field indices which are the roots of the
-    // columns referred to by a list of column indices
+  /// Coalesce a list of field indices (relative to the equivalent arrow::Schema) which
+  /// correspond to the column root (first node below the parquet schema's root group) of
+  /// each leaf referenced in column_indices.
+  ///
+  /// For example, for leaves `a.b.c`, `a.b.d.e`, and `i.j.k` (column_indices=[0,1,3])
+  /// the roots are `a` and `i` (return=[0,2]).
+  ///
+  /// root
+  /// -- a  <------
+  /// -- -- b  |  |
+  /// -- -- -- c  |
+  /// -- -- -- d  |
+  /// -- -- -- -- e
+  /// -- f
+  /// -- -- g
+  /// -- -- -- h
+  /// -- i  <---
+  /// -- -- j  |
+  /// -- -- -- k
+  ::arrow::Result<std::vector<int>> GetFieldIndices(
+      const std::vector<int>& column_indices) const {
     const schema::GroupNode* group = descr->group_node();
     std::unordered_set<int> already_added;
-    out->clear();
-    for (auto& column_idx : column_indices) {
+
+    std::vector<int> out;
+    for (int column_idx : column_indices) {
+      if (column_idx < 0 || column_idx >= descr->num_columns()) {
+        return ::arrow::Status::IndexError("Column index ", column_idx, " is not valid");
+      }
+
       auto field_node = descr->GetColumnRoot(column_idx);
       auto field_idx = group->FieldIndex(*field_node);
-      if (field_idx < 0) {
-        return false;
+      if (field_idx == -1) {
+        return ::arrow::Status::IndexError("Column index ", column_idx, " is not valid");
       }
-      auto insertion = already_added.insert(field_idx);
-      if (insertion.second) {
-        out->push_back(field_idx);
+
+      if (already_added.insert(field_idx).second) {
+        out.push_back(field_idx);
       }
     }
-    return true;
+    return out;
   }
 };
 

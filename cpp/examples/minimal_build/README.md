@@ -49,3 +49,33 @@ docker run -it -v $PWD:/io -v $ARROW_ROOT:/arrow arrow_cpp_minimal /io/run.sh
 Note that this example mounts two volumes inside the Docker image:
 * `/arrow` points to the Arrow source tree
 * `/io` points to this example directory
+
+## Statically-linked builds
+
+We've provided an example build configuration here with CMake to show how to
+create a statically-linked executable .
+
+To run it on Linux, you can use the above Docker image:
+
+```bash
+docker run -it -v $PWD:/io -v $ARROW_ROOT:/arrow arrow_cpp_minimal /io/run_static.sh
+```
+
+On macOS, you can use the `run_static.sh` but you must set some environment
+variables to point the script to your Arrow checkout, for example:
+
+```bash
+export ARROW_DIR=path/to/arrow-clone
+export EXAMPLE_DIR=$ARROW_DIR/cpp/examples/minimal_build
+export ARROW_BUILD_DIR=`pwd`/arrow-build
+export EXAMPLE_BUILD_DIR=`pwd`/example
+
+./run_static.sh
+```
+
+On Windows, you can run `run_static.bat` from the command prompt with Visual
+Studio's command line tools enabled and CMake and ninja build in the path:
+
+```
+call run_static.bat
+```

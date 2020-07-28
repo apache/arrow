@@ -208,6 +208,9 @@ void StructBuilder::Reset() {
 }
 
 Status StructBuilder::AppendNulls(int64_t length) {
+  for (const auto& field : children_) {
+    RETURN_NOT_OK(field->AppendNulls(length));
+  }
   ARROW_RETURN_NOT_OK(Reserve(length));
   UnsafeAppendToBitmap(length, false);
   return Status::OK();

@@ -27,7 +27,28 @@ from pyarrow.util import _stringify_path
 
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
+import os
 import pathlib
+import sys
+
+
+cdef _init_ca_paths():
+    cdef CFileSystemGlobalOptions options
+
+    import ssl
+    paths = ssl.get_default_verify_paths()
+    if paths.cafile:
+        options.tls_ca_file_path = os.fsencode(paths.cafile)
+    if paths.capath:
+        options.tls_ca_dir_path = os.fsencode(paths.capath)
+    check_status(CFileSystemsInitialize(options))
+
+
+if sys.platform == 'linux':
+    # ARROW-9261: On Linux, we may need to fixup the paths to TLS CA certs
+    # (especially in manylinux packages) since the values hardcoded at
+    # compile-time in libcurl may be wrong.
+    _init_ca_paths()
 
 
 cdef inline c_string _path_as_bytes(path) except *:
@@ -454,7 +475,7 @@ cdef class FileSystem:
         with nogil:
             check_status(self.fs.DeleteDir(directory))
 
-    def delete_dir_contents(self, path):
+    def delete_dir_contents(self, path, *, bint accept_root_dir=False):
         """Delete a directory's contents, recursively.
 
         Like delete_dir, but doesn't delete the directory itself.
@@ -463,10 +484,17 @@ cdef class FileSystem:
         ----------
         path : str
             The path of the directory to be deleted.
+        accept_root_dir : boolean, default False
+            Allow deleting the root directory's contents
+            (if path is empty or "/")
         """
         cdef c_string directory = _path_as_bytes(path)
-        with nogil:
-            check_status(self.fs.DeleteDirContents(directory))
+        if accept_root_dir and directory.strip(b"/") == b"":
+            with nogil:
+                check_status(self.fs.DeleteRootDirContents())
+        else:
+            with nogil:
+                check_status(self.fs.DeleteDirContents(directory))
 
     def move(self, src, dest):
         """
@@ -696,7 +724,7 @@ cdef class LocalFileSystem(FileSystem):
         a mmap'ed file or a regular file.
     """
 
-    def __init__(self, use_mmap=False):
+    def __init__(self, *, use_mmap=False):
         cdef:
             CLocalFileSystemOptions opts
             shared_ptr[CLocalFileSystem] fs
@@ -711,9 +739,16 @@ cdef class LocalFileSystem(FileSystem):
         FileSystem.init(self, c_fs)
         self.localfs = <CLocalFileSystem*> c_fs.get()
 
+    @classmethod
+    def _reconstruct(cls, kwargs):
+        # __reduce__ doesn't allow passing named arguments directly to the
+        # reconstructor, hence this wrapper.
+        return cls(**kwargs)
+
     def __reduce__(self):
         cdef CLocalFileSystemOptions opts = self.localfs.options()
-        return LocalFileSystem, (opts.use_mmap,)
+        return LocalFileSystem._reconstruct, (dict(
+            use_mmap=opts.use_mmap),)
 
 
 cdef class SubTreeFileSystem(FileSystem):
@@ -808,6 +843,7 @@ cdef class PyFileSystem(FileSystem):
         vtable.create_dir = _cb_create_dir
         vtable.delete_dir = _cb_delete_dir
         vtable.delete_dir_contents = _cb_delete_dir_contents
+        vtable.delete_root_dir_contents = _cb_delete_root_dir_contents
         vtable.delete_file = _cb_delete_file
         vtable.move = _cb_move
         vtable.copy_file = _cb_copy_file
@@ -877,6 +913,12 @@ class FileSystemHandler(ABC):
     def delete_dir_contents(self, path):
         """
         Implement PyFileSystem.delete_dir_contents(...).
+        """
+
+    @abstractmethod
+    def delete_root_dir_contents(self):
+        """
+        Implement PyFileSystem.delete_dir_contents("/", accept_root_dir=True).
         """
 
     @abstractmethod
@@ -970,6 +1012,9 @@ cdef void _cb_delete_dir(handler, const c_string& path) except *:
 
 cdef void _cb_delete_dir_contents(handler, const c_string& path) except *:
     handler.delete_dir_contents(frombytes(path))
+
+cdef void _cb_delete_root_dir_contents(handler) except *:
+    handler.delete_root_dir_contents()
 
 cdef void _cb_delete_file(handler, const c_string& path) except *:
     handler.delete_file(frombytes(path))

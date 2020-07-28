@@ -30,8 +30,10 @@ import java.util.stream.Collectors;
 import org.apache.arrow.flight.impl.Flight;
 import org.apache.arrow.vector.ipc.ReadChannel;
 import org.apache.arrow.vector.ipc.WriteChannel;
+import org.apache.arrow.vector.ipc.message.IpcOption;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
 import org.apache.arrow.vector.types.pojo.Schema;
+import org.apache.arrow.vector.validate.MetadataV4UnionChecker;
 
 import com.fasterxml.jackson.databind.util.ByteBufferBackedInputStream;
 import com.google.common.collect.ImmutableList;
@@ -41,11 +43,12 @@ import com.google.protobuf.ByteString;
  * A POJO representation of a FlightInfo, metadata associated with a set of data records.
  */
 public class FlightInfo {
-  private Schema schema;
-  private FlightDescriptor descriptor;
-  private List<FlightEndpoint> endpoints;
+  private final Schema schema;
+  private final FlightDescriptor descriptor;
+  private final List<FlightEndpoint> endpoints;
   private final long bytes;
   private final long records;
+  private final IpcOption option;
 
   /**
    * Constructs a new instance.
@@ -58,15 +61,31 @@ public class FlightInfo {
    */
   public FlightInfo(Schema schema, FlightDescriptor descriptor, List<FlightEndpoint> endpoints, long bytes,
       long records) {
-    super();
+    this(schema, descriptor, endpoints, bytes, records, new IpcOption());
+  }
+
+  /**
+   * Constructs a new instance.
+   *
+   * @param schema The schema of the Flight
+   * @param descriptor An identifier for the Flight.
+   * @param endpoints A list of endpoints that have the flight available.
+   * @param bytes The number of bytes in the flight
+   * @param records The number of records in the flight.
+   * @param option IPC write options.
+   */
+  public FlightInfo(Schema schema, FlightDescriptor descriptor, List<FlightEndpoint> endpoints, long bytes,
+                    long records, IpcOption option) {
     Objects.requireNonNull(schema);
     Objects.requireNonNull(descriptor);
     Objects.requireNonNull(endpoints);
+    MetadataV4UnionChecker.checkForUnion(schema.getFields().iterator(), option.metadataVersion);
     this.schema = schema;
     this.descriptor = descriptor;
     this.endpoints = endpoints;
     this.bytes = bytes;
     this.records = records;
+    this.option = option;
   }
 
   /**
@@ -89,6 +108,7 @@ public class FlightInfo {
     }
     bytes = pbFlightInfo.getTotalBytes();
     records = pbFlightInfo.getTotalRecords();
+    option = new IpcOption();
   }
 
   public Schema getSchema() {
@@ -118,7 +138,7 @@ public class FlightInfo {
     // Encode schema in a Message payload
     ByteArrayOutputStream baos = new ByteArrayOutputStream();
     try {
-      MessageSerializer.serialize(new WriteChannel(Channels.newChannel(baos)), schema);
+      MessageSerializer.serialize(new WriteChannel(Channels.newChannel(baos)), schema, option);
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
