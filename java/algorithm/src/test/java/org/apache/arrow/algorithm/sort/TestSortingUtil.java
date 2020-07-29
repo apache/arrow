@@ -69,9 +69,7 @@ public class TestSortingUtil {
   static final DataGenerator<VarCharVector, String> STRING_GENERATOR = new DataGenerator<>(
       () -> {
         int strLength = random.nextInt(20) + 1;
-        byte[] str = new byte[strLength];
-        random.nextBytes(str);
-        return new String(str);
+        return generateRandomString(strLength);
       },
       (vector, array) -> ValueVectorDataPopulator.setVector(vector, array), String.class);
 
@@ -107,6 +105,23 @@ public class TestSortingUtil {
       }
       return a.compareTo(b);
     });
+  }
+
+  /**
+   * Generate a string with alphabetic characters only.
+   */
+  static String generateRandomString(int length) {
+    byte[] str = new byte[length];
+    final int lower = 'a';
+    final int upper = 'z';
+
+    for (int i = 0; i < length; i++) {
+      // make r non-negative
+      int r = random.nextInt() & Integer.MAX_VALUE;
+      str[i] = (byte) (r % (upper - lower + 1) + lower);
+    }
+
+    return new String(str);
   }
 
   /**
