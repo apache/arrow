@@ -81,6 +81,8 @@ jobs:
           sudo sysctl -w kernel.core_pattern="core.%e.%p"
           ulimit -c unlimited
           archery docker run debian-rust
+      - name: Fix Cache Permissions
+        run: sudo chmod -R o+r .docker
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         continue-on-error: true
