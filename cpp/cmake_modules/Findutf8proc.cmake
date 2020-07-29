@@ -24,9 +24,6 @@ if(ARROW_UTF8PROC_USE_SHARED)
   list(APPEND UTF8PROC_LIB_NAMES
               "${CMAKE_SHARED_LIBRARY_PREFIX}utf8proc${CMAKE_SHARED_LIBRARY_SUFFIX}")
 else()
-  if(MSVC)
-    set(UTF8PROC_COMPILER_DEFINITIONS UTF8PROC_STATIC)
-  endif()
   if(MSVC AND NOT DEFINED UTF8PROC_MSVC_STATIC_LIB_SUFFIX)
     set(UTF8PROC_MSVC_STATIC_LIB_SUFFIX "_static")
   endif()
@@ -64,7 +61,9 @@ if(UTF8PROC_FOUND OR utf8proc_FOUND)
   add_library(utf8proc::utf8proc UNKNOWN IMPORTED)
   set_target_properties(utf8proc::utf8proc
                         PROPERTIES IMPORTED_LOCATION "${UTF8PROC_LIB}"
-                                   INTERFACE_COMPILE_DEFINITIONS "${UTF8PROC_COMPILER_DEFINITIONS}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${UTF8PROC_INCLUDE_DIR}")
+  if(NOT ARROW_UTF8PROC_USE_SHARED)
+    set_target_properties(utf8proc::utf8proc
+                          PROPERTIES INTERFACE_COMPILER_DEFINITIONS "UTF8PROC_STATIC")
+  endif()
 endif()
-
