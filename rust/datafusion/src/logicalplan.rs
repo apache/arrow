@@ -125,30 +125,6 @@ pub enum Operator {
     NotLike,
 }
 
-impl fmt::Display for Operator {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let display = match &self {
-            Operator::Eq => "=",
-            Operator::NotEq => "!=",
-            Operator::Lt => "<",
-            Operator::LtEq => "<=",
-            Operator::Gt => ">",
-            Operator::GtEq => ">=",
-            Operator::Plus => "+",
-            Operator::Minus => "-",
-            Operator::Multiply => "*",
-            Operator::Divide => "/",
-            Operator::Modulus => "%",
-            Operator::And => "AND",
-            Operator::Or => "OR",
-            Operator::Not => "NOT",
-            Operator::Like => "LIKE",
-            Operator::NotLike => "NOT LIKE",
-        };
-        write!(f, "{}", display)
-    }
-}
-
 /// ScalarValue enumeration
 #[derive(Debug, Clone, PartialEq)]
 pub enum ScalarValue {
@@ -203,27 +179,6 @@ impl ScalarValue {
     }
 }
 
-impl fmt::Display for ScalarValue {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            ScalarValue::Boolean(value) => write!(f, "{}", value),
-            ScalarValue::UInt8(value) => write!(f, "{}", value),
-            ScalarValue::UInt16(value) => write!(f, "{}", value),
-            ScalarValue::UInt32(value) => write!(f, "{}", value),
-            ScalarValue::UInt64(value) => write!(f, "{}", value),
-            ScalarValue::Int8(value) => write!(f, "{}", value),
-            ScalarValue::Int16(value) => write!(f, "{}", value),
-            ScalarValue::Int32(value) => write!(f, "{}", value),
-            ScalarValue::Int64(value) => write!(f, "{}", value),
-            ScalarValue::Float32(value) => write!(f, "{}", value),
-            ScalarValue::Float64(value) => write!(f, "{}", value),
-            ScalarValue::Utf8(value) => write!(f, "{}", value),
-            ScalarValue::Null => write!(f, "NULL"),
-            ScalarValue::Struct(_) => write!(f, "STRUCT"),
-        }
-    }
-}
-
 /// Returns a readable name of an expression based on the input schema.
 /// This function recursively transverses the expression for names such as "CAST(a > 2)".
 fn create_name(e: &Expr, input_schema: &Schema) -> Result<String> {
@@ -263,7 +218,7 @@ fn create_name(e: &Expr, input_schema: &Schema) -> Result<String> {
 
 /// Returns the datatype of the expression given the input schema
 // note: the physical plan derived from an expression must match the datatype on this function.
-pub fn expr_to_field(e: &Expr, input_schema: &Schema) -> Result<Field> {
+fn expr_to_field(e: &Expr, input_schema: &Schema) -> Result<Field> {
     let data_type = match e {
         Expr::Alias(expr, ..) => expr.get_type(input_schema),
         Expr::Column(name) => Ok(input_schema.field_with_name(name)?.data_type().clone()),
@@ -297,7 +252,7 @@ pub fn expr_to_field(e: &Expr, input_schema: &Schema) -> Result<Field> {
 }
 
 /// Create field meta-data from an expression, for use in a result set schema
-pub fn exprlist_to_fields(expr: &[Expr], input_schema: &Schema) -> Result<Vec<Field>> {
+fn exprlist_to_fields(expr: &[Expr], input_schema: &Schema) -> Result<Vec<Field>> {
     expr.iter()
         .map(|e| expr_to_field(e, input_schema))
         .collect()
@@ -528,38 +483,6 @@ macro_rules! make_literal {
     };
 }
 
-<<<<<<< HEAD
-=======
-/// Whether it can be represented as a literal expression
-pub trait Literal {
-    /// convert the value to a Literal expression
-    fn lit(&self) -> Expr;
-}
-
-impl Literal for &str {
-    fn lit(&self) -> Expr {
-        Expr::Literal(ScalarValue::Utf8((*self).to_owned()))
-    }
-}
-
-impl Literal for String {
-    fn lit(&self) -> Expr {
-        Expr::Literal(ScalarValue::Utf8((*self).to_owned()))
-    }
-}
-
-macro_rules! make_literal {
-    ($TYPE:ty, $SCALAR:ident) => {
-        #[allow(missing_docs)]
-        impl Literal for $TYPE {
-            fn lit(&self) -> Expr {
-                Expr::Literal(ScalarValue::$SCALAR(self.clone()))
-            }
-        }
-    };
-}
-
->>>>>>> ARROW-9534: [Rust] [DataFusion] Added support for lit to all supported rust types.
 make_literal!(bool, Boolean);
 make_literal!(f32, Float32);
 make_literal!(f64, Float64);

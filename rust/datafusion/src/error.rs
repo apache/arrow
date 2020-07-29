@@ -25,7 +25,7 @@ use std::result;
 use arrow::error::ArrowError;
 use parquet::errors::ParquetError;
 
-use sqlparser::parser::ParserError;
+use sqlparser::sqlparser::ParserError;
 
 /// Result type for operations that could result in an `ExecutionError`
 pub type Result<T> = result::Result<T, ExecutionError>;
