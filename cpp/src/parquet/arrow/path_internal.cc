@@ -106,7 +106,6 @@
 #include "arrow/util/make_unique.h"
 #include "arrow/util/variant.h"
 #include "arrow/visitor_inline.h"
-
 #include "parquet/properties.h"
 
 namespace parquet {
@@ -525,7 +524,7 @@ struct PathInfo {
   std::shared_ptr<Array> primitive_array;
   int16_t max_def_level = 0;
   int16_t max_rep_level = 0;
-  bool has_dictionary;
+  bool has_dictionary = false;
 };
 
 /// Contains logic for writing a single leaf node to parquet.
