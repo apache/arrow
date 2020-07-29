@@ -218,7 +218,9 @@ jobs:
         run: ci/scripts/util_checkout.sh
       - name: Install Dependencies
         shell: bash
-        run: brew bundle --file=cpp/Brewfile
+        run: |
+          brew update --preinstall
+          brew bundle --file=cpp/Brewfile
       - name: Build
         shell: bash
         run: ci/scripts/cpp_build.sh $(pwd) $(pwd)/build

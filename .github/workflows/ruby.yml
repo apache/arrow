@@ -130,7 +130,7 @@ jobs:
       - name: Install Dependencies
         shell: bash
         run: |
-          brew update
+          brew update --preinstall
           brew bundle --file=cpp/Brewfile
           brew bundle --file=c_glib/Brewfile
           bundle install --gemfile c_glib/Gemfile
