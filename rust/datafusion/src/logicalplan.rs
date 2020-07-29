@@ -125,6 +125,30 @@ pub enum Operator {
     NotLike,
 }
 
+impl fmt::Display for Operator {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let display = match &self {
+            Operator::Eq => "=",
+            Operator::NotEq => "!=",
+            Operator::Lt => "<",
+            Operator::LtEq => "<=",
+            Operator::Gt => ">",
+            Operator::GtEq => ">=",
+            Operator::Plus => "+",
+            Operator::Minus => "-",
+            Operator::Multiply => "*",
+            Operator::Divide => "/",
+            Operator::Modulus => "%",
+            Operator::And => "AND",
+            Operator::Or => "OR",
+            Operator::Not => "NOT",
+            Operator::Like => "LIKE",
+            Operator::NotLike => "NOT LIKE",
+        };
+        write!(f, "{}", display)
+    }
+}
+
 /// ScalarValue enumeration
 #[derive(Debug, Clone, PartialEq)]
 pub enum ScalarValue {
@@ -179,6 +203,27 @@ impl ScalarValue {
     }
 }
 
+impl fmt::Display for ScalarValue {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            ScalarValue::Boolean(value) => write!(f, "{}", value),
+            ScalarValue::UInt8(value) => write!(f, "{}", value),
+            ScalarValue::UInt16(value) => write!(f, "{}", value),
+            ScalarValue::UInt32(value) => write!(f, "{}", value),
+            ScalarValue::UInt64(value) => write!(f, "{}", value),
+            ScalarValue::Int8(value) => write!(f, "{}", value),
+            ScalarValue::Int16(value) => write!(f, "{}", value),
+            ScalarValue::Int32(value) => write!(f, "{}", value),
+            ScalarValue::Int64(value) => write!(f, "{}", value),
+            ScalarValue::Float32(value) => write!(f, "{}", value),
+            ScalarValue::Float64(value) => write!(f, "{}", value),
+            ScalarValue::Utf8(value) => write!(f, "{}", value),
+            ScalarValue::Null => write!(f, "NULL"),
+            ScalarValue::Struct(_) => write!(f, "STRUCT"),
+        }
+    }
+}
+
 /// Returns a readable name of an expression based on the input schema.
 /// This function recursively transverses the expression for names such as "CAST(a > 2)".
 fn create_name(e: &Expr, input_schema: &Schema) -> Result<String> {
@@ -218,7 +263,7 @@ fn create_name(e: &Expr, input_schema: &Schema) -> Result<String> {
 
 /// Returns the datatype of the expression given the input schema
 // note: the physical plan derived from an expression must match the datatype on this function.
-fn expr_to_field(e: &Expr, input_schema: &Schema) -> Result<Field> {
+pub fn expr_to_field(e: &Expr, input_schema: &Schema) -> Result<Field> {
     let data_type = match e {
         Expr::Alias(expr, ..) => expr.get_type(input_schema),
         Expr::Column(name) => Ok(input_schema.field_with_name(name)?.data_type().clone()),
@@ -252,7 +297,7 @@ fn expr_to_field(e: &Expr, input_schema: &Schema) -> Result<Field> {
 }
 
 /// Create field meta-data from an expression, for use in a result set schema
-fn exprlist_to_fields(expr: &[Expr], input_schema: &Schema) -> Result<Vec<Field>> {
+pub fn exprlist_to_fields(expr: &[Expr], input_schema: &Schema) -> Result<Vec<Field>> {
     expr.iter()
         .map(|e| expr_to_field(e, input_schema))
         .collect()
