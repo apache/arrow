@@ -45,6 +45,15 @@ class FunctionRegistry::FunctionRegistryImpl {
     return Status::OK();
   }
 
+  Status AddAlias(const std::string& target_name, const std::string& source_name) {
+    auto it = name_to_function_.find(source_name);
+    if (it == name_to_function_.end()) {
+      return Status::KeyError("No function registered with name: ", source_name);
+    }
+    name_to_function_[target_name] = it->second;
+    return Status::OK();
+  }
+
   Result<std::shared_ptr<Function>> GetFunction(const std::string& name) const {
     auto it = name_to_function_.find(name);
     if (it == name_to_function_.end()) {
@@ -80,6 +89,11 @@ FunctionRegistry::~FunctionRegistry() {}
 Status FunctionRegistry::AddFunction(std::shared_ptr<Function> function,
                                      bool allow_overwrite) {
   return impl_->AddFunction(std::move(function), allow_overwrite);
+}
+
+Status FunctionRegistry::AddAlias(const std::string& target_name,
+                                  const std::string& source_name) {
+  return impl_->AddAlias(target_name, source_name);
 }
 
 Result<std::shared_ptr<Function>> FunctionRegistry::GetFunction(

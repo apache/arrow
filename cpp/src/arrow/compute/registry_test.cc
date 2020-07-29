@@ -74,6 +74,12 @@ TEST_F(TestRegistry, Basics) {
 
   std::vector<std::string> expected_names = {"f0", "f1"};
   ASSERT_EQ(expected_names, registry_->GetFunctionNames());
+
+  // Aliases
+  ASSERT_RAISES(KeyError, registry_->AddAlias("f33", "f3"));
+  ASSERT_OK(registry_->AddAlias("f11", "f1"));
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<const Function> f2, registry_->GetFunction("f11"));
+  ASSERT_EQ(func, f2);
 }
 
 }  // namespace compute
