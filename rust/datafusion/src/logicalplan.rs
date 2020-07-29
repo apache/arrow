@@ -528,6 +528,38 @@ macro_rules! make_literal {
     };
 }
 
+<<<<<<< HEAD
+=======
+/// Whether it can be represented as a literal expression
+pub trait Literal {
+    /// convert the value to a Literal expression
+    fn lit(&self) -> Expr;
+}
+
+impl Literal for &str {
+    fn lit(&self) -> Expr {
+        Expr::Literal(ScalarValue::Utf8((*self).to_owned()))
+    }
+}
+
+impl Literal for String {
+    fn lit(&self) -> Expr {
+        Expr::Literal(ScalarValue::Utf8((*self).to_owned()))
+    }
+}
+
+macro_rules! make_literal {
+    ($TYPE:ty, $SCALAR:ident) => {
+        #[allow(missing_docs)]
+        impl Literal for $TYPE {
+            fn lit(&self) -> Expr {
+                Expr::Literal(ScalarValue::$SCALAR(self.clone()))
+            }
+        }
+    };
+}
+
+>>>>>>> ARROW-9534: [Rust] [DataFusion] Added support for lit to all supported rust types.
 make_literal!(bool, Boolean);
 make_literal!(f32, Float32);
 make_literal!(f64, Float64);
