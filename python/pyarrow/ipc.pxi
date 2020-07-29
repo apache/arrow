@@ -45,7 +45,7 @@ cdef CMetadataVersion _unwrap_metadata_version(
     raise ValueError("Not a metadata version: " + repr(version))
 
 
-cdef class IpcWriteOptions:
+cdef class IpcWriteOptions(_Weakrefable):
     """Serialization options for the IPC format.
 
     Parameters
@@ -115,7 +115,7 @@ cdef class IpcWriteOptions:
         self.c_options.use_threads = value
 
 
-cdef class Message:
+cdef class Message(_Weakrefable):
     """
     Container for an Arrow IPC message with metadata and optional body
     """
@@ -221,7 +221,7 @@ metadata length: {1}
 body length: {2}""".format(self.type, metadata_len, body_len)
 
 
-cdef class MessageReader:
+cdef class MessageReader(_Weakrefable):
     """
     Interface for reading Message objects from some source (like an
     InputStream)
@@ -277,7 +277,7 @@ cdef class MessageReader:
 # ----------------------------------------------------------------------
 # File and stream readers and writers
 
-cdef class _CRecordBatchWriter:
+cdef class _CRecordBatchWriter(_Weakrefable):
     """The base RecordBatchWriter wrapper.
 
     Provides common implementations of convenience methods. Should not
@@ -398,7 +398,7 @@ cdef _get_input_stream(object source, shared_ptr[CInputStream]* out):
     get_input_stream(source, True, out)
 
 
-cdef class _CRecordBatchReader:
+cdef class _CRecordBatchReader(_Weakrefable):
     """The base RecordBatchReader wrapper.
 
     Provides common implementations of convenience methods. Should not
@@ -483,7 +483,7 @@ cdef class _RecordBatchFileWriter(_RecordBatchStreamWriter):
                 NewFileWriter(self.sink.get(), schema.sp_schema, self.options))
 
 
-cdef class _RecordBatchFileReader:
+cdef class _RecordBatchFileReader(_Weakrefable):
     cdef:
         shared_ptr[CRecordBatchFileReader] reader
         shared_ptr[CRandomAccessFile] file

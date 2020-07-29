@@ -91,7 +91,7 @@ def _is_primitive(Type type):
 ctypedef CFixedWidthType* _CFixedWidthTypePtr
 
 
-cdef class DataType:
+cdef class DataType(_Weakrefable):
     """
     Base class of all Arrow data types.
 
@@ -219,7 +219,7 @@ cdef class DataType:
         return pyarrow_wrap_data_type(result)
 
 
-cdef class DictionaryMemo:
+cdef class DictionaryMemo(_Weakrefable):
     """
     Tracking container for dictionary-encoded fields.
     """
@@ -961,7 +961,7 @@ cdef KeyValueMetadata ensure_metadata(object meta, c_bool allow_none=False):
         return KeyValueMetadata(meta)
 
 
-cdef class Field:
+cdef class Field(_Weakrefable):
     """
     A named field, with a data type, nullability, and optional metadata.
 
@@ -1149,7 +1149,7 @@ cdef class Field:
         return [pyarrow_wrap_field(f) for f in flattened]
 
 
-cdef class Schema:
+cdef class Schema(_Weakrefable):
 
     def __cinit__(self):
         pass
@@ -2605,7 +2605,7 @@ def is_float_value(object obj):
     return IsPyFloat(obj)
 
 
-cdef class _ExtensionRegistryNanny:
+cdef class _ExtensionRegistryNanny(_Weakrefable):
     # Keep the registry alive until we have unregistered PyExtensionType
     cdef:
         shared_ptr[CExtensionTypeRegistry] registry

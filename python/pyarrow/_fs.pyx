@@ -92,7 +92,7 @@ cdef CFileType _unwrap_file_type(FileType ty) except *:
     assert 0
 
 
-cdef class FileInfo:
+cdef class FileInfo(_Weakrefable):
     """
     FileSystem entry info.
 
@@ -256,7 +256,7 @@ cdef class FileInfo:
         return (nanoseconds if nanoseconds != -1 else None)
 
 
-cdef class FileSelector:
+cdef class FileSelector(_Weakrefable):
     """
     File and directory selector.
 
@@ -320,7 +320,7 @@ cdef class FileSelector:
                 "recursive={0.recursive}>".format(self))
 
 
-cdef class FileSystem:
+cdef class FileSystem(_Weakrefable):
     """
     Abstract file system API.
     """

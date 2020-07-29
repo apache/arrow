@@ -16,7 +16,7 @@
 # under the License.
 
 
-cdef class StringBuilder:
+cdef class StringBuilder(_Weakrefable):
     """
     Builder class for UTF8 strings.
 

@@ -41,7 +41,7 @@ def strip_hdfs_abspath(path):
         return path
 
 
-cdef class HadoopFileSystem:
+cdef class HadoopFileSystem(_Weakrefable):
     cdef:
         shared_ptr[CIOHadoopFileSystem] client
 
@@ -441,7 +441,7 @@ cdef class HadoopFileSystem:
 # client. During deallocation of the extension class, the attributes are
 # decref'd which can cause the client to get closed first if the file has the
 # last remaining reference
-cdef class _HdfsFileNanny:
+cdef class _HdfsFileNanny(_Weakrefable):
     cdef:
         object client
         object file_handle_ref

@@ -15,10 +15,20 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import weakref
+
 import numpy as np
 
 import pyarrow as pa
 from pyarrow.lib import StringBuilder
+
+
+def test_weakref():
+    sbuilder = StringBuilder()
+    wr = weakref.ref(sbuilder)
+    assert wr() is not None
+    del sbuilder
+    assert wr() is None
 
 
 def test_string_builder_append():

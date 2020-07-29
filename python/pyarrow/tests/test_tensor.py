@@ -18,6 +18,7 @@
 import os
 import sys
 import pytest
+import weakref
 
 import numpy as np
 import pyarrow as pa
@@ -64,6 +65,11 @@ def test_tensor_attrs():
     assert tensor.dim_names == ['x', 'y']
     assert tensor.dim_name(0) == 'x'
     assert tensor.dim_name(1) == 'y'
+
+    wr = weakref.ref(tensor)
+    assert wr() is not None
+    del tensor
+    assert wr() is None
 
 
 def test_tensor_base_object():

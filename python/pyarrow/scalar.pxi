@@ -19,7 +19,7 @@
 import collections
 
 
-cdef class Scalar:
+cdef class Scalar(_Weakrefable):
     """
     The base class for scalars.
     """

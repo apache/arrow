@@ -22,7 +22,7 @@ from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 
 
-cdef class FunctionOptions:
+cdef class FunctionOptions(_Weakrefable):
 
     cdef const CFunctionOptions* get_options(self) except NULL
 

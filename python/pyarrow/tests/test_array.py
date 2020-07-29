@@ -25,6 +25,7 @@ import pickle
 import pytest
 import struct
 import sys
+import weakref
 
 import numpy as np
 try:
@@ -38,6 +39,14 @@ import pyarrow.tests.strategies as past
 
 def test_total_bytes_allocated():
     assert pa.total_allocated_bytes() == 0
+
+
+def test_weakref():
+    arr = pa.array([1, 2, 3])
+    wr = weakref.ref(arr)
+    assert wr() is not None
+    del arr
+    assert wr() is None
 
 
 def test_getitem_NULL():

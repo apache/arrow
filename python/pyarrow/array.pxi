@@ -619,7 +619,7 @@ def _restore_array(data):
     return pyarrow_wrap_array(MakeArray(ad))
 
 
-cdef class _PandasConvertible:
+cdef class _PandasConvertible(_Weakrefable):
 
     def to_pandas(
             self,

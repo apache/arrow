@@ -17,6 +17,7 @@
 
 import pytest
 import sys
+import weakref
 
 import numpy as np
 import pyarrow as pa
@@ -71,6 +72,11 @@ def test_sparse_tensor_attrs(sparse_tensor_type):
     assert sparse_tensor.dim_name(0) == dim_names[0]
     assert sparse_tensor.dim_names == dim_names
     assert sparse_tensor.non_zero_length == 6
+
+    wr = weakref.ref(sparse_tensor)
+    assert wr() is not None
+    del sparse_tensor
+    assert wr() is None
 
 
 def test_sparse_coo_tensor_base_object():

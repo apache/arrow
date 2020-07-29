@@ -18,6 +18,7 @@
 import datetime
 import decimal
 import pytest
+import weakref
 
 import numpy as np
 
@@ -68,6 +69,11 @@ def test_basics(value, ty, klass, deprecated):
     assert s.as_py() is None
     assert s != pa.scalar(value, type=ty)
 
+    wr = weakref.ref(s)
+    assert wr() is not None
+    del s
+    assert wr() is None
+
 
 def test_null_singleton():
     with pytest.raises(RuntimeError):
@@ -88,6 +94,11 @@ def test_nulls():
     for v in arr:
         assert v is pa.NA
         assert v.as_py() is None
+
+    wr = weakref.ref(null)
+    assert wr() is not None
+    del null
+    assert wr() is not None  # singleton
 
 
 def test_hashing():

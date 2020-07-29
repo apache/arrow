@@ -30,7 +30,7 @@ from libc.stdint cimport int64_t, int32_t, uint8_t, uintptr_t
 from pyarrow.includes.libarrow cimport *
 from pyarrow.lib cimport (Array, DataType, Field, MemoryPool, RecordBatch,
                           Schema, check_status, pyarrow_wrap_array,
-                          pyarrow_wrap_data_type, ensure_type)
+                          pyarrow_wrap_data_type, ensure_type, _Weakrefable)
 from pyarrow.lib import frombytes
 
 from pyarrow.includes.libgandiva cimport (
@@ -75,7 +75,7 @@ from pyarrow.includes.libgandiva cimport (
     GetRegisteredFunctionSignatures)
 
 
-cdef class Node:
+cdef class Node(_Weakrefable):
     cdef:
         shared_ptr[CNode] node
 
@@ -90,14 +90,14 @@ cdef class Node:
         self.node = node
         return self
 
-cdef class Expression:
+cdef class Expression(_Weakrefable):
     cdef:
         shared_ptr[CExpression] expression
 
     cdef void init(self, shared_ptr[CExpression] expression):
         self.expression = expression
 
-cdef class Condition:
+cdef class Condition(_Weakrefable):
     cdef:
         shared_ptr[CCondition] condition
 
@@ -112,7 +112,7 @@ cdef class Condition:
         self.condition = condition
         return self
 
-cdef class SelectionVector:
+cdef class SelectionVector(_Weakrefable):
     cdef:
         shared_ptr[CSelectionVector] selection_vector
 
@@ -130,7 +130,7 @@ cdef class SelectionVector:
         cdef shared_ptr[CArray] result = self.selection_vector.get().ToArray()
         return pyarrow_wrap_array(result)
 
-cdef class Projector:
+cdef class Projector(_Weakrefable):
     cdef:
         shared_ptr[CProjector] projector
         MemoryPool pool
@@ -161,7 +161,7 @@ cdef class Projector:
             arrays.append(pyarrow_wrap_array(result))
         return arrays
 
-cdef class Filter:
+cdef class Filter(_Weakrefable):
     cdef:
         shared_ptr[CFilter] filter
 
@@ -203,7 +203,7 @@ cdef class Filter:
         return SelectionVector.create(selection)
 
 
-cdef class TreeExprBuilder:
+cdef class TreeExprBuilder(_Weakrefable):
 
     def make_literal(self, value, dtype):
         cdef:
@@ -410,7 +410,7 @@ cpdef make_filter(Schema schema, Condition condition):
     check_status(Filter_Make(schema.sp_schema, condition.condition, &result))
     return Filter.create(result)
 
-cdef class FunctionSignature:
+cdef class FunctionSignature(_Weakrefable):
     """
     Signature of a Gandiva function including name, parameter types
     and return type.
