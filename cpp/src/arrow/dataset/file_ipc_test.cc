@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "arrow/dataset/dataset_internal.h"
+#include "arrow/dataset/discovery.h"
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/filter.h"
 #include "arrow/dataset/partition.h"
@@ -149,63 +150,104 @@ TEST_F(TestIpcFileFormat, ScanRecordBatchReaderWithVirtualColumn) {
 TEST_F(TestIpcFileFormat, WriteRecordBatchReader) {
   std::shared_ptr<RecordBatchReader> reader = GetRecordBatchReader();
   auto source = GetFileSource(reader.get());
+  reader = GetRecordBatchReader();
 
   opts_ = ScanOptions::Make(reader->schema());
-  ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
 
   EXPECT_OK_AND_ASSIGN(auto sink, GetFileSink());
 
-  EXPECT_OK_AND_ASSIGN(auto write_task,
-                       format_->WriteFragment(sink, fragment, opts_, ctx_));
-
-  ASSERT_OK(write_task->Execute());
+  EXPECT_OK_AND_ASSIGN(auto fragment, format_->WriteFragment(sink, scalar(true), reader));
 
   AssertBufferEqual(*sink.buffer(), *source->buffer());
 }
 
 class TestIpcFileSystemDataset : public TestIpcFileFormat,
-                                 public MakeFileSystemDatasetMixin {};
+                                 public MakeFileSystemDatasetMixin {
+ public:
+  TestIpcFileSystemDataset() {
+    using PathAndContent = std::vector<std::pair<std::string, std::string>>;
+    auto files = PathAndContent{
+        {"/dataset/year=2018/month=01/dat0.json", R"([
+        {"region": "NY", "model": "3", "sales": 742.0, "country": "US"},
+        {"region": "NY", "model": "S", "sales": 304.125, "country": "US"},
+        {"region": "NY", "model": "Y", "sales": 27.5, "country": "US"}
+      ])"},
+        {"/dataset/year=2018/month=01/dat1.json", R"([
+        {"region": "CA", "model": "3", "sales": 512, "country": "CA"},
+        {"region": "CA", "model": "S", "sales": 978, "country": "CA"},
+        {"region": "NY", "model": "X", "sales": 136.25, "country": "US"},
+        {"region": "CA", "model": "X", "sales": 1.0, "country": "CA"},
+        {"region": "CA", "model": "Y", "sales": 69, "country": "CA"}
+      ])"},
+        {"/dataset/year=2019/month=01/dat0.json", R"([
+        {"region": "QC", "model": "3", "sales": 273.5, "country": "US"},
+        {"region": "QC", "model": "S", "sales": 13, "country": "US"},
+        {"region": "QC", "model": "X", "sales": 54, "country": "US"},
+        {"region": "QC", "model": "S", "sales": 10, "country": "CA"},
+        {"region": "QC", "model": "Y", "sales": 21, "country": "US"}
+      ])"},
+        {"/dataset/year=2019/month=01/dat1.json", R"([
+        {"region": "QC", "model": "3", "sales": 152.25, "country": "CA"},
+        {"region": "QC", "model": "X", "sales": 42, "country": "CA"},
+        {"region": "QC", "model": "Y", "sales": 37, "country": "CA"}
+      ])"},
+        {"/dataset/.pesky", "garbage content"},
+    };
+
+    auto mock_fs = std::make_shared<fs::internal::MockFileSystem>(fs::kNoTime);
+    for (const auto& f : files) {
+      ARROW_EXPECT_OK(mock_fs->CreateFile(f.first, f.second, /* recursive */ true));
+    }
+
+    fs_ = mock_fs;
+  }
+};
 
 TEST_F(TestIpcFileSystemDataset, Write) {
-  std::string paths = R"(
-    old_root/i32=0/str=aaa/dat
-    old_root/i32=0/str=bbb/dat
-    old_root/i32=0/str=ccc/dat
-    old_root/i32=1/str=aaa/dat
-    old_root/i32=1/str=bbb/dat
-    old_root/i32=1/str=ccc/dat
-  )";
+  /// schema for the whole dataset (both source and destination)
+  schema_ = schema({
+      field("region", utf8()),
+      field("model", utf8()),
+      field("sales", float64()),
+      field("year", int32()),
+      field("month", int32()),
+      field("country", utf8()),
+  });
 
-  ExpressionVector partitions{
-      ("i32"_ == 0 and "str"_ == "aaa").Copy(), ("i32"_ == 0 and "str"_ == "bbb").Copy(),
-      ("i32"_ == 0 and "str"_ == "ccc").Copy(), ("i32"_ == 1 and "str"_ == "aaa").Copy(),
-      ("i32"_ == 1 and "str"_ == "bbb").Copy(), ("i32"_ == 1 and "str"_ == "ccc").Copy(),
-  };
+  /// Dummy file format for source dataset. Note that it isn't partitioned on country
+  auto source_format = std::make_shared<JSONRecordBatchFileFormat>(
+      SchemaFromColumnNames(schema_, {"region", "model", "sales", "country"}));
 
-  MakeDatasetFromPathlist(paths, scalar(true), partitions);
+  fs::FileSelector s;
+  s.base_dir = "/dataset";
+  s.recursive = true;
 
-  auto schema = arrow::schema({field("i32", int32()), field("str", utf8())});
-  opts_ = ScanOptions::Make(schema);
+  FileSystemFactoryOptions options;
+  options.selector_ignore_prefixes = {"."};
+  options.partitioning = HivePartitioning::MakeFactory();
+  ASSERT_OK_AND_ASSIGN(auto factory,
+                       FileSystemDatasetFactory::Make(fs_, s, source_format, options));
+  ASSERT_OK_AND_ASSIGN(dataset_, factory->Finish());
 
-  auto partitioning_factory = DirectoryPartitioning::MakeFactory({"str", "i32"});
-  ASSERT_OK_AND_ASSIGN(auto plan, partitioning_factory->MakeWritePlan(
-                                      schema, dataset_->GetFragments(), schema));
+  /// now copy the source dataset from json format to ipc
+  std::vector<std::string> desired_partition_fields = {"country", "year", "month"};
 
-  plan.format = format_;
-  plan.filesystem = fs_;
-  plan.partition_base_dir = "new_root/";
+  ASSERT_OK_AND_ASSIGN(
+      WritePlan plan,
+      DirectoryPartitioning::MakeFactory(desired_partition_fields)
+          ->MakeWritePlan(schema_, dataset_->GetFragments(),
+                          SchemaFromColumnNames(schema_, desired_partition_fields)));
 
-  ASSERT_OK_AND_ASSIGN(auto written, FileSystemDataset::Write(plan, opts_, ctx_));
+  plan.SetFormat(format_);
+  plan.SetBaseDir(fs_, "new_root/");
+  ASSERT_OK_AND_ASSIGN(auto written, plan.Execute());
 
-  auto parent_directories = written->files();
-  for (auto& path : parent_directories) {
-    EXPECT_EQ(fs::internal::GetAbstractPathExtension(path), "ipc");
-    path = fs::internal::GetAbstractPathParent(path).first;
-  }
-
-  EXPECT_THAT(parent_directories,
-              testing::ElementsAre("new_root/aaa/0", "new_root/aaa/1", "new_root/bbb/0",
-                                   "new_root/bbb/1", "new_root/ccc/0", "new_root/ccc/1"));
+  // XXX first thing a user will be annoyed by: we don't support left padding the month
+  // field with 0.
+  EXPECT_THAT(
+      written->files(),
+      testing::ElementsAre("new_root/US/2018/1/dat.ipc", "new_root/CA/2018/1/dat.ipc",
+                           "new_root/US/2019/1/dat.ipc", "new_root/CA/2019/1/dat.ipc"));
 }
 
 TEST_F(TestIpcFileFormat, OpenFailureWithRelevantError) {

@@ -385,7 +385,7 @@ class TestEndToEnd : public TestUnionDataset {
 
     auto mock_fs = std::make_shared<fs::internal::MockFileSystem>(fs::kNoTime);
     for (const auto& f : files) {
-      ARROW_EXPECT_OK(mock_fs->CreateFile(f.first, f.second, /* recursive */ true));
+      ARROW_EXPECT_OK(mock_fs->CreateFile(f.first, f.second, /*recursive=*/true));
     }
 
     fs_ = mock_fs;

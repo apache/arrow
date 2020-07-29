@@ -594,45 +594,35 @@ TEST(ExpressionSerializationTest, RoundTrips) {
 
 void AssertGrouping(const FieldVector& by_fields, const std::string& batch_json,
                     const std::string& expected_json) {
-  FieldVector fields_with_id = by_fields;
-  fields_with_id.push_back(field("id", int32()));
-
-  auto batch = RecordBatchFromJSON(schema(fields_with_id), batch_json);
-
-  auto just_id = RecordBatch::Make(schema({field("id", int32())}), batch->num_rows(),
-                                   {batch->GetColumnByName("id")});
-
-  ASSERT_OK_AND_ASSIGN(batch, batch->RemoveColumn(batch->num_columns() - 1));
-
-  ASSERT_OK_AND_ASSIGN(auto grouping, Group(*batch));
-
-  auto unique_rows =
-      checked_pointer_cast<StructArray>(grouping->GetFieldByName("values"));
-  auto grouped_sort_indices =
-      checked_pointer_cast<ListArray>(grouping->GetFieldByName("indices"));
-
   FieldVector fields_with_ids = by_fields;
   fields_with_ids.push_back(field("ids", list(int32())));
-  auto expected_groups = RecordBatchFromJSON(schema(fields_with_ids), expected_json);
+  auto expected = ArrayFromJSON(struct_(fields_with_ids), expected_json);
 
-  auto expected_ids =
-      checked_pointer_cast<ListArray>(expected_groups->GetColumnByName("ids"));
+  FieldVector fields_with_id = by_fields;
+  fields_with_id.push_back(field("id", int32()));
+  auto batch = RecordBatchFromJSON(schema(fields_with_id), batch_json);
 
-  ASSERT_OK_AND_ASSIGN(expected_groups,
-                       expected_groups->RemoveColumn(expected_groups->num_columns() - 1));
-  ASSERT_OK_AND_ASSIGN(auto expected_groups_array, expected_groups->ToStructArray());
+  ASSERT_OK_AND_ASSIGN(auto by, batch->RemoveColumn(batch->num_columns() - 1)
+                                    .Map([](std::shared_ptr<RecordBatch> by) {
+                                      return by->ToStructArray();
+                                    }));
 
-  int i = 0;
-  ASSERT_OK(VisitGrouped(
-      *unique_rows, *grouped_sort_indices, just_id,
-      [&](std::shared_ptr<StructScalar> by, std::shared_ptr<RecordBatch> slice) {
-        ARROW_ASSIGN_OR_RAISE(auto expected_by, expected_groups_array->GetScalar(i));
-        AssertScalarsEqual(*expected_by, *by, /*verbose=*/true);
-        AssertArraysEqual(*expected_ids->value_slice(i), *slice->GetColumnByName("id"),
-                          /*verbose=*/true);
-        ++i;
-        return Status::OK();
-      }));
+  ASSERT_OK_AND_ASSIGN(auto groupings_and_values, MakeGroupings(*by));
+
+  auto groupings =
+      checked_pointer_cast<ListArray>(groupings_and_values->GetFieldByName("groupings"));
+
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> grouped_ids,
+                       ApplyGroupings(*groupings, *batch->GetColumnByName("id")));
+
+  ArrayVector columns =
+      checked_cast<const StructArray&>(*groupings_and_values->GetFieldByName("values"))
+          .fields();
+  columns.push_back(grouped_ids);
+
+  ASSERT_OK_AND_ASSIGN(auto actual, StructArray::Make(columns, fields_with_ids));
+
+  AssertArraysEqual(*expected, *actual, /*verbose=*/true);
 }
 
 TEST(GroupTest, Basics) {

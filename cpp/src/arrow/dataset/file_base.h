@@ -146,7 +146,8 @@ class ARROW_DS_EXPORT WritableFileSource {
   /// \brief Return the buffer containing the file, if any. Otherwise returns nullptr
   const std::shared_ptr<ResizableBuffer>& buffer() const { return buffer_; }
 
-  /// \brief Get an OutputStream which wraps this file source
+  /// \brief Get an OutputStream which wraps this file source. If necessary, parent
+  /// directories will be created.
   Result<std::shared_ptr<arrow::io::OutputStream>> Open() const;
 
  private:
@@ -192,10 +193,10 @@ class ARROW_DS_EXPORT FileFormat : public std::enable_shared_from_this<FileForma
 
   /// \brief Write a fragment. If the parent directory of destination does not exist, it
   /// will be created.
-  virtual Result<std::shared_ptr<WriteTask>> WriteFragment(
-      WritableFileSource destination, std::shared_ptr<Fragment> fragment,
-      std::shared_ptr<ScanOptions> options,
-      std::shared_ptr<ScanContext> scan_context);  // FIXME(bkietz) make this pure virtual
+  /// FIXME(bkietz) make this pure virtual
+  virtual Result<std::shared_ptr<FileFragment>> WriteFragment(
+      WritableFileSource destination, std::shared_ptr<Expression> partition_expression,
+      std::shared_ptr<RecordBatchReader> batches);
 };
 
 /// \brief A Fragment that is stored in a file with a known format
@@ -284,68 +285,53 @@ class ARROW_DS_EXPORT FileSystemDataset : public Dataset {
   std::vector<std::shared_ptr<FileFragment>> fragments_;
 };
 
-/// \brief Write a fragment to a single OutputStream.
 class ARROW_DS_EXPORT WriteTask {
  public:
-  virtual Status Execute() = 0;
+  Result<std::vector<std::shared_ptr<FileFragment>>> Execute();
 
-  virtual ~WriteTask() = default;
+  /// The partitioning with which paths will be generated
+  std::shared_ptr<Partitioning> partitioning;
 
-  const WritableFileSource& destination() const;
-  const std::shared_ptr<FileFormat>& format() const { return format_; }
+  /// The format in which fragments will be written
+  std::shared_ptr<FileFormat> format;
 
- protected:
-  WriteTask(WritableFileSource destination, std::shared_ptr<FileFormat> format)
-      : destination_(std::move(destination)), format_(std::move(format)) {}
+  /// The FileSystem and base directory into which fragments will be written
+  std::shared_ptr<fs::FileSystem> filesystem;
+  std::string base_dir;
 
-  Status CreateDestinationParentDir() const;
+  /// Batches to be written
+  std::shared_ptr<RecordBatchReader> batches;
 
-  WritableFileSource destination_;
-  std::shared_ptr<FileFormat> format_;
+  /// An Expression already satisfied by every batch to be written
+  std::shared_ptr<Expression> partition_expression;
 };
 
 /// \brief A declarative plan for writing fragments to a partitioned directory structure.
 class ARROW_DS_EXPORT WritePlan {
  public:
-  /// The partitioning with which paths were generated
-  std::shared_ptr<Partitioning> partitioning;
+  void SetFormat(const std::shared_ptr<FileFormat>& format) {
+    for (auto& task : tasks) {
+      task->format = format;
+    }
+  }
 
-  /// The schema of the Dataset which will be written
+  void SetBaseDir(const std::shared_ptr<fs::FileSystem>& filesystem,
+                  std::string base_dir) {
+    while (!base_dir.empty() && base_dir.back() == '/') {
+      base_dir.pop_back();
+    }
+
+    for (auto& task : tasks) {
+      task->filesystem = filesystem;
+      task->base_dir = base_dir;
+    }
+  }
+
+  std::shared_ptr<internal::TaskGroup> task_group;
+  std::vector<std::shared_ptr<WriteTask>> tasks;
   std::shared_ptr<Schema> schema;
 
-  /// The format into which fragments will be written
-  std::shared_ptr<FileFormat> format;
-
-  /// The FileSystem and base directory for partitioned writing
-  std::shared_ptr<fs::FileSystem> filesystem;
-  std::string partition_base_dir;
-
-  class FragmentOrPartitionExpression {
-   public:
-    enum Kind { EXPRESSION, FRAGMENT };
-
-    explicit FragmentOrPartitionExpression(std::shared_ptr<Expression> partition_expr)
-        : kind_(EXPRESSION), partition_expr_(std::move(partition_expr)) {}
-
-    explicit FragmentOrPartitionExpression(std::shared_ptr<Fragment> fragment)
-        : kind_(FRAGMENT), fragment_(std::move(fragment)) {}
-
-    Kind kind() const { return kind_; }
-
-    const std::shared_ptr<Expression>& partition_expr() const { return partition_expr_; }
-    const std::shared_ptr<Fragment>& fragment() const { return fragment_; }
-
-   private:
-    Kind kind_;
-    std::shared_ptr<Expression> partition_expr_;
-    std::shared_ptr<Fragment> fragment_;
-  };
-
-  /// If fragment_or_partition_expressions[i] is a Fragment, that Fragment will be
-  /// written to paths[i]. If it is an Expression, a directory representing that partition
-  /// expression will be created at paths[i] instead.
-  std::vector<FragmentOrPartitionExpression> fragment_or_partition_expressions;
-  std::vector<std::string> paths;
+  Result<std::shared_ptr<FileSystemDataset>> Execute();
 };
 
 }  // namespace dataset

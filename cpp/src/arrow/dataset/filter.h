@@ -643,19 +643,20 @@ class ARROW_DS_EXPORT TreeEvaluator : public ExpressionEvaluator {
 
 /// \brief Assemble lists of indices of identical rows.
 ///
-/// \param[in] by A RecordBatch whose columns will be used as grouping criteria.
+/// \param[in] by A StructArray whose columns will be used as grouping criteria.
 /// \return A StructArray mapping unique rows (in field "values", represented as a
 ///         StructArray with the same fields as `by`) to lists of indices where
-///         that row appears (in field "indices").
+///         that row appears (in field "groupings").
 ARROW_DS_EXPORT
-Result<std::shared_ptr<StructArray>> Group(const RecordBatch& by);
+Result<std::shared_ptr<StructArray>> MakeGroupings(const StructArray& by);
 
-/// \brief Visit slices of a RecordBatch which correspond to the provided groupings.
-Status VisitGrouped(
-    const StructArray& unique_rows, const ListArray& grouped_sort_indices,
-    const std::shared_ptr<RecordBatch>& batch,
-    std::function<Status(std::shared_ptr<StructScalar>, std::shared_ptr<RecordBatch>)>
-        visit_slice);
+/// \brief Produce slices of an Array which correspond to the provided groupings.
+ARROW_DS_EXPORT
+Result<std::shared_ptr<ListArray>> ApplyGroupings(const ListArray& groupings,
+                                                  const Array& array);
+ARROW_DS_EXPORT
+Result<RecordBatchVector> ApplyGroupings(const ListArray& groupings,
+                                         const std::shared_ptr<RecordBatch>& batch);
 
 }  // namespace dataset
 }  // namespace arrow

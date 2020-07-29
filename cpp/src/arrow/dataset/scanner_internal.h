@@ -112,5 +112,37 @@ inline ScanTaskIterator GetScanTaskIterator(FragmentIterator fragments,
   return MakeFlattenIterator(std::move(maybe_scantask_it));
 }
 
+struct FragmentRecordBatchReader : RecordBatchReader {
+  std::shared_ptr<Schema> schema() const override {
+    return *fragment_->ReadPhysicalSchema();
+  }
+
+  Status ReadNext(std::shared_ptr<RecordBatch>* batch) override {
+    return iterator_.Next().Value(batch);
+  }
+
+  static Result<std::shared_ptr<FragmentRecordBatchReader>> Make(
+      std::shared_ptr<Fragment> fragment,
+      std::shared_ptr<ScanContext> context = std::make_shared<ScanContext>()) {
+    // ensure schema is cached in fragment
+    ARROW_ASSIGN_OR_RAISE(auto schema, fragment->ReadPhysicalSchema());
+    auto options = ScanOptions::Make(std::move(schema));
+
+    auto reader = std::make_shared<FragmentRecordBatchReader>();
+    ARROW_ASSIGN_OR_RAISE(auto scan_tasks,
+                          fragment->Scan(std::move(options), std::move(context)));
+
+    reader->fragment_ = std::move(fragment);
+    reader->iterator_ = MakeFlattenIterator(MakeMaybeMapIterator(
+        [](std::shared_ptr<ScanTask> task) { return task->Execute(); },
+        std::move(scan_tasks)));
+
+    return reader;
+  }
+
+  std::shared_ptr<Fragment> fragment_;
+  RecordBatchIterator iterator_;
+};
+
 }  // namespace dataset
 }  // namespace arrow

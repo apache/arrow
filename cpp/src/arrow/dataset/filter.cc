@@ -1624,12 +1624,12 @@ class StructDictionary {
   ArrayVector dictionaries_;
 };
 
-Result<std::shared_ptr<StructArray>> Group(const RecordBatch& batch) {
-  if (batch.num_columns() == 0) {
+Result<std::shared_ptr<StructArray>> MakeGroupings(const StructArray& by) {
+  if (by.num_fields() == 0) {
     return Status::NotImplemented("Grouping with no criteria");
   }
 
-  ARROW_ASSIGN_OR_RAISE(auto fused, StructDictionary::Encode(batch.columns()));
+  ARROW_ASSIGN_OR_RAISE(auto fused, StructDictionary::Encode(by.fields()));
 
   ARROW_ASSIGN_OR_RAISE(auto sort_indices, compute::SortToIndices(*fused.indices));
   ARROW_ASSIGN_OR_RAISE(Datum sorted, compute::Take(fused.indices, *sort_indices));
@@ -1641,9 +1641,9 @@ Result<std::shared_ptr<StructArray>> Group(const RecordBatch& batch) {
 
   auto unique_fused_indices =
       checked_pointer_cast<Int32Array>(fused_counts_and_values->GetFieldByName("values"));
-  ARROW_ASSIGN_OR_RAISE(auto unique_rows,
-                        fused.dictionary->Decode(std::move(unique_fused_indices),
-                                                 batch.schema()->fields()));
+  ARROW_ASSIGN_OR_RAISE(
+      auto unique_rows,
+      fused.dictionary->Decode(std::move(unique_fused_indices), by.type()->fields()));
 
   auto counts =
       checked_pointer_cast<Int64Array>(fused_counts_and_values->GetFieldByName("counts"));
@@ -1654,29 +1654,29 @@ Result<std::shared_ptr<StructArray>> Group(const RecordBatch& batch) {
 
   return StructArray::Make(
       ArrayVector{std::move(unique_rows), std::move(grouped_sort_indices)},
-      std::vector<std::string>{"values", "indices"});
+      std::vector<std::string>{"values", "groupings"});
 }
 
-Status VisitGrouped(
-    const StructArray& unique_rows, const ListArray& grouped_sort_indices,
-    const std::shared_ptr<RecordBatch>& batch,
-    std::function<Status(std::shared_ptr<StructScalar>, std::shared_ptr<RecordBatch>)>
-        visit_slice) {
-  DCHECK_EQ(unique_rows.length(), grouped_sort_indices.length());
-  DCHECK_EQ(batch->num_rows(), grouped_sort_indices.values()->length());
+Result<std::shared_ptr<ListArray>> ApplyGroupings(const ListArray& groupings,
+                                                  const Array& array) {
+  ARROW_ASSIGN_OR_RAISE(Datum sorted,
+                        compute::Take(array, groupings.data()->child_data[0]));
 
-  ARROW_ASSIGN_OR_RAISE(auto sorted, compute::Take(batch, grouped_sort_indices.values()));
-  auto sorted_batch = sorted.record_batch();
+  return std::make_shared<ListArray>(list(array.type()), groupings.length(),
+                                     groupings.value_offsets(), sorted.make_array());
+}
 
-  for (int64_t i = 0; i < unique_rows.length(); ++i) {
-    auto slice = sorted_batch->Slice(grouped_sort_indices.value_offset(i),
-                                     grouped_sort_indices.value_length(i));
-    ARROW_ASSIGN_OR_RAISE(auto unique_row, unique_rows.GetScalar(i));
-    RETURN_NOT_OK(visit_slice(checked_pointer_cast<StructScalar>(std::move(unique_row)),
-                              std::move(slice)));
+Result<RecordBatchVector> ApplyGroupings(const ListArray& groupings,
+                                         const std::shared_ptr<RecordBatch>& batch) {
+  ARROW_ASSIGN_OR_RAISE(Datum sorted,
+                        compute::Take(batch, groupings.data()->child_data[0]));
+
+  RecordBatchVector out(static_cast<size_t>(groupings.length()));
+  for (size_t i = 0; i < out.size(); ++i) {
+    out[i] = batch->Slice(groupings.value_offset(i), groupings.value_length(i));
   }
 
-  return Status::OK();
+  return out;
 }
 
 }  // namespace dataset

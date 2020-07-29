@@ -29,6 +29,7 @@
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
 #include "arrow/util/iterator.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/task_group.h"
 
 namespace arrow {
@@ -48,6 +49,8 @@ Result<std::shared_ptr<arrow::io::RandomAccessFile>> FileSource::Open() const {
 
 Result<std::shared_ptr<arrow::io::OutputStream>> WritableFileSource::Open() const {
   if (filesystem_) {
+    auto parent = fs::internal::GetAbstractPathParent(path_).first;
+    RETURN_NOT_OK(filesystem_->CreateDir(parent, /* recursive = */ true));
     return filesystem_->OpenOutputStream(path_);
   }
 
@@ -72,10 +75,9 @@ Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(
                        std::move(partition_expression), std::move(physical_schema)));
 }
 
-Result<std::shared_ptr<WriteTask>> FileFormat::WriteFragment(
-    WritableFileSource destination, std::shared_ptr<Fragment> fragment,
-    std::shared_ptr<ScanOptions> scan_options,
-    std::shared_ptr<ScanContext> scan_context) {
+Result<std::shared_ptr<FileFragment>> FileFormat::WriteFragment(
+    WritableFileSource destination, std::shared_ptr<Expression> partition_expression,
+    std::shared_ptr<RecordBatchReader> batches) {
   return Status::NotImplemented("writing fragment of format ", type_name());
 }
 
@@ -154,51 +156,109 @@ FragmentIterator FileSystemDataset::GetFragmentsImpl(
   return MakeVectorIterator(std::move(fragments));
 }
 
-Result<std::shared_ptr<FileSystemDataset>> FileSystemDataset::Write(
-    const WritePlan& plan, std::shared_ptr<ScanOptions> scan_options,
-    std::shared_ptr<ScanContext> scan_context) {
-  auto filesystem = plan.filesystem;
+Result<std::vector<std::shared_ptr<FileFragment>>> WriteTask::Execute() {
+  // to_write = {}
+  // to_write_exprs = {}
+  //
+  // for batch in batches:
+  //   for sub in partitioning.partition(batch):
+  //     sub_path = partitioning.format(sub.partition_expression)
+  //
+  //     if sub_path not in to_write:
+  //       to_write[sub_path] = []
+  //       to_write_exprs[sub_path] = sub.partition_expression
+  //     to_write[sub_path] += [sub.batch]
+  //
+  // partition_dir = partitioning.format(partition_expression)
+  //
+  // fragments = []
+  // for sub_path, batches in to_write.items():
+  //   file = 'dat.' + format.type_name()
+  //   path = '/'.join([base_dir, partition_dir, sub_path, file])
+  //   expr = to_write_exprs[sub_path] and partition_expression
+  //   fragments += [format.write({path, filesystem}, expr, batches)]
+  //
+  // return fragments
+
+  struct DoWrite {
+    RecordBatchVector batches;
+    std::shared_ptr<Expression> partition_expression;
+  };
+
+  std::unordered_map<std::string, DoWrite> do_writes;
+
+  for (auto maybe_batch : IteratorFromReader(batches)) {
+    ARROW_ASSIGN_OR_RAISE(auto batch, std::move(maybe_batch));
+    ARROW_ASSIGN_OR_RAISE(auto partitioned_batches, partitioning->Partition(batch));
+    for (auto&& partitioned_batch : partitioned_batches) {
+      auto expr =
+          and_(std::move(partitioned_batch.partition_expression), partition_expression);
+      ARROW_ASSIGN_OR_RAISE(std::string path, partitioning->Format(*expr));
+
+      auto do_write = do_writes.emplace(path, DoWrite{{}, std::move(expr)}).first;
+      do_write->second.batches.push_back(std::move(partitioned_batch.batch));
+    }
+  }
+
+  std::string file = "dat." + format->type_name();
+
+  auto filesystem = this->filesystem;
   if (filesystem == nullptr) {
     filesystem = std::make_shared<fs::LocalFileSystem>();
   }
 
-  auto task_group = scan_context->TaskGroup();
-  auto partition_base_dir = fs::internal::EnsureTrailingSlash(plan.partition_base_dir);
-  auto extension = "." + plan.format->type_name();
-
   std::vector<std::shared_ptr<FileFragment>> fragments;
-  for (size_t i = 0; i < plan.paths.size(); ++i) {
-    const auto& op = plan.fragment_or_partition_expressions[i];
-    if (op.kind() == WritePlan::FragmentOrPartitionExpression::FRAGMENT) {
-      auto path = partition_base_dir + plan.paths[i] + extension;
+  for (auto&& path_write : do_writes) {
+    auto path = fs::internal::JoinAbstractPath(
+        std::vector<std::string>{base_dir, path_write.first, file});
 
-      const auto& input_fragment = op.fragment();
-      FileSource dest(path, filesystem);
+    DCHECK(!path_write.second.batches.empty());
 
-      ARROW_ASSIGN_OR_RAISE(auto write_task,
-                            plan.format->WriteFragment({path, filesystem}, input_fragment,
-                                                       scan_options, scan_context));
-      task_group->Append([write_task] { return write_task->Execute(); });
+    ARROW_ASSIGN_OR_RAISE(auto reader,
+                          RecordBatchReader::Make(std::move(path_write.second.batches)));
 
-      ARROW_ASSIGN_OR_RAISE(
-          auto fragment, plan.format->MakeFragment(
-                             {path, filesystem}, input_fragment->partition_expression()));
-      fragments.push_back(std::move(fragment));
-    }
+    ARROW_ASSIGN_OR_RAISE(
+        auto fragment,
+        format->WriteFragment({std::move(path), filesystem},
+                              std::move(path_write.second.partition_expression),
+                              std::move(reader)));
+
+    fragments.push_back(std::move(fragment));
+  }
+
+  return fragments;
+}
+
+Result<std::shared_ptr<FileSystemDataset>> WritePlan::Execute() {
+  if (task_group == nullptr) {
+    task_group = internal::TaskGroup::MakeSerial();
+  }
+
+  if (tasks.empty()) {
+    return Status::Invalid("no WriteTasks specified");
+  }
+
+  auto format = tasks[0]->format;
+
+  std::vector<std::vector<std::shared_ptr<FileFragment>>> written_fragments(tasks.size());
+  for (size_t i = 0; i < tasks.size(); ++i) {
+    task_group->Append([&, i] {
+      ARROW_ASSIGN_OR_RAISE(written_fragments[i], tasks[i]->Execute());
+      return Status::OK();
+    });
   }
 
   RETURN_NOT_OK(task_group->Finish());
 
-  return Make(plan.schema, scalar(true), plan.format, fragments);
-}
-
-Status WriteTask::CreateDestinationParentDir() const {
-  if (auto filesystem = destination_.filesystem()) {
-    auto parent = fs::internal::GetAbstractPathParent(destination_.path()).first;
-    return filesystem->CreateDir(parent, /* recursive = */ true);
+  std::vector<std::shared_ptr<FileFragment>> fragments;
+  for (auto&& fs : written_fragments) {
+    for (auto&& f : fs) {
+      fragments.push_back(std::move(f));
+    }
   }
 
-  return Status::OK();
+  return FileSystemDataset::Make(schema, scalar(true), std::move(format),
+                                 std::move(fragments));
 }
 
 }  // namespace dataset

@@ -159,54 +159,25 @@ Result<ScanTaskIterator> IpcFileFormat::ScanFile(std::shared_ptr<ScanOptions> op
                                    fragment->source());
 }
 
-class IpcWriteTask : public WriteTask {
- public:
-  IpcWriteTask(WritableFileSource destination, std::shared_ptr<FileFormat> format,
-               std::shared_ptr<Fragment> fragment,
-               std::shared_ptr<ScanOptions> scan_options,
-               std::shared_ptr<ScanContext> scan_context)
-      : WriteTask(std::move(destination), std::move(format)),
-        fragment_(std::move(fragment)),
-        scan_options_(std::move(scan_options)),
-        scan_context_(std::move(scan_context)) {}
+Result<std::shared_ptr<FileFragment>> IpcFileFormat::WriteFragment(
+    WritableFileSource destination, std::shared_ptr<Expression> partition_expression,
+    std::shared_ptr<RecordBatchReader> batches) {
+  ARROW_ASSIGN_OR_RAISE(auto out_stream, destination.Open());
+  ARROW_ASSIGN_OR_RAISE(auto writer,
+                        ipc::NewFileWriter(out_stream.get(), batches->schema()));
 
-  Status Execute() override {
-    RETURN_NOT_OK(CreateDestinationParentDir());
-
-    auto schema = scan_options_->schema();
-
-    ARROW_ASSIGN_OR_RAISE(auto out_stream, destination_.Open());
-    ARROW_ASSIGN_OR_RAISE(auto writer, ipc::NewFileWriter(out_stream.get(), schema));
-    ARROW_ASSIGN_OR_RAISE(auto scan_task_it,
-                          fragment_->Scan(scan_options_, scan_context_));
-
-    for (auto maybe_scan_task : scan_task_it) {
-      ARROW_ASSIGN_OR_RAISE(auto scan_task, maybe_scan_task);
-
-      ARROW_ASSIGN_OR_RAISE(auto batch_it, scan_task->Execute());
-
-      for (auto maybe_batch : batch_it) {
-        ARROW_ASSIGN_OR_RAISE(auto batch, std::move(maybe_batch));
-        RETURN_NOT_OK(writer->WriteRecordBatch(*batch));
-      }
-    }
-
-    return writer->Close();
+  for (auto maybe_batch : IteratorFromReader(batches)) {
+    ARROW_ASSIGN_OR_RAISE(auto batch, std::move(maybe_batch));
+    RETURN_NOT_OK(writer->WriteRecordBatch(*batch));
   }
 
- private:
-  std::shared_ptr<Fragment> fragment_;
-  std::shared_ptr<ScanOptions> scan_options_;
-  std::shared_ptr<ScanContext> scan_context_;
-};
+  RETURN_NOT_OK(writer->Close());
 
-Result<std::shared_ptr<WriteTask>> IpcFileFormat::WriteFragment(
-    WritableFileSource destination, std::shared_ptr<Fragment> fragment,
-    std::shared_ptr<ScanOptions> scan_options,
-    std::shared_ptr<ScanContext> scan_context) {
-  return std::make_shared<IpcWriteTask>(std::move(destination), shared_from_this(),
-                                        std::move(fragment), std::move(scan_options),
-                                        std::move(scan_context));
+  auto source = destination.buffer()
+                    ? FileSource(destination.buffer())
+                    : FileSource(destination.path(), destination.filesystem());
+  return MakeFragment(std::move(source), std::move(partition_expression),
+                      batches->schema());
 }
 
 }  // namespace dataset
