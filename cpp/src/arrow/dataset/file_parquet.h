@@ -39,7 +39,7 @@ class ReaderProperties;
 class ArrowReaderProperties;
 namespace arrow {
 class FileReader;
-};  // namespace arrow
+}  // namespace arrow
 }  // namespace parquet
 
 namespace arrow {
