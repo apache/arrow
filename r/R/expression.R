@@ -17,30 +17,148 @@
 
 #' @include arrowExports.R
 
-array_expression <- function(FUN, ...) {
-  structure(list(fun = FUN, args = list(...)), class = "array_expression")
+array_expression <- function(FUN,
+                             ...,
+                             args = list(...),
+                             options = empty_named_list(),
+                             result_class = .guess_result_class(args[[1]])) {
+  structure(
+    list(
+      fun = FUN,
+      args = args,
+      options = options,
+      result_class = result_class
+    ),
+    class = "array_expression"
+  )
 }
 
 #' @export
-Ops.Array <- function(e1, e2) array_expression(.Generic, e1, e2)
+Ops.Array <- function(e1, e2) {
+  if (.Generic %in% names(.array_function_map)) {
+    expr <- build_array_expression(.Generic, e1, e2, result_class = "Array")
+    eval_array_expression(expr)
+  } else {
+    stop("Unsupported operation on Array: ", .Generic, call. = FALSE)
+  }
+}
 
 #' @export
-Ops.ChunkedArray <- Ops.Array
+Ops.ChunkedArray <- function(e1, e2) {
+  if (.Generic %in% names(.array_function_map)) {
+    expr <- build_array_expression(.Generic, e1, e2, result_class = "ChunkedArray")
+    eval_array_expression(expr)
+  } else {
+    stop("Unsupported operation on ChunkedArray: ", .Generic, call. = FALSE)
+  }
+}
 
 #' @export
-Ops.array_expression <- Ops.Array
+Ops.array_expression <- function(e1, e2) {
+  if (.Generic == "!") {
+    build_array_expression(.Generic, e1, result_class = e1$result_class)
+  } else {
+    build_array_expression(.Generic, e1, e2, result_class = e1$result_class)
+  }
+}
+
+build_array_expression <- function(.Generic, e1, e2, ...) {
+  if (.Generic %in% names(.unary_function_map)) {
+    expr <- array_expression(.unary_function_map[[.Generic]], e1)
+  } else {
+    e1 <- .wrap_arrow(e1, .Generic, e2$type)
+    e2 <- .wrap_arrow(e2, .Generic, e1$type)
+    expr <- array_expression(.binary_function_map[[.Generic]], e1, e2, ...)
+  }
+  expr
+}
+
+.wrap_arrow <- function(arg, fun, type) {
+  if (!inherits(arg, c("ArrowObject", "array_expression"))) {
+    # TODO: Array$create if lengths are equal?
+    # TODO: these kernels should autocast like the dataset ones do (e.g. int vs. float)
+    if (fun == "%in%") {
+      arg <- Array$create(arg, type = type)
+    } else {
+      arg <- Scalar$create(arg, type = type)
+    }
+  }
+  arg
+}
+
+.unary_function_map <- list(
+  "!" = "invert",
+  "is.na" = "is_null"
+)
+
+.binary_function_map <- list(
+  "==" = "equal",
+  "!=" = "not_equal",
+  ">" = "greater",
+  ">=" = "greater_equal",
+  "<" = "less",
+  "<=" = "less_equal",
+  "&" = "and_kleene",
+  "|" = "or_kleene",
+  "%in%" = "is_in_meta_binary"
+)
+
+.array_function_map <- c(.unary_function_map, .binary_function_map)
+
+.guess_result_class <- function(arg) {
+  # HACK HACK HACK delete this when call_function returns an ArrowObject itself
+  if (inherits(arg, "ArrowObject")) {
+    return(class(arg)[1])
+  } else if (inherits(arg, "array_expression")) {
+    return(arg$result_class)
+  } else {
+    stop("Not implemented")
+  }
+}
+
+eval_array_expression <- function(x) {
+  x$args <- lapply(x$args, function (a) {
+    if (inherits(a, "array_expression")) {
+      eval_array_expression(a)
+    } else {
+      a
+    }
+  })
+  ptr <- call_function(x$fun, args = x$args, options = x$options %||% empty_named_list())
+  shared_ptr(get(x$result_class), ptr)
+}
 
 #' @export
 is.na.array_expression <- function(x) array_expression("is.na", x)
 
 #' @export
 as.vector.array_expression <- function(x, ...) {
-  x$args <- lapply(x$args, as.vector)
-  do.call(x$fun, x$args)
+  as.vector(eval_array_expression(x))
 }
 
 #' @export
-print.array_expression <- function(x, ...) print(as.vector(x))
+print.array_expression <- function(x, ...) {
+  cat(.format_array_expression(x), "\n", sep = "")
+  invisible(x)
+}
+
+.format_array_expression <- function(x) {
+  printed_args <- map_chr(x$args, function(arg) {
+    if (inherits(arg, "Scalar")) {
+      deparse(as.vector(arg))
+    } else if (inherits(arg, "ArrowObject")) {
+      paste0("<", class(arg)[1], ">")
+    } else if (inherits(arg, "array_expression")) {
+      .format_array_expression(arg)
+    } else {
+      # Should not happen
+      deparse(arg)
+    }
+  })
+  # Prune this for readability
+  function_name <- sub("_kleene", "", x$fun)
+  paste0(function_name, "(", paste(printed_args, collapse = ", "), ")")
+}
 
 ###########
 
@@ -130,6 +248,15 @@ make_expression <- function(operator, e1, e2) {
     # In doesn't take Scalar, it takes Array
     return(Expression$in_(e1, e2))
   }
+  
+  # Handle unary functions before touching e2
+  if (operator == "is.na") {
+    return(is.na(e1))
+  }
+  if (operator == "!") {
+    return(Expression$not(e1))
+  }
+
   # Check for non-expressions and convert to Expressions
   if (!inherits(e1, "Expression")) {
     e1 <- Expression$scalar(e1)

@@ -59,7 +59,12 @@ print.arrow_dplyr_query <- function(x, ...) {
   cat(fields, "\n", sep = "")
   cat("\n")
   if (!isTRUE(x$filtered_rows)) {
-    cat("* Filter: ", x$filtered_rows$ToString(), "\n", sep = "")
+    if (query_on_dataset(x)) {
+      filter_string <- x$filtered_rows$ToString()
+    } else {
+      filter_string <- .format_array_expression(x$filtered_rows)
+    }
+    cat("* Filter: ", filter_string, "\n", sep = "")
   }
   if (length(x$group_by_vars)) {
     cat("* Grouped by ", paste(x$group_by_vars, collapse = ", "), "\n", sep = "")
@@ -202,13 +207,13 @@ filter_mask <- function(.data) {
   } else {
     comp_func <- function(operator) {
       force(operator)
-      function(e1, e2) array_expression(operator, e1, e2)
+      function(e1, e2) build_array_expression(operator, e1, e2)
     }
     var_binder <- function(x) .data$.data[[x]]
   }
 
   # First add the functions
-  func_names <- set_names(c(names(comparison_function_map), "&", "|", "%in%"))
+  func_names <- set_names(names(.array_function_map))
   env_bind(f_env, !!!lapply(func_names, comp_func))
   # Then add the column references
   # Renaming is handled automatically by the named list

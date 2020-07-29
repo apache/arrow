@@ -173,34 +173,24 @@ impl<S: SchemaProvider> SqlToRel<S> {
             .aggregate(group_expr, aggr_expr)?
             .build()?;
 
-        // wrap in projection to preserve final order of fields
-        let mut projected_fields = Vec::with_capacity(group_by_count + aggr_count);
-        let mut group_expr_index = 0;
-        let mut aggr_expr_index = 0;
-        for i in 0..projection_expr.len() {
-            if is_aggregate_expr(&projection_expr[i]) {
-                projected_fields.push(group_by_count + aggr_expr_index);
-                aggr_expr_index += 1;
-            } else {
-                projected_fields.push(group_expr_index);
-                group_expr_index += 1;
-            }
-        }
-
-        // determine if projection is needed or not
-        // NOTE this would be better done later in a query optimizer rule
-        let mut projection_needed = false;
-        for i in 0..projected_fields.len() {
-            if projected_fields[i] != i {
-                projection_needed = true;
-                break;
-            }
-        }
-
-        if projection_needed {
+        // optionally wrap in projection to preserve final order of fields
+        let expected_columns: Vec<String> = projection_expr
+            .iter()
+            .map(|e| e.name(input.schema()))
+            .collect::<Result<Vec<_>>>()?;
+        let columns: Vec<String> = plan
+            .schema()
+            .fields()
+            .iter()
+            .map(|f| f.name().clone())
+            .collect::<Vec<_>>();
+        if expected_columns != columns {
             self.project(
                 &plan,
-                projected_fields.iter().map(|i| Expr::Column(*i)).collect(),
+                expected_columns
+                    .iter()
+                    .map(|c| Expr::Column(c.clone()))
+                    .collect(),
             )
         } else {
             Ok(plan)
@@ -273,16 +263,14 @@ impl<S: SchemaProvider> SqlToRel<S> {
                 alias.to_owned(),
             )),
 
-            ASTNode::SQLIdentifier(ref id) => {
-                match schema.fields().iter().position(|c| c.name().eq(id)) {
-                    Some(index) => Ok(Expr::Column(index)),
-                    None => Err(ExecutionError::ExecutionError(format!(
-                        "Invalid identifier '{}' for schema {}",
-                        id,
-                        schema.to_string()
-                    ))),
-                }
-            }
+            ASTNode::SQLIdentifier(ref id) => match schema.field_with_name(id) {
+                Ok(field) => Ok(Expr::Column(field.name().clone())),
+                Err(_) => Err(ExecutionError::ExecutionError(format!(
+                    "Invalid identifier '{}' for schema {}",
+                    id,
+                    schema.to_string()
+                ))),
+            },
 
             ASTNode::SQLWildcard => Ok(Expr::Wildcard),
 
@@ -483,8 +471,8 @@ mod tests {
     fn select_simple_selection() {
         let sql = "SELECT id, first_name, last_name \
                    FROM person WHERE state = 'CO'";
-        let expected = "Projection: #0, #1, #2\
-                        \n  Selection: #4 Eq Utf8(\"CO\")\
+        let expected = "Projection: #id, #first_name, #last_name\
+                        \n  Selection: #state Eq Utf8(\"CO\")\
                         \n    TableScan: person projection=None";
         quick_test(sql, expected);
     }
@@ -493,8 +481,8 @@ mod tests {
     fn select_neg_selection() {
         let sql = "SELECT id, first_name, last_name \
                    FROM person WHERE NOT state";
-        let expected = "Projection: #0, #1, #2\
-                        \n  Selection: NOT #4\
+        let expected = "Projection: #id, #first_name, #last_name\
+                        \n  Selection: NOT #state\
                         \n    TableScan: person projection=None";
         quick_test(sql, expected);
     }
@@ -503,8 +491,8 @@ mod tests {
     fn select_compound_selection() {
         let sql = "SELECT id, first_name, last_name \
                    FROM person WHERE state = 'CO' AND age >= 21 AND age <= 65";
-        let expected = "Projection: #0, #1, #2\
-            \n  Selection: #4 Eq Utf8(\"CO\") And #3 GtEq Int64(21) And #3 LtEq Int64(65)\
+        let expected = "Projection: #id, #first_name, #last_name\
+            \n  Selection: #state Eq Utf8(\"CO\") And #age GtEq Int64(21) And #age LtEq Int64(65)\
             \n    TableScan: person projection=None";
         quick_test(sql, expected);
     }
@@ -513,8 +501,8 @@ mod tests {
     fn test_timestamp_selection() {
         let sql = "SELECT state FROM person WHERE birth_date < CAST (158412331400600000 as timestamp)";
 
-        let expected = "Projection: #4\
-            \n  Selection: #6 Lt CAST(Int64(158412331400600000) AS Timestamp(Nanosecond, None))\
+        let expected = "Projection: #state\
+            \n  Selection: #birth_date Lt CAST(Int64(158412331400600000) AS Timestamp(Nanosecond, None))\
             \n    TableScan: person projection=None";
 
         quick_test(sql, expected);
@@ -530,13 +518,13 @@ mod tests {
                    AND age >= 21 \
                    AND age < 65 \
                    AND age <= 65";
-        let expected = "Projection: #3, #1, #2\
-                        \n  Selection: #3 Eq Int64(21) \
-                        And #3 NotEq Int64(21) \
-                        And #3 Gt Int64(21) \
-                        And #3 GtEq Int64(21) \
-                        And #3 Lt Int64(65) \
-                        And #3 LtEq Int64(65)\
+        let expected = "Projection: #age, #first_name, #last_name\
+                        \n  Selection: #age Eq Int64(21) \
+                        And #age NotEq Int64(21) \
+                        And #age Gt Int64(21) \
+                        And #age GtEq Int64(21) \
+                        And #age Lt Int64(65) \
+                        And #age LtEq Int64(65)\
                         \n    TableScan: person projection=None";
         quick_test(sql, expected);
     }
@@ -545,7 +533,7 @@ mod tests {
     fn select_simple_aggregate() {
         quick_test(
             "SELECT MIN(age) FROM person",
-            "Aggregate: groupBy=[[]], aggr=[[MIN(#3)]]\
+            "Aggregate: groupBy=[[]], aggr=[[MIN(#age)]]\
              \n  TableScan: person projection=None",
         );
     }
@@ -554,7 +542,7 @@ mod tests {
     fn test_sum_aggregate() {
         quick_test(
             "SELECT SUM(age) from person",
-            "Aggregate: groupBy=[[]], aggr=[[SUM(#3)]]\
+            "Aggregate: groupBy=[[]], aggr=[[SUM(#age)]]\
              \n  TableScan: person projection=None",
         );
     }
@@ -563,7 +551,7 @@ mod tests {
     fn select_simple_aggregate_with_groupby() {
         quick_test(
             "SELECT state, MIN(age), MAX(age) FROM person GROUP BY state",
-            "Aggregate: groupBy=[[#4]], aggr=[[MIN(#3), MAX(#3)]]\
+            "Aggregate: groupBy=[[#state]], aggr=[[MIN(#age), MAX(#age)]]\
              \n  TableScan: person projection=None",
         );
     }
@@ -572,7 +560,7 @@ mod tests {
     fn test_wildcard() {
         quick_test(
             "SELECT * from person",
-            "Projection: #0, #1, #2, #3, #4, #5, #6\
+            "Projection: #id, #first_name, #last_name, #age, #state, #salary, #birth_date\
             \n  TableScan: person projection=None",
         );
     }
@@ -588,7 +576,7 @@ mod tests {
     #[test]
     fn select_count_column() {
         let sql = "SELECT COUNT(id) FROM person";
-        let expected = "Aggregate: groupBy=[[]], aggr=[[COUNT(#0)]]\
+        let expected = "Aggregate: groupBy=[[]], aggr=[[COUNT(#id)]]\
                         \n  TableScan: person projection=None";
         quick_test(sql, expected);
     }
@@ -596,7 +584,7 @@ mod tests {
     #[test]
     fn select_scalar_func() {
         let sql = "SELECT sqrt(age) FROM person";
-        let expected = "Projection: sqrt(CAST(#3 AS Float64))\
+        let expected = "Projection: sqrt(CAST(#age AS Float64))\
                         \n  TableScan: person projection=None";
         quick_test(sql, expected);
     }
@@ -604,7 +592,7 @@ mod tests {
     #[test]
     fn select_aliased_scalar_func() {
         let sql = "SELECT sqrt(age) AS square_people FROM person";
-        let expected = "Projection: sqrt(CAST(#3 AS Float64)) AS square_people\
+        let expected = "Projection: sqrt(CAST(#age AS Float64)) AS square_people\
                         \n  TableScan: person projection=None";
         quick_test(sql, expected);
     }
@@ -612,8 +600,8 @@ mod tests {
     #[test]
     fn select_order_by() {
         let sql = "SELECT id FROM person ORDER BY id";
-        let expected = "Sort: #0 ASC NULLS FIRST\
-                        \n  Projection: #0\
+        let expected = "Sort: #id ASC NULLS FIRST\
+                        \n  Projection: #id\
                         \n    TableScan: person projection=None";
         quick_test(sql, expected);
     }
@@ -621,8 +609,8 @@ mod tests {
     #[test]
     fn select_order_by_desc() {
         let sql = "SELECT id FROM person ORDER BY id DESC";
-        let expected = "Sort: #0 DESC NULLS FIRST\
-                        \n  Projection: #0\
+        let expected = "Sort: #id DESC NULLS FIRST\
+                        \n  Projection: #id\
                         \n    TableScan: person projection=None";
         quick_test(sql, expected);
     }
@@ -631,15 +619,15 @@ mod tests {
     fn select_order_by_nulls_last() {
         quick_test(
             "SELECT id FROM person ORDER BY id DESC NULLS LAST",
-            "Sort: #0 DESC NULLS LAST\
-            \n  Projection: #0\
+            "Sort: #id DESC NULLS LAST\
+            \n  Projection: #id\
             \n    TableScan: person projection=None",
         );
 
         quick_test(
             "SELECT id FROM person ORDER BY id NULLS LAST",
-            "Sort: #0 ASC NULLS LAST\
-            \n  Projection: #0\
+            "Sort: #id ASC NULLS LAST\
+            \n  Projection: #id\
             \n    TableScan: person projection=None",
         );
     }
@@ -647,8 +635,19 @@ mod tests {
     #[test]
     fn select_group_by() {
         let sql = "SELECT state FROM person GROUP BY state";
-        let expected = "Aggregate: groupBy=[[#4]], aggr=[[]]\
+        let expected = "Aggregate: groupBy=[[#state]], aggr=[[]]\
                         \n  TableScan: person projection=None";
+
+        quick_test(sql, expected);
+    }
+
+    #[test]
+    fn select_group_by_needs_projection() {
+        let sql = "SELECT COUNT(state), state FROM person GROUP BY state";
+        let expected = "\
+        Projection: #COUNT(state), #state\
+        \n  Aggregate: groupBy=[[#state]], aggr=[[COUNT(#state)]]\
+        \n    TableScan: person projection=None";
 
         quick_test(sql, expected);
     }

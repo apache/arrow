@@ -28,7 +28,7 @@ expect_chunked_roundtrip <- function(x, type) {
     # TODO: revisit how missingness works with ListArrays
     # R list objects don't handle missingness the same way as other vectors.
     # Is there some vctrs thing we should do on the roundtrip back to R?
-    expect_identical(is.na(a), is.na(flat_x))
+    expect_identical(as.vector(is.na(a)), is.na(flat_x))
   }
   expect_equal(as.vector(a), flat_x)
   expect_equal(as.vector(a$chunk(0)), x[[1]])
@@ -39,7 +39,7 @@ expect_chunked_roundtrip <- function(x, type) {
     expect_type_equal(a_sliced$type, type)
     expect_identical(length(a_sliced), length(x_sliced))
     if (!inherits(type, "ListType")) {
-      expect_identical(is.na(a_sliced), is.na(x_sliced))
+      expect_identical(as.vector(is.na(a_sliced)), is.na(x_sliced))
     }
     expect_equal(as.vector(a_sliced), x_sliced)
   }
@@ -117,10 +117,8 @@ test_that("ChunkedArray handles NA", {
   expect_equal(as.vector(x), c(1:10, c(NA, 2:10), c(1:3, NA, 5)))
 
   chunks <- x$chunks
-  expect_equal(is.na(chunks[[1]]), is.na(data[[1]]))
-  expect_equal(is.na(chunks[[2]]), is.na(data[[2]]))
-  expect_equal(is.na(chunks[[3]]), is.na(data[[3]]))
-  expect_equal(is.na(x), c(is.na(data[[1]]), is.na(data[[2]]), is.na(data[[3]])))
+  expect_equal(as.vector(is.na(chunks[[2]])), is.na(data[[2]]))
+  expect_equal(as.vector(is.na(x)), c(is.na(data[[1]]), is.na(data[[2]]), is.na(data[[3]])))
 })
 
 test_that("ChunkedArray supports logical vectors (ARROW-3341)", {

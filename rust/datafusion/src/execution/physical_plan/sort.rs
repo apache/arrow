@@ -172,17 +172,17 @@ mod tests {
             vec![
                 // c1 string column
                 PhysicalSortExpr {
-                    expr: col(0, schema.as_ref()),
+                    expr: col("c1"),
                     options: SortOptions::default(),
                 },
                 // c2 uin32 column
                 PhysicalSortExpr {
-                    expr: col(1, schema.as_ref()),
+                    expr: col("c2"),
                     options: SortOptions::default(),
                 },
                 // c7 uin8 column
                 PhysicalSortExpr {
-                    expr: col(6, schema.as_ref()),
+                    expr: col("c7"),
                     options: SortOptions::default(),
                 },
             ],

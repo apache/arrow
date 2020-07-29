@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("compute")
+context("compute: aggregation")
 
 test_that("sum.Array", {
   ints <- 1:5
@@ -94,7 +94,10 @@ test_that("mean.Scalar", {
 })
 
 test_that("Bad input handling of call_function", {
-  expect_error(call_function("sum", 2, 3), "to_datum: Not implemented for type double")
+  expect_error(
+    call_function("sum", 2, 3),
+    'Argument 1 is of class numeric but it must be one of "Array", "ChunkedArray", "RecordBatch", "Table", or "Scalar"'
+  )
 })
 
 test_that("min/max.Array", {

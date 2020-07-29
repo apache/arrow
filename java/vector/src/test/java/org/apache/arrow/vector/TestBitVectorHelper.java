@@ -22,50 +22,51 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import org.apache.arrow.memory.ArrowBuf;
-import org.apache.arrow.memory.ReferenceManager;
+import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.junit.Test;
 
-import io.netty.buffer.PooledByteBufAllocatorL;
 import io.netty.util.internal.PlatformDependent;
 
 public class TestBitVectorHelper {
   @Test
   public void testGetNullCount() throws Exception {
-    // test case 1, 1 null value for 0b110
-    ArrowBuf validityBuffer = new ArrowBuf(
-        ReferenceManager.NO_OP, null, 3, new PooledByteBufAllocatorL().empty.memoryAddress());
-    // we set validity buffer to be 0b10110, but only have 3 items with 1st item is null
-    validityBuffer.setByte(0, 0b10110);
+    try (BufferAllocator root = new RootAllocator()) {
+      // test case 1, 1 null value for 0b110
+      ArrowBuf validityBuffer = root.buffer(3);
+      // we set validity buffer to be 0b10110, but only have 3 items with 1st item is null
+      validityBuffer.setByte(0, 0b10110);
 
-    // we will only consider 0b110 here, since we only 3 items and only one is null
-    int count = BitVectorHelper.getNullCount(validityBuffer, 3);
-    assertEquals(count, 1);
+      // we will only consider 0b110 here, since we only 3 items and only one is null
+      int count = BitVectorHelper.getNullCount(validityBuffer, 3);
+      assertEquals(count, 1);
+      validityBuffer.close();
 
-    // test case 2, no null value for 0xFF
-    validityBuffer = new ArrowBuf(
-        ReferenceManager.NO_OP, null, 8, new PooledByteBufAllocatorL().empty.memoryAddress());
-    validityBuffer.setByte(0, 0xFF);
+      // test case 2, no null value for 0xFF
+      validityBuffer = root.buffer(8);
+      validityBuffer.setByte(0, 0xFF);
 
-    count = BitVectorHelper.getNullCount(validityBuffer, 8);
-    assertEquals(count, 0);
+      count = BitVectorHelper.getNullCount(validityBuffer, 8);
+      assertEquals(count, 0);
+      validityBuffer.close();
 
-    // test case 3, 1 null value for 0x7F
-    validityBuffer = new ArrowBuf(
-        ReferenceManager.NO_OP, null, 8, new PooledByteBufAllocatorL().empty.memoryAddress());
-    validityBuffer.setByte(0, 0x7F);
+      // test case 3, 1 null value for 0x7F
+      validityBuffer = root.buffer(8);
+      validityBuffer.setByte(0, 0x7F);
 
-    count = BitVectorHelper.getNullCount(validityBuffer, 8);
-    assertEquals(count, 1);
+      count = BitVectorHelper.getNullCount(validityBuffer, 8);
+      assertEquals(count, 1);
+      validityBuffer.close();
 
-    // test case 4, validity buffer has multiple bytes, 11 items
-    validityBuffer = new ArrowBuf(
-        ReferenceManager.NO_OP, null, 11, new PooledByteBufAllocatorL().empty.memoryAddress());
-    validityBuffer.setByte(0, 0b10101010);
-    validityBuffer.setByte(1, 0b01010101);
+      // test case 4, validity buffer has multiple bytes, 11 items
+      validityBuffer = root.buffer(11);
+      validityBuffer.setByte(0, 0b10101010);
+      validityBuffer.setByte(1, 0b01010101);
 
-    count = BitVectorHelper.getNullCount(validityBuffer, 11);
-    assertEquals(count, 5);
+      count = BitVectorHelper.getNullCount(validityBuffer, 11);
+      assertEquals(count, 5);
+      validityBuffer.close();
+    }
   }
 
   @Test

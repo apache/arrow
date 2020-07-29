@@ -24,7 +24,7 @@ use std::sync::{Arc, Mutex};
 use crate::error::Result;
 use crate::logicalplan::ScalarValue;
 use arrow::array::ArrayRef;
-use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
+use arrow::datatypes::{DataType, Schema, SchemaRef};
 use arrow::record_batch::{RecordBatch, RecordBatchReader};
 
 /// Partition-aware execution plan for a relation
@@ -42,29 +42,18 @@ pub trait Partition: Send + Sync {
 }
 
 /// Expression that can be evaluated against a RecordBatch
+/// A Physical expression knows its type, nullability and how to evaluate itself.
 pub trait PhysicalExpr: Send + Sync {
-    /// Get the name to use in a schema to represent the result of this expression
-    fn name(&self) -> String;
     /// Get the data type of this expression, given the schema of the input
     fn data_type(&self, input_schema: &Schema) -> Result<DataType>;
     /// Decide whehter this expression is nullable, given the schema of the input
     fn nullable(&self, input_schema: &Schema) -> Result<bool>;
     /// Evaluate an expression against a RecordBatch
     fn evaluate(&self, batch: &RecordBatch) -> Result<ArrayRef>;
-    /// Generate schema Field type for this expression
-    fn to_schema_field(&self, input_schema: &Schema) -> Result<Field> {
-        Ok(Field::new(
-            &self.name(),
-            self.data_type(input_schema)?,
-            self.nullable(input_schema)?,
-        ))
-    }
 }
 
 /// Aggregate expression that can be evaluated against a RecordBatch
 pub trait AggregateExpr: Send + Sync {
-    /// Get the name to use in a schema to represent the result of this expression
-    fn name(&self) -> String;
     /// Get the data type of this expression, given the schema of the input
     fn data_type(&self, input_schema: &Schema) -> Result<DataType>;
     /// Evaluate the expression being aggregated
@@ -74,7 +63,7 @@ pub trait AggregateExpr: Send + Sync {
     /// Create an aggregate expression for combining the results of accumulators from partitions.
     /// For example, to combine the results of a parallel SUM we just need to do another SUM, but
     /// to combine the results of parallel COUNT we would also use SUM.
-    fn create_reducer(&self, column_index: usize) -> Arc<dyn AggregateExpr>;
+    fn create_reducer(&self, column_name: &str) -> Arc<dyn AggregateExpr>;
 }
 
 /// Aggregate accumulator

@@ -120,6 +120,7 @@ RecordBatch <- R6Class("RecordBatch", inherit = ArrowObject,
       if (is.logical(i)) {
         i <- Array$create(i)
       }
+      assert_that(is.Array(i, "bool"))
       shared_ptr(RecordBatch, call_function("filter", self, i, options = list(keep_na = keep_na)))
     },
     serialize = function() ipc___SerializeRecordBatch__Raw(self),

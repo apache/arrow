@@ -166,17 +166,9 @@ mod tests {
             CsvExec::try_new(&path, CsvReadOptions::new().schema(&schema), None, 1024)?;
 
         let predicate: Arc<dyn PhysicalExpr> = binary(
-            binary(
-                col(1, schema.as_ref()),
-                Operator::Gt,
-                lit(ScalarValue::UInt32(1)),
-            ),
+            binary(col("c2"), Operator::Gt, lit(ScalarValue::UInt32(1))),
             Operator::And,
-            binary(
-                col(1, schema.as_ref()),
-                Operator::Lt,
-                lit(ScalarValue::UInt32(4)),
-            ),
+            binary(col("c2"), Operator::Lt, lit(ScalarValue::UInt32(4))),
         );
 
         let selection: Arc<dyn ExecutionPlan> =

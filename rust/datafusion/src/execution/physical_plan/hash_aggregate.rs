@@ -39,7 +39,7 @@ use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
 use arrow::error::Result as ArrowResult;
 use arrow::record_batch::{RecordBatch, RecordBatchReader};
 
-use crate::execution::physical_plan::expressions::Column;
+use crate::execution::physical_plan::expressions::col;
 use crate::logicalplan::ScalarValue;
 use fnv::FnvHashMap;
 
@@ -54,26 +54,24 @@ pub struct HashAggregateExec {
 impl HashAggregateExec {
     /// Create a new hash aggregate execution plan
     pub fn try_new(
-        group_expr: Vec<Arc<dyn PhysicalExpr>>,
-        aggr_expr: Vec<Arc<dyn AggregateExpr>>,
+        group_expr: Vec<(Arc<dyn PhysicalExpr>, String)>,
+        aggr_expr: Vec<(Arc<dyn AggregateExpr>, String)>,
         input: Arc<dyn ExecutionPlan>,
     ) -> Result<Self> {
         let input_schema = input.schema();
 
         let mut fields = Vec::with_capacity(group_expr.len() + aggr_expr.len());
-        for expr in &group_expr {
-            let name = expr.name();
-            fields.push(Field::new(&name, expr.data_type(&input_schema)?, true))
+        for (expr, name) in &group_expr {
+            fields.push(Field::new(name, expr.data_type(&input_schema)?, true))
         }
-        for expr in &aggr_expr {
-            let name = expr.name();
+        for (expr, name) in &aggr_expr {
             fields.push(Field::new(&name, expr.data_type(&input_schema)?, true))
         }
         let schema = Arc::new(Schema::new(fields));
 
         Ok(HashAggregateExec {
-            group_expr,
-            aggr_expr,
+            group_expr: group_expr.iter().map(|x| x.0.clone()).collect(),
+            aggr_expr: aggr_expr.iter().map(|x| x.0.clone()).collect(),
             input,
             schema,
         })
@@ -83,19 +81,15 @@ impl HashAggregateExec {
     /// expressions
     pub fn make_final_expr(
         &self,
+        group_names: Vec<String>,
+        agg_names: Vec<String>,
     ) -> (Vec<Arc<dyn PhysicalExpr>>, Vec<Arc<dyn AggregateExpr>>) {
         let final_group: Vec<Arc<dyn PhysicalExpr>> = (0..self.group_expr.len())
-            .map(|i| {
-                Arc::new(Column::new(i, &self.group_expr[i].name()))
-                    as Arc<dyn PhysicalExpr>
-            })
+            .map(|i| col(&group_names[i]) as Arc<dyn PhysicalExpr>)
             .collect();
 
         let final_aggr: Vec<Arc<dyn AggregateExpr>> = (0..self.aggr_expr.len())
-            .map(|i| {
-                let aggr = self.aggr_expr[i].create_reducer(i + self.group_expr.len());
-                aggr as Arc<dyn AggregateExpr>
-            })
+            .map(|i| self.aggr_expr[i].create_reducer(&agg_names[i]))
             .collect();
 
         (final_group, final_aggr)
@@ -772,24 +766,42 @@ mod tests {
         let csv =
             CsvExec::try_new(&path, CsvReadOptions::new().schema(&schema), None, 1024)?;
 
-        let group_expr: Vec<Arc<dyn PhysicalExpr>> = vec![col(1, schema.as_ref())];
+        let groups: Vec<(Arc<dyn PhysicalExpr>, String)> =
+            vec![(col("c2"), "c2".to_string())];
 
-        let aggr_expr: Vec<Arc<dyn AggregateExpr>> = vec![sum(col(3, schema.as_ref()))];
+        let aggregates: Vec<(Arc<dyn AggregateExpr>, String)> =
+            vec![(sum(col("c4")), "SUM(c4)".to_string())];
 
         let partition_aggregate = HashAggregateExec::try_new(
-            group_expr.clone(),
-            aggr_expr.clone(),
+            groups.clone(),
+            aggregates.clone(),
             Arc::new(csv),
         )?;
 
         let schema = partition_aggregate.schema();
         let partitions = partition_aggregate.partitions()?;
-        let (final_group, final_aggr) = partition_aggregate.make_final_expr();
+
+        // construct the expressions for the final aggregation
+        let (final_group, final_aggr) = partition_aggregate.make_final_expr(
+            groups.iter().map(|x| x.1.clone()).collect(),
+            aggregates.iter().map(|x| x.1.clone()).collect(),
+        );
 
         let merge = Arc::new(MergeExec::new(schema.clone(), partitions));
 
-        let merged_aggregate =
-            HashAggregateExec::try_new(final_group, final_aggr, merge)?;
+        let merged_aggregate = HashAggregateExec::try_new(
+            final_group
+                .iter()
+                .enumerate()
+                .map(|(i, expr)| (expr.clone(), groups[i].1.clone()))
+                .collect(),
+            final_aggr
+                .iter()
+                .enumerate()
+                .map(|(i, expr)| (expr.clone(), aggregates[i].1.clone()))
+                .collect(),
+            merge,
+        )?;
 
         let result = test::execute(&merged_aggregate)?;
         assert_eq!(result.len(), 1);

@@ -270,13 +270,7 @@ FixedSizeListArray <- R6Class("FixedSizeListArray", inherit = Array,
 length.Array <- function(x) x$length()
 
 #' @export
-is.na.Array <- function(x) {
-  if (x$type == null()) {
-    rep(TRUE, length(x))
-  } else {
-    !Array__Mask(x)
-  }
-}
+is.na.Array <- function(x) shared_ptr(Array, call_function("is_null", x))
 
 #' @export
 as.vector.Array <- function(x, mode) x$as_vector()
@@ -287,7 +281,7 @@ filter_rows <- function(x, i, keep_na = TRUE, ...) {
   nrows <- x$num_rows %||% x$length() # Depends on whether Array or Table-like
   if (inherits(i, "array_expression")) {
     # Evaluate it
-    i <- as.vector(i)
+    i <- eval_array_expression(i)
   }
   if (is.logical(i)) {
     if (isTRUE(i)) {
