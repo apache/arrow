@@ -156,7 +156,7 @@ jobs:
         with:
           path: rust/target
           key: macos-10-rust-${{ hashFiles('rust/**.rs') }}
-          restore-keys: macos-rust-
+          restore-keys: macos-10-rust-
       - name: Run Clippy
         shell: bash
         run: ci/scripts/rust_lint.sh $(pwd)
