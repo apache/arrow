@@ -68,7 +68,7 @@ jobs:
         uses: actions/cache@v1
         with:
           path: .docker
-          key: debian-rust-${{ hashFiles('rust/**') }}
+          key: debian-rust-${{ hashFiles('rust/**.rs') }}
           restore-keys: debian-rust-
       - name: Setup Python
         uses: actions/setup-python@v1
@@ -116,7 +116,7 @@ jobs:
         uses: actions/cache@v1
         with:
           path: rust/target
-          key: windows-rust-${{ hashFiles('rust/**') }}
+          key: windows-rust-${{ hashFiles('rust/**.rs') }}
           restore-keys: windows-rust-
       - name: Build
         shell: bash
@@ -154,7 +154,7 @@ jobs:
         uses: actions/cache@v1
         with:
           path: rust/target
-          key: macos-rust-${{ hashFiles('rust/**') }}
+          key: macos-rust-${{ hashFiles('rust/**.rs') }}
           restore-keys: macos-rust-
       - name: Run Clippy
         shell: bash
