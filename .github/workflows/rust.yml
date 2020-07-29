@@ -151,15 +151,15 @@ jobs:
       - name: Fetch Submodules and Tags
         shell: bash
         run: ci/scripts/util_checkout.sh
-      - name: Run Clippy
-        shell: bash
-        run: ci/scripts/rust_lint.sh $(pwd)
       - name: Cache Build Artifacts
         uses: actions/cache@v1
         with:
           path: rust/target
-          key: macos-rust-${{ hashFiles('rust/**.rs') }}
+          key: macos-10-rust-${{ hashFiles('rust/**.rs') }}
           restore-keys: macos-rust-
+      - name: Run Clippy
+        shell: bash
+        run: ci/scripts/rust_lint.sh $(pwd)
       - name: Build
         shell: bash
         run: ci/scripts/rust_build.sh $(pwd) $(pwd)/build
