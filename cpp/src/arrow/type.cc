@@ -1171,15 +1171,19 @@ std::vector<FieldPath> FieldRef::FindAll(const FieldVector& fields) const {
 
       size_t size() const { return referents.size(); }
 
-      void Add(FieldPath prefix, const FieldPath& match, const FieldVector& fields) {
-        auto maybe_field = match.Get(fields);
+      void Add(const FieldPath& prefix, const FieldPath& suffix,
+               const FieldVector& fields) {
+        auto maybe_field = suffix.Get(fields);
         DCHECK_OK(maybe_field.status());
-
-        prefix.indices().resize(prefix.indices().size() + match.indices().size());
-        std::copy(match.indices().begin(), match.indices().end(),
-                  prefix.indices().end() - match.indices().size());
-        prefixes.push_back(std::move(prefix));
         referents.push_back(std::move(maybe_field).ValueOrDie());
+
+        std::vector<int> concatenated_indices(prefix.indices().size() +
+                                              suffix.indices().size());
+        auto it = concatenated_indices.begin();
+        for (auto path : {&prefix, &suffix}) {
+          it = std::copy(path->indices().begin(), path->indices().end(), it);
+        }
+        prefixes.emplace_back(std::move(concatenated_indices));
       }
     };
 

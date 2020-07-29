@@ -59,21 +59,10 @@ class ARROW_DS_EXPORT Partitioning {
   /// \brief The name identifying the kind of partitioning
   virtual std::string type_name() const = 0;
 
-  /// \brief Parse a path segment into a partition expression
-  ///
-  /// \param[in] segment the path segment to parse
-  /// \param[in] i the index of segment within a path
-  /// \return the parsed expression
-  virtual Result<std::shared_ptr<Expression>> Parse(const std::string& segment,
-                                                    int i) const = 0;
-
-  virtual Result<std::string> Format(const Expression& expr, int i) const {
-    // FIXME(bkietz) make this pure virtual
-    return Status::NotImplemented("formatting paths from ", type_name(), " Partitioning");
-  }
-
   /// \brief Parse a path into a partition expression
-  Result<std::shared_ptr<Expression>> Parse(const std::string& path) const;
+  virtual Result<std::shared_ptr<Expression>> Parse(const std::string& path) const = 0;
+
+  virtual Result<std::string> Format(const Expression& expr) const = 0;
 
   /// \brief A default Partitioning which always yields scalar(true)
   static std::shared_ptr<Partitioning> Default();
@@ -126,40 +115,6 @@ class ARROW_DS_EXPORT PartitioningFactory {
                                           FragmentIterator fragments);
 };
 
-/// \brief Subclass for representing the default, a partitioning that returns
-/// the idempotent "true" partition.
-class DefaultPartitioning : public Partitioning {
- public:
-  DefaultPartitioning() : Partitioning(::arrow::schema({})) {}
-
-  std::string type_name() const override { return "default"; }
-
-  Result<std::shared_ptr<Expression>> Parse(const std::string& segment,
-                                            int i) const override {
-    return scalar(true);
-  }
-};
-
-/// \brief Subclass for looking up partition information from a dictionary
-/// mapping segments to expressions provided on construction.
-class ARROW_DS_EXPORT SegmentDictionaryPartitioning : public Partitioning {
- public:
-  SegmentDictionaryPartitioning(
-      std::shared_ptr<Schema> schema,
-      std::vector<std::unordered_map<std::string, std::shared_ptr<Expression>>>
-          dictionaries)
-      : Partitioning(std::move(schema)), dictionaries_(std::move(dictionaries)) {}
-
-  std::string type_name() const override { return "segment_dictionary"; }
-
-  /// Return dictionaries_[i][segment] or scalar(true)
-  Result<std::shared_ptr<Expression>> Parse(const std::string& segment,
-                                            int i) const override;
-
- protected:
-  std::vector<std::unordered_map<std::string, std::shared_ptr<Expression>>> dictionaries_;
-};
-
 /// \brief Subclass for the common case of a partitioning which yields an equality
 /// expression for each segment
 class ARROW_DS_EXPORT KeyValuePartitioning : public Partitioning {
@@ -181,21 +136,9 @@ class ARROW_DS_EXPORT KeyValuePartitioning : public Partitioning {
   static Status SetDefaultValuesFromKeys(const Expression& expr,
                                          RecordBatchProjector* projector);
 
-  /// Convert a Key to a full expression.
-  /// If the field referenced in key is absent from the schema will be ignored.
-  static Result<std::shared_ptr<Expression>> ConvertKey(const Key& key,
-                                                        const Schema& schema,
-                                                        const ArrayVector& dictionaries);
+  Result<std::shared_ptr<Expression>> Parse(const std::string& path) const override;
 
-  /// Extract a partition key from a path segment.
-  virtual util::optional<Key> ParseKey(const std::string& segment, int i) const = 0;
-
-  virtual Result<std::string> FormatKey(const Key& expr, int i) const = 0;
-
-  Result<std::shared_ptr<Expression>> Parse(const std::string& segment,
-                                            int i) const override;
-
-  Result<std::string> Format(const Expression& expr, int i) const override;
+  Result<std::string> Format(const Expression& expr) const override;
 
  protected:
   KeyValuePartitioning(std::shared_ptr<Schema> schema, ArrayVector dictionaries)
@@ -204,6 +147,13 @@ class ARROW_DS_EXPORT KeyValuePartitioning : public Partitioning {
       dictionaries_.resize(schema_->num_fields());
     }
   }
+
+  virtual std::vector<Key> ParseKeys(const std::string& path) const = 0;
+
+  virtual Result<std::string> FormatValues(const std::vector<Scalar*>& values) const = 0;
+
+  /// Convert a Key to a full expression.
+  Result<std::shared_ptr<Expression>> ConvertKey(const Key& key) const;
 
   ArrayVector dictionaries_;
 };
@@ -224,12 +174,13 @@ class ARROW_DS_EXPORT DirectoryPartitioning : public KeyValuePartitioning {
 
   std::string type_name() const override { return "schema"; }
 
-  util::optional<Key> ParseKey(const std::string& segment, int i) const override;
-
-  Result<std::string> FormatKey(const Key& key, int i) const override;
-
   static std::shared_ptr<PartitioningFactory> MakeFactory(
       std::vector<std::string> field_names, PartitioningFactoryOptions = {});
+
+ private:
+  std::vector<Key> ParseKeys(const std::string& path) const override;
+
+  Result<std::string> FormatValues(const std::vector<Scalar*>& values) const override;
 };
 
 /// \brief Multi-level, directory based partitioning
@@ -250,36 +201,48 @@ class ARROW_DS_EXPORT HivePartitioning : public KeyValuePartitioning {
 
   std::string type_name() const override { return "hive"; }
 
-  util::optional<Key> ParseKey(const std::string& segment, int i) const override {
-    return ParseKey(segment);
-  }
-
-  Result<std::string> FormatKey(const Key& key, int i) const override;
-
   static util::optional<Key> ParseKey(const std::string& segment);
 
   static std::shared_ptr<PartitioningFactory> MakeFactory(
       PartitioningFactoryOptions = {});
+
+ private:
+  std::vector<Key> ParseKeys(const std::string& path) const override;
+
+  Result<std::string> FormatValues(const std::vector<Scalar*>& values) const override;
 };
 
 /// \brief Implementation provided by lambda or other callable
 class ARROW_DS_EXPORT FunctionPartitioning : public Partitioning {
  public:
-  explicit FunctionPartitioning(
-      std::shared_ptr<Schema> schema,
-      std::function<Result<std::shared_ptr<Expression>>(const std::string&, int)> impl,
-      std::string name = "function")
-      : Partitioning(std::move(schema)), impl_(std::move(impl)), name_(std::move(name)) {}
+  using ParseImpl =
+      std::function<Result<std::shared_ptr<Expression>>(const std::string&)>;
+
+  using FormatImpl = std::function<Result<std::string>(const Expression&)>;
+
+  FunctionPartitioning(std::shared_ptr<Schema> schema, ParseImpl parse_impl,
+                       FormatImpl format_impl = NULLPTR, std::string name = "function")
+      : Partitioning(std::move(schema)),
+        parse_impl_(std::move(parse_impl)),
+        format_impl_(std::move(format_impl)),
+        name_(std::move(name)) {}
 
   std::string type_name() const override { return name_; }
 
-  Result<std::shared_ptr<Expression>> Parse(const std::string& segment,
-                                            int i) const override {
-    return impl_(segment, i);
+  Result<std::shared_ptr<Expression>> Parse(const std::string& path) const override {
+    return parse_impl_(path);
+  }
+
+  Result<std::string> Format(const Expression& expr) const override {
+    if (format_impl_) {
+      return format_impl_(expr);
+    }
+    return Status::NotImplemented("formatting paths from ", type_name(), " Partitioning");
   }
 
  private:
-  std::function<Result<std::shared_ptr<Expression>>(const std::string&, int)> impl_;
+  ParseImpl parse_impl_;
+  FormatImpl format_impl_;
   std::string name_;
 };
 

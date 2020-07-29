@@ -139,7 +139,7 @@ TEST(PathUtil, ConcatAbstractPath) {
 }
 
 TEST(PathUtil, JoinAbstractPath) {
-  std::vector<std::string> parts = {"abc", "def", "ghi", "jkl"};
+  std::vector<std::string> parts = {"abc", "def", "ghi", "", "jkl"};
 
   ASSERT_EQ("abc/def/ghi/jkl", JoinAbstractPath(parts.begin(), parts.end()));
   ASSERT_EQ("def/ghi", JoinAbstractPath(parts.begin() + 1, parts.begin() + 3));
