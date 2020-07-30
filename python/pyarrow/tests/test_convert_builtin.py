@@ -183,6 +183,19 @@ def test_sequence_numpy_boolean(seq):
 
 
 @parametrize_with_iterable_types
+def test_sequence_mixed_numpy_python_bools(seq):
+    values = np.array([True, False])
+    arr = pa.array(seq([values[0], None, values[1], True, False]))
+    assert len(arr) == 5
+    assert arr.null_count == 1
+    assert arr.type == pa.bool_()
+    assert arr[0].as_py() is True
+    assert arr[2].as_py() is False
+    assert arr[3].as_py() is True
+    assert arr[4].as_py() is False
+
+
+@parametrize_with_iterable_types
 def test_empty_list(seq):
     arr = pa.array(seq([]))
     assert len(arr) == 0
