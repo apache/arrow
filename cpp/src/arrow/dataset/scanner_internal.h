@@ -122,11 +122,12 @@ struct FragmentRecordBatchReader : RecordBatchReader {
   }
 
   static Result<std::shared_ptr<FragmentRecordBatchReader>> Make(
-      std::shared_ptr<Fragment> fragment,
-      std::shared_ptr<ScanContext> context = std::make_shared<ScanContext>()) {
+      std::shared_ptr<Fragment> fragment, std::shared_ptr<Schema> schema,
+      std::shared_ptr<ScanContext> context) {
     // ensure schema is cached in fragment
-    ARROW_ASSIGN_OR_RAISE(auto schema, fragment->ReadPhysicalSchema());
     auto options = ScanOptions::Make(std::move(schema));
+    RETURN_NOT_OK(KeyValuePartitioning::SetDefaultValuesFromKeys(
+        *fragment->partition_expression(), &options->projector));
 
     auto reader = std::make_shared<FragmentRecordBatchReader>();
     ARROW_ASSIGN_OR_RAISE(auto scan_tasks,

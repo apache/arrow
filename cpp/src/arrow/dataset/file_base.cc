@@ -233,17 +233,29 @@ Status FileSystemDataset::Write(std::shared_ptr<Schema> schema,
     }
   }
 
+  auto physical_schema = schema;
+  for (const auto& partition_field : partitioning->schema()->fields()) {
+    ARROW_ASSIGN_OR_RAISE(
+        auto match, FieldRef(partition_field->name()).FindOneOrNone(*physical_schema));
+    if (match) {
+      ARROW_ASSIGN_OR_RAISE(physical_schema, physical_schema->RemoveField(match[0]));
+    }
+  }
+
   for (auto maybe_fragment : fragment_it) {
     ARROW_ASSIGN_OR_RAISE(auto fragment, std::move(maybe_fragment));
     auto task = std::make_shared<WriteTask>();
 
-    // make a record batch reader which yields from a fragment
-    ARROW_ASSIGN_OR_RAISE(task->batches, FragmentRecordBatchReader::Make(fragment));
+    task->partition_expression = fragment->partition_expression();
     task->format = format;
     task->filesystem = filesystem;
     task->base_dir = base_dir;
     task->partitioning = partitioning;
-    task->partition_expression = fragment->partition_expression();
+
+    // make a record batch reader which yields from a fragment
+    ARROW_ASSIGN_OR_RAISE(task->batches,
+                          FragmentRecordBatchReader::Make(std::move(fragment),
+                                                          physical_schema, scan_context));
     task_group->Append([task] { return task->Execute(); });
   }
 
