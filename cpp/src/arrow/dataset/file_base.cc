@@ -214,8 +214,6 @@ Status WriteTask::Execute() {
   return Status::OK();
 }
 
-
-
 Status FileSystemDataset::Write(std::shared_ptr<Schema> schema,
                                 std::shared_ptr<FileFormat> format,
                                 std::shared_ptr<fs::FileSystem> filesystem,
