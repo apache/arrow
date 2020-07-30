@@ -113,9 +113,8 @@ inline ScanTaskIterator GetScanTaskIterator(FragmentIterator fragments,
 }
 
 struct FragmentRecordBatchReader : RecordBatchReader {
-  std::shared_ptr<Schema> schema() const override {
-    return *fragment_->ReadPhysicalSchema();
-  }
+ public:
+  std::shared_ptr<Schema> schema() const override { return schema_; }
 
   Status ReadNext(std::shared_ptr<RecordBatch>* batch) override {
     return iterator_.Next().Value(batch);
@@ -125,14 +124,15 @@ struct FragmentRecordBatchReader : RecordBatchReader {
       std::shared_ptr<Fragment> fragment, std::shared_ptr<Schema> schema,
       std::shared_ptr<ScanContext> context) {
     // ensure schema is cached in fragment
-    auto options = ScanOptions::Make(std::move(schema));
+    auto options = ScanOptions::Make(schema);
     RETURN_NOT_OK(KeyValuePartitioning::SetDefaultValuesFromKeys(
         *fragment->partition_expression(), &options->projector));
 
-    auto reader = std::make_shared<FragmentRecordBatchReader>();
     ARROW_ASSIGN_OR_RAISE(auto scan_tasks,
                           fragment->Scan(std::move(options), std::move(context)));
 
+    auto reader = std::make_shared<FragmentRecordBatchReader>();
+    reader->schema_ = std::move(schema);
     reader->fragment_ = std::move(fragment);
     reader->iterator_ = MakeFlattenIterator(MakeMaybeMapIterator(
         [](std::shared_ptr<ScanTask> task) { return task->Execute(); },
@@ -141,6 +141,8 @@ struct FragmentRecordBatchReader : RecordBatchReader {
     return reader;
   }
 
+ private:
+  std::shared_ptr<Schema> schema_;
   std::shared_ptr<Fragment> fragment_;
   RecordBatchIterator iterator_;
 };
