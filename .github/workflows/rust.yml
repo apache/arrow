@@ -64,6 +64,12 @@ jobs:
       - name: Free Up Disk Space
         shell: bash
         run: ci/scripts/util_cleanup.sh
+      - name: Cache Docker Volumes
+        uses: actions/cache@v1
+        with:
+          path: .docker
+          key: debian-10-rust-${{ hashFiles('rust/**.rs') }}
+          restore-keys: debian-10-rust-
       - name: Setup Python
         uses: actions/setup-python@v1
         with:
@@ -75,6 +81,8 @@ jobs:
           sudo sysctl -w kernel.core_pattern="core.%e.%p"
           ulimit -c unlimited
           archery docker run debian-rust
+      - name: Fix Cache Permissions
+        run: sudo chmod -R o+r .docker
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         continue-on-error: true
@@ -106,6 +114,12 @@ jobs:
       - name: Fetch Submodules and Tags
         shell: bash
         run: ci/scripts/util_checkout.sh
+      - name: Cache Build Artifacts
+        uses: actions/cache@v1
+        with:
+          path: rust/target
+          key: windows-rust-${{ hashFiles('rust/**.rs') }}
+          restore-keys: windows-rust-
       - name: Build
         shell: bash
         run: ci/scripts/rust_build.sh $(pwd) $(pwd)/build
@@ -138,6 +152,12 @@ jobs:
       - name: Fetch Submodules and Tags
         shell: bash
         run: ci/scripts/util_checkout.sh
+      - name: Cache Build Artifacts
+        uses: actions/cache@v1
+        with:
+          path: rust/target
+          key: macos-10-rust-${{ hashFiles('rust/**.rs') }}
+          restore-keys: macos-10-rust-
       - name: Run Clippy
         shell: bash
         run: ci/scripts/rust_lint.sh $(pwd)

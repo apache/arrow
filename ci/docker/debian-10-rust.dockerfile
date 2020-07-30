@@ -29,17 +29,43 @@ ARG flatbuffers=1.11.0
 RUN wget -q -O - https://github.com/google/flatbuffers/archive/v${flatbuffers}.tar.gz | tar -xzf - && \
     cd flatbuffers-${flatbuffers} && \
     cmake -G "Unix Makefiles" && \
-    make install && \
+    make install -j4 && \
     cd / && \
     rm -rf flatbuffers-${flatbuffers}
 
-# sadly cargo doesn't have a command to fetch and build the
-# dependencies without building the library itself
 ARG rust=nightly-2020-04-22
-RUN rustup default ${rust}
-RUN rustup component add rustfmt --toolchain ${rust}-x86_64-unknown-linux-gnu
 
-# TODO(kszucs):
-# 1. add the files required to install the dependencies to .dockerignore
-# 2. copy these files to their appropriate path
-# 3. download and compile the dependencies
+# freeze the version for deterministic builds
+RUN rustup default ${rust} && \
+    rustup component add rustfmt --toolchain ${rust}-x86_64-unknown-linux-gnu
+
+# Compile a dummy program, so that the dependencies are compiled and cached on a layer
+# see https://stackoverflow.com/a/58474618/931303 for details
+# We do not compile any of the workspace or we defeat the purpose of caching - we only
+# compile their external dependencies.
+
+ENV CARGO_HOME="/rust/cargo" \
+    CARGO_TARGET_DIR="/rust/target" \
+    RUSTFLAGS="-D warnings"
+
+# The artifact of the steps below is a "${CARGO_TARGET_DIR}" containing
+# compiled dependencies. Create the directories and place an empty lib.rs
+# files.
+COPY rust /arrow/rust
+RUN mkdir \
+        /arrow/rust/arrow-flight/src \
+        /arrow/rust/arrow/src \
+        /arrow/rust/benchmarks/src \
+        /arrow/rust/datafusion/src \
+        /arrow/rust/integration-testing/src  \
+        /arrow/rust/parquet/src && \
+    touch \
+        /arrow/rust/arrow-flight/src/lib.rs \
+        /arrow/rust/arrow/src/lib.rs \
+        /arrow/rust/benchmarks/src/lib.rs \
+        /arrow/rust/datafusion/src/lib.rs \
+        /arrow/rust/integration-testing/src/lib.rs  \
+        /arrow/rust/parquet/src/lib.rs
+
+# Compile dependencies for the whole workspace
+RUN cd /arrow/rust && cargo build --workspace --lib --all-features
