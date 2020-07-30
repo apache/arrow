@@ -49,12 +49,12 @@ struct RoundSizeAvx512<uint32_t> {
 template <typename ArrowType>
 struct SumImplAvx512
     : public SumImpl<RoundSizeAvx512<typename TypeTraits<ArrowType>::CType>::size,
-                     ArrowType> {};
+                     ArrowType, SimdLevel::AVX512> {};
 
 template <typename ArrowType>
 struct MeanImplAvx512
     : public MeanImpl<RoundSizeAvx512<typename TypeTraits<ArrowType>::CType>::size,
-                      ArrowType> {};
+                      ArrowType, SimdLevel::AVX512> {};
 
 std::unique_ptr<KernelState> SumInitAvx512(KernelContext* ctx,
                                            const KernelInitArgs& args) {
@@ -68,32 +68,20 @@ std::unique_ptr<KernelState> MeanInitAvx512(KernelContext* ctx,
   return visitor.Create();
 }
 
-}  // namespace aggregate
-
-namespace internal {
-
-void RegisterScalarAggregateSumAvx512(FunctionRegistry* registry) {
-  auto func = std::make_shared<ScalarAggregateFunction>("sum", Arity::Unary());
-  aggregate::AddBasicAggKernels(aggregate::SumInitAvx512, {boolean()}, int64(),
-                                func.get());
-  aggregate::AddBasicAggKernels(aggregate::SumInitAvx512, SignedIntTypes(), int64(),
-                                func.get());
-  aggregate::AddBasicAggKernels(aggregate::SumInitAvx512, UnsignedIntTypes(), uint64(),
-                                func.get());
-  aggregate::AddBasicAggKernels(aggregate::SumInitAvx512, FloatingPointTypes(), float64(),
-                                func.get());
-  // Register the override AVX512 version
-  DCHECK_OK(registry->AddFunction(std::move(func), /*allow_overwrite=*/true));
-
-  func = std::make_shared<ScalarAggregateFunction>("mean", Arity::Unary());
-  aggregate::AddBasicAggKernels(aggregate::MeanInitAvx512, {boolean()}, float64(),
-                                func.get());
-  aggregate::AddBasicAggKernels(aggregate::MeanInitAvx512, NumericTypes(), float64(),
-                                func.get());
-  // Register the override AVX512 version
-  DCHECK_OK(registry->AddFunction(std::move(func), /*allow_overwrite=*/true));
+void AddSumAvx512AggKernels(ScalarAggregateFunction* func) {
+  AddBasicAggKernels(SumInitAvx512, internal::SignedIntTypes(), int64(), func,
+                     SimdLevel::AVX512);
+  AddBasicAggKernels(SumInitAvx512, internal::UnsignedIntTypes(), uint64(), func,
+                     SimdLevel::AVX512);
+  AddBasicAggKernels(SumInitAvx512, internal::FloatingPointTypes(), float64(), func,
+                     SimdLevel::AVX512);
 }
 
-}  // namespace internal
+void AddMeanAvx512AggKernels(ScalarAggregateFunction* func) {
+  aggregate::AddBasicAggKernels(MeanInitAvx512, internal::NumericTypes(), float64(), func,
+                                SimdLevel::AVX512);
+}
+
+}  // namespace aggregate
 }  // namespace compute
 }  // namespace arrow
