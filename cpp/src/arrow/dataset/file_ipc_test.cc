@@ -237,16 +237,17 @@ TEST_F(TestIpcFileSystemDataset, Write) {
       schema_, format_, fs_, "new_root/", desired_partitioning,
       std::make_shared<ScanContext>(), dataset_->GetFragments()));
 
-  /*
-  ASSERT_OK_AND_ASSIGN(auto written, plan.Execute());
+  s.base_dir = "/new_root";
+  options.partitioning = desired_partitioning;
+  ASSERT_OK_AND_ASSIGN(factory, FileSystemDatasetFactory::Make(fs_, s, format_, options));
+  ASSERT_OK_AND_ASSIGN(auto written, factory->Finish());
 
-  // XXX first thing a user will be annoyed by: we don't support left padding the month
-  // field with 0.
-  EXPECT_THAT(
-      written->files(),
-      testing::ElementsAre("new_root/US/2018/1/dat.ipc", "new_root/CA/2018/1/dat.ipc",
-                           "new_root/US/2019/1/dat.ipc", "new_root/CA/2019/1/dat.ipc"));
-                           */
+  // XXX first thing a user will be annoyed by: we don't support left
+  // padding the month field with 0.
+  EXPECT_THAT(checked_pointer_cast<FileSystemDataset>(written)->files(),
+              testing::UnorderedElementsAre(
+                  "/new_root/US/2018/1/dat.ipc", "/new_root/CA/2018/1/dat.ipc",
+                  "/new_root/US/2019/1/dat.ipc", "/new_root/CA/2019/1/dat.ipc"));
 }
 
 TEST_F(TestIpcFileFormat, OpenFailureWithRelevantError) {
