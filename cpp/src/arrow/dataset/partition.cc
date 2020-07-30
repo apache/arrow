@@ -158,6 +158,12 @@ Result<std::vector<Partitioning::PartitionedBatch>> KeyValuePartitioning::Partit
       ARROW_ASSIGN_OR_RAISE(rest, rest->RemoveColumn(match[0]));
     }
   }
+
+  if (by_fields.empty()) {
+    // no fields to group by; return the whole batch
+    return std::vector<PartitionedBatch>{{batch, scalar(true)}};
+  }
+
   ARROW_ASSIGN_OR_RAISE(auto by,
                         StructArray::Make(std::move(by_columns), std::move(by_fields)));
   ARROW_ASSIGN_OR_RAISE(auto groupings_and_values, MakeGroupings(*by));

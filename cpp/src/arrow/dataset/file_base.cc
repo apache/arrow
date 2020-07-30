@@ -160,6 +160,8 @@ FragmentIterator FileSystemDataset::GetFragmentsImpl(
 struct WriteTask {
   Status Execute();
 
+  std::string basename;
+
   /// The partitioning with which paths will be generated
   std::shared_ptr<Partitioning> partitioning;
 
@@ -192,15 +194,12 @@ Status WriteTask::Execute() {
     }
   }
 
-  // TODO(bkietz) this should incorporate a guid to avoid collisions
-  std::string file = "dat." + format->type_name();
-
   auto dummy = scalar(true);
 
   for (auto&& path_batches : path_to_batches) {
     WritableFileSource destination(
         fs::internal::JoinAbstractPath(
-            std::vector<std::string>{base_dir, path_batches.first, file}),
+            std::vector<std::string>{base_dir, path_batches.first, basename}),
         filesystem);
 
     DCHECK(!path_batches.second.empty());
@@ -242,10 +241,12 @@ Status FileSystemDataset::Write(std::shared_ptr<Schema> schema,
     }
   }
 
+  int i = 0;
   for (auto maybe_fragment : fragment_it) {
     ARROW_ASSIGN_OR_RAISE(auto fragment, std::move(maybe_fragment));
     auto task = std::make_shared<WriteTask>();
 
+    task->basename = "dat_" + std::to_string(i++) + "." + format->type_name();
     task->partition_expression = fragment->partition_expression();
     task->format = format;
     task->filesystem = filesystem;
