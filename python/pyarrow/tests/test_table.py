@@ -57,6 +57,63 @@ def test_chunked_array_basics():
     assert wr() is None
 
 
+def test_chunked_array_construction():
+    arr = pa.chunked_array([
+        [1, 2, 3],
+        [4, 5, 6],
+        [7, 8, 9],
+    ])
+    assert arr.type == pa.int64()
+    assert len(arr) == 9
+    assert len(arr.chunks) == 3
+
+    arr = pa.chunked_array([
+        [1, 2, 3],
+        [4., 5., 6.],
+        [7, 8, 9],
+    ])
+    assert arr.type == pa.int64()
+    assert len(arr) == 9
+    assert len(arr.chunks) == 3
+
+    arr = pa.chunked_array([
+        [1, 2, 3],
+        [4., 5., 6.],
+        [7, 8, 9],
+    ], type=pa.int8())
+    assert arr.type == pa.int8()
+    assert len(arr) == 9
+    assert len(arr.chunks) == 3
+
+    arr = pa.chunked_array([
+        [1, 2, 3],
+        []
+    ])
+    assert arr.type == pa.int64()
+    assert len(arr) == 3
+    assert len(arr.chunks) == 2
+
+    with pytest.raises(pa.ArrowInvalid):
+        pa.chunked_array([
+            pa.array([1, 2, 3]),
+            pa.array([1., 2., 3.])
+        ])
+
+
+def test_chunked_array_to_numpy():
+    data = pa.chunked_array([
+        [1, 2, 3],
+        [4, 5, 6],
+        []
+    ])
+    arr1 = np.asarray(data)
+    arr2 = data.to_numpy()
+
+    assert isinstance(arr2, np.ndarray)
+    assert arr2.shape == (6,)
+    assert np.array_equal(arr1, arr2)
+
+
 def test_chunked_array_mismatch_types():
     with pytest.raises(pa.ArrowInvalid):
         pa.chunked_array([pa.array([1, 2]), pa.array(['foo', 'bar'])])

@@ -482,7 +482,11 @@ def test_to_numpy():
     np.testing.assert_array_equal(result, expected)
 
     # chunked array
-    charr = pa.chunked_array([arr])
+    charr = pa.chunked_array([arr, arr])
+    expected = np.hstack([expected, expected])
 
     result = np.asarray(charr)
+    np.testing.assert_array_equal(result, expected)
+
+    result = charr.to_numpy()
     np.testing.assert_array_equal(result, expected)
