@@ -35,8 +35,10 @@ futures = { version = "0.3", default-features = false, features = ["alloc"]}
 
 [build-dependencies]
 tonic-build = "0.2"
+# Pin specific version of the tonic-build dependencies to avoid auto-generated
+# (and checked in) arrow.flight.protocol.rs from changing
+proc-macro2="1.0.18"
 
 [lib]
 name = "flight"
 path = "src/lib.rs"
-
