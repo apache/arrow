@@ -65,6 +65,7 @@ Collate:
     'compute.R'
     'config.R'
     'csv.R'
+    'dataset-write.R'
     'dataset.R'
     'deprecated.R'
     'dictionary.R'

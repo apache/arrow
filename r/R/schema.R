@@ -152,6 +152,12 @@ length.Schema <- function(x) x$num_fields
 }
 
 #' @export
+`[.Schema` <- function(x, i, ...) {
+  fields <- map(i, ~x[[.]])
+  shared_ptr(Schema, schema_(fields))
+}
+
+#' @export
 `$.Schema` <- function(x, name, ...) {
   assert_that(is.string(name))
   if (name %in% ls(x)) {
