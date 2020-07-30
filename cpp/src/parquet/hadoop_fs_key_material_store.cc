@@ -20,13 +20,21 @@
 #include <rapidjson/writer.h>
 
 #include "arrow/buffer.h"
-#include "arrow/filesystem/path_util.h"
 #include "parquet/exception.h"
 #include "parquet/hadoop_fs_key_material_store.h"
 
 namespace parquet {
 
 namespace encryption {
+
+std::pair<std::string, std::string> GetAbstractPathParent(const std::string& s) {
+  auto pos = s.find_last_of('/');
+  if (pos == std::string::npos) {
+    // Empty parent
+    return {{}, s};
+  }
+  return {s.substr(0, pos), s.substr(pos + 1)};
+}
 
 std::string ToJsonString(const std::map<std::string, std::string>& m) {
   rapidjson::Document d;
@@ -67,6 +75,10 @@ bool Json2Map(const std::string& json, std::map<std::string, std::string>& out_m
   return true;
 }
 
+constexpr char HadoopFSKeyMaterialStore::KEY_MATERIAL_FILE_PREFIX[];
+constexpr char HadoopFSKeyMaterialStore::TEMP_FILE_PREFIX[];
+constexpr char HadoopFSKeyMaterialStore::KEY_MATERIAL_FILE_SUFFFIX[];
+
 // TODO use memory pool?
 HadoopFSKeyMaterialStore::HadoopFSKeyMaterialStore(
     std::shared_ptr<arrow::io::HadoopFileSystem> hadoop_file_system)
@@ -77,7 +89,7 @@ void HadoopFSKeyMaterialStore::Initialize(const std::string& parquet_file_path,
   std::string full_prefix = temp_store ? TEMP_FILE_PREFIX : "";
   full_prefix += KEY_MATERIAL_FILE_PREFIX;
   std::pair<std::string, std::string> parent_and_basename =
-      arrow::fs::internal::GetAbstractPathParent(parquet_file_path);
+      GetAbstractPathParent(parquet_file_path);
   key_material_file_ = parent_and_basename.first + full_prefix +
                        parent_and_basename.second + KEY_MATERIAL_FILE_SUFFFIX;
 }

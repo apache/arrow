@@ -28,6 +28,11 @@ namespace parquet {
 
 namespace encryption {
 
+constexpr char RemoteKmsClient::LOCAL_WRAP_NO_KEY_VERSION[];
+
+constexpr char RemoteKmsClient::LocalKeyWrap::LOCAL_WRAP_KEY_VERSION_FIELD[];
+constexpr char RemoteKmsClient::LocalKeyWrap::LOCAL_WRAP_ENCRYPTED_KEY_FIELD[];
+
 RemoteKmsClient::LocalKeyWrap::LocalKeyWrap(const std::string& master_key_version,
                                             const std::string& encrypted_encoded_key)
     : encrypted_encoded_key_(encrypted_encoded_key),
@@ -76,7 +81,7 @@ void RemoteKmsClient::Initialize(const KmsConnectionConfig& kms_connection_confi
   InitializeInternal();
 }
 
-std::string RemoteKmsClient::WrapKey(const std::vector<uint8_t>& key_bytes,
+std::string RemoteKmsClient::WrapKey(std::shared_ptr<arrow::Buffer> key_bytes,
                                      const std::string& master_key_identifier) {
   if (is_wrap_locally_) {
     if (master_key_cache_.find(master_key_identifier) == master_key_cache_.end()) {
@@ -86,7 +91,7 @@ std::string RemoteKmsClient::WrapKey(const std::vector<uint8_t>& key_bytes,
     const uint8_t* aad_bytes = reinterpret_cast<const uint8_t*>(master_key_identifier[0]);
     int aad_size = master_key_identifier.size();
     std::string encrypted_encoded_key = KeyToolkit::EncryptKeyLocally(
-        key_bytes.data(), key_bytes.size(), master_key.data(), master_key.size(),
+        key_bytes->data(), key_bytes->size(), master_key.data(), master_key.size(),
         aad_bytes, aad_size);
     return LocalKeyWrap::CreateSerialized(encrypted_encoded_key);
   } else {

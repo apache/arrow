@@ -21,6 +21,8 @@
 #include <memory>
 #include <string>
 
+#include "arrow/buffer.h"
+
 #include "parquet/file_key_material_store.h"
 #include "parquet/key_encryption_key.h"
 #include "parquet/kms_client.h"
@@ -43,11 +45,11 @@ class FileKeyWrapper {
                  uint64_t cache_entry_lifetime, bool double_wrapping,
                  bool is_wrap_locally);
 
-  std::string GetEncryptionKeyMetadata(const std::vector<uint8_t>& data_key,
+  std::string GetEncryptionKeyMetadata(std::shared_ptr<arrow::Buffer> data_key,
                                        const std::string& master_key_id,
                                        bool is_footer_key);
 
-  std::string GetEncryptionKeyMetadata(const std::vector<uint8_t>& data_key,
+  std::string GetEncryptionKeyMetadata(std::shared_ptr<arrow::Buffer> data_key,
                                        const std::string& master_key_id,
                                        bool is_footer_key, std::string key_id_in_file);
 

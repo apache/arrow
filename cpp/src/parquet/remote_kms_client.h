@@ -33,14 +33,14 @@ class RemoteKmsClient : public KmsClient {
   void Initialize(const KmsConnectionConfig& kms_connection_config,
                   bool is_wrap_locally) override;
 
-  std::string WrapKey(const std::vector<uint8_t>& key_bytes,
+  std::string WrapKey(std::shared_ptr<arrow::Buffer> key_bytes,
                       const std::string& master_key_identifier) override;
 
   std::vector<uint8_t> UnwrapKey(const std::string& wrapped_key,
                                  const std::string& master_key_identifier) override;
 
  protected:
-  virtual std::string WrapKeyInServer(const std::vector<uint8_t>& key_bytes,
+  virtual std::string WrapKeyInServer(std::shared_ptr<arrow::Buffer> key_bytes,
                                       const std::string& master_key_identifier) = 0;
 
   virtual std::vector<uint8_t> UnwrapKeyInServer(

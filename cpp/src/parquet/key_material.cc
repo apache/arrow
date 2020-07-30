@@ -27,6 +27,21 @@ namespace parquet {
 
 namespace encryption {
 
+constexpr char KeyMaterial::KEY_MATERIAL_TYPE_FIELD[];
+constexpr char KeyMaterial::KEY_MATERIAL_TYPE1[];
+
+constexpr char KeyMaterial::FOOTER_KEY_ID_IN_FILE[];
+constexpr char KeyMaterial::COLUMN_KEY_ID_IN_FILE_PREFIX[];
+
+constexpr char KeyMaterial::IS_FOOTER_KEY_FIELD[];
+constexpr char KeyMaterial::DOUBLE_WRAPPING_FIELD[];
+constexpr char KeyMaterial::KMS_INSTANCE_ID_FIELD[];
+constexpr char KeyMaterial::KMS_INSTANCE_URL_FIELD[];
+constexpr char KeyMaterial::MASTER_KEY_ID_FIELD[];
+constexpr char KeyMaterial::WRAPPED_DEK_FIELD[];
+constexpr char KeyMaterial::KEK_ID_FIELD[];
+constexpr char KeyMaterial::WRAPPED_KEK_FIELD[];
+
 KeyMaterial::KeyMaterial(bool is_footer_key, const std::string& kms_instance_id,
                          const std::string& kms_instance_url,
                          const std::string& master_key_id, bool is_double_wrapped,

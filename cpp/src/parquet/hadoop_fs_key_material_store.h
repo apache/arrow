@@ -34,7 +34,7 @@ class HadoopFSKeyMaterialStore : public FileKeyMaterialStore {
   static constexpr char TEMP_FILE_PREFIX[] = "_TMP";
   static constexpr char KEY_MATERIAL_FILE_SUFFFIX[] = ".json";
 
-  HadoopFSKeyMaterialStore(
+  explicit HadoopFSKeyMaterialStore(
       std::shared_ptr<arrow::io::HadoopFileSystem> hadoop_file_system);
 
   void Initialize(const std::string& parquet_file_path, bool temp_store) override;
