@@ -76,13 +76,6 @@ std::shared_ptr<Partitioning> Partitioning::Default() {
   return std::make_shared<DefaultPartitioning>();
 }
 
-Result<WritePlan> PartitioningFactory::MakeWritePlan(
-    std::shared_ptr<Schema> schema, FragmentIterator fragment_it,
-    std::shared_ptr<Schema> partition_schema) {
-  return Status::NotImplemented("MakeWritePlan from PartitioningFactory of type ",
-                                type_name());
-}
-
 Status KeyValuePartitioning::VisitKeys(
     const Expression& expr,
     const std::function<Status(const std::string& name,
@@ -440,48 +433,11 @@ class DirectoryPartitioningFactory : public PartitioningFactory {
     return std::make_shared<DirectoryPartitioning>(std::move(out_schema), dictionaries_);
   }
 
-  Result<WritePlan> MakeWritePlan(std::shared_ptr<Schema> schema,
-                                  FragmentIterator fragments,
-                                  std::shared_ptr<Schema> partition_schema) override;
-
  private:
   std::vector<std::string> field_names_;
   ArrayVector dictionaries_;
   PartitioningFactoryOptions options_;
 };
-
-// TODO(bkietz) remove WritePlan, take a Partitioning as an argument to write
-Result<WritePlan> DirectoryPartitioningFactory::MakeWritePlan(
-    std::shared_ptr<Schema> schema, FragmentIterator fragment_it,
-    std::shared_ptr<Schema> partition_schema) {
-  for (const auto& f : partition_schema->fields()) {
-    if (f->type()->id() == Type::DICTIONARY) {
-      return Status::NotImplemented("writing with dictionary partitions");
-    }
-  }
-  ARROW_ASSIGN_OR_RAISE(auto partitioning, Finish(std::move(partition_schema)));
-  ARROW_ASSIGN_OR_RAISE(auto fragments, fragment_it.ToVector());
-
-  WritePlan out;
-  out.tasks.resize(fragments.size());
-  out.schema = std::move(schema);
-
-  size_t i = 0;
-  for (const auto& fragment : fragments) {
-    auto task = std::make_shared<WriteTask>();
-
-    task->partitioning = partitioning;
-
-    // make a record batch reader which yields from a fragment
-    ARROW_ASSIGN_OR_RAISE(task->batches, FragmentRecordBatchReader::Make(fragment));
-
-    task->partition_expression = fragment->partition_expression();
-
-    out.tasks[i++] = std::move(task);
-  }
-
-  return out;
-}
 
 std::shared_ptr<PartitioningFactory> DirectoryPartitioning::MakeFactory(
     std::vector<std::string> field_names, PartitioningFactoryOptions options) {

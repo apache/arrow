@@ -249,14 +249,20 @@ class ARROW_DS_EXPORT FileSystemDataset : public Dataset {
       std::shared_ptr<FileFormat> format,
       std::vector<std::shared_ptr<FileFragment>> fragments);
 
-  /// \brief Write to a new format and filesystem location, preserving partitioning.
+  /// \brief Write a dataset.
   ///
-  /// \param[in] plan the WritePlan to execute.
-  /// \param[in] scan_options options in which to scan fragments
-  /// \param[in] scan_context context in which to scan fragments before writing.
-  static Result<std::shared_ptr<FileSystemDataset>> Write(
-      const WritePlan& plan, std::shared_ptr<ScanOptions> scan_options,
-      std::shared_ptr<ScanContext> scan_context);
+  /// \param[in] schema Schema of written dataset.
+  /// \param[in] format FileFormat with which fragments will be written.
+  /// \param[in] filesystem FileSystem into which the dataset will be written.
+  /// \param[in] base_dir Root directory into which the dataset will be written.
+  /// \param[in] partitioning Partitioning used to generate fragment paths.
+  /// \param[in] scan_context Resource pool used to scan and write fragments.
+  /// \param[in] fragments Fragments to be written to disk.
+  static Status Write(std::shared_ptr<Schema> schema, std::shared_ptr<FileFormat> format,
+                      std::shared_ptr<fs::FileSystem> filesystem, std::string base_dir,
+                      std::shared_ptr<Partitioning> partitioning,
+                      std::shared_ptr<ScanContext> scan_context,
+                      FragmentIterator fragments);
 
   /// \brief Return the type name of the dataset.
   std::string type_name() const override { return "filesystem"; }
@@ -283,55 +289,6 @@ class ARROW_DS_EXPORT FileSystemDataset : public Dataset {
 
   std::shared_ptr<FileFormat> format_;
   std::vector<std::shared_ptr<FileFragment>> fragments_;
-};
-
-class ARROW_DS_EXPORT WriteTask {
- public:
-  Result<std::vector<std::shared_ptr<FileFragment>>> Execute();
-
-  /// The partitioning with which paths will be generated
-  std::shared_ptr<Partitioning> partitioning;
-
-  /// The format in which fragments will be written
-  std::shared_ptr<FileFormat> format;
-
-  /// The FileSystem and base directory into which fragments will be written
-  std::shared_ptr<fs::FileSystem> filesystem;
-  std::string base_dir;
-
-  /// Batches to be written
-  std::shared_ptr<RecordBatchReader> batches;
-
-  /// An Expression already satisfied by every batch to be written
-  std::shared_ptr<Expression> partition_expression;
-};
-
-/// \brief A declarative plan for writing fragments to a partitioned directory structure.
-class ARROW_DS_EXPORT WritePlan {
- public:
-  void SetFormat(const std::shared_ptr<FileFormat>& format) {
-    for (auto& task : tasks) {
-      task->format = format;
-    }
-  }
-
-  void SetBaseDir(const std::shared_ptr<fs::FileSystem>& filesystem,
-                  std::string base_dir) {
-    while (!base_dir.empty() && base_dir.back() == '/') {
-      base_dir.pop_back();
-    }
-
-    for (auto& task : tasks) {
-      task->filesystem = filesystem;
-      task->base_dir = base_dir;
-    }
-  }
-
-  std::shared_ptr<internal::TaskGroup> task_group;
-  std::vector<std::shared_ptr<WriteTask>> tasks;
-  std::shared_ptr<Schema> schema;
-
-  Result<std::shared_ptr<FileSystemDataset>> Execute();
 };
 
 }  // namespace dataset
