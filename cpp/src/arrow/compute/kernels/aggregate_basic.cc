@@ -342,8 +342,7 @@ std::unique_ptr<KernelState> MinMaxInit(KernelContext* ctx, const KernelInitArgs
 }
 
 void AddAggKernel(std::shared_ptr<KernelSignature> sig, KernelInit init,
-                  ScalarAggregateFunction* func,
-                  SimdLevel::type simd_level = SimdLevel::NONE) {
+                  ScalarAggregateFunction* func, SimdLevel::type simd_level) {
   ScalarAggregateKernel kernel(std::move(sig), init, AggregateConsume, AggregateMerge,
                                AggregateFinalize);
   // Set the simd level
@@ -433,6 +432,8 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
   aggregate::AddMinMaxKernels(aggregate::MinMaxInit, {boolean()}, func.get());
   aggregate::AddMinMaxKernels(aggregate::MinMaxInit, NumericTypes(), func.get());
   DCHECK_OK(registry->AddFunction(std::move(func)));
+
+  DCHECK_OK(registry->AddFunction(aggregate::AddModeAggKernels()));
 }
 
 }  // namespace internal
