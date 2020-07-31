@@ -101,4 +101,31 @@ TEST(TestArithmeticOps, TestDiv) {
   context.Reset();
 }
 
+TEST(TestArithmeticOps, TestBitwiseOps) {
+  // bitwise AND
+  EXPECT_EQ(bitwise_and_int32_int32(0x0147D, 0x17159), 0x01059);
+  EXPECT_EQ(bitwise_and_int32_int32(0xFFFFFFCC, 0x00000297), 0x00000284);
+  EXPECT_EQ(bitwise_and_int32_int32(0x000, 0x285), 0x000);
+  EXPECT_EQ(bitwise_and_int64_int64(0x563672F83, 0x0D9FCF85B), 0x041642803);
+  EXPECT_EQ(bitwise_and_int64_int64(0xFFFFFFFFFFDA8F6A, 0xFFFFFFFFFFFF791C),
+            0xFFFFFFFFFFDA0908);
+  EXPECT_EQ(bitwise_and_int64_int64(0x6A5B1, 0x00000), 0x00000);
+
+  // bitwise OR
+  EXPECT_EQ(bitwise_or_int32_int32(0x0147D, 0x17159), 0x1757D);
+  EXPECT_EQ(bitwise_or_int32_int32(0xFFFFFFCC, 0x00000297), 0xFFFFFFDF);
+  EXPECT_EQ(bitwise_or_int32_int32(0x000, 0x285), 0x285);
+  EXPECT_EQ(bitwise_or_int64_int64(0x563672F83, 0x0D9FCF85B), 0x5FBFFFFDB);
+  EXPECT_EQ(bitwise_or_int64_int64(0xFFFFFFFFFFDA8F6A, 0xFFFFFFFFFFFF791C),
+            0xFFFFFFFFFFFFFF7E);
+  EXPECT_EQ(bitwise_or_int64_int64(0x6A5B1, 0x00000), 0x6A5B1);
+
+  // bitwise NOT
+  EXPECT_EQ(bitwise_not_int32(0x00017159), 0xFFFE8EA6);
+  EXPECT_EQ(bitwise_not_int32(0xFFFFF226), 0x00000DD9);
+  EXPECT_EQ(bitwise_not_int64(0x000000008BCAE9B4), 0xFFFFFFFF7435164B);
+  EXPECT_EQ(bitwise_not_int64(0xFFFFFF966C8D7997), 0x0000006993728668);
+  EXPECT_EQ(bitwise_not_int64(0x0000000000000000), 0xFFFFFFFFFFFFFFFF);
+}
+
 }  // namespace gandiva
