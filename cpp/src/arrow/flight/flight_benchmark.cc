@@ -90,7 +90,7 @@ struct PerformanceStats {
 
   // Invoked per batch in the test loop. Holding a lock looks not scalable.
   // Tested with 1 ~ 8 threads, no noticeable overhead is observed.
-  // A better approach may be leveraging a lockless queue.
+  // A better approach may be calculate per-thread quantiles and merge.
   void AddLatency(uint64_t elapsed_nanos) {
     std::lock_guard<std::mutex> lock(this->mutex);
     latencies(elapsed_nanos);
@@ -313,12 +313,12 @@ Status RunPerformanceTest(FlightClient* client, bool test_put) {
   // Calculate throughput(IOPS) and latency vs batch size
   std::cout << "Throughput: " << (static_cast<double>(stats.total_batches) / time_elapsed)
             << " batches/s" << std::endl;
-  std::cout << "Latency mean: " << stats.mean_latency() << " uses" << std::endl;
+  std::cout << "Latency mean: " << stats.mean_latency() << " us" << std::endl;
   for (auto q : stats.quantiles) {
-    std::cout << "Latency quantile=" << q << ": " << stats.quantile_latency(q) << " usecs"
+    std::cout << "Latency quantile=" << q << ": " << stats.quantile_latency(q) << " us"
               << std::endl;
   }
-  std::cout << "Latency max: " << stats.max_latency() << " uses" << std::endl;
+  std::cout << "Latency max: " << stats.max_latency() << " us" << std::endl;
 
   return Status::OK();
 }
