@@ -155,6 +155,7 @@ fn filter_array_impl(
     let mut null_bit_setter = get_null_bit_setter(data_array);
     let null_bit_setter = null_bit_setter.as_mut();
     let all_ones_batch = !0u64;
+    let data_array_offset = data_array.offset();
 
     for (i, filter_batch) in filter_u64.iter().enumerate() {
         // foreach u64 batch
@@ -164,7 +165,7 @@ fn filter_array_impl(
             continue;
         } else if filter_batch == all_ones_batch {
             // if batch == all 1s: copy all 64 values in one go
-            let data_index = i * 64;
+            let data_index = (i * 64) + data_array_offset;
             null_bit_setter.copy_null_bits(data_index, 64);
             let data_byte_index = data_index * value_size;
             let data_len = value_size * 64;
@@ -178,7 +179,7 @@ fn filter_array_impl(
         for (j, filter_mask) in filter_mask.iter().enumerate() {
             // foreach bit in batch:
             if (filter_batch & *filter_mask) != 0 {
-                let data_index = (i * 64) + j;
+                let data_index = (i * 64) + j + data_array_offset;
                 null_bit_setter.copy_null_bit(data_index);
                 // if filter bit == 1: copy data value bytes
                 let data_byte_index = data_index * value_size;
@@ -231,22 +232,26 @@ macro_rules! filter_dictionary_array {
 
 impl FilterContext {
     /// Returns a new instance of FilterContext
-    pub fn new(filter_array: &BooleanArray) -> Self {
+    pub fn new(filter_array: &BooleanArray) -> Result<Self> {
+        if filter_array.offset() > 0 {
+            return Err(ArrowError::ComputeError(
+                "Filter array cannot have offset > 0".to_string(),
+            ));
+        }
         let filter_mask: Vec<u64> = (0..64).map(|x| 1u64 << x).collect();
         let filter_bytes = filter_array.data_ref().buffers()[0].data();
         let filtered_count = bit_util::count_set_bits(filter_bytes);
         // transmute filter_bytes to &[u64]
         let mut u64_buffer = MutableBuffer::new(filter_bytes.len());
         u64_buffer
-            .write_bytes(filter_bytes, u64_buffer.capacity() - filter_bytes.len())
-            .unwrap();
+            .write_bytes(filter_bytes, u64_buffer.capacity() - filter_bytes.len())?;
         let filter_u64 = u64_buffer.typed_data_mut::<u64>().to_owned();
-        FilterContext {
+        Ok(FilterContext {
             filter_u64,
             filter_len: filter_array.len(),
             filtered_count,
             filter_mask,
-        }
+        })
     }
 
     /// Returns a new array, containing only the elements matching the filter
@@ -431,7 +436,7 @@ impl FilterContext {
 
 /// Returns a new array, containing only the elements matching the filter.
 pub fn filter(array: &Array, filter: &BooleanArray) -> Result<ArrayRef> {
-    FilterContext::new(filter).filter(array)
+    FilterContext::new(filter)?.filter(array)
 }
 
 /// Returns a new PrimitiveArray<T> containing only those values from the array passed as the data_array parameter,
@@ -443,7 +448,7 @@ pub fn filter_primitive_array<T>(
 where
     T: ArrowNumericType,
 {
-    FilterContext::new(filter_array).filter_primitive_array(data_array)
+    FilterContext::new(filter_array)?.filter_primitive_array(data_array)
 }
 
 /// Returns a new DictionaryArray<T> containing only those keys from the array passed as the data_array parameter,
@@ -455,7 +460,7 @@ pub fn filter_dictionary_array<T>(
 where
     T: ArrowNumericType,
 {
-    FilterContext::new(filter_array).filter_dictionary_array(data_array)
+    FilterContext::new(filter_array)?.filter_dictionary_array(data_array)
 }
 
 /// Returns a new RecordBatch with arrays containing only values matching the filter.
@@ -464,7 +469,7 @@ pub fn filter_record_batch(
     record_batch: &RecordBatch,
     filter_array: &BooleanArray,
 ) -> Result<RecordBatch> {
-    let filter_context = FilterContext::new(filter_array);
+    let filter_context = FilterContext::new(filter_array)?;
     let filtered_arrays = record_batch
         .columns()
         .iter()
@@ -575,6 +580,21 @@ mod tests {
     }
 
     #[test]
+    fn test_filter_array_slice() {
+        let a_slice = Int32Array::from(vec![5, 6, 7, 8, 9]).slice(1, 4);
+        let a = a_slice.as_ref();
+        let b = BooleanArray::from(vec![true, false, false, true]);
+        // filtering with sliced filter array is not currently supported
+        // let b_slice = BooleanArray::from(vec![true, false, false, true, false]).slice(1, 4);
+        // let b = b_slice.as_any().downcast_ref().unwrap();
+        let c = filter(a, &b).unwrap();
+        let d = c.as_ref().as_any().downcast_ref::<Int32Array>().unwrap();
+        assert_eq!(2, d.len());
+        assert_eq!(6, d.value(0));
+        assert_eq!(9, d.value(1));
+    }
+
+    #[test]
     fn test_filter_array_low_density() {
         // this test exercises the all 0's branch of the filter algorithm
         let mut data_values = (1..=65).into_iter().collect::<Vec<i32>>();
@@ -645,6 +665,23 @@ mod tests {
         let d = c.as_ref().as_any().downcast_ref::<Int32Array>().unwrap();
         assert_eq!(1, d.len());
         assert_eq!(true, d.is_null(0));
+    }
+
+    #[test]
+    fn test_filter_array_slice_with_null() {
+        let a_slice =
+            Int32Array::from(vec![Some(5), None, Some(7), Some(8), Some(9)]).slice(1, 4);
+        let a = a_slice.as_ref();
+        let b = BooleanArray::from(vec![true, false, false, true]);
+        // filtering with sliced filter array is not currently supported
+        // let b_slice = BooleanArray::from(vec![true, false, false, true, false]).slice(1, 4);
+        // let b = b_slice.as_any().downcast_ref().unwrap();
+        let c = filter(a, &b).unwrap();
+        let d = c.as_ref().as_any().downcast_ref::<Int32Array>().unwrap();
+        assert_eq!(2, d.len());
+        assert_eq!(true, d.is_null(0));
+        assert_eq!(false, d.is_null(1));
+        assert_eq!(9, d.value(1));
     }
 
     #[test]

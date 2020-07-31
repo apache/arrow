@@ -94,9 +94,9 @@ fn add_benchmark(c: &mut Criterion) {
         _ => true,
     });
 
-    let filter_context = FilterContext::new(&filter_array);
-    let sparse_filter_context = FilterContext::new(&sparse_filter_array);
-    let dense_filter_context = FilterContext::new(&dense_filter_array);
+    let filter_context = FilterContext::new(&filter_array).unwrap();
+    let sparse_filter_context = FilterContext::new(&sparse_filter_array).unwrap();
+    let dense_filter_context = FilterContext::new(&dense_filter_array).unwrap();
 
     let data_array = create_primitive_array(size, |i| match i % 2 {
         0 => 1,
