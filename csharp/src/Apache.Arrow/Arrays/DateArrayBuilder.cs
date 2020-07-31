@@ -56,8 +56,14 @@ namespace Apache.Arrow
         }
 
         /// <summary>
-        /// Append a date in the form of a <see cref="DateTimeOffset"/> object to the array.
+        /// Append a date from a <see cref="DateTimeOffset"/> object to the array.
         /// </summary>
+        /// <remarks>
+        /// Note that to convert the supplied <paramref name="value"/> parameter to a date, it is first converted to
+        /// UTC and the date then taken from the UTC date/time.  Depending on the value of its
+        /// <see cref="DateTimeOffset.Offset"/> property, this may not necessarily be the same as the date obtained by
+        /// calling its <see cref="DateTimeOffset.Date"/> property.
+        /// </remarks>
         /// <param name="value">Date to add.</param>
         /// <returns>Returns the builder (for fluent-style composition).</returns>
         public TBuilder Append(DateTimeOffset value)
@@ -89,6 +95,12 @@ namespace Apache.Arrow
         /// <summary>
         /// Append a span of dates in the form of <see cref="DateTimeOffset"/> objects to the array.
         /// </summary>
+        /// <remarks>
+        /// Note that to convert the <see cref="DateTimeOffset"/> objects in the <paramref name="span"/> parameter to
+        /// dates, they are first converted to UTC and the date then taken from the UTC date/times.  Depending on the
+        /// value of each <see cref="DateTimeOffset.Offset"/> property, this may not necessarily be the same as the
+        /// date obtained by calling the <see cref="DateTimeOffset.Date"/> property.
+        /// </remarks>
         /// <param name="span">Span of dates to add.</param>
         /// <returns>Returns the builder (for fluent-style composition).</returns>
         public TBuilder Append(ReadOnlySpan<DateTimeOffset> span)
@@ -130,6 +142,12 @@ namespace Apache.Arrow
         /// <summary>
         /// Append a collection of dates in the form of <see cref="DateTimeOffset"/> objects to the array.
         /// </summary>
+        /// <remarks>
+        /// Note that to convert the <see cref="DateTimeOffset"/> objects in the <paramref name="values"/> parameter to
+        /// dates, they are first converted to UTC and the date then taken from the UTC date/times.  Depending on the
+        /// value of each <see cref="DateTimeOffset.Offset"/> property, this may not necessarily be the same as the
+        /// date obtained by calling the <see cref="DateTimeOffset.Date"/> property.
+        /// </remarks>
         /// <param name="values">Collection of dates to add.</param>
         /// <returns>Returns the builder (for fluent-style composition).</returns>
         public TBuilder AppendRange(IEnumerable<DateTimeOffset> values)
@@ -157,6 +175,12 @@ namespace Apache.Arrow
         /// <summary>
         /// Set the value of a date in the form of a <see cref="DateTimeOffset"/> object at the specified index.
         /// </summary>
+        /// <remarks>
+        /// Note that to convert the supplied <paramref name="value"/> parameter to a date, it is first converted to
+        /// UTC and the date then taken from the UTC date/time.  Depending on the value of its
+        /// <see cref="DateTimeOffset.Offset"/> property, this may not necessarily be the same as the date obtained by
+        /// calling its <see cref="DateTimeOffset.Date"/> property.
+        /// </remarks>
         /// <param name="index">Index at which to set value.</param>
         /// <param name="value">Date to set.</param>
         /// <returns>Returns the builder (for fluent-style composition).</returns>

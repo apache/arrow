@@ -24,7 +24,7 @@ namespace Apache.Arrow
     /// </summary>
     public class Date32Array : PrimitiveArray<int>
     {
-        private static readonly DateTime _epoch = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Unspecified);
+        private static readonly DateTime _epochDate = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Unspecified);
 
         /// <summary>
         /// The <see cref="Builder"/> class can be used to fluently build <see cref="Date32Array"/> objects.
@@ -46,12 +46,16 @@ namespace Apache.Arrow
 
             protected override int Convert(DateTime dateTime)
             {
-                return (int)(dateTime - _epoch).TotalDays;
+                return (int)(dateTime.Date - _epochDate).TotalDays;
             }
 
             protected override int Convert(DateTimeOffset dateTimeOffset)
             {
-                return (int)(dateTimeOffset.Date - _epoch).TotalDays;
+                // The internal value stored for a DateTimeOffset can be thought of as the number of 24-hour "blocks"
+                // of time that have elapsed since the UNIX epoch.  This is the same as converting it to UTC first and
+                // then taking the date element from that.  It is not the same as what would result from looking at the
+                // DateTimeOffset.Date property.
+                return (int)(dateTimeOffset.UtcDateTime.Date - _epochDate).TotalDays;
             }
         }
 
@@ -87,7 +91,7 @@ namespace Apache.Arrow
         {
             int? value = GetValue(index);
             return value.HasValue
-                ? _epoch.AddDays(value.Value)
+                ? _epochDate.AddDays(value.Value)
                 : default(DateTime?);
         }
 
@@ -101,7 +105,7 @@ namespace Apache.Arrow
         {
             int? value = GetValue(index);
             return value.HasValue
-                ? new DateTimeOffset(_epoch.AddDays(value.Value), TimeSpan.Zero)
+                ? new DateTimeOffset(_epochDate.AddDays(value.Value), TimeSpan.Zero)
                 : default(DateTimeOffset?);
         }
     }

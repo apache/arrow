@@ -20,10 +20,13 @@ namespace Apache.Arrow
 {
     /// <summary>
     /// The <see cref="Date64Array"/> class holds an array of dates in the <c>Date64</c> format, where each date is
-    /// stored as the number of milliseconds since the dawn of (UNIX) time, excluding leap seconds.
+    /// stored as the number of milliseconds since the dawn of (UNIX) time, excluding leap seconds, in multiples of
+    /// 86400000.
     /// </summary>
     public class Date64Array: PrimitiveArray<long>
     {
+        private const long MillisecondsPerDay = 86400000;
+
         public Date64Array(
             ArrowBuffer valueBuffer, ArrowBuffer nullBitmapBuffer,
             int length, int nullCount, int offset)
@@ -51,13 +54,20 @@ namespace Apache.Arrow
 
             protected override long Convert(DateTime dateTime)
             {
-                var dateTimeOffset = new DateTimeOffset(dateTime, TimeSpan.Zero);
+                var dateTimeOffset = new DateTimeOffset(
+                    DateTime.SpecifyKind(dateTime.Date, DateTimeKind.Unspecified),
+                    TimeSpan.Zero);
                 return dateTimeOffset.ToUnixTimeMilliseconds();
             }
 
             protected override long Convert(DateTimeOffset dateTimeOffset)
             {
-                return dateTimeOffset.ToUnixTimeMilliseconds();
+                // The internal value stored for a DateTimeOffset can be thought of as the number of milliseconds,
+                // in multiples of 86400000, that have passed since the UNIX epoch.  It is not the same as what would
+                // result from encoding the date from the DateTimeOffset.Date property.
+                long millis = dateTimeOffset.ToUnixTimeMilliseconds();
+                long days = millis / MillisecondsPerDay;
+                return (millis < 0 ? days - 1 : days) * MillisecondsPerDay;
             }
         }
 

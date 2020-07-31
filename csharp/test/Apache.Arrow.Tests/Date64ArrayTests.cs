@@ -14,126 +14,119 @@
 // limitations under the License.
 
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using Xunit;
 
 namespace Apache.Arrow.Tests
 {
     public class Date64ArrayTests
     {
-        public class GetDateTime
+        private const long MillisecondsPerDay = 86400000;
+
+        public static IEnumerable<object[]> GetDatesData() =>
+            TestDateAndTimeData.ExampleDates.Select(d => new object[] { d });
+
+        public static IEnumerable<object[]> GetDateTimesData() =>
+            TestDateAndTimeData.ExampleDateTimes.Select(dt => new object[] { dt });
+
+        public static IEnumerable<object[]> GetDateTimeOffsetsData() =>
+            TestDateAndTimeData.ExampleDateTimeOffsets.Select(dto => new object[] { dto });
+
+        public class AppendNull
         {
             [Fact]
-            public void SetAndGetNull()
+            public void AppendThenGetGivesNull()
             {
                 // Arrange
-                var array = new Date64Array.Builder()
-                    .AppendNull()
-                    .Build();
+                var builder = new Date64Array.Builder();
 
                 // Act
-                var actual = array.GetDateTime(0);
+                builder = builder.AppendNull();
 
                 // Assert
-                Assert.Null(actual);
-            }
-
-            [Theory]
-            [InlineData(1, 1, 1)]
-            [InlineData(1969, 12, 31)]
-            [InlineData(1970, 1, 1)]
-            [InlineData(1970, 1, 2)]
-            [InlineData(2020, 2, 29)]
-            [InlineData(2020, 7, 1)]
-            [InlineData(9999, 12, 31)]
-            public void SetAndGet(int year, int month, int day)
-            {
-                // Arrange
-                var expected = new DateTime(year, month, day);
-                var array = new Date64Array.Builder()
-                    .Resize(1)
-                    .Set(0, expected)
-                    .Build();
-
-                // Act
-                var actual = array.GetDateTime(0);
-
-                // Assert
-                Assert.NotNull(actual);
-                Assert.Equal(expected, actual.Value);
+                var array = builder.Build();
+                Assert.Equal(1, array.Length);
+                Assert.Null(array.GetDateTime(0));
+                Assert.Null(array.GetDateTimeOffset(0));
+                Assert.Null(array.GetValue(0));
             }
         }
 
-        public class GetDateTimeOffset
+        public class AppendDateTime
         {
-            [Fact]
-            public void SetAndGetNull()
+            [Theory]
+            [MemberData(nameof(GetDatesData), MemberType = typeof(Date64ArrayTests))]
+            public void AppendDateGivesSameDate(DateTime date)
             {
                 // Arrange
-                var array = new Date64Array.Builder()
-                    .AppendNull()
-                    .Build();
+                var builder = new Date64Array.Builder();
+                var expectedDateTime = date;
+                var expectedDateTimeOffset =
+                    new DateTimeOffset(DateTime.SpecifyKind(date, DateTimeKind.Unspecified), TimeSpan.Zero);
+                long expectedValue = (long)date.Subtract(new DateTime(1970, 1, 1)).TotalDays * MillisecondsPerDay;
 
                 // Act
-                var actual = array.GetDateTimeOffset(0);
+                builder = builder.Append(date);
 
                 // Assert
-                Assert.Null(actual);
+                var array = builder.Build();
+                Assert.Equal(1, array.Length);
+                Assert.Equal(expectedDateTime, array.GetDateTime(0));
+                Assert.Equal(expectedDateTimeOffset, array.GetDateTimeOffset(0));
+                Assert.Equal(expectedValue, array.GetValue(0));
+                Assert.Equal(0, array.GetValue(0).Value % MillisecondsPerDay);
             }
 
             [Theory]
-            [InlineData(1, 1, 1)]
-            [InlineData(1969, 12, 31)]
-            [InlineData(1970, 1, 1)]
-            [InlineData(1970, 1, 2)]
-            [InlineData(2020, 2, 29)]
-            [InlineData(2020, 7, 1)]
-            [InlineData(9999, 12, 31)]
-            public void SetAndGet(int year, int month, int day)
+            [MemberData(nameof(GetDateTimesData), MemberType = typeof(Date64ArrayTests))]
+            public void AppendWithTimeGivesSameWithTimeIgnored(DateTime dateTime)
             {
                 // Arrange
-                var expected = new DateTimeOffset(year, month, day, 0, 0, 0, TimeSpan.Zero);
-                var array = new Date64Array.Builder()
-                    .Resize(1)
-                    .Set(0, expected)
-                    .Build();
+                var builder = new Date64Array.Builder();
+                var expectedDateTime = dateTime.Date;
+                var expectedDateTimeOffset =
+                    new DateTimeOffset(DateTime.SpecifyKind(dateTime.Date, DateTimeKind.Unspecified), TimeSpan.Zero);
+                long expectedValue =
+                    (long)dateTime.Date.Subtract(new DateTime(1970, 1, 1)).TotalDays * MillisecondsPerDay;
 
                 // Act
-                var actual = array.GetDateTimeOffset(0);
+                builder = builder.Append(dateTime);
 
                 // Assert
-                Assert.NotNull(actual);
-                Assert.Equal(expected, actual.Value);
+                var array = builder.Build();
+                Assert.Equal(1, array.Length);
+                Assert.Equal(expectedDateTime, array.GetDateTime(0));
+                Assert.Equal(expectedDateTimeOffset, array.GetDateTimeOffset(0));
+                Assert.Equal(expectedValue, array.GetValue(0));
+                Assert.Equal(0, array.GetValue(0).Value % MillisecondsPerDay);
             }
         }
 
-        public class GetValue
+        public class AppendDateTimeOffset
         {
             [Theory]
-            [InlineData(1, 1, 1)]
-            [InlineData(1969, 12, 31)]
-            [InlineData(1970, 1, 1)]
-            [InlineData(1970, 1, 2)]
-            [InlineData(1972, 6, 30)] // First announced leap second
-            [InlineData(2015, 6, 30)] // This date contained a leap second
-            [InlineData(2016, 12, 31)] // This date contained a leap second
-            [InlineData(9999, 12, 31)]
-            public void MultipleOf86400000(int year, int month, int day)
+            [MemberData(nameof(GetDateTimeOffsetsData), MemberType = typeof(Date64ArrayTests))]
+            public void AppendGivesUtcDate(DateTimeOffset dateTimeOffset)
             {
                 // Arrange
-                var date = new DateTime(year, month, day);
-                var array = new Date64Array.Builder()
-                    .Resize(1)
-                    .Set(0, date)
-                    .Build();
+                var builder = new Date64Array.Builder();
+                var expectedDateTime = dateTimeOffset.UtcDateTime.Date;
+                var expectedDateTimeOffset = new DateTimeOffset(dateTimeOffset.UtcDateTime.Date, TimeSpan.Zero);
+                long expectedValue =
+                    (long)dateTimeOffset.UtcDateTime.Date.Subtract(new DateTime(1970, 1, 1)).TotalDays *
+                    MillisecondsPerDay;
 
                 // Act
-                var value = array.GetValue(0);
+                builder = builder.Append(dateTimeOffset);
 
                 // Assert
-                // According to the schema, values in a Date64 type are required
-                // to be evenly divisible by 86400000 (i.e. no leap seconds).
-                Assert.NotNull(value);
-                Assert.Equal(0, value.Value % 86400000);
+                var array = builder.Build();
+                Assert.Equal(1, array.Length);
+                Assert.Equal(expectedDateTime, array.GetDateTime(0));
+                Assert.Equal(expectedDateTimeOffset, array.GetDateTimeOffset(0));
+                Assert.Equal(expectedValue, array.GetValue(0));
+                Assert.Equal(0, array.GetValue(0).Value % MillisecondsPerDay);
             }
         }
     }
