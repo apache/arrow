@@ -22,3 +22,4 @@ clang_format.sh
 ^autobrew$
 ^apache-arrow.rb$
 ^.*\.Rhistory$
+^flight
