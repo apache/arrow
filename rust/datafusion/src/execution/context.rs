@@ -195,7 +195,7 @@ impl ExecutionContext {
         &self.scalar_functions
     }
 
-    fn build_schema(&self, columns: &Vec<SQLColumnDef>) -> Result<Schema> {
+    pub fn build_schema(&self, columns: &Vec<SQLColumnDef>) -> Result<Schema> {
         let mut fields = Vec::new();
 
         for column in columns {
@@ -257,6 +257,10 @@ impl ExecutionContext {
         provider: Box<dyn TableProvider + Send + Sync>,
     ) {
         self.datasources.insert(name.to_string(), provider);
+    }
+
+    pub fn datasources(&self) -> &HashMap<String, Box<dyn TableProvider + Send + Sync>> {
+        &self.datasources
     }
 
     /// Get a table by name
@@ -667,9 +671,19 @@ impl ExecutionContext {
     }
 }
 
-struct ExecutionContextSchemaProvider<'a> {
+pub struct ExecutionContextSchemaProvider<'a> {
     datasources: &'a HashMap<String, Box<dyn TableProvider + Send + Sync>>,
     scalar_functions: &'a HashMap<String, Box<ScalarFunction>>,
+}
+
+impl<'a> ExecutionContextSchemaProvider<'a> {
+    /// Create a new query planner
+    pub fn new(datasources: &'a HashMap<String, Box<dyn TableProvider + Send + Sync>>, scalar_functions: &'a HashMap<String, Box<ScalarFunction>>) -> Self {
+        ExecutionContextSchemaProvider {
+            datasources,
+            scalar_functions
+        }
+    }
 }
 
 impl SchemaProvider for ExecutionContextSchemaProvider<'_> {
