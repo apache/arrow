@@ -100,7 +100,6 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake_mo
 include(CMakePackageConfigHelpers)
 include(CMakeParseArguments)
 include(ExternalProject)
-find_package(PkgConfig REQUIRED)
 
 include(GNUInstallDirs)
 
