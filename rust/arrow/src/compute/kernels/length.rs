@@ -24,7 +24,7 @@ use crate::{
 };
 use std::sync::Arc;
 
-/// Returns an array of UInt64 denoting the number of characters of the array.
+/// Returns an array of UInt32 denoting the number of characters of the array.
 ///
 /// * This only accepts StringArray
 /// * Lenght of null is null.
@@ -33,12 +33,12 @@ pub fn length(array: &Array) -> Result<ArrayRef> {
         DataType::Utf8 => {
             // TODO: is it possible to compute the length directly from the data instead, of value by value?
             let b = array.as_any().downcast_ref::<StringArray>().unwrap();
-            let mut builder = UInt64Builder::new(b.len());
+            let mut builder = UInt32Builder::new(b.len());
             for i in 0..b.len() {
                 if b.is_null(i) {
                     builder.append_null()?
                 } else {
-                    builder.append_value(b.value(i).len() as u64)?
+                    builder.append_value(b.value(i).len() as u32)?
                 }
             }
             Ok(Arc::new(builder.finish()))
@@ -58,7 +58,7 @@ mod tests {
     fn test_length() -> Result<()> {
         let a = StringArray::from(vec!["hello", " ", "world", "!"]);
         let b = length(&a)?;
-        let c = b.as_ref().as_any().downcast_ref::<UInt64Array>().unwrap();
+        let c = b.as_ref().as_any().downcast_ref::<UInt32Array>().unwrap();
         assert_eq!(4, c.len());
         assert_eq!(5, c.value(0));
         assert_eq!(1, c.value(1));
@@ -79,7 +79,7 @@ mod tests {
         let a = length(&array)?;
         assert_eq!(a.len(), array.len());
 
-        let mut expected = UInt64Builder::new(4);
+        let mut expected = UInt32Builder::new(4);
         expected.append_value(3)?;
         expected.append_null()?;
         expected.append_value(5)?;
