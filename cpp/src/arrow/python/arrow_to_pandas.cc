@@ -657,7 +657,7 @@ inline Status ConvertStruct(const PandasOptions& options, const ChunkedArray& da
     for (int32_t i = 0; i < num_fields; i++) {
       PyObject* numpy_array;
       std::shared_ptr<Array> field = arr->field(static_cast<int>(i));
-      // Seen notes above about timstamp conversion.  Don't blindly convert because
+      // See notes above about timestamp conversion.  Don't blindly convert because
       // timestamps in lists are handled differently.
       modified_options.timestamp_as_object =
           field->type()->id() == Type::TIMESTAMP ? true : options.timestamp_as_object;
