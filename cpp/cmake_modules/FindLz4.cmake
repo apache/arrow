@@ -54,11 +54,7 @@ else()
   if(LZ4_PC_FOUND)
     set(LZ4_INCLUDE_DIR "${LZ4_PC_INCLUDEDIR}")
 
-    if(ARROW_LZ4_USE_SHARED)
-      list(APPEND LZ4_PC_LIBRARY_DIRS "${LZ4_PC_LIBDIR}")
-    else()
-      list(APPEND LZ4_PC_LIBRARY_DIRS "${LZ4_PC_STATIC_LIBDIR}")
-    endif()
+    list(APPEND LZ4_PC_LIBRARY_DIRS "${LZ4_PC_LIBDIR}")
     find_library(LZ4_LIB
                  NAMES ${LZ4_LIB_NAMES}
                  PATHS ${LZ4_PC_LIBRARY_DIRS}
