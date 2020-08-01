@@ -64,8 +64,8 @@ else()
                  PATHS ${ZSTD_PC_LIBRARY_DIRS}
                  NO_DEFAULT_PATH
                  PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES})
-    # Third, check all other CMake paths
   else()
+    # Third, check all other CMake paths
     find_library(ZSTD_LIB NAMES ${ZSTD_LIB_NAMES} PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES})
     find_path(ZSTD_INCLUDE_DIR NAMES zstd.h PATH_SUFFIXES ${ARROW_INCLUDE_PATH_SUFFIXES})
   endif()
